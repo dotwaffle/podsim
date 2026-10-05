@@ -71,6 +71,11 @@ func (s *Simulation) checkPickupPair(assigned map[string]int, left, right int) b
 		c.stats.SameOriginPairs++
 		return false
 	}
+	// No swap or transfer gives a trip the pod that it excludes.
+	if s.waiting[i].excludes(b.Pod.ID) || j >= 0 && s.waiting[j].excludes(a.Pod.ID) {
+		c.stats.IneligiblePairs++
+		return false
+	}
 	c.routes++
 	c.stats.RoutePairs++
 	if j >= 0 {
@@ -148,7 +153,7 @@ func (s *Simulation) tryPickupTransfer(index int, replacement *vehicle) bool {
 	}
 	s.releasePickup(old)
 	s.recordPickupReassignment(trip.request, replacement.Pod.ID, before, after)
-	trip.request.PodID = replacement.Pod.ID
+	assignPickup(trip, replacement)
 	trip.route, trip.destination = nil, Berth{}
 	trip.deferUntil, trip.deferCheck, trip.deferPodID = 0, 0, ""
 	trip.request.DispatchReason = ""

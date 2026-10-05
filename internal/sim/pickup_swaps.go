@@ -173,7 +173,8 @@ func (s *Simulation) tryPickupSwap(i, j int) bool {
 	s.redirectPickupSwap(b, redirection{route: routeB, berth: berthB, station: s.waiting[i].request.From})
 	s.bufferPickup(a)
 	s.bufferPickup(b)
-	s.waiting[i].request.PodID, s.waiting[j].request.PodID = b.Pod.ID, a.Pod.ID
+	assignPickup(&s.waiting[i], b)
+	assignPickup(&s.waiting[j], a)
 	for _, index := range []int{i, j} {
 		trip := &s.waiting[index]
 		trip.route, trip.destination = nil, Berth{}

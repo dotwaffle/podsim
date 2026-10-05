@@ -16,13 +16,14 @@ func (s *Simulation) SetOnboardPickups(enabled bool) error {
 }
 
 // joinOnboardPickup commits a complete candidate at an owned passenger berth.
+// The trip does not join the pod that it excludes.
 func (s *Simulation) joinOnboardPickup(trip *waitingTrip) bool {
 	if !s.onboardPickups || !s.cappedDetours() {
 		return false
 	}
 	for index := range s.vehicles {
 		v := &s.vehicles[index]
-		if !s.onboardPickupReady(v, trip.request) {
+		if trip.excludes(v.Pod.ID) || !s.onboardPickupReady(v, trip.request) {
 			continue
 		}
 		candidate, ok := s.onboardPickupCandidate(v, trip.request)

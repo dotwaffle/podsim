@@ -13,6 +13,11 @@ type waitingTrip struct {
 	deferUntil  int64
 	deferCheck  int64
 	deferPodID  string
+	// excludedPod is the pod that the trip must not get. releasePickups
+	// sets it on a trip that never boarded, and a later release from
+	// another pod replaces it. It ends when the trip leaves the queue. No
+	// path binds the trip to the excluded pod or holds the trip for it.
+	excludedPod string
 	// boarded is false for a new order. It is true for a rider that a
 	// restore queues again. The wait of such a trip is already recorded,
 	// and its request keeps its BoardedTick.
@@ -135,11 +140,11 @@ func (s *Simulation) dispatch() {
 			continue
 		}
 		if v != nil && (v.Pod.Activity != Idle || v.Pod.StationID != trip.request.From) && s.mayBeIdle(pass, trip.request.From) {
-			if local := s.localPickupForRequest(trip.request, pass); local != nil {
+			if local := s.localPickupForRequest(trip.request, trip.excludedPod, pass); local != nil {
 				pass.reset()
 				delete(assigned, v.Pod.ID)
 				s.releasePickup(v)
-				trip.request.PodID = local.Pod.ID
+				assignPickup(trip, local)
 				trip.route, trip.destination = nil, Berth{}
 				assigned[local.Pod.ID] = true
 				v = local
@@ -150,12 +155,12 @@ func (s *Simulation) dispatch() {
 			continue
 		}
 		if v == nil {
-			key := trip.request.options()
+			key := dispatchKey{options: trip.request.options(), excluded: trip.excludedPod}
 			var known bool
 			if v, known = pass.optionPickups[key]; !known {
-				v = s.pickupPodForRequest(trip.request, pass)
+				v = s.pickupPodForRequest(trip.request, trip.excludedPod, pass)
 				if pass.optionPickups == nil {
-					pass.optionPickups = make(map[TripOptions]*vehicle)
+					pass.optionPickups = make(map[dispatchKey]*vehicle)
 				}
 				pass.optionPickups[key] = v
 			}
@@ -188,7 +193,7 @@ func (s *Simulation) dispatch() {
 				}
 				trip.destination = Berth{}
 			}
-			trip.request.PodID = v.Pod.ID
+			assignPickup(trip, v)
 			assigned[v.Pod.ID] = true
 			if s.reassignPickup(i) {
 				pass.begin(s.waiting)
@@ -284,8 +289,9 @@ func (s *Simulation) assigned(podID string) bool {
 type dispatchPass struct {
 	// active is true while dispatch runs. Service withdrawal refuses to run
 	// during a pass. See withdrawService.
-	active        bool
-	optionPickups map[TripOptions]*vehicle
+	active bool
+	// optionPickups keeps the result of pickupPodForRequest for each key.
+	optionPickups map[dispatchKey]*vehicle
 	// assigned holds the pods of the waiting trips. dispatch changes it
 	// during the pass.
 	assigned map[string]bool
@@ -307,6 +313,14 @@ type dispatchPass struct {
 	// true. See boardingPods.
 	boarding      map[string][]*vehicle
 	boardingKnown bool
+}
+
+// dispatchKey selects a cached pickup pod. Two trips with the same options
+// and different exclusions can get different pods, so the key includes the
+// exclusion.
+type dispatchKey struct {
+	options  TripOptions
+	excluded string
 }
 
 // begin starts a pass for the waiting trips. It reuses the buffers of the
@@ -400,9 +414,13 @@ func (s *Simulation) localPickup(stationID string, pass *dispatchPass) *vehicle 
 	return nil
 }
 
-func (s *Simulation) localPickupForRequest(request Request, pass *dispatchPass) *vehicle {
+// localPickupForRequest returns the first idle pod at the origin of the
+// request that is not in assigned, fits the request, and has a route to its
+// destination. It skips the pod excluded, which a released trip must not
+// get.
+func (s *Simulation) localPickupForRequest(request Request, excluded string, pass *dispatchPass) *vehicle {
 	for _, v := range s.freePods(pass) {
-		if v.Pod.Activity == Idle && v.Pod.StationID == request.From && !pass.assigned[v.Pod.ID] && s.podFitsRequest(v, request) {
+		if v.Pod.Activity == Idle && v.Pod.StationID == request.From && (excluded == "" || v.Pod.ID != excluded) && !pass.assigned[v.Pod.ID] && s.podFitsRequest(v, request) {
 			station, _ := s.station(v.Pod.StationID)
 			berth, _ := station.berth(v.Pod.BerthID)
 			if _, err := s.stationApproachRouteForClass(berth.Node, request.To, v.Pod.Class); err != nil {
@@ -428,14 +446,16 @@ func (s *Simulation) localPickupForRequest(request Request, pass *dispatchPass) 
 // bound skips candidates that cannot improve the best pickup time. With
 // no candidate, pickupPod does not compute the berth loads.
 func (s *Simulation) pickupPod(stationID string, pass *dispatchPass) *vehicle {
-	return s.pickupPodMatching(stationID, pass, nil)
+	return s.pickupPodMatching(stationID, pass, nil, "")
 }
 
-func (s *Simulation) pickupPodForRequest(request Request, pass *dispatchPass) *vehicle {
-	return s.pickupPodMatching(request.From, pass, &request)
+// pickupPodForRequest chooses the pickup pod for a request as pickupPod
+// does. It skips the pod excluded, which a released trip must not get.
+func (s *Simulation) pickupPodForRequest(request Request, excluded string, pass *dispatchPass) *vehicle {
+	return s.pickupPodMatching(request.From, pass, &request, excluded)
 }
 
-func (s *Simulation) pickupPodMatching(stationID string, pass *dispatchPass, request *Request) *vehicle {
+func (s *Simulation) pickupPodMatching(stationID string, pass *dispatchPass, request *Request, excluded string) *vehicle {
 	candidates := s.pickupCandidates(pass)
 	if len(candidates) == 0 {
 		return nil
@@ -445,7 +465,7 @@ func (s *Simulation) pickupPodMatching(stationID string, pass *dispatchPass, req
 	load := s.berthLoads()
 	var bounds []float64
 	for _, v := range candidates {
-		if request != nil && !s.podFitsRequest(v, *request) {
+		if excluded != "" && v.Pod.ID == excluded || request != nil && !s.podFitsRequest(v, *request) {
 			continue
 		}
 		if best != nil {
@@ -474,8 +494,11 @@ func (s *Simulation) pickupPodMatching(stationID string, pass *dispatchPass, req
 	return best
 }
 
+// board starts the boarding of a trip at pod v, which is idle at the origin.
+// It refuses the pod that the trip excludes. The dispatch gates make that
+// case unreachable, so this test is defensive.
 func (s *Simulation) board(v *vehicle, trip waitingTrip) error {
-	if !s.podFitsRequest(v, trip.request) {
+	if trip.excludes(v.Pod.ID) || !s.podFitsRequest(v, trip.request) {
 		return ErrPartyAdmission
 	}
 	from, _ := s.station(trip.request.From)
@@ -521,7 +544,8 @@ func (s *Simulation) boardingRider(trip waitingTrip, v *vehicle, sharedWith int)
 // pod do not change. See reassigns.
 //
 // When a full pod could take the party and no pod takes it, the seat
-// screen counts a refusal. See refusedByFullPod.
+// screen counts a refusal. See refusedByFullPod. The trip does not join the
+// pod that it excludes.
 func (s *Simulation) joinSharedRide(trip *waitingTrip, pass *dispatchPass) bool {
 	if s.partyLimit(trip.request) <= 1 {
 		return false
@@ -530,7 +554,7 @@ func (s *Simulation) joinSharedRide(trip *waitingTrip, pass *dispatchPass) bool 
 	existingStop := request.PodID != ""
 	refused := false
 	for _, v := range s.boardingPods(pass)[request.From] {
-		if v.Pod.Occupied || len(v.Boardings) > 0 {
+		if v.Pod.Occupied || len(v.Boardings) > 0 || trip.excludes(v.Pod.ID) {
 			continue
 		}
 		if !s.canJoin(v, request) {
@@ -612,7 +636,8 @@ func (s *Simulation) recordBoarding(request Request, sharedWith int) {
 
 // promoteReadyPickup serves the oldest passenger first when pickup pods arrive out of order.
 // Both pods retain the same pickup station; only their unboarded passenger orders swap.
-// It reports whether it swapped the pods of two trips.
+// It reports whether it swapped the pods of two trips. Neither trip gets
+// the pod that it excludes.
 func (s *Simulation) promoteReadyPickup(index int) bool {
 	trip := &s.waiting[index]
 	current := s.findVehicle(trip.request.PodID)
@@ -625,16 +650,35 @@ func (s *Simulation) promoteReadyPickup(index int) bool {
 			continue
 		}
 		ready := s.findVehicle(later.request.PodID)
-		if ready == nil || !ready.inService() || ready.Pod.Activity != Idle || ready.Pod.StationID != trip.request.From || !s.podFitsRequest(ready, trip.request) || !s.assignedPickupFitsRequest(ready, trip.request) {
+		if ready == nil || !ready.inService() || trip.excludes(ready.Pod.ID) || ready.Pod.Activity != Idle || ready.Pod.StationID != trip.request.From || !s.podFitsRequest(ready, trip.request) || !s.assignedPickupFitsRequest(ready, trip.request) {
 			continue
 		}
-		if current != nil && (!s.podFitsRequest(current, later.request) || !s.assignedPickupFitsRequest(current, later.request)) {
+		if current != nil && (later.excludes(current.Pod.ID) || !s.podFitsRequest(current, later.request) || !s.assignedPickupFitsRequest(current, later.request)) {
 			continue
 		}
-		trip.request.PodID, later.request.PodID = later.request.PodID, trip.request.PodID
+		previous := trip.request.PodID
+		assignPickup(trip, ready)
+		if current != nil {
+			assignPickup(later, current)
+		} else {
+			// The trip had no pod, so the later trip has none now.
+			later.request.PodID = previous
+		}
 		trip.route, later.route = nil, nil
 		trip.destination, later.destination = Berth{}, Berth{}
 		return true
 	}
 	return false
+}
+
+// assignPickup binds trip to v. Every write of a new pod binding goes
+// through it. Its callers never pass the excluded pod of the trip. It keeps
+// the exclusion and the deferral fields.
+func assignPickup(trip *waitingTrip, v *vehicle) {
+	trip.request.PodID = v.Pod.ID
+}
+
+// excludes reports whether the trip must not get the pod.
+func (trip *waitingTrip) excludes(podID string) bool {
+	return trip.excludedPod != "" && trip.excludedPod == podID
 }

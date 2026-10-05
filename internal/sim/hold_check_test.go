@@ -291,7 +291,7 @@ func TestHoldChecksMatchFullScan(t *testing.T) {
 					if station.ParkingOnly {
 						continue
 					}
-					available, first := fast.pickupAvailable(station.ID, &pass), full.pickupAvailableFull(station.ID, assigned)
+					available, first := fast.pickupAvailable(station.ID, "", &pass), full.pickupAvailableFull(station.ID, assigned)
 					if available != (first != nil) {
 						t.Fatalf("tick %d, %s: pickup available %v, want pod %q", s.tick, station.ID, available, podID(first))
 					}
@@ -388,7 +388,7 @@ func TestDispatchPassResetFindsNewFreePods(t *testing.T) {
 	busy := s.findVehicle("02")
 	busy.Pod.Activity, busy.Pod.Occupied = Traveling, true
 	pass := dispatchPass{assigned: map[string]bool{"01": true}, pickups: map[string]*vehicle{"market": nil}}
-	if s.localPickup("harbor", &pass) != nil || s.localPickup("garden", &pass) != nil || s.pickupAvailable("market", &pass) {
+	if s.localPickup("harbor", &pass) != nil || s.localPickup("garden", &pass) != nil || s.pickupAvailable("market", "", &pass) {
 		t.Fatal("found a pickup pod before pod 02 became idle")
 	}
 	busy.Pod.Activity, busy.Pod.Occupied = Idle, false
@@ -396,7 +396,7 @@ func TestDispatchPassResetFindsNewFreePods(t *testing.T) {
 	if _, known := pass.pickups["market"]; known {
 		t.Fatal("reset kept the pickup pod of Market")
 	}
-	if s.localPickup("garden", &pass) != busy || !s.pickupAvailable("market", &pass) {
+	if s.localPickup("garden", &pass) != busy || !s.pickupAvailable("market", "", &pass) {
 		t.Fatal("did not find pod 02 after the reset")
 	}
 }

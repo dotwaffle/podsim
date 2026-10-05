@@ -14,6 +14,54 @@ func (s *Simulation) releasePickup(v *vehicle) bool {
 	return true
 }
 
+// releasePickups returns each pending pickup of v to dispatch, and clears
+// the stale deferral metadata that names v. A trip relates to v in one of
+// these ways, tested in this order:
+//
+//   - bound: v is the pod of the trip. The trip loses its pod, route,
+//     berth, dispatch reason, and hold.
+//   - active hold: the trip has no pod and waits for v to finish. The trip
+//     loses its dispatch reason and hold.
+//   - stale deferral: the trip names v in deferPodID, but it is not an
+//     active hold. The trip loses only deferPodID and deferCheck. Its pod,
+//     route, and berth stay.
+//
+// A bound or held trip that never boarded then excludes v until it leaves
+// the queue. This replaces an earlier exclusion of the trip. A trip that
+// boarded before gets no exclusion. deferUntil
+// stays, so a released trip gets no new hold time. When a trip was bound,
+// releasePickup marks v as released once after the loop. releasePickups
+// changes no resource owner. It reports the number of bound and held trips
+// that it released.
+func (s *Simulation) releasePickups(v *vehicle) int {
+	released, bound := 0, false
+	for i := range s.waiting {
+		trip := &s.waiting[i]
+		switch {
+		case trip.request.PodID == v.Pod.ID:
+			bound = true
+			trip.request.PodID = ""
+			trip.route, trip.destination = nil, Berth{}
+		case trip.request.PodID == "" && trip.deferPodID == v.Pod.ID && (trip.deferUntil == 0 || s.tick < trip.deferUntil):
+		case trip.deferPodID == v.Pod.ID:
+			trip.deferCheck, trip.deferPodID = 0, ""
+			continue
+		default:
+			continue
+		}
+		trip.request.DispatchReason = ""
+		trip.deferCheck, trip.deferPodID = 0, ""
+		if !trip.boarded {
+			trip.excludedPod = v.Pod.ID
+		}
+		released++
+	}
+	if bound {
+		s.releasePickup(v)
+	}
+	return released
+}
+
 // releasable reports whether v is an empty pod on its way to a station that
 // is not a rebalancing move.
 func releasable(v *vehicle) bool {

@@ -248,6 +248,9 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"request": persistSave, "route": persistSave, "destination": persistReset, "deferUntil": persistSave,
 		"deferCheck": persistSave, "deferPodID": persistSave, "boarded": persistSave, "fullPodRefused": persistReset,
 		"joinEligibleAssigned": persistReset, "joinEligibleExistingStop": persistReset,
+		// No save writes excludedPod yet. Section 11 of the incident
+		// contract adds its saved member.
+		"excludedPod": persistReset,
 	},
 	reflect.TypeFor[demoRun](): {"secondSent": persistSave, "followupsSent": persistSave},
 }

@@ -56,6 +56,9 @@ func (s *Simulation) SetFinishingPodWait(rule FinishingPodWait) error {
 // the empty route. Immutable travel bounds can also exclude a candidate.
 // The bound can end at any berth and omits acceleration and braking.
 // Ties retain the exact route estimate and fleet order.
+//
+// A hold never names the pod that the trip excludes. The loop skips that
+// pod, and a hold that names it ends.
 func (s *Simulation) waitForFinishingPod(trip *waitingTrip, idle *vehicle, assigned map[string]bool) bool {
 	if s.finishingPodWait == FinishingPodWaitNone {
 		return false
@@ -64,7 +67,7 @@ func (s *Simulation) waitForFinishingPod(trip *waitingTrip, idle *vehicle, assig
 		return false
 	}
 	if trip.deferCheck > s.tick {
-		if v := s.findVehicle(trip.deferPodID); v == nil || !v.inService() || !s.podFitsRequest(v, trip.request) {
+		if v := s.findVehicle(trip.deferPodID); v == nil || !v.inService() || trip.excludes(v.Pod.ID) || !s.podFitsRequest(v, trip.request) {
 			return false
 		}
 		trip.request.DispatchReason = "Waiting for pod " + trip.deferPodID + " to finish"
@@ -89,7 +92,7 @@ func (s *Simulation) waitForFinishingPod(trip *waitingTrip, idle *vehicle, assig
 	var bounds []float64
 	for i := range s.vehicles {
 		v := &s.vehicles[i]
-		if v == idle || !v.inService() || !s.podFitsRequest(v, trip.request) {
+		if v == idle || !v.inService() || trip.excludes(v.Pod.ID) || !s.podFitsRequest(v, trip.request) {
 			continue
 		}
 		node, remaining, ok := s.availableAfter(v)
@@ -135,20 +138,20 @@ func (s *Simulation) waitForFinishingPod(trip *waitingTrip, idle *vehicle, assig
 //
 // keepHold reports false, and dispatch does the full pass, when:
 //   - the trip is not on hold until a later check
-//   - the pod of the hold is withdrawn
+//   - the pod of the hold is withdrawn or excluded
 //   - a pod is idle at the pickup station, because that pod can board at once
 func (s *Simulation) keepHold(trip *waitingTrip, pass *dispatchPass) bool {
 	if s.finishingPodWait == FinishingPodWaitNone || trip.deferUntil != 0 && s.tick >= trip.deferUntil || trip.deferCheck <= s.tick {
 		return false
 	}
-	if v := s.findVehicle(trip.deferPodID); v == nil || !v.inService() || !s.podFitsRequest(v, trip.request) {
+	if v := s.findVehicle(trip.deferPodID); v == nil || !v.inService() || trip.excludes(v.Pod.ID) || !s.podFitsRequest(v, trip.request) {
 		return false
 	}
-	if s.localPickupForRequest(trip.request, pass) != nil {
+	if s.localPickupForRequest(trip.request, trip.excludedPod, pass) != nil {
 		return false
 	}
 	trip.request.DispatchReason = "Waiting for an available pod"
-	if s.pickupAvailable(trip.request.From, pass) {
+	if s.pickupAvailable(trip.request.From, trip.excludedPod, pass) {
 		trip.request.DispatchReason = "Waiting for pod " + trip.deferPodID + " to finish"
 	}
 	return true
@@ -161,9 +164,13 @@ func (s *Simulation) keepHold(trip *waitingTrip, pass *dispatchPass) bool {
 // simulation when it does so. Thus pickupAvailable reads only the pickup
 // candidates of the pass, in fleet order. A berth load changes only the berth that stationRouteByLoad
 // chooses. It does not change whether the station has a berth that the pod
-// can reach. Thus pickupAvailable does not compute the berth loads.
-func (s *Simulation) pickupAvailable(stationID string, pass *dispatchPass) bool {
+// can reach. Thus pickupAvailable does not compute the berth loads. It
+// skips the pod excluded, as pickupPodForRequest does.
+func (s *Simulation) pickupAvailable(stationID, excluded string, pass *dispatchPass) bool {
 	for _, v := range s.pickupCandidates(pass) {
+		if excluded != "" && v.Pod.ID == excluded {
+			continue
+		}
 		if _, _, _, ok := s.candidateRouteParts(v, stationID, noBerthLoad); ok {
 			return true
 		}

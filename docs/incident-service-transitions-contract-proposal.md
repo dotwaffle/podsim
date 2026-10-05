@@ -279,7 +279,8 @@ Section 6.2 gives the reason: decision 2 allows no yield for emergency demand.
 ```go
 // releasePickups returns every pending pickup of v to dispatch, and clears
 // stale deferral metadata that names v. A released trip that never boarded
-// excludes v until another pod receives it. It changes no resource owner.
+// excludes v until it boards. A later release replaces the exclusion. It
+// changes no resource owner.
 // It reports the number of released trips.
 func (s *Simulation) releasePickups(v *vehicle) int
 ```
@@ -325,29 +326,36 @@ This is decision 1.
 
 | Event | Effect |
 | --- | --- |
-| `releasePickups(v)`, bound or active hold, `boarded` false | Sets `excludedPod = v.Pod.ID`. |
+| `releasePickups(v)`, bound or active hold, `boarded` false | Sets `excludedPod = v.Pod.ID`. This replaces an earlier exclusion. |
 | `releasePickups(v)`, `boarded` true | No exclusion. |
-| A pod other than `excludedPod` receives the assignment | Clears `excludedPod`. |
+| A pod other than `excludedPod` receives the assignment | No change. |
+| A swap, a transfer, or a reassignment moves the trip to a pod other than `excludedPod` | No change. |
 | The trip boards, joins a shared ride, or joins by an onboard pickup | The trip leaves the queue, so the exclusion ends with it. |
 | `restoreService` of the excluded pod | No change. |
 | Physical restore clears an invalid `PodID` (`internal/sim/state_physical.go:1227`) | No change. |
 | Logical restore unbinds the trip (`internal/sim/state_logical.go:86-93`) | No change. |
 | Checkpoint and rewind | `Clone` copies the trip by value (`internal/sim/clone.go:42`). |
 
-No advisory hold can replace an exclusion.
-`waitForFinishingPod` (`internal/sim/pickup_estimate.go:59`) and `keepHold` (`:139`) return false for a trip with `excludedPod != ""`.
-Such a trip waits only for an assignment, so it cannot name a second pod before another pod receives it.
-A second release from another pod therefore needs an assignment to that pod first, and that assignment ends the first exclusion.
-One field holds every exclusion that is still required, so the representation does not grow.
+The exclusion holds until the trip boards.
+No path binds the trip to the excluded pod, moves the trip to it, or holds the trip for it.
+A trip with an exclusion can have another pod, and it can hold for another pod.
+`waitForFinishingPod` (`internal/sim/pickup_estimate.go:59`) does not choose the excluded pod as the finishing pod.
+`waitForFinishingPod` and `keepHold` (`:139`) end a hold that names the excluded pod.
+X1 makes that second test unreachable, so it is defensive.
 
-The alternative keeps a set of excluded pods and allows holds.
-It costs up to one index per withdrawn pod for each trip, and it keeps a hold on a pod that cannot receive the trip.
+A second release from another pod replaces the exclusion: the newest release wins.
+After that release, the trip can get the first excluded pod.
+One field holds the exclusion, so the representation does not grow.
+
+The alternative keeps a set of excluded pods.
+It costs up to one index per withdrawn pod for each trip.
 This contract does not use it.
 
 All writes of a new pod binding go through one helper:
 
 ```go
-// assignPickup binds trip to v and ends the exclusion of the trip.
+// assignPickup binds trip to v. Its callers never pass the excluded pod
+// of the trip. It keeps the exclusion.
 func assignPickup(trip *waitingTrip, v *vehicle)
 ```
 
@@ -356,12 +364,11 @@ It does not clear the deferral fields, so the off-state bytes do not change.
 
 Invariants:
 
-- X1: `excludedPod != ""` implies `request.PodID == ""`, `deferPodID == ""`, `deferCheck == 0`, and `boarded == false`.
+- X1: `excludedPod != ""` implies `boarded == false`, `request.PodID != excludedPod`, and `deferPodID != excludedPod`.
 - X2: `excludedPod != ""` implies that `excludedPod` names a pod of the fleet.
 
-X1 has a useful consequence.
 Swaps, transfers, and reassignment work only on trips with a bound pod (`internal/sim/pickup_swaps.go:96-113`, `:133`).
-By X1 those trips have no exclusion, so these paths need no exclusion gate.
+Such a trip can have an exclusion, so these paths get exclusion gates (section 5.3).
 A test asserts X1 and X2 on every tick.
 
 ### 5.3 Exclusion gates
@@ -371,10 +378,16 @@ A test asserts X1 and X2 on every tick.
 | Remote selection | `internal/sim/dispatch.go:427-464`, `pickupPodMatching` | Skips the excluded pod. The function gets an `excluded string` argument from `pickupPodForRequest` (`:423`). |
 | Selection cache key | `internal/sim/dispatch.go:151-158`, `pass.optionPickups` | The key becomes `dispatchKey{options: request.dispatchOptions(), excluded: trip.excludedPod}`. Two trips with equal options but different exclusions or leg origins cannot share a cached pod. |
 | Local selection | `internal/sim/dispatch.go:392-404`, `localPickupForRequest` | Skips the excluded pod. |
-| Promotion | `internal/sim/dispatch.go:617` | Skips a ready pod equal to `trip.excludedPod`. The later trip has a pod, so by X1 it has no exclusion. |
+| Promotion | `internal/sim/dispatch.go:617` | Skips a ready pod equal to `trip.excludedPod`. |
+| Promotion, later trip | `internal/sim/dispatch.go:620` | Skips the swap when the current pod of the trip equals the exclusion of the later trip. |
 | Shared-ride join | `internal/sim/dispatch.go:521-545`, `joinSharedRide` | Skips the excluded pod. |
 | Onboard pickup | `internal/sim/onboard_pickups.go:19`, `joinOnboardPickup` | Skips the excluded pod. |
-| Finishing-pod hold | `internal/sim/pickup_estimate.go:59`, `:139` | No hold for a trip with an exclusion (section 5.2). |
+| Finishing-pod hold | `internal/sim/pickup_estimate.go:92` | Skips the excluded pod as a finishing pod. |
+| Hold refresh | `internal/sim/pickup_estimate.go:59`, `:139`, `keepHold` | Ends a hold that names the excluded pod. X1 makes this unreachable. The test is defensive. |
+| Hold reason | `internal/sim/pickup_estimate.go:164`, `pickupAvailable` | Skips the excluded pod, as `pickupPodForRequest` does, so `keepHold` sets the reason of the full pass. |
+| Pickup swap | `internal/sim/pickup_reassignment.go:51-80`, `checkPickupPair` | Refuses a pair when either trip would get the pod that it excludes. `tryPickupSwap` (`internal/sim/pickup_swaps.go:149`) runs only after this test. |
+| Pickup transfer | `internal/sim/pickup_reassignment.go:51-80`, `checkPickupPair` | Refuses a free alternative that the trip excludes. `tryPickupTransfer` (`:119`) runs only after this test. |
+| Reassignment | `internal/sim/pickup_reassignment.go:22`, `reassignPickup` | Uses `checkPickupPair`, so the swap and transfer gates apply. |
 | Boarding | `internal/sim/dispatch.go:466`, `board` | Returns `ErrPartyAdmission` for the excluded pod. The gates above make this unreachable. The test is defensive. |
 
 When the excluded pod is the only pod that fits, the trip waits with the existing reason "Waiting for an available pod".
@@ -410,14 +423,17 @@ It keeps its route, its physical destination, and its claims until a later stage
 - A transferred trip and a restore-requeued trip, each bound to pod B.
   Withdraw B.
   Neither trip gets an exclusion.
-- A trip released from A whose best finishing pod is B.
-  The trip gets no hold for B.
-  Withdraw B.
-  The exclusion still names A, and A cannot receive the trip.
+- A trip whose best finishing pod is its excluded pod.
+  The trip gets no hold for that pod.
+- A trip released from A holds for B, and then B is withdrawn.
+  The exclusion names B, and the hold ends.
+  The trip can then get A, and it never gets B.
 - For each gate in section 5.3, a fixture in which the excluded pod is the best candidate.
-  The trip gets another pod or waits.
+  The trip gets another pod or waits, and keeps its exclusion.
 - A trip excluded from pod A and later assigned to pod B.
-  The exclusion clears.
+  The exclusion stays until the trip boards B, also after A is in service again.
+- A trip excluded from pod A and bound to pod B, with pickup swaps on.
+  No swap, transfer, or reassignment gives the trip A.
 - X1 and X2 on every tick of the dispatch, swap, and onboard pickup suites with withdrawals injected.
 
 ## 6. Claim kinds
@@ -1346,7 +1362,7 @@ It is dispatch state, as `deferPodID` is.
   - an `operational` tuple of the wrong length, with an unknown purpose, or with an owner that is not one held bit (W5);
   - an `interrupt` bit that names no active rider;
   - a `legFrom` out of range, equal to `to`, or at a parking station;
-  - an `excludedPod` out of range, or on a trip with `podID`, `deferPodID`, `deferCheck`, or `boarded` (X1);
+  - an `excludedPod` out of range, on a trip with `boarded`, or equal to the `podID` or `deferPodID` of its trip (X1);
   - an Express waiting trip without a path that does not meet S1 to S3 (section 7.6).
   Each failure is `invalid_state` for the whole save.
 - The stream decoder rejects an unknown purpose name, an unknown `legFrom` station, and a hold value with an unknown bit.
@@ -1384,12 +1400,12 @@ Stage 1 growth per shape, with the widest encodings:
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
 | Rider `legFrom` | `,"legFrom":299` | 14 | 2,400 | 33,600 | 6,000 | 84,000 |
 | Waiting `legFrom` | `,"legFrom":299` | 14 | 2,600 | 36,400 | 8,600 | 120,400 |
-| Waiting `excludedPod` | `,"excludedPod":299` | 18 | 2,600 | 0 | 8,600 | 0 |
+| Waiting `excludedPod` | `,"excludedPod":299` | 18 | 2,600 | 46,800 | 8,600 | 154,800 |
 | `withdrawn` | `,"withdrawn":255` | 16 | 300 | 4,800 | 300 | 4,800 |
 | `operational` | `,"operational":[1,128,255]`, Express `[1,128,1048575]` | 26, 30 | 300 | 7,800 | 300 | 9,000 |
 | Counters and serial | `interrupted` 34, `interruptedPassengers` 44, `incidentSerial` 38 | 116 | 1 | 116 | 1 | 116 |
 | Marker | in the project member | 0 | | 0 | | 0 |
-| Total | | | | 82,716 | | 218,316 |
+| Total | | | | 129,516 | | 373,116 |
 
 Notes on the counts:
 
@@ -1397,20 +1413,18 @@ Notes on the counts:
   Express: 20 stored riders per pod and 8,600 waiting trips (`orderBounds`, `internal/session/format_limits.go:18-23` at `475cc85`).
 - The station index has at most 3 digits, because a project has at most 300 stations (`internal/project/config.go:34`).
   The pod index has at most 3 digits for 300 pods (`:30`).
-- The exclusion adds 0 bytes to the envelope.
-  By X1 a trip with an exclusion has no `podID`, and the worst-case trip carries a `podID` of 386 bytes (`internal/session/state_file_test.go:661-664`), or 99 bytes when packed.
-  The widest trip is therefore the trip with `podID`.
-  The composed fixture still includes trips with exclusions, to cover the decode path.
+- The exclusion holds until the trip boards (maintainer decision of October 5, 2026), so a trip can carry both `podID` and `excludedPod`.
+  The table counts the exclusion on every waiting trip.
 - Rider counts include completed history, because history keeps `legFrom` (section 7.2).
 
 Headroom after stage 1, with the save totals above:
 
 | Shape | Before | Stage 1 | After |
 | --- | ---: | ---: | ---: |
-| Plain save | 27,986,414 | 82,716 | 27,903,698 |
-| Coupling save | 27,913,571 | 82,716 | 27,830,855 |
-| Express save | 6,836,663 | 218,316 | 6,618,347 |
-| Express with coupling save | 6,836,569 | 218,316 | 6,618,253 |
+| Plain save | 27,986,414 | 129,516 | 27,856,898 |
+| Coupling save | 27,913,571 | 129,516 | 27,784,055 |
+| Express save | 6,836,663 | 373,116 | 6,463,547 |
+| Express with coupling save | 6,836,569 | 373,116 | 6,463,453 |
 
 Stage 1 fits under the save cap in every shape.
 
@@ -1436,10 +1450,10 @@ The narrowest save shape, Express with coupling, keeps 6,836,569 bytes before st
 
 | Allocation, narrowest save shape | Bytes |
 | --- | ---: |
-| Stage 1, this contract | 218,316 |
+| Stage 1, this contract | 373,116 |
 | Emergency records, stage 3 | 65,536 |
 | Fault records and recovery state, stages 2, 4, 5, 6 | 4,194,304 |
-| Reserve | 2,358,413 |
+| Reserve | 2,203,613 |
 
 The save keeps 80 MiB.
 A raise must also update the guard that proves the direct native-ID form is over the cap (`internal/session/compact_state_bytes_test.go`).
@@ -1625,12 +1639,17 @@ Each mutation needs a passing control, a compiled mutant, and a failing test.
 | Leave `deferPodID` set in `releasePickups` | New `releasePickups` |
 | Unbind a trip with stale deferral metadata | New `releasePickups` |
 | Set an exclusion on a boarded trip | New `releasePickups` |
-| Allow a hold for an excluded trip | `waitForFinishingPod`, `internal/sim/pickup_estimate.go:59`, and `keepHold`, `:139` |
+| Allow a hold for the excluded pod | `waitForFinishingPod`, `internal/sim/pickup_estimate.go:92` |
+| Keep a hold that names the excluded pod | `waitForFinishingPod`, `internal/sim/pickup_estimate.go:59`, and `keepHold`, `:139` |
 | Skip the exclusion in `pickupPodMatching` | `internal/sim/dispatch.go:437` |
 | Key the cache by `options()` | `internal/sim/dispatch.go:151` |
 | Skip the exclusion in promotion | `internal/sim/dispatch.go:617` |
+| Skip the exclusion of the later trip in promotion | `internal/sim/dispatch.go:620` |
 | Skip the exclusion in `joinSharedRide` | `internal/sim/dispatch.go:521` |
-| Keep the exclusion after `assignPickup` | New `assignPickup` |
+| Clear the exclusion in `assignPickup` | New `assignPickup` |
+| Keep the old exclusion on a second release | New `releasePickups` |
+| Skip the exclusion of either trip in a pickup swap | `checkPickupPair`, `internal/sim/pickup_reassignment.go:51` |
+| Skip the exclusion in a pickup transfer | `checkPickupPair`, `internal/sim/pickup_reassignment.go:51` |
 | Drop the coupling test from `claimKind` | New `claimKind` |
 | Release a stopping grant as a service claim | New `claimKind` |
 | Use `From` in `board` | `internal/sim/dispatch.go:470` |
@@ -1717,13 +1736,16 @@ Two major and four minor findings remained.
 | 5 | Minor | The assembler cannot see raw member presence in a markerless delta. | A raw scan in `DecodeStreamJSON` records presence, and `ApplyStream` checks it before delta application. | 11.2, 14.3 |
 | 6 | Minor | A non-project command with a marked project also gets the trailer (`internal/session/session.go:538`). | Section 12 states that any command whose supplied project has the marker gets the trailer. The digest order does not change. | 12 |
 
+Maintainer decision 2026-10-05: the exclusion holds until boarding.
+Sections 5.2, 5.3, 5.5, and 14.6 changed for it.
+
 ## 18. Open questions
 
 | # | Question | Approved default |
 | --- | --- | --- |
 | 1 | Does stage 1 add its own project marker, `incidentContract`? | Yes. Feature markers require it. |
 | 2 | Do active finishing-pod holds on an affected pod count as pending pickups that get the exclusion? | Yes. The hold waits for that pod. |
-| 3 | Does an excluded trip lose finishing-pod holds until another pod receives it? | Yes. The alternative is a set of excluded pods. |
+| 3 | Can an excluded trip hold for a finishing pod? | Yes, for any pod except the excluded pod. The exclusion holds until the trip boards (maintainer decision of October 5, 2026). |
 | 4 | What happens when the excluded pod is the only pod that fits? | The trip waits until another pod fits. The binding decision allows no exception. |
 | 5 | Does a stranded order wait without a time limit in stage 1? | Yes. A later policy can choose stations that avoid it. |
 | 6 | Does a marked emergency party complete when the station is its destination? | No. The mark wins, for one rule and one metric. |

@@ -521,21 +521,52 @@ func sameWithdrawalState(a, b *Simulation) bool {
 	return sameState(&ca, &cb)
 }
 
-// onlyHoldsDiffer reports whether s equals start apart from the holds of
-// v.
-func onlyHoldsDiffer(start, s *Simulation, v *vehicle) bool {
-	want := start.Clone()
-	want.findVehicle(v.Pod.ID).withdrawn = v.withdrawn
-	return sameWithdrawalState(want, s)
+// pickupsOf returns the queue indexes of the waiting trips that pod
+// releasePickups changes: the trips that are bound to the pod or name it
+// in deferPodID.
+func pickupsOf(s *Simulation, pod string) []int {
+	var indexes []int
+	for i, trip := range s.waiting {
+		if trip.request.PodID == pod || trip.deferPodID == pod {
+			indexes = append(indexes, i)
+		}
+	}
+	return indexes
+}
+
+// withoutRelease returns a copy of s without the fields that the release of
+// pod v can change: the released flag of v, and the pod, route, berth,
+// dispatch reason, hold, and exclusion of each trip at the indexes. The
+// copy has the holds of v.
+func withoutRelease(s *Simulation, v *vehicle, indexes []int) *Simulation {
+	c := s.Clone()
+	pod := c.findVehicle(v.Pod.ID)
+	pod.withdrawn, pod.released = v.withdrawn, false
+	for _, i := range indexes {
+		trip := &c.waiting[i]
+		trip.request.PodID, trip.request.DispatchReason = "", ""
+		trip.route, trip.destination = nil, Berth{}
+		trip.deferCheck, trip.deferPodID, trip.excludedPod = 0, "", ""
+	}
+	return c
+}
+
+// onlyHoldsDiffer reports whether s equals start apart from the holds of v
+// and the release of the trips at the indexes.
+func onlyHoldsDiffer(start, s *Simulation, v *vehicle, indexes []int) bool {
+	return sameWithdrawalState(withoutRelease(start, v, indexes), withoutRelease(s, v, indexes))
 }
 
 // TestWithdrawServiceInverse checks the inverse property of the incident
 // contract, section 4.2, on each supply path of section 4.3. Each
-// operation changes only the holds of the pod, so withdrawService changes
-// no route, physical destination, speed, or owner (W4). After the last
-// restore, the whole state equals the start. Until the pod has no hold,
-// the path skips it. The path probes of the intermediate states run on
-// separate fixtures, because a probe can change the state.
+// operation changes only the holds of the pod and the trips that the first
+// hold releases, so withdrawService changes no route, physical
+// destination, speed, or owner (W4). After the last restore, the state
+// equals the start apart from the released trips and the released flag of
+// the pod. Until the pod has no hold, the path skips it. The path probes of
+// the intermediate states run on separate fixtures, because a probe can
+// change the state. A path that selects the pod for a trip that the
+// release unbinds is not probed after the restore.
 func TestWithdrawServiceInverse(t *testing.T) {
 	t.Parallel()
 	for _, test := range withdrawalGateCases() {
@@ -544,20 +575,24 @@ func TestWithdrawServiceInverse(t *testing.T) {
 				t.Parallel()
 				s, v := test.build(t)
 				start := s.Clone()
+				pickups := pickupsOf(s, v.Pod.ID)
 				for _, hold := range sequence.withdraw {
 					if err := s.withdrawService(v, hold); err != nil {
 						t.Fatalf("withdraw %d: %v", hold, err)
 					}
-					if !onlyHoldsDiffer(start, s, v) {
-						t.Fatalf("withdraw %d: the state differs from the start in more than the holds", hold)
+					if !onlyHoldsDiffer(start, s, v, pickups) {
+						t.Fatalf("withdraw %d: the state differs from the start in more than the holds and the release", hold)
+					}
+					if len(pickupsOf(s, v.Pod.ID)) != 0 {
+						t.Fatalf("withdraw %d: a trip names the withdrawn pod", hold)
 					}
 				}
 				for index, hold := range sequence.restore {
 					if err := s.restoreService(v, hold); err != nil {
 						t.Fatalf("restore %d: %v", hold, err)
 					}
-					if !onlyHoldsDiffer(start, s, v) {
-						t.Fatalf("restore %d: the state differs from the start in more than the holds", hold)
+					if !onlyHoldsDiffer(start, s, v, pickups) {
+						t.Fatalf("restore %d: the state differs from the start in more than the holds and the release", hold)
 					}
 					if index < len(sequence.restore)-1 {
 						probe, pod := test.build(t)
@@ -566,6 +601,9 @@ func TestWithdrawServiceInverse(t *testing.T) {
 							t.Fatalf("after the restore of hold %d, holds %d: the pod is supply", hold, v.withdrawn)
 						}
 					}
+				}
+				if len(pickups) > 0 {
+					return
 				}
 				if !sameWithdrawalState(start, s) {
 					t.Fatal("the restored state differs from the start")
@@ -600,7 +638,9 @@ func TestWithdrawServiceSkipsPod(t *testing.T) {
 // restoreService (incident contract, sections 4.2 and 10). A refused call
 // returns an error and changes no pod, trip, owner, or counter, and the
 // state contract holds after it. The pod is a relocating pod with
-// destination claims, and a trip waits.
+// destination claims. One trip is bound to the pod, one trip waits for the
+// pod to finish, and one trip names the pod in stale deferral metadata, so
+// a refused withdrawal that released a pickup would change a trip.
 // A call refused for a coupling member succeeds once the membership
 // clears.
 func TestServiceHoldRefusals(t *testing.T) {
@@ -654,6 +694,13 @@ func TestServiceHoldRefusals(t *testing.T) {
 			if err := s.RequestTrip("harbor", "garden"); err != nil {
 				t.Fatal(err)
 			}
+			if test.holds == 0 {
+				bound, held, stale := newTrip(s, "market", "harbor"), newTrip(s, "market", "garden"), newTrip(s, "garden", "harbor")
+				bound.request.PodID = v.Pod.ID
+				held.deferUntil, held.deferCheck, held.deferPodID = s.tick+maxDispatchDeferral, s.tick+TicksPerSecond, v.Pod.ID
+				stale.deferUntil, stale.deferPodID = s.tick, v.Pod.ID
+				s.waiting = append(s.waiting, bound, held, stale)
+			}
 			v.withdrawn = test.holds
 			approaches := len(s.couplingApproaches)
 			if test.coupling != nil {
@@ -684,6 +731,9 @@ func TestServiceHoldRefusals(t *testing.T) {
 			}
 			if v.withdrawn == test.holds {
 				t.Fatal("control: the call did not change the holds")
+			}
+			if test.holds == 0 && len(pickupsOf(s, v.Pod.ID)) != 0 {
+				t.Fatal("control: a trip names the withdrawn pod")
 			}
 		})
 	}

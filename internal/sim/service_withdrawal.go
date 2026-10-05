@@ -34,8 +34,9 @@ func oneServiceHold(hold serviceHold) bool {
 // partner; its caller waits for the split. The callers run at a command
 // boundary or at a fixed place in Step outside dispatch.
 //
-// Pickup release, the effect of the first hold (section 5.1 of the
-// incident contract), is not part of this operation yet.
+// The first hold also releases the pending pickups of v. See
+// releasePickups. A later hold releases nothing, because no trip can name
+// a withdrawn pod.
 func (s *Simulation) withdrawService(v *vehicle, hold serviceHold) error {
 	if !oneServiceHold(hold) {
 		return fmt.Errorf("pod %s: service hold %#x is not one known hold", v.Pod.ID, hold)
@@ -49,7 +50,11 @@ func (s *Simulation) withdrawService(v *vehicle, hold serviceHold) error {
 	if s.pass != nil && s.pass.active {
 		return fmt.Errorf("pod %s: service withdrawal during a dispatch pass", v.Pod.ID)
 	}
+	first := v.withdrawn == 0
 	v.withdrawn |= hold
+	if first {
+		s.releasePickups(v)
+	}
 	return nil
 }
 
