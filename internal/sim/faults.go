@@ -7,8 +7,12 @@ import (
 	"slices"
 )
 
-// maxFaultSeconds is the longest fault duration.
-const maxFaultSeconds = 86_400
+// maxFaultSeconds is the longest fault duration, and
+// maxEvacuationSeconds the longest evacuation delay.
+const (
+	maxFaultSeconds      = 86_400
+	maxEvacuationSeconds = 3_600
+)
 
 // The errors of the fault operations. A refused operation changes nothing.
 var (
@@ -48,6 +52,29 @@ func (r faultRecord) id() string {
 type faultSettings struct {
 	// evacuationSeconds is the time from fault onset to evacuation.
 	evacuationSeconds int64
+}
+
+// FaultSettings holds the fault settings of a project.
+type FaultSettings struct {
+	// EvacuationSeconds is the time from fault onset to evacuation, from 0
+	// to 3,600 seconds.
+	EvacuationSeconds int
+}
+
+// SetFaults turns the fault operations and the fault stage on or off, with
+// the settings. It refuses a delay out of range, and it refuses to turn
+// faults off while a fault is active, because then no clear could end the
+// fault. Reset keeps the settings.
+func (s *Simulation) SetFaults(enabled bool, settings FaultSettings) error {
+	if settings.EvacuationSeconds < 0 || settings.EvacuationSeconds > maxEvacuationSeconds {
+		return fmt.Errorf("evacuation delay %d s is outside 0 to %d s", settings.EvacuationSeconds, maxEvacuationSeconds)
+	}
+	if !enabled && len(s.faults) > 0 {
+		return fmt.Errorf("%d faults are active", len(s.faults))
+	}
+	s.faultsOn = enabled
+	s.faultSettings = faultSettings{evacuationSeconds: int64(settings.EvacuationSeconds)}
+	return nil
 }
 
 // faultCounters counts the fault events. Each counter stops at

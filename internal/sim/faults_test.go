@@ -543,3 +543,40 @@ func TestCheckFaults(t *testing.T) {
 		})
 	}
 }
+
+// TestSetFaults checks the fault switch and its refusals. A refused call
+// changes nothing.
+func TestSetFaults(t *testing.T) {
+	t.Parallel()
+	s := newTraffic(t)
+	if err := s.SetFaults(true, FaultSettings{EvacuationSeconds: maxEvacuationSeconds}); err != nil {
+		t.Fatal(err)
+	}
+	if !s.faultsOn || s.faultSettings.evacuationSeconds != maxEvacuationSeconds {
+		t.Fatalf("faults on %t, settings %+v", s.faultsOn, s.faultSettings)
+	}
+	id := startFault(t, s, s.findVehicle("01"), 0)
+	before := s.Clone()
+	for _, test := range []struct {
+		name     string
+		enabled  bool
+		settings FaultSettings
+	}{
+		{"negative delay", true, FaultSettings{EvacuationSeconds: -1}},
+		{"delay above the limit", true, FaultSettings{EvacuationSeconds: maxEvacuationSeconds + 1}},
+		{"off with an active fault", false, FaultSettings{}},
+	} {
+		if err := s.SetFaults(test.enabled, test.settings); err == nil {
+			t.Fatalf("%s: accepted", test.name)
+		}
+		if !sameState(before, s) {
+			t.Fatalf("%s: the refused call changed the state", test.name)
+		}
+	}
+	if err := s.clearFault(id); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetFaults(false, FaultSettings{}); err != nil || s.faultsOn {
+		t.Fatalf("faults off: error %v, faults on %t", err, s.faultsOn)
+	}
+}
