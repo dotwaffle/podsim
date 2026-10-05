@@ -24,13 +24,13 @@ func withBankMetadata(config project.Config) project.Config {
 	return config
 }
 
-// Versions 2 through 5 came before version 6. The decoder rejects them by
+// Versions 2 through 8 came before version 9. The decoder rejects them by
 // version before it reads the other members, also with a valid project.
 // A saved project with an earlier project version is also refused.
 func TestSavedBankVersionPairs(t *testing.T) {
 	t.Parallel()
 	base := newTestStateFile(t)
-	for _, savedVersion := range []int{2, 3, 4, 5, 6} {
+	for _, savedVersion := range []int{2, 5, 6, 8, 9} {
 		for _, projectCase := range []string{"plain", "banks", "project3"} {
 			t.Run(fmt.Sprintf("saved%d/%s", savedVersion, projectCase), func(t *testing.T) {
 				t.Parallel()
@@ -42,12 +42,8 @@ func TestSavedBankVersionPairs(t *testing.T) {
 				case "project3":
 					file.Project.Version = 3
 				}
-				raw, err := json.Marshal(file)
-				if err != nil {
-					t.Fatal(err)
-				}
-				got, err := decodeStateFile(compressTestJSON(t, raw))
-				valid := savedVersion == serviceStateVersion && projectCase != "project3"
+				got, err := decodeStateFile(compressTestJSON(t, marshalSavedJSON(t, file)))
+				valid := savedVersion == stateVersion && projectCase != "project3"
 				if (err == nil) != valid {
 					t.Fatalf("accepted=%t want=%t: %v", err == nil, valid, err)
 				}
@@ -57,10 +53,10 @@ func TestSavedBankVersionPairs(t *testing.T) {
 				if !valid && file.validateProjectVersion() == nil {
 					t.Fatal("file validation accepted an old saved version")
 				}
-				if !valid && savedVersion == serviceStateVersion && stateReason(err) != reasonInvalidState {
+				if !valid && savedVersion == stateVersion && stateReason(err) != reasonInvalidState {
 					t.Fatalf("saved project version reason %s: %v", stateReason(err), err)
 				}
-				if !valid && savedVersion != serviceStateVersion && (stateReason(err) != reasonUnsupportedVersion || !strings.Contains(err.Error(), fmt.Sprintf("version %d is older than version 6", savedVersion))) {
+				if !valid && savedVersion != stateVersion && (stateReason(err) != reasonUnsupportedVersion || !strings.Contains(err.Error(), fmt.Sprintf("version %d is older than version 9", savedVersion))) {
 					t.Fatalf("reason %s: %v", stateReason(err), err)
 				}
 			})
@@ -77,7 +73,7 @@ func TestCaptureBankStateVersion(t *testing.T) {
 	t.Cleanup(shared.Close)
 	shared.project = withBankMetadata(shared.project)
 	file, captured, err := shared.captureState(saveStartup)
-	if err != nil || !captured || file.Version != serviceStateVersion {
+	if err != nil || !captured || file.Version != stateVersion {
 		t.Fatalf("capture version=%d captured=%t: %v", file.Version, captured, err)
 	}
 	got, err := decodeStateFile(encodeTestState(t, file))

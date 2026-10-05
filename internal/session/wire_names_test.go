@@ -68,14 +68,14 @@ func TestScannerLimitPathsMatchTags(t *testing.T) {
 		"state":           stateJSONLimits,
 		"command":         commandJSONLimits,
 		"topology":        topologyJSONLimits,
-		"service save":    serviceStateLimits(),
-		"express save":    expressSavedLimits(),
-		"coupling save":   couplingSavedLimits(false),
-		"packed save":     couplingSavedLimits(true),
+		"plain save":      savedLimits(contractMarkers{}),
+		"express save":    savedLimits(contractMarkers{order: sim.ExpressOrderContract}),
+		"coupling save":   savedLimits(contractMarkers{coupling: sim.CompactPairV1CouplingContract}),
+		"packed save":     savedLimits(contractMarkers{order: sim.ExpressOrderContract, coupling: sim.CompactPairV1CouplingContract}),
 		"express stream":  streamLimits(contractMarkers{order: sim.ExpressOrderContract}),
 		"unpacked stream": streamLimits(contractMarkers{}),
-		"compact save":    compactStateLimits(serviceStateLimits()),
-		"boarding save":   boardingStateLimits(serviceStateLimits()),
+		"compact save":    compactStateLimits(savedLimits(contractMarkers{})),
+		"boarding save":   boardingStateLimits(savedLimits(contractMarkers{})),
 	}
 	for name, limits := range sets {
 		for path := range limits.arrays {

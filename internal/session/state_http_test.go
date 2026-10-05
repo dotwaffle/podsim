@@ -142,7 +142,7 @@ func TestStreamMarkerValues(t *testing.T) {
 		"HTTP": func(raw []byte) error { _, err := DecodeStateJSON(raw); return err },
 	}
 	express := `"` + string(sim.ExpressOrderContract) + `"`
-	text := `"` + ExpressTextEncoding + `"`
+	text := `"order-text-base64-v1"`
 	for name, raw := range documents {
 		kind, format, _ := strings.Cut(name, " ")
 		decode := decoders[format]

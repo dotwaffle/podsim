@@ -252,7 +252,7 @@ var (
 	invalidBudget  = func(file *stateFile) { file.Demand.Budget = demandBudgetLimit }
 	invalidProject = func(file *stateFile) { file.Project.Name = "" }
 	bothTiersFail  = func(file *stateFile) { file.Simulation.Completed = file.Simulation.RequestID + 1 }
-	newerVersion   = func(file *stateFile) { file.Version = couplingStateVersion + 1 }
+	newerVersion   = func(file *stateFile) { file.Version = stateVersion + 1 }
 	pausedAtSpeed5 = func(file *stateFile) { file.Simulation.Paused, file.Speed = true, 5 }
 	// sharedBerth puts the first two pods at one berth. The physical tier
 	// then fails. The active riders of the two pods go to the queue, so the
@@ -563,11 +563,11 @@ func TestNewFromStoreRejects(t *testing.T) {
 			}}},
 		},
 		{name: "newer version", data: run.edited(t, newerVersion), reason: reasonUnsupportedVersion},
-		// The decoder rejects versions 2 through 5 before a restore step.
-		{name: "version 2", data: run.edited(t, func(file *stateFile) { file.Version = 2 }), reason: reasonUnsupportedVersion, errText: "version 2 is older than version 6"},
-		{name: "version 3", data: run.edited(t, func(file *stateFile) { file.Version = 3 }), reason: reasonUnsupportedVersion, errText: "version 3 is older than version 6"},
-		{name: "version 4", data: run.edited(t, func(file *stateFile) { file.Version = 4 }), reason: reasonUnsupportedVersion, errText: "version 4 is older than version 6"},
-		{name: "version 5", data: run.edited(t, func(file *stateFile) { file.Version = 5 }), reason: reasonUnsupportedVersion, errText: "version 5 is older than version 6"},
+		// The decoder rejects versions 2 through 8 before a restore step.
+		{name: "version 2", data: run.edited(t, func(file *stateFile) { file.Version = 2 }), reason: reasonUnsupportedVersion, errText: "version 2 is older than version 9"},
+		{name: "version 6", data: run.edited(t, func(file *stateFile) { file.Version = 6 }), reason: reasonUnsupportedVersion, errText: "version 6 is older than version 9"},
+		{name: "version 7", data: run.edited(t, func(file *stateFile) { file.Version = 7 }), reason: reasonUnsupportedVersion, errText: "version 7 is older than version 9"},
+		{name: "version 8", data: run.edited(t, func(file *stateFile) { file.Version = 8 }), reason: reasonUnsupportedVersion, errText: "version 8 is older than version 9"},
 		{name: "truncated file", data: run.data[:len(run.data)/2], reason: reasonInvalidState},
 		{name: "too large to read", data: run.data, readErr: tooLarge, reason: reasonTooLarge, preserve: true},
 	}

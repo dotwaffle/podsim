@@ -86,7 +86,7 @@ func TestStreamDecodeBoundsBeforeTokenScans(t *testing.T) {
 // to the start. It is the reference for decoded values.
 func decodeStreamJSONUnbounded(data []byte, markers contractMarkers) (StreamEnvelope, error) {
 	express := markers.order == sim.ExpressOrderContract
-	if err := scanContractMarkers(data, express, textRefused); err != nil {
+	if err := scanContractMarkers(data, express); err != nil {
 		return StreamEnvelope{}, err
 	}
 	if err := scanPackedOrders(data); err != nil {

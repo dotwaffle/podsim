@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"reflect"
-	"slices"
 	"strings"
 	"testing"
 
@@ -15,7 +14,7 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-// TestCurrentStateGolden records the complete version 6 member contract.
+// TestCurrentStateGolden records the complete version 9 member contract.
 func TestCurrentStateGolden(t *testing.T) {
 	file := newTestStateFile(t)
 	data := decompressTestJSON(t, encodeTestState(t, file))
@@ -24,11 +23,11 @@ func TestCurrentStateGolden(t *testing.T) {
 		if err := value.Indent(jsontext.WithIndent("  ")); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile("testdata/state_v6.json", append(value, '\n'), 0o600); err != nil {
+		if err := os.WriteFile("testdata/state_v9.json", append(value, '\n'), 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}
-	golden, err := os.ReadFile("testdata/state_v6.json")
+	golden, err := os.ReadFile("testdata/state_v9.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -37,18 +36,18 @@ func TestCurrentStateGolden(t *testing.T) {
 		t.Fatal(compactErr)
 	}
 	if !bytes.Equal(data, want) {
-		t.Fatal("version 6 golden differs from the current capture")
+		t.Fatal("version 9 golden differs from the current capture")
 	}
 	decoded, err := decodeStateFile(compressTestJSON(t, want))
-	if err != nil || decoded.Version != serviceStateVersion {
-		t.Fatalf("version 6 golden decode: %v", err)
+	if err != nil || decoded.Version != stateVersion {
+		t.Fatalf("version 9 golden decode: %v", err)
 	}
 	membersType := withoutMember(reflect.TypeFor[stateFile](), reflect.TypeFor[sim.SavedPod](), "boardings")
-	lines := foundationMemberLines(stateMembers(t, "", membersType, nil))
+	lines := stateMembers(t, "", membersType, nil)
 	// The session adapter writes tuples instead of native boarding objects.
 	lines = append(lines, stateMembers(t, "simulation.pods[].boardings", reflect.TypeFor[[][2]float64](), nil)...)
 	members := strings.Join(lines, "\n") + "\n"
-	const path = "testdata/state_v6_members.txt"
+	const path = "testdata/state_v9_members.txt"
 	if *update {
 		if writeErr := os.WriteFile(path, []byte(members), 0o600); writeErr != nil {
 			t.Fatal(writeErr)
@@ -56,7 +55,7 @@ func TestCurrentStateGolden(t *testing.T) {
 	}
 	wantMembers, err := os.ReadFile(path)
 	if err != nil || string(wantMembers) != members {
-		t.Fatalf("version 6 member contract differs: %v", err)
+		t.Fatalf("version 9 member contract differs: %v", err)
 	}
 }
 
@@ -86,12 +85,12 @@ func TestSavedOrderFieldNullGates(t *testing.T) {
 					return []byte(`{"simulation":{"waiting":[{"request":{` + member + `}}]}}`)
 				}
 			}
-			if err := scanStateOrderFields(raw(field.value), serviceStateVersion); err != nil {
+			if err := scanStateOrderFields(raw(field.value), false); err != nil {
 				t.Fatal(err)
 			}
 			for _, value := range []string{"null", `""`, "0", "{}", "[]"} {
-				if err := scanStateOrderFields(raw(value), serviceStateVersion); err == nil {
-					t.Fatalf("version 6 admitted %s", value)
+				if err := scanStateOrderFields(raw(value), false); err == nil {
+					t.Fatalf("the scan admitted %s", value)
 				}
 			}
 		})
@@ -112,7 +111,7 @@ func TestCurrentRestoreRejectsMissingOrderOptions(t *testing.T) {
 			}
 			s := newTestSession(t)
 			if _, err := s.loadState(loadInput{data: encodeTestState(t, file), steps: realRestoreSteps()}); err == nil {
-				t.Fatal("version 6 restore invented a missing effective option")
+				t.Fatal("the restore invented a missing effective option")
 			}
 		})
 	}
@@ -285,20 +284,7 @@ func assertSavedArrayRefusal(t *testing.T, err error) {
 	}
 }
 
-// foundationMemberLines excludes only the optional fields introduced by save 7.
-func foundationMemberLines(lines []string) []string {
-	return slices.DeleteFunc(lines, func(line string) bool {
-		path, _, _ := strings.Cut(line, " ")
-		for part := range strings.SplitSeq(path, ".") {
-			if couplingMember(strings.TrimSuffix(part, "[]")) {
-				return true
-			}
-		}
-		return line == "orderContract string" || line == "textEncoding string" || line == "simulation.orderContract string" || line == "project.orderContract string"
-	})
-}
-
-// TestSavedLegacyOrderMembersRejected checks that version 6 rejects the
+// TestSavedLegacyOrderMembersRejected checks that version 9 rejects the
 // removed legacy order members. Earlier executables wrote them only as true.
 func TestSavedLegacyOrderMembersRejected(t *testing.T) {
 	t.Parallel()
@@ -332,22 +318,21 @@ func TestSavedLegacyOrderMembersRejected(t *testing.T) {
 // the coupling state and a member of the saved project.
 func TestStateFileRefusesCaseVariantMembers(t *testing.T) {
 	t.Parallel()
-	golden, err := os.ReadFile("testdata/state_v6.json")
+	golden, err := os.ReadFile("testdata/state_v9.json")
 	if err != nil {
 		t.Fatal(err)
 	}
 	data := couplingPhaseFixtures(t)
 	coupling := decompressTestJSON(t, encodeTestState(t, couplingPhaseFile(t, couplingPhaseInput(t, data, data.Frames[0]))))
 	for _, test := range []struct {
-		name      string
-		raw       []byte
-		from, to  string
-		preserved bool
+		name     string
+		raw      []byte
+		from, to string
 	}{
-		{"plain tick", golden, `"tick":`, `"Tick":`, false},
-		{"plain rider", golden, `"dispatchReason":`, `"DispatchReason":`, false},
-		{"plain project", golden, `"nodes":`, `"Nodes":`, false},
-		{"coupling tick", coupling, `"tick":`, `"Tick":`, true},
+		{"plain tick", golden, `"tick":`, `"Tick":`},
+		{"plain rider", golden, `"dispatchReason":`, `"DispatchReason":`},
+		{"plain project", golden, `"nodes":`, `"Nodes":`},
+		{"coupling tick", coupling, `"tick":`, `"Tick":`},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -362,11 +347,9 @@ func TestStateFileRefusesCaseVariantMembers(t *testing.T) {
 			if err == nil {
 				t.Fatalf("accepted %s", test.to)
 			}
-			// Startup moves a plain file aside but keeps a coupling file
-			// and fails.
+			// Startup moves each refused file aside.
 			_, preserved := errors.AsType[*preservedStateError](err)
-			stateErr, rejected := errors.AsType[*stateError](err)
-			if preserved != test.preserved || !preserved && (!rejected || stateErr.reason != reasonInvalidState) {
+			if preserved || stateReason(err) != reasonInvalidState {
 				t.Fatalf("wrong refusal class: preserved=%t err=%v", preserved, err)
 			}
 		})

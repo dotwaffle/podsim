@@ -15,9 +15,8 @@ import (
 )
 
 type couplingScan struct {
-	recognized, complete, groups bool
-	packed                       bool
-	pods, groupCount             int
+	recognized, packed bool
+	pods, groupCount   int
 }
 
 func couplingMember(name string) bool {
@@ -28,84 +27,21 @@ func couplingMember(name string) bool {
 	return false
 }
 
-// couplingPresence classifies rejected input without allocating record arrays.
-// Shape counts stay with the validator. A depth refusal cannot prove absence.
-func couplingPresence(raw []byte) (recognized, opaque bool) {
-	if len(raw) > MaxStateBytes {
-		return false, true
-	}
-	d := jsontext.NewDecoder(bytes.NewReader(raw), jsontext.AllowDuplicateNames(true))
-	const rootScope, projectScope, nativeScope = 1, 2, 3
-	var scopes, nextScopes [65]uint8
-	versionPending := false
-	for {
-		token, err := d.ReadToken()
-		if err != nil {
-			// Syntax errors keep the recognition from their valid prefix.
-			return false, false
-		}
-		depth := d.StackDepth()
-		if depth > 64 {
-			return false, true
-		}
-		if versionPending {
-			versionPending = false
-			if token.Kind() == jsontext.KindNumber {
-				if version, err := token.Int(); err == nil && version == couplingStateVersion {
-					return true, false
-				}
-			}
-		}
-		if token.Kind() == jsontext.KindBeginObject || token.Kind() == jsontext.KindBeginArray {
-			scopes[depth], nextScopes[depth] = 0, 0
-			if depth == 1 && token.Kind() == jsontext.KindBeginObject {
-				scopes[depth] = rootScope
-			} else if depth > 1 {
-				if token.Kind() == jsontext.KindBeginObject {
-					scopes[depth] = nextScopes[depth-1]
-				}
-				nextScopes[depth-1] = 0
-			}
-		}
-		kind, index := d.StackIndex(depth)
-		if token.Kind() != jsontext.KindString || kind != jsontext.KindBeginObject || index%2 != 1 || scopes[depth] == 0 {
-			continue
-		}
-		nextScopes[depth] = 0
-		name := token.String()
-		if len(name) > len("couplingCorridors") {
-			continue
-		}
-		if couplingMember(name) {
-			return true, false
-		}
-		if scopes[depth] == rootScope {
-			switch name {
-			case "version":
-				versionPending = true
-			case "project":
-				nextScopes[depth] = projectScope
-			case "simulation":
-				nextScopes[depth] = nativeScope
-			}
-		}
-	}
-}
-
-// scanCouplingJSON retains recovery classification even when a later token fails.
-// It checks new records before typed allocation. Native restore checks geometry.
+// scanCouplingJSON checks the coupling members of a saved state, or of a
+// topology when topology is true, before typed allocation. Native restore
+// checks geometry. A saved state with a coupling member needs the coupling
+// markers of the root, the project and the simulation.
 func scanCouplingJSON(data []byte, topology bool) (scan couplingScan, err error) {
 	d := jsontext.NewDecoder(bytes.NewReader(data), jsontext.AllowDuplicateNames(true))
 	seen := make(map[string]bool, 8)
 	rootClosed := false
-	var family int64
 	for {
 		token, readErr := d.ReadToken()
 		if errors.Is(readErr, io.EOF) {
 			if !rootClosed {
 				return scan, errors.New("incomplete coupling JSON")
 			}
-			if family == couplingStateVersion && !topology {
+			if !topology && scan.recognized {
 				for _, path := range []string{"/couplingContract", "/project/couplingContract", "/simulation/couplingContract"} {
 					if !seen[path] {
 						return scan, errors.New("saved coupling contract marker is missing")
@@ -114,9 +50,7 @@ func scanCouplingJSON(data []byte, topology bool) (scan couplingScan, err error)
 			} else if topology && scan.recognized && !seen["/couplingContract"] {
 				return scan, errors.New("topology coupling contract marker is missing")
 			}
-			scan.complete = true
 			if scan.groupCount > scan.pods/2 && !topology {
-				scan.complete = false
 				return scan, errors.New("saved coupling groups exceed half the fleet")
 			}
 			return scan, nil
@@ -150,23 +84,6 @@ func scanCouplingJSON(data []byte, topology bool) (scan couplingScan, err error)
 			}
 		}
 		if token.Kind() != jsontext.KindString || kind != jsontext.KindBeginObject || n%2 != 1 {
-			continue
-		}
-		if path == "/version" {
-			value, e := d.ReadToken()
-			if e != nil {
-				return scan, e
-			}
-			if value.Kind() != jsontext.KindNumber {
-				continue
-			}
-			version, e := value.Int()
-			if e == nil {
-				family = version
-			}
-			if e == nil && version == couplingStateVersion {
-				scan.recognized = true
-			}
 			continue
 		}
 		if path == "/orderContract" {
@@ -207,12 +124,11 @@ func scanCouplingJSON(data []byte, topology bool) (scan couplingScan, err error)
 				return scan, errors.New("coupling enabled must be Boolean")
 			}
 		case "couplingGroups":
-			scan.groups = true
 			count, e := scanCouplingRecords(d, "group", project.MaxPods/2)
 			if e != nil {
 				return scan, e
 			}
-			scan.groupCount, scan.groups = count, count != 0
+			scan.groupCount = count
 		case "couplingSites", "couplingCorridors":
 			record := "corridor"
 			if parts[len(parts)-1] == "couplingSites" {

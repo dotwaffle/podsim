@@ -300,7 +300,7 @@ func TestOnboardConsumerSourceGuards(t *testing.T) {
 	}
 	raw := decompressTestJSON(t, data)
 	for _, tc := range []struct{ name, old, replacement string }{
-		{"unknown source", `"from":"harbor"`, `"from":"missing"`},
+		{"unknown source", `"from":"aGFyYm9y"`, `"from":"bWlzc2luZw=="`},
 		{"tuple shape", `"boardings":[[0,0]`, `"boardings":[[0,0,0]`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

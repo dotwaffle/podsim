@@ -87,7 +87,7 @@ func sessionStateFile(t *testing.T, shared *Session) stateFile {
 		t.Fatal(err)
 	}
 	return stateFile{
-		Format: stateFormat, Version: serviceStateVersion, Final: true,
+		Format: stateFormat, Version: stateVersion, Final: true,
 		SavedAt: time.Date(2026, time.September, 23, 9, 0, 0, 123456789, time.UTC),
 		Build:   shared.build, Epoch: testStateEpoch,
 		Revision: shared.revision, ProjectRevision: shared.projectRevision, Generation: shared.generation,
@@ -97,6 +97,9 @@ func sessionStateFile(t *testing.T, shared *Session) stateFile {
 		Demand:          savedDemand{State: shared.demand.state, Random: random, Budget: shared.demand.budget},
 		Simulation:      shared.simulation.ExportState(),
 		Project:         shared.project,
+		// The markers of the project, as captureState writes them.
+		OrderContract:    shared.project.OrderContract,
+		CouplingContract: shared.project.CouplingContract,
 	}
 }
 
@@ -243,8 +246,13 @@ func TestDecodeStateFileRejects(t *testing.T) {
 		{"version 3", edit(func(file *stateFile) { file.Version = 3 }), reasonUnsupportedVersion, nil},
 		{"version 4", edit(func(file *stateFile) { file.Version = 4 }), reasonUnsupportedVersion, nil},
 		{"version 5", edit(func(file *stateFile) { file.Version = 5 }), reasonUnsupportedVersion, nil},
+		{"version 6", edit(func(file *stateFile) { file.Version = 6 }), reasonUnsupportedVersion, nil},
+		{"version 7", edit(func(file *stateFile) { file.Version = 7 }), reasonUnsupportedVersion, nil},
+		{"version 8", edit(func(file *stateFile) { file.Version = 8 }), reasonUnsupportedVersion, nil},
 		{"version 2 with old orders", compressTestJSON(t, []byte(`{"format":"podsim-session","version":2,"simulation":{"pods":[{"riders":[{"partySize":12}]}]}}`)), reasonUnsupportedVersion, nil},
-		{"version 9", edit(func(file *stateFile) { file.Version = 9 }), reasonUnsupportedVersion, nil},
+		{"version 10", edit(func(file *stateFile) { file.Version = 10 }), reasonUnsupportedVersion, nil},
+		{"text encoding marker", insert(`{`, `"textEncoding":"order-text-base64-v1",`), reasonInvalidState, nil},
+		{"unpacked order text", replace(`"from":"aGFyYm9y"`, `"from":"harbor"`), reasonInvalidState, nil},
 		{"format x", edit(func(file *stateFile) { file.Format = "x" }), reasonUnsupportedVersion, nil},
 		{"unknown member at the top", insert(`{`, `"extra":1,`), reasonInvalidState, json.ErrUnknownName},
 		{"unknown member in the project", insert(`"project":{`, `"extra":1,`), reasonInvalidState, json.ErrUnknownName},
@@ -312,6 +320,38 @@ func TestDecodeStateFileRejects(t *testing.T) {
 				t.Fatalf("error %v does not wrap %v", err, tc.err)
 			}
 		})
+	}
+}
+
+// TestDecodeStateFileSizeBoundary decodes files of MaxStateBytes and of
+// MaxStateBytes+1 bytes with a good, a bad and a cut gzip trailer. The last
+// read of the larger file also reads the trailer, so a trailer error comes
+// with too many bytes. Each file over the limit is preserved as too large.
+func TestDecodeStateFileSizeBoundary(t *testing.T) {
+	for _, size := range []int{MaxStateBytes, MaxStateBytes + 1} {
+		compressed := compressTestJSON(t, make([]byte, size))
+		badChecksum := slices.Clone(compressed)
+		badChecksum[len(badChecksum)-8] ^= 0xff
+		reason, preserved := reasonInvalidState, false
+		if size > MaxStateBytes {
+			reason, preserved = reasonTooLarge, true
+		}
+		for _, test := range []struct {
+			name string
+			data []byte
+		}{
+			{"good trailer", compressed},
+			{"bad checksum", badChecksum},
+			{"cut trailer", compressed[:len(compressed)-4]},
+		} {
+			t.Run(fmt.Sprintf("%d bytes with a %s", size, test.name), func(t *testing.T) {
+				_, err := decodeStateFile(test.data)
+				_, isPreserved := errors.AsType[*preservedStateError](err)
+				if stateReason(err) != reason || isPreserved != preserved {
+					t.Fatalf("reason %q, preserved %t, want %q, %t: %v", stateReason(err), isPreserved, reason, preserved, err)
+				}
+			})
+		}
 	}
 }
 
@@ -693,7 +733,7 @@ func TestStateFileWorstCaseSize(t *testing.T) {
 
 	file := stateFile{
 		RailConnections: connections,
-		Format:          stateFormat, Version: serviceStateVersion, Final: true,
+		Format:          stateFormat, Version: stateVersion, Final: true,
 		SavedAt: time.Date(2026, time.September, 23, 9, 0, 0, 123456789, time.FixedZone("", -12*60*60)),
 		Build:   testBuildID, Epoch: strings.Repeat("\x01", maxEpochBytes),
 		Revision: math.MaxUint64 - 1, ProjectRevision: math.MaxUint64 - 1, Generation: math.MaxUint64 - 1,
@@ -719,7 +759,7 @@ func TestStateFileWorstCaseSize(t *testing.T) {
 	// detector. The file has one of each. A comma separates the elements of
 	// an array, so each other pod or trip adds its size and 1.
 	// The subtest name records the saved version.
-	t.Run(strconv.Itoa(serviceStateVersion), func(t *testing.T) {
+	t.Run(strconv.Itoa(stateVersion), func(t *testing.T) {
 		t.Parallel()
 		maxFile, maxPod, maxTrip := file, pod, trip
 		maxFile.Project = withBankMetadata(maxFile.Project)
@@ -748,7 +788,7 @@ func TestStateFileWorstCaseSize(t *testing.T) {
 		// The size fixture uses maximal numeric values, including invalid IDs.
 		// Decode its full shape, then retain the original physical validation fixture.
 		data := encodeTestState(t, maxFile)
-		assertExplicitArrayBounds(t, "worst-case save", decompressTestJSON(t, data), serviceStateLimits())
+		assertExplicitArrayBounds(t, "worst-case save", decompressTestJSON(t, data), savedLimits(contractMarkers{}))
 		decoded, err := decodeStateFile(data)
 		if err != nil || len(decoded.RailConnections) != project.MaxRailDeparturePassengers {
 			t.Fatalf("maximal saved shape: %v", err)
@@ -767,11 +807,18 @@ func TestStateFileWorstCaseSize(t *testing.T) {
 // jsonSize returns the size of the state file encoding of value.
 func jsonSize(t *testing.T, value any) int {
 	t.Helper()
-	data, err := json.Marshal(value, json.Deterministic(true))
+	return len(marshalSavedJSON(t, value))
+}
+
+// marshalSavedJSON returns the state file encoding of value, with packed
+// order text. It does not convert the boarding records of a pod to tuples.
+func marshalSavedJSON(t *testing.T, value any) []byte {
+	t.Helper()
+	data, err := json.Marshal(value, json.Deterministic(true), json.WithMarshalers(json.MarshalToFunc(encodePackedSavedRequest)))
 	if err != nil {
 		t.Fatal(err)
 	}
-	return len(data)
+	return data
 }
 
 func TestEncodeStateFileTooLarge(t *testing.T) {

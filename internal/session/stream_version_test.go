@@ -33,11 +33,11 @@ func TestStreamHelloRefusesOtherVersions(t *testing.T) {
 	}
 	hellos = append(hellos,
 		// Hello 4 and 5 of an Express project had the textEncoding marker.
-		`{"kind":"hello","version":4,"build":"other-build","serverStart":"source","orderContract":"`+string(express)+`","textEncoding":"`+ExpressTextEncoding+`"}`,
+		`{"kind":"hello","version":4,"build":"other-build","serverStart":"source","orderContract":"`+string(express)+`","textEncoding":"order-text-base64-v1"}`,
 		`{"kind":"hello","version":5,"build":"other-build","serverStart":"source","couplingContract":"`+string(coupling)+`"}`,
-		`{"kind":"hello","version":5,"build":"other-build","serverStart":"source","orderContract":"`+string(express)+`","textEncoding":"`+ExpressTextEncoding+`","couplingContract":"`+string(coupling)+`"}`,
+		`{"kind":"hello","version":5,"build":"other-build","serverStart":"source","orderContract":"`+string(express)+`","textEncoding":"order-text-base64-v1","couplingContract":"`+string(coupling)+`"}`,
 		// Hello 6 has no textEncoding marker.
-		`{"kind":"hello","version":6,"build":"other-build","serverStart":"source","orderContract":"`+string(express)+`","textEncoding":"`+ExpressTextEncoding+`"}`,
+		`{"kind":"hello","version":6,"build":"other-build","serverStart":"source","orderContract":"`+string(express)+`","textEncoding":"order-text-base64-v1"}`,
 	)
 	for _, raw := range hellos {
 		hello, err := DecodeStreamHello([]byte(raw))

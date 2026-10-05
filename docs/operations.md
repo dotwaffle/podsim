@@ -259,13 +259,24 @@ It reports them as unaccounted orders at each restore, together with the orders 
 - `empty`: The server does not use the saved state and starts a new session.
   Except after a read failure, it moves `session.json.gz` to a rejected file.
 
-A session without an order or coupling contract writes saved-state version 6.
-An Express session writes version 7, and a coupling session writes version 8.
-This server accepts versions 6, 7, and 8.
+Each session writes saved-state version 9, and this server accepts only version 9.
+The root markers of the file select its optional sections.
+The `orderContract` marker `express-v1` selects the Express order bounds.
+The `couplingContract` marker `compact-pair-v1` permits the coupling members.
+The project and the simulation must have the same markers as the root.
+A file without the coupling marker must not have a coupling member, also not an empty, null, or false value.
+The order text of each queued order and each rider is canonical base64 text, for each project kind.
+The file has no `textEncoding` member.
 Each saved version stores a version 1 project.
 A saved project of version 2 through 5 gets reason `invalid_state`, as other bad saves do.
-The server rejects saved-state versions 2 through 5 with reason `unsupported_version` and does not migrate them.
-A file with coupling markers is an exception at any version number: as for a damaged version 8 file, the server keeps the file, turns saving off, and fails to start.
+An intact file of version 1 through 8, or of version 10 or later, gets reason `unsupported_version`.
+The server moves it aside and starts a new session.
+It does not migrate the file, also not a version 8 file with coupling markers.
+A damaged or invalid file gets `invalid_state`, and the server moves it aside and starts a new session.
+Examples are a gzip error, a JSON syntax error, a file over a scan limit, a header member of the wrong type, a missing, null, zero, or negative version, a value that the decoder refuses, and a restore that fails.
+This rule applies also to a file with committed coupling groups.
+The server does not try to recover any part of such a file.
+A file of more than 80 MiB is the only exception: the server keeps it, turns saving off, and fails to start.
 The optional pod field `stationBuffered` permits validated berthless occupancy of a station holding lane.
 Restore keeps those members draining, then applies the project's experimental policy settings.
 Buffer certificates of fixed station-entry platoons have the fields `kind` and `terminalCell`.
@@ -274,7 +285,8 @@ Explicit logical recovery validates those certificates physically before it requ
 See the [fixed entry contract](station-entry-platoons.md) for field and restore checks.
 Bank-inconsistent retained routes reject restoration before either tier.
 See [independent station banks](station-banks.md) for bank membership, routing, and browser editing.
-An older server rejects an unsupported version and moves the file aside.
+An older server rejects version 9 with `unsupported_version`.
+It keeps a file with coupling markers and fails to start, and it moves each other file aside.
 Keep a copy before a downgrade.
 
 Portable project version 1 accepts optional `stationBuffers` and `pickupReassignment` Boolean settings.
@@ -294,8 +306,8 @@ The [file restart checks](experimental-policy-restarts.md) cover combined polici
 They do not simulate power loss.
 The optional project settings do not change command or WebSocket envelope formats.
 
-The reason for an `empty` start is `project_changed`, `unsupported_version`, `invalid_state`, `too_large`, `restore_loop`, or `unreadable`.
-`too_large` means more than 80 MiB, compressed or decompressed.
+The reason for an `empty` start is `project_changed`, `unsupported_version`, `invalid_state`, `restore_loop`, or `unreadable`.
+A file of more than 80 MiB, compressed or decompressed, does not give an `empty` start, because the server keeps the file and fails to start.
 A file with another format version gets `unsupported_version`.
 Until the first release, an added optional member with a safe zero value keeps the format version.
 The file leaves out the member when its value is zero.
@@ -304,8 +316,7 @@ Each other change to the members of the file gets a new format version.
 Thus after a downgrade past such a change, the older server moves the file aside.
 The change to lowerCamel member names kept the format version.
 The server matches member names exactly.
-Thus it gets `invalid_state` for a version 6 or 7 file with the earlier names and moves that file aside.
-A version 8 file with the earlier names is a damaged coupling file: the server keeps the file, turns saving off, and fails to start.
+Each file with the earlier names has a version before 9, so the server moves it aside with `unsupported_version`.
 With `-project`, the project file has priority, and a saved state with a different project gets `project_changed`.
 When only demand or experimental policy settings differ, the server restores the saved state.
 A demand change writes the project file at once and the session state about 1 second later.

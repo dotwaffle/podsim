@@ -66,10 +66,7 @@ func TestBoardingStateRoundTrip(t *testing.T) {
 func TestBoardingStateOrdinaryBytes(t *testing.T) {
 	t.Parallel()
 	file := newTestStateFile(t)
-	want, err := json.Marshal(file, json.Deterministic(true))
-	if err != nil {
-		t.Fatal(err)
-	}
+	want := marshalSavedJSON(t, file)
 	if got := decompressTestJSON(t, encodeTestState(t, file)); !bytes.Equal(got, want) {
 		t.Fatal("ordinary save encoding changed")
 	}

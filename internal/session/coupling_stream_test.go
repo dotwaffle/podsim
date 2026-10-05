@@ -29,9 +29,6 @@ func couplingInputStreamFixture(t *testing.T, input sim.RestoreStateInput, order
 	input.State.OrderContract = order
 	file := couplingPhaseFile(t, input)
 	file.OrderContract = order
-	if order == sim.ExpressOrderContract {
-		file.TextEncoding = ExpressTextEncoding
-	}
 	store := &fakeStore{data: encodeTestState(t, file)}
 	s, err := NewFromStore(t.Context(), StoreInput{Store: store})
 	if err != nil {

@@ -106,23 +106,13 @@ func validateEnvelopeContract(e StreamEnvelope, previous StreamFrame) error {
 	return nil
 }
 
-// expressSavedLimits bound a version 7 state file, which has the Express
-// marker. The table contains every other saved table, so the decoder also
-// uses it before it reads the version.
-func expressSavedLimits() jsonLimits {
-	return savedLimits(contractMarkers{order: sim.ExpressOrderContract})
-}
-
 func (file *stateFile) validateWireContract() error {
 	if err := file.validateCouplingContract(); err != nil {
 		return err
 	}
-	if file.packedOrders() {
-		if file.OrderContract != sim.ExpressOrderContract || file.TextEncoding != ExpressTextEncoding || file.Simulation.OrderContract != file.OrderContract || file.Project.OrderContract != file.OrderContract {
-			return errors.New("saved Express contract markers disagree")
-		}
-	} else if file.OrderContract != "" || file.TextEncoding != "" || file.Simulation.OrderContract != "" || file.Project.OrderContract != "" {
-		return errors.New("legacy saved version contains Express contract")
+	if file.OrderContract != "" && file.OrderContract != sim.ExpressOrderContract ||
+		file.Simulation.OrderContract != file.OrderContract || file.Project.OrderContract != file.OrderContract {
+		return errors.New("saved order contract markers disagree")
 	}
 	return nil
 }
@@ -181,7 +171,7 @@ func DecodeStreamHello(raw []byte) (StreamHello, error) {
 	} else if err := scanStreamServiceMembers(raw, markers); err != nil {
 		return hello, err
 	}
-	if err := scanContractMarkers(raw, markers.order == sim.ExpressOrderContract, textRefused); err != nil {
+	if err := scanContractMarkers(raw, markers.order == sim.ExpressOrderContract); err != nil {
 		return hello, err
 	}
 	return hello, nil

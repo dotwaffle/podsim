@@ -231,7 +231,7 @@ func TestCompactSessionRoundTrip(t *testing.T) {
 			}
 			shared.Close()
 			file, write, err := shared.captureState(SaveFinal)
-			if err != nil || !write || file.Version != serviceStateVersion || !shared.simulation.NeedsCompactQueueState() {
+			if err != nil || !write || file.Version != stateVersion || !shared.simulation.NeedsCompactQueueState() {
 				t.Fatalf("compact capture write=%t version=%d: %v", write, file.Version, err)
 			}
 			decoded, err := decodeStateFile(encodeTestState(t, file))
@@ -371,7 +371,7 @@ func TestCompactArrayShapeBounds(t *testing.T) {
 			t.Fatalf("compact decoder member bound accepted=%d", count)
 		}
 		file := []byte(`{"simulation":{"pods":[{"compactQueue":` + string(raw) + `}]}}`)
-		err = prescanJSON(file, compactStateLimits(serviceStateLimits()))
+		err = prescanJSON(file, compactStateLimits(savedLimits(contractMarkers{})))
 		if (err == nil) != (count <= 4) {
 			t.Fatalf("compact scanner member bound accepted=%d", count)
 		}

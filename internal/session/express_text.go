@@ -14,13 +14,6 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-// ExpressTextEncoding is the textEncoding marker of an Express saved
-// state. expressStateVersion is the version of that saved state.
-const (
-	ExpressTextEncoding = "order-text-base64-v1"
-	expressStateVersion = 7
-)
-
 func packOrderText(text string, limit int) (string, error) {
 	if len(text) > limit || !utf8.ValidString(text) {
 		return "", errors.New("invalid order text bytes")
@@ -159,31 +152,12 @@ func scanPackedOrders(data []byte) error {
 	}
 }
 
-// textMarker is the rule of a document for the textEncoding marker.
-type textMarker int
-
-const (
-	// textRefused refuses the marker. Streams, HTTP states and topologies
-	// do not carry it, because they always pack the order text.
-	textRefused textMarker = iota
-	// textRequired requires the marker at the root of an Express saved
-	// state.
-	textRequired
-)
-
-// savedTextMarker returns the textEncoding rule of a saved state. A saved
-// state with the Express marker requires the marker.
-func savedTextMarker(express bool) textMarker {
-	if express {
-		return textRequired
-	}
-	return textRefused
-}
-
 // scanContractMarkers keeps marker presence distinct from empty and null.
-// express reports the Express marker of the document, and text gives the
-// rule for the textEncoding marker.
-func scanContractMarkers(data []byte, express bool, text textMarker) error {
+// express reports the Express marker of the document. Each orderContract
+// member must then be the Express marker, and the root must have one.
+// Without it, each orderContract member is refused. No document has a
+// textEncoding member: the order text is always packed.
+func scanContractMarkers(data []byte, express bool) error {
 	d := jsontext.NewDecoder(bytes.NewReader(data))
 	seen := map[string]bool{}
 	for {
@@ -207,25 +181,21 @@ func scanContractMarkers(data []byte, express bool, text textMarker) error {
 			return errors.New("duplicate contract marker")
 		}
 		seen[path] = true
-		if !express {
-			return errors.New("legacy version contains Express marker")
-		}
-		if name == "textEncoding" && text == textRefused {
+		if name == "textEncoding" {
 			return errors.New("document contains a text encoding marker")
+		}
+		if !express {
+			return errors.New("document without the root Express marker contains an order marker")
 		}
 		value, err := d.ReadToken()
 		if err != nil {
 			return err
 		}
-		expected := string(sim.ExpressOrderContract)
-		if name == "textEncoding" {
-			expected = ExpressTextEncoding
-		}
-		if value.Kind() != jsontext.KindString || value.String() != expected {
+		if value.Kind() != jsontext.KindString || value.String() != string(sim.ExpressOrderContract) {
 			return errors.New("invalid Express contract marker")
 		}
 	}
-	if express && (!seen["/orderContract"] || text == textRequired && !seen["/textEncoding"]) {
+	if express && !seen["/orderContract"] {
 		return errors.New("missing Express contract marker")
 	}
 	return nil

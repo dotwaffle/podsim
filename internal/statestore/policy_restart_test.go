@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"testing/synctest"
@@ -145,13 +147,36 @@ func storedPolicyFixture(t *testing.T, store *Store, config project.Config, simu
 		t.Fatal(err)
 	}
 	file := policyStateJSON(t, mustRead(t, store))
-	raw, err := json.Marshal(simulation)
+	raw, err := json.Marshal(packSavedOrders(simulation))
 	if err != nil {
 		t.Fatal(err)
 	}
-	file["simulation"], file["version"] = raw, json.RawMessage("6")
+	file["simulation"] = raw
 	data := encodePolicyState(t, file)
 	mustWrite(t, store, data)
+}
+
+// packSavedOrders returns state with the order text of each waiting trip
+// and each rider packed as base64, as a version 9 save stores it.
+func packSavedOrders(state sim.SavedState) sim.SavedState {
+	pack := func(request *sim.SavedRequest) {
+		for _, text := range []*string{&request.From, &request.To, &request.PodID, &request.DispatchReason, &request.ServiceID} {
+			*text = base64.StdEncoding.EncodeToString([]byte(*text))
+		}
+	}
+	state.Waiting = slices.Clone(state.Waiting)
+	for index := range state.Waiting {
+		pack(&state.Waiting[index].Request)
+	}
+	state.Pods = slices.Clone(state.Pods)
+	for index := range state.Pods {
+		pod := &state.Pods[index]
+		pod.Riders = slices.Clone(pod.Riders)
+		for rider := range pod.Riders {
+			pack(&pod.Riders[rider])
+		}
+	}
+	return state
 }
 
 func TestSavedPolicyFileRestart(t *testing.T) {
@@ -224,7 +249,7 @@ func TestCombinedPoliciesFileRestart(t *testing.T) {
 				if err := json.Unmarshal(policyStateJSON(t, mustRead(t, store))["simulation"], &saved); err != nil {
 					t.Fatal(err)
 				}
-				if !reflect.DeepEqual(saved, physical) {
+				if !reflect.DeepEqual(saved, packSavedOrders(physical)) {
 					t.Fatal("file restart changed physical assignments or mixed buffer membership")
 				}
 				restarted := startPolicySession(t, store, &selected)
@@ -234,7 +259,7 @@ func TestCombinedPoliciesFileRestart(t *testing.T) {
 				if err := restarted.SaveState(t.Context(), session.SaveFinal); err != nil {
 					t.Fatal(err)
 				}
-				wantVersion := "6"
+				wantVersion := "9"
 				if got := string(policyStateJSON(t, mustRead(t, store))["version"]); got != wantVersion {
 					t.Fatalf("drained save version=%s, want %s", got, wantVersion)
 				}
@@ -243,8 +268,8 @@ func TestCombinedPoliciesFileRestart(t *testing.T) {
 	}
 }
 
-// A version 2 save comes from a server before version 6. Startup moves it
-// aside as a rejected state and starts a new session that saves version 6.
+// A version 2 save comes from a server before version 9. Startup moves it
+// aside as a rejected state and starts a new session that saves version 9.
 func TestLegacyFileArchivedAtStartup(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
@@ -304,8 +329,8 @@ func TestLegacyFileArchivedAtStartup(t *testing.T) {
 	if data, err := os.ReadFile(filepath.Join(dir, archived[0])); err != nil || !bytes.Equal(data, legacy) {
 		t.Fatal("the rejected file is not the version 2 save", err)
 	}
-	if got := string(policyStateJSON(t, mustRead(t, store))["version"]); got != "6" {
-		t.Fatalf("startup save version=%s, want 6", got)
+	if got := string(policyStateJSON(t, mustRead(t, store))["version"]); got != "9" {
+		t.Fatalf("startup save version=%s, want 9", got)
 	}
 }
 
@@ -350,7 +375,7 @@ func TestCombinedPolicyFailedFileSave(t *testing.T) {
 			if err := json.Unmarshal(policyStateJSON(t, data)["simulation"], &saved); err != nil {
 				t.Fatal(err)
 			}
-			if !reflect.DeepEqual(saved, physical) {
+			if !reflect.DeepEqual(saved, packSavedOrders(physical)) {
 				t.Fatal("failed save changed physical assignments or buffer membership")
 			}
 			if failure == "canceled write" && !bytes.Equal(data, old) {

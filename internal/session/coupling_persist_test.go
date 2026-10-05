@@ -8,59 +8,11 @@ import (
 	"fmt"
 	"reflect"
 	"slices"
-	"strings"
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
-
-func TestCouplingProtectedLateMarkers(t *testing.T) {
-	prefix := `{"padding":[` + strings.Repeat(`null,`, 65_536) + `null],`
-	for _, test := range []struct {
-		name, suffix string
-		protected    bool
-	}{
-		{"late version", `"format":"podsim-session","version":8}`, true},
-		{"late marker", `"format":"podsim-session","version":2,"couplingContract":null}`, true},
-		{"late native marker", `"format":"podsim-session","version":2,"simulation":{"couplingGroups":null}}`, true},
-		{"folded native marker", `"format":"podsim-session","version":2,"simulation":{"COUPLINGGROUPS":null}}`, false},
-		{"unmarked legacy", `"format":"podsim-session","version":2}`, false},
-		{"unsupported ancestor", `"format":"podsim-session","version":2,"other":{"couplingContract":null}}`, false},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			store := &fakeStore{data: compressTestJSON(t, []byte(prefix+test.suffix))}
-			before := bytes.Clone(store.data)
-			_, decodeErr := decodeStateFile(before)
-			if !errors.Is(decodeErr, errJSONArrayTooLong) {
-				t.Fatal("changed first validation error", decodeErr)
-			}
-			s, err := NewFromStore(t.Context(), StoreInput{Store: store})
-			if test.protected {
-				assertCouplingPreserved(t, s, err, store, before)
-				return
-			}
-			if err != nil || s == nil {
-				t.Fatal("ordinary unmarked rejection changed", err)
-			}
-			t.Cleanup(s.Close)
-			if !slices.Equal(store.callList(), []string{"read", "reject", "write"}) {
-				t.Fatal("ordinary unmarked rejection changed store calls", store.callList())
-			}
-		})
-	}
-	for _, test := range []struct{ name, raw string }{
-		{"opaque depth", `{"padding":` + strings.Repeat(`[`, 65) + `null` + strings.Repeat(`]`, 65) + `,"format":"podsim-session","version":8}`},
-		{"unknown version", `{"couplingContract":"compact-pair-v1","format":"podsim-session","version":9}`},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			store := &fakeStore{data: compressTestJSON(t, []byte(test.raw))}
-			before := bytes.Clone(store.data)
-			s, err := NewFromStore(t.Context(), StoreInput{Store: store})
-			assertCouplingPreserved(t, s, err, store, before)
-		})
-	}
-}
 
 func TestCouplingStorePhaseRestores(t *testing.T) {
 	data := couplingPhaseFixtures(t)
@@ -76,99 +28,49 @@ func TestCouplingStorePhaseRestores(t *testing.T) {
 			if s.restore.Tier != "physical" || !reflect.DeepEqual(s.simulation.ExportState(), input.State) {
 				t.Fatal("startup lost group, cabin, route, or phase state")
 			}
-			if !slices.Equal(store.callList(), []string{"read", "write"}) || store.lastWrite(t).Version != couplingStateVersion {
-				t.Fatal("startup did not preserve save8", store.callList())
+			if !slices.Equal(store.callList(), []string{"read", "write"}) || store.lastWrite(t).Version != stateVersion {
+				t.Fatal("startup did not write version 9", store.callList())
 			}
-			// A second startup without a periodic/final save cannot choose logical recovery.
-			before := bytes.Clone(store.data)
-			second, err := NewFromStore(t.Context(), StoreInput{Store: store})
-			if err == nil || second != nil || !bytes.Equal(before, store.data) || !slices.Equal(store.callList(), []string{"read", "write", "read"}) {
-				t.Fatal("committed state entered logical fallback or startup replacement", err)
-			}
+			// A second startup without a periodic or final save cannot use
+			// logical recovery for committed groups. The file moves aside.
+			second := &fakeStore{data: store.data}
+			restarted, err := NewFromStore(t.Context(), StoreInput{Store: second})
+			assertMovedAside(t, restarted, err, second, reasonInvalidState)
 		})
 	}
 }
 
-func TestCouplingProtectedStoreFailures(t *testing.T) {
-	data := couplingPhaseFixtures(t)
-	input := couplingPhaseInput(t, data, data.Frames[0])
-	base := couplingPhaseFile(t, input)
-	for _, test := range []struct {
-		name         string
-		edit         func(*stateFile)
-		panicRestore bool
-	}{
-		{"attempt one", func(f *stateFile) { f.RestoreAttempts = 1 }, false},
-		{"attempt limit", func(f *stateFile) { f.RestoreAttempts = restoreLoopAttempts }, false},
-		{"invalid speed", func(f *stateFile) { f.Speed = 3 }, false},
-		{"native invalid phase", func(f *stateFile) { f.Simulation.CouplingGroups[0].Phase = "unknown" }, false},
-		{"native panic", func(*stateFile) {}, true},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			file := base
-			file.Simulation.CouplingGroups = slices.Clone(file.Simulation.CouplingGroups)
-			test.edit(&file)
-			store := &fakeStore{data: encodeTestState(t, file)}
-			before := bytes.Clone(store.data)
-			steps := realRestoreSteps()
-			if test.panicRestore {
-				steps.restoreSimulation = func(sim.RestoreStateInput) (*sim.Simulation, sim.RestoreResult, error) {
-					panic("protected restore test")
-				}
-			}
-			s, err := newFromStore(t.Context(), StoreInput{Store: store}, steps)
-			assertCouplingPreserved(t, s, err, store, before)
-		})
+// assertMovedAside checks that a restart moved the saved state aside for
+// reason and started a new session that saves.
+func assertMovedAside(t *testing.T, s *Session, err error, store *fakeStore, reason string) {
+	t.Helper()
+	if err != nil || s == nil {
+		t.Fatal("rejected state stopped the start", err)
 	}
-	for _, name := range []string{"gzip truncated", "gzip checksum"} {
-		t.Run(name, func(t *testing.T) {
-			encoded := bytes.Clone(encodeTestState(t, base))
-			if name == "gzip truncated" {
-				encoded = encoded[:len(encoded)-4]
-			} else {
-				encoded[len(encoded)-1] ^= 1
-			}
-			store := &fakeStore{data: encoded}
-			before := bytes.Clone(store.data)
-			s, err := NewFromStore(t.Context(), StoreInput{Store: store})
-			assertCouplingPreserved(t, s, err, store, before)
-		})
-	}
-
-	for _, raw := range []string{
-		`{"format":"podsim-session","version":8`,
-		`{"couplingContract":"compact-pair-v1","format":"podsim-session","version":`,
-		`{"format":"podsim-session","version":8,"simulation":{"couplingGroups":null}}`,
-		`{"couplingContract":"compact-pair-v1","format":"podsim-session","version":null}`,
-		`{"couplingContract":"compact-pair-v1","format":"podsim-session","version":"8"}`,
-		`{"couplingContract":"compact-pair-v1","format":"podsim-session","version":{}}`,
-		`{"couplingContract":"compact-pair-v1","format":"podsim-session","version":[]}`,
-		`{"couplingContract":"compact-pair-v1","format":"podsim-session","version":2}`,
-		`{"format":"podsim-session","version":2,"simulation":{"couplingGroups":[{}]}}`,
-	} {
-		t.Run("incomplete recognition="+raw, func(t *testing.T) {
-			store := &fakeStore{data: compressTestJSON(t, []byte(raw))}
-			before := bytes.Clone(store.data)
-			s, err := NewFromStore(t.Context(), StoreInput{Store: store})
-			assertCouplingPreserved(t, s, err, store, before)
-		})
+	t.Cleanup(s.Close)
+	if !slices.Equal(store.callList(), []string{"read", "reject", "write"}) || s.restore.Reason != reason {
+		t.Fatalf("rejection calls %v, reason %q, want %q", store.callList(), s.restore.Reason, reason)
 	}
 }
 
-func assertCouplingPreserved(t *testing.T, s *Session, err error, store *fakeStore, before []byte) {
+// assertPreserved checks that a restart kept the saved state, turned
+// saving off and failed.
+func assertPreserved(t *testing.T, s *Session, err error, store *fakeStore, before []byte) {
 	t.Helper()
 	if err == nil || s != nil {
-		t.Fatal("protected failure returned a session", err)
+		t.Fatal("preserved state returned a session", err)
 	}
-	if _, protected := errors.AsType[*preservedStateError](err); !protected {
+	if _, preserved := errors.AsType[*preservedStateError](err); !preserved {
 		t.Fatal("failure lost preservation classification", err)
 	}
 	if !bytes.Equal(before, store.data) || !slices.Equal(store.callList(), []string{"read"}) {
-		t.Fatal("protected failure archived or overwrote the input", store.callList())
+		t.Fatal("preserved state was archived or overwritten", store.callList())
 	}
 }
 
-func TestCouplingProtectedRestoreResult(t *testing.T) {
+// TestCouplingRestoreResultMovedAside checks that a restore of committed
+// groups that loses or changes state moves the file aside.
+func TestCouplingRestoreResultMovedAside(t *testing.T) {
 	data := couplingPhaseFixtures(t)
 	input := couplingPhaseInput(t, data, data.Frames[0])
 	file := couplingPhaseFile(t, input)
@@ -189,7 +91,6 @@ func TestCouplingProtectedRestoreResult(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			store := &fakeStore{data: encodeTestState(t, file)}
-			before := bytes.Clone(store.data)
 			steps := realRestoreSteps()
 			steps.restoreSimulation = func(i sim.RestoreStateInput) (*sim.Simulation, sim.RestoreResult, error) {
 				s, result, err := sim.RestoreState(i)
@@ -200,7 +101,7 @@ func TestCouplingProtectedRestoreResult(t *testing.T) {
 				return s, result, nil
 			}
 			s, err := newFromStore(t.Context(), StoreInput{Store: store}, steps)
-			assertCouplingPreserved(t, s, err, store, before)
+			assertMovedAside(t, s, err, store, reasonInvalidState)
 		})
 	}
 }
@@ -209,25 +110,30 @@ func TestCouplingStoreOpaqueReadTooLarge(t *testing.T) {
 	store := &fakeStore{data: []byte("opaque original bytes"), readErr: fmt.Errorf("bounded read: %w", ErrStateTooLarge)}
 	before := bytes.Clone(store.data)
 	s, err := NewFromStore(t.Context(), StoreInput{Store: store})
-	assertCouplingPreserved(t, s, err, store, before)
+	assertPreserved(t, s, err, store, before)
 	if !errors.Is(err, ErrStateTooLarge) {
 		t.Fatal("lost original read-size error", err)
 	}
 }
 
+// TestCouplingProjectEnabledRestoreOverride restores a coupling file with
+// a project file that differs from the saved project. Only couplingEnabled
+// can differ. A project file with other coupling geometry moves the saved
+// state aside as project_changed. A project file that is not valid stops
+// the start before the saved state moves.
 func TestCouplingProjectEnabledRestoreOverride(t *testing.T) {
 	data := couplingPhaseFixtures(t)
 	input := couplingPhaseInput(t, data, data.Frames[0])
 	file := couplingPhaseFile(t, input)
 	for _, change := range []struct {
-		name  string
-		edit  func(*project.Config)
-		valid bool
+		name   string
+		edit   func(*project.Config)
+		reason string
 	}{
-		{"enabled", func(c *project.Config) { c.CouplingEnabled = !c.CouplingEnabled }, true},
-		{"marker", func(c *project.Config) { c.CouplingContract = "unknown" }, false},
-		{"site", func(c *project.Config) { c.CouplingSites[0].StartMeters++ }, false},
-		{"path", func(c *project.Config) { c.CouplingCorridors[0].LaneIDs[0] = "unknown" }, false},
+		{"enabled", func(c *project.Config) { c.CouplingEnabled = !c.CouplingEnabled }, ""},
+		{"marker", func(c *project.Config) { c.CouplingContract = "unknown" }, "invalid project"},
+		{"site", func(c *project.Config) { c.CouplingSites[0].StartMeters++ }, reasonProjectChanged},
+		{"path", func(c *project.Config) { c.CouplingCorridors[0].LaneIDs[0] = "unknown" }, "invalid project"},
 	} {
 		t.Run(change.name, func(t *testing.T) {
 			config := project.Clone(file.Project)
@@ -235,13 +141,18 @@ func TestCouplingProjectEnabledRestoreOverride(t *testing.T) {
 			store := &fakeStore{data: encodeTestState(t, file)}
 			before := bytes.Clone(store.data)
 			s, err := NewFromStore(t.Context(), StoreInput{Store: store, Project: &config})
-			if change.valid {
+			switch change.reason {
+			case "":
 				if err != nil || s == nil || s.project.CouplingEnabled != config.CouplingEnabled || s.simulation.CouplingEnabled() != config.CouplingEnabled || len(s.simulation.ExportState().CouplingGroups) != 1 {
 					t.Fatal("enabled-only change lost group", err)
 				}
 				t.Cleanup(s.Close)
-			} else {
-				assertCouplingPreserved(t, s, err, store, before)
+			case "invalid project":
+				if err == nil || s != nil || !bytes.Equal(before, store.data) || !slices.Equal(store.callList(), []string{"read"}) {
+					t.Fatal("invalid project file did not stop the start before the state moved", err, store.callList())
+				}
+			default:
+				assertMovedAside(t, s, err, store, change.reason)
 			}
 		})
 	}
@@ -261,11 +172,11 @@ func TestCouplingStoreGroupFreeRecovery(t *testing.T) {
 	store = &fakeStore{data: encodeTestState(t, file)}
 	restored, err := NewFromStore(t.Context(), StoreInput{Store: store})
 	if err != nil || restored == nil || restored.restore.Tier != "logical" {
-		t.Fatal("proven group-free save8 lost ordinary recovery", err)
+		t.Fatal("proven group-free save lost ordinary recovery", err)
 	}
 	t.Cleanup(restored.Close)
-	if store.lastWrite(t).Version != couplingStateVersion {
-		t.Fatal("group-free save8 downgraded")
+	if store.lastWrite(t).Version != stateVersion {
+		t.Fatal("group-free save changed version")
 	}
 }
 
@@ -278,10 +189,10 @@ func TestCouplingStoreGroupFreePanic(t *testing.T) {
 	}
 	t.Cleanup(s.Close)
 	file := sessionStateFile(t, s)
-	file.Version, file.CouplingContract, file.RestoreAttempts = couplingStateVersion, config.CouplingContract, 0
+	file.Version, file.CouplingContract, file.RestoreAttempts = stateVersion, config.CouplingContract, 0
 	store := &fakeStore{data: encodeTestState(t, file)}
 	decoded, err := decodeStateFile(store.data)
-	if err != nil || decoded.Version != couplingStateVersion || decoded.protected || len(decoded.Simulation.CouplingGroups) != 0 {
+	if err != nil || decoded.Version != stateVersion || len(decoded.Simulation.CouplingGroups) != 0 {
 		t.Fatal("control did not prove complete group-free decode", err)
 	}
 	steps := realRestoreSteps()
@@ -298,14 +209,13 @@ func TestCouplingStoreGroupFreePanic(t *testing.T) {
 	}
 }
 
-func TestCouplingStoreMalformedGroupsPreserved(t *testing.T) {
+func TestCouplingStoreMalformedGroupsMovedAside(t *testing.T) {
 	data := couplingPhaseFixtures(t)
 	file := couplingPhaseFile(t, couplingPhaseInput(t, data, data.Frames[0]))
 	raw := mutateCouplingGroup(t, decompressTestJSON(t, encodeTestState(t, file)), func(g map[string]jsontext.Value) { delete(g, "formationTick") })
 	store := &fakeStore{data: compressTestJSON(t, raw)}
-	before := bytes.Clone(store.data)
 	s, err := NewFromStore(context.Background(), StoreInput{Store: store})
-	assertCouplingPreserved(t, s, err, store, before)
+	assertMovedAside(t, s, err, store, reasonInvalidState)
 }
 
 func TestCouplingProjectApplyAtomic(t *testing.T) {

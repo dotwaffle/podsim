@@ -78,7 +78,7 @@ func TestExpressSaveStreamHTTPRoundTrip(t *testing.T) {
 		}
 		sawBoarding = true
 		file := sessionStateFile(t, shared)
-		file.Version, file.OrderContract, file.TextEncoding = expressStateVersion, sim.ExpressOrderContract, ExpressTextEncoding
+		file.OrderContract = sim.ExpressOrderContract
 		file.RestoreAttempts = 0
 		data := encodeTestState(t, file)
 		decoded, err := decodeCheckedState(data)

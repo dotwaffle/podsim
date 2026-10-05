@@ -43,7 +43,7 @@ func decodeMarkedJSON(data []byte, httpState bool, target any) error {
 			return err
 		}
 	}
-	if err := scanContractMarkers(data, markers.order == sim.ExpressOrderContract, textRefused); err != nil {
+	if err := scanContractMarkers(data, markers.order == sim.ExpressOrderContract); err != nil {
 		return err
 	}
 	if err := scanPackedOrders(data); err != nil {

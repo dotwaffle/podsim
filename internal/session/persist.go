@@ -101,8 +101,8 @@ type StoreInput struct {
 // when the pods started again at their initial berths, and empty when the
 // server did not use the saved state. Reason tells why the tier is not
 // physical: physical_failed or restore_loop for logical, and
-// project_changed, unsupported_version, invalid_state, too_large,
-// unreadable or restore_loop for empty. Demoted counts the pods that the
+// project_changed, unsupported_version, invalid_state, unreadable or
+// restore_loop for empty. Demoted counts the pods that the
 // physical tier moved to a berth. Requeued counts the orders that went back
 // to the queue. Dropped counts the orders that the restore removed because
 // they were not valid. Unaccounted counts the orders that the saved state
@@ -460,26 +460,17 @@ type loadedState struct {
 // valid. Each error is a *stateError. A saved state can be damaged or made
 // by an attacker, so a panic also gives an error with reason invalid_state.
 func (s *Session) loadState(input loadInput) (loaded loadedState, err error) {
-	decoded := false
 	defer func() {
 		if recovered := recover(); recovered != nil {
 			s.logger.Error("Restore failed with a panic",
 				slog.Any("panic", recovered), slog.String("stack", string(debug.Stack())))
 			err = invalidState(fmt.Errorf("restore panicked: %v", recovered))
-			if !loaded.file.protected && !decoded {
-				raw, _ := decompressStatePrefix(input.data)
-				err = protectCouplingDecodeError(raw, err)
-			}
-		}
-		if loaded.file.protected && err != nil {
-			err = preserveStateError(err)
 		}
 	}()
 	loaded.file, err = decodeStateFile(input.data)
 	if err != nil {
 		return loadedState{}, err
 	}
-	decoded = true
 	file := loaded.file
 	if file.RestoreAttempts >= restoreLoopAttempts {
 		return loaded, &stateError{
@@ -825,7 +816,7 @@ func (s *Session) captureState(kind SaveKind) (stateFile, bool, error) {
 		return stateFile{}, false, fmt.Errorf("save demand random source: %w", err)
 	}
 	file := stateFile{
-		Format: stateFormat, Version: serviceStateVersion, Final: kind == SaveFinal, Epoch: s.epoch,
+		Format: stateFormat, Version: stateVersion, Final: kind == SaveFinal, Epoch: s.epoch,
 		Revision: s.revision, ProjectRevision: s.projectRevision, Generation: s.generation,
 		LastCheckpoint: s.lastCheckpoint, Speed: s.speed, Sequences: s.commandSequences(),
 		Demand:     savedDemand{State: s.demand.state, Random: random, Budget: s.demand.budget},
@@ -833,12 +824,9 @@ func (s *Session) captureState(kind SaveKind) (stateFile, bool, error) {
 		Project:    s.project,
 	}
 	if s.project.OrderContract == sim.ExpressOrderContract {
-		file.Version = expressStateVersion
 		file.OrderContract = sim.ExpressOrderContract
-		file.TextEncoding = ExpressTextEncoding
 	}
 	if project.HasCouplingContract(s.project) {
-		file.Version = couplingStateVersion
 		file.CouplingContract = s.project.CouplingContract
 	}
 	if s.demand.connections != nil {

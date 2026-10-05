@@ -70,10 +70,7 @@ func testCompactWorstCaseSize(t *testing.T, base stateFile, pod sim.SavedPod, tr
 					t.Fatal("byte fixture differs from the native stored-rider bound")
 				}
 			}
-			raw, err := json.Marshal(file, json.Deterministic(true))
-			if err != nil {
-				t.Fatal(err)
-			}
+			raw := marshalSavedJSON(t, file)
 			t.Logf("typed compact members=%d: %d JSON bytes, limit %d, headroom %d", count, len(raw), MaxStateBytes, MaxStateBytes-len(raw))
 			if len(raw) > MaxStateBytes {
 				t.Fatal("typed compact save exceeds the byte cap")
@@ -82,7 +79,7 @@ func testCompactWorstCaseSize(t *testing.T, base stateFile, pod sim.SavedPod, tr
 			if scanErr := prescanJSON(raw, compactStateLimits(stateJSONLimits)); scanErr != nil {
 				t.Fatalf("typed compact operating shape: %v", scanErr)
 			}
-			assertExplicitArrayBounds(t, "typed compact save maximum", raw, serviceStateLimits())
+			assertExplicitArrayBounds(t, "typed compact save maximum", raw, savedLimits(contractMarkers{}))
 			data := encodeTestState(t, file)
 			if encoded := decompressTestJSON(t, data); !bytes.Equal(encoded, raw) {
 				t.Fatal("typed compact fixture differs from the bounded state encoder")
@@ -145,7 +142,7 @@ func testBoardingWorstCaseSize(t *testing.T, base stateFile, count int) {
 			if err := prescanJSON(raw, boardingStateLimits(compactStateLimits(stateJSONLimits))); err != nil {
 				t.Fatal("boarding operating shape", err)
 			}
-			assertExplicitArrayBounds(t, "boarding save maximum", raw, serviceStateLimits())
+			assertExplicitArrayBounds(t, "boarding save maximum", raw, savedLimits(contractMarkers{}))
 			decoded, err := decodeStateFile(data)
 			if err != nil {
 				t.Fatal("boarding maximum decode", err)

@@ -90,14 +90,6 @@ type boardingWirePod struct {
 	Boardings []boardingTuple `json:"boardings,omitempty"`
 }
 
-func (source boardingSource) encodePod(encoder *jsontext.Encoder, pod sim.SavedPod) error {
-	return source.encodePodContract(encoder, pod, "")
-}
-
-func (source boardingSource) encodeExpressPod(encoder *jsontext.Encoder, pod sim.SavedPod) error {
-	return source.encodePodContract(encoder, pod, sim.ExpressOrderContract)
-}
-
 func (source boardingSource) encodePodContract(encoder *jsontext.Encoder, pod sim.SavedPod, contract sim.OrderContract) error {
 	if len(pod.Boardings) == 0 {
 		return json.MarshalEncode(encoder, savedPodFields(pod))
@@ -125,14 +117,8 @@ func (source boardingSource) encodePodContract(encoder *jsontext.Encoder, pod si
 	return json.MarshalEncode(encoder, wire)
 }
 
-func decodeBoardingPod(decoder *jsontext.Decoder, pod *sim.SavedPod) ([]boardingTuple, error) {
-	return decodeBoardingPodContract(decoder, pod, "")
-}
-
-func decodeExpressBoardingPod(decoder *jsontext.Decoder, pod *sim.SavedPod) ([]boardingTuple, error) {
-	return decodeBoardingPodContract(decoder, pod, sim.ExpressOrderContract)
-}
-
+// decodeBoardingPodContract decodes a saved pod with packed riders. The
+// order marker contract bounds the boarding records.
 func decodeBoardingPodContract(decoder *jsontext.Decoder, pod *sim.SavedPod, contract sim.OrderContract) ([]boardingTuple, error) {
 	value, err := decoder.ReadValue()
 	if err != nil {
@@ -152,11 +138,10 @@ func decodeBoardingPodContract(decoder *jsontext.Decoder, pod *sim.SavedPod, con
 		}
 	}
 	var wire boardingWirePod
+	// The decode of value does not inherit the options of the state
+	// decoder, so it registers the packed rider decoder itself.
 	options := json.JoinOptions(json.RejectUnknownMembers(true), json.WithUnmarshalers(json.JoinUnmarshalers(
-		json.UnmarshalFromFunc(decodeV6Platoon), json.UnmarshalFromFunc(decodeCompactQueue))))
-	if contract == sim.ExpressOrderContract {
-		options = json.JoinOptions(json.RejectUnknownMembers(true), json.WithUnmarshalers(json.JoinUnmarshalers(json.UnmarshalFromFunc(decodeV6Platoon), json.UnmarshalFromFunc(decodeCompactQueue), json.UnmarshalFromFunc(decodePackedSavedRequest))))
-	}
+		json.UnmarshalFromFunc(decodePlatoon), json.UnmarshalFromFunc(decodeCompactQueue), json.UnmarshalFromFunc(decodePackedSavedRequest))))
 	if err := json.Unmarshal(value, &wire, options); err != nil {
 		return nil, err
 	}

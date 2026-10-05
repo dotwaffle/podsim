@@ -107,7 +107,7 @@ func widestSavedBase(t *testing.T) stateFile {
 
 	file := stateFile{
 		RailConnections: connections,
-		Format:          stateFormat, Version: serviceStateVersion, Final: true,
+		Format:          stateFormat, Version: stateVersion, Final: true,
 		SavedAt: time.Date(2026, time.September, 23, 9, 0, 0, 123456789, time.FixedZone("", -12*60*60)),
 		Build:   testBuildID, Epoch: strings.Repeat("\x01", maxEpochBytes),
 		Revision: math.MaxUint64 - 1, ProjectRevision: math.MaxUint64 - 1, Generation: math.MaxUint64 - 1,
@@ -148,7 +148,7 @@ func TestExpressWidestSaveAdapters(t *testing.T) {
 	}
 	const wide = 0.0000010000000000000002
 	base := widestSavedBase(t)
-	base.Version, base.OrderContract, base.TextEncoding = expressStateVersion, sim.ExpressOrderContract, ExpressTextEncoding
+	base.OrderContract = sim.ExpressOrderContract
 	base.Project.OrderContract = sim.ExpressOrderContract
 	base.Simulation.OrderContract = sim.ExpressOrderContract
 	classes, err := sim.NewClassSet("express", "compact", "group")
@@ -226,7 +226,7 @@ func TestExpressWidestSaveAdapters(t *testing.T) {
 		if len(raw) > MaxStateBytes || len(data) > MaxStateBytes {
 			t.Fatal("save cap exceeded", len(raw), len(data))
 		}
-		assertExplicitArrayBounds(t, "Express save "+name, raw, expressSavedLimits())
+		assertExplicitArrayBounds(t, "Express save "+name, raw, savedLimits(contractMarkers{order: sim.ExpressOrderContract}))
 		decoded, err := decodeStateFile(data)
 		if err != nil {
 			t.Fatal(err)

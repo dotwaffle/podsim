@@ -55,7 +55,6 @@ func TestCouplingArraysHaveExplicitLimits(t *testing.T) {
 	for _, order := range []sim.OrderContract{"", sim.ExpressOrderContract} {
 		t.Run("order="+string(order), func(t *testing.T) {
 			t.Parallel()
-			packed := order == sim.ExpressOrderContract
 			stream := streamLimits(contractMarkers{order: order, coupling: sim.CompactPairV1CouplingContract})
 			for _, phase := range data.Frames {
 				_, topology, frame := couplingStreamFixture(t, phase, order)
@@ -63,10 +62,7 @@ func TestCouplingArraysHaveExplicitLimits(t *testing.T) {
 				input.OrderContract, input.State.OrderContract = order, order
 				file := couplingPhaseFile(t, input)
 				file.OrderContract = order
-				if packed {
-					file.TextEncoding = ExpressTextEncoding
-				}
-				assertExplicitArrayBounds(t, phase.Name+" save", decompressTestJSON(t, encodeTestState(t, file)), couplingSavedLimits(packed))
+				assertExplicitArrayBounds(t, phase.Name+" save", decompressTestJSON(t, encodeTestState(t, file)), savedLimits(contractMarkers{order: order, coupling: sim.CompactPairV1CouplingContract}))
 				full, err := EncodeStreamJSON(couplingFullEnvelope(frame))
 				if err != nil {
 					t.Fatal(err)
@@ -129,7 +125,8 @@ type familyLimits struct {
 // with the table that it replaces. testdata/family_limit_tables.json holds
 // the tables of each family before savedLimits and streamLimits, from
 // commit 163bbe1. A path that had no explicit limit had the general element
-// limit.
+// limit. Version 9 replaced saves 6, 7 and 8. Its table for the markers
+// of each earlier family must not be looser than the table of that family.
 func TestLimitTablesNotLooser(t *testing.T) {
 	t.Parallel()
 	raw, err := os.ReadFile("testdata/family_limit_tables.json")
@@ -144,11 +141,11 @@ func TestLimitTablesNotLooser(t *testing.T) {
 	coupling := contractMarkers{coupling: sim.CompactPairV1CouplingContract}
 	expressCoupling := contractMarkers{order: sim.ExpressOrderContract, coupling: sim.CompactPairV1CouplingContract}
 	merged := map[string]jsonLimits{
-		"save 6":          serviceStateLimits(),
-		"save 7":          expressSavedLimits(),
-		"save 8":          couplingSavedLimits(false),
-		"save 8 express":  couplingSavedLimits(true),
-		"save header":     expressSavedLimits(),
+		"save 6":          savedLimits(plain),
+		"save 7":          savedLimits(express),
+		"save 8":          savedLimits(coupling),
+		"save 8 express":  savedLimits(expressCoupling),
+		"save header":     savedLimits(express),
 		"hello 3":         streamLimits(plain),
 		"hello 4":         streamLimits(express),
 		"hello 5":         streamLimits(coupling),
@@ -285,15 +282,12 @@ var markerForms = []struct {
 }
 
 // markerFormat is a valid document with the Express marker and more
-// orders than the plain table admits, with its decoder. selected reports a
-// format whose table follows the marker. The version of the other formats
-// requires the marker. Each contradiction decodes a document whose markers
-// disagree.
+// orders than the plain table admits, with its decoder. Each contradiction
+// decodes a document whose markers disagree.
 type markerFormat struct {
 	name           string
 	raw            []byte
 	decode         func([]byte) error
-	selected       bool
 	contradictions map[string]func() error
 }
 
@@ -321,7 +315,7 @@ func TestMarkerFormsSelectLimits(t *testing.T) {
 					if err != nil {
 						t.Errorf("%s: %v", form.name, err)
 					}
-				case form.name == "omitted" && format.selected:
+				case form.name == "omitted":
 					if !errors.Is(err, errJSONArrayTooLong) {
 						t.Errorf("%s: got %v, want the plain table", form.name, err)
 					}
@@ -408,13 +402,13 @@ func markerFormats(t *testing.T) []markerFormat {
 			Kind: "full", Stream: "s", Sequence: 1, Source: sourceOf(frame), Build: frame.State.Build, Full: &frame}
 	}
 
-	// Version 7 requires the marker. The stream and HTTP state select the
-	// table by the marker.
+	// The save, the stream and the HTTP state select the table by the
+	// marker.
 	shared := expressSession(t)
 	saved := sessionStateFile(t, shared)
-	saved.Version, saved.OrderContract, saved.TextEncoding = expressStateVersion, express, ExpressTextEncoding
+	saved.OrderContract = express
 	saved.Simulation.Waiting = trips()
-	save7 := decompressTestJSON(t, encodeTestState(t, saved))
+	expressSave := decompressTestJSON(t, encodeTestState(t, saved))
 	topology, previous := expressGuardFrame(t)
 	frame := previous
 	frame.State.Simulation.Pending = pending(expressRequest)
@@ -423,15 +417,14 @@ func markerFormats(t *testing.T) []markerFormat {
 	frame.State.Speed = 60
 	expressHTTP := marshal(StateEnvelope{OrderContract: express, Topology: topology, Frame: frame})
 
-	// Version 8 selects the table by the marker, as the stream and HTTP
-	// state with the coupling marker do.
+	// The coupling marker does not change the selection.
 	data := couplingPhaseFixtures(t)
 	input := couplingPhaseInput(t, data, data.Frames[0])
 	input.OrderContract, input.State.OrderContract = express, express
 	coupled := couplingPhaseFile(t, input)
-	coupled.OrderContract, coupled.TextEncoding = express, ExpressTextEncoding
+	coupled.OrderContract = express
 	coupled.Simulation.Waiting = trips()
-	save8 := decompressTestJSON(t, encodeTestState(t, coupled))
+	couplingSave := decompressTestJSON(t, encodeTestState(t, coupled))
 	_, couplingTopology, couplingPrevious := couplingStreamFixture(t, data.Frames[0], express)
 	couplingFrame := couplingPrevious
 	couplingFrame.State.Simulation.Pending = pending(couplingRequest)
@@ -451,31 +444,31 @@ func markerFormats(t *testing.T) []markerFormat {
 	}
 	fullDecode := decodeStream(StreamFrame{})
 	return []markerFormat{
-		{name: "save 7", raw: save7, decode: decodeSave, contradictions: map[string]func() error{
-			"project":    drop(decodeSave, save7, "project", "orderContract"),
-			"simulation": drop(decodeSave, save7, "simulation", "orderContract"),
+		{name: "Express save", raw: expressSave, decode: decodeSave, contradictions: map[string]func() error{
+			"project":    drop(decodeSave, expressSave, "project", "orderContract"),
+			"simulation": drop(decodeSave, expressSave, "simulation", "orderContract"),
 		}},
-		{name: "save 8", raw: save8, decode: decodeSave, selected: true, contradictions: map[string]func() error{
-			"project":    drop(decodeSave, save8, "project", "orderContract"),
-			"simulation": drop(decodeSave, save8, "simulation", "orderContract"),
+		{name: "Express coupling save", raw: couplingSave, decode: decodeSave, contradictions: map[string]func() error{
+			"project":    drop(decodeSave, couplingSave, "project", "orderContract"),
+			"simulation": drop(decodeSave, couplingSave, "simulation", "orderContract"),
 		}},
-		{name: "Express full", raw: expressFull, decode: fullDecode, selected: true, contradictions: map[string]func() error{
+		{name: "Express full", raw: expressFull, decode: fullDecode, contradictions: map[string]func() error{
 			"frame": drop(fullDecode, expressFull, "full", "state", "simulation", "orderContract"),
 		}},
-		{name: "Express delta", raw: expressDelta, decode: decodeStream(previous), selected: true, contradictions: map[string]func() error{
+		{name: "Express delta", raw: expressDelta, decode: decodeStream(previous), contradictions: map[string]func() error{
 			"plain frame": func() error { return decodeStream(plainPrevious)(expressDelta) },
 		}},
-		{name: "Express coupling full", raw: couplingFull, decode: fullDecode, selected: true, contradictions: map[string]func() error{
+		{name: "Express coupling full", raw: couplingFull, decode: fullDecode, contradictions: map[string]func() error{
 			"frame": drop(fullDecode, couplingFull, "full", "state", "simulation", "orderContract"),
 		}},
-		{name: "Express coupling delta", raw: couplingDelta, decode: decodeStream(couplingPrevious), selected: true, contradictions: map[string]func() error{
+		{name: "Express coupling delta", raw: couplingDelta, decode: decodeStream(couplingPrevious), contradictions: map[string]func() error{
 			"plain frame": func() error { return decodeStream(plainCouplingPrevious)(couplingDelta) },
 		}},
-		{name: "Express HTTP", raw: expressHTTP, decode: decodeHTTP, selected: true, contradictions: map[string]func() error{
+		{name: "Express HTTP", raw: expressHTTP, decode: decodeHTTP, contradictions: map[string]func() error{
 			"frame":    drop(decodeHTTP, expressHTTP, "frame", "state", "simulation", "orderContract"),
 			"topology": drop(decodeHTTP, expressHTTP, "topology", "orderContract"),
 		}},
-		{name: "Express coupling HTTP", raw: couplingHTTP, decode: decodeHTTP, selected: true, contradictions: map[string]func() error{
+		{name: "Express coupling HTTP", raw: couplingHTTP, decode: decodeHTTP, contradictions: map[string]func() error{
 			"frame":    drop(decodeHTTP, couplingHTTP, "frame", "state", "simulation", "orderContract"),
 			"topology": drop(decodeHTTP, couplingHTTP, "topology", "orderContract"),
 		}},

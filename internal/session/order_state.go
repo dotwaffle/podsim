@@ -11,18 +11,11 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-const serviceStateVersion = 6
-
-// serviceStateLimits bound a version 6 state file, which has no markers.
-func serviceStateLimits() jsonLimits {
-	return savedLimits(contractMarkers{})
-}
-
-func scanStateOrderFields(data []byte, version int) error {
-	return scanStateOrderFieldsContract(data, version, version == expressStateVersion)
-}
-
-func scanStateOrderFieldsContract(data []byte, version int, packed bool) error {
+// scanStateOrderFields checks the order option members of a saved state
+// before the typed decode. scanPackedOrders checks the size of the order
+// text. Without coupling, the root coupling marker, it refuses each
+// coupling member, also an empty, null or false value.
+func scanStateOrderFields(data []byte, coupling bool) error {
 	decoder := jsontext.NewDecoder(bytes.NewReader(data))
 	for {
 		token, err := decoder.ReadToken()
@@ -36,8 +29,8 @@ func scanStateOrderFieldsContract(data []byte, version int, packed bool) error {
 		if token.Kind() != jsontext.KindString || kind != jsontext.KindBeginObject || length%2 != 1 {
 			continue
 		}
-		if version < couplingStateVersion && couplingMember(token.String()) {
-			return errors.New("legacy saved state contains coupling fields")
+		if !coupling && couplingMember(token.String()) {
+			return errors.New("saved state without the coupling marker contains coupling fields")
 		}
 		path := strings.Split(string(decoder.StackPointer()), "/")
 		if !savedOrderFieldPath(path) {
@@ -63,10 +56,6 @@ func scanStateOrderFieldsContract(data []byte, version int, packed bool) error {
 		case "service":
 			if service := sim.ServiceChoice(value.String()); service != sim.OnDemandService && service != sim.ExpressServiceChoice {
 				return errors.New("invalid saved service choice")
-			}
-		case "serviceID":
-			if len(value.String()) > 64 && !packed {
-				return errors.New("saved service ID is too long")
 			}
 		}
 	}

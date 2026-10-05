@@ -2,7 +2,6 @@ package session
 
 import (
 	legacyJSON "encoding/json"
-	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"errors"
 	"fmt"
@@ -11,8 +10,6 @@ import (
 	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
-
-const couplingStateVersion = 8
 
 // preservedStateError stops recovery before an archive or startup write.
 type preservedStateError struct{ err error }
@@ -30,102 +27,10 @@ func preserveStateError(err error) error {
 	return &preservedStateError{err: err}
 }
 
-func protectCouplingDecodeError(raw []byte, err error) error {
-	if _, ok := errors.AsType[*preservedStateError](err); ok {
-		return err
-	}
-	recognized, opaque := couplingPresence(raw)
-	if recognized || opaque {
-		return preserveStateError(err)
-	}
-	return err
-}
-
-func decodeCouplingState(raw []byte) (file stateFile, err error) {
-	protected := true
-	defer func() {
-		if protected && err != nil {
-			err = preserveStateError(err)
-		}
-	}()
-	scan, err := scanCouplingJSON(raw, false)
-	if err != nil {
-		return file, invalidState(err)
-	}
-	if err := prescanJSON(raw, couplingSavedLimits(scan.packed)); err != nil {
-		return file, invalidState(fmt.Errorf("scan session state: %w", err))
-	}
-	if err := scanContractMarkers(raw, scan.packed, savedTextMarker(scan.packed)); err != nil {
-		return file, invalidState(err)
-	}
-	if scan.packed {
-		if err := scanPackedOrders(raw); err != nil {
-			return file, invalidState(err)
-		}
-	}
-	if err := scanStateCompactFields(raw); err != nil {
-		return file, invalidState(err)
-	}
-	if err := scanStateOrderFieldsContract(raw, couplingStateVersion, scan.packed); err != nil {
-		return file, invalidState(err)
-	}
-	var tuples [][]boardingTuple
-	decodePod := func(d *jsontext.Decoder, pod *sim.SavedPod) error {
-		var records []boardingTuple
-		var err error
-		if scan.packed {
-			records, err = decodeExpressBoardingPod(d, pod)
-		} else {
-			records, err = decodeBoardingPod(d, pod)
-		}
-		if err == nil {
-			tuples = append(tuples, records)
-		}
-		return err
-	}
-	unmarshalers := json.JoinUnmarshalers(json.UnmarshalFromFunc(decodeSavedProject), json.UnmarshalFromFunc(decodeV6Platoon),
-		json.UnmarshalFromFunc(decodeCompactQueue), json.UnmarshalFromFunc(decodePod))
-	if scan.packed {
-		unmarshalers = json.JoinUnmarshalers(unmarshalers, json.UnmarshalFromFunc(decodePackedSavedRequest))
-	}
-	if err := json.Unmarshal(raw, &file, json.RejectUnknownMembers(true), json.WithUnmarshalers(unmarshalers)); err != nil {
-		return stateFile{}, invalidState(fmt.Errorf("decode session state: %w", err))
-	}
-	if slices.ContainsFunc(tuples, func(records []boardingTuple) bool { return len(records) != 0 }) {
-		file.boardingTuples = tuples
-	}
-	if err := validateSavedCompactMembers(file.Simulation); err != nil {
-		return file, invalidState(err)
-	}
-	if err := file.validateProjectVersion(); err != nil {
-		return file, invalidState(err)
-	}
-	if err := validateCouplingRoutes(file); err != nil {
-		return file, invalidState(err)
-	}
-	protected = scan.groups
-	file.protected = protected
-	return file, nil
-}
-
-// couplingSavedLimits bound a version 8 state file. packed reports the
-// Express marker.
-func couplingSavedLimits(packed bool) jsonLimits {
-	markers := contractMarkers{coupling: sim.CompactPairV1CouplingContract}
-	if packed {
-		markers.order = sim.ExpressOrderContract
-	}
-	return savedLimits(markers)
-}
-
-func (file *stateFile) packedOrders() bool {
-	return file.Version == expressStateVersion || file.Version == couplingStateVersion && file.OrderContract == sim.ExpressOrderContract
-}
-
 func (file *stateFile) validateCouplingContract() error {
-	if file.Version != couplingStateVersion {
-		if file.CouplingContract != "" || file.Simulation.CouplingContract != "" || file.Simulation.CouplingGroups != nil || file.Project.CouplingContract != "" {
-			return errors.New("legacy saved version contains coupling fields")
+	if file.CouplingContract == "" {
+		if file.Simulation.CouplingContract != "" || file.Simulation.CouplingGroups != nil || file.Project.CouplingContract != "" {
+			return errors.New("saved state without the coupling marker contains coupling fields")
 		}
 		return nil
 	}
@@ -162,7 +67,7 @@ func decodeCouplingTopology(data []byte) (TopologySnapshot, error) {
 	if err != nil {
 		return TopologySnapshot{}, err
 	}
-	if err := scanContractMarkers(data, scan.packed, textRefused); err != nil {
+	if err := scanContractMarkers(data, scan.packed); err != nil {
 		return TopologySnapshot{}, err
 	}
 	markers := contractMarkers{coupling: sim.CompactPairV1CouplingContract}

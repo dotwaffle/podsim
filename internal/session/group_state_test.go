@@ -41,7 +41,7 @@ func TestGroupSaveSourceClassRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if decoded.Version != serviceStateVersion || decoded.Project.Fleet[0].Class != sim.GroupClass || decoded.Simulation.Pods[0].Class != sim.GroupClass {
+	if decoded.Version != stateVersion || decoded.Project.Fleet[0].Class != sim.GroupClass || decoded.Simulation.Pods[0].Class != sim.GroupClass {
 		t.Fatal("save lost source or operating group class")
 	}
 	loaded, err := shared.loadState(loadInput{data: data, project: &config, steps: realRestoreSteps()})
@@ -179,7 +179,7 @@ func testGroupWorstCaseSize(t *testing.T, base stateFile, pod sim.SavedPod, trip
 			if scanErr := prescanJSON(raw, boardingStateLimits(compactStateLimits(stateJSONLimits))); scanErr != nil {
 				t.Fatal(scanErr)
 			}
-			assertExplicitArrayBounds(t, "group save maximum", raw, serviceStateLimits())
+			assertExplicitArrayBounds(t, "group save maximum", raw, savedLimits(contractMarkers{}))
 			decoded, decodeErr := decodeStateFile(data)
 			if decodeErr != nil {
 				t.Fatal(decodeErr)

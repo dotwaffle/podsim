@@ -24,6 +24,8 @@ const (
 	// added optional member with a safe zero value keeps the version. Each
 	// other change to the members of the file needs a new version.
 	stateFormat = "podsim-session"
+	// stateVersion is the only version that the session writes and reads.
+	stateVersion = 9
 	// maxEpochBytes is the largest saved epoch.
 	maxEpochBytes = 100
 	// buildIDLength is the number of lowercase hex digits in a build ID.
@@ -125,19 +127,20 @@ var stateJSONLimits = jsonLimits{
 	},
 }
 
-// stateFile holds versions 6 through 8 of the saved session state.
-// Version 6 has service metadata, boarding references, and retained compact
-// queue certificates.
-// Version 7 packs order text under the Express contract.
-// Version 8 preserves physical groups under an independent coupling contract.
-// Earlier versions reject later fields, including explicit empty or null values.
-// The decoder rejects versions 2 through 5 before it reads their members.
-// The file on disk is
-// the JSON form of stateFile, compressed with gzip. Each change to a member,
-// also in the simulation and in the project, needs a new version. Until the
-// first release, an added optional member with a safe zero value is an
-// exception. It keeps the version.
-// testdata/state_v6_members.txt lists the members.
+// stateFile is version 9 of the saved session state. The file on disk is
+// the JSON form of stateFile, compressed with gzip. The order text of each
+// waiting trip and each rider is packed as canonical base64.
+//
+// The root contract markers select the optional sections. orderContract
+// selects the Express order bounds. couplingContract permits the coupling
+// members of the root, the project and the simulation. Without it, each
+// coupling member is refused, also an explicit empty or null value. The
+// project and simulation markers must equal the root markers.
+//
+// Each change to a member, also in the simulation and in the project,
+// needs a new version. Until the first release, an added optional member
+// with a safe zero value is an exception. It keeps the version.
+// testdata/state_v9_members.txt lists the members.
 //
 // A saver can copy the values into a stateFile while it holds the session
 // lock, and encode the stateFile after it releases the lock. ExportState
@@ -145,10 +148,7 @@ var stateJSONLimits = jsonLimits{
 // replaces its project whole and does not change it in place.
 type stateFile struct {
 	CouplingContract sim.CouplingContract `json:"couplingContract,omitzero"`
-	// protected records a complete new-family recovery classification.
-	protected     bool
-	OrderContract sim.OrderContract `json:"orderContract,omitzero"`
-	TextEncoding  string            `json:"textEncoding,omitzero"`
+	OrderContract    sim.OrderContract    `json:"orderContract,omitzero"`
 	// boardingTuples retains unresolved references in saved pod order.
 	boardingTuples  [][]boardingTuple
 	RailConnections []rail.Connection `json:"railConnections,omitempty"`
@@ -245,11 +245,13 @@ func (e *stateEncoder) encode(file stateFile) ([]byte, error) {
 		return nil, err
 	}
 	source := bindBoardingSource(file.Project)
-	options := json.JoinOptions(json.Deterministic(true), json.WithMarshalers(json.JoinMarshalers(
-		json.MarshalToFunc(e.encodeProject), json.MarshalToFunc(source.encodePod))))
-	if file.packedOrders() {
-		options = json.JoinOptions(json.Deterministic(true), json.WithMarshalers(json.JoinMarshalers(json.MarshalToFunc(e.encodeProject), json.MarshalToFunc(source.encodeExpressPod), json.MarshalToFunc(encodePackedSavedRequest))))
+	encodePod := func(encoder *jsontext.Encoder, pod sim.SavedPod) error {
+		return source.encodePodContract(encoder, pod, file.OrderContract)
 	}
+	// The pod encoder writes the riders with the options of the encoder, so
+	// they are packed as the waiting trips are.
+	options := json.JoinOptions(json.Deterministic(true), json.WithMarshalers(json.JoinMarshalers(
+		json.MarshalToFunc(e.encodeProject), json.MarshalToFunc(encodePod), json.MarshalToFunc(encodePackedSavedRequest))))
 	if err := json.MarshalWrite(limited, file, options); err != nil {
 		return nil, fmt.Errorf("encode session state: %w", err)
 	}
@@ -305,121 +307,153 @@ var strictStateOptions = json.JoinOptions(
 // decodeStateFile decodes a compressed state file. It checks the sizes, the
 // version and the member names, but not the values. The caller checks the
 // project, then the session members with validate, and then the simulation.
-// Each error is a *stateError.
-func decodeStateFile(data []byte) (result stateFile, err error) {
+// Each error is a *stateError. Only a file that is too large gives a
+// *preservedStateError. Each other file that the session cannot use moves
+// aside.
+func decodeStateFile(data []byte) (stateFile, error) {
 	if len(data) > MaxStateBytes {
 		return stateFile{}, preserveStateError(&stateError{
 			reason: reasonTooLarge,
 			err:    fmt.Errorf("compressed session state has %d bytes: %w", len(data), ErrStateTooLarge),
 		})
 	}
-	raw, err := decompressStatePrefix(data)
-	defer func() {
-		if err != nil && len(raw) != 0 {
-			err = protectCouplingDecodeError(raw, err)
-		}
-	}()
+	raw, err := decompressState(data)
+	if errors.Is(err, ErrStateTooLarge) {
+		return stateFile{}, preserveStateError(err)
+	}
 	if err != nil {
-		if len(raw) > MaxStateBytes {
-			err = preserveStateError(err)
-		} else if len(raw) != 0 {
-			err = protectCouplingDecodeError(raw, err)
-		}
-		if errors.Is(err, ErrStateTooLarge) {
-			err = preserveStateError(err)
-		}
 		return stateFile{}, err
 	}
-	// Check the largest recognized shapes before even the small header
-	// decode. The Express table contains every other saved table.
-	if err := prescanJSON(raw, expressSavedLimits()); err != nil {
-		return stateFile{}, protectCouplingDecodeError(raw, invalidState(fmt.Errorf("scan session state: %w", err)))
-	}
-	// The header decode ignores the other members, so that a file from a
-	// later version gets the right reason.
-	var header struct {
-		Format  string `json:"format"`
-		Version int    `json:"version"`
-	}
-	if err := json.Unmarshal(raw, &header); err != nil {
-		return stateFile{}, protectCouplingDecodeError(raw, invalidState(fmt.Errorf("decode session state header: %w", err)))
-	}
-	if header.Format == stateFormat && header.Version == couplingStateVersion {
-		return decodeCouplingState(raw)
-	}
-	// Versions 2 through 5 came before the service metadata of version 6.
-	if header.Format == stateFormat && header.Version >= 2 && header.Version < serviceStateVersion {
-		return stateFile{}, &stateError{
-			reason: reasonUnsupportedVersion,
-			err:    fmt.Errorf("session state version %d is older than version %d and is not supported", header.Version, serviceStateVersion),
-		}
-	}
-	if header.Format != stateFormat || header.Version < serviceStateVersion || header.Version > expressStateVersion {
-		versionErr := &stateError{
-			reason: reasonUnsupportedVersion,
-			err: fmt.Errorf("session state format %.20q version %d is not %q version %d to %d",
-				header.Format, header.Version, stateFormat, serviceStateVersion, couplingStateVersion),
-		}
-		if header.Version == couplingStateVersion {
-			return stateFile{}, protectCouplingDecodeError(raw, versionErr)
-		}
-		return stateFile{}, versionErr
-	}
-	if err := scanContractMarkers(raw, header.Version == expressStateVersion, savedTextMarker(header.Version == expressStateVersion)); err != nil {
+	header, err := decodeStateHeader(raw)
+	if err != nil {
 		return stateFile{}, invalidState(err)
 	}
-	if header.Version == expressStateVersion {
-		if err := scanPackedOrders(raw); err != nil {
-			return stateFile{}, invalidState(err)
+	if header.Version < 1 {
+		return stateFile{}, invalidState(fmt.Errorf("session state version %d is not valid", header.Version))
+	}
+	if header.Format != stateFormat || header.Version != stateVersion {
+		return stateFile{}, unsupportedState(header)
+	}
+	file, err := decodeStateJSON(raw, header.markers())
+	if err != nil {
+		return stateFile{}, invalidState(err)
+	}
+	return file, nil
+}
+
+// unsupportedState returns the error for a file of another format or of
+// a version other than 9. Such a file moves aside, also with coupling
+// markers.
+func unsupportedState(header stateHeader) error {
+	err := &stateError{reason: reasonUnsupportedVersion}
+	switch {
+	case header.Format != stateFormat:
+		err.err = fmt.Errorf("session state format %.20q is not %q", header.Format, stateFormat)
+	case header.Version < stateVersion:
+		err.err = fmt.Errorf("session state version %d is older than version %d and is not supported", header.Version, stateVersion)
+	default:
+		err.err = fmt.Errorf("session state version %d is later than version %d", header.Version, stateVersion)
+	}
+	return err
+}
+
+// stateHeader holds the members of a state file that select its rules.
+type stateHeader struct {
+	Format           string         `json:"format"`
+	Version          int            `json:"version"`
+	OrderContract    jsontext.Value `json:"orderContract"`
+	CouplingContract jsontext.Value `json:"couplingContract"`
+}
+
+// decodeStateHeader bounds raw with the largest saved table and decodes
+// its header. The header decode ignores the other members, so that a file
+// of another version gets the right reason.
+func decodeStateHeader(raw []byte) (stateHeader, error) {
+	if err := prescanJSON(raw, headerLimits()); err != nil {
+		return stateHeader{}, fmt.Errorf("scan session state: %w", err)
+	}
+	var header stateHeader
+	if err := json.Unmarshal(raw, &header); err != nil {
+		return stateHeader{}, fmt.Errorf("decode session state header: %w", err)
+	}
+	return header, nil
+}
+
+// headerLimits returns the limits of the header scan. The Express table
+// contains the table of each other marker.
+func headerLimits() jsonLimits {
+	return savedLimits(contractMarkers{order: sim.ExpressOrderContract})
+}
+
+// markers returns the root markers of the header. An order marker other
+// than the Express marker selects the plain bounds, and scanContractMarkers
+// then refuses the member. scanCouplingJSON checks the value of a coupling
+// marker, and scanStateOrderFields refuses a coupling marker that is not
+// text.
+func (header stateHeader) markers() contractMarkers {
+	var markers contractMarkers
+	var order sim.OrderContract
+	if json.Unmarshal(header.OrderContract, &order) == nil && order == sim.ExpressOrderContract {
+		markers.order = order
+	}
+	if json.Unmarshal(header.CouplingContract, &markers.coupling) != nil {
+		markers.coupling = ""
+	}
+	return markers
+}
+
+// decodeStateJSON decodes the JSON form of a version 9 state file with the
+// rules of markers. Each scan reads the tokens only, so it bounds the file
+// before the typed decode makes values.
+func decodeStateJSON(raw []byte, markers contractMarkers) (stateFile, error) {
+	if err := prescanJSON(raw, savedLimits(markers)); err != nil {
+		return stateFile{}, fmt.Errorf("scan session state: %w", err)
+	}
+	// Without the coupling marker, scanStateOrderFields refuses each
+	// coupling member.
+	if markers.coupling != "" {
+		if _, err := scanCouplingJSON(raw, false); err != nil {
+			return stateFile{}, err
 		}
 	}
-	limits := serviceStateLimits()
-	if header.Version == expressStateVersion {
-		limits = expressSavedLimits()
+	if err := scanContractMarkers(raw, markers.order == sim.ExpressOrderContract); err != nil {
+		return stateFile{}, err
 	}
-	if err := prescanJSON(raw, limits); err != nil {
-		return stateFile{}, invalidState(fmt.Errorf("scan session state: %w", err))
+	if err := scanPackedOrders(raw); err != nil {
+		return stateFile{}, err
 	}
 	if err := scanStateCompactFields(raw); err != nil {
-		return stateFile{}, invalidState(err)
+		return stateFile{}, err
 	}
-	if err := scanStateOrderFields(raw, header.Version); err != nil {
-		return stateFile{}, invalidState(err)
+	if err := scanStateOrderFields(raw, markers.coupling != ""); err != nil {
+		return stateFile{}, err
 	}
 	var boardingTuples [][]boardingTuple
 	decodePod := func(decoder *jsontext.Decoder, pod *sim.SavedPod) error {
-		var tuples []boardingTuple
-		var err error
-		if header.Version == expressStateVersion {
-			tuples, err = decodeExpressBoardingPod(decoder, pod)
-		} else {
-			tuples, err = decodeBoardingPod(decoder, pod)
-		}
+		tuples, err := decodeBoardingPodContract(decoder, pod, markers.order)
 		if err == nil {
 			boardingTuples = append(boardingTuples, tuples)
 		}
 		return err
 	}
-	options := strictStateOptions
-	switch header.Version {
-	case expressStateVersion:
-		options = json.JoinOptions(options, json.WithUnmarshalers(json.JoinUnmarshalers(json.UnmarshalFromFunc(decodeSavedProject), json.UnmarshalFromFunc(decodeV6Platoon), json.UnmarshalFromFunc(decodeCompactQueue), json.UnmarshalFromFunc(decodePod), json.UnmarshalFromFunc(decodePackedSavedRequest))))
-	default:
-		options = json.JoinOptions(options, json.WithUnmarshalers(json.JoinUnmarshalers(
-			json.UnmarshalFromFunc(decodeSavedProject), json.UnmarshalFromFunc(decodeV6Platoon), json.UnmarshalFromFunc(decodeCompactQueue), json.UnmarshalFromFunc(decodePod))))
-	}
+	options := json.JoinOptions(strictStateOptions, json.WithUnmarshalers(json.JoinUnmarshalers(
+		json.UnmarshalFromFunc(decodeSavedProject), json.UnmarshalFromFunc(decodePlatoon), json.UnmarshalFromFunc(decodeCompactQueue),
+		json.UnmarshalFromFunc(decodePod), json.UnmarshalFromFunc(decodePackedSavedRequest))))
 	var file stateFile
 	if err := json.Unmarshal(raw, &file, options); err != nil {
-		return stateFile{}, invalidState(fmt.Errorf("decode session state: %w", err))
+		return stateFile{}, fmt.Errorf("decode session state: %w", err)
 	}
 	if slices.ContainsFunc(boardingTuples, func(tuples []boardingTuple) bool { return len(tuples) != 0 }) {
 		file.boardingTuples = boardingTuples
 	}
 	if err := validateSavedCompactMembers(file.Simulation); err != nil {
-		return stateFile{}, invalidState(err)
+		return stateFile{}, err
 	}
 	if err := file.validateProjectVersion(); err != nil {
-		return stateFile{}, invalidState(err)
+		return stateFile{}, err
+	}
+	if err := validateCouplingRoutes(file); err != nil {
+		return stateFile{}, err
 	}
 	return file, nil
 }
@@ -428,12 +462,7 @@ func (file *stateFile) validateProjectVersion() error {
 	if err := file.validateWireContract(); err != nil {
 		return err
 	}
-	// The wire contract check above binds each saved version to the
-	// project markers: 8 to the coupling marker, 7 to the Express marker
-	// alone, and 6 to neither marker.
-	switch file.Version {
-	case couplingStateVersion, expressStateVersion, serviceStateVersion:
-	default:
+	if file.Version != stateVersion {
 		return fmt.Errorf("saved version %d is not supported", file.Version)
 	}
 	if file.Project.Version != project.CurrentVersion {
@@ -461,7 +490,7 @@ func decodePlatoonFields(decoder *jsontext.Decoder) (sim.SavedPlatoonLink, jsont
 	return sim.SavedPlatoonLink(saved.savedPlatoonFields), saved.Kind, saved.Terminal, nil
 }
 
-func decodeV6Platoon(decoder *jsontext.Decoder, link *sim.SavedPlatoonLink) error {
+func decodePlatoon(decoder *jsontext.Decoder, link *sim.SavedPlatoonLink) error {
 	value, err := decoder.ReadValue()
 	if err != nil {
 		return err
@@ -528,28 +557,21 @@ func decodeFixedPlatoon(decoder *jsontext.Decoder, link *sim.SavedPlatoonLink) e
 // MaxStateBytes+1 bytes, so a small file that expands to a very large one
 // uses little memory.
 func decompressState(data []byte) ([]byte, error) {
-	raw, err := decompressStatePrefix(data)
-	if err != nil {
-		return nil, err
-	}
-	return raw, nil
-}
-
-// decompressStatePrefix retains bounded JSON evidence when gzip fails after output.
-func decompressStatePrefix(data []byte) ([]byte, error) {
 	zr, err := gzip.NewReader(bytes.NewReader(data))
 	if err != nil {
 		return nil, invalidState(fmt.Errorf("decompress session state: %w", err))
 	}
 	raw, err := io.ReadAll(io.LimitReader(zr, MaxStateBytes+1))
-	if err != nil {
-		return raw, invalidState(fmt.Errorf("decompress session state: %w", err))
-	}
+	// The last read of a file of MaxStateBytes+1 bytes also reads the gzip
+	// trailer, so the size check comes before the trailer error.
 	if len(raw) > MaxStateBytes {
 		return nil, &stateError{
 			reason: reasonTooLarge,
 			err:    fmt.Errorf("decompressed session state has more than %d bytes: %w", MaxStateBytes, ErrStateTooLarge),
 		}
+	}
+	if err != nil {
+		return nil, invalidState(fmt.Errorf("decompress session state: %w", err))
 	}
 	return raw, nil
 }

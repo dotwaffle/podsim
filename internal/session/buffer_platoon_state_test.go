@@ -7,8 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"encoding/json/v2"
-
 	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
@@ -41,11 +39,7 @@ func TestBufferPlatoonFieldPresence(t *testing.T) {
 			t.Parallel()
 			file := platoonStateFile(t)
 			file.Simulation.Pods[1].Platoon.Lanes = 1
-			raw, err := json.Marshal(file)
-			if err != nil {
-				t.Fatal(err)
-			}
-			raw = bytes.Replace(raw, []byte(`"platoon":{`), []byte(`"platoon":{`+tc.fields), 1)
+			raw := bytes.Replace(marshalSavedJSON(t, file), []byte(`"platoon":{`), []byte(`"platoon":{`+tc.fields), 1)
 			got, err := decodeStateFile(compressTestJSON(t, raw))
 			if (err == nil) != tc.valid {
 				t.Fatalf("decode accepted=%t want=%t: %v", err == nil, tc.valid, err)
@@ -130,7 +124,7 @@ func TestBufferPlatoonSessionRoundTrip(t *testing.T) {
 			}
 			shared.Close()
 			file, write, err := shared.captureState(SaveFinal)
-			if err != nil || !write || file.Version != serviceStateVersion {
+			if err != nil || !write || file.Version != stateVersion {
 				t.Fatalf("capture version=%d write=%t: %v", file.Version, write, err)
 			}
 			file.SavedAt = time.Date(2026, time.October, 1, 3, 0, 0, 0, time.UTC)
@@ -164,7 +158,7 @@ func TestBufferPlatoonSessionRoundTrip(t *testing.T) {
 			if err := restored.SaveState(t.Context(), SaveFinal); err != nil {
 				t.Fatal(err)
 			}
-			want := serviceStateVersion
+			want := stateVersion
 			if got := store.lastWrite(t).Version; got != want {
 				t.Fatalf("drained save version=%d want=%d", got, want)
 			}

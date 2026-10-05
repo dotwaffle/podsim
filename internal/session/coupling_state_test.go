@@ -3,7 +3,6 @@ package session
 import (
 	"bytes"
 	"crypto/sha256"
-	"encoding/base64"
 	legacyJSON "encoding/json"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
@@ -20,50 +19,6 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-func TestCouplingSavedVersionSelection(t *testing.T) {
-	for _, packed := range []bool{false, true} {
-		for _, enabled := range []bool{false, true} {
-			t.Run(fmt.Sprintf("packed=%t/enabled=%t", packed, enabled), func(t *testing.T) {
-				config := project.Default()
-				if packed {
-					config = expressConsumerProject(t)
-				}
-				config.CouplingContract, config.CouplingEnabled = sim.CompactPairV1CouplingContract, enabled
-				store := &fakeStore{}
-				s, err := NewFromStore(t.Context(), StoreInput{Store: store, Project: &config})
-				if err != nil {
-					t.Fatal(err)
-				}
-				t.Cleanup(s.Close)
-				client := newTestClient(s, "save8")
-				command := Command{Action: "trip", Origin: "harbor", Destination: "market", PartySize: 1, SharingConsent: sim.PrivateConsent, Service: sim.OnDemandService}
-				if packed {
-					command.OrderContract, command.Service, command.ServiceID, command.SharingConsent = sim.ExpressOrderContract, sim.ExpressServiceChoice, "harbor-market", sim.SharedConsent
-				}
-				client.mustApply(t, command)
-				if err := s.SaveState(t.Context(), SavePeriodic); err != nil {
-					t.Fatal(err)
-				}
-				file := store.lastWrite(t)
-				if file.Version != couplingStateVersion || file.CouplingContract != config.CouplingContract || file.Simulation.CouplingContract != config.CouplingContract || file.OrderContract != config.OrderContract {
-					t.Fatal("inactive/empty project5 downgraded or changed order family")
-				}
-				raw := decompressTestJSON(t, store.data)
-				from := "harbor"
-				if packed {
-					from = base64.StdEncoding.EncodeToString([]byte(from))
-				}
-				if !bytes.Contains(raw, []byte(`"from":"`+from+`"`)) {
-					t.Fatal("save8 selected order text from version instead of marker")
-				}
-				if packed != (file.TextEncoding == ExpressTextEncoding) {
-					t.Fatal("save8 text discriminator mismatch")
-				}
-			})
-		}
-	}
-}
-
 func TestCouplingSavedEncoderMarkers(t *testing.T) {
 	data := couplingPhaseFixtures(t)
 	base := couplingPhaseFile(t, couplingPhaseInput(t, data, data.Frames[0]))
@@ -74,8 +29,7 @@ func TestCouplingSavedEncoderMarkers(t *testing.T) {
 		{"root", func(f *stateFile) { f.CouplingContract = "" }},
 		{"native", func(f *stateFile) { f.Simulation.CouplingContract = "" }},
 		{"project", func(f *stateFile) { f.Project.CouplingContract = "" }},
-		{"family", func(f *stateFile) { f.Version = serviceStateVersion }},
-		{"text", func(f *stateFile) { f.TextEncoding = ExpressTextEncoding }},
+		{"order", func(f *stateFile) { f.OrderContract = sim.ExpressOrderContract }},
 	} {
 		t.Run(edit.name, func(t *testing.T) {
 			file := base
@@ -186,7 +140,7 @@ func couplingPhaseFile(t *testing.T, input sim.RestoreStateInput) stateFile {
 	}
 	t.Cleanup(s.Close)
 	file := sessionStateFile(t, s)
-	file.Version, file.CouplingContract, file.RestoreAttempts = couplingStateVersion, input.CouplingContract, 0
+	file.CouplingContract, file.RestoreAttempts = input.CouplingContract, 0
 	file.Simulation = input.State
 	return file
 }
@@ -199,11 +153,11 @@ func TestCouplingSavedPhaseRoundTrip(t *testing.T) {
 			file := couplingPhaseFile(t, input)
 			encoded := encodeTestState(t, file)
 			decoded, err := decodeStateFile(encoded)
-			if err != nil || !decoded.protected || !reflect.DeepEqual(decoded.Simulation, input.State) {
+			if err != nil || !reflect.DeepEqual(decoded.Simulation, input.State) {
 				t.Fatalf("saved group or cabin facts changed: %v", err)
 			}
 			if !bytes.Equal(encoded, encodeTestState(t, decoded)) {
-				t.Fatal("save8 reencode changed deterministic bytes")
+				t.Fatal("reencode changed deterministic bytes")
 			}
 		})
 	}
@@ -232,8 +186,8 @@ func TestCouplingSavedRequiredMembers(t *testing.T) {
 				})
 				if _, err := decodeStateFile(compressTestJSON(t, changed)); err == nil {
 					t.Fatal("accepted malformed committed group")
-				} else if _, preserved := errors.AsType[*preservedStateError](err); !preserved {
-					t.Fatal("malformed committed group can enter fallback", err)
+				} else if _, preserved := errors.AsType[*preservedStateError](err); preserved || stateReason(err) != reasonInvalidState {
+					t.Fatal("malformed committed group is not invalid_state", err)
 				}
 			})
 		}
@@ -286,48 +240,6 @@ func mustCouplingJSON(t *testing.T, value any) []byte {
 		t.Fatal(err)
 	}
 	return data
-}
-
-func TestCouplingSavedOldFamiliesRejectPresence(t *testing.T) {
-	base := newTestStateFile(t)
-	for version := serviceStateVersion; version <= expressStateVersion; version++ {
-		file := base
-		if version == expressStateVersion {
-			s := expressSession(t)
-			file = sessionStateFile(t, s)
-			file.Version, file.OrderContract, file.TextEncoding = expressStateVersion, sim.ExpressOrderContract, ExpressTextEncoding
-		}
-		raw := decompressTestJSON(t, encodeTestState(t, file))
-		if _, err := decodeStateFile(compressTestJSON(t, raw)); err != nil {
-			t.Fatal("invalid historical-family control", version, err)
-		}
-		for _, path := range []string{"root", "simulation", "project"} {
-			for _, name := range []string{"couplingContract", "couplingEnabled", "couplingSites", "couplingCorridors", "couplingGroups"} {
-				for _, value := range []string{"null", "[]", "false"} {
-					t.Run(fmt.Sprintf("v%d/%s/%s/%s", version, path, name, value), func(t *testing.T) {
-						var root map[string]jsontext.Value
-						if err := json.Unmarshal(raw, &root); err != nil {
-							t.Fatal(err)
-						}
-						object := root
-						if path != "root" {
-							object = nil
-							if err := json.Unmarshal(root[path], &object); err != nil {
-								t.Fatal(err)
-							}
-						}
-						object[name] = jsontext.Value(value)
-						if path != "root" {
-							root[path] = mustCouplingJSON(t, object)
-						}
-						if _, err := decodeStateFile(compressTestJSON(t, mustCouplingJSON(t, root))); err == nil {
-							t.Fatal("old family accepted reserved member presence")
-						}
-					})
-				}
-			}
-		}
-	}
 }
 
 func TestCouplingSavedRoutePreflight(t *testing.T) {

@@ -21,7 +21,7 @@ func TestBufferStateCaptureUsesV6(t *testing.T) {
 		if err != nil || !write {
 			t.Fatalf("capture failed: %t %v", write, err)
 		}
-		want := serviceStateVersion
+		want := stateVersion
 		if file.Version != want {
 			t.Fatalf("enabled=%t version=%d want=%d", enabled, file.Version, want)
 		}
@@ -66,7 +66,7 @@ func TestBufferStateSessionRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	file := store.lastWrite(t)
-	if file.Version != serviceStateVersion {
+	if file.Version != stateVersion {
 		t.Fatalf("version %d", file.Version)
 	}
 	restoredStore := &fakeStore{data: store.writeList()[len(store.writeList())-1]}
@@ -89,7 +89,7 @@ func TestBufferStateSessionRoundTrip(t *testing.T) {
 	if err := restored.SaveState(t.Context(), SaveFinal); err != nil {
 		t.Fatal(err)
 	}
-	if got := restoredStore.lastWrite(t).Version; got != serviceStateVersion {
+	if got := restoredStore.lastWrite(t).Version; got != stateVersion {
 		t.Fatalf("drained state retained v%d", got)
 	}
 }
@@ -121,7 +121,7 @@ func TestPickupBufferSessionDepartureRoundTrip(t *testing.T) {
 	if err := shared.SaveState(t.Context(), SaveFinal); err != nil {
 		t.Fatal(err)
 	}
-	if store.lastWrite(t).Version != serviceStateVersion {
+	if store.lastWrite(t).Version != stateVersion {
 		t.Fatal("buffer pickup departure did not require version 3")
 	}
 	data := store.writeList()[len(store.writeList())-1]
