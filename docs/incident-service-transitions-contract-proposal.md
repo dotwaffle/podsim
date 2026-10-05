@@ -1523,9 +1523,10 @@ Gates for every patch:
 | `DrainInterruptions()`, `Connections.Interrupt` | The session and `cmd/compare` | Section 8.5. |
 | `nextIncidentID()`, `SetIncidentGeneration(g)` | Every record of stages 2 and later; the session | Section 11.4. |
 | `InterruptRider(podID, orderID)` | Test entry: the session tests | The incident marker. An active rider whose destination another active rider of its pod shares. No coupling, platoon, or Compact queue member, and no dispatch pass. |
+| `FailStepForTest(tick, compact, cause, before)` | Test entry: the session tests of the fault returns of a step | None. At the end of the step that reaches `tick`, it runs `before` and sets the Compact queue or coupling fault. |
 
-Stage 1 exports only `DrainInterruptions`, `Connections.Interrupt`, and `SetIncidentGeneration`, and the test entry `InterruptRider`.
-The maintainer approved the test entry on 2026-10-05.
+Stage 1 exports only `DrainInterruptions`, `Connections.Interrupt`, and `SetIncidentGeneration`, and the test entries `InterruptRider` and `FailStepForTest`.
+The maintainer approved the test entries on 2026-10-05.
 Later stages call the other functions from inside `internal/sim`.
 
 Preconditions that later stages must meet before they call:

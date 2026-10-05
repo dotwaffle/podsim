@@ -81,3 +81,29 @@ func (s *Simulation) InterruptRider(podID string, orderID int) error {
 	s.observe()
 	return nil
 }
+
+// FailStepForTest makes the Step that reaches tick fail a controller. At
+// the end of that Step it runs before, and then it pauses the simulation
+// with cause as the fault of the Compact queue controller, or of the
+// coupling controller when compact is false. It acts once.
+//
+// It is a test entry (incident contract, section 13). The session tests
+// use it to reach the fault returns of a step. No production code calls it.
+func (s *Simulation) FailStepForTest(tick int64, compact bool, cause error, before func(*Simulation)) {
+	previous := s.monitor
+	s.monitor = func(s *Simulation) {
+		if s.tick == tick {
+			s.monitor = previous
+			before(s)
+			if compact {
+				s.compactFault = cause
+			} else {
+				s.couplingFault = cause
+			}
+			s.paused = true
+		}
+		if previous != nil {
+			previous(s)
+		}
+	}
+}

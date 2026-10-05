@@ -1,6 +1,7 @@
 package session
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/project"
@@ -249,5 +250,77 @@ func TestSaveAndPublicationDelivery(t *testing.T) {
 		if aboard(restored, pair.bound) {
 			t.Fatal("the restored session has the interrupted order aboard")
 		}
+	})
+}
+
+// TestFaultReturnDelivery checks the delivery on the fault returns of a
+// step (incident contract, section 8.5). The step interrupts the bound
+// order and then fails a controller. The session delivers the interruption
+// before it returns, so the checks run before any publication or save.
+func TestFaultReturnDelivery(t *testing.T) {
+	t.Parallel()
+	want := rail.Counts{Unserved: 1}
+	// fail arms s to interrupt the bound order of pair at the end of the
+	// next step, and then to fail a controller with cause.
+	fail := func(t *testing.T, s *Session, pair railPair, compact bool, cause error) {
+		t.Helper()
+		s.simulation.FailStepForTest(s.simulation.Tick()+1, compact, cause, func(simulation *sim.Simulation) {
+			if err := simulation.InterruptRider(pair.pod, pair.bound); err != nil {
+				t.Error(err)
+			}
+		})
+	}
+	t.Run("Compact pause", func(t *testing.T) {
+		t.Parallel()
+		s := newRailSession(t, interruptionProject(3600))
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		pair := boardRailPair(t, s)
+		cause := errors.New("injected Compact queue failure")
+		fail(t, s, pair, true, cause)
+		if err := s.step(); err != nil {
+			t.Fatal(err)
+		}
+		if !errors.Is(s.simulation.CompactQueueError(), cause) {
+			t.Fatalf("the step did not take the Compact pause return: %v", s.simulation.CompactQueueError())
+		}
+		checkDelivered(t, s, pair.bound, want)
+	})
+	t.Run("coupling failure at a daily band boundary", func(t *testing.T) {
+		t.Parallel()
+		config := dailyDemandProject()
+		config.Demand.Enabled = false
+		railConfig := interruptionProject(3600)
+		config.IncidentContract, config.Fleet, config.SharedRidePartyLimit = railConfig.IncidentContract, railConfig.Fleet, railConfig.SharedRidePartyLimit
+		config.RailDepartures = railConfig.RailDepartures
+		s := newRailSession(t, config)
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		pair := boardRailPair(t, s)
+		// Step to the tick before a band boundary, with the pair aboard.
+		next := s.demand.clone()
+		for !next.activateDaily(s.simulation.Tick() + 1) {
+			if err := s.step(); err != nil {
+				t.Fatal(err)
+			}
+			next = s.demand.clone()
+		}
+		if !aboard(s, pair.bound) {
+			t.Fatalf("the bound order left its pod before the band boundary at tick %d", s.simulation.Tick()+1)
+		}
+		band, day := s.demand.dailyBand, s.demand.dailyDay
+		if next.dailyBand == band && next.dailyDay == day {
+			t.Fatal("the next step does not change the daily band")
+		}
+		cause := errors.New("injected coupling failure")
+		fail(t, s, pair, false, cause)
+		if err := s.step(); !errors.Is(err, cause) {
+			t.Fatalf("step error %v, want the coupling failure", err)
+		}
+		// The step rolled the demand state back to the earlier band.
+		if s.demand.dailyBand != band || s.demand.dailyDay != day {
+			t.Fatalf("band %d of day %d after the rollback, want %d of day %d", s.demand.dailyBand, s.demand.dailyDay, band, day)
+		}
+		checkDelivered(t, s, pair.bound, want)
 	})
 }
