@@ -205,3 +205,77 @@ func TestStrandedStreamOrder(t *testing.T) {
 		})
 	}
 }
+
+// TestStreamLegOriginStations checks that a stream refuses a pending order
+// with a leg origin that is not a passenger station or that is its
+// destination, and a stranded order with a parking-only station (incident
+// contract, sections 7.1 and 7.6). Each topology marks one station
+// parking-only. The orders have no passenger path, so only the exception
+// for a stranded order could accept them. The same orders are valid
+// stranded orders when no station is parking-only.
+func TestStreamLegOriginStations(t *testing.T) {
+	t.Parallel()
+	shared := strandedSession(t)
+	frame, err := shared.presentationFrame()
+	if err != nil {
+		t.Fatal(err)
+	}
+	onDemand := func(from, leg, to string) sim.Request {
+		r := legRequest(leg)
+		r.From, r.To, r.Service, r.ServiceID = from, to, sim.OnDemandService, ""
+		return r
+	}
+	tests := []struct {
+		name    string
+		parking string
+		request sim.Request
+	}{
+		{name: "parking leg origin", parking: "garden", request: onDemand("harbor", "garden", "market")},
+		{name: "parking order origin", parking: "harbor", request: onDemand("harbor", "garden", "market")},
+		{name: "parking destination", parking: "market", request: onDemand("harbor", "garden", "market")},
+		{name: "leg origin at the destination", request: legRequest("market")},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			topology := shared.Topology()
+			topology.Network.Stations = slices.Clone(topology.Network.Stations)
+			if test.parking != "" {
+				// The on-demand orders need no service, and the registry
+				// needs passenger stations.
+				topology.ExpressServices = nil
+				for i := range topology.Network.Stations {
+					if topology.Network.Stations[i].ID == test.parking {
+						topology.Network.Stations[i].ParkingOnly = true
+					}
+				}
+			}
+			candidate := ownStreamBoardings(frame)
+			candidate.State.Simulation.Pending = []sim.Request{test.request}
+			if test.parking != "" {
+				control, err := NewStreamAssembler(shared.Topology())
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, err := control.State(candidate); err != nil {
+					t.Fatalf("control: %v", err)
+				}
+			}
+			a, err := NewStreamAssembler(topology)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := a.State(candidate); err == nil {
+				t.Fatal("the stream accepts the order")
+			}
+			// The Express checks refuse the order before the reference
+			// checks, and the exception refuses it by itself.
+			if err := a.expressOrders(candidate); err == nil {
+				t.Fatal("the Express checks accept the order")
+			}
+			if a.strandedOrder(test.request, candidate) {
+				t.Fatal("the order is a stranded order")
+			}
+		})
+	}
+}

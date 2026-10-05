@@ -38,7 +38,7 @@ func (a *StreamAssembler) expressOrders(frame StreamFrame) error {
 	}
 	outstanding := len(frame.State.Simulation.Pending)
 	for _, r := range frame.State.Simulation.Pending {
-		if !validStreamOrderContract(r, a.topology.OrderContract) {
+		if !validStreamOrderContract(r, a.topology.OrderContract) || !a.validLegOrigin(r) {
 			return errors.New("invalid Express pending order")
 		}
 		if _, err := a.expressService(r); err != nil {
@@ -108,11 +108,11 @@ func (a *StreamAssembler) expressOrders(frame StreamFrame) error {
 
 // strandedOrder reports whether a pending order with no compatible class
 // and passenger path is a stranded transferred order (incident contract,
-// section 7.6): it has a leg origin and no pod, its leg origin and
-// destination are stations, its Express service pair exists, and some
-// vehicle admits the party.
+// section 7.6): it has a valid leg origin and no pod, its order origin and
+// destination are passenger stations, its Express service pair exists, and
+// some vehicle admits the party.
 func (a *StreamAssembler) strandedOrder(r sim.Request, frame StreamFrame) bool {
-	if r.LegFrom == "" || r.PodID != "" || !a.stations[r.LegFrom] || !a.stations[r.To] {
+	if r.LegFrom == "" || r.PodID != "" || !a.passengerStations[r.From] || !a.validLegOrigin(r) || !a.passengerStations[r.To] {
 		return false
 	}
 	limit, err := a.expressService(r)

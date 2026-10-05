@@ -46,10 +46,12 @@ type StreamAssembler struct {
 	lanes          map[string]bool
 	groupLanes     map[string]bool
 	stations       map[string]bool
-	berths         map[string]bool
-	boardingBerths map[string]boardingBerth
-	previous       StreamFrame
-	state          State
+	// passengerStations holds the stations that are not parking-only.
+	passengerStations map[string]bool
+	berths            map[string]bool
+	boardingBerths    map[string]boardingBerth
+	previous          StreamFrame
+	state             State
 }
 
 // NewStreamAssembler takes ownership of a detached topology snapshot. The
@@ -77,7 +79,7 @@ func NewStreamAssembler(topology TopologySnapshot) (*StreamAssembler, error) {
 	if len(topology.Network.Lanes) > project.MaxLanes || len(topology.Network.Nodes) > project.MaxNodes {
 		return nil, errors.New("topology exceeds supported limits")
 	}
-	a := &StreamAssembler{topology: topology, lanes: make(map[string]bool, len(topology.Network.Lanes)), groupLanes: make(map[string]bool, len(topology.Network.Lanes)), stations: map[string]bool{}, berths: map[string]bool{}, boardingBerths: map[string]boardingBerth{}}
+	a := &StreamAssembler{topology: topology, lanes: make(map[string]bool, len(topology.Network.Lanes)), groupLanes: make(map[string]bool, len(topology.Network.Lanes)), stations: map[string]bool{}, passengerStations: map[string]bool{}, berths: map[string]bool{}, boardingBerths: map[string]boardingBerth{}}
 	if markers.coupling != "" {
 		validator, err := newCouplingFrameValidator(topology)
 		if err != nil {
@@ -101,6 +103,7 @@ func NewStreamAssembler(topology TopologySnapshot) (*StreamAssembler, error) {
 			return nil, errors.New("invalid topology station")
 		}
 		a.stations[station.ID] = true
+		a.passengerStations[station.ID] = !station.ParkingOnly
 		stationClasses[station.ID] = station.VehicleClasses
 		for _, berth := range station.Berths {
 			if berth.ID == "" || a.berths[berth.ID] || !nodes[berth.Node] {
@@ -229,6 +232,13 @@ func (a *StreamAssembler) motionPod(r sim.RoutePresentation, p sim.Pod) error {
 	return nil
 }
 func optionalReference(index map[string]bool, id string) bool { return id == "" || index[id] }
+
+// validLegOrigin reports whether the leg origin of r is absent, or is a
+// passenger station other than the destination (incident contract,
+// section 7.1).
+func (a *StreamAssembler) validLegOrigin(r sim.Request) bool {
+	return r.LegFrom == "" || a.passengerStations[r.LegFrom] && r.LegFrom != r.To
+}
 func (a *StreamAssembler) references(f StreamFrame) error {
 	if err := a.groupBindings(f); err != nil {
 		return err
@@ -249,7 +259,7 @@ func (a *StreamAssembler) references(f StreamFrame) error {
 		pods[v.Pod.ID] = true
 	}
 	request := func(r sim.Request) bool {
-		return a.stations[r.From] && optionalReference(a.stations, r.LegFrom) && a.stations[r.To] && optionalReference(pods, r.PodID)
+		return a.stations[r.From] && a.validLegOrigin(r) && a.stations[r.To] && optionalReference(pods, r.PodID)
 	}
 	for _, v := range snapshot.Vehicles {
 		p := v.Pod
