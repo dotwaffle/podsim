@@ -1484,3 +1484,41 @@ func TestArrivePurposes(t *testing.T) {
 		}
 	})
 }
+
+// TestStartOperationalUnloadLaterStop starts an emergency unload of a
+// continuing pod at s1 whose stops are s2 and then s1 again. The pod has
+// aligned boarding records, and one active rider goes to s1, so the state
+// is valid and a physical restore keeps it. The start removes s1 from the
+// stops wherever it is, so the unloading pod does not stop at its station
+// again.
+func TestStartOperationalUnloadLaterStop(t *testing.T) {
+	t.Parallel()
+	s := incidentLegFleet(t)
+	v := boardParties(t, s, "s1", "s2")
+	v.Boardings = []RiderBoarding{{BerthID: "s0-1"}, {BerthID: "s0-1", MetersAtBoarding: 1}}
+	stepUntil(t, s, "intermediate unload", func() bool { return v.Pod.Activity == Unloading })
+	v.Stops = []string{"s2", "s1"}
+	s.continueJourney(v)
+	if v.Pod.Activity != Continuing || v.Pod.StationID != "s1" || !slices.Equal(v.Stops, []string{"s2", "s1"}) || v.RidersAboard() != 2 {
+		t.Fatalf("the pod does not continue at s1: %+v", v)
+	}
+	if err := s.withdrawService(v, emergencyHold); err != nil {
+		t.Fatal(err)
+	}
+	checkNow(t, s)
+	state := s.ExportState()
+	restored, result, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: state, IncidentContract: IncidentV1Contract})
+	if err != nil || !cleanRestore(result) || !reflect.DeepEqual(restored.ExportState(), state) {
+		t.Fatalf("physical restore: %v, %+v", err, result)
+	}
+	for _, sim := range []*Simulation{s, restored} {
+		pod := sim.findVehicle("01")
+		if err := sim.startOperationalUnload(pod, emergencyHold, 0); err != nil {
+			t.Fatal(err)
+		}
+		checkNow(t, sim)
+		if !slices.Equal(pod.Stops, []string{"s2"}) {
+			t.Fatalf("stops %v after the start", pod.Stops)
+		}
+	}
+}
