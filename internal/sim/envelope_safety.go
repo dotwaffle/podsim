@@ -93,9 +93,3 @@ func envelopeLocationsSeparated(first, second []SafetyLocation) bool {
 	}
 	return true
 }
-
-func (o SafetyObservation) largePairSeparated(first, second Pod) bool {
-	a, aOK := o.envelopes[first.ID]
-	b, bOK := o.envelopes[second.ID]
-	return aOK && bOK && a.pod == first && b.pod == second && envelopeLocationsSeparated(a.locations, b.locations)
-}
