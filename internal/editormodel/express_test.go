@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"maps"
 	"reflect"
-	"strings"
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/project"
@@ -75,10 +74,9 @@ func TestExpressEditorNormalizationAndQueueEdits(t *testing.T) {
 	if number(out["version"]) != project.CurrentVersion || out["orderContract"] != "express-v1" || !reflect.DeepEqual(out["fleet"], draft["fleet"]) || !reflect.DeepEqual(out["expressServices"], draft["expressServices"]) {
 		t.Fatal("normalization changed the contract, fleet, or registry")
 	}
-	// Native refuses station queue spacing with Express but without the
-	// coupling marker, so the editor refuses the edit.
-	if _, err = editProject(draft, jsontext.Value(`{"field":"stationQueueSpacing","value":"ordinary"}`)); err == nil || !strings.Contains(err.Error(), "requires couplingContract compact-pair-v1") {
-		t.Fatal("queue edit accepted with Express but without coupling", err)
+	// Express without the coupling marker accepts station queue spacing.
+	if change, err = editProject(draft, jsontext.Value(`{"field":"stationQueueSpacing","value":"ordinary"}`)); err != nil || change.Patch["stationQueueSpacing"] != "ordinary" {
+		t.Fatal("queue edit refused with Express but without coupling", err, change)
 	}
 	if !reflect.DeepEqual(draft, before) {
 		t.Fatal("edit changed its owned input")

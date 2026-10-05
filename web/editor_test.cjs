@@ -367,11 +367,11 @@ test("the lane class options show the classes that native allows on each project
   assert.match(source, /box\.checked = classes\.classes\.includes\(box\.dataset\.class\); box\.disabled = classes\.disabled;/);
 });
 
-test("station queue spacing is not available with Express but without the coupling marker", () => {
+test("station queue spacing stays available with Express but without the coupling marker", () => {
   const html = fs.readFileSync(path.join(__dirname, "editor.html"), "utf8");
-  assert.match(html, /<p class="hint" id="stationQueueSpacingHint" hidden>Station queue spacing with express-v1 requires couplingContract compact-pair-v1\. Convert the project to trains first\.<\/p>/);
+  assert.doesNotMatch(html, /stationQueueSpacingHint/);
   const source = fs.readFileSync(path.join(__dirname, "editor.js"), "utf8");
-  assert.match(source, /const queueLocked = config\.orderContract === "express-v1" && config\.couplingContract !== "compact-pair-v1";\n\s*\$\("#stationQueueSpacing"\)\.disabled = queueLocked; \$\("#stationQueueSpacingHint"\)\.hidden = !queueLocked;/);
+  assert.doesNotMatch(source, /stationQueueSpacingHint|\$\("#stationQueueSpacing"\)\.disabled/);
 });
 
 function nodePosition(config, id) {

@@ -84,8 +84,6 @@ func TestConvertToTrainsKeepsTheProject(t *testing.T) {
 
 func TestConvertToTrainsRefusals(t *testing.T) {
 	t.Parallel()
-	invalidQueue := configDraft(t, expressEditorConfig(t))
-	invalidQueue["stationQueueSpacing"] = "ordinary"
 	unnamed := configDraft(t, project.Default())
 	unnamed["name"] = ""
 	member := configDraft(t, project.Default())
@@ -96,7 +94,6 @@ func TestConvertToTrainsRefusals(t *testing.T) {
 		command string
 		want    string
 	}{
-		{"Express queue spacing", invalidQueue, `true`, "fix the project before it converts to trains"},
 		{"invalid project", unnamed, `true`, "fix the project before it converts to trains"},
 		{"coupling member", member, `true`, "only a project without coupling fields"},
 		{"coupling project", configDraft(t, couplingEditorConfig(t, false)), `true`, "only a project without coupling fields"},
@@ -469,19 +466,20 @@ func TestRequestLimitsMatchExactProjectNames(t *testing.T) {
 	}
 }
 
-// The page disables station queue spacing on version 4. A version 4 file
-// that has the member does not pass the import verdict, as native rejects it.
-func TestVersionFourQueueSpacingFailsTheVerdict(t *testing.T) {
+// An Express file without the coupling marker can have station queue
+// spacing. Native and the import verdict accept it.
+func TestExpressQueueSpacingPassesTheVerdict(t *testing.T) {
 	t.Parallel()
 	for _, value := range []string{"ordinary", "compact-v1"} {
 		draft := configDraft(t, expressEditorConfig(t))
 		draft["stationQueueSpacing"] = value
+		draft["stationBuffers"], draft["platoonLimit"] = true, 2.0
 		raw := encodeDraft(t, draft)
-		if _, err := serverDecode(t, raw); err == nil {
-			t.Fatal("native accepted queue spacing on version 4", value)
+		if _, err := serverDecode(t, raw); err != nil {
+			t.Fatal("native refused queue spacing with Express", value, err)
 		}
-		if err := engineVerdict(raw); err == nil {
-			t.Fatal("editor verdict accepted queue spacing on version 4", value)
+		if err := engineVerdict(raw); err != nil {
+			t.Fatal("editor verdict refused queue spacing with Express", value, err)
 		}
 	}
 }

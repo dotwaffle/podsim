@@ -262,13 +262,11 @@ func TestCouplingEditorQueueEditsByMarker(t *testing.T) {
 	for _, test := range []struct {
 		name              string
 		express, coupling bool
-		refused           bool
 	}{
-		{"no markers", false, false, false},
-		{"coupling", false, true, false},
-		// Native refuses station queue spacing with Express but without coupling.
-		{"express", true, false, true},
-		{"express and coupling", true, true, false},
+		{"no markers", false, false},
+		{"coupling", false, true},
+		{"express", true, false},
+		{"express and coupling", true, true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -280,12 +278,6 @@ func TestCouplingEditorQueueEditsByMarker(t *testing.T) {
 			}
 			before := cloneEditValue(draft)
 			change, err := editProject(draft, jsontext.Value(`{"field":"stationQueueSpacing","value":"ordinary"}`))
-			if test.refused {
-				if err == nil {
-					t.Fatal("queue edit accepted", change.Patch)
-				}
-				return
-			}
 			if err != nil {
 				t.Fatal(err)
 			}

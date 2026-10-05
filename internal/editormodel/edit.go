@@ -191,9 +191,6 @@ func proposeProjectEdit(draft any, command editCommand) (projectChange, error) {
 		if !ok || setting != "ordinary" && setting != "compact-v1" {
 			return projectChange{}, errors.New("station queue spacing must be ordinary or compact-v1")
 		}
-		if problem := stationQueueContractError(draft); problem != "" {
-			return projectChange{}, errors.New(problem)
-		}
 		change.set(draft, "stationQueueSpacing", setting)
 	case "couplingEnabled":
 		enabled, ok := value.(bool)

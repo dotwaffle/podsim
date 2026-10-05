@@ -7,9 +7,8 @@ It retains the reaction and braking allowance while the pods move.
 
 Enable station buffers and a platoon limit from two to four before applying the compact setting.
 The editor checks these dependencies.
-Native validation accepts the setting without `orderContract`, or with both `orderContract` and `couplingContract`.
+Native validation accepts the setting with any combination of the `orderContract` and `couplingContract` markers.
 Selecting the setting does not change the project version.
-An Express project without `couplingContract` cannot use the setting, so the editor disables it.
 It does not change lane speeds, geometry, buffers, or the platoon limit.
 
 ```json

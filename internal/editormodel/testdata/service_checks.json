@@ -2382,12 +2382,7 @@
         }
       ],
       "checks": {
-        "errors": [
-          {
-            "text": "Station queue spacing with express-v1 requires couplingContract compact-pair-v1.",
-            "target": null
-          }
-        ],
+        "errors": [],
         "warnings": []
       }
     },

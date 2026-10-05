@@ -436,7 +436,7 @@
       "find": "\"version\":1",
       "replace": "\"version\":1,\"stationQueueSpacing\":\"ordinary\"",
       "duplicate": false,
-      "valid": false
+      "valid": true
     },
     {
       "name": "queue spacing with coupling",

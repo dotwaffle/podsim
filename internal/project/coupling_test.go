@@ -224,13 +224,6 @@ func TestCouplingProjectIndependentPolicies(t *testing.T) {
 	if err := Validate(invalid); err == nil {
 		t.Fatal("Express vehicle admitted without independent order marker")
 	}
-	old := expressProject(t)
-	old.StationQueueSpacing = sim.StationQueueCompactV1
-	old.StationBuffers = true
-	old.PlatoonLimit = 2
-	if err := Validate(old); err == nil {
-		t.Fatal("Express without the coupling marker accepted queue spacing")
-	}
 }
 
 func TestCouplingFieldsRequireMarker(t *testing.T) {

@@ -352,3 +352,26 @@ func expressReferenceSuccessor(frame StreamFrame) StreamFrame {
 	vehicle.Boardings = append(slices.Clone(vehicle.Boardings[1:]), sim.RiderBoarding{BerthID: vehicle.Boardings[0].BerthID, MetersAtBoarding: vehicle.RiddenMeters})
 	return next
 }
+
+func TestExpressQueueSpacingSaveRoundTrip(t *testing.T) {
+	t.Parallel()
+	config := expressConsumerProject(t)
+	config.StationQueueSpacing = sim.StationQueueOrdinary
+	shared, err := NewWithProject(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(shared.Close)
+	file := sessionStateFile(t, shared)
+	file.RestoreAttempts = 0
+	data := encodeTestState(t, file)
+	decoded := decodeTestState(t, data)
+	if decoded.Project.StationQueueSpacing != sim.StationQueueOrdinary {
+		t.Fatalf("save lost the queue spacing: %q", decoded.Project.StationQueueSpacing)
+	}
+	// Without a caller project, the restore validates and uses the saved one.
+	loaded, err := shared.loadState(loadInput{data: data, steps: realRestoreSteps()})
+	if err != nil || loaded.config.StationQueueSpacing != sim.StationQueueOrdinary {
+		t.Fatalf("restore lost the queue spacing: %v", err)
+	}
+}

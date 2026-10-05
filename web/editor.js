@@ -3220,9 +3220,6 @@
     setScalarValue("#platoonLimit", String(config.platoonLimit));
     $("#stationBuffers").checked = config.stationBuffers;
     setScalarValue("#stationQueueSpacing", config.stationQueueSpacing || "ordinary");
-    // Native refuses the setting with express-v1 but without the coupling marker.
-    const queueLocked = config.orderContract === "express-v1" && config.couplingContract !== "compact-pair-v1";
-    $("#stationQueueSpacing").disabled = queueLocked; $("#stationQueueSpacingHint").hidden = !queueLocked;
     $("#pickupReassignment").checked = config.pickupReassignment;
     // Only a project with the coupling marker has the train option. Off keeps its sites and corridors.
     $("#couplingEnabledLabel").hidden = $("#couplingEnabledHint").hidden = config.couplingContract !== "compact-pair-v1";
