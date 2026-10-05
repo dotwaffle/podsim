@@ -193,3 +193,34 @@ func rebalancing(s *Simulation) bool {
 	}
 	return false
 }
+
+// BenchmarkYieldRelocationClaimsConflict measures a conflicting yield call.
+// Pod 01 makes a rebalancing move to Market, and pod 02 goes to the same
+// berth with an assigned trip. Each iteration gives the destination claims
+// back to pod 01 before the call.
+func BenchmarkYieldRelocationClaimsConflict(b *testing.B) {
+	s, err := NewFleet(Example(), []Placement{
+		{ID: "01", StationID: "parking", BerthID: "parking-1"},
+		{ID: "02", StationID: "garden", BerthID: "garden-1"},
+	})
+	if err != nil {
+		b.Fatal(err)
+	}
+	if !rebalanceToMarket(s) {
+		b.Fatal("pod 01 did not start a rebalancing move to Market")
+	}
+	advance(s, 5000)
+	relocating, other := s.findVehicle("01"), s.findVehicle("02")
+	if relocating.RelocatingTo == "" || s.relocationDestinationAdmitted(relocating) {
+		b.Fatalf("pod 01 is not on an unadmitted move to Market: %+v", relocating.Pod)
+	}
+	other.destination = relocating.destination
+	assign(s, other)
+	claims := berthResources(relocating.destination)
+	owner := podResourceOwner(relocating.Pod.ID)
+	b.ReportAllocs()
+	for b.Loop() {
+		s.owners[claims[0]], s.owners[claims[1]] = owner, owner
+		s.yieldRelocationClaims()
+	}
+}
