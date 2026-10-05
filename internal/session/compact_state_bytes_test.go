@@ -14,54 +14,64 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-// testCompactWorstCaseSize encodes the full typed current-profile save shape.
-// Independent maxima bound bytes. They do not describe reachable placement.
-func testCompactWorstCaseSize(t *testing.T, base stateFile, pod sim.SavedPod, trip sim.SavedTrip) {
-	t.Helper()
+// compactWorstCaseFile returns base with maxSavedPods typed compact pods
+// in queues of count members, and maxSavedTrips trips. Each pod is a copy
+// of pod and each trip a copy of trip. Only the first maxSavedPods trips
+// keep their route. Independent maxima bound bytes. They do not describe
+// reachable placement.
+func compactWorstCaseFile(base stateFile, pod sim.SavedPod, trip sim.SavedTrip, count int) stateFile {
 	const longestNegative = -0.0000010000000000000002
 	const longestNonnegative = 0.0000010000000000000002
 	pod.Class = sim.CompactClass
 	pod.RiddenMeters, pod.LaneDistance, pod.Distance = longestNegative, longestNegative, longestNegative
-	base.Simulation.PassengerDistanceMeters, base.Simulation.EmptyDistanceMeters = longestNegative, longestNegative
-	base.Simulation.RiderDistanceMeters, base.Simulation.DirectDistanceMeters, base.Simulation.MaxDetourRatio = longestNegative, longestNegative, longestNegative
+	file := base
+	file.Simulation.PassengerDistanceMeters, file.Simulation.EmptyDistanceMeters = longestNegative, longestNegative
+	file.Simulation.RiderDistanceMeters, file.Simulation.DirectDistanceMeters, file.Simulation.MaxDetourRatio = longestNegative, longestNegative, longestNegative
 	// All 26 symbols have six-byte escapes. Two symbols distinguish 300 IDs.
 	alphabet := []byte{1, 2, 3, 4, 5, 6, 7, 11, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31}
+	file.Simulation.Pods = make([]sim.SavedPod, maxSavedPods)
+	for i := range file.Simulation.Pods {
+		file.Simulation.Pods[i] = pod
+		file.Simulation.Pods[i].ID = strings.Repeat("\x01", 62) + string([]byte{alphabet[i/len(alphabet)], alphabet[i%len(alphabet)]})
+	}
+	for first := 0; first < maxSavedPods; first += count {
+		n := min(count, maxSavedPods-first)
+		queue := &sim.SavedCompactQueue{
+			Kind: "compact-buffer-v1", Phase: "recovering", Lane: strings.Repeat("\x01", 64),
+			Start: longestNegative, Frontier: longestNegative,
+			Members: make([]string, n), StopCells: make([]int, n), Speeds: make([]float64, n),
+			Targets: make([]float64, n), LandingSpeeds: make([]float64, n),
+		}
+		for offset := range n {
+			member := &file.Simulation.Pods[first+offset]
+			queue.Members[offset], queue.StopCells[offset] = member.ID, math.MaxInt
+			queue.Speeds[offset] = longestNonnegative
+			queue.Targets[offset], queue.LandingSpeeds[offset] = longestNegative, longestNegative
+			if offset == 0 {
+				member.Platoon, member.CompactQueue = nil, queue
+			} else {
+				member.Platoon = &sim.SavedPlatoonLink{Kind: "compact-buffer-v1", Leader: file.Simulation.Pods[first+offset-1].ID,
+					Lane: math.MaxInt, LeaderLane: math.MaxInt, Lanes: 1, TerminalCell: new(math.MaxInt)}
+			}
+		}
+	}
+	file.Simulation.Waiting = make([]sim.SavedTrip, maxSavedTrips)
+	for i := range file.Simulation.Waiting {
+		file.Simulation.Waiting[i] = trip
+		if i >= maxSavedPods {
+			file.Simulation.Waiting[i].Route = nil
+		}
+	}
+	return file
+}
+
+// testCompactWorstCaseSize encodes the full typed current-profile save shape.
+// Independent maxima bound bytes. They do not describe reachable placement.
+func testCompactWorstCaseSize(t *testing.T, base stateFile, pod sim.SavedPod, trip sim.SavedTrip) {
+	t.Helper()
 	for count := 1; count <= 4; count++ {
 		t.Run("compact-members-"+strconv.Itoa(count), func(t *testing.T) {
-			file := base
-			file.Simulation.Pods = make([]sim.SavedPod, maxSavedPods)
-			for i := range file.Simulation.Pods {
-				file.Simulation.Pods[i] = pod
-				file.Simulation.Pods[i].ID = strings.Repeat("\x01", 62) + string([]byte{alphabet[i/len(alphabet)], alphabet[i%len(alphabet)]})
-			}
-			for first := 0; first < maxSavedPods; first += count {
-				n := min(count, maxSavedPods-first)
-				queue := &sim.SavedCompactQueue{
-					Kind: "compact-buffer-v1", Phase: "recovering", Lane: strings.Repeat("\x01", 64),
-					Start: longestNegative, Frontier: longestNegative,
-					Members: make([]string, n), StopCells: make([]int, n), Speeds: make([]float64, n),
-					Targets: make([]float64, n), LandingSpeeds: make([]float64, n),
-				}
-				for offset := range n {
-					member := &file.Simulation.Pods[first+offset]
-					queue.Members[offset], queue.StopCells[offset] = member.ID, math.MaxInt
-					queue.Speeds[offset] = longestNonnegative
-					queue.Targets[offset], queue.LandingSpeeds[offset] = longestNegative, longestNegative
-					if offset == 0 {
-						member.Platoon, member.CompactQueue = nil, queue
-					} else {
-						member.Platoon = &sim.SavedPlatoonLink{Kind: "compact-buffer-v1", Leader: file.Simulation.Pods[first+offset-1].ID,
-							Lane: math.MaxInt, LeaderLane: math.MaxInt, Lanes: 1, TerminalCell: new(math.MaxInt)}
-					}
-				}
-			}
-			file.Simulation.Waiting = make([]sim.SavedTrip, maxSavedTrips)
-			for i := range file.Simulation.Waiting {
-				file.Simulation.Waiting[i] = trip
-				if i >= maxSavedPods {
-					file.Simulation.Waiting[i].Route = nil
-				}
-			}
+			file := compactWorstCaseFile(base, pod, trip, count)
 			if len(file.Simulation.Waiting) != sim.MaxSavedWaitingTrips {
 				t.Fatal("byte fixture differs from the native waiting bound")
 			}

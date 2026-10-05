@@ -252,26 +252,36 @@ func maximumStreamFrame(t *testing.T) StreamFrame {
 	return f
 }
 
+// maximumStreamRepresentation returns maximumStreamFrame with its vehicles
+// in representation. "historical" keeps the legacy vehicles without
+// boarding records. "modern" makes each vehicle a compact pod with 8
+// boarding records, and "mixed" does so for each odd vehicle.
+func maximumStreamRepresentation(t *testing.T, representation string) StreamFrame {
+	t.Helper()
+	f := maximumStreamFrame(t)
+	if representation == "historical" {
+		return f
+	}
+	for i := range f.State.Simulation.Vehicles {
+		if representation == "mixed" && i%2 == 0 {
+			continue
+		}
+		v := &f.State.Simulation.Vehicles[i]
+		v.Pod.Class = sim.CompactClass
+		v.RiddenMeters = 0.0000010000000000000002
+		v.Boardings = slices.Repeat([]sim.RiderBoarding{{BerthID: strings.Repeat("\x01", 64), MetersAtBoarding: 0.0000010000000000000002}}, 8)
+		for j := range v.Riders {
+			v.Riders[j].PartySize = sim.MaxNewPartySize
+			v.Riders[j].SharingConsent = sim.SharedConsent
+		}
+	}
+	return f
+}
+
 func TestStreamMaximumEncoding(t *testing.T) {
 	for _, representation := range []string{"historical", "modern", "mixed"} {
 		t.Run(representation, func(t *testing.T) {
-			f := maximumStreamFrame(t)
-			if representation != "historical" {
-				for i := range f.State.Simulation.Vehicles {
-					if representation == "mixed" && i%2 == 0 {
-						continue
-					}
-					v := &f.State.Simulation.Vehicles[i]
-					v.Pod.Class = sim.CompactClass
-					v.RiddenMeters = 0.0000010000000000000002
-					v.Boardings = slices.Repeat([]sim.RiderBoarding{{BerthID: strings.Repeat("\x01", 64), MetersAtBoarding: 0.0000010000000000000002}}, 8)
-					for j := range v.Riders {
-						v.Riders[j].PartySize = sim.MaxNewPartySize
-						v.Riders[j].SharingConsent = sim.SharedConsent
-					}
-				}
-			}
-
+			f := maximumStreamRepresentation(t, representation)
 			e := StreamEnvelope{Kind: "full", Stream: strings.Repeat("x", 32), Sequence: math.MaxUint64, Source: sourceOf(f), Build: f.State.Build, Full: &f}
 			data, err := EncodeStreamJSON(e)
 			if err != nil {
@@ -289,14 +299,7 @@ func TestStreamMaximumEncoding(t *testing.T) {
 				t.Fatal("maximum gzip round trip", err)
 			}
 			// Force all vehicle groups and global groups to change.
-			_, empty := streamFixture(t)
-			empty.State.Simulation.Vehicles = make([]VehicleFrame, project.MaxPods)
-			empty.Routes = make([]sim.RoutePresentation, project.MaxPods)
-			empty.State.Simulation.Berths = make([]sim.BerthState, project.MaxNodes)
-			d, err := makeDelta(empty, f)
-			if err != nil {
-				t.Fatal(err)
-			}
+			d := maximumStreamDelta(t, f)
 			e.Kind = "delta"
 			e.Full = nil
 			e.Delta = &d

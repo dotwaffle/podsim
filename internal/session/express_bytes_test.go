@@ -142,10 +142,11 @@ func exportExpressAsset(t *testing.T, name string, data []byte) {
 	}
 }
 
-func TestExpressWidestSaveAdapters(t *testing.T) {
-	if raceEnabled {
-		t.Skip("maximum codec proof runs in the required test:embedded task")
-	}
+// widestExpressSave returns the widest Express save: 300 Express pods with
+// 20 riders and 20 boarding records each, and sim.MaxExpressWaitingTrips
+// trips. It combines independent field maxima, not reachable motion.
+func widestExpressSave(t *testing.T) stateFile {
+	t.Helper()
 	const wide = 0.0000010000000000000002
 	base := widestSavedBase(t)
 	base.OrderContract = sim.ExpressOrderContract
@@ -206,6 +207,15 @@ func TestExpressWidestSaveAdapters(t *testing.T) {
 	base.Project.Name = strings.Repeat("n", project.MaxFileBytes-jsonSize(t, base.Project))
 	base.Simulation.PassengerDistanceMeters, base.Simulation.EmptyDistanceMeters = -wide, -wide
 	base.Simulation.RiderDistanceMeters, base.Simulation.DirectDistanceMeters, base.Simulation.MaxDetourRatio = -wide, -wide, -wide
+	return base
+}
+
+func TestExpressWidestSaveAdapters(t *testing.T) {
+	if raceEnabled {
+		t.Skip("maximum codec proof runs in the required test:embedded task")
+	}
+	const wide = 0.0000010000000000000002
+	base := widestExpressSave(t)
 	for _, mixed := range []bool{false, true} {
 		file := base
 		file.Simulation.Pods = slices.Clone(base.Simulation.Pods)
@@ -244,10 +254,11 @@ func TestExpressWidestSaveAdapters(t *testing.T) {
 	}
 }
 
-func TestExpressWidestStreamAdapters(t *testing.T) {
-	if raceEnabled {
-		t.Skip("maximum codec proof runs in the required test:embedded task")
-	}
+// widestExpressStreamFrame returns maximumStreamFrame with the Express
+// marker, sim.MaxExpressWaitingTrips pending orders, and 300 Express pods
+// with 20 riders and 20 boarding records each.
+func widestExpressStreamFrame(t *testing.T) StreamFrame {
+	t.Helper()
 	frame := maximumStreamFrame(t)
 	frame.State.Simulation.OrderContract = sim.ExpressOrderContract
 	request := frame.State.Simulation.Pending[0]
@@ -266,16 +277,34 @@ func TestExpressWidestStreamAdapters(t *testing.T) {
 		v.Riders = slices.Repeat([]sim.Request{r}, 20)
 		v.Boardings = slices.Repeat([]sim.RiderBoarding{{BerthID: strings.Repeat("\x01", 64), MetersAtBoarding: v.RiddenMeters}}, 20)
 	}
-	full := StreamEnvelope{OrderContract: sim.ExpressOrderContract, Kind: "full", Stream: strings.Repeat("x", 32), Sequence: math.MaxUint64, Source: sourceOf(frame), Build: frame.State.Build, Full: &frame}
+	return frame
+}
+
+// maximumStreamDelta returns a delta that changes every vehicle, every
+// berth and every group of frame. Its base has the markers of frame and
+// empty vehicles, routes and berths.
+func maximumStreamDelta(t *testing.T, frame StreamFrame) StreamDelta {
+	t.Helper()
 	_, empty := streamFixture(t)
-	empty.State.Simulation.OrderContract = sim.ExpressOrderContract
-	empty.State.Simulation.Vehicles = make([]VehicleFrame, 300)
-	empty.State.Simulation.Berths = make([]sim.BerthState, project.MaxNodes)
-	empty.Routes = make([]sim.RoutePresentation, 300)
+	empty.State.Simulation.OrderContract = frame.State.Simulation.OrderContract
+	empty.State.Simulation.CouplingContract = frame.State.Simulation.CouplingContract
+	empty.State.Simulation.Vehicles = make([]VehicleFrame, len(frame.State.Simulation.Vehicles))
+	empty.State.Simulation.Berths = make([]sim.BerthState, len(frame.State.Simulation.Berths))
+	empty.Routes = make([]sim.RoutePresentation, len(frame.Routes))
 	delta, err := makeDelta(empty, frame)
 	if err != nil {
 		t.Fatal(err)
 	}
+	return delta
+}
+
+func TestExpressWidestStreamAdapters(t *testing.T) {
+	if raceEnabled {
+		t.Skip("maximum codec proof runs in the required test:embedded task")
+	}
+	frame := widestExpressStreamFrame(t)
+	full := StreamEnvelope{OrderContract: sim.ExpressOrderContract, Kind: "full", Stream: strings.Repeat("x", 32), Sequence: math.MaxUint64, Source: sourceOf(frame), Build: frame.State.Build, Full: &frame}
+	delta := maximumStreamDelta(t, frame)
 	changed := full
 	changed.Kind, changed.Full, changed.Delta, changed.Base = "delta", nil, &delta, math.MaxUint64-1
 	for _, envelope := range []StreamEnvelope{full, changed} {
@@ -311,7 +340,13 @@ func TestExpressWidestStreamAdapters(t *testing.T) {
 	}
 }
 
-func widestTopology(t *testing.T, escapes int) TopologySnapshot {
+// widestTopology returns a topology of the largest network, with IDs that
+// contain escapes control bytes. markers select the Express services and
+// the coupling members. The coupling topology has no sites or corridors:
+// with them the decoder checks the geometry of the network, and this
+// network has no valid geometry. The HTTP topology cap bounds the member
+// whatever it contains.
+func widestTopology(t *testing.T, escapes int, markers contractMarkers) TopologySnapshot {
 	t.Helper()
 	id := func(prefix string, i int) string {
 		width := escapes
@@ -324,7 +359,7 @@ func widestTopology(t *testing.T, escapes int) TopologySnapshot {
 	if err != nil {
 		t.Fatal(err)
 	}
-	topology := TopologySnapshot{ProjectVersion: project.CurrentVersion, OrderContract: sim.ExpressOrderContract, ServerStart: "server", Epoch: "epoch", ProjectRevision: math.MaxUint64}
+	topology := TopologySnapshot{ProjectVersion: project.CurrentVersion, OrderContract: markers.order, ServerStart: "server", Epoch: "epoch", ProjectRevision: math.MaxUint64}
 	topology.Network.Nodes = make([]sim.Node, 5000)
 	for i := range topology.Network.Nodes {
 		topology.Network.Nodes[i] = sim.Node{ID: id("n", i), Position: sim.Point{X: float64(i) * 40, Y: 0.0000010000000000000002}}
@@ -348,24 +383,25 @@ func widestTopology(t *testing.T, escapes int) TopologySnapshot {
 	for i := range topology.Network.Lanes {
 		topology.Network.Lanes[i] = sim.Lane{ID: id("l", i), From: id("n", i%5000), To: id("n", (i+1)%5000), SpeedLimit: 2.5, SeparationGroup: id("r", i), StationID: topology.Network.Stations[0].ID, StationRole: sim.StationBerthAccessRole, VehicleClasses: classes}
 	}
-	topology.ExpressServices = make([]sim.ExpressService, 300)
-	for i := range topology.ExpressServices {
-		topology.ExpressServices[i] = sim.ExpressService{ID: id("e", i), From: topology.Network.Stations[0].ID, To: topology.Network.Stations[1].ID, Class: sim.ExpressClass, PartyLimit: 20}
+	if markers.order == sim.ExpressOrderContract {
+		topology.ExpressServices = make([]sim.ExpressService, 300)
+		for i := range topology.ExpressServices {
+			topology.ExpressServices[i] = sim.ExpressService{ID: id("e", i), From: topology.Network.Stations[0].ID, To: topology.Network.Stations[1].ID, Class: sim.ExpressClass, PartyLimit: 20}
+		}
 	}
+	topology.CouplingContract, topology.CouplingEnabled = markers.coupling, markers.coupling != ""
 	return topology
 }
 
-// These topology and HTTP assets combine independent bounded fields.
-// Their parser acceptance does not qualify physical placement or motion.
-func TestExpressWidestTopologyHTTPAdapters(t *testing.T) {
-	if raceEnabled {
-		t.Skip("maximum codec proof runs in the required test:embedded task")
-	}
+// fitWidestTopology returns the widest topology of markers whose JSON form
+// fits the HTTP topology cap, and the first escape count that does not fit.
+func fitWidestTopology(t *testing.T, markers contractMarkers) (TopologySnapshot, int) {
+	t.Helper()
 	var topology TopologySnapshot
 	lo, hi := 0, 58
 	for lo <= hi {
 		mid := (lo + hi) / 2
-		candidate := widestTopology(t, mid)
+		candidate := widestTopology(t, mid, markers)
 		raw, err := json.Marshal(candidate)
 		if err != nil {
 			t.Fatal(err)
@@ -377,6 +413,17 @@ func TestExpressWidestTopologyHTTPAdapters(t *testing.T) {
 			hi = mid - 1
 		}
 	}
+	return topology, lo
+}
+
+// These topology and HTTP assets combine independent bounded fields.
+// Their parser acceptance does not qualify physical placement or motion.
+func TestExpressWidestTopologyHTTPAdapters(t *testing.T) {
+	if raceEnabled {
+		t.Skip("maximum codec proof runs in the required test:embedded task")
+	}
+	express := contractMarkers{order: sim.ExpressOrderContract}
+	topology, lo := fitWidestTopology(t, express)
 	raw, err := json.Marshal(topology)
 	if err != nil {
 		t.Fatal(err)
@@ -385,7 +432,7 @@ func TestExpressWidestTopologyHTTPAdapters(t *testing.T) {
 	if err = json.Unmarshal(raw, &decoded); err != nil {
 		t.Fatal(err)
 	}
-	oversized := widestTopology(t, lo)
+	oversized := widestTopology(t, lo, express)
 	large, err := json.Marshal(oversized)
 	if err != nil {
 		t.Fatal(err)
