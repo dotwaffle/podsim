@@ -930,11 +930,18 @@ func TestFaultLinkGates(t *testing.T) {
 	})
 }
 
-// faultSave saves s, restores the save in the physical tier, and checks the
-// state contract on both sides. The save format has no fault member yet,
-// so the restored pod keeps its fault hold with no record, which F12
-// allows.
-func faultSave(t *testing.T, s *Simulation, at string) {
+// physicalSave saves s, restores the save in the physical tier, and checks
+// the state contract on both sides. It is a stage 1 physical-format test:
+// the save format has no fault member yet, so the restore has faults off,
+// no record and no cap. A restored pod can keep the fault hold with no
+// purpose and no record, and no fault stage releases it. Thus the restore
+// does not meet F12, and these tests do not check F12.
+//
+// TODO(patch 7): Replace these saves with fault-preserving restores. Check
+// that the restore keeps the records and the fault settings, rebuilds the
+// cap and the blocked set, and that the fault stage later releases the
+// hold.
+func physicalSave(t *testing.T, s *Simulation, at string) {
 	t.Helper()
 	if err := s.CheckContract(); err != nil {
 		t.Fatalf("%s: %v", at, err)
@@ -952,33 +959,34 @@ func faultSave(t *testing.T, s *Simulation, at string) {
 	}
 }
 
-// TestFaultSaves saves at the command boundaries and tick ends of section
-// 16.5 of the incident suspension contract that patch 3 adds: after a
-// fault on a moving pod and on a pod at a berth, at the end of the tick in
-// which the faulted pod reaches rest, and after a clear during braking.
-func TestFaultSaves(t *testing.T) {
+// TestFaultPhysicalSaves saves, in the physical format, at the command
+// boundaries and tick ends of section 16.5 of the incident suspension
+// contract that patch 3 adds: after a fault on a moving pod and on a pod
+// at a berth, at the end of the tick in which the faulted pod reaches
+// rest, and after a clear during braking. See physicalSave.
+func TestFaultPhysicalSaves(t *testing.T) {
 	t.Parallel()
 	s := faultLegFleet(t)
 	v := boardParties(t, s, "s2", "s2")
 	cruiseOn(t, s, v, "s0-link")
 	id := startFault(t, s, v, 0)
-	faultSave(t, s, "fault on a moving pod")
+	physicalSave(t, s, "fault on a moving pod")
 	for range 10 {
 		s.Step()
 	}
 	if err := s.clearFault(id); err != nil {
 		t.Fatal(err)
 	}
-	faultSave(t, s, "clear during braking")
+	physicalSave(t, s, "clear during braking")
 	cruiseOn(t, s, v, "s1-link")
 	startFault(t, s, v, 0)
 	for v.Pod.Speed > 0 {
 		s.Step()
 	}
-	faultSave(t, s, "end of the tick of rest")
+	physicalSave(t, s, "end of the tick of rest")
 	parked := s.findVehicle("02")
 	startFault(t, s, parked, 0)
-	faultSave(t, s, "fault at a berth")
+	physicalSave(t, s, "fault at a berth")
 }
 
 // TestFaultCheckpointBraking replays 600 ticks from a checkpoint taken

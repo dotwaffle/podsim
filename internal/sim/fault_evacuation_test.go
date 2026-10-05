@@ -322,11 +322,12 @@ func TestFaultEvacuationCounterSaturates(t *testing.T) {
 	}
 }
 
-// TestFaultEvacuationSave saves at the end of the tick of an evacuation on
-// a lane and at a berth (section 16.5 of the incident suspension
-// contract), and replays 600 ticks from a checkpoint through the
-// evacuation, the clear and the recovery.
-func TestFaultEvacuationSave(t *testing.T) {
+// TestFaultEvacuationPhysicalSave saves, in the physical format, at the
+// end of the tick of an evacuation on a lane and at a berth (section 16.5
+// of the incident suspension contract), and replays 600 ticks from a
+// checkpoint through the evacuation, the clear and the recovery. See
+// physicalSave.
+func TestFaultEvacuationPhysicalSave(t *testing.T) {
 	t.Parallel()
 	s, v, _ := laneRecoveryShapes()[0].prepare(t)
 	id := startFault(t, s, v, 0)
@@ -337,7 +338,7 @@ func TestFaultEvacuationSave(t *testing.T) {
 			aboard := v.RidersAboard()
 			s.Step()
 			if save && aboard > 0 && v.RidersAboard() == 0 {
-				faultSave(t, s, "evacuation on a lane")
+				physicalSave(t, s, "evacuation on a lane")
 			}
 			if tick == 540 {
 				if err := s.clearFault(id); err != nil {
@@ -361,5 +362,5 @@ func TestFaultEvacuationSave(t *testing.T) {
 	if boarding.RidersAboard() != 0 || boarding.Pod.Activity != Idle {
 		t.Fatalf("the boarding pod was not evacuated: %+v", boarding.Pod)
 	}
-	faultSave(t, berth, "evacuation at a berth")
+	physicalSave(t, berth, "evacuation at a berth")
 }
