@@ -20,6 +20,8 @@ import (
 // receipt by that digest. digestCommand hashes every field of Command and
 // of the nested project.Config by reflection, including zero fields. Thus a
 // new field, a removed field or a changed field order changes every digest.
+// The exception is an extension field of the digest extension registry: a
+// command that does not set it keeps its digest.
 // Work on the saved-state and stream formats must not change a command
 // type, so each digest must stay the same. When a change to a command type
 // or to an example project is intentional, run the test with -update and
