@@ -12,15 +12,21 @@ func (s *Simulation) stationApproachRouteForClass(fromNode, stationID string, cl
 }
 
 func (s *Simulation) stationApproachRouteMatching(fromNode, stationID string, class VehicleClass, accept func(Berth) bool) ([]Lane, error) {
+	return s.stationApproachRouteOn(false, fromNode, stationID, class, accept)
+}
+
+// stationApproachRouteOn is stationApproachRouteMatching, on the static
+// graph when static is true. See routeOn.
+func (s *Simulation) stationApproachRouteOn(static bool, fromNode, stationID string, class VehicleClass, accept func(Berth) bool) ([]Lane, error) {
 	station, ok := s.station(stationID)
 	if !ok {
 		return nil, fmt.Errorf("unknown station %q", stationID)
 	}
-	entry, err := s.stationBankEntryMatching(fromNode, station, s.berthLoad, class, accept)
+	entry, err := s.stationBankEntryOn(static, fromNode, station, s.berthLoad, class, accept)
 	if err != nil {
 		return nil, err
 	}
-	route, err := s.routeForClass(fromNode, entry, class)
+	route, err := s.routeOn(static, fromNode, entry, class)
 	if err != nil {
 		return nil, fmt.Errorf("route to %s: %w", stationID, err)
 	}
@@ -91,6 +97,9 @@ func (s *Simulation) stationRouteByLoad(input stationRouteInput) ([]Lane, Berth,
 			continue
 		}
 		if station.Banks != nil && station.berthEntry(berth) != entry {
+			continue
+		}
+		if s.berthBlocked(berth) {
 			continue
 		}
 		route, err := s.routeForClass(input.from, berth.Node, input.class)

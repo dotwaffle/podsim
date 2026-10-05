@@ -80,7 +80,7 @@ func (n Network) routeTargets(input routeTargetsInput, graph routeGraph) []route
 			continue
 		}
 		for _, laneIndex := range adjacent[item.node] {
-			if !graph.laneAllows(laneIndex, input.class) {
+			if !graph.laneAllows(laneIndex, input.class) || !graph.laneOpen(laneIndex) {
 				continue
 			}
 			edge := graph.edges[laneIndex]

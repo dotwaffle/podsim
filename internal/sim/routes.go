@@ -168,8 +168,9 @@ func (s *Simulation) cacheStationRoutesForClass(from string, berths []Berth, cla
 	if len(targets) < 2 {
 		return
 	}
-	preferred := s.network.preferredTargets(routeTargetsInput{from: from, to: targets, class: class}, s.graph)
-	for index, result := range s.network.routesFromTargets(preferred, s.graph) {
+	graph := s.routingGraph()
+	preferred := s.network.preferredTargets(routeTargetsInput{from: from, to: targets, class: class}, graph)
+	for index, result := range s.network.routesFromTargets(preferred, graph) {
 		s.cacheRoute(routeKey{from: from, to: targets[index], class: routeClass(class)}, result)
 	}
 }
@@ -207,6 +208,9 @@ func (s *Simulation) ensureNetworkIndexes() {
 	s.routeWork = nil
 	s.congestionRouteCosts = nil
 	s.congestionRoutes = nil
+	// The blocked set holds lane indexes of the old network.
+	s.blocked = blockedSet{}
+	s.resourceLanes, s.staticConnected, s.staticRoutes = nil, nil, nil
 }
 
 func indexStations(network Network) map[string]int {

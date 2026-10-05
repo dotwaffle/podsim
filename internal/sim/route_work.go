@@ -31,5 +31,5 @@ func (s *Simulation) searchRoute(input networkRouteInput) ([]Lane, error) {
 	if s.routeWork == nil {
 		s.routeWork = new(routeSearchWork)
 	}
-	return s.network.routeIndexedWithWork(input, s.graph, s.routeWork)
+	return s.network.routeIndexedWithWork(input, s.routingGraph(), s.routeWork)
 }

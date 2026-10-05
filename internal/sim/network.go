@@ -244,7 +244,7 @@ func (n Network) routeIndexedWithWork(input networkRouteInput, graph routeGraph,
 		}
 		for _, laneIndex := range graph.outgoing[item.node] {
 			edge := graph.edges[laneIndex]
-			if !graph.laneAllows(laneIndex, input.class) {
+			if !graph.laneAllows(laneIndex, input.class) || !graph.laneOpen(laneIndex) {
 				continue
 			}
 			if input.bankExternal && graph.banks.lanes[laneIndex] >= 0 && n.Lanes[laneIndex].StationRole != StationThroughRole {
@@ -469,6 +469,16 @@ type routeGraph struct {
 	nodeClasses       []uint8
 	classRestrictions bool
 	laneClasses       []uint8
+	// blocked holds, by lane index, the lanes that an active fault blocks.
+	// It is nil in the static graph s.graph and in each shared graph. Only
+	// routingGraph sets it, on a copy.
+	blocked []bool
+}
+
+// laneOpen reports whether no active fault blocks the lane. It is true for
+// each lane when blocked is nil.
+func (g routeGraph) laneOpen(lane int) bool {
+	return lane >= len(g.blocked) || !g.blocked[lane]
 }
 
 // berthAllowed reports whether a route search from node from to node to can

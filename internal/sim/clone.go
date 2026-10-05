@@ -20,6 +20,7 @@ func (s *Simulation) Clone() *Simulation {
 	// makes a new pass.
 	c.lengths, c.routes, c.routeOrder, c.routeStations, c.pass = nil, nil, nil, nil, nil
 	c.pickupBounds = nil
+	c.staticConnected, c.staticRoutes = nil, nil
 	c.routeWork = nil
 	c.admissionWork = nil
 	c.vehicles = slices.Clone(s.vehicles)

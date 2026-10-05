@@ -422,6 +422,15 @@ type Simulation struct {
 	// each route share. NewFleet and ensureNetworkIndexes build it from the
 	// geometry, junction and berth indexes. No code writes to it in place.
 	laneCells map[string]*laneCells
+	// blocked is the blocked set of the active faults. setBlocked sets
+	// rerouteDue at each new epoch of the set. See blocked_routes.go.
+	blocked    blockedSet
+	rerouteDue bool
+	// resourceLanes, staticConnected and staticRoutes are caches of the
+	// network. See blocked_routes.go.
+	resourceLanes   map[resource][]int
+	staticConnected map[routeKey]bool
+	staticRoutes    map[routeKey]routeResult
 	// vehicleIndexes gives the position in vehicles of each pod ID. Reset
 	// and restorePhysical replace it whole after they replace vehicles. No
 	// code writes to it in place. findVehicle checks each entry, so an entry

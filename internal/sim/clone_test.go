@@ -36,6 +36,7 @@ var cloneRules = map[reflect.Type]map[string]cloneRule{
 		"demandWeights": cloneShare, "congestionRouteCosts": cloneShare, "congestionRoutes": cloneCopy, "predictiveQueues": cloneCopy, "predictivePodQueues": cloneCopy,
 		"laneSafety": cloneShare, "berthSafety": cloneShare, "vehicleIndexes": cloneShare,
 		"berthResources": cloneShare, "laneCells": cloneShare, "approachStations": cloneShare, "routeStations": cloneDrop,
+		"blocked": cloneShare, "resourceLanes": cloneShare, "staticConnected": cloneDrop, "staticRoutes": cloneDrop,
 		"requestBoardings": cloneCopy, "requestCompletions": cloneCopy, "stepCompletions": cloneCopy, "nodePasses": cloneCopy, "monitor": cloneShare,
 		"pass": cloneDrop, "platoonData": cloneShare, "platoonOrder": cloneDrop, "platoonAhead": cloneDrop,
 		"platoonLanes": cloneDrop, "pickupSwaps": cloneCopy,
@@ -206,7 +207,11 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"journeys": persistSave, "totalJourneyTicks": persistSave, "maxJourneyTicks": persistSave,
 		"riderDistanceMeters": persistSave, "directDistanceMeters": persistSave, "maxDetourRatio": persistSave,
 		"laneSafety": persistDerive, "berthSafety": persistDerive, "vehicleIndexes": persistDerive, "berthResources": persistDerive,
-		"laneCells":        persistDerive,
+		"laneCells": persistDerive,
+		// A rebuild from the fault records sets the blocked set. A physical
+		// restore sets rerouteDue.
+		"blocked": persistDerive, "rerouteDue": persistDerive,
+		"resourceLanes": persistReset, "staticConnected": persistReset, "staticRoutes": persistReset,
 		"predictiveQueues": persistUnsupported, "predictivePodQueues": persistUnsupported, "predictiveQueueTick": persistUnsupported,
 		"routingPolicy": persistUnsupported, "congestionRouteCosts": persistUnsupported,
 		"congestionRoutes": persistUnsupported, "nextCongestionRouteRefresh": persistUnsupported,
@@ -483,7 +488,24 @@ func TestCloneFollowsRules(t *testing.T) {
 				"Simulation.couplingNetwork", "Simulation.couplingGroups", "Simulation.couplingFault", "Simulation.couplingFleet",
 				"couplingNativeGroup.context", "couplingNativeGroup.state",
 				"Simulation.couplingApproaches", "Simulation.couplingAttempts",
-				"couplingNativeApproach.context", "couplingNativeApproach.state", "couplingApproachAttempt.context"},
+				"couplingNativeApproach.context", "couplingNativeApproach.state", "couplingApproachAttempt.context",
+				// The blocked routing case covers the blocked set and the
+				// static caches.
+				"Simulation.blocked", "Simulation.resourceLanes", "Simulation.staticConnected", "Simulation.staticRoutes"},
+		},
+		{
+			name: "blocked routing storage",
+			build: func(t *testing.T) *Simulation {
+				t.Helper()
+				s := newTraffic(t)
+				s.setBlocked([]faultFootprint{{id: "i1.1", resources: []resource{{kind: berthResource, id: "garden-1"}}}})
+				s.staticConnection("harbor-berth", "market-berth", false, LegacyClass)
+				if _, err := s.staticRoute("harbor-berth", "market-berth", false, LegacyClass); err != nil {
+					t.Fatal(err)
+				}
+				return s
+			},
+			required: []string{"Simulation.blocked", "Simulation.resourceLanes", "Simulation.staticConnected", "Simulation.staticRoutes"},
 		},
 		{
 			name: "controlled approach storage",
@@ -808,6 +830,7 @@ func stripCaches(s *Simulation) *Simulation {
 	c := *s
 	c.lengths, c.routes, c.routeOrder = nil, nil, nil
 	c.pickupBounds = nil
+	c.staticConnected, c.staticRoutes, c.resourceLanes = nil, nil, nil
 	c.routeWork = nil
 	c.admissionWork = nil
 	// The dispatch pass holds only buffers of the last dispatch.

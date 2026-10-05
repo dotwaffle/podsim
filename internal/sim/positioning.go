@@ -525,7 +525,7 @@ func (s *Simulation) guardedBumpToDeficit(bump guardedBump) bool {
 	}
 	node, ok := s.network.preferredNearestIndexed(preferredNearestInput{
 		from: bump.from, rank: rank, class: bump.blocker.Pod.Class, limit: guardedReachSeconds,
-	}, s.graph)
+	}, s.routingGraph())
 	if !ok {
 		return false
 	}
@@ -558,7 +558,7 @@ func (s *Simulation) guardedBumpToParking(bump guardedBump) bool {
 	if len(goals) == 0 {
 		return false
 	}
-	node, ok := s.network.preferredNearestIndexed(preferredNearestInput{from: bump.from, rank: rank, class: bump.blocker.Pod.Class}, s.graph)
+	node, ok := s.network.preferredNearestIndexed(preferredNearestInput{from: bump.from, rank: rank, class: bump.blocker.Pod.Class}, s.routingGraph())
 	if !ok {
 		return false
 	}

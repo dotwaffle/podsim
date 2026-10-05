@@ -89,16 +89,28 @@ func berthAllows(station Station, berth Berth, class VehicleClass) bool {
 	return station.VehicleClasses.Allows(string(class)) && berth.VehicleClasses.Allows(string(class))
 }
 
+// stationsConnectedForClass reports whether a route connects a berth of
+// from to a berth of to. Order admission and dispatch use it. While the
+// blocked set is not empty, it asks the static graph, so a fault does not
+// refuse an order or unbind a trip. The two answers are equal when no lane
+// is blocked.
 func (s *Simulation) stationsConnectedForClass(from, to Station, class VehicleClass) bool {
 	if !from.VehicleClasses.Allows(string(class)) || !to.VehicleClasses.Allows(string(class)) {
 		return false
 	}
+	static := s.blockedActive()
 	for _, origin := range from.Berths {
 		if !berthAllows(from, origin, class) {
 			continue
 		}
 		for _, destination := range to.Berths {
 			if !berthAllows(to, destination, class) {
+				continue
+			}
+			if static {
+				if s.staticConnection(origin.Node, destination.Node, false, class) {
+					return true
+				}
 				continue
 			}
 			if _, err := s.routeForClass(origin.Node, destination.Node, class); err == nil {
@@ -138,7 +150,7 @@ func (s *Simulation) preferredFleetSource(input preferredNearestInput) (int, boo
 	}
 	if len(classes) == 1 {
 		input.class = classes[0]
-		return s.network.preferredNearestIndexed(input, s.graph)
+		return s.network.preferredNearestIndexed(input, s.routingGraph())
 	}
 	best := -1
 	bestCost := 0.0
@@ -152,7 +164,7 @@ func (s *Simulation) preferredFleetSource(input preferredNearestInput) (int, boo
 		}
 		search := input
 		search.rank, search.class = rank, class
-		node, ok := s.network.preferredNearestIndexed(search, s.graph)
+		node, ok := s.network.preferredNearestIndexed(search, s.routingGraph())
 		if !ok {
 			continue
 		}

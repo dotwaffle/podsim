@@ -108,12 +108,18 @@ func (s *Simulation) stationBankEntryForClass(from string, station Station, load
 }
 
 func (s *Simulation) stationBankEntryMatching(from string, station Station, load func(Berth) int, class VehicleClass, accept func(Berth) bool) (string, error) {
+	return s.stationBankEntryOn(false, from, station, load, class, accept)
+}
+
+// stationBankEntryOn is stationBankEntryMatching, on the static graph when
+// static is true. See routeOn.
+func (s *Simulation) stationBankEntryOn(static bool, from string, station Station, load func(Berth) int, class VehicleClass, accept func(Berth) bool) (string, error) {
 	if !station.VehicleClasses.Allows(string(class)) {
 		return "", ErrUnreachable
 	}
 	s.ensureNetworkIndexes()
 	if station.Banks == nil {
-		if (s.graph.classRestrictions || accept != nil) && !s.entryHasMatchingBerth(station, station.Entry, class, accept) {
+		if (s.graph.classRestrictions || accept != nil) && !s.entryHasMatchingBerthOn(static, station, station.Entry, class, accept) {
 			return "", ErrUnreachable
 		}
 		return station.Entry, nil
@@ -123,7 +129,7 @@ func (s *Simulation) stationBankEntryMatching(from string, station Station, load
 			bank := s.graph.banks.banks[owner]
 			if s.network.Stations[bank.station].ID == station.ID && node != bank.exit && s.graph.berthStations[node] < 0 {
 				entry := station.Banks[bank.bank].Entry
-				if accept != nil && !s.entryHasMatchingBerth(station, entry, class, accept) {
+				if accept != nil && !s.entryHasMatchingBerthOn(static, station, entry, class, accept) {
 					return "", ErrUnreachable
 				}
 				return entry, nil
@@ -137,7 +143,7 @@ func (s *Simulation) stationBankEntryMatching(from string, station Station, load
 	}
 	bestEntry, bestCost, bestLoad := "", 0.0, 0
 	for _, bank := range station.Banks {
-		route, err := s.routeForClass(from, bank.Entry, class)
+		route, err := s.routeOn(static, from, bank.Entry, class)
 		if err != nil {
 			continue
 		}
@@ -155,7 +161,7 @@ func (s *Simulation) stationBankEntryMatching(from string, station Station, load
 			if !berthAllows(station, berth, class) || accept != nil && !accept(berth) {
 				continue
 			}
-			if _, err := s.stationPathForClass(bank.Entry, berth.Node, class); err != nil {
+			if _, err := s.stationPathOn(static, bank.Entry, berth.Node, class); err != nil {
 				continue
 			}
 			minimum = min(minimum, load(berth))
@@ -174,11 +180,17 @@ func (s *Simulation) stationBankEntryMatching(from string, station Station, load
 }
 
 func (s *Simulation) entryHasMatchingBerth(station Station, entry string, class VehicleClass, accept func(Berth) bool) bool {
+	return s.entryHasMatchingBerthOn(false, station, entry, class, accept)
+}
+
+// entryHasMatchingBerthOn is entryHasMatchingBerth, on the static graph
+// when static is true. See routeOn.
+func (s *Simulation) entryHasMatchingBerthOn(static bool, station Station, entry string, class VehicleClass, accept func(Berth) bool) bool {
 	for _, berth := range station.Berths {
 		if station.berthEntry(berth) != entry || !berthAllows(station, berth, class) || accept != nil && !accept(berth) {
 			continue
 		}
-		if _, err := s.stationPathForClass(entry, berth.Node, class); err == nil {
+		if _, err := s.stationPathOn(static, entry, berth.Node, class); err == nil {
 			return true
 		}
 	}

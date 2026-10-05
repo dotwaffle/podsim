@@ -151,7 +151,7 @@ func (s *Simulation) nearestFreeBerth(v *vehicle, from string) (Berth, string, b
 	var candidates []candidate
 	add := func(berth Berth, station string) {
 		node, ok := s.graph.nodes[berth.Node]
-		if !ok || rank[node] >= 0 || busy[berth.ID] || !s.berthAvailableTo(v, berth) {
+		if !ok || rank[node] >= 0 || busy[berth.ID] || s.berthBlocked(berth) || !s.berthAvailableTo(v, berth) {
 			return
 		}
 		// A moving pod cannot stop at the node where its new route starts.
@@ -187,7 +187,7 @@ func (s *Simulation) nearestFreeBerth(v *vehicle, from string) (Berth, string, b
 	if len(candidates) == 0 {
 		return Berth{}, "", false
 	}
-	node, ok := s.network.preferredNearestIndexed(preferredNearestInput{from: from, rank: rank, class: v.Pod.Class}, s.graph)
+	node, ok := s.network.preferredNearestIndexed(preferredNearestInput{from: from, rank: rank, class: v.Pod.Class}, s.routingGraph())
 	if !ok {
 		return Berth{}, "", false
 	}

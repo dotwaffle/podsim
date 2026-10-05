@@ -243,6 +243,7 @@ func (s *Simulation) plannedDetour(origin string, stops []string, start detourSt
 
 func (s *Simulation) plannedBerthDetour(rider riderDetour, stops []string, start detourStart) float64 {
 	largest, ridden := 1.0, start.ridden
+	static := s.blockedActive()
 	for index, stop := range stops {
 		station, _ := s.station(stop)
 		direct := 0.0
@@ -277,7 +278,17 @@ func (s *Simulation) plannedBerthDetour(rider riderDetour, stops []string, start
 			if known {
 				arrival = ridden
 			}
-			ratio := s.plannedArrivalDetour(rider, stop, berth, start.class, arrival, direct+meters)
+			legacyDirect := direct + meters
+			if static && rider.destination == "" {
+				// The legacy baseline uses the station path of the static
+				// graph, as routeMeters does.
+				baseline, err := s.stationPathOn(true, station.berthEntry(berth), berth.Node, start.class)
+				if err != nil {
+					continue
+				}
+				legacyDirect = direct + s.lanesMeters(baseline)
+			}
+			ratio := s.plannedArrivalDetour(rider, stop, berth, start.class, arrival, legacyDirect)
 			largest, found = max(largest, ratio), true
 			if index+1 < len(stops) {
 				if onward, err := s.stationApproachForStops(berth.Node, stops[index+1:], start.class); err == nil {
@@ -294,13 +305,15 @@ func (s *Simulation) plannedBerthDetour(rider riderDetour, stops []string, start
 }
 
 // routeMeters returns the length of the free-flow route from a node to the
-// entry of a station. It reports false when the route does not exist.
+// entry of a station. It reports false when the route does not exist. It is
+// a detour baseline, so it searches the static graph while the blocked set
+// is not empty.
 func (s *Simulation) routeMeters(from, stationID string) (float64, bool) {
 	return s.routeMetersForClass(from, stationID, LegacyClass)
 }
 
 func (s *Simulation) routeMetersForClass(from, stationID string, class VehicleClass) (float64, bool) {
-	route, err := s.stationApproachRouteForClass(from, stationID, class)
+	route, err := s.stationApproachRouteOn(s.blockedActive(), from, stationID, class, nil)
 	if err != nil {
 		return 0, false
 	}
