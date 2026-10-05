@@ -110,6 +110,12 @@ type Metrics struct {
 // ServerStart is the server start ID of the state that a project command
 // is based on. When it is not empty and it is not the ID of this session,
 // the project command gets SessionChanged. Other actions ignore it.
+//
+// A fault command has PodID for a pod fault, or LaneID, FromMeters and
+// ToMeters for debris, and an optional DurationSeconds. A clearFault
+// command has FaultID. Other actions ignore these fields. Each one is an
+// extension field of the command digest, so a command without them keeps
+// its digest.
 type Command struct {
 	OrderContract   sim.OrderContract  `json:"orderContract,omitzero"`
 	Client          string             `json:"client"`
@@ -129,6 +135,12 @@ type Command struct {
 	ProjectRevision uint64             `json:"projectRevision,omitempty"`
 	Checkpoint      uint64             `json:"checkpoint,omitzero"`
 	ServerStart     string             `json:"serverStart,omitempty"`
+	PodID           string             `json:"podID,omitzero" digest:"ext=4"`
+	LaneID          string             `json:"laneID,omitzero" digest:"ext=5"`
+	FromMeters      *float64           `json:"fromMeters,omitzero" digest:"ext=6"`
+	ToMeters        *float64           `json:"toMeters,omitzero" digest:"ext=7"`
+	DurationSeconds *int64             `json:"durationSeconds,omitzero" digest:"ext=8"`
+	FaultID         string             `json:"faultID,omitzero" digest:"ext=9"`
 }
 
 // CommandErrorCode classifies a rejected command independently of its wording.
@@ -151,6 +163,7 @@ const (
 
 // Reply acknowledges one command without repeating the current state frame.
 // Only a checkpoint command sets Checkpoint, the ID of the new save point.
+// Only a fault command sets FaultID, the ID of the new fault.
 // Only a rewind that restores a different project sets ProjectRestored.
 //
 // StateSaved is set only when Apply tried to save the session state before
@@ -172,6 +185,7 @@ type Reply struct {
 	Checkpoint      uint64           `json:"checkpoint,omitzero"`
 	ProjectRestored bool             `json:"projectRestored,omitzero"`
 	StateSaved      *bool            `json:"stateSaved,omitzero"`
+	FaultID         string           `json:"faultID,omitzero"`
 	ErrorCode       CommandErrorCode `json:"errorCode,omitempty"`
 	Error           string           `json:"error,omitempty"`
 }
@@ -635,6 +649,7 @@ func (s *Session) applyCommand(command Command, digest commandDigest) commandRes
 			}
 			reply = s.reply()
 			reply.OrderID, reply.Checkpoint, reply.ProjectRestored = result.orderID, result.checkpoint, result.projectRestored
+			reply.FaultID = result.faultID
 			if err != nil {
 				code := CommandRejected
 				if errors.Is(err, errStaleProject) {
@@ -690,6 +705,7 @@ func truncateError(message string) string {
 // state before it replies.
 type outcome struct {
 	orderID         int
+	faultID         string
 	checkpoint      uint64
 	projectRestored bool
 	saveState       bool
@@ -809,6 +825,15 @@ func (s *Session) apply(command Command) (outcome, error) {
 			return outcome{}, err
 		}
 		return outcome{saveState: saved}, nil
+	case "fault":
+		id, err := s.simulation.Fault(sim.FaultRequest{PodID: command.PodID, LaneID: command.LaneID,
+			FromMeters: command.FromMeters, ToMeters: command.ToMeters, DurationSeconds: command.DurationSeconds})
+		if err != nil {
+			return outcome{}, err
+		}
+		return outcome{faultID: id}, nil
+	case "clearFault":
+		return outcome{}, s.simulation.ClearFault(command.FaultID)
 	case "checkpoint":
 		return s.captureCheckpoint(), nil
 	case "rewind":

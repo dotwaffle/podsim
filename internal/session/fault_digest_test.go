@@ -11,7 +11,8 @@ import (
 )
 
 // TestFaultDigestTrailers checks the digest extensions of the incident
-// suspension contract. A command with one fault field set hashes the input
+// suspension contract, N 2 to N 9. A command with one fault field set
+// hashes the input
 // of the same command without the field, and then a trailer of one field:
 // its N and its value. Faults goes in the trailer as one value, with each
 // of its members. A command without a fault field writes no trailer, so
@@ -30,6 +31,13 @@ func TestFaultDigestTrailers(t *testing.T) {
 			return c.Project.FaultContract
 		}, "Project.FaultContract"},
 		{3, func(c *Command) any { c.Project.Faults = faults; return c.Project.Faults }, "Project.Faults"},
+		{4, func(c *Command) any { c.PodID = "01"; return c.PodID }, "PodID"},
+		{5, func(c *Command) any { c.LaneID = "bypass-in"; return c.LaneID }, "LaneID"},
+		// A start at 0 is set: the pointer keeps it apart from no start.
+		{6, func(c *Command) any { c.FromMeters = new(0.0); return c.FromMeters }, "FromMeters"},
+		{7, func(c *Command) any { c.ToMeters = new(2.5); return c.ToMeters }, "ToMeters"},
+		{8, func(c *Command) any { c.DurationSeconds = new(int64(0)); return c.DurationSeconds }, "DurationSeconds"},
+		{9, func(c *Command) any { c.FaultID = "i1.1"; return c.FaultID }, "FaultID"},
 	} {
 		t.Run(test.field, func(t *testing.T) {
 			t.Parallel()

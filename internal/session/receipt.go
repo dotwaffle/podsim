@@ -31,6 +31,12 @@ var digestExtensions = []digestExtension{
 	{n: 1, path: "Project.IncidentContract"},
 	{n: 2, path: "Project.FaultContract"},
 	{n: 3, path: "Project.Faults"},
+	{n: 4, path: "PodID"},
+	{n: 5, path: "LaneID"},
+	{n: 6, path: "FromMeters"},
+	{n: 7, path: "ToMeters"},
+	{n: 8, path: "DurationSeconds"},
+	{n: 9, path: "FaultID"},
 }
 
 // extensionTag returns N when field has the tag digest:"ext=N".
