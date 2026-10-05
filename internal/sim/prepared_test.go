@@ -11,7 +11,7 @@ import (
 func TestPreparedNetworkFields(t *testing.T) {
 	t.Parallel()
 	checkFieldRules(t, fieldRuleCheck{kind: "immutable prepared field", typ: reflect.TypeFor[PreparedNetwork](),
-		names:     []string{"network", "graph", "stationIndexes", "stationForbidden", "geometry", "junctionConflicts", "berthResources", "laneCells", "laneSafety", "berthSafety"},
+		names:     []string{"network", "graph", "stationIndexes", "stationForbidden", "geometry", "junctionConflicts", "berthResources", "laneCells", "resourceLanes", "laneSafety", "berthSafety"},
 		needsRule: func(reflect.StructField) bool { return true },
 	})
 }

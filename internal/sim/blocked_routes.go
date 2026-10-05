@@ -66,7 +66,7 @@ func (s *Simulation) setBlocked(footprints []faultFootprint) {
 // footprints hold a resource, the first gives its fault ID.
 func (s *Simulation) blockedFrom(footprints []faultFootprint) blockedSet {
 	var next blockedSet
-	index := s.resourceLaneIndex()
+	index := s.resourceLanes
 	for _, footprint := range footprints {
 		for _, r := range footprint.resources {
 			if _, ok := next.by[r]; ok {
@@ -114,26 +114,22 @@ func (s *Simulation) startRouteEpoch() {
 	s.rerouteDue = true
 }
 
-// resourceLaneIndex returns, for each resource, the indexes of the lanes
-// whose cells hold it, in lane order. It is a cache of the network. The
-// first call builds it from the lane cells.
-func (s *Simulation) resourceLaneIndex() map[resource][]int {
-	if s.resourceLanes != nil {
-		return s.resourceLanes
-	}
+// indexResourceLanes returns, for each resource, the indexes of the lanes
+// whose cells hold it, in lane order. It is an index of the network, and
+// the other network indexes give its lane cells.
+func indexResourceLanes(network Network, cells map[string]*laneCells) map[resource][]int {
 	index := make(map[resource][]int)
-	for laneIndex, lane := range s.network.Lanes {
-		cells := s.laneCells[lane.ID]
-		if cells == nil {
+	for laneIndex, lane := range network.Lanes {
+		held := cells[lane.ID]
+		if held == nil {
 			continue
 		}
-		for _, r := range cells.resources {
+		for _, r := range held.resources {
 			if lanes := index[r]; len(lanes) == 0 || lanes[len(lanes)-1] != laneIndex {
 				index[r] = append(lanes, laneIndex)
 			}
 		}
 	}
-	s.resourceLanes = index
 	return index
 }
 

@@ -201,6 +201,7 @@ func (s *Simulation) ensureNetworkIndexes() {
 	s.junctionConflicts = buildJunctionConflicts(s.network)
 	s.berthResources = indexBerthResources(s.network)
 	s.laneCells = indexLaneCells(laneCellsIndexInput{network: s.network, geometry: s.geometry, conflicts: s.junctionConflicts, berths: s.berthResources})
+	s.resourceLanes = indexResourceLanes(s.network, s.laneCells)
 	s.lengths = nil
 	s.routes = nil
 	s.routeOrder = nil
@@ -210,7 +211,7 @@ func (s *Simulation) ensureNetworkIndexes() {
 	s.congestionRoutes = nil
 	// The blocked set holds lane indexes of the old network.
 	s.blocked = blockedSet{}
-	s.resourceLanes, s.staticConnected, s.staticRoutes = nil, nil, nil
+	s.staticConnected, s.staticRoutes = nil, nil
 }
 
 func indexStations(network Network) map[string]int {

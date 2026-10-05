@@ -360,7 +360,7 @@ func couplingPreparedEqual(t *testing.T, a, b *PreparedNetwork) bool {
 		{"network", a.network, b.network}, {"station indexes", a.stationIndexes, b.stationIndexes},
 		{"station exclusions", a.stationForbidden, b.stationForbidden}, {"geometry", a.geometry, b.geometry},
 		{"conflicts", a.junctionConflicts, b.junctionConflicts}, {"berth resources", a.berthResources, b.berthResources},
-		{"cells", a.laneCells, b.laneCells}, {"lane safety", a.laneSafety, b.laneSafety}, {"berth safety", a.berthSafety, b.berthSafety},
+		{"cells", a.laneCells, b.laneCells}, {"resource lanes", a.resourceLanes, b.resourceLanes}, {"lane safety", a.laneSafety, b.laneSafety}, {"berth safety", a.berthSafety, b.berthSafety},
 		{"graph nodes", a.graph.nodes, b.graph.nodes}, {"graph lanes", a.graph.lanes, b.graph.lanes},
 		{"outgoing", a.graph.outgoing, b.graph.outgoing}, {"incoming", a.graph.incoming, b.graph.incoming},
 		{"lengths", a.graph.lengths, b.graph.lengths}, {"edges", a.graph.edges, b.graph.edges},

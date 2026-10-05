@@ -20,6 +20,7 @@ type PreparedNetwork struct {
 	junctionConflicts map[string][]laneConflict
 	berthResources    map[string][]resource
 	laneCells         map[string]*laneCells
+	resourceLanes     map[resource][]int
 	laneSafety        map[string]SafetyLocation
 	berthSafety       map[string]SafetyLocation
 }
@@ -90,6 +91,7 @@ func newPreparedNetwork(owned Network, graph routeGraph) *PreparedNetwork {
 		}
 	}
 	p.laneCells = indexLaneCells(laneCellsIndexInput{network: owned, geometry: p.geometry, conflicts: p.junctionConflicts, berths: p.berthResources})
+	p.resourceLanes = indexResourceLanes(owned, p.laneCells)
 	return p
 }
 
@@ -212,7 +214,7 @@ func (p *PreparedNetwork) newFleet(placements []Placement) *Simulation {
 		network: p.network, initial: initial, graph: p.graph,
 		stationIndexes: p.stationIndexes, stationForbidden: p.stationForbidden,
 		geometry: p.geometry, junctionConflicts: p.junctionConflicts,
-		berthResources: p.berthResources, laneCells: p.laneCells,
+		berthResources: p.berthResources, laneCells: p.laneCells, resourceLanes: p.resourceLanes,
 		laneSafety: p.laneSafety, berthSafety: p.berthSafety,
 		sharedRidePartyLimit: 1, sharedRideMode: DefaultSharedRideMode,
 		sharedRideMaxStops: DefaultSharedRideMaxStops, sharedRideJoin: DefaultSharedRideJoin,

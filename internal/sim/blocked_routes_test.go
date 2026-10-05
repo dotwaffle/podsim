@@ -45,6 +45,9 @@ func blockedLaneIDs(s *Simulation) []string {
 func TestRoutingGraphWithEmptyBlockedSet(t *testing.T) {
 	t.Parallel()
 	s := newTraffic(t)
+	if len(s.resourceLanes) == 0 {
+		t.Fatal("the fleet has no resource lane index")
+	}
 	s.ensureNetworkIndexes()
 	// The graph holds the bank index error, which is nil here.
 	if graph := s.routingGraph(); graph.blocked != nil || !reflect.DeepEqual(graph, s.graph) { //nolint:govet // deepequalerrors: the error is nil on both sides.

@@ -211,7 +211,7 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		// A rebuild from the fault records sets the blocked set. A physical
 		// restore sets rerouteDue.
 		"blocked": persistDerive, "rerouteDue": persistDerive,
-		"resourceLanes": persistReset, "staticConnected": persistReset, "staticRoutes": persistReset,
+		"resourceLanes": persistDerive, "staticConnected": persistReset, "staticRoutes": persistReset,
 		"predictiveQueues": persistUnsupported, "predictivePodQueues": persistUnsupported, "predictiveQueueTick": persistUnsupported,
 		"routingPolicy": persistUnsupported, "congestionRouteCosts": persistUnsupported,
 		"congestionRoutes": persistUnsupported, "nextCongestionRouteRefresh": persistUnsupported,
@@ -491,7 +491,7 @@ func TestCloneFollowsRules(t *testing.T) {
 				"couplingNativeApproach.context", "couplingNativeApproach.state", "couplingApproachAttempt.context",
 				// The blocked routing case covers the blocked set and the
 				// static caches.
-				"Simulation.blocked", "Simulation.resourceLanes", "Simulation.staticConnected", "Simulation.staticRoutes"},
+				"Simulation.blocked", "Simulation.staticConnected", "Simulation.staticRoutes"},
 		},
 		{
 			name: "blocked routing storage",
@@ -830,7 +830,7 @@ func stripCaches(s *Simulation) *Simulation {
 	c := *s
 	c.lengths, c.routes, c.routeOrder = nil, nil, nil
 	c.pickupBounds = nil
-	c.staticConnected, c.staticRoutes, c.resourceLanes = nil, nil, nil
+	c.staticConnected, c.staticRoutes = nil, nil
 	c.routeWork = nil
 	c.admissionWork = nil
 	// The dispatch pass holds only buffers of the last dispatch.
