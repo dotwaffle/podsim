@@ -61,10 +61,10 @@ func TestNormalizationMatchesExistingEditor(t *testing.T) {
 				t.Fatal("explicit normalization differs", decodeErr, explicit.Error)
 			}
 			if network := object(change.Patch["network"]); network != nil {
-				network["Stations"] = []any{}
+				network["stations"] = []any{}
 			}
 			if fleet := items(change.Patch["fleet"]); len(fleet) != 0 && object(fleet[0]) != nil {
-				object(fleet[0])["ID"] = "mutated"
+				object(fleet[0])["id"] = "mutated"
 			}
 			again, err := model.handle(`{"op":"edit","edit":` + command + `}`)
 			if err != nil || !sameGeometry(again.Change.Patch, cached.Change.Patch) || !reflect.DeepEqual(fixture.Before, before) || model.branches["demandProfiles"].value != nil {

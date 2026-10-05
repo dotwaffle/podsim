@@ -69,17 +69,15 @@ var (
 // stringBytes is the largest size of a string or a name in the input,
 // with its quotes and escapes. When it is 0, strings have no limit.
 //
-// foldNames matches the names of a path without case, as encoding/json
-// matches the member names of a struct. allowInvalidUTF8 lets the scan go
-// on past a string that is not valid UTF-8, so that the scan checks the
-// whole input.
+// The names of a path match the member names exactly, as the decoders
+// match them. allowInvalidUTF8 lets the scan go on past a string that is
+// not valid UTF-8, so that the scan checks the whole input.
 type jsonLimits struct {
 	depth            int
 	elements         int64
 	members          int64
 	arrays           map[string]int64
 	stringBytes      int
-	foldNames        bool
 	allowInvalidUTF8 bool
 }
 
@@ -95,12 +93,12 @@ type jsonLimits struct {
 var stateJSONLimits = jsonLimits{
 	depth: 64, elements: 65_536, members: 256,
 	arrays: map[string]int64{
-		"/project/network/Nodes":                       project.MaxNodes,
-		"/project/network/Lanes":                       project.MaxLanes,
-		"/project/network/Stations":                    project.MaxStations,
-		"/project/network/Stations/*/Berths":           project.MaxBerths,
-		"/project/network/Stations/*/Banks":            sim.MaxStationBanks,
-		"/project/network/Stations/*/Banks/*/BerthIDs": project.MaxBerths,
+		"/project/network/nodes":                       project.MaxNodes,
+		"/project/network/lanes":                       project.MaxLanes,
+		"/project/network/stations":                    project.MaxStations,
+		"/project/network/stations/*/berths":           project.MaxBerths,
+		"/project/network/stations/*/banks":            sim.MaxStationBanks,
+		"/project/network/stations/*/banks/*/berthIDs": project.MaxBerths,
 		"/project/fleet":                               maxSavedPods,
 		"/railConnections":                             project.MaxRailDeparturePassengers,
 		"/project/railArrivals":                        project.MaxRailArrivals,
@@ -623,13 +621,6 @@ func (limits jsonLimits) arrayLimit(decoder *jsontext.Decoder) int64 {
 	path := strings.Join(tokens, "/")
 	if limit, ok := limits.arrays[path]; ok {
 		return limit
-	}
-	if limits.foldNames {
-		for name, limit := range limits.arrays {
-			if strings.EqualFold(name, path) {
-				return limit
-			}
-		}
 	}
 	return limits.elements
 }

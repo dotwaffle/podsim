@@ -21,8 +21,8 @@ type couplingScan struct {
 }
 
 func couplingMember(name string) bool {
-	switch strings.ToLower(name) {
-	case "couplingcontract", "couplingenabled", "couplingsites", "couplingcorridors", "couplinggroups":
+	switch name {
+	case "couplingContract", "couplingEnabled", "couplingSites", "couplingCorridors", "couplingGroups":
 		return true
 	}
 	return false
@@ -76,7 +76,6 @@ func couplingPresence(raw []byte) (recognized, opaque bool) {
 		if len(name) > len("couplingCorridors") {
 			continue
 		}
-		name = strings.ToLower(name)
 		if couplingMember(name) {
 			return true, false
 		}
@@ -107,12 +106,12 @@ func scanCouplingJSON(data []byte, topology bool) (scan couplingScan, err error)
 				return scan, errors.New("incomplete coupling JSON")
 			}
 			if family == couplingStateVersion && !topology {
-				for _, path := range []string{"/couplingcontract", "/project/couplingcontract", "/simulation/couplingcontract"} {
+				for _, path := range []string{"/couplingContract", "/project/couplingContract", "/simulation/couplingContract"} {
 					if !seen[path] {
 						return scan, errors.New("saved coupling contract marker is missing")
 					}
 				}
-			} else if topology && scan.recognized && !seen["/couplingcontract"] {
+			} else if topology && scan.recognized && !seen["/couplingContract"] {
 				return scan, errors.New("topology coupling contract marker is missing")
 			}
 			scan.complete = true
@@ -142,7 +141,7 @@ func scanCouplingJSON(data []byte, topology bool) (scan couplingScan, err error)
 			}
 			rootClosed = true
 		}
-		path := strings.ToLower(string(d.StackPointer()))
+		path := string(d.StackPointer())
 		parts := strings.Split(path, "/")
 		if token.Kind() == jsontext.KindBeginObject && len(parts) == 4 && parts[1] == "simulation" && parts[2] == "pods" {
 			scan.pods++
@@ -170,7 +169,7 @@ func scanCouplingJSON(data []byte, topology bool) (scan couplingScan, err error)
 			}
 			continue
 		}
-		if path == "/ordercontract" {
+		if path == "/orderContract" {
 			value, e := d.ReadToken()
 			if e != nil {
 				return scan, e
@@ -191,7 +190,7 @@ func scanCouplingJSON(data []byte, topology bool) (scan couplingScan, err error)
 		}
 		seen[path] = true
 		switch parts[len(parts)-1] {
-		case "couplingcontract":
+		case "couplingContract":
 			value, e := d.ReadToken()
 			if e != nil {
 				return scan, e
@@ -199,7 +198,7 @@ func scanCouplingJSON(data []byte, topology bool) (scan couplingScan, err error)
 			if value.Kind() != jsontext.KindString || value.String() != string(sim.CompactPairV1CouplingContract) {
 				return scan, sim.ErrUnknownCouplingContract
 			}
-		case "couplingenabled":
+		case "couplingEnabled":
 			value, e := d.ReadToken()
 			if e != nil {
 				return scan, e
@@ -207,16 +206,16 @@ func scanCouplingJSON(data []byte, topology bool) (scan couplingScan, err error)
 			if value.Kind() != jsontext.KindTrue && value.Kind() != jsontext.KindFalse {
 				return scan, errors.New("coupling enabled must be Boolean")
 			}
-		case "couplinggroups":
+		case "couplingGroups":
 			scan.groups = true
 			count, e := scanCouplingRecords(d, "group", project.MaxPods/2)
 			if e != nil {
 				return scan, e
 			}
 			scan.groupCount, scan.groups = count, count != 0
-		case "couplingsites", "couplingcorridors":
+		case "couplingSites", "couplingCorridors":
 			record := "corridor"
-			if parts[len(parts)-1] == "couplingsites" {
+			if parts[len(parts)-1] == "couplingSites" {
 				record = "site"
 			}
 			if _, e := scanCouplingRecords(d, record, project.MaxStations); e != nil {
@@ -263,7 +262,7 @@ func scanCouplingRecord(d *jsontext.Decoder, record string) error {
 		if err != nil {
 			return err
 		}
-		field := strings.ToLower(name.String())
+		field := name.String()
 		index := -1
 		for i, candidate := range fields {
 			if candidate == field {
@@ -295,13 +294,13 @@ func scanCouplingRecord(d *jsontext.Decoder, record string) error {
 func couplingRecordFields(record string) []string {
 	switch record {
 	case "group":
-		return []string{"id", "members", "formationtick", "corridorid", "assemblysiteid", "splitsiteid", "phase", "dwellticks", "progress"}
+		return []string{"id", "members", "formationTick", "corridorID", "assemblySiteID", "splitSiteID", "phase", "dwellTicks", "progress"}
 	case "site":
-		return []string{"id", "laneid", "startmeters", "endmeters", "frontstagingmeters", "rearstagingmeters"}
+		return []string{"id", "laneId", "startMeters", "endMeters", "frontStagingMeters", "rearStagingMeters"}
 	case "corridor":
-		return []string{"id", "assemblysiteid", "splitsiteid", "laneids"}
+		return []string{"id", "assemblySiteId", "splitSiteId", "laneIds"}
 	default:
-		return []string{"leg", "drainfirstmember"}
+		return []string{"leg", "drainFirstMember"}
 	}
 }
 
@@ -309,7 +308,7 @@ func scanCouplingValue(d *jsontext.Decoder, field string) error {
 	switch field {
 	case "progress":
 		return scanCouplingRecord(d, "progress")
-	case "members", "laneids":
+	case "members", "laneIds":
 		limit := project.MaxLanes
 		if field == "members" {
 			limit = 2
@@ -334,11 +333,11 @@ func scanCouplingValue(d *jsontext.Decoder, field string) error {
 		if _, err := d.ReadToken(); err != nil {
 			return err
 		}
-		if field == "members" && count != 2 || field == "laneids" && count == 0 {
+		if field == "members" && count != 2 || field == "laneIds" && count == 0 {
 			return errors.New("coupling ID array has an invalid length")
 		}
 		return nil
-	case "formationtick", "dwellticks", "leg", "drainfirstmember":
+	case "formationTick", "dwellTicks", "leg", "drainFirstMember":
 		token, err := d.ReadToken()
 		if err != nil {
 			return err
@@ -346,13 +345,13 @@ func scanCouplingValue(d *jsontext.Decoder, field string) error {
 		if token.Kind() != jsontext.KindNumber {
 			return errors.New("coupling progress must be an integer")
 		}
-		if field == "formationtick" {
+		if field == "formationTick" {
 			_, err = token.Int()
 		} else {
 			_, err = strconv.Atoi(token.String())
 		}
 		return err
-	case "startmeters", "endmeters", "frontstagingmeters", "rearstagingmeters":
+	case "startMeters", "endMeters", "frontStagingMeters", "rearStagingMeters":
 		token, err := d.ReadToken()
 		if err != nil {
 			return err

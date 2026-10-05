@@ -149,7 +149,7 @@ func TestWorkerCalls(t *testing.T) {
 func TestWorkerStructureBounds(t *testing.T) {
 	t.Parallel()
 	for _, run := range []struct{ name, text string }{
-		{"nodes", `{"op":"validate","project":{"network":{"Nodes":[` + strings.Repeat(`{},`, project.MaxNodes) + `{}]}}}`},
+		{"nodes", `{"op":"validate","project":{"network":{"nodes":[` + strings.Repeat(`{},`, project.MaxNodes) + `{}]}}}`},
 		{"weights", `{"op":"validate","project":{"demandProfiles":[{"flows":[{"weights":[` + strings.Repeat(`0,`, project.MaxBands) + `0]}]}]}}`},
 		{"destinations", `{"op":"park-ride","project":{},"parkRide":{"destinations":[` + strings.Repeat(`{},`, project.MaxStations-1) + `{}]}}`},
 		{"unknown array", `{"op":"validate","project":{"name":[{}]}}`},

@@ -71,7 +71,7 @@ func TestGeometryMatchesExistingEditor(t *testing.T) {
 				t.Fatal("stateless geometry response differs", err, explicit.Error)
 			}
 			if network := object(change.Patch["network"]); network != nil {
-				object(items(network["Nodes"])[0])["ID"] = "mutated"
+				object(items(network["nodes"])[0])["id"] = "mutated"
 				if !reflect.DeepEqual(fixture.Before, before) {
 					t.Fatal("geometry response shares source nodes")
 				}
@@ -120,14 +120,14 @@ func TestGeometryRejectsInvalidAndStaleCommands(t *testing.T) {
 	t.Parallel()
 	for _, raw := range []string{
 		`{}`, `{"action":"unknown"}`, `{"action":"addNode"}`,
-		`{"action":"addNode","point":{"X":1}}`,
-		`{"action":"addNode","point":{"X":"1","Y":2}}`,
-		`{"action":"addNode","point":{"X":100001,"Y":2}}`,
-		`{"action":"addNode","point":{"X":1,"Y":2},"id":""}`,
-		`{"action":"addNode","point":{"X":1,"Y":2},"paired":null}`,
-		`{"action":"addStation","point":{"X":99999,"Y":2}}`,
-		`{"action":"moveNode","id":"missing","point":{"X":1,"Y":2}}`,
-		`{"action":"moveStation","id":"alpha","delta":{"X":1}}`,
+		`{"action":"addNode","point":{"x":1}}`,
+		`{"action":"addNode","point":{"x":"1","y":2}}`,
+		`{"action":"addNode","point":{"x":100001,"y":2}}`,
+		`{"action":"addNode","point":{"x":1,"y":2},"id":""}`,
+		`{"action":"addNode","point":{"x":1,"y":2},"paired":null}`,
+		`{"action":"addStation","point":{"x":99999,"y":2}}`,
+		`{"action":"moveNode","id":"missing","point":{"x":1,"y":2}}`,
+		`{"action":"moveStation","id":"alpha","delta":{"x":1}}`,
 		`{"action":"stationName","id":"alpha","value":true}`,
 		`{"action":"stationParking","id":"alpha","value":"true"}`,
 		`{"action":"stationBearing","id":"alpha","value":""}`,
@@ -143,8 +143,8 @@ func TestGeometryRejectsInvalidAndStaleCommands(t *testing.T) {
 
 func TestMalformedStationMovementRetainsWorkerState(t *testing.T) {
 	t.Parallel()
-	const draft = `{"network":{"Stations":[{"ID":"s"}],"Nodes":[null,{"Position":{"X":0,"Y":0}}]}}`
-	const command = `{"field":"geometry","value":{"action":"moveStation","id":"s","delta":{"X":1,"Y":1}}}`
+	const draft = `{"network":{"stations":[{"id":"s"}],"nodes":[null,{"position":{"x":0,"y":0}}]}}`
+	const command = `{"field":"geometry","value":{"action":"moveStation","id":"s","delta":{"x":1,"y":1}}}`
 	model := new(engine)
 	if _, err := model.handle(`{"op":"sync","keys":["network"],"patch":` + draft + `}`); err != nil {
 		t.Fatal("the unfinished draft could not synchronize", err)
@@ -161,7 +161,7 @@ func TestMalformedStationMovementRetainsWorkerState(t *testing.T) {
 		t.Fatal("failed movement changed synchronized state")
 	}
 	result, err := model.handle(`{"op":"edit","edit":{"field":"geometry","value":{"action":"stationName","id":"s","value":"Repaired name"}}}`)
-	if err != nil || member(items(member(result.Change.Patch["network"], "Stations"))[0], "Name") != "Repaired name" {
+	if err != nil || member(items(member(result.Change.Patch["network"], "stations"))[0], "name") != "Repaired name" {
 		t.Fatal("rejected movement prevented subsequent editing", err)
 	}
 }
@@ -228,14 +228,14 @@ func TestGeometryPreservesProjectCountCaps(t *testing.T) {
 		name, key, command string
 		limit              int
 	}{
-		{"nodes", "Nodes", `{"action":"addNode","point":{"X":1,"Y":2}}`, project.MaxNodes},
-		{"stations", "Stations", `{"action":"addStation","point":{"X":1,"Y":2}}`, project.MaxStations},
+		{"nodes", "nodes", `{"action":"addNode","point":{"x":1,"y":2}}`, project.MaxNodes},
+		{"stations", "stations", `{"action":"addStation","point":{"x":1,"y":2}}`, project.MaxStations},
 	} {
 		t.Run(row.name, func(t *testing.T) {
 			t.Parallel()
 			entries := make([]any, row.limit)
 			for i := range entries {
-				entries[i] = map[string]any{"ID": row.name + "-" + strconv.Itoa(i)}
+				entries[i] = map[string]any{"id": row.name + "-" + strconv.Itoa(i)}
 			}
 			draft := map[string]any{"network": map[string]any{row.key: entries}}
 			before := cloneEditValue(draft)

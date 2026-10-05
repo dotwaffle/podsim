@@ -105,15 +105,16 @@ func TestTopologyBankDecoding(t *testing.T) {
 		{"null", `null`, false},
 		{"empty", `[]`, false},
 		{"nine banks", `[` + strings.Repeat(`{},`, sim.MaxStationBanks) + `{}]`, false},
-		{"201 members", `[{"BerthIDs":[` + strings.Repeat(`"b",`, project.MaxBerths) + `"b"]}]`, false},
+		{"201 members", `[{"berthIDs":[` + strings.Repeat(`"b",`, project.MaxBerths) + `"b"]}]`, false},
 		{"unknown bank member", `[{"extra":1}]`, false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			for _, member := range []string{"Banks", "banks"} {
-				raw := bytes.Replace(rawBase, append([]byte(`"Banks":`), bankJSON...), fmt.Appendf(nil, `%q:%s`, member, test.banks), 1)
+				raw := bytes.Replace(rawBase, append([]byte(`"banks":`), bankJSON...), fmt.Appendf(nil, `%q:%s`, member, test.banks), 1)
 				var topology TopologySnapshot
-				if err := json.Unmarshal(raw, &topology); (err == nil) != test.valid {
+				// A folded member name is unknown, so the decoder refuses it.
+				if err := json.Unmarshal(raw, &topology); (err == nil) != (test.valid && member == "banks") {
 					t.Fatalf("topology decoder: %v", err)
 				}
 			}
@@ -169,18 +170,20 @@ func TestCommandBankShapeBounds(t *testing.T) {
 		value func(int) string
 	}{
 		{"banks", sim.MaxStationBanks, func(count int) string { return "[" + strings.Repeat("{},", count-1) + "{}]" }},
-		{"berth IDs", project.MaxBerths, func(count int) string { return `[{"BerthIDs":[` + strings.Repeat(`"b",`, count-1) + `"b"]}]` }},
+		{"berth IDs", project.MaxBerths, func(count int) string { return `[{"berthIDs":[` + strings.Repeat(`"b",`, count-1) + `"b"]}]` }},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			for _, count := range []int{test.limit, test.limit + 1} {
 				for _, member := range []string{"Banks", "banks"} {
-					raw := fmt.Sprintf(`{"action":"pause","project":{"network":{"Stations":[{%q:%s}]}}}`, member, test.value(count))
+					raw := fmt.Sprintf(`{"action":"pause","project":{"network":{"stations":[{%q:%s}]}}}`, member, test.value(count))
 					err := prescanCommand([]byte(raw))
-					if count == test.limit && err != nil {
+					// A folded name is an unknown path, which has no array.
+					refused := count > test.limit || member != "banks"
+					if !refused && err != nil {
 						t.Fatalf("rejected bound: %v", err)
 					}
-					if count > test.limit && (!errors.Is(err, errCommandShape) || !errors.Is(err, errJSONArrayTooLong)) {
+					if refused && (!errors.Is(err, errCommandShape) || !errors.Is(err, errJSONArrayTooLong)) {
 						t.Fatalf("accepted oversized array: %v", err)
 					}
 				}

@@ -16,17 +16,17 @@ import (
 )
 
 func bankEditorFixture(count int) map[string]any {
-	network := map[string]any{"Nodes": []any{}, "Lanes": []any{}, "Stations": []any{}}
-	station := map[string]any{"ID": "station", "Name": "Station", "Entry": "a-entry", "Exit": "a-exit", "ParkingOnly": false, "Berths": []any{}, "Banks": []any{}}
+	network := map[string]any{"nodes": []any{}, "lanes": []any{}, "stations": []any{}}
+	station := map[string]any{"id": "station", "name": "Station", "entry": "a-entry", "exit": "a-exit", "parkingOnly": false, "berths": []any{}, "banks": []any{}}
 	node := func(id string, x, y float64) {
-		network["Nodes"] = append(items(network["Nodes"]), map[string]any{"ID": id, "Position": map[string]any{"X": x, "Y": y}})
+		network["nodes"] = append(items(network["nodes"]), map[string]any{"id": id, "position": map[string]any{"x": x, "y": y}})
 	}
 	lane := func(id, from, to, role string) {
-		item := map[string]any{"ID": id, "From": from, "To": to, "SpeedLimit": float64(14)}
+		item := map[string]any{"id": id, "from": from, "to": to, "speedLimit": float64(14)}
 		if role != "" {
-			item["StationID"], item["StationRole"] = "station", role
+			item["stationID"], item["stationRole"] = "station", role
 		}
-		network["Lanes"] = append(items(network["Lanes"]), item)
+		network["lanes"] = append(items(network["lanes"]), item)
 	}
 	for index, prefix := range []string{"a", "b"} {
 		x := float64(index) * 600
@@ -58,13 +58,13 @@ func bankEditorFixture(count int) map[string]any {
 			lane(prefix+"-dl-"+suffix, departure, to, "departure")
 			lane(prefix+"-in-"+suffix, arrival, berth, "berth-access")
 			lane(prefix+"-out-"+suffix, berth, departure, "departure")
-			station["Berths"] = append(items(station["Berths"]), map[string]any{"ID": berth, "Node": berth})
+			station["berths"] = append(items(station["berths"]), map[string]any{"id": berth, "node": berth})
 			ids = append(ids, berth)
 		}
-		station["Banks"] = append(items(station["Banks"]), map[string]any{"ID": prefix, "Entry": prefix + "-entry", "Exit": prefix + "-exit", "BerthIDs": ids})
+		station["banks"] = append(items(station["banks"]), map[string]any{"id": prefix, "entry": prefix + "-entry", "exit": prefix + "-exit", "berthIDs": ids})
 	}
-	network["Stations"] = []any{station}
-	return map[string]any{"version": float64(1), "name": "Banks", "network": network, "fleet": []any{map[string]any{"ID": "pod", "BerthID": "a-berth-0"}}}
+	network["stations"] = []any{station}
+	return map[string]any{"version": float64(1), "name": "banks", "network": network, "fleet": []any{map[string]any{"id": "pod", "berthID": "a-berth-0"}}}
 }
 
 func applyBankEdit(t *testing.T, draft map[string]any, raw string) map[string]any {
@@ -100,30 +100,30 @@ func TestBankLayoutScopeAndOrder(t *testing.T) {
 		t.Fatal("bank dimensions differ", layout, err)
 	}
 	for _, id := range []string{"a-access-in", "a-access-out"} {
-		lane, err := g.find("Lanes", id)
+		lane, err := g.find("lanes", id)
 		if err != nil {
 			t.Fatal(err)
 		}
-		a, _ := g.point(text(lane["From"]))
-		b, _ := g.point(text(lane["To"]))
+		a, _ := g.point(text(lane["from"]))
+		b, _ := g.point(text(lane["to"]))
 		expected := 160.0
 		if id == "a-access-out" {
 			expected = 150
 		}
-		if !geometryNear(draftLaneLength(map[string]any{"X": a.X, "Y": a.Y}, map[string]any{"X": b.X, "Y": b.Y}, nil), expected) {
+		if !geometryNear(draftLaneLength(map[string]any{"x": a.X, "y": a.Y}, map[string]any{"x": b.X, "y": b.Y}, nil), expected) {
 			t.Fatal("length control did not use the final bank gate")
 		}
 	}
 	original := geometryDraft{network: object(draft["network"])}
-	for _, node := range items(g.network["Nodes"]) {
-		if strings.HasPrefix(text(member(node, "ID")), "b-") {
-			before, _ := original.find("Nodes", text(member(node, "ID")))
+	for _, node := range items(g.network["nodes"]) {
+		if strings.HasPrefix(text(member(node, "id")), "b-") {
+			before, _ := original.find("nodes", text(member(node, "id")))
 			if !reflect.DeepEqual(before, node) {
 				t.Fatal("the edit changed the other bank")
 			}
 		}
 	}
-	if !reflect.DeepEqual(member(draft, "fleet"), member(changed, "fleet")) || !reflect.DeepEqual(member(draft["network"], "Lanes"), member(changed["network"], "Lanes")) {
+	if !reflect.DeepEqual(member(draft, "fleet"), member(changed, "fleet")) || !reflect.DeepEqual(member(draft["network"], "lanes"), member(changed["network"], "lanes")) {
 		t.Fatal("layout changed IDs or fleet")
 	}
 }
@@ -136,7 +136,7 @@ func TestBankCommandsRejectAtomically(t *testing.T) {
 		`{"action":"addBankBerth","id":"station","value":"missing"}`,
 		`{"action":"stationBanks","id":"station","value":null}`,
 		`{"action":"stationBanks","id":"station","value":[]}`,
-		`{"action":"stationBanks","id":"station","value":[{"ID":"a","Entry":"a-entry","Exit":"a-exit","BerthIDs":["a-berth-0"]}]}`,
+		`{"action":"stationBanks","id":"station","value":[{"id":"a","entry":"a-entry","exit":"a-exit","berthIDs":["a-berth-0"]}]}`,
 		`{"action":"bankLayout","id":"station","value":{"bank":"a"}}`,
 		`{"action":"bankLayout","id":"station","value":{"bank":"a","pitch":null}}`,
 		`{"action":"bankLayout","id":"station","value":{"bank":"a","pitch":24}}`,
@@ -150,7 +150,7 @@ func TestBankCommandsRejectAtomically(t *testing.T) {
 		`{"action":"stationLegacy","id":"station"}`,
 		`{"action":"deleteLane","id":"a-through"}`,
 		`{"action":"deleteNode","id":"b-entry"}`,
-		`{"action":"moveNode","id":"b-berth-0","point":{"X":0,"Y":211}}`,
+		`{"action":"moveNode","id":"b-berth-0","point":{"x":0,"y":211}}`,
 		`{"action":"bankLayout","id":"station","value":{"bank":"a","setback":100001}}`,
 	}
 	for _, raw := range commands {
@@ -172,17 +172,17 @@ func TestBankBerthMembershipAndTransforms(t *testing.T) {
 	t.Parallel()
 	draft := bankEditorFixture(1)
 	grown := applyBankEdit(t, draft, `{"action":"addBankBerth","id":"station","value":"b"}`)
-	station := items(member(grown["network"], "Stations"))[0]
-	last := member(items(member(station, "Berths"))[2], "ID")
-	if !slices.Contains(items(member(items(member(station, "Banks"))[1], "BerthIDs")), last) {
+	station := items(member(grown["network"], "stations"))[0]
+	last := member(items(member(station, "berths"))[2], "id")
+	if !slices.Contains(items(member(items(member(station, "banks"))[1], "berthIDs")), last) {
 		t.Fatal("new berth has no bank membership")
 	}
 	removed := applyBankEdit(t, grown, `{"action":"removeBerth","id":"station","value":"a-berth-0"}`)
-	station = items(member(removed["network"], "Stations"))[0]
-	if len(items(member(station, "Banks"))) != 1 || member(station, "Entry") != "b-entry" || len(items(member(removed["network"], "Nodes"))) != 16 {
+	station = items(member(removed["network"], "stations"))[0]
+	if len(items(member(station, "banks"))) != 1 || member(station, "entry") != "b-entry" || len(items(member(removed["network"], "nodes"))) != 16 {
 		t.Fatal("empty bank topology or aliases remain", station)
 	}
-	moved := applyBankEdit(t, removed, `{"action":"moveStation","id":"station","delta":{"X":10,"Y":15}}`)
+	moved := applyBankEdit(t, removed, `{"action":"moveStation","id":"station","delta":{"x":10,"y":15}}`)
 	before := geometryDraft{network: object(removed["network"])}
 	after := geometryDraft{network: object(moved["network"])}
 	for id := range before.stationNodes(station) {
@@ -193,7 +193,7 @@ func TestBankBerthMembershipAndTransforms(t *testing.T) {
 		}
 	}
 	deleted := applyBankEdit(t, grown, `{"action":"deleteStation","id":"station"}`)
-	if len(items(member(deleted["network"], "Stations"))) != 0 || deleted["version"] != float64(1) || len(items(deleted["fleet"])) != 0 {
+	if len(items(member(deleted["network"], "stations"))) != 0 || deleted["version"] != float64(1) || len(items(deleted["fleet"])) != 0 {
 		t.Fatal("bank delete changed the project version or kept the station")
 	}
 }
@@ -202,18 +202,18 @@ func TestBankMembershipKeepsVersion(t *testing.T) {
 	t.Parallel()
 	draft := bankEditorFixture(1)
 	network := object(draft["network"])
-	station := object(items(network["Stations"])[0])
+	station := object(items(network["stations"])[0])
 	// One bank can use the existing legacy entry and exit.
-	network["Stations"] = []any{station}
-	station["Berths"] = items(station["Berths"])[:1]
-	station["Banks"] = items(station["Banks"])[:1]
-	network["Nodes"] = slices.DeleteFunc(items(network["Nodes"]), func(node any) bool { return strings.HasPrefix(text(member(node, "ID")), "b-") })
-	network["Lanes"] = slices.DeleteFunc(items(network["Lanes"]), func(lane any) bool { return strings.HasPrefix(text(member(lane, "ID")), "b-") })
+	network["stations"] = []any{station}
+	station["berths"] = items(station["berths"])[:1]
+	station["banks"] = items(station["banks"])[:1]
+	network["nodes"] = slices.DeleteFunc(items(network["nodes"]), func(node any) bool { return strings.HasPrefix(text(member(node, "id")), "b-") })
+	network["lanes"] = slices.DeleteFunc(items(network["lanes"]), func(lane any) bool { return strings.HasPrefix(text(member(lane, "id")), "b-") })
 	legacy := applyBankEdit(t, draft, `{"action":"stationLegacy","id":"station"}`)
-	if legacy["version"] != float64(1) || has(items(member(legacy["network"], "Stations"))[0], "Banks") {
+	if legacy["version"] != float64(1) || has(items(member(legacy["network"], "stations"))[0], "banks") {
 		t.Fatal("legacy metadata remains")
 	}
-	banks, err := json.Marshal(station["Banks"])
+	banks, err := json.Marshal(station["banks"])
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -246,9 +246,9 @@ func TestEditorBankArrayLimits(t *testing.T) {
 				}
 				banks := any(entries)
 				if kind == "berths" {
-					banks = []any{map[string]any{"BerthIDs": entries}}
+					banks = []any{map[string]any{"berthIDs": entries}}
 				}
-				value := map[string]any{path: map[string]any{"network": map[string]any{"Stations": []any{map[string]any{"Banks": banks}}}}}
+				value := map[string]any{path: map[string]any{"network": map[string]any{"stations": []any{map[string]any{"banks": banks}}}}}
 				if path == "edit" {
 					value = map[string]any{"edit": map[string]any{"field": "geometry", "value": map[string]any{"action": "stationBanks", "id": "station", "value": banks}}}
 				}
@@ -301,35 +301,35 @@ func TestBankAnchorAndGeneratedLimits(t *testing.T) {
 	}{
 		{"shared anchor", `{"action":"bankLayout","id":"station","value":{"bank":"a","approachLength":150}}`, func(draft map[string]any) {
 			network := object(draft["network"])
-			network["Nodes"] = append(items(network["Nodes"]), map[string]any{"ID": "extra-node", "Position": map[string]any{"X": float64(-300), "Y": float64(-100)}})
-			network["Lanes"] = append(items(network["Lanes"]), map[string]any{"ID": "extra", "From": "a-approach", "To": "extra-node", "SpeedLimit": float64(14)})
+			network["nodes"] = append(items(network["nodes"]), map[string]any{"id": "extra-node", "position": map[string]any{"x": float64(-300), "y": float64(-100)}})
+			network["lanes"] = append(items(network["lanes"]), map[string]any{"id": "extra", "from": "a-approach", "to": "extra-node", "speedLimit": float64(14)})
 		}},
 		{"curved access", `{"action":"bankLayout","id":"station","value":{"bank":"a","approachLength":150}}`, func(draft map[string]any) {
 			g := geometryDraft{network: object(draft["network"])}
-			lane, _ := g.find("Lanes", "a-access-in")
-			lane["Control"] = map[string]any{"X": float64(-110), "Y": float64(60)}
+			lane, _ := g.find("lanes", "a-access-in")
+			lane["control"] = map[string]any{"x": float64(-110), "y": float64(60)}
 		}},
 		{"curved anchor road", `{"action":"bankLayout","id":"station","value":{"bank":"a","departureLength":150}}`, func(draft map[string]any) {
 			g := geometryDraft{network: object(draft["network"])}
-			lane, _ := g.find("Lanes", "a-road-out")
-			lane["Control"] = map[string]any{"X": float64(70), "Y": float64(-60)}
+			lane, _ := g.find("lanes", "a-road-out")
+			lane["control"] = map[string]any{"x": float64(70), "y": float64(-60)}
 		}},
 		{"station anchor", `{"action":"bankLayout","id":"station","value":{"bank":"a","approachLength":150}}`, func(draft map[string]any) {
 			g := geometryDraft{network: object(draft["network"])}
-			lane, _ := g.find("Lanes", "a-road-in")
-			lane["StationID"], lane["StationRole"] = "other-station", "approach"
+			lane, _ := g.find("lanes", "a-road-in")
+			lane["stationID"], lane["stationRole"] = "other-station", "approach"
 		}},
 		{"zero ray", `{"action":"bankLayout","id":"station","value":{"bank":"a","approachLength":150}}`, func(draft map[string]any) {
 			g := geometryDraft{network: object(draft["network"])}
-			node, _ := g.find("Nodes", "a-approach")
-			gate, _ := g.find("Nodes", "a-entry")
-			node["Position"] = cloneEditValue(gate["Position"])
+			node, _ := g.find("nodes", "a-approach")
+			gate, _ := g.find("nodes", "a-entry")
+			node["position"] = cloneEditValue(gate["position"])
 		}},
-		{"short changed lane", `{"action":"moveNode","id":"a-arrival-0","point":{"X":-100,"Y":130}}`, func(map[string]any) {}},
+		{"short changed lane", `{"action":"moveNode","id":"a-arrival-0","point":{"x":-100,"y":130}}`, func(map[string]any) {}},
 		{"node growth cap", `{"action":"addBankBerth","id":"station","value":"a"}`, func(draft map[string]any) {
 			network := object(draft["network"])
-			for len(items(network["Nodes"])) < project.MaxNodes-2 {
-				network["Nodes"] = append(items(network["Nodes"]), map[string]any{"ID": "filler-" + strconv.Itoa(len(items(network["Nodes"]))), "Position": map[string]any{"X": float64(9000), "Y": float64(9000)}})
+			for len(items(network["nodes"])) < project.MaxNodes-2 {
+				network["nodes"] = append(items(network["nodes"]), map[string]any{"id": "filler-" + strconv.Itoa(len(items(network["nodes"]))), "position": map[string]any{"x": float64(9000), "y": float64(9000)}})
 			}
 		}},
 	} {
@@ -385,7 +385,7 @@ func TestBankStationRotationAndLastBerth(t *testing.T) {
 	before := geometryDraft{network: object(draft["network"])}
 	for _, prefix := range []string{"a", "b"} {
 		for _, suffix := range []string{"in", "out"} {
-			lane, err := before.find("Lanes", prefix+"-road-"+suffix)
+			lane, err := before.find("lanes", prefix+"-road-"+suffix)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -393,13 +393,13 @@ func TestBankStationRotationAndLastBerth(t *testing.T) {
 			if suffix == "out" {
 				role = "exit"
 			}
-			lane["StationID"], lane["StationRole"] = "station", role
+			lane["stationID"], lane["stationRole"] = "station", role
 		}
 	}
 	rotated := applyBankEdit(t, draft, `{"action":"stationBearing","id":"station","value":180}`)
 	after := geometryDraft{network: object(rotated["network"])}
-	for _, node := range items(before.network["Nodes"]) {
-		id := text(member(node, "ID"))
+	for _, node := range items(before.network["nodes"]) {
+		id := text(member(node, "id"))
 		a, _ := before.point(id)
 		b, _ := after.point(id)
 		if !geometryNear(b.X, 120-a.Y) || !geometryNear(b.Y, 120+a.X) {
@@ -465,10 +465,10 @@ func TestBankMinimumSpacingInRotatedFrames(t *testing.T) {
 			t.Parallel()
 			draft := bankEditorFixture(3)
 			angle := degrees * math.Pi / 180
-			for _, node := range items(member(draft["network"], "Nodes")) {
-				position := object(member(node, "Position"))
-				x, y := number(position["X"]), number(position["Y"])
-				position["X"], position["Y"] = x*math.Cos(angle)-y*math.Sin(angle), x*math.Sin(angle)+y*math.Cos(angle)
+			for _, node := range items(member(draft["network"], "nodes")) {
+				position := object(member(node, "position"))
+				x, y := number(position["x"]), number(position["y"])
+				position["x"], position["y"] = x*math.Cos(angle)-y*math.Sin(angle), x*math.Sin(angle)+y*math.Cos(angle)
 			}
 			applyBankEdit(t, draft, `{"action":"bankLayout","id":"station","value":{"bank":"a","spacing":48}}`)
 		})

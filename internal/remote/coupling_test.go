@@ -105,7 +105,7 @@ func TestCouplingRemoteHTTP(t *testing.T) {
 
 func TestCouplingRemoteHTTPRejectsUnqualifiedFields(t *testing.T) {
 	t.Parallel()
-	for _, name := range []string{"couplingContract", "COUPLINGENABLED", "couplingGroups", "couplingSites", "couplingCorridors", "COUPLINGID"} {
+	for _, name := range []string{"couplingContract", "couplingEnabled", "couplingGroups", "couplingSites", "couplingCorridors", "couplingID"} {
 		for _, literal := range []string{"null", "false", "[]"} {
 			t.Run(name+literal, func(t *testing.T) {
 				t.Parallel()

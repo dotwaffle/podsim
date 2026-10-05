@@ -7,7 +7,7 @@ import (
 
 // CouplingRectangle lists four corners in perimeter order on the XY plane.
 type CouplingRectangle struct {
-	Corners [4]Point `json:"Corners"`
+	Corners [4]Point `json:"corners"`
 }
 
 // CouplingFootprint contains separate cabins and the pin-to-pin connector.

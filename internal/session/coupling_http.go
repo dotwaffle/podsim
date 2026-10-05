@@ -84,7 +84,7 @@ func DecodeCouplingStateJSON(raw []byte) (State, error) {
 	var envelope CouplingStateEnvelope
 	var err error
 	if packed {
-		err = jsonv2.Unmarshal(raw, &envelope, json.DefaultOptionsV1(), jsonv2.RejectUnknownMembers(true), packedDecodeOptions())
+		err = jsonv2.Unmarshal(raw, &envelope, json.DefaultOptionsV1(), jsonv2.MatchCaseInsensitiveNames(false), jsonv2.RejectUnknownMembers(true), packedDecodeOptions())
 	} else {
 		err = decodeStreamJSON(raw, &envelope)
 	}

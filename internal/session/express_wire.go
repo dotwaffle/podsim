@@ -135,18 +135,18 @@ func expressSavedLimits() jsonLimits {
 }
 
 func expressStreamLimits() jsonLimits {
-	limits := jsonLimits{depth: 64, elements: 65536, members: 256, foldNames: true, arrays: map[string]int64{}}
+	limits := jsonLimits{depth: 64, elements: 65536, members: 256, arrays: map[string]int64{}}
 	for _, prefix := range []string{"/full", "/frame"} {
 		limits.arrays[prefix+"/routes"] = project.MaxPods
-		limits.arrays[prefix+"/routes/*/Display"] = project.MaxLanes
-		limits.arrays[prefix+"/routes/*/Lanes"] = sim.MotionRouteLimit
-		limits.arrays[prefix+"/state/simulation/Vehicles"] = project.MaxPods
-		limits.arrays[prefix+"/state/simulation/Berths"] = project.MaxNodes
-		limits.arrays[prefix+"/state/simulation/Pending"] = sim.MaxExpressWaitingTrips
-		limits.arrays[prefix+"/state/simulation/Vehicles/*/Riders"] = 20
-		limits.arrays[prefix+"/state/simulation/Vehicles/*/Boardings"] = 20
-		limits.arrays[prefix+"/state/simulation/Vehicles/*/Stops"] = 8
-		limits.arrays[prefix+"/state/simulation/Vehicles/*/RouteLaneIDs"] = 0
+		limits.arrays[prefix+"/routes/*/display"] = project.MaxLanes
+		limits.arrays[prefix+"/routes/*/lanes"] = sim.MotionRouteLimit
+		limits.arrays[prefix+"/state/simulation/vehicles"] = project.MaxPods
+		limits.arrays[prefix+"/state/simulation/berths"] = project.MaxNodes
+		limits.arrays[prefix+"/state/simulation/pending"] = sim.MaxExpressWaitingTrips
+		limits.arrays[prefix+"/state/simulation/vehicles/*/riders"] = 20
+		limits.arrays[prefix+"/state/simulation/vehicles/*/boardings"] = 20
+		limits.arrays[prefix+"/state/simulation/vehicles/*/stops"] = 8
+		limits.arrays[prefix+"/state/simulation/vehicles/*/routeLaneIDs"] = 0
 	}
 	limits.arrays["/delta/vehicles"] = project.MaxPods
 	limits.arrays["/delta/berths"] = project.MaxNodes
@@ -154,8 +154,8 @@ func expressStreamLimits() jsonLimits {
 	limits.arrays["/delta/vehicles/*/riders/value"] = 20
 	limits.arrays["/delta/vehicles/*/boardings/value"] = 20
 	limits.arrays["/delta/vehicles/*/stops/value"] = 8
-	limits.arrays["/delta/vehicles/*/route/value/Display"] = project.MaxLanes
-	limits.arrays["/delta/vehicles/*/route/value/Lanes"] = sim.MotionRouteLimit
+	limits.arrays["/delta/vehicles/*/route/value/display"] = project.MaxLanes
+	limits.arrays["/delta/vehicles/*/route/value/lanes"] = sim.MotionRouteLimit
 	for path, bound := range topologyJSONLimits.arrays {
 		limits.arrays["/topology"+path] = bound
 	}
@@ -238,7 +238,7 @@ func DecodeExpressStateJSON(raw []byte) (State, error) {
 		return State{}, err
 	}
 	var envelope ExpressStateEnvelope
-	if err := jsonv2.Unmarshal(raw, &envelope, json.DefaultOptionsV1(), jsonv2.RejectUnknownMembers(true), packedDecodeOptions()); err != nil {
+	if err := jsonv2.Unmarshal(raw, &envelope, json.DefaultOptionsV1(), jsonv2.MatchCaseInsensitiveNames(false), jsonv2.RejectUnknownMembers(true), packedDecodeOptions()); err != nil {
 		return State{}, err
 	}
 	assembler, err := NewStreamAssemblerVersion(envelope.Topology, ExpressStreamVersion)

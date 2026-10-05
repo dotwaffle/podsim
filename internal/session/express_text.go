@@ -84,7 +84,7 @@ func encodePackedSavedRequest(e *jsontext.Encoder, r sim.SavedRequest) error {
 }
 func decodePackedRequest(d *jsontext.Decoder, r *sim.Request) error {
 	var wire packedRequest
-	if err := jsonv2.UnmarshalDecode(d, &wire, json.DefaultOptionsV1(), jsonv2.RejectUnknownMembers(true), jsontext.AllowDuplicateNames(false)); err != nil {
+	if err := jsonv2.UnmarshalDecode(d, &wire, json.DefaultOptionsV1(), jsonv2.MatchCaseInsensitiveNames(false), jsonv2.RejectUnknownMembers(true), jsontext.AllowDuplicateNames(false)); err != nil {
 		return err
 	}
 	next := sim.Request(wire)
@@ -129,15 +129,15 @@ func scanPackedOrders(data []byte) error {
 		if token.Kind() != jsontext.KindString || kind != jsontext.KindBeginObject || n%2 != 1 {
 			continue
 		}
-		path := strings.ToLower(string(d.StackPointer()))
+		path := string(d.StackPointer())
 		order := strings.Contains(path, "/riders/") || strings.Contains(path, "/pending/") || strings.Contains(path, "/waiting/") && strings.Contains(path, "/request/")
 		if !order {
 			continue
 		}
 		limit := 64
-		switch strings.ToLower(token.String()) {
-		case "from", "to", "podid", "serviceid":
-		case "dispatchreason":
+		switch token.String() {
+		case "from", "to", "podID", "serviceID":
+		case "dispatchReason":
 			limit = 1024
 		default:
 			continue
@@ -168,11 +168,11 @@ func scanContractMarkers(data []byte, express, requireText bool) error {
 		if token.Kind() != jsontext.KindString || kind != jsontext.KindBeginObject || n%2 != 1 {
 			continue
 		}
-		name := strings.ToLower(token.String())
-		if name != "ordercontract" && name != "textencoding" {
+		name := token.String()
+		if name != "orderContract" && name != "textEncoding" {
 			continue
 		}
-		path := strings.ToLower(string(d.StackPointer()))
+		path := string(d.StackPointer())
 		if seen[path] {
 			return errors.New("duplicate contract marker")
 		}
@@ -185,14 +185,14 @@ func scanContractMarkers(data []byte, express, requireText bool) error {
 			return err
 		}
 		expected := string(sim.ExpressOrderContract)
-		if name == "textencoding" {
+		if name == "textEncoding" {
 			expected = ExpressTextEncoding
 		}
 		if value.Kind() != jsontext.KindString || value.String() != expected {
 			return errors.New("invalid Express contract marker")
 		}
 	}
-	if express && (!seen["/ordercontract"] || requireText && !seen["/textencoding"]) {
+	if express && (!seen["/orderContract"] || requireText && !seen["/textEncoding"]) {
 		return errors.New("missing Express contract marker")
 	}
 	return nil

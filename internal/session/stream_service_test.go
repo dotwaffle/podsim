@@ -14,9 +14,9 @@ import (
 func TestStreamServiceMemberVersions(t *testing.T) {
 	t.Parallel()
 	for _, member := range []string{
-		`"Class":null`, `"Class":""`, `"Class":"unknown"`,
-		`"SharingConsent":null`, `"SharingConsent":""`, `"SharingConsent":true`,
-		`"Service":"unknown"`, `"ServiceID":""`, `"projectVersion":null`,
+		`"class":null`, `"class":""`, `"class":"unknown"`,
+		`"sharingConsent":null`, `"sharingConsent":""`, `"sharingConsent":true`,
+		`"service":"unknown"`, `"serviceID":""`, `"projectVersion":null`,
 		`"projectVersion":"3"`, `"projectVersion":3.5`, `"projectVersion":2`, `"projectVersion":3`,
 		`"projectVersion":4`, `"projectVersion":5`,
 	} {
@@ -175,10 +175,10 @@ func TestStreamClassIsImmutableWithinProject(t *testing.T) {
 func TestStreamRejectsLegacyOrderMembers(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct{ wrapper, control string }{
-		{`{"full":{"state":{"simulation":{"Vehicles":[{%s}]}}}}`, `"Rebalancing":true`},
-		{`{"full":{"state":{"simulation":{"Vehicles":[{"Riders":[{%s}]}]}}}}`, `"ID":1`},
-		{`{"full":{"state":{"simulation":{"Pending":[{%s}]}}}}`, `"ID":1`},
-		{`{"delta":{"vehicles":[{"metadata":{"value":{%s}}}]}}`, `"Rebalancing":true`},
+		{`{"full":{"state":{"simulation":{"vehicles":[{%s}]}}}}`, `"rebalancing":true`},
+		{`{"full":{"state":{"simulation":{"vehicles":[{"riders":[{%s}]}]}}}}`, `"id":1`},
+		{`{"full":{"state":{"simulation":{"pending":[{%s}]}}}}`, `"id":1`},
+		{`{"delta":{"vehicles":[{"metadata":{"value":{%s}}}]}}`, `"rebalancing":true`},
 	} {
 		control := []byte(strings.Replace(test.wrapper, "%s", test.control, 1))
 		if _, err := DecodeStreamJSONVersion(control, 3); err != nil {

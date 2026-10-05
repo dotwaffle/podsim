@@ -112,10 +112,10 @@ func TestExchangeBoundsBeforeParsing(t *testing.T) {
 		want string
 	}{
 		{"/api/state", "deeper than the decoder cap", `{"epoch":"x","x":` + deep + `}`, tooDeep},
-		{"/api/state", "vehicles past the fleet bound", `{"simulation":{"Vehicles":` + zeros(project.MaxPods+1) + `}}`, tooLong},
+		{"/api/state", "vehicles past the fleet bound", `{"simulation":{"vehicles":` + zeros(project.MaxPods+1) + `}}`, tooLong},
 		{"/api/state", "object past the member limit", `{"x":0` + members(256) + `}`, tooMany},
 		{"/api/topology", "deeper than the decoder cap", `{"epoch":"x","x":` + deep + `}`, tooDeep},
-		{"/api/topology", "nodes past the network bound", `{"network":{"Nodes":` + zeros(project.MaxNodes+1) + `}}`, tooLong},
+		{"/api/topology", "nodes past the network bound", `{"network":{"nodes":` + zeros(project.MaxNodes+1) + `}}`, tooLong},
 		{"/api/topology", "object past the member limit", `{"x":0` + members(256) + `}`, tooMany},
 	}
 	for _, test := range tests {
@@ -258,5 +258,19 @@ func TestExchangeFailedDecodeKeepsTarget(t *testing.T) {
 				t.Fatalf("target epoch is %q after a failed decode, want kept", epoch)
 			}
 		})
+	}
+}
+
+// A response member whose case differs from the declared name is unknown,
+// so the client ignores it.
+func TestExchangeIgnoresCaseVariantMembers(t *testing.T) {
+	t.Parallel()
+	client := boundsClient(t, "application/json", []byte(`{"Epoch":"folded","epoch":"exact","simulation":{"Tick":9}}`))
+	var state session.State
+	if err := client.exchange(t.Context(), http.MethodGet, "/api/state", nil, &state); err != nil {
+		t.Fatal(err)
+	}
+	if state.Epoch != "exact" || state.Simulation.Tick != 0 {
+		t.Fatalf("case variant members decoded: epoch %q, tick %d", state.Epoch, state.Simulation.Tick)
 	}
 }

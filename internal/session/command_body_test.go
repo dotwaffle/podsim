@@ -41,7 +41,7 @@ func gzipBody(t *testing.T, data []byte, level int) []byte {
 // after it, so that the JSON has size bytes.
 func paddedPause(t *testing.T, s *Session, client string, size int) []byte {
 	t.Helper()
-	body := pauseWithLanes(t, s, client, "Lanes", 0)
+	body := pauseWithLanes(t, s, client, "lanes", 0)
 	if len(body) > size {
 		t.Fatalf("the command has %d bytes, more than %d", len(body), size)
 	}
@@ -67,7 +67,7 @@ func postEncoded(t *testing.T, handler http.Handler, body []byte, encodings ...s
 func TestCommandContentEncoding(t *testing.T) {
 	s := newTestSession(t)
 	handler := s.Handler(t.TempDir())
-	pause := func(client string) []byte { return pauseWithLanes(t, s, client, "Lanes", 0) }
+	pause := func(client string) []byte { return pauseWithLanes(t, s, client, "lanes", 0) }
 	compressed := gzipBody(t, pause("trailing"), gzip.DefaultCompression)
 	checksum := bytes.Clone(gzipBody(t, pause("checksum"), gzip.DefaultCompression))
 	checksum[len(checksum)-8] ^= 0xff
@@ -99,7 +99,7 @@ func TestCommandContentEncoding(t *testing.T) {
 		{"truncated", compressed[:len(compressed)-4], []string{"gzip"}, http.StatusBadRequest, "invalid gzip body\n"},
 		{"data after the member", append(bytes.Clone(compressed), 0), []string{"gzip"}, http.StatusBadRequest, "send one gzip member only\n"},
 		{"two members", append(bytes.Clone(compressed), compressed...), []string{"gzip"}, http.StatusBadRequest, "send one gzip member only\n"},
-		{"gzip JSON over a shape limit", gzipBody(t, pauseWithLanes(t, s, "shape", "Lanes", 1_000_000), gzip.DefaultCompression), []string{"gzip"}, http.StatusBadRequest, "invalid command JSON\n"},
+		{"gzip JSON over a shape limit", gzipBody(t, pauseWithLanes(t, s, "shape", "lanes", 1_000_000), gzip.DefaultCompression), []string{"gzip"}, http.StatusBadRequest, "invalid command JSON\n"},
 	}
 	// The cases share one session, so they run one at a time. Else they
 	// could use all admission places of the session.
@@ -230,7 +230,7 @@ func TestLargeCommandGuard(t *testing.T) {
 			t.Fatal(err)
 		}
 		handler := s.Handler(t.TempDir())
-		if recorder := postEncoded(t, handler, pauseWithLanes(t, s, "pause", "Lanes", 0)); recorder.Code != http.StatusOK {
+		if recorder := postEncoded(t, handler, pauseWithLanes(t, s, "pause", "lanes", 0)); recorder.Code != http.StatusOK {
 			t.Fatalf("pause: status %d, reply %q", recorder.Code, recorder.Body.String())
 		}
 		// The current project is a no-op apply without a save, so change it.
@@ -307,7 +307,7 @@ func TestGzipCommandsWaitBeforeDecompression(t *testing.T) {
 		s := newTestSession(t)
 		handler := s.Handler(t.TempDir())
 		spaces := gzipBody(t, bytes.Repeat([]byte(" "), largeCommandBytes+1), gzip.BestCompression)
-		pause := gzipBody(t, pauseWithLanes(t, s, "pause", "Lanes", 0), gzip.DefaultCompression)
+		pause := gzipBody(t, pauseWithLanes(t, s, "pause", "lanes", 0), gzip.DefaultCompression)
 		s.largeCommands <- struct{}{}
 
 		var before, after runtime.MemStats
@@ -374,7 +374,7 @@ func TestLargeBodyAdmission(t *testing.T) {
 			bodies[index] = paddedPause(t, s, fmt.Sprintf("large-%d", index), MaxCommandBytes)
 		}
 		small := paddedPause(t, s, "small", smallBodyBytes)
-		unknown := pauseWithLanes(t, s, "unknown", "Lanes", 0)
+		unknown := pauseWithLanes(t, s, "unknown", "lanes", 0)
 		stored := gzipBody(t, paddedPause(t, s, "stored", MaxCommandBytes), gzip.NoCompression)
 		s.largeCommands <- struct{}{}
 

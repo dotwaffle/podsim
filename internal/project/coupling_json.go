@@ -16,13 +16,13 @@ import (
 
 func couplingMemberBit(name string) uint8 {
 	switch name {
-	case "couplingcontract":
+	case "couplingContract":
 		return 1
-	case "couplingenabled":
+	case "couplingEnabled":
 		return 2
-	case "couplingsites":
+	case "couplingSites":
 		return 4
-	case "couplingcorridors":
+	case "couplingCorridors":
 		return 8
 	default:
 		return 0
@@ -31,7 +31,7 @@ func couplingMemberBit(name string) uint8 {
 
 func scanCouplingMember(decoder *jsontext.Decoder, name string) error {
 	switch name {
-	case "couplingcontract":
+	case "couplingContract":
 		value, err := decoder.ReadToken()
 		if err != nil {
 			return err
@@ -40,7 +40,7 @@ func scanCouplingMember(decoder *jsontext.Decoder, name string) error {
 			return sim.ErrUnknownCouplingContract
 		}
 		return nil
-	case "couplingenabled":
+	case "couplingEnabled":
 		value, err := decoder.ReadToken()
 		if err != nil {
 			return err
@@ -49,9 +49,9 @@ func scanCouplingMember(decoder *jsontext.Decoder, name string) error {
 			return errors.New("coupling enabled must be Boolean")
 		}
 		return nil
-	case "couplingsites":
+	case "couplingSites":
 		return scanCouplingRecords(decoder, true, sim.MaxCouplingSites)
-	case "couplingcorridors":
+	case "couplingCorridors":
 		return scanCouplingRecords(decoder, false, sim.MaxCouplingCorridors)
 	default:
 		return errors.New("unknown coupling member")
@@ -95,7 +95,7 @@ func scanCouplingRecord(decoder *jsontext.Decoder, site bool) error {
 		if name.Kind() != jsontext.KindString {
 			return errors.New("coupling record needs a member name")
 		}
-		field := strings.ToLower(name.String())
+		field := name.String()
 		bit, number, path := couplingRecordField(field, site)
 		if bit == 0 {
 			return fmt.Errorf("unknown coupling record member %s", quoteID(name.String()))
@@ -135,24 +135,24 @@ func couplingRecordField(name string, site bool) (bit uint8, number, path bool) 
 	}
 	if site {
 		switch name {
-		case "laneid":
+		case "laneId":
 			return 2, false, false
-		case "startmeters":
+		case "startMeters":
 			return 4, true, false
-		case "endmeters":
+		case "endMeters":
 			return 8, true, false
-		case "frontstagingmeters":
+		case "frontStagingMeters":
 			return 16, true, false
-		case "rearstagingmeters":
+		case "rearStagingMeters":
 			return 32, true, false
 		}
 	} else {
 		switch name {
-		case "assemblysiteid":
+		case "assemblySiteId":
 			return 2, false, false
-		case "splitsiteid":
+		case "splitSiteId":
 			return 4, false, false
-		case "laneids":
+		case "laneIds":
 			return 8, false, true
 		}
 	}
@@ -233,7 +233,7 @@ func scanCouplingProjectBounds(data []byte) error {
 		if kind != jsontext.KindBeginArray {
 			continue
 		}
-		parts := strings.Split(strings.ToLower(string(decoder.StackPointer())), "/")
+		parts := strings.Split(string(decoder.StackPointer()), "/")
 		if len(parts) < 2 {
 			continue
 		}
@@ -250,9 +250,9 @@ func scanCouplingProjectBounds(data []byte) error {
 			return fmt.Errorf("project array %s exceeds %d elements", path, limit)
 		}
 		switch path {
-		case "/railarrivals":
+		case "/railArrivals":
 			arrivals = count
-		case "/raildepartures":
+		case "/railDepartures":
 			departures = count
 		}
 		if arrivals+departures > MaxRailArrivals {
@@ -265,33 +265,33 @@ func couplingProjectArrayLimit(path string) int {
 	switch path {
 	case "/network/nodes":
 		return MaxNodes
-	case "/network/lanes", "/couplingcorridors/*/laneids":
+	case "/network/lanes", "/couplingCorridors/*/laneIds":
 		return MaxLanes
 	case "/network/stations":
 		return MaxStations
 	case "/fleet":
 		return MaxPods
-	case "/network/stations/*/berths", "/network/stations/*/banks/*/berthids":
+	case "/network/stations/*/berths", "/network/stations/*/banks/*/berthIDs":
 		return MaxBerths
 	case "/network/stations/*/banks":
 		return sim.MaxStationBanks
-	case "/network/lanes/*/vehicleclasses", "/network/stations/*/vehicleclasses", "/network/stations/*/berths/*/vehicleclasses":
+	case "/network/lanes/*/vehicleClasses", "/network/stations/*/vehicleClasses", "/network/stations/*/berths/*/vehicleClasses":
 		return 4
-	case "/expressservices":
+	case "/expressServices":
 		return MaxExpressServices
-	case "/couplingsites":
+	case "/couplingSites":
 		return sim.MaxCouplingSites
-	case "/couplingcorridors":
+	case "/couplingCorridors":
 		return sim.MaxCouplingCorridors
-	case "/demandprofiles":
+	case "/demandProfiles":
 		return MaxProfiles
-	case "/demandprofiles/*/bands", "/demandprofiles/*/flows/*/weights":
+	case "/demandProfiles/*/bands", "/demandProfiles/*/flows/*/weights":
 		return MaxBands
-	case "/demandprofiles/*/flows":
+	case "/demandProfiles/*/flows":
 		return MaxFlows
-	case "/railarrivals", "/raildepartures":
+	case "/railArrivals", "/railDepartures":
 		return MaxRailArrivals
-	case "/railarrivals/*/destinations", "/raildepartures/*/origins":
+	case "/railArrivals/*/destinations", "/railDepartures/*/origins":
 		return MaxRailDestinations
 	default:
 		return 0

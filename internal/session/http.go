@@ -6,6 +6,8 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
+	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
@@ -68,8 +70,8 @@ var errContentEncoding = errors.New("use the gzip content encoding or no content
 // command has the limit that project.Validate applies to it. A project
 // action with a larger array is not valid, and the other actions do not
 // use the project. The decoder rejects an array at another path, so its
-// limit is 0. encoding/json matches member names without case, so the
-// limits do too. The scan goes on past invalid UTF-8, and the decoder then
+// limit is 0. The decoder and the limits match member names exactly. The
+// scan goes on past invalid UTF-8, and the decoder then
 // rejects the body.
 //
 // The string limit keeps a long string out of the error of a reply. The
@@ -78,21 +80,21 @@ var errContentEncoding = errors.New("use the gzip content encoding or no content
 // byte 6 bytes, which gives at most 602 bytes with the quotes. The longest
 // string of a preset has 47 bytes with the quotes.
 var commandJSONLimits = jsonLimits{
-	depth: 64, elements: 0, members: 256, stringBytes: 1024, foldNames: true, allowInvalidUTF8: true,
+	depth: 64, elements: 0, members: 256, stringBytes: 1024, allowInvalidUTF8: true,
 	arrays: map[string]int64{
 		"/project/couplingSites":                              sim.MaxCouplingSites,
 		"/project/couplingCorridors":                          sim.MaxCouplingCorridors,
 		"/project/couplingCorridors/*/laneIds":                project.MaxLanes,
 		"/project/expressServices":                            project.MaxExpressServices,
-		"/project/network/Lanes/*/VehicleClasses":             4,
-		"/project/network/Stations/*/VehicleClasses":          4,
-		"/project/network/Stations/*/Berths/*/VehicleClasses": 4,
-		"/project/network/Nodes":                              project.MaxNodes,
-		"/project/network/Lanes":                              project.MaxLanes,
-		"/project/network/Stations":                           project.MaxStations,
-		"/project/network/Stations/*/Berths":                  project.MaxBerths,
-		"/project/network/Stations/*/Banks":                   sim.MaxStationBanks,
-		"/project/network/Stations/*/Banks/*/BerthIDs":        project.MaxBerths,
+		"/project/network/lanes/*/vehicleClasses":             4,
+		"/project/network/stations/*/vehicleClasses":          4,
+		"/project/network/stations/*/berths/*/vehicleClasses": 4,
+		"/project/network/nodes":                              project.MaxNodes,
+		"/project/network/lanes":                              project.MaxLanes,
+		"/project/network/stations":                           project.MaxStations,
+		"/project/network/stations/*/berths":                  project.MaxBerths,
+		"/project/network/stations/*/banks":                   sim.MaxStationBanks,
+		"/project/network/stations/*/banks/*/berthIDs":        project.MaxBerths,
 		"/project/fleet":                                      project.MaxPods,
 		"/project/railArrivals":                               project.MaxRailArrivals,
 		"/project/railArrivals/*/destinations":                project.MaxRailDestinations,
@@ -180,14 +182,13 @@ func (s *Session) commandHTTP(w http.ResponseWriter, r *http.Request) {
 		writeError(w, failure.message, failure.status)
 		return
 	}
-	decoder := json.NewDecoder(bytes.NewReader(body))
-	decoder.DisallowUnknownFields()
+	decoder := jsontext.NewDecoder(bytes.NewReader(body), json.DefaultOptionsV1(), jsonv2.MatchCaseInsensitiveNames(false), jsonv2.RejectUnknownMembers(true))
 	var command Command
-	if err := decoder.Decode(&command); err != nil {
+	if err := jsonv2.UnmarshalDecode(decoder, &command); err != nil {
 		writeError(w, "invalid command JSON", http.StatusBadRequest)
 		return
 	}
-	if err := decoder.Decode(new(any)); err != io.EOF {
+	if _, err := decoder.ReadToken(); !errors.Is(err, io.EOF) {
 		writeError(w, "send one command only", http.StatusBadRequest)
 		return
 	}

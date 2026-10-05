@@ -45,9 +45,9 @@ func TestBankProjectJSONVersions(t *testing.T) {
 					t.Fatalf("version %d round trip: %v", config.Version, err)
 				}
 			}
-			for _, banks := range []string{`null`, `[]`, `[{}]`, `[{"ID":"a","Entry":"in","Exit":"out","BerthIDs":["b"]}]`} {
+			for _, banks := range []string{`null`, `[]`, `[{}]`, `[{"id":"a","entry":"in","exit":"out","berthIDs":["b"]}]`} {
 				for _, version := range []int{1, 2, 3} {
-					raw := fmt.Sprintf(`{"version":%d,"network":{"Stations":[{"Banks":%s}]}}`, version, banks)
+					raw := fmt.Sprintf(`{"version":%d,"network":{"stations":[{"banks":%s}]}}`, version, banks)
 					var got Config
 					if err := decoder.decode([]byte(raw), &got); err == nil {
 						t.Fatalf("accepted %s", raw)
@@ -55,13 +55,13 @@ func TestBankProjectJSONVersions(t *testing.T) {
 				}
 			}
 			for _, raw := range []string{
-				`{"version":2,"network":{"Stations":[]}}`,
-				`{"version":1,"network":{"Stations":[{"Banks":null}]}}`,
-				`{"version":1,"network":{"Stations":[{"Banks":[]}]}}`,
-				`{"version":1,"network":{"Stations":[{"Banks":"invalid"}]}}`,
+				`{"version":2,"network":{"stations":[]}}`,
+				`{"version":1,"network":{"stations":[{"banks":null}]}}`,
+				`{"version":1,"network":{"stations":[{"banks":[]}]}}`,
+				`{"version":1,"network":{"stations":[{"banks":"invalid"}]}}`,
 				`{"version":1,"extra":1}`,
-				`{"version":1,"network":{"Stations":[{"extra":1}]}}`,
-				`{"version":1,"network":{"Stations":[{"Banks":[{"extra":1}]}]}}`,
+				`{"version":1,"network":{"stations":[{"extra":1}]}}`,
+				`{"version":1,"network":{"stations":[{"banks":[{"extra":1}]}]}}`,
 			} {
 				var got Config
 				if err := decoder.decode([]byte(raw), &got); err == nil {
@@ -81,23 +81,31 @@ func TestBankProjectPrescanBounds(t *testing.T) {
 	}{
 		{"eight banks", `[` + strings.Repeat(`{},`, sim.MaxStationBanks-1) + `{}]`, false},
 		{"nine banks", `[` + strings.Repeat(`{},`, sim.MaxStationBanks) + `{}]`, true},
-		{"200 berth IDs", `[{"BerthIDs":[` + strings.Repeat(`"b",`, MaxBerths-1) + `"b"]}]`, false},
-		{"201 berth IDs", `[{"BerthIDs":[` + strings.Repeat(`"b",`, MaxBerths) + `"b"]}]`, true},
+		{"200 berth IDs", `[{"berthIDs":[` + strings.Repeat(`"b",`, MaxBerths-1) + `"b"]}]`, false},
+		{"201 berth IDs", `[{"berthIDs":[` + strings.Repeat(`"b",`, MaxBerths) + `"b"]}]`, true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			for _, member := range []string{"Banks", "banks"} {
-				raw := fmt.Sprintf(`{"version":1,"network":{"Stations":[{%q:%s}]}}`, member, test.value)
-				err := scanProjectBanks([]byte(raw))
-				if (err != nil) != test.bad {
-					t.Fatalf("scan error %v", err)
+			raw := fmt.Sprintf(`{"version":1,"network":{"stations":[{"banks":%s}]}}`, test.value)
+			err := scanProjectBanks([]byte(raw))
+			if (err != nil) != test.bad {
+				t.Fatalf("scan error %v", err)
+			}
+			if test.bad {
+				var config Config
+				if err := json.Unmarshal([]byte(raw), &config); err == nil {
+					t.Fatal("decoder accepted excessive array")
 				}
-				if test.bad {
-					var config Config
-					if err := json.Unmarshal([]byte(raw), &config); err == nil {
-						t.Fatal("decoder accepted excessive array")
-					}
-				}
+			}
+			// Another case does not name the bank member. The scan leaves
+			// it to the decoder, which refuses it as an unknown member.
+			upper := fmt.Sprintf(`{"version":1,"network":{"stations":[{"Banks":%s}]}}`, test.value)
+			if err := scanProjectBanks([]byte(upper)); err != nil {
+				t.Fatalf("scan bounded another case: %v", err)
+			}
+			var config Config
+			if err := json.Unmarshal([]byte(upper), &config); err == nil {
+				t.Fatal("decoder accepted Banks")
 			}
 		})
 	}
@@ -216,7 +224,7 @@ func TestBankProjectDecodeFailureKeepsStorage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw := []byte(`{"network":{"Stations":[{"ID":"changed","Banks":[{"ID":"changed","BerthIDs":["changed"]}]}]},"version":2}`)
+	raw := []byte(`{"network":{"stations":[{"id":"changed","banks":[{"id":"changed","berthIDs":["changed"]}]}]},"version":2}`)
 	if decodeErr := json.Unmarshal(raw, &config); decodeErr == nil {
 		t.Fatal("accepted bank metadata in project version 2")
 	}

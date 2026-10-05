@@ -15,17 +15,17 @@ func draftPairClearance(first, second any) float64 {
 }
 
 func hasLargeGeometry(network any) bool {
-	for _, lane := range items(member(network, "Lanes")) {
+	for _, lane := range items(member(network, "lanes")) {
 		if draftLaneMinimum(lane) > 2*sim.Clearance {
 			return true
 		}
 	}
-	for _, station := range items(member(network, "Stations")) {
+	for _, station := range items(member(network, "stations")) {
 		classes, valid := draftClassSet(station)
 		if !valid {
 			continue
 		}
-		for _, berth := range items(member(station, "Berths")) {
+		for _, berth := range items(member(station, "berths")) {
 			allowed, valid := draftClassSet(berth)
 			if valid && (classes.Allows("group") && allowed.Allows("group") || classes.Allows("express") && allowed.Allows("express")) {
 				return true
@@ -36,16 +36,16 @@ func hasLargeGeometry(network any) bool {
 }
 
 func draftGeometryClassesValid(network any) bool {
-	for _, lane := range items(member(network, "Lanes")) {
+	for _, lane := range items(member(network, "lanes")) {
 		if _, valid := draftClassSet(lane); !valid {
 			return false
 		}
 	}
-	for _, station := range items(member(network, "Stations")) {
+	for _, station := range items(member(network, "stations")) {
 		if _, valid := draftClassSet(station); !valid {
 			return false
 		}
-		for _, berth := range items(member(station, "Berths")) {
+		for _, berth := range items(member(station, "berths")) {
 			if _, valid := draftClassSet(berth); !valid {
 				return false
 			}

@@ -6,6 +6,8 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/json"
+	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
@@ -295,11 +297,13 @@ func decodeResponse(raw []byte, target any) error {
 		return errors.New("server response needs a non-nil pointer target")
 	}
 	value := reflect.New(destination.Elem().Type())
-	decoder := json.NewDecoder(bytes.NewReader(raw))
-	if err := decoder.Decode(value.Interface()); err != nil {
+	// Member names match exactly. A client ignores a member that it does
+	// not know, and the other encoding/json rules stay.
+	decoder := jsontext.NewDecoder(bytes.NewReader(raw), json.DefaultOptionsV1(), jsonv2.MatchCaseInsensitiveNames(false))
+	if err := jsonv2.UnmarshalDecode(decoder, value.Interface()); err != nil {
 		return fmt.Errorf("read server state: %w", err)
 	}
-	if err := decoder.Decode(new(any)); err != io.EOF {
+	if _, err := decoder.ReadToken(); !errors.Is(err, io.EOF) {
 		return errors.New("invalid server response ending")
 	}
 	destination.Elem().Set(value.Elem())

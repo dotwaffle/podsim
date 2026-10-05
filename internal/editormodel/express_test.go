@@ -104,7 +104,7 @@ func TestExpressEditorRejectsContractPresenceAndValues(t *testing.T) {
 			})
 		}
 	}
-	for _, draft := range []map[string]any{{"version": float64(4)}, {"version": float64(1), "ORDERCONTRACT": nil}} {
+	for _, draft := range []map[string]any{{"version": float64(4)}, {"version": float64(1), "orderContract": nil}} {
 		if _, err := normalizeProject(draft); err == nil {
 			t.Fatal("normalization manufactured or discarded contract presence")
 		}

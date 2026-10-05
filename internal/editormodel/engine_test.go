@@ -125,7 +125,7 @@ func TestStatefulCallsPreserveExplicitProjectIsolation(t *testing.T) {
 		`{"op":"sync","keys":["name","name"],"patch":{"name":"Test"}}`,
 		`{"op":"sync","keys":[],"patch":{"name":"Undeclared"}}`,
 		`{"op":"sync","keys":["missing"],"patch":{}}`,
-		`{"op":"sync","keys":["network"],"patch":{"network":{"Nodes":[` + strings.Repeat(`{},`, project.MaxNodes) + `{}]}}}`,
+		`{"op":"sync","keys":["network"],"patch":{"network":{"nodes":[` + strings.Repeat(`{},`, project.MaxNodes) + `{}]}}}`,
 	} {
 		if _, err := model.handle(input); err == nil {
 			t.Fatalf("invalid request accepted: %.100s", input)
@@ -146,8 +146,8 @@ func TestStatefulCallsPreserveExplicitProjectIsolation(t *testing.T) {
 func TestEngineBoundsAccumulatedProject(t *testing.T) {
 	t.Parallel()
 	model := new(engine)
-	node := `{"ID":"` + strings.Repeat("a", 1000) + `","Position":{"X":0,"Y":0}}`
-	network := `{"Nodes":[` + strings.Repeat(node+`,`, 999) + node + `],"Lanes":[],"Stations":[]}`
+	node := `{"id":"` + strings.Repeat("a", 1000) + `","position":{"x":0,"y":0}}`
+	network := `{"nodes":[` + strings.Repeat(node+`,`, 999) + node + `],"lanes":[],"stations":[]}`
 	if _, err := model.handle(`{"op":"sync","keys":["network"],"patch":{"network":` + network + `}}`); err != nil {
 		t.Fatal(err)
 	}

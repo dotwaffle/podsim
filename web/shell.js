@@ -133,7 +133,7 @@
   // object with an orderContract or couplingContract string and a frame
   // whose state member is the state. The state must have the values that
   // the capture reads, with their types: epoch, projectRevision and
-  // simulation.Tick. The capture keeps the other values as the server sent
+  // simulation.tick. The capture keeps the other values as the server sent
   // them, and does not unpack or check the orders.
   function captureState(reply) {
     const record = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
@@ -143,7 +143,7 @@
       state = marked && record(reply.frame) ? reply.frame.state : null;
     }
     if (!record(state) || typeof state.epoch !== "string" || state.epoch === "" || !Number.isSafeInteger(state.projectRevision) ||
-      !Number.isSafeInteger(state.simulation?.Tick)) {
+      !Number.isSafeInteger(state.simulation?.tick)) {
       throw new Error("Invalid server state reply");
     }
     return state;

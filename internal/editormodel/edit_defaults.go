@@ -14,9 +14,9 @@ func repairDemandDestination(draft any, change *projectChange) {
 		return
 	}
 	first := ""
-	for _, station := range items(member(network, "Stations")) {
-		id := text(member(station, "ID"))
-		if id == "" || editorTruthy(member(station, "ParkingOnly")) {
+	for _, station := range items(member(network, "stations")) {
+		id := text(member(station, "id"))
+		if id == "" || editorTruthy(member(station, "parkingOnly")) {
 			continue
 		}
 		if member(demand, "destination") == id {

@@ -134,16 +134,16 @@ func TestNetworkMonitorOwnsIndexes(t *testing.T) {
 }
 
 type summaryVehicle struct {
-	Activity sim.Activity   `json:"Activity"`
-	Speed    float64        `json:"Speed"`
-	Wait     sim.WaitReason `json:"Wait"`
-	Lane     string         `json:"Lane"`
-	Route    []string       `json:"Route"`
+	Activity sim.Activity   `json:"activity"`
+	Speed    float64        `json:"speed"`
+	Wait     sim.WaitReason `json:"wait"`
+	Lane     string         `json:"lane"`
+	Route    []string       `json:"route"`
 }
 
 type summaryFixture struct {
-	Vehicles []summaryVehicle `json:"Vehicles"`
-	Berths   []sim.BerthState `json:"Berths"`
+	Vehicles []summaryVehicle `json:"vehicles"`
+	Berths   []sim.BerthState `json:"berths"`
 }
 
 func loadSummaryFixture(tb testing.TB, name string) (sim.Network, sim.Snapshot) {

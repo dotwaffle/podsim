@@ -217,11 +217,9 @@ func TestCouplingSavedRequiredMembers(t *testing.T) {
 		for _, mode := range []string{"missing", "null", "folded duplicate"} {
 			t.Run(member+"/"+mode, func(t *testing.T) {
 				changed := mutateCouplingGroup(t, base, func(group map[string]jsontext.Value) {
-					var key string
-					for candidate := range group {
-						if strings.EqualFold(candidate, member) {
-							key = candidate
-						}
+					key := member
+					if _, ok := group[key]; !ok {
+						t.Fatal("group has no member", key)
 					}
 					switch mode {
 					case "missing":

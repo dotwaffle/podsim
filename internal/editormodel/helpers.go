@@ -1,7 +1,6 @@
 package editormodel
 
 import (
-	jsonv1 "encoding/json"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"errors"
@@ -11,7 +10,7 @@ import (
 )
 
 func helperOperation(op string) bool {
-	return op == "backgroundMetadata" || op == "canonicalImport" || op == "stationLayout"
+	return op == "backgroundMetadata" || op == "stationLayout"
 }
 
 func executeHelper(command request, input string) (response, error) {
@@ -19,8 +18,6 @@ func executeHelper(command request, input string) (response, error) {
 	switch command.Op {
 	case "backgroundMetadata":
 		allowed["metadata"] = true
-	case "canonicalImport":
-		allowed["project"] = true
 	case "stationLayout":
 		allowed["project"], allowed["layout"] = true, true
 	}
@@ -47,34 +44,8 @@ func executeHelper(command request, input string) (response, error) {
 	if err := json.Unmarshal(command.Project, &draft); err != nil {
 		return response{}, fmt.Errorf("decode helper draft: %w", err)
 	}
-	if command.Op == "canonicalImport" {
-		return response{Replace: canonicalProject(command.Project), helper: true}, nil
-	}
 	summary, err := inspectStationLayout(draft, command.Layout)
 	return response{Layout: &summary, helper: true}, err
-}
-
-// canonicalProject gives the project with canonical member names when the
-// server decoder accepts member names that differ only in case. The server
-// decodes with encoding/json, which matches names without case and keeps the
-// last of two such names. The canonical encoding keeps the member order of
-// project.Config. Without such names, it gives nil and the imported draft
-// stays unchanged.
-func canonicalProject(raw jsontext.Value) jsontext.Value {
-	type plainConfig project.Config
-	var strict plainConfig
-	if !errors.Is(json.Unmarshal(raw, &strict, json.RejectUnknownMembers(true)), json.ErrUnknownName) {
-		return nil
-	}
-	var config project.Config
-	if jsonv1.Unmarshal(raw, &config) != nil {
-		return nil
-	}
-	encoded, err := json.Marshal(config)
-	if err != nil {
-		return nil
-	}
-	return encoded
 }
 
 type layoutField struct {
@@ -115,7 +86,7 @@ func inspectStationLayout(draft any, raw jsontext.Value) (layoutSummary, error) 
 		return layoutSummary{}, errors.New("layout inspection needs valid station and bank IDs")
 	}
 	g := geometryDraft{network: object(member(draft, "network"))}
-	station, err := g.find("Stations", selection.StationID)
+	station, err := g.find("stations", selection.StationID)
 	if err != nil {
 		return layoutSummary{}, err
 	}
@@ -147,7 +118,7 @@ func inspectStationLayout(draft any, raw jsontext.Value) (layoutSummary, error) 
 			key   string
 			field *layoutField
 		}{{"approachLength", &summary.ApproachLength}, {"departureLength", &summary.DepartureLength}} {
-			original, _ := g.find("Stations", selection.StationID)
+			original, _ := g.find("stations", selection.StationID)
 			_, _, _, length, err := g.bankLengthAnchor(original, bank, target.key)
 			if err != nil {
 				*target.field = layoutField{Reason: err.Error()}

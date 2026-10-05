@@ -93,7 +93,7 @@ func makeEditorGeo(latitude, longitude float64) map[string]any {
 func mapReference(draft any, command map[string]any) (map[string]any, error) {
 	choice := object(command["choice"])
 	mode := text(choice["mode"])
-	if len(items(member(member(draft, "network"), "Nodes"))) == 0 || mode == "adopt" && choice["confirmed"] == true {
+	if len(items(member(member(draft, "network"), "nodes"))) == 0 || mode == "adopt" && choice["confirmed"] == true {
 		geo := makeEditorGeo(number(command["latitude"]), number(command["longitude"]))
 		if problem := draftGeoError(geo); problem != "" {
 			return nil, errors.New(problem)
@@ -134,18 +134,18 @@ type editorAnchor struct {
 
 func mapAnchor(draft, value any) (editorAnchor, error) {
 	id := text(member(value, "id"))
-	for _, node := range items(member(member(draft, "network"), "Nodes")) {
-		if member(node, "ID") != id {
+	for _, node := range items(member(member(draft, "network"), "nodes")) {
+		if member(node, "id") != id {
 			continue
 		}
 		if !finite(member(value, "latitude")) || !finite(member(value, "longitude")) {
 			return editorAnchor{}, editorMessageError("Each anchor needs a latitude and a longitude in degrees.")
 		}
-		position := member(node, "Position")
-		if !finite(member(position, "X")) || !finite(member(position, "Y")) {
+		position := member(node, "position")
+		if !finite(member(position, "x")) || !finite(member(position, "y")) {
 			return editorAnchor{}, errors.New("the anchor node needs finite coordinates")
 		}
-		return editorAnchor{number(member(position, "X")), number(member(position, "Y")), number(member(value, "latitude")), number(member(value, "longitude"))}, nil
+		return editorAnchor{number(member(position, "x")), number(member(position, "y")), number(member(value, "latitude")), number(member(value, "longitude"))}, nil
 	}
 	return editorAnchor{}, editorMessageError(fmt.Sprintf("The anchor node %.40q is not in the project.", id))
 }

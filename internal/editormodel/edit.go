@@ -143,7 +143,7 @@ func proposeProjectEdit(draft any, command editCommand) (projectChange, error) {
 		if _, valid := previous.(bool); valid {
 			change.Flag = command.Field
 		}
-		if command.Field == "stationBuffers" && hasFold(draft, "stationQueueSpacing") {
+		if command.Field == "stationBuffers" && has(draft, "stationQueueSpacing") {
 			change.Flag = ""
 		}
 	case "demandRate", "demandSeed":

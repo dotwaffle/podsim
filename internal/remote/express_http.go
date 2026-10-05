@@ -5,7 +5,6 @@ import (
 	"encoding/json/jsontext"
 	"errors"
 	"io"
-	"strings"
 )
 
 // New field markers require qualified media before the legacy decoder runs.
@@ -23,10 +22,10 @@ func rejectUnqualifiedStateMarkers(raw []byte) error {
 		if token.Kind() != jsontext.KindString || kind != jsontext.KindBeginObject || length%2 != 1 {
 			continue
 		}
-		switch strings.ToLower(token.String()) {
-		case "ordercontract", "textencoding":
+		switch token.String() {
+		case "orderContract", "textEncoding":
 			return errors.New("express state markers require the qualified media type")
-		case "couplingcontract", "couplingenabled", "couplinggroups", "couplingsites", "couplingcorridors", "couplingid":
+		case "couplingContract", "couplingEnabled", "couplingGroups", "couplingSites", "couplingCorridors", "couplingID":
 			return errors.New("coupling state markers require the qualified media type")
 		}
 	}

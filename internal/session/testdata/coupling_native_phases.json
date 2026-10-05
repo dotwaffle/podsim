@@ -39,294 +39,294 @@
       "OnboardPickups": false,
       "ExpressServices": null,
       "Network": {
-        "Nodes": [
+        "nodes": [
           {
-            "ID": "a",
-            "Position": {
-              "X": 0,
-              "Y": 0
+            "id": "a",
+            "position": {
+              "x": 0,
+              "y": 0
             }
           },
           {
-            "ID": "b",
-            "Position": {
-              "X": 210,
-              "Y": 0
+            "id": "b",
+            "position": {
+              "x": 210,
+              "y": 0
             }
           },
           {
-            "ID": "c",
-            "Position": {
-              "X": 420,
-              "Y": 0
+            "id": "c",
+            "position": {
+              "x": 420,
+              "y": 0
             }
           },
           {
-            "ID": "origin-entry",
-            "Position": {
-              "X": -60,
-              "Y": 50
+            "id": "origin-entry",
+            "position": {
+              "x": -60,
+              "y": 50
             }
           },
           {
-            "ID": "origin-exit",
-            "Position": {
-              "X": -60,
-              "Y": -50
+            "id": "origin-exit",
+            "position": {
+              "x": -60,
+              "y": -50
             }
           },
           {
-            "ID": "front-entry",
-            "Position": {
-              "X": 620,
-              "Y": 150
+            "id": "front-entry",
+            "position": {
+              "x": 620,
+              "y": 150
             }
           },
           {
-            "ID": "rear-entry",
-            "Position": {
-              "X": 620,
-              "Y": -150
+            "id": "rear-entry",
+            "position": {
+              "x": 620,
+              "y": -150
             }
           },
           {
-            "ID": "front-berth",
-            "Position": {
-              "X": 670,
-              "Y": 175
+            "id": "front-berth",
+            "position": {
+              "x": 670,
+              "y": 175
             }
           },
           {
-            "ID": "rear-berth",
-            "Position": {
-              "X": 670,
-              "Y": -175
+            "id": "rear-berth",
+            "position": {
+              "x": 670,
+              "y": -175
             }
           },
           {
-            "ID": "front-exit",
-            "Position": {
-              "X": 730,
-              "Y": 175
+            "id": "front-exit",
+            "position": {
+              "x": 730,
+              "y": 175
             }
           },
           {
-            "ID": "rear-exit",
-            "Position": {
-              "X": 730,
-              "Y": -175
+            "id": "rear-exit",
+            "position": {
+              "x": 730,
+              "y": -175
             }
           }
         ],
-        "Lanes": [
+        "lanes": [
           {
-            "VehicleClasses": [
+            "vehicleClasses": [
               "compact"
             ],
-            "ID": "ab",
-            "From": "a",
-            "To": "b",
-            "SpeedLimit": 7.123456789
+            "id": "ab",
+            "from": "a",
+            "to": "b",
+            "speedLimit": 7.123456789
           },
           {
-            "VehicleClasses": [
+            "vehicleClasses": [
               "compact"
             ],
-            "ID": "bc",
-            "From": "b",
-            "To": "c",
-            "SpeedLimit": 7.123456789
+            "id": "bc",
+            "from": "b",
+            "to": "c",
+            "speedLimit": 7.123456789
           },
           {
-            "VehicleClasses": [
+            "vehicleClasses": [
               "compact"
             ],
-            "ID": "origin-in",
-            "From": "origin-entry",
-            "To": "a",
-            "SpeedLimit": 7.123456789,
-            "StationID": "origin",
-            "StationRole": "berth-access"
+            "id": "origin-in",
+            "from": "origin-entry",
+            "to": "a",
+            "speedLimit": 7.123456789,
+            "stationID": "origin",
+            "stationRole": "berth-access"
           },
           {
-            "VehicleClasses": [
+            "vehicleClasses": [
               "compact"
             ],
-            "ID": "origin-out",
-            "From": "a",
-            "To": "origin-exit",
-            "SpeedLimit": 7.123456789,
-            "StationID": "origin",
-            "StationRole": "departure"
+            "id": "origin-out",
+            "from": "a",
+            "to": "origin-exit",
+            "speedLimit": 7.123456789,
+            "stationID": "origin",
+            "stationRole": "departure"
           },
           {
-            "VehicleClasses": [
+            "vehicleClasses": [
               "compact"
             ],
-            "ID": "origin-through",
-            "From": "origin-entry",
-            "To": "origin-exit",
-            "SpeedLimit": 7.123456789,
-            "StationID": "origin",
-            "StationRole": "through"
+            "id": "origin-through",
+            "from": "origin-entry",
+            "to": "origin-exit",
+            "speedLimit": 7.123456789,
+            "stationID": "origin",
+            "stationRole": "through"
           },
           {
-            "VehicleClasses": [
+            "vehicleClasses": [
               "compact"
             ],
-            "ID": "front-road",
-            "From": "c",
-            "To": "front-entry",
-            "SpeedLimit": 7.123456789
+            "id": "front-road",
+            "from": "c",
+            "to": "front-entry",
+            "speedLimit": 7.123456789
           },
           {
-            "VehicleClasses": [
+            "vehicleClasses": [
               "compact"
             ],
-            "ID": "rear-road",
-            "From": "c",
-            "To": "rear-entry",
-            "SpeedLimit": 7.123456789
+            "id": "rear-road",
+            "from": "c",
+            "to": "rear-entry",
+            "speedLimit": 7.123456789
           },
           {
-            "VehicleClasses": [
+            "vehicleClasses": [
               "compact"
             ],
-            "ID": "front-in",
-            "From": "front-entry",
-            "To": "front-berth",
-            "SpeedLimit": 7.123456789,
-            "StationID": "front-goal",
-            "StationRole": "berth-access"
+            "id": "front-in",
+            "from": "front-entry",
+            "to": "front-berth",
+            "speedLimit": 7.123456789,
+            "stationID": "front-goal",
+            "stationRole": "berth-access"
           },
           {
-            "VehicleClasses": [
+            "vehicleClasses": [
               "compact"
             ],
-            "ID": "rear-in",
-            "From": "rear-entry",
-            "To": "rear-berth",
-            "SpeedLimit": 7.123456789,
-            "StationID": "rear-goal",
-            "StationRole": "berth-access"
+            "id": "rear-in",
+            "from": "rear-entry",
+            "to": "rear-berth",
+            "speedLimit": 7.123456789,
+            "stationID": "rear-goal",
+            "stationRole": "berth-access"
           },
           {
-            "VehicleClasses": [
+            "vehicleClasses": [
               "compact"
             ],
-            "ID": "front-through",
-            "From": "front-entry",
-            "To": "front-exit",
-            "SpeedLimit": 7.123456789,
-            "StationID": "front-goal",
-            "StationRole": "through"
+            "id": "front-through",
+            "from": "front-entry",
+            "to": "front-exit",
+            "speedLimit": 7.123456789,
+            "stationID": "front-goal",
+            "stationRole": "through"
           },
           {
-            "VehicleClasses": [
+            "vehicleClasses": [
               "compact"
             ],
-            "ID": "rear-through",
-            "From": "rear-entry",
-            "To": "rear-exit",
-            "SpeedLimit": 7.123456789,
-            "StationID": "rear-goal",
-            "StationRole": "through"
+            "id": "rear-through",
+            "from": "rear-entry",
+            "to": "rear-exit",
+            "speedLimit": 7.123456789,
+            "stationID": "rear-goal",
+            "stationRole": "through"
           },
           {
-            "VehicleClasses": [
+            "vehicleClasses": [
               "compact"
             ],
-            "ID": "front-out",
-            "From": "front-berth",
-            "To": "front-exit",
-            "SpeedLimit": 7.123456789,
-            "StationID": "front-goal",
-            "StationRole": "departure"
+            "id": "front-out",
+            "from": "front-berth",
+            "to": "front-exit",
+            "speedLimit": 7.123456789,
+            "stationID": "front-goal",
+            "stationRole": "departure"
           },
           {
-            "VehicleClasses": [
+            "vehicleClasses": [
               "compact"
             ],
-            "ID": "rear-out",
-            "From": "rear-berth",
-            "To": "rear-exit",
-            "SpeedLimit": 7.123456789,
-            "StationID": "rear-goal",
-            "StationRole": "departure"
+            "id": "rear-out",
+            "from": "rear-berth",
+            "to": "rear-exit",
+            "speedLimit": 7.123456789,
+            "stationID": "rear-goal",
+            "stationRole": "departure"
           }
         ],
-        "Stations": [
+        "stations": [
           {
-            "VehicleClasses": [
+            "vehicleClasses": [
               "compact"
             ],
-            "ID": "origin",
-            "Name": "Origin",
-            "Entry": "origin-entry",
-            "Exit": "origin-exit",
-            "Berths": [
+            "id": "origin",
+            "name": "Origin",
+            "entry": "origin-entry",
+            "exit": "origin-exit",
+            "berths": [
               {
-                "VehicleClasses": [
+                "vehicleClasses": [
                   "compact"
                 ],
-                "ID": "origin-1",
-                "Node": "a"
+                "id": "origin-1",
+                "node": "a"
               }
             ],
-            "ParkingOnly": false
+            "parkingOnly": false
           },
           {
-            "VehicleClasses": [
+            "vehicleClasses": [
               "compact"
             ],
-            "ID": "front-goal",
-            "Name": "Front goal",
-            "Entry": "front-entry",
-            "Exit": "front-exit",
-            "Berths": [
+            "id": "front-goal",
+            "name": "Front goal",
+            "entry": "front-entry",
+            "exit": "front-exit",
+            "berths": [
               {
-                "VehicleClasses": [
+                "vehicleClasses": [
                   "compact"
                 ],
-                "ID": "front-goal-1",
-                "Node": "front-berth"
+                "id": "front-goal-1",
+                "node": "front-berth"
               }
             ],
-            "ParkingOnly": false
+            "parkingOnly": false
           },
           {
-            "VehicleClasses": [
+            "vehicleClasses": [
               "compact"
             ],
-            "ID": "rear-goal",
-            "Name": "Rear goal",
-            "Entry": "rear-entry",
-            "Exit": "rear-exit",
-            "Berths": [
+            "id": "rear-goal",
+            "name": "Rear goal",
+            "entry": "rear-entry",
+            "exit": "rear-exit",
+            "berths": [
               {
-                "VehicleClasses": [
+                "vehicleClasses": [
                   "compact"
                 ],
-                "ID": "rear-goal-1",
-                "Node": "rear-berth"
+                "id": "rear-goal-1",
+                "node": "rear-berth"
               }
             ],
-            "ParkingOnly": false
+            "parkingOnly": false
           }
         ]
       },
       "Fleet": [
         {
-          "Class": "compact",
-          "ID": "front",
-          "StationID": "origin",
-          "BerthID": ""
+          "class": "compact",
+          "id": "front",
+          "stationID": "origin",
+          "berthID": ""
         },
         {
-          "Class": "compact",
-          "ID": "rear",
-          "StationID": "front-goal",
-          "BerthID": ""
+          "class": "compact",
+          "id": "rear",
+          "stationID": "front-goal",
+          "berthID": ""
         }
       ],
       "LogicalOnly": false,
@@ -373,294 +373,294 @@
       "OnboardPickups": false,
       "ExpressServices": null,
       "Network": {
-        "Nodes": [
+        "nodes": [
           {
-            "ID": "a",
-            "Position": {
-              "X": 0,
-              "Y": 0
+            "id": "a",
+            "position": {
+              "x": 0,
+              "y": 0
             }
           },
           {
-            "ID": "b",
-            "Position": {
-              "X": 210,
-              "Y": 0
+            "id": "b",
+            "position": {
+              "x": 210,
+              "y": 0
             }
           },
           {
-            "ID": "c",
-            "Position": {
-              "X": 420,
-              "Y": 0
+            "id": "c",
+            "position": {
+              "x": 420,
+              "y": 0
             }
           },
           {
-            "ID": "origin-entry",
-            "Position": {
-              "X": -60,
-              "Y": 50
+            "id": "origin-entry",
+            "position": {
+              "x": -60,
+              "y": 50
             }
           },
           {
-            "ID": "origin-exit",
-            "Position": {
-              "X": -60,
-              "Y": -50
+            "id": "origin-exit",
+            "position": {
+              "x": -60,
+              "y": -50
             }
           },
           {
-            "ID": "front-entry",
-            "Position": {
-              "X": 620,
-              "Y": 150
+            "id": "front-entry",
+            "position": {
+              "x": 620,
+              "y": 150
             }
           },
           {
-            "ID": "rear-entry",
-            "Position": {
-              "X": 620,
-              "Y": -150
+            "id": "rear-entry",
+            "position": {
+              "x": 620,
+              "y": -150
             }
           },
           {
-            "ID": "front-berth",
-            "Position": {
-              "X": 670,
-              "Y": 175
+            "id": "front-berth",
+            "position": {
+              "x": 670,
+              "y": 175
             }
           },
           {
-            "ID": "rear-berth",
-            "Position": {
-              "X": 670,
-              "Y": -175
+            "id": "rear-berth",
+            "position": {
+              "x": 670,
+              "y": -175
             }
           },
           {
-            "ID": "front-exit",
-            "Position": {
-              "X": 730,
-              "Y": 175
+            "id": "front-exit",
+            "position": {
+              "x": 730,
+              "y": 175
             }
           },
           {
-            "ID": "rear-exit",
-            "Position": {
-              "X": 730,
-              "Y": -175
+            "id": "rear-exit",
+            "position": {
+              "x": 730,
+              "y": -175
             }
           }
         ],
-        "Lanes": [
+        "lanes": [
           {
-            "VehicleClasses": [
+            "vehicleClasses": [
               "compact"
             ],
-            "ID": "ab",
-            "From": "a",
-            "To": "b",
-            "SpeedLimit": 7.123456789
+            "id": "ab",
+            "from": "a",
+            "to": "b",
+            "speedLimit": 7.123456789
           },
           {
-            "VehicleClasses": [
+            "vehicleClasses": [
               "compact"
             ],
-            "ID": "bc",
-            "From": "b",
-            "To": "c",
-            "SpeedLimit": 7.123456789
+            "id": "bc",
+            "from": "b",
+            "to": "c",
+            "speedLimit": 7.123456789
           },
           {
-            "VehicleClasses": [
+            "vehicleClasses": [
               "compact"
             ],
-            "ID": "origin-in",
-            "From": "origin-entry",
-            "To": "a",
-            "SpeedLimit": 7.123456789,
-            "StationID": "origin",
-            "StationRole": "berth-access"
+            "id": "origin-in",
+            "from": "origin-entry",
+            "to": "a",
+            "speedLimit": 7.123456789,
+            "stationID": "origin",
+            "stationRole": "berth-access"
           },
           {
-            "VehicleClasses": [
+            "vehicleClasses": [
               "compact"
             ],
-            "ID": "origin-out",
-            "From": "a",
-            "To": "origin-exit",
-            "SpeedLimit": 7.123456789,
-            "StationID": "origin",
-            "StationRole": "departure"
+            "id": "origin-out",
+            "from": "a",
+            "to": "origin-exit",
+            "speedLimit": 7.123456789,
+            "stationID": "origin",
+            "stationRole": "departure"
           },
           {
-            "VehicleClasses": [
+            "vehicleClasses": [
               "compact"
             ],
-            "ID": "origin-through",
-            "From": "origin-entry",
-            "To": "origin-exit",
-            "SpeedLimit": 7.123456789,
-            "StationID": "origin",
-            "StationRole": "through"
+            "id": "origin-through",
+            "from": "origin-entry",
+            "to": "origin-exit",
+            "speedLimit": 7.123456789,
+            "stationID": "origin",
+            "stationRole": "through"
           },
           {
-            "VehicleClasses": [
+            "vehicleClasses": [
               "compact"
             ],
-            "ID": "front-road",
-            "From": "c",
-            "To": "front-entry",
-            "SpeedLimit": 7.123456789
+            "id": "front-road",
+            "from": "c",
+            "to": "front-entry",
+            "speedLimit": 7.123456789
           },
           {
-            "VehicleClasses": [
+            "vehicleClasses": [
               "compact"
             ],
-            "ID": "rear-road",
-            "From": "c",
-            "To": "rear-entry",
-            "SpeedLimit": 7.123456789
+            "id": "rear-road",
+            "from": "c",
+            "to": "rear-entry",
+            "speedLimit": 7.123456789
           },
           {
-            "VehicleClasses": [
+            "vehicleClasses": [
               "compact"
             ],
-            "ID": "front-in",
-            "From": "front-entry",
-            "To": "front-berth",
-            "SpeedLimit": 7.123456789,
-            "StationID": "front-goal",
-            "StationRole": "berth-access"
+            "id": "front-in",
+            "from": "front-entry",
+            "to": "front-berth",
+            "speedLimit": 7.123456789,
+            "stationID": "front-goal",
+            "stationRole": "berth-access"
           },
           {
-            "VehicleClasses": [
+            "vehicleClasses": [
               "compact"
             ],
-            "ID": "rear-in",
-            "From": "rear-entry",
-            "To": "rear-berth",
-            "SpeedLimit": 7.123456789,
-            "StationID": "rear-goal",
-            "StationRole": "berth-access"
+            "id": "rear-in",
+            "from": "rear-entry",
+            "to": "rear-berth",
+            "speedLimit": 7.123456789,
+            "stationID": "rear-goal",
+            "stationRole": "berth-access"
           },
           {
-            "VehicleClasses": [
+            "vehicleClasses": [
               "compact"
             ],
-            "ID": "front-through",
-            "From": "front-entry",
-            "To": "front-exit",
-            "SpeedLimit": 7.123456789,
-            "StationID": "front-goal",
-            "StationRole": "through"
+            "id": "front-through",
+            "from": "front-entry",
+            "to": "front-exit",
+            "speedLimit": 7.123456789,
+            "stationID": "front-goal",
+            "stationRole": "through"
           },
           {
-            "VehicleClasses": [
+            "vehicleClasses": [
               "compact"
             ],
-            "ID": "rear-through",
-            "From": "rear-entry",
-            "To": "rear-exit",
-            "SpeedLimit": 7.123456789,
-            "StationID": "rear-goal",
-            "StationRole": "through"
+            "id": "rear-through",
+            "from": "rear-entry",
+            "to": "rear-exit",
+            "speedLimit": 7.123456789,
+            "stationID": "rear-goal",
+            "stationRole": "through"
           },
           {
-            "VehicleClasses": [
+            "vehicleClasses": [
               "compact"
             ],
-            "ID": "front-out",
-            "From": "front-berth",
-            "To": "front-exit",
-            "SpeedLimit": 7.123456789,
-            "StationID": "front-goal",
-            "StationRole": "departure"
+            "id": "front-out",
+            "from": "front-berth",
+            "to": "front-exit",
+            "speedLimit": 7.123456789,
+            "stationID": "front-goal",
+            "stationRole": "departure"
           },
           {
-            "VehicleClasses": [
+            "vehicleClasses": [
               "compact"
             ],
-            "ID": "rear-out",
-            "From": "rear-berth",
-            "To": "rear-exit",
-            "SpeedLimit": 7.123456789,
-            "StationID": "rear-goal",
-            "StationRole": "departure"
+            "id": "rear-out",
+            "from": "rear-berth",
+            "to": "rear-exit",
+            "speedLimit": 7.123456789,
+            "stationID": "rear-goal",
+            "stationRole": "departure"
           }
         ],
-        "Stations": [
+        "stations": [
           {
-            "VehicleClasses": [
+            "vehicleClasses": [
               "compact"
             ],
-            "ID": "origin",
-            "Name": "Origin",
-            "Entry": "origin-entry",
-            "Exit": "origin-exit",
-            "Berths": [
+            "id": "origin",
+            "name": "Origin",
+            "entry": "origin-entry",
+            "exit": "origin-exit",
+            "berths": [
               {
-                "VehicleClasses": [
+                "vehicleClasses": [
                   "compact"
                 ],
-                "ID": "origin-1",
-                "Node": "a"
+                "id": "origin-1",
+                "node": "a"
               }
             ],
-            "ParkingOnly": false
+            "parkingOnly": false
           },
           {
-            "VehicleClasses": [
+            "vehicleClasses": [
               "compact"
             ],
-            "ID": "front-goal",
-            "Name": "Front goal",
-            "Entry": "front-entry",
-            "Exit": "front-exit",
-            "Berths": [
+            "id": "front-goal",
+            "name": "Front goal",
+            "entry": "front-entry",
+            "exit": "front-exit",
+            "berths": [
               {
-                "VehicleClasses": [
+                "vehicleClasses": [
                   "compact"
                 ],
-                "ID": "front-goal-1",
-                "Node": "front-berth"
+                "id": "front-goal-1",
+                "node": "front-berth"
               }
             ],
-            "ParkingOnly": false
+            "parkingOnly": false
           },
           {
-            "VehicleClasses": [
+            "vehicleClasses": [
               "compact"
             ],
-            "ID": "rear-goal",
-            "Name": "Rear goal",
-            "Entry": "rear-entry",
-            "Exit": "rear-exit",
-            "Berths": [
+            "id": "rear-goal",
+            "name": "Rear goal",
+            "entry": "rear-entry",
+            "exit": "rear-exit",
+            "berths": [
               {
-                "VehicleClasses": [
+                "vehicleClasses": [
                   "compact"
                 ],
-                "ID": "rear-goal-1",
-                "Node": "rear-berth"
+                "id": "rear-goal-1",
+                "node": "rear-berth"
               }
             ],
-            "ParkingOnly": false
+            "parkingOnly": false
           }
         ]
       },
       "Fleet": [
         {
-          "Class": "compact",
-          "ID": "front",
-          "StationID": "origin",
-          "BerthID": ""
+          "class": "compact",
+          "id": "front",
+          "stationID": "origin",
+          "berthID": ""
         },
         {
-          "Class": "compact",
-          "ID": "rear",
-          "StationID": "front-goal",
-          "BerthID": ""
+          "class": "compact",
+          "id": "rear",
+          "stationID": "front-goal",
+          "berthID": ""
         }
       ],
       "LogicalOnly": false,
@@ -674,7 +674,7 @@
   "frames": [
     {
       "name": "occupied-false-phase-1-leg-0.json",
-      "sha256": "825b3b64b15a0d77e21bbae2aded2ae1ac47f0008142e63dfdfa95d500d7d3cf",
+      "sha256": "c4e86080546b0a32cd6dfaaac6109c9b1562cc7682a03c89bbc3edb5fe62401d",
       "cohort": "empty",
       "state": {
         "couplingContract": "compact-pair-v1",
@@ -756,7 +756,7 @@
     },
     {
       "name": "occupied-false-phase-2-leg--1.json",
-      "sha256": "686f7a1b07e6f81d718003a09bfa2b73265761966fe8f0a699f6375a076c2cd9",
+      "sha256": "3de6381de8ba83699070f3624a4779a184690b60ef43077e58cdfdda646bebe6",
       "cohort": "empty",
       "state": {
         "couplingContract": "compact-pair-v1",
@@ -838,7 +838,7 @@
     },
     {
       "name": "occupied-false-phase-3-leg-1.json",
-      "sha256": "d7b1eb792c2342f7140c4ed1d12ebce4924b72a554964bf8d310dc2be4b195e9",
+      "sha256": "eaaedc037acb47a35b61bae9cf66de4ebb0fc06da1c1ff3d43f89f3b5199330d",
       "cohort": "empty",
       "state": {
         "couplingContract": "compact-pair-v1",
@@ -920,7 +920,7 @@
     },
     {
       "name": "occupied-false-phase-4-leg--1.json",
-      "sha256": "c854f9e90502a6a2ff38ae0e1a5ce9bb5474a599b96b618ebef181923d7b7e7d",
+      "sha256": "64a658ad4632be7de3d1ef4301211cf96b4dffc33f46086b9bdf3aa00339b669",
       "cohort": "empty",
       "state": {
         "couplingContract": "compact-pair-v1",
@@ -1004,7 +1004,7 @@
     },
     {
       "name": "occupied-false-phase-5-leg-2.json",
-      "sha256": "cd2f3e8d0a50ae69f74bec3e49e9012716f7d71b09a998e3491451cc3a09b80a",
+      "sha256": "87e99ee9a60d1a56eedc6437f149c1657b84b5208de526eae949f6a0e19ddb94",
       "cohort": "empty",
       "state": {
         "couplingContract": "compact-pair-v1",
@@ -1088,7 +1088,7 @@
     },
     {
       "name": "occupied-false-phase-6-leg-3.json",
-      "sha256": "7f3263b016749830e66943068eded4c023ce319b4e2ab5daf2a075064ef8b0c2",
+      "sha256": "15c2e5ad485c24676e19840dee93c549dfa64d76fca9330a9655894313d7bb4d",
       "cohort": "empty",
       "state": {
         "couplingContract": "compact-pair-v1",
@@ -1172,7 +1172,7 @@
     },
     {
       "name": "occupied-false-phase-6-leg-4.json",
-      "sha256": "906f186ff12a75ad62754fb6a556ec72c9c574d8d602f852cd60271fcb6af5d6",
+      "sha256": "d7f239a5faaf8bd73bab43804a9f143bc4e412b19f693e22f20096df491fc3e1",
       "cohort": "empty",
       "state": {
         "couplingContract": "compact-pair-v1",
@@ -1256,7 +1256,7 @@
     },
     {
       "name": "occupied-true-phase-1-leg-0.json",
-      "sha256": "f553936e3b94ad9cbb84f5cbe679c415aaec0728af5f91d0b3e982da8e76219d",
+      "sha256": "587de09f88310c07ea8de0c339d50cbb21574890937708d704d71557ba26a187",
       "cohort": "occupied",
       "state": {
         "couplingContract": "compact-pair-v1",
@@ -1370,7 +1370,7 @@
     },
     {
       "name": "occupied-true-phase-2-leg--1.json",
-      "sha256": "2008fd562af5bd19a3c611f67b0e7b9f1ab19f0cf763d82553c68f38b8d7752e",
+      "sha256": "b5754b0b397540fe22b5681612cf0b4a1e655bce21f88dfe39d953c071b8546c",
       "cohort": "occupied",
       "state": {
         "couplingContract": "compact-pair-v1",
@@ -1484,7 +1484,7 @@
     },
     {
       "name": "occupied-true-phase-3-leg-1.json",
-      "sha256": "f2b94c41008c6af01cfa5b87e4b2713ac9d176aa19ebafe182b9904862b18c9a",
+      "sha256": "e987d85503711596eda79b9e4fb6ecf329dc7134155e139ad656879febf6dd46",
       "cohort": "occupied",
       "state": {
         "couplingContract": "compact-pair-v1",
@@ -1598,7 +1598,7 @@
     },
     {
       "name": "occupied-true-phase-4-leg--1.json",
-      "sha256": "4e3d041cc5edbfc83069c10aea18e58fa5247fdf30579698ddf03b35e9c73cc0",
+      "sha256": "fc045a95c5bf146ff8b68f9252cfd7afa8c24eaae8983498c5f05ca3f2a63c34",
       "cohort": "occupied",
       "state": {
         "couplingContract": "compact-pair-v1",
@@ -1714,7 +1714,7 @@
     },
     {
       "name": "occupied-true-phase-5-leg-2.json",
-      "sha256": "937a823fee0d66b6d268ee5edc7337383dcce5e740314e3a28c2690728720ded",
+      "sha256": "4f6bc94543d53709305ceacd35902bf60f8ae8e8e4880bb7be9f298dda1adecc",
       "cohort": "occupied",
       "state": {
         "couplingContract": "compact-pair-v1",
@@ -1830,7 +1830,7 @@
     },
     {
       "name": "occupied-true-phase-6-leg-3.json",
-      "sha256": "311495bf6ee019ade44a0af3d6c09af3ea75befcf93e1e101fec63cd488b0161",
+      "sha256": "3937168fc509dd73a3f62a53903778ca0a82a147270e695046bddda4596ced7f",
       "cohort": "occupied",
       "state": {
         "couplingContract": "compact-pair-v1",
@@ -1946,7 +1946,7 @@
     },
     {
       "name": "occupied-true-phase-6-leg-4.json",
-      "sha256": "2fa5650eacaf0ef257c2c48ad4a37bdf90d82ea7df3235bce89d59732754519a",
+      "sha256": "dc7a6a2106a4c84968e3dbce02421de8e098227ec5acebb24e454392d591c1b1",
       "cohort": "occupied",
       "state": {
         "couplingContract": "compact-pair-v1",

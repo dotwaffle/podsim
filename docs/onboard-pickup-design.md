@@ -68,7 +68,7 @@ Native saved and live records retain berth IDs.
 The session save-6 adapter encodes optional `boardings` tuples against the bound source project.
 Each item is exactly `[berthIndex, cumulativeMetersAtBoarding]`.
 The array aligns with `SavedPod.Riders`, including retained completed history.
-`berthIndex` selects a berth in the saved network station named by that rider's existing `From` member.
+`berthIndex` selects a berth in the saved network station named by that rider's existing `from` member.
 The saved project supplies this ordering, as it already supplies indexes for saved routes.
 Export converts IDs to indexes against the exact saved network.
 Session decode resolves indexes against that source network before it calls native restore.
@@ -150,17 +150,17 @@ It does not replace permanent format and byte tests.
 Before implementation lands, compare historical and modern maxima with the actual encoded types.
 Include compact certificates and retained rider history in that test.
 Keep the 2,600 saved-queue and eight stored-rider operating bounds.
-Add optional hello-3 vehicle fields `Boardings` and `RiddenMeters`.
-`Boardings` contains aligned native records with `BerthID` and `MetersAtBoarding`.
+Add optional hello-3 vehicle fields `boardings` and `riddenMeters`.
+`boardings` contains aligned native records with `berthID` and `metersAtBoarding`.
 These records use berth IDs, so stream decoding does not interpret positional indexes.
-`RiddenMeters` holds the passenger chain's cumulative distance.
+`riddenMeters` holds the passenger chain's cumulative distance.
 Omit its zero value.
 A boarding record proves the zero baseline when the cumulative value is omitted.
 Publish these fields together only when the canonical old same-origin representation cannot preserve the records.
 Without boarding records, retain the existing vehicle representation.
 
 Require one boarding record per stored rider, with at most eight records.
-Resolve each `BerthID` against that frame's bound topology and the rider's `From` station.
+Resolve each `berthID` against that frame's bound topology and the rider's `from` station.
 Reject unknown, missing, duplicate, or null object members and invalid numeric values.
 Require finite, nonnegative baselines no greater than the cumulative distance.
 Repeated berth IDs are valid for separate parties at the same berth.
@@ -175,7 +175,7 @@ Reject null or missing replacement values and unknown wrapper members.
 Preserve the existing rider-clearing syntax.
 Normalize a boarding clear to an absent full-frame field.
 Entering or leaving the record representation requires both aligned replacements.
-The vehicle metadata replacement carries `RiddenMeters` with the other bounded metadata.
+The vehicle metadata replacement carries `riddenMeters` with the other bounded metadata.
 Metadata-only cumulative updates do not require unchanged arrays again.
 A nonzero cumulative value requires boarding records.
 Clearing records must also clear a stale nonzero cumulative value.
@@ -185,7 +185,7 @@ A reconnect or topology revision invalidates prior berth bindings.
 Record the effective occupied-pickup policy in comparison provenance.
 Older stream versions reject new field presence before topology fetch or state publication.
 These guards must check the proper vehicle, delta, and boarding-record paths.
-Do not classify `BerthID` globally as a new field because older pod fields already use that name.
+Do not classify `berthID` globally as a new field because older pod fields already use that name.
 The saved `riddenMeters` field also predates boarding records.
 Replace riders and their boarding metadata together in a delta.
 Resolve berth references against the topology for that frame before publication.

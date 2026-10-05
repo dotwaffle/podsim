@@ -28,7 +28,7 @@ func TestEditorDefaultsSelectAnExistingPassengerDestination(t *testing.T) {
 			demand := object(draft["demand"])
 			demand["destination"] = test.destination
 			demand["extra"] = map[string]any{"nested": "source"}
-			object(items(member(draft["network"], "Stations"))[0])["ParkingOnly"] = test.parking
+			object(items(member(draft["network"], "stations"))[0])["parkingOnly"] = test.parking
 			before := cloneEditValue(draft)
 			flag := "false"
 			if test.editor {

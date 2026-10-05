@@ -2,146 +2,146 @@
   "version": 1,
   "name": "Untitled scenario",
   "network": {
-    "Nodes": [
+    "nodes": [
       {
-        "ID": "station-1-entry-1",
-        "Position": {
-          "X": 64,
-          "Y": 120
+        "id": "station-1-entry-1",
+        "position": {
+          "x": 64,
+          "y": 120
         }
       },
       {
-        "ID": "station-1-exit-1",
-        "Position": {
-          "X": 136,
-          "Y": 120
+        "id": "station-1-exit-1",
+        "position": {
+          "x": 136,
+          "y": 120
         }
       },
       {
-        "ID": "station-1-berth-node-1",
-        "Position": {
-          "X": 100,
-          "Y": 150
+        "id": "station-1-berth-node-1",
+        "position": {
+          "x": 100,
+          "y": 150
         }
       },
       {
-        "ID": "station-2-entry-1",
-        "Position": {
-          "X": 304,
-          "Y": 120
+        "id": "station-2-entry-1",
+        "position": {
+          "x": 304,
+          "y": 120
         }
       },
       {
-        "ID": "station-2-exit-1",
-        "Position": {
-          "X": 376,
-          "Y": 120
+        "id": "station-2-exit-1",
+        "position": {
+          "x": 376,
+          "y": 120
         }
       },
       {
-        "ID": "station-2-berth-node-1",
-        "Position": {
-          "X": 340,
-          "Y": 150
+        "id": "station-2-berth-node-1",
+        "position": {
+          "x": 340,
+          "y": 150
         }
       }
     ],
-    "Lanes": [
+    "lanes": [
       {
-        "ID": "lane-1",
-        "From": "station-1-entry-1",
-        "To": "station-1-berth-node-1",
-        "SpeedLimit": 12,
-        "StationID": "station-1",
-        "StationRole": "berth-access"
+        "id": "lane-1",
+        "from": "station-1-entry-1",
+        "to": "station-1-berth-node-1",
+        "speedLimit": 12,
+        "stationID": "station-1",
+        "stationRole": "berth-access"
       },
       {
-        "ID": "lane-2",
-        "From": "station-1-berth-node-1",
-        "To": "station-1-exit-1",
-        "SpeedLimit": 12,
-        "StationID": "station-1",
-        "StationRole": "departure"
+        "id": "lane-2",
+        "from": "station-1-berth-node-1",
+        "to": "station-1-exit-1",
+        "speedLimit": 12,
+        "stationID": "station-1",
+        "stationRole": "departure"
       },
       {
-        "ID": "lane-3",
-        "From": "station-1-entry-1",
-        "To": "station-1-exit-1",
-        "SpeedLimit": 12,
-        "StationID": "station-1",
-        "StationRole": "through"
+        "id": "lane-3",
+        "from": "station-1-entry-1",
+        "to": "station-1-exit-1",
+        "speedLimit": 12,
+        "stationID": "station-1",
+        "stationRole": "through"
       },
       {
-        "ID": "lane-4",
-        "From": "station-2-entry-1",
-        "To": "station-2-berth-node-1",
-        "SpeedLimit": 12,
-        "StationID": "station-2",
-        "StationRole": "berth-access"
+        "id": "lane-4",
+        "from": "station-2-entry-1",
+        "to": "station-2-berth-node-1",
+        "speedLimit": 12,
+        "stationID": "station-2",
+        "stationRole": "berth-access"
       },
       {
-        "ID": "lane-5",
-        "From": "station-2-berth-node-1",
-        "To": "station-2-exit-1",
-        "SpeedLimit": 12,
-        "StationID": "station-2",
-        "StationRole": "departure"
+        "id": "lane-5",
+        "from": "station-2-berth-node-1",
+        "to": "station-2-exit-1",
+        "speedLimit": 12,
+        "stationID": "station-2",
+        "stationRole": "departure"
       },
       {
-        "ID": "lane-6",
-        "From": "station-2-entry-1",
-        "To": "station-2-exit-1",
-        "SpeedLimit": 12,
-        "StationID": "station-2",
-        "StationRole": "through"
+        "id": "lane-6",
+        "from": "station-2-entry-1",
+        "to": "station-2-exit-1",
+        "speedLimit": 12,
+        "stationID": "station-2",
+        "stationRole": "through"
       },
       {
-        "ID": "lane-7",
-        "From": "station-1-exit-1",
-        "To": "station-2-entry-1",
-        "SpeedLimit": 12
+        "id": "lane-7",
+        "from": "station-1-exit-1",
+        "to": "station-2-entry-1",
+        "speedLimit": 12
       },
       {
-        "ID": "lane-8",
-        "From": "station-2-exit-1",
-        "To": "station-1-entry-1",
-        "SpeedLimit": 12
+        "id": "lane-8",
+        "from": "station-2-exit-1",
+        "to": "station-1-entry-1",
+        "speedLimit": 12
       }
     ],
-    "Stations": [
+    "stations": [
       {
-        "ID": "station-1",
-        "Name": "Origin",
-        "Entry": "station-1-entry-1",
-        "Exit": "station-1-exit-1",
-        "Berths": [
+        "id": "station-1",
+        "name": "Origin",
+        "entry": "station-1-entry-1",
+        "exit": "station-1-exit-1",
+        "berths": [
           {
-            "ID": "station-1-berth-1",
-            "Node": "station-1-berth-node-1"
+            "id": "station-1-berth-1",
+            "node": "station-1-berth-node-1"
           }
         ],
-        "ParkingOnly": false
+        "parkingOnly": false
       },
       {
-        "ID": "station-2",
-        "Name": "Destination",
-        "Entry": "station-2-entry-1",
-        "Exit": "station-2-exit-1",
-        "Berths": [
+        "id": "station-2",
+        "name": "Destination",
+        "entry": "station-2-entry-1",
+        "exit": "station-2-exit-1",
+        "berths": [
           {
-            "ID": "station-2-berth-1",
-            "Node": "station-2-berth-node-1"
+            "id": "station-2-berth-1",
+            "node": "station-2-berth-node-1"
           }
         ],
-        "ParkingOnly": false
+        "parkingOnly": false
       }
     ]
   },
   "fleet": [
     {
-      "ID": "01",
-      "StationID": "station-1",
-      "BerthID": "station-1-berth-1"
+      "id": "01",
+      "stationID": "station-1",
+      "berthID": "station-1-berth-1"
     }
   ],
   "demand": {

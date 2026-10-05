@@ -14,9 +14,9 @@ function fixture() {
 
 test("model synchronization transfers authored service branches and removals without class defaults", async () => {
   const f = fixture();
-  const network = { Stations: [{ ID: "hub", VehicleClasses: ["compact", "express"] }] };
-  const fleet = [{ ID: "pod", Class: "compact" }];
-  const services = [{ ID: "one", Class: "express", PartyLimit: 20 }];
+  const network = { stations: [{ id: "hub", vehicleClasses: ["compact", "express"] }] };
+  const fleet = [{ id: "pod", class: "compact" }];
+  const services = [{ id: "one", class: "express", partyLimit: 20 }];
   const first = { version: 1, network, fleet, expressServices: services };
   const one = f.client.call(first);
   assert.deepEqual(f.sent[0].patch, first);
@@ -30,7 +30,7 @@ test("model synchronization transfers authored service branches and removals wit
   assert.deepEqual(f.sent[2].patch, {});
   assert.ok(!f.sent[2].keys.includes("expressServices"));
   f.worker.onmessage({ data: { id: f.sent[2].id, result: { valid: true } } }); await three;
-  assert.deepEqual(fleet, [{ ID: "pod", Class: "compact" }]);
+  assert.deepEqual(fleet, [{ id: "pod", class: "compact" }]);
 });
 
 test("model client serializes jobs and transfers only changed project fields", async () => {
@@ -210,7 +210,6 @@ test("helper client bypasses synchronization and leaves branch transport unchang
   f.worker.onmessage({ data: { id: f.sent.at(-1).id, result: { valid: true } } }); await initial;
   for (const [op, project, plan, parameter] of [
     ["backgroundMetadata", null, { asset: null }, "metadata"],
-    ["canonicalImport", { fleet: [null], version: 99 }, undefined, null],
     ["stationLayout", { network: {} }, { stationID: "missing" }, "layout"],
   ]) {
     const pending = f.client.call(project, op, plan), sent = f.sent.at(-1);
@@ -227,10 +226,10 @@ test("helper client bypasses synchronization and leaves branch transport unchang
 
 test("helper operations send raw requests before any synchronization or checks", () => {
   const { createOperations } = require("./editor-model.js"), calls = [];
-  const operations = createOperations((request) => { calls.push(request); return {}; });
+  const operations = createOperations((request) => { calls.push(request); return { error: "helper rejection" }; });
   const raw = { version: 99, fleet: "invalid" };
-  assert.deepEqual(operations.handle({ id: 5, op: "canonicalImport", project: raw }), {});
-  assert.deepEqual(calls, [{ op: "canonicalImport", project: raw }]);
+  assert.deepEqual(operations.handle({ id: 5, op: "stationLayout", project: raw, stationID: "s" }), { error: "helper rejection" });
+  assert.deepEqual(calls, [{ op: "stationLayout", project: raw, stationID: "s" }]);
   assert.strictEqual(calls[0].project, raw);
 });
 
@@ -246,24 +245,11 @@ test("helper responses reject missing, unrelated and malformed result fields", (
     ["backgroundMetadata", { ...metadata, checks: {} }],
     ["backgroundMetadata", { valid: true, metadata: { asset: { frameState: "none", frame: null, license: {} } } }],
     ["backgroundMetadata", { valid: true, metadata: { ...metadata.metadata, urlFacts: {} } }],
-    ["canonicalImport", { change: { patch: {} } }],
-    ["canonicalImport", { valid: true }],
     ["stationLayout", { layout: { ...layout.layout, pitch: { value: null, reason: "" } } }],
     ["stationLayout", { layout: { ...layout.layout, spacing: { value: 75, reason: "unavailable" } } }],
     ["stationLayout", { layout: { ...layout.layout, spacing: { value: "75", reason: "" } } }],
     ["stationLayout", { error: "failure", layout: {} }],
   ]) assert.throws(() => checkedHelper(result, op), /Invalid Go/);
-});
-
-test("an import replacement must be one project object with no other member", () => {
-  const { checkedHelper } = require("./editor-model.js");
-  const replaced = { replace: { version: 1, name: "Canonical" } };
-  assert.strictEqual(checkedHelper(replaced, "canonicalImport"), replaced);
-  const unchanged = {};
-  assert.strictEqual(checkedHelper(unchanged, "canonicalImport"), unchanged);
-  for (const result of [{ replace: null }, { replace: [] }, { replace: "{}" }, { replace: {}, patch: {} }, { replace: {}, valid: true }]) {
-    assert.throws(() => checkedHelper(result, "canonicalImport"), /Invalid Go/);
-  }
 });
 
 test("helper outer-limit errors retain the existing bounded error envelope", () => {

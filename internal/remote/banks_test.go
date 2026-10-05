@@ -40,7 +40,7 @@ func TestStreamBankProtocolVersions(t *testing.T) {
 					if banks == "null" {
 						value = "null"
 					}
-					topologyJSON = bytes.Replace(topologyJSON, []byte(`"Stations":[{`), []byte(`"Stations":[{"Banks":`+value+`,`), 1)
+					topologyJSON = bytes.Replace(topologyJSON, []byte(`"stations":[{`), []byte(`"stations":[{"banks":`+value+`,`), 1)
 				}
 				state := shared.Frame()
 				state.Simulation.Vehicles = nil
@@ -108,7 +108,7 @@ func TestStreamBankProtocolVersions(t *testing.T) {
 func TestStreamTopologyRejectsUnknownBankMembers(t *testing.T) {
 	t.Parallel()
 	var topology session.TopologySnapshot
-	if err := json.Unmarshal([]byte(`{"network":{"Stations":[{"Banks":[{"extra":1}]}]}}`), &topology); err == nil {
+	if err := json.Unmarshal([]byte(`{"network":{"stations":[{"banks":[{"extra":1}]}]}}`), &topology); err == nil {
 		t.Fatal("accepted unknown bank member")
 	}
 }

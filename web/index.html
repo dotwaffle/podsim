@@ -128,19 +128,19 @@
           throw new Error("State changed while capturing");
         }
         const state = { ...frame, network: topology.network };
-        if (!state.network || !state.simulation || !Number.isSafeInteger(state.simulation.Tick)) {
+        if (!state.network || !state.simulation || !Number.isSafeInteger(state.simulation.tick)) {
           throw new Error("Invalid server state");
         }
         const capture = { ...state, debugCapture: { version: 2, requestedAt, receivedAt: new Date().toISOString() } };
         const url = URL.createObjectURL(new Blob([JSON.stringify(capture, null, 2)], { type: "application/json" }));
         const link = document.createElement("a");
         link.href = url;
-        link.download = `podsim-debug-${requestedAt.replace(/[:.]/g, "-")}-tick-${state.simulation.Tick}.json`;
+        link.download = `podsim-debug-${requestedAt.replace(/[:.]/g, "-")}-tick-${state.simulation.tick}.json`;
         document.body.append(link);
         link.click();
         link.remove();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
-        showStatus(`Debug state downloaded: tick ${state.simulation.Tick}.`, true);
+        showStatus(`Debug state downloaded: tick ${state.simulation.tick}.`, true);
       } catch (error) {
         showStatus(`Capture failed. ${error.message}. Try again.`, true, true);
       } finally {

@@ -65,40 +65,40 @@ var (
 
 // Request describes a party's journey separately from the vehicle.
 type Request struct {
-	SharingConsent SharingConsent `json:"SharingConsent"`
-	Service        ServiceChoice  `json:"Service"`
-	ServiceID      string         `json:"ServiceID,omitempty"`
-	ID             int            `json:"ID"`
-	From           string         `json:"From"`
-	To             string         `json:"To"`
-	PartySize      int            `json:"PartySize"`
-	PodID          string         `json:"PodID"`
-	Completed      bool           `json:"Completed"`
+	SharingConsent SharingConsent `json:"sharingConsent"`
+	Service        ServiceChoice  `json:"service"`
+	ServiceID      string         `json:"serviceID,omitempty"`
+	ID             int            `json:"id"`
+	From           string         `json:"from"`
+	To             string         `json:"to"`
+	PartySize      int            `json:"partySize"`
+	PodID          string         `json:"podID"`
+	Completed      bool           `json:"completed"`
 	// RequestedTick marks submission, before any pickup travel.
-	RequestedTick int64 `json:"RequestedTick"`
+	RequestedTick int64 `json:"requestedTick"`
 	// BoardedTick is the tick at which the party boarded a pod. It is 0 for
 	// a party that has not boarded.
-	BoardedTick int64 `json:"BoardedTick,omitzero"`
+	BoardedTick int64 `json:"boardedTick,omitzero"`
 	// DispatchReason explains why a pending order has not started boarding.
-	DispatchReason string `json:"DispatchReason"`
+	DispatchReason string `json:"dispatchReason"`
 }
 
 // Pod contains observable vehicle state. LaneDistance is measured from the lane start.
 type Pod struct {
-	Class             VehicleClass `json:"Class,omitempty"`
-	ID                string       `json:"ID"`
-	Position          Point        `json:"Position"`
-	Activity          Activity     `json:"Activity"`
-	StationID         string       `json:"StationID"`
-	BerthID           string       `json:"BerthID"`
-	LaneID            string       `json:"LaneID"`
-	LaneDistance      float64      `json:"LaneDistance"`
-	Speed             float64      `json:"Speed"`
-	Occupied          bool         `json:"Occupied"`
-	WaitReason        WaitReason   `json:"WaitReason"`
-	BlockedBy         string       `json:"BlockedBy"`
-	StationPhase      StationPhase `json:"StationPhase,omitempty"`
-	ManeuverStationID string       `json:"ManeuverStationID,omitempty"`
+	Class             VehicleClass `json:"class,omitempty"`
+	ID                string       `json:"id"`
+	Position          Point        `json:"position"`
+	Activity          Activity     `json:"activity"`
+	StationID         string       `json:"stationID"`
+	BerthID           string       `json:"berthID"`
+	LaneID            string       `json:"laneID"`
+	LaneDistance      float64      `json:"laneDistance"`
+	Speed             float64      `json:"speed"`
+	Occupied          bool         `json:"occupied"`
+	WaitReason        WaitReason   `json:"waitReason"`
+	BlockedBy         string       `json:"blockedBy"`
+	StationPhase      StationPhase `json:"stationPhase,omitempty"`
+	ManeuverStationID string       `json:"maneuverStationID,omitempty"`
 }
 
 // Vehicle is an independent display copy of a pod and its assigned journey.
@@ -106,41 +106,41 @@ type Vehicle struct {
 	// CouplingID binds a checked cabin to its physical train registry record.
 	CouplingID string `json:"couplingID,omitzero"`
 	// Boardings aligns with Riders when the original journey fields are insufficient.
-	Boardings []RiderBoarding `json:"Boardings,omitempty"`
+	Boardings []RiderBoarding `json:"boardings,omitempty"`
 	// RiddenMeters is cumulative passenger distance when Boardings is present.
-	RiddenMeters float64 `json:"RiddenMeters,omitzero"`
+	RiddenMeters float64 `json:"riddenMeters,omitzero"`
 	// Presentation is set only for bounded stream views.
 	Presentation *RoutePresentation `json:"-"`
-	Pod          Pod                `json:"Pod"`
+	Pod          Pod                `json:"pod"`
 	// Riders has one request for each party of the current or last
 	// passenger journey of the pod, in boarding order. The first rider
 	// boarded the pod, and the other riders joined it. A rider with
 	// Completed true has left the pod. Riders is empty for a pod that did
 	// not carry passengers since the last reset.
-	Riders []Request `json:"Riders,omitempty"`
+	Riders []Request `json:"riders,omitempty"`
 	// Stops holds the station IDs of the stops that the pod still makes
 	// with its riders, in route order. The first stop is the destination of
 	// the current route.
-	Stops []string `json:"Stops,omitempty"`
-	Route []Lane   `json:"Route"`
+	Stops []string `json:"stops,omitempty"`
+	Route []Lane   `json:"route"`
 	// RelocatingTo identifies the destination station during an empty move.
-	RelocatingTo string `json:"RelocatingTo"`
+	RelocatingTo string `json:"relocatingTo"`
 	// Rebalancing reports whether an empty move was started by guarded
 	// positioning.
-	Rebalancing bool `json:"Rebalancing"`
+	Rebalancing bool `json:"rebalancing"`
 	// PlatoonID is the ID of the first pod of the platoon of the pod.
 	// PlatoonIndex is the position of the pod in that platoon, 1 for the
 	// first pod. Snapshot sets both for a pod with a link to a pod ahead or
 	// behind. They are empty for a pod that is not coupled.
-	PlatoonID    string `json:"PlatoonID,omitempty"`
-	PlatoonIndex int    `json:"PlatoonIndex,omitzero"`
+	PlatoonID    string `json:"platoonID,omitempty"`
+	PlatoonIndex int    `json:"platoonIndex,omitzero"`
 }
 
 // BerthState separates physical occupancy from local arrival admission.
 type BerthState struct {
-	ID         string `json:"ID"`
-	Occupant   string `json:"Occupant"`
-	ReservedBy string `json:"ReservedBy"`
+	ID         string `json:"id"`
+	Occupant   string `json:"occupant"`
+	ReservedBy string `json:"reservedBy"`
 }
 
 // Snapshot is a copy of the fleet, clock, and station resources.
@@ -151,38 +151,38 @@ type Snapshot struct {
 	OrderContract    OrderContract       `json:"orderContract,omitzero"`
 
 	// Submitted counts accepted passenger orders since reset.
-	Submitted int          `json:"Submitted"`
-	Tick      int64        `json:"Tick"`
-	Paused    bool         `json:"Paused"`
-	Vehicles  []Vehicle    `json:"Vehicles"`
-	Berths    []BerthState `json:"Berths"`
-	Completed int          `json:"Completed"`
-	Demo      bool         `json:"Demo"`
-	DemoError string       `json:"DemoError"`
+	Submitted int          `json:"submitted"`
+	Tick      int64        `json:"tick"`
+	Paused    bool         `json:"paused"`
+	Vehicles  []Vehicle    `json:"vehicles"`
+	Berths    []BerthState `json:"berths"`
+	Completed int          `json:"completed"`
+	Demo      bool         `json:"demo"`
+	DemoError string       `json:"demoError"`
 	// Pending holds passenger requests that have not started boarding.
-	Pending []Request `json:"Pending"`
+	Pending []Request `json:"pending"`
 	// Wait summarizes request-to-boarding delay, including elapsed pending waits.
-	Wait WaitStats `json:"Wait"`
+	Wait WaitStats `json:"wait"`
 	// Journey summarizes the time from request to alighting of the parties
 	// that left a pod at their destination.
-	Journey JourneyStats `json:"Journey"`
+	Journey JourneyStats `json:"journey"`
 	// PassengerDistanceMeters is the distance traveled with a passenger.
-	PassengerDistanceMeters float64 `json:"PassengerDistanceMeters"`
+	PassengerDistanceMeters float64 `json:"passengerDistanceMeters"`
 	// RiderDistanceMeters is the sum of the distances that the parties of
 	// Journey rode. DirectDistanceMeters is the sum of the free-flow
 	// distances of the same parties from their boarding berth to their
 	// alighting berth. MaxDetourRatio is the largest ratio of the two
 	// distances for one party.
-	RiderDistanceMeters  float64 `json:"RiderDistanceMeters"`
-	DirectDistanceMeters float64 `json:"DirectDistanceMeters"`
-	MaxDetourRatio       float64 `json:"MaxDetourRatio"`
+	RiderDistanceMeters  float64 `json:"riderDistanceMeters"`
+	DirectDistanceMeters float64 `json:"directDistanceMeters"`
+	MaxDetourRatio       float64 `json:"maxDetourRatio"`
 	// SharedParties counts parties that joined another party's boarding pod.
-	SharedParties        int `json:"SharedParties"`
-	SharedRidePartyLimit int `json:"SharedRidePartyLimit"`
+	SharedParties        int `json:"sharedParties"`
+	SharedRidePartyLimit int `json:"sharedRidePartyLimit"`
 	// EmptyDistanceMeters is the distance traveled without a passenger.
-	EmptyDistanceMeters float64 `json:"EmptyDistanceMeters"`
+	EmptyDistanceMeters float64 `json:"emptyDistanceMeters"`
 	// RebalanceMoves counts proactive empty moves started since reset.
-	RebalanceMoves int `json:"RebalanceMoves"`
+	RebalanceMoves int `json:"rebalanceMoves"`
 }
 
 // SafetyObservation is the state needed to check fleet separation and berth use.
@@ -210,10 +210,10 @@ type SafetyLocation struct {
 
 // Placement starts a pod at an empty station berth.
 type Placement struct {
-	Class     VehicleClass `json:"Class,omitempty"`
-	ID        string       `json:"ID"`
-	StationID string       `json:"StationID"`
-	BerthID   string       `json:"BerthID"`
+	Class     VehicleClass `json:"class,omitempty"`
+	ID        string       `json:"id"`
+	StationID string       `json:"stationID"`
+	BerthID   string       `json:"berthID"`
 }
 
 type vehicle struct {

@@ -14,7 +14,7 @@ func (e *engine) draftChecks() (checkReport, error) {
 		draft[key] = branch.value
 	}
 	network := draft["network"]
-	if object(network) == nil || items(member(network, "Nodes")) == nil || items(member(network, "Lanes")) == nil || items(member(network, "Stations")) == nil {
+	if object(network) == nil || items(member(network, "nodes")) == nil || items(member(network, "lanes")) == nil || items(member(network, "stations")) == nil {
 		return draftChecks(draft), nil
 	}
 	if e.checks == nil {
@@ -30,7 +30,7 @@ func (e *engine) draftChecks() (checkReport, error) {
 		}
 		passenger := make(map[string]bool, len(e.checks.network.passenger))
 		for _, station := range e.checks.network.passenger {
-			passenger[text(member(station, "ID"))] = true
+			passenger[text(member(station, "id"))] = true
 		}
 		var errors checkList
 		checkProfiles(map[string]any{"demandProfiles": profiles}, passenger, &errors)

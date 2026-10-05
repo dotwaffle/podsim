@@ -3,6 +3,7 @@ package remote
 import (
 	"context"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"errors"
 	"fmt"
 	"math/rand/v2"
@@ -103,7 +104,7 @@ func (c *Client) receiveStream(ctx context.Context) error {
 				Kind  string `json:"kind"`
 				Token string `json:"token"`
 			}
-			if err = json.Unmarshal(data, &heartbeat); err != nil || heartbeat.Kind != "heartbeat" {
+			if err = jsonv2.Unmarshal(data, &heartbeat, json.DefaultOptionsV1(), jsonv2.MatchCaseInsensitiveNames(false)); err != nil || heartbeat.Kind != "heartbeat" {
 				return errors.New("invalid heartbeat")
 			}
 			if _, err = session.ParseStreamSequence(heartbeat.Token); err != nil {

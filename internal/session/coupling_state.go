@@ -119,7 +119,6 @@ func couplingSavedLimits(packed bool) jsonLimits {
 		limits.arrays["/simulation/pods/*/riders"] = sim.MaxSharedRideParties
 		limits.arrays["/simulation/pods/*/boardings"] = sim.MaxSharedRideParties
 	}
-	limits.foldNames = true
 	limits.arrays = maps.Clone(limits.arrays)
 	limits.arrays["/simulation/couplingGroups"] = project.MaxPods / 2
 	limits.arrays["/simulation/couplingGroups/*/members"] = 2
@@ -187,7 +186,7 @@ func decodeCouplingTopology(data []byte) (TopologySnapshot, error) {
 	}
 	type plainTopology TopologySnapshot
 	var decoded plainTopology
-	if err := json.Unmarshal(data, &decoded, legacyJSON.DefaultOptionsV1(), json.RejectUnknownMembers(true)); err != nil {
+	if err := json.Unmarshal(data, &decoded, legacyJSON.DefaultOptionsV1(), json.MatchCaseInsensitiveNames(false), json.RejectUnknownMembers(true)); err != nil {
 		return TopologySnapshot{}, err
 	}
 	if decoded.CouplingContract != sim.CompactPairV1CouplingContract {

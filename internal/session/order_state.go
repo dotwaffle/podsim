@@ -23,9 +23,9 @@ func serviceStateLimits() jsonLimits {
 	limits.arrays["/simulation/pods/*/riders"] = sim.MaxExpressParties
 	limits.arrays["/project/expressServices"] = project.MaxExpressServices
 	for _, path := range []string{
-		"/project/network/Lanes/*/VehicleClasses",
-		"/project/network/Stations/*/VehicleClasses",
-		"/project/network/Stations/*/Berths/*/VehicleClasses",
+		"/project/network/lanes/*/vehicleClasses",
+		"/project/network/stations/*/vehicleClasses",
+		"/project/network/stations/*/berths/*/vehicleClasses",
 	} {
 		limits.arrays[path] = 4
 	}

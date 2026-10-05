@@ -48,7 +48,7 @@ func DecodeStreamJSONVersion(data []byte, version int) (StreamEnvelope, error) {
 	var envelope StreamEnvelope
 	var err error
 	if version == ExpressStreamVersion {
-		err = jsonv2.Unmarshal(data, &envelope, json.DefaultOptionsV1(), jsonv2.RejectUnknownMembers(true), packedDecodeOptions())
+		err = jsonv2.Unmarshal(data, &envelope, json.DefaultOptionsV1(), jsonv2.MatchCaseInsensitiveNames(false), jsonv2.RejectUnknownMembers(true), packedDecodeOptions())
 	} else {
 		err = decodeStreamJSON(data, &envelope)
 	}
@@ -63,9 +63,9 @@ func DecodeStreamJSONVersion(data []byte, version int) (StreamEnvelope, error) {
 func unpackedStreamLimits() jsonLimits {
 	limits := expressStreamLimits()
 	for _, prefix := range []string{"/full", "/frame"} {
-		limits.arrays[prefix+"/state/simulation/Pending"] = maxSavedTrips
-		limits.arrays[prefix+"/state/simulation/Vehicles/*/Riders"] = sim.MaxSharedRideParties
-		limits.arrays[prefix+"/state/simulation/Vehicles/*/Boardings"] = sim.MaxSharedRideParties
+		limits.arrays[prefix+"/state/simulation/pending"] = maxSavedTrips
+		limits.arrays[prefix+"/state/simulation/vehicles/*/riders"] = sim.MaxSharedRideParties
+		limits.arrays[prefix+"/state/simulation/vehicles/*/boardings"] = sim.MaxSharedRideParties
 	}
 	limits.arrays["/delta/groups/pending"] = maxSavedTrips
 	limits.arrays["/delta/vehicles/*/riders/value"] = sim.MaxSharedRideParties
@@ -97,7 +97,7 @@ func stateFrameLimits() jsonLimits {
 	// The frame has the complete route of each vehicle, not a route window.
 	// The simulation bounds only saved routes, so a live route has the
 	// general element limit.
-	limits.arrays["/simulation/Vehicles/*/RouteLaneIDs"] = limits.elements
+	limits.arrays["/simulation/vehicles/*/routeLaneIDs"] = limits.elements
 	return limits
 }
 
@@ -119,19 +119,19 @@ func scanStreamServiceMembersContract(data []byte, version int, coupling bool) e
 		if token.Kind() != jsontext.KindString || kind != jsontext.KindBeginObject || length%2 != 1 {
 			continue
 		}
-		if couplingMember(token.String()) || strings.EqualFold(token.String(), "couplingID") {
+		if couplingMember(token.String()) || token.String() == "couplingID" {
 			if !coupling {
 				return errors.New("current stream family contains coupling fields")
 			}
 			continue
 		}
-		name := strings.ToLower(token.String())
+		name := token.String()
 		switch name {
-		case "projectversion", "vehicleclasses", "class", "sharingconsent", "service", "serviceid":
+		case "projectVersion", "vehicleClasses", "class", "sharingConsent", "service", "serviceID":
 		default:
 			continue
 		}
-		if name == "vehicleclasses" {
+		if name == "vehicleClasses" {
 			// ClassSet checks the array's shape and values during typed decoding.
 			continue
 		}
@@ -140,7 +140,7 @@ func scanStreamServiceMembersContract(data []byte, version int, coupling bool) e
 			return err
 		}
 		switch name {
-		case "projectversion":
+		case "projectVersion":
 			if value.Kind() != jsontext.KindNumber {
 				return errors.New("stream project version must be an integer")
 			}
@@ -157,7 +157,7 @@ func scanStreamServiceMembersContract(data []byte, version int, coupling bool) e
 				if _, ok := sim.LookupVehicleClass(sim.VehicleClass(value.String())); !ok {
 					return sim.ErrUnknownVehicleClass
 				}
-			case "sharingconsent":
+			case "sharingConsent":
 				consent := sim.SharingConsent(value.String())
 				if consent != sim.PrivateConsent && consent != sim.SharedConsent {
 					return errors.New("invalid stream sharing consent")
@@ -166,7 +166,7 @@ func scanStreamServiceMembersContract(data []byte, version int, coupling bool) e
 				if service := sim.ServiceChoice(value.String()); service != sim.OnDemandService && service != sim.ExpressServiceChoice {
 					return errors.New("invalid stream service")
 				}
-			case "serviceid":
+			case "serviceID":
 				if len(value.String()) > 64 && version != ExpressStreamVersion {
 					return errors.New("stream service ID is too long")
 				}

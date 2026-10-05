@@ -56,42 +56,42 @@ type SimulationFrame struct {
 	CouplingEnabled         bool                    `json:"couplingEnabled,omitzero"`
 	CouplingGroups          []sim.CouplingGroupView `json:"couplingGroups,omitzero"`
 	OrderContract           sim.OrderContract       `json:"orderContract,omitzero"`
-	Submitted               int                     `json:"Submitted"`
-	Tick                    int64                   `json:"Tick"`
-	Paused                  bool                    `json:"Paused"`
-	Vehicles                []VehicleFrame          `json:"Vehicles"`
-	Berths                  []sim.BerthState        `json:"Berths"`
-	Completed               int                     `json:"Completed"`
-	Demo                    bool                    `json:"Demo"`
-	DemoError               string                  `json:"DemoError"`
-	Pending                 []sim.Request           `json:"Pending"`
-	Wait                    sim.WaitStats           `json:"Wait"`
-	Journey                 sim.JourneyStats        `json:"Journey"`
-	PassengerDistanceMeters float64                 `json:"PassengerDistanceMeters"`
-	RiderDistanceMeters     float64                 `json:"RiderDistanceMeters"`
-	DirectDistanceMeters    float64                 `json:"DirectDistanceMeters"`
-	MaxDetourRatio          float64                 `json:"MaxDetourRatio"`
-	SharedParties           int                     `json:"SharedParties"`
-	SharedRidePartyLimit    int                     `json:"SharedRidePartyLimit"`
-	EmptyDistanceMeters     float64                 `json:"EmptyDistanceMeters"`
-	RebalanceMoves          int                     `json:"RebalanceMoves"`
+	Submitted               int                     `json:"submitted"`
+	Tick                    int64                   `json:"tick"`
+	Paused                  bool                    `json:"paused"`
+	Vehicles                []VehicleFrame          `json:"vehicles"`
+	Berths                  []sim.BerthState        `json:"berths"`
+	Completed               int                     `json:"completed"`
+	Demo                    bool                    `json:"demo"`
+	DemoError               string                  `json:"demoError"`
+	Pending                 []sim.Request           `json:"pending"`
+	Wait                    sim.WaitStats           `json:"wait"`
+	Journey                 sim.JourneyStats        `json:"journey"`
+	PassengerDistanceMeters float64                 `json:"passengerDistanceMeters"`
+	RiderDistanceMeters     float64                 `json:"riderDistanceMeters"`
+	DirectDistanceMeters    float64                 `json:"directDistanceMeters"`
+	MaxDetourRatio          float64                 `json:"maxDetourRatio"`
+	SharedParties           int                     `json:"sharedParties"`
+	SharedRidePartyLimit    int                     `json:"sharedRidePartyLimit"`
+	EmptyDistanceMeters     float64                 `json:"emptyDistanceMeters"`
+	RebalanceMoves          int                     `json:"rebalanceMoves"`
 }
 
 // VehicleFrame contains dynamic vehicle data and its ordered route IDs.
 type VehicleFrame struct {
 	CouplingID   string              `json:"couplingID,omitzero"`
-	Boardings    []sim.RiderBoarding `json:"Boardings,omitempty"`
-	RiddenMeters float64             `json:"RiddenMeters,omitzero"`
-	Pod          sim.Pod             `json:"Pod"`
-	Riders       []sim.Request       `json:"Riders,omitempty"`
-	Stops        []string            `json:"Stops,omitempty"`
-	RouteLaneIDs []string            `json:"RouteLaneIDs"`
-	RelocatingTo string              `json:"RelocatingTo"`
-	Rebalancing  bool                `json:"Rebalancing"`
+	Boardings    []sim.RiderBoarding `json:"boardings,omitempty"`
+	RiddenMeters float64             `json:"riddenMeters,omitzero"`
+	Pod          sim.Pod             `json:"pod"`
+	Riders       []sim.Request       `json:"riders,omitempty"`
+	Stops        []string            `json:"stops,omitempty"`
+	RouteLaneIDs []string            `json:"routeLaneIDs"`
+	RelocatingTo string              `json:"relocatingTo"`
+	Rebalancing  bool                `json:"rebalancing"`
 	// PlatoonID and PlatoonIndex are the platoon of a coupled pod. See
 	// sim.Vehicle.
-	PlatoonID    string `json:"PlatoonID,omitempty"`
-	PlatoonIndex int    `json:"PlatoonIndex,omitzero"`
+	PlatoonID    string `json:"platoonID,omitempty"`
+	PlatoonIndex int    `json:"platoonIndex,omitzero"`
 }
 
 // FrameState combines one matching topology snapshot and state frame.

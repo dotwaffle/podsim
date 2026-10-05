@@ -241,7 +241,7 @@ test("the shell page shows the debug result next to its controls", () => {
   assert.match(html, /\}, debugResult\.expiresAt - Date\.now\(\)\);\s*\}\s*reconcileStatus\(\);/);
   assert.equal(html.match(/postMessage\(/g).length, 1, "the shell sends a notice only from reconcileStatus");
   // The success and failure texts that the status shows.
-  assert.match(html, /showStatus\(`Debug state downloaded: tick \$\{state\.simulation\.Tick\}\.`, true\);/);
+  assert.match(html, /showStatus\(`Debug state downloaded: tick \$\{state\.simulation\.tick\}\.`, true\);/);
   assert.match(html, /showStatus\(`Capture failed\. \$\{error\.message\}\. Try again\.`, true, true\);/);
 });
 
@@ -282,7 +282,7 @@ test("the shell controls come first in the page, in the order of CONTROLS", () =
 });
 
 test("the debug capture accepts the state reply of each project kind", () => {
-  const state = { epoch: "epoch-1", projectRevision: 3, simulation: { Tick: 7 }, orders: "packed" };
+  const state = { epoch: "epoch-1", projectRevision: 3, simulation: { tick: 7 }, orders: "packed" };
   assert.equal(shell.captureState(state), state, "a plain project");
   assert.equal(shell.captureState({ orderContract: "express-v1", frame: { state, routes: [] } }), state, "an Express project");
   assert.equal(shell.captureState({ couplingContract: "compact-pair-v1", frame: { state, routes: [] } }), state, "a version 5 project");
@@ -301,7 +301,7 @@ test("the debug capture accepts the state reply of each project kind", () => {
     ["a revision that is text", { ...state, projectRevision: "3" }],
     ["no simulation", { ...state, simulation: undefined }],
     ["a null simulation", { ...state, simulation: null }],
-    ["a tick that is text", { ...state, simulation: { Tick: "7" } }],
+    ["a tick that is text", { ...state, simulation: { tick: "7" } }],
   ];
   for (const [name, reply] of malformed) assert.throws(() => shell.captureState(reply), { message: "Invalid server state reply" }, name);
   // The editor reads the state with the same Accept header.

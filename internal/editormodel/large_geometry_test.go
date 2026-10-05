@@ -27,7 +27,7 @@ func TestLargeDraftBounds(t *testing.T) {
 			t.Parallel()
 			lane := map[string]any{}
 			if test.classes != nil {
-				lane["VehicleClasses"] = test.classes
+				lane["vehicleClasses"] = test.classes
 			}
 			if got := draftLaneMinimum(lane); got != test.want {
 				t.Fatalf("minimum = %g, want %g", got, test.want)
@@ -40,16 +40,16 @@ func TestLargeDraftBounds(t *testing.T) {
 }
 
 func largeDraftPaths(gap float64, large bool) map[string]any {
-	network := map[string]any{"Nodes": []any{}, "Lanes": []any{}, "Stations": []any{}}
+	network := map[string]any{"nodes": []any{}, "lanes": []any{}, "stations": []any{}}
 	for i, id := range []string{"a", "b", "c", "d"} {
-		network["Nodes"] = append(items(network["Nodes"]), map[string]any{"ID": id, "Position": map[string]any{"X": float64(i%2) * 100, "Y": float64(i/2) * gap}})
+		network["nodes"] = append(items(network["nodes"]), map[string]any{"id": id, "position": map[string]any{"x": float64(i%2) * 100, "y": float64(i/2) * gap}})
 	}
 	for i, id := range []string{"first", "second"} {
-		lane := map[string]any{"ID": id, "From": []string{"a", "c"}[i], "To": []string{"b", "d"}[i], "SpeedLimit": float64(14)}
+		lane := map[string]any{"id": id, "from": []string{"a", "c"}[i], "to": []string{"b", "d"}[i], "speedLimit": float64(14)}
 		if large && i == 0 {
-			lane["VehicleClasses"] = []any{"group"}
+			lane["vehicleClasses"] = []any{"group"}
 		}
-		network["Lanes"] = append(items(network["Lanes"]), lane)
+		network["lanes"] = append(items(network["lanes"]), lane)
 	}
 	return network
 }
@@ -71,7 +71,7 @@ func TestLargeDraftPairClearance(t *testing.T) {
 			if (conflict != nil) != test.conflict {
 				t.Fatalf("conflict = %+v", conflict)
 			}
-			if conflict != nil && conflict.minimum != draftPairClearance(items(geometry.network["Lanes"])[0], items(geometry.network["Lanes"])[1]) {
+			if conflict != nil && conflict.minimum != draftPairClearance(items(geometry.network["lanes"])[0], items(geometry.network["lanes"])[1]) {
 				t.Fatal("wrong reported minimum")
 			}
 		})
@@ -113,8 +113,8 @@ func TestLargeDraftMinimumEditsAtomic(t *testing.T) {
 			draft := bankEditorFixture(2)
 			draft["version"] = float64(3)
 			network := object(draft["network"])
-			for _, lane := range items(network["Lanes"]) {
-				object(lane)["VehicleClasses"] = []any{"legacy", "group"}
+			for _, lane := range items(network["lanes"]) {
+				object(lane)["vehicleClasses"] = []any{"legacy", "group"}
 			}
 			before := cloneEditValue(draft)
 			change, err := editGeometry(draft, jsontext.Value(raw))
@@ -170,10 +170,10 @@ func TestLargeDraftBerthAudit(t *testing.T) {
 	t.Parallel()
 	for _, gap := range []float64{19, 40} {
 		network := largeDraftPaths(100, false)
-		network["Nodes"] = append(items(network["Nodes"]), map[string]any{"ID": "berth-a", "Position": map[string]any{"X": float64(50), "Y": float64(200)}}, map[string]any{"ID": "berth-b", "Position": map[string]any{"X": float64(50) + gap, "Y": float64(200)}})
-		network["Stations"] = []any{map[string]any{"ID": "station", "Entry": "a", "Exit": "b", "VehicleClasses": []any{"legacy", "group"}, "Berths": []any{map[string]any{"ID": "first-berth", "Node": "berth-a", "VehicleClasses": []any{"group"}}, map[string]any{"ID": "second-berth", "Node": "berth-b"}}}}
+		network["nodes"] = append(items(network["nodes"]), map[string]any{"id": "berth-a", "position": map[string]any{"x": float64(50), "y": float64(200)}}, map[string]any{"id": "berth-b", "position": map[string]any{"x": float64(50) + gap, "y": float64(200)}})
+		network["stations"] = []any{map[string]any{"id": "station", "entry": "a", "exit": "b", "vehicleClasses": []any{"legacy", "group"}, "berths": []any{map[string]any{"id": "first-berth", "node": "berth-a", "vehicleClasses": []any{"group"}}, map[string]any{"id": "second-berth", "node": "berth-b"}}}}
 		for _, berth := range []string{"berth-a", "berth-b"} {
-			network["Lanes"] = append(items(network["Lanes"]), map[string]any{"ID": berth + "-in", "From": "a", "To": berth, "SpeedLimit": float64(14)}, map[string]any{"ID": berth + "-out", "From": berth, "To": "b", "SpeedLimit": float64(14)})
+			network["lanes"] = append(items(network["lanes"]), map[string]any{"id": berth + "-in", "from": "a", "to": berth, "speedLimit": float64(14)}, map[string]any{"id": berth + "-out", "from": berth, "to": "b", "speedLimit": float64(14)})
 		}
 		if !hasLargeGeometry(network) {
 			t.Fatal("effective group berth admission did not request audit")
@@ -242,7 +242,7 @@ func TestLargeDraftCurveAdmissionAtomic(t *testing.T) {
 		network := largeDraftPaths(400, large)
 		draft := map[string]any{"network": network}
 		before := cloneEditValue(draft)
-		change, err := editGeometry(draft, jsontext.Value(`{"action":"moveControl","id":"first","point":{"X":200,"Y":0}}`))
+		change, err := editGeometry(draft, jsontext.Value(`{"action":"moveControl","id":"first","point":{"x":200,"y":0}}`))
 		if (err != nil) != large {
 			t.Fatalf("large=%v path-shape error: %v", large, err)
 		}
@@ -258,22 +258,22 @@ func TestLargeDraftBankChainMaskPreservation(t *testing.T) {
 	draft["version"] = float64(3)
 	network := object(draft["network"])
 	mask := []any{"legacy", "group"}
-	for _, lane := range items(network["Lanes"]) {
-		object(lane)["VehicleClasses"] = cloneEditValue(mask)
+	for _, lane := range items(network["lanes"]) {
+		object(lane)["vehicleClasses"] = cloneEditValue(mask)
 	}
-	station := object(items(network["Stations"])[0])
-	station["VehicleClasses"] = cloneEditValue(mask)
-	for _, berth := range items(station["Berths"]) {
-		object(berth)["VehicleClasses"] = cloneEditValue(mask)
+	station := object(items(network["stations"])[0])
+	station["vehicleClasses"] = cloneEditValue(mask)
+	for _, berth := range items(station["berths"]) {
+		object(berth)["vehicleClasses"] = cloneEditValue(mask)
 	}
 	grown := applyBankEdit(t, draft, `{"action":"addBankBerth","id":"station","value":"b"}`)
-	for _, lane := range items(member(grown["network"], "Lanes")) {
-		if !reflect.DeepEqual(member(lane, "VehicleClasses"), mask) {
+	for _, lane := range items(member(grown["network"], "lanes")) {
+		if !reflect.DeepEqual(member(lane, "vehicleClasses"), mask) {
 			t.Fatal("chain edit lost lane mask", lane)
 		}
 	}
-	for _, berth := range items(member(items(member(grown["network"], "Stations"))[0], "Berths")) {
-		if !reflect.DeepEqual(member(berth, "VehicleClasses"), mask) {
+	for _, berth := range items(member(items(member(grown["network"], "stations"))[0], "berths")) {
+		if !reflect.DeepEqual(member(berth, "vehicleClasses"), mask) {
 			t.Fatal("chain edit lost berth mask", berth)
 		}
 	}

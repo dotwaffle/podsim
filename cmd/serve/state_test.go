@@ -564,7 +564,7 @@ func TestRunSavesStateWhileServing(t *testing.T) {
 type restartFrame struct {
 	Epoch      string `json:"epoch"`
 	Simulation struct {
-		Submitted int `json:"Submitted"`
+		Submitted int `json:"submitted"`
 	} `json:"simulation"`
 	Restore session.RestoreInfo `json:"restore"`
 }

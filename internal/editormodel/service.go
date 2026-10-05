@@ -3,7 +3,6 @@ package editormodel
 import (
 	"encoding/json/v2"
 	"fmt"
-	"strings"
 
 	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/sim"
@@ -11,22 +10,22 @@ import (
 
 // Metadata presence includes null, as native project decoding counts it.
 func hasServiceMetadata(draft any) bool {
-	if hasFold(draft, "orderContract") || hasFold(draft, "expressServices") || hasFold(draft, "stationQueueSpacing") || hasFold(draft, "onboardPickups") {
+	if has(draft, "orderContract") || has(draft, "expressServices") || has(draft, "stationQueueSpacing") || has(draft, "onboardPickups") {
 		return true
 	}
 	for _, pod := range items(member(draft, "fleet")) {
-		if hasFold(pod, "Class") {
+		if has(pod, "class") {
 			return true
 		}
 	}
 	network := member(draft, "network")
-	for _, key := range []string{"Lanes", "Stations"} {
+	for _, key := range []string{"lanes", "stations"} {
 		for _, item := range items(member(network, key)) {
-			if hasFold(item, "VehicleClasses") {
+			if has(item, "vehicleClasses") {
 				return true
 			}
-			for _, berth := range items(member(item, "Berths")) {
-				if hasFold(berth, "VehicleClasses") {
+			for _, berth := range items(member(item, "berths")) {
+				if has(berth, "vehicleClasses") {
 					return true
 				}
 			}
@@ -35,20 +34,11 @@ func hasServiceMetadata(draft any) bool {
 	return false
 }
 
-func hasFold(value any, key string) bool {
-	for candidate := range object(value) {
-		if strings.EqualFold(candidate, key) {
-			return true
-		}
-	}
-	return false
-}
-
 func draftClassSet(value any) (sim.ClassSet, bool) {
-	if !has(value, "VehicleClasses") {
+	if !has(value, "vehicleClasses") {
 		return 0, true
 	}
-	raw, err := json.Marshal(member(value, "VehicleClasses"))
+	raw, err := json.Marshal(member(value, "vehicleClasses"))
 	var classes sim.ClassSet
 	if err != nil || json.Unmarshal(raw, &classes) != nil {
 		return 0, false
@@ -65,10 +55,10 @@ func checkServiceMetadata(draft any, errors *checkList) {
 		return
 	}
 	network := member(draft, "network")
-	for _, key := range []string{"Lanes", "Stations"} {
+	for _, key := range []string{"lanes", "stations"} {
 		for _, item := range items(member(network, key)) {
 			checkDraftClassSet(item, errors)
-			for _, berth := range items(member(item, "Berths")) {
+			for _, berth := range items(member(item, "berths")) {
 				checkDraftClassSet(berth, errors)
 			}
 		}
@@ -88,33 +78,33 @@ func checkDraftClassSet(value any, errors *checkList) {
 }
 
 func checkPodClass(pod, network any, contract sim.OrderContract, errors *checkList) {
-	class := sim.VehicleClass(text(member(pod, "Class")))
-	if has(pod, "Class") {
+	class := sim.VehicleClass(text(member(pod, "class")))
+	if has(pod, "class") {
 		if class == "" {
-			errors.add(fmt.Sprintf("Pod %s has an invalid vehicle class.", label(member(pod, "ID"))), target("station", member(pod, "StationID")))
+			errors.add(fmt.Sprintf("Pod %s has an invalid vehicle class.", label(member(pod, "id"))), target("station", member(pod, "stationID")))
 			return
 		}
 		if _, valid := sim.LookupVehicleClassWithOrderContract(class, contract); !valid {
-			errors.add(fmt.Sprintf("Pod %s has an invalid vehicle class.", label(member(pod, "ID"))), target("station", member(pod, "StationID")))
+			errors.add(fmt.Sprintf("Pod %s has an invalid vehicle class.", label(member(pod, "id"))), target("station", member(pod, "stationID")))
 			return
 		}
 	}
 	if sim.ValidateVehicleClassProfileWithOrderContract(class, contract) != nil {
-		errors.add(fmt.Sprintf("Pod %s has no approved physical profile.", label(member(pod, "ID"))), target("station", member(pod, "StationID")))
+		errors.add(fmt.Sprintf("Pod %s has no approved physical profile.", label(member(pod, "id"))), target("station", member(pod, "stationID")))
 		return
 	}
-	for _, station := range items(member(network, "Stations")) {
-		if !sameOptionalMember(station, "ID", pod, "StationID") {
+	for _, station := range items(member(network, "stations")) {
+		if !sameOptionalID(station, pod, "stationID") {
 			continue
 		}
-		for _, berth := range items(member(station, "Berths")) {
-			if !sameOptionalMember(berth, "ID", pod, "BerthID") {
+		for _, berth := range items(member(station, "berths")) {
+			if !sameOptionalID(berth, pod, "berthID") {
 				continue
 			}
 			stationClasses, stationValid := draftClassSet(station)
 			berthClasses, berthValid := draftClassSet(berth)
 			if stationValid && berthValid && (!stationClasses.Allows(string(class)) || !berthClasses.Allows(string(class))) {
-				errors.add(fmt.Sprintf("Pod %s has an incompatible station or berth.", label(member(pod, "ID"))), target("station", member(pod, "StationID")))
+				errors.add(fmt.Sprintf("Pod %s has an incompatible station or berth.", label(member(pod, "id"))), target("station", member(pod, "stationID")))
 			}
 		}
 	}
@@ -175,7 +165,7 @@ func draftContractError(draft any) string {
 	if problem := couplingContractError(draft); problem != "" {
 		return problem
 	}
-	if hasFold(draft, "orderContract") && draftOrderContract(draft) != sim.ExpressOrderContract {
+	if has(draft, "orderContract") && draftOrderContract(draft) != sim.ExpressOrderContract {
 		return "The order contract must be express-v1."
 	}
 	return ""

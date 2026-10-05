@@ -53,20 +53,20 @@ function connectedScenario() {
 function serviceScenario() {
   const config = connectedScenario();
   const classes = ["legacy", "compact", "group", "express"];
-  for (const lane of config.network.Lanes) lane.VehicleClasses = [...classes];
-  for (const station of config.network.Stations) {
-    station.VehicleClasses = [...classes];
-    for (const berth of station.Berths) berth.VehicleClasses = [...classes];
+  for (const lane of config.network.lanes) lane.vehicleClasses = [...classes];
+  for (const station of config.network.stations) {
+    station.vehicleClasses = [...classes];
+    for (const berth of station.berths) berth.vehicleClasses = [...classes];
   }
-  config.fleet[0].Class = "compact";
-  config.expressServices = [{ ID: "express", From: config.network.Stations[0].ID, To: config.network.Stations[1].ID, Class: "express", PartyLimit: 20 }];
+  config.fleet[0].class = "compact";
+  config.expressServices = [{ id: "express", from: config.network.stations[0].id, to: config.network.stations[1].id, class: "express", partyLimit: 20 }];
   return config;
 }
 
 
 test("Express project round trips retain the explicit contract and whole service metadata", () => {
   const config = serviceScenario();
-  config.orderContract = "express-v1"; config.fleet[0].Class = "express";
+  config.orderContract = "express-v1"; config.fleet[0].class = "express";
   const before = structuredClone(config);
   const document = JSON.parse(editor.serializeDocument(config));
   assert.equal(document.format, "podsim"); assert.equal(document.version, 1);
@@ -175,8 +175,8 @@ test("a coupling project keeps its coupling members through wrapped and bare imp
 test("projects without the coupling marker keep version 1 and export no coupling members", () => {
   const scenarios = { plain: connectedScenario(), service: serviceScenario(), banks: connectedScenario() };
   scenarios.express = { ...serviceScenario(), orderContract: "express-v1" };
-  const station = scenarios.banks.network.Stations[0];
-  station.Banks = [{ ID: "a", Entry: station.Entry, Exit: station.Exit, BerthIDs: station.Berths.map((berth) => berth.ID) }];
+  const station = scenarios.banks.network.stations[0];
+  station.banks = [{ id: "a", entry: station.entry, exit: station.exit, berthIDs: station.berths.map((berth) => berth.id) }];
   for (const [name, config] of Object.entries(scenarios)) {
     const imported = editor.parseDocument(JSON.stringify(config)).scenario;
     assert.equal(imported.version, 1, name);
@@ -236,7 +236,8 @@ test("import rejects a repeated member name as the server decoders do, and passe
       else if (item.valid) assert.deepEqual(editor.parseDocument(text).scenario, JSON.parse(item.text), item.name);
     }
   }
-  // The page keeps its own messages for a file with canonical names only.
+  // The page gives its own messages for these files. Member names match
+  // exactly, so a name that differs in case is not the network or version.
   const config = JSON.parse(decoderParity()[0].text);
   for (const [change, message] of [
     [(file) => { file.version = 6; }, /The version field must be 1\./],
@@ -244,18 +245,14 @@ test("import rejects a repeated member name as the server decoders do, and passe
     [(file) => { delete file.version; }, /The version field must be 1\./],
     [(file) => { file.network = null; }, /The network field must be an object/],
     [(file) => { delete file.network; file["vers\u0131on"] = 1; }, /no format field and no network field/],
+    [(file) => { file.NETWORK = file.network; delete file.network; }, /no format field and no network field/],
+    [(file) => { file.Version = file.version; delete file.version; }, /The version field must be 1\./],
   ]) {
     const file = structuredClone(config); change(file);
     assert.throws(() => editor.parseDocument(JSON.stringify(file)), message);
   }
   const deferred = { ...config, Network: null, Version: null };
   assert.deepEqual(editor.parseDocument(JSON.stringify(deferred)).scenario, deferred);
-});
-
-test("the import folds a member name as Go strings.EqualFold does", () => {
-  for (const [name, other, same] of [["network", "NETWORK", true], ["network", "networ\u212a", true], ["Nodes", "Node\u017f", true], ["version", "vers\u0131on", false], ["Class", "Cla\u00df", false], ["a_b", "a-b", false], ["versions", "version", false]]) {
-    assert.equal(editor.foldName(name) === editor.foldName(other), same, `${name} ${other}`);
-  }
 });
 
 test("the repeated member scan reads names after escapes and ignores values", () => {
@@ -355,14 +352,14 @@ test("undo and redo move the focus from a removed coupling row to a near row", (
 
 test("the lane class options show the classes that native allows on each project", () => {
   const config = connectedScenario();
-  const lane = config.network.Lanes[0].ID;
+  const lane = config.network.lanes[0].id;
   for (const project of [config, { ...config, orderContract: "express-v1" }]) {
     const state = editor.laneClassState(project, lane);
     assert.deepEqual(state.classes, ["legacy", "compact"]); assert.equal(state.disabled, false);
     assert.match(state.hint, /no class list, so Legacy and Compact pods can use it/); assert.doesNotMatch(state.hint, /coupling/);
   }
   const classed = structuredClone(config);
-  classed.couplingContract = "compact-pair-v1"; classed.network.Lanes[0].VehicleClasses = ["express", "compact"];
+  classed.couplingContract = "compact-pair-v1"; classed.network.lanes[0].vehicleClasses = ["express", "compact"];
   assert.deepEqual(editor.laneClassState(classed, lane), { classes: ["compact", "express"], disabled: false, hint: "A coupling site needs a straight guideway with Compact only." });
   const source = fs.readFileSync(path.join(__dirname, "editor.js"), "utf8");
   for (const name of ["legacy", "compact", "group", "express"]) assert.match(source, new RegExp(`<input data-edit="lane-class" data-class="${name}" type="checkbox">`));
@@ -378,12 +375,12 @@ test("station queue spacing is not available with Express but without the coupli
 });
 
 function nodePosition(config, id) {
-  return config.network.Nodes.find((node) => node.ID === id).Position;
+  return config.network.nodes.find((node) => node.id === id).position;
 }
 
 // assertNear checks that two points are less than 1e-6 m apart.
 function assertNear(actual, want, name) {
-  assert.ok(Math.hypot(actual.X - want.X, actual.Y - want.Y) < 1e-6, `${name}: got ${JSON.stringify(actual)}, want ${JSON.stringify(want)}`);
+  assert.ok(Math.hypot(actual.x - want.x, actual.y - want.y) < 1e-6, `${name}: got ${JSON.stringify(actual)}, want ${JSON.stringify(want)}`);
 }
 
 // angleGap gives the difference in degrees between two bearings.
@@ -394,32 +391,32 @@ function angleGap(a, b) {
 // Tottenham Court Road in the generated London project. The berths are 90 m
 // and 165 m to the left of the entry-exit line.
 const tottenhamCourtRoad = {
-  entry: { X: -186.74321535145924, Y: -1227.1687914758268 },
-  exit: { X: -5.481657944129211, Y: -1142.645139127687 },
-  berths: [{ X: -58.07679309113132, Y: -1266.4746661350553 }, { X: -26.380423460578925, Y: -1334.447750162804 }],
+  entry: { x: -186.74321535145924, y: -1227.1687914758268 },
+  exit: { x: -5.481657944129211, y: -1142.645139127687 },
+  berths: [{ x: -58.07679309113132, y: -1266.4746661350553 }, { x: -26.380423460578925, y: -1334.447750162804 }],
 };
 
 test("the station bearing is the direction from the entry to the exit", () => {
   const cases = [
-    { name: "right", exit: { X: 10, Y: 0 }, want: 90 },
-    { name: "down", exit: { X: 0, Y: 10 }, want: 180 },
-    { name: "left", exit: { X: -10, Y: 0 }, want: 270 },
-    { name: "up", exit: { X: 0, Y: -10 }, want: 0 },
-    { name: "up and to the right", exit: { X: 10, Y: -10 }, want: 45 },
-    { name: "up and to the left", exit: { X: -10, Y: -10 }, want: 315 },
-    { name: "entry and exit at one point", exit: { X: 0, Y: 0 }, want: 90 },
+    { name: "right", exit: { x: 10, y: 0 }, want: 90 },
+    { name: "down", exit: { x: 0, y: 10 }, want: 180 },
+    { name: "left", exit: { x: -10, y: 0 }, want: 270 },
+    { name: "up", exit: { x: 0, y: -10 }, want: 0 },
+    { name: "up and to the right", exit: { x: 10, y: -10 }, want: 45 },
+    { name: "up and to the left", exit: { x: -10, y: -10 }, want: 315 },
+    { name: "entry and exit at one point", exit: { x: 0, y: 0 }, want: 90 },
   ];
-  for (const tc of cases) assert.ok(angleGap(editor.stationBearing({ X: 0, Y: 0 }, tc.exit), tc.want) < 1e-9, tc.name);
+  for (const tc of cases) assert.ok(angleGap(editor.stationBearing({ x: 0, y: 0 }, tc.exit), tc.want) < 1e-9, tc.name);
   assert.equal(Math.round(editor.stationBearing(tottenhamCourtRoad.entry, tottenhamCourtRoad.exit)), 115);
 });
 
 test("the station shape holds the station nodes along the station axes", () => {
   const pad = editor.STATION_PADDING;
   const cases = [
-    { name: "a new station", entry: { X: 64, Y: 100 }, exit: { X: 136, Y: 100 }, points: [{ X: 100, Y: 130 }], want: { center: { X: 100, Y: 115 }, width: 72 + 2 * pad, height: 30 + 2 * pad, angle: 0, top: 100 - pad } },
-    { name: "a station that points down", entry: { X: 100, Y: 64 }, exit: { X: 100, Y: 136 }, points: [{ X: 70, Y: 100 }], want: { center: { X: 85, Y: 100 }, width: 72 + 2 * pad, height: 30 + 2 * pad, angle: 90, top: 64 - pad } },
-    { name: "a station that points left", entry: { X: 136, Y: 100 }, exit: { X: 64, Y: 100 }, points: [{ X: 100, Y: 60 }, { X: 80, Y: 80 }], want: { center: { X: 100, Y: 80 }, width: 72 + 2 * pad, height: 40 + 2 * pad, angle: 180, top: 60 - pad } },
-    { name: "entry and exit at one point", entry: { X: 5, Y: 5 }, exit: { X: 5, Y: 5 }, points: [], want: { center: { X: 5, Y: 5 }, width: 2 * pad, height: 2 * pad, angle: 0, top: 5 - pad } },
+    { name: "a new station", entry: { x: 64, y: 100 }, exit: { x: 136, y: 100 }, points: [{ x: 100, y: 130 }], want: { center: { x: 100, y: 115 }, width: 72 + 2 * pad, height: 30 + 2 * pad, angle: 0, top: 100 - pad } },
+    { name: "a station that points down", entry: { x: 100, y: 64 }, exit: { x: 100, y: 136 }, points: [{ x: 70, y: 100 }], want: { center: { x: 85, y: 100 }, width: 72 + 2 * pad, height: 30 + 2 * pad, angle: 90, top: 64 - pad } },
+    { name: "a station that points left", entry: { x: 136, y: 100 }, exit: { x: 64, y: 100 }, points: [{ x: 100, y: 60 }, { x: 80, y: 80 }], want: { center: { x: 100, y: 80 }, width: 72 + 2 * pad, height: 40 + 2 * pad, angle: 180, top: 60 - pad } },
+    { name: "entry and exit at one point", entry: { x: 5, y: 5 }, exit: { x: 5, y: 5 }, points: [], want: { center: { x: 5, y: 5 }, width: 2 * pad, height: 2 * pad, angle: 0, top: 5 - pad } },
   ];
   for (const tc of cases) {
     const shape = editor.stationShape(tc);
@@ -434,11 +431,11 @@ test("fleet rows give each station its pod count and berth limit", () => {
     { name: "no stations", config: () => editor.emptyConfig(), want: [] },
     { name: "no pods", config: twoStations, want: [{ name: "Alpha", count: 0, max: 1 }, { name: "Beta", count: 0, max: 2 }] },
     { name: "pods at both stations", config: () => fixtureDraft("fleetBothStations"), want: [{ name: "Alpha", count: 1, max: 1 }, { name: "Beta", count: 2, max: 2 }] },
-    { name: "pod at an unknown station", config: () => { const config = twoStations(); config.fleet.push({ ID: "09", StationID: "gone", BerthID: "gone-berth" }); return config; }, want: [{ name: "Alpha", count: 0, max: 1 }, { name: "Beta", count: 0, max: 2 }] },
+    { name: "pod at an unknown station", config: () => { const config = twoStations(); config.fleet.push({ id: "09", stationID: "gone", berthID: "gone-berth" }); return config; }, want: [{ name: "Alpha", count: 0, max: 1 }, { name: "Beta", count: 0, max: 2 }] },
   ];
   for (const tc of cases) {
     const config = tc.config();
-    const want = tc.want.map((row, index) => ({ id: config.network.Stations[index].ID, ...row }));
+    const want = tc.want.map((row, index) => ({ id: config.network.stations[index].id, ...row }));
     assert.deepEqual(editor.fleetRows(config), want, tc.name);
   }
 });
@@ -448,42 +445,42 @@ test("the selection card gives the fields of the selected item", () => {
   // Beta, Gamma turned to 359.6 degrees, Delta with no exit node, and a
   // junction at (64.25, 160).
   const config = fixtureDraft("selection");
-  const [alpha, beta, gamma, delta] = config.network.Stations;
-  const lane = (from, to) => config.network.Lanes.find((item) => item.From === from && item.To === to);
-  const [straight, curved] = [lane(alpha.Exit, beta.Entry), lane(beta.Exit, alpha.Entry)];
-  const junction = config.network.Nodes.at(-1);
-  delete alpha.ParkingOnly;
-  beta.ParkingOnly = true;
-  straight.SpeedLimit = 12.5;
-  curved.SpeedLimit = 11.25;
-  curved.Control = { X: 220, Y: 40 };
+  const [alpha, beta, gamma, delta] = config.network.stations;
+  const lane = (from, to) => config.network.lanes.find((item) => item.from === from && item.to === to);
+  const [straight, curved] = [lane(alpha.exit, beta.entry), lane(beta.exit, alpha.entry)];
+  const junction = config.network.nodes.at(-1);
+  delete alpha.parkingOnly;
+  beta.parkingOnly = true;
+  straight.speedLimit = 12.5;
+  curved.speedLimit = 11.25;
+  curved.control = { x: 220, y: 40 };
   const cases = [
     { name: "no selection", selection: null, want: null },
     {
-      name: "station with one berth and no ParkingOnly", selection: { type: "station", id: alpha.ID },
-      want: { type: "station", id: alpha.ID, name: "Alpha", bearing: 90, parkingOnly: false, canRemove: false, berths: [{ id: alpha.Berths[0].ID, selected: false }] },
+      name: "station with one berth and no ParkingOnly", selection: { type: "station", id: alpha.id },
+      want: { type: "station", id: alpha.id, name: "Alpha", bearing: 90, parkingOnly: false, canRemove: false, berths: [{ id: alpha.berths[0].id, selected: false }] },
     },
     {
-      name: "parking station with a marked berth", selection: { type: "station", id: beta.ID, berth: beta.Berths[1].ID },
-      want: { type: "station", id: beta.ID, name: "Beta", bearing: 90, parkingOnly: true, canRemove: true, berths: [{ id: beta.Berths[0].ID, selected: false }, { id: beta.Berths[1].ID, selected: true }] },
+      name: "parking station with a marked berth", selection: { type: "station", id: beta.id, berth: beta.berths[1].id },
+      want: { type: "station", id: beta.id, name: "Beta", bearing: 90, parkingOnly: true, canRemove: true, berths: [{ id: beta.berths[0].id, selected: false }, { id: beta.berths[1].id, selected: true }] },
     },
     {
-      name: "turned station rounds the bearing", selection: { type: "station", id: gamma.ID },
-      want: { type: "station", id: gamma.ID, name: "Gamma", bearing: 0, parkingOnly: false, canRemove: false, berths: [{ id: gamma.Berths[0].ID, selected: false }] },
+      name: "turned station rounds the bearing", selection: { type: "station", id: gamma.id },
+      want: { type: "station", id: gamma.id, name: "Gamma", bearing: 0, parkingOnly: false, canRemove: false, berths: [{ id: gamma.berths[0].id, selected: false }] },
     },
     {
-      name: "station with no exit node", selection: { type: "station", id: delta.ID },
-      want: { type: "station", id: delta.ID, name: "Delta", bearing: 0, parkingOnly: false, canRemove: false, berths: [{ id: delta.Berths[0].ID, selected: false }] },
+      name: "station with no exit node", selection: { type: "station", id: delta.id },
+      want: { type: "station", id: delta.id, name: "Delta", bearing: 0, parkingOnly: false, canRemove: false, berths: [{ id: delta.berths[0].id, selected: false }] },
     },
     {
-      name: "straight lane", selection: { type: "lane", id: straight.ID },
-      want: { type: "lane", id: straight.ID, from: alpha.Exit, to: beta.Entry, speed: 45, length: editor.laneLength(config, straight), curved: false },
+      name: "straight lane", selection: { type: "lane", id: straight.id },
+      want: { type: "lane", id: straight.id, from: alpha.exit, to: beta.entry, speed: 45, length: editor.laneLength(config, straight), curved: false },
     },
     {
-      name: "curved lane rounds the speed", selection: { type: "lane", id: curved.ID },
-      want: { type: "lane", id: curved.ID, from: beta.Exit, to: alpha.Entry, speed: 41, length: editor.laneLength(config, curved), curved: true },
+      name: "curved lane rounds the speed", selection: { type: "lane", id: curved.id },
+      want: { type: "lane", id: curved.id, from: beta.exit, to: alpha.entry, speed: 41, length: editor.laneLength(config, curved), curved: true },
     },
-    { name: "junction", selection: { type: "node", id: junction.ID }, want: { type: "node", id: junction.ID, x: 64.25, y: 160 } },
+    { name: "junction", selection: { type: "node", id: junction.id }, want: { type: "node", id: junction.id, x: 64.25, y: 160 } },
     { name: "missing station", selection: { type: "station", id: "gone" }, want: null },
     { name: "missing lane", selection: { type: "lane", id: "gone" }, want: null },
     { name: "missing junction", selection: { type: "node", id: "gone" }, want: null },
@@ -506,12 +503,12 @@ test("a berth remove from the keyboard focuses the next, then the previous berth
   // buttons are disabled, the focus goes to Add physical berth.
   // removed gives a copy of config without one berth of the first station.
   const removed = (config, berthID) => {
-    const copy = structuredClone(config); const [station] = copy.network.Stations;
-    station.Berths = station.Berths.filter((berth) => berth.ID !== berthID);
+    const copy = structuredClone(config); const [station] = copy.network.stations;
+    station.berths = station.berths.filter((berth) => berth.id !== berthID);
     return copy;
   };
   let config = fixtureDraft("undo").three;
-  const stationID = config.network.Stations[0].ID;
+  const stationID = config.network.stations[0].id;
   const selection = { type: "station", id: stationID };
   for (const count of [3, 2]) {
     const berthIDs = editor.selectionCard(config, selection).berths.map((berth) => berth.id);
@@ -533,24 +530,24 @@ test("undo and redo keep the selection and the Selection panel focus, or focus t
   const step = (first, second, redo) => structuredClone(redo ? { before: first, after: second } : { before: second, after: first });
   // The undo fixture has the connected draft with two and three berths at
   // Alpha, three berths without the second, Gamma added, and Beta deleted.
-  const one = connectedScenario(); const [alpha, beta] = one.network.Stations; const lane = one.network.Lanes[0];
+  const one = connectedScenario(); const [alpha, beta] = one.network.stations; const lane = one.network.lanes[0];
   const { two, three, withoutB2, added, deletedBeta } = fixtureDraft("undo");
-  const [b1, b2, b3] = three.network.Stations[0].Berths.map((berth) => berth.ID);
-  const curved = structuredClone(one); curved.network.Lanes[0].Control = { X: 220, Y: 40 };
-  const gamma = added.network.Stations.at(-1);
-  const station = { type: "station", id: alpha.ID }; const button = (action, id = "") => ({ action, id });
+  const [b1, b2, b3] = three.network.stations[0].berths.map((berth) => berth.id);
+  const curved = structuredClone(one); curved.network.lanes[0].control = { x: 220, y: 40 };
+  const gamma = added.network.stations.at(-1);
+  const station = { type: "station", id: alpha.id }; const button = (action, id = "") => ({ action, id });
   const cases = [
     { name: "undo of Add physical berth keeps its button", drafts: step(two, three), selection: station, control: button("add-berth"), want: { selection: station, focus: button("add-berth") } },
-    { name: "redo of a curve keeps the curve button", drafts: step(one, curved, true), selection: { type: "lane", id: lane.ID }, control: button("toggle-curve"), want: { selection: { type: "lane", id: lane.ID }, focus: button("toggle-curve") } },
+    { name: "redo of a curve keeps the curve button", drafts: step(one, curved, true), selection: { type: "lane", id: lane.id }, control: button("toggle-curve"), want: { selection: { type: "lane", id: lane.id }, focus: button("toggle-curve") } },
     { name: "undo of a berth remove keeps Remove of the same row", drafts: step(three, withoutB2), selection: station, control: button("remove-berth", b3), want: { selection: station, focus: button("remove-berth", b3) } },
     { name: "undo of a new berth moves Remove to the previous row", drafts: step(two, three), selection: station, control: button("remove-berth", b3), want: { selection: station, focus: button("remove-berth", b2) } },
     { name: "redo of a berth remove moves Remove to the next row", drafts: step(three, withoutB2, true), selection: station, control: button("remove-berth", b2), want: { selection: station, focus: button("remove-berth", b3) } },
     { name: "one berth left gives Add physical berth", drafts: step(one, two), selection: station, control: button("remove-berth", b1), want: { selection: station, focus: button("add-berth") } },
     { name: "a station selection with a gone berth stays", drafts: step(two, three), selection: { ...station, berth: b3 }, control: null, want: { selection: { ...station, berth: b3 }, focus: null } },
-    { name: "undo of a new station clears the selection and focuses the map", drafts: step(one, added), selection: { type: "station", id: gamma.ID }, control: button("delete-station"), want: { selection: null, focus: "map" } },
-    { name: "redo of a station delete clears the selection and focuses the map", drafts: step(one, deletedBeta, true), selection: { type: "station", id: beta.ID }, control: button("add-berth"), want: { selection: null, focus: "map" } },
+    { name: "undo of a new station clears the selection and focuses the map", drafts: step(one, added), selection: { type: "station", id: gamma.id }, control: button("delete-station"), want: { selection: null, focus: "map" } },
+    { name: "redo of a station delete clears the selection and focuses the map", drafts: step(one, deletedBeta, true), selection: { type: "station", id: beta.id }, control: button("add-berth"), want: { selection: null, focus: "map" } },
     { name: "focus outside the panel stays with the item kept", drafts: step(two, three), selection: station, control: null, want: { selection: station, focus: null } },
-    { name: "focus outside the panel stays with the item removed", drafts: step(one, added), selection: { type: "station", id: gamma.ID }, control: null, want: { selection: null, focus: null } },
+    { name: "focus outside the panel stays with the item removed", drafts: step(one, added), selection: { type: "station", id: gamma.id }, control: null, want: { selection: null, focus: null } },
     { name: "no selection", drafts: step(two, three), selection: null, control: null, want: { selection: null, focus: null } },
   ];
   for (const tc of cases) {
@@ -625,19 +622,19 @@ test("the checks run once after a series of changes", async (t) => {
 
 test("a check selection finds only the objects of the draft", () => {
   const { config, arrival } = chainScenario();
-  const [alpha, beta] = config.network.Stations;
+  const [alpha, beta] = config.network.stations;
   const cases = [
     { name: "no target", target: null, want: null },
-    { name: "a station", target: { type: "station", id: beta.ID }, want: { type: "station", id: beta.ID } },
+    { name: "a station", target: { type: "station", id: beta.id }, want: { type: "station", id: beta.id } },
     { name: "a missing station", target: { type: "station", id: "station-9" }, want: null },
     { name: "a lane", target: { type: "lane", id: "lane-1" }, want: { type: "lane", id: "lane-1" } },
     { name: "a missing lane", target: { type: "lane", id: "lane-99" }, want: null },
-    { name: "a berth", target: { type: "berth", id: beta.Berths[0].ID }, want: { type: "station", id: beta.ID, berth: beta.Berths[0].ID } },
+    { name: "a berth", target: { type: "berth", id: beta.berths[0].id }, want: { type: "station", id: beta.id, berth: beta.berths[0].id } },
     { name: "a missing berth", target: { type: "berth", id: "berth-9" }, want: null },
-    { name: "a station entry node", target: { type: "node", id: alpha.Entry }, want: { type: "station", id: alpha.ID } },
-    { name: "a berth chain node", target: { type: "node", id: arrival }, want: { type: "station", id: alpha.ID } },
+    { name: "a station entry node", target: { type: "node", id: alpha.entry }, want: { type: "station", id: alpha.id } },
+    { name: "a berth chain node", target: { type: "node", id: arrival }, want: { type: "station", id: alpha.id } },
     { name: "a missing node", target: { type: "node", id: "node-99" }, want: null },
-    { name: "a type that the map does not show", target: { type: "pod", id: config.fleet[0].ID }, want: null },
+    { name: "a type that the map does not show", target: { type: "pod", id: config.fleet[0].id }, want: null },
   ];
   const select = editor.checkSelector(config);
   for (const item of cases) {
@@ -696,29 +693,29 @@ test("a check selection moves the view only when the map does not show the item 
   // The draft is the connected draft with a junction at (400, 300) and a
   // lane from the exit of Alpha to the junction.
   const config = fixtureDraft("selectionPoint");
-  const junction = config.network.Nodes.at(-1).ID;
-  const [alpha] = config.network.Stations;
-  const lane = config.network.Lanes.at(-1);
-  const exit = config.network.Nodes.find((node) => node.ID === alpha.Exit).Position;
+  const junction = config.network.nodes.at(-1).id;
+  const [alpha] = config.network.stations;
+  const lane = config.network.lanes.at(-1);
+  const exit = config.network.nodes.find((node) => node.id === alpha.exit).position;
   const points = [
-    { name: "a junction", selection: { type: "node", id: junction }, want: { X: 400, Y: 300 } },
-    { name: "a straight lane", selection: { type: "lane", id: lane.ID }, want: { X: (exit.X + 400) / 2, Y: (exit.Y + 300) / 2 } },
-    { name: "a curved lane", selection: { type: "lane", id: lane.ID }, control: { X: 300, Y: 400 }, want: { X: exit.X / 4 + 150 + 100, Y: exit.Y / 4 + 200 + 75 } },
-    { name: "a station", selection: { type: "station", id: alpha.ID, berth: alpha.Berths[0].ID }, want: { X: 100, Y: 100 } },
+    { name: "a junction", selection: { type: "node", id: junction }, want: { x: 400, y: 300 } },
+    { name: "a straight lane", selection: { type: "lane", id: lane.id }, want: { x: (exit.x + 400) / 2, y: (exit.y + 300) / 2 } },
+    { name: "a curved lane", selection: { type: "lane", id: lane.id }, control: { x: 300, y: 400 }, want: { x: exit.x / 4 + 150 + 100, y: exit.y / 4 + 200 + 75 } },
+    { name: "a station", selection: { type: "station", id: alpha.id, berth: alpha.berths[0].id }, want: { x: 100, y: 100 } },
     { name: "a missing lane", selection: { type: "lane", id: "lane-99" }, want: null },
   ];
   for (const item of points) {
     const scenario = structuredClone(config);
-    if (item.control) scenario.network.Lanes.at(-1).Control = item.control;
+    if (item.control) scenario.network.lanes.at(-1).control = item.control;
     assert.deepEqual(editor.selectionPoint(scenario, item.selection), item.want, item.name);
   }
 
   const size = { width: 900, height: 700 };
   const views = [
-    { name: "an item on the map", view: { x: 0, y: 0, scale: 1 }, point: { X: 400, Y: 300 }, want: { x: 0, y: 0, scale: 1 } },
-    { name: "an item near the edge", view: { x: 0, y: 0, scale: 1 }, point: { X: 880, Y: 300 }, want: { x: -430, y: 50, scale: 1 } },
-    { name: "an item off the map", view: { x: 0, y: 0, scale: 2 }, point: { X: -100, Y: 2000 }, want: { x: 650, y: -3650, scale: 2 } },
-    { name: "an item on a map zoomed out below the label scale", view: { x: 10, y: 20, scale: 0.05 }, point: { X: 4000, Y: 3000 }, want: { x: -1550, y: -1150, scale: editor.NODE_LABEL_SCALE } },
+    { name: "an item on the map", view: { x: 0, y: 0, scale: 1 }, point: { x: 400, y: 300 }, want: { x: 0, y: 0, scale: 1 } },
+    { name: "an item near the edge", view: { x: 0, y: 0, scale: 1 }, point: { x: 880, y: 300 }, want: { x: -430, y: 50, scale: 1 } },
+    { name: "an item off the map", view: { x: 0, y: 0, scale: 2 }, point: { x: -100, y: 2000 }, want: { x: 650, y: -3650, scale: 2 } },
+    { name: "an item on a map zoomed out below the label scale", view: { x: 10, y: 20, scale: 0.05 }, point: { x: 4000, y: 3000 }, want: { x: -1550, y: -1150, scale: editor.NODE_LABEL_SCALE } },
   ];
   for (const item of views) assert.deepEqual(editor.focusView({ view: item.view, point: item.point, size }), item.want, item.name);
 });
@@ -895,7 +892,7 @@ test("the projection of three London stations gives the positions of the London 
   assert.equal(file.points.length, 3);
   for (const item of file.points) {
     const at = editor.projectPoint(file.geo, item.latitude, item.longitude);
-    assertNear(at, { X: item.x, Y: item.y }, item.id);
+    assertNear(at, { x: item.x, y: item.y }, item.id);
   }
 });
 
@@ -904,7 +901,7 @@ test("the placement of a frame follows the geo reference, and alignment allows 0
   const other = geoAt(51.52, -0.10);
   const place = editor.framePlacement(frame, LONDON_GEO);
   const corner = editor.projectPoint(LONDON_GEO, 51.52, -0.14);
-  assert.deepEqual([place.x, place.y], [corner.X, corner.Y], "the north-west corner");
+  assert.deepEqual([place.x, place.y], [corner.x, corner.y], "the north-west corner");
   assert.ok(Math.abs(place.height - 6371000 * 0.02 * Math.PI / 180) < 1e-6, "the height is exact north to south");
   assert.ok(place.width > 0 && place.height > 0);
   const moved = editor.framePlacement(frame, other);
@@ -965,10 +962,10 @@ test("import names the missing or wrong field", () => {
 
 test("portable OD profiles round trip", () => {
   const config = connectedScenario();
-  const [alpha, beta] = config.network.Stations;
+  const [alpha, beta] = config.network.stations;
   config.demandProfiles = [{
     id: "weekday", name: "Weekday", bands: [{ id: "am", name: "AM peak", startMinute: 420, durationMinutes: 180 }],
-    flows: [{ from: alpha.ID, to: beta.ID, weights: [3] }],
+    flows: [{ from: alpha.id, to: beta.id, weights: [3] }],
   }];
   config.demand = { enabled: true, perMinute: 12, pattern: "profile", destination: "", profile: "weekday", band: "am", seed: 9 };
 
@@ -1020,14 +1017,14 @@ test("a fixture test skips without Go unless PODSIM_REQUIRE_GO is 1", () => {
 test("each station shape on the generated london project holds its station nodes", needsGo, () => {
   const config = generatedProject("london-central");
   const owners = editor.stationNodeOwners(config); const pad = editor.STATION_PADDING;
-  for (const station of config.network.Stations) {
-    const points = [...owners].filter(([, stationID]) => stationID === station.ID).map(([id]) => nodePosition(config, id));
-    const shape = editor.stationShape({ entry: nodePosition(config, station.Entry), exit: nodePosition(config, station.Exit), points });
+  for (const station of config.network.stations) {
+    const points = [...owners].filter(([, stationID]) => stationID === station.id).map(([id]) => nodePosition(config, id));
+    const shape = editor.stationShape({ entry: nodePosition(config, station.entry), exit: nodePosition(config, station.exit), points });
     const radians = shape.angle * Math.PI / 180; const cos = Math.cos(radians); const sin = Math.sin(radians);
     for (const at of points) {
-      const x = at.X - shape.center.X; const y = at.Y - shape.center.Y;
-      assert.ok(Math.abs(x * cos + y * sin) <= shape.width / 2 - pad + 1e-6, station.ID);
-      assert.ok(Math.abs(-x * sin + y * cos) <= shape.height / 2 - pad + 1e-6, station.ID);
+      const x = at.x - shape.center.x; const y = at.y - shape.center.y;
+      assert.ok(Math.abs(x * cos + y * sin) <= shape.width / 2 - pad + 1e-6, station.id);
+      assert.ok(Math.abs(-x * sin + y * cos) <= shape.height / 2 - pad + 1e-6, station.id);
     }
   }
 });
@@ -1037,14 +1034,14 @@ test("each station shape on the generated london project holds its station nodes
 // its station nodes, so a station moves when one of its nodes moves.
 function movedItems(before, after) {
   const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-  const positions = new Map(after.network.Nodes.map((node) => [node.ID, node.Position]));
-  const controls = new Map(after.network.Lanes.map((lane) => [lane.ID, lane.Control]));
-  const moved = new Set(before.network.Nodes.filter((node) => !same(node.Position, positions.get(node.ID))).map((node) => node.ID));
+  const positions = new Map(after.network.nodes.map((node) => [node.id, node.position]));
+  const controls = new Map(after.network.lanes.map((lane) => [lane.id, lane.control]));
+  const moved = new Set(before.network.nodes.filter((node) => !same(node.position, positions.get(node.id))).map((node) => node.id));
   const owners = editor.stationNodeOwners(before);
   return {
     nodeIDs: [...moved],
-    laneIDs: before.network.Lanes.filter((lane) => moved.has(lane.From) || moved.has(lane.To) || !same(lane.Control, controls.get(lane.ID))).map((lane) => lane.ID),
-    stationIDs: before.network.Stations.filter((station) => [...moved].some((id) => owners.get(id) === station.ID)).map((station) => station.ID),
+    laneIDs: before.network.lanes.filter((lane) => moved.has(lane.from) || moved.has(lane.to) || !same(lane.control, controls.get(lane.id))).map((lane) => lane.id),
+    stationIDs: before.network.stations.filter((station) => [...moved].some((id) => owners.get(id) === station.id)).map((station) => station.id),
   };
 }
 
@@ -1052,38 +1049,38 @@ test("a drag redraws only the items that it moves", () => {
   // The draft is the berth chain draft with a junction at (220, 260) and a
   // lane pair from the exit of Alpha to the junction.
   const config = fixtureDraft("drag"); const { arrival, departure } = fixtureDraft("chain");
-  const [alpha, beta] = config.network.Stations;
-  const junction = config.network.Nodes.at(-1).ID;
+  const [alpha, beta] = config.network.stations;
+  const junction = config.network.nodes.at(-1).id;
   // moveNode gives a copy of config with the node id at (x, y). moveStation
   // gives a copy with each station node of the station moved by (dx, dy).
   const moveNode = (id, x, y) => {
-    const copy = structuredClone(config); copy.network.Nodes.find((node) => node.ID === id).Position = { X: x, Y: y };
+    const copy = structuredClone(config); copy.network.nodes.find((node) => node.id === id).position = { x: x, y: y };
     return copy;
   };
   const moveStation = (id, dx, dy) => {
     const copy = structuredClone(config); const owners = editor.stationNodeOwners(config);
-    for (const node of copy.network.Nodes) if (owners.get(node.ID) === id) node.Position = { X: node.Position.X + dx, Y: node.Position.Y + dy };
+    for (const node of copy.network.nodes) if (owners.get(node.id) === id) node.position = { x: node.position.x + dx, y: node.position.y + dy };
     return copy;
   };
-  const through = config.network.Lanes.find((lane) => lane.From === alpha.Entry && lane.To === alpha.Exit);
-  through.Control = { X: 100, Y: 60 };
+  const through = config.network.lanes.find((lane) => lane.from === alpha.entry && lane.to === alpha.exit);
+  through.control = { x: 100, y: 60 };
   const curved = structuredClone(config);
-  curved.network.Lanes.find((lane) => lane.ID === through.ID).Control = { X: 90, Y: 40 };
+  curved.network.lanes.find((lane) => lane.id === through.id).control = { x: 90, y: 40 };
   const cases = [
-    { name: "a station drag", drag: { type: "station", id: alpha.ID }, after: moveStation(alpha.ID, 20, -10) },
+    { name: "a station drag", drag: { type: "station", id: alpha.id }, after: moveStation(alpha.id, 20, -10) },
     { name: "a junction drag", drag: { type: "node", id: junction }, after: moveNode(junction, 300, 280) },
-    { name: "a curve drag", drag: { type: "control", id: through.ID }, after: curved },
-    { name: "an entry drag", drag: { type: "node", id: alpha.Entry }, after: moveNode(alpha.Entry, 40, 80) },
-    { name: "a berth drag", drag: { type: "node", id: alpha.Berths[0].Node }, after: moveNode(alpha.Berths[0].Node, 100, 200) },
+    { name: "a curve drag", drag: { type: "control", id: through.id }, after: curved },
+    { name: "an entry drag", drag: { type: "node", id: alpha.entry }, after: moveNode(alpha.entry, 40, 80) },
+    { name: "a berth drag", drag: { type: "node", id: alpha.berths[0].node }, after: moveNode(alpha.berths[0].node, 100, 200) },
     { name: "a berth chain drag", drag: { type: "node", id: arrival }, after: moveNode(arrival, 50, 170) },
   ];
   for (const item of cases) assert.deepEqual(editor.dragTargets(config, item.drag), movedItems(config, item.after), item.name);
 
-  const targets = editor.dragTargets(config, { type: "station", id: alpha.ID });
+  const targets = editor.dragTargets(config, { type: "station", id: alpha.id });
   for (const id of [arrival, departure]) assert.ok(targets.nodeIDs.includes(id), id);
-  assert.deepEqual(targets.stationIDs, [alpha.ID]);
-  assert.ok(!targets.nodeIDs.includes(beta.Entry) && !targets.nodeIDs.includes(junction));
-  assert.deepEqual(editor.dragTargets(config, { type: "control", id: through.ID }), { nodeIDs: [], laneIDs: [through.ID], stationIDs: [] });
+  assert.deepEqual(targets.stationIDs, [alpha.id]);
+  assert.ok(!targets.nodeIDs.includes(beta.entry) && !targets.nodeIDs.includes(junction));
+  assert.deepEqual(editor.dragTargets(config, { type: "control", id: through.id }), { nodeIDs: [], laneIDs: [through.id], stationIDs: [] });
 });
 
 test("fit centers the network at a scale of up to 3", () => {
@@ -1100,7 +1097,7 @@ test("fit centers the network at a scale of up to 3", () => {
 test("the network bounds hold the nodes and the background", () => {
   const background = { x: -50, y: 10, width: 200, height: 100 };
   const nodes = editor.emptyConfig();
-  nodes.network.Nodes = [{ ID: "node-1", Position: { X: 20, Y: -30 } }, { ID: "node-2", Position: { X: 400, Y: 60 } }];
+  nodes.network.nodes = [{ id: "node-1", position: { x: 20, y: -30 } }, { id: "node-2", position: { x: 400, y: 60 } }];
   const cases = [
     { name: "an empty map", config: editor.emptyConfig(), background: null, want: null },
     { name: "a background only", config: editor.emptyConfig(), background, want: { minX: -50, minY: 10, maxX: 150, maxY: 110 } },
@@ -1112,10 +1109,10 @@ test("the network bounds hold the nodes and the background", () => {
 
 test("the station flow count on the generated london project gives the flows that name the station", needsGo, () => {
   const config = generatedProject("london-central");
-  const station = config.network.Stations.find((item) => !item.ParkingOnly);
-  const naming = config.demandProfiles.flatMap((profile) => profile.flows).filter((flow) => flow.from === station.ID || flow.to === station.ID);
+  const station = config.network.stations.find((item) => !item.parkingOnly);
+  const naming = config.demandProfiles.flatMap((profile) => profile.flows).filter((flow) => flow.from === station.id || flow.to === station.id);
   assert.ok(naming.length > 0);
-  assert.equal(editor.stationFlowCount(config, station.ID), naming.length);
+  assert.equal(editor.stationFlowCount(config, station.id), naming.length);
 });
 
 test("fit shows the whole London network below the 0.15 zoom floor", needsGo, () => {
@@ -1129,14 +1126,14 @@ test("fit shows the whole London network below the 0.15 zoom floor", needsGo, ()
   assert.ok(view.scale < editor.MIN_ZOOM, `fit scale ${view.scale}`);
   const fill = Math.max((bounds.maxX - bounds.minX) * view.scale / (size.width - 100), (bounds.maxY - bounds.minY) * view.scale / (size.height - 100));
   assert.ok(Math.abs(fill - 1) < 1e-9, `fill ${fill}`);
-  for (const node of config.network.Nodes) {
-    const x = view.x + node.Position.X * view.scale; const y = view.y + node.Position.Y * view.scale;
-    assert.ok(x >= 0 && x <= size.width && y >= 0 && y <= size.height, node.ID);
+  for (const node of config.network.nodes) {
+    const x = view.x + node.position.x * view.scale; const y = view.y + node.position.y * view.scale;
+    assert.ok(x >= 0 && x <= size.width && y >= 0 && y <= size.height, node.id);
   }
   assert.equal(editor.zoomScale({ scale: view.scale, factor: 0.8, fitScale: view.scale }), view.scale);
   const owners = editor.stationNodeOwners(config);
-  for (const node of config.network.Nodes.filter((item) => !owners.has(item.ID))) {
-    assert.equal(editor.nodeLabelSize({ scale: view.scale, id: node.ID, selection: null, linkFrom: "" }), 0, node.ID);
+  for (const node of config.network.nodes.filter((item) => !owners.has(item.id))) {
+    assert.equal(editor.nodeLabelSize({ scale: view.scale, id: node.id, selection: null, linkFrom: "" }), 0, node.id);
   }
 });
 
@@ -1181,17 +1178,17 @@ test("a lane with a reverse lane is one lane of a pair", () => {
   // pair from the first to the second, and a one-way lane from the second
   // to the third. The other draft has no reverse lane in the pair.
   const config = fixtureDraft("pair"); const withoutReverse = fixtureDraft("pairWithoutReverse");
-  const [a] = config.network.Nodes.map((node) => node.ID);
-  for (const draft of [config, withoutReverse]) draft.network.Lanes.push({ ...draft.network.Lanes.at(-1), ID: "parallel" });
-  const [forward, reverse, oneWay] = config.network.Lanes.map((lane) => lane.ID);
+  const [a] = config.network.nodes.map((node) => node.id);
+  for (const draft of [config, withoutReverse]) draft.network.lanes.push({ ...draft.network.lanes.at(-1), id: "parallel" });
+  const [forward, reverse, oneWay] = config.network.lanes.map((lane) => lane.id);
   const withStationLane = structuredClone(config);
-  Object.assign(withStationLane.network.Lanes[1], { StationID: "station-1", StationRole: "through" });
+  Object.assign(withStationLane.network.lanes[1], { stationID: "station-1", stationRole: "through" });
   const cases = [
     { name: "a new paired guideway", config, want: [forward, reverse] },
     { name: "a pair with a station lane", config: withStationLane, want: [forward, reverse] },
     { name: "a pair after a delete of one lane", config: withoutReverse, want: [] },
-    { name: "one-way lanes between the same nodes", config: { network: { Lanes: config.network.Lanes.filter((lane) => lane.ID === oneWay || lane.ID === "parallel") } }, want: [] },
-    { name: "a lane from a node to the same node", config: { network: { Lanes: [{ ID: "loop", From: a, To: a }] } }, want: [] },
+    { name: "one-way lanes between the same nodes", config: { network: { lanes: config.network.lanes.filter((lane) => lane.id === oneWay || lane.id === "parallel") } }, want: [] },
+    { name: "a lane from a node to the same node", config: { network: { lanes: [{ id: "loop", from: a, to: a }] } }, want: [] },
     { name: "the connected scenario", config: connectedScenario(), want: [] },
   ];
   for (const item of cases) assert.deepEqual([...editor.pairedLaneIDs(item.config)].sort(), item.want.sort(), item.name);
@@ -1200,30 +1197,30 @@ test("a lane with a reverse lane is one lane of a pair", () => {
 // curvePoint gives the point of a quadratic curve at t. A curve with no
 // control point is a straight line.
 function curvePoint(curve, t) {
-  const control = curve.control || { X: (curve.from.X + curve.to.X) / 2, Y: (curve.from.Y + curve.to.Y) / 2 };
+  const control = curve.control || { x: (curve.from.x + curve.to.x) / 2, y: (curve.from.y + curve.to.y) / 2 };
   const u = 1 - t;
-  return { X: u * u * curve.from.X + 2 * u * t * control.X + t * t * curve.to.X, Y: u * u * curve.from.Y + 2 * u * t * control.Y + t * t * curve.to.Y };
+  return { x: u * u * curve.from.x + 2 * u * t * control.x + t * t * curve.to.x, y: u * u * curve.from.y + 2 * u * t * control.y + t * t * curve.to.y };
 }
 
 function assertNear(actual, want, name) {
-  assert.ok(Math.abs(actual.X - want.X) < 1e-9 && Math.abs(actual.Y - want.Y) < 1e-9, `${name}: got ${JSON.stringify(actual)}, want ${JSON.stringify(want)}`);
+  assert.ok(Math.abs(actual.x - want.x) < 1e-9 && Math.abs(actual.y - want.y) < 1e-9, `${name}: got ${JSON.stringify(actual)}, want ${JSON.stringify(want)}`);
 }
 
 test("a lane of a pair moves to the right of its direction of travel", () => {
   const r = Math.SQRT1_2;
   const cases = [
-    { name: "no offset", lane: { from: { X: 0, Y: 0 }, to: { X: 100, Y: 0 } }, want: { from: { X: 0, Y: 0 }, to: { X: 100, Y: 0 }, middle: { X: 50, Y: 0 } } },
+    { name: "no offset", lane: { from: { x: 0, y: 0 }, to: { x: 100, y: 0 } }, want: { from: { x: 0, y: 0 }, to: { x: 100, y: 0 }, middle: { x: 50, y: 0 } } },
     // The map Y axis points down, so the right of a lane to the east is +Y.
-    { name: "a lane to the east", lane: { from: { X: 0, Y: 0 }, to: { X: 100, Y: 0 }, offset: 4 }, want: { from: { X: 0, Y: 4 }, to: { X: 100, Y: 4 }, middle: { X: 50, Y: 4 } } },
-    { name: "the reverse lane to the west", lane: { from: { X: 100, Y: 0 }, to: { X: 0, Y: 0 }, offset: 4 }, want: { from: { X: 100, Y: -4 }, to: { X: 0, Y: -4 }, middle: { X: 50, Y: -4 } } },
-    { name: "a lane to the south", lane: { from: { X: 0, Y: 0 }, to: { X: 0, Y: 30 }, offset: 2 }, want: { from: { X: -2, Y: 0 }, to: { X: -2, Y: 30 }, middle: { X: -2, Y: 15 } } },
-    { name: "a curve with no offset", lane: { from: { X: 0, Y: 0 }, to: { X: 100, Y: 0 }, control: { X: 50, Y: 50 } }, want: { from: { X: 0, Y: 0 }, to: { X: 100, Y: 0 }, control: { X: 50, Y: 50 }, middle: { X: 50, Y: 25 } } },
+    { name: "a lane to the east", lane: { from: { x: 0, y: 0 }, to: { x: 100, y: 0 }, offset: 4 }, want: { from: { x: 0, y: 4 }, to: { x: 100, y: 4 }, middle: { x: 50, y: 4 } } },
+    { name: "the reverse lane to the west", lane: { from: { x: 100, y: 0 }, to: { x: 0, y: 0 }, offset: 4 }, want: { from: { x: 100, y: -4 }, to: { x: 0, y: -4 }, middle: { x: 50, y: -4 } } },
+    { name: "a lane to the south", lane: { from: { x: 0, y: 0 }, to: { x: 0, y: 30 }, offset: 2 }, want: { from: { x: -2, y: 0 }, to: { x: -2, y: 30 }, middle: { x: -2, y: 15 } } },
+    { name: "a curve with no offset", lane: { from: { x: 0, y: 0 }, to: { x: 100, y: 0 }, control: { x: 50, y: 50 } }, want: { from: { x: 0, y: 0 }, to: { x: 100, y: 0 }, control: { x: 50, y: 50 }, middle: { x: 50, y: 25 } } },
     // Each end moves along the normal of the curve at that end, and the
     // middle point moves along the normal of the line from end to end.
-    { name: "a curve", lane: { from: { X: 0, Y: 0 }, to: { X: 100, Y: 0 }, control: { X: 50, Y: 50 }, offset: 2 }, want: { from: { X: -2 * r, Y: 2 * r }, to: { X: 100 + 2 * r, Y: 2 * r }, control: { X: 50, Y: 54 - 2 * r }, middle: { X: 50, Y: 27 } } },
-    { name: "the reverse curve", lane: { from: { X: 100, Y: 0 }, to: { X: 0, Y: 0 }, control: { X: 50, Y: 50 }, offset: 2 }, want: { from: { X: 100 - 2 * r, Y: -2 * r }, to: { X: 2 * r, Y: -2 * r }, control: { X: 50, Y: 46 + 2 * r }, middle: { X: 50, Y: 23 } } },
-    { name: "a control point on the start node", lane: { from: { X: 0, Y: 0 }, to: { X: 100, Y: 0 }, control: { X: 0, Y: 0 }, offset: 4 }, want: { from: { X: 0, Y: 4 }, to: { X: 100, Y: 4 }, control: { X: 0, Y: 4 }, middle: { X: 25, Y: 4 } } },
-    { name: "two nodes at the same point", lane: { from: { X: 5, Y: 5 }, to: { X: 5, Y: 5 }, offset: 4 }, want: { from: { X: 5, Y: 5 }, to: { X: 5, Y: 5 }, middle: { X: 5, Y: 5 } } },
+    { name: "a curve", lane: { from: { x: 0, y: 0 }, to: { x: 100, y: 0 }, control: { x: 50, y: 50 }, offset: 2 }, want: { from: { x: -2 * r, y: 2 * r }, to: { x: 100 + 2 * r, y: 2 * r }, control: { x: 50, y: 54 - 2 * r }, middle: { x: 50, y: 27 } } },
+    { name: "the reverse curve", lane: { from: { x: 100, y: 0 }, to: { x: 0, y: 0 }, control: { x: 50, y: 50 }, offset: 2 }, want: { from: { x: 100 - 2 * r, y: -2 * r }, to: { x: 2 * r, y: -2 * r }, control: { x: 50, y: 46 + 2 * r }, middle: { x: 50, y: 23 } } },
+    { name: "a control point on the start node", lane: { from: { x: 0, y: 0 }, to: { x: 100, y: 0 }, control: { x: 0, y: 0 }, offset: 4 }, want: { from: { x: 0, y: 4 }, to: { x: 100, y: 4 }, control: { x: 0, y: 4 }, middle: { x: 25, y: 4 } } },
+    { name: "two nodes at the same point", lane: { from: { x: 5, y: 5 }, to: { x: 5, y: 5 }, offset: 4 }, want: { from: { x: 5, y: 5 }, to: { x: 5, y: 5 }, middle: { x: 5, y: 5 } } },
   ];
   for (const item of cases) {
     const curve = editor.laneCurve(item.lane);
@@ -1237,25 +1234,25 @@ test("a lane of a pair moves to the right of its direction of travel", () => {
 test("both lanes of a pair show at the same distance at each scale", () => {
   // The draft has a curved lane pair from (10, 20) to (130, 70).
   const config = fixtureDraft("curvedPair");
-  const at = (id) => config.network.Nodes.find((node) => node.ID === id).Position;
+  const at = (id) => config.network.nodes.find((node) => node.id === id).position;
   for (const scale of [0.055, 0.5, 1, 5]) {
     const offset = editor.laneOffset({ paired: true, scale });
-    const [forward, reverse] = config.network.Lanes.map((lane) => editor.laneCurve({ from: at(lane.From), to: at(lane.To), control: lane.Control, offset }));
-    const gap = Math.hypot(forward.middle.X - reverse.middle.X, forward.middle.Y - reverse.middle.Y) * scale;
+    const [forward, reverse] = config.network.lanes.map((lane) => editor.laneCurve({ from: at(lane.from), to: at(lane.to), control: lane.control, offset }));
+    const gap = Math.hypot(forward.middle.x - reverse.middle.x, forward.middle.y - reverse.middle.y) * scale;
     assert.ok(Math.abs(gap - 2 * editor.LANE_PAIR_OFFSET) < 1e-9, `scale ${scale}: the middle points are ${gap} screen pixels apart`);
     assert.equal(editor.laneOffset({ paired: false, scale }), 0, `scale ${scale}: a lane that is not in a pair`);
   }
 });
 
 test("the lane path has a vertex at the middle point for the chevron", () => {
-  const straight = editor.laneCurve({ from: { X: 0, Y: 0 }, to: { X: 100, Y: 0 }, offset: 4 });
+  const straight = editor.laneCurve({ from: { x: 0, y: 0 }, to: { x: 100, y: 0 }, offset: 4 });
   assert.equal(editor.lanePathData(straight), "M 0 4 L 50 4 L 100 4");
-  const curve = editor.laneCurve({ from: { X: 0, Y: 0 }, to: { X: 100, Y: 0 }, control: { X: 40, Y: 60 }, offset: 3 });
+  const curve = editor.laneCurve({ from: { x: 0, y: 0 }, to: { x: 100, y: 0 }, control: { x: 40, y: 60 }, offset: 3 });
   const path = editor.lanePathData(curve);
   assert.match(path, /^M \S+ \S+ Q \S+ \S+ \S+ \S+ Q \S+ \S+ \S+ \S+$/);
   // The two halves of the path draw the same curve as the lane curve.
   const numbers = path.match(/-?[\d.e+-]+/g).map(Number);
-  const point = (index) => ({ X: numbers[index], Y: numbers[index + 1] });
+  const point = (index) => ({ x: numbers[index], y: numbers[index + 1] });
   const halves = [{ from: point(0), control: point(2), to: point(4) }, { from: point(4), control: point(6), to: point(8) }];
   assertNear(halves[0].to, curve.middle, "the middle vertex");
   for (const t of [0, 0.1, 0.25, 0.4, 0.5, 0.6, 0.8, 1]) {
@@ -1274,7 +1271,7 @@ test("a lane shows its chevron only when it is long enough on the screen", () =>
     { name: "a lane with nodes at the same point", length: 0, scale: 5, want: false },
     // The length is the length of the curve. Nodes 1 m apart with a 60 m
     // curve show a chevron at scale 1.
-    { name: "a curve with nodes close together", length: editor.curveLength({ from: { X: 0, Y: 0 }, to: { X: 1, Y: 0 }, control: { X: 0.5, Y: 60 } }), scale: 1, want: true },
+    { name: "a curve with nodes close together", length: editor.curveLength({ from: { x: 0, y: 0 }, to: { x: 1, y: 0 }, control: { x: 0.5, y: 60 } }), scale: 1, want: true },
   ];
   for (const item of cases) assert.equal(editor.showsChevron({ length: item.length, scale: item.scale }), item.want, item.name);
 });
@@ -1282,12 +1279,12 @@ test("a lane shows its chevron only when it is long enough on the screen", () =>
 test("the length of a lane follows its curve", () => {
   // The curve from (0, 0) to (1, 0) with its control point at (0.5, 60) goes
   // 30 m up and back down. Its length is 60.03 m.
-  const config = { network: { Nodes: [{ ID: "a", Position: { X: 0, Y: 0 } }, { ID: "b", Position: { X: 1, Y: 0 } }] } };
+  const config = { network: { nodes: [{ id: "a", position: { x: 0, y: 0 } }, { id: "b", position: { x: 1, y: 0 } }] } };
   const cases = [
-    { name: "a straight lane", got: editor.curveLength({ from: { X: 0, Y: 0 }, to: { X: 30, Y: 40 } }), want: 50 },
-    { name: "a curve on the line between its nodes", got: editor.curveLength({ from: { X: 0, Y: 0 }, to: { X: 100, Y: 0 }, control: { X: 50, Y: 0 } }), want: 100 },
-    { name: "a curve with nodes close together", got: editor.curveLength({ from: { X: 0, Y: 0 }, to: { X: 1, Y: 0 }, control: { X: 0.5, Y: 60 } }), want: 60.03 },
-    { name: "the same curve as a lane", got: editor.laneLength(config, { From: "a", To: "b", Control: { X: 0.5, Y: 60 } }), want: 60.03 },
+    { name: "a straight lane", got: editor.curveLength({ from: { x: 0, y: 0 }, to: { x: 30, y: 40 } }), want: 50 },
+    { name: "a curve on the line between its nodes", got: editor.curveLength({ from: { x: 0, y: 0 }, to: { x: 100, y: 0 }, control: { x: 50, y: 0 } }), want: 100 },
+    { name: "a curve with nodes close together", got: editor.curveLength({ from: { x: 0, y: 0 }, to: { x: 1, y: 0 }, control: { x: 0.5, y: 60 } }), want: 60.03 },
+    { name: "the same curve as a lane", got: editor.laneLength(config, { from: "a", to: "b", control: { x: 0.5, y: 60 } }), want: 60.03 },
   ];
   for (const item of cases) assert.ok(Math.abs(item.got - item.want) < 0.05, `${item.name}: got ${item.got}, want ${item.want}`);
 });
@@ -1342,7 +1339,7 @@ function fakeSession(options) {
   const fetch = async (url, init) => {
     if (url === "/api/project") return reply(200, { revision: live.revision, project: options.project ?? connectedScenario() });
     if (url === "/api/state") {
-      return reply(200, { epoch: live.epoch, serverStart: live.serverStart, projectRevision: live.revision, generation: live.generation, simulation: { Paused: live.paused } });
+      return reply(200, { epoch: live.epoch, serverStart: live.serverStart, projectRevision: live.revision, generation: live.generation, simulation: { paused: live.paused } });
     }
     const command = requestCommand(init);
     commands.push(command);
@@ -1747,7 +1744,7 @@ function snapshotServer(change = () => {}) {
   const fetch = async (url) => {
     urls.push(url); change(url, urls.length, live);
     if (url === "/api/project") return reply({ revision: live.revision, project: { ...connectedScenario(), name: live.name } });
-    return reply({ epoch: live.epoch, serverStart: live.serverStart, projectRevision: live.revision, generation: 5, simulation: { Paused: true } });
+    return reply({ epoch: live.epoch, serverStart: live.serverStart, projectRevision: live.revision, generation: 5, simulation: { paused: true } });
   };
   return { live, urls, connection: { fetch, clientID: "editor-test", sequence: 0, epoch: "" } };
 }
@@ -3022,7 +3019,7 @@ test("each live state read gives the latest server start ID, so the saved draft 
 });
 
 test("readState accepts the reply of each project kind and gives its state", async () => {
-  const state = { epoch: "epoch-1", serverStart: "start-1", projectRevision: 3, generation: 5, simulation: { Paused: false }, orders: "packed" };
+  const state = { epoch: "epoch-1", serverStart: "start-1", projectRevision: 3, generation: 5, simulation: { paused: false }, orders: "packed" };
   const without = (key) => Object.fromEntries(Object.entries(state).filter(([name]) => name !== key));
   const invalid = "The live state reply is not valid.";
   const cases = [
@@ -3048,7 +3045,7 @@ test("readState accepts the reply of each project kind and gives its state", asy
     { name: "a fractional revision", body: { ...state, projectRevision: 3.5 }, wantError: invalid },
     { name: "no generation", body: without("generation"), wantError: invalid },
     { name: "no simulation", body: without("simulation"), wantError: invalid },
-    { name: "a pause flag that is text", body: { ...state, simulation: { Paused: "false" } }, wantError: invalid },
+    { name: "a pause flag that is text", body: { ...state, simulation: { paused: "false" } }, wantError: invalid },
   ];
   for (const item of cases) {
     const accepts = [], starts = [];
@@ -3601,9 +3598,9 @@ test("a drag that moved blocks a publish until its pointer up, and a drag with n
     assert.match((await model.publish({ ticket, image: testImage(), value: model.history.value, baseline })).error, /A drag or an opacity change was open/);
   }
   // The pointer up records the move.
-  const moved = model.history.value.scenario; moved.network.Nodes[0].Position = { X: 1, Y: 2 };
+  const moved = model.history.value.scenario; moved.network.nodes[0].position = { x: 1, y: 2 };
   model.endDrag(); await model.history.replace({ scenario: moved, background: null });
-  assert.deepEqual(model.history.value.scenario.network.Nodes[0].Position, { X: 1, Y: 2 });
+  assert.deepEqual(model.history.value.scenario.network.nodes[0].position, { x: 1, y: 2 });
   // A drag with no move does not block a publish.
   ticket = model.start(); const image = testImage();
   assert.equal((await model.publish({ ticket, image, value: { scenario: moved, background: placed(image) } })).error, "");
@@ -3750,9 +3747,8 @@ test("an already-aborted decoder request preserves the newer waiting request", a
 
 // pageImports runs the page import functions with the real model and decoder
 // slot. UI stubs record messages without a browser DOM. The Go model accepts
-// each project. options.canonicalImport gives its reply to the import
-// check of a scenario, and an empty reply by default.
-function pageImports(options = {}) {
+// each project.
+function pageImports() {
   const source = fs.readFileSync(path.join(__dirname, "editor.js"), "utf8");
   const names = ["importProject", "importBackground", "importFramedImage", "takeBackgroundBytes", "publishBackground"];
   const functions = names.map((name) => {
@@ -3770,7 +3766,7 @@ function pageImports(options = {}) {
   const noop = () => {};
   const deps = {
     ...editor, model, decoder: fake.deps, root: globalThis, MIB: 1024 * 1024, ownDraft: ownTestDraft,
-    goModel: { call: async (scenario, op) => (op === "canonicalImport" ? (options.canonicalImport ?? (() => ({})))(scenario) : { valid: true, errors: [] }) },
+    goModel: { call: async () => ({ valid: true, errors: [] }) },
     normalizeWithGo: async (scenario) => scenario,
     metadataWithGo: async (metadata) => {
       const asset = metadata.asset || { frameState: "none", frame: null, license: null };
@@ -3823,20 +3819,12 @@ test("out-of-order file reads cannot queue an older import behind a blocked deco
   }
 });
 
-test("a project import takes the canonical project that the Go import check gives", async () => {
-  const canonical = connectedScenario();
-  const variant = { NAME: canonical.name, ...canonical }; delete variant.name;
-  const seen = [];
-  const page = pageImports({ canonicalImport: (scenario) => { seen.push(scenario); return { replace: canonical }; } });
-  const text = editor.serializeDocument(variant);
+test("a project import keeps the scenario of the file", async () => {
+  const scenario = connectedScenario();
+  const page = pageImports(); const text = editor.serializeDocument(scenario);
   await page.importProject({ size: text.length, text: async () => text });
-  assert.deepEqual(seen, [variant]);
-  assert.deepEqual(page.model.history.value.scenario, canonical);
-  // An empty reply keeps the scenario of the file.
-  const kept = pageImports(); const plain = editor.serializeDocument(canonical);
-  await kept.importProject({ size: plain.length, text: async () => plain });
-  assert.deepEqual(kept.model.history.value.scenario, canonical);
-  assert.deepEqual([page.messages.at(-1), kept.messages.at(-1)], ["The project was imported into the draft.", "The project was imported into the draft."]);
+  assert.deepEqual(page.model.history.value.scenario, scenario);
+  assert.equal(page.messages.at(-1), "The project was imported into the draft.");
 });
 
 test("invalid frame or license input cancels an older import without reading the new file", async (t) => {
@@ -3927,22 +3915,22 @@ test("each abort event of the page aborts the open acquisition, and each import 
 
 // This fixture keeps the mainline throat fixed while station rows move.
 function layoutFixture(count = 3, side = 1, degrees = 0) {
-  const config = editor.emptyConfig(); const nodes = config.network.Nodes; const lanes = config.network.Lanes;
-  const node = (ID, X, Y) => nodes.push({ ID, Position: { X, Y } });
-  const lane = (ID, From, To, StationRole, SeparationGroup = "station-plane") => lanes.push({ ID, From, To, SpeedLimit: 14, StationID: "layout", StationRole, SeparationGroup });
+  const config = editor.emptyConfig(); const nodes = config.network.nodes; const lanes = config.network.lanes;
+  const node = (ID, X, Y) => nodes.push({ id: ID, position: { x: X, y: Y } });
+  const lane = (ID, From, To, StationRole, SeparationGroup = "station-plane") => lanes.push({ id: ID, from: From, to: To, speedLimit: 14, stationID: "layout", stationRole: StationRole, separationGroup: SeparationGroup });
   node("entry", -100, 120); node("exit", 100, 120); node("diverge", -60, 120 - side * 120); node("merge", 60, 120 - side * 120);
   lane("access-in", "diverge", "entry", "entry"); lane("access-out", "exit", "merge", "exit"); lane("bypass", "entry", "exit", "through");
-  const station = { ID: "layout", Name: "Layout", Entry: "entry", Exit: "exit", ParkingOnly: false, Berths: [] };
+  const station = { id: "layout", name: "Layout", entry: "entry", exit: "exit", parkingOnly: false, berths: [] };
   for (let index = 0; index < count; index += 1) {
     const id = String(index); const y = 120 + side * (90 + index * 75);
     node(`a${id}`, -100, y); node(`b${id}`, 0, y); node(`d${id}`, 100, y);
     lane(`al${id}`, index ? `a${index - 1}` : "entry", `a${id}`, "berth-access"); lane(`dl${id}`, `d${id}`, index ? `d${index - 1}` : "exit", "departure");
     lane(`in${id}`, `a${id}`, `b${id}`, "berth-access"); lane(`out${id}`, `b${id}`, `d${id}`, "departure");
-    station.Berths.push({ ID: `berth${id}`, Node: `b${id}`, SeparationGroup: "station-plane" });
+    station.berths.push({ id: `berth${id}`, node: `b${id}`, separationGroup: "station-plane" });
   }
-  config.network.Stations.push(station); config.fleet.push({ ID: "Pod01", BerthID: "berth0" });
+  config.network.stations.push(station); config.fleet.push({ id: "Pod01", berthID: "berth0" });
   const radians = degrees * Math.PI / 180;
-  for (const item of nodes) { const { X, Y } = item.Position; item.Position = { X: X * Math.cos(radians) - Y * Math.sin(radians), Y: X * Math.sin(radians) + Y * Math.cos(radians) }; }
+  for (const item of nodes) { const { x: X, y: Y } = item.position; item.position = { x: X * Math.cos(radians) - Y * Math.sin(radians), y: X * Math.sin(radians) + Y * Math.cos(radians) }; }
   return config;
 }
 
@@ -3979,20 +3967,20 @@ test("a canceled Go opacity proposal rolls back its owned preview", async () => 
 });
 
 function independentBankFixture() {
-  const config = layoutFixture(); const station = config.network.Stations[0];
+  const config = layoutFixture(); const station = config.network.stations[0];
   const second = structuredClone(config);
-  for (const node of second.network.Nodes) { node.ID = `b-${node.ID}`; node.Position.X += 600; }
-  for (const lane of second.network.Lanes) { lane.ID = `b-${lane.ID}`; lane.From = `b-${lane.From}`; lane.To = `b-${lane.To}`; }
-  const members = second.network.Stations[0].Berths;
-  for (const berth of members) { berth.ID = `b-${berth.ID}`; berth.Node = `b-${berth.Node}`; }
-  station.Banks = [
-    { ID: "a", Entry: station.Entry, Exit: station.Exit, BerthIDs: station.Berths.map((berth) => berth.ID) },
-    { ID: "b", Entry: "b-entry", Exit: "b-exit", BerthIDs: members.map((berth) => berth.ID) },
+  for (const node of second.network.nodes) { node.id = `b-${node.id}`; node.position.x += 600; }
+  for (const lane of second.network.lanes) { lane.id = `b-${lane.id}`; lane.from = `b-${lane.from}`; lane.to = `b-${lane.to}`; }
+  const members = second.network.stations[0].berths;
+  for (const berth of members) { berth.id = `b-${berth.id}`; berth.node = `b-${berth.node}`; }
+  station.banks = [
+    { id: "a", entry: station.entry, exit: station.exit, berthIDs: station.berths.map((berth) => berth.id) },
+    { id: "b", entry: "b-entry", exit: "b-exit", berthIDs: members.map((berth) => berth.id) },
   ];
-  station.Berths.push(...members); config.network.Nodes.push(...second.network.Nodes); config.network.Lanes.push(...second.network.Lanes);
+  station.berths.push(...members); config.network.nodes.push(...second.network.nodes); config.network.lanes.push(...second.network.lanes);
   for (const prefix of ["", "b-"]) {
-    config.network.Nodes.push({ ID: `${prefix}road-in`, Position: { X: prefix ? 540 : -60, Y: -100 } }, { ID: `${prefix}road-out`, Position: { X: prefix ? 660 : 60, Y: -100 } });
-    config.network.Lanes.push({ ID: `${prefix}road-in`, From: `${prefix}road-in`, To: `${prefix}diverge`, SpeedLimit: 14 }, { ID: `${prefix}road-out`, From: `${prefix}merge`, To: `${prefix}road-out`, SpeedLimit: 14 });
+    config.network.nodes.push({ id: `${prefix}road-in`, position: { x: prefix ? 540 : -60, y: -100 } }, { id: `${prefix}road-out`, position: { x: prefix ? 660 : 60, y: -100 } });
+    config.network.lanes.push({ id: `${prefix}road-in`, from: `${prefix}road-in`, to: `${prefix}diverge`, speedLimit: 14 }, { id: `${prefix}road-out`, from: `${prefix}merge`, to: `${prefix}road-out`, speedLimit: 14 });
   }
   return config;
 }
@@ -4018,10 +4006,10 @@ test("bank views select berth membership and dedicated anchor dimensions", () =>
   assert.match(editor.stationLayout(config, "layout").error, /Select/);
   const a = editor.stationLayout(config, "layout", "a"), b = editor.stationLayout(config, "layout", "b");
   assert.equal(a.error, ""); assert.equal(b.error, ""); assert.equal(b.pitch, 75); assert.equal(b.spacing, 200);
-  assert.equal(b.station.Entry, "b-entry"); assert.ok(b.approachLength > 120); assert.ok(b.departureLength > 120);
-  Object.assign(config.network.Lanes.find((lane) => lane.ID === "b-road-in"), { StationID: "layout", StationRole: "approach" });
+  assert.equal(b.station.entry, "b-entry"); assert.ok(b.approachLength > 120); assert.ok(b.departureLength > 120);
+  Object.assign(config.network.lanes.find((lane) => lane.id === "b-road-in"), { stationID: "layout", stationRole: "approach" });
   assert.ok(editor.stationLayout(config, "layout", "b").approachLength > 120);
-  config.network.Lanes.push({ ID: "shared", From: "b-diverge", To: "road-in", SpeedLimit: 14 });
+  config.network.lanes.push({ id: "shared", from: "b-diverge", to: "road-in", speedLimit: 14 });
   assert.equal(editor.stationLayout(config, "layout", "b").approachLength, null);
 });
 
@@ -4069,7 +4057,7 @@ test("import admits only PNG and JPEG data URL prefixes", () => {
 });
 
 test("import keeps the raw scenario and metadata for the Go checks", () => {
-  const scenario = { ...connectedScenario(), fleet: [{ StationID: "missing", BerthID: false }], demand: { pattern: "market", destination: false } };
+  const scenario = { ...connectedScenario(), fleet: [{ stationID: "missing", berthID: false }], demand: { pattern: "market", destination: false } };
   const background = { ...TEST_BACKGROUND, dataURL: dataURL(pngBytes(4, 2)), opacity: 5, asset: null };
   const parsed = editor.parseDocument(JSON.stringify({ format: "podsim", version: 1, scenario, background }));
   assert.deepEqual(parsed.scenario.fleet, scenario.fleet);
@@ -4092,7 +4080,7 @@ test("station layout rendering rejects older selection and geometry replies", as
       if (!controls.has(selector)) controls.set(selector, { value: "", textContent: "", replaceChildren() {} });
       return controls.get(selector);
     }, querySelectorAll() { return Object.values(inputs); } };
-    let config = { network: { Stations: [{ ID: "alpha" }, { ID: "beta" }] } };
+    let config = { network: { stations: [{ id: "alpha" }, { id: "beta" }] } };
     const state = { selection: { id: "alpha" } }, calls = [];
     const deps = { state, draft: () => config, selectedBank: () => undefined, setControlValue: (control, value) => { control.value = value; },
       goModel: { call(project, op, layout) { const pending = Promise.withResolvers(); calls.push({ project, op, layout, pending }); return pending.promise; } },
@@ -4100,7 +4088,7 @@ test("station layout rendering rejects older selection and geometry replies", as
     const render = new Function(...Object.keys(deps), `${source.slice(start, end)}\nreturn renderStationLayout;`)(...Object.values(deps));
     render(panel, config, "alpha");
     if (change === "selection") state.selection = { id: "beta" };
-    else config = { network: { Stations: config.network.Stations } };
+    else config = { network: { stations: config.network.stations } };
     render(panel, config, state.selection.id);
     const summary = (pitch) => ({ layout: { pitch: { value: pitch, reason: "" }, spacing: { value: 200, reason: "" }, setback: { value: 120, reason: "" }, approachLength: { value: null, reason: "No bank" }, departureLength: { value: null, reason: "No bank" } } });
     calls[0].pending.resolve(summary(75)); await tick();

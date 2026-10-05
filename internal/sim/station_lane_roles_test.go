@@ -27,9 +27,9 @@ type stationLaneRolesCase struct {
 }
 
 type stationLaneRoles struct {
-	ID          string          `json:"ID"`
-	StationID   string          `json:"StationID"`
-	StationRole StationLaneRole `json:"StationRole"`
+	ID          string          `json:"id"`
+	StationID   string          `json:"stationID"`
+	StationRole StationLaneRole `json:"stationRole"`
 }
 
 func roleNode(id string, x, y float64) Node { return Node{ID: id, Position: Point{X: x, Y: y}} }

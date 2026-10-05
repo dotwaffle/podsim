@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
-	"strings"
 
 	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/sim"
@@ -28,12 +28,12 @@ func (command *Command) UnmarshalJSON(data []byte) error {
 	if next.Project != nil {
 		next.Project = new(project.Clone(*next.Project))
 	}
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&next); err != nil {
+	// Member names match exactly. The other encoding/json rules stay.
+	decoder := jsontext.NewDecoder(bytes.NewReader(data), json.DefaultOptionsV1(), jsonv2.MatchCaseInsensitiveNames(false), jsonv2.RejectUnknownMembers(true))
+	if err := jsonv2.UnmarshalDecode(decoder, &next); err != nil {
 		return err
 	}
-	if err := decoder.Decode(new(any)); !errors.Is(err, io.EOF) {
+	if _, err := decoder.ReadToken(); !errors.Is(err, io.EOF) {
 		return errors.New("send one command only")
 	}
 	if (present || next.OrderContract != "") && next.Action != "trip" {
@@ -66,7 +66,7 @@ func scanOrderFields(data []byte) (bool, error) {
 	var marker struct {
 		OrderContract sim.OrderContract `json:"orderContract"`
 	}
-	if err := json.Unmarshal(data, &marker); err != nil {
+	if err := jsonv2.Unmarshal(data, &marker, json.DefaultOptionsV1(), jsonv2.MatchCaseInsensitiveNames(false)); err != nil {
 		return false, err
 	}
 	if err := sim.ValidateOrderContract(marker.OrderContract); err != nil {
@@ -77,25 +77,25 @@ func scanOrderFields(data []byte) (bool, error) {
 		if err != nil {
 			return false, err
 		}
-		name := strings.ToLower(token.String())
+		name := token.String()
 		raw, err := decoder.ReadValue()
 		if err != nil {
 			return false, err
 		}
 		switch name {
-		case "ordercontract", "partysize", "sharingconsent", "service", "serviceid":
+		case "orderContract", "partySize", "sharingConsent", "service", "serviceID":
 			if seen[name] {
 				return false, fmt.Errorf("duplicate order field %s", name)
 			}
 			seen[name] = true
-			if name == "ordercontract" {
+			if name == "orderContract" {
 				var contract sim.OrderContract
 				if string(raw) == "null" || json.Unmarshal(raw, &contract) != nil || contract != sim.ExpressOrderContract {
 					return false, errors.New("invalid trip order contract")
 				}
 				continue
 			}
-			if name == "partysize" && marker.OrderContract == sim.ExpressOrderContract {
+			if name == "partySize" && marker.OrderContract == sim.ExpressOrderContract {
 				var size int
 				if json.Unmarshal(raw, &size) != nil || size < 1 || size > 20 {
 					return false, errors.New("party size must be 1 to 20")
@@ -114,7 +114,7 @@ func validateExplicitOrderField(name string, raw jsontext.Value) error {
 	if raw.Kind() == jsontext.KindNull {
 		return fmt.Errorf("order field %s cannot be null", name)
 	}
-	if name == "partysize" {
+	if name == "partySize" {
 		var size int
 		if err := json.Unmarshal(raw, &size); err != nil || size < 1 || size > sim.MaxNewPartySize {
 			return fmt.Errorf("party size must be 1 to %d", sim.MaxNewPartySize)

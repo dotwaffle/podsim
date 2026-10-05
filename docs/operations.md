@@ -300,6 +300,10 @@ The file leaves out the member when its value is zero.
 An older server restores a file without the member, but it gets `invalid_state` for a file with the member and moves that file aside.
 Each other change to the members of the file gets a new format version.
 Thus after a downgrade past such a change, the older server moves the file aside.
+The change to lowerCamel member names kept the format version.
+The server matches member names exactly.
+Thus it gets `invalid_state` for a version 6 or 7 file with the earlier names and moves that file aside.
+A version 8 file with the earlier names is a damaged coupling file: the server keeps the file, turns saving off, and fails to start.
 With `-project`, the project file has priority, and a saved state with a different project gets `project_changed`.
 When only demand or experimental policy settings differ, the server restores the saved state.
 A demand change writes the project file at once and the session state about 1 second later.

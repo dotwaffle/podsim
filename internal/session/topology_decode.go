@@ -19,21 +19,21 @@ import (
 const MaxTopologyJSON = project.MaxFileBytes + 4096
 
 var topologyJSONLimits = jsonLimits{
-	depth: 64, elements: 0, members: 256, foldNames: true,
+	depth: 64, elements: 0, members: 256,
 	arrays: map[string]int64{
 		"/couplingSites":                              sim.MaxCouplingSites,
 		"/couplingCorridors":                          sim.MaxCouplingCorridors,
 		"/couplingCorridors/*/laneIds":                project.MaxLanes,
 		"/expressServices":                            project.MaxExpressServices,
-		"/network/Lanes/*/VehicleClasses":             4,
-		"/network/Stations/*/VehicleClasses":          4,
-		"/network/Stations/*/Berths/*/VehicleClasses": 4,
-		"/network/Nodes":                              project.MaxNodes,
-		"/network/Lanes":                              project.MaxLanes,
-		"/network/Stations":                           project.MaxStations,
-		"/network/Stations/*/Berths":                  project.MaxBerths,
-		"/network/Stations/*/Banks":                   sim.MaxStationBanks,
-		"/network/Stations/*/Banks/*/BerthIDs":        project.MaxBerths,
+		"/network/lanes/*/vehicleClasses":             4,
+		"/network/stations/*/vehicleClasses":          4,
+		"/network/stations/*/berths/*/vehicleClasses": 4,
+		"/network/nodes":                              project.MaxNodes,
+		"/network/lanes":                              project.MaxLanes,
+		"/network/stations":                           project.MaxStations,
+		"/network/stations/*/berths":                  project.MaxBerths,
+		"/network/stations/*/banks":                   sim.MaxStationBanks,
+		"/network/stations/*/banks/*/berthIDs":        project.MaxBerths,
 	},
 }
 
@@ -74,7 +74,7 @@ func (topology *TopologySnapshot) UnmarshalJSON(data []byte) error {
 	}
 	type plainTopology TopologySnapshot
 	var decoded plainTopology
-	if err := jsonv2.Unmarshal(data, &decoded, json.DefaultOptionsV1(), jsonv2.RejectUnknownMembers(true)); err != nil {
+	if err := jsonv2.Unmarshal(data, &decoded, json.DefaultOptionsV1(), jsonv2.MatchCaseInsensitiveNames(false), jsonv2.RejectUnknownMembers(true)); err != nil {
 		return err
 	}
 	if err := checkTopologyProjectVersion(TopologySnapshot(decoded)); err != nil {
@@ -109,21 +109,21 @@ func scanTopologyBanks(data []byte) (topologyMarkers, error) {
 			return topologyMarkers{}, err
 		}
 		tokenKind := token.Kind()
-		path := strings.Split(strings.ToLower(string(decoder.StackPointer())), "/")
+		path := strings.Split(string(decoder.StackPointer()), "/")
 		kind, length := decoder.StackIndex(decoder.StackDepth())
 		member := tokenKind == jsontext.KindString && kind == jsontext.KindBeginObject && length%2 == 1
 		if len(path) == 2 && member {
 			markers.coupling = markers.coupling || couplingMember(token.String())
-			markers.express = markers.express || path[1] == "ordercontract"
+			markers.express = markers.express || path[1] == "orderContract"
 		}
 		if len(path) != 5 || path[1] != "network" || path[2] != "stations" || path[4] != "banks" {
 			continue
 		}
 		if kind == jsontext.KindBeginObject && length%2 == 1 && decoder.PeekKind() != jsontext.KindBeginArray {
-			return topologyMarkers{}, errors.New("station Banks must be a nonempty array")
+			return topologyMarkers{}, errors.New("station banks must be a nonempty array")
 		}
 		if tokenKind == jsontext.KindBeginArray && decoder.PeekKind() == jsontext.KindEndArray {
-			return topologyMarkers{}, errors.New("station Banks must be a nonempty array")
+			return topologyMarkers{}, errors.New("station banks must be a nonempty array")
 		}
 	}
 }

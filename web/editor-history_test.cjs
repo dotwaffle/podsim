@@ -6,7 +6,7 @@ const turn = () => new Promise((resolve) => setImmediate(resolve));
 const clone = (value) => JSON.parse(JSON.stringify(value));
 function freeze(value) { if (value && typeof value === "object") { for (const child of Object.values(value)) freeze(child); Object.freeze(value); } return value; }
 const own = (value) => freeze(clone(value));
-const draft = (name, imageKey) => ({ scenario: { name, network: { Nodes: [{ ID: "one", Position: { X: 1, Y: 2 } }] } }, background: imageKey ? { imageKey, opacity: .45 } : null });
+const draft = (name, imageKey) => ({ scenario: { name, network: { nodes: [{ id: "one", position: { x: 1, y: 2 } }] } }, background: imageKey ? { imageKey, opacity: .45 } : null });
 const metadata = (head, revision, { retained = [head], imageKeys = [], canUndo = false, canRedo = false, changed = true, background = null } = {}) => ({ head, revision: String(revision), changed, canUndo, canRedo, retained, imageKeys, background });
 const prepared = (view, token = `p${view.revision}`) => ({ history: { ...view, proposal: token } });
 const deferred = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; };
@@ -33,12 +33,12 @@ async function initialize(f, value = draft("Initial")) {
 test("browser history preserves owned class and registry snapshots through undo and redo", async () => {
   const f = fixture(), first = draft("Service");
   first.scenario.version = 1;
-  first.scenario.fleet = [{ ID: "pod", Class: "compact" }];
-  first.scenario.network.Stations = [{ ID: "hub", VehicleClasses: ["compact", "express"] }];
-  first.scenario.expressServices = [{ ID: "express", Class: "express", PartyLimit: 20 }];
+  first.scenario.fleet = [{ id: "pod", class: "compact" }];
+  first.scenario.network.stations = [{ id: "hub", vehicleClasses: ["compact", "express"] }];
+  first.scenario.expressServices = [{ id: "express", class: "express", partyLimit: 20 }];
   await initialize(f, first);
-  first.scenario.fleet[0].Class = "group";
-  first.scenario.expressServices[0].PartyLimit = 1;
+  first.scenario.fleet[0].class = "group";
+  first.scenario.expressServices[0].partyLimit = 1;
   const old = f.history.snapshot;
   const next = f.history.value; next.scenario.expressServices = [];
   const replacement = f.history.replace(next); await turn();
@@ -46,9 +46,9 @@ test("browser history preserves owned class and registry snapshots through undo 
   const undo = f.history.undo(); await turn();
   await finish(f, undo, metadata("s1", 3, { retained: ["s1", "s2"], canRedo: true }));
   assert.equal(f.history.snapshot, old);
-  assert.equal(f.history.snapshot.scenario.fleet[0].Class, "compact");
-  assert.equal(f.history.snapshot.scenario.expressServices[0].PartyLimit, 20);
-  assert.ok(Object.isFrozen(f.history.snapshot.scenario.network.Stations[0].VehicleClasses));
+  assert.equal(f.history.snapshot.scenario.fleet[0].class, "compact");
+  assert.equal(f.history.snapshot.scenario.expressServices[0].partyLimit, 20);
+  assert.ok(Object.isFrozen(f.history.snapshot.scenario.network.stations[0].vehicleClasses));
   const redo = f.history.redo(); await turn();
   await finish(f, redo, metadata("s2", 4, { retained: ["s1", "s2"], canUndo: true }));
   assert.deepEqual(f.history.snapshot.scenario.expressServices, []);
@@ -74,7 +74,7 @@ test("undo and redo use Go IDs to select immutable render copies", async () => {
   const f = fixture(); await initialize(f); const first = f.history.snapshot;
   const next = draft("Second"); const replace = f.history.replace(next); next.scenario.name = "Outside mutation";
   await turn(); await finish(f, replace, metadata("s2", 2, { retained: ["s1", "s2"], canUndo: true }));
-  const second = f.history.snapshot; assert.equal(second.scenario.name, "Second"); assert.ok(Object.isFrozen(second.scenario.network.Nodes));
+  const second = f.history.snapshot; assert.equal(second.scenario.name, "Second"); assert.ok(Object.isFrozen(second.scenario.network.nodes));
   const undo = f.history.undo(); await turn(); assert.deepEqual(f.calls.at(-1).command, { action: "prepare", kind: "undo", revision: "2" });
   await finish(f, undo, metadata("s1", 3, { retained: ["s1", "s2"], canRedo: true })); assert.equal(f.history.snapshot, first);
   const redo = f.history.redo(); await turn(); await finish(f, redo, metadata("s2", 4, { retained: ["s1", "s2"], canUndo: true })); assert.equal(f.history.snapshot, second);
@@ -156,7 +156,7 @@ test("invalid prepared metadata fails closed without publishing", async () => {
 
 test("history transport changes the client baseline after acknowledgment without transferring geometry", async () => {
   const sent = [], worker = { postMessage: (data) => sent.push(data), terminate() {} }, client = createClient({ makeWorker: () => worker });
-  const first = { name: "First", network: { Nodes: [] } }, second = { name: "Second", network: { Nodes: [{ ID: "two" }] } };
+  const first = { name: "First", network: { nodes: [] } }, second = { name: "Second", network: { nodes: [{ id: "two" }] } };
   const reply = (result) => worker.onmessage({ data: { id: sent.at(-1).id, result } });
   const start = client.call(second, "history", { action: "prepare", kind: "reset", revision: "0", background: null });
   assert.deepEqual(sent.at(-1).patch, second); reply(prepared(metadata("s2", 1))); await start;
@@ -186,7 +186,7 @@ test("worker restores transport branches from Go IDs after undo and sends no ful
     if (command.op === "checks") return { checks: { errors: [], warnings: [] } };
     return { valid: true };
   });
-  const first = draft("First").scenario, second = { ...first, network: { Nodes: [{ ID: "two" }] }, name: "Second", map: {} };
+  const first = draft("First").scenario, second = { ...first, network: { nodes: [{ id: "two" }] }, name: "Second", map: {} };
   const transition = (kind, view, project) => {
     preparedView = nextView = view;
     handler.handle({ op: "history", keys: project && Object.keys(project), patch: project, history: { action: "prepare", kind, revision: "0", background: null } });

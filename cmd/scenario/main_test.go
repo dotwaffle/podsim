@@ -87,12 +87,12 @@ func TestRunWritesRailHubPreset(t *testing.T) {
 func TestRunWithoutFlagsKeepsPresets(t *testing.T) {
 	t.Parallel()
 	tests := map[string]string{
-		"small":               "10de2ae8734fc8b3a3895e2b43a23f135862e366dabd1c3a7426b6c99eaf39ae",
-		"busy":                "c949cbcf24cdac407990c8ff97d84beb0d2b69575ac5782bf80b0ad10d2db0b0",
-		"parking-constrained": "690cd3857d2bc4cef4cf7758b6703f3e02877e7bf13a47301f41b0210b9be1d1",
-		"rail-hub":            "e492e0a3fd738f5121779bc2d4880a4c5c14733d330eb57f20b0acded3b73917",
-		"scale100":            "896f1784d0f1e13cf9f6637d24de7970db99edbbd4c10adf9ce60f17388e1abc",
-		"london-central":      "e616e7f2d73d8ca19cbd1ec6775dd7193bcda091248144538098ee18deaaafe5",
+		"small":               "61ee38c3cf6688a946e8f4dd433c6ae03e3fcbc2541efc41a00a00896318611c",
+		"busy":                "cebfe3bd173bdfbd3d852034b1670a056225ad49d4dde44f9cf52fc5dcddb402",
+		"parking-constrained": "28cc9e22424a39991794f8981a0427db0964c985ac4b8d878da374ee2fa29f67",
+		"rail-hub":            "dddc9926188715eb653f20176dcbfc118a6b8f013ef5b0148d6efd3c5b5d9ff9",
+		"scale100":            "fc5896f7c9e5efd30e75a5b83937df95848c1e2d3133b5be07bbbcb792727dc1",
+		"london-central":      "78a6295bc278e001e235b27983a8d68bcc6bf5dcf1ceef07bbe39cd75c728388",
 	}
 	for preset, want := range tests {
 		t.Run(preset, func(t *testing.T) {

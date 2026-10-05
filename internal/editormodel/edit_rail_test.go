@@ -10,9 +10,9 @@ import (
 )
 
 func railDraft() map[string]any {
-	return map[string]any{"network": map[string]any{"Stations": []any{
-		map[string]any{"ID": "parking", "ParkingOnly": true},
-		map[string]any{"ID": "hub"}, map[string]any{"ID": "first"}, map[string]any{"ID": "second"},
+	return map[string]any{"network": map[string]any{"stations": []any{
+		map[string]any{"id": "parking", "parkingOnly": true},
+		map[string]any{"id": "hub"}, map[string]any{"id": "first"}, map[string]any{"id": "second"},
 	}}}
 }
 

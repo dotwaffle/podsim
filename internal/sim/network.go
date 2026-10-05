@@ -10,14 +10,14 @@ import (
 
 // Point is a position in meters.
 type Point struct {
-	X float64 `json:"X"`
-	Y float64 `json:"Y"`
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
 }
 
 // Node is a connection point in the directed network.
 type Node struct {
-	ID       string `json:"ID"`
-	Position Point  `json:"Position"`
+	ID       string `json:"id"`
+	Position Point  `json:"position"`
 }
 
 // StationLaneRole identifies a lane's function in one station maneuver.
@@ -35,32 +35,32 @@ const (
 
 // Lane is a directed connection with a speed limit in meters per second.
 type Lane struct {
-	VehicleClasses  ClassSet        `json:"VehicleClasses,omitzero"`
-	ID              string          `json:"ID"`
-	From            string          `json:"From"`
-	To              string          `json:"To"`
-	SpeedLimit      float64         `json:"SpeedLimit"`
-	SeparationGroup string          `json:"SeparationGroup,omitempty"`
-	StationID       string          `json:"StationID,omitempty"`
-	StationRole     StationLaneRole `json:"StationRole,omitempty"`
+	VehicleClasses  ClassSet        `json:"vehicleClasses,omitzero"`
+	ID              string          `json:"id"`
+	From            string          `json:"from"`
+	To              string          `json:"to"`
+	SpeedLimit      float64         `json:"speedLimit"`
+	SeparationGroup string          `json:"separationGroup,omitempty"`
+	StationID       string          `json:"stationID,omitempty"`
+	StationRole     StationLaneRole `json:"stationRole,omitempty"`
 	// Control adds a quadratic curve. Nil keeps the lane straight.
-	Control *Point `json:",omitempty"`
+	Control *Point `json:"control,omitempty"`
 }
 
 // Berth is a station resource with its own connection point.
 type Berth struct {
-	VehicleClasses  ClassSet `json:"VehicleClasses,omitzero"`
-	ID              string   `json:"ID"`
-	Node            string   `json:"Node"`
-	SeparationGroup string   `json:"SeparationGroup,omitempty"`
+	VehicleClasses  ClassSet `json:"vehicleClasses,omitzero"`
+	ID              string   `json:"id"`
+	Node            string   `json:"node"`
+	SeparationGroup string   `json:"separationGroup,omitempty"`
 }
 
 // StationBank groups berths behind one independent entry and exit.
 type StationBank struct {
-	ID       string   `json:"ID"`
-	Entry    string   `json:"Entry"`
-	Exit     string   `json:"Exit"`
-	BerthIDs []string `json:"BerthIDs"`
+	ID       string   `json:"id"`
+	Entry    string   `json:"entry"`
+	Exit     string   `json:"exit"`
+	BerthIDs []string `json:"berthIDs"`
 }
 
 // MaxStationBanks bounds the banks of one station.
@@ -68,21 +68,21 @@ const MaxStationBanks = 8
 
 // Station keeps passenger access separate from through traffic.
 type Station struct {
-	VehicleClasses ClassSet      `json:"VehicleClasses,omitzero"`
-	ID             string        `json:"ID"`
-	Name           string        `json:"Name"`
-	Entry          string        `json:"Entry"`
-	Exit           string        `json:"Exit"`
-	Berths         []Berth       `json:"Berths"`
-	ParkingOnly    bool          `json:"ParkingOnly"`
-	Banks          []StationBank `json:"Banks,omitempty"`
+	VehicleClasses ClassSet      `json:"vehicleClasses,omitzero"`
+	ID             string        `json:"id"`
+	Name           string        `json:"name"`
+	Entry          string        `json:"entry"`
+	Exit           string        `json:"exit"`
+	Berths         []Berth       `json:"berths"`
+	ParkingOnly    bool          `json:"parkingOnly"`
+	Banks          []StationBank `json:"banks,omitempty"`
 }
 
 // Network describes immutable geometry and connectivity during a run.
 type Network struct {
-	Nodes    []Node    `json:"Nodes"`
-	Lanes    []Lane    `json:"Lanes"`
-	Stations []Station `json:"Stations"`
+	Nodes    []Node    `json:"nodes"`
+	Lanes    []Lane    `json:"lanes"`
+	Stations []Station `json:"stations"`
 }
 
 // ErrUnreachable means no directed route connects the requested nodes.

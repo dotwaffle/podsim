@@ -121,11 +121,11 @@ func TestExpressPublicTextAndShapeGuards(t *testing.T) {
 		t.Fatal(err)
 	}
 	tests := []struct{ name, old, new string }{
-		{"escaped-canonical", "\"From\":\"aGFyYm9y\"", "\"From\":\"\\u0061GFyYm9y\""},
-		{"raw-fallback", "\"From\":\"aGFyYm9y\"", "\"From\":\"harbor\""},
-		{"decoded-id-65", "\"From\":\"aGFyYm9y\"", "\"From\":\"" + strings.Repeat("eHh4", 21) + "eHg=\""},
-		{"duplicate-field", "\"From\":\"aGFyYm9y\"", "\"From\":\"aGFyYm9y\",\"From\":\"aGFyYm9y\""},
-		{"duplicate-alias", "\"From\":\"aGFyYm9y\"", "\"From\":\"aGFyYm9y\",\"from\":\"bWFya2V0\""},
+		{"escaped-canonical", "\"from\":\"aGFyYm9y\"", "\"from\":\"\\u0061GFyYm9y\""},
+		{"raw-fallback", "\"from\":\"aGFyYm9y\"", "\"from\":\"harbor\""},
+		{"decoded-id-65", "\"from\":\"aGFyYm9y\"", "\"from\":\"" + strings.Repeat("eHh4", 21) + "eHg=\""},
+		{"duplicate-field", "\"from\":\"aGFyYm9y\"", "\"from\":\"aGFyYm9y\",\"from\":\"aGFyYm9y\""},
+		{"duplicate-alias", "\"from\":\"aGFyYm9y\"", "\"from\":\"aGFyYm9y\",\"from\":\"bWFya2V0\""},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -158,11 +158,11 @@ func TestExpressPublicHTTPBoardingPresence(t *testing.T) {
 	for _, value := range []string{"null", "[]", "{}"} {
 		mutated := slices.Clone(raw)
 		// Locate the array without parsing the numeric values through another adapter.
-		start := bytes.Index(mutated, []byte(`"Boardings":`))
+		start := bytes.Index(mutated, []byte(`"boardings":`))
 		if start < 0 {
 			t.Fatal("missing boarding field")
 		}
-		start += len(`"Boardings":`)
+		start += len(`"boardings":`)
 		end := start + bytes.IndexByte(mutated[start:], ']') + 1
 		if end <= start {
 			t.Fatal("missing boarding array")

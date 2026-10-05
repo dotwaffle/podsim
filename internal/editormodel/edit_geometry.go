@@ -14,7 +14,10 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-type geometryPoint struct{ X, Y float64 }
+type geometryPoint struct {
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
+}
 
 type geometryEdit struct {
 	Action string         `json:"action"`
@@ -61,7 +64,7 @@ func editGeometry(draft any, raw jsontext.Value) (projectChange, error) {
 	if err := geometry.change(command); err != nil {
 		return projectChange{}, err
 	}
-	for key, limit := range map[string]int{"Nodes": project.MaxNodes, "Lanes": project.MaxLanes, "Stations": project.MaxStations} {
+	for key, limit := range map[string]int{"nodes": project.MaxNodes, "lanes": project.MaxLanes, "stations": project.MaxStations} {
 		if len(items(geometry.network[key])) > limit {
 			return projectChange{}, fmt.Errorf("the edit exceeds the %s count limit", key)
 		}
@@ -133,10 +136,10 @@ func decodeGeometryPoint(raw jsontext.Value) (geometryPoint, error) {
 	if err := json.Unmarshal(raw, &point); err != nil {
 		return geometryPoint{}, fmt.Errorf("decode geometry point: %w", err)
 	}
-	if len(point) != 2 || !finite(point["X"]) || !finite(point["Y"]) {
+	if len(point) != 2 || !finite(point["x"]) || !finite(point["y"]) {
 		return geometryPoint{}, errors.New("a geometry point needs finite X and Y coordinates")
 	}
-	return geometryPoint{X: number(point["X"]), Y: number(point["Y"])}, nil
+	return geometryPoint{X: number(point["x"]), Y: number(point["y"])}, nil
 }
 
 func (g geometryDraft) find(key, id string) (map[string]any, error) {
@@ -144,7 +147,7 @@ func (g geometryDraft) find(key, id string) (map[string]any, error) {
 		return nil, errors.New("a geometry reference needs a nonempty ID")
 	}
 	for _, item := range items(g.network[key]) {
-		if text(member(item, "ID")) == id && object(item) != nil {
+		if text(member(item, "id")) == id && object(item) != nil {
 			return object(item), nil
 		}
 	}
@@ -152,31 +155,31 @@ func (g geometryDraft) find(key, id string) (map[string]any, error) {
 }
 
 func (g geometryDraft) point(id string) (geometryPoint, error) {
-	node, err := g.find("Nodes", id)
+	node, err := g.find("nodes", id)
 	if err != nil {
 		return geometryPoint{}, err
 	}
-	position := object(node["Position"])
-	if !finite(position["X"]) || !finite(position["Y"]) {
+	position := object(node["position"])
+	if !finite(position["x"]) || !finite(position["y"]) {
 		return geometryPoint{}, errors.New("the node needs finite coordinates")
 	}
-	return geometryPoint{number(position["X"]), number(position["Y"])}, nil
+	return geometryPoint{number(position["x"]), number(position["y"])}, nil
 }
 
 func (g geometryDraft) allIDs() map[string]bool {
 	ids := make(map[string]bool)
-	for _, key := range []string{"Nodes", "Lanes", "Stations"} {
+	for _, key := range []string{"nodes", "lanes", "stations"} {
 		for _, item := range items(g.network[key]) {
-			ids[text(member(item, "ID"))] = true
-			if key == "Stations" {
-				for _, berth := range items(member(item, "Berths")) {
-					ids[text(member(berth, "ID"))] = true
+			ids[text(member(item, "id"))] = true
+			if key == "stations" {
+				for _, berth := range items(member(item, "berths")) {
+					ids[text(member(berth, "id"))] = true
 				}
 			}
 		}
 	}
 	for _, pod := range items(member(g.draft, "fleet")) {
-		ids[text(member(pod, "ID"))] = true
+		ids[text(member(pod, "id"))] = true
 	}
 	return ids
 }
@@ -195,7 +198,7 @@ func geometryPosition(point geometryPoint) (map[string]any, error) {
 	if !finiteRange(point.X, -project.MaxCoordinate, project.MaxCoordinate) || !finiteRange(point.Y, -project.MaxCoordinate, project.MaxCoordinate) {
 		return nil, errors.New("the geometry edit exceeds the coordinate limit")
 	}
-	return map[string]any{"X": point.X, "Y": point.Y}, nil
+	return map[string]any{"x": point.X, "y": point.Y}, nil
 }
 
 func (g geometryDraft) addNode(prefix string, point geometryPoint) (string, error) {
@@ -204,7 +207,7 @@ func (g geometryDraft) addNode(prefix string, point geometryPoint) (string, erro
 		return "", err
 	}
 	id := g.nextID(prefix)
-	g.network["Nodes"] = append(items(g.network["Nodes"]), map[string]any{"ID": id, "Position": position})
+	g.network["nodes"] = append(items(g.network["nodes"]), map[string]any{"id": id, "position": position})
 	return id, nil
 }
 
@@ -215,23 +218,23 @@ func (g geometryDraft) addLane(from, to, station, role string, control *geometry
 	if _, err := g.point(to); err != nil {
 		return err
 	}
-	for _, item := range items(g.network["Lanes"]) {
-		if member(item, "From") == from && member(item, "To") == to {
+	for _, item := range items(g.network["lanes"]) {
+		if member(item, "from") == from && member(item, "to") == to {
 			return nil
 		}
 	}
-	lane := map[string]any{"ID": g.nextID("lane"), "From": from, "To": to, "SpeedLimit": float64(12)}
+	lane := map[string]any{"id": g.nextID("lane"), "from": from, "to": to, "speedLimit": float64(12)}
 	if station != "" {
-		lane["StationID"], lane["StationRole"] = station, role
+		lane["stationID"], lane["stationRole"] = station, role
 	}
 	if control != nil {
 		position, err := geometryPosition(*control)
 		if err != nil {
 			return err
 		}
-		lane["Control"] = position
+		lane["control"] = position
 	}
-	g.network["Lanes"] = append(items(g.network["Lanes"]), lane)
+	g.network["lanes"] = append(items(g.network["lanes"]), lane)
 	return nil
 }
 
@@ -270,10 +273,10 @@ func (g geometryDraft) change(command geometryEdit) error {
 	case "toggleCurve":
 		return g.toggleCurve(command.ID)
 	case "deleteLane":
-		if _, err := g.find("Lanes", command.ID); err != nil {
+		if _, err := g.find("lanes", command.ID); err != nil {
 			return err
 		}
-		g.network["Lanes"] = slices.DeleteFunc(items(g.network["Lanes"]), func(lane any) bool { return member(lane, "ID") == command.ID })
+		g.network["lanes"] = slices.DeleteFunc(items(g.network["lanes"]), func(lane any) bool { return member(lane, "id") == command.ID })
 		return nil
 	case "deleteNode":
 		return g.deleteNode(command.ID)
@@ -335,9 +338,9 @@ func (g geometryDraft) addStation(command geometryEdit) error {
 	}
 	name := options.Name
 	if name == "" {
-		name = "Station " + strconv.Itoa(len(items(g.network["Stations"]))+1)
+		name = "Station " + strconv.Itoa(len(items(g.network["stations"]))+1)
 	}
-	g.network["Stations"] = append(items(g.network["Stations"]), map[string]any{"ID": id, "Name": name, "Entry": entry, "Exit": exit, "ParkingOnly": options.ParkingOnly, "Berths": []any{map[string]any{"ID": berthID, "Node": berthNode}}})
+	g.network["stations"] = append(items(g.network["stations"]), map[string]any{"id": id, "name": name, "entry": entry, "exit": exit, "parkingOnly": options.ParkingOnly, "berths": []any{map[string]any{"id": berthID, "node": berthNode}}})
 	for _, lane := range [][3]string{{entry, berthNode, "berth-access"}, {berthNode, exit, "departure"}, {entry, exit, "through"}} {
 		if err := g.addLane(lane[0], lane[1], id, lane[2], nil); err != nil {
 			return err
@@ -352,9 +355,9 @@ func (g geometryDraft) movePoint(command geometryEdit) error {
 	if err != nil {
 		return err
 	}
-	key, field := "Nodes", "Position"
+	key, field := "nodes", "position"
 	if command.Action == "moveControl" {
-		key, field = "Lanes", "Control"
+		key, field = "lanes", "control"
 	}
 	item, err := g.find(key, command.ID)
 	if err != nil {
@@ -365,9 +368,9 @@ func (g geometryDraft) movePoint(command geometryEdit) error {
 }
 
 func (g geometryDraft) setField(command geometryEdit) error {
-	key := "Stations"
+	key := "stations"
 	if command.Action == "laneSpeed" {
-		key = "Lanes"
+		key = "lanes"
 	}
 	item, err := g.find(key, command.ID)
 	if err != nil {
@@ -383,19 +386,19 @@ func (g geometryDraft) setField(command geometryEdit) error {
 		if !ok {
 			return errors.New("a station name must be text")
 		}
-		item["Name"] = trimEditorSpace(name)
+		item["name"] = trimEditorSpace(name)
 	case "stationParking":
 		flag, ok := value.(bool)
 		if !ok {
 			return errors.New("the parking option must be true or false")
 		}
-		item["ParkingOnly"] = flag
+		item["parkingOnly"] = flag
 	case "laneSpeed":
 		speed, err := editNumber(value)
 		if err != nil {
 			return err
 		}
-		item["SpeedLimit"] = speed / 3.6
+		item["speedLimit"] = speed / 3.6
 	}
 	return nil
 }
@@ -404,7 +407,7 @@ func (g geometryDraft) setField(command geometryEdit) error {
 // a list of 1 to 4 distinct known classes, and the lane gets them in the
 // native order.
 func (g geometryDraft) setLaneClasses(command geometryEdit) error {
-	lane, err := g.find("Lanes", command.ID)
+	lane, err := g.find("lanes", command.ID)
 	if err != nil {
 		return err
 	}
@@ -424,50 +427,50 @@ func (g geometryDraft) setLaneClasses(command geometryEdit) error {
 	if err := json.Unmarshal(ordered, &value); err != nil {
 		return err
 	}
-	lane["VehicleClasses"] = value
+	lane["vehicleClasses"] = value
 	return nil
 }
 
 func (g geometryDraft) toggleCurve(id string) error {
-	lane, err := g.find("Lanes", id)
+	lane, err := g.find("lanes", id)
 	if err != nil {
 		return err
 	}
-	if lane["Control"] != nil {
-		delete(lane, "Control")
+	if lane["control"] != nil {
+		delete(lane, "control")
 		return nil
 	}
-	from, err := g.point(text(lane["From"]))
+	from, err := g.point(text(lane["from"]))
 	if err != nil {
 		return err
 	}
-	to, err := g.point(text(lane["To"]))
+	to, err := g.point(text(lane["to"]))
 	if err != nil {
 		return err
 	}
 	position, err := geometryPosition(geometryPoint{(from.X+to.X)/2 - (to.Y-from.Y)*.25, (from.Y+to.Y)/2 + (to.X-from.X)*.25})
 	if err == nil {
-		lane["Control"] = position
+		lane["control"] = position
 	}
 	return err
 }
 
 func stationCoreNodes(station any) map[string]bool {
 	ids := make(map[string]bool)
-	for _, key := range []string{"Entry", "Exit"} {
+	for _, key := range []string{"entry", "exit"} {
 		if id := text(member(station, key)); id != "" {
 			ids[id] = true
 		}
 	}
-	for _, bank := range items(member(station, "Banks")) {
-		for _, key := range []string{"Entry", "Exit"} {
+	for _, bank := range items(member(station, "banks")) {
+		for _, key := range []string{"entry", "exit"} {
 			if id := text(member(bank, key)); id != "" {
 				ids[id] = true
 			}
 		}
 	}
-	for _, berth := range items(member(station, "Berths")) {
-		if id := text(member(berth, "Node")); id != "" {
+	for _, berth := range items(member(station, "berths")) {
+		if id := text(member(berth, "node")); id != "" {
 			ids[id] = true
 		}
 	}
@@ -476,16 +479,16 @@ func stationCoreNodes(station any) map[string]bool {
 
 func (g geometryDraft) nodeOwners() map[string]string {
 	stationIDs := make(map[string]bool)
-	for _, station := range items(g.network["Stations"]) {
-		stationIDs[text(member(station, "ID"))] = true
+	for _, station := range items(g.network["stations"]) {
+		stationIDs[text(member(station, "id"))] = true
 	}
 	owners := make(map[string]string)
-	for _, lane := range items(g.network["Lanes"]) {
-		station := text(member(lane, "StationID"))
+	for _, lane := range items(g.network["lanes"]) {
+		station := text(member(lane, "stationID"))
 		if !stationIDs[station] {
 			station = ""
 		}
-		for _, id := range []string{text(member(lane, "From")), text(member(lane, "To"))} {
+		for _, id := range []string{text(member(lane, "from")), text(member(lane, "to"))} {
 			previous, found := owners[id]
 			if found && previous != station {
 				owners[id] = ""
@@ -499,9 +502,9 @@ func (g geometryDraft) nodeOwners() map[string]string {
 			delete(owners, id)
 		}
 	}
-	for _, station := range items(g.network["Stations"]) {
+	for _, station := range items(g.network["stations"]) {
 		for id := range stationCoreNodes(station) {
-			owners[id] = text(member(station, "ID"))
+			owners[id] = text(member(station, "id"))
 		}
 	}
 	return owners
@@ -510,7 +513,7 @@ func (g geometryDraft) nodeOwners() map[string]string {
 func (g geometryDraft) stationNodes(station any) map[string]bool {
 	ids := stationCoreNodes(station)
 	for id, owner := range g.nodeOwners() {
-		if owner == member(station, "ID") {
+		if owner == member(station, "id") {
 			ids[id] = true
 		}
 	}
@@ -518,11 +521,11 @@ func (g geometryDraft) stationNodes(station any) map[string]bool {
 }
 
 func (g geometryDraft) moveStation(command geometryEdit) error {
-	station, err := g.find("Stations", command.ID)
+	station, err := g.find("stations", command.ID)
 	if err != nil {
 		return err
 	}
-	for _, key := range []string{"Entry", "Exit"} {
+	for _, key := range []string{"entry", "exit"} {
 		if _, referenceErr := g.point(text(station[key])); referenceErr != nil {
 			return referenceErr
 		}
@@ -531,11 +534,11 @@ func (g geometryDraft) moveStation(command geometryEdit) error {
 	if command.Action == "moveStation" {
 		delta, _ = decodeGeometryPoint(command.Delta)
 	} else {
-		entry, err := g.point(text(station["Entry"]))
+		entry, err := g.point(text(station["entry"]))
 		if err != nil {
 			return err
 		}
-		exit, err := g.point(text(station["Exit"]))
+		exit, err := g.point(text(station["exit"]))
 		if err != nil {
 			return err
 		}
@@ -564,14 +567,14 @@ func (g geometryDraft) moveStation(command geometryEdit) error {
 		return geometryPosition(geometryPoint{center.X + x*cos - y*sin + delta.X, center.Y + x*sin + y*cos + delta.Y})
 	}
 	ids := g.stationNodes(station)
-	for _, node := range items(g.network["Nodes"]) {
+	for _, node := range items(g.network["nodes"]) {
 		if object(node) == nil {
 			continue
 		}
-		if !ids[text(member(node, "ID"))] {
+		if !ids[text(member(node, "id"))] {
 			continue
 		}
-		point, err := g.point(text(member(node, "ID")))
+		point, err := g.point(text(member(node, "id")))
 		if err != nil {
 			return err
 		}
@@ -579,21 +582,21 @@ func (g geometryDraft) moveStation(command geometryEdit) error {
 		if err != nil {
 			return err
 		}
-		object(node)["Position"] = updated
+		object(node)["position"] = updated
 	}
-	for _, lane := range items(g.network["Lanes"]) {
-		if member(lane, "Control") == nil || !ids[text(member(lane, "From"))] || !ids[text(member(lane, "To"))] {
+	for _, lane := range items(g.network["lanes"]) {
+		if member(lane, "control") == nil || !ids[text(member(lane, "from"))] || !ids[text(member(lane, "to"))] {
 			continue
 		}
-		control := object(member(lane, "Control"))
-		if !finite(control["X"]) || !finite(control["Y"]) {
+		control := object(member(lane, "control"))
+		if !finite(control["x"]) || !finite(control["y"]) {
 			return errors.New("the lane needs a finite control point")
 		}
-		updated, err := turn(geometryPoint{number(control["X"]), number(control["Y"])})
+		updated, err := turn(geometryPoint{number(control["x"]), number(control["y"])})
 		if err != nil {
 			return err
 		}
-		object(lane)["Control"] = updated
+		object(lane)["control"] = updated
 	}
 	return nil
 }
@@ -602,10 +605,10 @@ func (g geometryDraft) deleteNode(id string) error {
 	if _, owned := g.nodeOwners()[id]; owned {
 		return errors.New("delete the station or berth from its controls")
 	}
-	if _, err := g.find("Nodes", id); err != nil {
+	if _, err := g.find("nodes", id); err != nil {
 		return err
 	}
-	g.network["Nodes"] = slices.DeleteFunc(items(g.network["Nodes"]), func(node any) bool { return member(node, "ID") == id })
-	g.network["Lanes"] = slices.DeleteFunc(items(g.network["Lanes"]), func(lane any) bool { return member(lane, "From") == id || member(lane, "To") == id })
+	g.network["nodes"] = slices.DeleteFunc(items(g.network["nodes"]), func(node any) bool { return member(node, "id") == id })
+	g.network["lanes"] = slices.DeleteFunc(items(g.network["lanes"]), func(lane any) bool { return member(lane, "from") == id || member(lane, "to") == id })
 	return nil
 }

@@ -103,7 +103,7 @@ func TestBackgroundEditsRejectInvalidCommands(t *testing.T) {
 		`{"action":"initialize","imageKey":"0123456789abcdef0123456789abcdef","width":16384,"height":16384}`,
 		`{"action":"opacity","background":{"x":0,"y":0,"width":1,"height":1,"opacity":1},"opacity":null}`,
 		`{"action":"opacity","background":{"x":0,"y":0,"width":1,"height":1,"opacity":1},"opacity":2}`,
-		`{"action":"calibrate","background":{"x":0,"y":0,"width":1e308,"height":1,"opacity":1},"a":{"X":0,"Y":0},"b":{"X":1,"Y":0},"meters":1e308}`,
+		`{"action":"calibrate","background":{"x":0,"y":0,"width":1e308,"height":1,"opacity":1},"a":{"x":0,"y":0},"b":{"x":1,"y":0},"meters":1e308}`,
 	} {
 		if _, err := editBackground(map[string]any{}, jsontext.Value(raw)); err == nil {
 			t.Errorf("accepted invalid command %s", raw)

@@ -4,6 +4,8 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
 	"errors"
 	"flag"
 	"fmt"
@@ -50,17 +52,16 @@ func readProject(path string) ([]byte, error) {
 }
 
 // decodeProject decodes data as cmd/serve reads a -project file and as the
-// session project command reads its project. Member names match without
-// case, the last of two such names applies, and unknown members and a
-// second JSON value are errors.
+// session project command reads its project. Member names match exactly,
+// the last of two equal names applies, and unknown members and a second
+// JSON value are errors.
 func decodeProject(data []byte) (project.Config, error) {
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
+	decoder := jsontext.NewDecoder(bytes.NewReader(data), json.DefaultOptionsV1(), jsonv2.MatchCaseInsensitiveNames(false), jsonv2.RejectUnknownMembers(true))
 	var config project.Config
-	if err := decoder.Decode(&config); err != nil {
+	if err := jsonv2.UnmarshalDecode(decoder, &config); err != nil {
 		return project.Config{}, err
 	}
-	if err := decoder.Decode(new(any)); !errors.Is(err, io.EOF) {
+	if _, err := decoder.ReadToken(); !errors.Is(err, io.EOF) {
 		return project.Config{}, errors.New("expected one JSON value")
 	}
 	return config, nil

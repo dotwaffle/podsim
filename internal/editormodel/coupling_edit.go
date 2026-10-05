@@ -154,8 +154,8 @@ func (r *couplingRegistries) find(rows []any, id string) (int, error) {
 
 // checkLane gives an error when the draft has no lane with the ID.
 func (r *couplingRegistries) checkLane(id string) error {
-	for _, lane := range items(member(member(r.draft, "network"), "Lanes")) {
-		if text(member(lane, "ID")) == id && id != "" {
+	for _, lane := range items(member(member(r.draft, "network"), "lanes")) {
+		if text(member(lane, "id")) == id && id != "" {
 			return nil
 		}
 	}

@@ -47,7 +47,7 @@ func FuzzExpressPublicDecode(f *testing.F) {
 	for _, raw := range []string{
 		`{"orderContract":"express-v1","textEncoding":"order-text-base64-v1","kind":"full","stream":"fuzz","sequence":"1"}`,
 		`{"orderContract":null,"textEncoding":"order-text-base64-v1"}`,
-		`{"orderContract":"express-v1","textEncoding":"order-text-base64-v1","delta":{"groups":{"pending":[{"From":"eA==","To":"eQ=="}]}}}`,
+		`{"orderContract":"express-v1","textEncoding":"order-text-base64-v1","delta":{"groups":{"pending":[{"from":"eA==","to":"eQ=="}]}}}`,
 	} {
 		f.Add(raw)
 	}

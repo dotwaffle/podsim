@@ -140,12 +140,12 @@ func TestStateFrameJSONOmitsTopologyAndLaneObjects(t *testing.T) {
 			t.Parallel()
 			shared := newFrameFixture(t, fixture)
 			encoded := mustJSON(t, shared.Frame())
-			for _, repeated := range [][]byte{[]byte(`"network"`), []byte(`"Route"`), []byte(`"SpeedLimit"`)} {
+			for _, repeated := range [][]byte{[]byte(`"network"`), []byte(`"route"`), []byte(`"speedLimit"`)} {
 				if bytes.Contains(encoded, repeated) {
 					t.Fatalf("state frame contains repeated topology field %s", repeated)
 				}
 			}
-			if !bytes.Contains(encoded, []byte(`"RouteLaneIDs"`)) {
+			if !bytes.Contains(encoded, []byte(`"routeLaneIDs"`)) {
 				t.Fatal("state frame omits route lane IDs")
 			}
 			// An empty list and a false restoresProject are omitted, so frames
@@ -350,7 +350,7 @@ func TestVehicleFramePlatoonJSON(t *testing.T) {
 		t.Fatal(err)
 	}
 	for index, want := range []string{`"01" 1`, `"01" 2`, " "} {
-		if got := string(vehicles[index]["PlatoonID"]) + " " + string(vehicles[index]["PlatoonIndex"]); got != want {
+		if got := string(vehicles[index]["platoonID"]) + " " + string(vehicles[index]["platoonIndex"]); got != want {
 			t.Fatalf("pod %d has platoon members %s, want %s", index+1, got, want)
 		}
 	}
@@ -385,10 +385,10 @@ func TestVehicleFrameRidersJSON(t *testing.T) {
 		t.Fatal(err)
 	}
 	var encoded []map[string]json.RawMessage
-	if err := json.Unmarshal(vehicles[0]["Riders"], &encoded); err != nil {
+	if err := json.Unmarshal(vehicles[0]["riders"], &encoded); err != nil {
 		t.Fatal(err)
 	}
-	members := []string{"BoardedTick", "Completed", "DispatchReason", "From", "ID", "PartySize", "PodID", "RequestedTick", "Service", "SharingConsent", "To"}
+	members := []string{"boardedTick", "completed", "dispatchReason", "from", "id", "partySize", "podID", "requestedTick", "service", "sharingConsent", "to"}
 	if len(encoded) != len(riders) {
 		t.Fatalf("riders = %d, want %d", len(encoded), len(riders))
 	}
@@ -396,14 +396,14 @@ func TestVehicleFrameRidersJSON(t *testing.T) {
 		if got := slices.Sorted(maps.Keys(rider)); !slices.Equal(got, members) {
 			t.Fatalf("rider %d members = %v, want %v", index, got, members)
 		}
-		if id := string(rider["ID"]); id != strconv.Itoa(riders[index].ID) {
+		if id := string(rider["id"]); id != strconv.Itoa(riders[index].ID) {
 			t.Fatalf("rider %d has ID %s, want %d", index, id, riders[index].ID)
 		}
 	}
-	if stops := string(vehicles[0]["Stops"]); stops != `["garden","market"]` {
+	if stops := string(vehicles[0]["stops"]); stops != `["garden","market"]` {
 		t.Fatalf("stops = %s", stops)
 	}
-	for _, key := range []string{"Riders", "Stops"} {
+	for _, key := range []string{"riders", "stops"} {
 		if _, ok := vehicles[1][key]; ok {
 			t.Fatalf("a pod without riders has the %s key", key)
 		}

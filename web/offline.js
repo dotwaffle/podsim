@@ -77,14 +77,14 @@
     object(project, 'Project');
     integer(project.version, 'Project version', 1);
     const network = object(project.network, 'Project network');
-    const hubs = array(network.Stations, 'Project stations').filter(station => {
-      object(station, 'Station'); id(station.ID, 'Station ID');
-      if (station.ParkingOnly !== undefined && typeof station.ParkingOnly !== 'boolean') fail('ParkingOnly must be boolean.');
-      return !station.ParkingOnly;
-    }).map(station => ({id: station.ID, name: typeof station.Name === 'string' ? station.Name : station.ID}));
+    const hubs = array(network.stations, 'Project stations').filter(station => {
+      object(station, 'Station'); id(station.id, 'Station ID');
+      if (station.parkingOnly !== undefined && typeof station.parkingOnly !== 'boolean') fail('parkingOnly must be boolean.');
+      return !station.parkingOnly;
+    }).map(station => ({id: station.id, name: typeof station.name === 'string' ? station.name : station.id}));
     const classes = [...new Set(array(project.fleet, 'Project fleet').map(vehicle => {
       object(vehicle, 'Fleet vehicle');
-      const value = vehicle.Class === undefined || vehicle.Class === '' ? 'legacy' : vehicle.Class;
+      const value = vehicle.class === undefined || vehicle.class === '' ? 'legacy' : vehicle.class;
       if (!CLASSES.includes(value)) fail(`Unsupported fleet class ${value}.`);
       return value;
     }))];

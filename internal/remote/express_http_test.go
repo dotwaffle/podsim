@@ -18,7 +18,7 @@ func TestExpressHTTPMediaFailClosed(t *testing.T) {
 		for _, body := range []string{
 			`{"orderContract":"express-v1","textEncoding":"order-text-base64-v1","topology":{},"frame":{}}`,
 			`{"epoch":"new","simulation":{"orderContract":"express-v1"}}`,
-			`{"epoch":"new","simulation":{"OrderContract":null}}`,
+			`{"epoch":"new","simulation":{"orderContract":null}}`,
 			`{"epoch":"new","textEncoding":""}`,
 		} {
 			t.Run(media+body, func(t *testing.T) {

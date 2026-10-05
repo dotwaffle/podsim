@@ -109,16 +109,16 @@ func scanStreamBoardingMembers(data []byte, version int) error {
 		if token.Kind() != jsontext.KindString || kind != jsontext.KindBeginObject || length%2 != 1 {
 			continue
 		}
-		name := strings.ToLower(token.String())
-		if name != "boardings" && name != "riddenmeters" {
+		name := token.String()
+		if name != "boardings" && name != "riddenMeters" {
 			continue
 		}
-		path := strings.Split(strings.ToLower(string(decoder.StackPointer())), "/")
+		path := strings.Split(string(decoder.StackPointer()), "/")
 		full := len(path) == 7 && (path[1] == "full" || path[1] == "frame") && path[2] == "state" && path[3] == "simulation" && path[4] == "vehicles" && streamArrayIndex(path[5])
 		delta := len(path) == 5 && path[1] == "delta" && path[2] == "vehicles" && streamArrayIndex(path[3])
 		metadata := len(path) == 7 && path[1] == "delta" && path[2] == "vehicles" && streamArrayIndex(path[3]) && path[4] == "metadata" && path[5] == "value"
 		records := name == "boardings" && (full || delta)
-		distance := name == "riddenmeters" && (full || metadata)
+		distance := name == "riddenMeters" && (full || metadata)
 		if !records && !distance {
 			continue
 		}
@@ -164,15 +164,7 @@ func boardingMembers(raw []byte) (map[string]json.RawMessage, error) {
 	if err := decodeStreamJSON(raw, &members); err != nil {
 		return nil, err
 	}
-	folded := make(map[string]json.RawMessage, len(members))
-	for key, value := range members {
-		name := strings.ToLower(key)
-		if folded[name] != nil {
-			return nil, errors.New("duplicate boarding member")
-		}
-		folded[name] = value
-	}
-	return folded, nil
+	return members, nil
 }
 
 func scanBoardingRecords(raw []byte, allowEmpty bool) error {
@@ -192,12 +184,12 @@ func scanBoardingRecordsLimit(raw []byte, allowEmpty bool, limit int) error {
 	}
 	for _, record := range records {
 		members, err := boardingMembers(record)
-		if err != nil || len(members) != 2 || members["berthid"] == nil || members["metersatboarding"] == nil {
+		if err != nil || len(members) != 2 || members["berthID"] == nil || members["metersAtBoarding"] == nil {
 			return errors.New("boarding record needs exactly its berth and baseline")
 		}
 		var id string
 		var meters float64
-		if decodeStreamJSON(members["berthid"], &id) != nil || id == "" || len(id) > 64 || bytes.Equal(members["metersatboarding"], []byte("null")) || decodeStreamJSON(members["metersatboarding"], &meters) != nil || !finiteNonnegative(meters) {
+		if decodeStreamJSON(members["berthID"], &id) != nil || id == "" || len(id) > 64 || bytes.Equal(members["metersAtBoarding"], []byte("null")) || decodeStreamJSON(members["metersAtBoarding"], &meters) != nil || !finiteNonnegative(meters) {
 			return errors.New("invalid boarding record members")
 		}
 	}

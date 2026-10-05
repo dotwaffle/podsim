@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"encoding/json"
+	"encoding/json/jsontext"
 	jsonv2 "encoding/json/v2"
 	"errors"
 	"flag"
@@ -382,13 +383,13 @@ func loadProject(path string) (project.Config, error) {
 	if info.Size() > project.MaxFileBytes {
 		return project.Config{}, fmt.Errorf("read project %s: file exceeds %d MiB", path, project.MaxFileBytes>>20)
 	}
-	decoder := json.NewDecoder(io.LimitReader(file, project.MaxFileBytes))
-	decoder.DisallowUnknownFields()
+	// Member names match exactly. The other encoding/json rules stay.
+	decoder := jsontext.NewDecoder(io.LimitReader(file, project.MaxFileBytes), json.DefaultOptionsV1(), jsonv2.MatchCaseInsensitiveNames(false), jsonv2.RejectUnknownMembers(true))
 	var config project.Config
-	if err := decoder.Decode(&config); err != nil {
+	if err := jsonv2.UnmarshalDecode(decoder, &config); err != nil {
 		return project.Config{}, fmt.Errorf("read project %s: %w", path, err)
 	}
-	if err := decoder.Decode(new(any)); err != io.EOF {
+	if _, err := decoder.ReadToken(); !errors.Is(err, io.EOF) {
 		return project.Config{}, fmt.Errorf("read project %s: expected one JSON value", path)
 	}
 	if err := project.Validate(config); err != nil {

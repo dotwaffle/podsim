@@ -2,8 +2,8 @@ package sim
 
 // WaitStats measures request-to-boarding wait since reset, including elapsed pending waits.
 type WaitStats struct {
-	AverageSeconds float64 `json:"AverageSeconds"`
-	MaxSeconds     float64 `json:"MaxSeconds"`
+	AverageSeconds float64 `json:"averageSeconds"`
+	MaxSeconds     float64 `json:"maxSeconds"`
 }
 
 func (s *Simulation) waitStats() WaitStats {

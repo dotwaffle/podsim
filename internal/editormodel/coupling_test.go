@@ -320,15 +320,15 @@ func TestCouplingEditorBankEditsKeepVersion(t *testing.T) {
 	t.Parallel()
 	draft := bankEditorFixture(1)
 	network := object(draft["network"])
-	station := object(items(network["Stations"])[0])
-	network["Stations"] = []any{station}
-	station["Berths"] = items(station["Berths"])[:1]
-	station["Banks"] = items(station["Banks"])[:1]
-	network["Nodes"] = slices.DeleteFunc(items(network["Nodes"]), func(node any) bool { return len(text(member(node, "ID"))) > 2 && text(member(node, "ID"))[:2] == "b-" })
-	network["Lanes"] = slices.DeleteFunc(items(network["Lanes"]), func(lane any) bool { return len(text(member(lane, "ID"))) > 2 && text(member(lane, "ID"))[:2] == "b-" })
+	station := object(items(network["stations"])[0])
+	network["stations"] = []any{station}
+	station["berths"] = items(station["berths"])[:1]
+	station["banks"] = items(station["banks"])[:1]
+	network["nodes"] = slices.DeleteFunc(items(network["nodes"]), func(node any) bool { return len(text(member(node, "id"))) > 2 && text(member(node, "id"))[:2] == "b-" })
+	network["lanes"] = slices.DeleteFunc(items(network["lanes"]), func(lane any) bool { return len(text(member(lane, "id"))) > 2 && text(member(lane, "id"))[:2] == "b-" })
 	draft["version"] = float64(project.CurrentVersion)
 	draft["couplingContract"] = string(sim.CompactPairV1CouplingContract)
-	banks, err := json.Marshal(station["Banks"])
+	banks, err := json.Marshal(station["banks"])
 	if err != nil {
 		t.Fatal(err)
 	}

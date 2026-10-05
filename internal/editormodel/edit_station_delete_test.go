@@ -56,7 +56,7 @@ func TestStationDeletionPreservesMalformedReferencesAndOwnsProposals(t *testing.
 	object(profile["custom"])["keep"] = false
 	object(items(profile["flows"])[1])["from"] = "mutated"
 	object(items(member(rail[2], "destinations"))[1])["station"] = "mutated"
-	object(items(result.Change.Patch["fleet"])[0])["ID"] = "mutated"
+	object(items(result.Change.Patch["fleet"])[0])["id"] = "mutated"
 	if !reflect.DeepEqual(draft, before) || model.branches["demandProfiles"].value != nil || member(items(model.profiles)[1], "flows") != nil {
 		t.Fatal("deletion changed source state or retained full generic flows")
 	}

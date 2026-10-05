@@ -32,7 +32,7 @@ func TestDecodeCanonicalJSONCheckpointComponent(t *testing.T) {
 }
 
 func TestDecodeCanonicalJSONUsesTypedChecks(t *testing.T) {
-	for _, raw := range []string{`{"version":"1"}`, `{"version":1,"unknown":true}`, `{"version":1,"network":{"stations":[{"Banks":null}]}}`, `{"version":1}`, `null`} {
+	for _, raw := range []string{`{"version":"1"}`, `{"version":1,"unknown":true}`, `{"version":1,"network":{"stations":[{"banks":null}]}}`, `{"version":1}`, `null`} {
 		if got, err := DecodeCanonicalJSON([]byte(raw)); err == nil || !reflect.DeepEqual(got, Config{}) {
 			t.Fatal("invalid component accepted or returned partial config", raw, err)
 		}

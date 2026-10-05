@@ -7,11 +7,11 @@ import (
 
 // ExpressService declares one directed hub pair and its pooling party cap.
 type ExpressService struct {
-	ID         string       `json:"ID"`
-	From       string       `json:"From"`
-	To         string       `json:"To"`
-	Class      VehicleClass `json:"Class"`
-	PartyLimit int          `json:"PartyLimit"`
+	ID         string       `json:"id"`
+	From       string       `json:"from"`
+	To         string       `json:"to"`
+	Class      VehicleClass `json:"class"`
+	PartyLimit int          `json:"partyLimit"`
 }
 
 // MaxExpressServices bounds an authored service registry.

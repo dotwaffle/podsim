@@ -11,8 +11,6 @@ import (
 	"slices"
 	"strings"
 	"testing"
-	"unicode"
-	"unicode/utf8"
 
 	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/sim"
@@ -335,9 +333,9 @@ func TestCouplingGeometryChecksMatchNative(t *testing.T) {
 		{"overlap", func(draft map[string]any) { object(items(draft["couplingSites"])[1])["laneId"] = "coupling-bc" }},
 		{"unknown lane", func(draft map[string]any) { object(items(draft["couplingSites"])[0])["laneId"] = "missing" }},
 		{"curved lane", func(draft map[string]any) {
-			for _, lane := range items(member(draft["network"], "Lanes")) {
-				if member(lane, "ID") == "coupling-ab" {
-					object(lane)["Control"] = map[string]any{"X": float64(100), "Y": float64(1010)}
+			for _, lane := range items(member(draft["network"], "lanes")) {
+				if member(lane, "id") == "coupling-ab" {
+					object(lane)["control"] = map[string]any{"x": float64(100), "y": float64(1010)}
 				}
 			}
 		}},
@@ -432,72 +430,42 @@ func TestImportMatchesServerDecoder(t *testing.T) {
 	}
 }
 
-// importedDraft follows the browser import: JSON.parse keeps both names of a
-// case pair, then the Go import helper replaces the draft when the server
-// decoder reads such names.
+// importedDraft follows the browser import, which keeps the names of the
+// file as JSON.parse gives them.
 func importedDraft(t *testing.T, text string) map[string]any {
 	t.Helper()
 	var draft map[string]any
 	if err := json.Unmarshal([]byte(text), &draft); err != nil {
 		t.Fatal(err)
 	}
-	var result struct {
-		Replace map[string]any `json:"replace"`
-		Error   string         `json:"error"`
-	}
-	if err := json.Unmarshal([]byte(Call(`{"op":"canonicalImport","project":`+text+`}`)), &result); err != nil || result.Error != "" {
-		t.Fatal("import helper failed", err, result.Error)
-	}
-	if result.Replace != nil {
-		draft = result.Replace
-	}
 	return draft
 }
 
-// The server decoder matches names as strings.EqualFold does, so the request
-// scanner bounds the same arrays.
-func TestRequestLimitsFoldProjectNames(t *testing.T) {
+// The server decoder matches names exactly, so the request scanner bounds
+// the arrays of the exact names only. An array at a name with another case
+// has no limit, so the scanner refuses it.
+func TestRequestLimitsMatchExactProjectNames(t *testing.T) {
 	t.Parallel()
-	for _, path := range []string{"network", "Network", "NETWORK", "networ\u212a"} {
-		for _, nodes := range []string{"nodes", "NODES", "Node\u017f"} {
-			within := `{"op":"validate","project":{"` + path + `":{"` + nodes + `":[` + strings.Repeat(`{},`, project.MaxNodes-1) + `{}]}}}`
-			if err := scanRequest([]byte(within)); err != nil {
-				t.Fatal(path, nodes, err)
-			}
-			beyond := `{"op":"validate","project":{"` + path + `":{"` + nodes + `":[` + strings.Repeat(`{},`, project.MaxNodes) + `{}]}}}`
-			if err := scanRequest([]byte(beyond)); err == nil {
-				t.Fatal("accepted too many nodes", path, nodes)
-			}
-		}
+	within := `{"op":"validate","project":{"network":{"nodes":[` + strings.Repeat(`{},`, project.MaxNodes-1) + `{}]}}}`
+	if err := scanRequest([]byte(within)); err != nil {
+		t.Fatal(err)
 	}
-	// Dashes, underscores, and runes outside the fold sets stay distinct.
-	for _, name := range []string{"No_des", "Nodeß", "Stat\u0131ons"} {
-		if err := scanRequest([]byte(`{"op":"validate","project":{"network":{"` + name + `":[{}]}}}`)); err == nil {
-			t.Fatal("folded a different name", name)
+	beyond := `{"op":"validate","project":{"network":{"nodes":[` + strings.Repeat(`{},`, project.MaxNodes) + `{}]}}}`
+	if err := scanRequest([]byte(beyond)); err == nil {
+		t.Fatal("accepted too many nodes")
+	}
+	for _, path := range []string{"network", "Network", "NETWORK", "networ\u212a"} {
+		for _, nodes := range []string{"nodes", "Nodes", "NODES", "node\u017f", "No_des"} {
+			if path == "network" && nodes == "nodes" {
+				continue
+			}
+			if err := scanRequest([]byte(`{"op":"validate","project":{"` + path + `":{"` + nodes + `":[{}]}}}`)); err == nil {
+				t.Fatal("bounded a name with another case", path, nodes)
+			}
 		}
 	}
 	if err := scanRequest([]byte(`{"op":"edit","edit":{"value":{"Value":[{}]}}}`)); err == nil {
-		t.Fatal("folded an editor command path")
-	}
-}
-
-// The JavaScript import folds names with a table of the runes outside ASCII
-// that fold to an ASCII letter. This test keeps that table complete.
-func TestFoldNameMatchesEqualFold(t *testing.T) {
-	t.Parallel()
-	var toASCII []rune
-	for r := rune(utf8.RuneSelf); r <= unicode.MaxRune; r++ {
-		if folded := []rune(foldName(string(r))); folded[0] < utf8.RuneSelf {
-			toASCII = append(toASCII, r)
-		}
-	}
-	if !slices.Equal(toASCII, []rune{'\u017f', '\u212a'}) {
-		t.Fatalf("runes that fold to ASCII: %U", toASCII)
-	}
-	for _, pair := range [][2]string{{"Nodes", "NODEſ"}, {"network", "NETWORK"}, {"Kelvin", "kelvin"}, {"Claß", "Class"}, {"versıon", "version"}, {"a_b", "a-b"}, {"Σίσυφος", "ΣΊΣΥΦΟΣ"}} {
-		if (foldName(pair[0]) == foldName(pair[1])) != strings.EqualFold(pair[0], pair[1]) {
-			t.Fatal("fold differs from strings.EqualFold", pair)
-		}
+		t.Fatal("bounded an editor command path with another case")
 	}
 }
 
@@ -525,13 +493,13 @@ func TestLaneClassesMakeCouplingLanes(t *testing.T) {
 	draft := configDraft(t, couplingEditorConfig(t, false))
 	delete(draft, "couplingSites")
 	delete(draft, "couplingCorridors")
-	for _, lane := range items(member(draft["network"], "Lanes")) {
-		delete(object(lane), "VehicleClasses")
+	for _, lane := range items(member(draft["network"], "lanes")) {
+		delete(object(lane), "vehicleClasses")
 	}
 	classes := func(draft map[string]any, id string) any {
-		for _, lane := range items(member(draft["network"], "Lanes")) {
-			if member(lane, "ID") == id {
-				return member(lane, "VehicleClasses")
+		for _, lane := range items(member(draft["network"], "lanes")) {
+			if member(lane, "id") == id {
+				return member(lane, "vehicleClasses")
 			}
 		}
 		return nil

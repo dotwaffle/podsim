@@ -97,8 +97,8 @@ func (c railEdit) validate(raw jsontext.Value) error {
 }
 
 func passengerStations(draft any) []any {
-	return slices.DeleteFunc(slices.Clone(items(member(member(draft, "network"), "Stations"))), func(station any) bool {
-		return member(station, "ParkingOnly") == true
+	return slices.DeleteFunc(slices.Clone(items(member(member(draft, "network"), "stations"))), func(station any) bool {
+		return member(station, "parkingOnly") == true
 	})
 }
 
@@ -139,9 +139,9 @@ func newRailEvent(draft any, departure bool) (any, error) {
 		}
 	}
 	event := map[string]any{
-		"id": id, "station": text(member(stations[0], "ID")), "atSeconds": at,
+		"id": id, "station": text(member(stations[0], "id")), "atSeconds": at,
 		"walkingSeconds": walking, "passengers": float64(120),
-		choices: []any{map[string]any{"station": text(member(stations[1], "ID")), "weight": float64(1)}},
+		choices: []any{map[string]any{"station": text(member(stations[1], "id")), "weight": float64(1)}},
 	}
 	if departure {
 		event["requestFromSeconds"], event["requestUntilSeconds"] = at-600, at-300
@@ -163,7 +163,7 @@ func changeRailEvent(draft any, event map[string]any, choices string, command ra
 			return errors.New("a rail event can have at most 16 choices")
 		}
 		for _, station := range passengerStations(draft) {
-			id := text(member(station, "ID"))
+			id := text(member(station, "id"))
 			if id != text(event["station"]) && !slices.ContainsFunc(rows, func(row any) bool { return text(member(row, "station")) == id }) {
 				event[choices] = append(rows, map[string]any{"station": id, "weight": float64(1)})
 				return nil

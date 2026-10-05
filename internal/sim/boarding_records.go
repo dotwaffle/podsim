@@ -7,8 +7,8 @@ import (
 
 // RiderBoarding records a party's berth and passenger distance at boarding.
 type RiderBoarding struct {
-	BerthID          string  `json:"BerthID"`
-	MetersAtBoarding float64 `json:"MetersAtBoarding"`
+	BerthID          string  `json:"berthID"`
+	MetersAtBoarding float64 `json:"metersAtBoarding"`
 }
 
 // legacyBoardingRecords reports whether the old representation preserves each record.

@@ -3,6 +3,7 @@ package session
 import (
 	"bytes"
 	"encoding/json/jsontext"
+	"errors"
 	"fmt"
 	"os"
 	"reflect"
@@ -310,6 +311,52 @@ func TestSavedLegacyOrderMembersRejected(t *testing.T) {
 			name := strings.Split(test.member, `"`)[1]
 			if _, err := decodeStateFile(compressTestJSON(t, changed)); err == nil || !strings.Contains(err.Error(), name) {
 				t.Fatalf("removed member %s: %v", name, err)
+			}
+		})
+	}
+}
+
+// A saved state member whose case differs from the declared name is
+// unknown, so the decoder refuses the file. The cases cover the plain and
+// the coupling state and a member of the saved project.
+func TestStateFileRefusesCaseVariantMembers(t *testing.T) {
+	t.Parallel()
+	golden, err := os.ReadFile("testdata/state_v6.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	data := couplingPhaseFixtures(t)
+	coupling := decompressTestJSON(t, encodeTestState(t, couplingPhaseFile(t, couplingPhaseInput(t, data, data.Frames[0]))))
+	for _, test := range []struct {
+		name      string
+		raw       []byte
+		from, to  string
+		preserved bool
+	}{
+		{"plain tick", golden, `"tick":`, `"Tick":`, false},
+		{"plain rider", golden, `"dispatchReason":`, `"DispatchReason":`, false},
+		{"plain project", golden, `"nodes":`, `"Nodes":`, false},
+		{"coupling tick", coupling, `"tick":`, `"Tick":`, true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			if _, err := decodeStateFile(compressTestJSON(t, test.raw)); err != nil {
+				t.Fatal("exact file refused", err)
+			}
+			if !bytes.Contains(test.raw, []byte(test.from)) {
+				t.Fatal("file has no", test.from)
+			}
+			changed := bytes.Replace(test.raw, []byte(test.from), []byte(test.to), 1)
+			_, err := decodeStateFile(compressTestJSON(t, changed))
+			if err == nil {
+				t.Fatalf("accepted %s", test.to)
+			}
+			// Startup moves a plain file aside but keeps a coupling file
+			// and fails.
+			_, preserved := errors.AsType[*preservedStateError](err)
+			stateErr, rejected := errors.AsType[*stateError](err)
+			if preserved != test.preserved || !preserved && (!rejected || stateErr.reason != reasonInvalidState) {
+				t.Fatalf("wrong refusal class: preserved=%t err=%v", preserved, err)
 			}
 		})
 	}

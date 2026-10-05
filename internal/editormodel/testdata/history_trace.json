@@ -6,9 +6,9 @@
         "version": 1,
         "name": "Untitled scenario",
         "network": {
-          "Nodes": [],
-          "Lanes": [],
-          "Stations": []
+          "nodes": [],
+          "lanes": [],
+          "stations": []
         },
         "fleet": [],
         "demand": {
@@ -38,9 +38,9 @@
         "version": 1,
         "name": "Untitled scenario",
         "network": {
-          "Nodes": [],
-          "Lanes": [],
-          "Stations": []
+          "nodes": [],
+          "lanes": [],
+          "stations": []
         },
         "fleet": [],
         "demand": {
@@ -75,9 +75,9 @@
         "version": 1,
         "name": "A",
         "network": {
-          "Nodes": [],
-          "Lanes": [],
-          "Stations": []
+          "nodes": [],
+          "lanes": [],
+          "stations": []
         },
         "fleet": [],
         "demand": {
@@ -115,9 +115,9 @@
         "version": 1,
         "name": "A",
         "network": {
-          "Nodes": [],
-          "Lanes": [],
-          "Stations": []
+          "nodes": [],
+          "lanes": [],
+          "stations": []
         },
         "fleet": [],
         "demand": {
@@ -162,9 +162,9 @@
         "version": 1,
         "name": "B",
         "network": {
-          "Nodes": [],
-          "Lanes": [],
-          "Stations": []
+          "nodes": [],
+          "lanes": [],
+          "stations": []
         },
         "fleet": [],
         "demand": {
@@ -208,9 +208,9 @@
         "version": 1,
         "name": "B",
         "network": {
-          "Nodes": [],
-          "Lanes": [],
-          "Stations": []
+          "nodes": [],
+          "lanes": [],
+          "stations": []
         },
         "fleet": [],
         "demand": {
@@ -262,9 +262,9 @@
         "version": 1,
         "name": "B",
         "network": {
-          "Nodes": [],
-          "Lanes": [],
-          "Stations": []
+          "nodes": [],
+          "lanes": [],
+          "stations": []
         },
         "fleet": [],
         "demand": {
@@ -308,9 +308,9 @@
         "version": 1,
         "name": "B",
         "network": {
-          "Nodes": [],
-          "Lanes": [],
-          "Stations": []
+          "nodes": [],
+          "lanes": [],
+          "stations": []
         },
         "fleet": [],
         "demand": {
@@ -363,9 +363,9 @@
         "version": 1,
         "name": "B",
         "network": {
-          "Nodes": [],
-          "Lanes": [],
-          "Stations": []
+          "nodes": [],
+          "lanes": [],
+          "stations": []
         },
         "fleet": [],
         "demand": {
@@ -417,9 +417,9 @@
         "version": 1,
         "name": "B",
         "network": {
-          "Nodes": [],
-          "Lanes": [],
-          "Stations": []
+          "nodes": [],
+          "lanes": [],
+          "stations": []
         },
         "fleet": [],
         "demand": {
@@ -463,9 +463,9 @@
         "version": 1,
         "name": "B",
         "network": {
-          "Nodes": [],
-          "Lanes": [],
-          "Stations": []
+          "nodes": [],
+          "lanes": [],
+          "stations": []
         },
         "fleet": [],
         "demand": {
@@ -518,9 +518,9 @@
         "version": 1,
         "name": "B",
         "network": {
-          "Nodes": [],
-          "Lanes": [],
-          "Stations": []
+          "nodes": [],
+          "lanes": [],
+          "stations": []
         },
         "fleet": [],
         "demand": {
@@ -572,9 +572,9 @@
         "version": 1,
         "name": "Preview repair",
         "network": {
-          "Nodes": [],
-          "Lanes": [],
-          "Stations": []
+          "nodes": [],
+          "lanes": [],
+          "stations": []
         },
         "fleet": [],
         "demand": {
@@ -619,9 +619,9 @@
         "version": 1,
         "name": "Preview repair",
         "network": {
-          "Nodes": [],
-          "Lanes": [],
-          "Stations": []
+          "nodes": [],
+          "lanes": [],
+          "stations": []
         },
         "fleet": [],
         "demand": {
@@ -673,9 +673,9 @@
         "version": 1,
         "name": false,
         "network": {
-          "Nodes": [],
-          "Lanes": [],
-          "Stations": []
+          "nodes": [],
+          "lanes": [],
+          "stations": []
         },
         "fleet": [],
         "demand": {
@@ -719,9 +719,9 @@
         "version": 1,
         "name": false,
         "network": {
-          "Nodes": [],
-          "Lanes": [],
-          "Stations": []
+          "nodes": [],
+          "lanes": [],
+          "stations": []
         },
         "fleet": [],
         "demand": {
@@ -774,9 +774,9 @@
         "version": 1,
         "name": "Preview repair",
         "network": {
-          "Nodes": [],
-          "Lanes": [],
-          "Stations": []
+          "nodes": [],
+          "lanes": [],
+          "stations": []
         },
         "fleet": [],
         "demand": {
@@ -829,9 +829,9 @@
         "version": 1,
         "name": false,
         "network": {
-          "Nodes": [],
-          "Lanes": [],
-          "Stations": []
+          "nodes": [],
+          "lanes": [],
+          "stations": []
         },
         "fleet": [],
         "demand": {
@@ -884,9 +884,9 @@
         "version": 1,
         "name": false,
         "network": {
-          "Nodes": [],
-          "Lanes": [],
-          "Stations": []
+          "nodes": [],
+          "lanes": [],
+          "stations": []
         },
         "fleet": [],
         "demand": {
@@ -939,9 +939,9 @@
         "version": 1,
         "name": "Preview repair",
         "network": {
-          "Nodes": [],
-          "Lanes": [],
-          "Stations": []
+          "nodes": [],
+          "lanes": [],
+          "stations": []
         },
         "fleet": [],
         "demand": {
@@ -994,9 +994,9 @@
         "version": 1,
         "name": "B",
         "network": {
-          "Nodes": [],
-          "Lanes": [],
-          "Stations": []
+          "nodes": [],
+          "lanes": [],
+          "stations": []
         },
         "fleet": [],
         "demand": {
@@ -1049,9 +1049,9 @@
         "version": 1,
         "name": "Preview repair",
         "network": {
-          "Nodes": [],
-          "Lanes": [],
-          "Stations": []
+          "nodes": [],
+          "lanes": [],
+          "stations": []
         },
         "fleet": [],
         "demand": {
@@ -1103,9 +1103,9 @@
         "version": 1,
         "name": "Preview repair",
         "network": {
-          "Nodes": [],
-          "Lanes": [],
-          "Stations": []
+          "nodes": [],
+          "lanes": [],
+          "stations": []
         },
         "fleet": [],
         "demand": {
@@ -1135,9 +1135,9 @@
         "version": 1,
         "name": "Preview repair",
         "network": {
-          "Nodes": [],
-          "Lanes": [],
-          "Stations": []
+          "nodes": [],
+          "lanes": [],
+          "stations": []
         },
         "fleet": [],
         "demand": {
@@ -1176,9 +1176,9 @@
         "version": 1,
         "name": "Preview repair",
         "network": {
-          "Nodes": [],
-          "Lanes": [],
-          "Stations": []
+          "nodes": [],
+          "lanes": [],
+          "stations": []
         },
         "fleet": [],
         "demand": {
@@ -1231,9 +1231,9 @@
         "version": 1,
         "name": "Preview repair",
         "network": {
-          "Nodes": [],
-          "Lanes": [],
-          "Stations": []
+          "nodes": [],
+          "lanes": [],
+          "stations": []
         },
         "fleet": [],
         "demand": {
@@ -1271,9 +1271,9 @@
         "version": 1,
         "name": "Preview repair",
         "network": {
-          "Nodes": [],
-          "Lanes": [],
-          "Stations": []
+          "nodes": [],
+          "lanes": [],
+          "stations": []
         },
         "fleet": [],
         "demand": {
@@ -1303,9 +1303,9 @@
         "version": 1,
         "name": "Preview repair",
         "network": {
-          "Nodes": [],
-          "Lanes": [],
-          "Stations": []
+          "nodes": [],
+          "lanes": [],
+          "stations": []
         },
         "fleet": [],
         "demand": {
@@ -1341,9 +1341,9 @@
         "version": 1,
         "name": "Preview repair",
         "network": {
-          "Nodes": [],
-          "Lanes": [],
-          "Stations": []
+          "nodes": [],
+          "lanes": [],
+          "stations": []
         },
         "fleet": [],
         "demand": {
@@ -1379,9 +1379,9 @@
         "version": 1,
         "name": "Preview repair",
         "network": {
-          "Nodes": [],
-          "Lanes": [],
-          "Stations": []
+          "nodes": [],
+          "lanes": [],
+          "stations": []
         },
         "fleet": [],
         "demand": {
@@ -1417,9 +1417,9 @@
         "version": 1,
         "name": "Preview repair",
         "network": {
-          "Nodes": [],
-          "Lanes": [],
-          "Stations": []
+          "nodes": [],
+          "lanes": [],
+          "stations": []
         },
         "fleet": [],
         "demand": {

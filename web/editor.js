@@ -96,7 +96,7 @@
     return {
       version: 1,
       name: "Untitled scenario",
-      network: { Nodes: [], Lanes: [], Stations: [] },
+      network: { nodes: [], lanes: [], stations: [] },
       fleet: [],
       demand: { enabled: false, perMinute: 2, pattern: "balanced", destination: "", profile: "", band: "", seed: 1 },
       demandProfiles: [],
@@ -117,35 +117,35 @@
   function fallbackConfig() {
     const config = emptyConfig();
     config.network = {
-      Nodes: [
-        {"ID":"station-1-entry-1","Position":{"X":64,"Y":120}},
-        {"ID":"station-1-exit-1","Position":{"X":136,"Y":120}},
-        {"ID":"station-1-berth-node-1","Position":{"X":100,"Y":150}},
-        {"ID":"station-2-entry-1","Position":{"X":304,"Y":120}},
-        {"ID":"station-2-exit-1","Position":{"X":376,"Y":120}},
-        {"ID":"station-2-berth-node-1","Position":{"X":340,"Y":150}},
+      nodes: [
+        {"id":"station-1-entry-1","position":{"x":64,"y":120}},
+        {"id":"station-1-exit-1","position":{"x":136,"y":120}},
+        {"id":"station-1-berth-node-1","position":{"x":100,"y":150}},
+        {"id":"station-2-entry-1","position":{"x":304,"y":120}},
+        {"id":"station-2-exit-1","position":{"x":376,"y":120}},
+        {"id":"station-2-berth-node-1","position":{"x":340,"y":150}},
       ],
-      Lanes: [
-        {"ID":"lane-1","From":"station-1-entry-1","To":"station-1-berth-node-1","SpeedLimit":12,"StationID":"station-1","StationRole":"berth-access"},
-        {"ID":"lane-2","From":"station-1-berth-node-1","To":"station-1-exit-1","SpeedLimit":12,"StationID":"station-1","StationRole":"departure"},
-        {"ID":"lane-3","From":"station-1-entry-1","To":"station-1-exit-1","SpeedLimit":12,"StationID":"station-1","StationRole":"through"},
-        {"ID":"lane-4","From":"station-2-entry-1","To":"station-2-berth-node-1","SpeedLimit":12,"StationID":"station-2","StationRole":"berth-access"},
-        {"ID":"lane-5","From":"station-2-berth-node-1","To":"station-2-exit-1","SpeedLimit":12,"StationID":"station-2","StationRole":"departure"},
-        {"ID":"lane-6","From":"station-2-entry-1","To":"station-2-exit-1","SpeedLimit":12,"StationID":"station-2","StationRole":"through"},
-        {"ID":"lane-7","From":"station-1-exit-1","To":"station-2-entry-1","SpeedLimit":12},
-        {"ID":"lane-8","From":"station-2-exit-1","To":"station-1-entry-1","SpeedLimit":12},
+      lanes: [
+        {"id":"lane-1","from":"station-1-entry-1","to":"station-1-berth-node-1","speedLimit":12,"stationID":"station-1","stationRole":"berth-access"},
+        {"id":"lane-2","from":"station-1-berth-node-1","to":"station-1-exit-1","speedLimit":12,"stationID":"station-1","stationRole":"departure"},
+        {"id":"lane-3","from":"station-1-entry-1","to":"station-1-exit-1","speedLimit":12,"stationID":"station-1","stationRole":"through"},
+        {"id":"lane-4","from":"station-2-entry-1","to":"station-2-berth-node-1","speedLimit":12,"stationID":"station-2","stationRole":"berth-access"},
+        {"id":"lane-5","from":"station-2-berth-node-1","to":"station-2-exit-1","speedLimit":12,"stationID":"station-2","stationRole":"departure"},
+        {"id":"lane-6","from":"station-2-entry-1","to":"station-2-exit-1","speedLimit":12,"stationID":"station-2","stationRole":"through"},
+        {"id":"lane-7","from":"station-1-exit-1","to":"station-2-entry-1","speedLimit":12},
+        {"id":"lane-8","from":"station-2-exit-1","to":"station-1-entry-1","speedLimit":12},
       ],
-      Stations: [
-        {"ID":"station-1","Name":"Origin","Entry":"station-1-entry-1","Exit":"station-1-exit-1","Berths":[{"ID":"station-1-berth-1","Node":"station-1-berth-node-1"}],"ParkingOnly":false},
-        {"ID":"station-2","Name":"Destination","Entry":"station-2-entry-1","Exit":"station-2-exit-1","Berths":[{"ID":"station-2-berth-1","Node":"station-2-berth-node-1"}],"ParkingOnly":false},
+      stations: [
+        {"id":"station-1","name":"Origin","entry":"station-1-entry-1","exit":"station-1-exit-1","berths":[{"id":"station-1-berth-1","node":"station-1-berth-node-1"}],"parkingOnly":false},
+        {"id":"station-2","name":"Destination","entry":"station-2-entry-1","exit":"station-2-exit-1","berths":[{"id":"station-2-berth-1","node":"station-2-berth-node-1"}],"parkingOnly":false},
       ],
     };
     return config;
   }
 
   function point(config, nodeID) {
-    const node = config.network.Nodes.find((item) => item && item.ID === nodeID);
-    return node && node.Position;
+    const node = config.network.nodes.find((item) => item && item.id === nodeID);
+    return node && node.position;
   }
 
   // stationAxes gives the axes of a station from the positions of its entry
@@ -155,9 +155,9 @@
   // so across points to the right of the direction of travel. When the
   // entry and the exit are at the same point, along points right.
   function stationAxes(entry, exit) {
-    const dx = exit.X - entry.X; const dy = exit.Y - entry.Y; const length = Math.hypot(dx, dy);
-    const along = length ? { X: dx / length, Y: dy / length } : { X: 1, Y: 0 };
-    return { origin: { X: (entry.X + exit.X) / 2, Y: (entry.Y + exit.Y) / 2 }, along, across: { X: -along.Y, Y: along.X } };
+    const dx = exit.x - entry.x; const dy = exit.y - entry.y; const length = Math.hypot(dx, dy);
+    const along = length ? { x: dx / length, y: dy / length } : { x: 1, y: 0 };
+    return { origin: { x: (entry.x + exit.x) / 2, y: (entry.y + exit.y) / 2 }, along, across: { x: -along.y, y: along.x } };
   }
 
   // stationBearing gives the bearing of a station in degrees. The bearing is
@@ -166,7 +166,7 @@
   // least 0 and less than 360.
   function stationBearing(entry, exit) {
     const { along } = stationAxes(entry, exit);
-    return (Math.atan2(along.X, -along.Y) * 180 / Math.PI + 360) % 360;
+    return (Math.atan2(along.x, -along.y) * 180 / Math.PI + 360) % 360;
   }
 
   // stationShape gives the drawn shape of a station. The shape is the
@@ -181,15 +181,15 @@
     const { origin, along, across } = stationAxes(shape.entry, shape.exit);
     const low = { along: Infinity, across: Infinity }; const high = { along: -Infinity, across: -Infinity };
     for (const at of [shape.entry, shape.exit, ...shape.points]) {
-      const x = at.X - origin.X; const y = at.Y - origin.Y;
-      const offset = { along: x * along.X + y * along.Y, across: x * across.X + y * across.Y };
+      const x = at.x - origin.x; const y = at.y - origin.y;
+      const offset = { along: x * along.x + y * along.y, across: x * across.x + y * across.y };
       for (const axis of ["along", "across"]) { low[axis] = Math.min(low[axis], offset[axis]); high[axis] = Math.max(high[axis], offset[axis]); }
     }
     const middle = { along: (low.along + high.along) / 2, across: (low.across + high.across) / 2 };
     const width = high.along - low.along + 2 * STATION_PADDING; const height = high.across - low.across + 2 * STATION_PADDING;
-    const center = { X: origin.X + along.X * middle.along + across.X * middle.across, Y: origin.Y + along.Y * middle.along + across.Y * middle.across };
-    const top = center.Y - Math.abs(along.Y) * width / 2 - Math.abs(across.Y) * height / 2;
-    return { center, width, height, angle: Math.atan2(along.Y, along.X) * 180 / Math.PI, top };
+    const center = { x: origin.x + along.x * middle.along + across.x * middle.across, y: origin.y + along.y * middle.along + across.y * middle.across };
+    const top = center.y - Math.abs(along.y) * width / 2 - Math.abs(across.y) * height / 2;
+    return { center, width, height, angle: Math.atan2(along.y, along.x) * 180 / Math.PI, top };
   }
 
   // berthChain gives the berth rows of a berth chain station, in berth
@@ -208,18 +208,18 @@
   function berthChain(config, station) {
     const core = stationCoreNodeIDs(station);
     const byFrom = new Map(); const byTo = new Map();
-    for (const lane of config.network.Lanes) {
-      if (!byFrom.has(lane.From)) byFrom.set(lane.From, []);
-      if (!byTo.has(lane.To)) byTo.set(lane.To, []);
-      byFrom.get(lane.From).push(lane); byTo.get(lane.To).push(lane);
+    for (const lane of config.network.lanes) {
+      if (!byFrom.has(lane.from)) byFrom.set(lane.from, []);
+      if (!byTo.has(lane.to)) byTo.set(lane.to, []);
+      byFrom.get(lane.from).push(lane); byTo.get(lane.to).push(lane);
     }
-    const link = (from, to) => (byFrom.get(from) || []).find((lane) => lane.To === to);
+    const link = (from, to) => (byFrom.get(from) || []).find((lane) => lane.to === to);
     const rows = [];
-    let arrival = station.Entry; let departure = station.Exit;
-    for (const berth of station.Berths || []) {
-      const ins = byTo.get(berth.Node) || []; const outs = byFrom.get(berth.Node) || [];
+    let arrival = station.entry; let departure = station.exit;
+    for (const berth of station.berths || []) {
+      const ins = byTo.get(berth.node) || []; const outs = byFrom.get(berth.node) || [];
       if (ins.length !== 1 || outs.length !== 1) return null;
-      const row = { berth, arrival: ins[0].From, departure: outs[0].To, inLane: ins[0], outLane: outs[0] };
+      const row = { berth, arrival: ins[0].from, departure: outs[0].to, inLane: ins[0], outLane: outs[0] };
       if (row.arrival === row.departure || core.has(row.arrival) || core.has(row.departure)) return null;
       row.arrivalLink = link(arrival, row.arrival); row.departureLink = link(row.departure, departure);
       if (!row.arrivalLink || !row.departureLink) return null;
@@ -232,51 +232,51 @@
   // Station dimensions come from existing coordinates. Only aligned, straight
   // berth chains support these controls. Other layouts keep manual node edits.
   function stationLayout(config, stationID, bankID = "") {
-    let station = config.network.Stations.find((item) => item.ID === stationID);
-    if (station && Object.hasOwn(station, "Banks")) {
-      const bank = station.Banks?.find((item) => item.ID === bankID);
+    let station = config.network.stations.find((item) => item.id === stationID);
+    if (station && Object.hasOwn(station, "banks")) {
+      const bank = station.banks?.find((item) => item.id === bankID);
       if (!bank) return { error: "Select a station bank." };
       station = bankStation(station, bank);
     }
     const rows = station && berthChain(config, station);
     const unsupported = (reason) => ({ error: reason, approachLength: bankID && station ? bankAccessLength(config, station, "entry") : null, departureLength: bankID && station ? bankAccessLength(config, station, "exit") : null });
     if (!rows) return unsupported("Layout controls require a straight berth chain.");
-    const nodes = new Map(config.network.Nodes.map((node) => [node.ID, node.Position]));
-    const entry = nodes.get(station.Entry); const exit = nodes.get(station.Exit);
+    const nodes = new Map(config.network.nodes.map((node) => [node.id, node.position]));
+    const entry = nodes.get(station.entry); const exit = nodes.get(station.exit);
     if (!entry || !exit) return unsupported("The station entry or exit is missing.");
-    const frame = stationAxes(entry, exit); const spacing = Math.hypot(exit.X - entry.X, exit.Y - entry.Y);
+    const frame = stationAxes(entry, exit); const spacing = Math.hypot(exit.x - entry.x, exit.y - entry.y);
     if (spacing < 2 * MIN_LANE_LENGTH) return unsupported("Entry/exit spacing must be at least 48 m.");
-    const offset = (id, axis) => { const at = nodes.get(id); return at && (at.X - frame.origin.X) * frame[axis].X + (at.Y - frame.origin.Y) * frame[axis].Y; };
+    const offset = (id, axis) => { const at = nodes.get(id); return at && (at.x - frame.origin.x) * frame[axis].x + (at.y - frame.origin.y) * frame[axis].y; };
     const near = (a, b) => Number.isFinite(a) && Number.isFinite(b) && Math.abs(a - b) < 1e-6;
-    const body = new Set([station.Entry, station.Exit]); const rowNodes = new Set(); const rowLanes = new Set();
+    const body = new Set([station.entry, station.exit]); const rowNodes = new Set(); const rowLanes = new Set();
     for (const row of rows) {
-      for (const id of [row.arrival, row.berth.Node, row.departure]) {
+      for (const id of [row.arrival, row.berth.node, row.departure]) {
         if (body.has(id)) return unsupported("Berth rows must use distinct nodes.");
         body.add(id); rowNodes.add(id);
       }
-      for (const lane of [row.arrivalLink, row.departureLink, row.inLane, row.outLane]) rowLanes.add(lane.ID);
+      for (const lane of [row.arrivalLink, row.departureLink, row.inLane, row.outLane]) rowLanes.add(lane.id);
     }
-    if (config.network.Stations.some((other) => other.ID !== stationID && [...stationCoreNodeIDs(other)].some((id) => body.has(id)))) return unsupported("Another station shares these nodes.");
-    for (const lane of config.network.Lanes) {
-      if (!body.has(lane.From) && !body.has(lane.To)) continue;
-      if (lane.Control) return unsupported(`Curved lane ${lane.ID} requires manual node edits.`);
-      if ((rowNodes.has(lane.From) || rowNodes.has(lane.To)) && (!rowLanes.has(lane.ID) || lane.StationID !== stationID)) return unsupported(`Lane ${lane.ID} shares a berth row node.`);
+    if (config.network.stations.some((other) => other.id !== stationID && [...stationCoreNodeIDs(other)].some((id) => body.has(id)))) return unsupported("Another station shares these nodes.");
+    for (const lane of config.network.lanes) {
+      if (!body.has(lane.from) && !body.has(lane.to)) continue;
+      if (lane.control) return unsupported(`Curved lane ${lane.id} requires manual node edits.`);
+      if ((rowNodes.has(lane.from) || rowNodes.has(lane.to)) && (!rowLanes.has(lane.id) || lane.stationID !== stationID)) return unsupported(`Lane ${lane.id} shares a berth row node.`);
     }
-    const firstDepth = offset(rows[0].berth.Node, "across"); const side = Math.sign(firstDepth);
+    const firstDepth = offset(rows[0].berth.node, "across"); const side = Math.sign(firstDepth);
     if (!side) return unsupported("Berth rows must lie on one side of the station mouth.");
-    const depths = rows.map((row) => side * offset(row.berth.Node, "across"));
+    const depths = rows.map((row) => side * offset(row.berth.node, "across"));
     const pitch = rows.length > 1 ? depths[1] - depths[0] : null;
     for (const [index, row] of rows.entries()) {
-      if (!near(offset(row.arrival, "along"), -spacing / 2) || !near(offset(row.departure, "along"), spacing / 2) || !near(offset(row.berth.Node, "along"), 0) ||
+      if (!near(offset(row.arrival, "along"), -spacing / 2) || !near(offset(row.departure, "along"), spacing / 2) || !near(offset(row.berth.node, "along"), 0) ||
           !near(offset(row.arrival, "across"), side * depths[index]) || !near(offset(row.departure, "across"), side * depths[index]) || depths[index] <= 0 ||
           (pitch !== null && (pitch < 25 - 1e-6 || !near(depths[index], depths[0] + index * pitch)))) return unsupported("Berth rows must form an aligned rectangular chain with uniform pitch of at least 25 m.");
     }
-    const incoming = config.network.Lanes.filter((lane) => lane.To === station.Entry && lane.StationID === stationID && lane.StationRole === "entry");
-    const outgoing = config.network.Lanes.filter((lane) => lane.From === station.Exit && lane.StationID === stationID && lane.StationRole === "exit");
+    const incoming = config.network.lanes.filter((lane) => lane.to === station.entry && lane.stationID === stationID && lane.stationRole === "entry");
+    const outgoing = config.network.lanes.filter((lane) => lane.from === station.exit && lane.stationID === stationID && lane.stationRole === "exit");
     let setback = null;
-    if (incoming.length === 1 && outgoing.length === 1 && !body.has(incoming[0].From) && !body.has(outgoing[0].To) &&
-        near(offset(incoming[0].From, "across"), offset(outgoing[0].To, "across")) && near(offset(incoming[0].From, "along") + offset(outgoing[0].To, "along"), 0)) {
-      const depth = -side * offset(incoming[0].From, "across");
+    if (incoming.length === 1 && outgoing.length === 1 && !body.has(incoming[0].from) && !body.has(outgoing[0].to) &&
+        near(offset(incoming[0].from, "across"), offset(outgoing[0].to, "across")) && near(offset(incoming[0].from, "along") + offset(outgoing[0].to, "along"), 0)) {
+      const depth = -side * offset(incoming[0].from, "across");
       if (depth > 0) setback = depth;
     }
     return { station, rows, frame, side, body, pitch, spacing, setback, error: "",
@@ -285,38 +285,38 @@
   }
 
   function selectedBank(station, selection) {
-    return station.Banks?.find((bank) => bank.ID === selection?.bank) || station.Banks?.find((bank) => bank.BerthIDs.includes(selection?.berth)) || station.Banks?.[0];
+    return station.banks?.find((bank) => bank.id === selection?.bank) || station.banks?.find((bank) => bank.berthIDs.includes(selection?.berth)) || station.banks?.[0];
   }
 
   function bankStation(station, bank) {
-    const ids = new Set(bank.BerthIDs);
-    return { ...station, Banks: undefined, Entry: bank.Entry, Exit: bank.Exit, Berths: station.Berths.filter((berth) => ids.has(berth.ID)) };
+    const ids = new Set(bank.berthIDs);
+    return { ...station, banks: undefined, entry: bank.entry, exit: bank.exit, berths: station.berths.filter((berth) => ids.has(berth.id)) };
   }
 
   function bankAccessLength(config, station, role) {
-    const gate = role === "entry" ? station.Entry : station.Exit;
-    const lanes = config.network.Lanes.filter((lane) => lane.StationID === station.ID && lane.StationRole === role && (role === "entry" ? lane.To === gate : lane.From === gate));
-    if (lanes.length !== 1 || lanes[0].Control) return null;
-    const anchor = role === "entry" ? lanes[0].From : lanes[0].To;
-    const incident = config.network.Lanes.filter((lane) => lane.From === anchor || lane.To === anchor);
-    if (incident.length !== 2 || incident.some((lane) => lane.Control) || config.network.Stations.some((other) => stationCoreNodeIDs(other).has(anchor))) return null;
+    const gate = role === "entry" ? station.entry : station.exit;
+    const lanes = config.network.lanes.filter((lane) => lane.stationID === station.id && lane.stationRole === role && (role === "entry" ? lane.to === gate : lane.from === gate));
+    if (lanes.length !== 1 || lanes[0].control) return null;
+    const anchor = role === "entry" ? lanes[0].from : lanes[0].to;
+    const incident = config.network.lanes.filter((lane) => lane.from === anchor || lane.to === anchor);
+    if (incident.length !== 2 || incident.some((lane) => lane.control) || config.network.stations.some((other) => stationCoreNodeIDs(other).has(anchor))) return null;
     const otherRole = role === "entry" ? "approach" : "exit";
-    if (incident.some((lane) => lane.ID !== lanes[0].ID && (lane.StationID && (lane.StationID !== station.ID || lane.StationRole !== otherRole) || lane.From === gate || lane.To === gate))) return null;
+    if (incident.some((lane) => lane.id !== lanes[0].id && (lane.stationID && (lane.stationID !== station.id || lane.stationRole !== otherRole) || lane.from === gate || lane.to === gate))) return null;
     const length = laneLength(config, lanes[0]);
     return length > 0 ? length : null;
   }
 
   function stationGeometryCommand(config, id, action, value, bankID = "") {
-    const station = config.network.Stations.find((item) => item.ID === id);
-    if (Object.hasOwn(station || {}, "Banks") && ["stationLayout", "addBerth"].includes(action)) {
-      if (!station.Banks?.some((bank) => bank.ID === bankID)) throw new Error("Select a station bank.");
+    const station = config.network.stations.find((item) => item.id === id);
+    if (Object.hasOwn(station || {}, "banks") && ["stationLayout", "addBerth"].includes(action)) {
+      if (!station.banks?.some((bank) => bank.id === bankID)) throw new Error("Select a station bank.");
       return action === "addBerth" ? { action: "addBankBerth", id, value: bankID } : { action: "bankLayout", id, value: { bank: bankID, ...value } };
     }
     return value === undefined ? { action, id } : { action, id, value };
   }
 
   function stationCoreNodeIDs(station) {
-    return new Set([station.Entry, station.Exit, ...(station.Banks || []).flatMap((bank) => [bank.Entry, bank.Exit]), ...(station.Berths || []).map((berth) => berth.Node)]);
+    return new Set([station.entry, station.exit, ...(station.banks || []).flatMap((bank) => [bank.entry, bank.exit]), ...(station.berths || []).map((berth) => berth.node)]);
   }
 
   // stationNodeOwners maps each station node to its station ID. A station has
@@ -324,14 +324,14 @@
   // station lanes use, such as a node of a berth chain. A node that a road lane
   // or a lane of a different station also uses stays a junction.
   function stationNodeOwners(config) {
-    const stationIDs = new Set(config.network.Stations.map((station) => station.ID));
+    const stationIDs = new Set(config.network.stations.map((station) => station.id));
     const owners = new Map();
-    for (const lane of config.network.Lanes) {
-      const stationID = stationIDs.has(lane.StationID) ? lane.StationID : "";
-      for (const id of [lane.From, lane.To]) owners.set(id, owners.has(id) && owners.get(id) !== stationID ? "" : stationID);
+    for (const lane of config.network.lanes) {
+      const stationID = stationIDs.has(lane.stationID) ? lane.stationID : "";
+      for (const id of [lane.from, lane.to]) owners.set(id, owners.has(id) && owners.get(id) !== stationID ? "" : stationID);
     }
     for (const [id, stationID] of owners) if (!stationID) owners.delete(id);
-    for (const station of config.network.Stations) for (const id of stationCoreNodeIDs(station)) owners.set(id, station.ID);
+    for (const station of config.network.stations) for (const id of stationCoreNodeIDs(station)) owners.set(id, station.id);
     return owners;
   }
 
@@ -339,23 +339,23 @@
   // them. A station drag or delete then also includes its berth chains.
   function stationNodeIDs(config, station) {
     const ids = stationCoreNodeIDs(station);
-    for (const [id, stationID] of stationNodeOwners(config)) if (stationID === station.ID) ids.add(id);
+    for (const [id, stationID] of stationNodeOwners(config)) if (stationID === station.id) ids.add(id);
     return ids;
   }
 
   // shiftNodes moves a set of nodes by an offset, in place. It also moves the
   // curve control point of each lane between two nodes of the set.
   function shiftNodes(config, shift) {
-    for (const node of config.network.Nodes) {
-      if (shift.ids.has(node.ID)) {
-        node.Position.X += shift.dx;
-        node.Position.Y += shift.dy;
+    for (const node of config.network.nodes) {
+      if (shift.ids.has(node.id)) {
+        node.position.x += shift.dx;
+        node.position.y += shift.dy;
       }
     }
-    for (const lane of config.network.Lanes) {
-      if (lane.Control && shift.ids.has(lane.From) && shift.ids.has(lane.To)) {
-        lane.Control.X += shift.dx;
-        lane.Control.Y += shift.dy;
+    for (const lane of config.network.lanes) {
+      if (lane.control && shift.ids.has(lane.from) && shift.ids.has(lane.to)) {
+        lane.control.x += shift.dx;
+        lane.control.y += shift.dy;
       }
     }
   }
@@ -369,15 +369,15 @@
   function dragTargets(config, drag) {
     const moved = new Set();
     if (drag.type === "station") {
-      const station = config.network.Stations.find((item) => item.ID === drag.id);
+      const station = config.network.stations.find((item) => item.id === drag.id);
       if (station) for (const id of stationNodeIDs(config, station)) moved.add(id);
     } else if (drag.type === "node") moved.add(drag.id);
     const owners = moved.size ? stationNodeOwners(config) : new Map();
     const stations = new Set([...moved].map((id) => owners.get(id)));
     return {
-      nodeIDs: config.network.Nodes.filter((node) => moved.has(node.ID)).map((node) => node.ID),
-      laneIDs: config.network.Lanes.filter((lane) => (drag.type === "control" && lane.ID === drag.id) || moved.has(lane.From) || moved.has(lane.To)).map((lane) => lane.ID),
-      stationIDs: config.network.Stations.filter((station) => stations.has(station.ID)).map((station) => station.ID),
+      nodeIDs: config.network.nodes.filter((node) => moved.has(node.id)).map((node) => node.id),
+      laneIDs: config.network.lanes.filter((lane) => (drag.type === "control" && lane.id === drag.id) || moved.has(lane.from) || moved.has(lane.to)).map((lane) => lane.id),
+      stationIDs: config.network.stations.filter((station) => stations.has(station.id)).map((station) => station.id),
     };
   }
 
@@ -405,9 +405,9 @@
   // station ID and name, the number of initial pods at the station, and the
   // number of berths, which is the limit for the pod count.
   function fleetRows(config) {
-    return config.network.Stations.map((station) => ({
-      id: station.ID, name: station.Name, max: station.Berths.length,
-      count: config.fleet.filter((pod) => pod.StationID === station.ID).length,
+    return config.network.stations.map((station) => ({
+      id: station.id, name: station.name, max: station.berths.length,
+      count: config.fleet.filter((pod) => pod.stationID === station.id).length,
     }));
   }
 
@@ -416,7 +416,7 @@
   // gets the class notice. Another project gets no notice.
   function fleetClassNotice(config) {
     if (config.orderContract === "express-v1") return "New pods use legacy class. Express operation requires a qualified express-v1 runtime.";
-    const classed = Object.hasOwn(config, "expressServices") || (Array.isArray(config.fleet) && config.fleet.some((pod) => pod && Object.hasOwn(pod, "Class")));
+    const classed = Object.hasOwn(config, "expressServices") || (Array.isArray(config.fleet) && config.fleet.some((pod) => pod && Object.hasOwn(pod, "class")));
     return classed ? "New pods use legacy class. Import a project to set pod classes and express services. Express pods cannot start yet." : "";
   }
 
@@ -431,24 +431,24 @@
   // selection, or when the draft does not have the selected item.
   function selectionCard(config, selection) {
     if (!selection) return null;
-    const find = (items) => items.find((item) => item.ID === selection.id);
+    const find = (items) => items.find((item) => item.id === selection.id);
     if (selection.type === "station") {
-      const station = find(config.network.Stations);
-      const entry = station && point(config, station.Entry); const exit = station && point(config, station.Exit);
+      const station = find(config.network.stations);
+      const entry = station && point(config, station.entry); const exit = station && point(config, station.exit);
       const bank = station && selectedBank(station, selection);
       return station ? {
-        type: "station", id: station.ID, name: station.Name, bearing: entry && exit ? Math.round(stationBearing(entry, exit)) % 360 : 0,
-        parkingOnly: Boolean(station.ParkingOnly), canRemove: station.Berths.length > 1,
-        berths: station.Berths.filter((berth) => !station.Banks || bank?.BerthIDs.includes(berth.ID)).map((berth) => ({ id: berth.ID, selected: berth.ID === selection.berth })),
-        ...(station.Banks ? { banks: station.Banks.map((bank) => ({ id: bank.ID })), bank: bank?.ID || "" } : {}),
+        type: "station", id: station.id, name: station.name, bearing: entry && exit ? Math.round(stationBearing(entry, exit)) % 360 : 0,
+        parkingOnly: Boolean(station.parkingOnly), canRemove: station.berths.length > 1,
+        berths: station.berths.filter((berth) => !station.banks || bank?.berthIDs.includes(berth.id)).map((berth) => ({ id: berth.id, selected: berth.id === selection.berth })),
+        ...(station.banks ? { banks: station.banks.map((bank) => ({ id: bank.id })), bank: bank?.id || "" } : {}),
       } : null;
     }
     if (selection.type === "lane") {
-      const lane = find(config.network.Lanes);
-      return lane ? { type: "lane", id: lane.ID, from: lane.From, to: lane.To, speed: Math.round(lane.SpeedLimit * 3.6), length: laneLength(config, lane), curved: Boolean(lane.Control) } : null;
+      const lane = find(config.network.lanes);
+      return lane ? { type: "lane", id: lane.id, from: lane.from, to: lane.to, speed: Math.round(lane.speedLimit * 3.6), length: laneLength(config, lane), curved: Boolean(lane.control) } : null;
     }
-    const node = find(config.network.Nodes);
-    return node ? { type: "node", id: node.ID, x: node.Position.X, y: node.Position.Y } : null;
+    const node = find(config.network.nodes);
+    return node ? { type: "node", id: node.id, x: node.position.x, y: node.position.y } : null;
   }
 
   // laneClassState gives the vehicle classes that a lane allows, in native
@@ -456,8 +456,8 @@
   // VehicleClasses allows Legacy and Compact pods, as native reads it.
   // A project with the coupling marker gets the coupling site hint.
   function laneClassState(config, laneID) {
-    const lane = config.network.Lanes.find((item) => item.ID === laneID);
-    const set = Array.isArray(lane?.VehicleClasses), classes = set ? LANE_CLASSES.filter((name) => lane.VehicleClasses.includes(name)) : ["legacy", "compact"];
+    const lane = config.network.lanes.find((item) => item.id === laneID);
+    const set = Array.isArray(lane?.vehicleClasses), classes = set ? LANE_CLASSES.filter((name) => lane.vehicleClasses.includes(name)) : ["legacy", "compact"];
     const hints = [];
     if (!set) hints.push("The guideway has no class list, so Legacy and Compact pods can use it.");
     if (config.couplingContract === "compact-pair-v1") hints.push("A coupling site needs a straight guideway with Compact only.");
@@ -564,10 +564,10 @@
   }
 
   function laneLength(config, lane) {
-    const start = point(config, lane.From);
-    const end = point(config, lane.To);
+    const start = point(config, lane.from);
+    const end = point(config, lane.to);
     if (!start || !end) return 0;
-    return curveLength({ from: start, to: end, control: lane.Control });
+    return curveLength({ from: start, to: end, control: lane.control });
   }
 
   // curveLength gives the length of a lane from the positions of its nodes and
@@ -575,17 +575,17 @@
   // parts of the curve.
   function curveLength(curve) {
     const { from, to, control } = curve;
-    if (!control) return Math.hypot(to.X - from.X, to.Y - from.Y);
+    if (!control) return Math.hypot(to.x - from.x, to.y - from.y);
     let length = 0;
     let previous = from;
     for (let i = 1; i <= 16; i += 1) {
       const t = i / 16;
       const u = 1 - t;
       const current = {
-        X: u * u * from.X + 2 * u * t * control.X + t * t * to.X,
-        Y: u * u * from.Y + 2 * u * t * control.Y + t * t * to.Y,
+        x: u * u * from.x + 2 * u * t * control.x + t * t * to.x,
+        y: u * u * from.y + 2 * u * t * control.y + t * t * to.y,
       };
-      length += Math.hypot(current.X - previous.X, current.Y - previous.Y);
+      length += Math.hypot(current.x - previous.x, current.y - previous.y);
       previous = current;
     }
     return length;
@@ -598,16 +598,16 @@
   // scenario does not have the object. It finds the station nodes once, so
   // a long Checks list does not find them again for each item.
   function checkSelector(config) {
-    const { Nodes, Lanes, Stations } = config.network;
+    const { nodes: Nodes, lanes: Lanes, stations: Stations } = config.network;
     let owners = null;
     return (target) => {
       if (!target) return null;
-      const has = (items) => items.some((item) => item && item.ID === target.id);
+      const has = (items) => items.some((item) => item && item.id === target.id);
       if (target.type === "station" && has(Stations)) return { type: "station", id: target.id };
       if (target.type === "lane" && has(Lanes)) return { type: "lane", id: target.id };
       if (target.type === "berth") {
-        const station = Stations.find((item) => item && Array.isArray(item.Berths) && has(item.Berths));
-        return station ? { type: "station", id: station.ID, berth: target.id } : null;
+        const station = Stations.find((item) => item && Array.isArray(item.berths) && has(item.berths));
+        return station ? { type: "station", id: station.id, berth: target.id } : null;
       }
       if (target.type === "node" && has(Nodes)) {
         owners ??= stationNodeOwners(config);
@@ -626,16 +626,16 @@
   // junction, the middle of a lane, or the middle between the entry and
   // the exit of a station. It gives null when a node is missing.
   function selectionPoint(config, selection) {
-    const find = (items, id) => items.find((item) => item && item.ID === id);
-    const at = (id) => find(config.network.Nodes, id)?.Position || null;
+    const find = (items, id) => items.find((item) => item && item.id === id);
+    const at = (id) => find(config.network.nodes, id)?.position || null;
     if (selection.type === "node") return at(selection.id);
-    const lane = selection.type === "lane" ? find(config.network.Lanes, selection.id) : null;
-    const station = selection.type === "station" ? find(config.network.Stations, selection.id) : null;
-    const from = at(lane ? lane.From : station?.Entry); const to = at(lane ? lane.To : station?.Exit);
+    const lane = selection.type === "lane" ? find(config.network.lanes, selection.id) : null;
+    const station = selection.type === "station" ? find(config.network.stations, selection.id) : null;
+    const from = at(lane ? lane.from : station?.entry); const to = at(lane ? lane.to : station?.exit);
     if (!from || !to) return null;
     // The middle of a curved lane is the point of its curve at t = 0.5.
-    const control = lane && lane.Control ? lane.Control : { X: (from.X + to.X) / 2, Y: (from.Y + to.Y) / 2 };
-    return { X: (from.X + to.X) / 4 + control.X / 2, Y: (from.Y + to.Y) / 4 + control.Y / 2 };
+    const control = lane && lane.control ? lane.control : { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 };
+    return { x: (from.x + to.x) / 4 + control.x / 2, y: (from.y + to.y) / 4 + control.y / 2 };
   }
 
   // focusView gives the view that shows a point that a check selected. The
@@ -645,11 +645,11 @@
   // at the current scale when it is larger.
   function focusView(focus) {
     const { view, point, size } = focus; const margin = FIT_MARGIN / 2;
-    const x = view.x + point.X * view.scale; const y = view.y + point.Y * view.scale;
+    const x = view.x + point.x * view.scale; const y = view.y + point.y * view.scale;
     const onMap = x >= margin && x <= size.width - margin && y >= margin && y <= size.height - margin;
     if (onMap && view.scale >= NODE_LABEL_SCALE) return view;
     const scale = Math.max(view.scale, NODE_LABEL_SCALE);
-    return { scale, x: size.width / 2 - point.X * scale, y: size.height / 2 - point.Y * scale };
+    return { scale, x: size.width / 2 - point.x * scale, y: size.height / 2 - point.y * scale };
   }
 
   // problemCountText gives the text of the problem count beside the apply
@@ -757,21 +757,6 @@
     return out;
   }
 
-  // foldName gives an ASCII member name in the case fold of the server
-  // decoder, which matches names as Go strings.EqualFold does. Only two
-  // other runes fold to an ASCII letter: U+017F to S and U+212A to K. Other
-  // runes stay, so they match only themselves. Use it to compare a name
-  // with an ASCII name.
-  function foldName(name) {
-    return name.replace(/[a-z\u017f\u212a]/g, (letter) => ({ "\u017f": "S", "\u212a": "K" })[letter] || letter.toUpperCase());
-  }
-
-  // foldedKeys gives the member names of value that the server decoder
-  // matches with the ASCII name, in file order.
-  function foldedKeys(value, name) {
-    return Object.keys(value).filter((key) => foldName(key) === foldName(name));
-  }
-
   // repeatedMember gives the first member name that an object of the JSON
   // text repeats, or null. The server decoder rejects a repeated name, but
   // JSON.parse keeps the last value. The text must be valid JSON.
@@ -805,7 +790,7 @@
   // unwrapDocument gets the scenario from an import file. A browser export has
   // a format field and wraps the scenario. A server project file, such as the
   // -project file or the scenario command output, is a bare scenario. The
-  // server matches its member names without case.
+  // server matches member names exactly.
   function unwrapDocument(document) {
     const isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
     if (!isObject(document)) throw new Error("The file must contain a JSON object.");
@@ -815,15 +800,11 @@
       if (!isObject(document.scenario)) throw new Error("The scenario field must be an object.");
       return { scenario: clone(document.scenario), background: document.background };
     }
-    const networkKeys = foldedKeys(document, "network"), versionKeys = foldedKeys(document, "version");
-    if (!networkKeys.length) throw new Error("The file has no format field and no network field.");
-    // A null member keeps the earlier value, and the last of two names that
-    // differ in case applies. Go decodes such a file as the server does.
-    const canonical = networkKeys.join() === "network" && ["", "version"].includes(versionKeys.join());
-    if (canonical && !isObject(document.network)) throw new Error("The network field must be an object.");
+    if (!("network" in document)) throw new Error("The file has no format field and no network field.");
+    if (!isObject(document.network)) throw new Error("The network field must be an object.");
     // The earlier project versions 2 to 5 get the native refusal.
-    if (canonical && [2, 3, 4, 5].includes(document.version)) throw new Error(`Project version ${document.version} is not supported: use version 1 with feature markers.`);
-    if (canonical && document.version !== 1) throw new Error("The version field must be 1.");
+    if ([2, 3, 4, 5].includes(document.version)) throw new Error(`Project version ${document.version} is not supported: use version 1 with feature markers.`);
+    if (document.version !== 1) throw new Error("The version field must be 1.");
     return { scenario: clone(document), background: null };
   }
 
@@ -1048,7 +1029,7 @@
   // longitude in degrees, with the projection of geo: x is R cos(lat0)
   // (lon - lon0) and y is -R (lat - lat0), with the angles in radians.
   function projectPoint(geo, latitude, longitude) {
-    return { X: geo.radius * Math.cos(geo.latitude * DEGREE) * (longitude - geo.longitude) * DEGREE, Y: -geo.radius * (latitude - geo.latitude) * DEGREE };
+    return { x: geo.radius * Math.cos(geo.latitude * DEGREE) * (longitude - geo.longitude) * DEGREE, y: -geo.radius * (latitude - geo.latitude) * DEGREE };
   }
 
   // frameError gives the error of a frame record, or an empty text for a
@@ -1075,7 +1056,7 @@
   // corner, and the width and the height in meters.
   function framePlacement(frame, geo) {
     const corner = projectPoint(geo, frame.north, frame.west); const far = projectPoint(geo, frame.south, frame.east);
-    return { x: corner.X, y: corner.Y, width: far.X - corner.X, height: far.Y - corner.Y };
+    return { x: corner.x, y: corner.y, width: far.x - corner.x, height: far.y - corner.y };
   }
 
   // frameAligned tells if the placement of background, with x, y, width
@@ -1124,10 +1105,10 @@
   // networkBounds gives the box around the nodes and the background image. It
   // gives null when the map has nothing to show.
   function networkBounds(config, background) {
-    const points = config.network.Nodes.map((node) => node.Position);
-    if (background) points.push({ X: background.x, Y: background.y }, { X: background.x + background.width, Y: background.y + background.height });
+    const points = config.network.nodes.map((node) => node.position);
+    if (background) points.push({ x: background.x, y: background.y }, { x: background.x + background.width, y: background.y + background.height });
     if (!points.length) return null;
-    const xs = points.map((item) => item.X); const ys = points.map((item) => item.Y);
+    const xs = points.map((item) => item.x); const ys = points.map((item) => item.y);
     return { minX: Math.min(...xs), minY: Math.min(...ys), maxX: Math.max(...xs), maxY: Math.max(...ys) };
   }
 
@@ -1165,8 +1146,8 @@
   // an offset, so that both lanes of a pair show and each one can be selected.
   function pairedLaneIDs(config) {
     const key = (from, to) => `${from}\u0000${to}`;
-    const directed = new Set(config.network.Lanes.map((lane) => key(lane.From, lane.To)));
-    return new Set(config.network.Lanes.filter((lane) => lane.From !== lane.To && directed.has(key(lane.To, lane.From))).map((lane) => lane.ID));
+    const directed = new Set(config.network.lanes.map((lane) => key(lane.from, lane.to)));
+    return new Set(config.network.lanes.filter((lane) => lane.from !== lane.to && directed.has(key(lane.to, lane.from))).map((lane) => lane.id));
   }
 
   // showsChevron reports whether a lane shows its direction chevron at a view
@@ -1196,15 +1177,15 @@
     // normal gives the unit vector to the right of the direction from a to b.
     // The map Y axis points down. It gives null when a and b are at the same
     // point.
-    const normal = (a, b) => { const dx = b.X - a.X; const dy = b.Y - a.Y; const length = Math.hypot(dx, dy); return length ? { X: -dy / length, Y: dx / length } : null; };
-    const move = (at, by) => ({ X: at.X + by.X * offset, Y: at.Y + by.Y * offset });
-    const chord = normal(from, to) || { X: 0, Y: 0 };
-    const bend = control || { X: (from.X + to.X) / 2, Y: (from.Y + to.Y) / 2 };
-    const middle = move({ X: (from.X + 2 * bend.X + to.X) / 4, Y: (from.Y + 2 * bend.Y + to.Y) / 4 }, chord);
+    const normal = (a, b) => { const dx = b.x - a.x; const dy = b.y - a.y; const length = Math.hypot(dx, dy); return length ? { x: -dy / length, y: dx / length } : null; };
+    const move = (at, by) => ({ x: at.x + by.x * offset, y: at.y + by.y * offset });
+    const chord = normal(from, to) || { x: 0, y: 0 };
+    const bend = control || { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 };
+    const middle = move({ x: (from.x + 2 * bend.x + to.x) / 4, y: (from.y + 2 * bend.y + to.y) / 4 }, chord);
     if (!control) return { from: move(from, chord), to: move(to, chord), middle };
     const start = move(from, normal(from, control) || chord); const end = move(to, normal(control, to) || chord);
     // This control point puts the moved curve through the moved middle point.
-    return { from: start, control: { X: 2 * middle.X - (start.X + end.X) / 2, Y: 2 * middle.Y - (start.Y + end.Y) / 2 }, to: end, middle };
+    return { from: start, control: { x: 2 * middle.x - (start.x + end.x) / 2, y: 2 * middle.y - (start.y + end.y) / 2 }, to: end, middle };
   }
 
   // lanePathData gives the SVG path data of a lane curve. The path has a
@@ -1212,9 +1193,9 @@
   // lane is two quadratic curves that meet at the middle point.
   function lanePathData(curve) {
     const { from, to, control, middle } = curve;
-    const at = (item) => `${item.X} ${item.Y}`;
+    const at = (item) => `${item.x} ${item.y}`;
     if (!control) return `M ${at(from)} L ${at(middle)} L ${at(to)}`;
-    const half = (a, b) => ({ X: (a.X + b.X) / 2, Y: (a.Y + b.Y) / 2 });
+    const half = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
     return `M ${at(from)} Q ${at(half(from, control))} ${at(middle)} Q ${at(half(control, to))} ${at(to)}`;
   }
 
@@ -1256,11 +1237,11 @@
   // object with an orderContract or couplingContract string and a frame
   // whose state member is the state. The state must have the values that
   // the page reads, with their types: epoch, serverStart, projectRevision,
-  // generation and simulation.Paused. The page does not read the other
+  // generation and simulation.paused. The page does not read the other
   // values, such as the orders, so it does not check them.
   function liveStateFrame(reply) {
     const state = liveStateOf(reply);
-    if (!isObject(state) || typeof state.simulation?.Paused !== "boolean" ||
+    if (!isObject(state) || typeof state.simulation?.paused !== "boolean" ||
       typeof state.epoch !== "string" || state.epoch === "" || typeof state.serverStart !== "string" || state.serverStart === "" ||
       !isCount(state.projectRevision) || !isCount(state.generation)) {
       throw new Error("The live state reply is not valid.");
@@ -1493,7 +1474,7 @@
         const error = new Error("The live scenario changed."); error.status = 409; error.errorCode = "stale_project"; throw error;
       }
       if (!connection.epoch) connection.epoch = live.epoch;
-      wasPaused = live.simulation.Paused;
+      wasPaused = live.simulation.paused;
       simulation = simulationID(live);
       step = "pause";
       await postCommand(connection, { action: "pause", paused: true });
@@ -2312,7 +2293,7 @@
     const geo = value.scenario.geo || null;
     const attached = background.frameState === "attached";
     const warning = attached && !frameAligned(background, image.frame, geo) ? FRAME_WARNING_TEXT : "";
-    const placeReason = !geo && value.scenario.network.Nodes.length ? "The project has nodes and no geographic reference. Choose an anchor or adopt the image center below." : "";
+    const placeReason = !geo && value.scenario.network.nodes.length ? "The project has nodes and no geographic reference. Choose an anchor or adopt the image center below." : "";
     const calibrateReason = attached ? "Detach the frame before you calibrate the scale." : "";
     return { framed, state: background.frameState, warning, placeReason, calibrateReason };
   }
@@ -2500,7 +2481,7 @@
     laneLength, curveLength, stationNodeOwners, dragTargets, checkSelector, checkSelection, selectionPoint, focusView,
     FRAME_SOURCES, ALIGN_TOLERANCE, RESAMPLE_MAX_SIDE, projectPoint, frameError, framePlacement, frameAligned, resampleSize, mercatorY, resampleRows,
     problemCountText, createCheckTimer, validationSummary, checkFocusKey, IMAGE_FILE_BYTES, IMAGE_MAX_SIDE, IMAGE_MAX_PIXELS, imageFacts, imageBytesFacts, dataURLToBytes, bytesToDataURL, checkImageSize,
-    metadataURLFacts, IMAGE_KEY_PATTERN, newImageKey, FRAME_STATES, LICENSE_LIMITS, licenseError, assetError, backgroundRecordText, STORED_BACKGROUND_KEPT_TEXT, SERVER_PROJECT_BYTES, PROJECT_FILE_BYTES, SERVER_COMMAND_BYTES, SERVER_COMMAND_JSON_BYTES, GZIP_COMMAND_BYTES, SERVER_TOO_LARGE_TEXT, postCommand, dataURLBytes, serializeDocument, parseDocument, repeatedMember, foldName,
+    metadataURLFacts, IMAGE_KEY_PATTERN, newImageKey, FRAME_STATES, LICENSE_LIMITS, licenseError, assetError, backgroundRecordText, STORED_BACKGROUND_KEPT_TEXT, SERVER_PROJECT_BYTES, PROJECT_FILE_BYTES, SERVER_COMMAND_BYTES, SERVER_COMMAND_JSON_BYTES, GZIP_COMMAND_BYTES, SERVER_TOO_LARGE_TEXT, postCommand, dataURLBytes, serializeDocument, parseDocument, repeatedMember,
     networkBounds, fitView, zoomScale, nodeLabelSize, pairedLaneIDs, showsChevron, laneOffset, laneCurve, lanePathData, SNAPSHOT_ATTEMPTS, snapshotConsistent, draftBeforeRestart, LIVE_STATE_ACCEPT, liveStateFrame, readState, readSnapshot, applyToServer, applyFailureText, applyFailureStatus, applyToast,
     readLive, readConflict, CONFLICT_UNLOADED_TEXT, conflictView, LOAD_LIVE_QUESTION, applyOverQuestion, loadLive, liveDraft, applyOverBase,
     DRAFT_SAVE_DELAY, DRAFT_STORE_TEXT, DRAFT_UNSAVED_TEXT, DRAFT_DISPLACED_TEXT, DRAFT_STORE, BACKGROUND_STORE, openRecordStore, createDraftKeeper, draftChanged, draftRecordFor, draftOffer, backgroundRecordFor, storedBackground, restoreStoredBackground,
@@ -2666,13 +2647,13 @@
   function svgElement(name, attributes) { return setAttributes(document.createElementNS(svgNS, name), attributes); }
   const drawingNodeIndexes = new WeakMap();
   function nodeFor(config, id) {
-    const nodes = config.network.Nodes;
+    const nodes = config.network.nodes;
     let index = drawingNodeIndexes.get(nodes);
     if (!index) {
       index = new Map();
       // Draft node IDs are immutable. Drag copies change positions only.
       // Keep the first node when an unfinished draft repeats an ID.
-      for (const node of nodes) if (!index.has(node.ID)) index.set(node.ID, node);
+      for (const node of nodes) if (!index.has(node.id)) index.set(node.id, node);
       drawingNodeIndexes.set(nodes, index);
     }
     return index.get(id);
@@ -2697,7 +2678,7 @@
 
   function worldPoint(event) {
     const rect = $("#networkMap").getBoundingClientRect();
-    return { X: (event.clientX - rect.left - state.view.x) / state.view.scale, Y: (event.clientY - rect.top - state.view.y) / state.view.scale };
+    return { x: (event.clientX - rect.left - state.view.x) / state.view.scale, y: (event.clientY - rect.top - state.view.y) / state.view.scale };
   }
   function setView() {
     $("#viewport").setAttribute("transform", `translate(${state.view.x} ${state.view.y}) scale(${state.view.scale})`);
@@ -2718,29 +2699,29 @@
   // that is short on the screen hides its chevron. The map keeps the length
   // for the next scale change.
   function drawLane(path, config, lane, map) {
-    const from = nodeFor(config, lane.From)?.Position; const to = nodeFor(config, lane.To)?.Position;
-    const length = from && to ? curveLength({ from, to, control: lane.Control }) : 0;
-    const offset = laneOffset({ paired: map.paired.has(lane.ID), scale: map.laneScale });
-    path.setAttribute("d", from && to ? lanePathData(laneCurve({ from, to, control: lane.Control, offset })) : "");
+    const from = nodeFor(config, lane.from)?.position; const to = nodeFor(config, lane.to)?.position;
+    const length = from && to ? curveLength({ from, to, control: lane.control }) : 0;
+    const offset = laneOffset({ paired: map.paired.has(lane.id), scale: map.laneScale });
+    path.setAttribute("d", from && to ? lanePathData(laneCurve({ from, to, control: lane.control, offset })) : "");
     path.classList.toggle("short", !showsChevron({ length, scale: map.laneScale }));
-    map.lengths.set(lane.ID, length);
+    map.lengths.set(lane.id, length);
   }
 
   // The place functions give the position attributes of the drawn items.
   // renderMap and a drag both use them, so a moved item matches a redrawn one.
   // A junction label has an offset of one font size from its node, so its
   // position does not change when its font size changes.
-  function placeNode(position) { return { cx: position.X, cy: position.Y }; }
-  function placeNodeLabel(position) { return { x: position.X, y: position.Y }; }
+  function placeNode(position) { return { cx: position.x, cy: position.y }; }
+  function placeNodeLabel(position) { return { x: position.x, y: position.y }; }
   // placeStation gives the position attributes of a station shape and its
   // label, and the angle of the shape. stationShape gives the shape. at
   // gives the position of a node, and nodeIDs holds the station nodes. The
   // label is 5 m above the highest corner of the shape.
   function placeStation(at, station, nodeIDs) {
-    const entry = at(station.Entry) || at(station.Exit) || { X: 0, Y: 0 }; const exit = at(station.Exit) || entry;
+    const entry = at(station.entry) || at(station.exit) || { x: 0, y: 0 }; const exit = at(station.exit) || entry;
     const place = stationShape({ entry, exit, points: nodeIDs.map(at).filter(Boolean) });
     const { center, width, height, angle } = place;
-    return { angle, shape: { x: center.X - width / 2, y: center.Y - height / 2, width, height, transform: `rotate(${angle} ${center.X} ${center.Y})` }, label: { x: center.X, y: place.top - 5 } };
+    return { angle, shape: { x: center.x - width / 2, y: center.y - height / 2, width, height, transform: `rotate(${angle} ${center.x} ${center.y})` }, label: { x: center.x, y: place.top - 5 } };
   }
   // STATION_MARKERS gives the path data of the entry and the exit markers,
   // for a node at 0, 0 and travel along the X axis. The entry is a square.
@@ -2748,10 +2729,10 @@
   const STATION_MARKERS = { entry: "M -5 -5 H 5 V 5 H -5 Z", exit: "M 7 0 L -5 6.5 L -5 -6.5 Z" };
   // placeMarker gives the position attributes of an entry or exit marker.
   // The marker turns to the angle of its station shape.
-  function placeMarker(position, angle) { return { transform: `translate(${position.X} ${position.Y}) rotate(${angle})` }; }
+  function placeMarker(position, angle) { return { transform: `translate(${position.x} ${position.y}) rotate(${angle})` }; }
   function placeControl(config, lane) {
-    const from = nodeFor(config, lane.From); const to = nodeFor(config, lane.To);
-    return { line: { d: `M ${from.Position.X} ${from.Position.Y} L ${lane.Control.X} ${lane.Control.Y} L ${to.Position.X} ${to.Position.Y}` }, handle: { cx: lane.Control.X, cy: lane.Control.Y } };
+    const from = nodeFor(config, lane.from); const to = nodeFor(config, lane.to);
+    return { line: { d: `M ${from.position.x} ${from.position.y} L ${lane.control.x} ${lane.control.y} L ${to.position.x} ${to.position.y}` }, handle: { cx: lane.control.x, cy: lane.control.y } };
   }
 
   function renderMap() {
@@ -2769,45 +2750,45 @@
       backgroundLayer.append(image);
     }
     if (shown && shown !== url) URL.revokeObjectURL(shown);
-    for (const lane of config.network.Lanes) {
-      const path = svgElement("path", { class: `lane${state.selection && state.selection.type === "lane" && state.selection.id === lane.ID ? " selected" : ""}`, "data-type": "lane", "data-id": lane.ID });
-      drawLane(path, config, lane, map); laneLayer.append(path); map.lanes.set(lane.ID, path);
+    for (const lane of config.network.lanes) {
+      const path = svgElement("path", { class: `lane${state.selection && state.selection.type === "lane" && state.selection.id === lane.id ? " selected" : ""}`, "data-type": "lane", "data-id": lane.id });
+      drawLane(path, config, lane, map); laneLayer.append(path); map.lanes.set(lane.id, path);
     }
     const component = stationNodeOwners(config);
-    const positions = new Map(config.network.Nodes.map((node) => [node.ID, node.Position]));
-    for (const station of config.network.Stations) map.stationNodes.set(station.ID, []);
+    const positions = new Map(config.network.nodes.map((node) => [node.id, node.position]));
+    for (const station of config.network.stations) map.stationNodes.set(station.id, []);
     for (const [id, stationID] of component) map.stationNodes.get(stationID)?.push(id);
     const angles = new Map();
-    for (const station of config.network.Stations) {
-      const place = placeStation((id) => positions.get(id), station, map.stationNodes.get(station.ID));
-      const shape = svgElement("rect", { class: `station-shape${state.selection && state.selection.type === "station" && state.selection.id === station.ID ? " selected" : ""}`, ...place.shape, rx: 8, "data-type": "station", "data-id": station.ID });
-      const label = svgElement("text", { class: "station-label", ...place.label }); label.textContent = station.Name;
-      stationLayer.append(shape); stationLabelLayer.append(label); map.stations.set(station.ID, { shape, label });
-      map.markers.set(station.Entry, "entry"); map.markers.set(station.Exit, "exit"); angles.set(station.Entry, place.angle); angles.set(station.Exit, place.angle);
+    for (const station of config.network.stations) {
+      const place = placeStation((id) => positions.get(id), station, map.stationNodes.get(station.id));
+      const shape = svgElement("rect", { class: `station-shape${state.selection && state.selection.type === "station" && state.selection.id === station.id ? " selected" : ""}`, ...place.shape, rx: 8, "data-type": "station", "data-id": station.id });
+      const label = svgElement("text", { class: "station-label", ...place.label }); label.textContent = station.name;
+      stationLayer.append(shape); stationLabelLayer.append(label); map.stations.set(station.id, { shape, label });
+      map.markers.set(station.entry, "entry"); map.markers.set(station.exit, "exit"); angles.set(station.entry, place.angle); angles.set(station.exit, place.angle);
     }
-    for (const node of config.network.Nodes) {
-      const stationID = component.get(node.ID); const marker = map.markers.get(node.ID);
-      const data = { "data-type": stationID ? "station-node" : "node", "data-id": node.ID, "data-station": stationID || "" };
+    for (const node of config.network.nodes) {
+      const stationID = component.get(node.id); const marker = map.markers.get(node.id);
+      const data = { "data-type": stationID ? "station-node" : "node", "data-id": node.id, "data-station": stationID || "" };
       const element = marker
-        ? svgElement("path", { class: `station-node station-${marker}`, d: STATION_MARKERS[marker], ...placeMarker(node.Position, angles.get(node.ID)), ...data })
-        : svgElement("circle", { class: stationID ? "station-node" : `junction${state.selection && state.selection.type === "node" && state.selection.id === node.ID ? " selected" : ""}`, ...placeNode(node.Position), r: stationID ? 5 : 7, ...data });
-      nodeLayer.append(element); map.nodes.set(node.ID, element);
+        ? svgElement("path", { class: `station-node station-${marker}`, d: STATION_MARKERS[marker], ...placeMarker(node.position, angles.get(node.id)), ...data })
+        : svgElement("circle", { class: stationID ? "station-node" : `junction${state.selection && state.selection.type === "node" && state.selection.id === node.id ? " selected" : ""}`, ...placeNode(node.position), r: stationID ? 5 : 7, ...data });
+      nodeLayer.append(element); map.nodes.set(node.id, element);
       if (!stationID) map.junctions.push(node);
     }
     if (state.selection && state.selection.type === "lane") {
-      const lane = config.network.Lanes.find((item) => item.ID === state.selection.id);
-      if (lane && lane.Control) {
+      const lane = config.network.lanes.find((item) => item.id === state.selection.id);
+      if (lane && lane.control) {
         const place = placeControl(config, lane);
         const line = svgElement("path", { class: "control-line", ...place.line });
-        const handle = svgElement("circle", { class: "control-handle", ...place.handle, r: 7, "data-type": "control", "data-id": lane.ID });
-        handleLayer.append(line, handle); map.handles = { laneID: lane.ID, line, handle };
+        const handle = svgElement("circle", { class: "control-handle", ...place.handle, r: 7, "data-type": "control", "data-id": lane.id });
+        handleLayer.append(line, handle); map.handles = { laneID: lane.id, line, handle };
       }
     }
     if (state.linkFrom) {
       const from = nodeFor(config, state.linkFrom);
-      if (from) handleLayer.append(svgElement("circle", { class: "control-handle", cx: from.Position.X, cy: from.Position.Y, r: 10 }));
+      if (from) handleLayer.append(svgElement("circle", { class: "control-handle", cx: from.position.x, cy: from.position.y, r: 10 }));
     }
-    for (const calibration of state.calibrationPoints) handleLayer.append(svgElement("circle", { class: "calibration-point", cx: calibration.X, cy: calibration.Y, r: 7 }));
+    for (const calibration of state.calibrationPoints) handleLayer.append(svgElement("circle", { class: "calibration-point", cx: calibration.x, cy: calibration.y, r: 7 }));
     state.map = map; renderNodeLabels(); setView();
   }
 
@@ -2826,7 +2807,7 @@
     }
     if (!map.paired.size) return;
     const config = state.drag && state.drag.working ? state.drag.working : map.config;
-    for (const lane of config.network.Lanes) if (map.paired.has(lane.ID) && map.lanes.has(lane.ID)) drawLane(map.lanes.get(lane.ID), config, lane, map);
+    for (const lane of config.network.lanes) if (map.paired.has(lane.id) && map.lanes.has(lane.id)) drawLane(map.lanes.get(lane.id), config, lane, map);
   }
 
   // renderNodeLabels draws the junction ID labels that nodeLabelSize allows at
@@ -2844,10 +2825,10 @@
     }
     const layer = $("#labelLayer"); layer.replaceChildren(); map.labels.clear();
     for (const node of map.junctions) {
-      const fontSize = size(node.ID);
+      const fontSize = size(node.id);
       if (!fontSize) continue;
-      const label = svgElement("text", { class: "node-label", ...placeNodeLabel(node.Position), dx: "1em", dy: "-1em", "font-size": fontSize }); label.textContent = node.ID;
-      layer.append(label); map.labels.set(node.ID, label);
+      const label = svgElement("text", { class: "node-label", ...placeNodeLabel(node.position), dx: "1em", dy: "-1em", "font-size": fontSize }); label.textContent = node.id;
+      layer.append(label); map.labels.set(node.id, label);
     }
     // A zoom during a drag draws the labels again. Put the moved labels at
     // their drag positions.
@@ -2862,25 +2843,25 @@
     const map = state.map;
     for (const id of targets.nodeIDs) {
       const node = nodeFor(config, id); const circle = map.nodes.get(id); const label = map.labels.get(id);
-      if (node && circle && !map.markers.has(id)) setAttributes(circle, placeNode(node.Position));
-      if (node && label) setAttributes(label, placeNodeLabel(node.Position));
+      if (node && circle && !map.markers.has(id)) setAttributes(circle, placeNode(node.position));
+      if (node && label) setAttributes(label, placeNodeLabel(node.position));
     }
     for (const id of targets.laneIDs) {
-      const lane = config.network.Lanes.find((item) => item.ID === id); const path = map.lanes.get(id);
+      const lane = config.network.lanes.find((item) => item.id === id); const path = map.lanes.get(id);
       if (!lane) continue;
       if (path) drawLane(path, config, lane, map);
-      if (map.handles && map.handles.laneID === id && lane.Control) {
+      if (map.handles && map.handles.laneID === id && lane.control) {
         const place = placeControl(config, lane);
         setAttributes(map.handles.line, place.line); setAttributes(map.handles.handle, place.handle);
       }
     }
     for (const id of targets.stationIDs) {
-      const station = config.network.Stations.find((item) => item.ID === id); const drawn = map.stations.get(id);
+      const station = config.network.stations.find((item) => item.id === id); const drawn = map.stations.get(id);
       if (!station || !drawn) continue;
-      const at = (nodeID) => nodeFor(config, nodeID)?.Position;
+      const at = (nodeID) => nodeFor(config, nodeID)?.position;
       const place = placeStation(at, station, map.stationNodes.get(id) || []);
       setAttributes(drawn.shape, place.shape); setAttributes(drawn.label, place.label);
-      for (const nodeID of [station.Entry, station.Exit]) {
+      for (const nodeID of [station.entry, station.exit]) {
         const position = at(nodeID); const marker = map.nodes.get(nodeID);
         if (position && marker && map.markers.has(nodeID)) setAttributes(marker, placeMarker(position, place.angle));
       }
@@ -2928,23 +2909,23 @@
   }
 
   function renderStationLayout(panel, config, stationID) {
-    const station = config.network.Stations.find((item) => item.ID === stationID);
-    const bankID = selectedBank(station, state.selection)?.ID || "";
-    if (panel.layoutNetwork === config.network && panel.layoutBank === bankID && panel.layoutStation === station.ID) return;
+    const station = config.network.stations.find((item) => item.id === stationID);
+    const bankID = selectedBank(station, state.selection)?.id || "";
+    if (panel.layoutNetwork === config.network && panel.layoutBank === bankID && panel.layoutStation === station.id) return;
     panel.layoutNetwork = config.network; panel.layoutBank = bankID;
     const select = panel.querySelector('[data-edit="station-bank"]');
-    panel.querySelector('[data-field="bank-selection"]').hidden = !station.Banks;
-    select.replaceChildren(...(station.Banks || []).map((bank) => { const option = document.createElement("option"); option.value = bank.ID; option.textContent = bank.ID; return option; }));
+    panel.querySelector('[data-field="bank-selection"]').hidden = !station.banks;
+    select.replaceChildren(...(station.banks || []).map((bank) => { const option = document.createElement("option"); option.value = bank.id; option.textContent = bank.id; return option; }));
     select.value = bankID;
     const membership = panel.querySelector('[data-edit="station-banks"]');
-    setControlValue(membership, JSON.stringify(station.Banks || [], null, 2));
-    panel.querySelector('[data-action="station-legacy"]').disabled = !Object.hasOwn(station, "Banks");
-    for (const field of ["approach-length", "departure-length"]) panel.querySelector(`[data-field="${field}"]`).hidden = !station.Banks;
+    setControlValue(membership, JSON.stringify(station.banks || [], null, 2));
+    panel.querySelector('[data-action="station-legacy"]').disabled = !Object.hasOwn(station, "banks");
+    for (const field of ["approach-length", "departure-length"]) panel.querySelector(`[data-field="${field}"]`).hidden = !station.banks;
     panel.layoutStation = stationID;
     for (const input of panel.querySelectorAll("input[data-layout]")) { input.disabled = true; setControlValue(input, ""); }
     panel.querySelector('[data-action="station-layout"]').disabled = true;
     panel.querySelector('[data-field="layout-hint"]').textContent = "Inspecting station layout.";
-    const current = () => panel.isConnected && draft().network === config.network && state.selection?.id === stationID && (selectedBank(station, state.selection)?.ID || "") === bankID && panel.layoutNetwork === config.network && panel.layoutBank === bankID;
+    const current = () => panel.isConnected && draft().network === config.network && state.selection?.id === stationID && (selectedBank(station, state.selection)?.id || "") === bankID && panel.layoutNetwork === config.network && panel.layoutBank === bankID;
     goModel.call(config, "stationLayout", { stationID, ...(bankID ? { bankID } : {}) }).then((result) => {
       if (!current()) return;
       if (result.error) throw new Error(result.error);
@@ -2954,7 +2935,7 @@
         input.disabled = field.value === null;
         const value = input.disabled ? "" : String(Number(field.value.toFixed(3)));
         setControlValue(input, value); input.dataset.layoutValue = value;
-        if (field.reason && (!["approachLength", "departureLength"].includes(key) || station.Banks)) reasons.add(field.reason);
+        if (field.reason && (!["approachLength", "departureLength"].includes(key) || station.banks)) reasons.add(field.reason);
       }
       panel.querySelector('[data-field="layout-hint"]').textContent = [...reasons].join(" ") || "Preview updates the draft map in one undo step. Apply the project to change the simulation.";
       panel.querySelector('[data-action="station-layout"]').disabled = [...panel.querySelectorAll("input[data-layout]")].every((input) => input.disabled);
@@ -3070,24 +3051,24 @@
       control.disabled = busy || control.dataset.railDisabled === "true";
     }
     const config = draft();
-    $(kind === "departure" ? "#addRailDeparture" : "#addRailArrival").disabled = busy || (config.railArrivals || []).length + (config.railDepartures || []).length >= 256 || config.network.Stations.filter((station) => !station.ParkingOnly).length < 2;
+    $(kind === "departure" ? "#addRailDeparture" : "#addRailArrival").disabled = busy || (config.railArrivals || []).length + (config.railDepartures || []).length >= 256 || config.network.stations.filter((station) => !station.parkingOnly).length < 2;
   }
   function railSummary(event, passenger, departure) {
-    const hub = passenger.find((station) => station.ID === event.station);
-    return `${event.id}: ${hub?.Name || event.station}, ${event.passengers} passengers ${departure ? "departing" : "released"} at ${departure ? event.atSeconds : event.atSeconds + event.walkingSeconds}s`;
+    const hub = passenger.find((station) => station.id === event.station);
+    return `${event.id}: ${hub?.name || event.station}, ${event.passengers} passengers ${departure ? "departing" : "released"} at ${departure ? event.atSeconds : event.atSeconds + event.walkingSeconds}s`;
   }
   function renderRailArrivals(config, kind = "arrival") {
     const departure = kind === "departure", key = departure ? "railDepartures" : "railArrivals", choices = departure ? "origins" : "destinations";
     const rowsID = departure ? "#railDepartureRows" : "#railArrivalRows", addID = departure ? "#addRailDeparture" : "#addRailArrival";
     const parent = $(rowsID); const arrivals = config[key] || [];
-    $(addID).disabled = (config.railArrivals || []).length + (config.railDepartures || []).length >= 256 || config.network.Stations.filter((station) => !station.ParkingOnly).length < 2;
+    $(addID).disabled = (config.railArrivals || []).length + (config.railDepartures || []).length >= 256 || config.network.stations.filter((station) => !station.parkingOnly).length < 2;
     const drawn = drawnRailPlans.get(kind);
-    const passenger = config.network.Stations.filter((station) => !station.ParkingOnly);
-    const layout = JSON.stringify([passenger.map((station) => station.ID), arrivals.map((event) => [event.id, event[choices].length])]);
+    const passenger = config.network.stations.filter((station) => !station.parkingOnly);
+    const layout = JSON.stringify([passenger.map((station) => station.id), arrivals.map((event) => [event.id, event[choices].length])]);
     const observed = observedRailLayouts.get(kind);
     if (observed !== undefined && observed !== layout) railEpochs.set(kind, railEpoch(kind) + 1);
     observedRailLayouts.set(kind, layout);
-    if (drawn?.plan === config[key] && drawn?.stations === config.network.Stations && drawn?.epoch === railEpoch(kind)) { renderRailLocks(kind); return; }
+    if (drawn?.plan === config[key] && drawn?.stations === config.network.stations && drawn?.epoch === railEpoch(kind)) { renderRailLocks(kind); return; }
     // Keep the same controls for field edits, including unreadable partial numbers.
     if (drawn?.layout === layout && drawn?.epoch === railEpoch(kind)) {
       for (const row of parent.children) {
@@ -3096,13 +3077,13 @@
         for (const control of row.querySelectorAll("[data-rail-field]")) {
           const { railField, railDestination } = control.dataset;
           const item = railDestination === undefined ? arrival : arrival[choices][Number(railDestination)];
-          if (control.tagName === "SELECT") for (const option of control.options) option.textContent = passenger.find((station) => station.ID === option.value).Name;
+          if (control.tagName === "SELECT") for (const option of control.options) option.textContent = passenger.find((station) => station.id === option.value).name;
           setControlValue(control, item[railField]);
           control.dataset.railEpoch = String(railEpoch(kind));
         }
         for (const control of row.querySelectorAll("[data-rail-action]")) control.dataset.railEpoch = String(railEpoch(kind));
       }
-      drawnRailPlans.set(kind, { plan: config[key], stations: config.network.Stations, layout, epoch: railEpoch(kind) });
+      drawnRailPlans.set(kind, { plan: config[key], stations: config.network.stations, layout, epoch: railEpoch(kind) });
       renderRailLocks(kind); return;
     }
     if ([...typingInputs].some((input) => parent.contains(input))) { renderRailLocks(kind); return; }
@@ -3114,7 +3095,7 @@
     const stationSelect = (value, id, name, destination) => {
       const select = document.createElement("select"); select.dataset.railID = id; select.dataset.railField = name; select.dataset.railEpoch = String(railEpoch(kind));
       if (destination !== undefined) select.dataset.railDestination = String(destination);
-      for (const station of passenger) { const option = document.createElement("option"); option.value = station.ID; option.textContent = station.Name; select.append(option); }
+      for (const station of passenger) { const option = document.createElement("option"); option.value = station.id; option.textContent = station.name; select.append(option); }
       select.value = value;
       return select;
     };
@@ -3149,7 +3130,7 @@
       const add = button(departure ? "Add origin" : "Add destination", "add-destination", arrival.id); add.dataset.railDisabled = String(arrival[choices].length >= 16); row.append(add, button(departure ? "Remove departure" : "Remove arrival", "remove-arrival", arrival.id));
       parent.append(row);
     }
-    drawnRailPlans.set(kind, { plan: config[key], stations: config.network.Stations, layout, epoch: railEpoch(kind) });
+    drawnRailPlans.set(kind, { plan: config[key], stations: config.network.stations, layout, epoch: railEpoch(kind) });
     renderRailLocks(kind);
     if (focus) ([...parent.querySelectorAll("input, select, button")].find((item) => Object.keys(focus).every((key) => item.dataset[key] === focus[key])) || $(addID)).focus({ preventScroll: true });
   }
@@ -3158,8 +3139,8 @@
     const config = draft(); const demand = config.demand;
     $("#demandEnabled").checked = demand.enabled; setScalarValue("#demandRate", demand.perMinute); setScalarValue("#demandPattern", demand.pattern); setScalarValue("#demandSeed", demand.seed); $("#redistribution").checked = config.redistribution;
     const select = $("#demandDestination"); select.replaceChildren();
-    const passenger = config.network.Stations.filter((station) => !station.ParkingOnly);
-    for (const station of passenger) { const option = document.createElement("option"); option.value = station.ID; option.textContent = station.Name; select.append(option); }
+    const passenger = config.network.stations.filter((station) => !station.parkingOnly);
+    for (const station of passenger) { const option = document.createElement("option"); option.value = station.id; option.textContent = station.name; select.append(option); }
     select.value = draft().demand.destination; $("#destinationLabel").hidden = demand.pattern !== "destination";
     const profiles = config.demandProfiles || []; const profileSelect = $("#demandProfile"); profileSelect.replaceChildren();
     for (const profile of profiles) { const option = document.createElement("option"); option.value = profile.id; option.textContent = profile.name; profileSelect.append(option); }
@@ -3198,11 +3179,11 @@
   function renderParkRide(config, passenger) {
     $("#parkRideCreate").disabled = parkRideBusy || (config.demandProfiles || []).length >= 8;
     $("#parkRideAddDestination").disabled = passenger.length < 2;
-    if (parkRideStations === config.network.Stations) return;
-    parkRideStations = config.network.Stations;
+    if (parkRideStations === config.network.stations) return;
+    parkRideStations = config.network.stations;
     for (const selector of ["#parkRideHub", "#parkRideDestination"]) {
       const select = $(selector), value = select.value;
-      select.replaceChildren(...passenger.filter((station) => selector !== "#parkRideDestination" || station.ID !== $("#parkRideHub").value).map((station) => Object.assign(document.createElement("option"), { value: station.ID, textContent: station.Name })));
+      select.replaceChildren(...passenger.filter((station) => selector !== "#parkRideDestination" || station.id !== $("#parkRideHub").value).map((station) => Object.assign(document.createElement("option"), { value: station.id, textContent: station.name })));
       if ([...select.options].some((option) => option.value === value)) select.value = value;
     }
   }
@@ -3225,7 +3206,7 @@
     const plan = { name: $("#parkRideName").value, hub: $("#parkRideHub").value,
       destinations: [...$("#parkRideDestinations").children].map((row) => ({ station: row.dataset.station, weight: row.querySelector("input").valueAsNumber })),
       morning: band("Morning"), evening: band("Evening"), dailyStartMinute: inputMinute("#parkRideStartTime") };
-    parkRideBusy = true; renderParkRide(draft(), draft().network.Stations.filter((station) => !station.ParkingOnly)); status.textContent = "Creating profile…";
+    parkRideBusy = true; renderParkRide(draft(), draft().network.stations.filter((station) => !station.parkingOnly)); status.textContent = "Creating profile…";
     try {
       if (!await editQueue.flush() || inputRevision !== editRevision()) throw new Error("The settings changed. Create the profile again.");
       const config = draft(), editGeneration = model.edits;
@@ -3236,7 +3217,7 @@
       if (!await setDraft({ ...config, demandProfiles: [...(config.demandProfiles || []), result.profile], demand: result.demand }, true, current)) throw new Error("The settings changed. Create the profile again.");
       status.textContent = `Created ${result.profile.name}. Pause and apply to use it.`;
     } catch (error) { status.textContent = error.message; toast(error.message, true); }
-    finally { parkRideBusy = false; renderParkRide(draft(), draft().network.Stations.filter((station) => !station.ParkingOnly)); }
+    finally { parkRideBusy = false; renderParkRide(draft(), draft().network.stations.filter((station) => !station.parkingOnly)); }
   }
 
   let drawnNetwork = null, drawnBackground = "", drawnSelection = "";
@@ -3297,7 +3278,7 @@
     place.disabled = Boolean(view.placeReason) && !$("#referenceMode").value; place.title = place.disabled ? view.placeReason : "";
     $("#detachFrameButton").disabled = view.state !== "attached";
     const calibrate = $("#calibrateButton"); calibrate.disabled = Boolean(view.calibrateReason); calibrate.title = view.calibrateReason;
-    const unreferenced = !value.scenario.geo && value.scenario.network.Nodes.length > 0;
+    const unreferenced = !value.scenario.geo && value.scenario.network.nodes.length > 0;
     $("#referencePanel").hidden = !(unreferenced && (state.geoOpen || state.mapOpen || view.framed));
     $("#referenceMode").querySelector('[value="adopt"]').textContent = state.mapOpen ? "Adopt the map origin" : "Adopt the image center";
     $("#adoptText").textContent = state.mapOpen ? "Use the entered map origin without moving the network. The map and network can fail to align." : "The image center becomes the reference, and the network does not move. The network and the image can then fail to align.";
@@ -3535,7 +3516,7 @@
       if (field && field.matches("input, select, textarea")) field.blur();
       // The drag changes a working copy of the draft and redraws only its
       // targets. Go computes the committed edit after the pointer up.
-      drag.source = draft(); drag.working = clone(drag.source); drag.targets = dragTargets(drag.working, { type, id }); drag.moved = new Set(drag.targets.nodeIDs); drag.last = worldPoint(event); drag.delta = { X: 0, Y: 0 };
+      drag.source = draft(); drag.working = clone(drag.source); drag.targets = dragTargets(drag.working, { type, id }); drag.moved = new Set(drag.targets.nodeIDs); drag.last = worldPoint(event); drag.delta = { x: 0, y: 0 };
     }
     state.drag = drag;
     $("#networkMap").setPointerCapture(event.pointerId);
@@ -3575,7 +3556,7 @@
     if (state.tool === "junction" || state.tool === "station") {
       const station = state.tool === "station";
       queueGeometryEdit({ action: station ? "addStation" : "addNode", point: location }, { accepted: () => {
-        if (selectionEpoch === geometrySelectionEpoch) selectItem(station ? "station" : "node", draft().network[station ? "Stations" : "Nodes"].at(-1).ID);
+        if (selectionEpoch === geometrySelectionEpoch) selectItem(station ? "station" : "node", draft().network[station ? "stations" : "nodes"].at(-1).id);
       } });
       return;
     }
@@ -3593,15 +3574,15 @@
     // during the drag does not publish over it.
     model.moveDrag();
     if (drag.type === "station") {
-      const dx = location.X - drag.last.X, dy = location.Y - drag.last.Y;
+      const dx = location.x - drag.last.x, dy = location.y - drag.last.y;
       shiftNodes(config, { ids: drag.moved, dx, dy }); drag.last = location;
-      drag.delta.X += dx; drag.delta.Y += dy;
+      drag.delta.x += dx; drag.delta.y += dy;
       drag.command = { action: "moveStation", id: drag.id, delta: drag.delta };
     } else if (drag.type === "node") {
-      const node = nodeFor(config, drag.id); if (node) node.Position = { X: location.X, Y: location.Y };
+      const node = nodeFor(config, drag.id); if (node) node.position = { x: location.x, y: location.y };
       drag.command = { action: "moveNode", id: drag.id, point: location };
     } else if (drag.type === "control") {
-      const lane = config.network.Lanes.find((item) => item.ID === drag.id); if (lane) lane.Control = location;
+      const lane = config.network.lanes.find((item) => item.id === drag.id); if (lane) lane.control = location;
       drag.command = { action: "moveControl", id: drag.id, point: location };
     }
     // The selection panel shows the new values after the pointer up. A panel
@@ -3743,7 +3724,7 @@
   // selectedLaneID gives the guideway that the map selects, or an empty ID.
   function selectedLaneID() {
     const config = draft();
-    return state.selection?.type === "lane" && config.network.Lanes.some((lane) => lane.ID === state.selection.id) ? state.selection.id : "";
+    return state.selection?.type === "lane" && config.network.lanes.some((lane) => lane.id === state.selection.id) ? state.selection.id : "";
   }
   const COUPLING_SITE_FIELDS = [["startMeters", "Start (m)"], ["endMeters", "End (m)"], ["rearStagingMeters", "Rear staging (m)"], ["frontStagingMeters", "Front staging (m)"]];
   function couplingButton(text, action, id, index) {
@@ -4242,10 +4223,7 @@
       let text = await file.text();
       if (!model.current(ticket)) return;
       const imported = parseDocument(text); text = "";
-      const canonical = await goModel.call(imported.scenario, "canonicalImport");
-      if (!model.current(ticket)) return;
-      if (canonical.error) throw new Error(canonical.error);
-      imported.scenario = ownDraft(canonical.replace || imported.scenario);
+      imported.scenario = ownDraft(imported.scenario);
       const metadata = await metadataWithGo(imported.metadata);
       if (!model.current(ticket)) return;
       imported.asset = metadata.asset;
@@ -4537,7 +4515,7 @@
       state.calibrating = true; state.calibrationPoints = []; $("#calibrationPanel").hidden = false; $("#finishCalibrationButton").disabled = true; updatePrompt(); renderMap();
     });
     $("#finishCalibrationButton").addEventListener("click", finishCalibration); $("#cancelCalibrationButton").addEventListener("click", () => { state.calibrating = false; state.calibrationPoints = []; $("#calibrationPanel").hidden = true; render(); });
-    $("#parkRideHub").addEventListener("change", () => { parkRideStations = null; renderParkRide(draft(), draft().network.Stations.filter((station) => !station.ParkingOnly)); });
+    $("#parkRideHub").addEventListener("change", () => { parkRideStations = null; renderParkRide(draft(), draft().network.stations.filter((station) => !station.parkingOnly)); });
     $("#parkRideAddDestination").addEventListener("click", addParkRideDestination);
     $("#parkRideCreate").addEventListener("click", createParkRideProfile);
     bindScalarInput("dailyStartTime");
@@ -4631,7 +4609,7 @@
       }
       const command = stationGeometryCommand(draft(), id, { "add-berth": "addBerth", "remove-berth": "removeBerth", "toggle-curve": "toggleCurve" }[action], undefined, $("#selectionContent").layoutBank);
       if (!command.action) return;
-      const berthIDs = action === "remove-berth" ? draft().network.Stations.find((station) => station.ID === id)?.Berths.map((berth) => berth.ID) || [] : [];
+      const berthIDs = action === "remove-berth" ? draft().network.stations.find((station) => station.id === id)?.berths.map((berth) => berth.id) || [] : [];
       if (action === "remove-berth") command.value = button.dataset.id;
       queueGeometryEdit(command, { accepted: () => {
         const ownsFocus = document.activeElement === button;

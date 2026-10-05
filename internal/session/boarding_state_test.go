@@ -39,7 +39,7 @@ func TestBoardingStateRoundTrip(t *testing.T) {
 	file := boardingTestFile(t)
 	data := encodeTestState(t, file)
 	raw := decompressTestJSON(t, data)
-	if bytes.Contains(raw, []byte(`"journeyOrigin"`)) || !bytes.Contains(raw, []byte(`"boardings":[[1,0],[0,60]]`)) || bytes.Contains(raw, []byte(`"MetersAtBoarding"`)) {
+	if bytes.Contains(raw, []byte(`"journeyOrigin"`)) || !bytes.Contains(raw, []byte(`"boardings":[[1,0],[0,60]]`)) || bytes.Contains(raw, []byte(`"metersAtBoarding"`)) {
 		t.Fatalf("source-bound tuple encoding missing: %s", raw)
 	}
 	decoded, err := decodeStateFile(data)

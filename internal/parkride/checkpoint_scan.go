@@ -47,7 +47,7 @@ var checkpointRules = map[string]objectRule{
 	"/payload/native/pods/*/riders/*":     rule("sharingConsent:s service:s serviceID:s id:n from:s to:s partySize:n podID:s completed:b requestedTick:n boardedTick:n dispatchReason:s", "sharingConsent service id from to partySize requestedTick"),
 	"/payload/native/waiting/*":           rule("request:o route:a boarded:b deferUntil:n deferCheck:n deferPodID:s", "request"),
 	"/payload/native/waiting/*/request":   rule("sharingConsent:s service:s serviceID:s id:n from:s to:s partySize:n podID:s completed:b requestedTick:n boardedTick:n dispatchReason:s", "sharingConsent service id from to partySize requestedTick"),
-	"/payload/native/pods/*/boardings/*":  rule("BerthID:s MetersAtBoarding:n", "BerthID MetersAtBoarding"),
+	"/payload/native/pods/*/boardings/*":  rule("berthID:s metersAtBoarding:n", "berthID metersAtBoarding"),
 	"/payload/native/pods/*/platoon":      rule("kind:s terminalCell:n leader:s lane:n leaderLane:n lanes:n turn:n draining:b", "leader lane leaderLane lanes turn"),
 	"/payload/native/pods/*/compactQueue": rule("kind:s phase:s lane:s members:a start:n frontier:n stopCells:a speeds:a targets:a landingSpeeds:a", "kind phase lane members start frontier stopCells speeds targets landingSpeeds"),
 }
@@ -77,7 +77,7 @@ func scanCheckpoint(ctx context.Context, data []byte) error {
 	if s.counts["/payload/native/waiting"]+s.counts["/payload/native/pods/*/riders"] > 2*n {
 		return errors.New("native retained requests exceed finite offer bound")
 	}
-	nodes, lanes := s.counts["/payload/origin/project/network/Nodes"], s.counts["/payload/origin/project/network/Lanes"]
+	nodes, lanes := s.counts["/payload/origin/project/network/nodes"], s.counts["/payload/origin/project/network/lanes"]
 	if s.counts["/payload/native/pods/*/route"] > nodes+lanes || s.counts["/payload/native/waiting/*/route"] > nodes {
 		return errors.New("native route exceeds origin network bound")
 	}
@@ -219,7 +219,7 @@ func (s *checkpointScanner) array(path string, depth int) error {
 		return err
 	}
 	switch path {
-	case "/payload/origin/plan/itineraries", "/payload/origin/plan/lots", "/payload/ledger/records", "/payload/ledger/lots", "/payload/native/waiting", "/payload/native/pods/*/riders", "/payload/origin/project/network/Nodes", "/payload/origin/project/network/Lanes", "/payload/origin/project/railArrivals", "/payload/origin/project/railDepartures":
+	case "/payload/origin/plan/itineraries", "/payload/origin/plan/lots", "/payload/ledger/records", "/payload/ledger/lots", "/payload/native/waiting", "/payload/native/pods/*/riders", "/payload/origin/project/network/nodes", "/payload/origin/project/network/lanes", "/payload/origin/project/railArrivals", "/payload/origin/project/railDepartures":
 		s.counts[path] += count
 	case "/payload/native/pods/*/route", "/payload/native/waiting/*/route":
 		s.counts[path] = max(s.counts[path], count)
@@ -232,7 +232,7 @@ func arrayLimit(path string) int64 {
 		return storageLimit / lotBytes
 	case "/payload/origin/plan/itineraries", "/payload/ledger/records":
 		return storageLimit / itineraryBytes
-	case "/payload/native/pods", "/payload/origin/project/fleet", "/payload/origin/project/network/Stations", "/payload/origin/project/expressServices":
+	case "/payload/native/pods", "/payload/origin/project/fleet", "/payload/origin/project/network/stations", "/payload/origin/project/expressServices":
 		return project.MaxPods
 	case "/payload/native/waiting":
 		return 2 * (storageLimit / itineraryBytes)
@@ -240,15 +240,15 @@ func arrayLimit(path string) int64 {
 		return 8
 	case "/payload/native/pods/*/route":
 		return project.MaxLanes + project.MaxNodes
-	case "/payload/native/waiting/*/route", "/payload/origin/project/network/Nodes":
+	case "/payload/native/waiting/*/route", "/payload/origin/project/network/nodes":
 		return project.MaxNodes
-	case "/payload/origin/project/network/Lanes":
+	case "/payload/origin/project/network/lanes":
 		return project.MaxLanes
-	case "/payload/origin/project/network/Stations/*/Berths", "/payload/origin/project/network/Stations/*/Banks/*/BerthIDs":
+	case "/payload/origin/project/network/stations/*/berths", "/payload/origin/project/network/stations/*/banks/*/berthIDs":
 		return project.MaxBerths
-	case "/payload/origin/project/network/Stations/*/Banks":
+	case "/payload/origin/project/network/stations/*/banks":
 		return sim.MaxStationBanks
-	case "/payload/origin/project/network/Lanes/*/VehicleClasses", "/payload/origin/project/network/Stations/*/VehicleClasses", "/payload/origin/project/network/Stations/*/Berths/*/VehicleClasses":
+	case "/payload/origin/project/network/lanes/*/vehicleClasses", "/payload/origin/project/network/stations/*/vehicleClasses", "/payload/origin/project/network/stations/*/berths/*/vehicleClasses":
 		return 4
 	case "/payload/origin/project/railArrivals", "/payload/origin/project/railDepartures":
 		return project.MaxRailArrivals

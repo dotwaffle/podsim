@@ -35,6 +35,12 @@ Without the media type, the request gets HTTP 406.
 A client that reads every project kind can send all three media types in one `Accept` header.
 The editor and the debug capture do this.
 
+All JSON member names use lowerCamel case, such as `projectRevision`, `routeLaneIDs` and `id`.
+A decoder matches member names exactly.
+A member whose name differs from a declared name only in case is an unknown member, and a reader that refuses unknown members refuses it.
+The server refuses such a member in a project, a command, a saved state, a topology, and a stream message.
+The server does not convert files with other names.
+
 A request for a different `/api` path gets HTTP 404.
 A request with a different method gets HTTP 405 and an `Allow` header with the methods of the endpoint.
 A `GET` endpoint also accepts `HEAD`, except the WebSocket upgrade.
@@ -73,7 +79,7 @@ No simulation steps are skipped.
 
 HTTP state frames and stream state carry optional `speedReduction` with `sequence`, `from`, and `to` members.
 The sequence increases for each automatic reduction in one server process.
-The stream controls group includes the same value as `SpeedReduction`.
+The stream controls group includes the same value as `speedReduction`.
 Clients show a notice for a new sequence from the same server process and epoch.
 The reduction record and wall-clock measurements are not saved or restored.
 A saved playback speed must be 1, 2, 5, 15, or 60.
@@ -188,22 +194,22 @@ The server omits an empty `reason` and each count of 0.
 After one such stop, the next start uses the `logical` tier.
 After two, the next start does not use the saved state.
 
-Each item of `simulation.Vehicles` can contain a `Riders` array and a `Stops` array.
-`Riders` has one order for each party that boarded the pod or joined it.
+Each item of `simulation.vehicles` can contain a `riders` array and a `stops` array.
+`riders` has one order for each party that boarded the pod or joined it.
 It has at most 8 orders.
 The first order is the party that boarded the pod.
 The orders after it are the parties that joined the pod.
-Each order has the members `ID`, `From`, `To`, `PartySize`, `PodID`, `Completed`, `RequestedTick`, `BoardedTick`, and `DispatchReason`.
-`BoardedTick` is the simulation tick when the party boarded the pod or joined it.
-An order stays in `Riders` with `Completed` set to `true` after the party leaves the pod, until the pod gets a new order.
-`Stops` has the IDs of the stations where the pod must stop and that it did not reach, in the sequence of the stops.
-With a party limit above 1 in the default `drop-offs` mode, `Stops` can have more than one station.
+Each order has the members `id`, `from`, `to`, `partySize`, `podID`, `completed`, `requestedTick`, `boardedTick`, and `dispatchReason`.
+`boardedTick` is the simulation tick when the party boarded the pod or joined it.
+An order stays in `riders` with `completed` set to `true` after the party leaves the pod, until the pod gets a new order.
+`stops` has the IDs of the stations where the pod must stop and that it did not reach, in the sequence of the stops.
+With a party limit above 1 in the default `drop-offs` mode, `stops` can have more than one station.
 A pod omits each key when its array is empty.
 
-A pod in a [virtual platoon](../README.md#virtual-platoons) also has `PlatoonID` and `PlatoonIndex`.
-`PlatoonID` is the ID of the first pod of the platoon.
-`PlatoonIndex` is the position of the pod in the platoon, from 1 for the first pod.
-Thus the pod ahead of a pod with index 3 has the same `PlatoonID` and index 2.
+A pod in a [virtual platoon](../README.md#virtual-platoons) also has `platoonID` and `platoonIndex`.
+`platoonID` is the ID of the first pod of the platoon.
+`platoonIndex` is the position of the pod in the platoon, from 1 for the first pod.
+Thus the pod ahead of a pod with index 3 has the same `platoonID` and index 2.
 A pod that is not in a platoon omits both keys.
 With platoons off, no pod has these keys, so the frame does not change.
 
@@ -211,12 +217,12 @@ The `simulation` object has these ride metrics:
 
 | Member | Content |
 | --- | --- |
-| `Journey` | `AverageSeconds` and `MaxSeconds` of the time from request to alighting, for the parties that alighted at their destination. |
-| `RiderDistanceMeters` | The sum of the distances that the same parties rode, from the berth where they boarded to the berth where they alighted. |
-| `DirectDistanceMeters` | The sum of the free-flow distances of the same parties between the same two berths. |
-| `MaxDetourRatio` | The largest ratio of the ridden distance to the free-flow distance for one party. |
-| `SharedParties` | The number of parties that joined the pod of another party. |
-| `SharedRidePartyLimit` | The maximum number of parties in one pod. |
+| `journey` | `averageSeconds` and `maxSeconds` of the time from request to alighting, for the parties that alighted at their destination. |
+| `riderDistanceMeters` | The sum of the distances that the same parties rode, from the berth where they boarded to the berth where they alighted. |
+| `directDistanceMeters` | The sum of the free-flow distances of the same parties between the same two berths. |
+| `maxDetourRatio` | The largest ratio of the ridden distance to the free-flow distance for one party. |
+| `sharedParties` | The number of parties that joined the pod of another party. |
+| `sharedRidePartyLimit` | The maximum number of parties in one pod. |
 
 A reset, a demo, and a project apply that replaces the fleet set the metrics to 0.
 A rewind restores the metrics of the save point.
@@ -294,7 +300,7 @@ The command keeps its place until the server applies it.
 When all places are in use, the server replies at once with HTTP 503, `Retry-After: 1`, and a plain text body.
 A smaller plain command, such as a pause, does not need a place.
 Each array in the body must have no more items than the project limits permit, also for an action that does not use the project.
-For example, `project.network.Lanes` can have at most 8,000 items.
+For example, `project.network.lanes` can have at most 8,000 items.
 Each string and each member name in the body must have at most 1,024 bytes, including the quotes and the escapes.
 Commands and WebSocket upgrades share one Origin policy.
 Without `-public-origin`, Origin must match the request Host and local connection scheme.

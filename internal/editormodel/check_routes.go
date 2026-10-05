@@ -20,9 +20,9 @@ func (g *draftNetwork) checkPassengerRoutes(errors *checkList) {
 func (g *draftNetwork) findPassengerRoutes(errors *checkList) {
 	berths := make([][]string, len(g.passenger))
 	for index, station := range g.passenger {
-		for _, berth := range items(member(station, "Berths")) {
+		for _, berth := range items(member(station, "berths")) {
 			if object(berth) != nil {
-				if node := text(member(berth, "Node")); !g.brokenBerths[node] {
+				if node := text(member(berth, "node")); !g.brokenBerths[node] {
 					berths[index] = append(berths[index], node)
 				}
 			}
@@ -41,18 +41,18 @@ func (g *draftNetwork) findPassengerRoutes(errors *checkList) {
 		parts := make([]string, 0, 2)
 		list := func(indexes []int) string {
 			if len(indexes) == 1 {
-				return text(member(g.passenger[indexes[0]], "Name"))
+				return text(member(g.passenger[indexes[0]], "name"))
 			}
 			return fmt.Sprintf("%d passenger stations", len(indexes))
 		}
-		name := text(member(station, "Name"))
+		name := text(member(station, "name"))
 		if len(item.out) != 0 {
 			parts = append(parts, name+" cannot reach "+list(item.out))
 		}
 		if len(item.in) != 0 {
 			parts = append(parts, list(item.in)+" cannot reach "+name)
 		}
-		errors.add(strings.Join(parts, ", and ")+".", target("station", member(station, "ID")))
+		errors.add(strings.Join(parts, ", and ")+".", target("station", member(station, "id")))
 	}
 }
 
@@ -220,7 +220,7 @@ func (g *draftNetwork) warnings(warnings *checkList) {
 		if object(lane) == nil {
 			continue
 		}
-		from, to := text(member(lane, "From")), text(member(lane, "To"))
+		from, to := text(member(lane, "from")), text(member(lane, "to"))
 		undirected[from] = append(undirected[from], to)
 		undirected[to] = append(undirected[to], from)
 	}
@@ -229,11 +229,11 @@ func (g *draftNetwork) warnings(warnings *checkList) {
 		if object(node) == nil {
 			continue
 		}
-		id := text(member(node, "ID"))
+		id := text(member(node, "id"))
 		if g.stationNodes[id] || len(undirected[id]) != 0 {
 			sections = append(sections, id)
 		} else {
-			warnings.add("Junction "+id+" is disconnected.", target("node", member(node, "ID")))
+			warnings.add("Junction "+id+" is disconnected.", target("node", member(node, "id")))
 		}
 	}
 	if len(sections) != 0 {

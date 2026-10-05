@@ -22,10 +22,10 @@ func TestCheckpointPreallocationBounds(t *testing.T) {
 		count              int
 		element            any
 	}{
-		{"banks", "payload/origin/project/network/Stations/0/Banks", "array exceeds bound", 9, map[string]any{}},
-		{"station classes", "payload/origin/project/network/Stations/0/VehicleClasses", "array exceeds bound", 5, "legacy"},
-		{"lane classes", "payload/origin/project/network/Lanes/0/VehicleClasses", "array exceeds bound", 5, "legacy"},
-		{"berth classes", "payload/origin/project/network/Stations/0/Berths/0/VehicleClasses", "array exceeds bound", 5, "legacy"},
+		{"banks", "payload/origin/project/network/stations/0/banks", "array exceeds bound", 9, map[string]any{}},
+		{"station classes", "payload/origin/project/network/stations/0/vehicleClasses", "array exceeds bound", 5, "legacy"},
+		{"lane classes", "payload/origin/project/network/lanes/0/vehicleClasses", "array exceeds bound", 5, "legacy"},
+		{"berth classes", "payload/origin/project/network/stations/0/berths/0/vehicleClasses", "array exceeds bound", 5, "legacy"},
 		{"rail events", "payload/origin/project/railArrivals", "array exceeds bound", 257, map[string]any{}},
 		{"rail destinations", "payload/origin/project/railArrivals/0/destinations", "array exceeds bound", 17, map[string]any{}},
 		{"rail origins", "payload/origin/project/railDepartures/0/origins", "array exceeds bound", 17, map[string]any{}},

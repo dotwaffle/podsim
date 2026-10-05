@@ -4,7 +4,7 @@ A bank owns a nonempty set of station berths and its own entry and exit gates.
 One station can contain up to eight banks.
 Each berth belongs to exactly one bank.
 Passenger station IDs and the flat berth list stay unchanged.
-Separate `ParkingOnly` stations provide storage.
+Separate `parkingOnly` stations provide storage.
 
 Each bank has a direct through lane and isolated arrival and departure paths.
 The validator checks every legal local path, including alternate paths.
@@ -51,9 +51,9 @@ Banked imports, edits, and simulation admission check the full network against t
 
 ## Formats and restore
 
-Projects use version 1 with or without `Banks`.
-Projects without `Banks` keep their existing behavior.
-An explicit null or empty `Banks` member is invalid.
+Projects use version 1 with or without `banks`.
+Projects without `banks` keep their existing behavior.
+An explicit null or empty `banks` member is invalid.
 The decoder refuses project versions 2 through 5 and does not migrate them.
 Both project readers and nested transport decoders bound banks and berth membership before typed allocation.
 

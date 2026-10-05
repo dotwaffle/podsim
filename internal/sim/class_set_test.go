@@ -107,13 +107,13 @@ func TestClassSetCanonicalAndOmittedMembers(t *testing.T) {
 	t.Parallel()
 	set, _ := NewClassSet("express", "compact")
 	raw, err := jsonv2.Marshal(struct {
-		Classes ClassSet `json:"VehicleClasses,omitzero"`
+		Classes ClassSet `json:"vehicleClasses,omitzero"`
 	}{set})
-	if err != nil || string(raw) != `{"VehicleClasses":["compact","express"]}` {
+	if err != nil || string(raw) != `{"vehicleClasses":["compact","express"]}` {
 		t.Fatalf("canonical %s: %v", raw, err)
 	}
 	raw, err = jsonv2.Marshal(struct {
-		Classes ClassSet `json:"VehicleClasses,omitzero"`
+		Classes ClassSet `json:"vehicleClasses,omitzero"`
 	}{})
 	if err != nil || string(raw) != `{}` {
 		t.Fatalf("omitted %s: %v", raw, err)

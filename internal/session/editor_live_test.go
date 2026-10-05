@@ -29,7 +29,7 @@ const shell = require(process.argv[3]);
   const response = await fetch(base + "/api/state", { cache: "no-store", headers: { Accept: shell.STATE_ACCEPT } });
   if (!response.ok) throw new Error("capture HTTP " + response.status);
   const captured = shell.captureState(await response.json());
-  const capture = { epoch: captured.epoch, revision: captured.projectRevision, tick: captured.simulation && captured.simulation.Tick };
+  const capture = { epoch: captured.epoch, revision: captured.projectRevision, tick: captured.simulation && captured.simulation.tick };
   const connection = { fetch: (url, init) => fetch(base + url, init), clientID: "editor-live-test", sequence: 0, epoch: "" };
   const live = await editor.readLive(connection, async (project) => project);
   connection.epoch = live.epoch;

@@ -612,7 +612,7 @@ The draft stays local until you select **Pause and apply**.
   See [Georeferenced background](#georeferenced-background).
 - Export JSON to save the scenario and optional background.
   Import JSON to restore a draft.
-  Like the server, the import matches member names that differ only in case, and the last of them applies.
+  Like the server, the import matches member names exactly.
   A file that repeats a member name in one object is not valid.
   The export is compact JSON.
   The project file must be 21 MiB or smaller.

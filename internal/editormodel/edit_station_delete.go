@@ -6,32 +6,32 @@ import (
 )
 
 func (g geometryDraft) deleteStation(id string) error {
-	station, err := g.find("Stations", id)
+	station, err := g.find("stations", id)
 	if err != nil {
 		return err
 	}
 	nodes := g.stationNodes(station)
 	berths := make(map[string]bool)
-	for _, berth := range items(station["Berths"]) {
-		if berthID := text(member(berth, "ID")); berthID != "" {
+	for _, berth := range items(station["berths"]) {
+		if berthID := text(member(berth, "id")); berthID != "" {
 			berths[berthID] = true
 		}
 	}
-	g.network["Stations"] = slices.DeleteFunc(items(g.network["Stations"]), func(item any) bool { return member(item, "ID") == id })
-	g.network["Nodes"] = slices.DeleteFunc(items(g.network["Nodes"]), func(node any) bool { return nodes[text(member(node, "ID"))] })
-	g.network["Lanes"] = slices.DeleteFunc(items(g.network["Lanes"]), func(lane any) bool {
-		return nodes[text(member(lane, "From"))] || nodes[text(member(lane, "To"))]
+	g.network["stations"] = slices.DeleteFunc(items(g.network["stations"]), func(item any) bool { return member(item, "id") == id })
+	g.network["nodes"] = slices.DeleteFunc(items(g.network["nodes"]), func(node any) bool { return nodes[text(member(node, "id"))] })
+	g.network["lanes"] = slices.DeleteFunc(items(g.network["lanes"]), func(lane any) bool {
+		return nodes[text(member(lane, "from"))] || nodes[text(member(lane, "to"))]
 	})
-	for _, lane := range items(g.network["Lanes"]) {
-		if member(lane, "StationID") == id {
-			delete(object(lane), "StationID")
-			delete(object(lane), "StationRole")
+	for _, lane := range items(g.network["lanes"]) {
+		if member(lane, "stationID") == id {
+			delete(object(lane), "stationID")
+			delete(object(lane), "stationRole")
 		}
 	}
 	if fleet, ok := member(g.draft, "fleet").([]any); ok {
 		owned := items(cloneEditValue(fleet))
 		owned = slices.DeleteFunc(owned, func(pod any) bool {
-			return member(pod, "StationID") == id || berths[text(member(pod, "BerthID"))]
+			return member(pod, "stationID") == id || berths[text(member(pod, "berthID"))]
 		})
 		g.replaceBranch("fleet", owned)
 	}

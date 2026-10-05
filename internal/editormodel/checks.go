@@ -127,7 +127,7 @@ func preparedDraftChecks(value any, prepared *preparedChecks) checkReport {
 		errors.add("The scenario name exceeds 80 bytes.", nil)
 	}
 	network := member(value, "network")
-	if object(network) == nil || items(member(network, "Nodes")) == nil || items(member(network, "Lanes")) == nil || items(member(network, "Stations")) == nil {
+	if object(network) == nil || items(member(network, "nodes")) == nil || items(member(network, "lanes")) == nil || items(member(network, "stations")) == nil {
 		errors.add("The scenario needs Nodes, Lanes, and Stations arrays.", nil)
 		return checkReport{Errors: errors.items}
 	}
@@ -143,7 +143,7 @@ func preparedDraftChecks(value any, prepared *preparedChecks) checkReport {
 	checkFleet(value, g, &errors)
 	passengerIDs := make(map[string]bool)
 	for _, station := range g.passenger {
-		passengerIDs[text(member(station, "ID"))] = true
+		passengerIDs[text(member(station, "id"))] = true
 	}
 	checkDemandRate(value, &errors)
 	if prepared == nil {
@@ -174,7 +174,7 @@ type draftNetwork struct {
 func checkNetwork(value any, errors *checkList) *draftNetwork {
 	previousErrors := len(errors.items)
 	g := &draftNetwork{
-		nodes: items(member(value, "Nodes")), lanes: items(member(value, "Lanes")), stations: items(member(value, "Stations")),
+		nodes: items(member(value, "nodes")), lanes: items(member(value, "lanes")), stations: items(member(value, "stations")),
 		nodeIDs: make(map[string]bool), stationIDs: make(map[string]bool), berthIDs: make(map[string]bool),
 		positions: make(map[string]any), directed: make(map[string][]string),
 		stationNodes: make(map[string]bool), brokenBerths: make(map[string]bool),
@@ -215,7 +215,7 @@ func (ids draftIDs) add(value any, kind, targetKind string, errors *checkList) {
 
 func (g *draftNetwork) checkNodes(ids draftIDs, errors *checkList) {
 	for _, node := range g.nodes {
-		id, position := member(node, "ID"), member(node, "Position")
+		id, position := member(node, "id"), member(node, "position")
 		ids.add(id, "A node", "node", errors)
 		if name, ok := id.(string); ok && object(node) != nil {
 			g.nodeIDs[name] = true
@@ -223,7 +223,7 @@ func (g *draftNetwork) checkNodes(ids draftIDs, errors *checkList) {
 				g.positions[name] = position
 			}
 		}
-		if !finite(member(position, "X")) || !finite(member(position, "Y")) {
+		if !finite(member(position, "x")) || !finite(member(position, "y")) {
 			errors.add("Node "+label(id)+" has an invalid position.", nil)
 		}
 	}
@@ -234,18 +234,18 @@ func (g *draftNetwork) checkLanes(ids draftIDs, errors *checkList) map[[2]string
 	incident := make(map[string]int)
 	var nodeOrder []string
 	for _, lane := range g.lanes {
-		id := member(lane, "ID")
+		id := member(lane, "id")
 		ids.add(id, "A lane", "lane", errors)
-		from, to := text(member(lane, "From")), text(member(lane, "To"))
+		from, to := text(member(lane, "from")), text(member(lane, "to"))
 		at := target("lane", id)
 		if object(lane) == nil || !g.nodeIDs[from] || !g.nodeIDs[to] || from == to {
 			errors.add("Lane "+label(id)+" has invalid endpoints.", at)
 		}
-		if !finite(member(lane, "SpeedLimit")) || number(member(lane, "SpeedLimit")) <= 0 {
+		if !finite(member(lane, "speedLimit")) || number(member(lane, "speedLimit")) <= 0 {
 			errors.add("Lane "+label(id)+" needs a positive speed limit.", at)
 		}
-		control := member(lane, "Control")
-		if control != nil && (!finite(member(control, "X")) || !finite(member(control, "Y"))) {
+		control := member(lane, "control")
+		if control != nil && (!finite(member(control, "x")) || !finite(member(control, "y"))) {
 			errors.add("Lane "+label(id)+" has an invalid control point.", at)
 		}
 		if object(lane) == nil {
@@ -258,7 +258,7 @@ func (g *draftNetwork) checkLanes(ids draftIDs, errors *checkList) map[[2]string
 		pair := [2]string{from, to}
 		path := from + "\x00" + to
 		if object(control) != nil {
-			path += fmt.Sprintf("\x00%v\x00%v", member(control, "X"), member(control, "Y"))
+			path += fmt.Sprintf("\x00%v\x00%v", member(control, "x"), member(control, "y"))
 		}
 		if previous, exists := paths[path]; exists {
 			errors.add("Lanes "+previous+" and "+label(id)+" have the same nodes and path.", at)
@@ -285,28 +285,28 @@ func (g *draftNetwork) checkLanes(ids draftIDs, errors *checkList) map[[2]string
 func (g *draftNetwork) checkStations(ids draftIDs, pairs map[[2]string]bool, errors *checkList) {
 	berthNodes := make(map[string]bool)
 	for _, station := range g.stations {
-		id := member(station, "ID")
+		id := member(station, "id")
 		ids.add(id, "A station", "station", errors)
 		if object(station) == nil {
 			errors.add("A station has an invalid value.", nil)
 			continue
 		}
-		name, entry, exit := text(id), text(member(station, "Entry")), text(member(station, "Exit"))
+		name, entry, exit := text(id), text(member(station, "entry")), text(member(station, "exit"))
 		g.stationIDs[name] = true
 		at := target("station", id)
-		if has(station, "ParkingOnly") {
-			if _, ok := member(station, "ParkingOnly").(bool); !ok {
+		if has(station, "parkingOnly") {
+			if _, ok := member(station, "parkingOnly").(bool); !ok {
 				errors.add("Station "+label(id)+" has an invalid parking setting.", at)
 			}
 		}
-		if len(text(member(station, "Name"))) > 80 {
+		if len(text(member(station, "name"))) > 80 {
 			errors.add("Station "+label(id)+" name exceeds 80 bytes.", at)
 		}
-		berths := items(member(station, "Berths"))
+		berths := items(member(station, "berths"))
 		if len(berths) > project.MaxBerths {
 			errors.add("Station "+label(id)+" exceeds 200 berths.", at)
 		}
-		if strings.TrimSpace(text(member(station, "Name"))) == "" {
+		if strings.TrimSpace(text(member(station, "name"))) == "" {
 			errors.add("Station "+label(id)+" needs a name.", at)
 		}
 		if !g.nodeIDs[entry] || !g.nodeIDs[exit] || entry == exit {
@@ -320,13 +320,13 @@ func (g *draftNetwork) checkStations(ids draftIDs, pairs map[[2]string]bool, err
 			errors.add("Station "+label(id)+" needs at least one berth.", at)
 		}
 		for _, berth := range berths {
-			berthID := member(berth, "ID")
+			berthID := member(berth, "id")
 			ids.add(berthID, "A berth", "berth", errors)
 			if object(berth) == nil {
 				errors.add("Station "+label(id)+" has an invalid berth.", at)
 				continue
 			}
-			node := text(member(berth, "Node"))
+			node := text(member(berth, "node"))
 			g.berthIDs[text(berthID)], g.stationNodes[node] = true, true
 			if !g.nodeIDs[node] || node == entry || node == exit {
 				errors.add("Berth "+label(berthID)+" has an invalid node.", target("berth", berthID))
@@ -339,7 +339,7 @@ func (g *draftNetwork) checkStations(ids draftIDs, pairs map[[2]string]bool, err
 		if !pairs[[2]string{entry, exit}] {
 			errors.add("Station "+label(id)+" needs a through lane.", at)
 		}
-		if member(station, "ParkingOnly") != true {
+		if member(station, "parkingOnly") != true {
 			g.passenger = append(g.passenger, station)
 		}
 	}
@@ -350,7 +350,7 @@ func (g *draftNetwork) checkStationRoles(errors *checkList) {
 		if object(lane) == nil {
 			continue
 		}
-		id, station, role := member(lane, "ID"), text(member(lane, "StationID")), text(member(lane, "StationRole"))
+		id, station, role := member(lane, "id"), text(member(lane, "stationID")), text(member(lane, "stationRole"))
 		roles := []string{string(sim.StationApproachRole), string(sim.StationEntryRole), string(sim.StationBerthAccessRole), string(sim.StationThroughRole), string(sim.StationDepartureRole), string(sim.StationExitRole)}
 		if (station != "") != (role != "") || role != "" && !slices.Contains(roles, role) {
 			errors.add("Lane "+label(id)+" has an invalid station role.", target("lane", id))
@@ -361,15 +361,15 @@ func (g *draftNetwork) checkStationRoles(errors *checkList) {
 }
 
 func draftLaneLength(from, to, control any) float64 {
-	start := sim.Point{X: number(member(from, "X")), Y: number(member(from, "Y"))}
-	end := sim.Point{X: number(member(to, "X")), Y: number(member(to, "Y"))}
+	start := sim.Point{X: number(member(from, "x")), Y: number(member(from, "y"))}
+	end := sim.Point{X: number(member(to, "x")), Y: number(member(to, "y"))}
 	if from == nil || to == nil {
 		return 0
 	}
 	if control == nil {
 		return math.Hypot(end.X-start.X, end.Y-start.Y)
 	}
-	curve := sim.Point{X: number(member(control, "X")), Y: number(member(control, "Y"))}
+	curve := sim.Point{X: number(member(control, "x")), Y: number(member(control, "y"))}
 	length, previous := 0.0, start
 	for i := 1; i <= 16; i++ {
 		t := float64(i) / 16
@@ -383,17 +383,17 @@ func draftLaneLength(from, to, control any) float64 {
 
 func (g *draftNetwork) checkBerthRoutes(errors *checkList) {
 	for _, station := range g.stations {
-		for _, berth := range items(member(station, "Berths")) {
+		for _, berth := range items(member(station, "berths")) {
 			if object(berth) == nil {
 				continue
 			}
-			node, id := text(member(berth, "Node")), member(berth, "ID")
+			node, id := text(member(berth, "node")), member(berth, "id")
 			gates := station
-			if has(station, "Banks") {
+			if has(station, "banks") {
 				gates = bankForBerth(station, text(id))
 			}
-			entry := draftRoute(g.directed, text(member(gates, "Entry")), node, g.stationNodes)
-			exit := draftRoute(g.directed, node, text(member(gates, "Exit")), g.stationNodes)
+			entry := draftRoute(g.directed, text(member(gates, "entry")), node, g.stationNodes)
+			exit := draftRoute(g.directed, node, text(member(gates, "exit")), g.stationNodes)
 			if !entry {
 				errors.add("Berth "+label(id)+" needs an entry lane.", target("berth", id))
 			}
@@ -446,7 +446,7 @@ func checkFleet(value any, g *draftNetwork, errors *checkList) {
 	fleet := items(member(value, "fleet"))
 	occupied, ids := make(map[string]bool), make(map[string]bool)
 	for _, pod := range fleet {
-		id := member(pod, "ID")
+		id := member(pod, "id")
 		if len(text(id)) > 64 {
 			errors.add("A pod ID exceeds 64 bytes.", nil)
 		}
@@ -456,12 +456,12 @@ func checkFleet(value any, g *draftNetwork, errors *checkList) {
 			errors.add("ID "+text(id)+" is used more than once.", nil)
 		}
 		ids[text(id)] = true
-		stationID, berthID := member(pod, "StationID"), text(member(pod, "BerthID"))
+		stationID, berthID := member(pod, "stationID"), text(member(pod, "berthID"))
 		found := false
 		for _, station := range g.stations {
-			if text(member(station, "ID")) == text(stationID) && object(station) != nil {
-				for _, berth := range items(member(station, "Berths")) {
-					found = found || object(berth) != nil && text(member(berth, "ID")) == berthID
+			if text(member(station, "id")) == text(stationID) && object(station) != nil {
+				for _, berth := range items(member(station, "berths")) {
+					found = found || object(berth) != nil && text(member(berth, "id")) == berthID
 				}
 				break
 			}

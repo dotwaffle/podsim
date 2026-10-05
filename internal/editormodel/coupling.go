@@ -17,7 +17,7 @@ var couplingKeys = []string{"couplingContract", "couplingEnabled", "couplingSite
 
 // Presence includes null and empty values, as native project decoding counts them.
 func hasCouplingMetadata(draft any) bool {
-	return slices.ContainsFunc(couplingKeys, func(key string) bool { return hasFold(draft, key) })
+	return slices.ContainsFunc(couplingKeys, func(key string) bool { return has(draft, key) })
 }
 
 // couplingMarked reports whether the draft has the coupling marker. Only a

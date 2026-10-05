@@ -14,8 +14,8 @@ func (c *projectChange) fleetCount(draft any, stationID string, requested any) e
 		return errors.New("a fleet edit needs a station ID")
 	}
 	var station any
-	for _, candidate := range items(member(member(draft, "network"), "Stations")) {
-		if text(member(candidate, "ID")) == stationID {
+	for _, candidate := range items(member(member(draft, "network"), "stations")) {
+		if text(member(candidate, "id")) == stationID {
 			station = candidate
 			break
 		}
@@ -23,7 +23,7 @@ func (c *projectChange) fleetCount(draft any, stationID string, requested any) e
 	if station == nil {
 		return errors.New("the fleet station no longer exists")
 	}
-	berths := items(member(station, "Berths"))
+	berths := items(member(station, "berths"))
 	requestedCount, err := editNumber(requested)
 	if err != nil {
 		requestedCount = 0
@@ -31,13 +31,13 @@ func (c *projectChange) fleetCount(draft any, stationID string, requested any) e
 	count := int(max(0, min(float64(len(berths)), math.Floor(requestedCount))))
 	available := make(map[string]bool, len(berths))
 	for _, berth := range berths {
-		available[text(member(berth, "ID"))] = true
+		available[text(member(berth, "id"))] = true
 	}
 	other, current := []any{}, []any{}
 	for _, pod := range items(member(draft, "fleet")) {
-		if text(member(pod, "StationID")) != stationID {
+		if text(member(pod, "stationID")) != stationID {
 			other = append(other, pod)
-		} else if available[text(member(pod, "BerthID"))] {
+		} else if available[text(member(pod, "berthID"))] {
 			current = append(current, pod)
 		}
 	}
@@ -45,20 +45,20 @@ func (c *projectChange) fleetCount(draft any, stationID string, requested any) e
 	occupied, ids := map[string]bool{}, map[string]bool{}
 	for _, group := range [][]any{other, kept} {
 		for _, pod := range group {
-			occupied[text(member(pod, "BerthID"))] = true
-			ids[text(member(pod, "ID"))] = true
+			occupied[text(member(pod, "berthID"))] = true
+			ids[text(member(pod, "id"))] = true
 		}
 	}
 	for _, berth := range berths {
 		if len(kept) >= count {
 			break
 		}
-		berthID := text(member(berth, "ID"))
+		berthID := text(member(berth, "id"))
 		if occupied[berthID] {
 			continue
 		}
 		id := freePodID(ids)
-		kept = append(kept, map[string]any{"ID": id, "StationID": stationID, "BerthID": berthID})
+		kept = append(kept, map[string]any{"id": id, "stationID": stationID, "berthID": berthID})
 		occupied[berthID], ids[id] = true, true
 	}
 	if len(other)+len(kept) > project.MaxPods {

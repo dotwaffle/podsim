@@ -61,11 +61,11 @@ func TestStreamDecodeBoundsBeforeTokenScans(t *testing.T) {
 			{"array past the element limit", `{"x":` + zeros(65537) + `}`, errJSONArrayTooLong},
 			{"object past the member limit", `{"x":0` + members(256) + `}`, errJSONObjectTooLong},
 			{"replacement group past the member limit", `{"delta":{"groups":{"controls":{"x":0` + members(256) + `}}}}`, errJSONObjectTooLong},
-			{"vehicles past the fleet bound", `{"full":{"state":{"simulation":{"Vehicles":` + zeros(project.MaxPods+1) + `}}}}`, errJSONArrayTooLong},
-			{"full pending past the order bound", `{"full":{"state":{"simulation":{"Pending":` + zeros(pending+1) + `}}}}`, errJSONArrayTooLong},
-			{"folded full riders past the order bound", `{"FULL":{"State":{"SIMULATION":{"vehicles":[{"RIDERS":` + zeros(riders+1) + `}]}}}}`, errJSONArrayTooLong},
+			{"vehicles past the fleet bound", `{"full":{"state":{"simulation":{"vehicles":` + zeros(project.MaxPods+1) + `}}}}`, errJSONArrayTooLong},
+			{"full pending past the order bound", `{"full":{"state":{"simulation":{"pending":` + zeros(pending+1) + `}}}}`, errJSONArrayTooLong},
+			{"full riders past the order bound", `{"full":{"state":{"simulation":{"vehicles":[{"riders":` + zeros(riders+1) + `}]}}}}`, errJSONArrayTooLong},
 			{"delta riders past the order bound", `{"delta":{"vehicles":[{"riders":{"value":` + zeros(riders+1) + `}}]}}`, errJSONArrayTooLong},
-			{"full boardings past the order bound", `{"full":{"state":{"simulation":{"Vehicles":[{"Boardings":` + zeros(riders+1) + `}]}}}}`, errJSONArrayTooLong},
+			{"full boardings past the order bound", `{"full":{"state":{"simulation":{"vehicles":[{"boardings":` + zeros(riders+1) + `}]}}}}`, errJSONArrayTooLong},
 			{"delta boardings past the order bound", `{"delta":{"vehicles":[{"boardings":{"value":` + zeros(riders+1) + `}}]}}`, errJSONArrayTooLong},
 			{"replacement pending past the order bound", `{"delta":{"groups":{"pending":` + zeros(pending+1) + `}}}`, errJSONArrayTooLong},
 		}
@@ -204,10 +204,10 @@ func TestPrescanStateFrameJSONBounds(t *testing.T) {
 		want error
 	}{
 		{"deeper than the stream limit", `{"x":` + strings.Repeat("[", 65) + strings.Repeat("]", 65) + `}`, errJSONTooDeep},
-		{"vehicles past the fleet bound", `{"simulation":{"Vehicles":` + zeros(project.MaxPods+1) + `}}`, errJSONArrayTooLong},
-		{"folded pending past the order bound", `{"SIMULATION":{"pending":` + zeros(maxSavedTrips+1) + `}}`, errJSONArrayTooLong},
-		{"riders past the order bound", `{"simulation":{"Vehicles":[{"Riders":` + zeros(sim.MaxSharedRideParties+1) + `}]}}`, errJSONArrayTooLong},
-		{"route past the element limit", `{"simulation":{"Vehicles":[{"RouteLaneIDs":` + zeros(65537) + `}]}}`, errJSONArrayTooLong},
+		{"vehicles past the fleet bound", `{"simulation":{"vehicles":` + zeros(project.MaxPods+1) + `}}`, errJSONArrayTooLong},
+		{"pending past the order bound", `{"simulation":{"pending":` + zeros(maxSavedTrips+1) + `}}`, errJSONArrayTooLong},
+		{"riders past the order bound", `{"simulation":{"vehicles":[{"riders":` + zeros(sim.MaxSharedRideParties+1) + `}]}}`, errJSONArrayTooLong},
+		{"route past the element limit", `{"simulation":{"vehicles":[{"routeLaneIDs":` + zeros(65537) + `}]}}`, errJSONArrayTooLong},
 		{"invalid UTF-8", "{\"epoch\":\"\xff\"}", nil},
 	}
 	for _, test := range tests {

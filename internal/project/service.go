@@ -50,9 +50,9 @@ func scanProjectFields(data []byte) (projectFields, error) {
 		if err != nil {
 			return projectFields{}, err
 		}
-		path := strings.Split(strings.ToLower(string(decoder.StackPointer())), "/")
+		path := strings.Split(string(decoder.StackPointer()), "/")
 		kind, length := decoder.StackIndex(decoder.StackDepth())
-		if kind == jsontext.KindBeginArray && len(path) == 3 && path[1] == "expressservices" && length > MaxExpressServices {
+		if kind == jsontext.KindBeginArray && len(path) == 3 && path[1] == "expressServices" && length > MaxExpressServices {
 			return projectFields{}, fmt.Errorf("express registry has more than %d services", MaxExpressServices)
 		}
 		if token.Kind() != jsontext.KindString || kind != jsontext.KindBeginObject || length%2 != 1 {
@@ -70,7 +70,7 @@ func scanProjectFields(data []byte) (projectFields, error) {
 				return projectFields{}, err
 			}
 
-		case len(path) == 2 && path[1] == "ordercontract":
+		case len(path) == 2 && path[1] == "orderContract":
 			fields.service = true
 			value, err := decoder.ReadToken()
 			if err != nil {
@@ -79,7 +79,7 @@ func scanProjectFields(data []byte) (projectFields, error) {
 			if value.Kind() != jsontext.KindString || value.String() != string(sim.ExpressOrderContract) {
 				return projectFields{}, errors.New("order contract must be express-v1")
 			}
-		case len(path) == 2 && path[1] == "onboardpickups":
+		case len(path) == 2 && path[1] == "onboardPickups":
 			fields.service = true
 			value, err := decoder.ReadToken()
 			if err != nil {
@@ -88,7 +88,7 @@ func scanProjectFields(data []byte) (projectFields, error) {
 			if value.Kind() != jsontext.KindTrue && value.Kind() != jsontext.KindFalse {
 				return projectFields{}, errors.New("onboard pickups must be Boolean")
 			}
-		case len(path) == 2 && path[1] == "stationqueuespacing":
+		case len(path) == 2 && path[1] == "stationQueueSpacing":
 			fields.service = true
 			value, err := decoder.ReadToken()
 			if err != nil {
@@ -115,7 +115,7 @@ func scanProjectFields(data []byte) (projectFields, error) {
 			if _, known := sim.LookupVehicleClass(sim.VehicleClass(value.String())); !known {
 				return projectFields{}, sim.ErrUnknownVehicleClass
 			}
-		case len(path) == 2 && path[1] == "expressservices":
+		case len(path) == 2 && path[1] == "expressServices":
 			fields.service = true
 			if decoder.PeekKind() != jsontext.KindBeginArray {
 				return projectFields{}, errors.New("express registry must be an array")
@@ -126,10 +126,10 @@ func scanProjectFields(data []byte) (projectFields, error) {
 
 func serviceClassListPath(path []string) bool {
 	if len(path) == 5 && path[1] == "network" && (path[2] == "stations" || path[2] == "lanes") {
-		return path[4] == "vehicleclasses"
+		return path[4] == "vehicleClasses"
 	}
 	return len(path) == 7 && path[1] == "network" && path[2] == "stations" &&
-		path[4] == "berths" && path[6] == "vehicleclasses"
+		path[4] == "berths" && path[6] == "vehicleClasses"
 }
 
 func validateOnboardPickups(config Config) error {

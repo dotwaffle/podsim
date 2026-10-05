@@ -5,28 +5,28 @@ import "slices"
 // RequestTiming gives the boarding and completion of one passenger request.
 // Each party of a shared ride has its own timing.
 type RequestTiming struct {
-	RequestID     int   `json:"RequestID"`
-	RequestedTick int64 `json:"RequestedTick"`
+	RequestID     int   `json:"requestID"`
+	RequestedTick int64 `json:"requestedTick"`
 	// BoardedTick is the tick at which the party started to board. For a
 	// party that joined a shared ride, it is the tick of the join.
-	BoardedTick int64 `json:"BoardedTick"`
+	BoardedTick int64 `json:"boardedTick"`
 	// CompletedTick is the tick at which the party left the pod at its
 	// destination, or -1 before that.
-	CompletedTick int64 `json:"CompletedTick"`
+	CompletedTick int64 `json:"completedTick"`
 	// RiddenMeters is the distance that the party rode, from the berth
 	// where it boarded to the berth where it left the pod. It is 0 before
 	// completion.
-	RiddenMeters float64 `json:"RiddenMeters"`
+	RiddenMeters float64 `json:"riddenMeters"`
 	// DirectMeters is the free-flow distance between the same two berths.
 	// It is 0 before completion, and when no free-flow route exists.
-	DirectMeters float64 `json:"DirectMeters"`
+	DirectMeters float64 `json:"directMeters"`
 	// SharedWith is 0 for a party that boarded its own pod. For a party that
 	// joined a shared ride, it is the ID of the first request of the pod.
-	SharedWith int `json:"SharedWith"`
+	SharedWith int `json:"sharedWith"`
 	// Reassigned is true for a party that joined a shared ride while it
 	// had a pod on its way. Dispatch released that pod. See
 	// SharedRideJoinReassignExisting.
-	Reassigned bool `json:"Reassigned"`
+	Reassigned bool `json:"reassigned"`
 }
 
 // requestCompletion records that one party left a pod at its destination.
@@ -38,8 +38,8 @@ type requestCompletion struct {
 
 // NodePass records that a pod entered a lane at the start node of the lane.
 type NodePass struct {
-	Tick int64  `json:"Tick"`
-	Node string `json:"Node"`
+	Tick int64  `json:"tick"`
+	Node string `json:"node"`
 }
 
 // SetExperimentRecords controls RequestTimings, NodePasses, SeatScreen, and

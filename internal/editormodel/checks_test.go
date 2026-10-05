@@ -202,7 +202,7 @@ func BenchmarkChecksRepeatedBerths(b *testing.B) {
 func TestChecksPreserveInvalidDraftTargetsAndOperationBarrier(t *testing.T) {
 	t.Parallel()
 	model := new(engine)
-	input := `{"op":"sync","keys":["network"],"patch":{"network":{"Nodes":[{"ID":"a","Position":{"X":0,"Y":0}},{"ID":"b","Position":{"X":40,"Y":0}}],"Lanes":[{"ID":"road","From":"a","To":"b","SpeedLimit":0,"Control":{"X":"bad","Y":0}}],"Stations":[]}}}`
+	input := `{"op":"sync","keys":["network"],"patch":{"network":{"nodes":[{"id":"a","position":{"x":0,"y":0}},{"id":"b","position":{"x":40,"y":0}}],"lanes":[{"id":"road","from":"a","to":"b","speedLimit":0,"control":{"x":"bad","y":0}}],"stations":[]}}}`
 	if _, err := model.handle(input); err == nil {
 		t.Fatal("incorrectly typed draft was accepted")
 	}

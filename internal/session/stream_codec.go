@@ -60,24 +60,41 @@ type VehicleDelta struct {
 }
 type vehicleMetadata struct {
 	CouplingID   string  `json:"couplingID,omitzero"`
-	RiddenMeters float64 `json:"RiddenMeters,omitzero"`
-	RelocatingTo string  `json:"RelocatingTo"`
-	Rebalancing  bool    `json:"Rebalancing"`
-	PlatoonID    string  `json:"PlatoonID"`
-	PlatoonIndex int     `json:"PlatoonIndex"`
+	RiddenMeters float64 `json:"riddenMeters,omitzero"`
+	RelocatingTo string  `json:"relocatingTo"`
+	Rebalancing  bool    `json:"rebalancing"`
+	PlatoonID    string  `json:"platoonID"`
+	PlatoonIndex int     `json:"platoonIndex"`
 }
 
 type streamStatistics struct {
-	Wait                    sim.WaitStats    `json:"Wait"`
-	Journey                 sim.JourneyStats `json:"Journey"`
-	PassengerDistanceMeters float64          `json:"PassengerDistanceMeters"`
-	RiderDistanceMeters     float64          `json:"RiderDistanceMeters"`
-	DirectDistanceMeters    float64          `json:"DirectDistanceMeters"`
-	MaxDetourRatio          float64          `json:"MaxDetourRatio"`
-	SharedParties           int              `json:"SharedParties"`
-	SharedRidePartyLimit    int              `json:"SharedRidePartyLimit"`
-	EmptyDistanceMeters     float64          `json:"EmptyDistanceMeters"`
-	RebalanceMoves          int              `json:"RebalanceMoves"`
+	Wait                    sim.WaitStats    `json:"wait"`
+	Journey                 sim.JourneyStats `json:"journey"`
+	PassengerDistanceMeters float64          `json:"passengerDistanceMeters"`
+	RiderDistanceMeters     float64          `json:"riderDistanceMeters"`
+	DirectDistanceMeters    float64          `json:"directDistanceMeters"`
+	MaxDetourRatio          float64          `json:"maxDetourRatio"`
+	SharedParties           int              `json:"sharedParties"`
+	SharedRidePartyLimit    int              `json:"sharedRidePartyLimit"`
+	EmptyDistanceMeters     float64          `json:"emptyDistanceMeters"`
+	RebalanceMoves          int              `json:"rebalanceMoves"`
+}
+
+// controlsGroup is the "controls" replacement group of a stream delta.
+type controlsGroup struct {
+	Speed          int            `json:"speed"`
+	Redistribution bool           `json:"redistribution"`
+	SpeedReduction SpeedReduction `json:"speedReduction"`
+}
+
+// globalGroup is the "global" replacement group of a stream delta.
+type globalGroup struct {
+	Submitted int    `json:"submitted"`
+	Tick      int64  `json:"tick"`
+	Paused    bool   `json:"paused"`
+	Completed int    `json:"completed"`
+	Demo      bool   `json:"demo"`
+	DemoError string `json:"demoError"`
 }
 
 func statisticsOf(s SimulationFrame) streamStatistics {
@@ -168,20 +185,9 @@ func changedSlice[T comparable](a, b []T) *Replacement[[]T] {
 func frameGroups(f StreamFrame) (map[string]json.RawMessage, error) {
 	state := f.State
 	values := map[string]any{
-		"controls": struct {
-			Speed          int
-			Redistribution bool
-			SpeedReduction SpeedReduction
-		}{state.Speed, state.Redistribution, state.SpeedReduction},
-		"demand": state.Demand, "restore": state.Restore, "checkpoints": f.State.Checkpoints, "pending": f.State.Simulation.Pending,
-		"global": struct {
-			Submitted int
-			Tick      int64
-			Paused    bool
-			Completed int
-			Demo      bool
-			DemoError string
-		}{state.Simulation.Submitted, state.Simulation.Tick, state.Simulation.Paused, state.Simulation.Completed, state.Simulation.Demo, state.Simulation.DemoError},
+		"controls": controlsGroup{state.Speed, state.Redistribution, state.SpeedReduction},
+		"demand":   state.Demand, "restore": state.Restore, "checkpoints": f.State.Checkpoints, "pending": f.State.Simulation.Pending,
+		"global": globalGroup{state.Simulation.Submitted, state.Simulation.Tick, state.Simulation.Paused, state.Simulation.Completed, state.Simulation.Demo, state.Simulation.DemoError},
 	}
 	values["statistics"] = statisticsOf(state.Simulation)
 	if state.Simulation.CouplingContract != "" {
@@ -253,11 +259,7 @@ func applyGroups(f *StreamFrame, groups map[string]json.RawMessage) error {
 			}
 			continue
 		case "controls":
-			var v struct {
-				Speed          int
-				Redistribution bool
-				SpeedReduction SpeedReduction
-			}
+			var v controlsGroup
 			if err := decodeStreamJSON(raw, &v); err != nil {
 				return err
 			}
@@ -265,14 +267,7 @@ func applyGroups(f *StreamFrame, groups map[string]json.RawMessage) error {
 			f.State.SpeedReduction = v.SpeedReduction
 			continue
 		case "global":
-			var v struct {
-				Submitted int
-				Tick      int64
-				Paused    bool
-				Completed int
-				Demo      bool
-				DemoError string
-			}
+			var v globalGroup
 			if err := decodeStreamJSON(raw, &v); err != nil {
 				return err
 			}
@@ -303,7 +298,7 @@ func applyGroups(f *StreamFrame, groups map[string]json.RawMessage) error {
 		}
 		var err error
 		if key == "pending" && f.State.Simulation.OrderContract == sim.ExpressOrderContract {
-			err = jsonv2.Unmarshal(raw, target, json.DefaultOptionsV1(), jsonv2.RejectUnknownMembers(true), packedDecodeOptions())
+			err = jsonv2.Unmarshal(raw, target, json.DefaultOptionsV1(), jsonv2.MatchCaseInsensitiveNames(false), jsonv2.RejectUnknownMembers(true), packedDecodeOptions())
 		} else {
 			err = decodeStreamJSON(raw, target)
 		}
@@ -435,7 +430,7 @@ func decodeStreamJSON(data []byte, target any) error {
 	}
 	// The streaming decoder removes outer whitespace before typed decoding.
 	// Keep its offsets and legacy options without the extra input buffer.
-	return jsonv2.Unmarshal(bytes.TrimSpace(data), target, json.DefaultOptionsV1(), jsonv2.RejectUnknownMembers(true))
+	return jsonv2.Unmarshal(bytes.TrimSpace(data), target, json.DefaultOptionsV1(), jsonv2.MatchCaseInsensitiveNames(false), jsonv2.RejectUnknownMembers(true))
 }
 
 // DecodeStreamJSON validates one inflated envelope.

@@ -39,16 +39,16 @@ func TestProjectServiceRawShapes(t *testing.T) {
 		valid     bool
 	}{
 		{"legacy", `{"version":1,"fleet":[{}]}`, false, true},
-		{"compact", `{"fleet":[{"Class":"compact"}]}`, true, true},
-		{"empty class", `{"fleet":[{"Class":""}]}`, true, false},
-		{"null class", `{"fleet":[{"Class":null}]}`, true, false},
-		{"unknown class", `{"fleet":[{"Class":"bus"}]}`, true, false},
-		{"station classes", `{"network":{"Stations":[{"VehicleClasses":["compact","group"]}]}}`, true, true},
-		{"berth classes", `{"network":{"Stations":[{"Berths":[{"VehicleClasses":["legacy"]}]}]}}`, true, true},
-		{"lane classes", `{"network":{"Lanes":[{"VehicleClasses":["express"]}]}}`, true, true},
-		{"null classes", `{"network":{"Stations":[{"VehicleClasses":null}]}}`, true, false},
-		{"empty classes", `{"network":{"Lanes":[{"VehicleClasses":[]}]}}`, true, false},
-		{"duplicate classes", `{"network":{"Stations":[{"Berths":[{"VehicleClasses":["compact","compact"]}]}]}}`, true, false},
+		{"compact", `{"fleet":[{"class":"compact"}]}`, true, true},
+		{"empty class", `{"fleet":[{"class":""}]}`, true, false},
+		{"null class", `{"fleet":[{"class":null}]}`, true, false},
+		{"unknown class", `{"fleet":[{"class":"bus"}]}`, true, false},
+		{"station classes", `{"network":{"stations":[{"vehicleClasses":["compact","group"]}]}}`, true, true},
+		{"berth classes", `{"network":{"stations":[{"berths":[{"vehicleClasses":["legacy"]}]}]}}`, true, true},
+		{"lane classes", `{"network":{"lanes":[{"vehicleClasses":["express"]}]}}`, true, true},
+		{"null classes", `{"network":{"stations":[{"vehicleClasses":null}]}}`, true, false},
+		{"empty classes", `{"network":{"lanes":[{"vehicleClasses":[]}]}}`, true, false},
+		{"duplicate classes", `{"network":{"stations":[{"berths":[{"vehicleClasses":["compact","compact"]}]}]}}`, true, false},
 		{"empty registry", `{"expressServices":[]}`, true, true},
 		{"null registry", `{"expressServices":null}`, true, false},
 		{"wrong registry type", `{"expressServices":{}}`, true, false},
@@ -74,10 +74,10 @@ func TestProjectServiceRawRegistryBound(t *testing.T) {
 func TestProjectServicePresenceFailsAtomically(t *testing.T) {
 	for _, version := range []int{CurrentVersion, 2, 3} {
 		for _, member := range []string{
-			`"fleet":[{"Class":"compact"}]`, `"fleet":[{"Class":null}]`,
+			`"fleet":[{"class":"compact"}]`, `"fleet":[{"class":null}]`,
 			`"expressServices":[]`, `"expressServices":null`,
-			`"network":{"Stations":[{"VehicleClasses":["legacy"]}]}`,
-			`"network":{"Lanes":[{"VehicleClasses":null}]}`,
+			`"network":{"stations":[{"vehicleClasses":["legacy"]}]}`,
+			`"network":{"lanes":[{"vehicleClasses":null}]}`,
 		} {
 			got := Default()
 			want := Clone(got)

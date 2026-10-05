@@ -39,9 +39,6 @@ type response struct {
 	History  *historyView           `json:"history,omitempty"`
 	Metadata jsontext.Value         `json:"metadata,omitempty"`
 	Layout   *layoutSummary         `json:"layout,omitempty"`
-	// Replace is the canonical project of an import, or nil when the
-	// import needs no replacement.
-	Replace jsontext.Value `json:"replace,omitzero"`
 }
 
 // Call handles one bounded JSON request without retaining caller data.
@@ -65,17 +62,9 @@ func encodeResponse(result response, err error) string {
 		return string(encoded)
 	}
 	if err == nil && result.helper {
-		var payload any
-		if result.Layout != nil {
-			payload = struct {
-				Layout *layoutSummary `json:"layout"`
-			}{result.Layout}
-		} else {
-			payload = struct {
-				Replace jsontext.Value `json:"replace,omitzero"`
-			}{result.Replace}
-		}
-		encoded, encodeErr := json.Marshal(payload)
+		encoded, encodeErr := json.Marshal(struct {
+			Layout *layoutSummary `json:"layout"`
+		}{result.Layout})
 		if encodeErr != nil {
 			return `{"error":"The editor helper response could not be encoded."}`
 		}

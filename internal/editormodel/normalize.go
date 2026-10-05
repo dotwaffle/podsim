@@ -37,7 +37,7 @@ func normalizeProject(draft any) (projectChange, error) {
 	if err != nil {
 		return projectChange{}, err
 	}
-	for _, key := range []string{"Nodes", "Lanes", "Stations"} {
+	for _, key := range []string{"nodes", "lanes", "stations"} {
 		if _, ok := network[key].([]any); !ok {
 			network[key] = []any{}
 		}
@@ -114,12 +114,12 @@ func normalizeDemand(demand, draft map[string]any) error {
 		demand["pattern"] = "destination"
 		if !editorTruthy(demand["destination"]) {
 			demand["destination"] = ""
-			for _, station := range items(member(draft["network"], "Stations")) {
-				if object(station) == nil || editorTruthy(member(station, "ParkingOnly")) {
+			for _, station := range items(member(draft["network"], "stations")) {
+				if object(station) == nil || editorTruthy(member(station, "parkingOnly")) {
 					continue
 				}
-				demand["destination"] = member(station, "ID")
-				if member(station, "ID") == "market" {
+				demand["destination"] = member(station, "id")
+				if member(station, "id") == "market" {
 					break
 				}
 			}
@@ -135,7 +135,7 @@ func normalizeDemand(demand, draft map[string]any) error {
 	}
 	profiles := items(draft["demandProfiles"])
 	selected := slices.IndexFunc(profiles, func(profile any) bool {
-		return object(profile) != nil && sameOptionalMember(profile, "id", demand, "profile")
+		return object(profile) != nil && sameOptionalID(profile, demand, "profile")
 	})
 	if len(profiles) != 0 && selected < 0 {
 		if object(profiles[0]) == nil {
@@ -147,12 +147,12 @@ func normalizeDemand(demand, draft map[string]any) error {
 			delete(demand, "profile")
 		}
 		selected = slices.IndexFunc(profiles, func(profile any) bool {
-			return object(profile) != nil && sameOptionalMember(profile, "id", demand, "profile")
+			return object(profile) != nil && sameOptionalID(profile, demand, "profile")
 		})
 	}
 	if selected >= 0 {
 		if bands, ok := member(profiles[selected], "bands").([]any); ok && !slices.ContainsFunc(bands, func(band any) bool {
-			return object(band) != nil && sameOptionalMember(band, "id", demand, "band")
+			return object(band) != nil && sameOptionalID(band, demand, "band")
 		}) {
 			demand["band"] = ""
 			if len(bands) != 0 && editorTruthy(member(bands[0], "id")) {
@@ -164,8 +164,10 @@ func normalizeDemand(demand, draft map[string]any) error {
 	return nil
 }
 
-func sameOptionalMember(left any, leftKey string, right any, rightKey string) bool {
-	return has(left, leftKey) == has(right, rightKey) && reflect.DeepEqual(member(left, leftKey), member(right, rightKey))
+// sameOptionalID reports whether the id of left and the key member of right
+// are both absent, or both present with the same value.
+func sameOptionalID(left, right any, key string) bool {
+	return has(left, "id") == has(right, key) && reflect.DeepEqual(member(left, "id"), member(right, key))
 }
 
 func editorTruthy(value any) bool {

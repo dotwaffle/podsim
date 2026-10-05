@@ -23,7 +23,8 @@ func TestCouplingProtectedLateMarkers(t *testing.T) {
 	}{
 		{"late version", `"format":"podsim-session","version":8}`, true},
 		{"late marker", `"format":"podsim-session","version":2,"couplingContract":null}`, true},
-		{"late native marker", `"format":"podsim-session","version":2,"simulation":{"COUPLINGGROUPS":null}}`, true},
+		{"late native marker", `"format":"podsim-session","version":2,"simulation":{"couplingGroups":null}}`, true},
+		{"folded native marker", `"format":"podsim-session","version":2,"simulation":{"COUPLINGGROUPS":null}}`, false},
 		{"unmarked legacy", `"format":"podsim-session","version":2}`, false},
 		{"unsupported ancestor", `"format":"podsim-session","version":2,"other":{"couplingContract":null}}`, false},
 	} {

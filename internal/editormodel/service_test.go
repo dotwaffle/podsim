@@ -85,10 +85,10 @@ func TestServiceEditorEarlierVersionsAndRepair(t *testing.T) {
 	t.Parallel()
 	for _, field := range []string{
 		`"expressServices":null`, `"expressServices":[]`,
-		`"fleet":[{"Class":null}]`, `"fleet":[{"Class":"legacy"}]`,
-		`"network":{"Stations":[{"VehicleClasses":null}]}`,
-		`"network":{"Lanes":[{"VehicleClasses":["legacy"]}]}`,
-		`"network":{"Stations":[{"Berths":[{"VehicleClasses":["compact"]}]}]}`,
+		`"fleet":[{"class":null}]`, `"fleet":[{"class":"legacy"}]`,
+		`"network":{"stations":[{"vehicleClasses":null}]}`,
+		`"network":{"lanes":[{"vehicleClasses":["legacy"]}]}`,
+		`"network":{"stations":[{"berths":[{"vehicleClasses":["compact"]}]}]}`,
 	} {
 		for _, version := range []string{"2", "3"} {
 			var branches map[string]jsontext.Value
@@ -163,7 +163,7 @@ func TestBanksSurviveReleasedHistoryNetwork(t *testing.T) {
 		t.Fatal(model.err)
 	}
 	acceptedHistory(t, model, historyCommand{Kind: "reset", Background: background})
-	object(member(items(member(draft["network"], "Nodes"))[0], "Position"))["X"] = float64(10)
+	object(member(items(member(draft["network"], "nodes"))[0], "position"))["x"] = float64(10)
 	background = historyTarget(t, model, map[string]any{"scenario": draft, "background": nil})
 	acceptedHistory(t, model, historyCommand{Kind: "replace", Background: background})
 	acceptedHistory(t, model, historyCommand{Kind: "undo"})
@@ -222,7 +222,7 @@ func TestServiceNormalizationAndBankEditsPreserveVersion(t *testing.T) {
 	}
 	out := object(cloneEditValue(draft))
 	maps.Copy(out, change.Patch)
-	if number(out["version"]) != project.CurrentVersion || !reflect.DeepEqual(draft, before) || !reflect.DeepEqual(out["expressServices"], draft["expressServices"]) || !reflect.DeepEqual(member(items(out["fleet"])[0], "Class"), member(items(draft["fleet"])[0], "Class")) {
+	if number(out["version"]) != project.CurrentVersion || !reflect.DeepEqual(draft, before) || !reflect.DeepEqual(out["expressServices"], draft["expressServices"]) || !reflect.DeepEqual(member(items(out["fleet"])[0], "class"), member(items(draft["fleet"])[0], "class")) {
 		t.Fatal("normalization downgraded or changed service metadata")
 	}
 	for _, version := range []float64{2, 3, 4, 5} {
@@ -233,14 +233,14 @@ func TestServiceNormalizationAndBankEditsPreserveVersion(t *testing.T) {
 		}
 	}
 	banked := bankEditorFixture(1)
-	station := items(member(banked["network"], "Stations"))[0]
-	object(station)["VehicleClasses"] = []any{"legacy", "compact", "express"}
+	station := items(member(banked["network"], "stations"))[0]
+	object(station)["vehicleClasses"] = []any{"legacy", "compact", "express"}
 	for _, command := range []string{`{"action":"stationName","id":"station","value":"Renamed"}`, `{"action":"deleteStation","id":"station"}`} {
 		edited := applyBankEdit(t, banked, command)
 		if number(edited["version"]) != project.CurrentVersion {
 			t.Fatal("bank edit changed the project version")
 		}
-		if len(items(member(edited["network"], "Stations"))) != 0 && !reflect.DeepEqual(member(items(member(edited["network"], "Stations"))[0], "VehicleClasses"), member(station, "VehicleClasses")) {
+		if len(items(member(edited["network"], "stations"))) != 0 && !reflect.DeepEqual(member(items(member(edited["network"], "stations"))[0], "vehicleClasses"), member(station, "vehicleClasses")) {
 			t.Fatal("bank edit lost allowlist")
 		}
 	}
@@ -254,7 +254,7 @@ func TestServiceDraftChecksAndPhysicalGuards(t *testing.T) {
 	}
 	for _, class := range []string{"express", "unknown"} {
 		bad := object(cloneEditValue(draft))
-		object(items(bad["fleet"])[0])["Class"] = class
+		object(items(bad["fleet"])[0])["class"] = class
 		if report := draftChecks(bad); len(report.Errors) == 0 {
 			t.Fatalf("%s fleet profile accepted", class)
 		}
@@ -270,7 +270,7 @@ func TestServiceDraftChecksAndPhysicalGuards(t *testing.T) {
 	}
 	for _, replacement := range []any{nil, []any{}, []any{"compact", "compact"}, []any{"unknown"}, []any{float64(1)}} {
 		bad := object(cloneEditValue(draft))
-		object(items(member(bad["network"], "Lanes"))[0])["VehicleClasses"] = replacement
+		object(items(member(bad["network"], "lanes"))[0])["vehicleClasses"] = replacement
 		if report := draftChecks(bad); len(report.Errors) == 0 {
 			t.Fatal("invalid allowlist accepted", replacement)
 		}
@@ -303,21 +303,21 @@ func TestProjectPreservesOmittedClassesAndFleetCountDefaults(t *testing.T) {
 		t.Fatal("normalization invented class or service defaults")
 	}
 	fleet := fleetDraft()
-	object(items(fleet["fleet"])[0])["Class"] = "compact"
+	object(items(fleet["fleet"])[0])["class"] = "compact"
 	changed, err := editProject(fleet, jsontext.Value(`{"field":"fleetCount","target":"alpha","value":2}`))
 	if err != nil {
 		t.Fatal(err)
 	}
 	var kept, added any
 	for _, pod := range items(changed.Patch["fleet"]) {
-		if member(pod, "ID") == "01" {
+		if member(pod, "id") == "01" {
 			kept = pod
 		}
-		if member(pod, "ID") == "03" {
+		if member(pod, "id") == "03" {
 			added = pod
 		}
 	}
-	if member(kept, "Class") != "compact" || added == nil || has(added, "Class") {
+	if member(kept, "class") != "compact" || added == nil || has(added, "class") {
 		t.Fatal("count edit replaced compact metadata or invented a class")
 	}
 }
@@ -325,7 +325,7 @@ func TestProjectPreservesOmittedClassesAndFleetCountDefaults(t *testing.T) {
 func TestServiceRequestContainerBounds(t *testing.T) {
 	t.Parallel()
 	for _, envelope := range []string{"project", "patch"} {
-		for _, container := range []string{`"Lanes":[{"VehicleClasses":%s}]`, `"Stations":[{"VehicleClasses":%s}]`, `"Stations":[{"Berths":[{"VehicleClasses":%s}]}]`} {
+		for _, container := range []string{`"lanes":[{"vehicleClasses":%s}]`, `"stations":[{"vehicleClasses":%s}]`, `"stations":[{"berths":[{"vehicleClasses":%s}]}]`} {
 			valid := strings.Replace(container, "%s", `["legacy","compact","group","express"]`, 1)
 			if err := scanRequest([]byte(`{"` + envelope + `":{"network":{` + valid + `}}}`)); err != nil {
 				t.Fatal("four classes rejected", err)

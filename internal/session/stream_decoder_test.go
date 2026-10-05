@@ -38,29 +38,14 @@ type streamDecodeTestTarget struct {
 
 func streamDecodeTestTargets() []streamDecodeTestTarget {
 	return []streamDecodeTestTarget{
-		{"envelope", func() any { return &StreamEnvelope{} }, []string{`{"kind":"full","Kind":"delta"}`, `{"sequence":"42","source":{"epoch":"e"}}`}},
-		{"controls", func() any {
-			return &struct {
-				Speed          int
-				Redistribution bool
-				SpeedReduction SpeedReduction
-			}{}
-		}, []string{`{"Speed":5,"Redistribution":true}`, `{"Speed":15,"speed":2}`}},
-		{"global", func() any {
-			return &struct {
-				Submitted int
-				Tick      int64
-				Paused    bool
-				Completed int
-				Demo      bool
-				DemoError string
-			}{}
-		}, []string{`{"Submitted":7,"Tick":123,"DemoError":"x"}`}},
-		{"statistics", func() any { return &streamStatistics{} }, []string{`{"PassengerDistanceMeters":1.5}`}},
-		{"demand", func() any { return &DemandState{} }, []string{`{"Config":{"Enabled":true,"PerMinute":12}}`}},
-		{"restore", func() any { return &RestoreInfo{} }, []string{`{"Tier":"physical"}`}},
+		{"envelope", func() any { return &StreamEnvelope{} }, []string{`{"sequence":"42","source":{"epoch":"e"}}`}},
+		{"controls", func() any { return &controlsGroup{} }, []string{`{"speed":5,"redistribution":true}`, `{"speed":15,"speed":2}`}},
+		{"global", func() any { return &globalGroup{} }, []string{`{"submitted":7,"tick":123,"demoError":"x"}`}},
+		{"statistics", func() any { return &streamStatistics{} }, []string{`{"passengerDistanceMeters":1.5}`}},
+		{"demand", func() any { return &DemandState{} }, []string{`{"config":{"enabled":true,"perMinute":12}}`}},
+		{"restore", func() any { return &RestoreInfo{} }, []string{`{"tier":"physical"}`}},
 		{"checkpoints", func() any { return &[]Checkpoint{} }, []string{`[]`, `[{}]`}},
-		{"pending", func() any { return &[]sim.Request{} }, []string{`[]`, `[{"ID":1,"From":"a","To":"b"}]`}},
+		{"pending", func() any { return &[]sim.Request{} }, []string{`[]`, `[{"id":1,"from":"a","to":"b"}]`}},
 		{"ws-control", func() any {
 			return &struct {
 				Kind     string `json:"kind"`
@@ -68,7 +53,7 @@ func streamDecodeTestTargets() []streamDecodeTestTarget {
 				Sequence string `json:"sequence"`
 				Token    string `json:"token"`
 			}{}
-		}, []string{`{"kind":"ack","sequence":"1"}`, `{"kind":"ack","Kind":"heartbeat"}`}},
+		}, []string{`{"kind":"ack","sequence":"1"}`}},
 	}
 }
 
@@ -93,8 +78,35 @@ func streamDecodeErrorsEqual(legacy, candidate error) bool {
 	return true
 }
 
+// The legacy decoder matches member names without case, so the parity
+// inputs use exact names. The stream decoder refuses a member whose case
+// differs from the declared name.
+func TestStreamDecoderRefusesCaseVariants(t *testing.T) {
+	variants := map[string][]string{
+		"envelope":    {`{"Kind":"full"}`, `{"kind":"full","Kind":"delta"}`, `{"source":{"Epoch":"e"}}`},
+		"controls":    {`{"Speed":5}`, `{"speedreduction":{}}`},
+		"global":      {`{"Tick":1}`, `{"demoerror":"x"}`},
+		"statistics":  {`{"PassengerDistanceMeters":1.5}`},
+		"demand":      {`{"Config":{}}`, `{"config":{"PerMinute":12}}`},
+		"restore":     {`{"Tier":"physical"}`},
+		"checkpoints": {`[{"ID":1}]`},
+		"pending":     {`[{"ID":1}]`},
+		"ws-control":  {`{"Kind":"ack"}`, `{"kind":"ack","Kind":"heartbeat"}`},
+	}
+	for _, target := range streamDecodeTestTargets() {
+		if len(variants[target.Name]) == 0 {
+			t.Errorf("no case variant for %s", target.Name)
+		}
+		for _, raw := range variants[target.Name] {
+			if err := decodeStreamJSON([]byte(raw), target.New()); err == nil {
+				t.Errorf("%s accepted %s", target.Name, raw)
+			}
+		}
+	}
+}
+
 func TestStreamDecoderLegacyCompatibility(t *testing.T) {
-	common := []string{`null`, `{}`, `[]`, `1`, `"x"`, `true`, `{"unknown":1}`, `{"Unknown":1}`, `{"kind":12}`, `{"Speed":"bad"}`, `{"Submitted":1,"Tick":"bad","Completed":3}`, `{"Speed":5,"Redistribution":"x"}`, `[{"ID":1},{"ID":"bad"}]`, `{"Config":{"PerMinute":12,"Unknown":1}}`, `{"source":{"epoch":"e","Unknown":1}}`, `{} {}`, `{"kind":"x",}`, `{"kind":"\ud800"}`, `{"kind":"\uD83D\uDE00"}`, `{"kind":"\u0000"}`, `{"kind":"full","kind":"delta"}`, `{"source":{"epoch":"a","epoch":"b"}}`, `{"sequence":"01"}`, `{"sequence":""}`, `{"sequence":"+1"}`, `{"sequence":"-1"}`, `{"sequence":"1.5"}`, `{"sequence":"1e2"}`, `{"sequence":"18446744073709551616"}`, `{"kind":"delta","delta":{"groups":{"global": { "Tick":3 },"pending":[ {"ID":1} ]}}}`, `{"kind":"delta","delta":{"groups":{"custom":[ 1,2 ]}}}`, "{\"kind\":\"" + string([]byte{0xff}) + "\"}"}
+	common := []string{`null`, `{}`, `[]`, `1`, `"x"`, `true`, `{"unknown":1}`, `{"Unknown":1}`, `{"kind":12}`, `{"speed":"bad"}`, `{"submitted":1,"tick":"bad","completed":3}`, `{"speed":5,"redistribution":"x"}`, `[{"id":1},{"id":"bad"}]`, `{"config":{"perMinute":12,"unknown":1}}`, `{"source":{"epoch":"e","Unknown":1}}`, `{} {}`, `{"kind":"x",}`, `{"kind":"\ud800"}`, `{"kind":"\uD83D\uDE00"}`, `{"kind":"\u0000"}`, `{"kind":"full","kind":"delta"}`, `{"source":{"epoch":"a","epoch":"b"}}`, `{"sequence":"01"}`, `{"sequence":""}`, `{"sequence":"+1"}`, `{"sequence":"-1"}`, `{"sequence":"1.5"}`, `{"sequence":"1e2"}`, `{"sequence":"18446744073709551616"}`, `{"kind":"delta","delta":{"groups":{"global": { "tick":3 },"pending":[ {"id":1} ]}}}`, `{"kind":"delta","delta":{"groups":{"custom":[ 1,2 ]}}}`, "{\"kind\":\"" + string([]byte{0xff}) + "\"}"}
 	for _, target := range streamDecodeTestTargets() {
 		t.Run(target.Name, func(t *testing.T) {
 			for _, raw := range append(common, target.Valid...) {

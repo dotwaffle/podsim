@@ -234,8 +234,8 @@ func TestCheckpointIndependentAcceptanceGuards(t *testing.T) {
 	}
 }
 
-// The project decoder folds member case, but the scan matches exact names.
-// The origin check refuses a case-variant marker after decoding.
+// The scan and the project decoder match exact names. A case-variant
+// marker is an unknown project member, so the decoder refuses it.
 func TestCheckpointOriginRefusesFoldedMarkers(t *testing.T) {
 	t.Parallel()
 	r, err := NewRun(continuationInput())
@@ -262,7 +262,7 @@ func TestCheckpointOriginRefusesFoldedMarkers(t *testing.T) {
 			folded := strings.ToUpper(tc.member[:1]) + tc.member[1:]
 			raw := bytes.Replace(rehashCheckpoint(t, file), []byte(`"`+tc.member+`"`), []byte(`"`+folded+`"`), 1)
 			candidate, err := DecodeCheckpoint(t.Context(), bytes.NewReader(raw), ResumeInput{Implementation: testImplementation()})
-			if candidate != nil || err == nil || !strings.Contains(err.Error(), "foundation project") {
+			if candidate != nil || err == nil || !strings.Contains(err.Error(), `unknown field "`+folded+`"`) {
 				t.Fatalf("candidate %v error %v", candidate, err)
 			}
 		})

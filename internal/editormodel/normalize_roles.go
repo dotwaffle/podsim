@@ -23,7 +23,7 @@ func inferEditorStationLanes(network map[string]any) {
 	if graph == nil || !editorInferableStations(network, graph.nodes) {
 		return
 	}
-	stations, lanes := items(network["Stations"]), items(network["Lanes"])
+	stations, lanes := items(network["stations"]), items(network["lanes"])
 	forbidden := make(map[int]bool)
 	for _, station := range stations {
 		for id := range stationCoreNodes(station) {
@@ -31,19 +31,19 @@ func inferEditorStationLanes(network map[string]any) {
 		}
 	}
 	for _, station := range stations {
-		if has(station, "Banks") {
+		if has(station, "banks") {
 			continue
 		}
 		roles := make(map[int]string)
 		for index, lane := range lanes {
-			if member(lane, "From") == member(station, "Entry") && member(lane, "To") == member(station, "Exit") {
+			if member(lane, "from") == member(station, "entry") && member(lane, "to") == member(station, "exit") {
 				roles[index] = "through"
 			}
 		}
-		for _, berth := range items(member(station, "Berths")) {
+		for _, berth := range items(member(station, "berths")) {
 			for _, trip := range []struct{ from, to, role string }{
-				{text(member(station, "Entry")), text(member(berth, "Node")), "berth-access"},
-				{text(member(berth, "Node")), text(member(station, "Exit")), "departure"},
+				{text(member(station, "entry")), text(member(berth, "node")), "berth-access"},
+				{text(member(berth, "node")), text(member(station, "exit")), "departure"},
 			} {
 				for _, index := range graph.route(trip.from, trip.to, forbidden) {
 					if roles[index] == "" {
@@ -54,27 +54,27 @@ func inferEditorStationLanes(network map[string]any) {
 		}
 		for index, role := range roles {
 			lane := object(lanes[index])
-			if editorTruthy(lane["StationID"]) || editorTruthy(lane["StationRole"]) {
+			if editorTruthy(lane["stationID"]) || editorTruthy(lane["stationRole"]) {
 				continue
 			}
-			lane["StationID"], lane["StationRole"] = member(station, "ID"), role
+			lane["stationID"], lane["stationRole"] = member(station, "id"), role
 		}
 	}
 }
 
 func editorInferableStations(network map[string]any, nodes map[string]int) bool {
 	stationIDs, berthIDs, berthNodes := make(map[string]bool), make(map[string]bool), make(map[string]bool)
-	for _, station := range items(network["Stations"]) {
-		id, entry, exit := text(member(station, "ID")), text(member(station, "Entry")), text(member(station, "Exit"))
+	for _, station := range items(network["stations"]) {
+		id, entry, exit := text(member(station, "id")), text(member(station, "entry")), text(member(station, "exit"))
 		_, entryFound := nodes[entry]
 		_, exitFound := nodes[exit]
-		berths := items(member(station, "Berths"))
+		berths := items(member(station, "berths"))
 		if object(station) == nil || id == "" || stationIDs[id] || !entryFound || !exitFound || entry == exit || len(berths) == 0 || len(berths) > project.MaxBerths {
 			return false
 		}
 		stationIDs[id] = true
 		for _, berth := range berths {
-			berthID, node := text(member(berth, "ID")), text(member(berth, "Node"))
+			berthID, node := text(member(berth, "id")), text(member(berth, "node"))
 			_, found := nodes[node]
 			if object(berth) == nil || berthID == "" || berthIDs[berthID] || !found || berthNodes[node] || node == entry || node == exit {
 				return false
@@ -86,34 +86,34 @@ func editorInferableStations(network map[string]any, nodes map[string]int) bool 
 }
 
 func editorStationGraph(network map[string]any) *editorRouteGraph {
-	nodes, lanes := items(network["Nodes"]), items(network["Lanes"])
-	if len(nodes) > project.MaxNodes || len(lanes) > project.MaxLanes || len(items(network["Stations"])) > project.MaxStations {
+	nodes, lanes := items(network["nodes"]), items(network["lanes"])
+	if len(nodes) > project.MaxNodes || len(lanes) > project.MaxLanes || len(items(network["stations"])) > project.MaxStations {
 		return nil
 	}
 	graph := &editorRouteGraph{nodes: make(map[string]int, len(nodes)), outgoing: make([][]int, len(nodes)), edges: make([]editorRouteEdge, len(lanes))}
 	positions := make([]geometryPoint, len(nodes))
 	for index, node := range nodes {
-		id, position := text(member(node, "ID")), member(node, "Position")
-		if _, exists := graph.nodes[id]; exists || id == "" || !finite(member(position, "X")) || !finite(member(position, "Y")) {
+		id, position := text(member(node, "id")), member(node, "position")
+		if _, exists := graph.nodes[id]; exists || id == "" || !finite(member(position, "x")) || !finite(member(position, "y")) {
 			return nil
 		}
-		graph.nodes[id], positions[index] = index, geometryPoint{number(member(position, "X")), number(member(position, "Y"))}
+		graph.nodes[id], positions[index] = index, geometryPoint{number(member(position, "x")), number(member(position, "y"))}
 	}
 	ids := make(map[string]bool, len(lanes))
 	for index, lane := range lanes {
-		id := text(member(lane, "ID"))
-		from, fromFound := graph.nodes[text(member(lane, "From"))]
-		to, toFound := graph.nodes[text(member(lane, "To"))]
-		speed := number(member(lane, "SpeedLimit"))
+		id := text(member(lane, "id"))
+		from, fromFound := graph.nodes[text(member(lane, "from"))]
+		to, toFound := graph.nodes[text(member(lane, "to"))]
+		speed := number(member(lane, "speedLimit"))
 		if id == "" || ids[id] || !fromFound || !toFound || !finite(speed) || speed <= 0 {
 			return nil
 		}
 		var control *geometryPoint
-		if value := member(lane, "Control"); editorTruthy(value) {
-			if !finite(member(value, "X")) || !finite(member(value, "Y")) {
+		if value := member(lane, "control"); editorTruthy(value) {
+			if !finite(member(value, "x")) || !finite(member(value, "y")) {
 				return nil
 			}
-			control = &geometryPoint{number(member(value, "X")), number(member(value, "Y"))}
+			control = &geometryPoint{number(member(value, "x")), number(member(value, "y"))}
 		}
 		points, length := geometryPolyline(positions[from], positions[to], control), 0.0
 		for i := 1; i < len(points); i++ {

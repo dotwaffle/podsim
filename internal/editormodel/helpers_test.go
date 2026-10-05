@@ -78,19 +78,12 @@ func TestBackgroundMetadataGuards(t *testing.T) {
 	}
 }
 
-func TestCanonicalImportReplacesOnlyCaseVariants(t *testing.T) {
+// The editor matches member names exactly, so an import needs no helper
+// that replaces names of another case.
+func TestCanonicalImportIsNotAnOperation(t *testing.T) {
 	t.Parallel()
-	// The helper does not repair a draft: a pod without BerthID and the
-	// market pattern stay as they are.
-	for _, draft := range []string{`{}`, `{"fleet":[{"StationID":"origin"}],"demand":{"pattern":"market"}}`, `{"version":99,"fleet":"invalid"}`} {
-		if output := Call(`{"op":"canonicalImport","project":` + draft + `}`); output != `{}` {
-			t.Fatalf("%s: %s", draft, output)
-		}
-	}
-	result := helperResult(t, `{"op":"canonicalImport","project":{"NAME":"Old","version":1}}`)
-	var replaced map[string]any
-	if err := json.Unmarshal(result.Replace, &replaced); err != nil || replaced["name"] != "Old" || replaced["version"] != float64(1) || replaced["NAME"] != nil {
-		t.Fatalf("replace: %s %v", result.Replace, err)
+	if result := helperResult(t, `{"op":"canonicalImport","project":{"NAME":"Old","version":1}}`); result.Error == "" {
+		t.Fatal("accepted the removed canonical import operation")
 	}
 }
 
@@ -115,7 +108,7 @@ func TestStationLayoutToleratesIncompleteDraft(t *testing.T) {
 			t.Fatalf("accepted %s", layout)
 		}
 	}
-	incomplete := helperResult(t, `{"op":"stationLayout","project":{"network":{"Stations":[{"ID":"station"}]}},"layout":{"stationID":"station"}}`)
+	incomplete := helperResult(t, `{"op":"stationLayout","project":{"network":{"stations":[{"id":"station"}]}},"layout":{"stationID":"station"}}`)
 	if incomplete.Error != "" || incomplete.Layout.Spacing.Value != nil || incomplete.Layout.Spacing.Reason == "" {
 		t.Fatalf("incomplete: %+v", incomplete)
 	}
@@ -126,8 +119,8 @@ func TestHelpersDoNotMutateEngine(t *testing.T) {
 	inputs := []string{
 		`{"op":"backgroundMetadata","metadata":{}}`,
 		`{"op":"backgroundMetadata","metadata":{"asset":null}}`,
-		`{"op":"canonicalImport","project":{"version":99,"fleet":[{}]}}`,
-		`{"op":"stationLayout","project":{"network":{"Stations":[{"ID":"station"}]}},"layout":{"stationID":"station"}}`,
+		`{"op":"stationLayout","project":{"version":99,"fleet":[{}],"network":{"stations":[{"id":"station"}]}},"layout":{"stationID":"station"}}`,
+		`{"op":"stationLayout","project":{"network":{"stations":[{"id":"station"}]}},"layout":{"stationID":"station"}}`,
 		`{"op":"stationLayout","project":{},"layout":{"stationID":"missing"}}`,
 	}
 	e := new(engine)
@@ -156,7 +149,7 @@ func TestHelpersDoNotMutateEngine(t *testing.T) {
 	for _, input := range []string{
 		`{"op":"backgroundMetadata","metadata":{},"project":null}`,
 		`{"op":"backgroundMetadata","metadata":{},"keys":null}`,
-		`{"op":"canonicalImport","project":{},"layout":null}`,
+		`{"op":"stationLayout","project":{},"layout":{},"metadata":null}`,
 		`{"op":"stationLayout","project":{},"layout":{},"patch":null}`,
 		`{"op":"validate","project":{},"metadata":{}}`,
 	} {
@@ -178,7 +171,7 @@ func TestHelpersPreservePendingHistory(t *testing.T) {
 		t.Fatal(err)
 	}
 	revision, pending := timeline.revision, timeline.pending
-	for _, input := range []string{`{"op":"backgroundMetadata","metadata":{}}`, `{"op":"backgroundMetadata","metadata":{"asset":null}}`, `{"op":"canonicalImport","project":{}}`, `{"op":"stationLayout","project":{},"layout":{"stationID":"missing"}}`} {
+	for _, input := range []string{`{"op":"backgroundMetadata","metadata":{}}`, `{"op":"backgroundMetadata","metadata":{"asset":null}}`, `{"op":"stationLayout","project":{},"layout":{"stationID":"missing"}}`} {
 		_, _ = e.handle(input)
 	}
 	after, err := json.Marshal(historyMetadata(e.timeline.state, e.timeline.revision, false))
@@ -206,7 +199,7 @@ func TestMetadataBoundsAndSurrogateURLFacts(t *testing.T) {
 	if r := helperResult(t, `{"op":"backgroundMetadata","metadata":{`+strings.Repeat(" ", metadataBytes)+`}}`); r.Error == "" {
 		t.Fatal("oversized metadata accepted")
 	}
-	if r := helperResult(t, `{"op":"canonicalImport","project":{`+strings.Repeat(" ", MaxRequestBytes-metadataBytes)+`}}`); r.Error == "" {
+	if r := helperResult(t, `{"op":"stationLayout","layout":{"stationID":"station"},"project":{`+strings.Repeat(" ", MaxRequestBytes-metadataBytes)+`}}`); r.Error == "" {
 		t.Fatal("oversized raw helper project accepted")
 	}
 	if r := helperResult(t, `{"op":"backgroundMetadata","metadata":{},"extra":"`+strings.Repeat("x", MaxRequestBytes)+`"}`); r.Error == "" {
@@ -221,10 +214,8 @@ func TestHelperWireShapes(t *testing.T) {
 		keys  []string
 	}{
 		{`{"op":"backgroundMetadata","metadata":{}}`, []string{"valid", "metadata"}},
-		{`{"op":"canonicalImport","project":{}}`, []string{}},
-		{`{"op":"stationLayout","project":{"network":{"Stations":[{"ID":"station"}]}},"layout":{"stationID":"station"}}`, []string{"layout"}},
+		{`{"op":"stationLayout","project":{"network":{"stations":[{"id":"station"}]}},"layout":{"stationID":"station"}}`, []string{"layout"}},
 		{`{"op":"backgroundMetadata","metadata":null}`, []string{"error"}},
-		{`{"op":"canonicalImport","project":null}`, []string{"error"}},
 		{`{"op":"stationLayout","project":{},"layout":null}`, []string{"error"}},
 		{`{"op":"backgroundMetadata","metadata":{},"keys":null}`, []string{"error"}},
 		{`{"op":"backgroundMetadata","metadata":{},"extra":null}`, []string{"error"}},

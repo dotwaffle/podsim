@@ -65,25 +65,25 @@ func geometryPathGap(first, second []geometryPoint) float64 {
 
 func (g geometryDraft) laneConflict(ids []string, separationGroups bool) *geometryConflict {
 	paths, byID := []geometryPath{}, map[string]geometryPath{}
-	for _, item := range items(g.network["Lanes"]) {
+	for _, item := range items(g.network["lanes"]) {
 		lane := object(item)
 		if lane == nil {
 			continue
 		}
-		from, err := g.point(text(lane["From"]))
+		from, err := g.point(text(lane["from"]))
 		if err != nil {
 			continue
 		}
-		to, err := g.point(text(lane["To"]))
+		to, err := g.point(text(lane["to"]))
 		if err != nil {
 			continue
 		}
 		var control *geometryPoint
-		if value := lane["Control"]; value != nil {
-			if !finite(member(value, "X")) || !finite(member(value, "Y")) {
+		if value := lane["control"]; value != nil {
+			if !finite(member(value, "x")) || !finite(member(value, "y")) {
 				continue
 			}
-			control = &geometryPoint{number(member(value, "X")), number(member(value, "Y"))}
+			control = &geometryPoint{number(member(value, "x")), number(member(value, "y"))}
 		}
 		path := geometryPath{lane: lane, points: geometryPolyline(from, to, control), low: geometryPoint{math.Inf(1), math.Inf(1)}, high: geometryPoint{math.Inf(-1), math.Inf(-1)}}
 		for _, p := range path.points {
@@ -91,7 +91,7 @@ func (g geometryDraft) laneConflict(ids []string, separationGroups bool) *geomet
 			path.high.X, path.high.Y = max(path.high.X, p.X), max(path.high.Y, p.Y)
 		}
 		paths = append(paths, path)
-		byID[text(lane["ID"])] = path
+		byID[text(lane["id"])] = path
 	}
 	for _, id := range ids {
 		path, found := byID[id]
@@ -100,18 +100,18 @@ func (g geometryDraft) laneConflict(ids []string, separationGroups bool) *geomet
 		}
 		for _, other := range paths {
 			minimum := draftPairClearance(path.lane, other.lane)
-			if other.lane["ID"] == id || path.low.X-other.high.X >= minimum || other.low.X-path.high.X >= minimum || path.low.Y-other.high.Y >= minimum || other.low.Y-path.high.Y >= minimum {
+			if other.lane["id"] == id || path.low.X-other.high.X >= minimum || other.low.X-path.high.X >= minimum || path.low.Y-other.high.Y >= minimum || other.low.Y-path.high.Y >= minimum {
 				continue
 			}
-			if path.lane["From"] == other.lane["From"] || path.lane["From"] == other.lane["To"] || path.lane["To"] == other.lane["From"] || path.lane["To"] == other.lane["To"] {
+			if path.lane["from"] == other.lane["from"] || path.lane["from"] == other.lane["to"] || path.lane["to"] == other.lane["from"] || path.lane["to"] == other.lane["to"] {
 				continue
 			}
-			first, second := text(path.lane["SeparationGroup"]), text(other.lane["SeparationGroup"])
+			first, second := text(path.lane["separationGroup"]), text(other.lane["separationGroup"])
 			if separationGroups && first != "" && second != "" && first != second {
 				continue
 			}
 			if gap := geometryPathGap(path.points, other.points); gap < minimum {
-				return &geometryConflict{id, text(other.lane["ID"]), gap, minimum}
+				return &geometryConflict{id, text(other.lane["id"]), gap, minimum}
 			}
 		}
 	}

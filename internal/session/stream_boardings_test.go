@@ -25,28 +25,29 @@ func boardingStreamFixture(t *testing.T) (TopologySnapshot, StreamFrame) {
 }
 
 func TestStreamBoardingPresence(t *testing.T) {
-	for _, raw := range []string{`{"full":{"state":{"simulation":{"Vehicles":[{"Pod":{"BerthID":"old"}}]}}}}`, `{"delta":{"vehicles":[{"pod":{"value":{"BerthID":"old"}}}]}}`} {
+	for _, raw := range []string{`{"full":{"state":{"simulation":{"vehicles":[{"pod":{"berthID":"old"}}]}}}}`, `{"delta":{"vehicles":[{"pod":{"value":{"berthID":"old"}}}]}}`} {
 		if _, err := DecodeStreamJSONVersion([]byte(raw), FoundationStreamVersion); err != nil {
 			t.Fatal("pod berth path rejected", err)
 		}
 	}
-	for _, record := range []string{`null`, `[]`, `[null]`, `[{}]`, `[{"BerthID":"b"}]`, `[{"BerthID":null,"MetersAtBoarding":0}]`, `[{"BerthID":"b","MetersAtBoarding":null}]`, `[{"BerthID":"b","MetersAtBoarding":-1}]`, `[{"BerthID":"b","MetersAtBoarding":0,"extra":0}]`, `[{"BerthID":"b","berthid":"b","MetersAtBoarding":0}]`} {
-		raw := []byte(`{"full":{"state":{"simulation":{"Vehicles":[{"bOaRdInGs":` + record + `}]}}}}`)
+	for _, record := range []string{`null`, `[]`, `[null]`, `[{}]`, `[{"berthID":"b"}]`, `[{"berthID":null,"metersAtBoarding":0}]`, `[{"berthID":"b","metersAtBoarding":null}]`, `[{"berthID":"b","metersAtBoarding":-1}]`, `[{"berthID":"b","metersAtBoarding":0,"extra":0}]`, `[{"berthID":"b","berthid":"b","metersAtBoarding":0}]`, `[{"bErThId":"b","mEtErSaTbOaRdInG":0}]`} {
+		raw := []byte(`{"full":{"state":{"simulation":{"vehicles":[{"boardings":` + record + `}]}}}}`)
 		if _, err := DecodeStreamJSONVersion(raw, 3); err == nil {
 			t.Errorf("accepted records %s", record)
 		}
 	}
 	for _, wrapper := range []string{`null`, `{}`, `{"value":null}`, `{"value":[],"extra":0}`, `{"value":[],"Value":[]}`} {
-		raw := []byte(`{"delta":{"vehicles":[{"bOaRdInGs":` + wrapper + `}]}}`)
+		raw := []byte(`{"delta":{"vehicles":[{"boardings":` + wrapper + `}]}}`)
 		if _, err := DecodeStreamJSONVersion(raw, 3); err == nil {
 			t.Errorf("accepted wrapper %s", wrapper)
 		}
 	}
-	for _, record := range []string{`[{"BerthID":"b","MetersAtBoarding":0}]`, `[{"bErThId":"b","mEtErSaTbOaRdInG":0}]`} {
-		raw := []byte(`{"full":{"state":{"simulation":{"Vehicles":[{"Boardings":` + record + `}]}}}}`)
-		if _, err := DecodeStreamJSONVersion(raw, 3); err != nil {
-			t.Fatal(err)
-		}
+	valid := `[{"berthID":"b","metersAtBoarding":0}]`
+	if _, err := DecodeStreamJSONVersion([]byte(`{"full":{"state":{"simulation":{"vehicles":[{"boardings":`+valid+`}]}}}}`), 3); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := DecodeStreamJSONVersion([]byte(`{"full":{"state":{"simulation":{"vehicles":[{"bOaRdInGs":`+valid+`}]}}}}`), 3); err == nil {
+		t.Error("accepted a folded boardings name")
 	}
 }
 
@@ -233,20 +234,20 @@ func TestStreamBoardingFrameCopies(t *testing.T) {
 func TestStreamOrdinaryBoardingBytes(t *testing.T) {
 	// Keep the pre-boarding wire shape to detect ordinary encoding changes.
 	type oldVehicle struct {
-		Pod          sim.Pod       `json:"Pod"`
-		Riders       []sim.Request `json:"Riders,omitempty"`
-		Stops        []string      `json:"Stops,omitempty"`
-		RouteLaneIDs []string      `json:"RouteLaneIDs"`
-		RelocatingTo string        `json:"RelocatingTo"`
-		Rebalancing  bool          `json:"Rebalancing"`
-		PlatoonID    string        `json:"PlatoonID,omitempty"`
-		PlatoonIndex int           `json:"PlatoonIndex,omitzero"`
+		Pod          sim.Pod       `json:"pod"`
+		Riders       []sim.Request `json:"riders,omitempty"`
+		Stops        []string      `json:"stops,omitempty"`
+		RouteLaneIDs []string      `json:"routeLaneIDs"`
+		RelocatingTo string        `json:"relocatingTo"`
+		Rebalancing  bool          `json:"rebalancing"`
+		PlatoonID    string        `json:"platoonID,omitempty"`
+		PlatoonIndex int           `json:"platoonIndex,omitzero"`
 	}
 	type oldMetadata struct {
-		RelocatingTo string `json:"RelocatingTo"`
-		Rebalancing  bool   `json:"Rebalancing"`
-		PlatoonID    string `json:"PlatoonID"`
-		PlatoonIndex int    `json:"PlatoonIndex"`
+		RelocatingTo string `json:"relocatingTo"`
+		Rebalancing  bool   `json:"rebalancing"`
+		PlatoonID    string `json:"platoonID"`
+		PlatoonIndex int    `json:"platoonIndex"`
 	}
 	_, frame := streamFixture(t)
 	historical := maximumStreamFrame(t)
@@ -267,7 +268,7 @@ func TestStreamBoardingZeroDistanceRoundTrip(t *testing.T) {
 	frame.State.Simulation.Vehicles[0].RiddenMeters = 0
 	e := StreamEnvelope{Kind: "full", Stream: "zero", Sequence: 1, Build: frame.State.Build, Source: sourceOf(frame), Full: &frame}
 	raw := streamJSON(t, e)
-	if bytes.Contains(raw, []byte(`"RiddenMeters"`)) || !bytes.Contains(raw, []byte(`"MetersAtBoarding":0`)) {
+	if bytes.Contains(raw, []byte(`"riddenMeters"`)) || !bytes.Contains(raw, []byte(`"metersAtBoarding":0`)) {
 		t.Fatal("zero baseline or cumulative omission changed")
 	}
 	decoded, err := DecodeStreamJSONVersion(raw, 3)
@@ -286,7 +287,7 @@ func TestStreamBoardingZeroDistanceRoundTrip(t *testing.T) {
 		t.Fatal(stateErr)
 	}
 	for _, value := range []string{`null`, `-1`, `"0"`, `true`} {
-		for _, wrapper := range []string{`{"full":{"state":{"simulation":{"Vehicles":[{"RiddenMeters":%s}]}}}}`, `{"delta":{"vehicles":[{"metadata":{"value":{"RiddenMeters":%s}}}]}}`} {
+		for _, wrapper := range []string{`{"full":{"state":{"simulation":{"vehicles":[{"riddenMeters":%s}]}}}}`, `{"delta":{"vehicles":[{"metadata":{"value":{"riddenMeters":%s}}}]}}`} {
 			raw := []byte(strings.Replace(wrapper, "%s", value, 1))
 			if _, decodeErr := DecodeStreamJSONVersion(raw, 3); decodeErr == nil {
 				t.Errorf("accepted distance %s", raw)

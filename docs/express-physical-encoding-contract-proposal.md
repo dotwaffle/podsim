@@ -244,7 +244,7 @@ A raw old ID such as `YWJj` still means those four characters.
 Do not downgrade Express state to an old version, remove riders, or reinterpret valid private orders during export.
 Foundation projects and ordinary fixtures keep their encoded bytes, with project version 1.
 
-Encode five free-text fields inside each waiting or rider order record: `From`, `To`, `PodID`, `DispatchReason`, and `ServiceID`.
+Encode five free-text fields inside each waiting or rider order record: `from`, `to`, `podID`, `dispatchReason`, and `serviceID`.
 Saved order records use their existing lowercase field names.
 Preserve field omission and empty-string rules exactly.
 Other identifiers, enum values, booleans, numbers, route arrays, and structural names keep their current JSON representations.
@@ -419,7 +419,7 @@ Use byte limits, not character counts.
 The float `0.0000010000000000000002` occupies 24 bytes and drives the boarding allowance.
 The helper also checks fixed/exponent boundaries, subnormal values, and maximum finite floats.
 
-Stream `Completed=false` costs one more byte than `true`, which the stream record maximum includes.
+Stream `completed=false` costs one more byte than `true`, which the stream record maximum includes.
 The existing baseline retains wider signed counters and other scalar allowances.
 Do not replace these checks with six bytes per character or short decimal examples.
 

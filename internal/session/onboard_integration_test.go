@@ -141,7 +141,7 @@ func TestOnboardConsumerSaveRestore(t *testing.T) {
 	}
 	data := encodeTestState(t, file)
 	raw := decompressTestJSON(t, data)
-	if bytes.Contains(raw, []byte(`"journeyOrigin"`)) || bytes.Contains(raw, []byte(`"MetersAtBoarding"`)) ||
+	if bytes.Contains(raw, []byte(`"journeyOrigin"`)) || bytes.Contains(raw, []byte(`"metersAtBoarding"`)) ||
 		!bytes.Contains(raw, []byte(`"boardings":[[0,0],[0,0],[0,`)) {
 		t.Fatal("actual exporter did not use saved-source tuples")
 	}

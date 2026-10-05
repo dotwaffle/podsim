@@ -41,7 +41,7 @@ func decodeCouplingStreamJSON(data []byte) (StreamEnvelope, error) {
 	var envelope StreamEnvelope
 	var err error
 	if packed {
-		err = jsonv2.Unmarshal(data, &envelope, json.DefaultOptionsV1(), jsonv2.RejectUnknownMembers(true), packedDecodeOptions())
+		err = jsonv2.Unmarshal(data, &envelope, json.DefaultOptionsV1(), jsonv2.MatchCaseInsensitiveNames(false), jsonv2.RejectUnknownMembers(true), packedDecodeOptions())
 	} else {
 		err = decodeStreamJSON(data, &envelope)
 	}
@@ -59,7 +59,7 @@ func scanCouplingOrderContract(data []byte) (bool, error) {
 	var header struct {
 		OrderContract sim.OrderContract `json:"orderContract"`
 	}
-	if err := jsonv2.Unmarshal(data, &header, json.DefaultOptionsV1()); err != nil {
+	if err := jsonv2.Unmarshal(data, &header, json.DefaultOptionsV1(), jsonv2.MatchCaseInsensitiveNames(false)); err != nil {
 		return false, err
 	}
 	packed := header.OrderContract == sim.ExpressOrderContract
@@ -82,7 +82,7 @@ func couplingStreamLimits(packed bool) jsonLimits {
 		limits.arrays[path+"/*/members"] = 2
 		limits.arrays[path+"/*/bodies"] = 2
 		for _, shape := range []string{"/bodies/*", "/connector", "/maneuverEnvelope"} {
-			limits.arrays[path+"/*"+shape+"/Corners"] = 4
+			limits.arrays[path+"/*"+shape+"/corners"] = 4
 		}
 	}
 	return limits
@@ -103,7 +103,7 @@ func scanCouplingPublicJSON(data []byte, httpState bool) error {
 	for {
 		token, err := d.ReadToken()
 		if errors.Is(err, io.EOF) {
-			if !seen["/couplingcontract"] || full && !seen[framePrefix+"/state/simulation/couplingcontract"] ||
+			if !seen["/couplingContract"] || full && !seen[framePrefix+"/state/simulation/couplingContract"] ||
 				httpState && (!full || !seen["/topology"]) {
 				return errors.New("stream coupling contract marker is missing")
 			}
@@ -116,7 +116,7 @@ func scanCouplingPublicJSON(data []byte, httpState bool) error {
 		if token.Kind() != jsontext.KindString || kind != jsontext.KindBeginObject || n%2 != 1 {
 			continue
 		}
-		path := strings.ToLower(string(d.StackPointer()))
+		path := string(d.StackPointer())
 		if path == framePrefix {
 			full = true
 		}
@@ -147,7 +147,7 @@ func scanCouplingPublicJSON(data []byte, httpState bool) error {
 			}
 			continue
 		}
-		if strings.EqualFold(token.String(), "couplingID") {
+		if token.String() == "couplingID" {
 			if !couplingCabinIDPath(path, framePrefix) || seen[path] {
 				return errors.New("unexpected or duplicate cabin coupling ID")
 			}
@@ -164,9 +164,9 @@ func scanCouplingPublicJSON(data []byte, httpState bool) error {
 		if !couplingMember(token.String()) {
 			continue
 		}
-		name := strings.ToLower(token.String())
-		valid := path == "/couplingcontract" || path == framePrefix+"/state/simulation/"+name &&
-			(name == "couplingcontract" || name == "couplingenabled" || name == "couplinggroups")
+		name := token.String()
+		valid := path == "/couplingContract" || path == framePrefix+"/state/simulation/"+name &&
+			(name == "couplingContract" || name == "couplingEnabled" || name == "couplingGroups")
 		if !valid || seen[path] {
 			return errors.New("unexpected or duplicate stream coupling member")
 		}
@@ -179,8 +179,8 @@ func scanCouplingPublicJSON(data []byte, httpState bool) error {
 
 func couplingCabinIDPath(path, framePrefix string) bool {
 	for _, scope := range []struct{ prefix, suffix string }{
-		{framePrefix + "/state/simulation/vehicles/", "couplingid"},
-		{"/delta/vehicles/", "metadata/value/couplingid"},
+		{framePrefix + "/state/simulation/vehicles/", "couplingID"},
+		{"/delta/vehicles/", "metadata/value/couplingID"},
 	} {
 		index, tail, ok := strings.Cut(strings.TrimPrefix(path, scope.prefix), "/")
 		if !strings.HasPrefix(path, scope.prefix) || !ok || tail != scope.suffix {
@@ -195,9 +195,9 @@ func couplingCabinIDPath(path, framePrefix string) bool {
 
 func scanCouplingStreamValue(d *jsontext.Decoder, name string) error {
 	switch name {
-	case "couplinggroups":
+	case "couplingGroups":
 		return scanCouplingViewArray(d)
-	case "couplingcontract":
+	case "couplingContract":
 		token, err := d.ReadToken()
 		if err != nil {
 			return err
@@ -205,7 +205,7 @@ func scanCouplingStreamValue(d *jsontext.Decoder, name string) error {
 		if token.Kind() != jsontext.KindString || token.String() != string(sim.CompactPairV1CouplingContract) {
 			return sim.ErrUnknownCouplingContract
 		}
-	case "couplingenabled":
+	case "couplingEnabled":
 		token, err := d.ReadToken()
 		if err != nil {
 			return err
@@ -245,8 +245,8 @@ func scanCouplingReplacementObject(d *jsontext.Decoder) error {
 		if err != nil {
 			return err
 		}
-		name := strings.ToLower(token.String())
-		if token.Kind() != jsontext.KindString || seen[name] || name != "couplingcontract" && name != "couplingenabled" && name != "couplinggroups" {
+		name := token.String()
+		if token.Kind() != jsontext.KindString || seen[name] || name != "couplingContract" && name != "couplingEnabled" && name != "couplingGroups" {
 			return errors.New("unexpected or duplicate coupling replacement member")
 		}
 		seen[name] = true
@@ -291,16 +291,16 @@ func scanCouplingFixedArray(d *jsontext.Decoder, limit int, exact bool, item fun
 }
 
 func scanCouplingViewRecord(d *jsontext.Decoder) error {
-	required := append(couplingRecordFields("group"), "profile", "ownerid", "resourceclaims", "bodies")
-	return scanCouplingViewObject(d, required, []string{"commonspeed", "connector", "maneuverenvelope"}, func(d *jsontext.Decoder, field string) error {
+	required := append(couplingRecordFields("group"), "profile", "ownerID", "resourceClaims", "bodies")
+	return scanCouplingViewObject(d, required, []string{"commonSpeed", "connector", "maneuverEnvelope"}, func(d *jsontext.Decoder, field string) error {
 		switch field {
 		case "bodies":
 			return scanCouplingFixedArray(d, 2, true, scanCouplingRectangle)
-		case "connector", "maneuverenvelope":
+		case "connector", "maneuverEnvelope":
 			return scanCouplingRectangle(d)
-		case "commonspeed":
+		case "commonSpeed":
 			return scanCouplingNumber(d, false)
-		case "resourceclaims":
+		case "resourceClaims":
 			return scanCouplingNumber(d, true)
 		default:
 			return scanCouplingValue(d, field)
@@ -332,7 +332,7 @@ func scanCouplingViewObject(d *jsontext.Decoder, required, optional []string, va
 		if err != nil {
 			return err
 		}
-		name := strings.ToLower(token.String())
+		name := token.String()
 		allowed := false
 		for _, fields := range [][]string{required, optional} {
 			for _, field := range fields {

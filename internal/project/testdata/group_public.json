@@ -2,264 +2,264 @@
   "version": 1,
   "name": "Group public test",
   "network": {
-    "Nodes": [
+    "nodes": [
       {
-        "ID": "harbor-entry",
-        "Position": {
-          "X": 0,
-          "Y": 0
+        "id": "harbor-entry",
+        "position": {
+          "x": 0,
+          "y": 0
         }
       },
       {
-        "ID": "harbor-exit",
-        "Position": {
-          "X": 300,
-          "Y": 0
+        "id": "harbor-exit",
+        "position": {
+          "x": 300,
+          "y": 0
         }
       },
       {
-        "ID": "harbor-1",
-        "Position": {
-          "X": 150,
-          "Y": 120
+        "id": "harbor-1",
+        "position": {
+          "x": 150,
+          "y": 120
         }
       },
       {
-        "ID": "garden-entry",
-        "Position": {
-          "X": 600,
-          "Y": 0
+        "id": "garden-entry",
+        "position": {
+          "x": 600,
+          "y": 0
         }
       },
       {
-        "ID": "garden-exit",
-        "Position": {
-          "X": 900,
-          "Y": 0
+        "id": "garden-exit",
+        "position": {
+          "x": 900,
+          "y": 0
         }
       },
       {
-        "ID": "garden-1",
-        "Position": {
-          "X": 750,
-          "Y": 120
+        "id": "garden-1",
+        "position": {
+          "x": 750,
+          "y": 120
         }
       },
       {
-        "ID": "market-entry",
-        "Position": {
-          "X": 1200,
-          "Y": 0
+        "id": "market-entry",
+        "position": {
+          "x": 1200,
+          "y": 0
         }
       },
       {
-        "ID": "market-exit",
-        "Position": {
-          "X": 1500,
-          "Y": 0
+        "id": "market-exit",
+        "position": {
+          "x": 1500,
+          "y": 0
         }
       },
       {
-        "ID": "market-1",
-        "Position": {
-          "X": 1350,
-          "Y": 120
+        "id": "market-1",
+        "position": {
+          "x": 1350,
+          "y": 120
         }
       },
       {
-        "ID": "return-east",
-        "Position": {
-          "X": 1800,
-          "Y": 800
+        "id": "return-east",
+        "position": {
+          "x": 1800,
+          "y": 800
         }
       },
       {
-        "ID": "return-west",
-        "Position": {
-          "X": -300,
-          "Y": 800
+        "id": "return-west",
+        "position": {
+          "x": -300,
+          "y": 800
         }
       }
     ],
-    "Lanes": [
+    "lanes": [
       {
-        "ID": "harbor-through",
-        "From": "harbor-entry",
-        "To": "harbor-exit",
-        "SpeedLimit": 14,
-        "VehicleClasses": [
+        "id": "harbor-through",
+        "from": "harbor-entry",
+        "to": "harbor-exit",
+        "speedLimit": 14,
+        "vehicleClasses": [
           "legacy",
           "compact",
           "group"
         ]
       },
       {
-        "ID": "harbor-1-in",
-        "From": "harbor-entry",
-        "To": "harbor-1",
-        "SpeedLimit": 14,
-        "VehicleClasses": [
+        "id": "harbor-1-in",
+        "from": "harbor-entry",
+        "to": "harbor-1",
+        "speedLimit": 14,
+        "vehicleClasses": [
           "legacy",
           "compact",
           "group"
         ]
       },
       {
-        "ID": "harbor-1-out",
-        "From": "harbor-1",
-        "To": "harbor-exit",
-        "SpeedLimit": 14,
-        "VehicleClasses": [
+        "id": "harbor-1-out",
+        "from": "harbor-1",
+        "to": "harbor-exit",
+        "speedLimit": 14,
+        "vehicleClasses": [
           "legacy",
           "compact",
           "group"
         ]
       },
       {
-        "ID": "garden-through",
-        "From": "garden-entry",
-        "To": "garden-exit",
-        "SpeedLimit": 14,
-        "VehicleClasses": [
+        "id": "garden-through",
+        "from": "garden-entry",
+        "to": "garden-exit",
+        "speedLimit": 14,
+        "vehicleClasses": [
           "legacy",
           "compact",
           "group"
         ]
       },
       {
-        "ID": "garden-1-in",
-        "From": "garden-entry",
-        "To": "garden-1",
-        "SpeedLimit": 14,
-        "VehicleClasses": [
+        "id": "garden-1-in",
+        "from": "garden-entry",
+        "to": "garden-1",
+        "speedLimit": 14,
+        "vehicleClasses": [
           "legacy",
           "compact",
           "group"
         ]
       },
       {
-        "ID": "garden-1-out",
-        "From": "garden-1",
-        "To": "garden-exit",
-        "SpeedLimit": 14,
-        "VehicleClasses": [
+        "id": "garden-1-out",
+        "from": "garden-1",
+        "to": "garden-exit",
+        "speedLimit": 14,
+        "vehicleClasses": [
           "legacy",
           "compact",
           "group"
         ]
       },
       {
-        "ID": "harbor-link",
-        "From": "harbor-exit",
-        "To": "garden-entry",
-        "SpeedLimit": 14,
-        "VehicleClasses": [
+        "id": "harbor-link",
+        "from": "harbor-exit",
+        "to": "garden-entry",
+        "speedLimit": 14,
+        "vehicleClasses": [
           "legacy",
           "compact",
           "group"
         ],
-        "StationID": "garden",
-        "StationRole": "approach"
+        "stationID": "garden",
+        "stationRole": "approach"
       },
       {
-        "ID": "market-through",
-        "From": "market-entry",
-        "To": "market-exit",
-        "SpeedLimit": 14,
-        "VehicleClasses": [
+        "id": "market-through",
+        "from": "market-entry",
+        "to": "market-exit",
+        "speedLimit": 14,
+        "vehicleClasses": [
           "legacy",
           "compact",
           "group"
         ]
       },
       {
-        "ID": "market-1-in",
-        "From": "market-entry",
-        "To": "market-1",
-        "SpeedLimit": 14,
-        "VehicleClasses": [
+        "id": "market-1-in",
+        "from": "market-entry",
+        "to": "market-1",
+        "speedLimit": 14,
+        "vehicleClasses": [
           "legacy",
           "compact",
           "group"
         ]
       },
       {
-        "ID": "market-1-out",
-        "From": "market-1",
-        "To": "market-exit",
-        "SpeedLimit": 14,
-        "VehicleClasses": [
+        "id": "market-1-out",
+        "from": "market-1",
+        "to": "market-exit",
+        "speedLimit": 14,
+        "vehicleClasses": [
           "legacy",
           "compact",
           "group"
         ]
       },
       {
-        "ID": "garden-link",
-        "From": "garden-exit",
-        "To": "market-entry",
-        "SpeedLimit": 14,
-        "VehicleClasses": [
+        "id": "garden-link",
+        "from": "garden-exit",
+        "to": "market-entry",
+        "speedLimit": 14,
+        "vehicleClasses": [
           "legacy",
           "compact",
           "group"
         ],
-        "StationID": "market",
-        "StationRole": "approach"
+        "stationID": "market",
+        "stationRole": "approach"
       },
       {
-        "ID": "return-down",
-        "From": "market-exit",
-        "To": "return-east",
-        "SpeedLimit": 14,
-        "VehicleClasses": [
+        "id": "return-down",
+        "from": "market-exit",
+        "to": "return-east",
+        "speedLimit": 14,
+        "vehicleClasses": [
           "legacy",
           "compact",
           "group"
         ]
       },
       {
-        "ID": "return",
-        "From": "return-east",
-        "To": "return-west",
-        "SpeedLimit": 14,
-        "VehicleClasses": [
+        "id": "return",
+        "from": "return-east",
+        "to": "return-west",
+        "speedLimit": 14,
+        "vehicleClasses": [
           "legacy",
           "compact",
           "group"
         ]
       },
       {
-        "ID": "return-up",
-        "From": "return-west",
-        "To": "harbor-entry",
-        "SpeedLimit": 14,
-        "VehicleClasses": [
+        "id": "return-up",
+        "from": "return-west",
+        "to": "harbor-entry",
+        "speedLimit": 14,
+        "vehicleClasses": [
           "legacy",
           "compact",
           "group"
         ],
-        "StationID": "harbor",
-        "StationRole": "approach"
+        "stationID": "harbor",
+        "stationRole": "approach"
       }
     ],
-    "Stations": [
+    "stations": [
       {
-        "ID": "harbor",
-        "Name": "harbor",
-        "Entry": "harbor-entry",
-        "Exit": "harbor-exit",
-        "ParkingOnly": false,
-        "VehicleClasses": [
+        "id": "harbor",
+        "name": "harbor",
+        "entry": "harbor-entry",
+        "exit": "harbor-exit",
+        "parkingOnly": false,
+        "vehicleClasses": [
           "legacy",
           "compact",
           "group"
         ],
-        "Berths": [
+        "berths": [
           {
-            "ID": "harbor-1",
-            "Node": "harbor-1",
-            "VehicleClasses": [
+            "id": "harbor-1",
+            "node": "harbor-1",
+            "vehicleClasses": [
               "legacy",
               "compact",
               "group"
@@ -268,21 +268,21 @@
         ]
       },
       {
-        "ID": "garden",
-        "Name": "garden",
-        "Entry": "garden-entry",
-        "Exit": "garden-exit",
-        "ParkingOnly": false,
-        "VehicleClasses": [
+        "id": "garden",
+        "name": "garden",
+        "entry": "garden-entry",
+        "exit": "garden-exit",
+        "parkingOnly": false,
+        "vehicleClasses": [
           "legacy",
           "compact",
           "group"
         ],
-        "Berths": [
+        "berths": [
           {
-            "ID": "garden-1",
-            "Node": "garden-1",
-            "VehicleClasses": [
+            "id": "garden-1",
+            "node": "garden-1",
+            "vehicleClasses": [
               "legacy",
               "compact",
               "group"
@@ -291,21 +291,21 @@
         ]
       },
       {
-        "ID": "market",
-        "Name": "market",
-        "Entry": "market-entry",
-        "Exit": "market-exit",
-        "ParkingOnly": false,
-        "VehicleClasses": [
+        "id": "market",
+        "name": "market",
+        "entry": "market-entry",
+        "exit": "market-exit",
+        "parkingOnly": false,
+        "vehicleClasses": [
           "legacy",
           "compact",
           "group"
         ],
-        "Berths": [
+        "berths": [
           {
-            "ID": "market-1",
-            "Node": "market-1",
-            "VehicleClasses": [
+            "id": "market-1",
+            "node": "market-1",
+            "vehicleClasses": [
               "legacy",
               "compact",
               "group"
@@ -317,10 +317,10 @@
   },
   "fleet": [
     {
-      "ID": "01",
-      "StationID": "harbor",
-      "BerthID": "harbor-1",
-      "Class": "group"
+      "id": "01",
+      "stationID": "harbor",
+      "berthID": "harbor-1",
+      "class": "group"
     }
   ],
   "demand": {

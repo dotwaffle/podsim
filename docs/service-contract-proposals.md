@@ -34,7 +34,7 @@ Approve these data and compatibility rules as one foundation:
   Compact uses the current four-meter simulation profile, ordinary 12-meter clearance, and current acceleration and speed rules.
   Group and express need an approved physical profile before placement, simulation start, or restore.
   Do not reuse ordinary legacy links for a larger body without a separately qualified class certificate.
-- Stations, berths, and lanes have optional `VehicleClasses` allowlists.
+- Stations, berths, and lanes have optional `vehicleClasses` allowlists.
   Omission permits legacy and compact.
   Explicit lists contain 1 through 4 distinct known classes.
   Every placement, stop, passenger leg, empty move, reroute, diversion, swap, and restore must satisfy compatibility.
@@ -64,10 +64,10 @@ Approve these data and compatibility rules as one foundation:
   Report why assignment cannot proceed.
   Do not drop such orders or reject a whole otherwise valid save silently.
 
-Observable and saved requests add `SharingConsent`, `Service`, and `ServiceID` with the effective values above.
-Observable pods and placements add `Class`.
+Observable and saved requests add `sharingConsent`, `service`, and `serviceID` with the effective values above.
+Observable pods and placements add `class`.
 Topology preserves the project version and class allowlists.
-New express records use `ID`, `From`, `To`, `Class`, and `PartyLimit`.
+New express records use `id`, `from`, `to`, `class`, and `partyLimit`.
 Keep completed rider display history bounded separately from active riders.
 No continuously served pod may grow an unbounded request array.
 Onboard pickup requires per-rider boarding berth and distance baseline in save 6 before multiple origins become valid.

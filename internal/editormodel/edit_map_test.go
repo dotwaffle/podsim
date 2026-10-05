@@ -96,7 +96,7 @@ func TestMapEditsMatchExistingEditor(t *testing.T) {
 
 func TestMapEditsRejectInvalidCommands(t *testing.T) {
 	t.Parallel()
-	draft := map[string]any{"network": map[string]any{"Nodes": []any{}}}
+	draft := map[string]any{"network": map[string]any{"nodes": []any{}}}
 	for _, raw := range []string{
 		`null`, `[]`, `{}`, `{"action":"unknown"}`,
 		`{"action":"remove","latitude":0}`, `{"action":"opacity"}`,

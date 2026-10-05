@@ -161,7 +161,7 @@ func backgroundReference(draft, frame, choice any) (any, string, error) {
 	if !editorTruthy(geo) {
 		mode := text(member(choice, "mode"))
 		switch {
-		case len(items(member(member(draft, "network"), "Nodes"))) == 0 || mode == "adopt" && member(choice, "confirmed") == true:
+		case len(items(member(member(draft, "network"), "nodes"))) == 0 || mode == "adopt" && member(choice, "confirmed") == true:
 			geo = makeEditorGeo((number(member(frame, "south"))+number(member(frame, "north")))/2, (number(member(frame, "west"))+number(member(frame, "east")))/2)
 		case mode == "adopt":
 			return nil, "", editorMessageError("Confirm that the image center becomes the reference, and that the network does not move.")
@@ -207,10 +207,10 @@ func backgroundPlacementError(background any) error {
 
 func calibrateBackground(background, command map[string]any) error {
 	a, b, meters := command["a"], command["b"], command["meters"]
-	if !finite(member(a, "X")) || !finite(member(a, "Y")) || !finite(member(b, "X")) || !finite(member(b, "Y")) || !finite(meters) || number(meters) <= 0 {
+	if !finite(member(a, "x")) || !finite(member(a, "y")) || !finite(member(b, "x")) || !finite(member(b, "y")) || !finite(meters) || number(meters) <= 0 {
 		return editorMessageError("Enter a positive distance and select two different points.")
 	}
-	distance := math.Hypot(number(member(b, "X"))-number(member(a, "X")), number(member(b, "Y"))-number(member(a, "Y")))
+	distance := math.Hypot(number(member(b, "x"))-number(member(a, "x")), number(member(b, "y"))-number(member(a, "y")))
 	if distance <= 0 || math.IsInf(distance, 0) {
 		return editorMessageError("Enter a positive distance and select two different points.")
 	}
@@ -221,8 +221,8 @@ func calibrateBackground(background, command map[string]any) error {
 		return err
 	}
 	factor := number(meters) / distance
-	background["x"] = number(member(a, "X")) + (number(background["x"])-number(member(a, "X")))*factor
-	background["y"] = number(member(a, "Y")) + (number(background["y"])-number(member(a, "Y")))*factor
+	background["x"] = number(member(a, "x")) + (number(background["x"])-number(member(a, "x")))*factor
+	background["y"] = number(member(a, "y")) + (number(background["y"])-number(member(a, "y")))*factor
 	background["width"], background["height"] = number(background["width"])*factor, number(background["height"])*factor
 	return nil
 }

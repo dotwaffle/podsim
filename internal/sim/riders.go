@@ -5,8 +5,8 @@ import "slices"
 // JourneyStats measures the time from request to alighting of the parties
 // that left a pod at their destination since reset.
 type JourneyStats struct {
-	AverageSeconds float64 `json:"AverageSeconds"`
-	MaxSeconds     float64 `json:"MaxSeconds"`
+	AverageSeconds float64 `json:"averageSeconds"`
+	MaxSeconds     float64 `json:"maxSeconds"`
 }
 
 func (s *Simulation) journeyStats() JourneyStats {

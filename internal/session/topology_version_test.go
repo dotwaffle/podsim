@@ -45,7 +45,11 @@ func TestPlainTopologyProjectVersion(t *testing.T) {
 			}
 			var topology TopologySnapshot
 			err := json.Unmarshal(edited, &topology)
-			if err == nil || !strings.Contains(err.Error(), "project version") {
+			want := "project version"
+			if name == "folded version 2" {
+				want = "unknown field"
+			}
+			if err == nil || !strings.Contains(err.Error(), want) {
 				t.Fatalf("decoded %s: %v", edited[:min(len(edited), 80)], err)
 			}
 		})

@@ -63,7 +63,7 @@ func (config *Config) decodeJSONLimit(data []byte, options jsonv2.Options, rawLi
 	}
 	type plainConfig Config
 	decoded := plainConfig(Clone(*config))
-	if err := jsonv2.Unmarshal(data, &decoded, options, jsonv2.RejectUnknownMembers(true)); err != nil {
+	if err := jsonv2.Unmarshal(data, &decoded, options, jsonv2.MatchCaseInsensitiveNames(false), jsonv2.RejectUnknownMembers(true)); err != nil {
 		return err
 	}
 	// Partial project updates can omit the version. Validate checks complete projects.
@@ -104,7 +104,7 @@ func scanProjectBanks(data []byte) error {
 			return err
 		}
 		tokenKind := token.Kind()
-		path := strings.Split(strings.ToLower(string(decoder.StackPointer())), "/")
+		path := strings.Split(string(decoder.StackPointer()), "/")
 		if len(path) < 5 || path[1] != "network" || path[2] != "stations" || path[4] != "banks" {
 			continue
 		}
@@ -112,11 +112,11 @@ func scanProjectBanks(data []byte) error {
 			kind, length := decoder.StackIndex(decoder.StackDepth())
 			if kind == jsontext.KindBeginObject && length%2 == 1 {
 				if decoder.PeekKind() != jsontext.KindBeginArray {
-					return errors.New("station Banks must be a nonempty array")
+					return errors.New("station banks must be a nonempty array")
 				}
 			}
 			if tokenKind == jsontext.KindBeginArray && decoder.PeekKind() == jsontext.KindEndArray {
-				return errors.New("station Banks must be a nonempty array")
+				return errors.New("station banks must be a nonempty array")
 			}
 		}
 		depth := decoder.StackDepth()
@@ -126,7 +126,7 @@ func scanProjectBanks(data []byte) error {
 			switch {
 			case len(path) == 6:
 				limit = sim.MaxStationBanks
-			case len(path) == 8 && path[6] == "berthids":
+			case len(path) == 8 && path[6] == "berthIDs":
 				limit = MaxBerths
 			}
 			if limit > 0 && length > limit {

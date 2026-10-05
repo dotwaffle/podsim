@@ -86,8 +86,10 @@ func TestCommandCouplingArrayBounds(t *testing.T) {
 						prefix = strings.ToUpper(prefix)
 					}
 					body := []byte(`{"client":"coupling-bounds","sequence":1,"action":"pause","project":{` + prefix + strings.Repeat(test.value+",", count-1) + test.value + test.suffix + `}}`)
+					// A folded name is an unknown path, which has no array.
+					refused := over || folded
 					err := prescanCommand(body)
-					if !over && err != nil || over && (!errors.Is(err, errCommandShape) || !errors.Is(err, errJSONArrayTooLong)) {
+					if !refused && err != nil || refused && (!errors.Is(err, errCommandShape) || !errors.Is(err, errJSONArrayTooLong)) {
 						t.Fatal("command boundary changed", err)
 					}
 					// At-limit records are deliberately incomplete. Both shapes
@@ -148,22 +150,22 @@ func pauseWithOrigin(t *testing.T, s *Session, client string, length int) []byte
 func TestCommandShapeLimits(t *testing.T) {
 	s := newTestSession(t)
 	handler := s.Handler(t.TempDir())
-	fill := (MaxCommandBytes - len(pauseWithLanes(t, s, "fill", "Lanes", 0))) / 3
+	fill := (MaxCommandBytes - len(pauseWithLanes(t, s, "fill", "lanes", 0))) / 3
 	tests := []struct {
 		name  string
 		body  []byte
 		code  int
 		reply string
 	}{
-		{"1,000,000 lanes", pauseWithLanes(t, s, "million", "Lanes", 1_000_000), http.StatusBadRequest, "invalid command JSON\n"},
-		{"lanes up to the body limit", pauseWithLanes(t, s, "fill", "Lanes", fill), http.StatusBadRequest, "invalid command JSON\n"},
+		{"1,000,000 lanes", pauseWithLanes(t, s, "million", "lanes", 1_000_000), http.StatusBadRequest, "invalid command JSON\n"},
+		{"lanes up to the body limit", pauseWithLanes(t, s, "fill", "lanes", fill), http.StatusBadRequest, "invalid command JSON\n"},
 		// The scan goes on past the invalid string to the lanes.
-		{"invalid UTF-8 before the lanes", bytes.Replace(pauseWithLanes(t, s, "utf8", "Lanes", fill), []byte(`"utf8"`), []byte("\"\xff\""), 1), http.StatusBadRequest, "invalid command JSON\n"},
-		{"one lane over the limit", pauseWithLanes(t, s, "over", "Lanes", project.MaxLanes+1), http.StatusBadRequest, "invalid command JSON\n"},
+		{"invalid UTF-8 before the lanes", bytes.Replace(pauseWithLanes(t, s, "utf8", "lanes", fill), []byte(`"utf8"`), []byte("\"\xff\""), 1), http.StatusBadRequest, "invalid command JSON\n"},
+		{"one lane over the limit", pauseWithLanes(t, s, "over", "lanes", project.MaxLanes+1), http.StatusBadRequest, "invalid command JSON\n"},
 		{"a member name in another case", pauseWithLanes(t, s, "case", "lANES", project.MaxLanes+1), http.StatusBadRequest, "invalid command JSON\n"},
-		{"lanes at the limit", pauseWithLanes(t, s, "limit", "Lanes", project.MaxLanes), http.StatusOK, ""},
+		{"lanes at the limit", pauseWithLanes(t, s, "limit", "lanes", project.MaxLanes), http.StatusOK, ""},
 		{"an array at another path", []byte(`{"client":"other","sequence":1,"action":["pause"]}`), http.StatusBadRequest, "invalid command JSON\n"},
-		{"a second value that is not JSON", append(pauseWithLanes(t, s, "second", "Lanes", 1), " x"...), http.StatusBadRequest, "send one command only\n"},
+		{"a second value that is not JSON", append(pauseWithLanes(t, s, "second", "lanes", 1), " x"...), http.StatusBadRequest, "send one command only\n"},
 		// The limits count the quotes of a string.
 		{"a string over the limit", pauseWithOrigin(t, s, "long", commandJSONLimits.stringBytes-1), http.StatusBadRequest, "invalid command JSON\n"},
 		{"a string at the limit", pauseWithOrigin(t, s, "string", commandJSONLimits.stringBytes-2), http.StatusOK, ""},

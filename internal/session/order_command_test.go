@@ -54,7 +54,7 @@ func TestOrderCommandRejectsUnchanged(t *testing.T) {
 		`"service":"express"`, `"service":"express","serviceID":"pair"`,
 		`"sharingConsent":"private","service":"express","serviceID":"pair"`,
 		`"sharingConsent":"shared","service":"express","serviceID":"` + strings.Repeat("x", 65) + `"`,
-		`"partySize":1,"PartySize":2`, `"service":"on-demand","SERVICE":"express"`,
+		`"partySize":1,"partySize":2`, `"service":"on-demand","SERVICE":"express"`,
 		`"sharingConsent":"private","unknown":true`,
 	}
 	for _, fields := range tests {
@@ -140,5 +140,28 @@ func TestOrderCommandEncodingKeepsOmittedOptions(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// A command member whose case differs from the declared name is unknown,
+// so both decoders refuse the command.
+func TestCommandRefusesCaseVariantMembers(t *testing.T) {
+	t.Parallel()
+	for _, raw := range []string{
+		`{"client":"c","sequence":1,"action":"pause","Paused":true}`,
+		`{"Client":"c","sequence":1,"action":"pause","paused":true}`,
+		`{"client":"c","sequence":1,"action":"trip","origin":"a","destination":"b","PartySize":2}`,
+	} {
+		var legacy, v2 Command
+		if err := json.Unmarshal([]byte(raw), &legacy); err == nil {
+			t.Errorf("legacy decoder accepted %s", raw)
+		}
+		if err := jsonv2.Unmarshal([]byte(raw), &v2); err == nil {
+			t.Errorf("v2 decoder accepted %s", raw)
+		}
+	}
+	var exact Command
+	if err := json.Unmarshal([]byte(`{"client":"c","sequence":1,"action":"pause","paused":true}`), &exact); err != nil || !exact.Paused {
+		t.Fatal("exact command changed", err)
 	}
 }

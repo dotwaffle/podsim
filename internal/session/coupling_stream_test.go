@@ -424,7 +424,7 @@ func TestCouplingStreamLimitsPackedContainUnpacked(t *testing.T) {
 	t.Parallel()
 	wide, exact := couplingStreamLimits(true), couplingStreamLimits(false)
 	if wide.depth != exact.depth || wide.elements != exact.elements || wide.members != exact.members ||
-		wide.stringBytes != exact.stringBytes || wide.foldNames != exact.foldNames || wide.allowInvalidUTF8 != exact.allowInvalidUTF8 {
+		wide.stringBytes != exact.stringBytes || wide.allowInvalidUTF8 != exact.allowInvalidUTF8 {
 		t.Fatal("packed and unpacked coupling limits differ outside array bounds")
 	}
 	if !maps.Equal(maps.Collect(func(yield func(string, bool) bool) {
@@ -485,12 +485,12 @@ func TestCouplingDecodeBoundsBeforeHeader(t *testing.T) {
 		{"deeper than the stream limit", `{"x":` + strings.Repeat("[", 65) + strings.Repeat("]", 65) + `}`, errJSONTooDeep},
 		{"array past the element limit", `{"x":` + zeros(65537) + `}`, errJSONArrayTooLong},
 		{"object past the member limit", `{"x":0` + members(256) + `}`, errJSONObjectTooLong},
-		{"unpacked full pending past the unpacked bound", `{"full":{"state":{"simulation":{"Pending":` + zeros(maxSavedTrips+1) + `}}}}`, errJSONArrayTooLong},
-		{"unpacked frame pending past the unpacked bound", `{"frame":{"state":{"simulation":{"Pending":` + zeros(maxSavedTrips+1) + `}}}}`, errJSONArrayTooLong},
+		{"unpacked full pending past the unpacked bound", `{"full":{"state":{"simulation":{"pending":` + zeros(maxSavedTrips+1) + `}}}}`, errJSONArrayTooLong},
+		{"unpacked frame pending past the unpacked bound", `{"frame":{"state":{"simulation":{"pending":` + zeros(maxSavedTrips+1) + `}}}}`, errJSONArrayTooLong},
 		{"unpacked delta riders past the unpacked bound", `{"delta":{"vehicles":[{"riders":{"value":` + zeros(9) + `}}]}}`, errJSONArrayTooLong},
-		{"packed full pending past the packed bound", `{` + packed + `"full":{"state":{"simulation":{"Pending":` + zeros(sim.MaxExpressWaitingTrips+1) + `}}}}`, errJSONArrayTooLong},
-		{"packed frame pending past the packed bound", `{` + packed + `"frame":{"state":{"simulation":{"Pending":` + zeros(sim.MaxExpressWaitingTrips+1) + `}}}}`, errJSONArrayTooLong},
-		{"folded marker pending past the packed bound", `{"ORDERCONTRACT":"` + string(sim.ExpressOrderContract) + `","full":{"state":{"simulation":{"Pending":` + zeros(sim.MaxExpressWaitingTrips+1) + `}}}}`, errJSONArrayTooLong},
+		{"packed full pending past the packed bound", `{` + packed + `"full":{"state":{"simulation":{"pending":` + zeros(sim.MaxExpressWaitingTrips+1) + `}}}}`, errJSONArrayTooLong},
+		{"packed frame pending past the packed bound", `{` + packed + `"frame":{"state":{"simulation":{"pending":` + zeros(sim.MaxExpressWaitingTrips+1) + `}}}}`, errJSONArrayTooLong},
+		{"folded marker pending past the packed bound", `{"ORDERCONTRACT":"` + string(sim.ExpressOrderContract) + `","full":{"state":{"simulation":{"pending":` + zeros(sim.MaxExpressWaitingTrips+1) + `}}}}`, errJSONArrayTooLong},
 		{"groups past the coupling bound", `{"couplingGroups":` + zeros(151) + `}`, errJSONArrayTooLong},
 	}
 	for name, decode := range couplingDecoders() {
@@ -516,7 +516,7 @@ func TestScanCouplingOrderContract(t *testing.T) {
 	}{
 		{"absent", `{"kind":"full"}`, false, false},
 		{"express", `{"orderContract":"` + express + `"}`, true, false},
-		{"folded express", `{"ORDERCONTRACT":"` + express + `"}`, true, false},
+		{"folded express", `{"ORDERCONTRACT":"` + express + `"}`, false, false},
 		{"escaped express", `{"order\u0043ontract":"` + express + `"}`, true, false},
 		{"other contract", `{"orderContract":"other"}`, false, false},
 		{"null", `{"orderContract":null}`, false, false},
@@ -581,7 +581,7 @@ func TestCouplingDecodeMarkerNamesAndRoundTrip(t *testing.T) {
 					{"folded marker name", func(raw []byte) []byte {
 						folded := bytes.ToUpper(marker[:bytes.IndexByte(marker, ':')])
 						return bytes.Replace(raw, marker, append(folded, marker[bytes.IndexByte(marker, ':'):]...), 1)
-					}, true},
+					}, false},
 					{"null marker", func(raw []byte) []byte {
 						return bytes.Replace(raw, marker, append(slices.Clone(marker[:bytes.IndexByte(marker, ':')+1]), []byte("null")...), 1)
 					}, false},

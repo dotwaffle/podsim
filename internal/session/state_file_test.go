@@ -549,7 +549,7 @@ func TestDecodeStateFileBombs(t *testing.T) {
 		{"pods to twice the size limit", past, reasonTooLarge, ErrStateTooLarge},
 		{"members up to the size limit", members, reasonInvalidState, errJSONObjectTooLong},
 		{"stations with many berths", arrayBomb(
-			`,"project":{"network":{"Stations":[`, `{"Berths":[`+repeated("{}", 65_536)+"]}", "]}}}",
+			`,"project":{"network":{"stations":[`, `{"berths":[`+repeated("{}", 65_536)+"]}", "]}}}",
 		), reasonInvalidState, errJSONArrayTooLong},
 		{"profiles with many flows", arrayBomb(
 			`,"project":{"demandProfiles":[`, `{"flows":[`+repeated("{}", 65_536)+"]}", "]}}",

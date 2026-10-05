@@ -14,8 +14,8 @@ import (
 )
 
 func hasBanks(network any) bool {
-	for _, station := range items(member(network, "Stations")) {
-		if has(station, "Banks") {
+	for _, station := range items(member(network, "stations")) {
+		if has(station, "banks") {
 			return true
 		}
 	}
@@ -31,8 +31,8 @@ func validateBankDraft(network any) error {
 	if err := json.Unmarshal(raw, &typed, json.RejectUnknownMembers(true)); err != nil {
 		return fmt.Errorf("decode bank geometry: %w", err)
 	}
-	for _, station := range items(member(network, "Stations")) {
-		if has(station, "Banks") {
+	for _, station := range items(member(network, "stations")) {
+		if has(station, "banks") {
 			if err := validateBankMembers(station); err != nil {
 				return err
 			}
@@ -54,24 +54,24 @@ func validateBankDraft(network any) error {
 }
 
 func validateBankMembers(station any) error {
-	banks := items(member(station, "Banks"))
+	banks := items(member(station, "banks"))
 	if len(banks) < 1 || len(banks) > sim.MaxStationBanks {
 		return errors.New("a station needs 1 to 8 banks")
 	}
 	seen, assigned, berthIDs := map[string]bool{}, map[string]bool{}, map[string]bool{}
-	for _, berth := range items(member(station, "Berths")) {
-		berthIDs[text(member(berth, "ID"))] = true
+	for _, berth := range items(member(station, "berths")) {
+		berthIDs[text(member(berth, "id"))] = true
 	}
 	for _, bank := range banks {
-		if object(bank) == nil || len(object(bank)) != 4 || !validID(member(bank, "ID")) || !validID(member(bank, "Entry")) || !validID(member(bank, "Exit")) {
+		if object(bank) == nil || len(object(bank)) != 4 || !validID(member(bank, "id")) || !validID(member(bank, "entry")) || !validID(member(bank, "exit")) {
 			return errors.New("a bank needs ID, Entry, Exit, and BerthIDs")
 		}
-		id := text(member(bank, "ID"))
+		id := text(member(bank, "id"))
 		if seen[id] {
 			return errors.New("bank IDs must be unique within the station")
 		}
 		seen[id] = true
-		members := items(member(bank, "BerthIDs"))
+		members := items(member(bank, "berthIDs"))
 		if len(members) == 0 || len(members) > project.MaxBerths {
 			return errors.New("a bank needs 1 to 200 berth IDs")
 		}
@@ -90,13 +90,13 @@ func validateBankMembers(station any) error {
 }
 
 func refreshBankAliases(station map[string]any) {
-	if banks := items(station["Banks"]); len(banks) != 0 {
-		station["Entry"], station["Exit"] = member(banks[0], "Entry"), member(banks[0], "Exit")
+	if banks := items(station["banks"]); len(banks) != 0 {
+		station["entry"], station["exit"] = member(banks[0], "entry"), member(banks[0], "exit")
 	}
 }
 
 func (g geometryDraft) setStationBanks(id string, raw jsontext.Value) error {
-	station, err := g.find("Stations", id)
+	station, err := g.find("stations", id)
 	if err != nil {
 		return err
 	}
@@ -107,7 +107,7 @@ func (g geometryDraft) setStationBanks(id string, raw jsontext.Value) error {
 	if err := json.Unmarshal(raw, &banks); err != nil {
 		return fmt.Errorf("decode station banks: %w", err)
 	}
-	station["Banks"] = banks
+	station["banks"] = banks
 	if err := validateBankMembers(station); err != nil {
 		return err
 	}
@@ -116,11 +116,11 @@ func (g geometryDraft) setStationBanks(id string, raw jsontext.Value) error {
 }
 
 func (g geometryDraft) setStationLegacy(id string) error {
-	station, err := g.find("Stations", id)
+	station, err := g.find("stations", id)
 	if err != nil {
 		return err
 	}
-	delete(station, "Banks")
+	delete(station, "banks")
 	var checks checkList
 	checkNetwork(g.network, &checks)
 	if len(checks.items) != 0 {
@@ -131,25 +131,25 @@ func (g geometryDraft) setStationLegacy(id string) error {
 
 func bankStation(station, bank map[string]any) map[string]any {
 	selected := map[string]bool{}
-	for _, id := range items(bank["BerthIDs"]) {
+	for _, id := range items(bank["berthIDs"]) {
 		selected[text(id)] = true
 	}
 	berths := []any{}
-	for _, berth := range items(station["Berths"]) {
-		if selected[text(member(berth, "ID"))] {
+	for _, berth := range items(station["berths"]) {
+		if selected[text(member(berth, "id"))] {
 			berths = append(berths, berth)
 		}
 	}
-	return map[string]any{"ID": station["ID"], "Entry": bank["Entry"], "Exit": bank["Exit"], "Berths": berths}
+	return map[string]any{"id": station["id"], "entry": bank["entry"], "exit": bank["exit"], "berths": berths}
 }
 
 func (g geometryDraft) findBank(stationID, bankID string) (map[string]any, map[string]any, error) {
-	station, err := g.find("Stations", stationID)
+	station, err := g.find("stations", stationID)
 	if err != nil {
 		return nil, nil, err
 	}
-	for _, bank := range items(station["Banks"]) {
-		if member(bank, "ID") == bankID && bankID != "" {
+	for _, bank := range items(station["banks"]) {
+		if member(bank, "id") == bankID && bankID != "" {
 			return station, object(bank), nil
 		}
 	}
@@ -161,7 +161,7 @@ func (g geometryDraft) addBankBerth(stationID, bankID string) error {
 	if err != nil {
 		return err
 	}
-	if len(items(station["Berths"])) >= project.MaxBerths {
+	if len(items(station["berths"])) >= project.MaxBerths {
 		return errors.New("the station already has 200 berths")
 	}
 	selected := bankStation(station, bank)
@@ -172,10 +172,10 @@ func (g geometryDraft) addBankBerth(stationID, bankID string) error {
 	if _, err := g.addChainBerth(selected, rows); err != nil {
 		return err
 	}
-	berths := items(selected["Berths"])
+	berths := items(selected["berths"])
 	berth := berths[len(berths)-1]
-	station["Berths"] = append(items(station["Berths"]), berth)
-	bank["BerthIDs"] = append(items(bank["BerthIDs"]), member(berth, "ID"))
+	station["berths"] = append(items(station["berths"]), berth)
+	bank["berthIDs"] = append(items(bank["berthIDs"]), member(berth, "id"))
 	return nil
 }
 
@@ -251,50 +251,50 @@ func (g geometryDraft) setBankLayout(id string, raw jsontext.Value) error {
 }
 
 func (g geometryDraft) bankLengthAnchor(station, bank map[string]any, key string) (string, geometryPoint, geometryPoint, float64, error) {
-	gate, role := text(bank["Entry"]), "entry"
+	gate, role := text(bank["entry"]), "entry"
 	if key == "departureLength" {
-		gate, role = text(bank["Exit"]), "exit"
+		gate, role = text(bank["exit"]), "exit"
 	}
 	var lanes []any
-	for _, lane := range items(g.network["Lanes"]) {
-		if member(lane, "StationID") == station["ID"] && member(lane, "StationRole") == role && (role == "entry" && member(lane, "To") == gate || role == "exit" && member(lane, "From") == gate) {
+	for _, lane := range items(g.network["lanes"]) {
+		if member(lane, "stationID") == station["id"] && member(lane, "stationRole") == role && (role == "entry" && member(lane, "to") == gate || role == "exit" && member(lane, "from") == gate) {
 			lanes = append(lanes, lane)
 		}
 	}
-	if len(lanes) != 1 || member(lanes[0], "Control") != nil {
+	if len(lanes) != 1 || member(lanes[0], "control") != nil {
 		return "", geometryPoint{}, geometryPoint{}, 0, errors.New("bank length requires one straight entry or exit lane")
 	}
-	anchor := text(member(lanes[0], "From"))
+	anchor := text(member(lanes[0], "from"))
 	if role == "exit" {
-		anchor = text(member(lanes[0], "To"))
+		anchor = text(member(lanes[0], "to"))
 	}
 	incident := []any{}
-	for _, lane := range items(g.network["Lanes"]) {
-		if member(lane, "From") == anchor || member(lane, "To") == anchor {
+	for _, lane := range items(g.network["lanes"]) {
+		if member(lane, "from") == anchor || member(lane, "to") == anchor {
 			incident = append(incident, lane)
 		}
 	}
 	if len(incident) != 2 {
 		return "", geometryPoint{}, geometryPoint{}, 0, errors.New("bank length requires a dedicated anchor with two incident lanes")
 	}
-	for _, other := range items(g.network["Stations"]) {
+	for _, other := range items(g.network["stations"]) {
 		if stationCoreNodes(other)[anchor] {
 			return "", geometryPoint{}, geometryPoint{}, 0, errors.New("a bank anchor cannot be a station node")
 		}
 	}
 	for _, lane := range incident {
-		if member(lane, "Control") != nil {
+		if member(lane, "control") != nil {
 			return "", geometryPoint{}, geometryPoint{}, 0, errors.New("bank length requires straight anchor lanes")
 		}
-		if member(lane, "ID") == member(lanes[0], "ID") {
+		if member(lane, "id") == member(lanes[0], "id") {
 			continue
 		}
-		otherStation := text(member(lane, "StationID"))
+		otherStation := text(member(lane, "stationID"))
 		otherRole := "approach"
 		if role == "exit" {
 			otherRole = "exit"
 		}
-		if otherStation != "" && (otherStation != station["ID"] || member(lane, "StationRole") != otherRole) || member(lane, "From") == gate || member(lane, "To") == gate {
+		if otherStation != "" && (otherStation != station["id"] || member(lane, "stationRole") != otherRole) || member(lane, "from") == gate || member(lane, "to") == gate {
 			return "", geometryPoint{}, geometryPoint{}, 0, errors.New("a bank anchor cannot serve another station lane")
 		}
 	}
@@ -328,17 +328,17 @@ func (g geometryDraft) setBankLaneLength(station, bank map[string]any, key strin
 	if err != nil {
 		return err
 	}
-	node, err := g.find("Nodes", anchor)
+	node, err := g.find("nodes", anchor)
 	if err != nil {
 		return err
 	}
-	node["Position"] = position
+	node["position"] = position
 	return nil
 }
 
 func bankForBerth(station any, berthID string) any {
-	for _, bank := range items(member(station, "Banks")) {
-		if slices.ContainsFunc(items(member(bank, "BerthIDs")), func(id any) bool { return id == berthID }) {
+	for _, bank := range items(member(station, "banks")) {
+		if slices.ContainsFunc(items(member(bank, "berthIDs")), func(id any) bool { return id == berthID }) {
 			return bank
 		}
 	}
@@ -354,29 +354,29 @@ func (g geometryDraft) validateBankChanges(original map[string]any) error {
 			return fmt.Errorf("node %s would exceed the 64-lane limit", id)
 		}
 	}
-	for _, key := range []string{"Nodes", "Lanes", "Stations"} {
+	for _, key := range []string{"nodes", "lanes", "stations"} {
 		for _, item := range items(g.network[key]) {
-			if !validID(member(item, "ID")) {
+			if !validID(member(item, "id")) {
 				return errors.New("a generated item ID must contain 1 to 64 bytes")
 			}
-			if key == "Nodes" {
-				position := member(item, "Position")
-				if !finiteRange(number(member(position, "X")), -project.MaxCoordinate, project.MaxCoordinate) || !finiteRange(number(member(position, "Y")), -project.MaxCoordinate, project.MaxCoordinate) {
+			if key == "nodes" {
+				position := member(item, "position")
+				if !finiteRange(number(member(position, "x")), -project.MaxCoordinate, project.MaxCoordinate) || !finiteRange(number(member(position, "y")), -project.MaxCoordinate, project.MaxCoordinate) {
 					return errors.New("the geometry edit exceeds the coordinate limit")
 				}
 			}
 		}
 	}
-	for _, station := range items(g.network["Stations"]) {
-		for _, berth := range items(member(station, "Berths")) {
-			if !validID(member(berth, "ID")) {
+	for _, station := range items(g.network["stations"]) {
+		for _, berth := range items(member(station, "berths")) {
+			if !validID(member(berth, "id")) {
 				return errors.New("a berth ID must contain 1 to 64 bytes")
 			}
 		}
 	}
-	for _, lane := range items(g.network["Lanes"]) {
-		before, _ := old.find("Lanes", text(member(lane, "ID")))
-		from, to := text(member(lane, "From")), text(member(lane, "To"))
+	for _, lane := range items(g.network["lanes"]) {
+		before, _ := old.find("lanes", text(member(lane, "id")))
+		from, to := text(member(lane, "from")), text(member(lane, "to"))
 		a, err := g.point(from)
 		if err != nil {
 			return err
@@ -391,11 +391,11 @@ func (g geometryDraft) validateBankChanges(original map[string]any) error {
 			continue
 		}
 		var control *geometryPoint
-		if value := member(lane, "Control"); value != nil {
-			if !finite(member(value, "X")) || !finite(member(value, "Y")) {
+		if value := member(lane, "control"); value != nil {
+			if !finite(member(value, "x")) || !finite(member(value, "y")) {
 				return errors.New("the lane needs a finite control point")
 			}
-			control = &geometryPoint{number(member(value, "X")), number(member(value, "Y"))}
+			control = &geometryPoint{number(member(value, "x")), number(member(value, "y"))}
 		}
 		points := geometryPolyline(a, b, control)
 		length := 0.0
@@ -404,7 +404,7 @@ func (g geometryDraft) validateBankChanges(original map[string]any) error {
 		}
 		minimum := draftLaneMinimum(lane)
 		if length < minimum {
-			return fmt.Errorf("lane %s would be shorter than %g meters", text(member(lane, "ID")), minimum)
+			return fmt.Errorf("lane %s would be shorter than %g meters", text(member(lane, "id")), minimum)
 		}
 	}
 	return nil

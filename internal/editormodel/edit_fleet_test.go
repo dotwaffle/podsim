@@ -11,14 +11,14 @@ import (
 
 func fleetDraft() map[string]any {
 	return map[string]any{
-		"network": map[string]any{"Stations": []any{
-			map[string]any{"ID": "alpha", "Berths": []any{map[string]any{"ID": "a1"}, map[string]any{"ID": "a2"}, map[string]any{"ID": "a3"}}},
-			map[string]any{"ID": "beta", "Berths": []any{map[string]any{"ID": "b1"}}},
+		"network": map[string]any{"stations": []any{
+			map[string]any{"id": "alpha", "berths": []any{map[string]any{"id": "a1"}, map[string]any{"id": "a2"}, map[string]any{"id": "a3"}}},
+			map[string]any{"id": "beta", "berths": []any{map[string]any{"id": "b1"}}},
 		}},
 		"fleet": []any{
-			map[string]any{"ID": "01", "StationID": "alpha", "BerthID": "a2"},
-			map[string]any{"ID": "02", "StationID": "beta", "BerthID": "b1"},
-			map[string]any{"ID": "07", "StationID": "alpha", "BerthID": "missing"},
+			map[string]any{"id": "01", "stationID": "alpha", "berthID": "a2"},
+			map[string]any{"id": "02", "stationID": "beta", "berthID": "b1"},
+			map[string]any{"id": "07", "stationID": "alpha", "berthID": "missing"},
 		},
 	}
 }
@@ -51,11 +51,11 @@ func TestFleetEditPreservesPodsAndAllocatesFreeIDs(t *testing.T) {
 				t.Fatal("fleet count or input ownership differs")
 			}
 			for i, pod := range fleet {
-				if member(pod, "ID") != row.ids[i] || member(pod, "BerthID") != row.berth[i] {
+				if member(pod, "id") != row.ids[i] || member(pod, "berthID") != row.berth[i] {
 					t.Fatalf("pod %d = %#v", i, pod)
 				}
 			}
-			object(fleet[0])["ID"] = "mutated"
+			object(fleet[0])["id"] = "mutated"
 			if !reflect.DeepEqual(draft, before) {
 				t.Fatal("returned fleet shares input maps")
 			}
@@ -68,8 +68,8 @@ func TestFleetEditLimitsAndTargets(t *testing.T) {
 	draft := fleetDraft()
 	for _, raw := range []string{
 		`{"field":"fleetCount","value":1}`, `{"field":"fleetCount","target":"missing","value":1}`,
-		`{"field":"name","target":"alpha","value":"Name"}`,
-		`{"field":"name","target":"","value":"Name"}`, `{"field":"name","target":null,"value":"Name"}`,
+		`{"field":"name","target":"alpha","value":"name"}`,
+		`{"field":"name","target":"","value":"name"}`, `{"field":"name","target":null,"value":"name"}`,
 		`{"field":"fleetCount","target":null,"value":1}`, `{"field":"fleetCount","target":1,"value":1}`,
 	} {
 		if _, err := editProject(draft, jsontext.Value(raw)); err == nil {
@@ -78,7 +78,7 @@ func TestFleetEditLimitsAndTargets(t *testing.T) {
 	}
 	var full []any
 	for i := range project.MaxPods {
-		full = append(full, map[string]any{"ID": fmt.Sprintf("other-%d", i), "StationID": "beta", "BerthID": fmt.Sprintf("berth-%d", i)})
+		full = append(full, map[string]any{"id": fmt.Sprintf("other-%d", i), "stationID": "beta", "berthID": fmt.Sprintf("berth-%d", i)})
 	}
 	draft["fleet"] = full
 	if _, err := editProject(draft, jsontext.Value(`{"field":"fleetCount","target":"alpha","value":1}`)); err == nil {
@@ -88,7 +88,7 @@ func TestFleetEditLimitsAndTargets(t *testing.T) {
 	if err != nil || len(change.Patch) != 0 {
 		t.Fatal("unchanged full fleet should remain editable")
 	}
-	delete(object(draft["network"]), "Stations")
+	delete(object(draft["network"]), "stations")
 	if _, err := editProject(draft, jsontext.Value(`{"field":"fleetCount","target":"alpha","value":1}`)); err == nil {
 		t.Fatal("malformed network accepted a fleet edit")
 	}
