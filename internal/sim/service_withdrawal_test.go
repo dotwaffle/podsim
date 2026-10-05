@@ -147,6 +147,38 @@ func withdrawalGateCases() []withdrawalGateCase {
 			},
 		},
 		{
+			// Pod 01 boards two parties for Market and departs full. It
+			// refused a third party for Market, which waits at Harbor.
+			name: "departure backlog",
+			build: func(t *testing.T) (*Simulation, *vehicle) {
+				t.Helper()
+				s := newScreenSimulation(t, Example(), []Placement{{ID: "01", StationID: "harbor", BerthID: "harbor-1"}}, 2, SharedRideDropOffs)
+				for range 3 {
+					if err := submitSharedTrip(s, "harbor", "market"); err != nil {
+						t.Fatal(err)
+					}
+				}
+				advance(s, boardingTicks-1)
+				v := s.findVehicle("01")
+				if v.Pod.Activity != Boarding || v.RidersAboard() != 2 || len(s.waiting) != 1 || s.waiting[0].request.PodID != "" {
+					t.Fatalf("pod 01 %+v with %d riders aboard, waiting trips %+v", v.Pod, v.RidersAboard(), s.waiting)
+				}
+				return s, v
+			},
+			selects: func(t *testing.T, s *Simulation, v *vehicle) bool {
+				t.Helper()
+				// The departure and the parties aboard count for each pod.
+				// Only the backlog depends on the hold.
+				s.recordDeparture(v)
+				screen := s.SeatScreen()
+				backlog := screen.DepartureBacklog
+				if want := seatScreenOf(1, 1, backlog, 2, 2+backlog); screen != want || backlog > 1 {
+					t.Fatalf("seat screen %+v, want %+v with a backlog of 0 or 1", screen, want)
+				}
+				return backlog == 1
+			},
+		},
+		{
 			name: "onboard pickup",
 			build: func(t *testing.T) (*Simulation, *vehicle) {
 				t.Helper()

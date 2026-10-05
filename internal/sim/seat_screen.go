@@ -20,7 +20,7 @@ type SeatScreen struct {
 	FullDepartures int
 	// DepartureBacklog is the sum, over the departures of boarding pods, of
 	// the waiting parties at the origin that the pod could take with a
-	// free seat. See backlogParty.
+	// free seat. See backlogParty. A withdrawn pod has no backlog.
 	DepartureBacklog int
 	// Aboard counts the departures of boarding pods by the parties aboard.
 	// Index n is for n parties.
@@ -79,12 +79,15 @@ func (s *Simulation) refusedByFullPod(trip *waitingTrip, v *vehicle) bool {
 }
 
 // recordDeparture counts a boarding pod that departs now in the seat
-// screen. The pod is still at its origin berth.
+// screen. The pod is still at its origin berth. A withdrawn pod is not
+// supply, so its departure has no backlog.
 func (s *Simulation) recordDeparture(v *vehicle) {
 	aboard, backlog := v.RidersAboard(), 0
-	for index := range s.waiting {
-		if request := s.waiting[index].request; request.From == v.Pod.StationID && s.consentCompatible(v, request) && s.backlogParty(v, request.To) {
-			backlog++
+	if v.inService() {
+		for index := range s.waiting {
+			if request := s.waiting[index].request; request.From == v.Pod.StationID && s.consentCompatible(v, request) && s.backlogParty(v, request.To) {
+				backlog++
+			}
 		}
 	}
 	screen := &s.seatScreen

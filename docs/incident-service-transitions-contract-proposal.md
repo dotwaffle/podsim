@@ -219,6 +219,7 @@ Two order-side effects of the first hold are not reverted:
 It also decides order admission (`internal/sim/trip_admission.go:139-150`) and the dispatch reason through `hasFittingPod` (`:255-262`; `internal/sim/dispatch.go:162`).
 Admission stays static, as it is today, so a withdrawal never refuses a new order.
 
+The maintainer approved the departure backlog row after the review of the gates.
 Each path below gets the test `v.withdrawn == 0`:
 
 | Path | Anchor | Gate |
@@ -226,6 +227,7 @@ Each path below gets the test `v.withdrawn == 0`:
 | Pickup candidates | `internal/sim/diversion.go:44-60`, `pickupCandidate` | Returns false. This covers `pickupCandidates` (`internal/sim/dispatch.go:369`), `pickupPodMatching` (`:427`), `pickupAvailable` (`internal/sim/pickup_estimate.go:164`), `pickupRouteWithAssignments` (`internal/sim/diversion.go:34`), `sendPickupMatching` (`internal/sim/diversion.go:181`), and `freePickupAlternative` (`internal/sim/pickup_reassignment.go:83`). |
 | Local pickups | `internal/sim/dispatch.go:351-361`, `freePods` | Skips the pod. This covers `localPickup` (`:383`) and `localPickupForRequest` (`:392`). |
 | Shared-ride joins | `internal/sim/dispatch.go:564-578`, `boardingPods` | Skips the pod. This covers `joinSharedRide` (`:521`) and the join census (`internal/sim/seat_screen.go:128`). |
+| Departure backlog | `internal/sim/seat_screen.go:83-97`, `recordDeparture` | A withdrawn pod counts no waiting party as backlog. The departure and the parties aboard count as before. |
 | Onboard pickups | `internal/sim/onboard_pickups.go:56`, `onboardPickupReady` | Returns false. |
 | Promotion | `internal/sim/dispatch.go:617` | The ready pod must be in service. Invariant W2 makes this hold already. The test is defensive. |
 | Finishing-pod holds | `internal/sim/pickup_estimate.go:66-71`, `:90-117` | A withdrawn pod is not a candidate. A hold that names a withdrawn pod ends. |
