@@ -230,6 +230,9 @@ func TestSaveAndPublicationDelivery(t *testing.T) {
 		if _, err := s.apply(Command{Action: "pause", Paused: true}); err != nil {
 			t.Fatal(err)
 		}
+		if got := s.simulation.Snapshot(); got.Interrupted != 1 || got.InterruptedPassengers != 1 {
+			t.Fatalf("counters %d and %d before the save, want 1 and 1", got.Interrupted, got.InterruptedPassengers)
+		}
 		s.mu.Unlock()
 		if err := s.SaveState(t.Context(), SavePeriodic); err != nil {
 			t.Fatal(err)
@@ -249,6 +252,14 @@ func TestSaveAndPublicationDelivery(t *testing.T) {
 		checkDelivered(t, restored, pair.bound, want)
 		if aboard(restored, pair.bound) {
 			t.Fatal("the restored session has the interrupted order aboard")
+		}
+		// No save writes the interrupted counters yet, so the restore loses
+		// them and counts the interrupted order as unaccounted. Patch 9 of
+		// the incident contract adds the saved members. Its test replaces
+		// this check with equal counters and no unaccounted order.
+		if got := restored.simulation.Snapshot(); got.Interrupted != 0 || got.InterruptedPassengers != 0 || restored.restore.Unaccounted != 1 {
+			t.Fatalf("restored counters %d and %d with %d unaccounted orders, want the staged loss: 0, 0, and 1",
+				got.Interrupted, got.InterruptedPassengers, restored.restore.Unaccounted)
 		}
 	})
 }
