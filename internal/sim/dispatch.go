@@ -94,11 +94,13 @@ func (s *Simulation) SubmitTripOptions(options TripOptions) (int, error) {
 // pods and changes no decision. It runs before the join, so it also counts
 // the trips that join. See recordJoinEligible.
 func (s *Simulation) dispatch() {
-	defer s.clearUnboundWaitingRoutes()
 	if s.pass == nil {
 		s.pass = new(dispatchPass)
 	}
 	pass := s.pass
+	pass.active = true
+	defer pass.end()
+	defer s.clearUnboundWaitingRoutes()
 	pass.begin(s.waiting)
 	assigned := pass.assigned
 	for i := 0; i < len(s.waiting); {
@@ -280,6 +282,9 @@ func (s *Simulation) assigned(podID string) bool {
 // owners, the waiting trips, or assigned, it calls reset before it reads
 // the pass again.
 type dispatchPass struct {
+	// active is true while dispatch runs. Service withdrawal refuses to run
+	// during a pass. See withdrawService.
+	active        bool
 	optionPickups map[TripOptions]*vehicle
 	// assigned holds the pods of the waiting trips. dispatch changes it
 	// during the pass.
@@ -322,6 +327,11 @@ func (pass *dispatchPass) begin(waiting []waitingTrip) {
 		}
 	}
 	pass.reset()
+}
+
+// end marks the end of the pass.
+func (pass *dispatchPass) end() {
+	pass.active = false
 }
 
 // reset removes the results of the pass.

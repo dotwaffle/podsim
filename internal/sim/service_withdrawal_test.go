@@ -494,3 +494,252 @@ func TestCloneCopiesWithdrawal(t *testing.T) {
 		t.Fatal("the clone owners differ")
 	}
 }
+
+// holdSequences are the withdrawal orders that the inverse tests use: each
+// hold alone, and both holds in each withdrawal order and each restore
+// order.
+var holdSequences = []struct {
+	name              string
+	withdraw, restore []serviceHold
+}{
+	{"fault", []serviceHold{faultHold}, []serviceHold{faultHold}},
+	{"emergency", []serviceHold{emergencyHold}, []serviceHold{emergencyHold}},
+	{"both, fault first, fault first", []serviceHold{faultHold, emergencyHold}, []serviceHold{faultHold, emergencyHold}},
+	{"both, fault first, emergency first", []serviceHold{faultHold, emergencyHold}, []serviceHold{emergencyHold, faultHold}},
+	{"both, emergency first, fault first", []serviceHold{emergencyHold, faultHold}, []serviceHold{faultHold, emergencyHold}},
+	{"both, emergency first, emergency first", []serviceHold{emergencyHold, faultHold}, []serviceHold{emergencyHold, faultHold}},
+}
+
+// sameWithdrawalState reports whether a and b hold the same state, as
+// sameState does. It also ignores the monitor, because DeepEqual never
+// finds a function equal to itself, and the routeStations cache, which a
+// clone drops.
+func sameWithdrawalState(a, b *Simulation) bool {
+	ca, cb := *a, *b
+	ca.monitor, cb.monitor = nil, nil
+	ca.routeStations, cb.routeStations = nil, nil
+	return sameState(&ca, &cb)
+}
+
+// onlyHoldsDiffer reports whether s equals start apart from the holds of
+// v.
+func onlyHoldsDiffer(start, s *Simulation, v *vehicle) bool {
+	want := start.Clone()
+	want.findVehicle(v.Pod.ID).withdrawn = v.withdrawn
+	return sameWithdrawalState(want, s)
+}
+
+// TestWithdrawServiceInverse checks the inverse property of the incident
+// contract, section 4.2, on each supply path of section 4.3. Each
+// operation changes only the holds of the pod, so withdrawService changes
+// no route, physical destination, speed, or owner (W4). After the last
+// restore, the whole state equals the start. Until the pod has no hold,
+// the path skips it. The path probes of the intermediate states run on
+// separate fixtures, because a probe can change the state.
+func TestWithdrawServiceInverse(t *testing.T) {
+	t.Parallel()
+	for _, test := range withdrawalGateCases() {
+		for _, sequence := range holdSequences {
+			t.Run(test.name+"/"+sequence.name, func(t *testing.T) {
+				t.Parallel()
+				s, v := test.build(t)
+				start := s.Clone()
+				for _, hold := range sequence.withdraw {
+					if err := s.withdrawService(v, hold); err != nil {
+						t.Fatalf("withdraw %d: %v", hold, err)
+					}
+					if !onlyHoldsDiffer(start, s, v) {
+						t.Fatalf("withdraw %d: the state differs from the start in more than the holds", hold)
+					}
+				}
+				for index, hold := range sequence.restore {
+					if err := s.restoreService(v, hold); err != nil {
+						t.Fatalf("restore %d: %v", hold, err)
+					}
+					if !onlyHoldsDiffer(start, s, v) {
+						t.Fatalf("restore %d: the state differs from the start in more than the holds", hold)
+					}
+					if index < len(sequence.restore)-1 {
+						probe, pod := test.build(t)
+						pod.withdrawn = v.withdrawn
+						if v.inService() || test.selects(t, probe, pod) {
+							t.Fatalf("after the restore of hold %d, holds %d: the pod is supply", hold, v.withdrawn)
+						}
+					}
+				}
+				if !sameWithdrawalState(start, s) {
+					t.Fatal("the restored state differs from the start")
+				}
+				if !test.selects(t, s, v) {
+					t.Fatal("the path skips the restored pod")
+				}
+			})
+		}
+	}
+}
+
+// TestWithdrawServiceSkipsPod checks that a pod withdrawn by the operation
+// is not supply on each path of section 4.3.
+func TestWithdrawServiceSkipsPod(t *testing.T) {
+	t.Parallel()
+	for _, test := range withdrawalGateCases() {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			s, v := test.build(t)
+			if err := s.withdrawService(v, emergencyHold); err != nil {
+				t.Fatal(err)
+			}
+			if test.selects(t, s, v) {
+				t.Fatal("the path selects the withdrawn pod")
+			}
+		})
+	}
+}
+
+// TestServiceHoldRefusals checks each precondition of withdrawService and
+// restoreService (incident contract, sections 4.2 and 10). A refused call
+// returns an error and changes no pod, trip, owner, or counter, and the
+// state contract holds after it. The pod is a relocating pod with
+// destination claims, and a trip waits.
+// A call refused for a coupling member succeeds once the membership
+// clears.
+func TestServiceHoldRefusals(t *testing.T) {
+	t.Parallel()
+	unknown := knownServiceHolds + 1
+	tests := []struct {
+		name  string
+		holds serviceHold
+		// dispatching marks a dispatch pass as in progress.
+		dispatching bool
+		call        func(s *Simulation, v *vehicle) error
+		// coupling, when set, makes v a coupling member.
+		coupling func(s *Simulation, v *vehicle)
+	}{
+		{"withdraw zero", 0, false, func(s *Simulation, v *vehicle) error { return s.withdrawService(v, 0) }, nil},
+		{"withdraw unknown bit", 0, false, func(s *Simulation, v *vehicle) error { return s.withdrawService(v, unknown) }, nil},
+		{"withdraw high bit", 0, false, func(s *Simulation, v *vehicle) error { return s.withdrawService(v, 1<<7) }, nil},
+		{"withdraw two holds", 0, false, func(s *Simulation, v *vehicle) error { return s.withdrawService(v, knownServiceHolds) }, nil},
+		{"withdraw a known and an unknown bit", 0, false, func(s *Simulation, v *vehicle) error { return s.withdrawService(v, faultHold|unknown) }, nil},
+		{"withdraw a set hold", faultHold, false, func(s *Simulation, v *vehicle) error { return s.withdrawService(v, faultHold) }, nil},
+		{"withdraw a set hold of two", knownServiceHolds, false, func(s *Simulation, v *vehicle) error { return s.withdrawService(v, emergencyHold) }, nil},
+		{"withdraw during dispatch", 0, true, func(s *Simulation, v *vehicle) error { return s.withdrawService(v, faultHold) }, nil},
+		{"withdraw a coupled member", 0, false, func(s *Simulation, v *vehicle) error { return s.withdrawService(v, emergencyHold) }, func(_ *Simulation, v *vehicle) {
+			v.couplingID = "pair"
+		}},
+		{"withdraw an approach member", 0, false, func(s *Simulation, v *vehicle) error { return s.withdrawService(v, emergencyHold) }, func(s *Simulation, v *vehicle) {
+			c := &couplingApproachContext{}
+			c.members[1].id = v.Pod.ID
+			s.couplingApproaches = append(s.couplingApproaches, couplingNativeApproach{context: c})
+		}},
+		{"restore a coupled member", emergencyHold, false, func(s *Simulation, v *vehicle) error { return s.restoreService(v, emergencyHold) }, func(_ *Simulation, v *vehicle) {
+			v.couplingID = "pair"
+		}},
+		{"restore an approach member", emergencyHold, false, func(s *Simulation, v *vehicle) error { return s.restoreService(v, emergencyHold) }, func(s *Simulation, v *vehicle) {
+			c := &couplingApproachContext{}
+			c.members[1].id = v.Pod.ID
+			s.couplingApproaches = append(s.couplingApproaches, couplingNativeApproach{context: c})
+		}},
+		{"restore zero", knownServiceHolds, false, func(s *Simulation, v *vehicle) error { return s.restoreService(v, 0) }, nil},
+		{"restore unknown bit", knownServiceHolds, false, func(s *Simulation, v *vehicle) error { return s.restoreService(v, unknown) }, nil},
+		{"restore high bit", knownServiceHolds, false, func(s *Simulation, v *vehicle) error { return s.restoreService(v, 1<<7) }, nil},
+		{"restore two holds", knownServiceHolds, false, func(s *Simulation, v *vehicle) error { return s.restoreService(v, knownServiceHolds) }, nil},
+		{"restore a known and an unknown bit", knownServiceHolds, false, func(s *Simulation, v *vehicle) error { return s.restoreService(v, faultHold|unknown) }, nil},
+		{"restore an unset hold", emergencyHold, false, func(s *Simulation, v *vehicle) error { return s.restoreService(v, faultHold) }, nil},
+		{"restore in service", 0, false, func(s *Simulation, v *vehicle) error { return s.restoreService(v, emergencyHold) }, nil},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			s, v, _ := claimKindFixture(t)
+			if err := s.RequestTrip("harbor", "garden"); err != nil {
+				t.Fatal(err)
+			}
+			v.withdrawn = test.holds
+			approaches := len(s.couplingApproaches)
+			if test.coupling != nil {
+				test.coupling(s, v)
+			}
+			if test.dispatching {
+				s.pass.active = true
+			}
+			before := s.Clone()
+			if err := test.call(s, v); err == nil {
+				t.Fatalf("the call succeeded, holds %d", v.withdrawn)
+			}
+			if v.withdrawn != test.holds || !sameState(before, s) {
+				t.Fatalf("the refused call changed the state, holds %d", v.withdrawn)
+			}
+			s.pass.active = false
+			if err := s.CheckContract(); err != nil {
+				t.Fatal(err)
+			}
+			if test.coupling == nil {
+				return
+			}
+			// Control: the same call succeeds once the pod is no longer a
+			// coupling member.
+			v.couplingID, s.couplingApproaches = "", s.couplingApproaches[:approaches]
+			if err := test.call(s, v); err != nil {
+				t.Fatalf("control: the call fails after the membership clears: %v", err)
+			}
+			if v.withdrawn == test.holds {
+				t.Fatal("control: the call did not change the holds")
+			}
+		})
+	}
+}
+
+// TestWithdrawServiceInRun withdraws an idle pod at a command boundary of
+// a running simulation and restores it later. While it is withdrawn, no
+// trip names the pod and the pod does not move, and dispatch runs between
+// the operations. After the restore, the pod takes a trip again. The state
+// contract holds at each tick.
+func TestWithdrawServiceInRun(t *testing.T) {
+	t.Parallel()
+	s := newTraffic(t)
+	v := s.findVehicle("01")
+	step := func(ticks int) {
+		t.Helper()
+		for range ticks {
+			s.Step()
+			if s.pass.active {
+				t.Fatal("the dispatch pass is still active after Step")
+			}
+			if err := s.CheckContract(); err != nil {
+				t.Fatalf("tick %d: %v", s.tick, err)
+			}
+			for _, trip := range s.waiting {
+				if !v.inService() && (trip.request.PodID == v.Pod.ID || trip.deferPodID == v.Pod.ID) {
+					t.Fatalf("tick %d: trip %d names the withdrawn pod", s.tick, trip.request.ID)
+				}
+			}
+		}
+	}
+	step(1)
+	start := motionOf(s, v)
+	if err := s.withdrawService(v, faultHold); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RequestTrip("harbor", "garden"); err != nil {
+		t.Fatal(err)
+	}
+	step(30 * TicksPerSecond)
+	withdrawn := motionOf(s, v)
+	withdrawn.withdrawn = 0
+	if !reflect.DeepEqual(start, withdrawn) || len(v.Riders) != 0 {
+		t.Fatalf("the withdrawn pod changed\nbefore %+v\nafter  %+v", start, withdrawn)
+	}
+	if other := s.findVehicle("02"); len(other.Riders) == 0 && !slices.ContainsFunc(s.waiting, func(trip waitingTrip) bool { return trip.request.PodID == other.Pod.ID }) {
+		t.Fatal("control: pod 02 did not take the trip from Harbor")
+	}
+	if err := s.restoreService(v, faultHold); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RequestTrip("harbor", "garden"); err != nil {
+		t.Fatal(err)
+	}
+	step(1)
+	if v.Pod.Activity == Idle && !slices.ContainsFunc(s.waiting, func(trip waitingTrip) bool { return trip.request.PodID == v.Pod.ID }) {
+		t.Fatal("the restored pod did not take the trip from its station")
+	}
+}
