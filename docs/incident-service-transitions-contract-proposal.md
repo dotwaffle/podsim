@@ -1488,7 +1488,7 @@ Bytes and digests differ only by the marker:
 | `claimKind` for the other existing conditions | Same results as the inline predicates. | Refactor in the same patch, with equality tests. |
 | `completeRider` split from `alight` | None. | Refactor. |
 | Withdrawal gates, including `passengerArrivals` and the buffer head test | `withdrawn == 0` for every pod, so every test passes as today. | Gated by state. |
-| Exclusion gates, the hold prohibition, and `assignPickup` | `excludedPod == ""` for every trip. `assignPickup` writes the same fields as the five writes it replaces. | Gated by state. |
+| Exclusion gates, the excluded-pod hold gate, and `assignPickup` | `excludedPod == ""` for every trip. `assignPickup` writes the same fields as the five writes it replaces. | Gated by state. |
 | Stale deferral clearing | Runs only inside `releasePickups`. | Gated by state. |
 | `dispatchOptions` cache key | Equals `options()` when `LegFrom` is absent; the exclusion part is empty. | Gated by state. |
 | `legOrigin` readers | Equal `From` when `LegFrom` is absent. | Gated by state. |
@@ -1711,7 +1711,7 @@ Its verdict was "targeted corrections, no wholesale redesign".
 | --- | --- | --- | --- | --- |
 | 1 | Blocker | `evacuate` completed riders at their destination berth (`internal/sim/riders.go:91`). | `evacuate` interrupts every active rider. Destination completion stays only for unmarked riders of an emergency unload. The composite table and the tests changed. | 8.2, 10, 14.1, 14.6 |
 | 2 | Major | An infeasible transfer interrupted the party as a fallback. | No fallback. The transfer always happens. A narrow stranded-order exception (S1 to S3) changes `internal/sim/order_contract_restore.go:61` and `internal/session/express_orders.go:55`, and nothing wider. `continuationFeasible` is a precondition a policy may use. | 7.3, 7.6, 9.5, 13 |
-| 3 | Major | An exclusion could be replaced through a hold, and a transferred party could get one. | Only never-boarded trips (`boarded` false) get an exclusion. An excluded trip gets no finishing-pod hold, so a second release needs an assignment to another pod first. One field holds every required exclusion. The budget does not change. | 5.1, 5.2, 5.3, 11.7 |
+| 3 | Major | An exclusion could be replaced through a hold, and a transferred party could get one. | Only never-boarded trips (`boarded` false) get an exclusion. One field holds the exclusion. Superseded by the maintainer decision of October 5, 2026 (section 17): the exclusion holds until boarding, an excluded trip may hold only for another pod, a later release replaces the exclusion, and the budget grows by 18 bytes per waiting trip (section 11.7). | 5.1, 5.2, 5.3, 11.7 |
 | 4 | Major | Stale deferral metadata could release another pod's assignment (`internal/sim/dispatch.go:189`). | Four exclusive cases: bound, active hold, stale deferral, unrelated. A stale deferral only loses `deferCheck` and `deferPodID`. | 5.1, 5.5 |
 | 5 | Major | Emergency demand could authorize `yieldRelocationClaims` (`internal/sim/redistribution.go:74`) and the buffer head yield (`internal/sim/station_buffer_claim.go:30`). | Withdrawn pods are not passenger arrivals (`:156`) and fail the head test (`:31`). Berth accounting does not change. A test uses an ordinary revocable claim. | 4.3, 6.2, 14.1 |
 | 6 | Major | Berth evacuation left phase, purpose, and other fields. | `settleIdleAtBerth` sets each field. Owners stay until the release boundary. | 8.2 |
@@ -1753,7 +1753,7 @@ Sections 5.2, 5.3, 5.5, and 14.6 changed for it.
 | 8 | Does an emergency unload or an empty recovery release its owner hold on arrival? | No. Arrival clears the purpose. The policy calls `restoreService`, so a faulted pod stays withdrawn until the fault clears. |
 | 9 | Do completed riders keep `legFrom`? | Yes. It is saved and never inferred. |
 | 10 | Do park-and-ride runs and `cmd/compare` accept the incident marker in stage 1? | No. The ledger outcome `interrupted` lands with the first policy that can interrupt a park-and-ride party. |
-| 11 | Is the save cap raised, and when? | Item 7 keeps 80 MiB. The item 7 patch 8 fixtures leave at least 6,618,253 save bytes after stage 1. Stage 0 decides the stream and HTTP allocation on the same fixtures. A composed shape over its cap raises that cap just enough (maintainer, October 5, 2026). |
+| 11 | Is the save cap raised, and when? | Item 7 keeps 80 MiB. The item 7 patch 8 fixtures leave at least 6,463,453 save bytes after stage 1. Stage 0 decides the stream and HTTP allocation on the same fixtures. A composed shape over its cap raises that cap just enough (maintainer, October 5, 2026). |
 | 12 | Does a restore keep holds? | Yes. Each later stage releases its own hold when its records do not survive. |
 | 13 | Is the exclusion visible to clients? | No. The dispatch reason covers it. |
 | 14 | Can a refuge be a parking station? | Yes, when the berth allows the class. Emergency unloading needs a passenger station. |
