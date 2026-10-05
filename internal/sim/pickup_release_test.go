@@ -6,6 +6,7 @@ import (
 	"maps"
 	"reflect"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -662,18 +663,92 @@ func TestCloneCopiesExclusion(t *testing.T) {
 	}
 }
 
+// exclusionTracker follows the exclusion of each queued trip from one
+// observation of a simulation to the next. Only the first hold of a
+// withdrawal sets or replaces an exclusion (newest wins), and no withdrawal
+// runs inside Step. An exclusion ends only when the trip leaves the queue.
+type exclusionTracker struct {
+	// excluded holds the exclusion of each queued trip at the last
+	// observation, by order ID.
+	excluded map[int]string
+	// withdrawn holds the pods that were withdrawn at the last
+	// observation.
+	withdrawn map[string]bool
+	// observed is false before the first observation. The first
+	// observation takes each exclusion as it is.
+	observed bool
+	// seen counts the exclusions that the tracker saw set. bound counts
+	// the observations of a trip with an exclusion and a pod. ended
+	// counts the exclusions that ended when the trip left the queue.
+	seen, bound, ended int
+}
+
+// observe checks s against the last observation and records s. It reports
+// a trip that:
+//   - loses its exclusion while it is queued
+//   - gets a new or changed exclusion that does not name a pod withdrawn
+//     since the last observation
+//   - has, waits for, or rides in the pod that it excluded at the last
+//     observation, when no withdrawal replaced the exclusion
+func (x *exclusionTracker) observe(s *Simulation) error {
+	withdrawnNow := map[string]bool{}
+	for i := range s.vehicles {
+		if !s.vehicles[i].inService() {
+			withdrawnNow[s.vehicles[i].Pod.ID] = true
+		}
+	}
+	// newlyWithdrawn reports whether pod got its first hold since the last
+	// observation.
+	newlyWithdrawn := func(pod string) bool { return withdrawnNow[pod] && !x.withdrawn[pod] }
+	queued := map[int]waitingTrip{}
+	for _, trip := range s.waiting {
+		queued[trip.request.ID] = trip
+	}
+	for id, pod := range x.excluded {
+		trip, ok := queued[id]
+		if !ok {
+			if v := s.findVehicle(pod); v != nil && slices.ContainsFunc(v.Riders, func(rider Request) bool { return rider.ID == id }) {
+				return fmt.Errorf("tick %d: trip %d rides in its excluded pod %s", s.tick, id, pod)
+			}
+			x.ended++
+			continue
+		}
+		switch {
+		case trip.excludedPod == "":
+			return fmt.Errorf("tick %d: trip %d lost its exclusion of pod %s while it is queued", s.tick, id, pod)
+		case trip.excludedPod != pod && !newlyWithdrawn(trip.excludedPod):
+			return fmt.Errorf("tick %d: trip %d changed its exclusion from pod %s to pod %s without a withdrawal", s.tick, id, pod, trip.excludedPod)
+		case trip.excludedPod == pod && (trip.request.PodID == pod || trip.deferPodID == pod):
+			return fmt.Errorf("tick %d: trip %d has or waits for its excluded pod %s", s.tick, id, pod)
+		}
+	}
+	next := map[int]string{}
+	for _, trip := range s.waiting {
+		if trip.excludedPod == "" {
+			continue
+		}
+		id := trip.request.ID
+		if previous, ok := x.excluded[id]; !ok || previous != trip.excludedPod {
+			if x.observed && !ok && !newlyWithdrawn(trip.excludedPod) {
+				return fmt.Errorf("tick %d: trip %d got an exclusion of pod %s without a withdrawal", s.tick, id, trip.excludedPod)
+			}
+			x.seen++
+		}
+		if trip.request.PodID != "" {
+			x.bound++
+		}
+		next[id] = trip.excludedPod
+	}
+	x.excluded, x.withdrawn, x.observed = next, withdrawnNow, true
+	return nil
+}
+
 // monitorExclusions checks the state contract, W2, X1, and X2 at each
-// observation of s. It also checks that a trip with an exclusion at one
-// observation is not bound to, does not wait for, and does not ride in its
-// excluded pod at the next. Only a withdrawal changes an exclusion, and no
-// withdrawal runs inside Step. monitorExclusions returns the counts of the
-// exclusions that it saw, of the observations of a trip with an exclusion
-// and a pod, and of the exclusions that ended when the trip left the
-// queue.
-func monitorExclusions(tb testing.TB, s *Simulation) (seen, bound, ended *int) {
+// observation of s, and follows each exclusion with an exclusionTracker.
+// It returns the tracker, which counts the exclusions.
+func monitorExclusions(tb testing.TB, s *Simulation) *exclusionTracker {
 	tb.Helper()
-	seen, bound, ended = new(int), new(int), new(int)
-	excluded := map[int]string{}
+	tracker := &exclusionTracker{}
 	s.monitor = func(s *Simulation) {
 		tb.Helper()
 		if err := s.CheckContract(); err != nil {
@@ -682,44 +757,99 @@ func monitorExclusions(tb testing.TB, s *Simulation) (seen, bound, ended *int) {
 		if err := checkExclusions(s); err != nil {
 			tb.Fatalf("tick %d: %v", s.tick, err)
 		}
-		queued := map[int]waitingTrip{}
 		for _, trip := range s.waiting {
-			queued[trip.request.ID] = trip
 			for _, pod := range []string{trip.request.PodID, trip.deferPodID} {
 				if v := s.findVehicle(pod); v != nil && !v.inService() {
 					tb.Fatalf("tick %d: W2: trip %d names the withdrawn pod %s", s.tick, trip.request.ID, pod)
 				}
 			}
 		}
-		for id, pod := range excluded {
-			if trip, ok := queued[id]; ok {
-				if trip.request.PodID == pod || trip.deferPodID == pod {
-					tb.Fatalf("tick %d: trip %d has or waits for its excluded pod %s", s.tick, id, pod)
-				}
-				continue
-			}
-			if v := s.findVehicle(pod); slices.ContainsFunc(v.Riders, func(rider Request) bool { return rider.ID == id }) {
-				tb.Fatalf("tick %d: trip %d rides in its excluded pod %s", s.tick, id, pod)
-			}
-			*ended++
+		if err := tracker.observe(s); err != nil {
+			tb.Fatal(err)
 		}
-		next := map[int]string{}
-		for _, trip := range s.waiting {
-			if trip.excludedPod == "" {
-				continue
-			}
-			if excluded[trip.request.ID] != trip.excludedPod {
-				*seen++
-			}
-			if trip.request.PodID != "" {
-				*bound++
-			}
-			next[trip.request.ID] = trip.excludedPod
-		}
-		excluded = next
 	}
 	s.observe()
-	return seen, bound, ended
+	return tracker
+}
+
+// TestExclusionTrackerCatchesLostExclusion checks that the soak monitor
+// reports an exclusion that ends or changes before boarding without a
+// withdrawal. Pod 01 is withdrawn from a trip, and pod 02 then receives
+// the trip. A test hook then clears or changes the exclusion, as a faulty
+// path would. A withdrawal of pod 02 replaces the exclusion, which the
+// tracker accepts.
+func TestExclusionTrackerCatchesLostExclusion(t *testing.T) {
+	t.Parallel()
+	// build returns the state after the assignment to pod 02, and a
+	// tracker that observed it.
+	build := func(t *testing.T) (*Simulation, *exclusionTracker) {
+		t.Helper()
+		s := newPickupFleet(t, "garden", "harbor", "parking")
+		if err := s.RequestTrip("market", "harbor"); err != nil {
+			t.Fatal(err)
+		}
+		tracker := &exclusionTracker{}
+		if err := tracker.observe(s); err != nil {
+			t.Fatal(err)
+		}
+		a := s.findVehicle(s.waiting[0].request.PodID)
+		if err := s.withdrawService(a, faultHold); err != nil {
+			t.Fatal(err)
+		}
+		if err := tracker.observe(s); err != nil {
+			t.Fatal(err)
+		}
+		if err := s.restoreService(a, faultHold); err != nil {
+			t.Fatal(err)
+		}
+		s.dispatch()
+		if err := tracker.observe(s); err != nil {
+			t.Fatal(err)
+		}
+		if trip := s.waiting[0]; trip.request.PodID == "" || trip.excludedPod != a.Pod.ID || tracker.seen != 1 {
+			t.Fatalf("the trip %+v, %d exclusions seen", trip, tracker.seen)
+		}
+		return s, tracker
+	}
+	t.Run("cleared while bound", func(t *testing.T) {
+		t.Parallel()
+		s, tracker := build(t)
+		s.waiting[0].excludedPod = ""
+		if err := tracker.observe(s); err == nil || !strings.Contains(err.Error(), "lost its exclusion") {
+			t.Fatalf("the tracker accepts an exclusion that ends before boarding: %v", err)
+		}
+	})
+	t.Run("changed without a withdrawal", func(t *testing.T) {
+		t.Parallel()
+		s, tracker := build(t)
+		s.waiting[0].excludedPod = "03"
+		if err := tracker.observe(s); err == nil || !strings.Contains(err.Error(), "changed its exclusion") {
+			t.Fatalf("the tracker accepts an exclusion that changes without a withdrawal: %v", err)
+		}
+	})
+	t.Run("set without a withdrawal", func(t *testing.T) {
+		t.Parallel()
+		s, tracker := build(t)
+		s.waiting = append(s.waiting, newTrip(s, "garden", "market"))
+		s.waiting[1].excludedPod = "03"
+		if err := tracker.observe(s); err == nil || !strings.Contains(err.Error(), "without a withdrawal") {
+			t.Fatalf("the tracker accepts an exclusion that a withdrawal did not set: %v", err)
+		}
+	})
+	t.Run("replaced by a withdrawal", func(t *testing.T) {
+		t.Parallel()
+		s, tracker := build(t)
+		b := s.findVehicle(s.waiting[0].request.PodID)
+		if err := s.withdrawService(b, emergencyHold); err != nil {
+			t.Fatal(err)
+		}
+		if err := tracker.observe(s); err != nil {
+			t.Fatalf("the tracker refuses the newest release: %v", err)
+		}
+		if s.waiting[0].excludedPod != b.Pod.ID || tracker.seen != 2 {
+			t.Fatalf("the trip %+v, %d exclusions seen", s.waiting[0], tracker.seen)
+		}
+	})
 }
 
 // withdrawalInjector withdraws one pod of a run at a time and restores it
@@ -843,7 +973,7 @@ func TestExclusionInvariantsWithWithdrawals(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			s := test.build(t)
-			seen, bound, ended := monitorExclusions(t, s)
+			tracker := monitorExclusions(t, s)
 			// Orders and withdrawals run for 240 s. Then the run continues
 			// without withdrawals until each trip with an exclusion boarded.
 			w := &withdrawalInjector{every: 10 * TicksPerSecond, restoreAfter: 5 * TicksPerSecond}
@@ -869,10 +999,10 @@ func TestExclusionInvariantsWithWithdrawals(t *testing.T) {
 			if i := slices.IndexFunc(s.waiting, excluded); i >= 0 {
 				t.Errorf("trip %+v still has an exclusion", s.waiting[i])
 			}
-			if w.withdrawals == 0 || *seen == 0 || *bound == 0 || *ended == 0 {
-				t.Fatalf("%d withdrawals, %d exclusions, %d bound observations, %d ended exclusions", w.withdrawals, *seen, *bound, *ended)
+			if w.withdrawals == 0 || tracker.seen == 0 || tracker.bound == 0 || tracker.ended == 0 {
+				t.Fatalf("%d withdrawals, %d exclusions, %d bound observations, %d ended exclusions", w.withdrawals, tracker.seen, tracker.bound, tracker.ended)
 			}
-			t.Logf("%d withdrawals, %d exclusions, %d bound observations, %d ended exclusions", w.withdrawals, *seen, *bound, *ended)
+			t.Logf("%d withdrawals, %d exclusions, %d bound observations, %d ended exclusions", w.withdrawals, tracker.seen, tracker.bound, tracker.ended)
 			if test.check != nil {
 				test.check(t, s)
 			}
