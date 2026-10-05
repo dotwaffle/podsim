@@ -4,6 +4,7 @@ import (
 	"errors"
 	"math"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -499,5 +500,46 @@ func TestFaultOwnerKind(t *testing.T) {
 	owner := resourceOwner{kind: faultOwnerKind, id: "i3.4"}
 	if owner.String() != "i3.4" || owner.podID() != "" || owner.isPod("i3.4") || s.ownerVehicle(owner) != nil {
 		t.Fatalf("fault owner %q, pod %q", owner.String(), owner.podID())
+	}
+}
+
+// TestCheckFaults checks that CheckContract refuses each damaged fault
+// record and each faulted flag without a record.
+func TestCheckFaults(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name   string
+		damage func(s *Simulation)
+		want   string
+	}{
+		{"unknown kind", func(s *Simulation) { s.faults[1].kind = podFault + 1 }, "unknown kind"},
+		{"duplicate record", func(s *Simulation) { s.faults = append(s.faults, s.faults[1]) }, "serial order"},
+		{"serials out of order", func(s *Simulation) { s.faults[0], s.faults[1] = s.faults[1], s.faults[0] }, "serial order"},
+		{"negative start", func(s *Simulation) { s.faults[1].start = -1 }, "starts at tick"},
+		{"future start", func(s *Simulation) { s.faults[1].start = s.tick + 1 }, "starts at tick"},
+		{"end at the start", func(s *Simulation) { s.faults[1].end = s.faults[1].start }, "not after its start"},
+		{"negative end", func(s *Simulation) { s.faults[1].end = -1 }, "not after its start"},
+		{"negative pod index", func(s *Simulation) { s.faults[1].pod = -1 }, "outside the fleet"},
+		{"pod index past the fleet", func(s *Simulation) { s.faults[1].pod = len(s.vehicles) }, "outside the fleet"},
+		{"two records of one pod", func(s *Simulation) { s.faults[1].pod = s.faults[0].pod }, "two fault records"},
+		{"record of a pod that is not faulted", func(s *Simulation) { s.vehicles[s.faults[1].pod].faulted = false }, "not faulted"},
+		{"faulted pod without a record", func(s *Simulation) { s.faults = s.faults[:1] }, "no fault record"},
+		{"faulted pod with no records", func(s *Simulation) { s.faults = nil; s.vehicles[0].faulted = true }, "no fault record"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			s, traveling, idle := faultFixture(t)
+			startFault(t, s, traveling, 0)
+			startFault(t, s, idle, 1)
+			if err := s.CheckContract(); err != nil {
+				t.Fatalf("before the damage: %v", err)
+			}
+			test.damage(s)
+			err := s.CheckContract()
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("error %v, want one with %q", err, test.want)
+			}
+		})
 	}
 }

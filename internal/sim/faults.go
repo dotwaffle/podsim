@@ -2,6 +2,7 @@ package sim
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"slices"
 )
@@ -208,4 +209,42 @@ func (s *Simulation) faultStage() {
 		}
 		index++
 	}
+}
+
+// checkFaults checks the fault records (invariant F5) and their faulted
+// pods (the record part of F1). The serials of the records increase, so no
+// two records have one ID. Each start is from 0 to the current tick, and
+// each end is 0 or after its start. Each record names a pod of the fleet,
+// and a pod is faulted exactly when one record names it.
+func (s *Simulation) checkFaults() error {
+	var recorded []bool
+	if len(s.faults) > 0 {
+		recorded = make([]bool, len(s.vehicles))
+	}
+	for index, record := range s.faults {
+		id := record.id()
+		switch {
+		case record.kind != podFault:
+			return fmt.Errorf("fault %s has the unknown kind %d", id, record.kind)
+		case index > 0 && record.serial <= s.faults[index-1].serial:
+			return fmt.Errorf("fault %s is not after fault %s in serial order", id, s.faults[index-1].id())
+		case record.start < 0 || record.start > s.tick:
+			return fmt.Errorf("fault %s starts at tick %d, outside 0 to %d", id, record.start, s.tick)
+		case record.end != 0 && record.end <= record.start:
+			return fmt.Errorf("fault %s ends at tick %d, not after its start %d", id, record.end, record.start)
+		case record.pod < 0 || record.pod >= len(s.vehicles):
+			return fmt.Errorf("fault %s names the pod index %d outside the fleet", id, record.pod)
+		case recorded[record.pod]:
+			return fmt.Errorf("pod %s has two fault records", s.vehicles[record.pod].Pod.ID)
+		case !s.vehicles[record.pod].faulted:
+			return fmt.Errorf("fault %s names pod %s, which is not faulted", id, s.vehicles[record.pod].Pod.ID)
+		}
+		recorded[record.pod] = true
+	}
+	for index := range s.vehicles {
+		if s.vehicles[index].faulted && (len(recorded) == 0 || !recorded[index]) {
+			return fmt.Errorf("pod %s is faulted with no fault record", s.vehicles[index].Pod.ID)
+		}
+	}
+	return nil
 }
