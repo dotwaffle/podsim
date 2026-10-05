@@ -452,9 +452,9 @@ func (s *Simulation) endFaultReports(ids ...string) {
 // contract). It clears each record whose duration ended, in serial order.
 // Then it evacuates each faulted pod at rest with an active rider once its
 // evacuation tick is reached. The clears come first, so a fault that ends
-// at or before its evacuation tick never evacuates. Then it applies the
-// hold release rule. Last, it counts the healthy pods that wait for an
-// incident.
+// at or before its evacuation tick never evacuates. Then it runs the
+// reroute pass when it is due, and it applies the hold release rule. Last,
+// it counts the healthy pods that wait for an incident.
 func (s *Simulation) faultStage() {
 	for index := 0; index < len(s.faults); {
 		if end := s.faults[index].end; end != 0 && end <= s.tick {
@@ -472,6 +472,7 @@ func (s *Simulation) faultStage() {
 			countFault(&s.faultCounters.evacuations)
 		}
 	}
+	s.reroutePass()
 	s.releaseFaultHolds()
 	// The reports are those of the previous tick: admission and motion
 	// of this tick have not run yet.
