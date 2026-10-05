@@ -20,34 +20,64 @@ func DecodeStreamJSONVersion(data []byte, version int) (StreamEnvelope, error) {
 	if version < FoundationStreamVersion || version > StreamVersion || len(data) > MaxStreamJSON {
 		return StreamEnvelope{}, errors.New("unsupported stream version or size")
 	}
-	if version == CouplingStreamVersion {
-		return decodeCouplingStreamJSON(data)
-	}
-	// Bound the document before the token scans and the typed decode read it.
-	limits := unpackedStreamLimits()
-	if version == ExpressStreamVersion {
-		limits = expressStreamLimits()
-	}
-	if err := prescanJSON(data, limits); err != nil {
+	markers := streamVersionMarkers(version, "")
+	// Bound the document before the token scans and the typed decode read
+	// it. Hello 5 selects the coupling marker, and the document carries its
+	// order marker.
+	if markers.coupling != "" {
+		packed, err := scanCouplingOrderContract(data)
+		if err != nil {
+			return StreamEnvelope{}, err
+		}
+		if packed {
+			markers.order = sim.ExpressOrderContract
+		}
+	} else if err := prescanJSON(data, streamLimits(markers)); err != nil {
 		return StreamEnvelope{}, err
 	}
-	if err := scanContractMarkers(data, version == ExpressStreamVersion, version == ExpressStreamVersion); err != nil {
+	return decodeStreamEnvelope(data, markers)
+}
+
+// streamVersionMarkers returns the markers that a supported hello version
+// selects. Hello 5 selects the coupling marker with either order marker, so
+// order gives the order marker of its document or topology.
+func streamVersionMarkers(version int, order sim.OrderContract) contractMarkers {
+	switch version {
+	case CouplingStreamVersion:
+		return contractMarkers{order: order, coupling: sim.CompactPairV1CouplingContract}
+	case ExpressStreamVersion:
+		return contractMarkers{order: sim.ExpressOrderContract}
+	default:
+		return contractMarkers{}
+	}
+}
+
+// decodeStreamEnvelope decodes an envelope under the rules of markers. The
+// caller bounds data with the limits of markers first.
+func decodeStreamEnvelope(data []byte, markers contractMarkers) (StreamEnvelope, error) {
+	packed := markers.order == sim.ExpressOrderContract
+	if markers.coupling != "" {
+		if err := scanCouplingStreamJSON(data); err != nil {
+			return StreamEnvelope{}, err
+		}
+	}
+	if err := scanContractMarkers(data, packed, packed); err != nil {
 		return StreamEnvelope{}, err
 	}
-	if version == ExpressStreamVersion {
+	if packed {
 		if err := scanPackedOrders(data); err != nil {
 			return StreamEnvelope{}, err
 		}
 	}
-	if err := scanStreamBoardingMembers(data, version); err != nil {
+	if err := scanStreamBoardingMembers(data, markers); err != nil {
 		return StreamEnvelope{}, err
 	}
-	if err := scanStreamServiceMembers(data, version); err != nil {
+	if err := scanStreamServiceMembers(data, markers); err != nil {
 		return StreamEnvelope{}, err
 	}
 	var envelope StreamEnvelope
 	var err error
-	if version == ExpressStreamVersion {
+	if packed {
 		err = jsonv2.Unmarshal(data, &envelope, json.DefaultOptionsV1(), jsonv2.MatchCaseInsensitiveNames(false), jsonv2.RejectUnknownMembers(true), packedDecodeOptions())
 	} else {
 		err = decodeStreamJSON(data, &envelope)
@@ -90,11 +120,11 @@ func stateFrameLimits() jsonLimits {
 	return limits
 }
 
-func scanStreamServiceMembers(data []byte, version int) error {
-	return scanStreamServiceMembersContract(data, version, false)
-}
-
-func scanStreamServiceMembersContract(data []byte, version int, coupling bool) error {
+// scanStreamServiceMembers checks the service members of a stream
+// document. Coupling members need the coupling marker. The Express marker
+// packs the order text, so scanPackedOrders checks the length of its
+// service IDs.
+func scanStreamServiceMembers(data []byte, markers contractMarkers) error {
 	decoder := jsontext.NewDecoder(bytes.NewReader(data))
 	for {
 		token, err := decoder.ReadToken()
@@ -109,7 +139,7 @@ func scanStreamServiceMembersContract(data []byte, version int, coupling bool) e
 			continue
 		}
 		if couplingMember(token.String()) || token.String() == "couplingID" {
-			if !coupling {
+			if markers.coupling == "" {
 				return errors.New("current stream family contains coupling fields")
 			}
 			continue
@@ -156,7 +186,7 @@ func scanStreamServiceMembersContract(data []byte, version int, coupling bool) e
 					return errors.New("invalid stream service")
 				}
 			case "serviceID":
-				if len(value.String()) > 64 && version != ExpressStreamVersion {
+				if len(value.String()) > 64 && markers.order != sim.ExpressOrderContract {
 					return errors.New("stream service ID is too long")
 				}
 			}
@@ -165,11 +195,12 @@ func scanStreamServiceMembersContract(data []byte, version int, coupling bool) e
 }
 
 // NewStreamAssemblerVersion verifies topology against a negotiated hello.
+// Hello 5 takes the order marker of the topology.
 func NewStreamAssemblerVersion(topology TopologySnapshot, version int) (*StreamAssembler, error) {
 	if version < FoundationStreamVersion || version > StreamVersion {
 		return nil, errors.New("unsupported stream version")
 	}
-	if err := validateStreamTopology(topology, version); err != nil {
+	if err := validateStreamTopology(topology, streamVersionMarkers(version, topology.OrderContract)); err != nil {
 		return nil, err
 	}
 	return NewStreamAssembler(topology)
@@ -185,20 +216,23 @@ func checkTopologyProjectVersion(topology TopologySnapshot) error {
 	return nil
 }
 
-// validateStreamTopology checks that the contract markers of topology
-// select the negotiated stream family: the coupling marker for hello 5, the
-// Express marker alone for hello 4, and neither marker for hello 3.
-func validateStreamTopology(topology TopologySnapshot, version int) error {
+// validateStreamTopology checks that the contract markers of topology are
+// markers: the coupling marker with either order marker, the Express marker
+// alone, or neither marker.
+func validateStreamTopology(topology TopologySnapshot, markers contractMarkers) error {
 	if err := checkTopologyProjectVersion(topology); err != nil {
 		return err
 	}
-	if version == CouplingStreamVersion {
-		if topology.CouplingContract != sim.CompactPairV1CouplingContract {
+	if markers.coupling != "" {
+		if topology.CouplingContract != markers.coupling {
 			return errors.New("coupling topology needs the coupling contract")
 		}
 		if err := sim.ValidateCouplingGeometry(sim.CouplingGeometryInput{Contract: topology.CouplingContract,
 			Network: topology.Network, Sites: topology.CouplingSites, Corridors: topology.CouplingCorridors}); err != nil {
 			return err
+		}
+		if topology.OrderContract != markers.order {
+			return errors.New("coupling topology has another order contract")
 		}
 		if topology.OrderContract == "" && len(topology.ExpressServices) != 0 {
 			return errors.New("unmarked coupling topology contains Express services")
@@ -208,7 +242,7 @@ func validateStreamTopology(topology TopologySnapshot, version int) error {
 	if hasCouplingTopology(topology) {
 		return errors.New("coupling topology requires a qualified stream family")
 	}
-	if version == ExpressStreamVersion {
+	if markers.order == sim.ExpressOrderContract {
 		if topology.OrderContract != sim.ExpressOrderContract {
 			return errors.New("express topology needs the Express contract")
 		}

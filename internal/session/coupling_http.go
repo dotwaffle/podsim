@@ -68,17 +68,17 @@ func DecodeCouplingStateJSON(raw []byte) (State, error) {
 	if err := scanContractMarkers(raw, packed, packed); err != nil {
 		return State{}, err
 	}
-	orderVersion := CouplingStreamVersion
+	markers := contractMarkers{coupling: sim.CompactPairV1CouplingContract}
 	if packed {
-		orderVersion = ExpressStreamVersion
+		markers.order = sim.ExpressOrderContract
 		if err := scanPackedOrders(raw); err != nil {
 			return State{}, err
 		}
 	}
-	if err := scanStreamBoardingMembers(raw, orderVersion); err != nil {
+	if err := scanStreamBoardingMembers(raw, markers); err != nil {
 		return State{}, err
 	}
-	if err := scanStreamServiceMembersContract(raw, orderVersion, true); err != nil {
+	if err := scanStreamServiceMembers(raw, markers); err != nil {
 		return State{}, err
 	}
 	var envelope CouplingStateEnvelope

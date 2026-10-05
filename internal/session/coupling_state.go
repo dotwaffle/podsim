@@ -165,11 +165,11 @@ func decodeCouplingTopology(data []byte) (TopologySnapshot, error) {
 	if err := scanContractMarkers(data, scan.packed, false); err != nil {
 		return TopologySnapshot{}, err
 	}
-	version := FoundationStreamVersion
+	markers := contractMarkers{coupling: sim.CompactPairV1CouplingContract}
 	if scan.packed {
-		version = ExpressStreamVersion
+		markers.order = sim.ExpressOrderContract
 	}
-	if err := scanStreamServiceMembersContract(data, version, true); err != nil {
+	if err := scanStreamServiceMembers(data, markers); err != nil {
 		return TopologySnapshot{}, err
 	}
 	type plainTopology TopologySnapshot

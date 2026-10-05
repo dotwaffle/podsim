@@ -95,7 +95,8 @@ func ownStreamBoardings(f StreamFrame) StreamFrame {
 }
 
 // scanStreamBoardingMembers checks presence before typed decoding loses nulls.
-func scanStreamBoardingMembers(data []byte, version int) error {
+// The Express marker allows 20 boarding records for each vehicle.
+func scanStreamBoardingMembers(data []byte, markers contractMarkers) error {
 	decoder := jsontext.NewDecoder(bytes.NewReader(data))
 	for {
 		token, err := decoder.ReadToken()
@@ -140,7 +141,7 @@ func scanStreamBoardingMembers(data []byte, version int) error {
 			}
 			raw = members["value"]
 		}
-		if version == ExpressStreamVersion {
+		if markers.order == sim.ExpressOrderContract {
 			err = scanBoardingRecordsLimit(raw, delta, 20)
 		} else {
 			err = scanBoardingRecords(raw, delta)

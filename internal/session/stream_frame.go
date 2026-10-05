@@ -52,7 +52,8 @@ type StreamAssembler struct {
 	state          State
 }
 
-// NewStreamAssembler takes ownership of a detached topology snapshot.
+// NewStreamAssembler takes ownership of a detached topology snapshot. The
+// contract markers of the topology select the stream rules.
 func NewStreamAssembler(topology TopologySnapshot) (*StreamAssembler, error) {
 	if err := checkTopologyProjectVersion(topology); err != nil {
 		return nil, err
@@ -60,12 +61,13 @@ func NewStreamAssembler(topology TopologySnapshot) (*StreamAssembler, error) {
 	if err := sim.ValidateOrderContract(topology.OrderContract); err != nil {
 		return nil, err
 	}
-	version := ExpressStreamVersion
+	// A coupling member of the topology selects the coupling marker.
+	markers := contractMarkers{order: topology.OrderContract}
 	if hasCouplingTopology(topology) {
-		version = CouplingStreamVersion
+		markers.coupling = sim.CompactPairV1CouplingContract
 	}
-	if topology.OrderContract == sim.ExpressOrderContract || hasCouplingTopology(topology) {
-		if err := validateStreamTopology(topology, version); err != nil {
+	if markers != (contractMarkers{}) {
+		if err := validateStreamTopology(topology, markers); err != nil {
 			return nil, err
 		}
 	}
@@ -73,14 +75,14 @@ func NewStreamAssembler(topology TopologySnapshot) (*StreamAssembler, error) {
 		return nil, errors.New("topology exceeds supported limits")
 	}
 	a := &StreamAssembler{topology: topology, lanes: make(map[string]bool, len(topology.Network.Lanes)), groupLanes: make(map[string]bool, len(topology.Network.Lanes)), stations: map[string]bool{}, berths: map[string]bool{}, boardingBerths: map[string]boardingBerth{}}
-	if hasCouplingTopology(topology) {
+	if markers.coupling != "" {
 		validator, err := newCouplingFrameValidator(topology)
 		if err != nil {
 			return nil, err
 		}
 		a.coupling = validator
 	}
-	if topology.OrderContract == sim.ExpressOrderContract {
+	if markers.order == sim.ExpressOrderContract {
 		a.passengerPaths = map[passengerPathKey]bool{}
 	}
 	nodes := map[string]bool{}

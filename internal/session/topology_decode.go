@@ -62,14 +62,14 @@ func (topology *TopologySnapshot) UnmarshalJSON(data []byte) error {
 		*topology = decoded
 		return nil
 	}
-	version := FoundationStreamVersion
+	var contract contractMarkers
 	if markers.express {
-		version = ExpressStreamVersion
+		contract.order = sim.ExpressOrderContract
 	}
-	if err := scanContractMarkers(data, version == ExpressStreamVersion, false); err != nil {
+	if err := scanContractMarkers(data, markers.express, false); err != nil {
 		return err
 	}
-	if err := scanStreamServiceMembers(data, version); err != nil {
+	if err := scanStreamServiceMembers(data, contract); err != nil {
 		return err
 	}
 	type plainTopology TopologySnapshot
@@ -83,8 +83,8 @@ func (topology *TopologySnapshot) UnmarshalJSON(data []byte) error {
 	if err := decoded.Network.ValidateStationBanks(); err != nil {
 		return err
 	}
-	if version == ExpressStreamVersion {
-		if err := validateStreamTopology(TopologySnapshot(decoded), version); err != nil {
+	if markers.express {
+		if err := validateStreamTopology(TopologySnapshot(decoded), contract); err != nil {
 			return err
 		}
 	}

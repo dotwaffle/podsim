@@ -14,40 +14,6 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-func decodeCouplingStreamJSON(data []byte) (StreamEnvelope, error) {
-	packed, scanErr := scanCouplingOrderContract(data)
-	if scanErr != nil {
-		return StreamEnvelope{}, scanErr
-	}
-	if err := scanCouplingStreamJSON(data); err != nil {
-		return StreamEnvelope{}, err
-	}
-	if err := scanContractMarkers(data, packed, packed); err != nil {
-		return StreamEnvelope{}, err
-	}
-	orderVersion := CouplingStreamVersion
-	if packed {
-		orderVersion = ExpressStreamVersion
-		if err := scanPackedOrders(data); err != nil {
-			return StreamEnvelope{}, err
-		}
-	}
-	if err := scanStreamBoardingMembers(data, orderVersion); err != nil {
-		return StreamEnvelope{}, err
-	}
-	if err := scanStreamServiceMembersContract(data, orderVersion, true); err != nil {
-		return StreamEnvelope{}, err
-	}
-	var envelope StreamEnvelope
-	var err error
-	if packed {
-		err = jsonv2.Unmarshal(data, &envelope, json.DefaultOptionsV1(), jsonv2.MatchCaseInsensitiveNames(false), jsonv2.RejectUnknownMembers(true), packedDecodeOptions())
-	} else {
-		err = decodeStreamJSON(data, &envelope)
-	}
-	return envelope, err
-}
-
 // scanCouplingOrderContract reads the order marker of a coupling document
 // and bounds the document with the limits of that marker. The packed limits
 // contain the unpacked limits, so the first scan bounds the header decode

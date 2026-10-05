@@ -203,10 +203,11 @@ func DecodeExpressStateJSON(raw []byte) (State, error) {
 	if err := scanContractMarkers(raw, true, true); err != nil {
 		return State{}, err
 	}
-	if err := scanStreamBoardingMembers(raw, ExpressStreamVersion); err != nil {
+	markers := contractMarkers{order: sim.ExpressOrderContract}
+	if err := scanStreamBoardingMembers(raw, markers); err != nil {
 		return State{}, err
 	}
-	if err := scanStreamServiceMembers(raw, ExpressStreamVersion); err != nil {
+	if err := scanStreamServiceMembers(raw, markers); err != nil {
 		return State{}, err
 	}
 	if err := scanPackedOrders(raw); err != nil {
@@ -299,14 +300,15 @@ func DecodeStreamHello(raw []byte) (StreamHello, error) {
 	if hello.Version < FoundationStreamVersion || hello.Version > StreamVersion {
 		return hello, fmt.Errorf("unsupported state stream version %d", hello.Version)
 	}
-	if hello.Version == CouplingStreamVersion {
+	markers := streamVersionMarkers(hello.Version, hello.OrderContract)
+	if markers.coupling != "" {
 		if err := scanCouplingStreamJSON(raw); err != nil {
 			return hello, err
 		}
-	} else if err := scanStreamServiceMembers(raw, hello.Version); err != nil {
+	} else if err := scanStreamServiceMembers(raw, markers); err != nil {
 		return hello, err
 	}
-	packed := hello.Version == ExpressStreamVersion || hello.Version == CouplingStreamVersion && hello.OrderContract == sim.ExpressOrderContract
+	packed := markers.order == sim.ExpressOrderContract
 	if err := scanContractMarkers(raw, packed, packed); err != nil {
 		return hello, err
 	}

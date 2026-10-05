@@ -95,10 +95,11 @@ func decodeStreamJSONVersionUnbounded(data []byte, version int) (StreamEnvelope,
 			return StreamEnvelope{}, err
 		}
 	}
-	if err := scanStreamBoardingMembers(data, version); err != nil {
+	markers := streamVersionMarkers(version, "")
+	if err := scanStreamBoardingMembers(data, markers); err != nil {
 		return StreamEnvelope{}, err
 	}
-	if err := scanStreamServiceMembers(data, version); err != nil {
+	if err := scanStreamServiceMembers(data, markers); err != nil {
 		return StreamEnvelope{}, err
 	}
 	var envelope StreamEnvelope
