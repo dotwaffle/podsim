@@ -107,6 +107,10 @@ func TestInterruptRiderRefusals(t *testing.T) {
 		{name: "coupling member", pod: "01", order: 2, change: func(_ *Simulation, v *vehicle) { v.couplingID = "c1" }},
 		{name: "dispatch pass", pod: "01", order: 2, change: func(s *Simulation, _ *vehicle) { s.pass = &dispatchPass{active: true} }},
 		{name: "no incident marker", pod: "01", order: 2, change: func(s *Simulation, _ *vehicle) { s.incidentContract = "" }},
+		{name: "platoon member", pod: "01", order: 2, change: func(_ *Simulation, v *vehicle) { v.follower = 2 }},
+		{name: "Compact queue member", pod: "01", order: 2, change: func(s *Simulation, _ *vehicle) {
+			s.compactGroups = []*compactBufferGroup{{members: []int{s.vehicleIndexes["01"]}}}
+		}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

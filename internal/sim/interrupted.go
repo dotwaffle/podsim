@@ -49,8 +49,9 @@ func (s *Simulation) DrainInterruptions() []int {
 // so InterruptRider accepts only a rider whose destination another active
 // rider of the pod shares. The stops and the phase of the pod then stay
 // valid. It also refuses a simulation without the incident marker, a
-// coupling member, and it refuses during a dispatch pass. A refusal
-// returns an error and changes nothing.
+// coupling, platoon, or Compact queue member, and a call during a dispatch
+// pass, as the operations of the contract do. A refusal returns an error
+// and changes nothing.
 func (s *Simulation) InterruptRider(podID string, orderID int) error {
 	if s.incidentContract != IncidentV1Contract {
 		return errors.New("an interruption needs the incident contract")
@@ -59,8 +60,8 @@ func (s *Simulation) InterruptRider(podID string, orderID int) error {
 	if v == nil {
 		return fmt.Errorf("pod %s does not exist", podID)
 	}
-	if v.couplingID != "" || s.couplingApproachMember(v.Pod.ID) {
-		return fmt.Errorf("pod %s: interruption of a coupling member", podID)
+	if v.couplingID != "" || s.couplingApproachMember(v.Pod.ID) || v.coupled() || s.compactGroup(v) != nil {
+		return fmt.Errorf("pod %s: interruption of a coupling, platoon, or Compact queue member", podID)
 	}
 	if s.pass != nil && s.pass.active {
 		return fmt.Errorf("pod %s: interruption during a dispatch pass", podID)
