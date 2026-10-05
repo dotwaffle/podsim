@@ -4,24 +4,24 @@ import (
 	"bytes"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"slices"
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-// strandedTopology returns the topology of expressSession, where an
-// Express pod can stop at garden but cannot leave its berth there. So the
-// Express class has a passenger path from harbor to market and none from
-// garden.
-func strandedTopology(t *testing.T) TopologySnapshot {
+// strandedSession returns expressSession, where an Express pod can stop at
+// garden but cannot leave its berth there. So the Express class has a
+// passenger path from harbor to market and none from garden.
+func strandedSession(t *testing.T) *Session {
 	t.Helper()
 	config := expressConsumerProject(t)
+	classes, err := sim.NewClassSet("group")
+	if err != nil {
+		t.Fatal(err)
+	}
 	for i := range config.Network.Lanes {
 		if config.Network.Lanes[i].ID == "garden-1-out" {
-			classes, err := sim.NewClassSet("group")
-			if err != nil {
-				t.Fatal(err)
-			}
 			config.Network.Lanes[i].VehicleClasses = classes
 		}
 	}
@@ -30,7 +30,7 @@ func strandedTopology(t *testing.T) TopologySnapshot {
 		t.Fatal(err)
 	}
 	t.Cleanup(shared.Close)
-	return shared.Topology()
+	return shared
 }
 
 // legRequest returns an active Express order from harbor to market with the
@@ -47,7 +47,7 @@ func legRequest(leg string) sim.Request {
 // the boarding berths use the leg origin.
 func TestLegOriginStreamReaders(t *testing.T) {
 	t.Parallel()
-	topology := strandedTopology(t)
+	topology := strandedSession(t).Topology()
 	assembler := func(t *testing.T) *StreamAssembler {
 		t.Helper()
 		a, err := NewStreamAssembler(topology)
@@ -145,5 +145,63 @@ func TestLegFromHasNoWireMember(t *testing.T) {
 	var savedRequest sim.SavedRequest
 	if err := json.Unmarshal(bytes.Replace(saved, []byte("{"), member, 1), &savedRequest, json.WithUnmarshalers(json.UnmarshalFromFunc(decodePackedSavedRequest))); err == nil {
 		t.Error("the save decoder accepts a legFrom member")
+	}
+}
+
+// TestStrandedStreamOrder checks the stream exception for a stranded
+// transferred order (incident contract, section 7.6): a pending Express
+// order with a leg origin and no path from it is accepted only with no
+// pod, known stations, its service pair, and a vehicle that admits the
+// party.
+func TestStrandedStreamOrder(t *testing.T) {
+	t.Parallel()
+	shared := strandedSession(t)
+	frame, err := shared.presentationFrame()
+	if err != nil {
+		t.Fatal(err)
+	}
+	frame.State.Simulation.Pending = []sim.Request{legRequest("garden")}
+	onDemand := func(r *sim.Request) { r.Service, r.ServiceID = sim.OnDemandService, "" }
+	tests := []struct {
+		name   string
+		change func(*sim.Request)
+		valid  bool
+	}{
+		{name: "stranded", change: func(*sim.Request) {}, valid: true},
+		{name: "pod", change: func(r *sim.Request) { r.PodID = "01" }},
+		{name: "unknown leg origin", change: func(r *sim.Request) { r.LegFrom = "nowhere" }},
+		{name: "service pair", change: func(r *sim.Request) { r.ServiceID = "unknown" }},
+		{name: "on-demand", change: onDemand, valid: true},
+		{name: "on-demand to an unknown station", change: func(r *sim.Request) { onDemand(r); r.To = "nowhere" }},
+		{name: "party admission", change: func(r *sim.Request) { r.PartySize = 21 }},
+	}
+	newAssembler := func(t *testing.T) *StreamAssembler {
+		t.Helper()
+		a, err := NewStreamAssembler(shared.Topology())
+		if err != nil {
+			t.Fatal(err)
+		}
+		return a
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			a := newAssembler(t)
+			candidate := ownStreamBoardings(frame)
+			test.change(&candidate.State.Simulation.Pending[0])
+			if err := a.expressOrders(candidate); (err == nil) != test.valid {
+				t.Fatalf("expressOrders: %v", err)
+			}
+			if _, err := a.State(candidate); (err == nil) != test.valid {
+				t.Fatalf("State: %v", err)
+			}
+			// A Group pod cannot take an Express order. A new assembler has
+			// no earlier class of the pod.
+			candidate.State.Simulation.Vehicles = slices.Clone(candidate.State.Simulation.Vehicles)
+			candidate.State.Simulation.Vehicles[0].Pod.Class = sim.GroupClass
+			if err := newAssembler(t).expressOrders(candidate); err == nil && candidate.State.Simulation.Pending[0].Service == sim.ExpressServiceChoice {
+				t.Fatal("expressOrders accepts the order without an Express pod")
+			}
+		})
 	}
 }

@@ -53,7 +53,7 @@ func (a *StreamAssembler) expressOrders(frame StreamFrame) error {
 				break
 			}
 		}
-		if !compatible {
+		if !compatible && !a.strandedOrder(r, frame) {
 			return errors.New("pending order has no compatible class and passenger path")
 		}
 	}
@@ -104,6 +104,24 @@ func (a *StreamAssembler) expressOrders(frame StreamFrame) error {
 		return errors.New("express outstanding orders exceed supported limit")
 	}
 	return nil
+}
+
+// strandedOrder reports whether a pending order with no compatible class
+// and passenger path is a stranded transferred order (incident contract,
+// section 7.6): it has a leg origin and no pod, its leg origin and
+// destination are stations, its Express service pair exists, and some
+// vehicle admits the party.
+func (a *StreamAssembler) strandedOrder(r sim.Request, frame StreamFrame) bool {
+	if r.LegFrom == "" || r.PodID != "" || !a.stations[r.LegFrom] || !a.stations[r.To] {
+		return false
+	}
+	limit, err := a.expressService(r)
+	if err != nil {
+		return false
+	}
+	return slices.ContainsFunc(frame.State.Simulation.Vehicles, func(v VehicleFrame) bool {
+		return sim.CheckPartyAdmissionWithOrderContract(sim.PartyAdmissionInput{Class: v.Pod.Class, Request: orderOptions(r), PartyLimit: limit}, a.topology.OrderContract) == nil
+	})
 }
 
 type passengerPathKey struct {

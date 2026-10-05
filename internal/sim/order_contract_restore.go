@@ -1,6 +1,9 @@
 package sim
 
-import "errors"
+import (
+	"errors"
+	"slices"
+)
 
 type contractRouteKey struct {
 	class    VehicleClass
@@ -58,14 +61,19 @@ func checkContractRestoreSemantics(input RestoreStateInput) error {
 		if err != nil {
 			return err
 		}
-		fit := false
+		admitted, fit := false, false
 		for _, class := range classes {
-			if fits(class, normalized, trip.Request.legOrigin()) {
-				fit = true
-				break
+			if admits(class, normalized) {
+				admitted = true
+				if pathFits(class, trip.Request.legOrigin(), normalized.To) {
+					fit = true
+					break
+				}
 			}
 		}
-		if !fit {
+		// A transfer can leave a party where no admitting class has a path
+		// to its destination. Only such a stranded trip waits without one.
+		if !fit && (!admitted || !strandedTrip(input, trip)) {
 			return errors.New("saved Express order has no compatible vehicle path")
 		}
 		if len(trip.Route) > 0 {
@@ -90,6 +98,33 @@ func checkContractRestoreSemantics(input RestoreStateInput) error {
 		}
 	}
 	return nil
+}
+
+// strandedTrip reports whether a saved trip that no admitting class can
+// serve has the shape of a stranded transferred order (incident contract,
+// section 7.6). S1: the trip boarded before, and its leg origin and
+// destination are passenger stations. S2: it has no pod, route, or hold.
+// S3: its order origin is a passenger station, and an Express order has
+// its service pair. The caller checks that some fleet class admits the
+// party. The saved trip has no excluded pod or destination berth yet.
+func strandedTrip(input RestoreStateInput, trip SavedTrip) bool {
+	request := trip.Request
+	passenger := func(id string) bool {
+		station, ok := input.Network.Station(id)
+		return ok && !station.ParkingOnly
+	}
+	if !trip.Boarded || request.LegFrom == "" || !passenger(request.LegFrom) || !passenger(request.To) {
+		return false
+	}
+	if request.PodID != "" || len(trip.Route) > 0 || trip.DeferPodID != "" || trip.DeferCheck != 0 {
+		return false
+	}
+	if !passenger(request.From) {
+		return false
+	}
+	return request.Service != ExpressServiceChoice || slices.ContainsFunc(input.ExpressServices, func(service ExpressService) bool {
+		return service.ID == request.ServiceID && service.From == request.From && service.To == request.To
+	})
 }
 
 func contractRouteLanesFit(network Network, route []int, class VehicleClass) bool {
