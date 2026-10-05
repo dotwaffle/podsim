@@ -250,19 +250,16 @@ func (c *couplingMotionContext) receivingBoundary(member int) (float64, error) {
 }
 
 func (c *couplingMotionContext) prepareLeg(phase couplingReservationPhase, moving [2]bool, start, end [2]float64, acceleration, profileCap float64) (couplingMotionLeg, error) {
-	leg := couplingMotionLeg{phase: phase, moving: moving, start: start, end: end, cap: profileCap, braking: acceleration}
+	leg := couplingMotionLeg{phase: phase, moving: moving, start: start, end: end, braking: acceleration}
 	for i := range moving {
-		if !moving[i] {
-			if start[i] != end[i] {
-				return leg, couplingDenied("stationary motion leg changes distance")
-			}
-			continue
+		if !moving[i] && start[i] != end[i] {
+			return leg, couplingDenied("stationary motion leg changes distance")
 		}
-		speedLimit, err := c.legCap(i, start[i], end[i], profileCap, acceleration)
-		if err != nil {
-			return leg, err
-		}
-		leg.cap = min(leg.cap, speedLimit)
+	}
+	var err error
+	leg.cap, err = c.legSpeedCap(moving, start, end, acceleration, profileCap)
+	if err != nil {
+		return leg, err
 	}
 	quantum, err := couplingMotionQuantum(start[0], start[1], end[0], end[1])
 	if err != nil {
@@ -282,6 +279,23 @@ func (c *couplingMotionContext) prepareLeg(phase couplingReservationPhase, movin
 		leg.ticks = leg.schedules[i].ticks
 	}
 	return leg, nil
+}
+
+// legSpeedCap returns the speed cap of a leg: the profile cap and the
+// lanes of each moving member from start through its stopping envelope.
+func (c *couplingMotionContext) legSpeedCap(moving [2]bool, start, end [2]float64, acceleration, profileCap float64) (float64, error) {
+	speedCap := profileCap
+	for i := range moving {
+		if !moving[i] {
+			continue
+		}
+		speedLimit, err := c.legCap(i, start[i], end[i], profileCap, acceleration)
+		if err != nil {
+			return 0, err
+		}
+		speedCap = min(speedCap, speedLimit)
+	}
+	return speedCap, nil
 }
 
 func (c *couplingMotionContext) legCap(member int, start, end, profileCap, braking float64) (float64, error) {

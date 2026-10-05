@@ -220,6 +220,7 @@ func (c *couplingMotionContext) prepareRemainingLegs(input couplingRemainingInpu
 			return couplingDenied("invalid or terminal serial drain coordinates")
 		}
 	}
+	origin := starts[c.firstLeg]
 	starts[c.firstLeg] = distances
 	moving := [5][2]bool{{false, true}, {true, true}, {true, false}, {first == 0, first == 1}, {second == 0, second == 1}}
 	for leg := c.firstLeg; leg < len(c.legs); leg++ {
@@ -236,6 +237,13 @@ func (c *couplingMotionContext) prepareRemainingLegs(input couplingRemainingInpu
 			return couplingDenied("remaining drain lacks ordinary swept separation")
 		}
 		var err error
+		// A resumed leg keeps the speed cap of its original start. The lanes
+		// behind the saved position can be slower than the lanes ahead.
+		if leg == c.firstLeg {
+			if speedCap, err = c.legSpeedCap(moving[leg], origin, ends[leg], acceleration, speedCap); err != nil {
+				return err
+			}
+		}
 		c.legs[leg], err = c.prepareLeg(phase, moving[leg], starts[leg], ends[leg], acceleration, speedCap)
 		if err != nil {
 			return err

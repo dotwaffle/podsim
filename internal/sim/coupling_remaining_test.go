@@ -6,6 +6,7 @@ import (
 	"maps"
 	"math"
 	"reflect"
+	"slices"
 	"testing"
 )
 
@@ -430,5 +431,143 @@ func TestCouplingRemainingRepeatedResumeAndOwnedInputs(t *testing.T) {
 	final := remainingTestRun(t, c, initial, maps.Clone(input.Current.Owners))
 	if final.State.Distances != full.terminal {
 		t.Fatal("repeated resumes changed final physical positions")
+	}
+}
+
+// remainingSpeedContext plans the motion fixture with the given lane speed
+// limits.
+func remainingSpeedContext(t *testing.T, speeds map[string]float64) (couplingReservationInput, *couplingMotionContext) {
+	t.Helper()
+	input := couplingMotionFixture(t, false, false)
+	network := input.Prepared.Network()
+	for i, lane := range network.Lanes {
+		if speed, ok := speeds[lane.ID]; ok {
+			network.Lanes[i].SpeedLimit = speed
+		}
+	}
+	prepared, err := PrepareNetwork(network)
+	if err != nil {
+		t.Fatal(err)
+	}
+	corridor := input.Network.corridors[input.CorridorID]
+	geometry := CouplingGeometryInput{Contract: CompactPairV1CouplingContract, Network: prepared.Network(), Sites: []CouplingSite{input.Network.sites[corridor.AssemblySiteID], input.Network.sites[corridor.SplitSiteID]}, Corridors: []CouplingCorridor{corridor}}
+	n, err := prepareCouplingReservations(prepared, geometry)
+	if err != nil {
+		t.Fatal(err)
+	}
+	input.Network, input.Prepared = n, prepared
+	for i := range input.Members {
+		for j, lane := range input.Members[i].Vehicle.Route {
+			input.Members[i].Vehicle.Route[j] = n.lanes[lane.ID].lane
+		}
+	}
+	reservation, err := planCouplingReservation(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := prepareCouplingMotionContext(couplingMotionContextInput{Reservation: reservation, Current: input, GroupID: "pair"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return input, c
+}
+
+// A resumed leg keeps the speed cap of the lane where the leg started. The
+// assembly lane is slower than the split lane, and the exit lanes are much
+// faster than both. Each save is past the lane where its leg started: the
+// connected leg on the split lane, and each drain leg on an exit lane. The
+// resume restarts the members from rest, so the resumed leg has the cap of
+// the uninterrupted leg, and each later tick equals the uninterrupted run.
+func TestCouplingRemainingKeepsStartLaneCap(t *testing.T) {
+	t.Parallel()
+	original, full := remainingSpeedContext(t, map[string]float64{"ab": 3, "front-road": 720, "rear-road": 720, "front-in": 720, "rear-in": 720})
+	for _, tc := range []struct {
+		name      string
+		phase     couplingReservationPhase
+		leg       int
+		startLane string
+	}{{"connected", couplingConnected, 1, "ab"}, {"drain_first", couplingDraining, 3, "bc"}, {"drain_second", couplingDraining, 4, "bc"}} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			moving := full.legs[tc.leg].moving
+			past := func(state couplingMotionState) bool {
+				for i, blocks := range full.reservation.routes {
+					lane := slices.IndexFunc(blocks.route, func(lane Lane) bool { return lane.ID == tc.startLane })
+					if moving[i] && state.Distances[i] <= blocks.lanes[lane+1].start {
+						return false
+					}
+				}
+				return true
+			}
+			var saved couplingMotionState
+			for elapsed := uint64(1); elapsed < full.ticks; elapsed++ {
+				state, err := full.stateAt(elapsed)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if state.Phase == tc.phase && state.Leg == tc.leg && past(state) {
+					saved = state
+					break
+				}
+			}
+			if saved.Elapsed == 0 {
+				t.Fatal("fixture has no save past the start lane of the leg")
+			}
+			input := remainingTestSnapshot(t, original, full, saved)
+			c, initial, err := prepareRemainingCouplingMotion(input)
+			if err != nil {
+				t.Fatal("resume past the start lane failed", err)
+			}
+			if c.legs[tc.leg].cap != full.legs[tc.leg].cap {
+				t.Fatalf("resumed leg cap %g differs from the uninterrupted cap %g", c.legs[tc.leg].cap, full.legs[tc.leg].cap)
+			}
+			for leg := tc.leg + 1; leg < len(c.legs); leg++ {
+				if !reflect.DeepEqual(c.legs[leg], full.legs[leg]) {
+					t.Fatalf("resume changed later leg %d", leg)
+				}
+			}
+			resumed := uint64(0)
+			for ; resumed < c.ticks; resumed++ {
+				state, err := c.stateAt(resumed)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if state.Phase != saved.Phase || state.Leg != saved.Leg {
+					break
+				}
+				if max(state.Speeds[0], state.Speeds[1]) > full.legs[tc.leg].cap {
+					t.Fatalf("resumed speeds %v exceed the start lane cap %g", state.Speeds, full.legs[tc.leg].cap)
+				}
+			}
+			later := saved.Elapsed
+			for ; later < full.ticks; later++ {
+				state, err := full.stateAt(later)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if state.Phase != saved.Phase || state.Leg != saved.Leg {
+					break
+				}
+			}
+			if c.ticks-resumed != full.ticks-later {
+				t.Fatal("resume changed the duration after the resumed leg")
+			}
+			for ; resumed <= c.ticks; resumed, later = resumed+1, later+1 {
+				a, err := c.stateAt(resumed)
+				if err != nil {
+					t.Fatal(err)
+				}
+				b, err := full.stateAt(later)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if a.Phase != b.Phase || a.Leg != b.Leg || a.Speeds != b.Speeds || a.Distances != b.Distances {
+					t.Fatalf("resumed tick %d differs from uninterrupted tick %d", resumed, later)
+				}
+			}
+			if final := remainingTestRun(t, c, initial, maps.Clone(input.Current.Owners)); final.State.Distances != full.terminal {
+				t.Fatal("resume changed derived terminal coordinates")
+			}
+		})
 	}
 }
