@@ -69,8 +69,6 @@ type physicalRestore struct {
 	// leaders holds one plus the index of the saved predecessor of each
 	// pod, or 0.
 	leaders        []int
-	stationBuffers bool
-	bufferPlatoons bool
 	compactMembers map[int]restoredCompactMember
 	compactGroups  []*compactBufferGroup
 }
@@ -106,8 +104,6 @@ func restorePhysical(input RestoreStateInput, newFleet func() (*Simulation, erro
 	if err := r.checkCouplingRestoreWork(); err != nil {
 		return nil, RestoreResult{}, err
 	}
-	r.stationBuffers = input.StationBuffers
-	r.bufferPlatoons = input.BufferPlatoons
 	if input.PlatoonLimit != 0 {
 		if err := s.SetPlatoonLimit(input.PlatoonLimit); err != nil {
 			return nil, RestoreResult{}, err
@@ -559,7 +555,7 @@ func (r *physicalRestore) buildRoutes() error {
 			pickup := slices.ContainsFunc(r.state.Waiting, func(trip SavedTrip) bool {
 				return trip.Request.PodID == v.Pod.ID && trip.Request.From == v.destinationStation
 			})
-			if !r.stationBuffers || !eligible || !v.carriesPassengers() && !pickup && !v.released && v.Pod.Activity != Boarding && v.Pod.Activity != Continuing {
+			if !eligible || !v.carriesPassengers() && !pickup && !v.released && v.Pod.Activity != Boarding && v.Pod.Activity != Continuing {
 				return fmt.Errorf("pod %s: invalid station buffer membership", v.Pod.ID)
 			}
 			v.buffered = true
@@ -816,8 +812,8 @@ func (r *physicalRestore) placeTravelingPod(index, leader int) (bool, error) {
 	// A pod that has no berth yet chooses one before it reserves the last lane.
 	if lastLane, _ := routeLaneBlocks(&v.blocks, len(v.Route)-1); v.destination.ID == "" && through >= lastLane {
 		plan, ok := r.s.bufferPlan(v)
-		bufferLink := leader >= 0 && r.bufferPlatoons && saved.Platoon != nil && (saved.Platoon.Kind == "buffer" || saved.Platoon.Kind == "compact-buffer-v1")
-		if !r.stationBuffers || !v.buffered || !ok || leader >= 0 && !bufferLink || through > plan.frontier || distance > v.blocks.end(plan.frontier)+restoreTolerance {
+		bufferLink := leader >= 0 && saved.Platoon != nil && (saved.Platoon.Kind == "buffer" || saved.Platoon.Kind == "compact-buffer-v1")
+		if !v.buffered || !ok || leader >= 0 && !bufferLink || through > plan.frontier || distance > v.blocks.end(plan.frontier)+restoreTolerance {
 			return false, nil
 		}
 		through = max(through, plan.entryStop)

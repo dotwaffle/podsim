@@ -37,17 +37,11 @@ func checkCompactFields(input RestoreStateInput) error {
 	if mode != "" && mode != StationQueueOrdinary && mode != StationQueueCompactV1 {
 		return errors.New("invalid restored station queue spacing")
 	}
-	if mode == StationQueueCompactV1 && !input.StationBuffers {
-		return errors.New("compact policy requires restored station buffers")
-	}
 	if input.PlatoonLimit != 0 && (input.PlatoonLimit < MinPlatoonLimit || input.PlatoonLimit > MaxPlatoonLimit) {
 		return errors.New("invalid restored platoon limit")
 	}
 	if !hasCompactCertificate(input.State) {
 		return nil
-	}
-	if !input.CompactQueues || !input.StationBuffers || !input.BufferPlatoons {
-		return errors.New("compact certificate requires the save-6 physical contracts")
 	}
 	claimed := make(map[string]bool)
 	for _, pod := range input.State.Pods {
@@ -207,8 +201,10 @@ func (r *physicalRestore) finishCompactRestore(input RestoreStateInput) error {
 			group.recovering = true
 		}
 	}
+	// A compact group and the compact policy both need station buffers.
+	// The caller then applies the buffer setting of the project.
 	if len(r.compactGroups) > 0 || input.StationQueueSpacing == StationQueueCompactV1 {
-		r.s.stationBuffers = input.StationBuffers
+		r.s.stationBuffers = true
 		r.s.stationQueueSpacing = input.StationQueueSpacing
 	}
 	return nil

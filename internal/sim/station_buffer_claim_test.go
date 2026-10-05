@@ -73,7 +73,7 @@ func TestStationBufferDefersReleasedClaimantReroute(t *testing.T) {
 		t.Fatal("claimant rerouted while its admission intent was queued")
 	}
 	delete(s.owners, resource{kind: trackResource, id: route[0].ID, cell: 0})
-	loaded, result, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: s.ExportState(), StationBuffers: true})
+	loaded, result, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: s.ExportState()})
 	if err != nil || result.Tier != RestorePhysical || len(result.Demoted)+len(result.Requeued)+len(result.Dropped) != 0 {
 		t.Fatalf("yielded claim restore: %+v %v", result, err)
 	}
@@ -96,7 +96,7 @@ func TestStationBufferYieldsUnadmittedRelocationClaim(t *testing.T) {
 			t.Parallel()
 			s := bufferedHeadWithRelocation(t)
 			if restore {
-				loaded, result, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: s.ExportState(), StationBuffers: true})
+				loaded, result, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: s.ExportState()})
 				if err != nil || result.Tier != RestorePhysical || len(result.Demoted)+len(result.Requeued)+len(result.Dropped) != 0 {
 					t.Fatalf("buffer cycle restore: %+v %v", result, err)
 				}

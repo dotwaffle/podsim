@@ -39,7 +39,7 @@ func compactDischargeEndpoint(t *testing.T, mode StationQueueSpacing) *Simulatio
 	if err = json.Unmarshal(raw, &state); err != nil {
 		t.Fatal(err)
 	}
-	s, result, err := RestoreState(RestoreStateInput{Network: network, Fleet: fleet, State: state, StationBuffers: true, BufferPlatoons: true, CompactQueues: true, StationQueueSpacing: mode, PlatoonLimit: 4})
+	s, result, err := RestoreState(RestoreStateInput{Network: network, Fleet: fleet, State: state, StationQueueSpacing: mode, PlatoonLimit: 4})
 	if err != nil || result.Tier != RestorePhysical || result.PhysicalError != nil || len(result.Demoted)+len(result.Requeued)+len(result.Dropped) != 0 {
 		t.Fatalf("restore: %+v %v", result, err)
 	}

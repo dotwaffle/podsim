@@ -208,7 +208,7 @@ func TestPickupReassignmentUpstreamBuffers(t *testing.T) {
 			t.Fatal("upstream swap lost buffer membership or motion")
 		}
 	}
-	restored, result, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: s.ExportState(), StationBuffers: true})
+	restored, result, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: s.ExportState()})
 	if err != nil || result.Tier != RestorePhysical || len(result.Demoted)+len(result.Requeued)+len(result.Dropped) != 0 {
 		t.Fatalf("swapped buffer pickups did not restore physically: %+v %v", result, err)
 	}

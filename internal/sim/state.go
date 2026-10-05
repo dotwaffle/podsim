@@ -199,8 +199,6 @@ type RestoreStateInput struct {
 	CouplingEnabled   bool
 	CouplingSites     []CouplingSite
 	CouplingCorridors []CouplingCorridor
-	// BoardingRecords permits native boarding records under the save-6 contract.
-	BoardingRecords bool
 	// OnboardPickups permits new occupied pickups after restoration.
 	OnboardPickups  bool
 	ExpressServices []ExpressService
@@ -209,14 +207,6 @@ type RestoreStateInput struct {
 	State           SavedState
 	// LogicalOnly makes RestoreState skip the physical tier.
 	LogicalOnly bool
-	// StationBuffers selects the version 3 physical buffer contract.
-	// It does not enable new buffer admissions after restoration.
-	StationBuffers bool
-	// BufferPlatoons selects the version 4 fixed entry certificate contract.
-	// It does not enable formations or buffer admissions after restoration.
-	BufferPlatoons bool
-	// CompactQueues selects the save-6 compact certificate contract.
-	CompactQueues bool
 	// StationQueueSpacing selects the restored runtime policy, ordinary by default.
 	StationQueueSpacing StationQueueSpacing
 	// PlatoonLimit validates anticipatory capacity. Zero selects the default.

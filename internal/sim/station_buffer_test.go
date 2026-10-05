@@ -79,27 +79,27 @@ func TestStationBufferHoldingAndFailedCommit(t *testing.T) {
 
 func TestStationBufferRestoreContractAndDisabledDrain(t *testing.T) {
 	t.Parallel()
-	for _, enabled := range []bool{false, true} {
-		t.Run(map[bool]string{false: "v2", true: "v3"}[enabled], func(t *testing.T) {
+	for _, buffered := range []bool{false, true} {
+		t.Run(map[bool]string{false: "unbuffered", true: "buffered"}[buffered], func(t *testing.T) {
 			t.Parallel()
 			s := stoppedBufferFixture(t)
 			saved := s.ExportState()
-			if !enabled {
+			if !buffered {
 				saved.Pods[0].StationBuffered = false
 			}
-			input := RestoreStateInput{Network: s.network, Fleet: s.initial, State: saved, StationBuffers: enabled}
+			input := RestoreStateInput{Network: s.network, Fleet: s.initial, State: saved}
 			restored, result, err := RestoreState(input)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !enabled {
+			if !buffered {
 				if len(result.Demoted) != 1 {
-					t.Fatalf("v2 accepted a final-lane berthless pod: %+v", result)
+					t.Fatalf("restore accepted an unbuffered final-lane berthless pod: %+v", result)
 				}
 				return
 			}
 			if result.Tier != RestorePhysical || len(result.Demoted)+len(result.Requeued)+len(result.Dropped) != 0 {
-				t.Fatalf("v3 failed faithful restore: %+v", result)
+				t.Fatalf("buffered pod failed faithful restore: %+v", result)
 			}
 			v := &restored.vehicles[0]
 			if restored.stationBuffers || !v.buffered || v.Pod.Position != s.vehicles[0].Pod.Position || v.waitSince != s.vehicles[0].waitSince {
@@ -130,7 +130,7 @@ func TestStationBufferRejectsUnsafeRestore(t *testing.T) {
 		} else {
 			state.Pods[0].DestinationStation = "garden"
 		}
-		_, result, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: state, StationBuffers: true})
+		_, result, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: state})
 		if err == nil && len(result.Demoted) == 0 && result.Tier == RestorePhysical {
 			t.Fatalf("unsafe buffer restored physically: beyond=%t result=%+v", beyond, result)
 		}
@@ -144,16 +144,16 @@ func TestStationBufferPreparedRestore(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, version3 := range []bool{false, true} {
+	for _, buffered := range []bool{false, true} {
 		state := s.ExportState()
-		if !version3 {
+		if !buffered {
 			state.Pods[0].StationBuffered = false
 		}
-		ordinary, want, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: state, StationBuffers: version3})
+		ordinary, want, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: state})
 		if err != nil {
 			t.Fatal(err)
 		}
-		cached, got, err := prepared.RestoreState(PreparedRestoreInput{Fleet: s.initial, State: state, StationBuffers: version3})
+		cached, got, err := prepared.RestoreState(PreparedRestoreInput{Fleet: s.initial, State: state})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -161,7 +161,7 @@ func TestStationBufferPreparedRestore(t *testing.T) {
 			t.Fatalf("unexpected physical error: got=%v want=%v", got.PhysicalError, want.PhysicalError)
 		}
 		if !sameRestoreResult(got, want) || !reflect.DeepEqual(cached.ExportState(), ordinary.ExportState()) {
-			t.Fatalf("prepared contract differs: version3=%t got=%+v want=%+v err=%v", version3, got, want, err)
+			t.Fatalf("prepared contract differs: buffered=%t got=%+v want=%+v err=%v", buffered, got, want, err)
 		}
 	}
 }
@@ -176,7 +176,7 @@ func TestStationBufferRestoreDuringEntry(t *testing.T) {
 		if !ok || v.Pod.LaneID != plan.lane.ID || v.Pod.LaneDistance >= Clearance {
 			continue
 		}
-		restored, result, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: s.ExportState(), StationBuffers: true})
+		restored, result, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: s.ExportState()})
 		if err != nil || len(result.Demoted) != 0 {
 			t.Fatalf("entry restore failed: %+v %v", result, err)
 		}
@@ -244,7 +244,7 @@ func TestStationBufferQueueRestoreAndHeadOrder(t *testing.T) {
 			if head == "" || s.completed != 0 {
 				t.Fatal("queue lacks an uncompleted physical head")
 			}
-			restored, result, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: s.ExportState(), StationBuffers: true})
+			restored, result, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: s.ExportState()})
 			if err != nil || result.Tier != RestorePhysical || len(result.Demoted)+len(result.Requeued)+len(result.Dropped) != 0 {
 				t.Fatalf("queue restore: %+v %v", result, err)
 			}
@@ -400,7 +400,7 @@ func TestStationBufferRestoresPendingAdmission(t *testing.T) {
 	stepUntil(t, s, "upstream pending membership", func() bool {
 		return s.vehicles[0].buffered && s.vehicles[0].Pod.Activity == Traveling && s.vehicles[0].Pod.LaneID != "market-approach"
 	})
-	restored, result, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: s.ExportState(), StationBuffers: true})
+	restored, result, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: s.ExportState()})
 	if err != nil || result.Tier != RestorePhysical || len(result.Demoted) != 0 {
 		t.Fatalf("pending restore: %+v %v", result, err)
 	}
@@ -429,7 +429,7 @@ func TestStationBufferConflictingRestore(t *testing.T) {
 	state := s.ExportState()
 	state.Pods[1].LaneDistance = state.Pods[0].LaneDistance
 	state.Pods[1].Distance = state.Pods[0].Distance
-	_, result, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: state, StationBuffers: true})
+	_, result, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: state})
 	if err == nil && result.Tier == RestorePhysical && len(result.Demoted) == 0 {
 		t.Fatal("overlapping queue restored without loss report")
 	}
@@ -521,7 +521,7 @@ func TestStationBufferDisabledRestoreKeepsOrdinaryTrip(t *testing.T) {
 	if s.findVehicle("02").buffered {
 		t.Fatal("ordinary trip entered buffer before save")
 	}
-	restored, result, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: s.ExportState(), StationBuffers: true})
+	restored, result, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: s.ExportState()})
 	if err != nil || result.Tier != RestorePhysical || len(result.Demoted) != 0 {
 		t.Fatalf("mixed restore: %+v %v", result, err)
 	}
@@ -561,7 +561,7 @@ func TestStationBufferReleasedPickupDrain(t *testing.T) {
 			if _, err := state.checkContract(); err != nil {
 				t.Fatal(err)
 			}
-			restored, result, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: state, StationBuffers: true})
+			restored, result, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: state})
 			if err != nil || result.Tier != RestorePhysical || len(result.Demoted) != 0 {
 				t.Fatalf("released restore: %+v %v", result, err)
 			}
@@ -661,7 +661,7 @@ func TestStationBufferHeadBeforeAssignedPickup(t *testing.T) {
 						t.Fatal("head destination committed without berth ownership")
 					}
 					if restore {
-						restored, result, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: s.ExportState(), StationBuffers: true})
+						restored, result, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: s.ExportState()})
 						if err != nil || result.Tier != RestorePhysical || len(result.Demoted)+len(result.Requeued)+len(result.Dropped) != 0 {
 							t.Fatalf("head/pickup restore: %+v %v", result, err)
 						}

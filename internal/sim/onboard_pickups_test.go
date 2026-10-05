@@ -240,7 +240,7 @@ func TestOnboardPickupsActualPhaseRestores(t *testing.T) {
 			if len(saved.Pods[0].Boardings) != 3 || saved.Pods[0].Boardings[2].MetersAtBoarding <= 0 {
 				t.Fatal("actual exporter omitted positive baseline records")
 			}
-			restored, result, err := RestoreState(RestoreStateInput{Network: live.network, Fleet: []Placement{{ID: "01", StationID: "harbor", BerthID: "harbor-1"}}, State: saved, BoardingRecords: true})
+			restored, result, err := RestoreState(RestoreStateInput{Network: live.network, Fleet: []Placement{{ID: "01", StationID: "harbor", BerthID: "harbor-1"}}, State: saved})
 			if err != nil || !cleanRestore(result) {
 				t.Fatalf("actual phase restore: %+v %v", result, err)
 			}

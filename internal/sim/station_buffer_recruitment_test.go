@@ -172,7 +172,7 @@ func restoreBufferQueue(t *testing.T, s *Simulation, enabled bool) *Simulation {
 
 func restoreBufferQueueState(t *testing.T, s *Simulation, state SavedState) *Simulation {
 	t.Helper()
-	r, result, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: state, StationBuffers: true, BufferPlatoons: true})
+	r, result, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: state})
 	if err != nil || result.Tier != RestorePhysical || result.PhysicalError != nil || len(result.Demoted)+len(result.Requeued)+len(result.Dropped) != 0 {
 		t.Fatalf("physical restore: %+v %v", result, err)
 	}
@@ -273,7 +273,7 @@ func departingBufferQueue(t *testing.T) *Simulation {
 		pod.Distance += position - pod.LaneDistance
 		pod.LaneDistance = position
 	}
-	s, result, err := RestoreState(RestoreStateInput{Network: network, Fleet: fleet, State: state, StationBuffers: true})
+	s, result, err := RestoreState(RestoreStateInput{Network: network, Fleet: fleet, State: state})
 	if err != nil || result.Tier != RestorePhysical || len(result.Demoted) != 0 {
 		t.Fatalf("adjacent queue restore: %+v %v", result, err)
 	}

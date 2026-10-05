@@ -230,17 +230,12 @@ type PreparedRestoreInput struct {
 	CouplingEnabled   bool
 	CouplingSites     []CouplingSite
 	CouplingCorridors []CouplingCorridor
-	// BoardingRecords selects the current save contract for native records.
-	BoardingRecords bool
 	// OnboardPickups enables new occupied pickups after restoration.
 	OnboardPickups      bool
 	ExpressServices     []ExpressService
 	Fleet               []Placement
 	State               SavedState
 	LogicalOnly         bool
-	StationBuffers      bool
-	BufferPlatoons      bool
-	CompactQueues       bool
 	StationQueueSpacing StationQueueSpacing
 	PlatoonLimit        int
 }
@@ -255,10 +250,8 @@ func (p *PreparedNetwork) RestoreState(input PreparedRestoreInput) (*Simulation,
 	stateInput := RestoreStateInput{
 		OrderContract: input.OrderContract, CouplingContract: input.CouplingContract,
 		CouplingEnabled: input.CouplingEnabled, CouplingSites: input.CouplingSites, CouplingCorridors: input.CouplingCorridors,
-		BoardingRecords: input.BoardingRecords, OnboardPickups: input.OnboardPickups,
-		ExpressServices: input.ExpressServices, Network: p.network, Fleet: input.Fleet,
-		State: input.State, LogicalOnly: input.LogicalOnly, StationBuffers: input.StationBuffers,
-		BufferPlatoons: input.BufferPlatoons, CompactQueues: input.CompactQueues,
+		OnboardPickups: input.OnboardPickups, ExpressServices: input.ExpressServices,
+		Network: p.network, Fleet: input.Fleet, State: input.State, LogicalOnly: input.LogicalOnly,
 		StationQueueSpacing: input.StationQueueSpacing, PlatoonLimit: input.PlatoonLimit,
 	}
 	return restoreState(stateInput, func() (*Simulation, error) {

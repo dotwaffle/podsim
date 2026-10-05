@@ -35,7 +35,6 @@
           ]
         }
       ],
-      "BoardingRecords": false,
       "OnboardPickups": false,
       "ExpressServices": null,
       "Network": {
@@ -330,9 +329,6 @@
         }
       ],
       "LogicalOnly": false,
-      "StationBuffers": false,
-      "BufferPlatoons": false,
-      "CompactQueues": false,
       "StationQueueSpacing": "",
       "PlatoonLimit": 0
     },
@@ -369,7 +365,6 @@
           ]
         }
       ],
-      "BoardingRecords": false,
       "OnboardPickups": false,
       "ExpressServices": null,
       "Network": {
@@ -664,9 +659,6 @@
         }
       ],
       "LogicalOnly": false,
-      "StationBuffers": false,
-      "BufferPlatoons": false,
-      "CompactQueues": false,
       "StationQueueSpacing": "",
       "PlatoonLimit": 0
     }
@@ -674,7 +666,7 @@
   "frames": [
     {
       "name": "occupied-false-phase-1-leg-0.json",
-      "sha256": "c4e86080546b0a32cd6dfaaac6109c9b1562cc7682a03c89bbc3edb5fe62401d",
+      "sha256": "ff5ca2f83d7d4902fe00ab77483f9eda325fdd82224bb3f2dfb5c4c258d8ac21",
       "cohort": "empty",
       "state": {
         "couplingContract": "compact-pair-v1",
@@ -756,7 +748,7 @@
     },
     {
       "name": "occupied-false-phase-2-leg--1.json",
-      "sha256": "3de6381de8ba83699070f3624a4779a184690b60ef43077e58cdfdda646bebe6",
+      "sha256": "4e8a915ba56c498ea318e736d7ccd9bd0c131d2e5f63d025635d82307e529240",
       "cohort": "empty",
       "state": {
         "couplingContract": "compact-pair-v1",
@@ -838,7 +830,7 @@
     },
     {
       "name": "occupied-false-phase-3-leg-1.json",
-      "sha256": "eaaedc037acb47a35b61bae9cf66de4ebb0fc06da1c1ff3d43f89f3b5199330d",
+      "sha256": "eedc57cd845accc5db1aa53a7aabee5e38c3b6cd060f7a0f7f2d2289dfde75e6",
       "cohort": "empty",
       "state": {
         "couplingContract": "compact-pair-v1",
@@ -920,7 +912,7 @@
     },
     {
       "name": "occupied-false-phase-4-leg--1.json",
-      "sha256": "64a658ad4632be7de3d1ef4301211cf96b4dffc33f46086b9bdf3aa00339b669",
+      "sha256": "3177adc36d43deb3472375d3af828b57ab11bb78ead875a0712dccb3d7a0fad5",
       "cohort": "empty",
       "state": {
         "couplingContract": "compact-pair-v1",
@@ -1004,7 +996,7 @@
     },
     {
       "name": "occupied-false-phase-5-leg-2.json",
-      "sha256": "87e99ee9a60d1a56eedc6437f149c1657b84b5208de526eae949f6a0e19ddb94",
+      "sha256": "a1ddaabdf39eab1c4eed46373ce81f62e6346aaca113a0e4e8267b9ac43f9df2",
       "cohort": "empty",
       "state": {
         "couplingContract": "compact-pair-v1",
@@ -1088,7 +1080,7 @@
     },
     {
       "name": "occupied-false-phase-6-leg-3.json",
-      "sha256": "15c2e5ad485c24676e19840dee93c549dfa64d76fca9330a9655894313d7bb4d",
+      "sha256": "193ebec018f2885d0120eb27b94deb8ee00545d1acaa637d900faedb814382ca",
       "cohort": "empty",
       "state": {
         "couplingContract": "compact-pair-v1",
@@ -1172,7 +1164,7 @@
     },
     {
       "name": "occupied-false-phase-6-leg-4.json",
-      "sha256": "d7f239a5faaf8bd73bab43804a9f143bc4e412b19f693e22f20096df491fc3e1",
+      "sha256": "02a21eb5da24bf1c39ef723ef64e6b5881cd2892c8e0832b8b2371c8fbbefab4",
       "cohort": "empty",
       "state": {
         "couplingContract": "compact-pair-v1",
@@ -1256,7 +1248,7 @@
     },
     {
       "name": "occupied-true-phase-1-leg-0.json",
-      "sha256": "587de09f88310c07ea8de0c339d50cbb21574890937708d704d71557ba26a187",
+      "sha256": "998739b67ca6a75f5ed2f8f944121dab42c90f5cab6c78a36605af9905f37d87",
       "cohort": "occupied",
       "state": {
         "couplingContract": "compact-pair-v1",
@@ -1370,7 +1362,7 @@
     },
     {
       "name": "occupied-true-phase-2-leg--1.json",
-      "sha256": "b5754b0b397540fe22b5681612cf0b4a1e655bce21f88dfe39d953c071b8546c",
+      "sha256": "ec360830fa1f77734e891ba8f08a8cb05f53a498292c442be01921b57825204d",
       "cohort": "occupied",
       "state": {
         "couplingContract": "compact-pair-v1",
@@ -1484,7 +1476,7 @@
     },
     {
       "name": "occupied-true-phase-3-leg-1.json",
-      "sha256": "e987d85503711596eda79b9e4fb6ecf329dc7134155e139ad656879febf6dd46",
+      "sha256": "5215f506325222809c39904cb4a8d3802997e3dcb95083fbf8c1bf76285d42a6",
       "cohort": "occupied",
       "state": {
         "couplingContract": "compact-pair-v1",
@@ -1598,7 +1590,7 @@
     },
     {
       "name": "occupied-true-phase-4-leg--1.json",
-      "sha256": "fc045a95c5bf146ff8b68f9252cfd7afa8c24eaae8983498c5f05ca3f2a63c34",
+      "sha256": "388e25995bf6586cc68ece431969b92f1a0291ad88fa8d5a13de9bb7639c27f6",
       "cohort": "occupied",
       "state": {
         "couplingContract": "compact-pair-v1",
@@ -1714,7 +1706,7 @@
     },
     {
       "name": "occupied-true-phase-5-leg-2.json",
-      "sha256": "4f6bc94543d53709305ceacd35902bf60f8ae8e8e4880bb7be9f298dda1adecc",
+      "sha256": "1ecf2e28999dd4c70fbd53f5cc74e59bba1e194794e53e9cac4db81ed93495b1",
       "cohort": "occupied",
       "state": {
         "couplingContract": "compact-pair-v1",
@@ -1830,7 +1822,7 @@
     },
     {
       "name": "occupied-true-phase-6-leg-3.json",
-      "sha256": "3937168fc509dd73a3f62a53903778ca0a82a147270e695046bddda4596ced7f",
+      "sha256": "fe7ffc42c3b501a452398880074fbcc1e8e4dd7d5de14d2c6b6149e6d2fa73a9",
       "cohort": "occupied",
       "state": {
         "couplingContract": "compact-pair-v1",
@@ -1946,7 +1938,7 @@
     },
     {
       "name": "occupied-true-phase-6-leg-4.json",
-      "sha256": "dc7a6a2106a4c84968e3dbce02421de8e098227ec5acebb24e454392d591c1b1",
+      "sha256": "69dd5b778d20e62d22cae0ccad83b32d7b3b5ea3108421451034659c4e6e599b",
       "cohort": "occupied",
       "state": {
         "couplingContract": "compact-pair-v1",

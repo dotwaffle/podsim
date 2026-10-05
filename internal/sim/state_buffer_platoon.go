@@ -35,7 +35,8 @@ func checkRestoredBufferMembers(state SavedState, result RestoreResult) error {
 	return nil
 }
 
-// checkBufferLinkFields preserves the earlier restore contracts.
+// checkBufferLinkFields refuses a saved link to a station buffer that does
+// not have the fields of a fixed buffer run, before either restore tier.
 func checkBufferLinkFields(input RestoreStateInput) error {
 	for _, pod := range input.State.Pods {
 		link := pod.Platoon
@@ -48,7 +49,7 @@ func checkBufferLinkFields(input RestoreStateInput) error {
 		if link.Kind == "" && link.TerminalCell == nil {
 			continue
 		}
-		if !input.BufferPlatoons || !input.StationBuffers || link.Kind != "buffer" || link.TerminalCell == nil || *link.TerminalCell < 0 || link.Lanes != 1 {
+		if link.Kind != "buffer" || link.TerminalCell == nil || *link.TerminalCell < 0 || link.Lanes != 1 {
 			return fmt.Errorf("pod %s: %w", pod.ID, errBufferCertificate)
 		}
 	}
@@ -60,7 +61,7 @@ func (r *physicalRestore) checkSavedBufferLink(index int) error {
 	v, leader := &r.s.vehicles[index], &r.s.vehicles[r.leaders[index]-1]
 	saved := r.state.Pods[index]
 	link := saved.Platoon
-	if !r.bufferPlatoons || !r.stationBuffers || !v.buffered || v.Route == nil || leader.Route == nil ||
+	if !v.buffered || v.Route == nil || leader.Route == nil ||
 		link.Lane < 0 || link.Lane != len(v.Route)-1 || link.LeaderLane < 0 || link.LeaderLane >= len(leader.Route) ||
 		v.Route[link.Lane].ID != leader.Route[link.LeaderLane].ID || v.destinationStation != leader.destinationStation {
 		return errors.New("the fixed buffer run is not on both member routes")

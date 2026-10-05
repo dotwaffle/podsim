@@ -284,7 +284,7 @@ func TestCouplingNativeStepMultiplePairs(t *testing.T) {
 		corridors = append(corridors, corridor)
 	}
 	s, _, err := RestoreState(RestoreStateInput{Network: source.network, Fleet: source.initial, State: state,
-		CouplingContract: n.contract, CouplingSites: sites, CouplingCorridors: corridors, BoardingRecords: true})
+		CouplingContract: n.contract, CouplingSites: sites, CouplingCorridors: corridors})
 	if err != nil {
 		t.Fatal(err)
 	}

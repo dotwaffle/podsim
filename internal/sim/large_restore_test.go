@@ -209,7 +209,7 @@ func TestLargeRestoreRecordedOriginMismatch(t *testing.T) {
 	pod.RiddenMeters = 10
 	pod.Origin = "garden-1"
 	state := f.state(pod)
-	s, result, err := RestoreState(RestoreStateInput{Network: f.network, Fleet: f.fleet, State: state, BoardingRecords: true})
+	s, result, err := RestoreState(RestoreStateInput{Network: f.network, Fleet: f.fleet, State: state})
 	if err != nil || result.Tier != RestorePhysical || !slices.Equal(result.Demoted, []string{"01"}) || !slices.Equal(result.Requeued, []int{1, 2}) {
 		t.Fatalf("wrong retained origin: %+v, %v", result, err)
 	}
@@ -227,7 +227,7 @@ func TestLargeRestoreRecordedFallbackConservation(t *testing.T) {
 			pod.RiddenMeters = 10
 			pod.Route = nil
 			state := f.state(pod)
-			s, result, err := RestoreState(RestoreStateInput{Network: f.network, Fleet: f.fleet, State: state, BoardingRecords: true, LogicalOnly: logical})
+			s, result, err := RestoreState(RestoreStateInput{Network: f.network, Fleet: f.fleet, State: state, LogicalOnly: logical})
 			if err != nil || !slices.Equal(result.Requeued, []int{1, 2}) {
 				t.Fatalf("record fallback: %+v, %v", result, err)
 			}

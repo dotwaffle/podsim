@@ -107,7 +107,7 @@ func TestPickupBufferRestore(t *testing.T) {
 				}
 			}
 			restored, result, err := RestoreState(RestoreStateInput{
-				Network: s.network, Fleet: s.initial, State: state, StationBuffers: true,
+				Network: s.network, Fleet: s.initial, State: state,
 			})
 			if err != nil || result.Tier != RestorePhysical || len(result.Demoted)+len(result.Requeued)+len(result.Dropped) != 0 {
 				t.Fatalf("restore failed: %+v %v", result, err)

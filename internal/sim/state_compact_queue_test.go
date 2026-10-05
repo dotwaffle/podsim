@@ -10,9 +10,14 @@ import (
 
 func compactRestore(t *testing.T, s *Simulation, state SavedState, mode StationQueueSpacing) *Simulation {
 	t.Helper()
-	r, result, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: state, StationBuffers: true, BufferPlatoons: true, CompactQueues: true, StationQueueSpacing: mode, PlatoonLimit: s.platoonLimit})
+	r, result, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: state, StationQueueSpacing: mode, PlatoonLimit: s.platoonLimit})
 	if err != nil || result.Tier != RestorePhysical || result.PhysicalError != nil || len(result.Demoted)+len(result.Dropped)+len(result.Requeued) != 0 {
 		t.Fatalf("physical compact restore: %+v %v", result, err)
+	}
+	// A restored compact group and the compact policy need station buffers
+	// before the caller applies the project settings.
+	if (hasCompactCertificate(state) || mode == StationQueueCompactV1) && !r.stationBuffers {
+		t.Fatal("compact restore left station buffers disabled")
 	}
 	if err := r.SetPlatooning(PlatooningVirtual); err != nil {
 		t.Fatal(err)
@@ -120,20 +125,14 @@ func TestStationCompactMalformedRestore(t *testing.T) {
 			for _, logical := range []bool{false, true} {
 				state := roundTripState(t, baseState)
 				tc.edit(&state)
-				r, _, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: state, StationBuffers: true, BufferPlatoons: true, CompactQueues: true, StationQueueSpacing: StationQueueCompactV1, LogicalOnly: logical})
+				r, _, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: state, StationQueueSpacing: StationQueueCompactV1, LogicalOnly: logical})
 				if err == nil || r != nil {
 					t.Fatal("invalid compact certificate fell back or repaired")
 				}
 			}
 		})
 	}
-	for _, logical := range []bool{false, true} {
-		_, _, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: s.ExportState(), StationBuffers: true, BufferPlatoons: true, LogicalOnly: logical})
-		if err == nil {
-			t.Fatal("older contract accepted compact certificate")
-		}
-	}
-	_, _, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: s.ExportState(), StationBuffers: true, BufferPlatoons: true, CompactQueues: true, LogicalOnly: true})
+	_, _, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: s.ExportState(), LogicalOnly: true})
 	if err == nil {
 		t.Fatal("logical-only discarded valid compact physical proof")
 	}
@@ -317,7 +316,7 @@ func TestStationCompactClassDeparture(t *testing.T) {
 		fleet[i].Class = CompactClass
 		state.Pods[i].Class = CompactClass
 	}
-	s, result, err := RestoreState(RestoreStateInput{Network: fixture.network, Fleet: fleet, State: state, StationBuffers: true})
+	s, result, err := RestoreState(RestoreStateInput{Network: fixture.network, Fleet: fleet, State: state})
 	if err != nil || result.Tier != RestorePhysical || len(result.Demoted) != 0 {
 		t.Fatalf("compact-class fixture restore: %+v %v", result, err)
 	}
@@ -358,8 +357,8 @@ func TestStationCompactPreparedRestore(t *testing.T) {
 	}
 	state := s.ExportState()
 	for _, mode := range []StationQueueSpacing{StationQueueCompactV1, StationQueueOrdinary} {
-		r, result, restoreErr := prepared.RestoreState(PreparedRestoreInput{Fleet: s.initial, State: state, StationBuffers: true, BufferPlatoons: true,
-			CompactQueues: true, StationQueueSpacing: mode, PlatoonLimit: s.platoonLimit})
+		r, result, restoreErr := prepared.RestoreState(PreparedRestoreInput{Fleet: s.initial, State: state,
+			StationQueueSpacing: mode, PlatoonLimit: s.platoonLimit})
 		if restoreErr != nil || result.Tier != RestorePhysical || r.StationQueueSpacing() != mode || r.platoonLimit != s.platoonLimit {
 			t.Fatalf("prepared compact restore: %+v %v", result, restoreErr)
 		}
@@ -369,8 +368,5 @@ func TestStationCompactPreparedRestore(t *testing.T) {
 		if mode == StationQueueOrdinary && !r.compactGroups[0].recovering {
 			t.Fatal("prepared ordinary policy discarded retained recovery")
 		}
-	}
-	if _, _, err := prepared.RestoreState(PreparedRestoreInput{Fleet: s.initial, State: state, StationBuffers: true, BufferPlatoons: true}); err == nil {
-		t.Fatal("prepared restore accepted a certificate without its contract")
 	}
 }

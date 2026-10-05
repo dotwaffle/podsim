@@ -14,9 +14,6 @@ func checkBoardingFields(input RestoreStateInput) error {
 			}
 			continue
 		}
-		if !input.BoardingRecords {
-			return errors.New("boarding records require the current save contract")
-		}
 		if err := input.State.checkPod(pod); err != nil {
 			return fmt.Errorf("pod %s boarding records: %w", pod.ID, err)
 		}

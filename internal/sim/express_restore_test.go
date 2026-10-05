@@ -15,7 +15,7 @@ func checkExpressJourneyColdRestore(t *testing.T, live *Simulation, network Netw
 	for _, service := range live.expressServices {
 		services = append(services, service)
 	}
-	cold, result, err := RestoreState(RestoreStateInput{OrderContract: ExpressOrderContract, Network: network, Fleet: fleet, State: saved, ExpressServices: services, BoardingRecords: true, OnboardPickups: live.onboardPickups, StationBuffers: true})
+	cold, result, err := RestoreState(RestoreStateInput{OrderContract: ExpressOrderContract, Network: network, Fleet: fleet, State: saved, ExpressServices: services, OnboardPickups: live.onboardPickups})
 	if err != nil || !cleanRestore(result) {
 		t.Fatalf("tick %d cold restore: %+v %v", live.tick, result, err)
 	}
@@ -235,7 +235,7 @@ func TestExpressRestoreLinksRejectBeforeTiers(t *testing.T) {
 						}
 						state.Pods[1].Platoon = &SavedPlatoonLink{Leader: "01", Kind: nativeKind}
 					}
-					input := RestoreStateInput{OrderContract: ExpressOrderContract, Network: n, Fleet: fleet, State: state, LogicalOnly: logical, BufferPlatoons: true, CompactQueues: true}
+					input := RestoreStateInput{OrderContract: ExpressOrderContract, Network: n, Fleet: fleet, State: state, LogicalOnly: logical}
 					if _, _, err := restoreState(input, func() (*Simulation, error) { t.Fatal("large link reached restore tier"); return nil, nil }); err == nil {
 						t.Fatal("large link accepted")
 					}

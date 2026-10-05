@@ -77,7 +77,7 @@ func TestStationCompactActualApproach(t *testing.T) {
 func TestStationCompactColdDisabledNoSetters(t *testing.T) {
 	t.Parallel()
 	s := compactStateFixture(t)
-	r, result, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: roundTripState(t, s.ExportState()), StationBuffers: true, BufferPlatoons: true, CompactQueues: true, StationQueueSpacing: StationQueueOrdinary, PlatoonLimit: 4})
+	r, result, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: roundTripState(t, s.ExportState()), StationQueueSpacing: StationQueueOrdinary, PlatoonLimit: 4})
 	if err != nil || result.Tier != RestorePhysical || result.PhysicalError != nil {
 		t.Fatalf("%+v %v", result, err)
 	}

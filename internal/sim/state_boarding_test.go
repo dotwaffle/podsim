@@ -26,7 +26,7 @@ func recordedRestoreFixture(t *testing.T) (restoreFixture, SavedState) {
 }
 
 func boardingRestoreInput(f restoreFixture, state SavedState) RestoreStateInput {
-	return RestoreStateInput{Network: f.network, Fleet: f.fleet, State: state, BoardingRecords: true}
+	return RestoreStateInput{Network: f.network, Fleet: f.fleet, State: state}
 }
 
 func TestBoardingRecordsRejectBeforeFallback(t *testing.T) {
@@ -35,7 +35,6 @@ func TestBoardingRecordsRejectBeforeFallback(t *testing.T) {
 		name string
 		edit func(*RestoreStateInput)
 	}{
-		{"version gate", func(i *RestoreStateInput) { i.BoardingRecords = false }},
 		{"empty array", func(i *RestoreStateInput) { i.State.Pods[0].Boardings = []RiderBoarding{} }},
 		{"short array", func(i *RestoreStateInput) { i.State.Pods[0].Boardings = i.State.Pods[0].Boardings[:1] }},
 		{"long array", func(i *RestoreStateInput) {
@@ -341,15 +340,10 @@ func TestBoardingRecordsPreparedRestore(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	input := PreparedRestoreInput{Fleet: f.fleet, State: state, BoardingRecords: true, OnboardPickups: true}
+	input := PreparedRestoreInput{Fleet: f.fleet, State: state, OnboardPickups: true}
 	if _, result, err := prepared.RestoreState(input); err != nil || result.Tier != RestorePhysical {
 		t.Fatalf("prepared restore: %+v %v", result, err)
 	}
-	input.BoardingRecords = false
-	if _, _, err := prepared.RestoreState(input); err == nil {
-		t.Fatal("prepared restore omitted the record eligibility gate")
-	}
-	input.BoardingRecords = true
 	input.State.SharedRidePartyLimit = 1
 	if _, _, err := prepared.RestoreState(input); err == nil {
 		t.Fatal("prepared restore omitted the runtime policy gate")

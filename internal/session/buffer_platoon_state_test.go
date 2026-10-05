@@ -98,7 +98,7 @@ func bufferPlatoonSessionFixture(t *testing.T) *Session {
 			pod.Distance += config.Network.Length(config.Network.Lanes[index])
 		}
 	}
-	restored, result, err := sim.RestoreState(sim.RestoreStateInput{Network: config.Network, Fleet: config.Fleet, State: state, StationBuffers: true})
+	restored, result, err := sim.RestoreState(sim.RestoreStateInput{Network: config.Network, Fleet: config.Fleet, State: state})
 	if err != nil || result.Tier != sim.RestorePhysical || len(result.Demoted) != 0 {
 		t.Fatalf("staged session restore: %+v %v", result, err)
 	}

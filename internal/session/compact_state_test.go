@@ -185,7 +185,7 @@ func compactSessionFixture(t *testing.T) *Session {
 		}
 		pod.Waiting, pod.WaitSince = false, 0
 	}
-	staged, result, err := sim.RestoreState(sim.RestoreStateInput{Network: config.Network, Fleet: config.Fleet, State: state, StationBuffers: true})
+	staged, result, err := sim.RestoreState(sim.RestoreStateInput{Network: config.Network, Fleet: config.Fleet, State: state})
 	if err != nil || result.Tier != sim.RestorePhysical || len(result.Demoted) != 0 {
 		t.Fatalf("staged compact restore: %+v %v", result, err)
 	}
@@ -302,7 +302,7 @@ func TestCompactRestoreSelectedPolicy(t *testing.T) {
 	selected.StationQueueSpacing = sim.StationQueueOrdinary
 	steps := realRestoreSteps()
 	steps.restoreSimulation = func(input sim.RestoreStateInput) (*sim.Simulation, sim.RestoreResult, error) {
-		if !input.CompactQueues || !input.StationBuffers || !input.BufferPlatoons || input.StationQueueSpacing != sim.StationQueueOrdinary || input.PlatoonLimit != selected.PlatoonLimit {
+		if input.StationQueueSpacing != sim.StationQueueOrdinary || input.PlatoonLimit != selected.PlatoonLimit {
 			t.Fatalf("compact restore context differs: %+v", input)
 		}
 		return sim.RestoreState(input)

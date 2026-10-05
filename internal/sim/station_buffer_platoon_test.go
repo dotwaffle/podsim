@@ -57,7 +57,7 @@ func stageBufferFleet(t *testing.T, network Network, placements []Placement, cou
 		pod.Waiting = false
 		pod.WaitSince = 0
 	}
-	restored, result, err := RestoreState(RestoreStateInput{Network: network, Fleet: s.initial, State: saved, StationBuffers: true})
+	restored, result, err := RestoreState(RestoreStateInput{Network: network, Fleet: s.initial, State: saved})
 	if err != nil || result.Tier != RestorePhysical || len(result.Demoted) != 0 {
 		t.Fatalf("staged queue restore: %+v %v", result, err)
 	}
@@ -91,7 +91,7 @@ func TestStationBufferPlatoonBlockedDeparture(t *testing.T) {
 			t.Fatal(err)
 		}
 		if s.NeedsBufferPlatoonState() {
-			_, result, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: s.ExportState(), StationBuffers: true, BufferPlatoons: true})
+			_, result, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: s.ExportState()})
 			if err != nil || result.Tier != RestorePhysical || len(result.Demoted)+len(result.Requeued)+len(result.Dropped) != 0 {
 				t.Fatalf("blocked departure restore: %+v %v", result, err)
 			}
@@ -221,7 +221,7 @@ func checkBufferPlatoonRestoreTransitions(t *testing.T, count int) {
 	for range 600 * TicksPerSecond {
 		if s.NeedsBufferPlatoonState() {
 			state := s.ExportState()
-			restored, result, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: state, StationBuffers: true, BufferPlatoons: true})
+			restored, result, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: state})
 			if err != nil || result.Tier != RestorePhysical || result.PhysicalError != nil || len(result.Demoted)+len(result.Requeued)+len(result.Dropped) != 0 {
 				t.Fatalf("tick %d restore: %+v %v", s.tick, result, err)
 			}
@@ -289,7 +289,7 @@ func TestStationBufferPlatoonRestoredDrain(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, logical := range []bool{false, true} {
-		restored, result, err := prepared.RestoreState(PreparedRestoreInput{Fleet: s.initial, State: state, StationBuffers: true, BufferPlatoons: true, LogicalOnly: logical})
+		restored, result, err := prepared.RestoreState(PreparedRestoreInput{Fleet: s.initial, State: state, LogicalOnly: logical})
 		want := RestorePhysical
 		if logical {
 			want = RestoreLogical
@@ -436,6 +436,9 @@ func TestStationBufferPlatoonRejectsMalformedState(t *testing.T) {
 		{"missing endpoint", func(s *SavedState) { s.Pods[1].Platoon.TerminalCell = nil }},
 		{"different endpoint", func(s *SavedState) { (*s.Pods[1].Platoon.TerminalCell)-- }},
 		{"out of range endpoint", func(s *SavedState) { *s.Pods[1].Platoon.TerminalCell = 1_000_000 }},
+		{"negative endpoint", func(s *SavedState) { *s.Pods[1].Platoon.TerminalCell = -1 }},
+		{"unknown kind", func(s *SavedState) { s.Pods[1].Platoon.Kind = "other" }},
+		{"several lanes", func(s *SavedState) { s.Pods[1].Platoon.Lanes = 2 }},
 		{"no membership", func(s *SavedState) { s.Pods[1].StationBuffered = false }},
 		{"wrong lane identity", func(s *SavedState) { s.Pods[1].LaneID = "wrong" }},
 		{"bad route index", func(s *SavedState) { s.Pods[1].RouteIndex = len(s.Pods[1].Route) }},
@@ -454,7 +457,7 @@ func TestStationBufferPlatoonRejectsMalformedState(t *testing.T) {
 			for _, logical := range []bool{false, true} {
 				state := s.ExportState()
 				tc.edit(&state)
-				_, _, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: state, StationBuffers: true, BufferPlatoons: true, LogicalOnly: logical})
+				_, _, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: state, LogicalOnly: logical})
 				if err == nil {
 					t.Fatalf("logical=%t accepted invalid buffer certificate", logical)
 				}

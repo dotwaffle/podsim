@@ -67,7 +67,7 @@ func TestOnboardAdversarialIntermediateRestore(t *testing.T) {
 		t.Fatalf("intermediate export lost full passenger distance: %+v, C %g", pod, cumulative)
 	}
 	fleet := []Placement{{ID: "01", StationID: "harbor", BerthID: "harbor-1"}}
-	restored, result, err := RestoreState(RestoreStateInput{Network: live.network, Fleet: fleet, State: saved, BoardingRecords: true, OnboardPickups: true})
+	restored, result, err := RestoreState(RestoreStateInput{Network: live.network, Fleet: fleet, State: saved, OnboardPickups: true})
 	if err != nil || !cleanRestore(result) {
 		t.Fatalf("intermediate restore: %+v %v", result, err)
 	}
