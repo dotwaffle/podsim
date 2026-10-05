@@ -1269,6 +1269,11 @@
   // one value that the server sends.
   const CONTRACT_MARKERS = [["orderContract", "express-v1"], ["couplingContract", "compact-pair-v1"]];
 
+  // INCIDENT_MARKER is the incident marker of a state reply and the one
+  // value that the server sends. Only the topology and the simulation
+  // carry it. The root does not.
+  const INCIDENT_MARKER = ["incidentContract", "incident-v1"];
+
   // plainStateTree is true when value has at most MAX_STATE_DEPTH levels
   // of arrays and objects, no array with more than MAX_STATE_ELEMENTS
   // elements, and no object with a textEncoding member. Earlier servers
@@ -1290,10 +1295,16 @@
   // markersAgree is true when the reply has a topology object, and the
   // reply, its topology and the simulation of state have the same contract
   // markers. Each marker that is present must have the value in
-  // CONTRACT_MARKERS. The server decoder also refuses a reply without a
+  // CONTRACT_MARKERS. The topology and the simulation must have the same
+  // incident marker, absent or the value in INCIDENT_MARKER, and the root
+  // must not have it. The server decoder also refuses a reply without a
   // topology object. shell.js has the same function.
   function markersAgree(reply, state) {
     if (!isObject(reply.topology)) return false;
+    const [incident, incidentValue] = INCIDENT_MARKER;
+    const incidentMarkers = [reply.topology, state.simulation].map((holder) => Object.hasOwn(holder, incident) ? holder[incident] : undefined);
+    if (Object.hasOwn(reply, incident) || incidentMarkers[0] !== incidentMarkers[1] ||
+      (incidentMarkers[0] !== undefined && incidentMarkers[0] !== incidentValue)) return false;
     const holders = [reply, reply.topology, state.simulation];
     return CONTRACT_MARKERS.every(([name, allowed]) => {
       const values = holders.map((holder) => Object.hasOwn(holder, name) ? holder[name] : undefined);

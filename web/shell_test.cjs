@@ -292,13 +292,18 @@ function nested(levels) {
 // stateReplyRefusals gives the state replies that the debug capture and
 // the editor refuse because of their contract markers, their topology, a
 // textEncoding member or their size. envelope(markers) gives a valid reply with those
-// contract markers at the root, in the topology and in the simulation.
+// contract markers at the root, in the topology and in the simulation. The
+// incident marker is only in the topology and in the simulation.
 // editor_test.cjs has the same table.
 function stateReplyRefusals(envelope) {
   const plain = envelope();
   const express = envelope({ orderContract: "express-v1" });
   const coupling = envelope({ couplingContract: "compact-pair-v1" });
   const simulation = (reply, change) => ({ ...reply, frame: { ...reply.frame, state: { ...reply.frame.state, simulation: { ...reply.frame.state.simulation, ...change } } } });
+  // incidentReply gives a plain reply with the incident marker value in
+  // the topology and in the simulation, where the server puts it.
+  const incidentReply = (value) => ({ ...simulation(plain, { incidentContract: value }), topology: { incidentContract: value } });
+  const incident = incidentReply("incident-v1");
   const without = (value, name) => Object.fromEntries(Object.entries(value).filter(([key]) => key !== name));
   const cases = [];
   // Earlier servers sent a textEncoding member. Its presence anywhere in
@@ -338,7 +343,21 @@ function stateReplyRefusals(envelope) {
     ["an empty coupling contract", envelope({ couplingContract: "" })],
     ["a null coupling contract", envelope({ couplingContract: null })],
     ["an unknown order contract at the root only", { ...plain, orderContract: "express-v2" }],
+    // The topology and the simulation carry the incident marker, and the
+    // root does not. They have the same marker, with the one value that
+    // the server sends.
+    ["an incident marker at the root", { ...incident, incidentContract: "incident-v1" }],
+    ["an incident marker at the root only", { ...plain, incidentContract: "incident-v1" }],
+    ["an incident topology with an unmarked simulation", { ...plain, topology: { incidentContract: "incident-v1" } }],
+    ["an incident simulation with an unmarked topology", simulation(plain, { incidentContract: "incident-v1" })],
   );
+  for (const [kind, value] of [["an unknown", "incident-v2"], ["an empty", ""], ["a null", null]]) {
+    cases.push(
+      [`${kind} incident contract`, incidentReply(value)],
+      [`${kind} incident contract in the simulation`, simulation(incident, { incidentContract: value })],
+      [`${kind} incident contract in the topology`, { ...incident, topology: { incidentContract: value } }],
+    );
+  }
   return cases;
 }
 
@@ -359,6 +378,7 @@ test("the debug capture accepts the state reply of each project kind", () => {
     ["a plain project", envelope()],
     ["an Express project", envelope({ orderContract: "express-v1" })],
     ["a coupling project", envelope({ couplingContract: "compact-pair-v1" })],
+    ["an incident project", { ...envelope(), topology: { incidentContract: "incident-v1" }, frame: { state: { ...state, simulation: { ...state.simulation, incidentContract: "incident-v1" } }, routes: [] } }],
     ["a reply of the depth limit", { ...envelope(), topology: nested(shell.MAX_STATE_DEPTH - 1) }],
     ["a reply with an array of the element limit", { ...envelope(), topology: { lanes: new Array(shell.MAX_STATE_ELEMENTS).fill(0) } }],
   ];
