@@ -1536,8 +1536,9 @@ Gates for every patch:
 | `nextIncidentID()`, `SetIncidentGeneration(g)` | Every record of stages 2 and later; the session | Section 11.4. |
 | `InterruptRider(podID, orderID)` | Test entry: the session tests | The incident marker. An active rider whose destination another active rider of its pod shares. No coupling, platoon, or Compact queue member, and no dispatch pass. |
 | `FailStepForTest(tick, compact, cause, before)` | Test entry: the session tests of the fault returns of a step | None. At the end of the step that reaches `tick`, it runs `before` and sets the Compact queue or coupling fault. |
+| `IncidentForTest(podID, operation)` | Test entry: the session save and stream tests of each incident state | The incident marker, and no dispatch pass. `operation.Kind` names one stage 1 operation: withdraw, restore, destination, unload, resume, or evacuate. |
 
-Stage 1 exports only `DrainInterruptions`, `Connections.Interrupt`, and `SetIncidentGeneration`, and the test entries `InterruptRider` and `FailStepForTest`.
+Stage 1 exports only `DrainInterruptions`, `Connections.Interrupt`, and `SetIncidentGeneration`, and the test entries `InterruptRider`, `FailStepForTest`, and `IncidentForTest`.
 The maintainer approved the test entries on 2026-10-05.
 Later stages call the other functions from inside `internal/sim`.
 
