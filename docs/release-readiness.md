@@ -1,31 +1,50 @@
 # Release readiness
 
-Status: full physical coupling remains incomplete on October 4, 2026.
-This report pins `81814954a37f388afdb948037bb7ea051cde1030`.
-Hosted Check and image publication passed for this source.
+Status: physical coupling qualification remains incomplete on October 5, 2026.
+This report pins `e1f3b650a6db15f723fa926f989e29b602a19d69`.
+Hosted Check, including its image publication job, passed for this source.
 All four bounded browser performance candidates were rejected and closed.
+The maintainer's standing instruction holds the unfinished coupling release.
 This report does not authorize deployment, default adoption, or a cap change.
 
-The [measurement record](measurements/release-readiness.json) pins source-specific evidence and archived failures.
-The retained documentation worktree uses the older `a13bbae` base.
-This update did not rebuild current source in that worktree.
+The [measurement record](measurements/release-readiness.json) is unchanged in this update.
+It still pins the earlier `8181495` source, its source-specific evidence, and its archived failures.
+This update read the pinned source in a detached worktree.
+It did not build the source or run tests.
 
 ## Hosted checks and published image
 
-[Check](https://github.com/dotwaffle/podsim/actions/runs/37181963947) passed from 06:09:10 to 06:29:46 UTC.
-All required tasks passed, including bounds, embedded tests, races, qualification, lint, builds, web tests, and vulnerability checks.
-The race task took 1,198.77 seconds, bounds took 118.37 seconds, and embedded tests took 440.22 seconds.
-[Publish container](https://github.com/dotwaffle/podsim/actions/runs/37181963901) passed from 06:09:10 to 06:13:18 UTC.
-The published image is `ghcr.io/dotwaffle/podsim@sha256:9ba6db79cd91444dd7d3bcb37145256e7cd27297c6c88f5aaeb8e74291e87d9b`.
-Package version 1333303197 and publication logs identify the complete commit tag and `latest` at this digest.
+[Check](https://github.com/dotwaffle/podsim/actions/runs/37251561843) passed in 14m00s, from 01:28:27 to 01:42:27 UTC.
+All six check jobs and the publish job concluded with success.
+The Check workflow runs six check jobs in parallel on separate hosted runners.
+Its publish job needs all six check jobs and does not run for pull requests.
+The `2140d40` and `31322b5` sources split the check, and `2138790` moved publication into Check.
+
+| Job | Seconds |
+| --- | ---: |
+| `test:race:sim-other` | 726 |
+| `test:race:sim-stations` | 377 |
+| `test:race:other` | 358 |
+| `test:race:session` | 347 |
+| `qualify` | 161 |
+| `check:static` | 80 |
+| `publish` | 107 |
+
+The `check:static` job runs bounds, web tests, lint, vulnerability checks, builds, and embedded tests.
+The `qualify` job runs only the two Station 19 drain tests, and `069bafb` gave it a 30-minute test timeout.
+The publish job started at 01:40:39 UTC, after the last check job completed.
+The published image is `ghcr.io/dotwaffle/podsim@sha256:02cde5990391c1a1646914a2f5eb69bf58c69e5057f82b3a11d4155071568f0f`.
+Package version 1336185410 carries the complete commit tag and `latest` at this digest.
 Use the digest because `latest` can move.
 
-The earlier `12848c9` Check and publication passed.
-Its race task took 926.51 seconds, bounds took 89.22 seconds, and embedded tests took 311.26 seconds.
-These source-specific observations remain archived in the measurement record.
-Tasks shared the hosted runner, and their durations overlap.
-They do not establish a causal speedup against earlier runs or qualify the later source.
-Publication remains independent of Check, so both workflow conclusions matter.
+The previous `96bcb9f` [Check](https://github.com/dotwaffle/podsim/actions/runs/37250800694) passed in 10m55s, from 01:16:38 to 01:27:33 UTC.
+Its jobs took 541 seconds for `test:race:sim-other`, 508 for `test:race:other`, and 449 for `test:race:session`.
+They took 373 seconds for `test:race:sim-stations`, 190 for `qualify`, and 188 for `check:static`.
+The earlier `8181495` Check ran all tasks in one 1,236-second job, and its race task took 1,198.77 seconds.
+Its publication ran in a separate workflow that did not wait for Check.
+Those results remain archived in the measurement record.
+Job durations vary between runs and runners.
+They do not establish a causal speedup against earlier runs or qualify a later source.
 
 The audit did not pull or execute the image, inspect an OCI manifest, or test an ARM runtime.
 Publication success does not establish hosted health or deployment readiness.
@@ -44,19 +63,47 @@ A mutant that restored the old sample compiled and failed after 5.308 seconds.
 The source overlays and original worktree hashes were verified afterward.
 The legal 65 MiB payload, production 30-second deadline, stalled-reader error, and cancellation controls remain.
 
-The required plain `test:bounds` task retains every maximum checkpoint shape assertion.
-The unchanged 80 MiB guard rejects the 1,265,591,604-byte counting envelope and accepts the 72,104,395-byte fitting envelope.
+The plain `test:bounds` task in `check:static` retains every maximum checkpoint shape assertion.
+In the CI split qualification of the measurement record, the 80 MiB guard rejected the 1,265,591,604-byte counting envelope and accepted the 72,104,395-byte fitting envelope.
+This update did not measure those sizes again.
 Only this serial shape proof excludes race instrumentation in its package.
-Four maximum session codec proofs, the bounded-scan checks of the maximum stream encoding, and the maximum gzip application proof run without race instrumentation in the required `test:embedded` task.
-Bounded application tests and concurrency controls remain under the complete race command.
+The `test:embedded` task runs the root and `cmd/serve` suites with embedded assets.
+In the session package it runs only the worst-case save size test, three widest Express adapter tests, and the maximum stream encoding test.
+Bounded application tests and concurrency controls remain under the four race tasks.
 The source audit and qualification retain exact assertion-body comparisons and the prior tool failures.
+
+## Formats and versions
+
+The `248f26e` source collapsed project versions to one version, 1.
+A feature is allowed when its fields are present.
+Express needs the `orderContract` marker `express-v1`.
+Trains need the `couplingContract` marker `compact-pair-v1`.
+The server refuses project versions 2 through 5 and does not migrate them.
+The markers select the saved-state family and the stream hello:
+
+| Project markers | Saved state | Stream hello |
+| --- | ---: | ---: |
+| None | 6 | 3 |
+| `express-v1` only | 7 | 4 |
+| `compact-pair-v1`, with or without `express-v1` | 8 | 5 |
+
+The server refuses saved-state versions 2 through 5 (`f81f8d0`).
+The stream hello and publication decoders refuse hellos 1 and 2 (`bde9e70`).
+The pending save and stream merge, backlog item 7, will replace these families and change these numbers.
+
+The `96bcb9f` source gives every JSON format member a lowerCamel name.
+Their decoders match member names by exact case.
+The saved-state version numbers did not change, and there is no migration.
+The server moves aside a version 6 or 7 file with the earlier names as `invalid_state`.
+It keeps a version 8 file with the earlier names, turns saving off, and fails to start.
+The editor refuses a project file with the earlier names.
 
 ## Express operating limits
 
 The [Express browser qualification](express-browser-qualification.md) covers the opt-in `express-v1` contract.
 The [native](express-native-qualification.md) and [wire](express-wire-qualification.md) records preserve foundation behavior and physical limits.
 They do not certify every curve, service workload, browser, or hardware configuration.
-Express remains opt-in with project version 4, saved-state version 7, and stream version 4.
+Express remains opt-in through the `express-v1` marker.
 Its party capacity remains 20, outstanding-order limit 8,600, and fleet and registry limit 300.
 Current defaults and physical constants remain unchanged.
 The saved-state limit remains 80 MiB.
@@ -121,21 +168,58 @@ These software-renderer screens do not qualify physical GPUs or broader workload
 
 ## Physical coupling remains incomplete
 
+The [physical coupling contract](physical-coupling-contract-proposal.md) defines the opt-in `compact-pair-v1` profile.
 The `2fba224` source introduced the phase-1 coupling geometry, profile, and body layer.
 The `12848c9` source added the qualified inactive typed-owner migration.
-Pod and inactive group owner tags are distinct internally.
-Recorded ordinary, virtual-link, compact-queue, and Express parity fixtures preserve their observed bytes.
-The current `8181495` source adds six qualified private reservation files.
-Focused tests, race checks, vet, lint, and the 78.712-second full native suite passed.
-Two original mutation survivors remain disclosed.
-A later distinct identity case killed the guard bypass.
+The `8181495` source added six qualified private reservation files.
+The `03806d1` source added the private Compact pair motion engine.
+The `dfa2528` source added native trains, native group export and restore, and the bounded save 8 and stream 5 contracts.
 
-These helpers have no live caller and create no physical groups.
-Live staging reachability and drainage remain unproved.
-Train motion, native group export and atomic restore, activation, and public adapters remain pending.
-The proposed project 5, save 8, and stream 5 family is not implemented.
-The full item-16 implementation is not qualified or complete.
-The landed geometry and ownership work does not establish runtime coupling support.
+At the pinned source, coupling runs live in a project that meets four conditions:
+
+- It has the `compact-pair-v1` marker.
+- Its `couplingEnabled` option is on.
+- It has authored coupling sites and corridors.
+- Virtual platooning is selected.
+
+The `couplingEnabled` option is off by default, and a project without the marker never forms a train.
+In a qualifying project, Step discovers pairs of Compact pods on certified straight corridors without authored groups.
+Each pair forms a train, runs through the six train phases, and retires.
+Both cabins of a train are empty, or both are occupied.
+Saved-state version 8 and stream hello 5 carry train membership and body geometry.
+Native export and physical restore carry committed trains, and logical recovery refuses them.
+A coupling fault pauses the simulation, stops publication, and keeps the last valid observation.
+The HTTP state of a coupling project uses the `application/vnd.podsim.compact-pair-v1+json` media type.
+The editor converts a project to trains, edits coupling sites and corridors, and reads the live state of train projects.
+The view draws each train and interpolates a connected train as one rigid move.
+Turning trains off drains the current trains without a reset.
+
+Two recent fixes close safety faults that stopped Step.
+The `66b0c65` source keeps a coupled member's receiving berth claim from buffer and redistribution yields.
+The `1977a53` source refuses an ordinary platoon link behind a coupled member.
+Review found that fault in the existing coupling code.
+The `af2e942`, `8591bad`, and `e1f3b65` sources extend the qualification tests.
+They cover policy-off parity and drainage at every tick, a blocked split exit, same-tick pair candidates on a shared junction, and recovery after a coupled berth yield.
+
+Part (a) of coupling qualification item 6, the simulation qualification tests, landed with `e1f3b65`.
+Item 6 has three open parts:
+
+- Part (b): at very high corridor speed, body clearance does not dominate the pair connector box.
+  The connected leg has no profile speed cap, and lanes accept any finite positive speed limit.
+  `TestCouplingPairConnectorBoxNotDominatedAtHighTravel` records the gap, and no Step fixture fails when the pair connector check is removed.
+  The choice between an enforced corridor speed bound and a swept pair test is held for the maintainer.
+- Part (c): the format-dependent gates wait for the item 7 format freeze.
+- Part (d): the simulation evidence must run again after incident stage 4.
+
+The full coupling implementation is not qualified.
+
+## Incident service transitions
+
+The [incident service transitions contract](incident-service-transitions-contract-proposal.md) is stage 1 of the staged incident plan.
+The maintainer approved it on October 5, 2026, in `482d93d`.
+It defines the service transitions that vehicle faults and rider emergencies share.
+No incident code is implemented.
+Its format section waits for the item 7 save and stream merge.
 
 ## Forecast rejection and service boundaries
 
@@ -169,12 +253,15 @@ The [car qualification](car-continuation-qualification.md) requires the same ide
 The earlier clean `a13bbae` bridge used executable SHA-256 `a20ef6960345fecfc22d6d58816669b10556b53a75a6447f514e58d4d94a193d`.
 Four selected cases and 34 independent CLI calls preserved exact checkpoint and future report bytes.
 This does not migrate another executable's checkpoints or claim identity for later builds.
+Since `96bcb9f`, checkpoint decoding matches member names by exact case.
 The version-1 foundation contract does not qualify Express car plans.
 The published image builds the server, not the car CLI.
 
-Hosted Check and publication passed for the identified source.
+Hosted Check and publication passed for the pinned source.
 Browser performance work closed with rejection.
-The full item-16 coupling implementation remains incomplete.
+Coupling qualification item 6 remains open, and the maintainer holds the unfinished coupling release.
+Incident features have an approved stage 1 contract and no implementation.
+The pending save and stream merge will change the saved-state and stream version numbers.
 Maximum Express costs limit responsive operating claims within the opt-in qualification.
 Forecast and archived service failures still block experimental adoption and capacity claims.
 No acceptance waiver follows from a successful build or image publication.
@@ -182,7 +269,7 @@ No acceptance waiver follows from a successful build or image publication.
 The README records the existing 10 MiB project limit and 21 MiB editor import limit.
 This update changes neither runtime limit.
 The [dependency review](dependencies.md) retains its source-specific advisory and filesystem trust-boundary notes.
-The current hosted vulnerability task passed without replacing those notes with a security exception.
+The vulnerability task in the passing `check:static` job did not replace those notes with a security exception.
 
 Deployment remains separately authorized.
 Target health, storage, origins, resource limits, and rollback need a target-specific review.
