@@ -287,6 +287,9 @@ func applyGroups(f *StreamFrame, groups map[string]json.RawMessage) error {
 			if f.State.Simulation.IncidentContract == "" {
 				return errIncidentStreamUnmarked
 			}
+			if _, err := scanIncidentPaths(raw, incidentGroupPaths); err != nil {
+				return err
+			}
 			var v incidentGroup
 			if err := decodeStreamJSON(raw, &v); err != nil {
 				return err
@@ -318,6 +321,11 @@ func applyGroups(f *StreamFrame, groups map[string]json.RawMessage) error {
 			f.State.Checkpoints = nil
 			target = &f.State.Checkpoints
 		case "pending":
+			// A leg origin that the scan accepts is not empty, so
+			// checkIncidentFrame refuses it without the marker.
+			if _, err := scanIncidentPaths(raw, pendingGroupPaths); err != nil {
+				return err
+			}
 			f.State.Simulation.Pending = nil
 			target = &f.State.Simulation.Pending
 		default:

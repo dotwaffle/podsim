@@ -193,6 +193,8 @@ var incidentMemberEdits = []incidentMemberEdit{
 	{"rider leg origin empty", "delta", `"riders":{"value":[{`, `"legFrom":"",`, false},
 	{"empty incident group", "delta", `"groups":{`, `"incident":{},`, true},
 	{"incident group null", "delta", `"groups":{`, `"incident":null,`, false},
+	{"interrupted null", "delta", `"groups":{`, `"incident":{"interrupted":null},`, false},
+	{"interrupted passengers null", "delta", `"groups":{`, `"incident":{"interruptedPassengers":null},`, false},
 	{"full interrupted zero", "full", `"simulation":{`, `"interrupted":0,`, true},
 	{"full interrupted passengers zero", "full", `"simulation":{`, `"interruptedPassengers":0,`, true},
 	{"full withdrawn zero", "full", `"vehicles":[{`, `"withdrawn":0,`, true},
@@ -244,6 +246,48 @@ func TestIncidentStreamRawPresence(t *testing.T) {
 			_, err := applyIncidentJSON(base, data)
 			if valid := marked && edit.marked; (err == nil) != valid {
 				t.Errorf("marked %v, %s: error %v, want valid %v", marked, edit.name, err, valid)
+			}
+		}
+	}
+}
+
+// TestIncidentStreamDirectGroups checks the raw presence rule of section
+// 11.2 of the incident contract on a delta that a caller builds. Such an
+// envelope has no decoder scan, so ApplyStream scans the raw incident and
+// pending groups itself.
+func TestIncidentStreamDirectGroups(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name, group, value string
+		// marked is true when the group is valid with the incident marker.
+		marked bool
+	}{
+		{"pending leg origin null", "pending", `[{"legFrom":null,`, false},
+		{"pending leg origin empty", "pending", `[{"legFrom":"",`, false},
+		{"pending leg origin", "pending", `[{"legFrom":"Z2FyZGVu",`, true},
+		{"interrupted null", "incident", `{"interrupted":null,"interruptedPassengers":0}`, false},
+		{"interrupted passengers null", "incident", `{"interrupted":0,"interruptedPassengers":null}`, false},
+		{"incident counters zero", "incident", `{"interrupted":0,"interruptedPassengers":0}`, true},
+	}
+	for _, marked := range []bool{false, true} {
+		base, next := incidentEditFrames(t, marked)
+		if _, err := ApplyStream(base, "incident", 1, incidentEnvelope(t, base, next, "delta")); err != nil {
+			t.Fatalf("marked %v: control: %v", marked, err)
+		}
+		for _, test := range tests {
+			e := incidentEnvelope(t, base, next, "delta")
+			value := []byte(test.value)
+			if test.group == "pending" {
+				pending := e.Delta.Groups["pending"]
+				if !bytes.HasPrefix(pending, []byte(`[{`)) {
+					t.Fatalf("pending group %s", pending)
+				}
+				value = append(value, pending[2:]...)
+			}
+			e.Delta.Groups[test.group] = value
+			_, err := ApplyStream(base, "incident", 1, e)
+			if valid := marked && test.marked; (err == nil) != valid {
+				t.Errorf("marked %v, %s: error %v, want valid %v", marked, test.name, err, valid)
 			}
 		}
 	}

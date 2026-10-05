@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"slices"
+	"strings"
 
 	"github.com/dotwaffle/podsim/internal/sim"
 )
@@ -22,6 +23,8 @@ var errIncidentStreamUnmarked = errors.New("stream state without the incident ma
 var streamIncidentPaths = func() map[string]bool {
 	paths := map[string]bool{
 		"/delta/groups/incident":                       true,
+		"/delta/groups/incident/interrupted":           true,
+		"/delta/groups/incident/interruptedPassengers": true,
 		"/delta/groups/pending/*/legFrom":              true,
 		"/delta/vehicles/*/riders/value/*/legFrom":     true,
 		"/delta/vehicles/*/metadata/value/withdrawn":   true,
@@ -35,12 +38,38 @@ var streamIncidentPaths = func() map[string]bool {
 	return paths
 }()
 
+// The paths of streamIncidentPaths in the raw incident and pending
+// groups, relative to the group. ApplyStream scans these groups again,
+// because an envelope that a caller builds has no decoder scan.
+var (
+	incidentGroupPaths = groupIncidentPaths("incident")
+	pendingGroupPaths  = groupIncidentPaths("pending")
+)
+
+// groupIncidentPaths returns the paths of streamIncidentPaths in delta
+// group name, relative to the group.
+func groupIncidentPaths(name string) map[string]bool {
+	prefix := "/delta/groups/" + name + "/"
+	paths := map[string]bool{}
+	for path := range streamIncidentPaths {
+		if member, ok := strings.CutPrefix(path, prefix); ok {
+			paths["/"+member] = true
+		}
+	}
+	return paths
+}
+
 // scanIncidentMembers reports whether data has a stage 1 member or the
 // incident group, with any value. The typed decode reads an explicit
 // zero or null as no member, so only this scan sees it. The marker of a
 // delta is the marker of its base frame, so the caller checks the result.
 // No encoder writes null or an empty text, so the scan refuses them.
 func scanIncidentMembers(data []byte) (bool, error) {
+	return scanIncidentPaths(data, streamIncidentPaths)
+}
+
+// scanIncidentPaths is scanIncidentMembers for the members at paths.
+func scanIncidentPaths(data []byte, paths map[string]bool) (bool, error) {
 	decoder := jsontext.NewDecoder(bytes.NewReader(data))
 	found := false
 	for {
@@ -52,7 +81,7 @@ func scanIncidentMembers(data []byte) (bool, error) {
 			return false, err
 		}
 		kind, length := decoder.StackIndex(decoder.StackDepth())
-		if token.Kind() != jsontext.KindString || kind != jsontext.KindBeginObject || length%2 != 1 || !streamIncidentPaths[arrayPath(decoder)] {
+		if token.Kind() != jsontext.KindString || kind != jsontext.KindBeginObject || length%2 != 1 || !paths[arrayPath(decoder)] {
 			continue
 		}
 		found = true
