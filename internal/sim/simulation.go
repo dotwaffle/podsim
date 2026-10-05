@@ -247,6 +247,9 @@ type vehicle struct {
 	// rebalancing pod that yielded its claim. Such a pod can divert at once,
 	// as a pod on its way to parking can.
 	released bool
+	// withdrawn holds the causes that withdraw the pod from service. The
+	// pod is in service when it has no hold. See inService.
+	withdrawn serviceHold
 	// nextRelease is 0, or it is at most each release distance in
 	// routeReleases and the pod or a pod ahead of it in its platoon owns
 	// each resource in routeReleases that the pod has not passed. In the
@@ -611,14 +614,15 @@ func (s *Simulation) RequestJourney(podID, destination string) error {
 	return s.RequestJourneyOptions(podID, TripOptions{From: v.Pod.StationID, To: destination})
 }
 
-// RequestJourneyOptions assigns a whole party to the selected idle pod.
+// RequestJourneyOptions assigns a whole party to the selected idle pod. A
+// withdrawn pod is busy.
 func (s *Simulation) RequestJourneyOptions(podID string, options TripOptions) error {
 	defer s.observe()
 	v := s.findVehicle(podID)
 	if v == nil {
 		return fmt.Errorf("unknown pod %q", podID)
 	}
-	if v.Pod.Activity != Idle || s.assigned(v.Pod.ID) {
+	if v.Pod.Activity != Idle || !v.inService() || s.assigned(v.Pod.ID) {
 		return ErrBusy
 	}
 	if options.From == "" {

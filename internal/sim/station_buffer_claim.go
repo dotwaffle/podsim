@@ -26,13 +26,14 @@ func (s *Simulation) bufferBerthClaims(head *vehicle, berth Berth) ([2]bufferBer
 }
 
 // bufferClaimCanYield reports whether head can take the claim of remote on
-// r, a resource of berth. Passenger traffic takes only a revocable claim of
-// a remote pod that goes to the same berth and has no assigned trip.
+// r, a resource of berth. Passenger traffic in service takes only a
+// revocable claim of a remote pod in service that goes to the same berth and
+// has no assigned trip.
 func (s *Simulation) bufferClaimCanYield(head, remote *vehicle, berth Berth, r resource) bool {
-	if !head.carriesPassengers() && !s.assigned(head.Pod.ID) {
+	if !head.inService() || !head.carriesPassengers() && !s.assigned(head.Pod.ID) {
 		return false
 	}
-	if remote == nil || remote.destination.ID != berth.ID || s.assigned(remote.Pod.ID) {
+	if remote == nil || !remote.inService() || remote.destination.ID != berth.ID || s.assigned(remote.Pod.ID) {
 		return false
 	}
 	return s.revocable(remote, r)

@@ -38,11 +38,11 @@ func (s *Simulation) pickupRouteWithAssignments(input pickupRouteInput) ([]Lane,
 }
 
 // pickupCandidate holds the tests of pickupRouteWithAssignments that do not
-// depend on the pickup station. It reports false when the pod is occupied
-// or claimed, or when it is not idle and cannot divert. assigned is as in
-// pickupRouteInput. pickupCandidate only reads the simulation.
+// depend on the pickup station. It reports false when the pod is occupied,
+// claimed, or withdrawn, or when it is not idle and cannot divert. assigned
+// is as in pickupRouteInput. pickupCandidate only reads the simulation.
 func (s *Simulation) pickupCandidate(v *vehicle, assigned map[string]bool) bool {
-	if v.couplingID != "" || v.Pod.Occupied {
+	if v.couplingID != "" || v.Pod.Occupied || !v.inService() {
 		return false
 	}
 	claimed := assigned[v.Pod.ID]

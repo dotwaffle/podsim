@@ -129,7 +129,7 @@ func (c *pickupSwapController) nextPair(n int) (int, int) {
 }
 
 func (s *Simulation) swapEligible(v *vehicle, trip *waitingTrip) bool {
-	if !releasable(v) || v.released || v.RidersAboard() != 0 ||
+	if !v.inService() || !releasable(v) || v.released || v.RidersAboard() != 0 ||
 		trip.request.Completed || trip.request.PodID != v.Pod.ID ||
 		v.RelocatingTo != trip.request.From || v.destinationStation != trip.request.From {
 		return false

@@ -343,7 +343,8 @@ func (s *Simulation) mayBeIdle(pass *dispatchPass, stationID string) bool {
 	return pass.idle.mayHave(stationID)
 }
 
-// freePods returns each pod that is idle or not occupied, in fleet order.
+// freePods returns each pod in service that is idle or not occupied, in
+// fleet order.
 // Each other pod is not a local pickup, and pickupRouteWithAssignments
 // rejects it. The free pods do not depend on assigned, so the callers read
 // assigned for each pod. freePods finds the pods at the first call after a
@@ -351,7 +352,7 @@ func (s *Simulation) mayBeIdle(pass *dispatchPass, stationID string) bool {
 func (s *Simulation) freePods(pass *dispatchPass) []*vehicle {
 	if !pass.freeKnown {
 		for i := range s.vehicles {
-			if v := &s.vehicles[i]; v.Pod.Activity == Idle || !v.Pod.Occupied {
+			if v := &s.vehicles[i]; v.inService() && (v.Pod.Activity == Idle || !v.Pod.Occupied) {
 				pass.free = append(pass.free, v)
 			}
 		}
@@ -557,10 +558,10 @@ func (s *Simulation) reassigns(v *vehicle) bool {
 	return s.sharedRideJoin == SharedRideJoinReassignExisting && v != nil && releasable(v)
 }
 
-// boardingPods returns the pods that board a party, by station, in fleet
-// order. It finds the pods at the first call after a reset of the pass.
-// Only board makes a boarding pod during dispatch, and dispatch resets the
-// pass after it.
+// boardingPods returns the pods in service that board a party, by station,
+// in fleet order. It finds the pods at the first call after a reset of the
+// pass. Only board makes a boarding pod during dispatch, and dispatch resets
+// the pass after it.
 func (s *Simulation) boardingPods(pass *dispatchPass) map[string][]*vehicle {
 	if !pass.boardingKnown {
 		clear(pass.boarding)
@@ -568,7 +569,7 @@ func (s *Simulation) boardingPods(pass *dispatchPass) map[string][]*vehicle {
 			pass.boarding = make(map[string][]*vehicle)
 		}
 		for i := range s.vehicles {
-			if v := &s.vehicles[i]; v.Pod.Activity == Boarding && len(v.Riders) > 0 {
+			if v := &s.vehicles[i]; v.Pod.Activity == Boarding && len(v.Riders) > 0 && v.inService() {
 				pass.boarding[v.Pod.StationID] = append(pass.boarding[v.Pod.StationID], v)
 			}
 		}
@@ -614,7 +615,7 @@ func (s *Simulation) promoteReadyPickup(index int) bool {
 			continue
 		}
 		ready := s.findVehicle(later.request.PodID)
-		if ready == nil || ready.Pod.Activity != Idle || ready.Pod.StationID != trip.request.From || !s.podFitsRequest(ready, trip.request) || !s.assignedPickupFitsRequest(ready, trip.request) {
+		if ready == nil || !ready.inService() || ready.Pod.Activity != Idle || ready.Pod.StationID != trip.request.From || !s.podFitsRequest(ready, trip.request) || !s.assignedPickupFitsRequest(ready, trip.request) {
 			continue
 		}
 		if current != nil && (!s.podFitsRequest(current, later.request) || !s.assignedPickupFitsRequest(current, later.request)) {

@@ -223,6 +223,9 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"destinationStation": persistSave, "released": persistSave, "terminal": persistReset,
 		"buffered": persistSave, "bufferBerth": persistReset,
 		"routeVersion": persistReset, "stationPhase": persistDerive, "routeLengths": persistDerive, "link": persistSave, "follower": persistDerive, "platoonCap": persistReset,
+		// No stage 1 operation sets withdrawn yet. Section 11 of the
+		// incident contract adds its saved member.
+		"withdrawn": persistReset,
 	},
 	reflect.TypeFor[Vehicle](): {
 		"CouplingID": persistDerive,

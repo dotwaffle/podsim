@@ -54,7 +54,7 @@ func (s *Simulation) joinOnboardPickup(trip *waitingTrip) bool {
 }
 
 func (s *Simulation) onboardPickupReady(v *vehicle, request Request) bool {
-	if !v.Pod.Occupied || v.Pod.Speed != 0 || v.RidersAboard() == 0 || v.Pod.StationID != request.From ||
+	if !v.inService() || !v.Pod.Occupied || v.Pod.Speed != 0 || v.RidersAboard() == 0 || v.Pod.StationID != request.From ||
 		v.originReleased || v.reservedThrough >= 0 || v.destination.ID != "" || v.distance != 0 || v.pending >= 0 {
 		return false
 	}

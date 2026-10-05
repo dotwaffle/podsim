@@ -61,15 +61,15 @@ func (s *Simulation) parkReleased(v *vehicle) {
 	}
 }
 
-// parkUnclaimedReleased sends each released pod that holds no claim on its
-// destination berth to the nearest free berth. A pod has no claim after
-// dispatch or a restore releases it from a pickup, or after it yields the
-// claim to a passenger pod. The pods go in fleet order. A pod that holds
-// its claim costs one map lookup.
+// parkUnclaimedReleased sends each released pod in service that holds no
+// claim on its destination berth to the nearest free berth. A pod has no
+// claim after dispatch or a restore releases it from a pickup, or after it
+// yields the claim to a passenger pod. The pods go in fleet order. A pod
+// that holds its claim costs one map lookup.
 func (s *Simulation) parkUnclaimedReleased() {
 	for i := range s.vehicles {
 		v := &s.vehicles[i]
-		if v.released && s.owners[resource{kind: berthResource, id: v.destination.ID}] != podResourceOwner(v.Pod.ID) {
+		if v.released && v.inService() && s.owners[resource{kind: berthResource, id: v.destination.ID}] != podResourceOwner(v.Pod.ID) {
 			s.parkReleased(v)
 		}
 	}

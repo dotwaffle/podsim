@@ -55,7 +55,7 @@ func (s *Simulation) PositionForForecast(targets []ForecastTarget) (ForecastPosi
 	global := 0
 	for i := range s.vehicles {
 		v := &s.vehicles[i]
-		if v.Pod.Activity == Idle || v.RelocatingTo == "" {
+		if v.Pod.Activity == Idle || v.RelocatingTo == "" || !v.inService() {
 			continue
 		}
 		index, ok := s.stationIndex(v.RelocatingTo)

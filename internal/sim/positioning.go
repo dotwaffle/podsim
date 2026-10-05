@@ -295,14 +295,15 @@ type guardedSupplyInput struct {
 }
 
 // guardedSupply returns, by station index, the demand stations with supply
-// or with a waiting trip that starts there. It also returns the berths
-// that a pod that is not idle or a waiting trip goes to, and the berths
-// that the route of a pod that is not idle enters after its claims. It
-// counts the idle pods in the view. A station has supply when it has an idle pod or
-// a pod that unloads at its last stop, when an empty pod that no waiting
-// trip names goes to it, or when it is the last stop of a pod with
-// passengers that becomes available in guardedReachSeconds or less. The estimate is the one of availableAfter,
-// but it also counts a stopped pod.
+// or with a waiting trip that starts there. It also returns the berths that
+// a pod that is not idle or a waiting trip goes to, and the berths that the
+// route of a pod that is not idle enters after its claims. It counts the
+// idle pods in the view. A withdrawn pod is not supply, but its destination
+// berth is busy. A station has supply when it has an idle pod or a pod that
+// unloads at its last stop, when an empty pod that no waiting trip names
+// goes to it, or when it is the last stop of a pod with passengers that
+// becomes available in guardedReachSeconds or less. The estimate is the one
+// of availableAfter, but it also counts a stopped pod.
 func (s *Simulation) guardedSupply(input guardedSupplyInput) ([]bool, map[string]bool) {
 	supplied := make([]bool, len(input.demand))
 	busy := make(map[string]bool)
@@ -332,6 +333,11 @@ func (s *Simulation) guardedSupply(input guardedSupplyInput) ([]bool, map[string
 					}
 				}
 			}
+		}
+		// A withdrawn pod is not supply, but its destination berth
+		// stays busy.
+		if !v.inService() {
+			continue
 		}
 		station := ""
 		switch {
@@ -420,7 +426,7 @@ func (s *Simulation) positionGuarded() {
 
 // guardedCandidates returns the fleet index of each candidate pod at the
 // node of its berth, and -1 at each other node. A candidate is an idle
-// empty pod that no waiting trip names and that has no rebalance
+// empty pod in service that no waiting trip names and that has no rebalance
 // cooldown. It must be at a parking station, at a station with a weight of
 // 0, or at a station with at least two idle pods that no waiting trip
 // names. Thus a lone idle pod at a weighted station never moves. It
@@ -433,7 +439,7 @@ func (s *Simulation) guardedCandidates(view guardedView) ([]int, bool) {
 	found := false
 	for i := range s.vehicles {
 		v := &s.vehicles[i]
-		if v.Pod.Activity != Idle || v.Pod.Occupied || v.Pod.BerthID == "" || view.assigned[v.Pod.ID] || v.rebalanceAfter > s.tick {
+		if v.Pod.Activity != Idle || v.Pod.Occupied || !v.inService() || v.Pod.BerthID == "" || view.assigned[v.Pod.ID] || v.rebalanceAfter > s.tick {
 			continue
 		}
 		index, ok := s.stationIndex(v.Pod.StationID)

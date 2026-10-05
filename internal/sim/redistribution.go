@@ -61,11 +61,12 @@ func (s *Simulation) redistribute() {
 // The loop makes the passenger arrivals at the first relocating pod. In the
 // loop, only parkReleased changes the pods and the waiting trips, so the
 // loop makes the passenger arrivals again after each call to parkReleased.
+// A withdrawn relocating pod keeps its claims.
 func (s *Simulation) yieldRelocationClaims() {
 	var arrivals map[string]passengerArrival
 	for i := range s.vehicles {
 		relocating := &s.vehicles[i]
-		if relocating.RelocatingTo == "" {
+		if relocating.RelocatingTo == "" || !relocating.inService() {
 			continue
 		}
 		if arrivals == nil {
@@ -124,12 +125,12 @@ func (a passengerArrival) conflictsWith(v *vehicle) bool {
 
 // passengerArrivals returns the passenger arrivals at the destination berth
 // of each relocating pod, keyed by berth ID. A pod brings a passenger to its
-// destination berth when it has an active passenger that boards or travels,
-// or when a waiting trip names it. Pod IDs are unique, so findVehicle finds
-// the pod that a waiting trip names. The empty berth ID is also a key when a
-// relocating pod has no destination berth. The map has no key for a berth
-// that no relocating pod goes to. The map is correct only while the pods and
-// the waiting trips do not change.
+// destination berth when it is in service and has an active passenger that
+// boards or travels, or when a waiting trip names it. Pod IDs are unique, so
+// findVehicle finds the pod that a waiting trip names. The empty berth ID is
+// also a key when a relocating pod has no destination berth. The map has no
+// key for a berth that no relocating pod goes to. The map is correct only
+// while the pods and the waiting trips do not change.
 func (s *Simulation) passengerArrivals() map[string]passengerArrival {
 	relocating := 0
 	for i := range s.vehicles {
@@ -150,7 +151,7 @@ func (s *Simulation) passengerArrivals() map[string]passengerArrival {
 	}
 	for i := range s.vehicles {
 		v := &s.vehicles[i]
-		if (v.Pod.Activity == Boarding || v.Pod.Activity == Continuing || v.Pod.Activity == Traveling) && v.RidersAboard() > 0 {
+		if (v.Pod.Activity == Boarding || v.Pod.Activity == Continuing || v.Pod.Activity == Traveling) && v.RidersAboard() > 0 && v.inService() {
 			add(v)
 		}
 	}

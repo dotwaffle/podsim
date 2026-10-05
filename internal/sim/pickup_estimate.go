@@ -64,7 +64,7 @@ func (s *Simulation) waitForFinishingPod(trip *waitingTrip, idle *vehicle, assig
 		return false
 	}
 	if trip.deferCheck > s.tick {
-		if v := s.findVehicle(trip.deferPodID); v == nil || !s.podFitsRequest(v, trip.request) {
+		if v := s.findVehicle(trip.deferPodID); v == nil || !v.inService() || !s.podFitsRequest(v, trip.request) {
 			return false
 		}
 		trip.request.DispatchReason = "Waiting for pod " + trip.deferPodID + " to finish"
@@ -89,7 +89,7 @@ func (s *Simulation) waitForFinishingPod(trip *waitingTrip, idle *vehicle, assig
 	var bounds []float64
 	for i := range s.vehicles {
 		v := &s.vehicles[i]
-		if v == idle || !s.podFitsRequest(v, trip.request) {
+		if v == idle || !v.inService() || !s.podFitsRequest(v, trip.request) {
 			continue
 		}
 		node, remaining, ok := s.availableAfter(v)
@@ -135,12 +135,13 @@ func (s *Simulation) waitForFinishingPod(trip *waitingTrip, idle *vehicle, assig
 //
 // keepHold reports false, and dispatch does the full pass, when:
 //   - the trip is not on hold until a later check
+//   - the pod of the hold is withdrawn
 //   - a pod is idle at the pickup station, because that pod can board at once
 func (s *Simulation) keepHold(trip *waitingTrip, pass *dispatchPass) bool {
 	if s.finishingPodWait == FinishingPodWaitNone || trip.deferUntil != 0 && s.tick >= trip.deferUntil || trip.deferCheck <= s.tick {
 		return false
 	}
-	if v := s.findVehicle(trip.deferPodID); v == nil || !s.podFitsRequest(v, trip.request) {
+	if v := s.findVehicle(trip.deferPodID); v == nil || !v.inService() || !s.podFitsRequest(v, trip.request) {
 		return false
 	}
 	if s.localPickupForRequest(trip.request, pass) != nil {
