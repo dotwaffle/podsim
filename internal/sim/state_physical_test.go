@@ -1250,3 +1250,45 @@ func TestRestoreBudgetHasALimit(t *testing.T) {
 		})
 	}
 }
+
+// TestRestoreKeepsRoomForDemoOrders fills the queue of a saved demo up to
+// the room that the demo needs for its remaining orders, and one past it.
+func TestRestoreKeepsRoomForDemoOrders(t *testing.T) {
+	t.Parallel()
+	for _, extra := range []int{0, 1} {
+		t.Run(fmt.Sprintf("extra %d", extra), func(t *testing.T) {
+			t.Parallel()
+			live := newTraffic(t)
+			if err := live.StartDemo(); err != nil {
+				t.Fatal(err)
+			}
+			state := live.ExportState()
+			outstanding := len(state.Waiting)
+			for _, pod := range state.Pods {
+				for _, rider := range pod.Riders {
+					if !rider.Completed {
+						outstanding++
+					}
+				}
+			}
+			if got := savedDemoOrders(state.Demo); got != demoJourneys-1 {
+				t.Fatalf("the new demo has %d remaining orders, want %d", got, demoJourneys-1)
+			}
+			for range MaxSavedWaitingTrips - outstanding - (demoJourneys - 1) + extra {
+				if err := live.RequestTrip("harbor", "garden"); err != nil {
+					t.Fatal(err)
+				}
+			}
+			_, result, err := RestoreState(RestoreStateInput{Network: Example(), Fleet: demoFleet(), State: live.ExportState()})
+			if extra == 0 {
+				if err != nil {
+					t.Fatalf("restore at the bound: %v", err)
+				}
+				return
+			}
+			if err == nil || result.PhysicalError == nil || !strings.Contains(result.PhysicalError.Error(), "outstanding orders") {
+				t.Fatalf("restore past the bound: %v, %+v", err, result)
+			}
+		})
+	}
+}

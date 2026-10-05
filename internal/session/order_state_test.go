@@ -226,10 +226,10 @@ func TestCurrentSupportedSavedCounts(t *testing.T) {
 				file.Simulation.Waiting[i].Request = sim.SavedRequest{ID: i + 1, From: "harbor", To: "market", PartySize: 2, SharingConsent: sim.PrivateConsent, Service: sim.OnDemandService}
 			}
 			data := encodeTestState(t, file)
-			// The parser recognizes more waiting orders than a restore accepts.
-			// See plainSavedWaiting.
-			if _, err := decodeStateFile(data); err != nil {
-				t.Fatalf("save 6 parser rejected recognized count %d: %v", count, err)
+			if _, err := decodeStateFile(data); (err == nil) != (count == sim.MaxSavedWaitingTrips) {
+				t.Fatalf("save 6 parser, count %d: %v", count, err)
+			} else if err != nil {
+				assertSavedArrayRefusal(t, err)
 			}
 			for _, attempts := range []int{0, 1} {
 				file.RestoreAttempts = attempts

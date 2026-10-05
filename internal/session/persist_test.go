@@ -2855,36 +2855,19 @@ func TestMaximalRequeueRoundTrip(t *testing.T) {
 	}
 }
 
-// TestRequeueOverflowSaveIsRecognized covers a plain save that holds more
-// than maxSavedTrips waiting orders. The logical tier requeues every rider
-// with the waiting orders, and only the Express contract bounds that sum,
-// so the session writes one order more than a restore accepts. The parser
-// must still recognize the file, and a restore refuses it as invalid_state.
-func TestRequeueOverflowSaveIsRecognized(t *testing.T) {
+// TestRestoreRefusesRequeueOverflow covers a plain state file whose
+// waiting orders and held riders together exceed maxSavedTrips. The
+// logical tier would requeue every rider with the waiting orders and give
+// a queue that a restore refuses, so the restore refuses the file first.
+func TestRestoreRefusesRequeueOverflow(t *testing.T) {
 	t.Parallel()
 	config, data := maximalRequeueState(t, 1)
+	if _, err := decodeStateFile(data); err != nil {
+		t.Fatal("the parser refused the file:", err)
+	}
 	store := &fakeStore{data: data}
 	s := startFromStore(t, StoreInput{Store: store, Project: &config})
-	if got := s.State().Restore.Tier; got != "logical" {
-		t.Fatalf("restore tier = %q, want logical", got)
-	}
-	s.Close()
-	if err := s.SaveState(t.Context(), SaveFinal); err != nil {
-		t.Fatal(err)
-	}
-	writes := store.writeList()
-	saved := writes[len(writes)-1]
-	file, err := decodeStateFile(saved)
-	if err != nil {
-		t.Fatal("the parser refused a state file that the session wrote:", err)
-	}
-	if queued := len(file.Simulation.Waiting); queued != maxSavedTrips+1 {
-		t.Fatalf("the saved queue has %d orders, want %d", queued, maxSavedTrips+1)
-	}
-	restarted := newTestSession(t)
-	if _, err := restarted.loadState(loadInput{data: saved, project: &config, steps: realRestoreSteps()}); err == nil {
-		t.Fatal("a restore accepted more than maxSavedTrips waiting orders")
-	} else if stateErr, ok := errors.AsType[*stateError](err); !ok || stateErr.reason != reasonInvalidState {
-		t.Fatalf("restore refusal = %v, want %s", err, reasonInvalidState)
+	if got := s.State().Restore; got.Tier != "empty" || got.Reason != reasonInvalidState {
+		t.Fatalf("restore = %+v, want an empty start with reason %s", got, reasonInvalidState)
 	}
 }

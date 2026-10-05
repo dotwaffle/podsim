@@ -22,14 +22,6 @@ func (markers contractMarkers) orderBounds() (orders, riders int64) {
 	return maxSavedTrips, sim.MaxSharedRideParties
 }
 
-// plainSavedWaiting bounds the waiting orders of a state file with no
-// markers. It is larger than maxSavedTrips, because a restore
-// requeues the riders of each pod with the waiting orders, and only the
-// Express contract bounds that sum. So a plain session can write more than
-// maxSavedTrips waiting orders. The native restore then refuses the file
-// with invalid_state, as it did before the bound was derived from markers.
-const plainSavedWaiting = 6200
-
 // savedLimits bound a state file with the given markers. Only the order
 // marker changes a bound. The coupling paths are always present: without
 // the coupling marker the order scan refuses each coupling member, so the
@@ -37,9 +29,6 @@ const plainSavedWaiting = 6200
 func savedLimits(markers contractMarkers) jsonLimits {
 	limits := boardingStateLimits(compactStateLimits(stateJSONLimits))
 	orders, riders := markers.orderBounds()
-	if markers == (contractMarkers{}) {
-		orders = plainSavedWaiting
-	}
 	limits.arrays["/simulation/waiting"] = orders
 	limits.arrays["/simulation/pods/*/riders"] = riders
 	limits.arrays["/simulation/pods/*/boardings"] = riders

@@ -254,6 +254,7 @@ It reports them as unaccounted orders at each restore, together with the orders 
   The pods start again at their initial berths.
   Parties that were unloading at their stop count as completed, if the pod is at a berth of a passenger station in the network.
   Each other party in a pod goes back to the queue as one order.
+  So the server refuses a file whose waiting orders and outstanding parties together exceed the queue bound of its contract: 2,600, or 8,600 with Express. An active traffic demo also counts the orders that it has still to submit.
 - `empty`: The server does not use the saved state and starts a new session.
   Except after a read failure, it moves `session.json.gz` to a rejected file.
 

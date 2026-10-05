@@ -14,6 +14,30 @@ const demoJourneys = 8
 // ends, until Reset.
 var demoParkedPods = [...]string{"03", "04"}
 
+// demoMergeTrips are the trips that the demo orders with the journey of pod
+// 02. demoFollowupTrips are the trips that it orders after two completions.
+var (
+	demoMergeTrips    = [...][2]string{{"harbor", "garden"}, {"garden", "harbor"}}
+	demoFollowupTrips = [...][2]string{{"market", "harbor"}, {"market", "garden"}, {"harbor", "market"}, {"garden", "market"}}
+)
+
+// savedDemoOrders returns the number of orders that a saved demo still
+// submits. stepDemo submits them without a queue check, so a restore must
+// keep room for them.
+func savedDemoOrders(demo *SavedDemo) int {
+	if demo == nil {
+		return 0
+	}
+	orders := 0
+	if !demo.SecondSent {
+		orders += 1 + len(demoMergeTrips)
+	}
+	if !demo.FollowupsSent {
+		orders += len(demoFollowupTrips)
+	}
+	return orders
+}
+
 // StartDemo adds two parked pods for a fixed eight-journey experiment. Reset restores the original fleet.
 func (s *Simulation) StartDemo() error {
 	defer s.observe()
@@ -60,7 +84,7 @@ func (s *Simulation) stepDemo() {
 			return
 		}
 		d.secondSent = true
-		for _, trip := range [][2]string{{"harbor", "garden"}, {"garden", "harbor"}} {
+		for _, trip := range demoMergeTrips {
 			if err := s.RequestTrip(trip[0], trip[1]); err != nil {
 				s.failDemo(err)
 				return
@@ -68,7 +92,7 @@ func (s *Simulation) stepDemo() {
 		}
 	}
 	if !d.followupsSent && s.completed >= 2 {
-		for _, trip := range [][2]string{{"market", "harbor"}, {"market", "garden"}, {"harbor", "market"}, {"garden", "market"}} {
+		for _, trip := range demoFollowupTrips {
 			if err := s.RequestTrip(trip[0], trip[1]); err != nil {
 				s.failDemo(err)
 				return

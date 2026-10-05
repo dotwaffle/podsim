@@ -167,8 +167,24 @@ func restorePhysical(input RestoreStateInput, newFleet func() (*Simulation, erro
 // validateSavedState checks the rules that do not need the network. See
 // checkContract. It returns the unaccounted orders of the saved state.
 func validateSavedState(state SavedState) (int, error) {
-	if len(state.Waiting) > MaxWaitingTripsForOrderContract(state.OrderContract) {
+	limit := MaxWaitingTripsForOrderContract(state.OrderContract)
+	if len(state.Waiting) > limit {
 		return 0, errors.New("too many saved waiting trips")
+	}
+	// The logical tier requeues each held rider with the waiting orders, so
+	// the queue that a restore can make must fit the same bound. Otherwise a
+	// restored session could save a state that a restore refuses. An
+	// active demo adds its remaining orders later.
+	held := len(state.Waiting) + savedDemoOrders(state.Demo)
+	for _, pod := range state.Pods {
+		for _, rider := range pod.Riders {
+			if !rider.Completed {
+				held++
+			}
+		}
+	}
+	if held > limit {
+		return 0, errors.New("too many saved outstanding orders")
 	}
 	return state.checkContract()
 }
