@@ -167,7 +167,8 @@ func checkTransferSave(t *testing.T, s *Simulation, input RestoreStateInput) *Si
 // garden, where no Express pod has a path to its destination (incident
 // contract, section 7.6). The trip waits with the reason for a missing
 // certified vehicle, and both restore tiers keep it. A saved trip of the
-// same shape with a pod, a route, a hold, or no boarding is refused.
+// same shape with a pod, a route, a hold, an exclusion, or no boarding is
+// refused.
 func TestStrandedTransfer(t *testing.T) {
 	t.Parallel()
 	s, network, fleet := newStrandedFleet(t)
@@ -216,6 +217,7 @@ func TestStrandedTransfer(t *testing.T) {
 		"route":         func(trip *SavedTrip) { trip.Route = []int{0} },
 		"hold pod":      func(trip *SavedTrip) { trip.DeferPodID = "01" },
 		"hold check":    func(trip *SavedTrip) { trip.DeferCheck = saved.Tick + TicksPerSecond },
+		"exclusion":     func(trip *SavedTrip) { trip.ExcludedPod = "01" },
 		"never boarded": func(trip *SavedTrip) { trip.Boarded, trip.Request.BoardedTick = false, 0 },
 		"service pair":  func(trip *SavedTrip) { trip.Request.ServiceID = "unknown" },
 		"unknown origin": func(trip *SavedTrip) {

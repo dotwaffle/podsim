@@ -198,6 +198,10 @@ type SavedTrip struct {
 	DeferUntil int64  `json:"deferUntil,omitzero"`
 	DeferCheck int64  `json:"deferCheck,omitzero"`
 	DeferPodID string `json:"deferPodID,omitempty"`
+	// ExcludedPod is the pod that a released pickup must not get
+	// (incident contract, section 5.2). The session adapter saves it as an
+	// index into Pods.
+	ExcludedPod string `json:"-"`
 }
 
 // RestoreTier names the method that RestoreState used.
@@ -274,7 +278,8 @@ type RestoreResult struct {
 }
 
 // checkOperationalFields checks the holds and the operational destinations
-// of the saved pods before either restore tier. They need the incident
+// of the saved pods, and the pickup exclusions of the saved waiting trips,
+// before either restore tier. Holds and purposes need the incident
 // contract, and an emergency unload needs a passenger station.
 func checkOperationalFields(input RestoreStateInput) error {
 	operational := func(pod SavedPod) bool {
@@ -283,7 +288,30 @@ func checkOperationalFields(input RestoreStateInput) error {
 	if input.IncidentContract == "" && slices.ContainsFunc(input.State.Pods, operational) {
 		return errors.New("saved service holds and operational destinations need the incident contract")
 	}
+	if err := checkSavedExclusions(input.State); err != nil {
+		return err
+	}
 	return checkOperationalStations(input.Network, input.State.Pods)
+}
+
+// checkSavedExclusions checks the pickup exclusions of the saved waiting
+// trips (incident contract, section 5.2). X1: a trip with an exclusion
+// never boarded, and neither its pod nor its hold is the excluded pod. X2:
+// the excluded pod is a saved pod.
+func checkSavedExclusions(state SavedState) error {
+	for _, trip := range state.Waiting {
+		excluded := trip.ExcludedPod
+		if excluded == "" {
+			continue
+		}
+		if trip.Boarded || trip.Request.PodID == excluded || trip.DeferPodID == excluded {
+			return fmt.Errorf("waiting order %d: the exclusion of pod %s breaks X1", trip.Request.ID, excluded)
+		}
+		if !slices.ContainsFunc(state.Pods, func(pod SavedPod) bool { return pod.ID == excluded }) {
+			return fmt.Errorf("waiting order %d excludes pod %s, which is not saved", trip.Request.ID, excluded)
+		}
+	}
+	return nil
 }
 
 // RestoreState rebuilds a running simulation from a saved state. The network
@@ -440,7 +468,7 @@ func (s *Simulation) ExportState() SavedState {
 	for index, trip := range s.waiting {
 		saved := SavedTrip{
 			Request: SavedRequest(trip.request), Route: s.laneIndexes(trip.route, limits.trip), Boarded: trip.boarded,
-			DeferUntil: trip.deferUntil, DeferCheck: trip.deferCheck, DeferPodID: trip.deferPodID,
+			DeferUntil: trip.deferUntil, DeferCheck: trip.deferCheck, DeferPodID: trip.deferPodID, ExcludedPod: trip.excludedPod,
 		}
 		if saved.Route == nil && len(trip.route) > 0 {
 			// A restore clears the pod bindings of a trip whose route is too

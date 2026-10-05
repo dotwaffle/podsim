@@ -99,9 +99,9 @@ func (s *Simulation) passengerBerth(stationID, berthID string) bool {
 
 // unboundTrip returns a saved trip without its pod bindings: the pod, the
 // route and the deferral check. It keeps the deferral deadline when the
-// deadline is in range.
+// deadline is in range, and the exclusion.
 func (s *Simulation) unboundTrip(saved SavedTrip) waitingTrip {
-	trip := waitingTrip{request: Request(saved.Request), boarded: saved.Boarded}
+	trip := waitingTrip{request: Request(saved.Request), boarded: saved.Boarded, excludedPod: saved.ExcludedPod}
 	trip.request.PodID = ""
 	if s.deferralInRange(saved.DeferUntil) {
 		trip.deferUntil = saved.DeferUntil

@@ -1297,7 +1297,7 @@ func (r *physicalRestore) restoreTrip(index int, request Request) waitingTrip {
 	saved := r.state.Waiting[index]
 	trip := waitingTrip{
 		request: request, boarded: saved.Boarded,
-		deferUntil: saved.DeferUntil, deferCheck: saved.DeferCheck, deferPodID: saved.DeferPodID,
+		deferUntil: saved.DeferUntil, deferCheck: saved.DeferCheck, deferPodID: saved.DeferPodID, excludedPod: saved.ExcludedPod,
 	}
 	unbound := r.unbound[index] || !r.activePod(request.PodID) || !r.activePod(trip.deferPodID) ||
 		trip.deferCheck < 0 || trip.deferCheck > r.s.tick+TicksPerSecond

@@ -663,6 +663,51 @@ func TestCloneCopiesExclusion(t *testing.T) {
 	}
 }
 
+// TestExclusionSaveRestore checks that a saved trip keeps its exclusion
+// through both restore tiers (incident contract, sections 5.2 and 9.6),
+// and that a restore refuses a saved exclusion that breaks X1 or X2.
+func TestExclusionSaveRestore(t *testing.T) {
+	t.Parallel()
+	s := newPickupFleet(t, "garden", "harbor")
+	s.waiting = []waitingTrip{newTrip(s, "market", "harbor")}
+	s.waiting[0].excludedPod = "01"
+	if err := s.CheckContract(); err != nil {
+		t.Fatal(err)
+	}
+	state := s.ExportState()
+	if state.Waiting[0].ExcludedPod != "01" {
+		t.Fatalf("the saved trip excludes %q", state.Waiting[0].ExcludedPod)
+	}
+	input := RestoreStateInput{Network: s.network, Fleet: s.initial, State: state}
+	for _, logical := range []bool{false, true} {
+		input.LogicalOnly = logical
+		restored, _, err := RestoreState(input)
+		if err != nil {
+			t.Fatalf("logical %t: %v", logical, err)
+		}
+		if got := restored.waiting[0].excludedPod; got != "01" {
+			t.Fatalf("logical %t: the restored trip excludes %q", logical, got)
+		}
+	}
+	input.LogicalOnly = false
+	for name, change := range map[string]func(*SavedTrip){
+		"boarded":     func(trip *SavedTrip) { trip.Boarded, trip.Request.BoardedTick = true, trip.Request.RequestedTick },
+		"bound":       func(trip *SavedTrip) { trip.Request.PodID = "01" },
+		"hold":        func(trip *SavedTrip) { trip.DeferPodID = "01" },
+		"unknown pod": func(trip *SavedTrip) { trip.ExcludedPod = "99" },
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			input := input
+			input.State = s.ExportState()
+			change(&input.State.Waiting[0])
+			if restored, _, err := RestoreState(input); err == nil || restored != nil {
+				t.Fatal("the restore accepts the exclusion")
+			}
+		})
+	}
+}
+
 // exclusionTracker follows the exclusion of each queued trip from one
 // observation of a simulation to the next. Only the first hold of a
 // withdrawal sets or replaces an exclusion (newest wins), and no withdrawal

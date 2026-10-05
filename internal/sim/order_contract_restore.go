@@ -103,10 +103,11 @@ func checkContractRestoreSemantics(input RestoreStateInput) error {
 // strandedTrip reports whether a saved trip that no admitting class can
 // serve has the shape of a stranded transferred order (incident contract,
 // section 7.6). S1: the trip boarded before, and its leg origin and
-// destination are passenger stations. S2: it has no pod, route, or hold.
-// S3: its order origin is a passenger station, and an Express order has
-// its service pair. The caller checks that some fleet class admits the
-// party. The saved trip has no excluded pod or destination berth yet.
+// destination are passenger stations. S2: it has no pod, route, hold, or
+// exclusion. A saved trip keeps no destination berth apart from its
+// route. S3: its order origin is a passenger station, and an Express order
+// has its service pair. The caller checks that some fleet class admits the
+// party.
 func strandedTrip(input RestoreStateInput, trip SavedTrip) bool {
 	request := trip.Request
 	passenger := func(id string) bool {
@@ -116,7 +117,7 @@ func strandedTrip(input RestoreStateInput, trip SavedTrip) bool {
 	if !trip.Boarded || request.LegFrom == "" || !passenger(request.LegFrom) || !passenger(request.To) {
 		return false
 	}
-	if request.PodID != "" || len(trip.Route) > 0 || trip.DeferPodID != "" || trip.DeferCheck != 0 {
+	if request.PodID != "" || len(trip.Route) > 0 || trip.DeferPodID != "" || trip.DeferCheck != 0 || trip.ExcludedPod != "" {
 		return false
 	}
 	if !passenger(request.From) {
