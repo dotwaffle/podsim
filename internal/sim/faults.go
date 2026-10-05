@@ -336,8 +336,12 @@ func (s *Simulation) removeFault(index int) {
 }
 
 // faultStage runs in Step after the unloading loop and before dispatch,
-// only when faults are on. It clears each record whose duration ended, in
-// serial order.
+// only when faults are on (section 5.5 of the incident suspension
+// contract). It clears each record whose duration ended, in serial order.
+// Then it evacuates each faulted pod at rest with an active rider once its
+// evacuation tick is reached. The clears come first, so a fault that ends
+// at or before its evacuation tick never evacuates. Last, it applies the
+// hold release rule.
 func (s *Simulation) faultStage() {
 	for index := 0; index < len(s.faults); {
 		if end := s.faults[index].end; end != 0 && end <= s.tick {
@@ -345,6 +349,38 @@ func (s *Simulation) faultStage() {
 			continue
 		}
 		index++
+	}
+	for _, record := range s.faults {
+		v := &s.vehicles[record.pod]
+		if s.tick >= s.evacuateTick(record) && v.Pod.Speed == 0 && v.RidersAboard() > 0 && s.evacuate(v) == nil {
+			countFault(&s.faultCounters.evacuations)
+		}
+	}
+	s.releaseFaultHolds()
+}
+
+// evacuateTick returns the first tick at which the fault stage evacuates
+// the pod of the record. The preflight of the fault start keeps it in
+// int64.
+func (s *Simulation) evacuateTick(record faultRecord) int64 {
+	return record.start + s.faultSettings.evacuationSeconds*TicksPerSecond
+}
+
+// releaseFaultHolds applies the hold release rule (section 5.6 of the
+// incident suspension contract). A pod with the fault hold returns to
+// service when it has no pod fault, the hold owns no purpose, and the pod
+// is not a coupling or approach member. A fault recovery thus keeps its
+// hold until its arrival clears the purpose (W5), and a member keeps it
+// until the split.
+func (s *Simulation) releaseFaultHolds() {
+	for index := range s.vehicles {
+		v := &s.vehicles[index]
+		if v.withdrawn&faultHold == 0 || v.faulted || v.op.owner == faultHold || v.couplingID != "" || s.couplingApproachMember(v.Pod.ID) {
+			continue
+		}
+		// The tests above are the refusals of restoreService, so the call
+		// cannot fail.
+		_ = s.restoreService(v, faultHold)
 	}
 }
 
