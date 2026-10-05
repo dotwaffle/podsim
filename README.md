@@ -1464,7 +1464,7 @@ A saved state keeps each link in the `platoon` field of the follower.
 The field gives the predecessor, the run as indexes into the two saved routes, the turn, and whether the link drains.
 The restore checks the run, the turn, the speed limits, and the clearance against the network and the pods, and it does not plan the link again.
 An invalid complete-lane link fails the physical tier under the existing recovery rules.
-An invalid version 4 buffer certificate rejects the saved state without logical fallback or partial member demotion.
+An invalid fixed-entry buffer certificate rejects the saved state without logical fallback or partial member demotion.
 A link that drains before the save also drains after the restore.
 The saved state does not keep the platoon limit.
 The restore uses the `platoonLimit` of the project.

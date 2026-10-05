@@ -5,7 +5,7 @@ import (
 	"slices"
 )
 
-// SavedCompactQueue preserves one compact-v1 group in a save-6 head record.
+// SavedCompactQueue preserves one compact-v1 group in a saved head record.
 // All positions and proof values use the shared entry lane's local coordinates.
 type SavedCompactQueue struct {
 	Kind          string    `json:"kind"`

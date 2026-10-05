@@ -122,9 +122,9 @@ The trace makes intermediate observable differences detectable, even if the endp
 These observables still omit private controller state.
 Future-continuation qualification against an uninterrupted run and its exact `Clone` must cover that remaining gap.
 
-`nativeEncoding` is a new offline encoding identifier, not session save version 6.
+`nativeEncoding` is a new offline encoding identifier, not a session saved-state version.
 Native `RiderBoarding` records use their native named fields.
-The session save-6 adapter instead encodes source-berth index tuples.
+The session saved-state adapter instead encodes source-berth index tuples.
 Do not send this object to the session decoder or treat those tuples as native records.
 Freeze a member list and canonical fixture for this encoding during item 6b.
 A later incompatible native field requires a new car file version or a separately approved migration.
@@ -309,7 +309,7 @@ It keeps the current service, bank, class, and experiment rules.
 The scan and the origin check refuse `orderContract`, `couplingContract`, and project versions 2 through 5.
 The frozen checkpoint member list does not change, because it does not name project members.
 Car continuation does not import session saves.
-Bare native snapshots, session versions 2 through 6, report version 1, and plans are not car checkpoints.
+Bare native snapshots, session saves of any version, report version 1, and plans are not car checkpoints.
 Reject them with a format-specific error.
 No automatic migration can recover missing car events from those files.
 An original project and plan can start a new run, but that action is not recovery of an old ledger.
@@ -330,7 +330,7 @@ Reject null checkpoint-required members without treating missing native omitzero
 Car record and lot counts must equal their origin counts.
 Native pending and accepted records must fit the two-offers-per-itinerary conservation bound.
 Do not copy the live session's 2,600 operating queue limit into offline admission.
-Do not treat its 6,200 parser recognition limit as offline permission or qualification.
+Do not treat its saved-state parser limits, 2,600 orders or 8,600 with `express-v1`, as offline permission or qualification.
 Reject oversized native arrays before replay, without dropping accepted parties.
 Keep the existing offline queue control through 1,000,000.
 These rules impose checkpoint eligibility, not a new native submission ceiling.
@@ -386,7 +386,7 @@ Propose `Run.EncodeCheckpoint(context.Context, io.Writer) error` and `DecodeChec
 The caller supplies the deadline through the context.
 The package owns bounded decoding and replay, while the CLI owns atomic local file publication.
 These Go entry points are proposed, not existing APIs.
-Report-v1 readers, browser authoring, project loaders, `cmd/compare`, live session storage, and stream hello-3 consumers stay unchanged.
+Report-v1 readers, browser authoring, project loaders, `cmd/compare`, live session storage, and stream consumers stay unchanged.
 The existing offline browser continues to read reports, not resumable state.
 Current [`cmd/compare`](../cmd/compare/main.go) owns different schedules and rail ledgers.
 A car checkpoint cannot restore a comparison arm or a rail session.

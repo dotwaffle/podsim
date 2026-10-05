@@ -198,7 +198,7 @@ A rewind does not change it.
 | Member | Content |
 | --- | --- |
 | `tier` | `physical`: the pods kept their positions. `logical`: the pods started again at their initial berths. `empty`: the server did not use the saved state. |
-| `reason` | Why the tier is not `physical`. For `logical`: `physical_failed` or `restore_loop`. For `empty`: `project_changed`, `unsupported_version`, `invalid_state`, `too_large`, `unreadable`, or `restore_loop`. |
+| `reason` | Why the tier is not `physical`. For `logical`: `physical_failed` or `restore_loop`. For `empty`: `project_changed`, `unsupported_version`, `invalid_state`, `unreadable`, or `restore_loop`. A file of more than 80 MiB gives no `empty` start, because the server keeps the file and fails to start. |
 | `demoted` | The number of pods that the `physical` tier moved to a berth. |
 | `requeued` | The number of orders that went back to the queue. |
 | `dropped` | The number of orders that the restore removed because they were not valid. |

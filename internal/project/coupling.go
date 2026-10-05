@@ -7,7 +7,8 @@ import (
 )
 
 // HasCouplingContract reports whether config carries the physical coupling
-// marker. The marker selects saved state 8 and stream hello 5.
+// marker. The marker permits the coupling members of a saved state and a
+// stream message.
 func HasCouplingContract(config Config) bool {
 	return config.CouplingContract != ""
 }

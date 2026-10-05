@@ -57,16 +57,16 @@ An explicit null or empty `banks` member is invalid.
 The decoder refuses project versions 2 through 5 and does not migrate them.
 Both project readers and nested transport decoders bound banks and berth membership before typed allocation.
 
-Banked sessions write saved-state version 6, as other sessions without an order or coupling contract do.
-Version 6 stores a version 1 project and supports buffer fields and fixed entry certificates.
+Banked sessions write saved-state version 9, as every other session does.
+Version 9 stores a version 1 project and supports buffer fields and fixed entry certificates.
 No saved pod bank field is added.
 Restore infers the bank from retained gates, local lanes, and berth assignments.
 A retained route that disagrees with its bank rejects the file before either restore tier.
 Existing missing-route and route-budget demotions remain.
 Physical restore retains position tolerances, resets speed, and rebuilds ordinary reservations.
 
-Sessions send stream hello version 3, 4, or 5, as the contract markers of the project select.
-Clients reject hello versions 1 and 2.
+Sessions send stream hello version 6 for every project kind.
+Clients reject every other hello version.
 Geometry changes start a new stream chain and send the full network.
 
 This fixture does not change any default layout or controller setting.

@@ -544,6 +544,9 @@ With `-state`, the server writes these log records at startup:
 - `Rejected saved session state` (WARN) gives the `reason` and the `error`.
 - `Restore failed with a panic` (ERROR) gives the `panic` and the `stack`.
   The server then rejects the file with reason `invalid_state`.
+- `Preserved saved session state` (ERROR) means that the decompressed saved state has more than 80 MiB.
+  It gives the `error` and `saving=false`.
+  The server keeps the file and fails to start.
 - `Read saved session state` (ERROR) means that the read failed or timed out.
   It gives the `error` and `saving=false`.
 - `Move rejected session state` (ERROR) means that the move of a rejected file failed.

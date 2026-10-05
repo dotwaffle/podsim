@@ -34,7 +34,7 @@ The controller also retains ordinary resource-release distances.
 
 Before departure, the group stops at ordinary spacing.
 Disabling the compact policy retains the recovery certificate until recovery finishes.
-Save version 6 preserves membership, stopping cells, exact speeds, and recovery targets.
+The saved state keeps membership, stopping cells, exact speeds, and recovery targets.
 Restore rejects an invalid certificate without logical fallback.
 A valid compact certificate cannot convert to a logical-only restore.
 A controller fault pauses all pod movement and produces one server error record before new demand offers.
@@ -51,12 +51,14 @@ Its independent field maxima do not describe a physically reachable state.
 
 | Members per certificate | Encoded bytes | Space below the 83,886,080-byte cap |
 | --- | ---: | ---: |
-| 1 | 83,698,502 | 187,578 |
-| 2 | 83,691,302 | 194,778 |
-| 3 | 83,688,902 | 197,178 |
-| 4 | 83,687,702 | 198,378 |
+| 1 | 55,378,502 | 28,507,578 |
+| 2 | 55,371,302 | 28,514,778 |
+| 3 | 55,368,902 | 28,517,178 |
+| 4 | 55,367,702 | 28,518,378 |
 
-The worst case exceeds the earlier estimate by 6,905 bytes but fits the existing cap.
+These sizes are for saved-state version 9, which packs the order text as base64.
+With raw order text in save 6, the worst case was 83,698,502 bytes.
+That exceeded the earlier estimate by 6,905 bytes but fit the existing cap.
 The complete typed certificate adds 502 bytes per head, compared with the estimated 483 bytes.
 Wider existing float encodings and compact class metadata account for the remaining 1,205 bytes.
 No queue, rider, save, or stream limit changes.

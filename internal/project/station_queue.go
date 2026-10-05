@@ -23,9 +23,10 @@ func validateStationQueueSpacing(config Config) error {
 	if !validStationQueueSpacing(mode) {
 		return errors.New("station queue spacing must be ordinary or compact-v1")
 	}
-	// Express without the coupling marker uses saved state 7 and stream
-	// hello 4. Those families do not carry a queue spacing selection.
-	// The planned merge of the save and stream families removes this rule.
+	// Express without the coupling marker refuses a queue spacing selection.
+	// The rule came from saved state 7 and stream hello 4, which did not
+	// carry the selection. Saved state 9 and hello 6 replaced them, but the
+	// rule stays until a contract change removes it.
 	if config.StationQueueSpacing != "" && config.OrderContract == sim.ExpressOrderContract && !HasCouplingContract(config) {
 		return errors.New("station queue spacing with express-v1 requires couplingContract compact-pair-v1")
 	}

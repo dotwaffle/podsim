@@ -7,8 +7,7 @@ import (
 )
 
 // stationQueueContractError mirrors the native refusal of queue spacing
-// with Express but without the coupling marker. Express alone uses save 7
-// and stream hello 4, which do not carry the setting.
+// with Express but without the coupling marker.
 func stationQueueContractError(draft any) string {
 	if draftOrderContract(draft) == sim.ExpressOrderContract && !couplingMarked(draft) {
 		return "Station queue spacing with express-v1 requires couplingContract compact-pair-v1."

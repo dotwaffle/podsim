@@ -65,7 +65,7 @@ Three save representations were considered:
 Use aligned tuples at the session boundary.
 The independent design review confirmed this choice with the restore rules below.
 Native saved and live records retain berth IDs.
-The session save-6 adapter encodes optional `boardings` tuples against the bound source project.
+The session saved-state adapter encodes optional `boardings` tuples against the bound source project.
 Each item is exactly `[berthIndex, cumulativeMetersAtBoarding]`.
 The array aligns with `SavedPod.Riders`, including retained completed history.
 `berthIndex` selects a berth in the saved network station named by that rider's existing `from` member.
@@ -150,7 +150,7 @@ It does not replace permanent format and byte tests.
 Before implementation lands, compare historical and modern maxima with the actual encoded types.
 Include compact certificates and retained rider history in that test.
 Keep the 2,600 saved-queue and eight stored-rider operating bounds.
-Add optional hello-3 vehicle fields `boardings` and `riddenMeters`.
+Add optional stream vehicle fields `boardings` and `riddenMeters`.
 `boardings` contains aligned native records with `berthID` and `metersAtBoarding`.
 These records use berth IDs, so stream decoding does not interpret positional indexes.
 `riddenMeters` holds the passenger chain's cumulative distance.

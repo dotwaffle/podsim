@@ -45,18 +45,18 @@ Approve these data and compatibility rules as one foundation:
   Do not wait to fill seats or invent a departure interval.
   A large pod can separately serve one private on-demand group when all compatibility checks pass.
   Fare calculation and a fixed timetable require later contracts.
-- Use project version 1, save version 6, and stream hello version 3.
+- Use project version 1, saved-state version 9, and stream hello version 6.
   A project permits banks and service metadata independently, by their presence.
   Browser file wrapper version 1 stays unchanged.
   The decoder refuses project versions 2 through 5 and does not migrate them.
-  Save 6 can contain a project with new effective request state.
+  The saved state can contain a project with new effective request state.
 - Raise only the new express rider array bound to 20 and save-6 restore queue bound to 6,200.
   Keep on-demand at 8 parties, stops at 8, manual admission at 200, fleet at 300, and current byte and history caps.
   Bound the express registry at 300 services.
   Prove worst-case saves and frames fit existing byte limits before landing.
 - Each saved and streamed order has explicit `private` or `shared` consent.
   Restore and new trip commands reject all other consent values.
-  The server does not migrate saves older than version 6.
+  The server does not migrate saves of an earlier version.
   Never invent consent, split a party, or truncate passenger counts.
   Pending or requeued parties without a suitable certified class remain unassigned.
   This includes sizes 2 through 8 in a legacy-only fleet.
@@ -70,7 +70,7 @@ Topology preserves the project version and class allowlists.
 New express records use `id`, `from`, `to`, `class`, and `partyLimit`.
 Keep completed rider display history bounded separately from active riders.
 No continuously served pod may grow an unbounded request array.
-Onboard pickup requires per-rider boarding berth and distance baseline in save 6 before multiple origins become valid.
+Onboard pickup requires per-rider boarding berth and distance baseline in the saved state before multiple origins become valid.
 It occurs only at a compatible passenger berth while stationary, after eligible alighting.
 
 The detailed read-only audit lists all consumers, compatibility paths, migration exceptions, and required validation: `~/.cache/agents/podsim/roadmap-service-20261002/consent-vehicle-contract-audit.md`.
@@ -171,7 +171,7 @@ Approve an opt-in `compact-v1` profile with these limits:
   With `orderContract: "express-v1"`, the setting also requires the coupling marker.
   Compact requires station buffers and a valid platoon limit.
   It never changes lane speeds automatically.
-  Save 6 uses distinct link kind `compact-buffer-v1` with phase `compact` or `recovering`.
+  The saved state uses distinct link kind `compact-buffer-v1` with phase `compact` or `recovering`.
   The kind fixes the numeric profile.
   Saved arbitrary clearance or braking values are invalid.
   Old schema versions reject new policy or certificate presence.

@@ -251,7 +251,7 @@ type RestoreResult struct {
 // physical tier first. When that tier fails, or when input.LogicalOnly is
 // set, it uses the logical tier. It returns an error only when the last tier
 // that it tries fails. The error then wraps the error of each tier that it
-// tried. Invalid version 4 buffer certificates return an error without a
+// tried. Invalid fixed entry buffer certificates return an error without a
 // logical fallback. LogicalOnly still validates those certificates physically.
 // Compact certificates require physical restore and reject logical conversion.
 func RestoreState(input RestoreStateInput) (*Simulation, RestoreResult, error) {

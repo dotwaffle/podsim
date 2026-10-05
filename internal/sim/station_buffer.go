@@ -7,13 +7,13 @@ import "slices"
 // Projects select this option through their experimental settings.
 func (s *Simulation) SetStationBuffers(enabled bool) { s.stationBuffers = enabled }
 
-// NeedsBufferState reports whether a save requires the version 3 buffer
-// contract, including pending admissions that have not reached the entry lane.
+// NeedsBufferState reports whether a save requires the station buffer
+// fields, including pending admissions that have not reached the entry lane.
 func (s *Simulation) NeedsBufferState() bool {
 	return s.stationBuffers || slices.ContainsFunc(s.vehicles, func(v vehicle) bool { return v.buffered })
 }
 
-// NeedsBufferPlatoonState reports whether fixed entry links require version 4.
+// NeedsBufferPlatoonState reports whether a save requires fixed entry links.
 func (s *Simulation) NeedsBufferPlatoonState() bool {
 	return slices.ContainsFunc(s.vehicles, func(v vehicle) bool { return v.link.leader != 0 && v.link.buffer })
 }

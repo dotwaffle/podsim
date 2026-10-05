@@ -22,13 +22,13 @@ Completed rider history does not count as an outstanding order, so an outstandin
 
 Approve this qualification scope:
 
-- Complete project version 1 without contract markers, save 6, hello 3, order consent, whole parties, and class compatibility for supported legacy and compact profiles.
+- Complete project version 1 without contract markers, the saved state, the stream, order consent, whole parties, and class compatibility for supported legacy and compact profiles.
 - Keep the current maximum saved queue of 2,600 records for states with supported legacy and compact profiles.
   Keep each such pod's existing bound of eight stored riders, including completed history.
   Compact admission still respects its four seats.
 - Keep express registry and class capacity metadata at the approved values.
   Group and express profiles remain unavailable for physical placement, startup, and restore.
-- Permit the save-6 parser to recognize the approved larger array shapes.
+- Permit the saved-state parser to recognize the approved larger array shapes.
   Do not activate larger valid operating states until a separate physical-profile and byte qualification passes.
 - Require the later large-profile proposal to include an encoding that fits the existing 80 MiB save and 64 MiB stream caps.
   Text tables or another bounded encoding may require a separate reviewed wire contract.

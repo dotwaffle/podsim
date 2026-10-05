@@ -11,7 +11,7 @@ The simulation must swap those assignments before the test exports its state.
 A third pod has a buffered pickup, so the saved state contains buffered and ordinary pods.
 The fixture checks safety before export.
 
-The test inserts that physical state into a session-generated version 6 file.
+The test packs the order text as base64 and inserts that physical state into a session-generated version 9 file.
 It keeps the session wrapper, demand state, and project fields from the production encoder.
 Each case owns a real `file://` store in a temporary directory.
 
@@ -19,10 +19,10 @@ The tests check these paths:
 
 - All four caller-selected combinations of buffer and reassignment controls.
 - Saved controls with no caller-supplied project.
-- Rejection of a version 2 file at startup: the server moves the file aside and starts a new session.
+- Rejection of a version 2 file at startup with `unsupported_version`: the server moves the file aside and starts a new session.
 - Startup, final save, second physical restore, and request completion through the session clock.
 - Unchanged physical saved state after restart, including buffer membership and request bindings.
-- Version 6 output after existing buffers drain with new admissions disabled.
+- Version 9 output after existing buffers drain with new admissions disabled.
 
 The clock runs inside `testing/synctest`, which avoids a wall-clock wait for simulated travel.
 The session creates and stops its clock goroutine inside that test.

@@ -19,14 +19,14 @@ The approved batch covers implementation and qualification of the following cont
 
 | Decision | Proposed bound or rule |
 | --- | --- |
-| Opt-in contract | `express-v1` in a version 1 project. Without the coupling marker, it selects save 7 and stream hello 4 |
+| Opt-in contract | `express-v1` in a version 1 project. It selects the Express bounds in saved-state version 9 and stream hello version 6 |
 | Express profile under that contract | 20 seats, new whole-party size 1 through 20, centered 10 m body, maximum width 2.5 m |
 | Large interaction candidate | Existing 6 m envelope radius, 20 m separation and retention, lanes at least 40 m, actual cells at least 20 m |
 | Stored Express records | At most 20 rider records, including completed history, with at most 20 aligned boarding records |
 | Express service pooling | At most 20 active parties, subject to the authored service limit and total of 20 passengers |
 | On-demand pooling | Existing maximum of eight active parties and eight stops, also for an Express pod |
 | Express-contract storage | At most 8,600 pending records and 8,600 outstanding records in aggregate |
-| Wire encoding | Canonical padded base64 for five bounded order-text fields, with an explicit discriminator |
+| Wire encoding | Canonical padded base64 for five bounded order-text fields, for every project kind, with no discriminator |
 | Byte caps | Existing save 80 MiB, raw stream 64 MiB, binary stream 65 MiB, and topology 10 MiB plus 4 KiB |
 | Other caps | Existing fleet 300, service registry 300, and manual admission 200 |
 
@@ -44,10 +44,12 @@ No common small-class arithmetic, authored speed, or protected compact rule chan
 
 [`vehicle_class.go`](../internal/sim/vehicle_class.go) currently reports Express as 20 seats, maximum new party size eight, body length zero, and physically unsupported.
 Placement, startup, and both restore tiers reject that unsupported profile.
-[`order_state.go`](../internal/session/order_state.go) recognizes 6,200 waiting records and 20 rider records in save 6.
+At the reviewed baseline, `order_state.go` recognized 6,200 waiting records and 20 rider records in save 6.
 Those parser limits do not authorize such native operating states.
 [`state.go`](../internal/sim/state.go) and [`state_contract.go`](../internal/sim/state_contract.go) still enforce 2,600 pending records and eight stored riders.
 Stream publication also retains those operating bounds.
+Saved-state version 9 and stream hello version 6 now take their array bounds from the contract markers.
+The bounds are 2,600 waiting records and eight riders per pod, or 8,600 and 20 with `express-v1`.
 
 The current session derives its recovery bound from `200 + 300 * 8 = 2,600` total orders.
 The independent native maxima, 2,600 waiting plus 2,400 onboard records, total 5,000.
@@ -144,7 +146,7 @@ Do not claim identical speed or trajectory across that boundary.
 The restored zero-speed stopping frontier must be owned continuously.
 Every subsequent tick must satisfy the unchanged acceleration, braking, speed-limit, and large-separation rules.
 Existing compact speed certificates keep their separate approved behavior.
-No new ordinary speed or stopping-ownership certificate enters save 7.
+No new ordinary speed or stopping-ownership certificate enters the saved state.
 
 Unsupported classes, changed immutable classes, bad consent, incompatible endpoints, or invalid resource certificates must reject before logical fallback can erase evidence.
 Recoverable physical placement failures may use the logical tier only after the shared semantic checks pass.
@@ -219,8 +221,8 @@ Test the retained 20 m influence of a large neighbor without changing those comp
 
 The project marker is `orderContract: "express-v1"` in a version 1 project.
 The decoder refuses project versions 2 through 5 and does not migrate them.
-Save 7 requires that marker and `textEncoding: "order-text-base64-v1"`.
-Stream hello 4 advertises both values and binds them to its source epoch and topology.
+Saved-state version 9 carries that marker at its root.
+Stream hello version 6 carries the marker and binds it to its source epoch and topology.
 Express topology carries `orderContract` and a bounded `expressServices` array, copied from the project registry.
 It retains project version, epoch, and revision binding.
 The entire topology, including the registry, must fit the existing 10 MiB plus 4 KiB cap.
@@ -229,20 +231,20 @@ The producer must encode and preflight it before activating an Express session.
 A failure rejects activation without dropping registry entries or raising the cap.
 Consumers must validate each service ID, normalized Express class, directed pair, party limit, and compatible path.
 A registry change requires a matching topology revision before consumers accept orders using that change.
-Full frames and replacement deltas carry the text-encoding discriminator.
-Reject unsupported, absent, duplicate, contradictory, or mixed discriminators for those versions.
+Full frames and replacement deltas have no text-encoding discriminator.
+Reject a save, a message, or an HTTP state that has a `textEncoding` member.
 
 Every payload must validate before the assembler changes its current state or acknowledges it.
 Recovery and a full-frame replacement must retain the negotiated contract.
 A project change that changes the contract closes the current stream and requires a new hello.
 
-A project without the Express or coupling marker uses save 6 and stream hello 3.
-These keep raw text meanings and their current limits.
-Reject new markers, packed fields, new operating Express certificates, or larger semantic states in save 6 and hello 3.
+A project without the Express or coupling marker uses the same save and hello versions, with its current limits.
+Its order text is also packed.
+Without the Express marker, reject new operating Express certificates and larger semantic states.
 Do not infer base64 from a string's appearance.
-A raw old ID such as `YWJj` still means those four characters.
+Only the five packed fields are decoded, so an ID such as `YWJj` in a project still means those four characters.
 Do not downgrade Express state to an old version, remove riders, or reinterpret valid private orders during export.
-Foundation projects and ordinary fixtures keep their encoded bytes, with project version 1.
+Foundation project files keep their encoded bytes, with project version 1.
 
 Encode five free-text fields inside each waiting or rider order record: `from`, `to`, `podID`, `dispatchReason`, and `serviceID`.
 Saved order records use their existing lowercase field names.
@@ -278,19 +280,19 @@ The current on-demand-only check in [`stream_service.go`](../internal/session/st
 Extend those consumers explicitly rather than treating their current acceptance as qualification.
 Request identities, ticks, sequence strings, exponents, and boarding distances must roundtrip without conversion through JavaScript numbers.
 
-For Express HTTP state, require `Accept: application/vnd.podsim.express-v1+json`.
-Return an envelope with `orderContract`, `textEncoding`, `topology`, and `frame`.
+For HTTP state of every project kind, require `Accept: application/vnd.podsim.state-6+json`.
+Return an envelope with the root contract markers, `topology`, and `frame`.
 The topology and frame must identify the same source epoch and project revision.
 The frame uses compact indexed-route `StreamFrame`, whose current members are state and routes.
 Current stream frames do not contain topology.
 WebSocket consumers continue to fetch the separate topology and verify its source binding.
 
-The opt-in HTTP envelope carries both topology and frame, not raw repeated `StateFrame.RouteLaneIDs`.
+The HTTP envelope carries both topology and frame, not raw repeated `StateFrame.RouteLaneIDs`.
 Its packed orders use the same full-stream adapter and decoded semantic validation.
-Apply the 64 MiB raw stream bound to this opt-in HTTP envelope.
+Apply the 64 MiB raw stream bound to this HTTP envelope.
 This avoids multiplying escaped lane IDs across a large recurring route payload.
-An Express session returns 406 to an unqualified state reader instead of a foundation-shaped partial response.
-Foundation HTTP state remains unchanged.
+A request without the media type gets 406 instead of a partial response.
+Foundation HTTP state uses the same envelope.
 
 Express trip commands require `orderContract: "express-v1"` and a matching project and epoch.
 Plain project and topology responses identify project version 1 and its contract.

@@ -2,8 +2,8 @@
 
 Status: approved by the user on October 2, 2026.
 Numeric compact-v1 approval remains unchanged.
-This proposal adds bounded save-6 fields needed to preserve actual recovery through a cold restore.
-Project version 1 without contract markers, save 6, and hello 3 remain unchanged.
+This proposal adds bounded saved-state fields needed to preserve actual recovery through a cold restore.
+It changes no project, save, or stream version.
 Older versions reject these fields and certificate kinds.
 
 ## Saved representation
@@ -80,7 +80,7 @@ It includes 300 members, escaped 64-byte IDs, longest finite numeric encodings, 
 The largest estimate is 83,829,396 bytes, below the 83,886,080-byte save cap by 56,684 bytes.
 These independent maxima bound encoding size.
 They do not describe a physically reachable state.
-Root must extend the permanent save-6 fixture and validate its encoded shape before landing this representation.
+Root must extend the permanent saved-state fixture and validate its encoded shape before landing this representation.
 The 80 MiB save and 64 MiB stream caps remain unchanged.
 The stream publishes only the approved spacing policy and ordinary pod observations.
 It does not grant an oracle exception from a browser field.

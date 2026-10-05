@@ -63,7 +63,8 @@ The `qualify` task ran the full scenario suite without the race detector.
 The `test:race` task still runs every test.
 The `qualify` task now runs only the two Station 19 drain tests, which skip under the race detector.
 The `test:embedded` task runs the full root and `cmd/serve` suites with the tag.
-In the session package, it runs only the four maximum codec tests that skip under the race detector and `TestStreamMaximumEncoding`.
+In the session package, it runs only the four maximum codec tests, `TestPackedTextWireCost`, and `TestStreamMaximumEncoding`.
+The first five tests skip under the race detector.
 That test does its bounded-scan checks only without the race detector.
 A new test that skips under the race detector must be added to the `-run` pattern of one of these tasks.
 A pattern that matches no test passes.
