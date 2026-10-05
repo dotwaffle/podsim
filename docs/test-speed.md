@@ -75,9 +75,13 @@ All eight tasks of `mise run check` ran at the same time on that runner.
 The race tests of `internal/sim` took 920 to 1,250 seconds, and those of `internal/session` took 720 to 987 seconds.
 Two runs of the same source differed by about 35 percent between Azure regions.
 
-The workflow now runs five jobs on separate runners.
-`test:race` depends on every `test:race:*` task: `test:race:sim`, `test:race:session`, and `test:race:other`.
-`test:race:other` runs every package except the first two, so a new package needs no task change.
+The workflow now runs six jobs on separate runners.
+`test:race` depends on every `test:race:*` task: `test:race:sim-stations`, `test:race:sim-other`, `test:race:session`, and `test:race:other`.
+The two `internal/sim` tasks share the `sim_race_split` pattern in `mise.toml`: one runs the matching tests and the other skips them.
+`test:race:other` runs every package except `internal/sim` and `internal/session`, so a new package needs no task change.
+
+On the first warm run, `test:race:sim` took 16 minutes, and every other job took 8.5 minutes or less.
+The station and reassignment tests took 439 of 885 seconds of the local race test time, so they form one of the two sim tasks.
 `check:static` runs the remaining tasks of `check`.
 `mise run check` still runs all of them on one machine.
 
