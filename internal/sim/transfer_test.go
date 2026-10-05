@@ -37,39 +37,60 @@ func pooledLegFleet(t *testing.T, queued bool) (*Simulation, *vehicle) {
 // TestTransferRider checks the effect of a transfer (incident contract,
 // section 7.3): the rider and its aligned boarding record leave the pod,
 // and the trip waits at its order ID position as a boarded trip with the
-// leg origin, no pod, and no exclusion.
+// leg origin, no pod, and no exclusion. Pod 01 carries orders 2, 3, and 5
+// with distinct boarding baselines. The test transfers the middle rider,
+// and then the last rider at its order origin.
 func TestTransferRider(t *testing.T) {
 	t.Parallel()
 	s, v := pooledLegFleet(t, true)
-	v.Boardings = []RiderBoarding{{BerthID: "s0-1"}, {BerthID: "s0-1", MetersAtBoarding: 0}}
-	rider := v.Riders[0]
-	if err := s.transferRider(v, 0, "s1"); err != nil {
+	last := newTrip(s, "s0", "s2")
+	if !s.joinSharedRide(&last, newPass(s)) {
+		t.Fatal("order 5 did not join pod 01")
+	}
+	v.riddenBase = 90
+	v.Boardings = []RiderBoarding{{BerthID: "s0-1", MetersAtBoarding: 10}, {BerthID: "s0-1", MetersAtBoarding: 40}, {BerthID: "s0-1", MetersAtBoarding: 70}}
+	if err := s.CheckContract(); err != nil {
 		t.Fatal(err)
 	}
-	if len(v.Riders) != 1 || v.Riders[0].ID != 3 || len(v.Boardings) != 1 {
-		t.Fatalf("pod 01 has riders %+v and records %+v", v.Riders, v.Boardings)
+	riders, records := slices.Clone(v.Riders), slices.Clone(v.Boardings)
+	// transfer moves the rider at index to the leg origin station, and
+	// checks the riders and records that stay, the order IDs of the queue,
+	// and the queued trip.
+	transfer := func(index int, station string, keep []int, queue []int, at int) {
+		t.Helper()
+		rider := v.Riders[index]
+		if err := s.transferRider(v, index, station); err != nil {
+			t.Fatal(err)
+		}
+		var wantRiders []Request
+		var wantRecords []RiderBoarding
+		for _, i := range keep {
+			wantRiders, wantRecords = append(wantRiders, riders[i]), append(wantRecords, records[i])
+		}
+		if !reflect.DeepEqual(v.Riders, wantRiders) || !reflect.DeepEqual(v.Boardings, wantRecords) {
+			t.Fatalf("pod 01 has riders %+v and records %+v\nwant %+v and %+v", v.Riders, v.Boardings, wantRiders, wantRecords)
+		}
+		ids := []int{}
+		for _, trip := range s.waiting {
+			ids = append(ids, trip.request.ID)
+		}
+		if !slices.Equal(ids, queue) {
+			t.Fatalf("queue %v, want %v", ids, queue)
+		}
+		want := rider
+		want.PodID, want.DispatchReason, want.LegFrom = "", "", station
+		if got := s.waiting[at]; !reflect.DeepEqual(got, waitingTrip{request: want, boarded: true}) {
+			t.Fatalf("transferred trip %+v, want %+v", got, waitingTrip{request: want, boarded: true})
+		}
 	}
-	ids := []int{}
-	for _, trip := range s.waiting {
-		ids = append(ids, trip.request.ID)
-	}
-	if !slices.Equal(ids, []int{1, 2, 4}) {
-		t.Fatalf("queue %v, want order 2 at its order ID position", ids)
-	}
-	want := rider
-	want.PodID, want.DispatchReason, want.LegFrom = "", "", "s1"
-	if got := s.waiting[1]; !reflect.DeepEqual(got, waitingTrip{request: want, boarded: true}) {
-		t.Fatalf("transferred trip %+v, want %+v", got, waitingTrip{request: want, boarded: true})
-	}
+	transfer(1, "s1", []int{0, 2}, []int{1, 3, 4}, 1)
 	if err := s.CheckContract(); err != nil {
 		t.Fatal(err)
 	}
 	// A transfer at the order origin also sets the leg origin.
-	if err := s.transferRider(v, 0, "s0"); err != nil {
+	transfer(1, "s0", []int{0}, []int{1, 3, 4, 5}, 3)
+	if err := s.CheckContract(); err != nil {
 		t.Fatal(err)
-	}
-	if trip := s.waiting[2]; trip.request.ID != 3 || trip.request.LegFrom != "s0" || len(v.Riders) != 0 || len(v.Boardings) != 0 {
-		t.Fatalf("transfer at the order origin: %+v, pod %+v", trip, v.Riders)
 	}
 }
 
