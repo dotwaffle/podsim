@@ -61,6 +61,9 @@ func NewStreamAssembler(topology TopologySnapshot) (*StreamAssembler, error) {
 	if err := sim.ValidateOrderContract(topology.OrderContract); err != nil {
 		return nil, err
 	}
+	if err := sim.ValidateIncidentContract(topology.IncidentContract); err != nil {
+		return nil, err
+	}
 	// A coupling member of the topology selects the coupling marker.
 	markers := contractMarkers{order: topology.OrderContract}
 	if hasCouplingTopology(topology) {

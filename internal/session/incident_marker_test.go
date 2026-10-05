@@ -3,6 +3,7 @@ package session
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"reflect"
 	"strings"
 	"testing"
@@ -357,5 +358,68 @@ func TestIncidentMarkerMatchedSeedRuns(t *testing.T) {
 				t.Fatalf("the run did not advance with demand: tick %d, orders %d", final.Tick, final.RequestID)
 			}
 		})
+	}
+}
+
+// TestIncidentMarkerUnknownTyped checks that each typed boundary refuses an
+// unknown incident marker, also when the topology and the frame agree on
+// it, as it refuses an unknown order or coupling marker. Without this, an
+// encoder would write a document that its own decoder refuses.
+func TestIncidentMarkerUnknownTyped(t *testing.T) {
+	t.Parallel()
+	marked, err := NewWithProject(markedProject())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(marked.Close)
+	topology, frames := incidentFrames(t, marked)
+	full := streamFamilyEnvelope(t, frames, "full")
+	delta := streamFamilyEnvelope(t, frames, "delta")
+	// Each check returns the error of one boundary for a topology and two
+	// frames with the given marker.
+	checks := map[string]func(topology TopologySnapshot, frames [2]StreamFrame) error{
+		"FrameState": func(topology TopologySnapshot, frames [2]StreamFrame) error {
+			_, err := FrameState(topology, frames[0].State)
+			return err
+		},
+		"NewStreamAssembler": func(topology TopologySnapshot, _ [2]StreamFrame) error {
+			_, err := NewStreamAssembler(topology)
+			return err
+		},
+		"EncodeStateJSON": func(topology TopologySnapshot, frames [2]StreamFrame) error {
+			_, err := EncodeStateJSON(topology, frames[0])
+			return err
+		},
+		"EncodeStreamJSON": func(_ TopologySnapshot, frames [2]StreamFrame) error {
+			envelope := full
+			envelope.Full = &frames[0]
+			_, err := EncodeStreamJSON(envelope)
+			return err
+		},
+		"ApplyStream full": func(_ TopologySnapshot, frames [2]StreamFrame) error {
+			envelope := full
+			envelope.Full = &frames[0]
+			_, err := ApplyStream(StreamFrame{}, "", 0, envelope)
+			return err
+		},
+		"ApplyStream delta": func(_ TopologySnapshot, frames [2]StreamFrame) error {
+			_, err := ApplyStream(frames[0], delta.Stream, delta.Base, delta)
+			return err
+		},
+	}
+	for name, check := range checks {
+		if err := check(topology, frames); err != nil {
+			t.Fatal(name, "control refused", err)
+		}
+		unknown := topology
+		unknown.IncidentContract = "incident-v2"
+		var changed [2]StreamFrame
+		for i := range frames {
+			changed[i] = frames[i]
+			changed[i].State.Simulation.IncidentContract = "incident-v2"
+		}
+		if err := check(unknown, changed); !errors.Is(err, sim.ErrUnknownIncidentContract) {
+			t.Errorf("%s: error %v, want %v", name, err, sim.ErrUnknownIncidentContract)
+		}
 	}
 }

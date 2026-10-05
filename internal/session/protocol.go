@@ -235,9 +235,12 @@ func stateFrame(state State) StateFrame {
 }
 
 // incidentFrameBinding refuses a frame whose incident marker is not the
-// marker of its topology. A delta carries no marker, so the marker of a
-// stream changes only with a new topology.
+// marker of its topology, and an unknown marker. A delta carries no
+// marker, so the marker of a stream changes only with a new topology.
 func incidentFrameBinding(topology TopologySnapshot, frame SimulationFrame) error {
+	if err := sim.ValidateIncidentContract(topology.IncidentContract); err != nil {
+		return err
+	}
 	if topology.IncidentContract != frame.IncidentContract {
 		return errors.New("topology incident contract does not match state")
 	}

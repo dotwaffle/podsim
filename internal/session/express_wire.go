@@ -37,6 +37,9 @@ func validateEncodedContract(e StreamEnvelope) error {
 		}
 	}
 	if e.Full != nil {
+		if err := sim.ValidateIncidentContract(e.Full.State.Simulation.IncidentContract); err != nil {
+			return err
+		}
 		if e.OrderContract != e.Full.State.Simulation.OrderContract {
 			return errors.New("publication order contract mismatch")
 		}
@@ -85,11 +88,16 @@ func hasCouplingDeltaFields(delta StreamDelta) bool {
 func validateEnvelopeContract(e StreamEnvelope, previous StreamFrame) error {
 	contract := previous.State.Simulation.OrderContract
 	coupling := previous.State.Simulation.CouplingContract
+	incident := previous.State.Simulation.IncidentContract
 	if e.Full != nil {
 		contract = e.Full.State.Simulation.OrderContract
 		coupling = e.Full.State.Simulation.CouplingContract
+		incident = e.Full.State.Simulation.IncidentContract
 	}
 	if err := sim.ValidateOrderContract(contract); err != nil {
+		return err
+	}
+	if err := sim.ValidateIncidentContract(incident); err != nil {
 		return err
 	}
 	if e.OrderContract != contract {
