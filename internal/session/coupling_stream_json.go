@@ -71,21 +71,14 @@ func scanCouplingOrderContract(data []byte) (bool, error) {
 	return packed, nil
 }
 
+// couplingStreamLimits bound hello 5 documents and the coupling HTTP
+// state. packed reports the Express marker.
 func couplingStreamLimits(packed bool) jsonLimits {
-	limits := expressStreamLimits()
-	if !packed {
-		limits = unpackedStreamLimits()
+	markers := contractMarkers{coupling: sim.CompactPairV1CouplingContract}
+	if packed {
+		markers.order = sim.ExpressOrderContract
 	}
-	for _, prefix := range []string{"/full/state/simulation", "/frame/state/simulation", "/delta/groups/coupling", ""} {
-		path := prefix + "/couplingGroups"
-		limits.arrays[path] = project.MaxPods / 2
-		limits.arrays[path+"/*/members"] = 2
-		limits.arrays[path+"/*/bodies"] = 2
-		for _, shape := range []string{"/bodies/*", "/connector", "/maneuverEnvelope"} {
-			limits.arrays[path+"/*"+shape+"/corners"] = 4
-		}
-	}
-	return limits
+	return streamLimits(markers)
 }
 
 func scanCouplingStreamJSON(data []byte) error {

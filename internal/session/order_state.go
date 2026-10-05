@@ -6,30 +6,16 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"maps"
 	"strings"
 
-	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
 const serviceStateVersion = 6
 
+// serviceStateLimits bound a version 6 state file, which has no markers.
 func serviceStateLimits() jsonLimits {
-	limits := stateJSONLimits
-	limits.arrays = maps.Clone(limits.arrays)
-	// Recognize larger shapes without admitting unsupported operating states.
-	limits.arrays["/simulation/waiting"] = 6200
-	limits.arrays["/simulation/pods/*/riders"] = sim.MaxExpressParties
-	limits.arrays["/project/expressServices"] = project.MaxExpressServices
-	for _, path := range []string{
-		"/project/network/lanes/*/vehicleClasses",
-		"/project/network/stations/*/vehicleClasses",
-		"/project/network/stations/*/berths/*/vehicleClasses",
-	} {
-		limits.arrays[path] = 4
-	}
-	return limits
+	return savedLimits(contractMarkers{})
 }
 
 func scanStateOrderFields(data []byte, version int) error {

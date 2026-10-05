@@ -226,6 +226,7 @@ func TestExpressWidestSaveAdapters(t *testing.T) {
 		if len(raw) > MaxStateBytes || len(data) > MaxStateBytes {
 			t.Fatal("save cap exceeded", len(raw), len(data))
 		}
+		assertExplicitArrayBounds(t, "Express save "+name, raw, expressSavedLimits())
 		decoded, err := decodeStateFile(data)
 		if err != nil {
 			t.Fatal(err)
@@ -294,6 +295,7 @@ func TestExpressWidestStreamAdapters(t *testing.T) {
 		if scanErr := prescanJSON(inflated, expressStreamLimits()); scanErr != nil {
 			t.Fatal("maximum stream failed the bounded scan", scanErr)
 		}
+		assertExplicitArrayBounds(t, "Express "+envelope.Kind, inflated, expressStreamLimits())
 		decoded, err := DecodeStreamJSONVersion(inflated, 4)
 		if err != nil {
 			t.Fatal(err)
@@ -438,6 +440,7 @@ func TestExpressWidestTopologyHTTPAdapters(t *testing.T) {
 	if _, decodeErr := DecodeStreamJSONVersion(fullRaw, 4); decodeErr != nil {
 		t.Fatal(decodeErr)
 	}
+	assertExplicitArrayBounds(t, "Express reference full", fullRaw, expressStreamLimits())
 	exportExpressAsset(t, "reference-full.json", fullRaw)
 	t.Logf("asset reference-full raw=%d", len(fullRaw))
 	// HTTP state conversion rejects a speed that is not a playback choice.
@@ -450,6 +453,7 @@ func TestExpressWidestTopologyHTTPAdapters(t *testing.T) {
 	if len(httpRaw) > MaxStreamJSON {
 		t.Fatal("HTTP cap exceeded")
 	}
+	assertExplicitArrayBounds(t, "Express HTTP state", httpRaw, expressStreamLimits())
 	state, err := DecodeExpressStateJSON(httpRaw)
 	if err != nil {
 		t.Fatal(err)

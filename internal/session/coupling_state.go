@@ -6,7 +6,6 @@ import (
 	"encoding/json/v2"
 	"errors"
 	"fmt"
-	"maps"
 	"slices"
 
 	"github.com/dotwaffle/podsim/internal/project"
@@ -109,25 +108,14 @@ func decodeCouplingState(raw []byte) (file stateFile, err error) {
 	return file, nil
 }
 
+// couplingSavedLimits bound a version 8 state file. packed reports the
+// Express marker.
 func couplingSavedLimits(packed bool) jsonLimits {
-	limits := boardingStateLimits(compactStateLimits(serviceStateLimits()))
+	markers := contractMarkers{coupling: sim.CompactPairV1CouplingContract}
 	if packed {
-		limits = expressSavedLimits()
-	} else {
-		limits.arrays = maps.Clone(limits.arrays)
-		limits.arrays["/simulation/waiting"] = maxSavedTrips
-		limits.arrays["/simulation/pods/*/riders"] = sim.MaxSharedRideParties
-		limits.arrays["/simulation/pods/*/boardings"] = sim.MaxSharedRideParties
+		markers.order = sim.ExpressOrderContract
 	}
-	limits.arrays = maps.Clone(limits.arrays)
-	limits.arrays["/simulation/couplingGroups"] = project.MaxPods / 2
-	limits.arrays["/simulation/couplingGroups/*/members"] = 2
-	for _, prefix := range []string{"/project"} {
-		limits.arrays[prefix+"/couplingSites"] = sim.MaxCouplingSites
-		limits.arrays[prefix+"/couplingCorridors"] = sim.MaxCouplingCorridors
-		limits.arrays[prefix+"/couplingCorridors/*/laneIds"] = project.MaxLanes
-	}
-	return limits
+	return savedLimits(markers)
 }
 
 func (file *stateFile) packedOrders() bool {

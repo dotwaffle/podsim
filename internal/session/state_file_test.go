@@ -747,7 +747,9 @@ func TestStateFileWorstCaseSize(t *testing.T) {
 		}
 		// The size fixture uses maximal numeric values, including invalid IDs.
 		// Decode its full shape, then retain the original physical validation fixture.
-		decoded, err := decodeStateFile(encodeTestState(t, maxFile))
+		data := encodeTestState(t, maxFile)
+		assertExplicitArrayBounds(t, "worst-case save", decompressTestJSON(t, data), serviceStateLimits())
+		decoded, err := decodeStateFile(data)
 		if err != nil || len(decoded.RailConnections) != project.MaxRailDeparturePassengers {
 			t.Fatalf("maximal saved shape: %v", err)
 		}

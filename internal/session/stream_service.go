@@ -55,22 +55,11 @@ func DecodeStreamJSONVersion(data []byte, version int) (StreamEnvelope, error) {
 	return envelope, err
 }
 
-// unpackedStreamLimits bound stream family 3 and unpacked coupling
-// documents. They narrow the Express limits to the order bounds of the
-// unpacked contract. The assembler accepts at most maxSavedTrips pending
-// orders, and at most sim.MaxSharedRideParties riders and boarding records
-// for each vehicle.
+// unpackedStreamLimits bound hello 3 documents. The assembler accepts at
+// most maxSavedTrips pending orders, and at most sim.MaxSharedRideParties
+// riders and boarding records for each vehicle.
 func unpackedStreamLimits() jsonLimits {
-	limits := expressStreamLimits()
-	for _, prefix := range []string{"/full", "/frame"} {
-		limits.arrays[prefix+"/state/simulation/pending"] = maxSavedTrips
-		limits.arrays[prefix+"/state/simulation/vehicles/*/riders"] = sim.MaxSharedRideParties
-		limits.arrays[prefix+"/state/simulation/vehicles/*/boardings"] = sim.MaxSharedRideParties
-	}
-	limits.arrays["/delta/groups/pending"] = maxSavedTrips
-	limits.arrays["/delta/vehicles/*/riders/value"] = sim.MaxSharedRideParties
-	limits.arrays["/delta/vehicles/*/boardings/value"] = sim.MaxSharedRideParties
-	return limits
+	return streamLimits(contractMarkers{})
 }
 
 // PrescanStateFrameJSON bounds the document of the plain HTTP state

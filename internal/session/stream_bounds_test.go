@@ -24,6 +24,7 @@ func assertUnpackedStreamMaximum(t *testing.T, raw []byte) {
 	if err := prescanJSON(raw, unpackedStreamLimits()); err != nil {
 		t.Fatalf("version %d maximum failed the bounded scan: %v", FoundationStreamVersion, err)
 	}
+	assertExplicitArrayBounds(t, "plain stream maximum", raw, unpackedStreamLimits())
 	if _, err := DecodeStreamJSONVersion(raw, FoundationStreamVersion); err != nil {
 		t.Fatalf("version %d maximum: %v", FoundationStreamVersion, err)
 	}
@@ -192,6 +193,7 @@ func TestPrescanStateFrameJSONAcceptsServerMaximum(t *testing.T) {
 	if err = PrescanStateFrameJSON(append(raw, '\n')); err != nil {
 		t.Fatal("widest state frame failed the bounded scan", err)
 	}
+	assertExplicitArrayBounds(t, "plain HTTP state maximum", raw, stateFrameLimits())
 	t.Logf("widest state frame with one-byte lane IDs: %d bytes", len(raw)+1)
 }
 

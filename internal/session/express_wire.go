@@ -5,7 +5,6 @@ import (
 	jsonv2 "encoding/json/v2"
 	"errors"
 	"fmt"
-	"maps"
 	"net/http"
 	"strings"
 
@@ -126,40 +125,16 @@ func validateEnvelopeContract(e StreamEnvelope, previous StreamFrame) error {
 	return nil
 }
 
+// expressSavedLimits bound a version 7 state file, which has the Express
+// marker. The table contains every other saved table, so the decoder also
+// uses it before it reads the version.
 func expressSavedLimits() jsonLimits {
-	limits := boardingStateLimits(compactStateLimits(serviceStateLimits()))
-	limits.arrays = maps.Clone(limits.arrays)
-	limits.arrays["/simulation/waiting"] = sim.MaxExpressWaitingTrips
-	limits.arrays["/simulation/pods/*/boardings"] = 20
-	return limits
+	return savedLimits(contractMarkers{order: sim.ExpressOrderContract})
 }
 
+// expressStreamLimits bound hello 4 documents and the Express HTTP state.
 func expressStreamLimits() jsonLimits {
-	limits := jsonLimits{depth: 64, elements: 65536, members: 256, arrays: map[string]int64{}}
-	for _, prefix := range []string{"/full", "/frame"} {
-		limits.arrays[prefix+"/routes"] = project.MaxPods
-		limits.arrays[prefix+"/routes/*/display"] = project.MaxLanes
-		limits.arrays[prefix+"/routes/*/lanes"] = sim.MotionRouteLimit
-		limits.arrays[prefix+"/state/simulation/vehicles"] = project.MaxPods
-		limits.arrays[prefix+"/state/simulation/berths"] = project.MaxNodes
-		limits.arrays[prefix+"/state/simulation/pending"] = sim.MaxExpressWaitingTrips
-		limits.arrays[prefix+"/state/simulation/vehicles/*/riders"] = 20
-		limits.arrays[prefix+"/state/simulation/vehicles/*/boardings"] = 20
-		limits.arrays[prefix+"/state/simulation/vehicles/*/stops"] = 8
-		limits.arrays[prefix+"/state/simulation/vehicles/*/routeLaneIDs"] = 0
-	}
-	limits.arrays["/delta/vehicles"] = project.MaxPods
-	limits.arrays["/delta/berths"] = project.MaxNodes
-	limits.arrays["/delta/groups/pending"] = sim.MaxExpressWaitingTrips
-	limits.arrays["/delta/vehicles/*/riders/value"] = 20
-	limits.arrays["/delta/vehicles/*/boardings/value"] = 20
-	limits.arrays["/delta/vehicles/*/stops/value"] = 8
-	limits.arrays["/delta/vehicles/*/route/value/display"] = project.MaxLanes
-	limits.arrays["/delta/vehicles/*/route/value/lanes"] = sim.MotionRouteLimit
-	for path, bound := range topologyJSONLimits.arrays {
-		limits.arrays["/topology"+path] = bound
-	}
-	return limits
+	return streamLimits(contractMarkers{order: sim.ExpressOrderContract})
 }
 
 func (file *stateFile) validateWireContract() error {

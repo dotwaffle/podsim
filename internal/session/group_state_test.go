@@ -179,6 +179,7 @@ func testGroupWorstCaseSize(t *testing.T, base stateFile, pod sim.SavedPod, trip
 			if scanErr := prescanJSON(raw, boardingStateLimits(compactStateLimits(stateJSONLimits))); scanErr != nil {
 				t.Fatal(scanErr)
 			}
+			assertExplicitArrayBounds(t, "group save maximum", raw, serviceStateLimits())
 			decoded, decodeErr := decodeStateFile(data)
 			if decodeErr != nil {
 				t.Fatal(decodeErr)

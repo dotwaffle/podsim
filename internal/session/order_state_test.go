@@ -226,6 +226,8 @@ func TestCurrentSupportedSavedCounts(t *testing.T) {
 				file.Simulation.Waiting[i].Request = sim.SavedRequest{ID: i + 1, From: "harbor", To: "market", PartySize: 2, SharingConsent: sim.PrivateConsent, Service: sim.OnDemandService}
 			}
 			data := encodeTestState(t, file)
+			// The parser recognizes more waiting orders than a restore accepts.
+			// See plainSavedWaiting.
 			if _, err := decodeStateFile(data); err != nil {
 				t.Fatalf("save 6 parser rejected recognized count %d: %v", count, err)
 			}
@@ -265,13 +267,22 @@ func TestCurrentSupportedSavedCounts(t *testing.T) {
 		extra.ID = file.Simulation.RequestID
 		file.Simulation.Pods[0].Riders = append(file.Simulation.Pods[0].Riders, extra)
 		data := encodeTestState(t, file)
-		if _, err := decodeStateFile(data); err != nil {
-			t.Fatalf("save 6 parser rejected recognized rider shape: %v", err)
-		}
+		_, decodeErr := decodeStateFile(data)
+		assertSavedArrayRefusal(t, decodeErr)
 		if _, err := s.loadState(loadInput{data: data, steps: realRestoreSteps()}); err == nil {
 			t.Fatal("supported profile restored nine stored riders")
 		}
 	})
+}
+
+// assertSavedArrayRefusal checks that the bounded scan refused a saved
+// array with the invalid_state reason.
+func assertSavedArrayRefusal(t *testing.T, err error) {
+	t.Helper()
+	stateErr, ok := errors.AsType[*stateError](err)
+	if !ok || stateErr.reason != reasonInvalidState || !errors.Is(err, errJSONArrayTooLong) {
+		t.Fatalf("got %v, want an invalid_state array refusal", err)
+	}
 }
 
 // foundationMemberLines excludes only the optional fields introduced by save 7.

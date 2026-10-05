@@ -330,7 +330,8 @@ func decodeStateFile(data []byte) (result stateFile, err error) {
 		}
 		return stateFile{}, err
 	}
-	// Check the largest recognized shapes before even the small header decode.
+	// Check the largest recognized shapes before even the small header
+	// decode. The Express table contains every other saved table.
 	if err := prescanJSON(raw, expressSavedLimits()); err != nil {
 		return stateFile{}, protectCouplingDecodeError(raw, invalidState(fmt.Errorf("scan session state: %w", err)))
 	}
@@ -372,7 +373,7 @@ func decodeStateFile(data []byte) (result stateFile, err error) {
 			return stateFile{}, invalidState(err)
 		}
 	}
-	limits := boardingStateLimits(compactStateLimits(serviceStateLimits()))
+	limits := serviceStateLimits()
 	if header.Version == expressStateVersion {
 		limits = expressSavedLimits()
 	}
@@ -610,6 +611,15 @@ func (limits jsonLimits) arrayLimit(decoder *jsontext.Decoder) int64 {
 	if len(limits.arrays) == 0 {
 		return limits.elements
 	}
+	if limit, ok := limits.arrays[arrayPath(decoder)]; ok {
+		return limit
+	}
+	return limits.elements
+}
+
+// arrayPath returns the path of the array that the last token of decoder
+// started, with "*" in place of each array index.
+func arrayPath(decoder *jsontext.Decoder) string {
 	// tokens[level] is the name or the index of a value in the object or
 	// the array at level.
 	tokens := strings.Split(string(decoder.StackPointer()), "/")
@@ -618,11 +628,7 @@ func (limits jsonLimits) arrayLimit(decoder *jsontext.Decoder) int64 {
 			tokens[level] = "*"
 		}
 	}
-	path := strings.Join(tokens, "/")
-	if limit, ok := limits.arrays[path]; ok {
-		return limit
-	}
-	return limits.elements
+	return strings.Join(tokens, "/")
 }
 
 // decodeSavedProject decodes the project member of a state file. The member

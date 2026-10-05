@@ -2760,13 +2760,11 @@ func TestNewFromStoreReportsUnaccountedOrders(t *testing.T) {
 	}
 }
 
-// TestMaximalRequeueRoundTrip saves a London state with maxSavedPods pods,
-// each boarding sim.MaxSharedRideParties parties, and a queue of QueueLimit
-// orders. The logical tier puts each party back in the queue, so the queue
-// holds maxSavedTrips orders. The session saves that state, restores it,
-// and saves it again through the state file encoding.
-func TestMaximalRequeueRoundTrip(t *testing.T) {
-	t.Parallel()
+// maximalRequeueState gives a London project with maxSavedPods pods and a
+// logical-only state file in which each pod boards
+// sim.MaxSharedRideParties parties and QueueLimit+extra orders wait.
+func maximalRequeueState(t *testing.T, extra int) (project.Config, []byte) {
+	t.Helper()
 	var parking string
 	for _, station := range scenarios.LondonCentral().Network.Stations {
 		if station.ParkingOnly {
@@ -2815,13 +2813,23 @@ func TestMaximalRequeueRoundTrip(t *testing.T) {
 		}
 		state.Boarded += sim.MaxSharedRideParties
 	}
-	for index := range QueueLimit {
+	for index := range QueueLimit + extra {
 		state.Waiting = append(state.Waiting, sim.SavedTrip{
 			Request: order(passenger[index%len(passenger)], passenger[(index+2)%len(passenger)], ""),
 		})
 	}
 	logicalOnly(&file)
-	data := encodeTestState(t, file)
+	return config, encodeTestState(t, file)
+}
+
+// TestMaximalRequeueRoundTrip saves a London state with maxSavedPods pods,
+// each boarding sim.MaxSharedRideParties parties, and a queue of QueueLimit
+// orders. The logical tier puts each party back in the queue, so the queue
+// holds maxSavedTrips orders. The session saves that state, restores it,
+// and saves it again through the state file encoding.
+func TestMaximalRequeueRoundTrip(t *testing.T) {
+	t.Parallel()
+	config, data := maximalRequeueState(t, 0)
 	for round, want := range []RestoreInfo{
 		{Tier: "logical", Reason: reasonRestoreLoop, Requeued: maxSavedPods * sim.MaxSharedRideParties},
 		{Tier: "physical"},
@@ -2844,5 +2852,39 @@ func TestMaximalRequeueRoundTrip(t *testing.T) {
 		if queued := len(file.Simulation.Waiting); queued != maxSavedTrips {
 			t.Fatalf("round %d: the saved queue has %d orders, want %d", round, queued, maxSavedTrips)
 		}
+	}
+}
+
+// TestRequeueOverflowSaveIsRecognized covers a plain save that holds more
+// than maxSavedTrips waiting orders. The logical tier requeues every rider
+// with the waiting orders, and only the Express contract bounds that sum,
+// so the session writes one order more than a restore accepts. The parser
+// must still recognize the file, and a restore refuses it as invalid_state.
+func TestRequeueOverflowSaveIsRecognized(t *testing.T) {
+	t.Parallel()
+	config, data := maximalRequeueState(t, 1)
+	store := &fakeStore{data: data}
+	s := startFromStore(t, StoreInput{Store: store, Project: &config})
+	if got := s.State().Restore.Tier; got != "logical" {
+		t.Fatalf("restore tier = %q, want logical", got)
+	}
+	s.Close()
+	if err := s.SaveState(t.Context(), SaveFinal); err != nil {
+		t.Fatal(err)
+	}
+	writes := store.writeList()
+	saved := writes[len(writes)-1]
+	file, err := decodeStateFile(saved)
+	if err != nil {
+		t.Fatal("the parser refused a state file that the session wrote:", err)
+	}
+	if queued := len(file.Simulation.Waiting); queued != maxSavedTrips+1 {
+		t.Fatalf("the saved queue has %d orders, want %d", queued, maxSavedTrips+1)
+	}
+	restarted := newTestSession(t)
+	if _, err := restarted.loadState(loadInput{data: saved, project: &config, steps: realRestoreSteps()}); err == nil {
+		t.Fatal("a restore accepted more than maxSavedTrips waiting orders")
+	} else if stateErr, ok := errors.AsType[*stateError](err); !ok || stateErr.reason != reasonInvalidState {
+		t.Fatalf("restore refusal = %v, want %s", err, reasonInvalidState)
 	}
 }
