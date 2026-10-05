@@ -196,6 +196,45 @@ func TestBlockedRouteSearches(t *testing.T) {
 			t.Fatalf("the blocked approach is %v, %v", route, err)
 		}
 	})
+	// bankNearest gives the nearest destination of nearestFreeBerth and the
+	// nearest source of preferredFleetSource on a network with banks. The
+	// two banks of hub are at the same cost, so berth order gives bank a.
+	t.Run("bank nearest destination", func(t *testing.T) {
+		t.Parallel()
+		s, err := NewFleet(BankExample(), []Placement{{ID: "01", StationID: "origin"}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		v := s.findVehicle("01")
+		if berth, _, ok := s.nearestFreeBerth(v, "split"); !ok || berth.ID != "bank-a-1" {
+			t.Fatalf("the free berth is %s, %v", berth.ID, ok)
+		}
+		blockLanes(t, s, "bank-a-arrival")
+		if berth, _, ok := s.nearestFreeBerth(v, "split"); !ok || berth.ID != "bank-b-1" {
+			t.Fatalf("with bank-a-arrival blocked, the berth is %s, %v", berth.ID, ok)
+		}
+	})
+	t.Run("bank nearest source", func(t *testing.T) {
+		t.Parallel()
+		s, err := NewFleet(BankExample(), []Placement{{ID: "01", StationID: "hub", BerthID: "bank-a-1"}, {ID: "02", StationID: "hub", BerthID: "bank-b-1"}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		s.ensureNetworkIndexes()
+		rank := make([]int, len(s.network.Nodes))
+		for node := range rank {
+			rank[node] = -1
+		}
+		rank[s.graph.nodes["bank-a-berth"]], rank[s.graph.nodes["bank-b-berth"]] = 0, 1
+		input := preferredNearestInput{from: "merge", rank: rank, reverse: true}
+		if node, ok := s.preferredFleetSource(input); !ok || s.network.Nodes[node].ID != "bank-a-berth" {
+			t.Fatalf("the free source is %v, %v", node, ok)
+		}
+		blockLanes(t, s, "bank-a-departure")
+		if node, ok := s.preferredFleetSource(input); !ok || s.network.Nodes[node].ID != "bank-b-berth" {
+			t.Fatalf("the blocked source is %v, %v", node, ok)
+		}
+	})
 	t.Run("class sources", func(t *testing.T) {
 		t.Parallel()
 		// With two classes, the far pod has another class, so a search on
@@ -577,5 +616,73 @@ func TestDetourBaselinesStayStatic(t *testing.T) {
 	s.completeRider(v, 0, ridden)
 	if s.directDistanceMeters != direct || math.Abs(s.maxDetourRatio-want) > 1e-9 {
 		t.Fatalf("at alighting: direct %g, ratio %g, want %g and %g", s.directDistanceMeters, s.maxDetourRatio, direct, want)
+	}
+}
+
+// bankDetourNetwork is BankExample with a bypass of 730 m beside the
+// approach lane of bank a, which is 170 m long.
+func bankDetourNetwork() Network {
+	network := BankExample()
+	network.Nodes = append(network.Nodes, Node{ID: "a-bypass", Position: Point{360, -300}})
+	network.Lanes = append(network.Lanes,
+		Lane{ID: "a-bypass-out", From: "split", To: "a-bypass", SpeedLimit: 14},
+		Lane{ID: "a-bypass-in", From: "a-bypass", To: "a-approach", SpeedLimit: 14},
+	)
+	return network
+}
+
+// TestBankDetourBaselinesStayStatic blocks the approach lane of bank a.
+// Riders from origin to bank a then ride the bypass. The baselines of the
+// bank detour plan are still the direct distances of the static graph.
+func TestBankDetourBaselinesStayStatic(t *testing.T) {
+	t.Parallel()
+	s, err := NewFleet(bankDetourNetwork(), []Placement{{ID: "01", StationID: "origin"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	hub, _ := s.station("hub")
+	berth, _ := hub.berth("bank-a-1")
+	direct := s.directDistance("origin-berth", "hub", berth)
+	blockLanes(t, s, "a-approach")
+	approach, err := s.route("origin-berth", "bank-a-entry")
+	if err != nil || !usesLane(approach, "a-bypass-in") {
+		t.Fatalf("the blocked approach is %v, %v", approach, err)
+	}
+	inlet, err := s.stationPath("bank-a-entry", "bank-a-berth")
+	if err != nil {
+		t.Fatal(err)
+	}
+	toEntry := s.lanesMeters(approach)
+	ridden := toEntry + s.lanesMeters(inlet)
+	want := ridden / direct
+	if want <= maxSharedRideDetour {
+		t.Fatalf("the fixture ratio %g is not above the limit", want)
+	}
+	if got := s.directDistance("origin-berth", "hub", berth); got != direct {
+		t.Fatalf("direct distance %g, want the static %g", got, direct)
+	}
+	ends := map[string]detourStart{
+		"berth end": {class: LegacyClass, from: "origin-berth", ridden: ridden, berth: berth},
+		"entry end": {class: LegacyClass, from: "origin-berth", ridden: toEntry, entry: "bank-a-entry"},
+	}
+	origin, _ := s.network.Stations[0].berth("origin-1")
+	for name, start := range ends {
+		if got := s.plannedDetour("origin-berth", []string{"hub"}, start); math.Abs(got-want) > 1e-9 {
+			t.Errorf("legacy rider, %s: ratio %g, want %g", name, got, want)
+		}
+		if got := s.plannedRiderDetour(riderDetour{origin: "origin-berth", destination: "hub"}, []string{"hub"}, start); math.Abs(got-want) > 1e-9 {
+			t.Errorf("recorded rider, %s: ratio %g, want %g", name, got, want)
+		}
+		v := &s.vehicles[0]
+		v.journeyOrigin = origin
+		v.Riders = []Request{{ID: 1, From: "origin", To: "hub", PartySize: 1}}
+		v.Boardings = nil
+		if s.keepsRiderDetours(v, []string{"hub"}, start) {
+			t.Errorf("legacy rider, %s: the plan keeps the detour limit", name)
+		}
+		v.Boardings = []RiderBoarding{{BerthID: "origin-1"}}
+		if s.keepsRiderDetours(v, []string{"hub"}, start) {
+			t.Errorf("recorded rider, %s: the plan keeps the detour limit", name)
+		}
 	}
 }
