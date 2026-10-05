@@ -200,6 +200,7 @@ project.couplingCorridors[].assemblySiteId string
 project.couplingCorridors[].splitSiteId string
 project.couplingCorridors[].laneIds array
 project.couplingCorridors[].laneIds[] string
+project.incidentContract string
 project.version number
 project.name string
 project.network object

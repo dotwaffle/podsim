@@ -164,6 +164,9 @@ func (s *checkpointScanner) object(path string, depth int) error {
 		if key == "couplingContract" {
 			return errors.New("car continuation does not support couplingContract")
 		}
+		if key == "incidentContract" {
+			return errors.New("car continuation does not support incidentContract")
+		}
 		if known {
 			kind, ok := r.fields[key]
 			if !ok {

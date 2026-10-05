@@ -522,6 +522,32 @@ func TestOnPolicyMatchesOffAtHighRate(t *testing.T) {
 	}
 }
 
+// TestReadProjectRejectsIncidentMarker checks that a comparison refuses a
+// project with the incident marker. A comparison has no interrupted outcome
+// in stage 1. The same project without the marker loads.
+func TestReadProjectRejectsIncidentMarker(t *testing.T) {
+	t.Parallel()
+	config := scenarios.Small()
+	plainPath := filepath.Join(t.TempDir(), "plain.json")
+	markedPath := filepath.Join(t.TempDir(), "marked.json")
+	for path, marker := range map[string]sim.IncidentContract{plainPath: "", markedPath: sim.IncidentV1Contract} {
+		config.IncidentContract = marker
+		data, err := json.Marshal(config)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = os.WriteFile(path, data, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := readProject(plainPath); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := readProject(markedPath); err == nil || !strings.Contains(err.Error(), "incidentContract") {
+		t.Fatalf("marked project error %v, want a refusal of incidentContract", err)
+	}
+}
+
 // smallProject writes the small qualification ring to a project file and
 // returns its path. The ring has 12 pods and stations with four berths.
 func smallProject(t *testing.T) string {

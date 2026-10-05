@@ -80,6 +80,9 @@ func (config *Config) decodeJSONLimit(data []byte, options jsonv2.Options, rawLi
 	if err := validateCouplingContract(Config(decoded)); err != nil {
 		return err
 	}
+	if err := sim.ValidateIncidentContract(decoded.IncidentContract); err != nil {
+		return err
+	}
 	if err := validateCouplingGeometry(Config(decoded)); err != nil {
 		return err
 	}

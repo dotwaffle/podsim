@@ -27,7 +27,9 @@ type digestExtension struct {
 // A new extension field takes the next free N. An extension field must
 // have a fixed path: it must not be in a slice element or a map element.
 // TestDigestExtensionRegistry checks the table against the Command type.
-var digestExtensions = []digestExtension{}
+var digestExtensions = []digestExtension{
+	{n: 1, path: "Project.IncidentContract"},
+}
 
 // extensionTag returns N when field has the tag digest:"ext=N".
 func extensionTag(field reflect.StructField) (n uint64, tagged bool, err error) {

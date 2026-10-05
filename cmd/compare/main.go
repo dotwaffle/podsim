@@ -839,6 +839,10 @@ func readProject(path string) (project.Config, error) {
 	if err := project.Validate(config); err != nil {
 		return project.Config{}, fmt.Errorf("validate project %s: %w", path, err)
 	}
+	// The comparison has no incident outcome yet.
+	if config.IncidentContract != "" {
+		return project.Config{}, fmt.Errorf("read project %s: comparisons do not support incidentContract", path)
+	}
 	return config, nil
 }
 

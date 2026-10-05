@@ -70,6 +70,16 @@ func scanProjectFields(data []byte) (projectFields, error) {
 				return projectFields{}, err
 			}
 
+		case len(path) == 2 && path[1] == "incidentContract":
+			// An explicit null or empty marker is presence. The typed
+			// check cannot see it.
+			value, err := decoder.ReadToken()
+			if err != nil {
+				return projectFields{}, err
+			}
+			if value.Kind() != jsontext.KindString || value.String() != string(sim.IncidentV1Contract) {
+				return projectFields{}, sim.ErrUnknownIncidentContract
+			}
 		case len(path) == 2 && path[1] == "orderContract":
 			fields.service = true
 			value, err := decoder.ReadToken()

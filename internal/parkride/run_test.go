@@ -141,6 +141,7 @@ func TestRunConstructorControlsAndPreflight(t *testing.T) {
 		{"native-party-capacity", func(i *RunInput) { i.Plan.Itineraries[0].CarSeats = 8; i.Plan.Itineraries[0].PartySize = 8 }},
 		{"legacy-party2", func(i *RunInput) { i.Plan.Itineraries[0].PartySize = 2 }},
 		{"invalid-project", func(i *RunInput) { i.Project.Fleet = nil }},
+		{"incident-marker", func(i *RunInput) { i.Project.IncidentContract = sim.IncidentV1Contract }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()

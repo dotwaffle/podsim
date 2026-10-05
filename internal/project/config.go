@@ -188,14 +188,18 @@ type Config struct {
 	CouplingEnabled   bool                   `json:"couplingEnabled,omitzero"`
 	CouplingSites     []sim.CouplingSite     `json:"couplingSites,omitzero"`
 	CouplingCorridors []sim.CouplingCorridor `json:"couplingCorridors,omitzero"`
-	Version           int                    `json:"version"`
-	Name              string                 `json:"name"`
-	Network           sim.Network            `json:"network"`
-	Fleet             []sim.Placement        `json:"fleet"`
-	Demand            DemandConfig           `json:"demand"`
-	DemandProfiles    []DemandProfile        `json:"demandProfiles,omitempty"`
-	RailArrivals      []RailArrival          `json:"railArrivals,omitempty"`
-	RailDepartures    []RailDeparture        `json:"railDepartures,omitempty"`
+	// IncidentContract selects the incident service transitions. It is an
+	// extension field of the command digest, so a command without it keeps
+	// its digest.
+	IncidentContract sim.IncidentContract `json:"incidentContract,omitzero" digest:"ext=1"`
+	Version          int                  `json:"version"`
+	Name             string               `json:"name"`
+	Network          sim.Network          `json:"network"`
+	Fleet            []sim.Placement      `json:"fleet"`
+	Demand           DemandConfig         `json:"demand"`
+	DemandProfiles   []DemandProfile      `json:"demandProfiles,omitempty"`
+	RailArrivals     []RailArrival        `json:"railArrivals,omitempty"`
+	RailDepartures   []RailDeparture      `json:"railDepartures,omitempty"`
 	// ExpressServices declares directed hub pairs without a fill or timetable rule.
 	ExpressServices []sim.ExpressService `json:"expressServices,omitempty"`
 	// SharedRidePartyLimit caps the parties per pod. Zero loads as one.
@@ -255,6 +259,9 @@ func Validate(config Config) error {
 		return err
 	}
 	if err := validateCouplingContract(config); err != nil {
+		return err
+	}
+	if err := sim.ValidateIncidentContract(config.IncidentContract); err != nil {
 		return err
 	}
 	if strings.TrimSpace(config.Name) == "" || len(config.Name) > maxNameLength {

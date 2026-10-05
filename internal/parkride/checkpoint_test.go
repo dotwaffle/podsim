@@ -217,6 +217,9 @@ func TestCheckpointIndependentAcceptanceGuards(t *testing.T) {
 		{"coupling marker", "does not support couplingContract", func(f *checkpointFile) {
 			f.Payload.Origin.Project.CouplingContract = sim.CompactPairV1CouplingContract
 		}},
+		{"incident marker", "does not support incidentContract", func(f *checkpointFile) {
+			f.Payload.Origin.Project.IncidentContract = sim.IncidentV1Contract
+		}},
 		{"censored outcome", "invalid checkpoint car stage", func(f *checkpointFile) { f.Payload.Ledger.Records[0].Outcome = "censored" }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -251,6 +254,7 @@ func TestCheckpointOriginRefusesFoldedMarkers(t *testing.T) {
 		{"coupling", "couplingContract", func(f *checkpointFile) {
 			f.Payload.Origin.Project.CouplingContract = sim.CompactPairV1CouplingContract
 		}},
+		{"incident", "incidentContract", func(f *checkpointFile) { f.Payload.Origin.Project.IncidentContract = sim.IncidentV1Contract }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()

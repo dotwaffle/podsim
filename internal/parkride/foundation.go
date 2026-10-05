@@ -10,7 +10,7 @@ import (
 	"github.com/dotwaffle/podsim/internal/project"
 )
 
-// CheckFoundationProject rejects the Express and coupling markers before decoding.
+// CheckFoundationProject rejects the Express, coupling and incident markers before decoding.
 // The caller must still use the authoritative project decoder and validation.
 func CheckFoundationProject(data []byte) error {
 	if len(data) > project.MaxFileBytes {
@@ -32,18 +32,22 @@ func CheckFoundationProject(data []byte) error {
 				return errors.New("car runs do not support orderContract")
 			case "couplingContract":
 				return errors.New("car runs do not support couplingContract")
+			case "incidentContract":
+				return errors.New("car runs do not support incidentContract")
 			}
 		}
 	}
 }
 
 // errFoundationProject refuses a car run origin with a contract marker.
-var errFoundationProject = errors.New("car runs require a foundation project: version 1 without orderContract or couplingContract")
+var errFoundationProject = errors.New("car runs require a foundation project: version 1 without orderContract, couplingContract or incidentContract")
 
 // foundationProject reports whether config has the features of a car run
-// origin: the current version without the Express or coupling marker.
+// origin: the current version without the Express, coupling or incident
+// marker.
 func foundationProject(config project.Config) bool {
-	return config.Version == project.CurrentVersion && config.OrderContract == "" && !project.HasCouplingContract(config)
+	return config.Version == project.CurrentVersion && config.OrderContract == "" && !project.HasCouplingContract(config) &&
+		config.IncidentContract == ""
 }
 
 func validateFoundationConfig(config project.Config) error {
