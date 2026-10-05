@@ -48,15 +48,32 @@ func newIncidentSave(t *testing.T, config project.Config) incidentSave {
 	return incidentSave{s: s, store: store, stream: &incidentStream{}}
 }
 
-// operate runs one stage 1 operation as a command does: under the lock,
-// with the delivery of the command epilogue.
+// operate runs one stage 1 operation at a paused command boundary: under
+// the lock, followed by a pause command. The epilogue of the command
+// delivers the interruptions. operate checks the delivery before it
+// releases the lock, so the guards of a save and a state read cannot hide
+// a missed epilogue.
 func (x incidentSave) operate(t *testing.T, pod string, operation sim.IncidentTestOperation) {
 	t.Helper()
 	x.s.mu.Lock()
 	defer x.s.mu.Unlock()
-	defer x.s.deliverInterruptions()
 	if err := x.s.simulation.IncidentForTest(pod, operation); err != nil {
 		t.Fatalf("%s %s: %v", operation.Kind, pod, err)
+	}
+	if _, err := x.s.apply(Command{Action: "pause", Paused: true}); err != nil {
+		t.Fatal(err)
+	}
+	if undelivered := x.s.simulation.DrainInterruptions(); undelivered != nil {
+		t.Fatalf("%s %s: undelivered interruptions %v after the command", operation.Kind, pod, undelivered)
+	}
+}
+
+// run ends the pause of the session with a command. The caller holds
+// x.s.mu.
+func (x incidentSave) run(t *testing.T) {
+	t.Helper()
+	if _, err := x.s.apply(Command{Action: "pause", Paused: false}); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -73,12 +90,13 @@ func (x incidentSave) submit(t *testing.T, options sim.TripOptions) int {
 	return id
 }
 
-// stepUntil steps the session until done reports true for the exported
-// state, for at most 10 simulated minutes.
+// stepUntil ends the pause of the session and steps it until done
+// reports true for the exported state, for at most 10 simulated minutes.
 func (x incidentSave) stepUntil(t *testing.T, what string, done func(sim.SavedState) bool) {
 	t.Helper()
 	x.s.mu.Lock()
 	defer x.s.mu.Unlock()
+	x.run(t)
 	for range 600 * sim.TicksPerSecond {
 		if done(x.s.simulation.ExportState()) {
 			return
