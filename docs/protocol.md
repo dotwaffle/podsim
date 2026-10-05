@@ -142,7 +142,7 @@ The client does not wait for an acknowledgment before it receives the next delta
 Shared history holds at most 256 deltas or 32 MiB.
 Eviction sends a new shared full baseline when a client next has credit.
 The global payload budget includes ring ownership and in-progress socket writes.
-It allows 32 MiB of history plus two 65 MiB full-payload slots.
+It allows 32 MiB of history plus two 66 MiB full-payload slots.
 The current detached frame and active encoding buffers are separate bounded allocations.
 Only one compressed encoding can wait for admission at a time.
 Under pressure, the publisher first releases history and cached full ownership, then cancels writers holding the oldest remaining payload.
@@ -157,7 +157,7 @@ Socket writes have a 30-second outer deadline.
 An independent watchdog applies the acknowledgment progress deadline during blocked writes.
 Shutdown closes upgraded sockets and waits for stream workers before the final state-save sequence.
 
-State JSON has a 64 MiB limit and compressed messages have a 65 MiB limit.
+State JSON has a 65 MiB limit and compressed messages have a 66 MiB limit.
 The browser counts native decompression output before allocating the joined result.
 It requires WebSocket, DecompressionStream, and AbortController.
 Unsupported browsers show an error, and connection failures use bounded exponential reconnect delays.

@@ -72,4 +72,4 @@ Review new source files and mappings before updating the pinned manifest.
 These data checks do not establish layout safety, fleet capacity, or a request rate.
 A generated project must pass normal project validation and layout checks.
 Resource-limit changes also require saved-state and stream maximum-size checks.
-The stream JSON and compressed limits remain 64 MiB and 65 MiB.
+The stream JSON and compressed limits are 65 MiB and 66 MiB.

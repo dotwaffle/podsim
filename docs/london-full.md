@@ -88,7 +88,7 @@ They do not establish a complete qualification envelope.
 
 The project limits admit 5,000 nodes, 300 stations and pods, 65,000 flows, and 10 MiB of project JSON.
 The saved-state cap is 80 MiB, including the conservative case with JSON-escaped IDs and diagnostic text.
-Stream caps remain 64 MiB of JSON and 65 MiB of gzip data.
+Stream caps are 65 MiB of JSON and 66 MiB of gzip data.
 The lane, junction-pair, and track-cell limits remain unchanged.
 
 ## Finite-arrival study, September 29, 2026

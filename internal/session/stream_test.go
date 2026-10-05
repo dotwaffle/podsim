@@ -648,7 +648,7 @@ func TestStreamGzipExpansionBound(t *testing.T) {
 	if len(compressed) > len(data)+(64<<10) {
 		t.Fatalf("gzip expansion exceeded proof allowance: %d", len(compressed))
 	}
-	t.Logf("64 MiB incompressible gzip fixture: %d bytes, cap %d", len(compressed), MaxStreamMessage)
+	t.Logf("65 MiB incompressible gzip fixture: %d bytes, cap %d", len(compressed), MaxStreamMessage)
 	output, err := InflateStream(compressed)
 	if err != nil || !bytes.Equal(output, data) {
 		t.Fatal("gzip boundary round trip", err)
@@ -820,7 +820,7 @@ func TestStreamBlockedWriterStops(t *testing.T) {
 	}
 	defer func() { _ = conn.CloseNow() }()
 	<-entered
-	// The receiver never reads. A 65 MiB write exceeds the TCP buffer.
+	// The receiver never reads. A 66 MiB write exceeds the TCP buffer.
 	select {
 	case err := <-finished:
 		t.Fatal("write completed without a reader", err)

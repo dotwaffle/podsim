@@ -7,7 +7,7 @@ Several independent network timing tests also ran serially.
 The production write deadline remains thirty seconds.
 A private writer interface lets a test inspect that deadline without waiting for it.
 The test checks earlier parent deadlines, cancellation, message forwarding, errors, and child-context cleanup.
-Real WebSocket tests still send a legal-size 65 MiB message through TCP backpressure.
+Real WebSocket tests still send a legal-size 66 MiB message through TCP backpressure.
 They use shorter injected deadlines for slow and stalled readers.
 Timing starts at writer entry, after payload allocation.
 

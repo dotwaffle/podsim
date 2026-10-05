@@ -1443,6 +1443,14 @@ Vehicle fields add about 15,000 bytes.
 The Express with coupling HTTP state does not fit after stage 1.
 By the maintainer decision of October 5, 2026, a composed shape over its cap raises that cap just enough to fit, with the composed measurement as evidence.
 Stage 1 patch 9 measures the composed shapes with its members, and raises the stream and HTTP cap if a shape is over it.
+
+Cap raise of stage 1 patch 9, in whole MiB:
+
+| Cap | Before | After | Evidence |
+| --- | ---: | ---: | --- |
+| Stream and HTTP JSON, `MaxStreamJSON` | 67,108,864 | 68,157,440 | The measured Express with coupling HTTP state has a bound of 67,345,279 bytes. |
+| Stream gzip message, `MaxStreamMessage` | 68,157,440 | 69,206,016 | It stays 1 MiB above the JSON cap, for the expansion of stored blocks. |
+
 Fault and emergency records of later stages get a stream and HTTP allocation at stage 0, beside the save allocation.
 
 Joint save allocation.

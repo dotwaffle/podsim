@@ -21,9 +21,13 @@ import (
 const (
 	// StreamVersion is the hello version of the one stream family. The
 	// contract markers of a connection select its optional sections.
-	StreamVersion    = 6
-	MaxStreamJSON    = 64 << 20
-	MaxStreamMessage = 65 << 20
+	StreamVersion = 6
+	// MaxStreamJSON limits the JSON of a stream envelope and of the HTTP
+	// state. The composed worst-case Express with coupling HTTP state of
+	// the incident contract needs more than 64 MiB. MaxStreamMessage
+	// limits the gzip data, with 1 MiB for the expansion of stored blocks.
+	MaxStreamJSON    = 65 << 20
+	MaxStreamMessage = 66 << 20
 )
 
 // StreamSource identifies one coherent authoritative state.
