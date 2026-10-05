@@ -119,32 +119,22 @@ func TestLegOriginBoardingTuples(t *testing.T) {
 	}
 }
 
-// TestLegFromHasNoWireMember checks that no stream or save order has a
-// legFrom member before the format patch of the incident contract adds
-// it: an encoder leaves LegFrom out, and a decoder refuses the member.
-func TestLegFromHasNoWireMember(t *testing.T) {
+// TestLegFromHasNoStreamMember checks that no stream order has a legFrom
+// member before the stream patch of the incident contract adds it: the
+// encoder leaves LegFrom out, and the decoder refuses the member.
+func TestLegFromHasNoStreamMember(t *testing.T) {
 	t.Parallel()
 	stream, err := json.Marshal(legRequest("garden"), packedRequestOptions())
 	if err != nil {
 		t.Fatal(err)
 	}
-	saved, err := json.Marshal(sim.SavedRequest(legRequest("garden")), json.WithMarshalers(json.MarshalToFunc(encodePackedSavedRequest)))
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, raw := range [][]byte{stream, saved} {
-		if bytes.Contains(raw, []byte("legFrom")) {
-			t.Fatalf("encoded order %s has a legFrom member", raw)
-		}
+	if bytes.Contains(stream, []byte("legFrom")) {
+		t.Fatalf("encoded order %s has a legFrom member", stream)
 	}
 	member := []byte(`{"legFrom":"Z2FyZGVu",`)
 	var request sim.Request
 	if err := json.Unmarshal(bytes.Replace(stream, []byte("{"), member, 1), &request, packedDecodeOptions()); err == nil {
 		t.Error("the stream decoder accepts a legFrom member")
-	}
-	var savedRequest sim.SavedRequest
-	if err := json.Unmarshal(bytes.Replace(saved, []byte("{"), member, 1), &savedRequest, json.WithUnmarshalers(json.UnmarshalFromFunc(decodePackedSavedRequest))); err == nil {
-		t.Error("the save decoder accepts a legFrom member")
 	}
 }
 

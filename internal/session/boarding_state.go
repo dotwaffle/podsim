@@ -86,14 +86,25 @@ func validBoardingConsent(rider sim.SavedRequest) bool {
 
 type savedPodFields sim.SavedPod
 
+// boardingWirePod is a saved pod with its boarding records as tuples and
+// its operational destination as one tuple (incident contract, section
+// 11.5).
 type boardingWirePod struct {
 	savedPodFields
-	Boardings []boardingTuple `json:"boardings,omitempty"`
+	Boardings   []boardingTuple   `json:"boardings,omitempty"`
+	Operational *operationalTuple `json:"operational,omitzero"`
 }
 
+// encodePodContract writes a saved pod. The encoder writes its riders with
+// the options of encoder.
 func (source boardingSource) encodePodContract(encoder *jsontext.Encoder, pod sim.SavedPod, contract sim.OrderContract) error {
+	wire := boardingWirePod{savedPodFields: savedPodFields(pod)}
+	wire.Purpose, wire.Owner, wire.Interrupt = 0, 0, 0
+	if pod.Purpose != 0 || pod.Owner != 0 || pod.Interrupt != 0 {
+		wire.Operational = &operationalTuple{Purpose: pod.Purpose, Owner: pod.Owner, Interrupt: pod.Interrupt}
+	}
 	if len(pod.Boardings) == 0 {
-		return json.MarshalEncode(encoder, savedPodFields(pod))
+		return json.MarshalEncode(encoder, wire)
 	}
 	if len(pod.Boardings) != len(pod.Riders) || len(pod.Boardings) > sim.MaxStoredRidersForOrderContract(pod.Class, contract) {
 		return errors.New("invalid native boarding record alignment")
@@ -102,7 +113,7 @@ func (source boardingSource) encodePodContract(encoder *jsontext.Encoder, pod si
 	if err != nil {
 		return err
 	}
-	wire := boardingWirePod{savedPodFields: savedPodFields(pod), Boardings: make([]boardingTuple, len(pod.Boardings))}
+	wire.Boardings = make([]boardingTuple, len(pod.Boardings))
 	wire.JourneyOrigin = ""
 	for index, record := range pod.Boardings {
 		if !finiteCompactNumber(record.MetersAtBoarding) || record.MetersAtBoarding < 0 || record.MetersAtBoarding > meters || !validBoardingConsent(pod.Riders[index]) {
@@ -118,44 +129,75 @@ func (source boardingSource) encodePodContract(encoder *jsontext.Encoder, pod si
 	return json.MarshalEncode(encoder, wire)
 }
 
+// savedPodRefs are the unresolved references of a decoded saved pod: its
+// boarding tuples, and the leg origin index of each rider or
+// noSavedReference.
+type savedPodRefs struct {
+	tuples []boardingTuple
+	legs   []int
+}
+
 // decodeBoardingPodContract decodes a saved pod with packed riders. The
-// order marker contract bounds the boarding records.
-func decodeBoardingPodContract(decoder *jsontext.Decoder, pod *sim.SavedPod, contract sim.OrderContract) ([]boardingTuple, error) {
+// order marker contract bounds the boarding records. It checks the holds
+// and the operational destination of the pod.
+func decodeBoardingPodContract(decoder *jsontext.Decoder, pod *sim.SavedPod, contract sim.OrderContract) (savedPodRefs, error) {
 	value, err := decoder.ReadValue()
 	if err != nil {
-		return nil, err
+		return savedPodRefs{}, err
 	}
 	var members map[string]jsontext.Value
 	if err := json.Unmarshal(value, &members); err != nil {
-		return nil, err
+		return savedPodRefs{}, err
 	}
 	field, present := members["boardings"]
 	if present {
 		if field.Kind() != jsontext.KindBeginArray {
-			return nil, errors.New("saved boardings must be an array")
+			return savedPodRefs{}, errors.New("saved boardings must be an array")
 		}
 		if _, contradictory := members["journeyOrigin"]; contradictory {
-			return nil, errors.New("saved boardings contradict journeyOrigin")
+			return savedPodRefs{}, errors.New("saved boardings contradict journeyOrigin")
 		}
+	}
+	var refs savedPodRefs
+	decodeRider := func(decoder *jsontext.Decoder, rider *sim.SavedRequest) error {
+		leg, err := decodeSavedRequest(decoder, rider)
+		refs.legs = append(refs.legs, leg)
+		return err
 	}
 	var wire boardingWirePod
 	// The decode of value does not inherit the options of the state
 	// decoder, so it registers the packed rider decoder itself.
 	options := json.JoinOptions(json.RejectUnknownMembers(true), json.WithUnmarshalers(json.JoinUnmarshalers(
-		json.UnmarshalFromFunc(decodePlatoon), json.UnmarshalFromFunc(decodeCompactQueue), json.UnmarshalFromFunc(decodePackedSavedRequest))))
+		json.UnmarshalFromFunc(decodePlatoon), json.UnmarshalFromFunc(decodeCompactQueue), json.UnmarshalFromFunc(decodeRider))))
 	if err := json.Unmarshal(value, &wire, options); err != nil {
-		return nil, err
+		return savedPodRefs{}, err
 	}
 	if present && (len(wire.Boardings) < 1 || len(wire.Boardings) > sim.MaxStoredRidersForOrderContract(wire.Class, contract) || len(wire.Boardings) != len(wire.Riders)) {
-		return nil, errors.New("invalid saved boarding tuple alignment")
+		return savedPodRefs{}, errors.New("invalid saved boarding tuple alignment")
 	}
 	*pod = sim.SavedPod(wire.savedPodFields)
 	pod.Boardings = nil
-	return wire.Boardings, nil
+	if err := checkSavedOperational(*pod, wire.Operational); err != nil {
+		return savedPodRefs{}, err
+	}
+	if wire.Operational != nil {
+		pod.Purpose, pod.Owner, pod.Interrupt = wire.Operational.Purpose, wire.Operational.Owner, wire.Operational.Interrupt
+	}
+	if !slices.ContainsFunc(refs.legs, func(leg int) bool { return leg != noSavedReference }) {
+		refs.legs = nil
+	}
+	refs.tuples = wire.Boardings
+	return refs, nil
 }
 
-// resolveBoardings binds records only after the caller accepts the saved project.
+// resolveBoardings binds the saved references only after the caller
+// accepts the saved project. It binds the leg origins and the excluded
+// pods first, because a boarding tuple resolves against the leg origin of
+// its rider.
 func (file *stateFile) resolveBoardings() error {
+	if err := file.resolveIncidentRefs(); err != nil {
+		return err
+	}
 	if len(file.boardingTuples) == 0 {
 		return nil
 	}

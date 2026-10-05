@@ -108,8 +108,8 @@ func TestIncidentSerialSaveMember(t *testing.T) {
 	}
 	for _, value := range []string{"0", "null", "3"} {
 		_, err := restore(explicit(unmarked, value))
-		if !errors.Is(err, errIncidentSerialUnmarked) {
-			t.Errorf("unmarked save with serial %s: error %v, want %v", value, err, errIncidentSerialUnmarked)
+		if !errors.Is(err, errIncidentMemberUnmarked) {
+			t.Errorf("unmarked save with serial %s: error %v, want %v", value, err, errIncidentMemberUnmarked)
 		}
 	}
 }

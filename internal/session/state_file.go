@@ -150,7 +150,10 @@ type stateFile struct {
 	CouplingContract sim.CouplingContract `json:"couplingContract,omitzero"`
 	OrderContract    sim.OrderContract    `json:"orderContract,omitzero"`
 	// boardingTuples retains unresolved references in saved pod order.
-	boardingTuples  [][]boardingTuple
+	boardingTuples [][]boardingTuple
+	// incidentRefs retains the unresolved leg origins and excluded pods.
+	// It is nil when the save has none.
+	incidentRefs    *savedIncidentRefs
 	RailConnections []rail.Connection `json:"railConnections,omitempty"`
 	Format          string            `json:"format"`
 	Version         int               `json:"version"`
@@ -244,14 +247,8 @@ func (e *stateEncoder) encode(file stateFile) ([]byte, error) {
 	if err := validateCouplingRoutes(file); err != nil {
 		return nil, err
 	}
-	source := bindBoardingSource(file.Project)
-	encodePod := func(encoder *jsontext.Encoder, pod sim.SavedPod) error {
-		return source.encodePodContract(encoder, pod, file.OrderContract)
-	}
-	// The pod encoder writes the riders with the options of the encoder, so
-	// they are packed as the waiting trips are.
 	options := json.JoinOptions(json.Deterministic(true), json.WithMarshalers(json.JoinMarshalers(
-		json.MarshalToFunc(e.encodeProject), json.MarshalToFunc(encodePod), json.MarshalToFunc(encodePackedSavedRequest))))
+		json.MarshalToFunc(e.encodeProject), file.simulationMarshalers())))
 	if err := json.MarshalWrite(limited, file, options); err != nil {
 		return nil, fmt.Errorf("encode session state: %w", err)
 	}
@@ -262,6 +259,20 @@ func (e *stateEncoder) encode(file stateFile) ([]byte, error) {
 		return nil, fmt.Errorf("compressed session state has %d bytes: %w", e.buffer.Len(), ErrStateTooLarge)
 	}
 	return e.buffer.Bytes(), nil
+}
+
+// simulationMarshalers write the pods, the waiting trips, and the orders
+// of file. The pod and the trip encoders write the orders with the options
+// of the encoder, so each order is packed. The adapter writes the boarding
+// records, the leg origins, and the excluded pods as indexes into the
+// saved project and the saved pods.
+func (file *stateFile) simulationMarshalers() *json.Marshalers {
+	source := bindBoardingSource(file.Project)
+	encodePod := func(encoder *jsontext.Encoder, pod sim.SavedPod) error {
+		return source.encodePodContract(encoder, pod, file.OrderContract)
+	}
+	indexes := newSavedIndexes(*file)
+	return json.JoinMarshalers(json.MarshalToFunc(encodePod), json.MarshalToFunc(indexes.encodeTrip), json.MarshalToFunc(indexes.encodeRequest))
 }
 
 // encodeProject writes the project member of a state file. The member has
@@ -429,16 +440,18 @@ func decodeStateJSON(raw []byte, markers contractMarkers) (stateFile, error) {
 		return stateFile{}, err
 	}
 	var boardingTuples [][]boardingTuple
+	refs := new(savedIncidentRefs)
 	decodePod := func(decoder *jsontext.Decoder, pod *sim.SavedPod) error {
-		tuples, err := decodeBoardingPodContract(decoder, pod, markers.order)
+		podRefs, err := decodeBoardingPodContract(decoder, pod, markers.order)
 		if err == nil {
-			boardingTuples = append(boardingTuples, tuples)
+			boardingTuples = append(boardingTuples, podRefs.tuples)
+			refs.riders = append(refs.riders, podRefs.legs)
 		}
 		return err
 	}
 	options := json.JoinOptions(strictStateOptions, json.WithUnmarshalers(json.JoinUnmarshalers(
 		json.UnmarshalFromFunc(decodeSavedProject), json.UnmarshalFromFunc(decodePlatoon), json.UnmarshalFromFunc(decodeCompactQueue),
-		json.UnmarshalFromFunc(decodePod), json.UnmarshalFromFunc(decodePackedSavedRequest))))
+		json.UnmarshalFromFunc(decodePod), json.UnmarshalFromFunc(refs.decodeTrip))))
 	var file stateFile
 	if err := json.Unmarshal(raw, &file, options); err != nil {
 		return stateFile{}, fmt.Errorf("decode session state: %w", err)
@@ -446,10 +459,13 @@ func decodeStateJSON(raw []byte, markers contractMarkers) (stateFile, error) {
 	if slices.ContainsFunc(boardingTuples, func(tuples []boardingTuple) bool { return len(tuples) != 0 }) {
 		file.boardingTuples = boardingTuples
 	}
+	if refs.present() {
+		file.incidentRefs = refs
+	}
 	if err := validateSavedCompactMembers(file.Simulation); err != nil {
 		return stateFile{}, err
 	}
-	if err := checkIncidentSerial(raw, file); err != nil {
+	if err := checkIncidentMembers(raw, file); err != nil {
 		return stateFile{}, err
 	}
 	if err := file.validateProjectVersion(); err != nil {

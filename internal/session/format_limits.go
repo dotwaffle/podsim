@@ -32,6 +32,9 @@ func savedLimits(markers contractMarkers) jsonLimits {
 	limits.arrays["/simulation/waiting"] = orders
 	limits.arrays["/simulation/pods/*/riders"] = riders
 	limits.arrays["/simulation/pods/*/boardings"] = riders
+	// The operational destination of a pod is a tuple of 2 or 3 numbers
+	// (incident contract, section 11.6).
+	limits.arrays["/simulation/pods/*/operational"] = 3
 	limits.arrays["/project/expressServices"] = project.MaxExpressServices
 	for _, path := range []string{
 		"/project/network/lanes/*/vehicleClasses",

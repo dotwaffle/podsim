@@ -35,6 +35,13 @@ func wirePaths(t *testing.T) (map[string]bool, []wirename.Member) {
 	t.Helper()
 	members, _ := wirename.Walk(wireRoots()...)
 	paths := wirename.Paths(members)
+	// The save adapter writes these members in place of native fields.
+	for _, path := range []string{
+		"/simulation/pods/*/operational", "/simulation/pods/*/riders/*/legFrom",
+		"/simulation/waiting/*/request/legFrom", "/simulation/waiting/*/excludedPod",
+	} {
+		paths[path] = true
+	}
 	for name, value := range deltaGroups {
 		group, _ := wirename.Walk(value)
 		paths["/delta/groups/"+name] = true
@@ -98,7 +105,7 @@ func TestScannerLiteralsMatchTags(t *testing.T) {
 	files := []string{
 		"boarding_state.go", "compact_state.go", "coupling_json.go",
 		"coupling_state.go", "coupling_stream.go", "coupling_stream_json.go", "express_text.go",
-		"express_wire.go", "http.go", "order_command.go", "order_state.go", "protocol.go",
+		"express_wire.go", "http.go", "incident_state.go", "order_command.go", "order_state.go", "protocol.go",
 		"state_file.go", "stream_boardings.go", "stream_codec.go", "stream_frame.go",
 		"state_http.go", "stream_service.go", "topology_decode.go", "../remote/client.go", "../remote/stream.go",
 	}

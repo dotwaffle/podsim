@@ -266,8 +266,22 @@ The `couplingContract` marker `compact-pair-v1` permits the coupling members.
 The project and the simulation must have the same markers as the root.
 A file without the coupling marker must not have a coupling member, also not an empty, null, or false value.
 The incident marker `incidentContract` `incident-v1` is only in the saved project.
-With it, the simulation can have `incidentSerial`, the serial of the last incident record, which the file omits at 0.
-Without it, the file must not have `incidentSerial`, also not 0 or null.
+With it, the file can have these incident members, and it omits each one at 0 or when it is absent:
+
+- `simulation.interrupted` and `simulation.interruptedPassengers`: the orders that ended interrupted, and the sum of their party sizes.
+- `simulation.incidentSerial`: the serial of the last incident record.
+- `withdrawn` of a pod: its service holds, 1 for a fault and 2 for an emergency.
+- `operational` of a pod: its operational destination, `[purpose, owner]`, or `[1, owner, interrupt]` for an emergency unload that interrupts riders.
+  The purpose is 1 for an emergency unload, 2 for a refuge, and 3 for an empty recovery.
+  The owner is one hold of the pod, and each bit of `interrupt` names an active rider by its index.
+- `legFrom` of a rider or of a queued order: the station where the party boards its current pod, as an index into `project.network.stations`.
+- `excludedPod` of a queued order: the pod that the order must not get, as an index into `simulation.pods`.
+
+Index 0 is a present value.
+A leg origin is a passenger station other than the destination.
+An order with an excluded pod did not board, and its pod and its hold are not the excluded pod.
+The file must not have a null incident member.
+Without the marker, the file must not have an incident member, also not 0, null, or an empty array.
 The order text of each queued order and each rider is canonical base64 text, for each project kind.
 The file has no `textEncoding` member.
 Each saved version stores a version 1 project.

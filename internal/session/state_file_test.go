@@ -814,7 +814,7 @@ func jsonSize(t *testing.T, value any) int {
 // order text. It does not convert the boarding records of a pod to tuples.
 func marshalSavedJSON(t *testing.T, value any) []byte {
 	t.Helper()
-	data, err := json.Marshal(value, json.Deterministic(true), json.WithMarshalers(json.MarshalToFunc(encodePackedSavedRequest)))
+	data, err := json.Marshal(value, json.Deterministic(true), json.WithMarshalers(json.MarshalToFunc(savedIndexes{}.encodeRequest)))
 	if err != nil {
 		t.Fatal(err)
 	}

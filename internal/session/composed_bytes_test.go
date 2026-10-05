@@ -3,7 +3,6 @@ package session
 import (
 	"bytes"
 	"encoding/json"
-	"encoding/json/jsontext"
 	jsonv2 "encoding/json/v2"
 	"math"
 	"os"
@@ -282,12 +281,7 @@ func TestComposedWorstCaseFormats(t *testing.T) { //nolint:tparallel // Subtests
 // writes, without the size limit of the encoder.
 func composedSaveJSON(t *testing.T, file stateFile) []byte {
 	t.Helper()
-	source := bindBoardingSource(file.Project)
-	encodePod := func(encoder *jsontext.Encoder, pod sim.SavedPod) error {
-		return source.encodePodContract(encoder, pod, file.OrderContract)
-	}
-	data, err := jsonv2.Marshal(file, jsonv2.Deterministic(true), jsonv2.WithMarshalers(jsonv2.JoinMarshalers(
-		jsonv2.MarshalToFunc(encodePod), jsonv2.MarshalToFunc(encodePackedSavedRequest))))
+	data, err := jsonv2.Marshal(file, jsonv2.Deterministic(true), jsonv2.WithMarshalers(file.simulationMarshalers()))
 	if err != nil {
 		t.Fatal(err)
 	}

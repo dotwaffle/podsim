@@ -68,8 +68,8 @@ var (
 // From and To never change after acceptance. LegFrom is the station where
 // the party boards its current pod. Only a transfer sets it, and then it
 // stays until the next transfer of the order, also after completion. It is
-// empty for every other order. See legOrigin. No save or stream writes
-// LegFrom yet: the format patch of the incident contract adds its members.
+// empty for every other order. See legOrigin. The session save writes it
+// as a station index. No stream writes it yet.
 type Request struct {
 	SharingConsent SharingConsent `json:"sharingConsent"`
 	Service        ServiceChoice  `json:"service"`

@@ -53,11 +53,10 @@ type SavedState struct {
 	DirectDistanceMeters float64 `json:"directDistanceMeters,omitzero"`
 	MaxDetourRatio       float64 `json:"maxDetourRatio,omitzero"`
 	// Interrupted counts the orders that ended interrupted, and
-	// InterruptedPassengers is the sum of their party sizes. No session
-	// save writes them yet. Section 11 of the incident contract adds their
-	// members.
-	Interrupted           int `json:"-"`
-	InterruptedPassengers int `json:"-"`
+	// InterruptedPassengers is the sum of their party sizes. They need the
+	// incident marker.
+	Interrupted           int `json:"interrupted,omitzero"`
+	InterruptedPassengers int `json:"interruptedPassengers,omitzero"`
 	// IncidentSerial is the serial of the last incident record. It needs
 	// the incident marker.
 	IncidentSerial uint64 `json:"incidentSerial,omitzero"`
@@ -75,7 +74,8 @@ type SavedDemo struct {
 	FollowupsSent bool `json:"followupsSent,omitzero"`
 }
 
-// SavedRequest is a saved passenger order. It has the same fields as Request.
+// SavedRequest is a saved passenger order. It has the same fields as
+// Request. The session adapter saves LegFrom as a station index.
 type SavedRequest struct {
 	SharingConsent SharingConsent `json:"sharingConsent,omitempty"`
 	Service        ServiceChoice  `json:"service,omitempty"`
@@ -153,9 +153,9 @@ type SavedPod struct {
 	// Interrupt hold its operational destination: the purpose code, the
 	// hold that owns the purpose, and the riders whose orders end
 	// interrupted at an emergency unload, by index in Riders. Each is zero
-	// for a pod in service. No session save writes them yet. Section 11 of
-	// the incident contract adds their members.
-	Withdrawn uint8  `json:"-"`
+	// for a pod in service. They need the incident marker. The session
+	// adapter saves the operational destination as one tuple.
+	Withdrawn uint8  `json:"withdrawn,omitzero"`
 	Purpose   uint8  `json:"-"`
 	Owner     uint8  `json:"-"`
 	Interrupt uint32 `json:"-"`

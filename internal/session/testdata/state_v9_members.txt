@@ -87,6 +87,8 @@ simulation.maxJourneyTicks number
 simulation.riderDistanceMeters number
 simulation.directDistanceMeters number
 simulation.maxDetourRatio number
+simulation.interrupted number
+simulation.interruptedPassengers number
 simulation.incidentSerial number
 simulation.demo object
 simulation.demo.secondSent boolean
@@ -161,6 +163,7 @@ simulation.pods[].compactQueue.targets array
 simulation.pods[].compactQueue.targets[] number
 simulation.pods[].compactQueue.landingSpeeds array
 simulation.pods[].compactQueue.landingSpeeds[] number
+simulation.pods[].withdrawn number
 simulation.waiting array
 simulation.waiting[] object
 simulation.waiting[].request object
@@ -332,3 +335,8 @@ project.map.opacity number
 simulation.pods[].boardings array
 simulation.pods[].boardings[] array
 simulation.pods[].boardings[][] number
+simulation.pods[].operational array
+simulation.pods[].operational[] number
+simulation.pods[].riders[].legFrom number
+simulation.waiting[].request.legFrom number
+simulation.waiting[].excludedPod number

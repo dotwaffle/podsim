@@ -122,7 +122,7 @@ func (file *stateFile) validateWireContract() error {
 		file.Simulation.OrderContract != file.OrderContract || file.Project.OrderContract != file.OrderContract {
 		return errors.New("saved order contract markers disagree")
 	}
-	return nil
+	return file.validateIncidentValues()
 }
 
 func preflightExpressTopology(config project.Config, serverStart, epoch string, revision uint64) error {

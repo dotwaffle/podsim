@@ -69,12 +69,6 @@ func encodePackedRequest(e *jsontext.Encoder, r sim.Request) error {
 	}
 	return jsonv2.MarshalEncode(e, packedRequest(r))
 }
-func encodePackedSavedRequest(e *jsontext.Encoder, r sim.SavedRequest) error {
-	if err := transformOrderText([]*string{&r.From, &r.To, &r.PodID, &r.DispatchReason, &r.ServiceID}, false); err != nil {
-		return err
-	}
-	return jsonv2.MarshalEncode(e, packedSavedRequest(r))
-}
 func decodePackedRequest(d *jsontext.Decoder, r *sim.Request) error {
 	// Read the whole order first. An error in the middle of an order that
 	// the decoder of the enclosing document reads makes that decoder report
@@ -94,19 +88,6 @@ func decodePackedRequest(d *jsontext.Decoder, r *sim.Request) error {
 	*r = next
 	return nil
 }
-func decodePackedSavedRequest(d *jsontext.Decoder, r *sim.SavedRequest) error {
-	var wire packedSavedRequest
-	if err := jsonv2.UnmarshalDecode(d, &wire, jsonv2.RejectUnknownMembers(true)); err != nil {
-		return err
-	}
-	next := sim.SavedRequest(wire)
-	if err := transformOrderText([]*string{&next.From, &next.To, &next.PodID, &next.DispatchReason, &next.ServiceID}, true); err != nil {
-		return err
-	}
-	*r = next
-	return nil
-}
-
 func packedRequestOptions() jsonv2.Options {
 	return jsonv2.WithMarshalers(jsonv2.MarshalToFunc(encodePackedRequest))
 }

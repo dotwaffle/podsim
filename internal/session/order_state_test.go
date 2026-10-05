@@ -47,6 +47,12 @@ func TestCurrentStateGolden(t *testing.T) {
 	lines := stateMembers(t, "", membersType, nil)
 	// The session adapter writes tuples instead of native boarding objects.
 	lines = append(lines, stateMembers(t, "simulation.pods[].boardings", reflect.TypeFor[[][2]float64](), nil)...)
+	// It also writes the stage 1 references as indexes, and the operational
+	// destination as one tuple (incident contract, section 11.5).
+	lines = append(lines, stateMembers(t, "simulation.pods[].operational", reflect.TypeFor[[]uint32](), nil)...)
+	lines = append(lines, stateMembers(t, "simulation.pods[].riders[].legFrom", reflect.TypeFor[int](), nil)...)
+	lines = append(lines, stateMembers(t, "simulation.waiting[].request.legFrom", reflect.TypeFor[int](), nil)...)
+	lines = append(lines, stateMembers(t, "simulation.waiting[].excludedPod", reflect.TypeFor[int](), nil)...)
 	members := strings.Join(lines, "\n") + "\n"
 	const path = "testdata/state_v9_members.txt"
 	if *update {
