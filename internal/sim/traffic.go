@@ -532,6 +532,7 @@ func (s *Simulation) admit() {
 		s.admissionWork = &admissionWork{pickups: make(map[string]bool)}
 	}
 	work := s.admissionWork
+	s.surrenderWaitingClaims()
 	intents := work.intents[:0]
 	for i := range s.vehicles {
 		v := &s.vehicles[i]
@@ -555,15 +556,10 @@ func (s *Simulation) admit() {
 		}
 		s.reevaluateTerminalBerth(v)
 		v.Pod.WaitReason, v.Pod.BlockedBy = NoWait, ""
-		next := v.reservedThrough + 1
-		if next >= v.blocks.len() {
-			continue
-		}
 		// Reserve enough track for cruising speed plus the configured lookahead.
 		// A denied extension leaves the existing stopping boundary intact.
-		speed := math.Max(v.Pod.Speed, v.blocks.currentLane(v.blockIndex).SpeedLimit)
-		horizon := speed*speed/(2*acceleration) + speed*s.reservationLookaheadSeconds
-		if v.reservedThrough >= 0 && v.blocks.end(v.reservedThrough)-v.distance >= horizon && !v.link.compact {
+		next, ok := s.admissionRequest(v)
+		if !ok {
 			continue
 		}
 		if v.pending != next {
