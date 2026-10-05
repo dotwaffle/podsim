@@ -47,6 +47,7 @@ func expressSession(t *testing.T) *Session {
 }
 
 func TestExpressSaveStreamHTTPRoundTrip(t *testing.T) {
+	t.Parallel()
 	shared := expressSession(t)
 	shared.advance()
 	command := Command{Client: "express-test", Sequence: 1, Epoch: shared.State().Epoch, Action: "trip", Origin: "harbor", Destination: "market", PartySize: 20, SharingConsent: sim.SharedConsent, Service: sim.ExpressServiceChoice, ServiceID: "harbor-market", OrderContract: sim.ExpressOrderContract}
@@ -134,6 +135,7 @@ func TestExpressSaveStreamHTTPRoundTrip(t *testing.T) {
 }
 
 func TestExpressMarkersAndAtomicAssembly(t *testing.T) {
+	t.Parallel()
 	shared := expressSession(t)
 	frame, err := shared.presentationFrame()
 	if err != nil {
@@ -185,6 +187,7 @@ func TestExpressMarkersAndAtomicAssembly(t *testing.T) {
 }
 
 func TestExpressTripMarker(t *testing.T) {
+	t.Parallel()
 	for _, marker := range []string{``, `,"orderContract":"express-v1"`, `,"orderContract":null`, `,"orderContract":"other"`} {
 		raw := `{"action":"trip","origin":"harbor","destination":"market","partySize":20` + marker + `}`
 		var command Command
@@ -197,6 +200,7 @@ func TestExpressTripMarker(t *testing.T) {
 
 // This public adapter test also runs in Go/WASM without browser APIs or HTTP.
 func TestExpressPublicNumericRoundTrip(t *testing.T) {
+	t.Parallel()
 	shared := expressSession(t)
 	frame, err := shared.presentationFrame()
 	if err != nil {
@@ -248,6 +252,7 @@ func TestExpressPublicNumericRoundTrip(t *testing.T) {
 // The external assets contain independent bounded wire fields, not native motion.
 // Retain the first accepted state while decoding its successor in native or WASM.
 func TestExpressPublicAssetRetention(t *testing.T) {
+	t.Parallel()
 	dir := os.Getenv("PODSIM_EXPRESS_PUBLIC_ASSET_DIR")
 	if dir == "" {
 		t.Skip("external widest reference-shape assets are not requested")

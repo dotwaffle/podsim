@@ -211,6 +211,7 @@ func widestExpressSave(t *testing.T) stateFile {
 }
 
 func TestExpressWidestSaveAdapters(t *testing.T) {
+	t.Parallel()
 	if raceEnabled {
 		t.Skip("maximum codec proof runs in the required test:embedded task")
 	}
@@ -299,6 +300,7 @@ func maximumStreamDelta(t *testing.T, frame StreamFrame) StreamDelta {
 }
 
 func TestExpressWidestStreamAdapters(t *testing.T) {
+	t.Parallel()
 	if raceEnabled {
 		t.Skip("maximum codec proof runs in the required test:embedded task")
 	}
@@ -419,6 +421,7 @@ func fitWidestTopology(t *testing.T, markers contractMarkers) (TopologySnapshot,
 // These topology and HTTP assets combine independent bounded fields.
 // Their parser acceptance does not qualify physical placement or motion.
 func TestExpressWidestTopologyHTTPAdapters(t *testing.T) {
+	t.Parallel()
 	if raceEnabled {
 		t.Skip("maximum codec proof runs in the required test:embedded task")
 	}

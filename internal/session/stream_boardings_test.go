@@ -25,6 +25,7 @@ func boardingStreamFixture(t *testing.T) (TopologySnapshot, StreamFrame) {
 }
 
 func TestStreamBoardingPresence(t *testing.T) {
+	t.Parallel()
 	for _, raw := range []string{`{"full":{"state":{"simulation":{"vehicles":[{"pod":{"berthID":"old"}}]}}}}`, `{"delta":{"vehicles":[{"pod":{"value":{"berthID":"old"}}}]}}`} {
 		if _, err := DecodeStreamJSON([]byte(raw)); err != nil {
 			t.Fatal("pod berth path rejected", err)
@@ -209,6 +210,7 @@ func TestStreamBoardingBindingAndRollback(t *testing.T) {
 }
 
 func TestStreamBoardingFrameCopies(t *testing.T) {
+	t.Parallel()
 	topology, frame := boardingStreamFixture(t)
 	state, err := FrameState(topology, frame.State)
 	if err != nil {
@@ -232,6 +234,7 @@ func TestStreamBoardingFrameCopies(t *testing.T) {
 }
 
 func TestStreamOrdinaryBoardingBytes(t *testing.T) {
+	t.Parallel()
 	// Keep the pre-boarding wire shape to detect ordinary encoding changes.
 	type oldVehicle struct {
 		Pod          sim.Pod       `json:"pod"`
@@ -264,6 +267,7 @@ func TestStreamOrdinaryBoardingBytes(t *testing.T) {
 }
 
 func TestStreamBoardingZeroDistanceRoundTrip(t *testing.T) {
+	t.Parallel()
 	topology, frame := boardingStreamFixture(t)
 	frame.State.Simulation.Vehicles[0].RiddenMeters = 0
 	e := StreamEnvelope{Kind: "full", Stream: "zero", Sequence: 1, Build: frame.State.Build, Source: sourceOf(frame), Full: &frame}

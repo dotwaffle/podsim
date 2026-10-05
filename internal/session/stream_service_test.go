@@ -59,6 +59,7 @@ func TestStreamServiceTopologyVersions(t *testing.T) {
 }
 
 func TestStreamServiceOrdersDelta(t *testing.T) {
+	t.Parallel()
 	shared, frame := streamFixture(t)
 	assembler, err := NewStreamAssembler(shared.Topology())
 	if err != nil {

@@ -22,6 +22,7 @@ func expressEntropyText(random *rand.Rand) string {
 
 // Independent typed field shapes test gzip with distinct bounded UTF-8 text.
 func TestExpressIncompressibleAssetAdapters(t *testing.T) {
+	t.Parallel()
 	dir := os.Getenv("PODSIM_EXPRESS_PUBLIC_ASSET_DIR")
 	if dir == "" {
 		t.Skip("external widest assets not selected")

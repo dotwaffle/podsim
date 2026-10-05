@@ -107,6 +107,7 @@ func TestCouplingRestoreResultMovedAside(t *testing.T) {
 }
 
 func TestCouplingStoreOpaqueReadTooLarge(t *testing.T) {
+	t.Parallel()
 	store := &fakeStore{data: []byte("opaque original bytes"), readErr: fmt.Errorf("bounded read: %w", ErrStateTooLarge)}
 	before := bytes.Clone(store.data)
 	s, err := NewFromStore(t.Context(), StoreInput{Store: store})
@@ -159,6 +160,7 @@ func TestCouplingProjectEnabledRestoreOverride(t *testing.T) {
 }
 
 func TestCouplingStoreGroupFreeRecovery(t *testing.T) {
+	t.Parallel()
 	config := project.Default()
 	config.CouplingContract = sim.CompactPairV1CouplingContract
 	store := &fakeStore{}
@@ -181,6 +183,7 @@ func TestCouplingStoreGroupFreeRecovery(t *testing.T) {
 }
 
 func TestCouplingStoreGroupFreePanic(t *testing.T) {
+	t.Parallel()
 	config := project.Default()
 	config.CouplingContract = sim.CompactPairV1CouplingContract
 	s, err := NewWithProject(config)
@@ -210,6 +213,7 @@ func TestCouplingStoreGroupFreePanic(t *testing.T) {
 }
 
 func TestCouplingStoreMalformedGroupsMovedAside(t *testing.T) {
+	t.Parallel()
 	data := couplingPhaseFixtures(t)
 	file := couplingPhaseFile(t, couplingPhaseInput(t, data, data.Frames[0]))
 	raw := mutateCouplingGroup(t, decompressTestJSON(t, encodeTestState(t, file)), func(g map[string]jsontext.Value) { delete(g, "formationTick") })
@@ -219,6 +223,7 @@ func TestCouplingStoreMalformedGroupsMovedAside(t *testing.T) {
 }
 
 func TestCouplingProjectApplyAtomic(t *testing.T) {
+	t.Parallel()
 	saves := 0
 	s, err := NewWithProject(project.Default(), WithProjectSaver(func(c project.Config) error {
 		saves++

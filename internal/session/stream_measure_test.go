@@ -13,6 +13,7 @@ import (
 )
 
 func TestStreamLondonWire(t *testing.T) {
+	t.Parallel()
 	config := scenarios.LondonCentral()
 	config.Demand.Enabled = true
 	shared, err := NewWithProject(config)
@@ -84,6 +85,7 @@ func TestStreamLondonWire(t *testing.T) {
 // and 19 to 20 decimal digits, and the largest sequence. The benchmark of
 // the same name repeats the publication to measure codec work.
 func TestStreamLargeRouteWire(t *testing.T) {
+	t.Parallel()
 	previous, laneIDs := largeRouteFixture(t)
 	for _, sequence := range []uint64{2, 10, 1e9, 1e19, math.MaxUint64} {
 		current, sizes := largeRoutePublication(t, previous, laneIDs, sequence)

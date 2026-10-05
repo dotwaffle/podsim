@@ -82,6 +82,7 @@ func streamDecodeErrorsEqual(legacy, candidate error) bool {
 // inputs use exact names. The stream decoder refuses a member whose case
 // differs from the declared name.
 func TestStreamDecoderRefusesCaseVariants(t *testing.T) {
+	t.Parallel()
 	variants := map[string][]string{
 		"envelope":    {`{"Kind":"full"}`, `{"kind":"full","Kind":"delta"}`, `{"source":{"Epoch":"e"}}`},
 		"controls":    {`{"Speed":5}`, `{"speedreduction":{}}`},

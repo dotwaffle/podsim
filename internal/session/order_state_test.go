@@ -16,6 +16,7 @@ import (
 
 // TestCurrentStateGolden records the complete version 9 member contract.
 func TestCurrentStateGolden(t *testing.T) {
+	t.Parallel()
 	file := newTestStateFile(t)
 	data := decompressTestJSON(t, encodeTestState(t, file))
 	if *update {

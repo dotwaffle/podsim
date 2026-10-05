@@ -51,6 +51,7 @@ type packedTextWireWorkload struct {
 // packedTextWireGate. When PODSIM_PACKED_TEXT_WIRE_RECORD names a file,
 // the test writes the measurement record to it.
 func TestPackedTextWireCost(t *testing.T) {
+	t.Parallel()
 	if testing.Short() || raceEnabled {
 		t.Skip("measurement runs without -short and without the race detector")
 	}

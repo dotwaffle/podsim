@@ -81,6 +81,7 @@ func TestOrderCommandRejectsUnchanged(t *testing.T) {
 }
 
 func TestOrderCommandDecodeFailureKeepsProject(t *testing.T) {
+	t.Parallel()
 	config := project.Default()
 	got := Command{Project: &config}
 	want := Command{Project: new(project.Clone(config))}
@@ -93,6 +94,7 @@ func TestOrderCommandDecodeFailureKeepsProject(t *testing.T) {
 }
 
 func TestOrderCommandDigestPreservesChoice(t *testing.T) {
+	t.Parallel()
 	base := Command{Action: "trip", Origin: "harbor", Destination: "market"}
 	for _, change := range []func(*Command){
 		func(c *Command) { c.PartySize = 1 },

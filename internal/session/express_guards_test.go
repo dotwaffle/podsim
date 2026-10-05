@@ -150,6 +150,7 @@ func TestExpressPublicTextAndShapeGuards(t *testing.T) {
 }
 
 func TestExpressPublicHTTPBoardingPresence(t *testing.T) {
+	t.Parallel()
 	topology, frame := expressGuardFrame(t)
 	raw, err := EncodeStateJSON(topology, frame)
 	if err != nil {
@@ -175,6 +176,7 @@ func TestExpressPublicHTTPBoardingPresence(t *testing.T) {
 }
 
 func TestExpressPublisherRequiresNewHello(t *testing.T) {
+	t.Parallel()
 	p := statePublisher{sequence: 1, frame: StreamFrame{State: StateFrame{Simulation: SimulationFrame{OrderContract: sim.ExpressOrderContract}}}}
 	subscriber := streamSubscriber{}
 	if err := p.sendAvailable(t.Context(), &subscriber); err == nil {
@@ -222,6 +224,7 @@ func TestExpressPublicClassBindings(t *testing.T) {
 }
 
 func TestExpressHelloMarkers(t *testing.T) {
+	t.Parallel()
 	for _, raw := range []string{
 		`{"kind":"hello","version":6,"serverStart":"source","orderContract":null}`,
 		`{"kind":"hello","version":6,"serverStart":"source","orderContract":""}`,

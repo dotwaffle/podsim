@@ -35,6 +35,7 @@ func streamFixture(t *testing.T) (*Session, StreamFrame) {
 	return s, f
 }
 func TestStreamReconstruction(t *testing.T) {
+	t.Parallel()
 	s, a := streamFixture(t)
 	oldJSON := streamJSON(t, a)
 	for i := range 50 {
@@ -106,6 +107,7 @@ func TestStreamReconstruction(t *testing.T) {
 	}
 }
 func TestStreamCodecRejectsInvalidEnvelope(t *testing.T) {
+	t.Parallel()
 	_, f := streamFixture(t)
 	e := StreamEnvelope{Kind: "full", Stream: "test", Sequence: 1, Source: sourceOf(f), Full: &f}
 	data, err := encodeStream(e)
@@ -127,6 +129,7 @@ func TestStreamCodecRejectsInvalidEnvelope(t *testing.T) {
 	}
 }
 func TestStreamCreditBoundaries(t *testing.T) {
+	t.Parallel()
 	now := time.Unix(100, 0)
 	c := &streamSubscriber{sent: []streamSent{{"old", 1, 10}, {"new", 1, 20}}, bytes: 30, progress: now}
 	p := &statePublisher{}
@@ -162,6 +165,7 @@ func TestStreamCreditBoundaries(t *testing.T) {
 	}
 }
 func TestStreamOwnership(t *testing.T) {
+	t.Parallel()
 	p := &statePublisher{}
 	b := &streamPayload{refs: 2, data: make([]byte, 12, 16)}
 	p.retained = 16
@@ -278,7 +282,8 @@ func maximumStreamRepresentation(t *testing.T, representation string) StreamFram
 	return f
 }
 
-func TestStreamMaximumEncoding(t *testing.T) {
+func TestStreamMaximumEncoding(t *testing.T) { //nolint:tparallel // Subtests build one maximum frame at a time to bound memory.
+	t.Parallel()
 	for _, representation := range []string{"historical", "modern", "mixed"} {
 		t.Run(representation, func(t *testing.T) {
 			f := maximumStreamRepresentation(t, representation)
@@ -555,6 +560,7 @@ func TestStreamSharedFullAndAdmission(t *testing.T) {
 }
 
 func TestStreamFieldOwnership(t *testing.T) {
+	t.Parallel()
 	checks := []struct {
 		typ    reflect.Type
 		groups map[string][]string
@@ -589,6 +595,7 @@ func TestStreamFieldOwnership(t *testing.T) {
 	}
 }
 func TestStreamAssemblerCachesRoutes(t *testing.T) {
+	t.Parallel()
 	s, f := streamFixture(t)
 	s.Apply(Command{Client: "test", Sequence: 1, Epoch: f.State.Epoch, Action: "trip", Origin: "harbor", Destination: "market"})
 	f, err := s.presentationFrame()
@@ -622,6 +629,7 @@ func TestStreamAssemblerCachesRoutes(t *testing.T) {
 	}
 }
 func TestStreamGzipExpansionBound(t *testing.T) {
+	t.Parallel()
 	// BestSpeed chooses stored blocks when compressed blocks cost more. Allow
 	// 64 KiB above the input for block headers, alignment and the gzip wrapper.
 	data := make([]byte, MaxStreamJSON)
@@ -649,6 +657,7 @@ func TestStreamGzipExpansionBound(t *testing.T) {
 	}
 }
 func TestStreamBuildBound(t *testing.T) {
+	t.Parallel()
 	s, _ := streamFixture(t)
 	s.build = strings.Repeat("x", 65)
 	if _, err := s.presentationFrame(); err == nil {
@@ -682,6 +691,7 @@ func fillStreamScalars(v reflect.Value) {
 }
 
 func TestStreamEvictionRequiresOneBaseline(t *testing.T) {
+	t.Parallel()
 	s, f := streamFixture(t)
 	p := &statePublisher{session: s, clients: map[*streamSubscriber]bool{}, wake: make(chan struct{}, 1)}
 	if err := p.publish(t.Context(), true, true); err != nil {
@@ -725,6 +735,7 @@ func TestStreamEvictionRequiresOneBaseline(t *testing.T) {
 	}
 }
 func TestStreamCachedRouteChecksCurrentPod(t *testing.T) {
+	t.Parallel()
 	s, f := streamFixture(t)
 	s.Apply(Command{Client: "test", Sequence: 1, Epoch: f.State.Epoch, Action: "trip", Origin: "harbor", Destination: "market"})
 	f, err := s.presentationFrame()
@@ -746,6 +757,7 @@ func TestStreamCachedRouteChecksCurrentPod(t *testing.T) {
 }
 
 func TestStreamExactBaseAndEmptyShapes(t *testing.T) {
+	t.Parallel()
 	_, frame := streamFixture(t)
 	delta, err := makeDelta(frame, frame)
 	if err != nil {
@@ -824,6 +836,7 @@ func TestStreamBlockedWriterStops(t *testing.T) {
 }
 
 func TestStreamReplacementSlicesOwnStorage(t *testing.T) {
+	t.Parallel()
 	for _, reject := range []bool{false, true} {
 		_, previous := streamFixture(t)
 		previous.State.Checkpoints = []Checkpoint{{ID: 1, Tick: 2}}
@@ -852,6 +865,7 @@ func TestStreamReplacementSlicesOwnStorage(t *testing.T) {
 	}
 }
 func TestStreamSequenceWrapStartsNewChain(t *testing.T) {
+	t.Parallel()
 	s, f := streamFixture(t)
 	p := &statePublisher{session: s, frame: f, stream: "old", sequence: ^uint64(0), clients: map[*streamSubscriber]bool{}}
 	if err := p.publish(t.Context(), false, true); err != nil {

@@ -7,6 +7,7 @@ import (
 )
 
 func TestExpressOrderText(t *testing.T) {
+	t.Parallel()
 	for _, text := range []string{"", "plain", "\x00\"\\\n", "é中", strings.Repeat("x", 64)} {
 		packed, err := packOrderText(text, 64)
 		if err != nil {

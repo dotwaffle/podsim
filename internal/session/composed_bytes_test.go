@@ -212,7 +212,8 @@ func composedStreamFrame(t *testing.T, shape composedShape) StreamFrame {
 // bounded scan and the decoder must accept it. When
 // PODSIM_COMPOSED_FORMATS_RECORD names a file, the test writes the
 // measurement record to it.
-func TestComposedWorstCaseFormats(t *testing.T) {
+func TestComposedWorstCaseFormats(t *testing.T) { //nolint:tparallel // Subtests measure one shape at a time to bound memory, in record order.
+	t.Parallel()
 	if testing.Short() || raceEnabled {
 		t.Skip("measurement runs without -short and without the race detector")
 	}

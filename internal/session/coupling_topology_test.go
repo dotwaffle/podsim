@@ -15,6 +15,7 @@ import (
 )
 
 func TestCouplingTopologyStandalone(t *testing.T) {
+	t.Parallel()
 	data := couplingPhaseFixtures(t)
 	input := couplingPhaseInput(t, data, data.Frames[0])
 	for _, knownEmpty := range []bool{false, true} {

@@ -108,6 +108,7 @@ func TestGroupStreamSourceBindings(t *testing.T) {
 }
 
 func TestGroupStreamRetentionRollback(t *testing.T) {
+	t.Parallel()
 	shared, err := NewWithProject(groupConsumerProject(t))
 	if err != nil {
 		t.Fatal(err)
@@ -240,6 +241,7 @@ func TestGroupStreamActualFullAndDelta(t *testing.T) {
 }
 
 func TestGroupStreamMaximumEncoding(t *testing.T) {
+	t.Parallel()
 	frame := maximumStreamFrame(t)
 	for i := range frame.State.Simulation.Vehicles {
 		vehicle := &frame.State.Simulation.Vehicles[i]

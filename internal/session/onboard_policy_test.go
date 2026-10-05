@@ -10,6 +10,7 @@ import (
 )
 
 func TestRestoreOnboardPolicyCompatibility(t *testing.T) {
+	t.Parallel()
 	for _, savedPolicy := range []bool{false, true} {
 		for _, selectedPolicy := range []bool{false, true} {
 			saved := project.Default()
@@ -33,6 +34,7 @@ func TestRestoreOnboardPolicyCompatibility(t *testing.T) {
 }
 
 func TestRestoreOnboardUsesSelectedRuntimePolicy(t *testing.T) {
+	t.Parallel()
 	config := project.Default()
 	config.SharedRidePartyLimit = 2
 	config.OnboardPickups = true
