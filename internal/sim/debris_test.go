@@ -215,12 +215,29 @@ func fillDebris(s *Simulation) ([]string, error) {
 	return ids, nil
 }
 
+// sameCursors reports whether the block cursors of each pod are the same
+// in a and b. sameState leaves them out, because two equal runs can look
+// up blocks in another order. A refused operation must not move them.
+func sameCursors(a, b *Simulation) bool {
+	if len(a.vehicles) != len(b.vehicles) {
+		return false
+	}
+	for index := range a.vehicles {
+		x, y := &a.vehicles[index].blocks, &b.vehicles[index].blocks
+		if x.cursors != y.cursors || x.scan != y.scan {
+			return false
+		}
+	}
+	return true
+}
+
 // TestDebrisRefusals checks each precondition of a debris start at its
 // limit and one step past it, against the refusal oracle: the state after
-// a refused call equals a clone from before it. Then the case removes its
-// cause, and the call succeeds. In the fixture, pod 02 cruises at the
-// start of the lane "return", with its body in cell 0 and its grants to
-// the end of cell 1, and the lane "s3-link" is free.
+// a refused call equals a clone from before it, also in its block
+// cursors. Then the case removes its cause, and the call succeeds. In the
+// fixture, pod 02 cruises at the start of the lane "return", with its body
+// in cell 0 and its grants to the end of cell 1, and the lane "s3-link" is
+// free.
 func TestDebrisRefusals(t *testing.T) {
 	t.Parallel()
 	limit := int64(math.MaxInt64)
@@ -339,6 +356,14 @@ func TestDebrisRefusals(t *testing.T) {
 				if _, err := s.startPodFault(v, 0); err != nil {
 					panic(err)
 				}
+				// The rebuild of the fault start left the scan cursor at
+				// the first lane. A lookup on the current lane moves it
+				// there, so a footprint walk from the first lane would
+				// move it back.
+				v.blocks.routeLane(v.blockIndex)
+				if v.blocks.scan == 0 {
+					panic("pod 02 is on the first lane of its route")
+				}
 				return on(s, "return", 45, 46)
 			},
 			func(s *Simulation, _ *vehicle, call *debrisCall) { *call = free(s) }},
@@ -401,7 +426,7 @@ func TestDebrisRefusals(t *testing.T) {
 			if _, err := s.startDebris(call.lane, call.from, call.to, call.duration); !errors.Is(err, test.want) {
 				t.Fatalf("error %v, want %v", err, test.want)
 			}
-			if !sameState(before, s) {
+			if !sameState(before, s) || !sameCursors(before, s) {
 				t.Fatal("the refused debris changed the state")
 			}
 			if test.undo == nil {

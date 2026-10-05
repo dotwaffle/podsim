@@ -995,7 +995,8 @@ func routeLaneBlocks(blocks *blockList, routeIndex int) (first, last int) {
 // resources of those blocks that the pod has not passed by their release
 // distance. Before the pod passes its origin retention tail, it also holds the
 // origin berth and node. A set finds the repeated resources, because a
-// saved route can reserve many blocks.
+// saved route can reserve many blocks. It writes no block cursor, so a
+// refused fault start can read the footprint of a pod fault.
 func (v *vehicle) footprint(through int, distance float64) []resource {
 	var held []resource
 	seen := make(map[resource]bool)
@@ -1005,7 +1006,7 @@ func (v *vehicle) footprint(through int, distance float64) []resource {
 			held = append(held, claimed)
 		}
 	}
-	for _, b := range v.blocks.span(0, through+1) {
+	for _, b := range v.blocks.peekSpan(0, through+1) {
 		for _, claimed := range b.resources {
 			if resourceReleaseDistance(b, claimed) > distance {
 				add(claimed)

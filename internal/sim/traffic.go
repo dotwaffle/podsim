@@ -398,6 +398,27 @@ func (l *blockList) span(from, to int) iter.Seq2[int, block] {
 	}
 }
 
+// peekSpan is span with no write to the list. It finds the lane of from
+// with scan as a hint and does not move scan, so a reader that must not
+// change any state, such as a refused debris start, can walk the blocks.
+// span keeps its own walk, because the motion of each tick uses it.
+func (l *blockList) peekSpan(from, to int) iter.Seq2[int, block] {
+	return func(yield func(int, block) bool) {
+		if from >= to {
+			return
+		}
+		lane := l.locate(from, l.scan)
+		for index := from; index < to; index++ {
+			for index >= l.lanes[lane+1].first {
+				lane++
+			}
+			if !yield(index, l.block(lane, index-l.lanes[lane].first)) {
+				return
+			}
+		}
+	}
+}
+
 // spanResources returns the resources of the blocks from index from up to
 // but not including index to. It does not make the blocks.
 func (l *blockList) spanResources(from, to int) iter.Seq[[]resource] {

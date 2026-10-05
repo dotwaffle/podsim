@@ -92,9 +92,9 @@ func (s *Simulation) claimOccupied(v *vehicle, r resource) bool {
 }
 
 // inFootprint reports whether footprint(through, distance) contains r. It
-// does not make the footprint.
+// does not make the footprint, and it writes no block cursor.
 func (v *vehicle) inFootprint(r resource, through int, distance float64) bool {
-	for _, b := range v.blocks.span(0, through+1) {
+	for _, b := range v.blocks.peekSpan(0, through+1) {
 		if slices.Contains(b.resources, r) && resourceReleaseDistance(b, r) > distance {
 			return true
 		}
