@@ -499,6 +499,7 @@ It lands as its own patch before the stage 1 baseline is set, not behind an inci
 The patch adds a regression test for each caller with an empty coupled member and with an approach member.
 If the tests show that no reachable state meets the old predicate with a committed claim, the patch is a pure refactor, and the baseline does not change.
 Otherwise the trajectory change of that patch is the fix, and the patch message says so.
+Commit 66b0c65 added the coupling ID test to both callers, and commit 16eab09 landed the rest of the baseline fix, including the approach-member case.
 
 ## 7. Order continuation
 
