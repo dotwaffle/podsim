@@ -1,12 +1,14 @@
 package session
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"slices"
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/project"
+	"github.com/dotwaffle/podsim/internal/rail"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
@@ -370,10 +372,9 @@ func TestIncidentSaveRefuge(t *testing.T) {
 	})
 }
 
-// TestIncidentSaveEmptyRecovery saves an excluded trip after the release
-// of its pod, purpose 3 traveling, and the arrival, and the excluded trip
-// after its assignment to another pod.
-func TestIncidentSaveEmptyRecovery(t *testing.T) {
+// TestIncidentSaveExcludedTrip saves an excluded trip after the release
+// of its pod, and after its assignment to another pod.
+func TestIncidentSaveExcludedTrip(t *testing.T) {
 	t.Parallel()
 	x := newIncidentSave(t, incidentSaveProject(2))
 	order := x.submit(t, sim.TripOptions{From: "market", To: "harbor"})
@@ -391,12 +392,6 @@ func TestIncidentSaveEmptyRecovery(t *testing.T) {
 	if trip := state.Waiting[0]; trip.Request.ID != order || trip.ExcludedPod != pod || trip.Request.PodID != "" {
 		t.Fatalf("trip %+v", trip)
 	}
-	x.operate(t, pod, sim.IncidentTestOperation{Kind: "destination", Hold: 1, Purpose: 3, Station: "parking", Berth: "parking-2"})
-	if saved := savedPod(x.check(t, "purpose 3 traveling"), pod); saved.Purpose != 3 || saved.RelocatingTo != "parking" {
-		t.Fatalf("pod %+v", saved)
-	}
-	x.stepUntil(t, "the arrival", func(state sim.SavedState) bool { return savedPod(state, pod).Activity == "idle" })
-	x.check(t, "purpose 3 arrival")
 	x.stepUntil(t, "the assignment to another pod", func(state sim.SavedState) bool {
 		return len(state.Waiting) == 1 && state.Waiting[0].Request.PodID != "" || len(state.Waiting) == 0
 	})
@@ -404,6 +399,122 @@ func TestIncidentSaveEmptyRecovery(t *testing.T) {
 	if len(state.Waiting) == 1 && (state.Waiting[0].Request.PodID == pod || state.Waiting[0].ExcludedPod != pod) {
 		t.Fatalf("trip %+v", state.Waiting[0])
 	}
+}
+
+// railEvacuationSave returns a session with the stage 1 marker and two
+// pods. The rail-bound order of interruptionProject and its companion ride
+// pod 01 from market to harbor. Pod 02 has a fault hold at the only berth
+// of harbor, so pod 01 stops on the berth access lane with both orders
+// aboard. The session runs.
+func railEvacuationSave(t *testing.T) (incidentSave, railPair) {
+	t.Helper()
+	config := interruptionProject(3600)
+	config.Fleet = []sim.Placement{{ID: "01", StationID: "market", BerthID: "market-1"}, {ID: "02", StationID: "harbor", BerthID: "harbor-1"}}
+	x := newIncidentSave(t, config)
+	x.operate(t, "02", sim.IncidentTestOperation{Kind: "withdraw", Hold: 1})
+	x.s.mu.Lock()
+	defer x.s.mu.Unlock()
+	x.run(t)
+	pair := boardRailPair(t, x.s)
+	for range 600 * sim.TicksPerSecond {
+		vehicle := x.s.simulation.Snapshot().Vehicles[0]
+		if vehicle.Pod.Activity == sim.Traveling && vehicle.Pod.LaneID != "" && vehicle.Pod.Speed == 0 {
+			if pair.pod != "01" || vehicle.RidersAboard() != 2 || vehicle.Pod.BlockedBy != "02" {
+				t.Fatalf("pair %+v, pod %+v with %d riders", pair, vehicle.Pod, vehicle.RidersAboard())
+			}
+			return x, pair
+		}
+		if err := x.s.step(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Fatal("pod 01 does not stop on a lane")
+	return x, pair
+}
+
+// checkRailSave checks the last save of x after a fault evacuation that
+// interrupted the rail-bound order of pair and its companion. The save
+// and published, the counts of a state read right after the command, show
+// one unserved order. The save restores, the rail record of the order is
+// unserved with reason interrupted, and the restore accounts for each
+// order.
+func (x incidentSave) checkRailSave(t *testing.T, pair railPair, published rail.Counts) {
+	t.Helper()
+	want := rail.Counts{Unserved: 1}
+	if file := x.store.lastWrite(t); published != want || file.Demand.State.Connections != want {
+		t.Fatalf("published counts %+v, saved counts %+v, want %+v", published, file.Demand.State.Connections, want)
+	}
+	writes := x.store.writeList()
+	restored, err := NewFromStore(t.Context(), StoreInput{Store: &fakeStore{data: writes[len(writes)-1]}})
+	if err != nil || restored.restore.Tier != "physical" {
+		t.Fatalf("restore: %v, %+v", err, restored.restore)
+	}
+	t.Cleanup(restored.Close)
+	restored.mu.Lock()
+	defer restored.mu.Unlock()
+	checkDelivered(t, restored, pair.bound, want)
+	if got := restored.simulation.Snapshot(); got.Interrupted != 2 || got.InterruptedPassengers != 2 || restored.restore.Unaccounted != 0 {
+		t.Fatalf("restored counters %d and %d with %d unaccounted orders, want 2, 2, and 0",
+			got.Interrupted, got.InterruptedPassengers, restored.restore.Unaccounted)
+	}
+}
+
+// TestIncidentSaveRailEvacuation saves a fault evacuation on a lane with a
+// rail-bound order aboard (incident contract, section 14.5): at the paused
+// command boundary, purpose 3 traveling with the delivered interruptions,
+// and at the end of the tick of the arrival.
+func TestIncidentSaveRailEvacuation(t *testing.T) {
+	t.Parallel()
+	x, pair := railEvacuationSave(t)
+	x.operate(t, "01", sim.IncidentTestOperation{Kind: "withdraw", Hold: 1})
+	x.operate(t, "01", sim.IncidentTestOperation{Kind: "evacuate"})
+	x.s.mu.Lock()
+	checkDelivered(t, x.s, pair.bound, rail.Counts{Unserved: 1})
+	x.s.mu.Unlock()
+	published := x.s.State().Demand.Connections
+	state := x.check(t, "purpose 3 traveling")
+	if pod := savedPod(state, "01"); pod.Activity != "traveling" || pod.LaneID == "" || pod.Purpose != 3 || pod.Owner != 1 ||
+		pod.RelocatingTo != "harbor" || len(pod.Riders) != 0 || state.Interrupted != 2 || state.InterruptedPassengers != 2 {
+		t.Fatalf("interrupted %d and %d, pod %+v", state.Interrupted, state.InterruptedPassengers, pod)
+	}
+	x.checkRailSave(t, pair, published)
+	x.operate(t, "02", sim.IncidentTestOperation{Kind: "restore", Hold: 1})
+	x.stepUntil(t, "the arrival", func(state sim.SavedState) bool { return savedPod(state, "01").Activity == "idle" })
+	if pod := savedPod(x.check(t, "purpose 3 arrival"), "01"); pod.BerthID != "harbor-1" || pod.Purpose != 0 || pod.Withdrawn != 1 {
+		t.Fatalf("pod after the arrival %+v", pod)
+	}
+}
+
+// TestIncidentSaveCompactPause saves a fault evacuation on a lane with a
+// rail-bound order aboard, in a tick that ends on the Compact pause return
+// of the step (incident contract, section 14.5). The step delivers the
+// interruptions before that return.
+func TestIncidentSaveCompactPause(t *testing.T) {
+	t.Parallel()
+	x, pair := railEvacuationSave(t)
+	cause := errors.New("injected Compact queue failure")
+	x.s.mu.Lock()
+	x.s.simulation.FailStepForTest(x.s.simulation.Tick()+1, true, cause, func(simulation *sim.Simulation) {
+		for _, operation := range []sim.IncidentTestOperation{{Kind: "withdraw", Hold: 1}, {Kind: "evacuate"}} {
+			if err := simulation.IncidentForTest("01", operation); err != nil {
+				t.Error(err)
+			}
+		}
+	})
+	if err := x.s.step(); err != nil {
+		t.Fatal(err)
+	}
+	if !errors.Is(x.s.simulation.CompactQueueError(), cause) {
+		t.Fatalf("the step did not take the Compact pause return: %v", x.s.simulation.CompactQueueError())
+	}
+	checkDelivered(t, x.s, pair.bound, rail.Counts{Unserved: 1})
+	x.s.mu.Unlock()
+	published := x.s.State().Demand.Connections
+	state := x.check(t, "Compact pause")
+	if pod := savedPod(state, "01"); pod.Purpose != 3 || len(pod.Riders) != 0 || !state.Paused {
+		t.Fatalf("paused %t, pod %+v", state.Paused, pod)
+	}
+	x.checkRailSave(t, pair, published)
 }
 
 // TestIncidentSaveStranded saves a stranded transferred Express order: an
