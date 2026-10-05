@@ -339,8 +339,8 @@ type Simulation struct {
 	faults        []faultRecord
 	faultCounters faultCounters
 	// faultReleased holds the debris resources that a clear in the fault
-	// stage releases. releaseCleared releases them at the end of the tick,
-	// so it is empty at each boundary.
+	// stage releases. Step releases them at each exit of the tick, so it
+	// is empty at each boundary.
 	faultReleased      []resource
 	couplingNetwork    *couplingReservationNetwork
 	couplingEnabled    bool
@@ -794,6 +794,10 @@ func (s *Simulation) Step() {
 	}
 	if s.faultsOn {
 		s.faultStage()
+		// A clear in the fault stage defers the release of its debris
+		// resources to the end of the tick. Each exit of the tick, also an
+		// exit on a planning error, finishes the release before observe.
+		defer s.releaseFaultResources()
 	}
 	s.dispatch()
 	s.swapPickups()

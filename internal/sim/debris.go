@@ -213,8 +213,8 @@ func (s *Simulation) meetsCouplingRoute(footprint []resource) bool {
 
 // releaseDebris releases each resource of the footprint of the debris
 // record that the debris owns. In the fault stage, it adds the resources
-// to faultReleased, and releaseCleared releases them at the release
-// boundary of the tick. Otherwise it releases them at once.
+// to faultReleased, and Step releases them at the end of the tick.
+// Otherwise it releases them at once.
 func (s *Simulation) releaseDebris(record faultRecord, inStage bool) {
 	owner := resourceOwner{kind: faultOwnerKind, id: record.id()}
 	for _, r := range s.debrisFootprint(record.lane, record.from, record.to) {
@@ -229,9 +229,12 @@ func (s *Simulation) releaseDebris(record faultRecord, inStage bool) {
 }
 
 // releaseFaultResources releases the debris resources that the clears of
-// the fault stage left in faultReleased. releaseCleared calls it, so
-// faultReleased is empty at each boundary.
+// the fault stage left in faultReleased. Step calls it at each exit of a
+// tick with faults on, so faultReleased is empty at each boundary.
 func (s *Simulation) releaseFaultResources() {
+	if s.faultReleased == nil {
+		return
+	}
 	for _, r := range s.faultReleased {
 		if s.owners[r].kind == faultOwnerKind {
 			delete(s.owners, r)

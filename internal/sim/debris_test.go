@@ -540,6 +540,43 @@ func TestDebrisClearInFaultStage(t *testing.T) {
 	}
 }
 
+// TestDebrisClearOnPlanningError checks a timed clear in a tick that ends
+// early. A compact group with no member makes the compact planning fail
+// after the fault stage, so Step pauses before the release boundary of
+// the tick. The released debris resources are still free when the tick
+// ends, and the state contract holds.
+func TestDebrisClearOnPlanningError(t *testing.T) {
+	t.Parallel()
+	s := debrisFleet(t)
+	_, _, through := waitAtDebris(t, s, 60)
+	s.monitor = nil
+	for s.tick < s.faults[0].end-1 {
+		s.Step()
+	}
+	s.compactGroups = []*compactBufferGroup{{}}
+	s.Step()
+	if s.compactFault == nil || !s.paused || len(s.faults) != 0 {
+		t.Fatalf("compact fault %v, paused %t, records %v", s.compactFault, s.paused, faultIDs(s))
+	}
+	for _, r := range []resource{track("return", 9), track("return", 10)} {
+		if owner, held := s.owners[r]; held {
+			t.Fatalf("resource %v has the owner %v after the tick of the clear", r, owner)
+		}
+	}
+	// The injected group is the cause of the planning error, not a state
+	// of the run.
+	s.compactGroups, s.compactFault = nil, nil
+	if err := s.CheckContract(); err != nil {
+		t.Fatal(err)
+	}
+	if err := checkOwners(s); err != nil {
+		t.Fatal(err)
+	}
+	if v := s.findVehicle("02"); v.reservedThrough != through {
+		t.Fatalf("pod 02 has the grants to block %d, want %d", v.reservedThrough, through)
+	}
+}
+
 // TestDebrisDoesNotEvacuate checks that the fault stage evacuates no pod
 // for a debris record. With an evacuation delay of 10 seconds, debris
 // starts 5 seconds before a pod fault on pod 01, at index 0, which boards
