@@ -2,6 +2,7 @@ package sim
 
 import (
 	"errors"
+	"fmt"
 	"maps"
 	"math"
 	"strings"
@@ -190,13 +191,14 @@ func TestCouplingForeignConnectorSweepBoundDominatedByBodyClearance(t *testing.T
 	}
 }
 
-// The pair connector check (checkNativePairConnector) is not dominated. It
-// compares axis-aligned boxes of the other train's connector corners at the
-// previous and next ticks. The connected leg has no profile speed cap
-// (coupling_motion_context.go:82), and lane validation accepts any finite
-// positive speed limit. On a diagonal corridor at 20 m per tick (1200 m/s),
-// the box covers a member 12.5 m from the other train's center and connector
-// sweeps, so the pair check refuses a pose that the body check accepts.
+// The pair connector check (checkNativePairConnector) is not dominated at
+// any travel. It compares axis-aligned boxes of the other train's connector
+// corners at the previous and next ticks. The connected leg has no profile
+// speed cap (coupling_motion_context.go:82). On a diagonal corridor at 20 m
+// per tick (1200 m/s), the box covers a member 12.5 m from the other train's
+// center and connector sweeps, so the pair check refuses a pose that the
+// body check accepts. This is why coupling geometry validation refuses a
+// corridor lane faster than MaxCouplingCorridorSpeed.
 func TestCouplingPairConnectorBoxNotDominatedAtHighTravel(t *testing.T) {
 	t.Parallel()
 	profile, _ := LookupCouplingProfile(CompactPairV1CouplingContract)
@@ -236,6 +238,210 @@ func TestCouplingPairConnectorBoxNotDominatedAtHighTravel(t *testing.T) {
 				t.Fatalf("pair connector box refusal = %t at %.3f m per tick, want %t", refused, test.travel, test.refuse)
 			}
 		})
+	}
+}
+
+// couplingPairBoxTrain models one train for the pair connector check: the
+// box of its connector corners at two ticks and its member center sweeps.
+type couplingPairBoxTrain struct {
+	box     couplingBox
+	members [2]laneSegment
+}
+
+// couplingPairBoxMotion is one tick of a train: the spacing at the previous
+// and next ticks and the travel of the front member.
+type couplingPairBoxMotion struct {
+	spacing [2]float64
+	travel  float64
+}
+
+// couplingPairBoxMotions lists a connected tick at the given travel, and
+// closing and opening ticks at ManeuverSpeed from the connected spacing to
+// Clearance. Closing moves the rear member and opening moves the front one.
+func couplingPairBoxMotions(profile CouplingProfile, travel float64) []couplingPairBoxMotion {
+	maneuver := profile.ManeuverSpeed / TicksPerSecond
+	motions := []couplingPairBoxMotion{{spacing: [2]float64{profile.CenterSpacingMeters, profile.CenterSpacingMeters}, travel: travel}}
+	for _, spacing := range []float64{profile.CenterSpacingMeters + maneuver, (profile.CenterSpacingMeters + Clearance) / 2, Clearance} {
+		motions = append(motions, couplingPairBoxMotion{spacing: [2]float64{spacing, spacing - maneuver}},
+			couplingPairBoxMotion{spacing: [2]float64{spacing - maneuver, spacing}, travel: maneuver})
+	}
+	return motions
+}
+
+func couplingPairBoxTrainAt(t *testing.T, direction Point, motion couplingPairBoxMotion) couplingPairBoxTrain {
+	t.Helper()
+	var train couplingPairBoxTrain
+	var footprints [2]CouplingFootprint
+	for i, front := range []Point{{}, couplingOffset(Point{}, direction, motion.travel)} {
+		var err error
+		footprints[i], err = CouplingFootprintAt(CouplingFootprintInput{Contract: CompactPairV1CouplingContract, Front: front, Direction: direction, SpacingMeters: motion.spacing[i]})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	train.box = couplingSegmentBox(footprints[0].Connector.Corners[0], footprints[0].Connector.Corners[0], 0)
+	for _, footprint := range &footprints {
+		for _, corner := range footprint.Connector.Corners {
+			train.box = couplingUnionBox(train.box, couplingSegmentBox(corner, corner, 0))
+		}
+	}
+	for i := range train.members {
+		train.members[i] = laneSegment{from: footprints[0].Centers[i], to: footprints[1].Centers[i]}
+	}
+	return train
+}
+
+// couplingPairBoxContacts returns offsets on the edges of the region where
+// two boxes touch. The offsets move one nanometer inside the region, so the
+// boxes intersect without a rounding error.
+func couplingPairBoxContacts(region couplingBox) []Point {
+	const steps = 16
+	region.low = Point{X: region.low.X + 1e-9, Y: region.low.Y + 1e-9}
+	region.high = Point{X: region.high.X - 1e-9, Y: region.high.Y - 1e-9}
+	var offsets []Point
+	for i := range steps + 1 {
+		for j := range steps + 1 {
+			if i == 0 || i == steps || j == 0 || j == steps {
+				offsets = append(offsets, Point{X: region.low.X + (region.high.X-region.low.X)*float64(i)/steps, Y: region.low.Y + (region.high.Y-region.low.Y)*float64(j)/steps})
+			}
+		}
+	}
+	return offsets
+}
+
+// couplingPairBoxGap returns the body sweep gap between the sweeps moved by
+// offset and the member sweeps of the other train.
+func couplingPairBoxGap(sweeps []laneSegment, offset Point, other couplingPairBoxTrain) float64 {
+	gap := math.Inf(1)
+	for _, sweep := range sweeps {
+		from, to := Point{X: sweep.from.X + offset.X, Y: sweep.from.Y + offset.Y}, Point{X: sweep.to.X + offset.X, Y: sweep.to.Y + offset.Y}
+		for _, member := range other.members {
+			gap = min(gap, couplingSegmentsDistance(from, to, member.from, member.to))
+		}
+	}
+	return gap
+}
+
+// couplingPairBoxWorstGap returns the largest body sweep gap over the
+// sampled poses that the pair connector check refuses, and a description of
+// that pose. Each member and train travels at most the given distance in one
+// tick. A member sweep can have any heading, because a drain leg can leave
+// the corridor axis. The other train heads from 0 to 90 degrees; the
+// reflections of the plane cover the other headings.
+func couplingPairBoxWorstGap(t *testing.T, travel float64) (float64, string) {
+	t.Helper()
+	profile, _ := LookupCouplingProfile(CompactPairV1CouplingContract)
+	radius := math.Hypot(profile.BodyLengthMeters, profile.BodyWidthMeters) / 2
+	heading := func(degrees float64) Point {
+		return Point{X: math.Cos(degrees * math.Pi / 180), Y: math.Sin(degrees * math.Pi / 180)}
+	}
+	worst, pose := 0.0, ""
+	record := func(gap float64, format string, args ...any) {
+		if gap > worst {
+			worst, pose = gap, fmt.Sprintf(format, args...)
+		}
+	}
+	motions := couplingPairBoxMotions(profile, travel)
+	for otherDegrees := 0.0; otherDegrees <= 90; otherDegrees += 15 {
+		for otherIndex, otherMotion := range motions {
+			other := couplingPairBoxTrainAt(t, heading(otherDegrees), otherMotion)
+			for degrees := 0.0; degrees < 360; degrees += 15 {
+				// A member box against the other connector box.
+				for _, length := range []float64{0, travel / 2, travel} {
+					sweep := laneSegment{to: couplingOffset(Point{}, heading(degrees), length)}
+					box := couplingSegmentBox(sweep.from, sweep.to, radius)
+					region := couplingBox{low: Point{X: other.box.low.X - box.high.X, Y: other.box.low.Y - box.high.Y}, high: Point{X: other.box.high.X - box.low.X, Y: other.box.high.Y - box.low.Y}}
+					for _, offset := range couplingPairBoxContacts(region) {
+						moved := couplingSegmentBox(Point{X: sweep.from.X + offset.X, Y: sweep.from.Y + offset.Y}, Point{X: sweep.to.X + offset.X, Y: sweep.to.Y + offset.Y}, radius)
+						if !moved.intersects(other.box) {
+							t.Fatal("contact offset is outside the member box contact region")
+						}
+						record(couplingPairBoxGap([]laneSegment{sweep}, offset, other), "member %.0f m at %.0f degrees, other motion %d at %.0f degrees", length, degrees, otherIndex, otherDegrees)
+					}
+				}
+				// The connector box of this train against the other connector box.
+				for index, motion := range motions {
+					own := couplingPairBoxTrainAt(t, heading(degrees), motion)
+					region := couplingBox{low: Point{X: other.box.low.X - own.box.high.X, Y: other.box.low.Y - own.box.high.Y}, high: Point{X: other.box.high.X - own.box.low.X, Y: other.box.high.Y - own.box.low.Y}}
+					for _, offset := range couplingPairBoxContacts(region) {
+						moved := couplingBox{low: Point{X: own.box.low.X + offset.X, Y: own.box.low.Y + offset.Y}, high: Point{X: own.box.high.X + offset.X, Y: own.box.high.Y + offset.Y}}
+						if !moved.intersects(other.box) {
+							t.Fatal("contact offset is outside the connector box contact region")
+						}
+						record(couplingPairBoxGap(own.members[:], offset, other), "train motion %d at %.0f degrees, other motion %d at %.0f degrees", index, degrees, otherIndex, otherDegrees)
+					}
+				}
+			}
+		}
+	}
+	return worst, pose
+}
+
+// couplingPairBoxLimit returns the derived travel limit in one tick below
+// which the pair connector check is dominated (see MaxCouplingCorridorSpeed).
+func couplingPairBoxLimit() float64 {
+	profile, _ := LookupCouplingProfile(CompactPairV1CouplingContract)
+	radius := math.Hypot(profile.BodyLengthMeters, profile.BodyWidthMeters) / 2
+	connector := (profile.CenterSpacingMeters - 2*profile.PinOffsetMeters + profile.ConnectorWidthMeters) / 2
+	return Clearance - conflictSlack - math.Sqrt2*radius - connector
+}
+
+// At the travel of MaxCouplingCorridorSpeed, each pose that the pair
+// connector check refuses is inside the body clearance, so the body sweep
+// check refuses it too. The poses include the diagonal case of
+// TestCouplingPairConnectorBoxNotDominatedAtHighTravel.
+func TestCouplingPairConnectorDominatedUnderCorridorSpeedBound(t *testing.T) {
+	t.Parallel()
+	limit := couplingPairBoxLimit()
+	travel := MaxCouplingCorridorSpeed / TicksPerSecond
+	if gap, pose := couplingPairBoxWorstGap(t, travel); gap >= Clearance-conflictSlack {
+		t.Errorf("at %.3f m per tick the pair connector check refuses %s, %.3f m from the other train", travel, pose, gap)
+	}
+	if travel >= limit {
+		t.Errorf("bound travel %.3f m per tick is not below the derived limit %.3f m", travel, limit)
+	}
+}
+
+// couplingPairBoxCornerGap returns the largest body sweep gap when a member
+// box touches the connector box of the other train at a corner. Both trains
+// are connected and move the given travel at 45 degrees, which is the worst
+// case of the derivation. The boxes touch on the diagonal normal to the
+// motion. The offsets move one picometer inside the contact, so the boxes
+// intersect without a rounding error, and the gap changes much less than the
+// steps of the threshold test.
+func couplingPairBoxCornerGap(t *testing.T, travel float64) float64 {
+	t.Helper()
+	const inside = 1e-12
+	profile, _ := LookupCouplingProfile(CompactPairV1CouplingContract)
+	radius := math.Hypot(profile.BodyLengthMeters, profile.BodyWidthMeters) / 2
+	direction := Point{X: math.Sqrt2 / 2, Y: math.Sqrt2 / 2}
+	other := couplingPairBoxTrainAt(t, direction, couplingPairBoxMotions(profile, travel)[0])
+	sweep := laneSegment{to: couplingOffset(Point{}, direction, travel)}
+	box := couplingSegmentBox(sweep.from, sweep.to, radius)
+	worst := 0.0
+	for _, offset := range []Point{{X: other.box.high.X - box.low.X - inside, Y: other.box.low.Y - box.high.Y + inside}, {X: other.box.low.X - box.high.X + inside, Y: other.box.high.Y - box.low.Y - inside}} {
+		moved := couplingSegmentBox(Point{X: sweep.from.X + offset.X, Y: sweep.from.Y + offset.Y}, Point{X: sweep.to.X + offset.X, Y: sweep.to.Y + offset.Y}, radius)
+		if !moved.intersects(other.box) {
+			t.Fatal("corner offset does not touch the connector box")
+		}
+		worst = max(worst, couplingPairBoxGap([]laneSegment{sweep}, offset, other))
+	}
+	return worst
+}
+
+// The derived limit is exact. Just below it, the body sweep check refuses
+// the worst pose that the pair connector check refuses. Just above it, the
+// body sweep check accepts that pose. The step is smaller than
+// conflictSlack, so a limit without the slack fails.
+func TestCouplingPairConnectorDominationThreshold(t *testing.T) {
+	t.Parallel()
+	const step = 1e-10
+	limit := couplingPairBoxLimit()
+	if gap := couplingPairBoxCornerGap(t, limit-step); gap >= Clearance-conflictSlack {
+		t.Errorf("below the limit %.12f m the pair connector check refuses a pose %.12f m from the other train", limit, gap)
+	}
+	if gap := couplingPairBoxCornerGap(t, limit+step); gap < Clearance-conflictSlack {
+		t.Errorf("above the limit %.12f m the worst refused pose is %.12f m from the other train, inside the body clearance", limit, gap)
 	}
 }
 

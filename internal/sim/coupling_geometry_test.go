@@ -116,6 +116,46 @@ func TestCouplingGeometryGuards(t *testing.T) {
 	}
 }
 
+// A site or corridor lane with a speed limit at MaxCouplingCorridorSpeed is
+// valid. A lane just above it is refused at each place in a three-lane
+// corridor: the assembly lane, a middle lane, and the split lane.
+func TestCouplingGeometryCorridorSpeedBound(t *testing.T) {
+	t.Parallel()
+	above := math.Nextafter(MaxCouplingCorridorSpeed, math.Inf(1))
+	for _, tc := range []struct {
+		name   string
+		speeds [3]float64
+		valid  bool
+	}{
+		{"at bound", [3]float64{MaxCouplingCorridorSpeed, MaxCouplingCorridorSpeed, MaxCouplingCorridorSpeed}, true},
+		{"assembly lane above", [3]float64{above, 7, 14}, false},
+		{"middle lane above", [3]float64{14, above, 7}, false},
+		{"split lane above", [3]float64{14, 7, above}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			input := couplingGeometryFixture()
+			input.Network.Nodes = append(input.Network.Nodes, Node{ID: "m", Position: Point{X: 100}})
+			input.Network.Lanes[0].To = "m"
+			input.Network.Lanes = slices.Insert(input.Network.Lanes, 1, Lane{ID: "mb", From: "m", To: "b", VehicleClasses: classBit(string(CompactClass))})
+			input.Corridors[0].LaneIDs = []string{"ab", "mb", "bc"}
+			for i := range tc.speeds {
+				input.Network.Lanes[i].SpeedLimit = tc.speeds[i]
+			}
+			err := ValidateCouplingGeometry(input)
+			if tc.valid {
+				if err != nil {
+					t.Fatal("corridor at the speed bound refused", err)
+				}
+				return
+			}
+			if !errors.Is(err, ErrInvalidCouplingGeometry) || !strings.Contains(err.Error(), "exceeds the coupling bound") {
+				t.Fatal("corridor lane above the speed bound accepted", err)
+			}
+		})
+	}
+}
+
 func couplingManySites(siteCount, corridorCount int) CouplingGeometryInput {
 	input := couplingGeometryFixture()
 	input.Network.Nodes = input.Network.Nodes[:2]

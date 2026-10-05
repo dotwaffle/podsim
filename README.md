@@ -575,6 +575,7 @@ The draft stays local until you select **Pause and apply**.
   Select the guideway on the map, and set **Compact** as its only option in **Vehicle classes** in the **Selection** section.
   Then select **Add site**, **Use selected guideway**, or **Add selected guideway**.
   A corridor path starts on the guideway of its assembly site and ends on the guideway of its split site.
+  The speed limit of each corridor guideway must be 1296 km/h (360 m/s) or less.
   The Checks section shows the geometry errors that the server reports.
 - Use undo and redo for draft changes.
   See [Editor keyboard shortcuts](#editor-keyboard-shortcuts).

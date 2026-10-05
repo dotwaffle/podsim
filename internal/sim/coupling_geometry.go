@@ -140,6 +140,9 @@ func couplingLane(lane Lane) error {
 	if lane.Control != nil || lane.VehicleClasses != classBit(string(CompactClass)) {
 		return fmt.Errorf("lane %q must be straight and explicitly Compact-only: %w", lane.ID, ErrInvalidCouplingGeometry)
 	}
+	if lane.SpeedLimit > MaxCouplingCorridorSpeed {
+		return fmt.Errorf("lane %q speed limit %g m/s exceeds the coupling bound of %g m/s: %w", lane.ID, lane.SpeedLimit, MaxCouplingCorridorSpeed, ErrInvalidCouplingGeometry)
+	}
 	return nil
 }
 

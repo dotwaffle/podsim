@@ -109,6 +109,7 @@ A coupling project declares straight corridors and protected assembly and split 
 Each corridor names an ordered, directed lane path and its two sites.
 All corridor segments must be straight, collinear, forward, and on one validated plane.
 Zero-length segments, reverse travel, curves, and heading changes reject corridor eligibility.
+The speed limit of each corridor lane must be 360 m/s or less (`MaxCouplingCorridorSpeed`), so that the body clearance check refuses each pose that the pair connector check refuses.
 Ordinary lanes outside the corridor can retain curves and other vehicle classes.
 
 Each site declares an ID, lane, start distance, end distance, and staging positions.
