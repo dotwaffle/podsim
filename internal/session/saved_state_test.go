@@ -214,9 +214,8 @@ func addMember(t *testing.T, raw []byte, path, name, value string) []byte {
 }
 
 // TestSavedVersionRefusals refuses each other version of a plain file and
-// of a file with coupling markers. An earlier version moves aside, also
-// with coupling markers. A later version is preserved when it has coupling
-// members, as a damaged file is.
+// of a file with coupling markers. Each earlier and later version moves
+// aside, also with coupling markers.
 func TestSavedVersionRefusals(t *testing.T) {
 	t.Parallel()
 	bases := map[string][]byte{

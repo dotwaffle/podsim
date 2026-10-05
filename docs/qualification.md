@@ -2145,3 +2145,54 @@ The request timings retain simulation-tick precision.
 See the [Late request pairs](measurements/london-pooling-late-parties.csv) and [arm summaries](measurements/london-pooling-late-arms.csv), and the [Morning request pairs](measurements/london-pooling-morning-parties.csv) and [arm summaries](measurements/london-pooling-morning-arms.csv).
 These traces locate the deadline regressions in pickup waiting.
 They do not establish a specific dispatch defect or justify a policy change.
+
+## Coupling format qualification
+
+Items 4, 5, and 7 changed the project, save, and stream formats.
+After these changes, the earlier format evidence for mechanical coupling did not apply.
+At commit `05e95b1`, the format rows of the coupling qualification plan ran again on the single save and stream family.
+That commit is not on main, but its code outside the tests is equal to `5078afd`.
+The [coupling format record](measurements/coupling-format-qualification.json) gives each row, each test, and each mutation, with its file and line at that commit.
+
+Each mutation changed one guard in an overlay copy of the source file.
+A mutation is killed only when the control passed, the mutant compiled, and a test failed on its assertion.
+The record gives a reason for each mutation that survived.
+Of 54 mutant runs, 34 were killed and 20 survived.
+Most survivors are caps with a second cap that refuses the same input first, or caps that no test exceeds.
+The runs used `05e95b1` with the test changes of this record applied.
+
+| Row | Status at `05e95b1` |
+| --- | --- |
+| G8 public formats | Qualified, except for WASM and the browser. |
+| G9 size and cost | Partial. |
+| C1 limits | Unchanged. |
+| C3 combined widest encodings | Measured in the [composed format record](measurements/composed-worst-case-formats.json). |
+| C4 atomic rejection | Qualified for the save. |
+| C5 other families | Qualified. |
+| U3 combined limits | Covered, except a command with the widest coupled project. |
+| U4 cancellation | Partial. |
+| U7 save guards | 10 guards remain, 3 moved to a new site, and 2 are gone. |
+
+For G8, the qualified formats are the session, save, topology, full and delta frames, HTTP state, and remote client.
+WASM and browser runs were not made.
+
+For G9, the save writer and decoder caps, the stream compression cap, the topology preflight and decoder caps, and the command bounds have caller kills.
+The compressed writer cap, the HTTP caps, and the stream decoder caps survive.
+Heap retention was not measured.
+
+For C5, a save of a version other than 9 moves aside as `unsupported_version`.
+
+For U4, startup restore and stream publication have receipts.
+HTTP state and remote decode do not.
+The startup receipt waits for each goroutine of the test to end or block before it reads the store.
+So the test sees a write that starts after the cancel.
+
+`TestCouplingSaveCapRejectsAtomically` pads the composed coupling save, with 150 coupling groups, to the save cap and to one byte more.
+At the cap, the decoder keeps each group.
+At one byte more, startup keeps the file, writes nothing, and starts no session.
+The encoder accepts the save at the cap and refuses it at one byte more.
+
+`TestCouplingRemoteHTTPRejectsUnqualifiedFields` now replies with the state media type.
+Before this change, the client refused each reply for its media type, and the test did not reach the coupling scan.
+
+The simulation rows, the cost and heap rows, and the WASM and browser runs are not part of this record.

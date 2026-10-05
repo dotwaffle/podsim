@@ -1,0 +1,1491 @@
+{
+  "format": "podsim-coupling-format-qualification-v1",
+  "source_commit": "05e95b152a973448636a6ca344a6896bb68930f0",
+  "source_commit_note": "05e95b1 is not on main. Its code outside the tests is equal to 5078afd, so each non-test site in this record has the same line at 5078afd. The runs used 05e95b1 with the test changes of this record applied: the new file internal/session/coupling_cap_test.go and the corrected TestCouplingRemoteHTTPRejectsUnqualifiedFields were not in 05e95b1. The rerun of u4-startup-cancel used f186580, where the mutated line is also persist.go:278. On main the new test file names the third member of composedShape, which main added after 05e95b1.",
+  "toolchain": "go1.27.1 linux/amd64",
+  "contract": "docs/physical-coupling-contract-proposal.md",
+  "scope": "The format rows of the coupling qualification plan (G8, G9, C1, C3, C4, C5, U3, U4, U7) at the single save and stream family (save 9, hello 6). The simulation motion rows, the cost and heap rows (U5), and the WASM and browser runs are not in this record.",
+  "method": [
+    "Each mutation replaced one anchor, which occurs once in the file at the source commit, in a copy of the file. go test -overlay compiled the mutant; the source tree did not change. The record gives the sha256 of the file before the run, and the file had the same hash after the run.",
+    "Each mutation had a passing control run of the same tests, a mutant that compiled, and a mutant run. KILLED means that the mutant run failed on an assertion of the named test. SURVIVED means that the mutant run passed. VOID means a compile failure or a failure for another reason; there are no VOID results.",
+    "Commands: go test -p 2 -count=1 -run <tests> <package> for the control; go test -c -overlay=<overlay> then <binary> -test.run <tests> -test.count=1 -test.v for the mutant. Each run had ulimit -v 16000000, nice -n 19 and GOMAXPROCS=4.",
+    "A mutation that survived its named tests also ran against all tests of the session package (except TestComposedWorstCaseFormats and TestCouplingSaveCapRejectsAtomically, which are the two large fixtures), and of the remote package for client-side guards. These wider runs share one control run of the same command, which passed.",
+    "The plan names guards by their line at 069bafb. Items 4, 5 and 7 moved them; each site below is the line at the source commit."
+  ],
+  "mutation_counts": {
+    "KILLED": 34,
+    "SURVIVED": 20
+  },
+  "rows": [
+    {
+      "id": "G8",
+      "requirement": "Public formats: native, session, save, topology, full and delta frames, HTTP state, remote stream, WASM and browser agree. Saves and messages without the coupling marker reject the new fields. Mutations drop the discriminator or apply a group delta before its coherent membership frame.",
+      "tests": [
+        "internal/session: TestCouplingStreamPhaseRoundTrips, TestCouplingStreamAssemblerRetainsValidState, TestCouplingStreamReservedFieldsAndShape, TestEncodeStreamJSONBindsCouplingMarker, TestCouplingStreamLimitsPackedContainUnpacked, TestCouplingDecodeBoundsBeforeHeader, TestScanRootMarkers, TestCouplingDecodeMarkerNamesAndRoundTrip (coupling_stream_test.go)",
+        "internal/session: TestCouplingStreamRejectsPartialMemberDelta, TestCouplingStreamOldFieldPresence, TestCouplingStreamArrayBounds, TestCouplingStreamRetiresNativeMembers (coupling_stream_atomic_test.go)",
+        "internal/session: TestCouplingStreamHelloAndPublication, TestCouplingPublisherFullDeltaAndResync, TestCouplingHelloRequiresQualifiedMarkers (coupling_public_test.go)",
+        "internal/session: TestCouplingSavedEncoderMarkers, TestCouplingSavedPhaseRoundTrip, TestCouplingSavedRequiredMembers, TestCouplingSavedRoutePreflight, TestCouplingSavedBoundsAndScalars (coupling_state_test.go)",
+        "internal/session: TestCouplingTopologyStandalone, TestCouplingTopologyOldPresence, TestCouplingTopologyBoundsAndRequired (coupling_topology_test.go)",
+        "internal/session: TestSavedPackedRoundTrip, TestSavedMarkersSelectSections, TestStateEnvelopeMarkersMatchTopology, TestMarkerFormsSelectLimits, TestLimitTablesNotLooser",
+        "internal/session: TestCouplingEncodeStateRejectsInvalidView (new, coupling_cap_test.go)",
+        "internal/remote: TestCouplingRemoteHTTP, TestCouplingRemoteHTTPRejectsUnqualifiedFields (corrected), TestCouplingRemoteInvalidUpdateHasNoACK, TestCouplingMotion*",
+        "internal/project: TestCoupling*",
+        "internal/view and internal/editormodel: TestCoupling*"
+      ],
+      "result": "Pass. Qualified for the session, save, topology, full and delta frames, HTTP state and remote client at the source commit. WASM and browser runs were not made.",
+      "changes": [
+        "TestCouplingRemoteHTTPRejectsUnqualifiedFields served its replies as application/json. Since item 7, the client refuses each state reply of another media type, so the test passed on the media type and did not reach the coupling scan. The test now serves the state media type and requires the coupling scan error.",
+        "TestCouplingEncodeStateRejectsInvalidView is new. Before it, no test gave EncodeStateJSON a coupling frame that the assembler refuses, so the server-side HTTP view check survived each run."
+      ],
+      "mutations": [
+        {
+          "id": "g8-publisher-delta",
+          "site": "internal/session/stream.go:372",
+          "change": {
+            "from": "e := StreamEnvelope{CouplingContract: frame.State.Simulation.CouplingContract, OrderContract",
+            "to": "e := StreamEnvelope{OrderContract"
+          },
+          "package": "internal/session",
+          "tests": "^TestCouplingPublisherFullDeltaAndResync$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestCouplingPublisherFullDeltaAndResync"
+          ],
+          "assertion": "coupling_public_test.go:117: publication coupling contract mismatch",
+          "source_sha256": "f6a591d1dc671b3085fee0871a4cb1f1afa8bbef381724638fc283b98800207f",
+          "hash_restored": true,
+          "final": "KILLED",
+          "reading": "The publisher builds each changed or reset envelope at this line. Without the marker, the encoder binding check (express_wire.go:19) refuses the envelope, so publish fails, and the test fails at its first publication."
+        },
+        {
+          "id": "g8-publisher-resync",
+          "site": "internal/session/stream.go:430",
+          "change": {
+            "from": "e := StreamEnvelope{CouplingContract: p.frame.State.Simulation.CouplingContract, OrderContract",
+            "to": "e := StreamEnvelope{OrderContract"
+          },
+          "package": "internal/session",
+          "tests": "^TestCouplingPublisherFullDeltaAndResync$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestCouplingPublisherFullDeltaAndResync"
+          ],
+          "assertion": "coupling_public_test.go:156: publication coupling contract mismatch",
+          "source_sha256": "f6a591d1dc671b3085fee0871a4cb1f1afa8bbef381724638fc283b98800207f",
+          "hash_restored": true,
+          "final": "KILLED",
+          "reading": "The resynchronization full frame is built at this line. Without the marker, the encoder binding check refuses it, and the test fails at the resync publication."
+        },
+        {
+          "id": "g8-encoded-contract",
+          "site": "internal/session/express_wire.go:19",
+          "change": {
+            "from": "if err := validateEncodedContract(e); err != nil {",
+            "to": "if err := validateEncodedContract(e); false && err != nil {"
+          },
+          "package": "internal/session",
+          "tests": "^TestEncodeStreamJSONBindsCouplingMarker$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestEncodeStreamJSONBindsCouplingMarker"
+          ],
+          "assertion": "coupling_stream_test.go:386: got <nil>, want unknown coupling contract",
+          "source_sha256": "e77ebf8fc4399591d1aa1c5c85525de2779823f21f079af1e77f160ef6712f1e",
+          "hash_restored": true,
+          "final": "KILLED"
+        },
+        {
+          "id": "g8-assembler",
+          "site": "internal/session/stream_frame.go:197",
+          "change": {
+            "from": "if err := a.couplingView(state); err != nil {",
+            "to": "if err := a.couplingView(state); false && err != nil {"
+          },
+          "package": "internal/session",
+          "tests": "^(TestCouplingStreamAssemblerRetainsValidState|TestCouplingStreamRejectsPartialMemberDelta)$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestCouplingStreamRejectsPartialMemberDelta",
+            "TestCouplingStreamAssemblerRetainsValidState"
+          ],
+          "assertion": "coupling_stream_test.go:177: invalid mechanical update replaced a valid state",
+          "source_sha256": "9d7afa23cbf36127c17535822b6c9810b13dd4409e439ec55d2ac42445e2305a",
+          "hash_restored": true,
+          "final": "KILLED"
+        },
+        {
+          "id": "g8-assembler-remote",
+          "site": "internal/session/stream_frame.go:197",
+          "change": {
+            "from": "if err := a.couplingView(state); err != nil {",
+            "to": "if err := a.couplingView(state); false && err != nil {"
+          },
+          "package": "internal/remote",
+          "tests": "^TestCouplingRemoteInvalidUpdateHasNoACK$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestCouplingRemoteInvalidUpdateHasNoACK"
+          ],
+          "assertion": "coupling_test.go:211: valid/invalid ACK behavior changed [true true]",
+          "source_sha256": "9d7afa23cbf36127c17535822b6c9810b13dd4409e439ec55d2ac42445e2305a",
+          "hash_restored": true,
+          "final": "KILLED"
+        },
+        {
+          "id": "g8-shape-scan",
+          "site": "internal/session/stream_service.go:42",
+          "change": {
+            "from": "if err := scanCouplingPublicJSON(data, httpState); err != nil {",
+            "to": "if err := scanCouplingPublicJSON(data, httpState); false && err != nil {"
+          },
+          "package": "internal/session",
+          "tests": "^TestCouplingStreamReservedFieldsAndShape$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestCouplingStreamReservedFieldsAndShape"
+          ],
+          "assertion": "coupling_stream_test.go:255: accepted an incomplete mechanical wire shape",
+          "source_sha256": "eec126178dcf91bc7007ea2668778b4811d508ac1d2cb892c9be6662d9addcdf",
+          "hash_restored": true,
+          "final": "KILLED"
+        },
+        {
+          "id": "g8-hello-scan",
+          "site": "internal/session/express_wire.go:168",
+          "change": {
+            "from": "if err := scanCouplingStreamJSON(raw); err != nil {",
+            "to": "if err := scanCouplingStreamJSON(raw); false && err != nil {"
+          },
+          "package": "internal/session",
+          "tests": "^(TestCouplingHelloRequiresQualifiedMarkers|TestCouplingStreamHelloAndPublication)$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestCouplingHelloRequiresQualifiedMarkers"
+          ],
+          "assertion": "coupling_public_test.go:176: invalid hello marker accepted couplingContract \"unknown\"",
+          "source_sha256": "e77ebf8fc4399591d1aa1c5c85525de2779823f21f079af1e77f160ef6712f1e",
+          "hash_restored": true,
+          "final": "KILLED"
+        },
+        {
+          "id": "g8-http-envelope",
+          "site": "internal/session/state_http.go:64",
+          "change": {
+            "from": "if envelope.CouplingContract != envelope.Topology.CouplingContract || envelope.OrderContract != envelope.Topology.OrderContract {",
+            "to": "if false && (envelope.CouplingContract != envelope.Topology.CouplingContract || envelope.OrderContract != envelope.Topology.OrderContract) {"
+          },
+          "package": "internal/session",
+          "tests": "^TestStateEnvelopeMarkersMatchTopology$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestStateEnvelopeMarkersMatchTopology"
+          ],
+          "assertion": "state_http_test.go:197: got <nil>, want the contracts to disagree",
+          "source_sha256": "bae91363ac40abc74d47793f893b93b1be48e03a35055e7e6db17d3849d813fd",
+          "hash_restored": true,
+          "final": "KILLED"
+        },
+        {
+          "id": "g8-http-envelope-coupling-half",
+          "site": "internal/session/state_http.go:64",
+          "change": {
+            "from": "if envelope.CouplingContract != envelope.Topology.CouplingContract || envelope.OrderContract != envelope.Topology.OrderContract {",
+            "to": "if envelope.OrderContract != envelope.Topology.OrderContract {"
+          },
+          "package": "internal/session",
+          "tests": "all tests except TestComposedWorstCaseFormats",
+          "control": "pass",
+          "result": "SURVIVED",
+          "wider_runs": [
+            {
+              "package": "internal/remote",
+              "tests": "all tests",
+              "control": "pass",
+              "result": "SURVIVED",
+              "failing_tests": []
+            }
+          ],
+          "source_sha256": "bae91363ac40abc74d47793f893b93b1be48e03a35055e7e6db17d3849d813fd",
+          "hash_restored": true,
+          "final": "SURVIVED",
+          "reading": "Layered, by code reading. A root marker without a topology marker passes the root scans, and then the frame binding (protocol.go:109) refuses the unmarked topology under the marked frame. The reverse case fails the root scan first. See the open gap for the pair."
+        },
+        {
+          "id": "g8-http-view-binding",
+          "site": "internal/session/protocol.go:109",
+          "change": {
+            "from": "if err := couplingFrameBinding(topology, frame.Simulation); err != nil {",
+            "to": "if err := couplingFrameBinding(topology, frame.Simulation); false && err != nil {"
+          },
+          "package": "internal/remote",
+          "tests": "^TestCouplingRemoteHTTPRejectsUnqualifiedFields$",
+          "control": "pass",
+          "result": "SURVIVED",
+          "wider_runs": [
+            {
+              "package": "internal/remote",
+              "tests": "all tests",
+              "control": "pass",
+              "result": "SURVIVED",
+              "failing_tests": []
+            }
+          ],
+          "source_sha256": "1ab036076c4a470e1dbdc51377c8877bf59496e231e69cc8436411cd926dbb71",
+          "hash_restored": true,
+          "final": "SURVIVED",
+          "reading": "Layered, by code reading. The client reaches frameState through DecodeStateJSON, which first requires the root markers to equal the topology markers (state_http.go:64), and the scans require the frame marker. See the open gap for the pair."
+        },
+        {
+          "id": "g8-http-server-view",
+          "site": "internal/session/state_http.go:35",
+          "change": {
+            "from": "if _, stateErr := assembler.State(frame); stateErr != nil {",
+            "to": "if _, stateErr := assembler.State(frame); false && stateErr != nil {"
+          },
+          "package": "internal/session",
+          "tests": "all tests except TestComposedWorstCaseFormats",
+          "control": "pass",
+          "result": "SURVIVED",
+          "source_sha256": "bae91363ac40abc74d47793f893b93b1be48e03a35055e7e6db17d3849d813fd",
+          "hash_restored": true,
+          "final": "SURVIVED",
+          "reading": "Before TestCouplingEncodeStateRejectsInvalidView, no test gave the server HTTP encoder an invalid coupling frame: the server makes its frame from a checked simulation snapshot. See g8-http-server-view-new-test."
+        },
+        {
+          "id": "g8-http-server-view-new-test",
+          "site": "internal/session/state_http.go:35",
+          "change": {
+            "from": "if _, stateErr := assembler.State(frame); stateErr != nil {",
+            "to": "if _, stateErr := assembler.State(frame); false && stateErr != nil {"
+          },
+          "package": "internal/session",
+          "tests": "^TestCouplingEncodeStateRejectsInvalidView$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestCouplingEncodeStateRejectsInvalidView"
+          ],
+          "assertion": "coupling_cap_test.go:155: encoder gave 6314 bytes and <nil> for an invalid coupling view",
+          "source_sha256": "bae91363ac40abc74d47793f893b93b1be48e03a35055e7e6db17d3849d813fd",
+          "hash_restored": true,
+          "final": "KILLED",
+          "reading": "The new test kills the server-side HTTP view check."
+        },
+        {
+          "id": "g8-save-marker",
+          "site": "internal/session/express_wire.go:110",
+          "change": {
+            "from": "if err := file.validateCouplingContract(); err != nil {",
+            "to": "if err := file.validateCouplingContract(); false && err != nil {"
+          },
+          "package": "internal/session",
+          "tests": "^TestCouplingSavedEncoderMarkers$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestCouplingSavedEncoderMarkers"
+          ],
+          "assertion": "coupling_state_test.go:39: encoder accepted contradictory contract markers",
+          "source_sha256": "e77ebf8fc4399591d1aa1c5c85525de2779823f21f079af1e77f160ef6712f1e",
+          "hash_restored": true,
+          "final": "KILLED",
+          "reading": "The guard is shared by the encoder (state_file.go:241) and the decoder (state_file.go:462). This kill is from the encoder."
+        },
+        {
+          "id": "g8-save-marker-decoder-caller",
+          "site": "internal/session/state_file.go:461",
+          "change": {
+            "from": "func (file *stateFile) validateProjectVersion() error { if err := file.validateWireContract(); err != nil {",
+            "to": "func (file *stateFile) validateProjectVersion() error { if err := file.validateWireContract(); false && err != nil {"
+          },
+          "package": "internal/session",
+          "tests": "all tests except TestComposedWorstCaseFormats",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestMarkerFormsSelectLimits"
+          ],
+          "assertion": "format_limits_test.go:328: contradiction simulation: accepted",
+          "source_sha256": "6b1eed69210b63c1dd043a3e184e947bdd66b3d090aeba179de79a3b75424311",
+          "hash_restored": true,
+          "final": "KILLED",
+          "reading": "The decoder caller also checks the order markers. The kill is from the order half (an Express save with a contradictory simulation order marker). The coupling half of this caller is behind scanCouplingJSON, which requires all three coupling markers with the one known value before the typed decode, so no test can reach it with a coupling contradiction."
+        },
+        {
+          "id": "g8-unmarked-save-fields",
+          "site": "internal/session/order_state.go:32",
+          "change": {
+            "from": "if !coupling && couplingMember(token.String()) {",
+            "to": "if false && !coupling && couplingMember(token.String()) {"
+          },
+          "package": "internal/session",
+          "tests": "all tests except TestComposedWorstCaseFormats",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestSavedMarkersSelectSections"
+          ],
+          "assertion": "saved_state_test.go:150: unmarked simulation/couplingContract=null: accepted",
+          "source_sha256": "598e15e139ef390874bf7928d54636ca3e41d96fd61b305bebbe0247e88ba7e6",
+          "hash_restored": true,
+          "final": "KILLED"
+        },
+        {
+          "id": "g8-unmarked-stream-fields",
+          "site": "internal/session/stream_service.go:104",
+          "change": {
+            "from": "if markers.coupling == \"\" { return errors.New(\"current stream family contains coupling fields\")",
+            "to": "if false && markers.coupling == \"\" { return errors.New(\"current stream family contains coupling fields\")"
+          },
+          "package": "internal/session",
+          "tests": "^(TestCouplingStreamOldFieldPresence|TestCouplingStreamHelloAndPublication|TestCouplingDecodeMarkerNamesAndRoundTrip)$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestCouplingStreamOldFieldPresence",
+            "TestCouplingDecodeMarkerNamesAndRoundTrip"
+          ],
+          "assertion": "coupling_stream_atomic_test.go:84: unmarked envelope accepted reserved field presence  couplingContract null",
+          "source_sha256": "eec126178dcf91bc7007ea2668778b4811d508ac1d2cb892c9be6662d9addcdf",
+          "hash_restored": true,
+          "final": "KILLED"
+        },
+        {
+          "id": "g8-unmarked-stream-fields-remote",
+          "site": "internal/session/stream_service.go:104",
+          "change": {
+            "from": "if markers.coupling == \"\" { return errors.New(\"current stream family contains coupling fields\")",
+            "to": "if false && markers.coupling == \"\" { return errors.New(\"current stream family contains coupling fields\")"
+          },
+          "package": "internal/remote",
+          "tests": "^TestCouplingRemoteHTTPRejectsUnqualifiedFields$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestCouplingRemoteHTTPRejectsUnqualifiedFields"
+          ],
+          "assertion": "coupling_test.go:127: the coupling scan did not refuse the reply json: unknown field \"epoch\"",
+          "source_sha256": "eec126178dcf91bc7007ea2668778b4811d508ac1d2cb892c9be6662d9addcdf",
+          "hash_restored": true,
+          "final": "KILLED",
+          "reading": "With the guard removed, the client still refuses the reply later, at the typed decode (unknown field). The corrected test requires the coupling scan error, so the kill depends on the error text. The session-package run of the same mutation (g8-unmarked-stream-fields) fails on accepted state."
+        }
+      ]
+    },
+    {
+      "id": "G9",
+      "requirement": "Size and cost: combined worst-case raw and gzip encodings, bounded scans, atomic failures, heap retention and cancellation receipts. Mutations bypass the real parser or writer cap at its caller.",
+      "tests": [
+        "internal/session: TestComposedWorstCaseFormats (record docs/measurements/composed-worst-case-formats.json, landed as ee5851f)",
+        "internal/session: TestCouplingSaveCapRejectsAtomically (new, coupling_cap_test.go)",
+        "internal/session: TestEncodeStateFileTooLarge, TestDecodeStateFileSizeBoundary, TestSavedInvalidMovedAside, TestStreamGzipExpansionBound, TestStreamEncoderRejectsAndRecovers, TestStreamMaximumEncoding, TestExpressWidestTopologyHTTPAdapters, TestCommandCouplingArrayBounds, TestCouplingArraysHaveExplicitLimits",
+        "internal/remote: TestExchangeBoundsResponseBodies"
+      ],
+      "result": "Partial. The save writer and decoder caps, the stream compression cap, the topology preflight and the coupling command bounds have caller kills. The other caps survive because a later guard refuses the same input, or because no test sends an input over that cap; see each reading. Heap retention (U5) is not in this record.",
+      "mutations": [
+        {
+          "id": "g9-save-writer-raw",
+          "site": "internal/session/state_file.go:238",
+          "change": {
+            "from": "writer: e.zw, limit: MaxStateBytes,",
+            "to": "writer: e.zw, limit: 1 << 40,"
+          },
+          "package": "internal/session",
+          "tests": "^TestEncodeStateFileTooLarge$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestEncodeStateFileTooLarge"
+          ],
+          "assertion": "state_file_test.go:858: error <nil>, want saved session state is too large",
+          "source_sha256": "6b1eed69210b63c1dd043a3e184e947bdd66b3d090aeba179de79a3b75424311",
+          "hash_restored": true,
+          "final": "KILLED"
+        },
+        {
+          "id": "g9-save-writer-raw-coupled",
+          "site": "internal/session/state_file.go:238",
+          "change": {
+            "from": "writer: e.zw, limit: MaxStateBytes,",
+            "to": "writer: e.zw, limit: 1 << 40,"
+          },
+          "package": "internal/session",
+          "tests": "^TestCouplingSaveCapRejectsAtomically$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestCouplingSaveCapRejectsAtomically"
+          ],
+          "assertion": "coupling_cap_test.go:76: encoder gave 4513778 bytes and <nil> over the cap, want no data and saved session state is too large",
+          "source_sha256": "6b1eed69210b63c1dd043a3e184e947bdd66b3d090aeba179de79a3b75424311",
+          "hash_restored": true,
+          "final": "KILLED"
+        },
+        {
+          "id": "g9-save-writer-gzip",
+          "site": "internal/session/state_file.go:261",
+          "change": {
+            "from": "if e.buffer.Len() > MaxStateBytes {",
+            "to": "if false && e.buffer.Len() > MaxStateBytes {"
+          },
+          "package": "internal/session",
+          "tests": "^TestEncodeStateFileTooLarge$",
+          "control": "pass",
+          "result": "SURVIVED",
+          "wider_runs": [
+            {
+              "package": "internal/session",
+              "tests": "all tests except TestComposedWorstCaseFormats and TestCouplingSaveCapRejectsAtomically",
+              "control": "pass",
+              "result": "SURVIVED",
+              "failing_tests": []
+            }
+          ],
+          "source_sha256": "6b1eed69210b63c1dd043a3e184e947bdd66b3d090aeba179de79a3b75424311",
+          "hash_restored": true,
+          "final": "SURVIVED",
+          "reading": "No test: the raw JSON is at most the cap, and only incompressible JSON at the cap can give more gzip bytes than the cap. No test sends such a state; by code reading it is not reachable from a session."
+        },
+        {
+          "id": "g9-save-decoder-gzip",
+          "site": "internal/session/state_file.go:314",
+          "change": {
+            "from": "if len(data) > MaxStateBytes {",
+            "to": "if false && len(data) > MaxStateBytes {"
+          },
+          "package": "internal/session",
+          "tests": "^(TestDecodeStateFileSizeBoundary|TestSavedInvalidMovedAside|TestCouplingStoreOpaqueReadTooLarge)$",
+          "control": "pass",
+          "result": "SURVIVED",
+          "wider_runs": [
+            {
+              "package": "internal/session",
+              "tests": "all tests except TestComposedWorstCaseFormats and TestCouplingSaveCapRejectsAtomically",
+              "control": "pass",
+              "result": "KILLED",
+              "failing_tests": [
+                "TestDecodeStateFileRejects"
+              ],
+              "assertion": "state_file_test.go:317: reason \"invalid_state\", want \"too_large\": invalid_state: decompress session state: gzip: invalid header"
+            }
+          ],
+          "source_sha256": "6b1eed69210b63c1dd043a3e184e947bdd66b3d090aeba179de79a3b75424311",
+          "hash_restored": true,
+          "final": "KILLED",
+          "reading": "The named tests use small compressed files, so they did not reach this check. TestDecodeStateFileRejects/compressed_too_large kills it in the wider run."
+        },
+        {
+          "id": "g9-save-decoder-raw",
+          "site": "internal/session/state_file.go:567",
+          "change": {
+            "from": "if len(raw) > MaxStateBytes {",
+            "to": "if false && len(raw) > MaxStateBytes {"
+          },
+          "package": "internal/session",
+          "tests": "^(TestDecodeStateFileSizeBoundary|TestSavedInvalidMovedAside)$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestDecodeStateFileSizeBoundary",
+            "TestSavedInvalidMovedAside"
+          ],
+          "assertion": "state_file_test.go:351: reason \"invalid_state\", preserved false, want \"too_large\", true: invalid_state: scan session state: jsontext: invalid character '\\x00' at start of value",
+          "source_sha256": "6b1eed69210b63c1dd043a3e184e947bdd66b3d090aeba179de79a3b75424311",
+          "hash_restored": true,
+          "final": "KILLED"
+        },
+        {
+          "id": "g9-save-decoder-raw-coupled",
+          "site": "internal/session/state_file.go:567",
+          "change": {
+            "from": "if len(raw) > MaxStateBytes {",
+            "to": "if false && len(raw) > MaxStateBytes {"
+          },
+          "package": "internal/session",
+          "tests": "^TestCouplingSaveCapRejectsAtomically$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestCouplingSaveCapRejectsAtomically"
+          ],
+          "assertion": "coupling_cap_test.go:54: preserved state returned a session <nil>",
+          "source_sha256": "6b1eed69210b63c1dd043a3e184e947bdd66b3d090aeba179de79a3b75424311",
+          "hash_restored": true,
+          "final": "KILLED"
+        },
+        {
+          "id": "g9-stream-encode-envelope",
+          "site": "internal/session/express_wire.go:23",
+          "change": {
+            "from": "if err == nil && len(data) > MaxStreamJSON {",
+            "to": "if false && err == nil && len(data) > MaxStreamJSON {"
+          },
+          "package": "internal/session",
+          "tests": "^(TestStreamEncoderRejectsAndRecovers|TestStreamGzipExpansionBound|TestEncodeStreamJSONBindsCouplingMarker|TestStreamMaximumEncoding)$",
+          "control": "pass",
+          "result": "SURVIVED",
+          "wider_runs": [
+            {
+              "package": "internal/session",
+              "tests": "all tests except TestComposedWorstCaseFormats and TestCouplingSaveCapRejectsAtomically",
+              "control": "pass",
+              "result": "SURVIVED",
+              "failing_tests": []
+            }
+          ],
+          "source_sha256": "e77ebf8fc4399591d1aa1c5c85525de2779823f21f079af1e77f160ef6712f1e",
+          "hash_restored": true,
+          "final": "SURVIVED",
+          "reading": "Layered: streamEncoder.encode (stream_codec.go:452) and compressJSON (stream_codec.go:463, KILLED) refuse the same JSON. No test calls EncodeStreamJSON with an envelope over the cap."
+        },
+        {
+          "id": "g9-stream-encode-encoder",
+          "site": "internal/session/stream_codec.go:452",
+          "change": {
+            "from": "if len(data) > MaxStreamJSON { return nil, errors.New(\"state JSON exceeds supported limit\") } return c.compressJSON(data)",
+            "to": "if false && len(data) > MaxStreamJSON { return nil, errors.New(\"state JSON exceeds supported limit\") } return c.compressJSON(data)"
+          },
+          "package": "internal/session",
+          "tests": "^(TestStreamEncoderRejectsAndRecovers|TestStreamGzipExpansionBound)$",
+          "control": "pass",
+          "result": "SURVIVED",
+          "wider_runs": [
+            {
+              "package": "internal/session",
+              "tests": "all tests except TestComposedWorstCaseFormats and TestCouplingSaveCapRejectsAtomically",
+              "control": "pass",
+              "result": "SURVIVED",
+              "failing_tests": []
+            }
+          ],
+          "source_sha256": "407ed3f0a5c8db347a9d24af063d6b3e1636a49740edca13f55248eedcfb0146",
+          "hash_restored": true,
+          "final": "SURVIVED",
+          "reading": "Layered: EncodeStreamJSON (express_wire.go:23) refuses the same JSON before this check, and compressJSON (stream_codec.go:463, KILLED) after it."
+        },
+        {
+          "id": "g9-stream-compress-json",
+          "site": "internal/session/stream_codec.go:463",
+          "change": {
+            "from": "if len(data) > MaxStreamJSON { return nil, errors.New(\"state JSON exceeds supported limit\") } defer",
+            "to": "if false && len(data) > MaxStreamJSON { return nil, errors.New(\"state JSON exceeds supported limit\") } defer"
+          },
+          "package": "internal/session",
+          "tests": "^(TestStreamEncoderRejectsAndRecovers|TestStreamGzipExpansionBound)$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestStreamGzipExpansionBound",
+            "TestStreamEncoderRejectsAndRecovers"
+          ],
+          "assertion": "stream_test.go:648: accepted excessive inflate size",
+          "source_sha256": "407ed3f0a5c8db347a9d24af063d6b3e1636a49740edca13f55248eedcfb0146",
+          "hash_restored": true,
+          "final": "KILLED",
+          "reading": "Killed by the direct compressJSON calls with MaxStreamJSON + 1 bytes."
+        },
+        {
+          "id": "g9-stream-compress-binary",
+          "site": "internal/session/stream_codec.go:478",
+          "change": {
+            "from": "if c.output.Len() > MaxStreamMessage {",
+            "to": "if false && c.output.Len() > MaxStreamMessage {"
+          },
+          "package": "internal/session",
+          "tests": "^(TestStreamEncoderRejectsAndRecovers|TestStreamGzipExpansionBound)$",
+          "control": "pass",
+          "result": "SURVIVED",
+          "wider_runs": [
+            {
+              "package": "internal/session",
+              "tests": "all tests except TestComposedWorstCaseFormats and TestCouplingSaveCapRejectsAtomically",
+              "control": "pass",
+              "result": "SURVIVED",
+              "failing_tests": []
+            }
+          ],
+          "source_sha256": "407ed3f0a5c8db347a9d24af063d6b3e1636a49740edca13f55248eedcfb0146",
+          "hash_restored": true,
+          "final": "SURVIVED",
+          "reading": "No over-cap input: compressJSON first limits the JSON to MaxStreamJSON, and TestStreamGzipExpansionBound shows that 64 MiB of incompressible JSON gives 67,114,009 bytes, below the 65 MiB cap. The check is a second bound."
+        },
+        {
+          "id": "g9-stream-decode-marked",
+          "site": "internal/session/stream_service.go:32",
+          "change": {
+            "from": "if len(data) > MaxStreamJSON {",
+            "to": "if false && len(data) > MaxStreamJSON {"
+          },
+          "package": "internal/session",
+          "tests": "^(TestCouplingDecodeBoundsBeforeHeader|TestStreamDecoder.*|TestCouplingStreamArrayBounds|TestStreamBounds.*)$",
+          "control": "pass",
+          "result": "SURVIVED",
+          "wider_runs": [
+            {
+              "package": "internal/session",
+              "tests": "all tests except TestComposedWorstCaseFormats and TestCouplingSaveCapRejectsAtomically",
+              "control": "pass",
+              "result": "SURVIVED",
+              "failing_tests": []
+            },
+            {
+              "package": "internal/remote",
+              "tests": "all tests",
+              "control": "pass",
+              "result": "SURVIVED",
+              "failing_tests": []
+            }
+          ],
+          "source_sha256": "eec126178dcf91bc7007ea2668778b4811d508ac1d2cb892c9be6662d9addcdf",
+          "hash_restored": true,
+          "final": "SURVIVED",
+          "reading": "Layered, by code reading: DecodeStreamJSON gets the output of InflateStream, which reads at most MaxStreamJSON + 1 bytes (stream_codec.go:496-500), and DecodeStateJSON has its own cap (state_http.go:57). decodeStreamJSON (stream_codec.go:419) also checks the size. No test calls DecodeStreamJSON with more than the cap."
+        },
+        {
+          "id": "g9-stream-decode-json",
+          "site": "internal/session/stream_codec.go:419",
+          "change": {
+            "from": "if len(data) > MaxStreamJSON { return errors.New(\"state JSON too large\")",
+            "to": "if false && len(data) > MaxStreamJSON { return errors.New(\"state JSON too large\")"
+          },
+          "package": "internal/session",
+          "tests": "^(TestCouplingDecodeBoundsBeforeHeader|TestStreamDecoder.*|TestCouplingStreamArrayBounds|TestStreamBounds.*)$",
+          "control": "pass",
+          "result": "SURVIVED",
+          "wider_runs": [
+            {
+              "package": "internal/session",
+              "tests": "all tests except TestComposedWorstCaseFormats and TestCouplingSaveCapRejectsAtomically",
+              "control": "pass",
+              "result": "SURVIVED",
+              "failing_tests": []
+            },
+            {
+              "package": "internal/remote",
+              "tests": "all tests",
+              "control": "pass",
+              "result": "SURVIVED",
+              "failing_tests": []
+            }
+          ],
+          "source_sha256": "407ed3f0a5c8db347a9d24af063d6b3e1636a49740edca13f55248eedcfb0146",
+          "hash_restored": true,
+          "final": "SURVIVED",
+          "reading": "Layered, by code reading: decodeMarkedJSON (stream_service.go:32) and InflateStream (stream_codec.go:500) refuse the same size first. No test reaches it with more than the cap."
+        },
+        {
+          "id": "g9-stream-inflate-binary",
+          "site": "internal/session/stream_codec.go:486",
+          "change": {
+            "from": "if len(data) > MaxStreamMessage {",
+            "to": "if false && len(data) > MaxStreamMessage {"
+          },
+          "package": "internal/session",
+          "tests": "^(TestStreamGzipExpansionBound|TestInflate.*|TestStreamEncoderRejectsAndRecovers)$",
+          "control": "pass",
+          "result": "SURVIVED",
+          "wider_runs": [
+            {
+              "package": "internal/session",
+              "tests": "all tests except TestComposedWorstCaseFormats and TestCouplingSaveCapRejectsAtomically",
+              "control": "pass",
+              "result": "SURVIVED",
+              "failing_tests": []
+            },
+            {
+              "package": "internal/remote",
+              "tests": "all tests",
+              "control": "pass",
+              "result": "SURVIVED",
+              "failing_tests": []
+            }
+          ],
+          "source_sha256": "407ed3f0a5c8db347a9d24af063d6b3e1636a49740edca13f55248eedcfb0146",
+          "hash_restored": true,
+          "final": "SURVIVED",
+          "reading": "Layered, by code reading: the remote client sets the websocket read limit to MaxStreamMessage (internal/remote/stream.go:68), so a larger message does not reach InflateStream. No test calls InflateStream with more than MaxStreamMessage bytes."
+        },
+        {
+          "id": "g9-stream-inflate-output",
+          "site": "internal/session/stream_codec.go:500",
+          "change": {
+            "from": "if len(output) > MaxStreamJSON || input.Len() != 0 {",
+            "to": "if input.Len() != 0 {"
+          },
+          "package": "internal/session",
+          "tests": "^(TestStreamGzipExpansionBound|TestInflate.*|TestStreamEncoderRejectsAndRecovers)$",
+          "control": "pass",
+          "result": "SURVIVED",
+          "wider_runs": [
+            {
+              "package": "internal/session",
+              "tests": "all tests except TestComposedWorstCaseFormats and TestCouplingSaveCapRejectsAtomically",
+              "control": "pass",
+              "result": "SURVIVED",
+              "failing_tests": []
+            },
+            {
+              "package": "internal/remote",
+              "tests": "all tests",
+              "control": "pass",
+              "result": "SURVIVED",
+              "failing_tests": []
+            }
+          ],
+          "source_sha256": "407ed3f0a5c8db347a9d24af063d6b3e1636a49740edca13f55248eedcfb0146",
+          "hash_restored": true,
+          "final": "SURVIVED",
+          "reading": "Layered, by code reading: the LimitReader stops at MaxStreamJSON + 1 bytes, and decodeMarkedJSON and decodeStreamJSON refuse that size. No test inflates more than MaxStreamJSON bytes."
+        },
+        {
+          "id": "g9-http-encode",
+          "site": "internal/session/state_http.go:47",
+          "change": {
+            "from": "if err == nil && len(data) > MaxStreamJSON {",
+            "to": "if false && err == nil && len(data) > MaxStreamJSON {"
+          },
+          "package": "internal/session",
+          "tests": "^(TestStreamMaximumEncoding|TestStateHTTP.*|TestCouplingStreamLimitsPackedContainUnpacked)$",
+          "control": "pass",
+          "result": "SURVIVED",
+          "wider_runs": [
+            {
+              "package": "internal/session",
+              "tests": "all tests except TestComposedWorstCaseFormats and TestCouplingSaveCapRejectsAtomically",
+              "control": "pass",
+              "result": "SURVIVED",
+              "failing_tests": []
+            }
+          ],
+          "source_sha256": "bae91363ac40abc74d47793f893b93b1be48e03a35055e7e6db17d3849d813fd",
+          "hash_restored": true,
+          "final": "SURVIVED",
+          "reading": "No test: the composed test marshals the widest HTTP state directly and does not call EncodeStateJSON over the cap. The widest valid HTTP state has 1,252,396 bytes of headroom (composed record)."
+        },
+        {
+          "id": "g9-http-decode",
+          "site": "internal/session/state_http.go:57",
+          "change": {
+            "from": "if len(raw) > MaxStreamJSON {",
+            "to": "if false && len(raw) > MaxStreamJSON {"
+          },
+          "package": "internal/session",
+          "tests": "^(TestCouplingStreamLimitsPackedContainUnpacked|TestCouplingDecodeBoundsBeforeHeader|TestStreamBounds.*|TestStateHTTP.*)$",
+          "control": "pass",
+          "result": "SURVIVED",
+          "wider_runs": [
+            {
+              "package": "internal/session",
+              "tests": "all tests except TestComposedWorstCaseFormats and TestCouplingSaveCapRejectsAtomically",
+              "control": "pass",
+              "result": "SURVIVED",
+              "failing_tests": []
+            },
+            {
+              "package": "internal/remote",
+              "tests": "all tests",
+              "control": "pass",
+              "result": "SURVIVED",
+              "failing_tests": []
+            }
+          ],
+          "source_sha256": "bae91363ac40abc74d47793f893b93b1be48e03a35055e7e6db17d3849d813fd",
+          "hash_restored": true,
+          "final": "SURVIVED",
+          "reading": "Layered: decodeMarkedJSON (stream_service.go:32) checks the same size, and the remote client limits the response body (TestExchangeBoundsResponseBodies)."
+        },
+        {
+          "id": "g9-http-topology-encode",
+          "site": "internal/session/state_http.go:42",
+          "change": {
+            "from": "if len(topologyBytes) > project.MaxFileBytes+4096 {",
+            "to": "if false && len(topologyBytes) > project.MaxFileBytes+4096 {"
+          },
+          "package": "internal/session",
+          "tests": "^(TestStreamMaximumEncoding|TestStateHTTP.*|TestCouplingTopology.*)$",
+          "control": "pass",
+          "result": "SURVIVED",
+          "wider_runs": [
+            {
+              "package": "internal/session",
+              "tests": "all tests except TestComposedWorstCaseFormats and TestCouplingSaveCapRejectsAtomically",
+              "control": "pass",
+              "result": "SURVIVED",
+              "failing_tests": []
+            }
+          ],
+          "source_sha256": "bae91363ac40abc74d47793f893b93b1be48e03a35055e7e6db17d3849d813fd",
+          "hash_restored": true,
+          "final": "SURVIVED",
+          "reading": "No test: a topology comes from a project that the topology preflight (express_wire.go:129, KILLED) and project.Validate accept, so no session topology is over the cap."
+        },
+        {
+          "id": "g9-http-topology-scan",
+          "site": "internal/session/coupling_stream_json.go:56",
+          "change": {
+            "from": "if len(value) > project.MaxFileBytes+4096 {",
+            "to": "if false && len(value) > project.MaxFileBytes+4096 {"
+          },
+          "package": "internal/session",
+          "tests": "^(TestCoupling.*|TestStateHTTP.*)$",
+          "control": "pass",
+          "result": "SURVIVED",
+          "wider_runs": [
+            {
+              "package": "internal/session",
+              "tests": "all tests except TestComposedWorstCaseFormats and TestCouplingSaveCapRejectsAtomically",
+              "control": "pass",
+              "result": "SURVIVED",
+              "failing_tests": []
+            },
+            {
+              "package": "internal/remote",
+              "tests": "all tests",
+              "control": "pass",
+              "result": "SURVIVED",
+              "failing_tests": []
+            }
+          ],
+          "source_sha256": "faa20bdc6ea0c8b88dbefb7342e0a06664f6d799843b8f3e39a6e91a0cef6624",
+          "hash_restored": true,
+          "final": "SURVIVED",
+          "reading": "Layered, by code reading: the typed decode of the topology member calls TopologySnapshot.UnmarshalJSON, which has the same cap (topology_decode.go:42). No test sends an HTTP state with a topology over the cap."
+        },
+        {
+          "id": "g9-topology-decode",
+          "site": "internal/session/topology_decode.go:42",
+          "change": {
+            "from": "if len(data) > MaxTopologyJSON {",
+            "to": "if false && len(data) > MaxTopologyJSON {"
+          },
+          "package": "internal/session",
+          "tests": "^(TestCouplingTopology.*|TestTopology.*)$",
+          "control": "pass",
+          "result": "SURVIVED",
+          "wider_runs": [
+            {
+              "package": "internal/session",
+              "tests": "all tests except TestComposedWorstCaseFormats and TestCouplingSaveCapRejectsAtomically",
+              "control": "pass",
+              "result": "KILLED",
+              "failing_tests": [
+                "TestExpressWidestTopologyHTTPAdapters"
+              ],
+              "assertion": "express_bytes_test.go:441: topology cap failed"
+            },
+            {
+              "package": "internal/remote",
+              "tests": "all tests",
+              "control": "pass",
+              "result": "SURVIVED",
+              "failing_tests": []
+            }
+          ],
+          "source_sha256": "b9f77e347c6306e50e45b8614881421d74f8f4b2876f143b9b1599b93bd50030",
+          "hash_restored": true,
+          "final": "KILLED",
+          "reading": "The named tests did not reach this check. TestExpressWidestTopologyHTTPAdapters kills it in the wider run."
+        },
+        {
+          "id": "g9-topology-preflight",
+          "site": "internal/session/express_wire.go:129",
+          "change": {
+            "from": "if len(data) > project.MaxFileBytes+4096 {",
+            "to": "if false && len(data) > project.MaxFileBytes+4096 {"
+          },
+          "package": "internal/session",
+          "tests": "^(TestExpress.*Topology.*|TestCouplingTopology.*|TestTopology.*)$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestExpressWidestTopologyHTTPAdapters"
+          ],
+          "assertion": "express_bytes_test.go:444: producer topology preflight accepted overflow",
+          "source_sha256": "e77ebf8fc4399591d1aa1c5c85525de2779823f21f079af1e77f160ef6712f1e",
+          "hash_restored": true,
+          "final": "KILLED"
+        },
+        {
+          "id": "g9-coupling-groups-half",
+          "site": "internal/session/coupling_json.go:53",
+          "change": {
+            "from": "if scan.groupCount > scan.pods/2 && !topology {",
+            "to": "if false && scan.groupCount > scan.pods/2 && !topology {"
+          },
+          "package": "internal/session",
+          "tests": "^TestCouplingSavedBoundsAndScalars$",
+          "control": "pass",
+          "result": "SURVIVED",
+          "wider_runs": [
+            {
+              "package": "internal/session",
+              "tests": "all tests except TestComposedWorstCaseFormats and TestCouplingSaveCapRejectsAtomically",
+              "control": "pass",
+              "result": "SURVIVED",
+              "failing_tests": []
+            }
+          ],
+          "source_sha256": "940d57961e1b652a8faa9dd7a523a66eba3c9d57c3f5b5b4a5cb29caf21cbd8f",
+          "hash_restored": true,
+          "final": "SURVIVED",
+          "reading": "No test at this layer: TestCouplingSavedBoundsAndScalars uses 151 groups, which the array limit (150) refuses first. A save with more groups than half its pods but at most 150 groups next reaches validateCouplingRoutes in decodeStateJSON (state_file.go:458 at f186580), which repeats the half-fleet check (coupling_state.go:111), and then the native restore (sim/coupling_restore.go:30); by code reading."
+        },
+        {
+          "id": "u7-command-sites",
+          "site": "internal/session/http.go:85",
+          "change": {
+            "from": "\"/project/couplingSites\": sim.MaxCouplingSites,",
+            "to": "\"/project/couplingSites\": sim.MaxCouplingSites + 1,"
+          },
+          "package": "internal/session",
+          "tests": "^TestCommandCouplingArrayBounds$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestCommandCouplingArrayBounds"
+          ],
+          "assertion": "command_limits_test.go:93: command boundary changed <nil>",
+          "source_sha256": "414555a3f137d209cdc8211bc614f892fedca3b12c2c1a3d1efa16a4db7a7f2c",
+          "hash_restored": true,
+          "final": "KILLED",
+          "reading": "Plan anchor http.go:83-85 at 069bafb; now http.go:85-87."
+        },
+        {
+          "id": "u7-command-corridors",
+          "site": "internal/session/http.go:86",
+          "change": {
+            "from": "\"/project/couplingCorridors\": sim.MaxCouplingCorridors,",
+            "to": "\"/project/couplingCorridors\": sim.MaxCouplingCorridors + 1,"
+          },
+          "package": "internal/session",
+          "tests": "^TestCommandCouplingArrayBounds$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestCommandCouplingArrayBounds"
+          ],
+          "assertion": "command_limits_test.go:93: command boundary changed <nil>",
+          "source_sha256": "414555a3f137d209cdc8211bc614f892fedca3b12c2c1a3d1efa16a4db7a7f2c",
+          "hash_restored": true,
+          "final": "KILLED"
+        },
+        {
+          "id": "u7-command-lanes",
+          "site": "internal/session/http.go:87",
+          "change": {
+            "from": "\"/project/couplingCorridors/*/laneIds\": project.MaxLanes,",
+            "to": "\"/project/couplingCorridors/*/laneIds\": project.MaxLanes + 1,"
+          },
+          "package": "internal/session",
+          "tests": "^TestCommandCouplingArrayBounds$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestCommandCouplingArrayBounds"
+          ],
+          "assertion": "command_limits_test.go:93: command boundary changed <nil>",
+          "source_sha256": "414555a3f137d209cdc8211bc614f892fedca3b12c2c1a3d1efa16a4db7a7f2c",
+          "hash_restored": true,
+          "final": "KILLED"
+        }
+      ]
+    },
+    {
+      "id": "C1",
+      "requirement": "The limits stay unchanged: 10 MiB project, 80 MiB raw and compressed save, 64 MiB raw stream, 65 MiB binary stream, and topology 10 MiB plus 4 KiB.",
+      "tests": [
+        "Source constants: project.MaxFileBytes = 10 << 20 (internal/project/config.go:117); MaxStateBytes = 80 << 20 for the raw and the compressed save (internal/session/persist.go:26, state_file.go:238, :261, :314, :567); MaxStreamJSON = 64 << 20 and MaxStreamMessage = 65 << 20 (internal/session/stream_codec.go:24-25); MaxTopologyJSON = project.MaxFileBytes + 4096 (internal/session/topology_decode.go:18)",
+        "internal/session: TestLimitTablesNotLooser, TestMarkerFormsSelectLimits, TestCouplingArraysHaveExplicitLimits"
+      ],
+      "result": "Confirmed. The limits are the limits of the contract.",
+      "mutations": []
+    },
+    {
+      "id": "C3",
+      "requirement": "Measure the combined widest encodings with the new records before any new family is called qualified.",
+      "tests": [
+        "internal/session: TestComposedWorstCaseFormats"
+      ],
+      "result": "Measured. See docs/measurements/composed-worst-case-formats.json (ee5851f). The widest coupling save has 55,972,509 raw bytes; the widest Express with coupling save has 77,049,511 raw bytes (cap 83,886,080). The widest HTTP state with the topology at its cap has 65,856,468 bytes (cap 67,108,864). These values are from the landed record. The record at 05e95b1 gave 77,004,277 bytes for the Express with coupling save, before main changed that fixture.",
+      "mutations": []
+    },
+    {
+      "id": "C4",
+      "requirement": "Reject an oversized state atomically without trimming groups, routes, orders or history.",
+      "tests": [
+        "internal/session: TestCouplingSaveCapRejectsAtomically (new): the composed coupling save with 150 groups, padded with whitespace to 83,886,080 raw bytes, decodes with each group; at 83,886,081 bytes startup keeps the file, makes no store call other than the read, and returns no session (too_large). The encoder writes the same save at the cap, and at one byte more gives ErrStateTooLarge and no data. Run time 8 s, peak RSS 528 MB.",
+        "internal/session: TestEncodeStateFileTooLarge, TestDecodeStateFileSizeBoundary, TestSavedInvalidMovedAside/too_large"
+      ],
+      "result": "Qualified for the save. The near-cap coupled case rejects atomically, and the raw writer and decoder caps have caller kills with it.",
+      "mutations": []
+    },
+    {
+      "id": "C5",
+      "requirement": "At HEAD there are no older families. Unknown or wrong markers, profiles and phases reject before state replacement. A save of a version from 1 to 8, or of 10 or more, gets unsupported_version and moves aside.",
+      "tests": [
+        "internal/session: TestSavedVersionRefusals (versions 1-8 and 10, plain and coupling), TestSavedInvalidMovedAside, TestDecodeStateFileRejects, TestCouplingSavedEncoderMarkers, TestCouplingHelloRequiresQualifiedMarkers, TestEncodeStreamJSONBindsCouplingMarker, TestCouplingStreamReservedFieldsAndShape, TestCouplingSavedBoundsAndScalars",
+        "internal/project: TestCouplingFieldsRequireMarker, TestCouplingRawPresenceRequiresMarker"
+      ],
+      "result": "Qualified. Versions 1-8 and 10 move aside as unsupported_version, with and without coupling markers. The test does not try versions above 10; the decoder compares the version with 9 for equality, so each later version takes the same branch.",
+      "notes": [
+        "The comment of TestSavedVersionRefusals says that a later version with coupling members is preserved. The test and the code move it aside. The comment is out of date."
+      ],
+      "mutations": [
+        {
+          "id": "c5-version",
+          "site": "internal/session/state_file.go:334",
+          "change": {
+            "from": "if header.Format != stateFormat || header.Version != stateVersion {",
+            "to": "if header.Format != stateFormat {"
+          },
+          "package": "internal/session",
+          "tests": "^TestSavedVersionRefusals$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestSavedVersionRefusals"
+          ],
+          "assertion": "saved_state_test.go:233: rejection calls [read reject write], reason \"invalid_state\", want \"unsupported_version\"",
+          "source_sha256": "6b1eed69210b63c1dd043a3e184e947bdd66b3d090aeba179de79a3b75424311",
+          "hash_restored": true,
+          "final": "KILLED"
+        },
+        {
+          "id": "c5-replacement-contract",
+          "site": "internal/session/coupling_stream.go:29",
+          "change": {
+            "from": "if replacement.Contract != frame.CouplingContract {",
+            "to": "if false && replacement.Contract != frame.CouplingContract {"
+          },
+          "package": "internal/session",
+          "tests": "^(TestCoupling.*|TestEncodeStreamJSON.*)$",
+          "control": "pass",
+          "result": "SURVIVED",
+          "wider_runs": [
+            {
+              "package": "internal/session",
+              "tests": "all tests except TestComposedWorstCaseFormats and TestCouplingSaveCapRejectsAtomically",
+              "control": "pass",
+              "result": "SURVIVED",
+              "failing_tests": []
+            }
+          ],
+          "source_sha256": "8e319baa2e0003066279cb290f8d16563d28dbda7c0736946252cd3907924216",
+          "hash_restored": true,
+          "final": "SURVIVED",
+          "reading": "Not reachable while one coupling profile exists: applyCouplingReplacement requires the frame marker to be the one known contract (coupling_stream.go:19), and the scan of the replacement requires the same value. The check is for a second profile."
+        }
+      ]
+    },
+    {
+      "id": "U3",
+      "requirement": "Combined widest limits: sites, corridors, groups, pods, Express orders and project padding together across project, save (raw and gzip), stream (JSON and binary), topology, HTTP and commands.",
+      "tests": [
+        "internal/session: TestComposedWorstCaseFormats",
+        "internal/session: TestStreamGzipExpansionBound",
+        "internal/session: TestCommandCouplingArrayBounds"
+      ],
+      "result": "Covered except the command body. Save raw and gzip, full and delta JSON, and HTTP with the topology at its cap are measured. Groups (150), pods (300), Express orders and the project at its 10 MiB byte cap are in the fixtures. Sites and corridors are not in the fixtures, because the fixture network has no valid geometry; the project member is at its byte cap whatever it holds, and the HTTP bound sets the topology to its cap, so sites and corridors cannot make the measured documents larger. The binary stream frame is the gzip form of the JSON: the composed test makes it with compressStreamJSON, which checks MaxStreamMessage, and TestStreamGzipExpansionBound shows that 64 MiB of incompressible JSON gives 67,114,009 bytes, below 68,157,440.",
+      "mutations": []
+    },
+    {
+      "id": "U4",
+      "requirement": "Cancellation receipts for the widest coupled decode, encode, HTTP, stream and startup restore.",
+      "tests": [
+        "internal/session: TestCouplingStartupCancelAfterRestore (new): a cancel after the restore of a committed group returns context.Canceled, with no session; after each goroutine of the synctest bubble ends or blocks, the store has had no call other than the read",
+        "internal/session: TestCouplingPublishCanceled (new): a canceled delta publication of a coupling session keeps the frame, the sequence, the stream and the history"
+      ],
+      "result": "Partial. The new receipts use the phase fixture with one committed group, not the widest assets: the composed fixtures are independent maxima that do not pass the restore and view checks.",
+      "mutations": [
+        {
+          "id": "u4-startup-cancel",
+          "site": "internal/session/persist.go:278",
+          "change": {
+            "from": "if ctx.Err() != nil { return nil, fmt.Errorf(\"start session: %w\"",
+            "to": "if false && ctx.Err() != nil { return nil, fmt.Errorf(\"start session: %w\""
+          },
+          "package": "internal/session",
+          "tests": "^TestCouplingStartupCancelAfterRestore$ (-test.count=5)",
+          "control": "pass (5 runs)",
+          "result": "KILLED",
+          "source_sha256": "cf54c136f7ba57d6aadabb9fc3c4eab58b11bf7e9e4d68424da88e4672e9d60a",
+          "hash_restored": true,
+          "final": "KILLED",
+          "reading": "Killed in 5 of 5 runs. callStore starts the startup save in a goroutine and can return the cancellation while that goroutine goes on; SaveState then calls store.Write without a cancellation check, and the fake store ignores the context. The test now runs in a synctest bubble and calls synctest.Wait before it reads the store, so it sees the late write of the mutant. Without the mutation, startup returns at persist.go:278 before the save starts, and the store has the read only.",
+          "first_run": {
+            "result": "SURVIVED",
+            "note": "The first version of the test read the store at once after startup returned. Its wider session run also survived."
+          },
+          "source_commit": "f186580",
+          "failing_tests": [
+            "TestCouplingStartupCancelAfterRestore"
+          ],
+          "assertion": "coupling_cap_test.go:113: canceled start changed the store [read write]"
+        },
+        {
+          "id": "u4-publish-cancel",
+          "site": "internal/session/stream.go:361",
+          "change": {
+            "from": "if ctx.Err() != nil { return ctx.Err() } changed :=",
+            "to": "if false && ctx.Err() != nil { return ctx.Err() } changed :="
+          },
+          "package": "internal/session",
+          "tests": "^TestCouplingPublishCanceled$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestCouplingPublishCanceled"
+          ],
+          "assertion": "coupling_cap_test.go:128: got <nil>, want context canceled",
+          "source_sha256": "f6a591d1dc671b3085fee0871a4cb1f1afa8bbef381724638fc283b98800207f",
+          "hash_restored": true,
+          "final": "KILLED",
+          "reading": "The new test kills the context check before the publisher builds its envelope."
+        }
+      ]
+    },
+    {
+      "id": "U7",
+      "requirement": "The save8 overlay plan has 15 guards. Version 8 is gone; list the guards that remain in the version 9 code and run them.",
+      "tests": [
+        "See each mutation."
+      ],
+      "result": "10 guards remain as written, 3 remain at a new site, and 2 are gone. The guards that remain were run.",
+      "guards": [
+        {
+          "guard": "markers",
+          "status": "remains",
+          "site": "internal/session/express_wire.go:110",
+          "mutation": "g8-save-marker"
+        },
+        {
+          "guard": "order-discriminator",
+          "status": "gone",
+          "reason": "Item 7 removed the version selection between save families. One version 9 save has no order discriminator; the order marker selects only the bounds."
+        },
+        {
+          "guard": "required-record-members",
+          "status": "remains",
+          "site": "internal/session/coupling_json.go:204",
+          "mutation": "u7-required-record-members"
+        },
+        {
+          "guard": "old-presence",
+          "status": "new site",
+          "reason": "There are no older versions. The guard that refuses coupling members in a save without the coupling marker is internal/session/order_state.go:32.",
+          "mutation": "g8-unmarked-save-fields"
+        },
+        {
+          "guard": "full-route",
+          "status": "remains, two callers",
+          "site": "internal/session/state_file.go:244 (encoder) and :455 (decoder)",
+          "mutation": "u7-full-route-encoder, u7-full-route-decoder"
+        },
+        {
+          "guard": "lossless-native",
+          "status": "remains",
+          "site": "internal/session/persist.go:517",
+          "mutation": "u7-lossless-native"
+        },
+        {
+          "guard": "startup-preservation",
+          "status": "remains",
+          "site": "internal/session/persist.go:321",
+          "mutation": "u7-startup-preservation"
+        },
+        {
+          "guard": "opaque-read",
+          "status": "remains",
+          "site": "internal/session/persist.go:315",
+          "mutation": "u7-opaque-read"
+        },
+        {
+          "guard": "late-presence",
+          "status": "gone",
+          "reason": "Item 7 removed the scan of a later version. Each version other than 9 now moves aside at the header (state_file.go:334, mutation c5-version)."
+        },
+        {
+          "guard": "opaque-depth",
+          "status": "new site",
+          "reason": "The opaque scan of a later version is gone. The depth check of the coupling scan remains at internal/session/coupling_json.go:62.",
+          "mutation": "u7-opaque-depth"
+        },
+        {
+          "guard": "groupfree-proof",
+          "status": "new site",
+          "reason": "The session refusal of logical recovery with committed groups is internal/session/persist.go:484.",
+          "mutation": "u7-groupfree-logical"
+        },
+        {
+          "guard": "topology-ownership",
+          "status": "remains",
+          "site": "internal/session/session.go:406",
+          "mutation": "u7-topology-ownership"
+        },
+        {
+          "guard": "command-sites",
+          "status": "remains",
+          "site": "internal/session/http.go:85",
+          "mutation": "u7-command-sites"
+        },
+        {
+          "guard": "command-corridors",
+          "status": "remains",
+          "site": "internal/session/http.go:86",
+          "mutation": "u7-command-corridors"
+        },
+        {
+          "guard": "command-lanes",
+          "status": "remains",
+          "site": "internal/session/http.go:87",
+          "mutation": "u7-command-lanes"
+        }
+      ],
+      "mutations": [
+        {
+          "id": "u7-required-record-members",
+          "site": "internal/session/coupling_json.go:204",
+          "change": {
+            "from": "if seen != (uint16(1)<<len(fields))-1 {",
+            "to": "if false && seen != (uint16(1)<<len(fields))-1 {"
+          },
+          "package": "internal/session",
+          "tests": "^TestCouplingSavedRequiredMembers$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestCouplingSavedRequiredMembers"
+          ],
+          "assertion": "coupling_state_test.go:188: accepted malformed committed group",
+          "source_sha256": "940d57961e1b652a8faa9dd7a523a66eba3c9d57c3f5b5b4a5cb29caf21cbd8f",
+          "hash_restored": true,
+          "final": "KILLED"
+        },
+        {
+          "id": "u7-full-route-encoder",
+          "site": "internal/session/state_file.go:244",
+          "change": {
+            "from": "if err := validateCouplingRoutes(file); err != nil { return nil, err",
+            "to": "if err := validateCouplingRoutes(file); false && err != nil { return nil, err"
+          },
+          "package": "internal/session",
+          "tests": "^TestCouplingSavedRoutePreflight$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestCouplingSavedRoutePreflight"
+          ],
+          "assertion": "coupling_state_test.go:265: encoded incomplete committed route",
+          "source_sha256": "6b1eed69210b63c1dd043a3e184e947bdd66b3d090aeba179de79a3b75424311",
+          "hash_restored": true,
+          "final": "KILLED"
+        },
+        {
+          "id": "u7-full-route-decoder",
+          "site": "internal/session/state_file.go:455",
+          "change": {
+            "from": "if err := validateCouplingRoutes(file); err != nil { return stateFile{}, err",
+            "to": "if err := validateCouplingRoutes(file); false && err != nil { return stateFile{}, err"
+          },
+          "package": "internal/session",
+          "tests": "^TestCouplingSavedRoutePreflight$",
+          "control": "pass",
+          "result": "SURVIVED",
+          "wider_runs": [
+            {
+              "package": "internal/session",
+              "tests": "all tests except TestComposedWorstCaseFormats and TestCouplingSaveCapRejectsAtomically",
+              "control": "pass",
+              "result": "SURVIVED",
+              "failing_tests": []
+            }
+          ],
+          "source_sha256": "6b1eed69210b63c1dd043a3e184e947bdd66b3d090aeba179de79a3b75424311",
+          "hash_restored": true,
+          "final": "SURVIVED",
+          "reading": "No decoder test: TestCouplingSavedRoutePreflight checks the encoder only. A saved group with an incomplete route then reaches the native restore, which refuses it; by code reading. The encoder caller is KILLED."
+        },
+        {
+          "id": "u7-lossless-native",
+          "site": "internal/session/persist.go:517",
+          "change": {
+            "from": "if err = validateCouplingRestoreResult(loaded.result); err != nil {",
+            "to": "if err = validateCouplingRestoreResult(loaded.result); false && err != nil {"
+          },
+          "package": "internal/session",
+          "tests": "^TestCouplingRestoreResultMovedAside$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestCouplingRestoreResultMovedAside"
+          ],
+          "assertion": "coupling_persist_test.go:104: rejection calls [read backup write], reason \"physical_failed\", want \"invalid_state\"",
+          "source_sha256": "9191e0c36ea3c5988b5677793a8984cde2c3c320e9dda95d664730355266c80e",
+          "hash_restored": true,
+          "final": "KILLED"
+        },
+        {
+          "id": "u7-startup-preservation",
+          "site": "internal/session/persist.go:321",
+          "change": {
+            "from": "if _, protected := errors.AsType[*preservedStateError](err); protected {",
+            "to": "if _, protected := errors.AsType[*preservedStateError](err); false && protected {"
+          },
+          "package": "internal/session",
+          "tests": "^(TestSavedInvalidMovedAside|TestCouplingStoreOpaqueReadTooLarge)$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestSavedInvalidMovedAside"
+          ],
+          "assertion": "saved_state_test.go:297: preserved state returned a session <nil>",
+          "source_sha256": "9191e0c36ea3c5988b5677793a8984cde2c3c320e9dda95d664730355266c80e",
+          "hash_restored": true,
+          "final": "KILLED"
+        },
+        {
+          "id": "u7-opaque-read",
+          "site": "internal/session/persist.go:315",
+          "change": {
+            "from": "case errors.Is(input.readErr, ErrStateTooLarge):",
+            "to": "case false && errors.Is(input.readErr, ErrStateTooLarge):"
+          },
+          "package": "internal/session",
+          "tests": "^TestCouplingStoreOpaqueReadTooLarge$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestCouplingStoreOpaqueReadTooLarge"
+          ],
+          "assertion": "coupling_persist_test.go:113: preserved state returned a session <nil>",
+          "source_sha256": "9191e0c36ea3c5988b5677793a8984cde2c3c320e9dda95d664730355266c80e",
+          "hash_restored": true,
+          "final": "KILLED"
+        },
+        {
+          "id": "u7-groupfree-logical",
+          "site": "internal/session/persist.go:484",
+          "change": {
+            "from": "if loaded.logicalOnly && len(file.Simulation.CouplingGroups) != 0 {",
+            "to": "if false && loaded.logicalOnly && len(file.Simulation.CouplingGroups) != 0 {"
+          },
+          "package": "internal/session",
+          "tests": "^(TestSavedInvalidMovedAside|TestCouplingStoreGroupFreePanic|TestCouplingStoreGroupFreeRecovery)$",
+          "control": "pass",
+          "result": "SURVIVED",
+          "wider_runs": [
+            {
+              "package": "internal/session",
+              "tests": "all tests except TestComposedWorstCaseFormats and TestCouplingSaveCapRejectsAtomically",
+              "control": "pass",
+              "result": "SURVIVED",
+              "failing_tests": []
+            }
+          ],
+          "source_sha256": "9191e0c36ea3c5988b5677793a8984cde2c3c320e9dda95d664730355266c80e",
+          "hash_restored": true,
+          "final": "SURVIVED",
+          "reading": "Layered: the native restore refuses logical recovery while a group remains (sim/coupling_restore.go:36-38), so TestSavedInvalidMovedAside still moves the file aside as invalid_state."
+        },
+        {
+          "id": "u7-topology-ownership",
+          "site": "internal/session/session.go:406",
+          "change": {
+            "from": "CouplingCorridors: cloneCouplingCorridors(s.project.CouplingCorridors)",
+            "to": "CouplingCorridors: s.project.CouplingCorridors"
+          },
+          "package": "internal/session",
+          "tests": "^TestCouplingTopologyStandalone$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestCouplingTopologyStandalone"
+          ],
+          "assertion": "coupling_topology_test.go:50: topology shares retained coupling geometry",
+          "source_sha256": "c321b7bf8d49658b69741b576668177583923a8bb9a5c6694ce90af9c2e8cf30",
+          "hash_restored": true,
+          "final": "KILLED"
+        },
+        {
+          "id": "u7-opaque-depth",
+          "site": "internal/session/coupling_json.go:62",
+          "change": {
+            "from": "if depth > 64 { return scan, errJSONTooDeep",
+            "to": "if false && depth > 64 { return scan, errJSONTooDeep"
+          },
+          "package": "internal/session",
+          "tests": "^(TestDecodeStateFileBombs|TestCouplingSavedBoundsAndScalars|TestCouplingTopologyBoundsAndRequired)$",
+          "control": "pass",
+          "result": "SURVIVED",
+          "wider_runs": [
+            {
+              "package": "internal/session",
+              "tests": "all tests except TestComposedWorstCaseFormats and TestCouplingSaveCapRejectsAtomically",
+              "control": "pass",
+              "result": "SURVIVED",
+              "failing_tests": []
+            }
+          ],
+          "source_sha256": "940d57961e1b652a8faa9dd7a523a66eba3c9d57c3f5b5b4a5cb29caf21cbd8f",
+          "hash_restored": true,
+          "final": "SURVIVED",
+          "reading": "Layered: prescanJSON with the saved limits (depth 64) runs before the coupling scan (state_file.go:409), so a deeper document never reaches this check."
+        }
+      ]
+    }
+  ],
+  "open_gaps": [
+    {
+      "row": "G8",
+      "gap": "No WASM (Node Go/WASM) or Chromium run with coupling frames at the source commit."
+    },
+    {
+      "row": "G8",
+      "gap": "The coupling half of the HTTP envelope check (state_http.go:64) and the frame binding (protocol.go:109) refuse the same input: a marked root and frame with an unmarked topology. Each single mutation survives because the other refuses the input. No test removes both."
+    },
+    {
+      "row": "G9",
+      "gap": "Several caps have no over-cap test at their caller and survive because an earlier or later cap refuses the same input; see the readings of the surviving mutations."
+    },
+    {
+      "row": "G9",
+      "gap": "Each size cap on the stream and HTTP decode path in the session package survived: stream_service.go:32, stream_codec.go:419, :486 and :500, and state_http.go:57. No test sends a document or message over the cap through this chain, so no layer of it has a kill. The only over-cap decode evidence is the remote client response limit (TestExchangeBoundsResponseBodies) and the websocket read limit, which were not mutated."
+    },
+    {
+      "row": "G9 and U5",
+      "gap": "Heap retention and per-tick cost of the coupled formats were not measured."
+    },
+    {
+      "row": "U3",
+      "gap": "No command is measured with the widest coupled project. The bound holds by construction: project.Validate limits the compact project JSON to project.MaxFileBytes, and MaxInflatedCommandBytes is project.MaxFileBytes plus 64 KiB. TestCommandCouplingArrayBounds checks the counts only."
+    },
+    {
+      "row": "U3",
+      "gap": "The composed fixtures have no coupling sites or corridors, because the fixture network has no valid geometry. The byte bound holds because the project member and the topology are at their byte caps."
+    },
+    {
+      "row": "U4",
+      "gap": "No cancellation receipt for the HTTP state: stateHTTP has no context check, and a canceled request ends at the response write."
+    },
+    {
+      "row": "U4",
+      "gap": "No coupling-specific receipt for remote decode cancellation (internal/remote/inflate_native.go:16, internal/remote/stream.go:151) or for encode."
+    },
+    {
+      "row": "U4",
+      "gap": "The receipts use the phase fixture with one group. A receipt with the widest coupled assets needs a fixture that passes the restore and view checks at full width."
+    },
+    {
+      "row": "U4",
+      "gap": "A cancel during the startup save itself is not tested. callStore can return the cancellation while its goroutine still calls store.Write; whether the write then lands depends on the store. The production store passes the context to the bucket write."
+    }
+  ]
+}

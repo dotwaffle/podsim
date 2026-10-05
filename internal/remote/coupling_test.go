@@ -103,6 +103,9 @@ func TestCouplingRemoteHTTP(t *testing.T) {
 	}
 }
 
+// TestCouplingRemoteHTTPRejectsUnqualifiedFields serves an unmarked HTTP
+// state with one coupling member. The reply has the state media type, so
+// the client refuses it with the coupling scan and not with the media type.
 func TestCouplingRemoteHTTPRejectsUnqualifiedFields(t *testing.T) {
 	t.Parallel()
 	for _, name := range []string{"couplingContract", "couplingEnabled", "couplingGroups", "couplingSites", "couplingCorridors", "couplingID"} {
@@ -110,14 +113,18 @@ func TestCouplingRemoteHTTPRejectsUnqualifiedFields(t *testing.T) {
 			t.Run(name+literal, func(t *testing.T) {
 				t.Parallel()
 				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-					w.Header().Set("Content-Type", "application/json")
+					w.Header().Set("Content-Type", session.StateMediaType)
 					_, _ = fmt.Fprintf(w, `{"epoch":"new","simulation":{"%s":%s}}`, name, literal)
 				}))
 				t.Cleanup(server.Close)
 				client := &Client{url: server.URL, http: server.Client()}
 				state := session.State{Epoch: "accepted"}
-				if err := client.exchange(t.Context(), http.MethodGet, "/api/state", nil, &state); err == nil || state.Epoch != "accepted" {
+				err := client.exchange(t.Context(), http.MethodGet, "/api/state", nil, &state)
+				if err == nil || state.Epoch != "accepted" {
 					t.Fatal("unqualified train fields changed prior state", err)
+				}
+				if !strings.Contains(err.Error(), "coupling fields") {
+					t.Fatal("the coupling scan did not refuse the reply", err)
 				}
 			})
 		}
