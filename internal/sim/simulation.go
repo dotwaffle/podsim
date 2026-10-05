@@ -68,15 +68,15 @@ var (
 // From and To never change after acceptance. LegFrom is the station where
 // the party boards its current pod. Only a transfer sets it, and then it
 // stays until the next transfer of the order, also after completion. It is
-// empty for every other order. See legOrigin. The session save writes it
-// as a station index. No stream writes it yet.
+// empty for every other order. See legOrigin. It needs the incident
+// marker. The session save writes it as a station index.
 type Request struct {
 	SharingConsent SharingConsent `json:"sharingConsent"`
 	Service        ServiceChoice  `json:"service"`
 	ServiceID      string         `json:"serviceID,omitempty"`
 	ID             int            `json:"id"`
 	From           string         `json:"from"`
-	LegFrom        string         `json:"-"`
+	LegFrom        string         `json:"legFrom,omitempty"`
 	To             string         `json:"to"`
 	PartySize      int            `json:"partySize"`
 	PodID          string         `json:"podID"`
@@ -141,7 +141,22 @@ type Vehicle struct {
 	// behind. They are empty for a pod that is not coupled.
 	PlatoonID    string `json:"platoonID,omitempty"`
 	PlatoonIndex int    `json:"platoonIndex,omitzero"`
+	// Withdrawn holds the service holds of the pod: 1 for a fault and 2
+	// for an emergency. Operational is the purpose of an operational
+	// destination: OperationalEmergencyUnload, OperationalRefuge, or
+	// OperationalEmptyRecovery. It is empty for a pod in service.
+	// Snapshot sets both. They need the incident marker.
+	Withdrawn   uint8  `json:"withdrawn,omitzero"`
+	Operational string `json:"operational,omitzero"`
 }
+
+// The operational purposes of Vehicle.Operational (incident contract,
+// section 11.5).
+const (
+	OperationalEmergencyUnload = "emergency-unload"
+	OperationalRefuge          = "refuge"
+	OperationalEmptyRecovery   = "empty-recovery"
+)
 
 // BerthState separates physical occupancy from local arrival admission.
 type BerthState struct {
@@ -168,8 +183,8 @@ type Snapshot struct {
 	Demo      bool         `json:"demo"`
 	DemoError string       `json:"demoError"`
 	// Interrupted counts the orders that ended interrupted since reset, and
-	// InterruptedPassengers is the sum of their party sizes. No stream
-	// frame carries them yet.
+	// InterruptedPassengers is the sum of their party sizes. They need the
+	// incident marker.
 	Interrupted           int `json:"interrupted,omitzero"`
 	InterruptedPassengers int `json:"interruptedPassengers,omitzero"`
 	// Pending holds passenger requests that have not started boarding.
@@ -567,6 +582,7 @@ func (s *Simulation) snapshot(routes bool) Snapshot {
 			cloned.Route = cloneLanes(v.Route)
 		}
 		cloned.Riders, cloned.Stops = slices.Clone(cloned.Riders), slices.Clone(cloned.Stops)
+		cloned.Withdrawn, cloned.Operational = uint8(v.withdrawn), v.op.purpose.name()
 		cloned.Boardings, cloned.RiddenMeters = nil, 0
 		if !v.legacyBoardingRecords() {
 			cloned.Boardings, cloned.RiddenMeters = slices.Clone(v.Boardings), v.riddenMeters()

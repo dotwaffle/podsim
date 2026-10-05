@@ -26,6 +26,21 @@ const (
 	opEmptyRecovery
 )
 
+// name returns the name of a purpose in Vehicle.Operational. Service has
+// the empty name.
+func (purpose opPurpose) name() string {
+	switch purpose {
+	case opEmergencyUnload:
+		return OperationalEmergencyUnload
+	case opRefuge:
+		return OperationalRefuge
+	case opEmptyRecovery:
+		return OperationalEmptyRecovery
+	default:
+		return ""
+	}
+}
+
 // refugeHolding is the wait reason of a pod that holds at its refuge.
 const refugeHolding WaitReason = "Holding at refuge"
 

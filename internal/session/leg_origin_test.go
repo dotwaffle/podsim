@@ -16,6 +16,7 @@ import (
 func strandedSession(t *testing.T) *Session {
 	t.Helper()
 	config := expressConsumerProject(t)
+	config.IncidentContract = sim.IncidentV1Contract
 	classes, err := sim.NewClassSet("group")
 	if err != nil {
 		t.Fatal(err)
@@ -119,22 +120,28 @@ func TestLegOriginBoardingTuples(t *testing.T) {
 	}
 }
 
-// TestLegFromHasNoStreamMember checks that no stream order has a legFrom
-// member before the stream patch of the incident contract adds it: the
-// encoder leaves LegFrom out, and the decoder refuses the member.
-func TestLegFromHasNoStreamMember(t *testing.T) {
+// TestLegFromStreamMember checks the packed leg origin of a stream order
+// (incident contract, section 11.5): the encoder packs it, the decoder
+// unpacks it, and an order without a leg origin has no member.
+func TestLegFromStreamMember(t *testing.T) {
 	t.Parallel()
 	stream, err := json.Marshal(legRequest("garden"), packedRequestOptions())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if bytes.Contains(stream, []byte("legFrom")) {
-		t.Fatalf("encoded order %s has a legFrom member", stream)
+	if !bytes.Contains(stream, []byte(`"legFrom":"Z2FyZGVu"`)) {
+		t.Fatalf("encoded order %s has no packed legFrom member", stream)
 	}
-	member := []byte(`{"legFrom":"Z2FyZGVu",`)
 	var request sim.Request
-	if err := json.Unmarshal(bytes.Replace(stream, []byte("{"), member, 1), &request, packedDecodeOptions()); err == nil {
-		t.Error("the stream decoder accepts a legFrom member")
+	if decodeErr := json.Unmarshal(stream, &request, packedDecodeOptions()); decodeErr != nil || request.LegFrom != "garden" {
+		t.Fatalf("decoded leg origin %q: %v", request.LegFrom, decodeErr)
+	}
+	plain, err := json.Marshal(legRequest(""), packedRequestOptions())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(plain, []byte("legFrom")) {
+		t.Fatalf("encoded order %s without a leg origin has a legFrom member", plain)
 	}
 }
 

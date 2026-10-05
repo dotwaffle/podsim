@@ -109,7 +109,7 @@ The incident marker `incidentContract` is only in the topology and in the simula
 The hello, the envelope root, and a delta do not have it.
 A client refuses a frame whose incident marker differs from the marker of its topology.
 A change of the marker is a project change, so it comes with a new project revision and a new topology.
-The order text of each order (`from`, `to`, `podID`, `dispatchReason`, and `serviceID`) is canonical base64 of the UTF-8 text, for every project kind.
+The order text of each order (`from`, `to`, `podID`, `dispatchReason`, `serviceID`, and `legFrom`) is canonical base64 of the UTF-8 text, for every project kind.
 This includes the pending replacement group of a delta and the HTTP state.
 No message has a `textEncoding` member.
 Sequence and base use decimal strings.
@@ -118,7 +118,8 @@ A delta carries replacement `groups`, vehicle changes by pod ID, and changed ber
 A replacement wrapper has a `value` member, so null, zero, and an empty list differ from an absent group.
 
 The groups are controls, demand, restore, checkpoints, pending requests, global simulation state, and statistics.
-Vehicle groups are pod fields, presentation route, riders, stops, and relocation or platoon metadata.
+With the incident marker, the `incident` group has the interrupted counters.
+Vehicle groups are pod fields, presentation route, riders, stops, and relocation, platoon, or incident metadata.
 Membership, order, source, project, or generation changes start a new full baseline.
 A delta must name the exact preceding stream and sequence.
 Invalid data closes the socket and retains the last valid view until reconnection.
@@ -233,6 +234,24 @@ A pod in a [virtual platoon](../README.md#virtual-platoons) also has `platoonID`
 Thus the pod ahead of a pod with index 3 has the same `platoonID` and index 2.
 A pod that is not in a platoon omits both keys.
 With platoons off, no pod has these keys, so the frame does not change.
+
+With the incident marker, a frame can have these members:
+
+| Member | Content | Delta group |
+| --- | --- | --- |
+| `simulation.interrupted` | The number of orders that ended interrupted since the reset. | `incident` |
+| `simulation.interruptedPassengers` | The sum of the party sizes of these orders. | `incident` |
+| `withdrawn` of a vehicle | The service holds of the pod: 1 for a fault and 2 for an emergency. | Vehicle `metadata` |
+| `operational` of a vehicle | `emergency-unload`, `refuge`, or `empty-recovery` when the pod has an operational destination. | Vehicle `metadata` |
+| `legFrom` of an order | The station where the party waits for its next leg after a transfer. | `pending`, or vehicle `riders` |
+
+Each member is omitted at 0 or when it is empty.
+The `incident` group of a delta has both counters.
+A vehicle with `operational` also has `withdrawn`.
+A client refuses an unknown hold bit, an unknown purpose, and a `legFrom` that is not a passenger station or that is the destination of the order.
+It also refuses null and an empty text in these members.
+Without the marker, a client refuses each of these members and the `incident` group, also with a value of 0, null, or empty.
+The same rules apply to the HTTP state.
 
 The `simulation` object has these ride metrics:
 

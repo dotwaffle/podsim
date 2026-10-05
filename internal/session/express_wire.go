@@ -40,6 +40,9 @@ func validateEncodedContract(e StreamEnvelope) error {
 		if err := sim.ValidateIncidentContract(e.Full.State.Simulation.IncidentContract); err != nil {
 			return err
 		}
+		if err := checkIncidentFrame(e.Full.State.Simulation); err != nil {
+			return err
+		}
 		if e.OrderContract != e.Full.State.Simulation.OrderContract {
 			return errors.New("publication order contract mismatch")
 		}

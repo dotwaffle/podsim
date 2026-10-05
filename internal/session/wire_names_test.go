@@ -26,7 +26,7 @@ func wireRoots() []any {
 var deltaGroups = map[string]any{
 	"controls": controlsGroup{}, "global": globalGroup{}, "statistics": streamStatistics{},
 	"demand": DemandState{}, "restore": RestoreInfo{}, "checkpoints": []Checkpoint{},
-	"pending": []sim.Request{}, "coupling": couplingReplacement{},
+	"pending": []sim.Request{}, "coupling": couplingReplacement{}, "incident": incidentGroup{},
 }
 
 // wirePaths returns the member paths of the wire roots and of the delta
@@ -105,7 +105,7 @@ func TestScannerLiteralsMatchTags(t *testing.T) {
 	files := []string{
 		"boarding_state.go", "compact_state.go", "coupling_json.go",
 		"coupling_state.go", "coupling_stream.go", "coupling_stream_json.go", "express_text.go",
-		"express_wire.go", "http.go", "incident_state.go", "order_command.go", "order_state.go", "protocol.go",
+		"express_wire.go", "http.go", "incident_state.go", "incident_stream.go", "order_command.go", "order_state.go", "protocol.go",
 		"state_file.go", "stream_boardings.go", "stream_codec.go", "stream_frame.go",
 		"state_http.go", "stream_service.go", "topology_decode.go", "../remote/client.go", "../remote/stream.go",
 	}

@@ -143,6 +143,9 @@ func (a *StreamAssembler) State(f StreamFrame) (State, error) {
 	if err != nil {
 		return State{}, err
 	}
+	if err := checkIncidentFrame(f.State.Simulation); err != nil {
+		return State{}, err
+	}
 	if err := a.references(f); err != nil {
 		return State{}, err
 	}

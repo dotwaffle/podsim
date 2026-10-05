@@ -1,6 +1,7 @@
 package session
 
 import (
+	"fmt"
 	"reflect"
 	"slices"
 	"testing"
@@ -23,8 +24,17 @@ func incidentSaveProject(pods int) project.Config {
 // incidentSave is a session with a store, for the full saves of section
 // 14.5 of the incident contract.
 type incidentSave struct {
-	s     *Session
-	store *fakeStore
+	s      *Session
+	store  *fakeStore
+	stream *incidentStream
+}
+
+// incidentStream is the stream client of an incidentSave: the last
+// applied frame, its sequence, and the assembler of the topology.
+type incidentStream struct {
+	assembler *StreamAssembler
+	frame     StreamFrame
+	sequence  uint64
 }
 
 func newIncidentSave(t *testing.T, config project.Config) incidentSave {
@@ -35,7 +45,7 @@ func newIncidentSave(t *testing.T, config project.Config) incidentSave {
 		t.Fatal(err)
 	}
 	t.Cleanup(s.Close)
-	return incidentSave{s: s, store: store}
+	return incidentSave{s: s, store: store, stream: &incidentStream{}}
 }
 
 // operate runs one stage 1 operation as a command does: under the lock,
@@ -83,9 +93,11 @@ func (x incidentSave) stepUntil(t *testing.T, what string, done func(sim.SavedSt
 // check saves the session and checks the save: the live state passes the
 // contract, the adapter gives back the exported state exactly, the session
 // restores it with the physical tier and the same export, and a logical
-// restore passes the contract. It returns the exported state.
+// restore passes the contract. It also checks the stream and the HTTP
+// state with checkStream. It returns the exported state.
 func (x incidentSave) check(t *testing.T, name string) sim.SavedState {
 	t.Helper()
+	x.checkStream(t, name)
 	x.s.mu.Lock()
 	if err := x.s.simulation.CheckContract(); err != nil {
 		x.s.mu.Unlock()
@@ -135,6 +147,101 @@ func (x incidentSave) check(t *testing.T, name string) sim.SavedState {
 		t.Fatalf("%s: logical restore: %v", name, err)
 	}
 	return want
+}
+
+// checkStream sends the presentation frame through the stream codec, as a
+// full frame first and then as a delta from the frame of the last check,
+// and through the HTTP state. The client gets the same incident members,
+// and the assembler and the boarding validator accept each frame.
+func (x incidentSave) checkStream(t *testing.T, name string) {
+	t.Helper()
+	topology := x.s.Topology()
+	x.s.mu.Lock()
+	saved := x.s.simulation.ExportState()
+	frame, err := x.s.presentationFrameLocked()
+	x.s.mu.Unlock()
+	if err != nil {
+		t.Fatalf("%s: frame: %v", name, err)
+	}
+	want := incidentView(frame.State.Simulation)
+	// The frame shows the holds, the purpose, and the counters of the
+	// simulation.
+	purposes := []string{"", sim.OperationalEmergencyUnload, sim.OperationalRefuge, sim.OperationalEmptyRecovery}
+	if want.Interrupted != saved.Interrupted || want.InterruptedPassengers != saved.InterruptedPassengers {
+		t.Fatalf("%s: the frame counters are %d and %d", name, want.Interrupted, want.InterruptedPassengers)
+	}
+	for _, vehicle := range frame.State.Simulation.Vehicles {
+		pod := savedPod(saved, vehicle.Pod.ID)
+		if vehicle.Withdrawn != pod.Withdrawn || vehicle.Operational != purposes[pod.Purpose] {
+			t.Fatalf("%s: vehicle %s shows %d %q, the save has %d %d", name, pod.ID, vehicle.Withdrawn, vehicle.Operational, pod.Withdrawn, pod.Purpose)
+		}
+	}
+	client := x.stream
+	envelope := StreamEnvelope{OrderContract: frame.State.Simulation.OrderContract, Kind: "full", Stream: "incident", Sequence: client.sequence + 1, Source: sourceOf(frame), Build: frame.State.Build, Full: &frame}
+	if client.assembler != nil {
+		delta, deltaErr := makeDelta(client.frame, frame)
+		if deltaErr != nil {
+			t.Fatalf("%s: delta: %v", name, deltaErr)
+		}
+		envelope.Kind, envelope.Full, envelope.Delta, envelope.Base = "delta", nil, &delta, client.sequence
+	} else if client.assembler, err = NewStreamAssembler(topology); err != nil {
+		t.Fatalf("%s: assembler: %v", name, err)
+	}
+	data, err := EncodeStreamJSON(envelope)
+	if err != nil {
+		t.Fatalf("%s: encode: %v", name, err)
+	}
+	decoded, err := DecodeStreamJSON(data)
+	if err != nil {
+		t.Fatalf("%s: decode: %v", name, err)
+	}
+	applied, err := ApplyStream(client.frame, "incident", client.sequence, decoded)
+	if err != nil {
+		t.Fatalf("%s: apply the %s envelope: %v", name, envelope.Kind, err)
+	}
+	if got := incidentView(applied.State.Simulation); !reflect.DeepEqual(got, want) {
+		t.Fatalf("%s: the %s envelope gives\n%+v\nwant\n%+v", name, envelope.Kind, got, want)
+	}
+	if _, assembleErr := client.assembler.State(applied); assembleErr != nil {
+		t.Fatalf("%s: assemble the %s envelope: %v", name, envelope.Kind, assembleErr)
+	}
+	client.frame, client.sequence = applied, envelope.Sequence
+	data, err = EncodeStateJSON(topology, frame)
+	if err != nil {
+		t.Fatalf("%s: encode the HTTP state: %v", name, err)
+	}
+	state, err := DecodeStateJSON(data)
+	if err != nil {
+		t.Fatalf("%s: decode the HTTP state: %v", name, err)
+	}
+	if got := incidentView(stateFrame(state).Simulation); !reflect.DeepEqual(got, want) {
+		t.Fatalf("%s: the HTTP state gives\n%+v\nwant\n%+v", name, got, want)
+	}
+}
+
+// incidentView is the incident marker and the stage 1 members of a frame,
+// with each order in the form "id:legFrom".
+type incidentFrameView struct {
+	Marker                             sim.IncidentContract
+	Interrupted, InterruptedPassengers int
+	Vehicles                           []string
+	Pending                            []string
+}
+
+func incidentView(frame SimulationFrame) incidentFrameView {
+	order := func(r sim.Request) string { return fmt.Sprintf("%d:%s", r.ID, r.LegFrom) }
+	view := incidentFrameView{Marker: frame.IncidentContract, Interrupted: frame.Interrupted, InterruptedPassengers: frame.InterruptedPassengers}
+	for _, vehicle := range frame.Vehicles {
+		riders := make([]string, len(vehicle.Riders))
+		for i, rider := range vehicle.Riders {
+			riders[i] = order(rider)
+		}
+		view.Vehicles = append(view.Vehicles, fmt.Sprintf("%s %d %q %v", vehicle.Pod.ID, vehicle.Withdrawn, vehicle.Operational, riders))
+	}
+	for _, request := range frame.Pending {
+		view.Pending = append(view.Pending, order(request))
+	}
+	return view
 }
 
 // savedPod returns the saved pod id of state.

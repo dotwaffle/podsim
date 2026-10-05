@@ -58,8 +58,12 @@ func DecodeStateJSON(raw []byte) (State, error) {
 		return State{}, errors.New("HTTP state exceeds supported limit")
 	}
 	var envelope StateEnvelope
-	if err := decodeMarkedJSON(raw, true, &envelope); err != nil {
+	members, err := decodeMarkedJSON(raw, true, &envelope)
+	if err != nil {
 		return State{}, err
+	}
+	if members && envelope.Frame.State.Simulation.IncidentContract == "" {
+		return State{}, errIncidentStreamUnmarked
 	}
 	if envelope.CouplingContract != envelope.Topology.CouplingContract || envelope.OrderContract != envelope.Topology.OrderContract {
 		return State{}, errors.New("HTTP coupling or order contracts disagree")

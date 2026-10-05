@@ -63,6 +63,8 @@ type vehicleMetadata struct {
 	Rebalancing  bool    `json:"rebalancing"`
 	PlatoonID    string  `json:"platoonID"`
 	PlatoonIndex int     `json:"platoonIndex"`
+	Withdrawn    uint8   `json:"withdrawn,omitzero"`
+	Operational  string  `json:"operational,omitzero"`
 }
 
 type streamStatistics struct {
@@ -83,6 +85,13 @@ type controlsGroup struct {
 	Speed          int            `json:"speed"`
 	Redistribution bool           `json:"redistribution"`
 	SpeedReduction SpeedReduction `json:"speedReduction"`
+}
+
+// incidentGroup is the "incident" replacement group of a stream delta. A
+// delta has it only with the incident marker.
+type incidentGroup struct {
+	Interrupted           int `json:"interrupted"`
+	InterruptedPassengers int `json:"interruptedPassengers"`
 }
 
 // globalGroup is the "global" replacement group of a stream delta.
@@ -124,6 +133,10 @@ type StreamEnvelope struct {
 	Source           StreamSource         `json:"source"`
 	Full             *StreamFrame         `json:"full,omitempty"`
 	Delta            *StreamDelta         `json:"delta,omitempty"`
+	// incidentMembers records that the decoded bytes have a stage 1 member
+	// or the incident group, with any value. The typed fields cannot show
+	// an explicit zero or null. See scanIncidentMembers.
+	incidentMembers bool
 }
 
 func sourceOf(f StreamFrame) StreamSource {
@@ -155,7 +168,7 @@ func sameChain(a, b StreamFrame) bool {
 	return true
 }
 func meta(v VehicleFrame) vehicleMetadata {
-	return vehicleMetadata{CouplingID: v.CouplingID, RiddenMeters: v.RiddenMeters, RelocatingTo: v.RelocatingTo, Rebalancing: v.Rebalancing, PlatoonID: v.PlatoonID, PlatoonIndex: v.PlatoonIndex}
+	return vehicleMetadata{CouplingID: v.CouplingID, RiddenMeters: v.RiddenMeters, RelocatingTo: v.RelocatingTo, Rebalancing: v.Rebalancing, PlatoonID: v.PlatoonID, PlatoonIndex: v.PlatoonIndex, Withdrawn: v.Withdrawn, Operational: v.Operational}
 }
 func changed[T any](a, b T) *Replacement[T] {
 	if reflect.DeepEqual(a, b) {
@@ -194,6 +207,9 @@ func frameGroups(f StreamFrame) (map[string]json.RawMessage, error) {
 		}
 		values["coupling"] = couplingReplacement{state.Simulation.CouplingContract, state.Simulation.CouplingEnabled, members}
 	}
+	if state.Simulation.IncidentContract != "" {
+		values["incident"] = incidentGroup{state.Simulation.Interrupted, state.Simulation.InterruptedPassengers}
+	}
 	// Each group is raw bytes, so the options of the envelope encoder do
 	// not reach the orders of the pending group. Pack them here.
 	groups := make(map[string]json.RawMessage, len(values))
@@ -206,6 +222,9 @@ func frameGroups(f StreamFrame) (map[string]json.RawMessage, error) {
 	return groups, nil
 }
 func makeDelta(a, b StreamFrame) (StreamDelta, error) {
+	if err := checkIncidentFrame(b.State.Simulation); err != nil {
+		return StreamDelta{}, err
+	}
 	old, err := frameGroups(a)
 	if err != nil {
 		return StreamDelta{}, err
@@ -260,6 +279,16 @@ func applyGroups(f *StreamFrame, groups map[string]json.RawMessage) error {
 			f.State.Speed, f.State.Redistribution = v.Speed, v.Redistribution
 			f.State.SpeedReduction = v.SpeedReduction
 			continue
+		case "incident":
+			if f.State.Simulation.IncidentContract == "" {
+				return errIncidentStreamUnmarked
+			}
+			var v incidentGroup
+			if err := decodeStreamJSON(raw, &v); err != nil {
+				return err
+			}
+			f.State.Simulation.Interrupted, f.State.Simulation.InterruptedPassengers = v.Interrupted, v.InterruptedPassengers
+			continue
 		case "global":
 			var v globalGroup
 			if err := decodeStreamJSON(raw, &v); err != nil {
@@ -311,6 +340,9 @@ func ApplyStream(previous StreamFrame, stream string, sequence uint64, e StreamE
 	}
 	if e.Stream == "" || e.Sequence == 0 || e.Source.ServerStart == "" || e.Source.Epoch == "" {
 		return StreamFrame{}, errors.New("invalid stream identity")
+	}
+	if err := checkIncidentPresence(e, previous); err != nil {
+		return StreamFrame{}, err
 	}
 	var f StreamFrame
 	switch e.Kind {
@@ -382,6 +414,7 @@ func ApplyStream(previous StreamFrame, stream string, sequence uint64, e StreamE
 				dst.CouplingID = m.CouplingID
 				dst.RiddenMeters = m.RiddenMeters
 				dst.RelocatingTo, dst.Rebalancing, dst.PlatoonID, dst.PlatoonIndex = m.RelocatingTo, m.Rebalancing, m.PlatoonID, m.PlatoonIndex
+				dst.Withdrawn, dst.Operational = m.Withdrawn, m.Operational
 			}
 		}
 		clear(seen)
@@ -403,6 +436,9 @@ func ApplyStream(previous StreamFrame, stream string, sequence uint64, e StreamE
 	}
 	if len(f.Routes) != len(f.State.Simulation.Vehicles) || len(f.Routes) > project.MaxPods || len(f.State.Simulation.Berths) > project.MaxNodes {
 		return StreamFrame{}, errors.New("invalid presentation counts")
+	}
+	if err := checkIncidentFrame(f.State.Simulation); err != nil {
+		return StreamFrame{}, err
 	}
 	for i, v := range f.State.Simulation.Vehicles {
 		if err := validateVehicleBoardingsContract(v, f.State.Simulation.OrderContract); err != nil {

@@ -77,6 +77,10 @@ type SimulationFrame struct {
 	SharedRidePartyLimit    int                     `json:"sharedRidePartyLimit"`
 	EmptyDistanceMeters     float64                 `json:"emptyDistanceMeters"`
 	RebalanceMoves          int                     `json:"rebalanceMoves"`
+	// Interrupted and InterruptedPassengers are the interrupted counters
+	// of sim.Snapshot. They need the incident marker.
+	Interrupted           int `json:"interrupted,omitzero"`
+	InterruptedPassengers int `json:"interruptedPassengers,omitzero"`
 }
 
 // VehicleFrame contains dynamic vehicle data and its ordered route IDs.
@@ -94,6 +98,10 @@ type VehicleFrame struct {
 	// sim.Vehicle.
 	PlatoonID    string `json:"platoonID,omitempty"`
 	PlatoonIndex int    `json:"platoonIndex,omitzero"`
+	// Withdrawn and Operational are the service holds and the operational
+	// purpose of the pod. See sim.Vehicle. They need the incident marker.
+	Withdrawn   uint8  `json:"withdrawn,omitzero"`
+	Operational string `json:"operational,omitzero"`
 }
 
 // FrameState combines one matching topology snapshot and state frame.
@@ -145,6 +153,7 @@ func frameState(topology TopologySnapshot, frame StateFrame, immutable bool) (St
 			Pod: vehicle.Pod, Riders: slices.Clone(vehicle.Riders), Stops: slices.Clone(vehicle.Stops), Route: route,
 			RelocatingTo: vehicle.RelocatingTo, Rebalancing: vehicle.Rebalancing,
 			PlatoonID: vehicle.PlatoonID, PlatoonIndex: vehicle.PlatoonIndex,
+			Withdrawn: vehicle.Withdrawn, Operational: vehicle.Operational,
 		}
 	}
 	snapshot := frame.Simulation
@@ -178,6 +187,7 @@ func frameState(topology TopologySnapshot, frame StateFrame, immutable bool) (St
 			MaxDetourRatio: snapshot.MaxDetourRatio,
 			SharedParties:  snapshot.SharedParties, SharedRidePartyLimit: snapshot.SharedRidePartyLimit,
 			EmptyDistanceMeters: snapshot.EmptyDistanceMeters, RebalanceMoves: snapshot.RebalanceMoves,
+			Interrupted: snapshot.Interrupted, InterruptedPassengers: snapshot.InterruptedPassengers,
 		},
 		Speed: frame.Speed, SpeedReduction: frame.SpeedReduction, Demand: frame.Demand, Checkpoints: slices.Clone(frame.Checkpoints),
 		Build: frame.Build, ServerStart: frame.ServerStart, Restore: frame.Restore,
@@ -210,6 +220,7 @@ func stateFrame(state State) StateFrame {
 			Pod: vehicle.Pod, Riders: slices.Clone(vehicle.Riders), Stops: slices.Clone(vehicle.Stops), RouteLaneIDs: routeIDs,
 			RelocatingTo: vehicle.RelocatingTo, Rebalancing: vehicle.Rebalancing,
 			PlatoonID: vehicle.PlatoonID, PlatoonIndex: vehicle.PlatoonIndex,
+			Withdrawn: vehicle.Withdrawn, Operational: vehicle.Operational,
 		}
 	}
 	snapshot := state.Simulation
@@ -228,6 +239,7 @@ func stateFrame(state State) StateFrame {
 			MaxDetourRatio: snapshot.MaxDetourRatio,
 			SharedParties:  snapshot.SharedParties, SharedRidePartyLimit: snapshot.SharedRidePartyLimit,
 			EmptyDistanceMeters: snapshot.EmptyDistanceMeters, RebalanceMoves: snapshot.RebalanceMoves,
+			Interrupted: snapshot.Interrupted, InterruptedPassengers: snapshot.InterruptedPassengers,
 		},
 		Speed: state.Speed, SpeedReduction: state.SpeedReduction, Demand: state.Demand, Checkpoints: slices.Clone(state.Checkpoints),
 		Build: state.Build, ServerStart: state.ServerStart, Restore: state.Restore,

@@ -64,7 +64,7 @@ type packedRequest sim.Request
 type packedSavedRequest sim.SavedRequest
 
 func encodePackedRequest(e *jsontext.Encoder, r sim.Request) error {
-	if err := transformOrderText([]*string{&r.From, &r.To, &r.PodID, &r.DispatchReason, &r.ServiceID}, false); err != nil {
+	if err := transformOrderText([]*string{&r.From, &r.To, &r.PodID, &r.DispatchReason, &r.ServiceID, &r.LegFrom}, false); err != nil {
 		return err
 	}
 	return jsonv2.MarshalEncode(e, packedRequest(r))
@@ -82,7 +82,7 @@ func decodePackedRequest(d *jsontext.Decoder, r *sim.Request) error {
 		return err
 	}
 	next := sim.Request(wire)
-	if err := transformOrderText([]*string{&next.From, &next.To, &next.PodID, &next.DispatchReason, &next.ServiceID}, true); err != nil {
+	if err := transformOrderText([]*string{&next.From, &next.To, &next.PodID, &next.DispatchReason, &next.ServiceID, &next.LegFrom}, true); err != nil {
 		return err
 	}
 	*r = next
@@ -118,6 +118,11 @@ func scanPackedOrders(data []byte) error {
 		limit := 64
 		switch token.String() {
 		case "from", "to", "podID", "serviceID":
+		case "legFrom":
+			// A save writes the leg origin as a station index.
+			if strings.HasPrefix(path, "/simulation/") {
+				continue
+			}
 		case "dispatchReason":
 			limit = 1024
 		default:
