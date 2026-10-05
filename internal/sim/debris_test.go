@@ -444,6 +444,59 @@ func TestDebrisRefusals(t *testing.T) {
 	}
 }
 
+// TestDebrisOnApproachCorridor forms a native approach, as the coupling
+// approach tests do, and starts debris on the free corridor of its route
+// past the grants of its members: in the lane of the members, and in the
+// next corridor lane. Stage 2 refuses debris there, with the refusal
+// oracle. Without the approach, the same debris starts, so the segment is
+// free and no other precondition refuses it.
+func TestDebrisOnApproachCorridor(t *testing.T) {
+	t.Parallel()
+	for _, segment := range []struct {
+		lane     string
+		from, to float64
+	}{{"ab", 150, 160}, {"bc", 100, 110}} {
+		t.Run(segment.lane, func(t *testing.T) {
+			t.Parallel()
+			input := couplingApproachFixture(t, false)
+			c, state, err := prepareCouplingApproach(input)
+			if err != nil {
+				t.Fatal(err)
+			}
+			s := input.Simulation
+			s.couplingApproaches = []couplingNativeApproach{{context: c, state: state}}
+			if err := s.SetFaults(true, FaultSettings{}); err != nil {
+				t.Fatal(err)
+			}
+			corridor := input.Network.corridors[input.CorridorID]
+			if !slices.Contains(corridor.LaneIDs, segment.lane) {
+				t.Fatalf("lane %s is not in the corridor %v", segment.lane, corridor.LaneIDs)
+			}
+			lane := laneIndex(t, s, segment.lane)
+			for _, id := range []string{"front", "rear"} {
+				v := s.findVehicle(id)
+				if !s.couplingApproachMember(id) || v.couplingID != "" {
+					t.Fatalf("pod %s is not an approach member", id)
+				}
+				if end := v.blocks.end(v.reservedThrough); s.graph.lanes[v.Route[0].ID] == lane && end >= segment.from-Clearance {
+					t.Fatalf("the grants of pod %s reach %g m", id, end)
+				}
+			}
+			before := s.Clone()
+			if _, err := s.startDebris(lane, segment.from, segment.to, 0); !errors.Is(err, errFaultTarget) {
+				t.Fatalf("error %v, want %v", err, errFaultTarget)
+			}
+			if !sameState(before, s) || !sameCursors(before, s) {
+				t.Fatal("the refused debris changed the state")
+			}
+			s.couplingApproaches = nil
+			if _, err := s.startDebris(lane, segment.from, segment.to, 0); err != nil {
+				t.Fatalf("control without the approach: %v", err)
+			}
+		})
+	}
+}
+
 // TestDebrisPreconditionOrder checks the order of the preconditions. The
 // call starts with each precondition false, and the test makes them true
 // one at a time. Each call refuses with the error of the first false one.
