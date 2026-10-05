@@ -51,6 +51,7 @@ Approve these data and compatibility rules as one foundation:
   The decoder refuses project versions 2 through 5 and does not migrate them.
   The saved state can contain a project with new effective request state.
 - Raise only the new express rider array bound to 20 and save-6 restore queue bound to 6,200.
+  Item 7 superseded this queue bound with 2,600 orders, or 8,600 with Express.
   Keep on-demand at 8 parties, stops at 8, manual admission at 200, fleet at 300, and current byte and history caps.
   Bound the express registry at 300 services.
   Prove worst-case saves and frames fit existing byte limits before landing.

@@ -281,7 +281,6 @@ Saved-state version 9 and hello version 6 later replaced every save and stream f
 A project without the coupling marker rejects any train field, including explicit null or empty values.
 A save, a stream message, or a topology without the coupling marker rejects any train field.
 Unknown markers, contradictory profile IDs, and unknown phases reject before state replacement.
-The new writer never downgrades while the coupling marker or a retained group requires the new family.
 The order text is packed base64 for every project kind, with no discriminator.
 The coupling marker does not change the order encoding.
 
@@ -335,7 +334,7 @@ Use the pinned Go toolchain and scoped race checks for the changed ownership and
 | Ownership | Rear body and connector retain node, junction, track, and site resources. Foreign traffic cannot acquire them. | Release on head clearance or substitute an individual owner at release |
 | Passenger cabin | Private/shared rules, per-cabin capacity, whole parties, request identities, and boarding history survive every phase. | Pool seats, bypass consent, or alter a member request binding |
 | Disable and restore | Off at every phase drains safely. Every valid saved phase restores atomically. Invalid groups reject. | Clear group on disable, bypass restore proof, or enable partial logical fallback |
-| Public formats | Native, session, save, topology, full/delta, HTTP, remote stream, WASM, and browser agree. Saves and messages without the marker reject new fields. | Drop the new discriminator or apply a group delta before its coherent membership frame |
+| Public formats | Native, session, save, topology, full/delta, HTTP, remote stream, WASM, and browser agree. Saves and messages without the marker reject new fields. | Apply a group delta before its coherent membership frame |
 | Size and cost | Actual combined worst-case raw/gzip encodings, bounded scans, atomic failures, heap retention, and cancellation receipts | Bypass the real parser or writer cap at its caller |
 
 Each mutation needs a passing control, successful mutant compilation, assertion failure, and restored source hashes.
