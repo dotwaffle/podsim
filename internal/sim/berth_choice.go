@@ -60,7 +60,10 @@ func (s *Simulation) reevaluateTerminalBerth(v *vehicle) {
 	if !ok {
 		return
 	}
-	passenger := v.Pod.Occupied || v.Pod.Activity == Boarding && len(v.Riders) > 0 || s.assigned(v.Pod.ID)
+	// An empty recovery leaves a taken berth as a passenger route does.
+	// No other path moves it, because it is withdrawn.
+	passenger := v.Pod.Occupied || v.Pod.Activity == Boarding && len(v.Riders) > 0 || s.assigned(v.Pod.ID) ||
+		v.op.purpose == opEmptyRecovery
 	accept := s.berthFilterForVehicle(v)
 	if !passenger || s.berthAvailableFor(v, v.destination) && (accept == nil || accept(v.destination)) {
 		return

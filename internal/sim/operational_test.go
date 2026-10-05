@@ -1340,3 +1340,35 @@ func TestStrandedOperationalUnload(t *testing.T) {
 		t.Fatalf("interrupted %d, queue %+v", s.interrupted, s.waiting)
 	}
 }
+
+// TestEmptyRecoveryTakenBerth checks that an empty recovery whose target
+// berth is taken chooses another free berth of the station, as a passenger
+// route does. Pod 03 holds s1-1 idle with a fault hold, so no path moves
+// it, and s1-2 is free. The recovery must not wait for s1-1.
+func TestEmptyRecoveryTakenBerth(t *testing.T) {
+	t.Parallel()
+	s := newLegFleet(t, "s0-1", "p-1", "s1-1")
+	s.incidentContract = IncidentV1Contract
+	blocker, v := s.findVehicle("03"), s.findVehicle("02")
+	if err := s.withdrawService(blocker, faultHold); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.startEmptyMove(v, emptyDestination{station: "s2", berth: Berth{ID: "s2-1", Node: "s2-1"}}); err != nil {
+		t.Fatal(err)
+	}
+	travelOn(t, s, v, "p-link")
+	checkEachTick(t, s)
+	if err := s.withdrawService(v, emergencyHold); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.setOperationalDestination(v, operationalTarget{purpose: opEmptyRecovery, owner: emergencyHold, station: "s1", berth: "s1-1"}); err != nil {
+		t.Fatal(err)
+	}
+	if s.owners[resource{kind: berthResource, id: "s1-1"}].isPod("02") {
+		t.Fatal("the recovery claimed the taken berth")
+	}
+	stepUntil(t, s, "recovery arrival", func() bool { return v.Pod.Activity == Idle })
+	if v.Pod.BerthID != "s1-2" || v.op != (operationalDestination{}) || v.withdrawn != emergencyHold || blocker.Pod.BerthID != "s1-1" {
+		t.Fatalf("recovery at %q with purpose %+v, blocker at %q", v.Pod.BerthID, v.op, blocker.Pod.BerthID)
+	}
+}
