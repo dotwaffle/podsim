@@ -356,14 +356,18 @@ func (s *Simulation) removeFault(index int, inStage bool) {
 		}
 	}
 	s.rebuildBlocked()
-	id := record.id()
+	s.endFaultReports(record.id())
+	countFault(&s.faultCounters.cleared)
+}
+
+// endFaultReports ends each wait report that names one of the fault IDs.
+func (s *Simulation) endFaultReports(ids ...string) {
 	for i := range s.vehicles {
 		pod := &s.vehicles[i].Pod
-		if pod.BlockedBy == id {
+		if pod.BlockedBy != "" && slices.Contains(ids, pod.BlockedBy) {
 			pod.WaitReason, pod.BlockedBy = NoWait, ""
 		}
 	}
-	countFault(&s.faultCounters.cleared)
 }
 
 // faultStage runs in Step after the unloading loop and before dispatch,

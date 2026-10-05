@@ -510,7 +510,8 @@ func TestDebrisClearAtCommandBoundary(t *testing.T) {
 // TestDebrisClearInFaultStage checks a timed clear. The fault stage
 // removes the record, and the release boundary of the same tick releases
 // the footprint, so the waiting pod gets it in the next tick and not in
-// the tick of the clear.
+// the tick of the clear. After the tick, no wait report names the removed
+// record.
 func TestDebrisClearInFaultStage(t *testing.T) {
 	t.Parallel()
 	s := debrisFleet(t)
@@ -531,8 +532,10 @@ func TestDebrisClearInFaultStage(t *testing.T) {
 			t.Fatalf("resource %v has the owner %v after the tick of the clear", r, owner)
 		}
 	}
-	if v.reservedThrough != through {
-		t.Fatalf("in the tick of the clear, the pod has the grants to block %d", v.reservedThrough)
+	// Admission saw the fault owner in the tick of the clear, and the
+	// release ended the report that names the removed record.
+	if v.reservedThrough != through || v.Pod.BlockedBy != "" || v.Pod.WaitReason != NoWait {
+		t.Fatalf("in the tick of the clear, the pod has the grants to block %d and waits with %q by %q", v.reservedThrough, v.Pod.WaitReason, v.Pod.BlockedBy)
 	}
 	s.Step()
 	if v.reservedThrough <= through {
@@ -572,8 +575,8 @@ func TestDebrisClearOnPlanningError(t *testing.T) {
 	if err := checkOwners(s); err != nil {
 		t.Fatal(err)
 	}
-	if v := s.findVehicle("02"); v.reservedThrough != through {
-		t.Fatalf("pod 02 has the grants to block %d, want %d", v.reservedThrough, through)
+	if v := s.findVehicle("02"); v.reservedThrough != through || v.Pod.BlockedBy != "" {
+		t.Fatalf("pod 02 has the grants to block %d, want %d, and is blocked by %q", v.reservedThrough, through, v.Pod.BlockedBy)
 	}
 }
 

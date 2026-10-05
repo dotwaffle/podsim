@@ -230,15 +230,25 @@ func (s *Simulation) releaseDebris(record faultRecord, inStage bool) {
 
 // releaseFaultResources releases the debris resources that the clears of
 // the fault stage left in faultReleased. Step calls it at each exit of a
-// tick with faults on, so faultReleased is empty at each boundary.
+// tick with faults on, so faultReleased is empty at each boundary. The
+// admission of the tick saw the fault owners of the cleared records, so it
+// can name them in a wait report. Those reports end here, and a completed
+// tick names no removed record.
 func (s *Simulation) releaseFaultResources() {
 	if s.faultReleased == nil {
 		return
 	}
+	var ids []string
 	for _, r := range s.faultReleased {
-		if s.owners[r].kind == faultOwnerKind {
-			delete(s.owners, r)
+		owner := s.owners[r]
+		if owner.kind != faultOwnerKind {
+			continue
+		}
+		delete(s.owners, r)
+		if !slices.Contains(ids, owner.id) {
+			ids = append(ids, owner.id)
 		}
 	}
 	s.faultReleased = nil
+	s.endFaultReports(ids...)
 }
