@@ -156,7 +156,10 @@ func scanPackedOrders(data []byte) error {
 // express reports the Express marker of the document. Each orderContract
 // member must then be the Express marker, and the root must have one.
 // Without it, each orderContract member is refused. No document has a
-// textEncoding member: the order text is always packed.
+// textEncoding member: the order text is always packed. Each
+// incidentContract member must be the incident marker, so that an explicit
+// null or empty marker is not read as no marker. The typed decode decides
+// where the member can be.
 func scanContractMarkers(data []byte, express bool) error {
 	d := jsontext.NewDecoder(bytes.NewReader(data))
 	seen := map[string]bool{}
@@ -173,6 +176,12 @@ func scanContractMarkers(data []byte, express bool) error {
 			continue
 		}
 		name := token.String()
+		if name == "incidentContract" {
+			if markerErr := scanIncidentMarker(d); markerErr != nil {
+				return markerErr
+			}
+			continue
+		}
 		if name != "orderContract" && name != "textEncoding" {
 			continue
 		}
@@ -197,6 +206,19 @@ func scanContractMarkers(data []byte, express bool) error {
 	}
 	if express && !seen["/orderContract"] {
 		return errors.New("missing Express contract marker")
+	}
+	return nil
+}
+
+// scanIncidentMarker reads the value of an incidentContract member. It
+// refuses each value other than the incident marker.
+func scanIncidentMarker(d *jsontext.Decoder) error {
+	value, err := d.ReadToken()
+	if err != nil {
+		return err
+	}
+	if value.Kind() != jsontext.KindString || value.String() != string(sim.IncidentV1Contract) {
+		return sim.ErrUnknownIncidentContract
 	}
 	return nil
 }

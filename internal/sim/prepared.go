@@ -227,6 +227,7 @@ func (p *PreparedNetwork) newFleet(placements []Placement) *Simulation {
 type PreparedRestoreInput struct {
 	OrderContract     OrderContract
 	CouplingContract  CouplingContract
+	IncidentContract  IncidentContract
 	CouplingEnabled   bool
 	CouplingSites     []CouplingSite
 	CouplingCorridors []CouplingCorridor
@@ -248,7 +249,7 @@ func (p *PreparedNetwork) RestoreState(input PreparedRestoreInput) (*Simulation,
 		return nil, RestoreResult{}, err
 	}
 	stateInput := RestoreStateInput{
-		OrderContract: input.OrderContract, CouplingContract: input.CouplingContract,
+		OrderContract: input.OrderContract, CouplingContract: input.CouplingContract, IncidentContract: input.IncidentContract,
 		CouplingEnabled: input.CouplingEnabled, CouplingSites: input.CouplingSites, CouplingCorridors: input.CouplingCorridors,
 		OnboardPickups: input.OnboardPickups, ExpressServices: input.ExpressServices,
 		Network: p.network, Fleet: input.Fleet, State: input.State, LogicalOnly: input.LogicalOnly,

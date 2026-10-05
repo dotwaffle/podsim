@@ -39,6 +39,8 @@ They refuse a reply with another media type before they read it.
 They also refuse a reply that has a `textEncoding` member at any level, or that is over the stream limits of 64 levels and 65536 elements in an array.
 The root, `topology` and `frame.state.simulation` must have the same contract markers.
 When present, `orderContract` must be `express-v1` and `couplingContract` must be `compact-pair-v1`.
+A project with the incident marker `incidentContract` `incident-v1` puts it in `topology` and in `frame.state.simulation`, not at the root.
+These two markers must agree, and the value must be `incident-v1`, also not null or empty.
 
 All JSON member names use lowerCamel case, such as `projectRevision`, `routeLaneIDs` and `id`.
 A decoder matches member names exactly.
@@ -103,6 +105,10 @@ The envelope has the same contract markers as the hello, the full frame, and the
 A client refuses an envelope whose markers differ from the markers of the hello.
 A topology whose markers differ from the markers of the hello is also refused.
 Without `couplingContract`, a message must not contain a coupling member, also with a null, false, or empty value.
+The incident marker `incidentContract` is only in the topology and in the simulation of a full frame.
+The hello, the envelope root, and a delta do not have it.
+A client refuses a frame whose incident marker differs from the marker of its topology.
+A change of the marker is a project change, so it comes with a new project revision and a new topology.
 The order text of each order (`from`, `to`, `podID`, `dispatchReason`, and `serviceID`) is canonical base64 of the UTF-8 text, for every project kind.
 This includes the pending replacement group of a delta and the HTTP state.
 No message has a `textEncoding` member.

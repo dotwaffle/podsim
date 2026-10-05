@@ -569,7 +569,7 @@ func TestStreamFieldOwnership(t *testing.T) {
 			"identity": {"Epoch", "Revision", "ProjectRevision", "Generation", "Build", "ServerStart"}, "controls": {"Speed", "Redistribution", "SpeedReduction"}, "demand": {"Demand"}, "restore": {"Restore"}, "checkpoints": {"Checkpoints"}, "simulation": {"Simulation"},
 		}},
 		{reflect.TypeFor[SimulationFrame](), map[string][]string{
-			"contract identity": {"OrderContract", "CouplingContract"}, "coupling": {"CouplingEnabled", "CouplingGroups"}, "global": {"Submitted", "Tick", "Paused", "Completed", "Demo", "DemoError"}, "vehicles": {"Vehicles"}, "berths": {"Berths"}, "pending": {"Pending"},
+			"contract identity": {"OrderContract", "CouplingContract", "IncidentContract"}, "coupling": {"CouplingEnabled", "CouplingGroups"}, "global": {"Submitted", "Tick", "Paused", "Completed", "Demo", "DemoError"}, "vehicles": {"Vehicles"}, "berths": {"Berths"}, "pending": {"Pending"},
 			"statistics": {"Wait", "Journey", "PassengerDistanceMeters", "RiderDistanceMeters", "DirectDistanceMeters", "MaxDetourRatio", "SharedParties", "SharedRidePartyLimit", "EmptyDistanceMeters", "RebalanceMoves"},
 		}},
 		{reflect.TypeFor[VehicleFrame](), map[string][]string{"pod": {"Pod"}, "riders": {"Riders"}, "boardings": {"Boardings"}, "stops": {"Stops"}, "presentation replaces route": {"RouteLaneIDs"}, "metadata": {"CouplingID", "RiddenMeters", "RelocatingTo", "Rebalancing", "PlatoonID", "PlatoonIndex"}}},
@@ -666,8 +666,9 @@ func TestStreamBuildBound(t *testing.T) {
 }
 
 // fillStreamScalars overestimates global text with the restored-text bound.
+// It leaves the contract markers, which must agree with the topology.
 func fillStreamScalars(v reflect.Value) {
-	if v.Type() == reflect.TypeFor[sim.OrderContract]() {
+	if v.Type() == reflect.TypeFor[sim.OrderContract]() || v.Type() == reflect.TypeFor[sim.IncidentContract]() {
 		return
 	}
 	switch v.Kind() {

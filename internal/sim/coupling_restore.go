@@ -11,7 +11,7 @@ func (input RestoreStateInput) fleetContracts() FleetContracts {
 	return FleetContracts{
 		OrderContract: input.OrderContract, CouplingContract: input.CouplingContract,
 		CouplingEnabled: input.CouplingEnabled, CouplingSites: input.CouplingSites,
-		CouplingCorridors: input.CouplingCorridors,
+		CouplingCorridors: input.CouplingCorridors, IncidentContract: input.IncidentContract,
 	}
 }
 

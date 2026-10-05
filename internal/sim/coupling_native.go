@@ -2,23 +2,29 @@ package sim
 
 import "errors"
 
-// FleetContracts selects independent order and physical coupling contracts.
-// The descriptors are copied before the simulation retains them.
+// FleetContracts selects independent order, physical coupling and incident
+// contracts. The descriptors are copied before the simulation retains them.
 type FleetContracts struct {
 	OrderContract     OrderContract
 	CouplingContract  CouplingContract
+	IncidentContract  IncidentContract
 	CouplingEnabled   bool
 	CouplingSites     []CouplingSite
 	CouplingCorridors []CouplingCorridor
 }
 
-// NewFleetWithContracts validates both contracts before it prepares geometry.
+// NewFleetWithContracts validates the contracts before it prepares geometry.
 func NewFleetWithContracts(network Network, placements []Placement, contracts FleetContracts) (*Simulation, error) {
 	if err := validateFleetContracts(network, placements, contracts); err != nil {
 		return nil, err
 	}
 	if contracts.CouplingContract == "" {
-		return NewFleetWithOrderContract(network, placements, contracts.OrderContract)
+		s, err := NewFleetWithOrderContract(network, placements, contracts.OrderContract)
+		if err != nil {
+			return nil, err
+		}
+		s.incidentContract = contracts.IncidentContract
+		return s, nil
 	}
 	p, err := PrepareNetwork(network)
 	if err != nil {
@@ -36,7 +42,12 @@ func (p *PreparedNetwork) NewFleetWithContracts(placements []Placement, contract
 		return nil, err
 	}
 	if contracts.CouplingContract == "" {
-		return p.NewFleetWithOrderContract(placements, contracts.OrderContract)
+		s, err := p.NewFleetWithOrderContract(placements, contracts.OrderContract)
+		if err != nil {
+			return nil, err
+		}
+		s.incidentContract = contracts.IncidentContract
+		return s, nil
 	}
 	if err := validatePlacementsWithOrderContract(p.network, placements, contracts.OrderContract); err != nil {
 		return nil, err
@@ -50,6 +61,7 @@ func (p *PreparedNetwork) NewFleetWithContracts(placements []Placement, contract
 	}
 	s := p.newFleet(placements)
 	s.orderContract = contracts.OrderContract
+	s.incidentContract = contracts.IncidentContract
 	s.couplingNetwork = n
 	s.couplingEnabled = contracts.CouplingEnabled
 	return s, nil
@@ -72,6 +84,9 @@ func ValidateFleetWithContracts(network Network, placements []Placement, contrac
 
 func validateFleetContracts(network Network, placements []Placement, contracts FleetContracts) error {
 	if err := ValidateOrderContract(contracts.OrderContract); err != nil {
+		return err
+	}
+	if err := ValidateIncidentContract(contracts.IncidentContract); err != nil {
 		return err
 	}
 	if contracts.CouplingContract == "" {

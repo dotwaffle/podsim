@@ -194,8 +194,12 @@ const (
 // RestoreStateInput holds the network and the fleet of the saved simulation,
 // and its saved state.
 type RestoreStateInput struct {
-	OrderContract     OrderContract
-	CouplingContract  CouplingContract
+	OrderContract    OrderContract
+	CouplingContract CouplingContract
+	// IncidentContract is the incident marker of the saved project. A
+	// JSON copy of an input without it keeps the bytes that it had before
+	// the marker.
+	IncidentContract  IncidentContract `json:",omitzero"`
 	CouplingEnabled   bool
 	CouplingSites     []CouplingSite
 	CouplingCorridors []CouplingCorridor

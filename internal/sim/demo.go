@@ -63,6 +63,9 @@ func (s *Simulation) StartDemo() error {
 		return err
 	}
 	candidate.initial, candidate.monitor = s.initial, s.monitor
+	// The topology of the project keeps the incident marker, so the demo
+	// fleet keeps it.
+	candidate.incidentContract = s.incidentContract
 	*s = *candidate
 	s.demo = &demoRun{}
 	return nil

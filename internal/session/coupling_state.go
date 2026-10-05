@@ -45,7 +45,7 @@ func fleetContracts(config project.Config) sim.FleetContracts {
 	return sim.FleetContracts{
 		OrderContract: config.OrderContract, CouplingContract: config.CouplingContract,
 		CouplingEnabled: config.CouplingEnabled, CouplingSites: config.CouplingSites,
-		CouplingCorridors: config.CouplingCorridors,
+		CouplingCorridors: config.CouplingCorridors, IncidentContract: config.IncidentContract,
 	}
 }
 

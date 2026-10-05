@@ -16,6 +16,7 @@ type TopologySnapshot struct {
 	CouplingSites     []sim.CouplingSite     `json:"couplingSites,omitzero"`
 	CouplingCorridors []sim.CouplingCorridor `json:"couplingCorridors,omitzero"`
 	OrderContract     sim.OrderContract      `json:"orderContract,omitzero"`
+	IncidentContract  sim.IncidentContract   `json:"incidentContract,omitzero"`
 	ExpressServices   []sim.ExpressService   `json:"expressServices,omitempty"`
 	ProjectVersion    int                    `json:"projectVersion,omitzero"`
 	ServerStart       string                 `json:"serverStart"`
@@ -56,6 +57,7 @@ type SimulationFrame struct {
 	CouplingEnabled         bool                    `json:"couplingEnabled,omitzero"`
 	CouplingGroups          []sim.CouplingGroupView `json:"couplingGroups,omitzero"`
 	OrderContract           sim.OrderContract       `json:"orderContract,omitzero"`
+	IncidentContract        sim.IncidentContract    `json:"incidentContract,omitzero"`
 	Submitted               int                     `json:"submitted"`
 	Tick                    int64                   `json:"tick"`
 	Paused                  bool                    `json:"paused"`
@@ -112,6 +114,9 @@ func frameState(topology TopologySnapshot, frame StateFrame, immutable bool) (St
 	if topology.OrderContract != frame.Simulation.OrderContract {
 		return State{}, errors.New("topology order contract does not match state")
 	}
+	if err := incidentFrameBinding(topology, frame.Simulation); err != nil {
+		return State{}, err
+	}
 	if topology.ServerStart != frame.ServerStart || topology.Epoch != frame.Epoch || topology.ProjectRevision != frame.ProjectRevision {
 		return State{}, errors.New("topology revision does not match state frame")
 	}
@@ -164,8 +169,8 @@ func frameState(topology TopologySnapshot, frame StateFrame, immutable bool) (St
 		Simulation: sim.Snapshot{
 			CouplingContract: snapshot.CouplingContract, CouplingEnabled: snapshot.CouplingEnabled,
 			CouplingGroups: cloneCouplingGroups(snapshot.CouplingGroups),
-			OrderContract:  snapshot.OrderContract,
-			Submitted:      snapshot.Submitted, Tick: snapshot.Tick, Paused: snapshot.Paused,
+			OrderContract:  snapshot.OrderContract, IncidentContract: snapshot.IncidentContract,
+			Submitted: snapshot.Submitted, Tick: snapshot.Tick, Paused: snapshot.Paused,
 			Vehicles: vehicles, Berths: snapshot.Berths, Completed: snapshot.Completed,
 			Demo: snapshot.Demo, DemoError: snapshot.DemoError, Pending: snapshot.Pending,
 			Wait: snapshot.Wait, Journey: snapshot.Journey, PassengerDistanceMeters: snapshot.PassengerDistanceMeters,
@@ -214,8 +219,8 @@ func stateFrame(state State) StateFrame {
 		Simulation: SimulationFrame{
 			CouplingContract: snapshot.CouplingContract, CouplingEnabled: snapshot.CouplingEnabled,
 			CouplingGroups: cloneCouplingGroups(snapshot.CouplingGroups),
-			OrderContract:  snapshot.OrderContract,
-			Submitted:      snapshot.Submitted, Tick: snapshot.Tick, Paused: snapshot.Paused,
+			OrderContract:  snapshot.OrderContract, IncidentContract: snapshot.IncidentContract,
+			Submitted: snapshot.Submitted, Tick: snapshot.Tick, Paused: snapshot.Paused,
 			Vehicles: vehicles, Berths: snapshot.Berths, Completed: snapshot.Completed,
 			Demo: snapshot.Demo, DemoError: snapshot.DemoError, Pending: snapshot.Pending,
 			Wait: snapshot.Wait, Journey: snapshot.Journey, PassengerDistanceMeters: snapshot.PassengerDistanceMeters,
@@ -227,4 +232,14 @@ func stateFrame(state State) StateFrame {
 		Speed: state.Speed, SpeedReduction: state.SpeedReduction, Demand: state.Demand, Checkpoints: slices.Clone(state.Checkpoints),
 		Build: state.Build, ServerStart: state.ServerStart, Restore: state.Restore,
 	}
+}
+
+// incidentFrameBinding refuses a frame whose incident marker is not the
+// marker of its topology. A delta carries no marker, so the marker of a
+// stream changes only with a new topology.
+func incidentFrameBinding(topology TopologySnapshot, frame SimulationFrame) error {
+	if topology.IncidentContract != frame.IncidentContract {
+		return errors.New("topology incident contract does not match state")
+	}
+	return nil
 }

@@ -503,7 +503,7 @@ func (s *Session) loadState(input loadInput) (loaded loadedState, err error) {
 		return loaded, invalidState(err)
 	}
 	loaded.simulation, loaded.result, err = input.steps.restoreSimulation(sim.RestoreStateInput{
-		OrderContract:    loaded.config.OrderContract,
+		OrderContract: loaded.config.OrderContract, IncidentContract: loaded.config.IncidentContract,
 		CouplingContract: loaded.config.CouplingContract, CouplingEnabled: loaded.config.CouplingEnabled,
 		CouplingSites: loaded.config.CouplingSites, CouplingCorridors: loaded.config.CouplingCorridors,
 		Network: loaded.config.Network, Fleet: loaded.config.Fleet, State: file.Simulation, LogicalOnly: loaded.logicalOnly,

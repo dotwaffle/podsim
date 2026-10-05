@@ -149,6 +149,7 @@ type Snapshot struct {
 	CouplingEnabled  bool                `json:"couplingEnabled,omitzero"`
 	CouplingGroups   []CouplingGroupView `json:"couplingGroups,omitempty"`
 	OrderContract    OrderContract       `json:"orderContract,omitzero"`
+	IncidentContract IncidentContract    `json:"incidentContract,omitzero"`
 
 	// Submitted counts accepted passenger orders since reset.
 	Submitted int          `json:"submitted"`
@@ -289,6 +290,7 @@ type vehicle struct {
 // because that change also changes the clones.
 type Simulation struct {
 	orderContract      OrderContract
+	incidentContract   IncidentContract
 	couplingNetwork    *couplingReservationNetwork
 	couplingEnabled    bool
 	couplingGroups     []couplingNativeGroup
@@ -513,8 +515,8 @@ func (s *Simulation) Snapshot() Snapshot { return s.snapshot(true) }
 
 func (s *Simulation) snapshot(routes bool) Snapshot {
 	state := Snapshot{
-		OrderContract: s.orderContract,
-		Submitted:     s.requestID, Tick: s.tick, Paused: s.paused,
+		OrderContract: s.orderContract, IncidentContract: s.incidentContract,
+		Submitted: s.requestID, Tick: s.tick, Paused: s.paused,
 		Completed: s.completed, Demo: s.demo != nil, DemoError: s.demoError,
 		Wait: s.waitStats(), Journey: s.journeyStats(), PassengerDistanceMeters: s.passengerDistanceMeters,
 		RiderDistanceMeters: s.riderDistanceMeters, DirectDistanceMeters: s.directDistanceMeters,
