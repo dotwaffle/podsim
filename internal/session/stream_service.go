@@ -183,12 +183,7 @@ func NewStreamAssemblerVersion(topology TopologySnapshot, version int) (*StreamA
 	if err := validateStreamTopology(topology, version); err != nil {
 		return nil, err
 	}
-	assembler, err := NewStreamAssembler(topology)
-	if err != nil {
-		return nil, err
-	}
-	assembler.version = version
-	return assembler, nil
+	return NewStreamAssembler(topology)
 }
 
 // checkTopologyProjectVersion refuses a topology of any project version

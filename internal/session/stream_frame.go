@@ -39,7 +39,6 @@ func (s *Session) presentationFrameLocked() (StreamFrame, error) {
 // StreamAssembler caches verified topology and immutable expanded route data.
 type StreamAssembler struct {
 	coupling       *sim.CouplingViewValidator
-	version        int
 	passengerPaths map[passengerPathKey]bool
 	classLanes     map[sim.VehicleClass]map[string]bool
 	classes        map[string]sim.VehicleClass
@@ -79,10 +78,9 @@ func NewStreamAssembler(topology TopologySnapshot) (*StreamAssembler, error) {
 		if err != nil {
 			return nil, err
 		}
-		a.coupling, a.version = validator, CouplingStreamVersion
+		a.coupling = validator
 	}
 	if topology.OrderContract == sim.ExpressOrderContract {
-		a.version = version
 		a.passengerPaths = map[passengerPathKey]bool{}
 	}
 	nodes := map[string]bool{}

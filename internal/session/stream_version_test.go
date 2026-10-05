@@ -31,9 +31,6 @@ func TestExpressFixedStreamFamilyConsumers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if assembler.version != 4 {
-		t.Fatalf("Express topology selected stream %d, want 4", assembler.version)
-	}
 	previous := StreamFrame{}
 	for sequence := uint64(1); sequence <= 2; sequence++ {
 		envelope := StreamEnvelope{OrderContract: sim.ExpressOrderContract, TextEncoding: ExpressTextEncoding, Stream: "fixed-family", Sequence: sequence, Source: sourceOf(frame), Build: frame.State.Build}
