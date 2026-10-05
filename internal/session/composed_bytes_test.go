@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	jsonv2 "encoding/json/v2"
+	"fmt"
 	"math"
 	"os"
 	"runtime"
@@ -37,6 +38,14 @@ type composedSize struct {
 	CapBytes      int    `json:"cap_bytes"`
 	HeadroomBytes int    `json:"headroom_bytes"`
 }
+
+// composedIncidentAllocation and composedExpressIncidentAllocation are the
+// stage 1 save allocations of the incident contract (section 11.7), for a
+// shape without and with the Express marker.
+const (
+	composedIncidentAllocation        = 129_516
+	composedExpressIncidentAllocation = 373_116
+)
 
 // composedServiceID is the widest service ID of an order.
 var composedServiceID = strings.Repeat("\x03", 64)
@@ -125,10 +134,91 @@ func composedCouplingSave(t *testing.T, file stateFile, groups int) stateFile {
 	return file
 }
 
-// composedSave returns the composed save of shape. The widest builders
-// omit two members that the decoder accepts: sharedRideJoin, and the
-// service ID of a plain order. The composed save adds them.
+// composedIncidentProject gives config the incident marker and
+// project.MaxStations stations, so that a station index has 3 digits. The
+// added stations are passenger stations with short IDs. They come first,
+// so that the stations of the fixture get the highest indexes. The name
+// fills the project member to its byte cap again.
+func composedIncidentProject(t *testing.T, config *project.Config) {
+	t.Helper()
+	*config = project.Clone(*config)
+	config.IncidentContract = sim.IncidentV1Contract
+	stations := make([]sim.Station, project.MaxStations-len(config.Network.Stations), project.MaxStations)
+	for i := range stations {
+		stations[i] = sim.Station{ID: fmt.Sprintf("i%03d", i)}
+	}
+	config.Network.Stations = append(stations, config.Network.Stations...)
+	config.Name = ""
+	config.Name = strings.Repeat("n", project.MaxFileBytes-jsonSize(t, *config))
+	if size := jsonSize(t, *config); size != project.MaxFileBytes {
+		t.Fatalf("project has %d bytes, want %d", size, project.MaxFileBytes)
+	}
+}
+
+// composedLegFrom returns the leg origin with the highest station index
+// that the save decoder accepts for request: a passenger station other
+// than its destination. A rider with a boarding record boards at its leg
+// origin, so its leg origin is its origin.
+func composedLegFrom(stations []sim.Station, request sim.SavedRequest, boarded bool) string {
+	if boarded {
+		return request.From
+	}
+	for _, station := range slices.Backward(stations) {
+		if !station.ParkingOnly && station.ID != request.To {
+			return station.ID
+		}
+	}
+	return ""
+}
+
+// composedIncidentSave adds the stage 1 members of the incident contract
+// to file at the widest values that the save decoder accepts: the
+// counters and the serial; holds 3 and the operational tuple [1, 2] on
+// each pod; a leg origin with a 3-digit station index on each rider and
+// each trip; and an excluded pod at index 299, or 298 for a trip with pod
+// 299, on each trip. An interrupt bit needs an active rider, and an active
+// rider omits 17 bytes of "completed":true, so no pod has an interrupt
+// set. An exclusion needs a trip that did not board (X1), and
+// "excludedPod":299 is wider than "boarded":true, so no trip is boarded.
+func composedIncidentSave(t *testing.T, file stateFile) stateFile {
+	t.Helper()
+	composedIncidentProject(t, &file.Project)
+	stations := file.Project.Network.Stations
+	state := &file.Simulation
+	state.Interrupted, state.InterruptedPassengers, state.IncidentSerial = math.MinInt64, math.MinInt64, math.MaxUint64
+	state.Pods = slices.Clone(state.Pods)
+	for i := range state.Pods {
+		pod := &state.Pods[i]
+		pod.Riders = slices.Clone(pod.Riders)
+		for j := range pod.Riders {
+			pod.Riders[j].LegFrom = composedLegFrom(stations, pod.Riders[j], j < len(pod.Boardings))
+		}
+		pod.Withdrawn, pod.Purpose, pod.Owner = 3, 1, 2
+	}
+	last := state.Pods[len(state.Pods)-1].ID
+	state.Waiting = slices.Clone(state.Waiting)
+	for i := range state.Waiting {
+		trip := &state.Waiting[i]
+		trip.Boarded, trip.Request.LegFrom, trip.ExcludedPod = false, composedLegFrom(stations, trip.Request, false), last
+		if trip.Request.PodID == last || trip.DeferPodID == last {
+			trip.ExcludedPod = state.Pods[len(state.Pods)-2].ID
+		}
+	}
+	return file
+}
+
+// composedSave returns the composed save of shape with the stage 1
+// members of the incident contract. See composedBaseSave.
 func composedSave(t *testing.T, shape composedShape) stateFile {
+	t.Helper()
+	return composedIncidentSave(t, composedBaseSave(t, shape))
+}
+
+// composedBaseSave returns the composed save of shape without the members
+// of the incident contract. The widest builders omit two members that the
+// decoder accepts: sharedRideJoin, and the service ID of a plain order.
+// The composed save adds them.
+func composedBaseSave(t *testing.T, shape composedShape) stateFile {
 	t.Helper()
 	var file stateFile
 	if shape.markers.order == sim.ExpressOrderContract {
@@ -176,9 +266,35 @@ func composedCouplingFrame(frame StreamFrame) StreamFrame {
 	return frame
 }
 
-// composedStreamFrame returns the composed frame of shape. The plain
-// frame adds the service ID of each order, which the widest builder omits
-// and the decoder accepts.
+// composedIncidentFrame adds the stage 1 stream members of the incident
+// contract to frame at the widest values that ApplyStream accepts: the
+// counters, holds 3 and the longest purpose on each vehicle, and a leg
+// origin of 64 bytes on each rider and each pending order. Packed text of
+// 64 bytes always has 88 bytes, so the leg origin needs no escapes.
+func composedIncidentFrame(frame StreamFrame) StreamFrame {
+	legFrom := strings.Repeat("\x04", 64)
+	simulation := &frame.State.Simulation
+	simulation.IncidentContract = sim.IncidentV1Contract
+	simulation.Interrupted, simulation.InterruptedPassengers = math.MaxInt64, math.MaxInt64
+	simulation.Vehicles = slices.Clone(simulation.Vehicles)
+	for i := range simulation.Vehicles {
+		vehicle := &simulation.Vehicles[i]
+		vehicle.Withdrawn, vehicle.Operational = 3, sim.OperationalEmergencyUnload
+		vehicle.Riders = slices.Clone(vehicle.Riders)
+		for j := range vehicle.Riders {
+			vehicle.Riders[j].LegFrom = legFrom
+		}
+	}
+	simulation.Pending = slices.Clone(simulation.Pending)
+	for i := range simulation.Pending {
+		simulation.Pending[i].LegFrom = legFrom
+	}
+	return frame
+}
+
+// composedStreamFrame returns the composed frame of shape with the stage 1
+// members of the incident contract. The plain frame adds the service ID of
+// each order, which the widest builder omits and the decoder accepts.
 func composedStreamFrame(t *testing.T, shape composedShape) StreamFrame {
 	t.Helper()
 	var frame StreamFrame
@@ -199,7 +315,7 @@ func composedStreamFrame(t *testing.T, shape composedShape) StreamFrame {
 	if shape.markers.coupling != "" {
 		frame = composedCouplingFrame(frame)
 	}
-	return frame
+	return composedIncidentFrame(frame)
 }
 
 // TestComposedWorstCaseFormats measures one composed fixture for each save
@@ -256,6 +372,13 @@ func TestComposedWorstCaseFormats(t *testing.T) { //nolint:tparallel // Subtests
 				"Plain save: widestSavedBase with 300 compact pods, each the leader of a one-pod queue, and 2,600 trips, 300 of them with a route. " +
 				"Express save: widestExpressSave, with 300 Express pods that have 20 riders and 20 boarding records, and 8,600 trips. " +
 				"Each save also has sharedRideJoin, and each plain order has a service ID. " +
+				"Each shape has the incident marker and the stage 1 members at the widest values that the decoders accept. " +
+				"The saved project has 300 stations, so each station index has 3 digits. " +
+				"Each saved pod has holds 3 and the operational tuple [1,2]: an interrupt bit needs an active rider, which omits the 17 bytes of completed. " +
+				"Each rider and each trip has a leg origin with a 3-digit station index; a rider with a boarding record has its origin, where the record is. " +
+				"Each trip has the excluded pod index 299, or 298 for a trip with pod 299, so no trip is boarded. " +
+				"The saved counters are the most negative integers, and the serial is the largest integer. " +
+				"In the streams, the counters are the largest integers, each vehicle has holds 3 and emergency-unload, and each rider and pending order has a leg origin of 64 bytes. " +
 				"Coupling save: the coupling markers and 150 coupling groups; the 300 member pods are traveling compact pods with a route of 13,000 lanes. " +
 				"Express with coupling has no group, because a member pod keeps 8 of the 20 riders of an Express pod; the test also decodes it with 1 group. " +
 				"The saved project and the HTTP topology have no coupling sites or corridors, because their network has no valid geometry; each member is at its byte cap. " +
@@ -292,6 +415,8 @@ func composedSaveJSON(t *testing.T, file stateFile) []byte {
 // cap stops the shape after its size is recorded.
 func measureComposedSave(t *testing.T, shape composedShape) composedSize {
 	t.Helper()
+	baseBytes := len(composedSaveJSON(t, composedBaseSave(t, shape)))
+	runtime.GC()
 	file := composedSave(t, shape)
 	raw := composedSaveJSON(t, file)
 	size := composedSize{Shape: shape.name, Format: "save", RawBytes: len(raw), BoundBytes: len(raw), CapBytes: MaxStateBytes, HeadroomBytes: MaxStateBytes - len(raw)}
@@ -322,6 +447,21 @@ func measureComposedSave(t *testing.T, shape composedShape) composedSize {
 		len(decoded.Simulation.CouplingGroups) != len(file.Simulation.CouplingGroups) {
 		t.Fatalf("%s save lost records", shape.name)
 	}
+	pod, trip := decoded.Simulation.Pods[0], decoded.Simulation.Waiting[0]
+	if pod.Withdrawn != 3 || pod.Purpose != 1 || pod.Riders[0].LegFrom == "" || trip.Request.LegFrom == "" || trip.ExcludedPod == "" {
+		t.Fatalf("%s save lost incident members", shape.name)
+	}
+	// The stage 1 members fit the stage 1 save allocation of section 11.7
+	// of the incident contract (section 14.4).
+	allocation := composedIncidentAllocation
+	if shape.markers.order == sim.ExpressOrderContract {
+		allocation = composedExpressIncidentAllocation
+	}
+	growth := len(raw) - baseBytes
+	if growth > allocation {
+		t.Errorf("%s save: the stage 1 members add %d bytes, more than the allocation of %d", shape.name, growth, allocation)
+	}
+	t.Logf("%s save stage 1 growth=%d allocation=%d", shape.name, growth, allocation)
 	return size
 }
 
@@ -354,8 +494,8 @@ func measureComposedStream(t *testing.T, shape composedShape) []composedSize {
 		}
 		assertExplicitArrayBounds(t, shape.name+" "+envelope.Kind, raw, limits)
 		decoded, err := DecodeStreamJSON(raw)
-		if err != nil {
-			t.Fatalf("%s %s decode: %v", shape.name, envelope.Kind, err)
+		if err != nil || !decoded.incidentMembers {
+			t.Fatalf("%s %s decode: %v, incident members %v", shape.name, envelope.Kind, err, decoded.incidentMembers)
 		}
 		var vehicles, pending, groups int
 		if decoded.Full != nil {
@@ -385,6 +525,7 @@ func measureComposedStream(t *testing.T, shape composedShape) []composedSize {
 	// encodes it with the options of EncodeStateJSON, and it decodes it with
 	// the bounded scans and the typed decode of DecodeStateJSON.
 	topology, _ := fitWidestTopology(t, shape.markers)
+	topology.IncidentContract = frame.State.Simulation.IncidentContract
 	topologyRaw, err := json.Marshal(topology)
 	if err != nil {
 		t.Fatal(err)
@@ -403,8 +544,8 @@ func measureComposedStream(t *testing.T, shape composedShape) []composedSize {
 	}
 	assertExplicitArrayBounds(t, shape.name+" HTTP state", raw, limits)
 	var decoded StateEnvelope
-	if _, err := decodeMarkedJSON(raw, true, &decoded); err != nil {
-		t.Fatalf("%s HTTP state decode: %v", shape.name, err)
+	if members, err := decodeMarkedJSON(raw, true, &decoded); err != nil || !members {
+		t.Fatalf("%s HTTP state decode: %v, incident members %v", shape.name, err, members)
 	}
 	if len(decoded.Frame.State.Simulation.Vehicles) != project.MaxPods || int64(len(decoded.Frame.State.Simulation.Pending)) != orders ||
 		len(decoded.Frame.State.Simulation.CouplingGroups) != len(frame.State.Simulation.CouplingGroups) {

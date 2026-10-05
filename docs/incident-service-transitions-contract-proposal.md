@@ -1379,6 +1379,8 @@ It is dispatch state, as `deferPodID` is.
 
 Measured headroom at item 7 patch 8 (`ee5851f`), on October 5, 2026.
 The record is [docs/measurements/composed-worst-case-formats.json](measurements/composed-worst-case-formats.json), made by `TestComposedWorstCaseFormats` with `PODSIM_COMPOSED_FORMATS_RECORD` set.
+Stage 1 patch 9 writes the record again with the stage 1 members.
+The two tables of measured headroom after stage 1 give its values.
 The fixtures use independent maxima, not reachable states.
 The save cap is 83,886,080 bytes (80 MiB), and the stream and HTTP cap is 67,108,864 bytes (64 MiB).
 The HTTP headroom includes the topology member at its cap of 10,489,856 bytes.
@@ -1417,14 +1419,14 @@ Notes on the counts:
   The table counts the exclusion on every waiting trip.
 - Rider counts include completed history, because history keeps `legFrom` (section 7.2).
 
-Headroom after stage 1, with the save totals above:
+Headroom after stage 1, measured by the composed fixtures of stage 1 patch 9:
 
 | Shape | Before | Stage 1 | After |
 | --- | ---: | ---: | ---: |
-| Plain save | 27,986,414 | 129,516 | 27,856,898 |
-| Coupling save | 27,913,571 | 129,516 | 27,784,055 |
-| Express save | 6,836,663 | 373,116 | 6,463,547 |
-| Express with coupling save | 6,836,569 | 373,116 | 6,463,453 |
+| Plain save | 27,986,414 | 88,118 | 27,898,296 |
+| Coupling save | 27,913,571 | 88,118 | 27,825,453 |
+| Express save | 6,836,663 | 240,518 | 6,596,145 |
+| Express with coupling save | 6,836,569 | 240,518 | 6,596,051 |
 
 Stage 1 fits under the save cap in every shape.
 
@@ -1433,12 +1435,14 @@ That is about 505,000 bytes for 5,000 plain orders, and about 1,474,600 bytes fo
 Vehicle fields add about 15,000 bytes.
 `TestStreamMaximumEncoding` and the composed fixtures cover the plain stream.
 
-| Shape | HTTP headroom before | Stage 1 | After |
-| --- | ---: | ---: | ---: |
-| Plain | 22,210,170 | about 520,000 | about 21,690,170 |
-| Coupling | 21,472,654 | about 520,000 | about 20,952,654 |
-| Express | 1,989,912 | about 1,489,600 | about 500,312 |
-| Express with coupling | 1,252,396 | about 1,489,600 | about 237,204 over the cap |
+Measured by the composed fixtures of stage 1 patch 9:
+
+| Shape | HTTP headroom before | Stage 1 | After, 64 MiB cap | After, 65 MiB cap |
+| --- | ---: | ---: | ---: | ---: |
+| Plain | 22,210,170 | 519,211 | 21,690,959 | 22,739,535 |
+| Coupling | 21,472,654 | 519,211 | 20,953,443 | 22,002,019 |
+| Express | 1,989,912 | 1,488,811 | 501,101 | 1,549,677 |
+| Express with coupling | 1,252,396 | 1,488,811 | 236,415 over the cap | 812,161 |
 
 The Express with coupling HTTP state does not fit after stage 1.
 By the maintainer decision of October 5, 2026, a composed shape over its cap raises that cap just enough to fit, with the composed measurement as evidence.
