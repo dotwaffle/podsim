@@ -826,6 +826,9 @@ func (s *Simulation) releaseCleared() {
 	for i := range s.vehicles {
 		s.releaseVehicleResources(&s.vehicles[i])
 	}
+	if s.faultReleased != nil {
+		s.releaseFaultResources()
+	}
 }
 
 func resourceReleaseDistance(b block, r resource) float64 {

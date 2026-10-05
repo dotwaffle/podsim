@@ -336,8 +336,12 @@ type Simulation struct {
 	faultSettings faultSettings
 	// faults holds the active fault records in serial order. faultCounters
 	// counts the fault events. Reset clears both. See faults.go.
-	faults             []faultRecord
-	faultCounters      faultCounters
+	faults        []faultRecord
+	faultCounters faultCounters
+	// faultReleased holds the debris resources that a clear in the fault
+	// stage releases. releaseCleared releases them at the end of the tick,
+	// so it is empty at each boundary.
+	faultReleased      []resource
 	couplingNetwork    *couplingReservationNetwork
 	couplingEnabled    bool
 	couplingGroups     []couplingNativeGroup
@@ -523,7 +527,7 @@ func prepareFleet(network Network, placements []Placement) (Network, routeGraph,
 func (s *Simulation) Reset() {
 	defer s.observe()
 	s.admissionWork = nil
-	s.faults, s.faultCounters = nil, faultCounters{}
+	s.faults, s.faultCounters, s.faultReleased = nil, faultCounters{}, nil
 	if s.blockedActive() {
 		s.setBlocked(nil)
 	}

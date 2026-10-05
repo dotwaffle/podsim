@@ -37,7 +37,7 @@ var cloneRules = map[reflect.Type]map[string]cloneRule{
 		"laneSafety": cloneShare, "berthSafety": cloneShare, "vehicleIndexes": cloneShare,
 		"berthResources": cloneShare, "laneCells": cloneShare, "approachStations": cloneShare, "routeStations": cloneDrop,
 		"blocked": cloneShare, "resourceLanes": cloneShare, "staticConnected": cloneDrop, "staticRoutes": cloneDrop,
-		"faults":           cloneCopy,
+		"faults": cloneCopy, "faultReleased": cloneCopy,
 		"requestBoardings": cloneCopy, "requestCompletions": cloneCopy, "stepCompletions": cloneCopy, "nodePasses": cloneCopy, "monitor": cloneShare,
 		"pass": cloneDrop, "platoonData": cloneShare, "platoonOrder": cloneDrop, "platoonAhead": cloneDrop,
 		"platoonLanes": cloneDrop, "pickupSwaps": cloneCopy,
@@ -216,6 +216,8 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		// No save writes the fault records or counters yet. Section 13.3 of
 		// the incident suspension contract adds their members.
 		"faultsOn": persistSession, "faultSettings": persistSession, "faults": persistReset, "faultCounters": persistReset,
+		// The release boundary of each tick empties faultReleased.
+		"faultReleased":    persistReset,
 		"predictiveQueues": persistUnsupported, "predictivePodQueues": persistUnsupported, "predictiveQueueTick": persistUnsupported,
 		"routingPolicy": persistUnsupported, "congestionRouteCosts": persistUnsupported,
 		"congestionRoutes": persistUnsupported, "nextCongestionRouteRefresh": persistUnsupported,
@@ -500,7 +502,9 @@ func TestCloneFollowsRules(t *testing.T) {
 				// The blocked routing case covers the blocked set and the
 				// static caches, and the fault case covers the records.
 				"Simulation.blocked", "Simulation.staticConnected", "Simulation.staticRoutes",
-				"Simulation.faults"},
+				"Simulation.faults",
+				// The release boundary of each tick empties it.
+				"Simulation.faultReleased"},
 		},
 		{
 			name: "blocked routing storage",

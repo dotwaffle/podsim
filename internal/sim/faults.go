@@ -25,13 +25,22 @@ var (
 	errFaultTarget   = errors.New("fault target is not supported")
 	errFaultDispatch = errors.New("fault start during a dispatch pass")
 	errUnknownFault  = errors.New("unknown fault")
+	errUnknownLane   = errors.New("unknown lane")
+	errDebrisSegment = errors.New("invalid debris segment")
+	errDebrisOverlap = errors.New("debris overlaps a pod or another fault")
+	errDebrisClaim   = errors.New("debris meets a reserved resource")
+	errDebrisLimit   = errors.New("debris limit reached")
 )
 
 // faultKind is the kind of a fault record.
 type faultKind uint8
 
-// podFault is a mechanical fault of one pod.
-const podFault faultKind = iota
+// The fault kinds. A pod fault is a mechanical fault of one pod. Debris is
+// an obstacle on a lane segment.
+const (
+	podFault faultKind = iota
+	debrisFault
+)
 
 // faultRecord is one active fault. Its ID is i<generation>.<serial>.
 type faultRecord struct {
@@ -40,8 +49,13 @@ type faultRecord struct {
 	// start is the tick at creation. end is 0 for a fault without an end.
 	// Otherwise the first fault stage with tick >= end clears the fault.
 	start, end int64
-	// pod is the index in Simulation.vehicles of the faulted pod.
+	// pod is the index in Simulation.vehicles of the faulted pod, for a
+	// pod fault only.
 	pod int
+	// lane is the lane index, and from and to the segment on the lane, for
+	// debris only.
+	lane     int
+	from, to float64
 }
 
 // id returns the incident ID of the record.
@@ -220,7 +234,13 @@ func (s *Simulation) rebuildBlocked() {
 func (s *Simulation) faultFootprints() []faultFootprint {
 	var footprints []faultFootprint
 	for _, record := range s.faults {
-		footprints = append(footprints, faultFootprint{id: record.id(), resources: s.podFaultFootprint(&s.vehicles[record.pod])})
+		var resources []resource
+		if record.kind == debrisFault {
+			resources = s.debrisFootprint(record.lane, record.from, record.to)
+		} else {
+			resources = s.podFaultFootprint(&s.vehicles[record.pod])
+		}
+		footprints = append(footprints, faultFootprint{id: record.id(), resources: resources})
 	}
 	return footprints
 }
@@ -307,19 +327,25 @@ func (s *Simulation) clearFault(id string) error {
 	if index < 0 {
 		return errUnknownFault
 	}
-	s.removeFault(index)
+	s.removeFault(index, false)
 	return nil
 }
 
 // removeFault ends the record at index. The faulted pod is no longer
 // faulted, and it has no cap. It returns to service, unless its fault hold
 // owns the purpose of a fault recovery: then the hold release rule
-// releases the hold after the arrival. A wait report that names the fault
-// ends, so a paused command boundary does not show the ID of a removed
-// record. The next admission writes each report again.
-func (s *Simulation) removeFault(index int) {
+// releases the hold after the arrival. Debris releases its footprint: at
+// once at a command boundary, or at the release boundary of the tick when
+// inStage is true, so that no pod takes a resource in the tick in which it
+// is released. A wait report that names the fault ends, so a paused command
+// boundary does not show the ID of a removed record. The next admission
+// writes each report again.
+func (s *Simulation) removeFault(index int, inStage bool) {
 	record := s.faults[index]
 	s.faults = slices.Delete(s.faults, index, index+1)
+	if record.kind == debrisFault {
+		s.releaseDebris(record, inStage)
+	}
 	if record.kind == podFault {
 		v := &s.vehicles[record.pod]
 		v.faulted, v.faultCap = false, 0
@@ -350,12 +376,15 @@ func (s *Simulation) removeFault(index int) {
 func (s *Simulation) faultStage() {
 	for index := 0; index < len(s.faults); {
 		if end := s.faults[index].end; end != 0 && end <= s.tick {
-			s.removeFault(index)
+			s.removeFault(index, true)
 			continue
 		}
 		index++
 	}
 	for _, record := range s.faults {
+		if record.kind != podFault {
+			continue
+		}
 		v := &s.vehicles[record.pod]
 		if s.tick >= s.evacuateTick(record) && v.Pod.Speed == 0 && v.RidersAboard() > 0 && s.evacuate(v) == nil {
 			countFault(&s.faultCounters.evacuations)
@@ -389,27 +418,33 @@ func (s *Simulation) releaseFaultHolds() {
 	}
 }
 
-// checkFaults checks the fault records (invariant F5) and their faulted
-// pods (F1, F2 and the bounds of F3). The serials of the records
-// increase, so no two records have one ID. Each start is from 0 to the
-// current tick, and each end is 0 or after its start. Each record names a
-// pod of the fleet with the fault hold, and a pod is faulted exactly when
-// one record names it. A faulted pod is in no group, and a faulted
-// traveling pod has a finite cap between its distance and its grant end.
+// checkFaults checks the fault records (invariant F5), their faulted pods
+// (F1, F2 and the bounds of F3), and the debris owners (F6 to F8). The
+// serials of the records increase, so no two records have one ID. Each
+// start is from 0 to the current tick, and each end is 0 or after its
+// start. Each pod record names a pod of the fleet with the fault hold, and
+// a pod is faulted exactly when one record names it. A faulted pod is in
+// no group, and a faulted traveling pod has a finite cap between its
+// distance and its grant end. At most maxDebrisFaults records are debris,
+// each on a segment that a debris start accepts.
 //
 // With faults on, it also checks F10 and F11: the blocked set is the set
 // of the record footprints, and the fault hold is the only hold. With
 // faults off, the stage 1 operations can use each hold, and no record
 // exists.
 func (s *Simulation) checkFaults() error {
+	if len(s.faultReleased) > 0 {
+		return fmt.Errorf("%d released debris resources stay after the release boundary", len(s.faultReleased))
+	}
 	var recorded []bool
 	if len(s.faults) > 0 {
 		recorded = make([]bool, len(s.vehicles))
 	}
+	debris := 0
 	for index, record := range s.faults {
 		id := record.id()
 		switch {
-		case record.kind != podFault:
+		case record.kind != podFault && record.kind != debrisFault:
 			return fmt.Errorf("fault %s has the unknown kind %d", id, record.kind)
 		case index > 0 && record.serial <= s.faults[index-1].serial:
 			return fmt.Errorf("fault %s is not after fault %s in serial order", id, s.faults[index-1].id())
@@ -417,6 +452,18 @@ func (s *Simulation) checkFaults() error {
 			return fmt.Errorf("fault %s starts at tick %d, outside 0 to %d", id, record.start, s.tick)
 		case record.end != 0 && record.end <= record.start:
 			return fmt.Errorf("fault %s ends at tick %d, not after its start %d", id, record.end, record.start)
+		}
+		if record.kind == debrisFault {
+			debris++
+			if debris > maxDebrisFaults {
+				return fmt.Errorf("more than %d debris faults are active", maxDebrisFaults)
+			}
+			if _, err := s.debrisSegment(record.lane, record.from, record.to); err != nil {
+				return fmt.Errorf("debris %s on lane %d from %g to %g: %w", id, record.lane, record.from, record.to, err)
+			}
+			continue
+		}
+		switch {
 		case record.pod < 0 || record.pod >= len(s.vehicles):
 			return fmt.Errorf("fault %s names the pod index %d outside the fleet", id, record.pod)
 		case recorded[record.pod]:
@@ -443,8 +490,8 @@ func (s *Simulation) checkFaults() error {
 			return fmt.Errorf("faulted pod %s has the cap %g outside its distance %g and its grants", v.Pod.ID, v.faultCap, v.distance)
 		}
 	}
-	if !s.faultsOn {
-		return nil
+	if err := s.checkDebrisOwners(); err != nil || !s.faultsOn {
+		return err
 	}
 	for index := range s.vehicles {
 		if v := &s.vehicles[index]; v.withdrawn&^faultHold != 0 {
@@ -460,6 +507,50 @@ func (s *Simulation) checkBlocked() error {
 	want := s.blockedFrom(s.faultFootprints())
 	if !slices.Equal(want.lanes, s.blocked.lanes) || !maps.Equal(want.berths, s.blocked.berths) || !maps.Equal(want.by, s.blocked.by) {
 		return errors.New("the blocked set differs from the footprints of the fault records")
+	}
+	return nil
+}
+
+// checkDebrisOwners checks invariants F6 and F7. The debris footprints are
+// disjoint from each other and from each pod fault footprint, and the
+// debris owns each resource of its footprint. No other resource has a
+// fault owner.
+func (s *Simulation) checkDebrisOwners() error {
+	var held map[resource]string
+	for _, record := range s.faults {
+		if record.kind != debrisFault {
+			continue
+		}
+		id := record.id()
+		for _, r := range s.debrisFootprint(record.lane, record.from, record.to) {
+			if other, ok := held[r]; ok {
+				return fmt.Errorf("debris %s and %s share the resource %v", other, id, r)
+			}
+			if held == nil {
+				held = make(map[resource]string)
+			}
+			held[r] = id
+			if owner := s.owners[r]; owner != (resourceOwner{kind: faultOwnerKind, id: id}) {
+				return fmt.Errorf("debris %s does not own the resource %v of its footprint, %q does", id, r, owner)
+			}
+		}
+	}
+	if held != nil {
+		for _, record := range s.faults {
+			if record.kind != podFault {
+				continue
+			}
+			for _, r := range s.podFaultFootprint(&s.vehicles[record.pod]) {
+				if id, ok := held[r]; ok {
+					return fmt.Errorf("debris %s meets the footprint of fault %s at %v", id, record.id(), r)
+				}
+			}
+		}
+	}
+	for r, owner := range s.owners {
+		if owner.kind == faultOwnerKind && held[r] != owner.id {
+			return fmt.Errorf("fault owner %s holds the resource %v outside the footprint of its debris", owner.id, r)
+		}
 	}
 	return nil
 }

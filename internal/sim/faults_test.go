@@ -514,7 +514,7 @@ func TestCheckFaults(t *testing.T) {
 		damage func(s *Simulation)
 		want   string
 	}{
-		{"unknown kind", func(s *Simulation) { s.faults[1].kind = podFault + 1 }, "unknown kind"},
+		{"unknown kind", func(s *Simulation) { s.faults[1].kind = debrisFault + 1 }, "unknown kind"},
 		{"duplicate record", func(s *Simulation) { s.faults = append(s.faults, s.faults[1]) }, "serial order"},
 		{"serials out of order", func(s *Simulation) { s.faults[0], s.faults[1] = s.faults[1], s.faults[0] }, "serial order"},
 		{"negative start", func(s *Simulation) { s.faults[1].start = -1 }, "starts at tick"},

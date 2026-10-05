@@ -32,6 +32,7 @@ func (s *Simulation) Clone() *Simulation {
 	}
 	c.owners = maps.Clone(s.owners)
 	c.faults = slices.Clone(s.faults)
+	c.faultReleased = slices.Clone(s.faultReleased)
 	c.expressServices = maps.Clone(s.expressServices)
 	if s.pickupSwaps != nil {
 		c.pickupSwaps = new(*s.pickupSwaps)
