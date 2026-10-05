@@ -201,6 +201,7 @@ func buildNativeForeignApproachTick(s *Simulation, f *nativeForeignFleet, approa
 		if proofErr != nil {
 			return nil, proofErr
 		}
+		proof.faulted, proof.faultCap = frame.facts[i].faulted, frame.facts[i].faultCap
 		frame.proofs[proof.raw.Path.id] = proof
 	}
 	return frame, nil

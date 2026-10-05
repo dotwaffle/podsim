@@ -19,6 +19,11 @@ type nativeForeignProof struct {
 	nextPosition      Point
 	nextRouteDistance float64
 	claims            []couplingClaim
+	// faulted and faultCap bind the fault members of the fact. A changed
+	// cap at rest, or a changed fault at a stop at the grant end, can
+	// leave the step the same, so the checks compare the members too.
+	faulted  bool
+	faultCap float64
 }
 
 func (frame *nativeForeignTick) prepareProof(index int, compact nativeCompactMember) (*nativeForeignProof, error) {
@@ -196,6 +201,9 @@ func checkNativeForeignSweep(sweep couplingForeignSweep) error {
 	if sweep.Path != raw.Path || sweep.Owners != raw.Owners || sweep.Tick != raw.Tick || sweep.ReservedThrough != raw.ReservedThrough || !nativeForeignSameFloat(sweep.Distance, raw.Distance) || !nativeForeignSameFloat(sweep.Speed, raw.Speed) || !nativeForeignSameFloat(sweep.NextDistance, raw.NextDistance) || !nativeForeignSameFloat(sweep.NextSpeed, raw.NextSpeed) {
 		return couplingMotionInvariant("native foreign sweep differs from its exact frozen command")
 	}
+	if fact := &proof.frame.facts[proof.index]; fact.faulted != proof.faulted || !nativeForeignSameFloat(fact.faultCap, proof.faultCap) {
+		return couplingMotionInvariant("native fault members changed after certification")
+	}
 	if proof.approach != nil {
 		return proof.approach.check(proof)
 	}
@@ -229,6 +237,9 @@ func (frame *nativeForeignTick) checkApplied(s *Simulation) error {
 		v := &s.vehicles[index]
 		if v.Pod.ID != fact.pod.ID || v.Pod.Class != fact.pod.Class || !nativeForeignSameFloat(v.distance, proof.nextRouteDistance) || !nativeForeignSameFloat(v.Pod.Speed, proof.raw.NextSpeed) || v.Pod.Position != proof.nextPosition {
 			return couplingMotionInvariant("native applied motion differs from the frozen complete tick")
+		}
+		if v.faulted != proof.faulted || !nativeForeignSameFloat(v.faultCap, proof.faultCap) {
+			return couplingMotionInvariant("native fault members changed inside the frozen movement stage")
 		}
 	}
 	return nil
