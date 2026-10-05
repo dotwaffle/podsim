@@ -9,7 +9,9 @@ func (s *Simulation) assignTerminalBerth(v *vehicle) bool {
 	if v.destination.ID != "" || len(v.Route) == 0 {
 		return true
 	}
-	passenger := v.Pod.Occupied || v.Pod.Activity == Boarding && len(v.Riders) > 0 || s.assigned(v.Pod.ID)
+	// An empty recovery chooses its berth as a passenger route does.
+	passenger := v.Pod.Occupied || v.Pod.Activity == Boarding && len(v.Riders) > 0 || s.assigned(v.Pod.ID) ||
+		v.op.purpose == opEmptyRecovery
 	if !passenger {
 		return true
 	}

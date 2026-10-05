@@ -31,6 +31,14 @@ func (s *Simulation) transferRider(v *vehicle, index int, station string) error 
 	if !s.passengerStation(station) || station == rider.To {
 		return errors.New("a transfer needs a passenger station other than the destination")
 	}
+	s.queueTransfer(v, index, station)
+	return nil
+}
+
+// queueTransfer is the effect of transferRider. The caller checks its
+// preconditions.
+func (s *Simulation) queueTransfer(v *vehicle, index int, station string) {
+	rider := v.Riders[index]
 	v.Riders = slices.Delete(slices.Clone(v.Riders), index, index+1)
 	if len(v.Boardings) > 0 {
 		v.Boardings = slices.Delete(slices.Clone(v.Boardings), index, index+1)
@@ -43,7 +51,6 @@ func (s *Simulation) transferRider(v *vehicle, index int, station string) error 
 		position = len(s.waiting)
 	}
 	s.waiting = slices.Insert(s.waiting, position, trip)
-	return nil
 }
 
 // continuationFeasible reports whether some fleet pod fits request with the

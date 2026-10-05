@@ -149,6 +149,16 @@ type SavedPod struct {
 	Platoon *SavedPlatoonLink `json:"platoon,omitzero"`
 	// CompactQueue is the head-only retained compact-v1 physical certificate.
 	CompactQueue *SavedCompactQueue `json:"compactQueue,omitzero"`
+	// Withdrawn holds the service holds of the pod. Purpose, Owner, and
+	// Interrupt hold its operational destination: the purpose code, the
+	// hold that owns the purpose, and the riders whose orders end
+	// interrupted at an emergency unload, by index in Riders. Each is zero
+	// for a pod in service. No session save writes them yet. Section 11 of
+	// the incident contract adds their members.
+	Withdrawn uint8  `json:"-"`
+	Purpose   uint8  `json:"-"`
+	Owner     uint8  `json:"-"`
+	Interrupt uint32 `json:"-"`
 }
 
 // SavedPlatoonLink is the saved link of a traveling pod to its predecessor
@@ -263,6 +273,19 @@ type RestoreResult struct {
 	PhysicalError error
 }
 
+// checkOperationalFields checks the holds and the operational destinations
+// of the saved pods before either restore tier. They need the incident
+// contract, and an emergency unload needs a passenger station.
+func checkOperationalFields(input RestoreStateInput) error {
+	operational := func(pod SavedPod) bool {
+		return pod.Withdrawn != 0 || pod.Purpose != 0 || pod.Owner != 0 || pod.Interrupt != 0
+	}
+	if input.IncidentContract == "" && slices.ContainsFunc(input.State.Pods, operational) {
+		return errors.New("saved service holds and operational destinations need the incident contract")
+	}
+	return checkOperationalStations(input.Network, input.State.Pods)
+}
+
 // RestoreState rebuilds a running simulation from a saved state. The network
 // and the fleet must be the ones that the saved simulation used. It tries the
 // physical tier first. When that tier fails, or when input.LogicalOnly is
@@ -311,6 +334,9 @@ func restoreState(input RestoreStateInput, newFleet func() (*Simulation, error))
 		return nil, RestoreResult{}, err
 	}
 	if err := checkBoardingFields(input); err != nil {
+		return nil, RestoreResult{}, err
+	}
+	if err := checkOperationalFields(input); err != nil {
 		return nil, RestoreResult{}, err
 	}
 	registry, serviceErr := validatedExpressServices(input.Network, newRouteGraph(input.Network), input.ExpressServices)
@@ -447,6 +473,7 @@ func (s *Simulation) exportPod(v *vehicle, limits routeLimits) SavedPod {
 		Destination: v.destination.ID, DestinationStation: v.destinationStation,
 		ClaimsDestination: claimsDestination,
 		LaneID:            v.Pod.LaneID, LaneDistance: v.Pod.LaneDistance, Waiting: v.pending >= 0, Released: v.released, StationBuffered: v.buffered,
+		Withdrawn: uint8(v.withdrawn), Purpose: uint8(v.op.purpose), Owner: uint8(v.op.owner), Interrupt: v.op.interrupt,
 	}
 	for _, rider := range v.Riders {
 		pod.Riders = append(pod.Riders, SavedRequest(rider))

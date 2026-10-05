@@ -229,9 +229,10 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"destinationStation": persistSave, "released": persistSave, "terminal": persistReset,
 		"buffered": persistSave, "bufferBerth": persistReset,
 		"routeVersion": persistReset, "stationPhase": persistDerive, "routeLengths": persistDerive, "link": persistSave, "follower": persistDerive, "platoonCap": persistReset,
-		// No stage 1 operation sets withdrawn yet. Section 11 of the
-		// incident contract adds its saved member.
-		"withdrawn": persistReset,
+		// SavedPod has the holds and the operational destination, so
+		// ExportState and RestoreState keep them. No session save writes
+		// them yet. Section 11 of the incident contract adds their members.
+		"withdrawn": persistSave, "op": persistSave,
 	},
 	reflect.TypeFor[Vehicle](): {
 		"CouplingID": persistDerive,

@@ -18,7 +18,8 @@ type phaseSample struct {
 // returns the first saved state for each phase of the contract. The
 // continuing phase lasts only while a pod waits for track, so the run makes
 // pod 01 continue at once when it starts to unload at garden, and saves the
-// state before the next step.
+// state before the next step. The phases of an operational purpose need a
+// service hold. TestOperationalPhaseMutations covers them.
 func livePhaseSamples(t *testing.T) map[podPhase]phaseSample {
 	t.Helper()
 	samples := make(map[podPhase]phaseSample)
@@ -59,8 +60,8 @@ func livePhaseSamples(t *testing.T) map[podPhase]phaseSample {
 		record(pickup)
 		pickup.Step()
 	}
-	for phase := range phaseRules {
-		if _, ok := samples[podPhase(phase)]; !ok {
+	for phase := range phaseContinuing + 1 {
+		if _, ok := samples[phase]; !ok {
 			t.Fatalf("the live runs did not reach phase %d", phase)
 		}
 	}
@@ -145,7 +146,7 @@ func contractMutations(rule phaseRule, pod SavedPod) []podMutation {
 	switch rule.stops {
 	case noStops, finalStop:
 		add("a stop", func(_ *SavedState, pod *SavedPod) { pod.Stops = append(pod.Stops, "garden") })
-	case routeStops, laterStops:
+	case routeStops, laterStops, serviceStops:
 		add("no stops", func(_ *SavedState, pod *SavedPod) { pod.Stops = nil })
 		add("a repeated stop", func(_ *SavedState, pod *SavedPod) { pod.Stops = append(pod.Stops, pod.Stops[0]) })
 		add("a stop for no rider", func(_ *SavedState, pod *SavedPod) { pod.Stops = append(pod.Stops, "parking") })

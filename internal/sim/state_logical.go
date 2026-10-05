@@ -15,11 +15,14 @@ type logicalTrip struct {
 
 // restoreLogical rebuilds a running simulation with each fleet pod idle at
 // its initial berth. It keeps the clock and the counters of the saved state.
-// An active rider of an unloading pod completes when it goes to the station
-// of the pod, and the station and the berth of the pod are a passenger
-// station and one of its berths in the network. These journeys do not count
+// A marked rider of an emergency unload ends interrupted (incident
+// contract, section 9.6). Each other active rider of an unloading pod
+// completes when it goes to the station of the pod, and the station and
+// the berth of the pod are a passenger station and one of its berths in
+// the network. These journeys do not count
 // in the journey totals. Each other active rider of a pod goes back to the
-// queue as one trip, and its boarding stays recorded.
+// queue as one trip, and its boarding stays recorded. Each pod keeps its
+// service holds and has no operational purpose.
 // The queued trips lose their pod bindings. As after Reset,
 // the traffic demo stops and its parked pods are gone. restoreLogical fails
 // when the saved state is not valid or when the result fails a check.
@@ -46,12 +49,24 @@ func restoreLogical(input RestoreStateInput, newFleet func() (*Simulation, error
 	if err := s.SetOnboardPickups(input.OnboardPickups); err != nil {
 		return nil, RestoreResult{}, err
 	}
-	var completed []int
+	var completed, interrupted []int
 	trips := make([]logicalTrip, 0, len(state.Pods)+len(state.Waiting))
 	for _, pod := range state.Pods {
-		active, _ := savedRiders(pod)
+		if v := s.findVehicle(pod.ID); v != nil {
+			v.withdrawn = serviceHold(pod.Withdrawn)
+		}
 		arrived := pod.Activity == activityCode(Unloading) && s.passengerBerth(pod.StationID, pod.BerthID)
-		for _, rider := range active {
+		emergency := opPurpose(pod.Purpose) == opEmergencyUnload
+		for index, rider := range pod.Riders {
+			if rider.Completed {
+				continue
+			}
+			if emergency && pod.Interrupt&(1<<index) != 0 {
+				s.interrupted++
+				s.interruptedPassengers += rider.PartySize
+				interrupted = append(interrupted, rider.ID)
+				continue
+			}
 			if arrived && rider.To == pod.StationID {
 				s.completed++
 				completed = append(completed, rider.ID)
@@ -66,6 +81,8 @@ func restoreLogical(input RestoreStateInput, newFleet func() (*Simulation, error
 	result := s.queueTrips(state, trips)
 	result.Tier, result.Unaccounted = RestoreLogical, unaccounted
 	result.LogicalCompleted = completed
+	slices.Sort(interrupted)
+	result.Interrupted = interrupted
 	if err := s.verifyRestore(state, completed, result.Interrupted, result.Dropped, unaccounted); err != nil {
 		return nil, RestoreResult{}, err
 	}

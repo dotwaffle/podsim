@@ -74,40 +74,47 @@ func (v *vehicle) riddenMeters() float64 {
 // journey and the distances of each such rider to the totals.
 func (s *Simulation) alight(v *vehicle) {
 	ridden := v.riddenMeters()
-	direct, directKnown := -1.0, false
 	for index := range v.Riders {
 		rider := &v.Riders[index]
 		if rider.Completed || slices.Contains(v.Stops, rider.To) {
 			continue
 		}
-		if !directKnown {
-			direct, directKnown = s.directDistanceForClass(v.journeyOrigin.Node, rider.To, v.destination, v.Pod.Class), true
-		}
-		partyRidden, partyDirect := ridden, direct
-		if len(v.Boardings) > 0 {
-			partyRidden -= v.Boardings[index].MetersAtBoarding
-			partyDirect = s.directDistanceForClass(s.riderOrigin(v, index), rider.To, v.destination, v.Pod.Class)
-		}
-		rider.Completed = true
-		s.stepCompletions = append(s.stepCompletions, StepCompletion{RequestID: rider.ID, AlightedTick: s.tick})
-		s.completed++
-		journey := s.tick - rider.RequestedTick
-		s.journeys++
-		s.totalJourneyTicks += journey
-		s.maxJourneyTicks = max(s.maxJourneyTicks, journey)
-		s.riderDistanceMeters += partyRidden
-		if partyDirect > 0 {
-			s.directDistanceMeters += partyDirect
-			s.maxDetourRatio = max(s.maxDetourRatio, partyRidden/partyDirect)
-		}
-		if s.recordExperiments {
-			s.requestCompletions = append(s.requestCompletions, requestCompletion{
-				requestID: rider.ID, tick: s.tick, riddenMeters: partyRidden, directMeters: max(partyDirect, 0),
-			})
-		}
+		s.completeRider(v, index, ridden)
 	}
 	if len(v.Boardings) > 0 && v.RidersAboard() == 0 {
 		v.riddenBase = ridden
+	}
+}
+
+// completeRider completes the active rider at index at the destination
+// berth of v. ridden is the cumulative distance of the riders, which the
+// caller captures once before its first outcome. completeRider writes one
+// StepCompletion and adds the journey and the distances of the rider to
+// the totals. The rider stays in Riders as completed history.
+func (s *Simulation) completeRider(v *vehicle, index int, ridden float64) {
+	rider := &v.Riders[index]
+	partyRidden := ridden
+	if len(v.Boardings) > 0 {
+		partyRidden -= v.Boardings[index].MetersAtBoarding
+	}
+	// riderOrigin is the journey origin of a pod without boarding records.
+	partyDirect := s.directDistanceForClass(s.riderOrigin(v, index), rider.To, v.destination, v.Pod.Class)
+	rider.Completed = true
+	s.stepCompletions = append(s.stepCompletions, StepCompletion{RequestID: rider.ID, AlightedTick: s.tick})
+	s.completed++
+	journey := s.tick - rider.RequestedTick
+	s.journeys++
+	s.totalJourneyTicks += journey
+	s.maxJourneyTicks = max(s.maxJourneyTicks, journey)
+	s.riderDistanceMeters += partyRidden
+	if partyDirect > 0 {
+		s.directDistanceMeters += partyDirect
+		s.maxDetourRatio = max(s.maxDetourRatio, partyRidden/partyDirect)
+	}
+	if s.recordExperiments {
+		s.requestCompletions = append(s.requestCompletions, requestCompletion{
+			requestID: rider.ID, tick: s.tick, riddenMeters: partyRidden, directMeters: max(partyDirect, 0),
+		})
 	}
 }
 

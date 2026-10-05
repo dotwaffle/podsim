@@ -61,15 +61,21 @@ func (s *Simulation) withdrawService(v *vehicle, hold serviceHold) error {
 // restoreService removes hold from v. It is the inverse of withdrawService
 // for supply membership: it changes nothing else. The pod stays withdrawn
 // while it has another hold. It refuses, and changes nothing, when hold is
-// not exactly one known hold, when v does not have hold, or when v is a
-// coupling member. A withdrawn pod can become a coupling member, and its
-// caller waits for the split, as for withdrawService.
+// not exactly one known hold, when v does not have hold, when hold owns
+// the operational purpose of v (invariant W5), or when v is a coupling
+// member. The policy of the hold first calls rebindOperationalOwner, or it
+// waits until an arrival clears the purpose. A withdrawn pod can become a
+// coupling member, and its caller waits for the split, as for
+// withdrawService.
 func (s *Simulation) restoreService(v *vehicle, hold serviceHold) error {
 	if !oneServiceHold(hold) {
 		return fmt.Errorf("pod %s: service hold %#x is not one known hold", v.Pod.ID, hold)
 	}
 	if v.withdrawn&hold == 0 {
 		return fmt.Errorf("pod %s: service hold %#x is not set", v.Pod.ID, hold)
+	}
+	if v.op.owner == hold {
+		return fmt.Errorf("pod %s: service hold %#x owns the operational purpose", v.Pod.ID, hold)
 	}
 	if v.couplingID != "" || s.couplingApproachMember(v.Pod.ID) {
 		return fmt.Errorf("pod %s: service restore of a coupling member", v.Pod.ID)

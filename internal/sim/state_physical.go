@@ -157,6 +157,7 @@ func restorePhysical(input RestoreStateInput, newFleet func() (*Simulation, erro
 		r.result.Demoted = append(r.result.Demoted, s.vehicles[index].Pod.ID)
 	}
 	r.restoreWaiting()
+	slices.Sort(r.result.Interrupted)
 	if err := s.verifyRestore(input.State, nil, r.result.Interrupted, r.result.Dropped, unaccounted); err != nil {
 		return nil, RestoreResult{}, err
 	}
@@ -364,7 +365,11 @@ func (r *physicalRestore) decodePod(index int, saved SavedPod) error {
 		Pod:       Pod{ID: saved.ID, Class: saved.Class, Activity: activity, Occupied: saved.Occupied},
 		Boardings: slices.Clone(saved.Boardings), Stops: slices.Clone(saved.Stops), RelocatingTo: saved.RelocatingTo, Rebalancing: saved.Rebalancing,
 		phaseTicks: saved.PhaseTicks, rebalanceAfter: saved.RebalanceAfter, destinationStation: saved.DestinationStation,
-		pending: -1, reservedThrough: -1,
+		pending: -1, reservedThrough: -1, withdrawn: serviceHold(saved.Withdrawn),
+		op: operationalDestination{purpose: opPurpose(saved.Purpose), owner: serviceHold(saved.Owner), interrupt: saved.Interrupt},
+	}
+	if v.op.purpose == opRefuge && activity == Unloading {
+		v.Pod.WaitReason = refugeHolding
 	}
 	v.released = saved.Released && releasable(v)
 	for _, rider := range saved.Riders {
@@ -582,7 +587,8 @@ func (r *physicalRestore) buildRoutes() error {
 			pickup := slices.ContainsFunc(r.state.Waiting, func(trip SavedTrip) bool {
 				return trip.Request.PodID == v.Pod.ID && trip.Request.legOrigin() == v.destinationStation
 			})
-			if !eligible || !v.carriesPassengers() && !pickup && !v.released && v.Pod.Activity != Boarding && v.Pod.Activity != Continuing {
+			if !eligible || !v.carriesPassengers() && !pickup && !v.released && v.op.purpose != opEmptyRecovery &&
+				v.Pod.Activity != Boarding && v.Pod.Activity != Continuing {
 				return fmt.Errorf("pod %s: invalid station buffer membership", v.Pod.ID)
 			}
 			v.buffered = true
@@ -1075,7 +1081,9 @@ func (r *physicalRestore) separate() error {
 }
 
 // placeDemoted moves a demoted pod to a free berth. A berth that the pod
-// holds counts as free. Recorded passengers return to the request queue.
+// holds counts as free. A demoted pod loses its operational purpose. The
+// marked riders of an emergency unload end interrupted, and its other
+// riders return to the queue: they never board again. Recorded passengers return to the request queue.
 // Other passengers board again at an origin berth with a route as in board.
 // When no such berth is free, when
 // the route does not fit in the block budget, or when the stops from that
@@ -1085,6 +1093,14 @@ func (r *physicalRestore) separate() error {
 // of its destination station, then any berth.
 func (r *physicalRestore) placeDemoted(index int) error {
 	v := &r.s.vehicles[index]
+	emergency := v.op.purpose == opEmergencyUnload
+	if emergency {
+		r.interruptMarked(v)
+	}
+	v.op = operationalDestination{}
+	if emergency {
+		r.requeue(v)
+	}
 	if v.RidersAboard() > 0 {
 		from, _ := r.s.station(v.boardingStation())
 		if berth, ok := r.freeBerth(v, from.Berths); len(v.Boardings) == 0 && ok && r.boardAgain(v, berth) {
@@ -1170,6 +1186,36 @@ func (r *physicalRestore) boardAgain(v *vehicle, berth Berth) bool {
 	v.journeyOrigin = berth
 	r.s.setVehicleRoute(v, route)
 	return true
+}
+
+// interruptMarked ends the marked riders of an emergency unload as
+// interrupted at the restore (incident contract, section 9.6). The riders
+// leave the pod with their aligned records. The restore reports them in
+// RestoreResult.Interrupted, not through DrainInterruptions.
+func (r *physicalRestore) interruptMarked(v *vehicle) {
+	r.result.Interrupted = append(r.result.Interrupted, r.s.interruptMarkedRiders(v)...)
+}
+
+// interruptMarkedRiders removes each active rider of v that the interrupt
+// set of v marks, and counts its order as interrupted. It returns the
+// order IDs. It does not change undelivered.
+func (s *Simulation) interruptMarkedRiders(v *vehicle) []int {
+	var interrupted []int
+	riders, boardings := v.Riders[:0:0], v.Boardings[:0:0]
+	for index, rider := range v.Riders {
+		if !rider.Completed && v.op.interrupt&(1<<index) != 0 {
+			s.interrupted++
+			s.interruptedPassengers += rider.PartySize
+			interrupted = append(interrupted, rider.ID)
+			continue
+		}
+		riders = append(riders, rider)
+		if len(v.Boardings) > 0 {
+			boardings = append(boardings, v.Boardings[index])
+		}
+	}
+	v.Riders, v.Boardings = riders, boardings
+	return interrupted
 }
 
 // requeue returns each rider aboard a pod to the queue as one trip. The

@@ -23,6 +23,11 @@ const (
 	phaseUnloadingFinal
 	phaseUnloadingIntermediate
 	phaseContinuing
+	// phaseUnloadingOperational is an emergency unload (purpose 1).
+	phaseUnloadingOperational
+	// phaseRefugeHolding is a pod that holds at its refuge with its riders
+	// aboard (purpose 2). It reuses the unloading activity with phase 0.
+	phaseRefugeHolding
 )
 
 // stopRule tells which stops a phase needs.
@@ -41,6 +46,10 @@ const (
 	// other than the station of the pod. Each active rider goes to the
 	// station of the pod or to a stop.
 	laterStops
+	// serviceStops needs one stop for each destination of the active
+	// riders, in any order. The destination station of a pod with an
+	// emergency unload or a refuge need not be the first stop.
+	serviceStops
 )
 
 // phaseRule holds the fields that a phase needs and the fields that it
@@ -98,11 +107,16 @@ var phaseRules = [...]phaseRule{
 		atDestination: true,
 	},
 	phaseContinuing: {active: true, history: true, occupied: true, atBerth: true, stops: routeStops, startsAtBerth: true},
+	phaseUnloadingOperational: {
+		active: true, history: true, occupied: true, atBerth: true, minPhase: 1, maxPhase: unloadingTicks, stops: laterStops,
+		atDestination: true,
+	},
+	phaseRefugeHolding: {active: true, history: true, occupied: true, atBerth: true, stops: laterStops, atDestination: true},
 }
 
 // phaseOf returns the phase of a saved pod. It uses the activity, the
-// Occupied flag of a traveling pod, and the stops of an unloading pod. The
-// rule of the phase then checks the other fields.
+// Occupied flag of a traveling pod, and the purpose and the stops of an
+// unloading pod. The rule of the phase then checks the other fields.
 func phaseOf(pod SavedPod) (podPhase, error) {
 	activity, ok := activityOfCode(pod.Activity)
 	if !ok {
@@ -119,6 +133,13 @@ func phaseOf(pod SavedPod) (podPhase, error) {
 		}
 		return phaseTravelingEmpty, nil
 	case Unloading:
+		switch opPurpose(pod.Purpose) {
+		case opEmergencyUnload:
+			return phaseUnloadingOperational, nil
+		case opRefuge:
+			return phaseRefugeHolding, nil
+		default:
+		}
 		if len(pod.Stops) > 0 {
 			return phaseUnloadingIntermediate, nil
 		}
@@ -130,12 +151,84 @@ func phaseOf(pod SavedPod) (podPhase, error) {
 	}
 }
 
-// ruleForPod retains the boarding phase while allowing an accepted occupied pickup.
+// ruleForPod retains the boarding phase while allowing an accepted occupied
+// pickup. A traveling pod with an emergency unload or a refuge needs a
+// destination berth, and its stops need not start with its destination.
 func ruleForPod(pod SavedPod, phase podPhase) phaseRule {
 	if phase == phaseBoarding && pod.Occupied {
 		return phaseRule{active: true, history: true, occupied: true, atBerth: true, maxPhase: boardingTicks, stops: routeStops, startsAtBerth: true}
 	}
-	return phaseRules[phase]
+	rule := phaseRules[phase]
+	if phase == phaseTravelingOccupied {
+		if purpose := opPurpose(pod.Purpose); purpose == opEmergencyUnload || purpose == opRefuge {
+			rule.stops, rule.hasDestination = serviceStops, true
+		}
+	}
+	return rule
+}
+
+// checkPodOperational checks the holds and the operational destination of
+// a saved pod (incident contract, sections 4.5 and 9.4): W1, W5, the
+// interrupt set, and the phases that each purpose allows. A pod at rest in
+// service, boarding, or continuing has no purpose: arrival and
+// settleIdleAtBerth clear it.
+func checkPodOperational(pod SavedPod, phase podPhase) error {
+	withdrawn, purpose, owner := serviceHold(pod.Withdrawn), opPurpose(pod.Purpose), serviceHold(pod.Owner)
+	if withdrawn&^knownServiceHolds != 0 {
+		return fmt.Errorf("unknown service holds %#x", withdrawn)
+	}
+	if purpose == opService {
+		if owner != 0 || pod.Interrupt != 0 {
+			return errors.New("a pod in service has an operational owner or interrupt set")
+		}
+		return nil
+	}
+	if purpose > opEmptyRecovery {
+		return fmt.Errorf("unknown operational purpose %d", purpose)
+	}
+	if !oneServiceHold(owner) || withdrawn&owner == 0 {
+		return fmt.Errorf("operational owner %#x is not one held hold", owner)
+	}
+	if pod.Interrupt != 0 && purpose != opEmergencyUnload {
+		return errors.New("only an emergency unload interrupts riders")
+	}
+	if len(pod.Riders) < 32 && pod.Interrupt>>len(pod.Riders) != 0 {
+		return errors.New("the interrupt set names a rider that does not exist")
+	}
+	for index, rider := range pod.Riders {
+		if pod.Interrupt&(1<<index) != 0 && rider.Completed {
+			return fmt.Errorf("the interrupt set names completed rider %d", rider.ID)
+		}
+	}
+	switch {
+	case purpose == opEmergencyUnload && phase != phaseTravelingOccupied && phase != phaseUnloadingOperational,
+		purpose == opRefuge && phase != phaseTravelingOccupied && phase != phaseRefugeHolding,
+		purpose == opEmptyRecovery && phase != phaseTravelingEmpty && phase != phaseDepartingEmpty:
+		return fmt.Errorf("operational purpose %d does not agree with activity %s", purpose, pod.Activity)
+	case purpose != opEmptyRecovery && pod.StationBuffered:
+		return errors.New("a pod with riders and an operational purpose is in a station buffer")
+	case purpose == opRefuge && slices.Contains(pod.Stops, pod.DestinationStation):
+		return errors.New("the refuge is a stop of the riders")
+	case purpose == opEmptyRecovery && (pod.Rebalancing || pod.Released):
+		return errors.New("an empty recovery is a rebalancing or released move")
+	default:
+		return nil
+	}
+}
+
+// checkOperationalStations checks the operational destinations of the
+// saved pods against the network: an emergency unload needs a passenger
+// station.
+func checkOperationalStations(network Network, pods []SavedPod) error {
+	for _, pod := range pods {
+		if opPurpose(pod.Purpose) != opEmergencyUnload {
+			continue
+		}
+		if station, ok := network.Station(pod.DestinationStation); !ok || station.ParkingOnly {
+			return fmt.Errorf("pod %s: the emergency unload is not at a passenger station", pod.ID)
+		}
+	}
+	return nil
 }
 
 // savedRiders splits the riders of a saved pod into the active riders,
@@ -240,6 +333,9 @@ func (state SavedState) checkPod(pod SavedPod) error {
 	}
 	phase, err := phaseOf(pod)
 	if err != nil {
+		return err
+	}
+	if err := checkPodOperational(pod, phase); err != nil {
 		return err
 	}
 	rule := ruleForPod(pod, phase)
@@ -380,7 +476,7 @@ func checkPodStops(pod SavedPod, rule phaseRule, active, history []SavedRequest)
 		if len(pod.Stops) > 0 {
 			return errors.New("the pod has stops")
 		}
-	case routeStops, laterStops:
+	case routeStops, laterStops, serviceStops:
 		if len(pod.Stops) != len(wanted) || slices.ContainsFunc(wanted, func(to string) bool { return !slices.Contains(pod.Stops, to) }) {
 			return errors.New("the stops are not the destinations of the riders")
 		}
@@ -400,8 +496,12 @@ func checkPodStops(pod SavedPod, rule phaseRule, active, history []SavedRequest)
 // simulation meets the contract after each tick and each command. Tests
 // call CheckContract to check a run.
 func (s *Simulation) CheckContract() error {
-	unaccounted, err := s.ExportState().checkContract()
+	state := s.ExportState()
+	unaccounted, err := state.checkContract()
 	if err != nil {
+		return err
+	}
+	if err := checkOperationalStations(s.network, state.Pods); err != nil {
 		return err
 	}
 	if unaccounted != s.unaccountedOrders {

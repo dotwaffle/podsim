@@ -91,7 +91,9 @@ func checkBoardingBerths(network Network, pod SavedPod) error {
 		return errors.New("the recorded pod has no station")
 	}
 	berth, ok := station.berth(pod.BerthID)
-	if !ok || !berthAllows(station, berth, pod.Class) || rule.active && station.ParkingOnly {
+	// A refuge can be a parking station. Each recorded rider still boarded
+	// at a passenger station.
+	if !ok || !berthAllows(station, berth, pod.Class) || rule.active && station.ParkingOnly && phase != phaseRefugeHolding {
 		return errors.New("the recorded pod is not at a compatible berth")
 	}
 	return nil

@@ -263,6 +263,9 @@ type vehicle struct {
 	// withdrawn holds the causes that withdraw the pod from service. The
 	// pod is in service when it has no hold. See inService.
 	withdrawn serviceHold
+	// op is the purpose of the physical destination of the pod. It is zero
+	// for a pod in service. See operationalDestination.
+	op operationalDestination
 	// nextRelease is 0, or it is at most each release distance in
 	// routeReleases and the pod or a pod ahead of it in its platoon owns
 	// each resource in routeReleases that the pod has not passed. In the
@@ -714,6 +717,16 @@ func (s *Simulation) Step() {
 			v.phaseTicks--
 		}
 		if v.Pod.Activity == Unloading && v.phaseTicks == 0 {
+			// A refuge holds until resumeFromRefuge. An emergency unload
+			// ends with its own outcomes.
+			switch v.op.purpose {
+			case opRefuge:
+				continue
+			case opEmergencyUnload:
+				s.finishOperationalUnload(v)
+				continue
+			default:
+			}
 			s.alight(v)
 			if len(v.Stops) > 0 && v.RidersAboard() > 0 {
 				s.continueJourney(v)
@@ -793,7 +806,12 @@ func (s *Simulation) arrive(v *vehicle) {
 		StationPhase: AtBerth, ManeuverStationID: station.ID,
 	}
 	v.phaseTicks = unloadingTicks
-	if len(v.Stops) > 0 && v.Stops[0] == station.ID {
+	switch {
+	case v.op.purpose == opEmergencyUnload:
+		v.Stops = withoutStop(v.Stops, station.ID)
+	case v.op.purpose == opRefuge:
+		v.phaseTicks, v.Pod.WaitReason = 0, refugeHolding
+	case len(v.Stops) > 0 && v.Stops[0] == station.ID:
 		v.Stops = slices.Clip(v.Stops[1:])
 		if len(v.Stops) == 0 {
 			v.Stops = nil
@@ -806,5 +824,7 @@ func (s *Simulation) arrive(v *vehicle) {
 			v.rebalanceAfter = s.tick + redistributionCooldownTicks
 			v.Rebalancing = false
 		}
+		// An empty recovery ends at its berth. The holds stay.
+		v.op = operationalDestination{}
 	}
 }
