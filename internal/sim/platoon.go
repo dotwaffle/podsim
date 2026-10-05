@@ -517,6 +517,11 @@ func (s *Simulation) tryLink(i, ahead int) {
 	if s.couplingApproachMember(v.Pod.ID) || s.couplingApproachMember(leader.Pod.ID) {
 		return
 	}
+	// canLink refuses a coupled follower. A committed train admits no
+	// ordinary follower either.
+	if leader.couplingID != "" {
+		return
+	}
 	if largeVehicleClass(v.Pod.Class) || largeVehicleClass(leader.Pod.Class) {
 		return
 	}
