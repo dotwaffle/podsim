@@ -3,6 +3,7 @@ package sim
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"math"
 	"slices"
 )
@@ -213,11 +214,16 @@ func (s *Simulation) podFaultFootprint(v *vehicle) []resource {
 // Each operation that changes a footprint calls it before it returns: a
 // fault start, a clear, and the arrival of a faulted pod.
 func (s *Simulation) rebuildBlocked() {
+	s.setBlocked(s.faultFootprints())
+}
+
+// faultFootprints returns the footprints of the records, in record order.
+func (s *Simulation) faultFootprints() []faultFootprint {
 	var footprints []faultFootprint
 	for _, record := range s.faults {
 		footprints = append(footprints, faultFootprint{id: record.id(), resources: s.podFaultFootprint(&s.vehicles[record.pod])})
 	}
-	s.setBlocked(footprints)
+	return footprints
 }
 
 // remainingRouteBlocked reports whether an active fault blocks a lane of
@@ -390,7 +396,12 @@ func (s *Simulation) releaseFaultHolds() {
 // current tick, and each end is 0 or after its start. Each record names a
 // pod of the fleet with the fault hold, and a pod is faulted exactly when
 // one record names it. A faulted pod is in no group, and a faulted
-// traveling pod has its cap between its distance and its grant end.
+// traveling pod has a finite cap between its distance and its grant end.
+//
+// With faults on, it also checks F10 and F11: the blocked set is the set
+// of the record footprints, and the fault hold is the only hold. With
+// faults off, the stage 1 operations can use each hold, and no record
+// exists.
 func (s *Simulation) checkFaults() error {
 	var recorded []bool
 	if len(s.faults) > 0 {
@@ -429,9 +440,27 @@ func (s *Simulation) checkFaults() error {
 		if err := s.operationalMember(v); err != nil {
 			return fmt.Errorf("faulted %w", err)
 		}
-		if v.Pod.Activity == Traveling && (v.reservedThrough < 0 || v.distance > v.faultCap || v.faultCap > v.blocks.end(v.reservedThrough)) {
+		if v.Pod.Activity == Traveling && (v.reservedThrough < 0 || !finite(v.faultCap) || v.distance > v.faultCap || v.faultCap > v.blocks.end(v.reservedThrough)) {
 			return fmt.Errorf("faulted pod %s has the cap %g outside its distance %g and its grants", v.Pod.ID, v.faultCap, v.distance)
 		}
+	}
+	if !s.faultsOn {
+		return nil
+	}
+	for index := range s.vehicles {
+		if v := &s.vehicles[index]; v.withdrawn&^faultHold != 0 {
+			return fmt.Errorf("pod %s has the service holds %#x, not only the fault hold", v.Pod.ID, v.withdrawn)
+		}
+	}
+	return s.checkBlocked()
+}
+
+// checkBlocked checks invariant F10: the blocked set is the set of the
+// footprints of the records, with the same fault IDs.
+func (s *Simulation) checkBlocked() error {
+	want := s.blockedFrom(s.faultFootprints())
+	if !slices.Equal(want.lanes, s.blocked.lanes) || !maps.Equal(want.berths, s.blocked.berths) || !maps.Equal(want.by, s.blocked.by) {
+		return errors.New("the blocked set differs from the footprints of the fault records")
 	}
 	return nil
 }

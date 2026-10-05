@@ -76,23 +76,9 @@ func faultTransition(before, after faultPose) error {
 	return nil
 }
 
-// checkBlockedSet checks invariant F10: the blocked set equals the set of
-// the footprints of the records.
-func checkBlockedSet(s *Simulation) error {
-	var footprints []faultFootprint
-	for _, record := range s.faults {
-		footprints = append(footprints, faultFootprint{id: record.id(), resources: s.podFaultFootprint(&s.vehicles[record.pod])})
-	}
-	want := s.blockedFrom(footprints)
-	if !slices.Equal(want.lanes, s.blocked.lanes) || !maps.Equal(want.berths, s.blocked.berths) || !maps.Equal(want.by, s.blocked.by) {
-		return errors.New("the blocked set differs from the footprints of the records")
-	}
-	return nil
-}
-
 // checkFaultsEachTick makes s check, after each tick and each public
-// command, the state contract, the order balance, the blocked set, and
-// the transition rules of each faulted pod.
+// command, the state contract (with the blocked set), the order balance,
+// and the transition rules of each faulted pod.
 func checkFaultsEachTick(t *testing.T, s *Simulation) {
 	t.Helper()
 	previous := faultPoses(s)
@@ -101,9 +87,6 @@ func checkFaultsEachTick(t *testing.T, s *Simulation) {
 			t.Fatalf("tick %d: %v", s.tick, err)
 		}
 		if err := checkOrderBalance(s); err != nil {
-			t.Fatalf("tick %d: %v", s.tick, err)
-		}
-		if err := checkBlockedSet(s); err != nil {
 			t.Fatalf("tick %d: %v", s.tick, err)
 		}
 		next := faultPoses(s)
@@ -235,7 +218,7 @@ func TestFaultBrakingOnLane(t *testing.T) {
 	if !laneBlocked(s, "s0-link") || !s.rerouteDue {
 		t.Fatal("the lane of the faulted pod is not blocked")
 	}
-	if err := checkBlockedSet(s); err != nil {
+	if err := s.checkBlocked(); err != nil {
 		t.Fatal(err)
 	}
 	through := v.reservedThrough

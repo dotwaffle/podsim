@@ -2,6 +2,7 @@ package sim
 
 import (
 	"errors"
+	"maps"
 	"math"
 	"slices"
 	"strings"
@@ -536,6 +537,21 @@ func TestCheckFaults(t *testing.T) {
 			v := &s.vehicles[s.faults[0].pod]
 			v.faultCap = math.Nextafter(v.blocks.end(v.reservedThrough), math.Inf(1))
 		}, "outside its distance"},
+		{"cap that is not a number", func(s *Simulation) { s.vehicles[s.faults[0].pod].faultCap = math.NaN() }, "outside its distance"},
+		{"cleared blocked lane", func(s *Simulation) {
+			lanes := slices.Clone(s.blocked.lanes)
+			lanes[slices.Index(lanes, true)] = false
+			s.blocked.lanes = lanes
+		}, "blocked set differs"},
+		{"changed blocking fault", func(s *Simulation) {
+			by := maps.Clone(s.blocked.by)
+			for r := range by {
+				by[r] = "i9.9"
+				break
+			}
+			s.blocked.by = by
+		}, "blocked set differs"},
+		{"emergency hold with faults on", func(s *Simulation) { s.vehicles[s.faults[1].pod].withdrawn |= emergencyHold }, "not only the fault hold"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
