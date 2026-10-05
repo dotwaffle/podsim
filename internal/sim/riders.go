@@ -176,11 +176,20 @@ func (v *vehicle) lastStop() string {
 // their distance, and the pod waits for track as a boarding pod does. When
 // no route to the next stop exists, the pod stays unloading, and the next
 // step tries again. Project validation connects each pair of passenger
-// stations, so this does not occur in a valid project.
+// stations, so without a fault this does not occur in a valid project.
+// While the blocked set is not empty, the failed search gives the report
+// "No forward route". The next attempt writes the report again, so it ends
+// when a route exists or when the blocked set is empty.
 func (s *Simulation) continueJourney(v *vehicle) {
 	berth := v.destination
 	route, err := s.legRoute(v, leg{origin: v.journeyOrigin.Node, from: berth.Node, stops: v.Stops, ridden: v.riddenMeters()})
 	if err != nil {
+		switch {
+		case s.blockedActive():
+			v.Pod.WaitReason, v.Pod.BlockedBy = noForwardRoute, ""
+		case v.Pod.WaitReason == noForwardRoute:
+			v.Pod.WaitReason = NoWait
+		}
 		return
 	}
 	v.riddenBase += v.distance

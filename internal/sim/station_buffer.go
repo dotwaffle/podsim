@@ -123,7 +123,9 @@ func (s *Simulation) bufferHead(v *vehicle, plan stationBufferPlan) bool {
 			distance := other.distance - other.blocks.lanes[laneIndex].start
 			tail := max(classPairClearance(v.Pod.Class, other.Pod.Class), blockTail(other.blocks.at(other.blocks.laneFirst(laneIndex))))
 			if distance > position && distance < s.laneLength(lane)+tail {
-				v.Pod.BlockedBy, v.Pod.WaitReason = other.Pod.ID, TrackOccupied
+				if !s.reportIncident(v, podResourceOwner(other.Pod.ID)) {
+					v.Pod.BlockedBy, v.Pod.WaitReason = other.Pod.ID, TrackOccupied
+				}
 				return false
 			}
 		}
@@ -148,7 +150,7 @@ func (s *Simulation) grantBufferedHead(in intent, plan stationBufferPlan) {
 	}
 	station, _ := s.station(v.destinationStation)
 	v.bufferBerth = ""
-	blockedBerth, blockedOwner := "", ""
+	blockedBerth, blockedOwner := "", resourceOwner{}
 	accept := s.berthFilterForVehicle(v)
 	for _, berth := range station.Berths {
 		if accept != nil && !accept(berth) {
@@ -163,8 +165,8 @@ func (s *Simulation) grantBufferedHead(in intent, plan stationBufferPlan) {
 		claims, available := s.bufferBerthClaims(v, berth)
 		if !available {
 			if owner := s.owners[resource{kind: berthResource, id: berth.ID}]; !owner.isZero() {
-				if blockedOwner == "" || s.ownerVehicle(owner) != nil && s.ownerVehicle(owner).Pod.Activity == Idle {
-					blockedBerth, blockedOwner = berth.ID, owner.String()
+				if blockedOwner.isZero() || s.ownerVehicle(owner) != nil && s.ownerVehicle(owner).Pod.Activity == Idle {
+					blockedBerth, blockedOwner = berth.ID, owner
 				}
 			}
 			continue
@@ -214,8 +216,9 @@ func (s *Simulation) grantBufferedHead(in intent, plan stationBufferPlan) {
 		}
 		v.Pod.WaitReason, v.Pod.BlockedBy = reason, blocker
 	}
-	if blockedOwner != "" {
-		v.Pod.BlockedBy, v.Pod.WaitReason, v.bufferBerth = blockedOwner, BerthOccupied, blockedBerth
+	if !blockedOwner.isZero() {
+		v.Pod.BlockedBy, v.Pod.WaitReason, v.bufferBerth = blockedOwner.String(), BerthOccupied, blockedBerth
+		s.reportIncident(v, blockedOwner)
 	}
 	if v.Pod.WaitReason == NoWait {
 		v.Pod.WaitReason = BerthOccupied

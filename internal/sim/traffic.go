@@ -548,6 +548,9 @@ func (s *Simulation) admit() {
 			continue
 		}
 		if !s.assignTerminalBerth(v) {
+			// The failed attempt replaces the report of the previous
+			// tick while the blocked set is not empty.
+			s.reportBlockedBerths(v)
 			continue
 		}
 		s.reevaluateTerminalBerth(v)
@@ -679,6 +682,9 @@ func (s *Simulation) grant(in intent) {
 		for _, r := range resources {
 			if owner := s.owners[r]; !owner.isZero() && !owner.isPod(v.Pod.ID) &&
 				(!coupled || r.kind == berthResource || !s.ownerAheadInPlatoon(v, owner)) {
+				if s.reportIncident(v, owner) {
+					return
+				}
 				v.Pod.BlockedBy = owner.String()
 				switch r.kind {
 				case berthResource:

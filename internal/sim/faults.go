@@ -185,26 +185,103 @@ func (s *Simulation) surrenderServiceClaims(v *vehicle) {
 	}
 }
 
-// The wait reasons of a faulted pod. Admission writes them, with the
-// fault ID in BlockedBy.
+// The wait reasons of the incident suspension contract (section 9.6).
+// Admission writes the reasons of a faulted pod, with its own fault ID in
+// BlockedBy. A healthy pod is blocked by an incident when a fault owns the
+// resource that it needs, or a faulted pod owns it. Then BlockedBy is the
+// fault ID. A pod that finds no route for its next leg while the blocked
+// set is not empty has no forward route, and BlockedBy is empty, because a
+// failed search names no single fault.
 const (
-	faultBraking WaitReason = "Fault braking"
-	faultStopped WaitReason = "Fault stopped"
+	faultBraking      WaitReason = "Fault braking"
+	faultStopped      WaitReason = "Fault stopped"
+	blockedByIncident WaitReason = "Blocked by incident"
+	noForwardRoute    WaitReason = "No forward route"
 )
 
 // reportFault writes the wait report of the faulted pod v: "Fault
 // braking" while it moves, and "Fault stopped" at rest, with its fault ID.
 func (s *Simulation) reportFault(v *vehicle) {
-	v.Pod.WaitReason, v.Pod.BlockedBy = faultStopped, ""
+	v.Pod.WaitReason, v.Pod.BlockedBy = faultStopped, s.podFaultID(v)
 	if v.Pod.Speed > 0 {
 		v.Pod.WaitReason = faultBraking
 	}
+}
+
+// podFaultID returns the ID of the pod fault on v, or an empty string when
+// v has no pod fault.
+func (s *Simulation) podFaultID(v *vehicle) string {
+	if !v.faulted {
+		return ""
+	}
 	for _, record := range s.faults {
 		if record.kind == podFault && &s.vehicles[record.pod] == v {
-			v.Pod.BlockedBy = record.id()
-			return
+			return record.id()
 		}
 	}
+	return ""
+}
+
+// incidentBlocker returns the fault ID when the owner is a fault, or a pod
+// with a pod fault. Otherwise it returns false, and the existing wait
+// report applies. Without a record, no owner is a fault or a faulted pod.
+func (s *Simulation) incidentBlocker(owner resourceOwner) (string, bool) {
+	if len(s.faults) == 0 {
+		return "", false
+	}
+	if owner.kind == faultOwnerKind {
+		return owner.id, true
+	}
+	if other := s.ownerVehicle(owner); other != nil && other.faulted {
+		return s.podFaultID(other), true
+	}
+	return "", false
+}
+
+// reportIncident writes the report of a healthy pod that an incident
+// blocks, and reports true, when the owner is a fault or a faulted pod.
+// Otherwise it writes nothing and reports false.
+func (s *Simulation) reportIncident(v *vehicle, owner resourceOwner) bool {
+	id, ok := s.incidentBlocker(owner)
+	if ok {
+		v.Pod.WaitReason, v.Pod.BlockedBy = blockedByIncident, id
+	}
+	return ok
+}
+
+// reportBlockedBerths writes the report of a pod whose terminal berth
+// choice failed while the blocked set is not empty. When a berth of the
+// destination station is blocked, the pod is blocked by the incident with
+// the lowest serial that blocks a berth of the station. Otherwise the
+// report of the previous tick ends: the failure has no incident cause that
+// one fault ID can name. With an empty blocked set, it writes nothing.
+func (s *Simulation) reportBlockedBerths(v *vehicle) {
+	if !s.blockedActive() {
+		return
+	}
+	v.Pod.WaitReason, v.Pod.BlockedBy = NoWait, ""
+	station, ok := s.station(v.destinationStation)
+	if !ok {
+		return
+	}
+	// The records are in serial order, so the first record that blocks a
+	// berth of the station has the lowest serial.
+	for _, record := range s.faults {
+		id := record.id()
+		for _, berth := range station.Berths {
+			claims := berthResources(berth)
+			if s.blocked.by[claims[0]] == id || s.blocked.by[claims[1]] == id {
+				v.Pod.WaitReason, v.Pod.BlockedBy = blockedByIncident, id
+				return
+			}
+		}
+	}
+}
+
+// incidentWait reports whether the wait report of v is one that an
+// incident causes for a healthy pod.
+func incidentWait(v *vehicle) bool {
+	return v.Pod.WaitReason == blockedByIncident || v.Pod.WaitReason == noForwardRoute
 }
 
 // podFaultFootprint returns the resources that the pod fault on v blocks
@@ -375,8 +452,9 @@ func (s *Simulation) endFaultReports(ids ...string) {
 // contract). It clears each record whose duration ended, in serial order.
 // Then it evacuates each faulted pod at rest with an active rider once its
 // evacuation tick is reached. The clears come first, so a fault that ends
-// at or before its evacuation tick never evacuates. Last, it applies the
-// hold release rule.
+// at or before its evacuation tick never evacuates. Then it applies the
+// hold release rule. Last, it counts the healthy pods that wait for an
+// incident.
 func (s *Simulation) faultStage() {
 	for index := 0; index < len(s.faults); {
 		if end := s.faults[index].end; end != 0 && end <= s.tick {
@@ -395,6 +473,13 @@ func (s *Simulation) faultStage() {
 		}
 	}
 	s.releaseFaultHolds()
+	// The reports are those of the previous tick: admission and motion
+	// of this tick have not run yet.
+	for index := range s.vehicles {
+		if v := &s.vehicles[index]; !v.faulted && incidentWait(v) {
+			countFault(&s.faultCounters.faultWaitTicks)
+		}
+	}
 }
 
 // evacuateTick returns the first tick at which the fault stage evacuates
