@@ -9,6 +9,7 @@ import (
 	"math"
 	"os"
 	"reflect"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -804,5 +805,112 @@ func TestProjectRefusesEarlierVersions(t *testing.T) {
 		if err := Validate(config); err == nil || !strings.Contains(err.Error(), "project version must be 1") {
 			t.Fatalf("version %d: %v", version, err)
 		}
+	}
+}
+
+// TestValidateCheckOrder pins the order of the checks of Validate. The
+// first check that fails gives the refusal.
+func TestValidateCheckOrder(t *testing.T) {
+	t.Parallel()
+	want := []string{
+		"validateVersion",
+		"validateCouplingContract",
+		"validateIncidentContract",
+		"validateFaultContract",
+		"validateEmergencyContract",
+		"validateFormatBounds",
+		"validateSharedRideSettings",
+		"validateOnboardPickups",
+		"validatePlatoonLimit",
+		"validateStationQueueSpacing",
+		"validateGeoAndMap",
+		"validateNames",
+		"validateNetworkShape",
+		"validateCouplingGeometry",
+		"validateProjectDemand",
+		"validateScenario",
+		"validatePassengerStations",
+	}
+	var got []string
+	for _, check := range projectChecks {
+		name := runtime.FuncForPC(reflect.ValueOf(check).Pointer()).Name()
+		got = append(got, name[strings.LastIndex(name, ".")+1:])
+	}
+	if !slices.Equal(got, want) {
+		t.Fatalf("project checks are %v, want %v", got, want)
+	}
+}
+
+// TestValidateRefusalOrder pins the error that a project with two faults
+// gets. Each case breaks two adjacent checks, in one check function or at
+// the edge of two, and the earlier check gives the refusal.
+func TestValidateRefusalOrder(t *testing.T) {
+	t.Parallel()
+	duplicatePath := func(config *Config) {
+		lane := config.Network.Lanes[0]
+		lane.ID = "copy"
+		config.Network.Lanes = append(config.Network.Lanes, lane)
+	}
+	for _, test := range []struct {
+		name string
+		edit func(*Config)
+		want string
+	}{
+		{"name_before_nodes", func(config *Config) { config.Name, config.Network.Nodes = "", nil },
+			fmt.Sprintf("project name must contain 1 to %d characters", MaxNameLength)},
+		{"nodes_before_lanes", func(config *Config) { config.Network.Nodes, config.Network.Lanes = nil, nil },
+			fmt.Sprintf("network must contain 1 to %d nodes", MaxNodes)},
+		{"lanes_before_stations", func(config *Config) {
+			config.Network.Lanes, config.Network.Stations = nil, config.Network.Stations[:1]
+		}, fmt.Sprintf("network must contain 1 to %d lanes", MaxLanes)},
+		{"stations_before_fleet", func(config *Config) { config.Network.Stations, config.Fleet = config.Network.Stations[:1], nil },
+			fmt.Sprintf("network must contain 2 to %d stations", MaxStations)},
+		{"fleet_before_party_limit", func(config *Config) { config.Fleet, config.SharedRidePartyLimit = nil, -1 },
+			fmt.Sprintf("fleet must contain 1 to %d pods", MaxPods)},
+		{"party_limit_before_mode", func(config *Config) { config.SharedRidePartyLimit, config.SharedRideMode = -1, "pickups" },
+			fmt.Sprintf("shared ride party limit must be 1 to %d", sim.MaxSharedRideParties)},
+		{"mode_before_stops", func(config *Config) { config.SharedRideMode, config.SharedRideMaxStops = "pickups", -1 },
+			fmt.Sprintf("shared ride mode must be %q or %q", sim.SharedRideDestination, sim.SharedRideDropOffs)},
+		{"stops_before_join", func(config *Config) { config.SharedRideMaxStops, config.SharedRideJoin = -1, "reassign" },
+			fmt.Sprintf("shared ride stop limit must be 1 to %d", sim.MaxSharedRideStops)},
+		{"join_before_onboard", func(config *Config) { config.SharedRideJoin, config.OnboardPickups = "reassign", true },
+			fmt.Sprintf("shared ride join policy must be %q or %q", sim.SharedRideJoinUnassigned, sim.SharedRideJoinReassignExisting)},
+		{"geo_before_map", func(config *Config) {
+			config.Geo, config.Map = testGeo(0, 0), &MapBackground{Provider: "tiles"}
+			config.Geo.Radius = 1
+		}, fmt.Sprintf("geo radius must be %d meters", GeoRadius)},
+		{"map_before_names", func(config *Config) {
+			config.Map, config.Network.Stations[0].Name = &MapBackground{Provider: "osm"}, strings.Repeat("x", MaxNameLength+1)
+		}, "a map background needs a geographic reference"},
+		{"lanes_before_geometry", func(config *Config) {
+			duplicatePath(config)
+			config.Network.Nodes[0].Position.X = MaxCoordinate + 1
+		}, fmt.Sprintf("lanes %q and %q have the same nodes and path", Default().Network.Lanes[0].ID, "copy")},
+		{"profiles_before_rail", func(config *Config) {
+			config.DemandProfiles = []DemandProfile{testDemandProfile(), testDemandProfile()}
+			arrival := testRailArrival()
+			arrival.Passengers = -1
+			config.RailArrivals = []RailArrival{arrival}
+		}, `invalid or duplicate demand profile "weekday"`},
+		{"rail_before_demand", func(config *Config) {
+			arrival := testRailArrival()
+			arrival.Passengers = -1
+			config.RailArrivals, config.Demand.PerMinute = []RailArrival{arrival}, 0
+		}, `rail arrival "train" must offer 1 to 200 passengers`},
+		{"demand_before_fleet", func(config *Config) { config.Demand.PerMinute, config.Fleet[1].ID = 0, "01" },
+			"demand rate must be 1 to 120 orders per simulated minute"},
+		{"fleet_before_express", func(config *Config) {
+			config.Fleet[1].ID = config.Fleet[0].ID
+			config.ExpressServices = []sim.ExpressService{{}}
+		}, `invalid project scenario: invalid or duplicate pod "01"`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			config := Default()
+			test.edit(&config)
+			if err := Validate(config); err == nil || err.Error() != test.want {
+				t.Fatalf("got %v, want %q", err, test.want)
+			}
+		})
 	}
 }

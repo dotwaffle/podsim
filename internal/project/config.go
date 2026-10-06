@@ -264,25 +264,48 @@ func Default() Config {
 	}
 }
 
+// projectChecks are the checks of Validate before the size check. The first
+// error is the refusal, so the order is part of the result.
+var projectChecks = [...]func(Config) error{
+	validateVersion,
+	validateCouplingContract,
+	validateIncidentContract,
+	validateFaultContract,
+	validateEmergencyContract,
+	validateFormatBounds,
+	validateSharedRideSettings,
+	validateOnboardPickups,
+	validatePlatoonLimit,
+	validateStationQueueSpacing,
+	validateGeoAndMap,
+	validateNames,
+	validateNetworkShape,
+	validateCouplingGeometry,
+	validateProjectDemand,
+	validateScenario,
+	validatePassengerStations,
+}
+
 // Validate checks format bounds and confirms that the scenario can start. It
 // also checks that the canonical encoding of config has at most MaxFileBytes
 // with any demand settings that ValidateDemand accepts.
 func Validate(config Config) error {
-	if err := validateVersion(config); err != nil {
-		return err
+	for _, check := range projectChecks {
+		if err := check(config); err != nil {
+			return err
+		}
 	}
-	if err := validateCouplingContract(config); err != nil {
-		return err
-	}
-	if err := sim.ValidateIncidentContract(config.IncidentContract); err != nil {
-		return err
-	}
-	if err := validateFaultContract(config); err != nil {
-		return err
-	}
-	if err := validateEmergencyContract(config); err != nil {
-		return err
-	}
+	return validateWidestSize(config)
+}
+
+// validateIncidentContract checks the incident contract marker.
+func validateIncidentContract(config Config) error {
+	return sim.ValidateIncidentContract(config.IncidentContract)
+}
+
+// validateFormatBounds checks the length of the project name, and then the
+// counts of nodes, lanes, stations and pods.
+func validateFormatBounds(config Config) error {
 	if strings.TrimSpace(config.Name) == "" || len(config.Name) > MaxNameLength {
 		return fmt.Errorf("project name must contain 1 to %d characters", MaxNameLength)
 	}
@@ -298,6 +321,12 @@ func Validate(config Config) error {
 	if len(config.Fleet) == 0 || len(config.Fleet) > MaxPods {
 		return fmt.Errorf("fleet must contain 1 to %d pods", MaxPods)
 	}
+	return nil
+}
+
+// validateSharedRideSettings checks the shared ride party limit, mode, stop
+// limit and join policy, in that order.
+func validateSharedRideSettings(config Config) error {
 	if config.SharedRidePartyLimit < 0 || config.SharedRidePartyLimit > sim.MaxSharedRideParties {
 		return fmt.Errorf("shared ride party limit must be 1 to %d", sim.MaxSharedRideParties)
 	}
@@ -310,61 +339,76 @@ func Validate(config Config) error {
 	if join := config.SharedRideJoin; join != "" && join != sim.SharedRideJoinUnassigned && join != sim.SharedRideJoinReassignExisting {
 		return fmt.Errorf("shared ride join policy must be %q or %q", sim.SharedRideJoinUnassigned, sim.SharedRideJoinReassignExisting)
 	}
-	if err := validateOnboardPickups(config); err != nil {
-		return err
-	}
+	return nil
+}
+
+// validatePlatoonLimit checks the platoon limit. See ValidPlatoonLimit.
+func validatePlatoonLimit(config Config) error {
 	if !ValidPlatoonLimit(config.PlatoonLimit) {
 		return fmt.Errorf("platoon limit must be %d to %d, or 0 for no platoons", sim.MinPlatoonLimit, sim.MaxPlatoonLimit)
 	}
-	if err := validateStationQueueSpacing(config); err != nil {
-		return err
-	}
+	return nil
+}
+
+// validateGeoAndMap checks the geographic reference, and then the map
+// background, which needs the reference.
+func validateGeoAndMap(config Config) error {
 	if err := validateGeo(config.Geo); err != nil {
 		return err
 	}
-	if err := validateMap(config.Map, config.Geo); err != nil {
-		return err
-	}
-	if err := validateNames(config); err != nil {
-		return err
-	}
+	return validateMap(config.Map, config.Geo)
+}
+
+// validateNetworkShape checks the lanes at each node, and then the
+// coordinates and blocks of the network.
+func validateNetworkShape(config Config) error {
 	if err := validateLanes(config.Network); err != nil {
 		return err
 	}
-	if err := validateGeometry(config.Network); err != nil {
-		return err
-	}
-	if err := validateCouplingGeometry(config); err != nil {
-		return err
-	}
+	return validateGeometry(config.Network)
+}
+
+// validateProjectDemand checks the demand profiles, the rail services, and
+// then the demand settings, which can refer to both.
+func validateProjectDemand(config Config) error {
 	if err := validateDemandProfiles(config.DemandProfiles, config.Network); err != nil {
 		return err
 	}
 	if err := validateRailServices(config.RailArrivals, config.RailDepartures, config.Network); err != nil {
 		return err
 	}
-	if err := ValidateDemand(config.Demand, DemandContext{Network: config.Network, Profiles: config.DemandProfiles, RailArrivals: config.RailArrivals, RailDepartures: config.RailDepartures}); err != nil {
-		return err
-	}
+	return ValidateDemand(config.Demand, DemandContext{Network: config.Network, Profiles: config.DemandProfiles, RailArrivals: config.RailArrivals, RailDepartures: config.RailDepartures})
+}
+
+// validateScenario checks the fleet, and then the express registry, under
+// the order contract.
+func validateScenario(config Config) error {
 	if err := sim.ValidateFleetWithOrderContract(config.Network, config.Fleet, config.OrderContract); err != nil {
 		return fmt.Errorf("invalid project scenario: %w", err)
 	}
 	if err := sim.ValidateExpressServicesWithOrderContract(config.Network, config.ExpressServices, config.OrderContract); err != nil {
 		return fmt.Errorf("invalid express registry: %w", err)
 	}
+	return nil
+}
+
+// validatePassengerStations checks that the network has at least two
+// passenger stations, and a route between each pair.
+func validatePassengerStations(config Config) error {
 	passenger := PassengerStations(config.Network)
 	if len(passenger) < 2 {
 		return errors.New("network needs at least two passenger stations")
 	}
-	if err := validatePassengerRoutes(config.Network.Lanes, passenger); err != nil {
-		return err
-	}
-	// The size check runs last, because it encodes the full project. It
-	// measures the project with the widest demand settings, because the
-	// demand command checks new settings with ValidateDemand only. It also
-	// measures the faults settings of a project with the fault marker, and
-	// the emergencies settings of a project with the emergency marker, at
-	// their widest.
+	return validatePassengerRoutes(config.Network.Lanes, passenger)
+}
+
+// validateWidestSize checks the encoded size of the project. Validate runs
+// it last, because it encodes the full project. It measures the project
+// with the widest demand settings, because the demand command checks new
+// settings with ValidateDemand only. It also measures the faults settings
+// of a project with the fault marker, and the emergencies settings of a
+// project with the emergency marker, at their widest.
+func validateWidestSize(config Config) error {
 	measured := config
 	measured.Demand = widestDemand
 	if config.FaultContract != "" {
