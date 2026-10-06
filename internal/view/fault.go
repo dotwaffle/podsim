@@ -62,3 +62,39 @@ func faultCommand(action string) (session.Command, bool) {
 	}
 	return session.Command{}, false
 }
+
+// frameButtons returns the buttons of a new frame. It keeps the fault
+// button of the frame for clickButtons.
+func (g *Game) frameButtons() []button {
+	buttons := g.buttons()
+	i := slices.IndexFunc(buttons, isFaultButton)
+	g.faultShown = i >= 0
+	g.shownFault = button{}
+	if g.faultShown {
+		g.shownFault = buttons[i]
+	}
+	return buttons
+}
+
+// clickButtons returns the buttons that a click can press. The state can
+// change after the last frame, before the click. The fault button is thus
+// the one of the last frame, with its position and its target: a fault
+// that clears or a pod that moves in the fleet must not change the command
+// of a button that the user saw. Only the connection and a waiting
+// command, which make each command button disabled, come from the current
+// state.
+func (g *Game) clickButtons() []button {
+	buttons := slices.DeleteFunc(g.buttons(), isFaultButton)
+	if g.faultShown {
+		control := g.shownFault
+		control.disabled = !g.connected || g.pending
+		buttons = append(buttons, control)
+	}
+	return buttons
+}
+
+// isFaultButton reports whether control is the fault button.
+func isFaultButton(control button) bool {
+	_, ok := faultCommand(control.action)
+	return ok
+}

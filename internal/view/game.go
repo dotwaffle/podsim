@@ -132,6 +132,12 @@ type Game struct {
 	// the last command. A reply has no start ID. It comes from this server
 	// process or from a later one, but never from an earlier one.
 	sentStart string
+	// shownFault is the fault button of the last drawn frame, laid out,
+	// and faultShown reports whether that frame had one. A click uses
+	// this button, so it sends the command that the user saw. See
+	// clickButtons.
+	shownFault button
+	faultShown bool
 	// ownEpoch and ownGeneration come from the last accepted reply to a
 	// command of this game that starts a new generation. A change in the
 	// same epoch and with the server start ID ownStart to this generation
@@ -573,7 +579,7 @@ func (g *Game) layoutButton(b button) button {
 // click reports a press of Reset, Start traffic demo, or Rewind, so that the
 // new state can render before the next tick.
 func (g *Game) click(point sim.Point) bool {
-	for _, b := range g.buttons() {
+	for _, b := range g.clickButtons() {
 		if b.disabled || point.X < b.x || point.X >= b.x+b.w || point.Y < b.y || point.Y >= b.y+b.h {
 			continue
 		}
@@ -753,7 +759,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		g.drawInspection(screen, state)
 	}
 	g.drawControls(screen, state)
-	for _, b := range g.buttons() {
+	for _, b := range g.frameButtons() {
 		g.drawButton(screen, b)
 	}
 	g.label(screen, g.connectionFooter(ebiten.IsFocused()))

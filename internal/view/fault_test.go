@@ -4,7 +4,10 @@ import (
 	"cmp"
 	"testing"
 
+	"github.com/hajimehoshi/ebiten/v2"
+
 	"github.com/dotwaffle/podsim/internal/project"
+	"github.com/dotwaffle/podsim/internal/remote"
 	"github.com/dotwaffle/podsim/internal/session"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
@@ -162,6 +165,14 @@ func faultProject() project.Config {
 	return config
 }
 
+// clickFault draws a frame without an image, clicks the fault button with
+// action, and waits for the reply, as clickCommand does.
+func clickFault(t *testing.T, game *Game, action string) remote.Result {
+	t.Helper()
+	game.frameButtons()
+	return clickCommand(t, game, action)
+}
+
 // TestFaultButtonCommands clicks Fault and then Clear fault in a game that
 // is connected to a session with the fault marker. Fault sends the ID of
 // the selected pod and no duration. Clear fault sends the fault ID from the
@@ -173,7 +184,7 @@ func TestFaultButtonCommands(t *testing.T) {
 	if label := findButton(t, game.buttons(), faultActionPrefix+podID).label; label != "Fault" {
 		t.Fatalf("label = %q, want %q", label, "Fault")
 	}
-	result := clickCommand(t, game, faultActionPrefix+podID)
+	result := clickFault(t, game, faultActionPrefix+podID)
 	if command := result.Command; command.Action != "fault" || command.PodID != podID || command.DurationSeconds != nil {
 		t.Fatalf("fault command = %+v, want pod %q without a duration", command, podID)
 	}
@@ -188,12 +199,122 @@ func TestFaultButtonCommands(t *testing.T) {
 	if label := findButton(t, game.buttons(), clearFaultActionPrefix+faultID).label; label != "Clear fault" {
 		t.Fatalf("label = %q, want %q", label, "Clear fault")
 	}
-	result = clickCommand(t, game, clearFaultActionPrefix+faultID)
+	result = clickFault(t, game, clearFaultActionPrefix+faultID)
 	if command := result.Command; command.Action != "clearFault" || command.FaultID != faultID {
 		t.Fatalf("clear command = %+v, want fault %q", command, faultID)
 	}
 	syncGame(t, game, func() bool { return len(game.state.Simulation.Faults.Active) == 0 })
 	findButton(t, game.buttons(), faultActionPrefix+podID)
+}
+
+// TestFaultClickUsesShownButton changes the state after a frame and before
+// a click on the fault button of that frame. The click sends the command
+// that the frame showed, because the user saw that button. The server can
+// refuse it. A button that the frame did not show does not take a click.
+// The connection and a waiting command come from the current state.
+func TestFaultClickUsesShownButton(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+		// show prepares the state of the frame. change changes the
+		// state after the frame. Both get the selected pod and, for
+		// a faulted pod, its fault ID.
+		show, change func(game *Game, podID, faultID string)
+		// faulted starts a fault on the selected pod before the frame.
+		faulted bool
+		// want is the command of the click, or nil for no command.
+		want func(podID, faultID string) *session.Command
+	}{
+		{
+			name:    "fault clears",
+			faulted: true,
+			change:  func(game *Game, _, _ string) { game.state.Simulation.Faults = sim.FaultsView{} },
+			want: func(_, faultID string) *session.Command {
+				return &session.Command{Action: "clearFault", FaultID: faultID}
+			},
+		},
+		{
+			name: "fault starts",
+			change: func(game *Game, podID, _ string) {
+				game.state.Simulation.Faults.Active = []sim.FaultView{{ID: "i9.9", Kind: sim.FaultKindPod, PodID: podID}}
+			},
+			want: func(podID, _ string) *session.Command { return &session.Command{Action: "fault", PodID: podID} },
+		},
+		{
+			name: "fleet changes",
+			change: func(game *Game, _, _ string) {
+				vehicles := game.state.Simulation.Vehicles
+				vehicles[0], vehicles[1] = vehicles[1], vehicles[0]
+			},
+			want: func(podID, _ string) *session.Command { return &session.Command{Action: "fault", PodID: podID} },
+		},
+		{
+			name:   "selection changes",
+			change: func(game *Game, _, _ string) { game.selected = 1 },
+			want:   func(podID, _ string) *session.Command { return &session.Command{Action: "fault", PodID: podID} },
+		},
+		{
+			name:   "button not shown",
+			show:   func(game *Game, _, _ string) { game.showOrders = true },
+			change: func(game *Game, _, _ string) { game.showOrders = false },
+		},
+		{
+			name:   "connection lost",
+			change: func(game *Game, _, _ string) { game.connected = false },
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			game := sharedProjectGame(t, faultProject())
+			podID := game.state.Simulation.Vehicles[game.selected].Pod.ID
+			var faultID string
+			if test.faulted {
+				faultID = clickFault(t, game, faultActionPrefix+podID).Reply.FaultID
+				syncGame(t, game, func() bool { return len(game.state.Simulation.Faults.Active) == 1 })
+			}
+			// The click point is the fault button of a frame that shows
+			// it, also when the frame of the test does not.
+			action := faultActionPrefix + podID
+			if faultID != "" {
+				action = clearFaultActionPrefix + faultID
+			}
+			point := centerOfButton(findButton(t, game.frameButtons(), action))
+			if test.show != nil {
+				test.show(game, podID, faultID)
+			}
+			game.frameButtons()
+			test.change(game, podID, faultID)
+			game.click(point)
+			if test.want == nil {
+				if game.pending || game.message != "" {
+					t.Fatalf("click sent a command: pending %t message %q", game.pending, game.message)
+				}
+				return
+			}
+			if !game.pending {
+				t.Fatalf("click sent no command: %q", game.message)
+			}
+			want, got := test.want(podID, faultID), commandResult(t, game).Command
+			if got.Action != want.Action || got.PodID != want.PodID || got.FaultID != want.FaultID {
+				t.Fatalf("command = %+v, want %+v", got, *want)
+			}
+		})
+	}
+}
+
+// TestDrawKeepsFaultButton draws one frame and checks that the frame
+// keeps its fault button for a click.
+func TestDrawKeepsFaultButton(t *testing.T) {
+	t.Parallel()
+	game := exampleTestGame(t)
+	game.state.Simulation.FaultContract = sim.FaultV1Contract
+	screen := ebiten.NewImage(game.layout.width, game.layout.height)
+	defer screen.Deallocate()
+	game.Draw(screen)
+	if want := faultActionPrefix + "01"; !game.faultShown || game.shownFault.action != want {
+		t.Fatalf("frame fault button %+v shown %t, want action %q", game.shownFault, game.faultShown, want)
+	}
 }
 
 // TestFaultRefusalShowsError clicks the fault button when the server
@@ -212,7 +333,7 @@ func TestFaultRefusalShowsError(t *testing.T) {
 		{name: "faulted pod in an old state", action: func(t *testing.T, game *Game) string {
 			t.Helper()
 			podID := game.state.Simulation.Vehicles[game.selected].Pod.ID
-			clickCommand(t, game, faultActionPrefix+podID)
+			clickFault(t, game, faultActionPrefix+podID)
 			syncGame(t, game, func() bool { return len(game.state.Simulation.Faults.Active) == 1 })
 			game.state.Simulation.Faults = sim.FaultsView{}
 			return faultActionPrefix + podID
@@ -220,9 +341,9 @@ func TestFaultRefusalShowsError(t *testing.T) {
 		{name: "cleared fault in an old state", action: func(t *testing.T, game *Game) string {
 			t.Helper()
 			podID := game.state.Simulation.Vehicles[game.selected].Pod.ID
-			faultID := clickCommand(t, game, faultActionPrefix+podID).Reply.FaultID
+			faultID := clickFault(t, game, faultActionPrefix+podID).Reply.FaultID
 			syncGame(t, game, func() bool { return len(game.state.Simulation.Faults.Active) == 1 })
-			clickCommand(t, game, clearFaultActionPrefix+faultID)
+			clickFault(t, game, clearFaultActionPrefix+faultID)
 			syncGame(t, game, func() bool { return len(game.state.Simulation.Faults.Active) == 0 })
 			game.state.Simulation.Faults.Active = []sim.FaultView{{ID: faultID, Kind: sim.FaultKindPod, PodID: podID}}
 			return clearFaultActionPrefix + faultID
@@ -233,7 +354,7 @@ func TestFaultRefusalShowsError(t *testing.T) {
 			t.Parallel()
 			game := sharedProjectGame(t, faultProject())
 			action := test.action(t, game)
-			game.click(centerOfButton(findButton(t, game.buttons(), action)))
+			game.click(centerOfButton(findButton(t, game.frameButtons(), action)))
 			if !game.pending {
 				t.Fatalf("click sent no command: %q", game.message)
 			}
@@ -257,12 +378,12 @@ func TestFaultSubmitErrorShows(t *testing.T) {
 	t.Parallel()
 	game := sharedProjectGame(t, faultProject())
 	action := faultActionPrefix + game.state.Simulation.Vehicles[game.selected].Pod.ID
-	game.click(centerOfButton(findButton(t, game.buttons(), action)))
+	game.click(centerOfButton(findButton(t, game.frameButtons(), action)))
 	if !game.pending {
 		t.Fatalf("click sent no command: %q", game.message)
 	}
 	game.pending = false
-	game.click(centerOfButton(findButton(t, game.buttons(), action)))
+	game.click(centerOfButton(findButton(t, game.frameButtons(), action)))
 	const want = "waiting for the previous command"
 	if got := game.hintLine(game.state.Simulation, ""); got.value != want || got.color != amber {
 		t.Fatalf("hint line = %q color %#06x, want %q color %#06x", got.value, got.color, want, amber)
