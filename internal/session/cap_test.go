@@ -91,12 +91,23 @@ func physicalPlainSave(t *testing.T) []byte {
 
 // TestStartupCancelAfterRestore cancels the start after the restore of a
 // plain save. Startup returns the cause, and it does not move the file
-// aside or write it. A store call runs in its own goroutine and can end
-// after startup returns, so the test waits until each goroutine of the
-// bubble has ended or blocks before it reads the store.
+// aside, back it up, or write it. A logical restore result would back the
+// file up at the end of a start that is not canceled. A store call runs in
+// its own goroutine and can end after startup returns, so the test waits
+// until each goroutine of the bubble has ended or blocks before it reads
+// the store.
 func TestStartupCancelAfterRestore(t *testing.T) {
 	t.Parallel()
 	encoded := physicalPlainSave(t)
+	for _, tier := range []sim.RestoreTier{sim.RestorePhysical, sim.RestoreLogical} {
+		t.Run(string(tier), func(t *testing.T) { startupCancelAfterRestore(t, encoded, tier) })
+	}
+}
+
+// startupCancelAfterRestore runs TestStartupCancelAfterRestore with the
+// restore result tier.
+func startupCancelAfterRestore(t *testing.T, encoded []byte, tier sim.RestoreTier) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		store := &fakeStore{data: bytes.Clone(encoded)}
 		ctx, cancel := context.WithCancel(t.Context())
@@ -106,6 +117,7 @@ func TestStartupCancelAfterRestore(t *testing.T) {
 		steps.restoreSimulation = func(input sim.RestoreStateInput) (*sim.Simulation, sim.RestoreResult, error) {
 			simulation, result, err := sim.RestoreState(input)
 			restored = err == nil
+			result.Tier = tier
 			cancel()
 			return simulation, result, err
 		}

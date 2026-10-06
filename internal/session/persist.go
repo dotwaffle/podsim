@@ -351,6 +351,10 @@ func (s *Session) start(ctx context.Context, input startInput) (*loadedState, er
 			return nil, fmt.Errorf("apply demand settings of the project file: %w", err)
 		}
 	}
+	// A canceled start must not back up the file. A store can ignore ctx.
+	if ctx.Err() != nil {
+		return nil, fmt.Errorf("start session: %w", context.Cause(ctx))
+	}
 	s.backUpDegraded(ctx, loaded.result)
 	return &loaded, nil
 }
