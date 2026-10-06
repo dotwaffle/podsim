@@ -70,7 +70,7 @@ func TestMotionFollowsCornersAndBerthTransitions(t *testing.T) {
 				b.Simulation.Vehicles[0].Pod.Position = sim.Point{X: 10, Y: 9}
 				want = sim.Point{X: 9}
 			}
-			got := interpolate(a, b, .5).Vehicles[0].Pod.Position
+			got := interpolate(a, b).Vehicles[0].Pod.Position
 			if got != want {
 				t.Fatalf("position%v, want%v", got, want)
 			}
@@ -152,7 +152,7 @@ func TestMotionFollowsCurvedLane(t *testing.T) {
 		v.Pod.LaneDistance = float64(i) * length
 		v.Pod.Position = state.Network.Position(lane, v.Pod.LaneDistance)
 	}
-	got := interpolate(a, b, .5).Vehicles[0].Pod.Position
+	got := interpolate(a, b).Vehicles[0].Pod.Position
 	if math.Abs(got.X-5) > 0.001 || math.Abs(got.Y-5) > 0.001 {
 		t.Fatalf("cut across curve: %+v", got)
 	}
@@ -223,7 +223,7 @@ func TestMotionBoundedRouteWindows(t *testing.T) {
 				after.Presentation.Current = 101
 				after.Presentation.Motion = after.Route[1:]
 			}
-			if got := interpolate(a, b, .5).Vehicles[0].Pod.Position; got != want {
+			if got := interpolate(a, b).Vehicles[0].Pod.Position; got != want {
 				t.Fatalf("position=%v want=%v", got, want)
 			}
 		})
@@ -249,7 +249,7 @@ func platoonState(tick int64, x float64) session.State {
 func TestMotionPlatoonAndDepartingPod(t *testing.T) {
 	t.Parallel()
 	a, b := platoonState(0, 0), platoonState(6, 1.4)
-	got := interpolate(a, b, .5)
+	got := interpolate(a, b)
 	if len(got.Vehicles) != 2 {
 		t.Fatalf("got %d pods, want 2", len(got.Vehicles))
 	}
@@ -262,7 +262,7 @@ func TestMotionPlatoonAndDepartingPod(t *testing.T) {
 		}
 	}
 	b.Simulation.Vehicles = b.Simulation.Vehicles[:1]
-	got = interpolate(a, b, .5)
+	got = interpolate(a, b)
 	if len(got.Vehicles) != 2 || math.Abs(got.Vehicles[0].Pod.Position.X-.7) > 1e-9 || got.Vehicles[1].Pod.Position.X != 1 {
 		t.Fatalf("departing pod moved: %+v", got.Vehicles)
 	}
@@ -297,4 +297,9 @@ func TestMotionSampleAllocations(t *testing.T) {
 	if allocations := testing.AllocsPerRun(100, func() { motion.Sample(at.Add(time.Second)) }); allocations != 0 {
 		t.Fatalf("sample of the latest frame has %g allocations, want 0", allocations)
 	}
+}
+
+// interpolate returns the midpoint of two states.
+func interpolate(a, b session.State) sim.Snapshot {
+	return interpolateFrames(newMotionFrame(a, time.Time{}), newMotionFrame(b, time.Time{}), .5, newMotionGeometry(a))
 }

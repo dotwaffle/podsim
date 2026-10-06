@@ -73,7 +73,7 @@ func (g *Game) drawInspection(screen *ebiten.Image, state sim.Snapshot) {
 	}
 	journey = g.fitText(journey, 17, inspectionRight-inspectionLeft)
 	g.label(screen, label{x: inspectionLeft, y: 192, size: 17, value: journey, color: foreground})
-	for i, row := range g.podInspectionRows(state, g.selected) {
+	for i, row := range g.inspectionRows(state.Vehicles[g.selected]) {
 		y := inspectionRowsTop + float64(i)*inspectionRowSpacing
 		if row.name != "" {
 			g.label(screen, label{x: inspectionLeft, y: y, size: 14, value: row.name, color: muted})
