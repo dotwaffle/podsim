@@ -55,11 +55,12 @@ On london-central, platoons of 2 covered less than 1% of traveling time, and the
 - Pods in an approach were stopped for 84% of the approach time at the assembly point.
 - A formed train needed 78.7 s on average to pass its corridor, at a mean of 2.6 m/s against a limit of 14 m/s, and it was stopped for 43% of that time.
 - Stopped time on the assembly lanes doubled against B, and pods stopped on the split lanes, which does not occur in B.
-- Pods outside the pair were held behind it: their stopped time went from 1,511 to 2,774 pod-seconds per run.
+- The stopped time of traveling pods outside a platoon link went from 1,511 to 2,774 pod-seconds per run.
+  The measurement does not identify the pod that blocked them, so blocking by the pairs is an inference.
 - Most pairs at rest at the assembly point were refused before an approach started.
 
-Platoon limits 6 and 8 gave the same results as 4.
-In 20 minutes no platoon had more than 4 pods, and in 35 minutes platoons of 5 or 6 were rare and changed results by less than one order.
+In the 20-minute runs, platoon limits 6 and 8 gave the same results as 4, because no platoon had more than 4 pods.
+In the 35-minute supplement, platoons of 5 or 6 were rare: the mean completed orders differed by 0.2, and one seed completed one order fewer.
 Platoons form only among slow pods, so a higher limit gives few longer platoons.
 
 ## Limits of this evidence
