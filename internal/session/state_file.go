@@ -265,7 +265,8 @@ func (e *stateEncoder) encode(file stateFile) ([]byte, error) {
 // of file. The pod and the trip encoders write the orders with the options
 // of the encoder, so each order is packed. The adapter writes the boarding
 // records, the leg origins, and the excluded pods as indexes into the
-// saved project and the saved pods. Each fault record is one tuple.
+// saved project and the saved pods. Each fault record and each emergency
+// record is one tuple.
 func (file *stateFile) simulationMarshalers() *json.Marshalers {
 	source := bindBoardingSource(file.Project)
 	encodePod := func(encoder *jsontext.Encoder, pod sim.SavedPod) error {
@@ -273,7 +274,7 @@ func (file *stateFile) simulationMarshalers() *json.Marshalers {
 	}
 	indexes := newSavedIndexes(*file)
 	return json.JoinMarshalers(json.MarshalToFunc(encodePod), json.MarshalToFunc(indexes.encodeTrip), json.MarshalToFunc(indexes.encodeRequest),
-		json.MarshalToFunc(encodeSavedFault))
+		json.MarshalToFunc(encodeSavedFault), json.MarshalToFunc(encodeSavedEmergency))
 }
 
 // encodeProject writes the project member of a state file. The member has
@@ -452,7 +453,8 @@ func decodeStateJSON(raw []byte, markers contractMarkers) (stateFile, error) {
 	}
 	options := json.JoinOptions(strictStateOptions, json.WithUnmarshalers(json.JoinUnmarshalers(
 		json.UnmarshalFromFunc(decodeSavedProject), json.UnmarshalFromFunc(decodePlatoon), json.UnmarshalFromFunc(decodeCompactQueue),
-		json.UnmarshalFromFunc(decodePod), json.UnmarshalFromFunc(refs.decodeTrip), json.UnmarshalFromFunc(decodeSavedFault))))
+		json.UnmarshalFromFunc(decodePod), json.UnmarshalFromFunc(refs.decodeTrip), json.UnmarshalFromFunc(decodeSavedFault),
+		json.UnmarshalFromFunc(decodeSavedEmergency))))
 	var file stateFile
 	if err := json.Unmarshal(raw, &file, options); err != nil {
 		return stateFile{}, fmt.Errorf("decode session state: %w", err)
@@ -470,6 +472,9 @@ func decodeStateJSON(raw []byte, markers contractMarkers) (stateFile, error) {
 		return stateFile{}, err
 	}
 	if err := checkFaultMembers(raw, file); err != nil {
+		return stateFile{}, err
+	}
+	if err := checkEmergencyMembers(raw, file); err != nil {
 		return stateFile{}, err
 	}
 	if err := file.validateProjectVersion(); err != nil {

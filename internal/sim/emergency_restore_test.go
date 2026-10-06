@@ -238,7 +238,7 @@ func TestEmergencyRestorePreTier(t *testing.T) {
 			state.Emergencies.Records[0].Pod = len(state.Pods)
 		}, "out of range"},
 		{"too many records", bound, boundState, func(state *SavedState, _ *RestoreStateInput) {
-			for range maxEmergencies {
+			for range MaxEmergencies {
 				state.Emergencies.Records = append(state.Emergencies.Records, state.Emergencies.Records[0])
 			}
 		}, "more than 4"},

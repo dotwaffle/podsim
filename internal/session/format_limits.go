@@ -39,6 +39,10 @@ func savedLimits(markers contractMarkers) jsonLimits {
 	// contract, section 13.5).
 	limits.arrays["/simulation/faults/records"] = maxFaultRecords
 	limits.arrays["/simulation/faults/records/*"] = debrisTupleLength
+	// The emergency records and their tuple (incident emergency contract,
+	// section 11.5).
+	limits.arrays["/simulation/emergencies/records"] = sim.MaxEmergencies
+	limits.arrays["/simulation/emergencies/records/*"] = emergencyTupleLength
 	limits.arrays["/project/expressServices"] = project.MaxExpressServices
 	for _, path := range []string{
 		"/project/network/lanes/*/vehicleClasses",

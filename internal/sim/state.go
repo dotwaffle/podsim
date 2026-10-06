@@ -66,9 +66,8 @@ type SavedState struct {
 	Faults *SavedFaults `json:"faults,omitzero"`
 	// Emergencies holds the emergency records and the emergency counters.
 	// It needs the emergency marker. It is nil when no record is active
-	// and each counter is 0. No session save writes it yet: section 11.3
-	// of the incident emergency contract adds its member.
-	Emergencies *SavedEmergencies `json:"-"`
+	// and each counter is 0.
+	Emergencies *SavedEmergencies `json:"emergencies,omitzero"`
 	// Demo is nil when the traffic demo does not run.
 	Demo      *SavedDemo `json:"demo,omitzero"`
 	DemoError string     `json:"demoError,omitempty"`

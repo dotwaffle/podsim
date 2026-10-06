@@ -7,9 +7,9 @@ import (
 	"slices"
 )
 
-// maxEmergencies is the number of active emergency records (product choice
+// MaxEmergencies is the number of active emergency records (product choice
 // P19 of the incident emergency contract).
-const maxEmergencies = 4
+const MaxEmergencies = 4
 
 // The errors of the emergency start. A refused start changes nothing.
 var (
@@ -98,7 +98,7 @@ func (s *Simulation) Emergency(podID string, orderID int) (string, error) {
 		return "", errNoPassenger
 	case s.emergencyOf(v) >= 0:
 		return "", errPodEmergency
-	case len(s.emergencies) >= maxEmergencies:
+	case len(s.emergencies) >= MaxEmergencies:
 		return "", errEmergencyLimit
 	}
 	party := slices.IndexFunc(v.Riders, func(rider Request) bool { return !rider.Completed && (orderID == 0 || rider.ID == orderID) })
@@ -227,8 +227,8 @@ func (s *Simulation) checkEmergencies() error {
 	if !s.emergenciesOn && len(s.emergencies) > 0 {
 		return fmt.Errorf("E7: %d emergency records exist with emergencies off", len(s.emergencies))
 	}
-	if len(s.emergencies) > maxEmergencies {
-		return fmt.Errorf("E1: %d emergency records, more than %d", len(s.emergencies), maxEmergencies)
+	if len(s.emergencies) > MaxEmergencies {
+		return fmt.Errorf("E1: %d emergency records, more than %d", len(s.emergencies), MaxEmergencies)
 	}
 	recorded := make([]bool, len(s.vehicles))
 	for index, record := range s.emergencies {

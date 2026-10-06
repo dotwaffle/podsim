@@ -43,6 +43,14 @@ const savedFaultPath = "/simulation/faults"
 // only this scan sees it. With the marker, it refuses null for the member
 // and for each member below it, which no encoder writes.
 func scanSavedFaultMembers(data []byte, marked bool) error {
+	return scanSavedMarkedMember(data, savedFaultPath, marked, errFaultMemberUnmarked)
+}
+
+// scanSavedMarkedMember reads the tokens of a saved state for the member
+// at the path member, which needs a marker. Without the marker, it refuses
+// the member with any value, with the error unmarked. With the marker, it
+// refuses null for the member and for each member below it.
+func scanSavedMarkedMember(data []byte, member string, marked bool, unmarked error) error {
 	decoder := jsontext.NewDecoder(bytes.NewReader(data))
 	for {
 		token, err := decoder.ReadToken()
@@ -56,14 +64,14 @@ func scanSavedFaultMembers(data []byte, marked bool) error {
 		if token.Kind() != jsontext.KindString || kind != jsontext.KindBeginObject || length%2 != 1 {
 			continue
 		}
-		if path := arrayPath(decoder); path != savedFaultPath && !strings.HasPrefix(path, savedFaultPath+"/") {
+		if path := arrayPath(decoder); path != member && !strings.HasPrefix(path, member+"/") {
 			continue
 		}
 		if !marked {
-			return fmt.Errorf("%w: %s", errFaultMemberUnmarked, decoder.StackPointer())
+			return fmt.Errorf("%w: %s", unmarked, decoder.StackPointer())
 		}
 		if decoder.PeekKind() == 'n' {
-			return fmt.Errorf("saved fault member %s is null", decoder.StackPointer())
+			return fmt.Errorf("saved member %s is null", decoder.StackPointer())
 		}
 	}
 }

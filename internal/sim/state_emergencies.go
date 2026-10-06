@@ -150,8 +150,8 @@ func savedEmergencyParties(state SavedState) ([]int, error) {
 	if counters.Started < 0 || counters.Ended < 0 || counters.EmergencyTicks < 0 {
 		return nil, errors.New("an emergency counter is negative")
 	}
-	if len(saved.Records) > maxEmergencies {
-		return nil, fmt.Errorf("%d emergency records, more than %d", len(saved.Records), maxEmergencies)
+	if len(saved.Records) > MaxEmergencies {
+		return nil, fmt.Errorf("%d emergency records, more than %d", len(saved.Records), MaxEmergencies)
 	}
 	var faults []SavedFault
 	if state.Faults != nil {

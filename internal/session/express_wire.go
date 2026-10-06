@@ -131,7 +131,10 @@ func (file *stateFile) validateWireContract() error {
 	if err := file.validateIncidentValues(); err != nil {
 		return err
 	}
-	return file.validateFaultValues()
+	if err := file.validateFaultValues(); err != nil {
+		return err
+	}
+	return file.validateEmergencyValues()
 }
 
 func preflightExpressTopology(config project.Config, serverStart, epoch string, revision uint64) error {

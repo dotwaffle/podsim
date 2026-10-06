@@ -97,6 +97,11 @@ simulation.faults.counters.cleared number
 simulation.faults.counters.evacuations number
 simulation.faults.counters.reroutes number
 simulation.faults.counters.faultWaitTicks number
+simulation.emergencies object
+simulation.emergencies.counters object
+simulation.emergencies.counters.started number
+simulation.emergencies.counters.ended number
+simulation.emergencies.counters.emergencyTicks number
 simulation.demo object
 simulation.demo.secondSent boolean
 simulation.demo.followupsSent boolean
@@ -365,3 +370,6 @@ simulation.waiting[].excludedPod number
 simulation.faults.records array
 simulation.faults.records[] array
 simulation.faults.records[][] number
+simulation.emergencies.records array
+simulation.emergencies.records[] array
+simulation.emergencies.records[][] number

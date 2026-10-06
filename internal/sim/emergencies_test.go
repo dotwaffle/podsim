@@ -189,10 +189,10 @@ func TestEmergencyRefusals(t *testing.T) {
 			}, nil},
 		{"emergency limit", errEmergencyLimit,
 			func(_ *testing.T, s *Simulation, _ *vehicle) target {
-				for serial := range uint64(maxEmergencies) {
+				for serial := range uint64(MaxEmergencies) {
 					s.emergencies = append(s.emergencies, emergencyRecord{serial: serial + 1, pod: 1})
 				}
-				s.incidentSerial = maxEmergencies
+				s.incidentSerial = MaxEmergencies
 				return target{"01", 0}
 			},
 			func(s *Simulation, _ *vehicle) target { s.emergencies = s.emergencies[1:]; return target{"01", 0} }},
@@ -242,7 +242,7 @@ func TestEmergencyPreconditionOrder(t *testing.T) {
 	s, v := emergencyFleet(t)
 	s.emergenciesOn = false
 	s.pass = &dispatchPass{active: true}
-	for serial := range uint64(maxEmergencies) {
+	for serial := range uint64(MaxEmergencies) {
 		s.emergencies = append(s.emergencies, emergencyRecord{serial: serial + 1, pod: 1})
 	}
 	s.incidentSerial = math.MaxUint64
@@ -828,7 +828,7 @@ func TestEmergencyInvariants(t *testing.T) {
 		{"serial above the incident serial", func(s *Simulation, _ *vehicle) { s.emergencies[0].serial = 3 }, "has a serial outside"},
 		{"serial of a fault record", func(s *Simulation, _ *vehicle) { s.emergencies[0].serial = 1 }, "has the serial of a fault record"},
 		{"too many records", func(s *Simulation, _ *vehicle) {
-			for range maxEmergencies {
+			for range MaxEmergencies {
 				s.emergencies = append(s.emergencies, s.emergencies[0])
 			}
 		}, "E1: 5 emergency records"},
