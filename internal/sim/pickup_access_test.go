@@ -345,6 +345,56 @@ func TestPickupAccessBlockedPickupBerth(t *testing.T) {
 	}
 }
 
+// TestPickupInstallationNeedsCompatibleBerth checks that the pickup
+// installation takes a compatible pickup berth. Debris on the exit of s1-1
+// cuts the onward route from that berth, so pod 01 goes to s1-2.
+func TestPickupInstallationNeedsCompatibleBerth(t *testing.T) {
+	t.Parallel()
+	s := altLineFleet(t, -100, "p-1", "s3-1")
+	startDebris(t, s, "s1-1-out", 40, 44, 0)
+	trip := newTrip(s, "s1", "s3")
+	trip.request.PodID = "01"
+	s.waiting = []waitingTrip{trip}
+	v := s.findVehicle("01")
+	if err := s.sendPickupForRequest(v, trip.request); err != nil {
+		t.Fatal(err)
+	}
+	if v.destination.ID != "s1-2" {
+		t.Fatalf("pod 01 picks up at %q", v.destination.ID)
+	}
+}
+
+// TestPickupPromotionNeedsCompatibleBerth checks assignedPickupFitsRequest
+// in the promotion of a ready pickup pod. Pod 01 travels to s1-1 for the
+// older trip, and pod 02 is idle at s1-2 for a later trip from s1. The
+// promotion would give the later trip to pod 01. A blocked set that holds
+// only the berth s1-1 leaves its exit open, so the berth passes
+// pickupBerthFitsRequest but is not a compatible pickup berth, and the
+// promotion does not run. With an empty blocked set, it runs.
+func TestPickupPromotionNeedsCompatibleBerth(t *testing.T) {
+	t.Parallel()
+	for _, blocked := range []bool{false, true} {
+		s := altLineFleet(t, -100, "p-1", "s1-2")
+		first, later := newTrip(s, "s1", "s3"), newTrip(s, "s1", "s3")
+		first.request.PodID, later.request.PodID = "01", "02"
+		s.waiting = []waitingTrip{first, later}
+		v := s.findVehicle("01")
+		if err := s.sendPickupForRequest(v, first.request); err != nil || v.destination.ID != "s1-1" {
+			t.Fatalf("pod 01 picks up at %q: %v", v.destination.ID, err)
+		}
+		if blocked {
+			claims := berthResources(v.destination)
+			s.setBlocked([]faultFootprint{{id: "i1.1", resources: claims[:1]}})
+			if !s.pickupBerthFitsRequest(v, later.request, v.destination) {
+				t.Fatal("the blocked berth fails pickupBerthFitsRequest")
+			}
+		}
+		if promoted := s.promoteReadyPickup(0); promoted == blocked {
+			t.Fatalf("blocked %v: promoted %v", blocked, promoted)
+		}
+	}
+}
+
 // TestPickupHoldNeedsAccess checks the finishing-pod hold. Pod 01 rides to
 // s2 and finishes before pod 02 at the parking berth can reach s3, so a
 // trip from s3 waits for pod 01. Debris beyond the grants of pod 01 traps
@@ -383,7 +433,9 @@ func TestPickupHoldNeedsAccess(t *testing.T) {
 // TestPickupSwapNeedsAccess checks the swap and transfer gates. In the
 // crossed fixture, pod 01 goes to s3 for a trip to s0, and pod 02 to s1.
 // Debris on the return road cuts the leg of pod 01 off, so pod 01 has no
-// access to the pickup at s1 after its leg, and the swap does not run. In
+// access to the pickup at s1 after its leg, and the swap does not run.
+// Debris on the exit of the pickup berth of pod 01 also cuts that leg,
+// while each pod has a compatible berth for the other pickup. In
 // the transfer fixture, debris on the inlet of the parking berth of pod 02
 // makes its route not executable, so it does not take the trip.
 func TestPickupSwapNeedsAccess(t *testing.T) {
@@ -394,6 +446,29 @@ func TestPickupSwapNeedsAccess(t *testing.T) {
 		s.faultsOn = true
 		length := s.graph.lengths[laneIndex(t, s, "return")]
 		startDebris(t, s, "return", length/2, length/2+10, 0)
+		s.SetPickupSwaps(true)
+		s.swapPickups()
+		if s.PickupSwapStats().Swaps != 0 || s.waiting[0].request.PodID != "01" {
+			t.Fatalf("the swap ran: %+v", s.PickupSwapStats())
+		}
+	})
+	t.Run("swap after the given-away leg", func(t *testing.T) {
+		t.Parallel()
+		s := crossedPickupFixture(t)
+		s.faultsOn = true
+		a, b := s.findVehicle("01"), s.findVehicle("02")
+		startDebris(t, s, a.destination.ID+"-out", 40, 44, 0)
+		// Both pods have a compatible berth for the other pickup, but
+		// pod 01 has no access to the pickup of pod 02 after its own leg.
+		if _, _, ok := s.candidateRouteForRequest(a, s.waiting[1].request, nil); !ok {
+			t.Fatal("pod 01 has no candidate route to the pickup of pod 02")
+		}
+		if _, _, ok := s.candidateRouteForRequest(b, s.waiting[0].request, nil); !ok {
+			t.Fatal("pod 02 has no candidate route to the pickup of pod 01")
+		}
+		if s.pickupAccess(a, s.waiting[1].request) {
+			t.Fatal("pod 01 has access to the pickup of pod 02")
+		}
 		s.SetPickupSwaps(true)
 		s.swapPickups()
 		if s.PickupSwapStats().Swaps != 0 || s.waiting[0].request.PodID != "01" {
@@ -442,4 +517,44 @@ func TestPickupBerthFilter(t *testing.T) {
 	if !slices.ContainsFunc(s1.Berths, func(b Berth) bool { return b.ID == v.destination.ID }) {
 		t.Fatal("the fixture changed")
 	}
+}
+
+// TestIncidentQueriesWriteNothing checks that endpointRoute and
+// pickupAccess write nothing (section 11 of the incident suspension
+// contract), when they succeed and when they fail.
+func TestIncidentQueriesWriteNothing(t *testing.T) {
+	t.Parallel()
+	unchanged := func(t *testing.T, s *Simulation, query func() bool, want bool) {
+		t.Helper()
+		before := s.Clone()
+		if got := query(); got != want {
+			t.Fatalf("the query reports %v, want %v", got, want)
+		}
+		if !sameState(before, s) {
+			t.Fatal("the query wrote state")
+		}
+	}
+	t.Run("endpoint route", func(t *testing.T) {
+		t.Parallel()
+		s := altLineFleet(t, -100, "s0-1", "s3-1")
+		v := s.findVehicle("01")
+		if err := s.RequestJourney("01", "s2"); err != nil {
+			t.Fatal(err)
+		}
+		route := func() bool { _, ok := s.endpointRoute(v); return ok }
+		startDebris(t, s, "s1-link", 70, 80, 0)
+		unchanged(t, s, route, true)
+		startDebris(t, s, "alt-in", 70, 80, 0)
+		unchanged(t, s, route, false)
+	})
+	t.Run("pickup access", func(t *testing.T) {
+		t.Parallel()
+		s, v := legPickup(t)
+		request := newTrip(s, "s3", "s0").request
+		access := func() bool { return s.pickupAccess(v, request) }
+		startFault(t, s, s.findVehicle("03"), 0)
+		unchanged(t, s, access, true)
+		startDebris(t, s, "s0-link", 70, 80, 0)
+		unchanged(t, s, access, false)
+	})
 }
