@@ -2250,3 +2250,59 @@ So a pod that leaves a group with a record can be recruited again before it gets
 That did not occur in these runs.
 After the split, the two pods take different roads and have no platoon link.
 After an approach aborts, the attempt record of the pair keeps the pair out of discovery.
+
+## Coupling natural multi-pair scenario
+
+The release proof for multi-pair coupling needs one scenario-level run.
+In that run, pairs form from ordinary demand and dispatch, with no placed trips.
+Two trains must be alive at the same time on different corridors, and one corridor must form two trains one after another.
+At `23be7ce`, no natural run formed a train, so this gate is not met.
+The [natural multi-pair record](measurements/coupling-natural-multi-pair.json) gives each run, each refusal count, and each approach trace.
+
+The runs used a scratch harness in package `sim` that is not in the tree.
+Each run has the coupling marker, trains on, an all-Compact fleet, and virtual platoons with a limit of 2.
+Demand copies the session generator for the balanced pattern.
+After each tick, the harness reads the approach and group registries and records why each pair at rest at the assembly point is refused.
+
+### Networks
+
+The first network is the Scale100 mesh.
+It is the only preset with long shared roads and two collinear lanes at a merge, at each station exit.
+The ring presets have no collinear lanes.
+In London, the collinear lanes meet at nodes with one lane in and one lane out, so no junction stops a pod there.
+Of 20 merge corridors, 15 pass the geometry check.
+In the other 5, the merge zone leaves 27.58 m after the assembly point, and the site needs 33.76 m.
+
+The second network is a generated one-way loop with two 5.3 km straights and 8 stations.
+It keeps every link that forms on a straight at a zero turn.
+Each assembly lane is 120 m and each split lane is 90 m, so few other pods can be on them.
+
+### Results
+
+| Network | Runs | Pairs at rest at the assembly point | Approaches | Trains |
+| --- | --- | --- | --- | --- |
+| Scale100 mesh, 20 orders per minute | 3 patterns, 60 minutes each | 986 ticks | 0 | 0 |
+| Loop, 60 pods, 8 orders per minute | 3 seeds, 60 minutes each | 3,809 ticks | 5 | 0 |
+| Loop, 80 pods, 10 orders per minute | 3 seeds, 60 minutes each | 14,217 ticks | 36 | 0 |
+
+On the mesh, each pair at rest had a virtual link with a turn.
+The pairs link in the queues at mesh junctions, and the link keeps its turn along the road.
+`prepareCouplingApproach` accepts only a link with a zero turn.
+
+On the loop, 38 of the 41 approaches failed because a third pod queued behind the pair.
+The reservation claims the assembly lane from its first cell, and the third pod takes that cell after the rear moves to the assembly point.
+The other 3 approaches passed the reservation plan.
+Then the exit closure of `bindExits` followed the shared route of the two members after the split, and it met other pods downstream.
+`discoverCouplingApproaches` keeps one attempt for each front until its next berth departure, so a refused pair does not try again.
+
+The disabled control and the determinism check are not applicable, because the enabled runs formed no train.
+
+### Limit of this result
+
+The trains need members whose routes separate soon after the split site, and an assembly lane with no third pod behind the pair.
+A network with long shared legs gives few such pairs.
+A network with a fork after each corridor could give more, but this check did not try a third network.
+
+A front at rest at the end of the first cell of an assembly lane is refused, because `couplingApproachOwnedFrontier` also checks a node resource that the front released.
+The record gives the case.
+This is a refusal before an approach starts, not a fault.
