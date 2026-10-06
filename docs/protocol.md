@@ -41,8 +41,9 @@ The root, `topology` and `frame.state.simulation` must have the same contract ma
 When present, `orderContract` must be `express-v1` and `couplingContract` must be `compact-pair-v1`.
 A project with the incident marker `incidentContract` `incident-v1` puts it in `topology` and in `frame.state.simulation`, not at the root.
 These two markers must agree, and the value must be `incident-v1`, also not null or empty.
-The fault marker `faultContract` `fault-v1` has the same rules.
-A reply with the fault marker must also have the incident marker.
+The fault marker `faultContract` `fault-v1` and the emergency marker `emergencyContract` `emergency-v1` have the same rules.
+A reply with the fault marker or the emergency marker must also have the incident marker.
+The emergency marker does not need the fault marker.
 
 All JSON member names use lowerCamel case, such as `projectRevision`, `routeLaneIDs` and `id`.
 A decoder matches member names exactly.
@@ -112,6 +113,7 @@ The hello, the envelope root, and a delta do not have it.
 A client refuses a frame whose incident marker differs from the marker of its topology.
 A change of the marker is a project change, so it comes with a new project revision and a new topology.
 The fault marker `faultContract` has the same rules, and it needs the incident marker.
+The emergency marker `emergencyContract` has the same rules, and it also needs the incident marker.
 The order text of each order (`from`, `to`, `podID`, `dispatchReason`, `serviceID`, and `legFrom`) is canonical base64 of the UTF-8 text, for every project kind.
 This includes the pending replacement group of a delta and the HTTP state.
 No message has a `textEncoding` member.
@@ -123,6 +125,7 @@ A replacement wrapper has a `value` member, so null, zero, and an empty list dif
 The groups are controls, demand, restore, checkpoints, pending requests, global simulation state, and statistics.
 With the incident marker, the `incident` group has the interrupted counters.
 With the fault marker, the `faults` group has the active faults and the fault counters (see [Faults](#faults)).
+With the emergency marker, the `emergencies` group has the active emergencies and the emergency counters (see [Emergencies](#emergencies)).
 Vehicle groups are pod fields, presentation route, riders, stops, and relocation, platoon, or incident metadata.
 Membership, order, source, project, or generation changes start a new full baseline.
 A delta must name the exact preceding stream and sequence.
@@ -273,7 +276,7 @@ A rewind restores the metrics of the save point.
 A restore at a restart keeps them.
 
 Each command contains a `client` ID, a `sequence`, the session `epoch`, and an `action`.
-The actions are `trip`, `pause`, `speed`, `reset`, `demo`, `demand`, `project`, `checkpoint`, `rewind`, `fault`, and `clearFault`.
+The actions are `trip`, `pause`, `speed`, `reset`, `demo`, `demand`, `project`, `checkpoint`, `rewind`, `fault`, `clearFault`, and `emergency`.
 
 The other members depend on the action:
 
@@ -290,11 +293,12 @@ The other members depend on the action:
 | `rewind` | `checkpoint`: save point ID, an integer | Restores the save point and pauses the session. |
 | `fault` | `podID`: a pod ID. Or `laneID`: a lane ID, with `fromMeters` and `toMeters`: numbers. `durationSeconds`: optional, an integer from 1 to 86,400 | Starts a pod fault on the pod, or debris on the lane segment from `fromMeters` to `toMeters`. Without `durationSeconds`, the fault lasts until a `clearFault`. See [Faults](#faults). |
 | `clearFault` | `faultID`: the `id` of an active fault | Ends the fault. |
+| `emergency` | `podID`: a pod ID. `orderID`: optional, an integer | Starts an emergency for one party aboard the pod. See [Emergencies](#emergencies). |
 
-In the acknowledgment, `trip` sets `orderID`, `checkpoint` sets `checkpoint`, `fault` sets `faultID`, and a `rewind` that restores a project sets `projectRestored`.
+In the acknowledgment, `trip` sets `orderID`, `checkpoint` sets `checkpoint`, `fault` sets `faultID`, `emergency` sets `emergencyID`, and a `rewind` that restores a project sets `projectRestored`.
 With `-state`, a `project` command that changes the project and a `rewind` that restores a project also set `stateSaved`.
 
-Command acknowledgments contain the session epoch, state revision, project revision, generation, optional order ID, optional checkpoint ID, optional fault ID, optional `projectRestored` flag, and optional `stateSaved` flag.
+Command acknowledgments contain the session epoch, state revision, project revision, generation, optional order ID, optional checkpoint ID, optional fault ID, optional emergency ID, optional `projectRestored` flag, and optional `stateSaved` flag.
 They do not repeat a state frame.
 A rejected command gets HTTP 409 and an acknowledgment with a stable `errorCode` and an `error` message.
 The `error` message has at most 1,024 bytes.
@@ -528,6 +532,113 @@ The `error` message is one of these:
 | `debris overlaps a pod or another fault` | The debris blocks a resource of an active fault, or a resource under the body of a pod. |
 | `debris meets a reserved resource` | The debris blocks another resource that a pod holds or reserves. |
 | `unknown fault` | `faultID` names no active fault. |
+
+## Emergencies
+
+A project turns emergencies on with the emergency marker `emergencyContract` `emergency-v1` and the `emergencies` settings.
+The emergency marker needs the incident marker, but not the fault marker.
+See [emergencies](operations.md#emergencies) for the settings.
+
+An emergency starts for one party aboard a pod.
+The pod leaves service, and its pending pickups go to other pods.
+A pod in a coupling group or a coupling approach leaves service when it leaves the group.
+A pod at a berth unloads there.
+A traveling pod goes to the passenger station with the soonest estimated arrival, and unloads there.
+Every party leaves the pod at the unload.
+The order of the party that started the emergency ends interrupted.
+Each other party completes when the station is its destination.
+Otherwise it waits at the station for its next leg.
+
+While the emergency is active, the pod gets a free junction, track cell, or berth before other pods that request it in the same tick.
+A pod in a coupling group, a platoon, or a compact queue waits until it leaves the group.
+A platoon link or a coupling approach with the pod ends.
+A faulted pod waits until the fault ends, and an evacuation ends the emergency.
+The emergency ends when no party is aboard the pod, or when the party leaves the pod before the pod starts its unload.
+Then the pod returns to service, unless it has a fault.
+
+### Emergency members
+
+With the emergency marker, `simulation.emergencies` of a full frame and of the HTTP state has the members `active` and `counters`.
+A frame omits `emergencies` when no emergency is active and each counter is 0.
+The `emergencies` group of a delta has the same members, and it is `{}` in that case.
+The group has no `value` wrapper.
+`active` has one record for each active emergency, in the order of the incident serial.
+It is omitted when no emergency is active.
+Each record has all of these members:
+
+| Member | Content |
+| --- | --- |
+| `id` | The emergency ID, of the form `i<generation>.<serial>`, as for a fault. |
+| `podID` | The pod of the emergency. |
+| `orderID` | The `id` of the order of the party. |
+| `phase` | `deferred`, `bound`, or `unloading`. |
+| `startTick` | The tick when the emergency started. |
+
+Faults and emergencies use the same incident serial, so their IDs are different.
+
+The phase tells what the pod does:
+
+| Phase | Pod |
+| --- | --- |
+| `deferred` | The pod has no unload station yet. |
+| `bound` | The pod goes to the berth of its unload station. |
+| `unloading` | The pod unloads at that berth. |
+
+A bound or unloading pod has the `operational` value `emergency-unload`.
+A deferred traveling pod chooses its station at the start, and then each 60 ticks after the start, when it can leave its route.
+A bound pod keeps its station.
+A deferred pod that cannot leave its route keeps it, and unloads at the berth where the route ends.
+
+`counters` has these members, and it omits each counter at 0:
+
+| Counter | Content |
+| --- | --- |
+| `started` | The emergencies that started. |
+| `ended` | The emergencies that ended. A reset or a restore that ends an emergency does not count. |
+| `emergencyTicks` | The sum over the ticks of the number of emergencies that are active at the end of the tick. |
+
+A reset, a demo, and a project apply that replaces the fleet end every emergency and set the counters to 0.
+A rewind restores the emergencies and the counters of the save point.
+
+A client refuses a record that does not have all members of the table above, an unknown member, and null in any member.
+It also refuses these records:
+
+- An `id` that is not of the form above, with decimal numbers without a sign or leading zeros.
+- A serial of 0, or a serial that is not above the serial of the record before it.
+- A serial that an active fault of the frame also has.
+- A `podID` that is not a vehicle of the frame, or a second record for the same pod.
+- An `orderID` that is not positive, or a `phase` that is not in the table above.
+- A negative `startTick`, or a `startTick` above the tick of the frame.
+- More than 4 records.
+
+It also refuses a negative counter, and null in `emergencies`, `active`, `counters`, or a counter.
+The scan before the typed decode allows at most 4 records in `active`.
+Without the emergency marker, a client refuses the `emergencies` member and the `emergencies` group, also with a value of null, `{}`, or `[]`.
+It refuses each `emergencyContract` value other than `emergency-v1`, including null and an empty text.
+The same rules apply to the HTTP state.
+
+### Emergency commands
+
+`emergency` needs `podID`.
+Without `orderID`, or with `orderID` 0, the party is the first order in `riders` that is not `completed`.
+Otherwise `orderID` must be the `id` of an order in `riders` that is not `completed`.
+A paused session accepts the command.
+The acknowledgment of an emergency command has no `stateSaved`.
+No command cancels one emergency.
+The traffic demo runs without emergencies, so during the demo, and after it until a reset or a project apply, the command gets `emergencies are not enabled`.
+
+A refused command gets `command_rejected` and changes nothing.
+The server checks the causes in the order of the table, and the first cause that applies gives the `error` message:
+
+| Message | Cause |
+| --- | --- |
+| `emergencies are not enabled` | The project has no emergency marker, or the traffic demo turned emergencies off. |
+| `unknown pod` | No pod has `podID`, or the command has no `podID`. |
+| `pod carries no passenger` | The pod has no party aboard. |
+| `pod already has an emergency` | An active emergency names the pod. |
+| `emergency limit reached` | 4 emergencies are active. |
+| `order is not aboard the pod` | `orderID` is not 0, and no order in the `riders` of the pod has the `id` `orderID` and is not `completed`. |
+| `incident limit reached` | The incident serial would overflow. |
 
 ## Server restarts
 

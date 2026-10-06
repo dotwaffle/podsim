@@ -252,15 +252,20 @@ It reports them as unaccounted orders at each restore, together with the orders 
   Each faulted pod keeps its place at speed 0, and each debris record keeps its segment.
   Each fault keeps its start and end ticks.
   When the tier must move a faulted pod to a berth, the tier fails.
+  Each emergency keeps its pod, and its phase comes from the purpose of the restored pod.
+  When the tier must move the pod of an emergency to a berth, the tier fails.
 - `logical`: The server uses this tier with reason `physical_failed` when the `physical` tier fails.
   It also uses it with reason `restore_loop`, as described below.
   The pods start again at their initial berths.
   Parties that were unloading at their stop count as completed, if the pod is at a berth of a passenger station in the network.
+  The party of an emergency unload ends interrupted.
   Each other party in a pod goes back to the queue as one order.
   So the server refuses a file whose waiting orders and outstanding parties together exceed the queue bound of its contract: 2,600, or 8,600 with Express.
   An active traffic demo also counts the orders that it has still to submit.
   Every fault ends, and each pod loses its fault hold.
   The fault counters stay.
+  Every emergency ends, and each pod loses its emergency hold.
+  The emergency counters stay.
 - `empty`: The server does not use the saved state and starts a new session.
   Except after a read failure, it moves `session.json.gz` to a rejected file.
 
@@ -287,6 +292,8 @@ A leg origin is a passenger station other than the destination.
 An order with an excluded pod did not board, and its pod and its hold are not the excluded pod.
 The file must not have a null incident member.
 Without the marker, the file must not have an incident member, also not 0, null, or an empty array.
+Hold 2 and purpose 1 need the emergency marker.
+Without the emergency marker, a pod with hold 2, with the owner 2, or with purpose 1 gives `invalid_state`.
 
 The fault marker `faultContract` `fault-v1` is also only in the saved project, with the `faults` settings, and it needs the incident marker.
 With it, the file can have `simulation.faults`, with these members:
@@ -303,6 +310,22 @@ The file omits `simulation.faults` when no fault is active and each counter is 0
 It omits an empty `records` and each counter at 0.
 The file must not have a null fault member.
 Without the marker, the file must not have `simulation.faults`, also not null or an empty object.
+
+The emergency marker `emergencyContract` `emergency-v1` is also only in the saved project, with the `emergencies` settings, and it needs the incident marker.
+With it, the file can have `simulation.emergencies`, with these members:
+
+- `records`: the active emergencies, in the order of the incident serial.
+  An emergency is `[generation, serial, start, pod, order]`.
+  `start` is a tick, `pod` is an index into `simulation.pods`, and `order` is the order ID of the party.
+  The file can have at most 4 records.
+- `counters`: the emergency counters `started`, `ended`, and `emergencyTicks`, as in the [protocol](protocol.md#emergency-members).
+
+The file omits `simulation.emergencies` when no emergency is active and each counter is 0.
+It omits an empty `records`, each counter at 0, and `counters` when each counter is 0.
+The file must not have a null emergency member, or a `simulation.emergencies` with no record and with each counter at 0.
+Each record must have exactly 5 numbers.
+Without the marker, the file must not have `simulation.emergencies`, also not null or an empty object.
+
 The order text of each queued order and each rider is canonical base64 text, for each project kind.
 The file has no `textEncoding` member.
 Each saved version stores a version 1 project.
@@ -323,6 +346,14 @@ Other examples are a pod record for a pod without the fault hold or for a pod in
 A debris segment that is not valid, and debris that meets other debris or a faulted pod, also give `invalid_state`.
 In the `physical` tier, a traveling pod that holds a resource of debris gives `invalid_state`.
 A file of the traffic demo with a fault record also gives `invalid_state`, because the demo runs without faults.
+The server also checks the emergencies before either tier, and an emergency that is not valid gives `invalid_state` for the whole file.
+Examples are records out of serial order, a serial of 0 or above `incidentSerial`, and a serial that a fault record also has.
+Other examples are a `start` out of range, an order ID that is not positive, a negative counter, and more than 4 records.
+A pod index out of range, a pod with two records, and a pod with hold 2 and no record also give `invalid_state`.
+A pod with purpose 1 must have the owner 2 and a record.
+Then the party of the record must be aboard the pod, and `interrupt` must name only that party.
+A pod with a record and purpose 2 or 3 must have no party aboard.
+With or without the emergency marker, a member of a saved coupling group with a hold or a purpose gives `invalid_state`.
 The optional pod field `stationBuffered` permits validated berthless occupancy of a station holding lane.
 Restore keeps those members draining, then applies the project's experimental policy settings.
 Buffer certificates of fixed station-entry platoons have the fields `kind` and `terminalCell`.
@@ -485,6 +516,57 @@ A restore of the demo fleet also keeps faults off.
 The fault counters are in the `faults` member of the frames and the saved state.
 They are not OpenTelemetry metrics.
 
+## Emergencies
+
+Emergencies are off by default.
+A project turns them on with the emergency marker and the `emergencies` settings, for example:
+
+```json
+"incidentContract": "incident-v1",
+"emergencyContract": "emergency-v1",
+"emergencies": {"perHour": 0}
+```
+
+`emergencies` has one optional member:
+
+| Member | Value | Default |
+| --- | --- | --- |
+| `perHour` | 0. | 0 |
+
+`perHour` is for a scenario emergency rate.
+This server has no scenario rate, so `perHour` must be 0, and only the `emergency` command starts an emergency.
+
+Validation also refuses these projects:
+
+- A project with the emergency marker and without the incident marker or without `emergencies`.
+- A project with `emergencies` and without the emergency marker, also with null or an empty object.
+- An emergency marker other than `emergency-v1`, also null or an empty text.
+- A null value or an unknown member in `emergencies`.
+
+The emergency marker does not need the fault marker.
+The size limit of 10 MiB counts `emergencies` at its widest value.
+The editor has no control for the emergency marker and `emergencies`, and it keeps them in a loaded project.
+`cmd/compare` and the car runs of `internal/parkride` refuse a project with the incident marker, so they also refuse the emergency marker.
+A change to the emergency marker or to `emergencies` is a project change.
+A project apply then replaces the fleet, and every emergency ends.
+With `-project`, a saved state with other emergency settings gets `project_changed`.
+
+The `emergency` command starts an emergency (see [emergencies](protocol.md#emergencies)).
+The pod inspector has an **Emergency** button for a pod that carries passengers and has no emergency.
+The button sends the command without `orderID`, so the party is the first party aboard the pod.
+No command cancels one emergency.
+A reset ends every emergency and sets the emergency counters to 0, and it keeps emergencies on.
+A save point keeps the emergencies and the counters, and a rewind restores them.
+
+The traffic demo runs without emergencies.
+The topology and the frames keep the emergency marker, but the `emergency` command gets `emergencies are not enabled`.
+Emergencies stay off after the demo until a reset or a project apply.
+A restore of the demo fleet also keeps emergencies off.
+
+The emergency counters are in the `emergencies` member of the frames and the saved state.
+They are not OpenTelemetry metrics.
+An order that an emergency unload interrupts counts in `podsim.orders.interrupted`.
+
 ## Memory limit
 
 The server sets the Go memory limit to 90 percent of the detected cgroup limit.
@@ -635,7 +717,8 @@ With `-state`, the server writes these log records at startup:
   The server starts a new session.
 - `Restored session` (INFO) gives the `tier`, the `reason`, and the counts `demoted`, `requeued`, `dropped`, `unaccounted`, `droppedParties`, `overCap`, and `overBudget`.
   When the `logical` tier ended faults, it also gives their number in `droppedFaults`.
-  The `restore` object of the state frame does not have this count.
+  When it ended emergencies, it also gives their number in `droppedEmergencies`.
+  The `restore` object of the state frame does not have these counts.
   It also gives the saved `tick`, `epochKept`, `final`, `savedAt`, `savedBuild`, the current `build`, and `restoreAttempts`.
   `overCap` counts the saved routes that were longer than their limit.
   `overBudget` counts the routes that did not fit in the budget of track cells.
