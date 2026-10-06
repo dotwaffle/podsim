@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 )
 
 // FaultContract selects the fault operations of the incident suspension
@@ -69,11 +70,12 @@ var errUnknownFaultContract = errors.New("fault contract must be fault-v1")
 // with it, as it measures each project with widestDemand. JSON writes a
 // number from 1e-6 to 1e21 in decimal form, so the widest debris share is
 // a number just above 1e-6 with 17 significant digits, which takes 24
-// bytes. The widest debris length takes 18 bytes. The exponential kind
-// has the longest name and the most members.
+// bytes. The widest debris length takes 18 bytes. Validate accepts a rate
+// of negative zero, which JSON writes as -0. The exponential kind has the
+// longest name and the most members.
 var widestFaults = FaultConfig{
 	EvacuationSeconds: new(maxFaultEvacuationSeconds),
-	PerHour:           new(0.0),
+	PerHour:           new(math.Copysign(0, -1)),
 	DebrisShare:       new(1.0000000000000002e-06),
 	DebrisMeters:      new(0.5000000000000001),
 	Duration: &FaultDuration{Kind: "exponential", MinSeconds: new(maxFaultSeconds),

@@ -264,6 +264,59 @@ func TestWidestFaultsBoundsFaults(t *testing.T) {
 	}
 }
 
+// TestWidestFaultsBoundsEachMember substitutes each accepted extreme or
+// long value of one member into widestFaults, and checks that the result
+// does not encode to more bytes than widestFaults. The widest settings
+// with a rate of negative zero are one case, and a rate of positive zero
+// is one byte shorter.
+func TestWidestFaultsBoundsEachMember(t *testing.T) {
+	t.Parallel()
+	widest := len(canonicalJSON(t, widestFaults))
+	clone := func() FaultConfig { return *cloneFaults(&widestFaults) }
+	var variants []FaultConfig
+	for _, value := range []*int{nil, new(0), new(1), new(999), new(maxFaultEvacuationSeconds)} {
+		faults := clone()
+		faults.EvacuationSeconds = value
+		variants = append(variants, faults)
+	}
+	for _, value := range []*float64{nil, new(0.0), new(math.Copysign(0, -1))} {
+		faults := clone()
+		faults.PerHour = value
+		variants = append(variants, faults)
+	}
+	for _, value := range []*float64{nil, new(0.0), new(math.Copysign(0, -1)), new(1.0), new(5e-324), new(1.2345678901234567e-07),
+		new(9.999999999999999e-7), new(1.0000000000000002e-06), new(0.9999999999999999)} {
+		faults := clone()
+		faults.DebrisShare = value
+		variants = append(variants, faults)
+	}
+	for _, value := range []*float64{nil, new(minDebrisMeters), new(0.5000000000000001), new(12.345678901234567), new(49.99999999999999), new(float64(maxDebrisMeters))} {
+		faults := clone()
+		faults.DebrisMeters = value
+		variants = append(variants, faults)
+	}
+	for _, value := range []*FaultDuration{nil, {Kind: "fixed", Seconds: new(maxFaultSeconds)},
+		{Kind: "uniform", MinSeconds: new(maxFaultSeconds), MaxSeconds: new(maxFaultSeconds)},
+		{Kind: "exponential", MinSeconds: new(1), MaxSeconds: new(maxFaultSeconds), MeanSeconds: new(maxFaultSeconds)}} {
+		faults := clone()
+		faults.Duration = value
+		variants = append(variants, faults)
+	}
+	for _, faults := range variants {
+		if err := Validate(faultProject(faults)); err != nil {
+			t.Fatalf("%s: %v", canonicalJSON(t, faults), err)
+		}
+		if got := len(canonicalJSON(t, faults)); got > widest {
+			t.Errorf("faults encode to %d bytes, more than %d: %s", got, widest, canonicalJSON(t, faults))
+		}
+	}
+	positive := clone()
+	positive.PerHour = new(0.0)
+	if got := len(canonicalJSON(t, positive)); got != widest-1 {
+		t.Errorf("a rate of positive zero encodes to %d bytes, want %d", got, widest-1)
+	}
+}
+
 // TestValidateMeasuresWidestFaults checks that Validate measures a project
 // with the fault marker with the widest faults settings. Thus a change of
 // the settings to any valid value keeps the project in MaxFileBytes.
