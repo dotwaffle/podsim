@@ -186,7 +186,7 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"couplingNetwork": persistSession, "couplingEnabled": persistSession, "couplingGroups": persistSave,
 		"couplingFault": persistReset, "couplingFleet": persistReset,
 		"couplingApproaches": persistReset, "couplingAttempts": persistReset,
-		"orderContract": persistSave, "incidentContract": persistSession,
+		"orderContract": persistSave, "incidentContract": persistSession, "faultContract": persistSession,
 		"incidentSerial": persistSave, "incidentGeneration": persistSession,
 		// SavedState has the interrupted counters, so ExportState and
 		// RestoreState keep them. No session save writes them yet. Section

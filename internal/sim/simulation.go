@@ -172,6 +172,10 @@ type Snapshot struct {
 	CouplingGroups   []CouplingGroupView `json:"couplingGroups,omitempty"`
 	OrderContract    OrderContract       `json:"orderContract,omitzero"`
 	IncidentContract IncidentContract    `json:"incidentContract,omitzero"`
+	// FaultContract is the fault marker. Faults holds the active faults and
+	// the fault counters. It is zero without the marker.
+	FaultContract FaultContract `json:"faultContract,omitzero"`
+	Faults        FaultsView    `json:"faults,omitzero"`
 
 	// Submitted counts accepted passenger orders since reset.
 	Submitted int          `json:"submitted"`
@@ -326,6 +330,10 @@ type vehicle struct {
 type Simulation struct {
 	orderContract    OrderContract
 	incidentContract IncidentContract
+	// faultContract is the fault marker of the project. The frames copy
+	// it. faultsOn is the switch of the operations: the traffic demo keeps
+	// the marker and turns the operations off.
+	faultContract FaultContract
 	// incidentSerial counts the incident records. It is saved, and a reset
 	// keeps it. incidentGeneration is the session generation of the IDs.
 	incidentSerial     uint64
@@ -596,7 +604,7 @@ func (s *Simulation) Snapshot() Snapshot { return s.snapshot(true) }
 
 func (s *Simulation) snapshot(routes bool) Snapshot {
 	state := Snapshot{
-		OrderContract: s.orderContract, IncidentContract: s.incidentContract,
+		OrderContract: s.orderContract, IncidentContract: s.incidentContract, FaultContract: s.faultContract,
 		Submitted: s.requestID, Tick: s.tick, Paused: s.paused,
 		Completed: s.completed, Demo: s.demo != nil, DemoError: s.demoError,
 		Interrupted: s.interrupted, InterruptedPassengers: s.interruptedPassengers,
@@ -637,6 +645,9 @@ func (s *Simulation) snapshot(routes bool) Snapshot {
 		}
 	}
 	state.Berths = s.berthStates()
+	if s.faultContract != "" {
+		state.Faults = s.faultsView()
+	}
 	return state
 }
 

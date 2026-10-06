@@ -7,14 +7,17 @@ import (
 	"fmt"
 	"io"
 	"math"
+
+	"github.com/dotwaffle/podsim/internal/sim"
 )
 
 // FaultContract selects the fault operations of the incident suspension
-// contract. It requires the incident marker.
-type FaultContract string
+// contract. It requires the incident marker. The simulation owns the type,
+// as it owns the incident marker.
+type FaultContract = sim.FaultContract
 
 // FaultV1Contract permits the fault commands and the faults settings.
-const FaultV1Contract FaultContract = "fault-v1"
+const FaultV1Contract = sim.FaultV1Contract
 
 // These limits bound the faults settings. The simulation has the same
 // limits for the evacuation delay and for a fault duration.

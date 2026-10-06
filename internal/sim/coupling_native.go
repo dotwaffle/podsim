@@ -8,6 +8,7 @@ type FleetContracts struct {
 	OrderContract     OrderContract
 	CouplingContract  CouplingContract
 	IncidentContract  IncidentContract
+	FaultContract     FaultContract
 	CouplingEnabled   bool
 	CouplingSites     []CouplingSite
 	CouplingCorridors []CouplingCorridor
@@ -23,7 +24,7 @@ func NewFleetWithContracts(network Network, placements []Placement, contracts Fl
 		if err != nil {
 			return nil, err
 		}
-		s.incidentContract = contracts.IncidentContract
+		s.incidentContract, s.faultContract = contracts.IncidentContract, contracts.FaultContract
 		return s, nil
 	}
 	p, err := PrepareNetwork(network)
@@ -46,7 +47,7 @@ func (p *PreparedNetwork) NewFleetWithContracts(placements []Placement, contract
 		if err != nil {
 			return nil, err
 		}
-		s.incidentContract = contracts.IncidentContract
+		s.incidentContract, s.faultContract = contracts.IncidentContract, contracts.FaultContract
 		return s, nil
 	}
 	if err := validatePlacementsWithOrderContract(p.network, placements, contracts.OrderContract); err != nil {
@@ -61,7 +62,7 @@ func (p *PreparedNetwork) NewFleetWithContracts(placements []Placement, contract
 	}
 	s := p.newFleet(placements)
 	s.orderContract = contracts.OrderContract
-	s.incidentContract = contracts.IncidentContract
+	s.incidentContract, s.faultContract = contracts.IncidentContract, contracts.FaultContract
 	s.couplingNetwork = n
 	s.couplingEnabled = contracts.CouplingEnabled
 	return s, nil
@@ -87,6 +88,9 @@ func validateFleetContracts(network Network, placements []Placement, contracts F
 		return err
 	}
 	if err := ValidateIncidentContract(contracts.IncidentContract); err != nil {
+		return err
+	}
+	if err := ValidateFaultContracts(contracts.FaultContract, contracts.IncidentContract); err != nil {
 		return err
 	}
 	if contracts.CouplingContract == "" {

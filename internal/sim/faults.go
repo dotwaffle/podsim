@@ -32,6 +32,32 @@ var (
 	errDebrisLimit   = errors.New("debris limit reached")
 )
 
+// FaultContract selects the fault operations of the incident suspension
+// contract. It requires the incident marker. Without it, no saved state or
+// stream message has a fault member.
+type FaultContract string
+
+// FaultV1Contract permits the fault operations and the fault members.
+const FaultV1Contract FaultContract = "fault-v1"
+
+// ErrUnknownFaultContract means that the fault marker is not
+// FaultV1Contract.
+var ErrUnknownFaultContract = errors.New("unknown fault contract")
+
+// ValidateFaultContracts accepts no fault marker, and FaultV1Contract with
+// the incident marker.
+func ValidateFaultContracts(fault FaultContract, incident IncidentContract) error {
+	switch {
+	case fault == "":
+		return nil
+	case fault != FaultV1Contract:
+		return ErrUnknownFaultContract
+	case incident == "":
+		return errors.New("the fault contract requires the incident contract")
+	}
+	return nil
+}
+
 // faultKind is the kind of a fault record.
 type faultKind uint8
 
