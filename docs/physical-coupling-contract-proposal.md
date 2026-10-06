@@ -13,6 +13,10 @@ Later motion, ownership, and public-format phases need their stated qualificatio
 This contract authorizes no deployment, default change, or capacity claim.
 The audited source is `a13bbae`, with its full revision and file hashes in the exported source inventory.
 
+Amendment note, October 6, 2026: the maintainer approved a change to the formation claim.
+Formation does not claim a resource that the train releases at its formation state, so a pod that follows the pair can hold it.
+The amended text is in "Formation and splitting", "Body, motion, and ownership proof", and the Ownership row of the qualification table.
+
 ## Decisions before implementation
 
 The recommended minimum is one powered, mechanically connected pair of Compact pods.
@@ -171,7 +175,8 @@ Pending orders remain pending under their existing admission and accounting rule
 | Opening | The front member advances under the opening plan while the rear holds. Keep exclusive site ownership until ordinary separation returns. |
 | Draining | Transfer current and retained resources to the correct individual members. Release the site only after both tails and all dependencies clear. |
 
-The corridor commitment covers the entire selected shared path before closing starts.
+The corridor commitment covers the selected shared path that the train still needs before closing starts.
+The ownership proof below defines that need.
 This conservative first design does not promise headway improvement on a long occupied corridor.
 A later incremental grant design needs a separate stopping and deadlock proof.
 Formation failure changes no accepted order, route, or external owner.
@@ -212,6 +217,15 @@ Do not publish an unproved next-tick motion or disguise that failure as a safe p
 A train has a typed internal resource owner distinct from an individual pod owner.
 The fleet still contains the original two pods, not an extra synthetic passenger vehicle.
 Reserve the union of body, connector, braking, node, junction, and protected-site requirements.
+A requirement is a resource of the union that the train still owns at its formation state.
+At that state, the train releases a resource when each member that uses it has reached its largest release threshold over all its occurrences, the resource is not a protected site, and the front member is `Clearance` past the largest axis threshold of its corridor occurrences.
+These are the conditions of the rear-aware release below.
+Admission applies them after the complete union, including the exit continuation, is known.
+A resource that the train releases at formation keeps its dependency and its claim-list entry, with no expected owner.
+Admission refuses formation when either member owns such a resource.
+Admission does not check any other owner of such a resource, a change of that owner does not change the admission certificate, and formation writes no owner for it.
+A foreign pod can hold such a resource only after the rear has passed it.
+Ordinary admission and the rear-aware release maintain ordinary clearance between that pod and the train.
 Admission either grants the complete requested union or changes nothing.
 An ordinary pod cannot borrow a train resource through the virtual predecessor rules.
 
@@ -332,7 +346,7 @@ Use the pinned Go toolchain and scoped race checks for the changed ownership and
 | Body and site | Real bodies, connector, closing, and opening fit the protected site. Curves and short sites reject. | Bypass site or connector-envelope validation at admission |
 | Route commitment | Different destinations split before divergence. Denied grants preserve all routes and owners. | Remove common-path, split-site, or complete-union grant check |
 | Common motion | One update preserves exact offsets. Every current and crossed lane obeys speed and stopping bounds. | Read only the head lane, move a member twice, or bypass braking at the motion caller |
-| Ownership | Rear body and connector retain node, junction, track, and site resources. Foreign traffic cannot acquire them. | Release on head clearance or substitute an individual owner at release |
+| Ownership | Rear body and connector retain node, junction, track, and site resources. Foreign traffic cannot acquire them. A foreign pod on a resource that the train releases at formation does not prevent formation. | Release on head clearance, substitute an individual owner at release, claim a resource that the train releases at formation, or skip the owner check on a resource that the train owns at formation |
 | Passenger cabin | Private/shared rules, per-cabin capacity, whole parties, request identities, and boarding history survive every phase. | Pool seats, bypass consent, or alter a member request binding |
 | Disable and restore | Off at every phase drains safely. Every valid saved phase restores atomically. Invalid groups reject. | Clear group on disable, bypass restore proof, or enable partial logical fallback |
 | Public formats | Native, session, save, topology, full/delta, HTTP, remote stream, WASM, and browser agree. Saves and messages without the marker reject new fields. | Apply a group delta before its coherent membership frame |
