@@ -2,6 +2,8 @@ package view
 
 import (
 	"cmp"
+	"net/http"
+	"sync"
 	"testing"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -376,7 +378,21 @@ func TestFaultRefusalShowsError(t *testing.T) {
 // why.
 func TestFaultSubmitErrorShows(t *testing.T) {
 	t.Parallel()
-	game := sharedProjectGame(t, faultProject())
+	// The server holds each command until release runs. The client thus
+	// waits for the first command during the second click.
+	held := make(chan struct{})
+	release := sync.OnceFunc(func() { close(held) })
+	game := sharedHandlerGame(t, faultProject(), func(handler http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/api/command" {
+				<-held
+			}
+			handler.ServeHTTP(w, r)
+		})
+	})
+	// Cleanups run in the opposite order, so release runs before the
+	// server closes, also when the test stops early.
+	t.Cleanup(release)
 	action := faultActionPrefix + game.state.Simulation.Vehicles[game.selected].Pod.ID
 	game.click(centerOfButton(findButton(t, game.frameButtons(), action)))
 	if !game.pending {
@@ -388,6 +404,7 @@ func TestFaultSubmitErrorShows(t *testing.T) {
 	if got := game.hintLine(game.state.Simulation, ""); got.value != want || got.color != amber {
 		t.Fatalf("hint line = %q color %#06x, want %q color %#06x", got.value, got.color, want, amber)
 	}
+	release()
 	if result := commandResult(t, game); result.Err != nil || result.Reply.Error != "" || result.Reply.FaultID == "" {
 		t.Fatalf("first fault command failed: %+v", result)
 	}
