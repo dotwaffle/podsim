@@ -366,6 +366,34 @@ func TestPickupInstallationNeedsCompatibleBerth(t *testing.T) {
 	}
 }
 
+// TestPickupAccessLocalPod checks the exception of rule 2 through dispatch.
+// Debris cuts both roads out of s1, where pod 01 is idle. Dispatch binds
+// a new trip from s1 to s3 to pod 01, which boards there, and the trip
+// waits for destination access. Pod 02 at s3 has no compatible pickup
+// berth at s1, so it does not take the trip.
+func TestPickupAccessLocalPod(t *testing.T) {
+	t.Parallel()
+	s := altLineFleet(t, -100, "s1-1", "s3-1")
+	startDebris(t, s, "s1-link", 70, 80, 0)
+	startDebris(t, s, "alt-out", 70, 80, 0)
+	if err := s.RequestTrip("s1", "s3"); err != nil {
+		t.Fatal(err)
+	}
+	v := s.findVehicle("01")
+	for range 5 * TicksPerSecond {
+		s.Step()
+		if len(s.waiting) != 1 {
+			t.Fatalf("tick %d: %d waiting trips", s.tick, len(s.waiting))
+		}
+		if trip := s.waiting[0].request; trip.PodID != "01" || trip.DispatchReason != "Waiting for destination access" {
+			t.Fatalf("tick %d: the trip has pod %q and the reason %q", s.tick, trip.PodID, trip.DispatchReason)
+		}
+		if v.Pod.Activity != Idle || v.Pod.StationID != "s1" {
+			t.Fatalf("tick %d: pod 01 is %s at %q", s.tick, v.Pod.Activity, v.Pod.StationID)
+		}
+	}
+}
+
 // TestPickupPromotionNeedsCompatibleBerth checks assignedPickupFitsRequest
 // in the promotion of a ready pickup pod. Pod 01 travels to s1-1 for the
 // older trip, and pod 02 is idle at s1-2 for a later trip from s1. The
