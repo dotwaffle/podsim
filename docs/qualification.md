@@ -2312,3 +2312,88 @@ This was a refusal before an approach starts, not a fault.
 It was a defect, and a later change removed that check.
 The footprint check still covers each resource that the front has not passed.
 With the fix, the same loop variant gives no such refusal and 5 approaches, and the exit closure or the stopping room refuses each of them at adoption.
+
+## Coupling multi-pair tailored probe
+
+The natural multi-pair check formed no train on the Scale100 mesh or on the straight-trunk loop.
+This probe uses a generated network that gives natural formation a chance, with ordinary balanced demand and no placed trips.
+It shows whether the code can form trains from ordinary dispatch at all.
+At `3f6734b`, the pinned run meets the gate.
+At `f5801c5`, after the frontier fix, it gives the same trains and the same final digest.
+Trains on two corridors are alive at the same time, and one corridor forms a second train after its first train retires.
+`TestCouplingNaturalMultiPairProbe` pins the run.
+The [probe record](measurements/coupling-natural-multi-pair-probe.json) gives each run, each refusal count, and the approach traces of the pinned run.
+
+### Network
+
+The network is a one-way square ring with 1,200 m sides and a spoke at each corner.
+A spoke continues the incoming side straight on, and the ring turns left at the corner.
+The spoke has a 280 m approach lane, the 120 m assembly lane into the merge M, and the 120 m split lane to the fork F, 520 m past the corner.
+At F, a left and a right branch each lead to one station with 10 berths.
+The left branch returns to the next side of the ring.
+The right branch returns past the spoke and joins M at about 20 degrees on a 3 m/s lane.
+It crosses the spoke there and goes to the next side.
+All other lanes have 14 m/s.
+
+The design answers the four blockers of the earlier check as follows:
+
+- Turned link: the spoke continues the ring side, so a link that forms on that side or on the spoke has no turn.
+  When the two members go to different branches, the run of the link ends at the fork.
+  When they go to the same branch and the link reaches the fork lane, the link takes its turn, and the approach check refuses the pair, as it should.
+  A link that ends more than 300 m before the fork stays straight, as the findings below describe.
+- Third pod: only the orders for the two stations of a spoke use that spoke, so each assembly lane carries about one quarter of the orders.
+- Exit closure: the members of an accepted pair separate at F, so the exit closure ends on the two fork lanes.
+  The station entries are 300 m past F.
+- One attempt for each journey: a pod passes one corridor on each journey, so it has no second corridor to try.
+
+A pod that crosses M on the slow join lane holds the junction of M for some seconds.
+A spoke pod that arrives during the crossing stops at E, at the start of cell 2 of the assembly lane.
+The next spoke pod queues behind it, links on the assembly lane, and stops.
+
+`ValidateCouplingGeometry` accepts the 4 corridors.
+`project.Validate` accepts the full project, with 8 stations, 80 berths, 420 lanes, 70 pods, the coupling sites, and balanced demand.
+A first variant, with spokes that leave the middle of each side through a curve, formed 1 train in four 30-minute runs.
+Its pairs linked on the ring before the curve and kept the turn.
+
+### Pinned run
+
+The pinned run has 70 pods, 8 orders each simulated minute, seed 10, and 20 simulated minutes.
+After each tick, the test checks the coupling fault, the motion of each member, `CheckContract`, safety, the train registry, and the order count.
+
+| Train | Corridor | Formation tick | Retirement tick |
+| --- | --- | --- | --- |
+| 1 | c01 | 45138 | 49858 |
+| 2 | c02 | 49483 | 54203 |
+| 3 | c01 | 55810 | 60530 |
+
+Trains 1 and 2 are alive at the same time from tick 49483 to tick 49858.
+Train 3 forms on c01 after train 1 retires.
+The run starts 9 approaches and completes 95 of 160 orders.
+The disabled control with the same demand starts no approach and forms no train.
+A second enabled run gives the same state digest at each 1,000 ticks.
+The final digest is `9a036819380591b83eae3c087b68e0641e8b5ed9b18459603b54e9998dc1ae69`.
+The test takes 33 s with `GOMAXPROCS=4` on a loaded host.
+
+The seed comes from a search.
+Of seeds 5 to 12 in 35-minute runs, only seed 10 met the gate.
+In 60-minute runs, seeds 1 and 2 met the gate, with 5 and 6 trains.
+Seed 3 formed two sequential trains but no overlap, and seed 4 formed 1 train.
+
+### Findings
+
+- A third pod behind the pair is still the main refusal.
+  It ends 193 of the 230 approaches in the five recorded runs.
+  The reservation claims the assembly lane from its first cell, and the next spoke pod takes that cell or the node at its start while the pair waits for the junction of M.
+- After the reservation plan passed, the adoption preparation refused 7 approaches with "motion start is not representable on its distance grid" and 2 with "actual continuation cannot close joint release and stopping room".
+  These are refusals before a train exists, not faults.
+  This probe does not diagnose them.
+- A pair that shares a branch can link on the approach lane with no turn, when the fork lane starts more than 300 m ahead.
+  The approach check then accepts the pair, and a later check refuses it.
+- Mixed occupancy and pending pickups refuse many pairs at rest, because the fleet is saturated.
+- No run had the refusal "approach front lost its actual granted owner".
+
+### Limit of this result
+
+The network is shaped for formation, and the gate depends on the seed.
+The probe shows that the code can form trains naturally when the network allows it.
+It does not show that trains form on the presets or on a network with long shared roads.

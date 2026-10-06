@@ -1,0 +1,815 @@
+{
+  "title": "Coupling multi-pair tailored probe",
+  "source": "3f6734b",
+  "tipCheck": "At f5801c5, after the emergency-record discovery skip and the frontier fix, the test gives the same trains, approach count, completed orders, and final digest.",
+  "result": "met: in the pinned run, trains on c01 and c02 are alive at the same time from tick 49483 to tick 49858, and c01 forms a second train at tick 55810 after its first train retired at tick 49858. The disabled control forms no train, and a second enabled run gives the same state digests.",
+  "test": "TestCouplingNaturalMultiPairProbe in internal/sim/coupling_natural_probe_test.go, skipped in short mode. It runs the pinned run, a second enabled run, and a disabled control as parallel subtests. After each tick it checks CouplingError, the member motion oracle, CheckContract, SafetyObservation().Check(), the live train registry, and the order count: accepted orders equal submitted orders, which equal completed plus interrupted plus pending plus incomplete riders aboard. It keeps a SHA-256 digest of ExportState every 1,000 ticks and at the end.",
+  "harness": "The rows come from a scratch test in package sim at 3f6734b, not in the tree. It builds the same network, fleet, and demand as the test. Each run has the coupling marker, couplingEnabled true, an all-Compact fleet, virtual platoons with a limit of 2, and no placed trips, groups, or approaches. Demand copies the session generator for the balanced pattern: PCG(seed, ^seed), one offer each 60/rate seconds after the tick, uniform origin and destination over all 8 stations, skipped when 200 orders wait. For each tick in which a front is at rest at E with a virtual follower at rest, it runs prepareCouplingApproach and records the verdict. distinctPairsAtRest counts each front and rear pair one time, by whether their routes separate at F and by the lane where the follower linked. For each approach in its wait phase with the rear at rest, it runs the reservation plan and the adoption preparation and records the result. These checks do not change the run: the pinned row has the same trains as the test.",
+  "siteRule": "As in the natural multi-pair record. E is the start of the first cell of the assembly lane that holds the junction resource of M. On each 120 m assembly lane that is cell 2, so E = 60 m. The assembly site is [E-30, E+40], with rear staging E and front staging E+12. The split site starts 1 m after the end of the first cell of the split lane (31 m), is 49 m long, and has rear staging at its start plus the boundary margin plus 0.5 m and front staging 12 m later. ValidateCouplingGeometry accepts all 4 corridors. project.Validate, through cmd/projectcheck, accepts the full project: 8 stations, 80 berths, 320 nodes, 420 lanes, 70 pods, the coupling marker and sites, and balanced demand.",
+  "network": {
+    "name": "Square ring with corner spokes",
+    "shape": "A one-way square ring with 1,200 m sides. At each corner a spoke continues the incoming side straight on, and the ring turns left. The spoke has a 280 m approach lane, the 120 m assembly lane p-M, and the 120 m split lane M-F. These lanes are collinear. The assembly and split lanes are Compact-only. At F, a left and a right branch leave at 45 degrees. Each branch has one station with 10 berths on a side loop, and the station entry is 300 m past F. The left branch returns to the next ring side. The right branch returns past the spoke, joins M at about 20 degrees on a 3 m/s lane, crosses the spoke, and goes to the next ring side. All other lanes have 14 m/s.",
+    "turnedLink": "The spoke continues the ring side straight on, so a link that forms on that side, on the approach lane, or on the assembly lane has no turn while both members go into the spoke. The run of a link ends at F when the members go to different branches. When they go to the same branch and the link reaches the 45-degree fork lane, the link turns, so prepareCouplingApproach refuses the pair. A link that ends more than 300 m (platoonHorizon) before the fork stays straight; the findings give that case. That refusal is correct, because these members share the route after the split.",
+    "thirdPod": "Only the orders for the two stations of a spoke use that spoke, so each assembly lane carries about one quarter of the orders. A third pod is still the main refusal (see approachOutcomes).",
+    "exitClosure": "The members of an accepted pair go to different branches at F, so the exit closure of bindExits ends on the two fork lanes. The station entries are 300 m past F, past the closure.",
+    "oneAttempt": "A pod passes one corridor on each journey, so the single attempt for each journey does not take a second corridor from it.",
+    "stopAtE": "A pod that crosses M on the slow join lane holds the junction of M for some seconds. A spoke pod that arrives during the crossing stops at E, the start of the conflict zone of M on the assembly lane. The next spoke pod queues behind it, links on the assembly lane, and stops.",
+    "demand": "8 orders each simulated minute, balanced, 70 pods placed round robin on the 8 stations. The fleet cannot serve all orders, so the pending queue grows during each run."
+  },
+  "pinnedRun": {
+    "seed": 10,
+    "simulatedMinutes": 20,
+    "demandPerMinute": 8,
+    "pods": 70,
+    "corridors": 4,
+    "frontStoppedAtETicks": 69352,
+    "pairStoppedAtETicks": 18648,
+    "distinctPairsAtRest": {
+      "members share a branch, turned link from the assembly lane: approach needs one existing straight virtual pair": 14,
+      "members separate at F, straight link from the assembly lane: ok": 6,
+      "members separate at F, straight link from the spoke approach lane: ok": 3,
+      "members separate at F, straight link from the assembly lane: approach member has incompatible occupancy or maneuver": 1
+    },
+    "pairStopVerdicts": {
+      "occupied=false/true turned link: approach needs one existing straight virtual pair": 5,
+      "occupied=true/false straight link: approach member has incompatible occupancy or maneuver": 201,
+      "occupied=true/true straight link: in approach": 6719,
+      "occupied=true/true straight link: ok": 9,
+      "occupied=true/true turned link: approach needs one existing straight virtual pair": 11714
+    },
+    "approaches": 9,
+    "approachOutcomes": {
+      "wait expired: a third pod holds the first assembly cell, its From node, or the junction of p": 5,
+      "formed": 3,
+      "adoption refused: motion start is not representable on its distance grid": 1
+    },
+    "groups": 3,
+    "maxAlive": 2,
+    "firstOverlapTick": 49483,
+    "sequentialRetirementTick": 60530,
+    "trains": [
+      {
+        "corridor": "c01",
+        "members": [
+          "pod-021",
+          "pod-025"
+        ],
+        "formationTick": 45138,
+        "retirementTick": 49858
+      },
+      {
+        "corridor": "c02",
+        "members": [
+          "pod-032",
+          "pod-054"
+        ],
+        "formationTick": 49483,
+        "retirementTick": 54203
+      },
+      {
+        "corridor": "c01",
+        "members": [
+          "pod-070",
+          "pod-016"
+        ],
+        "formationTick": 55810,
+        "retirementTick": 60530
+      }
+    ],
+    "completed": 95,
+    "submitted": 160,
+    "gate": "met",
+    "approachTraces": [
+      {
+        "corridor": "c02",
+        "front": "pod-011",
+        "rear": "pod-033",
+        "occupied": [
+          true,
+          true
+        ],
+        "startTick": 31622,
+        "phaseTicks": {
+          "grant": 31622,
+          "moving": 32946,
+          "waiting": 33239
+        },
+        "endTick": 33540,
+        "outcome": "aborted, no group",
+        "lastWaitCheck": "foreign owner at resource {kind:2 id:k1-asm cell:0}: coupling reservation denied",
+        "lastForeignOwners": [
+          "2:k1-asm:0=pod-019"
+        ]
+      },
+      {
+        "corridor": "c02",
+        "front": "pod-033",
+        "rear": "pod-019",
+        "occupied": [
+          true,
+          true
+        ],
+        "startTick": 34041,
+        "phaseTicks": {
+          "grant": 34041,
+          "moving": 34264,
+          "waiting": 34557
+        },
+        "endTick": 34858,
+        "outcome": "aborted, no group",
+        "lastWaitCheck": "foreign owner at resource {kind:2 id:k1-asm cell:0}: coupling reservation denied",
+        "lastForeignOwners": [
+          "2:k1-asm:0=pod-040"
+        ]
+      },
+      {
+        "corridor": "c01",
+        "front": "pod-021",
+        "rear": "pod-025",
+        "occupied": [
+          true,
+          true
+        ],
+        "startTick": 44632,
+        "phaseTicks": {
+          "grant": 44632,
+          "moving": 44786,
+          "waiting": 45079
+        },
+        "endTick": 45138,
+        "outcome": "formed pair-45138-0-0",
+        "lastWaitCheck": "plan ok, adoption: <nil>"
+      },
+      {
+        "corridor": "c02",
+        "front": "pod-032",
+        "rear": "pod-054",
+        "occupied": [
+          true,
+          true
+        ],
+        "startTick": 48821,
+        "phaseTicks": {
+          "grant": 48821,
+          "moving": 49131,
+          "waiting": 49424
+        },
+        "endTick": 49483,
+        "outcome": "formed pair-49483-0-0",
+        "lastWaitCheck": "plan ok, adoption: <nil>"
+      },
+      {
+        "corridor": "c03",
+        "front": "pod-064",
+        "rear": "pod-033",
+        "occupied": [
+          true,
+          true
+        ],
+        "startTick": 48924,
+        "phaseTicks": {
+          "grant": 48924,
+          "moving": 50365,
+          "waiting": 50658
+        },
+        "endTick": 50959,
+        "outcome": "aborted, no group",
+        "lastWaitCheck": "plan ok, adoption: motion start is not representable on its distance grid: coupling reservation denied"
+      },
+      {
+        "corridor": "c01",
+        "front": "pod-070",
+        "rear": "pod-016",
+        "occupied": [
+          true,
+          true
+        ],
+        "startTick": 55098,
+        "phaseTicks": {
+          "grant": 55098,
+          "moving": 55458,
+          "waiting": 55751
+        },
+        "endTick": 55810,
+        "outcome": "formed pair-55810-0-0",
+        "lastWaitCheck": "plan ok, adoption: <nil>"
+      },
+      {
+        "corridor": "c01",
+        "front": "pod-067",
+        "rear": "pod-045",
+        "occupied": [
+          true,
+          true
+        ],
+        "startTick": 64604,
+        "phaseTicks": {
+          "grant": 64604,
+          "moving": 66050,
+          "waiting": 66343
+        },
+        "endTick": 66644,
+        "outcome": "aborted, no group",
+        "lastWaitCheck": "foreign owner at resource {kind:3 id:k0-p cell:0}: coupling reservation denied",
+        "lastForeignOwners": [
+          "2:k0-asm:0=pod-003",
+          "3:k0-p:0=pod-017"
+        ]
+      },
+      {
+        "corridor": "c01",
+        "front": "pod-003",
+        "rear": "pod-017",
+        "occupied": [
+          true,
+          true
+        ],
+        "startTick": 67498,
+        "phaseTicks": {
+          "grant": 67498,
+          "moving": 69097,
+          "waiting": 69390
+        },
+        "endTick": 69691,
+        "outcome": "aborted, no group",
+        "lastWaitCheck": "foreign owner at resource {kind:2 id:k0-asm cell:0}: coupling reservation denied",
+        "lastForeignOwners": [
+          "2:k0-asm:0=pod-029"
+        ]
+      },
+      {
+        "corridor": "c03",
+        "front": "pod-046",
+        "rear": "pod-057",
+        "occupied": [
+          true,
+          true
+        ],
+        "startTick": 67537,
+        "phaseTicks": {
+          "grant": 67537,
+          "moving": 67593,
+          "waiting": 67886
+        },
+        "endTick": 68187,
+        "outcome": "aborted, no group",
+        "lastWaitCheck": "foreign owner at resource {kind:2 id:k2-asm cell:0}: coupling reservation denied",
+        "lastForeignOwners": [
+          "2:k2-asm:0=pod-015"
+        ]
+      }
+    ],
+    "testDigest": "9a036819380591b83eae3c087b68e0641e8b5ed9b18459603b54e9998dc1ae69",
+    "digestNote": "SHA-256 of ExportState in deterministic encoding/json/v2 at tick 72000. The second enabled run gives the same digest at each multiple of 1,000 ticks and at the end.",
+    "controlCompleted": 104,
+    "controlTrains": 0,
+    "controlApproaches": 0,
+    "testWallSeconds": 33,
+    "goTestCommandCPUSeconds": 115,
+    "timingNote": "The CPU time is for the whole go test command, with the test build. GOMAXPROCS=4 and nice 19, on a host that two other agents loaded. The three runs are parallel subtests."
+  },
+  "seedSearch": {
+    "note": "The pinned seed comes from a search. With the pinned settings, seeds 5 to 12 ran for 35 simulated minutes without per-tick checks. Only seed 10 met the gate in that time. Seeds 6 and 9 formed two sequential trains on one corridor, but no two trains overlapped.",
+    "runs": [
+      {
+        "seed": 5,
+        "approaches": 23,
+        "groups": 1
+      },
+      {
+        "seed": 6,
+        "approaches": 39,
+        "groups": 4,
+        "sequential": true
+      },
+      {
+        "seed": 7,
+        "approaches": 26,
+        "groups": 2
+      },
+      {
+        "seed": 8,
+        "approaches": 27,
+        "groups": 2
+      },
+      {
+        "seed": 9,
+        "approaches": 23,
+        "groups": 4,
+        "sequential": true
+      },
+      {
+        "seed": 10,
+        "approaches": 32,
+        "groups": 4,
+        "gate": "met"
+      },
+      {
+        "seed": 11,
+        "approaches": 27,
+        "groups": 0
+      },
+      {
+        "seed": 12,
+        "approaches": 25,
+        "groups": 1
+      }
+    ]
+  },
+  "longerRuns": [
+    {
+      "seed": 1,
+      "simulatedMinutes": 60,
+      "demandPerMinute": 8,
+      "pods": 70,
+      "corridors": 4,
+      "frontStoppedAtETicks": 294268,
+      "pairStoppedAtETicks": 112242,
+      "distinctPairsAtRest": {
+        "members share a branch, turned link from the assembly lane: approach needs one existing straight virtual pair": 40,
+        "members separate at F, straight link from the assembly lane: ok": 27,
+        "members separate at F, straight link from the spoke approach lane: ok": 8,
+        "members separate at F, straight link from the assembly lane: approach member has incompatible occupancy or maneuver": 5,
+        "members share a branch, straight link from the spoke approach lane: ok": 5,
+        "members separate at F, straight link from the ring side before the spoke: ok": 4,
+        "members share a branch, straight link from the spoke approach lane: approach member has incompatible occupancy or maneuver": 3,
+        "members share a branch, straight link from the ring side before the spoke: ok": 3,
+        "members separate at F, straight link from the assembly lane: approach member has a pending pickup": 2,
+        "members separate at F, turned link from the ring side before the spoke: approach needs one existing straight virtual pair": 2,
+        "members separate at F, straight link from the spoke approach lane: approach member has a pending pickup": 1,
+        "members separate at F, straight link from the ring side before the spoke: approach member has a pending pickup": 1
+      },
+      "pairStopVerdicts": {
+        "occupied=false/false straight link: approach member has a pending pickup": 1428,
+        "occupied=false/false straight link: in approach": 1266,
+        "occupied=false/false straight link: ok": 2,
+        "occupied=false/false turned link: approach needs one existing straight virtual pair": 1249,
+        "occupied=false/true straight link: approach member has a pending pickup": 1243,
+        "occupied=false/true straight link: approach member has incompatible occupancy or maneuver": 4564,
+        "occupied=false/true turned link: approach needs one existing straight virtual pair": 1715,
+        "occupied=true/false straight link: approach member has incompatible occupancy or maneuver": 7337,
+        "occupied=true/false turned link: approach needs one existing straight virtual pair": 213,
+        "occupied=true/true straight link: in approach": 54508,
+        "occupied=true/true straight link: ok": 45,
+        "occupied=true/true turned link: approach needs one existing straight virtual pair": 38672
+      },
+      "approaches": 47,
+      "approachOutcomes": {
+        "wait expired: a third pod holds the first assembly cell, its From node, or the junction of p": 38,
+        "formed": 5,
+        "adoption refused: actual continuation cannot close joint release and stopping room": 2,
+        "wait expired: foreign owner on L-fork": 1,
+        "adoption refused: motion start is not representable on its distance grid": 1
+      },
+      "groups": 5,
+      "maxAlive": 2,
+      "firstOverlapTick": 124310,
+      "sequentialRetirementTick": 184030,
+      "trains": [
+        {
+          "corridor": "c01",
+          "members": [
+            "pod-030",
+            "pod-028"
+          ],
+          "formationTick": 43087,
+          "retirementTick": 47807
+        },
+        {
+          "corridor": "c04",
+          "members": [
+            "pod-052",
+            "pod-050"
+          ],
+          "formationTick": 51368,
+          "retirementTick": 56088
+        },
+        {
+          "corridor": "c02",
+          "members": [
+            "pod-007",
+            "pod-037"
+          ],
+          "formationTick": 121093,
+          "retirementTick": 125813
+        },
+        {
+          "corridor": "c03",
+          "members": [
+            "pod-028",
+            "pod-043"
+          ],
+          "formationTick": 124310,
+          "retirementTick": 129030
+        },
+        {
+          "corridor": "c04",
+          "members": [
+            "pod-002",
+            "pod-042"
+          ],
+          "formationTick": 179310,
+          "retirementTick": 184030
+        }
+      ],
+      "completed": 420,
+      "submitted": 480,
+      "gate": "met"
+    },
+    {
+      "seed": 2,
+      "simulatedMinutes": 60,
+      "demandPerMinute": 8,
+      "pods": 70,
+      "corridors": 4,
+      "frontStoppedAtETicks": 319603,
+      "pairStoppedAtETicks": 144414,
+      "distinctPairsAtRest": {
+        "members share a branch, turned link from the assembly lane: approach needs one existing straight virtual pair": 48,
+        "members separate at F, straight link from the assembly lane: ok": 32,
+        "members separate at F, straight link from the spoke approach lane: ok": 14,
+        "members share a branch, straight link from the spoke approach lane: ok": 14,
+        "members share a branch, straight link from the spoke approach lane: approach member has incompatible occupancy or maneuver": 4,
+        "members separate at F, straight link from the assembly lane: approach member has incompatible occupancy or maneuver": 3,
+        "members separate at F, straight link from the ring side before the spoke: ok": 3,
+        "members separate at F, straight link from the assembly lane: approach member has a pending pickup": 2,
+        "members separate at F, straight link from the spoke approach lane: approach member has incompatible occupancy or maneuver": 2,
+        "members separate at F, turned link from the return road: approach needs one existing straight virtual pair": 1,
+        "members separate at F, turned link from the ring side before the spoke: approach needs one existing straight virtual pair": 1,
+        "members share a branch, straight link from the spoke approach lane: approach member has a pending pickup": 1
+      },
+      "pairStopVerdicts": {
+        "occupied=false/false straight link: approach member has a pending pickup": 1547,
+        "occupied=false/false turned link: approach needs one existing straight virtual pair": 4164,
+        "occupied=false/true straight link: approach member has a pending pickup": 1091,
+        "occupied=false/true straight link: approach member has incompatible occupancy or maneuver": 3418,
+        "occupied=false/true turned link: approach needs one existing straight virtual pair": 2587,
+        "occupied=true/false straight link: approach member has incompatible occupancy or maneuver": 6747,
+        "occupied=true/false turned link: approach needs one existing straight virtual pair": 1911,
+        "occupied=true/true straight link: in approach": 78902,
+        "occupied=true/true straight link: ok": 64,
+        "occupied=true/true turned link: approach needs one existing straight virtual pair": 43983
+      },
+      "approaches": 64,
+      "approachOutcomes": {
+        "wait expired: a third pod holds the first assembly cell, its From node, or the junction of p": 51,
+        "formed": 6,
+        "adoption refused: motion start is not representable on its distance grid": 3,
+        "no wait check with the rear at rest: still waiting for the grant at the horizon, or the binding changed": 3,
+        "adoption refused: exit closure has a foreign owner on a fork lane": 1
+      },
+      "groups": 6,
+      "maxAlive": 2,
+      "firstOverlapTick": 161686,
+      "sequentialRetirementTick": 166406,
+      "trains": [
+        {
+          "corridor": "c01",
+          "members": [
+            "pod-007",
+            "pod-015"
+          ],
+          "formationTick": 11356,
+          "retirementTick": 16076
+        },
+        {
+          "corridor": "c02",
+          "members": [
+            "pod-006",
+            "pod-055"
+          ],
+          "formationTick": 107891,
+          "retirementTick": 112611
+        },
+        {
+          "corridor": "c04",
+          "members": [
+            "pod-032",
+            "pod-067"
+          ],
+          "formationTick": 157706,
+          "retirementTick": 162426
+        },
+        {
+          "corridor": "c02",
+          "members": [
+            "pod-018",
+            "pod-045"
+          ],
+          "formationTick": 161686,
+          "retirementTick": 166406
+        },
+        {
+          "corridor": "c02",
+          "members": [
+            "pod-049",
+            "pod-029"
+          ],
+          "formationTick": 183330,
+          "retirementTick": 188050
+        },
+        {
+          "corridor": "c03",
+          "members": [
+            "pod-038",
+            "pod-031"
+          ],
+          "formationTick": 201310,
+          "retirementTick": 206030
+        }
+      ],
+      "completed": 411,
+      "submitted": 480,
+      "gate": "met"
+    },
+    {
+      "seed": 3,
+      "simulatedMinutes": 60,
+      "demandPerMinute": 8,
+      "pods": 70,
+      "corridors": 4,
+      "frontStoppedAtETicks": 306523,
+      "pairStoppedAtETicks": 143547,
+      "distinctPairsAtRest": {
+        "members share a branch, turned link from the assembly lane: approach needs one existing straight virtual pair": 40,
+        "members separate at F, straight link from the assembly lane: ok": 19,
+        "members separate at F, straight link from the spoke approach lane: ok": 15,
+        "members share a branch, straight link from the spoke approach lane: ok": 11,
+        "members separate at F, straight link from the spoke approach lane: approach member has incompatible occupancy or maneuver": 6,
+        "members separate at F, straight link from the ring side before the spoke: ok": 5,
+        "members separate at F, straight link from the assembly lane: approach member has a pending pickup": 3,
+        "members separate at F, straight link from the assembly lane: approach member has incompatible occupancy or maneuver": 3,
+        "members share a branch, straight link from the ring side before the spoke: approach member has incompatible occupancy or maneuver": 3,
+        "members share a branch, straight link from the spoke approach lane: approach member has incompatible occupancy or maneuver": 2,
+        "members share a branch, turned link from the ring side before the spoke: approach needs one existing straight virtual pair": 2,
+        "members separate at F, straight link from the spoke approach lane: approach member has a pending pickup": 1,
+        "members separate at F, turned link from the ring side before the spoke: approach needs one existing straight virtual pair": 1,
+        "members separate at F, turned link from the return road: approach needs one existing straight virtual pair": 1,
+        "members share a branch, straight link from the spoke approach lane: approach member has a pending pickup": 1,
+        "members share a branch, straight link from the ring side before the spoke: ok": 1
+      },
+      "pairStopVerdicts": {
+        "occupied=false/false straight link: approach member has a pending pickup": 3048,
+        "occupied=false/true straight link: approach member has a pending pickup": 3686,
+        "occupied=false/true straight link: approach member has incompatible occupancy or maneuver": 7492,
+        "occupied=false/true turned link: approach needs one existing straight virtual pair": 6620,
+        "occupied=true/false straight link: approach member has incompatible occupancy or maneuver": 15980,
+        "occupied=true/false turned link: approach needs one existing straight virtual pair": 2515,
+        "occupied=true/true straight link: in approach": 62396,
+        "occupied=true/true straight link: ok": 51,
+        "occupied=true/true turned link: approach needs one existing straight virtual pair": 41759
+      },
+      "approaches": 51,
+      "approachOutcomes": {
+        "wait expired: a third pod holds the first assembly cell, its From node, or the junction of p": 43,
+        "formed": 4,
+        "adoption refused: motion start is not representable on its distance grid": 2,
+        "adoption refused: exit closure has a foreign owner on a fork lane": 1,
+        "no wait check with the rear at rest: still waiting for the grant at the horizon, or the binding changed": 1
+      },
+      "groups": 4,
+      "maxAlive": 1,
+      "firstOverlapTick": -1,
+      "sequentialRetirementTick": 120468,
+      "trains": [
+        {
+          "corridor": "c04",
+          "members": [
+            "pod-027",
+            "pod-070"
+          ],
+          "formationTick": 82413,
+          "retirementTick": 87133
+        },
+        {
+          "corridor": "c01",
+          "members": [
+            "pod-058",
+            "pod-038"
+          ],
+          "formationTick": 90350,
+          "retirementTick": 95070
+        },
+        {
+          "corridor": "c01",
+          "members": [
+            "pod-042",
+            "pod-021"
+          ],
+          "formationTick": 115748,
+          "retirementTick": 120468
+        },
+        {
+          "corridor": "c03",
+          "members": [
+            "pod-049",
+            "pod-001"
+          ],
+          "formationTick": 200049,
+          "retirementTick": 204769
+        }
+      ],
+      "completed": 409,
+      "submitted": 480,
+      "gate": "not met"
+    },
+    {
+      "seed": 4,
+      "simulatedMinutes": 60,
+      "demandPerMinute": 8,
+      "pods": 70,
+      "corridors": 4,
+      "frontStoppedAtETicks": 314945,
+      "pairStoppedAtETicks": 175776,
+      "distinctPairsAtRest": {
+        "members share a branch, turned link from the assembly lane: approach needs one existing straight virtual pair": 24,
+        "members share a branch, straight link from the spoke approach lane: ok": 21,
+        "members separate at F, straight link from the spoke approach lane: ok": 18,
+        "members separate at F, straight link from the assembly lane: ok": 16,
+        "members separate at F, straight link from the spoke approach lane: approach member has incompatible occupancy or maneuver": 8,
+        "members share a branch, straight link from the spoke approach lane: approach member has incompatible occupancy or maneuver": 7,
+        "members separate at F, straight link from the spoke approach lane: approach member has a pending pickup": 5,
+        "members separate at F, straight link from the assembly lane: approach member has incompatible occupancy or maneuver": 5,
+        "members separate at F, straight link from the assembly lane: approach member has a pending pickup": 4,
+        "members share a branch, straight link from the spoke approach lane: approach member has a pending pickup": 3,
+        "members separate at F, straight link from the ring side before the spoke: approach member has a pending pickup": 1,
+        "members separate at F, straight link from the spoke approach lane: approach route or native cell identity changed": 1,
+        "members separate at F, straight link from the ring side before the spoke: approach member has incompatible occupancy or maneuver": 1,
+        "members share a branch, straight link from the ring side before the spoke: approach member has a pending pickup": 1,
+        "members share a branch, straight link from the ring side before the spoke: ok": 1,
+        "members share a branch, turned link from the ring side before the spoke: approach needs one existing straight virtual pair": 1
+      },
+      "pairStopVerdicts": {
+        "occupied=false/false straight link: approach member has a pending pickup": 8735,
+        "occupied=false/false straight link: in approach": 2831,
+        "occupied=false/false straight link: ok": 2,
+        "occupied=false/false turned link: approach needs one existing straight virtual pair": 4025,
+        "occupied=false/true straight link: approach member has a pending pickup": 10895,
+        "occupied=false/true straight link: approach member has incompatible occupancy or maneuver": 8493,
+        "occupied=false/true straight link: approach route or native cell identity changed": 1500,
+        "occupied=false/true turned link: approach needs one existing straight virtual pair": 1496,
+        "occupied=true/false straight link: approach member has incompatible occupancy or maneuver": 26634,
+        "occupied=true/false turned link: approach needs one existing straight virtual pair": 569,
+        "occupied=true/true straight link: in approach": 85795,
+        "occupied=true/true straight link: ok": 57,
+        "occupied=true/true turned link: approach needs one existing straight virtual pair": 24744
+      },
+      "approaches": 59,
+      "approachOutcomes": {
+        "wait expired: a third pod holds the first assembly cell, its From node, or the junction of p": 56,
+        "no wait check with the rear at rest: still waiting for the grant at the horizon, or the binding changed": 2,
+        "formed": 1
+      },
+      "groups": 1,
+      "maxAlive": 1,
+      "firstOverlapTick": -1,
+      "sequentialRetirementTick": -1,
+      "trains": [
+        {
+          "corridor": "c02",
+          "members": [
+            "pod-007",
+            "pod-043"
+          ],
+          "formationTick": 80811,
+          "retirementTick": 85531
+        }
+      ],
+      "completed": 383,
+      "submitted": 480,
+      "gate": "not met"
+    }
+  ],
+  "tuning": {
+    "note": "The same corner-spoke shape with other settings, seed 1, 60 simulated minutes, from the summary lines of the scratch test. The rows with half 800 have 8 berths at each station. half is half the ring side in meters, and joinSpeed is the speed limit of the join lane in m/s.",
+    "runs": [
+      {
+        "half": 800,
+        "joinSpeed": 3,
+        "demandPerMinute": 6,
+        "pods": 60,
+        "approaches": 20,
+        "groups": 4,
+        "maxAlive": 1,
+        "sequential": true
+      },
+      {
+        "half": 800,
+        "joinSpeed": 5,
+        "demandPerMinute": 6,
+        "pods": 60,
+        "approaches": 5,
+        "groups": 0
+      },
+      {
+        "half": 800,
+        "joinSpeed": 5,
+        "demandPerMinute": 8,
+        "pods": 60,
+        "approaches": 9,
+        "groups": 2,
+        "maxAlive": 1
+      },
+      {
+        "half": 800,
+        "joinSpeed": 7,
+        "demandPerMinute": 8,
+        "pods": 60,
+        "approaches": 3,
+        "groups": 0
+      },
+      {
+        "half": 600,
+        "joinSpeed": 3,
+        "demandPerMinute": 10,
+        "pods": 80,
+        "approaches": 73,
+        "groups": 4,
+        "maxAlive": 1,
+        "sequential": true
+      },
+      {
+        "half": 600,
+        "joinSpeed": 4,
+        "demandPerMinute": 8,
+        "pods": 70,
+        "approaches": 23,
+        "groups": 2,
+        "maxAlive": 1
+      },
+      {
+        "half": 600,
+        "joinSpeed": 4,
+        "demandPerMinute": 10,
+        "pods": 80,
+        "approaches": 103,
+        "groups": 4,
+        "maxAlive": 1,
+        "sequential": true
+      },
+      {
+        "half": 800,
+        "joinSpeed": 14,
+        "demandPerMinute": 8,
+        "pods": 48,
+        "simulatedMinutes": 30,
+        "approaches": 0,
+        "groups": 0,
+        "note": "with a 14 m/s join lane, fronts were at rest at E for 5,854 ticks in total, and no approach started"
+      }
+    ]
+  },
+  "firstVariant": {
+    "name": "Square ring with mid-side spokes",
+    "shape": "A square ring with 1,600 m sides. Each spoke leaves the middle of a side through a 90-degree curve and has the same two-branch fork after F. A station on the spoke joined M from the side: first two stations that merged into the split lane, then one station whose exit crossed the spoke.",
+    "runs": [
+      {
+        "form": "two merging spoke stations, 14 m/s exits",
+        "demandPerMinute": 12,
+        "pods": 60,
+        "simulatedMinutes": 30,
+        "pairStoppedAtETicks": 0,
+        "approaches": 0,
+        "groups": 0
+      },
+      {
+        "form": "two merging spoke stations, 3 m/s exits",
+        "demandPerMinute": 12,
+        "pods": 80,
+        "simulatedMinutes": 30,
+        "pairStoppedAtETicks": 18210,
+        "approaches": 3,
+        "groups": 0,
+        "note": "the 3 approaches passed the plan, then the exit closure met the merged pods ahead on the fork lanes"
+      },
+      {
+        "form": "one crossing spoke station, 3 m/s exit",
+        "demandPerMinute": 10,
+        "pods": 80,
+        "simulatedMinutes": 30,
+        "pairStoppedAtETicks": 19700,
+        "approaches": 2,
+        "groups": 1,
+        "note": "of 20 distinct pairs at rest, 9 separate at F, and 7 of these had links that formed on the ring and kept the turn of the spoke curve"
+      },
+      {
+        "form": "one crossing spoke station on a triangle ring",
+        "demandPerMinute": 12,
+        "pods": 70,
+        "simulatedMinutes": 30,
+        "approaches": 1,
+        "groups": 0
+      }
+    ],
+    "reason": "Pairs linked on the ring before the curve into the spoke, and the link keeps that turn, so prepareCouplingApproach refused them. The corner spoke removes the curve."
+  },
+  "findings": [
+    "Natural formation works on this network. Each run that met the gate formed 3 to 6 trains from ordinary demand and dispatch, and all per-tick checks of the test pass.",
+    "A third pod behind the pair is still the main refusal: it ends 193 of the 230 approaches in the five recorded runs. The reservation claims the assembly lane from its first cell, and the next spoke pod takes that cell, its From node, or the junction of p while the pair waits for the junction of M.",
+    "After the reservation plan passed, the adoption preparation refused 7 approaches with \"motion start is not representable on its distance grid\" and 2 with \"actual continuation cannot close joint release and stopping room\". These are refusals before a train exists, not faults. This record does not diagnose them.",
+    "A pair that shares a branch can link on the approach lane with no turn, when the fork lane starts more than platoonHorizon (300 m) ahead. prepareCouplingApproach then accepts the pair, and a later check refuses it.",
+    "Mixed occupancy and pending pickups refuse many pairs at rest, because the fleet is saturated and many spoke pods are empty on the way to a pickup.",
+    "Approaches that wait in the grant phase for the slow crossing cost most of the simulation time: planNativeCouplingTick takes about 60% of the CPU time of a run."
+  ],
+  "candidateGap": "E is the start of cell 2 of each assembly lane. No recorded run has the refusal \"approach front lost its actual granted owner\"."
+}
