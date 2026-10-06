@@ -3118,6 +3118,8 @@ function stateReplyRefusals(envelope) {
       [`${kind} fault contract`, faultReply(value)],
       [`${kind} fault contract in the simulation`, simulation(fault, { faultContract: value })],
       [`${kind} fault contract in the topology`, { ...fault, topology: { incidentContract: "incident-v1", faultContract: value } }],
+      [`${kind} fault contract in the topology of an unmarked reply`, { ...incident, topology: { incidentContract: "incident-v1", faultContract: value } }],
+      [`${kind} fault contract in the simulation of an unmarked reply`, simulation(incident, { faultContract: value })],
     );
   }
   return cases;

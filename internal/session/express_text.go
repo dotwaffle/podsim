@@ -147,9 +147,10 @@ func scanPackedOrders(data []byte) error {
 // member must then be the Express marker, and the root must have one.
 // Without it, each orderContract member is refused. No document has a
 // textEncoding member: the order text is always packed. Each
-// incidentContract member must be the incident marker, so that an explicit
-// null or empty marker is not read as no marker. The typed decode decides
-// where the member can be.
+// incidentContract member must be the incident marker, and each
+// faultContract member the fault marker, so that an explicit null or
+// empty marker is not read as no marker. The typed decode decides where
+// the member can be.
 func scanContractMarkers(data []byte, express bool) error {
 	d := jsontext.NewDecoder(bytes.NewReader(data))
 	seen := map[string]bool{}
@@ -166,8 +167,8 @@ func scanContractMarkers(data []byte, express bool) error {
 			continue
 		}
 		name := token.String()
-		if name == "incidentContract" {
-			if markerErr := scanIncidentMarker(d); markerErr != nil {
+		if name == "incidentContract" || name == "faultContract" {
+			if markerErr := scanFeatureMarker(d, name); markerErr != nil {
 				return markerErr
 			}
 			continue
@@ -200,15 +201,20 @@ func scanContractMarkers(data []byte, express bool) error {
 	return nil
 }
 
-// scanIncidentMarker reads the value of an incidentContract member. It
-// refuses each value other than the incident marker.
-func scanIncidentMarker(d *jsontext.Decoder) error {
+// scanFeatureMarker reads the value of the incidentContract or the
+// faultContract member name. It refuses each value other than the marker
+// of that name.
+func scanFeatureMarker(d *jsontext.Decoder, name string) error {
+	marker, unknown := string(sim.IncidentV1Contract), sim.ErrUnknownIncidentContract
+	if name == "faultContract" {
+		marker, unknown = string(sim.FaultV1Contract), sim.ErrUnknownFaultContract
+	}
 	value, err := d.ReadToken()
 	if err != nil {
 		return err
 	}
-	if value.Kind() != jsontext.KindString || value.String() != string(sim.IncidentV1Contract) {
-		return sim.ErrUnknownIncidentContract
+	if value.Kind() != jsontext.KindString || value.String() != marker {
+		return unknown
 	}
 	return nil
 }

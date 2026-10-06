@@ -175,6 +175,29 @@ func TestFaultStreamNeedsMarker(t *testing.T) {
 				t.Errorf("marked %v, HTTP %s: error %v, want valid %v", marked, edit.name, err, valid)
 			}
 		}
+		// A fault marker in the topology of an HTTP state, or in a topology
+		// document, has the one value that the server writes, as the web
+		// check requires. An unmarked topology with null or an empty
+		// marker is not read as an unmarked topology.
+		topologyJSON, marshalErr := json.Marshal(topology)
+		if marshalErr != nil {
+			t.Fatal(marshalErr)
+		}
+		for _, marker := range []string{`null`, `""`, `"fault-v2"`} {
+			insert := []byte(`"faultContract":` + marker + `,`)
+			data := bytes.Replace(http, []byte(`"topology":{`), append([]byte(`"topology":{`), insert...), 1)
+			if _, err := DecodeStateJSON(data); err == nil {
+				t.Errorf("marked %v, HTTP topology marker %s: accepted", marked, marker)
+			}
+			var decoded TopologySnapshot
+			if err := json.Unmarshal(append(append([]byte(`{`), insert...), topologyJSON[1:]...), &decoded); err == nil {
+				t.Errorf("marked %v, topology marker %s: accepted", marked, marker)
+			}
+		}
+		var decoded TopologySnapshot
+		if err := json.Unmarshal(topologyJSON, &decoded); err != nil || decoded.FaultContract != topology.FaultContract {
+			t.Errorf("marked %v, topology control: %v", marked, err)
+		}
 	}
 	// A caller builds a delta with the faults group and no decoder scan.
 	_, base, next := faultStreamFrames(t, false)
