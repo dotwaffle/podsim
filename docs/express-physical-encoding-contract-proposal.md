@@ -238,7 +238,7 @@ Every payload must validate before the assembler changes its current state or ac
 Recovery and a full-frame replacement must retain the negotiated contract.
 A project change that changes the contract closes the current stream and requires a new hello.
 
-A project without the Express or coupling marker uses the same save and hello versions, with its current limits.
+A project without the Express marker uses the same save and hello versions, with its current limits.
 Its order text is also packed.
 Without the Express marker, reject new operating Express certificates and larger semantic states.
 Do not infer base64 from a string's appearance.

@@ -5,6 +5,11 @@ The maintainer approved product choices P1 to P22 of section 18.2 as proposed, o
 The contract authorizes no implementation, default change, or deployment.
 Line references are at `481c145`.
 
+Physical coupling was removed on October 6, 2026.
+Clauses about the couplingContract marker, coupling sites and corridors, coupling approaches, and coupled trains and their members no longer apply.
+Where a rule lists a coupling case with other cases, only the coupling case is removed.
+Platoon, compact queue, and station group rules are unchanged.
+
 Status note, October 6, 2026: the maintainer stopped the incident redesign after stage 3.
 Stages 4 to 7 are out of scope.
 Text that names these stages describes refusals that stay in place.

@@ -3,6 +3,11 @@
 Status: approved on 2026-10-05, with the proposed default for each open question in section 18.
 Revised for item 7: one save family (version 9) and one stream family (hello 6).
 
+Physical coupling was removed on October 6, 2026.
+Clauses about the couplingContract marker, coupling sites and corridors, coupling approaches, and coupled trains and their members no longer apply.
+Where a rule lists a coupling case with other cases, only the coupling case is removed.
+Platoon, compact queue, and station group rules are unchanged.
+
 Status note, October 6, 2026: the maintainer stopped the incident redesign after stage 3.
 Stages 4 to 7 are out of scope.
 Text that names these stages describes refusals that stay in place.
@@ -1540,7 +1545,7 @@ Gates for every patch:
 | `DrainInterruptions()`, `Connections.Interrupt` | The session and `cmd/compare` | Section 8.5. |
 | `nextIncidentID()`, `SetIncidentGeneration(g)` | Every record of stages 2 and later; the session | Section 11.4. |
 | `InterruptRider(podID, orderID)` | Test entry: the session tests | The incident marker. An active rider whose destination another active rider of its pod shares. No coupling, platoon, or Compact queue member, and no dispatch pass. |
-| `FailStepForTest(tick, compact, cause, before)` | Test entry: the session tests of the fault returns of a step | None. At the end of the step that reaches `tick`, it runs `before` and sets the Compact queue or coupling fault. |
+| `FailStepForTest(tick, cause, before)` | Test entry: the session tests of the fault returns of a step | None. At the end of the step that reaches `tick`, it runs `before` and sets the Compact queue fault. |
 | `IncidentForTest(podID, operation)` | Test entry: the session save and stream tests of each incident state | The incident marker, and no dispatch pass. `operation.Kind` names one stage 1 operation: withdraw, restore, destination, unload, resume, or evacuate. |
 
 Stage 1 exports only `DrainInterruptions`, `Connections.Interrupt`, and `SetIncidentGeneration`, and the test entries `InterruptRider`, `FailStepForTest`, and `IncidentForTest`.

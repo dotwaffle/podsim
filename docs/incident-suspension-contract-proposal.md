@@ -4,6 +4,11 @@ Status: approved, revision 5, October 5, 2026, by the coordinator under the main
 The approval changes no binding decision and no product choice beyond the maintainer-approved amendment D3 and the stage 2 defaults.
 Line references are at `3c77045`.
 
+Physical coupling was removed on October 6, 2026.
+Clauses about the couplingContract marker, coupling sites and corridors, coupling approaches, and coupled trains and their members no longer apply.
+Where a rule lists a coupling case with other cases, only the coupling case is removed.
+Platoon, compact queue, and station group rules are unchanged.
+
 Status note, October 6, 2026: the maintainer stopped the incident redesign after stage 3.
 Stages 4 to 7 are out of scope.
 Text that names these stages describes refusals that stay in place.

@@ -168,7 +168,7 @@ Approve an opt-in `compact-v1` profile with these limits:
   Keep certificates and speed caps while recovering, including after feature disable.
   Recover every pair to stopped ordinary 12.01-meter spacing before suffix commitment or rerouting.
 - The project adds `stationQueueSpacing`, either `ordinary` or `compact-v1`, default ordinary.
-  With `orderContract: "express-v1"`, the setting also requires the coupling marker.
+  With `orderContract: "express-v1"`, the setting needs no other marker.
   The maintainer approved the removal of this rule on 2026-10-05, because one saved-state version and one stream version now carry the setting for every project kind.
   Compact requires station buffers and a valid platoon limit.
   It never changes lane speeds automatically.
