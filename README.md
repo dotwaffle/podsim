@@ -175,6 +175,7 @@ See [distribution and operations](docs/operations.md) for build and runtime sett
 - With more than five pods, select **‹** or **›** to show the previous or next five.
   The text between the arrows gives the page number and the number of pages, for example **3 / 19**.
 - Compact fleet numbers match the pod buttons and the map.
+  Every number in one fleet has the same width, for example **07** in a fleet of 8 and **007** in a fleet of 287.
   Inspection also shows the full pod ID.
 - On a London network, a moving pod's map label gives its next stop under its fleet number, for example **>EUS**.
   With riders aboard, a third line gives the leg origin of the first rider, for example **<KGX**.

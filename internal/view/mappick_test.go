@@ -261,7 +261,7 @@ func TestPodPagerFits(t *testing.T) {
 			game := controlTestGame(t, layout.input)
 			game.state.Simulation.Vehicles = make([]sim.Vehicle, 114)
 			for i := range game.state.Simulation.Vehicles {
-				game.state.Simulation.Vehicles[i].Pod.ID = fleetPodLabel(i)
+				game.state.Simulation.Vehicles[i].Pod.ID = fleetPodLabel(i, len(game.state.Simulation.Vehicles))
 			}
 			game.podPage = podPageCount(114) - 1
 			count, ok := game.podPagerLabel()

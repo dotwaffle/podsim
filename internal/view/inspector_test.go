@@ -212,3 +212,23 @@ func TestInspectionRowsFitLondonNames(t *testing.T) {
 		})
 	}
 }
+
+func TestFleetPodLabel(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		index, size int
+		want        string
+	}{
+		{index: 0, size: 1, want: "01"},
+		{index: 6, size: 8, want: "07"},
+		{index: 98, size: 99, want: "99"},
+		{index: 0, size: 100, want: "001"},
+		{index: 99, size: 287, want: "100"},
+		{index: 286, size: 287, want: "287"},
+	}
+	for _, test := range tests {
+		if got := fleetPodLabel(test.index, test.size); got != test.want {
+			t.Errorf("fleetPodLabel(%d, %d) = %q, want %q", test.index, test.size, got, test.want)
+		}
+	}
+}

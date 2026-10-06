@@ -152,7 +152,7 @@ func TestEmergencyButtonFits(t *testing.T) {
 				{x: inspectionLeft, y: 151, size: 13, value: game.fitText(long, 13, inspectionRight-inspectionLeft)},
 				{x: inspectionLeft, y: 192, size: 17, value: game.fitText(long, 17, inspectionRight-inspectionLeft)},
 			}
-			for _, faults := range [][]sim.FaultView{nil, {{ID: "i1.1", Kind: sim.FaultKindPod, PodID: fleetPodLabel(game.selected)}}} {
+			for _, faults := range [][]sim.FaultView{nil, {{ID: "i1.1", Kind: sim.FaultKindPod, PodID: fleetPodLabel(game.selected, len(game.state.Simulation.Vehicles))}}} {
 				game.state.Simulation.Faults.Active = faults
 				controls := game.buttons()
 				i := slices.IndexFunc(controls, isEmergencyButton)

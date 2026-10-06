@@ -170,7 +170,7 @@ func TestDemoButtonFollowsPanel(t *testing.T) {
 			game.showDemand = true
 			controls := game.buttons()
 			control := findButton(t, controls, "demo")
-			selector := findButton(t, controls, "pod/"+fleetPodLabel(0))
+			selector := findButton(t, controls, "pod/"+fleetPodLabel(0, len(game.state.Simulation.Vehicles)))
 			unit := game.layout.unit
 			if gap := (selector.y - control.y - control.h) / unit; math.Abs(gap-6) > 1e-9 {
 				t.Errorf("button ends %g units above the pod selector, want 6", gap)

@@ -7,6 +7,7 @@ import (
 	"maps"
 	"math"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -48,7 +49,7 @@ func controlTestGame(t *testing.T, input layoutInput) *Game {
 	game.shell = newFakeShell()
 	game.state.Simulation.Vehicles = make([]sim.Vehicle, 8)
 	for i := range game.state.Simulation.Vehicles {
-		game.state.Simulation.Vehicles[i].Pod.ID = fleetPodLabel(i)
+		game.state.Simulation.Vehicles[i].Pod.ID = fleetPodLabel(i, len(game.state.Simulation.Vehicles))
 	}
 	game.layoutFor(input)
 	return game
@@ -431,7 +432,7 @@ func TestControlsDoNotOverlap(t *testing.T) {
 					findButton(t, controls, "checkpoint")
 					findButton(t, controls, "rewind")
 					if !showDemand {
-						findButton(t, controls, emergencyActionPrefix+fleetPodLabel(game.selected))
+						findButton(t, controls, emergencyActionPrefix+fleetPodLabel(game.selected, len(game.state.Simulation.Vehicles)))
 					}
 					bounds := area{right: float64(game.layout.width), bottom: float64(game.layout.height)}
 					for i, control := range controls {
@@ -499,6 +500,9 @@ func TestPodButtonsShowFleetNumbers(t *testing.T) {
 				for _, control := range game.buttons() {
 					if !strings.HasPrefix(control.action, "pod/") {
 						continue
+					}
+					if len(control.label) != len(strconv.Itoa(project.MaxPods)) {
+						t.Fatalf("page %d: label %q does not have the width of the fleet size %d", page, control.label, project.MaxPods)
 					}
 					if got, _ := game.buttonText(control); got != control.label {
 						t.Fatalf("page %d: label %q shown as %q in width %g", page, control.label, got, control.w)

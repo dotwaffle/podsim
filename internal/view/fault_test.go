@@ -134,7 +134,7 @@ func TestFaultButtonFits(t *testing.T) {
 			t.Parallel()
 			game := controlTestGame(t, layout.input)
 			game.state.Simulation.FaultContract = sim.FaultV1Contract
-			for _, faults := range [][]sim.FaultView{nil, {{ID: "i1.1", Kind: sim.FaultKindPod, PodID: fleetPodLabel(0)}}} {
+			for _, faults := range [][]sim.FaultView{nil, {{ID: "i1.1", Kind: sim.FaultKindPod, PodID: fleetPodLabel(0, len(game.state.Simulation.Vehicles))}}} {
 				game.state.Simulation.Faults.Active = faults
 				control, ok := game.faultButton(game.state.Simulation)
 				if !ok {

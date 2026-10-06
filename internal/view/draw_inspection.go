@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -16,7 +17,7 @@ func (g *Game) drawInspection(screen *ebiten.Image, state sim.Snapshot) {
 		return
 	}
 	podID := state.Vehicles[g.selected].Pod.ID
-	podLabel := fleetPodLabel(g.selected)
+	podLabel := fleetPodLabel(g.selected, len(state.Vehicles))
 	if podID != podLabel {
 		podLabel += " / " + podID
 	}
@@ -98,7 +99,7 @@ func waitStatus(pod sim.Pod, vehicles []sim.Vehicle) string {
 	}
 	blocker := pod.BlockedBy
 	if i := slices.IndexFunc(vehicles, func(v sim.Vehicle) bool { return v.Pod.ID == pod.BlockedBy }); i >= 0 {
-		blocker = fleetPodLabel(i)
+		blocker = fleetPodLabel(i, len(vehicles))
 	}
 	return status + " / pod " + blocker
 }
@@ -184,8 +185,11 @@ func stationPhaseRows(pod sim.Pod, network sim.Network) []inspectionRow {
 	return rows
 }
 
-func fleetPodLabel(index int) string {
-	return fmt.Sprintf("%02d", index+1)
+// fleetPodLabel returns the fleet number of the pod at index in a fleet of
+// size pods, such as "07". Every number in one fleet has the same width:
+// the digits of size, and at least two.
+func fleetPodLabel(index, size int) string {
+	return fmt.Sprintf("%0*d", max(2, len(strconv.Itoa(size))), index+1)
 }
 
 // activityLine returns the large activity label of the pod inspector. The

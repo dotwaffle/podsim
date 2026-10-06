@@ -528,7 +528,7 @@ func (g *Game) buttons() []button {
 		if i/podsPerPage != g.podPage {
 			continue
 		}
-		buttons = append(buttons, button{x: 810 + float64(i%podsPerPage)*podButtonStep, y: podSelectorTop, w: 32, h: 34, label: fleetPodLabel(i), selected: !g.showOrders && !g.showDemand && g.selected == i, action: "pod/" + v.Pod.ID})
+		buttons = append(buttons, button{x: 810 + float64(i%podsPerPage)*podButtonStep, y: podSelectorTop, w: 32, h: 34, label: fleetPodLabel(i, len(state.Vehicles)), selected: !g.showOrders && !g.showDemand && g.selected == i, action: "pod/" + v.Pod.ID})
 	}
 	if control, ok := g.faultButton(state); ok {
 		buttons = append(buttons, control)
