@@ -45,7 +45,8 @@ func TestRouteViewCongestion(t *testing.T) {
 // TestRouteViewPredictive checks the predictive state of a routing view.
 // The history of predictiveQueues without the history of the pod gives
 // the forecast, with no decay to the current tick. With no history, the
-// forecast has zero history and the current sample.
+// forecast has zero history and the current sample, in which the queue of
+// the pod does not count.
 func TestRouteViewPredictive(t *testing.T) {
 	t.Parallel()
 	s := altLineFleet(t, -40, "s0-1", "s3-1")
@@ -75,5 +76,21 @@ func TestRouteViewPredictive(t *testing.T) {
 		if s.predictiveQueueTick != 0 || s.predictiveQueues[link] != 300 || !maps.Equal(before, s.predictivePodQueues[test.owner].lanes) {
 			t.Fatalf("history of pod %s: the view decayed the history", test.owner)
 		}
+	}
+	// The sample counts a stopped pod for each other pod, but not for
+	// the pod itself.
+	s.predictiveQueues, s.predictivePodQueues = nil, nil
+	other := s.findVehicle("02")
+	v.Pod.Activity, v.Pod.LaneID, v.Pod.WaitReason, v.Pod.Speed = Traveling, "s1-link", TrackOccupied, 0
+	for _, test := range []struct {
+		pod     *vehicle
+		initial float64
+	}{{v, 0}, {other, queueHeadwaySeconds}} {
+		func() {
+			defer s.leaveRouteView(s.enterRouteView(test.pod))
+			if initial := s.viewForecasts(test.pod)[link].initial; initial != test.initial {
+				t.Fatalf("the view of pod %s has the queue %g on s1-link, want %g", test.pod.Pod.ID, initial, test.initial)
+			}
+		}()
 	}
 }
