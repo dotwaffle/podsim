@@ -7,6 +7,7 @@ import (
 	"math"
 	"reflect"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -278,6 +279,46 @@ func TestCouplingRemainingMalformed(t *testing.T) {
 			c, out, err := prepareRemainingCouplingMotion(in)
 			if err == nil || c != nil || out.State.context != nil || len(out.Writes) != 0 || !maps.Equal(owners, in.Current.Owners) {
 				t.Fatalf("malformed remaining input accepted or mutated ledger: %v", err)
+			}
+		})
+	}
+}
+
+// TestCouplingRemainingProgressRefusals pins the first refusal of each
+// saved progress rule. The progress bounds come before the phase positions,
+// the phase positions come before the phase rule, and the phase rule comes
+// before the serial drain coordinates.
+func TestCouplingRemainingProgressRefusals(t *testing.T) {
+	t.Parallel()
+	original, full := remainingTestContext(t, false)
+	for _, test := range []struct {
+		name   string
+		phase  couplingReservationPhase
+		leg    int
+		change func(*couplingRemainingInput)
+		want   string
+	}{
+		{"bounds_before_positions", couplingConnected, 1, func(in *couplingRemainingInput) {
+			in.Phase, in.DrainFirstMember = couplingClosing, 2
+		}, "invalid bounded remaining progress"},
+		{"positions_before_phase", couplingConnected, 1, func(in *couplingRemainingInput) {
+			in.Phase = couplingClosing
+		}, "closing members leave their protected targets"},
+		{"closing_leg", couplingClosing, 0, func(in *couplingRemainingInput) { in.Leg = 1 }, "invalid closing progress"},
+		{"latch_dwell", couplingLatching, -1, func(in *couplingRemainingInput) { in.DwellTicks = full.reservation.LatchTicks + 1 }, "invalid remaining latch dwell"},
+		{"connected_dwell", couplingConnected, 1, func(in *couplingRemainingInput) { in.DwellTicks = 1 }, "invalid connected progress"},
+		{"unlatch_leg", couplingUnlatching, -1, func(in *couplingRemainingInput) { in.Leg = 0 }, "invalid remaining unlatch dwell"},
+		{"opening_leg", couplingOpening, 2, func(in *couplingRemainingInput) { in.Leg = 3 }, "invalid opening progress"},
+		{"drain_leg", couplingDraining, 3, func(in *couplingRemainingInput) { in.Leg = 2 }, "invalid serial drain progress"},
+		{"drain_coordinates", couplingDraining, 3, func(in *couplingRemainingInput) { in.Leg = 4 }, "invalid or terminal serial drain coordinates"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			in := remainingTestSnapshot(t, original, full, remainingTestFind(t, full, test.phase, test.leg))
+			test.change(&in)
+			_, _, err := prepareRemainingCouplingMotion(in)
+			if !errors.Is(err, errCouplingReservationDenied) || !strings.HasPrefix(err.Error(), test.want+":") {
+				t.Fatalf("got %v, want %q", err, test.want)
 			}
 		})
 	}

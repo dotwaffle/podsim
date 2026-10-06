@@ -153,6 +153,20 @@ func (c *couplingMotionContext) bindRemainingSites(corridor CouplingCorridor, de
 	}
 }
 
+// couplingRemainingLeg is the plan of one motion leg before it resumes: its
+// phase, its moving members, its coordinates, and its acceleration and
+// profile speed cap.
+type couplingRemainingLeg struct {
+	phase                  couplingReservationPhase
+	moving                 [2]bool
+	start, end             [2]float64
+	acceleration, speedCap float64
+}
+
+// prepareRemainingLegs resumes the motion from the saved progress. The
+// checks run in a fixed order, because the first refusal is the result: the
+// progress bounds, the phase positions, the saved phase, the serial drain
+// coordinates, and then each remaining leg in leg order.
 func (c *couplingMotionContext) prepareRemainingLegs(input couplingRemainingInput) error {
 	p := &c.reservation
 	profile, _ := LookupCouplingProfile(p.network.contract)
@@ -166,90 +180,157 @@ func (c *couplingMotionContext) prepareRemainingLegs(input couplingRemainingInpu
 	c.drainOrder = [2]int{input.DrainFirstMember, 1 - input.DrainFirstMember}
 	c.initialDistances, c.initialPhase = distances, input.Phase
 	c.firstLeg = input.Leg
-	switch input.Phase {
-	case couplingClosing:
-		if input.Leg != 0 || input.DwellTicks != 0 || distances[1] < p.axisOrigins[1]+p.network.sites[p.network.corridors[p.corridorID].AssemblySiteID].RearStagingMeters {
-			return couplingDenied("invalid closing progress")
-		}
-		if distances == p.ClosingStops {
-			c.firstLeg, c.initialPhase, c.initialDwell = 1, couplingLatching, p.LatchTicks
-		}
-	case couplingLatching:
-		if input.Leg != 0 || input.DwellTicks > p.LatchTicks {
-			return couplingDenied("invalid remaining latch dwell")
-		}
-		c.firstLeg, c.initialDwell = 1, input.DwellTicks
-	case couplingConnected:
-		if input.Leg != 1 || input.DwellTicks != 0 || distances[0] < p.ClosingStops[0] || distances[0] > p.SplitStops[0] {
-			return couplingDenied("invalid connected progress")
-		}
-		if distances == p.SplitStops {
-			c.firstLeg, c.initialPhase, c.initialDwell = 2, couplingUnlatching, p.UnlatchTicks
-		}
-	case couplingUnlatching:
-		if input.Leg != 1 || input.DwellTicks > p.UnlatchTicks {
-			return couplingDenied("invalid remaining unlatch dwell")
-		}
-		c.firstLeg, c.initialDwell = 2, input.DwellTicks
-	case couplingOpening:
-		if input.Leg != 2 || input.DwellTicks != 0 {
-			return couplingDenied("invalid opening progress")
-		}
-		if distances == p.OpeningStops {
-			c.firstLeg = 3
-		}
-	case couplingDraining:
-		if (input.Leg != 3 && input.Leg != 4) || input.DwellTicks != 0 {
-			return couplingDenied("invalid serial drain progress")
-		}
-	default:
-		return couplingDenied("unknown remaining phase")
+	if err := c.resumeRemainingPhase(input, distances); err != nil {
+		return err
 	}
-	first, second := c.drainOrder[0], c.drainOrder[1]
-	middle := p.OpeningStops
-	middle[first] = c.terminal[first]
-	starts := [5][2]float64{{p.ClosingStops[0], p.axisOrigins[1] + p.network.sites[p.network.corridors[p.corridorID].AssemblySiteID].RearStagingMeters}, p.ClosingStops, p.SplitStops, p.OpeningStops, middle}
-	ends := [5][2]float64{p.ClosingStops, p.SplitStops, p.OpeningStops, middle, c.terminal}
-	if c.firstLeg == 3 && distances == middle {
-		c.firstLeg = 4
+	legs := c.remainingLegPlans(profile)
+	if err := c.resumeSerialDrain(&legs, distances); err != nil {
+		return err
 	}
-	if c.firstLeg >= 3 {
-		moving := c.drainOrder[c.firstLeg-3]
-		fixed := 1 - moving
-		if distances[fixed] != starts[c.firstLeg][fixed] || distances[moving] < starts[c.firstLeg][moving] || distances[moving] > ends[c.firstLeg][moving] || distances == c.terminal {
-			return couplingDenied("invalid or terminal serial drain coordinates")
-		}
-	}
-	origin := starts[c.firstLeg]
-	starts[c.firstLeg] = distances
-	moving := [5][2]bool{{false, true}, {true, true}, {true, false}, {first == 0, first == 1}, {second == 0, second == 1}}
+	origin := legs[c.firstLeg].start
+	legs[c.firstLeg].start = distances
 	for leg := c.firstLeg; leg < len(c.legs); leg++ {
-		phase, acceleration, speedCap := couplingDraining, profile.Acceleration, math.Inf(1)
-		switch leg {
-		case 0:
-			phase, acceleration, speedCap = couplingClosing, profile.ManeuverAcceleration, profile.ManeuverSpeed
-		case 1:
-			phase = couplingConnected
-		case 2:
-			phase, acceleration, speedCap = couplingOpening, profile.ManeuverAcceleration, profile.ManeuverSpeed
-		}
-		if leg >= 3 && !c.serialSeparation(c.drainOrder[leg-3], starts[leg], ends[leg]) {
-			return couplingDenied("remaining drain lacks ordinary swept separation")
-		}
-		var err error
-		// A resumed leg keeps the speed cap of its original start. The lanes
-		// behind the saved position can be slower than the lanes ahead.
-		if leg == c.firstLeg {
-			if speedCap, err = c.legSpeedCap(moving[leg], origin, ends[leg], acceleration, speedCap); err != nil {
-				return err
-			}
-		}
-		c.legs[leg], err = c.prepareLeg(phase, moving[leg], starts[leg], ends[leg], acceleration, speedCap)
-		if err != nil {
+		if err := c.prepareRemainingLeg(leg, legs[leg], origin); err != nil {
 			return err
 		}
 	}
 	return c.finishRemainingClock()
+}
+
+// resumeRemainingPhase checks the saved leg and dwell of the saved phase. It
+// sets the leg, the phase, and the dwell from which the motion resumes.
+func (c *couplingMotionContext) resumeRemainingPhase(input couplingRemainingInput, distances [2]float64) error {
+	p := &c.reservation
+	switch input.Phase {
+	case couplingClosing:
+		return c.resumeClosing(input, distances)
+	case couplingLatching:
+		return c.resumeDwell(input, 0, p.LatchTicks, "invalid remaining latch dwell")
+	case couplingConnected:
+		return c.resumeConnected(input, distances)
+	case couplingUnlatching:
+		return c.resumeDwell(input, 1, p.UnlatchTicks, "invalid remaining unlatch dwell")
+	case couplingOpening:
+		return c.resumeOpening(input, distances)
+	case couplingDraining:
+		if (input.Leg != 3 && input.Leg != 4) || input.DwellTicks != 0 {
+			return couplingDenied("invalid serial drain progress")
+		}
+		return nil
+	default:
+		return couplingDenied("unknown remaining phase")
+	}
+}
+
+// resumeClosing resumes the closing leg. The rear member cannot be behind
+// its rear staging stop. Members at the closing stops resume in the latch
+// dwell.
+func (c *couplingMotionContext) resumeClosing(input couplingRemainingInput, distances [2]float64) error {
+	p := &c.reservation
+	if input.Leg != 0 || input.DwellTicks != 0 || distances[1] < c.rearStagingStop() {
+		return couplingDenied("invalid closing progress")
+	}
+	if distances == p.ClosingStops {
+		c.firstLeg, c.initialPhase, c.initialDwell = 1, couplingLatching, p.LatchTicks
+	}
+	return nil
+}
+
+// resumeConnected resumes the connected leg between the closing and split
+// stops of the front member. Members at the split stops resume in the
+// unlatch dwell.
+func (c *couplingMotionContext) resumeConnected(input couplingRemainingInput, distances [2]float64) error {
+	p := &c.reservation
+	if input.Leg != 1 || input.DwellTicks != 0 || distances[0] < p.ClosingStops[0] || distances[0] > p.SplitStops[0] {
+		return couplingDenied("invalid connected progress")
+	}
+	if distances == p.SplitStops {
+		c.firstLeg, c.initialPhase, c.initialDwell = 2, couplingUnlatching, p.UnlatchTicks
+	}
+	return nil
+}
+
+// resumeOpening resumes the opening leg. Members at the opening stops resume
+// in the first serial drain leg.
+func (c *couplingMotionContext) resumeOpening(input couplingRemainingInput, distances [2]float64) error {
+	if input.Leg != 2 || input.DwellTicks != 0 {
+		return couplingDenied("invalid opening progress")
+	}
+	if distances == c.reservation.OpeningStops {
+		c.firstLeg = 3
+	}
+	return nil
+}
+
+// resumeDwell resumes a latch or unlatch dwell that follows the saved leg.
+// The saved dwell cannot exceed the profile dwell.
+func (c *couplingMotionContext) resumeDwell(input couplingRemainingInput, leg, dwellTicks int, reason string) error {
+	if input.Leg != leg || input.DwellTicks > dwellTicks {
+		return couplingDenied(reason)
+	}
+	c.firstLeg, c.initialDwell = leg+1, input.DwellTicks
+	return nil
+}
+
+// rearStagingStop returns the route distance of the rear staging stop of the
+// assembly site for the rear member.
+func (c *couplingMotionContext) rearStagingStop() float64 {
+	p := &c.reservation
+	return p.axisOrigins[1] + p.network.sites[p.network.corridors[p.corridorID].AssemblySiteID].RearStagingMeters
+}
+
+// remainingLegPlans returns the plans of the five legs from the start of
+// each leg. The drain order selects the member that moves in each drain leg.
+func (c *couplingMotionContext) remainingLegPlans(profile CouplingProfile) [5]couplingRemainingLeg {
+	p := &c.reservation
+	first, second := c.drainOrder[0], c.drainOrder[1]
+	middle := p.OpeningStops
+	middle[first] = c.terminal[first]
+	return [5]couplingRemainingLeg{
+		{couplingClosing, [2]bool{false, true}, [2]float64{p.ClosingStops[0], c.rearStagingStop()}, p.ClosingStops, profile.ManeuverAcceleration, profile.ManeuverSpeed},
+		{couplingConnected, [2]bool{true, true}, p.ClosingStops, p.SplitStops, profile.Acceleration, math.Inf(1)},
+		{couplingOpening, [2]bool{true, false}, p.SplitStops, p.OpeningStops, profile.ManeuverAcceleration, profile.ManeuverSpeed},
+		{couplingDraining, [2]bool{first == 0, first == 1}, p.OpeningStops, middle, profile.Acceleration, math.Inf(1)},
+		{couplingDraining, [2]bool{second == 0, second == 1}, middle, c.terminal, profile.Acceleration, math.Inf(1)},
+	}
+}
+
+// resumeSerialDrain moves a first drain leg that is complete to the second
+// drain leg. A resumed drain leg needs its fixed member at its start, and its
+// moving member between its start and end, short of the terminal stops.
+func (c *couplingMotionContext) resumeSerialDrain(legs *[5]couplingRemainingLeg, distances [2]float64) error {
+	if c.firstLeg == 3 && distances == legs[4].start {
+		c.firstLeg = 4
+	}
+	if c.firstLeg < 3 {
+		return nil
+	}
+	leg := legs[c.firstLeg]
+	moving := c.drainOrder[c.firstLeg-3]
+	fixed := 1 - moving
+	if distances[fixed] != leg.start[fixed] || distances[moving] < leg.start[moving] || distances[moving] > leg.end[moving] || distances == c.terminal {
+		return couplingDenied("invalid or terminal serial drain coordinates")
+	}
+	return nil
+}
+
+// prepareRemainingLeg prepares one leg that is not complete. A drain leg
+// first needs ordinary swept separation.
+func (c *couplingMotionContext) prepareRemainingLeg(leg int, plan couplingRemainingLeg, origin [2]float64) error {
+	if leg >= 3 && !c.serialSeparation(c.drainOrder[leg-3], plan.start, plan.end) {
+		return couplingDenied("remaining drain lacks ordinary swept separation")
+	}
+	speedCap := plan.speedCap
+	var err error
+	// A resumed leg keeps the speed cap of its original start. The lanes
+	// behind the saved position can be slower than the lanes ahead.
+	if leg == c.firstLeg {
+		if speedCap, err = c.legSpeedCap(plan.moving, origin, plan.end, plan.acceleration, speedCap); err != nil {
+			return err
+		}
+	}
+	c.legs[leg], err = c.prepareLeg(plan.phase, plan.moving, plan.start, plan.end, plan.acceleration, speedCap)
+	return err
 }
 
 func (c *couplingMotionContext) finishRemainingClock() error {
