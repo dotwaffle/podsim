@@ -1,11 +1,13 @@
 package remote
 
 import (
+	"fmt"
 	"math"
 	"reflect"
 	"testing"
 	"time"
 
+	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/session"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
@@ -225,5 +227,74 @@ func TestMotionBoundedRouteWindows(t *testing.T) {
 				t.Fatalf("position=%v want=%v", got, want)
 			}
 		})
+	}
+}
+
+// platoonState returns a state with a platoon of two pods, 1 m apart, and
+// the lead pod at x.
+func platoonState(tick int64, x float64) session.State {
+	state := motionState(tick, x)
+	lead := state.Simulation.Vehicles[0]
+	lead.Pod.ID, lead.PlatoonID, lead.PlatoonIndex = "02", "02", 1
+	lead.Pod.LaneDistance++
+	lead.Pod.Position.X++
+	state.Simulation.Vehicles[0].PlatoonID, state.Simulation.Vehicles[0].PlatoonIndex = "02", 2
+	state.Simulation.Vehicles = append(state.Simulation.Vehicles, lead)
+	return state
+}
+
+// TestMotionPlatoonAndDepartingPod checks that the pods of a platoon each
+// follow their own lane position, and that a pod that leaves between two
+// frames keeps its position in the earlier frame.
+func TestMotionPlatoonAndDepartingPod(t *testing.T) {
+	t.Parallel()
+	a, b := platoonState(0, 0), platoonState(6, 1.4)
+	got := interpolate(a, b, .5)
+	if len(got.Vehicles) != 2 {
+		t.Fatalf("got %d pods, want 2", len(got.Vehicles))
+	}
+	for i, want := range []float64{.7, 1.7} {
+		if x := got.Vehicles[i].Pod.Position.X; math.Abs(x-want) > 1e-9 {
+			t.Fatalf("pod %s at %v, want %v", got.Vehicles[i].Pod.ID, x, want)
+		}
+		if got.Vehicles[i].PlatoonID != "02" {
+			t.Fatalf("pod %s lost its platoon", got.Vehicles[i].Pod.ID)
+		}
+	}
+	b.Simulation.Vehicles = b.Simulation.Vehicles[:1]
+	got = interpolate(a, b, .5)
+	if len(got.Vehicles) != 2 || math.Abs(got.Vehicles[0].Pod.Position.X-.7) > 1e-9 || got.Vehicles[1].Pod.Position.X != 1 {
+		t.Fatalf("departing pod moved: %+v", got.Vehicles)
+	}
+}
+
+// TestMotionSampleAllocations reports the allocations of one map sample with
+// the largest fleet. A sample between frames allocates only its vehicle
+// slice, and a sample after the latest frame allocates nothing.
+func TestMotionSampleAllocations(t *testing.T) {
+	start := time.Unix(100, 0)
+	frame := func(tick int64, x float64) session.State {
+		state := motionState(tick, x)
+		pod := state.Simulation.Vehicles[0]
+		state.Simulation.Vehicles = nil
+		for i := range project.MaxPods {
+			pod.Pod.ID = fmt.Sprintf("%03d", i)
+			state.Simulation.Vehicles = append(state.Simulation.Vehicles, pod)
+		}
+		return state
+	}
+	var motion Motion
+	motion.Observe(frame(0, 0), start)
+	motion.Observe(frame(6, 1.4), start.Add(100*time.Millisecond))
+	at := start.Add(200 * time.Millisecond)
+	sample := motion.Sample(at)
+	if len(sample.Vehicles) != project.MaxPods || sample.Vehicles[0].Pod.Position.X == 0 || sample.Vehicles[0].Pod.Position.X == 1.4 {
+		t.Fatalf("sample has %d pods at %v, want %d between the frames", len(sample.Vehicles), sample.Vehicles[0].Pod.Position, project.MaxPods)
+	}
+	if allocations := testing.AllocsPerRun(100, func() { motion.Sample(at) }); allocations != 1 {
+		t.Fatalf("sample between frames has %g allocations, want 1", allocations)
+	}
+	if allocations := testing.AllocsPerRun(100, func() { motion.Sample(at.Add(time.Second)) }); allocations != 0 {
+		t.Fatalf("sample of the latest frame has %g allocations, want 0", allocations)
 	}
 }
