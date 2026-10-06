@@ -27,7 +27,7 @@ The approved batch covers implementation and qualification of the following cont
 | On-demand pooling | Existing maximum of eight active parties and eight stops, also for an Express pod |
 | Express-contract storage | At most 8,600 pending records and 8,600 outstanding records in aggregate |
 | Wire encoding | Canonical padded base64 for five bounded order-text fields, for every project kind, with no discriminator |
-| Byte caps | Existing save 80 MiB, raw stream 64 MiB, binary stream 65 MiB, and topology 10 MiB plus 4 KiB |
+| Byte caps | At approval, existing save 80 MiB, raw stream 64 MiB, binary stream 65 MiB, and topology 10 MiB plus 4 KiB; since 64b4f3f, stream JSON 65 MiB and gzip message 66 MiB |
 | Other caps | Existing fleet 300, service registry 300, and manual admission 200 |
 
 Outstanding records mean pending orders plus noncompleted onboard orders.
@@ -289,7 +289,7 @@ WebSocket consumers continue to fetch the separate topology and verify its sourc
 
 The HTTP envelope carries both topology and frame, not raw repeated `StateFrame.RouteLaneIDs`.
 Its packed orders use the same full-stream adapter and decoded semantic validation.
-Apply the 64 MiB raw stream bound to this HTTP envelope.
+Apply the raw stream bound to this HTTP envelope, which was 64 MiB at approval and is 65 MiB since 64b4f3f.
 This avoids multiplying escaped lane IDs across a large recurring route payload.
 A request without the media type gets 406 instead of a partial response.
 Foundation HTTP state uses the same envelope.
@@ -354,6 +354,8 @@ The separate topology response must also pass its existing bounds with all 300 s
 The save projection does not add the registry twice.
 Each bound also includes an 8,192-byte analysis reserve for marker fields, class-name growth, and numeric-width differences.
 That reserve is a conservative sizing allowance, not a new semantic header limit or approval for unspecified fields.
+The stream caps and margins in the tables below use the 64 MiB cap at approval, 67,108,864 bytes.
+Since 64b4f3f, the stream JSON cap is 65 MiB, 68,157,440 bytes.
 
 | Proposed independent shape: 8,600 pending plus 6,000 stored riders | Raw JSON upper bound | Packed upper bound | Existing cap |
 | --- | ---: | ---: | ---: |
@@ -382,7 +384,7 @@ Repeated widest entries overestimate valid unique service identities without cha
 
 | Public identity and topology budget | Bytes |
 | --- | ---: |
-| Contract and text-encoding marker object | 68 |
+| Contract marker object, measured with the removed text-encoding marker | 68 |
 | Marked hello, with conservative generated-identity and build allowances | 1,107 |
 | Topology header with two null placeholders | 1,354 |
 | HTTP envelope header with two null placeholders | 97 |
@@ -411,7 +413,7 @@ Their registry bytes belong to the separately fetched, source-bound topology.
 
 Compression ratios do not establish either margin.
 The save must fit both its uncompressed and compressed 80 MiB bounds.
-The stream must fit its raw 64 MiB and binary 65 MiB bounds.
+The stream must fit its raw and binary bounds, which were 64 MiB and 65 MiB at approval and are 65 MiB and 66 MiB since 64b4f3f.
 Later qualification must measure actual gzip output, including incompressible payloads.
 
 A 1,024-byte control-character string occupies 6,146 JSON bytes including quotes, versus 1,370 with base64.
@@ -425,7 +427,6 @@ Stream `completed=false` costs one more byte than `true`, which the stream recor
 The existing baseline retains wider signed counters and other scalar allowances.
 Do not replace these checks with six bytes per character or short decimal examples.
 
-The evidence cache contains `byte-evidence.json`, the encoder source, run metadata, source hashes, and an arithmetic receipt.
 These results justify a contract choice, not an implementation size certificate.
 Before enablement, encode and decode real widest-shape save, full-frame, and replacement-delta assets using the final adapters.
 Compare actual sizes against these projections and both unchanged byte caps.

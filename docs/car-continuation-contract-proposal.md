@@ -363,7 +363,8 @@ A size failure must preserve all parties and leave the old output unchanged.
 The [service byte proposal](service-byte-contract-proposal.md) recorded 83,301,596 bytes for its earlier conservative saved-session fixture.
 That fixture leaves only 584,484 bytes below the save cap before adding car data.
 It does not prove this new native encoding, boarding representation, or combined checkpoint fits.
-The stream cap stays 64 MiB and receives no car checkpoint data.
+The stream cap stayed 64 MiB at approval and receives no car checkpoint data.
+Since 64b4f3f, the stream JSON cap is 65 MiB, and the gzip message cap is 66 MiB.
 Do not add a text table, change the save cap, compress around the raw cap, or prune history without separate approval.
 
 Qualification must measure encoded size, temporary buffers, retained memory, replay CPU time, and cancellation latency separately.
@@ -385,7 +386,7 @@ Propose `Run.EncodeCheckpoint(context.Context, io.Writer) error` and `DecodeChec
 `ResumeInput` supplies the current implementation identity.
 The caller supplies the deadline through the context.
 The package owns bounded decoding and replay, while the CLI owns atomic local file publication.
-These Go entry points are proposed, not existing APIs.
+These Go entry points were proposed at approval, and they now exist in `internal/parkride`.
 Report-v1 readers, browser authoring, project loaders, `cmd/compare`, live session storage, and stream consumers stay unchanged.
 The existing offline browser continues to read reports, not resumable state.
 Current [`cmd/compare`](../cmd/compare/main.go) owns different schedules and rail ledgers.

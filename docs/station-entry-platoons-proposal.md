@@ -92,7 +92,7 @@ Then the next physical queue head can choose and reserve its own berth suffix.
 
 Keep the existing lane order and passenger, pickup, empty, and aging priorities between competing approaches.
 An idle berth owner must still be able to depart through an exclusive path.
-No buffer platoon may reserve departure conflict resources merely to hold a queue position.
+No buffer platoon may reserve departure conflict resources only to hold a queue position.
 
 This transition requires a proof that prefix rebuilding and resource transfer preserve the existing ownership graph.
 The current generic route-change checks do not establish that proof.

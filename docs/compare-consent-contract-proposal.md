@@ -1,7 +1,7 @@
 # Compare consent provenance
 
 Status: approved October 2, 2026.
-Implementation and qualification are in progress.
+Implemented in `cmd/compare`; see [compare sharing consent](compare-sharing-consent.md).
 
 The approved order foundation makes new orders private by default.
 Compare must supply the same explicit consent to matched offers in every policy arm.

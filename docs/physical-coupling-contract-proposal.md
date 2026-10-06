@@ -97,7 +97,7 @@ It requires formation and split costs, internal spacing, external spacing, and m
 | [safety.go](../internal/sim/safety.go), `SafetyObservation.Check` | Current separation uses centers and retained compact certificates | Add an independent body and connector check, not an unconditional linked-pair exemption |
 | [state_physical.go](../internal/sim/state_physical.go), `footprint` | Physical restore reconstructs retained resources and forward grants | Train certificates need an atomic reconstruction rule |
 | [state_logical.go](../internal/sim/state_logical.go), `restoreLogical` | Logical recovery relocates pods and requeues riders | Do not apply this automatically to a connected pair |
-| [state_file.go](../internal/session/state_file.go), [stream_codec.go](../internal/session/stream_codec.go), [service.go](../internal/project/service.go) | Current project, save, and stream families end at 4, 7, and 4 | Proposed new opt-in families are 5, 8, and 5 |
+| [state_file.go](../internal/session/state_file.go), [stream_codec.go](../internal/session/stream_codec.go), [service.go](../internal/project/service.go) | At approval, project, save, and stream families ended at 4, 7, and 4; since 248f26e, 9de7a3b, and 5f1adac they are project 1, save 9, and hello 6 | At approval, new opt-in families were proposed as 5, 8, and 5 |
 
 Current mainline and station-entry virtual link planners reject Group and Express members.
 Their existing certificates, turn rules, and small-class arithmetic remain unchanged.
@@ -312,7 +312,8 @@ It can use existing logical recovery after all groups drain and ordinary separat
 A future lossless train recovery path needs separate approval and repeated-recovery tests.
 Never drop parties, detach close members, or ignore a malformed train certificate to recover a file.
 
-Existing limits stay unchanged: 10 MiB project, 80 MiB raw and compressed save, 64 MiB raw stream, and 65 MiB binary stream.
+At approval, existing limits stayed unchanged: 10 MiB project, 80 MiB raw and compressed save, 64 MiB raw stream, and 65 MiB binary stream.
+Since 64b4f3f, the stream JSON cap is 65 MiB, and the gzip message cap is 66 MiB.
 Topology keeps its current 10 MiB plus 4 KiB cap.
 Native foundation and Express order bounds remain their existing independent limits.
 Measure combined widest encodings with the new records before calling any new family qualified.

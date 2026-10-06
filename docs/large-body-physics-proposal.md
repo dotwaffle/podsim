@@ -56,7 +56,8 @@ No automatic station expansion or speed adjustment is proposed.
 Recommend group pods first, with the current 2,600 saved waiting records and eight stored riders per pod.
 Express retains its route, station, capacity, and service metadata during that stage.
 Full express-20 operation needs both physical qualification and a separately reviewed larger-state encoding.
-The 80 MiB save and 64 MiB stream caps remain unchanged.
+At approval, the 80 MiB save and 64 MiB stream caps remained unchanged.
+Since 64b4f3f, the stream JSON cap is 65 MiB, and the gzip message cap is 66 MiB.
 Do not truncate accepted requests or retained rider history to fit those caps.
 
 A joint group-and-express release is possible but needs more encoding and mixed-state work before either class becomes usable.

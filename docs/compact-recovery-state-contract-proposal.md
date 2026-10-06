@@ -81,7 +81,8 @@ The largest estimate is 83,829,396 bytes, below the 83,886,080-byte save cap by 
 These independent maxima bound encoding size.
 They do not describe a physically reachable state.
 Root must extend the permanent saved-state fixture and validate its encoded shape before landing this representation.
-The 80 MiB save and 64 MiB stream caps remain unchanged.
+At approval, the 80 MiB save and 64 MiB stream caps remained unchanged.
+Since 64b4f3f, the stream JSON cap is 65 MiB, and the gzip message cap is 66 MiB.
 The stream publishes only the approved spacing policy and ordinary pod observations.
 It does not grant an oracle exception from a browser field.
 The native oracle obtains exceptions only from physically validated live certificates.

@@ -10,7 +10,7 @@ Browser-facing JavaScript, existing defaults, and ordinary safety limits stay in
 
 Approve these data and compatibility rules as one foundation:
 
-- A trip accepts `partySize` from 1 through 8, `sharingConsent` as `private` or `shared`, and a service choice.
+- A trip accepts `partySize` from 1 through 8, or through 20 with order contract `express-v1`, `sharingConsent` as `private` or `shared`, and a service choice.
   Use `service` values `on-demand` or `express`.
   Express requires a known `serviceID`.
   On-demand forbids `serviceID`.

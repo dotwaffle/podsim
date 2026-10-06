@@ -8,6 +8,9 @@ The user approved separate saved project and editor controls on September 30, 20
 The current restore applies the effective project's settings after restoring physical buffer membership.
 See [operations](operations.md) and [file restart checks](experimental-policy-restarts.md).
 
+Status note, October 6, 2026: since 9de7a3b, the session writes and reads only saved-state version 9, which replaced versions 2 to 4.
+The version rules below describe the format at approval.
+
 ## Required contract change
 
 Version 2 physical restore rejects a berthless pod whose reservation reaches its final route lane.

@@ -1600,7 +1600,7 @@ Their tests call the operations directly, as stage 1 tests do.
 
 ## 19. Reuse of the parked fault contract
 
-The parked contract is `docs/vehicle-fault-contract-proposal.md` revision 2, against `5c90c9f`.
+The parked contract is an uncommitted draft, `docs/vehicle-fault-contract-proposal.md` revision 2, against `5c90c9f`.
 Its two Codex reviews and the holistic review stopped it.
 This contract reuses the parts that fit stage 2, anchored again at `3c77045` and placed on the stage 1 API.
 

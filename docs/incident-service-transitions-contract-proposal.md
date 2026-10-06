@@ -3,6 +3,10 @@
 Status: approved on 2026-10-05, with the proposed default for each open question in section 18.
 Revised for item 7: one save family (version 9) and one stream family (hello 6).
 
+Status note, October 6, 2026: the maintainer stopped the incident redesign after stage 3.
+Stages 4 to 7 are out of scope.
+Text that names these stages describes refusals that stay in place.
+
 This contract is stage 1 of the staged incident redesign.
 It defines the service transitions that vehicle faults and rider emergencies share.
 It adds no motion change and no feature policy.
@@ -1382,7 +1386,8 @@ The record is [docs/measurements/composed-worst-case-formats.json](measurements/
 Stage 1 patch 9 writes the record again with the stage 1 members.
 The two tables of measured headroom after stage 1 give its values.
 The fixtures use independent maxima, not reachable states.
-The save cap is 83,886,080 bytes (80 MiB), and the stream and HTTP cap is 67,108,864 bytes (64 MiB).
+The save cap is 83,886,080 bytes (80 MiB), and the stream and HTTP cap at this measurement is 67,108,864 bytes (64 MiB).
+Since 64b4f3f, the stream and HTTP cap is 68,157,440 bytes (65 MiB).
 The HTTP headroom includes the topology member at its cap of 10,489,856 bytes.
 
 | Shape | Save headroom | Full frame headroom | Delta headroom | HTTP headroom |

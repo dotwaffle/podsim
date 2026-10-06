@@ -227,8 +227,8 @@ A save holds the purpose in the pod tuple (stage 1, section 11.5), so a restore 
 | Limit | Value | Basis |
 | --- | ---: | --- |
 | Records for one pod | 1 | Precondition 5 of section 6.1 |
-| Active records, `maxEmergencies` | 4 | Product choice P19 |
-| Decoder limit for records | `maxEmergencies` | Section 11.5 |
+| Active records, `MaxEmergencies` | 4 | Product choice P19 |
+| Decoder limit for records | `MaxEmergencies` | Section 11.5 |
 | Byte budget basis | 300 records | Section 11.6. The budget holds for any cap up to the pod limit. |
 | Station choices for one record | One commit. One choice at the start when the pod is divertible then, and one on each 60th tick while the pod is deferred and divertible. | Section 9.1 |
 
@@ -442,7 +442,7 @@ A deferred coupling member with a record has no hold and no purpose, so the trai
 | 3 | No dispatch pass is active. | Internal error. A command never runs inside a pass. |
 | 4 | `v.carriesPassengers()` (`internal/sim/riders.go:25`) | `pod carries no passenger` |
 | 5 | No record names the pod. | `pod already has an emergency` |
-| 6 | `len(s.emergencies) < maxEmergencies` | `emergency limit reached` |
+| 6 | `len(s.emergencies) < MaxEmergencies` | `emergency limit reached` |
 | 7 | `orderID == 0`, or `orderID` names an active rider of the pod. With `orderID == 0`, the party is the first active rider in `Riders` order. | `order is not aboard the pod` |
 | 8 | `incidentSerial < math.MaxUint64` | `incident limit reached` |
 
@@ -503,7 +503,7 @@ The search counters of section 15, the search work arrays, and the no-candidate 
 
 | ID | Invariant |
 | --- | --- |
-| E1 | Records are in strictly increasing serial order, at most one record names each pod, there are at most `maxEmergencies` records, and `0 <= start <= s.tick`. Each serial is positive and at most `incidentSerial`, and no fault record and emergency record have one serial. |
+| E1 | Records are in strictly increasing serial order, at most one record names each pod, there are at most `MaxEmergencies` records, and `0 <= start <= s.tick`. Each serial is positive and at most `incidentSerial`, and no fault record and emergency record have one serial. |
 | E2 | With `emergenciesOn`, a pod with `emergencyHold` has a record. |
 | E3 | The party of a bound or unloading record is an active rider of its pod, and `v.op.interrupt` is exactly the bit of that rider. |
 | E4 | With `emergenciesOn`, a pod with purpose 1 has `op.owner == emergencyHold` and a record. |
@@ -744,7 +744,7 @@ The bound counts graph searches:
 | Graph searches for the tree | 1 for each choice | Pruning, step 2 |
 | Calls in one choice | One for each tried berth, plus one in `setOperationalDestination` | Steps 2 and 4 of the candidates |
 | Tried berths in one choice | At most the compatible, unblocked berths of the passenger stations that the tree reaches. Each berth is a network node, so at most 5,000. | `internal/project/config.go:39` |
-| Choices in one tick | `maxEmergencies` = 4. Records that started on ticks with one remainder modulo 60 choose on the same ticks. | Section 4.3 |
+| Choices in one tick | `MaxEmergencies` = 4. Records that started on ticks with one remainder modulo 60 choose on the same ticks. | Section 4.3 |
 
 The worst tick therefore makes at most `4 · (1 + 5,001 · 12) = 240,052` graph searches, on a network of at most 5,000 nodes and 8,000 lanes (`internal/project/config.go:39-41`).
 Pruning does not lower this bound, because in a network where the tree reaches every berth and the restricted searches refuse each one, no station is pruned.
@@ -874,7 +874,7 @@ This contract makes only the following claims:
 
 - A denied emergency grant writes nothing.
   It takes no resource that another pod owns, and it does not make another pod leave its reserved blocks.
-- The cap of `maxEmergencies` bounds the number of intents in the tier at each tick.
+- The cap of `MaxEmergencies` bounds the number of intents in the tier at each tick.
   It does not bound the time for which a record stays.
 - An emergency pod finishes its unload when its route admits it under the conditions of stage 2, section 9.7: owners move and release their resources, receiving capacity becomes available, and phase timers end.
   A reservation cycle or a berth that never frees has no guaranteed end in stage 3.
@@ -1102,7 +1102,7 @@ With the marker, it rejects:
 - a serial that a fault record also has;
 - a negative `start`, a `start` above the saved tick, or a negative counter;
 - an `order` that is not positive;
-- more than `maxEmergencies` records;
+- more than `MaxEmergencies` records;
 - a saved pod with hold 2 (`emergencyHold`) and no record (E2);
 - a saved pod with purpose 1 whose owner is not 2 or that no record names (E4);
 - a record whose pod has purpose 1 and whose party is not an active rider of the saved pod, or whose interrupt set is not exactly the bit of the party (E3);
@@ -1120,7 +1120,7 @@ With the marker, the stream and HTTP decoders apply these rules to a full frame 
 - every member of section 11.4 present and not null;
 - `id` of the form `i<uint64>.<uint64>`, with a positive serial, unique, and with serials strictly increasing in order;
 - no serial shared with a record of the `faults` group of the same frame, or of the assembled state after a delta, when stage 2 has its stream members;
-- at most one record for each `podID`, and at most `maxEmergencies` records;
+- at most one record for each `podID`, and at most `MaxEmergencies` records;
 - `podID` known in the topology, and `orderID` positive;
 - `phase` from its list;
 - `startTick` not negative and not above the tick of the frame or delta that carries the record;
@@ -1132,12 +1132,12 @@ Prescan limits (`internal/session/format_limits.go:29`, `:60`):
 
 | Path | Limit | Basis |
 | --- | ---: | --- |
-| `/simulation/emergencies/records` | `maxEmergencies` | The cap |
+| `/simulation/emergencies/records` | `MaxEmergencies` | The cap |
 | `/simulation/emergencies/records/*` | 5 | The tuple |
-| `/full/state/simulation/emergencies/active` | `maxEmergencies` | Same |
-| `/frame/state/simulation/emergencies/active` | `maxEmergencies` | HTTP state |
-| `/delta/groups/emergencies/active` | `maxEmergencies` | The delta group, with no `value` wrapper |
-| `/active` | `maxEmergencies` | Only when a scanner reads the replacement group alone |
+| `/full/state/simulation/emergencies/active` | `MaxEmergencies` | Same |
+| `/frame/state/simulation/emergencies/active` | `MaxEmergencies` | HTTP state |
+| `/delta/groups/emergencies/active` | `MaxEmergencies` | The delta group, with no `value` wrapper |
+| `/active` | `MaxEmergencies` | Only when a scanner reads the replacement group alone |
 
 The array audit of stage 1, section 11.6, derives the paths from real envelopes and fails on any array path with no explicit limit.
 Each limit has a test at the limit, at the limit plus one before typed decoding, and with a gzip body that expands past the byte cap.
@@ -1323,7 +1323,7 @@ The digest registry test covers `N = 10` to `N = 12`, with `N = 4` shared with t
 ### 14.4 Composed byte tests
 
 `TestComposedWorstCaseFormats` (`internal/session/composed_bytes_test.go:330`) prescans and decodes each fixture (`:434`, `:492`).
-Its fixtures add the stage 3 members at their widest with `maxEmergencies` records, so every decoder accepts them, and every shape stays under its cap.
+Its fixtures add the stage 3 members at their widest with `MaxEmergencies` records, so every decoder accepts them, and every shape stays under its cap.
 
 A separate encoding-only allocation test encodes 300 widest records and 300 widest stream rows, with no prescan and no decode, and checks the totals of section 11.6 against the allocations.
 This keeps the budget valid for any cap up to the pod limit.
@@ -1399,7 +1399,7 @@ The default rate stays 0 until the maintainer chooses one in stage 7.
 | Choice | The same soak, with the estimate of the chosen station against the actual time to the unload. | Reported, not gated. |
 | Ordinary traffic | Admission wait of ordinary intents against a run without emergencies. | Reported, not gated. |
 | Persistence | Saves at random boundaries of the soak, restored in the physical tier, and rewinds to random checkpoints. | Every save restores and passes `CheckContract`, or fails the physical tier only by the demotion rule. Every rewind replays exactly. |
-| Performance | Step time of the soak against a run without emergencies, with `maxEmergencies` records in the cadence search. | Median step time within 10 percent, and no tick above twice the slowest tick of the run without emergencies. |
+| Performance | Step time of the soak against a run without emergencies, with `MaxEmergencies` records in the cadence search. | Median step time within 10 percent, and no tick above twice the slowest tick of the run without emergencies. |
 | Worst choice tick, presets | LondonCentral and the rail-hub preset with four emergencies that start on one tick, under each routing policy, cold and warm. | The worst choice tick is at most 50 ms on the CI runner class. |
 | Worst choice tick, no candidate | A fixture at the project limits (5,000 nodes, 8,000 lanes, 300 stations) with four deferred, divertible records that started on one tick and find no candidate, under each routing policy, so all four search on one cadence tick. The tree reaches the berths, and the bank rules refuse each route search, so pruning skips nothing. If `Validate` allows no such network, the fixture uses the largest count of such berths that it allows, and reports it. Cold, with no route memo and no routing-policy state, and warm, after 600 ticks of the traffic of the fixture. | Reported against the 50 ms threshold on the CI runner class, cold and warm, and never gated (product choice P23). It is expected to miss, because pruning cannot lower the worst case. The counts of graph searches by kind are reported and within the bound of section 9.1. The counters show failed route searches and a failed same-bank local attempt. |
 | Worst choice tick, delayed routes | The same network size, with four records on one cadence tick, reachable berths, and stopped pods that delay the free-flow routes, under the congestion, queue, and predictive policies. Cold and warm, as above. | The worst tick is at most 50 ms on the CI runner class, cold and warm. The counters show a congestion search with nonzero view costs, a queue search after a delayed free-flow route, and a forecast build and a predictive search after a free-flow cost above its free-flow time. |
@@ -1561,7 +1561,7 @@ No resolution changes a product choice.
 | 7 | Minor | The coupled-arrival rationale and the alighting fixture contradict the source. | Accepted. | Section 5.6 states the retirement-then-arrival sequence, and no rider alights in a train. Q7 rests on recruitment and adoption alone, with direct recruitment tests. The claim that a purpose 3 pod in a train never clears its purpose is false: after the retirement, `arrive` clears it. It is removed. | 5.5, 5.6, 5.8, 14.1 |
 | 8 | Minor | The search bound counts calls, not search work. | Accepted. | Section 9.1 counts graph searches: preferred and fallback, the policy search, bank subsearches, and the search at installation, with four records on one tick. Section 15 adds a fixture at the project limits with a synchronized cadence. | 9.1, 15 |
 | 9 | Minor | The invariant plan is incomplete. | Accepted. | F11 is split into a state predicate for `CheckContract` and a transition requirement for a transition helper and a caller test. An invariant-to-mutation table covers E1 to E7 and F11, with duplicate records, orphan holds, and a wrong purpose owner. E2 and E4 hold with the marker, because the stage 1 test entry can set the hold and purpose 1 without it. | 8, 14.6 |
-| 10 | Minor | The composed-format gate cannot accept 300 records. | Accepted. | The decoder round trips use `maxEmergencies` records. The 300-record totals are an encoding-only allocation test. | 14.4 |
+| 10 | Minor | The composed-format gate cannot accept 300 records. | Accepted. | The decoder round trips use `MaxEmergencies` records. The 300-record totals are an encoding-only allocation test. | 14.4 |
 
 ### 19.2 Round 2
 
