@@ -151,6 +151,7 @@ func checkRouteReleaseBound(t *testing.T, s *Simulation) {
 // apart from the bounds.
 func TestRouteReleaseBoundMatchesFullScan(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	for _, fixture := range cloneFixtures() {
 		t.Run(fixture.name, func(t *testing.T) {
 			t.Parallel()

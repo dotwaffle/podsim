@@ -144,6 +144,7 @@ func TestClaimKind(t *testing.T) {
 // reserved block.
 func TestInFootprintMatchesFootprint(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	s, err := NewFleet(twoBerthMarket(), []Placement{
 		{ID: "01", StationID: "parking", BerthID: "parking-1"},
 		{ID: "02", StationID: "parking", BerthID: "parking-2"},

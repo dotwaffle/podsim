@@ -146,6 +146,7 @@ func TestInterruptRiderRefusals(t *testing.T) {
 // interruption (incident contract, section 8.3).
 func TestInterruptionConservation(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	s := newLegFleet(t, "s0-1", "s1-1")
 	s.incidentContract = IncidentV1Contract
 	if err := s.SetSharedRidePartyLimit(4); err != nil {

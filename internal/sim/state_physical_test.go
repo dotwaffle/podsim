@@ -1255,6 +1255,7 @@ func TestRestoreBudgetHasALimit(t *testing.T) {
 // the room that the demo needs for its remaining orders, and one past it.
 func TestRestoreKeepsRoomForDemoOrders(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	for _, extra := range []int{0, 1} {
 		t.Run(fmt.Sprintf("extra %d", extra), func(t *testing.T) {
 			t.Parallel()

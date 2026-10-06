@@ -232,6 +232,7 @@ func meanHeadway(ticks []int64) float64 {
 // docs/qualification.md.
 func TestMergeCorridorHeadway(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	feedHead := corridorFeedLength - 100
 	cases := []corridorCase{
 		{name: "straight lane", streams: []string{"main"}, queueHead: 1000, onMain: true, want: 6.011},
@@ -261,6 +262,7 @@ func TestMergeCorridorHeadway(t *testing.T) {
 // platoon screening in docs/qualification.md.
 func TestMergeCorridorPlatoonHeadway(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	feedHead := corridorFeedLength - 100
 	// Each case holds the pinned headways for platoons of 2 and of 4.
 	cases := []struct {

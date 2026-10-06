@@ -46,6 +46,7 @@ func checkCandidateRouteOriginal(t *testing.T, s *Simulation, podID, station str
 
 func TestCandidateRoutePartsMatchOriginal(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	for _, congestion := range []bool{false, true} {
 		t.Run(map[bool]string{false: "free-flow", true: "congestion"}[congestion], func(t *testing.T) {
 			t.Parallel()

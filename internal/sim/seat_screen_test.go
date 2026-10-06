@@ -200,6 +200,7 @@ func TestSeatScreenOff(t *testing.T) {
 // records must count refusals and departures.
 func TestSeatScreenChangesNoDecision(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	placements := []Placement{
 		{ID: "01", StationID: "harbor", BerthID: "harbor-1"},
 		{ID: "02", StationID: "garden", BerthID: "garden-1"},

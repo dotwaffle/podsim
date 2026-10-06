@@ -88,6 +88,7 @@ type timedTrip struct {
 
 func TestYieldRelocationClaimsMatchesScanInTraffic(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	busyFleet := []Placement{
 		{ID: "01", StationID: "parking", BerthID: "parking-1"},
 		{ID: "02", StationID: "parking", BerthID: "parking-2"},

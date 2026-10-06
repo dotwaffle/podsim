@@ -82,6 +82,7 @@ func checkCouplingApproachNativeBoundary(t *testing.T, s *Simulation) {
 // All starting poses, links, grants, and movements come from ordinary departures.
 func TestCouplingApproachRuntimeNaturalFormation(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	for _, occupied := range []bool{false, true} {
 		t.Run(map[bool]string{false: "empty", true: "occupied"}[occupied], func(t *testing.T) {
 			t.Parallel()

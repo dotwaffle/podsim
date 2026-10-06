@@ -151,6 +151,7 @@ func expressMotionRequest(t *testing.T, s *Simulation, id, destination string) {
 
 func TestExpressMotionFollowingAndMerge(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	for _, classes := range [][2]VehicleClass{{ExpressClass, LegacyClass}, {LegacyClass, ExpressClass}, {ExpressClass, CompactClass}, {CompactClass, ExpressClass}, {ExpressClass, GroupClass}, {GroupClass, ExpressClass}, {ExpressClass, ExpressClass}} {
 		for _, curved := range []bool{false, true} {
 			for _, buffers := range []bool{false, true} {
@@ -232,6 +233,7 @@ func TestExpressMotionBankAndParking(t *testing.T) {
 
 func TestExpressAdversarialCurvedFollowing(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	for _, classes := range [][2]VehicleClass{{ExpressClass, LegacyClass}, {LegacyClass, ExpressClass}, {ExpressClass, CompactClass}, {CompactClass, ExpressClass}, {ExpressClass, ExpressClass}, {ExpressClass, GroupClass}, {GroupClass, ExpressClass}} {
 		t.Run(string(classes[0])+"-"+string(classes[1]), func(t *testing.T) {
 			t.Parallel()
@@ -524,6 +526,7 @@ func TestExpressAdversarialCompactQueueBesideGroup(t *testing.T) {
 
 func TestExpressAdversarialCurvedStoppedFollowing(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	for _, classes := range [][2]VehicleClass{{ExpressClass, LegacyClass}, {LegacyClass, ExpressClass}, {ExpressClass, CompactClass}, {CompactClass, ExpressClass}, {ExpressClass, ExpressClass}, {ExpressClass, GroupClass}, {GroupClass, ExpressClass}} {
 		t.Run(string(classes[0])+"-"+string(classes[1]), func(t *testing.T) {
 			t.Parallel()

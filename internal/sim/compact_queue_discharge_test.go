@@ -227,6 +227,7 @@ func TestStationCompactDischargeFaultNoMotion(t *testing.T) {
 
 func TestStationCompactDischargeFreshIdleBlocker(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	for _, speed := range []float64{2.5, 14} {
 		t.Run(fmt.Sprint(speed), func(t *testing.T) {
 			t.Parallel()

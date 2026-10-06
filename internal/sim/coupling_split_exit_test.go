@@ -101,6 +101,7 @@ func couplingSplitExitReady(t *testing.T, s *Simulation) (bool, []resource) {
 // hold, and the train forms only after the exit clears, then completes.
 func TestCouplingSplitExitNaturalBlocker(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	for _, occupied := range []bool{false, true} {
 		t.Run(map[bool]string{false: "empty", true: "occupied"}[occupied], func(t *testing.T) {
 			t.Parallel()

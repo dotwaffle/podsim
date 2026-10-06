@@ -355,6 +355,7 @@ func TestSavedStateGolden(t *testing.T) {
 
 func TestSharedRidesAccountForEachOrder(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	s := newTraffic(t)
 	monitorContractEachTick(t, s)
 	if err := s.StartDemo(); err != nil {

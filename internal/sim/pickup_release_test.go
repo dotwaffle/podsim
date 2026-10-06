@@ -961,6 +961,7 @@ func (w *withdrawalInjector) target(s *Simulation) *vehicle {
 // no trip gets the pod that it excludes (incident contract, section 5.5).
 func TestExclusionInvariantsWithWithdrawals(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	tests := []struct {
 		name  string
 		build func(t *testing.T) *Simulation

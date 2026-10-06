@@ -9,6 +9,7 @@ import (
 
 func TestStationCompactActualApproach(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	for _, roadSpeed := range []float64{2.5, 14} {
 		t.Run(fmt.Sprint(roadSpeed), func(t *testing.T) {
 			t.Parallel()

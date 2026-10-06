@@ -881,6 +881,7 @@ func sameState(a, b *Simulation) bool {
 
 func TestCloneIsIndependentAndExact(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	for _, fixture := range cloneFixtures() {
 		t.Run(fixture.name, func(t *testing.T) {
 			t.Parallel()

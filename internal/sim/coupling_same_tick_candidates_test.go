@@ -110,6 +110,7 @@ func couplingSameTickCandidates(s *Simulation) []couplingSameTickCandidate {
 // hold, routes, and owners, and later runs its journeys without coupling.
 func TestCouplingSameTickSharedExitCandidates(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	for _, occupied := range []bool{false, true} {
 		t.Run(map[bool]string{false: "empty", true: "occupied"}[occupied], func(t *testing.T) {
 			t.Parallel()

@@ -11,6 +11,7 @@ import (
 // The starting states come from the private certificate, not live recruitment.
 func TestCouplingNativeStepRestoredPhases(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	for _, occupied := range []bool{false, true} {
 		for _, phase := range []struct {
 			phase couplingReservationPhase

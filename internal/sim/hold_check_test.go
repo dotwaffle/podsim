@@ -140,6 +140,7 @@ func waitingAssignments(s *Simulation) map[string]bool {
 // state apart from the route caches.
 func TestFinishingPodWaitMatchesFullLoop(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	for _, scenario := range []holdScenario{
 		{rule: FinishingPodWaitCurrent}, {rule: FinishingPodWaitStrict},
 		{rule: FinishingPodWaitCurrent, congestion: true}, {rule: FinishingPodWaitStrict, congestion: true},

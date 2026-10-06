@@ -205,6 +205,7 @@ func TestStationBufferPlatoonHeadDischarge(t *testing.T) {
 
 func TestStationBufferPlatoonRestoreTransitions(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	for _, count := range []int{2, 3, 4} {
 		t.Run(string(rune('0'+count)), func(t *testing.T) {
 			t.Parallel()

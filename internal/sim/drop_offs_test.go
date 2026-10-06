@@ -321,6 +321,7 @@ func TestDropOffsBerthRerouteKeepsCap(t *testing.T) {
 // over the cap.
 func TestDropOffsDetourCapWithRoutingPolicies(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	network := loopNetwork(400)
 	for index := range network.Nodes {
 		if network.Nodes[index].ID == "garden-berth" {

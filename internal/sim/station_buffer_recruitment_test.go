@@ -304,6 +304,7 @@ func drainBufferQueue(t *testing.T, s *Simulation) {
 
 func TestStationBufferRecruitmentRealDeparture(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	s := departingBufferQueue(t)
 	// The existing long lookahead exercises suffix commitment with retained cells.
 	if err := s.SetReservationLookahead(maxReservationLookaheadSeconds); err != nil {
@@ -366,5 +367,6 @@ func TestStationBufferRecruitmentRealDeparture(t *testing.T) {
 
 func TestStationBufferRecruitmentDefaultDeparture(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	drainBufferQueue(t, departingBufferQueue(t))
 }

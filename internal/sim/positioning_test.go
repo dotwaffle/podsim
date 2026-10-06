@@ -985,6 +985,7 @@ func checkNewClaimsLeaveABerth(t *testing.T, s *Simulation, before claimState) i
 // berth safety, and the owners.
 func TestGuardedInvariants(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	stations := lineStations(6, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2)
 	fleet := place("p-1", "p-2", "p-3", "p-4", "p-5", "p-6", "s0-1", "s1-1", "s2-1", "s3-1", "s4-1", "s5-1", "s6-1", "s7-1", "s8-1", "s9-1")
 	s := newLineSimulation(t, stations, fleet)
@@ -1041,6 +1042,7 @@ func newGuardedInputs(s *Simulation) guardedInputs {
 // set again. Two restores of the save then run the same.
 func TestGuardedRestoreKeepsDecisions(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	for _, tc := range []struct {
 		name string
 		// parking is the number of parking berths, each with a pod.

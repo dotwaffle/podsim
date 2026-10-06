@@ -12,6 +12,7 @@ import (
 
 func TestAdmissionWorkMatchesOriginalTicks(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	for _, tc := range []struct {
 		name              string
 		buffers, platoons bool
@@ -101,6 +102,7 @@ func TestAdmissionWorkMatchesTerminalAndBufferGrants(t *testing.T) {
 
 func TestAdmissionWorkMatchesCoupledCorridor(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	got := restoreCorridor(t, mergeCorridor(true, 30), corridorQueues(corridorFeedLength-100))
 	if err := got.SetPlatooning(PlatooningVirtual); err != nil {
 		t.Fatal(err)

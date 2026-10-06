@@ -413,6 +413,7 @@ func runCouplingMulti(t *testing.T, sc couplingMultiScenario, occupied, enabled 
 // control with the same placements and trips.
 func TestCouplingMultiPairNaturalFormation(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	for _, tc := range []struct {
 		name  string
 		build func(*testing.T) couplingMultiScenario
@@ -476,6 +477,7 @@ func TestCouplingMultiPairNaturalFormation(t *testing.T) {
 // control with the same shared parties forms no train.
 func TestCouplingSharedConsentNaturalFormation(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	for _, enabled := range []bool{true, false} {
 		t.Run(map[bool]string{false: "disabled", true: "enabled"}[enabled], func(t *testing.T) {
 			t.Parallel()
@@ -508,6 +510,7 @@ func TestCouplingSharedConsentNaturalFormation(t *testing.T) {
 // 59196 to 59495 ticks.
 func TestCouplingApproachInexactStagingOffset(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	network := couplingMultiBase(t)
 	for i := range network.Nodes {
 		if id := network.Nodes[i].ID; strings.HasPrefix(id, "front-origin-") || strings.HasPrefix(id, "rear-origin-") {

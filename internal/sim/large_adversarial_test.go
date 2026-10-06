@@ -58,6 +58,7 @@ func largeAdversarialTick(t *testing.T, s *Simulation) {
 
 func TestLargeAdversarialCurvedFollowing(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	for _, classes := range [][2]VehicleClass{{GroupClass, LegacyClass}, {LegacyClass, GroupClass}, {GroupClass, CompactClass}, {CompactClass, GroupClass}, {GroupClass, GroupClass}} {
 		t.Run(string(classes[0])+"-"+string(classes[1]), func(t *testing.T) {
 			t.Parallel()

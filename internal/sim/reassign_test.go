@@ -363,6 +363,7 @@ func TestReassignChangesNoDecisionWithRecords(t *testing.T) {
 // join policy. The snapshots must be equal at each simulated second.
 func TestReassignWithoutSharing(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	placements := append(slices.Clone(parkedPair), Placement{ID: "03", StationID: "garden", BerthID: "garden-1"})
 	unassigned := newReassignSimulation(t, Example(), placements, 1, SharedRideDropOffs, SharedRideJoinUnassigned)
 	reassign := newReassignSimulation(t, Example(), placements, 1, SharedRideDropOffs, SharedRideJoinReassignExisting)
@@ -561,6 +562,7 @@ func loopCorridor() Network {
 // routes and the platoon stays valid until they stop at dest.
 func TestReassignReleasesPlatoon(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	network := loopCorridor()
 	laneIndex := make(map[string]int, len(network.Lanes))
 	for index, lane := range network.Lanes {

@@ -23,6 +23,7 @@ func legTrip(s *Simulation, from, leg, to string) waitingTrip {
 // origin, and the state contract must hold at each observation.
 func TestLegOriginDispatch(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	tests := []struct {
 		name  string
 		setup func(*Simulation) error

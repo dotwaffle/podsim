@@ -203,6 +203,7 @@ func couplingTwinMoved(a, b couplingTwinView) bool {
 // every tick until both members finish their journeys.
 func TestCouplingNativeDisableDrainsEveryPhase(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	for _, occupied := range []bool{false, true} {
 		for _, phase := range []struct {
 			phase couplingReservationPhase
@@ -269,6 +270,7 @@ func TestCouplingNativeDisableDrainsEveryPhase(t *testing.T) {
 // completions before the horizon.
 func TestCouplingDisabledPolicyTrajectoryParity(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	sc := couplingMultiShared(t, 12000)
 	for _, occupied := range []bool{false, true} {
 		t.Run(map[bool]string{false: "empty", true: "occupied"}[occupied], func(t *testing.T) {

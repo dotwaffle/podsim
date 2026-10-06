@@ -258,6 +258,7 @@ func TestPlatoonSettings(t *testing.T) {
 // tick. Each queue must couple into platoons of the limit.
 func TestPlatoonCorridorLinks(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	feedHead := corridorFeedLength - 100
 	for _, limit := range []int{0, 2, 4} {
 		t.Run(fmt.Sprintf("limit %d", limit), func(t *testing.T) {
@@ -381,6 +382,7 @@ func forkNetwork(branchLimit float64) Network {
 // the routes leave each other.
 func TestPlatoonForkRules(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	head := corridorFeedLength - 100
 	toDest := []string{"main", "exit", "approach"}
 	toFork := []string{"main", "exit", "branch"}
@@ -952,6 +954,7 @@ func TestPlatoonDrainExtends(t *testing.T) {
 // then leaves.
 func TestPlatoonFollowerStaysBehind(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	toFork, toDest := []string{"exit", "branch"}, []string{"exit", "approach"}
 	tests := []struct {
 		name string

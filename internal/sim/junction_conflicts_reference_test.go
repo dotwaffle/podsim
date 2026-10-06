@@ -127,6 +127,7 @@ func checkJunctionConflictsMatchReference(t *testing.T, network Network) {
 
 func TestJunctionConflictsMatchReference(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	for _, tc := range []struct {
 		name    string
 		network Network
@@ -156,6 +157,7 @@ func TestJunctionConflictsMatchReference(t *testing.T) {
 // networks.
 func TestScenarioJunctionConflictsMatchReference(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	networks := scenarioNetworks(t)
 	networks["far London"] = translateNetwork(networks["London"], Point{X: 3e7, Y: -2e7})
 	for _, name := range slices.Sorted(maps.Keys(networks)) {

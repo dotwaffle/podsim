@@ -53,6 +53,7 @@ func checkExpressJourneyColdRestore(t *testing.T, live *Simulation, network Netw
 
 func TestExpressRestoreProductionPhases(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	network := largeRestoreNetwork()
 	fleet := []Placement{{ID: "01", Class: ExpressClass, StationID: "harbor", BerthID: "harbor-1"}}
 	live, err := expressPhysicalFleet(network, fleet)

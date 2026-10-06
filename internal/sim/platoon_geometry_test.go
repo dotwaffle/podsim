@@ -166,6 +166,7 @@ func TestPlatoonLaneShape(t *testing.T) {
 // and the run of each link at each tick.
 func TestPlatoonGeometry(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	corner := Point{X: 30}
 	tests := []struct {
 		name  string

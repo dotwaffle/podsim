@@ -173,6 +173,7 @@ func circleRing(stations, berths int) Network {
 
 func TestRouteBlocksMatchReference(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	networks := map[string]Network{
 		"example":       Example(),
 		"curved":        curvedExample(),

@@ -102,6 +102,7 @@ func TestStationCompactOccupiedQueue(t *testing.T) {
 
 func TestStationCompactDeparture(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	s := departingBufferQueue(t)
 	if err := s.SetStationQueueSpacing(StationQueueCompactV1); err != nil {
 		t.Fatal(err)

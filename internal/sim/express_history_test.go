@@ -37,6 +37,7 @@ func newExpressOccupiedPickupRide(t *testing.T, network Network) *Simulation {
 }
 func TestExpressRepeatedHistoryRetirement(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	s := newExpressOccupiedPickupRide(t, expressNetwork(largeRestoreNetwork()))
 	monitorContract(t, s)
 	if err := submitSharedTrip(s, "garden", "harbor"); err != nil {

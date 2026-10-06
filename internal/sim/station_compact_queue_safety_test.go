@@ -85,6 +85,7 @@ func TestStationCompactLostResourceRejectsUnchanged(t *testing.T) {
 
 func TestStationCompactDisableRetainsRecovery(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	for _, mode := range []string{"spacing", "buffers", "platooning", "limit"} {
 		t.Run(mode, func(t *testing.T) {
 			t.Parallel()

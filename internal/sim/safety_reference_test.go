@@ -88,6 +88,7 @@ func (o SafetyObservation) largePairSeparated(first, second Pod) bool {
 // the bit.
 func TestCheckSeparationMatchesReference(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	r := rand.New(rand.NewPCG(19, 1041))
 	var violations, gaps, infinite, coupled, compact int
 	for iteration := range 20000 {

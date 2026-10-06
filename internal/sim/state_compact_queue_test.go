@@ -215,6 +215,7 @@ func compactReleaseDepartureQueue(t *testing.T, s *Simulation, mode StationQueue
 // Every checkpoint comes from the same real boarding and departure run.
 func TestStationCompactColdDeparturePhases(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	s := compactHeldDepartureQueue(t)
 	if err := s.SetStationQueueSpacing(StationQueueCompactV1); err != nil {
 		t.Fatal(err)
@@ -307,6 +308,7 @@ func TestStationCompactColdDeparturePhases(t *testing.T) {
 
 func TestStationCompactClassDeparture(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	fixture := departingBufferQueue(t)
 	state := fixture.ExportState()
 	fleet := slices.Clone(fixture.initial)
