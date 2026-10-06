@@ -8,38 +8,44 @@ import (
 )
 
 // q7Cause makes one pod out of service for the Q7 tests (section 5.8 of
-// the incident emergency contract). The recovery and hold causes are
-// states that the fault operations make. The purpose and record causes
-// set one field alone, so that each condition of changed has its own
-// test; they break W5 and F1, and the tests that use them do not check
-// the contract.
+// the incident emergency contract). The recovery and fault hold causes are
+// states that the fault operations make, and the emergency hold cause is a
+// state of the stage 1 operations without the emergency switch. The
+// purpose, fault record, and emergency record causes set one field alone,
+// so that each condition of changed has its own test; they break W5, F1,
+// and E7, and the tests that use them do not check the contract.
 type q7Cause struct {
 	name  string
-	apply func(v *vehicle)
+	apply func(s *Simulation, v *vehicle)
 }
 
 var (
-	q7Recovery = q7Cause{"fault recovery", func(v *vehicle) {
+	q7Control  = q7Cause{"control", func(*Simulation, *vehicle) {}}
+	q7Recovery = q7Cause{"fault recovery", func(_ *Simulation, v *vehicle) {
 		v.withdrawn, v.op = faultHold, operationalDestination{purpose: opEmptyRecovery, owner: faultHold}
 	}}
-	q7Hold    = q7Cause{"fault hold", func(v *vehicle) { v.withdrawn = faultHold }}
-	q7Purpose = q7Cause{"purpose", func(v *vehicle) {
+	q7Hold          = q7Cause{"fault hold", func(_ *Simulation, v *vehicle) { v.withdrawn = faultHold }}
+	q7EmergencyHold = q7Cause{"emergency hold", func(_ *Simulation, v *vehicle) { v.withdrawn = emergencyHold }}
+	q7Purpose       = q7Cause{"purpose", func(_ *Simulation, v *vehicle) {
 		v.op = operationalDestination{purpose: opEmptyRecovery, owner: faultHold}
 	}}
-	q7Record = q7Cause{"fault record", func(v *vehicle) { v.faulted = true }}
+	q7Record          = q7Cause{"fault record", func(_ *Simulation, v *vehicle) { v.faulted = true }}
+	q7EmergencyRecord = q7Cause{"emergency record", func(s *Simulation, v *vehicle) {
+		s.emergencies = append(s.emergencies, emergencyRecord{serial: 1, pod: s.vehicleIndex(v), order: 1})
+	}}
 )
 
-// A pod in its fault recovery and a pod with the fault hold are not
-// discovered for coupling, as the front or as the rear of a platoon pair
-// on a coupling corridor.
+// A pod in its fault recovery, a pod with the fault hold, and a pod with
+// the emergency hold are not discovered for coupling, as the front or as
+// the rear of a platoon pair on a coupling corridor.
 func TestCouplingQ7Recruitment(t *testing.T) {
 	t.Parallel()
-	for _, cause := range []q7Cause{{"control", func(*vehicle) {}}, q7Recovery, q7Hold} {
+	for _, cause := range []q7Cause{q7Control, q7Recovery, q7Hold, q7EmergencyHold} {
 		for _, id := range []string{"front", "rear"} {
 			input := couplingApproachFixture(t, false)
 			s := input.Simulation
 			s.couplingNetwork, s.couplingEnabled = input.Network, true
-			cause.apply(s.findVehicle(id))
+			cause.apply(s, s.findVehicle(id))
 			s.discoverCouplingApproaches()
 			if err := s.CheckContract(); err != nil {
 				t.Fatalf("%s %s: %v", cause.name, id, err)
@@ -55,11 +61,13 @@ func TestCouplingQ7Recruitment(t *testing.T) {
 	}
 }
 
-// An approach member that gains a hold, a purpose, or a fault record
-// aborts the approach through changed.
+// An approach member that gains a hold, a purpose, a fault record, or an
+// emergency record aborts the approach through changed. A deferred member
+// with an emergency record has no hold and no purpose, so its record has
+// its own reason (section 5.6 of the incident emergency contract).
 func TestCouplingQ7ApproachChanged(t *testing.T) {
 	t.Parallel()
-	for _, cause := range []q7Cause{q7Hold, q7Purpose, q7Record} {
+	for _, cause := range []q7Cause{q7Hold, q7Purpose, q7Record, q7EmergencyRecord} {
 		for _, id := range []string{"front", "rear"} {
 			input := couplingApproachFixture(t, false)
 			s := input.Simulation
@@ -77,12 +85,16 @@ func TestCouplingQ7ApproachChanged(t *testing.T) {
 				applyCouplingApproachTestStep(t, s, step)
 				state = step.State
 			}
-			cause.apply(s.findVehicle(id))
+			cause.apply(s, s.findVehicle(id))
 			step, err := planCouplingApproachTest(couplingApproachInput{Context: c, Previous: state, Simulation: s, Enabled: true})
 			if err != nil {
 				t.Fatal(err)
 			}
-			if step.Reason != "approach member is out of service" || step.State.Phase != couplingApproachAborting {
+			want := "approach member is out of service"
+			if cause.name == q7EmergencyRecord.name {
+				want = "approach member has an emergency"
+			}
+			if step.Reason != want || step.State.Phase != couplingApproachAborting {
 				t.Fatalf("%s %s: reason %q, phase %v", cause.name, id, step.Reason, step.State.Phase)
 			}
 		}
@@ -93,11 +105,11 @@ func TestCouplingQ7ApproachChanged(t *testing.T) {
 // pair never forms a group. Without the hold, the pair forms one.
 func TestCouplingQ7ApproachAbortsInStep(t *testing.T) {
 	t.Parallel()
-	for _, cause := range []q7Cause{{"control", func(*vehicle) {}}, q7Recovery, q7Hold} {
+	for _, cause := range []q7Cause{q7Control, q7Recovery, q7Hold} {
 		for _, id := range []string{"front", "rear"} {
 			s := controlledCouplingApproachRuntime(t)
 			s.grant(intent{index: 0, block: 2, through: 2})
-			cause.apply(s.findVehicle(id))
+			cause.apply(s, s.findVehicle(id))
 			s.Step()
 			if err := s.CouplingError(); err != nil {
 				t.Fatal(err)
@@ -125,13 +137,13 @@ func TestCouplingQ7ApproachAbortsInStep(t *testing.T) {
 // member before the reservation, and it changes no owner.
 func TestCouplingQ7AdoptionDenied(t *testing.T) {
 	t.Parallel()
-	for _, cause := range []q7Cause{{"control", func(*vehicle) {}}, q7Hold, q7Purpose} {
+	for _, cause := range []q7Cause{q7Control, q7Hold, q7Purpose} {
 		for _, id := range []string{"front", "rear"} {
 			input := couplingApproachFixture(t, false)
 			c, state := runCouplingApproachTest(t, input)
 			s := input.Simulation
 			s.couplingNetwork = input.Network
-			cause.apply(s.findVehicle(id))
+			cause.apply(s, s.findVehicle(id))
 			before := maps.Clone(s.owners)
 			group, _, err := s.prepareCouplingAdoption(couplingApproachTransition{context: c, step: couplingApproachStep{State: state, Ready: true}}, 0)
 			if cause.name == "control" {
@@ -181,7 +193,7 @@ func TestCouplingQ7E6(t *testing.T) {
 				if err := s.CheckContract(); err != nil {
 					t.Fatalf("%s control: %v", kind.name, err)
 				}
-				cause.apply(s.findVehicle(id))
+				cause.apply(s, s.findVehicle(id))
 				if err := s.CheckContract(); err == nil || !strings.HasPrefix(err.Error(), "E6: coupling member "+id+" ") {
 					t.Fatalf("%s %s %s: %v", kind.name, cause.name, id, err)
 				}

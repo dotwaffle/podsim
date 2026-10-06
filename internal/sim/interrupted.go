@@ -49,8 +49,9 @@ func (s *Simulation) DrainInterruptions() []int {
 // so InterruptRider accepts only a rider whose destination another active
 // rider of the pod shares. The stops and the phase of the pod then stay
 // valid. It also refuses a simulation without the incident marker, a
-// coupling, platoon, or Compact queue member, and a call during a dispatch
-// pass, as the operations of the contract do. A refusal returns an error
+// coupling, platoon, or Compact queue member, a pod with an operational
+// destination, and a call during a dispatch pass, as the operations of the
+// contract do. A refusal returns an error
 // and changes nothing.
 func (s *Simulation) InterruptRider(podID string, orderID int) error {
 	if s.incidentContract != IncidentV1Contract {
@@ -65,6 +66,12 @@ func (s *Simulation) InterruptRider(podID string, orderID int) error {
 	}
 	if s.pass != nil && s.pass.active {
 		return fmt.Errorf("pod %s: interruption during a dispatch pass", podID)
+	}
+	// The interrupt set of an operational destination names riders by
+	// index, so a removed rider would move the set onto another rider
+	// (invariant E3 of the incident emergency contract).
+	if v.op.purpose != opService {
+		return fmt.Errorf("pod %s: interruption of a pod with an operational destination", podID)
 	}
 	if len(v.Boardings) > 0 && len(v.Boardings) != len(v.Riders) {
 		return fmt.Errorf("pod %s: the boarding records do not align with the riders", podID)

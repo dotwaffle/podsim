@@ -37,7 +37,7 @@ var cloneRules = map[reflect.Type]map[string]cloneRule{
 		"vehicleIndexes":   cloneShare,
 		"approachStations": cloneShare, "routeStations": cloneDrop,
 		"blocked": cloneShare, "staticConnected": cloneDrop, "staticRoutes": cloneDrop,
-		"faults": cloneCopy, "faultReleased": cloneCopy,
+		"faults": cloneCopy, "faultReleased": cloneCopy, "emergencies": cloneCopy,
 		"requestBoardings": cloneCopy, "requestCompletions": cloneCopy, "stepCompletions": cloneCopy, "nodePasses": cloneCopy, "monitor": cloneShare,
 		"pass": cloneDrop, "platoonData": cloneShare, "platoonOrder": cloneDrop, "platoonAhead": cloneDrop,
 		"platoonLanes": cloneDrop, "pickupSwaps": cloneCopy,
@@ -68,6 +68,7 @@ var clonePlainTypes = []reflect.Type{
 	reflect.TypeFor[Request](), reflect.TypeFor[Pod](), reflect.TypeFor[Berth](),
 	reflect.TypeFor[resource](), reflect.TypeFor[demoRun](), reflect.TypeFor[routeKey](),
 	reflect.TypeFor[PickupReassignment](), reflect.TypeFor[faultRecord](),
+	reflect.TypeFor[emergencyRecord](),
 }
 
 // holdsReferences reports whether a value copy of t shares storage with the
@@ -240,7 +241,11 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		// gives the fault marker and the settings again.
 		"faultsOn": persistSession, "faultSettings": persistSession, "faults": persistSave, "faultCounters": persistSave,
 		// The release boundary of each tick empties faultReleased.
-		"faultReleased":    persistReset,
+		"faultReleased": persistReset,
+		// The saved state has no emergency member until the formats of
+		// the incident emergency contract (section 11) add the records and
+		// the counters, and the session sets the switch again.
+		"emergenciesOn": persistSession, "emergencies": persistReset, "emergencyCounters": persistReset,
 		"predictiveQueues": persistUnsupported, "predictivePodQueues": persistUnsupported, "predictiveQueueTick": persistUnsupported,
 		"routingPolicy": persistUnsupported, "congestionRouteCosts": persistUnsupported,
 		"congestionRoutes": persistUnsupported, "nextCongestionRouteRefresh": persistUnsupported,
@@ -524,9 +529,10 @@ func TestCloneFollowsRules(t *testing.T) {
 				"Simulation.couplingApproaches", "Simulation.couplingAttempts",
 				"couplingNativeApproach.context", "couplingNativeApproach.state", "couplingApproachAttempt.context",
 				// The blocked routing case covers the blocked set and the
-				// static caches, and the fault case covers the records.
+				// static caches, and the fault and emergency cases cover the
+				// records.
 				"Simulation.blocked", "Simulation.staticConnected", "Simulation.staticRoutes",
-				"Simulation.faults",
+				"Simulation.faults", "Simulation.emergencies",
 				// The release boundary of each tick empties it.
 				"Simulation.faultReleased"},
 		},
@@ -556,6 +562,16 @@ func TestCloneFollowsRules(t *testing.T) {
 				return s
 			},
 			required: []string{"Simulation.faults"},
+		},
+		{
+			name: "emergency records",
+			build: func(t *testing.T) *Simulation {
+				t.Helper()
+				s, v := emergencyFleet(t)
+				startEmergency(t, s, v, 0)
+				return s
+			},
+			required: []string{"Simulation.emergencies"},
 		},
 		{
 			name: "controlled approach storage",

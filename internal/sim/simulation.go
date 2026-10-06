@@ -361,7 +361,14 @@ type Simulation struct {
 	// faultReleased holds the debris resources that a clear in the fault
 	// stage releases. Step releases them at each exit of the tick, so it
 	// is empty at each boundary.
-	faultReleased          []resource
+	faultReleased []resource
+	// emergenciesOn enables the emergency start and the emergency stage.
+	// Reset keeps it. emergencies holds the active emergency records in
+	// serial order, and emergencyCounters counts the emergency events.
+	// Reset clears both. See emergencies.go.
+	emergenciesOn          bool
+	emergencies            []emergencyRecord
+	emergencyCounters      emergencyCounters
 	motion                 *motionRecorder
 	expressServices        map[string]ExpressService
 	lengths                map[string]float64
@@ -547,12 +554,14 @@ func prepareFleet(network Network, placements []Placement) (Network, routeGraph,
 }
 
 // Reset restores the initial fleet, clock, and resources. It clears supplied
-// demo requests and the fault records, counters and blocked set. It keeps
-// the incident serial and the fault settings.
+// demo requests, the fault records, counters and blocked set, and the
+// emergency records and counters. The new fleet has no hold. It keeps the
+// incident serial, the fault settings, and the emergency switch.
 func (s *Simulation) Reset() {
 	defer s.observe()
 	s.admissionWork = nil
 	s.faults, s.faultCounters, s.faultReleased = nil, faultCounters{}, nil
+	s.emergencies, s.emergencyCounters = nil, emergencyCounters{}
 	if s.blockedActive() {
 		s.setBlocked(nil)
 	}
@@ -826,6 +835,9 @@ func (s *Simulation) Step() {
 		// resources to the end of the tick. Each exit of the tick, also an
 		// exit on a planning error, finishes the release before observe.
 		defer s.releaseFaultResources()
+	}
+	if s.emergenciesOn {
+		s.emergencyStage()
 	}
 	s.dispatch()
 	s.swapPickups()

@@ -185,6 +185,12 @@ func (c *couplingApproachContext) changed(s *Simulation, front, rear *vehicle, e
 	}
 	for i, v := range []*vehicle{front, rear} {
 		m := c.members[i]
+		// A deferred member with an emergency record has no hold and no
+		// purpose until it leaves the approach (section 5.6 of the
+		// incident emergency contract).
+		if s.emergencyOf(v) >= 0 {
+			return "approach member has an emergency"
+		}
 		// A member with a hold, a purpose, or a fault record is out of
 		// service, and the pair does not couple (Q7).
 		if v.withdrawn != 0 || v.op.purpose != opService || v.faulted {

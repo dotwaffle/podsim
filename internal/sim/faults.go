@@ -545,9 +545,10 @@ func (s *Simulation) releaseFaultHolds() {
 // each on a segment that a debris start accepts.
 //
 // With faults on, it also checks F10 and F11: the blocked set is the set
-// of the record footprints, and the fault hold is the only hold. With
-// faults off, the stage 1 operations can use each hold, and no record
-// exists.
+// of the record footprints, and the fault hold is the only hold, or with
+// emergencies on, the fault hold and the emergency hold are the only
+// holds. With faults off, the stage 1 operations can use each hold, and no
+// record exists.
 func (s *Simulation) checkFaults() error {
 	if len(s.faultReleased) > 0 {
 		return fmt.Errorf("%d released debris resources stay after the release boundary", len(s.faultReleased))
@@ -609,9 +610,15 @@ func (s *Simulation) checkFaults() error {
 	if err := s.checkDebrisOwners(); err != nil || !s.faultsOn {
 		return err
 	}
+	// With emergencies on, the emergency hold is the second hold (F11 of
+	// the incident emergency contract).
+	allowed, holds := faultHold, "the fault hold"
+	if s.emergenciesOn {
+		allowed, holds = faultHold|emergencyHold, "the fault hold and the emergency hold"
+	}
 	for index := range s.vehicles {
-		if v := &s.vehicles[index]; v.withdrawn&^faultHold != 0 {
-			return fmt.Errorf("pod %s has the service holds %#x, not only the fault hold", v.Pod.ID, v.withdrawn)
+		if v := &s.vehicles[index]; v.withdrawn&^allowed != 0 {
+			return fmt.Errorf("pod %s has the service holds %#x, not only %s", v.Pod.ID, v.withdrawn, holds)
 		}
 	}
 	return s.checkBlocked()
