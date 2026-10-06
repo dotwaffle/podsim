@@ -83,7 +83,7 @@ Its first number is an integer from zero through the referenced station's berth 
 Its second number is finite, nonnegative, and no greater than the restored chain's cumulative distance.
 Validate station membership, berth compatibility, consent, and the selected physical placement.
 Reject unknown members, mismatched lengths, dangling references, and contradictory origin representations.
-Old save versions reject `boardings` presence, including null.
+A null `boardings` member is refused.
 
 Reuse the existing `riddenMeters` field with explicit phase rules.
 For occupied traveling pods, restore cumulative distance as `riddenMeters + distance`.
@@ -133,7 +133,7 @@ A policy-off restore preserves an accepted boarding interval and its records whi
 
 ## Byte and stream checks
 
-A Go JSON-v2 overlay measured the widest eight-tuple representation against the existing save-6 fixture.
+A Go JSON-v2 overlay measured the widest eight-tuple representation against the save-6 fixture of that time.
 It removes `journeyOrigin` and the mutually exclusive closed-cohort marker of that fixture.
 Saved state no longer has that marker.
 The hypothetical pod is 169 bytes smaller than the historical maximum pod.
@@ -183,13 +183,11 @@ Validate the reconstructed complete vehicle before publishing either replacement
 A full frame supplies both arrays in the same vehicle.
 A reconnect or topology revision invalidates prior berth bindings.
 Record the effective occupied-pickup policy in comparison provenance.
-Older stream versions reject new field presence before topology fetch or state publication.
-These guards must check the proper vehicle, delta, and boarding-record paths.
-Do not classify `berthID` globally as a new field because older pod fields already use that name.
+A client refuses a hello of any other stream version before topology fetch or state publication.
 The saved `riddenMeters` field also predates boarding records.
 Replace riders and their boarding metadata together in a delta.
 Resolve berth references against the topology for that frame before publication.
-Measure both full and delta frames against the existing 64 MiB cap.
+Measure both full and delta frames against the stream cap.
 
 ## Required tests
 

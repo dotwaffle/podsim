@@ -8,7 +8,7 @@ This screen finds no pickup or journey benefit.
 ## Sources and workload
 
 The baseline is `f351a38` and the candidate is `7c8cc73`.
-The only production changes are the fixed entry implementation and its version 4 persistence support.
+The only production changes were the fixed entry implementation and its version 4 persistence support.
 Frozen source overlays, binary hashes, and mirrored project hashes identify both candidates independently.
 All primary cells enable station buffers and four-pod virtual platoons.
 Sharing, redistribution, and pickup reassignment remain off, with free-flow routing.

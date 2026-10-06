@@ -38,7 +38,7 @@ A saved platoon link has two optional fields:
 
 | Field | Meaning |
 | --- | --- |
-| `kind` | Empty or omitted for an existing complete-lane certificate. `buffer` selects a fixed entry certificate. |
+| `kind` | Empty or omitted for an existing complete-lane certificate. `buffer` selects a fixed entry certificate. `compact-buffer-v1` selects a compact queue certificate from the [compact recovery contract](compact-recovery-state-contract-proposal.md). |
 | `terminalCell` | Integer cell index on the certified entry lane. Its downstream end is the fixed stopping frontier. |
 
 A buffer certificate requires `lanes:1` and a present, nonnegative `terminalCell`.

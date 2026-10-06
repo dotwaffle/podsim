@@ -144,15 +144,15 @@ Restored velocity resets, so restored futures need not match uninterrupted futur
 
 ## Independent access design
 
-Both current banks still share the same entry, exit, and external access lanes.
-Approach routing targets `Station.Entry`, and terminal berth assignment starts its suffix there.
-Independent physical gates therefore need a station contract change.
+Both banks of this candidate share the same entry, exit, and external access lanes.
+At the time of this diagnosis, approach routing targeted `Station.Entry`, and terminal berth assignment started its suffix there.
+Independent physical gates therefore needed a station contract change.
 
 The proposed bounded design adds explicit bank gates and flat-berth membership while retaining one passenger station ID.
 Each bank uses ordinary approach, departure, track, junction, and berth resources.
 Long approaches use existing optional buffer cells.
 Separate parking stations provide storage through explicit links.
 No shared gate or external merge gains a safety exemption.
-The project/save/editor proposal requires a concrete user decision before implementation.
+The [independent station banks](station-banks.md) guide describes the later implementation.
 
 The repository measurement is a summary, not a standalone study runner.

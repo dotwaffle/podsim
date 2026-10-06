@@ -84,7 +84,7 @@ It does not isolate a geometric parameter or establish a persistent reservation 
 A longer observation would need complete resource-identity histories through release, ownership transfer, and the next admission.
 It must separate route and certificate changes from continued waiting and retain censored observations.
 That extension remains separate work.
-Station-entry platoons still require their [design contract](station-entry-platoons-proposal.md).
+Fixed station-entry platoons have a separate [contract](station-entry-platoons.md).
 The buffer and reassignment defaults remain off.
 
 [Arm totals](measurements/paddington-clearance-arms.csv), [resource bins](measurements/paddington-clearance-rows.csv), and [metadata](measurements/paddington-clearance.json) retain the measurements.

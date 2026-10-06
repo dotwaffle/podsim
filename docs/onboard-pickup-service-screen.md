@@ -53,7 +53,7 @@ The fixture and run logs are retained with the local implementation evidence.
 
 The full typed save maxima include current compact certificates and eight retained riders.
 Historical, modern recorded, and mixed saves remain below the unchanged 80 MiB cap.
-The corresponding full and replacement-delta frames remain below the unchanged 64 MiB cap.
+The corresponding full and replacement-delta frames remain below 64 MiB.
 These independent encoding maxima do not describe reachable physical placements.
 
 | Representation | Maximum saved JSON | Maximum full frame | Maximum replacement delta |

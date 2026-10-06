@@ -2,7 +2,7 @@
 
 Status: original design, superseded by the approved [version 3 contract](station-buffer-state-proposal.md).
 The experimental controller keeps new admissions off by default.
-The [version 4 implementation](station-entry-platoons.md) now adds fixed local entry links.
+The [station-entry platoon implementation](station-entry-platoons.md) adds fixed local entry links.
 The discussion below records the original design and does not establish a service benefit.
 
 ## Problem and first case

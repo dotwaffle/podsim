@@ -145,7 +145,6 @@ Native clients may omit Origin, but their Host must still match when configured.
 The setting does not provide TLS, authenticate clients, or authorize other public names.
 Use the deployment's canonical HTTPS origin for a TLS-terminating proxy such as Fly Proxy.
 The setting removes the backend-scheme mismatch identified in the local proxy audit.
-It does not establish deployment readiness or grant deployment approval.
 
 ## Session state
 
@@ -630,9 +629,8 @@ The default service name is `podsim`.
 `OTEL_SERVICE_NAME` replaces it.
 `OTEL_RESOURCE_ATTRIBUTES` can add deployment identity.
 
-HTTP telemetry excludes the diagnostic `/api/state` endpoint.
+HTTP telemetry excludes the diagnostic `/api/state` endpoint and `/healthz`.
 The simulation view receives shared WebSocket publications from `/api/state/stream`.
-It also excludes `/healthz`.
 Other HTTP requests include route-based server traces and metrics.
 
 Runtime metrics report memory, allocations, goroutines, processor limits, and the Go memory limit.
@@ -647,6 +645,10 @@ The `podsim.stream.*` gauges expose connections, full and delta publication coun
 These metrics have no client labels.
 A stream admission failure returns HTTP 503 with `Retry-After`.
 Clients reconnect with backoff and do not switch to polling.
+
+Stream pressure recovery reports aggregate `podsim.stream.pressure_sheds` and `podsim.stream.encoding_bytes` metrics.
+The first counts canceled writer leases.
+The second reports the single compressed encoding waiting for admission.
 
 `podsim.checkpoint.retained` is the number of save points in memory.
 Compare it with the runtime memory metrics to see the memory that save points use.
@@ -805,7 +807,3 @@ This is 5 seconds for the requests, 5 for the clock, 1 for the saver, 6 for the 
 `docker stop` waits only 10 seconds by default, then it kills the process.
 Use `docker stop -t 30`, or `--stop-timeout 30` with `docker run`.
 On Kubernetes, keep `terminationGracePeriodSeconds` at 30 or more.
-
-Stream pressure recovery reports aggregate `podsim.stream.pressure_sheds` and `podsim.stream.encoding_bytes` metrics.
-The first counts canceled writer leases.
-The second reports the single compressed encoding waiting for admission.

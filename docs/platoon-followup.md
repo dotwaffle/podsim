@@ -11,7 +11,6 @@ The study does not change presets or operating defaults.
 One pair fails the one-hour recovery comparison.
 Three of eleven designated control pairs fail at least one no-harm threshold.
 The expanded study therefore fails the recovery and no-harm adoption rules.
-These failures do not change operating defaults.
 
 ## London198 results
 

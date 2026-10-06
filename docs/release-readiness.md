@@ -13,6 +13,11 @@ It still pins the earlier `8181495` source, its source-specific evidence, and it
 This update read the pinned source in a detached worktree.
 It did not build the source or run tests.
 
+Later sources change several statements of this report.
+They add the incident, fault, and emergency markers, and the incident redesign stops at stage 3.
+The `64b4f3f` source raises the stream and HTTP state cap to 65 MiB and the compressed message cap to 66 MiB.
+The [qualification](qualification.md#coupling-format-qualification) records the later coupling format and incident checks of item 6.
+
 ## Hosted checks and published image
 
 [Check](https://github.com/dotwaffle/podsim/actions/runs/37318001608) passed in 14m00s, from 13:35:33 to 13:49:33 UTC.
@@ -61,7 +66,7 @@ This was an assertion failure, not a timeout or reported data race.
 The old elapsed sample included client reading and result-observation delay after server write completion.
 
 The test repair captures completion time with the writer result.
-An actual compiled caller control passed with a 919.839-millisecond write and result observation after 5.314 seconds.
+A compiled caller control passed with a 919.839-millisecond write and result observation after 5.314 seconds.
 A mutant that restored the old sample compiled and failed after 5.308 seconds.
 The source overlays and original worktree hashes were verified afterward.
 The legal 65 MiB payload, production 30-second deadline, stalled-reader error, and cancellation controls remain.
@@ -122,8 +127,8 @@ In each format, the `express-v1` marker selects bounds of 8,600 waiting or pendi
 Without the marker, the bounds are 2,600 orders and 8 riders per pod.
 Current defaults and physical constants remain unchanged.
 The saved-state limit remains 80 MiB.
-The stream and HTTP state limit remains 64 MiB for every project kind.
-The stream binary limit remains 65 MiB.
+At the pinned source, the stream and HTTP state limit is 64 MiB for every project kind.
+The stream binary limit is 65 MiB at that source.
 Manual admission retains its 200-request queue limit.
 
 Physical session restore resets ordinary speed and reconstructs future grants.
@@ -242,7 +247,7 @@ Patch 1, the claim classification and its baseline fix, landed in `6b8eb62` and 
 Part of patch 4 landed.
 The `2e307ed` source gates the supply paths of section 4.3 and the passenger claim yields on a service hold.
 The `2ff0912` source adds the departure backlog path, which the maintainer approved as a new row.
-No production path sets a hold yet, so every pod stays in service.
+At the pinned source, no production path sets a hold, so every pod stays in service.
 The withdrawal operations of section 4.2, the contract checks, and patches 2, 3, and 5 through 9 are pending.
 
 The contract byte budget uses the composed worst-case record.

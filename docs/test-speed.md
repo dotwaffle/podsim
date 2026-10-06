@@ -103,7 +103,8 @@ The load average is given with each wall time, because the load changed the wall
 ### Quick loop
 
 `mise run test:quick` runs `go test -short ./...`.
-Under `-short`, 53 sim tests skip through `skipLong`.
+Under `-short`, each sim test that calls `skipLong` skips.
+At the time of these runs, 53 sim tests called it.
 Each of them took one second or more in a serial run without the race detector, and together they took 235.5 of 294.0 seconds.
 They are the long scenarios, the parity tests that compare with a full scan or a reference, and the soak tests.
 In the session package, the eight session tests of `test:embedded`, `TestStreamLondonWire`, and `TestMaximalRequeueRoundTrip` skip under `-short`.

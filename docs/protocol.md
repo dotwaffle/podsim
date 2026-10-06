@@ -225,10 +225,11 @@ After two, the next start does not use the saved state.
 
 Each item of `simulation.vehicles` can contain a `riders` array and a `stops` array.
 `riders` has one order for each party that boarded the pod or joined it.
-It has at most 8 orders.
+It has at most 8 orders, or 20 for an `express` class pod with the `express-v1` marker.
 The first order is the party that boarded the pod.
 The orders after it are the parties that joined the pod.
-Each order has the members `id`, `from`, `to`, `partySize`, `podID`, `completed`, `requestedTick`, `boardedTick`, and `dispatchReason`.
+Each order has the members `sharingConsent`, `service`, `id`, `from`, `to`, `partySize`, `podID`, `completed`, `requestedTick`, and `dispatchReason`.
+An order can also have `serviceID` and `boardedTick`.
 `boardedTick` is the simulation tick when the party boarded the pod or joined it.
 An order stays in `riders` with `completed` set to `true` after the party leaves the pod, until the pod gets a new order.
 `stops` has the IDs of the stations where the pod must stop and that it did not reach, in the sequence of the stops.
@@ -282,7 +283,7 @@ The other members depend on the action:
 
 | Action | Members | Effect |
 | --- | --- | --- |
-| `trip` | `origin`, `destination`: station IDs | Adds an order. The stations must be different, connected passenger stations. The server rejects the order during the demo or when the queue holds 200 orders. |
+| `trip` | `origin`, `destination`: station IDs. Optional `partySize`: 1 to 8, or 1 to 20 with Express. Optional `sharingConsent`: `private` or `shared`. Optional `service`: `on-demand`, or `express` with shared consent and a `serviceID`. `orderContract`: must equal the order marker of the project, so it is required with Express, absent otherwise, and refused on other actions | Adds an order. The stations must be different, connected passenger stations. The server rejects the order during the demo or when the queue holds 200 orders. |
 | `pause` | `paused`: boolean | `true` pauses the session. `false` or an absent member resumes it. |
 | `speed` | `speed`: 1, 2, 5, 15, or 60. Other values, including 4 and 8, get an error. | Sets the playback speed and starts a new overload measurement window. |
 | `reset` | None | Restores the project fleet and demand settings, and clears the orders. It sets the speed to 1 and keeps the pause state. |

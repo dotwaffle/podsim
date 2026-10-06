@@ -522,11 +522,11 @@ A branch with one more journey must differ from the reference.
 
 The London restore test runs AM peak demand at 20 requests per minute with guarded positioning.
 At this rate, the gate is not active, so the test makes no guarded move.
-A simulation test restores a guarded run while a guarded move is under way.
 From 70 simulated seconds, it saves and restores the simulation state five times at 5-second intervals.
 Each `physical` restore must keep each pod in place and keep the order queue.
 A `logical` restore of the last state must put each pod at its initial berth, with the expected queue and completion counts.
 The last `physical` copy then runs for 30 simulated seconds, and it must pass the separation oracle each second and complete an order.
+A simulation test restores a guarded run while a guarded move is under way.
 A session test also saves a London session and restores it with the `physical` tier.
 A London test with `drop-offs` sharing and a limit of 4 parties requests 120 AM peak journeys, four each second.
 It checks the restore contract after each request and each tick, and it runs until pods unload at intermediate stops.
@@ -670,8 +670,8 @@ The first delivery took 45 seconds longer because more arrivals used deeper bert
 
 The automated suite retains the 40-order regression and adds the 100-order burst.
 Both preserve every-tick physical checks.
-The race task permits 30 minutes for the expanded suite.
-CI permits 40 minutes for tests and the remaining build checks.
+They skip under the race detector, and the `qualify` task runs them without it, with a 30-minute limit.
+CI runs each check task in its own job and permits 40 minutes for each job.
 
 The final combined race run reached its earlier 20-minute limit after the 100-order burst and four other qualification tests passed.
 The remaining tests passed in a separate 374.85-second race run, without repeating completed qualification work.
@@ -742,7 +742,7 @@ No arm provided a clear flow improvement, so the production default remains two 
 ## London AM peak sample
 
 The London preset uses 2019 midweek NUMBAT OD weights for 94 of its 96 passenger stations.
-`LondonDemand` normalizes the 8,474 retained OD pairs within each of eight source time bands.
+`LondonCentralDemand` normalizes the 8,474 retained OD pairs within each of eight source time bands.
 
 The fixed AM peak sample is the schedule of `TestLondonAMPeakSampleCompletes`.
 It submits 40 OD-weighted requests from the AM peak band at five-second intervals, with seed 20260922.

@@ -50,7 +50,7 @@ Their random streams remain independent, and existing arrival destination choice
 Combined plans permit 256 events, 10,000 passengers, and 200 offers at any normalized release tick.
 Outbound plans also have a separate 3,000-passenger cap.
 Arrival-only plans retain their 10,000-passenger cap.
-The outbound cap keeps the conservative version 4 saved fixture at 83,301,572 bytes, below the existing 83,886,080-byte limit.
+The outbound cap kept the conservative version 4 saved fixture at 83,301,572 bytes, below the 83,886,080-byte limit.
 No file or stream cap increased.
 
 The `rail-services` pattern releases offers after the physics of their exact tick.
@@ -90,7 +90,6 @@ The loader rejects inconsistent counts, identities, bindings, or plans.
 It does not infer arrival when a request disappears.
 
 The ledger is an optional session-save member and does not change physical simulation or request formats.
-Version 2, 3, and 4 loading remains supported.
 Saved demand and recurring state omit connection counts when all four values are zero.
 Existing arrival-only and ordinary demand retain their output.
 

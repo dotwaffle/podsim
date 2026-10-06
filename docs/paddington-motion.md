@@ -66,7 +66,7 @@ A useful next probe would record when each disputed cell clears and how far each
 That would distinguish normal clearance delay from changes in certificate endpoints or station approach geometry.
 The later [clearance sample probe](paddington-clearance.md) records release distances and ownership through the same tick.
 It preserves these historical results but does not record complete clearance histories.
-Station-entry platoons still require the separate [design contract](station-entry-platoons-proposal.md).
+Fixed station-entry platoons have a separate [contract](station-entry-platoons.md).
 The current buffer and reassignment defaults remain off.
 
 [Arm counts](measurements/paddington-motion-arms.csv), [binned observations](measurements/paddington-motion-rows.csv), and [metadata](measurements/paddington-motion.json) retain the evidence.
