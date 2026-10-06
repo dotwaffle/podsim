@@ -981,9 +981,9 @@ mise run compare -- -project /tmp/podsim-london-capacity.json -pattern profile -
 
 The sweep took 319 wall seconds for 345 arms.
 The limits use the 60-minute rule of the capacity sweep.
-The coupled time and the average waits are the means of the three seeds at the rate of the limit with platoons.
+The platoon time and the average waits are the means of the three seeds at the rate of the limit with platoons.
 
-| NUMBAT band | Limit, off | Limit, platoons | Coupled time | Average wait, off | Average wait, platoons |
+| NUMBAT band | Limit, off | Limit, platoons | Platoon time | Average wait, off | Average wait, platoons |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | Early | 7/min | 10/min | 10.8% | 597.7 s | 545.3 s |
 | Morning | 9/min | 9/min | 0.2% | 173.5 s | 174.6 s |
@@ -1729,7 +1729,7 @@ The test pins these values.
 A platoon or cell change must give its headway against them.
 
 `TestMergeCorridorPlatoonHeadway` pins the same cases with virtual platoons of 2 and of 4 pods.
-Each queue starts as coupled platoons: the pods of a platoon are 18 m apart, and two platoons are 45 m apart.
+Each queue starts as linked platoons: the pods of a platoon are 18 m apart, and two platoons are 45 m apart.
 The test checks the separation, the berths, the owners, the certificate, and the control rule of each link at each tick.
 
 | Case | Off | Platoons of 2 | Platoons of 4 | Gain with platoons of 4 |
@@ -1859,7 +1859,7 @@ Each value is the mean of the three seeds, except the maxima of peak stopped pod
 Each cell gives the off value and then the virtual value.
 The junction wait and the track wait are in pod-seconds.
 
-| NUMBAT band | Rate | Seeds that finish in 60 minutes | Average wait | Average journey | Junction wait | Track wait | Peak stopped pods | Coupled time |
+| NUMBAT band | Rate | Seeds that finish in 60 minutes | Average wait | Average journey | Junction wait | Track wait | Peak stopped pods | Platoon time |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | Early | 9/min | 3, 3 | 290.0 s, 285.0 s | 804.4 s, 763.8 s | 2,537, 1,899 | 6,101, 1,687 | 17, 12 | 9.6% |
 | Early | 10/min | 3, 3 | 340.3 s, 328.5 s | 879.3 s, 812.7 s | 3,541, 2,745 | 13,878, 5,011 | 24, 24 | 12.9% |

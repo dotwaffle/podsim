@@ -66,7 +66,6 @@ In the session package, it runs only the four maximum codec tests, `TestPackedTe
 The first ten tests skip under the race detector.
 `TestStreamMaximumEncoding` does its bounded-scan checks only without the race detector.
 All eleven tests skip under `-short`.
-Until October 6, no CI task ran the save cap test (then `TestCouplingSaveCapRejectsAtomically`), because the pattern did not include it.
 A new test that skips under the race detector must be added to the `-run` pattern of one of these tasks.
 A pattern that matches no test passes.
 
@@ -84,7 +83,6 @@ The two `internal/sim` tasks share the `sim_race_split` pattern in `mise.toml`: 
 
 On the first warm run, `test:race:sim` took 16 minutes, and every other job took 8.5 minutes or less.
 The station and reassignment tests took 439 of 885 seconds of the local race test time, so they formed one of the two sim tasks.
-From October 6 until the removal of physical coupling, the coupling tests were also in that task (see the next section).
 `check:static` runs the remaining tasks of `check`.
 `mise run check` still runs all of them on one machine.
 
@@ -156,21 +154,14 @@ They compare consecutive ticks, and together they take about 2.5 seconds.
 
 ### Race split
 
-The `sim_race_split` pattern became `^Test(Coupling|Reassign|Station)` on October 6.
-After the removal of physical coupling it is `^Test(Reassign|Station)`.
-The timings in this section were measured before that removal.
-Before the change, the task that ran the station and reassignment tests used 31 percent of the CPU time of the two tasks.
-The coupling tests took 17 percent of the per-test race time of the package.
-With them, the matching tests take 50.8 percent of that time.
+The `sim_race_split` pattern is `^Test(Reassign|Station)`.
+The task that runs the station and reassignment tests used 31 percent of the CPU time of the two tasks.
 A 4-CPU CI runner is CPU-bound, so the CPU time of each task sets its duration.
 
 | Race task | Pattern | Wall | CPU | Load (start / end) |
 | --- | --- | ---: | ---: | --- |
 | `test:race:sim-stations` | `^Test(Station\|Reassign)` | 195.5 s | 1,171 s | 10.6 / 14.0 |
 | `test:race:sim-other` | `^Test(Station\|Reassign)` | 327.1 s | 2,606 s | 14.0 / 19.1 |
-| `test:race:sim-stations` | `^Test(Coupling\|Reassign\|Station)` | 392.0 s | 1,852 s | 22.8 / 23.2 |
-| `test:race:sim-other` | `^Test(Coupling\|Reassign\|Station)` | 271.5 s | 1,904 s | 23.2 / 18.2 |
 
-The before runs include the sampled contract check.
-The wall times of the after runs are longer because the machine load was higher.
-The CPU time of the longer task fell from 2,606 to 1,904 seconds, by 27 percent.
+The runs include the sampled contract check.
+They predate the removal of physical coupling, whose tests then ran in `test:race:sim-other`.

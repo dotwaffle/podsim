@@ -79,7 +79,7 @@ It reapplies settings that the saved format does not retain.
 
 Each copy then advances 60 simulated seconds without new arrivals.
 All 172,800 continuation ticks pass safety and order-accounting checks.
-Twenty checkpoints contain coupled pods, with a maximum of 21 coupled pods at one checkpoint.
+Twenty checkpoints contain linked pods, with a maximum of 21 linked pods at one checkpoint.
 This checks active platoon restoration without asserting identical future trajectories.
 
 The two seeds per band do not establish starvation freedom or an indefinitely sustainable demand rate.

@@ -20,7 +20,7 @@ Each arm has 30 minutes of arrivals and at most 65 simulated minutes in total.
 It stops when all requests finish after the arrival window closes.
 The historical recovery comparison uses a separate 60-minute threshold.
 
-| Band | Requests/minute | Off recovered by 60 minutes | Virtual recovered by 60 minutes | Mean wait, off / virtual | Mean journey, off / virtual | Virtual coupled time |
+| Band | Requests/minute | Off recovered by 60 minutes | Virtual recovered by 60 minutes | Mean wait, off / virtual | Mean journey, off / virtual | Virtual platoon time |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | early | 9 | 10/10 | 10/10 | 291.4 / 284.9 s | 801.0 / 762.3 s | 9.49% |
 | early | 10 | 10/10 | 10/10 | 338.8 / 324.1 s | 871.7 / 805.4 s | 12.73% |
@@ -33,7 +33,7 @@ The historical recovery comparison uses a separate 60-minute threshold.
 Across all ten seeds, the highest tested Early rate with one-hour recovery rises from 10/minute off to 11/minute virtual.
 Virtual recovers only nine of ten seeds at 12/minute.
 These finite-window results do not establish sustained capacity or recovery between tested rates.
-Every Early virtual arm must have nonzero coupling activity, and every off arm must have zero coupled time.
+Every Early virtual arm must have nonzero platoon activity, and every off arm must have zero platoon time.
 
 ## Recovery regressions
 
@@ -76,16 +76,16 @@ Mean pickup wait may increase by at most two seconds, and empty travel may incre
 | rail-hub.json | hub-burst | 5s | 4 | +0.21 s | 1.0000 | yes |
 | rail-hub.json | hub-burst | 5s | 5 | -0.55 s | 1.0040 | yes |
 
-All five rail-hub pairs pass these thresholds with nonzero virtual coupling activity.
+All five rail-hub pairs pass these thresholds with nonzero virtual platoon activity.
 Three default-London pairs fail: AM12 seed 1 on wait, AM12 seed 2 on empty travel, and AM13 seed 2 on both.
-The CSV records coupling activity for each arm, and the metadata records all paired results.
+The CSV records platoon activity for each arm, and the metadata records all paired results.
 
 ## Validation and limits
 
 All 162 arms have confirmed successful process exits.
 The instrumented runs completed 31,184,760 per-tick observations.
 Each tick checks finite state, separation, and berth ownership.
-The platoon monitor checks certificates, braking limits, acceleration of coupled pods, predecessor ownership, and overtaking.
+The platoon monitor checks certificates, braking limits, acceleration of linked pods, predecessor ownership, and overtaking.
 The full retention scan also checks incremental resource ownership on each tick.
 Request conservation runs each simulated second, followed by a final unique-ID timing census.
 
@@ -111,7 +111,7 @@ A later eight-arm replay repeats the four failing pairs on source `fbe0332`.
 It retains each original project, schedule, demand window, and platoon limit.
 Buffers and pickup swaps remain disabled.
 This replay checks safety and unique-order accounting once each simulated second.
-It records per-request boarding and completion times, pickup pods, stopped time, and passenger coupling samples.
+It records per-request boarding and completion times, pickup pods, stopped time, and linked-passenger samples.
 It does not repeat the original per-tick certificate and retention monitor.
 
 | Pair | Current off / virtual end | Mean wait change | Empty-distance ratio | Result |
@@ -126,13 +126,13 @@ A test-only replay restores the former FIFO admission comparator while keeping t
 All eight FIFO replay rows match every common historical result field exactly.
 The production comparator and user-selected passenger/pickup/empty priorities remain unchanged.
 
-The two inspected late orders show changes in pickup assignment, not large passenger delays while coupled.
+The two inspected late orders show changes in pickup assignment, not large passenger delays while linked.
 In London198, request 712 boards 202 seconds later with virtual platoons.
-Its sampled passenger travel time stays at 805 seconds, with no passenger coupling or stopped samples in either mode.
+Its sampled passenger travel time stays at 805 seconds, with no linked-passenger or stopped samples in either mode.
 In London114 AM13, request 358 boards about 500 seconds later and uses a different pickup pod.
-Its passenger travel time decreases by about three seconds, again with no sampled passenger coupling.
+Its passenger travel time decreases by about three seconds, again with no linked-passenger samples.
 These observations do not identify a direct platoon movement defect.
-They also do not show that empty-pod coupling has no effect on dispatch.
+They also do not show that empty-pod platoon links have no effect on dispatch.
 
 The adoption criteria remain unmet.
 This targeted replay does not qualify the full matrix or justify a new operating default.

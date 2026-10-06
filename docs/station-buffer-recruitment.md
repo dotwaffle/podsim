@@ -28,7 +28,7 @@ Every reachable destination berth is occupied, so the blocker cannot clear into 
 The fixture requires five seconds of stable standstill before measurement.
 Queue span measures the distance between the first and last pod reference points.
 
-| Controller | Span, meters | Coupled pods | Settled after staging, seconds |
+| Controller | Span, meters | Linked pods | Settled after staging, seconds |
 | --- | ---: | ---: | ---: |
 | Platooning off | 90.00 | 0 | 84.28 |
 | Previous virtual recruitment | 90.00 | 0 | 84.28 |
