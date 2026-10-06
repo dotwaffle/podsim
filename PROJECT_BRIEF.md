@@ -80,8 +80,8 @@ The [combined dispatch qualification](docs/dispatch-policy-qualification.md) rec
 The compatible stream decoder lowers decode and apply time without a whole-browser CPU gain.
 The [sustained pickup-swap study](docs/pickup-swap-sustained.md) lowers average waits and empty distance in its tested pairs, but every arm still grows a backlog.
 Its matched-request diagnosis in the same document separates unfinished requests from completed maxima and retains actual same-request regressions.
-The [selected service-tail cases](docs/experimental-adoption.md#rejected-candidates) trace earlier fleet divergence and longer pickup travel with little sampled stopping.
-The selected exclusions in the same document show useful local swaps within those histories, with mixed effects on other requests.
+The [selected service-tail cases](docs/experimental-adoption.md#rejected-candidates) trace long pickup waits to earlier fleet-availability changes.
+Removing one selected swap does not remove every regression.
 The Stratford diagnosis captures reciprocal waits at an intermediate berth.
 The [route preference and commitment fix](docs/berth-route-preference.md) addresses that mechanism for new routes while preserving old physical saves.
 

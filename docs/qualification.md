@@ -506,8 +506,10 @@ Empty relocations yield unadmitted claims when local passenger traffic needs the
 An empty relocation can also clear an idle pod that later occupies its destination.
 Regression tests cover both claim orderings and eventual settlement.
 
-In a 100-order burst to Station 19 at 12 orders per minute, the separate layout improved last delivery by 33% and final settlement by 31% against the earlier layout.
-Every run kept every-tick separation, with a minimum of 22.87 m, and completed every order.
+The test burst sends 100 orders to Station 19 at 12 orders per minute.
+Against the earlier layout, the separate layout improved last delivery by 33% and final settlement by 31%.
+The separate-access runs kept every-tick separation, with a minimum of 22.87 m.
+They completed every order.
 These results establish progress for the tested workloads.
 They do not establish capacity under unlimited demand.
 
@@ -665,11 +667,13 @@ The last A/B check compared commit `80c47dc` with commit `40fc98f`, so it includ
 In all 11 compare arms of the check, the CSV rows and a snapshot hash at each simulated second were identical.
 The heavy arm took 7.1 seconds of wall time, against 10.1 seconds before.
 The two builds ran at the same time on a shared host.
-Thus these wall times do not compare with the profile times above.
+Thus these wall times are not a controlled performance comparison.
 
 The first London network joined all guideways and station access at one node per station, which serialized unrelated directions.
 The directional-portal network replaced it.
-In one AM peak pulse of 199 requests in 10 minutes, the portal network served all 199 with 3 peak stopped pods, against 194 served and 60 for the shared-junction network.
+One AM peak pulse sent 199 requests in 10 minutes.
+The portal network served all 199, with a peak of 3 stopped pods.
+The shared-junction network served 194, with a peak of 60 stopped pods.
 
 ## London capacity envelope
 
@@ -979,7 +983,8 @@ Over the 120 arms at 1/min to 5/min, the mean wait falls from 85.96 seconds to 7
 The wait falls in each band, by 3.9 seconds in Evening to 18.8 seconds in Night.
 The empty distance falls in seven bands and increases by 0.2 percent in Early.
 The highest ratio for a band and rate is 1.039, at Interpeak 1/min.
-The weighted redistribution policy cut the wait at 1/min by 33 to 71 percent, but it multiplied the empty distance by 2.3 to 15.0 and lowered the AM peak and Night limits by one rate.
+The removed weighted redistribution policy cut the wait at 1/min by 33 to 71 percent.
+It multiplied the empty distance by 2.3 to 15.0 and lowered the AM peak and Night limits by one rate.
 The arm nearest to 3,600 seconds is Night 5/min with seed 3, which ends at 3,358 seconds, and at 3,384 seconds without the policy.
 
 A second run compares off and guarded with seeds 4 to 10 at 1/min to 5/min, in 280 pairs.
@@ -1007,8 +1012,10 @@ mise run compare -- -project /tmp/podsim-london-capacity.json -pattern profile -
 
 A run with `-sharing-limits 1` at the same commit gives each row of the free-flow envelope again.
 Thus the CSV of this measurement has only the limit 4 rows.
-An earlier London sweep of same-destination sharing at the party limits 4 and 8 (commit `d64c3e0`) raised the Early, Evening, and Night 60-minute limits to 9, 15, and 11/min and lowered none.
+An earlier London sweep of same-destination sharing at the party limits 4 and 8 used commit `d64c3e0`.
+It raised the Early, Evening, and Night 60-minute limits to 9, 15, and 11/min and lowered none.
 Limit 8 gave the same row as limit 4 in 331 of 360 arms.
+The compare command accepts at most 1,000 arms in one run, so a sweep of several party limits needs one run for each limit.
 
 The measurement plan also has seeds 4 to 10 at the limit rates.
 These seeds did not run.
@@ -1629,8 +1636,10 @@ The [follow-up rows](measurements/platoon-followup.csv) repeat these arms on lat
 
 A pod with more seats can help only when the parties that a pod could take are more than its seats.
 A screen compared 4-seat and 8-seat pods with all other settings equal, at commit `d434de5` with report `schema_version` 10.
-It has no physical model of a larger pod: each pod keeps its 4 m body, its acceleration, and its dwell, so the 8-seat arms give an optimistic gain.
-Both arms use the drop-offs mode with the stop limit of 3 and the detour cap of 1.5, on Early, Night, and AM peak London arms and on the rail-hub schedule.
+It has no physical model of a larger pod.
+Each pod keeps its 4 m body, its acceleration, and its dwell, so the 8-seat arms give an optimistic gain.
+Both arms use the drop-offs mode with the stop limit of 3 and the detour cap of 1.5.
+The arms are Early, Night, and AM peak in London, and the rail-hub schedule.
 See [report columns](../README.md#report-columns) for the seat screen columns.
 
 The 4-seat and 8-seat arms have equal 60-minute limits: 15/min in Early, which is the highest tested rate, 11/min in Night, and 14/min in AM peak.
@@ -1744,6 +1753,7 @@ That exception does not cover the other five pairs.
 | Morning | 4/min | 1 | +0.19% | +2.09% |
 | PM peak | 11/min | 3 | -1.65% | +2.00245% |
 
-Targeted request-level replays of the two deadline pairs, Late at 13/min with seed 2 and Morning at 13/min with seed 1, reproduced the original arm summaries exactly.
+Targeted request-level replays of two deadline pairs reproduced the original arm summaries exactly.
+The pairs are Late at 13/min with seed 2 and Morning at 13/min with seed 1.
 They locate the late finish in longer pickup waiting for a party that was neither reassigned nor a host for a reassigned party.
 They do not establish a specific dispatch defect or justify a policy change.
