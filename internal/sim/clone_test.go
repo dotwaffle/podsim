@@ -213,9 +213,9 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		// restore sets rerouteDue.
 		"blocked": persistDerive, "rerouteDue": persistDerive,
 		"resourceLanes": persistDerive, "staticConnected": persistReset, "staticRoutes": persistReset,
-		// No save writes the fault records or counters yet. Section 13.3 of
-		// the incident suspension contract adds their members.
-		"faultsOn": persistSession, "faultSettings": persistSession, "faults": persistReset, "faultCounters": persistReset,
+		// SavedState has the fault records and counters, and the session
+		// gives the fault marker and the settings again.
+		"faultsOn": persistSession, "faultSettings": persistSession, "faults": persistSave, "faultCounters": persistSave,
 		// The release boundary of each tick empties faultReleased.
 		"faultReleased":    persistReset,
 		"predictiveQueues": persistUnsupported, "predictivePodQueues": persistUnsupported, "predictiveQueueTick": persistUnsupported,
@@ -243,10 +243,9 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		// SavedPod has the holds and the operational destination, so
 		// ExportState, RestoreState, and the session save keep them.
 		"withdrawn": persistSave, "op": persistSave,
-		// A restore derives faulted from the fault records, which no save
-		// writes yet. A physical restore sets faultCap to the distance of
-		// a faulted traveling pod.
-		"faulted": persistReset, "faultCap": persistReset,
+		// A physical restore derives faulted from the fault records, and
+		// sets faultCap to the distance of a faulted traveling pod.
+		"faulted": persistDerive, "faultCap": persistDerive,
 	},
 	reflect.TypeFor[Vehicle](): {
 		"CouplingID": persistDerive,

@@ -322,11 +322,21 @@ func TestFaultEvacuationCounterSaturates(t *testing.T) {
 	}
 }
 
+// checkRecoverySave checks a restored pod 01 in its fault recovery: it has
+// the fault hold and the recovery purpose, and no record names it.
+func checkRecoverySave(t *testing.T, restored *Simulation) {
+	t.Helper()
+	v := restored.findVehicle("01")
+	if v.withdrawn&faultHold == 0 || v.op.purpose != opEmptyRecovery || len(restored.faults) != 0 || v.faulted {
+		t.Fatalf("restored recovery: hold %d, purpose %+v, records %d", v.withdrawn, v.op, len(restored.faults))
+	}
+}
+
 // TestFaultEvacuationPhysicalSave saves, in the physical format, at the
 // end of the tick of an evacuation on a lane and at a berth (section 16.5
 // of the incident suspension contract), and replays 600 ticks from a
-// checkpoint through the evacuation, the clear and the recovery. See
-// physicalSave.
+// checkpoint through the evacuation, the clear and the recovery. It also
+// saves the fault recovery after the clear. See physicalSave.
 func TestFaultEvacuationPhysicalSave(t *testing.T) {
 	t.Parallel()
 	s, v, _ := laneRecoveryShapes()[0].prepare(t)
@@ -343,6 +353,9 @@ func TestFaultEvacuationPhysicalSave(t *testing.T) {
 			if tick == 540 {
 				if err := s.clearFault(id); err != nil {
 					t.Fatal(err)
+				}
+				if save {
+					checkRecoverySave(t, physicalSave(t, s, "fault recovery after the clear"))
 				}
 			}
 		}

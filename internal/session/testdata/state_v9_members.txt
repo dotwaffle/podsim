@@ -90,6 +90,13 @@ simulation.maxDetourRatio number
 simulation.interrupted number
 simulation.interruptedPassengers number
 simulation.incidentSerial number
+simulation.faults object
+simulation.faults.counters object
+simulation.faults.counters.started number
+simulation.faults.counters.cleared number
+simulation.faults.counters.evacuations number
+simulation.faults.counters.reroutes number
+simulation.faults.counters.faultWaitTicks number
 simulation.demo object
 simulation.demo.secondSent boolean
 simulation.demo.followupsSent boolean
@@ -352,3 +359,6 @@ simulation.pods[].operational[] number
 simulation.pods[].riders[].legFrom number
 simulation.waiting[].request.legFrom number
 simulation.waiting[].excludedPod number
+simulation.faults.records array
+simulation.faults.records[] array
+simulation.faults.records[][] number

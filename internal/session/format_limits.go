@@ -35,6 +35,10 @@ func savedLimits(markers contractMarkers) jsonLimits {
 	// The operational destination of a pod is a tuple of 2 or 3 numbers
 	// (incident contract, section 11.6).
 	limits.arrays["/simulation/pods/*/operational"] = 3
+	// The fault records and the debris tuple (incident suspension
+	// contract, section 13.5).
+	limits.arrays["/simulation/faults/records"] = maxFaultRecords
+	limits.arrays["/simulation/faults/records/*"] = debrisTupleLength
 	limits.arrays["/project/expressServices"] = project.MaxExpressServices
 	for _, path := range []string{
 		"/project/network/lanes/*/vehicleClasses",

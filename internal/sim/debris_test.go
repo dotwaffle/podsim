@@ -711,19 +711,27 @@ func TestDebrisDoesNotEvacuate(t *testing.T) {
 
 // TestDebrisSaveAndReplay saves, in the physical format, after a debris
 // command, and checks a replay from a checkpoint through a timed clear.
-// The save format has no fault member yet, so the restored state has no
-// debris. See physicalSave.
+// The restored simulation keeps the debris (see physicalSave), and it
+// clears the debris at the same tick as the source. Its pods restore at
+// speed 0, so their motion differs from the source.
 func TestDebrisSaveAndReplay(t *testing.T) {
 	t.Parallel()
 	s := debrisFleet(t)
 	returnTraveler(t, s)
 	checkDebrisEachTick(t, s)
 	id := startDebris(t, s, "return", 300, 310, 5)
-	physicalSave(t, s, "debris command")
+	restored := physicalSave(t, s, "debris command")
 	checkpoint := s.Clone()
 	for range 600 {
 		s.Step()
 		checkpoint.Step()
+		restored.Step()
+		if len(restored.faults) != len(s.faults) {
+			t.Fatalf("tick %d: the restored simulation has %d records, the source %d", s.tick, len(restored.faults), len(s.faults))
+		}
+	}
+	if restored.faultCounters.cleared != 1 {
+		t.Fatalf("the restored simulation cleared %d records", restored.faultCounters.cleared)
 	}
 	// DeepEqual refuses two func values that are not nil.
 	s.monitor, checkpoint.monitor = nil, nil

@@ -22,7 +22,9 @@ type logicalTrip struct {
 // the network. These journeys do not count
 // in the journey totals. Each other active rider of a pod goes back to the
 // queue as one trip, and its boarding stays recorded. Each pod keeps its
-// service holds and has no operational purpose.
+// service holds and has no operational purpose. With the fault marker,
+// every fault record ends, the fault counters stay, and each pod loses
+// the fault hold (incident suspension contract, section 12.7).
 // The queued trips lose their pod bindings. As after Reset,
 // the traffic demo stops and its parked pods are gone. restoreLogical fails
 // when the saved state is not valid or when the result fails a check.
@@ -37,6 +39,9 @@ func restoreLogical(input RestoreStateInput, newFleet func() (*Simulation, error
 		return nil, RestoreResult{}, fmt.Errorf("create the fleet: %w", err)
 	}
 	if err := s.SetExpressServices(input.ExpressServices); err != nil {
+		return nil, RestoreResult{}, err
+	}
+	if err := s.setFaultContract(input); err != nil {
 		return nil, RestoreResult{}, err
 	}
 	if err := s.checkSavedClasses(state); err != nil {
@@ -78,7 +83,12 @@ func restoreLogical(input RestoreStateInput, newFleet func() (*Simulation, error
 	for _, saved := range state.Waiting {
 		trips = append(trips, logicalTrip{trip: s.unboundTrip(saved)})
 	}
+	dropped, dropErr := s.dropSavedFaults(state.Faults)
+	if dropErr != nil {
+		return nil, RestoreResult{}, dropErr
+	}
 	result := s.queueTrips(state, trips)
+	result.DroppedFaults = dropped
 	result.Tier, result.Unaccounted = RestoreLogical, unaccounted
 	result.LogicalCompleted = completed
 	slices.Sort(interrupted)

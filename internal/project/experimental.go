@@ -40,9 +40,17 @@ func ConfigureExperiments(simulation *sim.Simulation, config Config) error {
 		return err
 	}
 	simulation.SetPickupSwaps(bool(config.PickupReassignment))
+	return simulation.SetFaults(config.FaultContract != "", EffectiveFaultSettings(config))
+}
+
+// EffectiveFaultSettings returns the fault settings of a project with the
+// fault marker, with the default for each absent member, and the zero
+// settings for every other project. A restore gets the settings of the
+// saved project from it.
+func EffectiveFaultSettings(config Config) sim.FaultSettings {
 	var faults sim.FaultSettings
 	if config.FaultContract != "" {
 		faults.EvacuationSeconds = evacuationSeconds(config.Faults)
 	}
-	return simulation.SetFaults(config.FaultContract != "", faults)
+	return faults
 }

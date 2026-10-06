@@ -509,6 +509,7 @@ func (s *Session) loadState(input loadInput) (loaded loadedState, err error) {
 		Network: loaded.config.Network, Fleet: loaded.config.Fleet, State: file.Simulation, LogicalOnly: loaded.logicalOnly,
 		StationQueueSpacing: project.EffectiveStationQueueSpacing(loaded.config), PlatoonLimit: loaded.config.PlatoonLimit,
 		ExpressServices: loaded.config.ExpressServices, OnboardPickups: loaded.config.OnboardPickups,
+		FaultContract: loaded.config.FaultContract, Faults: project.EffectiveFaultSettings(loaded.config),
 	})
 	if err != nil {
 		return loaded, invalidState(err)
@@ -709,6 +710,9 @@ func (s *Session) logRestored(input restoredInput) {
 		slog.Time("savedAt", file.SavedAt), slog.String("savedBuild", file.Build), slog.String("build", s.build),
 		slog.Int("restoreAttempts", file.RestoreAttempts), slog.Int("bytes", input.bytes),
 		slog.Duration("duration", input.duration),
+	}
+	if result.DroppedFaults > 0 {
+		attrs = append(attrs, slog.Int("droppedFaults", result.DroppedFaults))
 	}
 	if result.PhysicalError != nil {
 		attrs = append(attrs, slog.Any("physicalError", result.PhysicalError))

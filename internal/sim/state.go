@@ -60,6 +60,10 @@ type SavedState struct {
 	// IncidentSerial is the serial of the last incident record. It needs
 	// the incident marker.
 	IncidentSerial uint64 `json:"incidentSerial,omitzero"`
+	// Faults holds the fault records and the fault counters. It needs the
+	// fault marker. It is nil when no record is active and each counter is
+	// 0.
+	Faults *SavedFaults `json:"faults,omitzero"`
 	// Demo is nil when the traffic demo does not run.
 	Demo      *SavedDemo `json:"demo,omitzero"`
 	DemoError string     `json:"demoError,omitempty"`
@@ -223,7 +227,12 @@ type RestoreStateInput struct {
 	// IncidentContract is the incident marker of the saved project. A
 	// JSON copy of an input without it keeps the bytes that it had before
 	// the marker.
-	IncidentContract  IncidentContract `json:",omitzero"`
+	IncidentContract IncidentContract `json:",omitzero"`
+	// FaultContract is the fault marker of the saved project, and Faults
+	// its fault settings. The restored simulation has the fault operations
+	// on with the marker.
+	FaultContract     FaultContract `json:",omitzero"`
+	Faults            FaultSettings `json:",omitzero"`
 	CouplingEnabled   bool
 	CouplingSites     []CouplingSite
 	CouplingCorridors []CouplingCorridor
@@ -257,6 +266,8 @@ type RestoreResult struct {
 	// Dropped lists the requests that the restore removed because they were
 	// not valid.
 	Dropped []int
+	// DroppedFaults counts the fault records that the logical tier ended.
+	DroppedFaults int
 	// DroppedParties counts the dropped requests. Each request is one
 	// party.
 	DroppedParties int
@@ -367,6 +378,9 @@ func restoreState(input RestoreStateInput, newFleet func() (*Simulation, error))
 	if err := checkOperationalFields(input); err != nil {
 		return nil, RestoreResult{}, err
 	}
+	if err := checkSavedFaults(input); err != nil {
+		return nil, RestoreResult{}, err
+	}
 	registry, serviceErr := validatedExpressServices(input.Network, newRouteGraph(input.Network), input.ExpressServices)
 	if serviceErr != nil {
 		return nil, RestoreResult{}, serviceErr
@@ -411,6 +425,9 @@ func restoreState(input RestoreStateInput, newFleet func() (*Simulation, error))
 			return s, result, nil
 		}
 		physicalErr = err
+		if errors.Is(err, errInvalidFaults) {
+			return nil, RestoreResult{PhysicalError: err}, err
+		}
 		if err != nil && len(input.State.CouplingGroups) != 0 {
 			return nil, RestoreResult{PhysicalError: err}, err
 		}
@@ -453,7 +470,7 @@ func (s *Simulation) ExportState() SavedState {
 		Journeys: s.journeys, TotalJourneyTicks: s.totalJourneyTicks, MaxJourneyTicks: s.maxJourneyTicks,
 		RiderDistanceMeters: s.riderDistanceMeters, DirectDistanceMeters: s.directDistanceMeters, MaxDetourRatio: s.maxDetourRatio,
 		Interrupted: s.interrupted, InterruptedPassengers: s.interruptedPassengers,
-		IncidentSerial: s.incidentSerial, DemoError: s.demoError, Pods: make([]SavedPod, len(s.vehicles)),
+		IncidentSerial: s.incidentSerial, Faults: s.exportFaults(), DemoError: s.demoError, Pods: make([]SavedPod, len(s.vehicles)),
 	}
 	if s.demo != nil {
 		state.Demo = &SavedDemo{SecondSent: s.demo.secondSent, FollowupsSent: s.demo.followupsSent}

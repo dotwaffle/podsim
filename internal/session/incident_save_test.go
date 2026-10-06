@@ -159,6 +159,7 @@ func (x incidentSave) check(t *testing.T, name string) sim.SavedState {
 		Network: config.Network, Fleet: config.Fleet, State: file.Simulation, LogicalOnly: true,
 		StationQueueSpacing: project.EffectiveStationQueueSpacing(config), PlatoonLimit: config.PlatoonLimit,
 		ExpressServices: config.ExpressServices, OnboardPickups: config.OnboardPickups,
+		FaultContract: config.FaultContract, Faults: project.EffectiveFaultSettings(config),
 	})
 	if err != nil {
 		t.Fatalf("%s: logical restore: %v", name, err)

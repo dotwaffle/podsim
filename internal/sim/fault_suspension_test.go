@@ -930,24 +930,31 @@ func TestFaultLinkGates(t *testing.T) {
 	})
 }
 
+// faultRestoreInput returns the input that restores the saved state of s
+// with the fault marker and the fault settings of s.
+func faultRestoreInput(s *Simulation, state SavedState) RestoreStateInput {
+	return RestoreStateInput{
+		Network: s.network, Fleet: s.initial, State: state, IncidentContract: s.incidentContract,
+		FaultContract: FaultV1Contract, Faults: FaultSettings{EvacuationSeconds: int(s.faultSettings.evacuationSeconds)},
+	}
+}
+
 // physicalSave saves s, restores the save in the physical tier, and checks
-// the state contract on both sides. It is a stage 1 physical-format test:
-// the save format has no fault member yet, so the restore has faults off,
-// no record and no cap. A restored pod can keep the fault hold with no
-// purpose and no record, and no fault stage releases it. Thus the restore
-// does not meet F12, and these tests do not check F12.
-//
-// TODO(patch 7): Replace these saves with fault-preserving restores. Check
-// that the restore keeps the records and the fault settings, rebuilds the
-// cap and the blocked set, and that the fault stage later releases the
-// hold.
-func physicalSave(t *testing.T, s *Simulation, at string) {
+// the state contract on both sides (section 16.5 of the incident
+// suspension contract). The restore keeps the records, the counters and
+// the fault settings, and turns the fault operations on. Each faulted
+// pod is faulted again, at rest, with its cap at its distance, and the
+// blocked set is built again from the records, which the state contract
+// checks (F10). The reroute pass is due. The restored state saves the
+// same state. The restored simulation returns the restored pods with the
+// fault hold and no record to service in its next fault stage (F12).
+func physicalSave(t *testing.T, s *Simulation, at string) *Simulation {
 	t.Helper()
 	if err := s.CheckContract(); err != nil {
 		t.Fatalf("%s: %v", at, err)
 	}
 	state := s.ExportState()
-	restored, result, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: state, IncidentContract: s.incidentContract})
+	restored, result, err := RestoreState(faultRestoreInput(s, state))
 	if err != nil || !cleanRestore(result) {
 		t.Fatalf("%s: restore %v, %+v", at, err, result)
 	}
@@ -957,20 +964,46 @@ func physicalSave(t *testing.T, s *Simulation, at string) {
 	if !reflect.DeepEqual(restored.ExportState(), state) {
 		t.Fatalf("%s: the restored state saves another state", at)
 	}
+	if !restored.faultsOn || restored.faultSettings != s.faultSettings || !slices.Equal(restored.faults, s.faults) ||
+		restored.faultCounters != s.faultCounters || restored.faultContract != FaultV1Contract {
+		t.Fatalf("%s: the restore lost the records, the counters or the settings", at)
+	}
+	if len(s.faults) > 0 && !restored.rerouteDue {
+		t.Fatalf("%s: no reroute pass is due", at)
+	}
+	for index := range restored.vehicles {
+		v, live := &restored.vehicles[index], &s.vehicles[index]
+		if v.faulted != live.faulted || v.faulted && (v.Pod.Speed != 0 || v.Pod.Activity == Traveling && v.faultCap != v.distance) {
+			t.Fatalf("%s: pod %s restores faulted %t at speed %g with the cap %g at %g", at, v.Pod.ID, v.faulted, v.Pod.Speed, v.faultCap, v.distance)
+		}
+	}
+	held := restored.Clone()
+	held.Step()
+	for index := range held.vehicles {
+		if v := &held.vehicles[index]; v.withdrawn&faultHold != 0 && !v.faulted && v.op.owner != faultHold && v.couplingID == "" {
+			t.Fatalf("%s: pod %s keeps the fault hold after the fault stage", at, v.Pod.ID)
+		}
+	}
+	return restored
 }
 
-// TestFaultPhysicalSaves saves, in the physical format, at the command
-// boundaries and tick ends of section 16.5 of the incident suspension
-// contract that patch 3 adds: after a fault on a moving pod and on a pod
-// at a berth, at the end of the tick in which the faulted pod reaches
-// rest, and after a clear during braking. See physicalSave.
+// TestFaultPhysicalSaves saves at the command boundaries and tick ends of
+// section 16.5 of the incident suspension contract: after a fault on a
+// moving pod and on a pod at a berth, at the end of the tick in which the
+// faulted pod reaches rest, and after a clear during braking. See
+// physicalSave. A braking fault restores as stopped. After the clear of a
+// restored fault on the moving pod, the pod continues its route.
 func TestFaultPhysicalSaves(t *testing.T) {
 	t.Parallel()
 	s := faultLegFleet(t)
 	v := boardParties(t, s, "s2", "s2")
 	cruiseOn(t, s, v, "s0-link")
 	id := startFault(t, s, v, 0)
-	physicalSave(t, s, "fault on a moving pod")
+	braking := physicalSave(t, s, "fault on a moving pod")
+	if err := braking.clearFault(id); err != nil {
+		t.Fatal(err)
+	}
+	stepUntil(t, braking, "the restored pod at s2", func() bool { return braking.findVehicle("01").Pod.Activity == Unloading })
 	for range 10 {
 		s.Step()
 	}

@@ -143,7 +143,9 @@ func TestEndpointRerouteOfContinuingPod(t *testing.T) {
 
 // TestEndpointRerouteOfTravelingPod blocks s1-link ahead of pod 01, which
 // travels on s0-link to s2. The pod keeps the lanes of its grants and
-// takes the other road.
+// takes the other road. The state at the end of the tick of the reroute
+// saves in the physical format (section 16.5 of the incident suspension
+// contract).
 func TestEndpointRerouteOfTravelingPod(t *testing.T) {
 	t.Parallel()
 	s := altLineFleet(t, -100, "s0-1", "s3-1")
@@ -159,6 +161,7 @@ func TestEndpointRerouteOfTravelingPod(t *testing.T) {
 		t.Fatalf("pod 01 cannot divert: prefix %d, %v", prefix, ok)
 	}
 	checkEndpointReroute(t, s, v, prefix)
+	physicalSave(t, s, "end of a tick with an endpoint reroute")
 	stepUntil(t, s, "the rider completes", func() bool { return s.completed == 1 })
 }
 

@@ -91,6 +91,9 @@ func restorePhysical(input RestoreStateInput, newFleet func() (*Simulation, erro
 	if err := s.SetExpressServices(input.ExpressServices); err != nil {
 		return nil, RestoreResult{}, err
 	}
+	if err := s.setFaultContract(input); err != nil {
+		return nil, RestoreResult{}, err
+	}
 	if err := s.checkSavedClasses(input.State); err != nil {
 		return nil, RestoreResult{}, err
 	}
@@ -131,6 +134,11 @@ func restorePhysical(input RestoreStateInput, newFleet func() (*Simulation, erro
 	if err := r.checkLinks(); err != nil {
 		return nil, RestoreResult{}, err
 	}
+	// Debris has its footprint before the pods take their resources
+	// (section 7.6 of the incident suspension contract).
+	if err := r.placeDebris(); err != nil {
+		return nil, RestoreResult{}, err
+	}
 	if err := r.claimBerths(); err != nil {
 		return nil, RestoreResult{}, err
 	}
@@ -145,6 +153,9 @@ func restorePhysical(input RestoreStateInput, newFleet func() (*Simulation, erro
 		return nil, RestoreResult{}, err
 	}
 	if err := r.separate(); err != nil {
+		return nil, RestoreResult{}, err
+	}
+	if err := r.restoreFaultedPods(); err != nil {
 		return nil, RestoreResult{}, err
 	}
 	for index, demoted := range r.demoted {
@@ -854,6 +865,9 @@ func (r *physicalRestore) placeTravelingPod(index, leader int) (bool, error) {
 	}
 	v.distance, v.blockIndex = distance, current
 	footprint := v.footprint(through, distance)
+	if slices.ContainsFunc(footprint, func(claimed resource) bool { return r.s.owners[claimed].kind == faultOwnerKind }) {
+		return false, fmt.Errorf("%w: the pod holds a resource of a debris footprint", errInvalidFaults)
+	}
 	if leader >= 0 {
 		link, err := r.savedLink(index, leader)
 		if err != nil {

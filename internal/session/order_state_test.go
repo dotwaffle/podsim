@@ -44,6 +44,7 @@ func TestCurrentStateGolden(t *testing.T) {
 		t.Fatalf("version 9 golden decode: %v", err)
 	}
 	membersType := withoutMember(reflect.TypeFor[stateFile](), reflect.TypeFor[sim.SavedPod](), "boardings")
+	membersType = withoutMember(membersType, reflect.TypeFor[sim.SavedFaults](), "records")
 	lines := stateMembers(t, "", membersType, nil)
 	// The session adapter writes tuples instead of native boarding objects.
 	lines = append(lines, stateMembers(t, "simulation.pods[].boardings", reflect.TypeFor[[][2]float64](), nil)...)
@@ -53,6 +54,9 @@ func TestCurrentStateGolden(t *testing.T) {
 	lines = append(lines, stateMembers(t, "simulation.pods[].riders[].legFrom", reflect.TypeFor[int](), nil)...)
 	lines = append(lines, stateMembers(t, "simulation.waiting[].request.legFrom", reflect.TypeFor[int](), nil)...)
 	lines = append(lines, stateMembers(t, "simulation.waiting[].excludedPod", reflect.TypeFor[int](), nil)...)
+	// Each fault record is one tuple of numbers (incident suspension
+	// contract, section 13.3).
+	lines = append(lines, stateMembers(t, "simulation.faults.records", reflect.TypeFor[[][]float64](), nil)...)
 	members := strings.Join(lines, "\n") + "\n"
 	const path = "testdata/state_v9_members.txt"
 	if *update {
