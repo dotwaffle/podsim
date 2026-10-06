@@ -107,128 +107,198 @@ func (s *Simulation) dispatch() {
 	defer pass.end()
 	defer s.clearUnboundWaitingRoutes()
 	pass.begin(s.waiting)
-	assigned := pass.assigned
 	for i := 0; i < len(s.waiting); {
-		if s.mayBeIdle(pass, s.waiting[i].request.legOrigin()) && s.promoteReadyPickup(i) {
-			pass.reset()
-		}
-		trip := &s.waiting[i]
-		previousReason := trip.request.DispatchReason
-		trip.request.DispatchReason = ""
-		v := s.findVehicle(trip.request.PodID)
-		if v != nil {
-			// A pod that fits the trip but has no access to its pickup
-			// loses it with no exclusion, and stays in service. The trip
-			// keeps its ID, queue position, deferral budget and exclusion.
-			fits := s.podFitsRequest(v, trip.request)
-			if !fits || !s.pickupAccess(v, trip.request) {
-				delete(assigned, v.Pod.ID)
-				s.releasePickup(v)
-				trip.request.PodID = ""
-				if fits || s.orderContract == ExpressOrderContract {
-					trip.route = nil
-					trip.destination = Berth{}
-				}
-				v = nil
-				pass.reset()
-			}
-		}
-		if v != nil && s.screensSeats() {
-			s.recordJoinEligible(trip, v, pass)
-		}
-		if (trip.request.PodID == "" || s.reassigns(v)) && (s.joinOnboardPickup(trip) || s.joinSharedRide(trip, pass)) {
-			pass.reset()
-			if v != nil {
-				delete(assigned, v.Pod.ID)
-				s.releasePickup(v)
-			}
-			s.waiting = slices.Delete(s.waiting, i, i+1)
-			continue
-		}
-		if v != nil && (v.Pod.Activity != Idle || v.Pod.StationID != trip.request.legOrigin()) && s.mayBeIdle(pass, trip.request.legOrigin()) {
-			if local := s.localPickupForRequest(trip.request, trip.excludedPod, pass); local != nil {
-				pass.reset()
-				delete(assigned, v.Pod.ID)
-				s.releasePickup(v)
-				assignPickup(trip, local)
-				trip.route, trip.destination = nil, Berth{}
-				assigned[local.Pod.ID] = true
-				v = local
-			}
-		}
-		if v == nil && s.keepHold(trip, pass) {
-			i++
-			continue
-		}
-		if v == nil {
-			key := dispatchKey{options: trip.request.dispatchOptions(), excluded: trip.excludedPod}
-			var known bool
-			if v, known = pass.optionPickups[key]; !known {
-				v = s.pickupPodForRequest(trip.request, trip.excludedPod, pass)
-				if pass.optionPickups == nil {
-					pass.optionPickups = make(map[dispatchKey]*vehicle)
-				}
-				pass.optionPickups[key] = v
-			}
-			if v == nil {
-				trip.request.DispatchReason = "Waiting for an available pod"
-				if !s.hasFittingPod(trip.request) {
-					trip.request.DispatchReason = "Waiting for a certified vehicle that fits this party and route"
-				}
-				i++
-				continue
-			}
-			if s.orderContract == ExpressOrderContract && trip.request.PodID != v.Pod.ID {
-				trip.route, trip.destination = nil, Berth{}
-			}
-			away := v.Pod.StationID != trip.request.legOrigin() || v.Pod.Activity != Idle
-			if away && s.waitForFinishingPod(trip, v, assigned) {
-				i++
-				continue
-			}
-			pass.reset()
-			if away {
-				if err := s.sendPickupForRequest(v, trip.request); err != nil {
-					trip.request.DispatchReason = "Waiting for pickup access"
-					i++
-					continue
-				}
-				trip.route = nil
-				if v.destination.Node != "" {
-					trip.route, _ = s.stationApproachRouteForClass(v.destination.Node, trip.request.To, v.Pod.Class)
-				}
-				trip.destination = Berth{}
-			}
-			assignPickup(trip, v)
-			assigned[v.Pod.ID] = true
-			if s.reassignPickup(i) {
-				pass.begin(s.waiting)
-				assigned = pass.assigned
-				v = s.findVehicle(trip.request.PodID)
-			}
-		}
-		if v.Pod.Activity == Idle && v.Pod.StationID == trip.request.legOrigin() {
-			pass.reset()
-			if err := s.board(v, *trip); err != nil {
-				trip.request.DispatchReason = "Waiting for destination access"
-				i++
-				continue
-			}
-			s.waiting = slices.Delete(s.waiting, i, i+1)
-			continue
-		}
-		if v.RelocatingTo != "" {
-			suffix := " traveling to pickup"
-			if v.Pod.WaitReason != NoWait && v.Pod.Speed < 0.1 {
-				suffix = " waiting in traffic"
-			}
-			trip.request.DispatchReason = podReason(previousReason, v.Pod.ID, suffix)
-		} else {
-			trip.request.DispatchReason = "Waiting for destination access"
-		}
-		i++
+		i = s.dispatchTrip(i, pass)
 	}
 	s.parkUnclaimedReleased()
+}
+
+// dispatchTrip dispatches the waiting trip at index i. It returns the index
+// of the next trip: i when the trip leaves the queue, and i+1 when the trip
+// stays.
+func (s *Simulation) dispatchTrip(i int, pass *dispatchPass) int {
+	if s.mayBeIdle(pass, s.waiting[i].request.legOrigin()) && s.promoteReadyPickup(i) {
+		pass.reset()
+	}
+	trip := &s.waiting[i]
+	previousReason := trip.request.DispatchReason
+	trip.request.DispatchReason = ""
+	v := s.keepTripPod(trip, pass)
+	if v != nil && s.screensSeats() {
+		s.recordJoinEligible(trip, v, pass)
+	}
+	if s.joinTrip(trip, v, pass) {
+		s.waiting = slices.Delete(s.waiting, i, i+1)
+		return i
+	}
+	v = s.takeLocalPickup(trip, v, pass)
+	if v == nil {
+		if s.keepHold(trip, pass) {
+			return i + 1
+		}
+		var ok bool
+		if v, ok = s.assignPickupPod(i, trip, pass); !ok {
+			return i + 1
+		}
+	}
+	return s.boardOrWait(i, trip, v, previousReason, pass)
+}
+
+// keepTripPod returns the pod of the trip, or nil when the trip has no pod.
+// A pod that does not fit the trip, or that has no access to its pickup,
+// loses the trip. A pod that fits the trip but has no access to its pickup
+// loses it with no exclusion, and stays in service. The trip keeps its ID,
+// queue position, deferral budget and exclusion.
+func (s *Simulation) keepTripPod(trip *waitingTrip, pass *dispatchPass) *vehicle {
+	v := s.findVehicle(trip.request.PodID)
+	if v == nil {
+		return nil
+	}
+	fits := s.podFitsRequest(v, trip.request)
+	if fits && s.pickupAccess(v, trip.request) {
+		return v
+	}
+	delete(pass.assigned, v.Pod.ID)
+	s.releasePickup(v)
+	trip.request.PodID = ""
+	if fits || s.orderContract == ExpressOrderContract {
+		trip.route = nil
+		trip.destination = Berth{}
+	}
+	pass.reset()
+	return nil
+}
+
+// joinTrip joins the trip to an onboard pickup or to a shared ride, and
+// releases the pod v of the trip. Only a trip with no pod, or with a pod
+// that the join policy can release, can join.
+func (s *Simulation) joinTrip(trip *waitingTrip, v *vehicle, pass *dispatchPass) bool {
+	if trip.request.PodID != "" && !s.reassigns(v) {
+		return false
+	}
+	if !s.joinOnboardPickup(trip) && !s.joinSharedRide(trip, pass) {
+		return false
+	}
+	pass.reset()
+	if v != nil {
+		delete(pass.assigned, v.Pod.ID)
+		s.releasePickup(v)
+	}
+	return true
+}
+
+// takeLocalPickup gives the trip an idle pod at its pickup station in place
+// of v, a pod on its way to the pickup, and releases v. It returns the pod
+// of the trip.
+func (s *Simulation) takeLocalPickup(trip *waitingTrip, v *vehicle, pass *dispatchPass) *vehicle {
+	origin := trip.request.legOrigin()
+	if v == nil || v.Pod.Activity == Idle && v.Pod.StationID == origin || !s.mayBeIdle(pass, origin) {
+		return v
+	}
+	local := s.localPickupForRequest(trip.request, trip.excludedPod, pass)
+	if local == nil {
+		return v
+	}
+	pass.reset()
+	delete(pass.assigned, v.Pod.ID)
+	s.releasePickup(v)
+	assignPickup(trip, local)
+	trip.route, trip.destination = nil, Berth{}
+	pass.assigned[local.Pod.ID] = true
+	return local
+}
+
+// assignPickupPod assigns a pickup pod to a trip with no pod, and sends the
+// pod to the pickup when it is away. It returns the pod of the trip, and
+// false when the trip waits with no pod.
+func (s *Simulation) assignPickupPod(i int, trip *waitingTrip, pass *dispatchPass) (*vehicle, bool) {
+	v := s.cachedPickupPod(trip, pass)
+	if v == nil {
+		trip.request.DispatchReason = "Waiting for an available pod"
+		if !s.hasFittingPod(trip.request) {
+			trip.request.DispatchReason = "Waiting for a certified vehicle that fits this party and route"
+		}
+		return nil, false
+	}
+	if s.orderContract == ExpressOrderContract && trip.request.PodID != v.Pod.ID {
+		trip.route, trip.destination = nil, Berth{}
+	}
+	away := v.Pod.StationID != trip.request.legOrigin() || v.Pod.Activity != Idle
+	if away && s.waitForFinishingPod(trip, v, pass.assigned) {
+		return nil, false
+	}
+	pass.reset()
+	if away && !s.sendTripPickup(trip, v) {
+		return nil, false
+	}
+	assignPickup(trip, v)
+	pass.assigned[v.Pod.ID] = true
+	if s.reassignPickup(i) {
+		pass.begin(s.waiting)
+		v = s.findVehicle(trip.request.PodID)
+	}
+	return v, true
+}
+
+// cachedPickupPod returns the pickup pod for the trip. The pass keeps the
+// result for each dispatch key.
+func (s *Simulation) cachedPickupPod(trip *waitingTrip, pass *dispatchPass) *vehicle {
+	key := dispatchKey{options: trip.request.dispatchOptions(), excluded: trip.excludedPod}
+	if v, known := pass.optionPickups[key]; known {
+		return v
+	}
+	v := s.pickupPodForRequest(trip.request, trip.excludedPod, pass)
+	if pass.optionPickups == nil {
+		pass.optionPickups = make(map[dispatchKey]*vehicle)
+	}
+	pass.optionPickups[key] = v
+	return v
+}
+
+// sendTripPickup sends the pod v to the pickup of the trip. The route of the
+// trip then starts at the destination of v. It reports false when v has no
+// access to the pickup.
+func (s *Simulation) sendTripPickup(trip *waitingTrip, v *vehicle) bool {
+	if err := s.sendPickupForRequest(v, trip.request); err != nil {
+		trip.request.DispatchReason = "Waiting for pickup access"
+		return false
+	}
+	trip.route = nil
+	if v.destination.Node != "" {
+		trip.route, _ = s.stationApproachRouteForClass(v.destination.Node, trip.request.To, v.Pod.Class)
+	}
+	trip.destination = Berth{}
+	return true
+}
+
+// boardOrWait boards the trip at index i when its pod v is idle at the
+// pickup station. Otherwise it sets the dispatch reason of the trip. It
+// returns the index of the next trip.
+func (s *Simulation) boardOrWait(i int, trip *waitingTrip, v *vehicle, previousReason string, pass *dispatchPass) int {
+	if v.Pod.Activity != Idle || v.Pod.StationID != trip.request.legOrigin() {
+		trip.request.DispatchReason = pickupReason(v, previousReason)
+		return i + 1
+	}
+	pass.reset()
+	if err := s.board(v, *trip); err != nil {
+		trip.request.DispatchReason = "Waiting for destination access"
+		return i + 1
+	}
+	s.waiting = slices.Delete(s.waiting, i, i+1)
+	return i
+}
+
+// pickupReason returns the dispatch reason of a trip whose pod v is not
+// ready at the pickup. previous is the last reason of the trip.
+func pickupReason(v *vehicle, previous string) string {
+	if v.RelocatingTo == "" {
+		return "Waiting for destination access"
+	}
+	suffix := " traveling to pickup"
+	if v.Pod.WaitReason != NoWait && v.Pod.Speed < 0.1 {
+		suffix = " waiting in traffic"
+	}
+	return podReason(previous, v.Pod.ID, suffix)
 }
 
 // podReason returns "Pod " + podID + suffix. When previous has the same
