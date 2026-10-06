@@ -463,6 +463,10 @@ Parser acceptance alone cannot pass a physical or operating gate.
 | Foundation parity | Old-only trajectories, Group journeys, compact protected arithmetic, ordinary save and stream bytes, default settings, and unsupported Express behavior under foundation APIs. |
 | Independent mutations | Compiled actual-caller mutations of contract selection, whole-party capacity, aggregate bound, allowlist/path validation, ownership release, current speed, large-link rejection, and packed discriminator checks. A compile failure is not a kill. |
 
+The wire and browser evidence for the "Save bytes and shape" and "Stream and public consumers" rows is historical.
+It measured save 7, project 4, hello 4, and the Express media type, which the format merge removed in commits `248f26e`, `9de7a3b`, and `5f1adac`.
+Requalification of these rows on the merged formats is pending.
+
 Run the relevant package suites, scoped races, vet, lint, and fresh Go diagnostics for the later implementation.
 Report assertion failures separately from parser rejection, byte overflow, watchdog expiration, and unavailable external gates.
 Do not claim a completed full-repository race from scoped checks.
