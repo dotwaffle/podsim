@@ -107,6 +107,7 @@ func TestStartupCancelAfterRestore(t *testing.T) {
 // startupCancelAfterRestore runs TestStartupCancelAfterRestore with the
 // restore result tier.
 func startupCancelAfterRestore(t *testing.T, encoded []byte, tier sim.RestoreTier) {
+	t.Helper()
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		store := &fakeStore{data: bytes.Clone(encoded)}
