@@ -21,22 +21,23 @@ import (
 func DecodeStreamJSON(data []byte) (StreamEnvelope, error) {
 	var envelope StreamEnvelope
 	members, err := decodeMarkedJSON(data, false, &envelope)
-	envelope.incidentMembers, envelope.faultMembers = members.incident, members.fault
+	envelope.incidentMembers, envelope.faultMembers, envelope.emergencyMembers = members.incident, members.fault, members.emergency
 	return envelope, err
 }
 
-// markedMembers records whether a document has a stage 1 incident member
-// and a stage 2 fault member, with any value.
+// markedMembers records whether a document has a stage 1 incident member,
+// a stage 2 fault member, and a stage 3 emergency member, with any value.
 type markedMembers struct {
-	incident, fault bool
+	incident, fault, emergency bool
 }
 
 // decodeMarkedJSON decodes a stream envelope, or an HTTP state when
 // httpState is true, into target. The root contract markers of the
 // document select the rules of the scans. Each scan reads the tokens only,
 // so it bounds the document before the typed decode makes values. It
-// reports whether the document has a stage 1 incident member and a stage 2
-// fault member. The caller checks that against the markers.
+// reports whether the document has a stage 1 incident member, a stage 2
+// fault member, and a stage 3 emergency member. The caller checks that
+// against the markers.
 func decodeMarkedJSON(data []byte, httpState bool, target any) (markedMembers, error) {
 	if len(data) > MaxStreamJSON {
 		return markedMembers{}, errors.New("state JSON too large")
@@ -72,7 +73,11 @@ func decodeMarkedJSON(data []byte, httpState bool, target any) (markedMembers, e
 	if scanErr != nil {
 		return markedMembers{}, scanErr
 	}
-	return markedMembers{incident: incident, fault: fault}, decodePackedStreamJSON(data, target)
+	emergency, scanErr := scanEmergencyMembers(data)
+	if scanErr != nil {
+		return markedMembers{}, scanErr
+	}
+	return markedMembers{incident: incident, fault: fault, emergency: emergency}, decodePackedStreamJSON(data, target)
 }
 
 // scanRootMarkers bounds data with the limits of its root contract markers

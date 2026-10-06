@@ -18,6 +18,7 @@ type TopologySnapshot struct {
 	OrderContract     sim.OrderContract      `json:"orderContract,omitzero"`
 	IncidentContract  sim.IncidentContract   `json:"incidentContract,omitzero"`
 	FaultContract     sim.FaultContract      `json:"faultContract,omitzero"`
+	EmergencyContract sim.EmergencyContract  `json:"emergencyContract,omitzero"`
 	ExpressServices   []sim.ExpressService   `json:"expressServices,omitempty"`
 	ProjectVersion    int                    `json:"projectVersion,omitzero"`
 	ServerStart       string                 `json:"serverStart"`
@@ -86,6 +87,11 @@ type SimulationFrame struct {
 	// of sim.Snapshot. Faults needs the fault marker.
 	FaultContract sim.FaultContract `json:"faultContract,omitzero"`
 	Faults        sim.FaultsView    `json:"faults,omitzero"`
+	// EmergencyContract and Emergencies are the emergency marker and the
+	// active emergencies of sim.Snapshot. Emergencies needs the emergency
+	// marker.
+	EmergencyContract sim.EmergencyContract `json:"emergencyContract,omitzero"`
+	Emergencies       sim.EmergenciesView   `json:"emergencies,omitzero"`
 }
 
 // VehicleFrame contains dynamic vehicle data and its ordered route IDs.
@@ -131,6 +137,9 @@ func frameState(topology TopologySnapshot, frame StateFrame, immutable bool) (St
 		return State{}, err
 	}
 	if err := faultFrameBinding(topology, frame.Simulation); err != nil {
+		return State{}, err
+	}
+	if err := emergencyFrameBinding(topology, frame.Simulation); err != nil {
 		return State{}, err
 	}
 	if topology.ServerStart != frame.ServerStart || topology.Epoch != frame.Epoch || topology.ProjectRevision != frame.ProjectRevision {
@@ -197,6 +206,7 @@ func frameState(topology TopologySnapshot, frame StateFrame, immutable bool) (St
 			EmptyDistanceMeters: snapshot.EmptyDistanceMeters, RebalanceMoves: snapshot.RebalanceMoves,
 			Interrupted: snapshot.Interrupted, InterruptedPassengers: snapshot.InterruptedPassengers,
 			FaultContract: snapshot.FaultContract, Faults: cloneFaults(snapshot.Faults),
+			EmergencyContract: snapshot.EmergencyContract, Emergencies: cloneEmergencies(snapshot.Emergencies),
 		},
 		Speed: frame.Speed, SpeedReduction: frame.SpeedReduction, Demand: frame.Demand, Checkpoints: slices.Clone(frame.Checkpoints),
 		Build: frame.Build, ServerStart: frame.ServerStart, Restore: frame.Restore,
@@ -250,6 +260,7 @@ func stateFrame(state State) StateFrame {
 			EmptyDistanceMeters: snapshot.EmptyDistanceMeters, RebalanceMoves: snapshot.RebalanceMoves,
 			Interrupted: snapshot.Interrupted, InterruptedPassengers: snapshot.InterruptedPassengers,
 			FaultContract: snapshot.FaultContract, Faults: cloneFaults(snapshot.Faults),
+			EmergencyContract: snapshot.EmergencyContract, Emergencies: cloneEmergencies(snapshot.Emergencies),
 		},
 		Speed: state.Speed, SpeedReduction: state.SpeedReduction, Demand: state.Demand, Checkpoints: slices.Clone(state.Checkpoints),
 		Build: state.Build, ServerStart: state.ServerStart, Restore: state.Restore,

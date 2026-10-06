@@ -55,6 +55,15 @@ const (
 	composedFaultStreamAllocation = 262_144
 )
 
+// composedEmergencySaveAllocation and composedEmergencyStreamAllocation
+// are the stage 3 allocations of the incident emergency contract (section
+// 11.6): the emergency records of the joint save allocation of the
+// incident contract, and the stream and HTTP allocation.
+const (
+	composedEmergencySaveAllocation   = 65_536
+	composedEmergencyStreamAllocation = 196_608
+)
+
 // composedServiceID is the widest service ID of an order.
 var composedServiceID = strings.Repeat("\x03", 64)
 
@@ -259,6 +268,82 @@ func composedFaultSave(t *testing.T, file stateFile) stateFile {
 	return file
 }
 
+// composedEmergencyProject gives config the emergency marker and the
+// widest emergencies settings, which project.Validate measures for each
+// project with the marker. The name fills the project member to its byte
+// cap again.
+func composedEmergencyProject(t *testing.T, config *project.Config) {
+	t.Helper()
+	*config = project.Clone(*config)
+	config.EmergencyContract = sim.EmergencyV1Contract
+	config.Emergencies = &project.EmergencyConfig{PerHour: new(math.Copysign(0, -1))}
+	config.Name = ""
+	config.Name = strings.Repeat("n", project.MaxFileBytes-jsonSize(t, *config))
+	if size := jsonSize(t, *config); size != project.MaxFileBytes {
+		t.Fatalf("project has %d bytes, want %d", size, project.MaxFileBytes)
+	}
+}
+
+// composedEmergencyRecord returns saved emergency record index of count
+// at its widest (section 11.6 of the incident emergency contract): a
+// 20-digit generation and serial, a 19-digit start and order, and pod
+// index 299. The serials increase with index.
+func composedEmergencyRecord(index, count int) sim.SavedEmergency {
+	return sim.SavedEmergency{
+		Generation: math.MaxUint64, Serial: math.MaxUint64 - uint64(count-1-index),
+		Start: math.MaxInt64, Pod: project.MaxPods - 1, Order: math.MaxInt64,
+	}
+}
+
+// composedEmergencyCounters are the widest emergency counters.
+var composedEmergencyCounters = sim.EmergencyCounters{Started: math.MaxInt64, Ended: math.MaxInt64, EmergencyTicks: math.MaxInt64}
+
+// composedEmergencySave adds the stage 3 members of the incident emergency
+// contract to file at the widest values that a server writes:
+// sim.MaxEmergencies records of composedEmergencyRecord and the counters
+// at the largest integer. The save decoder checks the shape of a tuple,
+// and the restore checks its values.
+func composedEmergencySave(t *testing.T, file stateFile) stateFile {
+	t.Helper()
+	composedEmergencyProject(t, &file.Project)
+	records := make([]sim.SavedEmergency, sim.MaxEmergencies)
+	for i := range records {
+		records[i] = composedEmergencyRecord(i, len(records))
+	}
+	file.Simulation.Emergencies = &sim.SavedEmergencies{Records: records, Counters: composedEmergencyCounters}
+	return file
+}
+
+// composedEmergencyView returns the stream row of an active emergency at
+// its widest, for the pod podID: a 20-digit generation and serial, a
+// 19-digit order and start tick, and the phase unloading. The serial is
+// below the serial of each composed fault, and it increases with index.
+func composedEmergencyView(index, count int, podID string) sim.EmergencyView {
+	serial := math.MaxUint64 - uint64(maxFaultRecords) - uint64(count-1-index)
+	return sim.EmergencyView{
+		ID: fmt.Sprintf("i%d.%d", uint64(math.MaxUint64), serial), PodID: podID,
+		OrderID: math.MaxInt64, Phase: sim.EmergencyPhaseUnloading, StartTick: math.MaxInt64,
+	}
+}
+
+// composedEmergencyFrame adds the stage 3 stream members of the incident
+// emergency contract to frame at the widest values that ApplyStream
+// accepts: the emergency marker, the counters at the largest integer, and
+// sim.MaxEmergencies rows of composedEmergencyView, each for a vehicle of
+// its own. The start of a row is not after the frame tick, so the frame
+// tick is the largest integer.
+func composedEmergencyFrame(frame StreamFrame) StreamFrame {
+	simulation := &frame.State.Simulation
+	simulation.EmergencyContract = sim.EmergencyV1Contract
+	simulation.Tick = math.MaxInt64
+	active := make([]sim.EmergencyView, sim.MaxEmergencies)
+	for i := range active {
+		active[i] = composedEmergencyView(i, len(active), simulation.Vehicles[i].Pod.ID)
+	}
+	simulation.Emergencies = sim.EmergenciesView{Active: active, Counters: composedEmergencyCounters}
+	return frame
+}
+
 // composedDebrisFrom and composedDebrisTo are the widest debris segment
 // that the decoders accept: 0 <= from < to <= from+50, and each bound has
 // 23 bytes in its shortest form.
@@ -267,11 +352,12 @@ const (
 	composedDebrisTo   = 2.2250738585072024e-308
 )
 
-// composedSave returns the composed save of shape with the stage 1 and
-// stage 2 members of the incident contract. See composedBaseSave.
+// composedSave returns the composed save of shape with the stage 1,
+// stage 2, and stage 3 members of the incident contracts. See
+// composedBaseSave.
 func composedSave(t *testing.T, shape composedShape) stateFile {
 	t.Helper()
-	return composedFaultSave(t, composedIncidentSave(t, composedBaseSave(t, shape)))
+	return composedEmergencySave(t, composedFaultSave(t, composedIncidentSave(t, composedBaseSave(t, shape))))
 }
 
 // composedBaseSave returns the composed save of shape without the members
@@ -393,8 +479,8 @@ func composedVehicleID(index int) string {
 	return strings.Repeat("\x01", 62) + string([]byte{composedVehicleEscapes[index/n], composedVehicleEscapes[index%n]})
 }
 
-// composedStreamFrame returns the composed frame of shape with the stage 1
-// and stage 2 members of the incident contract. The plain frame adds the
+// composedStreamFrame returns the composed frame of shape with the stage
+// 1, stage 2, and stage 3 members of the incident contracts. The plain frame adds the
 // service ID of each order, which the widest builder omits and the
 // decoder accepts. Each vehicle gets an ID of its own, of the same size,
 // so that each pod record names another vehicle.
@@ -421,7 +507,7 @@ func composedStreamFrame(t *testing.T, shape composedShape) StreamFrame {
 	if shape.markers.coupling != "" {
 		frame = composedCouplingFrame(frame)
 	}
-	return composedFaultFrame(composedIncidentFrame(frame))
+	return composedEmergencyFrame(composedFaultFrame(composedIncidentFrame(frame)))
 }
 
 // TestComposedWorstCaseFormats measures one composed fixture for each save
@@ -489,6 +575,9 @@ func TestComposedWorstCaseFormats(t *testing.T) { //nolint:tparallel // Subtests
 				"The saved project has the widest faults settings, and the save has 300 pod records and 64 debris records with 20-digit generations and serials, 19-digit ticks, pod index 299, the last lane index, segment bounds of 23 bytes, and the largest counters. " +
 				"In the streams, the faults have the largest counters, 300 pod records with the phase evacuated, and 64 debris records with lane IDs of 64 bytes and segment bounds of 23 bytes; each record has a 20-digit generation and serial and 19-digit ticks. " +
 				"Each vehicle has an ID of its own with 64 bytes, and the frame tick is the largest integer, because a fault does not start after the frame tick. " +
+				"Each shape also has the emergency marker and the stage 3 members at the widest values that a server writes. " +
+				"The saved project has the widest emergencies settings, and the save has 4 records with 20-digit generations and serials, a 19-digit start and order, pod index 299, and the largest counters. " +
+				"In the streams, the emergencies have the largest counters and 4 rows with the phase unloading, each for a vehicle of its own, with a 20-digit generation and serial, and a 19-digit order and start tick. " +
 				"Coupling save: the coupling markers and 150 coupling groups; the 300 member pods are traveling compact pods with a route of 13,000 lanes. " +
 				"Express with coupling has no group, because a member pod keeps 8 of the 20 riders of an Express pod; the test also decodes it with 1 group. " +
 				"The saved project and the HTTP topology have no coupling sites or corridors, because their network has no valid geometry; each member is at its byte cap. " +
@@ -531,7 +620,10 @@ func measureComposedSave(t *testing.T, shape composedShape) composedSize {
 	incident := composedIncidentSave(t, base)
 	incidentBytes := len(composedSaveJSON(t, incident))
 	runtime.GC()
-	file := composedFaultSave(t, incident)
+	fault := composedFaultSave(t, incident)
+	faultBytes := len(composedSaveJSON(t, fault))
+	runtime.GC()
+	file := composedEmergencySave(t, fault)
 	raw := composedSaveJSON(t, file)
 	size := composedSize{Shape: shape.name, Format: "save", RawBytes: len(raw), BoundBytes: len(raw), CapBytes: MaxStateBytes, HeadroomBytes: MaxStateBytes - len(raw)}
 	if len(raw) > MaxStateBytes {
@@ -568,6 +660,10 @@ func measureComposedSave(t *testing.T, shape composedShape) composedSize {
 	if faults := decoded.Simulation.Faults; faults == nil || !slices.Equal(faults.Records, file.Simulation.Faults.Records) || faults.Counters != file.Simulation.Faults.Counters {
 		t.Fatalf("%s save lost fault members", shape.name)
 	}
+	if emergencies := decoded.Simulation.Emergencies; emergencies == nil || !slices.Equal(emergencies.Records, file.Simulation.Emergencies.Records) ||
+		emergencies.Counters != file.Simulation.Emergencies.Counters {
+		t.Fatalf("%s save lost emergency members", shape.name)
+	}
 	// The stage 1 members fit the stage 1 save allocation of section 11.7
 	// of the incident contract (section 14.4).
 	allocation := composedIncidentAllocation
@@ -581,19 +677,28 @@ func measureComposedSave(t *testing.T, shape composedShape) composedSize {
 	t.Logf("%s save stage 1 growth=%d allocation=%d", shape.name, growth, allocation)
 	// The stage 2 members fit the save sub-allocation of section 13.6 of
 	// the incident suspension contract.
-	growth = len(raw) - incidentBytes
+	growth = faultBytes - incidentBytes
 	if growth > composedFaultSaveAllocation {
 		t.Errorf("%s save: the stage 2 members add %d bytes, more than the allocation of %d", shape.name, growth, composedFaultSaveAllocation)
 	}
 	t.Logf("%s save stage 2 growth=%d allocation=%d", shape.name, growth, composedFaultSaveAllocation)
+	// The stage 3 members fit the emergency records of the joint save
+	// allocation (section 11.6 of the incident emergency contract).
+	growth = len(raw) - faultBytes
+	if growth > composedEmergencySaveAllocation {
+		t.Errorf("%s save: the stage 3 members add %d bytes, more than the allocation of %d", shape.name, growth, composedEmergencySaveAllocation)
+	}
+	t.Logf("%s save stage 3 growth=%d allocation=%d", shape.name, growth, composedEmergencySaveAllocation)
 	return size
 }
 
 // measureComposedStream measures the full frame, the delta and the HTTP
 // state of the composed frame of shape. A document over the cap is
 // recorded, and the test does not decode it. Each document also fits the
-// stage 2 stream allocation: it is at most that many bytes larger than
-// the same document without the stage 2 members.
+// stage 2 and the stage 3 stream allocations: the stage 2 members add at
+// most the stage 2 allocation to the document without the stage 2 and
+// stage 3 members, and the stage 3 members add at most the stage 3
+// allocation to the document without them.
 func measureComposedStream(t *testing.T, shape composedShape) []composedSize {
 	t.Helper()
 	frame := composedStreamFrame(t, shape)
@@ -602,12 +707,18 @@ func measureComposedStream(t *testing.T, shape composedShape) []composedSize {
 	// encodes it with the options of EncodeStateJSON, and it decodes it with
 	// the bounded scans and the typed decode of DecodeStateJSON.
 	topology, _ := fitWidestTopology(t, shape.markers)
-	incident := frame
+	fault := frame
+	fault.State.Simulation.EmergencyContract, fault.State.Simulation.Emergencies = "", sim.EmergenciesView{}
+	incident := fault
 	incident.State.Simulation.FaultContract, incident.State.Simulation.Faults = "", sim.FaultsView{}
 	incident.State.Simulation.Tick = math.MinInt64
-	var incidentBytes []int
+	var incidentBytes, faultBytes []int
 	for _, document := range composedStreamDocuments(t, shape, incident, topology) {
 		incidentBytes = append(incidentBytes, len(document))
+	}
+	runtime.GC()
+	for _, document := range composedStreamDocuments(t, shape, fault, topology) {
+		faultBytes = append(faultBytes, len(document))
 	}
 	runtime.GC()
 	limits := streamLimits(shape.markers)
@@ -619,11 +730,16 @@ func measureComposedStream(t *testing.T, shape composedShape) []composedSize {
 			sizes = append(sizes, composedSize{Shape: shape.name, Format: format})
 			continue
 		}
-		growth := len(raw) - incidentBytes[index]
+		growth := faultBytes[index] - incidentBytes[index]
 		if growth > composedFaultStreamAllocation {
 			t.Errorf("%s %s: the stage 2 members add %d bytes, more than the allocation of %d", shape.name, format, growth, composedFaultStreamAllocation)
 		}
 		t.Logf("%s %s stage 2 growth=%d allocation=%d", shape.name, format, growth, composedFaultStreamAllocation)
+		growth = len(raw) - faultBytes[index]
+		if growth > composedEmergencyStreamAllocation {
+			t.Errorf("%s %s: the stage 3 members add %d bytes, more than the allocation of %d", shape.name, format, growth, composedEmergencyStreamAllocation)
+		}
+		t.Logf("%s %s stage 3 growth=%d allocation=%d", shape.name, format, growth, composedEmergencyStreamAllocation)
 		var size composedSize
 		if format == "http" {
 			size = composedStreamSize(t, shape, format, raw, len(composedTopologyJSON(t, topology, frame)))
@@ -638,26 +754,28 @@ func measureComposedStream(t *testing.T, shape composedShape) []composedSize {
 			t.Fatalf("%s %s failed the bounded scan: %v", shape.name, format, scanErr)
 		}
 		assertExplicitArrayBounds(t, shape.name+" "+format, raw, limits)
-		var vehicles, pending, groups, faults int
+		var vehicles, pending, groups, faults, emergencies int
 		switch format {
 		case "http":
 			var decoded StateEnvelope
-			if members, err := decodeMarkedJSON(raw, true, &decoded); err != nil || !members.incident || !members.fault {
+			if members, err := decodeMarkedJSON(raw, true, &decoded); err != nil || !members.incident || !members.fault || !members.emergency {
 				t.Fatalf("%s HTTP state decode: %v, marked members %+v", shape.name, err, members)
 			}
 			simulation := decoded.Frame.State.Simulation
 			vehicles, pending, groups, faults = len(simulation.Vehicles), len(simulation.Pending), len(simulation.CouplingGroups), len(simulation.Faults.Active)
+			emergencies = len(simulation.Emergencies.Active)
 		case "full":
 			decoded, err := DecodeStreamJSON(raw)
-			if err != nil || !decoded.incidentMembers || !decoded.faultMembers {
-				t.Fatalf("%s full decode: %v, incident members %v, fault members %v", shape.name, err, decoded.incidentMembers, decoded.faultMembers)
+			if err != nil || !decoded.incidentMembers || !decoded.faultMembers || !decoded.emergencyMembers {
+				t.Fatalf("%s full decode: %v, incident members %v, fault members %v, emergency members %v", shape.name, err, decoded.incidentMembers, decoded.faultMembers, decoded.emergencyMembers)
 			}
 			simulation := decoded.Full.State.Simulation
 			vehicles, pending, groups, faults = len(simulation.Vehicles), len(simulation.Pending), len(simulation.CouplingGroups), len(simulation.Faults.Active)
+			emergencies = len(simulation.Emergencies.Active)
 		default:
 			decoded, err := DecodeStreamJSON(raw)
-			if err != nil || !decoded.incidentMembers || !decoded.faultMembers {
-				t.Fatalf("%s delta decode: %v, incident members %v, fault members %v", shape.name, err, decoded.incidentMembers, decoded.faultMembers)
+			if err != nil || !decoded.incidentMembers || !decoded.faultMembers || !decoded.emergencyMembers {
+				t.Fatalf("%s delta decode: %v, incident members %v, fault members %v, emergency members %v", shape.name, err, decoded.incidentMembers, decoded.faultMembers, decoded.emergencyMembers)
 			}
 			var replacement couplingReplacement
 			if raw := decoded.Delta.Groups["coupling"]; raw != nil {
@@ -673,10 +791,16 @@ func measureComposedStream(t *testing.T, shape composedShape) []composedSize {
 			if err := json.Unmarshal(decoded.Delta.Groups["faults"], &active); err != nil {
 				t.Fatal(err)
 			}
+			emergencyGroup, groupErr := decodeEmergenciesGroup(decoded.Delta.Groups["emergencies"])
+			if groupErr != nil {
+				t.Fatal(groupErr)
+			}
 			vehicles, pending, groups, faults = len(decoded.Delta.Vehicles), len(group), len(replacement.Groups), len(active.Active)
+			emergencies = len(emergencyGroup.Active)
 		}
-		if vehicles != project.MaxPods || int64(pending) != orders || groups != len(frame.State.Simulation.CouplingGroups) || faults != maxFaultRecords {
-			t.Fatalf("%s %s lost records: %d vehicles, %d orders, %d coupling groups, %d faults", shape.name, format, vehicles, pending, groups, faults)
+		if vehicles != project.MaxPods || int64(pending) != orders || groups != len(frame.State.Simulation.CouplingGroups) || faults != maxFaultRecords ||
+			emergencies != sim.MaxEmergencies {
+			t.Fatalf("%s %s lost records: %d vehicles, %d orders, %d coupling groups, %d faults, %d emergencies", shape.name, format, vehicles, pending, groups, faults, emergencies)
 		}
 		runtime.GC()
 	}
@@ -688,6 +812,7 @@ func measureComposedStream(t *testing.T, shape composedShape) []composedSize {
 func composedTopologyJSON(t *testing.T, topology TopologySnapshot, frame StreamFrame) []byte {
 	t.Helper()
 	topology.IncidentContract, topology.FaultContract = frame.State.Simulation.IncidentContract, frame.State.Simulation.FaultContract
+	topology.EmergencyContract = frame.State.Simulation.EmergencyContract
 	raw, err := json.Marshal(topology)
 	if err != nil {
 		t.Fatal(err)
@@ -717,6 +842,7 @@ func composedStreamDocuments(t *testing.T, shape composedShape, frame StreamFram
 		documents[index] = raw
 	}
 	topology.IncidentContract, topology.FaultContract = frame.State.Simulation.IncidentContract, frame.State.Simulation.FaultContract
+	topology.EmergencyContract = frame.State.Simulation.EmergencyContract
 	envelope := StateEnvelope{CouplingContract: shape.markers.coupling, OrderContract: shape.markers.order, Topology: topology, Frame: frame}
 	raw, err := jsonv2.Marshal(envelope, json.DefaultOptionsV1(), packedRequestOptions())
 	if err != nil {
@@ -752,4 +878,48 @@ func composedStreamSize(t *testing.T, shape composedShape, format string, raw []
 	}
 	t.Logf("%s %s raw=%d gzip=%d bound=%d cap=%d headroom=%d", shape.name, format, size.RawBytes, size.GzipBytes, size.BoundBytes, MaxStreamJSON, size.HeadroomBytes)
 	return size
+}
+
+// TestEmergencyByteAllocation encodes the stage 3 members with 300 records
+// at their widest, the pod limit, with no prescan and no decode (section
+// 14.4 of the incident emergency contract). The totals are the figures of
+// section 11.6, and they fit the stage 3 allocations, so the budget holds
+// for any record cap up to the pod limit.
+func TestEmergencyByteAllocation(t *testing.T) {
+	t.Parallel()
+	const count = project.MaxPods
+	records := make([]sim.SavedEmergency, count)
+	views := make([]sim.EmergencyView, count)
+	for i := range count {
+		records[i] = composedEmergencyRecord(i, count)
+		views[i] = composedEmergencyView(i, count, composedVehicleID(i))
+	}
+	member := func(name string, value any, options ...jsonv2.Options) int {
+		t.Helper()
+		data, err := jsonv2.Marshal(value, options...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// The member has a separator and its name before the value.
+		return len(`,"`+name+`":`) + len(data)
+	}
+	file := stateFile{}
+	saved := member("emergencies", sim.SavedEmergencies{Records: records, Counters: composedEmergencyCounters},
+		jsonv2.Deterministic(true), jsonv2.WithMarshalers(file.simulationMarshalers()))
+	if saved != 26_536 || saved > composedEmergencySaveAllocation {
+		t.Errorf("the save member has %d bytes, want 26,536 within the allocation of %d", saved, composedEmergencySaveAllocation)
+	}
+	widest, err := jsonv2.Marshal(views[count-1])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(widest) != 528 {
+		t.Errorf("the widest row has %d bytes, want 528", len(widest))
+	}
+	stream := member("emergencies", sim.EmergenciesView{Active: views, Counters: composedEmergencyCounters}, json.DefaultOptionsV1())
+	marker := member("emergencyContract", sim.EmergencyV1Contract)
+	if stream != 158_835 || marker != 35 || stream+2*marker > composedEmergencyStreamAllocation {
+		t.Errorf("the stream member has %d bytes and each marker %d, want 158,835 and 35 within the allocation of %d", stream, marker, composedEmergencyStreamAllocation)
+	}
+	t.Logf("save member=%d allocation=%d stream member=%d markers=%d allocation=%d", saved, composedEmergencySaveAllocation, stream, 2*marker, composedEmergencyStreamAllocation)
 }

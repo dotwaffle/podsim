@@ -95,6 +95,12 @@ func streamLimits(markers contractMarkers) jsonLimits {
 	for _, path := range []string{"/full/state/simulation/faults/active", "/frame/state/simulation/faults/active", "/delta/groups/faults/active", "/active"} {
 		limits.arrays[path] = maxFaultRecords
 	}
+	// The active emergencies: a full frame, an HTTP frame, and the delta
+	// group (incident emergency contract, section 11.5). The group has no
+	// value wrapper. emergencyGroupLimits bounds the group alone.
+	for _, path := range []string{"/full/state/simulation/emergencies/active", "/frame/state/simulation/emergencies/active", "/delta/groups/emergencies/active"} {
+		limits.arrays[path] = sim.MaxEmergencies
+	}
 	for path, bound := range topologyJSONLimits.arrays {
 		limits.arrays["/topology"+path] = bound
 	}

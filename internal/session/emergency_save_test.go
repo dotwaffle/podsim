@@ -4,6 +4,7 @@ import (
 	"bytes"
 	jsonv2 "encoding/json/v2"
 	"errors"
+	"fmt"
 	"log/slog"
 	"reflect"
 	"slices"
@@ -275,11 +276,38 @@ func savedEmergencyPhase(t *testing.T, state sim.SavedState) string {
 	pod := state.Pods[state.Emergencies.Records[0].Pod]
 	switch {
 	case pod.Purpose == 0:
-		return "deferred"
+		return sim.EmergencyPhaseDeferred
 	case pod.Activity == "unloading":
-		return "unloading"
+		return sim.EmergencyPhaseUnloading
 	default:
-		return "bound"
+		return sim.EmergencyPhaseBound
+	}
+}
+
+// checkFrameEmergencies checks that the frame of a session shows the
+// emergency records and counters of its saved state, with the phase that
+// savedEmergencyPhase derives. Without the emergency marker, the frame
+// has no stage 3 member.
+func checkFrameEmergencies(t *testing.T, name string, saved sim.SavedState, frame SimulationFrame) {
+	t.Helper()
+	if frame.EmergencyContract == "" {
+		if !reflect.DeepEqual(frame.Emergencies, sim.EmergenciesView{}) {
+			t.Fatalf("%s: the unmarked frame has emergencies %+v", name, frame.Emergencies)
+		}
+		return
+	}
+	var want sim.EmergenciesView
+	if saved.Emergencies != nil {
+		want.Counters = saved.Emergencies.Counters
+		for _, record := range saved.Emergencies.Records {
+			want.Active = append(want.Active, sim.EmergencyView{
+				ID: fmt.Sprintf("i%d.%d", record.Generation, record.Serial), PodID: saved.Pods[record.Pod].ID,
+				OrderID: record.Order, Phase: savedEmergencyPhase(t, saved), StartTick: record.Start,
+			})
+		}
+	}
+	if !reflect.DeepEqual(frame.Emergencies, want) {
+		t.Fatalf("%s: the frame shows %+v, the save has %+v", name, frame.Emergencies, want)
 	}
 }
 
@@ -304,11 +332,11 @@ func TestEmergencySessionSaves(t *testing.T) {
 		if id := x.emergency(t); id != "i1.1" {
 			t.Fatalf("emergency ID %q", id)
 		}
-		phase(t, x.check(t, "start of a traveling pod"), "bound")
+		phase(t, x.check(t, "start of a traveling pod"), sim.EmergencyPhaseBound)
 		x.stepUntil(t, "the unload", func(state sim.SavedState) bool {
-			return savedEmergencyPhase(t, state) == "unloading"
+			return savedEmergencyPhase(t, state) == sim.EmergencyPhaseUnloading
 		})
-		phase(t, x.check(t, "end of the tick of the unload start"), "unloading")
+		phase(t, x.check(t, "end of the tick of the unload start"), sim.EmergencyPhaseUnloading)
 		x.stepUntil(t, "the end", func(state sim.SavedState) bool { return savedEmergencyPhase(t, state) == "" })
 		state := x.check(t, "end of the tick of the end")
 		if state.Emergencies == nil || state.Emergencies.Counters.Started != 1 || state.Emergencies.Counters.Ended != 1 || savedPod(state, "01").Withdrawn != 0 {
@@ -324,7 +352,7 @@ func TestEmergencySessionSaves(t *testing.T) {
 			return pod.BerthID != "" && pod.Activity != "idle" && activeRiders(pod) == 1
 		})
 		x.emergency(t)
-		phase(t, x.check(t, "paused start at a berth"), "unloading")
+		phase(t, x.check(t, "paused start at a berth"), sim.EmergencyPhaseUnloading)
 		x.stepUntil(t, "the end", func(state sim.SavedState) bool { return savedEmergencyPhase(t, state) == "" })
 		x.check(t, "end of the tick of the end")
 	})
@@ -334,13 +362,13 @@ func TestEmergencySessionSaves(t *testing.T) {
 		x.boardTwo(t)
 		fault := x.command(t, Command{Action: "fault", PodID: "01"})
 		x.emergency(t)
-		phase(t, x.check(t, "start of a faulted pod"), "deferred")
+		phase(t, x.check(t, "start of a faulted pod"), sim.EmergencyPhaseDeferred)
 		x.stepUntil(t, "rest", func(sim.SavedState) bool { return x.s.simulation.Snapshot().Vehicles[0].Pod.Speed == 0 })
-		phase(t, x.check(t, "end of the tick of rest"), "deferred")
+		phase(t, x.check(t, "end of the tick of rest"), sim.EmergencyPhaseDeferred)
 		x.command(t, Command{Action: "clearFault", FaultID: fault})
-		phase(t, x.check(t, "fault clear"), "deferred")
+		phase(t, x.check(t, "fault clear"), sim.EmergencyPhaseDeferred)
 		x.stepUntil(t, "the end of the deferral", func(state sim.SavedState) bool {
-			return savedEmergencyPhase(t, state) != "deferred"
+			return savedEmergencyPhase(t, state) != sim.EmergencyPhaseDeferred
 		})
 		x.check(t, "end of the tick of the advance")
 	})
@@ -368,7 +396,7 @@ func emergencySessionData(t *testing.T) (stateFile, []byte) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if phase := savedEmergencyPhase(t, file.Simulation); phase != "bound" {
+	if phase := savedEmergencyPhase(t, file.Simulation); phase != sim.EmergencyPhaseBound {
 		t.Fatalf("phase %q", phase)
 	}
 	return file, data

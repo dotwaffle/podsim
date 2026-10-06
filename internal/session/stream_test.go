@@ -573,7 +573,7 @@ func TestStreamFieldOwnership(t *testing.T) {
 			"identity": {"Epoch", "Revision", "ProjectRevision", "Generation", "Build", "ServerStart"}, "controls": {"Speed", "Redistribution", "SpeedReduction"}, "demand": {"Demand"}, "restore": {"Restore"}, "checkpoints": {"Checkpoints"}, "simulation": {"Simulation"},
 		}},
 		{reflect.TypeFor[SimulationFrame](), map[string][]string{
-			"contract identity": {"OrderContract", "CouplingContract", "IncidentContract", "FaultContract"}, "coupling": {"CouplingEnabled", "CouplingGroups"}, "global": {"Submitted", "Tick", "Paused", "Completed", "Demo", "DemoError"}, "incident": {"Interrupted", "InterruptedPassengers"}, "faults": {"Faults"}, "vehicles": {"Vehicles"}, "berths": {"Berths"}, "pending": {"Pending"},
+			"contract identity": {"OrderContract", "CouplingContract", "IncidentContract", "FaultContract", "EmergencyContract"}, "coupling": {"CouplingEnabled", "CouplingGroups"}, "global": {"Submitted", "Tick", "Paused", "Completed", "Demo", "DemoError"}, "incident": {"Interrupted", "InterruptedPassengers"}, "faults": {"Faults"}, "emergencies": {"Emergencies"}, "vehicles": {"Vehicles"}, "berths": {"Berths"}, "pending": {"Pending"},
 			"statistics": {"Wait", "Journey", "PassengerDistanceMeters", "RiderDistanceMeters", "DirectDistanceMeters", "MaxDetourRatio", "SharedParties", "SharedRidePartyLimit", "EmptyDistanceMeters", "RebalanceMoves"},
 		}},
 		{reflect.TypeFor[VehicleFrame](), map[string][]string{"pod": {"Pod"}, "riders": {"Riders"}, "boardings": {"Boardings"}, "stops": {"Stops"}, "presentation replaces route": {"RouteLaneIDs"}, "metadata": {"CouplingID", "RiddenMeters", "RelocatingTo", "Rebalancing", "PlatoonID", "PlatoonIndex", "Withdrawn", "Operational"}}},
@@ -673,7 +673,8 @@ func TestStreamBuildBound(t *testing.T) {
 // It leaves the contract markers, which must agree with the topology.
 func fillStreamScalars(v reflect.Value) {
 	if v.Type() == reflect.TypeFor[sim.OrderContract]() || v.Type() == reflect.TypeFor[sim.IncidentContract]() ||
-		v.Type() == reflect.TypeFor[sim.FaultContract]() || v.Type() == reflect.TypeFor[sim.FaultsView]() {
+		v.Type() == reflect.TypeFor[sim.FaultContract]() || v.Type() == reflect.TypeFor[sim.FaultsView]() ||
+		v.Type() == reflect.TypeFor[sim.EmergencyContract]() || v.Type() == reflect.TypeFor[sim.EmergenciesView]() {
 		return
 	}
 	switch v.Kind() {

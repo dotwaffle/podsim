@@ -68,6 +68,9 @@ func DecodeStateJSON(raw []byte) (State, error) {
 	if members.fault && envelope.Frame.State.Simulation.FaultContract == "" {
 		return State{}, errFaultStreamUnmarked
 	}
+	if members.emergency && envelope.Frame.State.Simulation.EmergencyContract == "" {
+		return State{}, errEmergencyStreamUnmarked
+	}
 	if envelope.CouplingContract != envelope.Topology.CouplingContract || envelope.OrderContract != envelope.Topology.OrderContract {
 		return State{}, errors.New("HTTP coupling or order contracts disagree")
 	}

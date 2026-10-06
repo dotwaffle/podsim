@@ -41,6 +41,13 @@ func scanFaultMembers(data []byte) (bool, error) {
 // scanFaultPaths is scanFaultMembers for the members at prefixes and
 // below them. The prefix "" names each member of data.
 func scanFaultPaths(data []byte, prefixes []string) (bool, error) {
+	return scanMarkedPaths(data, prefixes, "fault")
+}
+
+// scanMarkedPaths reports whether data has a member at one of prefixes or
+// below it, with any value. It refuses null for each such member. label
+// names the members in the error. The prefix "" names each member of data.
+func scanMarkedPaths(data []byte, prefixes []string, label string) (bool, error) {
 	decoder := jsontext.NewDecoder(bytes.NewReader(data))
 	found := false
 	for {
@@ -68,7 +75,7 @@ func scanFaultPaths(data []byte, prefixes []string) (bool, error) {
 		}
 		found = true
 		if decoder.PeekKind() == jsontext.KindNull {
-			return false, fmt.Errorf("stream fault member %s is null", decoder.StackPointer())
+			return false, fmt.Errorf("stream %s member %s is null", label, decoder.StackPointer())
 		}
 	}
 }

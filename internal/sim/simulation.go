@@ -176,6 +176,11 @@ type Snapshot struct {
 	// the fault counters. It is zero without the marker.
 	FaultContract FaultContract `json:"faultContract,omitzero"`
 	Faults        FaultsView    `json:"faults,omitzero"`
+	// EmergencyContract is the emergency marker. Emergencies holds the
+	// active emergencies and the emergency counters. It is zero without
+	// the marker.
+	EmergencyContract EmergencyContract `json:"emergencyContract,omitzero"`
+	Emergencies       EmergenciesView   `json:"emergencies,omitzero"`
 
 	// Submitted counts accepted passenger orders since reset.
 	Submitted int          `json:"submitted"`
@@ -346,6 +351,10 @@ type Simulation struct {
 	// it. faultsOn is the switch of the operations: the traffic demo keeps
 	// the marker and turns the operations off.
 	faultContract FaultContract
+	// emergencyContract is the emergency marker of the project. The frames
+	// copy it. emergenciesOn is the switch of the operations: the traffic
+	// demo keeps the marker and turns the operations off.
+	emergencyContract EmergencyContract
 	// incidentSerial counts the incident records. It is saved, and a reset
 	// keeps it. incidentGeneration is the session generation of the IDs.
 	incidentSerial     uint64
@@ -635,7 +644,7 @@ func (s *Simulation) Snapshot() Snapshot { return s.snapshot(true) }
 
 func (s *Simulation) snapshot(routes bool) Snapshot {
 	state := Snapshot{
-		OrderContract: s.orderContract, IncidentContract: s.incidentContract, FaultContract: s.faultContract,
+		OrderContract: s.orderContract, IncidentContract: s.incidentContract, FaultContract: s.faultContract, EmergencyContract: s.emergencyContract,
 		Submitted: s.requestID, Tick: s.tick, Paused: s.paused,
 		Completed: s.completed, Demo: s.demo != nil, DemoError: s.demoError,
 		Interrupted: s.interrupted, InterruptedPassengers: s.interruptedPassengers,
@@ -678,6 +687,9 @@ func (s *Simulation) snapshot(routes bool) Snapshot {
 	state.Berths = s.berthStates()
 	if s.faultContract != "" {
 		state.Faults = s.faultsView()
+	}
+	if s.emergencyContract != "" {
+		state.Emergencies = s.emergenciesView()
 	}
 	return state
 }

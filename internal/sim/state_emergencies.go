@@ -240,8 +240,10 @@ func CheckIncidentPolicy(input RestoreStateInput) error {
 
 // setEmergencyContract gives a restored simulation the emergency marker of
 // input: with the marker, the emergency start and the emergency stage are
-// on.
+// on. The session turns them off again for the fleet of the traffic demo,
+// which keeps the marker.
 func (s *Simulation) setEmergencyContract(input RestoreStateInput) {
+	s.emergencyContract = input.EmergencyContract
 	s.emergenciesOn = input.EmergencyContract != ""
 }
 

@@ -9,6 +9,7 @@ type FleetContracts struct {
 	CouplingContract  CouplingContract
 	IncidentContract  IncidentContract
 	FaultContract     FaultContract
+	EmergencyContract EmergencyContract
 	CouplingEnabled   bool
 	CouplingSites     []CouplingSite
 	CouplingCorridors []CouplingCorridor
@@ -24,7 +25,7 @@ func NewFleetWithContracts(network Network, placements []Placement, contracts Fl
 		if err != nil {
 			return nil, err
 		}
-		s.incidentContract, s.faultContract = contracts.IncidentContract, contracts.FaultContract
+		s.setFeatureContracts(contracts)
 		return s, nil
 	}
 	p, err := PrepareNetwork(network)
@@ -47,7 +48,7 @@ func (p *PreparedNetwork) NewFleetWithContracts(placements []Placement, contract
 		if err != nil {
 			return nil, err
 		}
-		s.incidentContract, s.faultContract = contracts.IncidentContract, contracts.FaultContract
+		s.setFeatureContracts(contracts)
 		return s, nil
 	}
 	if err := validatePlacementsWithOrderContract(p.network, placements, contracts.OrderContract); err != nil {
@@ -62,10 +63,17 @@ func (p *PreparedNetwork) NewFleetWithContracts(placements []Placement, contract
 	}
 	s := p.newFleet(placements)
 	s.orderContract = contracts.OrderContract
-	s.incidentContract, s.faultContract = contracts.IncidentContract, contracts.FaultContract
+	s.setFeatureContracts(contracts)
 	s.couplingNetwork = n
 	s.couplingEnabled = contracts.CouplingEnabled
 	return s, nil
+}
+
+// setFeatureContracts gives s the incident, fault, and emergency markers
+// of contracts. The frames copy them. The fault and emergency switches stay
+// the gates of the operations.
+func (s *Simulation) setFeatureContracts(contracts FleetContracts) {
+	s.incidentContract, s.faultContract, s.emergencyContract = contracts.IncidentContract, contracts.FaultContract, contracts.EmergencyContract
 }
 
 func validateFleetContracts(network Network, placements []Placement, contracts FleetContracts) error {
@@ -76,6 +84,9 @@ func validateFleetContracts(network Network, placements []Placement, contracts F
 		return err
 	}
 	if err := ValidateFaultContracts(contracts.FaultContract, contracts.IncidentContract); err != nil {
+		return err
+	}
+	if err := ValidateEmergencyContracts(contracts.EmergencyContract, contracts.IncidentContract); err != nil {
 		return err
 	}
 	if contracts.CouplingContract == "" {

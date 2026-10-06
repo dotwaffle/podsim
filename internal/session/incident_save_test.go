@@ -213,6 +213,7 @@ func (x incidentSave) checkStream(t *testing.T, name string) {
 			t.Fatalf("%s: vehicle %s shows %d %q, the save has %d %d", name, pod.ID, vehicle.Withdrawn, vehicle.Operational, pod.Withdrawn, pod.Purpose)
 		}
 	}
+	checkFrameEmergencies(t, name, saved, frame.State.Simulation)
 	client := x.stream
 	envelope := StreamEnvelope{OrderContract: frame.State.Simulation.OrderContract, Kind: "full", Stream: "incident", Sequence: client.sequence + 1, Source: sourceOf(frame), Build: frame.State.Build, Full: &frame}
 	if client.assembler != nil {
@@ -257,8 +258,9 @@ func (x incidentSave) checkStream(t *testing.T, name string) {
 }
 
 // incidentView is the incident marker and the stage 1 members of a frame,
-// with each order in the form "id:legFrom", and the fault marker and the
-// faults of the frame.
+// with each order in the form "id:legFrom", the fault marker and the
+// faults of the frame, and the emergency marker and the emergencies of the
+// frame.
 type incidentFrameView struct {
 	Marker                             sim.IncidentContract
 	Interrupted, InterruptedPassengers int
@@ -266,12 +268,14 @@ type incidentFrameView struct {
 	Pending                            []string
 	FaultMarker                        sim.FaultContract
 	Faults                             sim.FaultsView
+	EmergencyMarker                    sim.EmergencyContract
+	Emergencies                        sim.EmergenciesView
 }
 
 func incidentView(frame SimulationFrame) incidentFrameView {
 	order := func(r sim.Request) string { return fmt.Sprintf("%d:%s", r.ID, r.LegFrom) }
 	view := incidentFrameView{Marker: frame.IncidentContract, Interrupted: frame.Interrupted, InterruptedPassengers: frame.InterruptedPassengers,
-		FaultMarker: frame.FaultContract, Faults: frame.Faults}
+		FaultMarker: frame.FaultContract, Faults: frame.Faults, EmergencyMarker: frame.EmergencyContract, Emergencies: frame.Emergencies}
 	for _, vehicle := range frame.Vehicles {
 		riders := make([]string, len(vehicle.Riders))
 		for i, rider := range vehicle.Riders {

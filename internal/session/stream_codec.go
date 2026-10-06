@@ -144,6 +144,9 @@ type StreamEnvelope struct {
 	// faultMembers records the same for a stage 2 member or the faults
 	// group. See scanFaultMembers.
 	faultMembers bool
+	// emergencyMembers records the same for a stage 3 member or the
+	// emergencies group. See scanEmergencyMembers.
+	emergencyMembers bool
 }
 
 func sourceOf(f StreamFrame) StreamSource {
@@ -222,6 +225,11 @@ func frameGroups(f StreamFrame) (map[string]json.RawMessage, error) {
 	if state.Simulation.FaultContract != "" {
 		values["faults"] = state.Simulation.Faults
 	}
+	// With the emergency marker, the emergencies group is {} when no
+	// emergency is active and each counter is 0.
+	if state.Simulation.EmergencyContract != "" {
+		values["emergencies"] = state.Simulation.Emergencies
+	}
 	// Each group is raw bytes, so the options of the envelope encoder do
 	// not reach the orders of the pending group. Pack them here.
 	groups := make(map[string]json.RawMessage, len(values))
@@ -238,6 +246,9 @@ func makeDelta(a, b StreamFrame) (StreamDelta, error) {
 		return StreamDelta{}, err
 	}
 	if err := checkFaultFrame(b.State.Simulation); err != nil {
+		return StreamDelta{}, err
+	}
+	if err := checkEmergencyFrame(b.State.Simulation); err != nil {
 		return StreamDelta{}, err
 	}
 	old, err := frameGroups(a)
@@ -317,6 +328,16 @@ func applyGroups(f *StreamFrame, groups map[string]json.RawMessage) error {
 			}
 			f.State.Simulation.Faults = faults
 			continue
+		case "emergencies":
+			if f.State.Simulation.EmergencyContract == "" {
+				return errEmergencyStreamUnmarked
+			}
+			emergencies, err := decodeEmergenciesGroup(raw)
+			if err != nil {
+				return err
+			}
+			f.State.Simulation.Emergencies = emergencies
+			continue
 		case "global":
 			var v globalGroup
 			if err := decodeStreamJSON(raw, &v); err != nil {
@@ -378,6 +399,9 @@ func ApplyStream(previous StreamFrame, stream string, sequence uint64, e StreamE
 		return StreamFrame{}, err
 	}
 	if err := checkFaultPresence(e, previous); err != nil {
+		return StreamFrame{}, err
+	}
+	if err := checkEmergencyPresence(e, previous); err != nil {
 		return StreamFrame{}, err
 	}
 	var f StreamFrame
@@ -477,6 +501,9 @@ func ApplyStream(previous StreamFrame, stream string, sequence uint64, e StreamE
 		return StreamFrame{}, err
 	}
 	if err := checkFaultFrame(f.State.Simulation); err != nil {
+		return StreamFrame{}, err
+	}
+	if err := checkEmergencyFrame(f.State.Simulation); err != nil {
 		return StreamFrame{}, err
 	}
 	for i, v := range f.State.Simulation.Vehicles {

@@ -70,6 +70,9 @@ func NewStreamAssembler(topology TopologySnapshot) (*StreamAssembler, error) {
 	if err := sim.ValidateFaultContracts(topology.FaultContract, topology.IncidentContract); err != nil {
 		return nil, err
 	}
+	if err := sim.ValidateEmergencyContracts(topology.EmergencyContract, topology.IncidentContract); err != nil {
+		return nil, err
+	}
 	// A coupling member of the topology selects the coupling marker.
 	markers := contractMarkers{order: topology.OrderContract}
 	if hasCouplingTopology(topology) {
@@ -155,6 +158,9 @@ func (a *StreamAssembler) State(f StreamFrame) (State, error) {
 		return State{}, err
 	}
 	if err := a.faultLanes(f.State.Simulation); err != nil {
+		return State{}, err
+	}
+	if err := checkEmergencyFrame(f.State.Simulation); err != nil {
 		return State{}, err
 	}
 	if err := a.references(f); err != nil {
