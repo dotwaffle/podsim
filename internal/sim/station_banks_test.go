@@ -46,6 +46,33 @@ func TestBankTopologyAndClone(t *testing.T) {
 	}
 }
 
+// With two faults, validation reports the one that its pass order reaches
+// first: bank gates, then bank membership and paths, then external lanes.
+func TestBankValidationErrorOrder(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		mutate func(*Network)
+		want   string
+	}{
+		{"gates_before_aliases", func(n *Network) {
+			n.Stations[1].Entry = "bank-b-entry"
+			n.Stations[1].Banks[1].Entry = "bank-a-entry"
+		}, `station "hub" has an invalid or shared bank gate "bank-a-entry"`},
+		{"banks_before_lanes", func(n *Network) {
+			n.Stations[1].Banks[1].BerthIDs = []string{"bank-a-1"}
+			n.Lanes = append(n.Lanes, Lane{ID: "shortcut", From: "split", To: "bank-a-berth", SpeedLimit: 14})
+		}, `station "hub" has invalid bank berth "bank-a-1"`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			n := BankExample()
+			tc.mutate(&n)
+			if err := n.ValidateStationBanks(); err == nil || err.Error() != tc.want {
+				t.Fatalf("error = %v, want %s", err, tc.want)
+			}
+		})
+	}
+}
+
 func TestBankRoutesUseOwningGates(t *testing.T) {
 	n := BankExample()
 	for _, tc := range []struct {
