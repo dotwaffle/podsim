@@ -27,118 +27,178 @@ func couplingMember(name string) bool {
 	return false
 }
 
+// couplingScanner holds the state of scanCouplingJSON between tokens.
+// The decoder is not a field, so that seen does not escape with it.
+type couplingScanner struct {
+	topology bool
+	// seen holds the path of each coupling member that the scan checked.
+	seen       map[string]bool
+	rootClosed bool
+	scan       couplingScan
+}
+
 // scanCouplingJSON checks the coupling members of a saved state, or of a
 // topology when topology is true, before typed allocation. Native restore
 // checks geometry. A saved state with a coupling member needs the coupling
 // markers of the root, the project and the simulation.
-func scanCouplingJSON(data []byte, topology bool) (scan couplingScan, err error) {
+func scanCouplingJSON(data []byte, topology bool) (couplingScan, error) {
 	d := jsontext.NewDecoder(bytes.NewReader(data), jsontext.AllowDuplicateNames(true))
-	seen := make(map[string]bool, 8)
-	rootClosed := false
+	s := couplingScanner{topology: topology, seen: make(map[string]bool, 8)}
 	for {
-		token, readErr := d.ReadToken()
-		if errors.Is(readErr, io.EOF) {
-			if !rootClosed {
-				return scan, errors.New("incomplete coupling JSON")
-			}
-			if !topology && scan.recognized {
-				for _, path := range []string{"/couplingContract", "/project/couplingContract", "/simulation/couplingContract"} {
-					if !seen[path] {
-						return scan, errors.New("saved coupling contract marker is missing")
-					}
-				}
-			} else if topology && scan.recognized && !seen["/couplingContract"] {
-				return scan, errors.New("topology coupling contract marker is missing")
-			}
-			if scan.groupCount > scan.pods/2 && !topology {
-				return scan, errors.New("saved coupling groups exceed half the fleet")
-			}
-			return scan, nil
+		token, err := d.ReadToken()
+		if errors.Is(err, io.EOF) {
+			return s.scan, s.finish()
 		}
-		if readErr != nil {
-			return scan, readErr
+		if err != nil {
+			return s.scan, err
 		}
-		depth := d.StackDepth()
-		if depth > 64 {
-			return scan, errJSONTooDeep
-		}
-		kind, n := d.StackIndex(depth)
-		if kind == jsontext.KindBeginObject && (n+1)/2 > 256 {
-			return scan, errJSONObjectTooLong
-		}
-		if kind == jsontext.KindBeginArray && n > 65_536 {
-			return scan, errJSONArrayTooLong
-		}
-		if depth == 0 && token.Kind() == jsontext.KindEndObject {
-			if rootClosed {
-				return scan, errors.New("multiple coupling JSON values")
-			}
-			rootClosed = true
+		container, n, err := s.checkToken(d, token)
+		if err != nil {
+			return s.scan, err
 		}
 		path := string(d.StackPointer())
 		parts := strings.Split(path, "/")
-		if token.Kind() == jsontext.KindBeginObject && len(parts) == 4 && parts[1] == "simulation" && parts[2] == "pods" {
-			scan.pods++
-			if scan.pods > project.MaxPods {
-				return scan, errJSONArrayTooLong
-			}
+		if err := s.countPod(token, parts); err != nil {
+			return s.scan, err
 		}
-		if token.Kind() != jsontext.KindString || kind != jsontext.KindBeginObject || n%2 != 1 {
+		// Only the name of an object member can name a checked member.
+		if token.Kind() != jsontext.KindString || container != jsontext.KindBeginObject || n%2 != 1 {
 			continue
 		}
-		if path == "/orderContract" {
-			value, e := d.ReadToken()
-			if e != nil {
-				return scan, e
-			}
-			scan.packed = value.Kind() == jsontext.KindString && value.String() == string(sim.ExpressOrderContract)
-			continue
-		}
-		if !couplingMember(token.String()) {
-			continue
-		}
-		valid := len(parts) == 2 || !topology && len(parts) == 3 && (parts[1] == "project" || parts[1] == "simulation")
-		if !valid {
-			continue
-		}
-		scan.recognized = true
-		if seen[path] {
-			return scan, errors.New("duplicate coupling member")
-		}
-		seen[path] = true
-		switch parts[len(parts)-1] {
-		case "couplingContract":
-			value, e := d.ReadToken()
-			if e != nil {
-				return scan, e
-			}
-			if value.Kind() != jsontext.KindString || value.String() != string(sim.CompactPairV1CouplingContract) {
-				return scan, sim.ErrUnknownCouplingContract
-			}
-		case "couplingEnabled":
-			value, e := d.ReadToken()
-			if e != nil {
-				return scan, e
-			}
-			if value.Kind() != jsontext.KindTrue && value.Kind() != jsontext.KindFalse {
-				return scan, errors.New("coupling enabled must be Boolean")
-			}
-		case "couplingGroups":
-			count, e := scanCouplingRecords(d, "group", project.MaxPods/2)
-			if e != nil {
-				return scan, e
-			}
-			scan.groupCount = count
-		case "couplingSites", "couplingCorridors":
-			record := "corridor"
-			if parts[len(parts)-1] == "couplingSites" {
-				record = "site"
-			}
-			if _, e := scanCouplingRecords(d, record, project.MaxStations); e != nil {
-				return scan, e
-			}
+		if err := s.member(d, token, path, parts); err != nil {
+			return s.scan, err
 		}
 	}
+}
+
+// finish checks the contract markers and the group count at the end of
+// the input.
+func (s *couplingScanner) finish() error {
+	if !s.rootClosed {
+		return errors.New("incomplete coupling JSON")
+	}
+	if s.scan.recognized && !s.markersPresent() {
+		if s.topology {
+			return errors.New("topology coupling contract marker is missing")
+		}
+		return errors.New("saved coupling contract marker is missing")
+	}
+	if s.scan.groupCount > s.scan.pods/2 && !s.topology {
+		return errors.New("saved coupling groups exceed half the fleet")
+	}
+	return nil
+}
+
+// markersPresent reports whether the input has each coupling contract
+// marker that a topology or a saved state needs.
+func (s *couplingScanner) markersPresent() bool {
+	if s.topology {
+		return s.seen["/couplingContract"]
+	}
+	for _, path := range []string{"/couplingContract", "/project/couplingContract", "/simulation/couplingContract"} {
+		if !s.seen[path] {
+			return false
+		}
+	}
+	return true
+}
+
+// checkToken checks the depth and the length of the container of the
+// token that d read last, and refuses a second root object. It returns
+// the kind and the length of the container.
+func (s *couplingScanner) checkToken(d *jsontext.Decoder, token jsontext.Token) (jsontext.Kind, int64, error) {
+	depth := d.StackDepth()
+	if depth > 64 {
+		return 0, 0, errJSONTooDeep
+	}
+	container, n := d.StackIndex(depth)
+	if container == jsontext.KindBeginObject && (n+1)/2 > 256 {
+		return 0, 0, errJSONObjectTooLong
+	}
+	if container == jsontext.KindBeginArray && n > 65_536 {
+		return 0, 0, errJSONArrayTooLong
+	}
+	if depth == 0 && token.Kind() == jsontext.KindEndObject {
+		if s.rootClosed {
+			return 0, 0, errors.New("multiple coupling JSON values")
+		}
+		s.rootClosed = true
+	}
+	return container, n, nil
+}
+
+// countPod counts the start of each object in simulation.pods.
+func (s *couplingScanner) countPod(token jsontext.Token, parts []string) error {
+	if token.Kind() != jsontext.KindBeginObject || len(parts) != 4 || parts[1] != "simulation" || parts[2] != "pods" {
+		return nil
+	}
+	s.scan.pods++
+	if s.scan.pods > project.MaxPods {
+		return errJSONArrayTooLong
+	}
+	return nil
+}
+
+// member reads the value of the member name at path. It records the
+// order marker and checks a coupling member at a permitted path. It
+// ignores other members.
+func (s *couplingScanner) member(d *jsontext.Decoder, name jsontext.Token, path string, parts []string) error {
+	if path == "/orderContract" {
+		value, err := d.ReadToken()
+		if err != nil {
+			return err
+		}
+		s.scan.packed = value.Kind() == jsontext.KindString && value.String() == string(sim.ExpressOrderContract)
+		return nil
+	}
+	if !couplingMember(name.String()) {
+		return nil
+	}
+	valid := len(parts) == 2 || !s.topology && len(parts) == 3 && (parts[1] == "project" || parts[1] == "simulation")
+	if !valid {
+		return nil
+	}
+	s.scan.recognized = true
+	if s.seen[path] {
+		return errors.New("duplicate coupling member")
+	}
+	s.seen[path] = true
+	return s.memberValue(d, parts[len(parts)-1])
+}
+
+// memberValue reads and checks the value of the coupling member name.
+func (s *couplingScanner) memberValue(d *jsontext.Decoder, name string) error {
+	switch name {
+	case "couplingContract":
+		value, err := d.ReadToken()
+		if err != nil {
+			return err
+		}
+		if value.Kind() != jsontext.KindString || value.String() != string(sim.CompactPairV1CouplingContract) {
+			return sim.ErrUnknownCouplingContract
+		}
+	case "couplingEnabled":
+		value, err := d.ReadToken()
+		if err != nil {
+			return err
+		}
+		if value.Kind() != jsontext.KindTrue && value.Kind() != jsontext.KindFalse {
+			return errors.New("coupling enabled must be Boolean")
+		}
+	case "couplingGroups":
+		count, err := scanCouplingRecords(d, "group", project.MaxPods/2)
+		if err != nil {
+			return err
+		}
+		s.scan.groupCount = count
+	case "couplingSites":
+		_, err := scanCouplingRecords(d, "site", project.MaxStations)
+		return err
+	case "couplingCorridors":
+		_, err := scanCouplingRecords(d, "corridor", project.MaxStations)
+		return err
+	}
+	return nil
 }
 
 func scanCouplingRecords(d *jsontext.Decoder, record string, limit int) (int, error) {
