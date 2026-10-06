@@ -262,3 +262,13 @@ func TestRouteCacheKeepsTravelTime(t *testing.T) {
 		}
 	}
 }
+
+// cacheStationRoutes is cacheStationRoutesForClass for LegacyClass.
+func (s *Simulation) cacheStationRoutes(from string, berths []Berth) {
+	s.cacheStationRoutesForClass(from, berths, LegacyClass)
+}
+
+// stationPath is stationPathForClass for LegacyClass.
+func (s *Simulation) stationPath(from, to string) ([]Lane, error) {
+	return s.stationPathForClass(from, to, LegacyClass)
+}

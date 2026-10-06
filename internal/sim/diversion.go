@@ -140,9 +140,9 @@ func (s *Simulation) divertStart(v *vehicle) (int, string, bool) {
 	}
 	// A restored route can omit the entry lane already behind the pod.
 	// Check whether the remaining endpoint is inside the arrival chain.
-	// stationPath cannot pass a berth or a station boundary. The check is
-	// structural, so it asks the static graph: a blocked lane must not make
-	// it allow a diversion.
+	// stationPathForClass cannot pass a berth or a station boundary. The
+	// check is structural, so it asks the static graph: a blocked lane must
+	// not make it allow a diversion.
 	if !station.isEntry(from) && !station.isExit(from) {
 		if s.staticConnection(station.routeEntry(v.Route, v.destination), from, true, v.Pod.Class) {
 			return 0, "", false

@@ -83,3 +83,13 @@ func TestStationRouteBalancesCommittedArrivals(t *testing.T) {
 		})
 	}
 }
+
+// stationApproachRoute is stationApproachRouteForClass for LegacyClass.
+func (s *Simulation) stationApproachRoute(fromNode, stationID string) ([]Lane, error) {
+	return s.stationApproachRouteForClass(fromNode, stationID, LegacyClass)
+}
+
+// stationRoute is stationRouteByLoad with the berth loads of berthLoad.
+func (s *Simulation) stationRoute(fromNode, stationID string) ([]Lane, Berth, error) {
+	return s.stationRouteByLoad(stationRouteInput{from: fromNode, station: stationID})
+}

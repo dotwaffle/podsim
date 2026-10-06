@@ -224,7 +224,7 @@ func TestDropOffsCostedRouteKeepsCap(t *testing.T) {
 	s.congestionRoutes = make(map[routeKey]routeResult)
 
 	v := s.findVehicle("01")
-	costed, err := s.assignedApproachRoute(v, "harbor-berth", "garden")
+	costed, err := s.assignedApproachRouteMatching(v, "harbor-berth", "garden", nil)
 	if err != nil || !slices.ContainsFunc(costed, func(lane Lane) bool { return lane.ID == "loop-out" }) {
 		t.Fatalf("congestion route %v, %v", routeIDs(costed), err)
 	}
@@ -450,4 +450,14 @@ func TestDropOffsRestoreBoardsWithinCap(t *testing.T) {
 			}
 		})
 	}
+}
+
+// stationsOnRoute is stationsOnRouteForClass for LegacyClass.
+func (s *Simulation) stationsOnRoute(from, stationID string) []string {
+	return s.stationsOnRouteForClass(from, stationID, LegacyClass)
+}
+
+// routeMeters is routeMetersForClass for LegacyClass.
+func (s *Simulation) routeMeters(from, stationID string) (float64, bool) {
+	return s.routeMetersForClass(from, stationID, LegacyClass)
 }

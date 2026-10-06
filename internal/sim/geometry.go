@@ -44,11 +44,6 @@ func (s *Simulation) position(lane Lane, distance float64) Point {
 	return s.positionOn(s.geometry[lane.ID], &lane, distance)
 }
 
-// blockPosition returns the same point as position for the lane of b.
-func (s *Simulation) blockPosition(b *block, distance float64) Point {
-	return s.lanePosition(b.geometry, &b.lane, distance)
-}
-
 // lanePosition returns the point at a distance along lane. geometry is the
 // geometry of lane, or nil to look it up by lane ID.
 func (s *Simulation) lanePosition(geometry *laneGeometry, lane *Lane, distance float64) Point {

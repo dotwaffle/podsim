@@ -51,12 +51,8 @@ func (s *Simulation) routeForClass(from, to string, class VehicleClass) ([]Lane,
 	return result.lanes, result.err
 }
 
-// cachedRoute returns the result that route returns. The result can also
-// hold the travel time of the route.
-func (s *Simulation) cachedRoute(from, to string) routeResult {
-	return s.cachedRouteForClass(from, to, LegacyClass)
-}
-
+// cachedRouteForClass returns the result that route returns. The result
+// can also hold the travel time of the route.
 func (s *Simulation) cachedRouteForClass(from, to string, class VehicleClass) routeResult {
 	s.ensureNetworkIndexes()
 	key := routeKey{from: from, to: to, class: routeClass(class)}
@@ -155,14 +151,10 @@ func (s *Simulation) congestionCosts() []float64 {
 	return costs
 }
 
-// cacheStationRoutes puts the routes from a node to each berth of a station
-// in the route cache. A preferred search and an optional fallback give
-// the routes. Later route calls do not search again. The cache holds only routes
-// that route returns, so this changes no result.
-func (s *Simulation) cacheStationRoutes(from string, berths []Berth) {
-	s.cacheStationRoutesForClass(from, berths, LegacyClass)
-}
-
+// cacheStationRoutesForClass puts the routes from a node to each berth of
+// a station in the route cache. A preferred search and an optional
+// fallback give the routes. Later route calls do not search again. The
+// cache holds only routes that route returns, so this changes no result.
 func (s *Simulation) cacheStationRoutesForClass(from string, berths []Berth, class VehicleClass) {
 	if len(berths) < 2 || s.network.hasStationBanks() {
 		return
@@ -182,10 +174,6 @@ func (s *Simulation) cacheStationRoutesForClass(from string, berths []Berth, cla
 	for index, result := range s.network.routesFromTargets(preferred, graph) {
 		s.cacheRoute(routeKey{from: from, to: targets[index], class: routeClass(class)}, result)
 	}
-}
-
-func (s *Simulation) stationPath(from, to string) ([]Lane, error) {
-	return s.stationPathForClass(from, to, LegacyClass)
 }
 
 func (s *Simulation) stationPathForClass(from, to string, class VehicleClass) ([]Lane, error) {

@@ -50,7 +50,7 @@ func (s *Simulation) SetFinishingPodWait(rule FinishingPodWait) error {
 // waitForFinishingPod is advisory. It never assigns a busy pod or reserves a berth.
 // s.finishingPodWait selects when it holds the trip.
 //
-// Network validation keeps each lane speed positive, so emptySeconds is not
+// Network validation keeps each lane speed positive, so routeSeconds is not
 // negative. Thus the ETA of a busy pod is not less than the time before the
 // pod is available. When that time cannot win, the loop does not compute
 // the empty route. Immutable travel bounds can also exclude a candidate.
@@ -264,17 +264,6 @@ func (s *Simulation) laterStopsForClass(node string, seconds float64, stops []st
 		node = berth.Node
 	}
 	return node, seconds, true
-}
-
-func (s *Simulation) emptySeconds(from, to string) float64 {
-	result := s.cachedRoute(from, to)
-	if result.err != nil {
-		return math.Inf(1)
-	}
-	if !result.timed {
-		return s.routeSeconds(result.lanes, motionEstimate{})
-	}
-	return result.seconds
 }
 
 type motionEstimate struct{ distance, speed float64 }

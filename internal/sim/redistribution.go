@@ -3,7 +3,6 @@ package sim
 import (
 	"errors"
 	"math"
-	"slices"
 )
 
 // redistributionCooldownTicks is the time after a rebalancing move ends
@@ -161,21 +160,6 @@ func (s *Simulation) passengerArrivals() map[string]passengerArrival {
 		}
 	}
 	return arrivals
-}
-
-// relocationDestinationAdmitted reports whether the reserved track of v
-// reaches its destination berth. newLaneCells adds a berth resource only to
-// the last cell of a lane that ends at the berth. The check does not use the
-// destination node: the first cell of a route holds its start node, and a
-// released pod can go back to its origin berth.
-func (s *Simulation) relocationDestinationAdmitted(v *vehicle) bool {
-	claim := resource{kind: berthResource, id: v.destination.ID}
-	for resources := range v.blocks.spanResources(0, min(v.reservedThrough+1, v.blocks.len())) {
-		if slices.Contains(resources, claim) {
-			return true
-		}
-	}
-	return false
 }
 
 func (s *Simulation) moveAndMeasure(v *vehicle) {

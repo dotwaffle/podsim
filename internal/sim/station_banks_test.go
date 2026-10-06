@@ -74,12 +74,12 @@ func TestBankRoutesUseOwningGates(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	entry, err := s.stationBankEntry("origin-berth", n.Stations[1], func(b Berth) int {
+	entry, err := s.stationBankEntryMatching("origin-berth", n.Stations[1], func(b Berth) int {
 		if b.ID == "bank-a-1" {
 			return 10
 		}
 		return 0
-	})
+	}, LegacyClass, nil)
 	if err != nil || entry != "bank-b-entry" {
 		t.Fatalf("tie selection: %s %v", entry, err)
 	}

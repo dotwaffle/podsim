@@ -2,11 +2,8 @@ package sim
 
 import "fmt"
 
-// stationApproachRoute routes to the station boundary without choosing a berth.
-func (s *Simulation) stationApproachRoute(fromNode, stationID string) ([]Lane, error) {
-	return s.stationApproachRouteForClass(fromNode, stationID, LegacyClass)
-}
-
+// stationApproachRouteForClass routes to the station boundary without
+// choosing a berth.
 func (s *Simulation) stationApproachRouteForClass(fromNode, stationID string, class VehicleClass) ([]Lane, error) {
 	return s.stationApproachRouteMatching(fromNode, stationID, class, nil)
 }
@@ -33,12 +30,8 @@ func (s *Simulation) stationApproachRouteOn(static bool, fromNode, stationID str
 	return route, nil
 }
 
-// assignedApproachRoute is stationApproachRoute for pod v when it starts
-// the route. It uses assignedRoute.
-func (s *Simulation) assignedApproachRoute(v *vehicle, fromNode, stationID string) ([]Lane, error) {
-	return s.assignedApproachRouteMatching(v, fromNode, stationID, nil)
-}
-
+// assignedApproachRouteMatching is stationApproachRouteMatching for pod v
+// when it starts the route. It uses assignedRoute.
 func (s *Simulation) assignedApproachRouteMatching(v *vehicle, fromNode, stationID string, accept func(Berth) bool) ([]Lane, error) {
 	station, ok := s.station(stationID)
 	if !ok {
@@ -55,12 +48,6 @@ func (s *Simulation) assignedApproachRouteMatching(v *vehicle, fromNode, station
 	return route, nil
 }
 
-// stationRoute selects a reachable berth with the least assigned demand.
-// Berth order breaks equal-load ties.
-func (s *Simulation) stationRoute(fromNode, stationID string) ([]Lane, Berth, error) {
-	return s.stationRouteByLoad(stationRouteInput{from: fromNode, station: stationID})
-}
-
 // stationRouteInput is the input of stationRouteByLoad.
 type stationRouteInput struct {
 	class         VehicleClass
@@ -72,9 +59,10 @@ type stationRouteInput struct {
 	accept func(Berth) bool
 }
 
-// stationRouteByLoad is stationRoute with a berth load function from the
-// caller. A caller that finds routes to one station for many pods can give
-// a function that computes each berth load one time.
+// stationRouteByLoad selects a reachable berth with the least assigned
+// demand. Berth order breaks equal-load ties. The caller can give the
+// berth load function. A caller that finds routes to one station for many
+// pods can give a function that computes each berth load one time.
 func (s *Simulation) stationRouteByLoad(input stationRouteInput) ([]Lane, Berth, error) {
 	station, ok := s.station(input.station)
 	if !ok {

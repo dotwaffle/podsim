@@ -388,7 +388,7 @@ type Simulation struct {
 	sharedRideMaxStops     int
 	sharedRideJoin         SharedRideJoin
 	onboardPickups         bool
-	// approachStations and routeStations belong to stationsOnRoute.
+	// approachStations and routeStations belong to stationsOnRouteForClass.
 	approachStations            map[string][]string
 	routeStations               map[stopKey][]string
 	seatScreen                  SeatScreen

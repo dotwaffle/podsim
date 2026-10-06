@@ -68,21 +68,6 @@ func (p *PreparedNetwork) NewFleetWithContracts(placements []Placement, contract
 	return s, nil
 }
 
-// ValidateFleetWithContracts checks the same startup rules without live state.
-func ValidateFleetWithContracts(network Network, placements []Placement, contracts FleetContracts) error {
-	if err := validateFleetContracts(network, placements, contracts); err != nil {
-		return err
-	}
-	if contracts.CouplingContract == "" {
-		return ValidateFleetWithOrderContract(network, placements, contracts.OrderContract)
-	}
-	p, err := PrepareNetwork(network)
-	if err != nil {
-		return err
-	}
-	return validatePlacementsWithOrderContract(p.network, placements, contracts.OrderContract)
-}
-
 func validateFleetContracts(network Network, placements []Placement, contracts FleetContracts) error {
 	if err := ValidateOrderContract(contracts.OrderContract); err != nil {
 		return err

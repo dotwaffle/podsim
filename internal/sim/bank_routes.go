@@ -98,15 +98,8 @@ func (n Network) bankRoute(input networkRouteInput, graph routeGraph, work *rout
 	return append(route, suffix...), nil
 }
 
-// stationBankEntry selects free-flow approach cost, then minimum berth load.
-func (s *Simulation) stationBankEntry(from string, station Station, load func(Berth) int) (string, error) {
-	return s.stationBankEntryForClass(from, station, load, LegacyClass)
-}
-
-func (s *Simulation) stationBankEntryForClass(from string, station Station, load func(Berth) int, class VehicleClass) (string, error) {
-	return s.stationBankEntryMatching(from, station, load, class, nil)
-}
-
+// stationBankEntryMatching selects free-flow approach cost, then minimum
+// berth load.
 func (s *Simulation) stationBankEntryMatching(from string, station Station, load func(Berth) int, class VehicleClass, accept func(Berth) bool) (string, error) {
 	return s.stationBankEntryOn(false, from, station, load, class, accept)
 }

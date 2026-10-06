@@ -163,34 +163,3 @@ func (c *couplingMotionContext) checkMotionOwners(state couplingMotionState, vie
 	}
 	return nil
 }
-
-// Advance checks only the exact affected writes after atomic application.
-// Other relevant external writes must invalidate the view before this call.
-func advanceCouplingMotionOwners(view *couplingMotionOwnerView, previous, next couplingMotionState, applied []couplingOwnerWrite, actual map[resource]resourceOwner) (*couplingMotionOwnerView, error) {
-	if view == nil || view.context == nil {
-		return nil, couplingMotionInvariant("missing prior owner proof")
-	}
-	c := view.context
-	before, err := c.stateAt(previous.Elapsed)
-	if err != nil || before != previous {
-		return nil, couplingMotionInvariant("owner advance has an invalid previous stamp")
-	}
-	after, err := c.stateAt(next.Elapsed)
-	if err != nil || after != next || next.Elapsed != previous.Elapsed+1 || view.eventCursor != c.ownerEventCursor(previous.Elapsed) {
-		return nil, couplingMotionInvariant("owner advance is not the exact next role boundary")
-	}
-	end := c.ownerEventCursor(next.Elapsed)
-	events := c.events[view.eventCursor:end]
-	if len(applied) != len(events) {
-		return nil, couplingMotionInvariant("owner advance omitted an applied role write")
-	}
-	for i, event := range events {
-		if applied[i] != event.write || view.owners[event.write.Resource] != event.write.Expected || actual[event.write.Resource] != event.write.Next {
-			return nil, couplingMotionInvariant("applied affected owner differs from complete role write")
-		}
-	}
-	if len(events) == 0 {
-		return view, nil
-	}
-	return &couplingMotionOwnerView{context: c, eventCursor: end, owners: view.owners}, nil
-}

@@ -307,3 +307,60 @@ func TestNativeForeignOwnerCapture(t *testing.T) {
 		})
 	}
 }
+
+func prepareNativeForeignFleet(s *Simulation, c *couplingMotionContext, pairs ...*couplingMotionContext) (*nativeForeignFleet, error) {
+	if c == nil {
+		return nil, couplingMotionInvariant("native fleet has no reference context")
+	}
+	f, err := prepareNativeForeignFleetBound(s, c.reservation.network, c.reservation.orderContract, pairs...)
+	if err != nil {
+		return nil, err
+	}
+	f.context = c
+	var foreign []string
+	members := 0
+	for _, entry := range f.entries {
+		if entry.id == c.reservation.members[0].Vehicle.Pod.ID || entry.id == c.reservation.members[1].Vehicle.Pod.ID {
+			if entry.class != CompactClass {
+				return nil, couplingMotionInvariant("native pair member changed its class")
+			}
+			members++
+		} else {
+			foreign = append(foreign, entry.id)
+		}
+	}
+	slices.Sort(foreign)
+	if members != 2 || !slices.Equal(foreign, c.foreignIDs) {
+		return nil, couplingMotionInvariant("context excludes a different actual fleet")
+	}
+	return f, nil
+}
+
+// The caller invokes this once after native planning and before all movement.
+// Later consumers read this frame, never the partly moved Simulation.
+func buildNativeForeignTick(s *Simulation, f *nativeForeignFleet, pairs ...couplingNativeForeignPair) (*nativeForeignTick, error) {
+	return buildNativeForeignApproachTick(s, f, nil, pairs...)
+}
+
+func (frame *nativeForeignTick) sweeps() []couplingForeignSweep {
+	result := make([]couplingForeignSweep, 0, len(frame.proofs))
+	for _, id := range frame.foreignIDs() {
+		proof := frame.proofs[id]
+		sweep := proof.raw
+		sweep.native = proof
+		result = append(result, sweep)
+	}
+	return result
+}
+
+func (frame *nativeForeignTick) foreignIDs() []string {
+	if frame.fleet.context != nil {
+		return frame.fleet.context.foreignIDs
+	}
+	ids := make([]string, 0, len(frame.fleet.entries))
+	for _, entry := range frame.fleet.entries {
+		ids = append(ids, entry.id)
+	}
+	slices.Sort(ids)
+	return ids
+}

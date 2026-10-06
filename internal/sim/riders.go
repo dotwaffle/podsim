@@ -118,19 +118,16 @@ func (s *Simulation) completeRider(v *vehicle, index int, ridden float64) {
 	}
 }
 
-// directDistance returns the free-flow distance from a node to a berth of a
-// station: the shortest route to the station entry, then the station path
-// to the berth. A pod on a route of stationApproachRoute that stops at that
-// berth rides this distance. It returns -1 when no such route exists.
+// directDistanceForClass returns the free-flow distance from a node to a
+// berth of a station: the shortest route to the station entry, then the
+// station path to the berth. A pod on a route of
+// stationApproachRouteForClass that stops at that berth rides this
+// distance. It returns -1 when no such route exists.
 //
 // route gives the free-flow route with each routing policy, so the direct
 // distance does not change with the policy or with congestion. It is the
 // baseline of the detour ratios, so it does not change with the blocked
 // set either: while the set is not empty, it searches the static graph.
-func (s *Simulation) directDistance(from, stationID string, berth Berth) float64 {
-	return s.directDistanceForClass(from, stationID, berth, LegacyClass)
-}
-
 func (s *Simulation) directDistanceForClass(from, stationID string, berth Berth, class VehicleClass) float64 {
 	station, ok := s.station(stationID)
 	if !ok || from == "" || berth.Node == "" {

@@ -265,3 +265,8 @@ func TestFinishEstimateIncludesLaterStops(t *testing.T) {
 		t.Fatalf("estimate %s after %.1f s, single stop %s after %.1f s, last stop %s", node, seconds, gardenNode, gardenSeconds, v.lastStop())
 	}
 }
+
+// directDistance is directDistanceForClass for LegacyClass.
+func (s *Simulation) directDistance(from, stationID string, berth Berth) float64 {
+	return s.directDistanceForClass(from, stationID, berth, LegacyClass)
+}

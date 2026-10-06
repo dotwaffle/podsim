@@ -179,42 +179,6 @@ type couplingForeignOwnerView struct {
 	owners   map[resource]resourceOwner
 }
 
-// Sealing reads real grants once. Every relevant live owner write must invalidate it.
-func sealCouplingForeignOwners(path *couplingForeignPath, distance float64, through int, actual map[resource]resourceOwner) (*couplingForeignOwnerView, error) {
-	if path == nil || !finite(distance) || distance < 0 {
-		return nil, couplingMotionInvariant("invalid foreign owner seal")
-	}
-	view := &couplingForeignOwnerView{path: path, through: through, distance: distance, owners: make(map[resource]resourceOwner)}
-	if path.parked {
-		if distance != 0 || through != -1 {
-			return nil, couplingMotionInvariant("parked foreign has route grants")
-		}
-		for _, r := range berthResources(path.berth) {
-			if !actual[r].isPod(path.id) {
-				return nil, couplingMotionInvariant("parked foreign lacks exact berth and node owners")
-			}
-			view.owners[r] = actual[r]
-		}
-		return view, nil
-	}
-	blocks := path.blocks
-	if through < 0 || through >= blocks.len() || distance > blocks.at(through).end {
-		return nil, couplingMotionInvariant("foreign seal leaves actual grants")
-	}
-	for _, b := range blocks.span(0, through+1) {
-		for _, r := range b.resources {
-			if resourceReleaseDistance(b, r) <= distance {
-				continue
-			}
-			if !actual[r].isPod(path.id) {
-				return nil, couplingMotionInvariant("foreign actual footprint lacks its exact pod owner")
-			}
-			view.owners[r] = actual[r]
-		}
-	}
-	return view, nil
-}
-
 func prepareCouplingParkedForeign(n *couplingReservationNetwork, contract OrderContract, id string, class VehicleClass, stationID, berthID string) (*couplingForeignPath, error) {
 	if n == nil || !boundedContractID(id) {
 		return nil, couplingDenied("invalid parked foreign identity")

@@ -12,20 +12,16 @@ type stopKey struct {
 	class         VehicleClass
 }
 
-// stationsOnRoute returns the passenger stations that the free-flow route
-// from a node to a station passes, in route order. The route passes a
-// station when it goes through the start of an approach lane of the
-// station, so a pod can turn off to that station there. The list ends with
-// the station of the route. It is nil when no route exists.
+// stationsOnRouteForClass returns the passenger stations that the
+// free-flow route from a node to a station passes, in route order. The
+// route passes a station when it goes through the start of an approach
+// lane of the station, so a pod can turn off to that station there. The
+// list ends with the station of the route. It is nil when no route exists.
 //
 // The stop order is a plan that dispatch makes when a party boards, so it
 // uses the free-flow route of route with each routing policy. A leg can
 // then take a costed route. The result does not change during a run, so
-// stationsOnRoute keeps it.
-func (s *Simulation) stationsOnRoute(from, stationID string) []string {
-	return s.stationsOnRouteForClass(from, stationID, LegacyClass)
-}
-
+// stationsOnRouteForClass keeps it.
 func (s *Simulation) stationsOnRouteForClass(from, stationID string, class VehicleClass) []string {
 	key := stopKey{from: from, station: stationID, class: routeClass(class)}
 	if stations, ok := s.routeStations[key]; ok {
@@ -171,7 +167,7 @@ type leg struct {
 }
 
 // legRoute returns the route of a pod with riders from leg.from to the
-// entry of its next stop. It is the route of assignedApproachRoute. When
+// entry of its next stop. It is the route of assignedApproachRouteMatching. When
 // cappedDetours is true and that route takes a rider over
 // maxSharedRideDetour, legRoute returns the free-flow route. Each earlier
 // check planned the free-flow route from leg.from, so the free-flow route
@@ -225,8 +221,9 @@ type detourStart struct {
 // a pod that boarded at the berth node origin, with the stops that remain.
 // Each stop is the destination of a rider. The ratio of a rider is the
 // distance from origin to the berth where the rider leaves the pod, over
-// the direct distance of directDistance to that berth. After the first
-// stop, the plan uses free-flow routes, as directDistance does.
+// the direct distance of directDistanceForClass to that berth. After the
+// first stop, the plan uses free-flow routes, as directDistanceForClass
+// does.
 //
 // The berth at a stop is not known before the pod arrives. Thus the plan
 // takes the berth that gives the largest ratio for the riders of the stop,
@@ -281,7 +278,7 @@ func (s *Simulation) plannedBerthDetour(rider riderDetour, stops []string, start
 			legacyDirect := direct + meters
 			if static && rider.destination == "" {
 				// The legacy baseline uses the station path of the static
-				// graph, as routeMeters does.
+				// graph, as routeMetersForClass does.
 				baseline, err := s.stationPathOn(true, station.berthEntry(berth), berth.Node, start.class)
 				if err != nil {
 					continue
@@ -304,14 +301,10 @@ func (s *Simulation) plannedBerthDetour(rider riderDetour, stops []string, start
 	return largest
 }
 
-// routeMeters returns the length of the free-flow route from a node to the
-// entry of a station. It reports false when the route does not exist. It is
-// a detour baseline, so it searches the static graph while the blocked set
-// is not empty.
-func (s *Simulation) routeMeters(from, stationID string) (float64, bool) {
-	return s.routeMetersForClass(from, stationID, LegacyClass)
-}
-
+// routeMetersForClass returns the length of the free-flow route from a
+// node to the entry of a station. It reports false when the route does not
+// exist. It is a detour baseline, so it searches the static graph while
+// the blocked set is not empty.
 func (s *Simulation) routeMetersForClass(from, stationID string, class VehicleClass) (float64, bool) {
 	route, err := s.stationApproachRouteOn(s.blockedActive(), from, stationID, class, nil)
 	if err != nil {

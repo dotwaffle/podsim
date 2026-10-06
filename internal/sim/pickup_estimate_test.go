@@ -1,6 +1,7 @@
 package sim
 
 import (
+	"math"
 	"strings"
 	"testing"
 )
@@ -351,4 +352,15 @@ func TestSetFinishingPodWaitRejectsUnknownRule(t *testing.T) {
 			t.Fatalf("rule %d was accepted", rule)
 		}
 	}
+}
+
+func (s *Simulation) emptySeconds(from, to string) float64 {
+	result := s.cachedRouteForClass(from, to, LegacyClass)
+	if result.err != nil {
+		return math.Inf(1)
+	}
+	if !result.timed {
+		return s.routeSeconds(result.lanes, motionEstimate{})
+	}
+	return result.seconds
 }

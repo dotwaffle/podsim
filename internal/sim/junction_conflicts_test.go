@@ -262,3 +262,7 @@ func TestJunctionPairsCountsBuildPairs(t *testing.T) {
 		t.Errorf("pairs at the loop node = %d, want %d", got, want)
 	}
 }
+
+func conflictExtent(lane, other *conflictPolyline) (float64, float64) {
+	return conflictExtentWithClearance(lane, other, Clearance)
+}

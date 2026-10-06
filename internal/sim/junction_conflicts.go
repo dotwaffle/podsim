@@ -6,8 +6,8 @@ const (
 	conflictSampleStep = 0.5
 	// conflictChunk is the number of segments that share one bounding box.
 	conflictChunk = 8
-	// conflictRun is the shortest distance in meters that conflictExtent tries
-	// to clear in one check.
+	// conflictRun is the shortest distance in meters that
+	// conflictExtentWithClearance tries to clear in one check.
 	conflictRun = 4.0
 	// conflictWindow is the number of segments on each side of the nearest
 	// segment that separation measures at each point.
@@ -93,10 +93,6 @@ func incidentLanes(network Network) map[string][]Lane {
 	return incident
 }
 
-func conflictExtent(lane, other *conflictPolyline) (float64, float64) {
-	return conflictExtentWithClearance(lane, other, Clearance)
-}
-
 func conflictExtentWithClearance(lane, other *conflictPolyline, clearance float64) (float64, float64) {
 	limit := clearance + conflictSampleStep
 	points := lane.points
@@ -139,7 +135,8 @@ func conflictExtentWithClearance(lane, other *conflictPolyline, clearance float6
 
 // lastSample returns the last offset that is not more than cleared in the
 // sequence of sample offsets from offset. Each offset in the sequence is
-// min(length, previous+conflictSampleStep), as in conflictExtent.
+// min(length, previous+conflictSampleStep), as in
+// conflictExtentWithClearance.
 func lastSample(offset, cleared, length float64) float64 {
 	for {
 		next := min(length, offset+conflictSampleStep)

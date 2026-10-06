@@ -63,9 +63,9 @@ The local collection ends the request's wait without establishing how the recipr
 
 The advisory finishing-pod rule never assigns a busy pod and bounds its initial hold to 30 seconds.
 It does not explain the long bound interval in this case.
-In the frozen build, the free-flow `cachedRoute` search does not restrict intermediate berth nodes.
+In the frozen build, the free-flow `cachedRouteForClass` search does not restrict intermediate berth nodes.
 The existing congestion search supplies `ownBerthsOnly`, then falls back to unrestricted free-flow routing if needed.
-`cacheStationRoutes` also fills unrestricted free-flow paths for repeated berth searches.
+`cacheStationRoutesForClass` also fills unrestricted free-flow paths for repeated berth searches.
 Those paths require consistent treatment in any fix.
 
 The [routing fix](berth-route-preference.md) now prefers paths without intermediate berths and retains legacy reachability.

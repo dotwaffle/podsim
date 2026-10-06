@@ -172,3 +172,8 @@ func TestMovingPodPositionMatchesLaneGeometry(t *testing.T) {
 		t.Fatalf("the pod traveled on the curved lanes %v, want both", curved)
 	}
 }
+
+// blockPosition returns the same point as position for the lane of b.
+func (s *Simulation) blockPosition(b *block, distance float64) Point {
+	return s.lanePosition(b.geometry, &b.lane, distance)
+}

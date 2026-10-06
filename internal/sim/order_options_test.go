@@ -203,3 +203,17 @@ func repeatedFacts(options TripOptions, count int) []PartyFacts {
 	}
 	return parties
 }
+
+// NormalizeTripOptions validates and defaults a copy of a new order.
+// Wire decoders must reject explicit null and empty values before this call.
+// This function does not check station existence or express registry membership.
+func NormalizeTripOptions(options TripOptions) (TripOptions, error) {
+	return NormalizeTripOptionsWithOrderContract(options, "")
+}
+
+// CheckPartyAdmission checks logical fit without changing any input.
+// Callers must also validate physical approval, route, berth, and service registry.
+// On-demand route and stop policies remain the caller's responsibility.
+func CheckPartyAdmission(input PartyAdmissionInput) error {
+	return CheckPartyAdmissionWithOrderContract(input, "")
+}

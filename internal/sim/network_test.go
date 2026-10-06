@@ -430,3 +430,144 @@ func TestNearestWithinCostsMatchRoutes(t *testing.T) {
 		}
 	}
 }
+
+// routesIndexed returns the routes from node from to each node in to. Each
+// route and error is the same as from routeIndexed with no forbidden nodes
+// and no extra cost. One search gives all the routes. The lane costs must
+// not be negative, as in a valid network.
+//
+// The search takes nodes from the queue in the same order as routeIndexed.
+// It continues past each destination until it takes the last one. A lane
+// cost that is not negative cannot make the route to a node shorter after
+// the search takes the node. Thus the route to a destination does not
+// change after the search takes the destination.
+func (n Network) routesIndexed(from string, to []string, graph routeGraph) []routeResult {
+	return n.routesFromTargets(n.routeTargets(routeTargetsInput{from: from, to: to}, graph), graph)
+}
+
+// nearestIndexed returns the index of the goal node with the lowest route
+// cost from input.from. The cost is the same as in routeIndexed without
+// forbidden nodes. It reports false when no goal is reachable.
+func (n Network) nearestIndexed(input nearestInput, graph routeGraph) (int, bool) {
+	from, ok := graph.nodes[input.from]
+	if !ok {
+		return 0, false
+	}
+	distance := make([]float64, len(n.Nodes))
+	visited := make([]bool, len(n.Nodes))
+	for i := range distance {
+		distance[i] = math.Inf(1)
+	}
+	distance[from] = 0
+	best, bestDistance := -1, math.Inf(1)
+	queue := routeQueue{{node: from}}
+	for len(queue) > 0 {
+		item := queue.pop()
+		if item.distance > bestDistance {
+			break
+		}
+		if visited[item.node] || item.distance != distance[item.node] {
+			continue
+		}
+		visited[item.node] = true
+		if rank := input.rank[item.node]; rank >= 0 {
+			if best < 0 || rank < input.rank[best] {
+				best, bestDistance = item.node, item.distance
+			}
+			continue
+		}
+		for _, laneIndex := range graph.outgoing[item.node] {
+			edge := graph.edges[laneIndex]
+			extra := 0.0
+			if laneIndex < len(input.extraCost) {
+				extra = input.extraCost[laneIndex]
+			}
+			candidate := item.distance + edge.seconds + extra
+			if candidate < distance[edge.to] {
+				distance[edge.to] = candidate
+				queue.push(routeQueueItem{node: edge.to, distance: candidate})
+			}
+		}
+	}
+	return best, best >= 0
+}
+
+// nearestWithin returns the index of the goal node with the lowest route
+// cost, and that cost. The cost is the same as in nearestIndexed. Without
+// reverse, it is the route cost from input.from to the goal. With reverse,
+// it is the route cost from the goal to input.from. The search does not go
+// past input.limit. It reports false when no goal has a cost of input.limit
+// or less. Between goals with the same cost, the lower rank wins.
+func (n Network) nearestWithin(input nearestWithinInput, graph routeGraph) (int, float64, bool) {
+	start, ok := graph.nodes[input.from]
+	if !ok {
+		return 0, 0, false
+	}
+	adjacent := graph.outgoing
+	if input.reverse {
+		adjacent = graph.incoming
+	}
+	distance := make([]float64, len(n.Nodes))
+	visited := make([]bool, len(n.Nodes))
+	for i := range distance {
+		distance[i] = math.Inf(1)
+	}
+	distance[start] = 0
+	best, bestDistance := -1, math.Inf(1)
+	queue := routeQueue{{node: start}}
+	for len(queue) > 0 {
+		item := queue.pop()
+		if item.distance > bestDistance {
+			break
+		}
+		if visited[item.node] || item.distance != distance[item.node] {
+			continue
+		}
+		visited[item.node] = true
+		if rank := input.rank[item.node]; rank >= 0 {
+			if best < 0 || rank < input.rank[best] {
+				best, bestDistance = item.node, item.distance
+			}
+			continue
+		}
+		for _, laneIndex := range adjacent[item.node] {
+			edge := graph.edges[laneIndex]
+			next := edge.to
+			if input.reverse {
+				next = edge.from
+			}
+			extra := 0.0
+			if laneIndex < len(input.extraCost) {
+				extra = input.extraCost[laneIndex]
+			}
+			candidate := item.distance + edge.seconds + extra
+			if candidate <= input.limit && candidate < distance[next] {
+				distance[next] = candidate
+				queue.push(routeQueueItem{node: next, distance: candidate})
+			}
+		}
+	}
+	if best < 0 {
+		return 0, 0, false
+	}
+	return best, bestDistance, true
+}
+
+// nearestInput is the input of nearestIndexed.
+type nearestInput struct {
+	from string
+	// rank holds a rank for each node index. It is -1 for a node that is not
+	// a goal. Between goals with the same route cost, the lower rank wins.
+	rank      []int
+	extraCost []float64
+}
+
+// nearestWithinInput is the input of nearestWithin.
+type nearestWithinInput struct {
+	nearestInput
+	// limit is the highest route cost that a goal can have.
+	limit float64
+	// reverse makes the search follow each lane from its end to its start.
+	// The cost of a goal is then the route cost from the goal to from.
+	reverse bool
+}

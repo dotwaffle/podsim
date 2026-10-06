@@ -1,6 +1,7 @@
 package sim
 
 import (
+	"errors"
 	"math"
 	"math/rand/v2"
 	"reflect"
@@ -484,4 +485,31 @@ func compactQueueFloatBitsEqual(a, b []float64) bool {
 		}
 	}
 	return true
+}
+
+// compactQueueRecoveryTickBound derives a conservative finite completion bound.
+// A positive landing speed guarantees at least half its tick distance until the
+// final landing interval. Each member then needs at most one full braking run.
+func compactQueueRecoveryTickBound(states []compactQueueState, recovery compactQueueRecovery) (uint64, error) {
+	if err := compactQueueRecoveryValidate(states, recovery); err != nil {
+		return 0, err
+	}
+	brakingTicks := uint64(0)
+	for speed := compactQueueSpeedLimit; speed > 0; {
+		speed, _ = compactQueueSpeedRange(speed)
+		brakingTicks++
+	}
+	bound := brakingTicks + 1
+	for i, state := range states {
+		bound += brakingTicks + 1
+		if len(states) == 1 || state.position == recovery.targets[i] {
+			continue
+		}
+		steps := math.Ceil(2 * (recovery.targets[i] - state.position) / (recovery.landingSpeeds[i] * compactQueueTickSeconds))
+		if !compactQueueFinite(steps) || steps >= float64(math.MaxUint64-bound) {
+			return 0, errors.New("compact queue: finite recovery bound cannot be represented")
+		}
+		bound += uint64(steps) + 1
+	}
+	return bound, nil
 }
