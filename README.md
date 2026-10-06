@@ -179,6 +179,12 @@ See [distribution and operations](docs/operations.md) for build and runtime sett
 - The selected pod shows its activity, speed in whole km/h, occupancy, route, and local waiting reason.
 - The display distinguishes a pod ahead, conflicting junction traffic, an occupied berth, and unavailable parking.
   The waiting reason names the blocking pod by its fleet number, for example **Pod ahead / pod 02**.
+- With [faults](#faults), the waiting reason can also be **Fault braking**, **Fault stopped**, **Blocked by incident**, or **No forward route**.
+- When the project has the fault marker, the inspector shows a **Fault** button to the right of the activity.
+  **Fault** starts a fault on the selected pod, with no end.
+  On a faulted pod, the button shows **Clear fault** and ends that fault.
+  The button is not available while the connection is down or a command waits for its reply.
+  The server refuses a pod that it does not support, and the message line shows the error.
 
 ### Pod colors and shapes
 
@@ -1517,6 +1523,17 @@ Parked pods return to service automatically when assigned to a pickup request.
 After the demo, request a trip from Harbor or Garden to see an available pod return for pickup.
 
 The tests establish progress for feasible supplied scenarios, not for every saturated network.
+
+### Faults
+
+Faults are off by default.
+A project with the fault marker can stop a pod with a pod fault, or block a lane segment with debris.
+A pod fault brakes the pod to rest, and its pending pickups go to other pods.
+After the evacuation delay, the riders leave the pod at rest, and their orders end interrupted.
+Other pods route around a fault, or wait.
+The **Fault** button of the [pod inspector](#inspect-a-pod) and the `fault` command start a pod fault.
+Only the `fault` command starts debris, and the map does not draw debris.
+See [faults](docs/operations.md#faults) for the settings and the [fault commands](docs/protocol.md#fault-commands) for the protocol.
 
 ### Server and browser
 
