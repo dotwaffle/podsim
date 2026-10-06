@@ -128,9 +128,24 @@ func TestTopologyPreflightAtCallers(t *testing.T) {
 		wantError(t, preflightTopology(atCap, server, strings.Repeat("<", 5)), refusal)
 	})
 
-	t.Run("Express", func(t *testing.T) {
-		// The marker adds bytes, so this topology is also over the cap.
-		marked := project.Config{Version: project.CurrentVersion, OrderContract: sim.ExpressOrderContract, Network: over.Network}
-		wantError(t, preflightTopology(marked, strings.Repeat("0", 16), strings.Repeat("0", 26)), refusal)
+	t.Run("markers", func(t *testing.T) {
+		// Each contract marker adds bytes to the topology, so a project at
+		// the cap goes over it with any marker.
+		server, epoch := strings.Repeat("0", 16), strings.Repeat("0", 26)
+		if err := preflightTopology(atCap, server, epoch); err != nil {
+			t.Fatal("refused the unmarked project at the cap", err)
+		}
+		for name, mark := range map[string]func(*project.Config){
+			"Express":   func(c *project.Config) { c.OrderContract = sim.ExpressOrderContract },
+			"incident":  func(c *project.Config) { c.IncidentContract = sim.IncidentV1Contract },
+			"fault":     func(c *project.Config) { c.FaultContract = sim.FaultV1Contract },
+			"emergency": func(c *project.Config) { c.EmergencyContract = sim.EmergencyV1Contract },
+		} {
+			marked := atCap
+			mark(&marked)
+			if err := preflightTopology(marked, server, epoch); err == nil || err.Error() != refusal {
+				t.Errorf("%s marker at the cap: got %v, want %q", name, err, refusal)
+			}
+		}
 	})
 }
