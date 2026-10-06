@@ -41,6 +41,8 @@ The root, `topology` and `frame.state.simulation` must have the same contract ma
 When present, `orderContract` must be `express-v1` and `couplingContract` must be `compact-pair-v1`.
 A project with the incident marker `incidentContract` `incident-v1` puts it in `topology` and in `frame.state.simulation`, not at the root.
 These two markers must agree, and the value must be `incident-v1`, also not null or empty.
+The fault marker `faultContract` `fault-v1` has the same rules.
+A reply with the fault marker must also have the incident marker.
 
 All JSON member names use lowerCamel case, such as `projectRevision`, `routeLaneIDs` and `id`.
 A decoder matches member names exactly.
@@ -109,6 +111,7 @@ The incident marker `incidentContract` is only in the topology and in the simula
 The hello, the envelope root, and a delta do not have it.
 A client refuses a frame whose incident marker differs from the marker of its topology.
 A change of the marker is a project change, so it comes with a new project revision and a new topology.
+The fault marker `faultContract` has the same rules, and it needs the incident marker.
 The order text of each order (`from`, `to`, `podID`, `dispatchReason`, `serviceID`, and `legFrom`) is canonical base64 of the UTF-8 text, for every project kind.
 This includes the pending replacement group of a delta and the HTTP state.
 No message has a `textEncoding` member.
@@ -119,6 +122,7 @@ A replacement wrapper has a `value` member, so null, zero, and an empty list dif
 
 The groups are controls, demand, restore, checkpoints, pending requests, global simulation state, and statistics.
 With the incident marker, the `incident` group has the interrupted counters.
+With the fault marker, the `faults` group has the active faults and the fault counters (see [Faults](#faults)).
 Vehicle groups are pod fields, presentation route, riders, stops, and relocation, platoon, or incident metadata.
 Membership, order, source, project, or generation changes start a new full baseline.
 A delta must name the exact preceding stream and sequence.
@@ -269,7 +273,7 @@ A rewind restores the metrics of the save point.
 A restore at a restart keeps them.
 
 Each command contains a `client` ID, a `sequence`, the session `epoch`, and an `action`.
-The actions are `trip`, `pause`, `speed`, `reset`, `demo`, `demand`, `project`, `checkpoint`, and `rewind`.
+The actions are `trip`, `pause`, `speed`, `reset`, `demo`, `demand`, `project`, `checkpoint`, `rewind`, `fault`, and `clearFault`.
 
 The other members depend on the action:
 
@@ -284,11 +288,13 @@ The other members depend on the action:
 | `project` | `project`: the `project` object from `GET /api/project`. `projectRevision`: the `revision` from `GET /api/project`, an integer. `serverStart`: optional, the `serverStart` from `GET /api/state` (in `frame.state`) when the project loaded, a string | Replaces the project and increases the project revision. The new fleet starts paused at speed 1. Two cases keep the fleet. A project that is the same as the current project changes nothing: the server keeps the project revision, the generation, and the simulation, and does not save. A train toggle is a project with `couplingContract` that changes only `couplingEnabled`. It changes only the recruitment of new trains and increases the project revision. The server keeps the fleet, its trains, the generation, the speed, the demand stream, and the `restore` key. For these two cases, a missing and an empty list of coupling sites, coupling corridors, or corridor lanes are the same. During a retained coupling fault, the server replaces the fleet in both cases. The demo fleet has no coupling contract, so a train toggle replaces the fleet until a reset ends the demo. The session must be paused, and `projectRevision` must be the current project revision. When the session is paused and `projectRevision` is not the current project revision, the command gets `stale_project`. When `serverStart` is set and is not the `serverStart` of the server process, the command gets `session_changed`. |
 | `checkpoint` | None | Makes a save point. |
 | `rewind` | `checkpoint`: save point ID, an integer | Restores the save point and pauses the session. |
+| `fault` | `podID`: a pod ID. Or `laneID`: a lane ID, with `fromMeters` and `toMeters`: numbers. `durationSeconds`: optional, an integer from 1 to 86,400 | Starts a pod fault on the pod, or debris on the lane segment from `fromMeters` to `toMeters`. Without `durationSeconds`, the fault lasts until a `clearFault`. See [Faults](#faults). |
+| `clearFault` | `faultID`: the `id` of an active fault | Ends the fault. |
 
-In the acknowledgment, `trip` sets `orderID`, `checkpoint` sets `checkpoint`, and a `rewind` that restores a project sets `projectRestored`.
+In the acknowledgment, `trip` sets `orderID`, `checkpoint` sets `checkpoint`, `fault` sets `faultID`, and a `rewind` that restores a project sets `projectRestored`.
 With `-state`, a `project` command that changes the project and a `rewind` that restores a project also set `stateSaved`.
 
-Command acknowledgments contain the session epoch, state revision, project revision, generation, optional order ID, optional checkpoint ID, optional `projectRestored` flag, and optional `stateSaved` flag.
+Command acknowledgments contain the session epoch, state revision, project revision, generation, optional order ID, optional checkpoint ID, optional fault ID, optional `projectRestored` flag, and optional `stateSaved` flag.
 They do not repeat a state frame.
 A rejected command gets HTTP 409 and an acknowledgment with a stable `errorCode` and an `error` message.
 The `error` message has at most 1,024 bytes.
@@ -412,6 +418,116 @@ Save points are in memory only.
 A server restart clears them.
 The `-state` option does not save them.
 A rewind to an unknown or removed ID gets `command_rejected`.
+
+## Faults
+
+A project turns faults on with the fault marker `faultContract` `fault-v1` and the `faults` settings.
+The fault marker needs the incident marker.
+See [faults](operations.md#faults) for the settings.
+
+A pod fault brakes the pod to rest.
+The pod stays there until the fault ends.
+Debris blocks a lane segment.
+Other pods route around the active faults, or wait.
+Only the `fault` command starts debris, and the simulation view does not draw debris.
+
+### Fault members
+
+With the fault marker, `simulation.faults` of a full frame and of the HTTP state has the members `active` and `counters`.
+A frame omits `faults` when no fault is active and each counter is 0.
+The `faults` group of a delta has the same members, and it is `{}` in that case.
+The group has no `value` wrapper.
+`active` has one record for each active fault, in the order of the fault serial.
+Each record has these members:
+
+| Member | Pod fault | Debris |
+| --- | --- | --- |
+| `id` | Required | Required |
+| `kind` | `pod` | `debris` |
+| `startTick` | Required | Required |
+| `endTick` | Optional | Optional |
+| `podID` | Required | Absent |
+| `phase` | Required: `braking`, `stopped`, or `evacuated` | Absent |
+| `evacuateTick` | Required | Absent |
+| `laneID` | Absent | Required |
+| `fromMeters`, `toMeters` | Absent | Required |
+
+The `id` has the form `i<generation>.<serial>`, for example `i3.17`.
+The generation is the frame generation when the fault started, and the serial increases with each incident record.
+`startTick` is the tick when the fault started.
+`endTick` is the tick when the fault ends, and a fault without an end omits it.
+`evacuateTick` is the tick from which the riders leave the faulted pod, when it is at rest.
+The phase is `braking` while the pod moves, and `evacuated` at rest from `evacuateTick` when the pod has no rider.
+Otherwise it is `stopped`.
+
+`counters` has these members, and it omits each counter at 0:
+
+| Counter | Content |
+| --- | --- |
+| `started` | The faults that started, of both kinds. |
+| `cleared` | The faults that a `clearFault` or the end of a duration ended. |
+| `evacuations` | The evacuations of faulted pods. The `incident` group counts the interrupted orders. |
+| `reroutes` | The new routes around a fault that keep the endpoint of the pod. |
+| `faultWaitTicks` | One for each tick of each pod without a fault that waits with the reason `Blocked by incident` or `No forward route`. |
+
+A reset, a demo, and a project apply that replaces the fleet end every fault and set the counters to 0.
+A rewind restores the faults and the counters of the save point.
+
+A client refuses a record that breaks the table above, an unknown member, and null in any member.
+It also refuses these records:
+
+- An `id` that is not of the form above, or a serial that is not above the serial of the record before it.
+- A `startTick` above the tick of the frame, an `endTick` that is not above `startTick`, or an `evacuateTick` below `startTick`.
+- A `podID` that is not a vehicle of the frame, or a second record for the same pod.
+- A `laneID` that is not in the topology, or a segment that does not have `0 <= fromMeters < toMeters`, ends past the lane, or is longer than 50 m.
+- More than 64 debris records, or more than 300 pod records.
+
+It also refuses a negative counter.
+The scan before the typed decode allows at most 364 records in `active`.
+Without the fault marker, a client refuses the `faults` member and the `faults` group, also with a value of null, `{}`, or `[]`.
+It refuses each `faultContract` value other than `fault-v1`, including null and an empty text.
+The same rules apply to the HTTP state.
+
+### Wait reasons
+
+Faults add these values of the `waitReason` of a pod:
+
+| Reason | Pod | `blockedBy` |
+| --- | --- | --- |
+| `Fault braking` | A faulted pod that moves. | Its fault ID. |
+| `Fault stopped` | A faulted pod at rest. | Its fault ID. |
+| `Blocked by incident` | A pod that needs a resource that a fault or a faulted pod holds, or a pod that finds no berth at a station where a fault blocks a berth. | The fault ID. |
+| `No forward route` | A pod that finds no route for its next leg while a fault blocks a lane or a berth. | Empty. |
+
+A client accepts a `blockedBy` that names a pod or an active fault of the frame.
+
+### Fault commands
+
+`fault` needs one of `podID` and `laneID`, but not both.
+`fromMeters` and `toMeters` go only with `laneID`, and debris needs both.
+Debris blocks each track cell of its lane within 12 m of the segment.
+A cell at a lane end holds the node and the junction resources, so debris near a junction also blocks the lanes that share it.
+A paused session accepts both commands.
+The acknowledgment of a fault command has no `stateSaved`.
+The traffic demo runs without faults, so during the demo, and after it until a reset or a project apply, both commands get `faults are not enabled`.
+
+A refused command gets `command_rejected` and changes nothing.
+The `error` message is one of these:
+
+| Message | Cause |
+| --- | --- |
+| `faults are not enabled` | The project has no fault marker, or the traffic demo turned faults off. |
+| `invalid fault duration` | `durationSeconds` is not from 1 to 86,400. |
+| `fault target is not supported` | The command has both `podID` and `laneID`, neither of them, or a segment with `podID`. Or the pod is in a platoon, a compact queue, a coupling group, or a coupling approach, or it is not traveling and not at a berth. Or the debris is on the route of a pod in a coupling group or a coupling approach. |
+| `incident limit reached` | The end tick, the evacuation tick, or the incident serial would overflow. |
+| `unknown pod` | No pod has `podID`. |
+| `pod already has a fault` | The pod has a pod fault. |
+| `unknown lane` | No lane has `laneID`. |
+| `invalid debris segment` | A bound is missing or is not finite, `fromMeters` is not below `toMeters`, the segment is outside the lane or longer than 50 m, or the debris blocks a berth or a berth node. |
+| `debris limit reached` | 64 debris faults are active. |
+| `debris overlaps a pod or another fault` | The debris blocks a resource of an active fault, or a resource under the body of a pod. |
+| `debris meets a reserved resource` | The debris blocks another resource that a pod holds or reserves. |
+| `unknown fault` | `faultID` names no active fault. |
 
 ## Server restarts
 
