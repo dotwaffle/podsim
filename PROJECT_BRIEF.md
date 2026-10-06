@@ -57,7 +57,7 @@ The live viewer uses shared gzip WebSocket deltas, and explicit public-origin co
 Prepared network geometry speeds repeated isolated restores without changing the saved format or removing restore assertions.
 The renderer batches station summaries, and presentation snapshots reuse call-local lane marks.
 The restore and rendering optimizations preserve simulation behavior and existing protocol semantics.
-The [pickup-bound cache measurements](docs/pickup-bounds-cache-performance.md) show lower CPU use and allocations in an unpaced LondonFull probe.
+The [pickup-bound cache measurements](docs/pickup-routing-performance.md) show lower CPU use and allocations in an unpaced LondonFull probe.
 They do not establish live playback speed or a capacity improvement.
 [Reusable admission storage](docs/admission-work-performance.md) lowers allocations and usually CPU in paired equal-work studies.
 The [live follow-up](docs/admission-live-performance.md) sustains approximately 60x with GC 100 and 400 in short one-client runs.
@@ -80,9 +80,9 @@ They add explicit individual-tail limits without authorizing a default change.
 The [combined dispatch qualification](docs/dispatch-policy-qualification.md) records average benefits, tail regressions, and remaining work.
 The [compatible decoder qualification](docs/stream-decoder-qualification.md) measures lower decode and apply time without a whole-browser CPU gain.
 The [sustained pickup-swap study](docs/pickup-swap-sustained.md) lowers average waits and empty distance in its tested pairs, but every arm still grows a backlog.
-Its [matched-request diagnosis](docs/pickup-request-diagnosis.md) separates unfinished requests from completed maxima and retains actual same-request regressions.
-The [selected service-tail cases](docs/pickup-tail-cases.md) trace earlier fleet divergence and longer pickup travel with little sampled stopping.
-The [selected exclusions](docs/pickup-local-intervention.md) show useful local swaps within those histories, with mixed effects on other requests.
+Its matched-request diagnosis in the same document separates unfinished requests from completed maxima and retains actual same-request regressions.
+The [selected service-tail cases](docs/pickup-postroute-tail.md) trace earlier fleet divergence and longer pickup travel with little sampled stopping.
+The selected exclusions in the same document show useful local swaps within those histories, with mixed effects on other requests.
 The Stratford diagnosis captures reciprocal waits at an intermediate berth.
 The [route preference and commitment fix](docs/berth-route-preference.md) addresses that mechanism for new routes while preserving old physical saves.
 
