@@ -7,15 +7,6 @@ import (
 	"sort"
 )
 
-func (input RestoreStateInput) fleetContracts() FleetContracts {
-	return FleetContracts{
-		OrderContract: input.OrderContract, CouplingContract: input.CouplingContract,
-		CouplingEnabled: input.CouplingEnabled, CouplingSites: input.CouplingSites,
-		CouplingCorridors: input.CouplingCorridors, IncidentContract: input.IncidentContract,
-		FaultContract: input.FaultContract, EmergencyContract: input.EmergencyContract,
-	}
-}
-
 func checkCouplingRestoreInput(input RestoreStateInput) error {
 	contract := input.CouplingContract
 	if contract != "" {
