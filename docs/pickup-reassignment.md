@@ -28,7 +28,6 @@ Thus it identifies a candidate for an exact feasibility check, not a swap that c
 The two API captures were sequential.
 Their project revisions matched.
 
-Raw state, project, analysis script, and candidate results are retained outside the repository in `~/.cache/agents/podsim/pickup-swap-20260929/`.
 The live session was not changed.
 
 ## Existing behavior
@@ -165,7 +164,6 @@ The enabled controller evaluated 928 pairs and made no swaps.
 The instrumented arms took 14.08 seconds disabled and 14.39 seconds enabled.
 They include once-per-second safety and order checks and ran alongside another study.
 These times do not establish a production playback limit or a reliable overhead estimate.
-Raw profiles and frozen manifests are in `~/.cache/agents/podsim/pickup-reassignment-20260929/profile/`.
 A second comparison used two seeds, 20 requests per minute, one hour of arrivals, and a two-hour observation cap.
 Each pair used the same demand schedule and passed once-per-second safety and order-accounting checks.
 
@@ -179,7 +177,6 @@ Neither mode completed every order by the cap.
 Seed 1 maximum request-to-alight time increased from 4900.0 to 5208.0 seconds.
 This comparison does not establish a no-harm envelope or sustained capacity.
 The instrumented enabled arms took more wall time, but concurrent work prevents a reliable production overhead estimate.
-Raw results and frozen manifests are in `~/.cache/agents/podsim/pickup-reassignment-20260929/load/`.
 The [six-hour load screen](pickup-swap-sustained.md) compares two seeds at 15 and 20 requests per minute.
 It improves mean and p95 wait, but increases maximum journey time in both seed 2 cases.
 The controller remains disabled by default.

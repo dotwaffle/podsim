@@ -102,7 +102,6 @@ The functional diagnosis matrix used multiple workers, while performance compari
 Functional concurrency does not supply comparable CPU timings.
 
 [Measurements](measurements/study-performance.json) retain all timing repetitions, exact-output checks, benchmark samples, runtime settings, and source/binary identities.
-Profiles and frozen helpers remain in `~/.cache/agents/podsim/study-performance-20261001/`, `study-performance-fast-20261001/`, and `study-performance-paired-20261001/`.
 The full plain suite, vet, lint, native build, WASM generation, and embedded-asset checks pass.
 Simulation and session race checks also pass.
 The source stays unchanged during the final gates.

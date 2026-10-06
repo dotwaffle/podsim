@@ -65,5 +65,4 @@ Vet, lint, fresh gopls, and native/WASM builds pass.
 [Metadata](measurements/label-admission.json) records frozen binary, helper, production, test, and raw-result hashes.
 The threshold tests were added after the performance binaries were frozen.
 Production code remains identical to the measured candidate.
-Raw evidence remains in `~/.cache/agents/podsim/label-admission-20260930/`.
 The [earlier cache report](label-measure-cache-performance.md) records the original admission behavior and its browser measurements.

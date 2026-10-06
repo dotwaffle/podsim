@@ -152,5 +152,4 @@ This arm does not establish a congestion benefit or a capacity limit.
 The instrumented run took 13.35 wall seconds with buffers off and 15.45 seconds with buffers on.
 It includes safety and order checks each simulated second.
 It does not measure the running server's maximum playback speed.
-Raw profiles and the frozen source manifest are in `~/.cache/agents/podsim/station-buffer-20260929/profile/`.
 Longer load comparisons remain separate qualification work.

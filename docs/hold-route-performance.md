@@ -63,7 +63,6 @@ The live Chrome results below remain separate from these unpaced measurements.
 
 [Measurements](measurements/hold-route-parts.csv) retain CPU, allocation, collection, pause, heap, and gzip totals.
 [Metadata](measurements/hold-route-parts.json) records frozen inputs and both exact saved-state hashes.
-The local artifacts are in `~/.cache/agents/podsim/hold-route-20260930/`.
 
 ## Matched live Chrome follow-up
 
@@ -100,4 +99,3 @@ These checks show no transport recovery event during the matrix.
 They do not establish the cause of every live stall.
 
 [Live arm measurements](measurements/hold-route-live-arms.csv), [page measurements](measurements/hold-route-live-pages.csv), and [metadata](measurements/hold-route-live.json) retain the results.
-Raw probes, screenshots, and profiles remain in `~/.cache/agents/podsim/hold-route-live-20260930/`.

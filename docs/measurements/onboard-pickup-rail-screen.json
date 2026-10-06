@@ -2,7 +2,7 @@
   "schema": 1,
   "date": "2026-10-03",
   "source_commit": "bb8f57700550fa7d6d934695390bf64bd5b6e7fc",
-  "evidence_directory": "/home/dotwaffle/.cache/agents/podsim/roadmap-service-20261002/shared-pickup-screen-evidence",
+  "evidence_directory": "roadmap-service-20261002/shared-pickup-screen-evidence",
   "receipt_sha256": "4f1e65c09985cfb00227f1b318920ba8b9908e177a49a36ea73e38b65fce0f06",
   "manifest_sha256": "ce7d0e6ef3185d1f21fdfd255cb112027d5527b70673cf238f30cca54fa3fa38",
   "comparison_sha256": "eedcea9f61188d1ddfcf9ea8baf38008b173936e315f2788861cb1722e35dcd5",

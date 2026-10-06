@@ -4,7 +4,7 @@
   "gogc": 400,
   "gomaxprocs": 1,
   "cpu_comparison": false,
-  "artifact_root": "/home/dotwaffle/.cache/agents/podsim/service-access-20261002",
+  "artifact_root": "service-access-20261002",
   "observer": "Current compare main plus scratch-only every-tick check/capture hooks; 1Hz pending/fleet sampler. No controller changes.",
   "baseline_attribution": [
     {
@@ -319,14 +319,14 @@
     "safety/static-audit.py": "10a3b5b6dc6e0ef8439cd07767bc2186e71fdd65cafd234da93191c5c29ee573",
     "scenarios-race.log": "89c4a4477ae051575cfe32663d78590ff19b90371228b35c77130effe5364c2b",
     "scenarios-test.log": "3b229f336cea9c82d3695ba266e303259d771f7f717e05fb13caca31141b8857",
-    "/home/dotwaffle/.cache/agents/podsim/service-demand-search-20261001/studies/rail-hub-p24.project.json": "cd63dbcf6803e67251951a5a30def69707f17fc73ddee3a5268909806af69a96",
-    "/home/dotwaffle/.cache/agents/podsim/service-demand-search-20261001/studies/rail-hub-p24-s1.result.json": "0f249fa6aef128023c42bb41d2cfbc93aded6649eb22f40be3f24e81ebd15647",
-    "/home/dotwaffle/.cache/agents/podsim/service-demand-search-20261001/studies/rail-hub-p24-s2.result.json": "12297cd067734eb4401b06b354d6210e0120391d73dc4bab9cb44d604f49294c",
-    "/home/dotwaffle/.cache/agents/podsim/service-demand-search-20261001/studies/rail-hub-banks-baseline.project.json": "c85e87a0c0a538d4e05e9bfc4304da8702aec6d7ab90ede77d28f7c3c0444ad5",
-    "/home/dotwaffle/.cache/agents/podsim/service-demand-search-20261001/studies/rail-hub-banks-baseline-s1.result.json": "6f2c28d1b192b7e10b1be90c0460e6ef13fcfc19a0b6e21604dd34bbdbc4fff4",
-    "/home/dotwaffle/.cache/agents/podsim/service-demand-search-20261001/studies/rail-hub-banks-baseline-s2.result.json": "749131b8ec55ca3c9556246a5d9cc8d0e3177166dd5ae4b996169a9eabd08f5f",
-    "/home/dotwaffle/.cache/agents/podsim/service-demand-search-20261001/studies/rail-hub-banks-candidate.project.json": "e80110b561fed1624f03c7850b63fab760056525cc910d5855e435da9a501451",
-    "/home/dotwaffle/.cache/agents/podsim/service-demand-search-20261001/studies/study-manifest.json": "68650695274c23179227baa2caa714aef53ffdc4d2ad9c4f598a38e9c7d12a7e"
+    "service-demand-search-20261001/studies/rail-hub-p24.project.json": "cd63dbcf6803e67251951a5a30def69707f17fc73ddee3a5268909806af69a96",
+    "service-demand-search-20261001/studies/rail-hub-p24-s1.result.json": "0f249fa6aef128023c42bb41d2cfbc93aded6649eb22f40be3f24e81ebd15647",
+    "service-demand-search-20261001/studies/rail-hub-p24-s2.result.json": "12297cd067734eb4401b06b354d6210e0120391d73dc4bab9cb44d604f49294c",
+    "service-demand-search-20261001/studies/rail-hub-banks-baseline.project.json": "c85e87a0c0a538d4e05e9bfc4304da8702aec6d7ab90ede77d28f7c3c0444ad5",
+    "service-demand-search-20261001/studies/rail-hub-banks-baseline-s1.result.json": "6f2c28d1b192b7e10b1be90c0460e6ef13fcfc19a0b6e21604dd34bbdbc4fff4",
+    "service-demand-search-20261001/studies/rail-hub-banks-baseline-s2.result.json": "749131b8ec55ca3c9556246a5d9cc8d0e3177166dd5ae4b996169a9eabd08f5f",
+    "service-demand-search-20261001/studies/rail-hub-banks-candidate.project.json": "e80110b561fed1624f03c7850b63fab760056525cc910d5855e435da9a501451",
+    "service-demand-search-20261001/studies/study-manifest.json": "68650695274c23179227baa2caa714aef53ffdc4d2ad9c4f598a38e9c7d12a7e"
   },
   "pilot": {
     "schedule_id": "243bef3788d50a3a",
@@ -365,7 +365,7 @@
   "static_audit": {
     "purpose": "Static audit only; no simulation or edits to project input",
     "input_sha256": {
-      "/home/dotwaffle/.cache/agents/podsim/service-demand-search-20261001/studies/rail-hub-banks-candidate.project.json": "e80110b561fed1624f03c7850b63fab760056525cc910d5855e435da9a501451",
+      "service-demand-search-20261001/studies/rail-hub-banks-candidate.project.json": "e80110b561fed1624f03c7850b63fab760056525cc910d5855e435da9a501451",
       "/home/dotwaffle/Code/podsim/internal/sim/network.go": "89d1543b694133f78ab72d191c289e9172caebed50982f807d3eacce2c5b3a4b",
       "/home/dotwaffle/Code/podsim/internal/sim/safety.go": "ebaa23315cf8bf6bfa011327ea9c854f06ab06043417232bb33129735124dd65",
       "/home/dotwaffle/Code/podsim/internal/sim/prepared.go": "f0ff7ec0bbc6daf76d7c87681f6fb5f90cac61cfdb4469f6fa02b834dde0834c",

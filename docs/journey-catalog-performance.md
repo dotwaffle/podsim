@@ -78,4 +78,3 @@ It also resolved `CHX` to Charing Cross without browser errors.
 [Arm measurements](measurements/journey-catalog-arms.csv) preserve per-run CPU, memory, and playback results.
 [Client measurements](measurements/journey-catalog-pages.csv) preserve capture duration, script, ACK, inflate, and rendering figures.
 [Metadata](measurements/journey-catalog.json) records frozen inputs and raw hashes.
-The local artifact bundle is `~/.cache/agents/podsim/client-catalog-20260930/`.

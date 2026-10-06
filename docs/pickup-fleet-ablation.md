@@ -64,7 +64,6 @@ Short pilots check every tick and match production aggregates.
 Concurrent functional runs do not provide CPU comparisons.
 
 [Measurements](measurements/pickup-fleet-ablation.json) retain selected timings, boarding histories, the intervention counter, checks, and source identities.
-Raw histories remain in `~/.cache/agents/podsim/fleet-history-20261001/` and `pickup-first-swap-ablation-20261001/`.
 In history events, `Pending` names an admission reservation index, not a waiting request.
 Recorded positions are event-time observations and must not be interpolated as exact later positions.
 

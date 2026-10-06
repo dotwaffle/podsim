@@ -91,4 +91,3 @@ Functional runs overlap other diagnostic work, so their wall times do not measur
 
 [Matched statistics](measurements/pickup-request-pairs.csv) and [cohorts](measurements/pickup-request-cohorts.csv) retain the summary measurements.
 [Metadata](measurements/pickup-request-diagnosis.json) records frozen inputs, all maximum-request comparisons, analyzer and raw-result hashes.
-All 12,598 individual rows remain in `~/.cache/agents/podsim/pickup-request-diagnosis-20260930/requests.csv` with the source exports and helper.

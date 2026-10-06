@@ -123,30 +123,30 @@
       "gate": "wasm-public-retention-v2"
     }
   },
-  "evidence_root": "/home/dotwaffle/.cache/agents/podsim/continuation-express-batch-20261003/root",
+  "evidence_root": "continuation-express-batch-20261003/root",
   "evidence": {
     "browser_controls": {
-      "path": "/home/dotwaffle/.cache/agents/podsim/continuation-express-batch-20261003/root/live-express-ui-v6/manifest.json",
+      "path": "continuation-express-batch-20261003/root/live-express-ui-v6/manifest.json",
       "sha256": "5fab648776d109256eb2324059954e4d71d800527521eddcc48aac2ff16f9146"
     },
     "widest_browser": {
-      "path": "/home/dotwaffle/.cache/agents/podsim/continuation-express-batch-20261003/root/chromium-public-v1/manifest.json",
+      "path": "continuation-express-batch-20261003/root/chromium-public-v1/manifest.json",
       "sha256": "06a00d3fec04059e3bdd8edf29eab0d4bb9436e0bd0dcd418f218c5a549cda13"
     },
     "editor_wasm": {
-      "path": "/home/dotwaffle/.cache/agents/podsim/continuation-express-batch-20261003/root/wasm-editor-receipt.json",
+      "path": "continuation-express-batch-20261003/root/wasm-editor-receipt.json",
       "sha256": "719390dce5133fffab6dfa6d06caa64ad15d1e554ee9af3288098eb942732f77"
     },
     "normalizer_mutation": {
-      "path": "/home/dotwaffle/.cache/agents/podsim/continuation-express-batch-20261003/root/browser-mutation-control.json",
+      "path": "continuation-express-batch-20261003/root/browser-mutation-control.json",
       "sha256": "3d559ab7d93e3efeaa2494e87e8d3fc99f6a3befd5af311f366526eca392c335"
     },
     "http_media_mutation": {
-      "path": "/home/dotwaffle/.cache/agents/podsim/continuation-express-batch-20261003/root/remote-mutations/mutation.json",
+      "path": "continuation-express-batch-20261003/root/remote-mutations/mutation.json",
       "sha256": "742601692f21f565ffbe6030d2a82e2b0463b94f5cf7f99f36f3d36ae8ebff23"
     },
     "native_bridge": {
-      "path": "/home/dotwaffle/.cache/agents/podsim/continuation-express-batch-20261003/root/native-constructor-v6-bridge.json",
+      "path": "continuation-express-batch-20261003/root/native-constructor-v6-bridge.json",
       "sha256": "b1c394e34b41944a9f3a5b5e4331a4248f81a688374dffbc4d4c48378e4690e7"
     }
   }

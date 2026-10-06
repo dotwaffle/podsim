@@ -17,7 +17,7 @@
     "party_limit": 1,
     "routing": "free-flow"
   },
-  "raw_evidence_cache": "~/.cache/agents/podsim/service-demand-search-20261001/studies/",
+  "raw_evidence_cache": "service-demand-search-20261001/studies/",
   "provenance": {
     "source": "ed2ba64f2a9f376a3d76ec66f20e30bb63707840",
     "binary_sha256": "a4e4a10300b8cb96def74787462232d0f677f261e21141f1b3135d2d25da678a",

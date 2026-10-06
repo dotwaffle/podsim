@@ -106,8 +106,8 @@
     "harnessSha256": "a8bc72f952861fcfe216e41d1685e51162600b868d2ad2bc62b189555df9e2da",
     "serverBinary": "/tmp/build/podsim/live-playback-20261001/serve",
     "fileSha256": {
-      "/home/dotwaffle/.cache/agents/podsim/followup-nine-20261001/live-playback/plan.json": "b47413d21b6e506c4ac13617df3a7671eedc0823129d8f16280ab6d9d8edd67b",
-      "/home/dotwaffle/.cache/agents/podsim/followup-nine-20261001/live-playback/full-paused.json.gz": "8ff4b8993b45b8efcc5dec4b2a70956b221304262e50f42351c5c6156b528ac5",
+      "followup-nine-20261001/live-playback/plan.json": "b47413d21b6e506c4ac13617df3a7671eedc0823129d8f16280ab6d9d8edd67b",
+      "followup-nine-20261001/live-playback/full-paused.json.gz": "8ff4b8993b45b8efcc5dec4b2a70956b221304262e50f42351c5c6156b528ac5",
       "/tmp/build/podsim/live-playback-20261001/serve": "0e7758a4ed5297f78f98b83629ea8f69ba9630d431e67109c3fe3116e3873220",
       "/home/dotwaffle/Code/podsim/dist/editor.js": "78493077ff272cb0d9ab665ff466240e38409473d1f68c0798355953fd35eace",
       "/home/dotwaffle/Code/podsim/dist/game.html": "a140ff4dbe086cb71af5cc5fd9ab2f8a9c68f3d01083ef4fca11f24089f9e907",
@@ -122,7 +122,7 @@
       "/home/dotwaffle/Code/podsim/dist/editor.css": "bb70f74d963b1719f08718ef4878412a9e4c789ba447566317fcd3a68f0803f3",
       "/home/dotwaffle/Code/podsim/dist/stream.js": "7a39992016582ecedfbc27f13f04b1574eb52feb34f2f1e8343dab3f97cc4aee",
       "/home/dotwaffle/Code/podsim/dist/CACHEDIR.TAG": "a6cadd53399872fa9aca8a92b2a96e111a30203e4e8a21f4068d0b960031b3af",
-      "/home/dotwaffle/.cache/agents/podsim/followup-nine-20261001/live-playback/run.py": "f796bec39925300c81db0c44d118f2fd2516ce59f7f18d04316c98e9bc557bda"
+      "followup-nine-20261001/live-playback/run.py": "f796bec39925300c81db0c44d118f2fd2516ce59f7f18d04316c98e9bc557bda"
     }
   },
   "arms": [

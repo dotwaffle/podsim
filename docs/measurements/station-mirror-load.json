@@ -1,7 +1,7 @@
 {
   "measuredProductionCommit": "b488de2d45c9b51c92378310b784759f0a3fa530",
   "layoutCommit": "f4eb618",
-  "artifacts": "~/.cache/agents/podsim/mirrored-load-20260930/",
+  "artifacts": "mirrored-load-20260930/",
   "arms": 24,
   "orderedSchedulePairs": 12,
   "allProcessesPassed": true,

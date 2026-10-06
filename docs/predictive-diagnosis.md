@@ -73,5 +73,4 @@ Concurrent functional runs do not provide CPU comparisons.
 
 [Counts](measurements/predictive-diagnosis-arms.csv) retain all six service-cell rejection totals.
 [Metadata](measurements/predictive-diagnosis.json) retains costs, examples, exact historical checks, and source/helper/binary identities.
-Raw results remain in `~/.cache/agents/podsim/prediction-diagnosis-20261001/` and `prediction-diagnosis-extra-20261001/`.
 The studies stopped successfully and their scratch binaries were removed.

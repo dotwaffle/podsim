@@ -88,5 +88,4 @@ Station-entry platoons still require their [design contract](station-entry-plato
 The buffer and reassignment defaults remain off.
 
 [Arm totals](measurements/paddington-clearance-arms.csv), [resource bins](measurements/paddington-clearance-rows.csv), and [metadata](measurements/paddington-clearance.json) retain the measurements.
-Frozen overlays, raw outputs, purity tests, and parity records remain in `~/.cache/agents/podsim/paddington-clearance-20260930/`.
 Concurrent diagnostic jobs make their wall times unsuitable for CPU comparisons.

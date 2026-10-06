@@ -77,7 +77,6 @@ Their matched request timings also remain identical across versions.
 Pure observer tests and independent review check the measurement helper.
 
 [Arm measurements](measurements/station-entry-service-arms.csv), [matched pairs](measurements/station-entry-service-pairs.csv), and [metadata](measurements/station-entry-service.json) retain the screen.
-Raw jobs, accepted-event mappings, timings, overlays, and hashes remain in `~/.cache/agents/podsim/station-entry-study-20261001/`.
 Concurrent runs provide no CPU comparison.
 See the [fixed entry contract](station-entry-platoons.md) for the safety and saved-state rules.
 Broader mixed arrival/departure coverage and individual-service gates remain necessary before adoption.

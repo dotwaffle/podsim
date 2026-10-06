@@ -3,8 +3,8 @@
   "scope": "Approved car continuation and Express implementations in the combined main tree. Additional car qualification is recorded separately.",
   "source_base": "d52e31d0b5192998984086a1021252e264003040",
   "express_owned_paths": 87,
-  "source_pins": "~/.cache/agents/podsim/continuation-express-batch-20261003/root/integrated-source-audit.json",
-  "evidence_directory": "/home/dotwaffle/.cache/agents/podsim/continuation-express-batch-20261003/root/integration-gates",
+  "source_pins": "continuation-express-batch-20261003/root/integrated-source-audit.json",
+  "evidence_directory": "continuation-express-batch-20261003/root/integration-gates",
   "manifest_sha256": "676758b9ecdeed4e26031ead83511c5523e55130168753f4841893b7bbc4d61d",
   "toolchain": {
     "go": "1.27.1",
@@ -53,7 +53,7 @@
       "name": "integrated-diagnostics",
       "command": [
         "python3",
-        "/home/dotwaffle/.cache/agents/podsim/service-access-20261002/gopls-call.py",
+        "service-access-20261002/gopls-call.py",
         "go_diagnostics",
         "{\"files\":[\"/home/dotwaffle/Code/podsim/internal/session/express_wire.go\",\"/home/dotwaffle/Code/podsim/internal/remote/client.go\",\"/home/dotwaffle/Code/podsim/internal/editormodel/express_test.go\",\"/home/dotwaffle/Code/podsim/internal/sim/order_contract.go\",\"/home/dotwaffle/Code/podsim/internal/parkride/checkpoint_restore.go\",\"/home/dotwaffle/Code/podsim/internal/view/order_choices.go\"]}"
       ],

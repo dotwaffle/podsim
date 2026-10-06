@@ -1,7 +1,7 @@
 {
   "baselineCommit": "b488de2",
   "candidateCommit": "c93bc9a",
-  "artifact": "~/.cache/agents/podsim/route-work-20260930/paired/",
+  "artifact": "route-work-20260930/paired/",
   "arms": 24,
   "repeatsPerCell": 2,
   "alternatingCandidateOrder": true,

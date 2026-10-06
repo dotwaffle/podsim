@@ -112,5 +112,4 @@ The dataset retains failed recoveries and all measured fields.
 The original [capacity study](london-full.md#finite-arrival-study-september-29-2026) remains a historical record.
 The [diagnosis](london-full-diagnosis.md) explains the parking diversion and long-journey cases.
 
-Local evidence: `~/.cache/agents/podsim/londonfull-postfix-study-20260929/`.
-It includes frozen projects, source, helper overlays, manifests, selection scripts, commands, logs, hashes, and exit markers.
+The local evidence includes frozen projects, source, helper overlays, manifests, selection scripts, commands, logs, hashes, and exit markers.

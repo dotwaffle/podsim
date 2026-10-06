@@ -1,6 +1,6 @@
 {
   "base": "9113bb3d1d931d46da8c00b652cc7e03fff30c54",
-  "evidence_directory": "/home/dotwaffle/.cache/agents/podsim/roadmap-service-20261002/shared-forecast-screen-evidence",
+  "evidence_directory": "roadmap-service-20261002/shared-forecast-screen-evidence",
   "manifest_sha256": "622dd6ffcb7a95be1ac5c5ef8e467e4450096e08e870cb1c45d3a4e43f5a4f46",
   "validation": {
     "base": "9113bb3d1d931d46da8c00b652cc7e03fff30c54",
@@ -9,7 +9,7 @@
       "observer.go": "8b9433fc5fb0eec886954f7d69ae7ee5ffbe10cc293578f4a8aa773952b10a76",
       "observer_test.go": "354755cc6b9d8e163bab645c27c8cfc7c063cbe0c0603cea5ba5d0e52d27d218"
     },
-    "reused_observer_tests_race_and_mutations": "/home/dotwaffle/.cache/agents/podsim/roadmap-service-20261002/shared-pickup-screen-evidence/receipt.json",
+    "reused_observer_tests_race_and_mutations": "roadmap-service-20261002/shared-pickup-screen-evidence/receipt.json",
     "pilot_plain_parity": "both arms, exact result and every request timing",
     "baseline_bridge": "pilot and both heavy seeds, exact result and every passenger record",
     "compiled_study_and_vet": "pass",

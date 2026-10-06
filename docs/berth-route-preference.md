@@ -55,7 +55,6 @@ Many equal-cost sources can increase the forward shortlist.
 An initial scan of cached forward routes costs about 5.4 milliseconds and 5 MB on a cold source check.
 It costs about 0.61 milliseconds with a warm cache.
 The batched reverse search replaces that scan.
-Raw validation logs and benchmark output remain in `~/.cache/agents/podsim/routing-followup-20260930/`.
 
 Full plain tests, lint, vet, native and WASM builds, and fresh gopls checks pass.
 Race tests pass for sim, session, view, and statestore.

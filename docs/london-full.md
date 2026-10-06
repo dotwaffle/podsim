@@ -202,8 +202,7 @@ Request-to-alight statistics include completed requests only.
 `peak_active_vehicles` counts vehicles with assigned work.
 For failed recovery, `drain_seconds=0` is a sentinel, not a successful zero-duration drain.
 
-The local artifact bundle is `~/.cache/agents/podsim/londonfull-capacity-study-20260929`.
-It retains full configurations, request rosters, frozen source, helpers, binary hashes, commands, logs, and incomplete historical inventory.
+The local artifact bundle retains full configurations, request rosters, frozen source, helpers, binary hashes, commands, logs, and incomplete historical inventory.
 The first baseline run stopped at Morning, rate 15, seed 1 because its final oracle omitted two pending requests.
 The corrected census checks boarded timings plus pending requests against submitted requests, with uniqueness and completion checks.
 The original 40 passing rows had no pending requests and remain valid.

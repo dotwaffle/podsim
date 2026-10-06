@@ -13,9 +13,9 @@
       "/tmp/build/podsim/dispatch-bounds-20260930/candidate-overlay.json": "277f6d4b0e73fd86a4b700441329048b28f64a9963bf81ce5abbe33e3c3b3c8c",
       "/tmp/build/podsim/dispatch-bounds-20260930/baseline-overlay.json": "1eb67038a4f9220473d9f1d5565d6956600295f8434d037a7bc557d43aa3febb",
       "/tmp/build/podsim/dispatch-bounds-20260930/baseline-pickup_estimate.go": "a120783c7fb4449207e1f8a968cc8701106608c74cff37c6834739d98a14ce42",
-      "/home/dotwaffle/.cache/agents/podsim/dispatch-bounds-20260930/probe_test.go": "b17d779d937f47a7a4283c364c3be6aec9515bc7513ab2c38c99ee1756d86a2e",
-      "/home/dotwaffle/.cache/agents/podsim/dispatch-bounds-20260930/profile.cjs": "a0ea669c957c9c91e4bdcd9196f112d5c536bf55c18b8819eb267c812cdac841",
-      "/home/dotwaffle/.cache/agents/podsim/dispatch-bounds-20260930/quiet-run.py": "a8d960547eec9e664d9939409bd03febb5063a4b78fb8187234806c4b0eb2866"
+      "dispatch-bounds-20260930/probe_test.go": "b17d779d937f47a7a4283c364c3be6aec9515bc7513ab2c38c99ee1756d86a2e",
+      "dispatch-bounds-20260930/profile.cjs": "a0ea669c957c9c91e4bdcd9196f112d5c536bf55c18b8819eb267c812cdac841",
+      "dispatch-bounds-20260930/quiet-run.py": "a8d960547eec9e664d9939409bd03febb5063a4b78fb8187234806c4b0eb2866"
     },
     "cpu_timing": "sequential after exact owned capacity unit inactive; no other agent CPU-heavy work during timings",
     "quiet_unit": "podsim-quiet-perf-20260930",

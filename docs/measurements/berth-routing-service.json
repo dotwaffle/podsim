@@ -4424,14 +4424,14 @@
     "scope": "Frozen post-routing source, unchanged original observers/oracles/project/schedules; two every-tick production-control-equivalence pilots then eight matched six-hour arrivals plus one-hour recovery arms. Separate before/after and baseline/controller comparisons. No adoption decision.",
     "sha256": {
       "/tmp/build/podsim/routing-followup-20260930/study.test": "0880cc0be358828c27e35b98f05d3c62b6b4c255886b5e62c362cb72cdb74386",
-      "/home/dotwaffle/.cache/agents/podsim/routing-followup-20260930/study/run.py": "b82c117383edaf45673b71741c3d3c8039546c8e1b0a1b8431ee5eb852b53e67",
-      "/home/dotwaffle/.cache/agents/podsim/routing-followup-20260930/study/jobs.json": "5df4de0d760da5903c47ec386bf657c0d4c501de88bb4f8483b2966115ba65b2",
-      "/home/dotwaffle/.cache/agents/podsim/routing-followup-20260930/study/pilots.json": "9c07bcd883c9a2b0ee2fd84bec7b1591e62401c0bc6e9fde5d88c1f2d556cfa9",
-      "/home/dotwaffle/.cache/agents/podsim/routing-followup-20260930/study/overlay.json": "20fa6376a2e5360c008f5c96c8546844202f54a1ff4ce98b1bfac1575d18ba9d",
-      "/home/dotwaffle/.cache/agents/podsim/routing-followup-20260930/study/study_test.go": "ddd56bf01364b275ca4d96f14fc1439123d83898f592a3174dad2d5caf38fcca",
-      "/home/dotwaffle/.cache/agents/podsim/routing-followup-20260930/study/observed_test.go": "8de1110365b1b5c2ef4fa4b664e0a38685c09b47db5274c73fb508bd69cb970b",
-      "/home/dotwaffle/.cache/agents/podsim/routing-followup-20260930/study/restore_test.go": "957fbd7b3f0b86088e08e7de53fa212708090cee193f72c13d42c524c1349a86",
-      "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/full.json": "be8e751c012805e4941937fcc62364984f7746df82d29c363134dbf2f08b8182"
+      "routing-followup-20260930/study/run.py": "b82c117383edaf45673b71741c3d3c8039546c8e1b0a1b8431ee5eb852b53e67",
+      "routing-followup-20260930/study/jobs.json": "5df4de0d760da5903c47ec386bf657c0d4c501de88bb4f8483b2966115ba65b2",
+      "routing-followup-20260930/study/pilots.json": "9c07bcd883c9a2b0ee2fd84bec7b1591e62401c0bc6e9fde5d88c1f2d556cfa9",
+      "routing-followup-20260930/study/overlay.json": "20fa6376a2e5360c008f5c96c8546844202f54a1ff4ce98b1bfac1575d18ba9d",
+      "routing-followup-20260930/study/study_test.go": "ddd56bf01364b275ca4d96f14fc1439123d83898f592a3174dad2d5caf38fcca",
+      "routing-followup-20260930/study/observed_test.go": "8de1110365b1b5c2ef4fa4b664e0a38685c09b47db5274c73fb508bd69cb970b",
+      "routing-followup-20260930/study/restore_test.go": "957fbd7b3f0b86088e08e7de53fa212708090cee193f72c13d42c524c1349a86",
+      "sustained-full-20260930/full.json": "be8e751c012805e4941937fcc62364984f7746df82d29c363134dbf2f08b8182"
     },
     "limits": "unit RuntimeMax2700s,arm outer900/Go880,workers2,GOMAXPROCS2each,GOMEMLIMIT1536MiBeach,unit MemoryMax4G/swap0,Nice19,KillModecontrol-group,TimeoutStop10s"
   },
@@ -4442,69 +4442,69 @@
   "files": {
     "before": {
       "rate12-s1-boff-roff": {
-        "path": "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/midpoint/rate12-s1-boff-roff.json",
+        "path": "sustained-full-20260930/midpoint/rate12-s1-boff-roff.json",
         "sha256": "9d0a9be373c30388554584484d4411b128e0a10e88fe90222a582f3943196f23"
       },
       "rate12-s1-boff-ron": {
-        "path": "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/midpoint/rate12-s1-boff-ron.json",
+        "path": "sustained-full-20260930/midpoint/rate12-s1-boff-ron.json",
         "sha256": "a38c75492e7a412c02800d78c73584137afee401feea3ccc6cbe625923b75510"
       },
       "rate12-s4-boff-roff": {
-        "path": "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/midpoint/rate12-s4-boff-roff.json",
+        "path": "sustained-full-20260930/midpoint/rate12-s4-boff-roff.json",
         "sha256": "83324c41a53be6da25761599344c194f22da6183fbbf16129f8a9172c9786394"
       },
       "rate12-s4-boff-ron": {
-        "path": "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/midpoint/rate12-s4-boff-ron.json",
+        "path": "sustained-full-20260930/midpoint/rate12-s4-boff-ron.json",
         "sha256": "f2c95fb1acc460644044ac7d417629b0cf9d4452db8b6c98293f22c9ab86c9e6"
       },
       "rate14-s1-boff-roff": {
-        "path": "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/rate14/rate14-s1-boff-roff.json",
+        "path": "sustained-full-20260930/rate14/rate14-s1-boff-roff.json",
         "sha256": "ac004398034e1176ef9cf123c0872b8c2b3d2db69ae076143893a1ab6d5758c0"
       },
       "rate14-s1-bon-ron": {
-        "path": "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/rate14/rate14-s1-bon-ron.json",
+        "path": "sustained-full-20260930/rate14/rate14-s1-bon-ron.json",
         "sha256": "8f92b4311e7334f47e0212b694488ce474e5014e4a9e571eaa37481c965d997a"
       },
       "rate14-s2-boff-roff": {
-        "path": "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/rate14/rate14-s2-boff-roff.json",
+        "path": "sustained-full-20260930/rate14/rate14-s2-boff-roff.json",
         "sha256": "7014b935abe1d33cc0ade659f35e4241bba067fe69270f498502ad041a7f0912"
       },
       "rate14-s2-bon-ron": {
-        "path": "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/rate14/rate14-s2-bon-ron.json",
+        "path": "sustained-full-20260930/rate14/rate14-s2-bon-ron.json",
         "sha256": "2ceede847cd2be7679f22c9527b970f475b794fdf6a23d1aab2eab677cac9d9c"
       }
     },
     "after": {
       "rate12-s1-boff-roff": {
-        "path": "/home/dotwaffle/.cache/agents/podsim/routing-followup-20260930/study/rate12-s1-boff-roff.json",
+        "path": "routing-followup-20260930/study/rate12-s1-boff-roff.json",
         "sha256": "5042d9ea6f6090cd81f17b65c7857a22c4a37b664ee3b68e1b5be24aa86f9dee"
       },
       "rate12-s1-boff-ron": {
-        "path": "/home/dotwaffle/.cache/agents/podsim/routing-followup-20260930/study/rate12-s1-boff-ron.json",
+        "path": "routing-followup-20260930/study/rate12-s1-boff-ron.json",
         "sha256": "5c5788cbd58509ad200c0aab03146d6ea1de8c43c71dc03d1aba5d4da469c21a"
       },
       "rate12-s4-boff-roff": {
-        "path": "/home/dotwaffle/.cache/agents/podsim/routing-followup-20260930/study/rate12-s4-boff-roff.json",
+        "path": "routing-followup-20260930/study/rate12-s4-boff-roff.json",
         "sha256": "813f95ca2c8409bc61fc52f8602e9f801f4a8244ec63f0eb083fa3c4e8b5b28f"
       },
       "rate12-s4-boff-ron": {
-        "path": "/home/dotwaffle/.cache/agents/podsim/routing-followup-20260930/study/rate12-s4-boff-ron.json",
+        "path": "routing-followup-20260930/study/rate12-s4-boff-ron.json",
         "sha256": "8527589e130ceef00a0e8ba9696124c3c9c9f29cfb15c5b510f7abfe866a021e"
       },
       "rate14-s1-boff-roff": {
-        "path": "/home/dotwaffle/.cache/agents/podsim/routing-followup-20260930/study/rate14-s1-boff-roff.json",
+        "path": "routing-followup-20260930/study/rate14-s1-boff-roff.json",
         "sha256": "5346ec477dae6cd96ee957ec2f0600d71aff1d9c8da7484e191541aadfdd73d2"
       },
       "rate14-s1-bon-ron": {
-        "path": "/home/dotwaffle/.cache/agents/podsim/routing-followup-20260930/study/rate14-s1-bon-ron.json",
+        "path": "routing-followup-20260930/study/rate14-s1-bon-ron.json",
         "sha256": "ba68e5a4c46ff777252822f28f4d9ec9221f803ac04c5d227384f19c99c95d6a"
       },
       "rate14-s2-boff-roff": {
-        "path": "/home/dotwaffle/.cache/agents/podsim/routing-followup-20260930/study/rate14-s2-boff-roff.json",
+        "path": "routing-followup-20260930/study/rate14-s2-boff-roff.json",
         "sha256": "7879b26d1e8ce7ae6a70c8fb8337aacd09d3b5f454660359e1337c1d2ad7acb8"
       },
       "rate14-s2-bon-ron": {
-        "path": "/home/dotwaffle/.cache/agents/podsim/routing-followup-20260930/study/rate14-s2-bon-ron.json",
+        "path": "routing-followup-20260930/study/rate14-s2-bon-ron.json",
         "sha256": "83e1d6f22f3b0998004c37e3dd52cd862780dc9eba2b40a9a4497038bd7971d2"
       }
     }
@@ -4612,15 +4612,15 @@
       "host_checkout": "89e1e1d",
       "scope": "Overlay restores every changed non-test Go file between60d523e and89e1e1d, removes newroute_targets.go. Other production source unchanged. Identical frozen observer/helper files.12/minseed4reassignment cached-history witness only.",
       "sha256": {
-        "/home/dotwaffle/.cache/agents/podsim/routing-followup-20260930/study/before-witness/before-positioning.go": "2f1361d2313953abb5b5c446cef0789779acd1bff423cecf956dfe934a2fbfb0",
-        "/home/dotwaffle/.cache/agents/podsim/routing-followup-20260930/study/before-witness/before-diversion.go": "7ddf80c842d698c882dc84754dbc089bd676692376881c4a5593db1420be3d1a",
-        "/home/dotwaffle/.cache/agents/podsim/routing-followup-20260930/study/before-witness/before-routes.go": "54995d5d5d8744b39863e9b8f20c59d38d672cbea5abf8b8351015be2ddf072d",
-        "/home/dotwaffle/.cache/agents/podsim/routing-followup-20260930/study/before-witness/before-network.go": "a0ef3551db7e54daed577b525fe9d45c87f7d9534fd5762de9cfe71f29e7589d",
-        "/home/dotwaffle/.cache/agents/podsim/routing-followup-20260930/study/before-witness/before-routing_policy.go": "2c8b54f5fc9d5a70afc5ba6641ea95c6094a0d56cf5f28f18c9b03453b14b3d1",
-        "/home/dotwaffle/.cache/agents/podsim/routing-followup-20260930/study/before-witness/before-released.go": "70d0354d0699b55909fe4f6b0afb8843185f663e5b90eaecb2f36c54f2f4451f",
-        "/home/dotwaffle/.cache/agents/podsim/routing-followup-20260930/study/before-witness/run.py": "130eab9b9b3f5134d63988ec57f9bc496dc6f466f95a50354000485b5a1c3726",
-        "/home/dotwaffle/.cache/agents/podsim/routing-followup-20260930/study/before-witness/overlay.json": "01121f13f551e0b7d5e9db180ef597c5ab23c045e25b5688afb539a081e2ecdf",
-        "/home/dotwaffle/.cache/agents/podsim/routing-followup-20260930/study/before-witness/jobs.json": "9e9adfeb1eb1bb70088280e622b84fad8452a8f6591888b7a6164792636b257e",
+        "routing-followup-20260930/study/before-witness/before-positioning.go": "2f1361d2313953abb5b5c446cef0789779acd1bff423cecf956dfe934a2fbfb0",
+        "routing-followup-20260930/study/before-witness/before-diversion.go": "7ddf80c842d698c882dc84754dbc089bd676692376881c4a5593db1420be3d1a",
+        "routing-followup-20260930/study/before-witness/before-routes.go": "54995d5d5d8744b39863e9b8f20c59d38d672cbea5abf8b8351015be2ddf072d",
+        "routing-followup-20260930/study/before-witness/before-network.go": "a0ef3551db7e54daed577b525fe9d45c87f7d9534fd5762de9cfe71f29e7589d",
+        "routing-followup-20260930/study/before-witness/before-routing_policy.go": "2c8b54f5fc9d5a70afc5ba6641ea95c6094a0d56cf5f28f18c9b03453b14b3d1",
+        "routing-followup-20260930/study/before-witness/before-released.go": "70d0354d0699b55909fe4f6b0afb8843185f663e5b90eaecb2f36c54f2f4451f",
+        "routing-followup-20260930/study/before-witness/run.py": "130eab9b9b3f5134d63988ec57f9bc496dc6f466f95a50354000485b5a1c3726",
+        "routing-followup-20260930/study/before-witness/overlay.json": "01121f13f551e0b7d5e9db180ef597c5ab23c045e25b5688afb539a081e2ecdf",
+        "routing-followup-20260930/study/before-witness/jobs.json": "9e9adfeb1eb1bb70088280e622b84fad8452a8f6591888b7a6164792636b257e",
         "/tmp/build/podsim/routing-followup-20260930/before.test": "64997cec97239bf0fd52748db16892f28c540706899499c140017d069c33bb9b"
       },
       "binary_retention": "before.test removed after successful witness and verified inactive empty unit. SHA and overlaid sources retained."
@@ -4644,14 +4644,14 @@
       "source_commit": "89e1e1d44cb25c1f2324ab3b1005125f55008ad4",
       "scope": "Read-only request1324 pending/blocker change frames, unchanged inherited helpers. Require exact current original result/schedule/base checks. No single-decision causal claim.",
       "sha256": {
-        "/home/dotwaffle/.cache/agents/podsim/routing-followup-20260930/study/frames/frames_test.go": "f4d26cee06f608e40e1002d4ffa9185b9f201cf5b77a3a85c2ea5a90c55feaf4",
-        "/home/dotwaffle/.cache/agents/podsim/routing-followup-20260930/study/frames/restore_test.go": "957fbd7b3f0b86088e08e7de53fa212708090cee193f72c13d42c524c1349a86",
-        "/home/dotwaffle/.cache/agents/podsim/routing-followup-20260930/study/frames/study_test.go": "9fa514980635ea21b17f97e70573117ceffda5bd931e3ac2c25937a3b26c553a",
-        "/home/dotwaffle/.cache/agents/podsim/routing-followup-20260930/study/frames/tail_test.go": "ce8b9cf9e664d42b7bc51792e69123f8b7f01e6e773fc9d941ecd71467a906a0",
-        "/home/dotwaffle/.cache/agents/podsim/routing-followup-20260930/study/frames/observed_test.go": "8de1110365b1b5c2ef4fa4b664e0a38685c09b47db5274c73fb508bd69cb970b",
-        "/home/dotwaffle/.cache/agents/podsim/routing-followup-20260930/study/frames/run.py": "66c84e3efa82cd8f13118941bce569d1a733c4f4fed661aae1d588279ae8ff26",
-        "/home/dotwaffle/.cache/agents/podsim/routing-followup-20260930/study/frames/overlay.json": "04ece90ddad9f1bcad0eef8f9b1f8720ea5cc4f18edfb66c009447c8c9fa3c4a",
-        "/home/dotwaffle/.cache/agents/podsim/routing-followup-20260930/study/frames/jobs.json": "405c18e54f6b879320d766c7839b13d045627fcbae67aede0cb19bea8927b7e0",
+        "routing-followup-20260930/study/frames/frames_test.go": "f4d26cee06f608e40e1002d4ffa9185b9f201cf5b77a3a85c2ea5a90c55feaf4",
+        "routing-followup-20260930/study/frames/restore_test.go": "957fbd7b3f0b86088e08e7de53fa212708090cee193f72c13d42c524c1349a86",
+        "routing-followup-20260930/study/frames/study_test.go": "9fa514980635ea21b17f97e70573117ceffda5bd931e3ac2c25937a3b26c553a",
+        "routing-followup-20260930/study/frames/tail_test.go": "ce8b9cf9e664d42b7bc51792e69123f8b7f01e6e773fc9d941ecd71467a906a0",
+        "routing-followup-20260930/study/frames/observed_test.go": "8de1110365b1b5c2ef4fa4b664e0a38685c09b47db5274c73fb508bd69cb970b",
+        "routing-followup-20260930/study/frames/run.py": "66c84e3efa82cd8f13118941bce569d1a733c4f4fed661aae1d588279ae8ff26",
+        "routing-followup-20260930/study/frames/overlay.json": "04ece90ddad9f1bcad0eef8f9b1f8720ea5cc4f18edfb66c009447c8c9fa3c4a",
+        "routing-followup-20260930/study/frames/jobs.json": "405c18e54f6b879320d766c7839b13d045627fcbae67aede0cb19bea8927b7e0",
         "/tmp/build/podsim/routing-followup-20260930/frames.test": "1ef00a00692b7d15dab2121e98aad00955530fc79229e093b82b45d22db23bd6"
       },
       "binary_retention": "frames.test removed after success and verified inactive empty unit. SHA and helpers retained."

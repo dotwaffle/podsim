@@ -45,5 +45,4 @@ Design and approve the larger-state encoding now, before any foundation integrat
 This keeps the count amendment in one delivery but delays the consent and compatibility work.
 The staged contract lets those features finish while the physical and larger-state contracts remain under review.
 
-Evidence: `~/.cache/agents/podsim/roadmap-service-20261002/service-byte-proof-receipt.json`.
 The cache also retains baseline and projection logs and the exact projection patch at base `ff43bcb`.

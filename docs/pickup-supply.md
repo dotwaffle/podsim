@@ -103,5 +103,4 @@ These finite selected screens do not establish indefinite capacity or full deman
 The failed individual gates stop broader unchanged runs for these candidates.
 
 [Measurements](measurements/pickup-supply.json) retain all offered indices that exceed limits, worst cases, checks, source hashes, and results.
-Full offered-event and timing records remain in `~/.cache/agents/podsim/followup-nine-20261001/pickup-supply/`.
 The [experimental gates](experimental-adoption.md) define the separate full-qualification requirements.

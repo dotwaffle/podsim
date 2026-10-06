@@ -82,5 +82,4 @@ No network or browser performance claim follows from these profiles.
 [Raw timed samples](measurements/predictive-cost-arms.csv) retain CPU, wall time, allocation, GC, heap, and peak RSS fields.
 [Repeated summaries](measurements/predictive-cost-summary.csv) retain medians and full repetition ranges.
 [Metadata](measurements/predictive-cost.json) retains frozen source and binary hashes, all run outcomes, exact result checks, and cost ratios.
-Profiles and helpers remain in `~/.cache/agents/podsim/predictive-performance-20261001/`.
 The owned measurement unit stopped successfully.

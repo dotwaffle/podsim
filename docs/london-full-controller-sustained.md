@@ -95,7 +95,6 @@ Numeric tail limits, broader demand coverage, and causal investigation remain ne
 
 [Arm totals](measurements/london-full-controller-sustained.csv) retain completion, waits, queue growth, buffer occupancy, and stopped-time counts.
 [Metadata and matched summaries](measurements/london-full-controller-sustained.json) retain source, input, raw-result hashes, cohorts, and restore requirements.
-Per-request deltas, decisions, frozen helpers, and initial timeout logs remain in `~/.cache/agents/podsim/sustained-full-20260930/`.
 This study does not replace the [finite-arrival capacity envelope](london-full-postfix.md).
 The [12/min extension](london-full-controller-rate12.md), [13/min comparison](london-full-controller-rate13.md), and [14/min comparison](london-full-controller-rate14.md) narrow the tested rate range.
 The separate [Stratford diagnosis](berth-route-preference.md) identifies an intermediate-berth routing obstruction in a 12/min seed-4 run.

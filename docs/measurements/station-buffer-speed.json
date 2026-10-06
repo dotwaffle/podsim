@@ -3,7 +3,7 @@
     "name": "acton-mixed-s3-q1000000-boff-roff",
     "group": "buffer-discharge-diagnosis-20261001",
     "buffers": "off",
-    "project": "/home/dotwaffle/.cache/agents/podsim/mirrored-load-20260930/current/full.json",
+    "project": "mirrored-load-20260930/current/full.json",
     "project_sha256": "be8e751c012805e4941937fcc62364984f7746df82d29c363134dbf2f08b8182",
     "source": {
       "commit": "e285e6992a15a28466ef07dcb0c4df3769ec6776",
@@ -140,7 +140,7 @@
     "name": "acton-mixed-s3-q1000000-bon-roff",
     "group": "buffer-discharge-diagnosis-20261001",
     "buffers": "on",
-    "project": "/home/dotwaffle/.cache/agents/podsim/mirrored-load-20260930/current/full.json",
+    "project": "mirrored-load-20260930/current/full.json",
     "project_sha256": "be8e751c012805e4941937fcc62364984f7746df82d29c363134dbf2f08b8182",
     "source": {
       "commit": "e285e6992a15a28466ef07dcb0c4df3769ec6776",
@@ -293,7 +293,7 @@
     "name": "acton-speed-10-buffer-off",
     "group": "station-speed-20261001",
     "buffers": "off",
-    "project": "/home/dotwaffle/.cache/agents/podsim/station-speed-20261001/acton-speed-10.json",
+    "project": "station-speed-20261001/acton-speed-10.json",
     "project_sha256": "d816d57347ca9c9413f6e21fef931381e87c89ab641b3d3681071d9407a6e803",
     "source": {
       "commit": "e285e6992a15a28466ef07dcb0c4df3769ec6776",
@@ -430,7 +430,7 @@
     "name": "acton-speed-10-buffer-on",
     "group": "station-speed-20261001",
     "buffers": "on",
-    "project": "/home/dotwaffle/.cache/agents/podsim/station-speed-20261001/acton-speed-10.json",
+    "project": "station-speed-20261001/acton-speed-10.json",
     "project_sha256": "d816d57347ca9c9413f6e21fef931381e87c89ab641b3d3681071d9407a6e803",
     "source": {
       "commit": "e285e6992a15a28466ef07dcb0c4df3769ec6776",
@@ -585,7 +585,7 @@
     "name": "acton-speed-7-buffer-off",
     "group": "station-speed-20261001",
     "buffers": "off",
-    "project": "/home/dotwaffle/.cache/agents/podsim/station-speed-20261001/acton-speed-7.json",
+    "project": "station-speed-20261001/acton-speed-7.json",
     "project_sha256": "4f79e8ea99ecadf7f2df21cf637d5b8c924597b2d81bac36c1860149b0fc2f48",
     "source": {
       "commit": "e285e6992a15a28466ef07dcb0c4df3769ec6776",
@@ -722,7 +722,7 @@
     "name": "acton-speed-7-buffer-on",
     "group": "station-speed-20261001",
     "buffers": "on",
-    "project": "/home/dotwaffle/.cache/agents/podsim/station-speed-20261001/acton-speed-7.json",
+    "project": "station-speed-20261001/acton-speed-7.json",
     "project_sha256": "4f79e8ea99ecadf7f2df21cf637d5b8c924597b2d81bac36c1860149b0fc2f48",
     "source": {
       "commit": "e285e6992a15a28466ef07dcb0c4df3769ec6776",

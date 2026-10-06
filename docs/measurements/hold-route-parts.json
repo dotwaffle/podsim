@@ -3,8 +3,8 @@
   "candidateParent": "e12cf4a",
   "candidateChange": "read-only route parts for boolean pickup availability",
   "binaries": {
-    "baseline": "/home/dotwaffle/.cache/agents/podsim/hold-route-20260930/baseline.test",
-    "candidate": "/home/dotwaffle/.cache/agents/podsim/hold-route-20260930/candidate.test"
+    "baseline": "hold-route-20260930/baseline.test",
+    "candidate": "hold-route-20260930/candidate.test"
   },
   "expectedStateDigests": {
     "central": "8d03caa8933da304d634af0fa4adada9ea43622c9eae3cbd58df509d14fcf8b4",
@@ -212,15 +212,15 @@
   ],
   "quietMeasurement": true,
   "fileSha256": {
-    "/home/dotwaffle/.cache/agents/podsim/hold-route-20260930/baseline.test": "d75699994f6a81bff0b789713028d72fb13b9e5e3f3bea4b2ea2f2d8f34f7396",
-    "/home/dotwaffle/.cache/agents/podsim/hold-route-20260930/candidate.test": "618f64f7972536bff1167b95ebe5a556e9cd9fd67f88521773c15b86328093bb",
-    "/home/dotwaffle/.cache/agents/podsim/hold-route-20260930/baseline-diversion.go": "b72c94de4e4157b5144955660b06a7a825006ee9c8b353d315c5eca1ae14b9e1",
-    "/home/dotwaffle/.cache/agents/podsim/hold-route-20260930/baseline-pickup_estimate.go": "35d286631ab3695bbcc3c43849076cc4e2e44ac218a54de2690a90eaa31304c6",
-    "/home/dotwaffle/.cache/agents/podsim/hold-route-20260930/probe_test.go": "b17d779d937f47a7a4283c364c3be6aec9515bc7513ab2c38c99ee1756d86a2e",
-    "/home/dotwaffle/.cache/agents/podsim/hold-route-20260930/baseline-overlay.json": "0f8ac25b638d31709d23292d6967fdfb7b7376c242a39429c3ab6a47f01676ba",
-    "/home/dotwaffle/.cache/agents/podsim/hold-route-20260930/candidate-overlay.json": "ca1312f420694fc7f3d3dfbbe375c5b9ff629e042973030e4bc7adc6d0f347d4",
-    "/home/dotwaffle/.cache/agents/podsim/hold-route-20260930/run.py": "c3e2efa783c684760069ce105f3e3d8932f17c85e73783a9ef12075bbc015139",
-    "/home/dotwaffle/.cache/agents/podsim/hold-route-20260930/calibration-central.json": "0e20a580b3d2aac5fe978160a73af06537cca98b8d040662db9412fa652905c3",
+    "hold-route-20260930/baseline.test": "d75699994f6a81bff0b789713028d72fb13b9e5e3f3bea4b2ea2f2d8f34f7396",
+    "hold-route-20260930/candidate.test": "618f64f7972536bff1167b95ebe5a556e9cd9fd67f88521773c15b86328093bb",
+    "hold-route-20260930/baseline-diversion.go": "b72c94de4e4157b5144955660b06a7a825006ee9c8b353d315c5eca1ae14b9e1",
+    "hold-route-20260930/baseline-pickup_estimate.go": "35d286631ab3695bbcc3c43849076cc4e2e44ac218a54de2690a90eaa31304c6",
+    "hold-route-20260930/probe_test.go": "b17d779d937f47a7a4283c364c3be6aec9515bc7513ab2c38c99ee1756d86a2e",
+    "hold-route-20260930/baseline-overlay.json": "0f8ac25b638d31709d23292d6967fdfb7b7376c242a39429c3ab6a47f01676ba",
+    "hold-route-20260930/candidate-overlay.json": "ca1312f420694fc7f3d3dfbbe375c5b9ff629e042973030e4bc7adc6d0f347d4",
+    "hold-route-20260930/run.py": "c3e2efa783c684760069ce105f3e3d8932f17c85e73783a9ef12075bbc015139",
+    "hold-route-20260930/calibration-central.json": "0e20a580b3d2aac5fe978160a73af06537cca98b8d040662db9412fa652905c3",
     "/home/dotwaffle/Code/podsim/internal/sim/diversion.go": "471245b8b83a2cecd9f8a436d63c592499ca12b9d751ac47a51e217ab605390e",
     "/home/dotwaffle/Code/podsim/internal/sim/pickup_estimate.go": "a120783c7fb4449207e1f8a968cc8701106608c74cff37c6834739d98a14ce42",
     "/home/dotwaffle/Code/podsim/internal/sim/candidate_parts_test.go": "46324ce5e6ba0b68da14cd563155a2bc2a8e363b49cdc2040ff3df83c5e48946"

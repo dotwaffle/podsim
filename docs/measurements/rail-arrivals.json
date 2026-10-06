@@ -1746,13 +1746,13 @@
     "fixtures": [
       {
         "name": "rail-hub",
-        "project": "/home/dotwaffle/.cache/agents/podsim/followup-nine-20261001/rail-study-rail-hub.json",
+        "project": "followup-nine-20261001/rail-study-rail-hub.json",
         "focus": "station-01",
         "project_sha256": "67140cabd06f4c7641cfe9065d28b17212eb7eaa88eafbc5b47cac55dba495e1"
       },
       {
         "name": "london-full",
-        "project": "/home/dotwaffle/.cache/agents/podsim/followup-nine-20261001/rail-study-london-full.json",
+        "project": "followup-nine-20261001/rail-study-london-full.json",
         "focus": "940GZZLUPAC",
         "project_sha256": "0a1efde778d01671b2a81e705ef2be138fcdef6277c28b54c443d7221b343c4c"
       }
@@ -1811,56 +1811,56 @@
       "name": "rail-study-rail-hub-s1-train",
       "status": "pass",
       "reused_pilot": true,
-      "output": "/home/dotwaffle/.cache/agents/podsim/followup-nine-20261001/rail-study-rail-hub-s1-train.json"
+      "output": "followup-nine-20261001/rail-study-rail-hub-s1-train.json"
     },
     {
       "name": "rail-study-rail-hub-s1-regular",
       "status": "pass",
       "exit": 0,
       "wall_seconds": 16.886886924505234,
-      "output": "/home/dotwaffle/.cache/agents/podsim/followup-nine-20261001/rail-study-rail-hub-s1-regular.json"
+      "output": "followup-nine-20261001/rail-study-rail-hub-s1-regular.json"
     },
     {
       "name": "rail-study-rail-hub-s2-train",
       "status": "pass",
       "exit": 0,
       "wall_seconds": 15.638008615002036,
-      "output": "/home/dotwaffle/.cache/agents/podsim/followup-nine-20261001/rail-study-rail-hub-s2-train.json"
+      "output": "followup-nine-20261001/rail-study-rail-hub-s2-train.json"
     },
     {
       "name": "rail-study-rail-hub-s2-regular",
       "status": "pass",
       "exit": 0,
       "wall_seconds": 17.088515585288405,
-      "output": "/home/dotwaffle/.cache/agents/podsim/followup-nine-20261001/rail-study-rail-hub-s2-regular.json"
+      "output": "followup-nine-20261001/rail-study-rail-hub-s2-regular.json"
     },
     {
       "name": "rail-study-london-full-s1-train",
       "status": "pass",
       "exit": 0,
       "wall_seconds": 449.191248010844,
-      "output": "/home/dotwaffle/.cache/agents/podsim/followup-nine-20261001/rail-study-london-full-s1-train.json"
+      "output": "followup-nine-20261001/rail-study-london-full-s1-train.json"
     },
     {
       "name": "rail-study-london-full-s1-regular",
       "status": "pass",
       "exit": 0,
       "wall_seconds": 491.4722464447841,
-      "output": "/home/dotwaffle/.cache/agents/podsim/followup-nine-20261001/rail-study-london-full-s1-regular.json"
+      "output": "followup-nine-20261001/rail-study-london-full-s1-regular.json"
     },
     {
       "name": "rail-study-london-full-s2-train",
       "status": "pass",
       "exit": 0,
       "wall_seconds": 434.154750328511,
-      "output": "/home/dotwaffle/.cache/agents/podsim/followup-nine-20261001/rail-study-london-full-s2-train.json"
+      "output": "followup-nine-20261001/rail-study-london-full-s2-train.json"
     },
     {
       "name": "rail-study-london-full-s2-regular",
       "status": "pass",
       "exit": 0,
       "wall_seconds": 502.68708982598037,
-      "output": "/home/dotwaffle/.cache/agents/podsim/followup-nine-20261001/rail-study-london-full-s2-regular.json"
+      "output": "followup-nine-20261001/rail-study-london-full-s2-regular.json"
     }
   ],
   "safety_checked_ticks": 3857640,

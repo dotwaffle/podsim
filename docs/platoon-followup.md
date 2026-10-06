@@ -104,8 +104,7 @@ The dataset retains unfinished requests and failed recovery outcomes.
 
 [Per-arm measurements](measurements/platoon-followup.csv) and [metadata](measurements/platoon-followup.json) retain the full results.
 The [historical A/B](qualification.md#platoon-ab) remains a separate measurement record.
-Local evidence: `~/.cache/agents/podsim/platoon-followup-20260929/`.
-It includes generated projects, hashes, helper overlays, commands, logs, manifests, and exit markers.
+The local evidence includes generated projects, hashes, helper overlays, commands, logs, manifests, and exit markers.
 
 ## Targeted diagnosis after junction priority
 
@@ -138,4 +137,3 @@ They also do not show that empty-pod coupling has no effect on dispatch.
 
 The adoption criteria remain unmet.
 This targeted replay does not qualify the full matrix or justify a new operating default.
-Evidence, frozen hashes, per-request comparisons, and the FIFO overlay are in `~/.cache/agents/podsim/platoon-diagnosis-20260929/`.

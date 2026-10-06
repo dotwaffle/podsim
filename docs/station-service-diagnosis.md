@@ -155,6 +155,4 @@ Separate parking stations provide storage through explicit links.
 No shared gate or external merge gains a safety exemption.
 The project/save/editor proposal requires a concrete user decision before implementation.
 
-Raw receipts, frozen observer sources, static audit, corrected fixtures, and analysis remain in `~/.cache/agents/podsim/service-access-20261002/`.
 The repository measurement is a summary, not a standalone study runner.
-The original failed evidence remains in the earlier service-study cache.

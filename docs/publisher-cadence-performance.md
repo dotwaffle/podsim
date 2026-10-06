@@ -90,4 +90,3 @@ Existing credit, history, and message limits remain the backpressure controls.
 
 [Per-arm measurements](measurements/publisher-cadence-arms.csv) and [per-page measurements](measurements/publisher-cadence-pages.csv) retain all results.
 [Metadata](measurements/publisher-cadence.json) records frozen inputs, source hashes, and raw-result hashes.
-Local profiles, probes, screenshots, and helpers remain in `~/.cache/agents/podsim/stream-cadence-20260930/`.

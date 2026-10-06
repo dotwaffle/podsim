@@ -5,7 +5,7 @@
     "complete": true,
     "plan": {
       "base": "24aaa69",
-      "fixture": "/home/dotwaffle/.cache/agents/podsim/followup-nine-20261001/live-playback/full-paused.json.gz",
+      "fixture": "followup-nine-20261001/live-playback/full-paused.json.gz",
       "ticks": 324000,
       "gomaxprocs": 4,
       "gogc": 100,
@@ -23,7 +23,7 @@
         "/tmp/build/podsim/station-phase-20261001/baseline-session.test": "7b7c991632b203ab715249613961f9d2622ec9dd51c9fc6fb17b64999d9745c6",
         "/tmp/build/podsim/station-phase-20261001/candidate-session.test": "655ec640dd57ee56f3c288a293744b93c840bd3fe72c14a7c5358c280f6dba0d",
         "/tmp/build/podsim/station-phase-20261001/phase_profile_test.go": "be2ab7ca2cbc6b164ea545c60c01a35c9fc4d96b6173250824ffd9cc867e7751",
-        "/home/dotwaffle/.cache/agents/podsim/followup-nine-20261001/live-playback/full-paused.json.gz": "8ff4b8993b45b8efcc5dec4b2a70956b221304262e50f42351c5c6156b528ac5"
+        "followup-nine-20261001/live-playback/full-paused.json.gz": "8ff4b8993b45b8efcc5dec4b2a70956b221304262e50f42351c5c6156b528ac5"
       },
       "candidate_diff_sha256": "02ff4d6a9541a64e0af7279a92667c792165a2635bac8887c3772e151bd2e33a"
     },
@@ -374,9 +374,9 @@
         "/home/dotwaffle/Code/podsim/dist/editor.css": "bb70f74d963b1719f08718ef4878412a9e4c789ba447566317fcd3a68f0803f3",
         "/home/dotwaffle/Code/podsim/dist/stream.js": "7a39992016582ecedfbc27f13f04b1574eb52feb34f2f1e8343dab3f97cc4aee",
         "/home/dotwaffle/Code/podsim/dist/CACHEDIR.TAG": "a6cadd53399872fa9aca8a92b2a96e111a30203e4e8a21f4068d0b960031b3af",
-        "/home/dotwaffle/.cache/agents/podsim/followup-nine-20261001/station-phase/live/plan.json": "e7421ff5f0625600a466c233d6bede7f716415120b48e2057054579e6cabf29b",
-        "/home/dotwaffle/.cache/agents/podsim/followup-nine-20261001/station-phase/live/run.py": "6a12febc3bb5e01f67b60b76e02ecf1511984c09cbb79e2a866f1cad2b644548",
-        "/home/dotwaffle/.cache/agents/podsim/followup-nine-20261001/station-phase/live/full-paused.json.gz": "8ff4b8993b45b8efcc5dec4b2a70956b221304262e50f42351c5c6156b528ac5",
+        "followup-nine-20261001/station-phase/live/plan.json": "e7421ff5f0625600a466c233d6bede7f716415120b48e2057054579e6cabf29b",
+        "followup-nine-20261001/station-phase/live/run.py": "6a12febc3bb5e01f67b60b76e02ecf1511984c09cbb79e2a866f1cad2b644548",
+        "followup-nine-20261001/station-phase/live/full-paused.json.gz": "8ff4b8993b45b8efcc5dec4b2a70956b221304262e50f42351c5c6156b528ac5",
         "/tmp/build/podsim/live-playback-20261001/serve": "0e7758a4ed5297f78f98b83629ea8f69ba9630d431e67109c3fe3116e3873220",
         "/tmp/build/podsim/station-phase-20261001/serve-candidate": "3f129af8f9dc46080f8c402653fc5e9d62ed678a2eba1ac76492e0bfc4952986"
       },
@@ -397,9 +397,9 @@
             "/home/dotwaffle/Code/podsim/dist/editor.css": "bb70f74d963b1719f08718ef4878412a9e4c789ba447566317fcd3a68f0803f3",
             "/home/dotwaffle/Code/podsim/dist/stream.js": "7a39992016582ecedfbc27f13f04b1574eb52feb34f2f1e8343dab3f97cc4aee",
             "/home/dotwaffle/Code/podsim/dist/CACHEDIR.TAG": "a6cadd53399872fa9aca8a92b2a96e111a30203e4e8a21f4068d0b960031b3af",
-            "/home/dotwaffle/.cache/agents/podsim/followup-nine-20261001/station-phase/live/plan.json": "e7421ff5f0625600a466c233d6bede7f716415120b48e2057054579e6cabf29b",
-            "/home/dotwaffle/.cache/agents/podsim/followup-nine-20261001/station-phase/live/run.py": "6a12febc3bb5e01f67b60b76e02ecf1511984c09cbb79e2a866f1cad2b644548",
-            "/home/dotwaffle/.cache/agents/podsim/followup-nine-20261001/station-phase/live/full-paused.json.gz": "8ff4b8993b45b8efcc5dec4b2a70956b221304262e50f42351c5c6156b528ac5",
+            "followup-nine-20261001/station-phase/live/plan.json": "e7421ff5f0625600a466c233d6bede7f716415120b48e2057054579e6cabf29b",
+            "followup-nine-20261001/station-phase/live/run.py": "6a12febc3bb5e01f67b60b76e02ecf1511984c09cbb79e2a866f1cad2b644548",
+            "followup-nine-20261001/station-phase/live/full-paused.json.gz": "8ff4b8993b45b8efcc5dec4b2a70956b221304262e50f42351c5c6156b528ac5",
             "/tmp/build/podsim/live-playback-20261001/serve": "0e7758a4ed5297f78f98b83629ea8f69ba9630d431e67109c3fe3116e3873220",
             "/tmp/build/podsim/station-phase-20261001/serve-candidate": "3f129af8f9dc46080f8c402653fc5e9d62ed678a2eba1ac76492e0bfc4952986"
           },
@@ -421,9 +421,9 @@
             "/home/dotwaffle/Code/podsim/dist/editor.css": "bb70f74d963b1719f08718ef4878412a9e4c789ba447566317fcd3a68f0803f3",
             "/home/dotwaffle/Code/podsim/dist/stream.js": "7a39992016582ecedfbc27f13f04b1574eb52feb34f2f1e8343dab3f97cc4aee",
             "/home/dotwaffle/Code/podsim/dist/CACHEDIR.TAG": "a6cadd53399872fa9aca8a92b2a96e111a30203e4e8a21f4068d0b960031b3af",
-            "/home/dotwaffle/.cache/agents/podsim/followup-nine-20261001/station-phase/live/plan.json": "e7421ff5f0625600a466c233d6bede7f716415120b48e2057054579e6cabf29b",
-            "/home/dotwaffle/.cache/agents/podsim/followup-nine-20261001/station-phase/live/run.py": "6a12febc3bb5e01f67b60b76e02ecf1511984c09cbb79e2a866f1cad2b644548",
-            "/home/dotwaffle/.cache/agents/podsim/followup-nine-20261001/station-phase/live/full-paused.json.gz": "8ff4b8993b45b8efcc5dec4b2a70956b221304262e50f42351c5c6156b528ac5",
+            "followup-nine-20261001/station-phase/live/plan.json": "e7421ff5f0625600a466c233d6bede7f716415120b48e2057054579e6cabf29b",
+            "followup-nine-20261001/station-phase/live/run.py": "6a12febc3bb5e01f67b60b76e02ecf1511984c09cbb79e2a866f1cad2b644548",
+            "followup-nine-20261001/station-phase/live/full-paused.json.gz": "8ff4b8993b45b8efcc5dec4b2a70956b221304262e50f42351c5c6156b528ac5",
             "/tmp/build/podsim/live-playback-20261001/serve": "0e7758a4ed5297f78f98b83629ea8f69ba9630d431e67109c3fe3116e3873220",
             "/tmp/build/podsim/station-phase-20261001/serve-candidate": "3f129af8f9dc46080f8c402653fc5e9d62ed678a2eba1ac76492e0bfc4952986"
           },
@@ -728,27 +728,27 @@
   "defaults_changed": false,
   "retained_artifacts": {
     "/tmp/build/podsim/station-phase-20261001/baseline.test": {
-      "retained": "/home/dotwaffle/.cache/agents/podsim/followup-nine-20261001/station-phase/frozen-tools/baseline.test",
+      "retained": "followup-nine-20261001/station-phase/frozen-tools/baseline.test",
       "sha256": "447dc415f0eccb37ee01d82b008f4e3b049bed19a6b86262389d6a995957096d"
     },
     "/tmp/build/podsim/station-phase-20261001/candidate.test": {
-      "retained": "/home/dotwaffle/.cache/agents/podsim/followup-nine-20261001/station-phase/frozen-tools/candidate.test",
+      "retained": "followup-nine-20261001/station-phase/frozen-tools/candidate.test",
       "sha256": "d2b37a62ce6bea01407e5e24c83d9549bcf25c4aa5cf9e1626430d49bcb8e616"
     },
     "/tmp/build/podsim/station-phase-20261001/baseline-session.test": {
-      "retained": "/home/dotwaffle/.cache/agents/podsim/followup-nine-20261001/station-phase/frozen-tools/baseline-session.test",
+      "retained": "followup-nine-20261001/station-phase/frozen-tools/baseline-session.test",
       "sha256": "7b7c991632b203ab715249613961f9d2622ec9dd51c9fc6fb17b64999d9745c6"
     },
     "/tmp/build/podsim/station-phase-20261001/candidate-session.test": {
-      "retained": "/home/dotwaffle/.cache/agents/podsim/followup-nine-20261001/station-phase/frozen-tools/candidate-session.test",
+      "retained": "followup-nine-20261001/station-phase/frozen-tools/candidate-session.test",
       "sha256": "655ec640dd57ee56f3c288a293744b93c840bd3fe72c14a7c5358c280f6dba0d"
     },
     "/tmp/build/podsim/station-phase-20261001/serve-candidate": {
-      "retained": "/home/dotwaffle/.cache/agents/podsim/followup-nine-20261001/station-phase/frozen-tools/serve-candidate",
+      "retained": "followup-nine-20261001/station-phase/frozen-tools/serve-candidate",
       "sha256": "3f129af8f9dc46080f8c402653fc5e9d62ed678a2eba1ac76492e0bfc4952986"
     },
     "/tmp/build/podsim/live-playback-20261001/serve": {
-      "retained": "/home/dotwaffle/.cache/agents/podsim/followup-nine-20261001/station-phase/frozen-tools/serve-baseline",
+      "retained": "followup-nine-20261001/station-phase/frozen-tools/serve-baseline",
       "sha256": "0e7758a4ed5297f78f98b83629ea8f69ba9630d431e67109c3fe3116e3873220"
     }
   }

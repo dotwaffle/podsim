@@ -1,6 +1,6 @@
 {
   "integration_base": "4bab5c3e9dc3db0e12d0216bbc7e2f1b55c47f4e",
-  "evidence_directory": "/home/dotwaffle/.cache/agents/podsim/roadmap-service-20261002/car-energy-integration-evidence",
+  "evidence_directory": "roadmap-service-20261002/car-energy-integration-evidence",
   "manifest_sha256": "1a97d75cf4efcabdd1545663666d642cf9bbb50eabef9777e538f409b53c3e64",
   "verified_artifacts": 386,
   "integration_validation": {
@@ -31,7 +31,7 @@
     "root-diagnostics": {
       "command": [
         "/usr/bin/python3",
-        "/home/dotwaffle/.cache/agents/podsim/service-access-20261002/gopls-call.py",
+        "service-access-20261002/gopls-call.py",
         "go_diagnostics",
         "{\"files\":[\"/home/dotwaffle/Code/podsim/internal/sim/motion.go\",\"/home/dotwaffle/Code/podsim/cmd/compare/energy.go\",\"/home/dotwaffle/Code/podsim/cmd/compare/main.go\",\"/home/dotwaffle/Code/podsim/internal/parkride/plan.go\",\"/home/dotwaffle/Code/podsim/internal/parkride/ledger.go\",\"/home/dotwaffle/Code/podsim/internal/parkride/run.go\",\"/home/dotwaffle/Code/podsim/cmd/parkride/main.go\"]}"
       ],

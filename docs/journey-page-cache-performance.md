@@ -90,4 +90,3 @@ Server and default-GC performance require separate measurements.
 
 [Native benchmark](measurements/journey-page-cache-benchmark.csv), [per-arm measurements](measurements/journey-page-cache-arms.csv), and [per-page measurements](measurements/journey-page-cache-pages.csv) retain all results.
 [Metadata](measurements/journey-page-cache.json) retains frozen inputs and raw-result hashes.
-Local profiles, screenshots, probes, and helpers are in `~/.cache/agents/podsim/journey-pages-20260930/`.

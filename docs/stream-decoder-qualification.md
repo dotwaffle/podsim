@@ -78,4 +78,3 @@ The optimization does not change the wire format or claim lower network traffic.
 [Native rows](measurements/stream-decoder-qualified-native.csv), [Chrome probe rows](measurements/stream-decoder-qualified-chrome.csv), and [live rows](measurements/stream-decoder-qualified-live.csv) retain every observation.
 [Inclusive profile rows](measurements/stream-decoder-qualified-profiles.csv) retain page-specific sampled times.
 [Metadata and hashes](measurements/stream-decoder-qualified.json) record inputs, source, toolchain, and validation boundaries.
-Raw helpers, logs, profiles, and browser artifacts remain in `~/.cache/agents/podsim/decoder-qualification-20260930/`.

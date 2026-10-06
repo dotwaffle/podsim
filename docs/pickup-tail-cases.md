@@ -105,6 +105,5 @@ Pickup reassignment and buffers remain off by default.
 
 [Case totals](measurements/pickup-tail-cases.csv) retain exact waits, predictions, boarding pods, and sampled counts.
 [Detailed evidence](measurements/pickup-tail-cases.json) retains timings, lane episodes, same-tick decisions, hashes, source manifests, and replay outcomes.
-Frozen helpers and raw replays remain in `~/.cache/agents/podsim/pickup-tail-20260930/`.
 The [selected-exclusion follow-up](pickup-local-intervention.md) compares three local interventions within reproduced histories.
 The separate [12/min seed-4 case](berth-route-preference.md) captures reciprocal waits at an intermediate berth, unlike the mostly moving assignments sampled here.

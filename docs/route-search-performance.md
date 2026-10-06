@@ -70,4 +70,3 @@ These measurements do not establish sustained 60x playback or passenger capacity
 
 [Per-cell means](measurements/route-search.csv) retain CPU, allocation, heap, encoding, and batch-latency measurements.
 [Metadata](measurements/route-search.json) records source and binary identities, raw hashes, and validation limits.
-The local artifact bundle is `~/.cache/agents/podsim/route-work-20260930/paired/`.

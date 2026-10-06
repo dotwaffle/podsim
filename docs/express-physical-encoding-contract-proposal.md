@@ -426,7 +426,6 @@ The existing baseline retains wider signed counters and other scalar allowances.
 Do not replace these checks with six bytes per character or short decimal examples.
 
 The evidence cache contains `byte-evidence.json`, the encoder source, run metadata, source hashes, and an arithmetic receipt.
-Its location is `~/.cache/agents/podsim/forecast-contract-batch-20261003/express/`.
 These results justify a contract choice, not an implementation size certificate.
 Before enablement, encode and decode real widest-shape save, full-frame, and replacement-delta assets using the final adapters.
 Compare actual sizes against these projections and both unchanged byte caps.

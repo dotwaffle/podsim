@@ -116,6 +116,5 @@ Concurrent functional workers provide no CPU comparison.
 Two AM seeds and one focused workload do not establish a full operating envelope.
 Independent fixture, helper, runner, analyzer, and evidence reviews pass.
 [Measurements](measurements/paddington-short-path.json) retain geometry, hashes, service results, all affected offer indices, and sampled state totals.
-Raw sources and complete histories remain in `~/.cache/agents/podsim/followup-nine-20261001/paddington-short-path/`.
 The [earlier position trials](paddington-layout.md) retain their separate source and fixture boundaries.
 The [experimental gates](experimental-adoption.md) define qualification requirements.

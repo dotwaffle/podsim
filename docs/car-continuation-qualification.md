@@ -44,7 +44,6 @@ It used Go 1.27.1, jsonv2, linux/amd64, `GOGC=400`, and `GOMAXPROCS=2`.
 Inputs and executable hashes were recorded before each study.
 The tested binary is retained in the durable evidence export.
 Later main integration needs its own identified-process bridge; an old checkpoint is not migrated to that new identity.
-Use `~/.cache/agents/podsim/continuation-express-batch-20261003/root/final-main` for that separate bridge receipt and its source and executable pins.
 
 Independent CLI processes compared complete checkpoint bytes and report bytes.
 Each checkpoint carries separate native, ledger, observation, and rolling trace hashes.
@@ -158,8 +157,7 @@ The receipt records each gate and its exact exit marker.
 Earlier unsuccessful controller fixtures and an initial missing queue-limit harness failure remain in the evidence export.
 They are excluded from qualification claims.
 
-The durable evidence directory is `~/.cache/agents/podsim/continuation-express-batch-20261003/car`.
-Its manifests verify source copies, patches, input pins, actual outputs, binary hashes, run metadata, logs, and exit markers.
+The durable evidence manifests verify source copies, patches, input pins, actual outputs, binary hashes, run metadata, logs, and exit markers.
 Measured controller scripts are archived before parameterization.
 The final reproduction scripts accept explicit paths:
 

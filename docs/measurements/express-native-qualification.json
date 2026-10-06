@@ -2704,7 +2704,7 @@
   ],
   "independentRootContractSelection": {
     "review": "Root independent actual-caller mutation performed on v2 overlay, finalv6fullfile differs only lint error text",
-    "rootEvidence": "/home/dotwaffle/.cache/agents/podsim/continuation-express-batch-20261003/root/native-mutation-control.json",
+    "rootEvidence": "continuation-express-batch-20261003/root/native-mutation-control.json",
     "wholeFileControlSHA256": "9c27b19e817767f35b5589d233817540786504037fb1606bb7f085db937747c6",
     "finalSHA256": "13611c74d3749b2e6aade7e6b7c6b50fabe0e32e716c27faaef5607244c580a9",
     "callerIdentical": true,
@@ -2766,7 +2766,7 @@
       "reason": "Ownership mutant killed earlier retained-owner assertion, result classifier expected later literal tail assertion. Recorded actual kill and continued remaining overlays without rerunning completed arms"
     }
   ],
-  "durableDirectory": "/home/dotwaffle/.cache/agents/podsim/continuation-express-batch-20261003/native",
+  "durableDirectory": "continuation-express-batch-20261003/native",
   "durableManifest": "MANIFEST.sha256",
   "durableEvidence": "evidence-v6",
   "remainingScope": "Session/save7/packed encoding/browser/WASM/checkpoint consumers qualified in separate owned reports. No deployment or default activation."

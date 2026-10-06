@@ -60,7 +60,7 @@
     "probe_setup_correction": "Native physical restore resets velocity. Immediate restore state fidelity remains exact within distance1e-7. Compare continuation against independent second restore from same snapshot/policy. Check safety/speed/contracts/conservation for60ticks. Initial failed setup preserved.",
     "probe_correction_frozen": "2026-10-03T16:28:41.883114+00:00"
   },
-  "evidence_directory": "/home/dotwaffle/.cache/agents/podsim/service-workflow-batch-20261003/occupied",
+  "evidence_directory": "service-workflow-batch-20261003/occupied",
   "source_pins_manifest_sha256": "772c46e15b9765a122c3baae7f10eb08c8d5143608ebf41bd545ed1d5739e664",
   "private_source_sha256": {
     "internal/sim/occupied_guards_private_test.go": "9a83234fc2761820a9750e174efda016169ee01bcb77f4f23327464e984863af",

@@ -84,5 +84,4 @@ Full sim/session race tests pass, and the validated source hashes remain unchang
 [Timed samples](measurements/snapshot-allocation-arms.csv) retain CPU, wall time, allocation, GC, heap, and peak RSS fields.
 [Repeated summaries](measurements/snapshot-allocation-summary.csv) retain medians and full repetition ranges.
 [Metadata](measurements/snapshot-allocation.json) retains source and executable hashes, results, parity checks, and ratios.
-Profiles, assembly, helpers, and excluded-attempt records remain under `~/.cache/agents/podsim/`.
 The corrected measurement unit stopped successfully, and its scratch executables were removed.

@@ -120,7 +120,6 @@ These selected counts do not establish full qualification or authorize a default
 
 [Arm totals](measurements/policy-failures-arms.csv) retain recovery, safety checks, and policy activity.
 [Metadata](measurements/policy-failures.json) retains group statistics, selected request tails, P95 ranks, source hashes, and run outcomes.
-Complete per-request comparisons and raw one-second diagnostics remain in `~/.cache/agents/podsim/policy-failures-20261001/`.
 Observed pickup pods, stopping, and coupling counts are samples, not complete transition or resource-grant histories.
 The owned run stopped successfully, and its scratch binary was removed.
 The [fleet-history follow-up](policy-fleet-history.md) traces earlier assignments and empty destinations behind selected pickup delays.

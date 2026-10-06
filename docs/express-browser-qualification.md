@@ -81,5 +81,4 @@ The editor and view checks passed against that final dependency.
 The wire qualification records its final dependency checks.
 Source pins keep these claims separate.
 
-Durable scripts, fixtures, binaries, receipts, and SHA-256 manifests are under `~/.cache/agents/podsim/continuation-express-batch-20261003/root/`.
 The measurement record names each evidence directory.

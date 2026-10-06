@@ -1365,7 +1365,7 @@
       "ended": "2026-10-03T22:00:10.691557+00:00",
       "command": [
         "python3",
-        "/home/dotwaffle/.cache/agents/podsim/service-access-20261002/gopls-call.py",
+        "service-access-20261002/gopls-call.py",
         "go_diagnostics",
         "{\"files\":[\"/tmp/build/podsim/continuation-express-batch/wt/car/internal/parkride/checkpoint_restore.go\",\"/tmp/build/podsim/continuation-express-batch/wt/car/internal/parkride/checkpoint_scan.go\",\"/tmp/build/podsim/continuation-express-batch/wt/car/internal/parkride/checkpoint_scan_test.go\",\"/tmp/build/podsim/continuation-express-batch/wt/car/internal/parkride/checkpoint_test.go\"]}"
       ],
@@ -1458,7 +1458,7 @@
       "ended": "2026-10-03T22:47:13.854203+00:00",
       "command": [
         "python3",
-        "/home/dotwaffle/.cache/agents/podsim/service-access-20261002/gopls-call.py",
+        "service-access-20261002/gopls-call.py",
         "go_diagnostics",
         "{\"files\":[\"/tmp/build/podsim/continuation-express-batch/wt/car/internal/parkride/checkpoint_test.go\"]}"
       ],
@@ -1467,7 +1467,7 @@
       "disposition": "passed"
     }
   ],
-  "durable_evidence": "/home/dotwaffle/.cache/agents/podsim/continuation-express-batch-20261003/car/qualification-final",
+  "durable_evidence": "continuation-express-batch-20261003/car/qualification-final",
   "status": "Selected same-executable foundation qualification complete; later integrated identity bridge is a separate root receipt.",
   "historical_24h": {
     "harness_correction": "Original postprocess assertion assumed unsorted itinerary order. Native normalization sorts midnight-party before party-1. Replaced only receipt check with source-ID lookup; actual complete file/report equality assertions already passed. No native rerun or source edit.",
@@ -1521,7 +1521,7 @@
       "scope": "Upper bound on indivisible native StepResult plus ledger work; ordinary origin run, no checkpoint identity assertion."
     }
   },
-  "final_integrated_bridge_receipt": "/home/dotwaffle/.cache/agents/podsim/continuation-express-batch-20261003/root/final-main",
+  "final_integrated_bridge_receipt": "continuation-express-batch-20261003/root/final-main",
   "final_integrated_bridge_scope": "Separate later source/executable identity; no cross-build acceptance claim",
   "maximum_shapes": {
     "metrics": {
@@ -2574,7 +2574,7 @@
       ]
     },
     "metrics_sha256": "be79cab29f6eae534a790a64018141cb7ae5b44ef92d1f536cbd2c95e32d8869",
-    "source_pin_path": "/home/dotwaffle/.cache/agents/podsim/continuation-express-batch-20261003/shapes/source-pins-v9.json",
+    "source_pin_path": "continuation-express-batch-20261003/shapes/source-pins-v9.json",
     "source_pin_sha256": "815e2e738cf6b5e7c543d2ec9eb9e4f12a93d77eb6464d36628955e3a465ef37",
     "manifest_sha256": "a2005921a7de59c1fbef6a381be51d18b11e1464ab9489ba5836763efd921238",
     "full_package_gate": {

@@ -75,4 +75,3 @@ Individual-tail investigation, broader demand coverage, and numeric adoption lim
 
 [Arm totals](measurements/london-full-controller-rate12.csv) retain service, backlog, controller activity, and stopped-time measurements.
 [Matched summaries and metadata](measurements/london-full-controller-rate12.json) retain all raw-result hashes, run outcomes, and unfinished aboard IDs.
-Per-request deltas and raw logs remain in `~/.cache/agents/podsim/sustained-full-20260930/midpoint/`.

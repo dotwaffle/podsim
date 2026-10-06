@@ -22,8 +22,8 @@
     "/tmp/build/podsim/paddington-progress-20260930/traffic.go": "64975e603ae13c4b4cccca2355b0b00a7765710e9d91a91946b3d916004163d1",
     "/tmp/build/podsim/paddington-progress-20260930/study.test": "0142b703af802e7f1c1b5c122b2bbeae63f178768bec123804b620a8b4514e9a",
     "/tmp/build/podsim/paddington-progress-20260930/overlay.json": "cf350535992c99069b5f08ae66a7002dc05fc7cf495ac473a2514b95a76d8a94",
-    "/home/dotwaffle/.cache/agents/podsim/mirrored-load-20260930/old/central.json": "b805c990d8278975e81d2a8569da985638eb4d8ddbf6e695e0b0c75daae34a0d",
-    "/home/dotwaffle/.cache/agents/podsim/mirrored-load-20260930/current/central.json": "546cd5b2c32a5551f7cb3cc44d2e012ca1f32bba8cc376b77d10395a7bd6b4ad"
+    "mirrored-load-20260930/old/central.json": "b805c990d8278975e81d2a8569da985638eb4d8ddbf6e695e0b0c75daae34a0d",
+    "mirrored-load-20260930/current/central.json": "546cd5b2c32a5551f7cb3cc44d2e012ca1f32bba8cc376b77d10395a7bd6b4ad"
   },
   "raw_sha256": {
     "central-early-r10-s1-old-virtual": "ad2763ac903913f4725b3a0c0a8e254271134d2a306086b0b066d1fc582de51c",

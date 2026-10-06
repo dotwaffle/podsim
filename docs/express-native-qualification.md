@@ -134,7 +134,6 @@ The earlier retained-owner assertion had already killed that mutation.
 
 Each gate records its PID namespace, command, directory, source pins, log, exit, deadline, stop command, and relaunch command.
 The durable export includes sources, native states, ledgers, scripts, mutations, and hashes.
-Its directory is `/home/dotwaffle/.cache/agents/podsim/continuation-express-batch-20261003/native`.
 `MANIFEST.sha256` verifies that export.
 It contains no binaries.
 Session, packed encoding, browser, and checkpoint consumer proofs remain in their separate qualification reports.

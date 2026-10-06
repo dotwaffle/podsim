@@ -3,8 +3,8 @@
   "candidateParent": "3f95687",
   "candidateChange": "clearBlockedBerths pure filter first",
   "binaries": {
-    "baseline": "/home/dotwaffle/.cache/agents/podsim/route-work-20260930/probe.test",
-    "candidate": "/home/dotwaffle/.cache/agents/podsim/berth-filter-20260930/probe.test"
+    "baseline": "route-work-20260930/probe.test",
+    "candidate": "berth-filter-20260930/probe.test"
   },
   "binarySha256": {
     "baseline": "762a5b9a01f422b3467b6785206d217519888972e881d5086cedaea15d0db4ce",

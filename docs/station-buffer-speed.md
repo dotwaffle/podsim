@@ -76,7 +76,6 @@ Short pilots check every tick and match production aggregates.
 Concurrent functional runs do not provide CPU comparisons.
 
 [Measurements](measurements/station-buffer-speed.json) retain schedules, accepted-cohort hashes, results, claim counts, denial resources, checks, and source identities.
-Raw observations remain in `~/.cache/agents/podsim/buffer-discharge-diagnosis-20261001/` and `station-speed-20261001/`.
 Their owned units terminated successfully and their scratch binaries were removed.
 
 A future buffer change must preserve the complete-path safety contract and demonstrate better service on matched individual cohorts.

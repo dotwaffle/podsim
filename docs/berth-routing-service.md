@@ -93,6 +93,5 @@ The changed fleet history also prevents attributing this result to one earlier d
 
 [Arm totals](measurements/berth-routing-service.csv) retain the selected cached and new results.
 [Matched metadata](measurements/berth-routing-service.json) retains source and input hashes, run outcomes, exact cohorts, unfinished IDs, and request-1324 frames.
-Raw runs, per-request deltas, frozen helpers, and validation logs remain in `~/.cache/agents/podsim/routing-followup-20260930/`.
 All owned study units stopped successfully and their compiled scratch binaries were removed.
 Concurrent functional runs do not support CPU timing claims.

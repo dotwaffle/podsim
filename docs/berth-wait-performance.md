@@ -37,7 +37,6 @@ Independent review found the predicate reorder equivalent because the skipped sc
 
 [Measurements](measurements/berth-wait.csv) retain the means and allocation figures.
 [Metadata](measurements/berth-wait.json) records binaries, raw hashes, and the exact final-state hash.
-The local artifact bundle is `~/.cache/agents/podsim/berth-filter-20260930/`.
 
 ## Live Central follow-up
 
@@ -72,4 +71,3 @@ The server retains its default GOGC 100, and the comparison command retains GOGC
 The overload sensor is unchanged.
 
 [Arm measurements](measurements/berth-wait-live-arms.csv), [client measurements](measurements/berth-wait-live-pages.csv), and [metadata](measurements/berth-wait-live.json) record this follow-up.
-The local artifacts are in `~/.cache/agents/podsim/server-live-followup-20260930/`.

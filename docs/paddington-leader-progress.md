@@ -85,4 +85,3 @@ Concurrent functional checks make wall time unsuitable for CPU claims.
 
 [Arm totals](measurements/paddington-leader-progress.csv) retain completion, waits, episode counts, and durations.
 [Metadata and dependency summaries](measurements/paddington-leader-progress.json) retain frozen and raw hashes, decision counts, span bins, and longest episodes.
-Raw results and source copies remain in `~/.cache/agents/podsim/paddington-progress-20260930/`.

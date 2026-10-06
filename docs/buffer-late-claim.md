@@ -88,6 +88,5 @@ This selected overloaded fixture does not describe all station layouts or establ
 
 Independent candidate, helper, runner, and evidence reviews pass.
 [Measurements](measurements/buffer-late-claim.json) retain hashes, results, limit exceedances, unfinished cohorts, and sampled-claim totals.
-Raw sources and evidence remain in `~/.cache/agents/podsim/followup-nine-20261001/buffer-late-claim/`.
 The [earlier station-speed study](station-buffer-speed.md) retains the negative speed trials.
 The [experimental gates](experimental-adoption.md) define the separate qualification requirements.

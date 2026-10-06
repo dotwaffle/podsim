@@ -70,6 +70,5 @@ Station-entry platoons still require the separate [design contract](station-entr
 The current buffer and reassignment defaults remain off.
 
 [Arm counts](measurements/paddington-motion-arms.csv), [binned observations](measurements/paddington-motion-rows.csv), and [metadata](measurements/paddington-motion.json) retain the evidence.
-Raw outputs and frozen helpers remain in `~/.cache/agents/podsim/paddington-motion-20260930/`.
 Functional jobs overlap other checks, so their wall times are not CPU measurements.
 Independent review verifies the pure lookups, matched results, weighted counts, and stated limits.

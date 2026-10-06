@@ -79,4 +79,3 @@ Ambient host contention and active profiling can affect timing.
 
 [Per-arm measurements](measurements/admission-live-arms.csv) and [per-page measurements](measurements/admission-live-pages.csv) retain all runs.
 [Metadata](measurements/admission-live.json) records frozen inputs, run times, and raw-result hashes.
-Local profiles, probes, screenshots, and helpers remain in `~/.cache/agents/podsim/server-admission-live-20260930/`.

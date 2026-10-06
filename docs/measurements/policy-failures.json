@@ -1,11 +1,11 @@
 {
   "source": {
     "source_commit": "a54281ec54dd962d784aff3de34de0fdc6122f29",
-    "frozen_parent": "/home/dotwaffle/.cache/agents/podsim/predictive-study-20261001/candidate",
+    "frozen_parent": "predictive-study-20261001/candidate",
     "projects": {
-      "/home/dotwaffle/.cache/agents/podsim/platoon-followup-20260929/raw/london198.json": "888cca7d36101b233d47af7b61a8d3e0db0bf40ec7d847c0c5a7c0e4dd42f72e",
-      "/home/dotwaffle/.cache/agents/podsim/platoon-followup-20260929/raw/london114.json": "1c0a1402d3ffa9bc383faa6a5f34d42376d33fdf54813784633a8803e7f5ec9a",
-      "/home/dotwaffle/.cache/agents/podsim/sharing-diagnosis-20260929/london-central.json": "ae3efe5ec63c79a293225dbbd1a9fb41d129d9743fbf45804a108a74241b4549"
+      "platoon-followup-20260929/raw/london198.json": "888cca7d36101b233d47af7b61a8d3e0db0bf40ec7d847c0c5a7c0e4dd42f72e",
+      "platoon-followup-20260929/raw/london114.json": "1c0a1402d3ffa9bc383faa6a5f34d42376d33fdf54813784633a8803e7f5ec9a",
+      "sharing-diagnosis-20260929/london-central.json": "ae3efe5ec63c79a293225dbbd1a9fb41d129d9743fbf45804a108a74241b4549"
     },
     "binary_sha256": "1e913f5f437267bf31a9807e7c5bbd9f9993ebf7b26aa157d9b1662986bacded",
     "overlay_sha256": {

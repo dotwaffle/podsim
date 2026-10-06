@@ -437,16 +437,16 @@
     "full": "0d83498454403aed464a4ed14f6ebd01b93a835e976e7e409641b03be0db4891"
   },
   "frozenInputs": {
-    "/home/dotwaffle/.cache/agents/podsim/admission-work-20260930/run.py": "c3e2efa783c684760069ce105f3e3d8932f17c85e73783a9ef12075bbc015139",
-    "/home/dotwaffle/.cache/agents/podsim/admission-work-20260930/probe_test.go": "b17d779d937f47a7a4283c364c3be6aec9515bc7513ab2c38c99ee1756d86a2e",
-    "/home/dotwaffle/.cache/agents/podsim/admission-work-20260930/baseline-overlay.json": "5fb731c2949dd5b2d91fe2deb4758e1d81f21753896acc9783c314eb7a89fd83",
-    "/home/dotwaffle/.cache/agents/podsim/admission-work-20260930/candidate-overlay.json": "241871169d33f934ad3663a89d68bfe1fc90988a22408a688a5fbff46722922c",
-    "/home/dotwaffle/.cache/agents/podsim/admission-work-20260930/baseline-traffic.go": "8292466b55b22eb185eefb524dcaf7815775b5a68b1f21046945cdc798de074d",
-    "/home/dotwaffle/.cache/agents/podsim/admission-work-20260930/baseline-simulation.go": "eb3e3ab06a2e6ec4a70df0f6f48f2a8c339b11fef28bcbe41cb2bf88ea50d16c",
-    "/home/dotwaffle/.cache/agents/podsim/admission-work-20260930/baseline-clone.go": "1d61379251ab937a5318682f71ef3ae406dc4264e66ecfacdf1f8104dc9a730f",
-    "/home/dotwaffle/.cache/agents/podsim/admission-work-20260930/candidate-traffic.go": "65ceab1e3415461d42afa481e70dd223fc7ac008848f67e5d8af82d264e04648",
-    "/home/dotwaffle/.cache/agents/podsim/admission-work-20260930/candidate-simulation.go": "2c81a44361e95d3d1a0e3e4c68bf3f09e4fbedc7846816d2d057944ef06e485a",
-    "/home/dotwaffle/.cache/agents/podsim/admission-work-20260930/candidate-clone.go": "d152a52f531a5d346ead407d82efea98df82286fb0b3eadedd5a1b03538ecb0a"
+    "admission-work-20260930/run.py": "c3e2efa783c684760069ce105f3e3d8932f17c85e73783a9ef12075bbc015139",
+    "admission-work-20260930/probe_test.go": "b17d779d937f47a7a4283c364c3be6aec9515bc7513ab2c38c99ee1756d86a2e",
+    "admission-work-20260930/baseline-overlay.json": "5fb731c2949dd5b2d91fe2deb4758e1d81f21753896acc9783c314eb7a89fd83",
+    "admission-work-20260930/candidate-overlay.json": "241871169d33f934ad3663a89d68bfe1fc90988a22408a688a5fbff46722922c",
+    "admission-work-20260930/baseline-traffic.go": "8292466b55b22eb185eefb524dcaf7815775b5a68b1f21046945cdc798de074d",
+    "admission-work-20260930/baseline-simulation.go": "eb3e3ab06a2e6ec4a70df0f6f48f2a8c339b11fef28bcbe41cb2bf88ea50d16c",
+    "admission-work-20260930/baseline-clone.go": "1d61379251ab937a5318682f71ef3ae406dc4264e66ecfacdf1f8104dc9a730f",
+    "admission-work-20260930/candidate-traffic.go": "65ceab1e3415461d42afa481e70dd223fc7ac008848f67e5d8af82d264e04648",
+    "admission-work-20260930/candidate-simulation.go": "2c81a44361e95d3d1a0e3e4c68bf3f09e4fbedc7846816d2d057944ef06e485a",
+    "admission-work-20260930/candidate-clone.go": "d152a52f531a5d346ead407d82efea98df82286fb0b3eadedd5a1b03538ecb0a"
   },
   "binarySha256": {
     "baseline": "618f64f7972536bff1167b95ebe5a556e9cd9fd67f88521773c15b86328093bb",
@@ -503,18 +503,18 @@
     "meanCpuReductionPercent": 3.1738802110518383,
     "medianPairedCpuReductionPercent": 5.189583269878668,
     "rawSha256": {
-      "/home/dotwaffle/.cache/agents/podsim/admission-work-20260930/central-gc400-stream-r1-baseline.json": "e036532b6e75f19e132cef1d16360c917790e5d64aefe9627632a5dccebe5fb4",
-      "/home/dotwaffle/.cache/agents/podsim/admission-work-20260930/central-gc400-stream-r1-candidate.json": "3d69be06658746639a1cf67bb01db6441f641d749d0b8090fea2ec2b6a4b5de5",
-      "/home/dotwaffle/.cache/agents/podsim/admission-work-20260930/central-gc400-stream-r2-candidate.json": "1ded14a34c00e5adacbb3b2d5f4ebfce344ff4f110709593506a3218bba28866",
-      "/home/dotwaffle/.cache/agents/podsim/admission-work-20260930/central-gc400-stream-r2-baseline.json": "6c40cf8df48e14575c92bbd7233f1ecbec897c91b99ea998b71d563419d0d9d6",
-      "/home/dotwaffle/.cache/agents/podsim/admission-work-recheck-20260930/central-gc400-stream-r3-baseline.json": "92902cf2eb8dc3336540737fdc1ba004b719b12150b05651e464e0b88ffa683e",
-      "/home/dotwaffle/.cache/agents/podsim/admission-work-recheck-20260930/central-gc400-stream-r3-candidate.json": "fb958007e0fb5e2e6c8e08d49b3359c7787d213cffa56fc6ae4d5973795255f6",
-      "/home/dotwaffle/.cache/agents/podsim/admission-work-recheck-20260930/central-gc400-stream-r4-candidate.json": "f9b4bfc997f4ca2b3aec50e4131b2b8f10fad76fb4d011f462c201435ad59bd4",
-      "/home/dotwaffle/.cache/agents/podsim/admission-work-recheck-20260930/central-gc400-stream-r4-baseline.json": "ae609874e8563f726d69fbe659e500395f143e4793007b4efeb13e7dec80bf0a",
-      "/home/dotwaffle/.cache/agents/podsim/admission-work-recheck-20260930/central-gc400-stream-r5-baseline.json": "d5d0cbe4eeadd577b0b33ba8650b73d5d5fd6b1f63aef10e2b653fe748e6fa61",
-      "/home/dotwaffle/.cache/agents/podsim/admission-work-recheck-20260930/central-gc400-stream-r5-candidate.json": "a007b8c4832536e9848376d6ee603f2d41fcb5dd1bf9c01f5bc7de21de5ca030",
-      "/home/dotwaffle/.cache/agents/podsim/admission-work-recheck-20260930/central-gc400-stream-r6-candidate.json": "1a007f963369f7980f2e5fc388e61d58d7bfd8e80fdb5d4b01fe18e402f13e59",
-      "/home/dotwaffle/.cache/agents/podsim/admission-work-recheck-20260930/central-gc400-stream-r6-baseline.json": "72270ba1caf393db0f27a3efe4f8862bc999da646bf618e30c706499b51e8727"
+      "admission-work-20260930/central-gc400-stream-r1-baseline.json": "e036532b6e75f19e132cef1d16360c917790e5d64aefe9627632a5dccebe5fb4",
+      "admission-work-20260930/central-gc400-stream-r1-candidate.json": "3d69be06658746639a1cf67bb01db6441f641d749d0b8090fea2ec2b6a4b5de5",
+      "admission-work-20260930/central-gc400-stream-r2-candidate.json": "1ded14a34c00e5adacbb3b2d5f4ebfce344ff4f110709593506a3218bba28866",
+      "admission-work-20260930/central-gc400-stream-r2-baseline.json": "6c40cf8df48e14575c92bbd7233f1ecbec897c91b99ea998b71d563419d0d9d6",
+      "admission-work-recheck-20260930/central-gc400-stream-r3-baseline.json": "92902cf2eb8dc3336540737fdc1ba004b719b12150b05651e464e0b88ffa683e",
+      "admission-work-recheck-20260930/central-gc400-stream-r3-candidate.json": "fb958007e0fb5e2e6c8e08d49b3359c7787d213cffa56fc6ae4d5973795255f6",
+      "admission-work-recheck-20260930/central-gc400-stream-r4-candidate.json": "f9b4bfc997f4ca2b3aec50e4131b2b8f10fad76fb4d011f462c201435ad59bd4",
+      "admission-work-recheck-20260930/central-gc400-stream-r4-baseline.json": "ae609874e8563f726d69fbe659e500395f143e4793007b4efeb13e7dec80bf0a",
+      "admission-work-recheck-20260930/central-gc400-stream-r5-baseline.json": "d5d0cbe4eeadd577b0b33ba8650b73d5d5fd6b1f63aef10e2b653fe748e6fa61",
+      "admission-work-recheck-20260930/central-gc400-stream-r5-candidate.json": "a007b8c4832536e9848376d6ee603f2d41fcb5dd1bf9c01f5bc7de21de5ca030",
+      "admission-work-recheck-20260930/central-gc400-stream-r6-candidate.json": "1a007f963369f7980f2e5fc388e61d58d7bfd8e80fdb5d4b01fe18e402f13e59",
+      "admission-work-recheck-20260930/central-gc400-stream-r6-baseline.json": "72270ba1caf393db0f27a3efe4f8862bc999da646bf618e30c706499b51e8727"
     },
     "limits": [
       "No outlier was removed.",

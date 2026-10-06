@@ -2,16 +2,16 @@
   "status": "bounded screen, no default or capacity qualification",
   "provenance": {
     "base_commit": "5a57e4c96114030be5e15721e70a24c82a68895f",
-    "production_source_manifest": "/home/dotwaffle/.cache/agents/podsim/service-workflow-batch-20261003/fleet/source-pins.json",
+    "production_source_manifest": "service-workflow-batch-20261003/fleet/source-pins.json",
     "production_source_manifest_sha256": "c6c792c0336f4c9954892864cb1b1631b87ae44ef64d7de60564eaefbbdad61b",
-    "fixture_manifest": "/home/dotwaffle/.cache/agents/podsim/service-workflow-batch-20261003/fleet/freeze-manifest.json",
+    "fixture_manifest": "service-workflow-batch-20261003/fleet/freeze-manifest.json",
     "fixture_manifest_sha256": "71e1cd7459f1f2284a4844f046dc5aba4067dd60c55ee4eb4cce01792a9edc9f",
     "private_sources": {
       "study_test.go": "03371ca3a954cfba97e4889d3099c44ebabb52245b4e7d8068e70d8d0708c9f7",
       "restore_proof_test.go": "dae52a22ac47f8fbfbfaf349caacbe8ef7e4bd7164f2f5d2ce274eaa6a2ec73b",
       "compact_diagnostic_test.go": "0f4dd646d19486ccfd919584a115cbae856db31568857303af03c887b7eaf9cf"
     },
-    "screen_overlay": "/home/dotwaffle/.cache/agents/podsim/service-workflow-batch-20261003/fleet/screen-overlay.json",
+    "screen_overlay": "service-workflow-batch-20261003/fleet/screen-overlay.json",
     "validation_private_sources": {
       "restore_proof_test.go": "909a5d725c191b7e912ff17014795834025bf30900c7ca9706d4da43a31dd42d",
       "study_test.go": "863d3a5fcaf6f2999805880f41056452062e7e44ed467b368199d272a0d0e9fe",
@@ -23,7 +23,7 @@
     "experiment": "jsonv2",
     "gomaxprocs": 1,
     "gogc": 400,
-    "evidence_directory": "/home/dotwaffle/.cache/agents/podsim/service-workflow-batch-20261003/fleet",
+    "evidence_directory": "service-workflow-batch-20261003/fleet",
     "cpu_comparison": "not measured, concurrent agents"
   },
   "design": {

@@ -103,5 +103,3 @@ After the fix, both Acton groups finish all 128 requests with buffers.
 
 [Arm totals](measurements/dispatch-policy-qualification.csv) retain completion, waits, actual occupancy, and stopped-time counts.
 [Metadata and matched summaries](measurements/dispatch-policy-qualification.json) retain source and raw-result hashes, cohorts, and direct versus other request results.
-Raw request deltas, decisions, restore records, and frozen helpers are in `~/.cache/agents/podsim/dispatch-qualification-20260930/post-fix/`.
-The pre-fix matrix and Turnham Green diagnostic are in its parent directory.

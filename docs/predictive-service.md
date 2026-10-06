@@ -57,5 +57,4 @@ An isolated CPU comparison must measure the cost of these unchanged outcomes sep
 [Arm totals](measurements/predictive-service-arms.csv) retain service statistics, backlog growth, and check counts.
 [Pair records](measurements/predictive-service-pairs.csv) retain exact-parity results and every unfinished request ID.
 [Metadata](measurements/predictive-service.json) retains source, project, helper, and binary hashes, pilot results, and all 15 run outcomes.
-Raw schedules, request timings, pending records, and observer helpers remain in `~/.cache/agents/podsim/predictive-study-20261001/`.
 The owned study stopped successfully, and its scratch binaries were removed.

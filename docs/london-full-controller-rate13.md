@@ -51,4 +51,3 @@ Buffers and pickup reassignment remain off by default.
 
 [Arm totals](measurements/london-full-controller-rate13.csv) retain service, waits, backlog, activity, and stopped-time measurements.
 [Matched summaries and metadata](measurements/london-full-controller-rate13.json) retain raw-result hashes, run outcomes, and unfinished aboard IDs.
-Per-request deltas and raw logs remain in `~/.cache/agents/podsim/sustained-full-20260930/rate13/`.

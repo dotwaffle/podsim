@@ -103,5 +103,4 @@ Throttled-period ratios count affected quota periods, not the fraction of wall t
 [Per-arm results](measurements/current-client-network-arms.csv) retain playback, CPU, RSS, speed changes, and cgroup counters.
 [Per-page results](measurements/current-client-network-pages.csv) retain byte rates, processing, ACK, frame-gap, and heap fields.
 [Metadata](measurements/current-client-network.json) retains source, assets, executable hashes, and raw-result hashes.
-Profiles, Chrome samples, screenshots, helpers, and the quota-limited attempt remain in `~/.cache/agents/podsim/current-live-20261001/`.
 The corrected unit stopped successfully with no remaining browser or server processes.

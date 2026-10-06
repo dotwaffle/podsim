@@ -515,7 +515,7 @@
       "experiment": "jsonv2",
       "private_revision": 3
     },
-    "evidence_directory": "/home/dotwaffle/.cache/agents/podsim/speed-energy-batch-20261003/root/compact",
+    "evidence_directory": "speed-energy-batch-20261003/root/compact",
     "ordinary_private_revision": 1,
     "compact_private_revision": 3,
     "source_change": "Native files and fixture bytes unchanged between observer revisions",
@@ -528,7 +528,7 @@
           "docs/compact-recovery-state-contract-proposal.md"
         ],
         "native_changes": false,
-        "preserve_original_runs": "/home/dotwaffle/.cache/agents/podsim/speed-energy-batch-20261003/root/compact/setup-v1"
+        "preserve_original_runs": "speed-energy-batch-20261003/root/compact/setup-v1"
       },
       {
         "classification": "Independent observer used only published start/end speeds. Ordinary movement can accelerate, advance and snap the final residual below1e-5m at its owned target, publishing zero speed. At65590 former Compact member01 has no compact certificate before/after, distance advances0.0000509112m. Correct only ordinary at-owned-end published-zero bound using authored2m/s2 command and existing1e-5 endpoint allowance. Compact-group bound remains unchanged.",
@@ -537,7 +537,7 @@
           "internal/sim/station_compact_queue.go:Simulation.applyCompactMotion"
         ],
         "native_changes": false,
-        "preserved_outputs": "/home/dotwaffle/.cache/agents/podsim/speed-energy-batch-20261003/root/compact/setup-v2"
+        "preserved_outputs": "speed-energy-batch-20261003/root/compact/setup-v2"
       }
     ],
     "validation_private_sources": {
@@ -546,7 +546,7 @@
       "disabled_restore_test.go": "41f69a5f7ef12554627e7e8eef589f0a2f2e77adc1239d8a02c323c1643d5cf7"
     },
     "validation_source_differences": {
-      "executed_sources": "/home/dotwaffle/.cache/agents/podsim/speed-energy-batch-20261003/root/compact/executed-private-source",
+      "executed_sources": "speed-energy-batch-20261003/root/compact/executed-private-source",
       "validation_changes": [
         "Rename local json decode error to avoid shadow lint; no runtime behavior change.",
         "Restore consent guard flips original private singleton to shared, so the existing negative assertion exercises a real mutation. Study proof unchanged."
@@ -557,7 +557,7 @@
   },
   "frozen_plan": {
     "scope": "Approved2b; fixed source released only after2a commit and qualification",
-    "original_fixture_manifest": "/home/dotwaffle/.cache/agents/podsim/service-workflow-batch-20261003/fleet/freeze-manifest.json",
+    "original_fixture_manifest": "service-workflow-batch-20261003/fleet/freeze-manifest.json",
     "fixtures": {
       "compact-v1-ordinary.fixture.json": "94e240dc044a7f3ba12ec7195e1df80a54bbb5ce0e10c995e1c55b2c6b666e2f",
       "compact-v1-compact-v1.fixture.json": "ce93b9a176d358c61a990ea848fb51d7705da5e1cafc2015ba0377eb52ef2fc7",

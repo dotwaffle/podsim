@@ -638,8 +638,8 @@
       "candidate": "87d227defe4af8470737dbae87c165d0bde4c265de8e823e589bd04300ff46d8"
     },
     "helpers_sha256": {
-      "/home/dotwaffle/.cache/agents/podsim/snapshot-capacity-r2-20261001/run.py": "26562e3248baeadb20de58ee32c03b5322e587ec7a7949b11cefb812eddd77ea",
-      "/home/dotwaffle/.cache/agents/podsim/snapshot-capacity-r2-20261001/prepare.py": "e011c64df7d6d78e8b68c6b8bbd3b5c8c64acef8898070d93856474882ecbd3d"
+      "snapshot-capacity-r2-20261001/run.py": "26562e3248baeadb20de58ee32c03b5322e587ec7a7949b11cefb812eddd77ea",
+      "snapshot-capacity-r2-20261001/prepare.py": "e011c64df7d6d78e8b68c6b8bbd3b5c8c64acef8898070d93856474882ecbd3d"
     },
     "jobs_sha256": "28ae4b5fe63c4957387b9b5b5ebabf221a2472f7f0b8cdc94c79477bf09a8e00",
     "profiles_sha256": "32f88d48856860cdfa2caf8c435ae2e912747896495de2f1d7d9e5ae4d62822b",

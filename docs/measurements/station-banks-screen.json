@@ -6,8 +6,8 @@
     "build_head": "847911a",
     "build_dirty": true,
     "observer_sources": {
-      "/home/dotwaffle/.cache/agents/podsim/independent-banks-20261002/observer-main.go": "2a07808150bc0fb86aefc1b881dff5627445b325e41f7593829ff6999b16bf33",
-      "/home/dotwaffle/.cache/agents/podsim/independent-banks-20261002/observer_test.go": "1d8c8c400acdebbd23023902cb042ae60dd0904da0ffc0180937750391105cd7"
+      "independent-banks-20261002/observer-main.go": "2a07808150bc0fb86aefc1b881dff5627445b325e41f7593829ff6999b16bf33",
+      "independent-banks-20261002/observer_test.go": "1d8c8c400acdebbd23023902cb042ae60dd0904da0ffc0180937750391105cd7"
     },
     "runs": {
       "independent-banks-pilot-s1": {

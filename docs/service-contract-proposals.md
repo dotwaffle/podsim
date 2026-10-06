@@ -74,7 +74,7 @@ No continuously served pod may grow an unbounded request array.
 Onboard pickup requires per-rider boarding berth and distance baseline in the saved state before multiple origins become valid.
 It occurs only at a compatible passenger berth while stationary, after eligible alighting.
 
-The detailed read-only audit lists all consumers, compatibility paths, migration exceptions, and required validation: `~/.cache/agents/podsim/roadmap-service-20261002/consent-vehicle-contract-audit.md`.
+The detailed read-only audit lists all consumers, compatibility paths, migration exceptions, and required validation.
 Approval of this foundation does not approve arbitrary large-body dimensions or weaker physical separation.
 
 ## Go editor helpers
@@ -144,7 +144,6 @@ They change no public project, save, stream, or browser document version.
 Keep file/envelope parsing, exports, bytes, decoding, DOM/SVG, storage, fetch, and worker lifecycle in JavaScript.
 Exports remain available after worker failure.
 Use native tests, real WASM calls, and browser import/restore/history tests to verify current acceptance and call order.
-The detailed audit is `~/.cache/agents/podsim/roadmap-service-20261002/go-helper-audit.md`.
 Projection and canvas resampling extraction have lower priority.
 
 ## Compact station queue
@@ -187,4 +186,3 @@ Approve an opt-in `compact-v1` profile with these limits:
 First qualify discrete braking, real blockers, outside traffic, disable/recovery, full discharge, and physical restore.
 Measure stopped span separately from discharge headway and passenger completion.
 A successful storage screen does not waive the existing service adoption gates.
-The detailed audit is `~/.cache/agents/podsim/roadmap-service-20261002/slow-queue-contract-audit.md`.

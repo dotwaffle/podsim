@@ -313,7 +313,7 @@
         "internal/view/touchcancel_native.go": "2dcbcb74550103cacbdf75d4a12b5486a15fa7849c0a971b55911301eced892c"
       },
       "projects": {
-        "/home/dotwaffle/.cache/agents/podsim/mirrored-load-20260930/current/full.json": "be8e751c012805e4941937fcc62364984f7746df82d29c363134dbf2f08b8182"
+        "mirrored-load-20260930/current/full.json": "be8e751c012805e4941937fcc62364984f7746df82d29c363134dbf2f08b8182"
       }
     },
     {
@@ -629,8 +629,8 @@
         "internal/view/touchcancel_native.go": "2dcbcb74550103cacbdf75d4a12b5486a15fa7849c0a971b55911301eced892c"
       },
       "projects": {
-        "/home/dotwaffle/.cache/agents/podsim/mirrored-load-20260930/current/full.json": "be8e751c012805e4941937fcc62364984f7746df82d29c363134dbf2f08b8182",
-        "/home/dotwaffle/.cache/agents/podsim/mirrored-load-20260930/current/central.json": "546cd5b2c32a5551f7cb3cc44d2e012ca1f32bba8cc376b77d10395a7bd6b4ad"
+        "mirrored-load-20260930/current/full.json": "be8e751c012805e4941937fcc62364984f7746df82d29c363134dbf2f08b8182",
+        "mirrored-load-20260930/current/central.json": "546cd5b2c32a5551f7cb3cc44d2e012ca1f32bba8cc376b77d10395a7bd6b4ad"
       }
     }
   ],

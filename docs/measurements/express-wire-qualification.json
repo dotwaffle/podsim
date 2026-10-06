@@ -122,7 +122,7 @@
       "internal/sim/trip_admission.go": "dac6a47c16b293c9b26edc7ea1a0f01dd49f5b38869bbaa0fccba6054e40d30c"
     },
     "unowned_excluded_from_patch": true,
-    "patch_path": "/home/dotwaffle/.cache/agents/podsim/continuation-express-batch-20261003/native/dependency-v6.patch",
+    "patch_path": "continuation-express-batch-20261003/native/dependency-v6.patch",
     "canonical_helper_prerequisite_commit": "d95137591209f9f279546b9b200e5b950b1c9193"
   },
   "compatibility_bridge": {
@@ -434,47 +434,47 @@
   },
   "root_receipts": {
     "chromium-public-v1/receipt.json": {
-      "path": "/home/dotwaffle/.cache/agents/podsim/continuation-express-batch-20261003/root/chromium-public-v1/receipt.json",
+      "path": "continuation-express-batch-20261003/root/chromium-public-v1/receipt.json",
       "sha256": "0436438b5f73810d49de32d80643526716cd81fe35817b5ffc674a1ce5b446b8",
       "bytes": 53434
     },
     "chromium-public-v1/manifest.json": {
-      "path": "/home/dotwaffle/.cache/agents/podsim/continuation-express-batch-20261003/root/chromium-public-v1/manifest.json",
+      "path": "continuation-express-batch-20261003/root/chromium-public-v1/manifest.json",
       "sha256": "06a00d3fec04059e3bdd8edf29eab0d4bb9436e0bd0dcd418f218c5a549cda13",
       "bytes": 2014
     },
     "wasm-public-retention-v2.run.json": {
-      "path": "/home/dotwaffle/.cache/agents/podsim/continuation-express-batch-20261003/root/wasm-public-retention-v2.run.json",
+      "path": "continuation-express-batch-20261003/root/wasm-public-retention-v2.run.json",
       "sha256": "272c1fac2768854e39b1cfe6eb32eacf8ad9ccc4e793e7ca442f49b9df73298f",
       "bytes": 1480
     },
     "wasm-public-retention-v2.log": {
-      "path": "/home/dotwaffle/.cache/agents/podsim/continuation-express-batch-20261003/root/wasm-public-retention-v2.log",
+      "path": "continuation-express-batch-20261003/root/wasm-public-retention-v2.log",
       "sha256": "fabd81a55638933fc5f7161b2d76c052b158ddc8a55845f5a54dbff4ce464f20",
       "bytes": 11138
     },
     "wasm-public-retention-v2-production-gc.run.json": {
-      "path": "/home/dotwaffle/.cache/agents/podsim/continuation-express-batch-20261003/root/wasm-public-retention-v2-production-gc.run.json",
+      "path": "continuation-express-batch-20261003/root/wasm-public-retention-v2-production-gc.run.json",
       "sha256": "f718352f43e098eb58c39900366d926f09555837d4ab61b05bd2b35511c7941e",
       "bytes": 1547
     },
     "wasm-public-retention-v2-production-gc.log": {
-      "path": "/home/dotwaffle/.cache/agents/podsim/continuation-express-batch-20261003/root/wasm-public-retention-v2-production-gc.log",
+      "path": "continuation-express-batch-20261003/root/wasm-public-retention-v2-production-gc.log",
       "sha256": "12a03fba71d061fa5811d4fe50cdfdcc5fff8e7a52523ac0a173b1ca076237a7",
       "bytes": 579
     },
     "live-express-ui-v6/receipt.json": {
-      "path": "/home/dotwaffle/.cache/agents/podsim/continuation-express-batch-20261003/root/live-express-ui-v6/receipt.json",
+      "path": "continuation-express-batch-20261003/root/live-express-ui-v6/receipt.json",
       "sha256": "23eaed917074a6d89a07970fea486bf67e3179b53a4ed77c47b404221bdcd287",
       "bytes": 2337
     },
     "live-express-ui-v6/source-pins.json": {
-      "path": "/home/dotwaffle/.cache/agents/podsim/continuation-express-batch-20261003/root/live-express-ui-v6/source-pins.json",
+      "path": "continuation-express-batch-20261003/root/live-express-ui-v6/source-pins.json",
       "sha256": "e54741db9b2d8e314a7df847412fbc1943c1e64a98b68a799e684c983a74d82f",
       "bytes": 56067
     },
     "live-express-ui-v6/manifest.json": {
-      "path": "/home/dotwaffle/.cache/agents/podsim/continuation-express-batch-20261003/root/live-express-ui-v6/manifest.json",
+      "path": "continuation-express-batch-20261003/root/live-express-ui-v6/manifest.json",
       "sha256": "5fab648776d109256eb2324059954e4d71d800527521eddcc48aac2ff16f9146",
       "bytes": 13449
     }
@@ -1355,6 +1355,6 @@
     "GOGC400 Node retention test OOM retained as failure.",
     "No full-repository race, deployment, default enablement, or cap extension is claimed."
   ],
-  "evidence_directory": "/home/dotwaffle/.cache/agents/podsim/continuation-express-batch-20261003/session/evidence",
+  "evidence_directory": "continuation-express-batch-20261003/session/evidence",
   "root_browser_final_patch_sha256": "dfba231733adf1a8a4a290ee2a13e50a6d39faf3846c9675d362b83724727086"
 }

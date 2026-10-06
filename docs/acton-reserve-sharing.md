@@ -103,7 +103,6 @@ The failed attempt remains recorded, and the two passed baseline pilots were reu
 No size limit increased.
 
 [Arm results](measurements/acton-reserve-sharing-arms.csv), [matched pairs](measurements/acton-reserve-sharing-pairs.csv), [selected tails](measurements/acton-reserve-sharing-tails.csv), and [metadata](measurements/acton-reserve-sharing.json) retain the evidence.
-Raw timings, schedules, source overlays, fixture placements, and failed-attempt records remain in `~/.cache/agents/podsim/reserve-sharing-20261001/`.
 Concurrent cells provide no CPU comparison.
 The fixture has no inbound passenger burst or general background demand.
 It cannot measure the effect of occupied reserve berths on busy inbound service or establish sustainable station throughput.

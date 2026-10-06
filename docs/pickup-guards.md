@@ -106,6 +106,5 @@ The two seeds do not establish a full operating envelope.
 
 Independent candidate, helper, runner, analyzer, and evidence reviews pass.
 [Measurements](measurements/pickup-guards.json) retain results, records, input hashes, all affected offer indices, and worst individual regressions.
-Raw sources and complete matched observations remain in `~/.cache/agents/podsim/followup-nine-20261001/pickup-guards/`.
 The [supply screen](pickup-supply.md) records separate fleet trials.
 The [experimental gates](experimental-adoption.md) define broader qualification requirements.

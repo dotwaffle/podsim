@@ -77,6 +77,5 @@ Suppressing that pair does not establish a general dispatch fix.
 
 [Target totals](measurements/pickup-postroute-tail.csv) retain waits, boarding pods, and sample denominators.
 [Metadata](measurements/pickup-postroute-tail.json) retains source hashes, exact replay checks, decisions, episodes, and captured route IDs.
-Raw snapshots and frozen helpers remain in `~/.cache/agents/podsim/pickup-postroute-tail-20261001/`.
 The owned run stopped successfully, and its scratch binary was removed.
 Concurrent functional runs provide no CPU comparison.

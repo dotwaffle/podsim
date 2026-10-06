@@ -153,5 +153,5 @@
       "data_race_reports": 0
     }
   },
-  "evidence_directory": "~/.cache/agents/podsim/roadmap-service-20261002/"
+  "evidence_directory": "roadmap-service-20261002/"
 }

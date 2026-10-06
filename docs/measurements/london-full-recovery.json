@@ -2,10 +2,10 @@
   {
     "job": {
       "Name": "capacity-full-am-peak-r13-s3-recovery8h",
-      "Project": "/home/dotwaffle/.cache/agents/podsim/mirrored-load-20260930/current/full.json",
+      "Project": "mirrored-load-20260930/current/full.json",
       "Focus": "940GZZLUPAC",
       "Buffers": "off",
-      "Output": "/home/dotwaffle/.cache/agents/podsim/prediction-diagnosis-extra-20261001/capacity-full-am-peak-r13-s3-recovery8h.json",
+      "Output": "prediction-diagnosis-extra-20261001/capacity-full-am-peak-r13-s3-recovery8h.json",
       "Pattern": "profile",
       "Band": "am-peak",
       "Interval": 4615384615,
@@ -170,10 +170,10 @@
   {
     "job": {
       "Name": "capacity-full-am-peak-r13-s4-recovery8h",
-      "Project": "/home/dotwaffle/.cache/agents/podsim/mirrored-load-20260930/current/full.json",
+      "Project": "mirrored-load-20260930/current/full.json",
       "Focus": "940GZZLUPAC",
       "Buffers": "off",
-      "Output": "/home/dotwaffle/.cache/agents/podsim/prediction-diagnosis-extra-20261001/capacity-full-am-peak-r13-s4-recovery8h.json",
+      "Output": "prediction-diagnosis-extra-20261001/capacity-full-am-peak-r13-s4-recovery8h.json",
       "Pattern": "profile",
       "Band": "am-peak",
       "Interval": 4615384615,

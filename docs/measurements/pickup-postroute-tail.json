@@ -1,7 +1,7 @@
 {
   "source": {
     "source_commit": "a54281ec54dd962d784aff3de34de0fdc6122f29",
-    "frozen_overlay_parent": "/home/dotwaffle/.cache/agents/podsim/predictive-study-20261001/candidate",
+    "frozen_overlay_parent": "predictive-study-20261001/candidate",
     "targets": [
       1324,
       3651,
@@ -9,7 +9,7 @@
       3421
     ],
     "projects": {
-      "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/full.json": "be8e751c012805e4941937fcc62364984f7746df82d29c363134dbf2f08b8182"
+      "sustained-full-20260930/full.json": "be8e751c012805e4941937fcc62364984f7746df82d29c363134dbf2f08b8182"
     },
     "overlay_files": {
       "/home/dotwaffle/Code/podsim/assets_embedded.go": "0da011fc8f6b5f7411e97ff470e1bcd3fce9bd7359a54f26177cc932b5e0d7c7",

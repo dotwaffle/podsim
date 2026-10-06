@@ -96,4 +96,3 @@ CPU and wall times are not performance measurements because these functional stu
 
 [Counts](measurements/paddington-reservation-counts.csv) retain the exact lane, class, and branch totals.
 [Metadata](measurements/paddington-reservation.json) retains both frozen stages, first-failure counts, complete-key equality checks, and raw-result hashes.
-Local helpers and raw traces remain in `~/.cache/agents/podsim/paddington-reservation-diagnosis-20260930/` and `paddington-coupling-reasons-20260930/`.

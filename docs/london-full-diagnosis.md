@@ -99,8 +99,7 @@ The required regression covers two different parking berths, a reserved berth ah
 It checks eventual completion as well as separation and reservation ownership.
 The follow-up repeats the four arms and checks the relevant simulation behavior.
 
-Local evidence is retained in `~/.cache/agents/podsim/londonfull-diagnosis-20260929/`.
-It includes the helper and overlays, commands, exit markers, cutoff and extended snapshots, request timings, and five-minute traces.
+The local evidence includes the helper and overlays, commands, exit markers, cutoff and extended snapshots, request timings, and five-minute traces.
 The capacity-study bundle retains the input projects and schedules.
 
 ## Parking diversion fix
@@ -135,5 +134,3 @@ One long journey still exceeds the original two-hour cutoff.
 The other three arms reproduce every earlier result field exactly.
 The [post-fix capacity study](london-full-postfix.md) repeats all 302 original arms and adds six conditionally selected AM peak arms.
 The original tables remain historical measurements of the earlier source.
-
-Fix validation and raw reruns are retained in `~/.cache/agents/podsim/parking-diversion-fix-20260929/`.

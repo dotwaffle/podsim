@@ -51,6 +51,5 @@ The restored copies retain their selected wait rule and pass 60 seconds of dense
 Two short current/strict pilots check every tick and match production aggregates.
 
 [Metadata](measurements/finishing-wait-capacity.json) retains paired results, completed-cohort changes, gained and lost request IDs, checks, and source identities.
-Raw timing and pending records remain in `~/.cache/agents/podsim/finishing-wait-capacity-20261001/`.
 Its owned unit terminated successfully and its scratch binary was removed.
 These selected cells do not qualify other demand bands or support a default change.

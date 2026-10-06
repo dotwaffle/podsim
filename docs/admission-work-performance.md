@@ -126,4 +126,3 @@ Two initial repetitions per case and the targeted follow-up do not qualify all d
 [Initial measurements](measurements/admission-work.csv) retain CPU, allocations, collections, pauses, heap, and latency results.
 [Per-arm measurements](measurements/admission-work-arms.csv) retain the 48 original processes.
 [Metadata](measurements/admission-work.json) records frozen inputs, exact state hashes, and all six follow-up pairs.
-Local artifacts are in `~/.cache/agents/podsim/admission-work-20260930/` and `admission-work-recheck-20260930/`.

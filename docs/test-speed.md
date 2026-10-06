@@ -50,8 +50,7 @@ The full session suite, session and remote race checks, static checks, and focus
 An independent review checked deadline coverage and fixture ownership.
 The final deadline tests also passed five repetitions under the race detector.
 
-Raw timing events, profiles, source hashes, and validation logs remain in `~/.cache/agents/podsim/test-speed-20260930/`.
-The cache's `analysis.json` records individual stages and their limits.
+The local `analysis.json` records individual stages and their limits.
 
 ## CI test selection
 
@@ -172,5 +171,3 @@ A 4-CPU CI runner is CPU-bound, so the CPU time of each task sets its duration.
 The before runs include the sampled contract check.
 The wall times of the after runs are longer because the machine load was higher.
 The CPU time of the longer task fell from 2,606 to 1,904 seconds, by 27 percent.
-
-Raw timing events and the scripts remain in `~/.cache/agents/podsim/test-speed-20261006/`, in `timing.tar.gz` and `timing2.tar.gz`.

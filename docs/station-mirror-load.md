@@ -89,4 +89,3 @@ Instrumentation and concurrent workers prevent server playback-speed conclusions
 
 [Per-arm measurements](measurements/station-mirror-load.csv) retain every comparison result field.
 [Metadata](measurements/station-mirror-load.json) records fixtures, request schedule hashes, restore coverage, and validation limits.
-The local artifact bundle is `~/.cache/agents/podsim/mirrored-load-20260930/`.

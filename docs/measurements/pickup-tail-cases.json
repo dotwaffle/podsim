@@ -5,23 +5,23 @@
   "equivalence": "Both tail replays match all original result, schedule, and check fields. Boarding replay also matches tail observations.",
   "raw_sha256": {
     "tail-rate10-s1-boff-roff.json": "f4f6524050f82bdcc2bfe8f1241195af416ff549580c792e487f737009d608a0",
-    "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/rate10-s1-boff-roff.json": "15c462c8fb2508d384b0bd6a91ecafea94197a0d8a4959bfabf0c4f795c08bdb",
+    "sustained-full-20260930/rate10-s1-boff-roff.json": "15c462c8fb2508d384b0bd6a91ecafea94197a0d8a4959bfabf0c4f795c08bdb",
     "tail-rate10-s1-boff-ron.json": "73fa8885b862975a9e8678638ccd64406eb76fc13cd98bd4f45ccaf7edacb2f0",
-    "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/rate10-s1-boff-ron.json": "ec9a2bbb9517f4f633150a293d9a67460a80e708e7128f8bde3da2588361a9ae",
+    "sustained-full-20260930/rate10-s1-boff-ron.json": "ec9a2bbb9517f4f633150a293d9a67460a80e708e7128f8bde3da2588361a9ae",
     "boarding/boarding-rate10-s1-boff-ron.json": "2f36b8810ee982fdae9b865ba791d6ec02b024bd47e14f1d6ad7ec9e9f4af5e0"
   },
   "tail_manifest": {
     "head": "69845f7",
     "hashes": {
-      "/home/dotwaffle/.cache/agents/podsim/pickup-tail-20260930/study_test.go": "e99b70492ae1bc6491412e6278a263e020d867dfda8e2cb6ffdad23378fd67a1",
-      "/home/dotwaffle/.cache/agents/podsim/pickup-tail-20260930/restore_test.go": "957fbd7b3f0b86088e08e7de53fa212708090cee193f72c13d42c524c1349a86",
-      "/home/dotwaffle/.cache/agents/podsim/pickup-tail-20260930/tail_test.go": "3b04a4fcd4c1b807aaa9a836eb362805c52fe23e941085d23b592e9903199394",
-      "/home/dotwaffle/.cache/agents/podsim/pickup-tail-20260930/observed_test.go": "8de1110365b1b5c2ef4fa4b664e0a38685c09b47db5274c73fb508bd69cb970b",
-      "/home/dotwaffle/.cache/agents/podsim/pickup-tail-20260930/run.py": "dda01d88a79c755eb015718dcbfa34597d6b0502669d500ae32d7ac060a57993",
-      "/home/dotwaffle/.cache/agents/podsim/pickup-tail-20260930/jobs.json": "538b9c5ad314ee33f3e1c87fdcce63fc4bd174ff65fefd31098b91eef4ae0b10",
+      "pickup-tail-20260930/study_test.go": "e99b70492ae1bc6491412e6278a263e020d867dfda8e2cb6ffdad23378fd67a1",
+      "pickup-tail-20260930/restore_test.go": "957fbd7b3f0b86088e08e7de53fa212708090cee193f72c13d42c524c1349a86",
+      "pickup-tail-20260930/tail_test.go": "3b04a4fcd4c1b807aaa9a836eb362805c52fe23e941085d23b592e9903199394",
+      "pickup-tail-20260930/observed_test.go": "8de1110365b1b5c2ef4fa4b664e0a38685c09b47db5274c73fb508bd69cb970b",
+      "pickup-tail-20260930/run.py": "dda01d88a79c755eb015718dcbfa34597d6b0502669d500ae32d7ac060a57993",
+      "pickup-tail-20260930/jobs.json": "538b9c5ad314ee33f3e1c87fdcce63fc4bd174ff65fefd31098b91eef4ae0b10",
       "/tmp/build/podsim/pickup-tail-20260930/study.test": "92c9421198cd16b2ca7c0cb1224558f9b1737526c65d5118dc27309aaf7bc38e",
       "/tmp/build/podsim/pickup-tail-20260930/overlay.json": "31907f2ce7d1d209c4b476eaeb443b83fcaa597a80fcda4fcc42e1f33c206843",
-      "/home/dotwaffle/.cache/agents/podsim/sustained-full-20260930/full.json": "be8e751c012805e4941937fcc62364984f7746df82d29c363134dbf2f08b8182"
+      "sustained-full-20260930/full.json": "be8e751c012805e4941937fcc62364984f7746df82d29c363134dbf2f08b8182"
     },
     "selection": "Post-hoc ten/minseed1 two direct regressions1366/1379, transfer1565, improvement1845, indirect worst2062; descriptive case study, not population estimates or counterfactual guarantee",
     "scope": "Read only the existing once/sec display snapshot, pending IDs and assigned pods. Keep original safety/restore/census probes; compare every old field/schedule after run."
@@ -29,12 +29,12 @@
   "boarding_manifest": {
     "source_commit": "69845f7",
     "hashes": {
-      "/home/dotwaffle/.cache/agents/podsim/pickup-tail-20260930/boarding/observed_test.go": "8de1110365b1b5c2ef4fa4b664e0a38685c09b47db5274c73fb508bd69cb970b",
-      "/home/dotwaffle/.cache/agents/podsim/pickup-tail-20260930/boarding/study_test.go": "167c63f43c6ab898923918c255451718f3afeeef7c3e7866d749da3061ab0eb0",
-      "/home/dotwaffle/.cache/agents/podsim/pickup-tail-20260930/boarding/restore_test.go": "957fbd7b3f0b86088e08e7de53fa212708090cee193f72c13d42c524c1349a86",
-      "/home/dotwaffle/.cache/agents/podsim/pickup-tail-20260930/boarding/tail_test.go": "ce8b9cf9e664d42b7bc51792e69123f8b7f01e6e773fc9d941ecd71467a906a0",
-      "/home/dotwaffle/.cache/agents/podsim/pickup-tail-20260930/boarding/jobs.json": "c512b2a76059def05894e3a1687880cd038279e6fddec477762a3fbf8114f9aa",
-      "/home/dotwaffle/.cache/agents/podsim/pickup-tail-20260930/boarding/run.py": "9eb1d521145821852db2e20b134bfcbb82691c0f17c7292cabbecd95659ccbf8",
+      "pickup-tail-20260930/boarding/observed_test.go": "8de1110365b1b5c2ef4fa4b664e0a38685c09b47db5274c73fb508bd69cb970b",
+      "pickup-tail-20260930/boarding/study_test.go": "167c63f43c6ab898923918c255451718f3afeeef7c3e7866d749da3061ab0eb0",
+      "pickup-tail-20260930/boarding/restore_test.go": "957fbd7b3f0b86088e08e7de53fa212708090cee193f72c13d42c524c1349a86",
+      "pickup-tail-20260930/boarding/tail_test.go": "ce8b9cf9e664d42b7bc51792e69123f8b7f01e6e773fc9d941ecd71467a906a0",
+      "pickup-tail-20260930/boarding/jobs.json": "c512b2a76059def05894e3a1687880cd038279e6fddec477762a3fbf8114f9aa",
+      "pickup-tail-20260930/boarding/run.py": "9eb1d521145821852db2e20b134bfcbb82691c0f17c7292cabbecd95659ccbf8",
       "/tmp/build/podsim/pickup-tail-20260930/boarding/study.test": "67330b7cfff428e5f362379398bc654808ef8ee03ce11664d0c8a3050f878349",
       "/tmp/build/podsim/pickup-tail-20260930/boarding/overlay.json": "dcbbb3b530b095cef91cc37d0227dbb46baee583ea3b2c8a1c7038c5a28468ba"
     },

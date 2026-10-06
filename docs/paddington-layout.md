@@ -89,5 +89,4 @@ This result supplies no basis for weaker reservations or automatic changes to au
 [Arm totals](measurements/paddington-layout-arms.csv) retain service, backlog, station-resource observations, and check counts.
 [Pair totals](measurements/paddington-layout-pairs.csv) retain matched cohorts and individual increases.
 [Metadata](measurements/paddington-layout.json) retains fixture hashes, exact baseline checks, rejected witnesses, status transitions, and unfinished-request records.
-Raw results, rejected attempts, the failure snapshot, and complete individual comparisons remain in `~/.cache/agents/podsim/paddington-layout-20261001/`.
 All owned geometry units stopped, and their scratch binaries were removed.

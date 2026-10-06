@@ -133,7 +133,6 @@ That test retains raw full and generated successor bytes plus several owned stat
 The Chromium driver fetches a preencoded successor.
 These results do not justify a deployment, default enablement, larger cap, or memory guarantee for another environment.
 
-Root retains browser source pins, process samples, numeric checks, and both Node outcomes under `~/.cache/agents/podsim/continuation-express-batch-20261003/root/`.
 The session artifact manifest records exact fixture, source, gate, and mutation hashes.
 
 ## Gates and failures

@@ -89,7 +89,6 @@ Their long moving pickups remain a service problem despite eventual completion.
 [Fleet census](measurements/london-full-fleet-census.csv) retains each replay's early, late, and recovery windows, including the separate Acton stress fixture.
 [Metadata](measurements/london-full-capacity-diagnosis.json) retains exact replay checks, source and binary identities, selected tails, and aggregate census rows.
 [Extended recovery](measurements/london-full-recovery.json) retains the final timings and checks from `prediction-diagnosis-extra-20261001/`.
-Raw station samples, complete selected histories, immutable sources, observer tests, and logs remain in `~/.cache/agents/podsim/throughput-diagnosis-20261001/`.
 
 Next compare bounded dispatch or fleet-use candidates against the same accepted requests.
 Retain individual delays and unfinished requests alongside aggregate throughput.

@@ -159,8 +159,7 @@ Sampled failure observations can end before the failing tick, even though the ca
 
 The measurement record contains 25 successful arms and two rejected arms.
 Analysis verified fixture and binary hashes, passenger conservation, receipt bindings, connection scoring, and matching baseline/candidate offered populations.
-Raw fixtures, full identities, logs, frozen helpers, overlays, failure states, and analysis scripts remain in `~/.cache/agents/podsim/service-demand-search-20261001/`.
-Reproduction needs those cached fixtures and helpers.
+Reproduction needs the cached fixtures and helpers.
 The repository summary alone is not a standalone study runner.
 No live geometry, controller defaults, byte caps, speed limits, or clearance limits changed.
 

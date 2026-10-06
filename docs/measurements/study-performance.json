@@ -352,7 +352,7 @@
         "command": [
           "go",
           "test",
-          "-overlay=/home/dotwaffle/.cache/agents/podsim/study-performance-paired-20261001/benchmark-baseline-overlay.json",
+          "-overlay=study-performance-paired-20261001/benchmark-baseline-overlay.json",
           "./internal/sim",
           "-run=^$",
           "-bench=^BenchmarkStationManeuverRouteIndex$",
