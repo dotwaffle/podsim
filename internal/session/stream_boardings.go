@@ -96,7 +96,8 @@ func ownStreamBoardings(f StreamFrame) StreamFrame {
 }
 
 // scanStreamBoardingMembers checks presence before typed decoding loses nulls.
-// The Express marker allows 20 boarding records for each vehicle.
+// The Express marker allows 20 boarding records for each vehicle. The scan
+// reads the members in document order and stops at the first refusal.
 func scanStreamBoardingMembers(data []byte, markers contractMarkers) error {
 	decoder := jsontext.NewDecoder(bytes.NewReader(data))
 	for {
@@ -107,50 +108,84 @@ func scanStreamBoardingMembers(data []byte, markers contractMarkers) error {
 		if err != nil {
 			return err
 		}
-		kind, length := decoder.StackIndex(decoder.StackDepth())
-		if token.Kind() != jsontext.KindString || kind != jsontext.KindBeginObject || length%2 != 1 {
-			continue
-		}
-		name := token.String()
-		if name != "boardings" && name != "riddenMeters" {
-			continue
-		}
-		path := strings.Split(string(decoder.StackPointer()), "/")
-		full := len(path) == 7 && (path[1] == "full" || path[1] == "frame") && path[2] == "state" && path[3] == "simulation" && path[4] == "vehicles" && streamArrayIndex(path[5])
-		delta := len(path) == 5 && path[1] == "delta" && path[2] == "vehicles" && streamArrayIndex(path[3])
-		metadata := len(path) == 7 && path[1] == "delta" && path[2] == "vehicles" && streamArrayIndex(path[3]) && path[4] == "metadata" && path[5] == "value"
-		records := name == "boardings" && (full || delta)
-		distance := name == "riddenMeters" && (full || metadata)
-		if !records && !distance {
+		target, ok := boardingScanTargetOf(decoder, token)
+		if !ok {
 			continue
 		}
 		raw, err := decoder.ReadValue()
 		if err != nil {
 			return err
 		}
-		if distance {
-			var meters float64
-			if bytes.Equal(raw, []byte("null")) || decodeStreamJSON(raw, &meters) != nil || !finiteNonnegative(meters) {
-				return errors.New("invalid passenger chain distance")
-			}
-			continue
-		}
-		if delta {
-			members, memberErr := boardingMembers(raw)
-			if memberErr != nil || len(members) != 1 || members["value"] == nil {
-				return errors.New("boarding replacement needs exactly one value")
-			}
-			raw = members["value"]
-		}
-		if markers.order == sim.ExpressOrderContract {
-			err = scanBoardingRecordsLimit(raw, delta, 20)
-		} else {
-			err = scanBoardingRecords(raw, delta)
-		}
-		if err != nil {
+		if err := checkBoardingScanTarget(raw, target, markers); err != nil {
 			return err
 		}
 	}
+}
+
+// boardingScanTarget is a vehicle member that the boarding scan checks.
+// Delta is true for a boarding replacement in a delta vehicle.
+type boardingScanTarget struct {
+	distance bool
+	delta    bool
+}
+
+// boardingScanTargetOf reports whether token names the boarding records or
+// the passenger chain distance of a vehicle.
+func boardingScanTargetOf(decoder *jsontext.Decoder, token jsontext.Token) (boardingScanTarget, bool) {
+	kind, length := decoder.StackIndex(decoder.StackDepth())
+	if token.Kind() != jsontext.KindString || kind != jsontext.KindBeginObject || length%2 != 1 {
+		return boardingScanTarget{}, false
+	}
+	name := token.String()
+	if name != "boardings" && name != "riddenMeters" {
+		return boardingScanTarget{}, false
+	}
+	path := strings.Split(string(decoder.StackPointer()), "/")
+	full, delta := fullVehiclePath(path), deltaVehiclePath(path)
+	records := name == "boardings" && (full || delta)
+	distance := name == "riddenMeters" && (full || deltaMetadataPath(path))
+	return boardingScanTarget{distance: distance, delta: delta}, records || distance
+}
+
+// fullVehiclePath matches a member of a vehicle in a full or frame state.
+func fullVehiclePath(path []string) bool {
+	return len(path) == 7 && (path[1] == "full" || path[1] == "frame") && path[2] == "state" && path[3] == "simulation" &&
+		path[4] == "vehicles" && streamArrayIndex(path[5])
+}
+
+// deltaVehiclePath matches a member of a delta vehicle.
+func deltaVehiclePath(path []string) bool {
+	return len(path) == 5 && path[1] == "delta" && path[2] == "vehicles" && streamArrayIndex(path[3])
+}
+
+// deltaMetadataPath matches a member of the metadata replacement of a delta
+// vehicle.
+func deltaMetadataPath(path []string) bool {
+	return len(path) == 7 && path[1] == "delta" && path[2] == "vehicles" && streamArrayIndex(path[3]) &&
+		path[4] == "metadata" && path[5] == "value"
+}
+
+// checkBoardingScanTarget checks a distance, or the replacement shape and
+// then the records of a boarding member.
+func checkBoardingScanTarget(raw []byte, target boardingScanTarget, markers contractMarkers) error {
+	if target.distance {
+		var meters float64
+		if bytes.Equal(raw, []byte("null")) || decodeStreamJSON(raw, &meters) != nil || !finiteNonnegative(meters) {
+			return errors.New("invalid passenger chain distance")
+		}
+		return nil
+	}
+	if target.delta {
+		members, err := boardingMembers(raw)
+		if err != nil || len(members) != 1 || members["value"] == nil {
+			return errors.New("boarding replacement needs exactly one value")
+		}
+		raw = members["value"]
+	}
+	if markers.order == sim.ExpressOrderContract {
+		return scanBoardingRecordsLimit(raw, target.delta, 20)
+	}
+	return scanBoardingRecords(raw, target.delta)
 }
 
 func streamArrayIndex(value string) bool {

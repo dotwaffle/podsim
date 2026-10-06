@@ -357,3 +357,53 @@ func TestStreamRecordedRiderConsent(t *testing.T) {
 		})
 	}
 }
+
+// TestScanStreamBoardingMembersRefusalOrder pins the members that the
+// boarding scan checks and the error that it gives. The scan reads the
+// members in document order and stops at the first refusal. A delta
+// boarding member needs one value member before its records are checked.
+func TestScanStreamBoardingMembersRefusalOrder(t *testing.T) {
+	t.Parallel()
+	const (
+		distance    = "invalid passenger chain distance"
+		replacement = "boarding replacement needs exactly one value"
+		count       = "boarding records need 1 to 8 entries"
+		shape       = "boarding records need an array"
+	)
+	records := func(n int) string {
+		return "[" + strings.TrimSuffix(strings.Repeat(`{"berthID":"b","metersAtBoarding":0},`, n), ",") + "]"
+	}
+	full := func(vehicle string) string {
+		return `{"full":{"state":{"simulation":{"vehicles":[{},` + vehicle + `]}}}}`
+	}
+	delta := func(vehicle string) string { return `{"delta":{"vehicles":[{},` + vehicle + `]}}` }
+	for _, test := range []struct {
+		name  string
+		order sim.OrderContract
+		raw   string
+		want  string
+	}{
+		{"distance_before_records", "", full(`{"riddenMeters":-1,"boardings":[]}`), distance},
+		{"records_before_distance", "", full(`{"boardings":[],"riddenMeters":-1}`), count},
+		{"frame_distance", "", `{"frame":{"state":{"simulation":{"vehicles":[{"riddenMeters":null}]}}}}`, distance},
+		{"metadata_distance", "", delta(`{"metadata":{"value":{"riddenMeters":-1}}}`), distance},
+		{"replacement_before_records", "", delta(`{"boardings":{"value":{},"x":1}}`), replacement},
+		{"delta_records", "", delta(`{"boardings":{"value":{}}}`), shape},
+		{"delta_empty_records", "", delta(`{"boardings":{"value":[]}}`), ""},
+		{"refusal_before_syntax_error", "", `{"full":{"state":{"simulation":{"vehicles":[{"riddenMeters":-1}]!`, distance},
+		{"ordinary_limit", "", full(`{"boardings":` + records(9) + `}`), count},
+		{"express_limit", sim.ExpressOrderContract, full(`{"boardings":` + records(20) + `}`), ""},
+		{"express_past_limit", sim.ExpressOrderContract, full(`{"boardings":` + records(21) + `}`), count},
+		{"delta_distance_unchecked", "", delta(`{"riddenMeters":-1}`), ""},
+		{"metadata_records_unchecked", "", delta(`{"metadata":{"value":{"boardings":-1}}}`), ""},
+		{"other_member_unchecked", "", `{"full":{"state":{"simulation":{"riders":[{"riddenMeters":-1}]}}}}`, ""},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			err := scanStreamBoardingMembers([]byte(test.raw), contractMarkers{order: test.order})
+			if test.want == "" && err != nil || test.want != "" && (err == nil || err.Error() != test.want) {
+				t.Fatalf("got %v, want %q", err, test.want)
+			}
+		})
+	}
+}
