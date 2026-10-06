@@ -1,9 +1,10 @@
 # Release readiness
 
-Status: physical coupling qualification remains incomplete on October 5, 2026.
-This report pins `7c970c265a0a28019870147c3301bbce10e61e0c`.
+Status: physical coupling qualification remains incomplete on October 6, 2026.
+This report pins `15047a4f0a7984053cba87ddd49d3ebb646bedc2`, which is on main.
 At this source, one saved-state version and one stream version serve every project kind.
-Hosted Check, including its image publication job, passed for this source.
+Hosted Check passed for this source.
+The Check run of this source published no image.
 All four bounded browser performance candidates were rejected and closed.
 The maintainer's standing instruction holds the unfinished coupling release.
 This report does not authorize deployment, default adoption, or a cap change.
@@ -13,37 +14,41 @@ It still pins the earlier `8181495` source, its source-specific evidence, and it
 This update read the pinned source in a detached worktree.
 It did not build the source or run tests.
 
-Later sources change several statements of this report.
-They add the incident, fault, and emergency markers, and the incident redesign stops at stage 3.
-The `64b4f3f` source raises the stream and HTTP state cap to 65 MiB and the compressed message cap to 66 MiB.
-The [qualification](qualification.md#coupling-format-qualification) records the later coupling format and incident checks of item 6.
+This source adds the incident, fault, and emergency markers.
+The incident redesign stopped at stage 3.
+The `64b4f3f` source raised the stream and HTTP state cap to 65 MiB and the compressed message cap to 66 MiB.
+The [qualification](qualification.md#coupling-format-qualification) records the coupling format and incident checks of item 6.
 
-## Hosted checks and published image
+## Hosted checks and image
 
-[Check](https://github.com/dotwaffle/podsim/actions/runs/37318001608) passed in 14m00s, from 13:35:33 to 13:49:33 UTC.
-All six check jobs and the publish job concluded with success.
+[Check](https://github.com/dotwaffle/podsim/actions/runs/37487384375) passed in 14m24s, from 15:25:37 to 15:40:01 UTC on October 6, 2026.
+All six check jobs concluded with success, and the publish job was skipped.
 The Check workflow runs six check jobs in parallel on separate hosted runners.
 Its publish job needs all six check jobs and does not run for pull requests.
+Since `6325cb3`, the publish job runs only for a version tag or a manual run, and a push to main runs the checks only.
 The `2140d40` and `31322b5` sources split the check, and `2138790` moved publication into Check.
 
 | Job | Seconds |
 | --- | ---: |
-| `test:race:sim-other` | 726 |
-| `test:race:sim-stations` | 384 |
-| `test:race:other` | 376 |
-| `test:race:session` | 312 |
-| `check:static` | 167 |
-| `qualify` | 44 |
-| `publish` | 101 |
+| `test:race:sim-stations` | 864 |
+| `test:race:sim-other` | 604 |
+| `test:race:other` | 587 |
+| `test:race:session` | 342 |
+| `check:static` | 332 |
+| `qualify` | 149 |
 
 The `check:static` job runs bounds, web tests, lint, vulnerability checks, builds, and embedded tests.
-The `qualify` job runs only the two Station 19 drain tests, and `069bafb` gave it a 30-minute test timeout.
+The `qualify` job runs the two Station 19 drain tests and the two emergency choice latency tests, and `069bafb` gave it a 30-minute test timeout.
 The `7c970c2` source reduced the local wall time of `TestScale100Station19BurstDrainsSafely` from 125.3 to 11.7 seconds.
 The `b70e46e` source runs 48 session tests in parallel.
-The publish job started at 13:47:51 UTC, after the last check job completed.
-The published image is `ghcr.io/dotwaffle/podsim@sha256:8b60067be3eb2a298c381b033c1438fc6771dc4bb5cb045c25b6a3723b3398b9`.
-Package version 1339020137 carries the complete commit tag and `latest` at this digest.
-Use the digest because `latest` can move.
+
+The linked Check run published no image for the pinned source.
+The image of the earlier `7c970c2` source is `ghcr.io/dotwaffle/podsim@sha256:8b60067be3eb2a298c381b033c1438fc6771dc4bb5cb045c25b6a3723b3398b9`.
+That image carries no later change and does not qualify the pinned source.
+
+The earlier `7c970c2` [Check](https://github.com/dotwaffle/podsim/actions/runs/37318001608) passed in 14m00s, from 13:35:33 to 13:49:33 UTC, and its publish job took 101 seconds.
+Its check jobs took 726 seconds for `test:race:sim-other`, 384 for `test:race:sim-stations`, and 376 for `test:race:other`.
+They took 312 seconds for `test:race:session`, 167 for `check:static`, and 44 for `qualify`.
 
 The previous `5078afd` [Check](https://github.com/dotwaffle/podsim/actions/runs/37316095300) passed in 13m55s, from 13:20:57 to 13:34:52 UTC.
 Its jobs took 748 seconds for `test:race:sim-other`, 499 for `test:race:other`, and 285 for `test:race:sim-stations`.
@@ -54,8 +59,8 @@ Those results remain archived in the measurement record.
 Job durations vary between runs and runners.
 They do not establish a causal speedup against earlier runs or qualify a later source.
 
-The audit did not pull or execute the image, inspect an OCI manifest, or test an ARM runtime.
-Publication success does not establish hosted health or deployment readiness.
+The audit did not pull or execute any image, inspect an OCI manifest, or test an ARM runtime.
+A passing Check does not establish hosted health or deployment readiness.
 The existing deployed runtime was not contacted or changed.
 
 ## Preserved CI failure and coverage
@@ -76,11 +81,10 @@ In the CI split qualification of the measurement record, the 80 MiB guard reject
 This update did not measure those sizes again.
 Only this serial shape proof excludes race instrumentation in its package.
 The `test:embedded` task runs the root and `cmd/serve` suites with embedded assets.
-In the session package it runs only the worst-case save size test, three widest Express adapter tests, the packed text wire cost test, and the maximum stream encoding test.
+In the session package it runs only the worst-case save size test, three widest Express adapter tests, the packed text wire cost test, the maximum stream encoding test, the composed worst-case format proof, and the coupling save cap test.
 Bounded application tests and concurrency controls remain under the four race tasks.
-`TestComposedWorstCaseFormats` skips under the race detector, and the `test:embedded` pattern does not name it.
-Thus no hosted Check job at the pinned source runs the composed worst-case format proof.
-The later `43e1361` adds it to the `test:embedded` pattern.
+`TestComposedWorstCaseFormats` skips under the race detector.
+The `43e1361` source added it to the `test:embedded` pattern, so the `check:static` job of the pinned source runs it.
 The source audit and qualification retain exact assertion-body comparisons and the prior tool failures.
 
 ## Formats and versions
@@ -109,12 +113,13 @@ Their decoders match member names by exact case.
 Each saved state with the earlier names has a version before 9, so the server moves it aside with `unsupported_version`.
 The editor refuses a project file with the earlier names.
 
-The [composed worst-case record](measurements/composed-worst-case-formats.json) from `ee5851f` measures one fixture for each shape and format.
+The [composed worst-case record](measurements/composed-worst-case-formats.json) measures one fixture for each shape and format.
+Its latest change is in `f0b7b24`.
 Each fixture has every landed member at its widest at the same time.
 The values are independent maxima, not reachable states.
 Every fixture fits its cap.
-The narrowest stream shape is the Express with coupling HTTP state, with 1,252,396 bytes below the 64 MiB cap.
-The narrowest save shape is Express with coupling, with 6,836,569 bytes below the 80 MiB cap.
+The narrowest stream shape is the Express with coupling HTTP state, with 598,280 bytes below the 65 MiB cap.
+The narrowest save shape is Express with coupling, with 6,559,469 bytes below the 80 MiB cap.
 
 ## Express operating limits
 
@@ -127,8 +132,8 @@ In each format, the `express-v1` marker selects bounds of 8,600 waiting or pendi
 Without the marker, the bounds are 2,600 orders and 8 riders per pod.
 Current defaults and physical constants remain unchanged.
 The saved-state limit remains 80 MiB.
-At the pinned source, the stream and HTTP state limit is 64 MiB for every project kind.
-The stream binary limit is 65 MiB at that source.
+At the pinned source, the stream and HTTP state limit is 65 MiB for every project kind.
+The compressed message limit is 66 MiB.
 Manual admission retains its 200-request queue limit.
 
 Physical session restore resets ordinary speed and reconstructs future grants.
@@ -228,31 +233,40 @@ Part (b) closed in `1427ddb` with an enforced corridor speed bound.
 Coupling geometry validation refuses a site or corridor lane faster than 360 m/s (`MaxCouplingCorridorSpeed`).
 At that bound, the body sweep check refuses each pose that the pair connector check refuses.
 `TestCouplingPairConnectorBoxNotDominatedAtHighTravel` still records the gap at 1,200 m/s, above the bound.
-Item 6 has two open parts:
+Item 6 has two further parts, and the pinned source holds a record for each:
 
-- Part (c): the format-dependent gates must qualify again on the single save and stream family.
-  This work is in progress and is not in the pinned source.
-- Part (d): the simulation evidence must run again after incident stage 4.
+- Part (c): the format-dependent gates ran again on the single save and stream family at `05e95b1`.
+  The [qualification](qualification.md#coupling-format-qualification) records the result.
+  Row G9 and row U4 are partial, and row G8 lacks the WASM and browser runs.
+  The simulation, cost, and heap rows are not part of that record.
+- Part (d) is now the coupling incident qualification after stage 3.
+  The [qualification](qualification.md#coupling-incident-qualification) records it at `23be7ce`.
 
-The full coupling implementation is not qualified.
+The release proof for multi-pair coupling needs trains from ordinary demand.
+The [natural multi-pair gate](qualification.md#coupling-natural-multi-pair-scenario) is not met on the Scale100 mesh or on the straight-trunk loop (`23be7ce`).
+The [tailored probe](qualification.md#coupling-multi-pair-tailored-probe) meets it (`8aeabc5`, `TestCouplingNaturalMultiPairProbe`).
+The probe depends on the seed and on a network shaped for formation.
+It does not show that trains form on the presets or on a network with long shared roads.
+The maintainer still holds the coupling release, and the full coupling implementation is not qualified.
 
-## Incident service transitions
+## Incident redesign
 
-The [incident service transitions contract](incident-service-transitions-contract-proposal.md) is stage 1 of the staged incident plan.
-The maintainer approved it on October 5, 2026, in `482d93d`.
-It defines the service transitions that vehicle faults and rider emergencies share.
-The `5078afd` source revised its format section for saved-state version 9 and hello 6.
-Section 15 of the contract lists nine patches.
-Patch 1, the claim classification and its baseline fix, landed in `6b8eb62` and `16eab09`.
-Part of patch 4 landed.
-The `2e307ed` source gates the supply paths of section 4.3 and the passenger claim yields on a service hold.
-The `2ff0912` source adds the departure backlog path, which the maintainer approved as a new row.
-At the pinned source, no production path sets a hold, so every pod stays in service.
-The withdrawal operations of section 4.2, the contract checks, and patches 2, 3, and 5 through 9 are pending.
+The maintainer stopped the incident redesign after stage 3.
+Stages 1, 2, and 3 landed and are on main.
+Stages 4 to 7 were dropped and have no contracts.
 
-The contract byte budget uses the composed worst-case record.
-After stage 1, the contract estimates that the Express with coupling HTTP state is about 237,204 bytes over the 64 MiB cap.
-The contract records a maintainer decision: stage 1 patch 9 measures that shape and raises the stream and HTTP cap only if the shape is over it.
+- Stage 1 is the [service transitions contract](incident-service-transitions-contract-proposal.md).
+  The maintainer approved it on October 5, 2026, in `482d93d`.
+  It defines the service withdrawal and pickup release that vehicle faults and rider emergencies share.
+- Stage 2 is the [suspension contract](incident-suspension-contract-proposal.md).
+  It adds pod faults and debris.
+- Stage 3 is the [emergency contract](incident-emergency-contract-proposal.md).
+  It adds rider emergencies on ordinary pods.
+
+The `64b4f3f` source applied the stage 1 maintainer decision on the byte budget.
+With the stage 1 members at their widest, the Express with coupling HTTP state was 236,415 bytes over the 64 MiB cap.
+The commit raised the stream and HTTP cap to 65 MiB and the compressed message cap to 66 MiB.
+The [coupling incident qualification](qualification.md#coupling-incident-qualification) records the refusal and deferral of coupling members.
 
 ## Forecast rejection and service boundaries
 
@@ -288,16 +302,17 @@ Four selected cases and 34 independent CLI calls preserved exact checkpoint and 
 This does not migrate another executable's checkpoints or claim identity for later builds.
 Since `96bcb9f`, checkpoint decoding matches member names by exact case.
 The version-1 foundation contract does not qualify Express car plans.
-The published image builds the server, not the car CLI.
+The container build covers the server, not the car CLI.
 
-Hosted Check and publication passed for the pinned source.
+Hosted Check passed for the pinned source, and that run published no image.
 Browser performance work closed with rejection.
-Coupling qualification item 6 parts (c) and (d) remain open, and the maintainer holds the unfinished coupling release.
-Incident stage 1 has patch 1 and part of patch 4, and its other patches are pending.
-At the pinned source, no hosted Check job runs the composed worst-case format proof; `43e1361` adds it to `test:embedded`.
+Coupling qualification item 6 has records for parts (c) and (d), and the maintainer holds the unfinished coupling release.
+The natural multi-pair gate is not met on the presets, and the tailored probe depends on its seed and network.
+The incident redesign ended at stage 3.
+The `check:static` job runs the composed worst-case format proof.
 Maximum Express costs limit responsive operating claims within the opt-in qualification.
 Forecast and archived service failures still block experimental adoption and capacity claims.
-No acceptance waiver follows from a successful build or image publication.
+No acceptance waiver follows from a successful build or a passing Check.
 
 The README records the existing 10 MiB project limit and 21 MiB editor import limit.
 This update changes neither runtime limit.
