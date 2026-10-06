@@ -334,3 +334,57 @@ func TestBankBoundsAndCommittedDetour(t *testing.T) {
 		}
 	}
 }
+
+// TestCheckSavedBankRouteRefusalOrder pins the error that a retained bank
+// route with two faults gets. checkSavedBankRoute checks the lane indexes,
+// each bank lane in route order, and then the end of the route. For each
+// lane it checks the start and the end of its bank part, and then the
+// arrival or departure fields. Most cases break two adjacent checks, and
+// the earlier check gives the refusal. A route with an invalid lane index
+// gets no error.
+func TestCheckSavedBankRouteRefusalOrder(t *testing.T) {
+	t.Parallel()
+	n := BankExample()
+	graph := newRouteGraph(n)
+	if graph.banks.err != nil {
+		t.Fatal(graph.banks.err)
+	}
+	// origin-through is in a station with no banks.
+	const outside = "origin-through"
+	for _, test := range []struct {
+		name                           string
+		lanes                          []string
+		stationID, destination, origin string
+		want                           string
+	}{
+		{"index_before_lanes", []string{outside, "bank-a-in", ""}, "hub", "", "", ""},
+		{"arrival_start_before_end", []string{outside, "bank-a-in", outside}, "hub", "", "", "arrival starts inside a bank"},
+		{"arrival_end_before_station", []string{"bank-a-arrival", outside}, "origin", "", "", "retained arrival escapes its bank"},
+		{"station_before_destination_bank", []string{"bank-a-arrival", "bank-a-in"}, "origin", "bank-b-1", "", "arrival uses another station's bank"},
+		{"destination_bank_before_berth", []string{"bank-a-in", "bank-a-in"}, "hub", "bank-b-1", "", "arrival and destination use different banks"},
+		{"intermediate_berth", []string{"bank-a-in", "bank-a-in"}, "hub", "bank-a-1", "", "arrival crosses an intermediate berth"},
+		{"departure_start_before_end", []string{outside, "bank-a-out", outside}, "", "", "", "departure starts after the retained origin"},
+		{"departure_end_before_origin", []string{"bank-a-out", outside}, "", "", "bank-b-1", "departure leaves before its bank exit"},
+		{"route_order", []string{"bank-a-out", "bank-a-out", outside}, "", "", "bank-b-1", "departure and origin use different banks"},
+		{"lanes_before_end", []string{"bank-a-arrival", "bank-a-in"}, "hub", "bank-b-1", "", "arrival and destination use different banks"},
+		{"unknown_destination", []string{outside}, "hub", "missing", "", "unknown bank destination berth"},
+		{"outside_destination_bank", []string{outside}, "hub", "bank-a-1", "", "retained route ends outside its destination bank"},
+		{"berthless", []string{outside}, "hub", "", "", "berthless route does not end at a bank entry"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			indexes := make([]int, len(test.lanes))
+			for i, id := range test.lanes {
+				index, ok := graph.lanes[id]
+				if !ok {
+					index = -1
+				}
+				indexes[i] = index
+			}
+			err := checkSavedBankRoute(n, graph, indexes, test.stationID, test.destination, test.origin)
+			if test.want == "" && err != nil || test.want != "" && (err == nil || err.Error() != test.want) {
+				t.Fatalf("got %v, want %q", err, test.want)
+			}
+		})
+	}
+}
