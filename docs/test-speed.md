@@ -62,11 +62,11 @@ The `qualify` task ran the full scenario suite without the race detector.
 The `test:race` task still runs every test.
 The `qualify` task now runs only the two Station 19 drain tests and the two emergency choice latency tests of `internal/sim`, which skip under the race detector.
 The `test:embedded` task runs the full root and `cmd/serve` suites with the tag.
-In the session package, it runs only the four maximum codec tests, `TestPackedTextWireCost`, `TestComposedWorstCaseFormats`, `TestCouplingSaveCapRejectsAtomically`, and `TestStreamMaximumEncoding`.
+In the session package, it runs only the four maximum codec tests, `TestPackedTextWireCost`, `TestComposedWorstCaseFormats`, `TestSaveCapRejectsAtomically`, and `TestStreamMaximumEncoding`.
 The first seven tests skip under the race detector.
 `TestStreamMaximumEncoding` does its bounded-scan checks only without the race detector.
 All eight tests skip under `-short`.
-Until October 6, no CI task ran `TestCouplingSaveCapRejectsAtomically`, because the pattern did not include it.
+Until October 6, no CI task ran the save cap test (then `TestCouplingSaveCapRejectsAtomically`), because the pattern did not include it.
 A new test that skips under the race detector must be added to the `-run` pattern of one of these tasks.
 A pattern that matches no test passes.
 
@@ -84,7 +84,7 @@ The two `internal/sim` tasks share the `sim_race_split` pattern in `mise.toml`: 
 
 On the first warm run, `test:race:sim` took 16 minutes, and every other job took 8.5 minutes or less.
 The station and reassignment tests took 439 of 885 seconds of the local race test time, so they formed one of the two sim tasks.
-Since October 6, the coupling tests are also in that task (see the next section).
+From October 6 until the removal of physical coupling, the coupling tests were also in that task (see the next section).
 `check:static` runs the remaining tasks of `check`.
 `mise run check` still runs all of them on one machine.
 
@@ -156,7 +156,9 @@ They compare consecutive ticks, and together they take about 2.5 seconds.
 
 ### Race split
 
-The `sim_race_split` pattern is now `^Test(Coupling|Reassign|Station)`.
+The `sim_race_split` pattern became `^Test(Coupling|Reassign|Station)` on October 6.
+After the removal of physical coupling it is `^Test(Reassign|Station)`.
+The timings in this section were measured before that removal.
 Before the change, the task that ran the station and reassignment tests used 31 percent of the CPU time of the two tasks.
 The coupling tests took 17 percent of the per-test race time of the package.
 With them, the matching tests take 50.8 percent of that time.

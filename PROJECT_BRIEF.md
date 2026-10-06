@@ -619,19 +619,15 @@ Study loading areas, vehicle storage, and station exits as separate possible bot
 Measure queue-clearance time, waiting-time distributions, missed connections, and unmet demand.
 SUMO's [intermodal routing documentation](https://sumo.dlr.de/docs/IntermodalRouting.html) describes journeys with walking, waiting, and multiple transport modes.
 
-### Platoons and coupled pod trains
+### Platoons
 
-Distinguish two models:
+A virtual platoon consists of separate pods that coordinate their movement.
+It requires rules for formation, splitting, merging, and compatible routes.
+Track spacing within a platoon separately from spacing between platoons.
+Include the space and time needed to form a platoon and separate it before destinations diverge.
 
-- A virtual platoon consists of separate pods that coordinate their movement.
-- A coupled group consists of pods physically connected into a train.
-
-Both require rules for formation, splitting, merging, and compatible routes.
-Track spacing within a group separately from spacing between groups.
-Include the space and time needed to assemble a group and separate it before destinations diverge.
-
-Compare faster travel against the delay incurred while waiting to assemble a group.
-Test whether longer groups obstruct merges or station access.
+Compare faster travel against the delay incurred while waiting to form a platoon.
+Test whether longer platoons obstruct merges or station access.
 Reduced headway must follow an explicit control model rather than a capacity multiplier.
 
 Measure passenger throughput, travel time, and empty running first.
@@ -703,8 +699,6 @@ Decisions (user, 2026-10-04):
   Each other party gets a new pod from there to its original destination and keeps its order identity.
 - The pod wins contention at junctions, station entry, and berths, and moves ahead of entry queues.
   It never forces another pod to reverse or to leave a committed path.
-- A pod in a physical train stays in the train to the next split site that the coupling contract allows.
-  The train separates there, and then the pod changes route.
 - A game control on an occupied pod, a scenario rate, and a protocol command can each start an emergency.
 - The pod drops all of its later work.
   Its pending pickups go back to dispatch as ordinary orders and keep their original request times.

@@ -121,7 +121,7 @@ The preallocation scanner rejects invalid UTF-8, duplicate decoded names, unknow
 It checks native pending plus retained rider records against two offers per itinerary.
 Routes use actual origin node/lane counts, and compact memberships must be disjoint.
 Native field lists are frozen under `sim-saved-state-v1`; future fields are not accepted implicitly.
-Foundation-only checks reject the `orderContract`, `couplingContract`, and `incidentContract` markers in ordinary runs and checkpoint operations.
+Foundation-only checks reject the `orderContract` and `incidentContract` markers in ordinary runs and checkpoint operations.
 Car held-slot accounting remains separate from native pod parking storage.
 Group operation follows current native validation.
 This implementation does not activate Express.

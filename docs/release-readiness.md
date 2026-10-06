@@ -1,12 +1,12 @@
 # Release readiness
 
-Status: physical coupling qualification remains incomplete on October 6, 2026.
+Status: release readiness on October 6, 2026.
 This report pins `15047a4f0a7984053cba87ddd49d3ebb646bedc2`, which is on main.
 At this source, one saved-state version and one stream version serve every project kind.
 Hosted Check passed for this source.
 The Check run of this source published no image.
 All four bounded browser performance candidates were rejected and closed.
-The maintainer's standing instruction holds the unfinished coupling release.
+Physical coupling was removed on October 6, 2026, and the [platoon coupling comparison](platoon-coupling-comparison.md) is the decision record.
 This report does not authorize deployment, default adoption, or a cap change.
 
 The [measurement record](measurements/release-readiness.json) is unchanged in this update.
@@ -17,7 +17,6 @@ It did not build the source or run tests.
 This source adds the incident, fault, and emergency markers.
 The incident redesign stopped at stage 3.
 The `64b4f3f` source raised the stream and HTTP state cap to 65 MiB and the compressed message cap to 66 MiB.
-The [qualification](qualification.md#coupling-format-qualification) records the coupling format and incident checks of item 6.
 
 ## Hosted checks and image
 
@@ -81,7 +80,7 @@ In the CI split qualification of the measurement record, the 80 MiB guard reject
 This update did not measure those sizes again.
 Only this serial shape proof excludes race instrumentation in its package.
 The `test:embedded` task runs the root and `cmd/serve` suites with embedded assets.
-In the session package it runs only the worst-case save size test, three widest Express adapter tests, the packed text wire cost test, the maximum stream encoding test, the composed worst-case format proof, and the coupling save cap test.
+In the session package it runs only the worst-case save size test, three widest Express adapter tests, the packed text wire cost test, the maximum stream encoding test, the composed worst-case format proof, and the save cap test.
 Bounded application tests and concurrency controls remain under the four race tasks.
 `TestComposedWorstCaseFormats` skips under the race detector.
 The `43e1361` source added it to the `test:embedded` pattern, so the `check:static` job of the pinned source runs it.
@@ -92,7 +91,6 @@ The source audit and qualification retain exact assertion-body comparisons and t
 The `248f26e` source collapsed project versions to one version, 1.
 A feature is allowed when its fields are present.
 Express needs the `orderContract` marker `express-v1`.
-Trains need the `couplingContract` marker `compact-pair-v1`.
 The server refuses project versions 2 through 5 and does not migrate them.
 
 Item 7 merged the save and stream families into one family for every project kind.
@@ -118,8 +116,8 @@ Its latest change is in `f0b7b24`.
 Each fixture has every landed member at its widest at the same time.
 The values are independent maxima, not reachable states.
 Every fixture fits its cap.
-The narrowest stream shape is the Express with coupling HTTP state, with 598,280 bytes below the 65 MiB cap.
-The narrowest save shape is Express with coupling, with 6,559,469 bytes below the 80 MiB cap.
+The narrowest stream shape is the Express HTTP state, with 1,335,796 bytes below the 65 MiB cap.
+The narrowest save shape is Express, with 6,559,563 bytes below the 80 MiB cap.
 
 ## Express operating limits
 
@@ -191,64 +189,6 @@ No candidate landed, no maximum candidate screen followed, and no unchanged repe
 Browser item 19 closed without an accepted optimization.
 These software-renderer screens do not qualify physical GPUs or broader workloads.
 
-## Physical coupling remains incomplete
-
-The [physical coupling contract](physical-coupling-contract-proposal.md) defines the opt-in `compact-pair-v1` profile.
-The `2fba224` source introduced the phase-1 coupling geometry, profile, and body layer.
-The `12848c9` source added the qualified inactive typed-owner migration.
-The `8181495` source added six qualified private reservation files.
-The `03806d1` source added the private Compact pair motion engine.
-The `dfa2528` source added native trains, native group export and restore, and the bounded save 8 and stream 5 contracts.
-
-At the pinned source, coupling runs live in a project that meets four conditions:
-
-- It has the `compact-pair-v1` marker.
-- Its `couplingEnabled` option is on.
-- It has authored coupling sites and corridors.
-- Virtual platooning is selected.
-
-The `couplingEnabled` option is off by default, and a project without the marker never forms a train.
-In a qualifying project, Step discovers pairs of Compact pods on certified straight corridors without authored groups.
-Each pair forms a train, runs through the six train phases, and retires.
-Both cabins of a train are empty, or both are occupied.
-With the coupling marker, saved-state version 9 and stream hello 6 carry train membership and body geometry.
-Native export and physical restore carry committed trains, and logical recovery refuses them.
-A coupling fault pauses the simulation, stops publication, and keeps the last valid observation.
-The HTTP state of a coupling project carries the coupling marker and uses the one state media type.
-The editor converts a project to trains, edits coupling sites and corridors, and reads the live state of train projects.
-The view draws each train and interpolates a connected train as one rigid move.
-Turning trains off drains the current trains without a reset.
-
-Two fixes close safety faults that stopped Step.
-The `66b0c65` source keeps a coupled member's receiving berth claim from buffer and redistribution yields.
-The `1977a53` source refuses an ordinary platoon link behind a coupled member.
-Review found that fault in the existing coupling code.
-The `16eab09` source also keeps the receiving claims of an approach member, so passenger traffic no longer stops a pair from forming.
-The `8b326a1` source gives a resumed coupling leg the speed cap of its original start lane.
-The `af2e942`, `8591bad`, and `e1f3b65` sources extend the qualification tests.
-They cover policy-off parity and drainage at every tick, a blocked split exit, same-tick pair candidates on a shared junction, and recovery after a coupled berth yield.
-
-Part (a) of coupling qualification item 6, the simulation qualification tests, landed with `e1f3b65`.
-Part (b) closed in `1427ddb` with an enforced corridor speed bound.
-Coupling geometry validation refuses a site or corridor lane faster than 360 m/s (`MaxCouplingCorridorSpeed`).
-At that bound, the body sweep check refuses each pose that the pair connector check refuses.
-`TestCouplingPairConnectorBoxNotDominatedAtHighTravel` still records the gap at 1,200 m/s, above the bound.
-Item 6 has two further parts, and the pinned source holds a record for each:
-
-- Part (c): the format-dependent gates ran again on the single save and stream family at `05e95b1`.
-  The [qualification](qualification.md#coupling-format-qualification) records the result.
-  Row G9 and row U4 are partial, and row G8 lacks the WASM and browser runs.
-  The simulation, cost, and heap rows are not part of that record.
-- Part (d) is now the coupling incident qualification after stage 3.
-  The [qualification](qualification.md#coupling-incident-qualification) records it at `23be7ce`.
-
-The release proof for multi-pair coupling needs trains from ordinary demand.
-The [natural multi-pair gate](qualification.md#coupling-natural-multi-pair-scenario) is not met on the Scale100 mesh or on the straight-trunk loop (`23be7ce`).
-The [tailored probe](qualification.md#coupling-multi-pair-tailored-probe) meets it (`8aeabc5`, `TestCouplingNaturalMultiPairProbe`).
-The probe depends on the seed and on a network shaped for formation.
-It does not show that trains form on the presets or on a network with long shared roads.
-The maintainer still holds the coupling release, and the full coupling implementation is not qualified.
-
 ## Incident redesign
 
 The maintainer stopped the incident redesign after stage 3.
@@ -264,9 +204,8 @@ Stages 4 to 7 were dropped and have no contracts.
   It adds rider emergencies on ordinary pods.
 
 The `64b4f3f` source applied the stage 1 maintainer decision on the byte budget.
-With the stage 1 members at their widest, the Express with coupling HTTP state was 236,415 bytes over the 64 MiB cap.
+With the stage 1 members at their widest, the widest Express HTTP state, with the coupling members of that time, was 236,415 bytes over the 64 MiB cap.
 The commit raised the stream and HTTP cap to 65 MiB and the compressed message cap to 66 MiB.
-The [coupling incident qualification](qualification.md#coupling-incident-qualification) records the refusal and deferral of coupling members.
 
 ## Forecast rejection and service boundaries
 
@@ -306,8 +245,6 @@ The container build covers the server, not the car CLI.
 
 Hosted Check passed for the pinned source, and that run published no image.
 Browser performance work closed with rejection.
-Coupling qualification item 6 has records for parts (c) and (d), and the maintainer holds the unfinished coupling release.
-The natural multi-pair gate is not met on the presets, and the tailored probe depends on its seed and network.
 The incident redesign ended at stage 3.
 The `check:static` job runs the composed worst-case format proof.
 Maximum Express costs limit responsive operating claims within the opt-in qualification.

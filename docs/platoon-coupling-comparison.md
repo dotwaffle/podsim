@@ -2,6 +2,9 @@
 
 This record compares virtual platoons with coupled trains on throughput and travel time.
 The maintainer used it on October 6, 2026, to stop coupling work and to ask for a removal plan.
+Physical coupling was removed on October 6, 2026.
+The code, tests, and contract that this record names no longer exist.
+This record stays as the reason for the removal.
 
 ## Setup
 
@@ -13,7 +16,7 @@ The maintainer used it on October 6, 2026, to stop coupling work and to ask for 
   E has platoons with limit 4 and coupling.
   F and G have platoons with limits 6 and 8.
 - Networks:
-  - The probe is the tailored network of `TestCouplingNaturalMultiPairProbe`, with 70 Compact pods and 8 orders each minute.
+  - The probe is the tailored network of `TestCouplingNaturalMultiPairProbe` (removed with the coupling feature), with 70 Compact pods and 8 orders each minute.
   - The rail-hub preset has 30 legacy pods and 6 orders each minute.
   - The london-central preset has 114 legacy pods and 12 or 20 orders each minute.
 - Demand: the balanced pattern of the probe, with the same demand in each arm of a seed.
@@ -21,7 +24,7 @@ The maintainer used it on October 6, 2026, to stop coupling work and to ask for 
   Probe seeds 4, 5, and 8, and preset seeds 1, 2, and 3.
 - Supplement: all arms, with 5 seeds and 35 simulated minutes.
 - The per-tick contract, safety, member motion, and platoon checks were off in the arms.
-  `CouplingError` and `CompactQueueError` ran each tick, and the contract and safety checks ran once each simulated minute.
+  `CouplingError` (removed with the coupling feature) and `CompactQueueError` ran each tick, and the contract and safety checks ran once each simulated minute.
   Ten reruns with every per-tick check on passed and gave the same results.
 - Probe seed 4 reproduced the pinned 95 of 160 orders for B and 84 of 160 for D.
 
