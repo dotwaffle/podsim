@@ -16,9 +16,9 @@ import (
 type platoonMonitor struct {
 	s      *Simulation
 	owners map[resource]resourceOwner
-	// coupled holds each pod that was in a platoon, and largest is the
+	// linked holds each pod that was in a platoon, and largest is the
 	// largest platoon.
-	coupled map[string]bool
+	linked  map[string]bool
 	largest int
 	// ownerTicks is the number of ticks between two checks of the owners
 	// against the full retention scan. The scan is the slowest check, so
@@ -26,18 +26,18 @@ type platoonMonitor struct {
 	// each tick.
 	ownerTicks int64
 	// speeds holds the speed of each traveling pod after the step before,
-	// and wasCoupled holds each pod that was coupled then.
-	speeds     map[string]float64
-	wasCoupled map[string]bool
+	// and wasLinked holds each pod that was linked then.
+	speeds    map[string]float64
+	wasLinked map[string]bool
 	// largestTurn is the largest turn of a link.
 	largestTurn float64
 }
 
 func newPlatoonMonitor(s *Simulation) *platoonMonitor {
-	return &platoonMonitor{s: s, owners: maps.Clone(s.owners), coupled: make(map[string]bool), ownerTicks: 1, speeds: make(map[string]float64)}
+	return &platoonMonitor{s: s, owners: maps.Clone(s.owners), linked: make(map[string]bool), ownerTicks: 1, speeds: make(map[string]float64)}
 }
 
-// maxSpeedStep is the largest change of speed in one tick of a coupled pod.
+// maxSpeedStep is the largest change of speed in one tick of a linked pod.
 // A pod brakes at most at acceleration.
 const maxSpeedStep = acceleration/TicksPerSecond + 1e-9
 
@@ -65,7 +65,7 @@ func (m *platoonMonitor) check(t *testing.T) {
 		}
 		links++
 		leader := &s.vehicles[v.link.leader-1]
-		m.coupled[v.Pod.ID], m.coupled[leader.Pod.ID] = true, true
+		m.linked[v.Pod.ID], m.linked[leader.Pod.ID] = true, true
 		if leader.follower != i+1 {
 			t.Fatalf("tick %d: pod %s names a predecessor that does not name it", s.tick, v.Pod.ID)
 		}
@@ -158,26 +158,26 @@ func (m *platoonMonitor) checkCertificate(t *testing.T, v, leader *vehicle) {
 	}
 }
 
-// checkSpeeds checks that no traveling pod that is coupled, or was coupled
+// checkSpeeds checks that no traveling pod that is linked, or was linked
 // at the step before, changes its speed by more than maxSpeedStep in one
 // tick.
 func (m *platoonMonitor) checkSpeeds(t *testing.T) {
 	t.Helper()
 	speeds := make(map[string]float64, len(m.speeds))
-	wasCoupled := m.wasCoupled
-	m.wasCoupled = make(map[string]bool, len(wasCoupled))
+	wasLinked := m.wasLinked
+	m.wasLinked = make(map[string]bool, len(wasLinked))
 	for i := range m.s.vehicles {
 		v := &m.s.vehicles[i]
 		if v.Pod.Activity != Traveling {
 			continue
 		}
 		before, ok := m.speeds[v.Pod.ID]
-		if ok && (v.coupled() || wasCoupled[v.Pod.ID]) && math.Abs(v.Pod.Speed-before) > maxSpeedStep {
-			t.Fatalf("tick %d: coupled pod %s went from %v m/s to %v m/s", m.s.tick, v.Pod.ID, before, v.Pod.Speed)
+		if ok && (v.linked() || wasLinked[v.Pod.ID]) && math.Abs(v.Pod.Speed-before) > maxSpeedStep {
+			t.Fatalf("tick %d: linked pod %s went from %v m/s to %v m/s", m.s.tick, v.Pod.ID, before, v.Pod.Speed)
 		}
 		speeds[v.Pod.ID] = v.Pod.Speed
-		if v.coupled() {
-			m.wasCoupled[v.Pod.ID] = true
+		if v.linked() {
+			m.wasLinked[v.Pod.ID] = true
 		}
 	}
 	m.speeds = speeds
@@ -255,7 +255,7 @@ func TestPlatoonSettings(t *testing.T) {
 
 // TestPlatoonCorridorLinks runs a stopped queue on each feed lane of the
 // merge corridor with virtual platoons. The monitor checks the rules at each
-// tick. Each queue must couple into platoons of the limit.
+// tick. Each queue must link into platoons of the limit.
 func TestPlatoonCorridorLinks(t *testing.T) {
 	t.Parallel()
 	skipLong(t)
@@ -266,13 +266,13 @@ func TestPlatoonCorridorLinks(t *testing.T) {
 			got := runMergeCorridor(t, corridorCase{
 				side: true, sideDegrees: 30, streams: []string{"main", "side"}, queueHead: feedHead, platoonLimit: limit,
 			})
-			t.Logf("headway %.3f s, coupled %d, largest %d", got.headway, got.coupled, got.largest)
-			wantCoupled := 2 * corridorStreamPods
+			t.Logf("headway %.3f s, linked %d, largest %d", got.headway, got.linked, got.largest)
+			wantLinked := 2 * corridorStreamPods
 			if limit == 0 {
-				wantCoupled = 0
+				wantLinked = 0
 			}
-			if got.coupled != wantCoupled || got.largest != limit {
-				t.Fatalf("coupled %d pods in platoons of up to %d, want %d in platoons of %d", got.coupled, got.largest, wantCoupled, limit)
+			if got.linked != wantLinked || got.largest != limit {
+				t.Fatalf("linked %d pods in platoons of up to %d, want %d in platoons of %d", got.linked, got.largest, wantLinked, limit)
 			}
 		})
 	}
@@ -377,7 +377,7 @@ func forkNetwork(branchLimit float64) Network {
 }
 
 // TestPlatoonForkRules checks where links form and where they end. Two pods
-// wait on the main lane. The follower couples when both routes share the
+// wait on the main lane. The follower links when both routes share the
 // next lane and have one speed limit. The link ends before the fork where
 // the routes leave each other.
 func TestPlatoonForkRules(t *testing.T) {
@@ -438,9 +438,9 @@ func TestPlatoonForkRules(t *testing.T) {
 	}
 }
 
-// TestPlatoonCruisingPodsDoNotCouple turns platooning on while two pods run
+// TestPlatoonCruisingPodsDoNotLink turns platooning on while two pods run
 // at the lane speed limit. No link forms, because neither pod is slow.
-func TestPlatoonCruisingPodsDoNotCouple(t *testing.T) {
+func TestPlatoonCruisingPodsDoNotLink(t *testing.T) {
 	t.Parallel()
 	route := []string{"main", "exit", "approach"}
 	s := restoreCorridor(t, mergeCorridor(false, 0), []corridorPod{
@@ -459,15 +459,15 @@ func TestPlatoonCruisingPodsDoNotCouple(t *testing.T) {
 	for range 60 * TicksPerSecond {
 		s.Step()
 		if s.platoonLinks != 0 {
-			t.Fatalf("tick %d: cruising pods coupled", s.tick)
+			t.Fatalf("tick %d: cruising pods linked", s.tick)
 		}
 	}
 }
 
-// TestPlatoonCoupledPodsCannotDivert checks that divertStart refuses each
+// TestPlatoonLinkedPodsCannotDivert checks that divertStart refuses each
 // pod in a platoon, the predecessor too. The third pod stays out of the
 // platoon, because the platoon limit is 2.
-func TestPlatoonCoupledPodsCannotDivert(t *testing.T) {
+func TestPlatoonLinkedPodsCannotDivert(t *testing.T) {
 	t.Parallel()
 	route := []string{"main", "exit", "approach"}
 	s := restoreCorridor(t, mergeCorridor(false, 0), []corridorPod{
@@ -483,7 +483,7 @@ func TestPlatoonCoupledPodsCannotDivert(t *testing.T) {
 	}
 	s.Step()
 	if s.vehicles[1].link.leader != 1 {
-		t.Fatal("the second pod did not couple to the first")
+		t.Fatal("the second pod did not link to the first")
 	}
 	for index, want := range []bool{false, false, true} {
 		if _, _, ok := s.divertStart(&s.vehicles[index]); ok != want {
@@ -593,7 +593,7 @@ func TestPlatoonCloneAndDeterminism(t *testing.T) {
 }
 
 // TestPlatoonRestore saves the corridor queues while they run in platoons
-// and restores them two times. The restore couples the pods again with the
+// and restores them two times. The restore links the pods again with the
 // saved links, so each pod keeps its place and each link keeps its
 // certificate. Without the links, the followers that hold cells of their
 // predecessors lose their places.
@@ -639,7 +639,7 @@ func TestPlatoonRestore(t *testing.T) {
 // TestPlatoonSnapshotMembers checks PlatoonID and PlatoonIndex at each
 // tick on the merge corridor. The first pod of a platoon has index 1 and
 // its own ID. Each follower has the ID of its predecessor's platoon and the
-// next index. A pod that is not coupled has neither member in its JSON
+// next index. A pod that is not linked has neither member in its JSON
 // form.
 func TestPlatoonSnapshotMembers(t *testing.T) {
 	t.Parallel()
@@ -670,7 +670,7 @@ func TestPlatoonSnapshotMembers(t *testing.T) {
 					t.Fatal(err)
 				}
 				if bytes.Contains(data, []byte("Platoon")) {
-					t.Fatalf("tick %d: pod %s is not coupled, but its JSON form is %s", s.tick, got.Pod.ID, data)
+					t.Fatalf("tick %d: pod %s is not linked, but its JSON form is %s", s.tick, got.Pod.ID, data)
 				}
 			}
 			largest = max(largest, got.PlatoonIndex)
@@ -945,7 +945,7 @@ func TestPlatoonDrainExtends(t *testing.T) {
 	t.Fatal("the restored link did not grow")
 }
 
-// TestPlatoonFollowerStaysBehind restores a coupled pair that shares a
+// TestPlatoonFollowerStaysBehind restores a linked pair that shares a
 // cell of the exit lane. The follower has the lower pod ID, so its
 // admission request comes first. It must not reserve a free cell before
 // its predecessor does, because then each pod waits for the other. In the
@@ -1140,10 +1140,10 @@ func TestPlatoonRestoreRejectsMixedSpeeds(t *testing.T) {
 	}
 }
 
-// TestPlatoonBraking couples a stopped follower to a predecessor that
+// TestPlatoonBraking links a stopped follower to a predecessor that
 // moves at 6 m/s. Then the predecessor runs at the speed limit and stops
 // at a cell that a pod outside the fleet holds, so it brakes as hard as it
-// can. The monitor checks at each tick that no coupled pod changes its
+// can. The monitor checks at each tick that no linked pod changes its
 // speed by more than one braking step, and that the follower keeps the
 // clearance to the predecessor and to its stop point.
 func TestPlatoonBraking(t *testing.T) {
@@ -1179,7 +1179,7 @@ func TestPlatoonBraking(t *testing.T) {
 		checkTraffic(t, s.Snapshot())
 		monitor.check(t)
 		if tick == 3*TicksPerSecond && follower.link.leader != 1 {
-			t.Fatal("the follower did not couple")
+			t.Fatal("the follower did not link")
 		}
 	}
 	if follower.link.leader != 1 || leader.Pod.Speed != 0 || follower.Pod.Speed != 0 || braking < 0.9*acceleration/TicksPerSecond {
@@ -1235,8 +1235,8 @@ func TestPlatoonLongJunctionRun(t *testing.T) {
 			}
 		}
 		if entered == len(pods) {
-			if len(monitor.coupled) == 0 {
-				t.Fatal("no pod coupled")
+			if len(monitor.linked) == 0 {
+				t.Fatal("no pod linked")
 			}
 			return
 		}
@@ -1258,7 +1258,7 @@ func TestPlatoonReturnWaits(t *testing.T) {
 	})
 	follower, leader := &s.vehicles[0], &s.vehicles[1]
 	if follower.link.leader != 2 {
-		t.Fatal("the pods did not restore coupled")
+		t.Fatal("the pods did not restore linked")
 	}
 	next := leader.reservedThrough + 1
 	r := leader.blocks.at(next).resources[0]

@@ -107,9 +107,9 @@ type corridorResult struct {
 	// order lists the feed lane of each pod in the order in which the pods
 	// enter the exit lane.
 	order []string
-	// coupled counts the pods that were in a platoon at some tick, and
+	// linked counts the pods that were in a platoon at some tick, and
 	// largest is the largest platoon.
-	coupled, largest int
+	linked, largest int
 }
 
 // runMergeCorridor restores a stopped queue of corridorStreamPods pods on
@@ -213,7 +213,7 @@ func runMergeCorridor(t *testing.T, test corridorCase) corridorResult {
 	if len(ticks) != len(fleet) {
 		t.Fatalf("%d pods passed the measure point, want %d", len(ticks), len(fleet))
 	}
-	return corridorResult{headway: meanHeadway(ticks), order: order, coupled: len(platoons.coupled), largest: platoons.largest}
+	return corridorResult{headway: meanHeadway(ticks), order: order, linked: len(platoons.linked), largest: platoons.largest}
 }
 
 // meanHeadway returns the mean time in seconds between two ticks after
@@ -256,7 +256,7 @@ func TestMergeCorridorHeadway(t *testing.T) {
 
 // TestMergeCorridorPlatoonHeadway pins the saturation headway of the merge
 // corridor with virtual platoons of 2 and 4 pods. Each queue starts as
-// platoons that are coupled and close, as a queue with platoons is. The
+// platoons that are linked and close, as a queue with platoons is. The
 // design estimates the gain of platoons of 4 as 2.4 times the flow of
 // single pods on a lane and 2.7 times at a 30 degree merge. See the
 // platoon screening in docs/qualification.md.

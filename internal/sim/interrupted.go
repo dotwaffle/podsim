@@ -61,7 +61,7 @@ func (s *Simulation) InterruptRider(podID string, orderID int) error {
 	if v == nil {
 		return fmt.Errorf("pod %s does not exist", podID)
 	}
-	if v.coupled() || s.compactGroup(v) != nil {
+	if v.linked() || s.compactGroup(v) != nil {
 		return fmt.Errorf("pod %s: interruption of a platoon or Compact queue member", podID)
 	}
 	if s.pass != nil && s.pass.active {

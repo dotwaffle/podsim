@@ -335,8 +335,8 @@ func TestServerStart(t *testing.T) {
 }
 
 // TestVehicleFramePlatoonJSON checks the platoon members of a pod in a state
-// frame against the protocol. A coupled pod has both members, and a pod that
-// is not coupled has neither. The frame gives the members back to the state.
+// frame against the protocol. A linked pod has both members, and a pod that
+// is not linked has neither. The frame gives the members back to the state.
 func TestVehicleFramePlatoonJSON(t *testing.T) {
 	t.Parallel()
 	state := State{Speed: 1, Simulation: sim.Snapshot{Vehicles: []sim.Vehicle{

@@ -232,7 +232,7 @@ func TestLondonPlatoonsRestoreAndClone(t *testing.T) {
 		if err := stepScheduled(live, scheduledStep{schedule: schedule, tick: tick}); err != nil {
 			t.Fatal(err)
 		}
-		if live.CoupledPods() > 0 {
+		if live.LinkedPods() > 0 {
 			linked = tick + 1
 		}
 	}
@@ -244,18 +244,18 @@ func TestLondonPlatoonsRestoreAndClone(t *testing.T) {
 				linked, v.Pod.ID, w.PlatoonID, w.PlatoonIndex, v.PlatoonID, v.PlatoonIndex)
 		}
 	}
-	atRestore := live.CoupledPods()
-	if restored.CoupledPods() != atRestore {
-		t.Fatalf("tick %d: the restore has %d coupled pods, want %d", linked, restored.CoupledPods(), atRestore)
+	atRestore := live.LinkedPods()
+	if restored.LinkedPods() != atRestore {
+		t.Fatalf("tick %d: the restore has %d linked pods, want %d", linked, restored.LinkedPods(), atRestore)
 	}
 	clone := live.Clone()
 	var observations []londonObservation
-	coupled := 0
+	peakLinked := 0
 	runLondon(t, live, londonRun{
 		schedule: schedule, start: linked, end: linked + runTicks,
 		observe: func(observation londonObservation) {
 			observations = append(observations, observation)
-			coupled = max(coupled, live.CoupledPods())
+			peakLinked = max(peakLinked, live.LinkedPods())
 		},
 	})
 	second := 0
@@ -277,8 +277,8 @@ func TestLondonPlatoonsRestoreAndClone(t *testing.T) {
 			}
 		},
 	})
-	t.Logf("first link at tick %d, coupled pods %d at the restore, at most %d in the next 30 s",
-		linked, atRestore, coupled)
+	t.Logf("first link at tick %d, linked pods %d at the restore, at most %d in the next 30 s",
+		linked, atRestore, peakLinked)
 }
 
 // setGuarded selects guarded positioning at 20 requests per minute, as the

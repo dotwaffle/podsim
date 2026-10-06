@@ -2713,7 +2713,7 @@ func TestLondonPlatoonRestore(t *testing.T) {
 	client := newTestClient(s, "london")
 	client.mustApply(t, Command{Action: "speed", Speed: 15})
 	// Links form after about 70 simulated seconds.
-	for advances := 0; s.simulation.CoupledPods() == 0; advances++ {
+	for advances := 0; s.simulation.LinkedPods() == 0; advances++ {
 		if advances == 1600 {
 			t.Fatal("no platoon formed in 400 simulated seconds")
 		}

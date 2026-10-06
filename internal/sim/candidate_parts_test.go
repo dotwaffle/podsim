@@ -136,7 +136,7 @@ func TestCandidateRoutePartsCommitmentAndOwnership(t *testing.T) {
 			v.follower = 1
 			checkCandidateRouteOriginal(t, s, v.Pod.ID, "market", nil)
 			if _, _, _, ok := s.candidateRouteParts(v, "market", nil); ok {
-				t.Fatal("coupled pod can divert")
+				t.Fatal("linked pod can divert")
 			}
 		})
 	}

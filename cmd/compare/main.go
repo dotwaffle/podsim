@@ -58,7 +58,7 @@ var sharingJoinValues = map[string]sim.SharedRideJoin{
 }
 
 // platoonPolicyValues maps each -platoon-policies name to its platooning
-// mode. The virtual policy couples pods in queues with the simulation
+// mode. The virtual policy links pods in queues with the simulation
 // default platoon limit.
 var platoonPolicyValues = map[string]sim.Platooning{
 	"off":     sim.PlatooningOff,
@@ -255,7 +255,7 @@ type result struct {
 	DetourRatioMax                 float64            `json:"detour_ratio_max"`
 	IntermediateStops              int                `json:"intermediate_stops"`
 	PositioningMoveCount           int                `json:"positioning_moves"`
-	CoupledTimePercent             float64            `json:"coupled_time_percent"`
+	PlatoonTimePercent             float64            `json:"platoon_time_percent"`
 }
 
 type report struct {
@@ -1705,7 +1705,7 @@ func (arm *armRun) sample(advancedTick int64) bool {
 	arm.metrics.observe(state)
 	if advancedTick%sim.TicksPerSecond == 0 {
 		arm.metrics.waits.sampleWaits(state.Vehicles)
-		arm.metrics.coupling.sample(state.Vehicles, arm.simulation.CoupledPods())
+		arm.metrics.platoon.sample(state.Vehicles, arm.simulation.LinkedPods())
 	}
 	return arm.input.stopWhenDrained && arm.drainedAfterArrivals(state)
 }
@@ -1800,7 +1800,7 @@ func (arm *armRun) result() result {
 		RiderDistanceMeters:   state.RiderDistanceMeters, DirectDistanceMeters: state.DirectDistanceMeters,
 		DetourRatioMean: requests.detourMean, DetourRatioMax: state.MaxDetourRatio, IntermediateStops: requests.intermediateStops,
 		PositioningMoveCount: state.RebalanceMoves,
-		CoupledTimePercent:   metrics.coupling.percent(),
+		PlatoonTimePercent:   metrics.platoon.percent(),
 	}
 }
 
@@ -2098,7 +2098,7 @@ func writeCSV(input writeReportInput) error {
 		"wait_average_seconds", "wait_maximum_seconds", "wait_p95_seconds",
 		"journey_average_seconds", "journey_p95_seconds", "journey_maximum_seconds", "passenger_distance_meters", "empty_distance_meters", "loaded_distance_percent", "occupancy",
 		"rider_distance_meters", "direct_distance_meters", "detour_ratio_mean", "detour_ratio_max", "intermediate_stops", "positioning_moves",
-		"coupled_time_percent",
+		"platoon_time_percent",
 	)
 	if dailyColumn {
 		header = append(header, "daily_start_minute")
@@ -2164,7 +2164,7 @@ func writeCSV(input writeReportInput) error {
 			floatText(outcome.EmptyDistanceMeters), floatText(outcome.LoadedDistancePercent), floatText(outcome.Occupancy),
 			floatText(outcome.RiderDistanceMeters), floatText(outcome.DirectDistanceMeters),
 			floatText(outcome.DetourRatioMean), floatText(outcome.DetourRatioMax), strconv.Itoa(outcome.IntermediateStops),
-			strconv.Itoa(outcome.PositioningMoveCount), floatText(outcome.CoupledTimePercent),
+			strconv.Itoa(outcome.PositioningMoveCount), floatText(outcome.PlatoonTimePercent),
 		)
 		if dailyColumn {
 			value := ""
@@ -2220,11 +2220,11 @@ type runMetrics struct {
 	peakReservedEmptyBerths int
 	queueCleared            bool
 	queueClearSeconds       float64
-	// waits holds the stopped pod-seconds, and coupling holds the
-	// traveling and coupled pod-seconds. run samples them once per
+	// waits holds the stopped pod-seconds, and platoon holds the
+	// traveling and linked pod-seconds. run samples them once per
 	// simulated second.
-	waits    trafficWaits
-	coupling couplingTime
+	waits   trafficWaits
+	platoon platoonTime
 }
 
 func newRunMetrics(caseStudy scenario, schedule []scheduledRequest) (runMetrics, error) {

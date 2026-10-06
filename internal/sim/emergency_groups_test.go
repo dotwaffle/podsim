@@ -124,7 +124,7 @@ func TestEmergencyCompactMember(t *testing.T) {
 	if err := s.SetStationQueueSpacing(StationQueueCompactV1); err != nil {
 		t.Fatal(err)
 	}
-	for s.CoupledPods() != 4 {
+	for s.LinkedPods() != 4 {
 		compactTick(t, s)
 		if s.tick > 1000*TicksPerSecond {
 			t.Fatal("the compact queue did not form")

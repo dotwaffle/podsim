@@ -104,7 +104,7 @@ func TestNativePairedJourneyAndClone(t *testing.T) {
 			}
 			finishRun(t, clone)
 			if !reflect.DeepEqual(run.Report(), clone.Report()) || !reflect.DeepEqual(run.pods.ExportState(), clone.pods.ExportState()) {
-				t.Fatal("coupled clone continuation changed results")
+				t.Fatal("linked clone continuation changed results")
 			}
 			report := run.Report()
 			record := report.Itineraries[0]

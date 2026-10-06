@@ -52,7 +52,7 @@ func compactTick(t *testing.T, s *Simulation) {
 		if v.link.buffer {
 			checkBufferCertificate(t, v)
 		}
-		if old.Activity != Traveling || v.Pod.Activity != Traveling || !wasCompact[i] && s.compactGroup(v) == nil && before.Vehicles[i].PlatoonID == "" && !v.coupled() {
+		if old.Activity != Traveling || v.Pod.Activity != Traveling || !wasCompact[i] && s.compactGroup(v) == nil && before.Vehicles[i].PlatoonID == "" && !v.linked() {
 			continue
 		}
 		if v.Pod.Speed > v.Route[v.blocks.routeLane(v.blockIndex)].SpeedLimit || v.Pod.Speed < 0 || math.Abs(v.Pod.Speed-old.Speed) > acceleration/TicksPerSecond+1e-12 {
@@ -90,10 +90,10 @@ func TestStationCompactOccupiedQueue(t *testing.T) {
 		}
 	}
 	span := s.vehicles[0].Pod.LaneDistance - s.vehicles[3].Pod.LaneDistance
-	t.Logf("span %.12f groups=%d coupled=%d tick=%d", span, len(s.compactGroups), s.CoupledPods(), s.tick)
+	t.Logf("span %.12f groups=%d linked=%d tick=%d", span, len(s.compactGroups), s.LinkedPods(), s.tick)
 
-	if stable < TicksPerSecond || math.Abs(span-3*6.01) > 1e-9 || s.CoupledPods() != 4 {
-		t.Fatalf("compact queue did not settle: span %.12f groups=%d coupled=%d state=%+v", span, len(s.compactGroups), s.CoupledPods(), s.Snapshot())
+	if stable < TicksPerSecond || math.Abs(span-3*6.01) > 1e-9 || s.LinkedPods() != 4 {
+		t.Fatalf("compact queue did not settle: span %.12f groups=%d linked=%d state=%+v", span, len(s.compactGroups), s.LinkedPods(), s.Snapshot())
 	}
 	if s.findVehicle("05").Pod.Activity != Idle || s.completed != 0 {
 		t.Fatal("real occupied berth ceased blocking")
@@ -107,16 +107,16 @@ func TestStationCompactDeparture(t *testing.T) {
 	if err := s.SetStationQueueSpacing(StationQueueCompactV1); err != nil {
 		t.Fatal(err)
 	}
-	coupled := false
+	linked := false
 	for range 1000 * TicksPerSecond {
 		compactTick(t, s)
-		coupled = coupled || s.CoupledPods() == 4
+		linked = linked || s.LinkedPods() == 4
 		if s.completed == 5 {
 			break
 		}
 	}
-	if !coupled || s.completed != 5 || len(s.compactGroups) != 0 {
-		t.Fatalf("departure failed coupled=%v completed=%d compact=%d state=%+v", coupled, s.completed, len(s.compactGroups), s.Snapshot())
+	if !linked || s.completed != 5 || len(s.compactGroups) != 0 {
+		t.Fatalf("departure failed linked=%v completed=%d compact=%d state=%+v", linked, s.completed, len(s.compactGroups), s.Snapshot())
 	}
 	t.Logf("completed=%d final_tick=%d", s.completed, s.tick)
 }

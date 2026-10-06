@@ -86,7 +86,7 @@ func checkLargeMotionTick(t *testing.T, s *Simulation, before []Pod) float64 {
 		if pod.Class != GroupClass {
 			continue
 		}
-		if v.coupled() {
+		if v.linked() {
 			t.Fatal("operating Group entered a virtual or compact link")
 		}
 		stop := v.blocks.end(v.reservedThrough)

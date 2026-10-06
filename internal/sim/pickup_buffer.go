@@ -5,7 +5,7 @@ import "slices"
 // bufferPickup trims a new pickup route at its eligible station entry.
 // It keeps every reserved block and leaves ineligible pickups unchanged.
 func (s *Simulation) bufferPickup(v *vehicle) {
-	if !s.stationBuffers || v.coupled() {
+	if !s.stationBuffers || v.linked() {
 		return
 	}
 	station, ok := s.station(v.destinationStation)

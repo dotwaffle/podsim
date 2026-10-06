@@ -556,7 +556,7 @@ func loopCorridor() Network {
 
 // TestReassignReleasesPlatoon restores pods p01 and p02 empty on the main
 // lane of loopCorridor, on their way to parties for origin at dest. Pod p03
-// boards a party for origin at dest. At the first step, p02 couples to
+// boards a party for origin at dest. At the first step, p02 links to
 // p01. Then both parties join p03, and dispatch releases p01, the platoon
 // leader, and p02, the follower. The pods cannot divert, so they keep their
 // routes and the platoon stays valid until they stop at dest.
@@ -617,7 +617,7 @@ func TestReassignReleasesPlatoon(t *testing.T) {
 	monitor.check(t)
 	leader, follower, host := s.findVehicle("p01"), s.findVehicle("p02"), s.findVehicle("p03")
 	if len(s.waiting) != 2 || follower.link.leader != 1 || leader.follower != 2 {
-		t.Fatalf("p02 did not couple to p01 before the join: waiting %+v, link %+v", s.waiting, follower.link)
+		t.Fatalf("p02 did not link to p01 before the join: waiting %+v, link %+v", s.waiting, follower.link)
 	}
 	routes := [][]Lane{slices.Clone(leader.Route), slices.Clone(follower.Route)}
 	if err := s.SetSharedRideJoin(SharedRideJoinReassignExisting); err != nil {

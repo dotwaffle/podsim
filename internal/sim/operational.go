@@ -91,7 +91,7 @@ func (v *vehicle) marksActiveRiders(interrupt uint32) bool {
 // member. The operations of section 9 refuse such a pod. Its
 // caller waits until the pod leaves the group.
 func (s *Simulation) operationalMember(v *vehicle) error {
-	if v.coupled() || s.compactGroup(v) != nil {
+	if v.linked() || s.compactGroup(v) != nil {
 		return fmt.Errorf("pod %s is a member of a compact queue or a platoon", v.Pod.ID)
 	}
 	return nil

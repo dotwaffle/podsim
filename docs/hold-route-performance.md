@@ -21,7 +21,7 @@ Moving results remain independent of the vehicle route and cached suffix, includ
 No eligibility, berth-load, route-cache, assignment, or platoon rule changes.
 The availability check skips only the final clone and append.
 Tests compare routes, berths, return values, and complete simulation cache state with a frozen original function.
-They cover idle and moving pods, load functions, unknown and unreachable stations, committed parking inlets, coupled rejection, and result ownership.
+They cover idle and moving pods, load functions, unknown and unreachable stations, committed parking inlets, linked rejection, and result ownership.
 The earlier full-fleet hold oracle also passes.
 Simulation and session suites, race checks, static checks, and native and WASM builds pass.
 Independent review found no equivalence or ownership blocker.

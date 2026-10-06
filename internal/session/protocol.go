@@ -97,7 +97,7 @@ type VehicleFrame struct {
 	RouteLaneIDs []string            `json:"routeLaneIDs"`
 	RelocatingTo string              `json:"relocatingTo"`
 	Rebalancing  bool                `json:"rebalancing"`
-	// PlatoonID and PlatoonIndex are the platoon of a coupled pod. See
+	// PlatoonID and PlatoonIndex are the platoon of a linked pod. See
 	// sim.Vehicle.
 	PlatoonID    string `json:"platoonID,omitempty"`
 	PlatoonIndex int    `json:"platoonIndex,omitzero"`

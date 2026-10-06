@@ -136,7 +136,7 @@ type Vehicle struct {
 	// PlatoonID is the ID of the first pod of the platoon of the pod.
 	// PlatoonIndex is the position of the pod in that platoon, 1 for the
 	// first pod. Snapshot sets both for a pod with a link to a pod ahead or
-	// behind. They are empty for a pod that is not coupled.
+	// behind. They are empty for a pod that is not linked.
 	PlatoonID    string `json:"platoonID,omitempty"`
 	PlatoonIndex int    `json:"platoonIndex,omitzero"`
 	// Withdrawn holds the service holds of the pod: 1 for a fault and 2
@@ -301,8 +301,8 @@ type vehicle struct {
 	// blocks holds the blocks of Route. Each write of the route also writes
 	// it.
 	blocks blockList
-	// link couples the pod to its predecessor in a platoon. follower is one
-	// plus the index in Simulation.vehicles of the pod that couples to this
+	// link links the pod to its predecessor in a platoon. follower is one
+	// plus the index in Simulation.vehicles of the pod that links to this
 	// pod, or 0. platoonCap is the route distance within which a pod with a
 	// predecessor must stop in this tick. platoonCaps sets it.
 	link       platoonLink
@@ -653,7 +653,7 @@ func (s *Simulation) snapshot(routes bool) Snapshot {
 	}
 	if s.platoonLinks > 0 {
 		for index := range s.vehicles {
-			if s.vehicles[index].coupled() {
+			if s.vehicles[index].linked() {
 				first, position := s.platoonPosition(index)
 				state.Vehicles[index].PlatoonID, state.Vehicles[index].PlatoonIndex = s.vehicles[first].Pod.ID, position
 			}

@@ -85,7 +85,7 @@ func (s *Simulation) checkPickupPair(assigned map[string]int, left, right int) b
 }
 
 func (s *Simulation) freePickupAlternative(v *vehicle) bool {
-	if v.coupled() || v.RidersAboard() != 0 || !s.pickupCandidate(v, nil) {
+	if v.linked() || v.RidersAboard() != 0 || !s.pickupCandidate(v, nil) {
 		return false
 	}
 	if v.buffered {

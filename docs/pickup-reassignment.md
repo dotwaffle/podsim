@@ -106,7 +106,7 @@ For each candidate:
 4. Require strictly faster predicted pickups and the minimum saving.
 5. Apply routes and assignments in deterministic order.
 
-Occupied or coupled pods cannot take replacements.
+Occupied or linked pods cannot take replacements.
 Assigned pickups must have one valid binding and matching pickup targets.
 Released and rebalancing pods cannot participate as assigned pickups.
 An upstream buffer member can divert before it reserves the station entry lane.

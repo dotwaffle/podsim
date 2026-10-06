@@ -821,7 +821,7 @@ func (r *physicalRestore) placeTraveling() error {
 
 // placeTravelingPod derives the reservations of the traveling pod at index
 // from its saved position and claims them. leader is the index of its placed
-// predecessor, or -1. With a predecessor, the pod couples to it with the
+// predecessor, or -1. With a predecessor, the pod links to it with the
 // saved link. It returns false when a saved value is not valid or when
 // another pod holds a resource that the pod needs. A resource that a pod
 // ahead in the platoon holds is not in the way in a block that the pod can
@@ -945,7 +945,7 @@ func (r *physicalRestore) savedLink(index, leader int) (platoonLink, error) {
 // to through with link to its placed predecessor leader. Another pod can hold a resource of these blocks only
 // when it is ahead of v in its platoon, the resource is not a berth, the
 // block is in the run and not after the end block of the link, and the
-// predecessor reserved the block. A coupled grant has the same rules.
+// predecessor reserved the block. A linked grant has the same rules.
 func (r *physicalRestore) linkClaims(v, leader *vehicle, link platoonLink, through int) bool {
 	shared := false
 	for block, b := range v.blocks.span(0, through+1) {

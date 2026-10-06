@@ -235,8 +235,8 @@ func TestPlatoonGeometry(t *testing.T) {
 				ancestors += checkSharing(t, s)
 				monitor.check(t)
 			}
-			t.Logf("coupled %d, largest platoon %d, largest turn %.4f, ticks of pods that share with a pod two or more places ahead %d",
-				len(monitor.coupled), monitor.largest, monitor.largestTurn, ancestors)
+			t.Logf("linked %d, largest platoon %d, largest turn %.4f, ticks of pods that share with a pod two or more places ahead %d",
+				len(monitor.linked), monitor.largest, monitor.largestTurn, ancestors)
 			if monitor.largest < 3 || monitor.largestTurn > test.maxTurn+1e-6 {
 				t.Fatalf("largest platoon %d and largest turn %v, want at least 3 pods and a turn of at most %v",
 					monitor.largest, monitor.largestTurn, test.maxTurn)

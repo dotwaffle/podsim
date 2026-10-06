@@ -150,7 +150,7 @@ type SavedPod struct {
 	Waiting   bool  `json:"waiting,omitzero"`
 	WaitSince int64 `json:"waitSince,omitzero"`
 	// Platoon is the link of a traveling pod to its predecessor in a
-	// platoon, or nil. The restore couples the pods again before it places
+	// platoon, or nil. The restore links the pods again before it places
 	// them, because a follower can hold cells of its predecessor.
 	Platoon *SavedPlatoonLink `json:"platoon,omitzero"`
 	// CompactQueue is the head-only retained compact-v1 physical certificate.
@@ -189,7 +189,7 @@ type SavedPlatoonLink struct {
 	// of the link follows from it.
 	Turn float64 `json:"turn"`
 	// Draining is true when the pod reserved the end block of the run. The
-	// pod then makes no more coupled grants.
+	// pod then makes no more linked grants.
 	Draining bool `json:"draining,omitzero"`
 }
 

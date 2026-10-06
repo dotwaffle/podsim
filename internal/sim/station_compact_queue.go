@@ -138,7 +138,7 @@ func (s *Simulation) formCompactQueues() {
 	ahead := s.lanePredecessors()
 	for i := range s.vehicles {
 		v := &s.vehicles[i]
-		if s.compactGroup(v) != nil || v.coupled() {
+		if s.compactGroup(v) != nil || v.linked() {
 			continue
 		}
 		plan, bounds, ok := s.compactEntry(v)
@@ -474,7 +474,7 @@ func (s *Simulation) compactSafety(observation *SafetyObservation) {
 
 func (s *Simulation) compactFrontierCandidate(v *vehicle, plan stationBufferPlan) bool {
 	profile, ok := LookupVehicleClass(v.Pod.Class)
-	if !ok || !profile.PhysicalSupported || profile.BodyLengthMeters != compactQueueBodyLength || v.coupled() || s.compactGroup(v) != nil ||
+	if !ok || !profile.PhysicalSupported || profile.BodyLengthMeters != compactQueueBodyLength || v.linked() || s.compactGroup(v) != nil ||
 		plan.lane.SpeedLimit <= 0 || plan.lane.SpeedLimit > compactQueueSpeedLimit || s.platoonIndexes().shapes[plan.lane.ID].curve != 0 ||
 		!s.oneSpeedLimit(v, len(v.Route)-1, plan.lane.SpeedLimit) {
 		return false

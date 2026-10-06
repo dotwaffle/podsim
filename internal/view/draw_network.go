@@ -108,7 +108,7 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 			}
 		}
 	}
-	// A line joins each coupled pod to the pod ahead of it in its platoon.
+	// A line joins each linked pod to the pod ahead of it in its platoon.
 	// The pods go on top of the lines.
 	for _, link := range platoonLinks(state.Vehicles) {
 		from, to := g.mapPoint(state.Vehicles[link.follower].Pod.Position), g.mapPoint(state.Vehicles[link.ahead].Pod.Position)

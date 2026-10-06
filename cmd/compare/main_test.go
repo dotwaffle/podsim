@@ -62,7 +62,7 @@ func TestParseOptionsRejectsInvalidBounds(t *testing.T) {
 		{name: "unknown sharing join policy", args: []string{"-sharing-joins", "reassign"}, want: "unknown sharing join policy"},
 		{name: "empty sharing join policy", args: []string{"-sharing-joins", "unassigned,"}, want: "unknown sharing join policy"},
 		{name: "duplicate sharing join policy", args: []string{"-sharing-joins", "reassign-existing, reassign-existing"}, want: "more than once"},
-		{name: "unknown platoon policy", args: []string{"-platoon-policies", "coupled"}, want: "unknown platoon policy"},
+		{name: "unknown platoon policy", args: []string{"-platoon-policies", "linked"}, want: "unknown platoon policy"},
 		{name: "duplicate platoon policy", args: []string{"-platoon-policies", "virtual,virtual"}, want: "more than once"},
 		{name: "adaptive limit without drain stop", args: []string{"-adaptive-limit"}, want: "adaptive-limit requires -stop-when-drained"},
 		{name: "negative past limit", args: []string{"-adaptive-limit", "-stop-when-drained", "-past-limit", "-1"}, want: "past-limit must be at least 0"},
@@ -829,12 +829,12 @@ func TestParsePlatoonPolicies(t *testing.T) {
 
 // TestPlatoonColumnOnlyWhenRequested checks that the platoon policy column
 // follows routing_policy and wait_rule only with -platoon-policies, and that
-// coupled_time_percent is always the last CSV column.
+// platoon_time_percent is always the last CSV column.
 func TestPlatoonColumnOnlyWhenRequested(t *testing.T) {
 	t.Parallel()
 	results := []result{{
 		Pattern: "balanced", Policy: "off", RoutingPolicy: "free-flow", WaitRule: "strict", PlatoonPolicy: "virtual",
-		WaitAverageSeconds: 12.34, CoupledTimePercent: 5.5,
+		WaitAverageSeconds: 12.34, PlatoonTimePercent: 5.5,
 	}}
 	for _, tc := range []struct {
 		name               string
@@ -861,7 +861,7 @@ func TestPlatoonColumnOnlyWhenRequested(t *testing.T) {
 			if routing < 0 || header[routing+tc.offset] != tc.wantHeader || row[routing+tc.offset] != tc.wantAt {
 				t.Fatalf("column %d after routing_policy = %q, %q", tc.offset, header[routing+tc.offset], row[routing+tc.offset])
 			}
-			if len(header) != len(row) || header[len(header)-1] != "coupled_time_percent" || row[len(row)-1] != "5.5" {
+			if len(header) != len(row) || header[len(header)-1] != "platoon_time_percent" || row[len(row)-1] != "5.5" {
 				t.Fatalf("last column = %q, %q with %d and %d columns", header[len(header)-1], row[len(row)-1], len(header), len(row))
 			}
 		})
@@ -879,7 +879,7 @@ func TestPlatoonColumnOnlyWhenRequested(t *testing.T) {
 
 // TestPlatoonPoliciesAddArms runs the busy ring at a load at which pods
 // queue. The off arm must equal the arm without the option, and the
-// virtual arm must couple pods.
+// virtual arm must link pods.
 func TestPlatoonPoliciesAddArms(t *testing.T) {
 	t.Parallel()
 	skipLong(t)
@@ -926,8 +926,8 @@ func TestPlatoonPoliciesAddArms(t *testing.T) {
 	if !reflect.DeepEqual(off, base[0]) {
 		t.Fatalf("the off arm differs from the default arm:\n%+v\n%+v", off, base[0])
 	}
-	if base[0].CoupledTimePercent != 0 || virtual.CoupledTimePercent <= 0 {
-		t.Fatalf("coupled time %v without platoons and %v with them", base[0].CoupledTimePercent, virtual.CoupledTimePercent)
+	if base[0].PlatoonTimePercent != 0 || virtual.PlatoonTimePercent <= 0 {
+		t.Fatalf("platoon time %v without platoons and %v with them", base[0].PlatoonTimePercent, virtual.PlatoonTimePercent)
 	}
 }
 
@@ -1301,8 +1301,8 @@ func TestParseOptionsRefusalOrder(t *testing.T) {
 			fmt.Sprintf("sharing-max-stops must be between 1 and %d", sim.MaxSharedRideStops)},
 		{"routing_before_redistribution", []string{"-routing-policies", "fast", "-redistribution-policies", "maybe"}, `unknown routing policy "fast"`},
 		{"redistribution_before_wait_rules", []string{"-redistribution-policies", "maybe", "-wait-rules", "lenient"}, `unknown redistribution policy "maybe"`},
-		{"wait_rules_before_platoon", []string{"-wait-rules", "lenient", "-platoon-policies", "coupled"}, `unknown wait rule "lenient"`},
-		{"platoon_before_sharing_joins", []string{"-platoon-policies", "coupled", "-sharing-joins", "reassign"}, `unknown platoon policy "coupled"`},
+		{"wait_rules_before_platoon", []string{"-wait-rules", "lenient", "-platoon-policies", "linked"}, `unknown wait rule "lenient"`},
+		{"platoon_before_sharing_joins", []string{"-platoon-policies", "linked", "-sharing-joins", "reassign"}, `unknown platoon policy "linked"`},
 		{"sharing_joins_before_onboard", []string{"-sharing-joins", "reassign", "-onboard-pickups", "maybe"}, `unknown sharing join policy "reassign"`},
 		{"onboard_before_experimental", []string{"-onboard-pickups", "maybe", "-station-buffers", "maybe"},
 			`onboard-pickups must contain only off or on, got "maybe"`},

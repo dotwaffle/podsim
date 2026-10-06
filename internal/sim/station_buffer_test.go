@@ -472,8 +472,8 @@ func TestStationBufferFullQueueAndUpstreamPlatoon(t *testing.T) {
 		}
 		if v.Pod.LaneID == "l1" {
 			inside++
-			if v.coupled() {
-				t.Fatal("entry pod remained coupled")
+			if v.linked() {
+				t.Fatal("entry pod remained linked")
 			}
 			plan, ok := s.bufferPlan(v)
 			if !ok || v.reservedThrough > plan.frontier || v.distance > v.blocks.end(plan.frontier) {
@@ -483,8 +483,8 @@ func TestStationBufferFullQueueAndUpstreamPlatoon(t *testing.T) {
 			upstream++
 		}
 	}
-	if len(geometry) != 1 || inside != geometry[0].StoppingCells || upstream == 0 || len(monitor.coupled) == 0 || s.completed != 0 {
-		t.Fatalf("full queue not exercised: inside%d upstream%d coupled%d geometry%+v", inside, upstream, len(monitor.coupled), geometry)
+	if len(geometry) != 1 || inside != geometry[0].StoppingCells || upstream == 0 || len(monitor.linked) == 0 || s.completed != 0 {
+		t.Fatalf("full queue not exercised: inside%d upstream%d linked%d geometry%+v", inside, upstream, len(monitor.linked), geometry)
 	}
 	delete(s.owners, resource{kind: berthResource, id: "dest-1"})
 	s.SetStationBuffers(false)

@@ -1125,11 +1125,11 @@ The simulation records each pass at the tick at which the pod enters the lane, a
 | `peak_node_throughput_per_minute` | The most passes of one node in 60 seconds. For each pass at time t, the window holds the passes of the same node after t - 60 s and at or before t. |
 | `peak_node` | The ID of the node with that count. When two nodes have the same count, it is the lower node ID in byte order. It is empty when no pod passes a node. |
 
-The `coupled_time_percent` column gives the time that pods travel in a platoon.
+The `platoon_time_percent` column gives the time that pods travel in a platoon.
 The compare command examines the pods at each whole simulated second.
 Each traveling pod adds 1 second to the travel time.
-Each traveling pod that has a pod ahead or a pod behind in its platoon also adds 1 second to the coupled time.
-The value is the coupled time divided by the travel time, as a percentage.
+Each traveling pod that has a pod ahead or a pod behind in its platoon also adds 1 second to the platoon time.
+The value is the platoon time divided by the travel time, as a percentage.
 It is 0 when no pod travels, and always 0 without the `virtual` platoon policy.
 
 The seat screen columns follow `shared_parties`.

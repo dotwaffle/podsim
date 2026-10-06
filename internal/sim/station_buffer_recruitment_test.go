@@ -41,8 +41,8 @@ func TestStationBufferRecruitmentBoundaries(t *testing.T) {
 				t.Fatal(err)
 			}
 			r.formPlatoons()
-			if got := r.CoupledPods() == 2; got != tc.want {
-				t.Fatalf("coupled=%t want=%t", got, tc.want)
+			if got := r.LinkedPods() == 2; got != tc.want {
+				t.Fatalf("linked=%t want=%t", got, tc.want)
 			}
 		})
 	}
@@ -61,7 +61,7 @@ func TestStationBufferRecruitmentLeavesRoadsUnchanged(t *testing.T) {
 	}
 	s.SetStationBuffers(true)
 	s.formPlatoons()
-	if s.CoupledPods() != 0 {
+	if s.LinkedPods() != 0 {
 		t.Fatal("one-cell buffer recruitment extended to ordinary roads")
 	}
 }
@@ -91,7 +91,7 @@ func TestStationBufferRecruitmentFractionalPitch(t *testing.T) {
 		t.Fatal(err)
 	}
 	s.formPlatoons()
-	if s.CoupledPods() != 2 {
+	if s.LinkedPods() != 2 {
 		t.Fatal("fractional cell pitch prevented adjacent recruitment")
 	}
 	stepBufferQueue(t, s, newPlatoonMonitor(s))
@@ -219,15 +219,15 @@ func TestStationBufferRecruitmentOccupiedQueue(t *testing.T) {
 					break
 				}
 			}
-			wantSpan, wantCoupled := 90.0, 0
+			wantSpan, wantLinked := 90.0, 0
 			if mode == PlatooningVirtual {
-				wantSpan, wantCoupled = 54.02, 3
+				wantSpan, wantLinked = 54.02, 3
 			}
 			span := s.vehicles[0].Pod.LaneDistance - s.vehicles[3].Pod.LaneDistance
-			if stable < 5*TicksPerSecond || math.Abs(span-wantSpan) > 1e-6 || s.CoupledPods() != wantCoupled || s.findVehicle("05").Pod.Activity != Idle {
-				t.Fatalf("queue did not settle behind real berth pod: span %.6f coupled %d state %+v", span, s.CoupledPods(), s.Snapshot())
+			if stable < 5*TicksPerSecond || math.Abs(span-wantSpan) > 1e-6 || s.LinkedPods() != wantLinked || s.findVehicle("05").Pod.Activity != Idle {
+				t.Fatalf("queue did not settle behind real berth pod: span %.6f linked %d state %+v", span, s.LinkedPods(), s.Snapshot())
 			}
-			t.Logf("mode=%v settled_seconds=%.6f span_m=%.6f coupled=%d", mode, float64(s.tick-60*TicksPerSecond)/TicksPerSecond, span, s.CoupledPods())
+			t.Logf("mode=%v settled_seconds=%.6f span_m=%.6f linked=%d", mode, float64(s.tick-60*TicksPerSecond)/TicksPerSecond, span, s.LinkedPods())
 			for _, enabled := range []bool{true, false} {
 				t.Run(fmt.Sprintf("restore_enabled_%t", enabled), func(t *testing.T) {
 					r := restoreBufferQueue(t, s, enabled)
@@ -343,7 +343,7 @@ func TestStationBufferRecruitmentRealDeparture(t *testing.T) {
 			}
 		}
 		if s.completed == 5 {
-			t.Logf("completed=%d final_tick=%d coupled_distinct=%d", s.completed, s.tick, len(m.coupled))
+			t.Logf("completed=%d final_tick=%d linked_distinct=%d", s.completed, s.tick, len(m.linked))
 			break
 		}
 	}

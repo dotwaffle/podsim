@@ -98,7 +98,7 @@
       "detour_ratio_max": 0,
       "intermediate_stops": 0,
       "positioning_moves": 0,
-      "coupled_time_percent": 0
+      "platoon_time_percent": 0
     }
   ]
 }

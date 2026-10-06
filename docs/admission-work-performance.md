@@ -16,7 +16,7 @@ Restored and prepared fleets allocate their own mutable workspace.
 No geometry-derived values remain in retained storage.
 
 The frozen original admission loop provides a full-step state oracle.
-Tests cover ordinary traffic, buffers, virtual platoons, both features together, and a corridor that requires platoon coupling.
+Tests cover ordinary traffic, buffers, virtual platoons, both features together, and a corridor that requires platoon linking.
 Additional checks cover recursive buffered-head grants, terminal rerouting, stale priorities, large-to-empty reuse, and independent fleet ownership.
 Simulation, session, and scenario suites pass, including simulation/session race checks.
 Native and WASM builds, vet, lint, and fresh gopls checks pass.

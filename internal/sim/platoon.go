@@ -7,14 +7,14 @@ import (
 	"slices"
 )
 
-// Platooning selects whether pods in a queue couple into virtual platoons.
+// Platooning selects whether pods in a queue link into virtual platoons.
 type Platooning int
 
 const (
-	// PlatooningOff couples no pods. Each pod stops within its own cells.
+	// PlatooningOff links no pods. Each pod stops within its own cells.
 	PlatooningOff Platooning = iota
-	// PlatooningVirtual couples a slow pod to the pod ahead of it on its
-	// lane when both routes share the next lanes. A coupled follower can
+	// PlatooningVirtual links a slow pod to the pod ahead of it on its
+	// lane when both routes share the next lanes. A linked follower can
 	// move into cells that its predecessor holds. See formPlatoons.
 	PlatooningVirtual
 )
@@ -30,7 +30,7 @@ const (
 	// clearance.
 	platoonReactionSeconds = 0.5
 	// platoonSlowFraction is the fraction of the lane speed limit below
-	// which a pod is slow. Only a slow pod couples, because pods at the
+	// which a pod is slow. Only a slow pod links, because pods at the
 	// limit keep a constant gap.
 	platoonSlowFraction = 0.5
 	// platoonHorizon is the distance in meters ahead of a new follower
@@ -52,7 +52,7 @@ const (
 	platoonDrainSlack = 1.0
 )
 
-// platoonLink couples a follower to its predecessor. The two routes share
+// platoonLink links a follower to its predecessor. The two routes share
 // a run of lanes. The link certifies the path along the run: its total turn
 // from the lane of the follower to the end of the run is at most turn, so a
 // path distance of clearance along the run puts two pods at least Clearance
@@ -89,7 +89,7 @@ type platoonLink struct {
 	// between their stop points.
 	turn, clearance float64
 	// draining is true after the follower reserved the end block, until
-	// the run grows. The follower then makes no coupled grants, also when a
+	// the run grows. The follower then makes no linked grants, also when a
 	// restore gives it an earlier reservation frontier, and the link ends
 	// when the follower holds no resource of a pod ahead.
 	draining bool
@@ -205,23 +205,23 @@ func (s *Simulation) SetPlatoonLimit(limit int) error {
 // PlatoonLimit returns the largest number of pods in one platoon.
 func (s *Simulation) PlatoonLimit() int { return s.platoonLimit }
 
-// CoupledPods returns the number of traveling pods that have a
+// LinkedPods returns the number of traveling pods that have a
 // predecessor or a follower in a platoon.
-func (s *Simulation) CoupledPods() int {
+func (s *Simulation) LinkedPods() int {
 	if s.platoonLinks == 0 {
 		return 0
 	}
-	coupled := 0
+	linked := 0
 	for i := range s.vehicles {
-		if v := &s.vehicles[i]; v.Pod.Activity == Traveling && v.coupled() {
-			coupled++
+		if v := &s.vehicles[i]; v.Pod.Activity == Traveling && v.linked() {
+			linked++
 		}
 	}
-	return coupled
+	return linked
 }
 
-// coupled reports whether v has a predecessor or a follower.
-func (v *vehicle) coupled() bool {
+// linked reports whether v has a predecessor or a follower.
+func (v *vehicle) linked() bool {
 	return v.link.leader != 0 || v.follower != 0
 }
 
@@ -264,11 +264,11 @@ func (s *Simulation) releaseRouteResource(v *vehicle, r resource) {
 	delete(s.owners, r)
 }
 
-// coupledSpan reports whether a follower can reserve blocks from from
+// linkedSpan reports whether a follower can reserve blocks from from
 // through through as a platoon member. The blocks must be in the run, not
 // after the end block of the link, and the predecessor must have reserved
-// the same blocks. A link that drains has no coupled grants.
-func (s *Simulation) coupledSpan(v *vehicle, from, through int) bool {
+// the same blocks. A link that drains has no linked grants.
+func (s *Simulation) linkedSpan(v *vehicle, from, through int) bool {
 	if s.platooning == PlatooningOff || v.link.draining || through > v.link.end || from < v.blocks.laneFirst(v.link.lane) {
 		return false
 	}
@@ -342,7 +342,7 @@ func (s *Simulation) holdsPending(v *vehicle) bool {
 // formPlatoons ends the links that are over and makes new links. It runs
 // before admission, from the state after the last movement. maintainLink
 // extends or ends each link. Then, in pod ID order, each slow pod without a
-// predecessor couples to the pod ahead on its lane when tryLink accepts
+// predecessor links to the pod ahead on its lane when tryLink accepts
 // the pair.
 func (s *Simulation) formPlatoons() {
 	s.formCompactQueues()
@@ -507,7 +507,7 @@ func (s *Simulation) canLink(v *vehicle) bool {
 	return s.platooning != PlatooningOff && v.Pod.Speed < platoonSlowFraction*v.Route[lane].SpeedLimit
 }
 
-// tryLink couples the pod at index i to the pod at index ahead, the
+// tryLink links the pod at index i to the pod at index ahead, the
 // nearest pod ahead of it on its lane, when the rules allow it. The pod
 // must be slow, the pod ahead must have no follower, and the platoon must
 // stay within the platoon limit. Both routes must have one speed limit,
@@ -565,7 +565,7 @@ func (s *Simulation) tryLink(i, ahead int) {
 	}
 }
 
-// platoonSize returns the number of pods in one platoon when v couples to
+// platoonSize returns the number of pods in one platoon when v links to
 // leader.
 func (s *Simulation) platoonSize(v, leader *vehicle) int {
 	size := 2
@@ -592,7 +592,7 @@ func (s *Simulation) oneSpeedLimit(v *vehicle, from int, limit float64) bool {
 	return !ok || limits == [2]float64{limit, limit}
 }
 
-// link couples the pod at index i to the pod at index ahead.
+// link links the pod at index i to the pod at index ahead.
 func (s *Simulation) link(i, ahead int, link platoonLink) {
 	link.leader = ahead + 1
 	s.vehicles[i].link = link

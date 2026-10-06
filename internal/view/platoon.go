@@ -6,7 +6,7 @@ import "github.com/dotwaffle/podsim/internal/sim"
 // two pods of a platoon.
 const platoonLinkWidth = 3
 
-// platoonLink joins a coupled pod to the pod ahead of it in its platoon.
+// platoonLink joins a linked pod to the pod ahead of it in its platoon.
 // follower and ahead are indexes into the vehicles of a snapshot.
 type platoonLink struct{ follower, ahead int }
 
@@ -19,7 +19,7 @@ type platoonMember struct {
 // platoonLinks returns a link for each pod that has a pod ahead of it in its
 // platoon, in vehicle order. The pod ahead has the same platoon ID and the
 // index before. A pod whose pod ahead is not in vehicles gets no link. It
-// returns nil when no pod is coupled.
+// returns nil when no pod is linked.
 func platoonLinks(vehicles []sim.Vehicle) []platoonLink {
 	var members map[platoonMember]int
 	for index, vehicle := range vehicles {

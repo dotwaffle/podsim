@@ -100,7 +100,7 @@ func TestAdmissionWorkMatchesTerminalAndBufferGrants(t *testing.T) {
 	}
 }
 
-func TestAdmissionWorkMatchesCoupledCorridor(t *testing.T) {
+func TestAdmissionWorkMatchesLinkedCorridor(t *testing.T) {
 	t.Parallel()
 	skipLong(t)
 	got := restoreCorridor(t, mergeCorridor(true, 30), corridorQueues(corridorFeedLength-100))
@@ -108,17 +108,17 @@ func TestAdmissionWorkMatchesCoupledCorridor(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := got.Clone()
-	peakCoupled := 0
+	peakLinked := 0
 	for range 120 * TicksPerSecond {
 		got.Step()
 		want.stepBeforeAdmissionWork()
 		if !sameState(got, want) {
-			t.Fatalf("coupled admission diverged at tick%d", got.tick)
+			t.Fatalf("linked admission diverged at tick%d", got.tick)
 		}
-		peakCoupled = max(peakCoupled, got.CoupledPods())
+		peakLinked = max(peakLinked, got.LinkedPods())
 	}
-	if peakCoupled == 0 {
-		t.Fatal("corridor did not exercise active coupling")
+	if peakLinked == 0 {
+		t.Fatal("corridor did not exercise active linking")
 	}
 }
 

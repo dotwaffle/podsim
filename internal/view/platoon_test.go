@@ -27,7 +27,7 @@ func TestPlatoonLinks(t *testing.T) {
 			want:     []platoonLink{{follower: 1, ahead: 0}},
 		},
 		{
-			name:     "a platoon of three out of order and a pod that is not coupled",
+			name:     "a platoon of three out of order and a pod that is not linked",
 			vehicles: []sim.Vehicle{pod("01", "03", 3), pod("02", "", 0), pod("03", "03", 1), pod("04", "03", 2)},
 			want:     []platoonLink{{follower: 0, ahead: 3}, {follower: 3, ahead: 2}},
 		},

@@ -27,7 +27,7 @@ A denied grant preserves the route and ownership graph.
 
 The discharged head retains its follower until shared ownership drains.
 Its resources transfer to the first follower that still holds them.
-The affected link becomes draining and permits no new coupled grants.
+The affected link becomes draining and permits no new linked grants.
 The next head can select its own exclusive berth suffix after its predecessor relation ends.
 Disabling buffers or virtual platoons also keeps existing ownership dependencies until they drain.
 A full buffer retains ordinary upstream waiting.

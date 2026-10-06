@@ -70,7 +70,7 @@ func stageBufferFleet(t *testing.T, network Network, placements []Placement, cou
 	if form {
 		s.formPlatoons()
 	}
-	if form && s.CoupledPods() != count {
+	if form && s.LinkedPods() != count {
 		t.Fatalf("no %d-pod entry platoon: %+v", count, s.Snapshot())
 	}
 	return s
@@ -159,7 +159,7 @@ func TestStationBufferPlatoonFixedEndpoint(t *testing.T) {
 				if !ok || link.lanes != 1 || link.terminalCell != plan.frontier-plan.first || geometry != v.blocks.end(plan.frontier) || end >= plan.frontier {
 					t.Fatalf("invalid fixed endpoint: %+v %+v", link, plan)
 				}
-				if link.first != plan.entryStop+1 || s.coupledSpan(v, plan.entryStop, link.end) || s.coupledSpan(v, link.first, plan.frontier) {
+				if link.first != plan.entryStop+1 || s.linkedSpan(v, plan.entryStop, link.end) || s.linkedSpan(v, link.first, plan.frontier) {
 					t.Fatal("shared span crossed a boundary group")
 				}
 				for _, b := range v.blocks.span(link.first, link.end+1) {
@@ -354,7 +354,7 @@ func TestStationBufferPlatoonRejectsUnequalSpeeds(t *testing.T) {
 	}
 	s := stagedBufferQueue(t, 2, network, false)
 	s.formPlatoons()
-	if s.CoupledPods() != 0 {
+	if s.LinkedPods() != 0 {
 		t.Fatal("unequal-speed entry formed a link")
 	}
 }

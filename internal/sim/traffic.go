@@ -647,7 +647,7 @@ func compareAdmission(a, b intent, tick int64) int {
 
 // grant reserves the blocks of an intent up to the end of their conflict
 // zones when no other pod holds a resource of them. A follower that
-// coupledSpan accepts can also reserve a resource that a pod ahead in its
+// linkedSpan accepts can also reserve a resource that a pod ahead in its
 // platoon holds, except a berth. That pod stays the owner, and the
 // resource passes to the follower when that pod releases it.
 func (s *Simulation) grant(in intent) {
@@ -670,8 +670,8 @@ func (s *Simulation) grant(in intent) {
 			return
 		}
 	}
-	coupled := v.link.leader != 0 && s.coupledSpan(v, in.block, through)
-	if v.link.leader != 0 && !coupled && s.holdsPending(v) {
+	linked := v.link.leader != 0 && s.linkedSpan(v, in.block, through)
+	if v.link.leader != 0 && !linked && s.holdsPending(v) {
 		// A follower that holds a cell of a pod ahead can be as far
 		// forward in its reservation as that pod. If it took free cells
 		// that its predecessor did not reserve yet, it would block its
@@ -691,7 +691,7 @@ func (s *Simulation) grant(in intent) {
 	for resources := range v.blocks.spanResources(in.block, through+1) {
 		for _, r := range resources {
 			if owner := s.owners[r]; !owner.isZero() && !owner.isPod(v.Pod.ID) &&
-				(!coupled || r.kind == berthResource || !s.ownerAheadInPlatoon(v, owner)) {
+				(!linked || r.kind == berthResource || !s.ownerAheadInPlatoon(v, owner)) {
 				if s.reportIncident(v, owner) {
 					return
 				}
@@ -720,7 +720,7 @@ func (s *Simulation) grant(in intent) {
 		start, end := blocks.cellBounds(lane, cell)
 		cells := blocks.lanes[lane].cells
 		for _, r := range cells.cell(cell) {
-			if !coupled || s.owners[r].isZero() {
+			if !linked || s.owners[r].isZero() {
 				s.owners[r] = podResourceOwner(v.Pod.ID)
 			}
 			v.retainRouteResource(r, releaseDistance(r, releaseInput{from: blocks.route[lane].From, start: start, end: end, tail: cells.tail, fromTail: cells.fromTail}))
