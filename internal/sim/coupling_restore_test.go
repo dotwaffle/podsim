@@ -3,6 +3,7 @@ package sim
 import (
 	"fmt"
 	"maps"
+	"math"
 	"reflect"
 	"strings"
 	"testing"
@@ -169,5 +170,76 @@ func TestRouteBlocksEndAtRouteLength(t *testing.T) {
 	}
 	if _, _, _, err := couplingMotionPose(&blocks, end); err == nil || !strings.HasPrefix(err.Error(), "motion leaves its actual route") {
 		t.Fatalf("the pose at the route end gives %v", err)
+	}
+}
+
+// A physical restore can cut the start of a saved route, and the sums of
+// the lane lengths of the cut route round differently. A restored pod then
+// has a lane distance that differs in the last bits from its route distance
+// minus its lane start. These values come from the blocker of the third pod
+// journey at the first tick of drain leg 3. The native ordinary pose check
+// accepts such a pose only while it is the restore publication.
+func TestRestoredLanePose(t *testing.T) {
+	t.Parallel()
+	start, laneDistance, distance := 107.70329614269009, 4.374771491260958, 112.07806763395104
+	if distance-start == laneDistance {
+		t.Fatal("the restored pose is an exact ordinary publication")
+	}
+	fact := nativeForeignFact{pod: Pod{LaneDistance: laneDistance}, distance: distance, restoredPose: true}
+	if !restoredLanePose(&fact, start) {
+		t.Fatal("the restore publication is refused")
+	}
+	fact.restoredPose = false
+	if restoredLanePose(&fact, start) {
+		t.Fatal("a pose that no restore published is accepted")
+	}
+	fact.restoredPose = true
+	for _, offset := range []float64{-2 * restoreTolerance, 2 * restoreTolerance} {
+		fact.distance = start + laneDistance + offset
+		if !restoredLanePose(&fact, start) {
+			t.Fatalf("a restore publication %v from the lane distance is refused", offset)
+		}
+		fact.distance = math.Nextafter(fact.distance, fact.distance+offset)
+		if restoredLanePose(&fact, start) {
+			t.Fatalf("a pose more than %v from the lane distance is accepted", offset)
+		}
+	}
+}
+
+// A restore at the first tick of drain leg 3 of the third pod journey
+// places the blocker with a restored pose that is not an exact ordinary
+// publication. The first native tick accepts it, and the ordinary motion
+// of that tick publishes an exact pose.
+func TestCouplingRestoredOrdinaryPose(t *testing.T) {
+	t.Parallel()
+	s, n := newCouplingThirdPodJourney(t, false)
+	for s.tick < 20000 && (len(s.couplingGroups) == 0 || s.couplingGroups[0].state.Phase != couplingDraining) {
+		followCouplingPair(t, s)
+		s.Step()
+		if err := s.CouplingError(); err != nil {
+			t.Fatalf("tick %d: %v", s.tick, err)
+		}
+	}
+	if len(s.couplingGroups) == 0 || s.couplingGroups[0].state.Leg != 3 {
+		t.Fatalf("the journey has no drain leg 3 at tick %d", s.tick)
+	}
+	contracts := couplingThirdPodContracts(n)
+	cold, result, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: s.ExportState(),
+		CouplingContract: contracts.CouplingContract, CouplingEnabled: true, CouplingSites: contracts.CouplingSites, CouplingCorridors: contracts.CouplingCorridors})
+	if err != nil || result.Tier != RestorePhysical {
+		t.Fatalf("restore failed: %v %v", result, err)
+	}
+	v := cold.findVehicle("blocker")
+	start := v.blocks.at(v.blockIndex).laneStart
+	if v.Pod.Activity != Traveling || !v.restoredPose || v.distance-start == v.Pod.LaneDistance {
+		t.Fatalf("the restored blocker has an exact ordinary publication: %+v, restored %t", v.Pod, v.restoredPose)
+	}
+	cold.Step()
+	if err := cold.CouplingError(); err != nil {
+		t.Fatal(err)
+	}
+	start = v.blocks.at(v.blockIndex).laneStart
+	if v.restoredPose || v.distance-start != v.Pod.LaneDistance {
+		t.Fatalf("the first tick did not publish an exact ordinary pose: %+v, restored %t", v.Pod, v.restoredPose)
 	}
 }

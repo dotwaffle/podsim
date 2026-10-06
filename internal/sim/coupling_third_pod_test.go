@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/json/v2"
 	"errors"
+	"fmt"
 	"reflect"
 	"slices"
 	"testing"
@@ -168,23 +169,26 @@ func stepCouplingThirdPod(t *testing.T, s *Simulation) {
 
 // A third pod follows the pair from before the approach through formation,
 // each group phase, both drain legs, and retirement, with the checks of
-// stepCouplingThirdPod. At the first tick of each group phase before
-// draining, the saved state restores twice. Each restored run exports the
-// saved state, passes the same checks to the end of the journey, and ends
-// with the same state as its twin. A restored run does not match the
-// uninterrupted run, because a physical restore starts each pod again at
-// speed 0.
-//
-// The drain legs have no restore, because restore fails there without a
-// third pod too. In the first drain leg, the first tick after the restore
-// fails the ordinary pose check of the native foreign proof. In the second
-// drain leg, the restore refuses: Simulation.routeBlocks leaves the start
-// of the route end at 0, so the member pose search refuses a front on its
-// last lanes.
+// stepCouplingThirdPod. The journeys run empty and with riders. At the
+// first tick of each group phase and drain leg, the saved state restores
+// twice. Each restored run exports the saved state, passes the same checks
+// to the end of the journey, and ends with the same state as its twin. A
+// restored run does not match the uninterrupted run, because a physical
+// restore starts each pod again at speed 0.
 func TestCouplingThirdPodJourney(t *testing.T) {
 	t.Parallel()
 	skipLong(t)
-	s, n := newCouplingThirdPodJourney(t, false)
+	for _, occupied := range []bool{false, true} {
+		t.Run(fmt.Sprintf("occupied=%t", occupied), func(t *testing.T) {
+			t.Parallel()
+			couplingThirdPodJourney(t, occupied)
+		})
+	}
+}
+
+func couplingThirdPodJourney(t *testing.T, occupied bool) {
+	t.Helper()
+	s, n := newCouplingThirdPodJourney(t, occupied)
 	contracts := couplingThirdPodContracts(n)
 	restore := func(saved SavedState) *Simulation {
 		t.Helper()
@@ -200,7 +204,7 @@ func TestCouplingThirdPodJourney(t *testing.T) {
 		return cold
 	}
 	var restored [][2]*Simulation
-	phases := make(map[[2]int]bool)
+	var keys [][2]int
 	formed, retired := int64(-1), int64(-1)
 	for s.tick < 20000 && !couplingThirdPodDone(s) {
 		stepCouplingThirdPod(t, s)
@@ -221,27 +225,20 @@ func TestCouplingThirdPodJourney(t *testing.T) {
 			t.Logf("formation tick %d, third pod at %v m holds %v", s.tick, third.Pod.LaneDistance, held)
 		}
 		key := [2]int{int(g.state.Phase), g.state.Leg}
-		if phases[key] {
+		if slices.Contains(keys, key) {
 			continue
 		}
-		phases[key] = true
-		if g.state.Phase != couplingDraining {
-			saved := s.ExportState()
-			restored = append(restored, [2]*Simulation{restore(saved), restore(saved)})
-		}
+		keys = append(keys, key)
+		saved := s.ExportState()
+		restored = append(restored, [2]*Simulation{restore(saved), restore(saved)})
 	}
 	if retired < 0 || !couplingThirdPodDone(s) {
 		t.Fatalf("journey did not finish by tick %d: formation %d, retirement %d, third %+v", s.tick, formed, retired, s.findVehicle("third").Pod)
 	}
 	want := [][2]int{{int(couplingClosing), 0}, {int(couplingLatching), -1}, {int(couplingConnected), 1}, {int(couplingUnlatching), -1},
 		{int(couplingOpening), 2}, {int(couplingDraining), 3}, {int(couplingDraining), 4}}
-	if len(phases) != len(want) {
-		t.Fatalf("journey has phases %v", phases)
-	}
-	for _, key := range want {
-		if !phases[key] {
-			t.Fatalf("journey skipped phase and leg %v", key)
-		}
+	if !slices.Equal(keys, want) {
+		t.Fatalf("journey has phases %v, want %v", keys, want)
 	}
 	for i, runs := range restored {
 		cold, twin := runs[0], runs[1]

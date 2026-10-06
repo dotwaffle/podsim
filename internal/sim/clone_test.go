@@ -275,6 +275,9 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		// A physical restore derives faulted from the fault records, and
 		// sets faultCap to the distance of a faulted traveling pod.
 		"faulted": persistDerive, "faultCap": persistDerive,
+		// A physical restore sets restoredPose on each ordinary traveling
+		// pod that it places.
+		"restoredPose": persistDerive,
 	},
 	reflect.TypeFor[Vehicle](): {
 		"CouplingID": persistDerive,

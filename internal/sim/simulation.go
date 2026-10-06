@@ -267,6 +267,13 @@ type vehicle struct {
 	blockIndex, reservedThrough int
 	originReleased              bool
 	distance                    float64
+	// restoredPose is true while the lane pose of an ordinary traveling pod
+	// is the pose that a physical restore published: the saved lane
+	// distance and the point at it. The restore can take the route distance
+	// from the saved distance or from a block end, so the route distance
+	// minus the lane start can differ from the lane distance by up to two
+	// restore tolerances. The next publication of the pod clears it.
+	restoredPose bool
 	// riddenBase is the distance that the riders rode before the start of
 	// distance: the earlier legs of the journey, and the start of the route
 	// that a restore cut.

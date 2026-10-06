@@ -269,18 +269,32 @@ func (frame *nativeForeignTick) checkOrdinaryPose(index int) error {
 	}
 	lane := path.blocks.locate(fact.blockIndex, 0)
 	current := &path.blocks.route[lane]
-	local := fact.distance - path.blocks.lanes[lane].start
-	if fact.pod.LaneID == "" {
+	start := path.blocks.lanes[lane].start
+	local := fact.distance - start
+	switch {
+	case fact.pod.LaneID == "":
 		if fact.distance != 0 || fact.pod.Speed != 0 {
 			return couplingMotionInvariant("native departure has nonzero motion before lane entry")
 		}
 		local = 0
-	} else if fact.pod.LaneID != current.ID || !nativeForeignSameFloat(fact.pod.LaneDistance, local) {
+	case fact.pod.LaneID != current.ID || !nativeForeignSameFloat(fact.pod.LaneDistance, local) && !restoredLanePose(fact, start):
 		return couplingMotionInvariant("native current lane pose is not its exact ordinary publication")
+	default:
+		local = fact.pod.LaneDistance
 	}
 	expected := frame.fleet.source.lanePosition(path.blocks.lanes[lane].geometry, current, local)
 	if fact.pod.Position != expected || fact.pod.Speed > current.SpeedLimit {
 		return couplingMotionInvariant("native ordinary current geometry or lane speed is invalid")
 	}
 	return nil
+}
+
+// restoredLanePose reports whether the pose of fact is the pose that a
+// physical restore published in the lane that starts at route distance
+// start. restoredDistance starts at the lane start plus the lane distance.
+// It can then take the saved distance within one restoreTolerance, and
+// then a block end within one restoreTolerance, so the pose is within two
+// restore tolerances.
+func restoredLanePose(fact *nativeForeignFact, start float64) bool {
+	return fact.restoredPose && math.Abs(fact.distance-(start+fact.pod.LaneDistance)) <= 2*restoreTolerance
 }

@@ -913,6 +913,8 @@ func (r *physicalRestore) placeTravelingPod(index, leader int) (bool, error) {
 	}
 	v.Pod.LaneDistance = laneDistance
 	v.Pod.Position = r.s.position(lane, laneDistance)
+	_, compact := r.compactMembers[index]
+	v.restoredPose = !compact
 	if saved.LaneID != "" {
 		v.Pod.LaneID = lane.ID
 	}

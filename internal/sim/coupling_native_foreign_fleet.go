@@ -54,6 +54,8 @@ type nativeForeignFact struct {
 	// pod moves with faultMoveStep, in move and in each proof.
 	faulted  bool
 	faultCap float64
+	// restoredPose is vehicle.restoredPose.
+	restoredPose bool
 }
 
 func prepareNativeForeignFleetBound(s *Simulation, n *couplingReservationNetwork, contract OrderContract, pairs ...*couplingMotionContext) (*nativeForeignFleet, error) {
@@ -158,7 +160,7 @@ func buildNativeForeignApproachTick(s *Simulation, f *nativeForeignFleet, work *
 		if v.Pod.ID != entry.id || v.Pod.Class != entry.class || v.routeVersion != entry.routeVersion || !nativeForeignSameRoute(v.Route, entry.route) {
 			return nil, couplingMotionInvariant("native frame requires new immutable route preparation")
 		}
-		fact := nativeForeignFact{pod: v.Pod, cabin: nativeForeignCabinInto(v, frame.facts[i].cabin), distance: v.distance, blockIndex: v.blockIndex, through: v.reservedThrough, phaseTicks: v.phaseTicks, origin: v.origin, destination: v.destination, retained: nativeForeignRetained(v, work, i), link: v.link, follower: v.follower, cap: v.platoonCap, faulted: v.faulted, faultCap: v.faultCap}
+		fact := nativeForeignFact{pod: v.Pod, cabin: nativeForeignCabinInto(v, frame.facts[i].cabin), distance: v.distance, blockIndex: v.blockIndex, through: v.reservedThrough, phaseTicks: v.phaseTicks, origin: v.origin, destination: v.destination, retained: nativeForeignRetained(v, work, i), link: v.link, follower: v.follower, cap: v.platoonCap, faulted: v.faulted, faultCap: v.faultCap, restoredPose: v.restoredPose}
 		if len(s.compactMotions) > 0 {
 			if len(s.compactMotions) != len(s.vehicles) {
 				return nil, couplingMotionInvariant("native compact plan omits fleet members")

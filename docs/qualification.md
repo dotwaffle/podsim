@@ -2236,6 +2236,22 @@ Before this change, the client refused each reply for its media type, and the te
 The simulation rows are not part of this record.
 The cost numbers cover the formats and one session tick, not the simulation at scale.
 
+## Coupling restore while a pair drains
+
+`TestCouplingThirdPodJourney` runs the third pod journey empty and with riders.
+At the first tick of each group phase and of each drain leg, it saves and restores the state, and it runs each restored copy to the end of the journey with the checks of each tick.
+Before the two fixes below, the test did not restore at the drain legs, because a save in those legs could not continue.
+
+`Simulation.routeBlocks` left the route end at distance 0.
+The member pose search of the coupling restore then refused a member on the last lane of its route with "motion leaves its actual route": at drain leg 4, and from the unlatching phase on with riders.
+The route end is now the route length.
+The large vehicle safety envelope also reads the route end, so it now includes the last lane of a route when that lane is within the front reach of the pod.
+
+A physical restore can cut the start of the saved route of an ordinary pod, and the lane starts of the cut route can round differently.
+The restored lane distance can then differ in the last bits from the route distance minus the lane start.
+At the first tick after a restore at drain leg 3, the native ordinary pose check refused the blocker of the journey for this reason.
+The check now accepts the pose that the restore published, within two restore tolerances, until the next motion of the pod publishes an exact pose.
+
 ## Coupling incident qualification
 
 Item 6d checks coupling-group members and approach members with the incident, fault, and emergency markers.

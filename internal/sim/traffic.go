@@ -813,6 +813,7 @@ func (s *Simulation) move(v *vehicle) {
 }
 
 func (s *Simulation) publishVehicleTravel(v *vehicle, distance, speed float64) {
+	v.restoredPose = false
 	blocks := &v.blocks
 	current := blocks.find(v.blockIndex, &blocks.cursors[podCursor])
 	// A pod with no lane has left its berth, so it enters its current lane
