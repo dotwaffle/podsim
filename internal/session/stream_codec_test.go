@@ -9,8 +9,9 @@ import (
 )
 
 // TestApplyStreamRefusalOrder pins which refusal comes first when an
-// envelope has two faults, and the refusal of each single fault. A refused
-// envelope gives a zero frame.
+// envelope has two faults, and the refusal of each single fault. The stage
+// presence checks come after the identity, in stage order, and before the
+// delta base. A refused envelope gives a zero frame.
 func TestApplyStreamRefusalOrder(t *testing.T) {
 	t.Parallel()
 	_, base := streamFixture(t)
@@ -40,6 +41,13 @@ func TestApplyStreamRefusalOrder(t *testing.T) {
 	renamed.ID = "renamed"
 	unknownBerth := sim.BerthState{ID: "unknown"}
 	crossEpoch := func(e *StreamEnvelope) { e.Source.Epoch = "other" }
+	// members marks the stage members that a decode found in an envelope
+	// without the stage markers.
+	members := func(incident, fault, emergency bool) func(*StreamEnvelope) {
+		return func(e *StreamEnvelope) {
+			e.incidentMembers, e.faultMembers, e.emergencyMembers = incident, fault, emergency
+		}
+	}
 	cases := []struct {
 		name string
 		e    StreamEnvelope
@@ -65,6 +73,12 @@ func TestApplyStreamRefusalOrder(t *testing.T) {
 			f.State.Simulation.Vehicles[0].RouteLaneIDs = []string{"lane"}
 		}), "invalid presentation counts"},
 		{"unbounded route", full(func(f *StreamFrame) { f.State.Simulation.Vehicles[0].RouteLaneIDs = []string{"lane"} }), "unbounded stream route"},
+		{"identity before presence", delta(StreamDelta{}, func(e *StreamEnvelope) { members(true, true, true)(e); e.Stream = "" }),
+			"invalid stream identity"},
+		{"incident before fault presence", delta(StreamDelta{}, members(true, true, true)), errIncidentStreamUnmarked.Error()},
+		{"fault before emergency presence", delta(StreamDelta{}, members(false, true, true)), errFaultStreamUnmarked.Error()},
+		{"emergency presence before delta base", delta(StreamDelta{}, func(e *StreamEnvelope) { members(false, false, true)(e); e.Base = 2 }),
+			errEmergencyStreamUnmarked.Error()},
 	}
 	cases[1].e.Delta = &StreamDelta{}
 	cases[1].e.Source.Revision++
