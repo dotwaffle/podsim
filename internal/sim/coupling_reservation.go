@@ -317,12 +317,19 @@ func (plan *couplingReservationPlan) prepareMember(index int, corridor CouplingC
 		return couplingDenied("current cell does not contain stopped member")
 	}
 	plan.routes[index], plan.axisOrigins[index] = blocks, origin
-	profile, _ := LookupCouplingProfile(plan.network.contract)
-	plan.ClosingStops[index] = origin + assembly.FrontStagingMeters
-	if index == 1 {
-		plan.ClosingStops[index] -= profile.CenterSpacingMeters
-	}
+	plan.ClosingStops[index] = plan.network.closingStop(index, origin, assembly)
 	return plan.prepareExit(index, first+len(corridor.LaneIDs)-1, corridor)
+}
+
+// closingStop returns the closing stop of member index (0 is the front),
+// where origin is the route distance of the start of the assembly lane.
+func (n *couplingReservationNetwork) closingStop(index int, origin float64, assembly CouplingSite) float64 {
+	profile, _ := LookupCouplingProfile(n.contract)
+	stop := origin + assembly.FrontStagingMeters
+	if index == 1 {
+		stop -= profile.CenterSpacingMeters
+	}
+	return stop
 }
 
 func (plan *couplingReservationPlan) prepareExit(index, last int, corridor CouplingCorridor) error {

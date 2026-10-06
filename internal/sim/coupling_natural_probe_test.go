@@ -20,9 +20,9 @@ const (
 	// couplingProbeRate is the number of orders in each simulated minute.
 	couplingProbeRate = 8
 	couplingProbePods = 70
-	// couplingProbeTicks is 20 simulated minutes. In the pinned run, the
-	// last train retires at tick 60530.
-	couplingProbeTicks = 20 * 60 * TicksPerSecond
+	// couplingProbeTicks is 35 simulated minutes. In the pinned run, the
+	// last train retires at tick 96891.
+	couplingProbeTicks = 35 * 60 * TicksPerSecond
 	// couplingProbeHalf is half the side of the square ring in meters.
 	couplingProbeHalf = 600
 	// couplingProbeJoinSpeed is the speed limit in m/s of the return road

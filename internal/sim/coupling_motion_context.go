@@ -74,18 +74,12 @@ func prepareCouplingMotionContext(input couplingMotionContextInput) (*couplingMo
 	}
 	profile, _ := LookupCouplingProfile(c.reservation.network.contract)
 	initial := [2]float64{c.reservation.members[0].Distance, c.reservation.members[1].Distance}
-	var err error
-	c.legs[0], err = c.prepareLeg(couplingClosing, [2]bool{false, true}, initial, c.reservation.ClosingStops, profile.ManeuverAcceleration, profile.ManeuverSpeed)
-	if err != nil {
-		return nil, err
-	}
-	c.legs[1], err = c.prepareLeg(couplingConnected, [2]bool{true, true}, c.reservation.ClosingStops, c.reservation.SplitStops, profile.Acceleration, math.Inf(1))
-	if err != nil {
-		return nil, err
-	}
-	c.legs[2], err = c.prepareLeg(couplingOpening, [2]bool{true, false}, c.reservation.SplitStops, c.reservation.OpeningStops, profile.ManeuverAcceleration, profile.ManeuverSpeed)
-	if err != nil {
-		return nil, err
+	for i, leg := range couplingFormationLegs(initial, &c.reservation, profile) {
+		var err error
+		c.legs[i], err = c.prepareLeg(leg.phase, leg.moving, leg.start, leg.end, leg.acceleration, leg.speedCap)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if err := c.prepareDrain(profile); err != nil {
 		return nil, err
@@ -114,6 +108,45 @@ func prepareCouplingMotionContext(input couplingMotionContextInput) (*couplingMo
 		return nil, err
 	}
 	return c, nil
+}
+
+// couplingFormationLegs returns the closing, connected, and opening legs
+// from the initial distances of the members. The stops of the plan are
+// static: they come from the routes and the sites.
+func couplingFormationLegs(initial [2]float64, p *couplingReservationPlan, profile CouplingProfile) [3]couplingRemainingLeg {
+	return [3]couplingRemainingLeg{
+		{couplingClosing, [2]bool{false, true}, initial, p.ClosingStops, profile.ManeuverAcceleration, profile.ManeuverSpeed},
+		{couplingConnected, [2]bool{true, true}, p.ClosingStops, p.SplitStops, profile.Acceleration, math.Inf(1)},
+		{couplingOpening, [2]bool{true, false}, p.SplitStops, p.OpeningStops, profile.ManeuverAcceleration, profile.ManeuverSpeed},
+	}
+}
+
+// checkCouplingLegGrids runs the distance grid check of prepareLeg on each
+// leg: one grid for the four ends of a leg, with the start and the end of
+// each moving member on it. A stationary member has no schedule, so its
+// distance only sets the grid.
+func checkCouplingLegGrids(legs []couplingRemainingLeg) error {
+	for _, leg := range legs {
+		quantum, err := couplingLegQuantum(leg.start, leg.end)
+		if err != nil {
+			return err
+		}
+		for i, moving := range leg.moving {
+			if !moving {
+				continue
+			}
+			if _, _, err := couplingGridSpan(leg.start[i], leg.end[i], quantum); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// couplingLegQuantum returns the distance grid of a leg. Both members use
+// one grid, so connected members share one exact schedule.
+func couplingLegQuantum(start, end [2]float64) (float64, error) {
+	return couplingMotionQuantum(start[0], start[1], end[0], end[1])
 }
 
 func couplingJointDependency(d couplingDependency) bool {
@@ -261,7 +294,7 @@ func (c *couplingMotionContext) prepareLeg(phase couplingReservationPhase, movin
 	if err != nil {
 		return leg, err
 	}
-	quantum, err := couplingMotionQuantum(start[0], start[1], end[0], end[1])
+	quantum, err := couplingLegQuantum(start, end)
 	if err != nil {
 		return leg, err
 	}

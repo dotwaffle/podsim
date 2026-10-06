@@ -17,7 +17,8 @@ func couplingApproachFixture(t *testing.T, occupied bool) couplingApproachPrepar
 }
 
 // couplingApproachStage puts the members of formation at the rear staging
-// point of the assembly site of n, with ordinary grants and owners.
+// point of the assembly site of n, with ordinary grants and owners. The
+// assembly lane can start at a different route distance in each route.
 func couplingApproachStage(t *testing.T, formation couplingReservationInput, n *couplingReservationNetwork, occupied bool) couplingApproachPrepareInput {
 	t.Helper()
 	fleet := []Placement{{ID: "front", Class: CompactClass, StationID: "front-goal"}, {ID: "rear", Class: CompactClass, StationID: "rear-goal"}}
@@ -28,6 +29,7 @@ func couplingApproachStage(t *testing.T, formation couplingReservationInput, n *
 	s.tick, s.platooning, s.platoonLimit = formation.Tick, PlatooningVirtual, 2
 	s.owners = make(map[resource]resourceOwner)
 	stage := n.sites["assembly"]
+	var first [2]int
 	for i := range s.vehicles {
 		m := formation.Members[i]
 		v := &s.vehicles[i]
@@ -35,7 +37,8 @@ func couplingApproachStage(t *testing.T, formation couplingReservationInput, n *
 		v.origin, v.journeyOrigin, v.destination, v.destinationStation = m.Origin, m.Origin, m.Destination, m.DestinationStation
 		v.originReleased = true
 		v.blocks, v.routeLengths = s.routeBlocks(v.Route)
-		v.distance = stage.RearStagingMeters
+		first[i] = slices.IndexFunc(v.Route, func(lane Lane) bool { return lane.ID == stage.LaneID })
+		v.distance = v.blocks.lanes[first[i]].start + stage.RearStagingMeters
 		if i == 1 {
 			v.distance -= 12.02
 		}
@@ -64,7 +67,7 @@ func couplingApproachStage(t *testing.T, formation couplingReservationInput, n *
 			}
 		}
 	}
-	link, ok := s.planLink(linkPlan{v: &s.vehicles[1], leader: &s.vehicles[0], lane: 0, leaderLane: 0})
+	link, ok := s.planLink(linkPlan{v: &s.vehicles[1], leader: &s.vehicles[0], lane: first[1], leaderLane: first[0]})
 	if !ok {
 		t.Fatal("authored component pair lacks an ordinary link proof")
 	}
@@ -272,25 +275,72 @@ func TestCouplingApproachPreparationGuards(t *testing.T) {
 	}
 }
 
+// couplingApproachPrefixFixture is couplingApproachFixture with one
+// straight lane before the assembly lane in each member route. The lane
+// lengths are the route distances of the start of the assembly lane, front
+// first.
+func couplingApproachPrefixFixture(t *testing.T, prefixes [2]float64) couplingApproachPrepareInput {
+	t.Helper()
+	starts := [2]string{"front-start", "rear-start"}
+	formation := couplingMotionFixtureWith(t, false, false, func(n *Network) {
+		n.Nodes = append(n.Nodes, Node{ID: starts[0], Position: Point{Y: -prefixes[0]}}, Node{ID: starts[1], Position: Point{X: -prefixes[1]}})
+		for _, id := range starts {
+			n.Lanes = append(n.Lanes, Lane{ID: id, From: id, To: "a", SpeedLimit: 7.123456789, VehicleClasses: classBit(string(CompactClass))})
+		}
+	})
+	for i, id := range starts {
+		m := &formation.Members[i]
+		m.Vehicle.Route = append([]Lane{formation.Network.lanes[id].lane}, m.Vehicle.Route...)
+	}
+	return couplingApproachStage(t, formation, formation.Network, false)
+}
+
+// The assembly lane of the rear starts at 1809.99 m and that of the front
+// at 5668.62 m. One distance grid holds all ends of a formation leg, and
+// the grid step of the front is four times that of the rear. The rear
+// target has bits below that step, so adoption would refuse the closing
+// leg. The approach refuses before it moves the front. A rear prefix of
+// 128 m puts each rear stop on the grid of the front.
+func TestCouplingApproachFormationGrid(t *testing.T) {
+	t.Parallel()
+	const want = "motion start is not representable on its distance grid: coupling reservation denied"
+	input := couplingApproachPrefixFixture(t, [2]float64{5668.6245270759428, 1809.992798065897})
+	owners := maps.Clone(input.Simulation.owners)
+	_, _, err := prepareCouplingApproach(input)
+	if !errors.Is(err, errCouplingReservationDenied) || err.Error() != want {
+		t.Fatalf("refusal = %v, want %q", err, want)
+	}
+	if !maps.Equal(owners, input.Simulation.owners) {
+		t.Fatal("failed preparation changed owners")
+	}
+	if _, _, err := prepareCouplingApproach(couplingApproachPrefixFixture(t, [2]float64{5668.6245270759428, 128})); err != nil {
+		t.Fatal("aligned rear prefix refused:", err)
+	}
+}
+
 // With two faults, preparation reports the one that its fixed check order
 // reaches first. The front completes its member checks before the rear
-// starts, and the rear claims precede the front frontier.
+// starts. The formation leg grids follow the staging profile and precede
+// the rear claims, and the rear claims precede the front frontier.
 func TestCouplingApproachPreparationRefusalOrder(t *testing.T) {
 	t.Parallel()
+	// offGrid gives the pair a formation leg that is off its distance grid.
+	offGrid := [2]float64{5668.6245270759428, 1809.992798065897}
 	for _, test := range []struct {
-		name   string
-		change func(*couplingApproachPrepareInput)
-		want   string
+		name     string
+		prefixes *[2]float64
+		change   func(*couplingApproachPrepareInput)
+		want     string
 	}{
-		{"pair_before_member", func(i *couplingApproachPrepareInput) {
+		{"pair_before_member", nil, func(i *couplingApproachPrepareInput) {
 			i.Simulation.vehicles[1].follower = 1
 			i.Simulation.vehicles[0].Pod.Speed = 1
 		}, "approach needs one existing straight virtual pair: coupling reservation denied"},
-		{"front_before_rear", func(i *couplingApproachPrepareInput) {
+		{"front_before_rear", nil, func(i *couplingApproachPrepareInput) {
 			i.Simulation.waiting = append(i.Simulation.waiting, waitingTrip{request: Request{PodID: "front"}})
 			i.Simulation.vehicles[1].Pod.Speed = 1
 		}, "approach member has a pending pickup: coupling reservation denied"},
-		{"claims_before_frontier", func(i *couplingApproachPrepareInput) {
+		{"claims_before_frontier", nil, func(i *couplingApproachPrepareInput) {
 			for r := range i.Simulation.vehicles[1].routeReleases {
 				i.Simulation.owners[r] = podResourceOwner("foreign")
 			}
@@ -298,10 +348,21 @@ func TestCouplingApproachPreparationRefusalOrder(t *testing.T) {
 				i.Simulation.owners[r] = podResourceOwner("foreign")
 			}
 		}, "rear current footprint lacks its actual virtual owner: coupling reservation denied"},
+		{"staging_before_grid", &offGrid, func(i *couplingApproachPrepareInput) {
+			i.Simulation.vehicles[0].reservedThrough++
+		}, "approach target, original frontier, or wait profile changed: coupling reservation denied"},
+		{"grid_before_claims", &offGrid, func(i *couplingApproachPrepareInput) {
+			for r := range i.Simulation.vehicles[1].routeReleases {
+				i.Simulation.owners[r] = podResourceOwner("foreign")
+			}
+		}, "motion start is not representable on its distance grid: coupling reservation denied"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			input := couplingApproachFixture(t, false)
+			if test.prefixes != nil {
+				input = couplingApproachPrefixFixture(t, *test.prefixes)
+			}
 			test.change(&input)
 			if _, _, err := prepareCouplingApproach(input); err == nil || err.Error() != test.want {
 				t.Fatalf("refusal = %v, want %q", err, test.want)

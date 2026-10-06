@@ -109,12 +109,7 @@ func (c *couplingMotionContext) bindRemainingMember(index int, corridor Coupling
 		}
 	}
 	p.routes[index], p.axisOrigins[index] = blocks, blocks.lanes[first].start
-	assembly := p.network.sites[corridor.AssemblySiteID]
-	profile, _ := LookupCouplingProfile(p.network.contract)
-	p.ClosingStops[index] = p.axisOrigins[index] + assembly.FrontStagingMeters
-	if index == 1 {
-		p.ClosingStops[index] -= profile.CenterSpacingMeters
-	}
+	p.ClosingStops[index] = p.network.closingStop(index, p.axisOrigins[index], p.network.sites[corridor.AssemblySiteID])
 	if err := p.prepareExit(index, first+len(corridor.LaneIDs)-1, corridor); err != nil {
 		return err
 	}
@@ -286,10 +281,9 @@ func (c *couplingMotionContext) remainingLegPlans(profile CouplingProfile) [5]co
 	first, second := c.drainOrder[0], c.drainOrder[1]
 	middle := p.OpeningStops
 	middle[first] = c.terminal[first]
+	formation := couplingFormationLegs([2]float64{p.ClosingStops[0], c.rearStagingStop()}, p, profile)
 	return [5]couplingRemainingLeg{
-		{couplingClosing, [2]bool{false, true}, [2]float64{p.ClosingStops[0], c.rearStagingStop()}, p.ClosingStops, profile.ManeuverAcceleration, profile.ManeuverSpeed},
-		{couplingConnected, [2]bool{true, true}, p.ClosingStops, p.SplitStops, profile.Acceleration, math.Inf(1)},
-		{couplingOpening, [2]bool{true, false}, p.SplitStops, p.OpeningStops, profile.ManeuverAcceleration, profile.ManeuverSpeed},
+		formation[0], formation[1], formation[2],
 		{couplingDraining, [2]bool{first == 0, first == 1}, p.OpeningStops, middle, profile.Acceleration, math.Inf(1)},
 		{couplingDraining, [2]bool{second == 0, second == 1}, middle, c.terminal, profile.Acceleration, math.Inf(1)},
 	}

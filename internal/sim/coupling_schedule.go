@@ -25,17 +25,9 @@ func prepareCouplingSchedule(input couplingScheduleInput) (couplingSchedule, err
 		!finite(input.Quantum) || input.Quantum <= 0 || !finite(input.Acceleration) || input.Acceleration <= 0 || !finite(input.SpeedCap) || input.SpeedCap <= 0 {
 		return s, couplingDenied("invalid finite motion schedule")
 	}
-	_, exponent := math.Frexp(input.Quantum)
-	if math.Ldexp(1, exponent-1) != input.Quantum {
-		return s, couplingDenied("motion distance grid is not a power of two")
-	}
-	start, ok := couplingGridUnits(input.Start, input.Quantum)
-	if !ok {
-		return s, couplingDenied("motion start is not representable on its distance grid")
-	}
-	end, ok := couplingGridUnits(input.End, input.Quantum)
-	if !ok || end <= start {
-		return s, couplingDenied("motion target is not representable on its distance grid")
+	start, end, err := couplingGridSpan(input.Start, input.End, input.Quantum)
+	if err != nil {
+		return s, err
 	}
 	s.startUnits, s.distanceUnits = start, end-start
 	step := 60 * input.Quantum
@@ -80,6 +72,25 @@ func prepareCouplingSchedule(input couplingScheduleInput) (couplingSchedule, err
 		return s, couplingDenied("motion schedule area is too short")
 	}
 	return s, nil
+}
+
+// couplingGridSpan returns the grid units of the start and the end of a
+// motion. The grid must be a power of two, and both ends must be on it.
+// The approach runs it on the formation legs before adoption runs it.
+func couplingGridSpan(start, end, quantum float64) (uint64, uint64, error) {
+	_, exponent := math.Frexp(quantum)
+	if math.Ldexp(1, exponent-1) != quantum {
+		return 0, 0, couplingDenied("motion distance grid is not a power of two")
+	}
+	startUnits, ok := couplingGridUnits(start, quantum)
+	if !ok {
+		return 0, 0, couplingDenied("motion start is not representable on its distance grid")
+	}
+	endUnits, ok := couplingGridUnits(end, quantum)
+	if !ok || endUnits <= startUnits {
+		return 0, 0, couplingDenied("motion target is not representable on its distance grid")
+	}
+	return startUnits, endUnits, nil
 }
 
 func couplingGridUnits(distance, quantum float64) (uint64, bool) {

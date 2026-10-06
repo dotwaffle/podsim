@@ -44,7 +44,8 @@ type couplingApproachPrepareInput struct {
 // Preparation binds actual native members. It does not construct a stopped pose.
 // The checks run in a fixed order, because the first refusal is part of the
 // result: the input and corridor, the virtual pair, each member in turn
-// (front first), the staging profile, the rear claims, and the front frontier.
+// (front first), the staging profile, the formation leg grids, the rear
+// claims, the front frontier, and the approach schedule.
 func prepareCouplingApproach(input couplingApproachPrepareInput) (*couplingApproachContext, couplingApproachState, error) {
 	s, n := input.Simulation, input.Network
 	if !couplingApproachInputValid(input) {
@@ -62,13 +63,21 @@ func prepareCouplingApproach(input couplingApproachPrepareInput) (*couplingAppro
 	c := &couplingApproachContext{network: n, orderContract: s.orderContract, corridorID: input.CorridorID,
 		link: rear.link, tick: s.tick, waitTicks: int64(profile.PartnerWaitTicks)}
 	assembly := n.sites[corridor.AssemblySiteID]
+	formation := couplingReservationPlan{network: n}
 	for i, v := range []*vehicle{front, rear} {
-		if err := c.bindMember(s, i, v, front, corridor, assembly); err != nil {
+		if err := c.bindMember(s, i, v, front, corridor, assembly, &formation); err != nil {
 			return nil, couplingApproachState{}, err
 		}
 	}
 	if c.target-c.start != Clearance || front.blocks.end(front.reservedThrough) != c.start || c.waitTicks != 5*TicksPerSecond {
 		return nil, couplingApproachState{}, couplingDenied("approach target, original frontier, or wait profile changed")
+	}
+	// Adoption starts with the front at the target and the rear at the
+	// rear target, and it uses the same static stops. A leg that adoption
+	// cannot put on its grid refuses here, before the front moves.
+	legs := couplingFormationLegs([2]float64{c.target, c.rearTarget}, &formation, profile)
+	if err := checkCouplingLegGrids(legs[:]); err != nil {
+		return nil, couplingApproachState{}, err
 	}
 	if err := c.checkRearClaims(s, front, rear); err != nil {
 		return nil, couplingApproachState{}, err
@@ -114,9 +123,9 @@ func couplingApproachStraightLink(link platoonLink) bool {
 }
 
 // bindMember checks member i (0 is the front, 1 is the rear) and records
-// its binding. A member completes all its checks before the next member
-// starts.
-func (c *couplingApproachContext) bindMember(s *Simulation, i int, v, front *vehicle, corridor CouplingCorridor, assembly CouplingSite) error {
+// its binding and its formation stops in formation. A member completes all
+// its checks before the next member starts.
+func (c *couplingApproachContext) bindMember(s *Simulation, i int, v, front *vehicle, corridor CouplingCorridor, assembly CouplingSite, formation *couplingReservationPlan) error {
 	if !couplingApproachMemberReady(s, v, front, assembly.LaneID) {
 		return couplingDenied("approach member has incompatible occupancy or maneuver")
 	}
@@ -126,11 +135,12 @@ func (c *couplingApproachContext) bindMember(s *Simulation, i int, v, front *veh
 	if s.assigned(v.Pod.ID) {
 		return couplingDenied("approach member has a pending pickup")
 	}
-	blocks, first, err := c.memberRoute(s, i, v, corridor)
+	blocks, first, err := c.memberRoute(s, i, v, corridor, formation)
 	if err != nil {
 		return err
 	}
 	origin := blocks.lanes[first].start
+	formation.ClosingStops[i] = c.network.closingStop(i, origin, assembly)
 	if i == 0 {
 		err = c.stageFront(v, origin, assembly)
 	} else {
@@ -156,9 +166,10 @@ func couplingApproachMemberReady(s *Simulation, v, front *vehicle, laneID string
 
 // memberRoute checks the native route of member i. The route must be in
 // bounds, match the pose and grants, contain the full corridor, and have
-// an exit plan. It returns the route blocks and the route index of the
-// first corridor lane.
-func (c *couplingApproachContext) memberRoute(s *Simulation, i int, v *vehicle, corridor CouplingCorridor) (blockList, int, error) {
+// an exit plan, which sets the split and opening stops of the member in
+// formation. It returns the route blocks and the route index of the first
+// corridor lane.
+func (c *couplingApproachContext) memberRoute(s *Simulation, i int, v *vehicle, corridor CouplingCorridor, formation *couplingReservationPlan) (blockList, int, error) {
 	n := c.network
 	if len(v.Route) > newRouteLimits(s.network).pod {
 		return blockList{}, 0, couplingDenied("approach full route exceeds native route bound")
@@ -178,10 +189,9 @@ func (c *couplingApproachContext) memberRoute(s *Simulation, i int, v *vehicle, 
 	if err != nil {
 		return blockList{}, 0, err
 	}
-	static := couplingReservationPlan{network: n}
-	static.routes[i] = blocks
-	static.members[i] = couplingMemberSnapshot{Vehicle: v.Vehicle, Distance: v.distance, Destination: v.destination, DestinationStation: v.destinationStation}
-	if err := static.prepareExit(i, first+len(corridor.LaneIDs)-1, corridor); err != nil {
+	formation.routes[i] = blocks
+	formation.members[i] = couplingMemberSnapshot{Vehicle: v.Vehicle, Distance: v.distance, Destination: v.destination, DestinationStation: v.destinationStation}
+	if err := formation.prepareExit(i, first+len(corridor.LaneIDs)-1, corridor); err != nil {
 		return blockList{}, 0, err
 	}
 	return blocks, first, nil
