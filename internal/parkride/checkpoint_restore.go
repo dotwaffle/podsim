@@ -201,111 +201,168 @@ func validatePayload(p checkpointPayload) error {
 	return validateConservation(p)
 }
 func validateConservation(p checkpointPayload) error {
-	lots := make(map[string]int, len(p.Origin.Plan.Lots))
-	held := make([]int64, len(p.Ledger.Lots))
-	for i, lot := range p.Origin.Plan.Lots {
-		lots[lot.ID] = i
-	}
-	requests := make(map[int]sim.SavedRequest)
-	completed := 0
+	scan := newConservationScan(p.Origin.Plan, len(p.Ledger.Lots))
 	for i, record := range p.Ledger.Records {
-		itinerary := p.Origin.Plan.Itineraries[i]
-		if !slices.Contains([]string{"planned", "car-out", "at-hub", "outward-pod", "activity", "return-pod", "retrieval", "car-home", "terminal"}, record.Stage) || !slices.Contains([]string{"", "full-lot", "stranded", "recovered-refusal", "completed"}, record.Outcome) {
-			return errors.New("invalid checkpoint car stage or outcome")
-		}
-		if (record.Stage == "terminal") != (record.Outcome != "") {
-			return errors.New("checkpoint terminal stage mismatch")
-		}
-		lotIndex, ok := lots[itinerary.Lot]
-		if !ok {
-			return errors.New("checkpoint itinerary has no lot")
-		}
-		if record.Held {
-			held[lotIndex]++
-		}
-		from, to := p.Origin.Plan.Lots[lotIndex].Hub, itinerary.Destination
-		for _, leg := range []checkpointLeg{record.Outward, record.Return} {
-			if err := validateLeg(leg, p.Tick); err != nil {
-				return err
-			}
-			if leg.RequestID > 0 {
-				if _, exists := requests[leg.RequestID]; exists {
-					return errors.New("duplicate checkpoint request binding")
-				}
-				requests[leg.RequestID] = sim.SavedRequest{ID: leg.RequestID, From: from, To: to, PartySize: itinerary.PartySize, SharingConsent: itinerary.SharingConsent, Service: sim.OnDemandService, RequestedTick: leg.OfferedTick, BoardedTick: leg.BoardedTick, Completed: leg.AlightedTick >= 0}
-			}
-			if leg.AlightedTick >= 0 {
-				completed++
-			}
-			from, to = to, from
-		}
-		for _, tick := range []int64{record.CarArrivalTick, record.ReturnEligibleTick, record.CarReleaseTick, record.HomeArrivalTick, record.DoorToDoorTicks} {
-			if tick < -1 {
-				return errors.New("invalid checkpoint car tick")
-			}
-		}
-		if record.CarArrivalTick > p.Tick || record.CarReleaseTick > p.Tick || record.HomeArrivalTick > p.Tick {
-			return errors.New("checkpoint car event lies in the future")
-		}
-		if record.Outcome == "full-lot" && (record.Held || record.Outward.OfferedTick != -1 || record.Return.OfferedTick != -1) {
-			return errors.New("full-lot checkpoint contains an offer or held slot")
-		}
-		if record.Outcome == "stranded" && (!record.Held || record.Return.Reason != "queue-limit" || record.Outward.AlightedTick < 0) {
-			return errors.New("stranded checkpoint lost its held car")
-		}
-		if record.Outcome == "completed" && (record.Held || record.Outward.AlightedTick < 0 || record.Return.AlightedTick < 0 || record.HomeArrivalTick < 0 || record.DoorToDoorTicks < 0) {
-			return errors.New("completed checkpoint lacks whole journey receipts")
-		}
-		if record.Outcome == "recovered-refusal" && (record.Held || record.Outward.Reason != "queue-limit" || record.HomeArrivalTick < 0 || record.DoorToDoorTicks != -1) {
-			return errors.New("recovered refusal checkpoint lacks recovery receipts")
-		}
-		if record.CarReleaseTick >= 0 && (record.Held || record.CarReleaseTick < record.CarArrivalTick) {
-			return errors.New("checkpoint release contradicts held slot")
-		}
-	}
-	for i, lot := range p.Ledger.Lots {
-		if lot.Occupancy != held[i] || lot.Occupancy < 0 || lot.Occupancy > lot.Peak || lot.Peak > p.Origin.Plan.Lots[i].Capacity {
-			return errors.New("checkpoint held-slot conservation mismatch")
-		}
-	}
-	if p.Native.RequestID != len(requests) || p.Native.Completed != completed || p.Native.Boarded < 0 || p.Native.Boarded > p.Native.RequestID {
-		return errors.New("checkpoint native order counters mismatch")
-	}
-	retained := make(map[int]bool)
-	check := func(request sim.SavedRequest) error {
-		expected, ok := requests[request.ID]
-		if !ok || retained[request.ID] || request.ServiceID != "" || request.From != expected.From || request.To != expected.To || request.PartySize != expected.PartySize || request.SharingConsent != expected.SharingConsent || request.Service != expected.Service || request.RequestedTick != expected.RequestedTick || request.Completed != expected.Completed {
-			return errors.New("checkpoint immutable native request mismatch")
-		}
-		if expected.BoardedTick >= 0 && request.BoardedTick != expected.BoardedTick {
-			return errors.New("checkpoint boarding receipt mismatch")
-		}
-		retained[request.ID] = true
-		return nil
-	}
-	for _, trip := range p.Native.Waiting {
-		if trip.Boarded || trip.Request.Completed {
-			return errors.New("checkpoint contains historical requeue")
-		}
-		if err := check(trip.Request); err != nil {
+		if err := scan.addRecord(record, p.Origin.Plan.Itineraries[i], p.Tick); err != nil {
 			return err
 		}
 	}
-	for _, pod := range p.Native.Pods {
+	for i, lot := range p.Ledger.Lots {
+		if lot.Occupancy != scan.held[i] || lot.Occupancy < 0 || lot.Occupancy > lot.Peak || lot.Peak > p.Origin.Plan.Lots[i].Capacity {
+			return errors.New("checkpoint held-slot conservation mismatch")
+		}
+	}
+	if p.Native.RequestID != len(scan.requests) || p.Native.Completed != scan.completed || p.Native.Boarded < 0 || p.Native.Boarded > p.Native.RequestID {
+		return errors.New("checkpoint native order counters mismatch")
+	}
+	return scan.checkNative(p.Native)
+}
+
+// conservationScan holds what the ledger records give: the held slots of
+// each lot, the native request of each accepted leg, and the count of
+// completed legs. It then checks the native requests against them.
+type conservationScan struct {
+	plan      Plan
+	lots      map[string]int
+	held      []int64
+	requests  map[int]sim.SavedRequest
+	completed int
+	retained  map[int]bool
+}
+
+func newConservationScan(plan Plan, ledgerLots int) *conservationScan {
+	scan := &conservationScan{plan: plan, lots: make(map[string]int, len(plan.Lots)), held: make([]int64, ledgerLots), requests: make(map[int]sim.SavedRequest)}
+	for i, lot := range plan.Lots {
+		scan.lots[lot.ID] = i
+	}
+	return scan
+}
+func (scan *conservationScan) addRecord(record checkpointRecord, itinerary Itinerary, tick int64) error {
+	if !slices.Contains([]string{"planned", "car-out", "at-hub", "outward-pod", "activity", "return-pod", "retrieval", "car-home", "terminal"}, record.Stage) || !slices.Contains([]string{"", "full-lot", "stranded", "recovered-refusal", "completed"}, record.Outcome) {
+		return errors.New("invalid checkpoint car stage or outcome")
+	}
+	if (record.Stage == "terminal") != (record.Outcome != "") {
+		return errors.New("checkpoint terminal stage mismatch")
+	}
+	lotIndex, ok := scan.lots[itinerary.Lot]
+	if !ok {
+		return errors.New("checkpoint itinerary has no lot")
+	}
+	if record.Held {
+		scan.held[lotIndex]++
+	}
+	if err := scan.addLegs(record, itinerary, scan.plan.Lots[lotIndex].Hub, tick); err != nil {
+		return err
+	}
+	if err := validateCarTicks(record, tick); err != nil {
+		return err
+	}
+	if err := validateOutcome(record); err != nil {
+		return err
+	}
+	if record.CarReleaseTick >= 0 && (record.Held || record.CarReleaseTick < record.CarArrivalTick) {
+		return errors.New("checkpoint release contradicts held slot")
+	}
+	return nil
+}
+
+// addLegs checks the outward leg and then the return leg. It binds each
+// accepted leg to the native request that it expects. The outward leg goes
+// from the hub to the destination, and the return leg goes back.
+func (scan *conservationScan) addLegs(record checkpointRecord, itinerary Itinerary, hub string, tick int64) error {
+	from, to := hub, itinerary.Destination
+	for _, leg := range []checkpointLeg{record.Outward, record.Return} {
+		if err := validateLeg(leg, tick); err != nil {
+			return err
+		}
+		if leg.RequestID > 0 {
+			if _, exists := scan.requests[leg.RequestID]; exists {
+				return errors.New("duplicate checkpoint request binding")
+			}
+			scan.requests[leg.RequestID] = sim.SavedRequest{ID: leg.RequestID, From: from, To: to, PartySize: itinerary.PartySize, SharingConsent: itinerary.SharingConsent, Service: sim.OnDemandService, RequestedTick: leg.OfferedTick, BoardedTick: leg.BoardedTick, Completed: leg.AlightedTick >= 0}
+		}
+		if leg.AlightedTick >= 0 {
+			scan.completed++
+		}
+		from, to = to, from
+	}
+	return nil
+}
+func validateCarTicks(record checkpointRecord, tick int64) error {
+	for _, carTick := range []int64{record.CarArrivalTick, record.ReturnEligibleTick, record.CarReleaseTick, record.HomeArrivalTick, record.DoorToDoorTicks} {
+		if carTick < -1 {
+			return errors.New("invalid checkpoint car tick")
+		}
+	}
+	if record.CarArrivalTick > tick || record.CarReleaseTick > tick || record.HomeArrivalTick > tick {
+		return errors.New("checkpoint car event lies in the future")
+	}
+	return nil
+}
+
+// validateOutcome checks that a terminal record has the receipts of its
+// outcome.
+func validateOutcome(record checkpointRecord) error {
+	switch record.Outcome {
+	case "full-lot":
+		if record.Held || record.Outward.OfferedTick != -1 || record.Return.OfferedTick != -1 {
+			return errors.New("full-lot checkpoint contains an offer or held slot")
+		}
+	case "stranded":
+		if !record.Held || record.Return.Reason != "queue-limit" || record.Outward.AlightedTick < 0 {
+			return errors.New("stranded checkpoint lost its held car")
+		}
+	case "completed":
+		if record.Held || record.Outward.AlightedTick < 0 || record.Return.AlightedTick < 0 || record.HomeArrivalTick < 0 || record.DoorToDoorTicks < 0 {
+			return errors.New("completed checkpoint lacks whole journey receipts")
+		}
+	case "recovered-refusal":
+		if record.Held || record.Outward.Reason != "queue-limit" || record.HomeArrivalTick < 0 || record.DoorToDoorTicks != -1 {
+			return errors.New("recovered refusal checkpoint lacks recovery receipts")
+		}
+	}
+	return nil
+}
+
+// checkNative checks the waiting trips and then the pod riders. Each
+// native request must match the request that the ledger expects, once, and
+// every accepted party that has not completed must be in one of them.
+func (scan *conservationScan) checkNative(native sim.SavedState) error {
+	scan.retained = make(map[int]bool)
+	for _, trip := range native.Waiting {
+		if trip.Boarded || trip.Request.Completed {
+			return errors.New("checkpoint contains historical requeue")
+		}
+		if err := scan.retain(trip.Request); err != nil {
+			return err
+		}
+	}
+	for _, pod := range native.Pods {
 		if pod.Class == sim.ExpressClass {
 			return errors.New("checkpoint contains unsupported native class")
 		}
 		for _, rider := range pod.Riders {
-			if err := check(rider); err != nil {
+			if err := scan.retain(rider); err != nil {
 				return err
 			}
 		}
 	}
-	for id, request := range requests {
-		if !request.Completed && !retained[id] {
+	for id, request := range scan.requests {
+		if !request.Completed && !scan.retained[id] {
 			return errors.New("checkpoint lost an accepted party")
 		}
 	}
+	return nil
+}
+func (scan *conservationScan) retain(request sim.SavedRequest) error {
+	expected, ok := scan.requests[request.ID]
+	if !ok || scan.retained[request.ID] || request.ServiceID != "" || request.From != expected.From || request.To != expected.To || request.PartySize != expected.PartySize || request.SharingConsent != expected.SharingConsent || request.Service != expected.Service || request.RequestedTick != expected.RequestedTick || request.Completed != expected.Completed {
+		return errors.New("checkpoint immutable native request mismatch")
+	}
+	if expected.BoardedTick >= 0 && request.BoardedTick != expected.BoardedTick {
+		return errors.New("checkpoint boarding receipt mismatch")
+	}
+	scan.retained[request.ID] = true
 	return nil
 }
 func validateLeg(leg checkpointLeg, tick int64) error {
