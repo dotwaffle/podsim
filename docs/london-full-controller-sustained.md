@@ -91,10 +91,60 @@ Buffers and the combined policy improve those means, while still producing long 
 The [earlier qualification](dispatch-policy-qualification.md) also records mixed effects on stopped time and station queues.
 Numeric tail limits, broader demand coverage, and causal investigation remain necessary before any adoption recommendation.
 
+## Intermediate rates
+
+The 12, 13, and 14 per minute studies use the frozen `bab8559` source, Full geometry, AM Peak profile, and checks of this study.
+Arrivals run six hours, with up to one hour of recovery and a queue limit of 1,000,000.
+Sharing and redistribution are off, routing is free-flow, and virtual platoons have a four-pod limit.
+All arms pass the once-per-second checks and the physical restores at three and six hours, with a 60-second disabled-controller continuation.
+No additional equivalence pilot runs at these rates.
+The 12/min study covers seeds 1 to 4 with four policies and 4,319 requests per arm.
+The 13/min study covers seeds 1 and 2 with baseline and both, at 4.6-second intervals (about 13.043/min) and 4,695 requests.
+The 14/min study uses the same arms at 257-tick intervals (about 4.283 s) and 5,042 requests.
+Neither 13/min nor 14/min tests a controller alone.
+Cells below read completed / accepted; late backlog orders/min; mean wait in seconds.
+Late backlog change is outstanding orders from hour three to hour six, divided by 180 minutes.
+
+| 12/min seed | Baseline | Reassignment | Buffers | Both |
+| ---: | --- | --- | --- | --- |
+| 1 | 4,317 / 4,319; -0.006; 349.02 | 4,319 / 4,319; -0.044; 345.78 | 4,317 / 4,319; -0.056; 329.04 | 4,318 / 4,319; -0.067; 319.13 |
+| 2 | 4,315 / 4,319; +0.039; 363.25 | 4,315 / 4,319; +0.039; 355.04 | 4,315 / 4,319; +0.000; 333.05 | 4,315 / 4,319; +0.033; 331.51 |
+| 3 | 4,318 / 4,319; +0.083; 356.92 | 4,318 / 4,319; +0.094; 353.66 | 4,318 / 4,319; +0.089; 332.22 | 4,318 / 4,319; +0.094; 331.71 |
+| 4 | 4,319 / 4,319; -0.100; 358.31 | 4,319 / 4,319; -0.094; 357.73 | 4,319 / 4,319; -0.122; 334.66 | 4,319 / 4,319; -0.128; 331.96 |
+
+Every 12/min request boards before its run ends, so the means are exact waits, and zero to four parties remain aboard at the cap.
+Matched mean wait improves by 19.98 to 30.20 s with buffers, 0.58 to 8.21 s with reassignment, and 25.21 to 31.74 s with both.
+Every comparison has 83 to 119 requests that wait more than 300 s longer.
+The largest increase is request 1324 in seed 4 with reassignment alone: +5,404.73 s, from 481.02 to 5,885.75 s.
+It has no recorded direct reassignment, so this is an indirect effect of different fleet histories, not a swap prediction error.
+
+| 13/min seed | Baseline | Both | Mean improvement, s | Largest increase, s | Increases over 300 s |
+| ---: | --- | --- | ---: | ---: | ---: |
+| 1 | 4,693 / 4,695; -0.044; 371.58 | 4,694 / 4,695; -0.033; 349.55 | 22.03 | 1,638.73 | 136 |
+| 2 | 4,692 / 4,695; +0.011; 378.33 | 4,692 / 4,695; -0.028; 357.49 | 20.85 | 2,309.92 | 134 |
+
+At 13/min all requests board, and one to three parties remain aboard at the cap.
+
+| 14/min seed | Baseline | Both |
+| ---: | --- | --- |
+| 1 | 5,040 / 5,042; -0.050; 398.74 | 5,041 / 5,042; -0.044; 376.38 |
+| 2 | 5,017 / 5,042; +1.683; 843.09 | 5,041 / 5,042; -0.028; 397.56 |
+
+The 14/min means are wait-or-age: exact waits plus elapsed lower-bound ages for requests unboarded at the cap.
+At seed 2 the baseline ends with 3 pending and 22 aboard, and both ends with 0 and 1.
+Seed 1 compares all 5,042 exact waits: the mean improves by 22.36 s, 188 requests wait over 300 s longer, and the largest increase is 1,952.70 s.
+Seed 2 compares the 5,039 requests boarded in both arms: the mean improves by 444.29 s, with 94 increases over 300 s and a largest of 1,374.18 s.
+The three remaining baseline requests have censored ages, so their eventual waits are unknown.
+The pre-routing 14/min seed-2 baseline backlog of +1.683 orders/min is not attributed to the reciprocal resource wait of the 12/min seed-4 run in the [Stratford diagnosis](berth-route-preference.md).
+
+These late windows are nearly flat, unlike every tested arm at 15 and 20/min, except the 14/min seed-2 baseline.
+The 300-second counts are descriptive, not approved adoption limits.
+The studies make no sustainable-rate claim and do not cover other demand bands or longer arrival windows.
+Buffers and pickup reassignment remain off by default.
+
 ## Evidence
 
 The raw measurement data is in git history.
 This study does not replace the [finite-arrival capacity envelope](london-full-postfix.md).
-The [12/min extension](london-full-controller-rate12.md), [13/min comparison](london-full-controller-rate13.md), and [14/min comparison](london-full-controller-rate14.md) narrow the tested rate range.
-The separate [Stratford diagnosis](berth-route-preference.md) identifies an intermediate-berth routing obstruction in a 12/min seed-4 run.
+The [Stratford diagnosis](berth-route-preference.md) identifies an intermediate-berth routing obstruction in the 12/min seed-4 run.
 It does not establish the cause of backlogs in the other runs.

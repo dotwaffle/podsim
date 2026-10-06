@@ -34,8 +34,8 @@ A six-hour LondonFull screen finds growing backlogs at 15 and 20 requests per mi
 Experimental station buffers do not resolve that overload.
 The [combined controller study](docs/london-full-controller-sustained.md) compares 24 arms with matched requests and physical restores.
 Its late backlog stays nearly flat at 10/min, but grows under every policy at 15 and 20/min.
-The [12/min four-seed extension](docs/london-full-controller-rate12.md) and [13/min focused comparison](docs/london-full-controller-rate13.md) also retain nearly flat late backlogs.
-In the pre-routing [14/min study](docs/london-full-controller-rate14.md), baseline seed 2 grows a backlog, while the other tested seeds remain nearly flat.
+The same study's 12/min four-seed extension and 13/min focused comparison also retain nearly flat late backlogs.
+In the pre-routing 14/min study, baseline seed 2 grows a backlog, while the other tested seeds remain nearly flat.
 The [post-routing service study](docs/berth-routing-service.md) reduces that seed-2 growth from 1.683 to 0.139 orders per minute.
 It still has positive growth and three parties aboard at the observation cap.
 Individual wait regressions still prevent an adoption recommendation.

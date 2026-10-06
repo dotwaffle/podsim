@@ -120,14 +120,40 @@ A nearly stable late backlog does not imply that every passenger finishes within
 The 14/min and 15/min arms retain more unfinished requests and positive late backlog growth.
 This boundary screen neither raises a qualified rate nor replaces the full demand-band and seed matrix.
 
+## Pickup supply at the AM boundary
+
+A diagnostic replay of the six baselines above (AM13 to AM15, seeds 3 and 4) freezes source `e285e69` and matches the earlier `a54281e` results exactly.
+It samples fleet activity, pending requests, and berth ownership once per simulated second.
+Controllers, sharing, and positioning are off.
+Routing is free-flow, and virtual platoons allow four pods.
+
+| Rate/min | Seed | Idle available | Pickup travel | Passenger travel | Pending | Unassigned |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 13 | 3 | 35.81 | 87.14 | 158.30 | 90.73 | 3.59 |
+| 13 | 4 | 38.97 | 85.59 | 156.76 | 88.83 | 3.24 |
+| 14 | 3 | 0.02 | 141.32 | 144.56 | 343.97 | 202.64 |
+| 14 | 4 | 4.02 | 127.97 | 153.11 | 188.89 | 60.92 |
+| 15 | 3 | 0.00 | 143.39 | 142.56 | 641.04 | 497.65 |
+| 15 | 4 | 0.00 | 144.64 | 141.28 | 705.27 | 560.63 |
+
+The table gives mean pod and request counts from three hours to the end of arrivals.
+AM14 and AM15 exhaust the 287-pod fleet while pods keep moving: stopped traveling pods stay between 0.278 and 0.470, and no sampled berth reports a blocked loaded departure.
+Pending requests mostly wait for an available pod, so pickup supply and empty-trip use are the next capacity targets.
+This does not prove an optimal dispatch policy or that more pods would solve the workload.
+The AM13 seven-hour cutoff leaves one long passenger trip in each seed: request 4593 (pickup wait 2,286.70 s) and request 4675 (2,633.58 s), both from Chalfont & Latimer.
+Both keep moving at the cutoff, and sampled finishing holds explain little of their waits.
+An eight-hour allowance completes all 4,695 requests in each seed, ending at 26,688 and 26,952 simulated seconds.
+These two misses do not establish sustained overload at AM13.
+The strict finishing-wait rule reduces completions in all four AM14 and AM15 cells.
+The Acton buffer regression needs separate grant and release histories because it has substantial traffic queues.
+
 ## Evidence and limits
 
 The raw measurement data is in git history.
-The [capacity diagnosis](london-full-capacity-diagnosis.md) identifies exhausted pickup supply at AM14/AM15 and confirms extended AM13 recovery.
-The [buffer and speed diagnosis](station-buffer-speed.md) records longer berth claims and lower completions in slower Acton fixtures.
+The [pickup supply diagnosis](#pickup-supply-at-the-am-boundary) identifies exhausted pickup supply at AM14/AM15 and confirms extended AM13 recovery.
 The invalid initial `early` band inputs remain separate from the corrected Full Morning runs.
 
 The result field `wait_average_seconds` combines realized waits with elapsed pending ages and is a lower bound on eventual pickup wait.
 Pair fields distinguish that aggregate from actual matched boarded-request wait changes.
-Stopped and coupled request diagnostics use one-second samples, not complete resource-grant histories.
+Stopped and linked request diagnostics use one-second samples, not complete resource-grant histories.
 These selected one-seed controller cells do not establish broad adoption or diagnose every remaining individual tail.

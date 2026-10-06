@@ -1641,7 +1641,7 @@ They do not replace scenario qualification or authorize policy adoption.
 
 | Area | Records | Main limitation |
 | --- | --- | --- |
-| LondonFull | [Post-fix capacity](docs/london-full-postfix.md), [combined controllers](docs/london-full-controller-sustained.md), [12/min comparison](docs/london-full-controller-rate12.md), [13/min comparison](docs/london-full-controller-rate13.md), [14/min comparison](docs/london-full-controller-rate14.md), [mirrored layout](docs/station-mirror-load.md) | Finite recovery and growing backlogs do not establish sustainable capacity. |
+| LondonFull | [Post-fix capacity](docs/london-full-postfix.md), [combined controllers](docs/london-full-controller-sustained.md), [mirrored layout](docs/station-mirror-load.md) | Finite recovery and growing backlogs do not establish sustainable capacity. |
 | Pickup swaps and buffers | [Combined qualification](docs/dispatch-policy-qualification.md), [sustained comparison](docs/pickup-swap-sustained.md), [pickup tails](docs/pickup-postroute-tail.md), [berth-route preference](docs/berth-route-preference.md), [post-routing service](docs/berth-routing-service.md) | Better averages coexist with slower individual requests. Both policies stay off by default. New routes avoid intermediate berths when a compatible path exists. |
 | Platoon queues | [Qualification follow-up](docs/platoon-followup.md), [Paddington leader progress](docs/paddington-leader-progress.md), [Paddington movement](docs/paddington-motion.md), [clearance samples](docs/paddington-clearance.md), [selected resource histories](docs/paddington-resource-history.md), [fixed station-entry links](docs/station-entry-platoons.md) | Paddington traces do not justify a clearance change. Fixed entry links are experimental and need station buffers. |
 | Terminus throughput | [Burst measurements](docs/terminus-flow.md) | Buffers increase waits in the selected outbound Central bursts. Geometry and supply causes remain diagnostic work. |
@@ -1655,8 +1655,7 @@ Current-source follow-ups retain their own fixtures and limits:
 - [Policy failures](docs/policy-failures.md) retain selected platoon, sharing, and positioning failures after the routing fixes.
 - [Policy fleet histories](docs/policy-fleet-history.md) separate earlier pickup changes, percentile ranks, and same-request delays.
 - [Paddington position trials](docs/paddington-layout.md) improve selected full-restoration outcomes, but reject both partial layouts on safety.
-- [Controller and capacity trials](docs/controller-capacity.md) retain Acton overload, individual regressions, and unfinished six-hour AM baselines.
-- [Capacity diagnosis](docs/london-full-capacity-diagnosis.md) confirms extended AM13 recovery and exhausted AM14/AM15 pickup supply.
+- [Controller and capacity trials](docs/controller-capacity.md) retain Acton overload, individual regressions, unfinished six-hour AM baselines, and exhausted AM14/AM15 pickup supply.
 - [Strict finishing waits](docs/finishing-wait-capacity.md) reduce completions in four matched capacity cells.
 - [Buffer claims and station speed](docs/station-buffer-speed.md) retain the Acton buffer loss and negative lower-speed trials.
 - [Reserve and sharing trials](docs/acton-reserve-sharing.md) compare initial empty supply and pooling without establishing sustained capacity.

@@ -5,7 +5,7 @@ Only the exact origin and destination berth nodes can appear on a preferred rout
 If no preferred path exists, that destination keeps its unrestricted shortest path.
 The public `Network.Route` method retains its original unrestricted behavior.
 
-A Stratford diagnosis of request 1324 in the [12/min seed-4 comparison](london-full-controller-rate12.md) captured two empty pods waiting for each other at an intermediate berth.
+A Stratford diagnosis of request 1324 in the [12/min seed-4 comparison](london-full-controller-sustained.md#intermediate-rates) captured two empty pods waiting for each other at an intermediate berth.
 An arriving pod held the berth ahead of a passing pod, which blocked that arrival.
 A separate diversion issue allowed a released passenger-station pod to leave a committed arrival chain.
 The fix protects passenger arrival chains with the existing parking commitment rule.
