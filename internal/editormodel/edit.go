@@ -53,47 +53,65 @@ func editProject(draft any, raw jsontext.Value) (projectChange, error) {
 }
 
 func proposeProjectEdit(draft any, command editCommand) (projectChange, error) {
-	if command.Field == "geometry" {
-		if len(command.Target) != 0 {
-			return projectChange{}, errors.New("a geometry edit does not accept a target")
-		}
-		return editGeometry(draft, command.Value)
+	switch command.Field {
+	case "geometry":
+		return proposeDocumentEdit(draft, command, "a geometry edit does not accept a target", editGeometry)
+	case "map":
+		return proposeDocumentEdit(draft, command, "a map edit does not accept a target", editMap)
+	case "background":
+		return proposeDocumentEdit(draft, command, "a background edit does not accept a target", editBackground)
+	case "coupling":
+		return proposeDocumentEdit(draft, command, "a coupling edit does not accept a target", editCoupling)
+	case "railArrival":
+		return proposeDocumentEdit(draft, command, "a rail edit does not accept a target", editRailArrival)
+	case "railDeparture":
+		return proposeDocumentEdit(draft, command, "a rail edit does not accept a target", editRailDeparture)
 	}
-	if command.Field == "map" {
-		if len(command.Target) != 0 {
-			return projectChange{}, errors.New("a map edit does not accept a target")
-		}
-		return editMap(draft, command.Value)
+	value, err := scalarEditValue(command)
+	if err != nil {
+		return projectChange{}, err
 	}
-	if command.Field == "background" {
-		if len(command.Target) != 0 {
-			return projectChange{}, errors.New("a background edit does not accept a target")
-		}
-		return editBackground(draft, command.Value)
+	return proposeScalarEdit(draft, command, value)
+}
+
+// proposeDocumentEdit proposes an edit whose value is a JSON document.
+// Such an edit does not accept a target, and refuses one with refusal.
+func proposeDocumentEdit(draft any, command editCommand, refusal string, edit func(any, jsontext.Value) (projectChange, error)) (projectChange, error) {
+	if len(command.Target) != 0 {
+		return projectChange{}, errors.New(refusal)
 	}
-	if command.Field == "coupling" {
-		if len(command.Target) != 0 {
-			return projectChange{}, errors.New("a coupling edit does not accept a target")
-		}
-		return editCoupling(draft, command.Value)
-	}
-	if command.Field == "railArrival" || command.Field == "railDeparture" {
-		if len(command.Target) != 0 {
-			return projectChange{}, errors.New("a rail edit does not accept a target")
-		}
-		return editRail(draft, command.Field == "railDeparture", command.Value)
-	}
+	return edit(draft, command.Value)
+}
+
+func editRailArrival(draft any, raw jsontext.Value) (projectChange, error) {
+	return editRail(draft, false, raw)
+}
+
+func editRailDeparture(draft any, raw jsontext.Value) (projectChange, error) {
+	return editRail(draft, true, raw)
+}
+
+// scalarEditValue checks that command sets a field to a scalar value, and
+// decodes the value. Only a fleet edit accepts a target.
+func scalarEditValue(command editCommand) (any, error) {
 	if command.Field == "" || len(command.Value) == 0 || command.Value.Kind() == 'n' || command.Value.Kind() == '{' || command.Value.Kind() == '[' {
-		return projectChange{}, errors.New("a project edit needs a field and a scalar value")
+		return nil, errors.New("a project edit needs a field and a scalar value")
 	}
 	if len(command.Target) != 0 && command.Field != "fleetCount" {
-		return projectChange{}, errors.New("the editor field does not accept a target")
+		return nil, errors.New("the editor field does not accept a target")
 	}
 	var value any
 	if err := json.Unmarshal(command.Value, &value); err != nil {
-		return projectChange{}, fmt.Errorf("decode editor value: %w", err)
+		return nil, fmt.Errorf("decode editor value: %w", err)
 	}
+	return value, nil
+}
+
+// proposeScalarEdit proposes the edit of a field with a scalar value.
+// Normalization and the conversion to trains propose their own change.
+func proposeScalarEdit(draft any, command editCommand, value any) (projectChange, error) {
 	change := projectChange{Patch: make(map[string]any)}
+	var err error
 	switch command.Field {
 	case "normalize":
 		if value != true {
@@ -101,123 +119,173 @@ func proposeProjectEdit(draft any, command editCommand) (projectChange, error) {
 		}
 		return normalizeProject(draft)
 	case "fleetCount":
-		if command.Target.Kind() != '"' {
-			return projectChange{}, errors.New("a fleet edit needs a station ID string")
-		}
-		var stationID string
-		if err := json.Unmarshal(command.Target, &stationID); err != nil {
-			return projectChange{}, fmt.Errorf("decode fleet station ID: %w", err)
-		}
-		if err := change.fleetCount(draft, stationID, value); err != nil {
-			return projectChange{}, err
-		}
+		err = change.fleetCountAt(draft, command.Target, value)
 	case "dailyStartTime":
-		minute, err := editClock(value)
-		if err != nil {
-			return projectChange{}, err
-		}
-		if err := change.demand(draft, "dailyStartMinute", minute); err != nil {
-			return projectChange{}, err
-		}
+		err = change.dailyStartTime(draft, value)
 	case "name":
-		name, ok := value.(string)
-		if !ok {
-			return projectChange{}, errors.New("the project name must be text")
-		}
-		change.set(draft, "name", trimEditorSpace(name))
+		err = change.name(draft, value)
 	case "demandEnabled", "redistribution", "stationBuffers", "pickupReassignment":
-		flag, ok := value.(bool)
-		if !ok {
-			return projectChange{}, errors.New("an operating flag must be true or false")
-		}
-		if command.Field == "demandEnabled" {
-			if err := change.demand(draft, "enabled", flag); err != nil {
-				return projectChange{}, err
-			}
-		} else {
-			change.set(draft, command.Field, flag)
-		}
-		previous := member(draft, command.Field)
-		if command.Field == "demandEnabled" {
-			previous = member(member(draft, "demand"), "enabled")
-		}
-		if _, valid := previous.(bool); valid {
-			change.Flag = command.Field
-		}
-		if command.Field == "stationBuffers" && has(draft, "stationQueueSpacing") {
-			change.Flag = ""
-		}
+		err = change.operatingFlag(draft, command.Field, value)
 	case "demandRate", "demandSeed":
-		x, err := editNumber(value)
-		if err != nil {
-			return projectChange{}, err
-		}
-		key := "perMinute"
-		x = math.Floor(x)
-		if command.Field == "demandSeed" {
-			key, x = "seed", max(0, x)
-		}
-		if err := change.demand(draft, key, x); err != nil {
-			return projectChange{}, err
-		}
+		err = change.demandNumber(draft, command.Field, value)
 	case "demandDestination", "demandBand", "demandProfile", "demandPattern":
-		if err := change.demandSelection(draft, command.Field, value); err != nil {
-			return projectChange{}, err
-		}
+		err = change.demandSelection(draft, command.Field, value)
 	case "sharedRidePartyLimit", "sharedRideMaxStops":
-		limit, fallback := float64(sim.MaxSharedRideParties), 1.0
-		if command.Field == "sharedRideMaxStops" {
-			limit, fallback = sim.MaxSharedRideStops, 3
-		}
-		x, err := editNumber(value)
-		if err != nil || x == 0 {
-			x = fallback
-		}
-		change.set(draft, command.Field, max(1, min(limit, math.Floor(x))))
+		change.sharingLimit(draft, command.Field, value)
 	case "sharedRideMode", "sharedRideJoin":
-		accepted, fallback := []string{"drop-offs", "destination"}, "drop-offs"
-		if command.Field == "sharedRideJoin" {
-			accepted, fallback = []string{"unassigned", "reassign-existing"}, "unassigned"
-		}
-		setting, ok := value.(string)
-		if !ok {
-			return projectChange{}, errors.New("a sharing policy must be text")
-		}
-		if !slices.Contains(accepted, setting) {
-			setting = fallback
-		}
-		change.set(draft, command.Field, setting)
+		err = change.sharingPolicy(draft, command.Field, value)
 	case "stationQueueSpacing":
-		setting, ok := value.(string)
-		if !ok || !project.ValidStationQueueSpacing(sim.StationQueueSpacing(setting)) {
-			return projectChange{}, errors.New("station queue spacing must be ordinary or compact-v1")
-		}
-		change.set(draft, "stationQueueSpacing", setting)
+		err = change.stationQueueSpacing(draft, value)
 	case "couplingEnabled":
-		enabled, ok := value.(bool)
-		if !ok {
-			return projectChange{}, errors.New("the train setting must be true or false")
-		}
-		if !couplingMarked(draft) {
-			return projectChange{}, errors.New("the train setting needs couplingContract compact-pair-v1")
-		}
-		// Off only stops new trains. The marker, sites, and corridors stay.
-		change.set(draft, "couplingEnabled", enabled)
+		err = change.couplingEnabled(draft, value)
 	case "convertToTrains":
 		if value != true {
 			return projectChange{}, errors.New("the conversion to trains requires a true value")
 		}
 		return convertToTrains(draft)
 	case "platoonLimit":
-		x, err := editNumber(value)
-		if err != nil || !draftPlatoonLimit(x) {
-			x = 0
-		}
-		change.set(draft, command.Field, x)
+		change.platoonLimit(draft, command.Field, value)
 	default:
 		return projectChange{}, errors.New("unknown editor field")
 	}
+	if err != nil {
+		return projectChange{}, err
+	}
 	return change, nil
+}
+
+// fleetCountAt sets the fleet count of the station that target names.
+func (c *projectChange) fleetCountAt(draft any, target jsontext.Value, value any) error {
+	if target.Kind() != '"' {
+		return errors.New("a fleet edit needs a station ID string")
+	}
+	var stationID string
+	if err := json.Unmarshal(target, &stationID); err != nil {
+		return fmt.Errorf("decode fleet station ID: %w", err)
+	}
+	return c.fleetCount(draft, stationID, value)
+}
+
+func (c *projectChange) dailyStartTime(draft, value any) error {
+	minute, err := editClock(value)
+	if err != nil {
+		return err
+	}
+	return c.demand(draft, "dailyStartMinute", minute)
+}
+
+func (c *projectChange) name(draft, value any) error {
+	name, ok := value.(string)
+	if !ok {
+		return errors.New("the project name must be text")
+	}
+	c.set(draft, "name", trimEditorSpace(name))
+	return nil
+}
+
+// operatingFlag sets a Boolean operating flag. The change names the flag
+// when the draft already has a Boolean value for it. A station buffer
+// edit does not, when the draft has a station queue spacing.
+func (c *projectChange) operatingFlag(draft any, field string, value any) error {
+	flag, ok := value.(bool)
+	if !ok {
+		return errors.New("an operating flag must be true or false")
+	}
+	previous := member(draft, field)
+	if field == "demandEnabled" {
+		if err := c.demand(draft, "enabled", flag); err != nil {
+			return err
+		}
+		previous = member(member(draft, "demand"), "enabled")
+	} else {
+		c.set(draft, field, flag)
+	}
+	if _, valid := previous.(bool); valid {
+		c.Flag = field
+	}
+	if field == "stationBuffers" && has(draft, "stationQueueSpacing") {
+		c.Flag = ""
+	}
+	return nil
+}
+
+// demandNumber sets the demand rate or the demand seed to a whole number.
+// The seed is not negative.
+func (c *projectChange) demandNumber(draft any, field string, value any) error {
+	x, err := editNumber(value)
+	if err != nil {
+		return err
+	}
+	key := "perMinute"
+	x = math.Floor(x)
+	if field == "demandSeed" {
+		key, x = "seed", max(0, x)
+	}
+	return c.demand(draft, key, x)
+}
+
+// sharingLimit sets the party limit or the stop limit, clamped to its
+// range. A number that is not valid, or zero, sets the default.
+func (c *projectChange) sharingLimit(draft any, field string, value any) {
+	limit, fallback := float64(sim.MaxSharedRideParties), 1.0
+	if field == "sharedRideMaxStops" {
+		limit, fallback = sim.MaxSharedRideStops, 3
+	}
+	x, err := editNumber(value)
+	if err != nil || x == 0 {
+		x = fallback
+	}
+	c.set(draft, field, max(1, min(limit, math.Floor(x))))
+}
+
+// sharingPolicy sets the sharing mode or the join policy. A name that is
+// not known sets the default.
+func (c *projectChange) sharingPolicy(draft any, field string, value any) error {
+	accepted, fallback := []string{"drop-offs", "destination"}, "drop-offs"
+	if field == "sharedRideJoin" {
+		accepted, fallback = []string{"unassigned", "reassign-existing"}, "unassigned"
+	}
+	setting, ok := value.(string)
+	if !ok {
+		return errors.New("a sharing policy must be text")
+	}
+	if !slices.Contains(accepted, setting) {
+		setting = fallback
+	}
+	c.set(draft, field, setting)
+	return nil
+}
+
+func (c *projectChange) stationQueueSpacing(draft, value any) error {
+	setting, ok := value.(string)
+	if !ok || !project.ValidStationQueueSpacing(sim.StationQueueSpacing(setting)) {
+		return errors.New("station queue spacing must be ordinary or compact-v1")
+	}
+	c.set(draft, "stationQueueSpacing", setting)
+	return nil
+}
+
+func (c *projectChange) couplingEnabled(draft, value any) error {
+	enabled, ok := value.(bool)
+	if !ok {
+		return errors.New("the train setting must be true or false")
+	}
+	if !couplingMarked(draft) {
+		return errors.New("the train setting needs couplingContract compact-pair-v1")
+	}
+	// Off only stops new trains. The marker, sites, and corridors stay.
+	c.set(draft, "couplingEnabled", enabled)
+	return nil
+}
+
+// platoonLimit sets the platoon limit. A limit that is not valid sets
+// zero.
+func (c *projectChange) platoonLimit(draft any, field string, value any) {
+	x, err := editNumber(value)
+	if err != nil || !draftPlatoonLimit(x) {
+		x = 0
+	}
+	c.set(draft, field, x)
 }
 
 func editClock(value any) (float64, error) {
