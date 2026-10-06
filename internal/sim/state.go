@@ -64,6 +64,11 @@ type SavedState struct {
 	// fault marker. It is nil when no record is active and each counter is
 	// 0.
 	Faults *SavedFaults `json:"faults,omitzero"`
+	// Emergencies holds the emergency records and the emergency counters.
+	// It needs the emergency marker. It is nil when no record is active
+	// and each counter is 0. No session save writes it yet: section 11.3
+	// of the incident emergency contract adds its member.
+	Emergencies *SavedEmergencies `json:"-"`
 	// Demo is nil when the traffic demo does not run.
 	Demo      *SavedDemo `json:"demo,omitzero"`
 	DemoError string     `json:"demoError,omitempty"`
@@ -231,8 +236,11 @@ type RestoreStateInput struct {
 	// FaultContract is the fault marker of the saved project, and Faults
 	// its fault settings. The restored simulation has the fault operations
 	// on with the marker.
-	FaultContract     FaultContract `json:",omitzero"`
-	Faults            FaultSettings `json:",omitzero"`
+	FaultContract FaultContract `json:",omitzero"`
+	Faults        FaultSettings `json:",omitzero"`
+	// EmergencyContract is the emergency marker of the saved project. The
+	// restored simulation has the emergency operations on with the marker.
+	EmergencyContract EmergencyContract `json:",omitzero"`
 	CouplingEnabled   bool
 	CouplingSites     []CouplingSite
 	CouplingCorridors []CouplingCorridor
@@ -268,6 +276,9 @@ type RestoreResult struct {
 	Dropped []int
 	// DroppedFaults counts the fault records that the logical tier ended.
 	DroppedFaults int
+	// DroppedEmergencies counts the emergency records that the logical
+	// tier ended.
+	DroppedEmergencies int
 	// DroppedParties counts the dropped requests. Each request is one
 	// party.
 	DroppedParties int
@@ -381,6 +392,9 @@ func restoreState(input RestoreStateInput, newFleet func() (*Simulation, error))
 	if err := checkSavedFaults(input); err != nil {
 		return nil, RestoreResult{}, err
 	}
+	if err := checkSavedEmergencies(input); err != nil {
+		return nil, RestoreResult{}, err
+	}
 	registry, serviceErr := validatedExpressServices(input.Network, newRouteGraph(input.Network), input.ExpressServices)
 	if serviceErr != nil {
 		return nil, RestoreResult{}, serviceErr
@@ -473,7 +487,7 @@ func (s *Simulation) ExportState() SavedState {
 		Journeys: s.journeys, TotalJourneyTicks: s.totalJourneyTicks, MaxJourneyTicks: s.maxJourneyTicks,
 		RiderDistanceMeters: s.riderDistanceMeters, DirectDistanceMeters: s.directDistanceMeters, MaxDetourRatio: s.maxDetourRatio,
 		Interrupted: s.interrupted, InterruptedPassengers: s.interruptedPassengers,
-		IncidentSerial: s.incidentSerial, Faults: s.exportFaults(), DemoError: s.demoError, Pods: make([]SavedPod, len(s.vehicles)),
+		IncidentSerial: s.incidentSerial, Faults: s.exportFaults(), Emergencies: s.exportEmergencies(), DemoError: s.demoError, Pods: make([]SavedPod, len(s.vehicles)),
 	}
 	if s.demo != nil {
 		state.Demo = &SavedDemo{SecondSent: s.demo.secondSent, FollowupsSent: s.demo.followupsSent}

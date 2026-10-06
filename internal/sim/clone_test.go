@@ -243,10 +243,10 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"faultsOn": persistSession, "faultSettings": persistSession, "faults": persistSave, "faultCounters": persistSave,
 		// The release boundary of each tick empties faultReleased.
 		"faultReleased": persistReset,
-		// The saved state has no emergency member until the formats of
-		// the incident emergency contract (section 11) add the records and
-		// the counters, and the session sets the switch again.
-		"emergenciesOn": persistSession, "emergencies": persistReset, "emergencyCounters": persistReset,
+		// SavedState has the emergency records and counters, and
+		// RestoreState sets the switch from the emergency marker that the
+		// session gives again.
+		"emergenciesOn": persistSession, "emergencies": persistSave, "emergencyCounters": persistSave,
 		"predictiveQueues": persistUnsupported, "predictivePodQueues": persistUnsupported, "predictiveQueueTick": persistUnsupported,
 		"routingPolicy": persistUnsupported, "congestionRouteCosts": persistUnsupported,
 		"congestionRoutes": persistUnsupported, "nextCongestionRouteRefresh": persistUnsupported,

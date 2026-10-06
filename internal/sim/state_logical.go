@@ -24,7 +24,10 @@ type logicalTrip struct {
 // queue as one trip, and its boarding stays recorded. Each pod keeps its
 // service holds and has no operational purpose. With the fault marker,
 // every fault record ends, the fault counters stay, and each pod loses
-// the fault hold (incident suspension contract, section 12.7).
+// the fault hold (incident suspension contract, section 12.7). With the
+// emergency marker, every emergency record ends, the emergency counters
+// stay, and each pod loses the emergency hold (incident emergency
+// contract, section 10.7).
 // The queued trips lose their pod bindings. As after Reset,
 // the traffic demo stops and its parked pods are gone. restoreLogical fails
 // when the saved state is not valid or when the result fails a check.
@@ -44,6 +47,7 @@ func restoreLogical(input RestoreStateInput, newFleet func() (*Simulation, error
 	if err := s.setFaultContract(input); err != nil {
 		return nil, RestoreResult{}, err
 	}
+	s.setEmergencyContract(input)
 	if err := s.checkSavedClasses(state); err != nil {
 		return nil, RestoreResult{}, err
 	}
@@ -84,8 +88,12 @@ func restoreLogical(input RestoreStateInput, newFleet func() (*Simulation, error
 		trips = append(trips, logicalTrip{trip: s.unboundTrip(saved)})
 	}
 	dropped := s.dropSavedFaults(state.Faults)
+	droppedEmergencies, dropErr := s.dropSavedEmergencies(state.Emergencies)
+	if dropErr != nil {
+		return nil, RestoreResult{}, dropErr
+	}
 	result := s.queueTrips(state, trips)
-	result.DroppedFaults = dropped
+	result.DroppedFaults, result.DroppedEmergencies = dropped, droppedEmergencies
 	result.Tier, result.Unaccounted = RestoreLogical, unaccounted
 	result.LogicalCompleted = completed
 	slices.Sort(interrupted)

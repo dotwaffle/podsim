@@ -94,6 +94,7 @@ func restorePhysical(input RestoreStateInput, newFleet func() (*Simulation, erro
 	if err := s.setFaultContract(input); err != nil {
 		return nil, RestoreResult{}, err
 	}
+	s.setEmergencyContract(input)
 	if err := s.checkSavedClasses(input.State); err != nil {
 		return nil, RestoreResult{}, err
 	}
@@ -156,6 +157,9 @@ func restorePhysical(input RestoreStateInput, newFleet func() (*Simulation, erro
 		return nil, RestoreResult{}, err
 	}
 	if err := r.restoreFaultedPods(); err != nil {
+		return nil, RestoreResult{}, err
+	}
+	if err := r.restoreEmergencies(); err != nil {
 		return nil, RestoreResult{}, err
 	}
 	for index, demoted := range r.demoted {
