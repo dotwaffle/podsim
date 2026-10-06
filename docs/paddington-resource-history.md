@@ -1,45 +1,109 @@
-# Paddington selected resource histories
+# Paddington reservation and resource histories
 
-All 128 histories reach their original requested frontier within 24 simulated seconds after selection.
-The histories show resource release, ownership transfer, and later admission without a route or certificate change.
-They give no basis for weakening clearance or the predecessor-coverage guard.
+Mirrored Paddington geometry produces many more rejected admission attempts in two Central Early schedules.
+Most added platoon-guard rejections occur because the predecessor has not reserved the requested span.
+Downstream owners usually keep moving, and all 128 selected histories reach their original requested frontier within 24 simulated seconds after selection.
+No route or certificate change is involved.
+No production rule changes, and the results give no basis for weakening clearance or the predecessor-coverage guard.
+The [position trials](paddington-layout.md) remain the causal evidence for the geometry effect.
 
-## Method and validation
+## Common setup
 
-This extends the [paired clearance samples](paddington-clearance.md) through the follower's next successful frontier grant.
-It retains historical source `9cb066f`, before the later berth routing fixes.
-The four longer runs use earlier or mirrored Central geometry, seeds 1 and 2, and virtual platoons.
-Each offers ten requests per minute for six hours, with a seven-hour cap.
-Buffers, reassignment, sharing, and redistribution remain off.
+Each study replays earlier and mirrored Central geometry with seeds 1 and 2.
+Each run schedules 3,599 requests over six hours at 10 requests per minute, with a seven-hour cap.
+Virtual platoons have a four-pod limit.
+Buffers, reassignment, sharing, and redistribution are off, and routing is free-flow.
+Each stage uses a test-only observer on its runtime source, with no production grant, project, saved-state, wire, or default change.
+Short pilots and every full run match the earlier results, ordered schedules, and earlier measurements exactly.
+Safety, speed, and request accounting pass once per simulated second, with no skipped request.
+Independent review checks each observer and its limits.
+Counts are repeated attempts or weighted samples, not unique pods, complete waits, or passenger delay.
 
-Two short pilots match production result aggregates exactly.
-All six runs reproduce their earlier results, ordered schedules, progress, movement, and clearance measurements exactly.
-Full-run safety, speed, and request accounting pass once per simulated second.
-These histories add no physical-restore qualification.
+## Reservation diagnosis (source `bd2bd7c`)
 
-For each run, the observer selects the first 32 distinct stopped follower/route pairs from the earlier every-sixth-tick rejection probe.
-Each history records the original requested span, cell bounds, resource identities, release thresholds, positions, and certificate fields.
-Resource identity includes kind, lane or resource ID, and cell index.
-The release hook records the actor and resulting owner immediately after `releaseRouteResource` changes ownership.
-Other ownership changes are sampled at the follower's admissions and after movement.
-Positions are sampled once per second.
+The observer covers all Paddington station lanes and their incoming mainline lanes, but not every upstream reservation that reaches Paddington.
+The first failed condition follows the production short-circuit order: draining link, then span past the certificate, then predecessor frontier.
+A predecessor-frontier failure means the predecessor has not reserved the last block of the span, and the span stays inside the follower's certificate.
 
-Each history ends when the follower reserves its original requested frontier or changes its route.
-Limits are 300 simulated seconds and 6,000 events per history, with explicit censoring.
-No selected history reaches a limit or remains unfinished.
-The observer does not follow every resource until it becomes free.
-A retained resource can outlive the successful frontier grant.
+| Seed | Geometry | Shared guard attempts | Ordinary resource denials | Successful grants | Predecessor frontier | Past certificate | Draining |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | Old | 1,984,580 | 2,275,020 | 45,649 | 906,552 | 447,382 | 630,646 |
+| 1 | Current | 10,073,936 | 5,757,730 | 42,515 | 8,228,945 | 983,798 | 861,193 |
+| 2 | Old | 1,930,803 | 2,138,578 | 44,141 | 873,684 | 433,812 | 623,307 |
+| 2 | Current | 8,061,944 | 4,766,151 | 41,771 | 6,285,076 | 1,117,531 | 659,337 |
 
-Purity tests preserve physical state, ownership, exported state, and lookup cursors.
-Regressions check transfer events, final-grant ownership, censoring, idle-route snapshots, and distinct track-cell identities.
-Independent review checks the observer and its interpretation limits.
-An earlier export omitted cell indexes and was superseded before recording these conclusions.
-The corrected observer reran every pilot and full comparison.
+Mirrored geometry increases shared-guard attempts by factors of 5.08 and 4.18, and predecessor-frontier failures by factors of 9.08 and 7.19.
+Those failures are 81.7% and 78.0% of mirrored shared-guard attempts, and no other first-failure category appears.
+Assigned pickup pods contribute about 98.8% and 98.5% of mirrored denied attempts.
+The main location is `london-link-067-ab-2`, toward Paddington, where ordinary track contention also rises.
+The study does not explain why the predecessor frontier advances less readily.
+The guard stops a follower from taking free cells its predecessor still needs, and removing it can let the follower block its own predecessor.
 
-## Selection-to-grant intervals and releases
+## Leader progress (source `bbcb9e8`)
 
-Pilot histories repeat seed 1's early selections and are not additional independent cases.
-The table includes only the four longer runs.
+This stage adds platoons-off arms and follows each rejected predecessor's decision in the same tick.
+A stationary rejection tick has follower speed below 0.01 m/s and lasts one sixtieth of a simulated second.
+An episode ends when the follower, predecessor, or rejected frontier changes, so episode lengths are not total delay.
+
+| Seed | Geometry | Rejection attempts | Stationary pod-seconds | Episodes | Longest, s |
+| --- | --- | ---: | ---: | ---: | ---: |
+| 1 | Earlier | 906,552 | 7,448.52 | 9,748 | 18.57 |
+| 1 | Mirrored | 8,228,945 | 85,622.45 | 71,766 | 23.78 |
+| 2 | Earlier | 873,684 | 7,165.35 | 9,463 | 18.58 |
+| 2 | Mirrored | 6,285,076 | 65,025.05 | 55,800 | 24.23 |
+
+Stationary pod-seconds increase by factors of 11.50 and 9.08, through more episodes as well as longer ones.
+In mirrored seed 1, 4,116,661 predecessor decisions deny ordinary track ownership on `london-link-067-ab-2` and 4,111,675 hit another shared guard.
+Seed 2 records 3,127,158 and 3,157,432.
+Mirrored predecessors request at most 30 meters, and the ordinary cell on that lane measures 28.56 meters, so oversized groups do not explain them.
+About 99.5% of owner chains stop at a pod whose latest decision is an earlier successful grant, and none reaches the cycle or depth limit.
+Completions with virtual platoons versus platoons off:
+
+| Geometry | Seed 1 virtual | Seed 1 off | Seed 2 virtual | Seed 2 off |
+| --- | ---: | ---: | ---: | ---: |
+| Earlier | 2,893 | 2,638 | 2,896 | 2,705 |
+| Mirrored | 2,660 | 2,646 | 2,760 | 2,709 |
+
+## Movement during waits
+
+The observer samples the terminal owner of each same-tick denial chain once per selected follower rejection.
+
+| Seed | Geometry | Samples | Moving owner | More than 12 m available | Platoon boundary tighter |
+| --- | --- | ---: | ---: | ---: | ---: |
+| 1 | Earlier | 446,911 | 99.60% | 411,078 | 36,223 |
+| 1 | Mirrored | 5,137,347 | 99.25% | 4,053,304 | 1,088,857 |
+| 2 | Earlier | 429,921 | 99.45% | 382,356 | 47,989 |
+| 2 | Mirrored | 3,901,503 | 99.32% | 3,207,477 | 697,408 |
+
+Every sampled owner stays in Traveling activity, and the calculated next-tick speed permits movement in more than 99% of samples.
+Every owner with a traveling predecessor has a mapped gap above 12 meters.
+Samples with available distance at most 0.00001 meters are rare, with 8,989 and 5,946 in the mirrored runs.
+The data fit moving queues that pass frontier waits upstream.
+They do not show a persistent reservation cycle or a deadlock.
+
+## Clearance samples (source `9cb066f`)
+
+This stage samples every sixth tick, which can bias the sample, and rechecks ownership after the same tick's movement and releases.
+Release distance is the owner's signed `releaseAt - distance` at rejection, weighted by resource observation.
+
+| Seed | Geometry | Sampled rejections | Predecessor resources | Ancestor resources | Mean release distance, m |
+| --- | --- | ---: | ---: | ---: | ---: |
+| 1 | Earlier | 74,423 | 51,914 | 35,688 | 11.97 |
+| 1 | Mirrored | 856,213 | 591,049 | 443,867 | 11.49 |
+| 2 | Earlier | 71,535 | 49,600 | 34,150 | 12.25 |
+| 2 | Mirrored | 650,431 | 445,764 | 341,143 | 11.64 |
+
+Requested resources have mean owner release distances of 8.94, 8.42, 8.68, and 8.50 meters in the same row order.
+Most requested resources have an owner outside the follower's predecessor chain, and over 99% keep the same owner after the tick.
+After all admissions, the predecessor covers the requested frontier in 13, 112, 16, and 93 sampled rejections.
+Release distances stay similar across geometries despite the large rise in rejection counts.
+The stage excludes the later [berth routing fixes](berth-route-preference.md).
+
+## Resource histories (source `9cb066f`)
+
+The observer selects the first 32 distinct stopped follower and route pairs per run and follows each to its next frontier grant.
+Limits are 300 simulated seconds and 6,000 events per history, and no history reaches a limit.
+The observer does not follow every resource until it is free.
 
 | Seed | Geometry | Histories | Mean interval, s | Longest interval, s | Release to free | Ownership transfers |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
@@ -48,32 +112,22 @@ The table includes only the four longer runs.
 | 2 | Earlier | 32 | 7.81 | 19.03 | 24 | 4 |
 | 2 | Mirrored | 32 | 10.66 | 23.73 | 32 | 15 |
 
-Every explicit release has a recorded actor release threshold.
-At the hook, the actor is 0.00008–0.07556 meters past that threshold across these cases.
-Some resources pass to a follower instead of becoming free.
-A release does not imply that every requested resource is available or that the predecessor covers the next frontier.
-Recorded release-to-final-grant intervals range from one simulation tick to 17.22 seconds.
-That interval includes other dependencies and does not identify one resource as the sole cause of the wait.
+At the release hook the actor is 0.00008 to 0.07556 meters past its threshold.
+Release-to-final-grant intervals range from one tick to 17.22 seconds and include other dependencies.
+Every selected rejection requests a cell on `london-link-067-ab-2`, which is identical in both projects, 314.166 meters long, and 11 ordinary cells.
+Its length therefore does not explain the extra rejections in mirrored geometry.
 
-For example, mirrored seed 2 first selects pod 065 at 1,437.0 seconds.
-Pod 070 releases the selected track cell at 1,448.3167 seconds.
-On the next tick, pod 072 owns the cell and pod 065 receives the recorded frontier grant, at 1,448.3333 seconds.
-The exported event record identifies the exact track cell and the release actor's position.
+## Conclusion and limits
 
-No selected route or certificate changes during these histories.
-The result describes these chronological selections, not the distribution of all waits or the longest passenger pickup delays.
+Mirrored geometry lengthens waits through predecessor-frontier rejections on one unchanged lane, while owners keep moving and release distances stay similar.
+No stage isolates a geometric parameter.
+Station access, downstream routes, certificate turns, and wider traffic can all affect that lane.
+Two schedules, bounded durations, and sampled safety do not prove continuous deadlock freedom, sustained capacity, or LondonFull behavior.
+The histories cover selection-to-grant intervals, not complete waits from onset.
+Some arms keep unfinished requests.
+No stage adds physical-restore qualification.
+Concurrent diagnostic runs give no CPU comparison.
+Fixed station-entry platoons have a separate [contract](station-entry-platoons.md).
+The buffer and reassignment defaults remain off.
 
-## Geometry finding and limits
-
-Every selected rejection requests a cell on `london-link-067-ab-2`, upstream of Paddington.
-That lane and both endpoint positions are identical in the earlier and mirrored projects.
-Its straight length is 314.166 meters, divided into 11 ordinary track cells before conflict resources are considered.
-The selected-lane length therefore does not explain the increased rejection count in mirrored geometry.
-
-This does not isolate another geometric parameter.
-Changed station access, downstream routes, certificate turns, and wider traffic can affect the queue on this unchanged lane.
-The histories cover selection-to-grant intervals, not complete waits from onset or a controlled geometry intervention.
-No geometric or safety-rule change follows from them.
-
-The raw measurement data is in git history.
-Concurrent diagnostic runs provide no CPU comparison.
+The raw measurement data of these studies is in git history.

@@ -41,8 +41,7 @@ It still has positive growth and three parties aboard at the observation cap.
 Individual wait regressions still prevent an adoption recommendation.
 The [paired mirrored-layout study](docs/station-mirror-load.md) passes its sampled safety and 48 physical-restore checks.
 Service results are mixed, with higher LondonCentral Early waits under mirrored geometry.
-The [Paddington reservation diagnosis](docs/paddington-reservation-diagnosis.md) identifies predecessor-frontier limits as most observed shared-guard failures in two Central schedules.
-The [selected resource histories](docs/paddington-resource-history.md) follow releases, ownership transfers, and later grants.
+The [selected resource histories](docs/paddington-resource-history.md) identify predecessor-frontier limits as most observed shared-guard failures in two Central schedules, then follow releases, ownership transfers, and later grants.
 All 128 full-arm selections reach their original frontier within 24 simulated seconds after selection.
 These histories do not measure the entire wait from its onset or identify one geometric root cause.
 
