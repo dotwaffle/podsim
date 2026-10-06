@@ -118,12 +118,33 @@ type fieldRuleCheck struct {
 	needsRule func(reflect.StructField) bool
 }
 
+// fieldGroups are the embedded structs that group the fields of Simulation.
+// The rule tables name their fields as fields of Simulation.
+var fieldGroups = []reflect.Type{
+	reflect.TypeFor[couplingState](), reflect.TypeFor[metricCounters](), reflect.TypeFor[predictiveState](),
+	reflect.TypeFor[compactBufferState](), reflect.TypeFor[experimentRecords](), reflect.TypeFor[platooningState](),
+}
+
+// ruledFields returns the fields of t. It returns the fields of each field
+// group in place of the group.
+func ruledFields(t reflect.Type) []reflect.StructField {
+	var fields []reflect.StructField
+	for field := range t.Fields() {
+		if field.Anonymous && slices.Contains(fieldGroups, field.Type) {
+			fields = append(fields, ruledFields(field.Type)...)
+		} else {
+			fields = append(fields, field)
+		}
+	}
+	return fields
+}
+
 // checkFieldRules reports each field that needs a rule and has none, and each
 // rule for a field that the type does not have.
 func checkFieldRules(t *testing.T, check fieldRuleCheck) {
 	t.Helper()
 	fields := make(map[string]bool)
-	for field := range check.typ.Fields() {
+	for _, field := range ruledFields(check.typ) {
 		fields[field.Name] = true
 		if !slices.Contains(check.names, field.Name) && check.needsRule(field) {
 			t.Errorf("%s.%s has no %s rule", check.typ.Name(), field.Name, check.kind)
@@ -143,7 +164,7 @@ func TestCloneRulesCoverReferenceFields(t *testing.T) {
 			kind: "clone", typ: typ, names: slices.Collect(maps.Keys(rules)),
 			needsRule: func(field reflect.StructField) bool { return holdsReferences(field.Type) },
 		})
-		for field := range typ.Fields() {
+		for _, field := range ruledFields(typ) {
 			if rules[field.Name] != cloneCopy {
 				continue
 			}

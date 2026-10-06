@@ -334,6 +334,12 @@ type vehicle struct {
 // ensureNetworkIndexes.
 type Simulation struct {
 	*networkIndexes
+	couplingState
+	compactBufferState
+	platooningState
+	predictiveState
+	experimentRecords
+	metricCounters
 	orderContract    OrderContract
 	incidentContract IncidentContract
 	// faultContract is the fault marker of the project. The frames copy
@@ -355,67 +361,41 @@ type Simulation struct {
 	// faultReleased holds the debris resources that a clear in the fault
 	// stage releases. Step releases them at each exit of the tick, so it
 	// is empty at each boundary.
-	faultReleased                []resource
-	couplingNetwork              *couplingReservationNetwork
-	couplingEnabled              bool
-	couplingGroups               []couplingNativeGroup
-	couplingFault                error
-	couplingFleet                *nativeForeignFleet
-	couplingApproaches           []couplingNativeApproach
-	couplingAttempts             map[string]couplingApproachAttempt
-	motion                       *motionRecorder
-	expressServices              map[string]ExpressService
-	lengths                      map[string]float64
-	routes                       map[routeKey]routeResult
-	routeOrder                   []routeKey
-	pickupBounds                 map[string][]float64
-	routeWork                    *routeSearchWork
-	admissionWork                *admissionWork
-	initial                      []Placement
-	vehicles                     []vehicle
-	owners                       map[resource]resourceOwner
-	tick                         int64
-	paused                       bool
-	completed, requestID         int
-	demo                         *demoRun
-	demoError                    string
-	waiting                      []waitingTrip
-	boarded                      int
-	totalWaitTicks, maxWaitTicks int64
-	// journeys counts the parties that left a pod at their destination.
-	// The journey and distance totals below count the same parties.
-	journeys                                  int
-	totalJourneyTicks, maxJourneyTicks        int64
-	riderDistanceMeters, directDistanceMeters float64
-	maxDetourRatio                            float64
-	positioning                               Positioning
-	demandRate                                int
-	demandWeights                             map[string]float64
-	nextRedistributionTick                    int64
-	passengerDistanceMeters                   float64
-	emptyDistanceMeters                       float64
-	rebalanceMoves                            int
-	sharedRidePartyLimit                      int
-	sharedRideMode                            SharedRideMode
-	sharedRideMaxStops                        int
-	sharedRideJoin                            SharedRideJoin
-	onboardPickups                            bool
+	faultReleased          []resource
+	motion                 *motionRecorder
+	expressServices        map[string]ExpressService
+	lengths                map[string]float64
+	routes                 map[routeKey]routeResult
+	routeOrder             []routeKey
+	pickupBounds           map[string][]float64
+	routeWork              *routeSearchWork
+	admissionWork          *admissionWork
+	initial                []Placement
+	vehicles               []vehicle
+	owners                 map[resource]resourceOwner
+	tick                   int64
+	paused                 bool
+	requestID              int
+	demo                   *demoRun
+	demoError              string
+	waiting                []waitingTrip
+	positioning            Positioning
+	demandRate             int
+	demandWeights          map[string]float64
+	nextRedistributionTick int64
+	sharedRidePartyLimit   int
+	sharedRideMode         SharedRideMode
+	sharedRideMaxStops     int
+	sharedRideJoin         SharedRideJoin
+	onboardPickups         bool
 	// approachStations and routeStations belong to stationsOnRoute.
 	approachStations            map[string][]string
 	routeStations               map[stopKey][]string
-	sharedParties               int
 	seatScreen                  SeatScreen
 	routingPolicy               RoutingPolicy
-	predictiveQueues            []float64
-	predictivePodQueues         map[string]podQueueHistory
-	predictiveQueueTick         int64
 	finishingPodWait            FinishingPodWait
 	stationBuffers              bool
 	stationQueueSpacing         StationQueueSpacing
-	compactGroups               []*compactBufferGroup
-	compactMotions              []compactBufferMotion
-	compactNextGroups           []*compactBufferGroup
-	compactFault                error
 	pickupSwaps                 *pickupSwapController
 	congestionRouteCosts        []float64
 	congestionRoutes            map[routeKey]routeResult
@@ -426,12 +406,9 @@ type Simulation struct {
 	// pod. It is 0 until a restore finds such orders in a saved state or
 	// drops orders.
 	unaccountedOrders int
-	// interrupted counts the orders that ended interrupted, and
-	// interruptedPassengers is the sum of their party sizes. undelivered
-	// holds the IDs of the orders interrupted since the last
+	// undelivered holds the IDs of the orders interrupted since the last
 	// DrainInterruptions call. Step does not clear it, and it is not saved.
-	interrupted, interruptedPassengers int
-	undelivered                        []int
+	undelivered []int
 	// monitor runs after each tick and after each public command that
 	// changes the pods, the orders or the sharing settings. Tests use it to
 	// check the contract. See observe.
@@ -452,22 +429,74 @@ type Simulation struct {
 	// code writes to it in place. findVehicle checks each entry, so an entry
 	// that is missing or stale makes the lookup slower but not wrong.
 	vehicleIndexes map[string]int
-	// recordExperiments turns on the experiment records.
-	// requestBoardings has one entry for each boarding, and
-	// requestCompletions has one entry for each pod journey with
-	// passengers that ends. RequestTimings reads them. nodePasses has one
-	// entry for each lane that a pod enters, and NodePasses reads it. Only
-	// append writes to them. Reset clears them, and a restore starts
-	// without them.
+	// pass holds the buffers of dispatch, which makes it at the first call
+	// and reuses it at each later call. It is not part of the state. Clone
+	// drops it, so two simulations never share the buffers.
+	pass *dispatchPass
+}
+
+// couplingState holds the physical coupling state of a simulation.
+type couplingState struct {
+	couplingNetwork    *couplingReservationNetwork
+	couplingEnabled    bool
+	couplingGroups     []couplingNativeGroup
+	couplingFault      error
+	couplingFleet      *nativeForeignFleet
+	couplingApproaches []couplingNativeApproach
+	couplingAttempts   map[string]couplingApproachAttempt
+}
+
+// metricCounters holds the service counters of a simulation.
+type metricCounters struct {
+	completed                    int
+	boarded                      int
+	totalWaitTicks, maxWaitTicks int64
+	// journeys counts the parties that left a pod at their destination.
+	// The journey and distance totals below count the same parties.
+	journeys                                  int
+	totalJourneyTicks, maxJourneyTicks        int64
+	riderDistanceMeters, directDistanceMeters float64
+	maxDetourRatio                            float64
+	passengerDistanceMeters                   float64
+	emptyDistanceMeters                       float64
+	rebalanceMoves                            int
+	sharedParties                             int
+	// interrupted counts the orders that ended interrupted, and
+	// interruptedPassengers is the sum of their party sizes.
+	interrupted, interruptedPassengers int
+}
+
+// predictiveState holds the queue history of predictive routing.
+type predictiveState struct {
+	predictiveQueues    []float64
+	predictivePodQueues map[string]podQueueHistory
+	predictiveQueueTick int64
+}
+
+// compactBufferState holds the compact station queues.
+type compactBufferState struct {
+	compactGroups     []*compactBufferGroup
+	compactMotions    []compactBufferMotion
+	compactNextGroups []*compactBufferGroup
+	compactFault      error
+}
+
+// experimentRecords holds the experiment records.
+// recordExperiments turns them on. requestBoardings has one entry for each
+// boarding, and requestCompletions has one entry for each pod journey with
+// passengers that ends. RequestTimings reads them. nodePasses has one entry
+// for each lane that a pod enters, and NodePasses reads it. Only append
+// writes to them. Reset clears them, and a restore starts without them.
+type experimentRecords struct {
 	recordExperiments  bool
 	requestBoardings   []RequestTiming
 	requestCompletions []requestCompletion
 	stepCompletions    []StepCompletion
 	nodePasses         []NodePass
-	// pass holds the buffers of dispatch, which makes it at the first call
-	// and reuses it at each later call. It is not part of the state. Clone
-	// drops it, so two simulations never share the buffers.
-	pass *dispatchPass
+}
+
+// platooningState holds the platooning settings and links.
+type platooningState struct {
 	// platooning is the platooning mode and platoonLimit is the largest
 	// platoon. platoonLinks counts the pods with a predecessor. Reset
 	// keeps the mode and the limit.
