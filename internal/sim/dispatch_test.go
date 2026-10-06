@@ -754,3 +754,109 @@ func TestPodReasonKeepsEqualReason(t *testing.T) {
 		t.Errorf("podReason made %v allocations for an equal reason, want 0", allocs)
 	}
 }
+
+// TestDispatchTripStepOrder pins two step orders of dispatchTrip. In each
+// case, two steps can take the last waiting trip, and they give it
+// different pods. The trip must join pod want, and pod other must keep its
+// riders. reassigned is 1 when the trip had a pod on its way.
+func TestDispatchTripStepOrder(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name        string
+		setup       func(t *testing.T) *Simulation
+		want, other string
+		reassigned  int
+	}{
+		// joinTrip runs before takeLocalPickup.
+		{name: "join before local pickup", setup: joinOrLocalPickup, want: "01", other: "02", reassigned: 1},
+		// joinOnboardPickup runs before joinSharedRide.
+		{name: "onboard pickup before shared ride", setup: onboardOrSharedRide, want: "01", other: "02"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			s := test.setup(t)
+			id := s.waiting[len(s.waiting)-1].request.ID
+			want, other := s.findVehicle(test.want), s.findVehicle(test.other)
+			riders, otherRiders := len(want.Riders), len(other.Riders)
+			s.dispatch()
+			if len(s.waiting) != 0 {
+				t.Fatalf("the trip still waits: %+v", s.waiting)
+			}
+			if len(want.Riders) != riders+1 || want.Riders[riders].ID != id || want.Riders[riders].PodID != test.want {
+				t.Fatalf("trip %d did not join pod %s: pod %s %+v, pod %s %+v", id, test.want, test.want, want.Riders, test.other, other.Riders)
+			}
+			if len(other.Riders) != otherRiders {
+				t.Fatalf("pod %s has %d riders, want %d: %+v", test.other, len(other.Riders), otherRiders, other.Riders)
+			}
+			if screen := s.SeatScreen(); screen.ReassignedParties != test.reassigned {
+				t.Fatalf("reassigned %d, want %d", screen.ReassignedParties, test.reassigned)
+			}
+		})
+	}
+}
+
+// joinOrLocalPickup restores pod 01 as it boards a party for market at
+// harbor-1, pod 02 idle at harbor-2, and pod 03 on its way to harbor-2 for
+// a waiting party for market. The party can join pod 01 and release pod
+// 03. It can also take pod 02 in place of pod 03, and then board pod 02.
+func joinOrLocalPickup(t *testing.T) *Simulation {
+	t.Helper()
+	f := newRestoreFleetFixture(t, harborTwoBerths(), harborFleet)
+	trips := []SavedTrip{{Request: SavedRequest{SharingConsent: SharedConsent, Service: OnDemandService, ID: 2, From: "harbor", To: "market", PartySize: 1, PodID: "03", RequestedTick: restoreTick - 10}}}
+	return reassignRestoreFixture(t, f, trips, relocating(f.traveling(t, travelInput{id: "03", from: "parking-1", to: "harbor-2", lane: "return", distance: 20})))
+}
+
+// onboardOrSharedRide returns a simulation where pod 01 picks up a party
+// at garden with riders aboard, and pod 02 boards a party for market at
+// garden-2. A new party for market waits at garden with no pod. It can
+// join pod 01 as an onboard pickup or pod 02 as a shared ride.
+func onboardOrSharedRide(t *testing.T) *Simulation {
+	t.Helper()
+	s := newScreenSimulation(t, gardenTwoBerths(), []Placement{
+		{ID: "01", StationID: "harbor", BerthID: "harbor-1"},
+		{ID: "02", StationID: "garden", BerthID: "garden-2"},
+	}, 4, SharedRideDropOffs)
+	if err := s.SetOnboardPickups(true); err != nil {
+		t.Fatal(err)
+	}
+	for _, to := range []string{"market", "garden"} {
+		if err := submitSharedTrip(s, "harbor", to); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// queue adds a party for market at garden that must not get the pod
+	// excluded.
+	queue := func(excluded string) {
+		s.requestID++
+		request := requestFromOptions(TripOptions{From: "garden", To: "market", PartySize: 1, SharingConsent: SharedConsent, Service: OnDemandService}, s.requestID, s.tick)
+		s.waiting = append(s.waiting, waitingTrip{request: request, excludedPod: excluded})
+	}
+	// The first party does not take pod 02, so it waits for pod 01.
+	queue("02")
+	host := s.findVehicle("01")
+	stepUntil(t, s, "pod 01 picks up at garden", func() bool { return host.Pod.Activity == Boarding && host.Pod.Occupied })
+	// The second party does not join pod 01, so it boards pod 02.
+	queue("01")
+	s.dispatch()
+	if own := s.findVehicle("02"); len(s.waiting) != 0 || own.Pod.Activity != Boarding || len(own.Riders) != 1 || len(host.Riders) != 3 {
+		t.Fatalf("pod 02 does not board the second party: waiting %+v, pod 01 %+v, pod 02 %+v", s.waiting, host.Vehicle, own.Vehicle)
+	}
+	queue("")
+	return s
+}
+
+// gardenTwoBerths returns the example network with a second garden berth.
+func gardenTwoBerths() Network {
+	network := Example()
+	network.Nodes = append(network.Nodes, Node{ID: "garden-berth-2", Position: Point{X: 490, Y: 110}})
+	network.Lanes = append(network.Lanes,
+		Lane{ID: "garden-in-2", From: "garden-entry", To: "garden-berth-2", SpeedLimit: 14, StationID: "garden", StationRole: StationBerthAccessRole},
+		Lane{ID: "garden-out-2", From: "garden-berth-2", To: "garden-exit", SpeedLimit: 14, StationID: "garden", StationRole: StationDepartureRole},
+	)
+	for index := range network.Stations {
+		if network.Stations[index].ID == "garden" {
+			network.Stations[index].Berths = append(network.Stations[index].Berths, Berth{ID: "garden-2", Node: "garden-berth-2"})
+		}
+	}
+	return network
+}
