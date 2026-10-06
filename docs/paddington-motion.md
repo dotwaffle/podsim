@@ -69,6 +69,6 @@ It preserves these historical results but does not record complete clearance his
 Fixed station-entry platoons have a separate [contract](station-entry-platoons.md).
 The current buffer and reassignment defaults remain off.
 
-[Arm counts](measurements/paddington-motion-arms.csv), [binned observations](measurements/paddington-motion-rows.csv), and [metadata](measurements/paddington-motion.json) retain the evidence.
+The raw measurement data is in git history.
 Functional jobs overlap other checks, so their wall times are not CPU measurements.
 Independent review verifies the pure lookups, matched results, weighted counts, and stated limits.

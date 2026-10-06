@@ -94,5 +94,4 @@ The earlier node-position intervention isolates a Paddington geometry effect.
 The present counters narrow its reservation mechanism but do not isolate one geometric parameter.
 CPU and wall times are not performance measurements because these functional studies can run concurrently.
 
-[Counts](measurements/paddington-reservation-counts.csv) retain the exact lane, class, and branch totals.
-[Metadata](measurements/paddington-reservation.json) retains both frozen stages, first-failure counts, complete-key equality checks, and raw-result hashes.
+The raw measurement data is in git history.

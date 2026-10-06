@@ -1,3 +1,0 @@
-baseline,candidate,schedule_exact,aggregate_wait_or_age_mean_change,completed_change,remaining_change,jointly_boarded,jointly_completed,jointly_boarded_mean_wait_change,jointly_completed_mean_journey_change,max_added_wait,max_added_journey,proposed_wait_limit_failures,proposed_journey_limit_failures
-central-early-s1-mirrored,central-early-s1-restore-all,True,-761.7210799296108,234,-234,2715,2661,-926.8377286678945,-901.0608417888012,478.81666666666666,460.68333333333334,36,19
-central-early-s2-mirrored,central-early-s2-restore-all,True,-615.0133509308143,143,-143,2806,2758,-751.996988595866,-737.2801547014745,1252.5166666666667,1291.0333333333333,54,35

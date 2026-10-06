@@ -83,5 +83,4 @@ No production admission, clearance, priority, certificate, saved-state, or defau
 Both seeds retain unfinished requests; these comparisons do not establish sustained capacity.
 Concurrent functional checks make wall time unsuitable for CPU claims.
 
-[Arm totals](measurements/paddington-leader-progress.csv) retain completion, waits, episode counts, and durations.
-[Metadata and dependency summaries](measurements/paddington-leader-progress.json) retain frozen and raw hashes, decision counts, span bins, and longest episodes.
+The raw measurement data is in git history.

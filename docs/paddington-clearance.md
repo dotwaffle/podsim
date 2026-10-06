@@ -87,5 +87,5 @@ That extension remains separate work.
 Fixed station-entry platoons have a separate [contract](station-entry-platoons.md).
 The buffer and reassignment defaults remain off.
 
-[Arm totals](measurements/paddington-clearance-arms.csv), [resource bins](measurements/paddington-clearance-rows.csv), and [metadata](measurements/paddington-clearance.json) retain the measurements.
+The raw measurement data is in git history.
 Concurrent diagnostic jobs make their wall times unsuitable for CPU comparisons.

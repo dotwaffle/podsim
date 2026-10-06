@@ -86,7 +86,5 @@ The [selected resource histories](paddington-resource-history.md) retain their s
 An earlier intervention at `7cd5fe9` also moved only the mirrored Paddington positions into the earlier network, which raised average wait by 17.30% and 14.72% in seeds 1 and 2.
 This result supplies no basis for weaker reservations or automatic changes to authored geometry.
 
-[Arm totals](measurements/paddington-layout-arms.csv) retain service, backlog, station-resource observations, and check counts.
-[Pair totals](measurements/paddington-layout-pairs.csv) retain matched cohorts and individual increases.
-[Metadata](measurements/paddington-layout.json) retains fixture hashes, exact baseline checks, rejected witnesses, status transitions, and unfinished-request records.
+The raw measurement data is in git history.
 All owned geometry units stopped, and their scratch binaries were removed.

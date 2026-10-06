@@ -75,5 +75,5 @@ Changed station access, downstream routes, certificate turns, and wider traffic 
 The histories cover selection-to-grant intervals, not complete waits from onset or a controlled geometry intervention.
 No geometric or safety-rule change follows from them.
 
-[Arm totals](measurements/paddington-history-arms.csv), [selected episodes](measurements/paddington-history-episodes.csv), [events](measurements/paddington-history-events.csv), and [metadata](measurements/paddington-history.json) retain the evidence.
+The raw measurement data is in git history.
 Concurrent diagnostic runs provide no CPU comparison.

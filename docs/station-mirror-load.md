@@ -87,5 +87,4 @@ Nominal request intervals quantize to simulation ticks.
 The CSV records actual offered rates and scheduled request counts.
 Instrumentation and concurrent workers prevent server playback-speed conclusions from these run times.
 
-[Per-arm measurements](measurements/station-mirror-load.csv) retain every comparison result field.
-[Metadata](measurements/station-mirror-load.json) records fixtures, request schedule hashes, restore coverage, and validation limits.
+The raw measurement data is in git history.
