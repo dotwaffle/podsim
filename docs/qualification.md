@@ -2306,6 +2306,9 @@ The trains need members whose routes separate soon after the split site, and an 
 A network with long shared legs gives few such pairs.
 A network with a fork after each corridor could give more, but this check did not try a third network.
 
-A front at rest at the end of the first cell of an assembly lane is refused, because `couplingApproachOwnedFrontier` also checks a node resource that the front released.
+A front at rest at the end of the first cell of an assembly lane was refused, because `couplingApproachOwnedFrontier` also checked the node and the junction of that cell, which the front had released.
 The record gives the case.
-This is a refusal before an approach starts, not a fault.
+This was a refusal before an approach starts, not a fault.
+It was a defect, and a later change removed that check.
+The footprint check still covers each resource that the front has not passed.
+With the fix, the same loop variant gives no such refusal and 5 approaches, and the exit closure or the stopping room refuses each of them at adoption.

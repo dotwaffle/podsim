@@ -13,7 +13,13 @@ import (
 func couplingApproachFixture(t *testing.T, occupied bool) couplingApproachPrepareInput {
 	t.Helper()
 	formation := couplingMotionFixture(t, occupied, false)
-	n := formation.Network
+	return couplingApproachStage(t, formation, formation.Network, occupied)
+}
+
+// couplingApproachStage puts the members of formation at the rear staging
+// point of the assembly site of n, with ordinary grants and owners.
+func couplingApproachStage(t *testing.T, formation couplingReservationInput, n *couplingReservationNetwork, occupied bool) couplingApproachPrepareInput {
+	t.Helper()
 	fleet := []Placement{{ID: "front", Class: CompactClass, StationID: "front-goal"}, {ID: "rear", Class: CompactClass, StationID: "rear-goal"}}
 	s, err := n.prepared.NewFleet(fleet)
 	if err != nil {
@@ -33,7 +39,10 @@ func couplingApproachFixture(t *testing.T, occupied bool) couplingApproachPrepar
 		if i == 1 {
 			v.distance -= 12.02
 		}
-		v.blockIndex, v.reservedThrough = 1, 1
+		for v.blocks.end(v.blockIndex) < v.distance {
+			v.blockIndex++
+		}
+		v.reservedThrough = v.blockIndex
 		v.pending = -1
 		v.routeReleases = make(map[resource]float64)
 		couplingApproachTestPose(t, v)
@@ -124,7 +133,12 @@ func runCouplingApproachTest(t *testing.T, input couplingApproachPrepareInput) (
 		t.Fatal(err)
 	}
 	s := input.Simulation
-	s.grant(intent{index: 0, block: 2, through: 2})
+	front := &s.vehicles[0]
+	through := front.reservedThrough + 1
+	for front.blocks.end(through) < c.target {
+		through++
+	}
+	s.grant(intent{index: 0, block: front.reservedThrough + 1, through: through})
 	for range 1200 {
 		step, err := planCouplingApproachTest(couplingApproachInput{Context: c, Previous: state, Simulation: s, Enabled: true})
 		if err != nil {
@@ -255,6 +269,39 @@ func TestCouplingApproachPreparationGuards(t *testing.T) {
 				t.Fatal("failed preparation changed owners")
 			}
 		})
+	}
+}
+
+// A front at rest at the end of the first cell of the assembly lane has
+// passed the From node and the junction of that cell. No pod owns the
+// node, and the rear owns the junction.
+func TestCouplingApproachFromFirstCellEnd(t *testing.T) {
+	t.Parallel()
+	formation := couplingMotionFixture(t, false, false)
+	prepared := formation.Prepared
+	cell := prepared.graph.lengths[prepared.graph.lanes["ab"]] / float64(prepared.laneCells["ab"].count())
+	geometry := couplingGeometryFixture()
+	geometry.Network = prepared.Network()
+	geometry.Sites[0].StartMeters, geometry.Sites[0].RearStagingMeters, geometry.Sites[0].FrontStagingMeters, geometry.Sites[0].EndMeters = 0, cell, cell+12, 120
+	n, err := prepareCouplingReservations(prepared, geometry)
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := couplingApproachStage(t, formation, n, false)
+	s := input.Simulation
+	front := &s.vehicles[0]
+	node, junction, track := resource{kind: nodeResource, id: "a"}, resource{kind: junctionResource, id: "a"}, resource{kind: trackResource, id: "ab"}
+	if front.blockIndex != 0 || front.distance != front.blocks.end(0) || !s.owners[node].isZero() || !s.owners[junction].isPod("rear") || !s.owners[track].isPod("front") {
+		t.Fatal("fixture is not a front at the end of the first cell")
+	}
+	s.owners[track] = podResourceOwner("foreign")
+	if _, err := couplingApproachOwnedFrontier(s, front); !errors.Is(err, errCouplingMotionInvariant) {
+		t.Fatal("front lost a cell that it has not passed", err)
+	}
+	s.owners[track] = podResourceOwner("front")
+	c, state := runCouplingApproachTest(t, input)
+	if state.WaitTick < 0 || front.distance != c.target || s.vehicles[1].distance != c.rearTarget {
+		t.Fatalf("wrong exact endpoint or wait: %+v", state)
 	}
 }
 

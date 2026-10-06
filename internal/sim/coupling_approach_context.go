@@ -270,6 +270,9 @@ func couplingApproachOwnedFrontier(s *Simulation, v *vehicle) (float64, error) {
 	if err := couplingApproachRetention(v); err != nil {
 		return 0, err
 	}
+	// The footprint holds each granted resource that the front has not
+	// passed by its ordinary release distance. The front does not own a
+	// resource that it passed, such as the From node of its current cell.
 	for _, r := range v.footprint(v.reservedThrough, v.distance) {
 		if !s.owners[r].isPod(v.Pod.ID) {
 			return 0, couplingMotionInvariant("approach front lost its current footprint owner")
@@ -281,13 +284,6 @@ func couplingApproachOwnedFrontier(s *Simulation, v *vehicle) (float64, error) {
 	for r, release := range v.routeReleases {
 		if !finite(release) || release <= v.distance || !s.owners[r].isPod(v.Pod.ID) {
 			return 0, couplingMotionInvariant("approach front lost its retained owner")
-		}
-	}
-	for resources := range v.blocks.spanResources(v.blockIndex, v.reservedThrough+1) {
-		for _, r := range resources {
-			if !s.owners[r].isPod(v.Pod.ID) {
-				return 0, couplingMotionInvariant("approach front lost its actual granted owner")
-			}
 		}
 	}
 	frontier := v.blocks.end(v.reservedThrough)
