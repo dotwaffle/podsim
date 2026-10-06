@@ -2299,6 +2299,9 @@ The release proof for multi-pair coupling needs one scenario-level run.
 In that run, pairs form from ordinary demand and dispatch, with no placed trips.
 Two trains must be alive at the same time on different corridors, and one corridor must form two trains one after another.
 At `23be7ce`, no natural run formed a train, so this gate is not met.
+On October 6, 2026, the maintainer redefined the gate: natural formation on the tailored network of the [tailored probe](#coupling-multi-pair-tailored-probe), across several seeds, meets it.
+At the formation-claim change, 9 of the 28 runs of the seed search of that probe meet the run gate, on 7 of the 12 seeds, so the redefined gate is met.
+The presets still form no train in the runs of this section, which were not run again.
 The [natural multi-pair record](measurements/coupling-natural-multi-pair.json) gives each run, each refusal count, and each approach trace.
 
 The runs used a scratch harness in package `sim` that is not in the tree.
@@ -2360,10 +2363,14 @@ It shows whether the code can form trains from ordinary dispatch at all.
 At `3f6734b`, the pinned run meets the gate.
 At `f5801c5`, after the frontier fix, it gives the same trains and the same final digest.
 At the grid refusal change, the approach refuses a pair whose formation legs are not on their distance grids.
-The earlier pinned run then misses the gate, so the pinned run is now seed 10 for 35 simulated minutes.
+The earlier pinned run then misses the gate, so the pinned run became seed 10 for 35 simulated minutes.
+At the formation-claim change, formation no longer claims a resource that the train releases at its formation state, by the amendment of October 6, 2026 to the physical coupling contract.
+A pod that follows the pair can then hold such a resource, and formation does not refuse.
+The seed 10 run for 35 simulated minutes then forms 11 trains, but 2 of them form near the horizon and do not retire by it, so it misses the gate.
+The pinned run is now seed 4 for 20 simulated minutes.
 In this run, trains on two corridors are alive at the same time, and one corridor forms a second train after its first train retires.
 `TestCouplingNaturalMultiPairProbe` pins the run.
-The [probe record](measurements/coupling-natural-multi-pair-probe.json) gives the runs before this change.
+The [probe record](measurements/coupling-natural-multi-pair-probe.json) gives the runs before the grid refusal change.
 It gives each run, each refusal count, and the approach traces of the earlier pinned run.
 
 ### Network
@@ -2399,41 +2406,51 @@ Its pairs linked on the ring before the curve and kept the turn.
 
 ### Pinned run
 
-At the grid refusal change, the pinned run has 70 pods, 8 orders each simulated minute, seed 10, and 35 simulated minutes.
+At the formation-claim change, the pinned run has 70 pods, 8 orders each simulated minute, seed 4, and 20 simulated minutes.
 After each tick, the test checks the coupling fault, the motion of each member, `CheckContract`, safety, the train registry, and the order count.
 
 | Train | Corridor | Formation tick | Retirement tick |
 | --- | --- | --- | --- |
-| 1 | c01 | 45138 | 49858 |
-| 2 | c03 | 50717 | 55437 |
-| 3 | c01 | 55810 | 60530 |
-| 4 | c02 | 90626 | 95346 |
-| 5 | c04 | 92171 | 96891 |
+| 1 | c02 | 30934 | 35654 |
+| 2 | c04 | 52027 | 56747 |
+| 3 | c03 | 55348 | 60068 |
+| 4 | c02 | 63303 | 68023 |
+| 5 | c03 | 66030 | 70750 |
 
-Trains 4 and 5 are alive at the same time from tick 92171 to tick 95346.
-Train 3 forms on c01 after train 1 retires.
-The run starts 16 approaches and completes 204 of 280 orders.
-The disabled control with the same demand starts no approach, forms no train, and completes 213 of 280 orders.
+Trains 2 and 3 are alive at the same time from tick 55348 to tick 56747.
+Train 4 forms on c02 after train 1 retires, and train 5 forms on c03 after train 3 retires.
+The run starts 7 approaches and completes 84 of 160 orders.
+The disabled control with the same demand starts no approach, forms no train, and completes 95 of 160 orders.
 A second enabled run gives the same state digest at each 1,000 ticks.
-The final digest is `ae56bd68866ee9130ad2d45c82a4d127b91354dde29717948a0a11f3a5c6776f`.
-The test takes 59 s on a loaded host.
+The final digest is `f964a2c06d3dad0930ce03fed1d8045de318309466109752fed9cd3455c24cd3`.
+The test takes 60 s on a loaded host.
 
-Before this change, the pinned run was seed 10 for 20 simulated minutes.
-It formed trains on c01 from tick 45138 to tick 49858, on c02 from tick 49483 to tick 54203, and on c01 from tick 55810 to tick 60530.
-It started 9 approaches, completed 95 of 160 orders, and had the final digest `9a036819380591b83eae3c087b68e0641e8b5ed9b18459603b54e9998dc1ae69`.
+Before this change, the pinned run was seed 10 for 35 simulated minutes.
+It formed 5 trains from 16 approaches, completed 204 of 280 orders, and had the final digest `ae56bd68866ee9130ad2d45c82a4d127b91354dde29717948a0a11f3a5c6776f`.
+At the formation-claim change, the same run starts 12 approaches and forms 11 trains.
 
-The seed and the horizon come from a search with the grid refusal change.
+The seed and the horizon come from a search with the formation-claim change.
 The search has 28 runs: seeds 1 to 12 at 20 and 35 simulated minutes, and seeds 1 to 4 at 60 simulated minutes.
-Only seed 10 at 35 minutes met the gate.
-Seeds 1 and 2 at 60 minutes met the gate before this change, and they no longer do.
-In 10 other runs, one corridor formed two trains in sequence, but no two trains on different corridors overlapped.
+A run meets the gate when two trains on different corridors are alive at the same time, one corridor forms two trains in sequence, and each train retires by the horizon.
+9 runs meet the gate: seeds 4, 5, and 8 at 20 minutes, seeds 1, 3, 4, 6, and 12 at 35 minutes, and seed 3 at 60 minutes.
+The pinned run is the first of the shortest runs that meet the gate.
+In 11 other runs, both train conditions hold, but a train that forms near the horizon does not retire by it.
+With the grid refusal change and before this change, 1 of the 28 runs met the gate.
+
+### Evidence for the formation-claim change
+
+A scratch test at `40eb6ba` repeated the five runs of the probe record and ran the reservation plan of each waiting approach after each tick.
+In 194 of the 230 approaches, the plan refused because a foreign pod held a resource of the first assembly cell.
+In 155 of these 194, the foreign pod was in that cell before the approach started, so a hold from the start of the approach could help at most 39.
+The grant phase, in which the front waits at E for the junction of M, lasted 24 s at the median, 29 to 36 s at the 90th percentile, and at most 55 s in seeds 1 to 4, and 6 s at the median and 24 s at the 90th percentile in seed 10.
+With each foreign owner of the first cell removed, the plan and the adoption preparation passed in 88 of the 194 approaches.
 
 ### Findings
 
-- A third pod behind the pair is still the main refusal.
-  Before this change, it ended 193 of the 230 approaches in the five recorded runs.
-  The reservation claims the assembly lane from its first cell, and the next spoke pod takes that cell or the node at its start while the pair waits for the junction of M.
-- Before this change, after the reservation plan passed, the adoption preparation refused 7 approaches with "motion start is not representable on its distance grid" and 2 with "actual continuation cannot close joint release and stopping room".
+- Before the formation-claim change, a third pod behind the pair was the main refusal, and that change removes its cause.
+  It ended 193 of the 230 approaches in the five recorded runs.
+  The reservation claimed the assembly lane from its first cell, and the next spoke pod took that cell or the node at its start while the pair waited for the junction of M.
+- Before the grid refusal change, after the reservation plan passed, the adoption preparation refused 7 approaches with "motion start is not representable on its distance grid" and 2 with "actual continuation cannot close joint release and stopping room".
   These are refusals before a train exists, not faults.
   With the grid refusal change, the approach refuses the first kind of pair before the front moves.
 - A pair that shares a branch can link on the approach lane with no turn, when the fork lane starts more than 300 m ahead.
@@ -2444,6 +2461,6 @@ In 10 other runs, one corridor formed two trains in sequence, but no two trains 
 ### Limit of this result
 
 The network is shaped for formation, and the gate depends on the seed and the horizon.
-With the grid refusal change, 1 of 28 runs in the search meets the gate.
+With the formation-claim change, 9 of 28 runs in the search meet the gate.
 The probe shows that the code can form trains naturally when the network allows it.
 It does not show that trains form on the presets or on a network with long shared roads.

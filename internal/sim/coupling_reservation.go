@@ -141,8 +141,11 @@ func planCouplingReservation(input couplingReservationInput) (couplingReservatio
 		return couplingReservationPlan{}, err
 	}
 	for r, dependency := range dependencies {
-		owner := input.Owners[r]
-		if !couplingClaimOwner(owner, r, input.Members) {
+		owner, required, err := plan.formationOwner(dependency, input.Owners[r])
+		if err != nil {
+			return couplingReservationPlan{}, err
+		}
+		if required && !couplingClaimOwner(owner, r, input.Members) {
 			return couplingReservationPlan{}, couplingDenied(fmt.Sprintf("foreign owner at resource %+v", r))
 		}
 		plan.Claims = append(plan.Claims, couplingClaim{Resource: r, Expected: owner})
@@ -152,6 +155,24 @@ func planCouplingReservation(input couplingReservationInput) (couplingReservatio
 	slices.SortFunc(plan.PreservedClaims, func(a, b couplingClaim) int { return compareCouplingResource(a.Resource, b.Resource) })
 	slices.SortFunc(plan.Dependencies, func(a, b couplingDependency) int { return compareCouplingResource(a.Resource, b.Resource) })
 	return plan, nil
+}
+
+// formationOwner applies the formation claim rule to dependency d with
+// the actual owner. It returns the owner that formation expects, and
+// whether formation needs and writes d. The train needs d unless its
+// release rule releases d at the formation state. A released d keeps its
+// claim entry with no expected owner. A member that owns it is refused,
+// and any other owner is ignored. The plan, the exit closure, and the
+// initial writes use this rule, so they agree on each resource.
+func (plan *couplingReservationPlan) formationOwner(d couplingDependency, owner resourceOwner) (resourceOwner, bool, error) {
+	distances := [2]float64{plan.members[0].Distance, plan.members[1].Distance}
+	if !couplingDependencyReleased(d, distances, plan.axisOrigins[0], false) {
+		return owner, true, nil
+	}
+	if owner.isPod(plan.members[0].Vehicle.Pod.ID) || owner.isPod(plan.members[1].Vehicle.Pod.ID) {
+		return resourceOwner{}, false, couplingDenied(fmt.Sprintf("member owns resource %+v that formation releases", d.Resource))
+	}
+	return resourceOwner{}, false, nil
 }
 
 func couplingClaimOwner(owner resourceOwner, r resource, members [2]couplingMemberSnapshot) bool {

@@ -78,6 +78,14 @@ func initialCouplingMotion(c *couplingMotionContext, current couplingReservation
 		return couplingMotionStep{}, err
 	}
 	for i, claim := range c.claims {
+		// Formation writes no owner of a resource that it releases.
+		_, required, ruleErr := c.reservation.formationOwner(c.dependencies[i], owners[claim.Resource])
+		if ruleErr != nil {
+			return couplingMotionStep{}, ruleErr
+		}
+		if !required {
+			continue
+		}
 		if owners[claim.Resource] != claim.Expected {
 			return couplingMotionStep{}, couplingDenied("initial motion claim changed")
 		}

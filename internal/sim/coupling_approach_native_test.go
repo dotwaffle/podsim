@@ -7,6 +7,14 @@ import (
 
 func couplingApproachJourneyNetwork(t *testing.T) (*PreparedNetwork, *couplingReservationNetwork) {
 	t.Helper()
+	return couplingApproachJourneyNetworkWith(t, nil)
+}
+
+// couplingApproachJourneyNetworkWith is couplingApproachJourneyNetwork
+// with edit applied to the network before its preparation, when edit is
+// not nil.
+func couplingApproachJourneyNetworkWith(t *testing.T, edit func(*Network)) (*PreparedNetwork, *couplingReservationNetwork) {
+	t.Helper()
 	base := couplingMotionFixture(t, false, false)
 	geometry := CouplingGeometryInput{Contract: CompactPairV1CouplingContract, Network: base.Prepared.Network(),
 		Sites: []CouplingSite{base.Network.sites["assembly"], base.Network.sites["split"]}, Corridors: []CouplingCorridor{base.Network.corridors["corridor"]}}
@@ -50,6 +58,9 @@ func couplingApproachJourneyNetwork(t *testing.T) (*PreparedNetwork, *couplingRe
 	}
 	network.Stations = append(network.Stations, Station{ID: "block-goal", Name: "Block goal", Entry: "block-entry", Exit: "block-exit", VehicleClasses: compact,
 		Berths: []Berth{{ID: "block-berth", Node: "block-berth", VehicleClasses: compact}}})
+	if edit != nil {
+		edit(network)
+	}
 	p, err := PrepareNetwork(*network)
 	if err != nil {
 		t.Fatal(err)

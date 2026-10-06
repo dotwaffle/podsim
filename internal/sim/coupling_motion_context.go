@@ -158,9 +158,14 @@ func (c *couplingMotionContext) closeExits(owners map[resource]resourceOwner) er
 	if err := c.bindExits(); err != nil {
 		return err
 	}
+	// The rule reads each dependency after the exit closure, because a
+	// later occurrence can raise its release threshold.
 	for i, claim := range c.claims {
-		owner := owners[claim.Resource]
-		if !owner.isZero() && !owner.isPod(c.reservation.members[0].Vehicle.Pod.ID) && !owner.isPod(c.reservation.members[1].Vehicle.Pod.ID) {
+		owner, required, err := c.reservation.formationOwner(c.dependencies[i], owners[claim.Resource])
+		if err != nil {
+			return err
+		}
+		if required && !owner.isZero() && !owner.isPod(c.reservation.members[0].Vehicle.Pod.ID) && !owner.isPod(c.reservation.members[1].Vehicle.Pod.ID) {
 			return couplingDenied("complete closure has a foreign typed owner")
 		}
 		c.claims[i].Expected = owner

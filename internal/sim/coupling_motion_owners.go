@@ -26,22 +26,28 @@ type couplingMotionOwnerView struct {
 	owners      map[resource]resourceOwner
 }
 
+// couplingDependencyReleased reports whether the train has released d at
+// the member distances. Each member that uses d has reached its release
+// threshold. Before draining, d is not a site, and the front axis has
+// reached the axis threshold plus Clearance. frontOrigin is the route
+// distance of the front at the start of the assembly lane.
+//
 // This conservative axis bound remains valid through the complete opening.
 // A released claim never returns to group ownership in a later phase.
-func (c *couplingMotionContext) dependencyOwner(d couplingDependency, state couplingMotionState) resourceOwner {
-	cleared := true
+func couplingDependencyReleased(d couplingDependency, distances [2]float64, frontOrigin float64, draining bool) bool {
 	for i, used := range d.MemberUse {
-		if used && state.Distances[i] < d.MemberRelease[i] {
-			cleared = false
+		if used && distances[i] < d.MemberRelease[i] {
+			return false
 		}
 	}
-	if d.Site && state.Phase != couplingDraining {
-		cleared = false
+	if draining {
+		return true
 	}
-	if d.AxisUse && state.Phase != couplingDraining && state.Distances[0]-c.reservation.axisOrigins[0] < d.AxisRelease+Clearance {
-		cleared = false
-	}
-	if cleared {
+	return !d.Site && (!d.AxisUse || distances[0]-frontOrigin >= d.AxisRelease+Clearance)
+}
+
+func (c *couplingMotionContext) dependencyOwner(d couplingDependency, state couplingMotionState) resourceOwner {
+	if couplingDependencyReleased(d, state.Distances, c.reservation.axisOrigins[0], state.Phase == couplingDraining) {
 		return resourceOwner{}
 	}
 	if state.Finished && !couplingJointDependency(d) {
