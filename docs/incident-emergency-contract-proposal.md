@@ -1,6 +1,6 @@
 # Incident emergency contract proposal
 
-Status: Approved revision 6, October 6, 2026.
+Status: Approved revision 7, October 6, 2026.
 The maintainer approved product choices P1 to P22 of section 18.2 as proposed, on October 5, 2026, at 22:08Z, and decided P23 on October 5, 2026, at 23:59Z.
 The contract authorizes no implementation, default change, or deployment.
 Line references are at `481c145`.
@@ -28,6 +28,7 @@ Revision 3 folds the adversarial review (section 19.2).
 Revision 4 folds the confirmation review (section 19.3).
 Revision 5 folds the second confirmation check (section 19.4).
 Revision 6 folds the maintainer decision on the latency of the station choice (product choice P23, section 19.5).
+Revision 7 folds the maintainer decision on the discovery skip for emergency records (section 19.6).
 
 ## 1. Scope
 
@@ -38,7 +39,7 @@ Revision 6 folds the maintainer decision on the latency of the station choice (p
 3. Deferral of coupling, approach, platoon, and compact members until they leave their group, with the train split at its committed split site (section 5.6).
 4. The station choice: the soonest estimated arrival over the reachable passenger stations, chosen once (section 9.1).
 5. An emergency tier in admission that wins free resources and never revokes a grant (section 9.3).
-6. The fix of review finding Q7: coupling discovery and adoption skip a withdrawn pod and a pod with an operational purpose (section 5.8).
+6. The fix of review finding Q7: coupling discovery and adoption skip a withdrawn pod and a pod with an operational purpose, and discovery also skips a pod that a record names (section 5.8).
 7. The emergency marker, the settings, the command, and the emergency members of each format (sections 10 and 11).
 
 ### 1.2 Out of scope
@@ -69,6 +70,7 @@ They are not open to change in this contract.
    A target that the stage does not support is refused before any change.
 7. Coupling discovery and adoption skip a withdrawn pod and a pod with an operational purpose (review finding Q7 and the patch 8 note: a purpose 3 pod adopted into coupling keeps its purpose until the retirement and the next arrival, so the train delays its recovery).
    Stage 3 owns this fix.
+   Revision 7 extends the discovery skip to a pod that a record names, by the maintainer decision of October 6, 2026 (section 19.6).
 8. No build tags.
    Exported test entries are allowed, and section 13 lists each one.
 
@@ -346,8 +348,8 @@ The pod finishes its group motion first, and the emergency acts after the pod le
 
 | Group | Rule | End of the wait |
 | --- | --- | --- |
-| Coupling member | No change to the train. The pod is not withdrawn, because `withdrawService` refuses it (`internal/sim/service_withdrawal.go:47`). | The split at the committed split site clears `couplingID` (`internal/sim/coupling_step.go:290`) at the end of a tick. The next emergency stage withdraws the pod before `dispatch` and `formPlatoons` of that tick. |
-| Approach member | `couplingApproachContext.changed` returns the reason "approach member has an emergency" when either member has a record. `planCouplingApproach` then brakes and aborts the approach through `brakeApproach` (`internal/sim/coupling_approach.go:80-82`, `:171`). | The approach ends. The next emergency stage withdraws the pod. A rear member that is still a platoon follower then follows the platoon rule. |
+| Coupling member | No change to the train. The pod is not withdrawn, because `withdrawService` refuses it (`internal/sim/service_withdrawal.go:47`). | The split at the committed split site clears `couplingID` (`internal/sim/coupling_step.go:290`) at the end of a tick. Coupling discovery at the start of the next tick skips the pod, because a record names it (section 5.8). The emergency stage of that tick withdraws the pod before `dispatch` and `formPlatoons`. |
+| Approach member | `couplingApproachContext.changed` returns the reason "approach member has an emergency" when either member has a record. `planCouplingApproach` then brakes and aborts the approach through `brakeApproach` (`internal/sim/coupling_approach.go:80-82`, `:171`). | The approach ends. Coupling discovery skips the pod (section 5.8), and the next emergency stage withdraws it. A rear member that is still a platoon follower then follows the platoon rule. |
 | Platoon leader or follower | `maintainLink` sets `draining` on each tick when either end has a record, and it does not call `extendLink`. `tryLink` refuses a pair with a record at either end. | The link ends when the follower holds no resource of a pod ahead (`internal/sim/platoon.go:440-442`). The pod is then divertible. |
 | Compact queue member | No change to the group. `divertStart` and `startOperationalUnload` refuse the pod. | The pod leaves the group. Stage 6 adds an exit. |
 
@@ -359,7 +361,8 @@ No rider alights in the train: a coupling plan ends its handoff before the recei
 The sequence is retirement, then arrival:
 
 1. `finishNativeCoupling` retires the members at the split site, clears `couplingID`, and keeps the retained resources (`internal/sim/coupling_step.go:288-301`).
-2. The next emergency stage withdraws the pod, and the first hold releases each pending pickup of the pod with the exclusion (decision 4).
+2. Coupling discovery of the next tick skips the pod, because a record names it (section 5.8).
+   The emergency stage of that tick withdraws the pod, and the first hold releases each pending pickup of the pod with the exclusion (decision 4).
 3. The pod continues on its ordinary route.
    When `divertStart` accepts it, the station choice runs on its cadence.
    Otherwise the pod arrives through `arrive` (`internal/sim/traffic.go:786`), and the next emergency stage starts the unload at that berth.
@@ -389,16 +392,28 @@ The endpoint reroute (stage 2, section 9.3) keeps its emergency berth, without t
 The fix lands in patch 1 of section 16.
 The maintainer chose to fix the bug in stage 3, so the fix is not gated on the emergency marker.
 It changes only runs in which a withdrawn pod or a pod with a purpose would have been discovered or adopted for coupling, and such a pod exists only with the incident or fault marker (section 12).
+The record term of revision 7 changes only runs in which a pod that a record names would have been discovered, and a record exists only with the emergency marker.
 
 | Site | Change |
 | --- | --- |
-| `discoverCouplingApproaches` (`internal/sim/coupling_approach_runtime.go:49`, `:53`) | Skip a front or rear pod with `withdrawn != 0` or `op.purpose != opService`. |
+| `discoverCouplingApproaches` (`internal/sim/coupling_approach_runtime.go:49`, `:53`) | Skip a front or rear pod with `withdrawn != 0` or `op.purpose != opService`, or that a record names (`emergencyOf`). |
 | `prepareCouplingAdoption` (`internal/sim/coupling_approach_runtime.go:114`) | Return `couplingDenied("member is out of service")` when either member has `withdrawn != 0` or `op.purpose != opService`, before `planCouplingReservation`. The denial continues the adoption loop (`internal/sim/coupling_step.go:121-127`). |
 | `couplingApproachContext.changed` (`internal/sim/coupling_approach_context.go:182`) | Return a reason when either member is withdrawn, has a purpose, or has a record. |
 | `CheckContract` | Invariant E6. |
 
 Stage 2 skips a faulted pod at discovery (`internal/sim/coupling_approach_runtime.go:56-60`).
 The Q7 skip is wider: it also covers a pod in its fault recovery (purpose 3), which is withdrawn and not faulted, and a pod with `emergencyHold`.
+
+The discovery skip also covers a pod that a record names (revision 7).
+Discovery runs at the start of `Step`, before the emergency stage.
+A group member with a record has no hold until it leaves its group (section 5.6), so it has no hold at that discovery.
+Without the record term, discovery could recruit such a pod when it is the front or the rear of a platoon pair at that discovery.
+Then `changed` aborts that approach at the approach plan of the same tick, and the pod gets its hold after the approach ends.
+After a split, the members have no platoon link (`internal/sim/coupling_step.go:288`), and a new link forms only after the emergency stage, so no observed run reached this case.
+The term is a guard for a pod that has a platoon link at that discovery.
+With the term, the emergency stage of the same tick withdraws the pod.
+Adoption needs no record term: `changed` aborts each approach whose member has a record before the pair is ready for adoption.
+A record exists only with the emergency marker, so the term changes nothing without the marker (section 12).
 
 The reason is recruitment and adoption alone.
 A train member is outside every incident transition: `withdrawService` and `restoreService` refuse it (`internal/sim/service_withdrawal.go:47`, `:80`), the operational operations refuse it (`internal/sim/operational.go:93-98`), and the hold release rule skips it (`internal/sim/faults.go:383`).
@@ -1199,6 +1214,7 @@ Bytes and digests differ only by:
 | `maintainLink` and `tryLink` record tests | No record. | Gated by state. |
 | `changed` approach reason | No record, no hold, and no purpose on an approach member. | Gated by state. |
 | Q7 skip in discovery and adoption, and E6 | No pod has a hold or a purpose without an incident. With the incident or fault marker, it changes only runs in which a withdrawn or purpose pod would have been discovered or adopted, which is the bug that it fixes, and it makes a save with such a pod in a coupling group invalid. | Not gated, by the maintainer decision. Own patch, with its own matched-seed check. |
+| Record term of the Q7 discovery skip | No record. | Gated by state. |
 | Routing view | Built only inside `advanceEmergency`. With `s.routeView` nil, the routing code is unchanged. | Gated by state. |
 | No-candidate memo | Written only by a station choice. | Gated by state. |
 | Purpose 1 amendments of section 9.2 | Purpose 1 needs a record. | Gated by state. |
@@ -1274,7 +1290,7 @@ Preconditions that later stages must meet:
 | Platoon | A link with a record at either end drains and is never extended. A new link with a record pod is refused. The pod binds after the link ends. A restore during the drain keeps draining. |
 | Compact member | The pod waits while in the group and acts after it leaves. |
 | Faults | Each cell of the tables of section 5.7. A clear before evacuation continues the emergency. An evacuation ends the record in the same tick. |
-| Q7 recruitment | Direct tests of recruitment: a pod in its fault recovery (purpose 3), a pod with `faultHold` and no purpose, and a pod with `emergencyHold`, each as the front and as the rear of a platoon pair on a coupling corridor, are not discovered. Each test fails without the skip. |
+| Q7 recruitment | Direct tests of recruitment: a pod in its fault recovery (purpose 3), a pod with `faultHold` and no purpose, and a pod with `emergencyHold`, each as the front and as the rear of a platoon pair on a coupling corridor, are not discovered. A coupling member with a record, in the tick after its split, is not discovered, and the emergency stage of that tick withdraws it. Each test fails without the skip. |
 | Q7 adoption | An approach whose member gains a hold, a purpose, or a record aborts through `changed`, and `prepareCouplingAdoption` denies a pair with an out-of-service member, so the pair never forms a group. |
 | Q7 restore | A save with a coupling member that has a hold or a purpose is `invalid_state` before either tier. |
 | Priority | Two pods request one free junction in one tick: the emergency pod gets it, also against an aged intent. An owned resource is never taken. Two emergencies: the lower serial first. |
@@ -1358,6 +1374,7 @@ Paused starts are included.
 | Drop the `tryLink` record test | Platoon test: a new link forms. |
 | Drop the `changed` record test | Approach test: the pair couples. |
 | Drop the Q7 discovery skip | Q7 test. |
+| Drop the record term of the Q7 discovery skip | Q7 test of a member with a record after its split: discovery recruits the pod. |
 | Put the adoption guard in `couplingMemberEligibility` | Remaining-motion restore test of a train with a deferred member. |
 | Gate the claim surrender on fault records only | Claim surrender test. |
 | Accept an emergency on an empty pod | Refusal test. |
@@ -1495,7 +1512,7 @@ A binding decision, an approved contract, or a safety rule settles each row.
 | R4 | Pending pickups of the pod go to other pods, with the exclusion until boarding. | Decision 4. |
 | R5 | An emergency never evacuates. A fault evacuation, at rest only, interrupts every rider. | Decision 5; stage 2, section 5.5. |
 | R6 | The stage is off by default, with off-state parity, and refuses each unsupported target before any change. | Decision 6. |
-| R7 | Coupling discovery and adoption skip a withdrawn pod and a pod with a purpose. | Decision 7. |
+| R7 | Coupling discovery and adoption skip a withdrawn pod and a pod with a purpose. Discovery also skips a pod that a record names. | Decision 7, revision 7. |
 | R8 | No build tags. | Decision 8. |
 | R9 | A damaged or invalid save moves aside, with no partial recovery. | `AGENTS.md`. |
 | R10 | No compatibility code for old saves or protocols. | `AGENTS.md`. |
@@ -1606,3 +1623,19 @@ Revision 6 folds the decision as product choice P23, and the contract is approve
 | Adversarial fixture | The no-candidate fixture is reported only, and never gated. A pathological first choice on such a network can stall one tick, and the memo stops it from repeating. | 9.1, 15 |
 | Budgeted scan | Rejected by the maintainer, because it changes the result of P13. Section 9.1.1 is a short note, and no other section has its cursor, budget, or save bytes. The rows of sections 19.2 to 19.4 that name it describe the rejected proposal. | 9.1.1 |
 | Open item | Closed. Round 2 finding 1 is resolved by this decision. | 15, 19.2 |
+
+### 19.6 Maintainer decision on the discovery skip for records
+
+The maintainer approved this change on 2026-10-06 at 11:25Z.
+The coupling incident qualification found that discovery runs before the emergency stage.
+A coupling member with a record has no hold in the tick after its split, so discovery could recruit it into an approach.
+Section 5.6 said that the emergency stage of that tick withdraws the pod before `dispatch`, which was then false.
+No invariant broke: `changed` aborts that approach, and `couplingAttempts` limits the retries.
+
+| Item | Resolution | Sections |
+| --- | --- | --- |
+| Discovery skip | `discoverCouplingApproaches` also skips a front or rear pod that a record names. | 5.8 |
+| Group members | Discovery of the tick after the split or the approach end skips the pod, and the emergency stage of that tick withdraws it. | 5.6 |
+| Adoption | No change: `changed` aborts an approach with a record before adoption. | 5.8 |
+| Off state | A record needs the emergency marker, so the term is gated by state. | 12 |
+| Tests | A recruitment test of a member with a record after its split, with a mutation row. | 14.1, 14.6 |
