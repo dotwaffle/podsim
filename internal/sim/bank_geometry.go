@@ -94,7 +94,7 @@ func (n Network) ValidateBankGeometry() error {
 
 func (path bankAuditPath) separated(other bankAuditPath) bool {
 	if path.large || other.large {
-		return geometryPlanesSeparated(path.locations, other.locations)
+		return envelopeLocationsSeparated(path.locations, other.locations)
 	}
 	return safetyLocationsSeparated(path.location, other.location)
 }

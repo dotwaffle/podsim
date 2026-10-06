@@ -50,7 +50,7 @@ func compactQueuePlan(states []compactQueueState, bounds compactQueueBounds, hea
 		return nil, err
 	}
 	lo, hi := compactQueueSpeedRange(states[0].speed)
-	if !compactQueueFinite(headSpeed) || headSpeed < lo || headSpeed > hi {
+	if !finite(headSpeed) || headSpeed < lo || headSpeed > hi {
 		return nil, errors.New("compact queue: head speed outside one-tick bounds")
 	}
 	planned := make([]compactQueueState, len(states))
@@ -121,7 +121,7 @@ func compactQueueBuildRecoveryTargets(states []compactQueueState, bounds compact
 		} else {
 			target = stop
 		}
-		if !compactQueueFinite(target) || target > bounds.frontier {
+		if !finite(target) || target > bounds.frontier {
 			return errors.New("compact queue: recovery target outside the plain frontier")
 		}
 		if targets != nil {
@@ -135,7 +135,7 @@ func compactQueueValidate(states []compactQueueState, bounds compactQueueBounds)
 	if len(states) < 2 || len(states) > compactQueueMaxMembers {
 		return errors.New("compact queue: expected two to four members")
 	}
-	if !compactQueueFinite(bounds.start) || !compactQueueFinite(bounds.frontier) || bounds.start > bounds.frontier {
+	if !finite(bounds.start) || !finite(bounds.frontier) || bounds.start > bounds.frontier {
 		return errors.New("compact queue: invalid plain entry bounds")
 	}
 	var leader *compactQueueState
@@ -152,18 +152,18 @@ func compactQueueValidate(states []compactQueueState, bounds compactQueueBounds)
 }
 
 func compactQueueFits(state compactQueueState, bounds compactQueueBounds, leader *compactQueueState) bool {
-	if !compactQueueFinite(state.position) || !compactQueueFinite(state.speed) || !compactQueueFinite(state.stopBoundary) ||
+	if !finite(state.position) || !finite(state.speed) || !finite(state.stopBoundary) ||
 		state.speed < 0 || state.speed > compactQueueSpeedLimit || state.position < bounds.start ||
 		state.stopBoundary > bounds.frontier || state.position > state.stopBoundary {
 		return false
 	}
 	stop := state.position + compactQueueStoppingDistance(state.speed)
-	if !compactQueueFinite(stop) || stop > state.stopBoundary {
+	if !finite(stop) || stop > state.stopBoundary {
 		return false
 	}
 	if leader != nil {
 		gap := leader.position - state.position
-		return compactQueueFinite(gap) && gap >= compactQueueEnvelope(state.speed, leader.speed)
+		return finite(gap) && gap >= compactQueueEnvelope(state.speed, leader.speed)
 	}
 	return true
 }
@@ -171,7 +171,7 @@ func compactQueueFits(state compactQueueState, bounds compactQueueBounds, leader
 func compactQueueRecoveryFits(head compactQueueState, members int, bounds compactQueueBounds) bool {
 	stop := head.position + compactQueueStoppingDistance(head.speed)
 	end := stop + compactQueueRecoveryPerPair*float64(members-1)
-	return compactQueueFinite(end) && end <= bounds.frontier
+	return finite(end) && end <= bounds.frontier
 }
 
 func compactQueueSpeedRange(speed float64) (float64, float64) {
@@ -183,8 +183,4 @@ func compactQueueStep(state compactQueueState, speed float64) compactQueueState 
 	state.position += speed * compactQueueTickSeconds
 	state.speed = speed
 	return state
-}
-
-func compactQueueFinite(value float64) bool {
-	return !math.IsNaN(value) && !math.IsInf(value, 0)
 }

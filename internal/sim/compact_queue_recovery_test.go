@@ -506,7 +506,7 @@ func compactQueueRecoveryTickBound(states []compactQueueState, recovery compactQ
 			continue
 		}
 		steps := math.Ceil(2 * (recovery.targets[i] - state.position) / (recovery.landingSpeeds[i] * compactQueueTickSeconds))
-		if !compactQueueFinite(steps) || steps >= float64(math.MaxUint64-bound) {
+		if !finite(steps) || steps >= float64(math.MaxUint64-bound) {
 			return 0, errors.New("compact queue: finite recovery bound cannot be represented")
 		}
 		bound += uint64(steps) + 1

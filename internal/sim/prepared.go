@@ -192,24 +192,10 @@ func berthGeometryLocations(berth Berth, incident []Lane) []SafetyLocation {
 	return locations
 }
 
-func geometryPlanesSeparated(first, second []SafetyLocation) bool {
-	if len(first) == 0 || len(second) == 0 {
-		return false
-	}
-	for _, a := range first {
-		for _, b := range second {
-			if !safetyLocationsSeparated(a, b) {
-				return false
-			}
-		}
-	}
-	return true
-}
-
 func validateInitialSeparation(placements []initialPlacementGeometry) error {
 	for i, first := range placements {
 		for _, second := range placements[i+1:] {
-			if !largeVehicleClass(first.class) && !largeVehicleClass(second.class) || geometryPlanesSeparated(first.locations, second.locations) {
+			if !largeVehicleClass(first.class) && !largeVehicleClass(second.class) || envelopeLocationsSeparated(first.locations, second.locations) {
 				continue
 			}
 			clearance := classPairClearance(first.class, second.class)

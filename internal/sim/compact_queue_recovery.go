@@ -113,7 +113,7 @@ func compactQueueHoldingStep(state compactQueueState, bounds compactQueueBounds,
 		return state, err
 	}
 	lo, hi := compactQueueSpeedRange(state.speed)
-	if !compactQueueFinite(nextSpeed) || nextSpeed < lo || nextSpeed > hi {
+	if !finite(nextSpeed) || nextSpeed < lo || nextSpeed > hi {
 		return state, errors.New("compact queue: holding speed outside one-tick bounds")
 	}
 	planned := compactQueueStep(state, nextSpeed)
@@ -131,7 +131,7 @@ func compactQueueHoldingValidate(state compactQueueState, bounds compactQueueBou
 		return nil
 	}
 	target := state.position + compactQueueStoppingDistance(state.speed) + compactQueueRecoveryPerPair*float64(capacity-1)
-	if !compactQueueFinite(target) || target > bounds.frontier {
+	if !finite(target) || target > bounds.frontier {
 		return errors.New("compact queue: insufficient anticipatory recovery room")
 	}
 	_, err := compactQueueLandingSpeed(state, target)
@@ -158,15 +158,15 @@ func compactQueueRecoveryValidate(states []compactQueueState, recovery compactQu
 
 func compactQueueRecoveryMember(state compactQueueState, recovery compactQueueRecovery, i int) error {
 	target, landing := recovery.targets[i], recovery.landingSpeeds[i]
-	if !compactQueueFinite(target) || target < state.position || target > recovery.bounds.frontier ||
-		!compactQueueFinite(landing) || landing < 0 || landing > compactQueueAcceleration*compactQueueTickSeconds {
+	if !finite(target) || target < state.position || target > recovery.bounds.frontier ||
+		!finite(landing) || landing < 0 || landing > compactQueueAcceleration*compactQueueTickSeconds {
 		return errors.New("invalid target or landing speed")
 	}
 	if i != 0 && recovery.targets[i-1]-target < compactQueueOrdinaryGap {
 		return errors.New("recovery destinations violate ordinary stopped spacing")
 	}
 	end := compactQueueBrakingEnd(state)
-	if !compactQueueFinite(end.position) || end.position > target {
+	if !finite(end.position) || end.position > target {
 		return errors.New("discrete braking passes the recovery target")
 	}
 	if len(recovery.targets) == 1 {
@@ -193,7 +193,7 @@ func compactQueueRecoveryMember(state compactQueueState, recovery compactQueueRe
 // Its continuous stopping allowance D(w) must remain owned past the destination.
 func compactQueueLandingSpeed(state compactQueueState, target float64) (float64, error) {
 	margin := state.stopBoundary - target
-	if !compactQueueFinite(target) || !compactQueueFinite(margin) || margin <= 0 {
+	if !finite(target) || !finite(margin) || margin <= 0 {
 		return 0, errors.New("no positive owned landing allowance")
 	}
 	w := compactQueueAcceleration * compactQueueTickSeconds
@@ -203,7 +203,7 @@ func compactQueueLandingSpeed(state compactQueueState, target float64) (float64,
 	for compactQueueStoppingDistance(w) > margin || target+compactQueueStoppingDistance(w) > state.stopBoundary {
 		w = math.Nextafter(w, 0)
 	}
-	if !compactQueueFinite(w) || w <= 0 || !compactQueueProgressFits(state.position, target, w) {
+	if !finite(w) || w <= 0 || !compactQueueProgressFits(state.position, target, w) {
 		return 0, errors.New("landing allowance cannot produce a representable forward step")
 	}
 	return w, nil
@@ -245,9 +245,9 @@ func compactQueueProgressFits(position, target, speed float64) bool {
 	magnitude := max(math.Abs(position), math.Abs(target))
 	ulp := math.Nextafter(magnitude, math.Inf(1)) - magnitude
 	travel := speed * compactQueueTickSeconds
-	return compactQueueFinite(ulp) && travel > 0 && travel >= ulp
+	return finite(ulp) && travel > 0 && travel >= ulp
 }
 
 func compactQueueBoundsValid(bounds compactQueueBounds) bool {
-	return compactQueueFinite(bounds.start) && compactQueueFinite(bounds.frontier) && bounds.start <= bounds.frontier
+	return finite(bounds.start) && finite(bounds.frontier) && bounds.start <= bounds.frontier
 }
