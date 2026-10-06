@@ -204,6 +204,39 @@ func TestCouplingFormationForeignOwner(t *testing.T) {
 	}
 }
 
+// When several resources refuse the plan, the refusal names the first of
+// them in resource order, whatever the map order of the dependencies.
+func TestCouplingReservationRefusalOrder(t *testing.T) {
+	t.Parallel()
+	foreign := podResourceOwner("third")
+	for _, test := range []struct {
+		name   string
+		owners map[resource]resourceOwner
+		want   string
+	}{
+		{"two foreign owners ahead", map[resource]resourceOwner{
+			{kind: trackResource, id: "ab", cell: 4}: foreign,
+			{kind: trackResource, id: "ab", cell: 3}: foreign,
+		}, "foreign owner at resource {kind:2 id:ab cell:3}"},
+		{"member on a released node before a foreign owner ahead", map[resource]resourceOwner{
+			{kind: trackResource, id: "ab", cell: 3}: foreign,
+			{kind: nodeResource, id: "a"}:            podResourceOwner("front"),
+		}, "member owns resource {kind:1 id:a cell:0} that formation releases"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			input := couplingMotionFixture(t, false, false)
+			maps.Copy(input.Owners, test.owners)
+			for range 20 {
+				_, err := planCouplingReservation(input)
+				if !errors.Is(err, errCouplingReservationDenied) || !strings.Contains(err.Error(), test.want) {
+					t.Fatalf("got %v, want refusal %q", err, test.want)
+				}
+			}
+		})
+	}
+}
+
 // A resource that the plan releases can occur again in the exit closure,
 // which then raises its release threshold. The exit closure must check
 // the owner with the complete threshold. No authored straight corridor

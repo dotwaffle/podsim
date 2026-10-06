@@ -140,7 +140,9 @@ func planCouplingReservation(input couplingReservationInput) (couplingReservatio
 	if err := plan.preserveReceivingClaims(input, dependencies); err != nil {
 		return couplingReservationPlan{}, err
 	}
-	for r, dependency := range dependencies {
+	// Resource order makes the first refusal independent of map order.
+	for _, r := range slices.SortedFunc(maps.Keys(dependencies), compareCouplingResource) {
+		dependency := dependencies[r]
 		owner, required, err := plan.formationOwner(dependency, input.Owners[r])
 		if err != nil {
 			return couplingReservationPlan{}, err
@@ -151,9 +153,7 @@ func planCouplingReservation(input couplingReservationInput) (couplingReservatio
 		plan.Claims = append(plan.Claims, couplingClaim{Resource: r, Expected: owner})
 		plan.Dependencies = append(plan.Dependencies, dependency)
 	}
-	slices.SortFunc(plan.Claims, func(a, b couplingClaim) int { return compareCouplingResource(a.Resource, b.Resource) })
 	slices.SortFunc(plan.PreservedClaims, func(a, b couplingClaim) int { return compareCouplingResource(a.Resource, b.Resource) })
-	slices.SortFunc(plan.Dependencies, func(a, b couplingDependency) int { return compareCouplingResource(a.Resource, b.Resource) })
 	return plan, nil
 }
 
