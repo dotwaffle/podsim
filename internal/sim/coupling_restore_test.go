@@ -144,10 +144,11 @@ func TestCouplingNativeRestoreRefusesPartialRecovery(t *testing.T) {
 	}
 }
 
-// The route blocks of a pod end at the route length. Thus the member pose
-// search of a coupling restore finds each lane of the route, and also the
-// last lane. It refuses a distance at the route end.
-func TestRouteBlocksEndAtRouteLength(t *testing.T) {
+// The route blocks of a pod end at the route length (see
+// TestRouteBlocksEndAtRouteLength). Thus the member pose search of a
+// coupling restore finds each lane of the route, and also the last lane. It
+// refuses a distance at the route end.
+func TestCouplingMotionPoseAtRouteEnd(t *testing.T) {
 	t.Parallel()
 	s := newTraffic(t)
 	route, err := s.route(s.network.Stations[0].Berths[0].Node, s.network.Stations[1].Berths[0].Node)

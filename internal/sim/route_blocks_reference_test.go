@@ -202,6 +202,30 @@ func TestRouteBlocksMatchReference(t *testing.T) {
 	})
 }
 
+// TestRouteBlocksEndAtRouteLength checks that each lane of the route
+// blocks starts at the sum of the lengths of the lanes before it. The entry
+// after the last lane starts at the route length, and the safety envelope
+// reads it as the end of the last lane.
+func TestRouteBlocksEndAtRouteLength(t *testing.T) {
+	t.Parallel()
+	s := newTraffic(t)
+	route, err := s.route(s.network.Stations[0].Berths[0].Node, s.network.Stations[1].Berths[0].Node)
+	if err != nil || len(route) < 2 {
+		t.Fatalf("route %v: %v", route, err)
+	}
+	blocks, lengths := s.routeBlocks(route)
+	end := 0.0
+	for i, length := range lengths {
+		if blocks.lanes[i].start != end {
+			t.Fatalf("lane %d starts at %v, want %v", i, blocks.lanes[i].start, end)
+		}
+		end += length
+	}
+	if blocks.lanes[len(route)].start != end {
+		t.Fatalf("the route ends at %v, want %v", blocks.lanes[len(route)].start, end)
+	}
+}
+
 func TestNetworkIndexesRebuildBerthResources(t *testing.T) {
 	t.Parallel()
 	s := newTraffic(t)

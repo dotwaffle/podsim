@@ -224,3 +224,18 @@ func TestLargeProfileEnvelopeRouteAndBerth(t *testing.T) {
 		t.Fatal("body-plane evidence shares mutable simulation storage")
 	}
 }
+
+// TestLargeEnvelopeReachesLastRouteLane builds the route blocks with
+// routeBlocks. The front of a pod near the end of the first lane reaches
+// the last lane of its route, and the envelope includes that lane.
+func TestLargeEnvelopeReachesLastRouteLane(t *testing.T) {
+	t.Parallel()
+	n := Network{Nodes: []Node{{ID: "a"}, {ID: "b", Position: Point{X: 100}}, {ID: "c", Position: Point{X: 200}}},
+		Lanes: []Lane{{ID: "upper", From: "a", To: "b", SpeedLimit: 14, SeparationGroup: "upper"}, {ID: "lower", From: "b", To: "c", SpeedLimit: 14, SeparationGroup: "lower"}}}
+	s := &Simulation{networkIndexes: &networkIndexes{network: n, laneSafety: map[string]SafetyLocation{"upper": {SeparationGroup: "upper", From: "a", To: "b"}, "lower": {SeparationGroup: "lower", From: "b", To: "c"}}}}
+	v := vehicle{originReleased: true, Pod: Pod{ID: "express", Class: ExpressClass, Activity: Traveling, LaneID: "upper"}}
+	s.setVehicleRoute(&v, n.Lanes)
+	if got := s.vehicleSafetyLocations(&v, 94); len(got) != 2 || got[1].SeparationGroup != "lower" {
+		t.Fatalf("front envelope failed to reach the last route lane: %+v", got)
+	}
+}

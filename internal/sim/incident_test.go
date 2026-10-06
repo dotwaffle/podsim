@@ -66,6 +66,21 @@ func TestIncidentMarkerSurvivesFleetChanges(t *testing.T) {
 	}
 }
 
+// ValidateFleetWithContracts checks the same startup rules without live state.
+func ValidateFleetWithContracts(network Network, placements []Placement, contracts FleetContracts) error {
+	if err := validateFleetContracts(network, placements, contracts); err != nil {
+		return err
+	}
+	if contracts.CouplingContract == "" {
+		return ValidateFleetWithOrderContract(network, placements, contracts.OrderContract)
+	}
+	p, err := PrepareNetwork(network)
+	if err != nil {
+		return err
+	}
+	return validatePlacementsWithOrderContract(p.network, placements, contracts.OrderContract)
+}
+
 // TestIncidentMarkerUnknownRefused checks that a fleet refuses a marker
 // that is not incident-v1, and that a fleet without the marker has none.
 func TestIncidentMarkerUnknownRefused(t *testing.T) {

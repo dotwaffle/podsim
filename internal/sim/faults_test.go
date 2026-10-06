@@ -29,6 +29,12 @@ func startFault(t *testing.T, s *Simulation, v *vehicle, duration int64) string 
 	return id
 }
 
+// sameRouteSlice reports whether a and b are the same route slice, so a
+// pod kept its route and did not get an equal copy.
+func sameRouteSlice(a, b []Lane) bool {
+	return len(a) == len(b) && (len(a) == 0 || &a[0] == &b[0])
+}
+
 // faultIDs returns the IDs of the active records, in record order.
 func faultIDs(s *Simulation) []string {
 	ids := make([]string, 0, len(s.faults))

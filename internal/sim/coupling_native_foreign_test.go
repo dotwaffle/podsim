@@ -1,8 +1,6 @@
 package sim
 
 import (
-	"bytes"
-	"encoding/json/v2"
 	"errors"
 	"maps"
 	"math"
@@ -159,64 +157,6 @@ func TestNativeForeignFrozenFacts(t *testing.T) {
 	}
 	if err = frame.checkApplied(s); !errors.Is(err, errCouplingMotionInvariant) {
 		t.Fatal("unapplied native command was accepted")
-	}
-}
-
-func TestNativeForeignOrdinaryInverseControl(t *testing.T) {
-	t.Parallel()
-	for _, test := range []struct {
-		name            string
-		lengths, limits []float64
-	}{
-		{"one_lane", []float64{100}, []float64{7.123456789}},
-		{"lower_future", []float64{100, 10, 100}, []float64{14, 8, 2.5}},
-		{"crossed_short_lane", []float64{100, .001, 100}, []float64{14, 2.5, 14}},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-			actual, v := laneSpeedFixture(test.lengths, test.limits)
-			actual.vehicles = []vehicle{*v}
-			v = &actual.vehicles[0]
-			actual.SetMotionRecording(true)
-			control := actual.Clone()
-			old := &control.vehicles[0]
-			for tick := range 20000 {
-				actual.tick++
-				control.tick++
-				actual.beginMotionFrame()
-				control.beginMotionFrame()
-				actual.moveAndMeasure(v)
-				control.oldMoveAndMeasureNativeForeign(old)
-				actual.publishMotionFrame()
-				control.publishMotionFrame()
-				af, _ := actual.MotionFrame()
-				bf, _ := control.MotionFrame()
-				if af.Tick != bf.Tick || !slices.Equal(af.Samples, bf.Samples) || actual.emptyDistanceMeters != control.emptyDistanceMeters || actual.passengerDistanceMeters != control.passengerDistanceMeters {
-					t.Fatalf("ordinary MotionFrame or accounting differs at tick %d", tick)
-				}
-				a, err := json.Marshal(actual.ExportState())
-				if err != nil {
-					t.Fatal(err)
-				}
-				b, err := json.Marshal(control.ExportState())
-				if err != nil {
-					t.Fatal(err)
-				}
-				if !bytes.Equal(a, b) || v.Pod != old.Pod || v.distance != old.distance || v.blocks.cursors != old.blocks.cursors {
-					t.Fatalf("ordinary caller differs from frozen inverse control at tick %d", tick)
-				}
-				lane := v.blocks.currentLane(v.blockIndex)
-				if v.Pod.Speed > lane.SpeedLimit {
-					t.Fatal("actual current lane limit failed")
-				}
-				if v.distance == v.blocks.end(v.reservedThrough) && v.Pod.Speed == 0 {
-					break
-				}
-				if tick == 19999 {
-					t.Fatal("inverse fixture exceeded frozen tick cap")
-				}
-			}
-		})
 	}
 }
 

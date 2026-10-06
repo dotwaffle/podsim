@@ -178,7 +178,7 @@ func TestFaultLaneRecovery(t *testing.T) {
 				t.Fatalf("destination %q, buffered %t", destination.ID, v.buffered)
 			}
 			stepUntil(t, s, "evacuation", func() bool { return v.RidersAboard() == 0 })
-			if v.op != (operationalDestination{purpose: opEmptyRecovery, owner: faultHold}) || !nativeForeignSameRoute(v.Route, route) ||
+			if v.op != (operationalDestination{purpose: opEmptyRecovery, owner: faultHold}) || !sameRouteSlice(v.Route, route) ||
 				v.destination != destination || v.RelocatingTo != station || v.Pod.Speed != 0 {
 				t.Fatalf("pod after the evacuation: %+v, purpose %+v", v.Pod, v.op)
 			}
@@ -196,7 +196,7 @@ func TestFaultLaneRecovery(t *testing.T) {
 				// A route to a station entry gets its berth as a passenger
 				// route does. Otherwise the route and the berth stay.
 				if v.op.purpose == opEmptyRecovery && v.Pod.Activity == Traveling &&
-					(v.destinationStation != station || destination.ID != "" && (v.destination != destination || !nativeForeignSameRoute(v.Route, route))) {
+					(v.destinationStation != station || destination.ID != "" && (v.destination != destination || !sameRouteSlice(v.Route, route))) {
 					t.Fatalf("tick %d: the recovery changed its route or destination", s.tick)
 				}
 				return v.Pod.Activity == Idle

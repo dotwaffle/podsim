@@ -168,9 +168,55 @@ func TestFaultMoveStep(t *testing.T) {
 
 // TestFaultCapAtGrantEnd faults a pod whose stopping distance passes its
 // grant end, as the discrete ordinary step allows. The grant end is the
-// cap, and the pod comes to rest there. There a pod without the fault
-// makes the same step, and the native checks fail the changed member.
+// cap, and the pod comes to rest there.
 func TestFaultCapAtGrantEnd(t *testing.T) {
+	t.Parallel()
+	s, err := NewFleet(Example(), []Placement{{ID: "01", StationID: "garden", BerthID: "garden-1"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.faultsOn = true
+	v := s.findVehicle("01")
+	garden, _ := s.network.Station("garden")
+	market, _ := s.network.Station("market")
+	route, err := s.route(garden.Berths[0].Node, market.Berths[0].Node)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.setVehicleRoute(v, route)
+	v.origin = garden.Berths[0]
+	v.Pod.Activity = DepartingEmpty
+	s.grant(intent{index: s.vehicleIndexes[v.Pod.ID], block: 0, through: 0})
+	if v.reservedThrough < 0 || v.reservedThrough >= v.blocks.len()-1 {
+		t.Fatalf("the first grant ends at block %d of %d", v.reservedThrough, v.blocks.len())
+	}
+	v.Pod.Activity, v.Pod.StationID, v.Pod.BerthID = Traveling, "", ""
+	// Only move runs, so admission does not extend the grant.
+	frontier := v.blocks.end(v.reservedThrough)
+	for v.distance+stoppingDistance(v.Pod.Speed) <= frontier {
+		if v.Pod.Speed == 0 && v.distance > 0 {
+			t.Fatal("the pod stopped with its stopping distance inside its grants")
+		}
+		s.tick++
+		s.move(v)
+	}
+	startFault(t, s, v, 0)
+	if v.faultCap != frontier {
+		t.Fatalf("cap %g, want the grant end %g", v.faultCap, frontier)
+	}
+	for v.Pod.Speed > 0 {
+		s.tick++
+		s.move(v)
+	}
+	if v.distance != frontier || v.Pod.Activity != Traveling {
+		t.Fatalf("the pod rests at %g m as %s, want %g m", v.distance, v.Pod.Activity, frontier)
+	}
+}
+
+// TestNativeForeignFaultCapAtGrantEnd is TestFaultCapAtGrantEnd beside a
+// native pair. There a pod without the fault makes the same step, and the
+// native checks fail the changed member.
+func TestNativeForeignFaultCapAtGrantEnd(t *testing.T) {
 	t.Parallel()
 	s, c, v := nativeForeignFixture(t)
 	s.faultsOn = true
@@ -510,10 +556,10 @@ func TestFaultInStationEntryQueue(t *testing.T) {
 			}
 			continue
 		}
-		if head.destination.ID != "" || head.bufferBerth != bufferBerth || !head.buffered || head.Pod.Speed != 0 || !nativeForeignSameRoute(head.Route, route) {
+		if head.destination.ID != "" || head.bufferBerth != bufferBerth || !head.buffered || head.Pod.Speed != 0 || !sameRouteSlice(head.Route, route) {
 			t.Fatalf("the faulted head moved to a berth: destination %q, buffer berth %q", head.destination.ID, head.bufferBerth)
 		}
-		if !nativeForeignSameRoute(behind.Route, behindRoute) || behind.Pod.LaneID != head.Pod.LaneID || behind.Pod.LaneDistance >= head.Pod.LaneDistance {
+		if !sameRouteSlice(behind.Route, behindRoute) || behind.Pod.LaneID != head.Pod.LaneID || behind.Pod.LaneDistance >= head.Pod.LaneDistance {
 			t.Fatalf("the pod behind changed its route or passed the head: %+v", behind.Pod)
 		}
 	}
@@ -541,7 +587,7 @@ func TestFaultServiceClaim(t *testing.T) {
 			}
 			delete(owned, r)
 		}
-		if !maps.Equal(owned, s.owners) || !nativeForeignSameRoute(relocating.Route, route) || relocating.destination != destination ||
+		if !maps.Equal(owned, s.owners) || !sameRouteSlice(relocating.Route, route) || relocating.destination != destination ||
 			relocating.reservedThrough != through || relocating.RelocatingTo != "market" {
 			t.Fatal("the fault changed more than the service claim")
 		}
