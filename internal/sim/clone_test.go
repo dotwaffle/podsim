@@ -26,7 +26,7 @@ const (
 var cloneRules = map[reflect.Type]map[string]cloneRule{
 	reflect.TypeFor[Simulation](): {
 		"couplingNetwork": cloneShare, "couplingGroups": cloneCopy,
-		"couplingFault": cloneShare, "couplingFleet": cloneDrop,
+		"couplingFault": cloneShare, "couplingFleet": cloneDrop, "couplingWork": cloneDrop,
 		"couplingApproaches": cloneCopy, "couplingAttempts": cloneCopy,
 		"motion":         cloneCopy,
 		"networkIndexes": cloneShare, "lengths": cloneDrop, "routes": cloneDrop, "routeOrder": cloneDrop,
@@ -206,7 +206,7 @@ const (
 var persistRules = map[reflect.Type]map[string]persistRule{
 	reflect.TypeFor[Simulation](): {
 		"couplingNetwork": persistSession, "couplingEnabled": persistSession, "couplingGroups": persistSave,
-		"couplingFault": persistReset, "couplingFleet": persistReset,
+		"couplingFault": persistReset, "couplingFleet": persistReset, "couplingWork": persistReset,
 		"couplingApproaches": persistReset, "couplingAttempts": persistReset,
 		"orderContract": persistSave, "incidentContract": persistSession, "faultContract": persistSession, "emergencyContract": persistSession,
 		"incidentSerial": persistSave, "incidentGeneration": persistSession,
@@ -525,7 +525,7 @@ func TestCloneFollowsRules(t *testing.T) {
 				// Recorder ownership is covered by TestMotionLifecycle.
 				"Simulation.motion", "motionRecorder.frame", "motionRecorder.pending", "MotionFrame.Samples",
 				// The committed pair case covers physical group storage.
-				"Simulation.couplingNetwork", "Simulation.couplingGroups", "Simulation.couplingFault", "Simulation.couplingFleet",
+				"Simulation.couplingNetwork", "Simulation.couplingGroups", "Simulation.couplingFault", "Simulation.couplingFleet", "Simulation.couplingWork",
 				"couplingNativeGroup.context", "couplingNativeGroup.state",
 				"Simulation.couplingApproaches", "Simulation.couplingAttempts",
 				"couplingNativeApproach.context", "couplingNativeApproach.state", "couplingApproachAttempt.context",
@@ -610,7 +610,7 @@ func TestCloneFollowsRules(t *testing.T) {
 				s.couplingFault = errors.New("clone fault storage")
 				return s
 			},
-			required: []string{"Simulation.couplingNetwork", "Simulation.couplingGroups", "Simulation.couplingFault", "Simulation.couplingFleet",
+			required: []string{"Simulation.couplingNetwork", "Simulation.couplingGroups", "Simulation.couplingFault", "Simulation.couplingFleet", "Simulation.couplingWork",
 				"couplingNativeGroup.context", "couplingNativeGroup.state"},
 		},
 	} {

@@ -5,6 +5,7 @@ import (
 	"encoding/json/v2"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"testing"
 )
@@ -217,5 +218,51 @@ func TestCouplingIncidentJourneyDeterminism(t *testing.T) {
 			test.check(t, first)
 			t.Logf("final digest %x, split %d, recruited %d", first.digests[len(first.digests)-1], first.split, first.recruited)
 		})
+	}
+}
+
+// TestCouplingTickWorkMatchesFreshBuffers runs the coupling approach
+// journey twice: once with the tick buffers that the simulation keeps,
+// and once with new buffers for each tick. The command results and the
+// state digests must be the same.
+func TestCouplingTickWorkMatchesFreshBuffers(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("the coupled incident journey runs without -short")
+	}
+	const group = 10000
+	commands := []couplingIncidentCommand{
+		{group, "fault on the non-member", podFaultCommand("blocker"), nil},
+		{group, "emergency on the group rear", emergencyCommand("rear"), nil},
+	}
+	// The group splits at tick 15374, so the runs end soon after.
+	reused := runCouplingIncidentJourney(t, commands, nil, 16000)
+	fresh := runCouplingIncidentJourney(t, commands, func(s *Simulation) { s.couplingWork = nil }, 16000)
+	if !slices.Equal(reused.results, fresh.results) || !slices.Equal(reused.digests, fresh.digests) || reused.split != fresh.split {
+		t.Fatalf("reused and fresh buffers differ:\n%v\n%v", reused.results, fresh.results)
+	}
+	if reused.split == 0 {
+		t.Fatal("no group formed and split, so the buffers were not exercised")
+	}
+}
+
+// TestCouplingTickWorkClearsReusedMaps checks that a reused retention map
+// and owner view hold only the values of the current build. A stale entry
+// would let the retained grant check pass for a resource that the pod no
+// longer retains.
+func TestCouplingTickWorkClearsReusedMaps(t *testing.T) {
+	t.Parallel()
+	a, b := resource{kind: junctionResource, id: "a"}, resource{kind: junctionResource, id: "b"}
+	work := &couplingTickWork{retained: make([]map[resource]float64, 1), views: make([]map[resource]resourceOwner, 1)}
+	v := &vehicle{routeReleases: map[resource]float64{a: 1, b: 2}}
+	nativeForeignRetained(v, work, 0)
+	v.routeReleases = map[resource]float64{a: 3}
+	if got := nativeForeignRetained(v, work, 0); !maps.Equal(got, v.routeReleases) {
+		t.Fatalf("reused retention map = %v, want %v", got, v.routeReleases)
+	}
+	frame := &nativeForeignTick{work: work}
+	frame.ownerView(0, 1)[a] = resourceOwner{}
+	if got := frame.ownerView(0, 1); len(got) != 0 {
+		t.Fatalf("reused owner view = %v, want empty", got)
 	}
 }

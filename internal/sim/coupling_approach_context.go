@@ -386,7 +386,7 @@ func couplingApproachOwnedFrontier(s *Simulation, v *vehicle) (float64, error) {
 }
 
 func couplingApproachRetention(v *vehicle) error {
-	expected := make(map[resource]float64)
+	expected := make(map[resource]float64, len(v.routeReleases))
 	for _, b := range v.blocks.span(0, v.reservedThrough+1) {
 		for _, r := range b.resources {
 			expected[r] = max(expected[r], resourceReleaseDistance(b, r))

@@ -465,6 +465,7 @@ type couplingState struct {
 	couplingGroups     []couplingNativeGroup
 	couplingFault      error
 	couplingFleet      *nativeForeignFleet
+	couplingWork       *couplingTickWork
 	couplingApproaches []couplingNativeApproach
 	couplingAttempts   map[string]couplingApproachAttempt
 }
@@ -609,6 +610,7 @@ func (s *Simulation) Reset() {
 	s.couplingApproaches = nil
 	s.couplingAttempts = nil
 	s.couplingFleet = nil
+	s.couplingWork = nil
 	s.couplingFault = nil
 	s.compactGroups, s.compactMotions, s.compactNextGroups, s.compactFault = nil, nil, nil, nil
 	s.owners = make(map[resource]resourceOwner)

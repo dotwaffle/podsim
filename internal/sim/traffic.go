@@ -359,6 +359,13 @@ func (l *blockList) at(index int) block {
 	return l.block(lane, cell)
 }
 
+// endAt returns the end of the block at index, as at does. It builds no
+// block and does not move scan.
+func (l *blockList) endAt(index int) float64 {
+	lane := l.locate(index, l.scan)
+	return l.cellEnd(lane, index-l.lanes[lane].first)
+}
+
 // block returns a cell of the lane at a route index.
 func (l *blockList) block(lane, cell int) block {
 	entry := &l.lanes[lane]

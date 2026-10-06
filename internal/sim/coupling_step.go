@@ -15,6 +15,30 @@ type couplingNativeTick struct {
 	adopted    []bool
 }
 
+// couplingTickWork holds the buffers of the native tick of one simulation.
+// Each planned tick clears and fills them again. The frame and the ledger
+// of a tick are read only until that tick ends, so no later tick can
+// change them while a reader uses them.
+type couplingTickWork struct {
+	owners    map[resource]resourceOwner
+	proofs    map[string]*nativeForeignProof
+	facts     []nativeForeignFact
+	retained  []map[resource]float64
+	views     []map[resource]resourceOwner
+	claims    [][]couplingClaim
+	ledger    map[resource]resourceOwner
+	touched   map[resource]bool
+	newClaims map[resource]bool
+}
+
+func (s *Simulation) nativeCouplingWork() *couplingTickWork {
+	if s.couplingWork == nil {
+		s.couplingWork = &couplingTickWork{owners: make(map[resource]resourceOwner), proofs: make(map[string]*nativeForeignProof),
+			ledger: make(map[resource]resourceOwner), touched: make(map[resource]bool), newClaims: make(map[resource]bool)}
+	}
+	return s.couplingWork
+}
+
 // Planning freezes all controllers before any pod leaves its berth or moves.
 func (s *Simulation) planNativeCouplingTick() (*couplingNativeTick, error) {
 	if len(s.couplingGroups) == 0 && len(s.couplingApproaches) == 0 {
@@ -53,7 +77,8 @@ func (s *Simulation) planNativeCouplingTick() (*couplingNativeTick, error) {
 	if err != nil {
 		return nil, err
 	}
-	frame, err := buildNativeForeignApproachTick(s, s.couplingFleet, approaches, pairs...)
+	work := s.nativeCouplingWork()
+	frame, err := buildNativeForeignApproachTick(s, s.couplingFleet, work, approaches, pairs...)
 	if err != nil {
 		return nil, err
 	}
@@ -71,8 +96,10 @@ func (s *Simulation) planNativeCouplingTick() (*couplingNativeTick, error) {
 		}
 	}
 	tick := &couplingNativeTick{frame: frame, steps: make([]couplingMotionStep, len(contexts)), approaches: approaches, adoptions: make([]couplingNativeGroup, len(approaches)), adopted: make([]bool, len(approaches))}
-	ledger := maps.Clone(frame.owners)
-	touched := make(map[resource]bool)
+	ledger, touched := work.ledger, work.touched
+	clear(ledger)
+	clear(touched)
+	maps.Copy(ledger, frame.owners)
 	for i, c := range contexts {
 		indices := s.couplingFleet.pairs[c]
 		step, err := planCouplingMotion(couplingMotionInput{Context: c, Previous: pairs[i].previous,
@@ -105,7 +132,8 @@ func (s *Simulation) planNativeCouplingTick() (*couplingNativeTick, error) {
 	}
 
 	accepted := make([][2]string, 0, len(approaches))
-	newClaims := make(map[resource]bool)
+	newClaims := work.newClaims
+	clear(newClaims)
 	for i, approach := range approaches {
 		if !approach.step.Ready {
 			continue

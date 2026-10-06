@@ -339,7 +339,7 @@ func prepareNativeForeignFleet(s *Simulation, c *couplingMotionContext, pairs ..
 // The caller invokes this once after native planning and before all movement.
 // Later consumers read this frame, never the partly moved Simulation.
 func buildNativeForeignTick(s *Simulation, f *nativeForeignFleet, pairs ...couplingNativeForeignPair) (*nativeForeignTick, error) {
-	return buildNativeForeignApproachTick(s, f, nil, pairs...)
+	return buildNativeForeignApproachTick(s, f, nil, nil, pairs...)
 }
 
 func (frame *nativeForeignTick) sweeps() []couplingForeignSweep {

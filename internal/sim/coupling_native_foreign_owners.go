@@ -4,7 +4,8 @@ package sim
 // maxTail was computed once from the whole immutable canonical route.
 func (frame *nativeForeignTick) sealOwners(index int, path *couplingForeignPath) (*couplingForeignOwnerView, error) {
 	fact := &frame.facts[index]
-	view := &couplingForeignOwnerView{path: path, through: fact.through, distance: fact.distance, owners: make(map[resource]resourceOwner)}
+	// The view holds retained resources and at most one berth and node.
+	view := &couplingForeignOwnerView{path: path, through: fact.through, distance: fact.distance, owners: frame.ownerView(index, len(fact.retained)+2)}
 	if path.parked {
 		view.through, view.distance = -1, 0
 		for _, r := range berthResources(path.berth) {
@@ -50,11 +51,26 @@ func (frame *nativeForeignTick) sealOwners(index int, path *couplingForeignPath)
 	return view, nil
 }
 
+// ownerView returns an empty owner map for the proof of the pod at index.
+// With work, it uses the map of the index again.
+func (frame *nativeForeignTick) ownerView(index, size int) map[resource]resourceOwner {
+	if frame.work == nil {
+		return make(map[resource]resourceOwner, size)
+	}
+	owners := frame.work.views[index]
+	if owners == nil {
+		owners = make(map[resource]resourceOwner, size)
+		frame.work.views[index] = owners
+	}
+	clear(owners)
+	return owners
+}
+
 func nativeForeignFirstRetained(blocks *blockList, distance float64) int {
 	lo, hi := 0, blocks.len()
 	for lo < hi {
 		mid := lo + (hi-lo)/2
-		if blocks.at(mid).end < distance {
+		if blocks.endAt(mid) < distance {
 			lo = mid + 1
 		} else {
 			hi = mid

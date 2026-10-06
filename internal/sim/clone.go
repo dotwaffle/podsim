@@ -12,6 +12,7 @@ func (s *Simulation) Clone() *Simulation {
 	c := *s
 	c.couplingGroups = slices.Clone(s.couplingGroups)
 	c.couplingFleet = nil
+	c.couplingWork = nil
 	c.couplingApproaches = slices.Clone(s.couplingApproaches)
 	c.couplingAttempts = maps.Clone(s.couplingAttempts)
 	s.cloneMotion(&c)

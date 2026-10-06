@@ -3,7 +3,6 @@ package sim
 import (
 	"maps"
 	"math"
-	"slices"
 )
 
 // This immutable cache binds actual fleet identities and immutable route storage.
@@ -31,6 +30,7 @@ type nativeForeignEntry struct {
 // Step captures this frame after admission and before movement.
 type nativeForeignTick struct {
 	fleet          *nativeForeignFleet
+	work           *couplingTickWork
 	tick           int64
 	facts          []nativeForeignFact
 	owners         map[resource]resourceOwner
@@ -125,19 +125,40 @@ func nativeForeignSameRoute(a, b []Lane) bool {
 	return len(a) == len(b) && (len(a) == 0 || &a[0] == &b[0])
 }
 
-func buildNativeForeignApproachTick(s *Simulation, f *nativeForeignFleet, approaches []couplingApproachTransition, pairs ...couplingNativeForeignPair) (*nativeForeignTick, error) {
+// buildNativeForeignApproachTick captures the frame of the tick. With a nil
+// work, the frame owns new copies. With work, the frame copies into the
+// buffers of work, and the next build with the same work overwrites it.
+func buildNativeForeignApproachTick(s *Simulation, f *nativeForeignFleet, work *couplingTickWork, approaches []couplingApproachTransition, pairs ...couplingNativeForeignPair) (*nativeForeignTick, error) {
 	if s == nil || f == nil || f.source != s || f.network == nil || s.tick <= 0 || len(s.vehicles) != len(f.entries) || s.orderContract != f.orderContract || !nativeForeignPreparedIdentity(s, f.network.prepared) {
 		return nil, couplingMotionInvariant("native frame has a stale fleet, geometry, or tick")
 	}
-	frame := &nativeForeignTick{fleet: f, tick: s.tick, owners: maps.Clone(s.owners), proofs: make(map[string]*nativeForeignProof, len(f.entries))}
-	frame.facts = make([]nativeForeignFact, len(s.vehicles))
+	frame := &nativeForeignTick{fleet: f, work: work, tick: s.tick}
+	if work == nil {
+		frame.owners, frame.proofs = maps.Clone(s.owners), make(map[string]*nativeForeignProof, len(f.entries))
+		frame.facts = make([]nativeForeignFact, len(s.vehicles))
+	} else {
+		clear(work.owners)
+		clear(work.proofs)
+		maps.Copy(work.owners, s.owners)
+		frame.owners, frame.proofs = work.owners, work.proofs
+		if cap(work.facts) < len(s.vehicles) {
+			work.facts = make([]nativeForeignFact, len(s.vehicles))
+		}
+		work.facts = work.facts[:len(s.vehicles)]
+		if len(work.retained) < len(s.vehicles) {
+			work.retained = append(work.retained, make([]map[resource]float64, len(s.vehicles)-len(work.retained))...)
+			work.views = append(work.views, make([]map[resource]resourceOwner, len(s.vehicles)-len(work.views))...)
+			work.claims = append(work.claims, make([][]couplingClaim, len(s.vehicles)-len(work.claims))...)
+		}
+		frame.facts = work.facts
+	}
 	for i := range s.vehicles {
 		v := &s.vehicles[i]
 		entry := &f.entries[i]
 		if v.Pod.ID != entry.id || v.Pod.Class != entry.class || v.routeVersion != entry.routeVersion || !nativeForeignSameRoute(v.Route, entry.route) {
 			return nil, couplingMotionInvariant("native frame requires new immutable route preparation")
 		}
-		fact := nativeForeignFact{pod: v.Pod, cabin: nativeForeignCabin(v), distance: v.distance, blockIndex: v.blockIndex, through: v.reservedThrough, phaseTicks: v.phaseTicks, origin: v.origin, destination: v.destination, retained: maps.Clone(v.routeReleases), link: v.link, follower: v.follower, cap: v.platoonCap, faulted: v.faulted, faultCap: v.faultCap}
+		fact := nativeForeignFact{pod: v.Pod, cabin: nativeForeignCabinInto(v, frame.facts[i].cabin), distance: v.distance, blockIndex: v.blockIndex, through: v.reservedThrough, phaseTicks: v.phaseTicks, origin: v.origin, destination: v.destination, retained: nativeForeignRetained(v, work, i), link: v.link, follower: v.follower, cap: v.platoonCap, faulted: v.faulted, faultCap: v.faultCap}
 		if len(s.compactMotions) > 0 {
 			if len(s.compactMotions) != len(s.vehicles) {
 				return nil, couplingMotionInvariant("native compact plan omits fleet members")
@@ -201,9 +222,31 @@ func nativeForeignStep(fact *nativeForeignFact, blocks *blockList, lane int, lim
 func nativeForeignSameFloat(a, b float64) bool { return math.Float64bits(a) == math.Float64bits(b) }
 
 func nativeForeignCabin(v *vehicle) couplingCabinMotion {
+	return nativeForeignCabinInto(v, couplingCabinMotion{})
+}
+
+// nativeForeignCabinInto is nativeForeignCabin. It copies the slices of v
+// into the arrays of old, which no other reader holds.
+func nativeForeignCabinInto(v *vehicle, old couplingCabinMotion) couplingCabinMotion {
 	ridden := 0.0
 	if v.RidersAboard() > 0 || len(v.Boardings) > 0 {
 		ridden = v.riddenMeters()
 	}
-	return couplingCabinMotion{Pod: v.Pod, Riders: slices.Clone(v.Riders), Stops: slices.Clone(v.Stops), Boardings: slices.Clone(v.Boardings), RiddenMeters: ridden, RelocatingTo: v.RelocatingTo, RouteVersion: v.routeVersion}
+	return couplingCabinMotion{Pod: v.Pod, Riders: append(old.Riders[:0], v.Riders...), Stops: append(old.Stops[:0], v.Stops...), Boardings: append(old.Boardings[:0], v.Boardings...), RiddenMeters: ridden, RelocatingTo: v.RelocatingTo, RouteVersion: v.routeVersion}
+}
+
+// nativeForeignRetained copies the retention ledger of v, the pod at index.
+// With work, it uses the map of the index again.
+func nativeForeignRetained(v *vehicle, work *couplingTickWork, index int) map[resource]float64 {
+	if work == nil || v.routeReleases == nil {
+		return maps.Clone(v.routeReleases)
+	}
+	retained := work.retained[index]
+	if retained == nil {
+		retained = make(map[resource]float64, len(v.routeReleases))
+		work.retained[index] = retained
+	}
+	clear(retained)
+	maps.Copy(retained, v.routeReleases)
+	return retained
 }

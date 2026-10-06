@@ -287,12 +287,12 @@ func TestCouplingApproachRuntimeProducerAndPublicationGuards(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			frame, err := buildNativeForeignApproachTick(s, fleet, transitions)
+			frame, err := buildNativeForeignApproachTick(s, fleet, nil, transitions)
 			if err != nil || len(frame.proofs) != len(s.vehicles) || len(frame.fleet.pairs) != 0 {
 				t.Fatal("actual whole-fleet frame requires a fictitious committed group", err)
 			}
 			tc.change(&transitions[0])
-			if _, err := buildNativeForeignApproachTick(s, fleet, transitions); err == nil {
+			if _, err := buildNativeForeignApproachTick(s, fleet, nil, transitions); err == nil {
 				t.Fatal("actual frame accepted an approach caller override")
 			}
 		})

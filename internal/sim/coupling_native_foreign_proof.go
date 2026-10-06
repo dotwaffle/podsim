@@ -246,6 +246,14 @@ func (frame *nativeForeignTick) checkApplied(s *Simulation) error {
 }
 
 func (proof *nativeForeignProof) freezeClaims() *nativeForeignProof {
+	size := len(proof.raw.Owners.owners)
+	if work := proof.frame.work; work != nil {
+		// The appends below stay in the array that Grow gives.
+		proof.claims = slices.Grow(work.claims[proof.index][:0], size)
+		work.claims[proof.index] = proof.claims
+	} else {
+		proof.claims = make([]couplingClaim, 0, size)
+	}
 	for r, owner := range proof.raw.Owners.owners {
 		proof.claims = append(proof.claims, couplingClaim{Resource: r, Expected: owner})
 	}
