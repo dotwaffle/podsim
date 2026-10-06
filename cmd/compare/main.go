@@ -1275,196 +1275,370 @@ func run(input runInput) (result, error) {
 	if err != nil {
 		return result{}, fmt.Errorf("create comparison: %w", err)
 	}
-	weightScenario := input.scenario
-	weightScenario.demand.Seed = uint64(input.seed) // #nosec G115 -- Match the offered schedule.
-	var weights map[string]float64
-	if input.daily == nil {
-		weights, err = demandWeights(input.pattern, input.band, weightScenario)
-	}
+	mode, err := configureRun(simulation, &input, meter != nil)
 	if err != nil {
 		return result{}, err
-	}
-	if demandErr := simulation.SetDemandWeights(weights); demandErr != nil {
-		return result{}, fmt.Errorf("set demand weights: %w", demandErr)
-	}
-	if sharingErr := simulation.SetSharedRidePartyLimit(input.sharingLimit); sharingErr != nil {
-		return result{}, fmt.Errorf("set sharing limit: %w", sharingErr)
-	}
-	sharingMode, sharingStops := input.sharingSettings()
-	if sharingErr := simulation.SetSharedRideMode(sharingMode, sharingStops); sharingErr != nil {
-		return result{}, fmt.Errorf("set sharing mode: %w", sharingErr)
-	}
-	if input.sharingJoin != "" {
-		join, ok := sharingJoinValues[input.sharingJoin]
-		if !ok {
-			return result{}, fmt.Errorf("unknown sharing join policy %q", input.sharingJoin)
-		}
-		if joinErr := simulation.SetSharedRideJoin(join); joinErr != nil {
-			return result{}, fmt.Errorf("set sharing join policy: %w", joinErr)
-		}
-	}
-	if policyErr := configureOnboardPickups(simulation, input.onboardPickups); policyErr != nil {
-		return result{}, policyErr
-	}
-	if routingErr := simulation.SetRoutingPolicy(routingPolicyValues[input.routingPolicy]); routingErr != nil {
-		return result{}, fmt.Errorf("set routing policy: %w", routingErr)
-	}
-	simulation.SetExperimentRecords(true)
-	if meter != nil {
-		simulation.SetMotionRecording(true)
-	}
-	if input.waitRule != "" {
-		rule, ok := waitRuleValues[input.waitRule]
-		if !ok {
-			return result{}, fmt.Errorf("unknown wait rule %q", input.waitRule)
-		}
-		if waitErr := simulation.SetFinishingPodWait(rule); waitErr != nil {
-			return result{}, fmt.Errorf("set wait rule: %w", waitErr)
-		}
-	}
-	if input.platoonPolicy != "" {
-		platooning, ok := platoonPolicyValues[input.platoonPolicy]
-		if !ok {
-			return result{}, fmt.Errorf("unknown platoon policy %q", input.platoonPolicy)
-		}
-		if platoonErr := simulation.SetPlatooning(platooning); platoonErr != nil {
-			return result{}, fmt.Errorf("set platoon policy: %w", platoonErr)
-		}
-	}
-	if policyErr := configureExperimentalPolicies(simulation, input); policyErr != nil {
-		return result{}, policyErr
-	}
-	mode, ok := redistributionPolicyValues[input.policy]
-	if !ok {
-		return result{}, fmt.Errorf("unknown redistribution policy %q", input.policy)
-	}
-	if positioningErr := simulation.SetPositioning(mode); positioningErr != nil {
-		return result{}, fmt.Errorf("set redistribution policy: %w", positioningErr)
 	}
 	metrics, err := newRunMetrics(input.scenario, input.schedule)
 	if err != nil {
 		return result{}, err
 	}
-	next, skipped := 0, 0
-	var railSkipped []int
-	if input.pattern == "rail-arrivals" || input.pattern == "rail-services" {
-		railSkipped = make([]int, 0, len(input.schedule))
+	arm := newArmRun(simulation, &input, armSettings{mode: mode, consent: consent, meter: meter}, metrics)
+	if err := arm.simulate(); err != nil {
+		return result{}, err
 	}
-	var connections *rail.Connections
+	return arm.result(), nil
+}
+
+// configureRun applies the policies of input to simulation in a fixed
+// order and returns the redistribution mode. motion turns on the motion
+// records that the energy meter reads.
+func configureRun(simulation *sim.Simulation, input *runInput, motion bool) (sim.Positioning, error) {
+	if err := configureDemandWeights(simulation, input); err != nil {
+		return 0, err
+	}
+	if err := configureSharing(simulation, input); err != nil {
+		return 0, err
+	}
+	if err := configureOnboardPickups(simulation, input.onboardPickups); err != nil {
+		return 0, err
+	}
+	if err := simulation.SetRoutingPolicy(routingPolicyValues[input.routingPolicy]); err != nil {
+		return 0, fmt.Errorf("set routing policy: %w", err)
+	}
+	simulation.SetExperimentRecords(true)
+	if motion {
+		simulation.SetMotionRecording(true)
+	}
+	if err := configureWaitAndPlatoon(simulation, input); err != nil {
+		return 0, err
+	}
+	if err := configureExperimentalPolicies(simulation, *input); err != nil {
+		return 0, err
+	}
+	mode, ok := redistributionPolicyValues[input.policy]
+	if !ok {
+		return 0, fmt.Errorf("unknown redistribution policy %q", input.policy)
+	}
+	if err := simulation.SetPositioning(mode); err != nil {
+		return 0, fmt.Errorf("set redistribution policy: %w", err)
+	}
+	return mode, nil
+}
+
+// configureDemandWeights sets the demand weights of the pattern. A daily
+// profile sets its own weights for each band, so it starts with none.
+func configureDemandWeights(simulation *sim.Simulation, input *runInput) error {
+	weightScenario := input.scenario
+	weightScenario.demand.Seed = uint64(input.seed) // #nosec G115 -- Match the offered schedule.
+	var weights map[string]float64
+	if input.daily == nil {
+		var err error
+		weights, err = demandWeights(input.pattern, input.band, weightScenario)
+		if err != nil {
+			return err
+		}
+	}
+	if err := simulation.SetDemandWeights(weights); err != nil {
+		return fmt.Errorf("set demand weights: %w", err)
+	}
+	return nil
+}
+
+// configureSharing sets the party limit, the sharing mode, and the join
+// policy, in this order.
+func configureSharing(simulation *sim.Simulation, input *runInput) error {
+	if err := simulation.SetSharedRidePartyLimit(input.sharingLimit); err != nil {
+		return fmt.Errorf("set sharing limit: %w", err)
+	}
+	sharingMode, sharingStops := input.sharingSettings()
+	if err := simulation.SetSharedRideMode(sharingMode, sharingStops); err != nil {
+		return fmt.Errorf("set sharing mode: %w", err)
+	}
+	if input.sharingJoin == "" {
+		return nil
+	}
+	join, ok := sharingJoinValues[input.sharingJoin]
+	if !ok {
+		return fmt.Errorf("unknown sharing join policy %q", input.sharingJoin)
+	}
+	if err := simulation.SetSharedRideJoin(join); err != nil {
+		return fmt.Errorf("set sharing join policy: %w", err)
+	}
+	return nil
+}
+
+// configureWaitAndPlatoon sets the wait rule and then the platoon policy.
+// An empty name keeps the simulation default.
+func configureWaitAndPlatoon(simulation *sim.Simulation, input *runInput) error {
+	if input.waitRule != "" {
+		rule, ok := waitRuleValues[input.waitRule]
+		if !ok {
+			return fmt.Errorf("unknown wait rule %q", input.waitRule)
+		}
+		if err := simulation.SetFinishingPodWait(rule); err != nil {
+			return fmt.Errorf("set wait rule: %w", err)
+		}
+	}
+	if input.platoonPolicy == "" {
+		return nil
+	}
+	platooning, ok := platoonPolicyValues[input.platoonPolicy]
+	if !ok {
+		return fmt.Errorf("unknown platoon policy %q", input.platoonPolicy)
+	}
+	if err := simulation.SetPlatooning(platooning); err != nil {
+		return fmt.Errorf("set platoon policy: %w", err)
+	}
+	return nil
+}
+
+// isRailPattern reports whether pattern offers the requests of a rail plan.
+func isRailPattern(pattern string) bool {
+	return pattern == "rail-arrivals" || pattern == "rail-services"
+}
+
+// armSettings holds the values that run gives to an arm before its first
+// tick.
+type armSettings struct {
+	mode    sim.Positioning
+	consent sim.SharingConsent
+	meter   *energyMeter
+}
+
+// armRun carries the state of one configured arm from its first tick to
+// its result.
+type armRun struct {
+	armSettings
+	simulation  *sim.Simulation
+	input       *runInput
+	metrics     runMetrics
+	connections *rail.Connections
+	// next is the index of the next schedule request. skipped counts the
+	// requests that the arm did not submit, and railSkipped holds their
+	// schedule indices for a rail pattern.
+	next, skipped int
+	railSkipped   []int
+	// The arm keeps the snapshots at the arrival midpoint and at the end of
+	// the arrival window.
+	arrivalWindowTicks, arrivalMidpointTicks int64
+	midpointState, arrivalState              sim.Snapshot
+	// previousBand and previousDay identify the last daily band occurrence
+	// that set the positioning.
+	previousBand int
+	previousDay  int64
+}
+
+func newArmRun(simulation *sim.Simulation, input *runInput, settings armSettings, metrics runMetrics) *armRun {
+	arm := &armRun{armSettings: settings, simulation: simulation, input: input, metrics: metrics}
+	if isRailPattern(input.pattern) {
+		arm.railSkipped = make([]int, 0, len(input.schedule))
+	}
 	if input.pattern == "rail-services" && len(input.scenario.railDepartures) > 0 {
-		connections = rail.NewConnections(input.scenario.railDepartures)
+		arm.connections = rail.NewConnections(input.scenario.railDepartures)
 	}
-	arrivalWindowTicks := durationTicks(input.arrivalsFor)
-	arrivalMidpointTicks := arrivalWindowTicks / 2
-	midpointState := simulation.MetricsSnapshot()
-	arrivalState := simulation.MetricsSnapshot()
-	previousBand, previousDay := -2, int64(-2)
-	for tick := range durationTicks(input.duration) {
-		if input.daily != nil {
-			band, day := input.daily.BandOccurrence(simulation.Tick() + 1)
-			if band != previousBand || day != previousDay {
-				if err := configureDailyPositioning(simulation, input.daily, simulation.Tick()+1, mode, skipped); err != nil {
-					return result{}, fmt.Errorf("daily positioning: %w", err)
-				}
-				previousBand, previousDay = band, day
-			}
+	arm.arrivalWindowTicks = durationTicks(input.arrivalsFor)
+	arm.arrivalMidpointTicks = arm.arrivalWindowTicks / 2
+	arm.midpointState = simulation.MetricsSnapshot()
+	arm.arrivalState = simulation.MetricsSnapshot()
+	arm.previousBand, arm.previousDay = -2, -2
+	return arm
+}
+
+// simulate runs the ticks of the arm. It stops early when the arm stops
+// when drained and has drained.
+func (arm *armRun) simulate() error {
+	for tick := range durationTicks(arm.input.duration) {
+		stop, err := arm.step(tick)
+		if err != nil || stop {
+			return err
 		}
-		service := input.pattern == "rail-services" || input.daily != nil
-		if service {
-			if err := stepComparison(simulation); err != nil {
-				return result{}, err
-			}
-			tick = simulation.Tick()
-			if connections != nil {
-				// Interruptions reach rail before Advance scores the
-				// departures of the tick, as in the session.
-				connections.Interrupt(tick, simulation.DrainInterruptions())
-				connections.Advance(tick, simulation.StepCompletions())
-			}
+	}
+	return nil
+}
+
+// step runs one tick. A service run steps the simulation before it
+// submits the requests of the new tick. Other runs submit the requests of
+// tick and then step.
+func (arm *armRun) step(tick int64) (bool, error) {
+	if err := arm.followDailyBand(); err != nil {
+		return false, err
+	}
+	service := arm.input.pattern == "rail-services" || arm.input.daily != nil
+	if service {
+		var err error
+		if tick, err = arm.stepService(); err != nil {
+			return false, err
 		}
-		injected := false
-		for next < len(input.schedule) && input.schedule[next].tick == tick {
-			request := input.schedule[next]
-			if simulation.PendingCount() >= input.queueLimit {
-				// The guarded gate reads the rate of the accepted requests.
-				// After a skipped arrival, that rate is lower than the
-				// offered rate, and the gate can open above its limit. The
-				// run is then over its queue limit, so the guarded policy
-				// stops for the rest of the run.
-				if skipped == 0 && mode == sim.PositioningGuarded {
-					if err := simulation.SetPositioning(sim.PositioningOff); err != nil {
-						return result{}, fmt.Errorf("stop the guarded policy: %w", err)
-					}
-				}
-				skipped++
-				if input.pattern == "rail-arrivals" || input.pattern == "rail-services" {
-					railSkipped = append(railSkipped, next)
-				}
-				if connections != nil && request.kind == "departure" {
-					if err := connections.Add(request.serviceOffer(), 0, "queue-limit"); err != nil {
-						return result{}, err
-					}
-				}
-				next++
-				continue
+	}
+	if err := arm.submitDue(tick); err != nil {
+		return false, err
+	}
+	if !service {
+		if err := stepComparison(arm.simulation); err != nil {
+			return false, err
+		}
+	}
+	if err := consumeEnergy(arm.meter, arm.simulation); err != nil {
+		return false, err
+	}
+	advancedTick := arm.simulation.Tick()
+	if err := arm.forecastRail(advancedTick); err != nil {
+		return false, err
+	}
+	return arm.sample(advancedTick), nil
+}
+
+// followDailyBand sets the positioning of a daily profile run when the
+// next tick starts a new band occurrence.
+func (arm *armRun) followDailyBand() error {
+	if arm.input.daily == nil {
+		return nil
+	}
+	band, day := arm.input.daily.BandOccurrence(arm.simulation.Tick() + 1)
+	if band == arm.previousBand && day == arm.previousDay {
+		return nil
+	}
+	if err := configureDailyPositioning(arm.simulation, arm.input.daily, arm.simulation.Tick()+1, arm.mode, arm.skipped); err != nil {
+		return fmt.Errorf("daily positioning: %w", err)
+	}
+	arm.previousBand, arm.previousDay = band, day
+	return nil
+}
+
+// stepService steps a service run and returns its new tick.
+func (arm *armRun) stepService() (int64, error) {
+	if err := stepComparison(arm.simulation); err != nil {
+		return 0, err
+	}
+	tick := arm.simulation.Tick()
+	if arm.connections != nil {
+		// Interruptions reach rail before Advance scores the
+		// departures of the tick, as in the session.
+		arm.connections.Interrupt(tick, arm.simulation.DrainInterruptions())
+		arm.connections.Advance(tick, arm.simulation.StepCompletions())
+	}
+	return tick, nil
+}
+
+// submitDue offers each schedule request of tick. It skips a request when
+// the pending queue is at the queue limit. When it submitted at least one
+// request, it observes the metrics once, after the whole batch.
+func (arm *armRun) submitDue(tick int64) error {
+	schedule := arm.input.schedule
+	injected := false
+	for arm.next < len(schedule) && schedule[arm.next].tick == tick {
+		request := schedule[arm.next]
+		if arm.simulation.PendingCount() >= arm.input.queueLimit {
+			if err := arm.skip(request); err != nil {
+				return err
 			}
-			if connections != nil && request.kind == "departure" {
-				id, err := simulation.SubmitTripOptions(sim.TripOptions{From: request.origin, To: request.destination, SharingConsent: consent})
-				reason := ""
-				if err != nil {
-					reason = "request-error"
-					skipped++
-					railSkipped = append(railSkipped, next)
-				}
-				if err := connections.Add(request.serviceOffer(), id, reason); err != nil {
-					return result{}, err
-				}
-			} else if _, err := simulation.SubmitTripOptions(sim.TripOptions{From: request.origin, To: request.destination, SharingConsent: consent}); err != nil {
-				return result{}, fmt.Errorf("request %s to %s: %w", request.origin, request.destination, err)
+		} else {
+			if err := arm.submit(request); err != nil {
+				return err
 			}
-			next++
 			injected = true
 		}
-		if injected {
-			metrics.observe(simulation.MetricsSnapshot())
-		}
-		if !service {
-			if err := stepComparison(simulation); err != nil {
-				return result{}, err
-			}
-		}
-		if err := consumeEnergy(meter, simulation); err != nil {
-			return result{}, err
-		}
-		advancedTick := simulation.Tick()
-		if input.railForecast && advancedTick%(5*sim.TicksPerSecond) == 0 {
-			if _, err := simulation.PositionForForecast(futureRailTargets(input.schedule, next, connections, advancedTick)); err != nil {
-				return result{}, fmt.Errorf("rail forecast: %w", err)
-			}
-		}
-		if advancedTick%sim.TicksPerSecond == 0 || advancedTick == arrivalMidpointTicks || advancedTick == arrivalWindowTicks {
-			state := simulation.MetricsSnapshot()
-			if state.Tick == arrivalMidpointTicks {
-				midpointState = state
-			}
-			if state.Tick == arrivalWindowTicks {
-				arrivalState = state
-			}
-			metrics.observe(state)
-			if advancedTick%sim.TicksPerSecond == 0 {
-				metrics.waits.sampleWaits(state.Vehicles)
-				metrics.coupling.sample(state.Vehicles, simulation.CoupledPods())
-			}
-			if input.stopWhenDrained && state.Tick >= arrivalWindowTicks && next == len(input.schedule) && state.Completed == state.Submitted && !connectionPendingWithin(connections, input.scenario.railDepartures, durationTicks(input.duration)) {
-				break
-			}
+		arm.next++
+	}
+	if injected {
+		arm.metrics.observe(arm.simulation.MetricsSnapshot())
+	}
+	return nil
+}
+
+// skip records a request that the queue limit refuses.
+func (arm *armRun) skip(request scheduledRequest) error {
+	// The guarded gate reads the rate of the accepted requests.
+	// After a skipped arrival, that rate is lower than the
+	// offered rate, and the gate can open above its limit. The
+	// run is then over its queue limit, so the guarded policy
+	// stops for the rest of the run.
+	if arm.skipped == 0 && arm.mode == sim.PositioningGuarded {
+		if err := arm.simulation.SetPositioning(sim.PositioningOff); err != nil {
+			return fmt.Errorf("stop the guarded policy: %w", err)
 		}
 	}
+	arm.skipped++
+	if isRailPattern(arm.input.pattern) {
+		arm.railSkipped = append(arm.railSkipped, arm.next)
+	}
+	if arm.connections != nil && request.kind == "departure" {
+		return arm.connections.Add(request.serviceOffer(), 0, "queue-limit")
+	}
+	return nil
+}
+
+// submit submits a request. A departure offer of a service run records a
+// refused request as skipped, and gives the result to rail.
+func (arm *armRun) submit(request scheduledRequest) error {
+	options := sim.TripOptions{From: request.origin, To: request.destination, SharingConsent: arm.consent}
+	if arm.connections == nil || request.kind != "departure" {
+		if _, err := arm.simulation.SubmitTripOptions(options); err != nil {
+			return fmt.Errorf("request %s to %s: %w", request.origin, request.destination, err)
+		}
+		return nil
+	}
+	id, err := arm.simulation.SubmitTripOptions(options)
+	reason := ""
+	if err != nil {
+		reason = "request-error"
+		arm.skipped++
+		arm.railSkipped = append(arm.railSkipped, arm.next)
+	}
+	return arm.connections.Add(request.serviceOffer(), id, reason)
+}
+
+// forecastRail positions pods for the future rail offers every five
+// seconds when the arm uses the rail forecast.
+func (arm *armRun) forecastRail(advancedTick int64) error {
+	if !arm.input.railForecast || advancedTick%(5*sim.TicksPerSecond) != 0 {
+		return nil
+	}
+	if _, err := arm.simulation.PositionForForecast(futureRailTargets(arm.input.schedule, arm.next, arm.connections, advancedTick)); err != nil {
+		return fmt.Errorf("rail forecast: %w", err)
+	}
+	return nil
+}
+
+// sample observes the metrics each second and at the arrival midpoint and
+// end. It reports whether the arm stops because it has drained.
+func (arm *armRun) sample(advancedTick int64) bool {
+	if advancedTick%sim.TicksPerSecond != 0 && advancedTick != arm.arrivalMidpointTicks && advancedTick != arm.arrivalWindowTicks {
+		return false
+	}
+	state := arm.simulation.MetricsSnapshot()
+	if state.Tick == arm.arrivalMidpointTicks {
+		arm.midpointState = state
+	}
+	if state.Tick == arm.arrivalWindowTicks {
+		arm.arrivalState = state
+	}
+	arm.metrics.observe(state)
+	if advancedTick%sim.TicksPerSecond == 0 {
+		arm.metrics.waits.sampleWaits(state.Vehicles)
+		arm.metrics.coupling.sample(state.Vehicles, arm.simulation.CoupledPods())
+	}
+	return arm.input.stopWhenDrained && arm.drainedAfterArrivals(state)
+}
+
+// drainedAfterArrivals reports whether the arrival window is over, every
+// request was offered and completed, and no rail connection can still
+// become due.
+func (arm *armRun) drainedAfterArrivals(state sim.Snapshot) bool {
+	return state.Tick >= arm.arrivalWindowTicks && arm.next == len(arm.input.schedule) && state.Completed == state.Submitted &&
+		!connectionPendingWithin(arm.connections, arm.input.scenario.railDepartures, durationTicks(arm.input.duration))
+}
+
+// result gives the report row of the arm after its last tick.
+func (arm *armRun) result() result {
+	input, simulation, metrics := arm.input, arm.simulation, &arm.metrics
 	state := simulation.MetricsSnapshot()
-	if arrivalState.Tick != arrivalWindowTicks {
+	arrivalState, midpointState := arm.arrivalState, arm.midpointState
+	if arrivalState.Tick != arm.arrivalWindowTicks {
 		arrivalState = state
 	}
-	if midpointState.Tick != arrivalMidpointTicks {
+	if midpointState.Tick != arm.arrivalMidpointTicks {
 		midpointState = arrivalState
 	}
 	metrics.observe(state)
@@ -1476,29 +1650,30 @@ func run(input runInput) (result, error) {
 		burstSize = input.burstSize
 	}
 	requestEvery := input.requestEvery.Seconds()
-	if input.pattern == "rail-arrivals" || input.pattern == "rail-services" || input.daily != nil {
+	if isRailPattern(input.pattern) || input.daily != nil {
 		burstSize, requestEvery = 0, 0
 	}
 	arrivalEnd := 0.0
 	if len(input.schedule) > 0 {
 		arrivalEnd = float64(input.schedule[len(input.schedule)-1].tick) / sim.TicksPerSecond
 	}
-	drained := next == len(input.schedule) && state.Completed == state.Submitted
+	drained := arm.next == len(input.schedule) && state.Completed == state.Submitted
 	drainSeconds := 0.0
-	if drained && state.Tick > arrivalWindowTicks {
-		drainSeconds = float64(state.Tick-arrivalWindowTicks) / sim.TicksPerSecond
+	if drained && state.Tick > arm.arrivalWindowTicks {
+		drainSeconds = float64(state.Tick-arm.arrivalWindowTicks) / sim.TicksPerSecond
 	}
 	arrivalMinutes := input.arrivalsFor.Minutes()
-	lateArrivalMinutes := float64(arrivalWindowTicks-arrivalMidpointTicks) / sim.TicksPerSecond / 60
+	lateArrivalMinutes := float64(arm.arrivalWindowTicks-arm.arrivalMidpointTicks) / sim.TicksPerSecond / 60
 	midpointBacklog := midpointState.Submitted - midpointState.Completed
 	arrivalBacklog := arrivalState.Submitted - arrivalState.Completed
 	var dailyStart *int
 	if input.daily != nil {
 		dailyStart = new(input.dailyStartMinute)
 	}
+	sharingMode, _ := input.sharingSettings()
 	return result{
-		Energy:         meter.snapshot(),
-		SharingConsent: consent, DailyStartMinute: dailyStart, OnboardPickups: input.onboardPickups,
+		Energy:         arm.meter.snapshot(),
+		SharingConsent: arm.consent, DailyStartMinute: dailyStart, OnboardPickups: input.onboardPickups,
 		Pattern: input.pattern, DemandProfile: input.profile, DemandBand: input.band,
 		RequestEverySeconds: requestEvery, OfferedPerMinute: float64(len(input.schedule)) / arrivalMinutes, Seed: input.seed,
 		BurstSize: burstSize, Policy: input.policy, SharedRidePartyLimit: input.sharingLimit, SharingMode: string(sharingMode),
@@ -1513,7 +1688,7 @@ func run(input runInput) (result, error) {
 		FocusStation:            input.scenario.focus,
 		WindowStartSeconds:      0, WindowEndSeconds: input.duration.Seconds(), ActualEndSeconds: float64(state.Tick) / sim.TicksPerSecond,
 		ArrivalWindowSeconds: input.arrivalsFor.Seconds(), ArrivalEndSeconds: arrivalEnd, ScheduleID: input.scheduleID,
-		Scheduled: len(input.schedule), Served: state.Completed, Remaining: state.Submitted - state.Completed, Skipped: skipped, RailSkippedOffers: railSkipped, RailConnections: reportConnections(connections),
+		Scheduled: len(input.schedule), Served: state.Completed, Remaining: state.Submitted - state.Completed, Skipped: arm.skipped, RailSkippedOffers: arm.railSkipped, RailConnections: reportConnections(arm.connections),
 		CompletedAtArrivalEnd: arrivalState.Completed, BacklogAtArrivalEnd: arrivalState.Submitted - arrivalState.Completed,
 		ArrivalThroughputPerMinute: float64(arrivalState.Completed) / arrivalMinutes,
 		CompletedAtArrivalMidpoint: midpointState.Completed, BacklogAtArrivalMidpoint: midpointBacklog,
@@ -1538,7 +1713,7 @@ func run(input runInput) (result, error) {
 		DetourRatioMean: requests.detourMean, DetourRatioMax: state.MaxDetourRatio, IntermediateStops: requests.intermediateStops,
 		PositioningMoveCount: state.RebalanceMoves,
 		CoupledTimePercent:   metrics.coupling.percent(),
-	}, nil
+	}
 }
 
 // screenSeats is the seat count that the seat screen columns compare with.
