@@ -13,8 +13,8 @@
     "The plan names guards by their line at 069bafb. Items 4, 5 and 7 moved them; each site below is the line at the source commit."
   ],
   "mutation_counts": {
-    "KILLED": 46,
-    "SURVIVED": 20
+    "KILLED": 55,
+    "SURVIVED": 22
   },
   "rows": [
     {
@@ -488,10 +488,12 @@
         "internal/session: TestCouplingSaveCapRejectsAtomically (new, coupling_cap_test.go)",
         "internal/session: TestEncodeStateFileTooLarge, TestDecodeStateFileSizeBoundary, TestSavedInvalidMovedAside, TestStreamGzipExpansionBound, TestStreamEncoderRejectsAndRecovers, TestStreamMaximumEncoding, TestExpressWidestTopologyHTTPAdapters, TestCommandCouplingArrayBounds, TestCouplingArraysHaveExplicitLimits",
         "internal/remote: TestExchangeBoundsResponseBodies",
-        "internal/session: TestCouplingDecodeCapsAtCallers (new at 39f05af, coupling_decode_cap_test.go): a committed coupling frame padded with JSON whitespace to each decode cap and to one byte more, for DecodeStateJSON, DecodeStreamJSON, decodeStreamJSON, and InflateStream output and input. Each document at the cap is accepted; each over the cap gets the text of its own cap.",
+        "internal/session: TestCouplingDecodeCapsAtCallers (new at 39f05af, coupling_decode_cap_test.go): a committed coupling frame padded with JSON whitespace to each decode cap and to one byte more, for DecodeStateJSON, DecodeStreamJSON, decodeStreamJSON, and InflateStream output and input. Each document at the cap is accepted; each over the cap gets the text of its own cap. At 0d1dc49, the compressed message case also has a valid gzip member of exactly MaxStreamMessage bytes, which is accepted, and a valid member of one byte more, which is refused.",
+        "internal/session: TestCouplingEncodeCapsAtCallers (new at 0d1dc49, coupling_encode_cap_test.go): a document at each encode cap and one byte over it, for the compressed save, EncodeStreamJSON and streamEncoder.encode, EncodeStateJSON, the HTTP topology through the HTTP state handler, and the topology member of a coupling HTTP state through DecodeStateJSON. Each document at the cap is accepted; each over the cap gets the text of its own cap.",
+        "internal/session: TestCouplingSavedHalfFleetAtDecoder (new at 0d1dc49, coupling_encode_cap_test.go): a coupled save at the half-fleet group bound and one group over it, through decodeStateFile.",
         "internal/session: BenchmarkCouplingFormats (new at 39f05af, coupling_cost_test.go)"
       ],
-      "result": "Partial. The save writer and decoder caps, the stream compression cap, the topology preflight and the coupling command bounds have caller kills. At 39f05af, each cap of the session stream and HTTP decode chain also has a kill. The other caps survive because a later guard refuses the same input, or because no test sends an input over that cap; see each reading. Heap retention and cost are measured on the phase fixture with one group.",
+      "result": "Qualified for the caps at 0d1dc49. Each cap has a kill, or a proof that no input reaches it. The save writer and decoder caps, the stream compression cap, the topology preflight and the coupling command bounds have caller kills. At 39f05af, each cap of the session stream and HTTP decode chain also has a kill. At 0d1dc49, the HTTP topology cap, the topology scan cap and the half-fleet check have caller kills, and the compressed save cap and the encode caps of EncodeStreamJSON and EncodeStateJSON have kills from direct calls. The cap in streamEncoder.encode is redundant, and the compressed stream cap is unreachable; see their readings. Heap retention and cost are measured on the phase fixture with one group.",
       "mutations": [
         {
           "id": "g9-save-writer-raw",
@@ -554,7 +556,8 @@
           "source_sha256": "6b1eed69210b63c1dd043a3e184e947bdd66b3d090aeba179de79a3b75424311",
           "hash_restored": true,
           "final": "SURVIVED",
-          "reading": "No test: the raw JSON is at most the cap, and only incompressible JSON at the cap can give more gzip bytes than the cap. No test sends such a state; by code reading it is not reachable from a session."
+          "reading": "No test: the raw JSON is at most the cap, and only incompressible JSON at the cap can give more gzip bytes than the cap. No test sends such a state; by code reading it is not reachable from a session.",
+          "superseded_by": "g9-save-writer-gzip-cap"
         },
         {
           "id": "g9-save-decoder-gzip",
@@ -646,7 +649,8 @@
           "source_sha256": "e77ebf8fc4399591d1aa1c5c85525de2779823f21f079af1e77f160ef6712f1e",
           "hash_restored": true,
           "final": "SURVIVED",
-          "reading": "Layered: streamEncoder.encode (stream_codec.go:452) and compressJSON (stream_codec.go:463, KILLED) refuse the same JSON. No test calls EncodeStreamJSON with an envelope over the cap."
+          "reading": "Layered: streamEncoder.encode (stream_codec.go:452) and compressJSON (stream_codec.go:463, KILLED) refuse the same JSON. No test calls EncodeStreamJSON with an envelope over the cap.",
+          "superseded_by": "g9-stream-encode-envelope-cap"
         },
         {
           "id": "g9-stream-encode-encoder",
@@ -671,7 +675,8 @@
           "source_sha256": "407ed3f0a5c8db347a9d24af063d6b3e1636a49740edca13f55248eedcfb0146",
           "hash_restored": true,
           "final": "SURVIVED",
-          "reading": "Layered: EncodeStreamJSON (express_wire.go:23) refuses the same JSON before this check, and compressJSON (stream_codec.go:463, KILLED) after it."
+          "reading": "Layered: EncodeStreamJSON (express_wire.go:23) refuses the same JSON before this check, and compressJSON (stream_codec.go:463, KILLED) after it.",
+          "superseded_by": "g9-stream-encode-encoder-redundant"
         },
         {
           "id": "g9-stream-compress-json",
@@ -717,7 +722,8 @@
           "source_sha256": "407ed3f0a5c8db347a9d24af063d6b3e1636a49740edca13f55248eedcfb0146",
           "hash_restored": true,
           "final": "SURVIVED",
-          "reading": "No over-cap input: compressJSON first limits the JSON to MaxStreamJSON, and TestStreamGzipExpansionBound shows that 64 MiB of incompressible JSON gives 67,114,009 bytes, below the 65 MiB cap. The check is a second bound."
+          "reading": "No over-cap input: compressJSON first limits the JSON to MaxStreamJSON, and TestStreamGzipExpansionBound shows that 64 MiB of incompressible JSON gives 67,114,009 bytes, below the 65 MiB cap. The check is a second bound.",
+          "superseded_by": "g9-stream-compress-binary-unreachable"
         },
         {
           "id": "g9-stream-decode-marked",
@@ -874,7 +880,8 @@
           "source_sha256": "bae91363ac40abc74d47793f893b93b1be48e03a35055e7e6db17d3849d813fd",
           "hash_restored": true,
           "final": "SURVIVED",
-          "reading": "No test: the composed test marshals the widest HTTP state directly and does not call EncodeStateJSON over the cap. The widest valid HTTP state has 1,252,396 bytes of headroom (composed record)."
+          "reading": "No test: the composed test marshals the widest HTTP state directly and does not call EncodeStateJSON over the cap. The widest valid HTTP state has 1,252,396 bytes of headroom (composed record).",
+          "superseded_by": "g9-http-encode-cap"
         },
         {
           "id": "g9-http-decode",
@@ -932,7 +939,8 @@
           "source_sha256": "bae91363ac40abc74d47793f893b93b1be48e03a35055e7e6db17d3849d813fd",
           "hash_restored": true,
           "final": "SURVIVED",
-          "reading": "No test: a topology comes from a project that the topology preflight (express_wire.go:129, KILLED) and project.Validate accept, so no session topology is over the cap."
+          "reading": "No test: a topology comes from a project that the topology preflight (express_wire.go:129, KILLED) and project.Validate accept, so no session topology is over the cap.",
+          "superseded_by": "g9-http-topology-encode-cap"
         },
         {
           "id": "g9-http-topology-scan",
@@ -964,7 +972,8 @@
           "source_sha256": "faa20bdc6ea0c8b88dbefb7342e0a06664f6d799843b8f3e39a6e91a0cef6624",
           "hash_restored": true,
           "final": "SURVIVED",
-          "reading": "Layered, by code reading: the typed decode of the topology member calls TopologySnapshot.UnmarshalJSON, which has the same cap (topology_decode.go:42). No test sends an HTTP state with a topology over the cap."
+          "reading": "Layered, by code reading: the typed decode of the topology member calls TopologySnapshot.UnmarshalJSON, which has the same cap (topology_decode.go:42). No test sends an HTTP state with a topology over the cap.",
+          "superseded_by": "g9-http-topology-scan-cap"
         },
         {
           "id": "g9-topology-decode",
@@ -1043,7 +1052,8 @@
           "source_sha256": "940d57961e1b652a8faa9dd7a523a66eba3c9d57c3f5b5b4a5cb29caf21cbd8f",
           "hash_restored": true,
           "final": "SURVIVED",
-          "reading": "No test at this layer: TestCouplingSavedBoundsAndScalars uses 151 groups, which the array limit (150) refuses first. A save with more groups than half its pods but at most 150 groups next reaches validateCouplingRoutes in decodeStateJSON (state_file.go:458 at f186580), which repeats the half-fleet check (coupling_state.go:111), and then the native restore (sim/coupling_restore.go:30); by code reading."
+          "reading": "No test at this layer: TestCouplingSavedBoundsAndScalars uses 151 groups, which the array limit (150) refuses first. A save with more groups than half its pods but at most 150 groups next reaches validateCouplingRoutes in decodeStateJSON (state_file.go:458 at f186580), which repeats the half-fleet check (coupling_state.go:111), and then the native restore (sim/coupling_restore.go:30); by code reading.",
+          "superseded_by": "g9-coupling-groups-half-decoder"
         },
         {
           "id": "u7-command-sites",
@@ -1185,7 +1195,8 @@
           "source_sha256": "ddf2dcf6d7ff7c63b7ba4c7f23a3650e644006e17b44b49f05208bbcc6ae4eb3",
           "hash_restored": true,
           "final": "KILLED",
-          "reading": "The message is a valid gzip member with zero bytes after it, to MaxStreamMessage + 1 bytes. The remote client reads at most MaxStreamMessage bytes from the websocket, and the js/wasm client checks the same size, so the kill is from a direct call of the exported InflateStream."
+          "reading": "The message is a valid gzip member with zero bytes after it, to MaxStreamMessage + 1 bytes. The remote client reads at most MaxStreamMessage bytes from the websocket, and the js/wasm client checks the same size, so the kill is from a direct call of the exported InflateStream.",
+          "superseded_by": "g9-stream-inflate-binary-valid"
         },
         {
           "id": "g9-stream-inflate-output-cap",
@@ -1207,6 +1218,256 @@
           "hash_restored": true,
           "final": "KILLED",
           "reading": "The member inflates to exactly MaxStreamJSON + 1 bytes, so the LimitReader reads to the end of the member and the gzip trailer is read. Without the size half, the trailing check passes and the 65 MiB + 1 byte output is returned."
+        },
+        {
+          "id": "g9-save-writer-gzip-cap",
+          "source_commit": "0d1dc49",
+          "site": "internal/session/state_file.go:258",
+          "change": {
+            "from": "if e.buffer.Len() > MaxStateBytes {",
+            "to": "if false && e.buffer.Len() > MaxStateBytes {"
+          },
+          "package": "internal/session",
+          "tests": "^TestCouplingEncodeCapsAtCallers$/^compressed_save$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestCouplingEncodeCapsAtCallers",
+            "TestCouplingEncodeCapsAtCallers/compressed_save"
+          ],
+          "assertion": "coupling_encode_cap_test.go:49: got <nil>, want \"compressed session state has 83886081 bytes: saved session state is too large\"",
+          "source_sha256": "bf4fecdcbaaa7386de9fa370f7b79720d021e3f439b0831ef63d5f83b3b8675d",
+          "hash_restored": true,
+          "final": "KILLED",
+          "reading": "Direct call of stateEncoder.encode. No session reaches this cap: the widest save of the composed record has 77,326,611 raw bytes, and gzip adds about 5 bytes for each stored block of 64 KiB. The test gives a demo error of UTF-8 text that does not compress, so gzip stores each block and the compressed save is larger than the raw JSON. The raw writer cap passes, because the raw JSON stays below MaxStateBytes. At the cap the encoder gives exactly MaxStateBytes bytes."
+        },
+        {
+          "id": "g9-stream-encode-envelope-cap",
+          "source_commit": "0d1dc49",
+          "site": "internal/session/express_wire.go:23",
+          "change": {
+            "from": "if err == nil && len(data) > MaxStreamJSON {",
+            "to": "if false && err == nil && len(data) > MaxStreamJSON {"
+          },
+          "package": "internal/session",
+          "tests": "^TestCouplingEncodeCapsAtCallers$/^stream_envelope$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestCouplingEncodeCapsAtCallers",
+            "TestCouplingEncodeCapsAtCallers/stream_envelope"
+          ],
+          "assertion": "coupling_encode_cap_test.go:81: got <nil>, want \"state JSON exceeds supported limit\"",
+          "source_sha256": "d20faf7ac7d5bf758f59a4e40438f68d79b6054660c75c71fc3eccfcc9630fc4",
+          "hash_restored": true,
+          "final": "KILLED",
+          "reading": "Direct call of EncodeStreamJSON with a demo error that sets the envelope to MaxStreamJSON bytes and to one byte more. The widest frame of the composed record has 57,081,842 bytes, so no session reaches this cap. The only caller, streamEncoder.encode, refuses the same envelope with the same text, and the test also checks that path."
+        },
+        {
+          "id": "g9-stream-encode-encoder-redundant",
+          "source_commit": "0d1dc49",
+          "site": "internal/session/stream_codec.go:629",
+          "change": {
+            "from": "if len(data) > MaxStreamJSON { return nil, errors.New(\"state JSON exceeds supported limit\") } return c.compressJSON(data)",
+            "to": "if false && len(data) > MaxStreamJSON { return nil, errors.New(\"state JSON exceeds supported limit\") } return c.compressJSON(data)"
+          },
+          "package": "internal/session",
+          "tests": "^TestCouplingEncodeCapsAtCallers$/^stream_envelope$",
+          "control": "pass",
+          "result": "SURVIVED",
+          "source_sha256": "ddf2dcf6d7ff7c63b7ba4c7f23a3650e644006e17b44b49f05208bbcc6ae4eb3",
+          "hash_restored": true,
+          "wider_runs": [
+            {
+              "package": "internal/session",
+              "tests": "all tests except TestComposedWorstCaseFormats and TestCouplingSaveCapRejectsAtomically, without -short",
+              "control": "pass",
+              "result": "SURVIVED",
+              "failing_tests": []
+            }
+          ],
+          "classification": "redundant",
+          "final": "SURVIVED",
+          "reading": "Redundant. streamEncoder.encode runs this check only when EncodeStreamJSON returned no error, and EncodeStreamJSON returns an error for each envelope over MaxStreamJSON, which is the same bound. compressJSON then checks the same bound a third time."
+        },
+        {
+          "id": "g9-stream-compress-binary-unreachable",
+          "source_commit": "0d1dc49",
+          "site": "internal/session/stream_codec.go:655",
+          "change": {
+            "from": "if c.output.Len() > MaxStreamMessage {",
+            "to": "if false && c.output.Len() > MaxStreamMessage {"
+          },
+          "package": "internal/session",
+          "tests": "^(TestStreamGzipExpansionBound|TestStreamEncoderRejectsAndRecovers|TestCouplingEncodeCapsAtCallers)$",
+          "control": "pass",
+          "result": "SURVIVED",
+          "source_sha256": "ddf2dcf6d7ff7c63b7ba4c7f23a3650e644006e17b44b49f05208bbcc6ae4eb3",
+          "hash_restored": true,
+          "wider_runs": [
+            {
+              "package": "internal/session",
+              "tests": "all tests except TestComposedWorstCaseFormats and TestCouplingSaveCapRejectsAtomically, without -short",
+              "control": "pass",
+              "result": "SURVIVED",
+              "failing_tests": []
+            }
+          ],
+          "classification": "unreachable",
+          "final": "SURVIVED",
+          "reading": "Unreachable. compressJSON first refuses an input over MaxStreamJSON (65 MiB), and MaxStreamMessage is 66 MiB. BestSpeed stores a block that does not compress, so the output is at most the input and a header for each block. TestStreamGzipExpansionBound compresses MaxStreamJSON random bytes to 68,162,665 bytes, 1,043,351 bytes below the cap."
+        },
+        {
+          "id": "g9-http-encode-cap",
+          "source_commit": "0d1dc49",
+          "site": "internal/session/state_http.go:47",
+          "change": {
+            "from": "if err == nil && len(data) > MaxStreamJSON {",
+            "to": "if false && err == nil && len(data) > MaxStreamJSON {"
+          },
+          "package": "internal/session",
+          "tests": "^TestCouplingEncodeCapsAtCallers$/^HTTP_state$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestCouplingEncodeCapsAtCallers",
+            "TestCouplingEncodeCapsAtCallers/HTTP_state"
+          ],
+          "assertion": "coupling_encode_cap_test.go:107: got <nil>, want \"HTTP state exceeds supported limit\"",
+          "source_sha256": "ebfd36b230f073df9cdca36be825b5740dc8d2631815d868685ab848ce19f080",
+          "hash_restored": true,
+          "final": "KILLED",
+          "reading": "Direct call of EncodeStateJSON with a demo error that sets the HTTP state to MaxStreamJSON bytes and to one byte more. The widest HTTP state of the composed record has 67,559,160 bytes with the topology at its cap, so the HTTP state handler does not reach this cap."
+        },
+        {
+          "id": "g9-http-topology-encode-cap",
+          "source_commit": "0d1dc49",
+          "site": "internal/session/state_http.go:42",
+          "change": {
+            "from": "if len(topologyBytes) > project.MaxFileBytes+4096 {",
+            "to": "if false && len(topologyBytes) > project.MaxFileBytes+4096 {"
+          },
+          "package": "internal/session",
+          "tests": "^TestCouplingEncodeCapsAtCallers$/^HTTP_topology$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestCouplingEncodeCapsAtCallers",
+            "TestCouplingEncodeCapsAtCallers/HTTP_topology"
+          ],
+          "assertion": "coupling_encode_cap_test.go:126: status 200, want 500: the handler encoded the HTTP state with the topology over the cap",
+          "source_sha256": "ebfd36b230f073df9cdca36be825b5740dc8d2631815d868685ab848ce19f080",
+          "hash_restored": true,
+          "final": "KILLED",
+          "reading": "Caller kill through the HTTP state handler. The session has a valid plain project, a ring of 300 stations with 6 berths each, with IDs and separation groups of 56 \"<\" and 8 digits. project.Validate measures the project without HTML escapes, and the topology encoding writes each \"<\" as 6 bytes. The station names set the topology to the cap, where the handler replies and DecodeStateJSON accepts the state, and to one byte more, where the handler replies with status 500 and the text of this cap. The topology preflight checks only Express and coupling projects, so this cap is the first check for a plain project."
+        },
+        {
+          "id": "g9-http-topology-scan-cap",
+          "source_commit": "0d1dc49",
+          "site": "internal/session/coupling_stream_json.go:56",
+          "change": {
+            "from": "if len(value) > project.MaxFileBytes+4096 {",
+            "to": "if false && len(value) > project.MaxFileBytes+4096 {"
+          },
+          "package": "internal/session",
+          "tests": "^TestCouplingEncodeCapsAtCallers$/^HTTP_topology_scan$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestCouplingEncodeCapsAtCallers",
+            "TestCouplingEncodeCapsAtCallers/HTTP_topology_scan"
+          ],
+          "assertion": "coupling_encode_cap_test.go:143: got topology JSON is too large, want \"HTTP topology exceeds supported limit\"",
+          "source_sha256": "faa20bdc6ea0c8b88dbefb7342e0a06664f6d799843b8f3e39a6e91a0cef6624",
+          "hash_restored": true,
+          "final": "KILLED",
+          "reading": "Caller kill through DecodeStateJSON. The test puts JSON whitespace in the topology member of a coupling HTTP state, so that the member has MaxTopologyJSON bytes and one byte more. Without the scan cap, TopologySnapshot.UnmarshalJSON refuses the member with its own text."
+        },
+        {
+          "id": "g9-coupling-groups-half-decoder",
+          "source_commit": "0d1dc49",
+          "site": "internal/session/coupling_json.go:86",
+          "change": {
+            "from": "if s.scan.groupCount > s.scan.pods/2 && !s.topology {",
+            "to": "if false && s.scan.groupCount > s.scan.pods/2 && !s.topology {"
+          },
+          "package": "internal/session",
+          "tests": "^TestCouplingSavedHalfFleetAtDecoder$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestCouplingSavedHalfFleetAtDecoder"
+          ],
+          "assertion": "coupling_encode_cap_test.go:177: got invalid_state: saved coupling groups exceed the pair bound, want \"invalid_state: saved coupling groups exceed half the fleet\"",
+          "source_sha256": "0964470c6296cb7ecb172b74d0a0f1f46f9bbaa40af96f358eda1ae09ba08f8c",
+          "hash_restored": true,
+          "final": "KILLED",
+          "reading": "Caller kill through decodeStateFile, the decoder of the startup restore. The fixture save has 2 pods and 1 group, at the bound; the test adds a copy of the group. Without the scan check, validateCouplingRoutes refuses the save with its own text."
+        },
+        {
+          "id": "g9-coupling-groups-half-scan",
+          "source_commit": "0d1dc49",
+          "site": "internal/session/coupling_json.go:86",
+          "change": {
+            "from": "if s.scan.groupCount > s.scan.pods/2 && !s.topology {",
+            "to": "if false && s.scan.groupCount > s.scan.pods/2 && !s.topology {"
+          },
+          "package": "internal/session",
+          "tests": "^TestScanCouplingJSONRefusalOrder$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestScanCouplingJSONRefusalOrder"
+          ],
+          "assertion": "coupling_json_test.go:51: half fleet: got <nil>, want \"saved coupling groups exceed half the fleet\"",
+          "source_sha256": "0964470c6296cb7ecb172b74d0a0f1f46f9bbaa40af96f358eda1ae09ba08f8c",
+          "hash_restored": true,
+          "final": "KILLED",
+          "reading": "Direct call of scanCouplingJSON. TestScanCouplingJSONRefusalOrder came after 05e95b1 with the move of the check to couplingScanner.finish."
+        },
+        {
+          "id": "g9-stream-inflate-binary-at-cap",
+          "source_commit": "0d1dc49",
+          "site": "internal/session/stream_codec.go:663",
+          "change": {
+            "from": "if len(data) > MaxStreamMessage {",
+            "to": "if len(data) >= MaxStreamMessage {"
+          },
+          "package": "internal/session",
+          "tests": "^TestCouplingDecodeCapsAtCallers$/^compressed_message$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestCouplingDecodeCapsAtCallers",
+            "TestCouplingDecodeCapsAtCallers/compressed_message"
+          ],
+          "assertion": "coupling_decode_cap_test.go:178: refused the message at the cap compressed state too large",
+          "source_sha256": "ddf2dcf6d7ff7c63b7ba4c7f23a3650e644006e17b44b49f05208bbcc6ae4eb3",
+          "hash_restored": true,
+          "final": "KILLED",
+          "reading": "The case now has a valid gzip member of exactly MaxStreamMessage bytes: stored blocks of the envelope, padded to MaxStreamJSON - 2 bytes, and empty stored blocks. InflateStream and DecodeStreamJSON accept it, so a cap of >= refuses a valid message."
+        },
+        {
+          "id": "g9-stream-inflate-binary-valid",
+          "source_commit": "0d1dc49",
+          "site": "internal/session/stream_codec.go:663",
+          "change": {
+            "from": "if len(data) > MaxStreamMessage {",
+            "to": "if false && len(data) > MaxStreamMessage {"
+          },
+          "package": "internal/session",
+          "tests": "^TestCouplingDecodeCapsAtCallers$/^compressed_message$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestCouplingDecodeCapsAtCallers",
+            "TestCouplingDecodeCapsAtCallers/compressed_message"
+          ],
+          "assertion": "coupling_decode_cap_test.go:190: inflated 68157439 bytes from a message over the cap",
+          "source_sha256": "ddf2dcf6d7ff7c63b7ba4c7f23a3650e644006e17b44b49f05208bbcc6ae4eb3",
+          "hash_restored": true,
+          "final": "KILLED",
+          "reading": "The first message over the cap is now a valid member of MaxStreamMessage + 1 bytes that inflates to MaxStreamJSON - 1 bytes, so only this cap refuses it. The member with zero bytes after it stays in the test."
         }
       ],
       "measurements": {
@@ -1288,12 +1549,20 @@
           },
           {
             "name": "retained/http-at-cap",
-            "retained_bytes_per_op": 11842,
-            "ns_per_op": 499636794,
-            "note": "the HTTP state padded to MaxStreamJSON; 5 runs. The decoded state does not keep the 65 MiB input."
+            "retained_bytes_per_op": 11877,
+            "ns_per_op": 569425298,
+            "note": "Each run decodes its own copy of the HTTP state, padded to MaxStreamJSON. The copy is made after the baseline with the timer stopped, and only the decoded states stay live. 5 runs for each of 3 measurements. A scratch mutant of DecodeStateJSON that keeps its input in the demo error of the decoded state gives 68,168,192 bytes. The benchmark at 39f05af decoded one input that existed before the baseline and stayed live, and it gave 10,758 bytes with the same mutant, so it could not show a kept input.",
+            "source_commit": "0d1dc49",
+            "retained_bytes_per_op_runs": [
+              11877,
+              10752,
+              12002
+            ],
+            "mutant_retained_bytes_per_op": 68168192,
+            "earlier_benchmark_mutant_retained_bytes_per_op": 10758
           }
         ],
-        "reading": "The client decode of a coupled publication costs about 0.7 to 0.9 ms of CPU, and most of it is the token scans before the typed decode. The server encode of a one-tick delta costs about 72 us. The decoded values keep 5 to 12 KB, also when the input is at the 65 MiB cap. In headless Chromium, the Go/WASM client applied a delta in 4.34 ms on average (G8 browser run)."
+        "reading": "The client decode of a coupled publication costs about 0.7 to 0.9 ms of CPU, and most of it is the token scans before the typed decode. The server encode of a one-tick delta costs about 72 us. The decoded values keep 5 to 12 KB, also when the input is at the 65 MiB cap; at 0d1dc49 a mutant that keeps the input gives 65 MiB. In headless Chromium, the Go/WASM client applied a delta in 4.34 ms on average (G8 browser run)."
       }
     },
     {
@@ -1835,7 +2104,7 @@
   "open_gaps": [
     {
       "row": "G9",
-      "gap": "Some caps outside the session decode chain have no over-cap test at their caller and survive because an earlier or later cap refuses the same input, or because no input reaches them: the compressed save writer cap, the stream encode caps of EncodeStreamJSON and streamEncoder.encode, the compressed stream cap, the HTTP encode and topology caps, the HTTP topology scan cap, and the half-fleet group check; see the readings of the surviving mutations."
+      "gap": "A valid plain project can have an HTTP topology over the topology cap. project.Validate measures the project without HTML escapes, but the topology encoding writes each \"<\", \">\" and \"&\" as 6 bytes. The topology preflight checks only Express and coupling projects, so the server starts such a project, and its HTTP state then fails with status 500 and the text of the cap. TestCouplingEncodeCapsAtCallers/HTTP_topology builds one: a ring of 300 stations with 6 berths each and IDs of \"<\", with a project of about 2.7 MB. This round changed no code outside the tests."
     },
     {
       "row": "U3",
@@ -1855,5 +2124,10 @@
     "note": "A second round at 39f05af closed the non-simulation gaps of G8, G9 and U4. The runs used 39f05af with the new tests applied: internal/session/coupling_decode_cap_test.go and coupling_cost_test.go, three new tests in internal/session/coupling_cap_test.go, and internal/remote/coupling_cancel_test.go. The fixture helpers of the coupling session tests now take testing.TB, so that the benchmark can use them. Each mutation of this round names source_commit 39f05af, and its site is the line at that commit. No code outside the tests changed.",
     "method": "The method of this record. The control was go test -p 1 -count=1 -run <tests> <package>. Each run had ulimit -v 16000000 and nice -n 19. Each mutation of this round had its control pass and its mutant compile."
   },
-  "mutation_counts_note": "54 runs at 05e95b1 (34 killed, 20 survived) and 12 runs at 39f05af (12 killed). 7 runs at 39f05af kill a site that survived at 05e95b1, and g8-http-server-view-new-test killed g8-http-server-view in the first round, so 12 surviving sites have no kill."
+  "mutation_counts_note": "54 runs at 05e95b1 (34 killed, 20 survived) and 12 runs at 39f05af (12 killed). 7 runs at 39f05af kill a site that survived at 05e95b1, and g8-http-server-view-new-test killed g8-http-server-view in the first round, so 12 surviving sites have no kill. 11 runs at 0d1dc49 (9 killed, 2 survived). 7 of these kills are at 6 sites that survived at 05e95b1, and the 2 survivors are proven unreachable or redundant (g9-stream-encode-encoder-redundant and g9-stream-compress-binary-unreachable). So 6 surviving sites have no kill: those 2 G9 sites, c5-replacement-contract and 3 U7 sites.",
+  "second_followup": {
+    "source_commit": "0d1dc49082ff43a6b287d701bf4fe29f6060f294",
+    "note": "A third round at 0d1dc49 closed the cap part of the G9 gap. The runs used 0d1dc49 with the test changes applied: the new file internal/session/coupling_encode_cap_test.go, the at-cap gzip member in coupling_decode_cap_test.go, the retention benchmark in coupling_cost_test.go, and TestCouplingEncodeCapsAtCallers in the test:embedded pattern of mise.toml. Each mutation of this round names source_commit 0d1dc49, and its site is the line at that commit. No code outside the tests changed.",
+    "method": "The method of this record. The control was go test -p 1 -count=1 -run <tests> ./internal/session, and the mutant binary ran the same pattern. The two survivors also ran against all tests of the session package without -short, except the two large fixtures, with a passing control of the same command. Each run had ulimit -v 16000000, nice -n 19 and GOMAXPROCS=4. Each mutation of this round had its control pass and its mutant compile."
+  }
 }

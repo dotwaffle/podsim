@@ -176,16 +176,20 @@ func BenchmarkCouplingFormats(b *testing.B) {
 		runtime.KeepAlive(states)
 	})
 	b.Run("retained/http-at-cap", func(b *testing.B) {
-		// The HTTP state padded to MaxStreamJSON. The decoded state must
-		// not keep the 65 MiB input.
-		padded := make([]byte, MaxStreamJSON)
-		copy(padded, httpState)
-		for i := len(httpState); i < len(padded); i++ {
-			padded[i] = ' '
-		}
+		// Each run decodes its own copy of the HTTP state, padded to
+		// MaxStreamJSON. The copy is made after the baseline, and only the
+		// decoded states stay live. So a decoded state that kept its
+		// input would add 65 MiB to the result.
 		states := make([]State, 0, b.N)
 		before := liveHeap()
 		for b.Loop() {
+			b.StopTimer()
+			padded := make([]byte, MaxStreamJSON)
+			copy(padded, httpState)
+			for i := len(httpState); i < len(padded); i++ {
+				padded[i] = ' '
+			}
+			b.StartTimer()
 			state, err := DecodeStateJSON(padded)
 			if err != nil {
 				b.Fatal(err)
@@ -193,7 +197,6 @@ func BenchmarkCouplingFormats(b *testing.B) {
 			states = append(states, state)
 		}
 		b.ReportMetric(float64(liveHeap()-before)/float64(len(states)), "retained-B/op")
-		runtime.KeepAlive(padded)
 		runtime.KeepAlive(states)
 	})
 }

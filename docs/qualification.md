@@ -2156,12 +2156,15 @@ Most survivors are caps with a second cap that refuses the same input first, or 
 The runs used `05e95b1` with the test changes of this record applied.
 A second round at `39f05af` added 12 mutant runs, and each was killed.
 Seven of them kill a site that survived at `05e95b1`.
-That round added tests only.
+A third round at `0d1dc49` added 11 mutant runs: 9 were killed and 2 survived.
+Seven of the kills are at 6 sites that survived at `05e95b1`.
+The 2 survivors are caps that no input reaches.
+The second and third rounds added tests only.
 
 | Row | Status |
 | --- | --- |
 | G8 public formats | Qualified, with WASM under Node and headless Chromium at `39f05af`. |
-| G9 size and cost | Partial: 8 caps outside the session decode chain survive. |
+| G9 size and cost | Caps qualified at `0d1dc49`; the cost numbers use the phase fixture only. |
 | C1 limits | Unchanged. |
 | C3 combined widest encodings | Measured in the [composed format record](measurements/composed-worst-case-formats.json). |
 | C4 atomic rejection | Qualified for the save. |
@@ -2188,7 +2191,36 @@ At `39f05af`, `TestCouplingDecodeCapsAtCallers` kills each cap of the stream and
 It pads a coupling frame with whitespace to each cap and to one byte more, and it asserts the text of that cap.
 The remote client stops a larger message before `InflateStream` and `DecodeStreamJSON`, and no caller gives `decodeStreamJSON` more than its cap.
 So the kills of these three caps come from direct calls.
-The compressed save writer cap, the stream and HTTP encode caps, and the topology caps of the HTTP state still survive.
+At `0d1dc49`, the compressed message case also has a valid gzip member of exactly `MaxStreamMessage` bytes, and the client accepts it.
+The member has stored blocks and empty blocks, so its size does not depend on the compressor.
+A member of one byte more is also valid, and the cap refuses it.
+
+At `0d1dc49`, `TestCouplingEncodeCapsAtCallers` puts a document at each encode cap and at one byte more, and it asserts the text of that cap.
+`TestCouplingSavedHalfFleetAtDecoder` sends a coupled save with one group more than half its pods to the save decoder.
+The results for the 8 caps that survived at `05e95b1` follow.
+
+- The HTTP topology cap is killed through the HTTP state handler, and the topology scan cap through `DecodeStateJSON`.
+- The half-fleet group check is killed through the save decoder.
+  The route check after it has the same bound with another text.
+- The compressed save cap and the encode caps of `EncodeStreamJSON` and `EncodeStateJSON` are killed by direct calls.
+  No session writes a document that reaches them.
+  In the composed record, the widest save has 77,326,611 raw bytes, the widest stream frame 57,081,842, and the widest HTTP state 67,559,160.
+  Gzip adds about 5 bytes for each block of 64 KiB, so a save with at most 77,326,611 raw bytes cannot reach 80 MiB compressed.
+  For the save, the test uses a demo error of UTF-8 text that does not compress, so gzip stores each block.
+  The only caller of `EncodeStreamJSON` is `streamEncoder.encode`, and it refuses with the same text.
+  So only a direct call shows the `EncodeStreamJSON` cap.
+- The cap in `streamEncoder.encode` is redundant.
+  It runs only when `EncodeStreamJSON` returned no error, and then the JSON has at most `MaxStreamJSON` bytes, the same bound.
+- The compressed stream cap in `compressJSON` is unreachable.
+  `compressJSON` first limits its input to `MaxStreamJSON`, which is 1 MiB less than `MaxStreamMessage`.
+  `TestStreamGzipExpansionBound` compresses `MaxStreamJSON` random bytes to 68,162,665 bytes, 1,043,351 bytes below the cap.
+
+The HTTP topology case uses a valid plain project.
+`project.Validate` measures a project without HTML escapes, but the topology encoding writes each `<` as 6 bytes.
+A ring of 300 stations with 6 berths each, with IDs and separation groups of `<`, has a project of about 2.7 MB and a topology over the cap.
+The topology preflight checks only Express and coupling projects.
+So the server starts such a plain project, and its HTTP state then fails with status 500.
+The record lists this as an open gap.
 
 `BenchmarkCouplingFormats` measures the formats on the phase fixture, with 2 pods in one group.
 The delta is one tick after the full frame.
@@ -2207,7 +2239,11 @@ The delta is one tick after the full frame.
 
 Most of the decode time is in the token scans before the typed decode.
 After a full collection, a decoded frame and its state keep 5,211 bytes, and a decoded HTTP state keeps 8,425 bytes.
-A decoded HTTP state at the 65 MiB cap keeps 11,842 bytes, so the decoder does not keep its input.
+At `0d1dc49`, each run of the cap benchmark decodes its own copy of the HTTP state, padded to the 65 MiB cap.
+The copy is made after the baseline, and only the decoded states stay live.
+A decoded state keeps 10,752 to 12,002 bytes in three runs.
+A scratch mutant that keeps the input in the decoded state gives 68,168,192 bytes, so the benchmark detects a kept input.
+The benchmark of the earlier round gave 10,758 bytes with the same mutant, because it decoded one input that stayed live.
 In Chromium, the client applied a delta in 4.34 ms on average.
 
 For C5, a save of a version other than 9 moves aside as `unsupported_version`.

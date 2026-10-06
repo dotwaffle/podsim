@@ -3,8 +3,10 @@ package session
 import (
 	"bytes"
 	"compress/gzip"
+	"encoding/binary"
 	"encoding/json"
 	jsonv2 "encoding/json/v2"
+	"hash/crc32"
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/sim"
@@ -41,6 +43,37 @@ func gzipJSON(t *testing.T, data []byte) []byte {
 		t.Fatal(err)
 	}
 	return buffer.Bytes()
+}
+
+// storedGzip returns data in one gzip member of blocks stored deflate
+// blocks. The data fills the first blocks, and the other blocks are
+// empty. The member has 18 + len(data) + 5*blocks bytes.
+func storedGzip(t *testing.T, data []byte, blocks int) []byte {
+	t.Helper()
+	const maxBlock = 1<<16 - 1
+	if blocks < (len(data)+maxBlock-1)/maxBlock {
+		t.Fatalf("%d blocks cannot hold %d bytes", blocks, len(data))
+	}
+	member := make([]byte, 0, 18+len(data)+5*blocks)
+	checksum, size := crc32.ChecksumIEEE(data), uint32(len(data))
+	// The header: magic, deflate, no flags, no time, no extra flags, and
+	// an unknown operating system.
+	member = append(member, 0x1f, 0x8b, 8, 0, 0, 0, 0, 0, 0, 0xff)
+	for i := range blocks {
+		chunk := data[:min(len(data), maxBlock)]
+		data = data[len(chunk):]
+		var final byte
+		if i == blocks-1 {
+			final = 1
+		}
+		n := uint16(len(chunk))
+		member = append(member, final)
+		member = binary.LittleEndian.AppendUint16(member, n)
+		member = binary.LittleEndian.AppendUint16(member, ^n)
+		member = append(member, chunk...)
+	}
+	member = binary.LittleEndian.AppendUint32(member, checksum)
+	return binary.LittleEndian.AppendUint32(member, size)
 }
 
 // wantError stops the test when err is not an error with the text want.
@@ -126,12 +159,41 @@ func TestCouplingDecodeCapsAtCallers(t *testing.T) {
 
 	t.Run("compressed message", func(t *testing.T) {
 		// The remote client reads at most MaxStreamMessage bytes from the
-		// websocket, so only a direct caller reaches this cap. The message
-		// is a valid gzip member with zero bytes after it.
-		message := gzipJSON(t, envelope)
+		// websocket, so only a direct caller reaches this cap. Each message
+		// is one gzip member of stored blocks, with empty blocks that set
+		// its size. The member at the cap and the member one byte over it
+		// are both valid, and they inflate to at most MaxStreamJSON bytes.
+		const blockHeader, wrapper = 5, 18
+		size := MaxStreamJSON
+		for (MaxStreamMessage-wrapper-size)%blockHeader != 0 {
+			size--
+		}
+		blocks := (MaxStreamMessage - wrapper - size) / blockHeader
+		message := storedGzip(t, padJSON(t, envelope, size), blocks)
+		if len(message) != MaxStreamMessage {
+			t.Fatalf("the message has %d bytes, want %d", len(message), MaxStreamMessage)
+		}
+		inflated, err := InflateStream(message)
+		if err != nil || len(inflated) != size {
+			t.Fatal("refused the message at the cap", err)
+		}
+		decoded, err := DecodeStreamJSON(inflated)
+		if err != nil || len(decoded.Full.State.Simulation.CouplingGroups) != 1 {
+			t.Fatal("refused the envelope of the message at the cap", err)
+		}
+		message = storedGzip(t, padJSON(t, envelope, size+1), blocks)
+		if len(message) != MaxStreamMessage+1 {
+			t.Fatalf("the message has %d bytes, want %d", len(message), MaxStreamMessage+1)
+		}
+		inflated, err = InflateStream(message)
+		if inflated != nil {
+			t.Fatalf("inflated %d bytes from a message over the cap", len(inflated))
+		}
+		wantError(t, err, "compressed state too large")
+		// A valid member with zero bytes after it.
 		padded := make([]byte, MaxStreamMessage+1)
-		copy(padded, message)
-		inflated, err := InflateStream(padded)
+		copy(padded, gzipJSON(t, envelope))
+		inflated, err = InflateStream(padded)
 		if inflated != nil {
 			t.Fatalf("inflated %d bytes from a message over the cap", len(inflated))
 		}
