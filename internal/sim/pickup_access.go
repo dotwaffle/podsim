@@ -12,12 +12,16 @@ import "slices"
 // restrictions, where the stop filter is nil. Each pickup search and each
 // pickup installation uses it, so dispatch cannot bind a trip again
 // through a berth that pickupAccess refuses. A pod idle at the leg origin
-// keeps the stop filter, by the exception of rule 2: dispatch binds it,
-// and a blocked onward leg is a destination access wait at boarding.
+// gets the stop filter on the static graph, by the exception of rule 2:
+// dispatch binds it, and a blocked onward leg is a destination access
+// wait at boarding.
 func (s *Simulation) pickupBerthFilter(v *vehicle, request Request) func(Berth) bool {
 	stops := s.berthFilterForStops(v.Pod.Class, []string{request.To})
-	if !s.blockedActive() || v.Pod.Activity == Idle && v.Pod.StationID == request.legOrigin() {
+	if !s.blockedActive() {
 		return stops
+	}
+	if v.Pod.Activity == Idle && v.Pod.StationID == request.legOrigin() {
+		return s.berthFilterForStopsOn(true, v.Pod.Class, []string{request.To})
 	}
 	return func(berth Berth) bool {
 		return !s.berthBlocked(berth) && (stops == nil || stops(berth)) && s.pickupBerthFitsRequest(v, request, berth)

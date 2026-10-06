@@ -3,6 +3,12 @@ package sim
 // berthFilterForStops admits a berth only when the remaining stops have a path.
 // Unrestricted networks keep the existing selection and avoid another search.
 func (s *Simulation) berthFilterForStops(class VehicleClass, stops []string) func(Berth) bool {
+	return s.berthFilterForStopsOn(false, class, stops)
+}
+
+// berthFilterForStopsOn is berthFilterForStops, with its searches on the
+// static graph when static is true. See routeOn.
+func (s *Simulation) berthFilterForStopsOn(static bool, class VehicleClass, stops []string) func(Berth) bool {
 	s.ensureNetworkIndexes()
 	if len(stops) == 0 || !s.graph.classRestrictions {
 		return nil
@@ -30,7 +36,7 @@ func (s *Simulation) berthFilterForStops(class VehicleClass, stops []string) fun
 			if !berthAllows(station, berth, class) {
 				continue
 			}
-			if _, err := s.routeForClass(from, berth.Node, class); err == nil && onward(berth.Node, index+1) {
+			if _, err := s.routeOn(static, from, berth.Node, class); err == nil && onward(berth.Node, index+1) {
 				fits[key] = true
 				return true
 			}

@@ -17,10 +17,17 @@ import (
 // long, and it does not.
 func altLineFleet(t *testing.T, altY float64, berths ...string) *Simulation {
 	t.Helper()
+	return altLineFleetClasses(t, altY, 0, berths...)
+}
+
+// altLineFleetClasses is altLineFleet with the vehicle classes of the lane
+// alt-out. A nonzero set turns on the class restrictions of the network.
+func altLineFleetClasses(t *testing.T, altY float64, classes ClassSet, berths ...string) *Simulation {
+	t.Helper()
 	network := lineNetwork(lineStations(1, 1, 2, 2, 1))
 	network.Nodes = append(network.Nodes, Node{ID: "alt", Position: Point{X: 825, Y: altY}})
 	network.Lanes = append(network.Lanes,
-		Lane{ID: "alt-out", From: "s1-exit", To: "alt", SpeedLimit: 14},
+		Lane{ID: "alt-out", From: "s1-exit", To: "alt", SpeedLimit: 14, VehicleClasses: classes},
 		Lane{ID: "alt-in", From: "alt", To: "s2-entry", SpeedLimit: 14},
 	)
 	s, err := NewFleet(network, place(berths...))

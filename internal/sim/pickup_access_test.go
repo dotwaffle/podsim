@@ -373,23 +373,31 @@ func TestPickupInstallationNeedsCompatibleBerth(t *testing.T) {
 // berth at s1, so it does not take the trip.
 func TestPickupAccessLocalPod(t *testing.T) {
 	t.Parallel()
-	s := altLineFleet(t, -100, "s1-1", "s3-1")
-	startDebris(t, s, "s1-link", 70, 80, 0)
-	startDebris(t, s, "alt-out", 70, 80, 0)
-	if err := s.RequestTrip("s1", "s3"); err != nil {
-		t.Fatal(err)
-	}
-	v := s.findVehicle("01")
-	for range 5 * TicksPerSecond {
-		s.Step()
-		if len(s.waiting) != 1 {
-			t.Fatalf("tick %d: %d waiting trips", s.tick, len(s.waiting))
+	// With class restrictions, the stop filter searches routes. The
+	// exception must not search them on the blocked graph.
+	for _, classes := range []ClassSet{0, allClassBits} {
+		s := altLineFleetClasses(t, -100, classes, "s1-1", "s3-1")
+		s.ensureNetworkIndexes()
+		if s.graph.classRestrictions != (classes != 0) {
+			t.Fatalf("classes %d: class restrictions %v", classes, s.graph.classRestrictions)
 		}
-		if trip := s.waiting[0].request; trip.PodID != "01" || trip.DispatchReason != "Waiting for destination access" {
-			t.Fatalf("tick %d: the trip has pod %q and the reason %q", s.tick, trip.PodID, trip.DispatchReason)
+		startDebris(t, s, "s1-link", 70, 80, 0)
+		startDebris(t, s, "alt-out", 70, 80, 0)
+		if err := s.RequestTrip("s1", "s3"); err != nil {
+			t.Fatal(err)
 		}
-		if v.Pod.Activity != Idle || v.Pod.StationID != "s1" {
-			t.Fatalf("tick %d: pod 01 is %s at %q", s.tick, v.Pod.Activity, v.Pod.StationID)
+		v := s.findVehicle("01")
+		for range 5 * TicksPerSecond {
+			s.Step()
+			if len(s.waiting) != 1 {
+				t.Fatalf("classes %d, tick %d: %d waiting trips", classes, s.tick, len(s.waiting))
+			}
+			if trip := s.waiting[0].request; trip.PodID != "01" || trip.DispatchReason != "Waiting for destination access" {
+				t.Fatalf("classes %d, tick %d: the trip has pod %q and the reason %q", classes, s.tick, trip.PodID, trip.DispatchReason)
+			}
+			if v.Pod.Activity != Idle || v.Pod.StationID != "s1" {
+				t.Fatalf("classes %d, tick %d: pod 01 is %s at %q", classes, s.tick, v.Pod.Activity, v.Pod.StationID)
+			}
 		}
 	}
 }
