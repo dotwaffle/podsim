@@ -417,7 +417,7 @@ Status notes record the parts that Podsim now implements.
 Saved states preserve existing buffer membership.
 The editor and comparison tool expose separate, saved opt-in controls for buffers and pickup reassignment.
 New pickup dispatch can defer berth choice at an eligible buffer approach without changing existing commitments.
-Fixed station-entry platoons use the separately tested [entry platoon contract](docs/station-entry-platoons-proposal.md).
+Fixed station-entry platoons are tested separately.
 Berth-access links remain excluded.
 The [saved-state proposal](docs/station-buffer-state-proposal.md) records the contract.
 The [combined dispatch qualification](docs/dispatch-policy-qualification.md) finds mixed service effects and individual tail regressions.

@@ -71,6 +71,6 @@ Geometry changes start a new stream chain and send the full network.
 
 This fixture does not change any default layout or controller setting.
 Independent gates do not establish a service improvement.
-See the [station diagnosis](station-service-diagnosis.md) for the measured pickup delays and prior geometry failures.
-
-The [matched bank service screen](station-banks-screen.md) measures the implemented gates against the frozen heavy workload.
+Diagnosis of the heavy workload shows that 77% to 79% of sampled pickup wait is requests without an eligible assigned pod.
+The earlier two-bank failures came from an unconnected road and a bank near-crossing.
+The matched heavy-workload screen completes 725 journeys against 729 for the baseline and raises pickup p95, so defaults stay unchanged.

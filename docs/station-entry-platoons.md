@@ -69,10 +69,10 @@ Deterministic tests cover two to four pods, curved entries, unequal speeds, bloc
 Transition tests restore every saved field, check required ancestor holdings, and observe ownership transfer.
 Session tests cover gzip JSON, native restoration, disabled policies, and the saved state after drain.
 
-The [selected service screen](station-entry-service.md) runs matched Acton, LondonCentral, and LondonFull trials.
+A selected service screen ran matched Acton, LondonCentral, and LondonFull trials.
 All eight pairs have identical boarding and completion ticks, with no measured service benefit.
 Only the Acton cells form local links.
 Broader active-path qualification remains necessary before adoption.
 Report moving admission, spillback, departure progress, throughput, individual waits, tails, and unfinished requests.
 Keep the feature experimental if it has no measured benefit or makes departure progress worse.
-See the [original design](station-entry-platoons-proposal.md) and [buffer membership contract](station-buffer-state-proposal.md).
+See the [buffer membership contract](station-buffer-state-proposal.md).

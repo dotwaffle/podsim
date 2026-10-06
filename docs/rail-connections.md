@@ -143,8 +143,7 @@ The comparison flag does not change project defaults or enable live forecasting.
 
 ## Mixed-service forecast screen
 
-The [service feasibility study](rail-service-feasibility.md) tests lighter demand and longer transfer leads, plus a rejected station-bank layout.
-Its results are separate from the fixed heavy-demand forecast comparison below.
+A tested two-bank station layout fails physical separation checks under heavy demand and is rejected.
 
 The October 1 screen used six inbound trains and six outbound trains at Rail Hub and LondonFull's Paddington.
 Each event contained 120 passengers, for 1,440 offers and 720 outbound connections per arm.
@@ -204,7 +203,6 @@ Clone continuations retained exact state parity.
 
 All 11,520 offers and 5,760 connection records reconcile across the eight arms.
 The analysis retains skipped identities, individual limit failures, and censored timing observations.
-The [measurement record](measurements/rail-connections.json) records source hashes, limits, outcomes, and validation scope.
 These selected workloads are not a full qualification envelope or a sustained capacity study.
 Their failures stop isolated cost studies, broader qualification, and live forecast exposure for this candidate.
 The comparison control remains available.

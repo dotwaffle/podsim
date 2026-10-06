@@ -1656,9 +1656,7 @@ Current-source follow-ups retain their own fixtures and limits:
 - [Policy fleet histories](docs/policy-fleet-history.md) separate earlier pickup changes, percentile ranks, and same-request delays.
 - [Paddington position trials](docs/paddington-layout.md) improve selected full-restoration outcomes, but reject both partial layouts on safety.
 - [Controller and capacity trials](docs/controller-capacity.md) retain Acton overload, individual regressions, unfinished six-hour AM baselines, and exhausted AM14/AM15 pickup supply.
-- [Strict finishing waits](docs/finishing-wait-capacity.md) reduce completions in four matched capacity cells.
 - [Buffer claims and station speed](docs/station-buffer-speed.md) retain the Acton buffer loss and negative lower-speed trials.
-- [Reserve and sharing trials](docs/acton-reserve-sharing.md) compare initial empty supply and pooling without establishing sustained capacity.
 - [Predictive service trials](docs/predictive-service.md) leave matched request outcomes unchanged.
 - [Predictive cost trials](docs/predictive-cost.md) measure CPU, allocation, and GC tradeoffs separately from service outcomes.
 

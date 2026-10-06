@@ -120,7 +120,6 @@ No default changed.
 An observation-only test overlay checked separation, lane speed, and berth use after all 3,857,640 simulation ticks.
 It checked the saved-state contract each simulated second and verified request accounting and actual injection timestamps.
 The overlay did not change movement, dispatch, or release schedules.
-The [measurement record](measurements/rail-arrivals.json) contains the frozen matrix, hashes, matched results, and endpoint checks.
 
 The endpoint test used an isolated localhost server and the current editor and Chrome WASM client.
 Editor Apply saved the plan and paused the new run before its first release.

@@ -44,4 +44,3 @@ Each arm has 40 initial mixed station orders and 12 balanced offers per simulate
 All six arms pass separation, lane-speed, and berth checks on every tick for 120 simulated seconds.
 Each arm also passes three physical restore checkpoints with no demotions, requeues, or drops.
 The pilots verify traffic on the edited station's berth-access and departure lanes.
-The [measurement record](measurements/station-layout-editor.json) gives scope, artifact hashes, and limits.
