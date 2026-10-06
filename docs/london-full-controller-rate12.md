@@ -73,5 +73,4 @@ Individual-tail investigation, broader demand coverage, and numeric adoption lim
 
 ## Evidence
 
-[Arm totals](measurements/london-full-controller-rate12.csv) retain service, backlog, controller activity, and stopped-time measurements.
-[Matched summaries and metadata](measurements/london-full-controller-rate12.json) retain all raw-result hashes, run outcomes, and unfinished aboard IDs.
+The raw measurement data is in git history.

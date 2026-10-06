@@ -49,5 +49,4 @@ Buffers and pickup reassignment remain off by default.
 
 ## Evidence
 
-[Arm totals](measurements/london-full-controller-rate13.csv) retain service, waits, backlog, activity, and stopped-time measurements.
-[Matched summaries and metadata](measurements/london-full-controller-rate13.json) retain raw-result hashes, run outcomes, and unfinished aboard IDs.
+The raw measurement data is in git history.

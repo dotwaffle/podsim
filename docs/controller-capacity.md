@@ -122,9 +122,7 @@ This boundary screen neither raises a qualified rate nor replaces the full deman
 
 ## Evidence and limits
 
-[Arm totals](measurements/controller-capacity-arms.csv) retain service, backlog, reassignment activity, fixed entry-platoon member time, and safety/restore counts.
-[Pair totals](measurements/controller-capacity-pairs.csv) retain matched cohorts, accepted totals, and individual increases.
-[Metadata](measurements/controller-capacity.json) retains source hashes, all 42 successful runs, one-sided acceptance indices, request-status transitions, selected tails, and unfinished joint cohorts.
+The raw measurement data is in git history.
 The [capacity diagnosis](london-full-capacity-diagnosis.md) identifies exhausted pickup supply at AM14/AM15 and confirms extended AM13 recovery.
 The [buffer and speed diagnosis](station-buffer-speed.md) records longer berth claims and lower completions in slower Acton fixtures.
 The invalid initial `early` band inputs remain separate from the corrected Full Morning runs.
