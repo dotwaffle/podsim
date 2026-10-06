@@ -122,14 +122,14 @@ Stage 1 section 4.3 says that a withdrawn pod keeps its grants and owners.
 Stage 1 section 5.4 says that a withdrawn pod keeps its claims until a later stage changes its operational destination.
 Stage 2 adds one exception to both rules:
 
-- After fault withdrawal, a pod can give up each resource of its destination berth that it owns and that `claimKind` (`internal/sim/claim_kinds.go:22-41`) classifies as `claimService`.
-- The release uses `releaseOwned` (`internal/sim/traffic.go:939`).
+- After fault withdrawal, a pod can give up each resource of its destination berth that it owns and that `claimKind` (`internal/sim/claim_kinds.go` `(*Simulation).claimKind`) classifies as `claimService`.
+- The release uses `releaseOwned` (`internal/sim/traffic.go` `(*Simulation).releaseOwned`).
 - The pod keeps every other claim and grant, its route, its destination, and its purpose.
 - `withdrawService` and `evacuate` do not change, and neither one releases a claim.
 - Recovery takes the berth again through ordinary admission, and waits when the berth is not free.
 
 The exception has two callers: fault start (section 5.2, effect 3) for a pod with an active record, and the claim surrender (section 9.5) for a pod in its fault recovery after the clear.
-`claimService` holds only for an empty pod with a relocation that is not at its destination berth (`internal/sim/claim_kinds.go:127-130`), so the exception never releases a claim of an occupied pod.
+`claimService` holds only for an empty pod with a relocation that is not at its destination berth (`internal/sim/claim_kinds.go` `(*vehicle).claimService`), so the exception never releases a claim of an occupied pod.
 `claimKind` tests the physical kinds first, so a destination resource inside a stopping grant is never `claimService`.
 Stage 1 W3 does not change: the pod releases only its own claims, and it authorizes no yield of another pod.
 
@@ -157,68 +157,68 @@ Stage 1 W3 does not change: the pod releases only its own claims, and it authori
 
 | Area | Anchor | Fact that this contract relies on |
 | --- | --- | --- |
-| Tick order | `internal/sim/simulation.go:698-783` | `tick++` at `:709`. The unloading loop is at `:711-724`. `dispatch` is at `:725`, `swapPickups` at `:726`, `redistribute` at `:727`, `formPlatoons` at `:728`, `admit` at `:729`, `clearBlockedBerths` at `:730`, `formCompactQueues` at `:731`, `platoonCaps` at `:736`, and `planNativeCouplingTick` at `:737-741`. The departure branch is at `:753-761`, `moveAndMeasure` at `:766`, and `releaseCleared` at `:777`. |
-| Approach discovery | `internal/sim/coupling_approach_runtime.go:25-71` | Runs before `tick++` (`internal/sim/simulation.go:707`). `couplingApproachMember` is at `:74`. |
-| Approach route | `internal/sim/coupling_approach_context.go:95-123` | An approach binds a corridor of its route beyond its current grants. |
-| Constants | `internal/sim/simulation.go:11-19` | `TicksPerSecond = 60`, `acceleration = 2.0`, `Clearance = 12`. |
-| Wait reasons | `internal/sim/simulation.go:44-57` | Fixed strings. |
-| Vehicle fields | `internal/sim/simulation.go:232-292` | `withdrawn`, `nextRelease` (`:266-275`), `platoonCap`, `link`, `follower`. |
-| Arrival | `internal/sim/simulation.go:785-810` | An empty move (`RelocatingTo != ""`) becomes idle at `:802`, also when the pod carries riders. |
-| Admission | `internal/sim/traffic.go:509-560` | Coupling members are skipped at `:517`. `assignTerminalBerth` can fail at `:524` before any wait reason. The wait reason is reset at `:528`. |
-| Grant | `internal/sim/traffic.go:611-700` | The owner loop at `:652-668` sets `BlockedBy = owner.String()`. |
-| Grant span | `internal/sim/traffic.go:701`, `reservationEnd` | Closes a span over junction runs. |
-| Route install | `internal/sim/traffic.go:472-480`, `setVehicleRoute` | Replaces the route and rebuilds the blocks and block starts. Keeps the buffer membership when the last lane is the same. |
-| Motion | `internal/sim/traffic.go:741-752`, `move` | `limit = blocks.end(reservedThrough)`, lowered by `platoonCap` for a follower. The kernel call is at `:751`. |
-| Motion kernel | `internal/sim/coupling_native_foreign.go:14-27`, `ordinaryMoveStep` | Brakes to any limit with `safe = sqrt(a²dt² + 2a·available) - a·dt` and snaps to the limit within `1e-5`. |
-| Stopping distance | `internal/sim/platoon.go:665` | `speed² / (2 × acceleration)`. |
-| Release boundary | `internal/sim/traffic.go:812`, `releaseCleared`; `:869-881`; `:939`, `releaseOwned` | A pod that is not traveling releases every entry of `routeReleases` except its berth. |
-| Owner release | `internal/sim/platoon.go:253-265`, `releaseRouteResource` | The one path that frees a resource of an ordinary pod. |
-| Claim kinds | `internal/sim/claim_kinds.go:22-41`, `:45`, `:127-130` | The ordered tests. Only `claimService` is revocable. `claimService` is an unused destination claim of an empty pod with a relocation. |
-| Claim yield | `internal/sim/redistribution.go:45-50`, `:65-97` | `yieldRelocationClaims` releases a revocable destination claim and keeps `RelocatingTo`. A released pod that yields calls `parkReleased` (`:88`). |
-| Released parking | `internal/sim/released.go:88`, `:117-124`; `internal/sim/dispatch.go:225` | `parkUnclaimedReleased` runs at the end of `dispatch` and parks each released in-service pod that does not own its destination berth. |
-| Saved claims | `internal/sim/state.go:123-125`; `internal/sim/state_physical.go:1020-1040` | `ClaimsDestination` records a relocation claim. `claimDestinations` restores only a saved claim. |
-| Foreign proof facts | `internal/sim/coupling_native_foreign_fleet.go:42-53`, `:217-229` | `nativeForeignLimit` applies `fact.cap` only when `link.leader != 0`. |
-| Foreign proof check | `internal/sim/coupling_native_foreign_proof.go:24-47`, `:80`, `:94`, `:186` | The proof predicts `ordinaryMoveStep` at `:80` and checks the raw step at `:186`. The stationary branch accepts `Idle`, `Boarding`, `Unloading`, `Continuing`, and `DepartingEmpty` at a canonical berth. `checkPredecessorCap` binds the follower cap. |
-| Owner kinds | `internal/sim/resource_owner.go:6-51` | `podOwnerKind` and `groupOwnerKind`. `String` has a default for an unknown kind. |
-| Retained owners | `internal/sim/ownership.go:14-53`; `internal/sim/state_physical.go:1304` | `verifyRestore` requires the owners to equal `retainedOwners()`, which covers pods and groups only. |
-| Physical restore | `internal/sim/state_physical.go:808-889`, `:830`, `:993-1015`, `:1073`, `:1086` | A traveling pod restores at speed 0 with `through = reservationEnd(&v.blocks, current)` and `v.footprint(through, distance)`. The tier can demote a pod to a berth and requeue its riders. |
-| Diversion | `internal/sim/diversion.go:115-148`, `divertStart`; `:166-197`, `sendPickupMatching`; `:211-226`, `redirect` | `divertStart` refuses coupling, platoon, and compact members and arrival-chain prefixes. Its arrival-chain test calls `stationPathForClass` (`:143`). `redirect` releases destination claims and sets `RelocatingTo`. |
-| Pickup candidates | `internal/sim/diversion.go:33`, `pickupRouteWithAssignments`; `:44`, `pickupCandidate`; `:85`, `candidateRoutePartsMatching` | A candidate route is the `divertStart` prefix plus a searched suffix. The candidate test refuses a pod that is already assigned. |
-| Leg routes | `internal/sim/drop_offs.go:180`, `legRoute`; `:187`; `:204`, `rerouteKeepsDetours`; `internal/sim/bank_detours.go:5-30`; `internal/sim/dispatch.go:501-523`, `board`; `internal/sim/riders.go:170-183`, `continueJourney` | `rerouteKeepsDetours` assumes a berth end. `legRoute` checks an entry end with `detourStart.entry` (`:187`). `continueJourney` returns with no change and no wait reason when no route exists. |
-| Route search | `internal/sim/network.go:176-198`, `:210`, `:247`; `internal/sim/route_targets.go:82-83`; `internal/sim/route_work.go:30-34`; `internal/sim/bank_routes.go:20-40`, `:207` | `routeIndexedWithWork` tests `laneAllows` at `:247`. `routeTargets` tests it at `:83`. Bank searches take the graph from their caller. |
-| Route graph | `internal/sim/network.go:453-472` | `routeGraph` holds the class masks. |
-| Route caches | `internal/sim/routes.go:49-71`, `:101-173`, `:181`, `:192-210`, `:230` | `cachedRouteForClass` returns a cached success or failure before any search. `stationPathForClass` (`:181`) also reads a cache. `cacheStationRoutesForClass` searches several targets at once (`:171-172`). |
-| Other graph users | `internal/sim/class_routes.go:141`, `:155`; `internal/sim/positioning.go:528`, `:561`; `internal/sim/released.go:190` | Pass `s.graph` directly. |
-| Static graph users | `internal/sim/trip_admission.go:28`, `:84-104`; `internal/sim/station_maneuvers.go:32-38` | Express service validation, `networkStationsConnected`, and station maneuver certification. |
-| Station connectivity | `internal/sim/class_routes.go:92-107` | `stationsConnectedForClass` uses the route cache. `podFitsRequest` (`internal/sim/trip_admission.go:188-202`) calls it. Order validation calls `podFitsRequest` at `:141`. |
-| Stop cache | `internal/sim/drop_offs.go:25-54` | `routeStations`. `approachStations` is a static index. |
-| Berth choice | `internal/sim/berths.go:72-117`; `internal/sim/berth_choice.go:8`, `:52-98`, `:178-189`; `internal/sim/berth_continuation.go:43` | `stationRouteByLoad` skips a berth without a route. `reevaluateTerminalBerth` (called at `internal/sim/traffic.go:527`) moves an uncommitted passenger or assigned pod to another free berth of the same station when its berth is not available. |
-| Detour baselines | `internal/sim/riders.go:84`, `:89`, `:125-146`; `internal/sim/rider_detours.go:40`; `internal/sim/drop_offs.go:251`, `:278`, `:302-308`; `internal/sim/bank_detours.go:57` | `directDistanceForClass` and the legacy denominator (`routeMetersForClass` plus the station path) are the direct distances of the detour ratios. |
-| Pickup berth fit | `internal/sim/trip_admission.go:204-215`; `internal/sim/berth_continuation.go:5-7`, `:43-57`, `:59-61`; `internal/sim/pickup_estimate.go:77`, `:112`, `:186-239` | `pickupBerthFitsRequest` checks the class and the onward route from a berth. `berthFilterForStops` returns nil on a network without class restrictions. `finishEstimate` gives the node where a busy pod becomes available; for a pod with an assigned passenger leg it uses the cached `trip.route` and can return `Berths[0]` without a route (`:224-237`). |
-| Buffer admission | `internal/sim/station_buffer.go:110-130`, `:136-218`; `internal/sim/station_buffer_claim.go:12-26`, `:32-40` | `grantBufferedHead` (`:136`) tests each candidate berth with its complete station path. The transfer at `:188-202` moves only berth claims. `bufferClaimCanYield` refuses a withdrawn head. |
-| Dispatch | `internal/sim/dispatch.go:101-226` | Unbinding when `podFitsRequest` fails (`:119-129`) uses the singular `releasePickup` and clears the cached route and berth only under Express. The pass ends with `parkUnclaimedReleased` (`:225`). |
-| Pickup holds and swaps | `internal/sim/pickup_estimate.go:62`, `waitForFinishingPod`; `:143`, `keepHold`; `internal/sim/pickup_swaps.go:131`, `swapEligible`; `internal/sim/pickup_reassignment.go:22` | The finishing-pod hold, the hold refresh, and swaps and transfers. |
-| Departure | `internal/sim/riders.go:150`, `departs` | `Boarding`, `DepartingEmpty`, `Continuing`. |
-| Berth clearing | `internal/sim/parking.go:17-35`; `:103`, `startEmptyMove` | Skips a pod that is not in service at `:25`. Writes `ParkingUnavailable` at `:31`. |
-| Platoons | `internal/sim/platoon.go:347`, `:496`, `:515` | `formPlatoons`, `canLink`, `tryLink`. |
-| Compact queues | `internal/sim/station_compact_queue.go:82`, `:133` | `compactEntry`, `formCompactQueues`. |
-| Withdrawal | `internal/sim/service_withdrawal.go:10-14`, `:40`, `:67` | The hold bits, `withdrawService` (with the pickup release of the first hold), `restoreService`. |
-| Pickup release | `internal/sim/released.go:9`, `releasePickup`; `:36`, `releasePickups` | Singular release for dispatch, bulk release for withdrawal. |
-| Incident ID | `internal/sim/incident.go:33`, `:42` | `SetIncidentGeneration`, `nextIncidentID`, which increments with no check. |
-| Saved state | `internal/sim/state.go:22`, `:96`, `:389`, `:546`; `internal/sim/state_physical.go:192-224` | `SavedState`, `SavedPod` (no wait reason, only `waiting` and `waitSince`), `ExportState`, `savedStart`, `validateCounters`. |
-| Clone | `internal/sim/clone.go:11-59` | Copies the simulation for checkpoints. |
-| State contract | `internal/sim/state_contract.go:402-412`, `:414-418` | `CheckContract` validates a state. It does not compare two states. `observe` runs the monitor. |
-| Reset | `internal/sim/simulation.go:478` | `Reset`. |
-| Session commands | `internal/session/session.go:113-132`, `:166-177`, `:718-820`, `:722-726`, `:930`; `internal/session/receipt.go:60` | `Command`, `Reply`, `apply` with its coupling refusal, `sameExceptCouplingEnabled`, `digestCommand`. |
-| Demand RNG | `internal/session/demand.go:76` | The demand PCG. |
-| Digest registry | `internal/session/receipt.go:14-32` | `digestExtensions`, with `N = 1` for `IncidentContract`. |
-| Project | `internal/project/config.go:33`, `:41`, `:105-137`, `:194`, `:257`; `internal/project/service.go:73-81` | `MaxPods = 300`, `MaxLanes = 8000`, the size estimate, `IncidentContract`, `Validate`, the marker scan. |
-| Stream | `internal/session/stream_codec.go:25`, `:61-68`, `:182-206` | `MaxStreamJSON`, `vehicleMetadata`, the delta groups. |
-| Prescan | `internal/session/format_limits.go:30-51`, `:58-103` | `savedLimits`, `streamLimits`. |
-| Protocol | `internal/session/protocol.go:13`, `:55`, `:104`, `:240` | `TopologySnapshot`, `SimulationFrame`, `frameState`, `incidentFrameBinding`. |
-| Caps | `internal/session/persist.go:26`; `internal/session/http.go:30` | `MaxStateBytes` is 80 MiB. `MaxCommandBytes` is 4 MiB. |
-| Readers that refuse the marker | `cmd/compare/main.go:843-844`; `internal/parkride/foundation.go:35`; `internal/parkride/checkpoint_scan.go:167` | Refuse a project with the incident marker. |
-| Pod inspector | `internal/view/game.go:1753`, `inspectionRows` | Rows of the selected pod. |
+| Tick order | `internal/sim/simulation.go` `(*Simulation).Step` | `tick++` comes first. The unloading loop follows. `dispatch` comes next, then `swapPickups`, `redistribute`, `formPlatoons`, `admit`, `clearBlockedBerths`, `formCompactQueues`, `platoonCaps`, and `planNativeCouplingTick`. The departure branch follows, then `moveAndMeasure` and `releaseCleared`. |
+| Approach discovery | `internal/sim/coupling_approach_runtime.go` `(*Simulation).discoverCouplingApproaches` | Runs before `tick++` (`internal/sim/simulation.go` `(*Simulation).Step`). `couplingApproachMember` is in `internal/sim/coupling_approach_runtime.go`. |
+| Approach route | `internal/sim/coupling_approach_context.go` `prepareCouplingApproach` | An approach binds a corridor of its route beyond its current grants. |
+| Constants | `internal/sim/simulation.go` `TicksPerSecond`, `acceleration`, `Clearance` | `TicksPerSecond = 60`, `acceleration = 2.0`, `Clearance = 12`. |
+| Wait reasons | `internal/sim/simulation.go` `WaitReason`, `NoWait`, `ParkingUnavailable` | Fixed strings. |
+| Vehicle fields | `internal/sim/simulation.go` `vehicle` | `withdrawn`, `nextRelease`, `platoonCap`, `link`, `follower`. |
+| Arrival | `internal/sim/simulation.go` `(*Simulation).arrive` | An empty move (`RelocatingTo != ""`) becomes idle, also when the pod carries riders. |
+| Admission | `internal/sim/traffic.go` `(*Simulation).admit` | Coupling members are skipped. `assignTerminalBerth` can fail before any wait reason. The wait reason is reset. |
+| Grant | `internal/sim/traffic.go` `(*Simulation).grant` | The owner loop sets `BlockedBy = owner.String()`. |
+| Grant span | `internal/sim/traffic.go` `reservationEnd` | Closes a span over junction runs. |
+| Route install | `internal/sim/traffic.go` `(*Simulation).setVehicleRoute` | Replaces the route and rebuilds the blocks and block starts. Keeps the buffer membership when the last lane is the same. |
+| Motion | `internal/sim/traffic.go` `(*Simulation).move` | `limit = blocks.end(reservedThrough)`, lowered by `platoonCap` for a follower. The kernel call is in the same function. |
+| Motion kernel | `internal/sim/coupling_native_foreign.go` `ordinaryMoveStep` | Brakes to any limit with `safe = sqrt(a²dt² + 2a·available) - a·dt` and snaps to the limit within `1e-5`. |
+| Stopping distance | `internal/sim/platoon.go` `stoppingDistance` | `speed² / (2 × acceleration)`. |
+| Release boundary | `internal/sim/traffic.go` `(*Simulation).releaseCleared`; `(*Simulation).releaseOwned` | A pod that is not traveling releases every entry of `routeReleases` except its berth. |
+| Owner release | `internal/sim/platoon.go` `(*Simulation).releaseRouteResource` | The one path that frees a resource of an ordinary pod. |
+| Claim kinds | `internal/sim/claim_kinds.go` `(*Simulation).claimKind`, `(*Simulation).revocable`, `(*vehicle).claimService` | The ordered tests. Only `claimService` is revocable. `claimService` is an unused destination claim of an empty pod with a relocation. |
+| Claim yield | `internal/sim/redistribution.go` `(*Simulation).redistribute`, `(*Simulation).yieldRelocationClaims` | `yieldRelocationClaims` releases a revocable destination claim and keeps `RelocatingTo`. A released pod that yields calls `parkReleased`. |
+| Released parking | `internal/sim/released.go` `(*Simulation).parkReleased`, `(*Simulation).parkUnclaimedReleased`; `internal/sim/dispatch.go` `(*Simulation).dispatch` | `parkUnclaimedReleased` runs at the end of `dispatch` and parks each released in-service pod that does not own its destination berth. |
+| Saved claims | `internal/sim/state.go` `SavedPod`; `internal/sim/state_physical.go` `(*physicalRestore).claimDestinations` | `ClaimsDestination` records a relocation claim. `claimDestinations` restores only a saved claim. |
+| Foreign proof facts | `internal/sim/coupling_native_foreign_fleet.go` `nativeForeignFact`, `nativeForeignLimit` | `nativeForeignLimit` applies `fact.cap` only when `link.leader != 0`. |
+| Foreign proof check | `internal/sim/coupling_native_foreign_proof.go` `(*nativeForeignTick).prepareProof`, `(*nativeForeignTick).checkPredecessorCap`, `checkNativeForeignSweep` | The proof predicts `ordinaryMoveStep` and checks the raw step. The stationary branch accepts `Idle`, `Boarding`, `Unloading`, `Continuing`, and `DepartingEmpty` at a canonical berth. `checkPredecessorCap` binds the follower cap. |
+| Owner kinds | `internal/sim/resource_owner.go` `(resourceOwner).String`, `groupOwnerKind`, `podOwnerKind` | `podOwnerKind` and `groupOwnerKind`. `String` has a default for an unknown kind. |
+| Retained owners | `internal/sim/ownership.go` `(*Simulation).retainedOwners`; `internal/sim/state_physical.go` `(*physicalRestore).restoreTrip` | `verifyRestore` requires the owners to equal `retainedOwners()`, which covers pods and groups only. |
+| Physical restore | `internal/sim/state_physical.go` `(*physicalRestore).placeTravelingPod`, `(*vehicle).footprint`, `(*physicalRestore).separate`, `(*physicalRestore).placeDemoted` | A traveling pod restores at speed 0 with `through = reservationEnd(&v.blocks, current)` and `v.footprint(through, distance)`. The tier can demote a pod to a berth and requeue its riders. |
+| Diversion | `internal/sim/diversion.go` `(*Simulation).divertStart`; `(*Simulation).sendPickupMatching`; `(*Simulation).redirect` | `divertStart` refuses coupling, platoon, and compact members and arrival-chain prefixes. Its arrival-chain test calls `stationPathForClass`. `redirect` releases destination claims and sets `RelocatingTo`. |
+| Pickup candidates | `internal/sim/diversion.go` `(*Simulation).pickupRouteWithAssignments`; `(*Simulation).pickupCandidate`; `(*Simulation).candidateRoutePartsMatching` | A candidate route is the `divertStart` prefix plus a searched suffix. The candidate test refuses a pod that is already assigned. |
+| Leg routes | `internal/sim/drop_offs.go` `(*Simulation).legRoute`; `(*Simulation).rerouteKeepsDetours`; `internal/sim/bank_detours.go` `(*Simulation).plannedRiderBankDetour`; `internal/sim/dispatch.go` `(*Simulation).board`; `internal/sim/riders.go` `(*Simulation).continueJourney` | `rerouteKeepsDetours` assumes a berth end. `legRoute` checks an entry end with `detourStart.entry`. `continueJourney` returns with no change and no wait reason when no route exists. |
+| Route search | `internal/sim/network.go` `networkRouteInput`, `(Network).routeIndexedWithWork`; `internal/sim/route_targets.go` `(Network).routeTargets`; `internal/sim/route_work.go` `(*Simulation).searchRoute`; `internal/sim/bank_routes.go` `(Network).bankRoute`, `(Network).bankNearest` | `routeIndexedWithWork` tests `laneAllows`. `routeTargets` tests it. Bank searches take the graph from their caller. |
+| Route graph | `internal/sim/network.go` `routeGraph` | `routeGraph` holds the class masks. |
+| Route caches | `internal/sim/routes.go` `(*Simulation).cachedRouteForClass`, `(*Simulation).cacheStationRoutesForClass`, `(*Simulation).stationPathForClass`, `(*Simulation).cacheRoute` | `cachedRouteForClass` returns a cached success or failure before any search. `stationPathForClass` also reads a cache. `cacheStationRoutesForClass` searches several targets at once. |
+| Other graph users | `internal/sim/class_routes.go` `(*Simulation).preferredFleetSource`; `internal/sim/positioning.go` `(*Simulation).guardedBumpToDeficit`, `(*Simulation).guardedBumpToParking`; `internal/sim/released.go` `(*Simulation).nearestFreeBerth` | Pass `s.graph` directly. |
+| Static graph users | `internal/sim/trip_admission.go` `(*Simulation).SetExpressServices`, `networkStationsConnected`; `internal/sim/station_maneuvers.go` `inferStationLaneRoles` | Express service validation, `networkStationsConnected`, and station maneuver certification. |
+| Station connectivity | `internal/sim/class_routes.go` `(*Simulation).stationsConnectedForClass` | `stationsConnectedForClass` uses the route cache. `podFitsRequest` (`internal/sim/trip_admission.go` `(*Simulation).podFitsRequest`) calls it. Order validation calls `podFitsRequest` in `(*Simulation).validateTripOptions`. |
+| Stop cache | `internal/sim/drop_offs.go` `(*Simulation).stationsOnRouteForClass` | `routeStations`. `approachStations` is a static index. |
+| Berth choice | `internal/sim/berths.go` `(*Simulation).stationRouteByLoad`; `internal/sim/berth_choice.go` `(*Simulation).assignTerminalBerth`, `(*Simulation).reevaluateTerminalBerth`, `(*Simulation).berthAvailableFor`; `internal/sim/berth_continuation.go` `(*Simulation).berthFilterForVehicle` | `stationRouteByLoad` skips a berth without a route. `reevaluateTerminalBerth` (called in `internal/sim/traffic.go` `(*Simulation).admit`) moves an uncommitted passenger or assigned pod to another free berth of the same station when its berth is not available. |
+| Detour baselines | `internal/sim/riders.go` `(*Simulation).alight`, `(*Simulation).completeRider`, `(*Simulation).directDistanceForClass`; `internal/sim/rider_detours.go` `(*Simulation).plannedArrivalDetour`; `internal/sim/drop_offs.go` `(*Simulation).plannedBerthDetour`, `(*Simulation).routeMetersForClass`; `internal/sim/bank_detours.go` `(*Simulation).plannedRiderBankDetour` | `directDistanceForClass` and the legacy denominator (`routeMetersForClass` plus the station path) are the direct distances of the detour ratios. |
+| Pickup berth fit | `internal/sim/trip_admission.go` `(*Simulation).pickupBerthFitsRequest`; `internal/sim/berth_continuation.go` `(*Simulation).berthFilterForStops`, `(*Simulation).berthFilterForVehicle`; `internal/sim/pickup_estimate.go` `(*Simulation).waitForFinishingPod`, `(*Simulation).finishEstimate` | `pickupBerthFitsRequest` checks the class and the onward route from a berth. `berthFilterForStops` returns nil on a network without class restrictions. `finishEstimate` gives the node where a busy pod becomes available; for a pod with an assigned passenger leg it uses the cached `trip.route` and can return `Berths[0]` without a route. |
+| Buffer admission | `internal/sim/station_buffer.go` `(*Simulation).bufferHead`, `(*Simulation).grantBufferedHead`; `internal/sim/station_buffer_claim.go` `(*Simulation).bufferBerthClaims`, `(*Simulation).bufferClaimCanYield` | `grantBufferedHead` tests each candidate berth with its complete station path. The transfer moves only berth claims. `bufferClaimCanYield` refuses a withdrawn head. |
+| Dispatch | `internal/sim/dispatch.go` `(*Simulation).dispatch` | Unbinding when `podFitsRequest` fails uses the singular `releasePickup` and clears the cached route and berth only under Express. The pass ends with `parkUnclaimedReleased`. |
+| Pickup holds and swaps | `internal/sim/pickup_estimate.go` `(*Simulation).waitForFinishingPod`; `(*Simulation).keepHold`; `internal/sim/pickup_swaps.go` `(*Simulation).swapEligible`; `internal/sim/pickup_reassignment.go` `(*Simulation).reassignPickup` | The finishing-pod hold, the hold refresh, and swaps and transfers. |
+| Departure | `internal/sim/riders.go` `departs` | `Boarding`, `DepartingEmpty`, `Continuing`. |
+| Berth clearing | `internal/sim/parking.go` `(*Simulation).clearBlockedBerths`; `(*Simulation).startEmptyMove` | Skips a pod that is not in service. Writes `ParkingUnavailable`. |
+| Platoons | `internal/sim/platoon.go` `(*Simulation).formPlatoons`, `(*Simulation).canLink`, `(*Simulation).tryLink` | `formPlatoons`, `canLink`, `tryLink`. |
+| Compact queues | `internal/sim/station_compact_queue.go` `(*Simulation).compactEntry`, `(*Simulation).formCompactQueues` | `compactEntry`, `formCompactQueues`. |
+| Withdrawal | `internal/sim/service_withdrawal.go` `faultHold`, `emergencyHold`, `knownServiceHolds`, `(*Simulation).withdrawService` | The hold bits, `withdrawService` (with the pickup release of the first hold), `restoreService`. |
+| Pickup release | `internal/sim/released.go` `(*Simulation).releasePickup`; `(*Simulation).releasePickups` | Singular release for dispatch, bulk release for withdrawal. |
+| Incident ID | `internal/sim/incident.go` `(*Simulation).SetIncidentGeneration`, `(*Simulation).nextIncidentID` | `SetIncidentGeneration`, `nextIncidentID`, which increments with no check. |
+| Saved state | `internal/sim/state.go` `SavedState`, `SavedPod`, `restoreState`, `(*Simulation).ExportState`; `internal/sim/state_physical.go` `(SavedState).validateCounters` | `SavedState`, `SavedPod` (no wait reason, only `waiting` and `waitSince`), `ExportState`, `savedStart`, `validateCounters`. |
+| Clone | `internal/sim/clone.go` `(*Simulation).Clone` | Copies the simulation for checkpoints. |
+| State contract | `internal/sim/state_contract.go` `checkPodFlags` | `CheckContract` validates a state. It does not compare two states. `observe` runs the monitor. |
+| Reset | `internal/sim/simulation.go` `Simulation` | `Reset`. |
+| Session commands | `internal/session/session.go` `Command`, `Reply`, `(*Session).apply`, `sameExceptCouplingEnabled`; `internal/session/receipt.go` `digestCommand` | `Command`, `Reply`, `apply` with its coupling refusal, `sameExceptCouplingEnabled`, `digestCommand`. |
+| Demand RNG | `internal/session/demand.go` `newDemand` | The demand PCG. |
+| Digest registry | `internal/session/receipt.go` `digestExtensions` | `digestExtensions`, with `N = 1` for `IncidentContract`. |
+| Project | `internal/project/config.go` `MaxPods`, `MaxLanes`, `widestDemand`, `Config`, `Validate`; `internal/project/service.go` `scanProjectFields` | `MaxPods = 300`, `MaxLanes = 8000`, the size estimate, `IncidentContract`, `Validate`, the marker scan. |
+| Stream | `internal/session/stream_codec.go` `MaxStreamJSON`, `vehicleMetadata`, `frameGroups` | `MaxStreamJSON`, `vehicleMetadata`, the delta groups. |
+| Prescan | `internal/session/format_limits.go` `savedLimits`, `streamLimits` | `savedLimits`, `streamLimits`. |
+| Protocol | `internal/session/protocol.go` `TopologySnapshot`, `SimulationFrame`, `frameState`, `incidentFrameBinding` | `TopologySnapshot`, `SimulationFrame`, `frameState`, `incidentFrameBinding`. |
+| Caps | `internal/session/persist.go` `MaxStateBytes`; `internal/session/http.go` `MaxCommandBytes` | `MaxStateBytes` is 80 MiB. `MaxCommandBytes` is 4 MiB. |
+| Readers that refuse the marker | `cmd/compare/main.go` `readProject`; `internal/parkride/foundation.go` `CheckFoundationProject`; `internal/parkride/checkpoint_scan.go` `(*checkpointScanner).object` | Refuse a project with the incident marker. |
+| Pod inspector | `internal/view/game.go` `(*Game).inspectionRows` (at 17ab489) | Rows of the selected pod. |
 | Web markers | `web/editor.js:1275`, `web/shell.js:147` | `markersAgree` and the incident marker. |
 
 ## 4. State
@@ -390,7 +390,7 @@ It does not search for a free berth.
 ### 5.5 Fault stage
 
 The fault stage is the one policy place in `Step` that stage 1 allows (stage 1, section 10).
-It runs after the unloading loop (`internal/sim/simulation.go:711-724`) and before `dispatch` (`:725`), and only when `faultsOn`.
+It runs after the unloading loop (`internal/sim/simulation.go` `(*Simulation).Step`) and before `dispatch`, and only when `faultsOn`.
 Its steps, in this order:
 
 1. Clear each record with `end != 0 && end <= s.tick`, in serial order.
@@ -423,10 +423,10 @@ An empty recovery releases its hold in the first fault stage after its arrival c
 func faultMoveStep(blocks *blockList, lane int, distance, speed, limit, cap float64) ordinaryMoveResult
 ```
 
-`move` (`internal/sim/traffic.go:751`) calls `faultMoveStep` in place of `ordinaryMoveStep` when `v.faulted`.
-The native foreign fact (`internal/sim/coupling_native_foreign_fleet.go:42-53`) gets two members, `faulted` and `faultCap`.
-`nativeForeignLimit` (`:217-229`), the proof prediction (`internal/sim/coupling_native_foreign_proof.go:80`), and the raw check (`:186`) call `faultMoveStep` with the fact values when `fact.faulted`.
-The proof checks the two members in the same way that `checkPredecessorCap` (`:94`) checks the follower cap.
+`move` (`internal/sim/traffic.go` `(*Simulation).move`) calls `faultMoveStep` in place of `ordinaryMoveStep` when `v.faulted`.
+The native foreign fact (`internal/sim/coupling_native_foreign_fleet.go` `nativeForeignFact`) gets two members, `faulted` and `faultCap`.
+`nativeForeignLimit`, the proof prediction (`internal/sim/coupling_native_foreign_proof.go` `(*nativeForeignTick).prepareProof`), and the raw check (`checkNativeForeignSweep`) call `faultMoveStep` with the fact values when `fact.faulted`.
+The proof checks the two members in the same way that `checkPredecessorCap` checks the follower cap.
 
 Deceleration bound.
 At onset, `available = cap - distance = stoppingDistance(v)` for speed `v`, unless the grant end is nearer.
@@ -438,7 +438,7 @@ A lower speed limit of a lane ahead (`speedBeforeLane`) can lower the command fu
 The ceiling at `speed` removes a rounding rise above `v`.
 The snap at `1e-5` brings the pod to rest at the cap.
 
-Invariant F3 (section 10): the cap is set only at onset, which is at a command boundary or in the fault stage, both before `planNativeCouplingTick` (`internal/sim/simulation.go:737-741`) captures the facts.
+Invariant F3 (section 10): the cap is set only at onset, which is at a command boundary or in the fault stage, both before `planNativeCouplingTick` (`internal/sim/simulation.go` `(*Simulation).Step`) captures the facts.
 A coupling train next to a braking faulted pod therefore sees the same step that the pod takes.
 A test runs a train beside a braking faulted pod and checks that the prediction equals the publication at every tick.
 
@@ -450,15 +450,15 @@ No gate tests `v.withdrawn`: a pod in its fault recovery is withdrawn, and it mu
 
 | Path | Anchor | Gate |
 | --- | --- | --- |
-| Admission | `internal/sim/traffic.go:517` | Skips a faulted pod, after the coupling skip, and writes its wait report (section 9.6). |
-| Buffer head | `internal/sim/station_buffer.go:110-130`, `:136` | A faulted pod makes no berth-grant attempt as a buffer head. The pods behind it in the buffer cannot pass it, because its retained tail and lane position keep the queue order. |
-| Phase timer and unloading | `internal/sim/simulation.go:711-723` | Skips a faulted pod. `phaseTicks` does not run down, and `alight` does not run. |
-| Departure | `internal/sim/simulation.go:753` | A faulted pod does not depart. |
-| Motion | `internal/sim/traffic.go:751` | `faultMoveStep` (section 6.1). |
-| Platoon links | `internal/sim/platoon.go:496`, `:515` | `canLink` and `tryLink` refuse a faulted pod as leader and as follower, and refuse a link whose run has a blocked lane. |
-| Compact entry | `internal/sim/station_compact_queue.go:82` | `compactEntry` refuses a faulted pod. |
-| Approach discovery | `internal/sim/coupling_approach_runtime.go:47-54` | Skips a pair with a faulted pod, and a pair whose remaining route has a blocked lane. |
-| Berth clearing | `internal/sim/parking.go:25` | A faulted pod is withdrawn, so the existing test skips it. |
+| Admission | `internal/sim/traffic.go` `(*Simulation).admit` | Skips a faulted pod, after the coupling skip, and writes its wait report (section 9.6). |
+| Buffer head | `internal/sim/station_buffer.go` `(*Simulation).bufferHead`, `(*Simulation).grantBufferedHead` | A faulted pod makes no berth-grant attempt as a buffer head. The pods behind it in the buffer cannot pass it, because its retained tail and lane position keep the queue order. |
+| Phase timer and unloading | `internal/sim/simulation.go` `(*Simulation).Step` | Skips a faulted pod. `phaseTicks` does not run down, and `alight` does not run. |
+| Departure | `internal/sim/simulation.go` `(*Simulation).Step` | A faulted pod does not depart. |
+| Motion | `internal/sim/traffic.go` `(*Simulation).move` | `faultMoveStep` (section 6.1). |
+| Platoon links | `internal/sim/platoon.go` `(*Simulation).canLink`, `(*Simulation).tryLink` | `canLink` and `tryLink` refuse a faulted pod as leader and as follower, and refuse a link whose run has a blocked lane. |
+| Compact entry | `internal/sim/station_compact_queue.go` `(*Simulation).compactEntry` | `compactEntry` refuses a faulted pod. |
+| Approach discovery | `internal/sim/coupling_approach_runtime.go` `(*Simulation).discoverCouplingApproaches` | Skips a pair with a faulted pod, and a pair whose remaining route has a blocked lane. |
+| Berth clearing | `internal/sim/parking.go` `(*Simulation).clearBlockedBerths` | A faulted pod is withdrawn, so the existing test skips it. |
 
 A faulted pod at a berth that is `Unloading` keeps its riders until the clear or the evacuation.
 A faulted pod that is `Boarding` does not depart.
@@ -475,7 +475,7 @@ The gates of section 6.2 then hold the pod at the berth, and the unloading gate 
 
 A faulted pod keeps every grant that it owns, at rest and while braking.
 It releases passed resources only at their release distances, through the existing release boundary.
-A faulted pod at rest stays `Traveling`, because a pod that is not traveling releases its track claims (`internal/sim/traffic.go:869-881`).
+A faulted pod at rest stays `Traveling`, because a pod that is not traveling releases its track claims (`internal/sim/traffic.go` `(*Simulation).releaseVehicleResources`).
 A buffered faulted pod keeps its buffer membership and its claims.
 
 No stage 2 operation revokes a grant.
@@ -488,7 +488,7 @@ The blocked set already routes them around it.
 | Pod state | Footprint |
 | --- | --- |
 | `Traveling` | `v.footprint(v.reservedThrough, v.faultCap)`: each resource of the granted blocks that the pod holds at its cap. `reservedThrough` and the cap do not change while the fault lasts, so the footprint is fixed. |
-| At a berth | `berthResources(berth)` (`internal/sim/state_physical.go:625`). The berth is blocked. |
+| At a berth | `berthResources(berth)` (`internal/sim/state_physical.go` `berthResources`). The berth is blocked. |
 
 The footprint is computed from the pod state and is not saved.
 The pod owns every resource of its footprint, because the footprint is inside its grants.
@@ -506,8 +506,8 @@ Debris never revokes an existing claim: it starts only on resources that are fre
 ### 7.2 Footprint
 
 The footprint `F` of debris on lane `l` with segment `[from, to]` is the union of the resources of each cell of `l` that meets `[from - Clearance, to + Clearance]`.
-The cells come from the shared lane cells (`internal/sim/traffic.go:87-172`).
-A cell at a lane end includes its node and junction resources (`:152-169`), so debris near a junction blocks the junction and each lane that shares it.
+The cells come from the shared lane cells (`internal/sim/traffic.go` `newLaneCells`).
+A cell at a lane end includes its node and junction resources (`newLaneCells`), so debris near a junction blocks the junction and each lane that shares it.
 `F` is a function of the network and the segment.
 It is computed again at restore and is not saved.
 
@@ -528,7 +528,7 @@ In this order, with the error of section 12.4, all before the ID is taken and be
    Any other claimed resource gives `debris meets a reserved resource`.
 9. No coupling group claim or preserved claim names a resource of `F`.
    No coupling member and no approach member has a lane of its remaining route that meets `F`.
-   The remaining route runs from the current lane to the end of the route, also past the grants, and includes the corridor that an approach binds (`internal/sim/coupling_approach_context.go:95-123`).
+   The remaining route runs from the current lane to the end of the route, also past the grants, and includes the corridor that an approach binds (`internal/sim/coupling_approach_context.go` `prepareCouplingApproach`).
    Otherwise the fault is not supported in stage 2.
 10. No dispatch pass is in progress.
 
@@ -542,8 +542,8 @@ This avoids any revocation in stage 2 (product choice P1).
 ### 7.4 Ownership
 
 At start, every resource of `F` goes to the fault owner.
-No pod owns a resource of `F` while the debris is active, because admission refuses a resource with another owner (`internal/sim/traffic.go:652-668`).
-So `releaseRouteResource` (`internal/sim/platoon.go:253-265`) never frees a resource of `F`, and the buffer transfer (`internal/sim/station_buffer.go:188-202`) moves only berth claims, which `F` does not have.
+No pod owns a resource of `F` while the debris is active, because admission refuses a resource with another owner (`internal/sim/traffic.go` `(*Simulation).grant`).
+So `releaseRouteResource` (`internal/sim/platoon.go` `(*Simulation).releaseRouteResource`) never frees a resource of `F`, and the buffer transfer (`internal/sim/station_buffer.go` `(*Simulation).grantBufferedHead`) moves only berth claims, which `F` does not have.
 
 ### 7.5 Clear
 
@@ -553,8 +553,8 @@ A pod that waits for them is admitted at the next `admit`.
 
 ### 7.6 Restore and retained owners
 
-`retainedOwners` (`internal/sim/ownership.go:14-53`) gets one more step: for each debris record, each resource of `F` gets the fault owner.
-`verifyRestore` (`internal/sim/state_physical.go:1304`) then covers debris ownership.
+`retainedOwners` (`internal/sim/ownership.go` `(*Simulation).retainedOwners`) gets one more step: for each debris record, each resource of `F` gets the fault owner.
+`verifyRestore` (`internal/sim/state_physical.go` `(*Simulation).verifyRestore`) then covers debris ownership.
 Physical restore places the debris first and the pods after it.
 A restored pod whose ownership meets `F` is a conflict, and the save is invalid.
 A saved debris record whose segment fails precondition 5 against the saved project, or whose footprint meets another record, also makes the save invalid (section 13.5).
@@ -568,18 +568,18 @@ A berth is blocked when its berth resource or its berth node resource is in an a
 A berth with a faulted pod is therefore blocked, and a lane that shares a junction with a footprint is blocked.
 
 The simulation keeps a static index from each resource to the lanes whose cells hold it.
-It is built once from the lane cells, with the network indexes (`internal/sim/routes.go:192`), and it is a cache of the network.
+It is built once from the lane cells, with the network indexes (`internal/sim/routes.go` `(*Simulation).ensureNetworkIndexes`), and it is a cache of the network.
 
 `blocked.by` maps each footprint resource to the fault ID.
 The wait reports of section 9.6 use it.
 
 ### 8.2 Route searches
 
-`routeGraph` (`internal/sim/network.go:453-472`) gets `blocked []bool`, indexed by lane.
+`routeGraph` (`internal/sim/network.go` `routeGraph`) gets `blocked []bool`, indexed by lane.
 It is nil in the static graph.
 `laneOpen(lane)` returns `blocked == nil || !blocked[lane]`.
-`routeIndexedWithWork` tests it beside `laneAllows` (`internal/sim/network.go:247`), and `routeTargets` tests it beside `laneAllows` (`internal/sim/route_targets.go:83`).
-Bank searches (`internal/sim/bank_routes.go:20-40`, `:207`) take the graph from their caller and call `routeIndexedWithWork`, so they get the same test.
+`routeIndexedWithWork` tests it beside `laneAllows` (`internal/sim/network.go` `(Network).routeIndexedWithWork`), and `routeTargets` tests it beside `laneAllows` (`internal/sim/route_targets.go` `(Network).routeTargets`).
+Bank searches (`internal/sim/bank_routes.go` `(Network).bankRoute`, `(Network).bankNearest`) take the graph from their caller and call `routeIndexedWithWork`, so they get the same test.
 The last cell of the lane into a berth holds the berth node resource, so the lane into a blocked berth is blocked, and no route ends at a blocked berth.
 
 `s.routingGraph()` returns a copy of `s.graph` with `blocked` set to the current blocked lanes.
@@ -587,18 +587,18 @@ With no active fault, it returns `s.graph` unchanged.
 
 | Reader | Anchor | Graph |
 | --- | --- | --- |
-| `searchRoute`, and through it `cachedRouteForClass`, `assignedRoute`, `congestionRouteForClass`, `stationPathForClass`, `legRoute` | `internal/sim/route_work.go:30-34` | `routingGraph` |
-| `cacheStationRoutesForClass`, the direct multi-target search | `internal/sim/routes.go:171-172` | `routingGraph` |
-| Class route searches | `internal/sim/class_routes.go:141`, `:155` | `routingGraph` |
-| Positioning searches | `internal/sim/positioning.go:528`, `:561` | `routingGraph` |
-| `nearestFreeBerth` | `internal/sim/released.go:190` | `routingGraph`. It also skips blocked berths. |
-| `stationRouteByLoad` | `internal/sim/berths.go:72-117` | Skips blocked berths. Its searches use `routingGraph`. |
-| Arrival-chain test of `divertStart` | `internal/sim/diversion.go:142-146` | `s.graph`, static (section 8.5) |
-| `directDistanceForClass` | `internal/sim/riders.go:125-146` | `s.graph`, static (section 8.5) |
-| Legacy detour denominator: `routeMetersForClass` and the station path of the direct distance | `internal/sim/drop_offs.go:251`, `:278`, `:302-308` | `s.graph`, static (section 8.5) |
-| Express service validation | `internal/sim/trip_admission.go:28` | `s.graph`, static |
-| `networkStationsConnected` | `internal/sim/trip_admission.go:84-104` | `s.graph`, static |
-| Station maneuver certification | `internal/sim/station_maneuvers.go:32-38` | Static |
+| `searchRoute`, and through it `cachedRouteForClass`, `assignedRoute`, `congestionRouteForClass`, `stationPathForClass`, `legRoute` | `internal/sim/route_work.go` `(*Simulation).searchRoute` | `routingGraph` |
+| `cacheStationRoutesForClass`, the direct multi-target search | `internal/sim/routes.go` `(*Simulation).cacheStationRoutesForClass` | `routingGraph` |
+| Class route searches | `internal/sim/class_routes.go` `(*Simulation).preferredFleetSource` | `routingGraph` |
+| Positioning searches | `internal/sim/positioning.go` `(*Simulation).guardedBumpToDeficit`, `(*Simulation).guardedBumpToParking` | `routingGraph` |
+| `nearestFreeBerth` | `internal/sim/released.go` `(*Simulation).nearestFreeBerth` | `routingGraph`. It also skips blocked berths. |
+| `stationRouteByLoad` | `internal/sim/berths.go` `(*Simulation).stationRouteByLoad` | Skips blocked berths. Its searches use `routingGraph`. |
+| Arrival-chain test of `divertStart` | `internal/sim/diversion.go` `(*Simulation).divertStart` | `s.graph`, static (section 8.5) |
+| `directDistanceForClass` | `internal/sim/riders.go` `(*Simulation).directDistanceForClass` | `s.graph`, static (section 8.5) |
+| Legacy detour denominator: `routeMetersForClass` and the station path of the direct distance | `internal/sim/drop_offs.go` `(*Simulation).plannedBerthDetour`, `(*Simulation).routeMetersForClass` | `s.graph`, static (section 8.5) |
+| Express service validation | `internal/sim/trip_admission.go` `(*Simulation).SetExpressServices` | `s.graph`, static |
+| `networkStationsConnected` | `internal/sim/trip_admission.go` `networkStationsConnected` | `s.graph`, static |
+| Station maneuver certification | `internal/sim/station_maneuvers.go` `inferStationLaneRoles` | Static |
 | Network bounds, pickup lower bounds, and validation | Unchanged | `s.graph`, static |
 
 The blocked set is per simulation.
@@ -613,25 +613,25 @@ No reader can see a cached route of an earlier epoch, also a cached failure, bec
 The rebuild computes the footprint of each record (sections 6.5 and 7.2) and then the blocked lanes and berths.
 When the result differs from the previous blocked set, a new epoch starts:
 
-- Clear `routes`, `routeOrder`, `congestionRoutes`, `congestionRouteCosts`, and `routeStations` (`internal/sim/routes.go:204-209`, `internal/sim/drop_offs.go:25-54`).
+- Clear `routes`, `routeOrder`, `congestionRoutes`, `congestionRouteCosts`, and `routeStations` (`internal/sim/routes.go` `(*Simulation).ensureNetworkIndexes`, `internal/sim/drop_offs.go` `(*Simulation).stationsOnRouteForClass`).
   These hold successes and failures alike.
 - Set `rerouteDue = true`.
 
 `staticConnected`, `staticRoutes`, and `pickupBounds` stay.
 They depend only on the network: `pickupBounds` are free-flow lower bounds, and a blocked lane can only raise a route cost.
 `approachStations` is a static index and stays.
-Trip routes that dispatch has stored are not checked: `board` computes the leg route again (`internal/sim/dispatch.go:507`).
-The dispatch pass caches are rebuilt at each pass (`internal/sim/dispatch.go:101`).
+Trip routes that dispatch has stored are not checked: `board` computes the leg route again (`internal/sim/dispatch.go` `(*Simulation).board`).
+The dispatch pass caches are rebuilt at each pass (`internal/sim/dispatch.go` `(*Simulation).dispatch`).
 
 A footprint changes at no other event: a braking pod keeps a fixed cap and fixed grants, and debris is fixed.
 
 ### 8.4 Order admission stays static
 
-`podFitsRequest` (`internal/sim/trip_admission.go:188-202`) decides order admission (`:141`) and the dispatch reason through `stationsConnectedForClass` (`internal/sim/class_routes.go:92-107`).
-With a blocked route cache, a fault would refuse new orders and unbind bound trips (`internal/sim/dispatch.go:119-129`).
+`podFitsRequest` (`internal/sim/trip_admission.go` `(*Simulation).podFitsRequest`) decides order admission (`(*Simulation).validateTripOptions`) and the dispatch reason through `stationsConnectedForClass` (`internal/sim/class_routes.go` `(*Simulation).stationsConnectedForClass`).
+With a blocked route cache, a fault would refuse new orders and unbind bound trips (`internal/sim/dispatch.go` `(*Simulation).dispatch`).
 So while the blocked set is not empty, `stationsConnectedForClass` reads `staticConnected`.
 `staticConnected` caches, by origin berth, destination berth, and route class, whether `s.graph` has a route.
-It uses the same two searches as `cachedRouteForClass` (`internal/sim/routes.go:66-69`).
+It uses the same two searches as `cachedRouteForClass` (`internal/sim/routes.go` `(*Simulation).cachedRouteForClass`).
 With an empty blocked set, `stationsConnectedForClass` uses the route cache as today.
 The two give the same answer when no lane is blocked, so the switch changes no result.
 The switch reads the blocked set that the last rebuild wrote, so it changes in the same operation as the caches.
@@ -645,15 +645,15 @@ Pickup access for an existing binding is a separate test, used only while the bl
 Three checks decide structure or a baseline, not travel, and they read the static graph:
 
 - Order admission connectivity (section 8.4).
-- The arrival-chain test of `divertStart` (`internal/sim/diversion.go:142-146`).
+- The arrival-chain test of `divertStart` (`internal/sim/diversion.go` `(*Simulation).divertStart`).
   It asks whether the remaining endpoint of a restored route lies inside the arrival chain of its station.
   It calls a static form of `stationPathForClass` that searches `s.graph` and caches the result in `staticConnected`, under the station form of `routeKey`.
   A blocked lane must not turn this safety check into permission to divert.
 - The rider detour baselines.
-  `directDistanceForClass` (`internal/sim/riders.go:125-146`) and the legacy denominator of `plannedBerthDetour` (`routeMetersForClass` at `internal/sim/drop_offs.go:251` and the station path in `direct+meters` at `:278`) measure the trip that the rider ordered.
+  `directDistanceForClass` (`internal/sim/riders.go` `(*Simulation).directDistanceForClass`) and the legacy denominator of `plannedBerthDetour` (`routeMetersForClass` in `internal/sim/drop_offs.go` `(*Simulation).plannedBerthDetour` and the station path in `direct+meters`) measure the trip that the rider ordered.
   While the blocked set is not empty, they search `s.graph` and cache the result in `staticRoutes`.
   A bypass must not raise the denominator: otherwise a 250 m bypass of a 100 m direct route scores near 1 and passes the 1.5 limit.
-  This covers each caller: the planned detours (`internal/sim/rider_detours.go:40`, `internal/sim/bank_detours.go:57`, `internal/sim/drop_offs.go:278`) and the realized detour at alighting (`internal/sim/riders.go:84`, `:89`).
+  This covers each caller: the planned detours (`internal/sim/rider_detours.go` `(*Simulation).plannedArrivalDetour`, `internal/sim/bank_detours.go` `(*Simulation).plannedRiderBankDetour`, `internal/sim/drop_offs.go` `(*Simulation).plannedBerthDetour`) and the realized detour at alighting (`internal/sim/riders.go` `(*Simulation).alight`, `(*Simulation).completeRider`).
   The arrival distance, the candidate travel, and the onward feasibility stay operational.
 
 Every other search is an operational search and uses `routingGraph`, as section 8.2 lists.
@@ -680,7 +680,7 @@ The rules keep no state for each pod, so no later event has to clear one.
 The fault stage runs the reroute pass when `rerouteDue` is set, and every 300 ticks while the blocked set is not empty (product choice P2).
 A new epoch and a physical restore set `rerouteDue`.
 The pass clears it.
-300 ticks is the cadence of `refreshCongestionCosts` (`internal/sim/routes.go:119`).
+300 ticks is the cadence of `refreshCongestionCosts` (`internal/sim/routes.go` `(*Simulation).refreshCongestionCosts`).
 The cadence retries the pods that the last pass skipped: a berth departure that admission had already granted, and a pod that was a platoon or compact member.
 After the last clear, the blocked set is empty, no remaining route has a blocked lane, and the pass has no work.
 
@@ -717,7 +717,7 @@ func (s *Simulation) rerouteToEndpoint(v *vehicle) bool
 `endpointRoute` steps:
 
 1. Start.
-   For `Traveling` and `DepartingEmpty`, `prefix, from, ok := s.divertStart(v)` (`internal/sim/diversion.go:115`).
+   For `Traveling` and `DepartingEmpty`, `prefix, from, ok := s.divertStart(v)` (`internal/sim/diversion.go` `(*Simulation).divertStart`).
    When `divertStart` refuses, the pod is in its arrival chain or in a group, and the result is false.
    For `Boarding` and `Continuing` at a berth with `reservedThrough < 0`, `prefix = 0` and `from = v.origin.Node`, the current berth, as the first branch of `divertStart` gives for a pod with no grant.
 2. Kept prefix.
@@ -728,33 +728,33 @@ func (s *Simulation) rerouteToEndpoint(v *vehicle) bool
    Otherwise the route ends at a station entry, and the target is that entry node.
    The target never changes, so the endpoint kind, the destination berth, and the destination station stay.
 4. Suffix.
-   `suffix` is the route from `from` to the target by `assignedRoute` (`internal/sim/routes.go:83`), which searches `routingGraph` (section 8.2).
+   `suffix` is the route from `from` to the target by `assignedRoute` (`internal/sim/routes.go` `(*Simulation).assignedRoute`), which searches `routingGraph` (section 8.2).
    When the target is a blocked berth, no route ends at it, and the result is false.
 5. Route.
    `route := append(slices.Clone(kept), suffix...)`.
 6. Checks.
    No lane of `route` from the current lane on is blocked.
    For a pod with riders, the rider detour limits hold for the actual endpoint.
-   A berth end uses the test of `rerouteKeepsDetours` (`internal/sim/drop_offs.go:204`) with the destination berth.
-   An entry end uses the same test with `detourStart.entry = station.routeEntry(route, Berth{})` and no berth, as `legRoute` builds it (`:187`), so a banked station checks the entry of the new route (`internal/sim/bank_detours.go:13-17`).
+   A berth end uses the test of `rerouteKeepsDetours` (`internal/sim/drop_offs.go` `(*Simulation).rerouteKeepsDetours`) with the destination berth.
+   An entry end uses the same test with `detourStart.entry = station.routeEntry(route, Berth{})` and no berth, as `legRoute` builds it (`(*Simulation).legRoute`), so a banked station checks the entry of the new route (`internal/sim/bank_detours.go` `(*Simulation).plannedRiderBankDetour`).
    The detour baselines of the test are static (section 8.5).
    For a buffered pod, the last lane of `route` is the last lane of `v.Route`.
-   `setVehicleRoute` clears `buffered` and `bufferBerth` when the last lane changes (`internal/sim/traffic.go:472-475`), so a route that reaches the same entry through another last lane is refused.
+   `setVehicleRoute` clears `buffered` and `bufferBerth` when the last lane changes (`internal/sim/traffic.go` `(*Simulation).setVehicleRoute`), so a route that reaches the same entry through another last lane is refused.
    When a check fails, the result is false.
 
-`rerouteToEndpoint(v)` calls `setVehicleRoute(v, route)` (`internal/sim/traffic.go:472`), sets `v.pending = -1`, and adds 1 to `reroutes`.
+`rerouteToEndpoint(v)` calls `setVehicleRoute(v, route)` (`internal/sim/traffic.go` `(*Simulation).setVehicleRoute`), sets `v.pending = -1`, and adds 1 to `reroutes`.
 It writes nothing else.
 The pod keeps its activity, its phase state with `phaseTicks` and `StationPhase`, `reservedThrough`, its distance, `routeReleases`, its owners, its riders, `Stops`, `RelocatingTo`, `Rebalancing`, `released`, its purpose, its pickup bindings, and its buffer membership.
 The prefix keeps the same lanes, so the blocks up to `reservedThrough` and their owners stay valid, as they do for `redirect`.
 When `endpointRoute` fails, the pod keeps its route, admission stops it at the boundary of the blocked set, and the wait is reported (section 9.6).
 
-The reroute does not use `redirect` (`internal/sim/diversion.go:211-226`).
-`redirect` releases destination claims, sets `RelocatingTo`, and clears `Rebalancing`, and `arrive` then treats an occupied pod as an empty move and makes it idle with its riders aboard (`internal/sim/simulation.go:802`).
+The reroute does not use `redirect` (`internal/sim/diversion.go` `(*Simulation).redirect`).
+`redirect` releases destination claims, sets `RelocatingTo`, and clears `Rebalancing`, and `arrive` then treats an occupied pod as an empty move and makes it idle with its riders aboard (`internal/sim/simulation.go` `(*Simulation).arrive`).
 
 The endpoint reroute never changes the berth.
 Ordinary terminal reevaluation stays active during incidents.
-`reevaluateTerminalBerth` (`internal/sim/berth_choice.go:52-98`, called at `internal/sim/traffic.go:527`) can move an uncommitted passenger or assigned pod whose berth is not available to another free berth of the same station.
-Its station path comes from `stationPathForClass` on `routingGraph`, and `berthAvailableFor` (`:178-189`) refuses a blocked berth, because the fault owns the berth resources.
+`reevaluateTerminalBerth` (`internal/sim/berth_choice.go` `(*Simulation).reevaluateTerminalBerth`, called in `internal/sim/traffic.go` `(*Simulation).admit`) can move an uncommitted passenger or assigned pod whose berth is not available to another free berth of the same station.
+Its station path comes from `stationPathForClass` on `routingGraph`, and `berthAvailableFor` refuses a blocked berth, because the fault owns the berth resources.
 The pod keeps its destination station, its riders, and its `Stops`, and only the berth changes, as it does today.
 A pod waits with "Blocked by incident" only when no reachable, compatible berth of its station is free.
 
@@ -770,7 +770,7 @@ func (s *Simulation) pickupAccess(v *vehicle, request Request) bool
 With `origin := request.legOrigin()` (stage 1, section 7.1), the test uses these terms:
 
 - The current route of the pod is executable when its remaining route has no blocked lane, or when `endpointRoute(v)` gives a route.
-- A compatible pickup berth is a berth `b` of `origin` that is not blocked, that `berthFilterForStops(class, []string{request.To})` (`internal/sim/berth_continuation.go:5`) accepts, and for which `pickupBerthFitsRequest(v, request, b)` (`internal/sim/trip_admission.go:204-215`) holds.
+- A compatible pickup berth is a berth `b` of `origin` that is not blocked, that `berthFilterForStops(class, []string{request.To})` (`internal/sim/berth_continuation.go` `(*Simulation).berthFilterForStops`) accepts, and for which `pickupBerthFitsRequest(v, request, b)` (`internal/sim/trip_admission.go` `(*Simulation).pickupBerthFitsRequest`) holds.
   Its onward route to `request.To` uses `routingGraph`, so the onward feasibility is operational.
 - A reachable end berth of the pod is a berth where its current work can end:
   - for an executable route with a berth end, the destination berth, when it is not blocked;
@@ -787,9 +787,9 @@ The rules in order:
    An open existing route passes also when `divertStart` refuses a diversion.
 4. Otherwise, the pod is idle at another station or finishes other work first.
    It is true when the current route, if any, is executable and a route on `routingGraph` exists from the node where the pod becomes available to a compatible pickup berth.
-   That node is the current berth node of an idle pod, and the node of `finishEstimate` (`internal/sim/pickup_estimate.go:197`) for a busy pod, which reaches a berth that is not blocked through `stationRouteByLoad` and includes the later stops.
-   The search is `stationRouteByLoad` (`internal/sim/berths.go:72`) to `origin` with `noBerthLoad` and the compatible pickup berths as its filter.
-   For a pod with an assigned passenger leg, rule 4 does not trust the two shortcuts of `finishEstimate` (`internal/sim/pickup_estimate.go:224-237`).
+   That node is the current berth node of an idle pod, and the node of `finishEstimate` (`internal/sim/pickup_estimate.go` `(*Simulation).finishEstimate`) for a busy pod, which reaches a berth that is not blocked through `stationRouteByLoad` and includes the later stops.
+   The search is `stationRouteByLoad` (`internal/sim/berths.go` `(*Simulation).stationRouteByLoad`) to `origin` with `noBerthLoad` and the compatible pickup berths as its filter.
+   For a pod with an assigned passenger leg, rule 4 does not trust the two shortcuts of `finishEstimate` (`internal/sim/pickup_estimate.go` `(*Simulation).finishEstimate`).
    Its continuation check searches the passenger leg on `routingGraph`, from the berth of that leg's origin to `request.To` of that leg, in place of the cached `trip.route`.
    It takes the final berth from `stationRouteByLoad` with `noBerthLoad`, which skips a blocked berth, in place of `Berths[0]`.
    When either search fails, rule 4 is false.
@@ -800,10 +800,10 @@ The test asks only whether a complete forward continuation exists.
 It does not look at resource owners or at the time to arrive, so ordinary traffic, an occupied berth, and a worse arrival time never unbind a trip.
 
 Dispatch unbinding.
-In `dispatch` (`internal/sim/dispatch.go:119-129`), the unbinding condition becomes `!podFitsRequest(v, request) || !pickupAccess(v, request)`.
+In `dispatch` (`internal/sim/dispatch.go` `(*Simulation).dispatch`), the unbinding condition becomes `!podFitsRequest(v, request) || !pickupAccess(v, request)`.
 When only `pickupAccess` fails, the unbinding:
 
-- calls the singular `releasePickup(v)` (`internal/sim/released.go:9`), as the existing branch does;
+- calls the singular `releasePickup(v)` (`internal/sim/released.go` `(*Simulation).releasePickup`), as the existing branch does;
 - clears `request.PodID`, `trip.route`, and `trip.destination` under both order contracts (the existing branch clears the last two only under Express);
 - keeps the order ID, its queue position, its deferral budget, and an existing `excludedPod`;
 - creates no exclusion, and calls neither `withdrawService` nor `releasePickups`.
@@ -816,14 +816,14 @@ Dispatch then unbinds the trip, and ordinary dispatch can send the same empty po
 Compatible pickup berths in assignment.
 While the blocked set is not empty, each pickup search and each pickup installation accepts only compatible pickup berths.
 `pickupBerthFilter(v, request)` returns `berthFilterForStops(class, []string{request.To})` unchanged when the blocked set is empty.
-Otherwise it returns a filter that also requires a berth that is not blocked and that passes `pickupBerthFitsRequest`, also on a network without class restrictions, where `berthFilterForStops` returns nil (`internal/sim/berth_continuation.go:7`).
+Otherwise it returns a filter that also requires a berth that is not blocked and that passes `pickupBerthFitsRequest`, also on a network without class restrictions, where `berthFilterForStops` returns nil (`internal/sim/berth_continuation.go` `(*Simulation).berthFilterForStops`).
 It replaces the pickup filter at each site:
 
-- candidate selection, `candidateRouteForRequest` (`internal/sim/berth_continuation.go:59-61`);
-- installation, `sendPickupForRequest` (`internal/sim/diversion.go:162-164`), so the berth that `sendPickupMatching` installs is compatible;
-- the berth filter of an assigned pickup pod in `berthFilterForVehicle` (`internal/sim/berth_continuation.go:43-57`), which terminal reevaluation uses, also without class restrictions;
-- the finishing-pod hold searches (`internal/sim/pickup_estimate.go:77`, `:112`);
-- `assignedPickupFitsRequest` (`internal/sim/trip_admission.go:218-244`).
+- candidate selection, `candidateRouteForRequest` (`internal/sim/berth_continuation.go` `(*Simulation).candidateRouteForRequest`);
+- installation, `sendPickupForRequest` (`internal/sim/diversion.go` `(*Simulation).sendPickupForRequest`), so the berth that `sendPickupMatching` installs is compatible;
+- the berth filter of an assigned pickup pod in `berthFilterForVehicle` (`internal/sim/berth_continuation.go` `(*Simulation).berthFilterForVehicle`), which terminal reevaluation uses, also without class restrictions;
+- the finishing-pod hold searches (`internal/sim/pickup_estimate.go` `(*Simulation).waitForFinishingPod`);
+- `assignedPickupFitsRequest` (`internal/sim/trip_admission.go` `(*Simulation).assignedPickupFitsRequest`).
 
 A pod idle at a berth of `origin` keeps the exception of rule 2: local pickups and boarding do not use the filter, and a blocked onward leg stays a destination access wait.
 So a pod that fails rule 3 cannot win the same trip again through a berth that fails the predicate.
@@ -832,10 +832,10 @@ Consistent gates, each true when the blocked set is empty:
 
 | Path | Anchor | Gate |
 | --- | --- | --- |
-| New assignments | `internal/sim/diversion.go:44`, `pickupCandidate`; `:85`, `candidateRoutePartsMatching` | A candidate whose `divertStart` prefix has a blocked lane from the current lane on is refused. The suffix comes from `routingGraph` and ends at a compatible pickup berth. |
-| Finishing-pod holds | `internal/sim/pickup_estimate.go:62`, `waitForFinishingPod`; `:143`, `keepHold` | The held pod must pass `pickupAccess`. |
-| Swaps and transfers | `internal/sim/pickup_swaps.go:131`, `swapEligible`, which `reassignPickup` (`internal/sim/pickup_reassignment.go:22`) uses | The receiving pod must pass `pickupAccess`. |
-| Boarding | `internal/sim/dispatch.go:501-523`, `board` | The pod is at the origin, so access holds. Its leg route comes from `routingGraph`. A failed leg keeps the trip with "Waiting for destination access", as today. |
+| New assignments | `internal/sim/diversion.go` `(*Simulation).pickupCandidate`; `(*Simulation).candidateRoutePartsMatching` | A candidate whose `divertStart` prefix has a blocked lane from the current lane on is refused. The suffix comes from `routingGraph` and ends at a compatible pickup berth. |
+| Finishing-pod holds | `internal/sim/pickup_estimate.go` `(*Simulation).waitForFinishingPod`; `(*Simulation).keepHold` | The held pod must pass `pickupAccess`. |
+| Swaps and transfers | `internal/sim/pickup_swaps.go` `(*Simulation).swapEligible`, which `reassignPickup` (`internal/sim/pickup_reassignment.go` `(*Simulation).reassignPickup`) uses | The receiving pod must pass `pickupAccess`. |
+| Boarding | `internal/sim/dispatch.go` `(*Simulation).board` | The pod is at the origin, so access holds. Its leg route comes from `routingGraph`. A failed leg keeps the trip with "Waiting for destination access", as today. |
 
 These gates keep dispatch from binding the trip again to the same inaccessible pod.
 With an empty blocked set, `pickupAccess` and every gate are true, so the dispatch decisions do not change.
@@ -848,11 +848,11 @@ It is false without the marker, and false with the marker and no fault.
 After the last clear, a pod in its fault recovery keeps `faultHold` until its arrival clears purpose 3 and the hold release rule releases the hold, so the gate stays on through the recovery.
 
 Place.
-The surrender is the first phase of `admit` (`internal/sim/traffic.go:509`), and it runs only when the gate is on.
+The surrender is the first phase of `admit` (`internal/sim/traffic.go` `(*Simulation).admit`), and it runs only when the gate is on.
 It is not a new place in `Step`, and it calls no stage 1 operation.
-It follows every claim producer of the tick: `dispatch` with its parking at the end of the pass (`internal/sim/dispatch.go:225`), `swapPickups`, `redistribute` with `parkReleased` (`internal/sim/redistribution.go:88`) and guarded positioning, and `formPlatoons`, which writes no berth claim.
+It follows every claim producer of the tick: `dispatch` with its parking at the end of the pass (`internal/sim/dispatch.go` `(*Simulation).dispatch`), `swapPickups`, `redistribute` with `parkReleased` (`internal/sim/redistribution.go` `(*Simulation).yieldRelocationClaims`) and guarded positioning, and `formPlatoons`, which writes no berth claim.
 No parking claim runs between the surrender and the grants of the same `admit`.
-`clearBlockedBerths` runs after `admit` (`internal/sim/simulation.go:730`), so its claims meet the surrender of the next tick.
+`clearBlockedBerths` runs after `admit` (`internal/sim/simulation.go` `(*Simulation).Step`), so its claims meet the surrender of the next tick.
 
 First phase, for each pod in pod ID order:
 
@@ -864,17 +864,17 @@ First phase, for each pod in pod ID order:
    Build the request that the second phase would build for the pod, with no write and no arbitration, and test it against the current owners.
    The pod waits when one of these holds:
    - A resource of the span that it would request has an owner other than the pod.
-   - Its terminal berth choice finds no berth, by a form of `assignTerminalBerth` (`internal/sim/berth_choice.go:8`) that writes nothing.
-   - It is a buffer head, and no candidate berth of `grantBufferedHead` (`internal/sim/station_buffer.go:136-218`) has a complete station path whose resources are free of other owners.
+   - Its terminal berth choice finds no berth, by a form of `assignTerminalBerth` (`internal/sim/berth_choice.go` `(*Simulation).assignTerminalBerth`) that writes nothing.
+   - It is a buffer head, and no candidate berth of `grantBufferedHead` (`internal/sim/station_buffer.go` `(*Simulation).grantBufferedHead`) has a complete station path whose resources are free of other owners.
    The derivation needs no incident owner: a pod behind a healthy pod that waits at a fault also waits.
 4. When the pod waits, call `releaseOwned` for each such `claimService` resource.
    A pod in its fault recovery uses the amendment of section 1.6.
 
-The second phase is the existing admission, with terminal reevaluation (`internal/sim/traffic.go:527`), against the new ownership.
+The second phase is the existing admission, with terminal reevaluation (`internal/sim/traffic.go` `(*Simulation).admit`), against the new ownership.
 
 The surrender keeps the route, the destination, `RelocatingTo`, and every other claim and grant.
 The saved `ClaimsDestination` flag records the result, as it records a yield of `yieldRelocationClaims`, so `claimDestinations` restores no surrendered claim.
-The buffer rollback of `grantBufferedHead` and the rules of `bufferClaimCanYield` (`internal/sim/station_buffer_claim.go:32-40`) do not change.
+The buffer rollback of `grantBufferedHead` and the rules of `bufferClaimCanYield` (`internal/sim/station_buffer_claim.go` `(*Simulation).bufferClaimCanYield`) do not change.
 A withdrawn head still makes no other pod yield: a berth becomes free only by the choice of its own owner.
 
 The deadlock of the second review (finding N1) ends as follows.
@@ -887,7 +887,7 @@ Neither pod takes a grant from the other.
 
 Parking again after a surrender.
 A released in-service pod that gave up its claim no longer owns its destination berth.
-`parkUnclaimedReleased` (`internal/sim/released.go:117-124`) therefore parks it again at the end of the next `dispatch`, and it claims a berth again.
+`parkUnclaimedReleased` (`internal/sim/released.go` `(*Simulation).parkUnclaimedReleased`) therefore parks it again at the end of the next `dispatch`, and it claims a berth again.
 When the pod still waits, the next first phase gives up that claim again.
 This repeats at most once in each tick for each released pod that waits, with one `nearestFreeBerth` search each time, and the claim is free at each admission.
 The repetition is deterministic, and it ends when the pod no longer waits or when the gate turns off.
@@ -898,12 +898,12 @@ Each report is derived from the current attempt of the pod, at the place where t
 
 | Reason | Written by | When | `BlockedBy` |
 | --- | --- | --- | --- |
-| "Fault braking" | The admission skip of a faulted pod (`internal/sim/traffic.go:517`) | The pod is faulted and `Pod.Speed > 0`. | Its own fault ID |
+| "Fault braking" | The admission skip of a faulted pod (`internal/sim/traffic.go` `(*Simulation).admit`) | The pod is faulted and `Pod.Speed > 0`. | Its own fault ID |
 | "Fault stopped" | The same skip | The pod is faulted and at rest. | Its own fault ID |
-| "Blocked by incident" | The owner loop of `grant` (`internal/sim/traffic.go:652-668`) | The refused resource has a fault owner, or a faulted pod owns it. | The fault ID of that owner |
-| "Blocked by incident" | The buffer head paths (`internal/sim/station_buffer.go:120-130`, `:136-218`) | The blocking owner is a fault owner or a faulted pod. | The fault ID of that owner |
-| "Blocked by incident" | Admission, at a failed terminal berth choice (`internal/sim/traffic.go:524`) | A berth of the destination station is blocked. | The fault ID of the blocked berth with the lowest serial |
-| "No forward route" | `continueJourney` (`internal/sim/riders.go:170-183`) | The next-leg search fails while the blocked set is not empty. | Empty, because a failed search names no single fault |
+| "Blocked by incident" | The owner loop of `grant` (`internal/sim/traffic.go` `(*Simulation).grant`) | The refused resource has a fault owner, or a faulted pod owns it. | The fault ID of that owner |
+| "Blocked by incident" | The buffer head paths (`internal/sim/station_buffer.go` `(*Simulation).bufferHead`, `(*Simulation).grantBufferedHead`) | The blocking owner is a fault owner or a faulted pod. | The fault ID of that owner |
+| "Blocked by incident" | Admission, at a failed terminal berth choice (`internal/sim/traffic.go` `(*Simulation).admit`) | A berth of the destination station is blocked. | The fault ID of the blocked berth with the lowest serial |
+| "No forward route" | `continueJourney` (`internal/sim/riders.go` `(*Simulation).continueJourney`) | The next-leg search fails while the blocked set is not empty. | Empty, because a failed search names no single fault |
 | The existing reasons | The existing code | Every other case | The existing value |
 
 A pod behind a healthy pod that waits reports "Pod ahead" with that pod, which is its immediate blocker.
@@ -913,8 +913,8 @@ With an empty blocked set, admission writes what it writes today.
 Each tick writes each report again, so no report outlives its cause, and arrival, idle settlement, and a clear need no cleanup step.
 A clear also resets each `BlockedBy` that names the cleared fault (section 5.4), so a paused command boundary does not show a removed record.
 The fault ID in `BlockedBy` names a record of the `faults` group, which gives the pod or lane and the onset tick (section 13.4).
-`cmd/compare` ignores unknown wait reasons (`cmd/compare/traffic.go:26-33`), and it refuses the marker in any case.
-The pod inspector (`internal/view/game.go:1753`) shows the reason and `BlockedBy` with its existing rows.
+`cmd/compare` ignores unknown wait reasons (`cmd/compare/traffic.go` `(*trafficWaits).sampleWaits`), and it refuses the marker in any case.
+The pod inspector (`internal/view/game.go` `(*Game).inspectionRows` (at 17ab489)) shows the reason and `BlockedBy` with its existing rows.
 
 ### 9.7 Recovery and liveness
 
@@ -928,15 +928,15 @@ When a condition fails, the system stays safe and reports the wait (section 9.6)
 | Incident boundary | The last clear removes the boundary and the caches of the old epoch. |
 | Failed next-leg search | `continueJourney` runs again at each tick. |
 | Unused berth claim in front of a recovery | Its waiting owner gives it up before the grants (section 9.5). |
-| Track or junction occupied | The owner moves and releases its passed resources (`internal/sim/traffic.go:904`). |
+| Track or junction occupied | The owner moves and releases its passed resources (`internal/sim/traffic.go` `(*Simulation).releasePassedResources`). |
 | Boarding or unloading | The phase timer ends. |
 | Fault recovery after the clear | Arrival clears purpose 3, and the hold release rule restores service. |
 | Healthy empty pod at the berth | `clearBlockedBerths` moves it when parking is available. |
 | Blocked destination berth of a healthy pod | Terminal reevaluation moves an uncommitted pod to another free, reachable berth of the same station. Otherwise the clear of the fault at that berth ends the wait. |
 | Settled idle pod | No wait remains. |
 
-Admission aging (`internal/sim/traffic.go:583-585`) gives a request that waited precedence over younger requests, but it does not displace a reservation.
-Berth clearing can report `ParkingUnavailable` (`internal/sim/parking.go:31`).
+Admission aging (`internal/sim/traffic.go` `(*Simulation).admit`) gives a request that waited precedence over younger requests, but it does not displace a reservation.
+Berth clearing can report `ParkingUnavailable` (`internal/sim/parking.go` `(*Simulation).clearBlockedBerths`).
 A reservation cycle or missing receiving capacity therefore has no guaranteed end in stage 2.
 
 ## 10. Invariants
@@ -956,7 +956,7 @@ A reservation cycle or missing receiving capacity therefore has no guaranteed en
 | F11 | `withdrawn` is 0 or `faultHold` for every pod. Stage 2 withdraws a pod only at fault start. Stage 3 extends this rule to `emergencyHold`. |
 | F12 | A record exists only while its fault is active. No hold and no purpose keeps a record. A pod with `faultHold` and no record has `op.owner == faultHold`, or it is released in the next fault stage, or it is a coupling or approach member. |
 
-`CheckContract` (`internal/sim/state_contract.go:402`) checks F1, F2, the bounds of F3, and F5 to F11 after each tick and each command.
+`CheckContract` (`internal/sim/state_contract.go` `(*Simulation).CheckContract`) checks F1, F2, the bounds of F3, and F5 to F11 after each tick and each command.
 The clear tests check F12.
 F4 and the step identity of F3 are transition properties.
 A test helper compares each faulted pod before and after each tick:
@@ -978,7 +978,7 @@ After an operation returns, the state contract holds.
 The operations run only at these places:
 
 - At a command boundary, under the session lock: `Fault` and `ClearFault`.
-  The public entry calls `observe` (`internal/sim/state_contract.go:414-418`) once, after the operation.
+  The public entry calls `observe` (`internal/sim/state_contract.go` `(*Simulation).observe`) once, after the operation.
   The session delivers interruptions before it releases the lock (stage 1, section 8.5).
 - In the fault stage (section 5.5).
 - In `arrive`, which only rebuilds the blocked set.
@@ -1037,13 +1037,13 @@ A test that injects a failure into the later step of each composite uses the sam
 Rules:
 
 - `faultContract` requires `incidentContract`.
-  `Validate` (`internal/project/config.go:257`) refuses the fault marker without it.
+  `Validate` (`internal/project/config.go` `Validate`) refuses the fault marker without it.
 - With the marker, `faults` is required.
   Without the marker, `faults` is refused, also as null or an empty object.
 - Unknown members, null values, and members that do not match the kind are refused.
 - `perHour` above 0 is refused in stage 2 (section 1.2).
-- `Validate` adds the widest `faults` object to its size estimate, as it does for `widestDemand` (`internal/project/config.go:105-137`).
-- The marker scan (`internal/project/service.go:73-81`) records `faultContract` and `faults`, as it does for the incident marker.
+- `Validate` adds the widest `faults` object to its size estimate, as it does for `widestDemand` (`internal/project/config.go` `widestDemand`).
+- The marker scan (`internal/project/service.go` `scanProjectFields`) records `faultContract` and `faults`, as it does for the incident marker.
 - `web/editor.js` keeps both members of a loaded project and writes them back unchanged.
   The editor gets no control for them in stage 2.
 - `internal/parkride` and `cmd/compare` keep refusing a project with the incident marker, so they also refuse the fault marker.
@@ -1056,8 +1056,8 @@ The rate unit and the duration distributions are product choice P6.
 
 - The sampler belongs to the simulation, so `Clone`, save, and restore cover it without session code.
 - It has its own `math/rand/v2` PCG stream.
-  It never draws from the demand PCG (`internal/session/demand.go:76`), and the demand PCG never draws for it.
-  Its seed is the first 16 bytes of `SHA-256("podsim-faults-v1" || bigEndian(demand seed))`, as two `uint64` values, as `internal/project/rail_arrivals.go:114-120` derives per-event values.
+  It never draws from the demand PCG (`internal/session/demand.go` `newDemand`), and the demand PCG never draws for it.
+  Its seed is the first 16 bytes of `SHA-256("podsim-faults-v1" || bigEndian(demand seed))`, as two `uint64` values, as `internal/project/rail_arrivals.go` `RailSchedule` derives per-event values.
   A test runs matched seeds with the sampler on and off and checks that the demand draws are identical.
 - Events form a Poisson process at `perHour`.
   After each event, and at start, the sampler draws `u` and sets `nextTick = tick + max(1, ceil(-ln(1-u) × 216000 / perHour))`.
@@ -1081,11 +1081,11 @@ The rate unit and the duration distributions are product choice P6.
 `fromMeters` and `toMeters` go only with `laneID`.
 `durationSeconds` is an integer from 1 to 86,400.
 A paused session accepts both actions.
-While a coupling fault is retained, both are refused, as other actions are (`internal/session/session.go:722-726`).
+While a coupling fault is retained, both are refused, as other actions are (`internal/session/session.go` `(*Session).apply`).
 An exact retry of `fault` or `clearFault` returns the stored reply, as for every command.
 
-`Command` (`internal/session/session.go:113-132`) gets `PodID`, `LaneID`, `FromMeters`, `ToMeters`, `DurationSeconds`, and `FaultID`, each with a digest extension tag (section 13.2).
-`Reply` (`:166-177`) gets `FaultID`, omitted when empty.
+`Command` (`internal/session/session.go` `Command`) gets `PodID`, `LaneID`, `FromMeters`, `ToMeters`, `DurationSeconds`, and `FaultID`, each with a digest extension tag (section 13.2).
+`Reply` gets `FaultID`, omitted when empty.
 Receipt replies are not saved, so the reply member adds no save bytes.
 
 ### 12.4 Errors
@@ -1142,12 +1142,12 @@ The timing of the controls is product choice P7.
 | Event | Effect |
 | --- | --- |
 | Pause | Ticks stop, so durations, evacuation timers, braking, and the reroute cadence stop. Commands still run. |
-| Reset | `Reset` (`internal/sim/simulation.go:478`) clears the records, `faultHold`, the blocked set, and the counters. `incidentSerial` stays, as stage 1 defines. |
+| Reset | `Reset` (`internal/sim/simulation.go` `(*Simulation).Reset`) clears the records, `faultHold`, the blocked set, and the counters. `incidentSerial` stays, as stage 1 defines. |
 | Demo | The demo project has no fault marker. Faults end as on reset. |
-| Project apply | Any change to the fault marker or to `faults` fails `sameExceptCouplingEnabled` (`internal/session/session.go:930`), so the fleet is rebuilt and every fault ends. An identical project keeps the faults. |
-| Checkpoint and rewind | `Clone` (`internal/sim/clone.go:11-59`) deep-copies the records, the counters, `faulted`, `faultCap`, the blocked set, and `rerouteDue`. A rewind restores them exactly. The new generation gives new records a new ID prefix. |
-| Physical restore, every faulted pod keeps its place | Records and counters are restored. Debris is placed before the pods (section 7.6). A faulted traveling pod restores at speed 0 with `faultCap = distance`, as every traveling pod restores at speed 0 (`internal/sim/state_physical.go:830`), so a braking fault restores as stopped. Elapsed time is kept through `start` and `end`. After `claimDestinations`, effect 3 of section 5.2 runs again for each faulted pod, so a restored faulted pod owns no service claim. `rerouteDue` is set. |
-| Physical restore that would demote a faulted pod (`internal/sim/state_physical.go:1073`, `:1086`) | The physical tier fails. The restore then follows the fallback rules of stage 1, section 9.6: where a logical fallback is allowed, the logical tier runs, and where it is not, the restore fails as it does today. No single record is cancelled to keep the physical tier. |
+| Project apply | Any change to the fault marker or to `faults` fails `sameExceptCouplingEnabled` (`internal/session/session.go` `sameExceptCouplingEnabled`), so the fleet is rebuilt and every fault ends. An identical project keeps the faults. |
+| Checkpoint and rewind | `Clone` (`internal/sim/clone.go` `(*Simulation).Clone`) deep-copies the records, the counters, `faulted`, `faultCap`, the blocked set, and `rerouteDue`. A rewind restores them exactly. The new generation gives new records a new ID prefix. |
+| Physical restore, every faulted pod keeps its place | Records and counters are restored. Debris is placed before the pods (section 7.6). A faulted traveling pod restores at speed 0 with `faultCap = distance`, as every traveling pod restores at speed 0 (`internal/sim/state_physical.go` `(*physicalRestore).placeTravelingPod`), so a braking fault restores as stopped. Elapsed time is kept through `start` and `end`. After `claimDestinations`, effect 3 of section 5.2 runs again for each faulted pod, so a restored faulted pod owns no service claim. `rerouteDue` is set. |
+| Physical restore that would demote a faulted pod (`internal/sim/state_physical.go` `(*physicalRestore).separate`, `(*physicalRestore).placeDemoted`) | The physical tier fails. The restore then follows the fallback rules of stage 1, section 9.6: where a logical fallback is allowed, the logical tier runs, and where it is not, the restore fails as it does today. No single record is cancelled to keep the physical tier. |
 | Logical restore | Every record ends. Each pod loses `faultHold` after the stage 1 logical tier clears its purpose (stage 1, section 9.6). Counters are kept. `RestoreResult` gets `DroppedFaults`, the number of records that ended. |
 | Invalid incident data | The whole save is `invalid_state` and moves aside (section 13.5). |
 
@@ -1162,16 +1162,16 @@ It gates every stage 2 member.
 | Carrier | Member | Rule |
 | --- | --- | --- |
 | Save | `/project/faultContract` | Source of truth. `RestoreState` gets it with the other contract inputs. |
-| Topology, stream hello, and `GET /api/topology` | `TopologySnapshot.faultContract` (`internal/session/protocol.go:13`) | Copied from the project. |
-| Full frame and `GET /api/state` | `SimulationFrame.faultContract` (`internal/session/protocol.go:55`) | Copied from the simulation. |
-| Agreement | `frameState` (`internal/session/protocol.go:104`) | A new `faultFrameBinding`, beside `incidentFrameBinding` (`:240`), rejects a frame whose fault marker differs from the topology marker. |
+| Topology, stream hello, and `GET /api/topology` | `TopologySnapshot.faultContract` (`internal/session/protocol.go` `TopologySnapshot`) | Copied from the project. |
+| Full frame and `GET /api/state` | `SimulationFrame.faultContract` (`internal/session/protocol.go` `SimulationFrame`) | Copied from the simulation. |
+| Agreement | `frameState` (`internal/session/protocol.go` `frameState`) | A new `faultFrameBinding`, beside `incidentFrameBinding`, rejects a frame whose fault marker differs from the topology marker. |
 | Raw presence | `decodeMarkedJSON` and `ApplyStream` | `scanIncidentMembers` (stage 1, section 11.2) also records any stage 2 member name or the `faults` group key, with any value. A delta or a full envelope with one and no fault marker is rejected. |
 | Assembler | `StreamAssembler.State` | Rejects a fault marker change inside one stream. |
 | Web | `web/editor.js:1275`, `web/shell.js:147` | `markersAgree` also needs the topology and the simulation to have the same fault marker, absent or `fault-v1`, and refuses it at the root, as for the incident marker. |
 
 ### 13.2 Digest registry entries
 
-Each new `Command` field and each new project field gets the tag `digest:"ext=N"` and an entry in `digestExtensions` (`internal/session/receipt.go:14-32`):
+Each new `Command` field and each new project field gets the tag `digest:"ext=N"` and an entry in `digestExtensions` (`internal/session/receipt.go` `digestExtensions`):
 
 | N | Field path |
 | ---: | --- |
@@ -1215,7 +1215,7 @@ A debris footprint is derived from the network and the segment.
 | Path | Shape | Delta group |
 | --- | --- | --- |
 | `.../simulation/faultContract` | `fault-v1` | None. Full frames only. |
-| `.../simulation/faults` | `{"active": [...], "counters": {...}}` | New group `faults`, present only with the fault marker, as the `coupling` group is present only with the coupling contract (`internal/session/stream_codec.go:182-206`). |
+| `.../simulation/faults` | `{"active": [...], "counters": {...}}` | New group `faults`, present only with the fault marker, as the `coupling` group is present only with the coupling contract (`internal/session/stream_codec.go` `frameGroups`). |
 
 Each element of `active`, in serial order:
 
@@ -1271,7 +1271,7 @@ With the marker, the stream and HTTP decoders apply these rules to a full frame 
 
 A delta that breaks a rule is rejected as a whole, and the accepted base frame stays.
 
-Prescan limits (`internal/session/format_limits.go:30-51`, `:58-103`):
+Prescan limits (`internal/session/format_limits.go` `savedLimits`, `streamLimits`):
 
 | Path | Limit | Basis |
 | --- | ---: | --- |
@@ -1284,7 +1284,7 @@ Prescan limits (`internal/session/format_limits.go:30-51`, `:58-103`):
 
 The prescan bounds allocation only.
 The semantic rules above carry the record contract.
-The delta path follows `/delta/groups/<name>` (`internal/session/stream_codec.go:182-206`).
+The delta path follows `/delta/groups/<name>` (`internal/session/stream_codec.go` `frameGroups`).
 The array audit of stage 1 (section 11.6) derives the paths from real envelopes and fails on any array path with no explicit limit.
 Each limit has a test at the limit, at the limit plus one before typed decoding, at a deeper nesting, and with a gzip body that expands past the byte cap.
 
@@ -1610,7 +1610,7 @@ This contract reuses the parts that fit stage 2, anchored again at `3c77045` and
 | --- | --- | --- |
 | 4.1 Blocked set | 8.1 | Lanes and berths as before, with a static resource index and a synchronous rebuild. |
 | 4.2 Route searches | 8.2, 8.4 | The `blocked` member on `routeGraph` instead of `networkRouteInput`, so every reader of the graph gets it. Admission stays static through `staticConnected`, which also covers `podFitsRequest`. |
-| 4.3 Caches | 8.3 | Same set plus `congestionRouteCosts`, without `approachStations`, which is a static index of the network (`internal/sim/drop_offs.go:34-36`). |
+| 4.3 Caches | 8.3 | Same set plus `congestionRouteCosts`, without `approachStations`, which is a static index of the network (`internal/sim/drop_offs.go` `(*Simulation).stationsOnRouteForClass`). |
 | 4.4 Replan pass | 9.2, 9.3 | Narrowed to one route-only reroute of a healthy pod to its own endpoint, at the same cadence. No classes, no withdrawal of a healthy pod, and no refuge. Trapped pods wait instead of reversing. |
 | 6.1, 6.2 Pod on a lane and at a berth | 5.2, 6 | Same braking cap and berth footprint. The cap enters every motion proof through one step function, from parked section 5.8 item 1. |
 | 7.1 State machine | 4.1, 5.5 | Same phases, now derived. Clear before evacuation. Evacuation needs rest. |

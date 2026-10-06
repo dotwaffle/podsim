@@ -108,35 +108,35 @@ Sections 4 to 10 do not depend on the formats.
 | Purpose | The reason for the physical destination of a pod: service, emergency unloading, refuge travel, or empty recovery. |
 | Service stops | `Vehicle.Stops`: the destinations of the active riders. |
 | Physical destination | `destinationStation` and `destination` of a pod. In service they agree with `Stops[0]`. For other purposes they do not need to. |
-| Release boundary | `releaseCleared` at `internal/sim/simulation.go:746`. Resources released during a tick are not reused before the next tick (`:745`). |
+| Release boundary | `releaseCleared` in `internal/sim/simulation.go` `(*Simulation).Step`. Resources released during a tick are not reused before the next tick. |
 
 ## 3. Existing source boundaries
 
 | Source | Audited behavior | Consequence |
 | --- | --- | --- |
-| `internal/sim/simulation.go:219-276`, `vehicle` | A pod bundles riders, stops, physical destination, relocation flags, and route ownership. | Stage 1 adds a hold set and a purpose to it. |
-| `internal/sim/dispatch.go:9-27`, `waitingTrip` | A trip has a request, a cached route and berth, and deferral fields. | Stage 1 adds the excluded pod. |
-| `internal/sim/simulation.go:67-84`, `Request` | One struct holds the order identity and the pod binding. | Stage 1 adds `LegFrom`. |
-| `internal/sim/dispatch.go:111-122` | Dispatch unbinds a trip itself: it clears `PodID`, and under the Express contract also the route and berth. | Pickup release reuses this unbinding, plus the deferral fields. |
-| `internal/sim/released.go:9-22` | `releasePickup` only sets `released` on a releasable empty pod. | It is not an order operation. Section 5 adds one. |
-| `internal/sim/diversion.go:44-60`, `pickupCandidate` | The common test of most pickup selection paths. | The main withdrawal gate. |
-| `internal/sim/pickup_estimate.go:59-128`, `waitForFinishingPod` | Holds a trip for any busy pod that fits, and records it in `deferPodID`. Several trips can name the same pod. | Withdrawal ends these holds. Exclusion applies to them. |
-| `internal/sim/station_buffer_claim.go:30-54`, `bufferClaimCanYield` | Decides whether a remote empty claim yields to a passenger head. It does not check coupling commitments. | The claim classification replaces its predicate. |
-| `internal/sim/redistribution.go:64-99`, `yieldRelocationClaims` | Releases the destination claims of a relocating pod when a passenger arrives there. It does not check coupling commitments. | Same classification. |
-| `internal/sim/coupling_reservation.go:485-526`, `preserveReceivingClaims` | A train keeps individually tagged receiving claims of its members. | These claims are committed. They never yield. |
-| `internal/sim/coupling_motion_owners.go:147-155` | A preserved claim with another owner is a motion invariant failure. | Same consequence. |
-| `internal/sim/state_contract.go:82-101`, `phaseRules` | Both restore tiers and live checks apply one rule per pod phase. Traveling occupied pods need `Stops[0] == DestinationStation` (`:389-390`). | Each purpose gets its own stop rule. |
-| `internal/sim/state_contract.go:219` | `unaccounted = RequestID - Completed - held`. | Interrupted orders enter this balance. |
-| `internal/sim/riders.go:75-112`, `alight` | Completes riders and writes one `StepCompletion` each. | Interruption writes none. |
-| `internal/sim/simulation.go:754-779`, `arrive` | A pod with `RelocatingTo` becomes idle without an unloading interval (`:771-778`). | Arrival actions per purpose are added here. |
-| `internal/sim/simulation.go:680-693` | The unloading loop runs `alight` and `continueJourney` at the end of each interval. | The end of an emergency unload runs here. |
-| `internal/sim/diversion.go:115-148`, `divertStart` | Refuses coupling members, platoon members, compact members, and pods inside the arrival chain. | Operational routes use the same prefix rule and the same refusals. |
-| `internal/sim/diversion.go:211-226`, `redirect` | Sets `RelocatingTo` and releases the destination claims at once. | Occupied pods must not use it. |
-| `internal/sim/traffic.go:869-881`, `releaseVehicleResources` | A pod that is not traveling releases every retained route resource except its berth at the release boundary. | A pod that becomes idle at a berth releases unused grants at the boundary. |
-| `internal/session/receipt.go:49-95`, `digestWriter.value` | Hashes every field, including zero fields and the nested project. | New command or project fields need the digest extension. |
-| `internal/session/checkpoint.go:104-115` | Rewind installs the cloned simulation and increments the generation. | Incident IDs carry the generation. |
-| `internal/rail/connections.go:187-218`, `Advance` | Consumes completions. A pending record without an active request is invalid (`:311-313`). | Interruption needs its own rail outcome, delivered before any save (section 8.5). |
-| `internal/session/persist.go:26`, `MaxStateBytes` | 80 MiB for raw and compressed saves. | Section 11.7 budgets against it. |
+| `internal/sim/simulation.go` `vehicle` | A pod bundles riders, stops, physical destination, relocation flags, and route ownership. | Stage 1 adds a hold set and a purpose to it. |
+| `internal/sim/dispatch.go` `waitingTrip` | A trip has a request, a cached route and berth, and deferral fields. | Stage 1 adds the excluded pod. |
+| `internal/sim/simulation.go` `Request` | One struct holds the order identity and the pod binding. | Stage 1 adds `LegFrom`. |
+| `internal/sim/dispatch.go` `(*Simulation).dispatch` | Dispatch unbinds a trip itself: it clears `PodID`, and under the Express contract also the route and berth. | Pickup release reuses this unbinding, plus the deferral fields. |
+| `internal/sim/released.go` `(*Simulation).releasePickup`, `releasable` | `releasePickup` only sets `released` on a releasable empty pod. | It is not an order operation. Section 5 adds one. |
+| `internal/sim/diversion.go` `(*Simulation).pickupCandidate` | The common test of most pickup selection paths. | The main withdrawal gate. |
+| `internal/sim/pickup_estimate.go` `(*Simulation).waitForFinishingPod` | Holds a trip for any busy pod that fits, and records it in `deferPodID`. Several trips can name the same pod. | Withdrawal ends these holds. Exclusion applies to them. |
+| `internal/sim/station_buffer_claim.go` `(*Simulation).bufferClaimCanYield` | Decides whether a remote empty claim yields to a passenger head. It does not check coupling commitments. | The claim classification replaces its predicate. |
+| `internal/sim/redistribution.go` `(*Simulation).yieldRelocationClaims` | Releases the destination claims of a relocating pod when a passenger arrives there. It does not check coupling commitments. | Same classification. |
+| `internal/sim/coupling_reservation.go` `(*couplingReservationPlan).preserveReceivingClaims` | A train keeps individually tagged receiving claims of its members. | These claims are committed. They never yield. |
+| `internal/sim/coupling_motion_owners.go` `sealCouplingMotionOwners` | A preserved claim with another owner is a motion invariant failure. | Same consequence. |
+| `internal/sim/state_contract.go` `phaseRules` | Both restore tiers and live checks apply one rule per pod phase. Traveling occupied pods need `Stops[0] == DestinationStation` (`checkPodStops`). | Each purpose gets its own stop rule. |
+| `internal/sim/state_contract.go` `(SavedState).checkContract` | `unaccounted = RequestID - Completed - held`. | Interrupted orders enter this balance. |
+| `internal/sim/riders.go` `(*Simulation).alight` | Completes riders and writes one `StepCompletion` each. | Interruption writes none. |
+| `internal/sim/simulation.go` `(*Simulation).arrive` | A pod with `RelocatingTo` becomes idle without an unloading interval. | Arrival actions per purpose are added here. |
+| `internal/sim/simulation.go` `(*Simulation).Step` | The unloading loop runs `alight` and `continueJourney` at the end of each interval. | The end of an emergency unload runs here. |
+| `internal/sim/diversion.go` `(*Simulation).divertStart` | Refuses coupling members, platoon members, compact members, and pods inside the arrival chain. | Operational routes use the same prefix rule and the same refusals. |
+| `internal/sim/diversion.go` `(*Simulation).redirect` | Sets `RelocatingTo` and releases the destination claims at once. | Occupied pods must not use it. |
+| `internal/sim/traffic.go` `(*Simulation).releaseVehicleResources` | A pod that is not traveling releases every retained route resource except its berth at the release boundary. | A pod that becomes idle at a berth releases unused grants at the boundary. |
+| `internal/session/receipt.go` `(*digestWriter).value` | Hashes every field, including zero fields and the nested project. | New command or project fields need the digest extension. |
+| `internal/session/checkpoint.go` `(*Session).rewind` | Rewind installs the cloned simulation and increments the generation. | Incident IDs carry the generation. |
+| `internal/rail/connections.go` `(*Connections).Advance` | Consumes completions. A pending record without an active request is invalid (`validateRecord`). | Interruption needs its own rail outcome, delivered before any save (section 8.5). |
+| `internal/session/persist.go` `MaxStateBytes` | 80 MiB for raw and compressed saves. | Section 11.7 budgets against it. |
 
 ## 4. Service withdrawal
 
@@ -214,14 +214,14 @@ Inverse property: for every state `x` and hold `h` that meet the preconditions, 
 Two order-side effects of the first hold are not reverted:
 
 - Released pickups stay released, and their exclusions stay, as the binding decision requires.
-- A pod that `releasePickups` released keeps its `released` flag (`internal/sim/released.go:9-15`).
+- A pod that `releasePickups` released keeps its `released` flag (`internal/sim/released.go` `(*Simulation).releasePickup`).
   This is the only flag that differs from `x`.
-  The next dispatch pass after the restore parks the pod through the existing path (`internal/sim/released.go:69-76`).
+  The next dispatch pass after the restore parks the pod through the existing path (`internal/sim/released.go` `(*Simulation).parkUnclaimedReleased`).
 
 ### 4.3 Supply paths
 
-`podFitsRequest` (`internal/sim/trip_admission.go:171-184`) does not get the gate.
-It also decides order admission (`internal/sim/trip_admission.go:139-150`) and the dispatch reason through `hasFittingPod` (`:255-262`; `internal/sim/dispatch.go:162`).
+`podFitsRequest` (`internal/sim/trip_admission.go` `(*Simulation).podFitsRequest`) does not get the gate.
+It also decides order admission (`internal/sim/trip_admission.go` `(*Simulation).validateTripOptions`) and the dispatch reason through `hasFittingPod` (`(*Simulation).hasFittingPod`; `internal/sim/dispatch.go` `(*Simulation).dispatch`).
 Admission stays static, as it is today, so a withdrawal never refuses a new order.
 
 The maintainer approved the departure backlog row after the review of the gates.
@@ -229,24 +229,24 @@ Each path below gets the test `v.withdrawn == 0`:
 
 | Path | Anchor | Gate |
 | --- | --- | --- |
-| Pickup candidates | `internal/sim/diversion.go:44-60`, `pickupCandidate` | Returns false. This covers `pickupCandidates` (`internal/sim/dispatch.go:369`), `pickupPodMatching` (`:427`), `pickupAvailable` (`internal/sim/pickup_estimate.go:164`), `pickupRouteWithAssignments` (`internal/sim/diversion.go:34`), `sendPickupMatching` (`internal/sim/diversion.go:181`), and `freePickupAlternative` (`internal/sim/pickup_reassignment.go:83`). |
-| Local pickups | `internal/sim/dispatch.go:351-361`, `freePods` | Skips the pod. This covers `localPickup` (`:383`) and `localPickupForRequest` (`:392`). |
-| Shared-ride joins | `internal/sim/dispatch.go:564-578`, `boardingPods` | Skips the pod. This covers `joinSharedRide` (`:521`) and the join census (`internal/sim/seat_screen.go:128`). |
-| Departure backlog | `internal/sim/seat_screen.go:83-97`, `recordDeparture` | A withdrawn pod counts no waiting party as backlog. The departure and the parties aboard count as before. |
-| Onboard pickups | `internal/sim/onboard_pickups.go:56`, `onboardPickupReady` | Returns false. |
-| Promotion | `internal/sim/dispatch.go:617` | The ready pod must be in service. Invariant W2 makes this hold already. The test is defensive. |
-| Finishing-pod holds | `internal/sim/pickup_estimate.go:66-71`, `:90-117` | A withdrawn pod is not a candidate. A hold that names a withdrawn pod ends. |
-| Hold refresh | `internal/sim/pickup_estimate.go:143`, `keepHold` | Same. |
-| Pickup swaps and transfers | `internal/sim/pickup_swaps.go:131-145`, `swapEligible` | Returns false. `reassignPickup` (`internal/sim/pickup_reassignment.go:33`) uses it. |
-| Manual journey | `internal/sim/simulation.go:621`, `RequestJourneyOptions` | Returns `ErrBusy`. |
-| Guarded supply | `internal/sim/positioning.go:336-349`, `guardedSupply` | A withdrawn pod adds no idle count, no relocating supply, and no inbound supply. Its destination berth stays busy. |
-| Guarded candidates | `internal/sim/positioning.go:436`, `guardedCandidates` | Skips the pod. This covers `positionGuarded` and `PositionForForecast` (`internal/sim/rail_forecast.go:76`). |
-| Forecast supply | `internal/sim/rail_forecast.go:55-73` | Skips the pod. |
-| Berth clearing | `internal/sim/parking.go:24`, `clearBlockedBerths` | A withdrawn idle pod is never moved as a blocker. The arrival keeps `BerthOccupied`. |
-| Released parking | `internal/sim/released.go:69-76`, `parkUnclaimedReleased` | Skips the pod. |
-| Claim yield to passengers | `internal/sim/redistribution.go:66-98`, `yieldRelocationClaims` | Skips a withdrawn relocating pod. |
-| Passenger arrivals | `internal/sim/redistribution.go:156`, `passengerArrivals` | A withdrawn pod with riders is not a passenger arrival, so it cannot make a relocation claim yield (`:74`). |
-| Buffer claim yield | `internal/sim/station_buffer_claim.go:31-36`, `bufferClaimCanYield` | A withdrawn head cannot make a claim yield (`:31`). A withdrawn remote does not yield (`:34`). |
+| Pickup candidates | `internal/sim/diversion.go` `(*Simulation).pickupCandidate` | Returns false. This covers `pickupCandidates` (`internal/sim/dispatch.go` `(*Simulation).pickupCandidates`), `pickupPodMatching`, `pickupAvailable` (`internal/sim/pickup_estimate.go` `(*Simulation).pickupAvailable`), `pickupRouteWithAssignments` (`internal/sim/diversion.go` `(*Simulation).pickupRouteWithAssignments`), `sendPickupMatching` (`internal/sim/diversion.go` `(*Simulation).sendPickupMatching`), and `freePickupAlternative` (`internal/sim/pickup_reassignment.go` `(*Simulation).freePickupAlternative`). |
+| Local pickups | `internal/sim/dispatch.go` `(*Simulation).freePods` | Skips the pod. This covers `localPickup` and `localPickupForRequest`. |
+| Shared-ride joins | `internal/sim/dispatch.go` `(*Simulation).boardingPods` | Skips the pod. This covers `joinSharedRide` and the join census (`internal/sim/seat_screen.go` `(*Simulation).recordJoinEligible`). |
+| Departure backlog | `internal/sim/seat_screen.go` `(*Simulation).recordDeparture` | A withdrawn pod counts no waiting party as backlog. The departure and the parties aboard count as before. |
+| Onboard pickups | `internal/sim/onboard_pickups.go` `(*Simulation).onboardPickupReady` | Returns false. |
+| Promotion | `internal/sim/dispatch.go` `(*Simulation).promoteReadyPickup` | The ready pod must be in service. Invariant W2 makes this hold already. The test is defensive. |
+| Finishing-pod holds | `internal/sim/pickup_estimate.go` `(*Simulation).waitForFinishingPod` | A withdrawn pod is not a candidate. A hold that names a withdrawn pod ends. |
+| Hold refresh | `internal/sim/pickup_estimate.go` `(*Simulation).keepHold` | Same. |
+| Pickup swaps and transfers | `internal/sim/pickup_swaps.go` `(*Simulation).swapEligible` | Returns false. `reassignPickup` (`internal/sim/pickup_reassignment.go` `(*Simulation).reassignPickup`) uses it. |
+| Manual journey | `internal/sim/simulation.go` `(*Simulation).RequestJourneyOptions` | Returns `ErrBusy`. |
+| Guarded supply | `internal/sim/positioning.go` `(*Simulation).guardedSupply` | A withdrawn pod adds no idle count, no relocating supply, and no inbound supply. Its destination berth stays busy. |
+| Guarded candidates | `internal/sim/positioning.go` `(*Simulation).guardedCandidates` | Skips the pod. This covers `positionGuarded` and `PositionForForecast` (`internal/sim/rail_forecast.go` `(*Simulation).PositionForForecast`). |
+| Forecast supply | `internal/sim/rail_forecast.go` `(*Simulation).PositionForForecast` | Skips the pod. |
+| Berth clearing | `internal/sim/parking.go` `(*Simulation).clearBlockedBerths` | A withdrawn idle pod is never moved as a blocker. The arrival keeps `BerthOccupied`. |
+| Released parking | `internal/sim/released.go` `(*Simulation).parkUnclaimedReleased` | Skips the pod. |
+| Claim yield to passengers | `internal/sim/redistribution.go` `(*Simulation).yieldRelocationClaims` | Skips a withdrawn relocating pod. |
+| Passenger arrivals | `internal/sim/redistribution.go` `(*Simulation).passengerArrivals` | A withdrawn pod with riders is not a passenger arrival, so it cannot make a relocation claim yield (`(*Simulation).yieldRelocationClaims`). |
+| Buffer claim yield | `internal/sim/station_buffer_claim.go` `(*Simulation).bufferClaimCanYield` | A withdrawn head cannot make a claim yield. A withdrawn remote does not yield. |
 
 Berth accounting does not change.
 A withdrawn pod keeps its grants and owners, and admission treats its requests as today.
@@ -254,15 +254,15 @@ Section 6.2 gives the reason: decision 2 allows no yield for emergency demand.
 
 ### 4.4 Caches
 
-- The dispatch pass caches (`internal/sim/dispatch.go:282-335`) are rebuilt by `begin` at each `dispatch` call (`:102`).
+- The dispatch pass caches (`internal/sim/dispatch.go` `(*dispatchPass).begin`) are rebuilt by `begin` at each `dispatch` call (`(*Simulation).dispatch`).
   The operations do not run during a pass, so no pass cache can hold a withdrawn pod.
-- `stationPickupBounds` (`internal/sim/pickup_bounds.go:5-8`) caches free-flow travel bounds.
+- `stationPickupBounds` (`internal/sim/pickup_bounds.go` `(*Simulation).stationPickupBounds`) caches free-flow travel bounds.
   They do not depend on supply, so they stay.
 - Route caches depend only on the network and the class.
   They stay.
-- The swap cooldown map (`internal/sim/pickup_swaps.go:32`) is advisory.
+- The swap cooldown map (`internal/sim/pickup_swaps.go` `pickupSwapController`) is advisory.
   It stays.
-- The admission pickup flag (`internal/sim/traffic.go:552-560`) is computed from the waiting trips at each `admit`.
+- The admission pickup flag (`internal/sim/traffic.go` `(*Simulation).admit`) is computed from the waiting trips at each `admit`.
   A released pickup loses its pickup priority at the next admission.
 
 ### 4.5 Invariants
@@ -274,7 +274,7 @@ Section 6.2 gives the reason: decision 2 allows no yield for emergency demand.
 - W4: a withdrawal changes no route, no physical destination, no speed, and no owner.
 - W5: `v.op.purpose != opService` implies that `v.op.owner` is one bit and `v.withdrawn&v.op.owner != 0`.
 
-`CheckContract` (`internal/sim/state_contract.go:401`) checks W1, W2, and W5 through the saved form after each tick and each command.
+`CheckContract` (`internal/sim/state_contract.go` `(*Simulation).CheckContract`) checks W1, W2, and W5 through the saved form after each tick and each command.
 
 ## 5. Pickup release
 
@@ -295,8 +295,8 @@ The cases are exclusive and are tested in this order:
 | Case | Test | Meaning |
 | --- | --- | --- |
 | Bound | `request.PodID == v.Pod.ID` | `v` is assigned to the trip. |
-| Active hold | `request.PodID == ""`, `deferPodID == v.Pod.ID`, and either `deferUntil == 0` or `s.tick < deferUntil` | The trip waits for `v` to finish (`internal/sim/pickup_estimate.go:66-71`, `:121-127`). |
-| Stale deferral | `deferPodID == v.Pod.ID`, and not an active hold | Metadata of an earlier hold. Normal assignment writes `PodID` and leaves the deferral fields (`internal/sim/dispatch.go:189`), so a trip bound to pod C can still name `v`. A hold past its deadline is also stale. |
+| Active hold | `request.PodID == ""`, `deferPodID == v.Pod.ID`, and either `deferUntil == 0` or `s.tick < deferUntil` | The trip waits for `v` to finish (`internal/sim/pickup_estimate.go` `(*Simulation).waitForFinishingPod`). |
+| Stale deferral | `deferPodID == v.Pod.ID`, and not an active hold | Metadata of an earlier hold. Normal assignment writes `PodID` and leaves the deferral fields (`internal/sim/dispatch.go` `(*Simulation).dispatch`), so a trip bound to pod C can still name `v`. A hold past its deadline is also stale. |
 | Unrelated | Anything else | No change. |
 
 For each trip in queue order, in one call:
@@ -307,12 +307,12 @@ For each trip in queue order, in one call:
 | Active hold | Clear `request.DispatchReason`, `deferCheck`, and `deferPodID`. When `boarded` is false, set `excludedPod = v.Pod.ID`. |
 | Stale deferral | Clear `deferCheck` and `deferPodID` only. The binding to another pod, the route, and the berth stay. No exclusion. |
 
-The route and berth clearing extends the dispatch unbinding at `internal/sim/dispatch.go:115-119` to both order contracts.
+The route and berth clearing extends the dispatch unbinding in `internal/sim/dispatch.go` `(*Simulation).dispatch` to both order contracts.
 `deferUntil` stays in every case, so a trip does not get a new hold budget.
 
 A released trip keeps its queue position, `ID`, `From`, `To`, `LegFrom`, `RequestedTick`, `BoardedTick`, `boarded`, `deferUntil`, order options, and census flags.
 
-When a trip was bound, call `releasePickup(v)` (`internal/sim/released.go:9`) once after the loop.
+When a trip was bound, call `releasePickup(v)` (`internal/sim/released.go` `(*Simulation).releasePickup`) once after the loop.
 That keeps the existing `released` semantics for an empty pod on its way.
 
 Only `releasePickups` reads the stale case, and only `withdrawService` calls `releasePickups`.
@@ -320,11 +320,11 @@ The off-state path keeps stale metadata as today, so off-state bytes do not chan
 
 ### 5.2 Exclusion lifecycle
 
-`waitingTrip` (`internal/sim/dispatch.go:9-27`) gets `excludedPod string`.
+`waitingTrip` (`internal/sim/dispatch.go` `waitingTrip`) gets `excludedPod string`.
 
 The exclusion applies only to never-boarded pickups: `boarded` is false.
 A continuation has `boarded` true.
-This covers a party that a transfer requeues (section 7.3) and a rider that a restore requeues (`internal/sim/state_physical.go:1169-1173`).
+This covers a party that a transfer requeues (section 7.3) and a rider that a restore requeues (`internal/sim/state_physical.go` `requeuedTrip`).
 A continuation never gets an exclusion, also when a later withdrawal releases it.
 This is decision 1.
 
@@ -336,15 +336,15 @@ This is decision 1.
 | A swap, a transfer, or a reassignment moves the trip to a pod other than `excludedPod` | No change. |
 | The trip boards, joins a shared ride, or joins by an onboard pickup | The trip leaves the queue, so the exclusion ends with it. |
 | `restoreService` of the excluded pod | No change. |
-| Physical restore clears an invalid `PodID` (`internal/sim/state_physical.go:1227`) | No change. |
-| Logical restore unbinds the trip (`internal/sim/state_logical.go:86-93`) | No change. |
-| Checkpoint and rewind | `Clone` copies the trip by value (`internal/sim/clone.go:42`). |
+| Physical restore clears an invalid `PodID` (`internal/sim/state_physical.go` `(*physicalRestore).restoreTrip`) | No change. |
+| Logical restore unbinds the trip (`internal/sim/state_logical.go` `(*Simulation).unboundTrip`) | No change. |
+| Checkpoint and rewind | `Clone` copies the trip by value (`internal/sim/clone.go` `(*Simulation).Clone`). |
 
 The exclusion holds until the trip boards.
 No path binds the trip to the excluded pod, moves the trip to it, or holds the trip for it.
 A trip with an exclusion can have another pod, and it can hold for another pod.
-`waitForFinishingPod` (`internal/sim/pickup_estimate.go:59`) does not choose the excluded pod as the finishing pod.
-`waitForFinishingPod` and `keepHold` (`:139`) end a hold that names the excluded pod.
+`waitForFinishingPod` (`internal/sim/pickup_estimate.go` `(*Simulation).waitForFinishingPod`) does not choose the excluded pod as the finishing pod.
+`waitForFinishingPod` and `keepHold` end a hold that names the excluded pod.
 X1 makes that second test unreachable, so it is defensive.
 
 A second release from another pod replaces the exclusion: the newest release wins.
@@ -363,7 +363,7 @@ All writes of a new pod binding go through one helper:
 func assignPickup(trip *waitingTrip, v *vehicle)
 ```
 
-It replaces the five binding writes: `internal/sim/dispatch.go:140`, `:189`, `:623`, `internal/sim/pickup_swaps.go:176`, and `internal/sim/pickup_reassignment.go:151`.
+It replaces the five binding writes: `internal/sim/dispatch.go` `(*Simulation).dispatch`, `(*Simulation).promoteReadyPickup`, `internal/sim/pickup_swaps.go` `(*Simulation).tryPickupSwap`, and `internal/sim/pickup_reassignment.go` `(*Simulation).tryPickupTransfer`.
 It does not clear the deferral fields, so the off-state bytes do not change.
 
 Invariants:
@@ -371,7 +371,7 @@ Invariants:
 - X1: `excludedPod != ""` implies `boarded == false`, `request.PodID != excludedPod`, and `deferPodID != excludedPod`.
 - X2: `excludedPod != ""` implies that `excludedPod` names a pod of the fleet.
 
-Swaps, transfers, and reassignment work only on trips with a bound pod (`internal/sim/pickup_swaps.go:96-113`, `:133`).
+Swaps, transfers, and reassignment work only on trips with a bound pod (`internal/sim/pickup_swaps.go` `(*Simulation).swapAssignments`, `(*Simulation).swapEligible`).
 Such a trip can have an exclusion, so these paths get exclusion gates (section 5.3).
 A test asserts X1 and X2 on every tick.
 
@@ -379,20 +379,20 @@ A test asserts X1 and X2 on every tick.
 
 | Path | Anchor | Gate |
 | --- | --- | --- |
-| Remote selection | `internal/sim/dispatch.go:427-464`, `pickupPodMatching` | Skips the excluded pod. The function gets an `excluded string` argument from `pickupPodForRequest` (`:423`). |
-| Selection cache key | `internal/sim/dispatch.go:151-158`, `pass.optionPickups` | The key becomes `dispatchKey{options: request.dispatchOptions(), excluded: trip.excludedPod}`. Two trips with equal options but different exclusions or leg origins cannot share a cached pod. |
-| Local selection | `internal/sim/dispatch.go:392-404`, `localPickupForRequest` | Skips the excluded pod. |
-| Promotion | `internal/sim/dispatch.go:617` | Skips a ready pod equal to `trip.excludedPod`. |
-| Promotion, later trip | `internal/sim/dispatch.go:620` | Skips the swap when the current pod of the trip equals the exclusion of the later trip. |
-| Shared-ride join | `internal/sim/dispatch.go:521-545`, `joinSharedRide` | Skips the excluded pod. |
-| Onboard pickup | `internal/sim/onboard_pickups.go:19`, `joinOnboardPickup` | Skips the excluded pod. |
-| Finishing-pod hold | `internal/sim/pickup_estimate.go:92` | Skips the excluded pod as a finishing pod. |
-| Hold refresh | `internal/sim/pickup_estimate.go:59`, `:139`, `keepHold` | Ends a hold that names the excluded pod. X1 makes this unreachable. The test is defensive. |
-| Hold reason | `internal/sim/pickup_estimate.go:164`, `pickupAvailable` | Skips the excluded pod, as `pickupPodForRequest` does, so `keepHold` sets the reason of the full pass. |
-| Pickup swap | `internal/sim/pickup_reassignment.go:51-80`, `checkPickupPair` | Refuses a pair when either trip would get the pod that it excludes. `tryPickupSwap` (`internal/sim/pickup_swaps.go:149`) runs only after this test. |
-| Pickup transfer | `internal/sim/pickup_reassignment.go:51-80`, `checkPickupPair` | Refuses a free alternative that the trip excludes. `tryPickupTransfer` (`:119`) runs only after this test. |
-| Reassignment | `internal/sim/pickup_reassignment.go:22`, `reassignPickup` | Uses `checkPickupPair`, so the swap and transfer gates apply. |
-| Boarding | `internal/sim/dispatch.go:466`, `board` | Returns `ErrPartyAdmission` for the excluded pod. The gates above make this unreachable. The test is defensive. |
+| Remote selection | `internal/sim/dispatch.go` `(*Simulation).pickupPodMatching` | Skips the excluded pod. The function gets an `excluded string` argument from `pickupPodForRequest`. |
+| Selection cache key | `internal/sim/dispatch.go` `(*Simulation).dispatch`, `pass.optionPickups` | The key becomes `dispatchKey{options: request.dispatchOptions(), excluded: trip.excludedPod}`. Two trips with equal options but different exclusions or leg origins cannot share a cached pod. |
+| Local selection | `internal/sim/dispatch.go` `(*Simulation).localPickupForRequest` | Skips the excluded pod. |
+| Promotion | `internal/sim/dispatch.go` `(*Simulation).promoteReadyPickup` | Skips a ready pod equal to `trip.excludedPod`. |
+| Promotion, later trip | `internal/sim/dispatch.go` `(*Simulation).promoteReadyPickup` | Skips the swap when the current pod of the trip equals the exclusion of the later trip. |
+| Shared-ride join | `internal/sim/dispatch.go` `(*Simulation).joinSharedRide` | Skips the excluded pod. |
+| Onboard pickup | `internal/sim/onboard_pickups.go` `(*Simulation).joinOnboardPickup` | Skips the excluded pod. |
+| Finishing-pod hold | `internal/sim/pickup_estimate.go` `(*Simulation).waitForFinishingPod` | Skips the excluded pod as a finishing pod. |
+| Hold refresh | `internal/sim/pickup_estimate.go` `(*Simulation).waitForFinishingPod`, `(*Simulation).keepHold` | Ends a hold that names the excluded pod. X1 makes this unreachable. The test is defensive. |
+| Hold reason | `internal/sim/pickup_estimate.go` `(*Simulation).pickupAvailable` | Skips the excluded pod, as `pickupPodForRequest` does, so `keepHold` sets the reason of the full pass. |
+| Pickup swap | `internal/sim/pickup_reassignment.go` `(*Simulation).checkPickupPair` | Refuses a pair when either trip would get the pod that it excludes. `tryPickupSwap` (`internal/sim/pickup_swaps.go` `(*Simulation).tryPickupSwap`) runs only after this test. |
+| Pickup transfer | `internal/sim/pickup_reassignment.go` `(*Simulation).checkPickupPair` | Refuses a free alternative that the trip excludes. `tryPickupTransfer` runs only after this test. |
+| Reassignment | `internal/sim/pickup_reassignment.go` `(*Simulation).reassignPickup` | Uses `checkPickupPair`, so the swap and transfer gates apply. |
+| Boarding | `internal/sim/dispatch.go` `(*Simulation).board` | Returns `ErrPartyAdmission` for the excluded pod. The gates above make this unreachable. The test is defensive. |
 
 When the excluded pod is the only pod that fits, the trip waits with the existing reason "Waiting for an available pod".
 
@@ -401,11 +401,11 @@ When the excluded pod is the only pod that fits, the trip waits with the existin
 Pickup release changes no resource owner.
 
 A pickup assignment never claims a berth ahead of admission.
-`sendPickupMatching` (`internal/sim/diversion.go:166-197`) and an empty move with `reserveBerth` false (`internal/sim/parking.go:129-131`) write no owner.
+`sendPickupMatching` (`internal/sim/diversion.go` `(*Simulation).sendPickupMatching`) and an empty move with `reserveBerth` false (`internal/sim/parking.go` `(*Simulation).installEmptyMove`) write no owner.
 The berth of a pickup becomes owned only through admission grants, which are stopping grants.
-Parking, rebalancing, and forecast moves do claim a berth ahead (`internal/sim/released.go:59-61`, `internal/sim/parking.go:130`, `internal/sim/rail_forecast.go:121`), but those moves are not pickups.
+Parking, rebalancing, and forecast moves do claim a berth ahead (`internal/sim/released.go` `(*Simulation).parkReleased`, `internal/sim/parking.go` `(*Simulation).installEmptyMove`, `internal/sim/rail_forecast.go` `(*Simulation).PositionForForecast`), but those moves are not pickups.
 
-An in-service releasable pod then follows the existing path: `releasePickup`, then `parkUnclaimedReleased`, then `redirect` (`internal/sim/diversion.go:211-214`).
+An in-service releasable pod then follows the existing path: `releasePickup`, then `parkUnclaimedReleased`, then `redirect` (`internal/sim/diversion.go` `(*Simulation).redirect`).
 `redirect` already releases the old destination claims in the dispatch stage, before `admit`.
 That is existing behavior, so the release-boundary objection of fault review round 1, finding 8, does not apply to it.
 
@@ -475,13 +475,13 @@ The tests run in this order, and the first match wins:
 
 | Kind | Test | Source of the rule |
 | --- | --- | --- |
-| `claimNotHeld` | The owner is not `v`, and `v.routeReleases` has no entry for `r`. | `internal/sim/resource_owner.go:27-29` |
-| `claimCommitted` | `v.couplingID != ""`, or `couplingApproachMember(v.Pod.ID)`, or the owner kind is a group, or a coupling group lists `r` as a claim or a preserved claim. | `internal/sim/coupling_approach_runtime.go:74`, `internal/sim/coupling_reservation.go:485-526`, `internal/sim/coupling_motion_owners.go:147-155` |
-| `claimOccupied` | `r` is in `v.footprint` at the current distance, or is a resource of the berth where `v` is, or of its origin berth before `originReleased`. | `internal/sim/state_physical.go:970`, `internal/sim/traffic.go:883-893` |
-| `claimStopping` | `r` is in the reserved span `[0, reservedThrough]`. | `internal/sim/redistribution.go:173-181`, `internal/sim/station_buffer_claim.go:42-46` |
-| `claimRetained` | `v.routeReleases[r] > v.distance`. | `internal/sim/station_buffer_claim.go:39-41` |
-| `claimLent` | A follower of `v` retains `r` past its distance. | `internal/sim/station_buffer_claim.go:47-52` |
-| `claimService` | `r` is a resource of `v.destination`, `v.RelocatingTo != ""`, `v` is empty and does not carry passengers, and `v` is not at that berth. | `internal/sim/station_buffer_claim.go:34-36` |
+| `claimNotHeld` | The owner is not `v`, and `v.routeReleases` has no entry for `r`. | `internal/sim/resource_owner.go` `(resourceOwner).isPod` |
+| `claimCommitted` | `v.couplingID != ""`, or `couplingApproachMember(v.Pod.ID)`, or the owner kind is a group, or a coupling group lists `r` as a claim or a preserved claim. | `internal/sim/coupling_approach_runtime.go` `(*Simulation).couplingApproachMember`, `internal/sim/coupling_reservation.go` `(*couplingReservationPlan).preserveReceivingClaims`, `internal/sim/coupling_motion_owners.go` `sealCouplingMotionOwners` |
+| `claimOccupied` | `r` is in `v.footprint` at the current distance, or is a resource of the berth where `v` is, or of its origin berth before `originReleased`. | `internal/sim/state_physical.go` `(*vehicle).footprint`, `internal/sim/traffic.go` `(*Simulation).releaseVehicleResources` |
+| `claimStopping` | `r` is in the reserved span `[0, reservedThrough]`. | `internal/sim/redistribution.go` `(*Simulation).relocationDestinationAdmitted` (at 482d93d), `internal/sim/station_buffer_claim.go` `(*Simulation).bufferClaimCanYield` |
+| `claimRetained` | `v.routeReleases[r] > v.distance`. | `internal/sim/station_buffer_claim.go` `(*Simulation).bufferClaimCanYield` |
+| `claimLent` | A follower of `v` retains `r` past its distance. | `internal/sim/station_buffer_claim.go` `(*Simulation).bufferClaimCanYield` |
+| `claimService` | `r` is a resource of `v.destination`, `v.RelocatingTo != ""`, `v` is empty and does not carry passengers, and `v` is not at that berth. | `internal/sim/station_buffer_claim.go` `(*Simulation).bufferClaimCanYield` |
 | `claimOther` | Anything else. | |
 
 Occupied berths, stopping grants, borrowed track, and train receiving commitments are never revocable.
@@ -491,8 +491,8 @@ Borrowed track is owned by a pod ahead, so the borrower never holds it as its ow
 
 | Caller | Today | With the classification |
 | --- | --- | --- |
-| `bufferClaimCanYield` (`internal/sim/station_buffer_claim.go:30-54`) | Inline predicate without coupling guards. | Keeps the head test (`:31-33`) and adds `head.withdrawn == 0` to it. Keeps the policy tests: same berth, remote not assigned. Adds `remote.withdrawn == 0`. The physical test becomes `revocable(remote, r)`. |
-| `yieldRelocationClaims` (`internal/sim/redistribution.go:64-99`) | Releases both destination claims when a passenger arrival conflicts (`:74`), one claim is held, and the destination is not admitted. | Skips a withdrawn relocating pod. The conflict test at `:74` uses `passengerArrivals`, which no longer counts withdrawn pods (`:156`). Releases each destination claim for which `revocable` is true. |
+| `bufferClaimCanYield` (`internal/sim/station_buffer_claim.go` `(*Simulation).bufferClaimCanYield`) | Inline predicate without coupling guards. | Keeps the head test and adds `head.withdrawn == 0` to it. Keeps the policy tests: same berth, remote not assigned. Adds `remote.withdrawn == 0`. The physical test becomes `revocable(remote, r)`. |
+| `yieldRelocationClaims` (`internal/sim/redistribution.go` `(*Simulation).yieldRelocationClaims`) | Releases both destination claims when a passenger arrival conflicts, one claim is held, and the destination is not admitted. | Skips a withdrawn relocating pod. The conflict test uses `passengerArrivals`, which no longer counts withdrawn pods (`(*Simulation).passengerArrivals`). Releases each destination claim for which `revocable` is true. |
 | `setOperationalDestination` (section 9.3) | New. | Releases each old destination claim of `v` itself for which `revocable` is true, as `redirect` does today. |
 
 Pickup release (section 5) releases no claim, so it is not a caller.
@@ -500,10 +500,10 @@ Pickup release (section 5) releases no claim, so it is not a caller.
 Decision 2 means that emergency demand never authorizes a yield of another pod's claim.
 Two existing paths give that authority to passenger demand, and both now exclude withdrawn pods:
 
-- A withdrawn pod with riders is not a passenger arrival (`internal/sim/redistribution.go:156`), so it cannot make a relocating pod release its destination claims at `:74-89`.
-  The waiting-trip arrivals at `:160` cannot name a withdrawn pod, by W2.
-- A withdrawn buffer head fails the head test (`internal/sim/station_buffer_claim.go:31`), so `bufferBerthClaims` (`:14-28`) accepts only free resources for it.
-  The callers are `internal/sim/station_buffer.go:158` and `internal/sim/compact_queue_discharge.go:33`.
+- A withdrawn pod with riders is not a passenger arrival (`internal/sim/redistribution.go` `(*Simulation).passengerArrivals`), so it cannot make a relocating pod release its destination claims in `(*Simulation).yieldRelocationClaims`.
+  The waiting-trip arrivals in `(*Simulation).passengerArrivals` cannot name a withdrawn pod, by W2.
+- A withdrawn buffer head fails the head test (`internal/sim/station_buffer_claim.go` `(*Simulation).bufferClaimCanYield`), so `bufferBerthClaims` accepts only free resources for it.
+  The callers are `internal/sim/station_buffer.go` `(*Simulation).grantBufferedHead` and `internal/sim/compact_queue_discharge.go` `(*Simulation).probeCompactDischarge`.
 
 Physical berth accounting does not change.
 A withdrawn pod keeps its grants and owners, and admission treats its requests as today.
@@ -526,8 +526,8 @@ Commit 66b0c65 added the coupling ID test to both callers, and commit 16eab09 la
 
 ### 7.1 Fields and presence
 
-`Request` (`internal/sim/simulation.go:67-84`) and `SavedRequest` (`internal/sim/state.go:70-83`) each get `LegFrom string`, at the same position.
-The two types convert into each other (`internal/sim/state.go:399`, `:435`; `internal/session/express_text.go:70-71`), so their field sets must stay equal.
+`Request` (`internal/sim/simulation.go` `Request`) and `SavedRequest` (`internal/sim/state.go` `SavedRequest`) each get `LegFrom string`, at the same position.
+The two types convert into each other (`internal/sim/state.go` `restoreState`, `(*Simulation).exportPod`; `internal/session/express_text.go` `encodePackedRequest`), so their field sets must stay equal.
 
 ```go
 // legOrigin returns the station where the party boards its current pod.
@@ -541,7 +541,7 @@ func (r Request) dispatchOptions() TripOptions
 Presence is separate from any index:
 
 - Native: `LegFrom == ""` means absent.
-  Station IDs are never empty (`internal/sim/order_options.go:76`), so the empty string cannot name a station.
+  Station IDs are never empty (`internal/sim/order_options.go` `NormalizeTripOptionsWithOrderContract`), so the empty string cannot name a station.
 - Save: the member `legFrom` is a station index.
   Absence is the absence of the member.
   Index 0 is a valid present value and is always written when present.
@@ -564,10 +564,10 @@ No reader infers a leg origin.
 The alternatives were rejected:
 
 - Dropping `LegFrom` at completion breaks two readers.
-  The origin rule for a pod without boarding records compares every rider, completed or not, with the first rider (`internal/sim/state_contract.go:288`).
-  The boarding tuple decoder resolves each berth index against the origin station of that rider, completed or not (`internal/session/boarding_state.go:118`, `:194`).
+  The origin rule for a pod without boarding records compares every rider, completed or not, with the first rider (`internal/sim/state_contract.go` `(SavedState).checkPodRiders`).
+  The boarding tuple decoder resolves each berth index against the origin station of that rider, completed or not (`internal/session/boarding_state.go` `(boardingSource).encodePodContract`, `(*stateFile).resolveBoardings`).
 - Inferring the leg origin from the journey origin is lossy.
-  `JourneyOrigin` is saved only while passengers remain (`internal/sim/state.go:438-443`), so an idle pod can keep completed riders from one station and a journey origin at another station.
+  `JourneyOrigin` is saved only while passengers remain (`internal/sim/state.go` `(*Simulation).exportPod`), so an idle pod can keep completed riders from one station and a journey origin at another station.
   Emergency review round 2, finding K, reported this.
 
 An ordinary multi-stop journey never sets `LegFrom`, so its history saves and restores with the bytes of today.
@@ -596,29 +596,29 @@ The foundation does not require a feasible continuation, and it never interrupts
 The binding decision says that each other party is dispatched again and keeps its order.
 A transfer that has no feasible continuation makes a stranded order (section 7.6).
 
-`continuationFeasible` returns `hasFittingPod` (`internal/sim/trip_admission.go:255-262`) for the request with `LegFrom = station`.
+`continuationFeasible` returns `hasFittingPod` (`internal/sim/trip_admission.go` `(*Simulation).hasFittingPod`) for the request with `LegFrom = station`.
 A later policy may use it as a precondition when it selects an unloading station.
 Station selection is policy work for stage 3.
 
 Effect:
 
 1. Remove the rider from `Riders` and its aligned entry from `Boardings`.
-2. Build the trip with `requeuedTrip` (`internal/sim/state_physical.go:1169-1173`): `boarded` is true, `PodID` and `DispatchReason` are empty.
+2. Build the trip with `requeuedTrip` (`internal/sim/state_physical.go` `requeuedTrip`): `boarded` is true, `PodID` and `DispatchReason` are empty.
 3. Set `request.LegFrom = station`.
-4. Insert the trip before the first waiting trip with a larger order ID, as `restoreWaiting` does (`internal/sim/state_physical.go:1195-1205`).
+4. Insert the trip before the first waiting trip with a larger order ID, as `restoreWaiting` does (`internal/sim/state_physical.go` `(*physicalRestore).restoreWaiting`).
 5. Set no exclusion.
 
-A transferred trip bypasses `QueueLimit` (`internal/session/session.go:23`, `:736`), as a restore requeue does.
+A transferred trip bypasses `QueueLimit` (`internal/session/session.go` `QueueLimit`, `(*Session).apply`), as a restore requeue does.
 The saved queue bound still holds.
 A new order enters only while fewer than `QueueLimit` orders wait, and a transfer moves an order from a pod to the queue.
-So waiting plus aboard stays at most `QueueLimit + MaxSharedRideParties * maxSavedPods` (`internal/session/state_file.go:44`), and the Express outstanding count does not change.
+So waiting plus aboard stays at most `QueueLimit + MaxSharedRideParties * maxSavedPods` (`internal/session/state_file.go` `maxSavedTrips`), and the Express outstanding count does not change.
 
 ### 7.4 Reader inventory
 
 The inventory covers every non-test reader of an order origin in `internal`, `cmd`, and `web` at `069bafb`.
 A search of `web` found no reader of an order origin; `web/editor.js` reads only lane endpoints.
 Lane, corridor, offer, flow, service, safety-location, and speed-reduction `From` fields are not order origins.
-`cmd/compare` reads only offer and flow origins (`cmd/compare/rail.go:76`, `:102`; `cmd/compare/main.go:1084`, `:1585`, `:1599`).
+`cmd/compare` reads only offer and flow origins (`cmd/compare/rail.go` `railDemandSchedule`, `railServiceSchedule`; `cmd/compare/main.go` `weightedProfileFlows`, `demandWeights`).
 
 Class "Identity" keeps `From`.
 Class "Physical" uses `legOrigin()`.
@@ -626,112 +626,112 @@ Class "Both" checks `From` and `LegFrom`.
 
 | Reader | Use | Class |
 | --- | --- | --- |
-| `internal/sim/dispatch.go:105` | Idle-station filter before promotion | Physical |
-| `internal/sim/dispatch.go:135` | Local pickup test | Physical |
-| `internal/sim/dispatch.go:151-158` | `optionPickups` cache key | Physical: `dispatchOptions()` plus the exclusion (section 5.3) |
-| `internal/sim/dispatch.go:171` | Pod away from pickup | Physical |
-| `internal/sim/dispatch.go:197` | Board now | Physical |
-| `internal/sim/dispatch.go:394` | `localPickupForRequest` | Physical |
-| `internal/sim/dispatch.go:424` | `pickupPodForRequest` | Physical |
-| `internal/sim/dispatch.go:470` | `board` origin berth | Physical |
-| `internal/sim/dispatch.go:521` | `joinSharedRide` boarding pods by station | Physical |
-| `internal/sim/dispatch.go:608`, `:613`, `:617` | `promoteReadyPickup` | Physical |
-| `internal/sim/trip_admission.go:33`, `:40` | `SetExpressServices` service check | Identity |
-| `internal/sim/trip_admission.go:117`, `:127`, `:147` | `validateTripOptions` for a new order | Identity |
-| `internal/sim/trip_admission.go:154` | `requestFromOptions` writes `From` | Identity |
-| `internal/sim/trip_admission.go:158` | `options()` | Identity |
-| `internal/sim/trip_admission.go:175` | `serviceMatches` in `podFitsRequest` | Identity |
-| `internal/sim/trip_admission.go:178` | Party admission in `podFitsRequest` | Identity |
-| `internal/sim/trip_admission.go:181` | Connectivity in `podFitsRequest` | Physical |
-| `internal/sim/trip_admission.go:188` | `pickupBerthFitsRequest` | Physical |
-| `internal/sim/trip_admission.go:202`, `:209`, `:213` | `assignedPickupFitsRequest` | Physical |
-| `internal/sim/trip_admission.go:238`, `:240` | `canJoin` party facts | Identity |
-| `internal/sim/order_options.go:64`, `:76`, `:79` | Option normalization | Identity |
-| `internal/sim/order_options.go:189` | Express pair of co-riders | Identity |
-| `internal/sim/order_validation.go:11` | UTF-8 of order text | Both: also `LegFrom` |
-| `internal/sim/order_validation.go:46`, `:53` | Saved party admission | Identity |
-| `internal/sim/order_contract.go:205`, `:207` | Express pod party admission | Identity |
-| `internal/sim/order_contract_restore.go:38`, `:43` | Restore path fit and its `contractRouteKey` | Physical: key and stations use `legOrigin()` |
-| `internal/sim/order_contract_restore.go:49` | Option normalization | Identity |
-| `internal/sim/order_contract_restore.go:80` | Rider path fit | Physical |
-| `internal/sim/state.go:305`, `:311` | Restore service check | Identity |
-| `internal/sim/state.go:399`, `:435` | Request and saved request conversion | Both: field sets stay equal |
-| `internal/sim/state_contract.go:231` | `validTrip`: `From != To` | Both: also `LegFrom != To` |
-| `internal/sim/state_contract.go:285` | Rider validity: `From != To` | Both: also `LegFrom != To` |
-| `internal/sim/state_contract.go:288` | Same origin without boarding records | Physical |
-| `internal/sim/state_contract.go:291` | `boardsHere` | Physical |
-| `internal/sim/state_logical.go:104` | Passenger stations of a queued trip | Both |
-| `internal/sim/state_physical.go:369` | Journey origin against `boardingStation` | Physical |
-| `internal/sim/state_physical.go:408` | Passenger stations of a rider | Both |
-| `internal/sim/state_physical.go:560` | Buffered pickup test | Physical |
-| `internal/sim/state_physical.go:1207` | Passenger stations of a queued trip | Both |
-| `internal/sim/state_boarding.go:75` | `checkBoardingBerths` | Physical |
-| `internal/sim/riders.go:57` | `boardingStation` | Physical |
-| `internal/sim/boarding_records.go:25` | `legacyBoardingRecords` | Physical |
-| `internal/sim/boarding_records.go:37` | `riderOrigin` | Physical |
-| `internal/sim/onboard_pickups.go:57`, `:64` | `onboardPickupReady` | Physical |
-| `internal/sim/onboard_pickups.go:128` | Boarding record creation | Physical |
-| `internal/sim/seat_screen.go:86` | Departure backlog census | Physical |
-| `internal/sim/seat_screen.go:128` | Join census | Physical |
-| `internal/sim/positioning.go:310` | Guarded supply by waiting trip | Physical |
-| `internal/sim/pickup_estimate.go:73`, `:74` | `waitForFinishingPod` | Physical |
-| `internal/sim/pickup_estimate.go:150` | `keepHold` | Physical |
-| `internal/sim/pickup_reassignment.go:70` | Same-origin pair test | Physical |
-| `internal/sim/pickup_reassignment.go:136`, `:138`, `:145` | Transfer move to the pickup | Physical |
-| `internal/sim/pickup_swaps.go:134` | `swapEligible` | Physical |
-| `internal/sim/pickup_swaps.go:172`, `:173` | Swap redirection | Physical |
-| `internal/sim/diversion.go:163` | `sendPickupForRequest` | Physical |
-| `internal/sim/berth_continuation.go:52` | Pickup berth filter | Physical |
-| `internal/sim/berth_continuation.go:60` | `candidateRouteForRequest` | Physical |
-| `internal/sim/coupling_reservation.go:233`, `:236` | Cabin rider validity | Both: also bound `LegFrom` as an ID |
-| `internal/sim/simulation.go:624-627` | `RequestJourneyOptions` new order at the pod station | Identity |
-| `internal/session/express_orders.go:11` | `orderOptions` | Identity |
-| `internal/session/express_orders.go:27` | Express service pair | Identity |
-| `internal/session/express_orders.go:114`, `:117` | Stream passenger path and its `passengerPathKey` | Physical: the key `from` is `legOrigin()` |
-| `internal/session/express_orders.go:127` | `findPassengerPath` | Physical |
-| `internal/session/express_text.go:74`, `:80` | Packed text encode, stream and save | Both: `LegFrom` joins the stream field list. The save writes an index (section 11.5). |
-| `internal/session/express_text.go:91`, `:103` | Packed text decode | Both: same |
-| `internal/session/express_text.go:139` | `scanPackedOrders` member list | Both: add `legFrom` for stream envelopes |
-| `internal/session/boarding_state.go:118` | Boarding tuple encode: berth index per station | Physical |
-| `internal/session/boarding_state.go:194` | Boarding tuple decode | Physical |
-| `internal/session/stream_boardings.go:73` | Stream boarding berth station | Physical |
-| `internal/session/stream_frame.go:246` | Stream station references | Both |
-| `internal/rail/connections.go:234` | Saved record offer check | Identity |
-| `internal/rail/connections.go:306` | Record against its request | Identity |
-| `internal/parkride/checkpoint_restore.go:277` | Ledger request identity | Identity |
-| `internal/parkride/run.go:188`, `:192` | Options of new itinerary orders | Identity |
-| `internal/parkride/ledger.go:227` | Options of a return order | Identity |
-| `internal/view/orders.go:207` | Order row origin | Both: `From`, plus "Transfer at" with `LegFrom` |
-| `internal/view/game.go:1104` | Label preference for rider stations | Physical |
-| `internal/view/game.go:1767` | `journeyStations` | Physical |
+| `internal/sim/dispatch.go` `(*Simulation).dispatch` | Idle-station filter before promotion | Physical |
+| `internal/sim/dispatch.go` `(*Simulation).dispatch` | Local pickup test | Physical |
+| `internal/sim/dispatch.go` `(*Simulation).dispatch` | `optionPickups` cache key | Physical: `dispatchOptions()` plus the exclusion (section 5.3) |
+| `internal/sim/dispatch.go` `(*Simulation).dispatch` | Pod away from pickup | Physical |
+| `internal/sim/dispatch.go` `(*Simulation).dispatch` | Board now | Physical |
+| `internal/sim/dispatch.go` `(*Simulation).localPickupForRequest` | `localPickupForRequest` | Physical |
+| `internal/sim/dispatch.go` `(*Simulation).pickupPodForRequest` | `pickupPodForRequest` | Physical |
+| `internal/sim/dispatch.go` `(*Simulation).board` | `board` origin berth | Physical |
+| `internal/sim/dispatch.go` `(*Simulation).joinSharedRide` | `joinSharedRide` boarding pods by station | Physical |
+| `internal/sim/dispatch.go` `(*Simulation).promoteReadyPickup` | `promoteReadyPickup` | Physical |
+| `internal/sim/trip_admission.go` `(*Simulation).SetExpressServices` | `SetExpressServices` service check | Identity |
+| `internal/sim/trip_admission.go` `(*Simulation).validateTripOptions` | `validateTripOptions` for a new order | Identity |
+| `internal/sim/trip_admission.go` `requestFromOptions` | `requestFromOptions` writes `From` | Identity |
+| `internal/sim/trip_admission.go` `(Request).options` | `options()` | Identity |
+| `internal/sim/trip_admission.go` `(*Simulation).podFitsRequest` | `serviceMatches` in `podFitsRequest` | Identity |
+| `internal/sim/trip_admission.go` `(*Simulation).podFitsRequest` | Party admission in `podFitsRequest` | Identity |
+| `internal/sim/trip_admission.go` `(*Simulation).podFitsRequest` | Connectivity in `podFitsRequest` | Physical |
+| `internal/sim/trip_admission.go` `(*Simulation).pickupBerthFitsRequest` | `pickupBerthFitsRequest` | Physical |
+| `internal/sim/trip_admission.go` `(*Simulation).assignedPickupFitsRequest` | `assignedPickupFitsRequest` | Physical |
+| `internal/sim/trip_admission.go` `(*Simulation).canJoin` | `canJoin` party facts | Identity |
+| `internal/sim/order_options.go` `NormalizeTripOptionsWithOrderContract` | Option normalization | Identity |
+| `internal/sim/order_options.go` `checkActiveParty` | Express pair of co-riders | Identity |
+| `internal/sim/order_validation.go` `validSavedOptionsWithOrderContract` | UTF-8 of order text | Both: also `LegFrom` |
+| `internal/sim/order_validation.go` `checkSavedAdmissionWithOrderContract` | Saved party admission | Identity |
+| `internal/sim/order_contract.go` `checkSavedServiceLimits` | Express pod party admission | Identity |
+| `internal/sim/order_contract_restore.go` `checkContractRestoreSemantics` | Restore path fit and its `contractRouteKey` | Physical: key and stations use `legOrigin()` |
+| `internal/sim/order_contract_restore.go` `checkContractRestoreSemantics` | Option normalization | Identity |
+| `internal/sim/order_contract_restore.go` `checkContractRestoreSemantics` | Rider path fit | Physical |
+| `internal/sim/state.go` `restoreState` | Restore service check | Identity |
+| `internal/sim/state.go` `restoreState`, `(*Simulation).exportPod` | Request and saved request conversion | Both: field sets stay equal |
+| `internal/sim/state_contract.go` `(SavedState).validTrip` | `validTrip`: `From != To` | Both: also `LegFrom != To` |
+| `internal/sim/state_contract.go` `(SavedState).checkPodRiders` | Rider validity: `From != To` | Both: also `LegFrom != To` |
+| `internal/sim/state_contract.go` `(SavedState).checkPodRiders` | Same origin without boarding records | Physical |
+| `internal/sim/state_contract.go` `(SavedState).checkPodRiders` | `boardsHere` | Physical |
+| `internal/sim/state_logical.go` `(*Simulation).queueTrips` | Passenger stations of a queued trip | Both |
+| `internal/sim/state_physical.go` `(*physicalRestore).decodePod` | Journey origin against `boardingStation` | Physical |
+| `internal/sim/state_physical.go` `(*physicalRestore).passengerRiders` | Passenger stations of a rider | Both |
+| `internal/sim/state_physical.go` `(*physicalRestore).buildRoutes` | Buffered pickup test | Physical |
+| `internal/sim/state_physical.go` `(*physicalRestore).restoreWaiting` | Passenger stations of a queued trip | Both |
+| `internal/sim/state_boarding.go` `checkBoardingBerths` | `checkBoardingBerths` | Physical |
+| `internal/sim/riders.go` `(*vehicle).boardingStation` | `boardingStation` | Physical |
+| `internal/sim/boarding_records.go` `(*vehicle).legacyBoardingRecords` | `legacyBoardingRecords` | Physical |
+| `internal/sim/boarding_records.go` `(*Simulation).riderOrigin` | `riderOrigin` | Physical |
+| `internal/sim/onboard_pickups.go` `(*Simulation).onboardPickupReady` | `onboardPickupReady` | Physical |
+| `internal/sim/onboard_pickups.go` `(*Simulation).pickupBoardingRecords` | Boarding record creation | Physical |
+| `internal/sim/seat_screen.go` `(*Simulation).recordDeparture` | Departure backlog census | Physical |
+| `internal/sim/seat_screen.go` `(*Simulation).recordJoinEligible` | Join census | Physical |
+| `internal/sim/positioning.go` `(*Simulation).guardedSupply` | Guarded supply by waiting trip | Physical |
+| `internal/sim/pickup_estimate.go` `(*Simulation).waitForFinishingPod` | `waitForFinishingPod` | Physical |
+| `internal/sim/pickup_estimate.go` `(*Simulation).keepHold` | `keepHold` | Physical |
+| `internal/sim/pickup_reassignment.go` `(*Simulation).checkPickupPair` | Same-origin pair test | Physical |
+| `internal/sim/pickup_reassignment.go` `(*Simulation).tryPickupTransfer` | Transfer move to the pickup | Physical |
+| `internal/sim/pickup_swaps.go` `(*Simulation).swapEligible` | `swapEligible` | Physical |
+| `internal/sim/pickup_swaps.go` `(*Simulation).tryPickupSwap` | Swap redirection | Physical |
+| `internal/sim/diversion.go` `(*Simulation).sendPickupForRequest` | `sendPickupForRequest` | Physical |
+| `internal/sim/berth_continuation.go` `(*Simulation).berthFilterForVehicle` | Pickup berth filter | Physical |
+| `internal/sim/berth_continuation.go` `(*Simulation).candidateRouteForRequest` | `candidateRouteForRequest` | Physical |
+| `internal/sim/coupling_reservation.go` `couplingCabinFacts` | Cabin rider validity | Both: also bound `LegFrom` as an ID |
+| `internal/sim/simulation.go` `(*Simulation).RequestJourneyOptions` | `RequestJourneyOptions` new order at the pod station | Identity |
+| `internal/session/express_orders.go` `orderOptions` | `orderOptions` | Identity |
+| `internal/session/express_orders.go` `(*StreamAssembler).expressService` | Express service pair | Identity |
+| `internal/session/express_orders.go` `(*StreamAssembler).passengerPath` | Stream passenger path and its `passengerPathKey` | Physical: the key `from` is `legOrigin()` |
+| `internal/session/express_orders.go` `(*StreamAssembler).findPassengerPath` | `findPassengerPath` | Physical |
+| `internal/session/express_text.go` `encodePackedRequest`, `encodePackedSavedRequest` (at 482d93d) | Packed text encode, stream and save | Both: `LegFrom` joins the stream field list. The save writes an index (section 11.5). |
+| `internal/session/express_text.go` `decodePackedRequest`, `decodePackedSavedRequest` (at 482d93d) | Packed text decode | Both: same |
+| `internal/session/express_text.go` `scanPackedOrders` | `scanPackedOrders` member list | Both: add `legFrom` for stream envelopes |
+| `internal/session/boarding_state.go` `(boardingSource).encodePodContract` | Boarding tuple encode: berth index per station | Physical |
+| `internal/session/boarding_state.go` `(*stateFile).resolveBoardings` | Boarding tuple decode | Physical |
+| `internal/session/stream_boardings.go` `(*StreamAssembler).vehicleBoardings` | Stream boarding berth station | Physical |
+| `internal/session/stream_frame.go` `(*StreamAssembler).references` | Stream station references | Both |
+| `internal/rail/connections.go` `RestoreConnections` | Saved record offer check | Identity |
+| `internal/rail/connections.go` `validateRecord` | Record against its request | Identity |
+| `internal/parkride/checkpoint_restore.go` `validateConservation` | Ledger request identity | Identity |
+| `internal/parkride/run.go` `preflight` | Options of new itinerary orders | Identity |
+| `internal/parkride/ledger.go` `(*ledger).offer` | Options of a return order | Identity |
+| `internal/view/orders.go` `(*Game).orderLabels` | Order row origin | Both: `From`, plus "Transfer at" with `LegFrom` |
+| `internal/view/game.go` `(*Game).visibleCollapsedStationLabels` (at 482d93d) | Label preference for rider stations | Physical |
+| `internal/view/game.go` `journeyStations` (at 482d93d) | `journeyStations` | Physical |
 
 Identity keys:
 
-- `pass.optionPickups` (`internal/sim/dispatch.go:153-158`): physical, with the exclusion.
-- `passengerPathKey` (`internal/session/express_orders.go:108-123`): physical.
-- `contractRouteKey` (`internal/sim/order_contract_restore.go:5-8`, `:38`): physical.
-- Express co-rider pair (`internal/sim/order_options.go:189`) and service registry pair (`internal/sim/trip_admission.go:105-114`): identity.
-- Rail record match (`internal/rail/connections.go:306`) and park-and-ride binding (`internal/parkride/checkpoint_restore.go:277`): identity.
+- `pass.optionPickups` (`internal/sim/dispatch.go` `(*Simulation).dispatch`): physical, with the exclusion.
+- `passengerPathKey` (`internal/session/express_orders.go` `passengerPathKey`): physical.
+- `contractRouteKey` (`internal/sim/order_contract_restore.go` `contractRouteKey`, `checkContractRestoreSemantics`): physical.
+- Express co-rider pair (`internal/sim/order_options.go` `checkActiveParty`) and service registry pair (`internal/sim/trip_admission.go` `serviceMatches`): identity.
+- Rail record match (`internal/rail/connections.go` `validateRecord`) and park-and-ride binding (`internal/parkride/checkpoint_restore.go` `validateConservation`): identity.
 
 ### 7.5 Codec directions
 
 | Direction | Rule |
 | --- | --- |
-| Save encode | The session adapter writes `legFrom` as the index of `LegFrom` in the saved project `network.stations`, as it writes boarding berth indexes (`internal/session/boarding_state.go:118`). |
+| Save encode | The session adapter writes `legFrom` as the index of `LegFrom` in the saved project `network.stations`, as it writes boarding berth indexes (`internal/session/boarding_state.go` `(boardingSource).encodePodContract`). |
 | Save decode | The adapter maps the index back to the station ID before `RestoreState`. `RestoreState` never receives an index. Out of range is `invalid_state`. |
 | Stream and HTTP encode | `legFrom` is the station ID. It is packed with the other order text (`encodePackedRequest`, `internal/session/express_text.go`). |
-| Stream decode | Unpacked with the other text (`:91`). The validator requires a passenger station (`internal/session/stream_frame.go:246`). |
+| Stream decode | Unpacked with the other text (`decodePackedRequest`). The validator requires a passenger station (`internal/session/stream_frame.go` `(*StreamAssembler).references`). |
 | Boarding tuples | Both directions resolve the berth index against `legOrigin()` of the rider. |
 
 ### 7.6 Stranded transferred orders
 
 A waiting trip is stranded when `request.LegFrom != ""` and no fleet class that admits the party has a certified passenger path from `LegFrom` to `To`.
-A class admits the party when the profile, party size, and Express-class tests of `internal/sim/order_contract_restore.go:31-37` pass for the original `From` and `To`.
-Under the plain contract, project validation connects each pair of passenger stations (`internal/sim/riders.go:168-169`), so only the Express contract can make a stranded order.
+A class admits the party when the profile, party size, and Express-class tests of `internal/sim/order_contract_restore.go` `checkContractRestoreSemantics` pass for the original `From` and `To`.
+Under the plain contract, project validation connects each pair of passenger stations (`internal/sim/riders.go` `(*Simulation).continueJourney`), so only the Express contract can make a stranded order.
 
 Live behavior needs no change.
-`podFitsRequest` checks connectivity from the leg origin (`internal/sim/trip_admission.go:181`, changed by section 7.4), so no pod fits.
-Dispatch binds no pod and starts no hold, and the trip shows the reason "Waiting for a certified vehicle that fits this party and route" (`internal/sim/dispatch.go:160-165`).
+`podFitsRequest` checks connectivity from the leg origin (`internal/sim/trip_admission.go` `(*Simulation).podFitsRequest`, changed by section 7.4), so no pod fits.
+Dispatch binds no pod and starts no hold, and the trip shows the reason "Waiting for a certified vehicle that fits this party and route" (`internal/sim/dispatch.go` `(*Simulation).dispatch`).
 The trip waits until a project apply changes the fleet or the network through the existing rebuild path.
 Stage 1 adds no timeout.
 
@@ -742,27 +742,27 @@ A stranded trip has this exact shape:
 - S2: `request.PodID == ""`, `route` is empty, `destination` is empty, `deferPodID == ""`, `deferCheck == 0`, and `excludedPod == ""`.
 - S3: the original service identity is valid.
   `From` and `To` are passenger stations, and some fleet class admits the party.
-  When `Service == ExpressServiceChoice`, the Express service pair on `From` and `To` exists (`internal/sim/trip_admission.go:105-114`).
-  An on-demand order under the Express contract needs no registry pair, as today (`internal/session/express_orders.go:22-32`).
+  When `Service == ExpressServiceChoice`, the Express service pair on `From` and `To` exists (`internal/sim/trip_admission.go` `serviceMatches`).
+  An on-demand order under the Express contract needs no registry pair, as today (`internal/session/express_orders.go` `(*StreamAssembler).expressService`).
 
-Validator exception, native restore (`internal/sim/order_contract_restore.go:30-70`):
+Validator exception, native restore (`internal/sim/order_contract_restore.go` `checkContractRestoreSemantics`):
 
-1. Split `fits` (`:30-47`) into `admits(class, options)`, which keeps the profile, party, and Express-class tests of `:31-37`, and `pathFits(class, from, to)`, which keeps the cached connectivity test of `:38-46` with `from = legOrigin()`.
+1. Split `fits` (`checkContractRestoreSemantics`) into `admits(class, options)`, which keeps the profile, party, and Express-class tests of `fits`, and `pathFits(class, from, to)`, which keeps the cached connectivity test of `fits` with `from = legOrigin()`.
 2. For each waiting trip, require `admits` for some fleet class, as today.
 3. When some admitting class also has `pathFits`, accept, as today.
 4. Otherwise accept only when the trip meets S1, S2, and S3.
-   Else return the existing error at `:61-63`.
-5. The assigned-route check at `:64-69` does not change.
+   Else return the existing error in `checkContractRestoreSemantics`.
+5. The assigned-route check in `checkContractRestoreSemantics` does not change.
    A stranded trip has no route, so it never reaches that check.
-6. The rider check at `:79-83` does not change.
+6. The rider check in `checkContractRestoreSemantics` does not change.
    A rider never uses the exception, because it boarded a pod that fits.
 
-Validator exception, stream (`internal/session/express_orders.go:39-57`):
+Validator exception, stream (`internal/session/express_orders.go` `(*StreamAssembler).expressOrders`):
 
-1. The compatibility loop at `:47-54` keeps both tests for a normal pending order.
-2. When no vehicle passes both tests, accept only when `r.LegFrom != ""`, `r.PodID == ""`, `a.stations[r.LegFrom]` and `a.stations[r.To]` are true, `a.expressService(r)` succeeds, which checks the registry pair only for the Express service choice, and some vehicle passes the party admission test of `:50` alone.
-   Else return the existing error at `:55-57`.
-3. Active riders at `:89-91` do not change.
+1. The compatibility loop in `(*StreamAssembler).expressOrders` keeps both tests for a normal pending order.
+2. When no vehicle passes both tests, accept only when `r.LegFrom != ""`, `r.PodID == ""`, `a.stations[r.LegFrom]` and `a.stations[r.To]` are true, `a.expressService(r)` succeeds, which checks the registry pair only for the Express service choice, and some vehicle passes the party admission test of `(*StreamAssembler).expressOrders` alone.
+   Else return the existing error in `(*StreamAssembler).expressOrders`.
+3. Active riders in `(*StreamAssembler).expressOrders` do not change.
 
 No other validator gets an exception.
 A trip with `LegFrom` that has a pod, a route, a deferral, or an exclusion, and no path, is still rejected.
@@ -785,10 +785,10 @@ func (s *Simulation) DrainInterruptions() []int
 
 `Step` does not clear `undelivered`, so an interruption is never lost between ticks.
 Section 8.5 defines who drains it.
-`Clone` copies it (`internal/sim/clone.go:45` is the model).
-`Reset` clears all three (`internal/sim/simulation.go:450`).
+`Clone` copies it (`internal/sim/clone.go` `(*Simulation).Clone` is the model).
+`Reset` clears all three (`internal/sim/simulation.go` `(*Simulation).Reset`).
 `undelivered` is not saved.
-`ExportState` (`internal/sim/state.go:373`) does not change.
+`ExportState` (`internal/sim/state.go` `(*Simulation).ExportState`) does not change.
 The session save and publication paths call `deliverInterruptions` before they read the state.
 Under D1 (section 8.5) that call has nothing to drain, so a save can never hold an interruption that rail has not seen.
 `CheckContract` does not check `undelivered`, because `observe` runs inside the operation, before the session drains.
@@ -830,36 +830,36 @@ This applies to every active rider, also a rider whose destination is the statio
 
 `evacuate` effect, in one call:
 
-1. `ridden := v.riddenMeters()` (`internal/sim/riders.go:64-69`), before any outcome.
+1. `ridden := v.riddenMeters()` (`internal/sim/riders.go` `(*vehicle).riddenMeters`), before any outcome.
 2. Call `interruptRider` for each active rider.
 3. Freeze the distance (below).
 4. At a berth, call `settleIdleAtBerth(v)` (below).
 5. On a lane, start empty recovery (section 9.5, "Lane evacuation").
 
 Distance freeze.
-Each composite that ends riders captures `ridden` once, before its first outcome, as `alight` does (`internal/sim/riders.go:75`).
+Each composite that ends riders captures `ridden` once, before its first outcome, as `alight` does (`internal/sim/riders.go` `(*Simulation).alight`).
 After the last outcome, when `Boardings` is not empty, it sets `v.riddenBase = ridden`.
 This applies whatever the outcome of the last rider is: completion, interruption, or transfer.
-Once no rider is aboard, `riddenMeters` returns `riddenBase` alone (`:65-67`), so `settleIdleAtBerth` can zero `distance` and each retained boarding baseline stays at or below `RiddenMeters`.
-Both validators need that bound: the save at `internal/sim/state_boarding.go:44-64` and the stream at `internal/session/stream_boardings.go:47`.
+Once no rider is aboard, `riddenMeters` returns `riddenBase` alone (`(*vehicle).riddenMeters`), so `settleIdleAtBerth` can zero `distance` and each retained boarding baseline stays at or below `RiddenMeters`.
+Both validators need that bound: the save in `internal/sim/state_boarding.go` `checkSavedBoardingsWithOrderContract` and the stream in `internal/session/stream_boardings.go` `validateVehicleBoardingsContract`.
 `completeRider(v, index, ridden)` takes the captured value, so completions use the same distance as `alight`.
 
 `settleIdleAtBerth(v)` gives the complete idle state at the current berth.
-It uses the field set of `placeDemoted` (`internal/sim/state_physical.go:1085-1091`) and `moveTo` (`:1175-1185`), but it keeps owners:
+It uses the field set of `placeDemoted` (`internal/sim/state_physical.go` `(*physicalRestore).placeDemoted`) and `moveTo`, but it keeps owners:
 
 | Field | Value |
 | --- | --- |
-| `Pod` | `ID`, `Class`, berth `Position`, `Activity` `Idle`, `StationID`, `BerthID`, `StationPhase` `AtBerth`, `ManeuverStationID`, as `arrive` builds it (`internal/sim/simulation.go:759-762`) with `Occupied` false. Speed, wait reason, and blocker are zero. |
-| `phaseTicks`, `blockIndex`, `distance` | 0. The idle rule needs phase 0 (`internal/sim/state_contract.go:83`, `:310`). |
+| `Pod` | `ID`, `Class`, berth `Position`, `Activity` `Idle`, `StationID`, `BerthID`, `StationPhase` `AtBerth`, `ManeuverStationID`, as `arrive` builds it (`internal/sim/simulation.go` `(*Simulation).arrive`) with `Occupied` false. Speed, wait reason, and blocker are zero. |
+| `phaseTicks`, `blockIndex`, `distance` | 0. The idle rule needs phase 0 (`internal/sim/state_contract.go` `phaseRule`, `checkPodFlags`). |
 | `reservedThrough`, `pending` | -1. |
 | `Stops` | nil. |
 | `op` | Cleared, also when `v` held at a refuge or unloaded for an emergency. The holds stay, and W5 holds trivially. |
 | `buffered`, `bufferBerth` | false and empty. |
 | `RelocatingTo`, `Rebalancing`, `released` | Empty, false, false. |
 | `origin`, `destination`, `destinationStation` | Empty, the current berth, and the current station. |
-| Route | `replaceRoute(nil)` and empty blocks, as `placeDemoted` does (`:1088-1089`). |
+| Route | `replaceRoute(nil)` and empty blocks, as `placeDemoted` does (`(*physicalRestore).placeDemoted`). |
 | `Riders`, `Boardings` | Completed history stays, with aligned records. When no rider remains, both are nil. |
-| Owners and `routeReleases` | Unchanged. The berth stays owned. Other grants go at the release boundary through the path for a pod that is not traveling (`internal/sim/traffic.go:869-881`). That path walks `routeReleases` (`:927-934`), not the cleared blocks. |
+| Owners and `routeReleases` | Unchanged. The berth stays owned. Other grants go at the release boundary through the path for a pod that is not traveling (`internal/sim/traffic.go` `(*Simulation).releaseVehicleResources`). That path walks `routeReleases` (`(*Simulation).releaseRouteResourcesExcept`), not the cleared blocks. |
 
 `withdrawn` is unchanged.
 The pod stays out of service until the policy calls `restoreService`.
@@ -874,39 +874,39 @@ RequestID = Completed + Interrupted + queued + aboard + unaccounted
 
 | Place | Change |
 | --- | --- |
-| `checkContract` (`internal/sim/state_contract.go:219`) | `unaccounted = RequestID - Completed - Interrupted - held`. |
-| `validateCounters` (`internal/sim/state_physical.go:180-209`) | `Interrupted >= 0`, `InterruptedPassengers >= Interrupted`, `Completed + Interrupted <= RequestID`. |
-| `reconcileOrders` (`internal/sim/state_contract.go:425-484`) | New place "interrupted" for `RestoreResult.Interrupted`. The count check adds `s.interrupted == state.Interrupted + len(interrupted)`. |
-| `verifyRestore` (`internal/sim/state_physical.go:1274`) | Same counts. |
-| `setSavedCounters` and `restoreCounters` (`internal/sim/state_physical.go:314`, `:279`) | Copy both counters. |
-| `checkCouplingRestoreResult` (`internal/sim/coupling_restore.go:108-113`) | Rejects a nonempty `Interrupted`, as it rejects requeues. |
+| `checkContract` (`internal/sim/state_contract.go` `(SavedState).checkContract`) | `unaccounted = RequestID - Completed - Interrupted - held`. |
+| `validateCounters` (`internal/sim/state_physical.go` `(SavedState).validateCounters`) | `Interrupted >= 0`, `InterruptedPassengers >= Interrupted`, `Completed + Interrupted <= RequestID`. |
+| `reconcileOrders` (`internal/sim/state_contract.go` `(*Simulation).reconcileOrders`) | New place "interrupted" for `RestoreResult.Interrupted`. The count check adds `s.interrupted == state.Interrupted + len(interrupted)`. |
+| `verifyRestore` (`internal/sim/state_physical.go` `(*Simulation).verifyRestore`) | Same counts. |
+| `setSavedCounters` and `restoreCounters` (`internal/sim/state_physical.go` `(*physicalRestore).restoreCounters`) | Copy both counters. |
+| `checkCouplingRestoreResult` (`internal/sim/coupling_restore.go` `checkCouplingRestoreResult`) | Rejects a nonempty `Interrupted`, as it rejects requeues. |
 
-`RestoreResult` (`internal/sim/state.go:227-257`) gets `Interrupted []int`.
+`RestoreResult` (`internal/sim/state.go` `RestoreResult`) gets `Interrupted []int`.
 
 ### 8.4 Metrics
 
-- `Snapshot` (`internal/sim/simulation.go:147-186`) gets `interrupted` and `interruptedPassengers`, each omitted at zero.
+- `Snapshot` (`internal/sim/simulation.go` `Snapshot`) gets `interrupted` and `interruptedPassengers`, each omitted at zero.
 - Wait: unchanged.
   An interrupted order already recorded its boarding.
 - Journey, rider distance, direct distance, and detour: the order is excluded.
-- Passenger and empty pod distance: unchanged, because they measure the pod (`internal/sim/redistribution.go:183-201`).
-- Telemetry: `podsim.orders.interrupted` beside the pending gauge (`internal/telemetry/telemetry.go:179`), through `Session.Metrics` (`internal/session/session.go:432`).
+- Passenger and empty pod distance: unchanged, because they measure the pod (`internal/sim/redistribution.go` `(*Simulation).moveAndMeasure`).
+- Telemetry: `podsim.orders.interrupted` beside the pending gauge (`internal/telemetry/telemetry.go` `registerSessionMetrics`), through `Session.Metrics` (`internal/session/session.go` `(*Session).Metrics`).
 - Any stream check that balances submitted orders adds `interrupted`.
 
 ### 8.5 Delivery and rail records
 
 Terminal outcomes reach rail atomically under the session lock.
-Every simulation step and every command already runs with `s.mu` held (`internal/session/speed.go:171-173`, `:198`; `internal/session/session.go:579-581`).
-State reads for publication and saves also take `s.mu` (`internal/session/session.go:393`).
+Every simulation step and every command already runs with `s.mu` held (`internal/session/speed.go` `(*Session).liveBatch`, `(*Session).step`; `internal/session/session.go` `(*Session).applyCommand`).
+State reads for publication and saves also take `s.mu` (`internal/session/session.go` `(*Session).State`).
 The session drains `undelivered` at two places, before it releases the lock:
 
-1. In `Session.step` (`internal/session/speed.go:199-229`), immediately after `Simulation.Step` (`:210`) and before any other statement.
-   Delivery thus runs before `demand.step` (`:228`) and its `Connections.Advance` (`internal/session/demand.go:193`).
-   It also runs before the coupling error return and the Compact pause return (`internal/session/speed.go:211-223`), so every return path is covered by its position.
-   The order matters: `Advance` marks an unresolved record `missed` when its departure deadline passes (`internal/rail/connections.go:198-206`), and `Interrupt` leaves a `missed` record unchanged.
+1. In `Session.step` (`internal/session/speed.go` `(*Session).step`), immediately after `Simulation.Step` and before any other statement.
+   Delivery thus runs before `demand.step` and its `Connections.Advance` (`internal/session/demand.go` `(*demandRun).step`).
+   It also runs before the coupling error return and the Compact pause return (`internal/session/speed.go` `(*Session).step`), so every return path is covered by its position.
+   The order matters: `Advance` marks an unresolved record `missed` when its departure deadline passes (`internal/rail/connections.go` `(*Connections).Advance`), and `Interrupt` leaves a `missed` record unchanged.
    An interruption on the departure tick must reach rail first, so the record ends `unserved` with reason `interrupted`.
-2. At the end of `Session.apply` (`internal/session/session.go:711`), for every command, before `applyCommand` returns.
-   Thus the save before the reply (`:559-561`) and the next publication see the delivered state.
+2. At the end of `Session.apply` (`internal/session/session.go` `(*Session).apply`), for every command, before `applyCommand` returns.
+   Thus the save before the reply (`(*Session).Apply`) and the next publication see the delivered state.
 
 ```go
 // deliverInterruptions sends the drained interruptions to the consumers.
@@ -914,19 +914,19 @@ The session drains `undelivered` at two places, before it releases the lock:
 func (s *Session) deliverInterruptions()
 ```
 
-`deliverInterruptions` calls `Connections.Interrupt`, then refreshes `demand.state.Connections` from `Counts()`, as `demand.step` does (`internal/session/demand.go:193-194`).
-The coupling error path can restore an earlier `demandRun` value (`internal/session/speed.go:212-215`).
+`deliverInterruptions` calls `Connections.Interrupt`, then refreshes `demand.state.Connections` from `Counts()`, as `demand.step` does (`internal/session/demand.go` `(*demandRun).step`).
+The coupling error path can restore an earlier `demandRun` value (`internal/session/speed.go` `(*Session).step`).
 That value shares the `Connections` pointer but holds older counts, so the path refreshes `demand.state.Connections` again after the restore.
 
 Invariant D1: when `s.mu` is released, `undelivered` is empty, and rail has seen each interruption.
-As a second guard, the save path (`internal/session/persist.go:741`) and the state read for publication (`internal/session/session.go:393`) call `deliverInterruptions` before they read the simulation.
+As a second guard, the save path (`internal/session/persist.go` `(*Session).SaveState`) and the state read for publication (`internal/session/session.go` `(*Session).advance`) call `deliverInterruptions` before they read the simulation.
 Under D1 those calls drain nothing.
 A save, a publication, an HTTP state read, and a checkpoint therefore never see an order that is gone from the simulation while its rail record is pending.
 `cmd/compare` has no lock and no commands.
-It drains after each `Step`, beside its `Advance` call (`cmd/compare/main.go:1373`).
+It drains after each `Step`, beside its `Advance` call (`cmd/compare/main.go` `run`).
 
 `Connections` gets a new method.
-`Advance` (`internal/rail/connections.go:187-218`) does not change, so the off-state completion path does not change.
+`Advance` (`internal/rail/connections.go` `(*Connections).Advance`) does not change, so the off-state completion path does not change.
 
 ```go
 // Interrupt ends the records of interrupted orders.
@@ -935,21 +935,21 @@ func (c *Connections) Interrupt(tick int64, orders []int)
 
 | Record state | Effect |
 | --- | --- |
-| `pending` | Outcome `unserved`, reason `interrupted`. `unresolved` decreases by one and `unserved` increases by one. `alightedTick` stays -1. The deadline entry is skipped later, because the outcome is not `pending` (`:204-206`). |
+| `pending` | Outcome `unserved`, reason `interrupted`. `unresolved` decreases by one and `unserved` increases by one. `alightedTick` stays -1. The deadline entry is skipped later, because the outcome is not `pending` (`(*Connections).Advance`). |
 | `missed` | No change. |
 | `made` | Not possible: a made record needs an alighting. |
 
-`validateRecord` (`:281-316`) accepts `unserved` with reason `interrupted` for a positive request ID, with no active binding.
-`ReconcileRestore` (`:321`) gives the same outcome for each ID in `RestoreResult.Interrupted`.
+`validateRecord` accepts `unserved` with reason `interrupted` for a positive request ID, with no active binding.
+`ReconcileRestore` gives the same outcome for each ID in `RestoreResult.Interrupted`.
 
 ### 8.6 Park-and-ride
 
 The ledger outcome `interrupted` is defined now and lands with the first policy that can interrupt a park-and-ride party:
 
-- The ledger consumes the interruptions that `deliverInterruptions` drains, in `advance` (`internal/parkride/ledger.go:133-146`).
-- An interrupted outward or return order ends the itinerary through `end` (`:312-315`) with outcome `interrupted`.
-- The car stays held, with the rule of `stranded` (`:236`; `internal/parkride/checkpoint_restore.go:253-255`).
-- `validateConservation` accepts the outcome (`internal/parkride/checkpoint_restore.go:213`).
+- The ledger consumes the interruptions that `deliverInterruptions` drains, in `advance` (`internal/parkride/ledger.go` `(*ledger).advance`).
+- An interrupted outward or return order ends the itinerary through `end` with outcome `interrupted`.
+- The car stays held, with the rule of `stranded` (`(*ledger).offer`; `internal/parkride/checkpoint_restore.go` `validateConservation`).
+- `validateConservation` accepts the outcome (`internal/parkride/checkpoint_restore.go` `validateConservation`).
 
 In stage 1, `internal/parkride` and `cmd/compare` reject a project with the incident marker (section 11.2).
 Stage 1 has no policy, so no park-and-ride party can be interrupted.
@@ -958,7 +958,7 @@ Stage 1 has no policy, so no park-and-ride party can be interrupted.
 
 | Case | Rule |
 | --- | --- |
-| Checkpoint and rewind | `Clone` keeps the counters. A checkpoint is a command (`internal/session/session.go:801`, `internal/session/checkpoint.go:45-61`). By D1 `undelivered` is empty when that command starts, and the command interrupts no order. |
+| Checkpoint and rewind | `Clone` keeps the counters. A checkpoint is a command (`internal/session/session.go` `(*Session).apply`, `internal/session/checkpoint.go` `(*Session).captureCheckpoint`). By D1 `undelivered` is empty when that command starts, and the command interrupts no order. |
 | Physical tier | Keeps the counters. Restore-time interruption is defined per purpose in section 9.6. |
 | Logical tier | Keeps the counters and adds the restore-time interruptions of section 9.6. |
 | Restore result | `Interrupted` lists the restore-time interruptions in order ID order. |
@@ -1000,7 +1000,7 @@ type operationalDestination struct {
 ```
 
 `vehicle` gets `op operationalDestination`.
-`interrupt` fits every class, because a pod stores at most 20 riders (`orderBounds`, `internal/session/format_limits.go:18-23` at `475cc85`).
+`interrupt` fits every class, because a pod stores at most 20 riders (`orderBounds`, `internal/session/format_limits.go` `(contractMarkers).orderBounds` at `475cc85`).
 The rider order is fixed while a purpose is set, because only the arrival action and `evacuate` remove riders, and both clear the purpose.
 
 ### 9.3 Operations
@@ -1022,7 +1022,7 @@ func (s *Simulation) resumeFromRefuge(v *vehicle) error
 `setOperationalDestination` preconditions, checked before any change:
 
 - `v.Pod.Activity` is `Traveling` or `DepartingEmpty`.
-- `divertStart(v)` (`internal/sim/diversion.go:115`) reports a prefix.
+- `divertStart(v)` (`internal/sim/diversion.go` `(*Simulation).divertStart`) reports a prefix.
   This refuses coupling members, platoon members, compact members, and pods inside the arrival chain.
   By decision 3, a coupled pod waits for its committed split site, and the stage 3 policy calls again after `couplingID` clears.
 - `owner` is a single bit held by `v`, for every purpose.
@@ -1035,15 +1035,15 @@ func (s *Simulation) resumeFromRefuge(v *vehicle) error
 
 `setOperationalDestination` effect, in one call:
 
-1. For each resource of the old destination berth with `revocable(v, r)`, call `releaseOwned` (`internal/sim/traffic.go:939-944`).
-   This is the release of `redirect` (`internal/sim/diversion.go:212-214`), limited to service claims of `v`.
-2. Install `v.Route[:prefix]` plus the new suffix with `setVehicleRoute` (`internal/sim/traffic.go:472`).
+1. For each resource of the old destination berth with `revocable(v, r)`, call `releaseOwned` (`internal/sim/traffic.go` `(*Simulation).releaseOwned`).
+   This is the release of `redirect` (`internal/sim/diversion.go` `(*Simulation).redirect`), limited to service claims of `v`.
+2. Install `v.Route[:prefix]` plus the new suffix with `setVehicleRoute` (`internal/sim/traffic.go` `(*Simulation).setVehicleRoute`).
    The prefix starts at route index 0, so distance, block indexes, and the reserved span keep their meaning.
 3. Set `destination`, `destinationStation`, and `op`.
    Clear `buffered` and `bufferBerth`, because the new route ends at a berth.
 4. Purpose 3: set `RelocatingTo` to the station, and clear `Rebalancing` and `released`.
-   Purposes 1 and 2: `RelocatingTo` stays empty, so `arrive` does not take the empty-move branch (`internal/sim/simulation.go:771`).
-5. Set `pending = -1` and clear the wait reason, as `redirect` does (`internal/sim/diversion.go:224-225`).
+   Purposes 1 and 2: `RelocatingTo` stays empty, so `arrive` does not take the empty-move branch (`internal/sim/simulation.go` `(*Simulation).arrive`).
+5. Set `pending = -1` and clear the wait reason, as `redirect` does (`internal/sim/diversion.go` `(*Simulation).redirect`).
 
 `Stops` does not change.
 Each rider keeps its `To`.
@@ -1059,20 +1059,20 @@ Its effect is the arrival of section 9.5 at the current berth, in one call.
 The call sets activity `Unloading`, `Occupied` true, `StationPhase` `AtBerth`, `destination` the current berth, `destinationStation` the current station, `buffered` false, `bufferBerth` empty, and `reservedThrough = -1`.
 It removes the current station from `Stops` wherever it is.
 `phaseTicks` becomes `unloadingTicks`, or stays when the pod already unloads with `phaseTicks >= 1`.
-Unused grants go at the release boundary (`internal/sim/traffic.go:869-881`).
+Unused grants go at the release boundary (`internal/sim/traffic.go` `(*Simulation).releaseVehicleResources`).
 For a pod that starts at a berth, this addresses finding A of emergency review round 2: the stops, the buffer metadata, and the zero interval each have a rule.
 
 `resumeFromRefuge` preconditions: purpose 2, at the refuge berth.
-Effect: clear `op`, then run `continueJourney` (`internal/sim/riders.go:170-183`).
+Effect: clear `op`, then run `continueJourney` (`internal/sim/riders.go` `(*Simulation).continueJourney`).
 When `continueJourney` finds no route, the call restores `op` and returns an error, so the pod keeps purpose 2.
 
 ### 9.4 Stop rules and place rules
 
 `SavedPod` gets the purpose, the owner, and the interrupt set (section 11.5).
-`phaseOf` (`internal/sim/state_contract.go:106-131`) and `ruleForPod` (`:134-139`) read them.
-`checkPod` (`:236-269`) applies the result in live checks and in both restore tiers.
+`phaseOf` (`internal/sim/state_contract.go` `phaseOf`) and `ruleForPod` read them.
+`checkPod` applies the result in live checks and in both restore tiers.
 
-A new stop rule, `serviceStops`, requires `Stops` to hold one stop for each destination of the active riders, without the `Stops[0] == DestinationStation` clause of `routeStops` (`:389-390`).
+A new stop rule, `serviceStops`, requires `Stops` to hold one stop for each destination of the active riders, without the `Stops[0] == DestinationStation` clause of `routeStops`.
 
 | Saved pod | Phase | Rule |
 | --- | --- | --- |
@@ -1080,26 +1080,26 @@ A new stop rule, `serviceStops`, requires `Stops` to hold one stop for each dest
 | Traveling, occupied, purpose 2 | `phaseTravelingOccupied` | `serviceStops`. `hasDestination`. `DestinationStation` is not in `Stops`. |
 | Unloading, purpose 1 | New `phaseUnloadingOperational` | Active riders, history, occupied, at berth, `atDestination`. `PhaseTicks` from 1 to `unloadingTicks`. `laterStops`: the station of the pod is not in `Stops`. Passenger station. |
 | Unloading, purpose 2 | New `phaseRefugeHolding` | Active riders, history, occupied, at berth, `atDestination`. `PhaseTicks` is 0. `laterStops`. Passenger or parking station. |
-| Traveling or departing, empty, purpose 3 | `phaseTravelingEmpty` or `phaseDepartingEmpty` | The existing relocation rule. `Rebalancing` and `Released` are false. The route ends at the destination berth or at an entry of `DestinationStation`. `StationBuffered` is allowed under the existing flag rule (`:305`). |
+| Traveling or departing, empty, purpose 3 | `phaseTravelingEmpty` or `phaseDepartingEmpty` | The existing relocation rule. `Rebalancing` and `Released` are false. The route ends at the destination berth or at an entry of `DestinationStation`. `StationBuffered` is allowed under the existing flag rule (`checkPodFlags`). |
 | Idle, boarding, or continuing, any purpose | | Invalid. Arrival and `settleIdleAtBerth` clear the purpose. |
 | Purpose 0 | Existing phases | Unchanged. |
 
 For every purpose other than 0, W5 holds.
 `interrupt` is 0 unless the purpose is 1, and each set bit names an active rider.
 
-The completed-history rule (`internal/sim/state_contract.go:359-363`) does not change.
+The completed-history rule (`internal/sim/state_contract.go` `checkPodStops`) does not change.
 The operational station is not added to `Stops`, so a stop that matches completed history cannot appear.
 This closes emergency review round 2, finding A, first case.
 
 Current-berth validation becomes purpose-aware.
-`checkBoardingBerths` (`internal/sim/state_boarding.go:97`) rejects a parking berth for any pod with active riders.
+`checkBoardingBerths` (`internal/sim/state_boarding.go` `checkBoardingBerths`) rejects a parking berth for any pod with active riders.
 The test becomes `rule.active && station.ParkingOnly && phase != phaseRefugeHolding`.
-The rider origin test at `:74-82` does not change: each recorded rider still needs a passenger station at its leg origin.
+The rider origin test in `checkBoardingBerths` does not change: each recorded rider still needs a passenger station at its leg origin.
 Emergency unloading keeps the passenger-station requirement through its phase rule and through the precondition of `startOperationalUnload`.
 
 Refuge holding reuses the activity `unloading`, with purpose 2 and phase 0.
-The pod is at a berth with riders aboard, as an intermediate unloading pod that waits for a route is (`internal/sim/state_contract.go:94-99`).
-This keeps `savedActivities` and `activityCode` (`internal/sim/state.go:594-624`) unchanged.
+The pod is at a berth with riders aboard, as an intermediate unloading pod that waits for a route is (`internal/sim/state_contract.go` `phaseRules`).
+This keeps `savedActivities` and `activityCode` (`internal/sim/state.go` `activityCode`) unchanged.
 The pod shows the wait reason "Holding at refuge".
 A new activity code is the alternative.
 It needs a format change in each family, so this contract does not use it.
@@ -1115,10 +1115,10 @@ A faulted pod therefore stays out of service after its recovery arrives, until t
 
 | Place | Transition |
 | --- | --- |
-| `arrive` (`internal/sim/simulation.go:754-779`), purpose 1 | Activity `Unloading`, `phaseTicks = unloadingTicks`. Remove the station from `Stops` wherever it is. |
+| `arrive` (`internal/sim/simulation.go` `(*Simulation).arrive`), purpose 1 | Activity `Unloading`, `phaseTicks = unloadingTicks`. Remove the station from `Stops` wherever it is. |
 | `arrive`, purpose 2 | Activity `Unloading`, `phaseTicks = 0`, wait reason "Holding at refuge". `Stops` unchanged. |
-| `arrive`, purpose 3 | The existing empty-move branch (`:771-778`), then clear `op`. |
-| Unloading loop (`internal/sim/simulation.go:680-693`), purpose 1 at phase 0 | `finishOperationalUnload(v)`, in place of `alight` and `continueJourney`. |
+| `arrive`, purpose 3 | The existing empty-move branch (`(*Simulation).arrive`), then clear `op`. |
+| Unloading loop (`internal/sim/simulation.go` `(*Simulation).Step`), purpose 1 at phase 0 | `finishOperationalUnload(v)`, in place of `alight` and `continueJourney`. |
 | Unloading loop, purpose 2 | Skip. The pod holds. |
 | `resumeFromRefuge` | Purpose 2 to service, activity `Continuing`. |
 | `evacuate` at a berth | `settleIdleAtBerth` clears `op`. The holds stay. |
@@ -1135,7 +1135,7 @@ Then it does, in one call, for each active rider in `Riders` order:
    A party without a feasible continuation becomes a stranded order (section 7.6).
 
 Then it freezes the distance (section 8.2), and calls `settleIdleAtBerth(v)`, which clears `op`.
-The unload runs before `dispatch` (`internal/sim/simulation.go:694`), so dispatch can serve the transferred trips in the same tick.
+The unload runs before `dispatch` (`internal/sim/simulation.go` `(*Simulation).Step`), so dispatch can serve the transferred trips in the same tick.
 The indexes refer to the rider order before the loop; the implementation removes riders after it decides each outcome.
 
 Lane evacuation sets `Occupied` false, `Stops` nil, `RelocatingTo = destinationStation`, `Rebalancing` and `released` false, and `op = {purpose: opEmptyRecovery, owner: faultHold}`.
@@ -1146,21 +1146,21 @@ The pod then continues on one of three route shapes:
 | Route shape | Continuation |
 | --- | --- |
 | Ends at the destination berth | Unchanged. `arrive` takes the empty-move branch. |
-| Ends at a station entry, not buffered | `assignTerminalBerth` (`internal/sim/berth_choice.go:8-40`) treats purpose 3 as a passenger route. The `passenger` test at `:12` adds `v.op.purpose == opEmptyRecovery`. The berth choice at `:34-40` then runs as for a passenger pod. |
-| Ends at a station entry, buffered | The pod keeps its buffer membership. `bufferApproach` (`internal/sim/station_buffer.go:98-108`) keeps it while `bufferPlan` holds. The buffer head path (`:140-175`) chooses a berth. The head test of `bufferBerthClaims` fails for an unassigned empty pod (`internal/sim/station_buffer_claim.go:31`), so the pod takes only a free berth. |
+| Ends at a station entry, not buffered | `assignTerminalBerth` (`internal/sim/berth_choice.go` `(*Simulation).assignTerminalBerth`) treats purpose 3 as a passenger route. The `passenger` test adds `v.op.purpose == opEmptyRecovery`. The berth choice then runs as for a passenger pod. |
+| Ends at a station entry, buffered | The pod keeps its buffer membership. `bufferApproach` (`internal/sim/station_buffer.go` `(*Simulation).bufferApproach`) keeps it while `bufferPlan` holds. The buffer head path (`(*Simulation).grantBufferedHead`) chooses a berth. The head test of `bufferBerthClaims` fails for an unassigned empty pod (`internal/sim/station_buffer_claim.go` `(*Simulation).bufferClaimCanYield`), so the pod takes only a free berth. |
 
 ### 9.6 Restore tiers
 
 Whole-save certificate rules apply before this table.
-A save with coupling groups has no logical fallback and rejects any demotion, requeue, or interruption (`internal/sim/state.go:335-349`; `internal/sim/coupling_restore.go:108-113`).
-Buffer and compact certificates keep their no-fallback rules (`internal/sim/state.go:326-351`).
+A save with coupling groups has no logical fallback and rejects any demotion, requeue, or interruption (`internal/sim/state.go` `restoreState`; `internal/sim/coupling_restore.go` `checkCouplingRestoreResult`).
+Buffer and compact certificates keep their no-fallback rules (`internal/sim/state.go` `restoreState`).
 
-| Purpose | Physical, pod keeps its place | Physical, pod demoted (`internal/sim/state_physical.go:517`, `:1063`) | Logical (`internal/sim/state_logical.go:26-73`) |
+| Purpose | Physical, pod keeps its place | Physical, pod demoted (`internal/sim/state_physical.go` `(*physicalRestore).demote`, `(*physicalRestore).placeDemoted`) | Logical (`internal/sim/state_logical.go` `restoreLogical`) |
 | --- | --- | --- | --- |
-| 1, traveling | Keep `op`. Route must end at the destination berth (`internal/sim/state_physical.go:584-600`). | Interrupt the riders in `interrupt`. Requeue the others (`:1154`). Never `boardAgain` (`:1117`). Clear `op`. | Interrupt the riders in `interrupt`. Requeue the others. Clear `op`. |
-| 1, unloading | Keep. | As the traveling row, if a demotion reaches the pod. | A marked rider is interrupted, also when its `To` is the station. Each unmarked rider follows the existing rule (`:53-61`). |
-| 2, traveling or holding | Keep. A holding pod can be at a parking berth (section 9.4). | Existing demotion. Clear `op`. | Existing rule. A parking berth is not a passenger berth (`internal/sim/state_logical.go:77-80`), so every active rider is requeued. Clear `op`. |
-| 3 | Keep. `routeEndsMatch` (`internal/sim/state_physical.go:584-600`) accepts a berth end and an entry end with `RelocatingTo == DestinationStation`. Buffer membership (`:557-566`) adds `v.op.purpose == opEmptyRecovery` to the allowed cases at `:562`. | Existing demotion. Clear `op`. | Clear `op`. |
+| 1, traveling | Keep `op`. Route must end at the destination berth (`internal/sim/state_physical.go` `(*physicalRestore).routeEndsMatch`). | Interrupt the riders in `interrupt`. Requeue the others (`(*physicalRestore).requeue`). Never `boardAgain`. Clear `op`. | Interrupt the riders in `interrupt`. Requeue the others. Clear `op`. |
+| 1, unloading | Keep. | As the traveling row, if a demotion reaches the pod. | A marked rider is interrupted, also when its `To` is the station. Each unmarked rider follows the existing rule (`restoreLogical`). |
+| 2, traveling or holding | Keep. A holding pod can be at a parking berth (section 9.4). | Existing demotion. Clear `op`. | Existing rule. A parking berth is not a passenger berth (`internal/sim/state_logical.go` `restoreLogical`), so every active rider is requeued. Clear `op`. |
+| 3 | Keep. `routeEndsMatch` (`internal/sim/state_physical.go` `(*physicalRestore).routeEndsMatch`) accepts a berth end and an entry end with `RelocatingTo == DestinationStation`. Buffer membership (`(*physicalRestore).buildRoutes`) adds `v.op.purpose == opEmptyRecovery` to the allowed cases. | Existing demotion. Clear `op`. | Clear `op`. |
 
 In both tiers:
 
@@ -1181,11 +1181,11 @@ After it returns, the state contract holds.
 The calls happen only at these places:
 
 - At a command boundary, under the session lock.
-  The public entry calls `observe` (`internal/sim/state_contract.go:413-417`) once, after the operation.
+  The public entry calls `observe` (`internal/sim/state_contract.go` `(*Simulation).observe`) once, after the operation.
   The session then delivers interruptions before it releases the lock (section 8.5).
-- Inside `Step`, at the unloading loop (`internal/sim/simulation.go:680-693`) and inside `arrive` (`:754`).
+- Inside `Step`, at the unloading loop (`internal/sim/simulation.go` `(*Simulation).Step`) and inside `arrive`.
 - Later stages may add one policy place in `Step`.
-  It must be after the unloading loop and before `dispatch` (`:694`), and not inside a dispatch pass.
+  It must be after the unloading loop and before `dispatch` (`(*Simulation).Step`), and not inside a dispatch pass.
 
 Composite operations order their internal steps so that the pod is valid at return:
 
@@ -1207,8 +1207,8 @@ This section targets the formats after items 4, 5, and 7.
 Members use post-item-5 lowerCamel names.
 References in this section to item 7 code are for `475cc85`.
 The save is version 9.
-Its array limits come from `savedLimits` (`internal/session/format_limits.go:29`), which selects the order bounds by marker (`:18-23`).
-The stream is hello version 6, with limits from `streamLimits` (`:57`).
+Its array limits come from `savedLimits` (`internal/session/format_limits.go` `savedLimits`), which selects the order bounds by marker (`(contractMarkers).orderBounds`).
+The stream is hello version 6, with limits from `streamLimits`.
 The HTTP state has one envelope and one media type.
 
 ### 11.2 Marker and its propagation
@@ -1223,30 +1223,30 @@ Later feature markers require it.
 - `internal/parkride` and `cmd/compare` reject a project with the marker in stage 1.
 
 A stream or HTTP decoder does not see `project.Config`.
-The topology and the frames carry contract markers on their own, as they do for the order and coupling contracts (`internal/session/protocol.go:13-27`, `:54-58`).
+The topology and the frames carry contract markers on their own, as they do for the order and coupling contracts (`internal/session/protocol.go` `TopologySnapshot`, `SimulationFrame`).
 The incident marker follows the same pattern:
 
 | Carrier | Member | Rule |
 | --- | --- | --- |
 | Save | `/project/incidentContract` | Source of truth. `RestoreState` gets it with the other contract inputs. |
-| Topology, stream hello and `GET /api/topology` (`internal/session/http.go:143`) | `TopologySnapshot.incidentContract` (`internal/session/protocol.go:13`) | Copied from the project. |
-| Full frame and `GET /api/state` (`internal/session/http.go:145`) | `SimulationFrame.incidentContract` (`internal/session/protocol.go:54`) | Copied from the simulation. |
-| Agreement | `frameState` (`internal/session/protocol.go:102-111`) | A new `incidentFrameBinding`, beside `couplingFrameBinding` (`:106`), rejects a frame whose marker differs from the topology marker. |
-| Raw presence | `DecodeStreamJSON` and the HTTP decoder `DecodeStateJSON`, which share `decodeMarkedJSON` (`internal/session/stream_service.go:31-58`), and `ApplyStream` (`internal/session/stream_codec.go:308`) | Typed decoding loses the difference between an absent member and `withdrawn: 0` or `legFrom: null`. So a raw token scan, `scanIncidentMembers`, runs beside the other scans of `decodeMarkedJSON` (`internal/session/stream_service.go:35-57`), before the typed decode. It records in a field of `StreamEnvelope` that is not serialized whether any stage 1 member name or the `incident` group key appears, with any value. `ApplyStream` checks that record before it applies a delta (`internal/session/stream_codec.go:344`): it rejects a delta with a stage 1 member when the accepted base frame has no marker. A full envelope with a stage 1 member and no marker is rejected the same way. |
-| Assembler | `StreamAssembler.State` (`internal/session/stream_frame.go:126`) | Rejects a marker change inside one stream. |
+| Topology, stream hello and `GET /api/topology` (`internal/session/http.go` `(*Session).HandlerFS`) | `TopologySnapshot.incidentContract` (`internal/session/protocol.go` `TopologySnapshot`) | Copied from the project. |
+| Full frame and `GET /api/state` (`internal/session/http.go` `(*Session).HandlerFS`) | `SimulationFrame.incidentContract` (`internal/session/protocol.go` `SimulationFrame`) | Copied from the simulation. |
+| Agreement | `frameState` (`internal/session/protocol.go` `frameState`) | A new `incidentFrameBinding`, beside `couplingFrameBinding`, rejects a frame whose marker differs from the topology marker. |
+| Raw presence | `DecodeStreamJSON` and the HTTP decoder `DecodeStateJSON`, which share `decodeMarkedJSON` (`internal/session/stream_service.go` `decodeMarkedJSON`), and `ApplyStream` (`internal/session/stream_codec.go` `ApplyStream`) | Typed decoding loses the difference between an absent member and `withdrawn: 0` or `legFrom: null`. So a raw token scan, `scanIncidentMembers`, runs beside the other scans of `decodeMarkedJSON`, before the typed decode. It records in a field of `StreamEnvelope` that is not serialized whether any stage 1 member name or the `incident` group key appears, with any value. `ApplyStream` checks that record before it applies a delta: it rejects a delta with a stage 1 member when the accepted base frame has no marker. A full envelope with a stage 1 member and no marker is rejected the same way. |
+| Assembler | `StreamAssembler.State` (`internal/session/stream_frame.go` `(*StreamAssembler).State`) | Rejects a marker change inside one stream. |
 | Delta | none | A delta carries no marker. A marker change is a project change, and a project change starts a new full baseline (`docs/protocol.md:94`). |
 
-Delta groups for the stage 1 stream members (`internal/session/stream_codec.go:168-194`):
+Delta groups for the stage 1 stream members (`internal/session/stream_codec.go` `frameGroups`):
 
 | Member | Delta group |
 | --- | --- |
-| `interrupted`, `interruptedPassengers` | New group `incident`, present only with the marker, as the `coupling` group is present only with the coupling contract (`:187-193`). The `global` group (`:177-185`) does not change, so off-state bytes do not change. |
-| Vehicle `withdrawn`, `operational` | The vehicle `metadata` group: `vehicleMetadata` (`:61-68`) gets both members, omitted at zero. |
-| Order `legFrom` | The `pending` group for waiting orders, and the vehicle `riders` group (`:57`) for riders. |
+| `interrupted`, `interruptedPassengers` | New group `incident`, present only with the marker, as the `coupling` group is present only with the coupling contract (`frameGroups`). The `global` group does not change, so off-state bytes do not change. |
+| Vehicle `withdrawn`, `operational` | The vehicle `metadata` group: `vehicleMetadata` gets both members, omitted at zero. |
+| Order `legFrom` | The `pending` group for waiting orders, and the vehicle `riders` group (`VehicleDelta`) for riders. |
 
 ### 11.3 Digest extension registry
 
-`digestWriter.value` (`internal/session/receipt.go:49-95`) hashes every field, including zero fields and the nested project.
+`digestWriter.value` (`internal/session/receipt.go` `(*digestWriter).value`) hashes every field, including zero fields and the nested project.
 A new field would change every digest, also with `omitempty`.
 
 Rule:
@@ -1259,21 +1259,21 @@ Rule:
 - An extension field may sit only at a fixed path: not inside a slice or a map element.
   A test walks the `Command` type tree and fails on a duplicate `N`, a missing table entry, or a tagged field under a slice or map.
 - The main walk skips each extension field and writes nothing for it, not even a nil mark.
-  `value` reads the `StructField` from `v.Fields()` (`:89`) to see the tag.
+  `value` reads the `StructField` from `v.Fields()` (`(*digestWriter).value`) to see the tag.
 - The walk collects each extension field that is set, as the pair `(N, value)`, in walk order.
   A field is set when `reflect.Value.IsZero` is false.
   A nil pointer or nil slice is not set.
-  A non-nil empty slice is set and encodes as `1, 0` (`:78-84`).
+  A non-nil empty slice is set and encodes as `1, 0` (`(*digestWriter).value`).
 - After the complete main walk, at the root only, when at least one pair exists, the writer appends `uvarint(count)` and then each pair as `uvarint(N)` followed by the existing value encoding.
   With no pair, it appends nothing.
 
 Prefix-freeness argument:
 
 1. For a fixed Go type, the main encoding is prefix-free.
-   Each scalar is a varint with a known end (`:97-104`).
-   Each string and slice writes its length (`:68-70`, `:84`).
-   Each pointer and slice writes a presence mark (`:71-77`, `:78-83`).
-   Struct fields form a fixed sequence (`:88-91`).
+   Each scalar is a varint with a known end (`(*digestWriter).uint`).
+   Each string and slice writes its length (`(*digestWriter).value`, `digestWriter`).
+   Each pointer and slice writes a presence mark (`(*digestWriter).value`).
+   Struct fields form a fixed sequence (`(*digestWriter).value`).
    Skipping extension fields keeps the sequence fixed, because the skip depends only on the type.
 2. So for two commands `a` and `b`, the input `M(a) T(a)` equals `M(b) T(b)` only when `M(a) = M(b)`, because neither main encoding is a proper prefix of the other.
 3. Then `T(a) = T(b)`.
@@ -1285,7 +1285,7 @@ Prefix-freeness argument:
 
 The claim is about equal hash inputs.
 It does not claim that SHA-256 is injective.
-Nil and empty stay distinct, which agrees with `reflect.DeepEqual` and with the contract at `:12-16`.
+Nil and empty stay distinct, which agrees with `reflect.DeepEqual` and with the contract in `commandDigest`.
 
 Tests:
 
@@ -1295,7 +1295,7 @@ Tests:
 - Each extension field set alone changes the digest.
 - Two commands that differ only in which extension field is set have different digests.
 - A nil and an empty tagged slice have different digests.
-- The existing nil, pointer, signed-zero, and NaN tests (`internal/session/command_limits_test.go:296`) pass with extension combinations.
+- The existing nil, pointer, signed-zero, and NaN tests (`internal/session/command_limits_test.go` `TestDigestMatchesDeepEqual`) pass with extension combinations.
 
 ### 11.4 Incident identity
 
@@ -1306,7 +1306,7 @@ i<generation>.<serial>
 ```
 
 - `generation` is the session generation.
-  It increases at each project apply that rebuilds the fleet, each rewind, and each restart (`internal/session/session.go:341`, `:762`, `:787`, `:906`; `internal/session/checkpoint.go:115`; `internal/session/persist.go:655`).
+  It increases at each project apply that rebuilds the fleet, each rewind, and each restart (`internal/session/session.go` `(*Session).startProject`, `(*Session).apply`, `(*Session).applyProject`; `internal/session/checkpoint.go` `(*Session).rewind`; `internal/session/persist.go` `(*Session).installRestored`).
   The session passes it to the simulation with `SetIncidentGeneration` after each change.
 - `serial` is a simulation counter, `incidentSerial`.
   It increases by one for each new record and is saved.
@@ -1336,9 +1336,9 @@ Save members (version 9):
 | `/simulation/waiting/*/excludedPod` | Index into `/simulation/pods` | Omitted when absent. Index 0 is written when present. |
 
 Station indexes refer to the saved project `network.stations`.
-Pod indexes refer to `/simulation/pods`, which is in pod ID order (`internal/sim/state.go:58-59`).
+Pod indexes refer to `/simulation/pods`, which is in pod ID order (`internal/sim/state.go` `SavedState`).
 The native types keep IDs.
-The session adapter converts in both directions, as it does for boarding records (`internal/sim/state.go:87`; `internal/session/boarding_state.go:118`, `:194`).
+The session adapter converts in both directions, as it does for boarding records (`internal/sim/state.go` `SavedPod`; `internal/session/boarding_state.go` `(boardingSource).encodePodContract`, `(*stateFile).resolveBoardings`).
 The adapter wire type uses a pointer for each index, so that presence and index 0 stay distinct.
 
 Stream and HTTP state members:
@@ -1352,8 +1352,8 @@ Stream and HTTP state members:
 | `.../simulation/vehicles/*/operational` | `emergency-unload`, `refuge`, or `empty-recovery` | Vehicle `metadata` |
 | `.../simulation/interrupted`, `.../simulation/interruptedPassengers` | Integers | `incident` |
 
-`withdrawn` and `operational` are `VehicleFrame` members (`internal/session/protocol.go:81-95`) taken from `Vehicle` (`internal/sim/simulation.go:105`), not `Pod` fields.
-The pending group is replaced whole under `/delta/groups/pending`, without a `value` wrapper (`internal/session/stream_codec.go:93-100`).
+`withdrawn` and `operational` are `VehicleFrame` members (`internal/session/protocol.go` `VehicleFrame`) taken from `Vehicle` (`internal/sim/simulation.go` `Vehicle`), not `Pod` fields.
+The pending group is replaced whole under `/delta/groups/pending`, without a `value` wrapper (`internal/session/stream_codec.go` `StreamDelta`).
 The exclusion is not in the stream.
 It is dispatch state, as `deferPodID` is.
 
@@ -1371,7 +1371,7 @@ It is dispatch state, as `deferPodID` is.
   Each failure is `invalid_state` for the whole save.
 - The stream decoder rejects an unknown purpose name, an unknown `legFrom` station, and a hold value with an unknown bit.
 - The only new array is `/simulation/pods/*/operational`, with an explicit limit of 3.
-  Without it, the array would get the fallback limit of 65,536 elements (`internal/session/state_file.go:96`, `:631-640`).
+  Without it, the array would get the fallback limit of 65,536 elements (`internal/session/state_file.go` `stateJSONLimits`, `(jsonLimits).arrayLimit`).
   The stream adds no array.
 - Prescan paths are derived from real envelopes.
   A test encodes the composed worst-case save and one full frame, one delta frame, and one HTTP state reply, walks every array in them, and fails when an array path has no explicit limit.
@@ -1416,10 +1416,10 @@ Stage 1 growth per shape, with the widest encodings:
 
 Notes on the counts:
 
-- Plain: 300 pods with 8 riders each, and 2,600 waiting trips (`internal/session/state_file.go:44`).
-  Express: 20 stored riders per pod and 8,600 waiting trips (`orderBounds`, `internal/session/format_limits.go:18-23` at `475cc85`).
-- The station index has at most 3 digits, because a project has at most 300 stations (`internal/project/config.go:34`).
-  The pod index has at most 3 digits for 300 pods (`:30`).
+- Plain: 300 pods with 8 riders each, and 2,600 waiting trips (`internal/session/state_file.go` `maxSavedTrips`).
+  Express: 20 stored riders per pod and 8,600 waiting trips (`orderBounds`, `internal/session/format_limits.go` `(contractMarkers).orderBounds` at `475cc85`).
+- The station index has at most 3 digits, because a project has at most 300 stations (`internal/project/config.go` `MaxPods`).
+  The pod index has at most 3 digits for 300 pods (`MaxPods`).
 - The exclusion holds until the trip boards (maintainer decision of October 5, 2026), so a trip can carry both `podID` and `excludedPod`.
   The table counts the exclusion on every waiting trip.
 - Rider counts include completed history, because history keeps `legFrom` (section 7.2).
@@ -1487,14 +1487,14 @@ Landing gate:
 
 With the incident marker absent, trajectories, save bytes, stream bytes, command digests, and the RNG sequence stay identical.
 `internal/sim` has no random source, and stage 1 adds none.
-The demand PCG (`internal/session/demand.go:76`) is unchanged.
+The demand PCG (`internal/session/demand.go` `newDemand`) is unchanged.
 
 With the marker present and no feature in use, trajectories and the RNG sequence stay identical.
 Bytes and digests differ only by the marker:
 
 - The project member `incidentContract`, the topology and full-frame markers, and the `incident` delta group with zero counters.
 - The digest of any command whose supplied project contains the marker, by the extension trailer of the marker (section 11.3).
-  `Apply` computes the digest before it drops the project of a non-project action (`internal/session/session.go:538-541`).
+  `Apply` computes the digest before it drops the project of a non-project action (`internal/session/session.go` `(*Session).Apply`).
   A non-project command sent with a marked project therefore also gets the trailer.
   This keeps the existing order of digest and normalization.
   A command sent with no project, or with a project without the marker, keeps its digest.
@@ -1566,7 +1566,7 @@ Preconditions that later stages must meet before they call:
 | Withdrawal inverse | Withdraw and restore with each hold, and with both holds in both orders | Supply membership, route, physical destination, and owners equal the start. Released trips stay released. Only `released` differs. |
 | Hold independence | Fault and emergency holds on one pod; restore one | The pod stays withdrawn. |
 | Owner hold removal | Both holds set, purpose 1 owned by the emergency hold | `restoreService(emergencyHold)` fails with no change. After `rebindOperationalOwner(faultHold)` it succeeds. W5 holds. |
-| Hold mask rejection | Both holds set, purpose 1 owned by the emergency hold | `restoreService` with the mask of both holds, with 0, and with an unknown bit each fail. The pod, its holds, and `op` do not change, and `CheckContract` (`internal/sim/state_contract.go:401`) passes after each call. |
+| Hold mask rejection | Both holds set, purpose 1 owned by the emergency hold | `restoreService` with the mask of both holds, with 0, and with an unknown bit each fail. The pod, its holds, and `op` do not change, and `CheckContract` (`internal/sim/state_contract.go` `(*Simulation).CheckContract`) passes after each call. |
 | Pickup release | Section 5.5 | Section 5.5. |
 | Exclusion gates | Section 5.3, one fixture per row | The excluded pod never receives the trip. |
 | Cache key | Two trips with equal options and different exclusions in one pass | Different pods or one waits. |
@@ -1576,8 +1576,8 @@ Preconditions that later stages must meet before they call:
 | Leg origin readers | One test per "Physical" or "Both" row of section 7.4 | The reader uses `LegFrom`. |
 | Leg origin at index 0 | Transfer to the station with index 0, also when it equals `From` | Saved with `legFrom: 0`. Restores present. |
 | Emergency unload outcomes | Four riders: one marked, one unmarked at its destination, two others | One interruption, one completion, two transferred trips in order ID position, `boarded` true, no exclusion. |
-| Distance freeze, mixed unload | Recorded riders with nonzero boarding baselines: an onboard pickup at 50 m completes at the station, a marked rider is interrupted, and the last rider by index, with the largest baseline, transfers | After `settleIdleAtBerth`, `RiddenMeters` equals the cumulative distance captured before the first outcome. Every retained baseline is at or below it. The save validator (`internal/sim/state_boarding.go:44-64`) and the stream validator (`internal/session/stream_boardings.go:47`) accept the pod. Evacuation variants at a berth and on a lane add an already completed rider with a retained boarding record, because `evacuate` interrupts every active rider; the same assertion applies to them. |
-| Stranded transfer | Express party unloaded at a station with no Express path to `To` | Transferred, not interrupted. Waits with the certified-vehicle reason. Save, both restore tiers, and a stream frame accept it. The same trip with a `podID`, a route, a `deferPodID`, or an `excludedPod` is rejected at `internal/sim/order_contract_restore.go:61` and `internal/session/express_orders.go:55`. |
+| Distance freeze, mixed unload | Recorded riders with nonzero boarding baselines: an onboard pickup at 50 m completes at the station, a marked rider is interrupted, and the last rider by index, with the largest baseline, transfers | After `settleIdleAtBerth`, `RiddenMeters` equals the cumulative distance captured before the first outcome. Every retained baseline is at or below it. The save validator (`internal/sim/state_boarding.go` `checkSavedBoardingsWithOrderContract`) and the stream validator (`internal/session/stream_boardings.go` `validateVehicleBoardingsContract`) accept the pod. Evacuation variants at a berth and on a lane add an already completed rider with a retained boarding record, because `evacuate` interrupts every active rider; the same assertion applies to them. |
+| Stranded transfer | Express party unloaded at a station with no Express path to `To` | Transferred, not interrupted. Waits with the certified-vehicle reason. Save, both restore tiers, and a stream frame accept it. The same trip with a `podID`, a route, a `deferPodID`, or an `excludedPod` is rejected in `internal/sim/order_contract_restore.go` `checkContractRestoreSemantics` and `internal/session/express_orders.go` `(*StreamAssembler).expressOrders`. |
 | Interruption | Rider with a rail binding | No `StepCompletion`. Rail `unserved`, reason `interrupted`. Counters and conservation. |
 | Departure-tick delivery | A session with a rail-bound order whose departure deadline is the next tick. A `Step` interrupts the rider on that tick. | The record is `unserved` with reason `interrupted`, not `missed`. `demand.state.Connections` equals `Connections.Counts()` after the tick, also on the coupling error path. |
 | Berth evacuation | Pods at a berth in `Boarding` with phase above 0 and a grant ahead, `Continuing`, `Unloading` with phase above 0, purpose 1 unloading, and refuge holding. Each has a rider whose destination is the station. | Every active rider is interrupted. No completion. Every field of the `settleIdleAtBerth` table. The idle rule passes. Each grant ahead is free after the release boundary. |
@@ -1638,8 +1638,8 @@ Full session saves, not only `Simulation.CheckContract`:
 - A paused session with a rail-bound order.
   A session test helper runs `evacuate` under `s.mu` and then the same epilogue as `Session.apply`.
   Then `SaveState` writes the complete save.
-  The save restores, the rail record is `unserved` with reason `interrupted`, and `validateRecord` (`internal/rail/connections.go:281-316`) accepts it.
-- The same with a tick that ends on the Compact pause return (`internal/session/speed.go:211-223`).
+  The save restores, the rail record is `unserved` with reason `interrupted`, and `validateRecord` (`internal/rail/connections.go` `validateRecord`) accepts it.
+- The same with a tick that ends on the Compact pause return (`internal/session/speed.go` `(*Session).step`).
 - A publication right after the command shows the same rail counts as the save.
 
 ### 14.6 Mutation targets
@@ -1648,60 +1648,60 @@ Each mutation needs a passing control, a compiled mutant, and a failing test.
 
 | Mutation | Call site |
 | --- | --- |
-| Drop the withdrawal test | `pickupCandidate`, `internal/sim/diversion.go:45` |
-| Drop the withdrawal test | `freePods`, `internal/sim/dispatch.go:354` |
-| Drop the withdrawal test | `boardingPods`, `internal/sim/dispatch.go:571` |
-| Drop the withdrawal test | `waitForFinishingPod` loop, `internal/sim/pickup_estimate.go:92` |
-| Drop the withdrawal test | `guardedSupply`, `internal/sim/positioning.go:338` |
-| Drop the withdrawal test | `clearBlockedBerths`, `internal/sim/parking.go:24` |
-| Drop the withdrawal test | `parkUnclaimedReleased`, `internal/sim/released.go:72` |
-| Count a withdrawn pod as a passenger arrival | `passengerArrivals`, `internal/sim/redistribution.go:156` |
-| Let a withdrawn head pass the head test | `bufferClaimCanYield`, `internal/sim/station_buffer_claim.go:31` |
+| Drop the withdrawal test | `pickupCandidate`, `internal/sim/diversion.go` `(*Simulation).pickupCandidate` |
+| Drop the withdrawal test | `freePods`, `internal/sim/dispatch.go` `(*Simulation).freePods` |
+| Drop the withdrawal test | `boardingPods`, `internal/sim/dispatch.go` `(*Simulation).boardingPods` |
+| Drop the withdrawal test | `waitForFinishingPod` loop, `internal/sim/pickup_estimate.go` `(*Simulation).waitForFinishingPod` |
+| Drop the withdrawal test | `guardedSupply`, `internal/sim/positioning.go` `(*Simulation).guardedSupply` |
+| Drop the withdrawal test | `clearBlockedBerths`, `internal/sim/parking.go` `(*Simulation).clearBlockedBerths` |
+| Drop the withdrawal test | `parkUnclaimedReleased`, `internal/sim/released.go` `(*Simulation).parkUnclaimedReleased` |
+| Count a withdrawn pod as a passenger arrival | `passengerArrivals`, `internal/sim/redistribution.go` `(*Simulation).passengerArrivals` |
+| Let a withdrawn head pass the head test | `bufferClaimCanYield`, `internal/sim/station_buffer_claim.go` `(*Simulation).bufferClaimCanYield` |
 | Leave `deferPodID` set in `releasePickups` | New `releasePickups` |
 | Unbind a trip with stale deferral metadata | New `releasePickups` |
 | Set an exclusion on a boarded trip | New `releasePickups` |
-| Allow a hold for the excluded pod | `waitForFinishingPod`, `internal/sim/pickup_estimate.go:92` |
-| Keep a hold that names the excluded pod | `waitForFinishingPod`, `internal/sim/pickup_estimate.go:59`, and `keepHold`, `:139` |
-| Skip the exclusion in `pickupPodMatching` | `internal/sim/dispatch.go:437` |
-| Key the cache by `options()` | `internal/sim/dispatch.go:151` |
-| Skip the exclusion in promotion | `internal/sim/dispatch.go:617` |
-| Skip the exclusion of the later trip in promotion | `internal/sim/dispatch.go:620` |
-| Skip the exclusion in `joinSharedRide` | `internal/sim/dispatch.go:521` |
+| Allow a hold for the excluded pod | `waitForFinishingPod`, `internal/sim/pickup_estimate.go` `(*Simulation).waitForFinishingPod` |
+| Keep a hold that names the excluded pod | `waitForFinishingPod`, `internal/sim/pickup_estimate.go` `(*Simulation).waitForFinishingPod`, and `keepHold`, `(*Simulation).keepHold` |
+| Skip the exclusion in `pickupPodMatching` | `internal/sim/dispatch.go` `(*Simulation).pickupPodMatching` |
+| Key the cache by `options()` | `internal/sim/dispatch.go` `(*Simulation).dispatch` |
+| Skip the exclusion in promotion | `internal/sim/dispatch.go` `(*Simulation).promoteReadyPickup` |
+| Skip the exclusion of the later trip in promotion | `internal/sim/dispatch.go` `(*Simulation).promoteReadyPickup` |
+| Skip the exclusion in `joinSharedRide` | `internal/sim/dispatch.go` `(*Simulation).joinSharedRide` |
 | Clear the exclusion in `assignPickup` | New `assignPickup` |
 | Keep the old exclusion on a second release | New `releasePickups` |
-| Skip the exclusion of either trip in a pickup swap | `checkPickupPair`, `internal/sim/pickup_reassignment.go:51` |
-| Skip the exclusion in a pickup transfer | `checkPickupPair`, `internal/sim/pickup_reassignment.go:51` |
+| Skip the exclusion of either trip in a pickup swap | `checkPickupPair`, `internal/sim/pickup_reassignment.go` `(*Simulation).checkPickupPair` |
+| Skip the exclusion in a pickup transfer | `checkPickupPair`, `internal/sim/pickup_reassignment.go` `(*Simulation).checkPickupPair` |
 | Drop the coupling test from `claimKind` | New `claimKind` |
 | Release a stopping grant as a service claim | New `claimKind` |
-| Use `From` in `board` | `internal/sim/dispatch.go:470` |
-| Use `From` in the boarding tuple decoder | `internal/session/boarding_state.go:194` |
-| Infer `legFrom` for completed riders | `internal/sim/state_physical.go:340` |
+| Use `From` in `board` | `internal/sim/dispatch.go` `(*Simulation).board` |
+| Use `From` in the boarding tuple decoder | `internal/session/boarding_state.go` `(*stateFile).resolveBoardings` |
+| Infer `legFrom` for completed riders | `internal/sim/state_physical.go` `(*physicalRestore).decodePod` |
 | Omit `legFrom` at index 0 | Save adapter |
 | Interrupt a party without a feasible continuation | New `finishOperationalUnload` |
-| Accept a stranded trip that has a pod or a route | `internal/sim/order_contract_restore.go:61`, `internal/session/express_orders.go:55` |
+| Accept a stranded trip that has a pod or a route | `internal/sim/order_contract_restore.go` `checkContractRestoreSemantics`, `internal/session/express_orders.go` `(*StreamAssembler).expressOrders` |
 | Write a `StepCompletion` for an interrupted rider | New `interruptRider` |
 | Complete a destination rider in `evacuate` | New `evacuate` |
 | Keep `phaseTicks` or `op` in `settleIdleAtBerth` | New `settleIdleAtBerth` |
-| Omit `Interrupted` from the balance | `internal/sim/state_contract.go:219` |
-| Skip delivery on the Compact pause return | `internal/session/speed.go:223` |
-| Deliver after `demand.step` | `internal/session/speed.go:228` |
+| Omit `Interrupted` from the balance | `internal/sim/state_contract.go` `(SavedState).checkContract` |
+| Skip delivery on the Compact pause return | `internal/session/speed.go` `(*Session).step` |
+| Deliver after `demand.step` | `internal/session/speed.go` `(*Session).step` |
 | Keep the old counts after delivery | New `deliverInterruptions` |
 | Freeze the distance only when the last outcome is an interruption | New `finishOperationalUnload` |
 | Accept a `restoreService` mask of two holds | New `restoreService` |
-| Accept a stranded trip with `boarded` false or `deferCheck` set | `internal/sim/order_contract_restore.go:61` |
-| Apply a markerless delta with an explicit zero `withdrawn` | `ApplyStream`, `internal/session/stream_codec.go:344` |
-| Skip delivery at the end of a command | `internal/session/session.go:711` |
+| Accept a stranded trip with `boarded` false or `deferCheck` set | `internal/sim/order_contract_restore.go` `checkContractRestoreSemantics` |
+| Apply a markerless delta with an explicit zero `withdrawn` | `ApplyStream`, `internal/session/stream_codec.go` `ApplyStream` |
+| Skip delivery at the end of a command | `internal/session/session.go` `(*Session).apply` |
 | Complete a marked rider at its destination | New `finishOperationalUnload` |
 | Allow `restoreService` of an owner hold | New `restoreService` |
-| Drop purpose 3 from the terminal berth choice | `internal/sim/berth_choice.go:12` |
-| Drop purpose 3 from buffer membership | `internal/sim/state_physical.go:562` |
-| Drop the refuge exemption | `internal/sim/state_boarding.go:97` |
+| Drop purpose 3 from the terminal berth choice | `internal/sim/berth_choice.go` `(*Simulation).assignTerminalBerth` |
+| Drop purpose 3 from buffer membership | `internal/sim/state_physical.go` `(*physicalRestore).buildRoutes` |
+| Drop the refuge exemption | `internal/sim/state_boarding.go` `checkBoardingBerths` |
 | Set `RelocatingTo` for purpose 1 | New `setOperationalDestination` |
-| Keep `Stops[0] == DestinationStation` for purposes 1 and 2 | `internal/sim/state_contract.go:389` |
-| Change the purpose in a per-tick pass after `arrive` | `internal/sim/simulation.go:754` |
-| Hash a skipped extension field as a nil mark | `internal/session/receipt.go:89` |
+| Keep `Stops[0] == DestinationStation` for purposes 1 and 2 | `internal/sim/state_contract.go` `checkPodStops` |
+| Change the purpose in a per-tick pass after `arrive` | `internal/sim/simulation.go` `(*Simulation).arrive` |
+| Hash a skipped extension field as a nil mark | `internal/session/receipt.go` `digestWriter` |
 | Emit a stage 1 member without the marker | Save and stream encoders |
-| Skip the marker agreement check | `frameState`, `internal/session/protocol.go:106` |
+| Skip the marker agreement check | `frameState`, `internal/session/protocol.go` `frameState` |
 | Drop the generation from incident IDs | New `nextIncidentID` |
 | Remove the prescan limit of `operational` | Save limits |
 
@@ -1730,14 +1730,14 @@ Its verdict was "targeted corrections, no wholesale redesign".
 
 | # | Severity | Finding | Fix | Sections |
 | --- | --- | --- | --- | --- |
-| 1 | Blocker | `evacuate` completed riders at their destination berth (`internal/sim/riders.go:91`). | `evacuate` interrupts every active rider. Destination completion stays only for unmarked riders of an emergency unload. The composite table and the tests changed. | 8.2, 10, 14.1, 14.6 |
-| 2 | Major | An infeasible transfer interrupted the party as a fallback. | No fallback. The transfer always happens. A narrow stranded-order exception (S1 to S3) changes `internal/sim/order_contract_restore.go:61` and `internal/session/express_orders.go:55`, and nothing wider. `continuationFeasible` is a precondition a policy may use. | 7.3, 7.6, 9.5, 13 |
+| 1 | Blocker | `evacuate` completed riders at their destination berth (`internal/sim/riders.go` `(*Simulation).completeRider`). | `evacuate` interrupts every active rider. Destination completion stays only for unmarked riders of an emergency unload. The composite table and the tests changed. | 8.2, 10, 14.1, 14.6 |
+| 2 | Major | An infeasible transfer interrupted the party as a fallback. | No fallback. The transfer always happens. A narrow stranded-order exception (S1 to S3) changes `internal/sim/order_contract_restore.go` `checkContractRestoreSemantics` and `internal/session/express_orders.go` `(*StreamAssembler).expressOrders`, and nothing wider. `continuationFeasible` is a precondition a policy may use. | 7.3, 7.6, 9.5, 13 |
 | 3 | Major | An exclusion could be replaced through a hold, and a transferred party could get one. | Only never-boarded trips (`boarded` false) get an exclusion. One field holds the exclusion. Superseded by the maintainer decision of October 5, 2026 (section 17): the exclusion holds until boarding, an excluded trip may hold only for another pod, a later release replaces the exclusion, and the budget grows by 18 bytes per waiting trip (section 11.7). | 5.1, 5.2, 5.3, 11.7 |
-| 4 | Major | Stale deferral metadata could release another pod's assignment (`internal/sim/dispatch.go:189`). | Four exclusive cases: bound, active hold, stale deferral, unrelated. A stale deferral only loses `deferCheck` and `deferPodID`. | 5.1, 5.5 |
-| 5 | Major | Emergency demand could authorize `yieldRelocationClaims` (`internal/sim/redistribution.go:74`) and the buffer head yield (`internal/sim/station_buffer_claim.go:30`). | Withdrawn pods are not passenger arrivals (`:156`) and fail the head test (`:31`). Berth accounting does not change. A test uses an ordinary revocable claim. | 4.3, 6.2, 14.1 |
+| 4 | Major | Stale deferral metadata could release another pod's assignment (`internal/sim/dispatch.go` `(*Simulation).dispatch`). | Four exclusive cases: bound, active hold, stale deferral, unrelated. A stale deferral only loses `deferCheck` and `deferPodID`. | 5.1, 5.5 |
+| 5 | Major | Emergency demand could authorize `yieldRelocationClaims` (`internal/sim/redistribution.go` `(*Simulation).yieldRelocationClaims`) and the buffer head yield (`internal/sim/station_buffer_claim.go` `(*Simulation).bufferClaimCanYield`). | Withdrawn pods are not passenger arrivals (`internal/sim/redistribution.go` `(*Simulation).passengerArrivals`) and fail the head test. Berth accounting does not change. A test uses an ordinary revocable claim. | 4.3, 6.2, 14.1 |
 | 6 | Major | Berth evacuation left phase, purpose, and other fields. | `settleIdleAtBerth` sets each field. Owners stay until the release boundary. | 8.2 |
-| 7 | Major | Empty recovery missed entry-ended routes (`internal/sim/berth_choice.go:12`, `internal/sim/state_physical.go:562`). | Purpose 3 continues on berth-ended, entry-ended, and buffered routes, in live checks and in restore. | 9.4, 9.5, 9.6 |
-| 8 | Major | A parking refuge failed `internal/sim/state_boarding.go:97`. | The current-berth test exempts refuge holding. Rider origins and emergency unloading keep the passenger-station rule. | 9.4, 9.6, 14.1 |
+| 7 | Major | Empty recovery missed entry-ended routes (`internal/sim/berth_choice.go` `(*Simulation).assignTerminalBerth`, `internal/sim/state_physical.go` `(*physicalRestore).buildRoutes`). | Purpose 3 continues on berth-ended, entry-ended, and buffered routes, in live checks and in restore. | 9.4, 9.5, 9.6 |
+| 8 | Major | A parking refuge failed `internal/sim/state_boarding.go` `checkBoardingBerths`. | The current-berth test exempts refuge holding. Rider origins and emergency unloading keep the passenger-station rule. | 9.4, 9.6, 14.1 |
 | 9 | Major | Removal of a nonfinal hold could leave a purpose without its owner. | `restoreService` refuses the owner hold. `rebindOperationalOwner` moves the purpose. Every purpose needs an owner (W5). | 4.2, 4.5, 9.2, 9.5 |
 | 10 | Major | Command-boundary interruptions could miss rail and reach a save. | `undelivered` persists until drained. The session drains it under `s.mu` on every step return path and at the end of each command. Saves and publications read the state only after delivery. A full session save is tested. | 8.1, 8.5, 14.5 |
 | 11 | Major | Stream decoders had no marker binding. | The marker goes in the topology, the full frame, and HTTP state. `frameState` checks agreement. The delta groups are named. | 11.2, 11.5 |
@@ -1750,12 +1750,12 @@ Two major and four minor findings remained.
 
 | # | Severity | Finding | Fix | Sections |
 | --- | --- | --- | --- | --- |
-| 1 | Major | A transfer as the last outcome left retained boarding baselines above `RiddenMeters` after `settleIdleAtBerth` zeroed `distance` (`internal/sim/riders.go:65-67`). | Each composite captures the cumulative distance before its first outcome, and sets `riddenBase` to it while boarding records remain, whatever the last outcome. Mixed-unload fixture with a transfer last. | 8.2, 9.5, 10, 14.1 |
-| 2 | Major | Delivery after `demand.step` let `Advance` mark a departure-tick interruption `missed` (`internal/rail/connections.go:198`). | Delivery runs right after `Simulation.Step`, before `demand.step` and before both early returns. Counts are refreshed after delivery and after the coupling error restore. Departure-tick test. | 8.5, 14.1, 14.6 |
+| 1 | Major | A transfer as the last outcome left retained boarding baselines above `RiddenMeters` after `settleIdleAtBerth` zeroed `distance` (`internal/sim/riders.go` `(*vehicle).riddenMeters`). | Each composite captures the cumulative distance before its first outcome, and sets `riddenBase` to it while boarding records remain, whatever the last outcome. Mixed-unload fixture with a transfer last. | 8.2, 9.5, 10, 14.1 |
+| 2 | Major | Delivery after `demand.step` let `Advance` mark a departure-tick interruption `missed` (`internal/rail/connections.go` `(*Connections).Advance`). | Delivery runs right after `Simulation.Step`, before `demand.step` and before both early returns. Counts are refreshed after delivery and after the coupling error restore. Departure-tick test. | 8.5, 14.1, 14.6 |
 | 3 | Minor | S1 to S3 missed `boarded`, `deferCheck`, the admitting-class scope, and on-demand Express orders. | S1 needs `boarded`. S2 needs `deferCheck == 0`. Infeasibility is over admitting classes. The service pair applies only to `ExpressServiceChoice`. | 7.6 |
 | 4 | Minor | A mask of two holds passed the `restoreService` preconditions. | Exactly one known bit. Atomic rejection test through `CheckContract`. | 4.2, 14.1 |
 | 5 | Minor | The assembler cannot see raw member presence in a markerless delta. | A raw scan in `DecodeStreamJSON` records presence, and `ApplyStream` checks it before delta application. | 11.2, 14.3 |
-| 6 | Minor | A non-project command with a marked project also gets the trailer (`internal/session/session.go:538`). | Section 12 states that any command whose supplied project has the marker gets the trailer. The digest order does not change. | 12 |
+| 6 | Minor | A non-project command with a marked project also gets the trailer (`internal/session/session.go` `(*Session).Apply`). | Section 12 states that any command whose supplied project has the marker gets the trailer. The digest order does not change. | 12 |
 
 Maintainer decision 2026-10-05: the exclusion holds until boarding.
 Sections 5.2, 5.3, 5.5, and 14.6 changed for it.
