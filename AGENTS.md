@@ -19,6 +19,8 @@ Keep this file short, and point to other documents instead of copying them.
 - `internal/sim`: the deterministic simulation.
   It has no display or I/O dependencies.
 - `internal/session`: the shared session, the saved state, the stream codec, and the HTTP state.
+- `internal/statestore`: the saved-state store in gocloud.dev blob storage.
+  `podsim.wasm` must not link it.
 - `internal/project`: the project format and its limits.
 - `internal/remote` and `internal/view`: the presentation client.
 - `internal/editormodel` and `web/`: the browser editor and shell.
@@ -37,6 +39,9 @@ CI runs `test:race:*`, `qualify`, and `check:static`.
 - Before you hand back a change: `mise run lint` (actionlint, rumdl, vet, golangci-lint, and the wasm dependency check), `go test ./...`, and `mise run test:web`.
 - The race tasks take a long time.
   Run the one for the package that you changed.
+- Some tests have a wall-clock latency gate, for example `TestEmergencyChoiceLatency`.
+  Under heavy host load they can fail.
+  Run such a test again by itself before you treat the failure as real.
 - Do not call `Draw` in a loop on an offscreen Ebiten image in a test.
   Ebiten does not flush the queued commands outside its game loop, and such a test grew to 39 GB.
 - `mise` does not load its configuration in a worktree outside the repository directory.
@@ -46,6 +51,8 @@ CI runs `test:race:*`, `qualify`, and `check:static`.
 
 - There is no backward compatibility until v1.
   Do not write migrations for old saves, project files, or protocol versions.
+- The order of the refusals in restore, scan, and stream checks, and their error text, are part of the format.
+  A refactor keeps both, and a test pins them.
 - A saved state that is damaged or invalid moves aside, and the server starts a new session.
   Do not add code that recovers part of such a file.
   A file of more than 80 MiB is the only file that the server keeps.
