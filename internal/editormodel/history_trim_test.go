@@ -1,13 +1,16 @@
 package editormodel
 
 import (
+	"bytes"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"reflect"
 	"slices"
+	"strconv"
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/project"
+	"github.com/dotwaffle/podsim/internal/sim"
 )
 
 func TestHistoryReplacementTrimsOnlyItsCandidate(t *testing.T) {
@@ -95,5 +98,53 @@ func TestHistoryRejectedTrimPreservesPendingProposal(t *testing.T) {
 	accepted := historyRequest(t, model, historyCommand{Action: "accept", Token: valid.Proposal})
 	if accepted.Head != valid.Head {
 		t.Fatal("rejected trimming replaced the valid proposal")
+	}
+}
+
+// Edits, a trim, and undo and redo keep the version and the Express members
+// of the project, and keep their bytes.
+func TestHistoryTrimKeepsExpressMembers(t *testing.T) {
+	t.Parallel()
+	config := expressEditorConfig(t)
+	model := new(engine)
+	keys := synchronize(t, model, config)
+	members := []string{"orderContract", "expressServices"}
+	original := make(map[string]jsontext.Value)
+	for _, key := range members {
+		original[key] = slices.Clone(model.branches[key].raw)
+	}
+	acceptedHistory(t, model, historyCommand{Kind: "reset", Background: jsontext.Value(`null`)})
+	queueKeys := append(slices.Clone(keys), "stationQueueSpacing")
+	for _, edit := range []struct {
+		keys  []string
+		patch string
+	}{{keys, `{"name":"Edited Express project"}`}, {keys, `{"sharedRidePartyLimit":2}`}, {queueKeys, `{"stationQueueSpacing":"ordinary"}`}} {
+		if _, err := model.sync(request{Keys: edit.keys, Patch: jsontext.Value(edit.patch)}); err != nil {
+			t.Fatal(err)
+		}
+		acceptedHistory(t, model, historyCommand{Kind: "replace", Background: jsontext.Value(`null`)})
+	}
+	trim := uint64(1)
+	view := historyRequest(t, model, historyCommand{Action: "prepare", Kind: "replace", Revision: strconv.FormatUint(model.timeline.revision, 10), Background: jsontext.Value(`{"imageKey":"a"}`), TrimOldest: &trim})
+	historyRequest(t, model, historyCommand{Action: "accept", Token: view.Proposal})
+	check := func(step string) {
+		t.Helper()
+		if model.config.Version != project.CurrentVersion || model.config.OrderContract != sim.ExpressOrderContract ||
+			!reflect.DeepEqual(model.config.ExpressServices, config.ExpressServices) {
+			t.Fatal("history changed the Express project", step)
+		}
+		for _, key := range members {
+			if !bytes.Equal(model.branches[key].raw, original[key]) {
+				t.Fatal("history changed Express bytes", step, key)
+			}
+		}
+		if _, err := model.handle(`{"op":"validate"}`); err != nil {
+			t.Fatal(step, err)
+		}
+	}
+	check("trim")
+	for _, kind := range []string{"undo", "undo", "undo", "redo", "redo", "redo"} {
+		acceptedHistory(t, model, historyCommand{Kind: kind})
+		check(kind)
 	}
 }

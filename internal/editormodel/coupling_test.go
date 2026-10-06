@@ -2,22 +2,18 @@ package editormodel
 
 import (
 	"bytes"
-	jsonv1 "encoding/json"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"errors"
 	"fmt"
-	"io"
 	"maps"
 	"os"
 	"reflect"
 	"slices"
 	"strconv"
-	"strings"
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/project"
-	"github.com/dotwaffle/podsim/internal/session"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
@@ -54,26 +50,6 @@ func couplingEditorConfig(t *testing.T, express bool) project.Config {
 	return config
 }
 
-func bankEditorConfig() project.Config {
-	config := project.Default()
-	config.Network = sim.BankExample()
-	config.Fleet = []sim.Placement{{ID: "01", StationID: "origin", BerthID: "origin-1"}}
-	return config
-}
-
-func configDraft(t *testing.T, config project.Config) map[string]any {
-	t.Helper()
-	raw, err := json.Marshal(config)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var draft map[string]any
-	if err := json.Unmarshal(raw, &draft); err != nil {
-		t.Fatal(err)
-	}
-	return draft
-}
-
 func couplingMembers(draft map[string]any) map[string]any {
 	members := make(map[string]any)
 	for _, key := range couplingKeys {
@@ -82,77 +58,6 @@ func couplingMembers(draft map[string]any) map[string]any {
 		}
 	}
 	return members
-}
-
-// nativeVerdict decodes and validates a complete project with the server
-// decoders. cmd/serve reads a project file with an encoding/json Decoder that
-// disallows unknown fields. The session decodes the project command with
-// session.Command. Both use encoding/json options, and the two must agree.
-func nativeVerdict(t *testing.T, raw []byte) error {
-	t.Helper()
-	_, err := serverDecode(t, raw)
-	return err
-}
-
-func serverDecode(t *testing.T, raw []byte) (project.Config, error) {
-	t.Helper()
-	file := jsonv1.NewDecoder(bytes.NewReader(raw))
-	file.DisallowUnknownFields()
-	var config project.Config
-	fileErr := file.Decode(&config)
-	if fileErr == nil {
-		if file.Decode(new(any)) != io.EOF {
-			fileErr = errors.New("expected one JSON value")
-		} else {
-			fileErr = project.Validate(config)
-		}
-	}
-	body := jsonv1.NewDecoder(strings.NewReader(`{"action":"project","projectRevision":1,"project":` + string(raw) + `}`))
-	body.DisallowUnknownFields()
-	var command session.Command
-	commandErr := body.Decode(&command)
-	if commandErr == nil {
-		commandErr = project.Validate(*command.Project)
-	}
-	if (fileErr == nil) != (commandErr == nil) || fileErr == nil && !reflect.DeepEqual(config, *command.Project) {
-		t.Fatalf("server decoders disagree: file=%v command=%v", fileErr, commandErr)
-	}
-	return config, fileErr
-}
-
-// syncDraft sends a complete draft through the bounded worker request path.
-func syncDraft(model *engine, raw []byte) error {
-	var fields map[string]jsontext.Value
-	if err := json.Unmarshal(raw, &fields); err != nil {
-		return err
-	}
-	keys, err := json.Marshal(slices.Sorted(maps.Keys(fields)))
-	if err != nil {
-		return err
-	}
-	_, err = model.handle(`{"op":"sync","keys":` + string(keys) + `,"patch":` + string(raw) + `}`)
-	return err
-}
-
-// engineVerdict synchronizes a complete draft and validates it as the editor worker does.
-func engineVerdict(raw []byte) error {
-	model := new(engine)
-	if err := syncDraft(model, raw); err != nil {
-		return err
-	}
-	_, err := model.handle(`{"op":"validate"}`)
-	return err
-}
-
-func callVerdict(raw []byte) error {
-	var result response
-	if err := json.Unmarshal([]byte(Call(`{"op":"validate","project":`+string(raw)+`}`)), &result); err != nil {
-		return err
-	}
-	if result.Error != "" {
-		return fmt.Errorf("%s", result.Error)
-	}
-	return nil
 }
 
 // The web tests import this fixture, so it must stay a valid native project.

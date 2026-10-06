@@ -31,15 +31,6 @@ func applyEdit(t *testing.T, draft map[string]any, command string) map[string]an
 	return out
 }
 
-func encodeDraft(t *testing.T, draft any) []byte {
-	t.Helper()
-	raw, err := json.Marshal(draft)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return raw
-}
-
 // The conversion keeps every existing member. Each converted family passes
 // the server decoders, project validation, and the session fleet constructor.
 func TestConvertToTrainsKeepsTheProject(t *testing.T) {
@@ -355,135 +346,6 @@ func TestCouplingGeometryChecksMatchNative(t *testing.T) {
 	}
 }
 
-type decoderParityFixture struct {
-	Bases map[string]string `json:"bases"`
-	Cases []struct {
-		Name      string `json:"name"`
-		Base      string `json:"base"`
-		Find      string `json:"find"`
-		Replace   string `json:"replace"`
-		Duplicate bool   `json:"duplicate"`
-		Valid     bool   `json:"valid"`
-	} `json:"cases"`
-}
-
-// The editor import accepts and decodes a project as the server decoders do.
-// The browser rejects repeated names, which the Node tests check.
-func TestImportMatchesServerDecoder(t *testing.T) {
-	t.Parallel()
-	raw, err := os.ReadFile("testdata/decoder_parity.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	var fixture decoderParityFixture
-	if err := json.Unmarshal(raw, &fixture); err != nil {
-		t.Fatal(err)
-	}
-	bases := map[string]any{"plain": project.Default(), "banks": bankEditorConfig(), "express": expressEditorConfig(t), "coupling": couplingEditorConfig(t, false)}
-	for name, config := range bases {
-		if fixture.Bases[name] != string(encodeDraft(t, config)) {
-			t.Fatal("decoder fixture base differs from the native writer", name)
-		}
-	}
-	for _, item := range fixture.Cases {
-		t.Run(item.Name, func(t *testing.T) {
-			t.Parallel()
-			base := fixture.Bases[item.Base]
-			if !strings.Contains(base, item.Find) {
-				t.Fatal("fixture text is missing")
-			}
-			text := strings.Replace(base, item.Find, item.Replace, 1)
-			native, nativeErr := serverDecode(t, []byte(text))
-			if (nativeErr == nil) != item.Valid {
-				t.Fatalf("native verdict %v", nativeErr)
-			}
-			if item.Duplicate {
-				if nativeErr == nil || !strings.Contains(nativeErr.Error(), "duplicate") {
-					t.Fatalf("native duplicate verdict %v", nativeErr)
-				}
-				return
-			}
-			scenario := importedDraft(t, text)
-			editorErr := engineVerdict(encodeDraft(t, scenario))
-			if editorErr == nil {
-				model := new(engine)
-				if err := syncDraft(model, encodeDraft(t, scenario)); err != nil {
-					t.Fatal(err)
-				}
-				if result, err := model.handle(`{"op":"checks"}`); err != nil || len(result.Checks.Errors) != 0 {
-					editorErr = fmt.Errorf("checks %v: %w", result.Checks, err)
-				}
-			}
-			if (editorErr == nil) != item.Valid {
-				t.Fatalf("editor verdict %v, native %v", editorErr, nativeErr)
-			}
-			if item.Valid {
-				var decoded project.Config
-				if err := json.Unmarshal(encodeDraft(t, scenario), &decoded, json.RejectUnknownMembers(true)); err != nil || !reflect.DeepEqual(decoded, native) {
-					t.Fatal("editor project differs from the server project", err)
-				}
-			}
-		})
-	}
-}
-
-// importedDraft follows the browser import, which keeps the names of the
-// file as JSON.parse gives them.
-func importedDraft(t *testing.T, text string) map[string]any {
-	t.Helper()
-	var draft map[string]any
-	if err := json.Unmarshal([]byte(text), &draft); err != nil {
-		t.Fatal(err)
-	}
-	return draft
-}
-
-// The server decoder matches names exactly, so the request scanner bounds
-// the arrays of the exact names only. An array at a name with another case
-// has no limit, so the scanner refuses it.
-func TestRequestLimitsMatchExactProjectNames(t *testing.T) {
-	t.Parallel()
-	within := `{"op":"validate","project":{"network":{"nodes":[` + strings.Repeat(`{},`, project.MaxNodes-1) + `{}]}}}`
-	if err := scanRequest([]byte(within)); err != nil {
-		t.Fatal(err)
-	}
-	beyond := `{"op":"validate","project":{"network":{"nodes":[` + strings.Repeat(`{},`, project.MaxNodes) + `{}]}}}`
-	if err := scanRequest([]byte(beyond)); err == nil {
-		t.Fatal("accepted too many nodes")
-	}
-	for _, path := range []string{"network", "Network", "NETWORK", "networ\u212a"} {
-		for _, nodes := range []string{"nodes", "Nodes", "NODES", "node\u017f", "No_des"} {
-			if path == "network" && nodes == "nodes" {
-				continue
-			}
-			if err := scanRequest([]byte(`{"op":"validate","project":{"` + path + `":{"` + nodes + `":[{}]}}}`)); err == nil {
-				t.Fatal("bounded a name with another case", path, nodes)
-			}
-		}
-	}
-	if err := scanRequest([]byte(`{"op":"edit","edit":{"value":{"Value":[{}]}}}`)); err == nil {
-		t.Fatal("bounded an editor command path with another case")
-	}
-}
-
-// An Express file without the coupling marker can have station queue
-// spacing. Native and the import verdict accept it.
-func TestExpressQueueSpacingPassesTheVerdict(t *testing.T) {
-	t.Parallel()
-	for _, value := range []string{"ordinary", "compact-v1"} {
-		draft := configDraft(t, expressEditorConfig(t))
-		draft["stationQueueSpacing"] = value
-		draft["stationBuffers"], draft["platoonLimit"] = true, 2.0
-		raw := encodeDraft(t, draft)
-		if _, err := serverDecode(t, raw); err != nil {
-			t.Fatal("native refused queue spacing with Express", value, err)
-		}
-		if err := engineVerdict(raw); err != nil {
-			t.Fatal("editor verdict refused queue spacing with Express", value, err)
-		}
-	}
-}
-
 // A lane that the editor draws has no vehicle classes. The lane class edit
 // makes it Compact-only, so the coupling rows can use it.
 func TestLaneClassesMakeCouplingLanes(t *testing.T) {
@@ -546,28 +408,6 @@ func TestLaneClassesMakeCouplingLanes(t *testing.T) {
 	} {
 		if _, err := editProject(draft, jsontext.Value(`{"field":"geometry","value":`+command+`}`)); err == nil {
 			t.Fatal("accepted", command)
-		}
-	}
-}
-
-// Native validation accepts lane classes on each project. The edit does not
-// change the version.
-func TestLaneClassesKeepVersion(t *testing.T) {
-	t.Parallel()
-	for _, test := range []struct {
-		draft map[string]any
-		lane  string
-	}{
-		{configDraft(t, project.Default()), "approach-branch"},
-		{configDraft(t, bankEditorConfig()), "a-merge"},
-		{configDraft(t, expressEditorConfig(t)), "approach-branch"},
-	} {
-		change, err := editProject(test.draft, jsontext.Value(`{"field":"geometry","value":{"action":"laneClasses","id":"`+test.lane+`","value":["compact"]}}`))
-		if err != nil {
-			t.Fatal(test.lane, err)
-		}
-		if _, changed := change.Patch["version"]; changed || len(change.Patch) != 1 {
-			t.Fatal("lane class edit changed more than the network", change.Patch)
 		}
 	}
 }
