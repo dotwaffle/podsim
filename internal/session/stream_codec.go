@@ -180,6 +180,15 @@ func sameChain(a, b StreamFrame) bool {
 func meta(v VehicleFrame) vehicleMetadata {
 	return vehicleMetadata{CouplingID: v.CouplingID, RiddenMeters: v.RiddenMeters, RelocatingTo: v.RelocatingTo, Rebalancing: v.Rebalancing, PlatoonID: v.PlatoonID, PlatoonIndex: v.PlatoonIndex, Withdrawn: v.Withdrawn, Operational: v.Operational}
 }
+
+// replace sets the metadata fields of v.
+func (m vehicleMetadata) replace(v *VehicleFrame) {
+	v.CouplingID = m.CouplingID
+	v.RiddenMeters = m.RiddenMeters
+	v.RelocatingTo, v.Rebalancing, v.PlatoonID, v.PlatoonIndex = m.RelocatingTo, m.Rebalancing, m.PlatoonID, m.PlatoonIndex
+	v.Withdrawn, v.Operational = m.Withdrawn, m.Operational
+}
+
 func changed[T any](a, b T) *Replacement[T] {
 	if reflect.DeepEqual(a, b) {
 		return nil
@@ -389,132 +398,197 @@ func applyGroups(f *StreamFrame, groups map[string]json.RawMessage) error {
 // ApplyStream applies an envelope to exactly its stated predecessor.
 // The returned containers do not mutate a previous accepted frame.
 func ApplyStream(previous StreamFrame, stream string, sequence uint64, e StreamEnvelope) (StreamFrame, error) {
-	if err := validateEnvelopeContract(e, previous); err != nil {
-		return StreamFrame{}, err
-	}
-	if e.Stream == "" || e.Sequence == 0 || e.Source.ServerStart == "" || e.Source.Epoch == "" {
-		return StreamFrame{}, errors.New("invalid stream identity")
-	}
-	if err := checkIncidentPresence(e, previous); err != nil {
-		return StreamFrame{}, err
-	}
-	if err := checkFaultPresence(e, previous); err != nil {
-		return StreamFrame{}, err
-	}
-	if err := checkEmergencyPresence(e, previous); err != nil {
+	if err := checkStreamEnvelope(e, previous); err != nil {
 		return StreamFrame{}, err
 	}
 	var f StreamFrame
+	var err error
 	switch e.Kind {
 	case "full":
-		if e.Full == nil || e.Delta != nil || e.Base != 0 {
-			return f, errors.New("invalid full envelope")
-		}
-		f = *e.Full
-		if sourceOf(f) != e.Source || f.State.Build != e.Build {
-			return StreamFrame{}, errors.New("full identity mismatch")
-		}
+		f, err = fullStreamFrame(e)
 	case "delta":
-		if e.Delta == nil || e.Full != nil || stream != e.Stream || sequence != e.Base || e.Sequence != sequence+1 {
-			return f, errors.New("delta base mismatch")
-		}
-		f = previous
-		f.State.Simulation.Vehicles = slices.Clone(previous.State.Simulation.Vehicles)
-		f.State.Simulation.Berths = slices.Clone(previous.State.Simulation.Berths)
-		f.Routes = slices.Clone(previous.Routes)
-		if err := applyGroups(&f, e.Delta.Groups); err != nil {
-			return StreamFrame{}, err
-		}
-		vehicles := map[string]int{}
-		berths := map[string]int{}
-		for i, v := range f.State.Simulation.Vehicles {
-			vehicles[v.Pod.ID] = i
-		}
-		for i, v := range f.State.Simulation.Berths {
-			berths[v.ID] = i
-		}
-		seen := map[string]bool{}
-		for _, v := range e.Delta.Vehicles {
-			i, ok := vehicles[v.ID]
-			if !ok || seen[v.ID] {
-				return StreamFrame{}, errors.New("invalid delta vehicle")
-			}
-			seen[v.ID] = true
-			dst := &f.State.Simulation.Vehicles[i]
-			hasRecords := len(dst.Boardings) > 0 || v.Boardings != nil && len(v.Boardings.Value) > 0
-			if hasRecords && (v.Riders != nil || v.Boardings != nil) && (v.Riders == nil || v.Boardings == nil) {
-				return StreamFrame{}, errors.New("boarding records and riders need paired replacements")
-			}
-			if v.Boardings != nil {
-				if v.Boardings.Value == nil {
-					return StreamFrame{}, errors.New("boarding replacement needs an array")
-				}
-				dst.Boardings = v.Boardings.Value
-				if len(dst.Boardings) == 0 {
-					dst.Boardings = nil
-				}
-			}
-			if v.Pod != nil {
-				if v.Pod.Value.ID != v.ID {
-					return StreamFrame{}, errors.New("changed pod ID")
-				}
-				dst.Pod = v.Pod.Value
-			}
-			if v.Route != nil {
-				f.Routes[i] = v.Route.Value
-			}
-			if v.Riders != nil {
-				dst.Riders = v.Riders.Value
-			}
-			if v.Stops != nil {
-				dst.Stops = v.Stops.Value
-			}
-			if v.Metadata != nil {
-				m := v.Metadata.Value
-				dst.CouplingID = m.CouplingID
-				dst.RiddenMeters = m.RiddenMeters
-				dst.RelocatingTo, dst.Rebalancing, dst.PlatoonID, dst.PlatoonIndex = m.RelocatingTo, m.Rebalancing, m.PlatoonID, m.PlatoonIndex
-				dst.Withdrawn, dst.Operational = m.Withdrawn, m.Operational
-			}
-		}
-		clear(seen)
-		for _, v := range e.Delta.Berths {
-			i, ok := berths[v.ID]
-			if !ok || seen[v.ID] {
-				return StreamFrame{}, errors.New("invalid delta berth")
-			}
-			seen[v.ID] = true
-			f.State.Simulation.Berths[i] = v
-		}
-		f.State.ServerStart, f.State.Epoch, f.State.ProjectRevision, f.State.Generation, f.State.Revision = e.Source.ServerStart, e.Source.Epoch, e.Source.ProjectRevision, e.Source.Generation, e.Source.Revision
-		f.State.Build = e.Build
-		if !sameChain(previous, f) {
-			return StreamFrame{}, errors.New("delta crosses source boundary")
-		}
+		f, err = applyStreamDelta(previous, stream, sequence, e)
 	default:
-		return f, errors.New("unknown state envelope")
+		err = errors.New("unknown state envelope")
 	}
+	if err != nil {
+		return StreamFrame{}, err
+	}
+	if err := checkStreamFrame(f); err != nil {
+		return StreamFrame{}, err
+	}
+	return ownStreamBoardings(f), nil
+}
+
+// checkStreamEnvelope checks the contract, the identity, and the stage
+// members of an envelope before ApplyStream reads its kind.
+func checkStreamEnvelope(e StreamEnvelope, previous StreamFrame) error {
+	if err := validateEnvelopeContract(e, previous); err != nil {
+		return err
+	}
+	if e.Stream == "" || e.Sequence == 0 || e.Source.ServerStart == "" || e.Source.Epoch == "" {
+		return errors.New("invalid stream identity")
+	}
+	if err := checkIncidentPresence(e, previous); err != nil {
+		return err
+	}
+	if err := checkFaultPresence(e, previous); err != nil {
+		return err
+	}
+	return checkEmergencyPresence(e, previous)
+}
+
+// fullStreamFrame returns the frame of a full envelope.
+func fullStreamFrame(e StreamEnvelope) (StreamFrame, error) {
+	if e.Full == nil || e.Delta != nil || e.Base != 0 {
+		return StreamFrame{}, errors.New("invalid full envelope")
+	}
+	f := *e.Full
+	if sourceOf(f) != e.Source || f.State.Build != e.Build {
+		return StreamFrame{}, errors.New("full identity mismatch")
+	}
+	return f, nil
+}
+
+// applyStreamDelta applies a delta envelope to a copy of previous. The
+// copy has its own vehicle, berth and route slices.
+func applyStreamDelta(previous StreamFrame, stream string, sequence uint64, e StreamEnvelope) (StreamFrame, error) {
+	if e.Delta == nil || e.Full != nil || stream != e.Stream || sequence != e.Base || e.Sequence != sequence+1 {
+		return StreamFrame{}, errors.New("delta base mismatch")
+	}
+	f := previous
+	f.State.Simulation.Vehicles = slices.Clone(previous.State.Simulation.Vehicles)
+	f.State.Simulation.Berths = slices.Clone(previous.State.Simulation.Berths)
+	f.Routes = slices.Clone(previous.Routes)
+	if err := applyGroups(&f, e.Delta.Groups); err != nil {
+		return StreamFrame{}, err
+	}
+	// seen finds a repeated vehicle ID, and then a repeated berth ID.
+	seen := map[string]bool{}
+	if err := applyVehicleDeltas(&f, e.Delta.Vehicles, seen); err != nil {
+		return StreamFrame{}, err
+	}
+	clear(seen)
+	if err := applyBerthDeltas(&f, e.Delta.Berths, seen); err != nil {
+		return StreamFrame{}, err
+	}
+	f.State.ServerStart, f.State.Epoch, f.State.ProjectRevision, f.State.Generation, f.State.Revision = e.Source.ServerStart, e.Source.Epoch, e.Source.ProjectRevision, e.Source.Generation, e.Source.Revision
+	f.State.Build = e.Build
+	if !sameChain(previous, f) {
+		return StreamFrame{}, errors.New("delta crosses source boundary")
+	}
+	return f, nil
+}
+
+// applyVehicleDeltas applies each vehicle delta to the vehicle with its ID.
+// A delta must name a known vehicle, and only once.
+func applyVehicleDeltas(f *StreamFrame, deltas []VehicleDelta, seen map[string]bool) error {
+	vehicles := map[string]int{}
+	for i, v := range f.State.Simulation.Vehicles {
+		vehicles[v.Pod.ID] = i
+	}
+	for _, v := range deltas {
+		i, ok := vehicles[v.ID]
+		if !ok || seen[v.ID] {
+			return errors.New("invalid delta vehicle")
+		}
+		seen[v.ID] = true
+		if err := applyVehicleDelta(f, i, v); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// applyVehicleDelta applies the replacement groups of v to vehicle i of f.
+func applyVehicleDelta(f *StreamFrame, i int, v VehicleDelta) error {
+	dst := &f.State.Simulation.Vehicles[i]
+	if err := applyBoardingsDelta(dst, v); err != nil {
+		return err
+	}
+	if v.Pod != nil {
+		if v.Pod.Value.ID != v.ID {
+			return errors.New("changed pod ID")
+		}
+		dst.Pod = v.Pod.Value
+	}
+	if v.Route != nil {
+		f.Routes[i] = v.Route.Value
+	}
+	if v.Riders != nil {
+		dst.Riders = v.Riders.Value
+	}
+	if v.Stops != nil {
+		dst.Stops = v.Stops.Value
+	}
+	if v.Metadata != nil {
+		v.Metadata.Value.replace(dst)
+	}
+	return nil
+}
+
+// applyBoardingsDelta replaces the boarding records of dst. A vehicle with
+// boarding records must replace its riders and its records together.
+func applyBoardingsDelta(dst *VehicleFrame, v VehicleDelta) error {
+	hasRecords := len(dst.Boardings) > 0 || v.Boardings != nil && len(v.Boardings.Value) > 0
+	if hasRecords && (v.Riders != nil || v.Boardings != nil) && (v.Riders == nil || v.Boardings == nil) {
+		return errors.New("boarding records and riders need paired replacements")
+	}
+	if v.Boardings == nil {
+		return nil
+	}
+	if v.Boardings.Value == nil {
+		return errors.New("boarding replacement needs an array")
+	}
+	dst.Boardings = v.Boardings.Value
+	if len(dst.Boardings) == 0 {
+		dst.Boardings = nil
+	}
+	return nil
+}
+
+// applyBerthDeltas replaces each berth with its ID. A delta must name a
+// known berth, and only once.
+func applyBerthDeltas(f *StreamFrame, deltas []sim.BerthState, seen map[string]bool) error {
+	berths := map[string]int{}
+	for i, v := range f.State.Simulation.Berths {
+		berths[v.ID] = i
+	}
+	for _, v := range deltas {
+		i, ok := berths[v.ID]
+		if !ok || seen[v.ID] {
+			return errors.New("invalid delta berth")
+		}
+		seen[v.ID] = true
+		f.State.Simulation.Berths[i] = v
+	}
+	return nil
+}
+
+// checkStreamFrame checks the counts, the stage state, and the routes of
+// the frame that an envelope gives.
+func checkStreamFrame(f StreamFrame) error {
 	if len(f.Routes) != len(f.State.Simulation.Vehicles) || len(f.Routes) > project.MaxPods || len(f.State.Simulation.Berths) > project.MaxNodes {
-		return StreamFrame{}, errors.New("invalid presentation counts")
+		return errors.New("invalid presentation counts")
 	}
 	if err := checkIncidentFrame(f.State.Simulation); err != nil {
-		return StreamFrame{}, err
+		return err
 	}
 	if err := checkFaultFrame(f.State.Simulation); err != nil {
-		return StreamFrame{}, err
+		return err
 	}
 	if err := checkEmergencyFrame(f.State.Simulation); err != nil {
-		return StreamFrame{}, err
+		return err
 	}
 	for i, v := range f.State.Simulation.Vehicles {
 		if err := validateVehicleBoardingsContract(v, f.State.Simulation.OrderContract); err != nil {
-			return StreamFrame{}, err
+			return err
 		}
 		if len(v.RouteLaneIDs) != 0 || len(f.Routes[i].Display) > project.MaxLanes || len(f.Routes[i].Lanes) > sim.MotionRouteLimit {
-			return StreamFrame{}, errors.New("unbounded stream route")
+			return errors.New("unbounded stream route")
 		}
 	}
-	return ownStreamBoardings(f), nil
+	return nil
 }
 
 func decodeStreamJSON(data []byte, target any, options ...jsonv2.Options) error {
