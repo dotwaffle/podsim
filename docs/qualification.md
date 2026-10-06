@@ -2196,3 +2196,57 @@ The encoder accepts the save at the cap and refuses it at one byte more.
 Before this change, the client refused each reply for its media type, and the test did not reach the coupling scan.
 
 The simulation rows, the cost and heap rows, and the WASM and browser runs are not part of this record.
+
+## Coupling incident qualification
+
+Item 6d checks coupling-group members and approach members with the incident, fault, and emergency markers.
+The incident redesign ended at stage 3, so a group member gets no fault handling.
+The rows check the landed refusals of stage 2 and the deferral of stage 3.
+At commit `23be7ce`, the [coupling incident record](measurements/coupling-incident-qualification.json) gives each row, each test, and each mutation, with its file and line.
+The runs used `23be7ce` with the two new test files of this record applied.
+
+Each mutation changed one refusal or deferral guard at its caller, in an overlay copy of the source file.
+The method is the method of the coupling format record.
+Of 16 mutant runs, 12 were killed and 4 survived.
+The 4 survivors are the two emergency deferral guards, each in the simulation and the session tests.
+They survive because `withdrawService` also refuses a coupling or approach member.
+
+| Row | Status at `23be7ce` |
+| --- | --- |
+| Pod fault on a coupling member | Qualified: refused with `fault target is not supported`. |
+| Pod fault on an approach member | Qualified in the simulation: refused. |
+| Pod fault on a pod that is not a member | Starts. |
+| Debris on the route or claims of a member | Qualified: refused. |
+| Debris on a lane that no route uses | Starts. |
+| Emergency on a coupling member | Qualified: accepted and deferred, with the hold after the split. |
+| Emergency on an approach member | Qualified in the simulation: accepted, and the approach aborts. |
+| Q7 discovery and adoption | Qualified. |
+| Commands over HTTP | Qualified for coupling members. |
+| Save with a deferred record on a member | Physical tier qualified; the logical tier refuses the save. |
+| Save with a hold or a purpose on a member | `invalid_state` before either tier, and the save moves aside. |
+| Determinism | Qualified. |
+
+No session or HTTP test reaches an approach member.
+Approaches are not saved, and only the simulation test journey forms one.
+The session passes each command to the same simulation entry that the simulation tests run.
+
+A save with a deferred record on a member always holds a coupling group.
+The physical coupling contract refuses logical recovery while a group exists.
+So in the logical tier, such a save moves aside as `invalid_state`, and no record ends.
+The logical restore of section 10.7 of the incident emergency contract applies to a save without a group.
+
+The session save decoder refuses a member with a purpose and no hold before the E6 check.
+The save still moves aside as `invalid_state`.
+The simulation test `TestEmergencyCouplingRestore` reaches E6 for this case.
+
+`TestCouplingIncidentSession` runs a restored train twice with the same commands.
+The two runs give the same replies, split at tick 7296, and save the same bytes.
+`TestCouplingIncidentJourneyDeterminism` runs the coupling approach journey twice for each command schedule.
+It sends commands to the approach members, the group members, and a pod that is not a member.
+The two runs give the same command results and the same state digest at each 1,000th tick.
+
+Coupling discovery runs before the emergency stage.
+So a pod that leaves a group with a record can be recruited again before it gets the hold.
+That did not occur in these runs.
+After the split, the two pods take different roads and have no platoon link.
+After an approach aborts, the attempt record of the pair keeps the pair out of discovery.
