@@ -68,8 +68,8 @@ func TestResetAsksAgain(t *testing.T) {
 						t.Fatalf("hint line before press %d = %q, want %q", index+1, got.value, resetConfirmNotice)
 					}
 					result := clickCommand(t, game, "reset")
-					if result.Command.Action != "reset" || game.notice != resetNotice {
-						t.Fatalf("press %d sent %q with notice %q, want reset with notice %q", index+1, result.Command.Action, game.notice, resetNotice)
+					if result.Command.Action != "reset" || game.notice.text != resetNotice {
+						t.Fatalf("press %d sent %q with notice %q, want reset with notice %q", index+1, result.Command.Action, game.notice.text, resetNotice)
 					}
 					// A reset returns to 1x playback.
 					wantSpeed = 1
@@ -80,8 +80,8 @@ func TestResetAsksAgain(t *testing.T) {
 				if _, _, pending := game.client.View(); pending || game.pending || game.message != "" {
 					t.Fatalf("press %d sent a command: pending %t message %q", index+1, pending, game.message)
 				}
-				if game.notice != resetConfirmNotice || game.noticeTicks != window {
-					t.Fatalf("press %d notice = %q for %d ticks, want %q for %d ticks", index+1, game.notice, game.noticeTicks, resetConfirmNotice, window)
+				if game.notice.text != resetConfirmNotice || game.notice.ticks != window {
+					t.Fatalf("press %d notice = %q for %d ticks, want %q for %d ticks", index+1, game.notice.text, game.notice.ticks, resetConfirmNotice, window)
 				}
 			}
 			syncGame(t, game, func() bool { return game.state.Speed == wantSpeed })
@@ -148,7 +148,7 @@ func TestHintLine(t *testing.T) {
 			t.Parallel()
 			game := journeyTestGame(t, 2)
 			game.message = test.message
-			game.notice, game.noticeAction, game.noticeTicks = test.notice, test.noticeAction, 1
+			game.notice.text, game.notice.action, game.notice.ticks = test.notice, test.noticeAction, 1
 			if test.sameStation {
 				game.destination = game.origin
 			}
@@ -198,8 +198,8 @@ func TestConfirmUsesWallClock(t *testing.T) {
 				game := sharedTestGame(t)
 				syncGame(t, game, func() bool { return true })
 				action.press(game, start)
-				if game.pending || game.noticeAction != action.action {
-					t.Fatalf("first press: pending %t, notice action %q, want no command and %q", game.pending, game.noticeAction, action.action)
+				if game.pending || game.notice.action != action.action {
+					t.Fatalf("first press: pending %t, notice action %q, want no command and %q", game.pending, game.notice.action, action.action)
 				}
 				second := start.Add(test.delay)
 				action.press(game, second)
@@ -207,15 +207,15 @@ func TestConfirmUsesWallClock(t *testing.T) {
 					if _, _, pending := game.client.View(); pending || game.pending {
 						t.Fatalf("second press after %v sent a command", test.delay)
 					}
-					if game.notice != action.notice || game.noticeTicks != noticeDuration || !game.confirmDeadline.Equal(second.Add(confirmWindow)) {
+					if game.notice.text != action.notice || game.notice.ticks != noticeDuration || !game.notice.confirmDeadline.Equal(second.Add(confirmWindow)) {
 						t.Fatalf("second press after %v: notice %q for %d ticks until %v, want %q for %d ticks until %v",
-							test.delay, game.notice, game.noticeTicks, game.confirmDeadline, action.notice, noticeDuration, second.Add(confirmWindow))
+							test.delay, game.notice.text, game.notice.ticks, game.notice.confirmDeadline, action.notice, noticeDuration, second.Add(confirmWindow))
 					}
 					syncGame(t, game, func() bool { return true })
 					return
 				}
-				if !game.pending || game.sentAction != action.name || game.noticeAction != "" {
-					t.Fatalf("second press after %v: pending %t action %q notice action %q, want %s sent", test.delay, game.pending, game.sentAction, game.noticeAction, action.name)
+				if !game.pending || game.commands.sentAction != action.name || game.notice.action != "" {
+					t.Fatalf("second press after %v: pending %t action %q notice action %q, want %s sent", test.delay, game.pending, game.commands.sentAction, game.notice.action, action.name)
 				}
 				if result := commandResult(t, game); result.Command.Action != action.name || result.Err != nil || result.Reply.Error != "" {
 					t.Fatalf("result %+v, want an accepted %s", result, action.name)
@@ -238,16 +238,16 @@ func TestResetFailedSend(t *testing.T) {
 	}
 	game.reset(time.Now())
 	const want = "waiting for the previous command"
-	if game.message != want || game.noticeAction != "" || game.noticeTicks != 0 {
-		t.Fatalf("after second press: message %q, notice action %q for %d ticks, want message %q and no notice", game.message, game.noticeAction, game.noticeTicks, want)
+	if game.message != want || game.notice.action != "" || game.notice.ticks != 0 {
+		t.Fatalf("after second press: message %q, notice action %q for %d ticks, want message %q and no notice", game.message, game.notice.action, game.notice.ticks, want)
 	}
 	if got := game.hintLine(game.state.Simulation, ""); got.value != want {
 		t.Fatalf("hint line = %q, want %q", got.value, want)
 	}
 	syncGame(t, game, func() bool { return game.state.Speed == 2 })
 	game.reset(time.Now())
-	if _, _, pending := game.client.View(); pending || game.pending || game.noticeAction != resetConfirmAction {
-		t.Fatalf("third press: pending %t, notice action %q, want no command and the confirmation", pending, game.noticeAction)
+	if _, _, pending := game.client.View(); pending || game.pending || game.notice.action != resetConfirmAction {
+		t.Fatalf("third press: pending %t, notice action %q, want no command and the confirmation", pending, game.notice.action)
 	}
 	syncGame(t, game, func() bool { return game.state.Speed == 2 })
 }
@@ -269,8 +269,8 @@ func TestResetResultNotice(t *testing.T) {
 			game := journeyTestGame(t, 2)
 			game.showNotice(resetConfirmAction, resetConfirmNotice)
 			game.handleResult(remote.Result{Command: session.Command{Action: test.action}})
-			if game.notice != test.wantNotice || game.noticeAction != test.wantAction {
-				t.Fatalf("notice %q action %q, want notice %q action %q", game.notice, game.noticeAction, test.wantNotice, test.wantAction)
+			if game.notice.text != test.wantNotice || game.notice.action != test.wantAction {
+				t.Fatalf("notice %q action %q, want notice %q action %q", game.notice.text, game.notice.action, test.wantNotice, test.wantAction)
 			}
 		})
 	}

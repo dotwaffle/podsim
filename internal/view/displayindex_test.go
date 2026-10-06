@@ -234,11 +234,11 @@ func TestPlanBaseLayer(t *testing.T) {
 		{name: "pan from the new layer", change: pan(-10), shift: sim.Point{X: -10}},
 		{name: "zoom", change: func() { game.zoomMap(mapZoomStep) }, redraw: true},
 		{name: "new unit", change: func() { game.layout.unit *= 2 }, redraw: true},
-		{name: "invalid cache", change: func() { game.networkBaseValid = false }, redraw: true},
+		{name: "invalid cache", change: func() { game.networkBase.valid = false }, redraw: true},
 	}
 	for _, step := range steps {
 		step.change()
-		drawnOrigin := game.networkBaseOrigin
+		drawnOrigin := game.networkBase.origin
 		plan := game.planBaseLayer(headlessImageLimit)
 		if plan.redraw != step.redraw || plan.shift != step.shift {
 			t.Fatalf("%s: plan redraw %t shift %v, want %t %v", step.name, plan.redraw, plan.shift, step.redraw, step.shift)
@@ -252,8 +252,8 @@ func TestPlanBaseLayer(t *testing.T) {
 		if step.redraw {
 			drawnOrigin = game.mapOrigin
 		}
-		if game.networkBaseOrigin != drawnOrigin || !game.networkBaseValid || game.networkBaseKey != game.currentNetworkCacheKey() {
-			t.Fatalf("%s: cache origin %v valid %t, want origin %v valid with the current key", step.name, game.networkBaseOrigin, game.networkBaseValid, drawnOrigin)
+		if game.networkBase.origin != drawnOrigin || !game.networkBase.valid || game.networkBase.key != game.currentNetworkCacheKey() {
+			t.Fatalf("%s: cache origin %v valid %t, want origin %v valid with the current key", step.name, game.networkBase.origin, game.networkBase.valid, drawnOrigin)
 		}
 	}
 }

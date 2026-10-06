@@ -204,11 +204,11 @@ func TestCommandResultNotices(t *testing.T) {
 			game.message = "waiting for the previous command"
 			game.showDemand, game.selected, game.podPage = true, 7, 1
 			game.handleResult(test.result)
-			if game.notice != test.wantNotice || game.message != test.wantMessage {
-				t.Fatalf("notice %q message %q, want notice %q message %q", game.notice, game.message, test.wantNotice, test.wantMessage)
+			if game.notice.text != test.wantNotice || game.message != test.wantMessage {
+				t.Fatalf("notice %q message %q, want notice %q message %q", game.notice.text, game.message, test.wantNotice, test.wantMessage)
 			}
-			if test.wantNotice != "" && game.noticeTicks != 180 {
-				t.Fatalf("notice ticks = %d, want 180", game.noticeTicks)
+			if test.wantNotice != "" && game.notice.ticks != 180 {
+				t.Fatalf("notice ticks = %d, want 180", game.notice.ticks)
 			}
 			if label := findButton(t, game.buttons(), "request").label; label != test.wantOrderLabel {
 				t.Fatalf("order button = %q, want %q", label, test.wantOrderLabel)
@@ -245,8 +245,8 @@ func TestSavePointClicks(t *testing.T) {
 			t.Parallel()
 			game := sharedTestGame(t)
 			saved := clickCommand(t, game, "checkpoint")
-			if saved.Command.Action != "checkpoint" || saved.Reply.Checkpoint != 1 || game.notice != "Save point #1 saved." {
-				t.Fatalf("save point click sent %q with reply %+v and notice %q", saved.Command.Action, saved.Reply, game.notice)
+			if saved.Command.Action != "checkpoint" || saved.Reply.Checkpoint != 1 || game.notice.text != "Save point #1 saved." {
+				t.Fatalf("save point click sent %q with reply %+v and notice %q", saved.Command.Action, saved.Reply, game.notice.text)
 			}
 			syncGame(t, game, func() bool { return len(game.state.Checkpoints) == 1 })
 			if test.changeDemand {
@@ -261,8 +261,8 @@ func TestSavePointClicks(t *testing.T) {
 			if rewound.Command.Action != "rewind" || rewound.Command.Checkpoint != saved.Reply.Checkpoint {
 				t.Fatalf("rewind click sent %q to save point %d, want rewind to %d", rewound.Command.Action, rewound.Command.Checkpoint, saved.Reply.Checkpoint)
 			}
-			if game.notice != test.wantNotice || game.message != "" {
-				t.Fatalf("notice %q message %q, want notice %q", game.notice, game.message, test.wantNotice)
+			if game.notice.text != test.wantNotice || game.message != "" {
+				t.Fatalf("notice %q message %q, want notice %q", game.notice.text, game.message, test.wantNotice)
 			}
 			syncGame(t, game, func() bool { return game.state.Generation == rewound.Reply.Generation })
 			if label := findButton(t, game.buttons(), "pause").label; label != "Resume [Space]" {

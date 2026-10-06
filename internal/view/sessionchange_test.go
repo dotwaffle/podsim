@@ -207,10 +207,10 @@ func TestOwnGenerationFromResult(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			game := journeyTestGame(t, 2)
-			game.ownEpoch, game.ownGeneration = "b", 3
+			game.commands.ownEpoch, game.commands.ownGeneration = "b", 3
 			game.handleResult(test.result)
-			if game.ownEpoch != test.wantEpoch || game.ownGeneration != test.wantGeneration {
-				t.Fatalf("own generation %q/%d, want %q/%d", game.ownEpoch, game.ownGeneration, test.wantEpoch, test.wantGeneration)
+			if game.commands.ownEpoch != test.wantEpoch || game.commands.ownGeneration != test.wantGeneration {
+				t.Fatalf("own generation %q/%d, want %q/%d", game.commands.ownEpoch, game.commands.ownGeneration, test.wantEpoch, test.wantGeneration)
 			}
 		})
 	}
@@ -228,13 +228,13 @@ func TestSessionChangeReplacesConfirmation(t *testing.T) {
 	previous := game.state
 	game.state.Generation = 5
 	game.announceSessionChange(previous)
-	if game.message != "" || game.notice != otherBrowserNotice || game.noticeAction != sessionChangeAction || game.noticeTicks != noticeDuration {
+	if game.message != "" || game.notice.text != otherBrowserNotice || game.notice.action != sessionChangeAction || game.notice.ticks != noticeDuration {
 		t.Fatalf("message %q, notice %q action %q for %d ticks, want no message and notice %q action %q for %d ticks",
-			game.message, game.notice, game.noticeAction, game.noticeTicks, otherBrowserNotice, sessionChangeAction, noticeDuration)
+			game.message, game.notice.text, game.notice.action, game.notice.ticks, otherBrowserNotice, sessionChangeAction, noticeDuration)
 	}
 	game.reset(time.Now())
-	if game.pending || game.notice != resetConfirmNotice {
-		t.Fatalf("press after the change: pending %t notice %q, want no command and notice %q", game.pending, game.notice, resetConfirmNotice)
+	if game.pending || game.notice.text != resetConfirmNotice {
+		t.Fatalf("press after the change: pending %t notice %q, want no command and notice %q", game.pending, game.notice.text, resetConfirmNotice)
 	}
 }
 
@@ -259,10 +259,10 @@ func TestSessionChangeWhileCommandWaits(t *testing.T) {
 			t.Parallel()
 			game := journeyTestGame(t, 2)
 			game.state = session.State{Epoch: "a", Generation: 5}
-			game.pending, game.sentAction = true, test.action
+			game.pending, game.commands.sentAction = true, test.action
 			game.announceSessionChange(session.State{Epoch: "a", Generation: 4})
-			if game.notice != test.want {
-				t.Fatalf("notice %q, want %q", game.notice, test.want)
+			if game.notice.text != test.want {
+				t.Fatalf("notice %q, want %q", game.notice.text, test.want)
 			}
 		})
 	}
@@ -361,9 +361,9 @@ func TestSessionChangeFromServer(t *testing.T) {
 			if count := len(game.state.Checkpoints); count != test.wantSavePoints {
 				t.Fatalf("save points %d, want %d", count, test.wantSavePoints)
 			}
-			if game.message != "" || game.notice != test.wantNotice || game.noticeAction != test.wantAction {
+			if game.message != "" || game.notice.text != test.wantNotice || game.notice.action != test.wantAction {
 				t.Fatalf("message %q, notice %q action %q, want no message and notice %q action %q",
-					game.message, game.notice, game.noticeAction, test.wantNotice, test.wantAction)
+					game.message, game.notice.text, game.notice.action, test.wantNotice, test.wantAction)
 			}
 		})
 	}
@@ -405,14 +405,14 @@ func TestOwnResetBeforeReply(t *testing.T) {
 		game.readRemote()
 		return game.state.Generation != before
 	})
-	if !game.pending || game.notice != "" || game.noticeAction != "" {
+	if !game.pending || game.notice.text != "" || game.notice.action != "" {
 		t.Fatalf("new generation before the reply: pending %t, notice %q action %q, want a waiting command and no notice",
-			game.pending, game.notice, game.noticeAction)
+			game.pending, game.notice.text, game.notice.action)
 	}
 	release()
 	syncGame(t, game, func() bool { return true })
-	if game.notice != resetNotice || game.noticeAction != "reset" {
-		t.Fatalf("after the reply: notice %q action %q, want %q action %q", game.notice, game.noticeAction, resetNotice, "reset")
+	if game.notice.text != resetNotice || game.notice.action != "reset" {
+		t.Fatalf("after the reply: notice %q action %q, want %q action %q", game.notice.text, game.notice.action, resetNotice, "reset")
 	}
 }
 
@@ -479,8 +479,8 @@ func TestGuardsAfterRollbackRestart(t *testing.T) {
 				t.Fatalf("restored state %s revision %d generation %d, want epoch %s, a revision below %d and a generation below %d",
 					restored.Epoch, restored.Revision, restored.Generation, first.Epoch, replies["checkpoint"].Reply.Revision, replies["reset"].Reply.Generation)
 			}
-			if game.notice != restartNotice {
-				t.Fatalf("notice %q after the restart, want %q", game.notice, restartNotice)
+			if game.notice.text != restartNotice {
+				t.Fatalf("notice %q after the restart, want %q", game.notice.text, restartNotice)
 			}
 			if delayed != "" {
 				game.handleResult(replies[delayed])
@@ -492,12 +492,12 @@ func TestGuardsAfterRollbackRestart(t *testing.T) {
 			if rewind := findButton(t, game.buttons(), "rewind"); rewind.disabled {
 				t.Errorf("rewind button disabled at revision %d with save points %+v", game.state.Revision, game.state.Checkpoints)
 			}
-			game.notice, game.noticeAction, game.noticeTicks = "", "", 0
+			game.notice.text, game.notice.action, game.notice.ticks = "", "", 0
 			generation := game.state.Generation
 			submitAndWait(t, other, session.Command{Action: "reset"})
 			syncGame(t, game, func() bool { return game.state.Generation != generation })
-			if game.notice != otherBrowserNotice {
-				t.Errorf("notice %q after a reset from another browser at generation %d, want %q", game.notice, game.state.Generation, otherBrowserNotice)
+			if game.notice.text != otherBrowserNotice {
+				t.Errorf("notice %q after a reset from another browser at generation %d, want %q", game.notice.text, game.state.Generation, otherBrowserNotice)
 			}
 		})
 	}

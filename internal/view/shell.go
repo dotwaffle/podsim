@@ -100,7 +100,7 @@ func (g *Game) readShell() {
 			g.message = ""
 		}
 		g.shellFailure = ""
-		if !isConfirmation(g.noticeAction) {
+		if !isConfirmation(g.notice.action) {
 			g.showNotice(shellNoticeAction, notice.Text)
 		}
 	default:

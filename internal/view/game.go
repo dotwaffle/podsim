@@ -95,58 +95,26 @@ type Game struct {
 	mapBackground        mapPublisher
 	touch                touchGestures
 	cameraKey            cameraFitKey
-	networkBase          *ebiten.Image
-	networkBaseKey       networkCacheKey
-	networkBaseValid     bool
-	networkBaseLanes     []lanePath
-	// networkBaseOrigin is the camera origin of the cached base layer.
-	networkBaseOrigin sim.Point
-	index             *networkIndex
-	indexKey          networkIndexKey
-	showOrders        bool
+	// networkBase is the cached base layer of the map. See
+	// drawCachedNetworkBase.
+	networkBase networkBaseCache
+	index       *networkIndex
+	indexKey    networkIndexKey
+	showOrders  bool
 	// orderPage is the zero-based page of the Orders panel. A page past
 	// the last page shows the last page.
-	orderPage    int
-	notice       string
-	noticeAction string
-	noticeTicks  int
-	// confirmDeadline is the wall-clock time at which the confirmation
-	// that shows ends. See confirmSubmit.
-	confirmDeadline time.Time
-	// acceptedOrigin and acceptedDestination are the stations of the last
-	// accepted order. The request button reads Order accepted only while
-	// From and To are these stations.
-	acceptedOrigin, acceptedDestination string
-	// savedEpoch and savedRevision come from the last accepted save point.
-	// The command reply can arrive before the state that lists the save point,
-	// so Rewind waits for that state and does not target an older save point.
-	// savedStart is the sentStart of that command. The revision applies
-	// only to states with this server start ID.
-	savedEpoch    string
-	savedRevision uint64
-	savedStart    string
-	// sentAction is the action of the last command that the client
-	// accepted. While pending is true, this command waits for its reply.
-	sentAction string
-	// sentStart is the server start ID of the state when the game sent
-	// the last command. A reply has no start ID. It comes from this server
-	// process or from a later one, but never from an earlier one.
-	sentStart string
+	orderPage int
+	// notice is the notice in the hint line.
+	notice noticeState
+	// commands tracks the commands that the game sent and their replies.
+	commands commandTracking
 	// shownFault is the fault button of the last drawn frame, laid out,
 	// and faultShown reports whether that frame had one. A click uses
 	// this button, so it sends the command that the user saw. See
 	// clickButtons.
 	shownFault button
 	faultShown bool
-	// ownEpoch and ownGeneration come from the last accepted reply to a
-	// command of this game that starts a new generation. A change in the
-	// same epoch and with the server start ID ownStart to this generation
-	// or to an earlier one shows no session change notice. ownStart is the
-	// sentStart of that command.
-	ownEpoch      string
-	ownGeneration uint64
-	ownStart      string
-	layout        displayLayout
+	layout     displayLayout
 	// imageLimit is the largest side in pixels of an image. Draw reads it
 	// from Ebiten in each frame. See imageSideLimit.
 	imageLimit int
@@ -173,6 +141,52 @@ type Game struct {
 	// sprites keeps the antialiased pod, ring, marker and route arrow
 	// shapes of the map.
 	sprites spriteCache
+}
+
+// noticeState is the notice in the hint line. A notice can also be a
+// confirmation. See confirmSubmit.
+type noticeState struct {
+	// text is the text of the notice. action names the command or the
+	// prompt that caused the notice. ticks is the time in game ticks until
+	// the notice ends. See showNotice and tickNotice.
+	text   string
+	action string
+	ticks  int
+	// confirmDeadline is the wall-clock time at which the confirmation
+	// that shows ends. See confirmSubmit.
+	confirmDeadline time.Time
+}
+
+// commandTracking holds the state of the commands that the game sent and
+// of their accepted replies.
+type commandTracking struct {
+	// acceptedOrigin and acceptedDestination are the stations of the last
+	// accepted order. The request button reads Order accepted only while
+	// From and To are these stations.
+	acceptedOrigin, acceptedDestination string
+	// savedEpoch and savedRevision come from the last accepted save point.
+	// The command reply can arrive before the state that lists the save point,
+	// so Rewind waits for that state and does not target an older save point.
+	// savedStart is the sentStart of that command. The revision applies
+	// only to states with this server start ID.
+	savedEpoch    string
+	savedRevision uint64
+	savedStart    string
+	// sentAction is the action of the last command that the client
+	// accepted. While Game.pending is true, this command waits for its reply.
+	sentAction string
+	// sentStart is the server start ID of the state when the game sent
+	// the last command. A reply has no start ID. It comes from this server
+	// process or from a later one, but never from an earlier one.
+	sentStart string
+	// ownEpoch and ownGeneration come from the last accepted reply to a
+	// command of this game that starts a new generation. A change in the
+	// same epoch and with the server start ID ownStart to this generation
+	// or to an earlier one shows no session change notice. ownStart is the
+	// sentStart of that command.
+	ownEpoch      string
+	ownGeneration uint64
+	ownStart      string
 }
 
 // Option configures a Game.
@@ -294,12 +308,12 @@ func (g *Game) podPagerLabel() (label, bool) {
 // tickNotice counts down the notice time by one tick. It clears the notice
 // when the time ends.
 func (g *Game) tickNotice() {
-	if g.noticeTicks == 0 {
+	if g.notice.ticks == 0 {
 		return
 	}
-	g.noticeTicks--
-	if g.noticeTicks == 0 {
-		g.notice, g.noticeAction = "", ""
+	g.notice.ticks--
+	if g.notice.ticks == 0 {
+		g.notice.text, g.notice.action = "", ""
 	}
 }
 
@@ -395,15 +409,15 @@ const confirmWindow = 3 * time.Second
 // notice ticks then stop, but the window ends after confirmWindow. A press
 // after the window is a new first press.
 func (g *Game) confirmSubmit(prompt confirmation, command session.Command, now time.Time) {
-	if g.noticeAction == prompt.action && g.noticeTicks > 0 && now.Before(g.confirmDeadline) {
-		g.notice, g.noticeAction, g.noticeTicks = "", "", 0
-		g.confirmDeadline = time.Time{}
+	if g.notice.action == prompt.action && g.notice.ticks > 0 && now.Before(g.notice.confirmDeadline) {
+		g.notice.text, g.notice.action, g.notice.ticks = "", "", 0
+		g.notice.confirmDeadline = time.Time{}
 		g.submit(command)
 		return
 	}
 	g.message = ""
 	g.showNotice(prompt.action, prompt.notice)
-	g.confirmDeadline = now.Add(confirmWindow)
+	g.notice.confirmDeadline = now.Add(confirmWindow)
 }
 
 // reset sends the reset command on the second press of Reset or Shift+R.
@@ -450,7 +464,7 @@ func (g *Game) rewind() {
 // keep the epoch and lower the revision. The revision of a save point from
 // an earlier server process thus does not apply.
 func (g *Game) rewindReady() bool {
-	return g.state.Epoch != g.savedEpoch || g.state.ServerStart != g.savedStart || g.state.Revision >= g.savedRevision
+	return g.state.Epoch != g.commands.savedEpoch || g.state.ServerStart != g.commands.savedStart || g.state.Revision >= g.commands.savedRevision
 }
 
 // rewindTarget returns the save point with the highest ID. It does not
@@ -497,7 +511,7 @@ func (g *Game) buttons() []button {
 	// stations of that order. Enter also sends the order, so the label
 	// names the key.
 	requestLabel := "Order [Enter]"
-	if g.noticeAction == "trip" && g.origin == g.acceptedOrigin && g.destination == g.acceptedDestination {
+	if g.notice.action == "trip" && g.origin == g.commands.acceptedOrigin && g.destination == g.commands.acceptedDestination {
 		requestLabel = "Order accepted"
 	}
 	pauseLabel := "Pause [Space]"
@@ -709,7 +723,7 @@ func (g *Game) layoutFor(input layoutInput) (int, int) {
 	if g.layout != next {
 		g.layout = next
 		g.camera.initialized = false
-		g.networkBaseValid = false
+		g.networkBase.valid = false
 	}
 	return next.width, next.height
 }
@@ -1287,6 +1301,17 @@ type networkCacheKey struct {
 	viewport image.Rectangle
 }
 
+// networkBaseCache holds the cached base layer of the map. See
+// planBaseLayer and drawCachedNetworkBase.
+type networkBaseCache struct {
+	image *ebiten.Image
+	key   networkCacheKey
+	valid bool
+	lanes []lanePath
+	// origin is the camera origin of the cached base layer.
+	origin sim.Point
+}
+
 type laneGeometry struct {
 	points [33]sim.Point
 	count  int
@@ -1534,14 +1559,14 @@ func (g *Game) planBaseLayer(limit int) baseLayerPlan {
 	viewport := g.layout.mapViewport
 	key := g.currentNetworkCacheKey()
 	shift, ok := baseLayerShift(baseLayerInput{
-		valid: g.networkBaseValid, cached: g.networkBaseKey, current: key,
-		drawnOrigin: g.networkBaseOrigin, origin: g.mapOrigin, margin: float64(baseLayerMargin(viewport, limit)),
+		valid: g.networkBase.valid, cached: g.networkBase.key, current: key,
+		drawnOrigin: g.networkBase.origin, origin: g.mapOrigin, margin: float64(baseLayerMargin(viewport, limit)),
 	})
 	plan := baseLayerPlan{area: baseLayerArea(viewport, limit), shift: shift, redraw: !ok}
 	if plan.redraw {
-		g.networkBaseKey = key
-		g.networkBaseOrigin = g.mapOrigin
-		g.networkBaseValid = true
+		g.networkBase.key = key
+		g.networkBase.origin = g.mapOrigin
+		g.networkBase.valid = true
 	}
 	return plan
 }
@@ -1552,24 +1577,24 @@ func (g *Game) planBaseLayer(limit int) baseLayerPlan {
 // drew the layer, and the distance to move them.
 func (g *Game) drawCachedNetworkBase(screen *ebiten.Image, style networkStyle) ([]lanePath, sim.Point) {
 	area := baseLayerArea(g.layout.mapViewport, style.imageLimit)
-	if g.networkBase == nil || g.networkBase.Bounds().Size() != area.Size() {
-		if g.networkBase != nil {
-			g.networkBase.Deallocate()
+	if g.networkBase.image == nil || g.networkBase.image.Bounds().Size() != area.Size() {
+		if g.networkBase.image != nil {
+			g.networkBase.image.Deallocate()
 		}
-		g.networkBase = ebiten.NewImage(area.Dx(), area.Dy())
-		g.networkBaseValid = false
+		g.networkBase.image = ebiten.NewImage(area.Dx(), area.Dy())
+		g.networkBase.valid = false
 	}
 	plan := g.planBaseLayer(style.imageLimit)
 	if plan.redraw {
-		g.networkBase.Clear()
-		g.networkBaseLanes = g.drawBaseNetwork(g.networkBase, baseNetworkInput{
+		g.networkBase.image.Clear()
+		g.networkBase.lanes = g.drawBaseNetwork(g.networkBase.image, baseNetworkInput{
 			style: style, area: plan.area, offset: plan.imageOffset(),
 		})
 	}
 	options := &ebiten.DrawImageOptions{}
 	options.GeoM.Translate(float64(plan.area.Min.X)+plan.shift.X, float64(plan.area.Min.Y)+plan.shift.Y)
-	screen.DrawImage(g.networkBase, options)
-	return g.networkBaseLanes, plan.shift
+	screen.DrawImage(g.networkBase.image, options)
+	return g.networkBase.lanes, plan.shift
 }
 
 func (g *Game) currentNetworkCacheKey() networkCacheKey {
@@ -1577,15 +1602,11 @@ func (g *Game) currentNetworkCacheKey() networkCacheKey {
 }
 
 func (g *Game) releaseNetworkBase() {
-	if g.networkBase == nil {
+	if g.networkBase.image == nil {
 		return
 	}
-	g.networkBase.Deallocate()
-	g.networkBase = nil
-	g.networkBaseLanes = nil
-	g.networkBaseKey = networkCacheKey{}
-	g.networkBaseOrigin = sim.Point{}
-	g.networkBaseValid = false
+	g.networkBase.image.Deallocate()
+	g.networkBase = networkBaseCache{}
 }
 
 // arrowSize is the size of a direction arrow in display units. Each of the
@@ -1889,16 +1910,16 @@ const sameStationHint = "Choose a different destination."
 func (g *Game) hintLine(state sim.Snapshot, hint string) label {
 	value, shade := hint, uint32(muted)
 	switch {
-	case isConfirmation(g.noticeAction):
-		value, shade = g.notice, accent
+	case isConfirmation(g.notice.action):
+		value, shade = g.notice.text, accent
 	case g.journeySearch.unresolved[0] || g.journeySearch.unresolved[1]:
 		value, shade = "Choose a matching station for each search before ordering.", amber
 	case g.message != "":
 		value, shade = g.message, amber
 	case state.DemoError != "":
 		value, shade = state.DemoError, amber
-	case g.notice != "":
-		value, shade = g.notice, accent
+	case g.notice.text != "":
+		value, shade = g.notice.text, accent
 	case !state.Demo && g.origin != "" && g.origin == g.destination:
 		value, shade = sameStationHint, amber
 	}

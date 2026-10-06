@@ -143,8 +143,8 @@ func TestShellNotices(t *testing.T) {
 			}
 			shell.notices <- test.notice
 			game.readShell()
-			if game.notice != test.wantNotice || game.message != test.wantMessage {
-				t.Errorf("notice %q and message %q, want %q and %q", game.notice, game.message, test.wantNotice, test.wantMessage)
+			if game.notice.text != test.wantNotice || game.message != test.wantMessage {
+				t.Errorf("notice %q and message %q, want %q and %q", game.notice.text, game.message, test.wantNotice, test.wantMessage)
 			}
 			if got := game.hintLine(game.state.Simulation, "hint").value; got != test.wantHintValue {
 				t.Errorf("hint line = %q, want %q", got, test.wantHintValue)
@@ -178,8 +178,8 @@ func TestShellFailureClears(t *testing.T) {
 		fail(t, game, shell)
 		shell.notices <- ShellNotice{Text: done}
 		game.readShell()
-		if game.message != "" || game.notice != done {
-			t.Errorf("message %q and notice %q, want no message and %q", game.message, game.notice, done)
+		if game.message != "" || game.notice.text != done {
+			t.Errorf("message %q and notice %q, want no message and %q", game.message, game.notice.text, done)
 		}
 		if got := game.hintLine(game.state.Simulation, "hint").value; got != done {
 			t.Errorf("hint line = %q, want %q", got, done)
@@ -371,8 +371,8 @@ func TestHiddenGameReadsState(t *testing.T) {
 	if game.state.Epoch == "" || !game.hidden {
 		t.Fatalf("hidden game has epoch %q and hidden %t, want a state and true", game.state.Epoch, game.hidden)
 	}
-	if game.notice != "Debug state downloaded: tick 1." {
-		t.Errorf("notice = %q, want the shell notice", game.notice)
+	if game.notice.text != "Debug state downloaded: tick 1." {
+		t.Errorf("notice = %q, want the shell notice", game.notice.text)
 	}
 	if want := []ShellRequest{ShellReady}; !slices.Equal(shell.requests, want) {
 		t.Errorf("requests = %q, want %q", shell.requests, want)

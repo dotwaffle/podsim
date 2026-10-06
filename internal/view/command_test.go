@@ -49,8 +49,8 @@ func TestOrderAcceptedLabel(t *testing.T) {
 			for _, action := range test.clicks {
 				game.click(centerOfButton(findButton(t, game.buttons(), action)))
 			}
-			if label := findButton(t, game.buttons(), "request").label; label != test.wantLabel || game.notice != test.wantNotice {
-				t.Fatalf("order button %q with notice %q, want %q with notice %q", label, game.notice, test.wantLabel, test.wantNotice)
+			if label := findButton(t, game.buttons(), "request").label; label != test.wantLabel || game.notice.text != test.wantNotice {
+				t.Fatalf("order button %q with notice %q, want %q with notice %q", label, game.notice.text, test.wantLabel, test.wantNotice)
 			}
 		})
 	}
@@ -80,8 +80,8 @@ func TestCommandWaitShowsInFooter(t *testing.T) {
 				t.Fatalf("order button before the click = %q, want %q", label, "Order accepted")
 			}
 			game.click(centerOfButton(findButton(t, game.buttons(), action)))
-			if !game.pending || game.message != "" || game.notice != "" {
-				t.Fatalf("click sent no command or kept old text: pending %t message %q notice %q", game.pending, game.message, game.notice)
+			if !game.pending || game.message != "" || game.notice.text != "" {
+				t.Fatalf("click sent no command or kept old text: pending %t message %q notice %q", game.pending, game.message, game.notice.text)
 			}
 			if label := findButton(t, game.buttons(), "request").label; label != "Order [Enter]" {
 				t.Errorf("order button while the command waits = %q, want %q", label, "Order [Enter]")

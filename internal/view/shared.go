@@ -79,7 +79,7 @@ func (g *Game) handleServerUpdate() {
 func (g *Game) handleResult(result remote.Result) {
 	g.message = ""
 	if result.Err == nil && result.Reply.Error == "" && startsGeneration(result.Command.Action) {
-		g.ownEpoch, g.ownGeneration, g.ownStart = result.Reply.Epoch, result.Reply.Generation, g.sentStart
+		g.commands.ownEpoch, g.commands.ownGeneration, g.commands.ownStart = result.Reply.Epoch, result.Reply.Generation, g.commands.sentStart
 	}
 	switch {
 	case result.Err != nil:
@@ -88,12 +88,12 @@ func (g *Game) handleResult(result remote.Result) {
 		g.message = result.Reply.Error
 	case result.Command.Action == "trip":
 		g.showOrders, g.showDemand = true, false
-		g.acceptedOrigin, g.acceptedDestination = result.Command.Origin, result.Command.Destination
+		g.commands.acceptedOrigin, g.commands.acceptedDestination = result.Command.Origin, result.Command.Destination
 		from, _ := g.network.Station(result.Command.Origin)
 		to, _ := g.network.Station(result.Command.Destination)
 		g.showNotice("trip", fmt.Sprintf("Order #%d accepted: %s > %s. See Orders for status.", result.Reply.OrderID, from.Name, to.Name))
 	case result.Command.Action == "checkpoint":
-		g.savedEpoch, g.savedRevision, g.savedStart = result.Reply.Epoch, result.Reply.Revision, g.sentStart
+		g.commands.savedEpoch, g.commands.savedRevision, g.commands.savedStart = result.Reply.Epoch, result.Reply.Revision, g.commands.sentStart
 		g.showNotice("checkpoint", fmt.Sprintf("Save point #%d saved.", result.Reply.Checkpoint))
 	case result.Command.Action == "rewind":
 		// Panels and selection stay as they are. readRemote clamps the
@@ -105,7 +105,7 @@ func (g *Game) handleResult(result remote.Result) {
 		}
 	case result.Command.Action == "reset" || result.Command.Action == "demo":
 		g.showOrders, g.showDemand = false, false
-		g.notice, g.noticeAction, g.noticeTicks = "", "", 0
+		g.notice.text, g.notice.action, g.notice.ticks = "", "", 0
 		g.selected, g.podPage = 0, 0
 		g.normalizeSelection()
 		if result.Command.Action == "reset" {
@@ -215,8 +215,8 @@ func keptEpochRestart(state session.State) bool {
 func (g *Game) announceSessionChange(previous session.State) {
 	notice := sessionChangeNotice(sessionChangeInput{
 		previous: previous, current: g.state,
-		inFlight: g.pending && startsGeneration(g.sentAction),
-		ownEpoch: g.ownEpoch, ownGeneration: g.ownGeneration, ownStart: g.ownStart,
+		inFlight: g.pending && startsGeneration(g.commands.sentAction),
+		ownEpoch: g.commands.ownEpoch, ownGeneration: g.commands.ownGeneration, ownStart: g.commands.ownStart,
 	})
 	if notice == "" {
 		return
@@ -233,7 +233,7 @@ const noticeDuration = 3 * sim.TicksPerSecond
 // showNotice shows value in the hint line for noticeDuration ticks. action
 // names the command or the prompt that caused the notice.
 func (g *Game) showNotice(action, value string) {
-	g.notice, g.noticeAction, g.noticeTicks = value, action, noticeDuration
+	g.notice.text, g.notice.action, g.notice.ticks = value, action, noticeDuration
 }
 
 // rewindNotice describes an accepted rewind. It gives the time of the save
@@ -263,9 +263,9 @@ func (g *Game) submit(command session.Command) {
 		g.message = err.Error()
 		return
 	}
-	g.pending, g.sentAction, g.sentStart = true, command.Action, g.state.ServerStart
+	g.pending, g.commands.sentAction, g.commands.sentStart = true, command.Action, g.state.ServerStart
 	g.message = ""
-	g.notice, g.noticeAction, g.noticeTicks = "", "", 0
+	g.notice.text, g.notice.action, g.notice.ticks = "", "", 0
 }
 
 func (g *Game) connectionLabel() string {

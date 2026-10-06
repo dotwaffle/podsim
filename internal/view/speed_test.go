@@ -23,11 +23,11 @@ func TestSpeedReductionNotice(t *testing.T) {
 			t.Parallel()
 			g := &Game{state: session.State{Epoch: "a", ServerStart: "server", Speed: 15, SpeedReduction: session.SpeedReduction{Sequence: 1, From: 60, To: 15}}}
 			g.announceSpeedReduction(session.State{Epoch: tc.epoch, ServerStart: tc.start, SpeedReduction: session.SpeedReduction{Sequence: tc.sequence}})
-			if (g.notice != "") != tc.want {
-				t.Fatalf("notice=%q, want shown=%t", g.notice, tc.want)
+			if (g.notice.text != "") != tc.want {
+				t.Fatalf("notice=%q, want shown=%t", g.notice.text, tc.want)
 			}
-			if tc.want && g.notice != "Speed reduced from 60x to 15x: the simulation could not keep up." {
-				t.Fatal(g.notice)
+			if tc.want && g.notice.text != "Speed reduced from 60x to 15x: the simulation could not keep up." {
+				t.Fatal(g.notice.text)
 			}
 		})
 	}

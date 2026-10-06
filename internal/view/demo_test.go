@@ -40,7 +40,7 @@ func TestDemoButtonState(t *testing.T) {
 				t.Fatalf("button %q disabled %t, want %q disabled %t", control.label, control.disabled, demoButtonLabel, test.wantDisabled)
 			}
 			game.click(centerOfButton(control))
-			if got := game.noticeAction == demoConfirmAction; got == test.wantDisabled {
+			if got := game.notice.action == demoConfirmAction; got == test.wantDisabled {
 				t.Errorf("press shows the confirmation %t, want %t", got, !test.wantDisabled)
 			}
 		})
@@ -111,8 +111,8 @@ func TestDemoAsksAgain(t *testing.T) {
 				if _, _, pending := game.client.View(); pending || game.pending || game.message != "" {
 					t.Fatalf("press %d sent a command: pending %t message %q", index+1, pending, game.message)
 				}
-				if want := confirmations[press.action]; game.notice != want || game.noticeTicks != window {
-					t.Fatalf("press %d notice = %q for %d ticks, want %q for %d ticks", index+1, game.notice, game.noticeTicks, want, window)
+				if want := confirmations[press.action]; game.notice.text != want || game.notice.ticks != window {
+					t.Fatalf("press %d notice = %q for %d ticks, want %q for %d ticks", index+1, game.notice.text, game.notice.ticks, want, window)
 				}
 			}
 			if !slices.ContainsFunc(test.presses, func(value press) bool { return value.wantDemo }) {
