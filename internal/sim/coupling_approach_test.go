@@ -272,6 +272,44 @@ func TestCouplingApproachPreparationGuards(t *testing.T) {
 	}
 }
 
+// With two faults, preparation reports the one that its fixed check order
+// reaches first. The front completes its member checks before the rear
+// starts, and the rear claims precede the front frontier.
+func TestCouplingApproachPreparationRefusalOrder(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name   string
+		change func(*couplingApproachPrepareInput)
+		want   string
+	}{
+		{"pair_before_member", func(i *couplingApproachPrepareInput) {
+			i.Simulation.vehicles[1].follower = 1
+			i.Simulation.vehicles[0].Pod.Speed = 1
+		}, "approach needs one existing straight virtual pair: coupling reservation denied"},
+		{"front_before_rear", func(i *couplingApproachPrepareInput) {
+			i.Simulation.waiting = append(i.Simulation.waiting, waitingTrip{request: Request{PodID: "front"}})
+			i.Simulation.vehicles[1].Pod.Speed = 1
+		}, "approach member has a pending pickup: coupling reservation denied"},
+		{"claims_before_frontier", func(i *couplingApproachPrepareInput) {
+			for r := range i.Simulation.vehicles[1].routeReleases {
+				i.Simulation.owners[r] = podResourceOwner("foreign")
+			}
+			for r := range i.Simulation.vehicles[0].routeReleases {
+				i.Simulation.owners[r] = podResourceOwner("foreign")
+			}
+		}, "rear current footprint lacks its actual virtual owner: coupling reservation denied"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			input := couplingApproachFixture(t, false)
+			test.change(&input)
+			if _, _, err := prepareCouplingApproach(input); err == nil || err.Error() != test.want {
+				t.Fatalf("refusal = %v, want %q", err, test.want)
+			}
+		})
+	}
+}
+
 // A front at rest at the end of the first cell of the assembly lane has
 // passed the From node and the junction of that cell. No pod owns the
 // node, and the rear owns the junction.
