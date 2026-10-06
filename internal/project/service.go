@@ -38,136 +38,160 @@ type projectFields struct {
 	coupling bool
 }
 
+// projectFieldScan carries the state of one scanProjectFields pass.
+// couplingMembers holds the couplingMemberBit of each coupling member that
+// the scan has read.
+type projectFieldScan struct {
+	decoder         *jsontext.Decoder
+	fields          projectFields
+	couplingMembers uint8
+}
+
 func scanProjectFields(data []byte) (projectFields, error) {
-	decoder := jsontext.NewDecoder(bytes.NewReader(data))
-	fields := projectFields{}
-	var couplingMembers uint8
+	scan := projectFieldScan{decoder: jsontext.NewDecoder(bytes.NewReader(data))}
 	for {
-		token, err := decoder.ReadToken()
+		token, err := scan.decoder.ReadToken()
 		if errors.Is(err, io.EOF) {
-			return fields, nil
+			return scan.fields, nil
 		}
 		if err != nil {
 			return projectFields{}, err
 		}
-		path := strings.Split(string(decoder.StackPointer()), "/")
-		kind, length := decoder.StackIndex(decoder.StackDepth())
-		if kind == jsontext.KindBeginArray && len(path) == 3 && path[1] == "expressServices" && length > MaxExpressServices {
-			return projectFields{}, fmt.Errorf("express registry has more than %d services", MaxExpressServices)
-		}
-		if token.Kind() != jsontext.KindString || kind != jsontext.KindBeginObject || length%2 != 1 {
-			continue
-		}
-		switch {
-		case len(path) == 2 && couplingMemberBit(path[1]) != 0:
-			fields.coupling = true
-			bit := couplingMemberBit(path[1])
-			if couplingMembers&bit != 0 {
-				return projectFields{}, errors.New("duplicate coupling member")
-			}
-			couplingMembers |= bit
-			if err := scanCouplingMember(decoder, path[1]); err != nil {
-				return projectFields{}, err
-			}
-
-		case len(path) == 2 && path[1] == "incidentContract":
-			// An explicit null or empty marker is presence. The typed
-			// check cannot see it.
-			value, err := decoder.ReadToken()
-			if err != nil {
-				return projectFields{}, err
-			}
-			if value.Kind() != jsontext.KindString || value.String() != string(sim.IncidentV1Contract) {
-				return projectFields{}, sim.ErrUnknownIncidentContract
-			}
-		case len(path) == 2 && path[1] == "faultContract":
-			// An explicit null or empty marker is presence, as for the
-			// incident marker.
-			value, err := decoder.ReadToken()
-			if err != nil {
-				return projectFields{}, err
-			}
-			if value.Kind() != jsontext.KindString || value.String() != string(FaultV1Contract) {
-				return projectFields{}, errUnknownFaultContract
-			}
-		case len(path) == 2 && path[1] == "faults":
-			value, err := decoder.ReadValue()
-			if err != nil {
-				return projectFields{}, err
-			}
-			if err := scanSettings("faults", value); err != nil {
-				return projectFields{}, err
-			}
-		case len(path) == 2 && path[1] == "emergencyContract":
-			// An explicit null or empty marker is presence, as for the
-			// incident marker.
-			value, err := decoder.ReadToken()
-			if err != nil {
-				return projectFields{}, err
-			}
-			if value.Kind() != jsontext.KindString || value.String() != string(EmergencyV1Contract) {
-				return projectFields{}, errUnknownEmergencyContract
-			}
-		case len(path) == 2 && path[1] == "emergencies":
-			value, err := decoder.ReadValue()
-			if err != nil {
-				return projectFields{}, err
-			}
-			if err := scanSettings("emergencies", value); err != nil {
-				return projectFields{}, err
-			}
-		case len(path) == 2 && path[1] == "orderContract":
-			fields.service = true
-			value, err := decoder.ReadToken()
-			if err != nil {
-				return projectFields{}, err
-			}
-			if value.Kind() != jsontext.KindString || value.String() != string(sim.ExpressOrderContract) {
-				return projectFields{}, errors.New("order contract must be express-v1")
-			}
-		case len(path) == 2 && path[1] == "onboardPickups":
-			fields.service = true
-			value, err := decoder.ReadToken()
-			if err != nil {
-				return projectFields{}, err
-			}
-			if value.Kind() != jsontext.KindTrue && value.Kind() != jsontext.KindFalse {
-				return projectFields{}, errors.New("onboard pickups must be Boolean")
-			}
-		case len(path) == 2 && path[1] == "stationQueueSpacing":
-			fields.service = true
-			value, err := decoder.ReadToken()
-			if err != nil {
-				return projectFields{}, err
-			}
-			if value.Kind() != jsontext.KindString || !ValidStationQueueSpacing(sim.StationQueueSpacing(value.String())) {
-				return projectFields{}, errors.New("station queue spacing must be ordinary or compact-v1")
-			}
-		case serviceClassListPath(path):
-			fields.service = true
-			var classes sim.ClassSet
-			if err := classes.UnmarshalJSONFrom(decoder); err != nil {
-				return projectFields{}, err
-			}
-		case len(path) == 4 && path[1] == "fleet" && path[3] == "class":
-			fields.service = true
-			value, err := decoder.ReadToken()
-			if err != nil {
-				return projectFields{}, err
-			}
-			if value.Kind() != jsontext.KindString || value.String() == "" {
-				return projectFields{}, errors.New("explicit fleet class needs nonempty text")
-			}
-			if _, known := sim.LookupVehicleClass(sim.VehicleClass(value.String())); !known {
-				return projectFields{}, sim.ErrUnknownVehicleClass
-			}
-		case len(path) == 2 && path[1] == "expressServices":
-			fields.service = true
-			if decoder.PeekKind() != jsontext.KindBeginArray {
-				return projectFields{}, errors.New("express registry must be an array")
-			}
+		if err := scan.token(token); err != nil {
+			return projectFields{}, err
 		}
 	}
+}
+
+// token checks the bound of the express registry at each of its
+// elements. When token is an object member name, it then checks the
+// member at the path.
+func (scan *projectFieldScan) token(token jsontext.Token) error {
+	path := strings.Split(string(scan.decoder.StackPointer()), "/")
+	kind, length := scan.decoder.StackIndex(scan.decoder.StackDepth())
+	if kind == jsontext.KindBeginArray && len(path) == 3 && path[1] == "expressServices" && length > MaxExpressServices {
+		return fmt.Errorf("express registry has more than %d services", MaxExpressServices)
+	}
+	if token.Kind() != jsontext.KindString || kind != jsontext.KindBeginObject || length%2 != 1 {
+		return nil
+	}
+	if len(path) == 2 {
+		return scan.topMember(path[1])
+	}
+	return scan.nestedMember(path)
+}
+
+// topMember checks the value of the top-level member name before the
+// decoder reads it.
+func (scan *projectFieldScan) topMember(name string) error {
+	decoder := scan.decoder
+	if bit := couplingMemberBit(name); bit != 0 {
+		return scan.couplingMember(name, bit)
+	}
+	switch name {
+	case "incidentContract":
+		// An explicit null or empty marker is presence. The typed
+		// check cannot see it.
+		return scanContractMarker(decoder, string(sim.IncidentV1Contract), sim.ErrUnknownIncidentContract)
+	case "faultContract":
+		// An explicit null or empty marker is presence, as for the
+		// incident marker.
+		return scanContractMarker(decoder, string(FaultV1Contract), errUnknownFaultContract)
+	case "faults", "emergencies":
+		value, err := decoder.ReadValue()
+		if err != nil {
+			return err
+		}
+		return scanSettings(name, value)
+	case "emergencyContract":
+		// An explicit null or empty marker is presence, as for the
+		// incident marker.
+		return scanContractMarker(decoder, string(EmergencyV1Contract), errUnknownEmergencyContract)
+	case "orderContract":
+		scan.fields.service = true
+		return scanContractMarker(decoder, string(sim.ExpressOrderContract), errors.New("order contract must be express-v1"))
+	case "onboardPickups":
+		scan.fields.service = true
+		return scanOnboardPickups(decoder)
+	case "stationQueueSpacing":
+		scan.fields.service = true
+		return scanStationQueueSpacing(decoder)
+	case "expressServices":
+		scan.fields.service = true
+		if decoder.PeekKind() != jsontext.KindBeginArray {
+			return errors.New("express registry must be an array")
+		}
+	}
+	return nil
+}
+
+// couplingMember checks a coupling member. Each coupling member can occur
+// once.
+func (scan *projectFieldScan) couplingMember(name string, bit uint8) error {
+	scan.fields.coupling = true
+	if scan.couplingMembers&bit != 0 {
+		return errors.New("duplicate coupling member")
+	}
+	scan.couplingMembers |= bit
+	return scanCouplingMember(scan.decoder, name)
+}
+
+// nestedMember checks the vehicle class members below the top level.
+func (scan *projectFieldScan) nestedMember(path []string) error {
+	switch {
+	case serviceClassListPath(path):
+		scan.fields.service = true
+		var classes sim.ClassSet
+		return classes.UnmarshalJSONFrom(scan.decoder)
+	case len(path) == 4 && path[1] == "fleet" && path[3] == "class":
+		scan.fields.service = true
+		value, err := scan.decoder.ReadToken()
+		if err != nil {
+			return err
+		}
+		if value.Kind() != jsontext.KindString || value.String() == "" {
+			return errors.New("explicit fleet class needs nonempty text")
+		}
+		if _, known := sim.LookupVehicleClass(sim.VehicleClass(value.String())); !known {
+			return sim.ErrUnknownVehicleClass
+		}
+	}
+	return nil
+}
+
+// scanContractMarker reads the value of a contract marker. It returns
+// refusal unless the value is the text want.
+func scanContractMarker(decoder *jsontext.Decoder, want string, refusal error) error {
+	value, err := decoder.ReadToken()
+	if err != nil {
+		return err
+	}
+	if value.Kind() != jsontext.KindString || value.String() != want {
+		return refusal
+	}
+	return nil
+}
+
+func scanOnboardPickups(decoder *jsontext.Decoder) error {
+	value, err := decoder.ReadToken()
+	if err != nil {
+		return err
+	}
+	if value.Kind() != jsontext.KindTrue && value.Kind() != jsontext.KindFalse {
+		return errors.New("onboard pickups must be Boolean")
+	}
+	return nil
+}
+
+func scanStationQueueSpacing(decoder *jsontext.Decoder) error {
+	value, err := decoder.ReadToken()
+	if err != nil {
+		return err
+	}
+	if value.Kind() != jsontext.KindString || !ValidStationQueueSpacing(sim.StationQueueSpacing(value.String())) {
+		return errors.New("station queue spacing must be ordinary or compact-v1")
+	}
+	return nil
 }
 
 func serviceClassListPath(path []string) bool {
