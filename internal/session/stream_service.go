@@ -21,48 +21,58 @@ import (
 func DecodeStreamJSON(data []byte) (StreamEnvelope, error) {
 	var envelope StreamEnvelope
 	members, err := decodeMarkedJSON(data, false, &envelope)
-	envelope.incidentMembers = members
+	envelope.incidentMembers, envelope.faultMembers = members.incident, members.fault
 	return envelope, err
+}
+
+// markedMembers records whether a document has a stage 1 incident member
+// and a stage 2 fault member, with any value.
+type markedMembers struct {
+	incident, fault bool
 }
 
 // decodeMarkedJSON decodes a stream envelope, or an HTTP state when
 // httpState is true, into target. The root contract markers of the
 // document select the rules of the scans. Each scan reads the tokens only,
 // so it bounds the document before the typed decode makes values. It
-// reports whether the document has a stage 1 incident member. The caller
-// checks that against the incident marker.
-func decodeMarkedJSON(data []byte, httpState bool, target any) (bool, error) {
+// reports whether the document has a stage 1 incident member and a stage 2
+// fault member. The caller checks that against the markers.
+func decodeMarkedJSON(data []byte, httpState bool, target any) (markedMembers, error) {
 	if len(data) > MaxStreamJSON {
-		return false, errors.New("state JSON too large")
+		return markedMembers{}, errors.New("state JSON too large")
 	}
 	markers, err := scanRootMarkers(data)
 	if err != nil {
-		return false, err
+		return markedMembers{}, err
 	}
 	// Without the coupling marker, scanStreamServiceMembers refuses each
 	// coupling member.
 	if markers.coupling != "" {
 		if err := scanCouplingPublicJSON(data, httpState); err != nil {
-			return false, err
+			return markedMembers{}, err
 		}
 	}
 	if err := scanContractMarkers(data, markers.order == sim.ExpressOrderContract); err != nil {
-		return false, err
+		return markedMembers{}, err
 	}
 	if err := scanPackedOrders(data); err != nil {
-		return false, err
+		return markedMembers{}, err
 	}
 	if err := scanStreamBoardingMembers(data, markers); err != nil {
-		return false, err
+		return markedMembers{}, err
 	}
 	if err := scanStreamServiceMembers(data, markers); err != nil {
-		return false, err
+		return markedMembers{}, err
 	}
-	members, scanErr := scanIncidentMembers(data)
+	incident, scanErr := scanIncidentMembers(data)
 	if scanErr != nil {
-		return false, scanErr
+		return markedMembers{}, scanErr
 	}
-	return members, decodePackedStreamJSON(data, target)
+	fault, scanErr := scanFaultMembers(data)
+	if scanErr != nil {
+		return markedMembers{}, scanErr
+	}
+	return markedMembers{incident: incident, fault: fault}, decodePackedStreamJSON(data, target)
 }
 
 // scanRootMarkers bounds data with the limits of its root contract markers

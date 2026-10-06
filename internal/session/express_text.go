@@ -91,8 +91,12 @@ func decodePackedRequest(d *jsontext.Decoder, r *sim.Request) error {
 func packedRequestOptions() jsonv2.Options {
 	return jsonv2.WithMarshalers(jsonv2.MarshalToFunc(encodePackedRequest))
 }
+
+// packedDecodeOptions decode the packed order text of a stream document,
+// and its faults with decodeFaultView.
 func packedDecodeOptions() jsonv2.Options {
-	return jsonv2.JoinOptions(jsonv2.WithUnmarshalers(jsonv2.UnmarshalFromFunc(decodePackedRequest)), jsontext.AllowDuplicateNames(false))
+	return jsonv2.JoinOptions(jsonv2.WithUnmarshalers(jsonv2.JoinUnmarshalers(
+		jsonv2.UnmarshalFromFunc(decodePackedRequest), jsonv2.UnmarshalFromFunc(decodeFaultView))), jsontext.AllowDuplicateNames(false))
 }
 
 // scanPackedOrders rejects noncanonical text before typed order allocation.

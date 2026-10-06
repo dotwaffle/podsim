@@ -418,7 +418,7 @@ func (s *Session) Topology() TopologySnapshot {
 func (s *Session) topologyLocked() TopologySnapshot {
 	topology := TopologySnapshot{
 		ProjectVersion: s.project.Version, OrderContract: s.project.OrderContract, IncidentContract: s.project.IncidentContract,
-		CouplingContract: s.project.CouplingContract, CouplingEnabled: s.project.CouplingEnabled,
+		FaultContract: s.project.FaultContract, CouplingContract: s.project.CouplingContract, CouplingEnabled: s.project.CouplingEnabled,
 		CouplingSites: slices.Clone(s.project.CouplingSites), CouplingCorridors: cloneCouplingCorridors(s.project.CouplingCorridors),
 		ServerStart: s.serverStart, Epoch: s.epoch, ProjectRevision: s.projectRevision,
 		Network: project.CloneNetwork(s.project.Network),

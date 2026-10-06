@@ -544,7 +544,7 @@ func measureComposedStream(t *testing.T, shape composedShape) []composedSize {
 	}
 	assertExplicitArrayBounds(t, shape.name+" HTTP state", raw, limits)
 	var decoded StateEnvelope
-	if members, err := decodeMarkedJSON(raw, true, &decoded); err != nil || !members {
+	if members, err := decodeMarkedJSON(raw, true, &decoded); err != nil || !members.incident {
 		t.Fatalf("%s HTTP state decode: %v, incident members %v", shape.name, err, members)
 	}
 	if len(decoded.Frame.State.Simulation.Vehicles) != project.MaxPods || int64(len(decoded.Frame.State.Simulation.Pending)) != orders ||

@@ -241,17 +241,21 @@ func (x incidentSave) checkStream(t *testing.T, name string) {
 }
 
 // incidentView is the incident marker and the stage 1 members of a frame,
-// with each order in the form "id:legFrom".
+// with each order in the form "id:legFrom", and the fault marker and the
+// faults of the frame.
 type incidentFrameView struct {
 	Marker                             sim.IncidentContract
 	Interrupted, InterruptedPassengers int
 	Vehicles                           []string
 	Pending                            []string
+	FaultMarker                        sim.FaultContract
+	Faults                             sim.FaultsView
 }
 
 func incidentView(frame SimulationFrame) incidentFrameView {
 	order := func(r sim.Request) string { return fmt.Sprintf("%d:%s", r.ID, r.LegFrom) }
-	view := incidentFrameView{Marker: frame.IncidentContract, Interrupted: frame.Interrupted, InterruptedPassengers: frame.InterruptedPassengers}
+	view := incidentFrameView{Marker: frame.IncidentContract, Interrupted: frame.Interrupted, InterruptedPassengers: frame.InterruptedPassengers,
+		FaultMarker: frame.FaultContract, Faults: frame.Faults}
 	for _, vehicle := range frame.Vehicles {
 		riders := make([]string, len(vehicle.Riders))
 		for i, rider := range vehicle.Riders {

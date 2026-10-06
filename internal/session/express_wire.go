@@ -43,6 +43,9 @@ func validateEncodedContract(e StreamEnvelope) error {
 		if err := checkIncidentFrame(e.Full.State.Simulation); err != nil {
 			return err
 		}
+		if err := checkFaultFrame(e.Full.State.Simulation); err != nil {
+			return err
+		}
 		if e.OrderContract != e.Full.State.Simulation.OrderContract {
 			return errors.New("publication order contract mismatch")
 		}
@@ -135,7 +138,7 @@ func preflightExpressTopology(config project.Config, serverStart, epoch string, 
 	if !project.HasCouplingContract(config) && config.OrderContract != sim.ExpressOrderContract {
 		return nil
 	}
-	topology := TopologySnapshot{CouplingContract: config.CouplingContract, CouplingEnabled: config.CouplingEnabled, CouplingSites: config.CouplingSites, CouplingCorridors: config.CouplingCorridors, ProjectVersion: config.Version, OrderContract: config.OrderContract, IncidentContract: config.IncidentContract, ExpressServices: config.ExpressServices, Network: config.Network, Geo: config.Geo, Map: config.Map, ServerStart: serverStart, Epoch: epoch, ProjectRevision: revision}
+	topology := TopologySnapshot{CouplingContract: config.CouplingContract, CouplingEnabled: config.CouplingEnabled, CouplingSites: config.CouplingSites, CouplingCorridors: config.CouplingCorridors, ProjectVersion: config.Version, OrderContract: config.OrderContract, IncidentContract: config.IncidentContract, FaultContract: config.FaultContract, ExpressServices: config.ExpressServices, Network: config.Network, Geo: config.Geo, Map: config.Map, ServerStart: serverStart, Epoch: epoch, ProjectRevision: revision}
 	data, err := json.Marshal(topology)
 	if err != nil {
 		return err

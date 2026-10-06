@@ -44,6 +44,7 @@ type StreamAssembler struct {
 	classes        map[string]sim.VehicleClass
 	topology       TopologySnapshot
 	lanes          map[string]bool
+	laneIndexes    map[string]int
 	groupLanes     map[string]bool
 	stations       map[string]bool
 	// passengerStations holds the stations that are not parking-only.
@@ -66,6 +67,9 @@ func NewStreamAssembler(topology TopologySnapshot) (*StreamAssembler, error) {
 	if err := sim.ValidateIncidentContract(topology.IncidentContract); err != nil {
 		return nil, err
 	}
+	if err := sim.ValidateFaultContracts(topology.FaultContract, topology.IncidentContract); err != nil {
+		return nil, err
+	}
 	// A coupling member of the topology selects the coupling marker.
 	markers := contractMarkers{order: topology.OrderContract}
 	if hasCouplingTopology(topology) {
@@ -79,7 +83,7 @@ func NewStreamAssembler(topology TopologySnapshot) (*StreamAssembler, error) {
 	if len(topology.Network.Lanes) > project.MaxLanes || len(topology.Network.Nodes) > project.MaxNodes {
 		return nil, errors.New("topology exceeds supported limits")
 	}
-	a := &StreamAssembler{topology: topology, lanes: make(map[string]bool, len(topology.Network.Lanes)), groupLanes: make(map[string]bool, len(topology.Network.Lanes)), stations: map[string]bool{}, passengerStations: map[string]bool{}, berths: map[string]bool{}, boardingBerths: map[string]boardingBerth{}}
+	a := &StreamAssembler{topology: topology, lanes: make(map[string]bool, len(topology.Network.Lanes)), laneIndexes: make(map[string]int, len(topology.Network.Lanes)), groupLanes: make(map[string]bool, len(topology.Network.Lanes)), stations: map[string]bool{}, passengerStations: map[string]bool{}, berths: map[string]bool{}, boardingBerths: map[string]boardingBerth{}}
 	if markers.coupling != "" {
 		validator, err := newCouplingFrameValidator(topology)
 		if err != nil {
@@ -118,6 +122,7 @@ func NewStreamAssembler(topology TopologySnapshot) (*StreamAssembler, error) {
 			return nil, errors.New("duplicate topology lane")
 		}
 		a.lanes[l.ID] = true
+		a.laneIndexes[l.ID] = len(a.laneIndexes)
 		admitted := l.VehicleClasses.Allows(string(sim.GroupClass))
 		if l.StationID != "" {
 			classes, found := stationClasses[l.StationID]
@@ -144,6 +149,12 @@ func (a *StreamAssembler) State(f StreamFrame) (State, error) {
 		return State{}, err
 	}
 	if err := checkIncidentFrame(f.State.Simulation); err != nil {
+		return State{}, err
+	}
+	if err := checkFaultFrame(f.State.Simulation); err != nil {
+		return State{}, err
+	}
+	if err := a.faultLanes(f.State.Simulation); err != nil {
 		return State{}, err
 	}
 	if err := a.references(f); err != nil {
@@ -248,6 +259,9 @@ func (a *StreamAssembler) references(f StreamFrame) error {
 	}
 	snapshot := f.State.Simulation
 	pods := map[string]bool{}
+	// A wait report names a pod or an active fault (incident suspension
+	// contract, section 9.6).
+	faults := faultIDs(snapshot)
 	pendingLimit := maxSavedTrips
 	if a.topology.OrderContract == sim.ExpressOrderContract {
 		pendingLimit = sim.MaxExpressWaitingTrips
@@ -269,7 +283,7 @@ func (a *StreamAssembler) references(f StreamFrame) error {
 		if err := a.vehicleBoardings(v); err != nil {
 			return err
 		}
-		if !optionalReference(a.stations, p.StationID) || !optionalReference(a.stations, p.ManeuverStationID) || !optionalReference(a.stations, v.RelocatingTo) || !optionalReference(a.berths, p.BerthID) || !optionalReference(pods, p.BlockedBy) || !optionalReference(pods, v.PlatoonID) {
+		if !optionalReference(a.stations, p.StationID) || !optionalReference(a.stations, p.ManeuverStationID) || !optionalReference(a.stations, v.RelocatingTo) || !optionalReference(a.berths, p.BerthID) || !optionalReference(pods, p.BlockedBy) && !faults[p.BlockedBy] || !optionalReference(pods, v.PlatoonID) {
 			return errors.New("invalid pod reference")
 		}
 		if len(v.Riders) > sim.MaxStoredRidersForOrderContract(v.Pod.Class, a.topology.OrderContract) || len(v.Stops) > 8 {

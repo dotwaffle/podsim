@@ -141,6 +141,9 @@ type StreamEnvelope struct {
 	// or the incident group, with any value. The typed fields cannot show
 	// an explicit zero or null. See scanIncidentMembers.
 	incidentMembers bool
+	// faultMembers records the same for a stage 2 member or the faults
+	// group. See scanFaultMembers.
+	faultMembers bool
 }
 
 func sourceOf(f StreamFrame) StreamSource {
@@ -214,6 +217,11 @@ func frameGroups(f StreamFrame) (map[string]json.RawMessage, error) {
 	if state.Simulation.IncidentContract != "" {
 		values["incident"] = incidentGroup{state.Simulation.Interrupted, state.Simulation.InterruptedPassengers}
 	}
+	// With the fault marker, the faults group is {} when no fault is
+	// active and each counter is 0.
+	if state.Simulation.FaultContract != "" {
+		values["faults"] = state.Simulation.Faults
+	}
 	// Each group is raw bytes, so the options of the envelope encoder do
 	// not reach the orders of the pending group. Pack them here.
 	groups := make(map[string]json.RawMessage, len(values))
@@ -227,6 +235,9 @@ func frameGroups(f StreamFrame) (map[string]json.RawMessage, error) {
 }
 func makeDelta(a, b StreamFrame) (StreamDelta, error) {
 	if err := checkIncidentFrame(b.State.Simulation); err != nil {
+		return StreamDelta{}, err
+	}
+	if err := checkFaultFrame(b.State.Simulation); err != nil {
 		return StreamDelta{}, err
 	}
 	old, err := frameGroups(a)
@@ -296,6 +307,16 @@ func applyGroups(f *StreamFrame, groups map[string]json.RawMessage) error {
 			}
 			f.State.Simulation.Interrupted, f.State.Simulation.InterruptedPassengers = v.Interrupted, v.InterruptedPassengers
 			continue
+		case "faults":
+			if f.State.Simulation.FaultContract == "" {
+				return errFaultStreamUnmarked
+			}
+			faults, err := decodeFaultsGroup(raw)
+			if err != nil {
+				return err
+			}
+			f.State.Simulation.Faults = faults
+			continue
 		case "global":
 			var v globalGroup
 			if err := decodeStreamJSON(raw, &v); err != nil {
@@ -354,6 +375,9 @@ func ApplyStream(previous StreamFrame, stream string, sequence uint64, e StreamE
 		return StreamFrame{}, errors.New("invalid stream identity")
 	}
 	if err := checkIncidentPresence(e, previous); err != nil {
+		return StreamFrame{}, err
+	}
+	if err := checkFaultPresence(e, previous); err != nil {
 		return StreamFrame{}, err
 	}
 	var f StreamFrame
@@ -452,6 +476,9 @@ func ApplyStream(previous StreamFrame, stream string, sequence uint64, e StreamE
 	if err := checkIncidentFrame(f.State.Simulation); err != nil {
 		return StreamFrame{}, err
 	}
+	if err := checkFaultFrame(f.State.Simulation); err != nil {
+		return StreamFrame{}, err
+	}
 	for i, v := range f.State.Simulation.Vehicles {
 		if err := validateVehicleBoardingsContract(v, f.State.Simulation.OrderContract); err != nil {
 			return StreamFrame{}, err
@@ -463,7 +490,7 @@ func ApplyStream(previous StreamFrame, stream string, sequence uint64, e StreamE
 	return ownStreamBoardings(f), nil
 }
 
-func decodeStreamJSON(data []byte, target any) error {
+func decodeStreamJSON(data []byte, target any, options ...jsonv2.Options) error {
 	if len(data) > MaxStreamJSON {
 		return errors.New("state JSON too large")
 	}
@@ -472,7 +499,8 @@ func decodeStreamJSON(data []byte, target any) error {
 	}
 	// The streaming decoder removes outer whitespace before typed decoding.
 	// Keep its offsets and legacy options without the extra input buffer.
-	return jsonv2.Unmarshal(bytes.TrimSpace(data), target, json.DefaultOptionsV1(), jsonv2.MatchCaseInsensitiveNames(false), jsonv2.RejectUnknownMembers(true))
+	return jsonv2.Unmarshal(bytes.TrimSpace(data), target, json.DefaultOptionsV1(), jsonv2.MatchCaseInsensitiveNames(false),
+		jsonv2.RejectUnknownMembers(true), jsonv2.JoinOptions(options...))
 }
 
 // decodePackedStreamJSON decodes data into target with packed order

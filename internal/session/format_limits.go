@@ -86,6 +86,11 @@ func streamLimits(markers contractMarkers) jsonLimits {
 	limits.arrays["/delta/vehicles/*/stops/value"] = sim.MaxSharedRideParties
 	limits.arrays["/delta/vehicles/*/route/value/display"] = project.MaxLanes
 	limits.arrays["/delta/vehicles/*/route/value/lanes"] = sim.MotionRouteLimit
+	// The active faults: a full frame, an HTTP frame, the delta group,
+	// and the group alone (incident suspension contract, section 13.5).
+	for _, path := range []string{"/full/state/simulation/faults/active", "/frame/state/simulation/faults/active", "/delta/groups/faults/active", "/active"} {
+		limits.arrays[path] = maxFaultRecords
+	}
 	for path, bound := range topologyJSONLimits.arrays {
 		limits.arrays["/topology"+path] = bound
 	}

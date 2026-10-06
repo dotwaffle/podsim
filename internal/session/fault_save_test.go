@@ -233,17 +233,61 @@ func faultSave(t *testing.T, pods, evacuation int) incidentSave {
 	return newIncidentSave(t, config)
 }
 
-// command applies a command at a paused command boundary.
-func (x incidentSave) command(t *testing.T, command Command) {
+// command applies a command at a paused command boundary and returns the
+// fault ID of its reply.
+func (x incidentSave) command(t *testing.T, command Command) string {
 	t.Helper()
 	x.s.mu.Lock()
 	defer x.s.mu.Unlock()
-	if _, err := x.s.apply(command); err != nil {
+	result, err := x.s.apply(command)
+	if err != nil {
 		t.Fatalf("%s: %v", command.Action, err)
 	}
 	if _, err := x.s.apply(Command{Action: "pause", Paused: true}); err != nil {
 		t.Fatal(err)
 	}
+	return result.faultID
+}
+
+// TestFaultSessionSaves saves at the command boundaries and tick ends of
+// section 16.5 of the incident suspension contract, through the session
+// adapter: after a fault command on a moving pod, at the end of the tick
+// in which it reaches rest, at the end of the tick of its evacuation,
+// after a fault command on a pod at a berth, after a debris command, and
+// after a clear during braking. See incidentSave.check.
+func TestFaultSessionSaves(t *testing.T) {
+	t.Parallel()
+	t.Run("moving pod", func(t *testing.T) {
+		t.Parallel()
+		x := faultSave(t, 2, 0)
+		x.boardTwo(t)
+		x.command(t, Command{Action: "fault", PodID: "01"})
+		if state := x.check(t, "fault on a moving pod"); state.Faults == nil || len(state.Faults.Records) != 1 {
+			t.Fatalf("faults %+v", state.Faults)
+		}
+		x.stepUntil(t, "rest", func(sim.SavedState) bool { return x.s.simulation.Snapshot().Vehicles[0].Pod.Speed == 0 })
+		x.check(t, "end of the tick of rest")
+		x.stepUntil(t, "the evacuation", func(state sim.SavedState) bool { return activeRiders(savedPod(state, "01")) == 0 })
+		if state := x.check(t, "end of the tick of the evacuation"); state.Faults.Counters.Evacuations != 1 {
+			t.Fatalf("counters %+v", state.Faults.Counters)
+		}
+		x.command(t, Command{Action: "fault", PodID: "02"})
+		x.check(t, "fault on a pod at a berth")
+		x.command(t, Command{Action: "fault", LaneID: "bypass-in", FromMeters: new(80.0), ToMeters: new(82.0)})
+		if state := x.check(t, "debris command"); len(state.Faults.Records) != 3 {
+			t.Fatalf("faults %+v", state.Faults)
+		}
+	})
+	t.Run("clear during braking", func(t *testing.T) {
+		t.Parallel()
+		x := faultSave(t, 1, 300)
+		x.boardTwo(t)
+		id := x.command(t, Command{Action: "fault", PodID: "01"})
+		x.command(t, Command{Action: "clearFault", FaultID: id})
+		if state := x.check(t, "clear during braking"); state.Faults == nil || len(state.Faults.Records) != 0 || state.Faults.Counters.Cleared != 1 {
+			t.Fatalf("faults %+v", state.Faults)
+		}
+	})
 }
 
 // faultSessionData returns a save of a session with the fault marker, a

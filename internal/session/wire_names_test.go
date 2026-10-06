@@ -13,12 +13,13 @@ import (
 
 // wireRoots are the values whose JSON forms make the save, topology, HTTP
 // state, command and stream formats. The delta groups are separate roots,
-// because a delta holds them as raw values.
+// because a delta holds them as raw values. The coupling and the faults
+// groups are also roots, because a scanner reads each of them alone.
 func wireRoots() []any {
 	return []any{
 		stateFile{}, TopologySnapshot{}, StateFrame{}, State{}, ProjectState{},
 		Command{}, Reply{}, StreamEnvelope{}, StreamHello{}, StateEnvelope{},
-		couplingReplacement{},
+		couplingReplacement{}, sim.FaultsView{},
 	}
 }
 
@@ -27,6 +28,7 @@ var deltaGroups = map[string]any{
 	"controls": controlsGroup{}, "global": globalGroup{}, "statistics": streamStatistics{},
 	"demand": DemandState{}, "restore": RestoreInfo{}, "checkpoints": []Checkpoint{},
 	"pending": []sim.Request{}, "coupling": couplingReplacement{}, "incident": incidentGroup{},
+	"faults": sim.FaultsView{},
 }
 
 // wirePaths returns the member paths of the wire roots and of the delta
@@ -105,7 +107,7 @@ func TestScannerLiteralsMatchTags(t *testing.T) {
 	files := []string{
 		"boarding_state.go", "compact_state.go", "coupling_json.go",
 		"coupling_state.go", "coupling_stream.go", "coupling_stream_json.go", "express_text.go",
-		"express_wire.go", "http.go", "incident_state.go", "incident_stream.go", "order_command.go", "order_state.go", "protocol.go",
+		"express_wire.go", "fault_state.go", "fault_stream.go", "http.go", "incident_state.go", "incident_stream.go", "order_command.go", "order_state.go", "protocol.go",
 		"state_file.go", "stream_boardings.go", "stream_codec.go", "stream_frame.go",
 		"state_http.go", "stream_service.go", "topology_decode.go", "../remote/client.go", "../remote/stream.go",
 	}
