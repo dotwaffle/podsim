@@ -46,7 +46,7 @@ func placeView(geo *project.Geo, raw jsontext.Value) (mapView, error) {
 	degree := math.Pi / 180
 	xScale := geo.Radius * math.Cos(geo.Latitude*degree) * degree
 	yScale := geo.Radius * degree
-	if box := target.Bounds; box != nil && finiteRange(box.South, -80, 80) && finiteRange(box.North, -80, 80) && finiteRange(box.West, -180, 180) && finiteRange(box.East, -180, 180) && box.South < box.North && box.West < box.East {
+	if box := target.Bounds; box != nil && finiteRange(box.South, -project.MaxGeoLatitude, project.MaxGeoLatitude) && finiteRange(box.North, -project.MaxGeoLatitude, project.MaxGeoLatitude) && finiteRange(box.West, -180, 180) && finiteRange(box.East, -180, 180) && box.South < box.North && box.West < box.East {
 		latitude, longitude = (box.South+box.North)/2, (box.West+box.East)/2
 		width, height = max(80, (box.East-box.West)*xScale), max(80, (box.North-box.South)*yScale)
 	}

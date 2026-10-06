@@ -117,7 +117,7 @@ func mapReference(draft any, command map[string]any) (map[string]any, error) {
 	}
 	// The existing tile anchor checks a small frame around the first anchor.
 	latitude, longitude := number(member(choice["a"], "latitude")), number(member(choice["a"], "longitude"))
-	south, north := max(-80, latitude-.00001), min(80, latitude+.00001)
+	south, north := max(-project.MaxGeoLatitude, latitude-.00001), min(project.MaxGeoLatitude, latitude+.00001)
 	west, east := max(-180, longitude-.00001), min(180, longitude+.00001)
 	if err := referenceFrameBounds(south, north, west, east); err != nil {
 		return nil, err
@@ -176,7 +176,7 @@ func referencePoint(geo any, latitude, longitude float64) (float64, float64) {
 }
 
 func referenceFrameBounds(south, north, west, east float64) error {
-	if !finiteRange(south, -80, 80) || !finiteRange(north, -80, 80) {
+	if !finiteRange(south, -project.MaxGeoLatitude, project.MaxGeoLatitude) || !finiteRange(north, -project.MaxGeoLatitude, project.MaxGeoLatitude) {
 		return editorMessageError("The frame latitudes must be from -80 to 80 degrees.")
 	}
 	if south >= north {
@@ -206,7 +206,7 @@ func referencePlacement(geo any, south, north, west, east float64) error {
 	x, y := referencePoint(geo, north, west)
 	x2, y2 := referencePoint(geo, south, east)
 	for _, coordinate := range []float64{x, y, x2, y2} {
-		if !finiteRange(coordinate, -100000, 100000) {
+		if !finiteRange(coordinate, -project.MaxCoordinate, project.MaxCoordinate) {
 			return editorMessageError("The frame is more than 100000 m from the reference of the project.")
 		}
 	}

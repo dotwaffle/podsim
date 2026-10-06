@@ -1,5 +1,7 @@
 package editormodel
 
+import "github.com/dotwaffle/podsim/internal/sim"
+
 func onboardSettingError(value any) string {
 	if !has(value, "onboardPickups") {
 		return ""
@@ -16,7 +18,7 @@ func onboardSettingError(value any) string {
 	if !has(value, "sharedRideMode") {
 		validMode = true
 	}
-	if !integer(limit) || number(limit) < 2 || number(limit) > 8 || !validMode || mode != "" && mode != "drop-offs" {
+	if !integer(limit) || number(limit) < 2 || number(limit) > sim.MaxSharedRideParties || !validMode || mode != "" && mode != "drop-offs" {
 		return "Onboard pickups require drop-offs sharing and a party limit from 2 to 8."
 	}
 	return ""

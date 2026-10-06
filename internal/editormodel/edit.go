@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/dotwaffle/podsim/internal/project"
+	"github.com/dotwaffle/podsim/internal/sim"
 )
 
 type editCommand struct {
@@ -164,9 +165,9 @@ func proposeProjectEdit(draft any, command editCommand) (projectChange, error) {
 			return projectChange{}, err
 		}
 	case "sharedRidePartyLimit", "sharedRideMaxStops":
-		limit, fallback := 8.0, 1.0
+		limit, fallback := float64(sim.MaxSharedRideParties), 1.0
 		if command.Field == "sharedRideMaxStops" {
-			limit, fallback = 7, 3
+			limit, fallback = sim.MaxSharedRideStops, 3
 		}
 		x, err := editNumber(value)
 		if err != nil || x == 0 {
@@ -188,7 +189,7 @@ func proposeProjectEdit(draft any, command editCommand) (projectChange, error) {
 		change.set(draft, command.Field, setting)
 	case "stationQueueSpacing":
 		setting, ok := value.(string)
-		if !ok || setting != "ordinary" && setting != "compact-v1" {
+		if !ok || !project.ValidStationQueueSpacing(sim.StationQueueSpacing(setting)) {
 			return projectChange{}, errors.New("station queue spacing must be ordinary or compact-v1")
 		}
 		change.set(draft, "stationQueueSpacing", setting)
@@ -209,7 +210,7 @@ func proposeProjectEdit(draft any, command editCommand) (projectChange, error) {
 		return convertToTrains(draft)
 	case "platoonLimit":
 		x, err := editNumber(value)
-		if err != nil || !slices.Contains([]float64{0, 2, 3, 4}, x) {
+		if err != nil || !draftPlatoonLimit(x) {
 			x = 0
 		}
 		change.set(draft, command.Field, x)

@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/dotwaffle/podsim/internal/project"
+	"github.com/dotwaffle/podsim/internal/sim"
 )
 
 func normalizeProject(draft any) (projectChange, error) {
@@ -66,15 +67,15 @@ func normalizeProject(draft any) (projectChange, error) {
 	if err := normalizeDemand(demand, out); err != nil {
 		return projectChange{}, err
 	}
-	out["sharedRidePartyLimit"] = max(1, min(8, math.Floor(editorNumberDefault(out["sharedRidePartyLimit"], 1))))
-	out["sharedRideMaxStops"] = max(1, min(7, math.Floor(editorNumberDefault(out["sharedRideMaxStops"], 3))))
+	out["sharedRidePartyLimit"] = max(1, min(sim.MaxSharedRideParties, math.Floor(editorNumberDefault(out["sharedRidePartyLimit"], 1))))
+	out["sharedRideMaxStops"] = max(1, min(sim.MaxSharedRideStops, math.Floor(editorNumberDefault(out["sharedRideMaxStops"], 3))))
 	if !slices.Contains([]string{"drop-offs", "destination"}, text(out["sharedRideMode"])) {
 		out["sharedRideMode"] = "drop-offs"
 	}
 	if !slices.Contains([]string{"unassigned", "reassign-existing"}, text(out["sharedRideJoin"])) {
 		out["sharedRideJoin"] = "unassigned"
 	}
-	if !slices.Contains([]float64{0, 2, 3, 4}, number(out["platoonLimit"])) {
+	if !draftPlatoonLimit(out["platoonLimit"]) {
 		out["platoonLimit"] = float64(0)
 	}
 	out["stationBuffers"] = out["stationBuffers"] == true

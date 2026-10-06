@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/dotwaffle/podsim/internal/project"
+	"github.com/dotwaffle/podsim/internal/sim"
 )
 
 func checkProfiles(value any, passenger map[string]bool, errors *checkList) {
@@ -27,7 +28,7 @@ func checkProfiles(value any, passenger map[string]bool, errors *checkList) {
 		ids[text(id)] = true
 		prefix := "Demand profile " + text(id)
 		name := member(profile, "name")
-		if strings.TrimSpace(text(name)) == "" || len(text(name)) > 80 {
+		if strings.TrimSpace(text(name)) == "" || len(text(name)) > project.MaxNameLength {
 			errors.add(prefix+" has an invalid name.", nil)
 		}
 		bands, flows := items(member(profile, "bands")), items(member(profile, "flows"))
@@ -89,7 +90,7 @@ func checkDemand(value any, passenger map[string]bool, errors *checkList) {
 		errors.add("The passenger demand pattern is invalid.", nil)
 	}
 	if has(demand, "destination") {
-		if destination, ok := member(demand, "destination").(string); !ok || len(destination) > 64 {
+		if destination, ok := member(demand, "destination").(string); !ok || len(destination) > project.MaxIDLength {
 			errors.add("The passenger demand destination is invalid.", nil)
 		}
 	}
@@ -133,7 +134,7 @@ func checkSettings(value any, errors *checkList) {
 		key, message string
 		max          float64
 	}{
-		{"sharedRidePartyLimit", "The shared ride party limit must be 1 to 8.", 8},
+		{"sharedRidePartyLimit", "The shared ride party limit must be 1 to 8.", sim.MaxSharedRideParties},
 	} {
 		v := member(value, setting.key)
 		if has(value, setting.key) && (!integer(v) || number(v) < 0 || number(v) > setting.max) {
@@ -153,10 +154,10 @@ func checkSettings(value any, errors *checkList) {
 		}
 	}
 	stops := member(value, "sharedRideMaxStops")
-	if has(value, "sharedRideMaxStops") && (!integer(stops) || number(stops) < 0 || number(stops) > 7) {
+	if has(value, "sharedRideMaxStops") && (!integer(stops) || number(stops) < 0 || number(stops) > sim.MaxSharedRideStops) {
 		errors.add("The shared ride stop limit must be 1 to 7.", nil)
 	}
-	if has(value, "platoonLimit") && !slices.Contains([]float64{0, 2, 3, 4}, number(member(value, "platoonLimit"))) {
+	if has(value, "platoonLimit") && !draftPlatoonLimit(member(value, "platoonLimit")) {
 		errors.add("The platoon limit must be 2 to 4, or 0 for no platoons.", nil)
 	}
 	for _, setting := range []struct{ key, message string }{

@@ -71,9 +71,25 @@ func finite(value any) bool {
 }
 
 func integer(value any) bool { x := number(value); return finite(value) && x == math.Trunc(x) }
+
+// draftInt returns value as an int when it is a whole number that an int
+// holds on every platform. Thus a project predicate can check a draft
+// value without a rounded or wrapped conversion.
+func draftInt(value any) (int, bool) {
+	if x := number(value); integer(value) && math.Abs(x) <= math.MaxInt32 {
+		return int(x), true
+	}
+	return 0, false
+}
+
+func draftPlatoonLimit(value any) bool {
+	limit, ok := draftInt(value)
+	return ok && project.ValidPlatoonLimit(limit)
+}
+
 func validID(value any) bool {
 	id, ok := value.(string)
-	return ok && strings.TrimSpace(id) != "" && len(id) <= 64
+	return ok && strings.TrimSpace(id) != "" && len(id) <= project.MaxIDLength
 }
 func has(value any, key string) bool { _, ok := object(value)[key]; return ok }
 
@@ -123,7 +139,7 @@ func preparedDraftChecks(value any, prepared *preparedChecks) checkReport {
 	if strings.TrimSpace(text(name)) == "" {
 		errors.add("The scenario needs a name.", nil)
 	}
-	if len(text(name)) > 80 {
+	if len(text(name)) > project.MaxNameLength {
 		errors.add("The scenario name exceeds 80 bytes.", nil)
 	}
 	network := member(value, "network")
@@ -197,7 +213,7 @@ type draftIDs map[string]map[string]bool
 
 func (ids draftIDs) add(value any, kind, targetKind string, errors *checkList) {
 	id := text(value)
-	if len(id) > 64 {
+	if len(id) > project.MaxIDLength {
 		errors.add(kind+" ID exceeds 64 bytes.", target(targetKind, value))
 	}
 	if strings.TrimSpace(id) == "" {
@@ -299,7 +315,7 @@ func (g *draftNetwork) checkStations(ids draftIDs, pairs map[[2]string]bool, err
 				errors.add("Station "+label(id)+" has an invalid parking setting.", at)
 			}
 		}
-		if len(text(member(station, "name"))) > 80 {
+		if len(text(member(station, "name"))) > project.MaxNameLength {
 			errors.add("Station "+label(id)+" name exceeds 80 bytes.", at)
 		}
 		berths := items(member(station, "berths"))
@@ -447,7 +463,7 @@ func checkFleet(value any, g *draftNetwork, errors *checkList) {
 	occupied, ids := make(map[string]bool), make(map[string]bool)
 	for _, pod := range fleet {
 		id := member(pod, "id")
-		if len(text(id)) > 64 {
+		if len(text(id)) > project.MaxIDLength {
 			errors.add("A pod ID exceeds 64 bytes.", nil)
 		}
 		if strings.TrimSpace(text(id)) == "" {

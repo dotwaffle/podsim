@@ -3,6 +3,8 @@ package editormodel
 import (
 	"fmt"
 	"math"
+
+	"github.com/dotwaffle/podsim/internal/project"
 )
 
 func checkRailPlans(value any, passenger map[string]bool, errors *checkList) {
@@ -15,7 +17,7 @@ func checkRailPlans(value any, passenger map[string]bool, errors *checkList) {
 		errors.add("Rail departures must be an array.", nil)
 		return
 	}
-	if len(items(arrivals))+len(items(departures)) > 256 {
+	if len(items(arrivals))+len(items(departures)) > project.MaxRailArrivals {
 		errors.add("Rail plans must contain at most 256 combined events.", nil)
 	}
 	total, outbound := 0.0, 0.0
@@ -43,7 +45,7 @@ func checkRailPlans(value any, passenger map[string]bool, errors *checkList) {
 			errors.add(prefix+" has an invalid request window or transfer time.", nil)
 		}
 		count := member(departure, "passengers")
-		if !integer(count) || number(count) < 1 || number(count) > 200 {
+		if !integer(count) || number(count) < 1 || number(count) > project.MaxRailRelease {
 			errors.add(prefix+" must offer 1 to 200 passengers.", nil)
 		} else {
 			outbound += number(count)
@@ -60,10 +62,10 @@ func checkRailPlans(value any, passenger map[string]bool, errors *checkList) {
 		}
 		checkRailEndpoints(departure, prefix, "origins", "origin", passenger, errors)
 	}
-	if outbound > 3000 {
+	if outbound > project.MaxRailDeparturePassengers {
 		errors.add("Rail departures must offer at most 3000 passengers.", nil)
 	}
-	if total > 10000 {
+	if total > project.MaxRailPassengers {
 		errors.add("Rail plans must offer at most 10000 combined passengers.", nil)
 	}
 	if crowdedRelease(releases) {
@@ -79,7 +81,7 @@ func checkRailArrivals(value any, passenger map[string]bool, errors *checkList) 
 		errors.add("Rail arrivals must be an array.", nil)
 		return
 	}
-	if len(items(value)) > 256 {
+	if len(items(value)) > project.MaxRailArrivals {
 		errors.add("The project must contain at most 256 rail arrivals.", nil)
 	}
 	ids, releases, total := make(map[string]bool), make(map[float64]float64), 0.0
@@ -96,7 +98,7 @@ func checkRailArrivals(value any, passenger map[string]bool, errors *checkList) 
 			errors.add(prefix+" has an invalid arrival time or walking delay.", nil)
 		}
 		count := member(arrival, "passengers")
-		if !integer(count) || number(count) < 1 || number(count) > 200 {
+		if !integer(count) || number(count) < 1 || number(count) > project.MaxRailRelease {
 			errors.add(prefix+" must offer 1 to 200 passengers.", nil)
 		} else {
 			total += number(count)
@@ -106,7 +108,7 @@ func checkRailArrivals(value any, passenger map[string]bool, errors *checkList) 
 		}
 		checkRailEndpoints(arrival, prefix, "destinations", "destination", passenger, errors)
 	}
-	if total > 10000 {
+	if total > project.MaxRailPassengers {
 		errors.add("Rail arrivals must offer at most 10000 passengers.", nil)
 	}
 	if crowdedRelease(releases) {
@@ -116,7 +118,7 @@ func checkRailArrivals(value any, passenger map[string]bool, errors *checkList) 
 
 func checkRailIdentity(event any, prefix string, passenger, ids map[string]bool, errors *checkList) {
 	id := member(event, "id")
-	if value, ok := id.(string); !ok || value == "" || len(value) > 64 || ids[value] {
+	if value, ok := id.(string); !ok || value == "" || len(value) > project.MaxIDLength || ids[value] {
 		errors.add(prefix+" has an invalid or duplicate ID.", nil)
 	}
 	ids[text(id)] = true
@@ -127,7 +129,7 @@ func checkRailIdentity(event any, prefix string, passenger, ids map[string]bool,
 
 func checkRailEndpoints(event any, prefix, key, kind string, passenger map[string]bool, errors *checkList) {
 	endpoints := items(member(event, key))
-	if len(endpoints) < 1 || len(endpoints) > 16 {
+	if len(endpoints) < 1 || len(endpoints) > project.MaxRailDestinations {
 		errors.add(prefix+" needs 1 to 16 "+key+".", nil)
 		return
 	}
@@ -143,7 +145,7 @@ func checkRailEndpoints(event any, prefix, key, kind string, passenger map[strin
 		}
 		ids[station] = true
 		weight := member(endpoint, "weight")
-		if !integer(weight) || number(weight) < 1 || number(weight) > 1000000 {
+		if !integer(weight) || number(weight) < 1 || number(weight) > project.MaxRailWeight {
 			errors.add(prefix+" needs "+kind+" weights from 1 to 1000000.", nil)
 		}
 	}
@@ -151,7 +153,7 @@ func checkRailEndpoints(event any, prefix, key, kind string, passenger map[strin
 
 func crowdedRelease(releases map[float64]float64) bool {
 	for _, count := range releases {
-		if count > 200 {
+		if count > project.MaxRailRelease {
 			return true
 		}
 	}
