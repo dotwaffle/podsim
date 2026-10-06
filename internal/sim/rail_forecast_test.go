@@ -245,3 +245,36 @@ func TestForecastThreeTargetSearchBound(t *testing.T) {
 		t.Fatalf("three-target bound: %+v %v", result, err)
 	}
 }
+
+// TestForecastRefusalOrder pins the error that an invalid forecast gets.
+// PositionForForecast checks the target count, and then each target in
+// input order, before it checks the gates. Each case breaks two checks, and
+// the earlier check gives the refusal.
+func TestForecastRefusalOrder(t *testing.T) {
+	t.Parallel()
+	missing := ForecastTarget{Station: "missing", ReleaseTick: 60, Passengers: 1}
+	past := ForecastTarget{Station: "other", ReleaseTick: 0, Passengers: 1}
+	valid := ForecastTarget{Station: "target", ReleaseTick: 60, Passengers: 1}
+	for _, tc := range []struct {
+		name    string
+		paused  bool
+		targets []ForecastTarget
+		want    string
+	}{
+		{"targets_before_gates", true, []ForecastTarget{missing}, `invalid forecast target "missing"`},
+		{"count_before_targets", false, append([]ForecastTarget{missing}, make([]ForecastTarget, 300)...), "forecast must contain at most 300 stations"},
+		{"first_invalid_target", false, []ForecastTarget{missing, past}, `invalid forecast target "missing"`},
+		{"input_order", false, []ForecastTarget{past, missing}, `invalid forecast target "other"`},
+		{"after_valid_target", false, []ForecastTarget{valid, missing}, `invalid forecast target "missing"`},
+		{"repeat_before_later_target", false, []ForecastTarget{valid, valid, missing}, `invalid forecast target "target"`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			s := forecastFixture(t, true, 4, 3)
+			s.SetPaused(tc.paused)
+			if _, err := s.PositionForForecast(tc.targets); err == nil || err.Error() != tc.want {
+				t.Fatalf("got %v, want %q", err, tc.want)
+			}
+		})
+	}
+}
