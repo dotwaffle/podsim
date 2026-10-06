@@ -1072,7 +1072,8 @@ Set `GOGC` to use another value.
 
 #### Report columns
 
-The JSON report has `schema_version` 12, or 13 when an experimental policy flag is present.
+The JSON report has `schema_version` 12.
+It is 13 with a station buffer, pickup reassignment, or station queue spacing column, 14 with an `onboard_pickups` column, and 15 with energy estimates.
 These columns give the waits and journeys of the passengers.
 
 | Column | Definition |
@@ -1661,7 +1662,7 @@ They do not replace scenario qualification or authorize policy adoption.
 | --- | --- | --- |
 | LondonFull | [Post-fix capacity](docs/london-full-postfix.md), [combined controllers](docs/london-full-controller-sustained.md), [12/min comparison](docs/london-full-controller-rate12.md), [13/min comparison](docs/london-full-controller-rate13.md), [14/min comparison](docs/london-full-controller-rate14.md), [mirrored layout](docs/station-mirror-load.md) | Finite recovery and growing backlogs do not establish sustainable capacity. |
 | Pickup swaps and buffers | [Combined qualification](docs/dispatch-policy-qualification.md), [sustained comparison](docs/pickup-swap-sustained.md), [matched requests](docs/pickup-request-diagnosis.md), [service-tail cases](docs/pickup-tail-cases.md), [selected exclusions](docs/pickup-local-intervention.md), [berth-route preference](docs/berth-route-preference.md), [post-routing service](docs/berth-routing-service.md) | Better averages coexist with slower individual requests. Both policies stay off by default. New routes avoid intermediate berths when a compatible path exists. |
-| Platoon queues | [Qualification follow-up](docs/platoon-followup.md), [Paddington leader progress](docs/paddington-leader-progress.md), [Paddington movement](docs/paddington-motion.md), [clearance samples](docs/paddington-clearance.md), [selected resource histories](docs/paddington-resource-history.md), [fixed station-entry links](docs/station-entry-platoons.md) | Paddington traces do not justify a clearance change. Fixed entry links are experimental and require version 4 saves. |
+| Platoon queues | [Qualification follow-up](docs/platoon-followup.md), [Paddington leader progress](docs/paddington-leader-progress.md), [Paddington movement](docs/paddington-motion.md), [clearance samples](docs/paddington-clearance.md), [selected resource histories](docs/paddington-resource-history.md), [fixed station-entry links](docs/station-entry-platoons.md) | Paddington traces do not justify a clearance change. Fixed entry links are experimental and need station buffers. |
 | Terminus throughput | [Burst measurements](docs/terminus-flow.md) | Buffers increase waits in the selected outbound Central bursts. Geometry and supply causes remain diagnostic work. |
 | Server performance | [Route search storage](docs/route-search-performance.md), [finishing-pod bounds](docs/finishing-pod-bounds-performance.md), [admission storage](docs/admission-work-performance.md), [live server and GC](docs/admission-live-performance.md), [publisher cadence](docs/publisher-cadence-performance.md) | Live results cover two short repetitions per case. GC defaults remain unchanged. |
 | Browser performance | [Compatible stream decoder](docs/stream-decoder-qualification.md), [journey page cache](docs/journey-page-cache-performance.md), [label dimensions](docs/label-measure-cache-performance.md), [label admission](docs/label-admission-performance.md) | Software-rendering results do not predict physical-GPU performance. Decoder gains do not establish lower whole-browser CPU. |
@@ -1694,11 +1695,11 @@ mise run check
 
 | Task | What it runs |
 | --- | --- |
-| `mise run check` | Workflow validation, Markdown checks, race tests, the tests that skip under the race detector, the `test:web` tests, vet, lint, vulnerability checks, the native and browser builds, and the embedded server tests. |
+| `mise run check` | Workflow validation, Markdown checks, race tests, the tests that skip under the race detector, the `test:web` tests, vet, lint, vulnerability checks, the native and browser builds, the embedded server tests, and the checkpoint bound test. |
 | `mise run format` | Formats the Go sources and the Markdown files. |
 | `mise run test:quick` | `go test -short ./...`. It skips the long tests of `internal/sim`, `internal/session`, `internal/parkride`, `internal/scenarios`, `cmd/compare`, and `cmd/serve`. The race tasks, `test:embedded`, and `test:bounds` run them. |
 | `mise run test:web` | Only the editor, loader, and page tests. |
-| `mise run qualify` | The two Station 19 drain tests in `internal/scenarios`, without the race detector. These tests skip under the race detector, so in `mise run check` only this task runs them. The `test:race` task runs the other scenario tests. |
+| `mise run qualify` | The two Station 19 drain tests in `internal/scenarios` and the two emergency choice latency tests in `internal/sim`, without the race detector. These tests skip under the race detector, so in `mise run check` only this task runs them. The `test:race` task runs the other tests of these packages. |
 | `mise run test:embedded` | The root and `cmd/serve` tests with the `embed_assets` tag. It also runs the session tests that skip under the race detector or check more without it. The `test:race` task runs the other session tests. |
 | `mise run benchmark` | 6,000 simulation steps on the 100-pod ring fixture, not on the current `scale100` mesh. |
 

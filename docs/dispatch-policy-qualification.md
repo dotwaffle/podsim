@@ -70,7 +70,7 @@ Those free-flow estimates do not account for later resource contention or effect
 In Central's reassignment arm, 454 distinct requests participate in decisions.
 Their mean wait improves by 241.38 seconds, but 33 wait longer, including two by more than 300 seconds.
 Among the other 445 requests, mean wait improves by 167.85 seconds; 23 wait longer, including one by more than 300 seconds.
-Thus, tail regressions affect both changed assignments and surrounding traffic.
+Tail regressions affect both changed assignments and surrounding traffic.
 The current evidence supports continued experiments, not a realized per-request improvement guarantee.
 Numeric adoption limits remain a decision after causal tail investigation and broader seeds.
 

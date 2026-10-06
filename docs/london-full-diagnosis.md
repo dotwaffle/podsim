@@ -104,7 +104,7 @@ The capacity-study bundle retains the input projects and schedules.
 
 ## Parking diversion fix
 
-The diversion guard checks the committed route against the destination Parking station's entry node.
+The diversion guard checks the committed route against the destination station's entry node.
 Once reserved track includes a lane leaving that entry, the pod completes its arrival before it can divert.
 The decision uses route geometry, not station lane labels or the pod's displayed position.
 It also covers reservations ahead of the moving pod.
@@ -113,8 +113,8 @@ In that case, a station-local path check identifies committed endpoints inside t
 That check excludes intermediate berth and station boundary nodes.
 Before that commitment, a parking pod can still divert.
 
-The new entry guard applies only to Parking stations.
-Passenger-station release and rerouting behavior remains unchanged, including `TestReleasedPodPassesIdleBerthPod`.
+This fix applied the entry guard only to Parking stations.
+A later change applies it to passenger stations too, as the [Stratford diagnosis](berth-route-preference.md) describes.
 The existing destination-berth and platoon guards still apply to all pods.
 There is no saved-state, protocol, preset, fleet-size, or demand-policy change.
 The guard prevents the unsafe diversion.

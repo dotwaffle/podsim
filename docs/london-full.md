@@ -71,7 +71,7 @@ The [mirrored layout study](station-mirror-load.md) also finds growing backlogs 
 A separate one-hour run checked safety each second and completed all 199 requests.
 A physical restore at 20 minutes preserved the 287-pod fleet and its pending requests.
 The restored continuation passed safety checks on every tick for 30 seconds.
-Chromium143 loaded the active saved session in three Go/WASM clients at 0, 300, and 600 ms simulated RTT.
+Chromium 143 loaded the active saved session in three Go/WASM clients at 0, 300, and 600 ms simulated RTT.
 Each client kept one full baseline and acknowledged subsequent deltas without HTTP state polling.
 The editor imported and exported all 60,996 demand pairs and applied the full project through a gzip command.
 The exported file was 8,540,140 bytes.
@@ -82,7 +82,6 @@ At 10 requests per minute, uniform two-berth stations and zero reserve pods did 
 Increasing each Parking reserve from six to ten pods did not improve it.
 The preset retains demand-weighted berth space and the existing six-pod Parking reserves.
 These trials do not prove a performance benefit from that extra capacity.
-A passing layout audit does not qualify a demand rate.
 These initial checks preceded the finite-arrival study below.
 They do not establish a complete qualification envelope.
 

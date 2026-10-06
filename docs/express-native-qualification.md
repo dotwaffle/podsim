@@ -1,8 +1,9 @@
 # Express native qualification
 
-The native simulator and project version 4 pass this bounded qualification.
+The native simulator and project version 4 passed this bounded qualification.
 The explicit `express-v1` marker enables the approved Express profile.
-The foundation APIs and project versions 1 through 3 retain their existing behavior.
+The foundation APIs and project versions 1 through 3 retained their existing behavior.
+The current project format has one version, 1, and the `orderContract` marker selects Express (see [operations](operations.md)).
 This change does not activate a default or change a physical number.
 The [approved contract](express-physical-encoding-contract-proposal.md) defines the complete encoding and consumer requirements.
 
@@ -36,8 +37,8 @@ Waiting routes require a known, uniquely assigned pod and at most 300 cached bin
 Dispatch clears cached routes when it clears or changes their pod assignment.
 Large vehicles reject virtual, buffer, and compact links in either class order and either restore tier.
 
-Project version 4 requires the exact marker.
-Older versions reject marker presence, including null and empty strings.
+At the tested source, project version 4 required the exact marker.
+Older versions rejected marker presence, including null and empty strings.
 Raw decoding rejects duplicate or unknown markers.
 The separate `DecodeCanonicalJSON` prerequisite retains the typed decoder and validation path.
 It permits an 80 MiB raw checkpoint component with a 10 MiB canonical project limit.

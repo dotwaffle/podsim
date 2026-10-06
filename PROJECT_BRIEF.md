@@ -418,7 +418,7 @@ Status notes record the parts that Podsim now implements.
 Saved states preserve existing buffer membership.
 The editor and comparison tool expose separate, saved opt-in controls for buffers and pickup reassignment.
 New pickup dispatch can defer berth choice at an eligible buffer approach without changing existing commitments.
-Fixed station-entry platoons use the separately tested version 4 contract.
+Fixed station-entry platoons use the separately tested [entry platoon contract](docs/station-entry-platoons-proposal.md).
 Berth-access links remain excluded.
 The [saved-state proposal](docs/station-buffer-state-proposal.md) records the contract.
 The [combined dispatch qualification](docs/dispatch-policy-qualification.md) finds mixed service effects and individual tail regressions.
@@ -438,7 +438,7 @@ A finite buffer cannot prevent spillback under sustained overload without upstre
 
 Include virtual platoons in the design, with safe separation before berth routes diverge.
 The [fixed entry implementation](docs/station-entry-platoons.md) shares complete interior cells while eligible buffer queues move.
-It retains at least 12 meters of separation, excludes berth-access links, and uses a fixed version 4 certificate.
+It retains at least 12 meters of separation, excludes berth-access links, and keeps a fixed certificate in the saved state.
 Blocked departures, exclusive berth suffixes, ownership transfer, and disabled-policy restoration have deterministic tests.
 Matched service qualification remains separate.
 Shared reservations do not imply tighter stopped queues.
@@ -686,7 +686,9 @@ Free-flow routing remains the default.
 
 ### Rider emergency stop
 
-**Status:** Not started.
+**Status:** Implemented as an opt-in feature with the emergency marker (see [emergencies](docs/operations.md#emergencies)).
+The `emergency` command and the **Emergency** button of the pod inspector start an emergency.
+There is no scenario emergency rate.
 The user noted this idea on 2026-10-04.
 
 A rider in a pod presses an emergency button, for example for a medical emergency.
@@ -713,7 +715,10 @@ Open question: how the game and the metrics show the event.
 
 ### Vehicle fault or accident
 
-**Status:** Not started.
+**Status:** Implemented as an opt-in feature with the fault marker (see [faults](docs/operations.md#faults)).
+The `fault` command and the **Fault** button of the pod inspector start a fault.
+There is no scenario fault rate, and pods do not reverse.
+The maintainer stopped the incident work after stage 3.
 The user noted this idea on 2026-10-04.
 
 A pod stops and cannot move until an operator clears it.

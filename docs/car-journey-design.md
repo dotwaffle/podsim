@@ -86,7 +86,7 @@ Unfinished stages remain censored with their identities and held slots.
 
 The ledger owns its plan and records.
 An in-memory clone copies the ledger independently alongside `Simulation.Clone`.
-Durable car continuation is outside this first implementation.
+Durable car continuation was outside this first implementation; see the later [continuation qualification](car-continuation-qualification.md).
 Restoring the simulation alone cannot recover car release events.
 
 ## Report and gates
@@ -103,7 +103,7 @@ The report keeps native pod metrics separate from car outcomes.
 
 Tests cover zero and one-slot lots, simultaneous arrivals, release before arrival, delayed outward completion, and both queue refusals.
 They also cover duplicate completion delivery, overnight retention, horizon censoring, consent on both legs, overflow rejection, and clone isolation.
-Tick-zero events, same-tick refusal release, return/outward queue competition, and exact-horizon completion need explicit tests.
+Tests also cover tick-zero events, same-tick refusal release, return/outward queue competition, and exact-horizon completion.
 Real native journeys must complete both pod legs and preserve car identity.
 Physical checks and clone continuations cover the selected native fixtures.
 The first model makes no road-capacity, battery, or empirical travel-time claim.

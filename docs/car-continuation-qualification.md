@@ -74,7 +74,8 @@ The compact and cooldown studies took 29.68 and 9.44 seconds.
 These totals include process startup and serialization, not only native replay.
 The largest measured CLI resident set was 396,044 KiB for the 80 MiB parser-boundary case.
 This is observed process memory, not a promised memory ceiling.
-SIGINT during wide tick-zero validation exited in 20.36 ms. Cancellation takes effect between indivisible native steps and encoding operations.
+SIGINT during wide tick-zero validation exited in 20.36 milliseconds.
+Cancellation takes effect between indivisible native steps and encoding operations.
 No cancellation latency bound is claimed for every supported project.
 
 A prior clean executable at `93a556903c4ea0826a4a5a8ee55365554027071e` ran an ordinary, traced, and replayed 24-hour fixture through 5,184,000 ticks.
@@ -120,7 +121,7 @@ The preallocation scanner rejects invalid UTF-8, duplicate decoded names, unknow
 It checks native pending plus retained rider records against two offers per itinerary.
 Routes use actual origin node/lane counts, and compact memberships must be disjoint.
 Native field lists are frozen under `sim-saved-state-v1`; future fields are not accepted implicitly.
-Foundation-only checks reject project version 4 or any future order-contract marker in ordinary runs and checkpoint operations.
+Foundation-only checks reject the `orderContract`, `couplingContract`, and `incidentContract` markers in ordinary runs and checkpoint operations.
 Car held-slot accounting remains separate from native pod parking storage.
 Group operation follows current native validation.
 This implementation does not activate Express.

@@ -75,7 +75,7 @@ The focused tests include actual journeys with group, compact, and legacy leader
 They cover straight and curved motion, stopped following, merges, ordinary and bank stations, parking, and buffer policies.
 Every observed tick checks physical separation, speed changes, owned stopping bounds, position continuity, and order conservation.
 Cold checkpoints cover passenger service, empty fetch, origin retention, route trimming, and intermediate shared unloading.
-Actual consumers exercise save-6 restore and hello-3 full and replacement-delta frames.
+At qualification, actual consumers exercised save-6 restore and hello-3 full and replacement-delta frames.
 
 Independent review found a missing raw origin plane during departure.
 The corrected observer retains that plane until origin release.
@@ -102,6 +102,6 @@ Group qualification does not qualify express operation, a larger encoding, servi
 
 The full repository functional suite, full native race suite, and coupled group save and stream race tests pass.
 Vet, lint, fresh Go diagnostics, browser tests, and WASM compilation also pass.
-The full save race suite reaches its 14-minute timeout inside the existing maximum-size compact archive decoder.
-The regular suite checks those maximum encodings.
+The full save race suite reached its 14-minute timeout inside the maximum-size compact archive decoder of that source.
+The regular suite checked those maximum encodings.
 The record preserves the timeout and the successful scoped race checks.

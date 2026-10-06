@@ -13,6 +13,8 @@ No cap, default, dependency, or physical number changes in this patch.
 
 ## Versions and boundaries
 
+The tested source used these separate formats.
+
 | Consumer | Foundation | Express |
 | --- | --- | --- |
 | Project | Versions 1 through 3, raw UTF-8 | Version 4, explicit `orderContract` |
@@ -20,9 +22,15 @@ No cap, default, dependency, or physical number changes in this patch.
 | Stream | Hello 1 through 3, original fields | Hello 4, contract and text markers |
 | HTTP state | Original `application/json` state | Explicit Express media type and packed topology/frame envelope |
 
+Later changes merged these formats.
+The current formats are project version 1 with the `orderContract` marker, saved-state version 9, and hello version 6.
+The HTTP state has one media type, `application/vnd.podsim.state-6+json`, for every project kind.
+See [the protocol](protocol.md) and [operations](operations.md).
+
 The Express contract marker is `express-v1`.
-The text marker is `order-text-base64-v1`.
-All five order fields, From, To, PodID, DispatchReason, and ServiceID, use canonical padded RFC 4648 base64 in Express saves, full frames, and replacement deltas.
+The tested source also had the text marker `order-text-base64-v1`.
+All five order fields, From, To, PodID, DispatchReason, and ServiceID, used canonical padded RFC 4648 base64 in Express saves, full frames, and replacement deltas.
+The current formats have no text marker and pack the order text for every project kind.
 There is no raw-text fallback or encoding inference from a string's appearance.
 Native values remain decoded UTF-8 strings.
 
@@ -36,8 +44,9 @@ Topology contains the contract, registry, server identity, epoch, and project re
 Its entire encoded response, including the registry, must fit 10 MiB plus 4 KiB.
 Startup, project activation, and restore preflight this shape before accepting a new state.
 The same source identity binds the HTTP topology and frame.
-An Express HTTP request without `Accept: application/vnd.podsim.express-v1+json` receives 406.
-The Go remote client rejects Express marker presence under a missing or different response media type before it mutates the accepted state.
+At the tested source, an Express HTTP request without `Accept: application/vnd.podsim.express-v1+json` received 406.
+The Go remote client rejected Express marker presence under a missing or different response media type before it mutated the accepted state.
+The current server and remote client use `application/vnd.podsim.state-6+json` for every project kind.
 
 Trip commands bind the explicit order contract to the existing epoch.
 A connection must negotiate another hello when the active contract changes.
@@ -50,14 +59,14 @@ Browser JavaScript handles bytes and control messages.
 | Gate | Evidence |
 | --- | --- |
 | Real 20-person party | Native Express session trip, boarding, save, public full frame, HTTP, physical restore, and remote command/stream |
-| Immutable party and storage | Accepted 20 stored records. rejected record 21, seat overflow, mixed private/shared riders, bad registry ID or directed pair |
+| Immutable party and storage | Accepted 20 stored records; rejected record 21, seat overflow, mixed private/shared riders, bad registry ID or directed pair |
 | Class and route | Rejected changed class, incompatible station or route, historical Express rider, boarding origin mismatch, and large virtual link |
-| Aggregate and prescan | Rejected 8,601 pending records and 8,600 pending plus an active rider. arrays checked before typed decoding |
-| Negotiation | Rejected missing, null, unknown, duplicate, and older-version contract markers. explicit version 4 assembler required |
-| Atomic rejection | Rejected candidate preserves prior assembler state. invalid remote publication has no ACK and preserves the last accepted state |
-| Retained state | Actual encoded successor delta changes pending, rider, and boarding fields. mutation of returned containers does not change prior state or assembler cache |
+| Aggregate and prescan | Rejected 8,601 pending records and 8,600 pending plus an active rider; arrays checked before typed decoding |
+| Negotiation | Rejected missing, null, unknown, duplicate, and older-version contract markers; explicit version 4 assembler required |
+| Atomic rejection | Rejected candidate preserves prior assembler state; invalid remote publication has no ACK and preserves the last accepted state |
+| Retained state | Actual encoded successor delta changes pending, rider, and boarding fields; mutation of returned containers does not change prior state or assembler cache |
 | Numeric fidelity | Exact integers above 2^53, decimal-string sequences, exponent boundaries, maximum finite float, and minimum subnormal through public native and Go/WASM adapters |
-| Foundation parity | Existing save golden files unchanged. old package behavior and raw encoder paths exercised separately from save 7 and hello 4 |
+| Foundation parity | Existing save golden files unchanged; old package behavior and raw encoder paths exercised separately from save 7 and hello 4 |
 
 Manual admission retains the 200-request queue limit.
 Restored pending work can exceed 200.
@@ -97,15 +106,14 @@ A second run replaces every order reason with a distinct deterministic 1,024-byt
 
 The next topology escape step produces 10,637,898 bytes and is rejected.
 The save cap applies to both raw JSON and the gzip file.
-The stream cap is 64 MiB raw and 65 MiB binary.
-These caps remain unchanged.
+At the tested source, the stream cap was 64 MiB raw and 65 MiB binary, and this patch did not change the caps.
+The current stream caps are 65 MiB raw and 66 MiB binary.
 
 These are independent wire-field shapes, not a proof that every combination is a reachable native state.
 The reference HTTP shape passes public class, route, registry, and reference checks, but repeats order IDs and physical occupancy for width coverage.
 The full storage shape includes 8,600 pending and 6,000 completed display records.
 It does not claim 14,600 simultaneous active parties or unique accepted identities.
 Native conservation is tested separately.
-The measured assets are concrete fixtures, not a proof of one reachable worst case.
 The approved analytic bounds and producer size checks remain necessary.
 
 ## CPU, memory, and browser limits
