@@ -2829,6 +2829,9 @@ func maximalRequeueState(t *testing.T, extra int) (project.Config, []byte) {
 // and saves it again through the state file encoding.
 func TestMaximalRequeueRoundTrip(t *testing.T) {
 	t.Parallel()
+	if testing.Short() {
+		t.Skip("a long test runs without -short, in test:race:session")
+	}
 	config, data := maximalRequeueState(t, 0)
 	for round, want := range []RestoreInfo{
 		{Tier: "logical", Reason: reasonRestoreLoop, Requeued: maxSavedPods * sim.MaxSharedRideParties},

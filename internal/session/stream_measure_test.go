@@ -14,6 +14,9 @@ import (
 
 func TestStreamLondonWire(t *testing.T) {
 	t.Parallel()
+	if testing.Short() {
+		t.Skip("a long test runs without -short, in test:race:session")
+	}
 	config := scenarios.LondonCentral()
 	config.Demand.Enabled = true
 	shared, err := NewWithProject(config)
