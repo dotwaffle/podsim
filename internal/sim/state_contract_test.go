@@ -462,7 +462,7 @@ func TestRestoreReportsUnaccountedOrders(t *testing.T) {
 			if n := countUnaccounted(t, s); n != 3 || s.unaccountedOrders != n {
 				t.Fatalf("%s tier, round %d: %d unaccounted orders, counted %d", tier, round, n, s.unaccountedOrders)
 			}
-			monitorContract(t, s)
+			monitorContractEachTick(t, s)
 			advance(s, 30*TicksPerSecond)
 			state = roundTripState(t, s.ExportState())
 		}
@@ -568,17 +568,107 @@ func TestReconcileOrdersFindsEachMismatch(t *testing.T) {
 	}
 }
 
-// monitorContract makes a simulation check the contract after each tick and
-// each command that changes its pods, its orders or its sharing settings.
-// The test fails at the first break. The monitor proves that the contract is
-// not stricter than the live code.
-func monitorContract(tb testing.TB, s *Simulation) {
-	tb.Helper()
-	s.monitor = func(s *Simulation) {
-		tb.Helper()
-		if err := s.CheckContract(); err != nil {
-			tb.Fatalf("tick %d: the live state breaks the contract: %v", s.tick, err)
+// contractCheckTicks is the interval of the sampled contract check, one
+// simulated second. The check exports the whole state, so a check after
+// each tick took about a third of the time of the long monitored tests.
+// Intervals of 30 to 120 ticks took about the same time.
+const contractCheckTicks = TicksPerSecond
+
+// contractSampler decides when a monitor checks the contract. It checks at
+// the first observation, every contractCheckTicks ticks, and at each event
+// boundary: an observation that is not the next tick (a command, a reset,
+// a restore, or a Step of a paused simulation), or a tick in which a count
+// of the simulation or the phase of a pod changes.
+type contractSampler struct {
+	every    int64
+	observed bool
+	tick     int64
+	counts   contractCounts
+	pods     []contractPhase
+}
+
+// contractCounts holds the counts of a simulation that an event changes.
+type contractCounts struct {
+	pods, waiting, faults, groups           int
+	completed, requestID, boarded, journeys int
+	interrupted, unaccounted                int
+	paused                                  bool
+}
+
+// contractPhase holds the fields of a pod that an event changes.
+type contractPhase struct {
+	activity                     Activity
+	stationPhase                 StationPhase
+	station, berth, relocatingTo string
+	coupling, platoon            string
+	riders, stops                int
+	occupied, rebalancing        bool
+	withdrawn                    serviceHold
+	faulted                      bool
+}
+
+// due reports whether the monitor checks the contract at this observation
+// of s.
+func (c *contractSampler) due(s *Simulation) bool {
+	if c.every <= 1 {
+		return true
+	}
+	counts := contractCounts{
+		pods: len(s.vehicles), waiting: len(s.waiting), faults: len(s.faults), groups: len(s.couplingGroups),
+		completed: s.completed, requestID: s.requestID, boarded: s.boarded, journeys: s.journeys,
+		interrupted: s.interrupted, unaccounted: s.unaccountedOrders, paused: s.paused,
+	}
+	pods := make([]contractPhase, len(s.vehicles))
+	for index := range s.vehicles {
+		v := &s.vehicles[index]
+		pods[index] = contractPhase{
+			activity: v.Pod.Activity, stationPhase: v.Pod.StationPhase,
+			station: v.Pod.StationID, berth: v.Pod.BerthID, relocatingTo: v.RelocatingTo,
+			coupling: v.CouplingID, platoon: v.PlatoonID, riders: len(v.Riders), stops: len(v.Stops),
+			occupied: v.Pod.Occupied, rebalancing: v.Rebalancing, withdrawn: v.withdrawn, faulted: v.faulted,
 		}
 	}
+	due := !c.observed || s.tick != c.tick+1 || s.tick%c.every == 0 || counts != c.counts || !slices.Equal(pods, c.pods)
+	c.observed, c.tick, c.counts, c.pods = true, s.tick, counts, pods
+	return due
+}
+
+// monitorContract makes a simulation check the contract at the
+// observations that a contractSampler selects. The test fails at the first
+// break. The monitor proves that the contract is not stricter than the
+// live code.
+func monitorContract(tb testing.TB, s *Simulation) {
+	tb.Helper()
+	monitorContractEvery(tb, s, contractCheckTicks)
+}
+
+// monitorContractEachTick makes a simulation check the contract after each
+// tick and each command that changes its pods, its orders or its sharing
+// settings. A few targeted tests use it to find a break that lasts less
+// than contractCheckTicks ticks between two events.
+func monitorContractEachTick(tb testing.TB, s *Simulation) {
+	tb.Helper()
+	monitorContractEvery(tb, s, 1)
+}
+
+func monitorContractEvery(tb testing.TB, s *Simulation, every int64) {
+	tb.Helper()
+	sampler := &contractSampler{every: every}
+	s.monitor = func(s *Simulation) {
+		tb.Helper()
+		sampler.check(tb, s)
+	}
 	s.observe()
+}
+
+// check checks the contract of s when the sampler selects this
+// observation. The test fails at a break.
+func (c *contractSampler) check(tb testing.TB, s *Simulation) {
+	tb.Helper()
+	if !c.due(s) {
+		return
+	}
+	if err := s.CheckContract(); err != nil {
+		tb.Fatalf("tick %d: the live state breaks the contract: %v", s.tick, err)
+	}
 }

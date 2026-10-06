@@ -338,7 +338,7 @@ func TestRestoreLogicalCompletesOnlyAtAStation(t *testing.T) {
 				countUnaccounted(t, s) != tc.unaccountedAfter {
 				t.Fatalf("completed %d, want %d, %d unaccounted orders", s.completed, state.Completed, s.unaccountedOrders)
 			}
-			monitorContract(t, s)
+			monitorContractEachTick(t, s)
 			advance(s, 60*TicksPerSecond)
 		})
 	}

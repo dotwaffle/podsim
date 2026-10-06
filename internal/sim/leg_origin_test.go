@@ -685,7 +685,7 @@ func TestLegOriginPickupState(t *testing.T) {
 			}
 		}
 		s.waiting = append(s.waiting, legTrip(s, "harbor", "garden", "market"))
-		monitorContract(t, s)
+		monitorContractEachTick(t, s)
 		v := &s.vehicles[0]
 		for s.tick < 300*TicksPerSecond && (v.Pod.Activity != Boarding || !v.Pod.Occupied) {
 			s.Step()

@@ -788,17 +788,17 @@ func (x *exclusionTracker) observe(s *Simulation) error {
 	return nil
 }
 
-// monitorExclusions checks the state contract, W2, X1, and X2 at each
-// observation of s, and follows each exclusion with an exclusionTracker.
-// It returns the tracker, which counts the exclusions.
+// monitorExclusions checks W2, X1, and X2 at each observation of s, and
+// follows each exclusion with an exclusionTracker. It checks the state
+// contract at the observations that a contractSampler selects. It returns
+// the tracker, which counts the exclusions.
 func monitorExclusions(tb testing.TB, s *Simulation) *exclusionTracker {
 	tb.Helper()
 	tracker := &exclusionTracker{}
+	sampler := &contractSampler{every: contractCheckTicks}
 	s.monitor = func(s *Simulation) {
 		tb.Helper()
-		if err := s.CheckContract(); err != nil {
-			tb.Fatalf("tick %d: the live state breaks the contract: %v", s.tick, err)
-		}
+		sampler.check(tb, s)
 		if err := checkExclusions(s); err != nil {
 			tb.Fatalf("tick %d: %v", s.tick, err)
 		}

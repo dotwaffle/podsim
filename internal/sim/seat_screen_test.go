@@ -449,7 +449,7 @@ func TestJoinCensusCountsPartyThatBoardsDuringDwell(t *testing.T) {
 	if err != nil || !cleanRestore(result) {
 		t.Fatalf("restore: %v, %+v", err, result)
 	}
-	monitorContract(t, s)
+	monitorContractEachTick(t, s)
 	s.SetExperimentRecords(true)
 	s.Step()
 	checkJoinCensus(t, s, [2]int{1, 1})

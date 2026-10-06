@@ -8,16 +8,15 @@ import (
 	"testing"
 )
 
-// monitorReassign makes s check the contract and the berth and track
-// owners after each tick and each command. The test fails at the first
-// break.
+// monitorReassign makes s check the berth and track owners after each tick
+// and each command, and the contract at the observations that a
+// contractSampler selects. The test fails at the first break.
 func monitorReassign(t *testing.T, s *Simulation) {
 	t.Helper()
+	sampler := &contractSampler{every: contractCheckTicks}
 	s.monitor = func(s *Simulation) {
 		t.Helper()
-		if err := s.CheckContract(); err != nil {
-			t.Fatalf("tick %d: the live state breaks the contract: %v", s.tick, err)
-		}
+		sampler.check(t, s)
 		checkIncrementalOwners(t, s)
 	}
 	s.observe()
