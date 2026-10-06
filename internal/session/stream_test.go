@@ -763,6 +763,63 @@ func TestStreamCachedRouteChecksCurrentPod(t *testing.T) {
 	}
 }
 
+// TestStreamAssemblerRouteRefusals pins the first refusal of a changed
+// route presentation. The route count comes first. The window of a route
+// comes before its origin, and both come before its display lanes.
+func TestStreamAssemblerRouteRefusals(t *testing.T) {
+	t.Parallel()
+	s, f := streamFixture(t)
+	s.Apply(Command{Client: "test", Sequence: 1, Epoch: f.State.Epoch, Action: "trip", Origin: "harbor", Destination: "market"})
+	f, err := s.presentationFrame()
+	if err != nil {
+		t.Fatal(err)
+	}
+	routed := slices.IndexFunc(f.Routes, func(r sim.RoutePresentation) bool { return len(r.Lanes) > 0 })
+	empty := slices.IndexFunc(f.Routes, func(r sim.RoutePresentation) bool { return len(r.Lanes) == 0 })
+	if routed < 0 || empty < 0 {
+		t.Fatal("fixture lacks a routed and an empty route")
+	}
+	nodes := len(s.Topology().Network.Nodes)
+	for _, test := range []struct {
+		name string
+		edit func(*StreamFrame)
+		want string
+	}{
+		{"route_count", func(f *StreamFrame) {
+			f.Routes = f.Routes[:len(f.Routes)-1]
+			f.Routes[routed].Display = []int{-1}
+		}, "missing route presentation"},
+		{"window_before_display", func(f *StreamFrame) {
+			f.Routes[routed].Before = !f.Routes[routed].Before
+			f.Routes[routed].Display = []int{-1}
+		}, "invalid motion window"},
+		{"window_before_origin", func(f *StreamFrame) {
+			f.Routes[routed].Before = !f.Routes[routed].Before
+			f.Routes[routed].Origin = nodes
+		}, "invalid motion window"},
+		{"origin_before_display", func(f *StreamFrame) {
+			f.Routes[routed].Origin = nodes
+			f.Routes[routed].Display = []int{-1}
+		}, "invalid route origin"},
+		{"empty_route", func(f *StreamFrame) { f.Routes[empty].After = true }, "invalid empty route"},
+		{"display", func(f *StreamFrame) { f.Routes[routed].Display = []int{-1} }, "invalid display lane index -1"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			a, err := NewStreamAssembler(s.Topology())
+			if err != nil {
+				t.Fatal(err)
+			}
+			bad := f
+			bad.Routes = slices.Clone(f.Routes)
+			test.edit(&bad)
+			if _, err := a.State(bad); err == nil || err.Error() != test.want {
+				t.Fatalf("got %v, want %q", err, test.want)
+			}
+		})
+	}
+}
+
 func TestStreamExactBaseAndEmptyShapes(t *testing.T) {
 	t.Parallel()
 	_, frame := streamFixture(t)

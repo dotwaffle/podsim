@@ -139,8 +139,31 @@ func NewStreamAssembler(topology TopologySnapshot) (*StreamAssembler, error) {
 	return a, nil
 }
 
-// State reconstructs a candidate without mutating earlier views.
+// State reconstructs a candidate without mutating earlier views. The checks
+// run in a fixed order: the frame, the vehicle routes, the coupling view,
+// and the vehicle classes. The assembler keeps the candidate only after all
+// of them pass.
 func (a *StreamAssembler) State(f StreamFrame) (State, error) {
+	state, err := a.frameCandidate(f)
+	if err != nil {
+		return State{}, err
+	}
+	if err := a.presentVehicles(f.Routes, state.Simulation.Vehicles); err != nil {
+		return State{}, err
+	}
+	if err := a.couplingView(state); err != nil {
+		return State{}, err
+	}
+	if err := a.rememberClasses(f); err != nil {
+		return State{}, err
+	}
+	a.retain(f, state)
+	return state, nil
+}
+
+// frameCandidate checks the frame before its vehicles bind to their routes,
+// and returns the candidate state.
+func (a *StreamAssembler) frameCandidate(f StreamFrame) (State, error) {
 	if err := a.serviceOrders(f); err != nil {
 		return State{}, err
 	}
@@ -166,66 +189,91 @@ func (a *StreamAssembler) State(f StreamFrame) (State, error) {
 	if err := a.references(f); err != nil {
 		return State{}, err
 	}
+	return state, nil
+}
+
+// presentVehicles binds each vehicle to its route presentation. A route that
+// equals the route of the previous frame reuses its expanded lanes.
+func (a *StreamAssembler) presentVehicles(routes []sim.RoutePresentation, vehicles []sim.Vehicle) error {
 	seen := map[string]bool{}
-	for i := range state.Simulation.Vehicles {
-		v := &state.Simulation.Vehicles[i]
-		r := f.Routes[i]
+	for i := range vehicles {
+		v := &vehicles[i]
+		r := routes[i]
 		if seen[v.Pod.ID] || v.Pod.ID == "" || v.Pod.LaneID != "" && !a.lanes[v.Pod.LaneID] {
-			return State{}, errors.New("invalid vehicle identity or lane")
+			return errors.New("invalid vehicle identity or lane")
 		}
 		seen[v.Pod.ID] = true
 		if err := a.motionPod(r, v.Pod); err != nil {
-			return State{}, err
+			return err
 		}
 		if i < len(a.previous.Routes) && reflect.DeepEqual(r, a.previous.Routes[i]) {
 			v.Route = a.state.Simulation.Vehicles[i].Route
 			v.Presentation = a.state.Simulation.Vehicles[i].Presentation
 			continue
 		}
-		if len(r.Display) > project.MaxLanes || len(r.Lanes) > sim.MotionRouteLimit || r.Current < r.Start || r.Current-r.Start > uint64(len(r.Lanes)) || r.Before != (r.Start > 0) {
-			return State{}, errors.New("invalid motion window")
+		if err := a.presentRoute(v, r); err != nil {
+			return err
 		}
-		if len(r.Lanes) == 0 {
-			if len(r.Display) != 0 || r.Origin != -1 || r.Current != 0 || r.Start != 0 || r.After {
-				return State{}, errors.New("invalid empty route")
-			}
-		} else if r.Origin < 0 || r.Origin >= len(a.topology.Network.Nodes) {
-			return State{}, errors.New("invalid route origin")
-		}
-		display := make(map[int]bool, len(r.Display))
-		last := -1
-		for _, index := range r.Display {
-			if index <= last || index >= len(a.topology.Network.Lanes) {
-				return State{}, fmt.Errorf("invalid display lane index %d", index)
-			}
-			last = index
-			display[index] = true
-			v.Route = append(v.Route, a.topology.Network.Lanes[index])
-		}
-		for motionIndex, index := range r.Lanes {
-			if !display[index] {
-				return State{}, errors.New("motion lane missing from display")
-			}
-			lane := a.topology.Network.Lanes[index]
-			if motionIndex > 0 && r.Motion[motionIndex-1].To != lane.From {
-				return State{}, errors.New("disconnected motion path")
-			}
-			r.Motion = append(r.Motion, lane)
-		}
-		if v.Pod.LaneID != "" && (r.Current-r.Start >= uint64(len(r.Motion)) || r.Motion[r.Current-r.Start].ID != v.Pod.LaneID) {
-			return State{}, errors.New("motion occurrence does not match pod lane")
-		}
-		if r.Origin >= 0 {
-			r.OriginNode = a.topology.Network.Nodes[r.Origin].ID
-		}
-		v.Presentation = &r
 	}
-	if err := a.couplingView(state); err != nil {
-		return State{}, err
+	return nil
+}
+
+// presentRoute expands a route presentation that differs from the previous
+// frame. The display lanes must increase. Each motion lane must be a display
+// lane, and the motion lanes must form one connected path through the pod
+// lane.
+func (a *StreamAssembler) presentRoute(v *sim.Vehicle, r sim.RoutePresentation) error {
+	if err := a.checkRouteWindow(r); err != nil {
+		return err
 	}
-	if err := a.rememberClasses(f); err != nil {
-		return State{}, err
+	display := make(map[int]bool, len(r.Display))
+	last := -1
+	for _, index := range r.Display {
+		if index <= last || index >= len(a.topology.Network.Lanes) {
+			return fmt.Errorf("invalid display lane index %d", index)
+		}
+		last = index
+		display[index] = true
+		v.Route = append(v.Route, a.topology.Network.Lanes[index])
 	}
+	for motionIndex, index := range r.Lanes {
+		if !display[index] {
+			return errors.New("motion lane missing from display")
+		}
+		lane := a.topology.Network.Lanes[index]
+		if motionIndex > 0 && r.Motion[motionIndex-1].To != lane.From {
+			return errors.New("disconnected motion path")
+		}
+		r.Motion = append(r.Motion, lane)
+	}
+	if v.Pod.LaneID != "" && (r.Current-r.Start >= uint64(len(r.Motion)) || r.Motion[r.Current-r.Start].ID != v.Pod.LaneID) {
+		return errors.New("motion occurrence does not match pod lane")
+	}
+	if r.Origin >= 0 {
+		r.OriginNode = a.topology.Network.Nodes[r.Origin].ID
+	}
+	v.Presentation = &r
+	return nil
+}
+
+// checkRouteWindow checks the bounds of a route presentation before its
+// lanes expand. An empty route has no display lanes, origin, or window.
+func (a *StreamAssembler) checkRouteWindow(r sim.RoutePresentation) error {
+	if len(r.Display) > project.MaxLanes || len(r.Lanes) > sim.MotionRouteLimit || r.Current < r.Start || r.Current-r.Start > uint64(len(r.Lanes)) || r.Before != (r.Start > 0) {
+		return errors.New("invalid motion window")
+	}
+	if len(r.Lanes) == 0 {
+		if len(r.Display) != 0 || r.Origin != -1 || r.Current != 0 || r.Start != 0 || r.After {
+			return errors.New("invalid empty route")
+		}
+	} else if r.Origin < 0 || r.Origin >= len(a.topology.Network.Nodes) {
+		return errors.New("invalid route origin")
+	}
+	return nil
+}
+
+// retain keeps the accepted frame and state for the next frame.
+func (a *StreamAssembler) retain(f StreamFrame, state State) {
 	a.previous = ownStreamBoardings(f)
 	a.state = state
 	if a.topology.OrderContract == sim.ExpressOrderContract || a.coupling != nil {
@@ -235,7 +283,6 @@ func (a *StreamAssembler) State(f StreamFrame) (State, error) {
 	}
 	// Only private containers are retained. The geometry and routes are immutable.
 	a.previous.Routes = slices.Clone(f.Routes)
-	return state, nil
 }
 
 func (a *StreamAssembler) motionPod(r sim.RoutePresentation, p sim.Pod) error {
