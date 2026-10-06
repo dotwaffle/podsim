@@ -273,6 +273,8 @@ func TestExpressPublicAssetRetention(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// The reference asset has the widest speed, which the assembler refuses.
+	decoded.Full.State.Speed = 60
 	candidate, err := ApplyStream(StreamFrame{}, "", 0, decoded)
 	if err != nil {
 		t.Fatal(err)
