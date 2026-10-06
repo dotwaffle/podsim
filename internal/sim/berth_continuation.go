@@ -49,9 +49,18 @@ func (s *Simulation) berthFilterForStopsOn(static bool, class VehicleClass, stop
 // berthFilterForVehicle returns the berth filter of the current work of v.
 // An assigned pickup pod uses pickupBerthFilter, so while the blocked set
 // is not empty it accepts only compatible pickup berths, also on a network
-// without class restrictions.
+// without class restrictions. An emergency unload has no onward stop, so
+// its filter tests only the class of the pod (section 9.2 of the incident
+// emergency contract).
 func (s *Simulation) berthFilterForVehicle(v *vehicle) func(Berth) bool {
 	s.ensureNetworkIndexes()
+	if v.op.purpose == opEmergencyUnload {
+		if !s.graph.classRestrictions {
+			return nil
+		}
+		station, _ := s.station(v.destinationStation)
+		return func(berth Berth) bool { return berthAllows(station, berth, v.Pod.Class) }
+	}
 	if !s.graph.classRestrictions && !s.blockedActive() {
 		return nil
 	}

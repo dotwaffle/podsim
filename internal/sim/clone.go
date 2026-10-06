@@ -23,6 +23,9 @@ func (s *Simulation) Clone() *Simulation {
 	c.staticConnected, c.staticRoutes = nil, nil
 	c.routeWork = nil
 	c.routeView = nil
+	// The no-candidate memo changes no result, so a clone starts with no
+	// memo.
+	c.emergencyMisses = nil
 	c.admissionWork = nil
 	c.vehicles = slices.Clone(s.vehicles)
 	for i := range c.vehicles {

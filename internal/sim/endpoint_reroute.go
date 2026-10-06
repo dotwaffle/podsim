@@ -112,8 +112,13 @@ func (s *Simulation) endpointRoute(v *vehicle) ([]Lane, bool) {
 // the detour limit, as rerouteKeepsDetours does. A berth end tests the
 // destination berth. An entry end tests the entry of the new route with no
 // berth, as legRoute does, so a banked station checks the entry that the
-// route reaches.
+// route reaches. An emergency unload passes: every rider leaves at the
+// emergency station, so no rider has an onward stop (section 9.2 of the
+// incident emergency contract).
 func (s *Simulation) endpointKeepsDetours(v *vehicle, route []Lane, berthEnd bool) bool {
+	if v.op.purpose == opEmergencyUnload {
+		return true
+	}
 	if berthEnd {
 		return s.rerouteKeepsDetours(v, route, v.destination)
 	}

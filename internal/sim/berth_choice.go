@@ -50,7 +50,10 @@ func (s *Simulation) assignTerminalBerth(v *vehicle) bool {
 // final branch. Existing track ownership and movement state remain unchanged.
 // The new route keeps the lanes before the inlet, so it can be longer than
 // the station path to the berth. The pod does not take a berth that takes a
-// rider over maxSharedRideDetour. See rerouteKeepsDetours.
+// rider over maxSharedRideDetour. See rerouteKeepsDetours. An emergency
+// unload skips this test: every rider leaves at the emergency station, so
+// no rider has an onward stop (section 9.2 of the incident emergency
+// contract).
 func (s *Simulation) reevaluateTerminalBerth(v *vehicle) {
 	next := v.reservedThrough + 1
 	if next < 0 || next >= v.blocks.len() || len(v.Route) == 0 {
@@ -85,7 +88,7 @@ func (s *Simulation) reevaluateTerminalBerth(v *vehicle) {
 				continue
 			}
 			route := append(slices.Clone(v.Route[:routeIndex]), suffix...)
-			if !s.rerouteKeepsDetours(v, route, berth) {
+			if v.op.purpose != opEmergencyUnload && !s.rerouteKeepsDetours(v, route, berth) {
 				continue
 			}
 			blocks, lengths := s.routeBlocks(route)

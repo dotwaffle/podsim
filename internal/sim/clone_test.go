@@ -30,7 +30,7 @@ var cloneRules = map[reflect.Type]map[string]cloneRule{
 		"couplingApproaches": cloneCopy, "couplingAttempts": cloneCopy,
 		"motion":         cloneCopy,
 		"networkIndexes": cloneShare, "lengths": cloneDrop, "routes": cloneDrop, "routeOrder": cloneDrop,
-		"pickupBounds": cloneDrop, "routeWork": cloneDrop, "routeView": cloneDrop, "admissionWork": cloneDrop,
+		"pickupBounds": cloneDrop, "routeWork": cloneDrop, "routeView": cloneDrop, "admissionWork": cloneDrop, "emergencyMisses": cloneDrop,
 		"initial":  cloneShare,
 		"vehicles": cloneCopy, "expressServices": cloneCopy, "owners": cloneCopy, "demo": cloneCopy, "waiting": cloneCopy, "undelivered": cloneCopy,
 		"demandWeights": cloneShare, "congestionRouteCosts": cloneShare, "congestionRoutes": cloneCopy, "predictiveQueues": cloneCopy, "predictivePodQueues": cloneCopy,
@@ -221,6 +221,7 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"networkIndexes":  persistSession,
 		"expressServices": persistSession, "lengths": persistReset, "routes": persistReset, "routeOrder": persistReset,
 		"pickupBounds": persistReset, "routeWork": persistReset, "routeView": persistReset, "admissionWork": persistReset,
+		"emergencyMisses": persistReset, "searchCounters": persistReset,
 		"initial":  persistSession,
 		"vehicles": persistSave, "owners": persistDerive, "tick": persistSave, "paused": persistSave,
 		"completed": persistSave, "requestID": persistSave, "demo": persistSave, "demoError": persistSave,
@@ -533,6 +534,8 @@ func TestCloneFollowsRules(t *testing.T) {
 				// records.
 				"Simulation.blocked", "Simulation.staticConnected", "Simulation.staticRoutes",
 				"Simulation.faults", "Simulation.emergencies",
+				// The no-candidate memo tests cover the memo.
+				"Simulation.emergencyMisses",
 				// The release boundary of each tick empties it.
 				"Simulation.faultReleased"},
 		},
@@ -899,6 +902,9 @@ func stripCaches(s *Simulation) *Simulation {
 	c.staticConnected, c.staticRoutes = nil, nil
 	c.routeWork = nil
 	c.admissionWork = nil
+	// A clone drops the no-candidate memo, so it makes other searches with
+	// the same trajectory.
+	c.emergencyMisses, c.searchCounters = nil, searchCounters{}
 	// The dispatch pass holds only buffers of the last dispatch.
 	c.pass = nil
 	// The cursors of a block list depend on the order of the lookups.

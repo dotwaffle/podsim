@@ -153,8 +153,10 @@ func (s *Simulation) emergencyStage() {
 // 5.4 of the incident emergency contract). A faulted pod and a coupling or
 // approach member stay deferred. Otherwise the pod gets the emergency hold
 // when it lacks it. A deferred pod at a berth then starts its unload
-// there. Each other deferred pod keeps its route: a pod in its arrival
-// chain arrives at its berth, and the next stage starts the unload there.
+// there. A traveling pod that can divert binds to the station of the
+// station choice on its cadence. Each other deferred pod keeps its route:
+// a pod in its arrival chain arrives at its berth, and the next stage
+// starts the unload there. A bound or unloading pod keeps its station.
 //
 // Each operation checks its own preconditions before any change. A
 // refusal leaves the pod deferred, and the next stage tries again.
@@ -184,6 +186,7 @@ func (s *Simulation) advanceEmergency(record emergencyRecord) {
 		// which stays deferred.
 		_ = s.startOperationalUnload(v, emergencyHold, 1<<party)
 	default:
+		s.chooseEmergencyStation(record, 1<<party)
 	}
 }
 
@@ -195,6 +198,7 @@ func (s *Simulation) advanceEmergency(record emergencyRecord) {
 func (s *Simulation) endEmergency(index int) {
 	record := s.emergencies[index]
 	s.emergencies = slices.Delete(s.emergencies, index, index+1)
+	s.dropEmergencyMiss(record.serial)
 	addCount(&s.emergencyCounters.ended, 1)
 	if v := &s.vehicles[record.pod]; v.withdrawn&emergencyHold != 0 {
 		_ = s.restoreService(v, emergencyHold)

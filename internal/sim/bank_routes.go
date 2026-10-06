@@ -54,6 +54,7 @@ func (n Network) bankRoute(input networkRouteInput, graph routeGraph, work *rout
 			if route, err := search(from, to, allowed); err == nil {
 				return route, nil
 			}
+			work.localFailed++
 			// A local arrival must not escape and enter another gate.
 			if input.forbidden != nil || from == bank.entry || bankArrivalNode(bank, graph, from) {
 				return nil, ErrUnreachable

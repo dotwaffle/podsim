@@ -210,8 +210,10 @@ func (s *Simulation) ensureNetworkIndexes() {
 	s.routeWork = nil
 	s.congestionRouteCosts = nil
 	s.congestionRoutes = nil
-	// The blocked set holds lane indexes of the old network.
+	// The blocked set holds lane indexes of the old network, and the
+	// no-candidate memo node indexes.
 	s.blocked = blockedSet{}
+	s.emergencyMisses = nil
 	s.staticConnected, s.staticRoutes = nil, nil
 }
 

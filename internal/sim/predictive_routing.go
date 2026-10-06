@@ -110,6 +110,7 @@ func (s *Simulation) predictionQueues() []float64 {
 func (s *Simulation) routeForecasts(self *vehicle) []laneForecast {
 	s.ensureNetworkIndexes()
 	raw := s.predictionQueues()
+	s.searchCounters.forecasts++
 	forecasts := make([]laneForecast, len(raw))
 	var history map[int]float64
 	if self != nil {

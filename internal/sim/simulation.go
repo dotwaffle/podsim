@@ -431,6 +431,13 @@ type Simulation struct {
 	// routeView is the routing view of one query. It is nil outside the
 	// query. See route_view.go.
 	routeView *routeView
+	// emergencyMisses is the no-candidate memo of the station choice, with
+	// one entry at most for each emergency record. It is not saved, and
+	// Clone drops it. See emergency_choice.go.
+	emergencyMisses []emergencyMiss
+	// searchCounters counts the graph searches by kind. It is not saved,
+	// and Reset keeps it. See search_counters.go.
+	searchCounters searchCounters
 	// vehicleIndexes gives the position in vehicles of each pod ID. Reset
 	// and restorePhysical replace it whole after they replace vehicles. No
 	// code writes to it in place. findVehicle checks each entry, so an entry
@@ -555,13 +562,14 @@ func prepareFleet(network Network, placements []Placement) (Network, routeGraph,
 
 // Reset restores the initial fleet, clock, and resources. It clears supplied
 // demo requests, the fault records, counters and blocked set, and the
-// emergency records and counters. The new fleet has no hold. It keeps the
-// incident serial, the fault settings, and the emergency switch.
+// emergency records, counters, and no-candidate memo. The new fleet has no
+// hold. It keeps the incident serial, the fault settings, and the emergency
+// switch.
 func (s *Simulation) Reset() {
 	defer s.observe()
 	s.admissionWork = nil
 	s.faults, s.faultCounters, s.faultReleased = nil, faultCounters{}, nil
-	s.emergencies, s.emergencyCounters = nil, emergencyCounters{}
+	s.emergencies, s.emergencyCounters, s.emergencyMisses = nil, emergencyCounters{}, nil
 	if s.blockedActive() {
 		s.setBlocked(nil)
 	}

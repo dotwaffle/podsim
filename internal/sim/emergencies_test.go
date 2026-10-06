@@ -290,12 +290,13 @@ func TestEmergencyStartRecord(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			s, v := emergencyFleet(t)
-			// After s1, order 1 is completed history.
-			lane := "s0-link"
+			// After s1, order 1 is completed history. In its arrival
+			// chain, the pod cannot divert, so it stays deferred.
+			station := "s1"
 			if test.completeFirst {
-				lane = "s1-link"
+				station = "s2"
 			}
-			travelOn(t, s, v, lane)
+			travelToArrivalChain(t, s, v, station)
 			checkEmergenciesEachTick(t, s)
 			s.SetIncidentGeneration(7)
 			s.incidentSerial = 41
@@ -433,7 +434,7 @@ func TestEmergencyEndSupply(t *testing.T) {
 func TestEmergencyArrivalChain(t *testing.T) {
 	t.Parallel()
 	s, v := emergencyFleet(t)
-	travelOn(t, s, v, "s0-link")
+	travelToArrivalChain(t, s, v, "s1")
 	checkEmergenciesEachTick(t, s)
 	route := slices.Clone(v.Route)
 	startEmergency(t, s, v, 2)
@@ -465,7 +466,7 @@ func TestEmergencyPartyIndex(t *testing.T) {
 	s := incidentLegFleet(t)
 	s.emergenciesOn = true
 	v := boardParties(t, s, "s1", "s1", "s1")
-	travelOn(t, s, v, "s0-link")
+	travelToArrivalChain(t, s, v, "s1")
 	checkEmergenciesEachTick(t, s)
 	startEmergency(t, s, v, 2)
 	if err := s.InterruptRider("01", 1); err != nil {
@@ -608,7 +609,7 @@ func TestEmergencyFaults(t *testing.T) {
 	}{
 		{"deferred", func(t *testing.T, s *Simulation, v *vehicle) opPurpose {
 			t.Helper()
-			travelOn(t, s, v, "s0-link")
+			travelToArrivalChain(t, s, v, "s1")
 			startEmergency(t, s, v, 1)
 			return opService
 		}},

@@ -9,9 +9,15 @@ type routeSearchWork struct {
 	previous []int
 	visited  []bool
 	queue    routeQueue
+	// searches counts the calls of reset, which is one for each
+	// shortest-path search, and localFailed the same-bank local attempts
+	// of bankRoute that found no path. searchRoute reads them for the
+	// search counters.
+	searches, localFailed int64
 }
 
 func (w *routeSearchWork) reset(nodes int) {
+	w.searches++
 	if cap(w.distance) < nodes {
 		w.distance = make([]float64, nodes)
 		w.previous = make([]int, nodes)
@@ -31,5 +37,9 @@ func (s *Simulation) searchRoute(input networkRouteInput) ([]Lane, error) {
 	if s.routeWork == nil {
 		s.routeWork = new(routeSearchWork)
 	}
-	return s.network.routeIndexedWithWork(input, s.routingGraph(), s.routeWork)
+	work := s.routeWork
+	searches, localFailed := work.searches, work.localFailed
+	lanes, err := s.network.routeIndexedWithWork(input, s.routingGraph(), work)
+	s.searchCounters.countRoute(input, err, work.searches-searches, work.localFailed-localFailed)
+	return lanes, err
 }

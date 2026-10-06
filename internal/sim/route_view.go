@@ -98,6 +98,7 @@ func (s *Simulation) viewForecasts(v *vehicle) []laneForecast {
 	}
 	s.ensureNetworkIndexes()
 	raw := make([]float64, len(s.network.Lanes))
+	s.searchCounters.forecasts++
 	for index := range s.vehicles {
 		other := &s.vehicles[index]
 		if stoppedForPrediction(other) {
