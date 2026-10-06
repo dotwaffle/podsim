@@ -1694,7 +1694,7 @@ mise run check
 | --- | --- |
 | `mise run check` | Workflow validation, Markdown checks, race tests, the tests that skip under the race detector, the `test:web` tests, vet, lint, vulnerability checks, the native and browser builds, and the embedded server tests. |
 | `mise run format` | Formats the Go sources and the Markdown files. |
-| `mise run test:quick` | `go test -short ./...`. It skips the long tests of `internal/sim`, `internal/session`, `internal/parkride`, and `cmd/compare`. The race tasks, `test:embedded`, and `test:bounds` run them. |
+| `mise run test:quick` | `go test -short ./...`. It skips the long tests of `internal/sim`, `internal/session`, `internal/parkride`, `internal/scenarios`, `cmd/compare`, and `cmd/serve`. The race tasks, `test:embedded`, and `test:bounds` run them. |
 | `mise run test:web` | Only the editor, loader, and page tests. |
 | `mise run qualify` | The two Station 19 drain tests in `internal/scenarios`, without the race detector. These tests skip under the race detector, so in `mise run check` only this task runs them. The `test:race` task runs the other scenario tests. |
 | `mise run test:embedded` | The root and `cmd/serve` tests with the `embed_assets` tag. It also runs the session tests that skip under the race detector or check more without it. The `test:race` task runs the other session tests. |

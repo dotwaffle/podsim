@@ -107,7 +107,7 @@ The load average is given with each wall time, because the load changed the wall
 Under `-short`, 53 sim tests skip through `skipLong`.
 Each of them took one second or more in a serial run without the race detector, and together they took 235.5 of 294.0 seconds.
 They are the long scenarios, the parity tests that compare with a full scan or a reference, and the soak tests.
-In the session package, the four maximum codec tests, `TestStreamMaximumEncoding`, `TestStreamLondonWire`, and `TestMaximalRequeueRoundTrip` skip under `-short`.
+In the session package, the eight session tests of `test:embedded`, `TestStreamLondonWire`, and `TestMaximalRequeueRoundTrip` skip under `-short`.
 In `internal/parkride`, six checkpoint tests skip under `-short`.
 They took 42.9 of 44.1 seconds in a serial run.
 In `cmd/compare`, nine experiment tests skip under `-short`.
