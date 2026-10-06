@@ -47,6 +47,14 @@ const (
 	composedExpressIncidentAllocation = 373_116
 )
 
+// composedFaultSaveAllocation and composedFaultStreamAllocation are the
+// stage 2 allocations of the incident suspension contract (section 13.6):
+// the save sub-allocation, and the stream and HTTP allocation.
+const (
+	composedFaultSaveAllocation   = 65_536
+	composedFaultStreamAllocation = 262_144
+)
+
 // composedServiceID is the widest service ID of an order.
 var composedServiceID = strings.Repeat("\x03", 64)
 
@@ -207,11 +215,63 @@ func composedIncidentSave(t *testing.T, file stateFile) stateFile {
 	return file
 }
 
-// composedSave returns the composed save of shape with the stage 1
-// members of the incident contract. See composedBaseSave.
+// composedFaultProject gives config the fault marker and the widest
+// faults settings, which project.Validate measures for each project with
+// the marker. The name fills the project member to its byte cap again.
+func composedFaultProject(t *testing.T, config *project.Config) {
+	t.Helper()
+	*config = project.Clone(*config)
+	config.FaultContract = sim.FaultV1Contract
+	config.Faults = &project.FaultConfig{
+		EvacuationSeconds: new(3600), PerHour: new(math.Copysign(0, -1)),
+		DebrisShare: new(1.0000000000000002e-06), DebrisMeters: new(0.5000000000000001),
+		Duration: &project.FaultDuration{Kind: "exponential", MinSeconds: new(86400), MaxSeconds: new(86400), MeanSeconds: new(86400)},
+	}
+	config.Name = ""
+	config.Name = strings.Repeat("n", project.MaxFileBytes-jsonSize(t, *config))
+	if size := jsonSize(t, *config); size != project.MaxFileBytes {
+		t.Fatalf("project has %d bytes, want %d", size, project.MaxFileBytes)
+	}
+}
+
+// composedFaultSave adds the stage 2 members of the incident suspension
+// contract to file at the widest values that a server writes (section
+// 13.6): the counters at the largest integer, and 300 pod records and 64
+// debris records. Each record has a 20-digit generation and serial, and
+// 19-digit ticks. Each pod record names pod index 299, and each debris
+// record the last lane index and segment bounds with 23 bytes. The save
+// decoder checks the shape of a tuple, and the restore checks its values.
+func composedFaultSave(t *testing.T, file stateFile) stateFile {
+	t.Helper()
+	composedFaultProject(t, &file.Project)
+	lane := len(file.Project.Network.Lanes) - 1
+	records := make([]sim.SavedFault, maxFaultRecords)
+	for i := range records {
+		record := sim.SavedFault{Generation: math.MaxUint64, Serial: math.MaxUint64 - uint64(len(records)-1-i), Start: math.MaxInt64, End: math.MaxInt64, Pod: project.MaxPods - 1}
+		if i >= project.MaxPods {
+			record.Debris, record.Pod, record.Lane = true, 0, lane
+			record.From, record.To = composedDebrisFrom, composedDebrisTo
+		}
+		records[i] = record
+	}
+	counters := sim.FaultCounters{Started: math.MaxInt64, Cleared: math.MaxInt64, Evacuations: math.MaxInt64, Reroutes: math.MaxInt64, FaultWaitTicks: math.MaxInt64}
+	file.Simulation.Faults = &sim.SavedFaults{Records: records, Counters: counters}
+	return file
+}
+
+// composedDebrisFrom and composedDebrisTo are the widest debris segment
+// that the decoders accept: 0 <= from < to <= from+50, and each bound has
+// 23 bytes in its shortest form.
+const (
+	composedDebrisFrom = 2.2250738585072014e-308
+	composedDebrisTo   = 2.2250738585072024e-308
+)
+
+// composedSave returns the composed save of shape with the stage 1 and
+// stage 2 members of the incident contract. See composedBaseSave.
 func composedSave(t *testing.T, shape composedShape) stateFile {
 	t.Helper()
-	return composedIncidentSave(t, composedBaseSave(t, shape))
+	return composedFaultSave(t, composedIncidentSave(t, composedBaseSave(t, shape)))
 }
 
 // composedBaseSave returns the composed save of shape without the members
@@ -292,9 +352,52 @@ func composedIncidentFrame(frame StreamFrame) StreamFrame {
 	return frame
 }
 
+// composedFaultFrame adds the stage 2 stream members of the incident
+// suspension contract to frame at the widest values that ApplyStream
+// accepts: the fault marker, the counters at the largest integer, and 300
+// pod records and 64 debris records. Each record has a 20-digit generation
+// and serial, and 19-digit ticks. A pod record names a vehicle of its own,
+// which has an ID of 386 JSON bytes, and has the phase evacuated. A debris
+// record has a lane ID of 386 JSON bytes and the widest segment. The start
+// of a record is not after the frame tick, so the frame tick is the
+// largest integer. The vehicle IDs of frame must differ.
+func composedFaultFrame(frame StreamFrame) StreamFrame {
+	simulation := &frame.State.Simulation
+	simulation.FaultContract = sim.FaultV1Contract
+	simulation.Tick = math.MaxInt64
+	start, end := int64(math.MaxInt64-1), int64(math.MaxInt64)
+	from, to := composedDebrisFrom, composedDebrisTo
+	active := make([]sim.FaultView, maxFaultRecords)
+	for i := range active {
+		fault := sim.FaultView{ID: fmt.Sprintf("i%d.%d", uint64(math.MaxUint64), uint64(math.MaxUint64)-uint64(len(active)-1-i)), StartTick: start, EndTick: end}
+		if i < len(simulation.Vehicles) {
+			fault.Kind, fault.PodID, fault.Phase, fault.EvacuateTick = sim.FaultKindPod, simulation.Vehicles[i].Pod.ID, sim.FaultPhaseEvacuated, &end
+		} else {
+			fault.Kind, fault.LaneID, fault.FromMeters, fault.ToMeters = sim.FaultKindDebris, widestCouplingID(0x14, i-len(simulation.Vehicles)), &from, &to
+		}
+		active[i] = fault
+	}
+	counters := sim.FaultCounters{Started: math.MaxInt64, Cleared: math.MaxInt64, Evacuations: math.MaxInt64, Reroutes: math.MaxInt64, FaultWaitTicks: math.MaxInt64}
+	simulation.Faults = sim.FaultsView{Active: active, Counters: counters}
+	return frame
+}
+
+// composedVehicleEscapes are the control bytes that JSON writes as 6 bytes.
+const composedVehicleEscapes = "\x01\x02\x03\x04\x05\x06\x07\x0b\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f"
+
+// composedVehicleID returns the ID of vehicle index: 64 control bytes, 386
+// JSON bytes, as the ID of the widest builders. Vehicle 0 keeps the ID of
+// the widest builders, which the other members of the frame name.
+func composedVehicleID(index int) string {
+	n := len(composedVehicleEscapes)
+	return strings.Repeat("\x01", 62) + string([]byte{composedVehicleEscapes[index/n], composedVehicleEscapes[index%n]})
+}
+
 // composedStreamFrame returns the composed frame of shape with the stage 1
-// members of the incident contract. The plain frame adds the service ID of
-// each order, which the widest builder omits and the decoder accepts.
+// and stage 2 members of the incident contract. The plain frame adds the
+// service ID of each order, which the widest builder omits and the
+// decoder accepts. Each vehicle gets an ID of its own, of the same size,
+// so that each pod record names another vehicle.
 func composedStreamFrame(t *testing.T, shape composedShape) StreamFrame {
 	t.Helper()
 	var frame StreamFrame
@@ -312,10 +415,13 @@ func composedStreamFrame(t *testing.T, shape composedShape) StreamFrame {
 			}
 		}
 	}
+	for i := range frame.State.Simulation.Vehicles {
+		frame.State.Simulation.Vehicles[i].Pod.ID = composedVehicleID(i)
+	}
 	if shape.markers.coupling != "" {
 		frame = composedCouplingFrame(frame)
 	}
-	return composedIncidentFrame(frame)
+	return composedFaultFrame(composedIncidentFrame(frame))
 }
 
 // TestComposedWorstCaseFormats measures one composed fixture for each save
@@ -379,6 +485,10 @@ func TestComposedWorstCaseFormats(t *testing.T) { //nolint:tparallel // Subtests
 				"Each trip has the excluded pod index 299, or 298 for a trip with pod 299, so no trip is boarded. " +
 				"The saved counters are the most negative integers, and the serial is the largest integer. " +
 				"In the streams, the counters are the largest integers, each vehicle has holds 3 and emergency-unload, and each rider and pending order has a leg origin of 64 bytes. " +
+				"Each shape also has the fault marker and the stage 2 members at the widest values that a server writes. " +
+				"The saved project has the widest faults settings, and the save has 300 pod records and 64 debris records with 20-digit generations and serials, 19-digit ticks, pod index 299, the last lane index, segment bounds of 23 bytes, and the largest counters. " +
+				"In the streams, the faults have the largest counters, 300 pod records with the phase evacuated, and 64 debris records with lane IDs of 64 bytes and segment bounds of 23 bytes; each record has a 20-digit generation and serial and 19-digit ticks. " +
+				"Each vehicle has an ID of its own with 64 bytes, and the frame tick is the largest integer, because a fault does not start after the frame tick. " +
 				"Coupling save: the coupling markers and 150 coupling groups; the 300 member pods are traveling compact pods with a route of 13,000 lanes. " +
 				"Express with coupling has no group, because a member pod keeps 8 of the 20 riders of an Express pod; the test also decodes it with 1 group. " +
 				"The saved project and the HTTP topology have no coupling sites or corridors, because their network has no valid geometry; each member is at its byte cap. " +
@@ -415,9 +525,13 @@ func composedSaveJSON(t *testing.T, file stateFile) []byte {
 // cap stops the shape after its size is recorded.
 func measureComposedSave(t *testing.T, shape composedShape) composedSize {
 	t.Helper()
-	baseBytes := len(composedSaveJSON(t, composedBaseSave(t, shape)))
+	base := composedBaseSave(t, shape)
+	baseBytes := len(composedSaveJSON(t, base))
 	runtime.GC()
-	file := composedSave(t, shape)
+	incident := composedIncidentSave(t, base)
+	incidentBytes := len(composedSaveJSON(t, incident))
+	runtime.GC()
+	file := composedFaultSave(t, incident)
 	raw := composedSaveJSON(t, file)
 	size := composedSize{Shape: shape.name, Format: "save", RawBytes: len(raw), BoundBytes: len(raw), CapBytes: MaxStateBytes, HeadroomBytes: MaxStateBytes - len(raw)}
 	if len(raw) > MaxStateBytes {
@@ -451,57 +565,100 @@ func measureComposedSave(t *testing.T, shape composedShape) composedSize {
 	if pod.Withdrawn != 3 || pod.Purpose != 1 || pod.Riders[0].LegFrom == "" || trip.Request.LegFrom == "" || trip.ExcludedPod == "" {
 		t.Fatalf("%s save lost incident members", shape.name)
 	}
+	if faults := decoded.Simulation.Faults; faults == nil || !slices.Equal(faults.Records, file.Simulation.Faults.Records) || faults.Counters != file.Simulation.Faults.Counters {
+		t.Fatalf("%s save lost fault members", shape.name)
+	}
 	// The stage 1 members fit the stage 1 save allocation of section 11.7
 	// of the incident contract (section 14.4).
 	allocation := composedIncidentAllocation
 	if shape.markers.order == sim.ExpressOrderContract {
 		allocation = composedExpressIncidentAllocation
 	}
-	growth := len(raw) - baseBytes
+	growth := incidentBytes - baseBytes
 	if growth > allocation {
 		t.Errorf("%s save: the stage 1 members add %d bytes, more than the allocation of %d", shape.name, growth, allocation)
 	}
 	t.Logf("%s save stage 1 growth=%d allocation=%d", shape.name, growth, allocation)
+	// The stage 2 members fit the save sub-allocation of section 13.6 of
+	// the incident suspension contract.
+	growth = len(raw) - incidentBytes
+	if growth > composedFaultSaveAllocation {
+		t.Errorf("%s save: the stage 2 members add %d bytes, more than the allocation of %d", shape.name, growth, composedFaultSaveAllocation)
+	}
+	t.Logf("%s save stage 2 growth=%d allocation=%d", shape.name, growth, composedFaultSaveAllocation)
 	return size
 }
 
 // measureComposedStream measures the full frame, the delta and the HTTP
 // state of the composed frame of shape. A document over the cap is
-// recorded, and the test does not decode it.
+// recorded, and the test does not decode it. Each document also fits the
+// stage 2 stream allocation: it is at most that many bytes larger than
+// the same document without the stage 2 members.
 func measureComposedStream(t *testing.T, shape composedShape) []composedSize {
 	t.Helper()
 	frame := composedStreamFrame(t, shape)
-	delta := maximumStreamDelta(t, frame)
-	full := StreamEnvelope{
-		CouplingContract: shape.markers.coupling, OrderContract: shape.markers.order,
-		Kind: "full", Stream: strings.Repeat("x", 32), Sequence: math.MaxUint64, Source: sourceOf(frame), Build: frame.State.Build, Full: &frame,
+	// The HTTP state of a widest frame does not pass the state checks of
+	// DecodeStateJSON, because its values are independent maxima. The test
+	// encodes it with the options of EncodeStateJSON, and it decodes it with
+	// the bounded scans and the typed decode of DecodeStateJSON.
+	topology, _ := fitWidestTopology(t, shape.markers)
+	incident := frame
+	incident.State.Simulation.FaultContract, incident.State.Simulation.Faults = "", sim.FaultsView{}
+	incident.State.Simulation.Tick = math.MinInt64
+	var incidentBytes []int
+	for _, document := range composedStreamDocuments(t, shape, incident, topology) {
+		incidentBytes = append(incidentBytes, len(document))
 	}
-	changed := full
-	changed.Kind, changed.Full, changed.Delta, changed.Base = "delta", nil, &delta, math.MaxUint64-1
+	runtime.GC()
 	limits := streamLimits(shape.markers)
 	orders, _ := shape.markers.orderBounds()
 	var sizes []composedSize
-	for _, envelope := range []StreamEnvelope{full, changed} {
-		raw, err := EncodeStreamJSON(envelope)
-		size := composedStreamSize(t, shape, envelope.Kind, raw, 0)
+	for index, raw := range composedStreamDocuments(t, shape, frame, topology) {
+		format := [...]string{"full", "delta", "http"}[index]
+		if raw == nil {
+			sizes = append(sizes, composedSize{Shape: shape.name, Format: format})
+			continue
+		}
+		growth := len(raw) - incidentBytes[index]
+		if growth > composedFaultStreamAllocation {
+			t.Errorf("%s %s: the stage 2 members add %d bytes, more than the allocation of %d", shape.name, format, growth, composedFaultStreamAllocation)
+		}
+		t.Logf("%s %s stage 2 growth=%d allocation=%d", shape.name, format, growth, composedFaultStreamAllocation)
+		var size composedSize
+		if format == "http" {
+			size = composedStreamSize(t, shape, format, raw, len(composedTopologyJSON(t, topology, frame)))
+		} else {
+			size = composedStreamSize(t, shape, format, raw, 0)
+		}
 		sizes = append(sizes, size)
-		if err != nil {
-			t.Errorf("%s %s encode: %v", shape.name, envelope.Kind, err)
+		if size.BoundBytes > MaxStreamJSON {
 			continue
 		}
 		if scanErr := prescanJSON(raw, limits); scanErr != nil {
-			t.Fatalf("%s %s failed the bounded scan: %v", shape.name, envelope.Kind, scanErr)
+			t.Fatalf("%s %s failed the bounded scan: %v", shape.name, format, scanErr)
 		}
-		assertExplicitArrayBounds(t, shape.name+" "+envelope.Kind, raw, limits)
-		decoded, err := DecodeStreamJSON(raw)
-		if err != nil || !decoded.incidentMembers {
-			t.Fatalf("%s %s decode: %v, incident members %v", shape.name, envelope.Kind, err, decoded.incidentMembers)
-		}
-		var vehicles, pending, groups int
-		if decoded.Full != nil {
+		assertExplicitArrayBounds(t, shape.name+" "+format, raw, limits)
+		var vehicles, pending, groups, faults int
+		switch format {
+		case "http":
+			var decoded StateEnvelope
+			if members, err := decodeMarkedJSON(raw, true, &decoded); err != nil || !members.incident || !members.fault {
+				t.Fatalf("%s HTTP state decode: %v, marked members %+v", shape.name, err, members)
+			}
+			simulation := decoded.Frame.State.Simulation
+			vehicles, pending, groups, faults = len(simulation.Vehicles), len(simulation.Pending), len(simulation.CouplingGroups), len(simulation.Faults.Active)
+		case "full":
+			decoded, err := DecodeStreamJSON(raw)
+			if err != nil || !decoded.incidentMembers || !decoded.faultMembers {
+				t.Fatalf("%s full decode: %v, incident members %v, fault members %v", shape.name, err, decoded.incidentMembers, decoded.faultMembers)
+			}
 			simulation := decoded.Full.State.Simulation
-			vehicles, pending, groups = len(simulation.Vehicles), len(simulation.Pending), len(simulation.CouplingGroups)
-		} else {
+			vehicles, pending, groups, faults = len(simulation.Vehicles), len(simulation.Pending), len(simulation.CouplingGroups), len(simulation.Faults.Active)
+		default:
+			decoded, err := DecodeStreamJSON(raw)
+			if err != nil || !decoded.incidentMembers || !decoded.faultMembers {
+				t.Fatalf("%s delta decode: %v, incident members %v, fault members %v", shape.name, err, decoded.incidentMembers, decoded.faultMembers)
+			}
 			var replacement couplingReplacement
 			if raw := decoded.Delta.Groups["coupling"]; raw != nil {
 				if err := json.Unmarshal(raw, &replacement); err != nil {
@@ -512,46 +669,61 @@ func measureComposedStream(t *testing.T, shape composedShape) []composedSize {
 			if err := json.Unmarshal(decoded.Delta.Groups["pending"], &group); err != nil {
 				t.Fatal(err)
 			}
-			vehicles, pending, groups = len(decoded.Delta.Vehicles), len(group), len(replacement.Groups)
+			var active sim.FaultsView
+			if err := json.Unmarshal(decoded.Delta.Groups["faults"], &active); err != nil {
+				t.Fatal(err)
+			}
+			vehicles, pending, groups, faults = len(decoded.Delta.Vehicles), len(group), len(replacement.Groups), len(active.Active)
 		}
-		if vehicles != project.MaxPods || int64(pending) != orders || groups != len(frame.State.Simulation.CouplingGroups) {
-			t.Fatalf("%s %s lost records: %d vehicles, %d orders, %d coupling groups", shape.name, envelope.Kind, vehicles, pending, groups)
+		if vehicles != project.MaxPods || int64(pending) != orders || groups != len(frame.State.Simulation.CouplingGroups) || faults != maxFaultRecords {
+			t.Fatalf("%s %s lost records: %d vehicles, %d orders, %d coupling groups, %d faults", shape.name, format, vehicles, pending, groups, faults)
 		}
 		runtime.GC()
 	}
+	return sizes
+}
 
-	// The HTTP state of a widest frame does not pass the state checks of
-	// DecodeStateJSON, because its values are independent maxima. The test
-	// encodes it with the options of EncodeStateJSON, and it decodes it with
-	// the bounded scans and the typed decode of DecodeStateJSON.
-	topology, _ := fitWidestTopology(t, shape.markers)
-	topology.IncidentContract = frame.State.Simulation.IncidentContract
-	topologyRaw, err := json.Marshal(topology)
+// composedTopologyJSON returns the JSON form of topology with the markers
+// of frame.
+func composedTopologyJSON(t *testing.T, topology TopologySnapshot, frame StreamFrame) []byte {
+	t.Helper()
+	topology.IncidentContract, topology.FaultContract = frame.State.Simulation.IncidentContract, frame.State.Simulation.FaultContract
+	raw, err := json.Marshal(topology)
 	if err != nil {
 		t.Fatal(err)
 	}
+	return raw
+}
+
+// composedStreamDocuments returns the full frame, the delta and the HTTP
+// state of frame, with topology in the HTTP state. A stream document that
+// the encoder refuses is nil, and the test records an error for it.
+func composedStreamDocuments(t *testing.T, shape composedShape, frame StreamFrame, topology TopologySnapshot) [3][]byte {
+	t.Helper()
+	delta := maximumStreamDelta(t, frame)
+	full := StreamEnvelope{
+		CouplingContract: shape.markers.coupling, OrderContract: shape.markers.order,
+		Kind: "full", Stream: strings.Repeat("x", 32), Sequence: math.MaxUint64, Source: sourceOf(frame), Build: frame.State.Build, Full: &frame,
+	}
+	changed := full
+	changed.Kind, changed.Full, changed.Delta, changed.Base = "delta", nil, &delta, math.MaxUint64-1
+	var documents [3][]byte
+	for index, envelope := range []StreamEnvelope{full, changed} {
+		raw, err := EncodeStreamJSON(envelope)
+		if err != nil {
+			t.Errorf("%s %s encode: %v", shape.name, envelope.Kind, err)
+			continue
+		}
+		documents[index] = raw
+	}
+	topology.IncidentContract, topology.FaultContract = frame.State.Simulation.IncidentContract, frame.State.Simulation.FaultContract
 	envelope := StateEnvelope{CouplingContract: shape.markers.coupling, OrderContract: shape.markers.order, Topology: topology, Frame: frame}
 	raw, err := jsonv2.Marshal(envelope, json.DefaultOptionsV1(), packedRequestOptions())
 	if err != nil {
 		t.Fatal(err)
 	}
-	sizes = append(sizes, composedStreamSize(t, shape, "http", raw, len(topologyRaw)))
-	if len(raw) > MaxStreamJSON {
-		return sizes
-	}
-	if scanErr := prescanJSON(raw, limits); scanErr != nil {
-		t.Fatalf("%s HTTP state failed the bounded scan: %v", shape.name, scanErr)
-	}
-	assertExplicitArrayBounds(t, shape.name+" HTTP state", raw, limits)
-	var decoded StateEnvelope
-	if members, err := decodeMarkedJSON(raw, true, &decoded); err != nil || !members.incident {
-		t.Fatalf("%s HTTP state decode: %v, incident members %v", shape.name, err, members)
-	}
-	if len(decoded.Frame.State.Simulation.Vehicles) != project.MaxPods || int64(len(decoded.Frame.State.Simulation.Pending)) != orders ||
-		len(decoded.Frame.State.Simulation.CouplingGroups) != len(frame.State.Simulation.CouplingGroups) {
-		t.Fatalf("%s HTTP state lost records", shape.name)
-	}
-	return sizes
+	documents[2] = raw
+	return documents
 }
 
 // composedStreamSize measures raw, a stream document or an HTTP state of

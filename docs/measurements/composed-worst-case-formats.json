@@ -1,155 +1,155 @@
 {
   "format": "podsim-composed-worst-case-formats-v1",
   "test": "internal/session TestComposedWorstCaseFormats",
-  "method": "Each fixture has the widest value of each member that a server can write and that the version 9 save decoder or the hello 6 stream decoder accepts. The values are independent maxima, not reachable placement or motion. The decoder accepts a route on each waiting trip, but a server writes at most 300: dispatch gives a waiting trip a route only when it assigns a pod, each pod has at most one assigned trip, and a physical restore keeps waiting routes within its block budget. Plain save: widestSavedBase with 300 compact pods, each the leader of a one-pod queue, and 2,600 trips, 300 of them with a route. Express save: widestExpressSave, with 300 Express pods that have 20 riders and 20 boarding records, and 8,600 trips. Each save also has sharedRideJoin, and each plain order has a service ID. Each shape has the incident marker and the stage 1 members at the widest values that the decoders accept. The saved project has 300 stations, so each station index has 3 digits. Each saved pod has holds 3 and the operational tuple [1,2]: an interrupt bit needs an active rider, which omits the 17 bytes of completed. Each rider and each trip has a leg origin with a 3-digit station index; a rider with a boarding record has its origin, where the record is. Each trip has the excluded pod index 299, or 298 for a trip with pod 299, so no trip is boarded. The saved counters are the most negative integers, and the serial is the largest integer. In the streams, the counters are the largest integers, each vehicle has holds 3 and emergency-unload, and each rider and pending order has a leg origin of 64 bytes. Coupling save: the coupling markers and 150 coupling groups; the 300 member pods are traveling compact pods with a route of 13,000 lanes. Express with coupling has no group, because a member pod keeps 8 of the 20 riders of an Express pod; the test also decodes it with 1 group. The saved project and the HTTP topology have no coupling sites or corridors, because their network has no valid geometry; each member is at its byte cap. Streams: plain is maximumStreamFrame with compact vehicles, boarding records and service IDs; Express is widestExpressStreamFrame; coupling adds 150 coupling groups and a coupling ID on each vehicle. The delta changes each vehicle, berth and group from an empty base. The HTTP state has the widest topology that fits the topology cap of 10,489,856 bytes; bound_bytes sets the topology member to that cap. Gzip bytes use gzip level 1, as the server does. Saves decode with decodeStateFile and resolveBoardings, and streams with DecodeStreamJSON. The HTTP state decodes with the bounded scans and the typed decode of DecodeStateJSON, without the state checks of the stream assembler.",
+  "method": "Each fixture has the widest value of each member that a server can write and that the version 9 save decoder or the hello 6 stream decoder accepts. The values are independent maxima, not reachable placement or motion. The decoder accepts a route on each waiting trip, but a server writes at most 300: dispatch gives a waiting trip a route only when it assigns a pod, each pod has at most one assigned trip, and a physical restore keeps waiting routes within its block budget. Plain save: widestSavedBase with 300 compact pods, each the leader of a one-pod queue, and 2,600 trips, 300 of them with a route. Express save: widestExpressSave, with 300 Express pods that have 20 riders and 20 boarding records, and 8,600 trips. Each save also has sharedRideJoin, and each plain order has a service ID. Each shape has the incident marker and the stage 1 members at the widest values that the decoders accept. The saved project has 300 stations, so each station index has 3 digits. Each saved pod has holds 3 and the operational tuple [1,2]: an interrupt bit needs an active rider, which omits the 17 bytes of completed. Each rider and each trip has a leg origin with a 3-digit station index; a rider with a boarding record has its origin, where the record is. Each trip has the excluded pod index 299, or 298 for a trip with pod 299, so no trip is boarded. The saved counters are the most negative integers, and the serial is the largest integer. In the streams, the counters are the largest integers, each vehicle has holds 3 and emergency-unload, and each rider and pending order has a leg origin of 64 bytes. Each shape also has the fault marker and the stage 2 members at the widest values that a server writes. The saved project has the widest faults settings, and the save has 300 pod records and 64 debris records with 20-digit generations and serials, 19-digit ticks, pod index 299, the last lane index, segment bounds of 23 bytes, and the largest counters. In the streams, the faults have the largest counters, 300 pod records with the phase evacuated, and 64 debris records with lane IDs of 64 bytes and segment bounds of 23 bytes; each record has a 20-digit generation and serial and 19-digit ticks. Each vehicle has an ID of its own with 64 bytes, and the frame tick is the largest integer, because a fault does not start after the frame tick. Coupling save: the coupling markers and 150 coupling groups; the 300 member pods are traveling compact pods with a route of 13,000 lanes. Express with coupling has no group, because a member pod keeps 8 of the 20 riders of an Express pod; the test also decodes it with 1 group. The saved project and the HTTP topology have no coupling sites or corridors, because their network has no valid geometry; each member is at its byte cap. Streams: plain is maximumStreamFrame with compact vehicles, boarding records and service IDs; Express is widestExpressStreamFrame; coupling adds 150 coupling groups and a coupling ID on each vehicle. The delta changes each vehicle, berth and group from an empty base. The HTTP state has the widest topology that fits the topology cap of 10,489,856 bytes; bound_bytes sets the topology member to that cap. Gzip bytes use gzip level 1, as the server does. Saves decode with decodeStateFile and resolveBoardings, and streams with DecodeStreamJSON. The HTTP state decodes with the bounded scans and the typed decode of DecodeStateJSON, without the state checks of the stream assembler.",
   "sizes": [
     {
       "shape": "plain",
       "format": "save",
-      "raw_bytes": 55987784,
-      "gzip_bytes": 612287,
-      "bound_bytes": 55987784,
+      "raw_bytes": 56023878,
+      "gzip_bytes": 613813,
+      "bound_bytes": 56023878,
       "cap_bytes": 83886080,
-      "headroom_bytes": 27898296
+      "headroom_bytes": 27862202
     },
     {
       "shape": "plain",
       "format": "full",
-      "raw_bytes": 34940587,
-      "gzip_bytes": 347708,
-      "bound_bytes": 34940587,
+      "raw_bytes": 35152182,
+      "gzip_bytes": 342585,
+      "bound_bytes": 35152182,
       "cap_bytes": 68157440,
-      "headroom_bytes": 33216853
+      "headroom_bytes": 33005258
     },
     {
       "shape": "plain",
       "format": "delta",
-      "raw_bytes": 35064065,
-      "gzip_bytes": 422279,
-      "bound_bytes": 35064065,
+      "raw_bytes": 35275633,
+      "gzip_bytes": 424822,
+      "bound_bytes": 35275633,
       "cap_bytes": 68157440,
-      "headroom_bytes": 33093375
+      "headroom_bytes": 32881807
     },
     {
       "shape": "plain",
       "format": "http",
-      "raw_bytes": 45228731,
-      "gzip_bytes": 598997,
-      "topology_bytes": 10300682,
-      "bound_bytes": 45417905,
+      "raw_bytes": 45440353,
+      "gzip_bytes": 594528,
+      "topology_bytes": 10300709,
+      "bound_bytes": 45629500,
       "cap_bytes": 68157440,
-      "headroom_bytes": 22739535
+      "headroom_bytes": 22527940
     },
     {
       "shape": "express",
       "format": "save",
-      "raw_bytes": 77289935,
-      "gzip_bytes": 835331,
-      "bound_bytes": 77289935,
+      "raw_bytes": 77326029,
+      "gzip_bytes": 837036,
+      "bound_bytes": 77326029,
       "cap_bytes": 83886080,
-      "headroom_bytes": 6596145
+      "headroom_bytes": 6560051
     },
     {
       "shape": "express",
       "format": "full",
-      "raw_bytes": 56130445,
-      "gzip_bytes": 613351,
-      "bound_bytes": 56130445,
+      "raw_bytes": 56342040,
+      "gzip_bytes": 618938,
+      "bound_bytes": 56342040,
       "cap_bytes": 68157440,
-      "headroom_bytes": 12026995
+      "headroom_bytes": 11815400
     },
     {
       "shape": "express",
       "format": "delta",
-      "raw_bytes": 56263494,
-      "gzip_bytes": 608032,
-      "bound_bytes": 56263494,
+      "raw_bytes": 56475062,
+      "gzip_bytes": 616816,
+      "bound_bytes": 56475062,
       "cap_bytes": 68157440,
-      "headroom_bytes": 11893946
+      "headroom_bytes": 11682378
     },
     {
       "shape": "express",
       "format": "http",
-      "raw_bytes": 66517843,
-      "gzip_bytes": 868011,
-      "topology_bytes": 10399936,
-      "bound_bytes": 66607763,
+      "raw_bytes": 66729465,
+      "gzip_bytes": 872811,
+      "topology_bytes": 10399963,
+      "bound_bytes": 66819358,
       "cap_bytes": 68157440,
-      "headroom_bytes": 1549677
+      "headroom_bytes": 1338082
     },
     {
       "shape": "coupling",
       "format": "save",
-      "raw_bytes": 56060627,
-      "gzip_bytes": 4489746,
-      "bound_bytes": 56060627,
+      "raw_bytes": 56096721,
+      "gzip_bytes": 4473383,
+      "bound_bytes": 56096721,
       "cap_bytes": 83886080,
-      "headroom_bytes": 27825453
+      "headroom_bytes": 27789359
     },
     {
       "shape": "coupling",
       "format": "full",
-      "raw_bytes": 35678103,
-      "gzip_bytes": 373156,
-      "bound_bytes": 35678103,
+      "raw_bytes": 35889698,
+      "gzip_bytes": 359182,
+      "bound_bytes": 35889698,
       "cap_bytes": 68157440,
-      "headroom_bytes": 32479337
+      "headroom_bytes": 32267742
     },
     {
       "shape": "coupling",
       "format": "delta",
-      "raw_bytes": 35801594,
-      "gzip_bytes": 435086,
-      "bound_bytes": 35801594,
+      "raw_bytes": 36013162,
+      "gzip_bytes": 441882,
+      "bound_bytes": 36013162,
       "cap_bytes": 68157440,
-      "headroom_bytes": 32355846
+      "headroom_bytes": 32144278
     },
     {
       "shape": "coupling",
       "format": "http",
-      "raw_bytes": 45966307,
-      "gzip_bytes": 626584,
-      "topology_bytes": 10300742,
-      "bound_bytes": 46155421,
+      "raw_bytes": 46177929,
+      "gzip_bytes": 613442,
+      "topology_bytes": 10300769,
+      "bound_bytes": 46367016,
       "cap_bytes": 68157440,
-      "headroom_bytes": 22002019
+      "headroom_bytes": 21790424
     },
     {
       "shape": "express-coupling",
       "format": "save",
-      "raw_bytes": 77290029,
-      "gzip_bytes": 834311,
-      "bound_bytes": 77290029,
+      "raw_bytes": 77326123,
+      "gzip_bytes": 835957,
+      "bound_bytes": 77326123,
       "cap_bytes": 83886080,
-      "headroom_bytes": 6596051
+      "headroom_bytes": 6559957
     },
     {
       "shape": "express-coupling",
       "format": "full",
-      "raw_bytes": 56867961,
-      "gzip_bytes": 631676,
-      "bound_bytes": 56867961,
+      "raw_bytes": 57079556,
+      "gzip_bytes": 640476,
+      "bound_bytes": 57079556,
       "cap_bytes": 68157440,
-      "headroom_bytes": 11289479
+      "headroom_bytes": 11077884
     },
     {
       "shape": "express-coupling",
       "format": "delta",
-      "raw_bytes": 57001023,
-      "gzip_bytes": 628896,
-      "bound_bytes": 57001023,
+      "raw_bytes": 57212591,
+      "gzip_bytes": 638862,
+      "bound_bytes": 57212591,
       "cap_bytes": 68157440,
-      "headroom_bytes": 11156417
+      "headroom_bytes": 10944849
     },
     {
       "shape": "express-coupling",
       "format": "http",
-      "raw_bytes": 67255419,
-      "gzip_bytes": 885719,
-      "topology_bytes": 10399996,
-      "bound_bytes": 67345279,
+      "raw_bytes": 67467041,
+      "gzip_bytes": 894919,
+      "topology_bytes": 10400023,
+      "bound_bytes": 67556874,
       "cap_bytes": 68157440,
-      "headroom_bytes": 812161
+      "headroom_bytes": 600566
     }
   ]
 }

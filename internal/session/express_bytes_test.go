@@ -290,6 +290,7 @@ func maximumStreamDelta(t *testing.T, frame StreamFrame) StreamDelta {
 	empty.State.Simulation.OrderContract = frame.State.Simulation.OrderContract
 	empty.State.Simulation.CouplingContract = frame.State.Simulation.CouplingContract
 	empty.State.Simulation.IncidentContract = frame.State.Simulation.IncidentContract
+	empty.State.Simulation.FaultContract = frame.State.Simulation.FaultContract
 	empty.State.Simulation.Vehicles = make([]VehicleFrame, len(frame.State.Simulation.Vehicles))
 	empty.State.Simulation.Berths = make([]sim.BerthState, len(frame.State.Simulation.Berths))
 	empty.Routes = make([]sim.RoutePresentation, len(frame.Routes))
