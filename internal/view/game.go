@@ -591,108 +591,185 @@ func (g *Game) layoutButton(b button) button {
 }
 
 // click reports a press of Reset, Start traffic demo, or Rewind, so that the
-// new state can render before the next tick.
+// new state can render before the next tick. The first enabled button at
+// point takes the click. Without a button there, a click in the map picks
+// on the map.
 func (g *Game) click(point sim.Point) bool {
 	for _, b := range g.clickButtons() {
 		if b.disabled || point.X < b.x || point.X >= b.x+b.w || point.Y < b.y || point.Y >= b.y+b.h {
 			continue
 		}
-		if b.action != "search-from" && b.action != "search-to" {
-			g.journeySearch.focus = 0
-		}
-		switch b.action {
-		case "party-less":
-			g.orderPartySize = max(1, g.selectedPartySize()-1)
-		case "party-more":
-			g.orderPartySize = min(g.orderPartyLimit(), g.selectedPartySize()+1)
-		case "order-sharing":
-			if g.orderSharingConsent == sim.SharedConsent {
-				g.orderSharingConsent = sim.PrivateConsent
-			} else {
-				g.orderSharingConsent = sim.SharedConsent
-			}
-		case "search-from":
-			g.startJourneySearch(1)
-		case "search-to":
-			g.startJourneySearch(2)
-		case "map-zoom-out":
-			g.zoomMap(1 / mapZoomStep)
-		case "map-zoom-in":
-			g.zoomMap(mapZoomStep)
-		case "map-fit":
-			g.followSelected = false
-			g.camera.fit(cameraFit{bounds: g.camera.world, viewport: g.layout.mapViewport, unit: g.layout.unit})
-			g.syncCamera()
-		case "map-follow":
-			g.toggleFollow()
-		case "pods-prev":
-			g.turnPodPage(-1)
-		case "pods-next":
-			g.turnPodPage(1)
-		case "stations-prev":
-			g.stationPage--
-		case "stations-next":
-			g.stationPage++
-		case "orders-prev":
-			g.turnOrderPage(-1)
-		case "orders-next":
-			g.turnOrderPage(1)
-		case "orders":
-			g.showOrders = !g.showOrders
-			g.showDemand = false
-		case "demand":
-			g.showDemand = !g.showDemand
-			g.showOrders = false
-		case "demand-rate", "demand-pattern", "demand-seed", "demand-toggle":
-			g.changeDemand(b.action)
-		case "demo":
-			g.startDemo(time.Now())
-			return true
-		case "request":
-			g.request()
-		case "pause":
-			g.pause()
-		case "speed":
-			g.cycleSpeed()
-		case "reset":
-			g.reset(time.Now())
-			return true
-		case "checkpoint":
-			g.checkpoint()
-		case "rewind":
-			g.rewind()
-			return true
-		case shellEditorAction:
-			g.shell.Send(ShowEditor)
-		case shellDebugAction:
-			g.shell.Send(CaptureDebugState)
-			g.message = ""
-		default:
-			if command, ok := faultCommand(b.action); ok {
-				g.submit(command)
-				return false
-			}
-			if id, ok := strings.CutPrefix(b.action, "pod/"); ok {
-				for i, v := range g.state.Simulation.Vehicles {
-					if v.Pod.ID == id {
-						g.selected = i
-						break
-					}
-				}
-				g.showOrders, g.showDemand = false, false
-			} else if origin, ok := strings.CutPrefix(b.action, "from/"); ok {
-				g.chooseJourneyStation(1, origin)
-			} else if destination, ok := strings.CutPrefix(b.action, "to/"); ok {
-				g.chooseJourneyStation(2, destination)
-			}
-			g.message = ""
-		}
-		return false
+		g.press(b.action)
+		return b.action == "demo" || b.action == "reset" || b.action == "rewind"
 	}
 	if g.camera.contains(point) {
 		g.pickOnMap(point, false)
 	}
 	return false
+}
+
+// press applies a press of the button with action. Each region of the
+// screen has a handler, and no two handlers accept the same action. A press
+// outside the station search boxes removes the search focus. An action
+// that no handler accepts clears the message.
+func (g *Game) press(action string) {
+	if action != "search-from" && action != "search-to" {
+		g.journeySearch.focus = 0
+	}
+	if g.pressHeader(action) || g.pressMapControl(action) || g.pressPodControl(action) || g.pressSidePanel(action) || g.pressJourney(action) {
+		return
+	}
+	g.message = ""
+}
+
+// pressHeader applies a press of a header button: Save point, Rewind, and
+// the shell buttons. It returns false for any other action.
+func (g *Game) pressHeader(action string) bool {
+	switch action {
+	case "checkpoint":
+		g.checkpoint()
+	case "rewind":
+		g.rewind()
+	case shellEditorAction:
+		g.shell.Send(ShowEditor)
+	case shellDebugAction:
+		g.shell.Send(CaptureDebugState)
+		g.message = ""
+	default:
+		return false
+	}
+	return true
+}
+
+// pressMapControl applies a press of a map button: the zoom buttons, Fit,
+// and Follow. It returns false for any other action.
+func (g *Game) pressMapControl(action string) bool {
+	switch action {
+	case "map-zoom-out":
+		g.zoomMap(1 / mapZoomStep)
+	case "map-zoom-in":
+		g.zoomMap(mapZoomStep)
+	case "map-fit":
+		g.followSelected = false
+		g.camera.fit(cameraFit{bounds: g.camera.world, viewport: g.layout.mapViewport, unit: g.layout.unit})
+		g.syncCamera()
+	case "map-follow":
+		g.toggleFollow()
+	default:
+		return false
+	}
+	return true
+}
+
+// pressPodControl applies a press of a pod button of the inspector: the
+// fault button, a page arrow of the pod selector, or a pod button. A pod
+// button selects its pod and clears the message. It returns false for any
+// other action.
+func (g *Game) pressPodControl(action string) bool {
+	switch action {
+	case "pods-prev":
+		g.turnPodPage(-1)
+		return true
+	case "pods-next":
+		g.turnPodPage(1)
+		return true
+	}
+	if command, ok := faultCommand(action); ok {
+		g.submit(command)
+		return true
+	}
+	id, ok := strings.CutPrefix(action, "pod/")
+	if !ok {
+		return false
+	}
+	for i, v := range g.state.Simulation.Vehicles {
+		if v.Pod.ID == id {
+			g.selected = i
+			break
+		}
+	}
+	g.showOrders, g.showDemand = false, false
+	g.message = ""
+	return true
+}
+
+// pressSidePanel applies a press of a button of the side panel: the Orders
+// and Demand tabs, the Orders page arrows, the Demand controls, Start
+// traffic demo, Pause, Speed, and Reset. It returns false for any other
+// action.
+func (g *Game) pressSidePanel(action string) bool {
+	switch action {
+	case "orders-prev":
+		g.turnOrderPage(-1)
+	case "orders-next":
+		g.turnOrderPage(1)
+	case "orders":
+		g.showOrders = !g.showOrders
+		g.showDemand = false
+	case "demand":
+		g.showDemand = !g.showDemand
+		g.showOrders = false
+	case "demand-rate", "demand-pattern", "demand-seed", "demand-toggle":
+		g.changeDemand(action)
+	case "demo":
+		g.startDemo(time.Now())
+	case "pause":
+		g.pause()
+	case "speed":
+		g.cycleSpeed()
+	case "reset":
+		g.reset(time.Now())
+	default:
+		return false
+	}
+	return true
+}
+
+// pressJourney applies a press of a button of the order form: the party
+// size, sharing, the station search boxes, the station pages, a From or To
+// station chip, and the request button. A station chip clears the message.
+// It returns false for any other action.
+func (g *Game) pressJourney(action string) bool {
+	switch action {
+	case "party-less":
+		g.orderPartySize = max(1, g.selectedPartySize()-1)
+	case "party-more":
+		g.orderPartySize = min(g.orderPartyLimit(), g.selectedPartySize()+1)
+	case "order-sharing":
+		if g.orderSharingConsent == sim.SharedConsent {
+			g.orderSharingConsent = sim.PrivateConsent
+		} else {
+			g.orderSharingConsent = sim.SharedConsent
+		}
+	case "search-from":
+		g.startJourneySearch(1)
+	case "search-to":
+		g.startJourneySearch(2)
+	case "stations-prev":
+		g.stationPage--
+	case "stations-next":
+		g.stationPage++
+	case "request":
+		g.request()
+	default:
+		return g.pressStationChip(action)
+	}
+	return true
+}
+
+// pressStationChip applies a press of a From or To station chip. It sets
+// the station and clears the message. It returns false for any other
+// action.
+func (g *Game) pressStationChip(action string) bool {
+	if origin, ok := strings.CutPrefix(action, "from/"); ok {
+		g.chooseJourneyStation(1, origin)
+	} else if destination, ok := strings.CutPrefix(action, "to/"); ok {
+		g.chooseJourneyStation(2, destination)
+	} else {
+		return false
+	}
+	g.message = ""
+	return true
 }
 
 // Layout is the integer fallback for platforms that do not use LayoutF.
