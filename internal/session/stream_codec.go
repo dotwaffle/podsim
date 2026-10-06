@@ -584,6 +584,8 @@ func decodeStreamJSON(data []byte, target any, options ...jsonv2.Options) error 
 	}
 	// The streaming decoder removes outer whitespace before typed decoding.
 	// Keep its offsets and legacy options without the extra input buffer.
+	// A one-pass decoder would change which case-alias inputs the decoder
+	// accepts, so the decoder keeps this form.
 	return jsonv2.Unmarshal(bytes.TrimSpace(data), target, json.DefaultOptionsV1(), jsonv2.MatchCaseInsensitiveNames(false),
 		jsonv2.RejectUnknownMembers(true), jsonv2.JoinOptions(options...))
 }

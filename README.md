@@ -1645,8 +1645,7 @@ They do not replace scenario qualification or authorize policy adoption.
 | Pickup swaps and buffers | [Combined qualification](docs/dispatch-policy-qualification.md), [sustained comparison](docs/pickup-swap-sustained.md), [pickup tails](docs/pickup-postroute-tail.md), [berth-route preference](docs/berth-route-preference.md), [post-routing service](docs/berth-routing-service.md) | Better averages coexist with slower individual requests. Both policies stay off by default. New routes avoid intermediate berths when a compatible path exists. |
 | Platoon queues | [Qualification follow-up](docs/platoon-followup.md), [Paddington leader progress](docs/paddington-leader-progress.md), [Paddington movement](docs/paddington-motion.md), [clearance samples](docs/paddington-clearance.md), [selected resource histories](docs/paddington-resource-history.md), [fixed station-entry links](docs/station-entry-platoons.md) | Paddington traces do not justify a clearance change. Fixed entry links are experimental and need station buffers. |
 | Terminus throughput | [Burst measurements](docs/terminus-flow.md) | Buffers increase waits in the selected outbound Central bursts. Geometry and supply causes remain diagnostic work. |
-| Server performance | [Route search storage](docs/route-search-performance.md), [finishing-pod bounds](docs/finishing-pod-bounds-performance.md), [admission storage](docs/admission-work-performance.md), [live server and GC](docs/admission-live-performance.md), [publisher cadence](docs/publisher-cadence-performance.md) | Live results cover two short repetitions per case. GC defaults remain unchanged. |
-| Browser performance | [Compatible stream decoder](docs/stream-decoder-qualification.md), [journey page cache](docs/journey-page-cache-performance.md), [label admission](docs/label-admission-performance.md) | Software-rendering results do not predict physical-GPU performance. Decoder gains do not establish lower whole-browser CPU. |
+| Server performance | [Live server and GC](docs/admission-live-performance.md) | Live results cover two short repetitions per case. GC defaults remain unchanged. |
 | Experimental adoption | [Proposed gates](docs/experimental-adoption.md) | Individual-tail and capacity thresholds need agreement before a default change. Historical 300-second counts remain diagnostics. |
 | Tests and restarts | [Test timing](docs/test-speed.md), [diagnostic study performance](docs/study-performance.md), [experimental policy file restarts](docs/experimental-policy-restarts.md) | Study timings cover one matched LondonFull workload. File tests do not simulate power loss. |
 
@@ -1663,8 +1662,6 @@ Current-source follow-ups retain their own fixtures and limits:
 - [Reserve and sharing trials](docs/acton-reserve-sharing.md) compare initial empty supply and pooling without establishing sustained capacity.
 - [Predictive service trials](docs/predictive-service.md) leave matched request outcomes unchanged.
 - [Predictive cost trials](docs/predictive-cost.md) measure CPU, allocation, and GC tradeoffs separately from service outcomes.
-- [Snapshot allocation trials](docs/snapshot-allocation.md) measure a 5.6% to 7.2% allocation reduction with unchanged results.
-- [Current Chrome and network trials](docs/current-client-network.md) check one and three clients, shared gzip updates, and emulated high latency.
 
 ### Tasks
 

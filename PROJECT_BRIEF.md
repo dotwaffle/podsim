@@ -59,14 +59,14 @@ The renderer batches station summaries, and presentation snapshots reuse call-lo
 The restore and rendering optimizations preserve simulation behavior and existing protocol semantics.
 The [pickup-bound cache measurements](docs/pickup-routing-performance.md) show lower CPU use and allocations in an unpaced LondonFull probe.
 They do not establish live playback speed or a capacity improvement.
-[Reusable admission storage](docs/admission-work-performance.md) lowers allocations and usually CPU in paired equal-work studies.
+Reusable admission storage lowers allocations and usually CPU in paired equal-work studies.
 The [live follow-up](docs/admission-live-performance.md) sustains approximately 60x with GC 100 and 400 in short one-client runs.
-The [finishing-pod bounds](docs/finishing-pod-bounds-performance.md) reduce Full CPU use by about 14% in short matched live runs.
+The finishing-pod bounds reduce Full CPU use by about 14% in short matched live runs.
 The server retains GOGC 100 and the comparison command retains 400.
-The [journey page cache](docs/journey-page-cache-performance.md) and the label cache lower measured page script time.
+The journey page cache and the label cache lower measured page script time.
 Total software-rendered browser CPU changes little.
-The [label admission follow-up](docs/label-admission-performance.md) avoids repeated cache clears when visible labels exceed capacity.
-The [publisher timer](docs/publisher-cadence-performance.md) restores measured delivery toward 20 Hz at higher CPU and traffic cost.
+The label admission follow-up avoids repeated cache clears when visible labels exceed capacity.
+The publisher timer restores measured delivery toward 20 Hz at higher CPU and traffic cost.
 
 Experimental [station approach buffers](docs/station-buffer-state-proposal.md) and [pickup swaps](docs/pickup-reassignment.md) remain disabled by default.
 Separate saved project and editor controls permit opt-in testing, and explicit comparison flags select independent policy combinations.
@@ -78,7 +78,7 @@ Broader adoption requires separate qualification and a decision.
 The user approved the [adoption gates](docs/experimental-adoption.md) on October 1.
 They add explicit individual-tail limits without authorizing a default change.
 The [combined dispatch qualification](docs/dispatch-policy-qualification.md) records average benefits, tail regressions, and remaining work.
-The [compatible decoder qualification](docs/stream-decoder-qualification.md) measures lower decode and apply time without a whole-browser CPU gain.
+The compatible stream decoder lowers decode and apply time without a whole-browser CPU gain.
 The [sustained pickup-swap study](docs/pickup-swap-sustained.md) lowers average waits and empty distance in its tested pairs, but every arm still grows a backlog.
 Its matched-request diagnosis in the same document separates unfinished requests from completed maxima and retains actual same-request regressions.
 The [selected service-tail cases](docs/pickup-postroute-tail.md) trace earlier fleet divergence and longer pickup travel with little sampled stopping.
@@ -100,8 +100,7 @@ Software-rendering measurements do not establish physical-GPU performance.
 
 The [maintained metrics snapshot](docs/study-performance.md) gives comparison tooling owned route context without copying route geometry.
 Its measured output matches the full snapshot across the recorded small, rail-hub, Central, and Full arms.
-The [current playback screen](docs/live-playback-qualification.md) measures 15x and 60x with one and three Chrome clients.
-The [station-phase cache](docs/station-phase-performance.md) reduces server CPU by 13.67% in short matched one-Chrome 60x runs.
+The station-phase cache reduces server CPU by 13.67% in short matched one-Chrome 60x runs.
 It retains exact state parity in the separate fixed replay.
 These measurements do not establish indefinite capacity or physical-GPU performance.
 

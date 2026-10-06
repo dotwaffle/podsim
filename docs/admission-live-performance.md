@@ -43,7 +43,7 @@ It is not peak RSS or retained Go heap.
 | Full | 400 | 42.880 s | 41.445 s | 3.35% | 559.67 MiB | 556.46 MiB |
 
 The admission cache does not consistently lower endpoint RSS.
-Its allocation savings come from the separate [equal-work study](admission-work-performance.md).
+Its allocation savings come from a separate equal-work study.
 Candidate GC 100 uses 3.8% more CPU than GC 400 for Central and 3.0% more for Full.
 Both settings sustain the requested playback speed in these windows.
 Lower GC 100 RSS makes the current server default appropriate for these fixtures.
@@ -65,7 +65,7 @@ The runs do not establish delivery at 20 updates per second.
 ## Limits and evidence
 
 Two repetitions, one seed, and one local client do not qualify longer sessions, higher demand, or multiple-client sharing.
-Earlier [journey-cache measurements](journey-page-cache-performance.md) cover separate high-latency and three-client cases.
+Earlier journey-cache measurements cover separate high-latency and three-client cases.
 These runs do not test Fly hosting or physical-GPU rendering.
 Software rendering dominates total browser-process CPU.
 No whole-browser CPU gain follows from the server result.
