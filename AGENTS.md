@@ -32,7 +32,8 @@ The `mise` tasks are the source of truth.
 CI runs `test:race:*`, `qualify`, and `check:static`.
 `mise run check` runs all of them.
 
-- Quick loop: `go build ./...`, `go vet ./...`, and `go test ./...` on the packages that you changed.
+- Quick loop: `go build ./...`, `go vet ./...`, and `mise run test:quick`.
+  `test:quick` runs `go test -short ./...`, which skips the long tests.
 - Before you hand back a change: `mise run lint` (actionlint, rumdl, vet, golangci-lint, and the wasm dependency check), `go test ./...`, and `mise run test:web`.
 - The race tasks take a long time.
   Run the one for the package that you changed.

@@ -46,8 +46,14 @@ fi
 sim_race_split = "^Test(Station|Reassign)"
 
 [tasks.test]
-description = "Run the quick test suite"
+description = "Run the full test suite without the race detector"
 run = "go test ./..."
+
+# -short skips the long sim tests and the maximum session codec tests.
+# No CI task passes -short, so CI still runs them.
+[tasks."test:quick"]
+description = "Run the test suite without the long tests"
+run = "go test -short ./..."
 
 [tasks."test:race"]
 description = "Run tests with the race detector"
