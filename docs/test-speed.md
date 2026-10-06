@@ -107,17 +107,29 @@ The load average is given with each wall time, because the load changed the wall
 Under `-short`, 53 sim tests skip through `skipLong`.
 Each of them took one second or more in a serial run without the race detector, and together they took 235.5 of 294.0 seconds.
 They are the long scenarios, the parity tests that compare with a full scan or a reference, and the soak tests.
-In the session package, the four maximum codec tests and `TestStreamMaximumEncoding` skip under `-short`.
-No CI task passes `-short`, so the race tasks and `test:embedded` still run all of these tests.
+In the session package, the four maximum codec tests, `TestStreamMaximumEncoding`, `TestStreamLondonWire`, and `TestMaximalRequeueRoundTrip` skip under `-short`.
+In `internal/parkride`, six checkpoint tests skip under `-short`.
+They took 42.9 of 44.1 seconds in a serial run.
+In `cmd/compare`, nine experiment tests skip under `-short`.
+They took 19.3 of 25.5 seconds in a serial run.
+No CI task passes `-short`.
+The race tasks, `test:embedded`, and `test:bounds` still run all of these tests.
 
 | `go test -short -count=1 ./...` | Wall | User CPU | Load (start / end) |
 | --- | ---: | ---: | --- |
-| Before | 129.8 s | 1,091 s | 10.8 / 22.1 |
-| After | 64.5 s | 440 s | 8.5 / 22.8 |
+| Before the sim and session gates | 129.8 s | 1,091 s | 10.8 / 22.1 |
+| After the sim and session gates | 64.5 s | 440 s | 8.5 / 22.8 |
+| Before the parkride, compare, and other session gates | 79.8 s | 501 s | 12.1 / 21.0 |
+| After the parkride, compare, and other session gates | 36.0 s | 322 s | 6.5 / 12.9 |
 
-In the run after the change, `internal/sim` took 52.4 seconds instead of 112.8, and `internal/session` took 37.1 seconds instead of 104.6.
-`internal/parkride` now sets the wall time, at 62.9 seconds.
+After the sim and session gates, `internal/sim` took 52.4 seconds instead of 112.8, and `internal/session` took 37.1 seconds instead of 104.6.
+`internal/parkride` then set the wall time, at 62.9 seconds.
+In the last run, `internal/sim` took 34.1 seconds, `internal/session` 28.0 seconds, and `internal/project` and `internal/scenarios` 22.9 seconds each.
+`cmd/compare` took 8.4 seconds.
+The longest tests that still run are the two Station 19 drain tests in `internal/scenarios`, at 22.8 and 18.6 seconds.
+
 The full `go test -count=1 ./...` took 188.2 seconds and 1,140 CPU seconds at load 22.8 to 26.9.
+After the second set of gates, it took 134.4 seconds and 1,134 CPU seconds at load 12.9 to 18.6.
 
 ### Soak monitors
 
@@ -161,4 +173,4 @@ The before runs include the sampled contract check.
 The wall times of the after runs are longer because the machine load was higher.
 The CPU time of the longer task fell from 2,606 to 1,904 seconds, by 27 percent.
 
-Raw timing events and the scripts remain in `~/.cache/agents/podsim/test-speed-20261006/timing.tar.gz`.
+Raw timing events and the scripts remain in `~/.cache/agents/podsim/test-speed-20261006/`, in `timing.tar.gz` and `timing2.tar.gz`.
