@@ -1,3 +1,0 @@
-band,request_every_seconds,seed,sharing_join,schedule_id,served,skipped,drained,reassigned_parties,shared_parties,journey_average_seconds,journey_p95_seconds,actual_end_seconds
-morning,4.615385,1,unassigned,b9bdf89a2a5e69f2,391,0,true,0,39,678.1916453537938,1280.6166666666666,3463
-morning,4.615385,1,reassign-existing,b9bdf89a2a5e69f2,391,0,true,18,50,658.3668371696505,1245.9333333333334,3645
