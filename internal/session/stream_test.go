@@ -285,6 +285,9 @@ func maximumStreamRepresentation(t *testing.T, representation string) StreamFram
 
 func TestStreamMaximumEncoding(t *testing.T) { //nolint:tparallel // Subtests build one maximum frame at a time to bound memory.
 	t.Parallel()
+	if testing.Short() {
+		t.Skip("the maximum stream proof runs without -short, in the race task and the test:embedded task")
+	}
 	for _, representation := range []string{"historical", "modern", "mixed"} {
 		t.Run(representation, func(t *testing.T) {
 			f := maximumStreamRepresentation(t, representation)

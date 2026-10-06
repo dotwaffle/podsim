@@ -645,7 +645,7 @@ func TestDecodeStateFileBombs(t *testing.T) {
 // large.
 func TestStateFileWorstCaseSize(t *testing.T) {
 	t.Parallel()
-	if raceEnabled {
+	if testing.Short() || raceEnabled {
 		t.Skip("maximum codec proof runs in the required test:embedded task")
 	}
 	const nodes, lanes = project.MaxNodes, project.MaxLanes

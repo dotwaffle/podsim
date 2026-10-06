@@ -212,7 +212,7 @@ func widestExpressSave(t *testing.T) stateFile {
 
 func TestExpressWidestSaveAdapters(t *testing.T) {
 	t.Parallel()
-	if raceEnabled {
+	if testing.Short() || raceEnabled {
 		t.Skip("maximum codec proof runs in the required test:embedded task")
 	}
 	const wide = 0.0000010000000000000002
@@ -302,7 +302,7 @@ func maximumStreamDelta(t *testing.T, frame StreamFrame) StreamDelta {
 
 func TestExpressWidestStreamAdapters(t *testing.T) {
 	t.Parallel()
-	if raceEnabled {
+	if testing.Short() || raceEnabled {
 		t.Skip("maximum codec proof runs in the required test:embedded task")
 	}
 	frame := widestExpressStreamFrame(t)
@@ -423,7 +423,7 @@ func fitWidestTopology(t *testing.T, markers contractMarkers) (TopologySnapshot,
 // Their parser acceptance does not qualify physical placement or motion.
 func TestExpressWidestTopologyHTTPAdapters(t *testing.T) {
 	t.Parallel()
-	if raceEnabled {
+	if testing.Short() || raceEnabled {
 		t.Skip("maximum codec proof runs in the required test:embedded task")
 	}
 	express := contractMarkers{order: sim.ExpressOrderContract}
