@@ -163,3 +163,70 @@ func TestEngineBoundsAccumulatedProject(t *testing.T) {
 		t.Fatal("oversized update replaced the previous project")
 	}
 }
+
+// TestSyncRefusalOrder pins the error that a synchronization with two
+// faults gets. sync checks the request shape, the patch, each key in order,
+// the undeclared patch keys, each branch in key order, and then the
+// metadata branches together. Each case breaks two checks, and the earlier
+// check gives the refusal. A refusal before the branch errors leaves the
+// engine unsynchronized.
+func TestSyncRefusalOrder(t *testing.T) {
+	t.Parallel()
+	// encoding/json/v2 picks the wording of its errors once in each
+	// process, so the test gets the decoder text in the same process. The
+	// local type has the name of the type in decodeBranch.
+	type branchConfig project.Config
+	decodeText := func(data string, value any, options ...json.Options) string {
+		t.Helper()
+		err := json.Unmarshal([]byte(data), value, options...)
+		if err == nil {
+			t.Fatalf("decode %s: no error", data)
+		}
+		return err.Error()
+	}
+	var (
+		draft  = "decode editor draft branch: " + decodeText("1e400", new(any))
+		bogus  = "decode project branch bogus: " + decodeText(`{"bogus":1}`, new(branchConfig), json.RejectUnknownMembers(true))
+		extra  = "decode project branch extra: " + decodeText(`{"extra":1}`, new(branchConfig), json.RejectUnknownMembers(true))
+		meta   = decodeText(`{"version":4}`, new(project.Config), json.RejectUnknownMembers(true))
+		patch  = "decode project patch: " + decodeText(`{"name":"a","name":"b"}`, new(map[string]jsontext.Value))
+		large  = "editor project is too large"
+		needs  = "project synchronization needs missing"
+		repeat = "project synchronization repeats a key"
+	)
+	duplicate := `{"name":"a","name":"b"}`
+	network := `"network":"` + strings.Repeat("x", project.MaxFileBytes) + `"`
+	for _, test := range []struct {
+		name   string
+		keys   []string
+		patch  string
+		want   string
+		synced bool
+	}{
+		{"keys_before_patch", nil, duplicate, "synchronization needs project keys and a patch object", false},
+		{"patch_before_keys", []string{"name", "name"}, duplicate, patch, false},
+		{"repeat_before_later_key", []string{"name", "name", "missing"}, `{"name":"a"}`, repeat, false},
+		{"missing_before_repeat", []string{"missing", "name", "name"}, `{"name":"a"}`, needs, false},
+		{"missing_before_size", []string{"missing", "network"}, "{" + network + "}", needs, false},
+		{"size_before_missing", []string{"network", "missing"}, "{" + network + "}", large, false},
+		{"size_before_undeclared", []string{"network"}, "{" + network + `,"undeclared":1}`, large, false},
+		{"undeclared_before_branches", []string{"name"}, `{"name":1e400,"undeclared":1}`, "project patch contains an undeclared key", false},
+		{"draft_after_branch_error", []string{"bogus", "name"}, `{"bogus":1,"name":1e400}`, draft, false},
+		{"branch_errors_in_key_order", []string{"bogus", "extra"}, `{"bogus":1,"extra":1}`, bogus, true},
+		{"key_order_not_patch_order", []string{"extra", "bogus"}, `{"bogus":1,"extra":1}`, extra, true},
+		{"branch_error_before_metadata", []string{"bogus", "version"}, `{"bogus":1,"version":4}`, bogus, true},
+		{"metadata", []string{"version"}, `{"version":4}`, meta, true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			model := new(engine)
+			_, err := model.sync(request{Keys: test.keys, Patch: jsontext.Value(test.patch)})
+			if err == nil || err.Error() != test.want {
+				t.Fatalf("got %v, want %q", err, test.want)
+			}
+			if model.ready != test.synced {
+				t.Fatalf("synchronized is %v, want %v", model.ready, test.synced)
+			}
+		})
+	}
+}
