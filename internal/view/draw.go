@@ -1,6 +1,7 @@
 package view
 
 import (
+	"cmp"
 	"fmt"
 	"image"
 	"image/color"
@@ -218,15 +219,9 @@ func (g *Game) hintLine(state sim.Snapshot, hint string) label {
 func (g *Game) drawButton(screen *ebiten.Image, b button) {
 	fill, ink := uint32(track), uint32(foreground)
 	selectedFill := uint32(accent)
-	fontSize := 14.0
-	if b.fontSize > 0 {
-		fontSize = b.fontSize
-	}
 	if id, ok := strings.CutPrefix(b.action, "pod/"); ok {
 		fill, ink = podButtonFill, g.podButtonColor(id)
 		selectedFill = ink
-		fontSize = 12
-		b.label = shortText(b.label, 3)
 	}
 	if b.selected {
 		fill, ink = selectedFill, background
@@ -235,10 +230,21 @@ func (g *Game) drawButton(screen *ebiten.Image, b button) {
 		fill, ink = 0x1b2a36, 0x63788a
 	}
 	vector.FillRect(screen, float32(b.x), float32(b.y), float32(b.w), float32(b.h), rgb(fill), false)
-	face := g.textFace(fontSize)
-	b.label = g.fitButtonText(b.label, fontSize, b.w)
-	textWidth, textHeight := text.Measure(b.label, face, 0)
-	g.label(screen, label{x: b.x + (b.w-textWidth)/2, y: b.y + (b.h-textHeight)/2, size: fontSize, value: b.label, color: ink, physical: true})
+	value, fontSize := g.buttonText(b)
+	textWidth, textHeight := text.Measure(value, g.textFace(fontSize), 0)
+	g.label(screen, label{x: b.x + (b.w-textWidth)/2, y: b.y + (b.h-textHeight)/2, size: fontSize, value: value, color: ink, physical: true})
+}
+
+// buttonText returns the label that button b shows and its font size. A
+// pod button is narrow, so it uses a smaller font and a smaller padding
+// than other buttons. Then a three-digit fleet number fits.
+func (g *Game) buttonText(b button) (string, float64) {
+	if strings.HasPrefix(b.action, "pod/") {
+		const size, padding = 12, 4
+		return fitText(shortText(b.label, 3), textFit{face: g.textFace(size), width: max(1, b.w-padding*g.layout.unit)}), size
+	}
+	size := cmp.Or(b.fontSize, 14)
+	return g.fitButtonText(b.label, size, b.w), size
 }
 
 func (g *Game) fitButtonText(value string, size, width float64) string {
