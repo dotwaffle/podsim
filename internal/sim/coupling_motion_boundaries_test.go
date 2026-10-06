@@ -225,3 +225,85 @@ func couplingMotionOutputsEqual(a, b couplingMotionStep) bool {
 	}
 	return *a.Connector == *b.Connector
 }
+
+// TestCouplingMotionSharedBranchExit pins the exit refusals of a pair whose
+// members go to two berths of one station. Each cell of the shared branch
+// after the split is a joint dependency, so the joint release moves up to
+// the station entry. The pods have no stops, so the receiving boundary of
+// each member is its berth at the end of its route. A short branch leaves
+// no stopping room between the joint release and the berth. A longer
+// branch gives that room, but the exit closure then reaches the berth.
+func TestCouplingMotionSharedBranchExit(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name   string
+		branch float64
+		want   string
+	}{
+		{"short_branch", 30, "actual continuation cannot close joint release and stopping room"},
+		{"long_branch", 60, "exit closure reaches an actual receiving boundary"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			input := couplingSharedBranchFixture(t, test.branch)
+			reservation, err := planCouplingReservation(input)
+			if err != nil {
+				t.Fatal(err)
+			}
+			c, err := prepareCouplingMotionContext(couplingMotionContextInput{Reservation: reservation, Current: input, GroupID: "pair"})
+			if c != nil || !errors.Is(err, errCouplingReservationDenied) || err.Error() != test.want+": coupling reservation denied" {
+				t.Fatalf("got %v, want %q", err, test.want)
+			}
+		})
+	}
+}
+
+// couplingSharedBranchFixture is couplingMotionFixture with the front
+// station at branch meters past the split and a second berth, which the
+// rear takes. Both members then take the same road from the split.
+func couplingSharedBranchFixture(t *testing.T, branch float64) couplingReservationInput {
+	t.Helper()
+	compact := classBit(string(CompactClass))
+	input := couplingMotionFixtureWith(t, false, false, func(n *Network) {
+		for i := range n.Nodes {
+			switch n.Nodes[i].ID {
+			case "front-entry":
+				n.Nodes[i].Position = Point{X: 420 + branch}
+			case "front-berth":
+				n.Nodes[i].Position = Point{X: 470 + branch, Y: 25}
+			case "front-exit":
+				n.Nodes[i].Position = Point{X: 530 + branch}
+			}
+		}
+		n.Nodes = append(n.Nodes, Node{ID: "front-berth-2", Position: Point{X: 470 + branch, Y: -25}})
+		for _, lane := range []Lane{{ID: "front-in-2", From: "front-entry", To: "front-berth-2"}, {ID: "front-out-2", From: "front-berth-2", To: "front-exit"}} {
+			lane.SpeedLimit, lane.VehicleClasses = 7.123456789, compact
+			n.Lanes = append(n.Lanes, lane)
+		}
+		for i := range n.Stations {
+			if n.Stations[i].ID == "front-goal" {
+				n.Stations[i].Berths = append(n.Stations[i].Berths, Berth{ID: "front-goal-2", Node: "front-berth-2", VehicleClasses: compact})
+			}
+		}
+	})
+	rear := &input.Members[1]
+	for _, r := range berthResources(rear.Destination) {
+		delete(input.Owners, r)
+	}
+	station, _ := input.Prepared.Network().Station("front-goal")
+	rear.Destination = station.Berths[1]
+	for _, r := range berthResources(rear.Destination) {
+		input.Owners[r] = podResourceOwner("rear")
+	}
+	rear.DestinationStation, rear.Vehicle.RelocatingTo = "front-goal", "front-goal"
+	rear.Vehicle.Route = rear.Vehicle.Route[:2]
+	lanes := input.Prepared.Network().Lanes
+	for _, id := range []string{"front-road", "front-in-2"} {
+		i := slices.IndexFunc(lanes, func(lane Lane) bool { return lane.ID == id })
+		if i < 0 {
+			t.Fatalf("no lane %s", id)
+		}
+		rear.Vehicle.Route = append(rear.Vehicle.Route, lanes[i])
+	}
+	return input
+}

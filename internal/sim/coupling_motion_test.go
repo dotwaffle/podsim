@@ -13,6 +13,13 @@ import (
 // This fixture proves stopped ordinary footprints, not live recruitment.
 func couplingMotionFixture(t *testing.T, occupied, rotate bool) couplingReservationInput {
 	t.Helper()
+	return couplingMotionFixtureWith(t, occupied, rotate, nil)
+}
+
+// couplingMotionFixtureWith is couplingMotionFixture with edit applied to
+// the network before the rotation, when edit is not nil.
+func couplingMotionFixtureWith(t *testing.T, occupied, rotate bool, edit func(*Network)) couplingReservationInput {
+	t.Helper()
 	geometry := couplingGeometryFixture()
 	compact := classBit(string(CompactClass))
 	geometry.Network.Nodes = []Node{{ID: "a"}, {ID: "b", Position: Point{X: 210}}, {ID: "c", Position: Point{X: 420}},
@@ -35,6 +42,9 @@ func couplingMotionFixture(t *testing.T, occupied, rotate bool) couplingReservat
 		{ID: "origin", Name: "Origin", Entry: "origin-entry", Exit: "origin-exit", VehicleClasses: compact, Berths: []Berth{{ID: "origin-1", Node: "a", VehicleClasses: compact}}},
 		{ID: "front-goal", Name: "Front goal", Entry: "front-entry", Exit: "front-exit", VehicleClasses: compact, Berths: []Berth{{ID: "front-goal-1", Node: "front-berth", VehicleClasses: compact}}},
 		{ID: "rear-goal", Name: "Rear goal", Entry: "rear-entry", Exit: "rear-exit", VehicleClasses: compact, Berths: []Berth{{ID: "rear-goal-1", Node: "rear-berth", VehicleClasses: compact}}}}
+	if edit != nil {
+		edit(&geometry.Network)
+	}
 	if rotate {
 		for i, node := range geometry.Network.Nodes {
 			x, y := node.Position.X, node.Position.Y
