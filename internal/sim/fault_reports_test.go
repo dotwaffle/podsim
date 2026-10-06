@@ -22,8 +22,8 @@ func TestIncidentReportBehindFaultedPod(t *testing.T) {
 	checkFaultsEachTick(t, s)
 	release()
 	s.Step()
-	if behind.Pod.WaitReason != blockedByIncident || behind.Pod.BlockedBy != id {
-		t.Fatalf("the pod behind reports %q by %q, want %q by %s", behind.Pod.WaitReason, behind.Pod.BlockedBy, blockedByIncident, id)
+	if behind.Pod.WaitReason != BlockedByIncident || behind.Pod.BlockedBy != id {
+		t.Fatalf("the pod behind reports %q by %q, want %q by %s", behind.Pod.WaitReason, behind.Pod.BlockedBy, BlockedByIncident, id)
 	}
 	waits := s.faultCounters.faultWaitTicks
 	for range 10 {
@@ -42,7 +42,7 @@ func TestIncidentReportBehindFaultedPod(t *testing.T) {
 	s.paused = false
 	waits = s.faultCounters.faultWaitTicks
 	s.Step()
-	if s.faultCounters.faultWaitTicks != waits || behind.Pod.WaitReason == blockedByIncident {
+	if s.faultCounters.faultWaitTicks != waits || behind.Pod.WaitReason == BlockedByIncident {
 		t.Fatalf("after the clear, the pod behind reports %q, and %d wait ticks count", behind.Pod.WaitReason, s.faultCounters.faultWaitTicks-waits)
 	}
 }
@@ -74,8 +74,8 @@ func TestIncidentReportOfBufferHead(t *testing.T) {
 		return head.buffered && behind.buffered && head.distance > 0 && head.Pod.Speed == 0 && behind.Pod.Speed == 0 && behind.Pod.BlockedBy == head.Pod.ID
 	})
 	s.Step()
-	if head.Pod.WaitReason != blockedByIncident || head.Pod.BlockedBy != id {
-		t.Fatalf("the head reports %q by %q, want %q by %s", head.Pod.WaitReason, head.Pod.BlockedBy, blockedByIncident, id)
+	if head.Pod.WaitReason != BlockedByIncident || head.Pod.BlockedBy != id {
+		t.Fatalf("the head reports %q by %q, want %q by %s", head.Pod.WaitReason, head.Pod.BlockedBy, BlockedByIncident, id)
 	}
 	if behind.Pod.WaitReason != TrackOccupied || behind.Pod.BlockedBy != head.Pod.ID {
 		t.Fatalf("the pod behind reports %q by %q, want the pod ahead", behind.Pod.WaitReason, behind.Pod.BlockedBy)
@@ -112,7 +112,7 @@ func TestIncidentReportOfBufferQueue(t *testing.T) {
 	ahead.Pod.Speed = 0
 	ahead.faulted = true
 	s.faults = append(s.faults, faultRecord{generation: 1, serial: 7, kind: podFault, pod: 0})
-	if s.bufferHead(head, plan) || head.Pod.WaitReason != blockedByIncident || head.Pod.BlockedBy != "i1.7" {
+	if s.bufferHead(head, plan) || head.Pod.WaitReason != BlockedByIncident || head.Pod.BlockedBy != "i1.7" {
 		t.Fatalf("behind a faulted pod, the head reports %q by %q", head.Pod.WaitReason, head.Pod.BlockedBy)
 	}
 }
@@ -137,7 +137,7 @@ func TestIncidentReportAtTerminalBerthChoice(t *testing.T) {
 	stepUntil(t, s, "pod 01 waits at the entry of s2", func() bool { return v.Pod.Speed == 0 && v.Pod.Activity == Traveling && v.distance > 0 })
 	for range 10 {
 		s.Step()
-		if v.destination.ID != "" || v.Pod.WaitReason != blockedByIncident || v.Pod.BlockedBy != id {
+		if v.destination.ID != "" || v.Pod.WaitReason != BlockedByIncident || v.Pod.BlockedBy != id {
 			t.Fatalf("tick %d: pod 01 has the berth %q and reports %q by %q", s.tick, v.destination.ID, v.Pod.WaitReason, v.Pod.BlockedBy)
 		}
 	}
@@ -185,7 +185,7 @@ func TestReportBlockedBerths(t *testing.T) {
 	})
 	stale()
 	s.reportBlockedBerths(v)
-	if v.Pod.WaitReason != blockedByIncident || v.Pod.BlockedBy != "i1.3" {
+	if v.Pod.WaitReason != BlockedByIncident || v.Pod.BlockedBy != "i1.3" {
 		t.Fatalf("with blocked berths, the report is %q by %q, want i1.3", v.Pod.WaitReason, v.Pod.BlockedBy)
 	}
 }
@@ -204,7 +204,7 @@ func TestNoForwardRouteReport(t *testing.T) {
 	id := startDebris(t, s, "s1-link", 50, 60, 0)
 	stepUntil(t, s, "the failed next leg", func() bool { return v.phaseTicks == 0 })
 	s.Step()
-	if v.Pod.Activity != Unloading || v.Pod.WaitReason != noForwardRoute || v.Pod.BlockedBy != "" {
+	if v.Pod.Activity != Unloading || v.Pod.WaitReason != NoForwardRoute || v.Pod.BlockedBy != "" {
 		t.Fatalf("pod 01 is %s and reports %q by %q", v.Pod.Activity, v.Pod.WaitReason, v.Pod.BlockedBy)
 	}
 	waits := s.faultCounters.faultWaitTicks
@@ -218,7 +218,7 @@ func TestNoForwardRouteReport(t *testing.T) {
 		t.Fatal(err)
 	}
 	s.Step()
-	if v.Pod.Activity == Unloading || v.Pod.WaitReason == noForwardRoute {
+	if v.Pod.Activity == Unloading || v.Pod.WaitReason == NoForwardRoute {
 		t.Fatalf("after the clear, pod 01 is %s and reports %q", v.Pod.Activity, v.Pod.WaitReason)
 	}
 }
@@ -232,7 +232,7 @@ func TestNoForwardRouteEndsWithBlockedSet(t *testing.T) {
 	v := boardParties(t, s, "s1", "s2")
 	stepUntil(t, s, "the unload at s1", func() bool { return v.Pod.Activity == Unloading })
 	v.Stops = []string{"unknown"}
-	v.Pod.WaitReason = noForwardRoute
+	v.Pod.WaitReason = NoForwardRoute
 	s.continueJourney(v)
 	if v.Pod.WaitReason != NoWait {
 		t.Fatalf("with an empty blocked set, the report is %q", v.Pod.WaitReason)
@@ -249,7 +249,7 @@ func TestNoForwardRouteEndsWithBlockedSet(t *testing.T) {
 func TestFaultWaitTicksCountHealthyPods(t *testing.T) {
 	t.Parallel()
 	s := faultLegFleet(t)
-	reasons := []WaitReason{blockedByIncident, noForwardRoute}
+	reasons := []WaitReason{BlockedByIncident, NoForwardRoute}
 	for index := range s.vehicles {
 		s.vehicles[index].Pod.WaitReason = reasons[index]
 	}

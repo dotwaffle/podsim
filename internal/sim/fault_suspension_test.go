@@ -235,7 +235,7 @@ func TestFaultBrakingOnLane(t *testing.T) {
 	for v.Pod.Speed > 0 {
 		// Admission writes the report before the move, as each wait
 		// report.
-		want, speed := faultBraking, v.Pod.Speed
+		want, speed := FaultBraking, v.Pod.Speed
 		s.Step()
 		if speed-v.Pod.Speed > acceleration/TicksPerSecond+1e-9 {
 			t.Fatalf("tick %d: the speed falls from %g to %g m/s", s.tick, speed, v.Pod.Speed)
@@ -255,7 +255,7 @@ func TestFaultBrakingOnLane(t *testing.T) {
 	if v.reservedThrough != through || v.Pod.Speed != 0 || !maps.Equal(s.owners, owned) || !maps.Equal(v.routeReleases, releases) {
 		t.Fatalf("the pod at rest changed its grants: through %d, want %d", v.reservedThrough, through)
 	}
-	if !reflect.DeepEqual(v.Riders, riders) || v.Pod.WaitReason != faultStopped || v.Pod.BlockedBy != id {
+	if !reflect.DeepEqual(v.Riders, riders) || v.Pod.WaitReason != FaultStopped || v.Pod.BlockedBy != id {
 		t.Fatalf("riders %+v, report %q by %q", v.Riders, v.Pod.WaitReason, v.Pod.BlockedBy)
 	}
 }
@@ -358,7 +358,7 @@ func TestFaultAtBerth(t *testing.T) {
 			for range 30 * TicksPerSecond {
 				s.Step()
 			}
-			pod.WaitReason, pod.BlockedBy = faultStopped, id
+			pod.WaitReason, pod.BlockedBy = FaultStopped, id
 			if v.Pod != pod || v.phaseTicks != phase || !reflect.DeepEqual(v.Riders, riders) {
 				t.Fatalf("the faulted pod changed: %+v, phase %d, want %+v, phase %d", v.Pod, v.phaseTicks, pod, phase)
 			}
@@ -400,7 +400,7 @@ func TestFaultArrivalDuringBraking(t *testing.T) {
 	if v.Pod.Activity != Unloading || !v.faulted || len(s.faults) != 1 || !s.berthBlocked(berth) {
 		t.Fatalf("pod %+v, faulted %t, records %v, berth blocked %t", v.Pod, v.faulted, faultIDs(s), s.berthBlocked(berth))
 	}
-	if v.Pod.WaitReason != faultStopped || v.Pod.BlockedBy != id {
+	if v.Pod.WaitReason != FaultStopped || v.Pod.BlockedBy != id {
 		t.Fatalf("report %q by %q after the arrival", v.Pod.WaitReason, v.Pod.BlockedBy)
 	}
 	phase, aboard, completed := v.phaseTicks, v.RidersAboard(), s.completed
@@ -441,7 +441,7 @@ func TestFaultReportAtEntryEnd(t *testing.T) {
 	}
 	for range 10 * TicksPerSecond {
 		s.Step()
-		if v.Pod.WaitReason != faultStopped || v.Pod.BlockedBy != id {
+		if v.Pod.WaitReason != FaultStopped || v.Pod.BlockedBy != id {
 			t.Fatalf("tick %d: report %q by %q", s.tick, v.Pod.WaitReason, v.Pod.BlockedBy)
 		}
 	}
@@ -500,7 +500,7 @@ func TestFaultInStationEntryQueue(t *testing.T) {
 			s.Step()
 			// The head rests at the end of its entry route, where the
 			// publication reports an occupied berth for a pod in service.
-			if faulted && (head.Pod.WaitReason != faultStopped || head.Pod.BlockedBy != id) {
+			if faulted && (head.Pod.WaitReason != FaultStopped || head.Pod.BlockedBy != id) {
 				t.Fatalf("tick %d: the faulted head reports %q by %q", s.tick, head.Pod.WaitReason, head.Pod.BlockedBy)
 			}
 		}

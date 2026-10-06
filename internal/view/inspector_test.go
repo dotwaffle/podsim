@@ -57,6 +57,10 @@ func TestWaitStatus(t *testing.T) {
 		{name: "no parking available", pod: sim.Pod{WaitReason: sim.ParkingUnavailable, BlockedBy: "london-pod-003"}, want: "No parking available / pod 03"},
 		{name: "unknown pod", pod: sim.Pod{WaitReason: sim.TrackOccupied, BlockedBy: "other"}, want: "Pod ahead / pod other"},
 		{name: "no blocking pod", pod: sim.Pod{WaitReason: sim.JunctionOccupied}, want: "Junction traffic"},
+		{name: "fault braking", pod: sim.Pod{WaitReason: sim.FaultBraking, BlockedBy: "i1.2"}, want: "Fault braking / fault i1.2"},
+		{name: "fault stopped", pod: sim.Pod{WaitReason: sim.FaultStopped, BlockedBy: "i1.2"}, want: "Fault stopped / fault i1.2"},
+		{name: "blocked by incident", pod: sim.Pod{WaitReason: sim.BlockedByIncident, BlockedBy: "i1.3"}, want: "Blocked by incident / fault i1.3"},
+		{name: "no forward route", pod: sim.Pod{WaitReason: sim.NoForwardRoute}, want: "No forward route"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

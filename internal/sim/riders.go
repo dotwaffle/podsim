@@ -186,8 +186,8 @@ func (s *Simulation) continueJourney(v *vehicle) {
 	if err != nil {
 		switch {
 		case s.blockedActive():
-			v.Pod.WaitReason, v.Pod.BlockedBy = noForwardRoute, ""
-		case v.Pod.WaitReason == noForwardRoute:
+			v.Pod.WaitReason, v.Pod.BlockedBy = NoForwardRoute, ""
+		case v.Pod.WaitReason == NoForwardRoute:
 			v.Pod.WaitReason = NoWait
 		}
 		return

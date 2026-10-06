@@ -202,7 +202,7 @@ func TestEndpointRerouteOverDetourLimit(t *testing.T) {
 	}
 	route := slices.Clone(v.Route)
 	id := startDebris(t, s, "s1-link", 70, 80, 0)
-	stepUntil(t, s, "pod 01 waits at the debris", func() bool { return v.Pod.Speed == 0 && v.Pod.WaitReason == blockedByIncident })
+	stepUntil(t, s, "pod 01 waits at the debris", func() bool { return v.Pod.Speed == 0 && v.Pod.WaitReason == BlockedByIncident })
 	// The terminal berth choice adds the inlet to the route.
 	if s.faultCounters.reroutes != 0 || !sameLanes(v.Route[:len(route)], route) || v.Pod.BlockedBy != id {
 		t.Fatalf("%d reroutes, route %v, blocked by %q", s.faultCounters.reroutes, v.Route, v.Pod.BlockedBy)
@@ -308,7 +308,7 @@ func TestEndpointRerouteOfTrappedPod(t *testing.T) {
 	if _, ok := s.endpointRoute(v); ok {
 		t.Fatal("the trapped pod has an endpoint route")
 	}
-	stepUntil(t, s, "pod 01 waits at the debris", func() bool { return v.Pod.Speed == 0 && v.Pod.WaitReason == blockedByIncident })
+	stepUntil(t, s, "pod 01 waits at the debris", func() bool { return v.Pod.Speed == 0 && v.Pod.WaitReason == BlockedByIncident })
 	if s.faultCounters.reroutes != 0 || v.routeVersion != version || !sameLanes(v.Route, route) || v.Pod.BlockedBy != id {
 		t.Fatalf("%d reroutes, route %v, blocked by %q", s.faultCounters.reroutes, v.Route, v.Pod.BlockedBy)
 	}
@@ -534,7 +534,7 @@ func TestTerminalReevaluationDuringIncident(t *testing.T) {
 			stepUntil(t, s, "the rider completes", func() bool { return s.completed == 1 })
 			continue
 		}
-		stepUntil(t, s, "pod 01 waits", func() bool { return v.Pod.Speed == 0 && v.Pod.WaitReason == blockedByIncident })
+		stepUntil(t, s, "pod 01 waits", func() bool { return v.Pod.Speed == 0 && v.Pod.WaitReason == BlockedByIncident })
 		if v.destination.ID != "s1-1" || v.Pod.BlockedBy != id {
 			t.Fatalf("pod 01 waits for %s, blocked by %q", v.destination.ID, v.Pod.BlockedBy)
 		}

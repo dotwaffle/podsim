@@ -219,18 +219,18 @@ func (s *Simulation) surrenderServiceClaims(v *vehicle) {
 // set is not empty has no forward route, and BlockedBy is empty, because a
 // failed search names no single fault.
 const (
-	faultBraking      WaitReason = "Fault braking"
-	faultStopped      WaitReason = "Fault stopped"
-	blockedByIncident WaitReason = "Blocked by incident"
-	noForwardRoute    WaitReason = "No forward route"
+	FaultBraking      WaitReason = "Fault braking"
+	FaultStopped      WaitReason = "Fault stopped"
+	BlockedByIncident WaitReason = "Blocked by incident"
+	NoForwardRoute    WaitReason = "No forward route"
 )
 
 // reportFault writes the wait report of the faulted pod v: "Fault
 // braking" while it moves, and "Fault stopped" at rest, with its fault ID.
 func (s *Simulation) reportFault(v *vehicle) {
-	v.Pod.WaitReason, v.Pod.BlockedBy = faultStopped, s.podFaultID(v)
+	v.Pod.WaitReason, v.Pod.BlockedBy = FaultStopped, s.podFaultID(v)
 	if v.Pod.Speed > 0 {
-		v.Pod.WaitReason = faultBraking
+		v.Pod.WaitReason = FaultBraking
 	}
 }
 
@@ -270,7 +270,7 @@ func (s *Simulation) incidentBlocker(owner resourceOwner) (string, bool) {
 func (s *Simulation) reportIncident(v *vehicle, owner resourceOwner) bool {
 	id, ok := s.incidentBlocker(owner)
 	if ok {
-		v.Pod.WaitReason, v.Pod.BlockedBy = blockedByIncident, id
+		v.Pod.WaitReason, v.Pod.BlockedBy = BlockedByIncident, id
 	}
 	return ok
 }
@@ -297,7 +297,7 @@ func (s *Simulation) reportBlockedBerths(v *vehicle) {
 		for _, berth := range station.Berths {
 			claims := berthResources(berth)
 			if s.blocked.by[claims[0]] == id || s.blocked.by[claims[1]] == id {
-				v.Pod.WaitReason, v.Pod.BlockedBy = blockedByIncident, id
+				v.Pod.WaitReason, v.Pod.BlockedBy = BlockedByIncident, id
 				return
 			}
 		}
@@ -307,7 +307,7 @@ func (s *Simulation) reportBlockedBerths(v *vehicle) {
 // incidentWait reports whether the wait report of v is one that an
 // incident causes for a healthy pod.
 func incidentWait(v *vehicle) bool {
-	return v.Pod.WaitReason == blockedByIncident || v.Pod.WaitReason == noForwardRoute
+	return v.Pod.WaitReason == BlockedByIncident || v.Pod.WaitReason == NoForwardRoute
 }
 
 // podFaultFootprint returns the resources that the pod fault on v blocks

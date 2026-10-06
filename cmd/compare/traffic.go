@@ -29,7 +29,8 @@ func (waits *trafficWaits) sampleWaits(vehicles []sim.Vehicle) {
 			waits.junction++
 		case sim.TrackOccupied:
 			waits.track++
-		case sim.NoWait, sim.BerthOccupied, sim.ParkingUnavailable:
+		case sim.NoWait, sim.BerthOccupied, sim.ParkingUnavailable,
+			sim.FaultBraking, sim.FaultStopped, sim.BlockedByIncident, sim.NoForwardRoute:
 		}
 	}
 }

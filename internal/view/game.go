@@ -1724,12 +1724,16 @@ func (g *Game) drawInspection(screen *ebiten.Image, state sim.Snapshot) {
 // waitStatus returns the inspector status of a pod that waits for a local
 // resource. The status gives the wait reason and the pod that holds the
 // resource. It names that pod by its fleet number, which is the label of its
-// pod button. A pod ID that is not in vehicles does not change. Without a
-// blocking pod, the status is the wait reason only.
+// pod button. A pod ID that is not in vehicles does not change. A fault
+// reason names the fault instead. Without a blocker, the status is the wait
+// reason only.
 func waitStatus(pod sim.Pod, vehicles []sim.Vehicle) string {
 	status := string(pod.WaitReason)
 	if pod.BlockedBy == "" {
 		return status
+	}
+	if pod.WaitReason == sim.FaultBraking || pod.WaitReason == sim.FaultStopped || pod.WaitReason == sim.BlockedByIncident {
+		return status + " / fault " + pod.BlockedBy
 	}
 	blocker := pod.BlockedBy
 	if i := slices.IndexFunc(vehicles, func(v sim.Vehicle) bool { return v.Pod.ID == pod.BlockedBy }); i >= 0 {

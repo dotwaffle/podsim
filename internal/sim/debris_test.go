@@ -555,7 +555,7 @@ func waitAtDebris(t *testing.T, s *Simulation, duration int64) (*vehicle, string
 	checkDebrisEachTick(t, s)
 	id := startDebris(t, s, "return", 300, 310, duration)
 	stepUntil(t, s, "pod 02 waits for the debris", func() bool { return v.Pod.Speed == 0 && v.Pod.BlockedBy == id })
-	if v.Pod.WaitReason != blockedByIncident || v.blocks.end(v.reservedThrough)-v.blocks.lanes[v.blocks.locate(v.blockIndex, 0)].start != 270 {
+	if v.Pod.WaitReason != BlockedByIncident || v.blocks.end(v.reservedThrough)-v.blocks.lanes[v.blocks.locate(v.blockIndex, 0)].start != 270 {
 		t.Fatalf("pod 02 waits with %q at the grant end %g", v.Pod.WaitReason, v.blocks.end(v.reservedThrough))
 	}
 	return v, id, v.reservedThrough
