@@ -30,7 +30,7 @@ var cloneRules = map[reflect.Type]map[string]cloneRule{
 		"couplingApproaches": cloneCopy, "couplingAttempts": cloneCopy,
 		"motion":            cloneCopy,
 		"junctionConflicts": cloneShare, "lengths": cloneDrop, "routes": cloneDrop, "routeOrder": cloneDrop,
-		"graph": cloneShare, "stationIndexes": cloneShare, "stationForbidden": cloneShare, "pickupBounds": cloneDrop, "routeWork": cloneDrop, "admissionWork": cloneDrop,
+		"graph": cloneShare, "stationIndexes": cloneShare, "stationForbidden": cloneShare, "pickupBounds": cloneDrop, "routeWork": cloneDrop, "routeView": cloneDrop, "admissionWork": cloneDrop,
 		"geometry": cloneShare, "network": cloneShare, "initial": cloneShare,
 		"vehicles": cloneCopy, "expressServices": cloneCopy, "owners": cloneCopy, "demo": cloneCopy, "waiting": cloneCopy, "undelivered": cloneCopy,
 		"demandWeights": cloneShare, "congestionRouteCosts": cloneShare, "congestionRoutes": cloneCopy, "predictiveQueues": cloneCopy, "predictivePodQueues": cloneCopy,
@@ -195,7 +195,7 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"interrupted": persistSave, "interruptedPassengers": persistSave, "undelivered": persistReset,
 		"motion":          persistReset,
 		"expressServices": persistSession, "junctionConflicts": persistDerive, "lengths": persistReset, "routes": persistReset, "routeOrder": persistReset,
-		"graph": persistDerive, "stationIndexes": persistDerive, "stationForbidden": persistDerive, "pickupBounds": persistReset, "routeWork": persistReset, "admissionWork": persistReset,
+		"graph": persistDerive, "stationIndexes": persistDerive, "stationForbidden": persistDerive, "pickupBounds": persistReset, "routeWork": persistReset, "routeView": persistReset, "admissionWork": persistReset,
 		"geometry": persistDerive, "network": persistSession, "initial": persistSession,
 		"vehicles": persistSave, "owners": persistDerive, "tick": persistSave, "paused": persistSave,
 		"completed": persistSave, "requestID": persistSave, "demo": persistSave, "demoError": persistSave,
@@ -492,6 +492,8 @@ func TestCloneFollowsRules(t *testing.T) {
 				// Real compact clone storage is covered by TestStationCompactCloneStorage.
 				"Simulation.compactGroups", "Simulation.compactNextGroups", "Simulation.compactMotions", "Simulation.compactFault",
 				"compactBufferGroup.members", "compactBufferGroup.recovery", "compactQueueRecovery.targets", "compactQueueRecovery.landingSpeeds",
+				// The routing view is nil outside a query.
+				"Simulation.routeView",
 				// Recorder ownership is covered by TestMotionLifecycle.
 				"Simulation.motion", "motionRecorder.frame", "motionRecorder.pending", "MotionFrame.Samples",
 				// The committed pair case covers physical group storage.

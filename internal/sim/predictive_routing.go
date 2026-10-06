@@ -213,7 +213,12 @@ func (s *Simulation) predictiveRoute(v *vehicle, from, to string) ([]Lane, error
 	if err != nil || len(free) == 0 {
 		return free, err
 	}
-	forecasts := s.routeForecasts(v)
+	var forecasts []laneForecast
+	if s.routeView != nil {
+		forecasts = s.viewForecasts(v)
+	} else {
+		forecasts = s.routeForecasts(v)
+	}
 	start := s.predictionStart(v, from)
 	freeSeconds, freeCost := s.forecastCost(free, forecasts, start)
 	if freeCost == freeSeconds {

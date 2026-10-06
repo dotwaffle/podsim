@@ -79,7 +79,8 @@ func (s *Simulation) costedRouting() bool {
 // assignedRoute returns the route for pod v when it starts a new route from
 // node from to node to. It is the free-flow route of route, or the route of
 // the routing policy. The callers are board, startEmptyMove, sendPickup
-// and parkReleased.
+// and parkReleased. Under a routing view, it reads the view and writes no
+// routing-policy state and no route memo. See route_view.go.
 func (s *Simulation) assignedRoute(v *vehicle, from, to string) ([]Lane, error) {
 	switch s.routingPolicy {
 	case CongestionRouting:
@@ -99,6 +100,9 @@ func (s *Simulation) assignedRoute(v *vehicle, from, to string) ([]Lane, error) 
 // intermediate berths. If no such path exists, it returns the route
 // selected by the free-flow preference and legacy fallback.
 func (s *Simulation) congestionRouteForClass(from, to string, class VehicleClass) routeResult {
+	if s.routeView != nil {
+		return s.viewCongestionRoute(from, to, class)
+	}
 	s.refreshCongestionCosts()
 	key := routeKey{from: from, to: to, class: routeClass(class)}
 	if cached, ok := s.congestionRoutes[key]; ok {
@@ -236,9 +240,12 @@ func (s *Simulation) station(id string) (Station, bool) {
 }
 
 // cacheRoute stores the result with its travel time and returns the stored
-// value.
+// value. Under a routing view, it returns the value and stores nothing.
 func (s *Simulation) cacheRoute(key routeKey, result routeResult) routeResult {
 	result = s.withSeconds(result)
+	if s.routeView != nil {
+		return result
+	}
 	if s.routes == nil {
 		s.routes = make(map[routeKey]routeResult)
 	}

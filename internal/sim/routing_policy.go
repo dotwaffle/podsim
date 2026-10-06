@@ -93,7 +93,7 @@ func (s *Simulation) queueRoute(v *vehicle, from, to string) ([]Lane, error) {
 	if err != nil || len(free) == 0 {
 		return free, err
 	}
-	discharge := s.queueDischarge(v)
+	discharge := s.routeDischarge(v)
 	if discharge == nil {
 		return free, nil
 	}

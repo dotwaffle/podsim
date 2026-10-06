@@ -1,6 +1,8 @@
 package sim
 
 import (
+	"fmt"
+	"maps"
 	"slices"
 	"testing"
 )
@@ -519,42 +521,86 @@ func TestPickupBerthFilter(t *testing.T) {
 	}
 }
 
+// routingPolicies are the four routing policies.
+var routingPolicies = []RoutingPolicy{FreeFlowRouting, CongestionRouting, QueueRouting, PredictiveRouting}
+
 // TestIncidentQueriesWriteNothing checks that endpointRoute and
 // pickupAccess write nothing (section 11 of the incident suspension
-// contract), when they succeed and when they fail.
+// contract), when they succeed and when they fail, under each routing
+// policy. They write no routing-policy state and no route memo, also when
+// a policy search comes before a detour refusal.
 func TestIncidentQueriesWriteNothing(t *testing.T) {
 	t.Parallel()
 	unchanged := func(t *testing.T, s *Simulation, query func() bool, want bool) {
 		t.Helper()
-		before := s.Clone()
+		before, memo := s.Clone(), slices.Collect(maps.Keys(s.routes))
 		if got := query(); got != want {
 			t.Fatalf("the query reports %v, want %v", got, want)
 		}
 		if !sameState(before, s) {
 			t.Fatal("the query wrote state")
 		}
+		if len(s.routes) != len(memo) || slices.ContainsFunc(memo, func(key routeKey) bool { _, ok := s.routes[key]; return !ok }) {
+			t.Fatalf("the query wrote the route memo: %d entries, want %d", len(s.routes), len(memo))
+		}
 	}
-	t.Run("endpoint route", func(t *testing.T) {
-		t.Parallel()
-		s := altLineFleet(t, -100, "s0-1", "s3-1")
-		v := s.findVehicle("01")
-		if err := s.RequestJourney("01", "s2"); err != nil {
+	setPolicy := func(t *testing.T, s *Simulation, policy RoutingPolicy) {
+		t.Helper()
+		if err := s.SetRoutingPolicy(policy); err != nil {
 			t.Fatal(err)
 		}
-		route := func() bool { _, ok := s.endpointRoute(v); return ok }
-		startDebris(t, s, "s1-link", 70, 80, 0)
-		unchanged(t, s, route, true)
-		startDebris(t, s, "alt-in", 70, 80, 0)
-		unchanged(t, s, route, false)
-	})
-	t.Run("pickup access", func(t *testing.T) {
-		t.Parallel()
-		s, v := legPickup(t)
-		request := newTrip(s, "s3", "s0").request
-		access := func() bool { return s.pickupAccess(v, request) }
-		startFault(t, s, s.findVehicle("03"), 0)
-		unchanged(t, s, access, true)
-		startDebris(t, s, "s0-link", 70, 80, 0)
-		unchanged(t, s, access, false)
-	})
+	}
+	for _, policy := range routingPolicies {
+		t.Run(fmt.Sprintf("policy %d", policy), func(t *testing.T) {
+			t.Parallel()
+			t.Run("endpoint route", func(t *testing.T) {
+				t.Parallel()
+				s := altLineFleet(t, -100, "s0-1", "s3-1")
+				v := s.findVehicle("01")
+				if err := s.RequestJourney("01", "s2"); err != nil {
+					t.Fatal(err)
+				}
+				// The policy starts with no state, so a query that
+				// updated it would write it.
+				setPolicy(t, s, policy)
+				var route []Lane
+				query := func() bool {
+					var ok bool
+					route, ok = s.endpointRoute(v)
+					return ok
+				}
+				startDebris(t, s, "s1-link", 70, 80, 0)
+				unchanged(t, s, query, true)
+				// The installation reads the same view, so it installs
+				// the route of the query.
+				if !s.rerouteToEndpoint(v) || !sameLanes(v.Route, route) {
+					t.Fatalf("the installed route %v differs from %v", v.Route, route)
+				}
+				startDebris(t, s, "alt-in", 70, 80, 0)
+				unchanged(t, s, query, false)
+			})
+			t.Run("detour refusal", func(t *testing.T) {
+				t.Parallel()
+				s, v := asymmetricBankFleet(t)
+				if err := s.RequestJourney("01", "hub"); err != nil {
+					t.Fatal(err)
+				}
+				setPolicy(t, s, policy)
+				startDebris(t, s, "a-approach", 60, 70, 0)
+				unchanged(t, s, func() bool { _, ok := s.endpointRoute(v); return ok }, false)
+				unchanged(t, s, func() bool { return s.rerouteToEndpoint(v) }, false)
+			})
+			t.Run("pickup access", func(t *testing.T) {
+				t.Parallel()
+				s, v := legPickup(t)
+				setPolicy(t, s, policy)
+				request := newTrip(s, "s3", "s0").request
+				access := func() bool { return s.pickupAccess(v, request) }
+				startFault(t, s, s.findVehicle("03"), 0)
+				unchanged(t, s, access, true)
+				startDebris(t, s, "s0-link", 70, 80, 0)
+				unchanged(t, s, access, false)
+			})
+		})
+	}
 }

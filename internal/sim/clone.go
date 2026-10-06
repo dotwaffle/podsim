@@ -22,6 +22,7 @@ func (s *Simulation) Clone() *Simulation {
 	c.pickupBounds = nil
 	c.staticConnected, c.staticRoutes = nil, nil
 	c.routeWork = nil
+	c.routeView = nil
 	c.admissionWork = nil
 	c.vehicles = slices.Clone(s.vehicles)
 	for i := range c.vehicles {

@@ -451,6 +451,9 @@ type Simulation struct {
 	resourceLanes   map[resource][]int32
 	staticConnected map[routeKey]bool
 	staticRoutes    map[routeKey]routeResult
+	// routeView is the routing view of one query. It is nil outside the
+	// query. See route_view.go.
+	routeView *routeView
 	// vehicleIndexes gives the position in vehicles of each pod ID. Reset
 	// and restorePhysical replace it whole after they replace vehicles. No
 	// code writes to it in place. findVehicle checks each entry, so an entry

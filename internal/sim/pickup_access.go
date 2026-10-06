@@ -27,12 +27,13 @@ func (s *Simulation) pickupBerthFilter(v *vehicle, request Request) func(Berth) 
 // the incident suspension contract). It is true when the blocked set is
 // empty. It asks only whether a complete forward continuation exists. It
 // does not look at resource owners or at the time to arrive, so ordinary
-// traffic, an occupied berth, and a later arrival never unbind a trip. It
-// writes nothing.
+// traffic, an occupied berth, and a later arrival never unbind a trip. Its
+// searches read the routing view of v, so it writes nothing.
 func (s *Simulation) pickupAccess(v *vehicle, request Request) bool {
 	if !s.blockedActive() {
 		return true
 	}
+	defer s.leaveRouteView(s.enterRouteView(v))
 	origin := request.legOrigin()
 	// A pod idle at the origin boards there. A blocked onward leg stays a
 	// destination access wait at boarding.
