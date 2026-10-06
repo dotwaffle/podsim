@@ -63,32 +63,55 @@ func faultCommand(action string) (session.Command, bool) {
 	return session.Command{}, false
 }
 
+// frameControl is a command button of the pod inspector that a click
+// takes from the last drawn frame. match finds the button, control is its
+// copy from the last frame, and shown reports whether that frame had one.
+type frameControl struct {
+	match   func(button) bool
+	control *button
+	shown   *bool
+}
+
+// frameControls returns the fault button and the emergency button of the
+// last drawn frame.
+func (g *Game) frameControls() []frameControl {
+	return []frameControl{
+		{match: isFaultButton, control: &g.shownFault, shown: &g.faultShown},
+		{match: isEmergencyButton, control: &g.shownEmergency, shown: &g.emergencyShown},
+	}
+}
+
 // frameButtons returns the buttons of a new frame. It keeps the fault
-// button of the frame for clickButtons.
+// button and the emergency button of the frame for clickButtons.
 func (g *Game) frameButtons() []button {
 	buttons := g.buttons()
-	i := slices.IndexFunc(buttons, isFaultButton)
-	g.faultShown = i >= 0
-	g.shownFault = button{}
-	if g.faultShown {
-		g.shownFault = buttons[i]
+	for _, frame := range g.frameControls() {
+		i := slices.IndexFunc(buttons, frame.match)
+		*frame.shown = i >= 0
+		*frame.control = button{}
+		if i >= 0 {
+			*frame.control = buttons[i]
+		}
 	}
 	return buttons
 }
 
 // clickButtons returns the buttons that a click can press. The state can
-// change after the last frame, before the click. The fault button is thus
-// the one of the last frame, with its position and its target: a fault
-// that clears or a pod that moves in the fleet must not change the command
-// of a button that the user saw. Only the connection and a waiting
-// command, which make each command button disabled, come from the current
-// state.
+// change after the last frame, before the click. The fault button and the
+// emergency button are thus the ones of the last frame, with their
+// positions and their targets: a fault that clears, an emergency that
+// starts, or a pod that moves in the fleet must not change the command of
+// a button that the user saw. Only the connection and a waiting command,
+// which make each command button disabled, come from the current state.
 func (g *Game) clickButtons() []button {
-	buttons := slices.DeleteFunc(g.buttons(), isFaultButton)
-	if g.faultShown {
-		control := g.shownFault
-		control.disabled = !g.connected || g.pending
-		buttons = append(buttons, control)
+	buttons := g.buttons()
+	for _, frame := range g.frameControls() {
+		buttons = slices.DeleteFunc(buttons, frame.match)
+		if *frame.shown {
+			control := *frame.control
+			control.disabled = !g.connected || g.pending
+			buttons = append(buttons, control)
+		}
 	}
 	return buttons
 }

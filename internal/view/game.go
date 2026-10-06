@@ -110,7 +110,11 @@ type Game struct {
 	// clickButtons.
 	shownFault button
 	faultShown bool
-	layout     displayLayout
+	// shownEmergency and emergencyShown are the same for the emergency
+	// button.
+	shownEmergency button
+	emergencyShown bool
+	layout         displayLayout
 	// imageLimit is the largest side in pixels of an image. Draw reads it
 	// from Ebiten in each frame. See imageSideLimit.
 	imageLimit int
@@ -529,6 +533,9 @@ func (g *Game) buttons() []button {
 	if control, ok := g.faultButton(state); ok {
 		buttons = append(buttons, control)
 	}
+	if control, ok := g.emergencyButton(state); ok {
+		buttons = append(buttons, control)
+	}
 	if pages := podPageCount(len(state.Vehicles)); pages > 1 {
 		buttons = append(buttons,
 			button{x: podPagerLeft, y: podSelectorTop, w: podPagerArrowWidth, h: 34, label: "‹", disabled: g.podPage == 0, action: "pods-prev"},
@@ -643,9 +650,9 @@ func (g *Game) pressMapControl(action string) bool {
 }
 
 // pressPodControl applies a press of a pod button of the inspector: the
-// fault button, a page arrow of the pod selector, or a pod button. A pod
-// button selects its pod and clears the message. It returns false for any
-// other action.
+// fault button, the emergency button, a page arrow of the pod selector, or
+// a pod button. A pod button selects its pod and clears the message. It
+// returns false for any other action.
 func (g *Game) pressPodControl(action string) bool {
 	switch action {
 	case "pods-prev":
@@ -656,6 +663,10 @@ func (g *Game) pressPodControl(action string) bool {
 		return true
 	}
 	if command, ok := faultCommand(action); ok {
+		g.submit(command)
+		return true
+	}
+	if command, ok := emergencyCommand(action); ok {
 		g.submit(command)
 		return true
 	}

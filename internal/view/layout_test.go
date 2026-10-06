@@ -421,11 +421,17 @@ func TestControlsDoNotOverlap(t *testing.T) {
 					game.showDemand = showDemand
 					game.state.Checkpoints = checkpoints
 					// The fault marker adds the fault button to the
-					// inspector.
+					// inspector. The emergency marker adds the
+					// emergency button for a pod with a party.
 					game.state.Simulation.FaultContract = sim.FaultV1Contract
+					game.state.Simulation.EmergencyContract = sim.EmergencyV1Contract
+					boardParty(&game.state.Simulation.Vehicles[game.selected])
 					controls := game.buttons()
 					findButton(t, controls, "checkpoint")
 					findButton(t, controls, "rewind")
+					if !showDemand {
+						findButton(t, controls, emergencyActionPrefix+fleetPodLabel(game.selected))
+					}
 					bounds := area{right: float64(game.layout.width), bottom: float64(game.layout.height)}
 					for i, control := range controls {
 						got := buttonArea(control)
