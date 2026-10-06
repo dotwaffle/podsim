@@ -10,7 +10,20 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
+// checkProfiles adds the errors of the demand profiles: first the errors of
+// the profile list, and then the errors of each profile in order. The order
+// of the errors is the order of the check report.
 func checkProfiles(value any, passenger map[string]bool, errors *checkList) {
+	profiles := checkProfileList(value, errors)
+	ids := make(map[string]bool)
+	for _, profile := range profiles {
+		checkProfile(profile, ids, passenger, errors)
+	}
+}
+
+// checkProfileList checks that the demand profiles are an array with at
+// most project.MaxProfiles items. It returns the profiles.
+func checkProfileList(value any, errors *checkList) []any {
 	profiles := items(member(value, "demandProfiles"))
 	if member(value, "demandProfiles") != nil && profiles == nil {
 		errors.add("Demand profiles must be an array.", nil)
@@ -18,54 +31,96 @@ func checkProfiles(value any, passenger map[string]bool, errors *checkList) {
 	if len(profiles) > project.MaxProfiles {
 		errors.add("The project has too many demand profiles.", nil)
 	}
-	ids := make(map[string]bool)
-	for _, profile := range profiles {
-		id := member(profile, "id")
-		if object(profile) == nil || !validID(id) || ids[text(id)] {
-			errors.add("A demand profile has an invalid or duplicate ID.", nil)
+	return profiles
+}
+
+// checkProfile checks the ID of a profile. A profile with a valid and new
+// ID adds its ID to ids, and then gets checks of its name, its band and
+// flow counts, its bands, its flows, and its band totals.
+func checkProfile(profile any, ids, passenger map[string]bool, errors *checkList) {
+	id := member(profile, "id")
+	if object(profile) == nil || !validID(id) || ids[text(id)] {
+		errors.add("A demand profile has an invalid or duplicate ID.", nil)
+		return
+	}
+	ids[text(id)] = true
+	prefix := "Demand profile " + text(id)
+	name := member(profile, "name")
+	if strings.TrimSpace(text(name)) == "" || len(text(name)) > project.MaxNameLength {
+		errors.add(prefix+" has an invalid name.", nil)
+	}
+	bands, flows := items(member(profile, "bands")), items(member(profile, "flows"))
+	checkProfileCounts(len(bands), len(flows), prefix, errors)
+	checkProfileBands(bands, prefix, errors)
+	totals := checkProfileFlows(flows, len(bands), passenger, prefix, errors)
+	if slices.ContainsFunc(totals, func(total float64) bool { return math.IsNaN(total) || math.IsInf(total, 0) || total <= 0 }) {
+		errors.add(prefix+" has an empty band.", nil)
+	}
+}
+
+// checkProfileCounts checks the number of bands, and then the number of
+// flows, of a profile.
+func checkProfileCounts(bands, flows int, prefix string, errors *checkList) {
+	if bands < 1 || bands > project.MaxBands {
+		errors.add(fmt.Sprintf("%s must contain 1 to %d bands.", prefix, project.MaxBands), nil)
+	}
+	if flows < 1 || flows > project.MaxFlows {
+		errors.add(fmt.Sprintf("%s must contain 1 to %d flows.", prefix, project.MaxFlows), nil)
+	}
+}
+
+// checkProfileBands checks each band of a profile in order.
+func checkProfileBands(bands []any, prefix string, errors *checkList) {
+	bandIDs := make(map[string]bool)
+	for _, band := range bands {
+		if invalidBand(band, bandIDs) {
+			errors.add(prefix+" has an invalid band.", nil)
+		} else {
+			bandIDs[text(member(band, "id"))] = true
+		}
+	}
+}
+
+// invalidBand reports whether a band has an invalid or duplicate ID, no
+// name, or a start or duration outside one day.
+func invalidBand(band any, bandIDs map[string]bool) bool {
+	bandID, start, duration := member(band, "id"), member(band, "startMinute"), member(band, "durationMinutes")
+	return !validID(bandID) || bandIDs[text(bandID)] || strings.TrimSpace(text(member(band, "name"))) == "" ||
+		!integer(start) || number(start) < 0 || number(start) >= 1440 || !integer(duration) || number(duration) < 1 || number(duration) > 1440
+}
+
+// checkProfileFlows checks each flow of a profile in order, and then its
+// weights. It returns the total weight of each band.
+func checkProfileFlows(flows []any, bandCount int, passenger map[string]bool, prefix string, errors *checkList) []float64 {
+	totals, pairs := make([]float64, bandCount), make(map[[2]string]bool)
+	for _, flow := range flows {
+		weights, pair := items(member(flow, "weights")), [2]string{text(member(flow, "from")), text(member(flow, "to"))}
+		if invalidFlow(flow, pair, weights, bandCount, passenger, pairs) {
+			errors.add(prefix+" has an invalid flow.", nil)
 			continue
 		}
-		ids[text(id)] = true
-		prefix := "Demand profile " + text(id)
-		name := member(profile, "name")
-		if strings.TrimSpace(text(name)) == "" || len(text(name)) > project.MaxNameLength {
-			errors.add(prefix+" has an invalid name.", nil)
-		}
-		bands, flows := items(member(profile, "bands")), items(member(profile, "flows"))
-		if len(bands) < 1 || len(bands) > project.MaxBands {
-			errors.add(fmt.Sprintf("%s must contain 1 to %d bands.", prefix, project.MaxBands), nil)
-		}
-		if len(flows) < 1 || len(flows) > project.MaxFlows {
-			errors.add(fmt.Sprintf("%s must contain 1 to %d flows.", prefix, project.MaxFlows), nil)
-		}
-		bandIDs := make(map[string]bool)
-		for _, band := range bands {
-			bandID, start, duration := member(band, "id"), member(band, "startMinute"), member(band, "durationMinutes")
-			if !validID(bandID) || bandIDs[text(bandID)] || strings.TrimSpace(text(member(band, "name"))) == "" || !integer(start) || number(start) < 0 || number(start) >= 1440 || !integer(duration) || number(duration) < 1 || number(duration) > 1440 {
-				errors.add(prefix+" has an invalid band.", nil)
-			} else {
-				bandIDs[text(bandID)] = true
-			}
-		}
-		totals, pairs := make([]float64, len(bands)), make(map[[2]string]bool)
-		for _, flow := range flows {
-			from, to := text(member(flow, "from")), text(member(flow, "to"))
-			weights, pair := items(member(flow, "weights")), [2]string{from, to}
-			if object(flow) == nil || !passenger[from] || !passenger[to] || from == to || pairs[pair] || weights == nil || len(weights) != len(bands) {
-				errors.add(prefix+" has an invalid flow.", nil)
-				continue
-			}
-			pairs[pair] = true
-			for index, weight := range weights {
-				if !finite(weight) || number(weight) < 0 {
-					errors.add(prefix+" has an invalid weight.", nil)
-				} else {
-					totals[index] += number(weight)
-				}
-			}
-		}
-		if slices.ContainsFunc(totals, func(total float64) bool { return math.IsNaN(total) || math.IsInf(total, 0) || total <= 0 }) {
-			errors.add(prefix+" has an empty band.", nil)
+		pairs[pair] = true
+		addFlowWeights(weights, totals, prefix, errors)
+	}
+	return totals
+}
+
+// invalidFlow reports whether a flow is not an object, does not join two
+// different passenger stations, repeats an earlier pair, or does not have
+// one weight for each band.
+func invalidFlow(flow any, pair [2]string, weights []any, bandCount int, passenger map[string]bool, pairs map[[2]string]bool) bool {
+	from, to := pair[0], pair[1]
+	return object(flow) == nil || !passenger[from] || !passenger[to] || from == to || pairs[pair] || weights == nil || len(weights) != bandCount
+}
+
+// addFlowWeights checks each weight of a flow, and adds each valid weight
+// to the total of its band.
+func addFlowWeights(weights []any, totals []float64, prefix string, errors *checkList) {
+	for index, weight := range weights {
+		if !finite(weight) || number(weight) < 0 {
+			errors.add(prefix+" has an invalid weight.", nil)
+		} else {
+			totals[index] += number(weight)
 		}
 	}
 }

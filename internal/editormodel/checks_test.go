@@ -234,3 +234,101 @@ func TestChecksPreserveInvalidDraftTargetsAndOperationBarrier(t *testing.T) {
 		t.Fatal("stateless malformed draft lost its check results")
 	}
 }
+
+// TestCheckProfilesErrorOrder pins the order of the demand profile errors.
+// checkProfiles checks the profile list, and then each profile in order.
+// For each profile it checks the ID, the name, the band and flow counts,
+// each band, each flow with its weights, and then the band totals. Most
+// cases break two adjacent checks, and the report lists the errors in check
+// order.
+func TestCheckProfilesErrorOrder(t *testing.T) {
+	t.Parallel()
+	passenger := map[string]bool{"a": true, "b": true}
+	band := func(name string) []any {
+		return []any{map[string]any{"id": "m", "name": name, "startMinute": 0.0, "durationMinutes": 60.0}}
+	}
+	flow := func(from string, weights ...any) map[string]any {
+		return map[string]any{"from": from, "to": "b", "weights": append([]any{}, weights...)}
+	}
+	profile := func(id string) map[string]any {
+		return map[string]any{"id": id, "name": "Peak", "bands": band("Morning"), "flows": []any{flow("a", 1.0)}}
+	}
+	const (
+		list     = "Demand profiles must be an array."
+		tooMany  = "The project has too many demand profiles."
+		id       = "A demand profile has an invalid or duplicate ID."
+		name     = "Demand profile p has an invalid name."
+		bandText = "Demand profile p has an invalid band."
+		flowText = "Demand profile p has an invalid flow."
+		weight   = "Demand profile p has an invalid weight."
+		empty    = "Demand profile p has an empty band."
+	)
+	bands := fmt.Sprintf("Demand profile p must contain 1 to %d bands.", project.MaxBands)
+	flows := fmt.Sprintf("Demand profile p must contain 1 to %d flows.", project.MaxFlows)
+	// Each edit changes the profile p, and returns the profile list.
+	for _, test := range []struct {
+		name string
+		edit func(p map[string]any) any
+		want []string
+	}{
+		{"list", func(map[string]any) any { return "profiles" }, []string{list}},
+		{"too_many_before_profile", func(p map[string]any) any {
+			p["id"] = ""
+			profiles := []any{p}
+			for i := range project.MaxProfiles {
+				profiles = append(profiles, profile(fmt.Sprint("p", i)))
+			}
+			return profiles
+		}, []string{tooMany, id}},
+		{"id_skips_profile", func(p map[string]any) any {
+			p["id"], p["name"] = "", ""
+			return []any{p}
+		}, []string{id}},
+		{"name_before_bands", func(p map[string]any) any {
+			p["name"], p["bands"], p["flows"] = "", []any{}, []any{flow("a")}
+			return []any{p}
+		}, []string{name, bands}},
+		{"bands_before_flows", func(p map[string]any) any {
+			p["bands"], p["flows"] = []any{}, []any{}
+			return []any{p}
+		}, []string{bands, flows}},
+		{"flows_before_band", func(p map[string]any) any {
+			p["bands"], p["flows"] = band(""), []any{}
+			return []any{p}
+		}, []string{flows, bandText, empty}},
+		{"band_before_flow", func(p map[string]any) any {
+			p["bands"], p["flows"] = band(""), []any{flow("x", 1.0)}
+			return []any{p}
+		}, []string{bandText, flowText, empty}},
+		{"weight_before_next_flow", func(p map[string]any) any {
+			p["flows"] = []any{flow("a", -1.0), flow("x", 1.0)}
+			return []any{p}
+		}, []string{weight, flowText, empty}},
+		{"flow_before_next_weight", func(p map[string]any) any {
+			p["flows"] = []any{flow("x", 1.0), flow("a", -1.0)}
+			return []any{p}
+		}, []string{flowText, weight, empty}},
+		{"weight_before_empty_band", func(p map[string]any) any {
+			p["flows"] = []any{flow("a", -1.0)}
+			return []any{p}
+		}, []string{weight, empty}},
+		{"profile_order", func(p map[string]any) any {
+			p["flows"] = []any{flow("a", 0.0)}
+			return []any{p, profile("")}
+		}, []string{empty, id}},
+		{"valid", func(p map[string]any) any { return []any{p} }, nil},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			var errors checkList
+			checkProfiles(map[string]any{"demandProfiles": test.edit(profile("p"))}, passenger, &errors)
+			var got []string
+			for _, item := range errors.items {
+				got = append(got, item.Text)
+			}
+			if !slices.Equal(got, test.want) {
+				t.Fatalf("got %q, want %q", got, test.want)
+			}
+		})
+	}
+}
