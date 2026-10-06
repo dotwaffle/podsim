@@ -1,9 +1,0 @@
-name,variant,requested_speed,clients,repetition,window_seconds,achieved_playback,final_speed,server_cpu_seconds,server_cpu_cores,server_endpoint_rss_mib,browser_cpu_seconds,browser_endpoint_rss_mib,speed_reduction_logs,speed_transitions,one_second_publication_clock_samples,one_second_publication_clock_speed_p05,one_second_publication_clock_speed_median,one_second_publication_clock_speed_min,generated_additional,skipped,completed,pending,aboard,shared_sequences,cgroup_quota,cgroup_counter_delta,errors
-baseline-full-1-speed60-rep1,baseline,60,1,1,90.037,59.9879308876721,60,56.12,0.62329931028355,217.55859375,806.3299999999999,1036.82421875,[],[],88,59.39036381514258,60.01642036124795,59.18300653594771,1080,0,1591,76,133,0,"max 100000
-","{'nr_periods': 0, 'nr_throttled': 0, 'throttled_usec': 0}",[]
-candidate-full-1-speed60-rep1,candidate,60,1,1,90.058,59.972092059191475,60,48.65,0.5402074218836749,214.75390625,810.5899999999999,1032.59375,[],[],88,59.554455445544555,59.993457638207396,59.086444007858546,1080,0,1591,76,133,0,"max 100000
-","{'nr_periods': 0, 'nr_throttled': 0, 'throttled_usec': 0}",[]
-candidate-full-1-speed60-rep2,candidate,60,1,2,90.049,59.98715514146002,60,48.74,0.5412608690823885,220.75,810.6,1044.4921875,[],[],88,59.39334637964775,60.03619611714381,58.970588235294116,1080,0,1591,76,133,0,"max 100000
-","{'nr_periods': 0, 'nr_throttled': 0, 'throttled_usec': 0}",[]
-baseline-full-1-speed60-rep2,baseline,60,1,2,90.071,59.97675907524805,60,56.690000000000005,0.6293923682428307,213.95703125,803.5699999999998,1040.14453125,[],[],88,59.46784198498205,59.99342537804076,59.16256157635468,1080,0,1591,76,133,0,"max 100000
-","{'nr_periods': 0, 'nr_throttled': 0, 'throttled_usec': 0}",[]

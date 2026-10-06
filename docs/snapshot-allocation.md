@@ -81,7 +81,5 @@ Independent source, helper, build-provenance, and measurement review finds no bl
 Full candidate tests, vet, lint, native/WASM builds, and embedded tests pass.
 Full sim/session race tests pass, and the validated source hashes remain unchanged.
 
-[Timed samples](measurements/snapshot-allocation-arms.csv) retain CPU, wall time, allocation, GC, heap, and peak RSS fields.
-[Repeated summaries](measurements/snapshot-allocation-summary.csv) retain medians and full repetition ranges.
-[Metadata](measurements/snapshot-allocation.json) retains source and executable hashes, results, parity checks, and ratios.
+The raw measurement data is in git history.
 The corrected measurement unit stopped successfully, and its scratch executables were removed.

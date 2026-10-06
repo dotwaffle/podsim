@@ -55,6 +55,5 @@ The [route search study](route-search-performance.md) measures the next optimiza
 Live Chrome measurements should precede a change to either default.
 Both defaults remain unchanged.
 
-The [CSV](measurements/pickup-bounds-cache.csv) records the six means.
-The [metadata](measurements/pickup-bounds-cache.json) records identities, raw artifact location, and measurement limits.
+The raw measurement data is in git history.
 These two repetitions do not establish a statistical performance guarantee, sustained 60x playback, or a capacity improvement.

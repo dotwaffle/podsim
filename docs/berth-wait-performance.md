@@ -35,8 +35,7 @@ These two repetitions do not establish sustained playback speed or passenger cap
 The simulation and session test suites and static checks pass.
 Independent review found the predicate reorder equivalent because the skipped scan has no side effects.
 
-[Measurements](measurements/berth-wait.csv) retain the means and allocation figures.
-[Metadata](measurements/berth-wait.json) records binaries, raw hashes, and the exact final-state hash.
+The raw measurement data is in git history.
 
 ## Live Central follow-up
 
@@ -70,4 +69,4 @@ Two repetitions are insufficient to attribute the differing GOGC 200 results to 
 The server retains its default GOGC 100, and the comparison command retains GOGC 400 when unset.
 The overload sensor is unchanged.
 
-[Arm measurements](measurements/berth-wait-live-arms.csv), [client measurements](measurements/berth-wait-live-pages.csv), and [metadata](measurements/berth-wait-live.json) record this follow-up.
+The raw measurement data is in git history.

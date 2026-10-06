@@ -68,5 +68,4 @@ That statistic alone does not determine automatic speed reductions.
 The live server evaluates recent wall-time buckets.
 These measurements do not establish sustained 60x playback or passenger capacity.
 
-[Per-cell means](measurements/route-search.csv) retain CPU, allocation, heap, encoding, and batch-latency measurements.
-[Metadata](measurements/route-search.json) records source and binary identities, raw hashes, and validation limits.
+The raw measurement data is in git history.

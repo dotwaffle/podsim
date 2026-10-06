@@ -123,6 +123,4 @@ Random `serverStart` values can change gzip totals without changing physical sta
 Small byte differences do not establish network savings.
 Two initial repetitions per case and the targeted follow-up do not qualify all demand rates, seeds, or machines.
 
-[Initial measurements](measurements/admission-work.csv) retain CPU, allocations, collections, pauses, heap, and latency results.
-[Per-arm measurements](measurements/admission-work-arms.csv) retain the 48 original processes.
-[Metadata](measurements/admission-work.json) records frozen inputs, exact state hashes, and all six follow-up pairs.
+The raw measurement data is in git history.

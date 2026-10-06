@@ -731,7 +731,7 @@ Topology is a one-time cost per project revision.
 London topology was 51,803 gzip bytes as JSON and 46,374 gzip bytes as Protobuf.
 The editor project is not part of the state stream.
 
-The payload data is in [`measurements/protocol-normalized.csv`](measurements/protocol-normalized.csv).
+The payload data is in git history.
 
 The `build` key adds 11 bytes plus the length of the build ID to each raw state frame, or 27 bytes for a 16-character ID.
 With gzip level 1, sampled frames of the example, Scale100, and London projects grew by about 20 bytes.
@@ -757,7 +757,7 @@ The table gives the frames at 120 s.
 With a party limit above 1, each party that joined a pod adds a full order to the frame.
 Before, it added only to the `Parties` count.
 At 20 Hz, the largest London frame in the table uses 0.44 MB/s.
-The data is in [`measurements/protocol-riders.csv`](measurements/protocol-riders.csv).
+The data is in git history.
 
 ## Codec measurements
 
@@ -781,7 +781,7 @@ At 20 Hz, marshal and compression use about 15.5 ms of CPU per wall second for J
 The saving is about 0.7% of one full CPU core per connected client.
 
 The gzip-level comparison used five more one-second runs for the London frame.
-The `json_gzip_level_1` and `json_gzip_level_6` rows of [`measurements/protocol-normalized-codec.csv`](measurements/protocol-normalized-codec.csv) come from these runs.
+The `json_gzip_level_1` and `json_gzip_level_6` rows of the codec data come from these runs.
 
 | Fixture | Gzip level | Frame size | Compression time |
 | --- | ---: | ---: | ---: |
@@ -798,7 +798,7 @@ The server uses level 1 because CPU is the tighter resource when the server gets
 These measurements exclude frame construction, Protobuf conversion, HTTP work, decompression, rendering, and simulation work.
 They do not show the fraction of total application CPU.
 
-The codec data is in [`measurements/protocol-normalized-codec.csv`](measurements/protocol-normalized-codec.csv).
+The codec data is in git history.
 
 ## Removed ConnectRPC experiment
 

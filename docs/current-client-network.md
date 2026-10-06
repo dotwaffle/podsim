@@ -100,7 +100,5 @@ This supports the quota explanation for that attempt, without proving that every
 The incomplete attempt remains separate from the corrected matrix and supports no ordinary playback-capacity claim.
 Throttled-period ratios count affected quota periods, not the fraction of wall time lost.
 
-[Per-arm results](measurements/current-client-network-arms.csv) retain playback, CPU, RSS, speed changes, and cgroup counters.
-[Per-page results](measurements/current-client-network-pages.csv) retain byte rates, processing, ACK, frame-gap, and heap fields.
-[Metadata](measurements/current-client-network.json) retains source, assets, executable hashes, and raw-result hashes.
+The raw measurement data is in git history.
 The corrected unit stopped successfully with no remaining browser or server processes.

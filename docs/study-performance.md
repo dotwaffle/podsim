@@ -101,7 +101,8 @@ Independent scenarios can run in separate processes.
 The functional diagnosis matrix used multiple workers, while performance comparisons used one sequential worker.
 Functional concurrency does not supply comparable CPU timings.
 
-[Measurements](measurements/study-performance.json) retain all timing repetitions, exact-output checks, benchmark samples, runtime settings, and source/binary identities.
+The raw measurement data is in git history.
+
 The full plain suite, vet, lint, native build, WASM generation, and embedded-asset checks pass.
 Simulation and session race checks also pass.
 The source stays unchanged during the final gates.
@@ -134,4 +135,4 @@ Its median results are:
 
 These numbers measure copying in one synthetic fixture, not whole-test or server speed.
 The command parity runs use one repetition per arm and do not establish a repeatable speed percentage.
-[Maintained-helper measurements](measurements/metrics-snapshot.json) retain source/binary identities, exact-output hashes, benchmark samples, and validation commands.
+The raw measurement data is in git history.

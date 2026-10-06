@@ -95,6 +95,5 @@ It is narrower than the simulation and live-server measurements.
 
 ## Evidence
 
-[Measurements](measurements/station-phase-cache.json) retain plans, source and binary hashes, checkpoint hashes, individual arms, and reviewed limits.
-The [live arm table](measurements/station-phase-live-arms.csv) and [page table](measurements/station-phase-live-pages.csv) retain transport and client observations.
-Raw profiles, scripts, source diffs, and independent reviews remain in the external artifact directories named by the measurement paths.
+The raw measurement data is in git history.
+Raw profiles, scripts, source diffs, and independent reviews remain in external artifact directories.

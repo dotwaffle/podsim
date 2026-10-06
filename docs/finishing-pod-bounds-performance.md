@@ -83,7 +83,7 @@ The full plain suite and sim/session/view/statestore race suites pass.
 Vet, lint, fresh gopls, and native/WASM builds pass.
 Independent review verifies the raw hashes, matched state digests, and bounded performance claims.
 
-[Native samples](measurements/finishing-pod-bounds-native.csv), [live samples](measurements/finishing-pod-bounds-live.csv), and [metadata](measurements/finishing-pod-bounds.json) retain inputs and results.
+The raw measurement data is in git history.
 Native runs and live runs execute sequentially without other agent CPU-heavy work.
 Unrelated user processes remain outside the experiment's control.
 An initial live setup attempt lacked its manifest and stopped before startup.

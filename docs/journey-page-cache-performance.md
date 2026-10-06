@@ -88,5 +88,4 @@ This study does not predict hardware-GPU performance, every browser, longer sess
 The measured script reduction and native allocation savings support this bounded cache.
 Server and default-GC performance require separate measurements.
 
-[Native benchmark](measurements/journey-page-cache-benchmark.csv), [per-arm measurements](measurements/journey-page-cache-arms.csv), and [per-page measurements](measurements/journey-page-cache-pages.csv) retain all results.
-[Metadata](measurements/journey-page-cache.json) retains frozen inputs and raw-result hashes.
+The raw measurement data is in git history.

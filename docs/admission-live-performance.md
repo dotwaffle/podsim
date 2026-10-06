@@ -77,5 +77,4 @@ Per-page quantiles describe individual capture windows, not pooled distributions
 Endpoint RSS does not measure long-term retention.
 Ambient host contention and active profiling can affect timing.
 
-[Per-arm measurements](measurements/admission-live-arms.csv) and [per-page measurements](measurements/admission-live-pages.csv) retain all runs.
-[Metadata](measurements/admission-live.json) records frozen inputs, run times, and raw-result hashes.
+The raw measurement data is in git history.

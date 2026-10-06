@@ -61,8 +61,7 @@ The server retains its default GOGC 100, and the comparison command retains GOGC
 The overload sensor, project format, protocol, and saved-state format remain unchanged.
 The live Chrome results below remain separate from these unpaced measurements.
 
-[Measurements](measurements/hold-route-parts.csv) retain CPU, allocation, collection, pause, heap, and gzip totals.
-[Metadata](measurements/hold-route-parts.json) records frozen inputs and both exact saved-state hashes.
+The raw measurement data is in git history.
 
 ## Matched live Chrome follow-up
 
@@ -98,4 +97,4 @@ Across all pages, ACK p95 is 14.7-21.4 milliseconds and gzip decompression p95 i
 These checks show no transport recovery event during the matrix.
 They do not establish the cause of every live stall.
 
-[Live arm measurements](measurements/hold-route-live-arms.csv), [page measurements](measurements/hold-route-live-pages.csv), and [metadata](measurements/hold-route-live.json) retain the results.
+The raw measurement data is in git history.

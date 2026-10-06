@@ -88,5 +88,4 @@ It does not qualify Fly hosting or physical-GPU rendering.
 Higher update frequency can increase traffic cost on remote connections.
 Existing credit, history, and message limits remain the backpressure controls.
 
-[Per-arm measurements](measurements/publisher-cadence-arms.csv) and [per-page measurements](measurements/publisher-cadence-pages.csv) retain all results.
-[Metadata](measurements/publisher-cadence.json) records frozen inputs, source hashes, and raw-result hashes.
+The raw measurement data is in git history.
