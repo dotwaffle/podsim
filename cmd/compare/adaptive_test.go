@@ -267,6 +267,7 @@ func TestRunAdaptiveKeepsInputOrder(t *testing.T) {
 // grid rows that the rule keeps, in the same order.
 func TestAdaptiveLimitMatchesFullGrid(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	args := []string{
 		"-duration", "8m", "-arrivals-for", "3m", "-loads", "20s,40s,25s,10s,30s,15s", "-seeds", "1,2",
 		"-patterns", "balanced,hotspot", "-stop-when-drained", "-format", "csv", "-workers", "4",

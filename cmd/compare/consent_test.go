@@ -99,6 +99,7 @@ func TestComparisonConsentPrivateCannotPool(t *testing.T) {
 
 func TestComparisonConsentCommonAcrossArms(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	for _, consent := range []string{"private", "shared"} {
 		t.Run(consent, func(t *testing.T) {
 			t.Parallel()
@@ -150,6 +151,7 @@ func TestComparisonConsentSeparatesAdaptiveGroups(t *testing.T) {
 
 func TestComparisonConsentPreservesOfflineQueue(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	opts, err := parseOptions([]string{"-queue-limit", "1000000"}, &bytes.Buffer{})
 	if err != nil || opts.queueLimit != maxQueueLimit {
 		t.Fatalf("offline queue option changed: %v", err)

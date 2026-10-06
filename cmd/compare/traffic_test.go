@@ -82,6 +82,7 @@ func replayEachTick(t *testing.T, input runInput, observe func(sim.Snapshot)) {
 // of a replay at each whole second.
 func TestWaitColumnsInRun(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	input := smallBurstInput(t)
 	outcome, err := run(input)
 	if err != nil {
@@ -144,6 +145,7 @@ func TestNodeFlowWindow(t *testing.T) {
 // passes in each window directly.
 func TestNodeFlowInRun(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	input := smallBurstInput(t)
 	outcome, err := run(input)
 	if err != nil {

@@ -11,6 +11,7 @@ import (
 
 func TestMetricsSnapshotConsumers(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	for _, parties := range []int{1, 4} {
 		t.Run(strconv.Itoa(parties), func(t *testing.T) {
 			t.Parallel()

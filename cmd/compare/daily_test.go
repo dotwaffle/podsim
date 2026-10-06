@@ -223,6 +223,7 @@ func TestDailyComparisonAndReports(t *testing.T) {
 
 func TestDailyComparisonMatchesLiveOffers(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	caseStudy := dailyComparisonScenario(t)
 	config := project.Default()
 	config.Fleet = config.Fleet[:1]

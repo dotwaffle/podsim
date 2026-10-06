@@ -880,6 +880,7 @@ func TestPlatoonColumnOnlyWhenRequested(t *testing.T) {
 // virtual arm must couple pods.
 func TestPlatoonPoliciesAddArms(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	data, err := json.Marshal(scenarios.Busy())
 	if err != nil {
 		t.Fatal(err)
@@ -962,6 +963,7 @@ func TestPlatoonPoliciesCountInMatrixLimit(t *testing.T) {
 // parties that full pods refuse.
 func TestSeatColumnsOnlyWithSharing(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	for _, tc := range []struct {
 		name    string
 		limits  string
@@ -1206,5 +1208,14 @@ func TestSharingJoinsCountInMatrixLimit(t *testing.T) {
 	}
 	if _, err := compare(opts, caseStudy); err == nil || !strings.Contains(err.Error(), "expanded matrix") {
 		t.Fatalf("compare() error = %v, want the expanded matrix limit", err)
+	}
+}
+
+// skipLong skips a test that takes a second or more when the tests run
+// with -short. No CI task uses -short, so test:race:other runs it.
+func skipLong(t *testing.T) {
+	t.Helper()
+	if testing.Short() {
+		t.Skip("a long test runs without -short")
 	}
 }
