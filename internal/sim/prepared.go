@@ -12,17 +12,31 @@ import (
 // mutable state and must be used by only one goroutine at a time.
 // The zero value is not prepared. Use PrepareNetwork to create a handle.
 type PreparedNetwork struct {
+	networkIndexes
+}
+
+// networkIndexes holds a network and its indexes. PreparedNetwork and each
+// simulation from it share one value. No code writes to the fields in
+// place. PrepareNetwork builds them, and ensureNetworkIndexes builds a new
+// value when the network changes.
+type networkIndexes struct {
 	network           Network
 	graph             routeGraph
 	stationIndexes    map[string]int
 	stationForbidden  map[string]bool
 	geometry          map[string]*laneGeometry
 	junctionConflicts map[string][]laneConflict
-	berthResources    map[string][]resource
-	laneCells         map[string]*laneCells
-	resourceLanes     map[resource][]int32
-	laneSafety        map[string]SafetyLocation
-	berthSafety       map[string]SafetyLocation
+	// berthResources holds the berth resources at each node.
+	berthResources map[string][]resource
+	// laneCells holds the cells of each network lane, which the blocks of
+	// each route share. It is built from the geometry, junction and berth
+	// indexes.
+	laneCells map[string]*laneCells
+	// resourceLanes holds the lanes whose cells hold each resource that is
+	// not a track resource. It is built from laneCells.
+	resourceLanes map[resource][]int32
+	laneSafety    map[string]SafetyLocation
+	berthSafety   map[string]SafetyLocation
 }
 
 // PrepareNetwork validates and copies network, then builds its immutable indexes.
@@ -211,11 +225,7 @@ func (p *PreparedNetwork) newFleet(placements []Placement) *Simulation {
 	initial := slices.Clone(placements)
 	slices.SortFunc(initial, func(a, b Placement) int { return cmp.Compare(a.ID, b.ID) })
 	s := &Simulation{
-		network: p.network, initial: initial, graph: p.graph,
-		stationIndexes: p.stationIndexes, stationForbidden: p.stationForbidden,
-		geometry: p.geometry, junctionConflicts: p.junctionConflicts,
-		berthResources: p.berthResources, laneCells: p.laneCells, resourceLanes: p.resourceLanes,
-		laneSafety: p.laneSafety, berthSafety: p.berthSafety,
+		networkIndexes: &p.networkIndexes, initial: initial,
 		sharedRidePartyLimit: 1, sharedRideMode: DefaultSharedRideMode,
 		sharedRideMaxStops: DefaultSharedRideMaxStops, sharedRideJoin: DefaultSharedRideJoin,
 		platoonLimit: MaxPlatoonLimit, reservationLookaheadSeconds: defaultReservationLookaheadSeconds,

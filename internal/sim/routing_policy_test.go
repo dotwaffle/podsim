@@ -108,7 +108,7 @@ func TestOwnBerthsOnlyAvoidsThirdStationBerths(t *testing.T) {
 
 func TestCongestionRouteAvoidsThirdStationBerths(t *testing.T) {
 	t.Parallel()
-	s := &Simulation{network: berthGuardNetwork()}
+	s := &Simulation{networkIndexes: &networkIndexes{network: berthGuardNetwork()}}
 	s.SetCongestionRouting(true)
 	s.ensureNetworkIndexes()
 	s.owners = map[resource]resourceOwner{{kind: trackResource, id: "b-through"}: podResourceOwner("01")}
@@ -146,7 +146,7 @@ func queueNetwork(detourY float64) Network {
 // queueSimulation returns a simulation on the network with count stopped
 // pods on the lane, and one moving pod.
 func queueSimulation(network Network, lane string, count int) *Simulation {
-	s := &Simulation{network: network}
+	s := &Simulation{networkIndexes: &networkIndexes{network: network}}
 	if err := s.SetRoutingPolicy(QueueRouting); err != nil {
 		panic(err)
 	}
@@ -257,7 +257,7 @@ func TestQueueRouteAvoidsThirdStationBerths(t *testing.T) {
 func TestQueueRouteWithoutQueuesIsFreeFlow(t *testing.T) {
 	t.Parallel()
 	for _, network := range []Network{Example(), twoBerthMarket(), ladderNetwork()} {
-		s := &Simulation{network: network}
+		s := &Simulation{networkIndexes: &networkIndexes{network: network}}
 		if err := s.SetRoutingPolicy(QueueRouting); err != nil {
 			t.Fatal(err)
 		}

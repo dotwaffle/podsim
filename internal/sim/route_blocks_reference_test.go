@@ -213,7 +213,7 @@ func TestNetworkIndexesRebuildBerthResources(t *testing.T) {
 	if got := s.berthResources["market-berth-2"]; !reflect.DeepEqual(got, want) {
 		t.Fatalf("index after the new berth = %v, want %v", got, want)
 	}
-	literal := &Simulation{network: Example()}
+	literal := &Simulation{networkIndexes: &networkIndexes{network: Example()}}
 	literal.ensureNetworkIndexes()
 	if want := indexBerthResources(literal.network); len(want) == 0 || !reflect.DeepEqual(literal.berthResources, want) {
 		t.Fatalf("literal index = %v, want %v", literal.berthResources, want)
@@ -376,10 +376,10 @@ func TestRoutesShareLaneCells(t *testing.T) {
 // further.
 func TestJunctionOverlapUsesLaneOffsets(t *testing.T) {
 	t.Parallel()
-	s := &Simulation{network: Network{
+	s := &Simulation{networkIndexes: &networkIndexes{network: Network{
 		Nodes: []Node{{ID: "a", Position: Point{X: -24.3}}, {ID: "b"}, {ID: "c", Position: Point{X: 26}}},
 		Lanes: []Lane{{ID: "in", From: "a", To: "b", SpeedLimit: 14}, {ID: "out", From: "b", To: "c", SpeedLimit: 14}},
-	}}
+	}}}
 	s.ensureNetworkIndexes()
 	conflicts := s.junctionConflicts["out"]
 	if len(conflicts) != 1 || conflicts[0].end != 13 {

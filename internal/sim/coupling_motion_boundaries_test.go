@@ -33,6 +33,7 @@ func TestCouplingMotionSpeedBoundaryConsumer(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			s, v := laneSpeedFixture(test.lengths, test.limits)
+			detachIndexes(s)
 			s.geometry = buildLaneGeometry(s.network)
 			s.setVehicleRoute(v, s.network.Lanes)
 			last := len(v.blocks.route) - 1

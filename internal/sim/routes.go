@@ -203,14 +203,18 @@ func (s *Simulation) ensureNetworkIndexes() {
 	if len(s.graph.nodes) == len(s.network.Nodes) && len(s.graph.lengths) == len(s.network.Lanes) {
 		return
 	}
-	s.graph = newRouteGraph(s.network)
-	s.stationIndexes = indexStations(s.network)
-	s.stationForbidden = s.network.stationForbidden()
-	s.geometry = buildLaneGeometry(s.network)
-	s.junctionConflicts = buildJunctionConflicts(s.network)
-	s.berthResources = indexBerthResources(s.network)
-	s.laneCells = indexLaneCells(laneCellsIndexInput{network: s.network, geometry: s.geometry, conflicts: s.junctionConflicts, berths: s.berthResources})
-	s.resourceLanes = indexResourceLanes(s.network, s.laneCells)
+	// Other simulations share the indexes, so this builds a new value. It
+	// keeps the safety indexes.
+	p := *s.networkIndexes
+	p.graph = newRouteGraph(p.network)
+	p.stationIndexes = indexStations(p.network)
+	p.stationForbidden = p.network.stationForbidden()
+	p.geometry = buildLaneGeometry(p.network)
+	p.junctionConflicts = buildJunctionConflicts(p.network)
+	p.berthResources = indexBerthResources(p.network)
+	p.laneCells = indexLaneCells(laneCellsIndexInput{network: p.network, geometry: p.geometry, conflicts: p.junctionConflicts, berths: p.berthResources})
+	p.resourceLanes = indexResourceLanes(p.network, p.laneCells)
+	s.networkIndexes = &p
 	s.lengths = nil
 	s.routes = nil
 	s.routeOrder = nil

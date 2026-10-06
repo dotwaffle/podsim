@@ -39,7 +39,7 @@ func TestRouteWorkMatchesOriginalSearch(t *testing.T) {
 
 func TestRouteWorkPreservesReturnedRoutes(t *testing.T) {
 	t.Parallel()
-	s := &Simulation{network: gridNetwork(8)}
+	s := &Simulation{networkIndexes: &networkIndexes{network: gridNetwork(8)}}
 	s.ensureNetworkIndexes()
 	first, err := s.route("n-0-0", "n-7-7")
 	if err != nil {
@@ -108,6 +108,7 @@ func TestRouteWorkResetAndRebuild(t *testing.T) {
 	if s.routeWork != work {
 		t.Fatal("Reset discarded fixed-network search storage")
 	}
+	detachIndexes(s)
 	s.network.Nodes = append(slices.Clone(s.network.Nodes), Node{ID: "disconnected"})
 	s.ensureNetworkIndexes()
 	if s.routeWork != nil {

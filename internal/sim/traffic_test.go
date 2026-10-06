@@ -104,10 +104,10 @@ func TestArrivalReleasesRouteAndKeepsBerth(t *testing.T) {
 	node := resource{kind: nodeResource, id: "destination-node"}
 	track := resource{kind: trackResource, id: "lane", cell: 1}
 	s := &Simulation{
-		network: Network{
+		networkIndexes: &networkIndexes{network: Network{
 			Nodes:    []Node{{ID: node.id}},
 			Stations: []Station{{ID: "destination", Berths: []Berth{{ID: berth.id, Node: node.id}}}},
-		},
+		}},
 		owners: map[resource]resourceOwner{berth: podResourceOwner("01"), node: podResourceOwner("01"), track: podResourceOwner("01")},
 		vehicles: []vehicle{{
 			Pod:           Pod{ID: "01", Activity: Unloading, StationID: "destination", BerthID: berth.id},

@@ -71,7 +71,7 @@ func plannedTestPod(s *Simulation, id string, activity Activity, phase int, dist
 
 func TestPredictiveCountsCurrentLaneOnce(t *testing.T) {
 	t.Parallel()
-	s := &Simulation{network: queueNetwork(30)}
+	s := &Simulation{networkIndexes: &networkIndexes{network: queueNetwork(30)}}
 	s.ensureNetworkIndexes()
 	v := plannedTestPod(s, "stopped", Traveling, 0, 50)
 	v.Pod.WaitReason = TrackOccupied
@@ -91,7 +91,7 @@ func TestPredictiveCountsCurrentLaneOnce(t *testing.T) {
 
 func TestPredictiveUsesSameTickPlannedRoutes(t *testing.T) {
 	t.Parallel()
-	s := &Simulation{network: queueNetwork(30)}
+	s := &Simulation{networkIndexes: &networkIndexes{network: queueNetwork(30)}}
 	if err := s.SetRoutingPolicy(PredictiveRouting); err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +120,7 @@ func TestPredictiveUsesSameTickPlannedRoutes(t *testing.T) {
 
 func TestPredictiveHorizonAndPhaseDelay(t *testing.T) {
 	t.Parallel()
-	s := &Simulation{network: queueNetwork(30)}
+	s := &Simulation{networkIndexes: &networkIndexes{network: queueNetwork(30)}}
 	s.ensureNetworkIndexes()
 	for _, tc := range []struct {
 		activity Activity
@@ -187,7 +187,7 @@ func TestPredictionSmoothingUsesElapsedTicks(t *testing.T) {
 
 func TestPredictionMovingSuffixStartsAfterPrefix(t *testing.T) {
 	t.Parallel()
-	s := &Simulation{network: queueNetwork(30)}
+	s := &Simulation{networkIndexes: &networkIndexes{network: queueNetwork(30)}}
 	s.ensureNetworkIndexes()
 	v := plannedTestPod(s, "moving", Traveling, 0, 50)
 	before := v.blocks

@@ -75,7 +75,7 @@ func TestNetworkIndexesRebuildJunctionConflicts(t *testing.T) {
 			name: "literal simulation",
 			lane: "bypass-merge",
 			build: func(*testing.T) *Simulation {
-				s := &Simulation{network: Example()}
+				s := &Simulation{networkIndexes: &networkIndexes{network: Example()}}
 				s.ensureNetworkIndexes()
 				return s
 			},

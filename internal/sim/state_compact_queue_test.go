@@ -180,6 +180,7 @@ func TestStationCompactRecoveringSnapshot(t *testing.T) {
 func compactHeldDepartureQueue(t *testing.T) *Simulation {
 	t.Helper()
 	geometry := departingBufferQueue(t)
+	detachIndexes(geometry)
 	geometry.network.Lanes = slices.DeleteFunc(slices.Clone(geometry.network.Lanes), func(lane Lane) bool {
 		return lane.From == "market-exit" && lane.StationRole == ""
 	})
@@ -199,6 +200,7 @@ func compactReleaseDepartureQueue(t *testing.T, s *Simulation, mode StationQueue
 	t.Helper()
 	state := roundTripState(t, s.ExportState())
 	template := s.Clone()
+	detachIndexes(template)
 	template.network.Lanes = slices.Clone(s.network.Lanes)
 	for _, lane := range Example().Lanes {
 		if lane.From == "market-exit" && lane.StationRole == "" {

@@ -327,7 +327,13 @@ type vehicle struct {
 // and the block tables and route lengths of pods. Code must replace a
 // shared field whole. It must not write into a shared field in place,
 // because that change also changes the clones.
+//
+// The embedded networkIndexes holds the network and its indexes. The
+// prepared network, other simulations and clones share it, so code that
+// changes the network or an index installs a new value. See
+// ensureNetworkIndexes.
 type Simulation struct {
+	*networkIndexes
 	orderContract    OrderContract
 	incidentContract IncidentContract
 	// faultContract is the fault marker of the project. The frames copy
@@ -349,30 +355,22 @@ type Simulation struct {
 	// faultReleased holds the debris resources that a clear in the fault
 	// stage releases. Step releases them at each exit of the tick, so it
 	// is empty at each boundary.
-	faultReleased      []resource
-	couplingNetwork    *couplingReservationNetwork
-	couplingEnabled    bool
-	couplingGroups     []couplingNativeGroup
-	couplingFault      error
-	couplingFleet      *nativeForeignFleet
-	couplingApproaches []couplingNativeApproach
-	couplingAttempts   map[string]couplingApproachAttempt
-	motion             *motionRecorder
-	expressServices    map[string]ExpressService
-	// NewFleet builds junctionConflicts from the network. No code writes to it
-	// in place. ensureNetworkIndexes replaces it only when the network changes.
-	junctionConflicts            map[string][]laneConflict
+	faultReleased                []resource
+	couplingNetwork              *couplingReservationNetwork
+	couplingEnabled              bool
+	couplingGroups               []couplingNativeGroup
+	couplingFault                error
+	couplingFleet                *nativeForeignFleet
+	couplingApproaches           []couplingNativeApproach
+	couplingAttempts             map[string]couplingApproachAttempt
+	motion                       *motionRecorder
+	expressServices              map[string]ExpressService
 	lengths                      map[string]float64
 	routes                       map[routeKey]routeResult
 	routeOrder                   []routeKey
-	graph                        routeGraph
-	stationIndexes               map[string]int
-	stationForbidden             map[string]bool
 	pickupBounds                 map[string][]float64
 	routeWork                    *routeSearchWork
 	admissionWork                *admissionWork
-	geometry                     map[string]*laneGeometry
-	network                      Network
 	initial                      []Placement
 	vehicles                     []vehicle
 	owners                       map[resource]resourceOwner
@@ -423,8 +421,6 @@ type Simulation struct {
 	congestionRoutes            map[routeKey]routeResult
 	nextCongestionRouteRefresh  int64
 	reservationLookaheadSeconds float64
-	laneSafety                  map[string]SafetyLocation
-	berthSafety                 map[string]SafetyLocation
 	// unaccountedOrders counts the orders that the simulation submitted but
 	// that are not complete, not interrupted, not queued and not aboard a
 	// pod. It is 0 until a restore finds such orders in a saved state or
@@ -440,23 +436,12 @@ type Simulation struct {
 	// changes the pods, the orders or the sharing settings. Tests use it to
 	// check the contract. See observe.
 	monitor func(*Simulation)
-	// berthResources holds the berth resources at each node. NewFleet and
-	// ensureNetworkIndexes build it. No code writes to it in place.
-	berthResources map[string][]resource
-	// laneCells holds the cells of each network lane, which the blocks of
-	// each route share. NewFleet and ensureNetworkIndexes build it from the
-	// geometry, junction and berth indexes. No code writes to it in place.
-	laneCells map[string]*laneCells
 	// blocked is the blocked set of the active faults. setBlocked sets
 	// rerouteDue at each new epoch of the set. See blocked_routes.go.
 	blocked    blockedSet
 	rerouteDue bool
-	// resourceLanes holds the lanes whose cells hold each resource that is
-	// not a track resource. NewFleet
-	// and ensureNetworkIndexes build it from laneCells. No code writes to it
-	// in place. staticConnected and staticRoutes are caches of the network.
-	// See blocked_routes.go.
-	resourceLanes   map[resource][]int32
+	// staticConnected and staticRoutes are caches of the network. See
+	// blocked_routes.go.
 	staticConnected map[routeKey]bool
 	staticRoutes    map[routeKey]routeResult
 	// routeView is the routing view of one query. It is nil outside the

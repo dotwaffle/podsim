@@ -45,6 +45,7 @@ func TestStationPickupBoundsLifecycle(t *testing.T) {
 	if s.stationPickupBounds("market")[0] != original[0] || original[0] < 0 {
 		t.Fatal("the clone changed its source's bounds")
 	}
+	detachIndexes(clone)
 	clone.network.Nodes = append(slices.Clone(clone.network.Nodes), Node{ID: "disconnected"})
 	clone.ensureNetworkIndexes()
 	if clone.pickupBounds != nil {
@@ -63,7 +64,7 @@ func BenchmarkStationPickupBounds(b *testing.B) {
 			name = "cached"
 		}
 		b.Run(name, func(b *testing.B) {
-			s := &Simulation{network: Example()}
+			s := &Simulation{networkIndexes: &networkIndexes{network: Example()}}
 			s.ensureNetworkIndexes()
 			station, _ := s.station("market")
 			s.stationPickupBounds(station.ID)

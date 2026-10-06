@@ -8,9 +8,17 @@ import (
 	"testing"
 )
 
+// detachIndexes gives s its own copy of the network indexes. A test calls
+// it before it changes the network or an index of s, because the prepared
+// network, other simulations and clones share them.
+func detachIndexes(s *Simulation) {
+	p := *s.networkIndexes
+	s.networkIndexes = &p
+}
+
 func TestPreparedNetworkFields(t *testing.T) {
 	t.Parallel()
-	checkFieldRules(t, fieldRuleCheck{kind: "immutable prepared field", typ: reflect.TypeFor[PreparedNetwork](),
+	checkFieldRules(t, fieldRuleCheck{kind: "immutable prepared field", typ: reflect.TypeFor[networkIndexes](),
 		names:     []string{"network", "graph", "stationIndexes", "stationForbidden", "geometry", "junctionConflicts", "berthResources", "laneCells", "resourceLanes", "laneSafety", "berthSafety"},
 		needsRule: func(reflect.StructField) bool { return true },
 	})

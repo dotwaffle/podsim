@@ -189,7 +189,7 @@ func TestLargeProfileEnvelopeRouteAndBerth(t *testing.T) {
 	n := Network{Nodes: []Node{{ID: "a"}, {ID: "b", Position: Point{X: 100}}, {ID: "c", Position: Point{X: 200}}},
 		Lanes:    []Lane{{ID: "upper", From: "a", To: "b", SeparationGroup: "upper"}, {ID: "lower", From: "b", To: "c", SeparationGroup: "lower"}},
 		Stations: []Station{{ID: "end", Berths: []Berth{{ID: "end-1", Node: "c", SeparationGroup: "lower"}}}}}
-	s := &Simulation{network: n, laneSafety: map[string]SafetyLocation{"upper": {SeparationGroup: "upper", From: "a", To: "b"}, "lower": {SeparationGroup: "lower", From: "b", To: "c"}}, berthSafety: map[string]SafetyLocation{"end-1": {SeparationGroup: "lower", From: "c", To: "c"}}}
+	s := &Simulation{networkIndexes: &networkIndexes{network: n, laneSafety: map[string]SafetyLocation{"upper": {SeparationGroup: "upper", From: "a", To: "b"}, "lower": {SeparationGroup: "lower", From: "b", To: "c"}}, berthSafety: map[string]SafetyLocation{"end-1": {SeparationGroup: "lower", From: "c", To: "c"}}}}
 	v := vehicle{originReleased: true, blocks: blockList{lanes: []routeLaneCells{{start: 0}, {start: 100}, {start: 200}}}}
 	v.Pod, v.Route = Pod{ID: "group", Class: GroupClass, Activity: Traveling, LaneID: "lower"}, n.Lanes
 	before := v

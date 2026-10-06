@@ -28,15 +28,15 @@ var cloneRules = map[reflect.Type]map[string]cloneRule{
 		"couplingNetwork": cloneShare, "couplingGroups": cloneCopy,
 		"couplingFault": cloneShare, "couplingFleet": cloneDrop,
 		"couplingApproaches": cloneCopy, "couplingAttempts": cloneCopy,
-		"motion":            cloneCopy,
-		"junctionConflicts": cloneShare, "lengths": cloneDrop, "routes": cloneDrop, "routeOrder": cloneDrop,
-		"graph": cloneShare, "stationIndexes": cloneShare, "stationForbidden": cloneShare, "pickupBounds": cloneDrop, "routeWork": cloneDrop, "routeView": cloneDrop, "admissionWork": cloneDrop,
-		"geometry": cloneShare, "network": cloneShare, "initial": cloneShare,
+		"motion":         cloneCopy,
+		"networkIndexes": cloneShare, "lengths": cloneDrop, "routes": cloneDrop, "routeOrder": cloneDrop,
+		"pickupBounds": cloneDrop, "routeWork": cloneDrop, "routeView": cloneDrop, "admissionWork": cloneDrop,
+		"initial":  cloneShare,
 		"vehicles": cloneCopy, "expressServices": cloneCopy, "owners": cloneCopy, "demo": cloneCopy, "waiting": cloneCopy, "undelivered": cloneCopy,
 		"demandWeights": cloneShare, "congestionRouteCosts": cloneShare, "congestionRoutes": cloneCopy, "predictiveQueues": cloneCopy, "predictivePodQueues": cloneCopy,
-		"laneSafety": cloneShare, "berthSafety": cloneShare, "vehicleIndexes": cloneShare,
-		"berthResources": cloneShare, "laneCells": cloneShare, "approachStations": cloneShare, "routeStations": cloneDrop,
-		"blocked": cloneShare, "resourceLanes": cloneShare, "staticConnected": cloneDrop, "staticRoutes": cloneDrop,
+		"vehicleIndexes":   cloneShare,
+		"approachStations": cloneShare, "routeStations": cloneDrop,
+		"blocked": cloneShare, "staticConnected": cloneDrop, "staticRoutes": cloneDrop,
 		"faults": cloneCopy, "faultReleased": cloneCopy,
 		"requestBoardings": cloneCopy, "requestCompletions": cloneCopy, "stepCompletions": cloneCopy, "nodePasses": cloneCopy, "monitor": cloneShare,
 		"pass": cloneDrop, "platoonData": cloneShare, "platoonOrder": cloneDrop, "platoonAhead": cloneDrop,
@@ -193,10 +193,13 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		// 11 of the incident contract adds their members. undelivered is
 		// never saved: the session drains it before it saves.
 		"interrupted": persistSave, "interruptedPassengers": persistSave, "undelivered": persistReset,
-		"motion":          persistReset,
-		"expressServices": persistSession, "junctionConflicts": persistDerive, "lengths": persistReset, "routes": persistReset, "routeOrder": persistReset,
-		"graph": persistDerive, "stationIndexes": persistDerive, "stationForbidden": persistDerive, "pickupBounds": persistReset, "routeWork": persistReset, "routeView": persistReset, "admissionWork": persistReset,
-		"geometry": persistDerive, "network": persistSession, "initial": persistSession,
+		"motion": persistReset,
+		// The session gives the network again, and RestoreState builds the
+		// prepared network from it.
+		"networkIndexes":  persistSession,
+		"expressServices": persistSession, "lengths": persistReset, "routes": persistReset, "routeOrder": persistReset,
+		"pickupBounds": persistReset, "routeWork": persistReset, "routeView": persistReset, "admissionWork": persistReset,
+		"initial":  persistSession,
 		"vehicles": persistSave, "owners": persistDerive, "tick": persistSave, "paused": persistSave,
 		"completed": persistSave, "requestID": persistSave, "demo": persistSave, "demoError": persistSave,
 		"waiting": persistSave, "boarded": persistSave, "totalWaitTicks": persistSave, "maxWaitTicks": persistSave,
@@ -207,12 +210,11 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"approachStations": persistDerive, "routeStations": persistReset,
 		"journeys": persistSave, "totalJourneyTicks": persistSave, "maxJourneyTicks": persistSave,
 		"riderDistanceMeters": persistSave, "directDistanceMeters": persistSave, "maxDetourRatio": persistSave,
-		"laneSafety": persistDerive, "berthSafety": persistDerive, "vehicleIndexes": persistDerive, "berthResources": persistDerive,
-		"laneCells": persistDerive,
+		"vehicleIndexes": persistDerive,
 		// A rebuild from the fault records sets the blocked set. A physical
 		// restore sets rerouteDue.
 		"blocked": persistDerive, "rerouteDue": persistDerive,
-		"resourceLanes": persistDerive, "staticConnected": persistReset, "staticRoutes": persistReset,
+		"staticConnected": persistReset, "staticRoutes": persistReset,
 		// SavedState has the fault records and counters, and the session
 		// gives the fault marker and the settings again.
 		"faultsOn": persistSession, "faultSettings": persistSession, "faults": persistSave, "faultCounters": persistSave,
@@ -519,7 +521,7 @@ func TestCloneFollowsRules(t *testing.T) {
 				}
 				return s
 			},
-			required: []string{"Simulation.blocked", "Simulation.resourceLanes", "Simulation.staticConnected", "Simulation.staticRoutes"},
+			required: []string{"Simulation.blocked", "Simulation.networkIndexes", "Simulation.staticConnected", "Simulation.staticRoutes"},
 		},
 		{
 			name: "fault records",

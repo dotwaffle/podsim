@@ -22,7 +22,7 @@ func TestStationPhaseCacheTransitions(t *testing.T) {
 	} {
 		t.Run(string(tc.role), func(t *testing.T) {
 			t.Parallel()
-			s := &Simulation{network: Network{Nodes: []Node{{ID: "a"}, {ID: "b", Position: Point{X: 100}}}}}
+			s := &Simulation{networkIndexes: &networkIndexes{network: Network{Nodes: []Node{{ID: "a"}, {ID: "b", Position: Point{X: 100}}}}}}
 			v := &vehicle{}
 			s.setVehicleRoute(v, []Lane{{ID: "lane", From: "a", To: "b", SpeedLimit: 14, StationID: "station", StationRole: tc.role}})
 			station := "station"
@@ -137,11 +137,12 @@ func TestStationManeuverRouteIndex(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			s := &Simulation{network: Network{Nodes: []Node{{ID: "a"}, {ID: "b", Position: Point{X: 100}}, {ID: "c", Position: Point{X: 200}}}}}
+			s := &Simulation{networkIndexes: &networkIndexes{network: Network{Nodes: []Node{{ID: "a"}, {ID: "b", Position: Point{X: 100}}, {ID: "c", Position: Point{X: 200}}}}}}
 			through := Lane{ID: "through", From: "a", To: "b", SpeedLimit: 14}
 			entry := Lane{ID: "entry", From: "b", To: "c", SpeedLimit: 14, StationID: "target", StationRole: StationEntryRole}
 			back := Lane{ID: "back", From: "c", To: "a", SpeedLimit: 14}
 			plain := Lane{ID: "plain", From: "b", To: "c", SpeedLimit: 14}
+			detachIndexes(s)
 			s.network.Lanes = []Lane{through, entry, back, plain}
 			v := &vehicle{}
 			s.setVehicleRoute(v, []Lane{through, entry, back, through, plain})
@@ -169,7 +170,7 @@ func TestStationManeuverRouteIndex(t *testing.T) {
 func BenchmarkStationManeuverRouteIndex(b *testing.B) {
 	for _, lanes := range []int{16, 64, 256} {
 		b.Run(strconv.Itoa(lanes), func(b *testing.B) {
-			s := &Simulation{network: Network{Nodes: []Node{{ID: "a"}, {ID: "b", Position: Point{X: 100}}}}}
+			s := &Simulation{networkIndexes: &networkIndexes{network: Network{Nodes: []Node{{ID: "a"}, {ID: "b", Position: Point{X: 100}}}}}}
 			route := make([]Lane, lanes)
 			for i := range route {
 				route[i] = Lane{ID: "lane-" + strconv.Itoa(i), From: "a", To: "b", SpeedLimit: 14}

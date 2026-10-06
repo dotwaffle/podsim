@@ -13,6 +13,7 @@ import (
 func compactDischargeGeometry(t *testing.T, roadSpeed float64) (Network, []Placement) {
 	t.Helper()
 	geometry := occupiedBufferQueue(t, PlatooningVirtual)
+	detachIndexes(geometry)
 	for _, lane := range Example().Lanes {
 		if lane.ID == "return" {
 			geometry.network.Lanes = append(geometry.network.Lanes, lane)
@@ -103,6 +104,7 @@ func TestStationCompactDischargeProbeGuards(t *testing.T) {
 					lane.VehicleClasses = classes
 				}
 			}
+			detachIndexes(s)
 			s.graph = newRouteGraph(s.network)
 			s.routes = make(map[routeKey]routeResult)
 			head.Stops = []string{"market", "harbor"}
@@ -120,6 +122,7 @@ func TestStationCompactDischargeProbeGuards(t *testing.T) {
 					s.network.Lanes[i].SpeedLimit = 14
 				}
 			}
+			detachIndexes(s)
 			s.graph = newRouteGraph(s.network)
 			s.routes = make(map[routeKey]routeResult)
 		}},

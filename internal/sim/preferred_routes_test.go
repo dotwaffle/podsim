@@ -71,7 +71,7 @@ func TestSimulationAvoidsIntermediateSiblingBerths(t *testing.T) {
 					}
 				}
 			}
-			s := &Simulation{network: network}
+			s := &Simulation{networkIndexes: &networkIndexes{network: network}}
 			route, err := s.route("a", "c")
 			if err != nil || len(route) != 1 || route[0].ID != "ac" {
 				t.Fatalf("preferred route = %v, %v, want ac", route, err)
@@ -100,7 +100,7 @@ func TestPreferredDirectAndBatchedRoutesAgree(t *testing.T) {
 			targets = append(targets, targets[0], Berth{ID: "missing", Node: "missing"})
 			for _, from := range append(slices.Clone(network.Nodes), Node{ID: "missing"}) {
 				for _, batched := range []bool{false, true} {
-					s := &Simulation{network: network}
+					s := &Simulation{networkIndexes: &networkIndexes{network: network}}
 					if batched {
 						s.cacheStationRoutes(from.ID, targets)
 					}
@@ -122,8 +122,8 @@ func TestPreferredDirectAndBatchedRoutesAgree(t *testing.T) {
 func TestNearestFreeBerthUsesPerDestinationRouteCost(t *testing.T) {
 	t.Parallel()
 	s := &Simulation{
-		network: intermediateBerthNetwork(),
-		owners:  map[resource]resourceOwner{{kind: berthResource, id: "b"}: podResourceOwner("other")},
+		networkIndexes: &networkIndexes{network: intermediateBerthNetwork()},
+		owners:         map[resource]resourceOwner{{kind: berthResource, id: "b"}: podResourceOwner("other")},
 	}
 	v := &vehicle{Pod: Pod{ID: "moving", Activity: Traveling}}
 	berth, station, ok := s.nearestFreeBerth(v, "a")
@@ -336,7 +336,7 @@ func TestGuardedSourcesMatchPreferredRouteCosts(t *testing.T) {
 	for name, network := range map[string]Network{"shortcuts": intermediateBerthNetwork(), "ties": gridNetwork(4), "legacy": ladderNetwork()} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			s := &Simulation{network: network}
+			s := &Simulation{networkIndexes: &networkIndexes{network: network}}
 			s.ensureNetworkIndexes()
 			rank := make([]int, len(network.Nodes))
 			for node := range rank {

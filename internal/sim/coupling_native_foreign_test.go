@@ -228,7 +228,10 @@ func TestNativeForeignFleetBinding(t *testing.T) {
 	}{
 		{"missing_declared_foreign", func(_ *Simulation, c *couplingMotionContext) { c.foreignIDs = nil }},
 		{"duplicate_actual_identity", func(s *Simulation, _ *couplingMotionContext) { s.vehicles[2].Pod.ID = s.vehicles[0].Pod.ID }},
-		{"different_prepared_identity", func(s *Simulation, _ *couplingMotionContext) { s.network.Nodes = slices.Clone(s.network.Nodes) }},
+		{"different_prepared_identity", func(s *Simulation, _ *couplingMotionContext) {
+			detachIndexes(s)
+			s.network.Nodes = slices.Clone(s.network.Nodes)
+		}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()

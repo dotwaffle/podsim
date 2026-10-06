@@ -76,7 +76,7 @@ func laneSpeedFixture(lengths, limits []float64) (*Simulation, *vehicle) {
 		network.Nodes = append(network.Nodes, Node{ID: "node-" + strconv.Itoa(i+1), Position: Point{X: distance}})
 		network.Lanes = append(network.Lanes, Lane{ID: "lane-" + strconv.Itoa(i), From: "node-" + strconv.Itoa(i), To: "node-" + strconv.Itoa(i+1), SpeedLimit: limits[i]})
 	}
-	s := &Simulation{network: network}
+	s := &Simulation{networkIndexes: &networkIndexes{network: network}}
 	v := &vehicle{Pod: Pod{ID: "pod", Activity: Traveling, LaneID: "lane-0", Speed: limits[0]}}
 	s.setVehicleRoute(v, network.Lanes)
 	v.reservedThrough = v.blocks.len() - 1
