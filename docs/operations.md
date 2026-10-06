@@ -249,6 +249,9 @@ It reports them as unaccounted orders at each restore, together with the orders 
   The file does not keep the platoon limit, so the restore uses the `platoonLimit` of the project.
   The file keeps the shared ride mode.
   A file without the mode restores in the default `drop-offs` mode.
+  Each faulted pod keeps its place at speed 0, and each debris record keeps its segment.
+  Each fault keeps its start and end ticks.
+  When the tier must move a faulted pod to a berth, the tier fails.
 - `logical`: The server uses this tier with reason `physical_failed` when the `physical` tier fails.
   It also uses it with reason `restore_loop`, as described below.
   The pods start again at their initial berths.
@@ -256,6 +259,8 @@ It reports them as unaccounted orders at each restore, together with the orders 
   Each other party in a pod goes back to the queue as one order.
   So the server refuses a file whose waiting orders and outstanding parties together exceed the queue bound of its contract: 2,600, or 8,600 with Express.
   An active traffic demo also counts the orders that it has still to submit.
+  Every fault ends, and each pod loses its fault hold.
+  The fault counters stay.
 - `empty`: The server does not use the saved state and starts a new session.
   Except after a read failure, it moves `session.json.gz` to a rejected file.
 
@@ -282,6 +287,22 @@ A leg origin is a passenger station other than the destination.
 An order with an excluded pod did not board, and its pod and its hold are not the excluded pod.
 The file must not have a null incident member.
 Without the marker, the file must not have an incident member, also not 0, null, or an empty array.
+
+The fault marker `faultContract` `fault-v1` is also only in the saved project, with the `faults` settings, and it needs the incident marker.
+With it, the file can have `simulation.faults`, with these members:
+
+- `records`: the active faults, in the order of the fault serial.
+  A pod fault is `[generation, serial, start, end, 0, pod]`, and debris is `[generation, serial, start, end, 1, lane, from, to]`.
+  `start` and `end` are ticks, and `end` is 0 for a fault without an end.
+  `pod` is an index into `simulation.pods`, and `lane` is an index into `project.network.lanes`.
+  `from` and `to` are the debris segment in meters.
+  The file can have one record for each pod and 64 debris records, so at most 364 records.
+- `counters`: the fault counters `started`, `cleared`, `evacuations`, `reroutes`, and `faultWaitTicks`, as in the [protocol](protocol.md#fault-members).
+
+The file omits `simulation.faults` when no fault is active and each counter is 0.
+It omits an empty `records` and each counter at 0.
+The file must not have a null fault member.
+Without the marker, the file must not have `simulation.faults`, also not null or an empty object.
 The order text of each queued order and each rider is canonical base64 text, for each project kind.
 The file has no `textEncoding` member.
 Each saved version stores a version 1 project.
@@ -294,6 +315,14 @@ Examples are a gzip error, a JSON syntax error, a file over a scan limit, a head
 This rule applies also to a file with committed coupling groups.
 The server does not try to recover any part of such a file.
 A file of more than 80 MiB is the only exception: the server keeps it, turns saving off, and fails to start.
+The server checks the fault records before either tier.
+A fault record that is not valid gives `invalid_state` for the whole file, and the server does not try the `logical` tier.
+It does not remove one record to keep the others.
+Examples are records out of serial order, a serial above `incidentSerial`, a tick out of range, a negative counter, and more than 64 debris records.
+Other examples are a pod record for a pod without the fault hold or for a pod in a platoon, a compact queue, or a coupling group, and a pod with two records.
+A debris segment that is not valid, and debris that meets other debris or a faulted pod, also give `invalid_state`.
+In the `physical` tier, a traveling pod that holds a resource of debris gives `invalid_state`.
+A file of the traffic demo with a fault record also gives `invalid_state`, because the demo runs without faults.
 The optional pod field `stationBuffered` permits validated berthless occupancy of a station holding lane.
 Restore keeps those members draining, then applies the project's experimental policy settings.
 Buffer certificates of fixed station-entry platoons have the fields `kind` and `terminalCell`.
@@ -397,6 +426,64 @@ To start a new session:
 1. Stop the server.
 2. Delete `session.json.gz`.
 3. Start the server.
+
+## Faults
+
+Faults are off by default.
+A project turns them on with the fault marker and the `faults` settings, for example:
+
+```json
+"incidentContract": "incident-v1",
+"faultContract": "fault-v1",
+"faults": {"evacuationSeconds": 300}
+```
+
+Each member of `faults` is optional:
+
+| Member | Value | Default |
+| --- | --- | --- |
+| `evacuationSeconds` | An integer from 0 to 3,600. | 300 |
+| `perHour` | 0. | 0 |
+| `debrisShare` | A number from 0 to 1. | 0 |
+| `debrisMeters` | A number from 0.5 to 50. | 2 |
+| `duration` | An object with `kind` and the values of that kind. | None |
+
+`evacuationSeconds` is the time from the start of a pod fault to the evacuation of its riders.
+The riders leave the pod only when it is at rest, and each evacuated order ends interrupted.
+The other members are for a scenario fault rate.
+This server has no scenario rate, so `perHour` must be 0, and only the `fault` command starts a fault.
+The `duration` kind is `fixed` with `seconds`, `uniform` with `minSeconds` and `maxSeconds`, or `exponential` with `minSeconds`, `maxSeconds`, and `meanSeconds`.
+Each value is an integer from 1 to 86,400 seconds.
+`minSeconds` must be at most `maxSeconds`, and `meanSeconds` must be from `minSeconds` to `maxSeconds`.
+A member of another kind is refused.
+
+Validation also refuses these projects:
+
+- A project with the fault marker and without the incident marker or without `faults`.
+- A project with `faults` and without the fault marker, also with null or an empty object.
+- A fault marker other than `fault-v1`, also null or an empty text.
+- A null value at any level of `faults`.
+
+The size limit of 10 MiB counts `faults` at its widest value.
+The editor has no control for the fault marker and `faults`, and it keeps them in a loaded project.
+`cmd/compare` refuses a project with the incident marker, so it also refuses the fault marker.
+A change to the fault marker or to `faults` is a project change.
+A project apply then replaces the fleet, and every fault ends.
+With `-project`, a saved state with other fault settings gets `project_changed`.
+
+The `fault` and `clearFault` commands start and end faults (see [faults](protocol.md#faults)).
+The pod inspector has a **Fault** button for a pod fault.
+Only the `fault` command starts debris, and the view does not draw it.
+A reset ends every fault and sets the fault counters to 0, and it keeps faults on.
+A save point keeps the faults and the counters, and a rewind restores them.
+
+The traffic demo runs without faults.
+The topology and the frames keep the fault marker, but a fault command gets `faults are not enabled`.
+Faults stay off after the demo until a reset or a project apply.
+A restore of the demo fleet also keeps faults off.
+
+The fault counters are in the `faults` member of the frames and the saved state.
+They are not OpenTelemetry metrics.
 
 ## Memory limit
 
@@ -547,6 +634,8 @@ With `-state`, the server writes these log records at startup:
 - `No saved session state` (INFO) means that the location has no `session.json.gz`.
   The server starts a new session.
 - `Restored session` (INFO) gives the `tier`, the `reason`, and the counts `demoted`, `requeued`, `dropped`, `unaccounted`, `droppedParties`, `overCap`, and `overBudget`.
+  When the `logical` tier ended faults, it also gives their number in `droppedFaults`.
+  The `restore` object of the state frame does not have this count.
   It also gives the saved `tick`, `epochKept`, `final`, `savedAt`, `savedBuild`, the current `build`, and `restoreAttempts`.
   `overCap` counts the saved routes that were longer than their limit.
   `overBudget` counts the routes that did not fit in the budget of track cells.
