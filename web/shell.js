@@ -146,6 +146,11 @@
   // carry it. The root does not.
   const INCIDENT_MARKER = ["incidentContract", "incident-v1"];
 
+  // FAULT_MARKER is the fault marker of a state reply and the one value
+  // that the server sends. As the incident marker, only the topology and
+  // the simulation carry it. It needs the incident marker.
+  const FAULT_MARKER = ["faultContract", "fault-v1"];
+
   // plainStateTree is true when value has at most MAX_STATE_DEPTH levels
   // of arrays and objects, no array with more than MAX_STATE_ELEMENTS
   // elements, and no object with a textEncoding member. Earlier servers
@@ -168,20 +173,32 @@
   // reply, its topology and the simulation of state have the same contract
   // markers. Each marker that is present must have the value in
   // CONTRACT_MARKERS. The topology and the simulation must have the same
-  // incident marker, absent or the value in INCIDENT_MARKER, and the root
-  // must not have it. The server decoder also refuses a reply without a
-  // topology object. editor.js has the same function.
+  // incident marker, absent or the value in INCIDENT_MARKER, and the same
+  // fault marker, absent or the value in FAULT_MARKER. The root must not
+  // have either, and the fault marker needs the incident marker. The
+  // server decoder also refuses a reply without a topology object.
+  // editor.js has the same function.
   function markersAgree(reply, state) {
     if (!isObject(reply.topology)) return false;
-    const [incident, incidentValue] = INCIDENT_MARKER;
-    const incidentMarkers = [reply.topology, state.simulation].map((holder) => Object.hasOwn(holder, incident) ? holder[incident] : undefined);
-    if (Object.hasOwn(reply, incident) || incidentMarkers[0] !== incidentMarkers[1] ||
-      (incidentMarkers[0] !== undefined && incidentMarkers[0] !== incidentValue)) return false;
+    const incident = frameMarker(reply, state, INCIDENT_MARKER);
+    const fault = frameMarker(reply, state, FAULT_MARKER);
+    if (incident === null || fault === null || (fault !== undefined && incident === undefined)) return false;
     const holders = [reply, reply.topology, state.simulation];
     return CONTRACT_MARKERS.every(([name, allowed]) => {
       const values = holders.map((holder) => Object.hasOwn(holder, name) ? holder[name] : undefined);
       return values.every((marker) => marker === values[0] && (marker === undefined || marker === allowed));
     });
+  }
+
+  // frameMarker gives the marker [name, allowed] of the topology and the
+  // simulation of a reply: allowed, or undefined when both omit it. It
+  // gives null when the root has the marker, when the topology and the
+  // simulation differ, or when the marker has another value. editor.js has
+  // the same function.
+  function frameMarker(reply, state, [name, allowed]) {
+    const [topology, simulation] = [reply.topology, state.simulation].map((holder) => Object.hasOwn(holder, name) ? holder[name] : undefined);
+    if (Object.hasOwn(reply, name) || topology !== simulation || (topology !== undefined && topology !== allowed)) return null;
+    return topology;
   }
 
   // captureState gives the state of a reply to STATE_ACCEPT. The reply is

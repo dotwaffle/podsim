@@ -3034,7 +3034,7 @@ function nested(levels) {
 // the editor refuse because of their contract markers, their topology, a
 // textEncoding member or their size. envelope(markers) gives a valid reply with those
 // contract markers at the root, in the topology and in the simulation. The
-// incident marker is only in the topology and in the simulation.
+// incident and fault markers are only in the topology and in the simulation.
 // shell_test.cjs has the same table.
 function stateReplyRefusals(envelope) {
   const plain = envelope();
@@ -3045,6 +3045,10 @@ function stateReplyRefusals(envelope) {
   // the topology and in the simulation, where the server puts it.
   const incidentReply = (value) => ({ ...simulation(plain, { incidentContract: value }), topology: { incidentContract: value } });
   const incident = incidentReply("incident-v1");
+  // faultReply gives an incident reply with the fault marker value in the
+  // topology and in the simulation, where the server puts it.
+  const faultReply = (value) => ({ ...simulation(incident, { faultContract: value }), topology: { incidentContract: "incident-v1", faultContract: value } });
+  const fault = faultReply("fault-v1");
   const without = (value, name) => Object.fromEntries(Object.entries(value).filter(([key]) => key !== name));
   const cases = [];
   // Earlier servers sent a textEncoding member. Its presence anywhere in
@@ -3099,6 +3103,23 @@ function stateReplyRefusals(envelope) {
       [`${kind} incident contract in the topology`, { ...incident, topology: { incidentContract: value } }],
     );
   }
+  cases.push(
+    // The topology and the simulation carry the fault marker, and the root
+    // does not. They have the same marker, with the one value that the
+    // server sends, and the fault marker needs the incident marker.
+    ["a fault marker at the root", { ...fault, faultContract: "fault-v1" }],
+    ["a fault marker at the root only", { ...incident, faultContract: "fault-v1" }],
+    ["a fault topology with an unmarked simulation", { ...incident, topology: { incidentContract: "incident-v1", faultContract: "fault-v1" } }],
+    ["a fault simulation with an unmarked topology", simulation(incident, { faultContract: "fault-v1" })],
+    ["a fault marker without the incident marker", { ...simulation(plain, { faultContract: "fault-v1" }), topology: { faultContract: "fault-v1" } }],
+  );
+  for (const [kind, value] of [["an unknown", "fault-v2"], ["an empty", ""], ["a null", null]]) {
+    cases.push(
+      [`${kind} fault contract`, faultReply(value)],
+      [`${kind} fault contract in the simulation`, simulation(fault, { faultContract: value })],
+      [`${kind} fault contract in the topology`, { ...fault, topology: { incidentContract: "incident-v1", faultContract: value } }],
+    );
+  }
   return cases;
 }
 
@@ -3116,6 +3137,7 @@ test("readState accepts the reply of each project kind and gives its state", asy
     { name: "an Express project", ...kind(envelope({ orderContract: "express-v1" })) },
     { name: "a coupling project", ...kind(envelope({ couplingContract: "compact-pair-v1" })) },
     { name: "an incident project", ...kind({ ...envelope(), topology: { incidentContract: "incident-v1" }, frame: { state: { ...state, simulation: { ...state.simulation, incidentContract: "incident-v1" } }, routes: [] } }) },
+    { name: "a fault project", ...kind({ ...envelope(), topology: { incidentContract: "incident-v1", faultContract: "fault-v1" }, frame: { state: { ...state, simulation: { ...state.simulation, incidentContract: "incident-v1", faultContract: "fault-v1" } }, routes: [] } }) },
     { name: "a reply of the depth limit", ...kind({ ...envelope(), topology: nested(editor.MAX_STATE_DEPTH - 1) }) },
     { name: "a reply with an array of the element limit", ...kind({ ...envelope(), topology: { lanes: new Array(editor.MAX_STATE_ELEMENTS).fill(0) } }) },
     ...stateReplyRefusals(envelope).map(([name, body]) => ({ name, body, wantError: invalid })),
