@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"math/rand/v2"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -429,4 +430,126 @@ func TestRedistributionRestoredAfterDemoAndReset(t *testing.T) {
 	reset.Sequence = 6
 	send(reset)
 	checkPositioning("reset without redistribution", sim.PositioningOff, changed.Demand.PerMinute)
+}
+
+// TestProjectApplySameProjectIsNoOp checks that an apply of the current
+// project of each feature family changes nothing and saves nothing.
+func TestProjectApplySameProjectIsNoOp(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name   string
+		config func(*testing.T) project.Config
+	}{
+		{"no markers", func(*testing.T) project.Config { return project.Default() }},
+		{"station banks", func(*testing.T) project.Config {
+			config := project.Default()
+			config.Network = sim.BankExample()
+			config.Fleet = []sim.Placement{{ID: "01", StationID: "origin", BerthID: "origin-1"}}
+			return config
+		}},
+		{"Express marker", expressConsumerProject},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			assertSameProjectNoOp(t, newProjectSession(t, test.config(t)), nil)
+		})
+	}
+}
+
+// assertSameProjectNoOp applies the current project of ts, with edit
+// when it is not nil. The apply must change nothing and save nothing.
+func assertSameProjectNoOp(t *testing.T, ts *projectSession, edit func(*project.Config)) {
+	t.Helper()
+	current := ts.s.Project()
+	config := project.Clone(current.Project)
+	if edit != nil {
+		edit(&config)
+	}
+	before, calls := keptValues(ts.s), len(ts.store.callList())
+	ts.s.mu.Lock()
+	origin := ts.s.projectOrigin
+	ts.s.mu.Unlock()
+	reply := ts.client.mustApply(t, Command{Action: "project", Project: &config, ProjectRevision: current.Revision})
+	if !keptValues(ts.s).same(before) || reply.Generation != before.values.generation {
+		t.Fatal("same project changed the simulation")
+	}
+	if reply.ProjectRevision != current.Revision || reply.StateSaved != nil || len(ts.saves) != 0 || len(ts.store.callList()) != calls {
+		t.Fatalf("same project saved or changed the revision: %+v", reply)
+	}
+	if !reflect.DeepEqual(ts.s.Project(), current) || ts.s.projectOrigin != origin {
+		t.Fatal("same project replaced the project")
+	}
+}
+
+// projectSession is a paused session with a state store and a
+// project saver that records each saved project.
+type projectSession struct {
+	s       *Session
+	store   *fakeStore
+	client  *testClient
+	saves   []project.Config
+	saveErr error
+}
+
+// newProjectSession starts a new session of config with an empty state
+// store.
+func newProjectSession(t *testing.T, config project.Config) *projectSession {
+	t.Helper()
+	return startProjectSession(t, &fakeStore{}, &config)
+}
+
+func startProjectSession(t *testing.T, store *fakeStore, config *project.Config) *projectSession {
+	t.Helper()
+	ts := &projectSession{store: store}
+	saver := WithProjectSaver(func(config project.Config) error {
+		if ts.saveErr != nil {
+			return ts.saveErr
+		}
+		ts.saves = append(ts.saves, config)
+		return nil
+	})
+	s, err := NewFromStore(t.Context(), StoreInput{Store: store, Project: config, Options: []Option{saver}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(s.Close)
+	ts.s, ts.client = s, newTestClient(s, "project")
+	ts.client.mustApply(t, Command{Action: "pause", Paused: true})
+	return ts
+}
+
+// projectKept holds the session values that a change in place keeps. The
+// simulation and the demand random source must be the same values.
+type projectKept struct {
+	simulation *sim.Simulation
+	random     *rand.PCG
+	values     projectValues
+}
+
+type projectValues struct {
+	saved      sim.SavedState
+	tick       int64
+	generation uint64
+	speed      int
+	demand     DemandState
+	restore    RestoreInfo
+	epoch      string
+	checks     []Checkpoint
+}
+
+func keptValues(s *Session) projectKept {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return projectKept{simulation: s.simulation, random: s.demand.pcg, values: projectValues{
+		saved: s.simulation.ExportState(), tick: s.simulation.Tick(),
+		generation: s.generation, speed: s.speed, demand: s.demand.state, restore: s.restore, epoch: s.epoch,
+		checks: s.checkpointList(),
+	}}
+}
+
+// same reports whether k and other have the same simulation, demand
+// random source, and values.
+func (k projectKept) same(other projectKept) bool {
+	return k.simulation == other.simulation && k.random == other.random && reflect.DeepEqual(k.values, other.values)
 }

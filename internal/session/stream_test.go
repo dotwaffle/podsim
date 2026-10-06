@@ -34,6 +34,62 @@ func streamFixture(t *testing.T) (*Session, StreamFrame) {
 	}
 	return s, f
 }
+
+// fullStreamEnvelope returns the full envelope of frame, with the contract
+// markers of frame.
+func fullStreamEnvelope(frame StreamFrame) StreamEnvelope {
+	return StreamEnvelope{CouplingContract: frame.State.Simulation.CouplingContract,
+		OrderContract: frame.State.Simulation.OrderContract,
+		Kind:          "full", Stream: "coupling-test", Sequence: 1, Build: frame.State.Build, Source: sourceOf(frame), Full: &frame}
+}
+
+// streamFamilyFrames returns one frame of each stream family and a changed
+// successor for deltas.
+func streamFamilyFrames(t *testing.T) map[string][2]StreamFrame {
+	t.Helper()
+	frames := map[string][2]StreamFrame{}
+	advance := func(s *Session, frame StreamFrame) [2]StreamFrame {
+		t.Helper()
+		s.Apply(Command{Client: "family", Sequence: 1, Epoch: frame.State.Epoch, Action: "pause", Paused: !frame.State.Simulation.Paused})
+		next, err := s.presentationFrame()
+		if err != nil {
+			t.Fatal(err)
+		}
+		return [2]StreamFrame{frame, next}
+	}
+	foundation, frame := streamFixture(t)
+	t.Cleanup(foundation.Close)
+	frames["foundation"] = advance(foundation, frame)
+	express := expressSession(t)
+	frame, err := express.presentationFrame()
+	if err != nil {
+		t.Fatal(err)
+	}
+	frames["express"] = advance(express, frame)
+	data := couplingPhaseFixtures(t)
+	for name, order := range map[string]sim.OrderContract{"coupling raw": "", "coupling packed": sim.ExpressOrderContract} {
+		s, _, frame := couplingStreamFixture(t, data.Frames[0], order)
+		frames[name] = advance(s, frame)
+	}
+	return frames
+}
+
+// streamFamilyEnvelope returns the full envelope of frames[0] when kind is
+// "full", and otherwise the delta from frames[0] to frames[1].
+func streamFamilyEnvelope(t *testing.T, frames [2]StreamFrame, kind string) StreamEnvelope {
+	t.Helper()
+	e := fullStreamEnvelope(frames[0])
+	if kind == "full" {
+		return e
+	}
+	delta, err := makeDelta(frames[0], frames[1])
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.Kind, e.Full, e.Delta, e.Sequence, e.Base, e.Source = "delta", nil, &delta, 2, 1, sourceOf(frames[1])
+	return e
+}
+
 func TestStreamReconstruction(t *testing.T) {
 	t.Parallel()
 	s, a := streamFixture(t)

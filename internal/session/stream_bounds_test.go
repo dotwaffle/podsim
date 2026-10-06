@@ -5,6 +5,7 @@ import (
 	jsonv2 "encoding/json/v2"
 	"errors"
 	"fmt"
+	"maps"
 	"reflect"
 	"strings"
 	"testing"
@@ -79,6 +80,131 @@ func TestStreamDecodeBoundsBeforeTokenScans(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+// stateDecoders returns the stream decoder and the HTTP state decoder by
+// name.
+func stateDecoders() map[string]func([]byte) error {
+	return map[string]func([]byte) error{
+		"stream": func(raw []byte) error {
+			_, err := DecodeStreamJSON(raw)
+			return err
+		},
+		"http": func(raw []byte) error {
+			_, err := DecodeStateJSON(raw)
+			return err
+		},
+	}
+}
+
+// The bounded scan runs before the header decode, so a document deeper than
+// the jsontext decoder's own cap fails with the scan error.
+func TestDecodeBoundsBeforeHeader(t *testing.T) {
+	t.Parallel()
+	zeros := func(n int) string { return "[" + strings.TrimSuffix(strings.Repeat("0,", n), ",") + "]" }
+	members := func(n int) string {
+		var b strings.Builder
+		for i := range n {
+			fmt.Fprintf(&b, `,"m%d":0`, i)
+		}
+		return b.String()
+	}
+	packed := `"orderContract":"` + string(sim.ExpressOrderContract) + `",`
+	tests := []struct {
+		name string
+		raw  string
+		want error
+	}{
+		{"deeper than the decoder cap", `{"x":` + strings.Repeat("[", 20000) + strings.Repeat("]", 20000) + `}`, errJSONTooDeep},
+		{"deeper than the decoder cap under the marker", `{"orderContract":` + strings.Repeat("[", 20000) + strings.Repeat("]", 20000) + `}`, errJSONTooDeep},
+		{"deeper than the stream limit", `{"x":` + strings.Repeat("[", 65) + strings.Repeat("]", 65) + `}`, errJSONTooDeep},
+		{"array past the element limit", `{"x":` + zeros(65537) + `}`, errJSONArrayTooLong},
+		{"object past the member limit", `{"x":0` + members(256) + `}`, errJSONObjectTooLong},
+		{"unpacked full pending past the unpacked bound", `{"full":{"state":{"simulation":{"pending":` + zeros(maxSavedTrips+1) + `}}}}`, errJSONArrayTooLong},
+		{"unpacked frame pending past the unpacked bound", `{"frame":{"state":{"simulation":{"pending":` + zeros(maxSavedTrips+1) + `}}}}`, errJSONArrayTooLong},
+		{"unpacked delta riders past the unpacked bound", `{"delta":{"vehicles":[{"riders":{"value":` + zeros(9) + `}}]}}`, errJSONArrayTooLong},
+		{"packed full pending past the packed bound", `{` + packed + `"full":{"state":{"simulation":{"pending":` + zeros(sim.MaxExpressWaitingTrips+1) + `}}}}`, errJSONArrayTooLong},
+		{"packed frame pending past the packed bound", `{` + packed + `"frame":{"state":{"simulation":{"pending":` + zeros(sim.MaxExpressWaitingTrips+1) + `}}}}`, errJSONArrayTooLong},
+		{"folded marker pending past the packed bound", `{"ORDERCONTRACT":"` + string(sim.ExpressOrderContract) + `","full":{"state":{"simulation":{"pending":` + zeros(sim.MaxExpressWaitingTrips+1) + `}}}}`, errJSONArrayTooLong},
+	}
+	for name, decode := range stateDecoders() {
+		for _, test := range tests {
+			t.Run(name+"/"+test.name, func(t *testing.T) {
+				t.Parallel()
+				if err := decode([]byte(test.raw)); !errors.Is(err, test.want) {
+					t.Fatalf("got %v, want %v", err, test.want)
+				}
+			})
+		}
+	}
+}
+
+// The Express limits, which bound the read of the root markers, contain
+// the limits of every other marker.
+func TestStreamLimitsPackedContainUnpacked(t *testing.T) {
+	t.Parallel()
+	wide, exact := streamLimits(contractMarkers{order: sim.ExpressOrderContract}), streamLimits(contractMarkers{})
+	if wide.depth != exact.depth || wide.elements != exact.elements || wide.members != exact.members ||
+		wide.stringBytes != exact.stringBytes || wide.allowInvalidUTF8 != exact.allowInvalidUTF8 {
+		t.Fatal("packed and unpacked limits differ outside array bounds")
+	}
+	if !maps.Equal(maps.Collect(func(yield func(string, bool) bool) {
+		for path := range wide.arrays {
+			if !yield(path, true) {
+				return
+			}
+		}
+	}), maps.Collect(func(yield func(string, bool) bool) {
+		for path := range exact.arrays {
+			if !yield(path, true) {
+				return
+			}
+		}
+	})) {
+		t.Fatal("packed and unpacked limits bound different paths")
+	}
+	for path, bound := range exact.arrays {
+		if wide.arrays[path] < bound {
+			t.Fatalf("packed bound %d of %s is below unpacked bound %d", wide.arrays[path], path, bound)
+		}
+	}
+}
+
+// scanRootMarkers reads the root markers with exact names. The last of
+// duplicate markers selects the limits, and scanContractMarkers then
+// refuses the duplicate.
+func TestScanRootMarkers(t *testing.T) {
+	t.Parallel()
+	express := string(sim.ExpressOrderContract)
+	tests := []struct {
+		name string
+		raw  string
+		want contractMarkers
+		err  bool
+	}{
+		{"absent", `{"kind":"full"}`, contractMarkers{}, false},
+		{"express", `{"orderContract":"` + express + `"}`, contractMarkers{order: sim.ExpressOrderContract}, false},
+		{"express last", `{"kind":"full","full":{},"orderContract":"` + express + `"}`, contractMarkers{order: sim.ExpressOrderContract}, false},
+		{"folded express", `{"ORDERCONTRACT":"` + express + `"}`, contractMarkers{}, false},
+		{"escaped express", `{"order\u0043ontract":"` + express + `"}`, contractMarkers{order: sim.ExpressOrderContract}, false},
+		{"other contract", `{"orderContract":"other"}`, contractMarkers{order: "other"}, false},
+		{"null", `{"orderContract":null}`, contractMarkers{}, false},
+		{"nested", `{"full":{"orderContract":"` + express + `"}}`, contractMarkers{}, false},
+		{"duplicate last wins", `{"orderContract":"` + express + `","orderContract":"other"}`, contractMarkers{order: "other"}, false},
+		{"duplicate last wins express", `{"orderContract":"other","orderContract":"` + express + `"}`, contractMarkers{order: sim.ExpressOrderContract}, false},
+		{"number", `{"orderContract":1}`, contractMarkers{}, true},
+		{"array document", `[]`, contractMarkers{}, true},
+		{"too deep", `{"a":` + strings.Repeat("[", 65) + strings.Repeat("]", 65) + `}`, contractMarkers{}, true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			markers, err := scanRootMarkers([]byte(test.raw))
+			if (err != nil) != test.err || !test.err && markers != test.want {
+				t.Fatalf("got %+v err=%v, want %+v err=%t", markers, err, test.want, test.err)
+			}
+		})
 	}
 }
 

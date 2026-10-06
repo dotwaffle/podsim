@@ -127,7 +127,7 @@ func TestStreamMarkerValues(t *testing.T) {
 		topology TopologySnapshot
 		frame    StreamFrame
 	}{"plain": {plain.Topology(), plainFrame}, "express": {expressShared.Topology(), expressFrame}} {
-		full, err := EncodeStreamJSON(couplingFullEnvelope(fixture.frame))
+		full, err := EncodeStreamJSON(fullStreamEnvelope(fixture.frame))
 		if err != nil {
 			t.Fatal(err)
 		}

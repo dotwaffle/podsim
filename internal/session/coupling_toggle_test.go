@@ -3,7 +3,6 @@ package session
 import (
 	"errors"
 	"fmt"
-	"math/rand/v2"
 	"reflect"
 	"slices"
 	"testing"
@@ -16,16 +15,6 @@ import (
 // connected phase and with passengers in both cabins.
 const connectedPhase = "occupied-true-phase-3-leg-1.json"
 
-// toggleSession is a paused version 5 session with a state store and a
-// project saver that records each saved project.
-type toggleSession struct {
-	s       *Session
-	store   *fakeStore
-	client  *testClient
-	saves   []project.Config
-	saveErr error
-}
-
 // couplingExample returns the example project with the coupling marker,
 // no coupling sites and no coupling corridors.
 func couplingExample() project.Config {
@@ -36,7 +25,7 @@ func couplingExample() project.Config {
 
 // newToggleSession starts a session from the saved fixture phase. With an
 // empty phase, it starts couplingExample, which has no coupling groups.
-func newToggleSession(t *testing.T, phase string) *toggleSession {
+func newToggleSession(t *testing.T, phase string) *projectSession {
 	t.Helper()
 	if phase == "" {
 		return newProjectSession(t, couplingExample())
@@ -46,39 +35,12 @@ func newToggleSession(t *testing.T, phase string) *toggleSession {
 	if index < 0 {
 		t.Fatal("unknown fixture phase", phase)
 	}
-	return startToggleSession(t, &fakeStore{data: encodeTestState(t, couplingPhaseFile(t, couplingPhaseInput(t, data, data.Frames[index])))}, nil)
-}
-
-// newProjectSession starts a new session of config with an empty state
-// store.
-func newProjectSession(t *testing.T, config project.Config) *toggleSession {
-	t.Helper()
-	return startToggleSession(t, &fakeStore{}, &config)
-}
-
-func startToggleSession(t *testing.T, store *fakeStore, config *project.Config) *toggleSession {
-	t.Helper()
-	ts := &toggleSession{store: store}
-	saver := WithProjectSaver(func(config project.Config) error {
-		if ts.saveErr != nil {
-			return ts.saveErr
-		}
-		ts.saves = append(ts.saves, config)
-		return nil
-	})
-	s, err := NewFromStore(t.Context(), StoreInput{Store: store, Project: config, Options: []Option{saver}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(s.Close)
-	ts.s, ts.client = s, newTestClient(s, "toggle")
-	ts.client.mustApply(t, Command{Action: "pause", Paused: true})
-	return ts
+	return startProjectSession(t, &fakeStore{data: encodeTestState(t, couplingPhaseFile(t, couplingPhaseInput(t, data, data.Frames[index])))}, nil)
 }
 
 // apply sends the current project with CouplingEnabled inverted. edit, when
 // not nil, changes the project before the command.
-func (ts *toggleSession) apply(edit func(*project.Config)) Reply {
+func (ts *projectSession) apply(edit func(*project.Config)) Reply {
 	current := ts.s.Project()
 	config := current.Project
 	config.CouplingEnabled = !config.CouplingEnabled
@@ -88,42 +50,13 @@ func (ts *toggleSession) apply(edit func(*project.Config)) Reply {
 	return ts.s.Apply(ts.client.next(Command{Action: "project", Project: &config, ProjectRevision: current.Revision}))
 }
 
-// toggleKept holds the session values that a change in place keeps. The
-// simulation and the demand random source must be the same values.
-type toggleKept struct {
-	simulation *sim.Simulation
-	random     *rand.PCG
-	values     toggleValues
-}
-
-type toggleValues struct {
-	saved      sim.SavedState
-	groups     []sim.CouplingGroupView
-	tick       int64
-	generation uint64
-	speed      int
-	demand     DemandState
-	restore    RestoreInfo
-	epoch      string
-	checks     []Checkpoint
-}
-
-func keptValues(s *Session) toggleKept {
+// committedGroups returns the coupling group views of s. A failed view
+// gives nil, and the group count checks fail.
+func committedGroups(s *Session) []sim.CouplingGroupView {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	// A failed view leaves groups nil, and the group count checks fail.
 	snapshot, _ := s.simulation.CheckedSnapshot()
-	return toggleKept{simulation: s.simulation, random: s.demand.pcg, values: toggleValues{
-		saved: s.simulation.ExportState(), groups: snapshot.CouplingGroups, tick: s.simulation.Tick(),
-		generation: s.generation, speed: s.speed, demand: s.demand.state, restore: s.restore, epoch: s.epoch,
-		checks: s.checkpointList(),
-	}}
-}
-
-// same reports whether k and other have the same simulation, demand
-// random source, and values.
-func (k toggleKept) same(other toggleKept) bool {
-	return k.simulation == other.simulation && k.random == other.random && reflect.DeepEqual(k.values, other.values)
+	return snapshot.CouplingGroups
 }
 
 // TestCouplingToggleInPlace checks that a project that changes only
@@ -143,7 +76,7 @@ func TestCouplingToggleInPlace(t *testing.T) {
 			ts := newToggleSession(t, phase)
 			ts.client.mustApply(t, Command{Action: "speed", Speed: 5})
 			before := keptValues(ts.s)
-			if phase != "" && len(before.values.groups) != 1 {
+			if phase != "" && len(committedGroups(ts.s)) != 1 {
 				t.Fatal("fixture has no committed group")
 			}
 			for step := range 2 {
@@ -221,7 +154,7 @@ func TestCouplingToggleFullReplace(t *testing.T) {
 			if after.simulation == before.simulation || after.values.generation != before.values.generation+1 || after.values.restore != (RestoreInfo{}) {
 				t.Fatal("project change did not replace the simulation")
 			}
-			if test.phase != "" && len(after.values.groups) != 0 {
+			if test.phase != "" && len(committedGroups(ts.s)) != 0 {
 				t.Fatal("full replace kept the committed group")
 			}
 			if err := ts.s.CouplingError(); err != nil {
@@ -231,19 +164,13 @@ func TestCouplingToggleFullReplace(t *testing.T) {
 	}
 }
 
-// setViewFault retains a coupling observation fault.
-func setViewFault(_ *testing.T, s *Session) {
-	s.mu.Lock()
-	s.couplingViewError = errors.New("test observation fault")
-	s.mu.Unlock()
-}
-
-// TestProjectApplySameProjectIsNoOp checks that an apply of the current
-// project of each feature family changes nothing and saves nothing. A nil
-// and an empty list of coupling sites are the same project.
-func TestProjectApplySameProjectIsNoOp(t *testing.T) {
+// TestCouplingProjectApplySameProjectIsNoOp checks that an apply of the
+// current project of a coupling session changes nothing and saves
+// nothing. A nil and an empty list of coupling sites are the same project.
+// TestProjectApplySameProjectIsNoOp checks the other feature families.
+func TestCouplingProjectApplySameProjectIsNoOp(t *testing.T) {
 	t.Parallel()
-	emptySites := func(t *testing.T) *toggleSession {
+	emptySites := func(t *testing.T) *projectSession {
 		t.Helper()
 		config := couplingExample()
 		config.CouplingSites = []sim.CouplingSite{}
@@ -251,47 +178,19 @@ func TestProjectApplySameProjectIsNoOp(t *testing.T) {
 	}
 	tests := []struct {
 		name  string
-		start func(*testing.T) *toggleSession
+		start func(*testing.T) *projectSession
 		edit  func(*project.Config)
 	}{
-		{"no markers", func(t *testing.T) *toggleSession { t.Helper(); return newProjectSession(t, project.Default()) }, nil},
-		{"station banks", func(t *testing.T) *toggleSession {
-			t.Helper()
-			config := project.Default()
-			config.Network = sim.BankExample()
-			config.Fleet = []sim.Placement{{ID: "01", StationID: "origin", BerthID: "origin-1"}}
-			return newProjectSession(t, config)
-		}, nil},
-		{"Express marker", func(t *testing.T) *toggleSession { t.Helper(); return newProjectSession(t, expressConsumerProject(t)) }, nil},
-		{"coupling marker without groups", func(t *testing.T) *toggleSession { t.Helper(); return newToggleSession(t, "") }, nil},
-		{"coupling marker with a group", func(t *testing.T) *toggleSession { t.Helper(); return newToggleSession(t, connectedPhase) }, nil},
-		{"nil sites to empty sites", func(t *testing.T) *toggleSession { t.Helper(); return newToggleSession(t, "") },
+		{"coupling marker without groups", func(t *testing.T) *projectSession { t.Helper(); return newToggleSession(t, "") }, nil},
+		{"coupling marker with a group", func(t *testing.T) *projectSession { t.Helper(); return newToggleSession(t, connectedPhase) }, nil},
+		{"nil sites to empty sites", func(t *testing.T) *projectSession { t.Helper(); return newToggleSession(t, "") },
 			func(c *project.Config) { c.CouplingSites = []sim.CouplingSite{} }},
 		{"empty sites to nil sites", emptySites, func(c *project.Config) { c.CouplingSites = nil }},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			ts := test.start(t)
-			current := ts.s.Project()
-			config := project.Clone(current.Project)
-			if test.edit != nil {
-				test.edit(&config)
-			}
-			before, calls := keptValues(ts.s), len(ts.store.callList())
-			ts.s.mu.Lock()
-			origin := ts.s.projectOrigin
-			ts.s.mu.Unlock()
-			reply := ts.client.mustApply(t, Command{Action: "project", Project: &config, ProjectRevision: current.Revision})
-			if !keptValues(ts.s).same(before) || reply.Generation != before.values.generation {
-				t.Fatal("same project changed the simulation")
-			}
-			if reply.ProjectRevision != current.Revision || reply.StateSaved != nil || len(ts.saves) != 0 || len(ts.store.callList()) != calls {
-				t.Fatalf("same project saved or changed the revision: %+v", reply)
-			}
-			if !reflect.DeepEqual(ts.s.Project(), current) || ts.s.projectOrigin != origin {
-				t.Fatal("same project replaced the project")
-			}
+			assertSameProjectNoOp(t, test.start(t), test.edit)
 		})
 	}
 }
@@ -373,12 +272,12 @@ func TestCouplingToggleRejectionsPreserveState(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name    string
-		prepare func(*toggleSession, *Command)
+		prepare func(*projectSession, *Command)
 		want    CommandErrorCode
 	}{
-		{"failed project save", func(ts *toggleSession, _ *Command) { ts.saveErr = errors.New("disk full") }, CommandRejected},
-		{"stale revision", func(_ *toggleSession, command *Command) { command.ProjectRevision-- }, StaleProject},
-		{"running", func(ts *toggleSession, _ *Command) {
+		{"failed project save", func(ts *projectSession, _ *Command) { ts.saveErr = errors.New("disk full") }, CommandRejected},
+		{"stale revision", func(_ *projectSession, command *Command) { command.ProjectRevision-- }, StaleProject},
+		{"running", func(ts *projectSession, _ *Command) {
 			ts.s.mu.Lock()
 			ts.s.simulation.SetPaused(false)
 			ts.s.mu.Unlock()

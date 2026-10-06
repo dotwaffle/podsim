@@ -2,6 +2,7 @@ package session
 
 import (
 	"encoding/json/v2"
+	"errors"
 	"fmt"
 	"net/http"
 	"reflect"
@@ -135,6 +136,13 @@ func TestFaultCommandErrors(t *testing.T) {
 		reply := client.mustApply(t, Command{Action: "fault", PodID: "01", DurationSeconds: new(duration)})
 		client.mustApply(t, Command{Action: "clearFault", FaultID: reply.FaultID})
 	}
+}
+
+// setViewFault retains a coupling observation fault.
+func setViewFault(_ *testing.T, s *Session) {
+	s.mu.Lock()
+	s.couplingViewError = errors.New("test observation fault")
+	s.mu.Unlock()
 }
 
 // TestFaultCommandsWithCouplingFault checks that a retained coupling fault

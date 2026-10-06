@@ -161,7 +161,7 @@ func TestStreamMarkersSelectSections(t *testing.T) {
 			markers := contractMarkers{order: base.State.Simulation.OrderContract, coupling: base.State.Simulation.CouplingContract}
 			packedFrom := `"from":"` + base64.StdEncoding.EncodeToString([]byte(request.From)) + `"`
 
-			full := couplingFullEnvelope(base)
+			full := fullStreamEnvelope(base)
 			previous := StreamFrame{}
 			assembler, err := NewStreamAssembler(fixture.topology)
 			if err != nil {

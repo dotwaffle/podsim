@@ -52,7 +52,7 @@ func TestPackedDocumentsRefuseCaseVariants(t *testing.T) {
 		}, true},
 		{"express state", func() ([]byte, error) { return EncodeStateJSON(expressTopology, expressFrame) },
 			func(raw []byte) error { _, err := DecodeStateJSON(raw); return err }, true},
-		{"coupling stream", func() ([]byte, error) { return EncodeStreamJSON(couplingFullEnvelope(couplingFrame)) },
+		{"coupling stream", func() ([]byte, error) { return EncodeStreamJSON(fullStreamEnvelope(couplingFrame)) },
 			func(raw []byte) error { _, err := DecodeStreamJSON(raw); return err }, false},
 		{"coupling state", func() ([]byte, error) { return EncodeStateJSON(couplingTopology, couplingFrame) },
 			func(raw []byte) error { _, err := DecodeStateJSON(raw); return err }, false},

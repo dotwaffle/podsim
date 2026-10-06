@@ -27,7 +27,7 @@ func BenchmarkCouplingFormats(b *testing.B) {
 	if len(second.State.Simulation.CouplingGroups) != 1 {
 		b.Fatal("the group ended after one tick")
 	}
-	full := couplingFullEnvelope(first)
+	full := fullStreamEnvelope(first)
 	deltaEnvelope := func() StreamEnvelope {
 		d, deltaErr := makeDelta(first, second)
 		if deltaErr != nil {

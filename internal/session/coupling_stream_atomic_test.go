@@ -39,7 +39,7 @@ func TestCouplingStreamRejectsPartialMemberDelta(t *testing.T) {
 		if delta.Groups["coupling"] == nil {
 			t.Fatal("control lacks train replacement")
 		}
-		e := couplingFullEnvelope(frame)
+		e := fullStreamEnvelope(frame)
 		e.Kind, e.Full, e.Delta = "delta", nil, &delta
 		e.Sequence, e.Base, e.Source = 2, 1, sourceOf(next)
 		good, err := ApplyStream(frame, e.Stream, 1, e)
@@ -97,7 +97,7 @@ func TestCouplingStreamArrayBounds(t *testing.T) {
 	for i := range frame.State.Simulation.CouplingGroups {
 		frame.State.Simulation.CouplingGroups[i] = group
 	}
-	raw, err := EncodeStreamJSON(couplingFullEnvelope(frame))
+	raw, err := EncodeStreamJSON(fullStreamEnvelope(frame))
 	if err != nil {
 		t.Fatal(err)
 	}

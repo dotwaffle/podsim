@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json/jsontext"
 	"errors"
-	"fmt"
 	"reflect"
 	"slices"
 	"testing"
@@ -37,34 +36,6 @@ func TestCouplingStorePhaseRestores(t *testing.T) {
 			restarted, err := NewFromStore(t.Context(), StoreInput{Store: second})
 			assertMovedAside(t, restarted, err, second, reasonInvalidState)
 		})
-	}
-}
-
-// assertMovedAside checks that a restart moved the saved state aside for
-// reason and started a new session that saves.
-func assertMovedAside(t *testing.T, s *Session, err error, store *fakeStore, reason string) {
-	t.Helper()
-	if err != nil || s == nil {
-		t.Fatal("rejected state stopped the start", err)
-	}
-	t.Cleanup(s.Close)
-	if !slices.Equal(store.callList(), []string{"read", "reject", "write"}) || s.restore.Reason != reason {
-		t.Fatalf("rejection calls %v, reason %q, want %q", store.callList(), s.restore.Reason, reason)
-	}
-}
-
-// assertPreserved checks that a restart kept the saved state, turned
-// saving off and failed.
-func assertPreserved(t *testing.T, s *Session, err error, store *fakeStore, before []byte) {
-	t.Helper()
-	if err == nil || s != nil {
-		t.Fatal("preserved state returned a session", err)
-	}
-	if _, preserved := errors.AsType[*preservedStateError](err); !preserved {
-		t.Fatal("failure lost preservation classification", err)
-	}
-	if !bytes.Equal(before, store.data) || !slices.Equal(store.callList(), []string{"read"}) {
-		t.Fatal("preserved state was archived or overwritten", store.callList())
 	}
 }
 
@@ -103,17 +74,6 @@ func TestCouplingRestoreResultMovedAside(t *testing.T) {
 			s, err := newFromStore(t.Context(), StoreInput{Store: store}, steps)
 			assertMovedAside(t, s, err, store, reasonInvalidState)
 		})
-	}
-}
-
-func TestCouplingStoreOpaqueReadTooLarge(t *testing.T) {
-	t.Parallel()
-	store := &fakeStore{data: []byte("opaque original bytes"), readErr: fmt.Errorf("bounded read: %w", ErrStateTooLarge)}
-	before := bytes.Clone(store.data)
-	s, err := NewFromStore(t.Context(), StoreInput{Store: store})
-	assertPreserved(t, s, err, store, before)
-	if !errors.Is(err, ErrStateTooLarge) {
-		t.Fatal("lost original read-size error", err)
 	}
 }
 

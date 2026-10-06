@@ -63,7 +63,7 @@ func TestCouplingArraysHaveExplicitLimits(t *testing.T) {
 				file := couplingPhaseFile(t, input)
 				file.OrderContract = order
 				assertExplicitArrayBounds(t, phase.Name+" save", decompressTestJSON(t, encodeTestState(t, file)), savedLimits(contractMarkers{order: order, coupling: sim.CompactPairV1CouplingContract}))
-				full, err := EncodeStreamJSON(couplingFullEnvelope(frame))
+				full, err := EncodeStreamJSON(fullStreamEnvelope(frame))
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -78,7 +78,7 @@ func TestCouplingArraysHaveExplicitLimits(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				envelope := couplingFullEnvelope(frame)
+				envelope := fullStreamEnvelope(frame)
 				envelope.Kind, envelope.Full, envelope.Delta, envelope.Base, envelope.Sequence = "delta", nil, &delta, 1, 2
 				changed, err := EncodeStreamJSON(envelope)
 				if err != nil {

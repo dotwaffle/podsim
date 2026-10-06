@@ -166,6 +166,34 @@ func startFromStore(t *testing.T, input StoreInput) *Session {
 	return s
 }
 
+// assertMovedAside checks that a restart moved the saved state aside for
+// reason and started a new session that saves.
+func assertMovedAside(t *testing.T, s *Session, err error, store *fakeStore, reason string) {
+	t.Helper()
+	if err != nil || s == nil {
+		t.Fatal("rejected state stopped the start", err)
+	}
+	t.Cleanup(s.Close)
+	if !slices.Equal(store.callList(), []string{"read", "reject", "write"}) || s.restore.Reason != reason {
+		t.Fatalf("rejection calls %v, reason %q, want %q", store.callList(), s.restore.Reason, reason)
+	}
+}
+
+// assertPreserved checks that a restart kept the saved state, turned
+// saving off and failed.
+func assertPreserved(t *testing.T, s *Session, err error, store *fakeStore, before []byte) {
+	t.Helper()
+	if err == nil || s != nil {
+		t.Fatal("preserved state returned a session", err)
+	}
+	if _, preserved := errors.AsType[*preservedStateError](err); !preserved {
+		t.Fatal("failure lost preservation classification", err)
+	}
+	if !bytes.Equal(before, store.data) || !slices.Equal(store.callList(), []string{"read"}) {
+		t.Fatal("preserved state was archived or overwritten", store.callList())
+	}
+}
+
 // realRestoreSteps returns the restore steps of NewFromStore.
 func realRestoreSteps() restoreSteps {
 	return restoreSteps{validateProject: project.Validate, checkPolicy: sim.CheckIncidentPolicy, restoreSimulation: sim.RestoreState}
@@ -2872,5 +2900,18 @@ func TestRestoreRefusesRequeueOverflow(t *testing.T) {
 	s := startFromStore(t, StoreInput{Store: store, Project: &config})
 	if got := s.State().Restore; got.Tier != "empty" || got.Reason != reasonInvalidState {
 		t.Fatalf("restore = %+v, want an empty start with reason %s", got, reasonInvalidState)
+	}
+}
+
+// TestStoreOpaqueReadTooLarge checks that a read that the store refuses
+// as too large keeps the file and stops the start.
+func TestStoreOpaqueReadTooLarge(t *testing.T) {
+	t.Parallel()
+	store := &fakeStore{data: []byte("opaque original bytes"), readErr: fmt.Errorf("bounded read: %w", ErrStateTooLarge)}
+	before := bytes.Clone(store.data)
+	s, err := NewFromStore(t.Context(), StoreInput{Store: store})
+	assertPreserved(t, s, err, store, before)
+	if !errors.Is(err, ErrStateTooLarge) {
+		t.Fatal("lost original read-size error", err)
 	}
 }
