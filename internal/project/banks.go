@@ -89,6 +89,10 @@ func (config *Config) decodeJSONLimit(data []byte, options jsonv2.Options, rawLi
 	if err := validateFaultContract(Config(decoded)); err != nil {
 		return err
 	}
+	// The scan also refuses a null emergencies value.
+	if err := validateEmergencyContract(Config(decoded)); err != nil {
+		return err
+	}
 	if err := validateCouplingGeometry(Config(decoded)); err != nil {
 		return err
 	}

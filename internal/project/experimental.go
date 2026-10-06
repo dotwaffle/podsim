@@ -28,9 +28,11 @@ func (flag *PolicyFlag) UnmarshalJSON(data []byte) error {
 // Disabling buffers keeps existing saved members draining.
 // ConfigurePlatoons must run first for a compact queue project.
 // It also turns the fault operations on, with the faults settings, for a
-// project with the fault marker, and off for every other project. It
-// cannot turn faults off while a fault is active, so a caller that
-// changes the project makes a new fleet first.
+// project with the fault marker, and off for every other project. It does
+// the same for the emergency operations and the emergency marker. It
+// cannot turn faults off while a fault is active, or emergencies while an
+// emergency is active, so a caller that changes the project makes a new
+// fleet first.
 func ConfigureExperiments(simulation *sim.Simulation, config Config) error {
 	if err := validateStationQueueSpacing(config); err != nil {
 		return err
@@ -40,7 +42,10 @@ func ConfigureExperiments(simulation *sim.Simulation, config Config) error {
 		return err
 	}
 	simulation.SetPickupSwaps(bool(config.PickupReassignment))
-	return simulation.SetFaults(config.FaultContract != "", EffectiveFaultSettings(config))
+	if err := simulation.SetFaults(config.FaultContract != "", EffectiveFaultSettings(config)); err != nil {
+		return err
+	}
+	return simulation.SetEmergencies(config.EmergencyContract != "")
 }
 
 // EffectiveFaultSettings returns the fault settings of a project with the

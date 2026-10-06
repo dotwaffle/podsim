@@ -224,6 +224,9 @@ project.faults.duration.seconds number
 project.faults.duration.minSeconds number
 project.faults.duration.maxSeconds number
 project.faults.duration.meanSeconds number
+project.emergencyContract string
+project.emergencies object
+project.emergencies.perHour number
 project.version number
 project.name string
 project.network object

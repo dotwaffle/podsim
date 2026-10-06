@@ -95,7 +95,25 @@ func scanProjectFields(data []byte) (projectFields, error) {
 			if err != nil {
 				return projectFields{}, err
 			}
-			if err := scanFaults(value); err != nil {
+			if err := scanSettings("faults", value); err != nil {
+				return projectFields{}, err
+			}
+		case len(path) == 2 && path[1] == "emergencyContract":
+			// An explicit null or empty marker is presence, as for the
+			// incident marker.
+			value, err := decoder.ReadToken()
+			if err != nil {
+				return projectFields{}, err
+			}
+			if value.Kind() != jsontext.KindString || value.String() != string(EmergencyV1Contract) {
+				return projectFields{}, errUnknownEmergencyContract
+			}
+		case len(path) == 2 && path[1] == "emergencies":
+			value, err := decoder.ReadValue()
+			if err != nil {
+				return projectFields{}, err
+			}
+			if err := scanSettings("emergencies", value); err != nil {
 				return projectFields{}, err
 			}
 		case len(path) == 2 && path[1] == "orderContract":

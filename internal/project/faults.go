@@ -162,12 +162,13 @@ func validateFaultDuration(duration FaultDuration) error {
 	return nil
 }
 
-// scanFaults checks the raw faults value of a project. The value must be
-// an object, and no member at any depth can be null. The typed decode
-// reads null as an absent member, so it cannot see these errors.
-func scanFaults(value jsontext.Value) error {
+// scanSettings checks the raw value of the settings member name of a
+// project: faults or emergencies. The value must be an object, and no
+// member at any depth can be null. The typed decode reads null as an
+// absent member, so it cannot see these errors.
+func scanSettings(name string, value jsontext.Value) error {
 	if value.Kind() != '{' {
-		return errors.New("faults must be an object")
+		return fmt.Errorf("%s must be an object", name)
 	}
 	decoder := jsontext.NewDecoder(bytes.NewReader(value))
 	for {
@@ -179,7 +180,7 @@ func scanFaults(value jsontext.Value) error {
 			return err
 		}
 		if token.Kind() == 'n' {
-			return errors.New("faults members must not be null")
+			return fmt.Errorf("%s members must not be null", name)
 		}
 	}
 }
