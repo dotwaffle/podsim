@@ -143,8 +143,20 @@ func TestHistoryTrimKeepsExpressMembers(t *testing.T) {
 		}
 	}
 	check("trim")
-	for _, kind := range []string{"undo", "undo", "undo", "redo", "redo", "redo"} {
-		acceptedHistory(t, model, historyCommand{Kind: kind})
-		check(kind)
+	// The trim drops the oldest entry, so the name edit stays. The first
+	// undo leaves the entry that the trim replaced.
+	for _, step := range []struct {
+		kind    string
+		limit   int
+		spacing sim.StationQueueSpacing
+	}{{"undo", 2, sim.StationQueueOrdinary}, {"undo", 2, ""}, {"undo", 1, ""}, {"redo", 2, ""}, {"redo", 2, sim.StationQueueOrdinary}, {"redo", 2, sim.StationQueueOrdinary}} {
+		acceptedHistory(t, model, historyCommand{Kind: step.kind})
+		check(step.kind)
+		if model.config.Name != "Edited Express project" || model.config.SharedRidePartyLimit != step.limit || model.config.StationQueueSpacing != step.spacing {
+			t.Fatal(step.kind, model.config.Name, model.config.SharedRidePartyLimit, model.config.StationQueueSpacing, "want", step.limit, step.spacing)
+		}
+	}
+	if view := historyMetadata(model.timeline.state, model.timeline.revision, false); view.CanRedo || len(view.Retained) != 4 {
+		t.Fatalf("trimmed history retained %v", view.Retained)
 	}
 }

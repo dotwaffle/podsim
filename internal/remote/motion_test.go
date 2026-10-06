@@ -257,14 +257,14 @@ func TestMotionPlatoonAndDepartingPod(t *testing.T) {
 		if x := got.Vehicles[i].Pod.Position.X; math.Abs(x-want) > 1e-9 {
 			t.Fatalf("pod %s at %v, want %v", got.Vehicles[i].Pod.ID, x, want)
 		}
-		if got.Vehicles[i].PlatoonID != "02" {
-			t.Fatalf("pod %s lost its platoon", got.Vehicles[i].Pod.ID)
+		if got.Vehicles[i].PlatoonID != "02" || got.Vehicles[i].PlatoonIndex != a.Simulation.Vehicles[i].PlatoonIndex {
+			t.Fatalf("pod %s lost its platoon place", got.Vehicles[i].Pod.ID)
 		}
 	}
 	b.Simulation.Vehicles = b.Simulation.Vehicles[:1]
 	got = interpolate(a, b)
-	if len(got.Vehicles) != 2 || math.Abs(got.Vehicles[0].Pod.Position.X-.7) > 1e-9 || got.Vehicles[1].Pod.Position.X != 1 {
-		t.Fatalf("departing pod moved: %+v", got.Vehicles)
+	if len(got.Vehicles) != 2 || math.Abs(got.Vehicles[0].Pod.Position.X-.7) > 1e-9 || !reflect.DeepEqual(got.Vehicles[1], a.Simulation.Vehicles[1]) {
+		t.Fatalf("departing pod changed: %+v", got.Vehicles)
 	}
 }
 
