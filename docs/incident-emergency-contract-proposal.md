@@ -5,6 +5,10 @@ The maintainer approved product choices P1 to P22 of section 18.2 as proposed, o
 The contract authorizes no implementation, default change, or deployment.
 Line references are at `481c145`.
 
+Status note, October 6, 2026: the maintainer stopped the incident redesign after stage 3.
+Stages 4 to 7 are out of scope.
+Text that names these stages describes refusals that stay in place.
+
 This contract is stage 3 of the staged incident redesign: the emergency vertical slice on ordinary pods.
 A rider in an ordinary pod starts an emergency.
 The pod goes to the station where it can unload soonest, and every party leaves it there.

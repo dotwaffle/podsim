@@ -4,6 +4,10 @@ Status: approved, revision 5, October 5, 2026, by the coordinator under the main
 The approval changes no binding decision and no product choice beyond the maintainer-approved amendment D3 and the stage 2 defaults.
 Line references are at `3c77045`.
 
+Status note, October 6, 2026: the maintainer stopped the incident redesign after stage 3.
+Stages 4 to 7 are out of scope.
+Text that names these stages describes refusals that stay in place.
+
 This contract is stage 2 of the staged incident redesign.
 It defines ordinary suspension and obstruction: a pod fault that stops a pod on a lane or at a berth, debris on an empty lane segment, routing around both, and the rules for the healthy pods that they obstruct.
 It builds only on the API of the approved stage 1 contract, [incident-service-transitions-contract-proposal.md](incident-service-transitions-contract-proposal.md), section 13, with one narrow amendment (section 1.6).
