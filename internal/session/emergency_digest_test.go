@@ -11,7 +11,7 @@ import (
 )
 
 // TestEmergencyDigestTrailers checks the digest extensions of the incident
-// emergency contract (section 11.2). A command with one emergency field
+// emergency contract, N 10 to N 12 (section 11.2). A command with one emergency field
 // set hashes the input of the same command without the field, and then a
 // trailer of one field: its N and its value. Emergencies goes in the
 // trailer as one value, with its member. A command without an emergency
@@ -34,6 +34,7 @@ func TestEmergencyDigestTrailers(t *testing.T) {
 			c.Project.Emergencies = &project.EmergencyConfig{PerHour: new(0.0)}
 			return c.Project.Emergencies
 		}, "Project.Emergencies"},
+		{12, func(c *Command) any { c.OrderID = 7; return c.OrderID }, "OrderID"},
 	} {
 		t.Run(test.field, func(t *testing.T) {
 			t.Parallel()
@@ -57,5 +58,35 @@ func TestEmergencyDigestTrailers(t *testing.T) {
 				t.Fatal("the field did not change the digest")
 			}
 		})
+	}
+}
+
+// TestEmergencyCommandDigest checks the digest input of an emergency
+// command: the input of the command without PodID and OrderID, and then a
+// trailer of two fields, PodID with the N 4 of the fault command and
+// OrderID with N 12, in increasing order of N. Two commands that differ
+// only in the order ID have different digests.
+func TestEmergencyCommandDigest(t *testing.T) {
+	t.Parallel()
+	base := Command{Action: "emergency", Client: "digest", Sequence: 1, Epoch: testStateEpoch}
+	command := base
+	command.PodID, command.OrderID = "01", 7
+	trailer := binary.AppendUvarint(nil, 2)
+	for _, field := range []struct {
+		n     uint64
+		value any
+	}{{4, command.PodID}, {12, command.OrderID}} {
+		var encoded recordingHash
+		writer := digestWriter{hash: &encoded}
+		writer.value(reflect.ValueOf(field.value))
+		trailer = slices.Concat(trailer, binary.AppendUvarint(nil, field.n), encoded.Bytes())
+	}
+	if got, want := digestInput(command), slices.Concat(digestInput(base), trailer); !bytes.Equal(got, want) {
+		t.Fatal("the input is not the input without the fields and the trailer of the two fields")
+	}
+	other := command
+	other.OrderID = 8
+	if digestCommand(command).matches(digestCommand(other)) {
+		t.Fatal("the order ID did not change the digest")
 	}
 }

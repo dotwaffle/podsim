@@ -51,7 +51,7 @@ func (c *testClient) mustReject(t *testing.T, command Command, message string) {
 	c.session.mu.Unlock()
 	revision := c.session.Frame().Revision
 	reply := c.session.Apply(c.next(command))
-	if reply.ErrorCode != CommandRejected || reply.Error != message || reply.FaultID != "" {
+	if reply.ErrorCode != CommandRejected || reply.Error != message || reply.FaultID != "" || reply.EmergencyID != "" {
 		t.Fatalf("%s: reply %q %q %q, want %s %q", command.Action, reply.ErrorCode, reply.Error, reply.FaultID, CommandRejected, message)
 	}
 	c.session.mu.Lock()

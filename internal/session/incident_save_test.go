@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/project"
@@ -110,10 +111,24 @@ func (x incidentSave) stepUntil(t *testing.T, what string, done func(sim.SavedSt
 	t.Fatalf("no %s after 10 minutes", what)
 }
 
+// fixtureRestoreSteps returns the restore steps of NewFromStore without
+// the incident policy step. The stage 1 test entry IncidentForTest makes
+// states with the emergency hold or an emergency unload and no emergency
+// marker, which no production path makes and which the policy step
+// rejects (section 8 of the incident emergency contract). Only the
+// session restores of these fixtures use these steps.
+// TestIncidentSavePolicy checks that NewFromStore rejects the same saves.
+func fixtureRestoreSteps() restoreSteps {
+	steps := realRestoreSteps()
+	steps.checkPolicy = nil
+	return steps
+}
+
 // check saves the session and checks the save: the live state passes the
 // contract, the adapter gives back the exported state exactly, the session
 // restores it with the physical tier and the same export, and a logical
-// restore passes the contract. It also checks the stream and the HTTP
+// restore passes the contract. The session restore has no incident policy
+// step (see fixtureRestoreSteps). It also checks the stream and the HTTP
 // state with checkStream. It returns the exported state.
 func (x incidentSave) check(t *testing.T, name string) sim.SavedState {
 	t.Helper()
@@ -142,7 +157,7 @@ func (x incidentSave) check(t *testing.T, name string) sim.SavedState {
 	if !reflect.DeepEqual(file.Simulation, want) {
 		t.Fatalf("%s: the save gives\n%+v\nwant\n%+v", name, file.Simulation, want)
 	}
-	restored, err := NewFromStore(t.Context(), StoreInput{Store: &fakeStore{data: data}})
+	restored, err := newFromStore(t.Context(), StoreInput{Store: &fakeStore{data: data}}, fixtureRestoreSteps())
 	if err != nil || restored.restore.Tier != "physical" {
 		t.Fatalf("%s: restore: %v, %+v", name, err, restored.restore)
 	}
@@ -160,6 +175,7 @@ func (x incidentSave) check(t *testing.T, name string) sim.SavedState {
 		StationQueueSpacing: project.EffectiveStationQueueSpacing(config), PlatoonLimit: config.PlatoonLimit,
 		ExpressServices: config.ExpressServices, OnboardPickups: config.OnboardPickups,
 		FaultContract: config.FaultContract, Faults: project.EffectiveFaultSettings(config),
+		EmergencyContract: config.EmergencyContract,
 	})
 	if err != nil {
 		t.Fatalf("%s: logical restore: %v", name, err)
@@ -337,6 +353,52 @@ func TestIncidentSaveEmergencyUnload(t *testing.T) {
 		return r.ID == transferred && r.LegFrom == "garden" && r.Completed
 	}) {
 		t.Fatalf("riders %+v", rider)
+	}
+}
+
+// TestIncidentSavePolicy checks the incident policy step of NewFromStore
+// (section 8 of the incident emergency contract). A save without the
+// emergency marker with the emergency hold, and one with an emergency
+// unload, restore in the physical tier without the policy step. With the
+// step, each one is invalid_state before either tier, and it moves aside.
+// With the emergency marker, the policy accepts the same saves, and the
+// pre-tier checks reject them, because no record names the pod (E2).
+func TestIncidentSavePolicy(t *testing.T) {
+	t.Parallel()
+	x := newIncidentSave(t, incidentSaveProject(1))
+	x.boardTwo(t)
+	var saves [][]byte
+	x.operate(t, "01", sim.IncidentTestOperation{Kind: "withdraw", Hold: 2})
+	x.check(t, "emergency hold")
+	saves = append(saves, x.store.writeList()[len(x.store.writeList())-1])
+	x.operate(t, "01", sim.IncidentTestOperation{Kind: "destination", Hold: 2, Purpose: 1, Interrupt: 1, Station: "garden", Berth: "garden-1"})
+	x.check(t, "emergency unload")
+	saves = append(saves, x.store.writeList()[len(x.store.writeList())-1])
+	marked := func(file *stateFile) {
+		file.Project.EmergencyContract, file.Project.Emergencies = project.EmergencyV1Contract, &project.EmergencyConfig{}
+	}
+	for index, data := range saves {
+		for _, test := range []struct {
+			save []byte
+			want string
+		}{
+			{data, "without the emergency contract"},
+			{storedRun{data: data}.edited(t, marked), "E2: pod 01 has the emergency hold and no emergency record"},
+		} {
+			if _, err := newTestSession(t).loadState(loadInput{data: test.save, steps: realRestoreSteps()}); err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Errorf("save %d: load error %v, want %q", index, err, test.want)
+			}
+			store := &fakeStore{data: test.save}
+			s, err := NewFromStore(t.Context(), StoreInput{Store: store})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if s.restore.Tier != restoreEmpty || s.restore.Reason != reasonInvalidState ||
+				!slices.Equal(store.callList(), []string{"read", "reject", "write"}) {
+				t.Errorf("save %d: restore %+v, store calls %v", index, s.restore, store.callList())
+			}
+			s.Close()
+		}
 	}
 }
 

@@ -168,7 +168,7 @@ func startFromStore(t *testing.T, input StoreInput) *Session {
 
 // realRestoreSteps returns the restore steps of NewFromStore.
 func realRestoreSteps() restoreSteps {
-	return restoreSteps{validateProject: project.Validate, restoreSimulation: sim.RestoreState}
+	return restoreSteps{validateProject: project.Validate, checkPolicy: sim.CheckIncidentPolicy, restoreSimulation: sim.RestoreState}
 }
 
 // storedRun is a closed session and its final saved state.

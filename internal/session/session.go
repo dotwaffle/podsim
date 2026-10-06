@@ -113,9 +113,10 @@ type Metrics struct {
 //
 // A fault command has PodID for a pod fault, or LaneID, FromMeters and
 // ToMeters for debris, and an optional DurationSeconds. A clearFault
-// command has FaultID. Other actions ignore these fields. Each one is an
-// extension field of the command digest, so a command without them keeps
-// its digest.
+// command has FaultID. An emergency command has PodID and an optional
+// OrderID, the order ID of the party. Other actions ignore these fields.
+// Each one is an extension field of the command digest, so a command
+// without them keeps its digest.
 type Command struct {
 	OrderContract   sim.OrderContract  `json:"orderContract,omitzero"`
 	Client          string             `json:"client"`
@@ -141,6 +142,7 @@ type Command struct {
 	ToMeters        *float64           `json:"toMeters,omitzero" digest:"ext=7"`
 	DurationSeconds *int64             `json:"durationSeconds,omitzero" digest:"ext=8"`
 	FaultID         string             `json:"faultID,omitzero" digest:"ext=9"`
+	OrderID         int                `json:"orderID,omitzero" digest:"ext=12"`
 }
 
 // CommandErrorCode classifies a rejected command independently of its wording.
@@ -164,6 +166,7 @@ const (
 // Reply acknowledges one command without repeating the current state frame.
 // Only a checkpoint command sets Checkpoint, the ID of the new save point.
 // Only a fault command sets FaultID, the ID of the new fault.
+// Only an emergency command sets EmergencyID, the ID of the new emergency.
 // Only a rewind that restores a different project sets ProjectRestored.
 //
 // StateSaved is set only when Apply tried to save the session state before
@@ -186,6 +189,7 @@ type Reply struct {
 	ProjectRestored bool             `json:"projectRestored,omitzero"`
 	StateSaved      *bool            `json:"stateSaved,omitzero"`
 	FaultID         string           `json:"faultID,omitzero"`
+	EmergencyID     string           `json:"emergencyID,omitzero"`
 	ErrorCode       CommandErrorCode `json:"errorCode,omitempty"`
 	Error           string           `json:"error,omitempty"`
 }
@@ -649,7 +653,7 @@ func (s *Session) applyCommand(command Command, digest commandDigest) commandRes
 			}
 			reply = s.reply()
 			reply.OrderID, reply.Checkpoint, reply.ProjectRestored = result.orderID, result.checkpoint, result.projectRestored
-			reply.FaultID = result.faultID
+			reply.FaultID, reply.EmergencyID = result.faultID, result.emergencyID
 			if err != nil {
 				code := CommandRejected
 				if errors.Is(err, errStaleProject) {
@@ -706,6 +710,7 @@ func truncateError(message string) string {
 type outcome struct {
 	orderID         int
 	faultID         string
+	emergencyID     string
 	checkpoint      uint64
 	projectRestored bool
 	saveState       bool
@@ -798,8 +803,8 @@ func (s *Session) apply(command Command) (outcome, error) {
 		}
 		// The demo makes a new fleet with the default settings. A reset
 		// after the demo keeps them, so apply the project settings again.
-		// The demo project has no fault marker, so faults stay off until a
-		// reset or a project apply.
+		// The demo project has no fault marker and no emergency marker, so
+		// faults and emergencies stay off until a reset or a project apply.
 		demo := demoProject(s.project)
 		if err := project.ConfigureSharedRides(s.simulation, demo); err != nil {
 			return outcome{}, fmt.Errorf("configure shared rides: %w", err)
@@ -837,6 +842,12 @@ func (s *Session) apply(command Command) (outcome, error) {
 		return outcome{faultID: id}, nil
 	case "clearFault":
 		return outcome{}, s.simulation.ClearFault(command.FaultID)
+	case "emergency":
+		id, err := s.simulation.Emergency(command.PodID, command.OrderID)
+		if err != nil {
+			return outcome{}, err
+		}
+		return outcome{emergencyID: id}, nil
 	case "checkpoint":
 		return s.captureCheckpoint(), nil
 	case "rewind":
@@ -950,10 +961,11 @@ func (s *Session) applyProject(command Command) (bool, error) {
 }
 
 // demoProject returns the project of the traffic demo: config without the
-// fault marker and the faults settings. The demo keeps the incident marker
-// of config, because the topology keeps it.
+// fault and emergency markers and their settings. The demo keeps the
+// incident marker of config, because the topology keeps it.
 func demoProject(config project.Config) project.Config {
 	config.FaultContract, config.Faults = "", nil
+	config.EmergencyContract, config.Emergencies = "", nil
 	return config
 }
 

@@ -239,8 +239,13 @@ func (p *persistence) unsavedSeconds(saves, revision uint64) float64 {
 }
 
 // restoreSteps holds the steps of NewFromStore that tests replace.
+// checkPolicy runs before restoreSimulation, and a failure rejects the
+// save with no logical fallback. A nil checkPolicy skips the step: only
+// the session restores of the stage 1 fixtures, which make states that no
+// production path makes, leave it out.
 type restoreSteps struct {
 	validateProject   func(project.Config) error
+	checkPolicy       func(sim.RestoreStateInput) error
 	restoreSimulation func(sim.RestoreStateInput) (*sim.Simulation, sim.RestoreResult, error)
 }
 
@@ -257,7 +262,9 @@ type restoreSteps struct {
 // periodic or final save. After one such restore, the next start uses the
 // logical tier only. After two, the next start does not restore.
 func NewFromStore(ctx context.Context, input StoreInput) (*Session, error) {
-	return newFromStore(ctx, input, restoreSteps{validateProject: project.Validate, restoreSimulation: sim.RestoreState})
+	return newFromStore(ctx, input, restoreSteps{
+		validateProject: project.Validate, checkPolicy: sim.CheckIncidentPolicy, restoreSimulation: sim.RestoreState,
+	})
 }
 
 func newFromStore(ctx context.Context, input StoreInput, steps restoreSteps) (*Session, error) {
@@ -502,7 +509,7 @@ func (s *Session) loadState(input loadInput) (loaded loadedState, err error) {
 	if err = file.resolveBoardings(); err != nil {
 		return loaded, invalidState(err)
 	}
-	loaded.simulation, loaded.result, err = input.steps.restoreSimulation(sim.RestoreStateInput{
+	restoreInput := sim.RestoreStateInput{
 		OrderContract: loaded.config.OrderContract, IncidentContract: loaded.config.IncidentContract,
 		CouplingContract: loaded.config.CouplingContract, CouplingEnabled: loaded.config.CouplingEnabled,
 		CouplingSites: loaded.config.CouplingSites, CouplingCorridors: loaded.config.CouplingCorridors,
@@ -510,7 +517,17 @@ func (s *Session) loadState(input loadInput) (loaded loadedState, err error) {
 		StationQueueSpacing: project.EffectiveStationQueueSpacing(loaded.config), PlatoonLimit: loaded.config.PlatoonLimit,
 		ExpressServices: loaded.config.ExpressServices, OnboardPickups: loaded.config.OnboardPickups,
 		FaultContract: loaded.config.FaultContract, Faults: project.EffectiveFaultSettings(loaded.config),
-	})
+		EmergencyContract: loaded.config.EmergencyContract,
+	}
+	// The incident policy reads only the saved state, and it runs before
+	// either tier, so a rejected save gets no logical fallback (section 8
+	// of the incident emergency contract).
+	if input.steps.checkPolicy != nil {
+		if err = input.steps.checkPolicy(restoreInput); err != nil {
+			return loaded, invalidState(err)
+		}
+	}
+	loaded.simulation, loaded.result, err = input.steps.restoreSimulation(restoreInput)
 	if err != nil {
 		return loaded, invalidState(err)
 	}
@@ -713,6 +730,9 @@ func (s *Session) logRestored(input restoredInput) {
 	}
 	if result.DroppedFaults > 0 {
 		attrs = append(attrs, slog.Int("droppedFaults", result.DroppedFaults))
+	}
+	if result.DroppedEmergencies > 0 {
+		attrs = append(attrs, slog.Int("droppedEmergencies", result.DroppedEmergencies))
 	}
 	if result.PhysicalError != nil {
 		attrs = append(attrs, slog.Any("physicalError", result.PhysicalError))
