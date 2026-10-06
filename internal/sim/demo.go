@@ -47,9 +47,6 @@ func (s *Simulation) StartDemo() error {
 	if _, ok := s.station("market"); !ok {
 		return errors.New("the traffic demo needs Market")
 	}
-	if err := s.validateDemo(); err != nil {
-		return err
-	}
 	parking, _ := s.station("parking")
 	if len(parking.Berths) < 2 {
 		return errors.New("the traffic demo needs two parking berths")
@@ -58,6 +55,11 @@ func (s *Simulation) StartDemo() error {
 	candidate, err := NewFleet(s.network, placements)
 	if err != nil {
 		return fmt.Errorf("create demo fleet: %w", err)
+	}
+	// The demo fleet has no faults. Debris that blocks a route now ends
+	// with the demo, so it does not refuse the demo.
+	if err := candidate.validateDemo(); err != nil {
+		return err
 	}
 	if err := candidate.RequestJourney("01", "market"); err != nil {
 		return err

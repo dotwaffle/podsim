@@ -137,3 +137,28 @@ func TestFaultRequestStarts(t *testing.T) {
 		t.Fatalf("clear with faults off: %v", err)
 	}
 }
+
+// TestDemoEndsFaults checks that faults on the demo routes do not refuse
+// the traffic demo, and that the demo ends them. Pod 01 starts the first
+// demo journey, and the debris blocks bypass-in, the trigger lane of the
+// demo.
+func TestDemoEndsFaults(t *testing.T) {
+	t.Parallel()
+	s := newTraffic(t)
+	s.incidentContract = IncidentV1Contract
+	if err := s.SetFaults(true, FaultSettings{EvacuationSeconds: 300}); err != nil {
+		t.Fatal(err)
+	}
+	from, to := 80.0, 82.0
+	for _, request := range []FaultRequest{{PodID: "01"}, {LaneID: "bypass-in", FromMeters: &from, ToMeters: &to}} {
+		if _, err := s.Fault(request); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := s.StartDemo(); err != nil {
+		t.Fatalf("StartDemo with faults: %v", err)
+	}
+	if len(s.faults) != 0 || s.faultsOn || !s.DemoRunning() {
+		t.Fatalf("after the demo starts: %d faults, faults on %t, demo %t", len(s.faults), s.faultsOn, s.DemoRunning())
+	}
+}
