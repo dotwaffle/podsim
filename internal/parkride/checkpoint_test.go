@@ -53,6 +53,7 @@ func assertJointEqual(t *testing.T, a, b *Run) {
 }
 func TestCheckpointLifecycleAndFuture(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	input := continuationInput()
 	run, err := NewRun(input)
 	if err != nil {
@@ -145,6 +146,7 @@ func TestCheckpointTickZeroAndEndpoint(t *testing.T) {
 }
 func TestCheckpointRefusalsAndConsent(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	for _, consent := range []sim.SharingConsent{sim.PrivateConsent, sim.SharedConsent} {
 		t.Run(string(consent), func(t *testing.T) {
 			t.Parallel()
@@ -431,6 +433,7 @@ func FuzzCheckpointBoundedDecode(f *testing.F) {
 
 func TestCheckpointTerminalCarOutcomes(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	input := continuationInput()
 	input.Plan.Lots[0].Capacity = 1
 	base := input.Plan.Itineraries[0]
@@ -490,6 +493,7 @@ func TestCheckpointTerminalCarOutcomes(t *testing.T) {
 
 func TestCheckpointOccupiedPickupReceipts(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	input := continuationInput()
 	input.Project.Fleet = input.Project.Fleet[:1]
 	input.Project.SharedRidePartyLimit = 4
@@ -547,6 +551,7 @@ func TestCheckpointOccupiedPickupReceipts(t *testing.T) {
 // Every request is authored through the car plan; no native state is installed.
 func TestCheckpointCompactQueueFuture(t *testing.T) {
 	t.Parallel()
+	skipLong(t)
 	input := continuationInput()
 	input.Project.Redistribution = false
 	input.Project.StationBuffers = true
@@ -722,4 +727,13 @@ func TestCheckpointPickupCooldownFuture(t *testing.T) {
 		}
 	}
 	t.Fatalf("authored pickup loop did not replace assignment: %+v", run.pods.PickupSwapStats())
+}
+
+// skipLong skips a test that takes a second or more when the tests run
+// with -short. No CI task uses -short, so test:race:other runs it.
+func skipLong(t *testing.T) {
+	t.Helper()
+	if testing.Short() {
+		t.Skip("a long test runs without -short")
+	}
 }

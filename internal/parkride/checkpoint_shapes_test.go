@@ -275,8 +275,9 @@ func shapeLedger(n, lots int) checkpointLedger {
 
 func TestCheckpointCombinedEncodingShapes(t *testing.T) {
 	// This serial byte proof adds no shared-state coverage under -race.
-	// The required test:bounds task runs every assertion without instrumentation.
-	if raceEnabled {
+	// The required test:bounds task runs every assertion without
+	// instrumentation and without -short.
+	if testing.Short() || raceEnabled {
 		t.Skip("maximum checkpoint byte proof runs in the required test:bounds task")
 	}
 	config, plan := shapeProject(t), shapePlan(t)
