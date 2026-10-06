@@ -1279,6 +1279,11 @@
   // the simulation carry it. It needs the incident marker.
   const FAULT_MARKER = ["faultContract", "fault-v1"];
 
+  // EMERGENCY_MARKER is the emergency marker of a state reply and the one
+  // value that the server sends. As the incident marker, only the topology
+  // and the simulation carry it. It needs the incident marker.
+  const EMERGENCY_MARKER = ["emergencyContract", "emergency-v1"];
+
   // plainStateTree is true when value has at most MAX_STATE_DEPTH levels
   // of arrays and objects, no array with more than MAX_STATE_ELEMENTS
   // elements, and no object with a textEncoding member. Earlier servers
@@ -1301,16 +1306,17 @@
   // reply, its topology and the simulation of state have the same contract
   // markers. Each marker that is present must have the value in
   // CONTRACT_MARKERS. The topology and the simulation must have the same
-  // incident marker, absent or the value in INCIDENT_MARKER, and the same
-  // fault marker, absent or the value in FAULT_MARKER. The root must not
-  // have either, and the fault marker needs the incident marker. The
-  // server decoder also refuses a reply without a topology object.
-  // shell.js has the same function.
+  // incident marker, absent or the value in INCIDENT_MARKER, the same
+  // fault marker, absent or the value in FAULT_MARKER, and the same
+  // emergency marker, absent or the value in EMERGENCY_MARKER. The root
+  // must not have any of them, and the fault and emergency markers need
+  // the incident marker. The server decoder also refuses a reply without
+  // a topology object. shell.js has the same function.
   function markersAgree(reply, state) {
     if (!isObject(reply.topology)) return false;
     const incident = frameMarker(reply, state, INCIDENT_MARKER);
-    const fault = frameMarker(reply, state, FAULT_MARKER);
-    if (incident === null || fault === null || (fault !== undefined && incident === undefined)) return false;
+    const features = [FAULT_MARKER, EMERGENCY_MARKER].map((marker) => frameMarker(reply, state, marker));
+    if (incident === null || features.some((marker) => marker === null || (marker !== undefined && incident === undefined))) return false;
     const holders = [reply, reply.topology, state.simulation];
     return CONTRACT_MARKERS.every(([name, allowed]) => {
       const values = holders.map((holder) => Object.hasOwn(holder, name) ? holder[name] : undefined);

@@ -3034,7 +3034,8 @@ function nested(levels) {
 // the editor refuse because of their contract markers, their topology, a
 // textEncoding member or their size. envelope(markers) gives a valid reply with those
 // contract markers at the root, in the topology and in the simulation. The
-// incident and fault markers are only in the topology and in the simulation.
+// incident, fault and emergency markers are only in the topology and in the
+// simulation.
 // shell_test.cjs has the same table.
 function stateReplyRefusals(envelope) {
   const plain = envelope();
@@ -3049,6 +3050,10 @@ function stateReplyRefusals(envelope) {
   // topology and in the simulation, where the server puts it.
   const faultReply = (value) => ({ ...simulation(incident, { faultContract: value }), topology: { incidentContract: "incident-v1", faultContract: value } });
   const fault = faultReply("fault-v1");
+  // emergencyReply gives an incident reply with the emergency marker value
+  // in the topology and in the simulation, where the server puts it.
+  const emergencyReply = (value) => ({ ...simulation(incident, { emergencyContract: value }), topology: { incidentContract: "incident-v1", emergencyContract: value } });
+  const emergency = emergencyReply("emergency-v1");
   const without = (value, name) => Object.fromEntries(Object.entries(value).filter(([key]) => key !== name));
   const cases = [];
   // Earlier servers sent a textEncoding member. Its presence anywhere in
@@ -3122,6 +3127,23 @@ function stateReplyRefusals(envelope) {
       [`${kind} fault contract in the simulation of an unmarked reply`, simulation(incident, { faultContract: value })],
     );
   }
+  cases.push(
+    // The emergency marker has the rules of the fault marker.
+    ["an emergency marker at the root", { ...emergency, emergencyContract: "emergency-v1" }],
+    ["an emergency marker at the root only", { ...incident, emergencyContract: "emergency-v1" }],
+    ["an emergency topology with an unmarked simulation", { ...incident, topology: { incidentContract: "incident-v1", emergencyContract: "emergency-v1" } }],
+    ["an emergency simulation with an unmarked topology", simulation(incident, { emergencyContract: "emergency-v1" })],
+    ["an emergency marker without the incident marker", { ...simulation(plain, { emergencyContract: "emergency-v1" }), topology: { emergencyContract: "emergency-v1" } }],
+  );
+  for (const [kind, value] of [["an unknown", "emergency-v2"], ["an empty", ""], ["a null", null]]) {
+    cases.push(
+      [`${kind} emergency contract`, emergencyReply(value)],
+      [`${kind} emergency contract in the simulation`, simulation(emergency, { emergencyContract: value })],
+      [`${kind} emergency contract in the topology`, { ...emergency, topology: { incidentContract: "incident-v1", emergencyContract: value } }],
+      [`${kind} emergency contract in the topology of an unmarked reply`, { ...incident, topology: { incidentContract: "incident-v1", emergencyContract: value } }],
+      [`${kind} emergency contract in the simulation of an unmarked reply`, simulation(incident, { emergencyContract: value })],
+    );
+  }
   return cases;
 }
 
@@ -3140,6 +3162,8 @@ test("readState accepts the reply of each project kind and gives its state", asy
     { name: "a coupling project", ...kind(envelope({ couplingContract: "compact-pair-v1" })) },
     { name: "an incident project", ...kind({ ...envelope(), topology: { incidentContract: "incident-v1" }, frame: { state: { ...state, simulation: { ...state.simulation, incidentContract: "incident-v1" } }, routes: [] } }) },
     { name: "a fault project", ...kind({ ...envelope(), topology: { incidentContract: "incident-v1", faultContract: "fault-v1" }, frame: { state: { ...state, simulation: { ...state.simulation, incidentContract: "incident-v1", faultContract: "fault-v1" } }, routes: [] } }) },
+    { name: "an emergency project", ...kind({ ...envelope(), topology: { incidentContract: "incident-v1", emergencyContract: "emergency-v1" }, frame: { state: { ...state, simulation: { ...state.simulation, incidentContract: "incident-v1", emergencyContract: "emergency-v1", emergencies: {} } }, routes: [] } }) },
+    { name: "a fault and emergency project", ...kind({ ...envelope(), topology: { incidentContract: "incident-v1", faultContract: "fault-v1", emergencyContract: "emergency-v1" }, frame: { state: { ...state, simulation: { ...state.simulation, incidentContract: "incident-v1", faultContract: "fault-v1", emergencyContract: "emergency-v1" } }, routes: [] } }) },
     { name: "a reply of the depth limit", ...kind({ ...envelope(), topology: nested(editor.MAX_STATE_DEPTH - 1) }) },
     { name: "a reply with an array of the element limit", ...kind({ ...envelope(), topology: { lanes: new Array(editor.MAX_STATE_ELEMENTS).fill(0) } }) },
     ...stateReplyRefusals(envelope).map(([name, body]) => ({ name, body, wantError: invalid })),
