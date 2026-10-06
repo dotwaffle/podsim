@@ -30,7 +30,7 @@ No fleet candidate established an all-ten recovery improvement at its next teste
 These finite tests do not establish a sustainable capacity envelope.
 The original `london` selector is now `london-central`.
 
-The [six-hour LondonFull screen](docs/london-full-sustained.md) finds growing backlogs at 15 and 20 requests per minute.
+A six-hour LondonFull screen finds growing backlogs at 15 and 20 requests per minute.
 Experimental station buffers do not resolve that overload.
 The [combined controller study](docs/london-full-controller-sustained.md) compares 24 arms with matched requests and physical restores.
 Its late backlog stays nearly flat at 10/min, but grows under every policy at 15 and 20/min.
@@ -83,7 +83,7 @@ The [sustained pickup-swap study](docs/pickup-swap-sustained.md) lowers average 
 Its [matched-request diagnosis](docs/pickup-request-diagnosis.md) separates unfinished requests from completed maxima and retains actual same-request regressions.
 The [selected service-tail cases](docs/pickup-tail-cases.md) trace earlier fleet divergence and longer pickup travel with little sampled stopping.
 The [selected exclusions](docs/pickup-local-intervention.md) show useful local swaps within those histories, with mixed effects on other requests.
-The [Stratford diagnosis](docs/pickup-seed4-tail.md) captures reciprocal waits at an intermediate berth.
+The Stratford diagnosis captures reciprocal waits at an intermediate berth.
 The [route preference and commitment fix](docs/berth-route-preference.md) addresses that mechanism for new routes while preserving old physical saves.
 
 Sharing remains off by default.
@@ -503,7 +503,7 @@ Snapshots and the pod inspector use these roles to report station maneuvers with
 
 ### Intermediate berth routing
 
-The [Stratford diagnosis](docs/pickup-seed4-tail.md) records a stalled empty pod whose Leyton route crosses a Stratford berth.
+The [Stratford diagnosis](docs/berth-route-preference.md) records a stalled empty pod whose Leyton route crosses a Stratford berth.
 That pod blocks the Stratford berth's arriving claimant, which owns the berth and blocks the first pod.
 The diagnosis identifies this cycle in a captured snapshot, without changing routing or reservation rules.
 

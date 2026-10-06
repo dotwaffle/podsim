@@ -74,7 +74,6 @@ The separate scale tests use 100 pods.
 mise run compare -- -duration 15m -loads 30s,45s,60s -seeds 1,2,3,4,5,6,7,8,9,10 -patterns balanced,destination,hotspot,bursty-hotspot -format csv -output /tmp/redistribution.csv
 ```
 
-[All recorded runs](measurements/redistribution.csv) include served and remaining trips, skipped arrivals, pickup waits, empty distance, and positioning moves.
 Wait measurements include elapsed waits for requests still pending at the window end.
 They are not completed-trip-only averages.
 
@@ -133,7 +132,6 @@ mise run scenario -- -preset rail-hub -output /tmp/podsim-rail-hub.json
 mise run compare -- -project /tmp/podsim-rail-hub.json -pattern hub-burst -duration 30m -arrivals-for 5m -request-every 5s -burst-size 12 -seeds 1,2,3,4,5 -format csv -output docs/measurements/rail-hub.csv
 ```
 
-[Recorded rail-hub runs](measurements/rail-hub.csv) include the station queue, berth, wait, clearance, passenger-distance, empty-distance, and positioning measurements for every arm.
 The compare command samples station peaks once per simulated second and immediately after each request burst.
 
 | Five-seed mean | Redistribution off | Redistribution on | On minus off |
@@ -188,7 +186,7 @@ The lower occupied-pod distance records physical pod movement, not passenger-kil
 Several parties now use one movement.
 Redistribution again added empty travel and slightly worsened wait and clearance, so it remains off by default.
 
-Raw results are in [`measurements/rail-hub-sharing.csv`](measurements/rail-hub-sharing.csv).
+A later run of this schedule at limits 1 and 4 is in [`measurements/rail-hub-drop-offs.csv`](measurements/rail-hub-drop-offs.csv).
 For the London result, see [same-destination sharing in the London sweep](#same-destination-sharing-in-the-london-sweep).
 
 ## Congestion-aware routing experiment
@@ -220,9 +218,8 @@ Its lower maximum wait and earlier pending-queue clearance are not benefits beca
 Free-flow remains the default.
 Keep the experimental arm for future work with measured lane travel times or junction-level delay, not as a user-facing routing mode.
 
-Raw results are in [`measurements/routing-policy.csv`](measurements/routing-policy.csv).
-The code at commit `b82b788` gives the recorded values, so the CSV has the columns of that commit.
-The current compare command adds more columns, and it can give different values.
+The code at commit `b82b788` gives the values in the table, and the current compare command can give different values.
+A later run of the free-flow and congestion arms on this schedule is in [`measurements/routing-queue-scale100.csv`](measurements/routing-queue-scale100.csv).
 The current `congestion` arm also has the two guards of the [queue routing screen](#queue-routing-screen).
 
 ## Queue routing screen
@@ -849,7 +846,7 @@ Free-flow routing is on.
 The queue limit is high enough that the compare command skips no request.
 Two more sweeps use the same bands, rates, and seeds to compare the finishing-pod wait rules and redistribution.
 See the subsections below.
-The code at commit `d64c3e0` gives each row of the capacity CSV again.
+The code at commit `d64c3e0` gives each row of the free-flow envelope again.
 
 ```sh
 mise run scenario -- -preset london-central -output /tmp/podsim-london-capacity.json
@@ -962,7 +959,8 @@ The three sweeps ran at the same time on the qualification host, each with five 
 The capacity sweep took 5,375 wall seconds for 345 arms.
 The wait-rule sweep took 6,243 seconds for 675 arms, and the redistribution sweep took 5,610 seconds for 342 arms.
 Each arm is independent and deterministic, so the number of workers does not change the rows.
-Raw results are in [`measurements/london-capacity.csv`](measurements/london-capacity.csv).
+Raw results are the free-flow rows of [`measurements/routing-queue-london-envelope.csv`](measurements/routing-queue-london-envelope.csv), which the [queue routing screen](#london-envelope) recorded again with more columns.
+This document calls these rows the free-flow envelope.
 
 ### With virtual platoons
 
@@ -970,7 +968,7 @@ The London preset sets `platoonLimit` to 4, so the server runs London with virtu
 A second sweep measures the envelope with platoons on.
 It uses the bands, rates, seeds, and settings of the capacity sweep, with `-platoon-policies virtual` and ten workers.
 The compare command does not read `platoonLimit` from the project, so the flag turns platoons on, with a limit of 4 pods.
-The off baseline is the capacity CSV above.
+The off baseline is the free-flow envelope above.
 The sweep ran before the platoon option landed, and its simulation and compare code is the code of commit `9b89b07`.
 These commands give the rows of the platoon CSV again:
 
@@ -1012,7 +1010,7 @@ Above the limits, 4 arms regress in this way:
 
 In these 4 arms, the pods spend less than 0.5% of their travel time in a platoon.
 Before the record, the 4 arms and two arms near them ran again without platoons at the code of the sweep.
-Their rows without platoons are equal to the capacity CSV in each column that it has, so the platoons cause the regressions.
+Their rows without platoons are equal to the free-flow envelope in each column of the capacity sweep, so the platoons cause the regressions.
 In 8 other arms, the arm with platoons ends by 3,600 seconds and the arm without platoons does not.
 They are Early at 8/min with seed 1, at 9/min with seed 1, and at 10/min with seeds 1 and 3, Morning at 14/min with seed 2, Interpeak at 15/min with seed 3, and Night at 11/min with seeds 1 and 2.
 
@@ -1054,7 +1052,7 @@ The report has a `wait_rule` column only when the command gets `-wait-rules`.
 Without the flag, the CSV columns are the same as before the option.
 
 The wait-rule sweep uses the bands, rates, and seeds of the capacity sweep with the `strict` and `none` rules.
-Its CSV has no `current` rows, because the capacity CSV gives them.
+Its CSV has no `current` rows, because the free-flow envelope gives them.
 
 ```sh
 mise run compare -- -project /tmp/podsim-london-capacity.json -pattern profile -bands all -duration 65m -arrivals-for 30m -loads 60s,30s,20s,15s,12s,10s,8.571429s,7.5s,6.666667s,6s,5.454545s,5s,4.615385s,4.285714s,4s -seeds 1,2,3 -redistribution-policies off -wait-rules strict,none -focus 940GZZLUEUS -queue-limit 1000000 -stop-when-drained -adaptive-limit -past-limit 1 -workers 5 -format csv -output docs/measurements/london-wait-rules.csv
@@ -1129,7 +1127,6 @@ At these rates, it adds 8 to 29 percent to the empty distance.
 It raises the PM peak and Evening limits to 15/min, which is the highest tested rate.
 It lowers the AM peak and Night limits by one rate.
 Redistribution stays off by default, because it lowers two band limits and adds much empty travel.
-Raw results are in [`measurements/london-redistribution.csv`](measurements/london-redistribution.csv).
 
 ### Guarded positioning in the London sweep
 
@@ -1223,7 +1220,7 @@ mise run compare -- -project /tmp/podsim-london-capacity.json -pattern profile -
 The compare command accepts at most 1,000 arms in one run.
 One run with the limits 1, 4, and 8 has 1,080 arms, so each limit has its own run.
 The rate groups of `-adaptive-limit` include the party limit, so this split does not change the arms that run.
-A run with limit 1 gives each row of the capacity CSV again.
+A run with limit 1 gives each row of the free-flow envelope again.
 
 The limits use the 60-minute rule of the capacity sweep.
 The 65-minute columns use the full run.
@@ -1280,8 +1277,7 @@ They are Morning at 13/min with seeds 2 and 3, AM peak at 14/min with seed 2, an
 All four arms run above the band limit.
 
 Sharing stays off by default.
-Raw results are in [`measurements/london-sharing.csv`](measurements/london-sharing.csv), with the limit 4 and limit 8 rows.
-The capacity CSV gives the limit 1 rows.
+The destination rows of [`measurements/london-drop-offs.csv`](measurements/london-drop-offs.csv) give the limit 4 rows again, and the free-flow envelope gives the limit 1 rows.
 
 ### Drop-offs sharing in London
 
@@ -1295,8 +1291,8 @@ The compare command writes report `schema_version` 8.
 mise run compare -- -project /tmp/podsim-london-capacity.json -pattern profile -bands all -duration 65m -arrivals-for 30m -loads 60s,30s,20s,15s,12s,10s,8.571429s,7.5s,6.666667s,6s,5.454545s,5s,4.615385s,4.285714s,4s -seeds 1,2,3 -redistribution-policies off -focus 940GZZLUEUS -queue-limit 1000000 -stop-when-drained -adaptive-limit -past-limit 1 -sharing-limits 4 -sharing-modes destination,drop-offs -workers 4 -format csv -output docs/measurements/london-drop-offs.csv
 ```
 
-A run with `-sharing-limits 1` at the same commit gives each row of the capacity CSV again.
-The destination rows give each row of the limit 4 rows of `london-sharing.csv` again, and they add the columns of the later schema versions.
+A run with `-sharing-limits 1` at the same commit gives each row of the free-flow envelope again.
+The destination rows give each limit 4 row of the [same-destination sweep](#same-destination-sharing-in-the-london-sweep) again, and they add the columns of the later schema versions.
 Thus the CSV of this measurement has only the limit 4 rows.
 
 The measurement plan also has seeds 4 to 10 at the limit rates.
@@ -1361,7 +1357,6 @@ mise run compare -- -project /tmp/podsim-london-capacity.json -pattern profile -
 ```
 
 The other bands use the same command with `-bands am-peak -loads 5.454545s,5s,4.615385s,4.285714s,4s`, `-bands evening -loads 5s,4.615385s,4.285714s,4s`, and `-bands night -loads 8.571429s,7.5s,6.666667s,6s,5.454545s`.
-The guarded CSV holds the rows of the four reports.
 In the four bands, the drop-offs mode lowers the average journey and the average wait.
 No drop-offs arm ends after 3,600 seconds when the destination arm ends by 3,600 seconds.
 The largest detour ratio is 1.509 again.
@@ -1396,7 +1391,7 @@ The design sets seven rules for the drop-offs mode against the destination mode 
 
 The drop-offs mode does not meet rules 3 and 5, so it does not become the mode that the editor offers first.
 Sharing stays off by default, and this record keeps `destination` as the default mode.
-Raw results are in [`measurements/london-drop-offs.csv`](measurements/london-drop-offs.csv), [`measurements/london-drop-offs-guarded.csv`](measurements/london-drop-offs-guarded.csv), [`measurements/rail-hub-drop-offs.csv`](measurements/rail-hub-drop-offs.csv), and [`measurements/scale100-drop-offs.csv`](measurements/scale100-drop-offs.csv).
+Raw results are in [`measurements/london-drop-offs.csv`](measurements/london-drop-offs.csv), [`measurements/rail-hub-drop-offs.csv`](measurements/rail-hub-drop-offs.csv), and [`measurements/scale100-drop-offs.csv`](measurements/scale100-drop-offs.csv).
 
 #### Drop-offs with a detour cap
 
@@ -1568,9 +1563,8 @@ Rule 4 uses only the tested rates near the limits, and rule 2 does not decide th
 The next subsection closes these two points.
 A change of the default mode changes the project contract, so this record does not change it.
 Sharing stays off by default.
-Raw results are in [`measurements/london-drop-offs-cap.csv`](measurements/london-drop-offs-cap.csv) and [`measurements/london-drop-offs-uncapped.csv`](measurements/london-drop-offs-uncapped.csv).
-The first file has the drop-offs rows with the cap for seeds 1 to 10 and the destination rows for seeds 4 to 10.
-The second file has the drop-offs rows without the cap for seeds 4 to 10.
+Raw results are in [`measurements/london-drop-offs-cap.csv`](measurements/london-drop-offs-cap.csv).
+It has the drop-offs rows with the cap for seeds 1 to 10 and the destination rows for seeds 4 to 10.
 
 #### Drop-offs envelope with the cap
 
@@ -1833,7 +1827,6 @@ The pod at the head of most of these queues waits for junction traffic.
 Berth waits are less than 1% of the stopped time.
 
 Thus Early with 198 pods at 9/min to 12/min is a load that track flow limits.
-Raw results are in [`measurements/london-platoon-screening.csv`](measurements/london-platoon-screening.csv).
 
 #### Platoon A/B
 
@@ -1915,7 +1908,7 @@ This historical A/B did not run them.
 The [follow-up](platoon-followup.md) completes those measurements and records the expanded study's failures.
 The historical results supported a project option for virtual platoons, off by default, and the defaults do not change.
 The `platoonLimit` project setting now gives this option.
-Raw results are in [`measurements/london-platoon-ab.csv`](measurements/london-platoon-ab.csv).
+The [follow-up rows](measurements/platoon-followup.csv) repeat these arms on later source.
 
 ## Seat screen for larger pods
 
@@ -2048,7 +2041,8 @@ Two targeted request-level replays at `025fff4` reproduced the original arm summ
 
 ### Census and capacity extension
 
-The [London census](measurements/london-pooling-census.csv) and [rail-hub census](measurements/rail-hub-pooling-census.csv) counted assigned waiting parties that a boarding pod could take.
+The London and rail-hub census counted assigned waiting parties that a boarding pod could take.
+The [all-band matrix](measurements/london-pooling-all.csv) and the [rail-hub pairs](measurements/rail-hub-pooling.csv) hold the census rows again.
 The London totals use rates at or below the original band limit.
 
 | Regime | Served parties | Eligible assigned parties | Eligible share | Added-stop-only share of eligible |
@@ -2060,7 +2054,7 @@ The London totals use rates at or below the original band limit.
 
 Early and rail hub exceeded the 2% eligibility screen.
 Their added-stop-only shares were below 20%, which selected existing-stop reassignment for implementation.
-The initial [London paired screen](measurements/london-pooling-screen.csv) covered Early, Night, and AM peak from 1/min through 15/min.
+The initial London paired screen covered Early, Night, and AM peak from 1/min through 15/min, and the all-band matrix holds its rows again.
 The [rail-hub pairs](measurements/rail-hub-pooling.csv) reduced mean journey time from 526.1 to 438.6 seconds, a 16.62% reduction.
 Their mean journey p95 fell from 957.6 to 733.5 seconds.
 

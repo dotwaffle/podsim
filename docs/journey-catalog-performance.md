@@ -25,7 +25,7 @@ The machine is an AMD Ryzen 5 3600 with Go 1.27.1 and GOMAXPROCS 2.
 
 ## Chrome comparison
 
-The comparison freezes the server at `c93bc9a` and uses the same saved traffic fixtures as the [live Chrome matrix](live-chrome-performance.md).
+The comparison freezes the server at `c93bc9a` and restores the saved LondonFull and LondonCentral traffic fixtures at tick 216000, which the [live admission comparison](admission-live-performance.md) also uses.
 Only the browser WASM build changes.
 GOGC is 100 for the server.
 Each case runs twice, with baseline and candidate order reversed for the second repetition.

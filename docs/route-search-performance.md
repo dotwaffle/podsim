@@ -61,7 +61,7 @@ These two repetitions support further evaluation of 200, not an unconditional de
 The comparison command defaults to 400 when its environment does not set GOGC.
 The server keeps Go's default of 100 unless its environment overrides it.
 Both defaults remain unchanged.
-The [live Chrome matrix](live-chrome-performance.md) retains both defaults and records the remaining playback and client CPU limits.
+An earlier live Chrome matrix at `c93bc9a` ended at 60x in every zero-client cell, and LondonCentral reduced to 15x with one client at GOGC 100 and 200 and with three clients at GOGC 100.
 
 The measured batch p99 is about 31-32 ms across candidate cells, despite good aggregate unpaced throughput.
 That statistic alone does not determine automatic speed reductions.

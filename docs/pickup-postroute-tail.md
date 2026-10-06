@@ -22,7 +22,7 @@ Each restored copy runs 60 seconds of dense checks with new controller admission
 The saved platoon records also match their round trip.
 
 Requests 3651, 2175, and 3421 are the three largest exact regressions in the prior post-routing pair.
-Request 1324 retains the [earlier Stratford witness](pickup-seed4-tail.md).
+Request 1324 retains the [earlier Stratford witness](berth-routing-service.md#stratford-request-1324).
 Selection follows outcomes and does not estimate population behavior.
 All four requests complete in both arms.
 

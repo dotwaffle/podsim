@@ -64,7 +64,7 @@ Mean pickup waits ranged from 63 to 84 seconds.
 Higher rates increased waiting times in the sampled runs.
 These finite-arrival trials do not establish a sustainable rate.
 
-The later [six-hour sustained-load screen](london-full-sustained.md) finds growing AM peak backlogs at 15 and 20 requests per minute.
+A later six-hour sustained-load screen finds growing AM peak backlogs at 15 and 20 requests per minute.
 Station approach buffers do not resolve that overload and remain disabled by default.
 The [mirrored layout study](station-mirror-load.md) also finds growing backlogs at 15 and 20 requests per minute.
 
@@ -194,9 +194,9 @@ The preset and its defaults remain unchanged.
 
 ### Metrics, checks, and retained failures
 
-[Per-arm measurements](measurements/london-full-capacity.csv) retain every result field, including unfinished requests and all required wait, journey, backlog, throughput, fleet, distance, and drain metrics.
-Rows identify the project, study phase, seed group, source commit, accounting oracle, schedule ID, and raw artifact.
-[Study metadata](measurements/london-full-capacity.json) records configuration hashes, exact fleet changes, schedule hashes, and selection decisions.
+[Post-fix per-arm measurements](measurements/london-full-postfix.csv) repeat this matrix on later source, with unfinished requests and the wait, journey, backlog, throughput, fleet, distance, and drain metrics.
+Rows identify the project, study phase, seed group, source commit, schedule ID, and raw artifact.
+[Post-fix metadata](measurements/london-full-postfix.json) records provenance, changes, and selection decisions.
 Pickup statistics include elapsed pending waits.
 Request-to-alight statistics include completed requests only.
 `peak_active_vehicles` counts vehicles with assigned work.

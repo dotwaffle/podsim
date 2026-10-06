@@ -8,7 +8,7 @@ The [measurement record](measurements/compact-queue-speed-fixed-screen.json) ret
 
 ## Fixed workload
 
-This screen resumes the [stopped follow-up](compact-queue-followup-screen.md) after the lane-entry braking correction.
+This screen resumes a stopped follow-up screen after the lane-entry braking correction.
 The native source is `30d8e34c6368c3dbb382b314cecf6bff61cf40ac`.
 All four original fixture files retain their original bytes and hashes.
 Each pair changes only ordinary spacing to `compact-v1`.
@@ -92,6 +92,7 @@ All four 900-second checkpoints finish six of sixteen requests.
 Both compact-certificate checkpoints finish five of ten requests.
 The later ten checkpoints reach the cap with accepted requests still active.
 The screen fails the disabled-drainage requirement for both spacing policies.
+A later trace of the ten incomplete continuations found finite-window exhaustion with occupied pods still moving at the cap, and no frozen fleet, retained compact certificate, or native fault.
 
 Disabled continuations use the original physical checkpoint bytes.
 Compact checkpoints remain byte-identical across observer revisions.

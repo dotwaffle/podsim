@@ -67,6 +67,6 @@ A fractional-pitch test fails when the recruitment rounding tolerance is removed
 Existing curved-entry, mixed-speed, size-limit, and ordinary-road tests remain in the regression suite.
 
 The [measurement record](measurements/station-buffer-recruitment.json) retains source and artifact hashes, results, commands, and qualification limits.
-The broader [Rail Hub screen](station-queue-headway.md) remains unchanged.
+An earlier two-seed Rail Hub screen on the banked layout found that existing virtual platoons compacted queues to the 12.01-meter minimum gap without a consistent service gain.
 It did not enable this fixed-entry buffer mechanism.
 No broader service gain or default adoption is established.

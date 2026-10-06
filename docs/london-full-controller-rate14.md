@@ -52,7 +52,7 @@ The 300-second threshold describes outcomes and is not an approved adoption limi
 
 The intermediate-rate studies distinguish nearly flat tested late windows from the uniformly growing backlogs at 15 and 20/min.
 They do not establish a sustainable rate limit or performance under other demand bands.
-The [Stratford intermediate-berth diagnosis](pickup-seed4-tail.md) shows a reciprocal resource wait in a separate 12/min seed-4 run.
+The [Stratford intermediate-berth diagnosis](berth-route-preference.md) shows a reciprocal resource wait in a separate 12/min seed-4 run.
 This report does not attribute the 14/min seed-2 backlog to that same cycle.
 Routing obstructions and individual service tails need further qualification before an adoption recommendation.
 Buffers and pickup reassignment remain off by default.

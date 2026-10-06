@@ -734,7 +734,6 @@ London topology was 51,803 gzip bytes as JSON and 46,374 gzip bytes as Protobuf.
 The editor project is not part of the state stream.
 
 The payload data is in [`measurements/protocol-normalized.csv`](measurements/protocol-normalized.csv).
-The earlier live samples remain in [`measurements/protocol-payloads.csv`](measurements/protocol-payloads.csv).
 
 The `build` key adds 11 bytes plus the length of the build ID to each raw state frame, or 27 bytes for a 16-character ID.
 With gzip level 1, sampled frames of the example, Scale100, and London projects grew by about 20 bytes.
@@ -802,7 +801,6 @@ These measurements exclude frame construction, Protobuf conversion, HTTP work, d
 They do not show the fraction of total application CPU.
 
 The codec data is in [`measurements/protocol-normalized-codec.csv`](measurements/protocol-normalized-codec.csv).
-The earlier codec samples for the previous JSON shape remain in [`measurements/protocol-codec.csv`](measurements/protocol-codec.csv).
 
 ## Removed ConnectRPC experiment
 

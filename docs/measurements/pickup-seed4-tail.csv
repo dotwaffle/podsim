@@ -1,3 +1,0 @@
-policy,wait_seconds,pending_samples,unassigned_samples,stopped_samples,stopped_traveling_samples,berth_occupied_samples,boarding_pod
-baseline,481.01666666666665,481,0,1,0,0,london-pod-058
-reassignment,5885.75,5885,26,5564,5564,5564,london-pod-216

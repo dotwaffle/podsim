@@ -7,7 +7,7 @@ This identifies the dominant observed rejection condition, without establishing 
 
 ## Method and controls
 
-The study follows the [Paddington geometry intervention](paddington-mirror-intervention.md).
+The study follows an earlier Paddington geometry intervention, which the [current-source position trials](paddington-layout.md) repeat.
 Four arms replay earlier and mirrored Central geometry with seeds 1 and 2.
 Each has six hours of arrivals at 10 requests per simulated minute, followed by a one-hour completion window.
 Virtual platoons have a four-pod limit.

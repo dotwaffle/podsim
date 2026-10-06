@@ -95,6 +95,7 @@ Two repetitions and one client do not qualify hardware-GPU rendering, large cust
 The above-capacity native regression remains part of the result.
 No network or server performance claim follows from this client cache.
 
-[Native measurements](measurements/label-measure-cache-benchmark.csv), [per-arm measurements](measurements/label-measure-cache-arms.csv), and [per-page measurements](measurements/label-measure-cache-pages.csv) retain all results.
+[Per-arm measurements](measurements/label-measure-cache-arms.csv) and [per-page measurements](measurements/label-measure-cache-pages.csv) retain the live results.
+The [label admission benchmark](measurements/label-admission-native.csv) repeats the native measurements on later source.
 [Metadata](measurements/label-measure-cache.json) records frozen inputs, source hashes, and raw-result hashes.
 Local profiles, screenshots, probes, and helpers remain in `~/.cache/agents/podsim/label-measure-cache-20260930/`.

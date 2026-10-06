@@ -74,7 +74,7 @@ Neither those deltas nor the controller means establish an individual-service gu
 
 ## Stratford request 1324
 
-The [original case](pickup-seed4-tail.md) waited 481.02 seconds in baseline and 5,885.75 seconds with reassignment.
+The original case waited 481.02 seconds in baseline and 5,885.75 seconds with reassignment.
 The new waits are 446.30 and 664.10 seconds.
 Reassignment therefore still adds 217.80 seconds for this request in the new history.
 

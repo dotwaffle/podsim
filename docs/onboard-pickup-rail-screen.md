@@ -29,7 +29,7 @@ Seed 2 makes 5, misses 393, and leaves 322 unserved.
 Neither seed has an unresolved outbound connection at the endpoint.
 Both policies produce the same connection ledger.
 
-The shared workload completes more offers than the earlier [private attribution workload](pickup-route-attribution.md).
+The shared workload completes more offers than the earlier private attribution workload.
 That comparison changes consent and sharing opportunities, so it does not isolate the occupied-pickup policy.
 The shared arms combine parties at initial boarding and produce no intermediate stops.
 They provide no occupied-pickup service evidence beyond the existing [manual screen](onboard-pickup-service-screen.md).

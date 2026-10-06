@@ -21,7 +21,7 @@ LondonFull has 287 pods and 272 sites, including three Parking facilities.
 
 Both Full fixtures normalize inactive demand and zero sharing fields to the historical study project.
 The earlier Full fixture equals that historical project after JSON decoding.
-All six earlier-layout Full result records match the [sustained-load controls](london-full-sustained.md) exactly.
+All six earlier-layout Full result records match the buffers-off controls of an earlier sustained-load screen at `fbe0332` exactly.
 
 Each run receives six hours of endpoint demand, then at most one hour to finish.
 Seeds are 1 and 2.
@@ -61,7 +61,7 @@ No run skips a request.
 
 Central Early demand leaves more unfinished requests with mirroring, despite less empty travel.
 The study does not establish the cause of that regression.
-The [Central Early diagnosis](central-mirror-diagnosis.md) compares platoons off and virtual and locates the largest added queue toward Paddington.
+A Central Early diagnosis compared platoons off and virtual and located the largest added queue toward Paddington.
 Full at 15/minute improves for seed 2 and regresses for seed 1.
 Fewer visual crossings therefore do not establish a throughput benefit.
 These six-hour runs do not replace the historical finite-arrival qualification envelope.
