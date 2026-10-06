@@ -125,6 +125,19 @@ func (s *Simulation) Emergency(podID string, orderID int) (string, error) {
 	return id, nil
 }
 
+// SetEmergencies turns the emergency start and the emergency stage on or
+// off. The session turns them on for a project with the emergency marker
+// (section 10.1 of the incident emergency contract). It refuses to turn
+// emergencies off while a record exists, because then no emergency stage
+// could end the record. Reset keeps the switch.
+func (s *Simulation) SetEmergencies(enabled bool) error {
+	if !enabled && len(s.emergencies) > 0 {
+		return fmt.Errorf("%d emergencies are active", len(s.emergencies))
+	}
+	s.emergenciesOn = enabled
+	return nil
+}
+
 // emergencyStage runs in Step after the fault stage and before dispatch,
 // only when emergencies are on (section 5.3 of the incident emergency
 // contract). For each record, in serial order, it ends the record when the

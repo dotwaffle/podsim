@@ -754,6 +754,33 @@ func TestEmergencyCountersSaturate(t *testing.T) {
 	}
 }
 
+// TestSetEmergencies checks the emergency switch. It refuses to turn
+// emergencies off while a record exists, and the refused call changes
+// nothing. After the end of the record, the switch turns off.
+func TestSetEmergencies(t *testing.T) {
+	t.Parallel()
+	s := incidentLegFleet(t)
+	if err := s.SetEmergencies(true); err != nil || !s.emergenciesOn {
+		t.Fatalf("emergencies on: error %v, on %t", err, s.emergenciesOn)
+	}
+	v := boardParties(t, s, "s1", "s2")
+	startEmergency(t, s, v, 0)
+	before := s.Clone()
+	if err := s.SetEmergencies(false); err == nil {
+		t.Fatal("the switch turned off with an active record")
+	}
+	if !sameState(before, s) {
+		t.Fatal("the refused call changed the state")
+	}
+	stepUntil(t, s, "the end of the emergency", func() bool { return len(s.emergencies) == 0 })
+	if err := s.SetEmergencies(false); err != nil || s.emergenciesOn {
+		t.Fatalf("emergencies off: error %v, on %t", err, s.emergenciesOn)
+	}
+	if _, err := s.Emergency("01", 0); !errors.Is(err, errEmergenciesOff) {
+		t.Fatalf("start with emergencies off: %v", err)
+	}
+}
+
 // TestEmergenciesOnWithoutEmergencies checks that emergencies on with no
 // record changes no state: a run with emergencies on equals a run with
 // emergencies off, apart from the switch.
