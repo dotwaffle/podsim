@@ -36,7 +36,7 @@ The [combined controller study](docs/london-full-controller-sustained.md) compar
 Its late backlog stays nearly flat at 10/min, but grows under every policy at 15 and 20/min.
 The same study's 12/min four-seed extension and 13/min focused comparison also retain nearly flat late backlogs.
 In the pre-routing 14/min study, baseline seed 2 grows a backlog, while the other tested seeds remain nearly flat.
-The [post-routing service study](docs/berth-routing-service.md) reduces that seed-2 growth from 1.683 to 0.139 orders per minute.
+The [post-routing service study](docs/berth-route-preference.md#stratford-request-1324) reduces that seed-2 growth from 1.683 to 0.139 orders per minute.
 It still has positive growth and three parties aboard at the observation cap.
 Individual wait regressions still prevent an adoption recommendation.
 The [paired mirrored-layout study](docs/station-mirror-load.md) passes its sampled safety and 48 physical-restore checks.
@@ -72,7 +72,7 @@ Experimental [station approach buffers](docs/station-buffer-state-proposal.md) a
 Separate saved project and editor controls permit opt-in testing, and explicit comparison flags select independent policy combinations.
 Saved state keeps explicit buffer membership.
 It also keeps [fixed station-entry platoons](docs/station-entry-platoons.md) until their ownership dependencies drain.
-The [terminus burst fixture](docs/terminus-flow.md) measures berth claims, pickup supply, and finite outbound service.
+The [terminus burst fixture](docs/buffer-late-claim.md#terminus-burst-service) measures berth claims, pickup supply, and finite outbound service.
 Buffers increase waits in its selected Central comparisons, so throughput benefits remain unqualified.
 Broader adoption requires separate qualification and a decision.
 The user approved the [adoption gates](docs/experimental-adoption.md) on October 1.
@@ -511,7 +511,7 @@ New routes avoid intermediate berths when a compatible path exists.
 Authored layouts without an independent through path retain the unrestricted fallback.
 The passenger arrival-chain guard preserves committed prefixes.
 Existing physical saves retain their routes, and berth ownership and reservation guards remain intact.
-The [selected service qualification](docs/berth-routing-service.md) retains individual tail regressions despite improved aggregate results.
+The [selected service qualification](docs/berth-route-preference.md#stratford-request-1324) retains individual tail regressions despite improved aggregate results.
 
 ### Congestion-aware routing
 

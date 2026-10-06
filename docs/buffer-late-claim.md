@@ -88,5 +88,92 @@ This selected overloaded fixture does not describe all station layouts or establ
 
 Independent candidate, helper, runner, and evidence reviews pass.
 The raw measurement data is in git history.
-The [earlier station-speed study](station-buffer-speed.md) retains the negative speed trials.
+The sections below retain the earlier Acton station-speed trials and the Central terminus burst measurements.
 The [experimental gates](experimental-adoption.md) define the separate qualification requirements.
+
+## Acton buffer discharge and station speed
+
+Buffers claim berths earlier, but each incoming claim lasts longer.
+Lower station speeds further reduce completions in this fixture and lengthen each claim.
+Neither the buffer default nor a lower station speed is supported.
+
+All arms use frozen production source `e285e69` and the Acton mixed-burst fixture.
+They accept the same 1,920 requests over two hours and permit a three-hour cutoff.
+Sharing, pickup reassignment, and positioning remain off.
+Routing uses free-flow costs, virtual platoons permit four pods, and the queue limit is one million.
+The 14 m/s diagnostic reproduces the earlier buffer arms exactly.
+The speed trials change only the limits on Acton's 19 station-tagged lanes: approaches, berth links, the bypass, and exits.
+These are station-wide sensitivity trials, not isolated tests of following gaps.
+
+The observer samples incoming berth claims once per simulated second.
+The table excludes right-censored episodes from duration statistics.
+
+| Speed, m/s | Buffers | Completed | Unfinished | Completed claim episodes | Censored episodes | Mean claim, seconds | Claim P95, seconds | Buffer grants |
+| ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 14 | Off | 1,029 | 891 | 622 | 0 | 7.51 | 9 | 0 |
+| 14 | On | 907 | 1,013 | 559 | 1 | 25.01 | 28 | 557 |
+| 10 | Off | 815 | 1,105 | 495 | 0 | 7.14 | 8 | 0 |
+| 10 | On | 797 | 1,123 | 488 | 2 | 30.44 | 35 | 486 |
+| 7 | Off | 621 | 1,299 | 389 | 0 | 7.10 | 8 | 0 |
+| 7 | On | 613 | 1,307 | 389 | 1 | 39.79 | 46 | 388 |
+
+At 14 m/s, the buffer makes 557 grants from 384,727 calls.
+The mean remaining free-flow travel at a grant is 18.75 seconds, rising to 25.55 and 36.52 seconds at 10 and 7 m/s.
+The longer sampled claims accompany fewer completions.
+This association does not isolate all causes of the buffer regression.
+
+At 10 m/s, completions decrease by 214 with buffers off and 110 with buffers on.
+At 7 m/s, the decreases are 408 and 294.
+All six arms remain overloaded.
+Lower speeds reduce braking distance, but the trial retains the track-cell geometry, 12-meter physical clearance, and the fixed stopping frontier.
+Lower limits also lengthen approach and exit travel and change route costs.
+A smaller gap at lower speed does not establish higher throughput for this geometry and safety model.
+Keep the existing speed limits and reservations.
+A future buffer change must preserve the complete-path safety contract and show better service on matched individual cohorts.
+
+## Terminus burst service
+
+Train-sized bursts increase pickup waits at Euston and Paddington in this Central fixture.
+Buffers raise pickup waits in all eight unlimited-queue comparisons, including steady demand.
+The buffer default remains off.
+
+The fixture uses source `4e36e9f` and the frozen mirrored LondonCentral project.
+Each station has two passenger berths.
+Both seeds offer 239 outbound parties during a 20-minute arrival window, with a 90-minute run cap.
+Steady arrivals occur every five seconds.
+Burst arrivals deliver 120 parties at five seconds and 119 parties at 605 seconds.
+The queue limit is one million, sharing, reassignment, and redistribution are off, and virtual platoons allow four pods.
+All 32 cells pass the per-second safety, speed, and conservation checks and the physical restores.
+
+All unlimited-queue cells serve all 239 parties and drain within the cap.
+Times use simulated seconds.
+
+| Station | Seed | Buffers | Mean pickup wait | P95 pickup wait | Run ends |
+| --- | ---: | --- | ---: | ---: | ---: |
+| Euston | 1 | Off | 940.5 | 1,810.1 | 3,235 |
+| Euston | 1 | On | 1,919.2 | 3,556.5 | 4,840 |
+| Euston | 2 | Off | 977.7 | 1,806.1 | 3,535 |
+| Euston | 2 | On | 1,919.2 | 3,556.5 | 5,017 |
+| Paddington | 1 | Off | 1,660.0 | 3,151.1 | 4,566 |
+| Paddington | 1 | On | 1,947.1 | 3,657.9 | 5,094 |
+| Paddington | 2 | Off | 1,658.4 | 3,144.4 | 4,592 |
+| Paddington | 2 | On | 1,940.9 | 3,645.4 | 5,107 |
+
+With buffers off, steady mean waits range from 701.1 to 789.0 seconds at Euston and about 1,407 seconds at Paddington.
+Buffers also increase these steady waits.
+The bounded queue skips nine burst requests in every buffer-on cell.
+Buffer-off cells skip zero at Euston, four at Paddington seed 1, and three at Paddington seed 2.
+Steady cells skip none.
+Do not compare bounded-queue wait means as though every arm served the same requests.
+
+In unlimited burst cells, incoming berth claims account for 24.7-27.1% of Euston berth samples with buffers off and 59.9-62.1% with buffers on.
+Paddington changes from 22.4-22.6% to 58.4-58.7%.
+These fractions use each arm's full run duration, so they describe reservation states, not occupancy over one common window.
+Free berths also coexist with pending requests for much of each run.
+This does not prove that a local idle pod can serve those requests, because pending parties can have assigned pickups elsewhere.
+
+The measurements make incoming berth claims and pickup supply the next diagnostic targets.
+They establish no cause and do not justify a clearance change.
+Two stations and two seeds do not qualify a default change or a LondonFull capacity claim.
+The fixture has finite outbound demand with no inbound passenger service or background traffic.
+The production oracle compares result aggregates, not individual timing parity.

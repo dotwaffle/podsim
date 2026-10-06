@@ -68,3 +68,61 @@ Legacy fallback paths and existing committed routes can still cross occupied ber
 The fix does not establish complete cycle prevention or sustainable passenger capacity.
 Selected matched-request and sustained LondonFull comparisons will assess the changed histories.
 Buffers and reassignment remain off by default.
+
+## Stratford request 1324
+
+Source `89e1e1d` includes the route preference and the passenger arrival-chain commitment fix.
+It uses the unchanged Full project, AM Peak demand, four-pod virtual platoons, and sharing and redistribution off.
+The study queue limit is 1,000,000 and the live queue limit remains 200.
+Eight full arms offer six hours of arrivals with a seven-hour cap.
+They cover 12/min seeds 1 and 4 with baseline or reassignment, and 14/min seeds 1 and 2 with baseline or both controllers.
+Every arm passes the per-second checks and physical restores at three and six hours.
+
+The earlier cached histories use `bab8559`.
+A `60d523e` pre-routing witness exactly reproduces the cached 12/min seed-4 reassignment result, so it bridges the diagnosed case only.
+The other seven comparisons are cached-source versus post-routing comparisons.
+Changed histories measure the combined routing and commitment patch, without separating either component.
+
+Late backlog change counts outstanding orders from hour three to hour six, divided by 180 minutes.
+
+| Nominal rate/min | Seed | Policy | Cached late growth/min | New late growth/min | New completed / accepted | New pending / aboard |
+| ---: | ---: | --- | ---: | ---: | ---: | ---: |
+| 12 | 1 | Baseline | -0.006 | -0.056 | 4,317 / 4,319 | 0 / 2 |
+| 12 | 1 | Reassignment | -0.044 | -0.083 | 4,317 / 4,319 | 0 / 2 |
+| 12 | 4 | Baseline | -0.100 | -0.078 | 4,319 / 4,319 | 0 / 0 |
+| 12 | 4 | Reassignment | -0.094 | -0.094 | 4,319 / 4,319 | 0 / 0 |
+| 14 | 1 | Baseline | -0.050 | +0.000 | 5,040 / 5,042 | 0 / 2 |
+| 14 | 1 | Both | -0.044 | -0.039 | 5,041 / 5,042 | 0 / 1 |
+| 14 | 2 | Baseline | +1.683 | +0.139 | 5,039 / 5,042 | 0 / 3 |
+| 14 | 2 | Both | -0.028 | -0.011 | 5,040 / 5,042 | 0 / 2 |
+
+The 14/min seed-2 baseline completes 5,039 requests, compared with 5,017 in the cached history.
+Its late backlog growth decreases from 1.683 to 0.139 orders per minute, still positive, with three parties aboard at the cap.
+The separate 12/min Stratford case does not identify the cause of this improvement.
+These finite windows do not establish indefinite capacity or cover other demand bands.
+
+Controller comparisons use the new-source baseline.
+Exact deltas include only requests that board in both arms, and a negative mean means the controller arm boards them sooner.
+
+| Nominal rate/min | Seed | Exact mean delta, seconds | Requests over 300 seconds slower | Largest increase, seconds |
+| ---: | ---: | ---: | ---: | ---: |
+| 12 | 1 | -2.52 | 106 | 1,520.42 |
+| 12 | 4 | -3.22 | 113 | 1,629.73 |
+| 14 | 1 | -22.77 | 186 | 1,557.60 |
+| 14 | 2 | -48.02 | 179 | 1,525.55 |
+
+Better matched means coexist with individual increases of about 25-27 minutes.
+Neither these deltas nor the controller means establish an individual-service guarantee.
+Buffers and reassignment stay off by default.
+
+The original request 1324 waited 481.02 seconds in baseline and 5,885.75 seconds with reassignment.
+The new waits are 446.30 and 664.10 seconds, so reassignment still adds 217.80 seconds.
+A read-only frame replay exactly matches the new result.
+Request 1324 boards pod 112 at tick 437046, on a pickup route from Tower Hill to Leyton that contains only the Leyton destination berth.
+The replay records 664 pending boundary samples: 29 unassigned, one stopped departure sample, and no berth-occupied samples.
+There is no direct reassignment record for request 1324.
+The earlier pod-123/pod-025 Stratford cycle does not appear in the new history.
+This does not establish cycle prevention for every pod, legacy fallback, or previously saved committed route.
+The changed fleet history also prevents attributing this result to one earlier dispatch decision.
+
+The raw measurement data of these studies is in git history.
