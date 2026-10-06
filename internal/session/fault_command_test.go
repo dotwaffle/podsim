@@ -153,12 +153,11 @@ func TestFaultCommandsWithCouplingFault(t *testing.T) {
 }
 
 // TestFaultSessionEvents checks the faults across the session events of
-// the incident suspension contract. A reset, a demo, a rewind, and the
-// apply of a changed project end every fault and keep faults on. The
-// apply of the same project keeps the faults. The apply of a project
-// without the marker turns faults off. The demo case starts debris away
-// from the demo route, because the demo refuses to start when a fault
-// blocks its route.
+// the incident suspension contract. A reset, a rewind, and the apply of a
+// changed project end every fault and keep faults on. The apply of the
+// same project keeps the faults. The apply of a project without the
+// marker turns faults off. A demo ends every fault, also a fault on a demo
+// route, and turns faults off until a reset.
 func TestFaultSessionEvents(t *testing.T) {
 	t.Parallel()
 	config := faultSessionProject(project.FaultConfig{})
@@ -175,12 +174,6 @@ func TestFaultSessionEvents(t *testing.T) {
 		{"reset", pod, func(t *testing.T, client *testClient) bool {
 			t.Helper()
 			client.mustApply(t, Command{Action: "reset"})
-			return true
-		}},
-		{"demo", Command{Action: "fault", LaneID: "garden-through", FromMeters: new(80.0), ToMeters: new(82.0)}, func(t *testing.T, client *testClient) bool {
-			t.Helper()
-			client.mustApply(t, Command{Action: "demo"})
-			client.mustApply(t, Command{Action: "pause", Paused: true})
 			return true
 		}},
 		{"same project", pod, func(t *testing.T, client *testClient) bool {
@@ -220,6 +213,21 @@ func TestFaultSessionEvents(t *testing.T) {
 			t.Fatalf("the rewound session reused the fault ID %s", id)
 		}
 	})
+	t.Run("demo", func(t *testing.T) {
+		t.Parallel()
+		client := newFaultClient(t, config)
+		ids := []string{client.mustApply(t, debrisCommand()).FaultID, client.mustApply(t, pod).FaultID}
+		client.mustApply(t, Command{Action: "demo"})
+		client.mustApply(t, Command{Action: "pause", Paused: true})
+		for _, id := range ids {
+			client.mustReject(t, Command{Action: "clearFault", FaultID: id}, "faults are not enabled")
+		}
+		client.mustReject(t, debrisCommand(), "faults are not enabled")
+		client.mustReject(t, pod, "faults are not enabled")
+		client.mustApply(t, Command{Action: "reset"})
+		client.mustApply(t, debrisCommand())
+		client.mustApply(t, pod)
+	})
 	t.Run("unmarked project", func(t *testing.T) {
 		t.Parallel()
 		client := newFaultClient(t, config)
@@ -258,6 +266,59 @@ func TestFaultRestoreKeepsFaultsOn(t *testing.T) {
 		next := newTestClient(restored, "faults-restored")
 		next.mustApply(t, Command{Action: "fault", PodID: "02"})
 		restored.Close()
+	}
+}
+
+// TestFaultRestoreDemoKeepsFaultsOff checks that a session restored from a
+// save of the traffic demo has faults off, as the demo command leaves
+// them. The parked demo pods stay after the demo ends, so the restore of
+// an ended demo also has faults off. The logical tier stops the demo and
+// removes those pods, so faults are on again.
+func TestFaultRestoreDemoKeepsFaultsOff(t *testing.T) {
+	t.Parallel()
+	config := faultSessionProject(project.FaultConfig{})
+	store := &fakeStore{}
+	s, err := NewFromStore(t.Context(), StoreInput{Store: store, Project: &config})
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := newTestClient(s, "faults")
+	client.mustApply(t, Command{Action: "pause", Paused: true})
+	client.mustApply(t, Command{Action: "demo"})
+	client.mustApply(t, Command{Action: "pause", Paused: true})
+	if err = s.SaveState(t.Context(), SavePeriodic); err != nil {
+		t.Fatal(err)
+	}
+	s.Close()
+	writes := store.writeList()
+	run := storedRun{data: writes[len(writes)-1]}
+	tests := []struct {
+		name string
+		data []byte
+		tier string
+		// on tells whether the restored session has faults on.
+		on bool
+	}{
+		{"running demo", run.data, "physical", false},
+		{"ended demo", run.edited(t, func(file *stateFile) { file.Simulation.Demo = nil }), "physical", false},
+		{"logical tier", run.edited(t, logicalOnly), "logical", true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			restored, err := NewFromStore(t.Context(), StoreInput{Store: &fakeStore{data: test.data}})
+			if err != nil || restored.restore.Tier != test.tier {
+				t.Fatalf("restore %v, %+v", err, restored.restore)
+			}
+			t.Cleanup(restored.Close)
+			next := newTestClient(restored, "faults-restored")
+			next.mustApply(t, Command{Action: "pause", Paused: true})
+			if test.on {
+				next.mustApply(t, Command{Action: "fault", PodID: "01"})
+				return
+			}
+			next.mustReject(t, Command{Action: "fault", PodID: "01"}, "faults are not enabled")
+		})
 	}
 }
 

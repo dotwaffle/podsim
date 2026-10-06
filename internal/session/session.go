@@ -798,13 +798,16 @@ func (s *Session) apply(command Command) (outcome, error) {
 		}
 		// The demo makes a new fleet with the default settings. A reset
 		// after the demo keeps them, so apply the project settings again.
-		if err := project.ConfigureSharedRides(s.simulation, s.project); err != nil {
+		// The demo project has no fault marker, so faults stay off until a
+		// reset or a project apply.
+		demo := demoProject(s.project)
+		if err := project.ConfigureSharedRides(s.simulation, demo); err != nil {
 			return outcome{}, fmt.Errorf("configure shared rides: %w", err)
 		}
-		if err := project.ConfigurePlatoons(s.simulation, s.project); err != nil {
+		if err := project.ConfigurePlatoons(s.simulation, demo); err != nil {
 			return outcome{}, fmt.Errorf("configure platoons: %w", err)
 		}
-		if err := project.ConfigureExperiments(s.simulation, s.project); err != nil {
+		if err := project.ConfigureExperiments(s.simulation, demo); err != nil {
 			return outcome{}, fmt.Errorf("configure experimental policies: %w", err)
 		}
 		s.speed = 1
@@ -944,6 +947,22 @@ func (s *Session) applyProject(command Command) (bool, error) {
 	s.simulation.SetIncidentGeneration(s.generation)
 	s.restore = RestoreInfo{}
 	return true, nil
+}
+
+// demoProject returns the project of the traffic demo: config without the
+// fault marker and the faults settings. The demo keeps the incident marker
+// of config, because the topology keeps it.
+func demoProject(config project.Config) project.Config {
+	config.FaultContract, config.Faults = "", nil
+	return config
+}
+
+// demoFleet reports whether simulation has the fleet of the traffic demo.
+// The parked demo pods stay after the demo ends, until a reset. The
+// logical restore tier removes them and stops the demo.
+func demoFleet(simulation *sim.Simulation, fleet []sim.Placement) bool {
+	snapshot := simulation.Snapshot()
+	return snapshot.Demo || len(snapshot.Vehicles) > len(fleet)
 }
 
 // sameExceptCouplingEnabled reports whether next is the same as current
