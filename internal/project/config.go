@@ -186,12 +186,6 @@ type DemandContext struct {
 // Config is the versioned, portable scenario configuration.
 type Config struct {
 	OrderContract sim.OrderContract `json:"orderContract,omitzero"`
-	// CouplingContract selects the authored physical coupling profile.
-	CouplingContract sim.CouplingContract `json:"couplingContract,omitzero"`
-	// CouplingEnabled authorizes empty and passenger trains. Cabin consent stays unchanged.
-	CouplingEnabled   bool                   `json:"couplingEnabled,omitzero"`
-	CouplingSites     []sim.CouplingSite     `json:"couplingSites,omitzero"`
-	CouplingCorridors []sim.CouplingCorridor `json:"couplingCorridors,omitzero"`
 	// IncidentContract selects the incident service transitions. It is an
 	// extension field of the command digest, so a command without it keeps
 	// its digest.
@@ -268,7 +262,6 @@ func Default() Config {
 // error is the refusal, so the order is part of the result.
 var projectChecks = [...]func(Config) error{
 	validateVersion,
-	validateCouplingContract,
 	validateIncidentContract,
 	validateFaultContract,
 	validateEmergencyContract,
@@ -280,7 +273,6 @@ var projectChecks = [...]func(Config) error{
 	validateGeoAndMap,
 	validateNames,
 	validateNetworkShape,
-	validateCouplingGeometry,
 	validateProjectDemand,
 	validateScenario,
 	validatePassengerStations,
@@ -964,11 +956,6 @@ func Clone(config Config) Config {
 	clone.RailArrivals = cloneRailArrivals(config.RailArrivals)
 	clone.RailDepartures = cloneRailDepartures(config.RailDepartures)
 	clone.ExpressServices = slices.Clone(config.ExpressServices)
-	clone.CouplingSites = slices.Clone(config.CouplingSites)
-	clone.CouplingCorridors = slices.Clone(config.CouplingCorridors)
-	for index := range clone.CouplingCorridors {
-		clone.CouplingCorridors[index].LaneIDs = slices.Clone(config.CouplingCorridors[index].LaneIDs)
-	}
 	if config.Geo != nil {
 		clone.Geo = new(*config.Geo)
 	}

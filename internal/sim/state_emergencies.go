@@ -103,10 +103,8 @@ func (s *Simulation) exportEmergencies() *SavedEmergencies {
 
 // checkSavedEmergencies checks the saved emergency data before either
 // restore tier (section 11.5 of the incident emergency contract). It reads
-// only the saved records, pod tuples, and coupling groups, so the logical
-// tier cannot remove the evidence that it needs. With or without the
-// emergency marker, no member of a saved coupling group has a hold or a
-// purpose (invariant E6). Records and counters need the marker. With the
+// only the saved records and pod tuples, so the logical tier cannot remove
+// the evidence that it needs. Records and counters need the marker. With the
 // marker, the records meet E1, and the saved pods meet E2 to E5 and E8.
 // Each failure makes the whole save invalid.
 func checkSavedEmergencies(input RestoreStateInput) error {
@@ -114,11 +112,6 @@ func checkSavedEmergencies(input RestoreStateInput) error {
 		return err
 	}
 	state := input.State
-	for _, pod := range state.Pods {
-		if state.couplingMember(pod.ID) && (pod.Withdrawn != 0 || pod.Purpose != 0) {
-			return fmt.Errorf("%w: E6: coupling member %s has a hold or a purpose", errInvalidEmergencies, pod.ID)
-		}
-	}
 	if input.EmergencyContract == "" {
 		if state.Emergencies != nil {
 			return errors.New("saved emergencies need the emergency contract")
@@ -276,7 +269,7 @@ func (r *physicalRestore) restoreEmergencies() error {
 // (section 10.7 of the incident emergency contract). The counters stay.
 // With the emergency marker, each pod returns to service from the
 // emergency hold: the tier puts each pod at its initial berth with no
-// purpose, so the hold owns no purpose, and no pod is a coupling member.
+// purpose, so the hold owns no purpose.
 // Without the marker, the pods keep the hold, as the stage 1 tier keeps
 // each hold. It returns the number of records that ended.
 func (s *Simulation) dropSavedEmergencies(saved *SavedEmergencies) (int, error) {

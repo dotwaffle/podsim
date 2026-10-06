@@ -35,9 +35,6 @@ func (o SafetyObservation) Check() (float64, error) {
 	if o.compactError != nil {
 		return 0, o.compactError
 	}
-	if err := o.checkCouplingSafety(); err != nil {
-		return 0, err
-	}
 	for _, pod := range o.Pods {
 		if !finite(pod.Position.X) || !finite(pod.Position.Y) || !finite(pod.Speed) || pod.Speed < 0 {
 			return 0, fmt.Errorf("invalid pod at tick %d: %+v", o.Tick, pod)
@@ -77,8 +74,7 @@ func (o SafetyObservation) Check() (float64, error) {
 //   - A skipped pair has a squared gap of at least reach, so it is not a
 //     violation, because each pair compares with a threshold of at most
 //     reach. Its squared gap is also at least the smallest squared gap so
-//     far, so it cannot change the smallest gap. Certified coupling pairs
-//     only change the smallest gap, so the same bound covers them.
+//     far, so it cannot change the smallest gap.
 //   - Each pair test uses the pods in their order in o.Pods, and the result
 //     of a pair does not depend on the other pairs. The first violating pair
 //     in the order of o.Pods is the smallest violating (i, j), which the
@@ -132,10 +128,9 @@ type separationIndex struct {
 	reach float64
 }
 
-// separationLink records a certified coupling pair or a compact pair.
+// separationLink records a certified compact pair.
 type separationLink struct {
 	other    int
-	coupled  bool
 	compact  bool
 	envelope float64
 }
@@ -157,7 +152,7 @@ func (o SafetyObservation) separationIndex() separationIndex {
 			index.reach = max(index.reach, separationThresholdSquared(largeClearance))
 		}
 	}
-	if len(o.couplingPairs) == 0 && len(o.compactPairs) == 0 {
+	if len(o.compactPairs) == 0 {
 		return index
 	}
 	ids := make(map[string][]int, len(o.Pods))
@@ -168,13 +163,6 @@ func (o SafetyObservation) separationIndex() separationIndex {
 	// Each key can match only the pods with its two IDs. The pair result
 	// comes from the lookups of the original pair loop, with the pods in
 	// their order in o.Pods.
-	for key := range o.couplingPairs {
-		for _, pair := range idPairs(ids, key) {
-			if o.certifiedCouplingPair(o.Pods[pair[0]], o.Pods[pair[1]]) {
-				index.link(pair[0], pair[1]).coupled = true
-			}
-		}
-	}
 	for key, certified := range o.compactPairs {
 		if threshold := separationThresholdSquared(certified.minimum); threshold > index.reach {
 			index.reach = threshold
@@ -228,9 +216,6 @@ func (index *separationIndex) pair(pods []Pod, i, j int) (gapSquared float64, co
 	first, second := pods[i], pods[j]
 	dx := first.Position.X - second.Position.X
 	dy := first.Position.Y - second.Position.Y
-	if link.coupled {
-		return dx*dx + dy*dy, true, false
-	}
 	minimum := classPairClearance(first.Class, second.Class)
 	var separated bool
 	if minimum > Clearance {

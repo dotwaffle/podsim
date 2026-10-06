@@ -231,8 +231,7 @@ func TestRequestLimitsMatchExactProjectNames(t *testing.T) {
 	}
 }
 
-// An Express file without the coupling marker can have station queue
-// spacing. Native and the import verdict accept it.
+// An Express file can have station queue spacing. Native and the import verdict accept it.
 func TestExpressQueueSpacingPassesTheVerdict(t *testing.T) {
 	t.Parallel()
 	for _, value := range []string{"ordinary", "compact-v1"} {
@@ -368,4 +367,21 @@ func TestLaneClassesEdit(t *testing.T) {
 			t.Fatal("accepted", command)
 		}
 	}
+}
+
+// applyEdit returns draft with the patch of command. It fails the test
+// when the edit changes draft.
+func applyEdit(t *testing.T, draft map[string]any, command string) map[string]any {
+	t.Helper()
+	before := cloneEditValue(draft)
+	change, err := editProject(draft, jsontext.Value(command))
+	if err != nil {
+		t.Fatal(command, err)
+	}
+	if !reflect.DeepEqual(draft, before) {
+		t.Fatal("the proposal changed its source")
+	}
+	out := object(cloneEditValue(draft))
+	maps.Copy(out, change.Patch)
+	return out
 }

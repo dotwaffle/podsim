@@ -50,7 +50,6 @@ func checkServiceMetadata(draft any, errors *checkList) {
 	if problem := draftContractError(draft); problem != "" {
 		errors.add(problem, nil)
 	}
-	checkCouplingGeometry(draft, errors)
 	if !hasServiceMetadata(draft) {
 		return
 	}
@@ -158,13 +157,9 @@ func draftVersionError(draft any) string {
 	return ""
 }
 
-// draftContractError checks the contract markers. Service metadata needs
-// no marker. Express features need orderContract express-v1, and the
-// coupling fields need couplingContract compact-pair-v1.
+// draftContractError checks the contract marker. Service metadata needs
+// no marker. Express features need orderContract express-v1.
 func draftContractError(draft any) string {
-	if problem := couplingContractError(draft); problem != "" {
-		return problem
-	}
 	if has(draft, "orderContract") && draftOrderContract(draft) != sim.ExpressOrderContract {
 		return "The order contract must be express-v1."
 	}

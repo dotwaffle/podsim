@@ -166,19 +166,6 @@ func TestPodFaultRefusals(t *testing.T) {
 					panic(err)
 				}
 			}},
-		{"coupled member", 0, errFaultTarget,
-			func(_ *Simulation, traveling, _ *vehicle) *vehicle { traveling.couplingID = "pair"; return traveling },
-			func(_ *Simulation, v *vehicle) { v.couplingID = "" }},
-		{"approach member", 0, errFaultTarget,
-			func(s *Simulation, traveling, _ *vehicle) *vehicle {
-				c := &couplingApproachContext{}
-				c.members[1].id = traveling.Pod.ID
-				s.couplingApproaches = append(s.couplingApproaches, couplingNativeApproach{context: c})
-				return traveling
-			},
-			func(s *Simulation, _ *vehicle) {
-				s.couplingApproaches = s.couplingApproaches[:len(s.couplingApproaches)-1]
-			}},
 		{"platoon leader", 0, errFaultTarget,
 			func(_ *Simulation, traveling, _ *vehicle) *vehicle { traveling.follower = 2; return traveling },
 			func(_ *Simulation, v *vehicle) { v.follower = 0 }},
@@ -249,7 +236,7 @@ func TestPodFaultPreconditionOrder(t *testing.T) {
 	t.Parallel()
 	s, traveling, _ := faultFixture(t)
 	s.faultsOn, s.incidentSerial = false, math.MaxUint64
-	traveling.faulted, traveling.couplingID, s.pass.active = true, "pair", true
+	traveling.faulted, traveling.follower, s.pass.active = true, 2, true
 	var v *vehicle
 	duration := int64(-1)
 	for _, step := range []struct {
@@ -261,7 +248,7 @@ func TestPodFaultPreconditionOrder(t *testing.T) {
 		{errIncidentLimit, func() { s.incidentSerial = 0 }},
 		{errUnknownPod, func() { v = traveling }},
 		{errPodFaulted, func() { traveling.faulted = false }},
-		{errFaultTarget, func() { traveling.couplingID = "" }},
+		{errFaultTarget, func() { traveling.follower = 0 }},
 		{errFaultDispatch, func() { s.pass.active = false }},
 	} {
 		if _, err := s.startPodFault(v, duration); !errors.Is(err, step.want) {
@@ -534,7 +521,7 @@ func TestCheckFaults(t *testing.T) {
 		{"faulted pod without a record", func(s *Simulation) { s.faults = s.faults[:1] }, "no fault record"},
 		{"faulted pod with no records", func(s *Simulation) { s.faults = nil; s.vehicles[0].faulted = true }, "no fault record"},
 		{"record of a pod without the fault hold", func(s *Simulation) { s.vehicles[s.faults[1].pod].withdrawn = 0 }, "no fault hold"},
-		{"faulted platoon follower", func(s *Simulation) { s.vehicles[s.faults[0].pod].link.leader = 2 }, "member of a train"},
+		{"faulted platoon follower", func(s *Simulation) { s.vehicles[s.faults[0].pod].link.leader = 2 }, "member of a compact queue or a platoon"},
 		{"cap behind the pod", func(s *Simulation) {
 			v := &s.vehicles[s.faults[0].pod]
 			v.faultCap = math.Nextafter(v.distance, 0)

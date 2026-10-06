@@ -26,15 +26,8 @@ func EncodeStreamJSON(e StreamEnvelope) ([]byte, error) {
 }
 
 // validateEncodedContract binds the envelope markers to the frame before
-// the publisher writes them. It does not parse the raw delta replacement
-// groups. frameGroups builds them from the same frame, so the check trusts
-// their members and examines only the coupling group key.
+// the publisher writes them.
 func validateEncodedContract(e StreamEnvelope) error {
-	if e.CouplingContract != "" {
-		if _, known := sim.LookupCouplingProfile(e.CouplingContract); !known {
-			return sim.ErrUnknownCouplingContract
-		}
-	}
 	if e.Full != nil {
 		if err := sim.ValidateIncidentContract(e.Full.State.Simulation.IncidentContract); err != nil {
 			return err
@@ -51,55 +44,15 @@ func validateEncodedContract(e StreamEnvelope) error {
 		if e.OrderContract != e.Full.State.Simulation.OrderContract {
 			return errors.New("publication order contract mismatch")
 		}
-		if e.CouplingContract != e.Full.State.Simulation.CouplingContract {
-			return errors.New("publication coupling contract mismatch")
-		}
-	}
-	if e.CouplingContract != "" {
-		return nil
-	}
-	if e.Full != nil && hasCouplingFrameFields(e.Full.State.Simulation) {
-		return errors.New("unmarked publication contains coupling fields")
-	}
-	if e.Delta != nil && hasCouplingDeltaFields(*e.Delta) {
-		return errors.New("unmarked publication contains coupling fields")
 	}
 	return nil
 }
 
-// hasCouplingFrameFields reports the fields that couplingFrameBinding
-// rejects in an unmarked frame.
-func hasCouplingFrameFields(frame SimulationFrame) bool {
-	if frame.CouplingEnabled || frame.CouplingGroups != nil {
-		return true
-	}
-	for _, cabin := range frame.Vehicles {
-		if cabin.CouplingID != "" {
-			return true
-		}
-	}
-	return false
-}
-
-func hasCouplingDeltaFields(delta StreamDelta) bool {
-	if _, replaced := delta.Groups["coupling"]; replaced {
-		return true
-	}
-	for _, vehicle := range delta.Vehicles {
-		if vehicle.Metadata != nil && vehicle.Metadata.Value.CouplingID != "" {
-			return true
-		}
-	}
-	return false
-}
-
 func validateEnvelopeContract(e StreamEnvelope, previous StreamFrame) error {
 	contract := previous.State.Simulation.OrderContract
-	coupling := previous.State.Simulation.CouplingContract
 	incident := previous.State.Simulation.IncidentContract
 	if e.Full != nil {
 		contract = e.Full.State.Simulation.OrderContract
-		coupling = e.Full.State.Simulation.CouplingContract
 		incident = e.Full.State.Simulation.IncidentContract
 	}
 	if err := sim.ValidateOrderContract(contract); err != nil {
@@ -111,21 +64,10 @@ func validateEnvelopeContract(e StreamEnvelope, previous StreamFrame) error {
 	if e.OrderContract != contract {
 		return errors.New("publication order contract mismatch")
 	}
-	if coupling != "" {
-		if _, known := sim.LookupCouplingProfile(coupling); !known {
-			return sim.ErrUnknownCouplingContract
-		}
-	}
-	if e.CouplingContract != coupling {
-		return errors.New("publication coupling contract mismatch")
-	}
 	return nil
 }
 
 func (file *stateFile) validateWireContract() error {
-	if err := file.validateCouplingContract(); err != nil {
-		return err
-	}
 	if file.OrderContract != "" && file.OrderContract != sim.ExpressOrderContract ||
 		file.Simulation.OrderContract != file.OrderContract || file.Project.OrderContract != file.OrderContract {
 		return errors.New("saved order contract markers disagree")
@@ -144,12 +86,11 @@ func (file *stateFile) validateWireContract() error {
 // no other members, so that a client of an earlier version can decode it,
 // record the build and refuse the version.
 type StreamHello struct {
-	Kind             string               `json:"kind"`
-	Version          int                  `json:"version"`
-	Build            string               `json:"build"`
-	ServerStart      string               `json:"serverStart"`
-	OrderContract    sim.OrderContract    `json:"orderContract,omitzero"`
-	CouplingContract sim.CouplingContract `json:"couplingContract,omitzero"`
+	Kind          string            `json:"kind"`
+	Version       int               `json:"version"`
+	Build         string            `json:"build"`
+	ServerStart   string            `json:"serverStart"`
+	OrderContract sim.OrderContract `json:"orderContract,omitzero"`
 }
 
 // DecodeStreamHello rejects unknown, duplicate, and contradictory
@@ -170,15 +111,10 @@ func DecodeStreamHello(raw []byte) (StreamHello, error) {
 	if hello.Version != StreamVersion {
 		return hello, fmt.Errorf("unsupported state stream version %d", hello.Version)
 	}
-	markers := contractMarkers{order: hello.OrderContract, coupling: hello.CouplingContract}
-	if markers.coupling != "" {
-		if err := scanCouplingStreamJSON(raw); err != nil {
-			return hello, err
-		}
-	} else if err := scanStreamServiceMembers(raw, markers); err != nil {
+	if err := scanStreamServiceMembers(raw); err != nil {
 		return hello, err
 	}
-	if err := scanContractMarkers(raw, markers.order == sim.ExpressOrderContract); err != nil {
+	if err := scanContractMarkers(raw, hello.OrderContract == sim.ExpressOrderContract); err != nil {
 		return hello, err
 	}
 	return hello, nil

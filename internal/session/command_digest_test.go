@@ -13,8 +13,7 @@ import (
 )
 
 // TestCommandDigestBaseline pins the digest of one command per action. The
-// project commands carry the plain, the Express and the coupling example
-// projects.
+// project commands carry the plain and the Express example projects.
 //
 // A receipt keeps only the digest of a command, and a retry matches its
 // receipt by that digest. digestCommand hashes every field of Command and
@@ -31,7 +30,6 @@ func TestCommandDigestBaseline(t *testing.T) {
 	const path = "testdata/command_digests.txt"
 	plain := project.Default()
 	express := expressConsumerProject(t)
-	coupling := couplingExample()
 	commands := []struct {
 		name    string
 		command Command
@@ -47,7 +45,6 @@ func TestCommandDigestBaseline(t *testing.T) {
 		{"demand", Command{Action: "demand", Demand: DemandConfig{Enabled: true, PerMinute: 6, Pattern: "market", Seed: 3}}},
 		{"project-plain", Command{Action: "project", Project: &plain, ProjectRevision: 1, ServerStart: testStateEpoch}},
 		{"project-express", Command{Action: "project", Project: &express, ProjectRevision: 2, ServerStart: testStateEpoch}},
-		{"project-coupling", Command{Action: "project", Project: &coupling, ProjectRevision: 3, ServerStart: testStateEpoch}},
 		{"checkpoint", Command{Action: "checkpoint"}},
 		{"rewind", Command{Action: "rewind", Checkpoint: 4}},
 	}

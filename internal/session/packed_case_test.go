@@ -9,8 +9,8 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-// TestPackedDocumentsRefuseCaseVariants covers the packed Express and
-// coupling decodes, which do not go through decodeStreamJSON. Each
+// TestPackedDocumentsRefuseCaseVariants covers the packed Express decodes,
+// which do not go through decodeStreamJSON. Each
 // document must refuse a member name that differs only in case, and an
 // order with an unknown member.
 func TestPackedDocumentsRefuseCaseVariants(t *testing.T) {
@@ -19,17 +19,15 @@ func TestPackedDocumentsRefuseCaseVariants(t *testing.T) {
 	expressBase := expressFrame
 	expressFrame.State.Revision++
 	expressFrame.State.Simulation.Pending = []sim.Request{{ID: 1, From: "harbor", To: "market", PartySize: 2, SharingConsent: sim.SharedConsent, Service: sim.ExpressServiceChoice, ServiceID: "harbor-market"}}
-	_, couplingTopology, couplingFrame := couplingStreamFixture(t, couplingPhaseFixtures(t).Frames[0], sim.ExpressOrderContract)
 	documents := []struct {
-		name    string
-		encode  func() ([]byte, error)
-		decode  func([]byte) error
-		records bool
+		name   string
+		encode func() ([]byte, error)
+		decode func([]byte) error
 	}{
 		{"express stream", func() ([]byte, error) {
 			return EncodeStreamJSON(StreamEnvelope{OrderContract: sim.ExpressOrderContract, Kind: "full", Stream: "case", Sequence: 1,
 				Source: sourceOf(expressFrame), Full: &expressFrame})
-		}, func(raw []byte) error { _, err := DecodeStreamJSON(raw); return err }, true},
+		}, func(raw []byte) error { _, err := DecodeStreamJSON(raw); return err }},
 		{"express pending delta", func() ([]byte, error) {
 			delta, err := makeDelta(expressBase, expressFrame)
 			if err != nil {
@@ -49,13 +47,9 @@ func TestPackedDocumentsRefuseCaseVariants(t *testing.T) {
 			}
 			_, err = ApplyStream(expressBase, "case", 1, decoded)
 			return err
-		}, true},
+		}},
 		{"express state", func() ([]byte, error) { return EncodeStateJSON(expressTopology, expressFrame) },
-			func(raw []byte) error { _, err := DecodeStateJSON(raw); return err }, true},
-		{"coupling stream", func() ([]byte, error) { return EncodeStreamJSON(fullStreamEnvelope(couplingFrame)) },
-			func(raw []byte) error { _, err := DecodeStreamJSON(raw); return err }, false},
-		{"coupling state", func() ([]byte, error) { return EncodeStateJSON(couplingTopology, couplingFrame) },
-			func(raw []byte) error { _, err := DecodeStateJSON(raw); return err }, false},
+			func(raw []byte) error { _, err := DecodeStateJSON(raw); return err }},
 	}
 	for _, document := range documents {
 		raw, err := document.encode()
@@ -77,12 +71,10 @@ func TestPackedDocumentsRefuseCaseVariants(t *testing.T) {
 			// A delta without vehicle changes has no motion values.
 			variants = append(variants, variant{`"speed":`, `"Speed":`, ""})
 		}
-		if document.records {
-			// The coupling fixture has no order records. All packed
-			// documents share the order record decode, which reports the
-			// unknown member and not the state of the enclosing decoder.
-			variants = append(variants, variant{`"partySize":`, `"PartySize":`, "PartySize"}, variant{`"partySize":`, `"unknownMember":1,"partySize":`, "unknownMember"})
-		}
+		// All packed documents share the order record decode, which
+		// reports the unknown member and not the state of the enclosing
+		// decoder.
+		variants = append(variants, variant{`"partySize":`, `"PartySize":`, "PartySize"}, variant{`"partySize":`, `"unknownMember":1,"partySize":`, "unknownMember"})
 		for _, variant := range variants {
 			t.Run(document.name+"/"+variant.to, func(t *testing.T) {
 				t.Parallel()

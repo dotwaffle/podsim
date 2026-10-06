@@ -53,24 +53,6 @@ func TestStationCompactColdRestore(t *testing.T) {
 	if !reflect.DeepEqual(state, r.ExportState()) {
 		t.Fatalf("cold physical restore changed certificate or speed\nexpected=%+v\ngot=%+v", state, r.ExportState())
 	}
-	// Compact motion publishes an exact pose, so it ends a restored pose.
-	marked := compactRestore(t, s, state, StationQueueCompactV1)
-	for i := range marked.vehicles {
-		marked.vehicles[i].restoredPose = true
-	}
-	compactTick(t, marked)
-	moved := 0
-	for i := range marked.vehicles {
-		if i < len(marked.compactMotions) && marked.compactMotions[i].planned {
-			moved++
-			if marked.vehicles[i].restoredPose {
-				t.Fatalf("compact motion of %s kept the restored pose", marked.vehicles[i].Pod.ID)
-			}
-		}
-	}
-	if moved == 0 {
-		t.Fatal("no pod moved under compact motion")
-	}
 	for range 300 {
 		compactTick(t, s)
 		compactTick(t, r)

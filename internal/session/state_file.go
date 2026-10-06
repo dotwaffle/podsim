@@ -21,8 +21,9 @@ import (
 
 const (
 	// stateFormat identifies the state file. Until the first release, an
-	// added optional member with a safe zero value keeps the version. Each
-	// other change to the members of the file needs a new version.
+	// added optional member with a safe zero value and a removed member
+	// keep the version. Each other change to the members of the file needs
+	// a new version.
 	stateFormat = "podsim-session"
 	// stateVersion is the only version that the session writes and reads.
 	stateVersion = 9
@@ -132,14 +133,14 @@ var stateJSONLimits = jsonLimits{
 // waiting trip and each rider is packed as canonical base64.
 //
 // The root contract markers select the optional sections. orderContract
-// selects the Express order bounds. couplingContract permits the coupling
-// members of the root, the project and the simulation. Without it, each
-// coupling member is refused, also an explicit empty or null value. The
-// project and simulation markers must equal the root markers.
+// selects the Express order bounds. The project and simulation markers
+// must equal the root markers.
 //
 // Each change to a member, also in the simulation and in the project,
-// needs a new version. Until the first release, an added optional member
-// with a safe zero value is an exception. It keeps the version.
+// needs a new version. Until the first release, two changes are
+// exceptions that keep the version: an added optional member with a safe
+// zero value, and a removed member. A file with a removed member fails the
+// strict decode and moves aside.
 // testdata/state_v9_members.txt lists the members.
 //
 // A saver can copy the values into a stateFile while it holds the session
@@ -147,8 +148,7 @@ var stateJSONLimits = jsonLimits{
 // returns a simulation that shares no storage with the session. The session
 // replaces its project whole and does not change it in place.
 type stateFile struct {
-	CouplingContract sim.CouplingContract `json:"couplingContract,omitzero"`
-	OrderContract    sim.OrderContract    `json:"orderContract,omitzero"`
+	OrderContract sim.OrderContract `json:"orderContract,omitzero"`
 	// boardingTuples retains unresolved references in saved pod order.
 	boardingTuples [][]boardingTuple
 	// incidentRefs retains the unresolved leg origins and excluded pods.
@@ -211,6 +211,22 @@ func invalidState(err error) error {
 	return &stateError{reason: reasonInvalidState, err: err}
 }
 
+// preservedStateError stops recovery before an archive or startup write.
+type preservedStateError struct{ err error }
+
+func (e *preservedStateError) Error() string { return e.err.Error() }
+func (e *preservedStateError) Unwrap() error { return e.err }
+
+func preserveStateError(err error) error {
+	if err == nil {
+		return nil
+	}
+	if _, ok := errors.AsType[*preservedStateError](err); ok {
+		return err
+	}
+	return &preservedStateError{err: err}
+}
+
 // stateEncoder encodes state files. It keeps its gzip writer and its buffers
 // for the next call. The zero value is ready to use. A stateEncoder is not
 // safe for concurrent use.
@@ -242,9 +258,6 @@ func (e *stateEncoder) encode(file stateFile) ([]byte, error) {
 		err: fmt.Errorf("session state has more than %d bytes: %w", MaxStateBytes, ErrStateTooLarge),
 	}
 	if err := file.validateWireContract(); err != nil {
-		return nil, err
-	}
-	if err := validateCouplingRoutes(file); err != nil {
 		return nil, err
 	}
 	options := json.JoinOptions(json.Deterministic(true), json.WithMarshalers(json.JoinMarshalers(
@@ -355,8 +368,7 @@ func decodeStateFile(data []byte) (stateFile, error) {
 }
 
 // unsupportedState returns the error for a file of another format or of
-// a version other than 9. Such a file moves aside, also with coupling
-// markers.
+// a version other than 9. Such a file moves aside.
 func unsupportedState(header stateHeader) error {
 	err := &stateError{reason: reasonUnsupportedVersion}
 	switch {
@@ -372,10 +384,9 @@ func unsupportedState(header stateHeader) error {
 
 // stateHeader holds the members of a state file that select its rules.
 type stateHeader struct {
-	Format           string         `json:"format"`
-	Version          int            `json:"version"`
-	OrderContract    jsontext.Value `json:"orderContract"`
-	CouplingContract jsontext.Value `json:"couplingContract"`
+	Format        string         `json:"format"`
+	Version       int            `json:"version"`
+	OrderContract jsontext.Value `json:"orderContract"`
 }
 
 // decodeStateHeader bounds raw with the largest saved table and decodes
@@ -400,17 +411,12 @@ func headerLimits() jsonLimits {
 
 // markers returns the root markers of the header. An order marker other
 // than the Express marker selects the plain bounds, and scanContractMarkers
-// then refuses the member. scanCouplingJSON checks the value of a coupling
-// marker, and scanStateOrderFields refuses a coupling marker that is not
-// text.
+// then refuses the member.
 func (header stateHeader) markers() contractMarkers {
 	var markers contractMarkers
 	var order sim.OrderContract
 	if json.Unmarshal(header.OrderContract, &order) == nil && order == sim.ExpressOrderContract {
 		markers.order = order
-	}
-	if json.Unmarshal(header.CouplingContract, &markers.coupling) != nil {
-		markers.coupling = ""
 	}
 	return markers
 }
@@ -422,13 +428,6 @@ func decodeStateJSON(raw []byte, markers contractMarkers) (stateFile, error) {
 	if err := prescanJSON(raw, savedLimits(markers)); err != nil {
 		return stateFile{}, fmt.Errorf("scan session state: %w", err)
 	}
-	// Without the coupling marker, scanStateOrderFields refuses each
-	// coupling member.
-	if markers.coupling != "" {
-		if _, err := scanCouplingJSON(raw, false); err != nil {
-			return stateFile{}, err
-		}
-	}
 	if err := scanContractMarkers(raw, markers.order == sim.ExpressOrderContract); err != nil {
 		return stateFile{}, err
 	}
@@ -438,7 +437,7 @@ func decodeStateJSON(raw []byte, markers contractMarkers) (stateFile, error) {
 	if err := scanStateCompactFields(raw); err != nil {
 		return stateFile{}, err
 	}
-	if err := scanStateOrderFields(raw, markers.coupling != ""); err != nil {
+	if err := scanStateOrderFields(raw); err != nil {
 		return stateFile{}, err
 	}
 	var boardingTuples [][]boardingTuple
@@ -478,9 +477,6 @@ func decodeStateJSON(raw []byte, markers contractMarkers) (stateFile, error) {
 		return stateFile{}, err
 	}
 	if err := file.validateProjectVersion(); err != nil {
-		return stateFile{}, err
-	}
-	if err := validateCouplingRoutes(file); err != nil {
 		return stateFile{}, err
 	}
 	return file, nil

@@ -17,12 +17,10 @@ import (
 )
 
 // composedShape is one shape of the single save and stream family. Its
-// markers select the limits of the decoder. A save of a shape with the
-// coupling marker has groups coupling groups.
+// markers select the limits of the decoder.
 type composedShape struct {
 	name    string
 	markers contractMarkers
-	groups  int
 }
 
 // composedSize is the measurement of one composed fixture. BoundBytes is
@@ -67,88 +65,10 @@ const (
 // composedServiceID is the widest service ID of an order.
 var composedServiceID = strings.Repeat("\x03", 64)
 
-// composedCouplingGroups is the largest number of coupling groups in a save,
-// a frame or a delta.
-const composedCouplingGroups = project.MaxPods / 2
-
-// widestCouplingID returns an ID of 64 control bytes, 6 JSON bytes each. The
+// widestControlID returns an ID of 64 control bytes, 6 JSON bytes each. The
 // last 2 bytes make the IDs of index differ. index is less than 256.
-func widestCouplingID(fill byte, index int) string {
+func widestControlID(fill byte, index int) string {
 	return strings.Repeat(string([]byte{fill}), 62) + string([]byte{byte(0x10 + index/16), byte(0x10 + index%16)})
-}
-
-// widestSavedCouplingGroup returns group index with members front and rear,
-// and the widest value of each other member that the decoder accepts.
-func widestSavedCouplingGroup(index int, front, rear string) sim.SavedCouplingGroup {
-	return sim.SavedCouplingGroup{
-		ID: widestCouplingID(0x08, index), Members: [2]string{front, rear}, FormationTick: math.MinInt64,
-		CorridorID: widestCouplingID(0x0e, index), AssemblySiteID: widestCouplingID(0x0f, index), SplitSiteID: widestCouplingID(0x10, index),
-		Phase: sim.CouplingPhase(strings.Repeat("\x11", 64)), DwellTicks: math.MinInt,
-		Progress: sim.SavedCouplingProgress{Leg: math.MinInt, DrainFirstMember: math.MinInt},
-	}
-}
-
-// composedCouplingSave adds the coupling members to file at their widest.
-// The first 2*groups pods become the members of groups coupling groups.
-// The save encoder and decoder accept only a member that is a traveling
-// compact pod without a queue or a platoon link, on a lane chain from its
-// origin berth to its destination berth. So each member pod drops these
-// members, and keeps at most the stored riders of a compact pod. The
-// project network must be the network of widestSavedBase. The project has
-// no coupling sites or corridors: with them the decoder checks the
-// geometry of the network, and this network has no valid geometry. The
-// project member has its byte cap whatever it contains.
-func composedCouplingSave(t *testing.T, file stateFile, groups int) stateFile {
-	t.Helper()
-	const wide = 0.0000010000000000000002
-	contract := sim.CompactPairV1CouplingContract
-	file.CouplingContract = contract
-	file.Simulation.CouplingContract = contract
-	file.Project = project.Clone(file.Project)
-	file.Project.CouplingContract, file.Project.CouplingEnabled = contract, true
-	network := &file.Project.Network
-	nodes, lanes := len(network.Nodes), len(network.Lanes)
-	// Lane i goes from node i%nodes to node (i+1)%nodes. The route takes
-	// lanes+nodes lanes, the saved route limit. Each lane index has 4
-	// digits, as the index lanes-1 of the other pods has.
-	route := make([]int, lanes+nodes)
-	for step := range route {
-		node := step % nodes
-		route[step] = node
-		if node < lanes-nodes {
-			route[step] = nodes + node
-		}
-	}
-	origin, destination := strings.Repeat("\x05", 64), strings.Repeat("\x06", 64)
-	network.Stations = append(network.Stations, sim.Station{
-		ID: strings.Repeat("\x07", 64), Name: "coupling", Entry: network.Nodes[0].ID, Exit: network.Nodes[len(route)%nodes].ID,
-		Berths: []sim.Berth{{ID: origin, Node: network.Nodes[0].ID}, {ID: destination, Node: network.Nodes[len(route)%nodes].ID}},
-	})
-	current := &network.Lanes[route[len(route)-1]]
-	current.ID = strings.Repeat("\x04", 64)
-	file.Project.Name = ""
-	file.Project.Name = strings.Repeat("n", project.MaxFileBytes-jsonSize(t, file.Project))
-
-	riders := sim.MaxStoredRidersForOrderContract(sim.CompactClass, file.OrderContract)
-	file.Simulation.Pods = slices.Clone(file.Simulation.Pods)
-	file.Simulation.CouplingGroups = make([]sim.SavedCouplingGroup, groups)
-	for i := range file.Simulation.CouplingGroups {
-		members := file.Simulation.Pods[2*i : 2*i+2]
-		for j := range members {
-			pod := &members[j]
-			pod.Class, pod.Activity = sim.CompactClass, "traveling"
-			pod.Platoon, pod.CompactQueue = nil, nil
-			pod.Origin, pod.Destination = origin, destination
-			pod.Route, pod.RouteIndex, pod.LaneID = route, len(route)-1, current.ID
-			pod.Distance, pod.LaneDistance = wide, wide
-			pod.Riders = pod.Riders[:min(len(pod.Riders), riders)]
-			if pod.Boardings != nil {
-				pod.Boardings = pod.Boardings[:len(pod.Riders)]
-			}
-		}
-		file.Simulation.CouplingGroups[i] = widestSavedCouplingGroup(i, members[0].ID, members[1].ID)
-	}
-	return file
 }
 
 // composedIncidentProject gives config the incident marker and
@@ -380,36 +300,7 @@ func composedBaseSave(t *testing.T, shape composedShape) stateFile {
 		file = compactWorstCaseFile(base, pod, trip, 1)
 	}
 	file.Simulation.SharedRideJoin = sim.SharedRideJoin(strings.Repeat("\x01", 1<<10))
-	if shape.markers.coupling != "" {
-		file = composedCouplingSave(t, file, shape.groups)
-	}
 	return file
-}
-
-// composedCouplingFrame adds the coupling members to frame at their widest.
-// Each vehicle is a member of one of composedCouplingGroups groups. The
-// stream decoder checks the shape of the members, not their placement.
-func composedCouplingFrame(frame StreamFrame) StreamFrame {
-	contract := sim.CompactPairV1CouplingContract
-	corner := sim.Point{X: -math.MaxFloat64, Y: -math.MaxFloat64}
-	rectangle := sim.CouplingRectangle{Corners: [4]sim.Point{corner, corner, corner, corner}}
-	speed := -math.MaxFloat64
-	simulation := &frame.State.Simulation
-	simulation.CouplingContract, simulation.CouplingEnabled = contract, true
-	simulation.Vehicles = slices.Clone(simulation.Vehicles)
-	simulation.CouplingGroups = make([]sim.CouplingGroupView, composedCouplingGroups)
-	for i := range simulation.CouplingGroups {
-		front, rear := &simulation.Vehicles[2*i], &simulation.Vehicles[2*i+1]
-		group := sim.CouplingGroupView{
-			SavedCouplingGroup: widestSavedCouplingGroup(i, front.Pod.ID, rear.Pod.ID),
-			Profile:            sim.CouplingContract(strings.Repeat("\x12", 64)), OwnerID: widestCouplingID(0x13, i),
-			ResourceClaims: math.MinInt, CommonSpeed: &speed, Bodies: [2]sim.CouplingRectangle{rectangle, rectangle},
-			Connector: &rectangle, ManeuverEnvelope: &rectangle,
-		}
-		simulation.CouplingGroups[i] = group
-		front.CouplingID, rear.CouplingID = group.ID, group.ID
-	}
-	return frame
 }
 
 // composedIncidentFrame adds the stage 1 stream members of the incident
@@ -459,7 +350,7 @@ func composedFaultFrame(frame StreamFrame) StreamFrame {
 		if i < len(simulation.Vehicles) {
 			fault.Kind, fault.PodID, fault.Phase, fault.EvacuateTick = sim.FaultKindPod, simulation.Vehicles[i].Pod.ID, sim.FaultPhaseEvacuated, &end
 		} else {
-			fault.Kind, fault.LaneID, fault.FromMeters, fault.ToMeters = sim.FaultKindDebris, widestCouplingID(0x14, i-len(simulation.Vehicles)), &from, &to
+			fault.Kind, fault.LaneID, fault.FromMeters, fault.ToMeters = sim.FaultKindDebris, widestControlID(0x14, i-len(simulation.Vehicles)), &from, &to
 		}
 		active[i] = fault
 	}
@@ -504,14 +395,11 @@ func composedStreamFrame(t *testing.T, shape composedShape) StreamFrame {
 	for i := range frame.State.Simulation.Vehicles {
 		frame.State.Simulation.Vehicles[i].Pod.ID = composedVehicleID(i)
 	}
-	if shape.markers.coupling != "" {
-		frame = composedCouplingFrame(frame)
-	}
 	return composedEmergencyFrame(composedFaultFrame(composedIncidentFrame(frame)))
 }
 
 // TestComposedWorstCaseFormats measures one composed fixture for each save
-// shape: plain, Express, coupling, and Express with coupling. For each
+// shape: plain and Express. For each
 // shape, it also measures the full frame, the delta and the HTTP state of
 // one composed frame. Each fixture combines the widest value of each
 // member that the decoder accepts. The values are independent maxima, not
@@ -524,15 +412,9 @@ func TestComposedWorstCaseFormats(t *testing.T) { //nolint:tparallel // Subtests
 	if testing.Short() || raceEnabled {
 		t.Skip("measurement runs without -short and without the race detector")
 	}
-	expressCoupling := contractMarkers{order: sim.ExpressOrderContract, coupling: sim.CompactPairV1CouplingContract}
-	// Express with coupling has no group at its widest: each member is a
-	// compact pod, which keeps 8 of the 20 riders of an Express pod, so
-	// each group makes the save smaller.
 	shapes := []composedShape{
-		{"plain", contractMarkers{}, 0},
-		{"express", contractMarkers{order: sim.ExpressOrderContract}, 0},
-		{"coupling", contractMarkers{coupling: sim.CompactPairV1CouplingContract}, composedCouplingGroups},
-		{"express-coupling", expressCoupling, 0},
+		{"plain", contractMarkers{}},
+		{"express", contractMarkers{order: sim.ExpressOrderContract}},
 	}
 	var sizes []composedSize
 	for _, shape := range shapes {
@@ -543,12 +425,6 @@ func TestComposedWorstCaseFormats(t *testing.T) { //nolint:tparallel // Subtests
 			runtime.GC()
 		})
 	}
-	// The decode path of an Express save with a group. It is smaller than
-	// the widest Express with coupling save, so the record leaves it out.
-	t.Run("express-coupling-group", func(t *testing.T) {
-		measureComposedSave(t, composedShape{"express-coupling-group", expressCoupling, 1})
-		runtime.GC()
-	})
 	if path := os.Getenv("PODSIM_COMPOSED_FORMATS_RECORD"); path != "" {
 		record := struct {
 			Format string         `json:"format"`
@@ -578,10 +454,7 @@ func TestComposedWorstCaseFormats(t *testing.T) { //nolint:tparallel // Subtests
 				"Each shape also has the emergency marker and the stage 3 members at the widest values that a server writes. " +
 				"The saved project has the widest emergencies settings, and the save has 4 records with 20-digit generations and serials, a 19-digit start and order, pod index 299, and the largest counters. " +
 				"In the streams, the emergencies have the largest counters and 4 rows with the phase unloading, each for a vehicle of its own, with a 20-digit generation and serial, and a 19-digit order and start tick. " +
-				"Coupling save: the coupling markers and 150 coupling groups; the 300 member pods are traveling compact pods with a route of 13,000 lanes. " +
-				"Express with coupling has no group, because a member pod keeps 8 of the 20 riders of an Express pod; the test also decodes it with 1 group. " +
-				"The saved project and the HTTP topology have no coupling sites or corridors, because their network has no valid geometry; each member is at its byte cap. " +
-				"Streams: plain is maximumStreamFrame with compact vehicles, boarding records and service IDs; Express is widestExpressStreamFrame; coupling adds 150 coupling groups and a coupling ID on each vehicle. " +
+				"Streams: plain is maximumStreamFrame with compact vehicles, boarding records and service IDs; Express is widestExpressStreamFrame. " +
 				"The delta changes each vehicle, berth and group from an empty base. " +
 				"The HTTP state has the widest topology that fits the topology cap of 10,489,856 bytes; bound_bytes sets the topology member to that cap. " +
 				"Gzip bytes use gzip level 1, as the server does. " +
@@ -649,8 +522,7 @@ func measureComposedSave(t *testing.T, shape composedShape) composedSize {
 		t.Fatalf("%s save boardings: %v", shape.name, err)
 	}
 	orders, _ := shape.markers.orderBounds()
-	if len(decoded.Simulation.Pods) != project.MaxPods || int64(len(decoded.Simulation.Waiting)) != orders ||
-		len(decoded.Simulation.CouplingGroups) != len(file.Simulation.CouplingGroups) {
+	if len(decoded.Simulation.Pods) != project.MaxPods || int64(len(decoded.Simulation.Waiting)) != orders {
 		t.Fatalf("%s save lost records", shape.name)
 	}
 	pod, trip := decoded.Simulation.Pods[0], decoded.Simulation.Waiting[0]
@@ -754,15 +626,15 @@ func measureComposedStream(t *testing.T, shape composedShape) []composedSize {
 			t.Fatalf("%s %s failed the bounded scan: %v", shape.name, format, scanErr)
 		}
 		assertExplicitArrayBounds(t, shape.name+" "+format, raw, limits)
-		var vehicles, pending, groups, faults, emergencies int
+		var vehicles, pending, faults, emergencies int
 		switch format {
 		case "http":
 			var decoded StateEnvelope
-			if members, err := decodeMarkedJSON(raw, true, &decoded); err != nil || !members.incident || !members.fault || !members.emergency {
+			if members, err := decodeMarkedJSON(raw, &decoded); err != nil || !members.incident || !members.fault || !members.emergency {
 				t.Fatalf("%s HTTP state decode: %v, marked members %+v", shape.name, err, members)
 			}
 			simulation := decoded.Frame.State.Simulation
-			vehicles, pending, groups, faults = len(simulation.Vehicles), len(simulation.Pending), len(simulation.CouplingGroups), len(simulation.Faults.Active)
+			vehicles, pending, faults = len(simulation.Vehicles), len(simulation.Pending), len(simulation.Faults.Active)
 			emergencies = len(simulation.Emergencies.Active)
 		case "full":
 			decoded, err := DecodeStreamJSON(raw)
@@ -770,18 +642,12 @@ func measureComposedStream(t *testing.T, shape composedShape) []composedSize {
 				t.Fatalf("%s full decode: %v, incident members %v, fault members %v, emergency members %v", shape.name, err, decoded.incidentMembers, decoded.faultMembers, decoded.emergencyMembers)
 			}
 			simulation := decoded.Full.State.Simulation
-			vehicles, pending, groups, faults = len(simulation.Vehicles), len(simulation.Pending), len(simulation.CouplingGroups), len(simulation.Faults.Active)
+			vehicles, pending, faults = len(simulation.Vehicles), len(simulation.Pending), len(simulation.Faults.Active)
 			emergencies = len(simulation.Emergencies.Active)
 		default:
 			decoded, err := DecodeStreamJSON(raw)
 			if err != nil || !decoded.incidentMembers || !decoded.faultMembers || !decoded.emergencyMembers {
 				t.Fatalf("%s delta decode: %v, incident members %v, fault members %v, emergency members %v", shape.name, err, decoded.incidentMembers, decoded.faultMembers, decoded.emergencyMembers)
-			}
-			var replacement couplingReplacement
-			if raw := decoded.Delta.Groups["coupling"]; raw != nil {
-				if err := json.Unmarshal(raw, &replacement); err != nil {
-					t.Fatal(err)
-				}
 			}
 			var group []json.RawMessage
 			if err := json.Unmarshal(decoded.Delta.Groups["pending"], &group); err != nil {
@@ -795,12 +661,11 @@ func measureComposedStream(t *testing.T, shape composedShape) []composedSize {
 			if groupErr != nil {
 				t.Fatal(groupErr)
 			}
-			vehicles, pending, groups, faults = len(decoded.Delta.Vehicles), len(group), len(replacement.Groups), len(active.Active)
+			vehicles, pending, faults = len(decoded.Delta.Vehicles), len(group), len(active.Active)
 			emergencies = len(emergencyGroup.Active)
 		}
-		if vehicles != project.MaxPods || int64(pending) != orders || groups != len(frame.State.Simulation.CouplingGroups) || faults != maxFaultRecords ||
-			emergencies != sim.MaxEmergencies {
-			t.Fatalf("%s %s lost records: %d vehicles, %d orders, %d coupling groups, %d faults, %d emergencies", shape.name, format, vehicles, pending, groups, faults, emergencies)
+		if vehicles != project.MaxPods || int64(pending) != orders || faults != maxFaultRecords || emergencies != sim.MaxEmergencies {
+			t.Fatalf("%s %s lost records: %d vehicles, %d orders, %d faults, %d emergencies", shape.name, format, vehicles, pending, faults, emergencies)
 		}
 		runtime.GC()
 	}
@@ -827,8 +692,7 @@ func composedStreamDocuments(t *testing.T, shape composedShape, frame StreamFram
 	t.Helper()
 	delta := maximumStreamDelta(t, frame)
 	full := StreamEnvelope{
-		CouplingContract: shape.markers.coupling, OrderContract: shape.markers.order,
-		Kind: "full", Stream: strings.Repeat("x", 32), Sequence: math.MaxUint64, Source: sourceOf(frame), Build: frame.State.Build, Full: &frame,
+		OrderContract: shape.markers.order, Kind: "full", Stream: strings.Repeat("x", 32), Sequence: math.MaxUint64, Source: sourceOf(frame), Build: frame.State.Build, Full: &frame,
 	}
 	changed := full
 	changed.Kind, changed.Full, changed.Delta, changed.Base = "delta", nil, &delta, math.MaxUint64-1
@@ -843,7 +707,7 @@ func composedStreamDocuments(t *testing.T, shape composedShape, frame StreamFram
 	}
 	topology.IncidentContract, topology.FaultContract = frame.State.Simulation.IncidentContract, frame.State.Simulation.FaultContract
 	topology.EmergencyContract = frame.State.Simulation.EmergencyContract
-	envelope := StateEnvelope{CouplingContract: shape.markers.coupling, OrderContract: shape.markers.order, Topology: topology, Frame: frame}
+	envelope := StateEnvelope{OrderContract: shape.markers.order, Topology: topology, Frame: frame}
 	raw, err := jsonv2.Marshal(envelope, json.DefaultOptionsV1(), packedRequestOptions())
 	if err != nil {
 		t.Fatal(err)

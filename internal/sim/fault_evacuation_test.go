@@ -251,8 +251,7 @@ func TestFaultDuringRecovery(t *testing.T) {
 
 // TestFaultHoldRelease checks the hold release rule in the fault stage. A
 // pod with the fault hold and no record returns to service. The hold stays
-// while the pod is faulted, while the hold owns a purpose, and while the
-// pod is a coupling or approach member, until the split.
+// while the pod is faulted and while the hold owns a purpose.
 func TestFaultHoldRelease(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {
@@ -271,16 +270,6 @@ func TestFaultHoldRelease(t *testing.T) {
 		{"purpose", func(_ *Simulation, v *vehicle) func() {
 			v.op = operationalDestination{purpose: opEmptyRecovery, owner: faultHold}
 			return func() { v.op = operationalDestination{} }
-		}},
-		{"coupling member", func(_ *Simulation, v *vehicle) func() {
-			v.couplingID = "pair"
-			return func() { v.couplingID = "" }
-		}},
-		{"approach member", func(s *Simulation, v *vehicle) func() {
-			c := &couplingApproachContext{}
-			c.members[1].id = v.Pod.ID
-			s.couplingApproaches = append(s.couplingApproaches, couplingNativeApproach{context: c})
-			return func() { s.couplingApproaches = nil }
 		}},
 	} {
 		s := faultLegFleet(t)

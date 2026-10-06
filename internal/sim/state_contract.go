@@ -355,17 +355,7 @@ func (state SavedState) checkPod(pod SavedPod) error {
 	if err := state.checkPodRiders(pod, rule, active, history); err != nil {
 		return err
 	}
-	flags := pod
-	// Committed passengers can retain an individual receiving claim.
-	// Validate that flag before checking the ordinary phase flags.
-	if pod.ClaimsDestination && phase == phaseTravelingOccupied &&
-		state.CouplingContract == CompactPairV1CouplingContract && state.couplingMember(pod.ID) {
-		if pod.Destination == "" {
-			return errors.New("committed receiving claim lacks a berth")
-		}
-		flags.ClaimsDestination = false
-	}
-	if err := checkPodFlags(flags, rule); err != nil {
+	if err := checkPodFlags(pod, rule); err != nil {
 		return err
 	}
 	if err := checkPodPlace(pod, rule); err != nil {
@@ -504,16 +494,12 @@ func checkPodStops(pod SavedPod, rule phaseRule, active, history []SavedRequest)
 // have the unaccounted orders that the simulation counts. A live
 // simulation meets the contract after each tick and each command. Tests
 // call CheckContract to check a run. It also checks the fault records and
-// the emergency records, which the saved form does not have yet, and the
-// service of the coupling members.
+// the emergency records, which the saved form does not have yet.
 func (s *Simulation) CheckContract() error {
 	if err := s.checkFaults(); err != nil {
 		return err
 	}
 	if err := s.checkEmergencies(); err != nil {
-		return err
-	}
-	if err := s.checkCouplingService(); err != nil {
 		return err
 	}
 	state := s.ExportState()
@@ -526,19 +512,6 @@ func (s *Simulation) CheckContract() error {
 	}
 	if unaccounted != s.unaccountedOrders {
 		return fmt.Errorf("the state has %d unaccounted orders, want %d", unaccounted, s.unaccountedOrders)
-	}
-	return nil
-}
-
-// checkCouplingService checks invariant E6 of the incident emergency
-// contract: no coupling member and no approach member has a hold or an
-// operational purpose.
-func (s *Simulation) checkCouplingService() error {
-	for index := range s.vehicles {
-		v := &s.vehicles[index]
-		if (v.couplingID != "" || s.couplingApproachMember(v.Pod.ID)) && v.outOfService() {
-			return fmt.Errorf("E6: coupling member %s has the service holds %#x and the purpose %d", v.Pod.ID, v.withdrawn, v.op.purpose)
-		}
 	}
 	return nil
 }

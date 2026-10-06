@@ -13,14 +13,14 @@ import (
 
 // wireRoots are the values whose JSON forms make the save, topology, HTTP
 // state, command and stream formats. The delta groups are separate roots,
-// because a delta holds them as raw values. The coupling, the faults and
-// the emergencies groups are also roots, because a scanner reads each of
-// them alone.
+// because a delta holds them as raw values. The faults and the
+// emergencies groups are also roots, because a scanner reads each of them
+// alone.
 func wireRoots() []any {
 	return []any{
 		stateFile{}, TopologySnapshot{}, StateFrame{}, State{}, ProjectState{},
 		Command{}, Reply{}, StreamEnvelope{}, StreamHello{}, StateEnvelope{},
-		couplingReplacement{}, sim.FaultsView{}, sim.EmergenciesView{},
+		sim.FaultsView{}, sim.EmergenciesView{},
 	}
 }
 
@@ -28,7 +28,7 @@ func wireRoots() []any {
 var deltaGroups = map[string]any{
 	"controls": controlsGroup{}, "global": globalGroup{}, "statistics": streamStatistics{},
 	"demand": DemandState{}, "restore": RestoreInfo{}, "checkpoints": []Checkpoint{},
-	"pending": []sim.Request{}, "coupling": couplingReplacement{}, "incident": incidentGroup{},
+	"pending": []sim.Request{}, "incident": incidentGroup{},
 	"faults": sim.FaultsView{}, "emergencies": sim.EmergenciesView{},
 }
 
@@ -80,8 +80,6 @@ func TestScannerLimitPathsMatchTags(t *testing.T) {
 		"topology":        topologyJSONLimits,
 		"plain save":      savedLimits(contractMarkers{}),
 		"express save":    savedLimits(contractMarkers{order: sim.ExpressOrderContract}),
-		"coupling save":   savedLimits(contractMarkers{coupling: sim.CompactPairV1CouplingContract}),
-		"packed save":     savedLimits(contractMarkers{order: sim.ExpressOrderContract, coupling: sim.CompactPairV1CouplingContract}),
 		"express stream":  streamLimits(contractMarkers{order: sim.ExpressOrderContract}),
 		"unpacked stream": streamLimits(contractMarkers{}),
 		"compact save":    compactStateLimits(savedLimits(contractMarkers{})),
@@ -106,8 +104,7 @@ func TestScannerLiteralsMatchTags(t *testing.T) {
 	t.Parallel()
 	_, members := wirePaths(t)
 	files := []string{
-		"boarding_state.go", "compact_state.go", "coupling_json.go",
-		"coupling_state.go", "coupling_stream.go", "coupling_stream_json.go", "express_text.go",
+		"boarding_state.go", "compact_state.go", "express_text.go",
 		"emergency_state.go", "emergency_stream.go", "express_wire.go", "fault_state.go", "fault_stream.go", "http.go", "incident_state.go", "incident_stream.go", "order_command.go", "order_state.go", "protocol.go",
 		"state_file.go", "stream_boardings.go", "stream_codec.go", "stream_frame.go",
 		"state_http.go", "stream_service.go", "topology_decode.go", "../remote/client.go", "../remote/stream.go",

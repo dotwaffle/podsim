@@ -269,17 +269,15 @@ var featureKeys = []string{"incidentContract", "faultContract", "faults", "emerg
 
 // metadataKeys are the branches that checkMetadataBranches decodes
 // together.
-var metadataKeys = []string{"version", "orderContract", "network", "fleet", "expressServices", "stationQueueSpacing", "onboardPickups", "couplingContract", "couplingEnabled", "couplingSites", "couplingCorridors", "incidentContract", "faultContract", "faults", "emergencyContract", "emergencies"}
+var metadataKeys = []string{"version", "orderContract", "network", "fleet", "expressServices", "stationQueueSpacing", "onboardPickups", "incidentContract", "faultContract", "faults", "emergencyContract", "emergencies"}
 
 // metadataCheckNeeded reports whether the metadata branches need the native
 // project decoder. This is so for banks, a version other than the current
-// version, service metadata, and any coupling or feature branch.
+// version, service metadata, and any feature branch.
 func metadataCheckNeeded(next map[string]projectBranch, config project.Config) bool {
 	servicePresent := slices.ContainsFunc(serviceMetadataKeys, func(key string) bool { return next[key].services })
-	// Branch decoding skips the native field scan, which rejects null coupling members.
-	couplingPresent := slices.ContainsFunc(couplingKeys, func(key string) bool { _, present := next[key]; return present })
 	featurePresent := slices.ContainsFunc(featureKeys, func(key string) bool { _, present := next[key]; return present })
-	return next["network"].banked || config.Version != project.CurrentVersion || servicePresent || couplingPresent || featurePresent
+	return next["network"].banked || config.Version != project.CurrentVersion || servicePresent || featurePresent
 }
 
 // checkMetadataBranches decodes the metadata branches together with the
@@ -320,7 +318,7 @@ func (e *engine) invalidateCaches(next map[string]projectBranch) {
 }
 
 // serviceCheckKeys are the branches that the cached service and contract checks read.
-var serviceCheckKeys = []string{"version", "orderContract", "fleet", "expressServices", "stationQueueSpacing", "onboardPickups", "sharedRidePartyLimit", "sharedRideMode", "couplingContract", "couplingEnabled", "couplingSites", "couplingCorridors"}
+var serviceCheckKeys = []string{"version", "orderContract", "fleet", "expressServices", "stationQueueSpacing", "onboardPickups", "sharedRidePartyLimit", "sharedRideMode"}
 
 func copyBranch(dst *project.Config, key string, src project.Config) bool {
 	switch key {
@@ -328,14 +326,6 @@ func copyBranch(dst *project.Config, key string, src project.Config) bool {
 		dst.Version = src.Version
 	case "orderContract":
 		dst.OrderContract = src.OrderContract
-	case "couplingContract":
-		dst.CouplingContract = src.CouplingContract
-	case "couplingEnabled":
-		dst.CouplingEnabled = src.CouplingEnabled
-	case "couplingSites":
-		dst.CouplingSites = src.CouplingSites
-	case "couplingCorridors":
-		dst.CouplingCorridors = src.CouplingCorridors
 	case "incidentContract":
 		dst.IncidentContract = src.IncidentContract
 	case "faultContract":

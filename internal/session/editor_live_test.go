@@ -41,8 +41,8 @@ const shell = require(process.argv[3]);
 })().catch((error) => { process.stderr.write(String(error.stack || error)); process.exit(1); });
 `
 
-// The editor and the debug capture read the live state of a plain, an
-// Express, and a coupling project from a real server. The server replies
+// The editor and the debug capture read the live state of a plain and an
+// Express project from a real server. The server replies
 // only to StateMediaType, with the state envelope of each project kind.
 func TestEditorReadsLiveStateOfEachProjectKind(t *testing.T) {
 	node, err := exec.LookPath("node")
@@ -57,12 +57,10 @@ func TestEditorReadsLiveStateOfEachProjectKind(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	data := couplingPhaseFixtures(t)
-	coupling := couplingProject(couplingPhaseInput(t, data, data.Frames[0]))
 	for _, test := range []struct {
 		name   string
 		config project.Config
-	}{{"plain", project.Default()}, {"express", expressConsumerProject(t)}, {"coupling", coupling}} {
+	}{{"plain", project.Default()}, {"express", expressConsumerProject(t)}} {
 		t.Run(test.name, func(t *testing.T) {
 			s, err := NewWithProject(test.config)
 			if err != nil {

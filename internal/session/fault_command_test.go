@@ -2,11 +2,9 @@ package session
 
 import (
 	"encoding/json/v2"
-	"errors"
 	"fmt"
 	"net/http"
 	"reflect"
-	"strings"
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/project"
@@ -135,28 +133,6 @@ func TestFaultCommandErrors(t *testing.T) {
 	for _, duration := range []int64{1, 86_400} {
 		reply := client.mustApply(t, Command{Action: "fault", PodID: "01", DurationSeconds: new(duration)})
 		client.mustApply(t, Command{Action: "clearFault", FaultID: reply.FaultID})
-	}
-}
-
-// setViewFault retains a coupling observation fault.
-func setViewFault(_ *testing.T, s *Session) {
-	s.mu.Lock()
-	s.couplingViewError = errors.New("test observation fault")
-	s.mu.Unlock()
-}
-
-// TestFaultCommandsWithCouplingFault checks that a retained coupling fault
-// rejects both fault actions, as it rejects other actions.
-func TestFaultCommandsWithCouplingFault(t *testing.T) {
-	t.Parallel()
-	client := newFaultClient(t, faultSessionProject(project.FaultConfig{}))
-	id := client.mustApply(t, Command{Action: "fault", PodID: "01"}).FaultID
-	setViewFault(t, client.session)
-	for _, command := range []Command{{Action: "fault", PodID: "02"}, {Action: "clearFault", FaultID: id}} {
-		reply := client.session.Apply(client.next(command))
-		if reply.ErrorCode != CommandRejected || !strings.Contains(reply.Error, "test observation fault") {
-			t.Fatalf("%s with a coupling fault: %+v", command.Action, reply)
-		}
 	}
 }
 

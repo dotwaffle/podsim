@@ -100,11 +100,11 @@ func TestSavedOrderFieldNullGates(t *testing.T) {
 					return []byte(`{"simulation":{"waiting":[{"request":{` + member + `}}]}}`)
 				}
 			}
-			if err := scanStateOrderFields(raw(field.value), false); err != nil {
+			if err := scanStateOrderFields(raw(field.value)); err != nil {
 				t.Fatal(err)
 			}
 			for _, value := range []string{"null", `""`, "0", "{}", "[]"} {
-				if err := scanStateOrderFields(raw(value), false); err == nil {
+				if err := scanStateOrderFields(raw(value)); err == nil {
 					t.Fatalf("the scan admitted %s", value)
 				}
 			}
@@ -329,16 +329,14 @@ func TestSavedLegacyOrderMembersRejected(t *testing.T) {
 }
 
 // A saved state member whose case differs from the declared name is
-// unknown, so the decoder refuses the file. The cases cover the plain and
-// the coupling state and a member of the saved project.
+// unknown, so the decoder refuses the file. The cases cover the plain
+// state and a member of the saved project.
 func TestStateFileRefusesCaseVariantMembers(t *testing.T) {
 	t.Parallel()
 	golden, err := os.ReadFile("testdata/state_v9.json")
 	if err != nil {
 		t.Fatal(err)
 	}
-	data := couplingPhaseFixtures(t)
-	coupling := decompressTestJSON(t, encodeTestState(t, couplingPhaseFile(t, couplingPhaseInput(t, data, data.Frames[0]))))
 	for _, test := range []struct {
 		name     string
 		raw      []byte
@@ -347,7 +345,6 @@ func TestStateFileRefusesCaseVariantMembers(t *testing.T) {
 		{"plain tick", golden, `"tick":`, `"Tick":`},
 		{"plain rider", golden, `"dispatchReason":`, `"DispatchReason":`},
 		{"plain project", golden, `"nodes":`, `"Nodes":`},
-		{"coupling tick", coupling, `"tick":`, `"Tick":`},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()

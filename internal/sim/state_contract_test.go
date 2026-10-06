@@ -589,7 +589,7 @@ type contractSampler struct {
 
 // contractCounts holds the counts of a simulation that an event changes.
 type contractCounts struct {
-	pods, waiting, faults, groups           int
+	pods, waiting, faults                   int
 	completed, requestID, boarded, journeys int
 	interrupted, unaccounted                int
 	paused                                  bool
@@ -600,7 +600,7 @@ type contractPhase struct {
 	activity                     Activity
 	stationPhase                 StationPhase
 	station, berth, relocatingTo string
-	coupling, platoon            string
+	platoon                      string
 	riders, stops                int
 	occupied, rebalancing        bool
 	withdrawn                    serviceHold
@@ -614,7 +614,7 @@ func (c *contractSampler) due(s *Simulation) bool {
 		return true
 	}
 	counts := contractCounts{
-		pods: len(s.vehicles), waiting: len(s.waiting), faults: len(s.faults), groups: len(s.couplingGroups),
+		pods: len(s.vehicles), waiting: len(s.waiting), faults: len(s.faults),
 		completed: s.completed, requestID: s.requestID, boarded: s.boarded, journeys: s.journeys,
 		interrupted: s.interrupted, unaccounted: s.unaccountedOrders, paused: s.paused,
 	}
@@ -624,7 +624,7 @@ func (c *contractSampler) due(s *Simulation) bool {
 		pods[index] = contractPhase{
 			activity: v.Pod.Activity, stationPhase: v.Pod.StationPhase,
 			station: v.Pod.StationID, berth: v.Pod.BerthID, relocatingTo: v.RelocatingTo,
-			coupling: v.CouplingID, platoon: v.PlatoonID, riders: len(v.Riders), stops: len(v.Stops),
+			platoon: v.PlatoonID, riders: len(v.Riders), stops: len(v.Stops),
 			occupied: v.Pod.Occupied, rebalancing: v.Rebalancing, withdrawn: v.withdrawn, faulted: v.faulted,
 		}
 	}

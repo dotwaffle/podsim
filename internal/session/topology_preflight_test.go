@@ -128,13 +128,9 @@ func TestTopologyPreflightAtCallers(t *testing.T) {
 		wantError(t, preflightTopology(atCap, server, strings.Repeat("<", 5)), refusal)
 	})
 
-	t.Run("Express and coupling", func(t *testing.T) {
-		// The markers add bytes, so these topologies are also over the cap.
-		for _, marked := range []project.Config{
-			{Version: project.CurrentVersion, OrderContract: sim.ExpressOrderContract, Network: over.Network},
-			{Version: project.CurrentVersion, CouplingContract: sim.CompactPairV1CouplingContract, Network: over.Network},
-		} {
-			wantError(t, preflightTopology(marked, strings.Repeat("0", 16), strings.Repeat("0", 26)), refusal)
-		}
+	t.Run("Express", func(t *testing.T) {
+		// The marker adds bytes, so this topology is also over the cap.
+		marked := project.Config{Version: project.CurrentVersion, OrderContract: sim.ExpressOrderContract, Network: over.Network}
+		wantError(t, preflightTopology(marked, strings.Repeat("0", 16), strings.Repeat("0", 26)), refusal)
 	})
 }

@@ -271,9 +271,7 @@ It reports them as unaccounted orders at each restore, together with the orders 
 Each session writes saved-state version 9, and this server accepts only version 9.
 The root markers of the file select its optional sections.
 The `orderContract` marker `express-v1` selects the Express order bounds.
-The `couplingContract` marker `compact-pair-v1` permits the coupling members.
 The project and the simulation must have the same markers as the root.
-A file without the coupling marker must not have a coupling member, also not an empty, null, or false value.
 The incident marker `incidentContract` `incident-v1` is only in the saved project.
 With it, the file can have these incident members, and it omits each one at 0 or when it is absent:
 
@@ -331,17 +329,18 @@ Each saved version stores a version 1 project.
 A saved project of version 2 through 5 gets reason `invalid_state`, as other bad saves do.
 An intact file of version 1 through 8, or of version 10 or later, gets reason `unsupported_version`.
 The server moves it aside and starts a new session.
-It does not migrate the file, also not a version 8 file with coupling markers.
+It does not migrate the file.
 A damaged or invalid file gets `invalid_state`, and the server moves it aside and starts a new session.
 Examples are a gzip error, a JSON syntax error, a file over a scan limit, a header member of the wrong type, a missing, null, zero, or negative version, a value that the decoder refuses, and a restore that fails.
-This rule applies also to a file with committed coupling groups.
+Until the first release, the removal of a member keeps the version.
+Thus a version 9 file with a member of the removed physical coupling feature, for example `couplingContract` or `simulation.couplingGroups`, has an unknown member and gets `invalid_state`.
 The server does not try to recover any part of such a file.
 A file of more than 80 MiB is the only exception: the server keeps it, turns saving off, and fails to start.
 The server checks the fault records before either tier.
 A fault record that is not valid gives `invalid_state` for the whole file, and the server does not try the `logical` tier.
 It does not remove one record to keep the others.
 Examples are records out of serial order, a serial above `incidentSerial`, a tick out of range, a negative counter, and more than 64 debris records.
-Other examples are a pod record for a pod without the fault hold or for a pod in a platoon, a compact queue, or a coupling group, and a pod with two records.
+Other examples are a pod record for a pod without the fault hold or for a pod in a platoon or a compact queue, and a pod with two records.
 A debris segment that is not valid, and debris that meets other debris or a faulted pod, also give `invalid_state`.
 In the `physical` tier, a traveling pod that holds a resource of debris gives `invalid_state`.
 A file of the traffic demo with a fault record also gives `invalid_state`, because the demo runs without faults.
@@ -352,7 +351,6 @@ A pod index out of range, a pod with two records, and a pod with hold 2 and no r
 A pod with purpose 1 must have the owner 2 and a record.
 Then the party of the record must be aboard the pod, and `interrupt` must name only that party.
 A pod with a record and purpose 2 or 3 must have no party aboard.
-With or without the emergency marker, a member of a saved coupling group with a hold or a purpose gives `invalid_state`.
 The optional pod field `stationBuffered` permits validated berthless occupancy of a station holding lane.
 Restore keeps those members draining, then applies the project's experimental policy settings.
 Buffer certificates of fixed station-entry platoons have the fields `kind` and `terminalCell`.
@@ -361,8 +359,7 @@ Explicit logical recovery validates those certificates physically before it requ
 See the [fixed entry contract](station-entry-platoons.md) for field and restore checks.
 Bank-inconsistent retained routes reject restoration before either tier.
 See [independent station banks](station-banks.md) for bank membership, routing, and browser editing.
-An older server rejects version 9 with `unsupported_version`.
-It keeps a file with coupling markers and fails to start, and it moves each other file aside.
+An older server rejects version 9 with `unsupported_version` and moves the file aside.
 Keep a copy before a downgrade.
 
 Portable project version 1 accepts optional `stationBuffers` and `pickupReassignment` Boolean settings.

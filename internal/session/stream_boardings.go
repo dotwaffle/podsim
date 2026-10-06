@@ -79,7 +79,6 @@ func (a *StreamAssembler) vehicleBoardings(v VehicleFrame) error {
 }
 
 func ownStreamBoardings(f StreamFrame) StreamFrame {
-	f.State.Simulation.CouplingGroups = cloneCouplingGroups(f.State.Simulation.CouplingGroups)
 	if f.State.Simulation.OrderContract == sim.ExpressOrderContract {
 		f.State.Simulation.Pending = slices.Clone(f.State.Simulation.Pending)
 	}

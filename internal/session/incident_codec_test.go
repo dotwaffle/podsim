@@ -293,10 +293,7 @@ func TestOperationalArrayLimit(t *testing.T) {
 	document := func(tuple string) []byte {
 		return []byte(`{"simulation":{"pods":[{"operational":` + tuple + `}]}}`)
 	}
-	for _, markers := range []contractMarkers{
-		{}, {order: sim.ExpressOrderContract}, {coupling: sim.CompactPairV1CouplingContract},
-		{order: sim.ExpressOrderContract, coupling: sim.CompactPairV1CouplingContract},
-	} {
+	for _, markers := range []contractMarkers{{}, {order: sim.ExpressOrderContract}} {
 		limits := savedLimits(markers)
 		if err := prescanJSON(document("[1,2,1]"), limits); err != nil {
 			t.Errorf("%+v: the scan refuses the limit: %v", markers, err)

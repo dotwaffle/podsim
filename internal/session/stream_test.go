@@ -38,9 +38,8 @@ func streamFixture(t *testing.T) (*Session, StreamFrame) {
 // fullStreamEnvelope returns the full envelope of frame, with the contract
 // markers of frame.
 func fullStreamEnvelope(frame StreamFrame) StreamEnvelope {
-	return StreamEnvelope{CouplingContract: frame.State.Simulation.CouplingContract,
-		OrderContract: frame.State.Simulation.OrderContract,
-		Kind:          "full", Stream: "coupling-test", Sequence: 1, Build: frame.State.Build, Source: sourceOf(frame), Full: &frame}
+	return StreamEnvelope{OrderContract: frame.State.Simulation.OrderContract,
+		Kind: "full", Stream: "family-test", Sequence: 1, Build: frame.State.Build, Source: sourceOf(frame), Full: &frame}
 }
 
 // streamFamilyFrames returns one frame of each stream family and a changed
@@ -66,11 +65,6 @@ func streamFamilyFrames(t *testing.T) map[string][2]StreamFrame {
 		t.Fatal(err)
 	}
 	frames["express"] = advance(express, frame)
-	data := couplingPhaseFixtures(t)
-	for name, order := range map[string]sim.OrderContract{"coupling raw": "", "coupling packed": sim.ExpressOrderContract} {
-		s, _, frame := couplingStreamFixture(t, data.Frames[0], order)
-		frames[name] = advance(s, frame)
-	}
 	return frames
 }
 
@@ -286,9 +280,6 @@ func maximumStreamFrame(t *testing.T) StreamFrame {
 	_, f := streamFixture(t)
 	fillStreamScalars(reflect.ValueOf(&f.State).Elem())
 	// Keep the maximum fixture in its original stream family.
-	f.State.Simulation.CouplingContract = ""
-	f.State.Simulation.CouplingEnabled = false
-	f.State.Simulation.CouplingGroups = nil
 	f.State.Simulation.Interrupted, f.State.Simulation.InterruptedPassengers = 0, 0
 	escaped := strings.Repeat("\x01", 64)
 	reason := strings.Repeat("\x01", 1024)
@@ -629,10 +620,10 @@ func TestStreamFieldOwnership(t *testing.T) {
 			"identity": {"Epoch", "Revision", "ProjectRevision", "Generation", "Build", "ServerStart"}, "controls": {"Speed", "Redistribution", "SpeedReduction"}, "demand": {"Demand"}, "restore": {"Restore"}, "checkpoints": {"Checkpoints"}, "simulation": {"Simulation"},
 		}},
 		{reflect.TypeFor[SimulationFrame](), map[string][]string{
-			"contract identity": {"OrderContract", "CouplingContract", "IncidentContract", "FaultContract", "EmergencyContract"}, "coupling": {"CouplingEnabled", "CouplingGroups"}, "global": {"Submitted", "Tick", "Paused", "Completed", "Demo", "DemoError"}, "incident": {"Interrupted", "InterruptedPassengers"}, "faults": {"Faults"}, "emergencies": {"Emergencies"}, "vehicles": {"Vehicles"}, "berths": {"Berths"}, "pending": {"Pending"},
+			"contract identity": {"OrderContract", "IncidentContract", "FaultContract", "EmergencyContract"}, "global": {"Submitted", "Tick", "Paused", "Completed", "Demo", "DemoError"}, "incident": {"Interrupted", "InterruptedPassengers"}, "faults": {"Faults"}, "emergencies": {"Emergencies"}, "vehicles": {"Vehicles"}, "berths": {"Berths"}, "pending": {"Pending"},
 			"statistics": {"Wait", "Journey", "PassengerDistanceMeters", "RiderDistanceMeters", "DirectDistanceMeters", "MaxDetourRatio", "SharedParties", "SharedRidePartyLimit", "EmptyDistanceMeters", "RebalanceMoves"},
 		}},
-		{reflect.TypeFor[VehicleFrame](), map[string][]string{"pod": {"Pod"}, "riders": {"Riders"}, "boardings": {"Boardings"}, "stops": {"Stops"}, "presentation replaces route": {"RouteLaneIDs"}, "metadata": {"CouplingID", "RiddenMeters", "RelocatingTo", "Rebalancing", "PlatoonID", "PlatoonIndex", "Withdrawn", "Operational"}}},
+		{reflect.TypeFor[VehicleFrame](), map[string][]string{"pod": {"Pod"}, "riders": {"Riders"}, "boardings": {"Boardings"}, "stops": {"Stops"}, "presentation replaces route": {"RouteLaneIDs"}, "metadata": {"RiddenMeters", "RelocatingTo", "Rebalancing", "PlatoonID", "PlatoonIndex", "Withdrawn", "Operational"}}},
 	}
 	for _, check := range checks {
 		seen := map[string]string{}

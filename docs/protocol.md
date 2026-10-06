@@ -33,12 +33,12 @@ A wildcard such as `*/*` does not name the media type.
 Without the media type, the request gets HTTP 406.
 The reply is an envelope with the root contract markers of the project, `topology`, and `frame`.
 The frame is a full stream frame, so the state values are in `frame.state`, and the routes are route windows (see "Shared state stream").
-The envelope has `orderContract` and `couplingContract` only when the project has them.
+The envelope has `orderContract` only when the project has it.
 The editor and the debug capture send the media type.
 They refuse a reply with another media type before they read it.
 They also refuse a reply that has a `textEncoding` member at any level, or that is over the stream limits of 64 levels and 65536 elements in an array.
 The root, `topology` and `frame.state.simulation` must have the same contract markers.
-When present, `orderContract` must be `express-v1` and `couplingContract` must be `compact-pair-v1`.
+When present, `orderContract` must be `express-v1`.
 A project with the incident marker `incidentContract` `incident-v1` puts it in `topology` and in `frame.state.simulation`, not at the root.
 These two markers must agree, and the value must be `incident-v1`, also not null or empty.
 The fault marker `faultContract` `fault-v1` and the emergency marker `emergencyContract` `emergency-v1` have the same rules.
@@ -98,7 +98,7 @@ A restore rejects any other speed, including 4 and 8.
 
 The server sends a text hello with `version`, `build`, and `serverStart` before any binary state message.
 The version is 6 for every project kind.
-The hello also has the `orderContract` and `couplingContract` markers of the project, when the project has them.
+The hello also has the `orderContract` marker of the project, when the project has it.
 The markers select the optional sections of each message on the connection.
 A client refuses every other version, and it records the `build` of the hello before it refuses the version.
 Then a page of an earlier build loads the files of the server.
@@ -107,7 +107,6 @@ The envelope contains `kind`, `stream`, `sequence`, `base`, `build`, and `source
 The envelope has the same contract markers as the hello, the full frame, and the topology.
 A client refuses an envelope whose markers differ from the markers of the hello.
 A topology whose markers differ from the markers of the hello is also refused.
-Without `couplingContract`, a message must not contain a coupling member, also with a null, false, or empty value.
 The incident marker `incidentContract` is only in the topology and in the simulation of a full frame.
 The hello, the envelope root, and a delta do not have it.
 A client refuses a frame whose incident marker differs from the marker of its topology.
@@ -174,7 +173,6 @@ Commands and editor or diagnostic reads keep HTTP.
 Each state frame also has a `revision` and a `generation`.
 The revision increases by one at each clock tick while the session runs, and with each accepted command.
 The generation increases by one with a reset, a demo, a project apply that replaces the fleet, a rewind, and a restore of the saved state at a restart.
-A train toggle does not change it, as the `project` action describes.
 A new generation makes the Go client clear its buffered motion.
 
 The `redistribution` member of a state frame is true when the project turns on redistribution and the demo does not run.
@@ -289,7 +287,7 @@ The other members depend on the action:
 | `reset` | None | Restores the project fleet and demand settings, and clears the orders. It sets the speed to 1 and keeps the pause state. |
 | `demo` | None | Resets the run, starts the traffic demo, disables automatic demand, and sets the speed to 1. It needs the unchanged example network and fleet. |
 | `demand` | `demand`: the `demand` object of a project | Replaces the demand settings of the project and increases the project revision. The server rejects it during the demo. |
-| `project` | `project`: the `project` object from `GET /api/project`. `projectRevision`: the `revision` from `GET /api/project`, an integer. `serverStart`: optional, the `serverStart` from `GET /api/state` (in `frame.state`) when the project loaded, a string | Replaces the project and increases the project revision. The new fleet starts paused at speed 1. Two cases keep the fleet. A project that is the same as the current project changes nothing: the server keeps the project revision, the generation, and the simulation, and does not save. A train toggle is a project with `couplingContract` that changes only `couplingEnabled`. It changes only the recruitment of new trains and increases the project revision. The server keeps the fleet, its trains, the generation, the speed, the demand stream, and the `restore` key. For these two cases, a missing and an empty list of coupling sites, coupling corridors, or corridor lanes are the same. During a retained coupling fault, the server replaces the fleet in both cases. The demo fleet has no coupling contract, so a train toggle replaces the fleet until a reset ends the demo. The session must be paused, and `projectRevision` must be the current project revision. When the session is paused and `projectRevision` is not the current project revision, the command gets `stale_project`. When `serverStart` is set and is not the `serverStart` of the server process, the command gets `session_changed`. |
+| `project` | `project`: the `project` object from `GET /api/project`. `projectRevision`: the `revision` from `GET /api/project`, an integer. `serverStart`: optional, the `serverStart` from `GET /api/state` (in `frame.state`) when the project loaded, a string | Replaces the project and increases the project revision. The new fleet starts paused at speed 1. A project that is the same as the current project changes nothing: the server keeps the project revision, the generation, and the simulation, and does not save. The session must be paused, and `projectRevision` must be the current project revision. When the session is paused and `projectRevision` is not the current project revision, the command gets `stale_project`. When `serverStart` is set and is not the `serverStart` of the server process, the command gets `session_changed`. |
 | `checkpoint` | None | Makes a save point. |
 | `rewind` | `checkpoint`: save point ID, an integer | Restores the save point and pauses the session. |
 | `fault` | `podID`: a pod ID. Or `laneID`: a lane ID, with `fromMeters` and `toMeters`: numbers. `durationSeconds`: optional, an integer from 1 to 86,400 | Starts a pod fault on the pod, or debris on the lane segment from `fromMeters` to `toMeters`. Without `durationSeconds`, the fault lasts until a `clearFault`. See [Faults](#faults). |
@@ -523,7 +521,7 @@ The `error` message is one of these:
 | --- | --- |
 | `faults are not enabled` | The project has no fault marker, or the traffic demo turned faults off. |
 | `invalid fault duration` | `durationSeconds` is not from 1 to 86,400. |
-| `fault target is not supported` | The command has both `podID` and `laneID`, neither of them, or a segment with `podID`. Or the pod is in a platoon, a compact queue, a coupling group, or a coupling approach, or it is not traveling and not at a berth. Or the debris is on the route of a pod in a coupling group or a coupling approach. |
+| `fault target is not supported` | The command has both `podID` and `laneID`, neither of them, or a segment with `podID`. Or the pod is in a platoon or a compact queue, or it is not traveling and not at a berth. |
 | `incident limit reached` | The end tick, the evacuation tick, or the incident serial would overflow. |
 | `unknown pod` | No pod has `podID`. |
 | `pod already has a fault` | The pod has a pod fault. |
@@ -542,7 +540,6 @@ See [emergencies](operations.md#emergencies) for the settings.
 
 An emergency starts for one party aboard a pod.
 The pod leaves service, and its pending pickups go to other pods.
-A pod in a coupling group or a coupling approach leaves service when it leaves the group.
 A pod at a berth unloads there.
 A traveling pod goes to the passenger station with the soonest estimated arrival, and unloads there.
 Every party leaves the pod at the unload.
@@ -551,8 +548,8 @@ Each other party completes when the station is its destination.
 Otherwise it waits at the station for its next leg.
 
 While the emergency is active, the pod gets a free junction, track cell, or berth before other pods that request it in the same tick.
-A pod in a coupling group, a platoon, or a compact queue waits until it leaves the group.
-A platoon link or a coupling approach with the pod ends.
+A pod in a platoon or a compact queue waits until it leaves the group.
+A platoon link with the pod ends.
 A faulted pod waits until the fault ends, and an evacuation ends the emergency.
 The emergency ends when no party is aboard the pod, or when the party leaves the pod before the pod starts its unload.
 Then the pod returns to service, unless it has a fault.
@@ -704,7 +701,7 @@ The client does not show a notice for its first frame.
 When one of the two frames has no `serverStart` ID, the server is older, and the client uses the epoch and the restore tier.
 Only a restart makes a new epoch.
 With a kept epoch, the first frame after the restart has a new generation, a `restore` tier of `physical` or `logical`, and no save points.
-A reset, a demo, and a project apply that replaces the fleet remove the `restore` key, a train toggle keeps the generation, and a rewind keeps the save points.
+A reset, a demo, and a project apply that replaces the fleet remove the `restore` key, and a rewind keeps the save points.
 Thus a command never makes a frame with all three of these properties.
 
 ## Payload measurements

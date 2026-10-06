@@ -26,7 +26,7 @@ import (
 // reload to the files of that server.
 func TestStreamHelloRefusesOtherVersions(t *testing.T) {
 	t.Parallel()
-	express, coupling := sim.ExpressOrderContract, sim.CompactPairV1CouplingContract
+	express := sim.ExpressOrderContract
 	var hellos []string
 	for _, version := range []int{1, 2, 3, 4, 5, 7} {
 		hellos = append(hellos, fmt.Sprintf(`{"kind":"hello","version":%d,"build":"other-build","serverStart":"source"}`, version))
@@ -34,8 +34,7 @@ func TestStreamHelloRefusesOtherVersions(t *testing.T) {
 	hellos = append(hellos,
 		// Hello 4 and 5 of an Express project had the textEncoding marker.
 		`{"kind":"hello","version":4,"build":"other-build","serverStart":"source","orderContract":"`+string(express)+`","textEncoding":"order-text-base64-v1"}`,
-		`{"kind":"hello","version":5,"build":"other-build","serverStart":"source","couplingContract":"`+string(coupling)+`"}`,
-		`{"kind":"hello","version":5,"build":"other-build","serverStart":"source","orderContract":"`+string(express)+`","textEncoding":"order-text-base64-v1","couplingContract":"`+string(coupling)+`"}`,
+		`{"kind":"hello","version":5,"build":"other-build","serverStart":"source","orderContract":"`+string(express)+`","textEncoding":"order-text-base64-v1"}`,
 		// Hello 6 has no textEncoding marker.
 		`{"kind":"hello","version":6,"build":"other-build","serverStart":"source","orderContract":"`+string(express)+`","textEncoding":"order-text-base64-v1"}`,
 	)
@@ -48,8 +47,8 @@ func TestStreamHelloRefusesOtherVersions(t *testing.T) {
 			t.Errorf("lost the build of %s: %q", raw, hello.Build)
 		}
 	}
-	for _, markers := range []contractMarkers{{}, {order: express}, {coupling: coupling}, {order: express, coupling: coupling}} {
-		want := StreamHello{Kind: "hello", Version: StreamVersion, Build: "build", ServerStart: "source", OrderContract: markers.order, CouplingContract: markers.coupling}
+	for _, order := range []sim.OrderContract{"", express} {
+		want := StreamHello{Kind: "hello", Version: StreamVersion, Build: "build", ServerStart: "source", OrderContract: order}
 		raw, err := json.Marshal(want)
 		if err != nil {
 			t.Fatal(err)
@@ -106,16 +105,13 @@ func markerSectionRequest(family string, id int) sim.Request {
 	switch family {
 	case "express":
 		return sim.Request{ID: id, From: "harbor", To: "market", PartySize: 20, SharingConsent: sim.SharedConsent, Service: sim.ExpressServiceChoice, ServiceID: "harbor-market"}
-	case "coupling raw", "coupling packed":
-		return sim.Request{ID: id, From: "origin", To: "front-goal", PartySize: 1, SharingConsent: sim.PrivateConsent, Service: sim.OnDemandService}
 	default:
 		return sim.Request{ID: id, From: "harbor", To: "market", PartySize: 1, SharingConsent: sim.PrivateConsent, Service: sim.OnDemandService}
 	}
 }
 
 // TestStreamMarkersSelectSections round-trips the stream and the HTTP
-// state of a plain, an Express, a coupling, and an Express coupling
-// project: a full frame, a delta that replaces the pending orders, a delta
+// state of a plain and an Express project: a full frame, a delta that replaces the pending orders, a delta
 // that replaces the riders of a vehicle, and the HTTP state. The assembler
 // accepts each frame. Each document carries the order text packed, and
 // only the markers of its project.
@@ -132,21 +128,13 @@ func TestStreamMarkersSelectSections(t *testing.T) {
 			riders := ownStreamBoardings(pending)
 			riders.State.Revision++
 			riders.State.Simulation.Pending = base.State.Simulation.Pending
-			// The new rider rides in a vehicle that is not in a train. In a
-			// coupling fixture, that vehicle is solo, which has a rider
-			// already, so the riders of the HTTP state are in an occupied
-			// vehicle.
-			index := slices.IndexFunc(riders.State.Simulation.Vehicles, func(v VehicleFrame) bool { return v.CouplingID == "" })
-			if index < 0 {
-				t.Fatal("fixture has no vehicle outside a train")
-			}
-			if simulation := base.State.Simulation; simulation.CouplingContract != "" && !simulation.Vehicles[index].Pod.Occupied {
-				t.Fatal("coupling fixture has no occupied vehicle outside a train")
+			if len(riders.State.Simulation.Vehicles) == 0 {
+				t.Fatal("fixture has no vehicle")
 			}
 			rider := request
-			rider.PodID = riders.State.Simulation.Vehicles[index].Pod.ID
+			rider.PodID = riders.State.Simulation.Vehicles[0].Pod.ID
 			vehicles := slices.Clone(riders.State.Simulation.Vehicles)
-			vehicle := &vehicles[index]
+			vehicle := &vehicles[0]
 			if n := len(vehicle.Riders); n > 0 {
 				// The new rider replaces the last rider. A private party
 				// rides alone, and the boardings stay valid.
@@ -158,7 +146,7 @@ func TestStreamMarkersSelectSections(t *testing.T) {
 				}
 			}
 			riders.State.Simulation.Vehicles = vehicles
-			markers := contractMarkers{order: base.State.Simulation.OrderContract, coupling: base.State.Simulation.CouplingContract}
+			markers := contractMarkers{order: base.State.Simulation.OrderContract}
 			packedFrom := `"from":"` + base64.StdEncoding.EncodeToString([]byte(request.From)) + `"`
 
 			full := fullStreamEnvelope(base)
@@ -188,8 +176,8 @@ func TestStreamMarkersSelectSections(t *testing.T) {
 				if err != nil {
 					t.Fatal(i, err)
 				}
-				if decoded.OrderContract != markers.order || decoded.CouplingContract != markers.coupling {
-					t.Fatalf("publication %d markers: %q %q", i, decoded.OrderContract, decoded.CouplingContract)
+				if decoded.OrderContract != markers.order {
+					t.Fatalf("publication %d marker: %q", i, decoded.OrderContract)
 				}
 				accepted, err := ApplyStream(previous, e.Stream, uint64(i), decoded)
 				if err != nil {
@@ -232,8 +220,7 @@ func TestStreamMarkersSelectSections(t *testing.T) {
 }
 
 // assertMarkerSections checks the root markers of a stream document or an
-// HTTP state, and that it has no textEncoding marker and no coupling member
-// without the coupling marker.
+// HTTP state, and that it has no textEncoding marker.
 func assertMarkerSections(t *testing.T, raw []byte, markers contractMarkers) {
 	t.Helper()
 	got, err := scanRootMarkers(raw)
@@ -242,11 +229,6 @@ func assertMarkerSections(t *testing.T, raw []byte, markers contractMarkers) {
 	}
 	if bytes.Contains(raw, []byte(`"textEncoding"`)) {
 		t.Fatal("document has a text encoding marker")
-	}
-	if markers.coupling == "" {
-		if err := scanStreamServiceMembers(raw, markers); err != nil {
-			t.Fatal("unmarked document has a coupling member", err)
-		}
 	}
 }
 
@@ -270,44 +252,17 @@ func markerSectionFixtures(t *testing.T) map[string]markerSectionFixture {
 		t.Fatal(err)
 	}
 	fixtures["express"] = markerSectionFixture{express.Topology(), frame}
-	for name, order := range map[string]sim.OrderContract{"coupling raw": "", "coupling packed": sim.ExpressOrderContract} {
-		_, topology, frame := couplingInputStreamFixture(t, couplingSoloInput(t), order)
-		fixtures[name] = markerSectionFixture{topology, frame}
-	}
 	return fixtures
 }
 
-// couplingSoloInput returns the first coupling phase with one more pod,
-// solo. Solo is not in the train. It carries one rider from the front goal
-// to the origin on a return lane, off the path of the train.
-func couplingSoloInput(t *testing.T) sim.RestoreStateInput {
-	t.Helper()
-	data := couplingPhaseFixtures(t)
-	input := couplingPhaseInput(t, data, data.Frames[0])
-	lanes := map[string]int{}
-	for index, lane := range couplingProject(input).Network.Lanes {
-		lanes[lane.ID] = index
-	}
-	input.Fleet = append(slices.Clone(input.Fleet), sim.Placement{Class: sim.CompactClass, ID: "solo", StationID: "rear-goal"})
-	input.State.RequestID++
-	input.State.Boarded++
-	rider := sim.SavedRequest{SharingConsent: sim.PrivateConsent, Service: sim.OnDemandService, ID: input.State.RequestID,
-		From: "front-goal", To: "origin", PartySize: 1, PodID: "solo", RequestedTick: 1, BoardedTick: 2}
-	// Pods are in pod ID order, and solo is after front and rear.
-	input.State.Pods = append(slices.Clone(input.State.Pods), sim.SavedPod{Class: sim.CompactClass, ID: "solo", Activity: "traveling", Occupied: true,
-		Origin: "front-goal-1", Destination: "origin-1", DestinationStation: "origin", Riders: []sim.SavedRequest{rider}, Stops: []string{"origin"},
-		Route: []int{lanes["front-return"], lanes["origin-in"]}, LaneID: "front-return", LaneDistance: 30, Distance: 30})
-	return input
-}
-
 // TestStreamGoldenBytes pins one full and one delta publication of a
-// plain, an Express and a coupling project. The source, build and order
+// plain and an Express project. The source, build and order
 // text are fixed, so the bytes do not depend on the session. Run the test
 // with -update to write the files again.
 func TestStreamGoldenBytes(t *testing.T) {
 	t.Parallel()
 	families := streamFamilyFrames(t)
-	for _, family := range []struct{ name, frames string }{{"plain", "foundation"}, {"express", "express"}, {"coupling", "coupling raw"}} {
+	for _, family := range []struct{ name, frames string }{{"plain", "foundation"}, {"express", "express"}} {
 		frames := families[family.frames]
 		for i := range frames {
 			frame := ownStreamBoardings(frames[i])

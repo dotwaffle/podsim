@@ -995,7 +995,6 @@ var sessionRewindRules = map[string]rewindRule{
 	"saveProject": rewindInfrastructure, "logger": rewindInfrastructure,
 	"build": rewindInfrastructure, "persist": rewindInfrastructure, "serverStart": rewindInfrastructure,
 	"clock": rewindReset, "speedReduction": rewindKeep,
-	"couplingObservation": rewindReset, "couplingViewError": rewindReset,
 	"simulation": rewindRestore, "demand": rewindRestore,
 	// A rewind restores the project of the save point. When it restores a
 	// different project, it increases projectRevision and does not restore

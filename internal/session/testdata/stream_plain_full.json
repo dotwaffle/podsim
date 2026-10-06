@@ -1,6 +1,6 @@
 {
   "kind": "full",
-  "stream": "coupling-test",
+  "stream": "family-test",
   "sequence": "1",
   "build": "golden-build",
   "source": {

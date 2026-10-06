@@ -23,9 +23,8 @@ const (
 	// contract markers of a connection select its optional sections.
 	StreamVersion = 6
 	// MaxStreamJSON limits the JSON of a stream envelope and of the HTTP
-	// state. The composed worst-case Express with coupling HTTP state of
-	// the incident contract needs more than 64 MiB. MaxStreamMessage
-	// limits the gzip data, with 1 MiB for the expansion of stored blocks.
+	// state. MaxStreamMessage limits the gzip data, with 1 MiB for the
+	// expansion of stored blocks.
 	MaxStreamJSON    = 65 << 20
 	MaxStreamMessage = 66 << 20
 )
@@ -61,7 +60,6 @@ type VehicleDelta struct {
 	Metadata  *Replacement[vehicleMetadata]       `json:"metadata,omitempty"`
 }
 type vehicleMetadata struct {
-	CouplingID   string  `json:"couplingID,omitzero"`
 	RiddenMeters float64 `json:"riddenMeters,omitzero"`
 	RelocatingTo string  `json:"relocatingTo"`
 	Rebalancing  bool    `json:"rebalancing"`
@@ -127,16 +125,15 @@ type StreamDelta struct {
 
 // StreamEnvelope is one publication. Sequences use decimal strings on the wire.
 type StreamEnvelope struct {
-	CouplingContract sim.CouplingContract `json:"couplingContract,omitzero"`
-	OrderContract    sim.OrderContract    `json:"orderContract,omitzero"`
-	Kind             string               `json:"kind"`
-	Stream           string               `json:"stream"`
-	Sequence         uint64               `json:"sequence,string"`
-	Base             uint64               `json:"base,string,omitempty"`
-	Build            string               `json:"build"`
-	Source           StreamSource         `json:"source"`
-	Full             *StreamFrame         `json:"full,omitempty"`
-	Delta            *StreamDelta         `json:"delta,omitempty"`
+	OrderContract sim.OrderContract `json:"orderContract,omitzero"`
+	Kind          string            `json:"kind"`
+	Stream        string            `json:"stream"`
+	Sequence      uint64            `json:"sequence,string"`
+	Base          uint64            `json:"base,string,omitempty"`
+	Build         string            `json:"build"`
+	Source        StreamSource      `json:"source"`
+	Full          *StreamFrame      `json:"full,omitempty"`
+	Delta         *StreamDelta      `json:"delta,omitempty"`
 	// incidentMembers records that the decoded bytes have a stage 1 member
 	// or the incident group, with any value. The typed fields cannot show
 	// an explicit zero or null. See scanIncidentMembers.
@@ -154,7 +151,7 @@ func sourceOf(f StreamFrame) StreamSource {
 	return StreamSource{s.ServerStart, s.Epoch, s.ProjectRevision, s.Generation, s.Revision}
 }
 func sameChain(a, b StreamFrame) bool {
-	if a.State.Simulation.OrderContract != b.State.Simulation.OrderContract || a.State.Simulation.CouplingContract != b.State.Simulation.CouplingContract {
+	if a.State.Simulation.OrderContract != b.State.Simulation.OrderContract {
 		return false
 	}
 	x, y := sourceOf(a), sourceOf(b)
@@ -178,12 +175,11 @@ func sameChain(a, b StreamFrame) bool {
 	return true
 }
 func meta(v VehicleFrame) vehicleMetadata {
-	return vehicleMetadata{CouplingID: v.CouplingID, RiddenMeters: v.RiddenMeters, RelocatingTo: v.RelocatingTo, Rebalancing: v.Rebalancing, PlatoonID: v.PlatoonID, PlatoonIndex: v.PlatoonIndex, Withdrawn: v.Withdrawn, Operational: v.Operational}
+	return vehicleMetadata{RiddenMeters: v.RiddenMeters, RelocatingTo: v.RelocatingTo, Rebalancing: v.Rebalancing, PlatoonID: v.PlatoonID, PlatoonIndex: v.PlatoonIndex, Withdrawn: v.Withdrawn, Operational: v.Operational}
 }
 
 // replace sets the metadata fields of v.
 func (m vehicleMetadata) replace(v *VehicleFrame) {
-	v.CouplingID = m.CouplingID
 	v.RiddenMeters = m.RiddenMeters
 	v.RelocatingTo, v.Rebalancing, v.PlatoonID, v.PlatoonIndex = m.RelocatingTo, m.Rebalancing, m.PlatoonID, m.PlatoonIndex
 	v.Withdrawn, v.Operational = m.Withdrawn, m.Operational
@@ -219,13 +215,6 @@ func frameGroups(f StreamFrame) (map[string]json.RawMessage, error) {
 		"global": globalGroup{state.Simulation.Submitted, state.Simulation.Tick, state.Simulation.Paused, state.Simulation.Completed, state.Simulation.Demo, state.Simulation.DemoError},
 	}
 	values["statistics"] = statisticsOf(state.Simulation)
-	if state.Simulation.CouplingContract != "" {
-		members := state.Simulation.CouplingGroups
-		if members == nil {
-			members = []sim.CouplingGroupView{}
-		}
-		values["coupling"] = couplingReplacement{state.Simulation.CouplingContract, state.Simulation.CouplingEnabled, members}
-	}
 	if state.Simulation.IncidentContract != "" {
 		values["incident"] = incidentGroup{state.Simulation.Interrupted, state.Simulation.InterruptedPassengers}
 	}
@@ -301,11 +290,6 @@ func applyGroups(f *StreamFrame, groups map[string]json.RawMessage) error {
 	for key, raw := range groups {
 		var target any
 		switch key {
-		case "coupling":
-			if err := applyCouplingReplacement(&f.State.Simulation, raw); err != nil {
-				return err
-			}
-			continue
 		case "controls":
 			var v controlsGroup
 			if err := decodeStreamJSON(raw, &v); err != nil {

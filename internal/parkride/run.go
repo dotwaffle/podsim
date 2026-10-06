@@ -221,19 +221,11 @@ func (r *Run) StepContext(ctx context.Context) error {
 	if r.fault != "" {
 		return errors.New(r.fault)
 	}
-	if err := r.pods.CouplingError(); err != nil {
-		r.fault = err.Error()
-		return err
-	}
 	if r.Done() {
 		return nil
 	}
 	before := r.pods.Tick()
 	r.pods.Step()
-	if err := r.pods.CouplingError(); err != nil {
-		r.fault = err.Error()
-		return err
-	}
 	if err := r.pods.CompactQueueError(); err != nil {
 		r.fault = err.Error()
 		return err

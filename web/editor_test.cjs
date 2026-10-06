@@ -143,36 +143,7 @@ function generatedProject(preset, ...flags) {
   return JSON.parse(generatedFile(preset, ...flags));
 }
 
-// couplingScenario gives the coupling project that the Go model tests
-// check against native validation.
-function couplingScenario() {
-  return JSON.parse(fs.readFileSync(path.join(__dirname, "../internal/editormodel/testdata/coupling_project.json"), "utf8"));
-}
-
-const COUPLING_KEYS = ["couplingContract", "couplingEnabled", "couplingSites", "couplingCorridors"];
-const couplingText = (scenario) => JSON.stringify(Object.fromEntries(Object.entries(scenario).filter(([key]) => COUPLING_KEYS.includes(key))));
-
-test("a coupling project keeps its coupling members through wrapped and bare import and export", () => {
-  for (const enabled of [true, false, undefined]) {
-    const config = couplingScenario();
-    if (enabled === undefined) delete config.couplingEnabled; else config.couplingEnabled = enabled;
-    const exported = editor.serializeDocument(config);
-    assert.deepEqual(JSON.parse(exported).scenario, config, `export ${enabled}`);
-    assert.deepEqual(Object.keys(JSON.parse(exported).scenario), Object.keys(config), `export order ${enabled}`);
-    for (const [name, text] of [["wrapped", exported], ["bare", JSON.stringify(config)]]) {
-      const imported = editor.parseDocument(text).scenario;
-      assert.equal(imported.version, 1, name);
-      assert.equal(couplingText(imported), couplingText(config), `${name} ${enabled}`);
-      assert.equal(Object.hasOwn(imported, "orderContract"), false, name);
-      assert.equal(couplingText(JSON.parse(editor.serializeDocument(imported)).scenario), couplingText(config), `${name} re-export ${enabled}`);
-      assert.deepEqual(editor.parseDocument(text).scenario, config, `${name} raw`);
-    }
-  }
-  const express = { ...couplingScenario(), orderContract: "express-v1" };
-  assert.equal(editor.parseDocument(JSON.stringify(express)).scenario.orderContract, "express-v1");
-});
-
-test("projects without the coupling marker keep version 1 and export no coupling members", () => {
+test("projects keep version 1 through import and export", () => {
   const scenarios = { plain: connectedScenario(), service: serviceScenario(), banks: connectedScenario() };
   scenarios.express = { ...serviceScenario(), orderContract: "express-v1" };
   const station = scenarios.banks.network.stations[0];
@@ -180,30 +151,12 @@ test("projects without the coupling marker keep version 1 and export no coupling
   for (const [name, config] of Object.entries(scenarios)) {
     const imported = editor.parseDocument(JSON.stringify(config)).scenario;
     assert.equal(imported.version, 1, name);
-    assert.equal(COUPLING_KEYS.some((key) => Object.hasOwn(imported, key)), false, `${name} gained a coupling member`);
     assert.equal(editor.serializeDocument(config), JSON.stringify({ format: "podsim", version: 1, scenario: config }), `${name} export`);
   }
   for (const version of [2, 3, 4, 5]) {
-    assert.throws(() => editor.parseDocument(JSON.stringify({ ...couplingScenario(), version })), new RegExp(`Project version ${version} is not supported: use version 1 with feature markers`));
+    assert.throws(() => editor.parseDocument(JSON.stringify({ ...connectedScenario(), version })), new RegExp(`Project version ${version} is not supported: use version 1 with feature markers`));
   }
-  assert.throws(() => editor.parseDocument(JSON.stringify({ ...couplingScenario(), version: 6 })), /The version field must be 1\./);
-});
-
-test("a coupling project with trains off keeps its members through import and the draft record", async () => {
-  const config = couplingScenario();
-  const off = { ...config, couplingEnabled: false };
-  assert.deepEqual(Object.keys(off), Object.keys(config));
-  assert.equal(JSON.stringify(off.couplingSites), JSON.stringify(config.couplingSites));
-  assert.equal(JSON.stringify(off.couplingCorridors), JSON.stringify(config.couplingCorridors));
-  assert.equal(off.couplingContract, "compact-pair-v1");
-  const imported = editor.parseDocument(editor.serializeDocument(off)).scenario;
-  assert.equal(imported.couplingEnabled, false);
-  assert.equal(couplingText(imported), couplingText(off));
-  // The saved draft keeps the members for a restore.
-  const store = editor.openRecordStore(fakeIndexedDB(), editor.DRAFT_STORE);
-  const record = editor.draftRecordFor({ scenario: off }, { scenario: JSON.stringify(config) }, { revision: 1, epoch: "e", serverStart: "s" });
-  await store.put(DRAFT_KEY, record);
-  assert.equal(couplingText((await store.get(DRAFT_KEY)).scenario), couplingText(off));
+  assert.throws(() => editor.parseDocument(JSON.stringify({ ...connectedScenario(), version: 6 })), /The version field must be 1\./);
 });
 
 // decoderParity gives the shared table that the Go tests check against the
@@ -2953,7 +2906,6 @@ function nested(levels) {
 function stateReplyRefusals(envelope) {
   const plain = envelope();
   const express = envelope({ orderContract: "express-v1" });
-  const coupling = envelope({ couplingContract: "compact-pair-v1" });
   const simulation = (reply, change) => ({ ...reply, frame: { ...reply.frame, state: { ...reply.frame.state, simulation: { ...reply.frame.state.simulation, ...change } } } });
   // incidentReply gives a plain reply with the incident marker value in
   // the topology and in the simulation, where the server puts it.
@@ -2990,9 +2942,6 @@ function stateReplyRefusals(envelope) {
     ["an unmarked root with an Express topology and simulation", without(express, "orderContract")],
     ["an Express root and topology with an unmarked simulation", { ...plain, orderContract: "express-v1", topology: { orderContract: "express-v1" } }],
     ["an unmarked Express topology", { ...express, topology: {} }],
-    ["a coupling root with an unmarked topology and simulation", { ...plain, couplingContract: "compact-pair-v1" }],
-    ["an unmarked root with a coupling topology and simulation", without(coupling, "couplingContract")],
-    ["a coupling simulation in a plain reply", simulation(plain, { couplingContract: "compact-pair-v1" })],
     // The server decoder refuses a reply without a topology object.
     ["a reply without a topology", without(plain, "topology")],
     ["a reply with a null topology", { ...plain, topology: null }],
@@ -3002,9 +2951,6 @@ function stateReplyRefusals(envelope) {
     ["an unknown order contract", envelope({ orderContract: "express-v2" })],
     ["an empty order contract", envelope({ orderContract: "" })],
     ["a null order contract", envelope({ orderContract: null })],
-    ["an unknown coupling contract", envelope({ couplingContract: "compact-pair-v2" })],
-    ["an empty coupling contract", envelope({ couplingContract: "" })],
-    ["a null coupling contract", envelope({ couplingContract: null })],
     ["an unknown order contract at the root only", { ...plain, orderContract: "express-v2" }],
     // The topology and the simulation carry the incident marker, and the
     // root does not. They have the same marker, with the one value that
@@ -3072,7 +3018,6 @@ test("readState accepts the reply of each project kind and gives its state", asy
   const cases = [
     { name: "a plain project", ...kind(envelope()) },
     { name: "an Express project", ...kind(envelope({ orderContract: "express-v1" })) },
-    { name: "a coupling project", ...kind(envelope({ couplingContract: "compact-pair-v1" })) },
     { name: "an incident project", ...kind({ ...envelope(), topology: { incidentContract: "incident-v1" }, frame: { state: { ...state, simulation: { ...state.simulation, incidentContract: "incident-v1" } }, routes: [] } }) },
     { name: "a fault project", ...kind({ ...envelope(), topology: { incidentContract: "incident-v1", faultContract: "fault-v1" }, frame: { state: { ...state, simulation: { ...state.simulation, incidentContract: "incident-v1", faultContract: "fault-v1" } }, routes: [] } }) },
     { name: "an emergency project", ...kind({ ...envelope(), topology: { incidentContract: "incident-v1", emergencyContract: "emergency-v1" }, frame: { state: { ...state, simulation: { ...state.simulation, incidentContract: "incident-v1", emergencyContract: "emergency-v1", emergencies: {} } }, routes: [] } }) },
@@ -3082,10 +3027,10 @@ test("readState accepts the reply of each project kind and gives its state", asy
     ...stateReplyRefusals(envelope).map(([name, body]) => ({ name, body, wantError: invalid })),
     { name: "a plain state without the envelope", body: state, wantError: invalid },
     { name: "an envelope with a null frame", body: { orderContract: "express-v1", frame: null }, wantError: invalid },
-    { name: "an envelope with a frame array", body: { couplingContract: "compact-pair-v1", frame: [state] }, wantError: invalid },
-    { name: "an envelope without a state", body: { couplingContract: "compact-pair-v1", frame: { routes: [] } }, wantError: invalid },
-    { name: "an envelope with a state array", body: { couplingContract: "compact-pair-v1", frame: { state: [] } }, wantError: invalid },
-    { name: "an envelope with a revision only", body: { couplingContract: "compact-pair-v1", frame: { state: { projectRevision: 3 } } }, wantError: invalid },
+    { name: "an envelope with a frame array", body: { orderContract: "express-v1", frame: [state] }, wantError: invalid },
+    { name: "an envelope without a state", body: { orderContract: "express-v1", frame: { routes: [] } }, wantError: invalid },
+    { name: "an envelope with a state array", body: { orderContract: "express-v1", frame: { state: [] } }, wantError: invalid },
+    { name: "an envelope with a revision only", body: { orderContract: "express-v1", frame: { state: { projectRevision: 3 } } }, wantError: invalid },
     { name: "an envelope with a nested error", body: { orderContract: "express-v1", frame: { state: { error: "bad" } } }, wantError: invalid },
     { name: "a reply that is not an object", body: [state], wantError: invalid },
     { name: "no epoch", body: { topology: {}, frame: { state: without("epoch") } }, wantError: invalid },
@@ -3104,7 +3049,6 @@ test("readState accepts the reply of each project kind and gives its state", asy
     { name: "the state media type with a parameter", media: "Application/VND.podsim.state-6+json; charset=utf-8", body: { topology: {}, frame: { state, routes: [] } }, want: state },
     { name: "plain JSON", media: "application/json", body: { topology: {}, frame: { state, routes: [] } }, wantError: unsupported },
     { name: "the Express media type", media: "application/vnd.podsim.express-v1+json", body: { orderContract: "express-v1", textEncoding: "order-text-base64-v1", topology: {}, frame: { state, routes: [] } }, wantError: unsupported },
-    { name: "the coupling media type", media: "application/vnd.podsim.compact-pair-v1+json", body: { couplingContract: "compact-pair-v1", topology: {}, frame: { state, routes: [] } }, wantError: unsupported },
     { name: "an earlier state media type", media: "application/vnd.podsim.state-5+json", body: { topology: {}, frame: { state, routes: [] } }, wantError: unsupported },
     { name: "no media type", media: null, body: { topology: {}, frame: { state, routes: [] } }, wantError: unsupported },
   ];

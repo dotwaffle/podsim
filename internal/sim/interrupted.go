@@ -49,7 +49,7 @@ func (s *Simulation) DrainInterruptions() []int {
 // so InterruptRider accepts only a rider whose destination another active
 // rider of the pod shares. The stops and the phase of the pod then stay
 // valid. It also refuses a simulation without the incident marker, a
-// coupling, platoon, or Compact queue member, a pod with an operational
+// platoon or Compact queue member, a pod with an operational
 // destination, and a call during a dispatch pass, as the operations of the
 // contract do. A refusal returns an error
 // and changes nothing.
@@ -61,8 +61,8 @@ func (s *Simulation) InterruptRider(podID string, orderID int) error {
 	if v == nil {
 		return fmt.Errorf("pod %s does not exist", podID)
 	}
-	if v.couplingID != "" || s.couplingApproachMember(v.Pod.ID) || v.coupled() || s.compactGroup(v) != nil {
-		return fmt.Errorf("pod %s: interruption of a coupling, platoon, or Compact queue member", podID)
+	if v.coupled() || s.compactGroup(v) != nil {
+		return fmt.Errorf("pod %s: interruption of a platoon or Compact queue member", podID)
 	}
 	if s.pass != nil && s.pass.active {
 		return fmt.Errorf("pod %s: interruption during a dispatch pass", podID)
@@ -91,22 +91,17 @@ func (s *Simulation) InterruptRider(podID string, orderID int) error {
 
 // FailStepForTest makes the Step that reaches tick fail a controller. At
 // the end of that Step it runs before, and then it pauses the simulation
-// with cause as the fault of the Compact queue controller, or of the
-// coupling controller when compact is false. It acts once.
+// with cause as the fault of the Compact queue controller. It acts once.
 //
 // It is a test entry (incident contract, section 13). The session tests
 // use it to reach the fault returns of a step. No production code calls it.
-func (s *Simulation) FailStepForTest(tick int64, compact bool, cause error, before func(*Simulation)) {
+func (s *Simulation) FailStepForTest(tick int64, cause error, before func(*Simulation)) {
 	previous := s.monitor
 	s.monitor = func(s *Simulation) {
 		if s.tick == tick {
 			s.monitor = previous
 			before(s)
-			if compact {
-				s.compactFault = cause
-			} else {
-				s.couplingFault = cause
-			}
+			s.compactFault = cause
 			s.paused = true
 		}
 		if previous != nil {

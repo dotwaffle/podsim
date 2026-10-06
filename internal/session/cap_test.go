@@ -28,7 +28,7 @@ func TestSaveCapRejectsAtomically(t *testing.T) {
 	if testing.Short() || raceEnabled {
 		t.Skip("the cap fixture runs without -short and without the race detector")
 	}
-	file := composedSave(t, composedShape{"plain", contractMarkers{}, 0})
+	file := composedSave(t, composedShape{"plain", contractMarkers{}})
 
 	t.Run("decoder", func(t *testing.T) {
 		raw := composedSaveJSON(t, file)

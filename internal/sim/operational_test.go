@@ -936,7 +936,6 @@ func TestOperationalAtomicity(t *testing.T) {
 	destination("a refuge at a stop", nil, target(opRefuge, faultHold, 0, "s2", "s2-1"))
 	destination("an unknown station", nil, target(opEmergencyUnload, faultHold, 0, "s9", "s9-1"))
 	destination("a berth of another station", nil, target(opEmergencyUnload, faultHold, 0, "s1", "s2-1"))
-	destination("a coupling member", func(v *vehicle) { v.couplingID = "c1" }, target(opEmergencyUnload, faultHold, 0, "s1", "s1-2"))
 	tests = append(tests, []struct {
 		name string
 		call func(t *testing.T) (*Simulation, func() error)
@@ -1003,16 +1002,6 @@ func TestOperationalAtomicity(t *testing.T) {
 			}
 			return s, func() error { return s.startOperationalUnload(v, faultHold, 1) }
 		}},
-		{"unload of a coupling member", func(t *testing.T) (*Simulation, func() error) {
-			t.Helper()
-			s := incidentLegFleet(t)
-			v := boardParties(t, s, "s2")
-			if err := s.withdrawService(v, faultHold); err != nil {
-				t.Fatal(err)
-			}
-			v.couplingID = "c1"
-			return s, func() error { return s.startOperationalUnload(v, faultHold, 0) }
-		}},
 		{"evacuation without a fault hold", func(t *testing.T) (*Simulation, func() error) {
 			t.Helper()
 			s, v := traveling(t)
@@ -1022,12 +1011,6 @@ func TestOperationalAtomicity(t *testing.T) {
 		{"evacuation of a moving pod", func(t *testing.T) (*Simulation, func() error) {
 			t.Helper()
 			s, v := traveling(t)
-			return s, func() error { return s.evacuate(v) }
-		}},
-		{"evacuation of a coupling member", func(t *testing.T) (*Simulation, func() error) {
-			t.Helper()
-			s, v := traveling(t)
-			v.Pod.Speed, v.couplingID = 0, "c1"
 			return s, func() error { return s.evacuate(v) }
 		}},
 		{"evacuation of an empty traveling pod", func(t *testing.T) (*Simulation, func() error) {

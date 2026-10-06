@@ -7,7 +7,6 @@ import (
 )
 
 // These tests inject inactive owner tags into existing native callers.
-// They do not form or move a mechanical train.
 func TestResourceOwnerGrantIdentity(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {
@@ -18,10 +17,8 @@ func TestResourceOwnerGrantIdentity(t *testing.T) {
 		{name: "free", grant: true},
 		{name: "same pod", owner: podResourceOwner("01"), grant: true},
 		{name: "foreign pod", owner: podResourceOwner("02")},
-		{name: "colliding group", owner: resourceOwner{kind: groupOwnerKind, id: "01"}},
 		{name: "colliding unknown", owner: resourceOwner{kind: 255, id: "01"}},
 		{name: "unknown zero kind", owner: resourceOwner{id: "01"}},
-		{name: "group without ID", owner: resourceOwner{kind: groupOwnerKind}},
 		{name: "pod without ID", owner: resourceOwner{kind: podOwnerKind}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -56,9 +53,7 @@ func TestResourceOwnerVirtualBorrow(t *testing.T) {
 		grant bool
 	}{
 		{name: "individual predecessor", owner: podResourceOwner("front"), grant: true},
-		{name: "group named as predecessor", owner: resourceOwner{kind: groupOwnerKind, id: "front"}},
 		{name: "unknown named as predecessor", owner: resourceOwner{kind: 255, id: "front"}},
-		{name: "group named as follower", owner: resourceOwner{kind: groupOwnerKind, id: "rear"}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -77,7 +72,7 @@ func TestResourceOwnerVirtualBorrow(t *testing.T) {
 					t.Fatal("individual virtual predecessor did not share its grant")
 				}
 			} else if s.vehicles[1].reservedThrough != -1 || len(s.vehicles[1].routeReleases) != 0 {
-				t.Fatal("virtual link borrowed a group or unknown owner")
+				t.Fatal("virtual link borrowed an unknown owner")
 			}
 		})
 	}
@@ -91,7 +86,6 @@ func TestResourceOwnerVirtualHandoff(t *testing.T) {
 		want  resourceOwner
 	}{
 		{name: "individual handoff", owner: podResourceOwner("front"), want: podResourceOwner("rear")},
-		{name: "group keeps dependency", owner: resourceOwner{kind: groupOwnerKind, id: "front"}, want: resourceOwner{kind: groupOwnerKind, id: "front"}},
 		{name: "unknown keeps dependency", owner: resourceOwner{kind: 255, id: "front"}, want: resourceOwner{kind: 255, id: "front"}},
 		{name: "foreign pod keeps dependency", owner: podResourceOwner("other"), want: podResourceOwner("other")},
 	} {
@@ -112,7 +106,7 @@ func TestResourceOwnerVirtualHandoff(t *testing.T) {
 func TestResourceOwnerRetainedDependency(t *testing.T) {
 	t.Parallel()
 	for _, owner := range []resourceOwner{
-		{kind: groupOwnerKind, id: "01"}, {kind: 255, id: "01"}, {kind: groupOwnerKind},
+		{kind: 255, id: "01"},
 	} {
 		t.Run(owner.String(), func(t *testing.T) {
 			t.Parallel()
@@ -136,7 +130,6 @@ func TestResourceOwnerBufferYield(t *testing.T) {
 		kind ownerKind
 	}{
 		{name: "individual", kind: podOwnerKind},
-		{name: "group", kind: groupOwnerKind},
 		{name: "unknown", kind: 255},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -155,7 +148,7 @@ func TestResourceOwnerBufferYield(t *testing.T) {
 				return
 			}
 			if !maps.Equal(owners, s.owners) || !reflect.DeepEqual(before.Pods, s.ExportState().Pods) {
-				t.Fatal("buffered grant yielded or changed a group or unknown claim")
+				t.Fatal("buffered grant yielded or changed an unknown claim")
 			}
 		})
 	}
@@ -169,7 +162,6 @@ func TestResourceOwnerRestoreRelease(t *testing.T) {
 		keep  bool
 	}{
 		{name: "individual releases", owner: podResourceOwner("01")},
-		{name: "group remains", owner: resourceOwner{kind: groupOwnerKind, id: "01"}, keep: true},
 		{name: "unknown remains", owner: resourceOwner{kind: 255, id: "01"}, keep: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -195,13 +187,13 @@ func TestResourceOwnerBerthLoad(t *testing.T) {
 	berth := station.Berths[0]
 	s.vehicles[0].Pod.Activity = DepartingEmpty
 	s.vehicles[0].destination = berth
-	s.owners[resource{kind: berthResource, id: berth.ID}] = resourceOwner{kind: groupOwnerKind, id: "01"}
+	s.owners[resource{kind: berthResource, id: berth.ID}] = resourceOwner{kind: 255, id: "01"}
 	s.owners[resource{kind: nodeResource, id: berth.Node}] = resourceOwner{kind: podOwnerKind, id: "01"}
 	if got := s.berthLoad(berth); got != 2 {
-		t.Fatalf("colliding pod and group berth load = %d, want 2", got)
+		t.Fatalf("colliding pod and unknown owner berth load = %d, want 2", got)
 	}
 	if s.berthAvailable(berth) {
-		t.Fatal("group-held berth appeared free")
+		t.Fatal("berth of an unknown owner appeared free")
 	}
 }
 
@@ -210,7 +202,7 @@ func TestResourceOwnerCloneAndPresentation(t *testing.T) {
 	s := newTraffic(t)
 	before := s.ExportState()
 	r := resource{kind: trackResource, id: "retained", cell: 0}
-	owner := resourceOwner{kind: groupOwnerKind, id: "01"}
+	owner := resourceOwner{kind: 255, id: "01"}
 	s.owners[r] = owner
 	clone := s.Clone()
 	delete(clone.owners, r)

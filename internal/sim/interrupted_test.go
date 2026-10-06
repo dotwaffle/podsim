@@ -104,7 +104,6 @@ func TestInterruptRiderRefusals(t *testing.T) {
 		{name: "unshared destination", pod: "01", order: 2, change: func(_ *Simulation, v *vehicle) { v.Riders[1].To = "s1" }},
 		{name: "completed companion", pod: "01", order: 2, change: func(_ *Simulation, v *vehicle) { v.Riders[1].Completed = true }},
 		{name: "misaligned records", pod: "01", order: 2, change: func(_ *Simulation, v *vehicle) { v.Boardings = []RiderBoarding{{BerthID: "s0-1"}} }},
-		{name: "coupling member", pod: "01", order: 2, change: func(_ *Simulation, v *vehicle) { v.couplingID = "c1" }},
 		{name: "dispatch pass", pod: "01", order: 2, change: func(s *Simulation, _ *vehicle) { s.pass = &dispatchPass{active: true} }},
 		{name: "no incident marker", pod: "01", order: 2, change: func(s *Simulation, _ *vehicle) { s.incidentContract = "" }},
 		{name: "platoon member", pod: "01", order: 2, change: func(_ *Simulation, v *vehicle) { v.follower = 2 }},
@@ -282,8 +281,5 @@ func TestInterruptedCounterValidation(t *testing.T) {
 	state.Interrupted, state.InterruptedPassengers = 0, 0
 	if unaccounted, err := state.checkContract(); err != nil || unaccounted != 1 {
 		t.Fatalf("a state without the counters has %d unaccounted orders: %v", unaccounted, err)
-	}
-	if err := checkCouplingRestoreResult(RestoreResult{Interrupted: []int{2}}); err == nil {
-		t.Fatal("a coupling restore accepts an interruption")
 	}
 }

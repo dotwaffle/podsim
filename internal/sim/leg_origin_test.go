@@ -3,7 +3,6 @@ package sim
 import (
 	"fmt"
 	"slices"
-	"strings"
 	"testing"
 )
 
@@ -422,25 +421,6 @@ func TestLegOriginRiderReaders(t *testing.T) {
 		v.Riders[0].LegFrom = "p"
 		if r.passengerRiders(v) {
 			t.Fatal("a rider with a parking leg origin is accepted")
-		}
-	})
-	t.Run("couplingCabinFacts", func(t *testing.T) {
-		t.Parallel()
-		s, v := boardLeg(t)
-		cabin := func(leg string) error {
-			cabin := v.Vehicle
-			cabin.Riders = slices.Clone(v.Riders)
-			cabin.Riders[0].LegFrom = leg
-			return couplingCabinFacts(cabin, "", s.tick, s.network)
-		}
-		for leg, want := range map[string]string{"s2": "invalid party chronology or endpoints", "p": "party station is incompatible"} {
-			if err := cabin(leg); err == nil || !strings.HasPrefix(err.Error(), want) {
-				t.Errorf("leg origin %s: %v, want %q", leg, err, want)
-			}
-		}
-		// The cabin fails a later check that does not read the riders.
-		if err := cabin("s1"); err != nil && (strings.HasPrefix(err.Error(), "invalid party") || strings.HasPrefix(err.Error(), "party station")) {
-			t.Errorf("leg origin s1: %v", err)
 		}
 	})
 }

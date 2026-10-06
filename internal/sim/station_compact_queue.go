@@ -81,7 +81,7 @@ func (s *Simulation) compactGroup(v *vehicle) *compactBufferGroup {
 // compactEntry accepts only a physically supported straight plain holding
 // region. A faulted pod does not enter.
 func (s *Simulation) compactEntry(v *vehicle) (stationBufferPlan, compactQueueBounds, bool) {
-	if v.couplingID != "" || v.faulted {
+	if v.faulted {
 		return stationBufferPlan{}, compactQueueBounds{}, false
 	}
 	plan, ok := s.bufferPlan(v)
@@ -386,7 +386,6 @@ func (s *Simulation) moveCompact(v *vehicle) bool {
 	lane := len(v.Route) - 1
 	v.distance = v.blocks.lanes[lane].start + state.position
 	v.Pod.Speed, v.Pod.LaneDistance = state.speed, state.position
-	v.restoredPose = false
 	for v.blockIndex < v.reservedThrough && v.distance >= v.blocks.end(v.blockIndex) {
 		v.blockIndex++
 	}

@@ -299,7 +299,6 @@ function nested(levels) {
 function stateReplyRefusals(envelope) {
   const plain = envelope();
   const express = envelope({ orderContract: "express-v1" });
-  const coupling = envelope({ couplingContract: "compact-pair-v1" });
   const simulation = (reply, change) => ({ ...reply, frame: { ...reply.frame, state: { ...reply.frame.state, simulation: { ...reply.frame.state.simulation, ...change } } } });
   // incidentReply gives a plain reply with the incident marker value in
   // the topology and in the simulation, where the server puts it.
@@ -336,9 +335,6 @@ function stateReplyRefusals(envelope) {
     ["an unmarked root with an Express topology and simulation", without(express, "orderContract")],
     ["an Express root and topology with an unmarked simulation", { ...plain, orderContract: "express-v1", topology: { orderContract: "express-v1" } }],
     ["an unmarked Express topology", { ...express, topology: {} }],
-    ["a coupling root with an unmarked topology and simulation", { ...plain, couplingContract: "compact-pair-v1" }],
-    ["an unmarked root with a coupling topology and simulation", without(coupling, "couplingContract")],
-    ["a coupling simulation in a plain reply", simulation(plain, { couplingContract: "compact-pair-v1" })],
     // The server decoder refuses a reply without a topology object.
     ["a reply without a topology", without(plain, "topology")],
     ["a reply with a null topology", { ...plain, topology: null }],
@@ -348,9 +344,6 @@ function stateReplyRefusals(envelope) {
     ["an unknown order contract", envelope({ orderContract: "express-v2" })],
     ["an empty order contract", envelope({ orderContract: "" })],
     ["a null order contract", envelope({ orderContract: null })],
-    ["an unknown coupling contract", envelope({ couplingContract: "compact-pair-v2" })],
-    ["an empty coupling contract", envelope({ couplingContract: "" })],
-    ["a null coupling contract", envelope({ couplingContract: null })],
     ["an unknown order contract at the root only", { ...plain, orderContract: "express-v2" }],
     // The topology and the simulation carry the incident marker, and the
     // root does not. They have the same marker, with the one value that
@@ -422,7 +415,6 @@ test("the debug capture accepts the state reply of each project kind", () => {
   const valid = [
     ["a plain project", envelope()],
     ["an Express project", envelope({ orderContract: "express-v1" })],
-    ["a coupling project", envelope({ couplingContract: "compact-pair-v1" })],
     ["an incident project", { ...envelope(), topology: { incidentContract: "incident-v1" }, frame: { state: { ...state, simulation: { ...state.simulation, incidentContract: "incident-v1" } }, routes: [] } }],
     ["a fault project", { ...envelope(), topology: { incidentContract: "incident-v1", faultContract: "fault-v1" }, frame: { state: { ...state, simulation: { ...state.simulation, incidentContract: "incident-v1", faultContract: "fault-v1" } }, routes: [] } }],
     ["an emergency project", { ...envelope(), topology: { incidentContract: "incident-v1", emergencyContract: "emergency-v1" }, frame: { state: { ...state, simulation: { ...state.simulation, incidentContract: "incident-v1", emergencyContract: "emergency-v1", emergencies: {} } }, routes: [] } }],
@@ -436,9 +428,9 @@ test("the debug capture accepts the state reply of each project kind", () => {
     ["a plain state without the envelope", state],
     ["an envelope with a null frame", { orderContract: "express-v1", frame: null }],
     ["an envelope with a frame array", { orderContract: "express-v1", frame: [state] }],
-    ["an envelope without a state", { couplingContract: "compact-pair-v1", frame: { routes: [] } }],
-    ["an envelope with a state array", { couplingContract: "compact-pair-v1", frame: { state: [] } }],
-    ["an envelope with a revision only", { couplingContract: "compact-pair-v1", frame: { state: { projectRevision: 3 } } }],
+    ["an envelope without a state", { orderContract: "express-v1", frame: { routes: [] } }],
+    ["an envelope with a state array", { orderContract: "express-v1", frame: { state: [] } }],
+    ["an envelope with a revision only", { orderContract: "express-v1", frame: { state: { projectRevision: 3 } } }],
     ["an envelope with a nested error", { orderContract: "express-v1", frame: { state: { error: "bad" } } }],
     ["a reply that is not an object", null],
     ["no epoch", { topology: {}, frame: { state: { ...state, epoch: undefined } } }],
@@ -476,7 +468,6 @@ test("the debug capture reads only a reply of the state media type", async () =>
     { name: "the state media type with a parameter", body: envelope, headers: { "Content-Type": "Application/VND.podsim.state-6+json ; charset=utf-8" }, want: state },
     { name: "plain JSON", body: envelope, headers: { "Content-Type": "application/json" }, wantError: media },
     { name: "the Express media type", body: { ...envelope, orderContract: "express-v1", textEncoding: "order-text-base64-v1" }, headers: { "Content-Type": "application/vnd.podsim.express-v1+json" }, wantError: media },
-    { name: "the coupling media type", body: { ...envelope, couplingContract: "compact-pair-v1" }, headers: { "Content-Type": "application/vnd.podsim.compact-pair-v1+json" }, wantError: media },
     { name: "an earlier state media type", body: envelope, headers: { "Content-Type": "application/vnd.podsim.state-5+json" }, wantError: media },
     { name: "no media type", body: envelope, headers: {}, wantError: media },
     { name: "a textEncoding member", body: { ...envelope, textEncoding: "order-text-base64-v1" }, headers: { "Content-Type": shell.STATE_ACCEPT }, wantError: "Invalid server state reply" },

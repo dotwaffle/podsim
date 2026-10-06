@@ -19,11 +19,6 @@ func (o SafetyObservation) checkSeparationReference() (float64, error) {
 	for index, first := range o.Pods {
 		for offset, second := range o.Pods[index+1:] {
 			minimum := classPairClearance(first.Class, second.Class)
-			if o.certifiedCouplingPair(first, second) {
-				dx, dy := first.Position.X-second.Position.X, first.Position.Y-second.Position.Y
-				smallestSquared = min(smallestSquared, dx*dx+dy*dy)
-				continue
-			}
 			separated := safetyLocationsSeparated(locations[index], locations[index+1+offset])
 			if minimum > Clearance {
 				separated = o.largePairSeparated(first, second)
@@ -52,9 +47,6 @@ func (o SafetyObservation) checkSeparationReference() (float64, error) {
 func (o SafetyObservation) checkReference() (float64, error) {
 	if o.compactError != nil {
 		return 0, o.compactError
-	}
-	if err := o.checkCouplingSafety(); err != nil {
-		return 0, err
 	}
 	for _, pod := range o.Pods {
 		if !finite(pod.Position.X) || !finite(pod.Position.Y) || !finite(pod.Speed) || pod.Speed < 0 {
@@ -90,7 +82,7 @@ func TestCheckSeparationMatchesReference(t *testing.T) {
 	t.Parallel()
 	skipLong(t)
 	r := rand.New(rand.NewPCG(19, 1041))
-	var violations, gaps, infinite, coupled, compact int
+	var violations, gaps, infinite, compact int
 	for iteration := range 20000 {
 		o := randomSeparationObservation(r)
 		gap, err := o.checkSeparation()
@@ -109,19 +101,16 @@ func TestCheckSeparationMatchesReference(t *testing.T) {
 		index := o.separationIndex()
 		for _, links := range index.links {
 			for _, link := range links {
-				if link.coupled {
-					coupled++
-				}
 				if link.compact {
 					compact++
 				}
 			}
 		}
 	}
-	t.Logf("%d violations, %d finite gaps, %d infinite gaps, %d coupled pairs, %d compact pairs", violations, gaps, infinite, coupled, compact)
+	t.Logf("%d violations, %d finite gaps, %d infinite gaps, %d compact pairs", violations, gaps, infinite, compact)
 	// The generator must reach each kind of result.
-	if violations == 0 || gaps == 0 || infinite == 0 || coupled == 0 || compact == 0 {
-		t.Fatalf("weak coverage: %d violations, %d finite gaps, %d infinite gaps, %d coupled pairs, %d compact pairs", violations, gaps, infinite, coupled, compact)
+	if violations == 0 || gaps == 0 || infinite == 0 || compact == 0 {
+		t.Fatalf("weak coverage: %d violations, %d finite gaps, %d infinite gaps, %d compact pairs", violations, gaps, infinite, compact)
 	}
 }
 
@@ -137,7 +126,7 @@ func sameSeparationError(got, want error) bool {
 }
 
 // randomSeparationObservation makes an observation with dense, tied and
-// boundary positions, mixed classes and planes, duplicate IDs, and coupling,
+// boundary positions, mixed classes and planes, duplicate IDs, and
 // compact and envelope entries that match their pods or do not.
 func randomSeparationObservation(r *rand.Rand) SafetyObservation {
 	classes := []VehicleClass{"", LegacyClass, CompactClass, GroupClass, ExpressClass}
@@ -213,17 +202,6 @@ func randomSeparationObservation(r *rand.Rand) SafetyObservation {
 				locations = append(locations, location())
 			}
 			o.envelopes[pod.ID] = safetyEnvelope{pod: pod, locations: locations}
-		}
-	}
-	if r.IntN(2) == 0 {
-		o.couplingPairs = make(map[[2]string]couplingSafetyPair)
-		for range 1 + r.IntN(4) {
-			first, second := pick()
-			key := [2]string{first.ID, second.ID}
-			if r.IntN(8) == 0 {
-				key[0], key[1] = key[1], key[0]
-			}
-			o.couplingPairs[key] = couplingSafetyPair{pods: [2]Pod{first, second}}
 		}
 	}
 	if r.IntN(2) == 0 {
@@ -332,34 +310,13 @@ func separationBoundaryCases() []separationBoundaryCase {
 		{ID: "a", Position: Point{X: zero}},
 		{ID: "b", Position: Point{X: 0, Y: largeClearance}},
 	}})
-	zeroPods := []Pod{{ID: "a", Position: Point{X: zero, Y: zero}}, {ID: "b"}}
-	add("signed zeros coupled", SafetyObservation{Pods: zeroPods, couplingPairs: map[[2]string]couplingSafetyPair{{"a", "b"}: {pods: [2]Pod{zeroPods[0], zeroPods[1]}}}})
 	// Certificates that name absent pods.
 	ghosts := pair(CompactClass, 3)
 	ghost := Pod{ID: "ghost", Class: CompactClass, Position: Point{X: 3}}
 	add("certificates of absent pods", SafetyObservation{
-		Pods:          ghosts,
-		couplingPairs: map[[2]string]couplingSafetyPair{{"a", "ghost"}: {pods: [2]Pod{ghosts[0], ghost}}, {"ghost", "b"}: {pods: [2]Pod{ghost, ghosts[1]}}},
-		compactPairs:  map[[2]string]compactSafetyPair{{"ghost", "a"}: {first: ghost, second: ghosts[0], minimum: 1}, {"b", "ghost"}: {first: ghosts[1], second: ghost, minimum: 1}},
-		envelopes:     map[string]safetyEnvelope{"ghost": {pod: ghost, locations: []SafetyLocation{{SeparationGroup: "g1"}}}},
-	})
-	// A far certified coupled pair gives the smallest gap, because all
-	// other pairs are on separate planes.
-	far := []Pod{
-		{ID: "a"},
-		{ID: "x", Position: Point{X: 1}},
-		{ID: "y", Position: Point{X: 2}},
-		{ID: "b", Position: Point{X: 1000, Y: 1}},
-	}
-	add("far coupled pair", SafetyObservation{
-		Pods: far,
-		Locations: map[string]SafetyLocation{
-			"a": {SeparationGroup: "g1", From: "n1", To: "n2"},
-			"x": {SeparationGroup: "g2", From: "n3", To: "n4"},
-			"y": {SeparationGroup: "g3", From: "n5", To: "n6"},
-			"b": {SeparationGroup: "g4", From: "n7", To: "n8"},
-		},
-		couplingPairs: map[[2]string]couplingSafetyPair{{"b", "a"}: {pods: [2]Pod{far[3], far[0]}}},
+		Pods:         ghosts,
+		compactPairs: map[[2]string]compactSafetyPair{{"ghost", "a"}: {first: ghost, second: ghosts[0], minimum: 1}, {"b", "ghost"}: {first: ghosts[1], second: ghost, minimum: 1}},
+		envelopes:    map[string]safetyEnvelope{"ghost": {pod: ghost, locations: []SafetyLocation{{SeparationGroup: "g1"}}}},
 	})
 	return cases
 }

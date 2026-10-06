@@ -161,9 +161,6 @@ func (s *checkpointScanner) object(path string, depth int) error {
 		if key == "orderContract" {
 			return errors.New("car continuation does not support orderContract")
 		}
-		if key == "couplingContract" {
-			return errors.New("car continuation does not support couplingContract")
-		}
 		if key == "incidentContract" {
 			return errors.New("car continuation does not support incidentContract")
 		}

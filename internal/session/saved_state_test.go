@@ -2,7 +2,6 @@ package session
 
 import (
 	"bytes"
-	"fmt"
 	"reflect"
 	"slices"
 	"strconv"
@@ -26,27 +25,14 @@ func setRootMember(t *testing.T, raw []byte, name, value string) []byte {
 	return joinObject(t, members)
 }
 
-// couplingTestJSON returns the JSON form of a valid version 9 file with
-// the coupling markers and one committed group.
-func couplingTestJSON(t *testing.T) []byte {
-	t.Helper()
-	data := couplingPhaseFixtures(t)
-	return decompressTestJSON(t, encodeTestState(t, couplingPhaseFile(t, couplingPhaseInput(t, data, data.Frames[0]))))
-}
-
 // TestSavedPackedRoundTrip saves waiting trips, riders and boarding tuples
-// of a plain file and of a file with the coupling marker alone. Each file
-// packs its order text, and the decode gives the saved values again.
+// of a plain file. The file packs its order text, and the decode gives the
+// saved values again.
 func TestSavedPackedRoundTrip(t *testing.T) {
 	t.Parallel()
 	plain := boardingTestFile(t)
 	plain.Simulation.Waiting = newTestStateFile(t).Simulation.Waiting
-	coupling := plain
-	coupling.Project = project.Clone(plain.Project)
-	coupling.CouplingContract = sim.CompactPairV1CouplingContract
-	coupling.Project.CouplingContract = coupling.CouplingContract
-	coupling.Simulation.CouplingContract = coupling.CouplingContract
-	for name, file := range map[string]stateFile{"plain": plain, "coupling": coupling} {
+	for name, file := range map[string]stateFile{"plain": plain} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			data := encodeTestState(t, file)
@@ -93,19 +79,15 @@ func packedTestText(t *testing.T, text string) string {
 
 // TestSavedMarkersSelectSections saves a project of each kind, and checks
 // the markers, the packed order text and the restore. It then changes the
-// markers of the save. Without the coupling marker, each coupling member
-// is refused, also an empty, null or false value. A textEncoding member is
-// refused in each kind.
+// markers of the save. A textEncoding member is refused in each kind.
 func TestSavedMarkersSelectSections(t *testing.T) {
 	t.Parallel()
 	for _, kind := range []struct {
-		name              string
-		express, coupling bool
+		name    string
+		express bool
 	}{
-		{"plain", false, false},
-		{"Express", true, false},
-		{"coupling", false, true},
-		{"Express coupling", true, true},
+		{"plain", false},
+		{"Express", true},
 	} {
 		t.Run(kind.name, func(t *testing.T) {
 			t.Parallel()
@@ -114,9 +96,6 @@ func TestSavedMarkersSelectSections(t *testing.T) {
 			if kind.express {
 				config = expressConsumerProject(t)
 				command.OrderContract, command.Service, command.ServiceID, command.SharingConsent = sim.ExpressOrderContract, sim.ExpressServiceChoice, "harbor-market", sim.SharedConsent
-			}
-			if kind.coupling {
-				config.CouplingContract = sim.CompactPairV1CouplingContract
 			}
 			store := &fakeStore{}
 			s, err := NewFromStore(t.Context(), StoreInput{Store: store, Project: &config})
@@ -129,9 +108,8 @@ func TestSavedMarkersSelectSections(t *testing.T) {
 				t.Fatal(saveErr)
 			}
 			file := store.lastWrite(t)
-			if file.Version != stateVersion || file.OrderContract != config.OrderContract || file.CouplingContract != config.CouplingContract ||
-				file.Simulation.OrderContract != config.OrderContract || file.Simulation.CouplingContract != config.CouplingContract {
-				t.Fatalf("version %d or markers %q %q differ from the project", file.Version, file.OrderContract, file.CouplingContract)
+			if file.Version != stateVersion || file.OrderContract != config.OrderContract || file.Simulation.OrderContract != config.OrderContract {
+				t.Fatalf("version %d or marker %q differs from the project", file.Version, file.OrderContract)
 			}
 			data := store.writeList()[len(store.writeList())-1]
 			raw := decompressTestJSON(t, data)
@@ -143,14 +121,12 @@ func TestSavedMarkersSelectSections(t *testing.T) {
 				t.Fatalf("restore: %v", err)
 			}
 			t.Cleanup(restored.Close)
-			for name, changed := range savedMarkerEdits(t, raw, kind.express, kind.coupling) {
+			for name, changed := range savedMarkerEdits(t, raw, kind.express) {
 				_, err := decodeStateFile(compressTestJSON(t, changed))
 				switch {
 				case err == nil:
 					t.Errorf("%s: accepted", name)
-				case strings.HasPrefix(name, "textEncoding") && !strings.Contains(err.Error(), "text encoding marker"),
-					name == "omitted root coupling marker" && !strings.Contains(err.Error(), "without the coupling marker"),
-					strings.HasPrefix(name, "omitted ") && name != "omitted root coupling marker" && !strings.Contains(err.Error(), "coupling contract marker is missing"):
+				case strings.HasPrefix(name, "textEncoding") && !strings.Contains(err.Error(), "text encoding marker"):
 					// A later check also refuses these files, so check
 					// that the marker scan refuses them first.
 					t.Errorf("%s: %v", name, err)
@@ -162,34 +138,15 @@ func TestSavedMarkersSelectSections(t *testing.T) {
 
 // savedMarkerEdits returns the changes of raw, a valid save, that the
 // decoder must refuse.
-func savedMarkerEdits(t *testing.T, raw []byte, express, coupling bool) map[string][]byte {
+func savedMarkerEdits(t *testing.T, raw []byte, express bool) map[string][]byte {
 	t.Helper()
 	edits := map[string][]byte{}
-	members := splitObject(t, raw)
 	for _, path := range []string{"", "project", "simulation"} {
 		edits["textEncoding in /"+path] = addMember(t, raw, path, "textEncoding", `"order-text-base64-v1"`)
 	}
 	if !express {
 		for _, path := range []string{"project", "simulation"} {
 			edits["only the "+path+" Express marker"] = addMember(t, raw, path, "orderContract", `"express-v1"`)
-		}
-	}
-	if coupling {
-		edits["omitted root coupling marker"] = dropMember(t, raw, "couplingContract")
-		edits["omitted project coupling marker"] = dropMember(t, raw, "project", "couplingContract")
-		edits["omitted simulation coupling marker"] = dropMember(t, raw, "simulation", "couplingContract")
-		for _, value := range []string{"null", `""`, `"compact-pair-v2"`} {
-			edits["root coupling marker "+value] = setRootMember(t, raw, "couplingContract", value)
-		}
-		index := slices.IndexFunc(members, func(member rootMember) bool { return member.name == "couplingContract" })
-		edits["duplicated root coupling marker"] = joinObject(t, slices.Insert(slices.Clone(members), index, members[index]))
-		return edits
-	}
-	for _, path := range []string{"", "project", "simulation"} {
-		for _, name := range []string{"couplingContract", "couplingEnabled", "couplingSites", "couplingCorridors", "couplingGroups"} {
-			for _, value := range []string{"null", "[]", "false", `""`} {
-				edits[fmt.Sprintf("unmarked %s/%s=%s", path, name, value)] = addMember(t, raw, path, name, value)
-			}
 		}
 	}
 	return edits
@@ -213,14 +170,12 @@ func addMember(t *testing.T, raw []byte, path, name, value string) []byte {
 	return nil
 }
 
-// TestSavedVersionRefusals refuses each other version of a plain file and
-// of a file with coupling markers. Each earlier and later version moves
-// aside, also with coupling markers.
+// TestSavedVersionRefusals refuses each other version of a plain file.
+// Each earlier and later version moves aside.
 func TestSavedVersionRefusals(t *testing.T) {
 	t.Parallel()
 	bases := map[string][]byte{
-		"plain":    decompressTestJSON(t, encodeTestState(t, newTestStateFile(t))),
-		"coupling": couplingTestJSON(t),
+		"plain": decompressTestJSON(t, encodeTestState(t, newTestStateFile(t))),
 	}
 	for name, raw := range bases {
 		for _, version := range []int{1, 2, 3, 4, 5, 6, 7, 8, 10} {
@@ -236,17 +191,12 @@ func TestSavedVersionRefusals(t *testing.T) {
 }
 
 // TestSavedInvalidMovedAside checks that startup moves each damaged or
-// invalid file aside as invalid_state and starts a new session, also a
-// file with committed coupling groups. Only a file that is too large stays,
-// and startup then fails.
+// invalid file aside as invalid_state and starts a new session. Only a
+// file that is too large stays, and startup then fails.
 func TestSavedInvalidMovedAside(t *testing.T) {
 	t.Parallel()
-	data := couplingPhaseFixtures(t)
-	coupling := couplingPhaseFile(t, couplingPhaseInput(t, data, data.Frames[0]))
-	logical := coupling
-	logical.RestoreAttempts = restoreLoopAttempts - 1
 	padding := `"padding":[` + strings.Repeat(`null,`, 65_536) + `null],`
-	for name, file := range map[string]stateFile{"plain": newTestStateFile(t), "coupling": coupling} {
+	for name, file := range map[string]stateFile{"plain": newTestStateFile(t)} {
 		encoded := encodeTestState(t, file)
 		raw := decompressTestJSON(t, encoded)
 		checksum := bytes.Clone(encoded)
@@ -268,9 +218,6 @@ func TestSavedInvalidMovedAside(t *testing.T) {
 		}
 		for _, version := range []string{"null", "0", "-1"} {
 			cases["version "+version] = compressTestJSON(t, setRootMember(t, raw, "version", version))
-		}
-		if name == "coupling" {
-			cases["logical recovery of committed groups"] = encodeTestState(t, logical)
 		}
 		cases["restore panic"] = encoded
 		for kind, damaged := range cases {
@@ -298,6 +245,34 @@ func TestSavedInvalidMovedAside(t *testing.T) {
 			t.Fatal("oversized state is not too_large", err)
 		}
 	})
+}
+
+// TestSavedRemovedMembersMovedAside checks a version 9 file with a member
+// of the removed physical coupling feature. Before the first release a
+// removed member keeps the version, so the file is not of another version.
+// The strict decode refuses the member as unknown, and startup moves the
+// file aside as invalid_state and starts a new session.
+func TestSavedRemovedMembersMovedAside(t *testing.T) {
+	t.Parallel()
+	raw := decompressTestJSON(t, encodeTestState(t, newTestStateFile(t)))
+	for name, damaged := range map[string][]byte{
+		"couplingContract":            addMember(t, raw, "", "couplingContract", `"compact-pair-v1"`),
+		"simulation/couplingGroups":   addMember(t, raw, "simulation", "couplingGroups", `[]`),
+		"project/couplingContract":    addMember(t, raw, "project", "couplingContract", `"compact-pair-v1"`),
+		"simulation/couplingContract": addMember(t, raw, "simulation", "couplingContract", `"compact-pair-v1"`),
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			member := name[strings.LastIndex(name, "/")+1:]
+			data := compressTestJSON(t, damaged)
+			if _, err := decodeStateFile(data); err == nil || !strings.Contains(err.Error(), `unknown object member name "`+member+`"`) {
+				t.Fatalf("decode: %v, want the unknown member %s", err, member)
+			}
+			store := &fakeStore{data: data}
+			s, err := NewFromStore(t.Context(), StoreInput{Store: store})
+			assertMovedAside(t, s, err, store, reasonInvalidState)
+		})
+	}
 }
 
 // insertAfter adds text after the first match of after in raw.

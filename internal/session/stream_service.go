@@ -20,7 +20,7 @@ import (
 // markers of the frame.
 func DecodeStreamJSON(data []byte) (StreamEnvelope, error) {
 	var envelope StreamEnvelope
-	members, err := decodeMarkedJSON(data, false, &envelope)
+	members, err := decodeMarkedJSON(data, &envelope)
 	envelope.incidentMembers, envelope.faultMembers, envelope.emergencyMembers = members.incident, members.fault, members.emergency
 	return envelope, err
 }
@@ -31,27 +31,20 @@ type markedMembers struct {
 	incident, fault, emergency bool
 }
 
-// decodeMarkedJSON decodes a stream envelope, or an HTTP state when
-// httpState is true, into target. The root contract markers of the
+// decodeMarkedJSON decodes a stream envelope or an HTTP state into
+// target. The root contract markers of the
 // document select the rules of the scans. Each scan reads the tokens only,
 // so it bounds the document before the typed decode makes values. It
 // reports whether the document has a stage 1 incident member, a stage 2
 // fault member, and a stage 3 emergency member. The caller checks that
 // against the markers.
-func decodeMarkedJSON(data []byte, httpState bool, target any) (markedMembers, error) {
+func decodeMarkedJSON(data []byte, target any) (markedMembers, error) {
 	if len(data) > MaxStreamJSON {
 		return markedMembers{}, errors.New("state JSON too large")
 	}
 	markers, err := scanRootMarkers(data)
 	if err != nil {
 		return markedMembers{}, err
-	}
-	// Without the coupling marker, scanStreamServiceMembers refuses each
-	// coupling member.
-	if markers.coupling != "" {
-		if err := scanCouplingPublicJSON(data, httpState); err != nil {
-			return markedMembers{}, err
-		}
 	}
 	if err := scanContractMarkers(data, markers.order == sim.ExpressOrderContract); err != nil {
 		return markedMembers{}, err
@@ -62,7 +55,7 @@ func decodeMarkedJSON(data []byte, httpState bool, target any) (markedMembers, e
 	if err := scanStreamBoardingMembers(data, markers); err != nil {
 		return markedMembers{}, err
 	}
-	if err := scanStreamServiceMembers(data, markers); err != nil {
+	if err := scanStreamServiceMembers(data); err != nil {
 		return markedMembers{}, err
 	}
 	incident, scanErr := scanIncidentMembers(data)
@@ -90,13 +83,12 @@ func scanRootMarkers(data []byte) (contractMarkers, error) {
 		return contractMarkers{}, err
 	}
 	var header struct {
-		OrderContract    sim.OrderContract    `json:"orderContract"`
-		CouplingContract sim.CouplingContract `json:"couplingContract"`
+		OrderContract sim.OrderContract `json:"orderContract"`
 	}
 	if err := jsonv2.Unmarshal(data, &header, json.DefaultOptionsV1(), jsonv2.MatchCaseInsensitiveNames(false)); err != nil {
 		return contractMarkers{}, err
 	}
-	markers := contractMarkers{order: header.OrderContract, coupling: header.CouplingContract}
+	markers := contractMarkers{order: header.OrderContract}
 	if markers.order != sim.ExpressOrderContract {
 		if err := prescanJSON(data, streamLimits(markers)); err != nil {
 			return markers, err
@@ -106,9 +98,9 @@ func scanRootMarkers(data []byte) (contractMarkers, error) {
 }
 
 // scanStreamServiceMembers checks the service members of a stream
-// document. Coupling members need the coupling marker. The order text is
-// packed, so scanPackedOrders checks the length of the service IDs.
-func scanStreamServiceMembers(data []byte, markers contractMarkers) error {
+// document. The order text is packed, so scanPackedOrders checks the
+// length of the service IDs.
+func scanStreamServiceMembers(data []byte) error {
 	decoder := jsontext.NewDecoder(bytes.NewReader(data))
 	for {
 		token, err := decoder.ReadToken()
@@ -120,12 +112,6 @@ func scanStreamServiceMembers(data []byte, markers contractMarkers) error {
 		}
 		kind, length := decoder.StackIndex(decoder.StackDepth())
 		if token.Kind() != jsontext.KindString || kind != jsontext.KindBeginObject || length%2 != 1 {
-			continue
-		}
-		if couplingMember(token.String()) || token.String() == "couplingID" {
-			if markers.coupling == "" {
-				return errors.New("current stream family contains coupling fields")
-			}
 			continue
 		}
 		name := token.String()
@@ -185,30 +171,10 @@ func checkTopologyProjectVersion(topology TopologySnapshot) error {
 }
 
 // validateStreamTopology checks that the contract markers of topology are
-// markers: the coupling marker with either order marker, the Express marker
-// alone, or neither marker.
+// markers: the Express marker or no marker.
 func validateStreamTopology(topology TopologySnapshot, markers contractMarkers) error {
 	if err := checkTopologyProjectVersion(topology); err != nil {
 		return err
-	}
-	if markers.coupling != "" {
-		if topology.CouplingContract != markers.coupling {
-			return errors.New("coupling topology needs the coupling contract")
-		}
-		if err := sim.ValidateCouplingGeometry(sim.CouplingGeometryInput{Contract: topology.CouplingContract,
-			Network: topology.Network, Sites: topology.CouplingSites, Corridors: topology.CouplingCorridors}); err != nil {
-			return err
-		}
-		if topology.OrderContract != markers.order {
-			return errors.New("coupling topology has another order contract")
-		}
-		if topology.OrderContract == "" && len(topology.ExpressServices) != 0 {
-			return errors.New("unmarked coupling topology contains Express services")
-		}
-		return sim.ValidateExpressServicesWithOrderContract(topology.Network, topology.ExpressServices, topology.OrderContract)
-	}
-	if hasCouplingTopology(topology) {
-		return errors.New("coupling topology requires a qualified stream family")
 	}
 	if markers.order == sim.ExpressOrderContract {
 		if topology.OrderContract != sim.ExpressOrderContract {

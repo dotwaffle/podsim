@@ -213,44 +213,6 @@ func TestFaultCapAtGrantEnd(t *testing.T) {
 	}
 }
 
-// TestNativeForeignFaultCapAtGrantEnd is TestFaultCapAtGrantEnd beside a
-// native pair. There a pod without the fault makes the same step, and the
-// native checks fail the changed member.
-func TestNativeForeignFaultCapAtGrantEnd(t *testing.T) {
-	t.Parallel()
-	s, c, v := nativeForeignFixture(t)
-	s.faultsOn = true
-	fleet, err := prepareNativeForeignFleet(s, c)
-	if err != nil {
-		t.Fatal(err)
-	}
-	v.Pod.Activity, v.Pod.StationID, v.Pod.BerthID = Traveling, "", ""
-	frontier := v.blocks.end(v.reservedThrough)
-	for v.distance+stoppingDistance(v.Pod.Speed) <= frontier {
-		if v.Pod.Speed == 0 && v.distance > 0 {
-			t.Fatal("the pod stopped with its stopping distance inside its grants")
-		}
-		s.tick++
-		s.move(v)
-	}
-	startFault(t, s, v, 0)
-	if v.faultCap != frontier {
-		t.Fatalf("cap %g, want the grant end %g", v.faultCap, frontier)
-	}
-	for v.Pod.Speed > 0 {
-		s.tick++
-		s.move(v)
-	}
-	if v.distance != frontier {
-		t.Fatalf("the pod rests at %g m, want %g m", v.distance, frontier)
-	}
-	// At the grant end, the ordinary step also rests. Each member is
-	// bound by itself.
-	index := s.vehicleIndexes[v.Pod.ID]
-	checkBoundFaultMembers(t, s, fleet, index, func(faulted *bool, _ *float64) { *faulted = false })
-	checkBoundFaultMembers(t, s, fleet, index, func(faulted *bool, faultCap *float64) { *faulted, *faultCap = false, 0 })
-}
-
 // TestFaultBrakingOnLane faults a pod that cruises on a lane with riders.
 // The pod brakes to rest at its cap with the transition rules of section
 // 10. Its cap is the stopping distance or the grant end. At rest it keeps
@@ -745,138 +707,11 @@ func TestFaultReusesRecoveryHold(t *testing.T) {
 	}
 }
 
-// TestNativeForeignFaultBraking runs the native foreign proof of a pair
-// beside a braking faulted pod. At each tick the proof accepts the frozen
-// step, and the published motion equals the prediction. A changed cap or
-// a changed faulted member in the frozen facts fails the proof, and a cap
-// that changes after the capture fails the publication check. At rest, a
-// raised cap leaves the step the same, and both checks still fail it.
-func TestNativeForeignFaultBraking(t *testing.T) {
-	t.Parallel()
-	s, c, v := nativeForeignFixture(t)
-	s.faultsOn = true
-	index := s.vehicleIndexes[v.Pod.ID]
-	s.grant(intent{index: index, block: 1, through: v.blocks.len() - 1})
-	fleet, err := prepareNativeForeignFleet(s, c)
-	if err != nil {
-		t.Fatal(err)
-	}
-	s.tick++
-	v.Pod.Activity, v.Pod.StationID, v.Pod.BerthID = Traveling, "", ""
-	for v.Pod.Speed < 5 {
-		s.tick++
-		s.move(v)
-	}
-	// A pod without a fault has no cap, and a cap stays inside the pose
-	// and the grants of its pod.
-	s.tick++
-	if _, err = buildNativeForeignTick(s, fleet); err != nil {
-		t.Fatal(err)
-	}
-	for _, damage := range []func(v *vehicle){
-		func(v *vehicle) { v.faultCap = v.distance },
-		func(v *vehicle) { v.faulted, v.faultCap = true, math.Nextafter(v.distance, 0) },
-		func(v *vehicle) {
-			v.faulted, v.faultCap = true, math.Nextafter(v.blocks.end(v.reservedThrough), math.Inf(1))
-		},
-	} {
-		damage(v)
-		if _, err = buildNativeForeignTick(s, fleet); !errors.Is(err, errCouplingMotionInvariant) {
-			t.Fatalf("the frame accepts the fault members %t and %g: %v", v.faulted, v.faultCap, err)
-		}
-		v.faulted, v.faultCap = false, 0
-	}
-	startFault(t, s, v, 0)
-	if v.faultCap >= v.blocks.end(v.reservedThrough) {
-		t.Fatal("the cap is the grant end")
-	}
-	ticks := 0
-	for ; v.Pod.Speed > 0; ticks++ {
-		s.tick++
-		frame, frameErr := buildNativeForeignTick(s, fleet)
-		if frameErr != nil {
-			t.Fatal(frameErr)
-		}
-		sweep := frame.sweeps()[0]
-		if err = couplingCheckForeignMotion(sweep); err != nil {
-			t.Fatalf("tick %d: %v", s.tick, err)
-		}
-		fact := &frame.facts[index]
-		for _, change := range []func(){
-			func() { fact.faultCap = (fact.distance + fact.faultCap) / 2 },
-			func() { fact.faulted = false },
-		} {
-			saved := *fact
-			change()
-			if !errors.Is(couplingCheckForeignMotion(sweep), errCouplingMotionInvariant) {
-				t.Fatalf("tick %d: the proof accepts a changed fault member", s.tick)
-			}
-			*fact = saved
-		}
-		s.move(v)
-		if err = frame.checkApplied(s); err != nil {
-			t.Fatalf("tick %d: %v", s.tick, err)
-		}
-		// The motion is published, so only the bound members show the
-		// change.
-		faultCap := v.faultCap
-		v.faultCap = (v.faultCap + v.blocks.end(v.reservedThrough)) / 2
-		if err = frame.checkApplied(s); !errors.Is(err, errCouplingMotionInvariant) {
-			t.Fatalf("tick %d: the publication check accepts a cap that changed after the capture", s.tick)
-		}
-		v.faultCap = faultCap
-	}
-	if ticks < 2 || v.distance != v.faultCap {
-		t.Fatalf("%d braking ticks, rest at %g m, cap %g m", ticks, v.distance, v.faultCap)
-	}
-	end := v.blocks.end(v.reservedThrough)
-	checkBoundFaultMembers(t, s, fleet, index, func(_ *bool, faultCap *float64) { *faultCap = (*faultCap + end) / 2 })
-}
-
-// checkBoundFaultMembers builds the native frame of the next tick for the
-// faulted pod at rest at index. A change of its fault members that leaves
-// the step the same must fail the proof in the frozen facts, and the
-// publication check in the pod.
-func checkBoundFaultMembers(t *testing.T, s *Simulation, fleet *nativeForeignFleet, index int, change func(faulted *bool, faultCap *float64)) {
-	t.Helper()
-	v := &s.vehicles[index]
-	s.tick++
-	frame, err := buildNativeForeignTick(s, fleet)
-	if err != nil {
-		t.Fatal(err)
-	}
-	sweep := frame.sweeps()[0]
-	if err = couplingCheckForeignMotion(sweep); err != nil {
-		t.Fatal(err)
-	}
-	fact := &frame.facts[index]
-	saved := *fact
-	change(&fact.faulted, &fact.faultCap)
-	if nativeForeignStep(fact, &sweep.Path.blocks, sweep.native.lane, sweep.native.limit) != sweep.native.ordinary {
-		t.Fatal("the changed fault members change the step")
-	}
-	if err = couplingCheckForeignMotion(sweep); !errors.Is(err, errCouplingMotionInvariant) {
-		t.Fatalf("the proof accepts the fault members %t and %g: %v", fact.faulted, fact.faultCap, err)
-	}
-	*fact = saved
-	s.move(v)
-	if err = frame.checkApplied(s); err != nil {
-		t.Fatal(err)
-	}
-	faulted, faultCap := v.faulted, v.faultCap
-	change(&v.faulted, &v.faultCap)
-	if err = frame.checkApplied(s); !errors.Is(err, errCouplingMotionInvariant) {
-		t.Fatalf("the publication check accepts the fault members %t and %g: %v", v.faulted, v.faultCap, err)
-	}
-	v.faulted, v.faultCap = faulted, faultCap
-}
-
 // TestFaultLinkGates checks the gates that keep a faulted pod out of each
 // group, each with a control that forms the group without the fault.
 // Platoon links refuse a faulted leader or follower and a run with a
 // blocked lane. A faulted pod does not enter a compact queue and makes no
-// buffer head grant. Approach discovery skips a pair with a faulted pod or
-// with a blocked lane on a remaining route.
+// buffer head grant.
 func TestFaultLinkGates(t *testing.T) {
 	t.Parallel()
 	t.Run("platoon link", func(t *testing.T) {
@@ -949,31 +784,6 @@ func TestFaultLinkGates(t *testing.T) {
 			t.Fatalf("control: the head has the berth %q", head.destination.ID)
 		}
 	})
-	t.Run("approach discovery", func(t *testing.T) {
-		t.Parallel()
-		for _, test := range []struct {
-			name  string
-			cause func(s *Simulation)
-		}{
-			{"control", func(*Simulation) {}},
-			{"faulted front", func(s *Simulation) { s.findVehicle("front").faulted = true }},
-			{"faulted rear", func(s *Simulation) { s.findVehicle("rear").faulted = true }},
-			{"blocked route", func(s *Simulation) {
-				rear := s.findVehicle("rear")
-				last := rear.Route[len(rear.Route)-1].ID
-				s.setBlocked([]faultFootprint{{id: "i0.1", resources: []resource{{kind: trackResource, id: last}}}})
-			}},
-		} {
-			input := couplingApproachFixture(t, false)
-			s := input.Simulation
-			s.couplingNetwork, s.couplingEnabled = input.Network, true
-			test.cause(s)
-			s.discoverCouplingApproaches()
-			if found := len(s.couplingApproaches) == 1; found != (test.name == "control") {
-				t.Fatalf("%s: %d approaches", test.name, len(s.couplingApproaches))
-			}
-		}
-	})
 }
 
 // faultRestoreInput returns the input that restores the saved state of s
@@ -1026,7 +836,7 @@ func physicalSave(t *testing.T, s *Simulation, at string) *Simulation {
 	held := restored.Clone()
 	held.Step()
 	for index := range held.vehicles {
-		if v := &held.vehicles[index]; v.withdrawn&faultHold != 0 && !v.faulted && v.op.owner != faultHold && v.couplingID == "" {
+		if v := &held.vehicles[index]; v.withdrawn&faultHold != 0 && !v.faulted && v.op.owner != faultHold {
 			t.Fatalf("%s: pod %s keeps the fault hold after the fault stage", at, v.Pod.ID)
 		}
 	}

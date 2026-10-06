@@ -46,56 +46,6 @@ func assertExplicitArrayBounds(t *testing.T, name string, data []byte, limits js
 	}
 }
 
-// TestCouplingArraysHaveExplicitLimits walks each coupling phase fixture as
-// a save, a full frame, a delta, an HTTP state and a coupling delta group.
-// The maximum fixtures of the other formats call assertExplicitArrayBounds.
-func TestCouplingArraysHaveExplicitLimits(t *testing.T) {
-	t.Parallel()
-	data := couplingPhaseFixtures(t)
-	for _, order := range []sim.OrderContract{"", sim.ExpressOrderContract} {
-		t.Run("order="+string(order), func(t *testing.T) {
-			t.Parallel()
-			stream := streamLimits(contractMarkers{order: order, coupling: sim.CompactPairV1CouplingContract})
-			for _, phase := range data.Frames {
-				_, topology, frame := couplingStreamFixture(t, phase, order)
-				input := couplingPhaseInput(t, data, phase)
-				input.OrderContract, input.State.OrderContract = order, order
-				file := couplingPhaseFile(t, input)
-				file.OrderContract = order
-				assertExplicitArrayBounds(t, phase.Name+" save", decompressTestJSON(t, encodeTestState(t, file)), savedLimits(contractMarkers{order: order, coupling: sim.CompactPairV1CouplingContract}))
-				full, err := EncodeStreamJSON(fullStreamEnvelope(frame))
-				if err != nil {
-					t.Fatal(err)
-				}
-				assertExplicitArrayBounds(t, phase.Name+" full", full, stream)
-				_, empty := streamFixture(t)
-				empty.State.Simulation.OrderContract = order
-				empty.State.Simulation.CouplingContract = frame.State.Simulation.CouplingContract
-				empty.State.Simulation.Vehicles = make([]VehicleFrame, len(frame.State.Simulation.Vehicles))
-				empty.State.Simulation.Berths = make([]sim.BerthState, len(frame.State.Simulation.Berths))
-				empty.Routes = make([]sim.RoutePresentation, len(frame.Routes))
-				delta, err := makeDelta(empty, frame)
-				if err != nil {
-					t.Fatal(err)
-				}
-				envelope := fullStreamEnvelope(frame)
-				envelope.Kind, envelope.Full, envelope.Delta, envelope.Base, envelope.Sequence = "delta", nil, &delta, 1, 2
-				changed, err := EncodeStreamJSON(envelope)
-				if err != nil {
-					t.Fatal(err)
-				}
-				assertExplicitArrayBounds(t, phase.Name+" delta", changed, stream)
-				assertExplicitArrayBounds(t, phase.Name+" coupling group", delta.Groups["coupling"], streamLimits(contractMarkers{}))
-				http, err := EncodeStateJSON(topology, frame)
-				if err != nil {
-					t.Fatal(err)
-				}
-				assertExplicitArrayBounds(t, phase.Name+" HTTP", http, stream)
-			}
-		})
-	}
-}
-
 // httpFrameLimits returns the stream limits of markers for the frame of an
 // HTTP state, without the "/frame/state" prefix. The plain HTTP state of
 // hello 3 sent that frame as the document root.
@@ -138,19 +88,13 @@ func TestLimitTablesNotLooser(t *testing.T) {
 		t.Fatal(err)
 	}
 	plain, express := contractMarkers{}, contractMarkers{order: sim.ExpressOrderContract}
-	coupling := contractMarkers{coupling: sim.CompactPairV1CouplingContract}
-	expressCoupling := contractMarkers{order: sim.ExpressOrderContract, coupling: sim.CompactPairV1CouplingContract}
 	merged := map[string]jsonLimits{
-		"save 6":          savedLimits(plain),
-		"save 7":          savedLimits(express),
-		"save 8":          savedLimits(coupling),
-		"save 8 express":  savedLimits(expressCoupling),
-		"save header":     savedLimits(express),
-		"hello 3":         streamLimits(plain),
-		"hello 4":         streamLimits(express),
-		"hello 5":         streamLimits(coupling),
-		"hello 5 express": streamLimits(expressCoupling),
-		"plain HTTP":      httpFrameLimits(plain),
+		"save 6":      savedLimits(plain),
+		"save 7":      savedLimits(express),
+		"save header": savedLimits(express),
+		"hello 3":     streamLimits(plain),
+		"hello 4":     streamLimits(express),
+		"plain HTTP":  httpFrameLimits(plain),
 	}
 	if !slices.Equal(slices.Sorted(maps.Keys(previous)), slices.Sorted(maps.Keys(merged))) {
 		t.Fatal("the families differ from the recorded families")
@@ -181,11 +125,9 @@ func TestLimitTablesNotLooser(t *testing.T) {
 	// The decoder scans a state file with the Express table before it
 	// reads the version, so that table must contain each other saved table.
 	header := savedLimits(express)
-	for _, markers := range []contractMarkers{plain, coupling, expressCoupling} {
-		for path, bound := range savedLimits(markers).arrays {
-			if header.arrays[path] < bound {
-				t.Errorf("the header table limits %s to %d, less than %d for %+v", path, header.arrays[path], bound, markers)
-			}
+	for path, bound := range savedLimits(plain).arrays {
+		if header.arrays[path] < bound {
+			t.Errorf("the header table limits %s to %d, less than %d for %+v", path, header.arrays[path], bound, plain)
 		}
 	}
 }
@@ -341,15 +283,14 @@ func markerFormats(t *testing.T) []markerFormat {
 	expressRequest := func(id int) sim.Request {
 		return sim.Request{ID: id, From: "harbor", To: "market", PartySize: 20, SharingConsent: sim.SharedConsent, Service: sim.ExpressServiceChoice, ServiceID: "harbor-market"}
 	}
-	// The stations are those of the coupling fixture. The save decoder
-	// does not check them.
-	couplingRequest := func(id int) sim.Request {
+	// The save decoder does not check the stations.
+	savedRequest := func(id int) sim.Request {
 		return sim.Request{ID: id, From: "origin", To: "front-goal", PartySize: 1, SharingConsent: sim.PrivateConsent, Service: sim.OnDemandService}
 	}
 	trips := func() []sim.SavedTrip {
 		waiting := make([]sim.SavedTrip, count)
 		for i := range waiting {
-			waiting[i].Request = sim.SavedRequest(couplingRequest(i + 1))
+			waiting[i].Request = sim.SavedRequest(savedRequest(i + 1))
 		}
 		return waiting
 	}
@@ -394,11 +335,11 @@ func markerFormats(t *testing.T) []markerFormat {
 		if err != nil {
 			t.Fatal(err)
 		}
-		return StreamEnvelope{CouplingContract: next.State.Simulation.CouplingContract, OrderContract: express,
+		return StreamEnvelope{OrderContract: express,
 			Kind: "delta", Stream: "s", Sequence: 2, Base: 1, Source: sourceOf(next), Build: next.State.Build, Delta: &delta}
 	}
 	fullOf := func(frame StreamFrame) StreamEnvelope {
-		return StreamEnvelope{CouplingContract: frame.State.Simulation.CouplingContract, OrderContract: express,
+		return StreamEnvelope{OrderContract: express,
 			Kind: "full", Stream: "s", Sequence: 1, Source: sourceOf(frame), Build: frame.State.Build, Full: &frame}
 	}
 
@@ -417,24 +358,8 @@ func markerFormats(t *testing.T) []markerFormat {
 	frame.State.Speed = 60
 	expressHTTP := marshal(StateEnvelope{OrderContract: express, Topology: topology, Frame: frame})
 
-	// The coupling marker does not change the selection.
-	data := couplingPhaseFixtures(t)
-	input := couplingPhaseInput(t, data, data.Frames[0])
-	input.OrderContract, input.State.OrderContract = express, express
-	coupled := couplingPhaseFile(t, input)
-	coupled.OrderContract = express
-	coupled.Simulation.Waiting = trips()
-	couplingSave := decompressTestJSON(t, encodeTestState(t, coupled))
-	_, couplingTopology, couplingPrevious := couplingStreamFixture(t, data.Frames[0], express)
-	couplingFrame := couplingPrevious
-	couplingFrame.State.Simulation.Pending = pending(couplingRequest)
-	couplingFull := encode(fullOf(couplingFrame))
-	couplingDelta := encode(deltaOf(couplingPrevious, couplingFrame))
-	couplingHTTP := marshal(StateEnvelope{couplingTopology.CouplingContract, express, couplingTopology, couplingFrame})
-
-	plainPrevious, plainCouplingPrevious := previous, couplingPrevious
+	plainPrevious := previous
 	plainPrevious.State.Simulation.OrderContract = ""
-	plainCouplingPrevious.State.Simulation.OrderContract = ""
 	decodeHTTP := func(raw []byte) error {
 		_, err := DecodeStateJSON(raw)
 		return err
@@ -448,29 +373,15 @@ func markerFormats(t *testing.T) []markerFormat {
 			"project":    drop(decodeSave, expressSave, "project", "orderContract"),
 			"simulation": drop(decodeSave, expressSave, "simulation", "orderContract"),
 		}},
-		{name: "Express coupling save", raw: couplingSave, decode: decodeSave, contradictions: map[string]func() error{
-			"project":    drop(decodeSave, couplingSave, "project", "orderContract"),
-			"simulation": drop(decodeSave, couplingSave, "simulation", "orderContract"),
-		}},
 		{name: "Express full", raw: expressFull, decode: fullDecode, contradictions: map[string]func() error{
 			"frame": drop(fullDecode, expressFull, "full", "state", "simulation", "orderContract"),
 		}},
 		{name: "Express delta", raw: expressDelta, decode: decodeStream(previous), contradictions: map[string]func() error{
 			"plain frame": func() error { return decodeStream(plainPrevious)(expressDelta) },
 		}},
-		{name: "Express coupling full", raw: couplingFull, decode: fullDecode, contradictions: map[string]func() error{
-			"frame": drop(fullDecode, couplingFull, "full", "state", "simulation", "orderContract"),
-		}},
-		{name: "Express coupling delta", raw: couplingDelta, decode: decodeStream(couplingPrevious), contradictions: map[string]func() error{
-			"plain frame": func() error { return decodeStream(plainCouplingPrevious)(couplingDelta) },
-		}},
 		{name: "Express HTTP", raw: expressHTTP, decode: decodeHTTP, contradictions: map[string]func() error{
 			"frame":    drop(decodeHTTP, expressHTTP, "frame", "state", "simulation", "orderContract"),
 			"topology": drop(decodeHTTP, expressHTTP, "topology", "orderContract"),
-		}},
-		{name: "Express coupling HTTP", raw: couplingHTTP, decode: decodeHTTP, contradictions: map[string]func() error{
-			"frame":    drop(decodeHTTP, couplingHTTP, "frame", "state", "simulation", "orderContract"),
-			"topology": drop(decodeHTTP, couplingHTTP, "topology", "orderContract"),
 		}},
 	}
 }
@@ -486,8 +397,6 @@ func TestCheckpointArrayCeiling(t *testing.T) {
 	documents := []string{`{"full":{"state":{"checkpoints":%s}}}`, `{"frame":{"state":{"checkpoints":%s}}}`, `{"delta":{"groups":{"checkpoints":%s}}}`}
 	families := map[string]jsonLimits{
 		"plain": streamLimits(contractMarkers{}), "Express": streamLimits(contractMarkers{order: sim.ExpressOrderContract}),
-		"coupling":         streamLimits(contractMarkers{coupling: sim.CompactPairV1CouplingContract}),
-		"Express coupling": streamLimits(contractMarkers{order: sim.ExpressOrderContract, coupling: sim.CompactPairV1CouplingContract}),
 	}
 	for name, limits := range families {
 		for _, document := range documents {

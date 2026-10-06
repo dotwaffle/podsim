@@ -270,7 +270,6 @@ func TestRestoreInputCheckOrder(t *testing.T) {
 	t.Parallel()
 	want := []string{
 		"checkRestoreOrderContract",
-		"checkCouplingRestoreInput",
 		"checkRestoreIncidentFields",
 		"checkExpressSavedState",
 		"checkContractRestoreSemantics",

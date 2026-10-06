@@ -20,22 +20,20 @@ const (
 // does not hold the network, the fleet or the settings that the session
 // applies again.
 type SavedState struct {
-	CouplingContract        CouplingContract     `json:"couplingContract,omitzero"`
-	CouplingGroups          []SavedCouplingGroup `json:"couplingGroups,omitzero"`
-	OrderContract           OrderContract        `json:"orderContract,omitzero"`
-	Tick                    int64                `json:"tick"`
-	Paused                  bool                 `json:"paused,omitzero"`
-	Completed               int                  `json:"completed"`
-	RequestID               int                  `json:"requestID"`
-	Boarded                 int                  `json:"boarded"`
-	TotalWaitTicks          int64                `json:"totalWaitTicks"`
-	MaxWaitTicks            int64                `json:"maxWaitTicks"`
-	NextRedistributionTick  int64                `json:"nextRedistributionTick"`
-	PassengerDistanceMeters float64              `json:"passengerDistanceMeters"`
-	EmptyDistanceMeters     float64              `json:"emptyDistanceMeters"`
-	RebalanceMoves          int                  `json:"rebalanceMoves"`
-	SharedParties           int                  `json:"sharedParties"`
-	SharedRidePartyLimit    int                  `json:"sharedRidePartyLimit"`
+	OrderContract           OrderContract `json:"orderContract,omitzero"`
+	Tick                    int64         `json:"tick"`
+	Paused                  bool          `json:"paused,omitzero"`
+	Completed               int           `json:"completed"`
+	RequestID               int           `json:"requestID"`
+	Boarded                 int           `json:"boarded"`
+	TotalWaitTicks          int64         `json:"totalWaitTicks"`
+	MaxWaitTicks            int64         `json:"maxWaitTicks"`
+	NextRedistributionTick  int64         `json:"nextRedistributionTick"`
+	PassengerDistanceMeters float64       `json:"passengerDistanceMeters"`
+	EmptyDistanceMeters     float64       `json:"emptyDistanceMeters"`
+	RebalanceMoves          int           `json:"rebalanceMoves"`
+	SharedParties           int           `json:"sharedParties"`
+	SharedRidePartyLimit    int           `json:"sharedRidePartyLimit"`
 	// SharedRideMode and SharedRideMaxStops are the settings of
 	// SetSharedRideMode. An empty mode restores as DefaultSharedRideMode,
 	// and a zero limit restores as DefaultSharedRideMaxStops.
@@ -226,8 +224,7 @@ const (
 // RestoreStateInput holds the network and the fleet of the saved simulation,
 // and its saved state.
 type RestoreStateInput struct {
-	OrderContract    OrderContract
-	CouplingContract CouplingContract
+	OrderContract OrderContract
 	// IncidentContract is the incident marker of the saved project. A
 	// JSON copy of an input without it keeps the bytes that it had before
 	// the marker.
@@ -240,9 +237,6 @@ type RestoreStateInput struct {
 	// EmergencyContract is the emergency marker of the saved project. The
 	// restored simulation has the emergency operations on with the marker.
 	EmergencyContract EmergencyContract `json:",omitzero"`
-	CouplingEnabled   bool
-	CouplingSites     []CouplingSite
-	CouplingCorridors []CouplingCorridor
 	// OnboardPickups permits new occupied pickups after restoration.
 	OnboardPickups  bool
 	ExpressServices []ExpressService
@@ -354,7 +348,6 @@ func RestoreState(input RestoreStateInput) (*Simulation, RestoreResult, error) {
 // of the result.
 var restoreInputChecks = [...]func(RestoreStateInput) error{
 	checkRestoreOrderContract,
-	checkCouplingRestoreInput,
 	checkRestoreIncidentFields,
 	checkExpressSavedState,
 	checkContractRestoreSemantics,
@@ -379,9 +372,9 @@ func restoreState(input RestoreStateInput, newFleet func() (*Simulation, error))
 	if !input.LogicalOnly || bufferCertificate {
 		s, result, err := restorePhysicalTier(input, newFleet, bufferCertificate)
 		if err == nil && !input.LogicalOnly {
-			return acceptPhysicalRestore(input.State, s, result)
+			return s, result, nil
 		}
-		if refusal := physicalTierRefusal(input.State, bufferCertificate, err); refusal != nil {
+		if refusal := physicalTierRefusal(bufferCertificate, err); refusal != nil {
 			return nil, RestoreResult{PhysicalError: refusal}, refusal
 		}
 		physicalErr = err
@@ -473,27 +466,14 @@ func restorePhysicalTier(input RestoreStateInput, newFleet func() (*Simulation, 
 	return s, result, err
 }
 
-// acceptPhysicalRestore returns a physical restore. Saved coupling groups
-// also need the strict coupling result.
-func acceptPhysicalRestore(state SavedState, s *Simulation, result RestoreResult) (*Simulation, RestoreResult, error) {
-	if len(state.CouplingGroups) != 0 {
-		if err := checkCouplingRestoreResult(result); err != nil {
-			return nil, RestoreResult{}, err
-		}
-	}
-	return s, result, nil
-}
-
 // physicalTierRefusal returns the error that ends the restore after the
-// physical tier fails, or nil when the logical tier can run. Invalid faults,
-// coupling groups, and buffer certificates have no logical fallback.
-func physicalTierRefusal(state SavedState, bufferCertificate bool, err error) error {
+// physical tier fails, or nil when the logical tier can run. Invalid faults
+// and buffer certificates have no logical fallback.
+func physicalTierRefusal(bufferCertificate bool, err error) error {
 	switch {
 	case err == nil:
 		return nil
 	case errors.Is(err, errInvalidFaults):
-		return err
-	case len(state.CouplingGroups) != 0:
 		return err
 	case bufferCertificate:
 		return fmt.Errorf("%w: %w", errBufferCertificate, err)
@@ -527,10 +507,8 @@ func restoreLogicalTier(input RestoreStateInput, newFleet func() (*Simulation, e
 // released.
 func (s *Simulation) ExportState() SavedState {
 	state := SavedState{
-		CouplingContract: s.CouplingContract(),
-		CouplingGroups:   s.savedCouplingGroups(),
-		OrderContract:    s.orderContract,
-		Tick:             s.tick, Paused: s.paused, Completed: s.completed, RequestID: s.requestID, Boarded: s.boarded,
+		OrderContract: s.orderContract,
+		Tick:          s.tick, Paused: s.paused, Completed: s.completed, RequestID: s.requestID, Boarded: s.boarded,
 		TotalWaitTicks: s.totalWaitTicks, MaxWaitTicks: s.maxWaitTicks, NextRedistributionTick: s.nextRedistributionTick,
 		PassengerDistanceMeters: s.passengerDistanceMeters, EmptyDistanceMeters: s.emptyDistanceMeters,
 		RebalanceMoves: s.rebalanceMoves, SharedParties: s.sharedParties, SharedRidePartyLimit: s.sharedRidePartyLimit,
@@ -575,10 +553,6 @@ func (s *Simulation) ExportState() SavedState {
 func (s *Simulation) exportPod(v *vehicle, limits routeLimits) SavedPod {
 	claimsDestination := v.RelocatingTo != "" && v.destination.ID != "" &&
 		s.owners[resource{kind: berthResource, id: v.destination.ID}] == podResourceOwner(v.Pod.ID)
-	if s.couplingMember(v.Pod.ID) && v.destination.ID != "" {
-		claims := berthResources(v.destination)
-		claimsDestination = s.owners[claims[0]].isPod(v.Pod.ID) && s.owners[claims[1]].isPod(v.Pod.ID)
-	}
 	pod := SavedPod{
 		ID: v.Pod.ID, Class: v.Pod.Class, Activity: activityCode(v.Pod.Activity), StationID: v.Pod.StationID, BerthID: v.Pod.BerthID,
 		Occupied: v.Pod.Occupied, RelocatingTo: v.RelocatingTo, Rebalancing: v.Rebalancing,
@@ -613,9 +587,6 @@ func (s *Simulation) exportPod(v *vehicle, limits routeLimits) SavedPod {
 			break
 		}
 		start, offset, current := s.savedStart(v)
-		if s.couplingMember(v.Pod.ID) {
-			start, offset = 0, 0
-		}
 		if pod.Route = s.laneIndexes(v.Route[start:], limits.pod); pod.Route != nil {
 			pod.RouteIndex = current - start
 			pod.Distance = v.distance - offset

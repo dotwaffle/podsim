@@ -29,18 +29,11 @@ func validateStationQueueOptions(opts options) error {
 type comparisonStepper interface {
 	Step()
 	CompactQueueError() error
-	CouplingError() error
 }
 
 // stepComparison reports a retained fault before the run reads the stopped tick.
 func stepComparison(simulation comparisonStepper) error {
-	if err := simulation.CouplingError(); err != nil {
-		return fmt.Errorf("physical coupling controller: %w", err)
-	}
 	simulation.Step()
-	if err := simulation.CouplingError(); err != nil {
-		return fmt.Errorf("physical coupling controller: %w", err)
-	}
 	if err := simulation.CompactQueueError(); err != nil {
 		return fmt.Errorf("compact station queue controller: %w", err)
 	}

@@ -97,9 +97,8 @@ func sessionStateFile(tb testing.TB, shared *Session) stateFile {
 		Demand:          savedDemand{State: shared.demand.state, Random: random, Budget: shared.demand.budget},
 		Simulation:      shared.simulation.ExportState(),
 		Project:         shared.project,
-		// The markers of the project, as captureState writes them.
-		OrderContract:    shared.project.OrderContract,
-		CouplingContract: shared.project.CouplingContract,
+		// The marker of the project, as captureState writes it.
+		OrderContract: shared.project.OrderContract,
 	}
 }
 

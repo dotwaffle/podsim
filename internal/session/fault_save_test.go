@@ -182,10 +182,7 @@ func TestFaultRecordArrayLimits(t *testing.T) {
 	document := func(value string) []byte {
 		return []byte(`{"simulation":{"faults":{"records":` + value + `}}}`)
 	}
-	for _, markers := range []contractMarkers{
-		{}, {order: sim.ExpressOrderContract}, {coupling: sim.CompactPairV1CouplingContract},
-		{order: sim.ExpressOrderContract, coupling: sim.CompactPairV1CouplingContract},
-	} {
+	for _, markers := range []contractMarkers{{}, {order: sim.ExpressOrderContract}} {
 		limits := savedLimits(markers)
 		for name, test := range map[string]struct {
 			value string

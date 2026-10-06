@@ -45,31 +45,6 @@ func TestClaimKind(t *testing.T) {
 		{"service node", func(_ *Simulation, relocating, _ *vehicle) (*vehicle, resource) {
 			return relocating, marketNode
 		}, claimService},
-		{"coupled member", func(_ *Simulation, relocating, _ *vehicle) (*vehicle, resource) {
-			relocating.couplingID = "pair"
-			return relocating, market
-		}, claimCommitted},
-		{"approach member", func(s *Simulation, relocating, _ *vehicle) (*vehicle, resource) {
-			c := &couplingApproachContext{}
-			c.members[1].id = relocating.Pod.ID
-			s.couplingApproaches = append(s.couplingApproaches, couplingNativeApproach{context: c})
-			return relocating, market
-		}, claimCommitted},
-		{"group owner", func(s *Simulation, relocating, _ *vehicle) (*vehicle, resource) {
-			s.owners[market] = resourceOwner{kind: groupOwnerKind, id: "pair"}
-			relocating.routeReleases[market] = relocating.distance
-			return relocating, market
-		}, claimCommitted},
-		{"group claim", func(s *Simulation, relocating, _ *vehicle) (*vehicle, resource) {
-			s.couplingGroups = append(s.couplingGroups, couplingNativeGroup{context: &couplingMotionContext{claims: []couplingClaim{{Resource: market}}}})
-			return relocating, market
-		}, claimCommitted},
-		{"group preserved claim", func(s *Simulation, relocating, _ *vehicle) (*vehicle, resource) {
-			c := &couplingMotionContext{}
-			c.reservation.PreservedClaims = []couplingClaim{{Resource: marketNode, Expected: podResourceOwner(relocating.Pod.ID)}}
-			s.couplingGroups = append(s.couplingGroups, couplingNativeGroup{context: c})
-			return relocating, marketNode
-		}, claimCommitted},
 		{"idle at berth", func(_ *Simulation, _, idle *vehicle) (*vehicle, resource) {
 			return idle, garden
 		}, claimOccupied},
@@ -215,31 +190,6 @@ func vehicleIndex(s *Simulation, v *vehicle) int {
 		}
 	}
 	return -1
-}
-
-// A group owner never reaches the classification from the two callers.
-// bufferClaimCanYield finds no remote pod for the owner, and
-// yieldRelocationClaims releases only a claim that the relocating pod owns.
-// The control case shows that the same state yields a pod-owned claim.
-func TestClaimYieldSkipsGroupOwner(t *testing.T) {
-	t.Parallel()
-	for _, group := range []bool{false, true} {
-		s, relocating, head := claimKindFixture(t)
-		head.destination = relocating.destination
-		assign(s, head)
-		claims := berthResources(relocating.destination)
-		if group {
-			for _, r := range claims {
-				s.owners[r] = resourceOwner{kind: groupOwnerKind, id: "pair"}
-			}
-		}
-		_, buffered := s.bufferBerthClaims(head, relocating.destination)
-		s.yieldRelocationClaims()
-		kept := s.owners[claims[0]].kind == groupOwnerKind && s.owners[claims[1]].kind == groupOwnerKind
-		if buffered == group || kept != group {
-			t.Fatalf("group=%t: buffer yield %t, claims %v %v", group, buffered, s.owners[claims[0]], s.owners[claims[1]])
-		}
-	}
 }
 
 // A released pod parks at another berth only after it yields a claim. When

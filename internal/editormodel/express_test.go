@@ -74,9 +74,9 @@ func TestExpressEditorNormalizationAndQueueEdits(t *testing.T) {
 	if number(out["version"]) != project.CurrentVersion || out["orderContract"] != "express-v1" || !reflect.DeepEqual(out["fleet"], draft["fleet"]) || !reflect.DeepEqual(out["expressServices"], draft["expressServices"]) {
 		t.Fatal("normalization changed the contract, fleet, or registry")
 	}
-	// Express without the coupling marker accepts station queue spacing.
+	// Express accepts station queue spacing.
 	if change, err = editProject(draft, jsontext.Value(`{"field":"stationQueueSpacing","value":"ordinary"}`)); err != nil || change.Patch["stationQueueSpacing"] != "ordinary" {
-		t.Fatal("queue edit refused with Express but without coupling", err, change)
+		t.Fatal("queue edit refused with Express", err, change)
 	}
 	if !reflect.DeepEqual(draft, before) {
 		t.Fatal("edit changed its owned input")

@@ -6,7 +6,6 @@ import (
 	"maps"
 	"reflect"
 	"slices"
-	"strings"
 	"testing"
 )
 
@@ -638,13 +637,10 @@ func TestWithdrawServiceSkipsPod(t *testing.T) {
 // TestServiceHoldRefusals checks each precondition of withdrawService and
 // restoreService (incident contract, sections 4.2 and 10). A refused call
 // returns an error and changes no pod, trip, owner, or counter, and the
-// state contract holds after it, except E6 for a coupling member with a
-// hold. The pod is a relocating pod with
+// state contract holds after it. The pod is a relocating pod with
 // destination claims. One trip is bound to the pod, one trip waits for the
 // pod to finish, and one trip names the pod in stale deferral metadata, so
 // a refused withdrawal that released a pickup would change a trip.
-// A call refused for a coupling member succeeds once the membership
-// clears.
 func TestServiceHoldRefusals(t *testing.T) {
 	t.Parallel()
 	unknown := knownServiceHolds + 1
@@ -654,40 +650,22 @@ func TestServiceHoldRefusals(t *testing.T) {
 		// dispatching marks a dispatch pass as in progress.
 		dispatching bool
 		call        func(s *Simulation, v *vehicle) error
-		// coupling, when set, makes v a coupling member.
-		coupling func(s *Simulation, v *vehicle)
 	}{
-		{"withdraw zero", 0, false, func(s *Simulation, v *vehicle) error { return s.withdrawService(v, 0) }, nil},
-		{"withdraw unknown bit", 0, false, func(s *Simulation, v *vehicle) error { return s.withdrawService(v, unknown) }, nil},
-		{"withdraw high bit", 0, false, func(s *Simulation, v *vehicle) error { return s.withdrawService(v, 1<<7) }, nil},
-		{"withdraw two holds", 0, false, func(s *Simulation, v *vehicle) error { return s.withdrawService(v, knownServiceHolds) }, nil},
-		{"withdraw a known and an unknown bit", 0, false, func(s *Simulation, v *vehicle) error { return s.withdrawService(v, faultHold|unknown) }, nil},
-		{"withdraw a set hold", faultHold, false, func(s *Simulation, v *vehicle) error { return s.withdrawService(v, faultHold) }, nil},
-		{"withdraw a set hold of two", knownServiceHolds, false, func(s *Simulation, v *vehicle) error { return s.withdrawService(v, emergencyHold) }, nil},
-		{"withdraw during dispatch", 0, true, func(s *Simulation, v *vehicle) error { return s.withdrawService(v, faultHold) }, nil},
-		{"withdraw a coupled member", 0, false, func(s *Simulation, v *vehicle) error { return s.withdrawService(v, emergencyHold) }, func(_ *Simulation, v *vehicle) {
-			v.couplingID = "pair"
-		}},
-		{"withdraw an approach member", 0, false, func(s *Simulation, v *vehicle) error { return s.withdrawService(v, emergencyHold) }, func(s *Simulation, v *vehicle) {
-			c := &couplingApproachContext{}
-			c.members[1].id = v.Pod.ID
-			s.couplingApproaches = append(s.couplingApproaches, couplingNativeApproach{context: c})
-		}},
-		{"restore a coupled member", emergencyHold, false, func(s *Simulation, v *vehicle) error { return s.restoreService(v, emergencyHold) }, func(_ *Simulation, v *vehicle) {
-			v.couplingID = "pair"
-		}},
-		{"restore an approach member", emergencyHold, false, func(s *Simulation, v *vehicle) error { return s.restoreService(v, emergencyHold) }, func(s *Simulation, v *vehicle) {
-			c := &couplingApproachContext{}
-			c.members[1].id = v.Pod.ID
-			s.couplingApproaches = append(s.couplingApproaches, couplingNativeApproach{context: c})
-		}},
-		{"restore zero", knownServiceHolds, false, func(s *Simulation, v *vehicle) error { return s.restoreService(v, 0) }, nil},
-		{"restore unknown bit", knownServiceHolds, false, func(s *Simulation, v *vehicle) error { return s.restoreService(v, unknown) }, nil},
-		{"restore high bit", knownServiceHolds, false, func(s *Simulation, v *vehicle) error { return s.restoreService(v, 1<<7) }, nil},
-		{"restore two holds", knownServiceHolds, false, func(s *Simulation, v *vehicle) error { return s.restoreService(v, knownServiceHolds) }, nil},
-		{"restore a known and an unknown bit", knownServiceHolds, false, func(s *Simulation, v *vehicle) error { return s.restoreService(v, faultHold|unknown) }, nil},
-		{"restore an unset hold", emergencyHold, false, func(s *Simulation, v *vehicle) error { return s.restoreService(v, faultHold) }, nil},
-		{"restore in service", 0, false, func(s *Simulation, v *vehicle) error { return s.restoreService(v, emergencyHold) }, nil},
+		{"withdraw zero", 0, false, func(s *Simulation, v *vehicle) error { return s.withdrawService(v, 0) }},
+		{"withdraw unknown bit", 0, false, func(s *Simulation, v *vehicle) error { return s.withdrawService(v, unknown) }},
+		{"withdraw high bit", 0, false, func(s *Simulation, v *vehicle) error { return s.withdrawService(v, 1<<7) }},
+		{"withdraw two holds", 0, false, func(s *Simulation, v *vehicle) error { return s.withdrawService(v, knownServiceHolds) }},
+		{"withdraw a known and an unknown bit", 0, false, func(s *Simulation, v *vehicle) error { return s.withdrawService(v, faultHold|unknown) }},
+		{"withdraw a set hold", faultHold, false, func(s *Simulation, v *vehicle) error { return s.withdrawService(v, faultHold) }},
+		{"withdraw a set hold of two", knownServiceHolds, false, func(s *Simulation, v *vehicle) error { return s.withdrawService(v, emergencyHold) }},
+		{"withdraw during dispatch", 0, true, func(s *Simulation, v *vehicle) error { return s.withdrawService(v, faultHold) }},
+		{"restore zero", knownServiceHolds, false, func(s *Simulation, v *vehicle) error { return s.restoreService(v, 0) }},
+		{"restore unknown bit", knownServiceHolds, false, func(s *Simulation, v *vehicle) error { return s.restoreService(v, unknown) }},
+		{"restore high bit", knownServiceHolds, false, func(s *Simulation, v *vehicle) error { return s.restoreService(v, 1<<7) }},
+		{"restore two holds", knownServiceHolds, false, func(s *Simulation, v *vehicle) error { return s.restoreService(v, knownServiceHolds) }},
+		{"restore a known and an unknown bit", knownServiceHolds, false, func(s *Simulation, v *vehicle) error { return s.restoreService(v, faultHold|unknown) }},
+		{"restore an unset hold", emergencyHold, false, func(s *Simulation, v *vehicle) error { return s.restoreService(v, faultHold) }},
+		{"restore in service", 0, false, func(s *Simulation, v *vehicle) error { return s.restoreService(v, emergencyHold) }},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -709,10 +687,6 @@ func TestServiceHoldRefusals(t *testing.T) {
 				// withdrawService.
 				s.releasePickups(v)
 			}
-			approaches := len(s.couplingApproaches)
-			if test.coupling != nil {
-				test.coupling(s, v)
-			}
 			if test.dispatching {
 				s.pass.active = true
 			}
@@ -724,33 +698,8 @@ func TestServiceHoldRefusals(t *testing.T) {
 				t.Fatalf("the refused call changed the state, holds %d", v.withdrawn)
 			}
 			s.pass.active = false
-			// A coupling member with a hold breaks invariant E6 of the
-			// incident emergency contract. No operation makes such a
-			// member, but the restore refusals test one.
-			if err := s.CheckContract(); test.holds != 0 && test.coupling != nil {
-				if err == nil || !strings.HasPrefix(err.Error(), "E6: ") {
-					t.Fatalf("the coupling member with a hold passes E6: %v", err)
-				}
-			} else if err != nil {
-				t.Fatal(err)
-			}
-			if test.coupling == nil {
-				return
-			}
-			// Control: the same call succeeds once the pod is no longer a
-			// coupling member.
-			v.couplingID, s.couplingApproaches = "", s.couplingApproaches[:approaches]
 			if err := s.CheckContract(); err != nil {
-				t.Fatalf("control: the state without the membership: %v", err)
-			}
-			if err := test.call(s, v); err != nil {
-				t.Fatalf("control: the call fails after the membership clears: %v", err)
-			}
-			if v.withdrawn == test.holds {
-				t.Fatal("control: the call did not change the holds")
-			}
-			if test.holds == 0 && len(pickupsOf(s, v.Pod.ID)) != 0 {
-				t.Fatal("control: a trip names the withdrawn pod")
+				t.Fatal(err)
 			}
 		})
 	}

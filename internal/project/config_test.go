@@ -814,7 +814,6 @@ func TestValidateCheckOrder(t *testing.T) {
 	t.Parallel()
 	want := []string{
 		"validateVersion",
-		"validateCouplingContract",
 		"validateIncidentContract",
 		"validateFaultContract",
 		"validateEmergencyContract",
@@ -826,7 +825,6 @@ func TestValidateCheckOrder(t *testing.T) {
 		"validateGeoAndMap",
 		"validateNames",
 		"validateNetworkShape",
-		"validateCouplingGeometry",
 		"validateProjectDemand",
 		"validateScenario",
 		"validatePassengerStations",

@@ -372,11 +372,10 @@ func TestEndpointRouteRefusals(t *testing.T) {
 		}
 		blockLanes(t, s, "s1-link")
 		for name, change := range map[string]func(){
-			"faulted":         func() { v.faulted = true },
-			"platoon member":  func() { v.follower = 2 },
-			"coupling member": func() { v.couplingID = "pair" },
-			"granted":         func() { v.reservedThrough = 0 },
-			"unloading":       func() { v.Pod.Activity = Unloading },
+			"faulted":        func() { v.faulted = true },
+			"platoon member": func() { v.follower = 2 },
+			"granted":        func() { v.reservedThrough = 0 },
+			"unloading":      func() { v.Pod.Activity = Unloading },
 		} {
 			before := *v
 			change()

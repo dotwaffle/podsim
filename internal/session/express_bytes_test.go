@@ -288,7 +288,6 @@ func maximumStreamDelta(t *testing.T, frame StreamFrame) StreamDelta {
 	t.Helper()
 	_, empty := streamFixture(t)
 	empty.State.Simulation.OrderContract = frame.State.Simulation.OrderContract
-	empty.State.Simulation.CouplingContract = frame.State.Simulation.CouplingContract
 	empty.State.Simulation.IncidentContract = frame.State.Simulation.IncidentContract
 	empty.State.Simulation.FaultContract = frame.State.Simulation.FaultContract
 	empty.State.Simulation.Vehicles = make([]VehicleFrame, len(frame.State.Simulation.Vehicles))
@@ -345,11 +344,8 @@ func TestExpressWidestStreamAdapters(t *testing.T) {
 }
 
 // widestTopology returns a topology of the largest network, with IDs that
-// contain escapes control bytes. markers select the Express services and
-// the coupling members. The coupling topology has no sites or corridors:
-// with them the decoder checks the geometry of the network, and this
-// network has no valid geometry. The HTTP topology cap bounds the member
-// whatever it contains.
+// contain escapes control bytes. markers select the Express services. The
+// HTTP topology cap bounds the member whatever it contains.
 func widestTopology(t *testing.T, escapes int, markers contractMarkers) TopologySnapshot {
 	t.Helper()
 	id := func(prefix string, i int) string {
@@ -393,7 +389,6 @@ func widestTopology(t *testing.T, escapes int, markers contractMarkers) Topology
 			topology.ExpressServices[i] = sim.ExpressService{ID: id("e", i), From: topology.Network.Stations[0].ID, To: topology.Network.Stations[1].ID, Class: sim.ExpressClass, PartyLimit: 20}
 		}
 	}
-	topology.CouplingContract, topology.CouplingEnabled = markers.coupling, markers.coupling != ""
 	return topology
 }
 

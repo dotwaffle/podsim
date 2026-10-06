@@ -20,7 +20,7 @@ func TestStreamServiceMemberVersions(t *testing.T) {
 		`"projectVersion":"3"`, `"projectVersion":3.5`, `"projectVersion":2`, `"projectVersion":3`,
 		`"projectVersion":4`, `"projectVersion":5`,
 	} {
-		if err := scanStreamServiceMembers([]byte(`{`+member+`}`), contractMarkers{}); err == nil {
+		if err := scanStreamServiceMembers([]byte(`{` + member + `}`)); err == nil {
 			t.Errorf("hello3 accepted %s", member)
 		}
 	}

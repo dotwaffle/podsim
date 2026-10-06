@@ -122,16 +122,13 @@ func TestStationQueueOmissionAndRejectedConfiguration(t *testing.T) {
 	}
 }
 
-func TestStationQueueExpressWithoutCoupling(t *testing.T) {
+func TestStationQueueExpressSpacing(t *testing.T) {
 	t.Parallel()
 	for _, mode := range []sim.StationQueueSpacing{sim.StationQueueOrdinary, sim.StationQueueCompactV1} {
 		config := expressProject(t)
 		config.StationQueueSpacing, config.StationBuffers, config.PlatoonLimit = mode, true, 2
-		if HasCouplingContract(config) {
-			t.Fatal("Express fixture has the coupling marker")
-		}
 		if err := Validate(config); err != nil {
-			t.Fatalf("Express without coupling refused %s queue spacing: %v", mode, err)
+			t.Fatalf("Express refused %s queue spacing: %v", mode, err)
 		}
 	}
 }

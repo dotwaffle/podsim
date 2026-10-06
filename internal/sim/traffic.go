@@ -359,13 +359,6 @@ func (l *blockList) at(index int) block {
 	return l.block(lane, cell)
 }
 
-// endAt returns the end of the block at index, as at does. It builds no
-// block and does not move scan.
-func (l *blockList) endAt(index int) float64 {
-	lane := l.locate(index, l.scan)
-	return l.cellEnd(lane, index-l.lanes[lane].first)
-}
-
 // block returns a cell of the lane at a route index.
 func (l *blockList) block(lane, cell int) block {
 	entry := &l.lanes[lane]
@@ -547,9 +540,6 @@ func (s *Simulation) admit() {
 	intents := work.intents[:0]
 	for i := range s.vehicles {
 		v := &s.vehicles[i]
-		if v.couplingID != "" {
-			continue
-		}
 		if v.faulted {
 			// A faulted pod requests no grant, also as a buffer head.
 			s.reportFault(v)
@@ -663,9 +653,6 @@ func compareAdmission(a, b intent, tick int64) int {
 func (s *Simulation) grant(in intent) {
 	v := &s.vehicles[in.index]
 	through := max(reservationEnd(&v.blocks, in.block), in.through)
-	if !s.couplingApproachGrant(v, through) {
-		return
-	}
 	if v.buffered && v.destination.ID == "" {
 		plan, ok := s.bufferPlan(v)
 		if !ok {
@@ -813,7 +800,6 @@ func (s *Simulation) move(v *vehicle) {
 }
 
 func (s *Simulation) publishVehicleTravel(v *vehicle, distance, speed float64) {
-	v.restoredPose = false
 	blocks := &v.blocks
 	current := blocks.find(v.blockIndex, &blocks.cursors[podCursor])
 	// A pod with no lane has left its berth, so it enters its current lane
@@ -931,9 +917,6 @@ func (v *vehicle) retainRouteResource(r resource, releaseAt float64) {
 }
 
 func (s *Simulation) releaseVehicleResources(v *vehicle) {
-	if v.couplingID != "" {
-		return
-	}
 	if v.Pod.Activity != Traveling {
 		if len(v.routeReleases) == 0 {
 			return

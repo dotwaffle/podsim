@@ -216,9 +216,6 @@ func TestCheckpointIndependentAcceptanceGuards(t *testing.T) {
 		{"joint clock", "joint clock", func(f *checkpointFile) { f.Payload.Native.Tick++ }},
 		{"refused project version", "foundation project", func(f *checkpointFile) { f.Payload.Origin.Project.Version = 4 }},
 		{"express marker", "does not support orderContract", func(f *checkpointFile) { f.Payload.Origin.Project.OrderContract = sim.ExpressOrderContract }},
-		{"coupling marker", "does not support couplingContract", func(f *checkpointFile) {
-			f.Payload.Origin.Project.CouplingContract = sim.CompactPairV1CouplingContract
-		}},
 		{"incident marker", "does not support incidentContract", func(f *checkpointFile) {
 			f.Payload.Origin.Project.IncidentContract = sim.IncidentV1Contract
 		}},
@@ -253,9 +250,6 @@ func TestCheckpointOriginRefusesFoldedMarkers(t *testing.T) {
 		mutate       func(*checkpointFile)
 	}{
 		{"express", "orderContract", func(f *checkpointFile) { f.Payload.Origin.Project.OrderContract = sim.ExpressOrderContract }},
-		{"coupling", "couplingContract", func(f *checkpointFile) {
-			f.Payload.Origin.Project.CouplingContract = sim.CompactPairV1CouplingContract
-		}},
 		{"incident", "incidentContract", func(f *checkpointFile) { f.Payload.Origin.Project.IncidentContract = sim.IncidentV1Contract }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

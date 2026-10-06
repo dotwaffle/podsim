@@ -112,14 +112,10 @@ func (s *Simulation) Emergency(podID string, orderID int) (string, error) {
 	record := emergencyRecord{generation: s.incidentGeneration, serial: s.incidentSerial, start: s.tick, pod: index, order: v.Riders[party].ID}
 	s.emergencies = append(s.emergencies, record)
 	addCount(&s.emergencyCounters.started, 1)
-	// A coupling or approach member gets its hold after it leaves the
-	// group (section 5.6). For every other pod, the preflight meets each
-	// precondition of withdrawService, so the call cannot fail. Unless the
-	// pod is faulted, this is the first hold, and it releases the pending
-	// pickups of the pod.
-	if v.couplingID == "" && !s.couplingApproachMember(v.Pod.ID) {
-		_ = s.withdrawService(v, emergencyHold)
-	}
+	// The preflight meets each precondition of withdrawService, so the call
+	// cannot fail. Unless the pod is faulted, this is the first hold, and it
+	// releases the pending pickups of the pod.
+	_ = s.withdrawService(v, emergencyHold)
 	s.advanceEmergency(record)
 	s.observe()
 	return id, nil
@@ -163,8 +159,8 @@ func (s *Simulation) emergencyStage() {
 }
 
 // advanceEmergency moves the pod of the record toward its unload (section
-// 5.4 of the incident emergency contract). A faulted pod and a coupling or
-// approach member stay deferred. Otherwise the pod gets the emergency hold
+// 5.4 of the incident emergency contract). A faulted pod stays deferred.
+// Otherwise the pod gets the emergency hold
 // when it lacks it. A deferred pod at a berth then starts its unload
 // there. A traveling pod that can divert binds to the station of the
 // station choice on its cadence. Each other deferred pod keeps its route:
@@ -175,13 +171,12 @@ func (s *Simulation) emergencyStage() {
 // refusal leaves the pod deferred, and the next stage tries again.
 func (s *Simulation) advanceEmergency(record emergencyRecord) {
 	v := &s.vehicles[record.pod]
-	if v.faulted || v.couplingID != "" || s.couplingApproachMember(v.Pod.ID) {
+	if v.faulted {
 		return
 	}
 	if v.withdrawn&emergencyHold == 0 {
-		// The pod is not faulted and not a coupling or approach member,
-		// and the stage and the start run outside dispatch, so the call
-		// cannot fail.
+		// The pod is not faulted, and the stage and the start run outside
+		// dispatch, so the call cannot fail.
 		_ = s.withdrawService(v, emergencyHold)
 	}
 	// A bound or unloading pod needs no step: arrive and the unloading
@@ -206,8 +201,7 @@ func (s *Simulation) advanceEmergency(record emergencyRecord) {
 // endEmergency removes the record at index, counts it, and returns the pod
 // to service from the emergency hold when it has the hold (section 5.5 of
 // the incident emergency contract). The stage ends a record only when the
-// purpose is not owned by the hold and the pod is not a coupling member,
-// so restoreService does not refuse. A faulted pod keeps its fault hold.
+// purpose is not owned by the hold, so restoreService does not refuse. A faulted pod keeps its fault hold.
 func (s *Simulation) endEmergency(index int) {
 	record := s.emergencies[index]
 	s.emergencies = slices.Delete(s.emergencies, index, index+1)
@@ -219,8 +213,8 @@ func (s *Simulation) endEmergency(index int) {
 }
 
 // checkEmergencies checks invariants E1 to E5, E7, and E8 of the incident
-// emergency contract (section 8). CheckContract checks E6 with the coupling
-// members, and checkFaults the state part of F11. E2 and E4 hold only with
+// emergency contract (section 8). checkFaults checks the state part of
+// F11. E2 and E4 hold only with
 // emergencies on: without them, the stage 1 operations can set the
 // emergency hold and purpose 1 with another owner.
 func (s *Simulation) checkEmergencies() error {

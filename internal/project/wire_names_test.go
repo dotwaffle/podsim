@@ -30,15 +30,15 @@ func TestProjectScannerLiteralsMatchTags(t *testing.T) {
 	paths := wirename.Paths(members)
 	for _, path := range []string{
 		"/network/nodes", "/network/lanes", "/network/stations", "/network/stations/*/berths",
-		"/network/stations/*/banks", "/network/stations/*/banks/*/berthIDs", "/couplingCorridors/*/laneIds",
+		"/network/stations/*/banks", "/network/stations/*/banks/*/berthIDs",
 		"/network/lanes/*/vehicleClasses", "/network/stations/*/vehicleClasses",
 		"/network/stations/*/berths/*/vehicleClasses",
 	} {
-		if !paths[path] || couplingProjectArrayLimit(path) == 0 {
-			t.Errorf("project array path %q has no member or no limit", path)
+		if !paths[path] {
+			t.Errorf("project array path %q has no member", path)
 		}
 	}
-	found, err := wirename.Mismatch([]string{"banks.go", "service.go", "coupling_json.go", "config.go", "coupling.go", "station_queue.go"}, wirename.Names(members))
+	found, err := wirename.Mismatch([]string{"banks.go", "service.go", "config.go", "station_queue.go"}, wirename.Names(members))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -17,8 +17,6 @@ func TestStateHTTPNegotiation(t *testing.T) {
 	t.Parallel()
 	plain, _ := streamFixture(t)
 	t.Cleanup(plain.Close)
-	data := couplingPhaseFixtures(t)
-	coupling, _, _ := couplingStreamFixture(t, data.Frames[0], "")
 	for _, test := range []struct {
 		name    string
 		shared  *Session
@@ -26,7 +24,6 @@ func TestStateHTTPNegotiation(t *testing.T) {
 	}{
 		{"plain", plain, contractMarkers{}},
 		{"express", expressSession(t), contractMarkers{order: sim.ExpressOrderContract}},
-		{"coupling", coupling, contractMarkers{coupling: sim.CompactPairV1CouplingContract}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -153,12 +150,12 @@ func TestStreamMarkerValues(t *testing.T) {
 		var edits map[string][]rootMember
 		if kind == "plain" {
 			edits = map[string][]rootMember{
-				"unknown marker":        {{"orderContract", jsontext.Value(`"express-v2"`)}},
-				"null marker":           {{"orderContract", jsontext.Value(`null`)}},
-				"empty marker":          {{"orderContract", jsontext.Value(`""`)}},
-				"text encoding":         {{"textEncoding", jsontext.Value(text)}},
-				"null coupling marker":  {{"couplingContract", jsontext.Value(`null`)}},
-				"empty coupling marker": {{"couplingContract", jsontext.Value(`""`)}},
+				"unknown marker": {{"orderContract", jsontext.Value(`"express-v2"`)}},
+				"null marker":    {{"orderContract", jsontext.Value(`null`)}},
+				"empty marker":   {{"orderContract", jsontext.Value(`""`)}},
+				"text encoding":  {{"textEncoding", jsontext.Value(text)}},
+				// The removed coupling marker is an unknown member.
+				"coupling marker": {{"couplingContract", jsontext.Value(`"compact-pair-v1"`)}},
 			}
 		} else {
 			edits = map[string][]rootMember{

@@ -381,15 +381,10 @@ func (s *Simulation) faultTicksFit(duration int64) bool {
 }
 
 // podFaultTarget reports whether a pod fault on v is supported. The pod
-// travels, or it is at a berth in a berth activity. A coupling member, an
-// approach member, a platoon leader or follower, and a compact queue member
-// are not supported.
+// travels, or it is at a berth in a berth activity. A platoon leader or
+// follower and a compact queue member are not supported.
 func (s *Simulation) podFaultTarget(v *vehicle) bool {
 	switch {
-	case v.couplingID != "":
-		return false
-	case s.couplingApproachMember(v.Pod.ID):
-		return false
 	case v.follower != 0:
 		return false
 	case v.link.leader != 0:
@@ -452,8 +447,7 @@ func (s *Simulation) removeFault(index int, inStage bool) {
 	if record.kind == podFault {
 		v := &s.vehicles[record.pod]
 		v.faulted, v.faultCap = false, 0
-		// The pod has the hold (F1) and is not a coupling member (F2), so
-		// the call cannot fail.
+		// The pod has the hold (F1), so the call cannot fail.
 		if v.op.owner != faultHold {
 			_ = s.restoreService(v, faultHold)
 		}
@@ -518,14 +512,12 @@ func (s *Simulation) evacuateTick(record faultRecord) int64 {
 
 // releaseFaultHolds applies the hold release rule (section 5.6 of the
 // incident suspension contract). A pod with the fault hold returns to
-// service when it has no pod fault, the hold owns no purpose, and the pod
-// is not a coupling or approach member. A fault recovery thus keeps its
-// hold until its arrival clears the purpose (W5), and a member keeps it
-// until the split.
+// service when it has no pod fault and the hold owns no purpose. A fault
+// recovery thus keeps its hold until its arrival clears the purpose (W5).
 func (s *Simulation) releaseFaultHolds() {
 	for index := range s.vehicles {
 		v := &s.vehicles[index]
-		if v.withdrawn&faultHold == 0 || v.faulted || v.op.owner == faultHold || v.couplingID != "" || s.couplingApproachMember(v.Pod.ID) {
+		if v.withdrawn&faultHold == 0 || v.faulted || v.op.owner == faultHold {
 			continue
 		}
 		// The tests above are the refusals of restoreService, so the call

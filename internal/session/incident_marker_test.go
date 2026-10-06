@@ -363,7 +363,7 @@ func TestIncidentMarkerMatchedSeedRuns(t *testing.T) {
 
 // TestIncidentMarkerUnknownTyped checks that each typed boundary refuses an
 // unknown incident marker, also when the topology and the frame agree on
-// it, as it refuses an unknown order or coupling marker. Without this, an
+// it, as it refuses an unknown order marker. Without this, an
 // encoder would write a document that its own decoder refuses.
 func TestIncidentMarkerUnknownTyped(t *testing.T) {
 	t.Parallel()

@@ -438,7 +438,7 @@ func (s *Simulation) maintainLink(i, ahead int) {
 	over := s.platooning == PlatooningOff || v.Pod.Activity != Traveling || leader.Pod.Activity != Traveling ||
 		ahead != 0 && ahead != v.link.leader
 	if !over {
-		if !emergency && !s.couplingApproachMember(v.Pod.ID) {
+		if !emergency {
 			s.extendLink(v, leader)
 		}
 		geometry, _ := linkEnds(&v.blocks, v.link)
@@ -465,9 +465,6 @@ func (s *Simulation) unlink(v *vehicle) {
 // of the link do not change. When the end block moves, the link stops
 // draining.
 func (s *Simulation) extendLink(v, leader *vehicle) {
-	if s.couplingApproachMember(v.Pod.ID) || s.couplingApproachMember(leader.Pod.ID) {
-		return
-	}
 	if v.link.buffer {
 		return
 	}
@@ -503,7 +500,7 @@ func (s *Simulation) sharedLane(v, leader *vehicle, lane, leaderLane int) bool {
 // slow, below platoonSlowFraction of the speed limit of its lane. A faulted
 // pod does not link.
 func (s *Simulation) canLink(v *vehicle) bool {
-	if v.couplingID != "" || v.faulted || largeVehicleClass(v.Pod.Class) {
+	if v.faulted || largeVehicleClass(v.Pod.Class) {
 		return false
 	}
 	lane := v.blocks.find(v.blockIndex, &v.blocks.cursors[podCursor]).lane
@@ -526,19 +523,11 @@ func (s *Simulation) canLink(v *vehicle) bool {
 // either.
 func (s *Simulation) tryLink(i, ahead int) {
 	v, leader := &s.vehicles[i], &s.vehicles[ahead]
-	if s.couplingApproachMember(v.Pod.ID) || s.couplingApproachMember(leader.Pod.ID) {
-		return
-	}
 	if s.emergencyOf(v) >= 0 || s.emergencyOf(leader) >= 0 {
 		return
 	}
 	// canLink refuses a faulted follower.
 	if leader.faulted {
-		return
-	}
-	// canLink refuses a coupled follower. A committed train admits no
-	// ordinary follower either.
-	if leader.couplingID != "" {
 		return
 	}
 	if largeVehicleClass(v.Pod.Class) || largeVehicleClass(leader.Pod.Class) {

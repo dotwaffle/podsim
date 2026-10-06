@@ -36,7 +36,7 @@ func startEmergency(t *testing.T, s *Simulation, v *vehicle, order int) string {
 // emergencyPose is the state of a pod that the emergency transition rules
 // compare.
 type emergencyPose struct {
-	hold, member bool
+	hold bool
 	// serial is the serial of the record that names the pod, or 0.
 	serial uint64
 }
@@ -46,7 +46,7 @@ func emergencyPoses(s *Simulation) []emergencyPose {
 	poses := make([]emergencyPose, len(s.vehicles))
 	for index := range s.vehicles {
 		v := &s.vehicles[index]
-		poses[index] = emergencyPose{hold: v.withdrawn&emergencyHold != 0, member: v.couplingID != "" || s.couplingApproachMember(v.Pod.ID)}
+		poses[index] = emergencyPose{hold: v.withdrawn&emergencyHold != 0}
 		if record := s.emergencyOf(v); record >= 0 {
 			poses[index].serial = s.emergencies[record].serial
 		}
@@ -55,17 +55,16 @@ func emergencyPoses(s *Simulation) []emergencyPose {
 }
 
 // emergencyTransition checks the transition part of F11 for one pod, and
-// the rule that a record pod outside a coupling or approach group in the
-// previous observation has the hold (section 8 of the incident emergency
-// contract).
+// the rule that a record pod has the hold (section 8 of the incident
+// emergency contract).
 func emergencyTransition(before, after emergencyPose) error {
 	switch {
 	case after.hold && !before.hold && after.serial == 0:
 		return errors.New("F11: the pod gains the emergency hold with no record")
 	case before.hold && !after.hold && after.serial != 0 && after.serial == before.serial:
 		return errors.New("F11: the pod loses the emergency hold while its record stays")
-	case after.serial != 0 && after.serial == before.serial && !before.member && !after.member && !after.hold:
-		return errors.New("a record pod outside a group has no emergency hold")
+	case after.serial != 0 && after.serial == before.serial && !after.hold:
+		return errors.New("a record pod has no emergency hold")
 	}
 	return nil
 }
@@ -853,9 +852,6 @@ func TestEmergencyInvariants(t *testing.T) {
 			v.phaseTicks, v.Pod.WaitReason = 0, refugeHolding
 		}, "E8: pod 01"},
 		{"third hold", func(_ *Simulation, v *vehicle) { v.withdrawn |= 4 }, "not only the fault hold and the emergency hold"},
-		{"approach member with the hold", func(s *Simulation, v *vehicle) {
-			s.couplingApproaches = []couplingNativeApproach{{context: &couplingApproachContext{members: [2]couplingApproachMember{{id: "01"}, {id: "03"}}}}}
-		}, "E6: coupling member 01"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -915,62 +911,5 @@ func TestEmergencyHoldCallers(t *testing.T) {
 	slices.Sort(callers)
 	if want := []string{"Emergency", "advanceEmergency"}; !slices.Equal(callers, want) {
 		t.Fatalf("callers of withdrawService with the emergency hold %v, want %v", callers, want)
-	}
-}
-
-// TestEmergencyCouplingMember starts an emergency on the occupied rear
-// member of a committed train. The member gets no hold, and the train
-// keeps its plan with no rider change until it retires at its split site.
-// The next emergency stage withdraws the pod, which then binds on its
-// cadence and unloads.
-func TestEmergencyCouplingMember(t *testing.T) {
-	t.Parallel()
-	s := newCouplingApproachJourney(t, true)
-	s.emergenciesOn = true
-	rear := s.findVehicle("rear")
-	for range 18000 {
-		if len(s.couplingGroups) != 0 && rear.couplingID != "" {
-			break
-		}
-		s.Step()
-	}
-	if rear.couplingID == "" {
-		t.Fatal("the train did not form")
-	}
-	checkEmergenciesEachTick(t, s)
-	riders := slices.Clone(rear.Riders)
-	party := riders[0].ID
-	startEmergency(t, s, rear, 0)
-	start := s.tick
-	if rear.withdrawn != 0 || rear.op.purpose != opService || len(s.emergencies) != 1 {
-		t.Fatalf("the member has the holds %#x and the purpose %+v", rear.withdrawn, rear.op)
-	}
-	for rear.couplingID != "" {
-		s.Step()
-		if err := s.CouplingError(); err != nil {
-			t.Fatal(err)
-		}
-		if rear.withdrawn != 0 || !slices.Equal(rear.Riders, riders) {
-			t.Fatalf("tick %d: the member has the holds %#x, riders %+v", s.tick, rear.withdrawn, rear.Riders)
-		}
-		if s.tick > 30000 {
-			t.Fatal("the train did not retire")
-		}
-	}
-	s.Step()
-	if rear.withdrawn != emergencyHold && len(s.emergencies) == 1 {
-		t.Fatalf("the stage after the split did not withdraw the pod: holds %#x", rear.withdrawn)
-	}
-	// The retired member can divert, so it binds on its cadence.
-	if _, _, ok := s.divertStart(rear); !ok {
-		t.Fatal("the retired member cannot divert")
-	}
-	stepUntil(t, s, "the bind", func() bool { return rear.op.purpose == opEmergencyUnload })
-	if (s.tick-start)%60 != 0 {
-		t.Fatalf("the pod binds at tick %d, %d ticks after the start", s.tick, s.tick-start)
-	}
-	stepUntil(t, s, "the end of the emergency", func() bool { return len(s.emergencies) == 0 })
-	if !slices.Contains(s.undelivered, party) || rear.withdrawn != 0 {
-		t.Fatalf("interrupted %v, holds %#x", s.undelivered, rear.withdrawn)
 	}
 }

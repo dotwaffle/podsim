@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/dotwaffle/podsim/internal/project"
-	"github.com/dotwaffle/podsim/internal/sim"
 )
 
 // scanRequest checks container counts before typed decoding allocates their contents.
@@ -106,12 +105,6 @@ func projectArrayLimit(path string) int64 {
 		return project.MaxPods
 	case "/project/expressServices":
 		return project.MaxExpressServices
-	case "/project/couplingSites":
-		return sim.MaxCouplingSites
-	case "/project/couplingCorridors":
-		return sim.MaxCouplingCorridors
-	case "/project/couplingCorridors/*/laneIds":
-		return project.MaxLanes
 	case "/project/network/lanes/*/vehicleClasses", "/project/network/stations/*/vehicleClasses", "/project/network/stations/*/berths/*/vehicleClasses":
 		return 4
 	case "/project/railArrivals", "/project/railDepartures":

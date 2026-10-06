@@ -104,9 +104,7 @@ func (x incidentSave) stepUntil(t *testing.T, what string, done func(sim.SavedSt
 		if done(x.s.simulation.ExportState()) {
 			return
 		}
-		if err := x.s.step(); err != nil {
-			t.Fatal(err)
-		}
+		x.s.step()
 	}
 	t.Fatalf("no %s after 10 minutes", what)
 }
@@ -495,9 +493,7 @@ func railEvacuationSave(t *testing.T) (incidentSave, railPair) {
 			}
 			return x, pair
 		}
-		if err := x.s.step(); err != nil {
-			t.Fatal(err)
-		}
+		x.s.step()
 	}
 	t.Fatal("pod 01 does not stop on a lane")
 	return x, pair
@@ -565,16 +561,14 @@ func TestIncidentSaveCompactPause(t *testing.T) {
 	x, pair := railEvacuationSave(t)
 	cause := errors.New("injected Compact queue failure")
 	x.s.mu.Lock()
-	x.s.simulation.FailStepForTest(x.s.simulation.Tick()+1, true, cause, func(simulation *sim.Simulation) {
+	x.s.simulation.FailStepForTest(x.s.simulation.Tick()+1, cause, func(simulation *sim.Simulation) {
 		for _, operation := range []sim.IncidentTestOperation{{Kind: "withdraw", Hold: 1}, {Kind: "evacuate"}} {
 			if err := simulation.IncidentForTest("01", operation); err != nil {
 				t.Error(err)
 			}
 		}
 	})
-	if err := x.s.step(); err != nil {
-		t.Fatal(err)
-	}
+	x.s.step()
 	if !errors.Is(x.s.simulation.CompactQueueError(), cause) {
 		t.Fatalf("the step did not take the Compact pause return: %v", x.s.simulation.CompactQueueError())
 	}
@@ -620,9 +614,7 @@ func TestIncidentSaveStranded(t *testing.T) {
 		t.Fatalf("queue %+v", state.Waiting)
 	}
 	x.s.mu.Lock()
-	if err := x.s.step(); err != nil {
-		t.Fatal(err)
-	}
+	x.s.step()
 	x.s.mu.Unlock()
 	x.check(t, "stranded after a dispatch")
 }

@@ -250,9 +250,6 @@ func (s *Simulation) assignedPickupFitsRequest(v *vehicle, request Request) bool
 }
 
 func (s *Simulation) canJoin(v *vehicle, request Request) bool {
-	if v.couplingID != "" {
-		return false
-	}
 	if !s.podFitsRequest(v, request) {
 		return false
 	}

@@ -221,7 +221,7 @@ func decodeStreamJSONUnbounded(data []byte, markers contractMarkers) (StreamEnve
 	if err := scanStreamBoardingMembers(data, markers); err != nil {
 		return StreamEnvelope{}, err
 	}
-	if err := scanStreamServiceMembers(data, markers); err != nil {
+	if err := scanStreamServiceMembers(data); err != nil {
 		return StreamEnvelope{}, err
 	}
 	var envelope StreamEnvelope

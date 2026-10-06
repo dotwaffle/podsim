@@ -243,10 +243,6 @@ type Session struct {
 	closed     atomic.Bool
 	mu         sync.Mutex
 	simulation *sim.Simulation
-	// couplingObservation retains the last valid read or command boundary.
-	// Failed native ticks never replace it. The caller holds mu.
-	couplingObservation *State
-	couplingViewError   error
 	// project is the current project. Code replaces it whole and never
 	// writes to it in place. Save points share it, and a state save encodes
 	// it after it releases mu.
@@ -339,6 +335,14 @@ func newServerStart() string {
 
 // startProject starts a new simulation of a copy of config in a new epoch.
 // config must be valid.
+// fleetContracts returns the contracts of config for a new fleet.
+func fleetContracts(config project.Config) sim.FleetContracts {
+	return sim.FleetContracts{
+		OrderContract: config.OrderContract, IncidentContract: config.IncidentContract,
+		FaultContract: config.FaultContract, EmergencyContract: config.EmergencyContract,
+	}
+}
+
 func (s *Session) startProject(config project.Config) error {
 	owned := project.Clone(config)
 	simulation, err := sim.NewFleetWithContracts(owned.Network, owned.Fleet, fleetContracts(owned))
@@ -359,12 +363,10 @@ func (s *Session) startProject(config project.Config) error {
 		return err
 	}
 	s.simulation, s.project, s.epoch = simulation, owned, epoch
-	s.couplingViewError = nil
 	s.projectRevision, s.projectOrigin, s.generation, s.speed = 1, 1, 1, 1
 	s.simulation.SetIncidentGeneration(s.generation)
 	s.demand = newDemand(demandInput{config: owned.Demand, network: owned.Network, profiles: owned.DemandProfiles, arrivals: owned.RailArrivals, departures: owned.RailDepartures})
 	s.configureRedistribution()
-	s.refreshCouplingObservation()
 	return nil
 }
 
@@ -398,21 +400,15 @@ func (s *Session) advance() {
 	if s.closed.Load() || s.simulation.Paused() {
 		return
 	}
-	completed := 0
 	for range s.speed {
-		if err := s.step(); err != nil {
-			break
-		}
-		completed++
+		s.step()
 	}
-	if completed > 0 {
+	if s.speed > 0 {
 		s.revision++
 	}
 }
 
 // State returns a detached snapshot safe for concurrent observers.
-// After a coupling fault it returns the last valid observation. CouplingError
-// reports why the session cannot publish a new observation.
 func (s *Session) State() State { s.mu.Lock(); defer s.mu.Unlock(); return s.state() }
 
 // Topology returns detached geometry for the active project revision.
@@ -432,8 +428,7 @@ func (s *Session) topologyLocked() TopologySnapshot {
 func projectTopology(config project.Config, serverStart, epoch string, revision uint64) TopologySnapshot {
 	topology := TopologySnapshot{
 		ProjectVersion: config.Version, OrderContract: config.OrderContract, IncidentContract: config.IncidentContract,
-		FaultContract: config.FaultContract, EmergencyContract: config.EmergencyContract, CouplingContract: config.CouplingContract, CouplingEnabled: config.CouplingEnabled,
-		CouplingSites: slices.Clone(config.CouplingSites), CouplingCorridors: cloneCouplingCorridors(config.CouplingCorridors),
+		FaultContract: config.FaultContract, EmergencyContract: config.EmergencyContract,
 		ServerStart: serverStart, Epoch: epoch, ProjectRevision: revision,
 		Network: project.CloneNetwork(config.Network),
 	}
@@ -481,7 +476,6 @@ func widerEpoch(epoch string) string {
 }
 
 // Frame returns recurring state without network geometry or complete route lanes.
-// After a coupling fault it retains the same observation as State.
 func (s *Session) Frame() StateFrame {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -544,14 +538,7 @@ func (s *Session) stateWithoutNetwork() State {
 	// this call delivers nothing. It keeps a publication from showing a
 	// pending rail record of an order that is gone.
 	s.deliverInterruptions()
-	if s.couplingError() != nil {
-		return s.lastCouplingObservation()
-	}
-	snapshot, err := s.simulation.CheckedSnapshot()
-	if err != nil {
-		_ = s.retainCouplingViewError(err)
-		return s.lastCouplingObservation()
-	}
+	snapshot := s.simulation.Snapshot()
 	state := State{
 		Epoch:           s.epoch,
 		Revision:        s.revision,
@@ -566,10 +553,6 @@ func (s *Session) stateWithoutNetwork() State {
 		Build:           s.build,
 		ServerStart:     s.serverStart,
 		Restore:         s.restore,
-	}
-	if project.HasCouplingContract(s.project) {
-		owned := cloneCouplingObservation(state)
-		s.couplingObservation = &owned
 	}
 	return state
 }
@@ -687,10 +670,6 @@ func (s *Session) applyCommand(command Command, digest commandDigest) commandRes
 			result, err := s.apply(command)
 			if err == nil {
 				s.revision++
-				if command.Action == "reset" || command.Action == "project" || command.Action == "rewind" {
-					s.couplingViewError = nil
-				}
-				s.refreshCouplingObservation()
 			}
 			reply = s.reply()
 			reply.OrderID, reply.Checkpoint, reply.ProjectRestored = result.orderID, result.checkpoint, result.projectRestored
@@ -781,11 +760,6 @@ func (s *Session) apply(command Command) (outcome, error) {
 	// A command can interrupt orders. Deliver them before the session
 	// releases mu, also when the command fails.
 	defer s.deliverInterruptions()
-	if command.Action != "reset" && command.Action != "project" && command.Action != "rewind" {
-		if err := s.couplingError(); err != nil {
-			return outcome{}, err
-		}
-	}
 	if err := sim.ValidateOrderContract(command.OrderContract); err != nil {
 		return outcome{}, err
 	}
@@ -934,9 +908,7 @@ var errStaleProject = errors.New("the project changed; reload it before applying
 
 // applyProject applies the project of command. It returns true when it
 // saved a changed project. A project that is the same as the current
-// project changes nothing. A project that changes only CouplingEnabled of a
-// project with the coupling marker changes the policy in place. Each other
-// project replaces the simulation.
+// project changes nothing. Each other project replaces the simulation.
 func (s *Session) applyProject(command Command) (bool, error) {
 	if !s.simulation.Snapshot().Paused {
 		return false, errors.New("pause the simulation before applying a project")
@@ -951,22 +923,11 @@ func (s *Session) applyProject(command Command) (bool, error) {
 	if err := project.Validate(config); err != nil {
 		return false, err
 	}
-	// A retained coupling fault takes the full path, also for the same
-	// project. The full path installs a new controller, and applyCommand
-	// then clears the fault. A no-op or a change in place keeps the failed
-	// controller.
-	if s.couplingError() == nil && sameExceptCouplingEnabled(s.project, config) {
-		if config.CouplingEnabled == s.project.CouplingEnabled {
-			return false, nil
-		}
-		// The demo fleet has no coupling contract, so the demo takes the
-		// full path.
-		if project.HasCouplingContract(s.project) && s.simulation.CouplingContract() == config.CouplingContract {
-			if err := s.applyCouplingToggle(config); err != nil {
-				return false, err
-			}
-			return true, nil
-		}
+	// sameProject compares the canonical JSON of the two projects, so a new
+	// project field is part of the comparison without a change here. An
+	// encoding error takes the full path.
+	if same, err := sameProject(s.project, config); err == nil && same {
+		return false, nil
 	}
 	candidate, err := sim.NewFleetWithContracts(config.Network, config.Fleet, fleetContracts(config))
 	if err != nil {
@@ -1016,56 +977,6 @@ func demoProject(config project.Config) project.Config {
 func demoFleet(simulation *sim.Simulation, fleet []sim.Placement) bool {
 	snapshot := simulation.Snapshot()
 	return snapshot.Demo || len(snapshot.Vehicles) > len(fleet)
-}
-
-// sameExceptCouplingEnabled reports whether next is the same as current
-// when CouplingEnabled is not part of the comparison. It compares the
-// canonical JSON of the two projects, so a new project field is part of
-// the comparison without a change here. A nil and an empty list of
-// coupling sites, coupling corridors, or corridor lanes are the same. An
-// encoding error gives false.
-func sameExceptCouplingEnabled(current, next project.Config) bool {
-	current.CouplingEnabled = next.CouplingEnabled
-	same, err := sameProject(withoutEmptyCoupling(current), withoutEmptyCoupling(next))
-	return err == nil && same
-}
-
-// withoutEmptyCoupling returns config with nil in place of an empty list
-// of coupling sites or coupling corridors. JSON omits these fields only
-// when they are nil. For the other lists, which include the corridor lanes,
-// JSON writes nil and empty lists the same.
-func withoutEmptyCoupling(config project.Config) project.Config {
-	if len(config.CouplingSites) == 0 {
-		config.CouplingSites = nil
-	}
-	if len(config.CouplingCorridors) == 0 {
-		config.CouplingCorridors = nil
-	}
-	return config
-}
-
-// applyCouplingToggle installs config, which differs from the current
-// project only in CouplingEnabled. It keeps the simulation, the committed
-// coupling groups, the generation, the speed, the demand stream, and the
-// restore information. The simulation stops or starts new recruitment. If
-// the save fails, the session does not change.
-func (s *Session) applyCouplingToggle(config project.Config) error {
-	if err := preflightTopology(config, s.serverStart, s.epoch); err != nil {
-		return err
-	}
-	previous := s.simulation.CouplingEnabled()
-	if err := s.simulation.SetCouplingEnabled(config.CouplingEnabled); err != nil {
-		return err
-	}
-	if err := s.save(config); err != nil {
-		// The previous value was valid, so this cannot fail.
-		_ = s.simulation.SetCouplingEnabled(previous)
-		return err
-	}
-	s.project = config
-	s.projectRevision++
-	s.projectOrigin = s.projectRevision
-	return nil
 }
 
 func (s *Session) save(config project.Config) error {

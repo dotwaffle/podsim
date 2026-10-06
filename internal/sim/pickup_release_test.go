@@ -930,7 +930,8 @@ func (w *withdrawalInjector) step(t *testing.T, s *Simulation) {
 			w.hold = emergencyHold
 		}
 		if err := s.withdrawService(v, w.hold); err != nil {
-			// A coupling member refuses. The next turn picks another pod.
+			// A refused withdrawal changes nothing. The next turn picks
+			// another pod.
 			return
 		}
 		w.pod, w.restoreAt = v, s.tick+w.restoreAfter

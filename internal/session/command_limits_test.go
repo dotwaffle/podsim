@@ -3,7 +3,6 @@ package session
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"math"
 	"net/http"
@@ -56,51 +55,6 @@ func TestCommandLimitsCoverEachArray(t *testing.T) {
 	for _, path := range paths {
 		if _, ok := commandJSONLimits.arrays[path]; !ok {
 			t.Errorf("no limit for the array at %s", path)
-		}
-	}
-}
-
-func TestCommandCouplingArrayBounds(t *testing.T) {
-	shared := newTestSession(t)
-	handler := shared.Handler(t.TempDir())
-	for _, test := range []struct {
-		name   string
-		limit  int
-		prefix string
-		suffix string
-		value  string
-	}{
-		{"sites", sim.MaxCouplingSites, `"couplingSites":[`, `]`, `{}`},
-		{"corridors", sim.MaxCouplingCorridors, `"couplingCorridors":[`, `]`, `{}`},
-		{"path", project.MaxLanes, `"couplingCorridors":[{"laneIds":[`, `]}]`, `"ab"`},
-	} {
-		for _, folded := range []bool{false, true} {
-			for _, over := range []bool{false, true} {
-				t.Run(fmt.Sprintf("%s/folded=%t/over=%t", test.name, folded, over), func(t *testing.T) {
-					count := test.limit
-					if over {
-						count++
-					}
-					prefix := test.prefix
-					if folded {
-						prefix = strings.ToUpper(prefix)
-					}
-					body := []byte(`{"client":"coupling-bounds","sequence":1,"action":"pause","project":{` + prefix + strings.Repeat(test.value+",", count-1) + test.value + test.suffix + `}}`)
-					// A folded name is an unknown path, which has no array.
-					refused := over || folded
-					err := prescanCommand(body)
-					if !refused && err != nil || refused && (!errors.Is(err, errCommandShape) || !errors.Is(err, errJSONArrayTooLong)) {
-						t.Fatal("command boundary changed", err)
-					}
-					// At-limit records are deliberately incomplete. Both shapes
-					// must fail before the HTTP consumer changes the session.
-					before := shared.State()
-					reply := postCommand(t, handler, body)
-					if reply.Code != http.StatusBadRequest || reply.Body.String() != "invalid command JSON\n" || !reflect.DeepEqual(before, shared.State()) {
-						t.Fatal("invalid coupling command changed session", reply.Code, reply.Body.String())
-					}
-				})
-			}
 		}
 	}
 }

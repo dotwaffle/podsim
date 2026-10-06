@@ -6,14 +6,13 @@ import "slices"
 type claimKind uint8
 
 const (
-	claimNotHeld   claimKind = iota // v neither owns nor retains r
-	claimCommitted                  // coupling or approach commitment
-	claimOccupied                   // under the body of v
-	claimStopping                   // granted track that v needs to stop
-	claimRetained                   // tail retention of v
-	claimLent                       // a follower of v retains r
-	claimService                    // unused destination claim of an empty move
-	claimOther                      // any other owned resource
+	claimNotHeld  claimKind = iota // v neither owns nor retains r
+	claimOccupied                  // under the body of v
+	claimStopping                  // granted track that v needs to stop
+	claimRetained                  // tail retention of v
+	claimLent                      // a follower of v retains r
+	claimService                   // unused destination claim of an empty move
+	claimOther                     // any other owned resource
 )
 
 // claimKind returns the kind of the claim of v on r. The tests run in the
@@ -23,8 +22,6 @@ func (s *Simulation) claimKind(v *vehicle, r resource) claimKind {
 	switch {
 	case !s.owners[r].isPod(v.Pod.ID) && !v.retains(r):
 		return claimNotHeld
-	case s.claimCommitted(v, r):
-		return claimCommitted
 	case s.claimOccupied(v, r):
 		return claimOccupied
 	case v.claimStopping(r):
@@ -56,22 +53,6 @@ func (v *vehicle) retains(r resource) bool {
 func (v *vehicle) retainsPast(r resource) bool {
 	releaseAt, retained := v.routeReleases[r]
 	return retained && releaseAt > v.distance
-}
-
-// claimCommitted reports whether a train or an approach to a train binds r.
-// A member of a train has a coupling ID. An approach member has none until
-// adoption, but adoption needs the receiving claims of an empty member.
-func (s *Simulation) claimCommitted(v *vehicle, r resource) bool {
-	if v.couplingID != "" || s.couplingApproachMember(v.Pod.ID) || s.owners[r].kind == groupOwnerKind {
-		return true
-	}
-	listed := func(claim couplingClaim) bool { return claim.Resource == r }
-	for _, group := range s.couplingGroups {
-		if slices.ContainsFunc(group.context.claims, listed) || slices.ContainsFunc(group.context.reservation.PreservedClaims, listed) {
-			return true
-		}
-	}
-	return false
 }
 
 // claimOccupied reports whether r is under the body of v: in its footprint

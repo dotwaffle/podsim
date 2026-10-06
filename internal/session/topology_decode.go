@@ -21,9 +21,6 @@ const MaxTopologyJSON = project.MaxFileBytes + 4096
 var topologyJSONLimits = jsonLimits{
 	depth: 64, elements: 0, members: 256,
 	arrays: map[string]int64{
-		"/couplingSites":                              sim.MaxCouplingSites,
-		"/couplingCorridors":                          sim.MaxCouplingCorridors,
-		"/couplingCorridors/*/laneIds":                project.MaxLanes,
 		"/expressServices":                            project.MaxExpressServices,
 		"/network/lanes/*/vehicleClasses":             4,
 		"/network/stations/*/vehicleClasses":          4,
@@ -49,19 +46,7 @@ func (topology *TopologySnapshot) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return err
 	}
-	// The contract markers select the family. A coupling member selects
-	// the coupling decoder, which requires the coupling marker.
-	if markers.coupling {
-		decoded, err := decodeCouplingTopology(data)
-		if err != nil {
-			return err
-		}
-		if err := checkTopologyProjectVersion(decoded); err != nil {
-			return err
-		}
-		*topology = decoded
-		return nil
-	}
+	// The contract markers select the family.
 	var contract contractMarkers
 	if markers.express {
 		contract.order = sim.ExpressOrderContract
@@ -69,7 +54,7 @@ func (topology *TopologySnapshot) UnmarshalJSON(data []byte) error {
 	if err := scanContractMarkers(data, markers.express); err != nil {
 		return err
 	}
-	if err := scanStreamServiceMembers(data, contract); err != nil {
+	if err := scanStreamServiceMembers(data); err != nil {
 		return err
 	}
 	type plainTopology TopologySnapshot
@@ -93,7 +78,7 @@ func (topology *TopologySnapshot) UnmarshalJSON(data []byte) error {
 }
 
 type topologyMarkers struct {
-	coupling, express bool
+	express bool
 }
 
 // scanTopologyBanks bounds bank arrays and records the root contract members.
@@ -113,7 +98,6 @@ func scanTopologyBanks(data []byte) (topologyMarkers, error) {
 		kind, length := decoder.StackIndex(decoder.StackDepth())
 		member := tokenKind == jsontext.KindString && kind == jsontext.KindBeginObject && length%2 == 1
 		if len(path) == 2 && member {
-			markers.coupling = markers.coupling || couplingMember(token.String())
 			markers.express = markers.express || path[1] == "orderContract"
 		}
 		if len(path) != 5 || path[1] != "network" || path[2] != "stations" || path[4] != "banks" {

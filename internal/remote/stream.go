@@ -134,7 +134,7 @@ func (c *Client) receiveStream(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		if envelope.OrderContract != hello.OrderContract || envelope.CouplingContract != hello.CouplingContract {
+		if envelope.OrderContract != hello.OrderContract {
 			return errors.New("stream publication contract differs from hello")
 		}
 		if envelope.Source.ServerStart != hello.ServerStart {
@@ -205,7 +205,7 @@ func (cache *streamTopology) state(ctx context.Context, c *Client, candidate ses
 		if topology.ServerStart != identity.ServerStart || topology.Epoch != identity.Epoch || topology.ProjectRevision != identity.ProjectRevision {
 			return session.State{}, errors.New("topology changed while reading stream")
 		}
-		if topology.OrderContract != cache.hello.OrderContract || topology.CouplingContract != cache.hello.CouplingContract {
+		if topology.OrderContract != cache.hello.OrderContract {
 			return session.State{}, errors.New("topology contract differs from hello")
 		}
 		assembler, err := session.NewStreamAssembler(topology)

@@ -34,17 +34,13 @@ func scanProjectService(data []byte) (bool, error) {
 }
 
 type projectFields struct {
-	service  bool
-	coupling bool
+	service bool
 }
 
 // projectFieldScan carries the state of one scanProjectFields pass.
-// couplingMembers holds the couplingMemberBit of each coupling member that
-// the scan has read.
 type projectFieldScan struct {
-	decoder         *jsontext.Decoder
-	fields          projectFields
-	couplingMembers uint8
+	decoder *jsontext.Decoder
+	fields  projectFields
 }
 
 func scanProjectFields(data []byte) (projectFields, error) {
@@ -85,9 +81,6 @@ func (scan *projectFieldScan) token(token jsontext.Token) error {
 // decoder reads it.
 func (scan *projectFieldScan) topMember(name string) error {
 	decoder := scan.decoder
-	if bit := couplingMemberBit(name); bit != 0 {
-		return scan.couplingMember(name, bit)
-	}
 	switch name {
 	case "incidentContract":
 		// An explicit null or empty marker is presence. The typed
@@ -123,17 +116,6 @@ func (scan *projectFieldScan) topMember(name string) error {
 		}
 	}
 	return nil
-}
-
-// couplingMember checks a coupling member. Each coupling member can occur
-// once.
-func (scan *projectFieldScan) couplingMember(name string, bit uint8) error {
-	scan.fields.coupling = true
-	if scan.couplingMembers&bit != 0 {
-		return errors.New("duplicate coupling member")
-	}
-	scan.couplingMembers |= bit
-	return scanCouplingMember(scan.decoder, name)
 }
 
 // nestedMember checks the vehicle class members below the top level.

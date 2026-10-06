@@ -383,32 +383,6 @@ func TestDebrisRefusals(t *testing.T) {
 				return on(s, "return", 45, 46)
 			},
 			func(_ *Simulation, v *vehicle, _ *debrisCall) { delete(v.routeReleases, track("return", 1)) }},
-		{"coupling group claim", errFaultTarget,
-			func(s *Simulation, _ *vehicle) debrisCall {
-				claims := []couplingClaim{{Resource: track("s3-link", 2)}}
-				s.couplingGroups = []couplingNativeGroup{{context: &couplingMotionContext{claims: claims}}}
-				return free(s)
-			},
-			func(s *Simulation, _ *vehicle, _ *debrisCall) { s.couplingGroups = nil }},
-		{"preserved claim", errFaultTarget,
-			func(s *Simulation, _ *vehicle) debrisCall {
-				c := &couplingMotionContext{}
-				c.reservation.PreservedClaims = []couplingClaim{{Resource: track("s3-link", 2)}}
-				s.couplingGroups = []couplingNativeGroup{{context: c}}
-				return free(s)
-			},
-			func(s *Simulation, _ *vehicle, _ *debrisCall) { s.couplingGroups = nil }},
-		{"coupling member route past its grants", errFaultTarget,
-			func(s *Simulation, v *vehicle) debrisCall { v.couplingID = "pair"; return on(s, "return-up", 200, 210) },
-			func(_ *Simulation, v *vehicle, _ *debrisCall) { v.couplingID = "" }},
-		{"approach member route past its grants", errFaultTarget,
-			func(s *Simulation, v *vehicle) debrisCall {
-				c := &couplingApproachContext{}
-				c.members[1].id = v.Pod.ID
-				s.couplingApproaches = append(s.couplingApproaches, couplingNativeApproach{context: c})
-				return on(s, "return-up", 200, 210)
-			},
-			func(s *Simulation, _ *vehicle, _ *debrisCall) { s.couplingApproaches = nil }},
 		{"dispatch pass", errFaultDispatch,
 			func(s *Simulation, _ *vehicle) debrisCall { s.pass.active = true; return free(s) },
 			func(s *Simulation, _ *vehicle, _ *debrisCall) { s.pass.active = false }},
@@ -444,66 +418,13 @@ func TestDebrisRefusals(t *testing.T) {
 	}
 }
 
-// TestDebrisOnApproachCorridor forms a native approach, as the coupling
-// approach tests do, and starts debris on the free corridor of its route
-// past the grants of its members: in the lane of the members, and in the
-// next corridor lane. Stage 2 refuses debris there, with the refusal
-// oracle. Without the approach, the same debris starts, so the segment is
-// free and no other precondition refuses it.
-func TestDebrisOnApproachCorridor(t *testing.T) {
-	t.Parallel()
-	for _, segment := range []struct {
-		lane     string
-		from, to float64
-	}{{"ab", 150, 160}, {"bc", 100, 110}} {
-		t.Run(segment.lane, func(t *testing.T) {
-			t.Parallel()
-			input := couplingApproachFixture(t, false)
-			c, state, err := prepareCouplingApproach(input)
-			if err != nil {
-				t.Fatal(err)
-			}
-			s := input.Simulation
-			s.couplingApproaches = []couplingNativeApproach{{context: c, state: state}}
-			if err := s.SetFaults(true, FaultSettings{}); err != nil {
-				t.Fatal(err)
-			}
-			corridor := input.Network.corridors[input.CorridorID]
-			if !slices.Contains(corridor.LaneIDs, segment.lane) {
-				t.Fatalf("lane %s is not in the corridor %v", segment.lane, corridor.LaneIDs)
-			}
-			lane := laneIndex(t, s, segment.lane)
-			for _, id := range []string{"front", "rear"} {
-				v := s.findVehicle(id)
-				if !s.couplingApproachMember(id) || v.couplingID != "" {
-					t.Fatalf("pod %s is not an approach member", id)
-				}
-				if end := v.blocks.end(v.reservedThrough); s.graph.lanes[v.Route[0].ID] == lane && end >= segment.from-Clearance {
-					t.Fatalf("the grants of pod %s reach %g m", id, end)
-				}
-			}
-			before := s.Clone()
-			if _, err := s.startDebris(lane, segment.from, segment.to, 0); !errors.Is(err, errFaultTarget) {
-				t.Fatalf("error %v, want %v", err, errFaultTarget)
-			}
-			if !sameState(before, s) || !sameCursors(before, s) {
-				t.Fatal("the refused debris changed the state")
-			}
-			s.couplingApproaches = nil
-			if _, err := s.startDebris(lane, segment.from, segment.to, 0); err != nil {
-				t.Fatalf("control without the approach: %v", err)
-			}
-		})
-	}
-}
-
 // TestDebrisPreconditionOrder checks the order of the preconditions. The
 // call starts with each precondition false, and the test makes them true
 // one at a time. Each call refuses with the error of the first false one.
 func TestDebrisPreconditionOrder(t *testing.T) {
 	t.Parallel()
 	s := debrisFleet(t)
-	v := returnTraveler(t, s)
+	returnTraveler(t, s)
 	ids, err := fillDebris(s)
 	if err != nil {
 		t.Fatal(err)
@@ -512,7 +433,7 @@ func TestDebrisPreconditionOrder(t *testing.T) {
 		s.pass = new(dispatchPass)
 	}
 	serial := s.incidentSerial
-	s.faultsOn, s.incidentSerial, v.couplingID, s.pass.active = false, math.MaxUint64, "pair", true
+	s.faultsOn, s.incidentSerial, s.pass.active = false, math.MaxUint64, true
 	call := debrisCall{lane: -1, duration: -1}
 	for _, step := range []struct {
 		want error
@@ -533,7 +454,6 @@ func TestDebrisPreconditionOrder(t *testing.T) {
 		{errDebrisOverlap, func() { call.from, call.to = 45, 46 }},
 		// A segment on the route of pod 02 past its grants.
 		{errDebrisClaim, func() { call.lane, call.from, call.to = laneIndex(t, s, "return-up"), 200, 210 }},
-		{errFaultTarget, func() { v.couplingID = "" }},
 		{errFaultDispatch, func() { s.pass.active = false }},
 	} {
 		if _, err := s.startDebris(call.lane, call.from, call.to, call.duration); !errors.Is(err, step.want) {

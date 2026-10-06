@@ -177,9 +177,7 @@ func (s *Session) liveBatch(version uint64, remaining int) int {
 	started := time.Now()
 	completed := 0
 	for completed < min(remaining, 8) {
-		if err := s.step(); err != nil {
-			break
-		}
+		s.step()
 		completed++
 		if time.Since(started) >= 4*time.Millisecond {
 			break
@@ -196,11 +194,7 @@ func (s *Session) liveBatch(version uint64, remaining int) int {
 }
 
 // step advances physics and demand together. The caller holds mu.
-func (s *Session) step() error {
-	if err := s.couplingError(); err != nil {
-		return err
-	}
-	previousDemand := s.demand
+func (s *Session) step() {
 	dailyChanged := s.demand.activateDaily(s.simulation.Tick() + 1)
 	if dailyChanged {
 		s.configureRedistribution()
@@ -212,25 +206,14 @@ func (s *Session) step() error {
 	// scores the departures of this tick, and an interruption must reach
 	// rail first.
 	s.deliverInterruptions()
-	if err := s.couplingError(); err != nil {
-		if dailyChanged {
-			s.demand = previousDemand
-			s.configureRedistribution()
-			// previousDemand shares the rail ledger, but holds older counts.
-			s.demand.refreshConnections()
-		}
-		s.logger.Error("Physical coupling failed", slog.Any("error", err), slog.Int64("tick", s.simulation.Tick()))
-		return err
-	}
 	if err := s.simulation.CompactQueueError(); err != nil {
 		if !hadCompactFault {
 			s.logger.Error("Compact station queue paused", slog.Any("error", err), slog.Int64("tick", s.simulation.Tick()))
 		}
-		return nil //nolint:nilerr // Preserve the existing successful-tick contract for Compact queue pauses.
+		return
 	}
 	if wasDemo && !s.simulation.DemoRunning() {
 		s.configureRedistribution()
 	}
 	s.demand.step(s.simulation)
-	return nil
 }

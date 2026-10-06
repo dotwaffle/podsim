@@ -37,12 +37,8 @@ func TestEmergenciesOnWithoutEmergenciesOnPresets(t *testing.T) {
 				t.Fatal(err)
 			}
 			for tick := 1; tick <= 36_000; tick++ {
-				if err := off.step(); err != nil {
-					t.Fatal(err)
-				}
-				if err := on.step(); err != nil {
-					t.Fatal(err)
-				}
+				off.step()
+				on.step()
 				if tick%600 == 0 && !bytes.Equal(paritySnapshot(t, off), paritySnapshot(t, on)) {
 					t.Fatalf("tick %d: the sessions differ", tick)
 				}

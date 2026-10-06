@@ -5,11 +5,10 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-// contractMarkers are the orderContract and couplingContract markers of a
-// saved state, a stream document or an HTTP state.
+// contractMarkers are the orderContract marker of a saved state, a stream
+// document or an HTTP state.
 type contractMarkers struct {
-	order    sim.OrderContract
-	coupling sim.CouplingContract
+	order sim.OrderContract
 }
 
 // orderBounds returns the largest number of waiting or pending orders, and
@@ -23,9 +22,7 @@ func (markers contractMarkers) orderBounds() (orders, riders int64) {
 }
 
 // savedLimits bound a state file with the given markers. Only the order
-// marker changes a bound. The coupling paths are always present: without
-// the coupling marker the order scan refuses each coupling member, so the
-// paths only replace the general element limit with a smaller one.
+// marker changes a bound.
 func savedLimits(markers contractMarkers) jsonLimits {
 	limits := boardingStateLimits(compactStateLimits(stateJSONLimits))
 	orders, riders := markers.orderBounds()
@@ -51,20 +48,13 @@ func savedLimits(markers contractMarkers) jsonLimits {
 	} {
 		limits.arrays[path] = 4
 	}
-	limits.arrays["/simulation/couplingGroups"] = project.MaxPods / 2
-	limits.arrays["/simulation/couplingGroups/*/members"] = 2
-	limits.arrays["/project/couplingSites"] = sim.MaxCouplingSites
-	limits.arrays["/project/couplingCorridors"] = sim.MaxCouplingCorridors
-	limits.arrays["/project/couplingCorridors/*/laneIds"] = project.MaxLanes
 	return limits
 }
 
 // streamLimits bound a stream document or an HTTP state with the given
 // markers. Full frames are under "/full", HTTP frames under "/frame", and
 // the topology of an HTTP state under "/topology". As in savedLimits, only
-// the order marker changes a bound, and the coupling paths are always
-// present. The paths without a prefix bound a coupling delta group that
-// scanCouplingReplacement reads alone.
+// the order marker changes a bound.
 func streamLimits(markers contractMarkers) jsonLimits {
 	orders, riders := markers.orderBounds()
 	limits := jsonLimits{depth: 64, elements: 65536, members: 256, arrays: map[string]int64{}}
@@ -103,15 +93,6 @@ func streamLimits(markers contractMarkers) jsonLimits {
 	}
 	for path, bound := range topologyJSONLimits.arrays {
 		limits.arrays["/topology"+path] = bound
-	}
-	for _, prefix := range []string{"/full/state/simulation", "/frame/state/simulation", "/delta/groups/coupling", ""} {
-		path := prefix + "/couplingGroups"
-		limits.arrays[path] = project.MaxPods / 2
-		limits.arrays[path+"/*/members"] = 2
-		limits.arrays[path+"/*/bodies"] = 2
-		for _, shape := range []string{"/bodies/*", "/connector", "/maneuverEnvelope"} {
-			limits.arrays[path+"/*"+shape+"/corners"] = 4
-		}
 	}
 	return limits
 }

@@ -105,9 +105,6 @@ func restorePhysical(input RestoreStateInput, newFleet func() (*Simulation, erro
 		return nil, RestoreResult{}, err
 	}
 	r := newPhysicalRestore(s, input.State)
-	if err := r.checkCouplingRestoreWork(); err != nil {
-		return nil, RestoreResult{}, err
-	}
 	if input.PlatoonLimit != 0 {
 		if err := s.SetPlatoonLimit(input.PlatoonLimit); err != nil {
 			return nil, RestoreResult{}, err
@@ -147,9 +144,6 @@ func restorePhysical(input RestoreStateInput, newFleet func() (*Simulation, erro
 		return nil, RestoreResult{}, err
 	}
 	r.claimDestinations()
-	if err := r.restoreCouplingGroups(); err != nil {
-		return nil, RestoreResult{}, err
-	}
 	if err := r.finishCompactRestore(input); err != nil {
 		return nil, RestoreResult{}, err
 	}
@@ -802,9 +796,6 @@ func (r *physicalRestore) placeTraveling() error {
 	order := make([]int, 0, len(r.state.Pods))
 	for index := range r.state.Pods {
 		if r.s.vehicles[index].Pod.Activity == Traveling {
-			if r.state.couplingMember(r.state.Pods[index].ID) {
-				continue
-			}
 			order = append(order, index)
 		}
 	}
@@ -913,8 +904,6 @@ func (r *physicalRestore) placeTravelingPod(index, leader int) (bool, error) {
 	}
 	v.Pod.LaneDistance = laneDistance
 	v.Pod.Position = r.s.position(lane, laneDistance)
-	_, compact := r.compactMembers[index]
-	v.restoredPose = !compact
 	if saved.LaneID != "" {
 		v.Pod.LaneID = lane.ID
 	}
@@ -1089,9 +1078,6 @@ func (r *physicalRestore) separate() error {
 		_, err := observation.Check()
 		if err == nil {
 			return nil
-		}
-		if len(r.state.CouplingGroups) != 0 {
-			return fmt.Errorf("committed coupling restore conflicts with physical traffic: %w", err)
 		}
 		separation, ok := errors.AsType[*SeparationError](err)
 		if !ok {

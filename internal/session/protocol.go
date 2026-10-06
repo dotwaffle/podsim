@@ -11,10 +11,6 @@ import (
 
 // TopologySnapshot contains geometry that changes only with the project.
 type TopologySnapshot struct {
-	CouplingContract  sim.CouplingContract   `json:"couplingContract,omitzero"`
-	CouplingEnabled   bool                   `json:"couplingEnabled,omitzero"`
-	CouplingSites     []sim.CouplingSite     `json:"couplingSites,omitzero"`
-	CouplingCorridors []sim.CouplingCorridor `json:"couplingCorridors,omitzero"`
 	OrderContract     sim.OrderContract      `json:"orderContract,omitzero"`
 	IncidentContract  sim.IncidentContract   `json:"incidentContract,omitzero"`
 	FaultContract     sim.FaultContract      `json:"faultContract,omitzero"`
@@ -55,30 +51,27 @@ type StateFrame struct {
 
 // SimulationFrame replaces repeated route lane objects with stable lane IDs.
 type SimulationFrame struct {
-	CouplingContract        sim.CouplingContract    `json:"couplingContract,omitzero"`
-	CouplingEnabled         bool                    `json:"couplingEnabled,omitzero"`
-	CouplingGroups          []sim.CouplingGroupView `json:"couplingGroups,omitzero"`
-	OrderContract           sim.OrderContract       `json:"orderContract,omitzero"`
-	IncidentContract        sim.IncidentContract    `json:"incidentContract,omitzero"`
-	Submitted               int                     `json:"submitted"`
-	Tick                    int64                   `json:"tick"`
-	Paused                  bool                    `json:"paused"`
-	Vehicles                []VehicleFrame          `json:"vehicles"`
-	Berths                  []sim.BerthState        `json:"berths"`
-	Completed               int                     `json:"completed"`
-	Demo                    bool                    `json:"demo"`
-	DemoError               string                  `json:"demoError"`
-	Pending                 []sim.Request           `json:"pending"`
-	Wait                    sim.WaitStats           `json:"wait"`
-	Journey                 sim.JourneyStats        `json:"journey"`
-	PassengerDistanceMeters float64                 `json:"passengerDistanceMeters"`
-	RiderDistanceMeters     float64                 `json:"riderDistanceMeters"`
-	DirectDistanceMeters    float64                 `json:"directDistanceMeters"`
-	MaxDetourRatio          float64                 `json:"maxDetourRatio"`
-	SharedParties           int                     `json:"sharedParties"`
-	SharedRidePartyLimit    int                     `json:"sharedRidePartyLimit"`
-	EmptyDistanceMeters     float64                 `json:"emptyDistanceMeters"`
-	RebalanceMoves          int                     `json:"rebalanceMoves"`
+	OrderContract           sim.OrderContract    `json:"orderContract,omitzero"`
+	IncidentContract        sim.IncidentContract `json:"incidentContract,omitzero"`
+	Submitted               int                  `json:"submitted"`
+	Tick                    int64                `json:"tick"`
+	Paused                  bool                 `json:"paused"`
+	Vehicles                []VehicleFrame       `json:"vehicles"`
+	Berths                  []sim.BerthState     `json:"berths"`
+	Completed               int                  `json:"completed"`
+	Demo                    bool                 `json:"demo"`
+	DemoError               string               `json:"demoError"`
+	Pending                 []sim.Request        `json:"pending"`
+	Wait                    sim.WaitStats        `json:"wait"`
+	Journey                 sim.JourneyStats     `json:"journey"`
+	PassengerDistanceMeters float64              `json:"passengerDistanceMeters"`
+	RiderDistanceMeters     float64              `json:"riderDistanceMeters"`
+	DirectDistanceMeters    float64              `json:"directDistanceMeters"`
+	MaxDetourRatio          float64              `json:"maxDetourRatio"`
+	SharedParties           int                  `json:"sharedParties"`
+	SharedRidePartyLimit    int                  `json:"sharedRidePartyLimit"`
+	EmptyDistanceMeters     float64              `json:"emptyDistanceMeters"`
+	RebalanceMoves          int                  `json:"rebalanceMoves"`
 	// Interrupted and InterruptedPassengers are the interrupted counters
 	// of sim.Snapshot. They need the incident marker.
 	Interrupted           int `json:"interrupted,omitzero"`
@@ -96,7 +89,6 @@ type SimulationFrame struct {
 
 // VehicleFrame contains dynamic vehicle data and its ordered route IDs.
 type VehicleFrame struct {
-	CouplingID   string              `json:"couplingID,omitzero"`
 	Boardings    []sim.RiderBoarding `json:"boardings,omitempty"`
 	RiddenMeters float64             `json:"riddenMeters,omitzero"`
 	Pod          sim.Pod             `json:"pod"`
@@ -125,9 +117,6 @@ func frameState(topology TopologySnapshot, frame StateFrame, immutable bool) (St
 		return State{}, fmt.Errorf("state frame speed %d is not 1, 2, 5, 15 or 60", frame.Speed)
 	}
 	if err := checkTopologyProjectVersion(topology); err != nil {
-		return State{}, err
-	}
-	if err := couplingFrameBinding(topology, frame.Simulation); err != nil {
 		return State{}, err
 	}
 	if topology.OrderContract != frame.Simulation.OrderContract {
@@ -165,8 +154,7 @@ func frameState(topology TopologySnapshot, frame StateFrame, immutable bool) (St
 			route[routeIndex] = lane
 		}
 		vehicles[index] = sim.Vehicle{
-			CouplingID: vehicle.CouplingID,
-			Boardings:  slices.Clone(vehicle.Boardings), RiddenMeters: vehicle.RiddenMeters,
+			Boardings: slices.Clone(vehicle.Boardings), RiddenMeters: vehicle.RiddenMeters,
 			Pod: vehicle.Pod, Riders: slices.Clone(vehicle.Riders), Stops: slices.Clone(vehicle.Stops), Route: route,
 			RelocatingTo: vehicle.RelocatingTo, Rebalancing: vehicle.Rebalancing,
 			PlatoonID: vehicle.PlatoonID, PlatoonIndex: vehicle.PlatoonIndex,
@@ -193,9 +181,7 @@ func frameState(topology TopologySnapshot, frame StateFrame, immutable bool) (St
 		Generation: frame.Generation, Redistribution: frame.Redistribution,
 		Network: network, Geo: geo, Map: background,
 		Simulation: sim.Snapshot{
-			CouplingContract: snapshot.CouplingContract, CouplingEnabled: snapshot.CouplingEnabled,
-			CouplingGroups: cloneCouplingGroups(snapshot.CouplingGroups),
-			OrderContract:  snapshot.OrderContract, IncidentContract: snapshot.IncidentContract,
+			OrderContract: snapshot.OrderContract, IncidentContract: snapshot.IncidentContract,
 			Submitted: snapshot.Submitted, Tick: snapshot.Tick, Paused: snapshot.Paused,
 			Vehicles: vehicles, Berths: snapshot.Berths, Completed: snapshot.Completed,
 			Demo: snapshot.Demo, DemoError: snapshot.DemoError, Pending: snapshot.Pending,
@@ -211,15 +197,6 @@ func frameState(topology TopologySnapshot, frame StateFrame, immutable bool) (St
 		Speed: frame.Speed, SpeedReduction: frame.SpeedReduction, Demand: frame.Demand, Checkpoints: slices.Clone(frame.Checkpoints),
 		Build: frame.Build, ServerStart: frame.ServerStart, Restore: frame.Restore,
 	}
-	if !immutable && topology.CouplingContract != "" {
-		validator, err := newCouplingFrameValidator(topology)
-		if err != nil {
-			return State{}, err
-		}
-		if err := validator.Validate(state.Simulation); err != nil {
-			return State{}, err
-		}
-	}
 	return state, nil
 }
 
@@ -234,8 +211,7 @@ func stateFrame(state State) StateFrame {
 			routeIDs[routeIndex] = lane.ID
 		}
 		vehicles[index] = VehicleFrame{
-			CouplingID: vehicle.CouplingID,
-			Boardings:  slices.Clone(vehicle.Boardings), RiddenMeters: vehicle.RiddenMeters,
+			Boardings: slices.Clone(vehicle.Boardings), RiddenMeters: vehicle.RiddenMeters,
 			Pod: vehicle.Pod, Riders: slices.Clone(vehicle.Riders), Stops: slices.Clone(vehicle.Stops), RouteLaneIDs: routeIDs,
 			RelocatingTo: vehicle.RelocatingTo, Rebalancing: vehicle.Rebalancing,
 			PlatoonID: vehicle.PlatoonID, PlatoonIndex: vehicle.PlatoonIndex,
@@ -247,9 +223,7 @@ func stateFrame(state State) StateFrame {
 		Epoch: state.Epoch, Revision: state.Revision, ProjectRevision: state.ProjectRevision,
 		Generation: state.Generation, Redistribution: state.Redistribution,
 		Simulation: SimulationFrame{
-			CouplingContract: snapshot.CouplingContract, CouplingEnabled: snapshot.CouplingEnabled,
-			CouplingGroups: cloneCouplingGroups(snapshot.CouplingGroups),
-			OrderContract:  snapshot.OrderContract, IncidentContract: snapshot.IncidentContract,
+			OrderContract: snapshot.OrderContract, IncidentContract: snapshot.IncidentContract,
 			Submitted: snapshot.Submitted, Tick: snapshot.Tick, Paused: snapshot.Paused,
 			Vehicles: vehicles, Berths: snapshot.Berths, Completed: snapshot.Completed,
 			Demo: snapshot.Demo, DemoError: snapshot.DemoError, Pending: snapshot.Pending,

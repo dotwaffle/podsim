@@ -1,6 +1,6 @@
 {
   "kind": "delta",
-  "stream": "coupling-test",
+  "stream": "family-test",
   "sequence": "2",
   "base": "1",
   "build": "golden-build",

@@ -80,8 +80,7 @@ func (c FaultCounters) counters() faultCounters {
 // saved tick, each end is 0 or after its start, and each evacuation tick
 // fits in int64. A pod record names a saved pod with the fault hold, at
 // most one record names a pod, and the pod is a supported target: no
-// coupling member, no platoon leader or follower, and no compact queue
-// head (invariant F2). A save of the traffic demo has no record, because
+// platoon leader or follower, and no compact queue head (invariant F2). A save of the traffic demo has no record, because
 // the demo project has no fault marker (section 12.7). The logical tier
 // drops the demo and the records, so only this check refuses such a save.
 // Each failure makes the save invalid.
@@ -144,7 +143,7 @@ func checkSavedFaults(input RestoreStateInput) error {
 		switch {
 		case pod.Withdrawn&uint8(faultHold) == 0:
 			return fmt.Errorf("%w: fault %s names pod %s without the fault hold", errInvalidFaults, id, pod.ID)
-		case state.couplingMember(pod.ID) || pod.Platoon != nil || leaders[pod.ID] || pod.CompactQueue != nil:
+		case pod.Platoon != nil || leaders[pod.ID] || pod.CompactQueue != nil:
 			return fmt.Errorf("%w: fault %s names pod %s in a group", errInvalidFaults, id, pod.ID)
 		}
 	}

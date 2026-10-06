@@ -52,14 +52,8 @@ func (config *Config) decodeJSONLimit(data []byte, options jsonv2.Options, rawLi
 	if err := scanProjectBanks(data); err != nil {
 		return err
 	}
-	fields, err := scanProjectFields(data)
-	if err != nil {
+	if _, err := scanProjectFields(data); err != nil {
 		return err
-	}
-	if fields.coupling || HasCouplingContract(*config) {
-		if err := scanCouplingProjectBounds(data); err != nil {
-			return err
-		}
 	}
 	type plainConfig Config
 	decoded := plainConfig(Clone(*config))
@@ -72,14 +66,6 @@ func (config *Config) decodeJSONLimit(data []byte, options jsonv2.Options, rawLi
 			return err
 		}
 	}
-	// An explicit false or empty coupling member is presence. The typed
-	// check below cannot see it.
-	if fields.coupling && !HasCouplingContract(Config(decoded)) {
-		return errors.New("coupling fields require couplingContract compact-pair-v1")
-	}
-	if err := validateCouplingContract(Config(decoded)); err != nil {
-		return err
-	}
 	if err := sim.ValidateIncidentContract(decoded.IncidentContract); err != nil {
 		return err
 	}
@@ -91,9 +77,6 @@ func (config *Config) decodeJSONLimit(data []byte, options jsonv2.Options, rawLi
 	}
 	// The scan also refuses a null emergencies value.
 	if err := validateEmergencyContract(Config(decoded)); err != nil {
-		return err
-	}
-	if err := validateCouplingGeometry(Config(decoded)); err != nil {
 		return err
 	}
 	for _, station := range decoded.Network.Stations {

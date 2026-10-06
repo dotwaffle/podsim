@@ -139,7 +139,7 @@
 
   // CONTRACT_MARKERS gives each contract marker of a state reply and the
   // one value that the server sends.
-  const CONTRACT_MARKERS = [["orderContract", "express-v1"], ["couplingContract", "compact-pair-v1"]];
+  const CONTRACT_MARKERS = [["orderContract", "express-v1"]];
 
   // INCIDENT_MARKER is the incident marker of a state reply and the one
   // value that the server sends. Only the topology and the simulation

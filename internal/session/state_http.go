@@ -19,10 +19,9 @@ const StateMediaType = "application/vnd.podsim.state-6+json"
 // StateEnvelope binds the stream frame of the HTTP state to its topology.
 // The contract markers are the markers of the topology and of the frame.
 type StateEnvelope struct {
-	CouplingContract sim.CouplingContract `json:"couplingContract,omitzero"`
-	OrderContract    sim.OrderContract    `json:"orderContract,omitzero"`
-	Topology         TopologySnapshot     `json:"topology"`
-	Frame            StreamFrame          `json:"frame"`
+	OrderContract sim.OrderContract `json:"orderContract,omitzero"`
+	Topology      TopologySnapshot  `json:"topology"`
+	Frame         StreamFrame       `json:"frame"`
 }
 
 // EncodeStateJSON validates a same-source HTTP state before encoding. It
@@ -42,7 +41,7 @@ func EncodeStateJSON(topology TopologySnapshot, frame StreamFrame) ([]byte, erro
 	if len(topologyBytes) > project.MaxFileBytes+4096 {
 		return nil, errors.New("HTTP topology exceeds supported limit")
 	}
-	envelope := StateEnvelope{CouplingContract: topology.CouplingContract, OrderContract: topology.OrderContract, Topology: topology, Frame: frame}
+	envelope := StateEnvelope{OrderContract: topology.OrderContract, Topology: topology, Frame: frame}
 	data, err := jsonv2.Marshal(envelope, json.DefaultOptionsV1(), packedRequestOptions())
 	if err == nil && len(data) > MaxStreamJSON {
 		err = errors.New("HTTP state exceeds supported limit")
@@ -58,7 +57,7 @@ func DecodeStateJSON(raw []byte) (State, error) {
 		return State{}, errors.New("HTTP state exceeds supported limit")
 	}
 	var envelope StateEnvelope
-	members, err := decodeMarkedJSON(raw, true, &envelope)
+	members, err := decodeMarkedJSON(raw, &envelope)
 	if err != nil {
 		return State{}, err
 	}
@@ -71,8 +70,8 @@ func DecodeStateJSON(raw []byte) (State, error) {
 	if members.emergency && envelope.Frame.State.Simulation.EmergencyContract == "" {
 		return State{}, errEmergencyStreamUnmarked
 	}
-	if envelope.CouplingContract != envelope.Topology.CouplingContract || envelope.OrderContract != envelope.Topology.OrderContract {
-		return State{}, errors.New("HTTP coupling or order contracts disagree")
+	if envelope.OrderContract != envelope.Topology.OrderContract {
+		return State{}, errors.New("HTTP order contracts disagree")
 	}
 	assembler, err := NewStreamAssembler(envelope.Topology)
 	if err != nil {
@@ -118,11 +117,6 @@ func positiveQuality(q string) bool {
 
 func (s *Session) stateHTTP(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
-	if err := s.couplingError(); err != nil {
-		s.mu.Unlock()
-		writeError(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
 	if !acceptsMedia(r, StateMediaType) {
 		s.mu.Unlock()
 		writeError(w, "use the state media type", http.StatusNotAcceptable)

@@ -13,9 +13,8 @@ import (
 
 // scanStateOrderFields checks the order option members of a saved state
 // before the typed decode. scanPackedOrders checks the size of the order
-// text. Without coupling, the root coupling marker, it refuses each
-// coupling member, also an empty, null or false value.
-func scanStateOrderFields(data []byte, coupling bool) error {
+// text.
+func scanStateOrderFields(data []byte) error {
 	decoder := jsontext.NewDecoder(bytes.NewReader(data))
 	for {
 		token, err := decoder.ReadToken()
@@ -28,9 +27,6 @@ func scanStateOrderFields(data []byte, coupling bool) error {
 		kind, length := decoder.StackIndex(decoder.StackDepth())
 		if token.Kind() != jsontext.KindString || kind != jsontext.KindBeginObject || length%2 != 1 {
 			continue
-		}
-		if !coupling && couplingMember(token.String()) {
-			return errors.New("saved state without the coupling marker contains coupling fields")
 		}
 		path := strings.Split(string(decoder.StackPointer()), "/")
 		if !savedOrderFieldPath(path) {

@@ -40,9 +40,6 @@ func (s *Simulation) startDebris(lane int, from, to float64, duration int64) (st
 	if err := s.debrisClaim(footprint); err != nil {
 		return "", err
 	}
-	if s.meetsCouplingRoute(footprint) {
-		return "", errFaultTarget
-	}
 	if s.pass != nil && s.pass.active {
 		return "", errFaultDispatch
 	}
@@ -171,41 +168,6 @@ func (s *Simulation) podRetains(r resource) bool {
 	for index := range s.vehicles {
 		if s.vehicles[index].retains(r) {
 			return true
-		}
-	}
-	return false
-}
-
-// meetsCouplingRoute reports whether the footprint meets a coupling group
-// claim or a preserved claim, or a lane of the remaining route of a
-// coupling member or an approach member. The remaining route runs from the
-// current lane to the end of the route, also past the grants, so it holds
-// the corridor that an approach binds. Stage 2 does not support debris
-// there.
-func (s *Simulation) meetsCouplingRoute(footprint []resource) bool {
-	listed := func(claim couplingClaim) bool { return slices.Contains(footprint, claim.Resource) }
-	for _, group := range s.couplingGroups {
-		if slices.ContainsFunc(group.context.claims, listed) || slices.ContainsFunc(group.context.reservation.PreservedClaims, listed) {
-			return true
-		}
-	}
-	lanes := s.blockedFrom([]faultFootprint{{resources: footprint}}).lanes
-	if lanes == nil {
-		return false
-	}
-	for index := range s.vehicles {
-		v := &s.vehicles[index]
-		if v.couplingID == "" && !s.couplingApproachMember(v.Pod.ID) {
-			continue
-		}
-		route := v.Route
-		if v.blocks.len() > 0 {
-			route = route[v.blocks.locate(v.blockIndex, 0):]
-		}
-		for _, lane := range route {
-			if index, ok := s.graph.lanes[lane.ID]; ok && lanes[index] {
-				return true
-			}
 		}
 	}
 	return false

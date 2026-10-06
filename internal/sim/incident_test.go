@@ -7,16 +7,13 @@ import (
 	"testing"
 )
 
-// incidentMarkerFleets returns a plain, a prepared and a coupling fleet
-// with the incident marker, and the restore input of each without its
-// saved state.
+// incidentMarkerFleets returns a plain fleet with the incident marker, and
+// its restore input without its saved state.
 func incidentMarkerFleets(t *testing.T) map[string]RestoreStateInput {
 	t.Helper()
 	demo := []Placement{{ID: "01", StationID: "harbor", BerthID: "harbor-1"}, {ID: "02", StationID: "garden", BerthID: "garden-1"}}
 	return map[string]RestoreStateInput{
 		"plain": {IncidentContract: IncidentV1Contract, Network: Example(), Fleet: demo},
-		"coupling": {IncidentContract: IncidentV1Contract, CouplingContract: CompactPairV1CouplingContract, CouplingEnabled: true,
-			Network: expressNetwork(largeRestoreNetwork()), Fleet: []Placement{{ID: "01", Class: CompactClass, StationID: "harbor", BerthID: "harbor-1"}}},
 	}
 }
 
@@ -53,7 +50,6 @@ func TestIncidentMarkerSurvivesFleetChanges(t *testing.T) {
 				restored, _, restoreErr := RestoreState(input)
 				check("restore", restored, restoreErr)
 				restored, _, restoreErr = p.RestoreState(PreparedRestoreInput{IncidentContract: input.IncidentContract,
-					CouplingContract: input.CouplingContract, CouplingEnabled: input.CouplingEnabled,
 					Fleet: input.Fleet, State: input.State, LogicalOnly: logical})
 				check("prepared restore", restored, restoreErr)
 			}
@@ -68,17 +64,10 @@ func TestIncidentMarkerSurvivesFleetChanges(t *testing.T) {
 
 // ValidateFleetWithContracts checks the same startup rules without live state.
 func ValidateFleetWithContracts(network Network, placements []Placement, contracts FleetContracts) error {
-	if err := validateFleetContracts(network, placements, contracts); err != nil {
+	if err := validateFleetContracts(contracts); err != nil {
 		return err
 	}
-	if contracts.CouplingContract == "" {
-		return ValidateFleetWithOrderContract(network, placements, contracts.OrderContract)
-	}
-	p, err := PrepareNetwork(network)
-	if err != nil {
-		return err
-	}
-	return validatePlacementsWithOrderContract(p.network, placements, contracts.OrderContract)
+	return ValidateFleetWithOrderContract(network, placements, contracts.OrderContract)
 }
 
 // TestIncidentMarkerUnknownRefused checks that a fleet refuses a marker

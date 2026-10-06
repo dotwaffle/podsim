@@ -26,12 +26,7 @@ type RoutePresentation struct {
 // PresentationSnapshot copies display state without copying complete routes.
 // The caller owns synchronization, as for Snapshot. Indexes refer to Network.
 func (s *Simulation) PresentationSnapshot() (Snapshot, []RoutePresentation, error) {
-	view, err := s.CouplingPresentation()
-	if err != nil {
-		return Snapshot{}, nil, err
-	}
 	state := s.snapshot(false)
-	s.bindCouplingView(&state, view)
 	lanes := make(map[string]int, len(s.network.Lanes))
 	nodes := make(map[string]int, len(s.network.Nodes))
 	for i, lane := range s.network.Lanes {

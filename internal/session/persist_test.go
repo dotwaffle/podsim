@@ -2615,7 +2615,6 @@ var sessionPersistRules = map[string]persistRule{
 	// projectOrigin is projectRevision after a restore. restore tells how
 	// the restore went. restoredSequences comes from the sequences member.
 	"projectOrigin": persistDerive, "restore": persistDerive, "restoredSequences": persistDerive,
-	"couplingObservation": persistDerive, "couplingViewError": persistReset,
 	// A receipt can hold a large project, so the state file keeps only its
 	// sequence. Save points stay in memory only.
 	"receipts": persistReset, "checkpoints": persistReset, "clock": persistReset, "speedReduction": persistReset,

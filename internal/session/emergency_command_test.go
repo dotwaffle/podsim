@@ -46,10 +46,7 @@ func (c *testClient) boardOrders(t *testing.T, n int) []int {
 			c.session.mu.Unlock()
 			t.Fatal("pod 01 does not board the orders")
 		}
-		if err := c.session.step(); err != nil {
-			c.session.mu.Unlock()
-			t.Fatal(err)
-		}
+		c.session.step()
 	}
 	c.session.mu.Unlock()
 	c.mustApply(t, Command{Action: "pause", Paused: true})
@@ -122,22 +119,6 @@ func TestEmergencyCommandErrors(t *testing.T) {
 		t.Fatalf("emergency reply %+v", reply)
 	}
 	client.mustReject(t, Command{Action: "emergency", PodID: "01", OrderID: orders[0]}, "pod already has an emergency")
-}
-
-// TestEmergencyCommandWithCouplingFault checks that a retained coupling
-// fault rejects the emergency action, as it rejects other actions.
-func TestEmergencyCommandWithCouplingFault(t *testing.T) {
-	t.Parallel()
-	client := newFaultClient(t, emergencySessionProject(project.EmergencyConfig{}))
-	client.boardOrders(t, 1)
-	setViewFault(t, client.session)
-	reply := client.session.Apply(client.next(Command{Action: "emergency", PodID: "01"}))
-	if reply.ErrorCode != CommandRejected || !strings.Contains(reply.Error, "test observation fault") || reply.EmergencyID != "" {
-		t.Fatalf("emergency with a coupling fault: %+v", reply)
-	}
-	if client.emergencyHeld() {
-		t.Fatal("the rejected command started an emergency")
-	}
 }
 
 // TestEmergencySessionEvents checks the emergencies across the session

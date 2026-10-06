@@ -10,14 +10,11 @@ package sim
 // passes the retention tail of the origin. A relocating pod keeps each
 // destination claim that s.owners gives to it. When pods of one platoon hold
 // a resource, the pod nearest to the front of the platoon owns it. Debris
-// owns each resource of its footprint, which no pod and no group holds.
+// owns each resource of its footprint, which no pod holds.
 func (s *Simulation) retainedOwners() map[resource]resourceOwner {
 	owners := make(map[resource]resourceOwner, len(s.owners))
 	for i := range s.vehicles {
 		v := &s.vehicles[i]
-		if s.couplingMember(v.Pod.ID) {
-			continue
-		}
 		if v.Pod.Activity == Traveling {
 			s.addRouteOwners(owners, v)
 		} else {
@@ -36,17 +33,6 @@ func (s *Simulation) retainedOwners() map[resource]resourceOwner {
 			if s.owners[r] == podResourceOwner(v.Pod.ID) {
 				owners[r] = podResourceOwner(v.Pod.ID)
 			}
-		}
-	}
-	for _, group := range s.couplingGroups {
-		c := group.context
-		for _, dependency := range c.dependencies {
-			if owner := c.dependencyOwner(dependency, group.state); !owner.isZero() {
-				owners[dependency.Resource] = owner
-			}
-		}
-		for _, claim := range c.reservation.PreservedClaims {
-			owners[claim.Resource] = claim.Expected
 		}
 	}
 	for _, record := range s.faults {

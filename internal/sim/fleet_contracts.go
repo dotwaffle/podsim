@@ -1,38 +1,25 @@
 package sim
 
-import "errors"
-
-// FleetContracts selects independent order, physical coupling and incident
-// contracts. The descriptors are copied before the simulation retains them.
+// FleetContracts selects independent order and incident contracts. The
+// descriptors are copied before the simulation retains them.
 type FleetContracts struct {
 	OrderContract     OrderContract
-	CouplingContract  CouplingContract
 	IncidentContract  IncidentContract
 	FaultContract     FaultContract
 	EmergencyContract EmergencyContract
-	CouplingEnabled   bool
-	CouplingSites     []CouplingSite
-	CouplingCorridors []CouplingCorridor
 }
 
 // NewFleetWithContracts validates the contracts before it prepares geometry.
 func NewFleetWithContracts(network Network, placements []Placement, contracts FleetContracts) (*Simulation, error) {
-	if err := validateFleetContracts(network, placements, contracts); err != nil {
+	if err := validateFleetContracts(contracts); err != nil {
 		return nil, err
 	}
-	if contracts.CouplingContract == "" {
-		s, err := NewFleetWithOrderContract(network, placements, contracts.OrderContract)
-		if err != nil {
-			return nil, err
-		}
-		s.setFeatureContracts(contracts)
-		return s, nil
-	}
-	p, err := PrepareNetwork(network)
+	s, err := NewFleetWithOrderContract(network, placements, contracts.OrderContract)
 	if err != nil {
 		return nil, err
 	}
-	return p.NewFleetWithContracts(placements, contracts)
+	s.setFeatureContracts(contracts)
+	return s, nil
 }
 
 // NewFleetWithContracts creates fresh state with this prepared network.
@@ -40,32 +27,14 @@ func (p *PreparedNetwork) NewFleetWithContracts(placements []Placement, contract
 	if err := p.check(); err != nil {
 		return nil, err
 	}
-	if err := validateFleetContracts(p.network, placements, contracts); err != nil {
+	if err := validateFleetContracts(contracts); err != nil {
 		return nil, err
 	}
-	if contracts.CouplingContract == "" {
-		s, err := p.NewFleetWithOrderContract(placements, contracts.OrderContract)
-		if err != nil {
-			return nil, err
-		}
-		s.setFeatureContracts(contracts)
-		return s, nil
-	}
-	if err := validatePlacementsWithOrderContract(p.network, placements, contracts.OrderContract); err != nil {
-		return nil, err
-	}
-	n, err := prepareCouplingReservations(p, CouplingGeometryInput{
-		Contract: contracts.CouplingContract, Network: p.network,
-		Sites: contracts.CouplingSites, Corridors: contracts.CouplingCorridors,
-	})
+	s, err := p.NewFleetWithOrderContract(placements, contracts.OrderContract)
 	if err != nil {
 		return nil, err
 	}
-	s := p.newFleet(placements)
-	s.orderContract = contracts.OrderContract
 	s.setFeatureContracts(contracts)
-	s.couplingNetwork = n
-	s.couplingEnabled = contracts.CouplingEnabled
 	return s, nil
 }
 
@@ -76,7 +45,7 @@ func (s *Simulation) setFeatureContracts(contracts FleetContracts) {
 	s.incidentContract, s.faultContract, s.emergencyContract = contracts.IncidentContract, contracts.FaultContract, contracts.EmergencyContract
 }
 
-func validateFleetContracts(network Network, placements []Placement, contracts FleetContracts) error {
+func validateFleetContracts(contracts FleetContracts) error {
 	if err := ValidateOrderContract(contracts.OrderContract); err != nil {
 		return err
 	}
@@ -86,48 +55,12 @@ func validateFleetContracts(network Network, placements []Placement, contracts F
 	if err := ValidateFaultContracts(contracts.FaultContract, contracts.IncidentContract); err != nil {
 		return err
 	}
-	if err := ValidateEmergencyContracts(contracts.EmergencyContract, contracts.IncidentContract); err != nil {
-		return err
-	}
-	if contracts.CouplingContract == "" {
-		if contracts.CouplingEnabled || contracts.CouplingSites != nil || contracts.CouplingCorridors != nil {
-			return errors.New("coupling settings require a coupling contract")
-		}
-		return nil
-	}
-	if _, ok := LookupCouplingProfile(contracts.CouplingContract); !ok {
-		return ErrUnknownCouplingContract
-	}
-	// The coupling marker supplies bounds, not Express class or order semantics.
-	if len(placements) < 1 || len(placements) > expressMaxPods ||
-		len(network.Nodes) < 1 || len(network.Nodes) > expressMaxNodes ||
-		len(network.Lanes) < 1 || len(network.Lanes) > expressMaxLanes ||
-		len(network.Stations) < 2 || len(network.Stations) > expressMaxStations {
-		return errors.New("the coupling fleet or network exceeds project bounds")
-	}
-	for _, placement := range placements {
-		if !boundedContractID(placement.ID) || !boundedContractID(placement.StationID) ||
-			placement.BerthID != "" && !boundedContractID(placement.BerthID) {
-			return errors.New("the coupling placement ID exceeds bounds")
-		}
-	}
-	if err := validateContractNetworkRecords(network); err != nil {
-		return err
-	}
-	if err := validateContractGeometryBudget(network); err != nil {
-		return err
-	}
-	return ValidateCouplingGeometry(CouplingGeometryInput{
-		Contract: contracts.CouplingContract, Network: network,
-		Sites: contracts.CouplingSites, Corridors: contracts.CouplingCorridors,
-	})
+	return ValidateEmergencyContracts(contracts.EmergencyContract, contracts.IncidentContract)
 }
 
 func (input RestoreStateInput) fleetContracts() FleetContracts {
 	return FleetContracts{
-		OrderContract: input.OrderContract, CouplingContract: input.CouplingContract,
-		CouplingEnabled: input.CouplingEnabled, CouplingSites: input.CouplingSites,
-		CouplingCorridors: input.CouplingCorridors, IncidentContract: input.IncidentContract,
+		OrderContract: input.OrderContract, IncidentContract: input.IncidentContract,
 		FaultContract: input.FaultContract, EmergencyContract: input.EmergencyContract,
 	}
 }
