@@ -1402,6 +1402,16 @@ Preconditions that later stages must meet:
 - A stage that gives a pod a new destination for an incident defines its own transition: the endpoint reroute never changes an endpoint.
 - Stage 7 adds the sampler members and their bytes before it accepts `perHour > 0`.
 
+Exported for the wire: the maintainer allows these exported identifiers of stage 2.
+The commands, the saves, the frames, and the view use them across packages.
+Each type keeps its exported fields.
+
+- `internal/sim`: `FaultSettings`, `(*Simulation).SetFaults`, `FaultRequest`, `(*Simulation).Fault`, `(*Simulation).ClearFault`, `FaultContract`, `FaultV1Contract`, `ErrUnknownFaultContract`, and `ValidateFaultContracts`.
+- `internal/sim`: `FaultView`, `FaultsView`, `FaultCounters`, `FaultKindPod`, `FaultKindDebris`, `FaultPhaseBraking`, `FaultPhaseStopped`, `FaultPhaseEvacuated`, `SavedFaults`, and `SavedFault`.
+- `internal/sim` fields: `Snapshot.FaultContract`, `Snapshot.Faults`, `SavedState.Faults`, `RestoreStateInput.FaultContract`, `RestoreStateInput.Faults`, `RestoreResult.DroppedFaults`, and `FleetContracts.FaultContract`.
+- `internal/project`: `FaultContract` and `FaultV1Contract`, which are aliases of the `internal/sim` identifiers, `FaultConfig`, `FaultDuration`, `EffectiveFaultSettings`, and the fields `Config.FaultContract` and `Config.Faults`.
+- `internal/session`: the `Command` fields `PodID`, `LaneID`, `FromMeters`, `ToMeters`, `DurationSeconds`, and `FaultID`, and the fields `Reply.FaultID`, `TopologySnapshot.FaultContract`, `SimulationFrame.FaultContract`, and `SimulationFrame.Faults`.
+
 ## 16. Test plan
 
 ### 16.1 Unit tests
