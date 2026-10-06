@@ -403,7 +403,7 @@ func (g *Game) podMapLabels(vehicles []sim.Vehicle, collapsedStations map[string
 		}
 		p := g.mapPoint(vehicle.Pod.Position)
 		tag := label{x: p.X + podLabelLeft*g.layout.unit, y: p.Y + podLabelTop*g.layout.unit, size: 11, value: fleetPodLabel(index), mapLabel: true}
-		if code := podDestinationCode(vehicle); code != "" {
+		if code := podTagCode(vehicle); code != "" {
 			tag.value += "\n" + code
 			tag.lineSpacing = 1.2 * g.layout.mapLabelSize(tag.size)
 		}

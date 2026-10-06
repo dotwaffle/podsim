@@ -176,6 +176,8 @@ See [distribution and operations](docs/operations.md) for build and runtime sett
   The text between the arrows gives the page number and the number of pages, for example **3 / 19**.
 - Compact fleet numbers match the pod buttons and the map.
   Inspection also shows the full pod ID.
+- On a London network, a moving pod's map label gives its next stop under its fleet number, for example **>EUS**.
+  With riders aboard, a third line gives the leg origin of the first rider, for example **<KGX**.
 - The selected pod shows its activity, speed in whole km/h, occupancy, route, and local waiting reason.
 - The display distinguishes a pod ahead, conflicting junction traffic, an occupied berth, and unavailable parking.
   The waiting reason names the blocking pod by its fleet number, for example **Pod ahead / pod 02**.
