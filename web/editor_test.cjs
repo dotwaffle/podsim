@@ -2898,7 +2898,7 @@ function nested(levels) {
 
 // stateReplyRefusals gives the state replies that the debug capture and
 // the editor refuse because of their contract markers, their topology, a
-// textEncoding member or their size. envelope(markers) gives a valid reply with those
+// removed member or their size. envelope(markers) gives a valid reply with those
 // contract markers at the root, in the topology and in the simulation. The
 // incident, fault and emergency markers are only in the topology and in the
 // simulation.
@@ -2921,17 +2921,21 @@ function stateReplyRefusals(envelope) {
   const emergency = emergencyReply("emergency-v1");
   const without = (value, name) => Object.fromEntries(Object.entries(value).filter(([key]) => key !== name));
   const cases = [];
-  // Earlier servers sent a textEncoding member. Its presence anywhere in
-  // the reply refuses the reply, whatever its value.
-  for (const [kind, value] of [["", "order-text-base64-v1"], ["an empty ", ""], ["a null ", null]]) {
-    cases.push(
-      [`${kind}textEncoding member at the root`, { ...express, textEncoding: value }],
-      [`${kind}textEncoding member in the frame`, { ...plain, frame: { ...plain.frame, textEncoding: value } }],
-      [`${kind}textEncoding member in the state`, { ...plain, frame: { ...plain.frame, state: { ...plain.frame.state, textEncoding: value } } }],
-      [`${kind}textEncoding member in the topology`, { ...express, topology: { ...express.topology, textEncoding: value } }],
-      [`${kind}textEncoding member in the simulation`, simulation(express, { textEncoding: value })],
-      [`${kind}textEncoding member in a route`, { ...plain, frame: { ...plain.frame, routes: [{ lanes: [], textEncoding: value }] } }],
-    );
+  // Earlier servers sent a textEncoding member and a couplingContract
+  // marker. The presence of either anywhere in the reply refuses the
+  // reply, whatever its value.
+  for (const [name, sent] of [["textEncoding", "order-text-base64-v1"], ["couplingContract", "compact-pair-v1"]]) {
+    for (const [kind, value] of [["", sent], ["an empty ", ""], ["a null ", null]]) {
+      const member = { [name]: value };
+      cases.push(
+        [`${kind}${name} member at the root`, { ...express, ...member }],
+        [`${kind}${name} member in the frame`, { ...plain, frame: { ...plain.frame, ...member } }],
+        [`${kind}${name} member in the state`, { ...plain, frame: { ...plain.frame, state: { ...plain.frame.state, ...member } } }],
+        [`${kind}${name} member in the topology`, { ...express, topology: { ...express.topology, ...member } }],
+        [`${kind}${name} member in the simulation`, simulation(express, member)],
+        [`${kind}${name} member in a route`, { ...plain, frame: { ...plain.frame, routes: [{ lanes: [], ...member }] } }],
+      );
+    }
   }
   cases.push(
     // The limits of a stream document of the server.

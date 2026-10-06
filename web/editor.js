@@ -1216,10 +1216,16 @@
   // and the simulation carry it. It needs the incident marker.
   const EMERGENCY_MARKER = ["emergencyContract", "emergency-v1"];
 
+  // REMOVED_MEMBERS are members that earlier servers sent and the server
+  // no longer writes: textEncoding, and the couplingContract marker of the
+  // removed physical coupling feature. The native decoders refuse them as
+  // unknown members.
+  const REMOVED_MEMBERS = ["textEncoding", "couplingContract"];
+
   // plainStateTree is true when value has at most MAX_STATE_DEPTH levels
   // of arrays and objects, no array with more than MAX_STATE_ELEMENTS
-  // elements, and no object with a textEncoding member. Earlier servers
-  // sent textEncoding. Its presence refuses the reply, whatever its value.
+  // elements, and no object with a member in REMOVED_MEMBERS. The presence
+  // of such a member refuses the reply, whatever its value.
   // The walk uses a stack, so a deep reply cannot overflow the call stack.
   // shell.js has the same function.
   function plainStateTree(value) {
@@ -1228,7 +1234,7 @@
       const [node, depth] = stack.pop();
       if (node === null || typeof node !== "object") continue;
       if (depth > MAX_STATE_DEPTH) return false;
-      if (Array.isArray(node) ? node.length > MAX_STATE_ELEMENTS : Object.hasOwn(node, "textEncoding")) return false;
+      if (Array.isArray(node) ? node.length > MAX_STATE_ELEMENTS : REMOVED_MEMBERS.some((name) => Object.hasOwn(node, name))) return false;
       for (const child of Object.values(node)) stack.push([child, depth + 1]);
     }
     return true;

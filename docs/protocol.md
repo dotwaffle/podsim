@@ -36,7 +36,7 @@ The frame is a full stream frame, so the state values are in `frame.state`, and 
 The envelope has `orderContract` only when the project has it.
 The editor and the debug capture send the media type.
 They refuse a reply with another media type before they read it.
-They also refuse a reply that has a `textEncoding` member at any level, or that is over the stream limits of 64 levels and 65536 elements in an array.
+They also refuse a reply that has a `textEncoding` or `couplingContract` member at any level, or that is over the stream limits of 64 levels and 65536 elements in an array.
 The root, `topology` and `frame.state.simulation` must have the same contract markers.
 When present, `orderContract` must be `express-v1`.
 A project with the incident marker `incidentContract` `incident-v1` puts it in `topology` and in `frame.state.simulation`, not at the root.
