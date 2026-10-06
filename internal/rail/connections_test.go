@@ -1,6 +1,7 @@
 package rail
 
 import (
+	"fmt"
 	"reflect"
 	"slices"
 	"testing"
@@ -297,5 +298,52 @@ func TestConnectionInterrupt(t *testing.T) {
 	if err := pending.ReconcileRestore(state, sim.RestoreResult{Interrupted: []int{1}}); err != nil ||
 		pending.Records()[0].Outcome != "unserved" || pending.Records()[0].Reason != "interrupted" || pending.Counts() != (Counts{Unserved: 1}) {
 		t.Fatalf("restore-time interruption: %+v, %v", pending.Records(), err)
+	}
+}
+
+// TestValidateRecordRefusalOrder pins the error that a saved record with
+// two faults gets. validateRecord checks the times and request ID, the
+// outcome, the saved request, and then the active request of a pending
+// record. Each case breaks two adjacent checks, and the earlier check gives
+// the refusal.
+func TestValidateRecordRefusalOrder(t *testing.T) {
+	t.Parallel()
+	departure := connectionPlan()[0]
+	offer := project.RailServicesSchedule(nil, connectionPlan(), 7)[0]
+	base := func() (Connection, map[int]requestBinding) {
+		record := Connection{Event: offer.Event, Passenger: offer.Passenger, RequestedTick: offer.Tick, From: offer.From, To: offer.To,
+			RequestID: 1, AlightedTick: -1, Outcome: "pending"}
+		request := sim.SavedRequest{ID: 1, From: offer.From, To: offer.To, RequestedTick: offer.Tick, PartySize: 1}
+		return record, map[int]requestBinding{1: {request: request, active: true}}
+	}
+	const tick = 100
+	if record, bindings := base(); validateRecord(record, departure, tick, 1, bindings) != nil {
+		t.Fatal("the base record is not valid")
+	}
+	times := fmt.Sprintf("invalid times or request ID for connection %q", offer.Event)
+	outcome := fmt.Sprintf("invalid outcome for connection %q", offer.Event)
+	request := fmt.Sprintf("connection %q does not match its saved request", offer.Event)
+	active := fmt.Sprintf("pending connection %q has no active request", offer.Event)
+	for _, test := range []struct {
+		name string
+		edit func(*Connection, map[int]requestBinding)
+		want string
+	}{
+		{"times_before_outcome", func(r *Connection, _ map[int]requestBinding) { r.RequestedTick, r.Outcome = tick+1, "other" }, times},
+		{"outcome_before_request", func(r *Connection, _ map[int]requestBinding) { r.Outcome, r.From = "other", "elsewhere" }, outcome},
+		{"request_before_active", func(r *Connection, b map[int]requestBinding) {
+			r.From = "elsewhere"
+			b[1] = requestBinding{request: b[1].request}
+		}, request},
+		{"active", func(_ *Connection, b map[int]requestBinding) { delete(b, 1) }, active},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			record, bindings := base()
+			test.edit(&record, bindings)
+			if err := validateRecord(record, departure, tick, 1, bindings); err == nil || err.Error() != test.want {
+				t.Fatalf("got %v, want %q", err, test.want)
+			}
+		})
 	}
 }

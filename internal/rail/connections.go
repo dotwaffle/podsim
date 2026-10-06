@@ -300,41 +300,68 @@ func savedBindings(state sim.SavedState) (map[int]requestBinding, error) {
 	return bindings, nil
 }
 
+// validateRecord checks the times and request ID of a saved record, then
+// its outcome, then its saved request, and then that a pending record with
+// no alighting tick has an active request. The first error is the refusal.
 func validateRecord(record Connection, departure project.RailDeparture, tick int64, submitted int, bindings map[int]requestBinding) error {
-	if record.RequestedTick > tick || record.RequestID < 0 || record.RequestID > submitted ||
-		record.AlightedTick < -1 || record.AlightedTick >= 0 && (record.AlightedTick < record.RequestedTick || record.AlightedTick > tick) {
+	if !recordTimesValid(record, tick, submitted) {
 		return fmt.Errorf("invalid times or request ID for connection %q", record.Event)
 	}
-	departureTick := int64(departure.AtSeconds) * sim.TicksPerSecond
-	ready := record.AlightedTick + int64(departure.WalkingSeconds)*sim.TicksPerSecond
-	valid := false
-	switch record.Outcome {
-	case "pending":
-		valid = record.RequestID > 0 && record.Reason == "" && tick < departureTick
-	case "made":
-		valid = record.RequestID > 0 && record.Reason == "" && tick >= departureTick && record.AlightedTick >= 0 && ready <= departureTick
-	case "missed":
-		valid = record.RequestID > 0 && record.Reason == "" && tick >= departureTick && (record.AlightedTick == -1 || ready > departureTick)
-	case "unserved":
-		valid = record.AlightedTick == -1 && (record.RequestID == 0 && (record.Reason == "queue-limit" || record.Reason == "request-error") ||
-			record.RequestID > 0 && (record.Reason == "restore-drop" || record.Reason == "restore-degraded" || record.Reason == "interrupted"))
-	}
-	if !valid {
+	if !recordOutcomeValid(record, departure, tick) {
 		return fmt.Errorf("invalid outcome for connection %q", record.Event)
 	}
 	binding, bound := bindings[record.RequestID]
-	if record.RequestID > 0 && bound {
-		request := binding.request
-		if request.From != record.From || request.To != record.To || request.RequestedTick != record.RequestedTick ||
-			binding.active && (record.AlightedTick >= 0 || record.Outcome == "unserved") {
-			return fmt.Errorf("connection %q does not match its saved request", record.Event)
-		}
+	if record.RequestID > 0 && bound && !recordMatchesBinding(record, binding) {
+		return fmt.Errorf("connection %q does not match its saved request", record.Event)
 	}
 	if record.Outcome == "pending" && record.AlightedTick == -1 && (!bound || !binding.active) {
 		return fmt.Errorf("pending connection %q has no active request", record.Event)
 	}
-
 	return nil
+}
+
+// recordTimesValid reports whether a record has a request ID that the
+// simulation submitted, a request tick at or before tick, and no alighting
+// tick or one from the request tick to tick.
+func recordTimesValid(record Connection, tick int64, submitted int) bool {
+	return record.RequestedTick <= tick && record.RequestID >= 0 && record.RequestID <= submitted &&
+		record.AlightedTick >= -1 && (record.AlightedTick < 0 || record.AlightedTick >= record.RequestedTick && record.AlightedTick <= tick)
+}
+
+// recordOutcomeValid reports whether the outcome of a record agrees with
+// its request, reason, alighting tick, and departure at tick.
+func recordOutcomeValid(record Connection, departure project.RailDeparture, tick int64) bool {
+	departureTick := int64(departure.AtSeconds) * sim.TicksPerSecond
+	ready := record.AlightedTick + int64(departure.WalkingSeconds)*sim.TicksPerSecond
+	accepted := record.RequestID > 0 && record.Reason == ""
+	switch record.Outcome {
+	case "pending":
+		return accepted && tick < departureTick
+	case "made":
+		return accepted && tick >= departureTick && record.AlightedTick >= 0 && ready <= departureTick
+	case "missed":
+		return accepted && tick >= departureTick && (record.AlightedTick == -1 || ready > departureTick)
+	case "unserved":
+		return unservedRecordValid(record)
+	}
+	return false
+}
+
+// unservedRecordValid reports whether an unserved record has no alighting
+// tick, and a reason that agrees with its request ID. A rejected offer has
+// no request.
+func unservedRecordValid(record Connection) bool {
+	return record.AlightedTick == -1 && (record.RequestID == 0 && (record.Reason == "queue-limit" || record.Reason == "request-error") ||
+		record.RequestID > 0 && (record.Reason == "restore-drop" || record.Reason == "restore-degraded" || record.Reason == "interrupted"))
+}
+
+// recordMatchesBinding reports whether a record has the stations and
+// request tick of its saved request. A record with an active request has no
+// alighting tick and is not unserved.
+func recordMatchesBinding(record Connection, binding requestBinding) bool {
+	request := binding.request
+	return request.From == record.From && request.To == record.To && request.RequestedTick == record.RequestedTick &&
+		(!binding.active || record.AlightedTick < 0 && record.Outcome != "unserved")
 }
 
 // ReconcileRestore preserves terminal outcomes and actual alighting times.
