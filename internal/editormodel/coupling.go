@@ -1,11 +1,7 @@
 package editormodel
 
 import (
-	jsonv1 "encoding/json"
 	"encoding/json/v2"
-	"errors"
-	"fmt"
-	"maps"
 	"slices"
 
 	"github.com/dotwaffle/podsim/internal/project"
@@ -44,45 +40,6 @@ func couplingContractError(draft any) string {
 		}
 	}
 	return ""
-}
-
-// convertToTrains proposes the explicit one-way conversion of a project
-// without coupling members. It adds the coupling marker. Trains stay off,
-// and the project has no sites or corridors. The server decoder must
-// accept the project before and after the change.
-func convertToTrains(draft any) (projectChange, error) {
-	if hasCouplingMetadata(draft) {
-		return projectChange{}, errors.New("only a project without coupling fields can convert to trains")
-	}
-	patch := map[string]any{
-		"couplingContract":  string(sim.CompactPairV1CouplingContract),
-		"couplingEnabled":   false,
-		"couplingSites":     []any{},
-		"couplingCorridors": []any{},
-	}
-	if err := serverValidation(draft); err != nil {
-		return projectChange{}, fmt.Errorf("fix the project before it converts to trains: %w", err)
-	}
-	converted := maps.Clone(object(draft))
-	maps.Copy(converted, patch)
-	if err := serverValidation(converted); err != nil {
-		return projectChange{}, fmt.Errorf("the converted project is not valid: %w", err)
-	}
-	return projectChange{Patch: patch}, nil
-}
-
-// serverValidation decodes the draft as the server reads a project file or
-// a project command, with encoding/json, and validates it.
-func serverValidation(draft any) error {
-	raw, err := json.Marshal(draft)
-	if err != nil {
-		return fmt.Errorf("encode project: %w", err)
-	}
-	var config project.Config
-	if err := jsonv1.Unmarshal(raw, &config); err != nil {
-		return err
-	}
-	return project.Validate(config)
 }
 
 // checkCouplingGeometry reports the native geometry verdict for the sites and

@@ -60,8 +60,6 @@ func proposeProjectEdit(draft any, command editCommand) (projectChange, error) {
 		return proposeDocumentEdit(draft, command, "a map edit does not accept a target", editMap)
 	case "background":
 		return proposeDocumentEdit(draft, command, "a background edit does not accept a target", editBackground)
-	case "coupling":
-		return proposeDocumentEdit(draft, command, "a coupling edit does not accept a target", editCoupling)
 	case "railArrival":
 		return proposeDocumentEdit(draft, command, "a rail edit does not accept a target", editRailArrival)
 	case "railDeparture":
@@ -136,13 +134,6 @@ func proposeScalarEdit(draft any, command editCommand, value any) (projectChange
 		err = change.sharingPolicy(draft, command.Field, value)
 	case "stationQueueSpacing":
 		err = change.stationQueueSpacing(draft, value)
-	case "couplingEnabled":
-		err = change.couplingEnabled(draft, value)
-	case "convertToTrains":
-		if value != true {
-			return projectChange{}, errors.New("the conversion to trains requires a true value")
-		}
-		return convertToTrains(draft)
 	case "platoonLimit":
 		change.platoonLimit(draft, command.Field, value)
 	default:
@@ -262,19 +253,6 @@ func (c *projectChange) stationQueueSpacing(draft, value any) error {
 		return errors.New("station queue spacing must be ordinary or compact-v1")
 	}
 	c.set(draft, "stationQueueSpacing", setting)
-	return nil
-}
-
-func (c *projectChange) couplingEnabled(draft, value any) error {
-	enabled, ok := value.(bool)
-	if !ok {
-		return errors.New("the train setting must be true or false")
-	}
-	if !couplingMarked(draft) {
-		return errors.New("the train setting needs couplingContract compact-pair-v1")
-	}
-	// Off only stops new trains. The marker, sites, and corridors stay.
-	c.set(draft, "couplingEnabled", enabled)
 	return nil
 }
 
@@ -463,7 +441,7 @@ func editNeedsFullProfiles(raw jsontext.Value) bool {
 	if json.Unmarshal(raw, &command) != nil {
 		return false
 	}
-	if command.Field == "normalize" || command.Field == "convertToTrains" {
+	if command.Field == "normalize" {
 		return true
 	}
 	if command.Field != "geometry" {

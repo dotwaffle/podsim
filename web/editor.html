@@ -264,10 +264,6 @@
         <p class="hint">Compact queues need station buffers and platoons. They apply only to straight station entries at speeds up to 9 km/h. Lane speeds stay unchanged.</p>
         <label class="check"><input id="pickupReassignment" type="checkbox"> Pickup reassignment (experimental)</label>
         <p class="hint">Use Apply draft to activate these settings. Both are off by default and can change passenger waits.</p>
-        <label class="check" id="couplingEnabledLabel" hidden><input id="couplingEnabled" type="checkbox"> Coupled trains (experimental)</label>
-        <p class="hint" id="couplingEnabledHint" hidden>Lets two Compact pods couple into one train, empty or with passengers, at the coupling sites of this project. Off stops new trains and keeps the sites and corridors.</p>
-        <button id="convertTrains" class="wide" type="button" hidden>Convert to trains</button>
-        <p class="hint" id="convertTrainsHint" hidden></p>
       </section>
       <section>
         <div class="section-title"><h2>Rail arrivals</h2><button id="addRailArrival" type="button">Add arrival</button></div>
@@ -278,16 +274,6 @@
         <div class="section-title"><h2>Rail departures</h2><button id="addRailDeparture" type="button">Add departure</button></div>
         <p class="hint">Times use simulated seconds since reset. Requests span the inclusive window. A connection succeeds when alighting plus transfer time meets departure. Missed pod journeys continue. Select Rail arrivals and departures to use both plans.</p>
         <div id="railDepartureRows"></div>
-      </section>
-      <section id="couplingSitesPanel" hidden>
-        <div class="section-title"><h2 id="couplingSitesHeading" tabindex="-1">Coupling sites</h2><button id="addCouplingSite" type="button">Add site</button></div>
-        <p class="hint">Select a straight guideway on the map, and set Compact as its only vehicle class in Selection. Then add a site on it, or use it for a site. Positions are meters from the start of the guideway.</p>
-        <div id="couplingSiteRows"></div>
-      </section>
-      <section id="couplingCorridorsPanel" hidden>
-        <div class="section-title"><h2 id="couplingCorridorsHeading" tabindex="-1">Coupling corridors</h2><button id="addCouplingCorridor" type="button">Add corridor</button></div>
-        <p class="hint">Pods couple at the assembly site and separate at the split site. Select each guideway of the path on the map in order, from the assembly site to the split site, and add it.</p>
-        <div id="couplingCorridorRows"></div>
       </section>
       <section id="checksPanel">
         <div class="section-title"><h2 id="checksHeading" tabindex="-1">Checks</h2><button id="validateButton" type="button">Run checks</button></div>

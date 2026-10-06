@@ -189,16 +189,7 @@ test("projects without the coupling marker keep version 1 and export no coupling
   assert.throws(() => editor.parseDocument(JSON.stringify({ ...couplingScenario(), version: 6 })), /The version field must be 1\./);
 });
 
-test("the train option is one control of a coupling project, and off keeps the sites and corridors", async () => {
-  const html = fs.readFileSync(path.join(__dirname, "editor.html"), "utf8");
-  assert.match(html, /<label class="check" id="couplingEnabledLabel" hidden><input id="couplingEnabled" type="checkbox"> Coupled trains \(experimental\)<\/label>/);
-  // The site and corridor lists have their own sections. The train option is the only coupling input of the page.
-  assert.deepEqual([...html.matchAll(/<input id="(coupling[^"]*)"/g)].map((match) => match[1]), ["couplingEnabled"]);
-  const source = fs.readFileSync(path.join(__dirname, "editor.js"), "utf8");
-  assert.match(source, /\$\("#couplingEnabledLabel"\)\.hidden = \$\("#couplingEnabledHint"\)\.hidden = config\.couplingContract !== "compact-pair-v1";/);
-  assert.match(source, /\$\("#couplingEnabled"\)\.checked = config\.couplingEnabled === true;/);
-  assert.match(source, /"pickupReassignment", "couplingEnabled"\]\) bindScalarInput\(id\);/);
-  // The Go model proposes only the flag. The page merges the patch into the draft.
+test("a coupling project with trains off keeps its members through import and the draft record", async () => {
   const config = couplingScenario();
   const off = { ...config, couplingEnabled: false };
   assert.deepEqual(Object.keys(off), Object.keys(config));
@@ -272,102 +263,24 @@ test("the repeated member scan reads names after escapes and ignores values", ()
   }
 });
 
-test("Convert to trains shows for a project without coupling members only after checks pass", () => {
-  const config = connectedScenario();
-  assert.deepEqual(editor.convertTrainsState(couplingScenario(), null, false), { hidden: true, disabled: true, hint: "" });
-  for (const key of COUPLING_KEYS) assert.equal(editor.convertTrainsState({ ...config, [key]: couplingScenario()[key] }, null, false).hidden, true, key);
-  assert.equal(editor.convertTrainsState({ ...config, version: 6 }, null, false).hidden, true);
-  assert.equal(editor.convertTrainsState({ ...config, orderContract: "express-v1" }, null, false).hidden, false);
-  assert.match(editor.convertTrainsState(config, null, false).hint, /checks must run/);
-  assert.match(editor.convertTrainsState(config, { valid: false }, false).hint, /Fix the errors/);
-  assert.match(editor.convertTrainsState(config, { valid: true }, true).hint, /Wait/);
-  const ready = editor.convertTrainsState(config, { valid: true }, false);
-  assert.equal(ready.disabled, false); assert.match(ready.hint, /Sets couplingContract compact-pair-v1/);
-  // The Go patch arrives with an unspecified member order.
-  const patch = { couplingSites: [], couplingCorridors: [], couplingEnabled: false, couplingContract: "compact-pair-v1" };
-  const converted = editor.trainsScenario(config, patch);
-  assert.deepEqual(Object.keys(converted), [...Object.keys(config), "couplingContract", "couplingEnabled", "couplingSites", "couplingCorridors"]);
-  assert.equal(converted.version, 1);
-  assert.equal(editor.serializeDocument(converted), editor.serializeDocument(editor.trainsScenario(config, { ...patch })));
-});
-
-test("coupling site and corridor rows follow the berth row focus and show only with the coupling marker", () => {
-  for (const [ids, removed, focus] of [[["a", "b", "c"], "a", "b"], [["a", "b", "c"], "b", "c"], [["a", "b", "c"], "c", "b"], [["a", "b"], "b", "a"], [["a"], "a", ""], [["a"], "x", ""]]) {
-    assert.equal(editor.couplingFocusID(ids, removed), focus, `${ids} ${removed}`);
-  }
-  const html = fs.readFileSync(path.join(__dirname, "editor.html"), "utf8");
-  assert.match(html, /<button id="convertTrains" class="wide" type="button" hidden>Convert to trains<\/button>/);
-  for (const [panel, button, rows] of [["couplingSitesPanel", "addCouplingSite", "couplingSiteRows"], ["couplingCorridorsPanel", "addCouplingCorridor", "couplingCorridorRows"]]) {
-    assert.match(html, new RegExp(`<section id="${panel}" hidden>\\s*<div class="section-title"><h2 id="${panel.replace("Panel", "Heading")}" tabindex="-1">[^<]+</h2><button id="${button}" type="button">Add [a-z]+</button></div>`));
-    assert.match(html, new RegExp(`<div id="${rows}"></div>`));
-  }
-  const source = fs.readFileSync(path.join(__dirname, "editor.js"), "utf8");
-  assert.match(source, /\$\("#couplingSitesPanel"\)\.hidden = \$\("#couplingCorridorsPanel"\)\.hidden = !shown;/);
-  assert.match(source, /const shown = config\.couplingContract === "compact-pair-v1", laneID = selectedLaneID\(\);/);
-  assert.match(source, /if \(removed && keyboard && ownsFocus && !button\.isConnected\) \{\n[^\n]+\n\s*else focusCouplingRow\(kind, couplingFocusID\(ids, command\.id\)\);/);
-  assert.match(source, /queueCouplingEdit\(command, \{ button, keyboard: event\.detail === 0 \}\);/);
-  assert.match(source, /if \(config === draft\(\)\) trainsVerdict = \{ valid: results\.valid === true && !results\.errors\.length \};/);
-  assert.match(source, /if \(!checksUnchanged\) \{ trainsVerdict = null; checks\.schedule\(\); \}/);
-  assert.match(source, /renderRailArrivals\(config, "departure"\); renderCoupling\(config\);/);
-});
-
-test("corridor rows are built again when a guideway changes, and Remove names the guideway it shows", () => {
-  const sites = [{ id: "a" }, { id: "b" }];
-  const corridor = (laneIds) => [{ id: "c", assemblySiteId: "a", splitSiteId: "b", laneIds }];
-  // The same IDs and path lengths with other guideways need new rows.
-  assert.notEqual(editor.couplingLayout(sites, corridor(["x", "y"])), editor.couplingLayout(sites, corridor(["x", "z"])));
-  assert.notEqual(editor.couplingLayout(sites, corridor(["x", "y"])), editor.couplingLayout(sites, corridor(["y", "x"])));
-  assert.notEqual(editor.couplingLayout(sites, corridor(["x"])), editor.couplingLayout([{ id: "a" }, { id: "d" }], corridor(["x"])));
-  assert.equal(editor.couplingLayout(sites, corridor(["x"])), editor.couplingLayout(structuredClone(sites), corridor(["x"])));
-  assert.equal(editor.couplingLayout(sites, corridor(null)), editor.couplingLayout(sites, corridor([])));
-  const source = fs.readFileSync(path.join(__dirname, "editor.js"), "utf8");
-  assert.match(source, /const layout = couplingLayout\(sites, corridors\);\n\s*if \(layout !== drawnCoupling/);
-  assert.match(source, /remove\.dataset\.couplingLane = String\(laneID\); remove\.dataset\.couplingCount = String\(corridor\.laneIds\.length\);/);
-  // The page sends the count that the row shows, not the count of the live draft.
-  assert.match(source, /Object\.assign\(command, \{ index: Number\(index\), count: Number\(button\.dataset\.couplingCount\), laneId: button\.dataset\.couplingLane \}\);/);
-});
-
-test("guideway Remove in a corridor path moves the focus to the next or previous guideway", () => {
-  for (const [count, index, focus] of [[3, 0, 0], [3, 1, 1], [3, 2, 1], [2, 1, 0], [2, 0, 0], [1, 0, -1]]) {
-    assert.equal(editor.corridorLaneFocus(count, index), focus, `${count} ${index}`);
-  }
-  const source = fs.readFileSync(path.join(__dirname, "editor.js"), "utf8");
-  assert.match(source, /removed = changed && \["removeSite", "removeCorridor", "removeCorridorLane"\]\.includes\(command\.action\);/);
-  assert.match(source, /if \(command\.action === "removeCorridorLane"\) focusCorridorLane\(command\.id, corridorLaneFocus\(command\.count, command\.index\)\);/);
-  // With Add not available, the focus goes to an element that can take it.
-  assert.match(source, /else if \(!add\.disabled\) add\.focus\(\);\n\s*else \$\(kind === "site" \? "#couplingSitesHeading" : "#couplingCorridorsHeading"\)\.focus\(\);/);
-  assert.match(source, /\(lane \|\| \(add\.disabled \? row\.querySelector\('\[data-coupling-action="removeCorridor"\]'\) : add\)\)\.focus\(\);/);
-});
-
-test("undo and redo move the focus from a removed coupling row to a near row", () => {
-  for (const [before, after, id, focus] of [
-    [["a", "b"], ["b"], "a", "b"], [["a", "b", "c"], ["a", "c"], "b", "c"], [["a", "b"], ["a"], "b", "a"],
-    [["a"], [], "a", ""], [["a", "b"], ["a", "b"], "b", "b"], [["a"], ["a"], "x", ""], [["a", "b", "c"], ["a"], "b", "a"],
-  ]) assert.equal(editor.couplingUndoFocusID(before, after, id), focus, `${before} ${after} ${id}`);
-  const source = fs.readFileSync(path.join(__dirname, "editor.js"), "utf8");
-  assert.match(source, /const couplingKind = \$\("#couplingSiteRows"\)\.contains\(focused\) \? "site" : \$\("#couplingCorridorRows"\)\.contains\(focused\) \? "corridor" : "";/);
-  assert.match(source, /if \(focused\.isConnected \|\| document\.activeElement !== document\.body\) return;/);
-  assert.match(source, /focusCouplingRow\(couplingKind, couplingUndoFocusID\(ids\(before\), ids\(draft\(\)\), focused\.dataset\.couplingId\)\);/);
-});
-
 test("the lane class options show the classes that native allows on each project", () => {
   const config = connectedScenario();
   const lane = config.network.lanes[0].id;
   for (const project of [config, { ...config, orderContract: "express-v1" }]) {
     const state = editor.laneClassState(project, lane);
     assert.deepEqual(state.classes, ["legacy", "compact"]); assert.equal(state.disabled, false);
-    assert.match(state.hint, /no class list, so Legacy and Compact pods can use it/); assert.doesNotMatch(state.hint, /coupling/);
+    assert.match(state.hint, /no class list, so Legacy and Compact pods can use it/);
   }
   const classed = structuredClone(config);
-  classed.couplingContract = "compact-pair-v1"; classed.network.lanes[0].vehicleClasses = ["express", "compact"];
-  assert.deepEqual(editor.laneClassState(classed, lane), { classes: ["compact", "express"], disabled: false, hint: "A coupling site needs a straight guideway with Compact only." });
+  classed.network.lanes[0].vehicleClasses = ["express", "compact"];
+  assert.deepEqual(editor.laneClassState(classed, lane), { classes: ["compact", "express"], disabled: false, hint: "" });
   const source = fs.readFileSync(path.join(__dirname, "editor.js"), "utf8");
   for (const name of ["legacy", "compact", "group", "express"]) assert.match(source, new RegExp(`<input data-edit="lane-class" data-class="${name}" type="checkbox">`));
   assert.match(source, /queueGeometryEdit\(\{ action: "laneClasses", id, value \}, \{ controls: \[control\] \}\);/);
   assert.match(source, /box\.checked = classes\.classes\.includes\(box\.dataset\.class\); box\.disabled = classes\.disabled;/);
 });
 
-test("station queue spacing stays available with Express but without the coupling marker", () => {
+test("station queue spacing stays available with Express", () => {
   const html = fs.readFileSync(path.join(__dirname, "editor.html"), "utf8");
   assert.doesNotMatch(html, /stationQueueSpacingHint/);
   const source = fs.readFileSync(path.join(__dirname, "editor.js"), "utf8");

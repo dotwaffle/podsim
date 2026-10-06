@@ -238,50 +238,6 @@ func TestCouplingEditorBankEditsKeepVersion(t *testing.T) {
 	}
 }
 
-func TestCouplingEditorTrainOption(t *testing.T) {
-	t.Parallel()
-	config := couplingEditorConfig(t, false)
-	model := new(engine)
-	keys := synchronize(t, model, config)
-	sites, corridors := slices.Clone(model.branches["couplingSites"].raw), slices.Clone(model.branches["couplingCorridors"].raw)
-	for _, enabled := range []bool{false, true, false} {
-		result, err := model.handle(fmt.Sprintf(`{"op":"edit","edit":{"field":"couplingEnabled","value":%t}}`, enabled))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if !reflect.DeepEqual(result.Change.Patch, map[string]any{"couplingEnabled": enabled}) || result.Change.Flag != "" {
-			t.Fatalf("train option patch %v", result.Change.Patch)
-		}
-		patch, err := json.Marshal(result.Change.Patch)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err := model.sync(request{Keys: keys, Patch: patch}); err != nil {
-			t.Fatal(err)
-		}
-		if model.config.CouplingEnabled != enabled || model.config.CouplingContract != sim.CompactPairV1CouplingContract ||
-			!bytes.Equal(model.branches["couplingSites"].raw, sites) || !bytes.Equal(model.branches["couplingCorridors"].raw, corridors) {
-			t.Fatal("train option changed more than its flag", enabled)
-		}
-		if _, err := model.handle(`{"op":"validate"}`); err != nil {
-			t.Fatal(err)
-		}
-	}
-	draft := configDraft(t, config)
-	for _, value := range []string{`"false"`, `0`, `1`} {
-		if _, err := editProject(draft, jsontext.Value(`{"field":"couplingEnabled","value":`+value+`}`)); err == nil {
-			t.Fatal("train option accepted a non-Boolean value", value)
-		}
-	}
-	for _, version := range []float64{1, 2, 3, 4, 6} {
-		older := configDraft(t, project.Default())
-		older["version"] = version
-		if _, err := editProject(older, jsontext.Value(`{"field":"couplingEnabled","value":true}`)); err == nil {
-			t.Fatal("train option migrated an older project", version)
-		}
-	}
-}
-
 func TestCouplingEditorChecksFollowCouplingBranches(t *testing.T) {
 	t.Parallel()
 	const problem = "The train setting must be true or false."
