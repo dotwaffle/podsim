@@ -19,6 +19,14 @@ func (v *vehicle) inService() bool {
 	return v.withdrawn == 0
 }
 
+// outOfService reports whether v has a hold or an operational purpose.
+// Coupling discovery and adoption skip such a pod, and no coupling or
+// approach member is out of service (invariant E6 of the incident
+// emergency contract).
+func (v *vehicle) outOfService() bool {
+	return v.withdrawn != 0 || v.op.purpose != opService
+}
+
 // oneServiceHold reports whether hold is exactly one bit of
 // knownServiceHolds. A zero value, an unknown bit, and a mask of two holds
 // are not one hold.

@@ -6,6 +6,7 @@ import (
 	"maps"
 	"reflect"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -637,7 +638,8 @@ func TestWithdrawServiceSkipsPod(t *testing.T) {
 // TestServiceHoldRefusals checks each precondition of withdrawService and
 // restoreService (incident contract, sections 4.2 and 10). A refused call
 // returns an error and changes no pod, trip, owner, or counter, and the
-// state contract holds after it. The pod is a relocating pod with
+// state contract holds after it, except E6 for a coupling member with a
+// hold. The pod is a relocating pod with
 // destination claims. One trip is bound to the pod, one trip waits for the
 // pod to finish, and one trip names the pod in stale deferral metadata, so
 // a refused withdrawal that released a pickup would change a trip.
@@ -722,7 +724,14 @@ func TestServiceHoldRefusals(t *testing.T) {
 				t.Fatalf("the refused call changed the state, holds %d", v.withdrawn)
 			}
 			s.pass.active = false
-			if err := s.CheckContract(); err != nil {
+			// A coupling member with a hold breaks invariant E6 of the
+			// incident emergency contract. No operation makes such a
+			// member, but the restore refusals test one.
+			if err := s.CheckContract(); test.holds != 0 && test.coupling != nil {
+				if err == nil || !strings.HasPrefix(err.Error(), "E6: ") {
+					t.Fatalf("the coupling member with a hold passes E6: %v", err)
+				}
+			} else if err != nil {
 				t.Fatal(err)
 			}
 			if test.coupling == nil {
@@ -731,6 +740,9 @@ func TestServiceHoldRefusals(t *testing.T) {
 			// Control: the same call succeeds once the pod is no longer a
 			// coupling member.
 			v.couplingID, s.couplingApproaches = "", s.couplingApproaches[:approaches]
+			if err := s.CheckContract(); err != nil {
+				t.Fatalf("control: the state without the membership: %v", err)
+			}
 			if err := test.call(s, v); err != nil {
 				t.Fatalf("control: the call fails after the membership clears: %v", err)
 			}

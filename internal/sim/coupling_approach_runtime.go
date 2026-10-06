@@ -46,11 +46,13 @@ func (s *Simulation) discoverCouplingApproaches() {
 	slices.Sort(corridors)
 	for _, id := range ids {
 		front := s.findVehicle(id)
-		if front.couplingID != "" || s.couplingApproachMember(id) || front.follower <= 0 || front.follower > len(s.vehicles) {
+		// A pod with a hold or a purpose is inside an incident transition,
+		// which a train would hold until its retirement (Q7).
+		if front.couplingID != "" || s.couplingApproachMember(id) || front.outOfService() || front.follower <= 0 || front.follower > len(s.vehicles) {
 			continue
 		}
 		rear := &s.vehicles[front.follower-1]
-		if rear.couplingID != "" || s.couplingApproachMember(rear.Pod.ID) {
+		if rear.couplingID != "" || s.couplingApproachMember(rear.Pod.ID) || rear.outOfService() {
 			continue
 		}
 		// A pair with a faulted pod, or with a blocked lane on its
@@ -116,7 +118,11 @@ func (s *Simulation) prepareCouplingAdoption(a couplingApproachTransition, index
 	if err := s.checkCouplingCheckpointWork(members); err != nil {
 		return couplingNativeGroup{}, couplingMotionStep{}, err
 	}
-	input := a.context.formationInput(s, s.findVehicle(members[0]), s.findVehicle(members[1]))
+	front, rear := s.findVehicle(members[0]), s.findVehicle(members[1])
+	if front.outOfService() || rear.outOfService() {
+		return couplingNativeGroup{}, couplingMotionStep{}, couplingDenied("member is out of service")
+	}
+	input := a.context.formationInput(s, front, rear)
 	reservation, err := planCouplingReservation(input)
 	if err != nil {
 		return couplingNativeGroup{}, couplingMotionStep{}, err

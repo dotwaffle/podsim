@@ -185,6 +185,11 @@ func (c *couplingApproachContext) changed(s *Simulation, front, rear *vehicle, e
 	}
 	for i, v := range []*vehicle{front, rear} {
 		m := c.members[i]
+		// A member with a hold, a purpose, or a fault record is out of
+		// service, and the pair does not couple (Q7).
+		if v.withdrawn != 0 || v.op.purpose != opService || v.faulted {
+			return "approach member is out of service"
+		}
 		if v.Pod.Activity != Traveling || v.Pod.StationPhase != "" || v.Pod.ManeuverStationID != "" || s.compactGroup(v) != nil ||
 			v.routeVersion != m.routeVersion || !reflect.DeepEqual(v.Route, m.route) || !reflect.DeepEqual(couplingApproachCabin(v), m.cabin) ||
 			v.origin != m.origin || v.journeyOrigin != m.journeyOrigin || v.destination != m.destination || v.destinationStation != m.destinationID || v.riddenBase != m.riddenBase {
