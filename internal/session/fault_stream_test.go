@@ -268,6 +268,25 @@ func TestFaultFrameTypedRules(t *testing.T) {
 			t.Errorf("%s: the assembler accepts the frame", name)
 		}
 	}
+	// The full-frame encoder does not bound the vehicles, so the rule
+	// bounds the pod records: 300 encode, and 301 do not. The vehicles
+	// share one berth, which the encoder does not check.
+	for _, pods := range []int{project.MaxPods, project.MaxPods + 1} {
+		frame := next
+		simulation := &frame.State.Simulation
+		simulation.Vehicles = make([]VehicleFrame, pods)
+		simulation.Faults = sim.FaultsView{Active: make([]sim.FaultView, pods)}
+		for i := range pods {
+			vehicle := next.State.Simulation.Vehicles[0]
+			vehicle.Pod.ID = fmt.Sprintf("v%03d", i)
+			simulation.Vehicles[i] = vehicle
+			simulation.Faults.Active[i] = sim.FaultView{ID: fmt.Sprintf("i1.%d", i+1), Kind: sim.FaultKindPod, PodID: vehicle.Pod.ID, Phase: sim.FaultPhaseStopped, EvacuateTick: new(int64(0))}
+		}
+		full := StreamEnvelope{OrderContract: simulation.OrderContract, Kind: "full", Stream: "incident", Sequence: 1, Build: frame.State.Build, Source: sourceOf(frame), Full: &frame}
+		if _, err := EncodeStreamJSON(full); (err == nil) != (pods <= project.MaxPods) {
+			t.Errorf("%d pod records: %v", pods, err)
+		}
+	}
 	for name, blocked := range map[string]string{"cleared fault": "i9.9", "unknown pod": "nobody"} {
 		frame := ownStreamBoardings(next)
 		frame.State.Simulation.Vehicles[1].Pod.BlockedBy = blocked

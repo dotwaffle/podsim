@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
@@ -214,10 +215,13 @@ func checkFaultFrame(frame SimulationFrame) error {
 			return fmt.Errorf("fault %s: %w", fault.ID, err)
 		}
 	}
-	// Each pod record names another vehicle of the frame, and ApplyStream
-	// bounds the vehicles, so the pod records are within project.MaxPods.
-	if debris > maxDebrisRecords {
+	// ApplyStream bounds the vehicles, and so the pod records, but the
+	// encoders of a typed frame do not.
+	switch {
+	case debris > maxDebrisRecords:
 		return errors.New("too many debris records")
+	case len(pods) > project.MaxPods:
+		return errors.New("too many pod records")
 	}
 	return nil
 }
