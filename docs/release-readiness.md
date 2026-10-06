@@ -80,7 +80,7 @@ In the CI split qualification of the measurement record, the 80 MiB guard reject
 This update did not measure those sizes again.
 Only this serial shape proof excludes race instrumentation in its package.
 The `test:embedded` task runs the root and `cmd/serve` suites with embedded assets.
-In the session package it runs only the worst-case save size test, three widest Express adapter tests, the packed text wire cost test, the maximum stream encoding test, the composed worst-case format proof, and the save cap test.
+In the session package it runs only the worst-case save size test, three widest Express adapter tests, the packed text wire cost test, the maximum stream encoding test, the composed worst-case format proof, the save cap test, the encode and decode cap tests at their callers, and the topology preflight test at its callers.
 Bounded application tests and concurrency controls remain under the four race tasks.
 `TestComposedWorstCaseFormats` skips under the race detector.
 The `43e1361` source added it to the `test:embedded` pattern, so the `check:static` job of the pinned source runs it.
@@ -112,7 +112,7 @@ Each saved state with the earlier names has a version before 9, so the server mo
 The editor refuses a project file with the earlier names.
 
 The [composed worst-case record](measurements/composed-worst-case-formats.json) measures one fixture for each shape and format.
-Its latest change is in `f0b7b24`.
+Its latest change is in `7e4c5ee`, which removed the coupling shapes and kept the plain and Express measurements.
 Each fixture has every landed member at its widest at the same time.
 The values are independent maxima, not reachable states.
 Every fixture fits its cap.

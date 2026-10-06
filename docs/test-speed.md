@@ -62,10 +62,10 @@ The `qualify` task ran the full scenario suite without the race detector.
 The `test:race` task still runs every test.
 The `qualify` task now runs only the two Station 19 drain tests and the two emergency choice latency tests of `internal/sim`, which skip under the race detector.
 The `test:embedded` task runs the full root and `cmd/serve` suites with the tag.
-In the session package, it runs only the four maximum codec tests, `TestPackedTextWireCost`, `TestComposedWorstCaseFormats`, `TestSaveCapRejectsAtomically`, and `TestStreamMaximumEncoding`.
-The first seven tests skip under the race detector.
+In the session package, it runs only the four maximum codec tests, `TestPackedTextWireCost`, `TestComposedWorstCaseFormats`, `TestSaveCapRejectsAtomically`, `TestDecodeCapsAtCallers`, `TestEncodeCapsAtCallers`, `TestTopologyPreflightAtCallers`, and `TestStreamMaximumEncoding`.
+The first ten tests skip under the race detector.
 `TestStreamMaximumEncoding` does its bounded-scan checks only without the race detector.
-All eight tests skip under `-short`.
+All eleven tests skip under `-short`.
 Until October 6, no CI task ran the save cap test (then `TestCouplingSaveCapRejectsAtomically`), because the pattern did not include it.
 A new test that skips under the race detector must be added to the `-run` pattern of one of these tasks.
 A pattern that matches no test passes.

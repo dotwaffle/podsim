@@ -3,7 +3,7 @@
 This record compares virtual platoons with coupled trains on throughput and travel time.
 The maintainer used it on October 6, 2026, to stop coupling work and to ask for a removal plan.
 Physical coupling was removed on October 6, 2026.
-The code, tests, and contract that this record names no longer exist.
+The physical coupling code, its tests, and its contract that this record names no longer exist.
 This record stays as the reason for the removal.
 
 ## Setup

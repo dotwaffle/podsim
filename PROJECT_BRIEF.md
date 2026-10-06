@@ -737,7 +737,6 @@ Decisions (user, 2026-10-04, later):
 - Riders leave the stopped pod after 300 simulated seconds by default.
   A scenario can set another delay.
 - A fault can occur anywhere.
-  In a physical train, both cabins stop and their riders leave.
   At a station berth, the berth is blocked.
   In a station entry queue, the pods behind it reverse or change route.
 - The feature is off by default.
