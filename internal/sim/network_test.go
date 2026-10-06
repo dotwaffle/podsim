@@ -571,3 +571,70 @@ type nearestWithinInput struct {
 	// The cost of a goal is then the route cost from the goal to from.
 	reverse bool
 }
+
+// TestNetworkValidateRefusalOrder pins the error that a network with two
+// faults gets. Network.validate checks the nodes, the lanes, each station
+// with its berths, the lane stations, the banks, and then the station
+// routes. Each case breaks two adjacent checks, and the earlier check gives
+// the refusal.
+func TestNetworkValidateRefusalOrder(t *testing.T) {
+	t.Parallel()
+	laneIndex := func(n Network, id string) int {
+		return slices.IndexFunc(n.Lanes, func(lane Lane) bool { return lane.ID == id })
+	}
+	if laneIndex(Example(), "harbor-through") < 0 || laneIndex(BankExample(), "origin-through") < 0 {
+		t.Fatal("the fixtures do not have the lanes that the cases change")
+	}
+	breakBanks := func(n *Network) { n.Stations[1].Banks = []StationBank{} }
+	deleteLane := func(n *Network, id string) {
+		i := laneIndex(*n, id)
+		n.Lanes = slices.Delete(n.Lanes, i, i+1)
+	}
+	for _, test := range []struct {
+		name string
+		base func() Network
+		edit func(*Network)
+		want string
+	}{
+		{"node_before_lane", Example, func(n *Network) {
+			n.Nodes[1].ID = n.Nodes[0].ID
+			n.Lanes[1].ID = n.Lanes[0].ID
+		}, fmt.Sprintf("invalid or duplicate node %q", Example().Nodes[0].ID)},
+		{"lane_before_station", Example, func(n *Network) {
+			n.Lanes[1].ID = n.Lanes[0].ID
+			n.Stations[1].ID = n.Stations[0].ID
+		}, fmt.Sprintf("invalid or duplicate lane %q", Example().Lanes[0].ID)},
+		{"station_before_its_berth", Example, func(n *Network) {
+			n.Stations[0].Entry = n.Stations[0].Exit
+			n.Stations[0].Berths[0].ID = ""
+		}, `station "harbor" needs valid entry, exit, and berth capacity`},
+		{"berth_before_next_station", Example, func(n *Network) {
+			n.Stations[0].Berths[0].ID = ""
+			n.Stations[1].Entry = n.Stations[1].Exit
+		}, `station "harbor" has an invalid or duplicate berth`},
+		{"station_before_lane_station", Example, func(n *Network) {
+			n.Stations[1].ID = n.Stations[0].ID
+			n.Lanes[laneIndex(*n, "harbor-through")].StationID = "missing"
+		}, `station "harbor" needs valid entry, exit, and berth capacity`},
+		{"lane_station_before_banks", BankExample, func(n *Network) {
+			n.Lanes[laneIndex(*n, "origin-through")].StationID = "missing"
+			breakBanks(n)
+		}, `lane "origin-through" has unknown station "missing"`},
+		{"banks_before_routes", BankExample, func(n *Network) {
+			breakBanks(n)
+			deleteLane(n, "origin-through")
+		}, fmt.Sprintf("station %q needs 1 to %d banks", "hub", MaxStationBanks)},
+		{"routes", BankExample, func(n *Network) {
+			deleteLane(n, "origin-through")
+		}, `station "origin" needs entry, exit, and through lanes`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			n := test.base().clone()
+			test.edit(&n)
+			if err := n.validate(); err == nil || err.Error() != test.want {
+				t.Fatalf("got %v, want %q", err, test.want)
+			}
+		})
+	}
+}

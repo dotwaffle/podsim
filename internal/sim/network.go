@@ -458,70 +458,144 @@ func routeQueueLess(a, b routeQueueItem) bool {
 	return a.distance < b.distance
 }
 
+// validate checks the network in a fixed order: the nodes, the lanes, each
+// station with its berths, the stations of the lanes, the station banks,
+// and then the routes through each station with no banks. The first error
+// is the refusal, so the order is part of the result.
 func (n Network) validate() error {
+	nodes, err := n.validateNodes()
+	if err != nil {
+		return err
+	}
+	if err := n.validateLaneFields(nodes); err != nil {
+		return err
+	}
+	stations := make(map[string]bool)
+	if err := n.validateStationFields(nodes, stations); err != nil {
+		return err
+	}
+	if err := n.validateLaneStations(stations); err != nil {
+		return err
+	}
+	graph := newRouteGraph(n)
+	if graph.banks.err != nil {
+		return graph.banks.err
+	}
+	return n.validateStationRoutes(graph)
+}
+
+// validateNodes checks that each node has a unique ID and a finite
+// position. It returns the position of each node.
+func (n Network) validateNodes() (map[string]Point, error) {
 	nodes := make(map[string]Point)
 	for _, node := range n.Nodes {
 		if _, exists := nodes[node.ID]; node.ID == "" || exists || !finite(node.Position.X) || !finite(node.Position.Y) {
-			return fmt.Errorf("invalid or duplicate node %q", node.ID)
+			return nil, fmt.Errorf("invalid or duplicate node %q", node.ID)
 		}
 		nodes[node.ID] = node.Position
 	}
+	return nodes, nil
+}
+
+// validateLaneFields checks that each lane has a unique ID and valid
+// fields.
+func (n Network) validateLaneFields(nodes map[string]Point) error {
 	lanes := make(map[string]bool)
 	for _, lane := range n.Lanes {
-		from, fromOK := nodes[lane.From]
-		to, toOK := nodes[lane.To]
-		length := indexedLaneLength(lane, from, to)
-		if lane.VehicleClasses & ^allClassBits != 0 || lane.ID == "" || lanes[lane.ID] || !fromOK || !toOK ||
-			!finite(lane.SpeedLimit) || lane.SpeedLimit <= 0 || length <= 0 || !finite(length) ||
-			!validStationLaneRole(lane.StationRole) || (lane.StationID == "") != (lane.StationRole == "") {
+		if lanes[lane.ID] || invalidLane(lane, nodes) {
 			return fmt.Errorf("invalid or duplicate lane %q", lane.ID)
 		}
 		lanes[lane.ID] = true
 	}
-	stations, berths, berthNodes := make(map[string]bool), make(map[string]bool), make(map[string]bool)
+	return nil
+}
+
+// invalidLane reports whether a lane has unknown vehicle classes, no ID,
+// an unknown end node, an invalid speed limit or length, or an invalid
+// station role.
+func invalidLane(lane Lane, nodes map[string]Point) bool {
+	from, fromOK := nodes[lane.From]
+	to, toOK := nodes[lane.To]
+	length := indexedLaneLength(lane, from, to)
+	return lane.VehicleClasses & ^allClassBits != 0 || lane.ID == "" || !fromOK || !toOK ||
+		!finite(lane.SpeedLimit) || lane.SpeedLimit <= 0 || length <= 0 || !finite(length) ||
+		!validStationLaneRole(lane.StationRole) || (lane.StationID == "") != (lane.StationRole == "")
+}
+
+// validateStationFields checks each station and then its berths, in
+// station order. Station IDs, berth IDs and berth nodes are unique. It adds
+// the ID of each valid station to stations.
+func (n Network) validateStationFields(nodes map[string]Point, stations map[string]bool) error {
+	berths, berthNodes := make(map[string]bool), make(map[string]bool)
 	for _, station := range n.Stations {
-		_, entryOK := nodes[station.Entry]
-		_, exitOK := nodes[station.Exit]
-		if station.VehicleClasses & ^allClassBits != 0 || station.ID == "" || stations[station.ID] || !entryOK || !exitOK || station.Entry == station.Exit || len(station.Berths) == 0 {
+		if stations[station.ID] || invalidStation(station, nodes) {
 			return fmt.Errorf("station %q needs valid entry, exit, and berth capacity", station.ID)
 		}
 		stations[station.ID] = true
 		for _, berth := range station.Berths {
-			_, nodeOK := nodes[berth.Node]
-			if berth.VehicleClasses & ^allClassBits != 0 || berth.ID == "" || berths[berth.ID] || berthNodes[berth.Node] || !nodeOK || berth.Node == station.Entry || berth.Node == station.Exit {
+			if berths[berth.ID] || berthNodes[berth.Node] || invalidBerth(berth, station, nodes) {
 				return fmt.Errorf("station %q has an invalid or duplicate berth", station.ID)
 			}
 			berths[berth.ID] = true
 			berthNodes[berth.Node] = true
 		}
 	}
+	return nil
+}
+
+// invalidStation reports whether a station has unknown vehicle classes, no
+// ID, an unknown or shared entry and exit, or no berths.
+func invalidStation(station Station, nodes map[string]Point) bool {
+	_, entryOK := nodes[station.Entry]
+	_, exitOK := nodes[station.Exit]
+	return station.VehicleClasses & ^allClassBits != 0 || station.ID == "" || !entryOK || !exitOK || station.Entry == station.Exit || len(station.Berths) == 0
+}
+
+// invalidBerth reports whether a berth has unknown vehicle classes, no ID,
+// or an unknown node, or uses the entry or exit of its station.
+func invalidBerth(berth Berth, station Station, nodes map[string]Point) bool {
+	_, nodeOK := nodes[berth.Node]
+	return berth.VehicleClasses & ^allClassBits != 0 || berth.ID == "" || !nodeOK || berth.Node == station.Entry || berth.Node == station.Exit
+}
+
+// validateLaneStations checks that the station of each lane is known.
+func (n Network) validateLaneStations(stations map[string]bool) error {
 	for _, lane := range n.Lanes {
 		if lane.StationID != "" && !stations[lane.StationID] {
 			return fmt.Errorf("lane %q has unknown station %q", lane.ID, lane.StationID)
 		}
 	}
-	graph := newRouteGraph(n)
-	if graph.banks.err != nil {
-		return graph.banks.err
-	}
+	return nil
+}
+
+// validateStationRoutes checks each station with no banks. The station
+// needs a through lane from its entry to its exit, and a route from its
+// entry to each berth and from each berth to its exit.
+func (n Network) validateStationRoutes(graph routeGraph) error {
 	forbidden := n.stationForbidden()
 	for _, station := range n.Stations {
-		if station.Banks != nil {
-			continue
-		}
-		if !n.connected(station.Entry, station.Exit) {
+		if station.Banks == nil && !n.stationRoutesExist(station, forbidden, graph) {
 			return fmt.Errorf("station %q needs entry, exit, and through lanes", station.ID)
-		}
-		for _, berth := range station.Berths {
-			if _, err := n.routeIndexed(networkRouteInput{class: topologyClass, from: station.Entry, to: berth.Node, forbidden: forbidden}, graph); err != nil {
-				return fmt.Errorf("station %q needs entry, exit, and through lanes", station.ID)
-			}
-			if _, err := n.routeIndexed(networkRouteInput{class: topologyClass, from: berth.Node, to: station.Exit, forbidden: forbidden}, graph); err != nil {
-				return fmt.Errorf("station %q needs entry, exit, and through lanes", station.ID)
-			}
 		}
 	}
 	return nil
+}
+
+// stationRoutesExist reports whether a station has its through lane and
+// the routes to and from each berth, in berth order.
+func (n Network) stationRoutesExist(station Station, forbidden map[string]bool, graph routeGraph) bool {
+	if !n.connected(station.Entry, station.Exit) {
+		return false
+	}
+	for _, berth := range station.Berths {
+		if _, err := n.routeIndexed(networkRouteInput{class: topologyClass, from: station.Entry, to: berth.Node, forbidden: forbidden}, graph); err != nil {
+			return false
+		}
+		if _, err := n.routeIndexed(networkRouteInput{class: topologyClass, from: berth.Node, to: station.Exit, forbidden: forbidden}, graph); err != nil {
+			return false
+		}
+	}
+	return true
 }
 
 func (n Network) stationForbidden() map[string]bool {
