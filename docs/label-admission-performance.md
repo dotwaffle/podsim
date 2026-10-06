@@ -61,8 +61,7 @@ Independent review finds no correctness or measurement blocker.
 The full plain suite and sim/session/view/statestore race suites pass.
 Vet, lint, fresh gopls, and native/WASM builds pass.
 
-[Native samples](measurements/label-admission-native.csv) and [Chrome samples](measurements/label-admission-chrome.csv) retain every measurement.
-[Metadata](measurements/label-admission.json) records frozen binary, helper, production, test, and raw-result hashes.
+The raw measurement data is in git history.
 The threshold tests were added after the performance binaries were frozen.
 Production code remains identical to the measured candidate.
-The [earlier cache report](label-measure-cache-performance.md) records the original admission behavior and its browser measurements.
+An earlier label measure cache study is in git history.

@@ -63,7 +63,7 @@ They do not establish live playback speed or a capacity improvement.
 The [live follow-up](docs/admission-live-performance.md) sustains approximately 60x with GC 100 and 400 in short one-client runs.
 The [finishing-pod bounds](docs/finishing-pod-bounds-performance.md) reduce Full CPU use by about 14% in short matched live runs.
 The server retains GOGC 100 and the comparison command retains 400.
-The [journey page cache](docs/journey-page-cache-performance.md) and [label cache](docs/label-measure-cache-performance.md) lower measured page script time.
+The [journey page cache](docs/journey-page-cache-performance.md) and the label cache lower measured page script time.
 Total software-rendered browser CPU changes little.
 The [label admission follow-up](docs/label-admission-performance.md) avoids repeated cache clears when visible labels exceed capacity.
 The [publisher timer](docs/publisher-cadence-performance.md) restores measured delivery toward 20 Hz at higher CPU and traffic cost.
