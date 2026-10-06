@@ -697,7 +697,9 @@ For each visited pod, the pass calls `rerouteToEndpoint(v)`.
 A skipped platoon or compact member waits behind the blocked set, and stage 6 adds its reroute.
 A skipped coupling or approach member waits behind a faulted pod as it waits behind any stopped pod, and stage 4 adds its reroute.
 Debris never meets its claims or its remaining route, by precondition 9 of section 7.3.
-The cost of a pass is at most one route search for each visited pod.
+The cost of a pass is one endpoint evaluation for each visited pod.
+Each evaluation runs a bounded number of searches: the free-flow, policy, bank, and detour searches.
+Pickup access can also evaluate an endpoint between passes.
 
 ### 9.3 Endpoint reroute
 
@@ -1126,7 +1128,7 @@ The full metric set is product choice P8 and lands in stage 7.
 
 ### 12.6 Game control
 
-The pod inspector (`internal/view/game.go:1753`) gets one button when the topology has the fault marker:
+The pod inspector (`internal/view/fault.go`) gets one button when the topology has the fault marker:
 
 - "Fault" on a pod with no fault, sending `fault` with the pod ID and no duration.
 - "Clear fault" on a faulted pod, sending `clearFault` with its fault ID from the `faults` group.
