@@ -107,6 +107,7 @@ These are station-wide sensitivity trials, not isolated tests of following gaps.
 
 The observer samples incoming berth claims once per simulated second.
 The table excludes right-censored episodes from duration statistics.
+Grant examples keep only the first 30 events, so they can omit later grants; aggregate counters are complete.
 
 | Speed, m/s | Buffers | Completed | Unfinished | Completed claim episodes | Censored episodes | Mean claim, seconds | Claim P95, seconds | Buffer grants |
 | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -142,10 +143,14 @@ Each station has two passenger berths.
 Both seeds offer 239 outbound parties during a 20-minute arrival window, with a 90-minute run cap.
 Steady arrivals occur every five seconds.
 Burst arrivals deliver 120 parties at five seconds and 119 parties at 605 seconds.
-The queue limit is one million, sharing, reassignment, and redistribution are off, and virtual platoons allow four pods.
-All 32 cells pass the per-second safety, speed, and conservation checks and the physical restores.
+The 32 cells vary station, seed, buffers, queue limit, and burst size independently.
+The queue limit is the live limit of 200 pending requests or the study limit of one million.
+Sharing, reassignment, and redistribution are off, and virtual platoons allow four pods.
+All 32 cells pass the safety, speed, and conservation checks once per simulated second.
+Each passes physical restores at 600 and 1,200 seconds, each followed by a 60-second continuation without new buffer admissions.
 
 All unlimited-queue cells serve all 239 parties and drain within the cap.
+The table compares unlimited-queue burst cells with identical accepted requests.
 Times use simulated seconds.
 
 | Station | Seed | Buffers | Mean pickup wait | P95 pickup wait | Run ends |

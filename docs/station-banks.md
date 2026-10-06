@@ -71,6 +71,7 @@ Geometry changes start a new stream chain and send the full network.
 
 This fixture does not change any default layout or controller setting.
 Independent gates do not establish a service improvement.
-Diagnosis of the heavy workload shows that 77% to 79% of sampled pickup wait is requests without an eligible assigned pod.
+A diagnosis of the earlier Rail Hub workload (24 passengers for each event, 288 offers) shows that 77% to 79% of sampled pending request time has no eligible pod selected.
 The earlier two-bank failures came from an unconnected road and a bank near-crossing.
-The matched heavy-workload screen completes 725 journeys against 729 for the baseline and raises pickup p95, so defaults stay unchanged.
+A matched screen on the heavy Rail Hub workload (120 passengers for each event, 1,440 offers for each seed) completes 725 journeys against 729 for the baseline, summed over two seeds.
+Pickup p95 increases in both seeds, so defaults stay unchanged.
