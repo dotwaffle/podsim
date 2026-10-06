@@ -349,109 +349,161 @@ func RestoreState(input RestoreStateInput) (*Simulation, RestoreResult, error) {
 	})
 }
 
+// restoreInputChecks are the checks of the restore input that run before
+// either restore tier. The first error is the refusal, so the order is part
+// of the result.
+var restoreInputChecks = [...]func(RestoreStateInput) error{
+	checkRestoreOrderContract,
+	checkCouplingRestoreInput,
+	checkRestoreIncidentFields,
+	checkExpressSavedState,
+	checkContractRestoreSemantics,
+	checkSavedServiceLimits,
+	checkLargeLinkFields,
+	checkBoardingFields,
+	checkOperationalFields,
+	checkSavedFaults,
+	checkSavedEmergencies,
+	checkSavedServices,
+	checkSavedBankRoutes,
+	checkCompactFields,
+	checkBufferLinkFields,
+}
+
 func restoreState(input RestoreStateInput, newFleet func() (*Simulation, error)) (*Simulation, RestoreResult, error) {
-	if err := ValidateOrderContract(input.OrderContract); err != nil {
-		return nil, RestoreResult{}, err
-	}
-	if input.OrderContract != input.State.OrderContract {
-		return nil, RestoreResult{}, errors.New("saved and input order contracts differ")
-	}
-	if err := checkCouplingRestoreInput(input); err != nil {
-		return nil, RestoreResult{}, err
-	}
-	if err := ValidateIncidentContract(input.IncidentContract); err != nil {
-		return nil, RestoreResult{}, err
-	}
-	if input.IncidentContract == "" && input.State.IncidentSerial != 0 {
-		return nil, RestoreResult{}, errors.New("saved incident serial needs the incident contract")
-	}
-	if input.IncidentContract == "" && (input.State.Interrupted != 0 || input.State.InterruptedPassengers != 0) {
-		return nil, RestoreResult{}, errors.New("saved interrupted orders need the incident contract")
-	}
-	if input.OrderContract == ExpressOrderContract {
-		if _, err := validateSavedState(input.State); err != nil {
-			return nil, RestoreResult{}, err
-		}
-	}
-	if err := checkContractRestoreSemantics(input); err != nil {
-		return nil, RestoreResult{}, err
-	}
-	if err := checkSavedServiceLimits(input); err != nil {
-		return nil, RestoreResult{}, err
-	}
-	if err := checkLargeLinkFields(input); err != nil {
-		return nil, RestoreResult{}, err
-	}
-	if err := checkBoardingFields(input); err != nil {
-		return nil, RestoreResult{}, err
-	}
-	if err := checkOperationalFields(input); err != nil {
-		return nil, RestoreResult{}, err
-	}
-	if err := checkSavedFaults(input); err != nil {
-		return nil, RestoreResult{}, err
-	}
-	if err := checkSavedEmergencies(input); err != nil {
-		return nil, RestoreResult{}, err
-	}
-	registry, serviceErr := validatedExpressServices(input.Network, newRouteGraph(input.Network), input.ExpressServices)
-	if serviceErr != nil {
-		return nil, RestoreResult{}, serviceErr
-	}
-	for _, trip := range input.State.Waiting {
-		if err := serviceMatches(registry, Request(trip.Request).options()); err != nil {
-			return nil, RestoreResult{}, err
-		}
-	}
-	for _, pod := range input.State.Pods {
-		for _, rider := range pod.Riders {
-			if err := serviceMatches(registry, Request(rider).options()); err != nil {
-				return nil, RestoreResult{}, err
-			}
-		}
-	}
-	if err := checkSavedBankRoutes(input); err != nil {
-		return nil, RestoreResult{}, err
-	}
-	if err := checkCompactFields(input); err != nil {
-		return nil, RestoreResult{}, err
-	}
-	if err := checkBufferLinkFields(input); err != nil {
-		return nil, RestoreResult{}, err
-	}
-	if err := checkSavedFaultFootprints(input, newFleet); err != nil {
+	if err := checkRestoreInput(input, newFleet); err != nil {
 		return nil, RestoreResult{}, err
 	}
 	var physicalErr error
 	bufferCertificate := hasBufferCertificate(input.State)
 	if !input.LogicalOnly || bufferCertificate {
-		s, result, err := restorePhysical(input, newFleet)
-		if err == nil && bufferCertificate {
-			err = checkRestoredBufferMembers(input.State, result)
-		}
-		if err == nil && input.LogicalOnly && hasCompactCertificate(input.State) {
-			err = errors.New("compact certificate cannot preserve physical recovery in a logical-only conversion")
-		}
+		s, result, err := restorePhysicalTier(input, newFleet, bufferCertificate)
 		if err == nil && !input.LogicalOnly {
-			if len(input.State.CouplingGroups) != 0 {
-				if strictErr := checkCouplingRestoreResult(result); strictErr != nil {
-					return nil, RestoreResult{}, strictErr
-				}
-			}
-			return s, result, nil
+			return acceptPhysicalRestore(input.State, s, result)
+		}
+		if refusal := physicalTierRefusal(input.State, bufferCertificate, err); refusal != nil {
+			return nil, RestoreResult{PhysicalError: refusal}, refusal
 		}
 		physicalErr = err
-		if errors.Is(err, errInvalidFaults) {
-			return nil, RestoreResult{PhysicalError: err}, err
-		}
-		if err != nil && len(input.State.CouplingGroups) != 0 {
-			return nil, RestoreResult{PhysicalError: err}, err
-		}
-		if err != nil && bufferCertificate {
-			err = fmt.Errorf("%w: %w", errBufferCertificate, err)
-			return nil, RestoreResult{PhysicalError: err}, err
+	}
+	return restoreLogicalTier(input, newFleet, physicalErr)
+}
+
+// checkRestoreInput runs the restore input checks in order, and then checks
+// the footprints of the saved faults on a new fleet.
+func checkRestoreInput(input RestoreStateInput, newFleet func() (*Simulation, error)) error {
+	for _, check := range restoreInputChecks {
+		if err := check(input); err != nil {
+			return err
 		}
 	}
+	return checkSavedFaultFootprints(input, newFleet)
+}
+
+// checkRestoreOrderContract checks the input order contract, and that the
+// saved state has the same contract.
+func checkRestoreOrderContract(input RestoreStateInput) error {
+	if err := ValidateOrderContract(input.OrderContract); err != nil {
+		return err
+	}
+	if input.OrderContract != input.State.OrderContract {
+		return errors.New("saved and input order contracts differ")
+	}
+	return nil
+}
+
+// checkRestoreIncidentFields checks the incident contract. A saved incident
+// serial and saved interrupted orders need the contract.
+func checkRestoreIncidentFields(input RestoreStateInput) error {
+	if err := ValidateIncidentContract(input.IncidentContract); err != nil {
+		return err
+	}
+	if input.IncidentContract == "" && input.State.IncidentSerial != 0 {
+		return errors.New("saved incident serial needs the incident contract")
+	}
+	if input.IncidentContract == "" && (input.State.Interrupted != 0 || input.State.InterruptedPassengers != 0) {
+		return errors.New("saved interrupted orders need the incident contract")
+	}
+	return nil
+}
+
+// checkExpressSavedState validates the saved state under the express order
+// contract.
+func checkExpressSavedState(input RestoreStateInput) error {
+	if input.OrderContract != ExpressOrderContract {
+		return nil
+	}
+	_, err := validateSavedState(input.State)
+	return err
+}
+
+// checkSavedServices checks the express services of the input, and that the
+// options of each waiting trip and then each rider match them.
+func checkSavedServices(input RestoreStateInput) error {
+	registry, err := validatedExpressServices(input.Network, newRouteGraph(input.Network), input.ExpressServices)
+	if err != nil {
+		return err
+	}
+	for _, trip := range input.State.Waiting {
+		if err := serviceMatches(registry, Request(trip.Request).options()); err != nil {
+			return err
+		}
+	}
+	for _, pod := range input.State.Pods {
+		for _, rider := range pod.Riders {
+			if err := serviceMatches(registry, Request(rider).options()); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// restorePhysicalTier runs the physical tier. A buffer certificate also
+// needs its restored members, and a logical-only conversion cannot keep a
+// compact certificate.
+func restorePhysicalTier(input RestoreStateInput, newFleet func() (*Simulation, error), bufferCertificate bool) (*Simulation, RestoreResult, error) {
+	s, result, err := restorePhysical(input, newFleet)
+	if err == nil && bufferCertificate {
+		err = checkRestoredBufferMembers(input.State, result)
+	}
+	if err == nil && input.LogicalOnly && hasCompactCertificate(input.State) {
+		err = errors.New("compact certificate cannot preserve physical recovery in a logical-only conversion")
+	}
+	return s, result, err
+}
+
+// acceptPhysicalRestore returns a physical restore. Saved coupling groups
+// also need the strict coupling result.
+func acceptPhysicalRestore(state SavedState, s *Simulation, result RestoreResult) (*Simulation, RestoreResult, error) {
+	if len(state.CouplingGroups) != 0 {
+		if err := checkCouplingRestoreResult(result); err != nil {
+			return nil, RestoreResult{}, err
+		}
+	}
+	return s, result, nil
+}
+
+// physicalTierRefusal returns the error that ends the restore after the
+// physical tier fails, or nil when the logical tier can run. Invalid faults,
+// coupling groups, and buffer certificates have no logical fallback.
+func physicalTierRefusal(state SavedState, bufferCertificate bool, err error) error {
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, errInvalidFaults):
+		return err
+	case len(state.CouplingGroups) != 0:
+		return err
+	case bufferCertificate:
+		return fmt.Errorf("%w: %w", errBufferCertificate, err)
+	}
+	return nil
+}
+
+// restoreLogicalTier runs the logical tier. When it fails, the error wraps
+// the error of each tier that the restore tried.
+func restoreLogicalTier(input RestoreStateInput, newFleet func() (*Simulation, error), physicalErr error) (*Simulation, RestoreResult, error) {
 	s, result, err := restoreLogical(input, newFleet)
 	switch {
 	case err == nil:

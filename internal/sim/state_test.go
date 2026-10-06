@@ -4,12 +4,15 @@ import (
 	"bytes"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"errors"
 	"flag"
 	"maps"
 	"math"
 	"os"
 	"reflect"
+	"runtime"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -209,6 +212,87 @@ func TestRestorePhysicalDemo(t *testing.T) {
 	// from Market to Garden already has 9 lanes, which is half the trip limit.
 	work.check(t, Example(), 0.6)
 	t.Logf("restores=%d trimmed=%d ticks=%d", restores, trimmed, live.tick)
+}
+
+// TestRestoreStateRefusalOrder pins the error that an invalid save gets.
+// The checks before the tiers refuse the order contract before the incident
+// fields, and the incident serial before the interrupted orders. An error
+// of both tiers names each tier that the restore tried. A logical-only
+// conversion of a compact certificate fails as a buffer certificate, with
+// no logical fallback.
+func TestRestoreStateRefusalOrder(t *testing.T) {
+	t.Parallel()
+	const counter = "a saved counter is negative or not finite"
+	base := RestoreStateInput{Network: Example(), Fleet: demoFleet(), State: newTraffic(t).ExportState()}
+	for _, test := range []struct {
+		name     string
+		edit     func(*RestoreStateInput)
+		want     string
+		physical bool
+	}{
+		{"order_before_incident", func(in *RestoreStateInput) {
+			in.State.OrderContract, in.State.IncidentSerial = ExpressOrderContract, 1
+		}, "saved and input order contracts differ", false},
+		{"serial_before_interrupted", func(in *RestoreStateInput) {
+			in.State.IncidentSerial, in.State.Interrupted = 1, 1
+		}, "saved incident serial needs the incident contract", false},
+		{"interrupted", func(in *RestoreStateInput) { in.State.InterruptedPassengers = 1 }, "saved interrupted orders need the incident contract", false},
+		{"both_tiers", func(in *RestoreStateInput) { in.State.Tick = -1 },
+			"restore the saved simulation: physical tier: " + counter + ", logical tier: " + counter, true},
+		{"logical_only", func(in *RestoreStateInput) { in.State.Tick, in.LogicalOnly = -1, true },
+			"restore the saved simulation: logical tier: " + counter, false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			in := base
+			test.edit(&in)
+			s, result, err := RestoreState(in)
+			if s != nil || err == nil || err.Error() != test.want || (result.PhysicalError != nil) != test.physical {
+				t.Fatalf("got %v, physical error %v, want %q", err, result.PhysicalError, test.want)
+			}
+		})
+	}
+	t.Run("compact_logical_only", func(t *testing.T) {
+		t.Parallel()
+		s := compactStateFixture(t)
+		in := RestoreStateInput{Network: s.network, Fleet: s.initial, State: s.ExportState(), StationQueueSpacing: StationQueueCompactV1,
+			PlatoonLimit: s.platoonLimit, LogicalOnly: true}
+		restored, result, err := RestoreState(in)
+		want := "invalid fixed buffer certificate: compact certificate cannot preserve physical recovery in a logical-only conversion"
+		if restored != nil || !errors.Is(err, errBufferCertificate) || err.Error() != want || result.PhysicalError == nil || result.PhysicalError.Error() != want {
+			t.Fatalf("got %v, physical error %v, want %q", err, result.PhysicalError, want)
+		}
+	})
+}
+
+// TestRestoreInputCheckOrder pins the order of the restore input checks.
+// The first check that fails gives the refusal.
+func TestRestoreInputCheckOrder(t *testing.T) {
+	t.Parallel()
+	want := []string{
+		"checkRestoreOrderContract",
+		"checkCouplingRestoreInput",
+		"checkRestoreIncidentFields",
+		"checkExpressSavedState",
+		"checkContractRestoreSemantics",
+		"checkSavedServiceLimits",
+		"checkLargeLinkFields",
+		"checkBoardingFields",
+		"checkOperationalFields",
+		"checkSavedFaults",
+		"checkSavedEmergencies",
+		"checkSavedServices",
+		"checkSavedBankRoutes",
+		"checkCompactFields",
+		"checkBufferLinkFields",
+	}
+	var got []string
+	for _, check := range restoreInputChecks {
+		name := runtime.FuncForPC(reflect.ValueOf(check).Pointer()).Name()
+		got = append(got, name[strings.LastIndex(name, ".")+1:])
+	}
+	if !slices.Equal(got, want) {
+		t.Fatalf("restore input checks are %v, want %v", got, want)
+	}
 }
 
 // TestExportStateLimitsRoutes saves live routes at and over their limits, and
