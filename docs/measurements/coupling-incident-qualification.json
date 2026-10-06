@@ -559,7 +559,7 @@
     },
     {
       "id": "discovery-gap",
-      "finding": "Discovery runs before the emergency stage, so it could recruit a pod with a record and no hold in the tick after its group ends. TestCouplingIncidentJourneyDeterminism counts such ticks, and the count is 0 in both schedules, so the gap was not reached. After the split, the two pods take different roads and have no platoon link. After the abort, the attempt record of the pair (couplingAttempts) keeps the pair out of discovery. The session fixture forms no approach."
+      "finding": "Discovery runs before the emergency stage, so it could recruit a pod with a record and no hold in the tick after its group ends. TestCouplingIncidentJourneyDeterminism counts such ticks, and the count is 0 in both schedules, so the gap was not reached. After the split, the two pods take different roads and have no platoon link. After the abort, the attempt record of the pair (couplingAttempts) keeps the pair out of discovery. The session fixture forms no approach. Revision 7 of the incident emergency contract closes the gap: discovery now also skips a front or rear pod that an emergency record names (section 5.8), so the emergency stage of that tick withdraws the pod. TestCouplingQ7RecordAfterSplit tests the skip. The measured count above is from the build before the skip."
     }
   ],
   "open_gaps": [

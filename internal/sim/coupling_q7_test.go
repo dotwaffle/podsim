@@ -201,3 +201,48 @@ func TestCouplingQ7E6(t *testing.T) {
 		}
 	}
 }
+
+// A coupling member with an emergency record has no hold until its group
+// ends. When the pod is in a platoon pair at the start of the next tick,
+// discovery does not recruit it, and the emergency stage of that tick
+// withdraws it (sections 5.6 and 5.8 of the incident emergency contract).
+// The state is synthetic: the test starts the emergency while the pod has
+// a coupling ID, and then clears the ID, as finishNativeCoupling does at
+// the split, but the pod keeps the platoon link of the fixture. A real
+// split leaves no link, so this test checks the record term of the skip,
+// not a reachable run. Without an emergency, discovery recruits the pair
+// in that tick. The riders of the fixture have no orders, so the test does
+// not check the contract.
+func TestCouplingQ7RecordAfterSplit(t *testing.T) {
+	t.Parallel()
+	for _, id := range []string{"control", "front", "rear"} {
+		input := couplingApproachFixture(t, true)
+		s := input.Simulation
+		s.couplingNetwork, s.couplingEnabled, s.emergenciesOn = input.Network, true, true
+		v := s.findVehicle(id)
+		if v != nil {
+			v.couplingID = "train"
+			startEmergency(t, s, v, 0)
+			if v.withdrawn != 0 {
+				t.Fatalf("%s: the coupling member has the holds %#x", id, v.withdrawn)
+			}
+			v.couplingID = ""
+		}
+		s.Step()
+		if err := s.CouplingError(); err != nil {
+			t.Fatalf("%s: %v", id, err)
+		}
+		if v == nil {
+			if len(s.couplingApproaches) != 1 {
+				t.Fatalf("control: %d approaches, want 1", len(s.couplingApproaches))
+			}
+			continue
+		}
+		if len(s.couplingApproaches) != 0 || len(s.couplingAttempts) != 0 {
+			t.Fatalf("%s: discovery recruits the pod: %d approaches and %d attempts", id, len(s.couplingApproaches), len(s.couplingAttempts))
+		}
+		if v.withdrawn != emergencyHold {
+			t.Fatalf("%s: the emergency stage after the split did not withdraw the pod: holds %#x", id, v.withdrawn)
+		}
+	}
+}

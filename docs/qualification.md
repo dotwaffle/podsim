@@ -2246,10 +2246,13 @@ It sends commands to the approach members, the group members, and a pod that is 
 The two runs give the same command results and the same state digest at each 1,000th tick.
 
 Coupling discovery runs before the emergency stage.
-So a pod that leaves a group with a record can be recruited again before it gets the hold.
+So a pod that leaves a group with a record could be recruited again before it gets the hold.
 That did not occur in these runs.
 After the split, the two pods take different roads and have no platoon link.
 After an approach aborts, the attempt record of the pair keeps the pair out of discovery.
+Revision 7 of the incident emergency contract closes the gap.
+Discovery now also skips a pod that an emergency record names, so the emergency stage of that tick withdraws the pod.
+`TestCouplingQ7RecordAfterSplit` tests the skip.
 
 ## Coupling natural multi-pair scenario
 

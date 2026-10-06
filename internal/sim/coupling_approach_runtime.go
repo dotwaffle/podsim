@@ -47,12 +47,14 @@ func (s *Simulation) discoverCouplingApproaches() {
 	for _, id := range ids {
 		front := s.findVehicle(id)
 		// A pod with a hold or a purpose is inside an incident transition,
-		// which a train would hold until its retirement (Q7).
-		if front.couplingID != "" || s.couplingApproachMember(id) || front.outOfService() || front.follower <= 0 || front.follower > len(s.vehicles) {
+		// which a train would hold until its retirement (Q7). A pod with an
+		// emergency record that has left its group gets its hold in the
+		// emergency stage of this tick, which runs after discovery.
+		if front.couplingID != "" || s.couplingApproachMember(id) || front.outOfService() || s.emergencyOf(front) >= 0 || front.follower <= 0 || front.follower > len(s.vehicles) {
 			continue
 		}
 		rear := &s.vehicles[front.follower-1]
-		if rear.couplingID != "" || s.couplingApproachMember(rear.Pod.ID) || rear.outOfService() {
+		if rear.couplingID != "" || s.couplingApproachMember(rear.Pod.ID) || rear.outOfService() || s.emergencyOf(rear) >= 0 {
 			continue
 		}
 		// A pair with a faulted pod, or with a blocked lane on its

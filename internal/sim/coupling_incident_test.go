@@ -19,9 +19,10 @@ type couplingIncidentTrace struct {
 	split int64
 	// recruited counts the ticks at which a pod with an emergency record
 	// and no hold was an approach member after it had left each group or
-	// approach with its record. This is the discovery gap of the incident
-	// emergency contract: discovery runs before the emergency stage, so it
-	// can recruit such a pod in the tick after its group ends.
+	// approach with its record. Discovery runs before the emergency stage,
+	// so such a pod has no hold in the tick after its group ends. The
+	// discovery skip of a pod with a record (section 5.8 of the incident
+	// emergency contract) keeps the count at 0.
 	recruited int
 }
 
