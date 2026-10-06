@@ -54,6 +54,7 @@ type State struct {
 	Network         sim.Network            `json:"network"`
 	Geo             *project.Geo           `json:"geo,omitzero"`
 	Map             *project.MapBackground `json:"map,omitzero"`
+	DemoAvailable   bool                   `json:"demoAvailable,omitzero"`
 	Simulation      sim.Snapshot           `json:"simulation"`
 	Speed           int                    `json:"speed"`
 	SpeedReduction  SpeedReduction         `json:"speedReduction,omitzero"`
@@ -430,7 +431,7 @@ func projectTopology(config project.Config, serverStart, epoch string, revision 
 		ProjectVersion: config.Version, OrderContract: config.OrderContract, IncidentContract: config.IncidentContract,
 		FaultContract: config.FaultContract, EmergencyContract: config.EmergencyContract,
 		ServerStart: serverStart, Epoch: epoch, ProjectRevision: revision,
-		Network: project.CloneNetwork(config.Network),
+		Network: project.CloneNetwork(config.Network), DemoAvailable: demoAvailable(config),
 	}
 	if config.OrderContract == sim.ExpressOrderContract {
 		topology.ExpressServices = slices.Clone(config.ExpressServices)
@@ -524,6 +525,7 @@ func (s *Session) state() State {
 		return state
 	}
 	state.Network = project.CloneNetwork(s.project.Network)
+	state.DemoAvailable = demoAvailable(s.project)
 	if s.project.Geo != nil {
 		state.Geo = new(*s.project.Geo)
 	}
@@ -809,8 +811,7 @@ func (s *Session) apply(command Command) (outcome, error) {
 		s.simulation.SetIncidentGeneration(s.generation)
 		s.restore = RestoreInfo{}
 	case "demo":
-		defaults := project.Default()
-		if !reflect.DeepEqual(s.project.Network, defaults.Network) || !reflect.DeepEqual(s.project.Fleet, defaults.Fleet) {
+		if !demoAvailable(s.project) {
 			return outcome{}, errors.New("the supplied demo is available only for the example project")
 		}
 		if err := s.simulation.StartDemo(); err != nil {
@@ -960,6 +961,13 @@ func (s *Session) applyProject(command Command) (bool, error) {
 	s.simulation.SetIncidentGeneration(s.generation)
 	s.restore = RestoreInfo{}
 	return true, nil
+}
+
+// demoAvailable reports whether the traffic demo can start in a session of
+// config: config has the network and the fleet of the example project.
+func demoAvailable(config project.Config) bool {
+	defaults := project.Default()
+	return reflect.DeepEqual(config.Network, defaults.Network) && reflect.DeepEqual(config.Fleet, defaults.Fleet)
 }
 
 // demoProject returns the project of the traffic demo: config without the

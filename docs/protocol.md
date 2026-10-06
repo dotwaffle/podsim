@@ -70,6 +70,8 @@ Map changes use the existing project-apply command and project revision rules.
 Tile pixels never enter the simulation state, project file, or WebSocket stream.
 The browser fetches visible tiles directly.
 Native viewers retain their existing background.
+Topology has `demoAvailable: true` when the project has the network and the fleet of the example project.
+The server starts the traffic demo only then, and the client shows **Start traffic demo** only then.
 A verified full stream baseline can establish a restored older epoch immediately.
 Frames from a closed connection cannot replace the current view.
 

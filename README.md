@@ -402,7 +402,7 @@ The first press shows **Select Start traffic demo again within 3 s to reset the 
 The button is not available while the connection is lost, while a command waits for the server, or while the demo runs.
 
 The supplied traffic demo requires the unchanged example network and fleet.
-The **Demand** panel shows **Example scenario only** beside the button.
+In other projects, the **Demand** panel does not show the button.
 For a different scenario, the server rejects the demo, and the line below **From** and **To** shows the reason.
 
 The demo starts four pods: pod 01 at Harbor, pod 02 at Garden, and pods 03 and 04 in Parking.

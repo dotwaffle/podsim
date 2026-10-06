@@ -47,6 +47,9 @@ func controlTestGame(t *testing.T, input layoutInput) *Game {
 	t.Helper()
 	game := journeyTestGame(t, 20)
 	game.shell = newFakeShell()
+	// The layout tests check every control, so the game shows Start
+	// traffic demo.
+	game.state.DemoAvailable = true
 	game.state.Simulation.Vehicles = make([]sim.Vehicle, 8)
 	for i := range game.state.Simulation.Vehicles {
 		game.state.Simulation.Vehicles[i].Pod.ID = fleetPodLabel(i, len(game.state.Simulation.Vehicles))

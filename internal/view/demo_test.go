@@ -12,7 +12,8 @@ import (
 // TestDemoButtonState checks when Start traffic demo accepts a press. The
 // button sends a command, so a lost connection, a command that waits, and
 // a running demo disable it. A press of the disabled button shows no
-// confirmation. The button shows only in the Demand panel.
+// confirmation. The button shows only in the Demand panel, and only when
+// the topology allows the demo.
 func TestDemoButtonState(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -31,6 +32,12 @@ func TestDemoButtonState(t *testing.T) {
 			game := journeyTestGame(t, 2)
 			game.connected, game.pending = test.connected, test.pending
 			game.state.Simulation.Demo = test.demo
+			game.showDemand = true
+			if slices.ContainsFunc(game.buttons(), func(control button) bool { return control.action == "demo" }) {
+				t.Fatal("Start traffic demo shows when the topology does not allow the demo")
+			}
+			game.state.DemoAvailable = true
+			game.showDemand = false
 			if slices.ContainsFunc(game.buttons(), func(control button) bool { return control.action == "demo" }) {
 				t.Fatal("Start traffic demo shows with the Demand panel closed")
 			}
@@ -125,42 +132,31 @@ func TestDemoAsksAgain(t *testing.T) {
 	}
 }
 
-// TestDemoRejected starts the demo in a session of a project that is not
-// the supplied example. The server rejects the demo. The hint line shows
-// the reason from the server in amber, as for other rejected commands, and
-// the button stays enabled.
-func TestDemoRejected(t *testing.T) {
+// TestDemoHiddenOutsideExample connects to sessions of projects that are
+// not the supplied example. The server does not start the demo in them,
+// so the Demand panel does not show Start traffic demo.
+func TestDemoHiddenOutsideExample(t *testing.T) {
 	t.Parallel()
-	config := project.Default()
-	config.Fleet = config.Fleet[:1]
-	game := sharedProjectGame(t, config)
-	game.showDemand = true
-	for range 2 {
-		game.click(centerOfButton(findButton(t, game.buttons(), "demo")))
-	}
-	if !game.pending {
-		t.Fatalf("second press sent no command: %q", game.message)
-	}
-	result := commandResult(t, game)
-	game.handleResult(result)
-	if result.Command.Action != "demo" || result.Reply.Error == "" {
-		t.Fatalf("result %+v, want a rejected demo", result)
-	}
-	if got := game.hintLine(game.state.Simulation, ""); got.value != result.Reply.Error || got.color != amber {
-		t.Errorf("hint line = %q color %#06x, want %q color %#06x", got.value, got.color, result.Reply.Error, amber)
-	}
-	syncGame(t, game, func() bool { return true })
-	if control := findButton(t, game.buttons(), "demo"); control.disabled || game.state.Simulation.Demo {
-		t.Errorf("after the rejection: button disabled %t, demo %t, want an enabled button and no demo", control.disabled, game.state.Simulation.Demo)
+	fleet := project.Default()
+	fleet.Fleet = fleet.Fleet[:1]
+	network := project.Default()
+	network.Network.Lanes[0].SpeedLimit++
+	for name, config := range map[string]project.Config{"fleet": fleet, "network": network} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			game := sharedProjectGame(t, config)
+			game.showDemand = true
+			if game.state.DemoAvailable || slices.ContainsFunc(game.buttons(), func(control button) bool { return control.action == "demo" }) {
+				t.Errorf("demo available %t: Start traffic demo shows", game.state.DemoAvailable)
+			}
+		})
 	}
 }
 
-// TestDemoButtonFollowsPanel checks that Start traffic demo and demoHint
-// stay at the bottom right of the Demand panel in every window. The button
-// keeps the same distance to the pod selector and to the right edge of the
-// panel. The button label and the hint show in full, and the hint is at
-// the vertical center of the button. TestDemandLabelsFitPanel checks that
-// they clear the other text of the panel.
+// TestDemoButtonFollowsPanel checks that Start traffic demo stays at the
+// bottom right of the Demand panel in every window. The button keeps the
+// same distance to the pod selector and to the right edge of the panel,
+// and its label shows in full.
 func TestDemoButtonFollowsPanel(t *testing.T) {
 	t.Parallel()
 	for _, layout := range controlLayouts {
@@ -180,18 +176,6 @@ func TestDemoButtonFollowsPanel(t *testing.T) {
 			}
 			if got := game.fitButtonText(control.label, control.fontSize, control.w); got != control.label {
 				t.Errorf("label %q shortened to %q", control.label, got)
-			}
-			labels := game.demandLabels()
-			hint := labels[len(labels)-1]
-			if hint.value != demoHint {
-				t.Errorf("last Demand label is %q, want %q", hint.value, demoHint)
-			}
-			got := game.labelArea(hint)
-			if center := control.y + control.h/2; math.Abs((got.top+got.bottom)/2-center) > 1e-6 {
-				t.Errorf("hint %+v is not at the vertical center %g of the button", got, center)
-			}
-			if got.right > control.x {
-				t.Errorf("hint %+v overlaps the button at x %g", got, control.x)
 			}
 		})
 	}

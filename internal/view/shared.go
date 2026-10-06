@@ -383,13 +383,17 @@ func (g *Game) demandButtons() []button {
 	if config.Pattern == "rail-services" {
 		rateLabel = "Rate: scheduled services"
 	}
-	return []button{
+	buttons := []button{
 		{x: 810, y: 144, w: 250, h: 24, label: rateLabel, disabled: disabled || config.Pattern == "rail-arrivals" || config.Pattern == "rail-services", action: "demand-rate"},
 		{x: 810, y: 174, w: 250, h: 24, label: demandPatternLabel(config, destination.Name), disabled: disabled, action: "demand-pattern"},
 		{x: 810, y: 204, w: 250, h: 24, label: fmt.Sprintf("Seed: %d", config.Seed), disabled: disabled, action: "demand-seed"},
 		{x: 810, y: 234, w: 250, h: 24, label: toggle, selected: config.Enabled, disabled: disabled, action: "demand-toggle"},
-		{x: demoButtonLeft, y: demoButtonTop, w: demoButtonWidth, h: demoButtonHeight, label: demoButtonLabel, disabled: disabled, action: "demo", fontSize: demoButtonFontSize},
 	}
+	// The server starts the demo only for the supplied example project.
+	if g.state.DemoAvailable {
+		buttons = append(buttons, button{x: demoButtonLeft, y: demoButtonTop, w: demoButtonWidth, h: demoButtonHeight, label: demoButtonLabel, disabled: disabled, action: "demo", fontSize: demoButtonFontSize})
+	}
+	return buttons
 }
 
 const (
@@ -397,8 +401,8 @@ const (
 	// demo.
 	demoButtonLabel = "Start traffic demo"
 	// demoButtonTop is the top of Start traffic demo in design units. The
-	// button and demoHint move down with the pod selector below them, so
-	// they stay at the bottom of the Demand panel in a tall window.
+	// button moves down with the pod selector below it, so it stays at the
+	// bottom of the Demand panel in a tall window.
 	demoButtonTop = podSelectorTop - 32
 	// demoButtonLeft, demoButtonWidth and demoButtonHeight set the other
 	// edges of Start traffic demo in design units. The button has the left
@@ -406,25 +410,9 @@ const (
 	demoButtonLeft   = 940.0
 	demoButtonWidth  = 120.0
 	demoButtonHeight = 26.0
-	// demoButtonFontSize is the font size of Start traffic demo. The
-	// label and demoHint then fit side by side in small windows.
+	// demoButtonFontSize is the font size of Start traffic demo.
 	demoButtonFontSize = 12.0
-	// demoHint shows to the left of Start traffic demo. The server starts
-	// the demo only for the supplied example scenario.
-	demoHint = "Example scenario only"
 )
-
-// demoHintLabel returns demoHint as a label to the left of Start traffic
-// demo. The label starts at the left edge of the panel text and ends at
-// least 6 units before the button. It is at the vertical center of the
-// button, and it moves down with the button.
-func (g *Game) demoHintLabel() label {
-	value := label{size: 10, value: g.fitText(demoHint, 10, demoButtonLeft-6-816), color: muted, physical: true}
-	_, height := text.Measure(value.value, g.labelFace(value), 0)
-	value.x = g.layout.right(816)
-	value.y = g.layout.bottom(demoButtonTop) + (demoButtonHeight*g.layout.unit-height)/2
-	return value
-}
 
 func (g *Game) changeDemand(action string) {
 	config := g.state.Demand.Config
@@ -499,7 +487,6 @@ const (
 
 // demandLabels returns the text of the Demand panel. Below the counters,
 // the last demand error shows in amber on at most demandErrorLines lines.
-// demoHint is the last label.
 func (g *Game) demandLabels() []label {
 	demand := g.state.Demand
 	labels := []label{
@@ -517,7 +504,7 @@ func (g *Game) demandLabels() []label {
 	for index, line := range wrapText(demand.Error, errorFit, demandErrorLines) {
 		labels = append(labels, label{x: 816, y: 299 + 13*float64(index), size: 10, value: line, color: amber})
 	}
-	return append(labels, g.demoHintLabel())
+	return labels
 }
 
 // redistributionText returns the redistribution line of the Demand panel

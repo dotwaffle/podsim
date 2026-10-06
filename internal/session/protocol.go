@@ -23,6 +23,9 @@ type TopologySnapshot struct {
 	Network           sim.Network            `json:"network"`
 	Geo               *project.Geo           `json:"geo,omitzero"`
 	Map               *project.MapBackground `json:"map,omitzero"`
+	// DemoAvailable is true when the project is the example project, the
+	// only project in which the traffic demo starts.
+	DemoAvailable bool `json:"demoAvailable,omitzero"`
 }
 
 // StateFrame contains the recurring state without network geometry.
@@ -179,7 +182,7 @@ func frameState(topology TopologySnapshot, frame StateFrame, immutable bool) (St
 	state := State{
 		Epoch: frame.Epoch, Revision: frame.Revision, ProjectRevision: frame.ProjectRevision,
 		Generation: frame.Generation, Redistribution: frame.Redistribution,
-		Network: network, Geo: geo, Map: background,
+		Network: network, Geo: geo, Map: background, DemoAvailable: topology.DemoAvailable,
 		Simulation: sim.Snapshot{
 			OrderContract: snapshot.OrderContract, IncidentContract: snapshot.IncidentContract,
 			Submitted: snapshot.Submitted, Tick: snapshot.Tick, Paused: snapshot.Paused,
