@@ -39,16 +39,16 @@ func makeParkRide(config project.Config, plan parkRide) (project.DemandProfile, 
 		return empty, config.Demand, errors.New("the project already has eight demand profiles")
 	}
 	if !utf8.ValidString(plan.Name) || strings.TrimSpace(plan.Name) == "" || len(plan.Name) > project.MaxNameLength {
-		return empty, config.Demand, errors.New("the profile name must contain 1 to 80 UTF-8 bytes")
+		return empty, config.Demand, fmt.Errorf("the profile name must contain 1 to %d UTF-8 bytes", project.MaxNameLength)
 	}
 	if len(config.Network.Stations) > project.MaxStations || len(plan.Destinations) < 1 || len(plan.Destinations) >= project.MaxStations {
-		return empty, config.Demand, errors.New("select 1 to 299 destinations")
+		return empty, config.Demand, fmt.Errorf("select 1 to %d destinations", project.MaxStations-1)
 	}
 	passengers := make(map[string]bool, len(config.Network.Stations))
 	stationIDs := make(map[string]bool, len(config.Network.Stations))
 	for _, station := range config.Network.Stations {
 		if station.ID == "" || len(station.ID) > project.MaxIDLength || !utf8.ValidString(station.ID) || stationIDs[station.ID] {
-			return empty, config.Demand, errors.New("station IDs must be unique and contain 1 to 64 bytes")
+			return empty, config.Demand, fmt.Errorf("station IDs must be unique and contain 1 to %d bytes", project.MaxIDLength)
 		}
 		stationIDs[station.ID] = true
 		passengers[station.ID] = !station.ParkingOnly

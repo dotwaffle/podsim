@@ -140,7 +140,7 @@ func preparedDraftChecks(value any, prepared *preparedChecks) checkReport {
 		errors.add("The scenario needs a name.", nil)
 	}
 	if len(text(name)) > project.MaxNameLength {
-		errors.add("The scenario name exceeds 80 bytes.", nil)
+		errors.add(fmt.Sprintf("The scenario name exceeds %d bytes.", project.MaxNameLength), nil)
 	}
 	network := member(value, "network")
 	if object(network) == nil || items(member(network, "nodes")) == nil || items(member(network, "lanes")) == nil || items(member(network, "stations")) == nil {
@@ -214,7 +214,7 @@ type draftIDs map[string]map[string]bool
 func (ids draftIDs) add(value any, kind, targetKind string, errors *checkList) {
 	id := text(value)
 	if len(id) > project.MaxIDLength {
-		errors.add(kind+" ID exceeds 64 bytes.", target(targetKind, value))
+		errors.add(fmt.Sprintf("%s ID exceeds %d bytes.", kind, project.MaxIDLength), target(targetKind, value))
 	}
 	if strings.TrimSpace(id) == "" {
 		errors.add(kind+" has no ID.", nil)
@@ -316,11 +316,11 @@ func (g *draftNetwork) checkStations(ids draftIDs, pairs map[[2]string]bool, err
 			}
 		}
 		if len(text(member(station, "name"))) > project.MaxNameLength {
-			errors.add("Station "+label(id)+" name exceeds 80 bytes.", at)
+			errors.add(fmt.Sprintf("Station %s name exceeds %d bytes.", label(id), project.MaxNameLength), at)
 		}
 		berths := items(member(station, "berths"))
 		if len(berths) > project.MaxBerths {
-			errors.add("Station "+label(id)+" exceeds 200 berths.", at)
+			errors.add(fmt.Sprintf("Station %s exceeds %d berths.", label(id), project.MaxBerths), at)
 		}
 		if strings.TrimSpace(text(member(station, "name"))) == "" {
 			errors.add("Station "+label(id)+" needs a name.", at)
@@ -464,7 +464,7 @@ func checkFleet(value any, g *draftNetwork, errors *checkList) {
 	for _, pod := range fleet {
 		id := member(pod, "id")
 		if len(text(id)) > project.MaxIDLength {
-			errors.add("A pod ID exceeds 64 bytes.", nil)
+			errors.add(fmt.Sprintf("A pod ID exceeds %d bytes.", project.MaxIDLength), nil)
 		}
 		if strings.TrimSpace(text(id)) == "" {
 			errors.add("A pod has no ID.", nil)
@@ -499,7 +499,7 @@ func checkFleet(value any, g *draftNetwork, errors *checkList) {
 		errors.add("The network exceeds the supported size.", nil)
 	}
 	if len(fleet) < 1 || len(fleet) > project.MaxPods {
-		errors.add("The fleet must contain 1 to 300 pods.", nil)
+		errors.add(fmt.Sprintf("The fleet must contain 1 to %d pods.", project.MaxPods), nil)
 	}
 	g.checkPassengerRoutes(errors)
 }

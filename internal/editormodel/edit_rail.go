@@ -109,7 +109,7 @@ func newRailEvent(draft any, departure bool) (any, error) {
 	}
 	arrivals, departures := items(member(draft, "railArrivals")), items(member(draft, "railDepartures"))
 	if len(arrivals)+len(departures) >= project.MaxRailArrivals {
-		return nil, errors.New("the plan already has 256 rail events")
+		return nil, fmt.Errorf("the plan already has %d rail events", project.MaxRailArrivals)
 	}
 	plan, prefix, choices, at, walking := arrivals, "train-", "destinations", 0.0, 0.0
 	if departure {
@@ -119,7 +119,7 @@ func newRailEvent(draft any, departure bool) (any, error) {
 			total += number(member(event, "passengers"))
 		}
 		if total+120 > project.MaxRailDeparturePassengers {
-			return nil, errors.New("rail departures can offer at most 3000 passengers")
+			return nil, fmt.Errorf("rail departures can offer at most %d passengers", project.MaxRailDeparturePassengers)
 		}
 	}
 	used := make(map[string]bool, len(plan))
@@ -160,7 +160,7 @@ func changeRailEvent(draft any, event map[string]any, choices string, command ra
 	switch command.Action {
 	case "addChoice":
 		if len(rows) >= project.MaxRailDestinations {
-			return errors.New("a rail event can have at most 16 choices")
+			return fmt.Errorf("a rail event can have at most %d choices", project.MaxRailDestinations)
 		}
 		for _, station := range passengerStations(draft) {
 			id := text(member(station, "id"))

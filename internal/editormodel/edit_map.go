@@ -177,7 +177,7 @@ func referencePoint(geo any, latitude, longitude float64) (float64, float64) {
 
 func referenceFrameBounds(south, north, west, east float64) error {
 	if !finiteRange(south, -project.MaxGeoLatitude, project.MaxGeoLatitude) || !finiteRange(north, -project.MaxGeoLatitude, project.MaxGeoLatitude) {
-		return editorMessageError("The frame latitudes must be from -80 to 80 degrees.")
+		return editorMessageError(fmt.Sprintf("The frame latitudes must be from %d to %d degrees.", -project.MaxGeoLatitude, project.MaxGeoLatitude))
 	}
 	if south >= north {
 		return editorMessageError("The south edge of the frame must be south of the north edge.")
@@ -207,7 +207,7 @@ func referencePlacement(geo any, south, north, west, east float64) error {
 	x2, y2 := referencePoint(geo, south, east)
 	for _, coordinate := range []float64{x, y, x2, y2} {
 		if !finiteRange(coordinate, -project.MaxCoordinate, project.MaxCoordinate) {
-			return editorMessageError("The frame is more than 100000 m from the reference of the project.")
+			return editorMessageError(fmt.Sprintf("The frame is more than %d m from the reference of the project.", project.MaxCoordinate))
 		}
 	}
 	return nil

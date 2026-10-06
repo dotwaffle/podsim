@@ -71,7 +71,7 @@ func (g geometryDraft) addBerth(id string) error {
 		return errors.New("select a bank to add a berth")
 	}
 	if len(items(station["berths"])) >= project.MaxBerths {
-		return errors.New("the station already has 200 berths")
+		return fmt.Errorf("the station already has %d berths", project.MaxBerths)
 	}
 	oldCounts, _ := g.nodeLaneCounts()
 	var newLanes []string
@@ -86,7 +86,7 @@ func (g geometryDraft) addBerth(id string) error {
 	counts, order := g.nodeLaneCounts()
 	for _, node := range order {
 		if counts[node] > project.MaxNodeLanes && counts[node] > oldCounts[node] {
-			return fmt.Errorf("node %s would exceed the 64-lane limit", node)
+			return fmt.Errorf("node %s would exceed the %d-lane limit", node, project.MaxNodeLanes)
 		}
 	}
 	if conflict := g.laneConflict(newLanes, false); conflict != nil {

@@ -113,7 +113,7 @@ func checkPodClass(pod, network any, contract sim.OrderContract, errors *checkLi
 func checkExpressRegistry(draft any, errors *checkList) {
 	services, valid := member(draft, "expressServices").([]any)
 	if !valid || len(services) > project.MaxExpressServices {
-		errors.add("Express services must be an array of at most 300 records.", nil)
+		errors.add(fmt.Sprintf("Express services must be an array of at most %d records.", project.MaxExpressServices), nil)
 		return
 	}
 	if len(services) == 0 {

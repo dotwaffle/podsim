@@ -18,7 +18,7 @@ func checkRailPlans(value any, passenger map[string]bool, errors *checkList) {
 		return
 	}
 	if len(items(arrivals))+len(items(departures)) > project.MaxRailArrivals {
-		errors.add("Rail plans must contain at most 256 combined events.", nil)
+		errors.add(fmt.Sprintf("Rail plans must contain at most %d combined events.", project.MaxRailArrivals), nil)
 	}
 	total, outbound := 0.0, 0.0
 	releases := make(map[float64]float64)
@@ -46,7 +46,7 @@ func checkRailPlans(value any, passenger map[string]bool, errors *checkList) {
 		}
 		count := member(departure, "passengers")
 		if !integer(count) || number(count) < 1 || number(count) > project.MaxRailRelease {
-			errors.add(prefix+" must offer 1 to 200 passengers.", nil)
+			errors.add(fmt.Sprintf("%s must offer 1 to %d passengers.", prefix, project.MaxRailRelease), nil)
 		} else {
 			outbound += number(count)
 			total += number(count)
@@ -63,13 +63,13 @@ func checkRailPlans(value any, passenger map[string]bool, errors *checkList) {
 		checkRailEndpoints(departure, prefix, "origins", "origin", passenger, errors)
 	}
 	if outbound > project.MaxRailDeparturePassengers {
-		errors.add("Rail departures must offer at most 3000 passengers.", nil)
+		errors.add(fmt.Sprintf("Rail departures must offer at most %d passengers.", project.MaxRailDeparturePassengers), nil)
 	}
 	if total > project.MaxRailPassengers {
-		errors.add("Rail plans must offer at most 10000 combined passengers.", nil)
+		errors.add(fmt.Sprintf("Rail plans must offer at most %d combined passengers.", project.MaxRailPassengers), nil)
 	}
 	if crowdedRelease(releases) {
-		errors.add("Rail plans must offer at most 200 passengers at one release tick.", nil)
+		errors.add(fmt.Sprintf("Rail plans must offer at most %d passengers at one release tick.", project.MaxRailRelease), nil)
 	}
 }
 
@@ -82,7 +82,7 @@ func checkRailArrivals(value any, passenger map[string]bool, errors *checkList) 
 		return
 	}
 	if len(items(value)) > project.MaxRailArrivals {
-		errors.add("The project must contain at most 256 rail arrivals.", nil)
+		errors.add(fmt.Sprintf("The project must contain at most %d rail arrivals.", project.MaxRailArrivals), nil)
 	}
 	ids, releases, total := make(map[string]bool), make(map[float64]float64), 0.0
 	for index, arrival := range items(value) {
@@ -99,7 +99,7 @@ func checkRailArrivals(value any, passenger map[string]bool, errors *checkList) 
 		}
 		count := member(arrival, "passengers")
 		if !integer(count) || number(count) < 1 || number(count) > project.MaxRailRelease {
-			errors.add(prefix+" must offer 1 to 200 passengers.", nil)
+			errors.add(fmt.Sprintf("%s must offer 1 to %d passengers.", prefix, project.MaxRailRelease), nil)
 		} else {
 			total += number(count)
 			if timeValid {
@@ -109,10 +109,10 @@ func checkRailArrivals(value any, passenger map[string]bool, errors *checkList) 
 		checkRailEndpoints(arrival, prefix, "destinations", "destination", passenger, errors)
 	}
 	if total > project.MaxRailPassengers {
-		errors.add("Rail arrivals must offer at most 10000 passengers.", nil)
+		errors.add(fmt.Sprintf("Rail arrivals must offer at most %d passengers.", project.MaxRailPassengers), nil)
 	}
 	if crowdedRelease(releases) {
-		errors.add("Rail arrivals must offer at most 200 passengers at one release tick.", nil)
+		errors.add(fmt.Sprintf("Rail arrivals must offer at most %d passengers at one release tick.", project.MaxRailRelease), nil)
 	}
 }
 
@@ -130,7 +130,7 @@ func checkRailIdentity(event any, prefix string, passenger, ids map[string]bool,
 func checkRailEndpoints(event any, prefix, key, kind string, passenger map[string]bool, errors *checkList) {
 	endpoints := items(member(event, key))
 	if len(endpoints) < 1 || len(endpoints) > project.MaxRailDestinations {
-		errors.add(prefix+" needs 1 to 16 "+key+".", nil)
+		errors.add(fmt.Sprintf("%s needs 1 to %d %s.", prefix, project.MaxRailDestinations, key), nil)
 		return
 	}
 	ids := make(map[string]bool)
@@ -146,7 +146,7 @@ func checkRailEndpoints(event any, prefix, key, kind string, passenger map[strin
 		ids[station] = true
 		weight := member(endpoint, "weight")
 		if !integer(weight) || number(weight) < 1 || number(weight) > project.MaxRailWeight {
-			errors.add(prefix+" needs "+kind+" weights from 1 to 1000000.", nil)
+			errors.add(fmt.Sprintf("%s needs %s weights from 1 to %d.", prefix, kind, project.MaxRailWeight), nil)
 		}
 	}
 }

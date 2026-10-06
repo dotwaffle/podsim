@@ -56,7 +56,7 @@ func validateBankDraft(network any) error {
 func validateBankMembers(station any) error {
 	banks := items(member(station, "banks"))
 	if len(banks) < 1 || len(banks) > sim.MaxStationBanks {
-		return errors.New("a station needs 1 to 8 banks")
+		return fmt.Errorf("a station needs 1 to %d banks", sim.MaxStationBanks)
 	}
 	seen, assigned, berthIDs := map[string]bool{}, map[string]bool{}, map[string]bool{}
 	for _, berth := range items(member(station, "berths")) {
@@ -73,7 +73,7 @@ func validateBankMembers(station any) error {
 		seen[id] = true
 		members := items(member(bank, "berthIDs"))
 		if len(members) == 0 || len(members) > project.MaxBerths {
-			return errors.New("a bank needs 1 to 200 berth IDs")
+			return fmt.Errorf("a bank needs 1 to %d berth IDs", project.MaxBerths)
 		}
 		for _, value := range members {
 			id := text(value)
@@ -162,7 +162,7 @@ func (g geometryDraft) addBankBerth(stationID, bankID string) error {
 		return err
 	}
 	if len(items(station["berths"])) >= project.MaxBerths {
-		return errors.New("the station already has 200 berths")
+		return fmt.Errorf("the station already has %d berths", project.MaxBerths)
 	}
 	selected := bankStation(station, bank)
 	rows := g.berthChain(selected)
@@ -351,13 +351,13 @@ func (g geometryDraft) validateBankChanges(original map[string]any) error {
 	counts, order := g.nodeLaneCounts()
 	for _, id := range order {
 		if counts[id] > project.MaxNodeLanes && counts[id] > oldCounts[id] {
-			return fmt.Errorf("node %s would exceed the 64-lane limit", id)
+			return fmt.Errorf("node %s would exceed the %d-lane limit", id, project.MaxNodeLanes)
 		}
 	}
 	for _, key := range []string{"nodes", "lanes", "stations"} {
 		for _, item := range items(g.network[key]) {
 			if !validID(member(item, "id")) {
-				return errors.New("a generated item ID must contain 1 to 64 bytes")
+				return fmt.Errorf("a generated item ID must contain 1 to %d bytes", project.MaxIDLength)
 			}
 			if key == "nodes" {
 				position := member(item, "position")
@@ -370,7 +370,7 @@ func (g geometryDraft) validateBankChanges(original map[string]any) error {
 	for _, station := range items(g.network["stations"]) {
 		for _, berth := range items(member(station, "berths")) {
 			if !validID(member(berth, "id")) {
-				return errors.New("a berth ID must contain 1 to 64 bytes")
+				return fmt.Errorf("a berth ID must contain 1 to %d bytes", project.MaxIDLength)
 			}
 		}
 	}

@@ -33,10 +33,10 @@ func checkProfiles(value any, passenger map[string]bool, errors *checkList) {
 		}
 		bands, flows := items(member(profile, "bands")), items(member(profile, "flows"))
 		if len(bands) < 1 || len(bands) > project.MaxBands {
-			errors.add(prefix+" must contain 1 to 24 bands.", nil)
+			errors.add(fmt.Sprintf("%s must contain 1 to %d bands.", prefix, project.MaxBands), nil)
 		}
 		if len(flows) < 1 || len(flows) > project.MaxFlows {
-			errors.add(prefix+" must contain 1 to 65000 flows.", nil)
+			errors.add(fmt.Sprintf("%s must contain 1 to %d flows.", prefix, project.MaxFlows), nil)
 		}
 		bandIDs := make(map[string]bool)
 		for _, band := range bands {
@@ -134,7 +134,7 @@ func checkSettings(value any, errors *checkList) {
 		key, message string
 		max          float64
 	}{
-		{"sharedRidePartyLimit", "The shared ride party limit must be 1 to 8.", sim.MaxSharedRideParties},
+		{"sharedRidePartyLimit", fmt.Sprintf("The shared ride party limit must be 1 to %d.", sim.MaxSharedRideParties), sim.MaxSharedRideParties},
 	} {
 		v := member(value, setting.key)
 		if has(value, setting.key) && (!integer(v) || number(v) < 0 || number(v) > setting.max) {
@@ -155,10 +155,10 @@ func checkSettings(value any, errors *checkList) {
 	}
 	stops := member(value, "sharedRideMaxStops")
 	if has(value, "sharedRideMaxStops") && (!integer(stops) || number(stops) < 0 || number(stops) > sim.MaxSharedRideStops) {
-		errors.add("The shared ride stop limit must be 1 to 7.", nil)
+		errors.add(fmt.Sprintf("The shared ride stop limit must be 1 to %d.", sim.MaxSharedRideStops), nil)
 	}
 	if has(value, "platoonLimit") && !draftPlatoonLimit(member(value, "platoonLimit")) {
-		errors.add("The platoon limit must be 2 to 4, or 0 for no platoons.", nil)
+		errors.add(fmt.Sprintf("The platoon limit must be %d to %d, or 0 for no platoons.", sim.MinPlatoonLimit, sim.MaxPlatoonLimit), nil)
 	}
 	for _, setting := range []struct{ key, message string }{
 		{"stationBuffers", "The station buffer setting must be true or false."},
@@ -194,7 +194,7 @@ func draftGeoError(geo any) string {
 	case object(geo) == nil:
 		return "The geo reference must be an object."
 	case !(math.Abs(number(member(geo, "latitude"))) <= project.MaxGeoLatitude):
-		return "The geo latitude must be from -80 to 80 degrees."
+		return fmt.Sprintf("The geo latitude must be from %d to %d degrees.", -project.MaxGeoLatitude, project.MaxGeoLatitude)
 	case !(math.Abs(number(member(geo, "longitude"))) <= 180):
 		return "The geo longitude must be from -180 to 180 degrees."
 	case text(member(geo, "projection")) != project.GeoProjection:
