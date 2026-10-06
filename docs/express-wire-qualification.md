@@ -208,7 +208,7 @@ A refused Express save moves aside, and the new session has no Express marker an
 | Raw and gzip caps | `TestExpressRequalStreamCaps`, `TestStreamGzipExpansionBound`, `TestExchangeBoundsResponseBodies` | Pass |
 | Go remote consumer | `TestExpressRemoteStream`, `TestExpressRemoteHTTPAndTripMarker`, `TestExpressRemoteInvalidStateHasNoACK`, `TestExpressRequalRemoteRecovery` | Pass |
 | Compact HTTP negotiation | `TestStateHTTPNegotiation`, `TestAcceptsStateMedia`, `TestStateHTTPMediaFailClosed` | Pass |
-| Browser/WASM roundtrip | Node Go/WASM runs of the public adapter tests and `TestExpressRequalCost`; see [the browser record](express-browser-qualification.md) | Node pass; Chromium open |
+| Browser/WASM roundtrip | Node Go/WASM runs of the public adapter tests and `TestExpressRequalCost`, and a headless Chromium roundtrip of the game page; see [the browser record](express-browser-qualification.md) | Node pass; Chromium pass |
 | Fail-closed old readers | `TestStreamHelloRefusesOtherVersions`, `TestStreamBuildBeforeIncompatiblePayload`, `TestSavedVersionRefusals`, `TestExpressRequalSaveRejectedAtomically`, `TestAcceptsStateMedia` | Pass |
 
 The chain test applies an Express full frame and a delta that replaces the pending group.
@@ -310,8 +310,6 @@ The test runs only with `PODSIM_EXPRESS_PUBLIC_ASSET_DIR`, so CI does not run it
 
 ### Open items
 
-- The headless Chromium roundtrip did not run.
-  See [the browser record](express-browser-qualification.md) for the launch errors.
 - The widest-fixture browser resource run belongs to the "Resource and consumer cost" row, and this requalification did not repeat it.
 - The widest assets repeat order IDs and occupancy for width coverage.
   They do not show a reachable native state.

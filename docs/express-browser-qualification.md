@@ -88,7 +88,8 @@ The measurement record names each evidence directory.
 This section covers the browser/WASM roundtrip case of the "Stream and public consumers" row on the current formats.
 The earlier sections of this record are historical.
 The current formats are saved-state version 9, hello version 6, and the HTTP media type `application/vnd.podsim.state-6+json`.
-The tested source is `e7d653d` with the new requalification tests.
+The Node runs tested `e7d653d` with the new requalification tests.
+The Chromium run tested `94683aa` before a review fold that only clears a restore mark in compact queue motion.
 The wire record lists the other cases in [its requalification section](express-wire-qualification.md#requalification-on-the-merged-formats).
 The data is under `requalification_merged_formats` in [the measurement record](measurements/express-browser-qualification.json).
 
@@ -120,22 +121,33 @@ These numbers do not show responsive browser operation.
 
 ### Headless Chromium
 
-The headless Chromium roundtrip did not run, so this case stays open.
-The test, server, and browser commands ran with `ulimit -v 16000000`, except the one diagnostic launch below.
+The headless Chromium roundtrip passed on October 6, 2026.
+The `web` task built the browser files.
+`cmd/serve` served them on 127.0.0.1 with the project of `expressProject` in `internal/project/express_test.go`.
+That project has one Express pod and the `harbor` to `market` service with a party limit of 20.
+`chrome-headless-shell` 143.0.7499.4 opened the production game page at 1100 by 728 CSS pixels.
+A Node 24.21.0 driver used the DevTools protocol through the built-in WebSocket of Node.
 
-- `chrome` 143.0.7499.4 stopped at startup with `FATAL:chrome/browser/process_singleton_posix.cc:292] Check failed: . socket() failed: Operation not permitted (1)`.
-  The command sandbox refuses the Unix socket of the process singleton.
-  This failure does not depend on the address-space limit.
-- `chrome-headless-shell` 143.0.7499.4 exited with status 133 (SIGTRAP) under the address-space limit, with no log, before it opened the debugging port.
-- One diagnostic launch of each binary without the limit loaded only `about:blank`.
-  `chrome` stopped at the same socket check.
-  `chrome-headless-shell` started and printed the page.
+Chromium ran under `prlimit --data=8000000000:8000000000`, a data-segment limit of 8,000,000,000 bytes.
+The server and the driver ran under `ulimit -v 16000000`.
+All processes ran with `nice -n 19`.
+Chromium reserves large address ranges that it does not use.
+In an earlier attempt on the same day, `chrome-headless-shell` exited with status 133 (SIGTRAP) under `ulimit -v 16000000` before it opened the debugging port, with no log.
+In that attempt, the full `chrome` binary stopped at startup with `FATAL:chrome/browser/process_singleton_posix.cc:292] Check failed: . socket() failed: Operation not permitted (1)`, because the command sandbox refuses the Unix socket of the process singleton.
 
-Chromium reserves large address ranges that it does not use, so no `ulimit -v` value near 16 GB lets it start.
-A memory limit on a cgroup or on the data segment would keep the purpose of the limit.
-The maintainer must decide whether such a limit replaces `ulimit -v` for the browser run.
-The planned run serves an Express project with `cmd/serve` on 127.0.0.1 and opens the production game page in `chrome-headless-shell`.
-It drives the page over the DevTools protocol with the built-in WebSocket of Node.
-It must see hello version 6 with the `express-v1` marker, an acknowledgement after each frame, a trip command of a party of 20 with the marker, and an acknowledged frame that contains that party.
+The run saw these results:
+
+- The hello had version 6 and the `express-v1` order marker.
+- The first acknowledgement came 1,124 ms after the navigation started.
+- The driver pressed the party increase control 25 times and then pressed Enter.
+- The page sent one `trip` command from `harbor` to `market` with `partySize` 20, `sharingConsent` `private`, and `orderContract` `express-v1`.
+- The server accepted the command with HTTP 200 and order ID 1.
+- Delta 109 contained order 1 with a party of 20, and the client acknowledged that delta.
+- The client received 241 frames on one stream: 1 full frame and 240 deltas.
+  It sent 241 acknowledgements, one with the stream and sequence of each frame.
+- Each frame had the `express-v1` marker.
+- The largest frame was the full frame, with 1,708 bytes of JSON and 796 bytes of gzip.
+- The page had no exceptions and no console API messages.
+- The status element was hidden and kept the load text "Downloading Podsim… 30.6 MB".
 
 The widest-fixture browser resource run belongs to the "Resource and consumer cost" row, and this requalification did not repeat it.

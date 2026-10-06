@@ -232,12 +232,64 @@
       "cost_peak_rss_kib": 2556872
     },
     "chromium": {
-      "status": "open",
+      "status": "pass",
+      "source": "94683aa without the compact queue restore mark fold",
+      "binary": "chrome-headless-shell",
       "version": "143.0.7499.4",
+      "flags": [
+        "--no-sandbox",
+        "--enable-unsafe-swiftshader",
+        "--use-angle=swiftshader",
+        "--disable-gpu",
+        "--disable-dev-shm-usage"
+      ],
+      "browser_memory_cap": "prlimit --data=8000000000:8000000000",
+      "server_and_driver_memory_cap": "ulimit -v 16000000",
+      "nice": 19,
+      "driver": "Node 24.21.0, DevTools protocol over the built-in WebSocket",
+      "viewport_css_pixels": [
+        1100,
+        728
+      ],
+      "project": "expressProject in internal/project/express_test.go",
+      "hello": {
+        "version": 6,
+        "order_contract": "express-v1"
+      },
+      "first_ack_ms": 1124,
+      "party_increase_presses": 25,
+      "submitted_by": "Enter",
+      "trip_command": {
+        "origin": "harbor",
+        "destination": "market",
+        "party_size": 20,
+        "sharing_consent": "private",
+        "service": "on-demand",
+        "order_contract": "express-v1"
+      },
+      "command_http_status": 200,
+      "order_id": 1,
+      "party_frame": {
+        "kind": "delta",
+        "sequence": 109,
+        "acknowledged": true
+      },
+      "frames": 241,
+      "full_frames": 1,
+      "delta_frames": 240,
+      "streams": 1,
+      "acks": 241,
+      "frames_without_ack": 0,
+      "frame_order_contracts": [
+        "express-v1"
+      ],
+      "max_frame_raw_bytes": 1708,
+      "max_frame_gzip_bytes": 796,
+      "page_exceptions": 0,
+      "status_text": "Downloading Podsim… 30.6 MB",
+      "status_hidden": true,
       "chrome_error": "FATAL:chrome/browser/process_singleton_posix.cc:292] Check failed: . socket() failed: Operation not permitted (1)",
-      "headless_shell_error": "exit status 133 (SIGTRAP) under ulimit -v 16000000, no log, before the debugging port opened",
-      "diagnostic_without_limit": "chrome stops at the same socket check; chrome-headless-shell starts and prints about:blank",
-      "decision_needed": "whether a cgroup or data-segment memory limit replaces ulimit -v for the browser run"
+      "headless_shell_under_ulimit_v": "exit status 133 (SIGTRAP), no log, before the debugging port opened"
     },
     "widest_browser_resource_run": "not repeated; belongs to the Resource and consumer cost row",
     "deployment_authorized": false
