@@ -165,3 +165,154 @@ Those were corrected without changing foundation golden files.
 Early compile and lint failures are retained with their terminal metadata.
 An interrupted widest run has exit 130 and a host process scan that found no remaining child before edits.
 Final gate statuses and source pins are in the measurement JSON and durable manifest.
+
+## Requalification on the merged formats
+
+This section requalifies the "Save bytes and shape" and "Stream and public consumers" rows of the approved contract on the current formats.
+The earlier sections of this record are historical.
+The current formats are project version 1 with the `orderContract` marker, saved-state version 9, hello version 6, and the HTTP media type `application/vnd.podsim.state-6+json`.
+The tested source is `e7d653d` with two new test files, `internal/session/express_requal_test.go` and `internal/remote/express_requal_test.go`.
+No production code changed.
+The data is under `requalification_merged_formats` in [the measurement record](measurements/express-wire-qualification.json).
+
+### Save bytes and shape
+
+| Case | Tests | Status |
+| --- | --- | --- |
+| Widest-shape Express save files | `TestExpressWidestSaveAdapters`, modern and mixed | Pass |
+| Escaped and multibyte text | `TestExpressRequalSaveShapes`, `TestExpressOrderText`, `TestExpressIncompressibleAssetAdapters` | Pass |
+| Both boarding forms | `TestExpressRequalSaveShapes` for 20 source-bound tuples and the `journeyOrigin` form; `TestBoardingStateMalformed`; `TestExpressSaveStreamHTTPRoundTrip` for named stream records | Pass |
+| Optional history | `TestExpressRequalSaveShapes`: 19 completed records with one active party, completed riders without tuples, and a pod without riders | Pass |
+| Exponents | `TestExpressRequalSaveShapes`: both sides of `1e-7` and `1e+21`, the largest finite float, the smallest subnormal, and integers above 2^53; `TestExpressPublicNumericRoundTrip` | Pass |
+| Malformed base64 | `TestExpressRequalSavePackedTextRefusals`, `TestExpressOrderText`, `TestExpressPublicTextAndShapeGuards`, `TestDecodeStateFileRejects` | Pass |
+| UTF-8 and decoded limits | `TestExpressRequalSavePackedTextRefusals`: 64 and 1,024 decoded bytes pass; one more decoded byte, the next encoded length, and invalid UTF-8 fail | Pass |
+| Exact gzip caps | `TestDecodeStateFileSizeBoundary`, `TestDecodeStateFileRejects`, `TestExpressWidestSaveAdapters` | Pass |
+| Parser prescan | `TestExpressRequalSavePrescanBounds`, `TestStateJSONLimits`, `TestDecodeStateFileBombs`, `TestBoardingStateLimits` | Pass |
+| Atomic rejection | `TestExpressRequalSaveRejectedAtomically`, `TestSavedInvalidMovedAside` | Pass |
+
+The packed text refusals also pin the refusal order.
+Each changed save has a speed that only the typed decode refuses, and that member comes first.
+The packed text scan must refuse the file first, with its own error text.
+The prescan test refuses 8,601 waiting trips, 21 riders, and 21 boarding tuples under the Express marker, and 2,601 trips and 9 riders without it.
+A refused Express save moves aside, and the new session has no Express marker and no waiting trip.
+
+### Stream and public consumers
+
+| Case | Tests | Status |
+| --- | --- | --- |
+| Full and replacement delta assets | `TestExpressWidestStreamAdapters`, `TestExpressIncompressibleAssetAdapters` | Pass |
+| Pending replacement groups | `TestExpressRequalChainRecovery`, `TestStreamMarkersSelectSections` | Pass |
+| Sequence and epoch recovery | `TestExpressRequalChainRecovery`, `TestExpressRequalRemoteRecovery`, `TestApplyStreamRefusalOrder` | Pass |
+| Topology and registry binding | `TestExpressRequalTopologyBinding`, `TestExpressPublicOrderGuards`, `TestStateEnvelopeMarkersMatchTopology` | Pass |
+| Normalized class lane caches | `TestExpressRequalClassLaneCache`, `TestExpressPublicClassBindings` | Pass |
+| Raw and gzip caps | `TestExpressRequalStreamCaps`, `TestStreamGzipExpansionBound`, `TestExchangeBoundsResponseBodies` | Pass |
+| Go remote consumer | `TestExpressRemoteStream`, `TestExpressRemoteHTTPAndTripMarker`, `TestExpressRemoteInvalidStateHasNoACK`, `TestExpressRequalRemoteRecovery` | Pass |
+| Compact HTTP negotiation | `TestStateHTTPNegotiation`, `TestAcceptsStateMedia`, `TestStateHTTPMediaFailClosed` | Pass |
+| Browser/WASM roundtrip | Node Go/WASM runs of the public adapter tests and `TestExpressRequalCost`; see [the browser record](express-browser-qualification.md) | Node pass; Chromium open |
+| Fail-closed old readers | `TestStreamHelloRefusesOtherVersions`, `TestStreamBuildBeforeIncompatiblePayload`, `TestSavedVersionRefusals`, `TestExpressRequalSaveRejectedAtomically`, `TestAcceptsStateMedia` | Pass |
+
+The chain test applies an Express full frame and a delta that replaces the pending group.
+A delta after a gap, a delta of another stream, and a delta of another epoch fail with their own error text.
+They leave the accepted frame and the assembler unchanged.
+A full frame of the new epoch starts a new chain, and only an assembler of the new topology accepts it.
+The remote test runs the Go client over two connections.
+The client acknowledges the first full frame, refuses the delta after a gap without an acknowledgement, and keeps the accepted state.
+On the second connection it reads the topology of the new epoch and acknowledges the new full frame.
+
+The class lane cache refuses a lane that admits Express by itself when the lane ends at a berth of a station that refuses Express, or belongs to such a station.
+A vehicle without a class uses the legacy lanes.
+The stream caps test decodes exactly 65 MiB of JSON and refuses one more byte.
+It refuses a gzip message of 66 MiB plus one byte, a second gzip member, and an inflated size past the JSON cap.
+The HTTP state uses one media type for every project kind.
+The Express and compact-pair media types of earlier servers get HTTP 406, and the client refuses a reply of another media type.
+
+### Measured sizes on the merged formats
+
+The widest assets are the independent wire-field shapes of the historical record, encoded with the current formats.
+The runs used Go 1.27.1, `GOMAXPROCS=2`, and the default `GOGC=100`.
+
+| Asset | Raw bytes | Gzip bytes | Raw cap |
+| --- | ---: | ---: | ---: |
+| Modern save 9 | 77,043,253 | 819,058 | 83,886,080 |
+| Mixed save 9 | 77,020,393 | 818,484 | 83,886,080 |
+| Independent full frame | 54,641,634 | 573,247 | 68,157,440 |
+| Independent replacement delta | 54,774,703 | 564,014 | 68,157,440 |
+| Qualified topology | 10,399,903 | Separate response | 10,489,856 |
+| Reference full frame | 52,879,609 | Not measured | 68,157,440 |
+| Reference successor delta | 16,908,995 | Not measured | 68,157,440 |
+| Packed HTTP state | 63,279,281 | 10,795,815 | 68,157,440 |
+| Save with distinct text | 77,043,253 | 15,626,367 | 83,886,080 |
+| Full with distinct text | 54,641,634 | 15,256,651 | 68,157,440 |
+| Text replacement delta | 31,412,334 | 14,975,170 | 68,157,440 |
+| HTTP with distinct text | 63,279,281 | 25,495,065 | 68,157,440 |
+
+The next topology escape step produces 10,637,898 bytes, and the decoder and the producer preflight refuse it.
+The save cap applies to the raw JSON and to the gzip file.
+The stream caps are 65 MiB of JSON and 66 MiB of gzip.
+
+### Time and heap on the merged formats
+
+`TestExpressRequalCost` reads the exported assets.
+It logs the time of each stage and the largest heap object size that a 1 ms sampler sees.
+The live heap is the heap after a full collection.
+The test keeps the accepted reference frame while it decodes and applies the successor delta.
+It then releases the reference frame, and it keeps the successor state and the assembler while it decodes the HTTP state.
+
+| Stage | Native seconds | Native peak heap, MiB | Node WASM seconds | Node WASM peak heap, MiB |
+| --- | ---: | ---: | ---: | ---: |
+| Save decode and boarding resolution | 4.118 | 304.1 | 19.468 | 483.4 |
+| Save encode and gzip | 0.402 | 264.1 | 1.621 | 264.1 |
+| Full frame inflate and decode | 2.426 | 148.7 | 10.915 | 244.6 |
+| Full frame encode and gzip | 0.334 | 240.6 | 1.065 | 248.1 |
+| Replacement delta inflate and decode | 2.330 | 167.9 | 10.143 | 196.9 |
+| Replacement delta encode and gzip | 0.298 | 261.0 | 0.881 | 261.6 |
+| Reference full decode, apply, and assembly | 3.396 | 834.1 | 17.272 | 1,989.8 |
+| Successor delta with the predecessor kept | 0.877 | 858.7 | 3.278 | 859.6 |
+| HTTP decode with the stream state kept | 4.982 | 1,543.6 | 20.534 | 2,285.0 |
+
+With the predecessor and the successor kept, the live heap was 499.8 MiB.
+Without the predecessor, it was 486.3 MiB.
+The predecessor kept the difference, 13.4 MiB.
+The native run had a peak RSS of 1,771,824 KiB in 20.6 s.
+The Node 24.21.0 run had a peak RSS of 2,556,872 KiB in 92.6 s.
+WASM runs on one thread, so the sampler adds work to the measured stages.
+Each value comes from one run on a shared host.
+An earlier run of the same stages under more host load took up to 1.5 times as long.
+The widest test runs had these peak RSS values: save 646,872 KiB, stream 599,956 KiB, topology and HTTP 1,138,912 KiB, and distinct text 1,267,260 KiB.
+These numbers do not give a memory bound for another environment.
+
+### Mutations
+
+Each mutant replaced one source file through a `go test -overlay` file, so no tracked source changed.
+A row is here only when the existing session and remote suites, including the tests that `-short` skips, pass with the mutant.
+Each mutant compiled, and each killing test failed on an assertion.
+
+| Source line at `e7d653d` | Mutation | Killing test | Result |
+| --- | --- | --- | --- |
+| `internal/session/state_file.go:435` | Ignore the error of `scanPackedOrders` | `TestExpressRequalSavePackedTextRefusals` | Killed |
+| `internal/session/stream_codec.go:663` | Remove the gzip message cap of `InflateStream` | `TestExpressRequalStreamCaps` | Killed |
+| `internal/session/stream_service.go:42` | Remove the JSON cap of `decodeMarkedJSON` | `TestExpressRequalStreamCaps` | Killed |
+| `internal/session/express_orders.go:192` | Admit a lane whose start node refuses the class | `TestExpressRequalClassLaneCache` | Killed |
+| `internal/session/express_orders.go:195` | Admit a lane whose end node refuses the class | `TestExpressRequalClassLaneCache` | Killed |
+| `internal/session/express_orders.go:198` | Admit a lane of a station that refuses the class | `TestExpressRequalClassLaneCache` | Killed |
+| `internal/session/express_orders.go:219` | Do not give an empty class the legacy class | `TestExpressRequalClassLaneCache` | Killed |
+
+Existing tests already kill five other mutants of the guards that the new tests check.
+`TestMarkerFormsSelectLimits` kills the Express header table at `state_file.go:398` and the waiting-trip bound at `format_limits.go:32`.
+`TestExpressWidestSaveAdapters` and `TestComposedWorstCaseFormats` kill the rider and boarding bounds at `format_limits.go:33` and `format_limits.go:34`.
+`TestStreamCodecRejectsInvalidEnvelope` kills the inflated size and trailing member check at `stream_codec.go:677`.
+One earlier form of the waiting-trip mutant did not compile, and the table does not count it.
+
+`TestExpressPublicAssetRetention` failed on `e7d653d`.
+`TestExpressWidestTopologyHTTPAdapters` exports `reference-full.json` with the widest speed of the stream fixture, and the assembler refuses that speed, which is correct.
+The test now sets the playback speed to 60 after the decode, as `TestExpressRequalCost` does, and it passes.
+The test runs only with `PODSIM_EXPRESS_PUBLIC_ASSET_DIR`, so CI does not run it.
+
+### Open items
+
+- The headless Chromium roundtrip did not run.
+  See [the browser record](express-browser-qualification.md) for the launch errors.
+- The widest-fixture browser resource run belongs to the "Resource and consumer cost" row, and this requalification did not repeat it.
+- The widest assets repeat order IDs and occupancy for width coverage.
+  They do not show a reachable native state.
+- No race run is claimed for this requalification.

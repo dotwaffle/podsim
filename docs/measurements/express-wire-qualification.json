@@ -1356,5 +1356,486 @@
     "No full-repository race, deployment, default enablement, or cap extension is claimed."
   ],
   "evidence_directory": "continuation-express-batch-20261003/session/evidence",
-  "root_browser_final_patch_sha256": "dfba231733adf1a8a4a290ee2a13e50a6d39faf3846c9675d362b83724727086"
+  "root_browser_final_patch_sha256": "dfba231733adf1a8a4a290ee2a13e50a6d39faf3846c9675d362b83724727086",
+  "requalification_merged_formats": {
+    "date": "2026-10-06",
+    "source": "e7d653d plus internal/session/express_requal_test.go and internal/remote/express_requal_test.go",
+    "production_change": false,
+    "formats": {
+      "project": 1,
+      "project_marker": "orderContract",
+      "saved_state": 9,
+      "hello": 6,
+      "http_media_type": "application/vnd.podsim.state-6+json",
+      "order_contract": "express-v1"
+    },
+    "toolchain": {
+      "go": "1.27.1",
+      "node": "24.21.0",
+      "native_gomaxprocs": 2,
+      "gogc": 100
+    },
+    "save_bytes_and_shape": [
+      {
+        "case": "widest-shape Express save files",
+        "tests": [
+          "TestExpressWidestSaveAdapters"
+        ],
+        "status": "pass"
+      },
+      {
+        "case": "escaped and multibyte text",
+        "tests": [
+          "TestExpressRequalSaveShapes",
+          "TestExpressOrderText",
+          "TestExpressIncompressibleAssetAdapters"
+        ],
+        "status": "pass"
+      },
+      {
+        "case": "both boarding forms",
+        "tests": [
+          "TestExpressRequalSaveShapes",
+          "TestBoardingStateMalformed",
+          "TestExpressSaveStreamHTTPRoundTrip"
+        ],
+        "status": "pass"
+      },
+      {
+        "case": "optional history",
+        "tests": [
+          "TestExpressRequalSaveShapes"
+        ],
+        "status": "pass"
+      },
+      {
+        "case": "exponents",
+        "tests": [
+          "TestExpressRequalSaveShapes",
+          "TestExpressPublicNumericRoundTrip"
+        ],
+        "status": "pass"
+      },
+      {
+        "case": "malformed base64",
+        "tests": [
+          "TestExpressRequalSavePackedTextRefusals",
+          "TestExpressOrderText",
+          "TestExpressPublicTextAndShapeGuards",
+          "TestDecodeStateFileRejects"
+        ],
+        "status": "pass"
+      },
+      {
+        "case": "UTF-8 and decoded limits",
+        "tests": [
+          "TestExpressRequalSavePackedTextRefusals"
+        ],
+        "status": "pass"
+      },
+      {
+        "case": "exact gzip caps",
+        "tests": [
+          "TestDecodeStateFileSizeBoundary",
+          "TestDecodeStateFileRejects",
+          "TestExpressWidestSaveAdapters"
+        ],
+        "status": "pass"
+      },
+      {
+        "case": "parser prescan",
+        "tests": [
+          "TestExpressRequalSavePrescanBounds",
+          "TestStateJSONLimits",
+          "TestDecodeStateFileBombs",
+          "TestBoardingStateLimits"
+        ],
+        "status": "pass"
+      },
+      {
+        "case": "atomic rejection",
+        "tests": [
+          "TestExpressRequalSaveRejectedAtomically",
+          "TestSavedInvalidMovedAside"
+        ],
+        "status": "pass"
+      }
+    ],
+    "stream_and_public_consumers": [
+      {
+        "case": "full and replacement delta assets",
+        "tests": [
+          "TestExpressWidestStreamAdapters",
+          "TestExpressIncompressibleAssetAdapters"
+        ],
+        "status": "pass"
+      },
+      {
+        "case": "pending replacement groups",
+        "tests": [
+          "TestExpressRequalChainRecovery",
+          "TestStreamMarkersSelectSections"
+        ],
+        "status": "pass"
+      },
+      {
+        "case": "sequence and epoch recovery",
+        "tests": [
+          "TestExpressRequalChainRecovery",
+          "TestExpressRequalRemoteRecovery",
+          "TestApplyStreamRefusalOrder"
+        ],
+        "status": "pass"
+      },
+      {
+        "case": "topology and registry binding",
+        "tests": [
+          "TestExpressRequalTopologyBinding",
+          "TestExpressPublicOrderGuards",
+          "TestStateEnvelopeMarkersMatchTopology"
+        ],
+        "status": "pass"
+      },
+      {
+        "case": "normalized class lane caches",
+        "tests": [
+          "TestExpressRequalClassLaneCache",
+          "TestExpressPublicClassBindings"
+        ],
+        "status": "pass"
+      },
+      {
+        "case": "raw and gzip caps",
+        "tests": [
+          "TestExpressRequalStreamCaps",
+          "TestStreamGzipExpansionBound",
+          "TestExchangeBoundsResponseBodies"
+        ],
+        "status": "pass"
+      },
+      {
+        "case": "Go remote consumer",
+        "tests": [
+          "TestExpressRemoteStream",
+          "TestExpressRemoteHTTPAndTripMarker",
+          "TestExpressRemoteInvalidStateHasNoACK",
+          "TestExpressRequalRemoteRecovery"
+        ],
+        "status": "pass"
+      },
+      {
+        "case": "compact HTTP negotiation",
+        "tests": [
+          "TestStateHTTPNegotiation",
+          "TestAcceptsStateMedia",
+          "TestStateHTTPMediaFailClosed"
+        ],
+        "status": "pass"
+      },
+      {
+        "case": "browser/WASM roundtrip",
+        "tests": [
+          "Node Go/WASM public adapter tests",
+          "TestExpressRequalCost"
+        ],
+        "status": "Node Go/WASM pass; headless Chromium open"
+      },
+      {
+        "case": "fail-closed old readers",
+        "tests": [
+          "TestStreamHelloRefusesOtherVersions",
+          "TestStreamBuildBeforeIncompatiblePayload",
+          "TestSavedVersionRefusals",
+          "TestExpressRequalSaveRejectedAtomically",
+          "TestAcceptsStateMedia"
+        ],
+        "status": "pass"
+      }
+    ],
+    "caps": {
+      "save_raw_bytes": 83886080,
+      "save_gzip_bytes": 83886080,
+      "stream_raw_bytes": 68157440,
+      "stream_message_bytes": 69206016,
+      "topology_entire_bytes": 10489856
+    },
+    "assets": [
+      {
+        "name": "modern save 9",
+        "raw": 77043253,
+        "gzip": 819058
+      },
+      {
+        "name": "mixed save 9",
+        "raw": 77020393,
+        "gzip": 818484
+      },
+      {
+        "name": "independent full frame",
+        "raw": 54641634,
+        "gzip": 573247
+      },
+      {
+        "name": "independent replacement delta",
+        "raw": 54774703,
+        "gzip": 564014
+      },
+      {
+        "name": "qualified topology",
+        "raw": 10399903,
+        "next_escape_step_raw": 10637898
+      },
+      {
+        "name": "reference full frame",
+        "raw": 52879609
+      },
+      {
+        "name": "reference successor delta",
+        "raw": 16908995
+      },
+      {
+        "name": "packed HTTP state",
+        "raw": 63279281,
+        "gzip": 10795815
+      },
+      {
+        "name": "save with distinct text",
+        "raw": 77043253,
+        "gzip": 15626367
+      },
+      {
+        "name": "full with distinct text",
+        "raw": 54641634,
+        "gzip": 15256651
+      },
+      {
+        "name": "text replacement delta",
+        "raw": 31412334,
+        "gzip": 14975170
+      },
+      {
+        "name": "HTTP with distinct text",
+        "raw": 63279281,
+        "gzip": 25495065
+      }
+    ],
+    "widest_peak_rss_kib": {
+      "TestExpressWidestSaveAdapters": 646872,
+      "TestExpressWidestStreamAdapters": 599956,
+      "TestExpressWidestTopologyHTTPAdapters": 1138912,
+      "TestExpressIncompressibleAssetAdapters": 1267260
+    },
+    "cost": {
+      "test": "TestExpressRequalCost",
+      "heap_sampler_ms": 1,
+      "native": {
+        "stages": [
+          {
+            "stage": "save-decode",
+            "seconds": 4.118,
+            "peak_heap_mib": 304.1
+          },
+          {
+            "stage": "save-encode",
+            "seconds": 0.402,
+            "peak_heap_mib": 264.1
+          },
+          {
+            "stage": "full-decode",
+            "seconds": 2.426,
+            "peak_heap_mib": 148.7
+          },
+          {
+            "stage": "full-encode",
+            "seconds": 0.334,
+            "peak_heap_mib": 240.6
+          },
+          {
+            "stage": "delta-decode",
+            "seconds": 2.33,
+            "peak_heap_mib": 167.9
+          },
+          {
+            "stage": "delta-encode",
+            "seconds": 0.298,
+            "peak_heap_mib": 261.0
+          },
+          {
+            "stage": "reference-full-decode-assemble",
+            "seconds": 3.396,
+            "peak_heap_mib": 834.1
+          },
+          {
+            "stage": "replacement-with-predecessor",
+            "seconds": 0.877,
+            "peak_heap_mib": 858.7
+          },
+          {
+            "stage": "http-decode-with-stream-state",
+            "seconds": 4.982,
+            "peak_heap_mib": 1543.6
+          }
+        ],
+        "peak_rss_kib": 1771824,
+        "wall_seconds": 20.6
+      },
+      "node_wasm": {
+        "stages": [
+          {
+            "stage": "save-decode",
+            "seconds": 19.468,
+            "peak_heap_mib": 483.4
+          },
+          {
+            "stage": "save-encode",
+            "seconds": 1.621,
+            "peak_heap_mib": 264.1
+          },
+          {
+            "stage": "full-decode",
+            "seconds": 10.915,
+            "peak_heap_mib": 244.6
+          },
+          {
+            "stage": "full-encode",
+            "seconds": 1.065,
+            "peak_heap_mib": 248.1
+          },
+          {
+            "stage": "delta-decode",
+            "seconds": 10.143,
+            "peak_heap_mib": 196.9
+          },
+          {
+            "stage": "delta-encode",
+            "seconds": 0.881,
+            "peak_heap_mib": 261.6
+          },
+          {
+            "stage": "reference-full-decode-assemble",
+            "seconds": 17.272,
+            "peak_heap_mib": 1989.8
+          },
+          {
+            "stage": "replacement-with-predecessor",
+            "seconds": 3.278,
+            "peak_heap_mib": 859.6
+          },
+          {
+            "stage": "http-decode-with-stream-state",
+            "seconds": 20.534,
+            "peak_heap_mib": 2285.0
+          }
+        ],
+        "peak_rss_kib": 2556872,
+        "wall_seconds": 92.6
+      },
+      "previous_frame_retention_mib": {
+        "live_with_predecessor": 499.8,
+        "live_without_predecessor": 486.3,
+        "retained": 13.4
+      },
+      "note": "one run each on a shared host; an earlier run under more load took up to 1.5 times as long"
+    },
+    "mutations": {
+      "method": "go test -overlay; existing session and remote suites without -short pass with each listed mutant",
+      "rows": [
+        {
+          "path": "internal/session/state_file.go",
+          "line": 435,
+          "mutation": "ignore the scanPackedOrders error",
+          "test": "TestExpressRequalSavePackedTextRefusals",
+          "compiled": true,
+          "status": "killed"
+        },
+        {
+          "path": "internal/session/stream_codec.go",
+          "line": 663,
+          "mutation": "remove the InflateStream gzip message cap",
+          "test": "TestExpressRequalStreamCaps",
+          "compiled": true,
+          "status": "killed"
+        },
+        {
+          "path": "internal/session/stream_service.go",
+          "line": 42,
+          "mutation": "remove the decodeMarkedJSON JSON cap",
+          "test": "TestExpressRequalStreamCaps",
+          "compiled": true,
+          "status": "killed"
+        },
+        {
+          "path": "internal/session/express_orders.go",
+          "line": 192,
+          "mutation": "admit a lane whose start node refuses the class",
+          "test": "TestExpressRequalClassLaneCache",
+          "compiled": true,
+          "status": "killed"
+        },
+        {
+          "path": "internal/session/express_orders.go",
+          "line": 195,
+          "mutation": "admit a lane whose end node refuses the class",
+          "test": "TestExpressRequalClassLaneCache",
+          "compiled": true,
+          "status": "killed"
+        },
+        {
+          "path": "internal/session/express_orders.go",
+          "line": 198,
+          "mutation": "admit a lane of a station that refuses the class",
+          "test": "TestExpressRequalClassLaneCache",
+          "compiled": true,
+          "status": "killed"
+        },
+        {
+          "path": "internal/session/express_orders.go",
+          "line": 219,
+          "mutation": "do not give an empty class the legacy class",
+          "test": "TestExpressRequalClassLaneCache",
+          "compiled": true,
+          "status": "killed"
+        }
+      ],
+      "already_killed_by_existing_tests": [
+        {
+          "path": "internal/session/state_file.go",
+          "line": 398,
+          "killed_by": "TestMarkerFormsSelectLimits"
+        },
+        {
+          "path": "internal/session/format_limits.go",
+          "line": 32,
+          "killed_by": "TestMarkerFormsSelectLimits"
+        },
+        {
+          "path": "internal/session/format_limits.go",
+          "line": 33,
+          "killed_by": "TestExpressWidestSaveAdapters, TestComposedWorstCaseFormats"
+        },
+        {
+          "path": "internal/session/format_limits.go",
+          "line": 34,
+          "killed_by": "TestExpressWidestSaveAdapters, TestComposedWorstCaseFormats"
+        },
+        {
+          "path": "internal/session/stream_codec.go",
+          "line": 677,
+          "killed_by": "TestStreamCodecRejectsInvalidEnvelope, TestFaultStreamArrayLimits, TestEmergencyStreamArrayLimits"
+        }
+      ],
+      "void": [
+        "format_limits.go:32 first form did not compile"
+      ]
+    },
+    "fixed": [
+      "TestExpressPublicAssetRetention failed at e7d653d: reference-full.json keeps the widest stream-fixture speed, which the assembler refuses. The test now sets speed 60 after the decode and passes. Env-gated; not run by CI."
+    ],
+    "open": [
+      "Headless Chromium roundtrip not run: chrome fails the process singleton socket check in the command sandbox; chrome-headless-shell exits 133 under ulimit -v 16000000.",
+      "Widest-fixture browser resource run (Resource and consumer cost row) not repeated.",
+      "Widest assets are independent wire-field shapes, not reachable native states.",
+      "No race run claimed."
+    ]
+  }
 }

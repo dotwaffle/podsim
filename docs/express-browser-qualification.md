@@ -82,3 +82,60 @@ The wire qualification records its final dependency checks.
 Source pins keep these claims separate.
 
 The measurement record names each evidence directory.
+
+## Requalification on the merged formats
+
+This section covers the browser/WASM roundtrip case of the "Stream and public consumers" row on the current formats.
+The earlier sections of this record are historical.
+The current formats are saved-state version 9, hello version 6, and the HTTP media type `application/vnd.podsim.state-6+json`.
+The tested source is `e7d653d` with the new requalification tests.
+The wire record lists the other cases in [its requalification section](express-wire-qualification.md#requalification-on-the-merged-formats).
+The data is under `requalification_merged_formats` in [the measurement record](measurements/express-browser-qualification.json).
+
+### Node Go/WASM
+
+The session test binary was built with `GOOS=js GOARCH=wasm` and run in Node 24.21.0 with `GOGC=100`.
+These public adapter tests passed in 10.0 s:
+
+- `TestExpressPublicNumericRoundTrip`, `TestExpressOrderText`, `TestExpressPublicTextAndShapeGuards`, `TestExpressMarkersAndAtomicAssembly`, `TestExpressPublicOrderGuards`, and `TestExpressPublicClassBindings`.
+- `TestExpressRequalSaveShapes`, `TestExpressRequalSavePackedTextRefusals`, `TestExpressRequalSavePrescanBounds`, `TestExpressRequalChainRecovery`, `TestExpressRequalTopologyBinding`, `TestExpressRequalClassLaneCache`, and `TestExpressRequalStreamCaps`.
+
+`TestExpressRequalCost` also passed in Node Go/WASM with the widest assets.
+It decoded the widest save, full frame, replacement delta, reference frame, and HTTP state.
+It kept the accepted reference frame while it applied the successor delta.
+It kept the successor state and the assembler while it decoded the HTTP state.
+
+| Stage | Seconds | Peak heap, MiB |
+| --- | ---: | ---: |
+| Save decode and boarding resolution | 19.468 | 483.4 |
+| Full frame inflate and decode | 10.915 | 244.6 |
+| Replacement delta inflate and decode | 10.143 | 196.9 |
+| Reference full decode, apply, and assembly | 17.272 | 1,989.8 |
+| Successor delta with the predecessor kept | 3.278 | 859.6 |
+| HTTP decode with the stream state kept | 20.534 | 2,285.0 |
+
+The Node process had a peak RSS of 2,556,872 KiB.
+WASM runs on one thread, so the 1 ms heap sampler adds work to the measured stages.
+These numbers do not show responsive browser operation.
+
+### Headless Chromium
+
+The headless Chromium roundtrip did not run, so this case stays open.
+The test, server, and browser commands ran with `ulimit -v 16000000`, except the one diagnostic launch below.
+
+- `chrome` 143.0.7499.4 stopped at startup with `FATAL:chrome/browser/process_singleton_posix.cc:292] Check failed: . socket() failed: Operation not permitted (1)`.
+  The command sandbox refuses the Unix socket of the process singleton.
+  This failure does not depend on the address-space limit.
+- `chrome-headless-shell` 143.0.7499.4 exited with status 133 (SIGTRAP) under the address-space limit, with no log, before it opened the debugging port.
+- One diagnostic launch of each binary without the limit loaded only `about:blank`.
+  `chrome` stopped at the same socket check.
+  `chrome-headless-shell` started and printed the page.
+
+Chromium reserves large address ranges that it does not use, so no `ulimit -v` value near 16 GB lets it start.
+A memory limit on a cgroup or on the data segment would keep the purpose of the limit.
+The maintainer must decide whether such a limit replaces `ulimit -v` for the browser run.
+The planned run serves an Express project with `cmd/serve` on 127.0.0.1 and opens the production game page in `chrome-headless-shell`.
+It drives the page over the DevTools protocol with the built-in WebSocket of Node.
+It must see hello version 6 with the `express-v1` marker, an acknowledgement after each frame, a trip command of a party of 20 with the marker, and an acknowledged frame that contains that party.
+
+The widest-fixture browser resource run belongs to the "Resource and consumer cost" row, and this requalification did not repeat it.

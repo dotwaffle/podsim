@@ -149,5 +149,97 @@
       "path": "continuation-express-batch-20261003/root/native-constructor-v6-bridge.json",
       "sha256": "b1c394e34b41944a9f3a5b5e4331a4248f81a688374dffbc4d4c48378e4690e7"
     }
+  },
+  "requalification_merged_formats": {
+    "date": "2026-10-06",
+    "source": "e7d653d plus internal/session/express_requal_test.go and internal/remote/express_requal_test.go",
+    "formats": {
+      "saved_state": 9,
+      "hello": 6,
+      "http_media_type": "application/vnd.podsim.state-6+json",
+      "order_contract": "express-v1"
+    },
+    "node_wasm": {
+      "node": "24.21.0",
+      "go": "1.27.1",
+      "gogc": 100,
+      "functional_tests": [
+        "TestExpressPublicNumericRoundTrip",
+        "TestExpressOrderText",
+        "TestExpressPublicTextAndShapeGuards",
+        "TestExpressMarkersAndAtomicAssembly",
+        "TestExpressPublicOrderGuards",
+        "TestExpressPublicClassBindings",
+        "TestExpressRequalSaveShapes",
+        "TestExpressRequalSavePackedTextRefusals",
+        "TestExpressRequalSavePrescanBounds",
+        "TestExpressRequalChainRecovery",
+        "TestExpressRequalTopologyBinding",
+        "TestExpressRequalClassLaneCache",
+        "TestExpressRequalStreamCaps"
+      ],
+      "functional_status": "pass",
+      "functional_seconds": 10.0,
+      "cost_test": "TestExpressRequalCost",
+      "cost_status": "pass",
+      "cost_stages": [
+        {
+          "stage": "save-decode",
+          "seconds": 19.468,
+          "peak_heap_mib": 483.4
+        },
+        {
+          "stage": "save-encode",
+          "seconds": 1.621,
+          "peak_heap_mib": 264.1
+        },
+        {
+          "stage": "full-decode",
+          "seconds": 10.915,
+          "peak_heap_mib": 244.6
+        },
+        {
+          "stage": "full-encode",
+          "seconds": 1.065,
+          "peak_heap_mib": 248.1
+        },
+        {
+          "stage": "delta-decode",
+          "seconds": 10.143,
+          "peak_heap_mib": 196.9
+        },
+        {
+          "stage": "delta-encode",
+          "seconds": 0.881,
+          "peak_heap_mib": 261.6
+        },
+        {
+          "stage": "reference-full-decode-assemble",
+          "seconds": 17.272,
+          "peak_heap_mib": 1989.8
+        },
+        {
+          "stage": "replacement-with-predecessor",
+          "seconds": 3.278,
+          "peak_heap_mib": 859.6
+        },
+        {
+          "stage": "http-decode-with-stream-state",
+          "seconds": 20.534,
+          "peak_heap_mib": 2285.0
+        }
+      ],
+      "cost_peak_rss_kib": 2556872
+    },
+    "chromium": {
+      "status": "open",
+      "version": "143.0.7499.4",
+      "chrome_error": "FATAL:chrome/browser/process_singleton_posix.cc:292] Check failed: . socket() failed: Operation not permitted (1)",
+      "headless_shell_error": "exit status 133 (SIGTRAP) under ulimit -v 16000000, no log, before the debugging port opened",
+      "diagnostic_without_limit": "chrome stops at the same socket check; chrome-headless-shell starts and prints about:blank",
+      "decision_needed": "whether a cgroup or data-segment memory limit replaces ulimit -v for the browser run"
+    },
+    "widest_browser_resource_run": "not repeated; belongs to the Resource and consumer cost row",
+    "deployment_authorized": false
   }
 }
