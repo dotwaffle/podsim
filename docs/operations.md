@@ -466,7 +466,7 @@ Validation also refuses these projects:
 
 The size limit of 10 MiB counts `faults` at its widest value.
 The editor has no control for the fault marker and `faults`, and it keeps them in a loaded project.
-`cmd/compare` refuses a project with the incident marker, so it also refuses the fault marker.
+`cmd/compare` and the car runs of `internal/parkride` refuse a project with the incident marker, so they also refuse the fault marker.
 A change to the fault marker or to `faults` is a project change.
 A project apply then replaces the fleet, and every fault ends.
 With `-project`, a saved state with other fault settings gets `project_changed`.
