@@ -81,7 +81,6 @@ It does not measure controller overhead or maximum production playback speed.
 Further qualification needs individual-request comparisons, additional seeds and loads, and a controlled CPU comparison.
 No preset, policy default, saved-state contract, or wire API changes follow from this screen.
 
-[Per-arm results](measurements/pickup-swap-sustained.csv) retain the comparison fields and controller counters.
-[Study metadata](measurements/pickup-swap-sustained.json) records source identity, hashes, paired controls, and validation limits.
+The raw measurement data is in git history.
 
 The later [matched-request diagnosis](pickup-request-diagnosis.md) explains the two larger completed maxima and retains same-request regressions and censored cohorts.

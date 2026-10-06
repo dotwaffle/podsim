@@ -26,7 +26,7 @@ It checks 7,566 eligible lane pairs using the exact movement polylines.
 The light pilot completes 12 of 12 journeys and makes all six outbound connections.
 Observer-on and observer-off results match exactly.
 The final heavy baseline reproduces every frozen result field and passenger receipt in both seeds.
-The [measurement record](measurements/station-banks-screen.json) contains fixture, source, result, and run-manifest hashes.
+The raw measurement data is in git history.
 
 ## Service results
 

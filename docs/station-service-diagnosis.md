@@ -10,7 +10,7 @@ No layout or controller default changes.
 The diagnostic observer uses main `7306058` with private comparison hooks.
 The simulation and station-observation sources match the frozen study at `ed2ba64`.
 Both diagnostic seeds reproduce every frozen result field and passenger receipt exactly.
-The [measurement record](measurements/station-service-diagnosis.json) retains source and artifact hashes.
+The raw measurement data is in git history.
 Final arms run sequentially with `GOMAXPROCS=1` and `GOGC=400`, matching the frozen worker settings.
 Their result files match the initial functional runs byte-for-byte.
 Elapsed times do not support CPU comparisons.

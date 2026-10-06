@@ -80,7 +80,7 @@ Geometry trials need a demonstrated local bottleneck before changing access or e
 
 ## Evidence and limits
 
-[Arm results](measurements/terminus-flow-arms.csv), [lane samples](measurements/terminus-flow-lanes.csv), and [metadata](measurements/terminus-flow.json) retain the measurements.
+The raw measurement data is in git history.
 The production oracle compares result aggregates, not individual timing parity.
 The census retains individual identities and checks their timing totals separately.
 Two stations and two seeds do not qualify a default change or a LondonFull capacity claim.

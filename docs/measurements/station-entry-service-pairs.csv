@@ -1,9 +1,0 @@
-name,service_exact,different_result_fields,schedule_id,result_exact,timings_exact,accepted_exact,jointly_accepted,baseline_only_accepted,candidate_only_accepted,jointly_boarded,unboarded_or_missing,jointly_completed,unfinished_or_missing,maximum_added_wait_seconds,maximum_added_journey_seconds
-acton-burst-s1-unlimited,True,"peak_stopped_vehicles,stopped_pod_seconds,junction_wait_seconds,track_wait_seconds,passenger_distance_meters,empty_distance_meters,loaded_distance_percent,coupled_time_percent",0a804ecb4fe87de5,False,True,True,239,0,0,239,0,217,22,0.0,0.0
-acton-burst-s1-q200,True,"peak_stopped_vehicles,stopped_pod_seconds,junction_wait_seconds,track_wait_seconds,passenger_distance_meters,empty_distance_meters,loaded_distance_percent,coupled_time_percent",0a804ecb4fe87de5,False,True,True,226,0,0,226,0,212,14,0.0,0.0
-central-early-r10-s1,True,,0006c2546d58c21b,True,True,True,545,0,0,545,0,545,0,0.0,0.0
-full-morning-r14-s1,True,,ff47d91340e5f2ed,True,True,True,1867,0,0,1867,0,1856,11,0.0,0.0
-acton-burst-s2-unlimited,True,"peak_stopped_vehicles,stopped_pod_seconds,junction_wait_seconds,track_wait_seconds,empty_distance_meters,loaded_distance_percent,coupled_time_percent",ed3ebfc8a1a26a0a,False,True,True,239,0,0,239,0,214,25,0.0,0.0
-acton-burst-s2-q200,True,"stopped_pod_seconds,junction_wait_seconds,track_wait_seconds,passenger_distance_meters,empty_distance_meters,loaded_distance_percent,coupled_time_percent",ed3ebfc8a1a26a0a,False,True,True,226,0,0,226,0,211,15,0.0,0.0
-central-early-r10-s2,True,,8aaa642f20980cf9,True,True,True,587,0,0,587,0,587,0,0.0,0.0
-full-morning-r14-s2,True,,8dff6ef130977199,True,True,True,1803,0,0,1803,0,1787,16,0.0,0.0

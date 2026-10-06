@@ -1,4 +1,0 @@
-request_id,exclusion_from_tick,refused_trials,control_wait_seconds,excluded_wait_seconds,target_wait_change_seconds,excluded_boarding_pod,control_completed,excluded_completed,both_boarded_count,both_boarded_mean_wait_change_seconds,both_boarded_maximum_wait_increase_seconds,both_boarded_over_300_seconds,control_pending_at_cap,excluded_pending_at_cap
-1366,535321,1,1730.9666666666667,1737.3333333333333,6.366666666666666,london-pod-089,3598,3597,3599,-2.0448226359173844,1458.3166666666666,43,0,0
-1379,505080,1,1511.6333333333334,1918.4166666666667,406.78333333333336,london-pod-201,3598,3598,3599,0.49346114661480034,1629.2666666666667,46,0,0
-1845,715441,1,1158.8,2617.116666666667,1458.3166666666666,london-pod-070,3598,3597,3599,-0.17809576734278035,1458.3166666666666,44,0,0

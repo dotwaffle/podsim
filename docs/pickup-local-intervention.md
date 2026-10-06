@@ -74,5 +74,4 @@ Buffers and reassignment remain off by default.
 
 ## Evidence
 
-[Case totals](measurements/pickup-local-intervention.csv) retain target waits, refusals, boarding pods, and global matched outcomes.
-[Metadata](measurements/pickup-local-intervention.json) retains source and helper hashes, pre-intervention evidence, timings, and validation limits.
+The raw measurement data is in git history.

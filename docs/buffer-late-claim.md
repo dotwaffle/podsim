@@ -87,6 +87,6 @@ Concurrent functional runs provide no CPU comparison.
 This selected overloaded fixture does not describe all station layouts or establish sustained capacity.
 
 Independent candidate, helper, runner, and evidence reviews pass.
-[Measurements](measurements/buffer-late-claim.json) retain hashes, results, limit exceedances, unfinished cohorts, and sampled-claim totals.
+The raw measurement data is in git history.
 The [earlier station-speed study](station-buffer-speed.md) retains the negative speed trials.
 The [experimental gates](experimental-adoption.md) define the separate qualification requirements.

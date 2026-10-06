@@ -1,7 +1,0 @@
-name,evaluations,no-delay,same-route,saving-too-small,selected,distinct_candidates,max_delay_seconds,max_saving_seconds
-central-early-r10-s1-predictive,5460,5139,320,1,0,1,5.6865978390593455,0.7064421859272443
-full-morning-r13-s1-predictive,7447,7301,144,2,0,2,5.5342890417201716,1.0751209116371
-full-morning-r14-s1-predictive,7472,7322,149,1,0,1,4.722188679897272,1.6030904231363365
-central-early-r10-s2-predictive,5645,5311,334,0,0,0,5.952759094153976,0
-full-morning-r13-s2-predictive,7359,7208,145,6,0,6,5.815891114975102,2.795120712991775
-full-morning-r14-s2-predictive,7411,7220,183,8,0,8,3.4821428571422075,2.2816550556453876

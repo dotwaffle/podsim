@@ -89,5 +89,4 @@ They cover two paired schedules, not every demand band, seed, fleet, or station 
 Physical restore evidence has the same controller-history limits as the original study.
 Functional runs overlap other diagnostic work, so their wall times do not measure CPU overhead or playback speed.
 
-[Matched statistics](measurements/pickup-request-pairs.csv) and [cohorts](measurements/pickup-request-cohorts.csv) retain the summary measurements.
-[Metadata](measurements/pickup-request-diagnosis.json) records frozen inputs, all maximum-request comparisons, analyzer and raw-result hashes.
+The raw measurement data is in git history.

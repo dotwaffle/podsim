@@ -75,7 +75,7 @@ Each restored copy passes a separate 60-second continuation with dense checks.
 Short pilots check every tick and match production aggregates.
 Concurrent functional runs do not provide CPU comparisons.
 
-[Measurements](measurements/station-buffer-speed.json) retain schedules, accepted-cohort hashes, results, claim counts, denial resources, checks, and source identities.
+The raw measurement data is in git history.
 Their owned units terminated successfully and their scratch binaries were removed.
 
 A future buffer change must preserve the complete-path safety contract and demonstrate better service on matched individual cohorts.

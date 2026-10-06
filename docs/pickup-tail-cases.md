@@ -103,7 +103,6 @@ It does not replay a single suppressed swap or prove that the previous assigned 
 Broader demand coverage and numeric individual-tail limits remain necessary before adopting the experimental controller.
 Pickup reassignment and buffers remain off by default.
 
-[Case totals](measurements/pickup-tail-cases.csv) retain exact waits, predictions, boarding pods, and sampled counts.
-[Detailed evidence](measurements/pickup-tail-cases.json) retains timings, lane episodes, same-tick decisions, hashes, source manifests, and replay outcomes.
+The raw measurement data is in git history.
 The [selected-exclusion follow-up](pickup-local-intervention.md) compares three local interventions within reproduced histories.
 The separate [12/min seed-4 case](berth-route-preference.md) captures reciprocal waits at an intermediate berth, unlike the mostly moving assignments sampled here.

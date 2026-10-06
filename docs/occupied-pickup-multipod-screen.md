@@ -4,7 +4,7 @@ The two-pod fixture passes the selected service gates.
 The three-pod fixture fails the approved individual pickup and journey limits.
 Occupied pickups improve aggregate waits in both fixtures, but some parties wait longer.
 The policy remains opt-in, with no default adoption claim.
-The [measurement record](measurements/occupied-pickup-multipod-screen.json) retains every authored offer, both outcomes, and individual timing changes.
+The raw measurement data is in git history.
 
 ## Fixed workload
 

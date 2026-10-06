@@ -85,7 +85,7 @@ Candidate sharing P95 requests in these selected pairs are neither reassigned pa
 
 ## Evidence and conclusion
 
-[Metadata](measurements/policy-fleet-history.json) retains exact replay identities, P95 ranks, tail timings, and selected pod histories.
+The raw measurement data is in git history.
 Its owned unit terminated successfully and its scratch binary was removed.
 Concurrent functional runs do not provide CPU comparisons.
 

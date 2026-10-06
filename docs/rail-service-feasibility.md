@@ -9,7 +9,7 @@ No policy, layout, or default changed.
 ## Fixed study conditions
 
 The observer binary came from `ed2ba64`, before daily-demand and place-search changes.
-The [measurement record](measurements/rail-service-feasibility.json) retains its hash, fixture hashes, schedule identities, and receipt hashes.
+The raw measurement data is in git history.
 Each arm retained a three-hour observation cap and an exclusive offer-window end at tick 216,001.
 Offers through simulated second 3,600 were included.
 The run stopped after accepted journeys completed and issued train deadlines resolved, within the original cap.

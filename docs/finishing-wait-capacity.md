@@ -50,6 +50,6 @@ Physical restores at three and six hours retain poses, bindings, admission ages,
 The restored copies retain their selected wait rule and pass 60 seconds of dense continuation checks.
 Two short current/strict pilots check every tick and match production aggregates.
 
-[Metadata](measurements/finishing-wait-capacity.json) retains paired results, completed-cohort changes, gained and lost request IDs, checks, and source identities.
+The raw measurement data is in git history.
 Its owned unit terminated successfully and its scratch binary was removed.
 These selected cells do not qualify other demand bands or support a default change.

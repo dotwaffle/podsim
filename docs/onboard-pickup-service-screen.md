@@ -46,7 +46,7 @@ Actual native save/load tests preserve partial dwell, identities, baselines, and
 Logical retries requeue the original shared orders and retain an authored rail connection exactly once.
 Current generated rail orders remain private and cannot join an occupied pod.
 
-The [measurement](measurements/onboard-pickup-service-screen.json) pins the fixture and native source hashes, ordered offer hashes, every result, and the scope of this screen.
+The raw measurement data is in git history.
 The fixture and run logs are retained with the local implementation evidence.
 
 ## Encoding and policy

@@ -3,7 +3,7 @@
 Status: bounded Rail Hub screen on `bb8f577`, October 3, 2026.
 Enabling occupied pickups changes no outcome in either selected seed.
 No occupied pickup or intermediate stop occurs.
-The [measurement record](measurements/onboard-pickup-rail-screen.json) pins the source, fixtures, outputs, and complete offer comparisons.
+The raw measurement data is in git history.
 
 ## Workload and result
 

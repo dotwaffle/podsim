@@ -54,7 +54,5 @@ It does not prove that congestion routing cannot help another topology or worklo
 These cells provide no basis for reducing selection guards or enabling the policy by default.
 An isolated CPU comparison must measure the cost of these unchanged outcomes separately.
 
-[Arm totals](measurements/predictive-service-arms.csv) retain service statistics, backlog growth, and check counts.
-[Pair records](measurements/predictive-service-pairs.csv) retain exact-parity results and every unfinished request ID.
-[Metadata](measurements/predictive-service.json) retains source, project, helper, and binary hashes, pilot results, and all 15 run outcomes.
+The raw measurement data is in git history.
 The owned study stopped successfully, and its scratch binaries were removed.

@@ -76,7 +76,7 @@ Six shorter pilots check every tick and match production aggregates exactly.
 Their matched request timings also remain identical across versions.
 Pure observer tests and independent review check the measurement helper.
 
-[Arm measurements](measurements/station-entry-service-arms.csv), [matched pairs](measurements/station-entry-service-pairs.csv), and [metadata](measurements/station-entry-service.json) retain the screen.
+The raw measurement data is in git history.
 Concurrent runs provide no CPU comparison.
 See the [fixed entry contract](station-entry-platoons.md) for the safety and saved-state rules.
 Broader mixed arrival/departure coverage and individual-service gates remain necessary before adoption.

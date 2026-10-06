@@ -102,7 +102,7 @@ Compact encoding preserves the same data and fits the unchanged limit.
 The failed attempt remains recorded, and the two passed baseline pilots were reused only after exact job, source, binary, and project checks.
 No size limit increased.
 
-[Arm results](measurements/acton-reserve-sharing-arms.csv), [matched pairs](measurements/acton-reserve-sharing-pairs.csv), [selected tails](measurements/acton-reserve-sharing-tails.csv), and [metadata](measurements/acton-reserve-sharing.json) retain the evidence.
+The raw measurement data is in git history.
 Concurrent cells provide no CPU comparison.
 The fixture has no inbound passenger burst or general background demand.
 It cannot measure the effect of occupied reserve berths on busy inbound service or establish sustainable station throughput.

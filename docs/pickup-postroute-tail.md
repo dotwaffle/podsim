@@ -75,7 +75,6 @@ Suppressing that pair does not establish a general dispatch fix.
 
 ## Evidence
 
-[Target totals](measurements/pickup-postroute-tail.csv) retain waits, boarding pods, and sample denominators.
-[Metadata](measurements/pickup-postroute-tail.json) retains source hashes, exact replay checks, decisions, episodes, and captured route IDs.
+The raw measurement data is in git history.
 The owned run stopped successfully, and its scratch binary was removed.
 Concurrent functional runs provide no CPU comparison.

@@ -79,7 +79,5 @@ The CPU profile includes station-phase updates, admission, pickup handling, map 
 Profile percentages are diagnostic samples, not isolated speedups available from changing each function.
 No network or browser performance claim follows from these profiles.
 
-[Raw timed samples](measurements/predictive-cost-arms.csv) retain CPU, wall time, allocation, GC, heap, and peak RSS fields.
-[Repeated summaries](measurements/predictive-cost-summary.csv) retain medians and full repetition ranges.
-[Metadata](measurements/predictive-cost.json) retains frozen source and binary hashes, all run outcomes, exact result checks, and cost ratios.
+The raw measurement data is in git history.
 The owned measurement unit stopped successfully.

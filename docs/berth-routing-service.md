@@ -91,7 +91,6 @@ The changed fleet history also prevents attributing this result to one earlier d
 
 ## Evidence
 
-[Arm totals](measurements/berth-routing-service.csv) retain the selected cached and new results.
-[Matched metadata](measurements/berth-routing-service.json) retains source and input hashes, run outcomes, exact cohorts, unfinished IDs, and request-1324 frames.
+The raw measurement data is in git history.
 All owned study units stopped successfully and their compiled scratch binaries were removed.
 Concurrent functional runs do not support CPU timing claims.

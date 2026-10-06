@@ -4,7 +4,7 @@ The mixed fleet changes its total-energy ranking when the authored class-mass as
 This screen applies authored `flat-v1` coefficients to six native trajectories.
 The coefficients do not describe measured vehicles.
 The screen does not qualify physical energy use, sustained capacity, or a default policy.
-The [measurement record](measurements/energy-scenario-screen.json) retains the frozen plan, ledgers, and estimates.
+The raw measurement data is in git history.
 
 ## Fixed inputs
 

@@ -1,3 +1,0 @@
-rate,seed,shared_boarded_wait_count,shared_boarded_wait_mean,shared_boarded_wait_p95,shared_boarded_wait_maximum,shared_boarded_wait_improved,shared_boarded_wait_unchanged,shared_boarded_wait_worse,shared_completed_journey_count,shared_completed_journey_mean,shared_completed_journey_p95,shared_completed_journey_maximum,shared_completed_journey_improved,shared_completed_journey_unchanged,shared_completed_journey_worse
-15,2,5197,-380.6889712013341,164.45,2074.0,3655,857,685,5041,-360.2265456589301,172.6500000000001,2105.7666666666664,3591,687,763
-20,2,5088,-634.8122182914046,38.883333333333326,1481.3333333333333,4220,520,348,4949,-615.9751128174042,43.59999999999991,1481.333333333333,4134,415,400

@@ -102,5 +102,5 @@ Concurrent functional runs provide no CPU comparison.
 These finite selected screens do not establish indefinite capacity or full demand-band qualification.
 The failed individual gates stop broader unchanged runs for these candidates.
 
-[Measurements](measurements/pickup-supply.json) retain all offered indices that exceed limits, worst cases, checks, source hashes, and results.
+The raw measurement data is in git history.
 The [experimental gates](experimental-adoption.md) define the separate full-qualification requirements.

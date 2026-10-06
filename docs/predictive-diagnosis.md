@@ -71,6 +71,5 @@ Each restored copy passes a separate 60-second continuation with dense checks.
 Short pilots check every tick and match production aggregates exactly.
 Concurrent functional runs do not provide CPU comparisons.
 
-[Counts](measurements/predictive-diagnosis-arms.csv) retain all six service-cell rejection totals.
-[Metadata](measurements/predictive-diagnosis.json) retains costs, examples, exact historical checks, and source/helper/binary identities.
+The raw measurement data is in git history.
 The studies stopped successfully and their scratch binaries were removed.
