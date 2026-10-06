@@ -334,6 +334,50 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 	opts := options{}
 	flags := flag.NewFlagSet("compare", flag.ContinueOnError)
 	flags.SetOutput(stderr)
+	defineFlags(flags, &opts)
+	if err := flags.Parse(args); err != nil {
+		return options{}, err
+	}
+	if flags.NArg() != 0 {
+		return options{}, errors.New("unexpected positional arguments")
+	}
+	given := make(map[string]bool)
+	flags.Visit(func(set *flag.Flag) { given[set.Name] = true })
+	opts.sharingConsentColumn = given["sharing-consent"]
+	for _, step := range optionSteps {
+		if err := step(&opts, given); err != nil {
+			return options{}, err
+		}
+	}
+	return opts, nil
+}
+
+// optionSteps check and parse the options after the flags. given holds the
+// flags that the command line sets. The first error is the refusal, so the
+// order is part of the result. A step can read the values that the steps
+// before it set.
+var optionSteps = [...]func(*options, map[string]bool) error{
+	checkDurationOptions,
+	checkRunLimitOptions,
+	checkAdaptiveOptions,
+	parseConsentOption,
+	parseSeedOptions,
+	parsePatternOptions,
+	checkDailyOptions,
+	checkRailOptions,
+	parseLoadOptions,
+	parseSharingOptions,
+	parseRoutingOptions,
+	parseGivenArmOptions,
+	parseOnboardPickups,
+	parseExperimentalOptions,
+	checkStationQueueOptions,
+	checkMatrixSize,
+}
+
+// defineFlags defines the command-line flags of compare, with opts as their
+// destination.
+func defineFlags(flags *flag.FlagSet, opts *options) {
 	flags.DurationVar(&opts.duration, "duration", 30*time.Minute, "simulated comparison duration")
 	flags.DurationVar(&opts.arrivalsFor, "arrivals-for", 0, "simulated arrival window; default is the full duration")
 	flags.DurationVar(&opts.requestEvery, "request-every", 45*time.Second, "simulated time between requests")
@@ -369,131 +413,175 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 	flags.BoolVar(&opts.stopWhenDrained, "stop-when-drained", false, "stop after the arrival window when all accepted requests complete")
 	flags.BoolVar(&opts.adaptiveLimit, "adaptive-limit", false, "run each arm group from its lowest offered rate, and skip its rates more than -past-limit rates above the first rate at which a seed does not drain (requires -stop-when-drained)")
 	flags.IntVar(&opts.pastLimit, "past-limit", 1, "with -adaptive-limit, the number of rates to run after the first rate at which a seed does not drain")
-	if err := flags.Parse(args); err != nil {
-		return options{}, err
-	}
-	if flags.NArg() != 0 {
-		return options{}, errors.New("unexpected positional arguments")
-	}
-	given := make(map[string]bool)
-	flags.Visit(func(set *flag.Flag) { given[set.Name] = true })
-	opts.sharingConsentColumn = given["sharing-consent"]
+}
+
+// checkDurationOptions checks the duration, and then the arrival window. An
+// omitted arrival window is the full duration.
+func checkDurationOptions(opts *options, _ map[string]bool) error {
 	if opts.duration <= 0 || opts.duration > maxDuration {
-		return options{}, fmt.Errorf("duration must be between one simulation tick and %s", maxDuration)
+		return fmt.Errorf("duration must be between one simulation tick and %s", maxDuration)
 	}
 	if durationTicks(opts.duration) < 1 {
-		return options{}, errors.New("duration must be at least one simulation tick")
+		return errors.New("duration must be at least one simulation tick")
 	}
 	if opts.arrivalsFor == 0 {
 		opts.arrivalsFor = opts.duration
 	}
 	if opts.arrivalsFor <= 0 || opts.arrivalsFor > opts.duration || durationTicks(opts.arrivalsFor) < 1 {
-		return options{}, errors.New("arrivals-for must be at least one simulation tick and no longer than duration")
+		return errors.New("arrivals-for must be at least one simulation tick and no longer than duration")
 	}
+	return nil
+}
+
+// checkRunLimitOptions checks the queue limit, the burst size, the worker
+// count, and then the report format.
+func checkRunLimitOptions(opts *options, _ map[string]bool) error {
 	if opts.queueLimit < 1 || opts.queueLimit > maxQueueLimit {
-		return options{}, fmt.Errorf("queue-limit must be between 1 and %d", maxQueueLimit)
+		return fmt.Errorf("queue-limit must be between 1 and %d", maxQueueLimit)
 	}
 	if opts.burstSize < 1 || opts.burstSize > maxBurstSize {
-		return options{}, fmt.Errorf("burst-size must be between 1 and %d", maxBurstSize)
+		return fmt.Errorf("burst-size must be between 1 and %d", maxBurstSize)
 	}
 	if opts.workers < 1 || opts.workers > maxWorkers {
-		return options{}, fmt.Errorf("workers must be between 1 and %d", maxWorkers)
+		return fmt.Errorf("workers must be between 1 and %d", maxWorkers)
 	}
 	if opts.format != "table" && opts.format != "json" && opts.format != "csv" {
-		return options{}, errors.New("format must be table, json, or csv")
+		return errors.New("format must be table, json, or csv")
 	}
-	if err := validateAdaptiveLimit(opts, given["past-limit"]); err != nil {
-		return options{}, err
-	}
+	return nil
+}
 
-	var err error
+// checkAdaptiveOptions checks -adaptive-limit and -past-limit. See
+// validateAdaptiveLimit.
+func checkAdaptiveOptions(opts *options, given map[string]bool) error {
+	return validateAdaptiveLimit(*opts, given["past-limit"])
+}
+
+// parseConsentOption parses -sharing-consent. An empty value is not valid.
+func parseConsentOption(opts *options, _ map[string]bool) error {
 	if opts.sharingConsentText == "" {
-		return options{}, errors.New("sharing-consent must be private or shared")
+		return errors.New("sharing-consent must be private or shared")
 	}
-	opts.sharingConsent, err = comparisonConsent(sim.SharingConsent(opts.sharingConsentText))
+	consent, err := comparisonConsent(sim.SharingConsent(opts.sharingConsentText))
+	opts.sharingConsent = consent
+	return err
+}
+
+// parseSeedOptions parses -seeds, or uses -seed.
+func parseSeedOptions(opts *options, _ map[string]bool) error {
+	seeds, err := parseSeeds(opts.seed, opts.seedsText)
+	opts.seeds = seeds
+	return err
+}
+
+// parsePatternOptions parses -patterns, or uses -pattern. Then it checks
+// that -rail-forecast has only rail patterns.
+func parsePatternOptions(opts *options, _ map[string]bool) error {
+	patterns, err := parsePatterns(opts.pattern, opts.patternsText)
+	opts.patterns = patterns
 	if err != nil {
-		return options{}, err
+		return err
 	}
-	opts.seeds, err = parseSeeds(opts.seed, opts.seedsText)
-	if err != nil {
-		return options{}, err
+	if opts.railForecast && slices.ContainsFunc(opts.patterns, func(pattern string) bool {
+		return pattern != "rail-arrivals" && pattern != "rail-services"
+	}) {
+		return errors.New("rail-forecast requires only rail-arrivals or rail-services patterns")
 	}
-	opts.patterns, err = parsePatterns(opts.pattern, opts.patternsText)
-	if err != nil {
-		return options{}, err
-	}
-	if opts.railForecast {
-		for _, pattern := range opts.patterns {
-			if pattern != "rail-arrivals" && pattern != "rail-services" {
-				return options{}, errors.New("rail-forecast requires only rail-arrivals or rail-services patterns")
-			}
-		}
-	}
-	if dailyErr := validateDailyOptions(opts, given); dailyErr != nil {
-		return options{}, dailyErr
-	}
-	if railErr := validateRailOptions(opts, given); railErr != nil {
-		return options{}, railErr
-	}
+	return nil
+}
+
+// checkDailyOptions checks the options of the profile-daily pattern. See
+// validateDailyOptions.
+func checkDailyOptions(opts *options, given map[string]bool) error {
+	return validateDailyOptions(*opts, given)
+}
+
+// checkRailOptions checks the options of the rail patterns. See
+// validateRailOptions.
+func checkRailOptions(opts *options, given map[string]bool) error {
+	return validateRailOptions(*opts, given)
+}
+
+// parseLoadOptions parses the request intervals. A single rail or daily
+// pattern takes its timing from the project, and has one zero load.
+func parseLoadOptions(opts *options, _ map[string]bool) error {
 	if len(opts.patterns) == 1 && (opts.patterns[0] == "rail-arrivals" || opts.patterns[0] == "rail-services" || opts.patterns[0] == "profile-daily") {
 		opts.loads = []time.Duration{0}
-	} else {
-		opts.loads, err = parseLoads(parseLoadsInput{single: opts.requestEvery, list: opts.loadsText, duration: opts.arrivalsFor})
-		if err != nil {
-			return options{}, err
-		}
+		return nil
 	}
-	opts.sharingLimits, err = parseSharingLimits(opts.sharingLimitsText)
-	if err != nil {
-		return options{}, err
+	loads, err := parseLoads(parseLoadsInput{single: opts.requestEvery, list: opts.loadsText, duration: opts.arrivalsFor})
+	opts.loads = loads
+	return err
+}
+
+// parseSharingOptions parses the shared ride limits and modes, and then
+// checks the stop limit.
+func parseSharingOptions(opts *options, _ map[string]bool) error {
+	var err error
+	if opts.sharingLimits, err = parseSharingLimits(opts.sharingLimitsText); err != nil {
+		return err
 	}
-	opts.sharingModes, err = parseSharingModes(opts.sharingModesText)
-	if err != nil {
-		return options{}, err
+	if opts.sharingModes, err = parseSharingModes(opts.sharingModesText); err != nil {
+		return err
 	}
 	if opts.sharingMaxStops < 1 || opts.sharingMaxStops > sim.MaxSharedRideStops {
-		return options{}, fmt.Errorf("sharing-max-stops must be between 1 and %d", sim.MaxSharedRideStops)
+		return fmt.Errorf("sharing-max-stops must be between 1 and %d", sim.MaxSharedRideStops)
 	}
-	opts.routingPolicies, err = parseRoutingPolicies(opts.routingPoliciesText)
-	if err != nil {
-		return options{}, err
+	return nil
+}
+
+// parseRoutingOptions parses the routing policies, and then the
+// redistribution policies.
+func parseRoutingOptions(opts *options, _ map[string]bool) error {
+	var err error
+	if opts.routingPolicies, err = parseRoutingPolicies(opts.routingPoliciesText); err != nil {
+		return err
 	}
 	opts.redistributionPolicies, err = parseRedistributionPolicies(opts.redistributionText)
-	if err != nil {
-		return options{}, err
-	}
+	return err
+}
+
+// parseGivenArmOptions parses the wait rules, the platoon policies, and then
+// the sharing joins. It parses only the lists that the command line sets,
+// because each list adds a report column.
+func parseGivenArmOptions(opts *options, given map[string]bool) error {
+	var err error
 	if given["wait-rules"] {
-		opts.waitRules, err = parseWaitRules(opts.waitRulesText)
-		if err != nil {
-			return options{}, err
+		if opts.waitRules, err = parseWaitRules(opts.waitRulesText); err != nil {
+			return err
 		}
 	}
 	if given["platoon-policies"] {
-		opts.platoonPolicies, err = parsePlatoonPolicies(opts.platoonPoliciesText)
-		if err != nil {
-			return options{}, err
+		if opts.platoonPolicies, err = parsePlatoonPolicies(opts.platoonPoliciesText); err != nil {
+			return err
 		}
 	}
 	if given["sharing-joins"] {
-		opts.sharingJoins, err = parseSharingJoins(opts.sharingJoinsText)
-		if err != nil {
-			return options{}, err
+		if opts.sharingJoins, err = parseSharingJoins(opts.sharingJoinsText); err != nil {
+			return err
 		}
 	}
-	if err := parseOnboardOptions(&opts, given["onboard-pickups"]); err != nil {
-		return options{}, err
+	return nil
+}
+
+// parseOnboardPickups parses -onboard-pickups. See parseOnboardOptions.
+func parseOnboardPickups(opts *options, given map[string]bool) error {
+	return parseOnboardOptions(opts, given["onboard-pickups"])
+}
+
+// checkStationQueueOptions checks the compact arms. See
+// validateStationQueueOptions.
+func checkStationQueueOptions(opts *options, _ map[string]bool) error {
+	return validateStationQueueOptions(*opts)
+}
+
+// checkMatrixSize checks the number of comparisons in the matrix.
+func checkMatrixSize(opts *options, _ map[string]bool) error {
+	if len(opts.seeds)*len(opts.patterns)*len(opts.loads)*len(sharingArms(*opts))*max(1, len(opts.sharingJoins))*len(opts.routingPolicies)*
+		max(1, len(opts.waitRules))*max(1, len(opts.platoonPolicies))*experimentalArmCount(*opts)*onboardArmCount(*opts) > maxComparisons {
+		return fmt.Errorf("the matrix must contain at most %d comparisons", maxComparisons)
 	}
-	if err := parseExperimentalOptions(&opts, given); err != nil {
-		return options{}, err
-	}
-	if err := validateStationQueueOptions(opts); err != nil {
-		return options{}, err
-	}
-	if len(opts.seeds)*len(opts.patterns)*len(opts.loads)*len(sharingArms(opts))*max(1, len(opts.sharingJoins))*len(opts.routingPolicies)*
-		max(1, len(opts.waitRules))*max(1, len(opts.platoonPolicies))*experimentalArmCount(opts)*onboardArmCount(opts) > maxComparisons {
-		return options{}, fmt.Errorf("the matrix must contain at most %d comparisons", maxComparisons)
-	}
-	return opts, nil
+	return nil
 }
 
 // validateAdaptiveLimit checks -adaptive-limit and -past-limit.

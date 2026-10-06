@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"encoding/csv"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -1217,5 +1219,103 @@ func skipLong(t *testing.T) {
 	t.Helper()
 	if testing.Short() {
 		t.Skip("a long test runs without -short")
+	}
+}
+
+// TestParseOptionsStepOrder pins the order of the steps of parseOptions.
+// The first step that fails gives the refusal.
+func TestParseOptionsStepOrder(t *testing.T) {
+	t.Parallel()
+	want := []string{
+		"checkDurationOptions",
+		"checkRunLimitOptions",
+		"checkAdaptiveOptions",
+		"parseConsentOption",
+		"parseSeedOptions",
+		"parsePatternOptions",
+		"checkDailyOptions",
+		"checkRailOptions",
+		"parseLoadOptions",
+		"parseSharingOptions",
+		"parseRoutingOptions",
+		"parseGivenArmOptions",
+		"parseOnboardPickups",
+		"parseExperimentalOptions",
+		"checkStationQueueOptions",
+		"checkMatrixSize",
+	}
+	var got []string
+	for _, step := range optionSteps {
+		name := runtime.FuncForPC(reflect.ValueOf(step).Pointer()).Name()
+		got = append(got, name[strings.LastIndex(name, ".")+1:])
+	}
+	if !slices.Equal(got, want) {
+		t.Fatalf("option steps are %v, want %v", got, want)
+	}
+}
+
+// TestParseOptionsRefusalOrder pins the error that a command line with two
+// faults gets. Each case breaks two adjacent checks, in one step or at the
+// edge of two, and the earlier check gives the refusal.
+func TestParseOptionsRefusalOrder(t *testing.T) {
+	t.Parallel()
+	seeds := make([]string, maxSeeds)
+	for i := range seeds {
+		seeds[i] = strconv.Itoa(i + 1)
+	}
+	loads := make([]string, maxLoads)
+	for i := range loads {
+		loads[i] = strconv.Itoa(i+1) + "s"
+	}
+	for _, test := range []struct {
+		name string
+		args []string
+		want string
+	}{
+		{"flags_before_positional", []string{"-duration", "x", "extra"}, `invalid value "x" for flag -duration: parse error`},
+		{"positional_before_duration", []string{"-duration", "0s", "extra"}, "unexpected positional arguments"},
+		{"duration_before_ticks", []string{"-duration", "0s"}, fmt.Sprintf("duration must be between one simulation tick and %s", maxDuration)},
+		{"ticks_before_arrivals", []string{"-duration", "1ms", "-arrivals-for", "2m"}, "duration must be at least one simulation tick"},
+		{"arrivals_before_queue", []string{"-duration", "1m", "-arrivals-for", "2m", "-queue-limit", "0"},
+			"arrivals-for must be at least one simulation tick and no longer than duration"},
+		{"queue_before_burst", []string{"-queue-limit", "0", "-burst-size", "0"}, fmt.Sprintf("queue-limit must be between 1 and %d", maxQueueLimit)},
+		{"burst_before_workers", []string{"-burst-size", "0", "-workers", "0"}, fmt.Sprintf("burst-size must be between 1 and %d", maxBurstSize)},
+		{"workers_before_format", []string{"-workers", "0", "-format", "yaml"}, fmt.Sprintf("workers must be between 1 and %d", maxWorkers)},
+		{"format_before_adaptive", []string{"-format", "yaml", "-adaptive-limit"}, "format must be table, json, or csv"},
+		{"adaptive_before_consent", []string{"-adaptive-limit", "-sharing-consent", ""}, "adaptive-limit requires -stop-when-drained"},
+		{"empty_consent_before_seeds", []string{"-sharing-consent", "", "-seeds", "1,1"}, "sharing-consent must be private or shared"},
+		{"consent_before_seeds", []string{"-sharing-consent", "maybe", "-seeds", "1,1"}, `sharing-consent must be private or shared, got "maybe"`},
+		{"seeds_before_patterns", []string{"-seeds", "1,1", "-pattern", "future"}, "seed 1 appears more than once"},
+		{"patterns_before_daily", []string{"-pattern", "future", "-daily-start-minute", "5"}, `unknown demand pattern "future"`},
+		{"rail_forecast_before_daily", []string{"-rail-forecast", "-pattern", "balanced", "-daily-start-minute", "5"},
+			"rail-forecast requires only rail-arrivals or rail-services patterns"},
+		{"daily_before_rail", []string{"-patterns", "profile-daily,rail-arrivals", "-loads", "30s"},
+			"daily demand does not accept -loads: timing and rates come from the profile"},
+		{"rail_before_loads", []string{"-patterns", "rail-arrivals,balanced", "-loads", "30s,30s"},
+			"rail demand does not accept -loads: volume comes from the project plan"},
+		{"loads_before_sharing_limits", []string{"-loads", "30s,30s", "-sharing-limits", "0"}, "load 30s appears more than once"},
+		{"sharing_limits_before_modes", []string{"-sharing-limits", "0", "-sharing-modes", "pickups"},
+			fmt.Sprintf("sharing limits must be integers from 1 to %d", sim.MaxSharedRideParties)},
+		{"sharing_modes_before_stops", []string{"-sharing-modes", "pickups", "-sharing-max-stops", "0"}, `unknown sharing mode "pickups"`},
+		{"sharing_stops_before_routing", []string{"-sharing-max-stops", "0", "-routing-policies", "fast"},
+			fmt.Sprintf("sharing-max-stops must be between 1 and %d", sim.MaxSharedRideStops)},
+		{"routing_before_redistribution", []string{"-routing-policies", "fast", "-redistribution-policies", "maybe"}, `unknown routing policy "fast"`},
+		{"redistribution_before_wait_rules", []string{"-redistribution-policies", "maybe", "-wait-rules", "lenient"}, `unknown redistribution policy "maybe"`},
+		{"wait_rules_before_platoon", []string{"-wait-rules", "lenient", "-platoon-policies", "coupled"}, `unknown wait rule "lenient"`},
+		{"platoon_before_sharing_joins", []string{"-platoon-policies", "coupled", "-sharing-joins", "reassign"}, `unknown platoon policy "coupled"`},
+		{"sharing_joins_before_onboard", []string{"-sharing-joins", "reassign", "-onboard-pickups", "maybe"}, `unknown sharing join policy "reassign"`},
+		{"onboard_before_experimental", []string{"-onboard-pickups", "maybe", "-station-buffers", "maybe"},
+			`onboard-pickups must contain only off or on, got "maybe"`},
+		{"station_queue_before_matrix", []string{"-station-queue-spacing", "compact-v1", "-seeds", strings.Join(seeds, ","), "-loads", strings.Join(loads, ",")},
+			"compact-v1 requires station-buffers on for every arm"},
+		{"matrix", []string{"-seeds", strings.Join(seeds, ","), "-loads", strings.Join(loads, ",")},
+			fmt.Sprintf("the matrix must contain at most %d comparisons", maxComparisons)},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			if _, err := parseOptions(test.args, &bytes.Buffer{}); err == nil || err.Error() != test.want {
+				t.Fatalf("got %v, want %q", err, test.want)
+			}
+		})
 	}
 }
