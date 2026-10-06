@@ -41,9 +41,9 @@ fi
 [vars]
 # The two internal/sim race tasks use one pattern: the first runs the
 # tests that match it and the second skips them, so together they run
-# every test. The station and reassignment tests take about half of the
-# package's race time.
-sim_race_split = "^Test(Station|Reassign)"
+# every test. The coupling, reassignment and station tests take about half
+# of the package's race time.
+sim_race_split = "^Test(Coupling|Reassign|Station)"
 
 [tasks.test]
 description = "Run the full test suite without the race detector"
@@ -65,7 +65,7 @@ depends = ["test:race:*"]
 # a new package needs no change here. A new test:race:* task also needs
 # an entry in the CI matrix.
 [tasks."test:race:sim-stations"]
-description = "Run the station and reassignment simulation tests with the race detector"
+description = "Run the coupling, reassignment and station simulation tests with the race detector"
 run = "go test -race ./internal/sim -timeout=30m -run '{{vars.sim_race_split}}'"
 
 [tasks."test:race:sim-other"]
