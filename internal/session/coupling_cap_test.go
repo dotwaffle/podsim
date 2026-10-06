@@ -4,8 +4,11 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"testing/synctest"
 
@@ -162,5 +165,86 @@ func TestCouplingEncodeStateRejectsInvalidView(t *testing.T) {
 				t.Fatalf("encoder gave %d bytes and %v for an invalid coupling view", len(raw), err)
 			}
 		})
+	}
+}
+
+// TestCouplingStartupCancelDuringSave cancels the start while the store
+// write of the startup save of committed coupling groups waits. Startup
+// returns the cause at once, without a session, and does not wait for the
+// write. The write gets the canceled context, so a store that checks its
+// context, as the production store does, writes nothing.
+func TestCouplingStartupCancelDuringSave(t *testing.T) {
+	t.Parallel()
+	data := couplingPhaseFixtures(t)
+	encoded := encodeTestState(t, couplingPhaseFile(t, couplingPhaseInput(t, data, data.Frames[0])))
+	synctest.Test(t, func(t *testing.T) {
+		release := make(chan struct{})
+		// The deferred call frees the write when a check fails before it.
+		releaseWrite := sync.OnceFunc(func() { close(release) })
+		defer releaseWrite()
+		store := &fakeStore{data: bytes.Clone(encoded), blockWrite: release, checkContext: true}
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+		type result struct {
+			s   *Session
+			err error
+		}
+		done := make(chan result, 1)
+		go func() {
+			s, err := NewFromStore(ctx, StoreInput{Store: store})
+			done <- result{s, err}
+		}()
+		synctest.Wait()
+		if calls := store.callList(); !slices.Equal(calls, []string{"read", "write"}) || len(done) != 0 {
+			t.Fatal("startup did not wait in the startup save", calls)
+		}
+		cancel()
+		synctest.Wait()
+		if len(done) == 0 {
+			t.Fatal("canceled startup waits for the store write")
+		}
+		r := <-done
+		if r.s != nil || !errors.Is(r.err, context.Canceled) {
+			t.Fatalf("got session %v and %v, want no session and %v", r.s != nil, r.err, context.Canceled)
+		}
+		releaseWrite()
+		synctest.Wait()
+		if len(store.writeList()) != 0 || !bytes.Equal(store.data, encoded) {
+			t.Fatal("canceled startup save changed the store")
+		}
+	})
+}
+
+// TestCouplingStateHTTPCanceledRequest sends an HTTP state request of a
+// session with committed coupling groups after its context ends. The state
+// endpoint only reads the session, and it has no context check, so it
+// gives the same complete reply as a live request. The canceled request
+// changes no session state and releases the session lock.
+func TestCouplingStateHTTPCanceledRequest(t *testing.T) {
+	t.Parallel()
+	data := couplingPhaseFixtures(t)
+	s, _, _ := couplingStreamFixture(t, data.Frames[0], "")
+	handler := s.Handler(t.TempDir())
+	get := func(ctx context.Context) *httptest.ResponseRecorder {
+		r := httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/state", nil)
+		r.Header.Set("Accept", StateMediaType)
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, r)
+		return w
+	}
+	before := mustCouplingJSON(t, s.Frame())
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	canceled := get(ctx)
+	if !bytes.Equal(mustCouplingJSON(t, s.Frame()), before) {
+		t.Fatal("canceled state request changed the session")
+	}
+	live := get(t.Context())
+	if canceled.Code != http.StatusOK || live.Code != http.StatusOK || !bytes.Equal(canceled.Body.Bytes(), live.Body.Bytes()) {
+		t.Fatalf("canceled reply %d with %d bytes, live reply %d with %d bytes", canceled.Code, canceled.Body.Len(), live.Code, live.Body.Len())
+	}
+	state, err := DecodeStateJSON(canceled.Body.Bytes())
+	if err != nil || len(state.Simulation.CouplingGroups) != 1 {
+		t.Fatal("canceled reply is not the coupling state", err)
 	}
 }

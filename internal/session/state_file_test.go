@@ -80,11 +80,11 @@ func platoonStateFile(t *testing.T) stateFile {
 
 // sessionStateFile copies the state of shared into a state file, as a save
 // does. The file has a fixed epoch and time.
-func sessionStateFile(t *testing.T, shared *Session) stateFile {
-	t.Helper()
+func sessionStateFile(tb testing.TB, shared *Session) stateFile {
+	tb.Helper()
 	random, err := shared.demand.pcg.MarshalBinary()
 	if err != nil {
-		t.Fatal(err)
+		tb.Fatal(err)
 	}
 	return stateFile{
 		Format: stateFormat, Version: stateVersion, Final: true,
@@ -113,12 +113,12 @@ func testSequences(count int) []savedSequence {
 }
 
 // encodeTestState encodes file with a new encoder.
-func encodeTestState(t *testing.T, file stateFile) []byte {
-	t.Helper()
+func encodeTestState(tb testing.TB, file stateFile) []byte {
+	tb.Helper()
 	var encoder stateEncoder
 	data, err := encoder.encode(file)
 	if err != nil {
-		t.Fatal(err)
+		tb.Fatal(err)
 	}
 	return data
 }

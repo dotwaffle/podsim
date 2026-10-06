@@ -57,39 +57,39 @@ type couplingPhaseData struct {
 }
 
 // couplingPhaseFixtures reads exact saved private certificates, not recruitment runs.
-func couplingPhaseFixtures(t *testing.T) couplingPhaseData {
-	t.Helper()
+func couplingPhaseFixtures(tb testing.TB) couplingPhaseData {
+	tb.Helper()
 	raw, err := os.ReadFile("testdata/coupling_native_phases.json")
 	if err != nil {
-		t.Fatal(err)
+		tb.Fatal(err)
 	}
 	var data couplingPhaseData
 	if err := json.Unmarshal(raw, &data, json.RejectUnknownMembers(true)); err != nil {
-		t.Fatal(err)
+		tb.Fatal(err)
 	}
 	if len(data.Frames) != 14 || len(data.Cohorts) != 2 || data.Provenance == "" || len(data.SourceManifestSHA256) != 64 {
-		t.Fatal("incomplete native fixture provenance")
+		tb.Fatal("incomplete native fixture provenance")
 	}
 	return data
 }
 
-func couplingPhaseInput(t *testing.T, data couplingPhaseData, frame couplingPhaseFrame) sim.RestoreStateInput {
-	t.Helper()
+func couplingPhaseInput(tb testing.TB, data couplingPhaseData, frame couplingPhaseFrame) sim.RestoreStateInput {
+	tb.Helper()
 	input, found := data.Cohorts[frame.Cohort]
 	if !found || len(frame.SHA256) != 64 || !strings.HasPrefix(frame.Name, "occupied-"+strconv.FormatBool(frame.Cohort == "occupied")) {
-		t.Fatal("fixture uses a different cohort", frame.Name)
+		tb.Fatal("fixture uses a different cohort", frame.Name)
 	}
 	input.State = frame.State
 	raw, err := legacyJSON.Marshal(input) //nolint:musttag // Preserve the frozen native API fixture names, not public wire names.
 	if err != nil || fmt.Sprintf("%x", sha256.Sum256(raw)) != frame.SHA256 {
-		t.Fatal("fixture changed source input bytes", frame.Name, err)
+		tb.Fatal("fixture changed source input bytes", frame.Name, err)
 	}
 	if len(input.State.CouplingGroups) != 1 || len(input.State.Pods) != 2 {
-		t.Fatal("fixture lost group members", frame.Name)
+		tb.Fatal("fixture lost group members", frame.Name)
 	}
 	for _, pod := range input.State.Pods {
 		if pod.Occupied != (frame.Cohort == "occupied") {
-			t.Fatal("fixture lost cabin occupancy", frame.Name)
+			tb.Fatal("fixture lost cabin occupancy", frame.Name)
 		}
 	}
 	return input
@@ -132,14 +132,14 @@ func couplingProject(input sim.RestoreStateInput) project.Config {
 	return config
 }
 
-func couplingPhaseFile(t *testing.T, input sim.RestoreStateInput) stateFile {
-	t.Helper()
+func couplingPhaseFile(tb testing.TB, input sim.RestoreStateInput) stateFile {
+	tb.Helper()
 	s, err := NewWithProject(couplingProject(input))
 	if err != nil {
-		t.Fatal(err)
+		tb.Fatal(err)
 	}
-	t.Cleanup(s.Close)
-	file := sessionStateFile(t, s)
+	tb.Cleanup(s.Close)
+	file := sessionStateFile(tb, s)
 	file.CouplingContract, file.RestoreAttempts = input.CouplingContract, 0
 	file.Simulation = input.State
 	return file

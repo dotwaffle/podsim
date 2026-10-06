@@ -4,7 +4,7 @@
   "source_commit_note": "05e95b1 is not on main. Its code outside the tests is equal to 5078afd, so each non-test site in this record has the same line at 5078afd. The runs used 05e95b1 with the test changes of this record applied: the new file internal/session/coupling_cap_test.go and the corrected TestCouplingRemoteHTTPRejectsUnqualifiedFields were not in 05e95b1. The rerun of u4-startup-cancel used f186580, where the mutated line is also persist.go:278. On main the new test file names the third member of composedShape, which main added after 05e95b1.",
   "toolchain": "go1.27.1 linux/amd64",
   "contract": "docs/physical-coupling-contract-proposal.md",
-  "scope": "The format rows of the coupling qualification plan (G8, G9, C1, C3, C4, C5, U3, U4, U7) at the single save and stream family (save 9, hello 6). The simulation motion rows, the cost and heap rows (U5), and the WASM and browser runs are not in this record.",
+  "scope": "The format rows of the coupling qualification plan (G8, G9, C1, C3, C4, C5, U3, U4, U7) at the single save and stream family (save 9, hello 6). The simulation motion rows are not in this record. The follow-up at 39f05af adds the WASM and browser runs (G8) and the format cost and heap numbers (G9 measurements), which also serve U5 for the formats.",
   "method": [
     "Each mutation replaced one anchor, which occurs once in the file at the source commit, in a copy of the file. go test -overlay compiled the mutant; the source tree did not change. The record gives the sha256 of the file before the run, and the file had the same hash after the run.",
     "Each mutation had a passing control run of the same tests, a mutant that compiled, and a mutant run. KILLED means that the mutant run failed on an assertion of the named test. SURVIVED means that the mutant run passed. VOID means a compile failure or a failure for another reason; there are no VOID results.",
@@ -13,7 +13,7 @@
     "The plan names guards by their line at 069bafb. Items 4, 5 and 7 moved them; each site below is the line at the source commit."
   ],
   "mutation_counts": {
-    "KILLED": 34,
+    "KILLED": 46,
     "SURVIVED": 20
   },
   "rows": [
@@ -30,9 +30,10 @@
         "internal/session: TestCouplingEncodeStateRejectsInvalidView (new, coupling_cap_test.go)",
         "internal/remote: TestCouplingRemoteHTTP, TestCouplingRemoteHTTPRejectsUnqualifiedFields (corrected), TestCouplingRemoteInvalidUpdateHasNoACK, TestCouplingMotion*",
         "internal/project: TestCoupling*",
-        "internal/view and internal/editormodel: TestCoupling*"
+        "internal/view and internal/editormodel: TestCoupling*",
+        "internal/session: TestCouplingHTTPMarkersRefuseAlone (new at 39f05af, coupling_decode_cap_test.go): an HTTP state with a marked root and frame and an unmarked topology. DecodeStateJSON refuses it with the envelope check; FrameState and the assembler refuse the same topology and frame with the frame binding."
       ],
-      "result": "Pass. Qualified for the session, save, topology, full and delta frames, HTTP state and remote client at the source commit. WASM and browser runs were not made.",
+      "result": "Pass. Qualified for the session, save, topology, full and delta frames, HTTP state and remote client at the source commit. At 39f05af, the session coupling decode tests pass in a Go js/wasm build under Node, and the production Go/WASM client applies a coupling stream in headless Chromium.",
       "changes": [
         "TestCouplingRemoteHTTPRejectsUnqualifiedFields served its replies as application/json. Since item 7, the client refuses each state reply of another media type, so the test passed on the media type and did not reach the coupling scan. The test now serves the state media type and requires the coupling scan error.",
         "TestCouplingEncodeStateRejectsInvalidView is new. Before it, no test gave EncodeStateJSON a coupling frame that the assembler refuses, so the server-side HTTP view check survived each run."
@@ -216,7 +217,8 @@
           "source_sha256": "bae91363ac40abc74d47793f893b93b1be48e03a35055e7e6db17d3849d813fd",
           "hash_restored": true,
           "final": "SURVIVED",
-          "reading": "Layered, by code reading. A root marker without a topology marker passes the root scans, and then the frame binding (protocol.go:109) refuses the unmarked topology under the marked frame. The reverse case fails the root scan first. See the open gap for the pair."
+          "reading": "Layered, by code reading. A root marker without a topology marker passes the root scans, and then the frame binding (protocol.go:109) refuses the unmarked topology under the marked frame. The reverse case fails the root scan first. See the open gap for the pair.",
+          "superseded_by": "g8-http-envelope-coupling-half-alone"
         },
         {
           "id": "g8-http-view-binding",
@@ -241,7 +243,8 @@
           "source_sha256": "1ab036076c4a470e1dbdc51377c8877bf59496e231e69cc8436411cd926dbb71",
           "hash_restored": true,
           "final": "SURVIVED",
-          "reading": "Layered, by code reading. The client reaches frameState through DecodeStateJSON, which first requires the root markers to equal the topology markers (state_http.go:64), and the scans require the frame marker. See the open gap for the pair."
+          "reading": "Layered, by code reading. The client reaches frameState through DecodeStateJSON, which first requires the root markers to equal the topology markers (state_http.go:64), and the scans require the frame marker. See the open gap for the pair.",
+          "superseded_by": "g8-http-view-binding-alone"
         },
         {
           "id": "g8-http-server-view",
@@ -377,8 +380,105 @@
           "hash_restored": true,
           "final": "KILLED",
           "reading": "With the guard removed, the client still refuses the reply later, at the typed decode (unknown field). The corrected test requires the coupling scan error, so the kill depends on the error text. The session-package run of the same mutation (g8-unmarked-stream-fields) fails on accepted state."
+        },
+        {
+          "id": "g8-http-envelope-coupling-half-alone",
+          "source_commit": "39f05af",
+          "site": "internal/session/state_http.go:74",
+          "change": {
+            "from": "if envelope.CouplingContract != envelope.Topology.CouplingContract || envelope.OrderContract != envelope.Topology.OrderContract {",
+            "to": "if envelope.OrderContract != envelope.Topology.OrderContract {"
+          },
+          "package": "internal/session",
+          "tests": "^TestCouplingHTTPMarkersRefuseAlone$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestCouplingHTTPMarkersRefuseAlone"
+          ],
+          "assertion": "coupling_decode_cap_test.go:163: got topology coupling contract does not match state, want \"HTTP coupling or order contracts disagree\"",
+          "source_sha256": "ebfd36b230f073df9cdca36be825b5740dc8d2631815d868685ab848ce19f080",
+          "hash_restored": true,
+          "final": "KILLED",
+          "reading": "The envelope check refuses first. Without its coupling half, the frame binding refuses the same state with its own text."
+        },
+        {
+          "id": "g8-http-view-binding-alone",
+          "source_commit": "39f05af",
+          "site": "internal/session/protocol.go:130",
+          "change": {
+            "from": "if err := couplingFrameBinding(topology, frame.Simulation); err != nil {",
+            "to": "if err := couplingFrameBinding(topology, frame.Simulation); false && err != nil {"
+          },
+          "package": "internal/session",
+          "tests": "^TestCouplingHTTPMarkersRefuseAlone$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestCouplingHTTPMarkersRefuseAlone"
+          ],
+          "assertion": "coupling_decode_cap_test.go:170: got <nil>, want \"topology coupling contract does not match state\"",
+          "source_sha256": "6d5b835df24fedc465ca00344d97e0ea5116a35d73c907a614b8909222906166",
+          "hash_restored": true,
+          "final": "KILLED",
+          "reading": "FrameState and the assembler do not read the root markers, so only the frame binding refuses the unmarked topology under the marked frame."
+        },
+        {
+          "id": "g8-http-double",
+          "source_commit": "39f05af",
+          "site": "internal/session/state_http.go:74 and internal/session/protocol.go:130",
+          "changes": [
+            {
+              "site": "internal/session/state_http.go",
+              "from": "if envelope.CouplingContract != envelope.Topology.CouplingContract || envelope.OrderContract != envelope.Topology.OrderContract {",
+              "to": "if envelope.OrderContract != envelope.Topology.OrderContract {"
+            },
+            {
+              "site": "internal/session/protocol.go",
+              "from": "if err := couplingFrameBinding(topology, frame.Simulation); err != nil {",
+              "to": "if err := couplingFrameBinding(topology, frame.Simulation); false && err != nil {"
+            }
+          ],
+          "package": "internal/session",
+          "tests": "^TestCouplingHTTPMarkersRefuseAlone$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestCouplingHTTPMarkersRefuseAlone"
+          ],
+          "assertion": "coupling_decode_cap_test.go:163: got <nil>, want \"HTTP coupling or order contracts disagree\"",
+          "source_sha256": {
+            "internal/session/state_http.go": "ebfd36b230f073df9cdca36be825b5740dc8d2631815d868685ab848ce19f080",
+            "internal/session/protocol.go": "6d5b835df24fedc465ca00344d97e0ea5116a35d73c907a614b8909222906166"
+          },
+          "hash_restored": true,
+          "final": "KILLED",
+          "reading": "With both checks removed, DecodeStateJSON accepts an HTTP state with a marked frame and an unmarked topology. No other check refuses it."
         }
-      ]
+      ],
+      "wasm": {
+        "source_commit": "39f05af",
+        "runtime": "Node v24.21.0, go1.27.1 js/wasm, $(go env GOROOT)/lib/wasm/go_js_wasm_exec",
+        "commands": [
+          "GOOS=js GOARCH=wasm go test -c -o session.wasm ./internal/session; then, in internal/session: env -i PATH=<node 24>/bin:/usr/bin:/bin HOME=$HOME $(go env GOROOT)/lib/wasm/go_js_wasm_exec session.wasm -test.run '^(TestCouplingStream|TestCouplingDecode|TestCouplingTopology|TestCouplingHTTP|TestCouplingEncodeState|TestEncodeStreamJSONBindsCouplingMarker|TestScanRootMarkers|TestStateEnvelopeMarkersMatchTopology|TestCouplingPublisherFullDeltaAndResync|TestCouplingHelloRequiresQualifiedMarkers)' -test.skip '^TestCouplingStreamHelloAndPublication$' -test.v -test.count=1",
+          "GOOS=js GOARCH=wasm go test -c -o remote.wasm ./internal/remote; then, in internal/remote, the same command with NODE_OPTIONS=--import=<data URL> that sets globalThis.PodsimStream to require(\"../../web/stream.js\"), and -test.run '^TestCouplingInflateCanceled$'"
+        ],
+        "result": "Pass. internal/session: 21 tests and 205 subtests, with TestCouplingDecodeCapsAtCallers (8.73 s) and TestCouplingHTTPMarkersRefuseAlone. internal/remote: TestCouplingInflateCanceled passes through the js/wasm inflatePublication, the PodsimStream decoder of web/stream.js and the Node DecompressionStream.",
+        "notes": [
+          "With the full shell environment, wasm_exec.js stops with \"total length of command line and environment variables exceeds limit\". env -i keeps the environment small.",
+          "TestCouplingStreamHelloAndPublication is not in the run: it dials a websocket to an httptest server, and the js/wasm network is an in-process fake, so the dial fails with \"use of closed network connection\". The browser run covers the stream path. The other internal/remote coupling tests use httptest servers for the same reason."
+        ]
+      },
+      "browser": {
+        "source_commit": "39f05af",
+        "browser": "chrome-headless-shell 143.0.7499.4 (HeadlessChrome/143.0.7499.4), with --headless --no-sandbox --enable-unsafe-swiftshader --use-angle=swiftshader and a remote debugging port",
+        "setup": "go generate ./... built dist at 39f05af. cmd/serve ran on 127.0.0.1 with -dir dist and -state file://<dir>, where the store held the phase fixture save occupied-false-phase-1-leg-0.json (one group, phase closing, not paused). A Node 24 script drove the page /game.html over the Chrome DevTools Protocol with the built-in WebSocket. A script that runs at document start wraps podsimStreamDiagnostic, so it counts the stream events of the Go/WASM client. A loop read /api/state every 3 s.",
+        "result": "Pass. In 150 s, the client made 1 connection and applied 1 full frame and 2,945 delta frames, with 120 heartbeats, no disconnection, and no console message or exception. The mean apply time was 4.34 ms and the maximum was 104 ms. The server group went through closing, latching (tick 1,046), connected (1,228), unlatching (3,226), opening (3,408) and draining (4,316), and it retired by tick 7,405, after which no cabin had a coupling ID. The client applied each of these changes as a delta.",
+        "notes": [
+          "Chromium stopped with a trace trap under ulimit -v 16000000, so the browser ran with nice -n 19 only. The server and the driver ran with the cap.",
+          "The run is the headless shell with SwiftShader, with one group. It does not check the drawing."
+        ]
+      }
     },
     {
       "id": "G9",
@@ -387,9 +487,11 @@
         "internal/session: TestComposedWorstCaseFormats (record docs/measurements/composed-worst-case-formats.json, landed as ee5851f)",
         "internal/session: TestCouplingSaveCapRejectsAtomically (new, coupling_cap_test.go)",
         "internal/session: TestEncodeStateFileTooLarge, TestDecodeStateFileSizeBoundary, TestSavedInvalidMovedAside, TestStreamGzipExpansionBound, TestStreamEncoderRejectsAndRecovers, TestStreamMaximumEncoding, TestExpressWidestTopologyHTTPAdapters, TestCommandCouplingArrayBounds, TestCouplingArraysHaveExplicitLimits",
-        "internal/remote: TestExchangeBoundsResponseBodies"
+        "internal/remote: TestExchangeBoundsResponseBodies",
+        "internal/session: TestCouplingDecodeCapsAtCallers (new at 39f05af, coupling_decode_cap_test.go): a committed coupling frame padded with JSON whitespace to each decode cap and to one byte more, for DecodeStateJSON, DecodeStreamJSON, decodeStreamJSON, and InflateStream output and input. Each document at the cap is accepted; each over the cap gets the text of its own cap.",
+        "internal/session: BenchmarkCouplingFormats (new at 39f05af, coupling_cost_test.go)"
       ],
-      "result": "Partial. The save writer and decoder caps, the stream compression cap, the topology preflight and the coupling command bounds have caller kills. The other caps survive because a later guard refuses the same input, or because no test sends an input over that cap; see each reading. Heap retention (U5) is not in this record.",
+      "result": "Partial. The save writer and decoder caps, the stream compression cap, the topology preflight and the coupling command bounds have caller kills. At 39f05af, each cap of the session stream and HTTP decode chain also has a kill. The other caps survive because a later guard refuses the same input, or because no test sends an input over that cap; see each reading. Heap retention and cost are measured on the phase fixture with one group.",
       "mutations": [
         {
           "id": "g9-save-writer-raw",
@@ -647,7 +749,8 @@
           "source_sha256": "eec126178dcf91bc7007ea2668778b4811d508ac1d2cb892c9be6662d9addcdf",
           "hash_restored": true,
           "final": "SURVIVED",
-          "reading": "Layered, by code reading: DecodeStreamJSON gets the output of InflateStream, which reads at most MaxStreamJSON + 1 bytes (stream_codec.go:496-500), and DecodeStateJSON has its own cap (state_http.go:57). decodeStreamJSON (stream_codec.go:419) also checks the size. No test calls DecodeStreamJSON with more than the cap."
+          "reading": "Layered, by code reading: DecodeStreamJSON gets the output of InflateStream, which reads at most MaxStreamJSON + 1 bytes (stream_codec.go:496-500), and DecodeStateJSON has its own cap (state_http.go:57). decodeStreamJSON (stream_codec.go:419) also checks the size. No test calls DecodeStreamJSON with more than the cap.",
+          "superseded_by": "g9-stream-decode-marked-cap"
         },
         {
           "id": "g9-stream-decode-json",
@@ -679,7 +782,8 @@
           "source_sha256": "407ed3f0a5c8db347a9d24af063d6b3e1636a49740edca13f55248eedcfb0146",
           "hash_restored": true,
           "final": "SURVIVED",
-          "reading": "Layered, by code reading: decodeMarkedJSON (stream_service.go:32) and InflateStream (stream_codec.go:500) refuse the same size first. No test reaches it with more than the cap."
+          "reading": "Layered, by code reading: decodeMarkedJSON (stream_service.go:32) and InflateStream (stream_codec.go:500) refuse the same size first. No test reaches it with more than the cap.",
+          "superseded_by": "g9-stream-decode-json-direct"
         },
         {
           "id": "g9-stream-inflate-binary",
@@ -711,7 +815,8 @@
           "source_sha256": "407ed3f0a5c8db347a9d24af063d6b3e1636a49740edca13f55248eedcfb0146",
           "hash_restored": true,
           "final": "SURVIVED",
-          "reading": "Layered, by code reading: the remote client sets the websocket read limit to MaxStreamMessage (internal/remote/stream.go:68), so a larger message does not reach InflateStream. No test calls InflateStream with more than MaxStreamMessage bytes."
+          "reading": "Layered, by code reading: the remote client sets the websocket read limit to MaxStreamMessage (internal/remote/stream.go:68), so a larger message does not reach InflateStream. No test calls InflateStream with more than MaxStreamMessage bytes.",
+          "superseded_by": "g9-stream-inflate-binary-cap"
         },
         {
           "id": "g9-stream-inflate-output",
@@ -743,7 +848,8 @@
           "source_sha256": "407ed3f0a5c8db347a9d24af063d6b3e1636a49740edca13f55248eedcfb0146",
           "hash_restored": true,
           "final": "SURVIVED",
-          "reading": "Layered, by code reading: the LimitReader stops at MaxStreamJSON + 1 bytes, and decodeMarkedJSON and decodeStreamJSON refuse that size. No test inflates more than MaxStreamJSON bytes."
+          "reading": "Layered, by code reading: the LimitReader stops at MaxStreamJSON + 1 bytes, and decodeMarkedJSON and decodeStreamJSON refuse that size. No test inflates more than MaxStreamJSON bytes.",
+          "superseded_by": "g9-stream-inflate-output-cap"
         },
         {
           "id": "g9-http-encode",
@@ -800,7 +906,8 @@
           "source_sha256": "bae91363ac40abc74d47793f893b93b1be48e03a35055e7e6db17d3849d813fd",
           "hash_restored": true,
           "final": "SURVIVED",
-          "reading": "Layered: decodeMarkedJSON (stream_service.go:32) checks the same size, and the remote client limits the response body (TestExchangeBoundsResponseBodies)."
+          "reading": "Layered: decodeMarkedJSON (stream_service.go:32) checks the same size, and the remote client limits the response body (TestExchangeBoundsResponseBodies).",
+          "superseded_by": "g9-http-decode-cap"
         },
         {
           "id": "g9-http-topology-encode",
@@ -995,8 +1102,199 @@
           "source_sha256": "414555a3f137d209cdc8211bc614f892fedca3b12c2c1a3d1efa16a4db7a7f2c",
           "hash_restored": true,
           "final": "KILLED"
+        },
+        {
+          "id": "g9-http-decode-cap",
+          "source_commit": "39f05af",
+          "site": "internal/session/state_http.go:57",
+          "change": {
+            "from": "if len(raw) > MaxStreamJSON {",
+            "to": "if false && len(raw) > MaxStreamJSON {"
+          },
+          "package": "internal/session",
+          "tests": "^TestCouplingDecodeCapsAtCallers$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestCouplingDecodeCapsAtCallers"
+          ],
+          "assertion": "coupling_decode_cap_test.go:80: got state JSON too large, want \"HTTP state exceeds supported limit\"",
+          "source_sha256": "ebfd36b230f073df9cdca36be825b5740dc8d2631815d868685ab848ce19f080",
+          "hash_restored": true,
+          "final": "KILLED",
+          "reading": "decodeMarkedJSON has the same bound with another text, so the test asserts the text of the HTTP cap."
+        },
+        {
+          "id": "g9-stream-decode-marked-cap",
+          "source_commit": "39f05af",
+          "site": "internal/session/stream_service.go:42",
+          "change": {
+            "from": "if len(data) > MaxStreamJSON {",
+            "to": "if false && len(data) > MaxStreamJSON {"
+          },
+          "package": "internal/session",
+          "tests": "^TestCouplingDecodeCapsAtCallers$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestCouplingDecodeCapsAtCallers"
+          ],
+          "assertion": "coupling_decode_cap_test.go:93: got <nil>, want \"state JSON too large\"",
+          "source_sha256": "a96585b8f24f0e3131b5bda27be519c558de51ef3145384637520349386f0add",
+          "hash_restored": true,
+          "final": "KILLED",
+          "reading": "Without the cap, the scans and the typed decode accept the padded envelope. In the remote client, InflateStream gives at most MaxStreamJSON bytes, so the kill is from a direct call of the exported DecodeStreamJSON."
+        },
+        {
+          "id": "g9-stream-decode-json-direct",
+          "source_commit": "39f05af",
+          "site": "internal/session/stream_codec.go:595",
+          "change": {
+            "from": "if len(data) > MaxStreamJSON { return errors.New(\"state JSON too large\")",
+            "to": "if false && len(data) > MaxStreamJSON { return errors.New(\"state JSON too large\")"
+          },
+          "package": "internal/session",
+          "tests": "^TestCouplingDecodeCapsAtCallers$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestCouplingDecodeCapsAtCallers"
+          ],
+          "assertion": "coupling_decode_cap_test.go:108: got <nil>, want \"state JSON too large\"",
+          "source_sha256": "ddf2dcf6d7ff7c63b7ba4c7f23a3650e644006e17b44b49f05208bbcc6ae4eb3",
+          "hash_restored": true,
+          "final": "KILLED",
+          "reading": "No caller gives decodeStreamJSON more than the cap: DecodeStreamHello has a 4 KiB cap, a control has the 1 KiB read limit, and a member is part of a document that decodeMarkedJSON bounds. The kill is from a direct call, not from a caller."
+        },
+        {
+          "id": "g9-stream-inflate-binary-cap",
+          "source_commit": "39f05af",
+          "site": "internal/session/stream_codec.go:663",
+          "change": {
+            "from": "if len(data) > MaxStreamMessage {",
+            "to": "if false && len(data) > MaxStreamMessage {"
+          },
+          "package": "internal/session",
+          "tests": "^TestCouplingDecodeCapsAtCallers$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestCouplingDecodeCapsAtCallers"
+          ],
+          "assertion": "coupling_decode_cap_test.go:138: got invalid state gzip size or trailing member, want \"compressed state too large\"",
+          "source_sha256": "ddf2dcf6d7ff7c63b7ba4c7f23a3650e644006e17b44b49f05208bbcc6ae4eb3",
+          "hash_restored": true,
+          "final": "KILLED",
+          "reading": "The message is a valid gzip member with zero bytes after it, to MaxStreamMessage + 1 bytes. The remote client reads at most MaxStreamMessage bytes from the websocket, and the js/wasm client checks the same size, so the kill is from a direct call of the exported InflateStream."
+        },
+        {
+          "id": "g9-stream-inflate-output-cap",
+          "source_commit": "39f05af",
+          "site": "internal/session/stream_codec.go:677",
+          "change": {
+            "from": "if len(output) > MaxStreamJSON || input.Len() != 0 {",
+            "to": "if input.Len() != 0 {"
+          },
+          "package": "internal/session",
+          "tests": "^TestCouplingDecodeCapsAtCallers$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestCouplingDecodeCapsAtCallers"
+          ],
+          "assertion": "coupling_decode_cap_test.go:122: inflated 68157441 bytes over the cap",
+          "source_sha256": "ddf2dcf6d7ff7c63b7ba4c7f23a3650e644006e17b44b49f05208bbcc6ae4eb3",
+          "hash_restored": true,
+          "final": "KILLED",
+          "reading": "The member inflates to exactly MaxStreamJSON + 1 bytes, so the LimitReader reads to the end of the member and the gzip trailer is read. Without the size half, the trailing check passes and the 65 MiB + 1 byte output is returned."
         }
-      ]
+      ],
+      "measurements": {
+        "source_commit": "39f05af",
+        "command": "GOMAXPROCS=4 go test -p 1 -count=1 -run '^$' -bench 'BenchmarkCouplingFormats/^(tick|encode|decode|http|save)$' -benchtime=2000x ./internal/session; the retained benchmarks with -benchtime=500x, and retained/http-at-cap with -benchtime=5x",
+        "host": "AMD Ryzen 5 3600, linux/amd64, go1.27.1, nice -n 19",
+        "fixture": "The phase fixture occupied-false-phase-1-leg-0.json: 2 pods in one committed group, 13 lanes. The delta is one tick after the full frame. These are not the widest coupled assets.",
+        "results": [
+          {
+            "name": "tick",
+            "ns_per_op": 23795,
+            "bytes_per_op": 11651,
+            "allocs_per_op": 34,
+            "note": "one session tick; the group is present after 2,000 ticks"
+          },
+          {
+            "name": "encode/full",
+            "ns_per_op": 47910,
+            "bytes_per_op": 13572,
+            "allocs_per_op": 68,
+            "wire_bytes": 1063
+          },
+          {
+            "name": "encode/delta",
+            "ns_per_op": 72252,
+            "bytes_per_op": 26452,
+            "allocs_per_op": 265,
+            "wire_bytes": 854,
+            "note": "includes makeDelta"
+          },
+          {
+            "name": "decode/full",
+            "ns_per_op": 925837,
+            "bytes_per_op": 406173,
+            "allocs_per_op": 6766,
+            "note": "InflateStream, DecodeStreamJSON, ApplyStream and the assembler"
+          },
+          {
+            "name": "decode/delta",
+            "ns_per_op": 697782,
+            "bytes_per_op": 305439,
+            "allocs_per_op": 4572
+          },
+          {
+            "name": "http/encode",
+            "ns_per_op": 237362,
+            "bytes_per_op": 166920,
+            "allocs_per_op": 892,
+            "wire_bytes": 6314
+          },
+          {
+            "name": "http/decode",
+            "ns_per_op": 3211113,
+            "bytes_per_op": 1087850,
+            "allocs_per_op": 22136
+          },
+          {
+            "name": "save/encode",
+            "ns_per_op": 107787,
+            "bytes_per_op": 17013,
+            "allocs_per_op": 193,
+            "wire_bytes": 1588
+          },
+          {
+            "name": "save/decode",
+            "ns_per_op": 2476096,
+            "bytes_per_op": 947587,
+            "allocs_per_op": 21125
+          },
+          {
+            "name": "retained/stream",
+            "retained_bytes_per_op": 5211,
+            "note": "live heap of one decoded frame and its state after a full collection; the states share the topology of the assembler"
+          },
+          {
+            "name": "retained/http",
+            "retained_bytes_per_op": 8425,
+            "note": "live heap of one decoded HTTP state"
+          },
+          {
+            "name": "retained/http-at-cap",
+            "retained_bytes_per_op": 11842,
+            "ns_per_op": 499636794,
+            "note": "the HTTP state padded to MaxStreamJSON; 5 runs. The decoded state does not keep the 65 MiB input."
+          }
+        ],
+        "reading": "The client decode of a coupled publication costs about 0.7 to 0.9 ms of CPU, and most of it is the token scans before the typed decode. The server encode of a one-tick delta costs about 72 us. The decoded values keep 5 to 12 KB, also when the input is at the 65 MiB cap. In headless Chromium, the Go/WASM client applied a delta in 4.34 ms on average (G8 browser run)."
+      }
     },
     {
       "id": "C1",
@@ -1101,9 +1399,13 @@
       "requirement": "Cancellation receipts for the widest coupled decode, encode, HTTP, stream and startup restore.",
       "tests": [
         "internal/session: TestCouplingStartupCancelAfterRestore (new): a cancel after the restore of a committed group returns context.Canceled, with no session; after each goroutine of the synctest bubble ends or blocks, the store has had no call other than the read",
-        "internal/session: TestCouplingPublishCanceled (new): a canceled delta publication of a coupling session keeps the frame, the sequence, the stream and the history"
+        "internal/session: TestCouplingPublishCanceled (new): a canceled delta publication of a coupling session keeps the frame, the sequence, the stream and the history",
+        "internal/session: TestCouplingStartupCancelDuringSave (new at 39f05af): the cancel comes while the store write of the startup save waits. Startup returns context.Canceled at once, with no session, and does not wait for the write. The write gets the canceled context, and a store that checks it writes nothing.",
+        "internal/session: TestCouplingStateHTTPCanceledRequest (new at 39f05af): a state request whose context ended gets the same complete reply as a live request. It changes no session state and releases the session lock.",
+        "internal/remote: TestCouplingInflateCanceled (new at 39f05af): inflatePublication with an ended context gives context.Canceled and no bytes. It also passes in the js/wasm build (G8 wasm).",
+        "internal/remote: TestCouplingStreamCanceledAfterAssembly (new at 39f05af): the cancel comes after the client reads the topology of a coupling publication and assembles the state. The client keeps its earlier state and sends no ACK."
       ],
-      "result": "Partial. The new receipts use the phase fixture with one committed group, not the widest assets: the composed fixtures are independent maxima that do not pass the restore and view checks.",
+      "result": "Qualified for the phase fixture with one committed group, except the widest assets. Startup restore, the startup save, stream publication, HTTP state and remote decode have receipts. The composed fixtures are independent maxima that do not pass the restore and view checks.",
       "mutations": [
         {
           "id": "u4-startup-cancel",
@@ -1149,7 +1451,95 @@
           "hash_restored": true,
           "final": "KILLED",
           "reading": "The new test kills the context check before the publisher builds its envelope."
+        },
+        {
+          "id": "u4-startup-save-return",
+          "source_commit": "39f05af",
+          "site": "internal/session/persist.go:377",
+          "change": {
+            "from": "case <-callCtx.Done(): var zero T",
+            "to": "case <-make(chan struct{}): var zero T"
+          },
+          "package": "internal/session",
+          "tests": "^TestCouplingStartupCancelDuringSave$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestCouplingStartupCancelDuringSave"
+          ],
+          "assertion": "coupling_cap_test.go:204: canceled startup waits for the store write",
+          "source_sha256": "aacad80a89dc02ad35bf69ffdcd26b7f72f734c03925d02192da6fdd7c1709af",
+          "hash_restored": true,
+          "final": "KILLED",
+          "reading": "The mutant removes the return of callStore when its context ends, so startup waits until the store write ends."
+        },
+        {
+          "id": "u4-startup-save-context",
+          "source_commit": "39f05af",
+          "site": "internal/session/persist.go:788",
+          "change": {
+            "from": "err = persist.store.Write(ctx, data)",
+            "to": "err = persist.store.Write(context.WithoutCancel(ctx), data)"
+          },
+          "package": "internal/session",
+          "tests": "^TestCouplingStartupCancelDuringSave$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestCouplingStartupCancelDuringSave"
+          ],
+          "assertion": "coupling_cap_test.go:213: canceled startup save changed the store",
+          "source_sha256": "aacad80a89dc02ad35bf69ffdcd26b7f72f734c03925d02192da6fdd7c1709af",
+          "hash_restored": true,
+          "final": "KILLED",
+          "reading": "The mutant gives the store write a context without the cancel, so the late write lands."
+        },
+        {
+          "id": "u4-remote-inflate-cancel",
+          "source_commit": "39f05af",
+          "site": "internal/remote/inflate_native.go:16",
+          "change": {
+            "from": "if err := ctx.Err(); err != nil {",
+            "to": "if err := ctx.Err(); false && err != nil {"
+          },
+          "package": "internal/remote",
+          "tests": "^TestCouplingInflateCanceled$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestCouplingInflateCanceled"
+          ],
+          "assertion": "coupling_cancel_test.go:66: got 3230 bytes and <nil>, want no bytes and context canceled",
+          "source_sha256": "b217548282238022f3e219fa5ce976350abd9b77467cb5b27fe602712c018315",
+          "hash_restored": true,
+          "final": "KILLED",
+          "reading": "The kill is from a direct call. In receiveStream, the read of the message before it also stops on the cancel."
+        },
+        {
+          "id": "u4-remote-stream-cancel",
+          "source_commit": "39f05af",
+          "site": "internal/remote/stream.go:151",
+          "change": {
+            "from": "if ctx.Err() != nil { return ctx.Err() } c.mu.Lock()",
+            "to": "if false && ctx.Err() != nil { return ctx.Err() } c.mu.Lock()"
+          },
+          "package": "internal/remote",
+          "tests": "^TestCouplingStreamCanceledAfterAssembly$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestCouplingStreamCanceledAfterAssembly"
+          ],
+          "assertion": "coupling_cancel_test.go:129: canceled stream showed the coupling state",
+          "source_sha256": "3bc09d88921a1524c630649f659be12341b4bad50cdae771effbe1e61ff9df50",
+          "hash_restored": true,
+          "final": "KILLED",
+          "reading": "The test transport cancels the stream after it reads the whole topology reply, so the state is assembled before the check. The mutant shows the state, and its ACK write then fails."
         }
+      ],
+      "notes": [
+        "HTTP state has no context check, and this round adds none. The handler only reads the session: it holds the session lock to copy the topology and the frame, and it encodes after it releases the lock. A cancel can only waste one encode, which the HTTP cap bounds, and the reply write then fails. The receipt pins this behavior; a context check before the encode would save that work but is not needed for correctness.",
+        "The startup save receipt uses a fake store that checks its context, as the file store does. A store that ignores its context could still write the state after startup returned. The production bucket store passes the context to the bucket write."
       ]
     },
     {
@@ -1444,24 +1834,8 @@
   ],
   "open_gaps": [
     {
-      "row": "G8",
-      "gap": "No WASM (Node Go/WASM) or Chromium run with coupling frames at the source commit."
-    },
-    {
-      "row": "G8",
-      "gap": "The coupling half of the HTTP envelope check (state_http.go:64) and the frame binding (protocol.go:109) refuse the same input: a marked root and frame with an unmarked topology. Each single mutation survives because the other refuses the input. No test removes both."
-    },
-    {
       "row": "G9",
-      "gap": "Several caps have no over-cap test at their caller and survive because an earlier or later cap refuses the same input; see the readings of the surviving mutations."
-    },
-    {
-      "row": "G9",
-      "gap": "Each size cap on the stream and HTTP decode path in the session package survived: stream_service.go:32, stream_codec.go:419, :486 and :500, and state_http.go:57. No test sends a document or message over the cap through this chain, so no layer of it has a kill. The only over-cap decode evidence is the remote client response limit (TestExchangeBoundsResponseBodies) and the websocket read limit, which were not mutated."
-    },
-    {
-      "row": "G9 and U5",
-      "gap": "Heap retention and per-tick cost of the coupled formats were not measured."
+      "gap": "Some caps outside the session decode chain have no over-cap test at their caller and survive because an earlier or later cap refuses the same input, or because no input reaches them: the compressed save writer cap, the stream encode caps of EncodeStreamJSON and streamEncoder.encode, the compressed stream cap, the HTTP encode and topology caps, the HTTP topology scan cap, and the half-fleet group check; see the readings of the surviving mutations."
     },
     {
       "row": "U3",
@@ -1472,20 +1846,14 @@
       "gap": "The composed fixtures have no coupling sites or corridors, because the fixture network has no valid geometry. The byte bound holds because the project member and the topology are at their byte caps."
     },
     {
-      "row": "U4",
-      "gap": "No cancellation receipt for the HTTP state: stateHTTP has no context check, and a canceled request ends at the response write."
-    },
-    {
-      "row": "U4",
-      "gap": "No coupling-specific receipt for remote decode cancellation (internal/remote/inflate_native.go:16, internal/remote/stream.go:151) or for encode."
-    },
-    {
-      "row": "U4",
-      "gap": "The receipts use the phase fixture with one group. A receipt with the widest coupled assets needs a fixture that passes the restore and view checks at full width."
-    },
-    {
-      "row": "U4",
-      "gap": "A cancel during the startup save itself is not tested. callStore can return the cancellation while its goroutine still calls store.Write; whether the write then lands depends on the store. The production store passes the context to the bucket write."
+      "row": "U4 and G9",
+      "gap": "The cancellation receipts and the cost numbers use the phase fixture with one group. The only coupled save that the restore accepts is the native phase fixture, with 11 nodes, 13 lanes, 3 stations, 2 sites and 1 corridor. 150 copies of it, for 150 groups and 300 pods, would need 450 stations, more than project.MaxStations (300). A fixture with the widest coupled assets needs a native generator in internal/sim, which this round did not change."
     }
-  ]
+  ],
+  "followup": {
+    "source_commit": "39f05aff1b9bd7c99446ea61ef6aaca3b01c6735",
+    "note": "A second round at 39f05af closed the non-simulation gaps of G8, G9 and U4. The runs used 39f05af with the new tests applied: internal/session/coupling_decode_cap_test.go and coupling_cost_test.go, three new tests in internal/session/coupling_cap_test.go, and internal/remote/coupling_cancel_test.go. The fixture helpers of the coupling session tests now take testing.TB, so that the benchmark can use them. Each mutation of this round names source_commit 39f05af, and its site is the line at that commit. No code outside the tests changed.",
+    "method": "The method of this record. The control was go test -p 1 -count=1 -run <tests> <package>. Each run had ulimit -v 16000000 and nice -n 19. Each mutation of this round had its control pass and its mutant compile."
+  },
+  "mutation_counts_note": "54 runs at 05e95b1 (34 killed, 20 survived) and 12 runs at 39f05af (12 killed). 7 runs at 39f05af kill a site that survived at 05e95b1, and g8-http-server-view-new-test killed g8-http-server-view in the first round, so 12 surviving sites have no kill."
 }

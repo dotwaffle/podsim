@@ -2151,35 +2151,79 @@ The [coupling format record](measurements/coupling-format-qualification.json) gi
 Each mutation changed one guard in an overlay copy of the source file.
 A mutation is killed only when the control passed, the mutant compiled, and a test failed on its assertion.
 The record gives a reason for each mutation that survived.
-Of 54 mutant runs, 34 were killed and 20 survived.
+Of 54 mutant runs at `05e95b1`, 34 were killed and 20 survived.
 Most survivors are caps with a second cap that refuses the same input first, or caps that no test exceeds.
 The runs used `05e95b1` with the test changes of this record applied.
+A second round at `39f05af` added 12 mutant runs, and each was killed.
+Seven of them kill a site that survived at `05e95b1`.
+That round added tests only.
 
-| Row | Status at `05e95b1` |
+| Row | Status |
 | --- | --- |
-| G8 public formats | Qualified, except for WASM and the browser. |
-| G9 size and cost | Partial. |
+| G8 public formats | Qualified, with WASM under Node and headless Chromium at `39f05af`. |
+| G9 size and cost | Partial: 8 caps outside the session decode chain survive. |
 | C1 limits | Unchanged. |
 | C3 combined widest encodings | Measured in the [composed format record](measurements/composed-worst-case-formats.json). |
 | C4 atomic rejection | Qualified for the save. |
 | C5 other families | Qualified. |
 | U3 combined limits | Covered, except a command with the widest coupled project. |
-| U4 cancellation | Partial. |
+| U4 cancellation | Qualified for the phase fixture, except the widest assets. |
 | U7 save guards | 10 guards remain, 3 moved to a new site, and 2 are gone. |
 
 For G8, the qualified formats are the session, save, topology, full and delta frames, HTTP state, and remote client.
-WASM and browser runs were not made.
+At `39f05af`, the session coupling decode tests pass in a Go js/wasm build under Node 24, with 21 tests and 205 subtests.
+The js/wasm inflate of the remote client passes with the decoder of `web/stream.js`.
+In headless Chromium 143, the production Go/WASM client applied 1 full frame and 2,945 delta frames of a coupling stream in 150 s.
+It had no disconnection and no console error.
+In that time, the group went through each phase and then retired.
+Chromium did not start under the 16 GB address limit of the other runs, so it ran without that limit.
+
+`TestCouplingHTTPMarkersRefuseAlone` sends an HTTP state with a marked root and frame and an unmarked topology.
+Through `DecodeStateJSON`, the HTTP envelope check refuses it, and through `FrameState`, the frame binding refuses it.
+So each check has a kill.
+With both checks removed, `DecodeStateJSON` accepts the state.
 
 For G9, the save writer and decoder caps, the stream compression cap, the topology preflight and decoder caps, and the command bounds have caller kills.
-The compressed writer cap, the HTTP caps, and the stream decoder caps survive.
-Heap retention was not measured.
+At `39f05af`, `TestCouplingDecodeCapsAtCallers` kills each cap of the stream and HTTP decode chain.
+It pads a coupling frame with whitespace to each cap and to one byte more, and it asserts the text of that cap.
+The remote client stops a larger message before `InflateStream` and `DecodeStreamJSON`, and no caller gives `decodeStreamJSON` more than its cap.
+So the kills of these three caps come from direct calls.
+The compressed save writer cap, the stream and HTTP encode caps, and the topology caps of the HTTP state still survive.
+
+`BenchmarkCouplingFormats` measures the formats on the phase fixture, with 2 pods in one group.
+The delta is one tick after the full frame.
+
+| Operation | Time | Allocated | Wire bytes |
+| --- | --- | --- | --- |
+| One session tick | 0.024 ms | 11,651 B | |
+| Encode a full frame | 0.048 ms | 13,572 B | 1,063 |
+| Encode a delta | 0.072 ms | 26,452 B | 854 |
+| Decode and apply a full frame | 0.93 ms | 406,173 B | |
+| Decode and apply a delta | 0.70 ms | 305,439 B | |
+| Encode the HTTP state | 0.24 ms | 166,920 B | 6,314 |
+| Decode the HTTP state | 3.2 ms | 1,087,850 B | |
+| Encode the save | 0.11 ms | 17,013 B | 1,588 |
+| Decode the save | 2.5 ms | 947,587 B | |
+
+Most of the decode time is in the token scans before the typed decode.
+After a full collection, a decoded frame and its state keep 5,211 bytes, and a decoded HTTP state keeps 8,425 bytes.
+A decoded HTTP state at the 65 MiB cap keeps 11,842 bytes, so the decoder does not keep its input.
+In Chromium, the client applied a delta in 4.34 ms on average.
 
 For C5, a save of a version other than 9 moves aside as `unsupported_version`.
 
-For U4, startup restore and stream publication have receipts.
-HTTP state and remote decode do not.
+For U4, startup restore, the startup save, stream publication, HTTP state, and remote decode have receipts.
+The receipts use the phase fixture with one group.
+The only coupled save that the restore accepts is that fixture, and 150 copies of it would need 450 stations, more than the limit of 300.
 The startup receipt waits for each goroutine of the test to end or block before it reads the store.
 So the test sees a write that starts after the cancel.
+A cancel during the startup save returns at once, and the store write gets the canceled context.
+
+The HTTP state handler has no context check, and this round adds none.
+It only reads the session and encodes after it releases the session lock.
+So a cancel can waste one encode, and it changes nothing.
+`TestCouplingStateHTTPCanceledRequest` pins this behavior.
+The remote receipts cancel before the inflate and after the state assembly, and the client keeps its earlier state and sends no ACK.
 
 `TestCouplingSaveCapRejectsAtomically` pads the composed coupling save, with 150 coupling groups, to the save cap and to one byte more.
 At the cap, the decoder keeps each group.
@@ -2189,7 +2233,8 @@ The encoder accepts the save at the cap and refuses it at one byte more.
 `TestCouplingRemoteHTTPRejectsUnqualifiedFields` now replies with the state media type.
 Before this change, the client refused each reply for its media type, and the test did not reach the coupling scan.
 
-The simulation rows, the cost and heap rows, and the WASM and browser runs are not part of this record.
+The simulation rows are not part of this record.
+The cost numbers cover the formats and one session tick, not the simulation at scale.
 
 ## Coupling incident qualification
 

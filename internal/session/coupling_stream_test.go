@@ -14,30 +14,30 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-func couplingStreamFixture(t *testing.T, phase couplingPhaseFrame, order sim.OrderContract) (*Session, TopologySnapshot, StreamFrame) {
-	t.Helper()
-	data := couplingPhaseFixtures(t)
-	return couplingInputStreamFixture(t, couplingPhaseInput(t, data, phase), order)
+func couplingStreamFixture(tb testing.TB, phase couplingPhaseFrame, order sim.OrderContract) (*Session, TopologySnapshot, StreamFrame) {
+	tb.Helper()
+	data := couplingPhaseFixtures(tb)
+	return couplingInputStreamFixture(tb, couplingPhaseInput(tb, data, phase), order)
 }
 
 // couplingInputStreamFixture restores a session from the saved state of
 // input with the order contract order. It returns the session, its
 // topology and its presentation frame.
-func couplingInputStreamFixture(t *testing.T, input sim.RestoreStateInput, order sim.OrderContract) (*Session, TopologySnapshot, StreamFrame) {
-	t.Helper()
+func couplingInputStreamFixture(tb testing.TB, input sim.RestoreStateInput, order sim.OrderContract) (*Session, TopologySnapshot, StreamFrame) {
+	tb.Helper()
 	input.OrderContract = order
 	input.State.OrderContract = order
-	file := couplingPhaseFile(t, input)
+	file := couplingPhaseFile(tb, input)
 	file.OrderContract = order
-	store := &fakeStore{data: encodeTestState(t, file)}
-	s, err := NewFromStore(t.Context(), StoreInput{Store: store})
+	store := &fakeStore{data: encodeTestState(tb, file)}
+	s, err := NewFromStore(tb.Context(), StoreInput{Store: store})
 	if err != nil {
-		t.Fatal(err)
+		tb.Fatal(err)
 	}
-	t.Cleanup(s.Close)
+	tb.Cleanup(s.Close)
 	frame, err := s.presentationFrame()
 	if err != nil {
-		t.Fatal(err)
+		tb.Fatal(err)
 	}
 	topology := s.Topology()
 	return s, topology, frame
