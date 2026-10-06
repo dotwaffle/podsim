@@ -1,6 +1,7 @@
 package sim
 
 import (
+	"cmp"
 	"fmt"
 	"reflect"
 	"slices"
@@ -34,18 +35,21 @@ func (s *Simulation) discoverCouplingApproaches() {
 	if !s.couplingEnabled || s.couplingNetwork == nil || s.platooning != PlatooningVirtual {
 		return
 	}
-	ids := make([]string, 0, len(s.vehicles))
-	for _, v := range s.vehicles {
-		ids = append(ids, v.Pod.ID)
+	// Preparation refuses a front that fails couplingApproachMemberReady
+	// on the assembly lane of the corridor. Thus discovery visits only the
+	// pods on an assembly lane, in pod ID order, and prepares a pair only
+	// for a corridor where the front passes that check.
+	n := s.couplingNetwork
+	var fronts []int
+	for i := range s.vehicles {
+		if n.assemblyLane(s.vehicles[i].Pod.LaneID) {
+			fronts = append(fronts, i)
+		}
 	}
-	slices.Sort(ids)
-	corridors := make([]string, 0, len(s.couplingNetwork.corridors))
-	for id := range s.couplingNetwork.corridors {
-		corridors = append(corridors, id)
-	}
-	slices.Sort(corridors)
-	for _, id := range ids {
-		front := s.findVehicle(id)
+	slices.SortFunc(fronts, func(a, b int) int { return cmp.Compare(s.vehicles[a].Pod.ID, s.vehicles[b].Pod.ID) })
+	for _, i := range fronts {
+		front := &s.vehicles[i]
+		id := front.Pod.ID
 		// A pod with a hold or a purpose is inside an incident transition,
 		// which a train would hold until its retirement (Q7). A pod with an
 		// emergency record that has left its group gets its hold in the
@@ -65,8 +69,11 @@ func (s *Simulation) discoverCouplingApproaches() {
 		if old := s.couplingAttempts[id]; old.context != nil {
 			continue
 		}
-		for _, corridor := range corridors {
-			c, state, err := prepareCouplingApproach(couplingApproachPrepareInput{Simulation: s, Network: s.couplingNetwork, Prepared: s.couplingNetwork.prepared, CorridorID: corridor, Members: [2]string{id, rear.Pod.ID}, Enabled: true})
+		for _, corridor := range n.discovery {
+			if !couplingApproachMemberReady(s, front, front, corridor.assemblyLane) {
+				continue
+			}
+			c, state, err := prepareCouplingApproach(couplingApproachPrepareInput{Simulation: s, Network: n, Prepared: n.prepared, CorridorID: corridor.id, Members: [2]string{id, rear.Pod.ID}, Enabled: true})
 			if err != nil {
 				continue
 			}

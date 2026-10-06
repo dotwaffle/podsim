@@ -1,9 +1,11 @@
 package sim
 
 import (
+	"cmp"
 	"errors"
 	"maps"
 	"math"
+	"math/rand/v2"
 	"reflect"
 	"slices"
 	"testing"
@@ -764,4 +766,121 @@ func advanceCouplingApproachEpoch(t *testing.T, s *Simulation, done func() bool)
 		}
 	}
 	t.Fatal("ordinary journey epoch control did not reach its boundary")
+}
+
+// TestCouplingDiscoveryCorridors checks the corridor list that discovery
+// reads. It must list the corridors of the contracts in ID order, with the
+// lane of each assembly site, whatever the order of the contracts.
+func TestCouplingDiscoveryCorridors(t *testing.T) {
+	network, corridors := couplingProbeNetwork()
+	contracts := couplingProbeContracts(t, &network, corridors)
+	slices.Reverse(contracts.CouplingCorridors)
+	slices.Reverse(contracts.CouplingSites)
+	var want []couplingDiscoveryCorridor
+	for _, corridor := range contracts.CouplingCorridors {
+		site := contracts.CouplingSites[slices.IndexFunc(contracts.CouplingSites, func(site CouplingSite) bool { return site.ID == corridor.AssemblySiteID })]
+		want = append(want, couplingDiscoveryCorridor{id: corridor.ID, assemblyLane: site.LaneID})
+	}
+	slices.SortFunc(want, func(a, b couplingDiscoveryCorridor) int { return cmp.Compare(a.id, b.id) })
+	s, err := NewFleetWithContracts(network, couplingProbeFleet(network), contracts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := s.couplingNetwork.discovery; len(want) != 4 || !slices.Equal(got, want) {
+		t.Fatalf("discovery corridors %v, want %v", got, want)
+	}
+	for _, corridor := range want {
+		if !s.couplingNetwork.assemblyLane(corridor.assemblyLane) {
+			t.Fatalf("lane %s is not an assembly lane", corridor.assemblyLane)
+		}
+	}
+	if s.couplingNetwork.assemblyLane(corridors[0][1]) {
+		t.Fatalf("split lane %s is an assembly lane", corridors[0][1])
+	}
+}
+
+// TestCouplingDiscoveryFilter checks the filter that discovery applies
+// before it prepares a pair. On the tailored probe network, for each pair
+// of a front and its virtual follower and for each corridor, preparation
+// must refuse the pair when the filter rejects it. The run continues until
+// preparation accepts a pair, so it reaches an approach.
+func TestCouplingDiscoveryFilter(t *testing.T) {
+	network, corridors := couplingProbeNetwork()
+	contracts := couplingProbeContracts(t, &network, corridors)
+	s, err := NewFleetWithContracts(network, couplingProbeFleet(network), contracts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetPlatoonLimit(2); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetPlatooning(PlatooningVirtual); err != nil {
+		t.Fatal(err)
+	}
+	stations := make([]string, len(network.Stations))
+	for i, station := range network.Stations {
+		stations[i] = station.ID
+	}
+	n := s.couplingNetwork
+	rng := rand.New(rand.NewPCG(couplingProbeSeed, ^uint64(couplingProbeSeed)))
+	budget, accepted, refused := 0, 0, 0
+	for s.tick < couplingProbeTicks && accepted == 0 {
+		for i := range s.vehicles {
+			front := &s.vehicles[i]
+			if front.follower <= 0 || front.follower > len(s.vehicles) {
+				continue
+			}
+			rear := &s.vehicles[front.follower-1]
+			for _, corridor := range n.discovery {
+				pass := n.assemblyLane(front.Pod.LaneID) && couplingApproachMemberReady(s, front, front, corridor.assemblyLane)
+				_, _, err := prepareCouplingApproach(couplingApproachPrepareInput{Simulation: s, Network: n, Prepared: n.prepared, CorridorID: corridor.id, Members: [2]string{front.Pod.ID, rear.Pod.ID}, Enabled: true})
+				switch {
+				case err == nil && !pass:
+					t.Fatalf("tick %d: the filter rejects %s and %s on %s, but preparation accepts them", s.tick, front.Pod.ID, rear.Pod.ID, corridor.id)
+				case err == nil:
+					accepted++
+				case !pass:
+					refused++
+				}
+			}
+		}
+		s.Step()
+		if err := s.CouplingError(); err != nil {
+			t.Fatalf("coupling failed at tick %d: %v", s.tick, err)
+		}
+		budget += couplingProbeRate
+		if budget >= 60*TicksPerSecond {
+			budget -= 60 * TicksPerSecond
+			from := rng.IntN(len(stations))
+			to := rng.IntN(len(stations) - 1)
+			if to >= from {
+				to++
+			}
+			if s.PendingCount() < 200 {
+				_ = s.RequestTrip(stations[from], stations[to])
+			}
+		}
+	}
+	if accepted == 0 || refused == 0 {
+		t.Fatalf("by tick %d, preparation accepted %d pairs, and the filter rejected %d pairs", s.tick, accepted, refused)
+	}
+	t.Logf("tick %d: accepted %d, filter rejected %d", s.tick, accepted, refused)
+}
+
+// TestCouplingDiscoveryOrder checks that discovery visits the fronts in pod
+// ID order. Both controlled pairs start their approaches at the same
+// boundary.
+func TestCouplingDiscoveryOrder(t *testing.T) {
+	t.Parallel()
+	s := controlledCouplingApproachBatch(t, false)
+	var fronts []string
+	for _, a := range s.couplingApproaches {
+		if a.context.tick != s.couplingApproaches[0].context.tick {
+			t.Fatal("the pairs started their approaches at different boundaries")
+		}
+		fronts = append(fronts, a.context.members[0].id)
+	}
+	if !slices.Equal(fronts, []string{"a-front", "b-front"}) {
+		t.Fatalf("approach fronts %v, want pod ID order", fronts)
+	}
 }

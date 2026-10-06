@@ -3,6 +3,7 @@ package sim
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"math"
 	"reflect"
 	"slices"
@@ -21,6 +22,16 @@ type couplingReservationNetwork struct {
 	lanes     map[string]couplingLaneGeometry
 	obstacles []couplingObstacle
 	index     *couplingBoxIndex
+	// discovery lists the corridors in ID order with the lane of each
+	// assembly site. Preparation sets it, and nothing changes it later.
+	discovery []couplingDiscoveryCorridor
+}
+
+type couplingDiscoveryCorridor struct{ id, assemblyLane string }
+
+// assemblyLane reports whether laneID is the assembly lane of a corridor.
+func (n *couplingReservationNetwork) assemblyLane(laneID string) bool {
+	return slices.ContainsFunc(n.discovery, func(c couplingDiscoveryCorridor) bool { return c.assemblyLane == laneID })
 }
 
 type couplingObstacle struct {
@@ -67,6 +78,9 @@ func prepareCouplingReservations(prepared *PreparedNetwork, input CouplingGeomet
 	for _, corridor := range input.Corridors {
 		corridor.LaneIDs = slices.Clone(corridor.LaneIDs)
 		n.corridors[corridor.ID] = corridor
+	}
+	for _, id := range slices.Sorted(maps.Keys(n.corridors)) {
+		n.discovery = append(n.discovery, couplingDiscoveryCorridor{id: id, assemblyLane: n.sites[n.corridors[id].AssemblySiteID].LaneID})
 	}
 	if len(n.corridors) == 0 {
 		return n, nil
