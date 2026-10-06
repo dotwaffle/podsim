@@ -66,6 +66,7 @@ The `test:embedded` task runs the full root and `cmd/serve` suites with the tag.
 In the session package, it runs only the four maximum codec tests, `TestPackedTextWireCost`, `TestComposedWorstCaseFormats`, and `TestStreamMaximumEncoding`.
 The first six tests skip under the race detector.
 That test does its bounded-scan checks only without the race detector.
+The four maximum codec tests and `TestStreamMaximumEncoding` also skip under `-short`, like the two measurement tests.
 A new test that skips under the race detector must be added to the `-run` pattern of one of these tasks.
 A pattern that matches no test passes.
 
@@ -82,7 +83,8 @@ The two `internal/sim` tasks share the `sim_race_split` pattern in `mise.toml`: 
 `test:race:other` runs every package except `internal/sim` and `internal/session`, so a new package needs no task change.
 
 On the first warm run, `test:race:sim` took 16 minutes, and every other job took 8.5 minutes or less.
-The station and reassignment tests took 439 of 885 seconds of the local race test time, so they form one of the two sim tasks.
+The station and reassignment tests took 439 of 885 seconds of the local race test time, so they formed one of the two sim tasks.
+Since October 6, the coupling tests are also in that task (see the next section).
 `check:static` runs the remaining tasks of `check`.
 `mise run check` still runs all of them on one machine.
 
@@ -91,3 +93,71 @@ Now it checks five publications: the first, the sequences where the width change
 Each publication must have a smaller delta than the legacy HTTP state.
 `BenchmarkStreamLargeRouteWire` repeats the publication and reports bytes and encode time for each publication.
 On a local race run, the test took 20.1 seconds, compared with 81.8 seconds before.
+
+## Local loop and race split
+
+The October 6 work changed only test files and `mise.toml`.
+These runs used one 12-core machine that other jobs also used, with `nice -n 19`.
+The load average is given with each wall time, because the load changed the wall times much more than the CPU times.
+
+### Quick loop
+
+`mise run test:quick` runs `go test -short ./...`.
+Under `-short`, 53 sim tests skip through `skipLong`.
+Each of them took one second or more in a serial run without the race detector, and together they took 235.5 of 294.0 seconds.
+They are the long scenarios, the parity tests that compare with a full scan or a reference, and the soak tests.
+In the session package, the four maximum codec tests and `TestStreamMaximumEncoding` skip under `-short`.
+No CI task passes `-short`, so the race tasks and `test:embedded` still run all of these tests.
+
+| `go test -short -count=1 ./...` | Wall | User CPU | Load (start / end) |
+| --- | ---: | ---: | --- |
+| Before | 129.8 s | 1,091 s | 10.8 / 22.1 |
+| After | 64.5 s | 440 s | 8.5 / 22.8 |
+
+In the run after the change, `internal/sim` took 52.4 seconds instead of 112.8, and `internal/session` took 37.1 seconds instead of 104.6.
+`internal/parkride` now sets the wall time, at 62.9 seconds.
+The full `go test -count=1 ./...` took 188.2 seconds and 1,140 CPU seconds at load 22.8 to 26.9.
+
+### Soak monitors
+
+`monitorContract`, `monitorReassign`, and `monitorExclusions` checked the state contract after each tick.
+`CheckContract` exports the whole state, so the check took about a third of the time of the long monitored tests.
+A `contractSampler` now checks at the first observation, every 60 ticks (one simulated second), and at each event.
+An event is a command, a reset, a restore, a Step of a paused simulation, or a tick in which a count of the simulation or the phase of a pod changes.
+The other checks of these monitors still run at each observation.
+
+The nine slowest monitored tests took 37.9 seconds serially with the per-tick check.
+With the sampled check, they took 29.2 seconds at 10 ticks, 22.5 seconds at 30 ticks, 22.2 seconds at 60 ticks, and 21.9 seconds at 120 ticks.
+Without the checks at pod and count changes, the nine tests took 23.6 seconds at 60 ticks, so those checks cost almost nothing.
+
+These tests keep the per-tick check through `monitorContractEachTick`, because they test order accounting or short transitions:
+
+- `TestRestoreReportsUnaccountedOrders`
+- `TestSharedRidesAccountForEachOrder`
+- `TestJoinCensusCountsPartyThatBoardsDuringDwell`
+- `TestLegOriginPickupState`
+- `TestRestoreLogicalCompletesOnlyAtAStation`
+
+The fault and operational tests that use `checkFaultsEachTick` and `checkEachTick` also keep the per-tick check.
+They compare consecutive ticks, and together they take about 2.5 seconds.
+
+### Race split
+
+The `sim_race_split` pattern is now `^Test(Coupling|Reassign|Station)`.
+Before the change, the task that ran the station and reassignment tests used 31 percent of the CPU time of the two tasks.
+The coupling tests took 17 percent of the per-test race time of the package.
+With them, the matching tests take 50.8 percent of that time.
+A 4-CPU CI runner is CPU-bound, so the CPU time of each task sets its duration.
+
+| Race task | Pattern | Wall | CPU | Load (start / end) |
+| --- | --- | ---: | ---: | --- |
+| `test:race:sim-stations` | `^Test(Station\|Reassign)` | 195.5 s | 1,171 s | 10.6 / 14.0 |
+| `test:race:sim-other` | `^Test(Station\|Reassign)` | 327.1 s | 2,606 s | 14.0 / 19.1 |
+| `test:race:sim-stations` | `^Test(Coupling\|Reassign\|Station)` | 392.0 s | 1,852 s | 22.8 / 23.2 |
+| `test:race:sim-other` | `^Test(Coupling\|Reassign\|Station)` | 271.5 s | 1,904 s | 23.2 / 18.2 |
+
+The before runs include the sampled contract check.
+The wall times of the after runs are longer because the machine load was higher.
+The CPU time of the longer task fell from 2,606 to 1,904 seconds, by 27 percent.
+
+Raw timing events and the scripts remain in `~/.cache/agents/podsim/test-speed-20261006/timing.tar.gz`.
