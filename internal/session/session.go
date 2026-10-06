@@ -5,11 +5,14 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"reflect"
 	"slices"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -352,7 +355,7 @@ func (s *Session) startProject(config project.Config) error {
 		return fmt.Errorf("configure experimental policies: %w", err)
 	}
 	epoch := rand.Text()
-	if err := preflightExpressTopology(owned, s.serverStart, epoch, 1); err != nil {
+	if err := preflightTopology(owned, s.serverStart, epoch); err != nil {
 		return err
 	}
 	s.simulation, s.project, s.epoch = simulation, owned, epoch
@@ -420,23 +423,61 @@ func (s *Session) Topology() TopologySnapshot {
 }
 
 func (s *Session) topologyLocked() TopologySnapshot {
+	return projectTopology(s.project, s.serverStart, s.epoch, s.projectRevision)
+}
+
+// projectTopology returns a detached topology of config. The HTTP state,
+// the topology endpoint and the topology preflight use it, so that the
+// preflight measures the topology that the session writes.
+func projectTopology(config project.Config, serverStart, epoch string, revision uint64) TopologySnapshot {
 	topology := TopologySnapshot{
-		ProjectVersion: s.project.Version, OrderContract: s.project.OrderContract, IncidentContract: s.project.IncidentContract,
-		FaultContract: s.project.FaultContract, EmergencyContract: s.project.EmergencyContract, CouplingContract: s.project.CouplingContract, CouplingEnabled: s.project.CouplingEnabled,
-		CouplingSites: slices.Clone(s.project.CouplingSites), CouplingCorridors: cloneCouplingCorridors(s.project.CouplingCorridors),
-		ServerStart: s.serverStart, Epoch: s.epoch, ProjectRevision: s.projectRevision,
-		Network: project.CloneNetwork(s.project.Network),
+		ProjectVersion: config.Version, OrderContract: config.OrderContract, IncidentContract: config.IncidentContract,
+		FaultContract: config.FaultContract, EmergencyContract: config.EmergencyContract, CouplingContract: config.CouplingContract, CouplingEnabled: config.CouplingEnabled,
+		CouplingSites: slices.Clone(config.CouplingSites), CouplingCorridors: cloneCouplingCorridors(config.CouplingCorridors),
+		ServerStart: serverStart, Epoch: epoch, ProjectRevision: revision,
+		Network: project.CloneNetwork(config.Network),
 	}
-	if s.project.OrderContract == sim.ExpressOrderContract {
-		topology.ExpressServices = slices.Clone(s.project.ExpressServices)
+	if config.OrderContract == sim.ExpressOrderContract {
+		topology.ExpressServices = slices.Clone(config.ExpressServices)
 	}
-	if s.project.Geo != nil {
-		topology.Geo = new(*s.project.Geo)
+	if config.Geo != nil {
+		topology.Geo = new(*config.Geo)
 	}
-	if s.project.Map != nil {
-		topology.Map = new(*s.project.Map)
+	if config.Map != nil {
+		topology.Map = new(*config.Map)
 	}
 	return topology
+}
+
+// preflightTopology refuses config when its topology can exceed the
+// topology cap while config is the project of the session.
+// project.Validate measures the project without HTML escapes, but the
+// topology encoding writes each "<", ">" and "&" as 6 bytes, so a valid
+// project can have a topology over the cap. The preflight measures the
+// widest topology of config: a demand change or a rewind increases the
+// project revision without a preflight, so it uses the largest revision.
+// A restore keeps the saved epoch or makes a new one, so it uses the wider
+// of epoch and a new epoch.
+func preflightTopology(config project.Config, serverStart, epoch string) error {
+	data, err := json.Marshal(projectTopology(config, serverStart, widerEpoch(epoch), math.MaxUint64))
+	if err != nil {
+		return err
+	}
+	if len(data) > project.MaxFileBytes+4096 {
+		return errors.New("topology exceeds supported limit")
+	}
+	return nil
+}
+
+// widerEpoch returns epoch, or an epoch with the width of a new epoch
+// when that is wider in JSON.
+func widerEpoch(epoch string) string {
+	fresh := strings.Repeat("A", len(rand.Text()))
+	current, err := json.Marshal(epoch)
+	if err != nil || len(current) < len(fresh)+2 {
+		return fresh
+	}
+	return epoch
 }
 
 // Frame returns recurring state without network geometry or complete route lanes.
@@ -940,7 +981,7 @@ func (s *Session) applyProject(command Command) (bool, error) {
 	if err := project.ConfigureExperiments(candidate, config); err != nil {
 		return false, fmt.Errorf("configure experimental policies: %w", err)
 	}
-	if err := preflightExpressTopology(config, s.serverStart, s.epoch, s.projectRevision+1); err != nil {
+	if err := preflightTopology(config, s.serverStart, s.epoch); err != nil {
 		return false, err
 	}
 	candidate.SetPaused(true)
@@ -1009,7 +1050,7 @@ func withoutEmptyCoupling(config project.Config) project.Config {
 // restore information. The simulation stops or starts new recruitment. If
 // the save fails, the session does not change.
 func (s *Session) applyCouplingToggle(config project.Config) error {
-	if err := preflightExpressTopology(config, s.serverStart, s.epoch, s.projectRevision+1); err != nil {
+	if err := preflightTopology(config, s.serverStart, s.epoch); err != nil {
 		return err
 	}
 	previous := s.simulation.CouplingEnabled()

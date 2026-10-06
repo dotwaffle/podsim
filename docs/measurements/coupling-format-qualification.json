@@ -13,7 +13,7 @@
     "The plan names guards by their line at 069bafb. Items 4, 5 and 7 moved them; each site below is the line at the source commit."
   ],
   "mutation_counts": {
-    "KILLED": 55,
+    "KILLED": 61,
     "SURVIVED": 22
   },
   "rows": [
@@ -491,9 +491,10 @@
         "internal/session: TestCouplingDecodeCapsAtCallers (new at 39f05af, coupling_decode_cap_test.go): a committed coupling frame padded with JSON whitespace to each decode cap and to one byte more, for DecodeStateJSON, DecodeStreamJSON, decodeStreamJSON, and InflateStream output and input. Each document at the cap is accepted; each over the cap gets the text of its own cap. At 0d1dc49, the compressed message case also has a valid gzip member of exactly MaxStreamMessage bytes, which is accepted, and a valid member of one byte more, which is refused.",
         "internal/session: TestCouplingEncodeCapsAtCallers (new at 0d1dc49, coupling_encode_cap_test.go): a document at each encode cap and one byte over it, for the compressed save, EncodeStreamJSON and streamEncoder.encode, EncodeStateJSON, the HTTP topology through the HTTP state handler, and the topology member of a coupling HTTP state through DecodeStateJSON. Each document at the cap is accepted; each over the cap gets the text of its own cap.",
         "internal/session: TestCouplingSavedHalfFleetAtDecoder (new at 0d1dc49, coupling_encode_cap_test.go): a coupled save at the half-fleet group bound and one group over it, through decodeStateFile.",
-        "internal/session: BenchmarkCouplingFormats (new at 39f05af, coupling_cost_test.go)"
+        "internal/session: BenchmarkCouplingFormats (new at 39f05af, coupling_cost_test.go)",
+        "internal/session: TestTopologyPreflightAtCallers (new in the fourth round, topology_preflight_test.go): a valid plain project with IDs of \"<\" and its topology, as the preflight measures it, at the cap and at one byte more, through NewWithProject, the project command, and NewFromStore with and without a project file. At the cap, the session starts, accepts the project and serves its HTTP state, also after 9 demand changes. At one byte more, each point refuses with \"topology exceeds supported limit\"; the restore without a project file moves the saved state aside with invalid_state and starts the example project. It also pins the epoch width and the refusal of an Express and a coupling topology over the cap."
       ],
-      "result": "Qualified for the caps at 0d1dc49. Each cap has a kill, or a proof that no input reaches it. The save writer and decoder caps, the stream compression cap, the topology preflight and the coupling command bounds have caller kills. At 39f05af, each cap of the session stream and HTTP decode chain also has a kill. At 0d1dc49, the HTTP topology cap, the topology scan cap and the half-fleet check have caller kills, and the compressed save cap and the encode caps of EncodeStreamJSON and EncodeStateJSON have kills from direct calls. The cap in streamEncoder.encode is redundant, and the compressed stream cap is unreachable; see their readings. Heap retention and cost are measured on the phase fixture with one group.",
+      "result": "Qualified for the caps at 0d1dc49. Each cap has a kill, or a proof that no input reaches it. The save writer and decoder caps, the stream compression cap, the topology preflight and the coupling command bounds have caller kills. At 39f05af, each cap of the session stream and HTTP decode chain also has a kill. At 0d1dc49, the HTTP topology cap, the topology scan cap and the half-fleet check have caller kills, and the compressed save cap and the encode caps of EncodeStreamJSON and EncodeStateJSON have kills from direct calls. The cap in streamEncoder.encode is redundant, and the compressed stream cap is unreachable; see their readings. Heap retention and cost are measured on the phase fixture with one group. In the fourth round, on ae39088, the topology preflight checks each project at the largest project revision and the wider of the epoch and a new epoch, and the restore runs it before it keeps the saved project for an empty session. So no caller reaches the HTTP topology cap, which is redundant and has a kill from a direct call.",
       "mutations": [
         {
           "id": "g9-save-writer-raw",
@@ -1359,7 +1360,8 @@
           "source_sha256": "ebfd36b230f073df9cdca36be825b5740dc8d2631815d868685ab848ce19f080",
           "hash_restored": true,
           "final": "KILLED",
-          "reading": "Caller kill through the HTTP state handler. The session has a valid plain project, a ring of 300 stations with 6 berths each, with IDs and separation groups of 56 \"<\" and 8 digits. project.Validate measures the project without HTML escapes, and the topology encoding writes each \"<\" as 6 bytes. The station names set the topology to the cap, where the handler replies and DecodeStateJSON accepts the state, and to one byte more, where the handler replies with status 500 and the text of this cap. The topology preflight checks only Express and coupling projects, so this cap is the first check for a plain project."
+          "reading": "Caller kill through the HTTP state handler. The session has a valid plain project, a ring of 300 stations with 6 berths each, with IDs and separation groups of 56 \"<\" and 8 digits. project.Validate measures the project without HTML escapes, and the topology encoding writes each \"<\" as 6 bytes. The station names set the topology to the cap, where the handler replies and DecodeStateJSON accepts the state, and to one byte more, where the handler replies with status 500 and the text of this cap. The topology preflight checks only Express and coupling projects, so this cap is the first check for a plain project.",
+          "followed_by": "g9-http-topology-encode-cap-redundant"
         },
         {
           "id": "g9-http-topology-scan-cap",
@@ -1468,6 +1470,159 @@
           "hash_restored": true,
           "final": "KILLED",
           "reading": "The first message over the cap is now a valid member of MaxStreamMessage + 1 bytes that inflates to MaxStreamJSON - 1 bytes, so only this cap refuses it. The member with zero bytes after it stays in the test."
+        },
+        {
+          "id": "g9-topology-preflight-plain",
+          "source_commit": "ae39088",
+          "site": "internal/session/session.go:461",
+          "change": {
+            "from": "func preflightTopology(config project.Config, serverStart, epoch string) error {",
+            "to": "func preflightTopology(config project.Config, serverStart, epoch string) error { if !project.HasCouplingContract(config) && config.OrderContract != sim.ExpressOrderContract { return nil }"
+          },
+          "package": "internal/session",
+          "tests": "^(TestTopologyPreflightAtCallers|TestExpressWidestTopologyHTTPAdapters)$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestTopologyPreflightAtCallers",
+            "TestTopologyPreflightAtCallers/session_creation",
+            "TestTopologyPreflightAtCallers/project_replace",
+            "TestTopologyPreflightAtCallers/restore",
+            "TestTopologyPreflightAtCallers/epoch_width"
+          ],
+          "assertion": "topology_preflight_test.go:51: got <nil>, want \"topology exceeds supported limit\"",
+          "source_sha256": "8023a4dba1488f4c292a5a459e4c6c64cd950e2fefa5c468a23b73c5cdbbedc1",
+          "hash_restored": true,
+          "final": "KILLED",
+          "reading": "The mutant puts back the early return of ae39088, so the preflight checks only Express and coupling projects. Session creation, the project replace and the restore each accept the plain project over the cap. The Express and coupling cases still pass."
+        },
+        {
+          "id": "g9-topology-preflight-cap",
+          "source_commit": "ae39088",
+          "site": "internal/session/session.go:466",
+          "change": {
+            "from": "if len(data) > project.MaxFileBytes+4096 {",
+            "to": "if false && len(data) > project.MaxFileBytes+4096 {"
+          },
+          "package": "internal/session",
+          "tests": "^(TestTopologyPreflightAtCallers|TestExpressWidestTopologyHTTPAdapters)$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestTopologyPreflightAtCallers",
+            "TestTopologyPreflightAtCallers/session_creation",
+            "TestTopologyPreflightAtCallers/project_replace",
+            "TestTopologyPreflightAtCallers/restore",
+            "TestTopologyPreflightAtCallers/epoch_width",
+            "TestTopologyPreflightAtCallers/Express_and_coupling",
+            "TestExpressWidestTopologyHTTPAdapters"
+          ],
+          "assertion": "topology_preflight_test.go:51: got <nil>, want \"topology exceeds supported limit\"",
+          "source_sha256": "8023a4dba1488f4c292a5a459e4c6c64cd950e2fefa5c468a23b73c5cdbbedc1",
+          "hash_restored": true,
+          "final": "KILLED",
+          "reading": "The same site as g9-topology-preflight, which moved from express_wire.go to session.go."
+        },
+        {
+          "id": "g9-topology-preflight-revision",
+          "source_commit": "ae39088",
+          "site": "internal/session/session.go:462",
+          "change": {
+            "from": "widerEpoch(epoch), math.MaxUint64))",
+            "to": "widerEpoch(epoch), math.MaxUint64-math.MaxUint64+1))"
+          },
+          "package": "internal/session",
+          "tests": "^(TestTopologyPreflightAtCallers|TestExpressWidestTopologyHTTPAdapters)$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestTopologyPreflightAtCallers",
+            "TestTopologyPreflightAtCallers/session_creation",
+            "TestTopologyPreflightAtCallers/project_replace",
+            "TestTopologyPreflightAtCallers/restore",
+            "TestTopologyPreflightAtCallers/epoch_width"
+          ],
+          "assertion": "topology_preflight_test.go:51: got <nil>, want \"topology exceeds supported limit\"",
+          "source_sha256": "8023a4dba1488f4c292a5a459e4c6c64cd950e2fefa5c468a23b73c5cdbbedc1",
+          "hash_restored": true,
+          "final": "KILLED",
+          "reading": "The mutant measures the topology at project revision 1. The project with a topology of one byte over the cap at the largest revision is then 18 bytes below the cap, and each point accepts it. A demand change or a rewind could then raise the revision until the topology passes the HTTP topology cap."
+        },
+        {
+          "id": "g9-topology-preflight-epoch",
+          "source_commit": "ae39088",
+          "site": "internal/session/session.go:462",
+          "change": {
+            "from": "projectTopology(config, serverStart, widerEpoch(epoch), math.MaxUint64)",
+            "to": "projectTopology(config, serverStart, epoch, math.MaxUint64)"
+          },
+          "package": "internal/session",
+          "tests": "^(TestTopologyPreflightAtCallers|TestExpressWidestTopologyHTTPAdapters)$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestTopologyPreflightAtCallers",
+            "TestTopologyPreflightAtCallers/epoch_width"
+          ],
+          "assertion": "topology_preflight_test.go:126: got <nil>, want \"topology exceeds supported limit\"",
+          "source_sha256": "8023a4dba1488f4c292a5a459e4c6c64cd950e2fefa5c468a23b73c5cdbbedc1",
+          "hash_restored": true,
+          "final": "KILLED",
+          "reading": "The mutant measures the saved epoch only. With an epoch of 25 characters, it accepts the project that is one byte over the cap with a new epoch of 26 characters, which a restore that does not keep the saved epoch gives."
+        },
+        {
+          "id": "g9-topology-preflight-restore-order",
+          "source_commit": "ae39088",
+          "site": "internal/session/persist.go:497",
+          "change": {
+            "from": "the preflight before the switch that sets validProject",
+            "to": "the preflight after that switch, as at ae39088"
+          },
+          "package": "internal/session",
+          "tests": "^TestTopologyPreflightAtCallers$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestTopologyPreflightAtCallers",
+            "TestTopologyPreflightAtCallers/restore"
+          ],
+          "assertion": "topology_preflight_test.go:89: topology exceeds supported limit",
+          "source_sha256": "4a040816846ac77d14e2654b7291a53649c9356c0490deb651af188fb67e966b",
+          "hash_restored": true,
+          "final": "KILLED",
+          "reading": "Without a project file, the empty session takes the saved project, its preflight fails again, and NewFromStore returns the refusal. The server does not start, and it does not move the saved state aside."
+        },
+        {
+          "id": "g9-http-topology-encode-cap-redundant",
+          "source_commit": "ae39088",
+          "site": "internal/session/state_http.go:42",
+          "change": {
+            "from": "if len(topologyBytes) > project.MaxFileBytes+4096 {",
+            "to": "if false && len(topologyBytes) > project.MaxFileBytes+4096 {"
+          },
+          "package": "internal/session",
+          "tests": "^TestCouplingEncodeCapsAtCallers$/^HTTP_topology$",
+          "control": "pass",
+          "result": "KILLED",
+          "failing_tests": [
+            "TestCouplingEncodeCapsAtCallers",
+            "TestCouplingEncodeCapsAtCallers/HTTP_topology"
+          ],
+          "assertion": "coupling_encode_cap_test.go:147: got <nil>, want \"HTTP topology exceeds supported limit\"",
+          "source_sha256": "ebfd36b230f073df9cdca36be825b5740dc8d2631815d868685ab848ce19f080",
+          "hash_restored": true,
+          "classification": "redundant",
+          "wider_runs": [
+            {
+              "package": "internal/session",
+              "tests": "all tests without -short, except TestComposedWorstCaseFormats, TestCouplingSaveCapRejectsAtomically and the direct call TestCouplingEncodeCapsAtCallers/HTTP_topology",
+              "control": "pass",
+              "result": "SURVIVED",
+              "failing_tests": []
+            }
+          ],
+          "final": "KILLED",
+          "reading": "Direct call of EncodeStateJSON with the topology and the frame of the plain project at the largest project revision, which is at the cap, and then with an epoch of one more character. No caller reaches this cap: each project of a session passed the topology preflight with the server start and the epoch of the session, the preflight measures the largest revision and the wider of the epoch and a new epoch, and both sides build the topology with projectTopology and encode it with encoding/json. The wider run without the direct call survives."
         }
       ],
       "measurements": {
@@ -2103,10 +2258,6 @@
   ],
   "open_gaps": [
     {
-      "row": "G9",
-      "gap": "A valid plain project can have an HTTP topology over the topology cap. project.Validate measures the project without HTML escapes, but the topology encoding writes each \"<\", \">\" and \"&\" as 6 bytes. The topology preflight checks only Express and coupling projects, so the server starts such a project, and its HTTP state then fails with status 500 and the text of the cap. TestCouplingEncodeCapsAtCallers/HTTP_topology builds one: a ring of 300 stations with 6 berths each and IDs of \"<\", with a project of about 2.7 MB. This round changed no code outside the tests."
-    },
-    {
       "row": "U3",
       "gap": "No command is measured with the widest coupled project. The bound holds by construction: project.Validate limits the compact project JSON to project.MaxFileBytes, and MaxInflatedCommandBytes is project.MaxFileBytes plus 64 KiB. TestCommandCouplingArrayBounds checks the counts only."
     },
@@ -2124,10 +2275,35 @@
     "note": "A second round at 39f05af closed the non-simulation gaps of G8, G9 and U4. The runs used 39f05af with the new tests applied: internal/session/coupling_decode_cap_test.go and coupling_cost_test.go, three new tests in internal/session/coupling_cap_test.go, and internal/remote/coupling_cancel_test.go. The fixture helpers of the coupling session tests now take testing.TB, so that the benchmark can use them. Each mutation of this round names source_commit 39f05af, and its site is the line at that commit. No code outside the tests changed.",
     "method": "The method of this record. The control was go test -p 1 -count=1 -run <tests> <package>. Each run had ulimit -v 16000000 and nice -n 19. Each mutation of this round had its control pass and its mutant compile."
   },
-  "mutation_counts_note": "54 runs at 05e95b1 (34 killed, 20 survived) and 12 runs at 39f05af (12 killed). 7 runs at 39f05af kill a site that survived at 05e95b1, and g8-http-server-view-new-test killed g8-http-server-view in the first round, so 12 surviving sites have no kill. 11 runs at 0d1dc49 (9 killed, 2 survived). 7 of these kills are at 6 sites that survived at 05e95b1, and the 2 survivors are proven unreachable or redundant (g9-stream-encode-encoder-redundant and g9-stream-compress-binary-unreachable). So 6 surviving sites have no kill: those 2 G9 sites, c5-replacement-contract and 3 U7 sites.",
+  "mutation_counts_note": "54 runs at 05e95b1 (34 killed, 20 survived) and 12 runs at 39f05af (12 killed). 7 runs at 39f05af kill a site that survived at 05e95b1, and g8-http-server-view-new-test killed g8-http-server-view in the first round, so 12 surviving sites have no kill. 11 runs at 0d1dc49 (9 killed, 2 survived). 7 of these kills are at 6 sites that survived at 05e95b1, and the 2 survivors are proven unreachable or redundant (g9-stream-encode-encoder-redundant and g9-stream-compress-binary-unreachable). So 6 surviving sites have no kill: those 2 G9 sites, c5-replacement-contract and 3 U7 sites. 6 runs on ae39088 with the change of the fourth round (6 killed); g9-http-topology-encode-cap-redundant is killed by a direct call only, and its wider run without that call survives.",
   "second_followup": {
     "source_commit": "0d1dc49082ff43a6b287d701bf4fe29f6060f294",
     "note": "A third round at 0d1dc49 closed the cap part of the G9 gap. The runs used 0d1dc49 with the test changes applied: the new file internal/session/coupling_encode_cap_test.go, the at-cap gzip member in coupling_decode_cap_test.go, the retention benchmark in coupling_cost_test.go, and TestCouplingEncodeCapsAtCallers in the test:embedded pattern of mise.toml. Each mutation of this round names source_commit 0d1dc49, and its site is the line at that commit. No code outside the tests changed.",
     "method": "The method of this record. The control was go test -p 1 -count=1 -run <tests> ./internal/session, and the mutant binary ran the same pattern. The two survivors also ran against all tests of the session package without -short, except the two large fixtures, with a passing control of the same command. Each run had ulimit -v 16000000, nice -n 19 and GOMAXPROCS=4. Each mutation of this round had its control pass and its mutant compile."
+  },
+  "third_followup": {
+    "source_commit": "ae3908842442840020f5d55d283fee7b93106942",
+    "note": "A fourth round on ae39088 fixed the G9 gap of a plain project with a topology over the cap. The change makes preflightTopology (formerly preflightExpressTopology) check each project with the refusal text \"topology exceeds supported limit\". The preflight and the HTTP state build the topology with one function, projectTopology. The preflight measures the largest project revision and the wider of the epoch and a new epoch, because a demand change and a rewind raise the revision without a preflight and a restore can keep the saved epoch or make a new one. The startup restore runs the preflight before it keeps the saved project for an empty session. The tests are the new TestTopologyPreflightAtCallers, the HTTP topology case of TestCouplingEncodeCapsAtCallers, now a direct call, and the exact refusal text in TestExpressWidestTopologyHTTPAdapters, which no longer has a coupling case with Express services, because the topology of a project without the Express marker leaves them out. Each mutation of this round names source_commit ae39088, and its site is the line with the change of this round applied.",
+    "method": "The method of this record. The control was go test -p 1 -count=1 -run <tests> ./internal/session, and the mutant ran the same command with -overlay. The wider run of g9-http-topology-encode-cap-redundant used -run . with -skip for the excluded tests and had its own passing control. Each run had ulimit -v 16000000, nice -n 19 and GOMAXPROCS=4. Each mutation of this round had its control pass and its mutant compile.",
+    "fixed_gaps": [
+      {
+        "row": "G9",
+        "gap": "A valid plain project can have an HTTP topology over the topology cap. project.Validate measures the project without HTML escapes, but the topology encoding writes each \"<\", \">\" and \"&\" as 6 bytes. The topology preflight checks only Express and coupling projects, so the server starts such a project, and its HTTP state then fails with status 500 and the text of the cap. TestCouplingEncodeCapsAtCallers/HTTP_topology builds one: a ring of 300 stations with 6 berths each and IDs of \"<\", with a project of about 2.7 MB. This round changed no code outside the tests.",
+        "fix": "The topology preflight checks each project at session creation, at a project replace and at the startup restore, at the largest project revision and the wider of the epoch and a new epoch. So a project that a session installs never gets status 500 from the HTTP topology cap. A saved state with an oversized project and no project file gets invalid_state and moves aside, and the server starts the example project.",
+        "tests": [
+          "internal/session: TestTopologyPreflightAtCallers",
+          "internal/session: TestCouplingEncodeCapsAtCallers/HTTP_topology",
+          "internal/session: TestExpressWidestTopologyHTTPAdapters"
+        ],
+        "mutations": [
+          "g9-topology-preflight-plain",
+          "g9-topology-preflight-cap",
+          "g9-topology-preflight-revision",
+          "g9-topology-preflight-epoch",
+          "g9-topology-preflight-restore-order",
+          "g9-http-topology-encode-cap-redundant"
+        ]
+      }
+    ]
   }
 }

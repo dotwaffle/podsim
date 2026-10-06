@@ -494,14 +494,16 @@ func (s *Session) loadState(input loadInput) (loaded loadedState, err error) {
 	if loaded.config, err = restoreProject(input, file.Project); err != nil {
 		return loaded, err
 	}
+	// The preflight runs before validProject is set. An empty session
+	// cannot start with a project that the preflight refuses.
+	if err = preflightTopology(loaded.config, s.serverStart, file.Epoch); err != nil {
+		return loaded, invalidState(err)
+	}
 	switch {
 	case input.project == nil:
 		loaded.validProject = new(file.Project)
 	case input.project.Demand != file.Project.Demand:
 		loaded.projectDemand = new(input.project.Demand)
-	}
-	if err = preflightExpressTopology(loaded.config, s.serverStart, file.Epoch, file.ProjectRevision+1); err != nil {
-		return loaded, invalidState(err)
 	}
 	if err = file.validate(); err != nil {
 		return loaded, invalidState(err)

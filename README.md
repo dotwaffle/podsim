@@ -893,6 +893,7 @@ A berth route goes from the station entry to the berth, or from the berth to the
 It can use a chain of lanes, as in the London stations.
 It cannot pass through the entry, exit, or berth node of a station.
 Validation also limits the compact JSON form of a project to 10 MiB or less.
+The topology JSON writes each `<`, `>`, and `&` as 6 bytes, so the server refuses a project whose topology is more than 10 MiB plus 4 KiB with `topology exceeds supported limit`.
 The editor sends the project in one command, and it compresses a command of more than 64 KiB with gzip.
 The server accepts a command body of 4 MiB or less, and 10 MiB plus 64 KiB of command JSON after decompression.
 Before the editor pauses the simulation for an apply, it checks the size of the project and shows the limit.

@@ -445,13 +445,8 @@ func TestExpressWidestTopologyHTTPAdapters(t *testing.T) {
 	if len(large) <= project.MaxFileBytes+4096 || json.Unmarshal(large, &decoded) == nil {
 		t.Fatal("topology cap failed")
 	}
-	if err = preflightExpressTopology(project.Config{Version: project.CurrentVersion, OrderContract: sim.ExpressOrderContract, Network: oversized.Network, ExpressServices: oversized.ExpressServices}, "server", "epoch", math.MaxUint64); err == nil {
-		t.Fatal("producer topology preflight accepted overflow")
-	}
-	// The coupling marker also selects the preflight. The check measures
-	// bytes only, so the same oversized members serve here.
-	if err = preflightExpressTopology(project.Config{Version: project.CurrentVersion, CouplingContract: sim.CompactPairV1CouplingContract, Network: oversized.Network, ExpressServices: oversized.ExpressServices}, "server", "epoch", math.MaxUint64); err == nil {
-		t.Fatal("coupling topology preflight accepted overflow")
+	if err = preflightTopology(project.Config{Version: project.CurrentVersion, OrderContract: sim.ExpressOrderContract, Network: oversized.Network, ExpressServices: oversized.ExpressServices}, "server", "epoch"); err == nil || err.Error() != "topology exceeds supported limit" {
+		t.Fatal("producer topology preflight accepted overflow", err)
 	}
 	t.Logf("asset topology raw=%d cap=%d next-step-overflow=%d", len(raw), project.MaxFileBytes+4096, len(large))
 	exportExpressAsset(t, "topology.json", raw)

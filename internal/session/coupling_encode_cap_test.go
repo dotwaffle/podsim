@@ -7,8 +7,10 @@ import (
 	jsonv2 "encoding/json/v2"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -111,21 +113,38 @@ func TestCouplingEncodeCapsAtCallers(t *testing.T) {
 	})
 
 	t.Run("HTTP topology", func(t *testing.T) {
-		// project.Validate measures the project without HTML escapes, and
-		// the topology escapes each "<" as 6 bytes. So a valid plain
-		// project with IDs and names of "<" has a topology over the cap.
-		// The topology preflight checks only Express and coupling
-		// projects, so the cap of the HTTP state is the first check.
+		// The topology preflight measures the topology at the largest
+		// project revision and the widest epoch of the session, with the
+		// encoding of this cap, so no session reaches it (see
+		// TestTopologyPreflightAtCallers). The test calls EncodeStateJSON
+		// with the topology and the frame of a session at that revision,
+		// and then with an epoch of one more character.
 		config := escapedTopologyProject(t, project.MaxFileBytes+4096)
-		body := stateHTTPBody(t, config, http.StatusOK)
-		state, err := DecodeStateJSON(body)
+		s, err := NewWithProject(config)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer s.Close()
+		escaped := s.Topology()
+		escapedFrame, err := s.presentationFrame()
+		if err != nil {
+			t.Fatal(err)
+		}
+		encode := func(epoch string) ([]byte, error) {
+			escaped.Epoch, escaped.ProjectRevision = epoch, math.MaxUint64
+			escapedFrame.State.Epoch, escapedFrame.State.ProjectRevision = epoch, math.MaxUint64
+			return EncodeStateJSON(escaped, escapedFrame)
+		}
+		raw, err := encode(escaped.Epoch)
+		if err != nil {
+			t.Fatal("refused the HTTP state at the topology cap", err)
+		}
+		state, err := DecodeStateJSON(raw)
 		if err != nil || len(state.Network.Lanes) != len(config.Network.Lanes) {
 			t.Fatal("the client refused the HTTP state at the topology cap", err)
 		}
-		config = escapedTopologyProject(t, project.MaxFileBytes+4096+1)
-		if got := string(stateHTTPBody(t, config, http.StatusInternalServerError)); got != "HTTP topology exceeds supported limit\n" {
-			t.Fatalf("got %q, want the text of the topology cap", got)
-		}
+		_, err = encode(escaped.Epoch + "A")
+		wantError(t, err, "HTTP topology exceeds supported limit")
 	})
 
 	t.Run("HTTP topology scan", func(t *testing.T) {
@@ -306,7 +325,7 @@ func padTopologyMember(t *testing.T, raw []byte, size int) []byte {
 }
 
 // escapedTopologyProject returns a valid plain project whose topology, as
-// the session writes it, has size bytes. Each ID and each separation group
+// the topology preflight measures it, has size bytes. Each ID and each separation group
 // has 56 "<" and 8 digits. The station names set the exact size: a "<"
 // adds 6 bytes, and a letter adds 1.
 func escapedTopologyProject(t *testing.T, size int) project.Config {
@@ -385,35 +404,34 @@ func escapedTopologyProject(t *testing.T, size int) project.Config {
 	return config
 }
 
-// escapedTopologySize returns the size of the topology of a session with
-// the plain project config, with the encoding of EncodeStateJSON.
+// escapedTopologySize returns the size of the topology of the plain
+// project config as the topology preflight measures it, with the encoding
+// of EncodeStateJSON.
 func escapedTopologySize(t *testing.T, config project.Config) int {
 	t.Helper()
-	// A server start has 16 characters, an epoch has 26, and the first
-	// project revision is 1.
-	raw, err := json.Marshal(TopologySnapshot{ProjectVersion: config.Version, ServerStart: strings.Repeat("0", 16), Epoch: strings.Repeat("0", 26), ProjectRevision: 1, Network: config.Network})
+	// A server start has 16 characters, a new epoch has 26, and the
+	// preflight uses the largest project revision.
+	raw, err := json.Marshal(TopologySnapshot{ProjectVersion: config.Version, ServerStart: strings.Repeat("0", 16), Epoch: strings.Repeat("0", 26), ProjectRevision: math.MaxUint64, Network: config.Network})
 	if err != nil {
 		t.Fatal(err)
 	}
 	return len(raw)
 }
 
-// stateHTTPBody starts a session with config, checks the size of its
-// topology, and returns the body of its HTTP state reply, which must
-// have status.
-func stateHTTPBody(t *testing.T, config project.Config, status int) []byte {
+// stateHTTPReply checks that the topology of s has the size that
+// escapedTopologySize gives for config, less the digits that the project
+// revision of s does not have, and returns the body of the HTTP state
+// reply of s, which must have status.
+func stateHTTPReply(t *testing.T, s *Session, config project.Config, status int) []byte {
 	t.Helper()
-	s, err := NewWithProject(config)
+	topology := s.Topology()
+	raw, err := json.Marshal(topology)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer s.Close()
-	topology, err := json.Marshal(s.Topology())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if want := escapedTopologySize(t, config); len(topology) != want {
-		t.Fatalf("the session topology has %d bytes, want %d", len(topology), want)
+	want := escapedTopologySize(t, config) - len(strconv.FormatUint(math.MaxUint64, 10)) + len(strconv.FormatUint(topology.ProjectRevision, 10))
+	if len(raw) != want {
+		t.Fatalf("the session topology has %d bytes, want %d", len(raw), want)
 	}
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/state", http.NoBody)
 	request.Header.Set("Accept", StateMediaType)

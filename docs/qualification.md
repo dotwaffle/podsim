@@ -2160,11 +2160,14 @@ A third round at `0d1dc49` added 11 mutant runs: 9 were killed and 2 survived.
 Seven of the kills are at 6 sites that survived at `05e95b1`.
 The 2 survivors are caps that no input reaches.
 The second and third rounds added tests only.
+A fourth round on `ae39088` changed the topology preflight to fix a gap of G9.
+It added 6 mutant runs, and each was killed.
+The HTTP topology cap is killed only by a direct call, because no caller reaches it.
 
 | Row | Status |
 | --- | --- |
 | G8 public formats | Qualified, with WASM under Node and headless Chromium at `39f05af`. |
-| G9 size and cost | Caps qualified at `0d1dc49`; the cost numbers use the phase fixture only. |
+| G9 size and cost | Caps qualified at `0d1dc49`, and the topology preflight covers each project from the fourth round; the cost numbers use the phase fixture only. |
 | C1 limits | Unchanged. |
 | C3 combined widest encodings | Measured in the [composed format record](measurements/composed-worst-case-formats.json). |
 | C4 atomic rejection | Qualified for the save. |
@@ -2200,6 +2203,7 @@ At `0d1dc49`, `TestCouplingEncodeCapsAtCallers` puts a document at each encode c
 The results for the 8 caps that survived at `05e95b1` follow.
 
 - The HTTP topology cap is killed through the HTTP state handler, and the topology scan cap through `DecodeStateJSON`.
+  From the fourth round, the HTTP topology cap is redundant, and a direct call kills it (see below).
 - The half-fleet group check is killed through the save decoder.
   The route check after it has the same bound with another text.
 - The compressed save cap and the encode caps of `EncodeStreamJSON` and `EncodeStateJSON` are killed by direct calls.
@@ -2218,9 +2222,29 @@ The results for the 8 caps that survived at `05e95b1` follow.
 The HTTP topology case uses a valid plain project.
 `project.Validate` measures a project without HTML escapes, but the topology encoding writes each `<` as 6 bytes.
 A ring of 300 stations with 6 berths each, with IDs and separation groups of `<`, has a project of about 2.7 MB and a topology over the cap.
-The topology preflight checks only Express and coupling projects.
-So the server starts such a plain project, and its HTTP state then fails with status 500.
-The record lists this as an open gap.
+At `0d1dc49`, the topology preflight checked only Express and coupling projects.
+So the server started such a plain project, and its HTTP state then failed with status 500.
+
+From the fourth round, the topology preflight checks each project.
+It runs at session creation, at a project replace, and at the startup restore, and it refuses with `topology exceeds supported limit`.
+The preflight and the HTTP state build the topology with one function and encode it with the same encoder.
+The preflight measures the widest topology that the session can serve with the project.
+A demand change and a rewind increase the project revision without a preflight, so the preflight uses the largest revision.
+A restore keeps the saved epoch or makes a new epoch of 26 characters, so the preflight uses the wider of the two in JSON.
+`TestTopologyPreflightAtCallers` sends the plain project with its topology at the cap and at one byte more to each of these points.
+At the cap, the session starts, accepts the project replace, and serves its HTTP state, also after 9 demand changes.
+At one byte more, session creation fails, and the project replace gets `command_rejected` with the refusal text.
+A saved state with this project and no project file gets `invalid_state`, and the server moves it aside and starts the example project.
+Before the fourth round, the empty session took the saved project, its preflight failed again, and the server did not start.
+With the same project as the project file, the server refuses the project file, as at session creation, and it keeps the saved state.
+The test also pins the epoch width and the refusal of Express and coupling projects.
+
+So no caller reaches the HTTP topology cap, and the record classifies it as redundant.
+Each project of a session passed the preflight with the server start and the epoch of the session, and the served revision is at most the largest revision.
+`TestCouplingEncodeCapsAtCallers` calls `EncodeStateJSON` with the topology and the frame of the plain project at the largest revision, which is at the cap.
+With an epoch of one more character, it gets the text of the HTTP topology cap.
+Without the cap, the other tests of the session package pass without `-short`.
+That run left out the two large fixtures, `TestComposedWorstCaseFormats` and `TestCouplingSaveCapRejectsAtomically`.
 
 `BenchmarkCouplingFormats` measures the formats on the phase fixture, with 2 pods in one group.
 The delta is one tick after the full frame.

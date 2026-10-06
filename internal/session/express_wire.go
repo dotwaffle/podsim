@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
@@ -138,21 +137,6 @@ func (file *stateFile) validateWireContract() error {
 		return err
 	}
 	return file.validateEmergencyValues()
-}
-
-func preflightExpressTopology(config project.Config, serverStart, epoch string, revision uint64) error {
-	if !project.HasCouplingContract(config) && config.OrderContract != sim.ExpressOrderContract {
-		return nil
-	}
-	topology := TopologySnapshot{CouplingContract: config.CouplingContract, CouplingEnabled: config.CouplingEnabled, CouplingSites: config.CouplingSites, CouplingCorridors: config.CouplingCorridors, ProjectVersion: config.Version, OrderContract: config.OrderContract, IncidentContract: config.IncidentContract, FaultContract: config.FaultContract, EmergencyContract: config.EmergencyContract, ExpressServices: config.ExpressServices, Network: config.Network, Geo: config.Geo, Map: config.Map, ServerStart: serverStart, Epoch: epoch, ProjectRevision: revision}
-	data, err := json.Marshal(topology)
-	if err != nil {
-		return err
-	}
-	if len(data) > project.MaxFileBytes+4096 {
-		return errors.New("express topology exceeds supported limit")
-	}
-	return nil
 }
 
 // StreamHello opens a connection. Its contract markers select the
