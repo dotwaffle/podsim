@@ -55,7 +55,7 @@ No project, command, WebSocket, or saved-state fields change.
 
 Focused tests cover forecast boundaries, monotone exit times, exhaustive small-graph route costs, self exclusion, and same-tick route updates.
 They also cover fleet-order independence, clone storage and continuation, settings reset, berth fallback, committed-prefix diversion, and sharing detour guards.
-The [selected service comparisons](predictive-service.md) retain identical outcomes with zero returned alternatives across six matched pairs.
+The [selected service comparisons](experimental-adoption.md#rejected-candidates) retain identical outcomes with zero returned alternatives across six matched pairs.
 The [isolated cost comparison](predictive-cost.md) adds 1.9% to 2.7% median CPU with prediction enabled and GC 100 in its two workloads.
 These measurements do not establish an adoption envelope or a live playback-speed limit.
 This implementation does not establish greater London capacity or faster actual routes.

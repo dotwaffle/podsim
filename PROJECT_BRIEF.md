@@ -32,7 +32,7 @@ The original `london` selector is now `london-central`.
 
 A six-hour LondonFull screen finds growing backlogs at 15 and 20 requests per minute.
 Experimental station buffers do not resolve that overload.
-The [combined controller study](docs/london-full-controller-sustained.md) compares 24 arms with matched requests and physical restores.
+The [combined controller study](docs/experimental-adoption.md#rejected-candidates) compares 24 arms with matched requests and physical restores.
 Its late backlog stays nearly flat at 10/min, but grows under every policy at 15 and 20/min.
 The same study's 12/min four-seed extension and 13/min focused comparison also retain nearly flat late backlogs.
 In the pre-routing 14/min study, baseline seed 2 grows a backlog, while the other tested seeds remain nearly flat.
@@ -41,7 +41,7 @@ It still has positive growth and three parties aboard at the observation cap.
 Individual wait regressions still prevent an adoption recommendation.
 The [paired mirrored-layout study](docs/station-mirror-load.md) passes its sampled safety and 48 physical-restore checks.
 Service results are mixed, with higher LondonCentral Early waits under mirrored geometry.
-The [selected resource histories](docs/paddington-resource-history.md) identify predecessor-frontier limits as most observed shared-guard failures in two Central schedules, then follow releases, ownership transfers, and later grants.
+The [selected resource histories](docs/experimental-adoption.md#rejected-candidates) identify predecessor-frontier limits as most observed shared-guard failures in two Central schedules, then follow releases, ownership transfers, and later grants.
 All 128 full-arm selections reach their original frontier within 24 simulated seconds after selection.
 These histories do not measure the entire wait from its onset or identify one geometric root cause.
 
@@ -80,7 +80,7 @@ The [combined dispatch qualification](docs/dispatch-policy-qualification.md) rec
 The compatible stream decoder lowers decode and apply time without a whole-browser CPU gain.
 The [sustained pickup-swap study](docs/pickup-swap-sustained.md) lowers average waits and empty distance in its tested pairs, but every arm still grows a backlog.
 Its matched-request diagnosis in the same document separates unfinished requests from completed maxima and retains actual same-request regressions.
-The [selected service-tail cases](docs/pickup-postroute-tail.md) trace earlier fleet divergence and longer pickup travel with little sampled stopping.
+The [selected service-tail cases](docs/experimental-adoption.md#rejected-candidates) trace earlier fleet divergence and longer pickup travel with little sampled stopping.
 The selected exclusions in the same document show useful local swaps within those histories, with mixed effects on other requests.
 The Stratford diagnosis captures reciprocal waits at an intermediate berth.
 The [route preference and commitment fix](docs/berth-route-preference.md) addresses that mechanism for new routes while preserving old physical saves.
@@ -103,8 +103,8 @@ The station-phase cache reduces server CPU by 13.67% in short matched one-Chrome
 It retains exact state parity in the separate fixed replay.
 These measurements do not establish indefinite capacity or physical-GPU performance.
 
-The [pickup supply](docs/pickup-supply.md), [later buffer claims](docs/buffer-late-claim.md), and [pickup safeguards](docs/pickup-guards.md) retain failed service candidates.
-The [shorter Paddington paths](docs/paddington-short-path.md) improve mean pickup wait in a focused workload but exceed individual limits.
+The [pickup supply](docs/pickup-supply.md), [later buffer claims](docs/buffer-late-claim.md), and [pickup safeguards](docs/experimental-adoption.md#rejected-candidates) retain failed service candidates.
+The [shorter Paddington paths](docs/experimental-adoption.md#rejected-candidates) improve mean pickup wait in a focused workload but exceed individual limits.
 None passes its selected screen, so broader qualification does not start and defaults stay unchanged.
 The pickup and busy-station service problems remain unresolved.
 

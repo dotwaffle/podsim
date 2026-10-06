@@ -1261,8 +1261,8 @@ It changes the free-flow route only when the saving is at least 15 s and at leas
 The new route must also take at most 1.2 times the free-flow time of the free-flow route.
 The [predictive policy](docs/predictive-routing.md) adds smoothed observed queues and planned lane arrivals over a 90-second horizon.
 It retains the same saving and detour guards, and remains experimental.
-The [selected service screen](docs/predictive-service.md) returns no alternative routes across six matched pairs and establishes no service gain.
-The [route-selection diagnosis](docs/predictive-service.md#route-selection-diagnosis) explains the guard outcomes and records a congested trial with worse service.
+The [selected service screen](docs/experimental-adoption.md#rejected-candidates) returns no alternative routes across six matched pairs and establishes no service gain.
+The [route-selection diagnosis](docs/experimental-adoption.md#rejected-candidates) explains the guard outcomes and records a congested trial with worse service.
 
 Lanes can be straight or quadratic curves.
 The simulator and browser measure each curve along the same sampled path.
@@ -1641,9 +1641,9 @@ They do not replace scenario qualification or authorize policy adoption.
 
 | Area | Records | Main limitation |
 | --- | --- | --- |
-| LondonFull | [Post-fix capacity](docs/london-full-postfix.md), [combined controllers](docs/london-full-controller-sustained.md), [mirrored layout](docs/station-mirror-load.md) | Finite recovery and growing backlogs do not establish sustainable capacity. |
-| Pickup swaps and buffers | [Combined qualification](docs/dispatch-policy-qualification.md), [sustained comparison](docs/pickup-swap-sustained.md), [pickup tails](docs/pickup-postroute-tail.md), [berth-route preference](docs/berth-route-preference.md) | Better averages coexist with slower individual requests. Both policies stay off by default. New routes avoid intermediate berths when a compatible path exists. |
-| Platoon queues | [Qualification follow-up](docs/platoon-followup.md), [Paddington reservation and resource histories](docs/paddington-resource-history.md), [fixed station-entry links](docs/station-entry-platoons.md) | Paddington traces do not justify a clearance change. Fixed entry links are experimental and need station buffers. |
+| LondonFull | [Post-fix capacity](docs/london-full-postfix.md), [combined controllers](docs/experimental-adoption.md#rejected-candidates), [mirrored layout](docs/station-mirror-load.md) | Finite recovery and growing backlogs do not establish sustainable capacity. |
+| Pickup swaps and buffers | [Combined qualification](docs/dispatch-policy-qualification.md), [sustained comparison](docs/pickup-swap-sustained.md), [pickup tails](docs/experimental-adoption.md#rejected-candidates), [berth-route preference](docs/berth-route-preference.md) | Better averages coexist with slower individual requests. Both policies stay off by default. New routes avoid intermediate berths when a compatible path exists. |
+| Platoon queues | [Qualification follow-up](docs/platoon-followup.md), [Paddington reservation and resource histories](docs/experimental-adoption.md#rejected-candidates), [fixed station-entry links](docs/station-entry-platoons.md) | Paddington traces do not justify a clearance change. Fixed entry links are experimental and need station buffers. |
 | Terminus throughput | [Burst measurements](docs/buffer-late-claim.md#terminus-burst-service) | Buffers increase waits in the selected outbound Central bursts. Geometry and supply causes remain diagnostic work. |
 | Server performance | [Live server and GC](docs/admission-live-performance.md) | Live results cover two short repetitions per case. GC defaults remain unchanged. |
 | Experimental adoption | [Proposed gates](docs/experimental-adoption.md) | Individual-tail and capacity thresholds need agreement before a default change. Historical 300-second counts remain diagnostics. |
@@ -1651,13 +1651,13 @@ They do not replace scenario qualification or authorize policy adoption.
 
 Current-source follow-ups retain their own fixtures and limits:
 
-- [Pickup tails](docs/pickup-postroute-tail.md) trace selected reassignment regressions without finding a new movement defect, and show how one early swap changes later pickup availability.
+- [Pickup tails](docs/experimental-adoption.md#rejected-candidates) trace selected reassignment regressions without finding a new movement defect, and show how one early swap changes later pickup availability.
 - [Policy failures](docs/policy-failures.md) retain selected platoon, sharing, and positioning failures after the routing fixes.
 - [Policy fleet histories](docs/policy-fleet-history.md) separate earlier pickup changes, percentile ranks, and same-request delays.
-- [Paddington position trials](docs/paddington-layout.md) improve selected full-restoration outcomes, but reject both partial layouts on safety.
-- [Controller and capacity trials](docs/controller-capacity.md) retain Acton overload, individual regressions, unfinished six-hour AM baselines, and exhausted AM14/AM15 pickup supply.
+- [Paddington position trials](docs/experimental-adoption.md#rejected-candidates) improve selected full-restoration outcomes, but reject both partial layouts on safety.
+- [Controller and capacity trials](docs/experimental-adoption.md#rejected-candidates) retain Acton overload, individual regressions, unfinished six-hour AM baselines, and exhausted AM14/AM15 pickup supply.
 - [Buffer claims and station speed](docs/buffer-late-claim.md#acton-buffer-discharge-and-station-speed) retain the Acton buffer loss and negative lower-speed trials.
-- [Predictive service trials](docs/predictive-service.md) leave matched request outcomes unchanged.
+- [Predictive service trials](docs/experimental-adoption.md#rejected-candidates) leave matched request outcomes unchanged.
 - [Predictive cost trials](docs/predictive-cost.md) measure CPU, allocation, and GC tradeoffs separately from service outcomes.
 
 ### Tasks

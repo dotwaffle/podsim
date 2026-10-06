@@ -4,7 +4,7 @@ Status: implemented and qualified as an opt-in feature under the user's autonomo
 Native analysis and independent contract review identified the phase and stream rules below.
 A project accepts `onboardPickups: true` with compatible drop-off sharing.
 The omitted policy remains false.
-The [matched service screen](onboard-pickup-service-screen.md) records the bounded result and qualification scope.
+The [matched service screen](experimental-adoption.md#rejected-candidates) records the bounded result and qualification scope.
 The user approved this feature and permits reviewed, noncontroversial contract details.
 The foundation requires each rider's boarding berth and distance baseline before multiple origins become valid.
 

@@ -35,7 +35,7 @@ All 27 jobs pass.
 The 24 timed samples execute 324,000 steps each.
 Within each workload, all result fields match exactly except the routing label, with identical schedule hashes and tick counts.
 The CPU helper does not collect individual request timings or routing-alternative counters.
-The [separate service screen](predictive-service.md) retains its own matched-request evidence and zero-alternative finding.
+The [separate service screen](experimental-adoption.md#rejected-candidates) retains its own matched-request evidence and zero-alternative finding.
 
 ## Repeated measurements
 

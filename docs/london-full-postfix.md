@@ -65,7 +65,7 @@ The CSV includes every initial rate, candidate, and confirmation arm.
 
 At AM peak rate 10, seed 8 now ends with one unfinished request instead of two.
 The parking fix lets request 577 finish, but the long Hillingdon journey still exceeds the cutoff.
-See the [targeted diagnosis](london-full-diagnosis.md) for request timings.
+See the [targeted diagnosis](experimental-adoption.md#rejected-candidates) for request timings.
 Do not assume monotonic recovery between tested rates.
 
 ## Candidate selection
@@ -110,6 +110,6 @@ The dataset retains failed recoveries and all measured fields.
 
 [Per-arm measurements](measurements/london-full-postfix.csv) and [metadata](measurements/london-full-postfix.json) record the results and paired differences.
 The original [capacity study](london-full.md#finite-arrival-study-september-29-2026) remains a historical record.
-The [diagnosis](london-full-diagnosis.md) explains the parking diversion and long-journey cases.
+The [diagnosis](experimental-adoption.md#rejected-candidates) explains the parking diversion and long-journey cases.
 
 The local evidence includes frozen projects, source, helper overlays, manifests, selection scripts, commands, logs, hashes, and exit markers.
