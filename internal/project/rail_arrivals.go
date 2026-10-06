@@ -20,6 +20,9 @@ const (
 	MaxRailRelease = 200
 	// MaxRailDestinations bounds the weighted destinations of one arrival.
 	MaxRailDestinations = 16
+	// MaxRailWeight bounds the sampling weight of one rail destination or
+	// origin. The smallest weight is 1.
+	MaxRailWeight = 1_000_000
 )
 
 // RailArrival releases passenger requests after an arrival and walking delay.
@@ -59,7 +62,7 @@ func validateRailArrivals(arrivals []RailArrival, network sim.Network) error {
 	releases := make(map[int64]int, len(arrivals))
 	total := 0
 	for index, arrival := range arrivals {
-		if arrival.ID == "" || len(arrival.ID) > maxIDLength || ids[arrival.ID] {
+		if arrival.ID == "" || len(arrival.ID) > MaxIDLength || ids[arrival.ID] {
 			return fmt.Errorf("rail arrival %d has an invalid or duplicate ID", index+1)
 		}
 		ids[arrival.ID] = true
@@ -97,8 +100,8 @@ func validateRailDestinations(arrival RailArrival, passenger map[string]bool) er
 		if !passenger[destination.Station] || destination.Station == arrival.Station || seen[destination.Station] {
 			return fmt.Errorf("rail arrival %s has an invalid or duplicate destination %s", quoteID(arrival.ID), quoteID(destination.Station))
 		}
-		if destination.Weight < 1 || destination.Weight > 1_000_000 {
-			return fmt.Errorf("rail arrival %s destination %s needs a weight from 1 to 1000000", quoteID(arrival.ID), quoteID(destination.Station))
+		if destination.Weight < 1 || destination.Weight > MaxRailWeight {
+			return fmt.Errorf("rail arrival %s destination %s needs a weight from 1 to %d", quoteID(arrival.ID), quoteID(destination.Station), MaxRailWeight)
 		}
 		seen[destination.Station] = true
 	}

@@ -18,9 +18,13 @@ import (
 // and the contract markers select the optional features of a project.
 const CurrentVersion = 1
 
+// These limits bound the text of a project. The browser editor checks a
+// draft with the same limits.
 const (
-	maxIDLength   = 64
-	maxNameLength = 80
+	// MaxIDLength is the largest number of bytes in one ID.
+	MaxIDLength = 64
+	// MaxNameLength is the largest number of bytes in one name.
+	MaxNameLength = 80
 )
 
 // These are the largest counts that Validate accepts. The saved session
@@ -129,9 +133,9 @@ var widestDemand = DemandConfig{
 	PerMinute:        120,
 	Pattern:          "rail-arrivals",
 	Seed:             math.MaxUint64,
-	Destination:      strings.Repeat("\x01", maxIDLength),
-	Profile:          strings.Repeat("\x01", maxIDLength),
-	Band:             strings.Repeat("\x01", maxIDLength),
+	Destination:      strings.Repeat("\x01", MaxIDLength),
+	Profile:          strings.Repeat("\x01", MaxIDLength),
+	Band:             strings.Repeat("\x01", MaxIDLength),
 	DailyStartMinute: 1439,
 }
 
@@ -271,8 +275,8 @@ func Validate(config Config) error {
 	if err := validateFaultContract(config); err != nil {
 		return err
 	}
-	if strings.TrimSpace(config.Name) == "" || len(config.Name) > maxNameLength {
-		return fmt.Errorf("project name must contain 1 to %d characters", maxNameLength)
+	if strings.TrimSpace(config.Name) == "" || len(config.Name) > MaxNameLength {
+		return fmt.Errorf("project name must contain 1 to %d characters", MaxNameLength)
 	}
 	if len(config.Network.Nodes) == 0 || len(config.Network.Nodes) > MaxNodes {
 		return fmt.Errorf("network must contain 1 to %d nodes", MaxNodes)
@@ -301,7 +305,7 @@ func Validate(config Config) error {
 	if err := validateOnboardPickups(config); err != nil {
 		return err
 	}
-	if limit := config.PlatoonLimit; limit != 0 && (limit < sim.MinPlatoonLimit || limit > sim.MaxPlatoonLimit) {
+	if !ValidPlatoonLimit(config.PlatoonLimit) {
 		return fmt.Errorf("platoon limit must be %d to %d, or 0 for no platoons", sim.MinPlatoonLimit, sim.MaxPlatoonLimit)
 	}
 	if err := validateStationQueueSpacing(config); err != nil {
@@ -359,6 +363,12 @@ func Validate(config Config) error {
 	}
 	_, err := encodedSize(measured)
 	return err
+}
+
+// ValidPlatoonLimit reports whether limit is a valid platoon limit: zero
+// for no platoons, or sim.MinPlatoonLimit to sim.MaxPlatoonLimit.
+func ValidPlatoonLimit(limit int) bool {
+	return limit == 0 || limit >= sim.MinPlatoonLimit && limit <= sim.MaxPlatoonLimit
 }
 
 // EffectiveSharedRidePartyLimit returns one for legacy projects that omit the setting.
@@ -579,56 +589,56 @@ func (c *sizeCounter) Write(data []byte) (int, error) {
 }
 
 // quoteID returns id as a quoted Go string for an error message. It keeps
-// at most maxIDLength bytes of id and adds "..." after the quotes when it
+// at most MaxIDLength bytes of id and adds "..." after the quotes when it
 // removes bytes. Thus an error message does not grow with an ID that is not
 // valid, for example an ID of some megabytes in a command.
 func quoteID(id string) string {
-	if len(id) <= maxIDLength {
+	if len(id) <= MaxIDLength {
 		return strconv.Quote(id)
 	}
 	// The cut goes back to the start of a rune, but by less than one rune,
 	// so that invalid UTF-8 cannot remove all of the bytes.
-	end := maxIDLength
-	for end > maxIDLength-utf8.UTFMax+1 && !utf8.RuneStart(id[end]) {
+	end := MaxIDLength
+	for end > MaxIDLength-utf8.UTFMax+1 && !utf8.RuneStart(id[end]) {
 		end--
 	}
 	return strconv.Quote(id[:end]) + "..."
 }
 
 func validateNames(config Config) error {
-	validID := func(id string) bool { return id != "" && len(id) <= maxIDLength }
+	validID := func(id string) bool { return id != "" && len(id) <= MaxIDLength }
 	for _, node := range config.Network.Nodes {
 		if !validID(node.ID) {
-			return fmt.Errorf("node ID must contain 1 to %d characters", maxIDLength)
+			return fmt.Errorf("node ID must contain 1 to %d characters", MaxIDLength)
 		}
 	}
 	for _, lane := range config.Network.Lanes {
 		if !validID(lane.ID) || !validID(lane.From) || !validID(lane.To) {
-			return fmt.Errorf("lane IDs must contain 1 to %d characters", maxIDLength)
+			return fmt.Errorf("lane IDs must contain 1 to %d characters", MaxIDLength)
 		}
 		if lane.StationID != "" && !validID(lane.StationID) {
-			return fmt.Errorf("lane station IDs must contain 1 to %d characters", maxIDLength)
+			return fmt.Errorf("lane station IDs must contain 1 to %d characters", MaxIDLength)
 		}
-		if len(lane.SeparationGroup) > maxIDLength {
-			return fmt.Errorf("lane separation groups must contain at most %d characters", maxIDLength)
+		if len(lane.SeparationGroup) > MaxIDLength {
+			return fmt.Errorf("lane separation groups must contain at most %d characters", MaxIDLength)
 		}
 	}
 	for _, station := range config.Network.Stations {
 		if !validID(station.ID) || !validID(station.Entry) || !validID(station.Exit) {
-			return fmt.Errorf("station IDs must contain 1 to %d characters", maxIDLength)
+			return fmt.Errorf("station IDs must contain 1 to %d characters", MaxIDLength)
 		}
-		if strings.TrimSpace(station.Name) == "" || len(station.Name) > maxNameLength {
-			return fmt.Errorf("station name must contain 1 to %d characters", maxNameLength)
+		if strings.TrimSpace(station.Name) == "" || len(station.Name) > MaxNameLength {
+			return fmt.Errorf("station name must contain 1 to %d characters", MaxNameLength)
 		}
 		if len(station.Berths) == 0 || len(station.Berths) > MaxBerths {
 			return fmt.Errorf("station %s must contain 1 to %d berths", quoteID(station.ID), MaxBerths)
 		}
 		for _, berth := range station.Berths {
 			if !validID(berth.ID) || !validID(berth.Node) {
-				return fmt.Errorf("berth IDs must contain 1 to %d characters", maxIDLength)
+				return fmt.Errorf("berth IDs must contain 1 to %d characters", MaxIDLength)
 			}
-			if len(berth.SeparationGroup) > maxIDLength {
-				return fmt.Errorf("berth separation groups must contain at most %d characters", maxIDLength)
+			if len(berth.SeparationGroup) > MaxIDLength {
+				return fmt.Errorf("berth separation groups must contain at most %d characters", MaxIDLength)
 			}
 		}
 		if err := validateBankNames(station); err != nil {
@@ -642,7 +652,7 @@ func validateNames(config Config) error {
 			return fmt.Errorf("pod %s has no berth ID", quoteID(placement.ID))
 		}
 		if !validID(placement.ID) || !validID(placement.StationID) || !validID(placement.BerthID) {
-			return fmt.Errorf("fleet IDs must contain 1 to %d characters", maxIDLength)
+			return fmt.Errorf("fleet IDs must contain 1 to %d characters", MaxIDLength)
 		}
 	}
 	return nil
@@ -736,8 +746,8 @@ func ValidateDemand(config DemandConfig, context DemandContext) error {
 	if config.DailyStartMinute < 0 || config.DailyStartMinute >= 1440 || config.Pattern != "profile-daily" && config.DailyStartMinute != 0 {
 		return errors.New("daily start minute must be 0 to 1439 and requires profile-daily")
 	}
-	if len(config.Destination) > maxIDLength || len(config.Profile) > maxIDLength || len(config.Band) > maxIDLength {
-		return fmt.Errorf("demand references must contain at most %d characters", maxIDLength)
+	if len(config.Destination) > MaxIDLength || len(config.Profile) > MaxIDLength || len(config.Band) > MaxIDLength {
+		return fmt.Errorf("demand references must contain at most %d characters", MaxIDLength)
 	}
 	if config.Pattern == "rail-services" {
 		if len(context.RailArrivals)+len(context.RailDepartures) == 0 {
@@ -787,11 +797,11 @@ func validateDemandProfiles(profiles []DemandProfile, network sim.Network) error
 	}
 	profileIDs := make(map[string]bool, len(profiles))
 	for _, profile := range profiles {
-		if profile.ID == "" || len(profile.ID) > maxIDLength || profileIDs[profile.ID] {
+		if profile.ID == "" || len(profile.ID) > MaxIDLength || profileIDs[profile.ID] {
 			return fmt.Errorf("invalid or duplicate demand profile %s", quoteID(profile.ID))
 		}
-		if strings.TrimSpace(profile.Name) == "" || len(profile.Name) > maxNameLength {
-			return fmt.Errorf("demand profile name must contain 1 to %d characters", maxNameLength)
+		if strings.TrimSpace(profile.Name) == "" || len(profile.Name) > MaxNameLength {
+			return fmt.Errorf("demand profile name must contain 1 to %d characters", MaxNameLength)
 		}
 		if len(profile.Bands) == 0 || len(profile.Bands) > MaxBands {
 			return fmt.Errorf("demand profile %s must contain 1 to %d bands", quoteID(profile.ID), MaxBands)
@@ -810,10 +820,10 @@ func validateDemandProfiles(profiles []DemandProfile, network sim.Network) error
 func validateDemandProfile(profile DemandProfile, passenger map[string]bool) error {
 	bandIDs := make(map[string]bool, len(profile.Bands))
 	for _, band := range profile.Bands {
-		if band.ID == "" || len(band.ID) > maxIDLength || bandIDs[band.ID] {
+		if band.ID == "" || len(band.ID) > MaxIDLength || bandIDs[band.ID] {
 			return fmt.Errorf("demand profile %s has an invalid or duplicate band", quoteID(profile.ID))
 		}
-		if strings.TrimSpace(band.Name) == "" || len(band.Name) > maxNameLength || band.StartMinute < 0 || band.StartMinute >= 24*60 || band.DurationMinutes < 1 || band.DurationMinutes > 24*60 {
+		if strings.TrimSpace(band.Name) == "" || len(band.Name) > MaxNameLength || band.StartMinute < 0 || band.StartMinute >= 24*60 || band.DurationMinutes < 1 || band.DurationMinutes > 24*60 {
 			return fmt.Errorf("demand profile %s has an invalid band %s", quoteID(profile.ID), quoteID(band.ID))
 		}
 		if band.PerMinute != nil && (*band.PerMinute < 0 || *band.PerMinute > 120) {

@@ -84,7 +84,7 @@ func validateRailServices(arrivals []RailArrival, departures []RailDeparture, ne
 }
 
 func validateRailDeparture(departure RailDeparture, passenger, ids map[string]bool) error {
-	if departure.ID == "" || len(departure.ID) > maxIDLength || ids[departure.ID] {
+	if departure.ID == "" || len(departure.ID) > MaxIDLength || ids[departure.ID] {
 		return fmt.Errorf("invalid or duplicate ID %s", quoteID(departure.ID))
 	}
 	if !passenger[departure.Station] {
@@ -111,8 +111,8 @@ func validateRailOrigins(departure RailDeparture, passenger map[string]bool) err
 		if !passenger[origin.Station] || origin.Station == departure.Station || seen[origin.Station] {
 			return fmt.Errorf("%s has an invalid or duplicate origin %s", quoteID(departure.ID), quoteID(origin.Station))
 		}
-		if origin.Weight < 1 || origin.Weight > 1_000_000 {
-			return fmt.Errorf("%s origin %s needs a weight from 1 to 1000000", quoteID(departure.ID), quoteID(origin.Station))
+		if origin.Weight < 1 || origin.Weight > MaxRailWeight {
+			return fmt.Errorf("%s origin %s needs a weight from 1 to %d", quoteID(departure.ID), quoteID(origin.Station), MaxRailWeight)
 		}
 		seen[origin.Station] = true
 	}
@@ -158,7 +158,7 @@ func RailServicesSchedule(arrivals []RailArrival, departures []RailDeparture, se
 func appendDepartureOffers(offers []RailServiceOffer, departure RailDeparture, seed uint64) []RailServiceOffer {
 	// The fixed domain exceeds every valid arrival ID, so an arrival cannot
 	// reproduce this hash input by placing the domain inside its ID.
-	var prefix [8 + maxIDLength + 1]byte
+	var prefix [8 + MaxIDLength + 1]byte
 	binary.LittleEndian.PutUint64(prefix[:], seed)
 	copy(prefix[8:], "rail-departure")
 	digest := sha256.Sum256(append(prefix[:], departure.ID...))

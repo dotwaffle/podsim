@@ -161,10 +161,10 @@ func validateBankNames(station sim.Station) error {
 	}
 	banks := make(map[string]bool, len(station.Banks))
 	assigned := make(map[string]bool, len(station.Berths))
-	validID := func(id string) bool { return id != "" && len(id) <= maxIDLength }
+	validID := func(id string) bool { return id != "" && len(id) <= MaxIDLength }
 	for _, bank := range station.Banks {
 		if !validID(bank.ID) || !validID(bank.Entry) || !validID(bank.Exit) || banks[bank.ID] {
-			return fmt.Errorf("station %s bank IDs must be unique and contain 1 to %d characters", quoteID(station.ID), maxIDLength)
+			return fmt.Errorf("station %s bank IDs must be unique and contain 1 to %d characters", quoteID(station.ID), MaxIDLength)
 		}
 		banks[bank.ID] = true
 		if len(bank.BerthIDs) < 1 || len(bank.BerthIDs) > MaxBerths {

@@ -122,7 +122,7 @@ func scanProjectFields(data []byte) (projectFields, error) {
 			if err != nil {
 				return projectFields{}, err
 			}
-			if value.Kind() != jsontext.KindString || !validStationQueueSpacing(sim.StationQueueSpacing(value.String())) {
+			if value.Kind() != jsontext.KindString || !ValidStationQueueSpacing(sim.StationQueueSpacing(value.String())) {
 				return projectFields{}, errors.New("station queue spacing must be ordinary or compact-v1")
 			}
 		case serviceClassListPath(path):

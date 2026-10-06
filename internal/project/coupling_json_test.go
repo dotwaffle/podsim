@@ -66,7 +66,7 @@ func TestCouplingProjectRawShapesAtomic(t *testing.T) {
 		{"missing ID", `"id":"assembly",`, ""},
 		{"missing lane ID", `"laneId":"coupling-ab",`, ""},
 		{"empty ID", `"id":"assembly"`, `"id":""`},
-		{"long ID", `"id":"assembly"`, `"id":"` + strings.Repeat("x", maxIDLength+1) + `"`},
+		{"long ID", `"id":"assembly"`, `"id":"` + strings.Repeat("x", MaxIDLength+1) + `"`},
 		{"unknown site member", `"id":"assembly"`, `"id":"assembly","unused":true`},
 		{"case duplicate ID", `"id":"assembly"`, `"id":"assembly","id":"assembly"`},
 		{"missing number", `"startMeters":20,`, ""},

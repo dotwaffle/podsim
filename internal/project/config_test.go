@@ -104,19 +104,19 @@ func TestValidateRejectsMalformedProjects(t *testing.T) {
 	}{
 		{"version", func(config *Config) { config.Version = 2 }},
 		{"name", func(config *Config) { config.Name = "" }},
-		{"long name", func(config *Config) { config.Name = strings.Repeat("x", maxNameLength+1) }},
+		{"long name", func(config *Config) { config.Name = strings.Repeat("x", MaxNameLength+1) }},
 		{"invalid UTF-8 name", func(config *Config) { config.Name = "Podsim \xff" }},
-		{"long node ID", func(config *Config) { config.Network.Nodes[0].ID = strings.Repeat("x", maxIDLength+1) }},
-		{"long lane separation group", func(config *Config) { config.Network.Lanes[0].SeparationGroup = strings.Repeat("x", maxIDLength+1) }},
+		{"long node ID", func(config *Config) { config.Network.Nodes[0].ID = strings.Repeat("x", MaxIDLength+1) }},
+		{"long lane separation group", func(config *Config) { config.Network.Lanes[0].SeparationGroup = strings.Repeat("x", MaxIDLength+1) }},
 		{"unknown lane station", func(config *Config) {
 			config.Network.Lanes[0].StationID, config.Network.Lanes[0].StationRole = "missing", sim.StationThroughRole
 		}},
 		{"missing lane station role", func(config *Config) { config.Network.Lanes[0].StationRole = "" }},
 		{"invalid lane station role", func(config *Config) { config.Network.Lanes[0].StationRole = "invalid" }},
 		{"long berth separation group", func(config *Config) {
-			config.Network.Stations[0].Berths[0].SeparationGroup = strings.Repeat("x", maxIDLength+1)
+			config.Network.Stations[0].Berths[0].SeparationGroup = strings.Repeat("x", MaxIDLength+1)
 		}},
-		{"long station name", func(config *Config) { config.Network.Stations[0].Name = strings.Repeat("x", maxNameLength+1) }},
+		{"long station name", func(config *Config) { config.Network.Stations[0].Name = strings.Repeat("x", MaxNameLength+1) }},
 		{"berth bound", func(config *Config) { config.Network.Stations[3].Berths = make([]sim.Berth, MaxBerths+1) }},
 		{"nan", func(config *Config) { config.Network.Nodes[0].Position.X = math.NaN() }},
 		{"duplicate node", func(config *Config) { config.Network.Nodes[1].ID = config.Network.Nodes[0].ID }},
@@ -443,7 +443,7 @@ func TestDemandChangeKeepsProjectInLimit(t *testing.T) {
 	if err := Validate(config); err != nil {
 		t.Fatal(err)
 	}
-	control := strings.Repeat("\x01", maxIDLength)
+	control := strings.Repeat("\x01", MaxIDLength)
 	demand := DemandConfig{PerMinute: 120, Pattern: "balanced", Seed: math.MaxUint64, Destination: control, Profile: control, Band: control}
 	if err := ValidateDemand(demand, DemandContext{Network: config.Network, Profiles: config.DemandProfiles}); err != nil {
 		t.Fatal(err)
@@ -462,7 +462,7 @@ func TestDemandChangeKeepsProjectInLimit(t *testing.T) {
 // accepts have a longer encoding.
 func TestWidestDemandBoundsDemandSettings(t *testing.T) {
 	t.Parallel()
-	control := strings.Repeat("\x01", maxIDLength)
+	control := strings.Repeat("\x01", MaxIDLength)
 	network := CloneNetwork(Default().Network)
 	network.Stations[0].ID = control
 	context := DemandContext{Network: network, Profiles: []DemandProfile{{ID: control, Bands: []DemandBand{{ID: control}}}}, RailArrivals: []RailArrival{{ID: "train", Station: control, Passengers: 1, Destinations: []RailDestination{{Station: "market", Weight: 1}}}}}
@@ -496,7 +496,7 @@ func TestWidestDemandBoundsDemandSettings(t *testing.T) {
 		runes = append(runes, r)
 	}
 	for _, r := range runes {
-		reference := strings.Repeat(string(r), maxIDLength/utf8.RuneLen(r))
+		reference := strings.Repeat(string(r), MaxIDLength/utf8.RuneLen(r))
 		if got, want := len(canonicalJSON(t, reference)), len(canonicalJSON(t, control)); got > want {
 			t.Errorf("rune %U: reference encodes to %d bytes, more than %d", r, got, want)
 		}
@@ -726,7 +726,7 @@ func TestValidateErrorsStayShort(t *testing.T) {
 
 func TestQuoteID(t *testing.T) {
 	t.Parallel()
-	id := strings.Repeat("x", maxIDLength)
+	id := strings.Repeat("x", MaxIDLength)
 	if got, want := quoteID(id), `"`+id+`"`; got != want {
 		t.Fatalf("quoteID(%d bytes) = %s, want %s", len(id), got, want)
 	}
@@ -734,13 +734,13 @@ func TestQuoteID(t *testing.T) {
 		t.Fatalf("quoteID(%d bytes) = %s, want %s", len(id)+1, got, want)
 	}
 	// A rune that crosses the limit is removed whole.
-	cut := strings.Repeat("x", maxIDLength-1) + "é"
-	if got, want := quoteID(cut), `"`+strings.Repeat("x", maxIDLength-1)+`"...`; got != want {
+	cut := strings.Repeat("x", MaxIDLength-1) + "é"
+	if got, want := quoteID(cut), `"`+strings.Repeat("x", MaxIDLength-1)+`"...`; got != want {
 		t.Fatalf("quoteID(%q) = %s, want %s", cut, got, want)
 	}
 	// Invalid UTF-8 does not remove more than one rune of bytes.
-	invalid := strings.Repeat("\x80", 2*maxIDLength)
-	if got := quoteID(invalid); len(got) < 4*(maxIDLength-utf8.UTFMax) {
+	invalid := strings.Repeat("\x80", 2*MaxIDLength)
+	if got := quoteID(invalid); len(got) < 4*(MaxIDLength-utf8.UTFMax) {
 		t.Fatalf("quoteID(invalid) = %s, too short", got)
 	}
 }

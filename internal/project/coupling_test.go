@@ -154,7 +154,7 @@ func TestCouplingProjectNativeGeometryGuards(t *testing.T) {
 		{"unknown path", func(c *Config) { c.CouplingCorridors[0].LaneIDs[0] = "missing" }},
 		{"invalid number", func(c *Config) { c.CouplingSites[0].StartMeters = math.Inf(1) }},
 		{"invalid UTF8", func(c *Config) { c.CouplingSites[0].ID = string([]byte{255}) }},
-		{"long ID", func(c *Config) { c.CouplingSites[0].ID = strings.Repeat("x", maxIDLength+1) }},
+		{"long ID", func(c *Config) { c.CouplingSites[0].ID = strings.Repeat("x", MaxIDLength+1) }},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			config := couplingProject(t, false)

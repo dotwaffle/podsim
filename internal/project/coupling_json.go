@@ -164,8 +164,8 @@ func scanCouplingID(decoder *jsontext.Decoder) error {
 	if err != nil {
 		return err
 	}
-	if value.Kind() != jsontext.KindString || value.String() == "" || !utf8.ValidString(value.String()) || len(value.String()) > maxIDLength {
-		return fmt.Errorf("coupling ID must contain 1 to %d UTF-8 bytes", maxIDLength)
+	if value.Kind() != jsontext.KindString || value.String() == "" || !utf8.ValidString(value.String()) || len(value.String()) > MaxIDLength {
+		return fmt.Errorf("coupling ID must contain 1 to %d UTF-8 bytes", MaxIDLength)
 	}
 	return nil
 }
