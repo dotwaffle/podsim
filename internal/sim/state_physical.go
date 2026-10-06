@@ -580,30 +580,40 @@ func (r *physicalRestore) buildRoutes() error {
 		if indexes == nil {
 			continue
 		}
-		v := &r.s.vehicles[index]
-		route, ok := r.lanes(indexes)
-		if ok {
-			ok = r.routeEndsMatch(v, route)
+		if err := r.buildRoute(index, indexes); err != nil {
+			return err
 		}
-		if !ok {
-			if v.Pod.Activity != Traveling {
-				return fmt.Errorf("pod %s: the route does not connect the pod to its destination", v.Pod.ID)
-			}
-			r.demote(index)
-			continue
+	}
+	return nil
+}
+
+// buildRoute gives the pod at index its saved route, the lane indexes
+// that checkRoutes accepted. It demotes a traveling pod whose route does
+// not connect it to its destination.
+func (r *physicalRestore) buildRoute(index int, indexes []int) error {
+	v := &r.s.vehicles[index]
+	route, ok := r.lanes(indexes)
+	if ok {
+		ok = r.routeEndsMatch(v, route)
+	}
+	if !ok {
+		if v.Pod.Activity != Traveling {
+			return fmt.Errorf("pod %s: the route does not connect the pod to its destination", v.Pod.ID)
 		}
-		r.s.setVehicleRoute(v, route)
-		if r.state.Pods[index].StationBuffered {
-			_, eligible := r.s.bufferPlan(v)
-			pickup := slices.ContainsFunc(r.state.Waiting, func(trip SavedTrip) bool {
-				return trip.Request.PodID == v.Pod.ID && trip.Request.legOrigin() == v.destinationStation
-			})
-			if !eligible || !v.carriesPassengers() && !pickup && !v.released && v.op.purpose != opEmptyRecovery &&
-				v.Pod.Activity != Boarding && v.Pod.Activity != Continuing {
-				return fmt.Errorf("pod %s: invalid station buffer membership", v.Pod.ID)
-			}
-			v.buffered = true
+		r.demote(index)
+		return nil
+	}
+	r.s.setVehicleRoute(v, route)
+	if r.state.Pods[index].StationBuffered {
+		_, eligible := r.s.bufferPlan(v)
+		pickup := slices.ContainsFunc(r.state.Waiting, func(trip SavedTrip) bool {
+			return trip.Request.PodID == v.Pod.ID && trip.Request.legOrigin() == v.destinationStation
+		})
+		if !eligible || !v.carriesPassengers() && !pickup && !v.released && v.op.purpose != opEmptyRecovery &&
+			v.Pod.Activity != Boarding && v.Pod.Activity != Continuing {
+			return fmt.Errorf("pod %s: invalid station buffer membership", v.Pod.ID)
 		}
+		v.buffered = true
 	}
 	return nil
 }

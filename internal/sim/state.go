@@ -406,6 +406,9 @@ func restoreState(input RestoreStateInput, newFleet func() (*Simulation, error))
 	if err := checkBufferLinkFields(input); err != nil {
 		return nil, RestoreResult{}, err
 	}
+	if err := checkSavedFaultFootprints(input, newFleet); err != nil {
+		return nil, RestoreResult{}, err
+	}
 	var physicalErr error
 	bufferCertificate := hasBufferCertificate(input.State)
 	if !input.LogicalOnly || bufferCertificate {

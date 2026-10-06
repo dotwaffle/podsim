@@ -325,3 +325,101 @@ func TestRestoreFaultedPodDoesNotWait(t *testing.T) {
 		t.Fatalf("the restored faulted pod waits at %d", restored.vehicles[index].pending)
 	}
 }
+
+// TestRestoreFaultFootprints checks F6 of the incident suspension contract
+// before either tier (sections 7.6 and 13.5): a save whose debris meets
+// the footprint of a pod fault is invalid, also in a logical restore and
+// after an early failure of the physical tier. A faulted pod that the
+// physical tier cannot place has no footprint, so a save with such a pod
+// and valid debris restores in the logical tier.
+func TestRestoreFaultFootprints(t *testing.T) {
+	t.Parallel()
+	// build returns a save with a fault on pod 02, which travels on the
+	// return lane, and debris on the lane of pod 02 when overlap is true,
+	// or on s2-link.
+	build := func(t *testing.T, overlap bool) (*Simulation, SavedState) {
+		t.Helper()
+		s := debrisFleet(t)
+		startFault(t, s, returnTraveler(t, s), 0)
+		state := s.ExportState()
+		state.Pods = slices.Clone(state.Pods)
+		pod := state.Pods[slices.IndexFunc(state.Pods, func(pod SavedPod) bool { return pod.ID == "02" })]
+		if overlap {
+			addSavedDebris(&state, pod.Route[pod.RouteIndex], pod.LaneDistance+1, pod.LaneDistance+2)
+		} else {
+			addSavedDebris(&state, laneIndex(t, s, "s2-link"), 0, 2)
+		}
+		return s, state
+	}
+	// early makes the physical tier fail before it places the debris: pod
+	// 01 at its berth waits from a tick after the saved tick. The logical
+	// tier does not read the value.
+	early := func(state *SavedState) {
+		state.Pods[slices.IndexFunc(state.Pods, func(pod SavedPod) bool { return pod.ID == "01" })].WaitSince = state.Tick + 1
+	}
+	// underivable gives pod 02 a value out of range, no route, or a route
+	// that does not end at its destination, so the physical tier would
+	// demote it.
+	underivable := map[string]func(*Simulation, *SavedPod){
+		"value out of range": func(_ *Simulation, pod *SavedPod) { pod.WaitSince = math.MaxInt64 },
+		"no route":           func(_ *Simulation, pod *SavedPod) { pod.Route = nil },
+		// Four turns of the loop before the route make it longer than the
+		// route limit of the restore.
+		"route over the limit": func(s *Simulation, pod *SavedPod) {
+			var loop []int
+			for _, id := range []string{"return-down", "return", "return-up", "p-through", "p-link", "s0-through", "s0-link", "s1-through", "s1-link",
+				"s2-through", "s2-link", "s3-through", "s3-link", "s4-through", "s4-link", "s5-through"} {
+				loop = append(loop, laneIndex(t, s, id))
+			}
+			prefix := slices.Repeat(loop, 4)
+			pod.Route, pod.RouteIndex = append(prefix, pod.Route...), pod.RouteIndex+len(prefix)
+		},
+		"route to elsewhere": func(s *Simulation, pod *SavedPod) { pod.Route, pod.RouteIndex = []int{laneIndex(t, s, "s2-link")}, 0 },
+	}
+	for _, test := range []struct {
+		name    string
+		logical bool
+		edit    func(*SavedState)
+	}{
+		{"logical only", true, func(*SavedState) {}},
+		{"early physical failure", false, early},
+	} {
+		s, state := build(t, true)
+		test.edit(&state)
+		input := faultRestoreInput(s, state)
+		input.LogicalOnly = test.logical
+		if _, result, err := RestoreState(input); !errors.Is(err, errInvalidFaults) || result.Tier != "" {
+			t.Errorf("%s: %v, tier %q", test.name, err, result.Tier)
+		}
+		// The same save with debris that meets nothing restores in the
+		// logical tier.
+		s, state = build(t, false)
+		test.edit(&state)
+		input = faultRestoreInput(s, state)
+		input.LogicalOnly = test.logical
+		_, result, err := RestoreState(input)
+		if err != nil || result.Tier != RestoreLogical || result.DroppedFaults != 2 || test.logical == (result.PhysicalError != nil) {
+			t.Errorf("%s, control: %v, %+v", test.name, err, result)
+		}
+	}
+	for name, edit := range underivable {
+		s, state := build(t, true)
+		edit(s, &state.Pods[slices.IndexFunc(state.Pods, func(pod SavedPod) bool { return pod.ID == "02" })])
+		_, result, err := RestoreState(faultRestoreInput(s, state))
+		if err != nil || result.Tier != RestoreLogical || result.DroppedFaults != 2 || result.PhysicalError == nil {
+			t.Errorf("%s: %v, %+v", name, err, result)
+		}
+	}
+	// A faulted pod at a berth holds only the berth and its node, also
+	// with a route. Debris at the start of its next lane meets nothing.
+	s := debrisFleet(t)
+	v := s.findVehicle("01")
+	if err := s.board(v, newTrip(s, "s0", "s5")); err != nil {
+		t.Fatal(err)
+	}
+	startFault(t, s, v, 0)
+	startDebris(t, s, "s0-link", 0, 1, 0)
+	if _, result, err := RestoreState(faultRestoreInput(s, s.ExportState())); err != nil || !cleanRestore(result) {
+		t.Fatalf("faulted pod at a berth: %v, %+v", err, result)
+	}
+}

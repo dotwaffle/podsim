@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"slices"
 )
 
 // SavedFaults holds the fault records and the fault counters of a saved
@@ -187,6 +188,70 @@ func (s *Simulation) savedDebris(saved *SavedFaults) (map[int][]resource, error)
 	return footprints, nil
 }
 
+// checkSavedFaultFootprints checks the saved debris before either restore
+// tier (sections 7.6 and 13.5 of the incident suspension contract): each
+// segment meets precondition 5, and no debris footprint meets another
+// debris footprint or the footprint of a pod fault (F6). The logical tier
+// drops the records without a placed pod, and the physical tier can fail
+// before it places the faulted pods. So only this check keeps either tier
+// from a save that breaks F6. It places the debris and then each faulted
+// traveling pod in a scratch fleet, with the code of the physical tier,
+// and it refuses the save only when that code finds a conflict. A faulted
+// pod that the physical tier cannot place has no footprint, and the tiers
+// handle it. A faulted pod at a berth needs no check, because a debris
+// footprint holds no berth and no berth node.
+func checkSavedFaultFootprints(input RestoreStateInput, newFleet func() (*Simulation, error)) error {
+	saved := input.State.Faults
+	if saved == nil || !slices.ContainsFunc(saved.Records, func(fault SavedFault) bool { return fault.Debris }) {
+		return nil
+	}
+	s, err := newFleet()
+	if err != nil {
+		return nil //nolint:nilerr // Each tier creates the fleet again and reports the error.
+	}
+	r := newPhysicalRestore(s, input.State)
+	r.restoreCounters()
+	if err := r.placeDebris(); err != nil {
+		return err
+	}
+	for _, fault := range saved.Records {
+		if fault.Debris {
+			continue
+		}
+		if err := r.placeFaultedPod(fault.Pod); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// placeFaultedPod places the saved traveling pod at index in the scratch
+// fleet of checkSavedFaultFootprints, with the steps of the physical tier
+// for a pod without a platoon link (invariant F2). It returns only the
+// error that the footprint of the pod meets a debris footprint. A pod that
+// the physical tier would demote, or that fails a check of the physical
+// tier, has no footprint, and gives no error.
+func (r *physicalRestore) placeFaultedPod(index int) error {
+	if !r.routeFaultedPod(index) {
+		return nil
+	}
+	// Without a leader, placeTravelingPod fails only when the footprint
+	// meets debris.
+	_, err := r.placeTravelingPod(index, -1)
+	return err
+}
+
+// routeFaultedPod decodes the saved pod at index and builds its route, as
+// the physical tier does. It reports whether the pod travels and has a
+// route to place. A pod that buildRoute demotes has no route, and
+// placeTravelingPod does not place it.
+func (r *physicalRestore) routeFaultedPod(index int) bool {
+	saved := r.state.Pods[index]
+	return r.decodePod(index, saved) == nil && !r.demoted[index] && r.s.vehicles[index].Pod.Activity == Traveling &&
+		len(saved.Route) > 0 && len(saved.Route) <= newRouteLimits(r.s.network).pod && r.knownLanes(saved.Route) &&
+		r.buildRoute(index, saved.Route) == nil
+}
+
 // placeDebris checks the saved debris and gives each resource of each
 // debris footprint to its fault owner, before the restore places a pod.
 // A pod that then needs one of these resources makes the save invalid.
@@ -244,22 +309,19 @@ func (r *physicalRestore) restoreFaultedPods() error {
 }
 
 // dropSavedFaults ends each saved record in the logical tier (section 12.7
-// of the incident suspension contract). The debris records must still be
-// valid. The counters stay, and each pod loses the fault hold: the tier
-// puts each pod at its initial berth with no purpose. It returns the
-// number of records that ended.
-func (s *Simulation) dropSavedFaults(saved *SavedFaults) (int, error) {
-	if _, err := s.savedDebris(saved); err != nil {
-		return 0, err
-	}
+// of the incident suspension contract). checkSavedFaultFootprints checked
+// the debris records before the tier. The counters stay, and each pod
+// loses the fault hold: the tier puts each pod at its initial berth with
+// no purpose. It returns the number of records that ended.
+func (s *Simulation) dropSavedFaults(saved *SavedFaults) int {
 	if s.faultContract != "" {
 		for index := range s.vehicles {
 			s.vehicles[index].withdrawn &^= faultHold
 		}
 	}
 	if saved == nil {
-		return 0, nil
+		return 0
 	}
 	s.faultCounters = saved.Counters.counters()
-	return len(saved.Records), nil
+	return len(saved.Records)
 }

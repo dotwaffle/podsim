@@ -83,10 +83,7 @@ func restoreLogical(input RestoreStateInput, newFleet func() (*Simulation, error
 	for _, saved := range state.Waiting {
 		trips = append(trips, logicalTrip{trip: s.unboundTrip(saved)})
 	}
-	dropped, dropErr := s.dropSavedFaults(state.Faults)
-	if dropErr != nil {
-		return nil, RestoreResult{}, dropErr
-	}
+	dropped := s.dropSavedFaults(state.Faults)
 	result := s.queueTrips(state, trips)
 	result.DroppedFaults = dropped
 	result.Tier, result.Unaccounted = RestoreLogical, unaccounted
