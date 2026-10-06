@@ -894,8 +894,8 @@ func TestEmergencyHoldCallers(t *testing.T) {
 // TestEmergencyCouplingMember starts an emergency on the occupied rear
 // member of a committed train. The member gets no hold, and the train
 // keeps its plan with no rider change until it retires at its split site.
-// The next emergency stage withdraws the pod, which then arrives at its
-// berth and unloads there.
+// The next emergency stage withdraws the pod, which then binds on its
+// cadence and unloads.
 func TestEmergencyCouplingMember(t *testing.T) {
 	t.Parallel()
 	s := newCouplingApproachJourney(t, true)
@@ -914,6 +914,7 @@ func TestEmergencyCouplingMember(t *testing.T) {
 	riders := slices.Clone(rear.Riders)
 	party := riders[0].ID
 	startEmergency(t, s, rear, 0)
+	start := s.tick
 	if rear.withdrawn != 0 || rear.op.purpose != opService || len(s.emergencies) != 1 {
 		t.Fatalf("the member has the holds %#x and the purpose %+v", rear.withdrawn, rear.op)
 	}
@@ -932,6 +933,14 @@ func TestEmergencyCouplingMember(t *testing.T) {
 	s.Step()
 	if rear.withdrawn != emergencyHold && len(s.emergencies) == 1 {
 		t.Fatalf("the stage after the split did not withdraw the pod: holds %#x", rear.withdrawn)
+	}
+	// The retired member can divert, so it binds on its cadence.
+	if _, _, ok := s.divertStart(rear); !ok {
+		t.Fatal("the retired member cannot divert")
+	}
+	stepUntil(t, s, "the bind", func() bool { return rear.op.purpose == opEmergencyUnload })
+	if (s.tick-start)%60 != 0 {
+		t.Fatalf("the pod binds at tick %d, %d ticks after the start", s.tick, s.tick-start)
 	}
 	stepUntil(t, s, "the end of the emergency", func() bool { return len(s.emergencies) == 0 })
 	if !slices.Contains(s.undelivered, party) || rear.withdrawn != 0 {

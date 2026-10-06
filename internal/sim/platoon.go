@@ -427,10 +427,18 @@ func (s *Simulation) maintainLink(i, ahead int) {
 	if v.link.buffer && !s.stationBuffers {
 		v.link.draining = true
 	}
+	// A link with an emergency pod at either end drains on each tick and
+	// does not grow, so the pod leaves the platoon at the end of the run
+	// (section 5.6 of the incident emergency contract). The rule keeps no
+	// state of its own: only extendLink clears draining.
+	emergency := s.emergencyOf(v) >= 0 || s.emergencyOf(leader) >= 0
+	if emergency {
+		v.link.draining = true
+	}
 	over := s.platooning == PlatooningOff || v.Pod.Activity != Traveling || leader.Pod.Activity != Traveling ||
 		ahead != 0 && ahead != v.link.leader
 	if !over {
-		if !s.couplingApproachMember(v.Pod.ID) {
+		if !emergency && !s.couplingApproachMember(v.Pod.ID) {
 			s.extendLink(v, leader)
 		}
 		geometry, _ := linkEnds(&v.blocks, v.link)
@@ -514,10 +522,14 @@ func (s *Simulation) canLink(v *vehicle) bool {
 // at most the link clearance plus the stopping distance at the speed
 // limit. Inside a fixed entry buffer, one holding-cell pitch also qualifies.
 // A faulted pod is not a leader or a follower, and the run of a link has no
-// lane that a fault blocks.
+// lane that a fault blocks. An emergency pod is not a leader or a follower
+// either.
 func (s *Simulation) tryLink(i, ahead int) {
 	v, leader := &s.vehicles[i], &s.vehicles[ahead]
 	if s.couplingApproachMember(v.Pod.ID) || s.couplingApproachMember(leader.Pod.ID) {
+		return
+	}
+	if s.emergencyOf(v) >= 0 || s.emergencyOf(leader) >= 0 {
 		return
 	}
 	// canLink refuses a faulted follower.

@@ -3,19 +3,27 @@ package sim
 import "math"
 
 // incidentOutstanding reports whether an incident is outstanding (section
-// 9.5 of the incident suspension contract): faults are on, and an active
-// record exists or a pod has the fault hold. A fault recovery keeps the
-// fault hold until its arrival clears purpose 3, so the gate stays on
-// through the recovery after the last clear.
+// 9.5 of the incident suspension contract, and section 9.4 of the incident
+// emergency contract): faults are on, and an active fault record exists or
+// a pod has the fault hold, or an emergency record exists, or a pod has
+// the emergency hold. A fault recovery keeps the fault hold until its
+// arrival clears purpose 3, so the gate stays on through the recovery
+// after the last clear. The emergency clauses need no switch: a record
+// exists only with emergencies on (E7), and the stage 1 test entry can set
+// the emergency hold without the switch, which section 9.4 also counts.
 func (s *Simulation) incidentOutstanding() bool {
-	if !s.faultsOn {
-		return false
-	}
-	if len(s.faults) > 0 {
+	if len(s.emergencies) > 0 {
 		return true
 	}
+	holds := emergencyHold
+	if s.faultsOn {
+		if len(s.faults) > 0 {
+			return true
+		}
+		holds |= faultHold
+	}
 	for index := range s.vehicles {
-		if s.vehicles[index].withdrawn&faultHold != 0 {
+		if s.vehicles[index].withdrawn&holds != 0 {
 			return true
 		}
 	}

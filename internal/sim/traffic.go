@@ -481,6 +481,9 @@ type intent struct {
 	priority     int
 	through      int
 	id           string
+	// emergency is the serial of the emergency record of the pod, or 0
+	// (section 9.3 of the incident emergency contract).
+	emergency uint64
 }
 
 // admissionWork belongs to one simulation. Each pass clears pod IDs before
@@ -583,6 +586,9 @@ func (s *Simulation) admit() {
 	for i := range intents {
 		v := &s.vehicles[intents[i].index]
 		intents[i].priority = admissionPriority(v, pickups[v.Pod.ID])
+		if record := s.emergencyOf(v); record >= 0 {
+			intents[i].emergency = s.emergencies[record].serial
+		}
 	}
 	slices.SortFunc(intents, func(a, b intent) int {
 		return compareAdmission(a, b, s.tick)
@@ -607,9 +613,22 @@ func admissionPriority(v *vehicle, pickup bool) int {
 	return 2
 }
 
-// compareAdmission gives requests that waited ten seconds precedence over
-// younger requests. Existing reservations do not participate in this order.
+// compareAdmission gives the requests of emergency pods precedence over
+// every other request, in the order of their record serials (section 9.3
+// of the incident emergency contract). Among the other requests, a request
+// that waited ten seconds has precedence over younger requests. Existing
+// reservations do not participate in this order, so the emergency tier
+// takes only free resources.
 func compareAdmission(a, b intent, tick int64) int {
+	if a.emergency != 0 || b.emergency != 0 {
+		switch {
+		case b.emergency == 0:
+			return -1
+		case a.emergency == 0:
+			return 1
+		}
+		return cmp.Or(cmp.Compare(a.emergency, b.emergency), cmp.Compare(a.id, b.id))
+	}
 	agedA, agedB := tick-a.since >= admissionAgeTicks, tick-b.since >= admissionAgeTicks
 	if agedA != agedB {
 		if agedA {
