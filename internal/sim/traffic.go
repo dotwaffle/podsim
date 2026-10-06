@@ -478,6 +478,7 @@ func (s *Simulation) routeBlocks(route []Lane) (blockList, []float64) {
 		blocks.lanes[index+1].first = entry.first + cells.count()
 		distance += length
 	}
+	blocks.lanes[len(route)].start = distance
 	blocks.blocks = blocks.lanes[len(route)].first
 	return blocks, lengths
 }

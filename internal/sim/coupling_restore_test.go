@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"maps"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -139,5 +140,34 @@ func TestCouplingNativeRestoreRefusesPartialRecovery(t *testing.T) {
 				t.Fatal("invalid coupling state returned a partially recovered simulation", err)
 			}
 		})
+	}
+}
+
+// The route blocks of a pod end at the route length. Thus the member pose
+// search of a coupling restore finds each lane of the route, and also the
+// last lane. It refuses a distance at the route end.
+func TestRouteBlocksEndAtRouteLength(t *testing.T) {
+	t.Parallel()
+	s := newTraffic(t)
+	route, err := s.route(s.network.Stations[0].Berths[0].Node, s.network.Stations[1].Berths[0].Node)
+	if err != nil || len(route) < 2 {
+		t.Fatalf("route %v: %v", route, err)
+	}
+	blocks, lengths := s.routeBlocks(route)
+	end := 0.0
+	for i, length := range lengths {
+		if blocks.lanes[i].start != end {
+			t.Fatalf("lane %d starts at %v, want %v", i, blocks.lanes[i].start, end)
+		}
+		if lane, _, _, err := couplingMotionPose(&blocks, end+length/2); err != nil || lane != i {
+			t.Fatalf("the pose in the middle of lane %d is in lane %d: %v", i, lane, err)
+		}
+		end += length
+	}
+	if blocks.lanes[len(route)].start != end {
+		t.Fatalf("the route ends at %v, want %v", blocks.lanes[len(route)].start, end)
+	}
+	if _, _, _, err := couplingMotionPose(&blocks, end); err == nil || !strings.HasPrefix(err.Error(), "motion leaves its actual route") {
+		t.Fatalf("the pose at the route end gives %v", err)
 	}
 }
