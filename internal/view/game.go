@@ -525,6 +525,9 @@ func (g *Game) buttons() []button {
 		}
 		buttons = append(buttons, button{x: 810 + float64(i%podsPerPage)*podButtonStep, y: podSelectorTop, w: 32, h: 34, label: fleetPodLabel(i), selected: !g.showOrders && !g.showDemand && g.selected == i, action: "pod/" + v.Pod.ID})
 	}
+	if control, ok := g.faultButton(state); ok {
+		buttons = append(buttons, control)
+	}
 	if pages := podPageCount(len(state.Vehicles)); pages > 1 {
 		buttons = append(buttons,
 			button{x: podPagerLeft, y: podSelectorTop, w: podPagerArrowWidth, h: 34, label: "‹", disabled: g.podPage == 0, action: "pods-prev"},
@@ -645,6 +648,10 @@ func (g *Game) click(point sim.Point) bool {
 			g.shell.Send(CaptureDebugState)
 			g.message = ""
 		default:
+			if command, ok := faultCommand(b.action); ok {
+				g.submit(command)
+				return false
+			}
 			if id, ok := strings.CutPrefix(b.action, "pod/"); ok {
 				for i, v := range g.state.Simulation.Vehicles {
 					if v.Pod.ID == id {
@@ -1648,7 +1655,7 @@ func (g *Game) drawInspection(screen *ebiten.Image, state sim.Snapshot) {
 	}
 	heading := g.fitText("POD "+podLabel, 12, 140)
 	g.label(screen, label{x: inspectionLeft, y: 83, size: 12, value: heading, color: muted})
-	g.label(screen, label{x: 816, y: 111, size: 26, value: activityLabel(state.Vehicles[g.selected].Pod, g.podPurpose(state.Vehicles[g.selected], state)), color: g.podPurpose(state.Vehicles[g.selected], state).color()})
+	g.label(screen, activityLine(activityLabel(state.Vehicles[g.selected].Pod, g.podPurpose(state.Vehicles[g.selected], state)), g.podPurpose(state.Vehicles[g.selected], state).color()))
 	status := "Available for passenger orders."
 	station, _ := g.network.Station(state.Vehicles[g.selected].Pod.StationID)
 	if station.ParkingOnly {
@@ -1974,6 +1981,12 @@ func (g *Game) centerLabel(area image.Rectangle, value label) label {
 
 func rgb(hex uint32) color.RGBA {
 	return color.RGBA{R: uint8((hex >> 16) & 255), G: uint8((hex >> 8) & 255), B: uint8(hex & 255), A: 255}
+}
+
+// activityLine returns the large activity label of the pod inspector. The
+// fault button is to its right.
+func activityLine(value string, shade uint32) label {
+	return label{x: 816, y: 111, size: 26, value: value, color: shade}
 }
 
 func activityLabel(pod sim.Pod, purpose podPurpose) string {
