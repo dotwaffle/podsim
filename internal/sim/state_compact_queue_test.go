@@ -374,3 +374,85 @@ func TestStationCompactPreparedRestore(t *testing.T) {
 		}
 	}
 }
+
+// TestCheckCompactFieldsRefusalOrder pins the error that invalid compact
+// fields get. checkCompactFields checks the queue spacing, the platoon
+// limit, each pod in saved order, and then the followers. For each pod it
+// checks the link, the head certificate, and then each member. Each case
+// breaks two adjacent checks, and the earlier check gives the refusal.
+func TestCheckCompactFieldsRefusalOrder(t *testing.T) {
+	t.Parallel()
+	const (
+		spacing  = "invalid restored station queue spacing"
+		limit    = "invalid restored platoon limit"
+		link     = "invalid compact predecessor link fields"
+		head     = "invalid compact head certificate fields"
+		member   = "invalid compact member fields"
+		follower = "compact follower has no head certificate"
+	)
+	compactLink := func(leader string) *SavedPlatoonLink {
+		return &SavedPlatoonLink{Kind: "compact-buffer-v1", TerminalCell: new(0), Leader: leader, Lanes: 1}
+	}
+	compactQueue := func(members ...string) *SavedCompactQueue {
+		n := len(members)
+		return &SavedCompactQueue{Kind: "compact-buffer-v1", Phase: "compact", Lane: "lane", Members: members, Frontier: 1,
+			StopCells: make([]int, n), Speeds: make([]float64, n), Targets: make([]float64, n), LandingSpeeds: make([]float64, n)}
+	}
+	base := func() RestoreStateInput {
+		return RestoreStateInput{StationQueueSpacing: StationQueueCompactV1, PlatoonLimit: MaxPlatoonLimit, State: SavedState{Pods: []SavedPod{
+			{ID: "a", CompactQueue: compactQueue("a", "b")},
+			{ID: "b", Platoon: compactLink("a")},
+		}}}
+	}
+	if err := checkCompactFields(base()); err != nil {
+		t.Fatalf("base compact fields: %v", err)
+	}
+	pods := func(in *RestoreStateInput) []SavedPod { return in.State.Pods }
+	for _, test := range []struct {
+		name string
+		edit func(*RestoreStateInput)
+		want string
+	}{
+		{"spacing_before_limit", func(in *RestoreStateInput) { in.StationQueueSpacing, in.PlatoonLimit = "unknown", -1 }, spacing},
+		{"limit_without_certificate", func(in *RestoreStateInput) {
+			in.PlatoonLimit, in.State.Pods = -1, []SavedPod{{ID: "a"}}
+		}, limit},
+		{"limit_before_pods", func(in *RestoreStateInput) { in.PlatoonLimit, pods(in)[1].Platoon.Draining = -1, true }, limit},
+		{"link_before_head", func(in *RestoreStateInput) {
+			pods(in)[0].Platoon = &SavedPlatoonLink{Kind: "compact-buffer-v1"}
+		}, link},
+		{"head_before_member", func(in *RestoreStateInput) {
+			q := pods(in)[0].CompactQueue
+			q.Phase, q.Members[1] = "draining", ""
+		}, head},
+		{"member_before_next_pod", func(in *RestoreStateInput) {
+			pods(in)[0].CompactQueue.Speeds[1] = math.NaN()
+			pods(in)[1].Platoon.Draining = true
+		}, member},
+		{"saved_pod_order", func(in *RestoreStateInput) {
+			p := pods(in)
+			p[0].CompactQueue.Speeds[1] = math.NaN()
+			p[1].Platoon.Draining = true
+			p[0], p[1] = p[1], p[0]
+		}, link},
+		{"member_of_earlier_head", func(in *RestoreStateInput) {
+			in.State.Pods = append(in.State.Pods, SavedPod{ID: "c", CompactQueue: compactQueue("c", "b")})
+		}, member},
+		{"member_before_follower", func(in *RestoreStateInput) {
+			pods(in)[0].CompactQueue.StopCells[1] = -1
+			in.State.Pods = append(in.State.Pods, SavedPod{ID: "d", Platoon: compactLink("x")})
+		}, member},
+		{"follower", func(in *RestoreStateInput) {
+			in.State.Pods = append(in.State.Pods, SavedPod{ID: "d", Platoon: compactLink("x")})
+		}, follower},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			in := base()
+			test.edit(&in)
+			if err := checkCompactFields(in); err == nil || err.Error() != test.want {
+				t.Fatalf("got %v, want %q", err, test.want)
+			}
+		})
+	}
+}

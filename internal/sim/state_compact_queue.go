@@ -32,12 +32,13 @@ func hasCompactCertificate(state SavedState) bool {
 	})
 }
 
+// checkCompactFields checks the restored queue settings, then each pod in
+// saved order, then the compact followers.
 func checkCompactFields(input RestoreStateInput) error {
-	mode := input.StationQueueSpacing
-	if mode != "" && mode != StationQueueOrdinary && mode != StationQueueCompactV1 {
+	if !restoredStationQueueSpacingValid(input.StationQueueSpacing) {
 		return errors.New("invalid restored station queue spacing")
 	}
-	if input.PlatoonLimit != 0 && (input.PlatoonLimit < MinPlatoonLimit || input.PlatoonLimit > MaxPlatoonLimit) {
+	if !restoredPlatoonLimitValid(input.PlatoonLimit) {
 		return errors.New("invalid restored platoon limit")
 	}
 	if !hasCompactCertificate(input.State) {
@@ -45,29 +46,66 @@ func checkCompactFields(input RestoreStateInput) error {
 	}
 	claimed := make(map[string]bool)
 	for _, pod := range input.State.Pods {
-		if link := pod.Platoon; link != nil && link.Kind == "compact-buffer-v1" {
-			if link.TerminalCell == nil || *link.TerminalCell < 0 || link.Turn != 0 || link.Lanes != 1 || link.Draining {
-				return errors.New("invalid compact predecessor link fields")
-			}
-		}
-		q := pod.CompactQueue
-		if q == nil {
-			continue
-		}
-		n := len(q.Members)
-		if q.Kind != "compact-buffer-v1" || q.Phase != "compact" && q.Phase != "recovering" || q.Lane == "" ||
-			n < 1 || n > compactQueueMaxMembers || len(q.StopCells) != n || len(q.Speeds) != n || len(q.Targets) != n || len(q.LandingSpeeds) != n ||
-			q.Members[0] != pod.ID || pod.Platoon != nil || !compactQueueBoundsValid(compactQueueBounds{start: q.Start, frontier: q.Frontier}) {
-			return errors.New("invalid compact head certificate fields")
-		}
-		for i, id := range q.Members {
-			if id == "" || claimed[id] || q.StopCells[i] < 0 || !finite(q.Speeds[i]) || q.Speeds[i] < 0 || q.Speeds[i] > compactQueueSpeedLimit || !finite(q.Targets[i]) || !finite(q.LandingSpeeds[i]) {
-				return errors.New("invalid compact member fields")
-			}
-			claimed[id] = true
+		if err := checkCompactPod(pod, claimed); err != nil {
+			return err
 		}
 	}
-	for _, pod := range input.State.Pods {
+	return checkCompactFollowers(input.State.Pods, claimed)
+}
+
+func restoredStationQueueSpacingValid(mode StationQueueSpacing) bool {
+	return mode == "" || mode == StationQueueOrdinary || mode == StationQueueCompactV1
+}
+
+func restoredPlatoonLimitValid(limit int) bool {
+	return limit == 0 || limit >= MinPlatoonLimit && limit <= MaxPlatoonLimit
+}
+
+// checkCompactPod checks the compact link of a pod, then its head
+// certificate, then each member of the certificate. It adds each member to
+// claimed.
+func checkCompactPod(pod SavedPod, claimed map[string]bool) error {
+	if link := pod.Platoon; link != nil && link.Kind == "compact-buffer-v1" && !compactLinkFieldsValid(link) {
+		return errors.New("invalid compact predecessor link fields")
+	}
+	q := pod.CompactQueue
+	if q == nil {
+		return nil
+	}
+	if !compactHeadFieldsValid(pod) {
+		return errors.New("invalid compact head certificate fields")
+	}
+	for i, id := range q.Members {
+		if claimed[id] || !compactMemberFieldsValid(q, i) {
+			return errors.New("invalid compact member fields")
+		}
+		claimed[id] = true
+	}
+	return nil
+}
+
+func compactLinkFieldsValid(link *SavedPlatoonLink) bool {
+	return link.TerminalCell != nil && *link.TerminalCell >= 0 && link.Turn == 0 && link.Lanes == 1 && !link.Draining
+}
+
+// compactHeadFieldsValid checks the certificate of a head pod. The pod is the
+// first member and has no link. Each list has one value for each member.
+func compactHeadFieldsValid(pod SavedPod) bool {
+	q := pod.CompactQueue
+	n := len(q.Members)
+	return q.Kind == "compact-buffer-v1" && (q.Phase == "compact" || q.Phase == "recovering") && q.Lane != "" &&
+		n >= 1 && n <= compactQueueMaxMembers && len(q.StopCells) == n && len(q.Speeds) == n && len(q.Targets) == n && len(q.LandingSpeeds) == n &&
+		q.Members[0] == pod.ID && pod.Platoon == nil && compactQueueBoundsValid(compactQueueBounds{start: q.Start, frontier: q.Frontier})
+}
+
+func compactMemberFieldsValid(q *SavedCompactQueue, i int) bool {
+	speed := q.Speeds[i]
+	return q.Members[i] != "" && q.StopCells[i] >= 0 && finite(speed) && speed >= 0 && speed <= compactQueueSpeedLimit &&
+		finite(q.Targets[i]) && finite(q.LandingSpeeds[i])
+}
+
+func checkCompactFollowers(pods []SavedPod, claimed map[string]bool) error {
+	for _, pod := range pods {
 		if pod.Platoon != nil && pod.Platoon.Kind == "compact-buffer-v1" && !claimed[pod.ID] {
 			return errors.New("compact follower has no head certificate")
 		}
