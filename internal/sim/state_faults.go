@@ -81,7 +81,10 @@ func (c FaultCounters) counters() faultCounters {
 // fits in int64. A pod record names a saved pod with the fault hold, at
 // most one record names a pod, and the pod is a supported target: no
 // coupling member, no platoon leader or follower, and no compact queue
-// head (invariant F2). Each failure makes the save invalid.
+// head (invariant F2). A save of the traffic demo has no record, because
+// the demo project has no fault marker (section 12.7). The logical tier
+// drops the demo and the records, so only this check refuses such a save.
+// Each failure makes the save invalid.
 func checkSavedFaults(input RestoreStateInput) error {
 	if err := ValidateFaultContracts(input.FaultContract, input.IncidentContract); err != nil {
 		return err
@@ -98,6 +101,9 @@ func checkSavedFaults(input RestoreStateInput) error {
 		return fmt.Errorf("%w: a fault counter is negative", errInvalidFaults)
 	}
 	state := input.State
+	if state.Demo != nil && len(saved.Records) > 0 {
+		return fmt.Errorf("%w: the traffic demo has fault records", errInvalidFaults)
+	}
 	leaders := make(map[string]bool)
 	for _, pod := range state.Pods {
 		if pod.Platoon != nil {

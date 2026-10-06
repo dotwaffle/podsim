@@ -144,7 +144,8 @@ func TestRestoreSavedFaultRules(t *testing.T) {
 			state.Faults.Records = state.Faults.Records[1:]
 			state.Pods[0].Withdrawn, state.Pods[0].Platoon = 0, &SavedPlatoonLink{Leader: "02"}
 		},
-		"compact head": func(state *SavedState) { state.Pods[1].CompactQueue = &SavedCompactQueue{} },
+		"compact head":              func(state *SavedState) { state.Pods[1].CompactQueue = &SavedCompactQueue{} },
+		"traffic demo with records": func(state *SavedState) { state.Demo = &SavedDemo{} },
 		"too many debris": func(state *SavedState) {
 			for range maxDebrisFaults + 1 {
 				state.IncidentSerial++

@@ -433,14 +433,25 @@ func TestFaultSaveLogicalRestore(t *testing.T) {
 // restore (section 12.7 of the incident suspension contract: the demo
 // project has no fault marker). The demo fleet has the fault operations
 // off, so no record can start while the demo runs. A save of a demo fleet
-// with a record is invalid_state, because the demo settings cannot turn
-// the fault operations off while a record is active.
+// with a record is invalid_state before either restore tier, also in a
+// restore that has only the logical tier.
 func TestFaultSaveOfDemoFleet(t *testing.T) {
 	t.Parallel()
 	file, _ := faultSessionData(t)
 	file.Simulation.Demo = &sim.SavedDemo{}
-	_, err := newTestSession(t).loadState(loadInput{data: encodeTestState(t, file), steps: realRestoreSteps()})
-	if stateReason(err) != reasonInvalidState || !strings.Contains(err.Error(), "faults are active") {
-		t.Fatalf("restore: %v", err)
+	// The last attempt before the restore loop limit restores only in the
+	// logical tier, which drops the demo and the records.
+	for _, attempts := range []int{0, restoreLoopAttempts - 1} {
+		file.RestoreAttempts = attempts
+		_, err := newTestSession(t).loadState(loadInput{data: encodeTestState(t, file), steps: realRestoreSteps()})
+		if stateReason(err) != reasonInvalidState || !strings.Contains(err.Error(), "the traffic demo has fault records") {
+			t.Fatalf("restore attempts %d: %v", attempts, err)
+		}
+	}
+	// The counters of the demo fleet stay without a record.
+	file.RestoreAttempts = 0
+	file.Simulation.Faults = &sim.SavedFaults{Counters: file.Simulation.Faults.Counters}
+	if _, err := newTestSession(t).loadState(loadInput{data: encodeTestState(t, file), steps: realRestoreSteps()}); err != nil {
+		t.Fatalf("restore of the counters: %v", err)
 	}
 }
