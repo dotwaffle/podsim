@@ -61,7 +61,7 @@ The session package and its test dependencies compile the same files with and wi
 The `qualify` task ran the full scenario suite without the race detector.
 
 The `test:race` task still runs every test.
-The `qualify` task now runs only the two Station 19 drain tests, which skip under the race detector.
+The `qualify` task now runs only the two Station 19 drain tests and the two emergency choice latency tests of `internal/sim`, which skip under the race detector.
 The `test:embedded` task runs the full root and `cmd/serve` suites with the tag.
 In the session package, it runs only the four maximum codec tests, `TestPackedTextWireCost`, `TestComposedWorstCaseFormats`, `TestCouplingSaveCapRejectsAtomically`, and `TestStreamMaximumEncoding`.
 The first seven tests skip under the race detector.

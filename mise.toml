@@ -144,12 +144,17 @@ description = "Run repeatable demand and policy experiments"
 run = "go run ./cmd/compare"
 
 [tasks.qualify]
-description = "Run the Station 19 scale and safety tests without the race detector"
+description = "Run the Station 19 scale and safety tests and the emergency choice latency tests without the race detector"
 # A long test that runs one simulation on one goroutine skips under -race,
 # because the race detector finds nothing there and makes it 10 times
-# slower. The check task runs this task, so such a test must be in
-# internal/scenarios and in this pattern. test:race runs the other tests.
-run = "go test ./internal/scenarios -count=1 -v -timeout=30m -run '^TestScale100Station19(Queue|Burst)DrainsSafely$'"
+# slower. A test that measures time also skips under -race. The check
+# task runs this task, so such a test must be in one of these patterns.
+# Add it to a pattern, because a pattern that matches no test passes.
+# test:race runs the other tests.
+run = '''
+go test ./internal/scenarios -count=1 -v -timeout=30m -run '^TestScale100Station19(Queue|Burst)DrainsSafely$' || exit 1
+go test ./internal/sim -count=1 -v -timeout=30m -run '^(TestEmergencyChoiceLatency|TestEmergencyNoCandidateLatency)$'
+'''
 
 [tasks.benchmark]
 description = "Measure 6000 simulation steps on the 100-pod scenario"
