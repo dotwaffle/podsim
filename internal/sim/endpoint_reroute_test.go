@@ -199,6 +199,79 @@ func TestEndpointRerouteOverDetourLimit(t *testing.T) {
 	}
 }
 
+// asymmetricBankFleet returns a simulation on BankExample with faults on,
+// the incident marker, a party limit of 4 and drop-offs. Pod 01 is idle at
+// the origin. The road to bank b has a bend of 480 m, so a pod from the
+// origin goes to bank a. A detour of 750 m from the split to the approach
+// of bank a goes around the approach lane a-approach. On the detour, a
+// rider to the hub is over the detour limit at bank a, but within it at
+// bank b, which is farther from the origin.
+func asymmetricBankFleet(t *testing.T) (*Simulation, *vehicle) {
+	t.Helper()
+	network := BankExample()
+	for index := range network.Lanes {
+		if network.Lanes[index].ID == "b-approach" {
+			network.Lanes[index].From = "b-bend"
+		}
+	}
+	network.Nodes = append(network.Nodes, Node{ID: "a-detour", Position: Point{X: 360, Y: -310}}, Node{ID: "b-bend", Position: Point{X: 300, Y: 400}})
+	network.Lanes = append(network.Lanes,
+		Lane{ID: "b-bend", From: "split", To: "b-bend", SpeedLimit: 14},
+		Lane{ID: "a-detour-out", From: "split", To: "a-detour", SpeedLimit: 14},
+		Lane{ID: "a-detour-in", From: "a-detour", To: "a-approach", SpeedLimit: 14},
+	)
+	s, err := NewFleet(network, []Placement{{ID: "01", StationID: "origin", BerthID: "origin-1"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.incidentContract = IncidentV1Contract
+	if err := s.SetSharedRidePartyLimit(4); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetSharedRideMode(SharedRideDropOffs, DefaultSharedRideMaxStops); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetFaults(true, FaultSettings{EvacuationSeconds: 300}); err != nil {
+		t.Fatal(err)
+	}
+	v := s.findVehicle("01")
+	return s, v
+}
+
+// TestEndpointRerouteBankEntryDetour blocks a-approach while pod 01 boards
+// for the hub with its route to the entry of bank a. The detour keeps the
+// entry of bank a, where the rider is over the detour limit, so the pod
+// keeps its route. The same detour passes the check at bank b, which the
+// default bank choice gives, so the test catches a check that skips the
+// entry of the route or does not run.
+func TestEndpointRerouteBankEntryDetour(t *testing.T) {
+	t.Parallel()
+	s, v := asymmetricBankFleet(t)
+	if err := s.RequestJourney("01", "hub"); err != nil {
+		t.Fatal(err)
+	}
+	if v.Route[len(v.Route)-1].To != "bank-a-entry" || v.destination.ID != "" {
+		t.Fatalf("pod 01 goes to %v, berth %q", v.Route, v.destination.ID)
+	}
+	startDebris(t, s, "a-approach", 60, 70, 0)
+	detour, err := s.assignedRoute(v, v.origin.Node, "bank-a-entry")
+	if err != nil || !usesLane(detour, "a-detour-in") {
+		t.Fatalf("the detour is %v: %v", detour, err)
+	}
+	for entry, want := range map[string]bool{"bank-a-entry": false, "bank-b-entry": true, "": true} {
+		start := detourStart{class: v.Pod.Class, from: v.origin.Node, ridden: v.riddenBase + s.lanesMeters(detour), entry: entry}
+		if got := s.keepsRiderDetours(v, v.Stops, start); got != want {
+			t.Fatalf("entry %q: the detour keeps the rider within the limit: %v", entry, got)
+		}
+	}
+	if !s.rerouteCandidate(v) {
+		t.Fatal("pod 01 is not a reroute candidate")
+	}
+	if route, ok := s.endpointRoute(v); ok {
+		t.Fatalf("pod 01 has the endpoint route %v", route)
+	}
+}
+
 // TestEndpointRerouteOfTrappedPod blocks s1-link beyond the grants of pod
 // 01, which already holds the start of s1-link on its way to s3. A kept
 // lane is blocked, so the pod keeps its route and waits.
