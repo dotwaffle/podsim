@@ -135,9 +135,6 @@ type SavedPod struct {
 	// station to relocate to, a rebalancing pod, or a pod that is not
 	// traveling or departing empty.
 	Released bool `json:"released,omitzero"`
-	// StationBuffered preserves a pending or physical buffer membership.
-	// Each supported save version accepts this flag.
-	StationBuffered bool `json:"stationBuffered,omitzero"`
 	// Route holds the lanes that the pod still needs. The route of a traveling
 	// pod starts at the first lane that can still hold a resource, and
 	// RouteIndex and Distance count from the start of that lane.
@@ -170,10 +167,6 @@ type SavedPod struct {
 // The restore checks the link against the network and the pods, and it
 // does not plan the link again.
 type SavedPlatoonLink struct {
-	// Kind is empty for a complete-lane run, or buffer for a fixed entry run.
-	Kind string `json:"kind,omitempty"`
-	// TerminalCell is the fixed stopping-frontier cell of a buffer run.
-	TerminalCell *int `json:"terminalCell,omitzero"`
 	// Leader is the ID of the predecessor.
 	Leader string `json:"leader"`
 	// Lane and LeaderLane are the indexes of the first lane of the run in
@@ -328,8 +321,7 @@ func checkSavedExclusions(state SavedState) error {
 // physical tier first. When that tier fails, or when input.LogicalOnly is
 // set, it uses the logical tier. It returns an error only when the last tier
 // that it tries fails. The error then wraps the error of each tier that it
-// tried. Invalid fixed entry buffer certificates return an error without a
-// logical fallback. LogicalOnly still validates those certificates physically.
+// tried. Invalid saved faults return an error without a logical fallback.
 func RestoreState(input RestoreStateInput) (*Simulation, RestoreResult, error) {
 	return restoreState(input, func() (*Simulation, error) {
 		return NewFleetWithContracts(input.Network, input.Fleet, input.fleetContracts())
@@ -352,7 +344,6 @@ var restoreInputChecks = [...]func(RestoreStateInput) error{
 	checkSavedEmergencies,
 	checkSavedServices,
 	checkSavedBankRoutes,
-	checkBufferLinkFields,
 }
 
 func restoreState(input RestoreStateInput, newFleet func() (*Simulation, error)) (*Simulation, RestoreResult, error) {
@@ -360,14 +351,13 @@ func restoreState(input RestoreStateInput, newFleet func() (*Simulation, error))
 		return nil, RestoreResult{}, err
 	}
 	var physicalErr error
-	bufferCertificate := hasBufferCertificate(input.State)
-	if !input.LogicalOnly || bufferCertificate {
-		s, result, err := restorePhysicalTier(input, newFleet, bufferCertificate)
-		if err == nil && !input.LogicalOnly {
+	if !input.LogicalOnly {
+		s, result, err := restorePhysical(input, newFleet)
+		if err == nil {
 			return s, result, nil
 		}
-		if refusal := physicalTierRefusal(bufferCertificate, err); refusal != nil {
-			return nil, RestoreResult{PhysicalError: refusal}, refusal
+		if errors.Is(err, errInvalidFaults) {
+			return nil, RestoreResult{PhysicalError: err}, err
 		}
 		physicalErr = err
 	}
@@ -440,31 +430,6 @@ func checkSavedServices(input RestoreStateInput) error {
 				return err
 			}
 		}
-	}
-	return nil
-}
-
-// restorePhysicalTier runs the physical tier. A buffer certificate also
-// needs its restored members.
-func restorePhysicalTier(input RestoreStateInput, newFleet func() (*Simulation, error), bufferCertificate bool) (*Simulation, RestoreResult, error) {
-	s, result, err := restorePhysical(input, newFleet)
-	if err == nil && bufferCertificate {
-		err = checkRestoredBufferMembers(input.State, result)
-	}
-	return s, result, err
-}
-
-// physicalTierRefusal returns the error that ends the restore after the
-// physical tier fails, or nil when the logical tier can run. Invalid faults
-// and buffer certificates have no logical fallback.
-func physicalTierRefusal(bufferCertificate bool, err error) error {
-	switch {
-	case err == nil:
-		return nil
-	case errors.Is(err, errInvalidFaults):
-		return err
-	case bufferCertificate:
-		return fmt.Errorf("%w: %w", errBufferCertificate, err)
 	}
 	return nil
 }
@@ -547,7 +512,7 @@ func (s *Simulation) exportPod(v *vehicle, limits routeLimits) SavedPod {
 		RebalanceAfter: v.rebalanceAfter, PhaseTicks: v.phaseTicks, Origin: v.origin.ID,
 		Destination: v.destination.ID, DestinationStation: v.destinationStation,
 		ClaimsDestination: claimsDestination,
-		LaneID:            v.Pod.LaneID, LaneDistance: v.Pod.LaneDistance, Waiting: v.pending >= 0, Released: v.released, StationBuffered: v.buffered,
+		LaneID:            v.Pod.LaneID, LaneDistance: v.Pod.LaneDistance, Waiting: v.pending >= 0, Released: v.released,
 		Withdrawn: uint8(v.withdrawn), Purpose: uint8(v.op.purpose), Owner: uint8(v.op.owner), Interrupt: v.op.interrupt,
 	}
 	for _, rider := range v.Riders {
@@ -604,15 +569,10 @@ func (s *Simulation) savedLink(v *vehicle, start int) *SavedPlatoonLink {
 		return nil
 	}
 	leaderStart, _, _ := s.savedStart(leader)
-	saved := &SavedPlatoonLink{
+	return &SavedPlatoonLink{
 		Leader: leader.Pod.ID, Lane: v.link.lane + skip - start, LeaderLane: v.link.leaderLane + skip - leaderStart,
 		Lanes: v.link.lanes - skip, Turn: v.link.turn, Draining: v.link.draining || v.reservedThrough >= v.link.end,
 	}
-	if v.link.buffer {
-		saved.Kind = "buffer"
-		saved.TerminalCell = new(v.link.terminalCell)
-	}
-	return saved
 }
 
 // savedRun returns the predecessor of the traveling pod v, whose saved route
@@ -637,10 +597,6 @@ func (s *Simulation) savedRun(v *vehicle, start int) (leader *vehicle, skip int,
 // starts at that lane at the latest.
 func (s *Simulation) savedStart(v *vehicle) (start int, offset float64, current int) {
 	start, offset, current = v.savedRouteStart()
-	if v.link.leader != 0 && v.link.buffer && v.link.lane < start {
-		start = v.link.lane
-		offset = v.blocks.lanes[start].start
-	}
 	if v.follower == 0 {
 		return start, offset, current
 	}

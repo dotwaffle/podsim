@@ -95,11 +95,11 @@ func TestEmergencyAdmissionOrder(t *testing.T) {
 
 // TestEmergencyClaimSurrender checks the claim surrender gate (section 9.4
 // of the incident emergency contract). An empty relocation waits with an
-// unused service claim behind a buffered head that carries a rider, with
+// unused service claim behind a waiting head that carries a rider, with
 // faults off. Without an emergency, the gate is off, and the pod keeps its
-// claim. An emergency on the head binds the head to the berth of the
-// buffer, and the gate is on: the pod behind gives up its claim in the
-// first phase of admit, and it keeps its destination and its relocation.
+// claim. An emergency on the head binds the head to its berth, and the
+// gate is on: the pod behind gives up its claim in the first phase of
+// admit, and it keeps its destination and its relocation.
 // The head then unloads at the berth, and the gate goes off at the end.
 func TestEmergencyClaimSurrender(t *testing.T) {
 	t.Parallel()

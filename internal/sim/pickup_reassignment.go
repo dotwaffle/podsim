@@ -88,35 +88,11 @@ func (s *Simulation) freePickupAlternative(v *vehicle) bool {
 	if v.linked() || v.RidersAboard() != 0 || !s.pickupCandidate(v, nil) {
 		return false
 	}
-	if v.buffered {
-		plan, ok := s.bufferPlan(v)
-		if !ok || v.reservedThrough >= plan.first {
-			return false
-		}
-	}
 	if v.Pod.Activity == Idle {
 		return true
 	}
 	_, _, ok := s.divertStart(v)
 	return ok
-}
-
-// assignedPickupSeconds extends a berthless approach to a reachable berth.
-// This prevents comparing an entry-only route with a replacement berth route.
-func (s *Simulation) assignedPickupSeconds(v *vehicle) float64 {
-	if !v.buffered {
-		return s.pickupSeconds(v, v.Route)
-	}
-	station, ok := s.station(v.destinationStation)
-	if !ok {
-		return math.Inf(1)
-	}
-	suffix, _, err := s.stationRouteByLoad(stationRouteInput{class: v.Pod.Class, from: station.routeEntry(v.Route, v.destination), station: station.ID, load: noBerthLoad, accept: s.berthFilterForVehicle(v)})
-	if err != nil {
-		return math.Inf(1)
-	}
-	route := append(slices.Clone(v.Route), suffix...)
-	return s.pickupSeconds(v, route)
 }
 
 // tryPickupTransfer prepares the replacement before releasing the old pickup.
@@ -133,7 +109,7 @@ func (s *Simulation) tryPickupTransfer(index int, replacement *vehicle) bool {
 		c.stats.RouteFailures++
 		return false
 	}
-	before, after := s.assignedPickupSeconds(old), s.pickupSeconds(replacement, route)
+	before, after := s.pickupSeconds(old, old.Route), s.pickupSeconds(replacement, route)
 	if !pickupTransferImproves(before, after) {
 		c.stats.NoBenefitPairs++
 		return false
@@ -144,11 +120,9 @@ func (s *Simulation) tryPickupTransfer(index int, replacement *vehicle) bool {
 			c.stats.RouteFailures++
 			return false
 		}
-		s.bufferPickup(&candidate)
 		*replacement = candidate
 	} else if replacement.Pod.Activity != Idle {
 		s.redirectPickupSwap(replacement, redirection{route: route, berth: berth, station: trip.request.legOrigin()})
-		s.bufferPickup(replacement)
 		replacement.released = false
 	}
 	s.releasePickup(old)

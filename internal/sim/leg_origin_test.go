@@ -589,8 +589,8 @@ func TestLegOriginHoldsAndCensus(t *testing.T) {
 }
 
 // TestLegOriginPickupState checks the readers of section 7.4 that test a
-// pod on its way to a pickup: the assigned pickup in the arrival chain, the
-// buffer membership of a restore, and an onboard pickup.
+// pod on its way to a pickup: the assigned pickup in the arrival chain and
+// an onboard pickup.
 func TestLegOriginPickupState(t *testing.T) {
 	t.Parallel()
 	t.Run("assignedPickupFitsRequest in the arrival chain", func(t *testing.T) {
@@ -613,37 +613,6 @@ func TestLegOriginPickupState(t *testing.T) {
 		}
 		if !s.assignedPickupFitsRequest(v, s.waiting[0].request) {
 			t.Fatal("the pod in the arrival chain of the leg origin does not fit")
-		}
-	})
-	t.Run("restore of a buffered pickup", func(t *testing.T) {
-		t.Parallel()
-		network := lineNetwork(lineStations(0, 2, 2, 2, 2))
-		for index := range network.Lanes {
-			lane := &network.Lanes[index]
-			for _, station := range network.Stations {
-				if lane.To == station.Entry {
-					lane.StationID, lane.StationRole = station.ID, StationEntryRole
-				}
-			}
-		}
-		s, err := NewFleet(network, place("s0-1"))
-		if err != nil {
-			t.Fatal(err)
-		}
-		s.SetStationBuffers(true)
-		trip := legTrip(s, "s1", "s3", "s0")
-		trip.request.PodID = "01"
-		if sendErr := s.sendPickupForRequest(s.findVehicle("01"), trip.request); sendErr != nil {
-			t.Fatal(sendErr)
-		}
-		s.waiting = []waitingTrip{trip}
-		advance(s, 5*TicksPerSecond)
-		if !s.vehicles[0].buffered {
-			t.Fatal("pod 01 is not buffered")
-		}
-		_, result, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: s.ExportState()})
-		if err != nil || !cleanRestore(result) {
-			t.Fatalf("the buffered pickup did not restore physically: %+v %v", result, err)
 		}
 	})
 	t.Run("onboard pickup at the leg origin", func(t *testing.T) {

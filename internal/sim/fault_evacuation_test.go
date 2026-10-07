@@ -121,10 +121,10 @@ func TestFaultEvacuationAtBerth(t *testing.T) {
 }
 
 // laneRecoveryShapes returns the route shapes of a lane evacuation: a
-// route that ends at the destination berth, a route that ends at a station
-// entry, and a buffered route that ends at a station entry. Each returns a
-// simulation with faults on and no evacuation delay, pod 01 with riders,
-// and a function that frees its berth.
+// route that ends at the destination berth, and a route that ends at a
+// station entry. Each returns a simulation with faults on and no
+// evacuation delay, pod 01 with riders, and a function that frees its
+// berth.
 func laneRecoveryShapes() []struct {
 	name    string
 	prepare func(t *testing.T) (*Simulation, *vehicle, func())
@@ -147,15 +147,6 @@ func laneRecoveryShapes() []struct {
 	}{
 		{"berth end", cruise("s1-link")},
 		{"entry end", cruise("s0-link")},
-		{"buffered entry end", func(t *testing.T) (*Simulation, *vehicle, func()) {
-			t.Helper()
-			s, release := bufferQueue(t)
-			if err := s.SetFaults(true, FaultSettings{}); err != nil {
-				t.Fatal(err)
-			}
-			v := s.findVehicle("02")
-			return s, v, release
-		}},
 	}
 }
 
@@ -174,8 +165,8 @@ func TestFaultLaneRecovery(t *testing.T) {
 			checkFaultsEachTick(t, s)
 			id := startFault(t, s, v, 0)
 			route, destination, station := v.Route, v.destination, v.destinationStation
-			if (destination.ID != "") != (shape.name == "berth end") || v.buffered != (shape.name == "buffered entry end") {
-				t.Fatalf("destination %q, buffered %t", destination.ID, v.buffered)
+			if (destination.ID != "") != (shape.name == "berth end") {
+				t.Fatalf("destination %q", destination.ID)
 			}
 			stepUntil(t, s, "evacuation", func() bool { return v.RidersAboard() == 0 })
 			if v.op != (operationalDestination{purpose: opEmptyRecovery, owner: faultHold}) || !sameRouteSlice(v.Route, route) ||

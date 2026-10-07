@@ -549,7 +549,6 @@ func (r *physicalRestore) demote(index int) {
 	r.demoted[index] = true
 	r.cost -= r.costs[index]
 	r.costs[index], r.routes[index] = 0, nil
-	v.buffered, v.bufferBerth = false, ""
 	v.replaceRoute(nil)
 	v.blocks, v.routeLengths, v.blockStarts, v.terminal = blockList{}, nil, nil, terminalCheck{}
 	maps.DeleteFunc(r.s.owners, func(_ resource, owner resourceOwner) bool { return owner.isPod(v.Pod.ID) })
@@ -589,17 +588,6 @@ func (r *physicalRestore) buildRoute(index int, indexes []int) error {
 		return nil
 	}
 	r.s.setVehicleRoute(v, route)
-	if r.state.Pods[index].StationBuffered {
-		_, eligible := r.s.bufferPlan(v)
-		pickup := slices.ContainsFunc(r.state.Waiting, func(trip SavedTrip) bool {
-			return trip.Request.PodID == v.Pod.ID && trip.Request.legOrigin() == v.destinationStation
-		})
-		if !eligible || !v.carriesPassengers() && !pickup && !v.released && v.op.purpose != opEmptyRecovery &&
-			v.Pod.Activity != Boarding && v.Pod.Activity != Continuing {
-			return fmt.Errorf("pod %s: invalid station buffer membership", v.Pod.ID)
-		}
-		v.buffered = true
-	}
 	return nil
 }
 
@@ -699,9 +687,6 @@ func (r *physicalRestore) checkLinks() error {
 			continue
 		}
 		link, ahead := r.state.Pods[index].Platoon, r.state.Pods[r.leaders[index]-1].Platoon
-		if ahead != nil && ahead.Kind != link.Kind {
-			return fmt.Errorf("the platoon of pod %s mixes certificate kinds", r.state.Pods[index].ID)
-		}
 		if ahead != nil && ahead.Turn != link.Turn {
 			return fmt.Errorf("the platoon of pod %s has two turns", r.state.Pods[index].ID)
 		}
@@ -724,12 +709,6 @@ func (r *physicalRestore) checkSavedLink(index int) error {
 	v, leader := &r.s.vehicles[index], &r.s.vehicles[r.leaders[index]-1]
 	saved := r.state.Pods[index]
 	link := saved.Platoon
-	if link.Kind == "buffer" {
-		if err := r.checkSavedBufferLink(index); err != nil {
-			return fmt.Errorf("%w: %w", errBufferCertificate, err)
-		}
-		return nil
-	}
 	if v.Route == nil || leader.Route == nil {
 		return nil
 	}
@@ -837,15 +816,10 @@ func (r *physicalRestore) placeTravelingPod(index, leader int) (bool, error) {
 	if distance < v.originTail() && (v.origin.ID == "" || v.Route[0].From != v.origin.Node) {
 		return false, nil
 	}
-	// A pod that has no berth yet chooses one before it reserves the last lane.
+	// A pod that has no berth yet chooses one before it reserves the last
+	// lane, so such a pod with a reservation into its last lane demotes.
 	if lastLane, _ := routeLaneBlocks(&v.blocks, len(v.Route)-1); v.destination.ID == "" && through >= lastLane {
-		plan, ok := r.s.bufferPlan(v)
-		bufferLink := leader >= 0 && saved.Platoon != nil && saved.Platoon.Kind == "buffer"
-		if !v.buffered || !ok || leader >= 0 && !bufferLink || through > plan.frontier || distance > v.blocks.end(plan.frontier)+restoreTolerance {
-			return false, nil
-		}
-		through = max(through, plan.entryStop)
-		v.buffered = true
+		return false, nil
 	}
 	v.distance, v.blockIndex = distance, current
 	footprint := v.footprint(through, distance)
@@ -900,13 +874,6 @@ func (r *physicalRestore) savedLink(index, leader int) (platoonLink, error) {
 		lane: saved.Lane, leaderLane: saved.LeaderLane, lanes: saved.Lanes,
 		turn: saved.Turn, clearance: linkClearance(saved.Turn), draining: saved.Draining,
 	}
-	if saved.Kind == "buffer" {
-		plan, ok := r.s.bufferPlan(v)
-		if !ok {
-			return platoonLink{}, fmt.Errorf("%w: invalid restored buffer plan", errBufferCertificate)
-		}
-		link.buffer, link.terminalCell, link.first = true, *saved.TerminalCell, plan.entryStop+1
-	}
 	_, link.end = linkEnds(&v.blocks, link)
 	if gap := leaderPosition(v, ahead, link) - v.distance; gap < link.clearance-3*restoreTolerance {
 		return platoonLink{}, fmt.Errorf("the pod is %.6f m behind its platoon predecessor, less than the clearance %.6f m", gap, link.clearance)
@@ -929,9 +896,6 @@ func (r *physicalRestore) linkClaims(v, leader *vehicle, link platoonLink, throu
 			}
 			if block < v.blocks.laneFirst(link.lane) || claimed.kind == berthResource ||
 				!owner.isPod(leader.Pod.ID) && !r.s.ownerAheadInPlatoon(leader, owner) {
-				return false
-			}
-			if link.buffer && (block < link.first || claimed.kind != trackResource) {
 				return false
 			}
 			shared = true

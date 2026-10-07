@@ -36,7 +36,7 @@ func synchronize(t *testing.T, model *engine, config project.Config) []string {
 func TestEngineOwnsCompleteProjectAndReplacesBranches(t *testing.T) {
 	t.Parallel()
 	config := project.Default()
-	additional := `{"geo":{"latitude":51.5,"longitude":0,"projection":"equirectangular","radius":6371000},"map":{"provider":"osm","opacity":0.5},"sharedRidePartyLimit":2,"sharedRideMode":"destination","sharedRideMaxStops":4,"sharedRideJoin":"reassign-existing","stationBuffers":true,"pickupReassignment":true,"platoonLimit":3,"redistribution":true}`
+	additional := `{"geo":{"latitude":51.5,"longitude":0,"projection":"equirectangular","radius":6371000},"map":{"provider":"osm","opacity":0.5},"sharedRidePartyLimit":2,"sharedRideMode":"destination","sharedRideMaxStops":4,"sharedRideJoin":"reassign-existing","pickupReassignment":true,"platoonLimit":3,"redistribution":true}`
 	if err := json.Unmarshal([]byte(additional), &config); err != nil {
 		t.Fatal(err)
 	}

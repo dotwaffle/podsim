@@ -5,14 +5,14 @@ import (
 	"testing"
 )
 
-// TestIncidentReportBehindFaultedPod faults the head of a station buffer.
+// TestIncidentReportBehindFaultedPod faults the head of an entry queue.
 // The pod behind it waits for a track cell that the faulted pod owns, so
 // it is blocked by the incident, with the fault ID. Each tick counts one
 // fault wait tick. The clear ends the report at once, and the pod waits
 // again with the ordinary report of a pod ahead.
 func TestIncidentReportBehindFaultedPod(t *testing.T) {
 	t.Parallel()
-	s, release := bufferQueue(t)
+	s, release := entryQueue(t)
 	s.faultsOn = true
 	head, behind := s.findVehicle("02"), s.findVehicle("01")
 	if behind.Pod.WaitReason != TrackOccupied || behind.Pod.BlockedBy != head.Pod.ID {
@@ -47,13 +47,13 @@ func TestIncidentReportBehindFaultedPod(t *testing.T) {
 	}
 }
 
-// TestIncidentReportOfBufferHead faults an idle pod at the only berth of
-// Market. The head of the station buffer finds the berth held by the
-// faulted pod, so it is blocked by the incident. The pod behind the head
-// waits for a healthy pod, so it reports the pod ahead.
-func TestIncidentReportOfBufferHead(t *testing.T) {
+// TestIncidentReportOfQueueHead faults an idle pod at the only berth of
+// Market. The head of the entry queue finds the berth held by the faulted
+// pod, so it is blocked by the incident. The pod behind the head waits for
+// a healthy pod, so it reports the pod ahead.
+func TestIncidentReportOfQueueHead(t *testing.T) {
 	t.Parallel()
-	s, err := NewFleet(stationBufferNetwork(Example(), 4), []Placement{
+	s, err := NewFleet(entryQueueNetwork(Example(), 4), []Placement{
 		{ID: "01", StationID: "harbor"}, {ID: "02", StationID: "garden"}, {ID: "03", StationID: "market", BerthID: "market-1"},
 	})
 	if err != nil {
@@ -61,7 +61,6 @@ func TestIncidentReportOfBufferHead(t *testing.T) {
 	}
 	s.incidentContract = IncidentV1Contract
 	s.faultsOn = true
-	s.SetStationBuffers(true)
 	id := startFault(t, s, s.findVehicle("03"), 0)
 	checkFaultsEachTick(t, s)
 	for _, pod := range []string{"01", "02"} {
@@ -71,7 +70,7 @@ func TestIncidentReportOfBufferHead(t *testing.T) {
 	}
 	head, behind := s.findVehicle("02"), s.findVehicle("01")
 	stepUntil(t, s, "a queue of two at the frontier", func() bool {
-		return head.buffered && behind.buffered && head.distance > 0 && head.Pod.Speed == 0 && behind.Pod.Speed == 0 && behind.Pod.BlockedBy == head.Pod.ID
+		return head.distance > 0 && head.Pod.Speed == 0 && behind.Pod.Speed == 0 && behind.Pod.BlockedBy == head.Pod.ID
 	})
 	s.Step()
 	if head.Pod.WaitReason != BlockedByIncident || head.Pod.BlockedBy != id {
@@ -79,41 +78,6 @@ func TestIncidentReportOfBufferHead(t *testing.T) {
 	}
 	if behind.Pod.WaitReason != TrackOccupied || behind.Pod.BlockedBy != head.Pod.ID {
 		t.Fatalf("the pod behind reports %q by %q, want the pod ahead", behind.Pod.WaitReason, behind.Pod.BlockedBy)
-	}
-}
-
-// TestIncidentReportOfBufferQueue faults a pod in a station buffer whose
-// tail is still on the entry lane, after it passed the frontier. The
-// healthy head behind it is blocked by the incident.
-func TestIncidentReportOfBufferQueue(t *testing.T) {
-	t.Parallel()
-	s := newTraffic(t)
-	s.faultsOn = true
-	ahead, head := &s.vehicles[0], &s.vehicles[1]
-	plan := stationBufferPlan{lane: Lane{ID: "market-approach"}, start: 0}
-	if !s.bufferHead(head, plan) {
-		t.Fatal("the head is not a buffer head with no pod ahead")
-	}
-	// The pod ahead travels on the entry lane, ahead of the head.
-	route, _ := s.route("garden-berth", "market-entry")
-	s.setVehicleRoute(ahead, route)
-	ahead.Pod.Activity = Traveling
-	lane := -1
-	for index, l := range ahead.Route {
-		if l.ID == plan.lane.ID {
-			lane = index
-		}
-	}
-	ahead.distance = ahead.blocks.lanes[lane].start + 30
-	head.distance = 10
-	if s.bufferHead(head, plan) || head.Pod.WaitReason != TrackOccupied || head.Pod.BlockedBy != ahead.Pod.ID {
-		t.Fatalf("behind a healthy pod, the head reports %q by %q", head.Pod.WaitReason, head.Pod.BlockedBy)
-	}
-	ahead.Pod.Speed = 0
-	ahead.faulted = true
-	s.faults = append(s.faults, faultRecord{generation: 1, serial: 7, kind: podFault, pod: 0})
-	if s.bufferHead(head, plan) || head.Pod.WaitReason != BlockedByIncident || head.Pod.BlockedBy != "i1.7" {
-		t.Fatalf("behind a faulted pod, the head reports %q by %q", head.Pod.WaitReason, head.Pod.BlockedBy)
 	}
 }
 

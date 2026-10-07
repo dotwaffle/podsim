@@ -248,7 +248,8 @@ func TestSavedInvalidMovedAside(t *testing.T) {
 }
 
 // TestSavedRemovedMembersMovedAside checks a version 9 file with a member
-// of a removed feature: physical coupling or compact station queues.
+// of a removed feature: physical coupling, compact station queues, or
+// station buffers.
 // Before the first release a removed member keeps the version, so the
 // file is not of another version.
 // The strict decode refuses the member as unknown, and startup moves the
@@ -257,12 +258,16 @@ func TestSavedRemovedMembersMovedAside(t *testing.T) {
 	t.Parallel()
 	raw := decompressTestJSON(t, encodeTestState(t, newTestStateFile(t)))
 	for name, damaged := range map[string][]byte{
-		"couplingContract":             addMember(t, raw, "", "couplingContract", `"compact-pair-v1"`),
-		"simulation/couplingGroups":    addMember(t, raw, "simulation", "couplingGroups", `[]`),
-		"project/couplingContract":     addMember(t, raw, "project", "couplingContract", `"compact-pair-v1"`),
-		"simulation/couplingContract":  addMember(t, raw, "simulation", "couplingContract", `"compact-pair-v1"`),
-		"simulation/pods/compactQueue": insertAfter(t, raw, `"pods":[{`, `"compactQueue":{},`),
-		"project/stationQueueSpacing":  addMember(t, raw, "project", "stationQueueSpacing", `"ordinary"`),
+		"couplingContract":                     addMember(t, raw, "", "couplingContract", `"compact-pair-v1"`),
+		"simulation/couplingGroups":            addMember(t, raw, "simulation", "couplingGroups", `[]`),
+		"project/couplingContract":             addMember(t, raw, "project", "couplingContract", `"compact-pair-v1"`),
+		"simulation/couplingContract":          addMember(t, raw, "simulation", "couplingContract", `"compact-pair-v1"`),
+		"simulation/pods/compactQueue":         insertAfter(t, raw, `"pods":[{`, `"compactQueue":{},`),
+		"project/stationQueueSpacing":          addMember(t, raw, "project", "stationQueueSpacing", `"ordinary"`),
+		"simulation/pods/stationBuffered":      insertAfter(t, raw, `"pods":[{`, `"stationBuffered":true,`),
+		"simulation/pods/platoon/kind":         insertAfter(t, raw, `"pods":[{`, `"platoon":{"kind":"buffer","leader":"01"},`),
+		"simulation/pods/platoon/terminalCell": insertAfter(t, raw, `"pods":[{`, `"platoon":{"terminalCell":0,"leader":"01"},`),
+		"project/stationBuffers":               addMember(t, raw, "project", "stationBuffers", `false`),
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()

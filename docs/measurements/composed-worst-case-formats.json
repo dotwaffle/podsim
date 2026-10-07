@@ -6,11 +6,11 @@
     {
       "shape": "plain",
       "format": "save",
-      "raw_bytes": 55864166,
-      "gzip_bytes": 591923,
-      "bound_bytes": 55864166,
+      "raw_bytes": 55857266,
+      "gzip_bytes": 580965,
+      "bound_bytes": 55857266,
       "cap_bytes": 83886080,
-      "headroom_bytes": 28021914
+      "headroom_bytes": 28028814
     },
     {
       "shape": "plain",
@@ -43,11 +43,11 @@
     {
       "shape": "express",
       "format": "save",
-      "raw_bytes": 77326517,
-      "gzip_bytes": 837936,
-      "bound_bytes": 77326517,
+      "raw_bytes": 77319617,
+      "gzip_bytes": 834425,
+      "bound_bytes": 77319617,
       "cap_bytes": 83886080,
-      "headroom_bytes": 6559563
+      "headroom_bytes": 6566463
     },
     {
       "shape": "express",

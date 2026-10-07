@@ -125,7 +125,6 @@ simulation.pods[].riddenMeters number
 simulation.pods[].journeyOrigin string
 simulation.pods[].claimsDestination boolean
 simulation.pods[].released boolean
-simulation.pods[].stationBuffered boolean
 simulation.pods[].route array
 simulation.pods[].route[] number
 simulation.pods[].routeIndex number
@@ -135,8 +134,6 @@ simulation.pods[].distance number
 simulation.pods[].waiting boolean
 simulation.pods[].waitSince number
 simulation.pods[].platoon object
-simulation.pods[].platoon.kind string
-simulation.pods[].platoon.terminalCell number
 simulation.pods[].platoon.leader string
 simulation.pods[].platoon.lane number
 simulation.pods[].platoon.leaderLane number
@@ -297,7 +294,6 @@ project.sharedRideMode string
 project.sharedRideMaxStops number
 project.sharedRideJoin string
 project.onboardPickups boolean
-project.stationBuffers boolean
 project.pickupReassignment boolean
 project.platoonLimit number
 project.redistribution boolean

@@ -22,31 +22,27 @@ func TestExperimentalPolicyJSON(t *testing.T) {
 	} {
 		t.Run(codec.name, func(t *testing.T) {
 			t.Parallel()
-			for _, field := range []string{"stationBuffers", "pickupReassignment"} {
-				for _, value := range []string{"null", "0", "1", `"true"`, `"false"`, "[]", "{}"} {
-					var config Config
-					if err := codec.unmarshal(fmt.Appendf(nil, `{"%s":%s}`, field, value), &config); err == nil {
-						t.Fatalf("accepted %s=%s", field, value)
-					}
+			for _, value := range []string{"null", "0", "1", `"true"`, `"false"`, "[]", "{}"} {
+				var config Config
+				if err := codec.unmarshal(fmt.Appendf(nil, `{"pickupReassignment":%s}`, value), &config); err == nil {
+					t.Fatalf("accepted pickupReassignment=%s", value)
 				}
 			}
 			for _, enabled := range []bool{false, true} {
 				config := Default()
-				config.StationBuffers, config.PickupReassignment = PolicyFlag(enabled), PolicyFlag(enabled)
+				config.PickupReassignment = PolicyFlag(enabled)
 				data, err := codec.marshal(config)
 				if err != nil {
 					t.Fatal(err)
 				}
-				for _, field := range []string{"stationBuffers", "pickupReassignment"} {
-					if bytes.Contains(data, []byte(field)) != enabled {
-						t.Fatalf("wrong optional field %s in export", field)
-					}
+				if bytes.Contains(data, []byte("pickupReassignment")) != enabled {
+					t.Fatal("wrong optional field pickupReassignment in export")
 				}
 				var restored Config
 				if err := codec.unmarshal(data, &restored); err != nil {
 					t.Fatal(err)
 				}
-				if bool(restored.StationBuffers) != enabled || bool(restored.PickupReassignment) != enabled {
+				if bool(restored.PickupReassignment) != enabled {
 					t.Fatal("project round trip changed experimental flags")
 				}
 				if err := Validate(restored); err != nil {
@@ -64,11 +60,8 @@ func TestConfigureExperiments(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	config.StationBuffers, config.PickupReassignment = true, true
+	config.PickupReassignment = true
 	ConfigureExperiments(simulation, config)
-	if !simulation.NeedsBufferState() {
-		t.Fatal("enabled buffers did not require version 3 state")
-	}
 	if err := simulation.RequestTrip("market", "garden"); err != nil {
 		t.Fatal(err)
 	}
@@ -76,11 +69,8 @@ func TestConfigureExperiments(t *testing.T) {
 		t.Fatal("enabled reassignment did not check a remote pickup")
 	}
 	simulation.Reset()
-	config.StationBuffers, config.PickupReassignment = false, false
+	config.PickupReassignment = false
 	ConfigureExperiments(simulation, config)
-	if simulation.NeedsBufferState() {
-		t.Fatal("disabled buffers retained enablement")
-	}
 	if err := simulation.RequestTrip("market", "garden"); err != nil {
 		t.Fatal(err)
 	}

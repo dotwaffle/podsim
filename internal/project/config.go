@@ -225,8 +225,6 @@ type Config struct {
 	SharedRideJoin sim.SharedRideJoin `json:"sharedRideJoin,omitempty"`
 	// OnboardPickups permits shared parties to join an occupied pod at a passenger berth.
 	OnboardPickups bool `json:"onboardPickups,omitzero"`
-	// StationBuffers enables experimental berthless station queues.
-	StationBuffers PolicyFlag `json:"stationBuffers,omitzero"`
 	// PickupReassignment enables experimental empty-pod pickup replacement.
 	PickupReassignment PolicyFlag `json:"pickupReassignment,omitzero"`
 	// PlatoonLimit is the largest number of pods in one virtual platoon,

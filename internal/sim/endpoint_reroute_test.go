@@ -2,7 +2,6 @@ package sim
 
 import (
 	"maps"
-	"math"
 	"reflect"
 	"slices"
 	"testing"
@@ -455,48 +454,6 @@ func TestEndpointRerouteOfFaultRecovery(t *testing.T) {
 	stepUntil(t, s, "the hold release", func() bool { return v.inService() })
 	if v.Pod.Activity != Idle || v.Pod.StationID != "s2" {
 		t.Fatalf("the recovery ends %s at %s", v.Pod.Activity, v.Pod.StationID)
-	}
-}
-
-// bufferBypassNetwork is stationBufferNetwork(Example(), 4) with a second
-// entry lane of Market, from the node bypass. Its speed limit makes it the
-// free route from the bypass.
-func bufferBypassNetwork() Network {
-	network := stationBufferNetwork(Example(), 4)
-	network.Lanes = append(network.Lanes, Lane{ID: "bypass-entry", From: "bypass", To: "market-entry", SpeedLimit: 20, StationID: "market", StationRole: StationEntryRole})
-	return network
-}
-
-// TestEndpointRerouteOfBufferedPod blocks the entry lane of a buffered
-// pod. The only route to the same entry ends with the other entry lane, so
-// the pod keeps its route and its buffer membership, and waits.
-func TestEndpointRerouteOfBufferedPod(t *testing.T) {
-	t.Parallel()
-	s, err := NewFleet(bufferBypassNetwork(), []Placement{{ID: "01", StationID: "harbor"}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	s.incidentContract = IncidentV1Contract
-	s.faultsOn = true
-	s.SetStationBuffers(true)
-	if err := s.RequestJourney("01", "market"); err != nil {
-		t.Fatal(err)
-	}
-	v := s.findVehicle("01")
-	stepUntil(t, s, "pod 01 is buffered", func() bool { return v.buffered })
-	if v.Route[len(v.Route)-1].ID != "bypass-entry" || v.Pod.Activity != Traveling {
-		t.Fatalf("the pod is not buffered on bypass-entry: buffered %t, route %v", v.buffered, v.Route)
-	}
-	checkFaultsEachTick(t, s)
-	route, bufferBerth := slices.Clone(v.Route), v.bufferBerth
-	length := s.graph.lengths[laneIndex(t, s, "bypass-entry")]
-	startDebris(t, s, "bypass-entry", math.Floor(length/2), math.Floor(length/2)+10, 0)
-	if !s.rerouteCandidate(v) {
-		t.Fatal("the buffered pod is not a reroute candidate")
-	}
-	s.Step()
-	if s.faultCounters.reroutes != 0 || !sameLanes(v.Route, route) || !v.buffered || v.bufferBerth != bufferBerth {
-		t.Fatalf("%d reroutes, route %v, buffered %t", s.faultCounters.reroutes, v.Route, v.buffered)
 	}
 }
 

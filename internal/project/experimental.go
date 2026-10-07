@@ -25,7 +25,6 @@ func (flag *PolicyFlag) UnmarshalJSON(data []byte) error {
 }
 
 // ConfigureExperiments applies the project's experimental controllers.
-// Disabling buffers keeps existing saved members draining.
 // It also turns the fault operations on, with the faults settings, for a
 // project with the fault marker, and off for every other project. It does
 // the same for the emergency operations and the emergency marker. It
@@ -33,7 +32,6 @@ func (flag *PolicyFlag) UnmarshalJSON(data []byte) error {
 // emergency is active, so a caller that changes the project makes a new
 // fleet first.
 func ConfigureExperiments(simulation *sim.Simulation, config Config) error {
-	simulation.SetStationBuffers(bool(config.StationBuffers))
 	simulation.SetPickupSwaps(bool(config.PickupReassignment))
 	if err := simulation.SetFaults(config.FaultContract != "", EffectiveFaultSettings(config)); err != nil {
 		return err

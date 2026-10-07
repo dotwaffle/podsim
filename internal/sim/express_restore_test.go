@@ -29,7 +29,6 @@ func checkExpressJourneyColdRestore(t *testing.T, live *Simulation, network Netw
 	}
 	warm := live.Clone()
 	for _, s := range []*Simulation{cold, warm} {
-		s.SetStationBuffers(false)
 		if err := s.SetPlatooning(PlatooningOff); err != nil {
 			t.Fatal(err)
 		}
@@ -214,27 +213,21 @@ func TestExpressRestoreContinuingAuthored(t *testing.T) {
 
 func TestExpressRestoreLinksRejectBeforeTiers(t *testing.T) {
 	for _, classes := range [][2]VehicleClass{{ExpressClass, CompactClass}, {CompactClass, ExpressClass}, {ExpressClass, GroupClass}, {GroupClass, ExpressClass}} {
-		for _, kind := range []string{"virtual", "buffer-v1"} {
-			for _, logical := range []bool{false, true} {
-				t.Run(string(classes[0])+"-"+string(classes[1])+"/"+kind+map[bool]string{false: "/physical", true: "/logical"}[logical], func(t *testing.T) {
-					n := expressNetwork(largeMotionNetwork(false))
-					fleet := []Placement{{ID: "01", Class: classes[0], StationID: "a", BerthID: "a-1"}, {ID: "02", Class: classes[1], StationID: "a", BerthID: "a-2"}}
-					s, err := NewFleetWithOrderContract(n, fleet, ExpressOrderContract)
-					if err != nil {
-						t.Fatal(err)
-					}
-					state := s.ExportState()
-					nativeKind := ""
-					if kind == "buffer-v1" {
-						nativeKind = "buffer"
-					}
-					state.Pods[1].Platoon = &SavedPlatoonLink{Leader: "01", Kind: nativeKind}
-					input := RestoreStateInput{OrderContract: ExpressOrderContract, Network: n, Fleet: fleet, State: state, LogicalOnly: logical}
-					if _, _, err := restoreState(input, func() (*Simulation, error) { t.Fatal("large link reached restore tier"); return nil, nil }); err == nil {
-						t.Fatal("large link accepted")
-					}
-				})
-			}
+		for _, logical := range []bool{false, true} {
+			t.Run(string(classes[0])+"-"+string(classes[1])+map[bool]string{false: "/physical", true: "/logical"}[logical], func(t *testing.T) {
+				n := expressNetwork(largeMotionNetwork(false))
+				fleet := []Placement{{ID: "01", Class: classes[0], StationID: "a", BerthID: "a-1"}, {ID: "02", Class: classes[1], StationID: "a", BerthID: "a-2"}}
+				s, err := NewFleetWithOrderContract(n, fleet, ExpressOrderContract)
+				if err != nil {
+					t.Fatal(err)
+				}
+				state := s.ExportState()
+				state.Pods[1].Platoon = &SavedPlatoonLink{Leader: "01"}
+				input := RestoreStateInput{OrderContract: ExpressOrderContract, Network: n, Fleet: fleet, State: state, LogicalOnly: logical}
+				if _, _, err := restoreState(input, func() (*Simulation, error) { t.Fatal("large link reached restore tier"); return nil, nil }); err == nil {
+					t.Fatal("large link accepted")
+				}
+			})
 		}
 	}
 }

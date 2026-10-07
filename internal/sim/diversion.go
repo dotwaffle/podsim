@@ -176,11 +176,7 @@ func (s *Simulation) sendPickupMatching(v *vehicle, stationID string, accept fun
 		if err != nil {
 			return err
 		}
-		if err := s.startEmptyMove(v, emptyDestination{station: stationID, berth: berth}); err != nil {
-			return err
-		}
-		s.bufferPickup(v)
-		return nil
+		return s.startEmptyMove(v, emptyDestination{station: stationID, berth: berth})
 	}
 	route, berth, ok := s.pickupRouteWithAssignments(pickupRouteInput{pod: v, station: stationID, accept: accept})
 	if !ok {
@@ -195,7 +191,6 @@ func (s *Simulation) sendPickupMatching(v *vehicle, stationID string, accept fun
 		}
 	}
 	s.redirect(v, redirection{route: route, berth: berth, station: station.ID})
-	s.bufferPickup(v)
 	v.released = false
 	return nil
 }

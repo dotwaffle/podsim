@@ -357,7 +357,6 @@ func partialYieldFixture(t *testing.T) (*Simulation, *vehicle) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s.SetStationBuffers(false)
 	if err := s.SetFinishingPodWait(FinishingPodWaitNone); err != nil {
 		t.Fatal(err)
 	}

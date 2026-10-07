@@ -340,6 +340,14 @@
       "replace": "\"version\":1,\"stationQueueSpacing\":\"ordinary\"",
       "duplicate": false,
       "valid": false
+    },
+    {
+      "name": "removed station buffers member",
+      "base": "express",
+      "find": "\"version\":1",
+      "replace": "\"version\":1,\"stationBuffers\":true",
+      "duplicate": false,
+      "valid": false
     }
   ]
 }

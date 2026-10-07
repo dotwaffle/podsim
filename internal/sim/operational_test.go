@@ -524,7 +524,7 @@ func TestBerthEvacuation(t *testing.T) {
 			}
 			want := Pod{ID: "01", Position: v.Pod.Position, Activity: Idle, StationID: station, BerthID: berth, StationPhase: AtBerth, ManeuverStationID: station}
 			if v.Pod != want || v.phaseTicks != 0 || v.blockIndex != 0 || v.distance != 0 || v.reservedThrough != -1 || v.pending != -1 ||
-				v.Stops != nil || v.op != (operationalDestination{}) || v.buffered || v.bufferBerth != "" || v.RelocatingTo != "" ||
+				v.Stops != nil || v.op != (operationalDestination{}) || v.RelocatingTo != "" ||
 				v.Rebalancing || v.released || v.origin != (Berth{}) || v.destination.ID != berth || v.destinationStation != station ||
 				v.Route != nil || v.blocks.len() != 0 || len(v.Riders) == 0 && (v.Riders != nil || v.Boardings != nil) || v.withdrawn != faultHold {
 				t.Fatalf("pod after evacuation: %+v", v)
@@ -547,18 +547,17 @@ func TestBerthEvacuation(t *testing.T) {
 
 // TestLaneEvacuation evacuates a stopped pod on a lane on each route shape
 // of section 9.5: a route that ends at the destination berth, a route
-// that ends at a station entry, and a buffered route that ends at a
-// station entry. Every active rider is interrupted. The pod continues as
-// an empty recovery, reaches a berth, and becomes idle. The purpose clears
-// at the arrival, and the fault hold stays.
+// that ends at a station entry. Every active rider is interrupted. The
+// pod continues as an empty recovery, reaches a berth, and becomes idle.
+// The purpose clears at the arrival, and the fault hold stays.
 func TestLaneEvacuation(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name string
 		// prepare returns a simulation with pod 01 stopped on a lane with
 		// riders, and a function that lets it arrive.
-		prepare            func(t *testing.T) (*Simulation, func())
-		berthEnd, buffered bool
+		prepare  func(t *testing.T) (*Simulation, func())
+		berthEnd bool
 	}{
 		{name: "berth end", berthEnd: true, prepare: func(t *testing.T) (*Simulation, func()) {
 			t.Helper()
@@ -574,34 +573,14 @@ func TestLaneEvacuation(t *testing.T) {
 			travelOn(t, s, v, "s0-link")
 			return s, func() {}
 		}},
-		{name: "buffered entry end", buffered: true, prepare: func(t *testing.T) (*Simulation, func()) {
-			t.Helper()
-			s, err := NewFleet(stationBufferNetwork(Example(), 4), []Placement{{ID: "01", StationID: "harbor"}, {ID: "02", StationID: "garden"}})
-			if err != nil {
-				t.Fatal(err)
-			}
-			s.incidentContract = IncidentV1Contract
-			s.SetStationBuffers(true)
-			if err := s.RequestJourney("01", "market"); err != nil {
-				t.Fatal(err)
-			}
-			barrier := resource{kind: berthResource, id: "market-1"}
-			s.owners[barrier] = podResourceOwner("external")
-			stepUntil(t, s, "passenger head at frontier", func() bool {
-				v := s.findVehicle("01")
-				plan, ok := s.bufferPlan(v)
-				return ok && v.Pod.Speed == 0 && v.distance == v.blocks.end(plan.frontier)
-			})
-			return s, func() { delete(s.owners, barrier) }
-		}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			s, release := test.prepare(t)
 			v := s.findVehicle("01")
-			if (v.destination.ID != "") != test.berthEnd || v.buffered != test.buffered {
-				t.Fatalf("destination %q, buffered %t", v.destination.ID, v.buffered)
+			if (v.destination.ID != "") != test.berthEnd {
+				t.Fatalf("destination %q", v.destination.ID)
 			}
 			if err := s.withdrawService(v, faultHold); err != nil {
 				t.Fatal(err)
@@ -616,7 +595,7 @@ func TestLaneEvacuation(t *testing.T) {
 			checkNow(t, s)
 			if s.interrupted != aboard || v.RidersAboard() != 0 || v.Pod.Occupied || v.Stops != nil || v.RelocatingTo != station ||
 				v.op != (operationalDestination{purpose: opEmptyRecovery, owner: faultHold}) ||
-				v.distance != distance || !slices.Equal(v.Route, route) || v.buffered != test.buffered {
+				v.distance != distance || !slices.Equal(v.Route, route) {
 				t.Fatalf("pod after evacuation: %+v", v)
 			}
 			release()
@@ -634,32 +613,14 @@ func TestLaneEvacuation(t *testing.T) {
 }
 
 // TestLaneEvacuationRestore checks that the physical tier keeps an empty
-// recovery on each route shape of section 9.5, with its buffer membership,
-// and that the logical tier clears the purpose and keeps the hold.
+// recovery on each route shape of section 9.5, and that the logical tier
+// clears the purpose and keeps the hold.
 func TestLaneEvacuationRestore(t *testing.T) {
 	t.Parallel()
-	for _, lane := range []string{"s1-link", "s0-link", ""} {
+	for _, lane := range []string{"s1-link", "s0-link"} {
 		s := incidentLegFleet(t)
-		var v *vehicle
-		if lane != "" {
-			v = boardParties(t, s, "s2", "s2")
-			travelOn(t, s, v, lane)
-		} else {
-			var err error
-			s, err = NewFleet(stationBufferNetwork(Example(), 4), []Placement{{ID: "01", StationID: "harbor"}, {ID: "02", StationID: "garden"}})
-			if err != nil {
-				t.Fatal(err)
-			}
-			s.incidentContract = IncidentV1Contract
-			s.SetStationBuffers(true)
-			if err := s.RequestJourney("01", "market"); err != nil {
-				t.Fatal(err)
-			}
-			s.owners[resource{kind: berthResource, id: "market-1"}] = podResourceOwner("external")
-			v = s.findVehicle("01")
-			stepUntil(t, s, "buffered head", func() bool { return v.buffered && v.Pod.Speed == 0 })
-			delete(s.owners, resource{kind: berthResource, id: "market-1"})
-		}
+		v := boardParties(t, s, "s2", "s2")
+		travelOn(t, s, v, lane)
 		if err := s.withdrawService(v, faultHold); err != nil {
 			t.Fatal(err)
 		}
@@ -673,8 +634,8 @@ func TestLaneEvacuationRestore(t *testing.T) {
 		if err != nil || !cleanRestore(result) || !reflect.DeepEqual(restored.ExportState(), state) {
 			t.Fatalf("%q: physical restore %v, %+v", lane, err, result)
 		}
-		if got := restored.findVehicle("01"); got.op != v.op || got.buffered != v.buffered {
-			t.Fatalf("%q: restored purpose %+v, buffered %t", lane, got.op, got.buffered)
+		if got := restored.findVehicle("01"); got.op != v.op {
+			t.Fatalf("%q: restored purpose %+v", lane, got.op)
 		}
 		input.LogicalOnly = true
 		restored, _, err = RestoreState(input)
@@ -783,10 +744,10 @@ func TestResumeFromRefuge(t *testing.T) {
 }
 
 // TestStartOperationalUnload starts an emergency unload at the berth of a
-// boarding pod with a grant, a continuing pod, and an unloading pod, each
-// with buffer flags where the phase allows them. The pod gets the arrival
-// fields of section 9.3, keeps only its berth after the release boundary,
-// and the unload ends with the outcomes of section 9.5.
+// boarding pod with a grant, a continuing pod, and an unloading pod. The
+// pod gets the arrival fields of section 9.3, keeps only its berth after
+// the release boundary, and the unload ends with the outcomes of section
+// 9.5.
 func TestStartOperationalUnload(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -802,7 +763,6 @@ func TestStartOperationalUnload(t *testing.T) {
 				t.Fatal("the boarding pod has no grant")
 			}
 			v.phaseTicks = boardingTicks / 2
-			v.buffered, v.bufferBerth = true, "s2-1"
 		}},
 		{name: "continuing", phase: unloadingTicks, prepare: func(t *testing.T, s *Simulation, v *vehicle) {
 			t.Helper()
@@ -814,7 +774,6 @@ func TestStartOperationalUnload(t *testing.T) {
 			if v.Pod.Activity != Continuing || v.reservedThrough < 0 {
 				t.Fatal("the pod does not continue with a grant")
 			}
-			v.buffered, v.bufferBerth = true, "s2-1"
 		}},
 		{name: "unloading", phase: 7, prepare: func(t *testing.T, s *Simulation, v *vehicle) {
 			t.Helper()
@@ -841,7 +800,7 @@ func TestStartOperationalUnload(t *testing.T) {
 			}
 			checkNow(t, s)
 			if v.Pod.Activity != Unloading || !v.Pod.Occupied || v.Pod.StationPhase != AtBerth || v.destination.ID != berth ||
-				v.destinationStation != station || v.buffered || v.bufferBerth != "" || v.reservedThrough != -1 || v.pending != -1 ||
+				v.destinationStation != station || v.reservedThrough != -1 || v.pending != -1 ||
 				slices.Contains(v.Stops, station) || v.phaseTicks != test.phase || v.op.purpose != opEmergencyUnload {
 				t.Fatalf("pod after the start: %+v", v)
 			}
@@ -1242,7 +1201,6 @@ func TestOperationalPhaseMutations(t *testing.T) {
 			if phase == phaseTravelingOccupied {
 				add("no stops", func(_ *SavedState, pod *SavedPod) { pod.Stops = nil })
 				add("a stop for no rider", func(_ *SavedState, pod *SavedPod) { pod.Stops = append(pod.Stops, "p") })
-				add("a station buffer", func(_ *SavedState, pod *SavedPod) { pod.StationBuffered, pod.Destination = true, "" })
 			}
 		case opRefuge:
 			add("refuge at a stop", func(_ *SavedState, pod *SavedPod) { pod.Stops = append(pod.Stops, pod.DestinationStation) })
@@ -1417,7 +1375,7 @@ func TestArrivePurposes(t *testing.T) {
 		s.arrive(v)
 		checkNow(t, s)
 		if v.Pod.Activity != Unloading || !v.Pod.Occupied || v.phaseTicks != unloadingTicks || v.Pod.StationID != "s1" || v.Pod.BerthID != "s1-2" ||
-			!slices.Equal(v.Stops, []string{"s2"}) || v.RelocatingTo != "" || v.buffered ||
+			!slices.Equal(v.Stops, []string{"s2"}) || v.RelocatingTo != "" ||
 			v.op != (operationalDestination{purpose: opEmergencyUnload, owner: emergencyHold, interrupt: 1}) || v.RidersAboard() != 2 {
 			t.Fatalf("pod after arrive: %+v", v)
 		}

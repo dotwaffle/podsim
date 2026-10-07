@@ -134,12 +134,6 @@ func (s *Simulation) swapEligible(v *vehicle, trip *waitingTrip) bool {
 		v.RelocatingTo != trip.request.legOrigin() || v.destinationStation != trip.request.legOrigin() {
 		return false
 	}
-	if v.buffered {
-		plan, ok := s.bufferPlan(v)
-		if !ok || v.reservedThrough >= plan.first {
-			return false
-		}
-	}
 	_, _, ok := s.divertStart(v)
 	return ok
 }
@@ -163,7 +157,7 @@ func (s *Simulation) tryPickupSwap(i, j int) bool {
 		c.stats.RouteFailures++
 		return false
 	}
-	oldA, oldB := s.assignedPickupSeconds(a), s.assignedPickupSeconds(b)
+	oldA, oldB := s.pickupSeconds(a, a.Route), s.pickupSeconds(b, b.Route)
 	newA, newB := s.pickupSeconds(a, routeA), s.pickupSeconds(b, routeB)
 	if !pickupSwapImproves(oldA, oldB, newA, newB) {
 		c.stats.NoBenefitPairs++
@@ -175,8 +169,6 @@ func (s *Simulation) tryPickupSwap(i, j int) bool {
 	// reserved lanes, and unused destination claims are released normally.
 	s.redirectPickupSwap(a, redirection{route: routeA, berth: berthA, station: s.waiting[j].request.legOrigin()})
 	s.redirectPickupSwap(b, redirection{route: routeB, berth: berthB, station: s.waiting[i].request.legOrigin()})
-	s.bufferPickup(a)
-	s.bufferPickup(b)
 	assignPickup(&s.waiting[i], b)
 	assignPickup(&s.waiting[j], a)
 	for _, index := range []int{i, j} {

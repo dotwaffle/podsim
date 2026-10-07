@@ -448,7 +448,7 @@ func decodeStateJSON(raw []byte, markers contractMarkers) (stateFile, error) {
 		return err
 	}
 	options := json.JoinOptions(strictStateOptions, json.WithUnmarshalers(json.JoinUnmarshalers(
-		json.UnmarshalFromFunc(decodeSavedProject), json.UnmarshalFromFunc(decodePlatoon),
+		json.UnmarshalFromFunc(decodeSavedProject),
 		json.UnmarshalFromFunc(decodePod), json.UnmarshalFromFunc(refs.decodeTrip), json.UnmarshalFromFunc(decodeSavedFault),
 		json.UnmarshalFromFunc(decodeSavedEmergency))))
 	var file stateFile
@@ -486,62 +486,6 @@ func (file *stateFile) validateProjectVersion() error {
 	if file.Project.Version != project.CurrentVersion {
 		return fmt.Errorf("saved project version %d is not supported", file.Project.Version)
 	}
-	return nil
-}
-
-type savedPlatoonFields sim.SavedPlatoonLink
-
-// decodePlatoonFields retains field presence, including explicit empty and null values.
-func decodePlatoonFields(decoder *jsontext.Decoder) (sim.SavedPlatoonLink, jsontext.Value, jsontext.Value, error) {
-	var saved struct {
-		savedPlatoonFields
-		Kind     jsontext.Value `json:"kind"`
-		Terminal jsontext.Value `json:"terminalCell"`
-	}
-	value, err := decoder.ReadValue()
-	if err != nil {
-		return sim.SavedPlatoonLink{}, nil, nil, err
-	}
-	if err := json.Unmarshal(value, &saved, json.RejectUnknownMembers(true)); err != nil {
-		return sim.SavedPlatoonLink{}, nil, nil, err
-	}
-	return sim.SavedPlatoonLink(saved.savedPlatoonFields), saved.Kind, saved.Terminal, nil
-}
-
-func decodePlatoon(decoder *jsontext.Decoder, link *sim.SavedPlatoonLink) error {
-	saved, kind, terminal, err := decodePlatoonFields(decoder)
-	if err != nil {
-		return err
-	}
-	if kind != nil {
-		if bytes.Equal(bytes.TrimSpace(kind), []byte("null")) {
-			return errors.New("platoon kind is null")
-		}
-		if err := json.Unmarshal(kind, &saved.Kind); err != nil {
-			return err
-		}
-	}
-	switch saved.Kind {
-	case "":
-		if terminal != nil {
-			return errors.New("complete-lane platoon contains terminalCell")
-		}
-	case "buffer":
-		if terminal == nil || bytes.Equal(bytes.TrimSpace(terminal), []byte("null")) || saved.Lanes != 1 {
-			return errors.New("buffer platoon has no integer terminalCell or is not one lane")
-		}
-		var cell int
-		if err := json.Unmarshal(terminal, &cell); err != nil {
-			return err
-		}
-		if cell < 0 {
-			return errors.New("buffer platoon terminalCell is negative")
-		}
-		saved.TerminalCell = new(cell)
-	default:
-		return errors.New("unknown platoon kind")
-	}
-	*link = saved
 	return nil
 }
 

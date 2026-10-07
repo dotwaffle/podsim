@@ -168,8 +168,7 @@ func decodeBoardingPodContract(decoder *jsontext.Decoder, pod *sim.SavedPod, con
 	var wire boardingWirePod
 	// The decode of value does not inherit the options of the state
 	// decoder, so it registers the packed rider decoder itself.
-	options := json.JoinOptions(json.RejectUnknownMembers(true), json.WithUnmarshalers(json.JoinUnmarshalers(
-		json.UnmarshalFromFunc(decodePlatoon), json.UnmarshalFromFunc(decodeRider))))
+	options := json.JoinOptions(json.RejectUnknownMembers(true), json.WithUnmarshalers(json.UnmarshalFromFunc(decodeRider)))
 	if err := json.Unmarshal(value, &wire, options); err != nil {
 		return savedPodRefs{}, err
 	}

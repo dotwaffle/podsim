@@ -154,51 +154,40 @@ func TestExpressMotionFollowingAndMerge(t *testing.T) {
 	skipLong(t)
 	for _, classes := range [][2]VehicleClass{{ExpressClass, LegacyClass}, {LegacyClass, ExpressClass}, {ExpressClass, CompactClass}, {CompactClass, ExpressClass}, {ExpressClass, GroupClass}, {GroupClass, ExpressClass}, {ExpressClass, ExpressClass}} {
 		for _, curved := range []bool{false, true} {
-			for _, buffers := range []bool{false, true} {
-				t.Run(fmt.Sprintf("%s-%s/curve%t/buffer%t", classes[0], classes[1], curved, buffers), func(t *testing.T) {
-					t.Parallel()
-					fleet := []Placement{{ID: "lead", Class: classes[0], StationID: "a", BerthID: "a-1"}, {ID: "follow", Class: classes[1], StationID: "a", BerthID: "a-2"}}
-					if buffers {
-						fleet = append(fleet, Placement{ID: "block-one", Class: GroupClass, StationID: "b", BerthID: "b-1"}, Placement{ID: "block-two", Class: CompactClass, StationID: "b", BerthID: "b-2"})
+			t.Run(fmt.Sprintf("%s-%s/curve%t", classes[0], classes[1], curved), func(t *testing.T) {
+				t.Parallel()
+				fleet := []Placement{{ID: "lead", Class: classes[0], StationID: "a", BerthID: "a-1"}, {ID: "follow", Class: classes[1], StationID: "a", BerthID: "a-2"}}
+				s, err := expressPhysicalFleet(largeMotionNetwork(curved), fleet)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := s.SetPlatooning(PlatooningVirtual); err != nil {
+					t.Fatal(err)
+				}
+				expressMotionRequest(t, s, "lead", "b")
+				gap := math.Inf(1)
+				sawFollowing := false
+				for steps := range 600 * 60 {
+					if steps == 2*60 {
+						expressMotionRequest(t, s, "follow", "b")
 					}
-					s, err := expressPhysicalFleet(largeMotionNetwork(curved), fleet)
-					if err != nil {
-						t.Fatal(err)
+					before := largeMotionPods(s)
+					s.Step()
+					gap = min(gap, checkExpressMotionTick(t, s, before))
+					lead, follow := s.findVehicle("lead"), s.findVehicle("follow")
+					if lead.Pod.LaneID == "a-link" && follow.Pod.LaneID == "a-link" && lead.Pod.LaneDistance > follow.Pod.LaneDistance {
+						sawFollowing = true
 					}
-					s.SetStationBuffers(buffers)
-					if err := s.SetPlatooning(PlatooningVirtual); err != nil {
-						t.Fatal(err)
+					if s.completed == 2 && s.tick > 2*60 {
+						break
 					}
-					expressMotionRequest(t, s, "lead", "b")
-					gap := math.Inf(1)
-					sawFollowing, sawHolding := false, false
-					for steps := range 600 * 60 {
-						if steps == 2*60 {
-							expressMotionRequest(t, s, "follow", "b")
-						}
-						before := largeMotionPods(s)
-						s.Step()
-						gap = min(gap, checkExpressMotionTick(t, s, before))
-						lead, follow := s.findVehicle("lead"), s.findVehicle("follow")
-						if lead.Pod.LaneID == "a-link" && follow.Pod.LaneID == "a-link" && lead.Pod.LaneDistance > follow.Pod.LaneDistance {
-							sawFollowing = true
-						}
-						for _, v := range []*vehicle{lead, follow} {
-							if v.buffered && v.Pod.Activity == Traveling && v.Pod.Speed == 0 && v.destination.ID == "" {
-								sawHolding = true
-							}
-						}
-						if s.completed == 2 && s.tick > 2*60 {
-							break
-						}
-					}
-					if s.completed != 2 || s.boarded != 2 || s.unaccountedOrders != 0 || !sawFollowing || buffers && !sawHolding {
-						t.Fatalf("journey evidence incomplete: completed%d boarded%d following%t holding%t", s.completed, s.boarded, sawFollowing, sawHolding)
-					}
-					expressEvidence(t, "final-state", s.ExportState())
-					t.Logf("ticks%d minimum large gap%.6f", s.tick, gap)
-				})
-			}
+				}
+				if s.completed != 2 || s.boarded != 2 || s.unaccountedOrders != 0 || !sawFollowing {
+					t.Fatalf("journey evidence incomplete: completed%d boarded%d following%t", s.completed, s.boarded, sawFollowing)
+				}
+				expressEvidence(t, "final-state", s.ExportState())
+				t.Logf("ticks%d minimum large gap%.6f", s.tick, gap)
+			})
 		}
 	}
 }

@@ -245,9 +245,6 @@ type Placement struct {
 }
 
 type vehicle struct {
-	// buffered keeps pending buffer admissions until berth commitment.
-	buffered     bool
-	bufferBerth  string
 	routeVersion uint64
 	stationPhase stationPhaseCheck
 	Vehicle
@@ -398,7 +395,6 @@ type Simulation struct {
 	seatScreen                  SeatScreen
 	routingPolicy               RoutingPolicy
 	finishingPodWait            FinishingPodWait
-	stationBuffers              bool
 	pickupSwaps                 *pickupSwapController
 	congestionRouteCosts        []float64
 	congestionRoutes            map[routeKey]routeResult
@@ -845,7 +841,6 @@ func (s *Simulation) Step() {
 }
 
 func (s *Simulation) arrive(v *vehicle) {
-	v.buffered, v.bufferBerth = false, ""
 	station, _ := s.station(v.destinationStation)
 	berth := v.destination
 	node, _ := s.network.Node(berth.Node)

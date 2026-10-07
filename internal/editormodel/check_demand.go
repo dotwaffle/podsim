@@ -216,7 +216,6 @@ func checkSettings(value any, errors *checkList) {
 		errors.add(fmt.Sprintf("The platoon limit must be %d to %d, or 0 for no platoons.", sim.MinPlatoonLimit, sim.MaxPlatoonLimit), nil)
 	}
 	for _, setting := range []struct{ key, message string }{
-		{"stationBuffers", "The station buffer setting must be true or false."},
 		{"pickupReassignment", "The pickup reassignment setting must be true or false."},
 	} {
 		if has(value, setting.key) {

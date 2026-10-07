@@ -175,7 +175,7 @@ func TestRawProjectRules(t *testing.T) {
 		{"current version new class", strings.Replace(base, `"id":"01"`, `"id":"01","class":"compact"`, 1), true},
 		{"null station classes", strings.Replace(base, `"name":"Harbor"`, `"name":"Harbor","vehicleClasses":null`, 1), false},
 		{"null registry", add(`"expressServices":null`), false},
-		{"null buffers", add(`"stationBuffers":null`), false},
+		{"removed station buffers", add(`"stationBuffers":false`), false},
 		{"null onboard pickups", add(`"onboardPickups":null`), false},
 		{"optional null", add(`"geo":null`), true},
 		{"trailing value", base + " {}", false},

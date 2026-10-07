@@ -206,7 +206,7 @@ func TestPlannedRiderDetourActualClassContinuation(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			s, err := New(continuationNetwork(t, false), "harbor")
+			s, err := New(continuationNetwork(t), "harbor")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -232,7 +232,7 @@ func TestPlannedRiderDetourActualClassContinuation(t *testing.T) {
 
 func TestPlannedRiderDetourConservativeBerths(t *testing.T) {
 	t.Parallel()
-	network := continuationNetwork(t, false)
+	network := continuationNetwork(t)
 	for index := range network.Nodes {
 		if network.Nodes[index].ID == "garden-berth-2" {
 			network.Nodes[index].Position.Y = -800

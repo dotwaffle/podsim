@@ -205,8 +205,6 @@ func checkPodOperational(pod SavedPod, phase podPhase) error {
 		purpose == opRefuge && phase != phaseTravelingOccupied && phase != phaseRefugeHolding,
 		purpose == opEmptyRecovery && phase != phaseTravelingEmpty && phase != phaseDepartingEmpty:
 		return fmt.Errorf("operational purpose %d does not agree with activity %s", purpose, pod.Activity)
-	case purpose != opEmptyRecovery && pod.StationBuffered:
-		return errors.New("a pod with riders and an operational purpose is in a station buffer")
 	case purpose == opRefuge && slices.Contains(pod.Stops, pod.DestinationStation):
 		return errors.New("the refuge is a stop of the riders")
 	case purpose == opEmptyRecovery && (pod.Rebalancing || pod.Released):
@@ -398,9 +396,6 @@ func checkPodFlags(pod SavedPod, rule phaseRule) error {
 	// release, so the contract does not check it.
 	relocation := pod.RelocatingTo != "" || pod.Rebalancing || pod.ClaimsDestination
 	switch {
-	case pod.StationBuffered && (pod.Destination != "" || pod.Rebalancing ||
-		pod.Activity != "traveling" && pod.Activity != "boarding" && pod.Activity != "continuing" && pod.Activity != "departing"):
-		return errors.New("the station buffer flag does not agree with the phase")
 	case pod.Occupied != rule.occupied:
 		return fmt.Errorf("occupied is %t", pod.Occupied)
 	case pod.PhaseTicks < rule.minPhase || pod.PhaseTicks > rule.maxPhase:
@@ -437,7 +432,7 @@ func checkPodPlace(pod SavedPod, rule phaseRule) error {
 		return errors.New("the journey has no origin")
 	case rule.atDestination && (pod.Destination != pod.BerthID || pod.DestinationStation != pod.StationID):
 		return errors.New("the unloading pod is not at its destination")
-	case rule.hasDestination && pod.Destination == "" && !pod.StationBuffered:
+	case rule.hasDestination && pod.Destination == "":
 		return errors.New("the pod has no destination berth")
 	default:
 		return nil

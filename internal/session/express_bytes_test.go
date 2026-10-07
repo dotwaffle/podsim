@@ -68,7 +68,7 @@ func widestSavedBase(t *testing.T) stateFile {
 		ID: id("p", 0), Class: sim.LegacyClass, Activity: "continuing", StationID: id("s", 0), BerthID: id("b", 0),
 		Occupied: true, Riders: riders, Stops: stops, RiddenMeters: -math.MaxFloat64, JourneyOrigin: id("j", 0), RelocatingTo: id("r", 0),
 		Rebalancing: true, RebalanceAfter: widest, PhaseTicks: widest, Origin: id("o", 0),
-		Destination: id("d", 0), DestinationStation: id("e", 0), ClaimsDestination: true, Released: true, StationBuffered: true,
+		Destination: id("d", 0), DestinationStation: id("e", 0), ClaimsDestination: true, Released: true,
 		Route: route(lanes + nodes), RouteIndex: widest, LaneID: id("l", 0),
 		LaneDistance: -math.MaxFloat64, Distance: -math.MaxFloat64, Waiting: true, WaitSince: widest,
 		Platoon: &sim.SavedPlatoonLink{

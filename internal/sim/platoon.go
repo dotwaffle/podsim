@@ -66,10 +66,6 @@ const (
 // pod that the follower can come close to is on the run, and the zero value
 // is no link.
 type platoonLink struct {
-	// buffer fixes the stopping frontier to terminalCell on one entry lane.
-	buffer       bool
-	terminalCell int
-	first        int
 	// leader is one plus the index in Simulation.vehicles of the
 	// predecessor, or 0 when the pod has no predecessor.
 	leader int
@@ -146,15 +142,9 @@ func linkClearance(turn float64) float64 {
 func linkEnds(blocks *blockList, link platoonLink) (geometry float64, end int) {
 	last := link.lane + link.lanes - 1
 	terminal := blocks.laneFirst(last+1) - 1
-	if link.buffer {
-		terminal = blocks.laneFirst(last) + link.terminalCell
-	}
 	geometry = blocks.cellEnd(last, terminal-blocks.laneFirst(last))
 	lane := last
 	first := blocks.laneFirst(link.lane)
-	if link.buffer {
-		first = link.first
-	}
 	for index := terminal; index >= first; index-- {
 		for index < blocks.laneFirst(lane) {
 			lane--
@@ -266,9 +256,6 @@ func (s *Simulation) releaseRouteResource(v *vehicle, r resource) {
 // the same blocks. A link that drains has no linked grants.
 func (s *Simulation) linkedSpan(v *vehicle, from, through int) bool {
 	if s.platooning == PlatooningOff || v.link.draining || through > v.link.end || from < v.blocks.laneFirst(v.link.lane) {
-		return false
-	}
-	if v.link.buffer && from < v.link.first {
 		return false
 	}
 	leader := &s.vehicles[v.link.leader-1]
@@ -413,9 +400,6 @@ func (s *Simulation) lanePredecessors() []int {
 func (s *Simulation) maintainLink(i, ahead int) {
 	v := &s.vehicles[i]
 	leader := &s.vehicles[v.link.leader-1]
-	if v.link.buffer && !s.stationBuffers {
-		v.link.draining = true
-	}
 	// A link with an emergency pod at either end drains on each tick and
 	// does not grow, so the pod leaves the platoon at the end of the run
 	// (section 5.6 of the incident emergency contract). The rule keeps no
@@ -454,9 +438,6 @@ func (s *Simulation) unlink(v *vehicle) {
 // of the link do not change. When the end block moves, the link stops
 // draining.
 func (s *Simulation) extendLink(v, leader *vehicle) {
-	if v.link.buffer {
-		return
-	}
 	for v.link.end >= 0 && v.reservedThrough >= v.blocks.laneFirst(v.blocks.routeLane(v.link.end)) {
 		lane, leaderLane := v.link.lane+v.link.lanes, v.link.leaderLane+v.link.lanes
 		if !s.sharedLane(v, leader, lane, leaderLane) {
@@ -506,10 +487,9 @@ func (s *Simulation) canLink(v *vehicle) bool {
 // different turns do not join. Then planLink must accept the pair. The
 // pods must also be in one queue: the path distance between them must be
 // at most the link clearance plus the stopping distance at the speed
-// limit. Inside a fixed entry buffer, one holding-cell pitch also qualifies.
-// A faulted pod is not a leader or a follower, and the run of a link has no
-// lane that a fault blocks. An emergency pod is not a leader or a follower
-// either.
+// limit. A faulted pod is not a leader or a follower, and the run of a
+// link has no lane that a fault blocks. An emergency pod is not a leader
+// or a follower either.
 func (s *Simulation) tryLink(i, ahead int) {
 	v, leader := &s.vehicles[i], &s.vehicles[ahead]
 	if s.emergencyOf(v) >= 0 || s.emergencyOf(leader) >= 0 {
@@ -546,7 +526,7 @@ func (s *Simulation) tryLink(i, ahead int) {
 	if ok && s.routeBlocked(v.Route[link.lane:link.lane+link.lanes]) {
 		return
 	}
-	if ok && leaderPosition(v, leader, link)-v.distance <= max(link.clearance+stoppingDistance(limit), s.bufferRecruitmentDistance(v, leader, link)) {
+	if ok && leaderPosition(v, leader, link)-v.distance <= link.clearance+stoppingDistance(limit) {
 		s.link(i, ahead, link)
 	}
 }
@@ -617,14 +597,15 @@ func (plan linkPlan) turnBound() float64 {
 // the run. The follower must be able to reserve at least one more block as
 // a platoon member before the end block. The path distance between the
 // pods and between their stop points must be at least the clearance, so
-// the cap of the follower is not behind its stop point.
+// the cap of the follower is not behind its stop point. A run does not
+// start on a station entry lane.
 func (s *Simulation) planLink(plan linkPlan) (platoonLink, bool) {
 	v, leader := plan.v, plan.leader
 	if largeVehicleClass(v.Pod.Class) || largeVehicleClass(leader.Pod.Class) {
 		return platoonLink{}, false
 	}
 	if v.Route[plan.lane].StationRole == StationEntryRole {
-		return s.planBufferLink(plan)
+		return platoonLink{}, false
 	}
 	shapes := s.platoonIndexes().shapes
 	link := platoonLink{lane: plan.lane, leaderLane: plan.leaderLane}
@@ -698,10 +679,6 @@ func (s *Simulation) platoonCaps() {
 		limit := leaderPosition(v, leader, v.link) + stoppingDistance(leader.Pod.Speed) - v.link.clearance
 		own := v.distance + stoppingDistance(v.Pod.Speed)
 		v.platoonCap = max(min(own, limit), limit-v.Pod.Speed*platoonReactionSeconds)
-		if v.link.buffer {
-			geometry, _ := linkEnds(&v.blocks, v.link)
-			v.platoonCap = min(v.platoonCap, geometry)
-		}
 	}
 }
 

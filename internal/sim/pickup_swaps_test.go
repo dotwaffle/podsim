@@ -135,7 +135,6 @@ func TestPickupSwapRejectsIncompatibleAssignments(t *testing.T) {
 		{name: "active rider", edit: func(s *Simulation) { s.vehicles[0].Riders = []Request{{PartySize: 1}} }},
 		{name: "released", edit: func(s *Simulation) { s.vehicles[0].released = true }},
 		{name: "rebalancing", edit: func(s *Simulation) { s.vehicles[0].Rebalancing = true }},
-		{name: "buffer member", edit: func(s *Simulation) { s.vehicles[0].buffered = true }},
 		{name: "platoon leader", edit: func(s *Simulation) { s.vehicles[0].follower = 2 }},
 		{name: "platoon follower", edit: func(s *Simulation) { s.vehicles[1].link.leader = 1 }},
 		{name: "committed inlet", edit: func(s *Simulation) { s.vehicles[0].reservedThrough = s.vehicles[0].blocks.len() - 1 }},

@@ -14,23 +14,17 @@ func TestAdmissionWorkMatchesOriginalTicks(t *testing.T) {
 	t.Parallel()
 	skipLong(t)
 	for _, tc := range []struct {
-		name              string
-		buffers, platoons bool
+		name     string
+		platoons bool
 	}{
-		{name: "ordinary"}, {name: "buffers", buffers: true},
-		{name: "platoons", platoons: true}, {name: "buffers and platoons", buffers: true, platoons: true},
+		{name: "ordinary"}, {name: "platoons", platoons: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			network := Example()
-			if tc.buffers {
-				network = stationBufferNetwork(twoBerthMarket(), 4)
-			}
-			got, err := NewFleet(network, []Placement{{ID: "01", StationID: "harbor"}, {ID: "02", StationID: "garden"}})
+			got, err := NewFleet(Example(), []Placement{{ID: "01", StationID: "harbor"}, {ID: "02", StationID: "garden"}})
 			if err != nil {
 				t.Fatal(err)
 			}
-			got.SetStationBuffers(tc.buffers)
 			if tc.platoons {
 				if err := got.SetPlatooning(PlatooningVirtual); err != nil {
 					t.Fatal(err)
@@ -65,7 +59,7 @@ func TestAdmissionWorkMatchesOriginalTicks(t *testing.T) {
 	}
 }
 
-func TestAdmissionWorkMatchesTerminalAndBufferGrants(t *testing.T) {
+func TestAdmissionWorkMatchesTerminalGrants(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
 		name      string
@@ -81,7 +75,6 @@ func TestAdmissionWorkMatchesTerminalAndBufferGrants(t *testing.T) {
 			positionBeforeTerminalInlet(t, terminalInletPosition{simulation: s, vehicle: s.findVehicle("01")})
 			return s
 		}, wantBerth: "market-2"},
-		{name: "recursive buffer head", make: bufferedHeadWithPickup, wantBerth: "market-1"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -90,7 +83,7 @@ func TestAdmissionWorkMatchesTerminalAndBufferGrants(t *testing.T) {
 			got.admit()
 			want.admitBeforeWork()
 			if !sameState(got, want) {
-				t.Fatal("terminal or recursive grant diverged")
+				t.Fatal("terminal grant diverged")
 			}
 			if got.findVehicle("01").destination.ID != tc.wantBerth {
 				t.Fatal("fixture did not commit the expected berth")

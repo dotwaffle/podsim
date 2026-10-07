@@ -228,41 +228,6 @@ func TestBankIndependentGatesAndSharedMerge(t *testing.T) {
 	}
 }
 
-func TestBankBufferKeepsItsGateAndBlocker(t *testing.T) {
-	n := BankExample()
-	for i := range n.Nodes {
-		id := n.Nodes[i].ID
-		if strings.HasPrefix(id, "bank-") || strings.HasSuffix(id, "-departure") || id == "merge" || id == "east" {
-			n.Nodes[i].Position.X += 500
-		}
-	}
-	s, err := NewFleet(n, []Placement{{ID: "pod", StationID: "origin"}, {ID: "occupied-a", StationID: "hub", BerthID: "bank-a-1"}, {ID: "occupied-b", StationID: "hub", BerthID: "bank-b-1"}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	s.SetStationBuffers(true)
-	v := s.findVehicle("pod")
-	v.destinationStation = "hub"
-	route, err := s.route("origin-berth", "bank-b-entry")
-	if err != nil {
-		t.Fatal(err)
-	}
-	s.setVehicleRoute(v, route)
-	v.Pod.Activity = Traveling
-	plan, ok := s.bufferPlan(v)
-	if !ok {
-		t.Fatal("long independent approach has no buffer")
-	}
-	v.buffered = true
-	s.grantBufferedHead(intent{index: slices.IndexFunc(s.vehicles, func(v vehicle) bool { return v.Pod.ID == "pod" })}, plan)
-	if v.bufferBerth != "bank-b-1" || v.Pod.BlockedBy != "occupied-b" {
-		t.Fatalf("buffer used another bank: %s %s", v.bufferBerth, v.Pod.BlockedBy)
-	}
-	if _, err := s.stationPath("bank-b-entry", "bank-a-berth"); err == nil {
-		t.Fatal("buffer suffix can change banks")
-	}
-}
-
 func TestBankRetainedDepartureOriginAndArrivalEscape(t *testing.T) {
 	n := BankExample()
 	// One shared interior stays inside bank B, but cannot join arrival to departure.

@@ -186,7 +186,7 @@ func TestFaultCapAtGrantEnd(t *testing.T) {
 	s.setVehicleRoute(v, route)
 	v.origin = garden.Berths[0]
 	v.Pod.Activity = DepartingEmpty
-	s.grant(intent{index: s.vehicleIndexes[v.Pod.ID], block: 0, through: 0})
+	s.grant(intent{index: s.vehicleIndexes[v.Pod.ID], block: 0})
 	if v.reservedThrough < 0 || v.reservedThrough >= v.blocks.len()-1 {
 		t.Fatalf("the first grant ends at block %d of %d", v.reservedThrough, v.blocks.len())
 	}
@@ -439,7 +439,13 @@ func TestFaultReportAtEntryEnd(t *testing.T) {
 	// With grants to the route end, the pod chooses no berth before it
 	// stops.
 	end := v.blocks.end(v.blocks.len() - 1)
-	s.grant(intent{index: s.vehicleIndexes[v.Pod.ID], block: v.reservedThrough + 1, through: v.blocks.len() - 1})
+	for v.reservedThrough < v.blocks.len()-1 {
+		through := v.reservedThrough
+		s.grant(intent{index: s.vehicleIndexes[v.Pod.ID], block: through + 1})
+		if v.reservedThrough == through {
+			t.Fatalf("the grant of block %d failed", through+1)
+		}
+	}
 	stepUntil(t, s, "pod 01 near its entry end", func() bool { return v.distance+stoppingDistance(v.Pod.Speed) >= end })
 	checkFaultsEachTick(t, s)
 	id := startFault(t, s, v, 0)
@@ -455,43 +461,48 @@ func TestFaultReportAtEntryEnd(t *testing.T) {
 	}
 }
 
-// bufferQueue returns a simulation with a station buffer at Market, where
-// pod 02 is the head at the frontier and pod 01 waits behind it on the
-// entry lane. An external owner holds the only berth until release.
-func bufferQueue(t *testing.T) (s *Simulation, release func()) {
+// entryQueue returns a simulation with a queue on the entry lane of
+// Market, where pod 02 is the head and pod 01 waits behind it. An external
+// owner holds the only berth and the first cell of market-in until
+// release.
+func entryQueue(t *testing.T) (s *Simulation, release func()) {
 	t.Helper()
-	s, err := NewFleet(stationBufferNetwork(Example(), 4), []Placement{{ID: "01", StationID: "harbor"}, {ID: "02", StationID: "garden"}})
+	s, err := NewFleet(entryQueueNetwork(Example(), 1), []Placement{{ID: "01", StationID: "harbor"}, {ID: "02", StationID: "garden"}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	s.incidentContract = IncidentV1Contract
-	s.SetStationBuffers(true)
 	for _, id := range []string{"01", "02"} {
 		if err := s.RequestJourney(id, "market"); err != nil {
 			t.Fatal(err)
 		}
 	}
-	barrier := resource{kind: berthResource, id: "market-1"}
-	s.owners[barrier] = podResourceOwner("external")
+	barriers := []resource{{kind: berthResource, id: "market-1"}, {kind: trackResource, id: "market-in"}}
+	for _, barrier := range barriers {
+		s.owners[barrier] = podResourceOwner("external")
+	}
 	head, behind := s.findVehicle("02"), s.findVehicle("01")
-	stepUntil(t, s, "a queue of two at the frontier", func() bool {
-		return head.buffered && behind.buffered && head.Pod.Speed == 0 && behind.Pod.Speed == 0 && behind.Pod.BlockedBy == "02"
+	stepUntil(t, s, "a queue of two at the entry", func() bool {
+		return head.Pod.LaneID == "market-approach" && head.Pod.Speed == 0 && behind.Pod.Speed == 0 && behind.Pod.BlockedBy == "02"
 	})
-	return s, func() { delete(s.owners, barrier) }
+	return s, func() {
+		for _, barrier := range barriers {
+			delete(s.owners, barrier)
+		}
+	}
 }
 
-// TestFaultInStationEntryQueue faults the head of a station buffer. The
-// head makes no berth-grant attempt when the berth is free, and it keeps
-// its buffer membership, its route, and its fault report. The pod behind
-// it keeps its route and does not pass it. Without the fault, the head
-// takes the berth.
+// TestFaultInStationEntryQueue faults the head of a station entry queue.
+// The head makes no berth-grant attempt when the berth is free, and it
+// keeps its route and its fault report. The pod behind it keeps its route
+// and does not pass it. Without the fault, the head takes the berth.
 func TestFaultInStationEntryQueue(t *testing.T) {
 	t.Parallel()
 	for _, faulted := range []bool{false, true} {
-		s, release := bufferQueue(t)
+		s, release := entryQueue(t)
 		s.faultsOn = true
 		head, behind := s.findVehicle("02"), s.findVehicle("01")
-		route, behindRoute, bufferBerth := head.Route, behind.Route, head.bufferBerth
+		route, behindRoute := head.Route, behind.Route
 		var id string
 		if faulted {
 			if head.pending < 0 {
@@ -504,8 +515,10 @@ func TestFaultInStationEntryQueue(t *testing.T) {
 			checkFaultsEachTick(t, s)
 		}
 		release()
+		berthed := false
 		for range 30 * TicksPerSecond {
 			s.Step()
+			berthed = berthed || head.destination.ID == "market-1"
 			// The head rests at the end of its entry route, where the
 			// publication reports an occupied berth for a pod in service.
 			if faulted && (head.Pod.WaitReason != FaultStopped || head.Pod.BlockedBy != id) {
@@ -513,15 +526,17 @@ func TestFaultInStationEntryQueue(t *testing.T) {
 			}
 		}
 		if !faulted {
-			if head.destination.ID != "market-1" {
+			if !berthed {
 				t.Fatalf("control: the head has the berth %q", head.destination.ID)
 			}
 			continue
 		}
-		if head.destination.ID != "" || head.bufferBerth != bufferBerth || !head.buffered || head.Pod.Speed != 0 || !sameRouteSlice(head.Route, route) {
-			t.Fatalf("the faulted head moved to a berth: destination %q, buffer berth %q", head.destination.ID, head.bufferBerth)
+		if head.Pod.LaneID != "market-approach" || head.Pod.Speed != 0 || !sameRouteSlice(head.Route, route) ||
+			s.owners[resource{kind: berthResource, id: "market-1"}].isPod(head.Pod.ID) {
+			t.Fatalf("the faulted head moved to a berth: lane %q, destination %q", head.Pod.LaneID, head.destination.ID)
 		}
-		if !sameRouteSlice(behind.Route, behindRoute) || behind.Pod.LaneID != head.Pod.LaneID || behind.Pod.LaneDistance >= head.Pod.LaneDistance {
+		if !sameRouteSlice(behind.Route, behindRoute) || behind.Pod.LaneID == head.Pod.LaneID && behind.Pod.LaneDistance >= head.Pod.LaneDistance ||
+			behind.Pod.BlockedBy != id {
 			t.Fatalf("the pod behind changed its route or passed the head: %+v", behind.Pod)
 		}
 	}
@@ -710,7 +725,7 @@ func TestFaultReusesRecoveryHold(t *testing.T) {
 // TestFaultLinkGates checks the gates that keep a faulted pod out of each
 // group, each with a control that forms the group without the fault.
 // Platoon links refuse a faulted leader or follower and a run with a
-// blocked lane. A faulted pod makes no buffer head grant.
+// blocked lane.
 func TestFaultLinkGates(t *testing.T) {
 	t.Parallel()
 	t.Run("platoon link", func(t *testing.T) {
@@ -743,28 +758,6 @@ func TestFaultLinkGates(t *testing.T) {
 			if test.name == "faulted follower" && s.canLink(follower) {
 				t.Fatal("a faulted pod can link")
 			}
-		}
-	})
-	t.Run("buffer head", func(t *testing.T) {
-		t.Parallel()
-		s, release := bufferQueue(t)
-		release()
-		head := s.findVehicle("02")
-		plan, ok := s.bufferPlan(head)
-		if !ok {
-			t.Fatal("the head has no buffer plan")
-		}
-		in := intent{index: s.vehicleIndex(head), block: head.reservedThrough + 1, id: head.Pod.ID}
-		faulted := s.Clone()
-		faulted.vehicles[in.index].faulted = true
-		before := faulted.Clone()
-		faulted.grantBufferedHead(in, plan)
-		if !sameState(before, faulted) {
-			t.Fatal("a faulted head made a berth-grant attempt")
-		}
-		s.grantBufferedHead(in, plan)
-		if head.destination.ID != "market-1" {
-			t.Fatalf("control: the head has the berth %q", head.destination.ID)
 		}
 	})
 }

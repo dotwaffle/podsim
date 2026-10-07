@@ -43,12 +43,12 @@ var checkpointRules = map[string]objectRule{
 	"/payload/ledger/lots/*":             rule("occupancy:n peak:n", "occupancy peak"),
 	"/payload/native":                    rule("tick:n paused:b completed:n requestID:n boarded:n totalWaitTicks:n maxWaitTicks:n nextRedistributionTick:n passengerDistanceMeters:n emptyDistanceMeters:n rebalanceMoves:n sharedParties:n sharedRidePartyLimit:n sharedRideMode:s sharedRideMaxStops:n sharedRideJoin:s journeys:n totalJourneyTicks:n maxJourneyTicks:n riderDistanceMeters:n directDistanceMeters:n maxDetourRatio:n demo:o demoError:s pods:a waiting:a", "tick completed requestID boarded totalWaitTicks maxWaitTicks nextRedistributionTick passengerDistanceMeters emptyDistanceMeters rebalanceMoves sharedParties sharedRidePartyLimit pods"),
 	"/payload/native/demo":               rule("secondSent:b followupsSent:b", ""),
-	"/payload/native/pods/*":             rule("boardings:a class:s id:s activity:s stationID:s berthID:s occupied:b relocatingTo:s rebalancing:b rebalanceAfter:n phaseTicks:n origin:s destination:s destinationStation:s riders:a stops:a riddenMeters:n journeyOrigin:s claimsDestination:b released:b stationBuffered:b route:a routeIndex:n laneID:s laneDistance:n distance:n waiting:b waitSince:n platoon:o", "id activity"),
+	"/payload/native/pods/*":             rule("boardings:a class:s id:s activity:s stationID:s berthID:s occupied:b relocatingTo:s rebalancing:b rebalanceAfter:n phaseTicks:n origin:s destination:s destinationStation:s riders:a stops:a riddenMeters:n journeyOrigin:s claimsDestination:b released:b route:a routeIndex:n laneID:s laneDistance:n distance:n waiting:b waitSince:n platoon:o", "id activity"),
 	"/payload/native/pods/*/riders/*":    rule("sharingConsent:s service:s serviceID:s id:n from:s to:s partySize:n podID:s completed:b requestedTick:n boardedTick:n dispatchReason:s", "sharingConsent service id from to partySize requestedTick"),
 	"/payload/native/waiting/*":          rule("request:o route:a boarded:b deferUntil:n deferCheck:n deferPodID:s", "request"),
 	"/payload/native/waiting/*/request":  rule("sharingConsent:s service:s serviceID:s id:n from:s to:s partySize:n podID:s completed:b requestedTick:n boardedTick:n dispatchReason:s", "sharingConsent service id from to partySize requestedTick"),
 	"/payload/native/pods/*/boardings/*": rule("berthID:s metersAtBoarding:n", "berthID metersAtBoarding"),
-	"/payload/native/pods/*/platoon":     rule("kind:s terminalCell:n leader:s lane:n leaderLane:n lanes:n turn:n draining:b", "leader lane leaderLane lanes turn"),
+	"/payload/native/pods/*/platoon":     rule("leader:s lane:n leaderLane:n lanes:n turn:n draining:b", "leader lane leaderLane lanes turn"),
 }
 
 type checkpointScanner struct {

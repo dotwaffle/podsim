@@ -223,15 +223,14 @@ func shapeNative(waiting int) sim.SavedState {
 		pod := sim.SavedPod{ID: shapeID(i), Class: sim.LegacyClass, Activity: "continuing", StationID: shapeID(0), BerthID: shapeID(0),
 			Occupied: true, RelocatingTo: shapeID(0), Rebalancing: true, RebalanceAfter: math.MinInt64, PhaseTicks: math.MaxInt,
 			Origin: shapeID(0), Destination: shapeID(1), DestinationStation: shapeID(1), RiddenMeters: wideFloat, JourneyOrigin: shapeID(0),
-			ClaimsDestination: true, Released: true, StationBuffered: true, Route: podRoute, RouteIndex: math.MaxInt, LaneID: shapeID(0),
+			ClaimsDestination: true, Released: true, Route: podRoute, RouteIndex: math.MaxInt, LaneID: shapeID(0),
 			LaneDistance: wideFloat, Distance: wideFloat, Waiting: true, WaitSince: math.MinInt64}
 		for range 8 {
 			pod.Riders = append(pod.Riders, request)
 			pod.Boardings = append(pod.Boardings, sim.RiderBoarding{BerthID: shapeID(0), MetersAtBoarding: wideFloat})
 			pod.Stops = append(pod.Stops, shapeID(1))
 		}
-		terminal := math.MaxInt
-		pod.Platoon = &sim.SavedPlatoonLink{Kind: "buffer", TerminalCell: &terminal, Leader: shapeID((i + project.MaxPods - 1) % project.MaxPods), Lane: math.MaxInt,
+		pod.Platoon = &sim.SavedPlatoonLink{Leader: shapeID((i + project.MaxPods - 1) % project.MaxPods), Lane: math.MaxInt,
 			LeaderLane: math.MaxInt, Lanes: math.MaxInt, Turn: wideFloat, Draining: true}
 		state.Pods[i] = pod
 	}

@@ -52,10 +52,9 @@ func (s *Simulation) rerouteCandidate(v *vehicle) bool {
 // The endpoint is the destination berth, or the station entry when v has
 // no berth yet, so the endpoint kind, the berth and the station stay. It
 // reports false when the pod cannot divert, when a kept lane is blocked,
-// when no route avoids the blocked set, when the route takes a rider over
-// the detour limit, or when the route changes the last lane of a buffered
-// pod. It searches under the routing view of v, so it writes nothing, also
-// no routing-policy state and no route memo.
+// when no route avoids the blocked set, or when the route takes a rider
+// over the detour limit. It searches under the routing view of v, so it
+// writes nothing, also no routing-policy state and no route memo.
 func (s *Simulation) endpointRoute(v *vehicle) ([]Lane, bool) {
 	if len(v.Route) == 0 {
 		return nil, false
@@ -99,9 +98,6 @@ func (s *Simulation) endpointRoute(v *vehicle) ([]Lane, bool) {
 		// With the kept-lane test, no lane from the current lane on is
 		// blocked.
 		return nil, false
-	case v.buffered && route[len(route)-1].ID != v.Route[len(v.Route)-1].ID:
-		// setVehicleRoute would end the buffer membership.
-		return nil, false
 	case !s.endpointKeepsDetours(v, route, berthEnd):
 		return nil, false
 	}
@@ -134,12 +130,12 @@ func (s *Simulation) endpointKeepsDetours(v *vehicle, route []Lane, berthEnd boo
 // It changes only the route and the indexes derived from it. The pod keeps
 // its activity, its phase, its grants, its distance, its retained
 // resources and owners, its riders and stops, its destination, its
-// relocation, its purpose, its pickups, and its buffer membership. The
-// route keeps the lanes up to the grants, so the blocks of the grants and
-// their owners stay valid. It does not use redirect, which would make an
-// occupied pod an empty move. The search and the installation read one
-// routing view, so the installed route is the route of the search. When
-// endpointRoute fails, it changes nothing and reports false.
+// relocation, its purpose, and its pickups. The route keeps the lanes up
+// to the grants, so the blocks of the grants and their owners stay valid.
+// It does not use redirect, which would make an occupied pod an empty
+// move. The search and the installation read one routing view, so the
+// installed route is the route of the search. When endpointRoute fails,
+// it changes nothing and reports false.
 func (s *Simulation) rerouteToEndpoint(v *vehicle) bool {
 	defer s.leaveRouteView(s.enterRouteView(v))
 	route, ok := s.endpointRoute(v)

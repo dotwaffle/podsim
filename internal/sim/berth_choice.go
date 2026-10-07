@@ -15,9 +15,6 @@ func (s *Simulation) assignTerminalBerth(v *vehicle) bool {
 	if !passenger {
 		return true
 	}
-	if s.bufferApproach(v) {
-		return true
-	}
 	next := v.reservedThrough + 1
 	if next < 0 || next >= v.blocks.len() {
 		return true

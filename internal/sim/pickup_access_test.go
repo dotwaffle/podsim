@@ -7,8 +7,7 @@ import (
 	"testing"
 )
 
-// scaledBankNetwork is BankExample with each position times scale. The
-// entry lanes of the hub banks are then long enough for station buffers.
+// scaledBankNetwork is BankExample with each position times scale.
 func scaledBankNetwork(scale float64) Network {
 	network := BankExample()
 	for index := range network.Nodes {
@@ -18,11 +17,11 @@ func scaledBankNetwork(scale float64) Network {
 	return network
 }
 
-// bankAccessFleet returns a simulation on scaledBankNetwork(4) with station
-// buffers and faults on, under the order contract. Pod 01 is idle at the
-// parking berth, and pod 02 at the origin berth. Pod 01 travels to its
-// pickup for a waiting trip from the hub to the origin. Express needs the class restrictions of
-// expressNetwork and the Express class.
+// bankAccessFleet returns a simulation on scaledBankNetwork(4) with faults
+// on, under the order contract. Pod 01 is idle at the parking berth, and
+// pod 02 at the origin berth. Pod 01 travels to its pickup for a waiting
+// trip from the hub to the origin. Express needs the class restrictions
+// of expressNetwork and the Express class.
 func bankAccessFleet(t *testing.T, contract OrderContract) *Simulation {
 	t.Helper()
 	network := scaledBankNetwork(4)
@@ -38,7 +37,6 @@ func bankAccessFleet(t *testing.T, contract OrderContract) *Simulation {
 		t.Fatal(err)
 	}
 	s.incidentContract = IncidentV1Contract
-	s.SetStationBuffers(true)
 	if err := s.SetFaults(true, FaultSettings{EvacuationSeconds: 300}); err != nil {
 		t.Fatal(err)
 	}
@@ -53,9 +51,9 @@ func bankAccessFleet(t *testing.T, contract OrderContract) *Simulation {
 }
 
 // TestPickupAccessBankEntry runs, under each order contract, a pickup pod
-// that is past the split on its way to the entry of bank a. Debris then
+// that is past the split on its way to the berth bank-a-1. Debris then
 // blocks the only exit road of bank a, so no berth of bank a is a
-// compatible pickup berth. The open route to the entry does not keep the
+// compatible pickup berth. The open route to the berth does not keep the
 // trip: dispatch unbinds it with no exclusion, and pod 02, which reaches
 // bank b, takes it. Pod 01 stays in service and never wins the trip
 // again, so the binding changes once. The trip keeps its ID and deferral
@@ -73,7 +71,7 @@ func TestPickupAccessBankEntry(t *testing.T) {
 				}
 				s.Step()
 			}
-			if first.destination.ID != "" || first.Route[len(first.Route)-1].To != "bank-a-entry" || s.waiting[0].request.PodID != "01" {
+			if first.destination.ID != "bank-a-1" || s.waiting[0].request.PodID != "01" {
 				t.Fatalf("pod 01 goes to %q on %v for trip %+v", first.destination.ID, first.Route, s.waiting[0].request)
 			}
 			checkFaultsEachTick(t, s)

@@ -73,9 +73,8 @@ func (s *Simulation) ownsServiceClaim(v *vehicle) bool {
 // waits at a fault also waits.
 //
 // The caller passes only a pod with a destination berth, which is not in a
-// group. For such a pod, assignTerminalBerth returns with no search, and
-// grant does not use the buffer plan, so the terminal berth choice and the
-// complete berth path of a buffer head cannot refuse it.
+// group. For such a pod, assignTerminalBerth returns with no search, so the
+// terminal berth choice cannot refuse it.
 func (s *Simulation) admissionWaits(v *vehicle) bool {
 	if ready := departs(v.Pod.Activity) && v.phaseTicks == 0; !ready && v.Pod.Activity != Traveling {
 		return false

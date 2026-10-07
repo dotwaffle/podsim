@@ -480,7 +480,6 @@ type intent struct {
 	index, block int
 	since        int64
 	priority     int
-	through      int
 	id           string
 	// emergency is the serial of the emergency record of the pod, or 0
 	// (section 9.3 of the incident emergency contract).
@@ -495,9 +494,6 @@ type admissionWork struct {
 }
 
 func (s *Simulation) setVehicleRoute(v *vehicle, route []Lane) {
-	if v.buffered && (len(route) == 0 || len(v.Route) == 0 || route[len(route)-1].ID != v.Route[len(v.Route)-1].ID) {
-		v.buffered, v.bufferBerth = false, ""
-	}
 	v.replaceRoute(route)
 	v.blocks, v.routeLengths = s.routeBlocks(route)
 	v.blockStarts = indexBlockStarts(&v.blocks, len(route))
@@ -541,7 +537,7 @@ func (s *Simulation) admit() {
 	for i := range s.vehicles {
 		v := &s.vehicles[i]
 		if v.faulted {
-			// A faulted pod requests no grant, also as a buffer head.
+			// A faulted pod requests no grant.
 			s.reportFault(v)
 			continue
 		}
@@ -645,21 +641,7 @@ func compareAdmission(a, b intent, tick int64) int {
 // resource passes to the follower when that pod releases it.
 func (s *Simulation) grant(in intent) {
 	v := &s.vehicles[in.index]
-	through := max(reservationEnd(&v.blocks, in.block), in.through)
-	if v.buffered && v.destination.ID == "" {
-		plan, ok := s.bufferPlan(v)
-		if !ok {
-			v.Pod.WaitReason = BerthOccupied
-			return
-		}
-		if through >= plan.first {
-			through = max(through, plan.entryStop)
-		}
-		if through > plan.frontier {
-			s.grantBufferedHead(in, plan)
-			return
-		}
-	}
+	through := reservationEnd(&v.blocks, in.block)
 	linked := v.link.leader != 0 && s.linkedSpan(v, in.block, through)
 	if v.link.leader != 0 && !linked && s.holdsPending(v) {
 		// A follower that holds a cell of a pod ahead can be as far

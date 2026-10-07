@@ -107,26 +107,6 @@ func TestLargeProfileLinkExclusions(t *testing.T) {
 		if _, ok := s.planLink(linkPlan{v: v, leader: leader}); ok {
 			t.Fatal("ordinary planner admitted a large or mixed link")
 		}
-		if _, ok := s.planBufferLink(linkPlan{v: v, leader: leader}); ok {
-			t.Fatal("buffer planner admitted a large or mixed link")
-		}
-	}
-}
-
-func TestLargeProfileBufferCellBound(t *testing.T) {
-	t.Parallel()
-	s := stationBufferFixture(t)
-	v := &s.vehicles[0]
-	entry := v.Route[len(v.Route)-1]
-	original := s.laneCells[entry.ID]
-	copyCells := *original
-	copyCells.tail = 20
-	// Authored preparation prevents this shape; the buffer planner must also
-	// reject a stale or reconstructed holding region with sub-20-meter cells.
-	copyCells.ends = make([]int, max(4, int(math.Ceil(s.laneLength(entry)/19))))
-	s.laneCells[entry.ID] = &copyCells
-	if _, ok := s.bufferPlan(v); ok {
-		t.Fatal("buffer accepted holding cells below the shared geometry bound")
 	}
 }
 

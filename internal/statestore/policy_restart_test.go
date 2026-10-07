@@ -291,7 +291,7 @@ func TestLegacyFileArchivedAtStartup(t *testing.T) {
 	}
 	for index := range saved.Pods {
 		pod := &saved.Pods[index]
-		pod.Class, pod.StationBuffered, pod.Platoon = "", false, nil
+		pod.Class, pod.Platoon = "", nil
 		for rider := range pod.Riders {
 			strip(&pod.Riders[rider])
 		}

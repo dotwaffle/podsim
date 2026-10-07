@@ -5,33 +5,54 @@ import (
 	"testing"
 )
 
-// surrenderQueue returns a simulation with a station buffer at Market and
-// faults on. Pod 02 carries riders and is the head at the frontier. Pod 01
-// is an empty pickup pod behind it on the entry lane. An external owner
-// holds the only berth. The caller releases it with release.
+// entryQueueNetwork returns network with each position scaled by scale and
+// with market-approach as the station entry lane of Market, so that a
+// queue of pods can wait on it.
+func entryQueueNetwork(network Network, scale float64) Network {
+	for index := range network.Nodes {
+		network.Nodes[index].Position.X *= scale
+		network.Nodes[index].Position.Y *= scale
+	}
+	for index := range network.Lanes {
+		if network.Lanes[index].ID == "market-approach" {
+			network.Lanes[index].StationRole = StationEntryRole
+		}
+	}
+	return network
+}
+
+// surrenderQueue returns a simulation with faults on and a queue on the
+// entry lane of Market. Pod 02 carries riders and is the head. Pod 01 is
+// an empty pickup pod behind it. An external owner holds the only berth
+// and the first cell of market-in. The caller releases both with release.
 func surrenderQueue(t *testing.T) (s *Simulation, head, behind *vehicle, release func()) {
 	t.Helper()
-	s, err := NewFleet(stationBufferNetwork(Example(), 4), []Placement{{ID: "01", StationID: "harbor"}, {ID: "02", StationID: "garden"}})
+	s, err := NewFleet(entryQueueNetwork(Example(), 1), []Placement{{ID: "01", StationID: "harbor"}, {ID: "02", StationID: "garden"}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	s.incidentContract = IncidentV1Contract
-	s.SetStationBuffers(true)
 	s.faultsOn = true
-	barrier := resource{kind: berthResource, id: "market-1"}
-	s.owners[barrier] = podResourceOwner("external")
+	barriers := []resource{{kind: berthResource, id: "market-1"}, {kind: trackResource, id: "market-in"}}
+	for _, barrier := range barriers {
+		s.owners[barrier] = podResourceOwner("external")
+	}
 	if err := s.RequestJourney("02", "market"); err != nil {
 		t.Fatal(err)
 	}
 	head, behind = s.findVehicle("02"), s.findVehicle("01")
-	stepUntil(t, s, "the head on the entry lane", func() bool { return head.buffered })
+	stepUntil(t, s, "the head waits at the entry", func() bool { return head.Pod.LaneID == "market-approach" && head.Pod.Speed == 0 })
 	if err := s.RequestTrip("market", "garden"); err != nil {
 		t.Fatal(err)
 	}
 	stepUntil(t, s, "a queue of two at the frontier", func() bool {
-		return behind.buffered && head.Pod.Speed == 0 && behind.Pod.Speed == 0 && behind.Pod.BlockedBy == "02"
+		return head.Pod.Speed == 0 && behind.Pod.Speed == 0 && behind.Pod.BlockedBy == "02"
 	})
-	return s, head, behind, func() { delete(s.owners, barrier) }
+	return s, head, behind, func() {
+		for _, barrier := range barriers {
+			delete(s.owners, barrier)
+		}
+	}
 }
 
 // releaseQueuedPickup takes the pickup of the pod behind away, as dispatch
@@ -51,7 +72,7 @@ func ownsDestination(s *Simulation, v *vehicle) bool {
 }
 
 // TestClaimSurrenderTwoPodsOneBerth checks the end of the deadlock of
-// finding N1 (section 9.5 of the incident suspension contract). A buffered
+// finding N1 (section 9.5 of the incident suspension contract). A waiting
 // head faults before it claims a berth, is evacuated, and clears. The
 // fault unbinds the pickup of the empty pod behind it. That released pod
 // parks again at the only berth in each

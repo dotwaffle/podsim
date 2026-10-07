@@ -123,37 +123,6 @@ func TestResourceOwnerRetainedDependency(t *testing.T) {
 	}
 }
 
-func TestResourceOwnerBufferYield(t *testing.T) {
-	t.Parallel()
-	for _, test := range []struct {
-		name string
-		kind ownerKind
-	}{
-		{name: "individual", kind: podOwnerKind},
-		{name: "unknown", kind: 255},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-			s := bufferedHeadWithClaim(t, true)
-			head := s.findVehicle("01")
-			for _, r := range berthResources(s.findVehicle("02").destination) {
-				s.owners[r] = resourceOwner{kind: test.kind, id: "02"}
-			}
-			before, owners := s.ExportState(), maps.Clone(s.owners)
-			s.grant(intent{index: 0, block: head.pending, since: head.waitSince})
-			if test.kind == podOwnerKind {
-				if head.destination.ID != "market-1" || s.owners[resource{kind: berthResource, id: "market-1"}] != (resourceOwner{kind: podOwnerKind, id: "01"}) {
-					t.Fatal("ordinary remote berth claim did not yield")
-				}
-				return
-			}
-			if !maps.Equal(owners, s.owners) || !reflect.DeepEqual(before.Pods, s.ExportState().Pods) {
-				t.Fatal("buffered grant yielded or changed an unknown claim")
-			}
-		})
-	}
-}
-
 func TestResourceOwnerRestoreRelease(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {

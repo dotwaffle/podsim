@@ -21,7 +21,7 @@ func (s *Simulation) clearBlockedBerths() {
 			continue
 		}
 		blocker := s.findVehicle(arrival.Pod.BlockedBy)
-		if blocker == nil || !blocker.inService() || blocker.Pod.Activity != Idle || blocker.Pod.Occupied || s.assigned(blocker.Pod.ID) || !arrival.entersBerth(blocker.Pod.BerthID) && (!arrival.buffered || arrival.bufferBerth != blocker.Pod.BerthID) {
+		if blocker == nil || !blocker.inService() || blocker.Pod.Activity != Idle || blocker.Pod.Occupied || s.assigned(blocker.Pod.ID) || !arrival.entersBerth(blocker.Pod.BerthID) {
 			continue
 		}
 		if s.positioning == PositioningGuarded && s.guardedClear(blocker) {

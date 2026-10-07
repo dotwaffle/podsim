@@ -590,7 +590,6 @@ func restoreProject(input loadInput, saved project.Config) (project.Config, erro
 	config := project.Clone(*input.project)
 	config.Demand = saved.Demand
 	comparison := config
-	comparison.StationBuffers = saved.StationBuffers
 	comparison.PickupReassignment = saved.PickupReassignment
 	comparison.OnboardPickups = saved.OnboardPickups
 	same, err := sameProject(comparison, saved)

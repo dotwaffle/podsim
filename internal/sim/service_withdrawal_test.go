@@ -411,20 +411,6 @@ func withdrawalGateCases() []withdrawalGateCase {
 				return !marketClaimed(s)
 			},
 		},
-		{
-			name: "buffer head", build: claimPod(false),
-			selects: func(_ *testing.T, s *Simulation, v *vehicle) bool {
-				_, ok := s.bufferBerthClaims(v, s.findVehicle("01").destination)
-				return ok
-			},
-		},
-		{
-			name: "buffer remote", build: claimPod(true),
-			selects: func(_ *testing.T, s *Simulation, v *vehicle) bool {
-				_, ok := s.bufferBerthClaims(s.findVehicle("02"), v.destination)
-				return ok
-			},
-		},
 	}
 }
 

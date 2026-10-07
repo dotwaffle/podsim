@@ -69,14 +69,9 @@ func (m *platoonMonitor) check(t *testing.T) {
 		if leader.follower != i+1 {
 			t.Fatalf("tick %d: pod %s names a predecessor that does not name it", s.tick, v.Pod.ID)
 		}
-		if v.link.buffer {
-			checkBufferCertificate(t, v)
-		}
 		for index := v.link.lane; index < v.link.lane+v.link.lanes; index++ {
 			if role := v.Route[index].StationRole; role == StationEntryRole || role == StationBerthAccessRole {
-				if !v.link.buffer || role != StationEntryRole {
-					t.Fatalf("tick %d: the link of pod %s holds station lane %s", s.tick, v.Pod.ID, v.Route[index].ID)
-				}
+				t.Fatalf("tick %d: the link of pod %s holds station lane %s", s.tick, v.Pod.ID, v.Route[index].ID)
 			}
 		}
 		if v.Pod.Activity != Traveling || leader.Pod.Activity != Traveling {

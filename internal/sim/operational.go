@@ -160,7 +160,6 @@ func (s *Simulation) setOperationalDestination(v *vehicle, to operationalTarget)
 	s.setVehicleRoute(v, route)
 	v.destination, v.destinationStation = berth, station.ID
 	v.op = operationalDestination{purpose: to.purpose, owner: to.owner, interrupt: to.interrupt}
-	v.buffered, v.bufferBerth = false, ""
 	if to.purpose == opEmptyRecovery {
 		v.RelocatingTo, v.Rebalancing, v.released = station.ID, false, false
 		if s.berthAvailableTo(v, berth) {
@@ -240,7 +239,6 @@ func (s *Simulation) startOperationalUnload(v *vehicle, owner serviceHold, inter
 	v.Pod.Activity, v.Pod.Occupied, v.Pod.StationPhase, v.Pod.ManeuverStationID = Unloading, true, AtBerth, station.ID
 	v.Pod.WaitReason, v.Pod.BlockedBy = NoWait, ""
 	v.destination, v.destinationStation = berth, station.ID
-	v.buffered, v.bufferBerth = false, ""
 	v.reservedThrough, v.pending = -1, -1
 	v.Stops = withoutStop(v.Stops, station.ID)
 	v.op = operationalDestination{purpose: opEmergencyUnload, owner: owner, interrupt: interrupt}
@@ -364,9 +362,9 @@ func (s *Simulation) evacuate(v *vehicle) error {
 
 // evacuateLane makes a traveling pod whose riders left an empty recovery to
 // its destination station that the fault hold owns. It replaces any earlier
-// purpose. The pod keeps its route, distance, block state, owners, and
-// buffer membership. A route that ends at a station entry gets its berth
-// as a passenger route does. See assignTerminalBerth.
+// purpose. The pod keeps its route, distance, block state, and owners. A
+// route that ends at a station entry gets its berth as a passenger route
+// does. See assignTerminalBerth.
 func (s *Simulation) evacuateLane(v *vehicle) {
 	v.Pod.Occupied, v.Stops = false, nil
 	if len(v.Riders) == 0 {
@@ -394,7 +392,6 @@ func (s *Simulation) settleIdleAtBerth(v *vehicle) {
 	v.originReleased = false
 	v.Stops = nil
 	v.op = operationalDestination{}
-	v.buffered, v.bufferBerth = false, ""
 	v.RelocatingTo, v.Rebalancing, v.released = "", false, false
 	v.origin, v.destination, v.destinationStation = Berth{}, berth, station.ID
 	v.replaceRoute(nil)

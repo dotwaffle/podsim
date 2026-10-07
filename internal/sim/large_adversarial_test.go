@@ -8,7 +8,7 @@ import (
 
 func largeAdversarialNetwork(t *testing.T, allLarge bool) Network {
 	t.Helper()
-	n := stationBufferNetwork(Example(), 4)
+	n := entryQueueNetwork(Example(), 4)
 	classes := largeGeometryClasses(t, "legacy", "compact", "group")
 	for i := range n.Stations {
 		n.Stations[i].VehicleClasses = classes

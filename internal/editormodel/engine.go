@@ -362,8 +362,6 @@ func copyBranch(dst *project.Config, key string, src project.Config) bool {
 		dst.SharedRideJoin = src.SharedRideJoin
 	case "onboardPickups":
 		dst.OnboardPickups = src.OnboardPickups
-	case "stationBuffers":
-		dst.StationBuffers = src.StationBuffers
 	case "pickupReassignment":
 		dst.PickupReassignment = src.PickupReassignment
 	case "platoonLimit":
