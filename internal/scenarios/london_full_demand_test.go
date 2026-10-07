@@ -8,7 +8,9 @@ import (
 	"testing"
 )
 
-func TestLondonFullDemandPreservesWeights(t *testing.T) {
+// TestLondonFullDemandRoundsWeights checks that each profile weight is the
+// source weight rounded to demandWeightDigits significant digits.
+func TestLondonFullDemandRoundsWeights(t *testing.T) {
 	t.Parallel()
 	bands := LondonFullDemand()
 	profile := londonFullDemandProfile()
@@ -39,7 +41,7 @@ func TestLondonFullDemandPreservesWeights(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if flow.Weights[band] != weight {
+			if flow.Weights[band] != roundDemandWeight(weight) {
 				t.Fatalf("weight changed at %d band %d", index, band)
 			}
 		}

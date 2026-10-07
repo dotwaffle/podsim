@@ -21,6 +21,24 @@ const (
 //go:embed data/london-od-2019.csv
 var londonDemandCSV string
 
+// demandWeightDigits is the number of significant digits of each weight
+// of a generated demand profile. The source matrices give up to eight
+// digits. Four digits keep each weight within 0.05 percent of the source
+// value, and shorten the LondonFull flows from 3.8 MB to 2.7 MB of JSON.
+const demandWeightDigits = 4
+
+// roundDemandWeight rounds a source weight to demandWeightDigits
+// significant digits. The decimal text of the result has at most that
+// many digits, so the project JSON writes it in a short form. A positive
+// weight stays positive.
+func roundDemandWeight(weight float64) float64 {
+	rounded, err := strconv.ParseFloat(strconv.FormatFloat(weight, 'g', demandWeightDigits, 64), 64)
+	if err != nil {
+		panic(fmt.Sprintf("round demand weight %g: %v", weight, err))
+	}
+	return rounded
+}
+
 // LondonODFlow is one normalized origin-destination probability.
 type LondonODFlow struct {
 	From  string
@@ -123,6 +141,7 @@ func mustLondonDemand() ([]LondonDemandBand, project.DemandProfile) {
 			if weight == 0 {
 				continue
 			}
+			weight = roundDemandWeight(weight)
 			weights[index] = weight
 			bands[index].ObservedJourneys += weight
 			bands[index].Flows = append(bands[index].Flows, LondonODFlow{From: record[0], To: record[1], Share: weight})

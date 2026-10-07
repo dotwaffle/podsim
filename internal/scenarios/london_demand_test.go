@@ -1,6 +1,7 @@
 package scenarios
 
 import (
+	jsonv2 "encoding/json/v2"
 	"math"
 	"math/rand/v2"
 	"reflect"
@@ -155,4 +156,29 @@ func TestLondonAMPeakSampleCompletes(t *testing.T) {
 		londonDemandSourceDay, londonDemandSourceURL, uint64(20260922), 5*sim.TicksPerSecond,
 		requestCount, result.fingerprint, result.state.Completed, result.state.Wait.AverageSeconds,
 		result.state.Wait.MaxSeconds, result.state.Tick)
+}
+
+// TestRoundDemandWeight checks the rounding of a generated demand weight to
+// four significant digits, and the short JSON form of the result.
+func TestRoundDemandWeight(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		weight, want float64
+		text         string
+	}{
+		{0, 0, "0"},
+		{0.9173008, 0.9173, "0.9173"},
+		{1.5457954, 1.546, "1.546"},
+		{143.617, 143.6, "143.6"},
+		{12345.6, 12350, "12350"},
+		{0.00000072725936, 7.273e-7, "7.273e-7"},
+		{0.80799997, 0.808, "0.808"},
+		{5e-324, 5e-324, "5e-324"},
+	} {
+		got := roundDemandWeight(test.weight)
+		text, err := jsonv2.Marshal(got)
+		if got != test.want || err != nil || string(text) != test.text {
+			t.Errorf("roundDemandWeight(%g) = %g, JSON %s, %v; want %g, JSON %s", test.weight, got, text, err, test.want, test.text)
+		}
+	}
 }

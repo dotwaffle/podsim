@@ -121,6 +121,8 @@ func readLondonFullDemand(data string, source londonSource) ([]LondonDemandBand,
 	return bands, profile, nil
 }
 
+// londonFullWeights reads the eight source weights of a pair, and returns
+// the six observed weights, each rounded by roundDemandWeight.
 func londonFullWeights(fields []string) ([]float64, error) {
 	if len(fields) != 8 {
 		return nil, errors.New("expected eight source weights")
@@ -132,7 +134,7 @@ func londonFullWeights(fields []string) ([]float64, error) {
 		if err != nil || weight < 0 || math.IsNaN(weight) || math.IsInf(weight, 0) {
 			return nil, fmt.Errorf("invalid weight in source band %d", band+1)
 		}
-		values[band] = weight
+		values[band] = roundDemandWeight(weight)
 		positive = positive || weight > 0
 	}
 	if values[0] != 0 || values[7] != 0 {
