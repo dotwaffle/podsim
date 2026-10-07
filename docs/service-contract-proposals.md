@@ -57,6 +57,7 @@ Approve these data and compatibility rules as one foundation:
   Keep on-demand at 8 parties, stops at 8, manual admission at 200, fleet at 300, and current byte and history caps.
   Bound the express registry at 300 services.
   Prove worst-case saves and frames fit existing byte limits before landing.
+  Status 2026-10-07: the maintainer dropped this proof, raised the fleet to 600 pods, the plain queue bound to 5,000 orders, and the Express queue bound to 17,000 orders, and raised the save cap to 100 MiB.
 - Each saved and streamed order has explicit `private` or `shared` consent.
   Restore and new trip commands reject all other consent values.
   The server does not migrate saves of an earlier version.

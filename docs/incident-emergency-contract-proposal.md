@@ -1155,6 +1155,10 @@ Each limit has a test at the limit, at the limit plus one before typed decoding,
 
 ### 11.6 Byte budget
 
+Status 2026-10-07: by maintainer decision, the fleet limit is 600 pods and the save cap is 100 MiB.
+The budget below keeps its 300-record basis, and nobody measured it again.
+The composed fixtures and the allocation test of section 14.4 were deleted, so the Formats gate of section 15 no longer applies.
+
 The budget uses 300 records, the pod limit (`internal/project/config.go` `MaxPods`), so it holds for any cap that product choice P19 selects.
 Widest encodings, with `uint64` generation and serial (20 digits), `int64` ticks and order IDs (19 digits), and pod index 299:
 
@@ -1333,6 +1337,9 @@ The digest registry test covers `N = 10` to `N = 12`, with `N = 4` shared with t
 
 ### 14.4 Composed byte tests
 
+Status 2026-10-07: `TestComposedWorstCaseFormats` and the allocation test `TestEmergencyByteAllocation` were deleted.
+`TestFormatArraysHaveLimits` and `TestEmergencyStreamArrayLimits` keep the checks of the array limits.
+
 `TestComposedWorstCaseFormats` (`internal/session/composed_bytes_test.go` `TestComposedWorstCaseFormats`) prescans and decodes each fixture.
 Its fixtures add the stage 3 members at their widest with `MaxEmergencies` records, so every decoder accepts them, and every shape stays under its cap.
 
@@ -1417,6 +1424,8 @@ The default rate stays 0 until the maintainer chooses one in stage 7.
 | Formats | The composed fixtures of section 14.4. | Every shape under its cap. |
 | Web | The browser shell and editor with a marked project. | `mise run test:web` passes, and the marker checks refuse the cases of section 14.3. |
 | Product | The product choices of section 18.2. | Done: the maintainer approved P1 to P22 on October 5, 2026, and decided P23 on October 5, 2026, at 23:59Z. |
+
+Status 2026-10-07: the latency fixtures keep a fleet of 300 pods, below the limit of 600, because their networks cannot hold 600 berths.
 
 The search counters are an unexported member of `Simulation`, written by the search code and read by the tests and benchmarks of `internal/sim`.
 No rule reads them, and they are not saved.

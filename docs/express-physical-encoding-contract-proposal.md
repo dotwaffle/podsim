@@ -9,6 +9,12 @@ Station buffers and compact station queues were removed on October 7, 2026, beca
 Clauses that name buffers, buffer certificates, compact queues, or compact certificates now describe cases that cannot occur.
 Their prohibitions and bounds stay as written and are vacuous.
 
+Status 2026-10-07: by maintainer decision, the fleet limit is 600 pods and the saved-state cap is 100 MiB.
+The Express fleet bound and the bound of pending routes are 600.
+The Express pending and outstanding bound is 17,000, from `5,000 + 600 * 20`.
+The byte evidence below keeps its 300-pod and 80 MiB basis, and nobody measured it again.
+The worst-case byte proofs and their fixture constructors were deleted.
+
 The source descriptions below refer to the reviewed baseline, `53321e4c5decc6c661df64a40378ee37614dcffc`.
 The [large-body proposal](large-body-physics-proposal.md) approved the dimensions and common conservative candidate.
 The [service contract](service-contract-proposals.md) and [byte contract](service-byte-contract-proposal.md) approved metadata and parser recognition.
@@ -65,6 +71,9 @@ An accepted native seed with 2,600 pending records and 6,000 active singleton pa
 Keeping parser recognition at 6,200 would reject that recovered state.
 The proposed 8,600 storage and aggregate bounds cover that native case explicitly.
 They are new limits requiring approval, not consequences of the existing parser limit.
+
+Status 2026-10-07: the same derivation at 600 pods gives the plain bound `200 + 600 * 8 = 5,000` and the Express bound `5,000 + 600 * 20 = 17,000`.
+The code uses 17,000 for the Express pending and outstanding bounds, and 8,600 elsewhere in this document is the earlier value.
 
 ## Immutable orders and admission
 

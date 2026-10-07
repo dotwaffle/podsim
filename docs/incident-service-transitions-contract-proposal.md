@@ -1395,8 +1395,13 @@ It is dispatch state, as `deferPodID` is.
 
 ### 11.7 Joint byte budget
 
+Status 2026-10-07: by maintainer decision, the fleet limit is 600 pods and the save cap is 100 MiB.
+The composed worst-case fixtures, their record, and the landing gate of this section were deleted.
+The measurements below keep their 300-pod and 80 MiB basis, and nobody measured them again.
+`TestFormatArraysHaveLimits` now does the array audit of section 11.6 on small save, full, delta, and HTTP fixtures.
+
 Measured headroom at item 7 patch 8 (`ee5851f`), on October 5, 2026.
-The record is [docs/measurements/composed-worst-case-formats.json](measurements/composed-worst-case-formats.json), made by `TestComposedWorstCaseFormats` with `PODSIM_COMPOSED_FORMATS_RECORD` set.
+The record was `docs/measurements/composed-worst-case-formats.json`, made by `TestComposedWorstCaseFormats` with `PODSIM_COMPOSED_FORMATS_RECORD` set.
 Stage 1 patch 9 writes the record again with the stage 1 members.
 The two tables of measured headroom after stage 1 give its values.
 The fixtures use independent maxima, not reachable states.

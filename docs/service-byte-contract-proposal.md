@@ -3,6 +3,8 @@
 Status: approved October 2, 2026.
 The byte caps at approval remained unchanged.
 Since 64b4f3f, the stream JSON cap is 65 MiB, and the gzip message cap is 66 MiB.
+Status 2026-10-07: by maintainer decision, the saved-state and stream byte proofs that this contract requires were deleted.
+The fleet limit is 600 pods, the plain queue bound is 5,000 records, and the saved-state cap is 100 MiB.
 
 The approved foundation requires saved-state and stream byte proofs before the expanded counts land.
 The existing conservative fixtures nearly fill their caps.

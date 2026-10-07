@@ -321,6 +321,7 @@ No automatic migration can recover missing car events from those files.
 An original project and plan can start a new run, but that action is not recovery of an old ledger.
 
 Reuse the existing 80 MiB saved-file ceiling for the complete uncompressed checkpoint.
+Status 2026-10-07: by maintainer decision, the checkpoint cap is 100 MiB, the same as the saved-state cap.
 Keep each canonical project and canonical normalized plan within the existing 10 MiB input ceiling.
 The normalized plan can exceed its original bytes because it materializes consent.
 Then checkpoint export must fail without changing the valid run or its original plan contract.

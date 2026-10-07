@@ -300,6 +300,8 @@ A pod fault owns no resource: the pod keeps its own owners.
 
 ### 4.3 Limits
 
+Status 2026-10-07: the fleet limit is 600 pods, so the limit of pod faults is 600 and the limit of records is 664.
+
 | Limit | Value | Reason |
 | --- | ---: | --- |
 | Pod faults | One per pod, so at most `MaxPods` (300) | A pod has one mechanical cause (product choice P5). |
@@ -1300,6 +1302,11 @@ Each limit has a test at the limit, at the limit plus one before typed decoding,
 
 ### 13.6 Byte budget
 
+Status 2026-10-07: by maintainer decision, the fleet limit is 600 pods and the save cap is 100 MiB.
+The prescan limits of section 13.5 that this section gives as 364 are now 664.
+The budget below keeps its 300-pod and 80 MiB basis, and nobody measured it again.
+The composed fixtures of section 16.4 were deleted, so the Formats gate of section 17 no longer applies.
+
 Widest encodings, with `uint64` generation and serial (20 digits), `int64` ticks (19 digits), and a nonnegative `float64` in its shortest form (23 bytes):
 
 | Item | Widest encoding | Bytes | Count | Total |
@@ -1496,6 +1503,8 @@ Each type keeps its exported fields.
 - The web marker check accepts and refuses the same cases.
 
 ### 16.4 Composed byte tests
+
+Status 2026-10-07: these tests were deleted with the other worst-case byte proofs.
 
 - The composed worst-case fixtures of stage 1 get 300 pod records and 64 debris records at their widest, beside every stage 1 member.
 - Each save shape passes the 80 MiB cap, raw and compressed.
