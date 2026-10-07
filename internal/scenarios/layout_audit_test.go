@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"strings"
 	"testing"
 
@@ -30,7 +31,7 @@ func TestPresetOutputIsPinned(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			data, err := json.Marshal(test.config())
+			data, err := jsonv2.Marshal(test.config(), json.DefaultOptionsV1())
 			if err != nil {
 				t.Fatal(err)
 			}

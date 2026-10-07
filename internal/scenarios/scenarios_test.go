@@ -3,6 +3,7 @@ package scenarios
 import (
 	"bytes"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"fmt"
 	"math"
 	"reflect"
@@ -43,11 +44,11 @@ func TestPresetsValidateAndRemainStable(t *testing.T) {
 			if !reflect.DeepEqual(first, second) {
 				t.Fatal("preset changed between calls")
 			}
-			firstJSON, err := json.Marshal(first)
+			firstJSON, err := jsonv2.Marshal(first, json.DefaultOptionsV1())
 			if err != nil {
 				t.Fatal(err)
 			}
-			secondJSON, err := json.Marshal(second)
+			secondJSON, err := jsonv2.Marshal(second, json.DefaultOptionsV1())
 			if err != nil {
 				t.Fatal(err)
 			}

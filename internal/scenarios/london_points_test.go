@@ -3,6 +3,8 @@ package scenarios
 import (
 	"bytes"
 	"encoding/json"
+	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
 	"flag"
 	"os"
 	"testing"
@@ -64,7 +66,7 @@ func TestLondonPointsGolden(t *testing.T) {
 	if len(file.Points) != len(londonPointStations) {
 		t.Fatalf("found %d of the %d stations", len(file.Points), len(londonPointStations))
 	}
-	data, err := json.MarshalIndent(file, "", "  ")
+	data, err := jsonv2.Marshal(file, json.DefaultOptionsV1(), jsontext.WithIndent("  "))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"fmt"
 	"os"
 	"reflect"
@@ -53,7 +54,7 @@ func TestLondonFullPreset(t *testing.T) {
 			t.Fatalf("unexpected site %s", id)
 		}
 	}
-	raw, err := json.Marshal(config)
+	raw, err := jsonv2.Marshal(config, json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,7 +68,7 @@ func TestLondonFullCapacityMatchesAuditedAllocation(t *testing.T) {
 		t.Fatal(err)
 	}
 	var want map[string]int
-	if err := json.Unmarshal(data, &want); err != nil {
+	if err := jsonv2.Unmarshal(data, &want, json.DefaultOptionsV1()); err != nil {
 		t.Fatal(err)
 	}
 	options := DefaultLondonFullOptions()
@@ -126,7 +127,7 @@ func TestLondonFullOwnedAndDeterministic(t *testing.T) {
 	t.Parallel()
 	config := LondonFull()
 	original := LondonFull()
-	before, err := json.Marshal(original)
+	before, err := jsonv2.Marshal(original, json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,7 +138,7 @@ func TestLondonFullOwnedAndDeterministic(t *testing.T) {
 	config.DemandProfiles[0].Bands[0].Name = "changed"
 	config.DemandProfiles[0].Flows[0].Weights[0]++
 	config.DemandProfiles[0].Flows[0].From = "changed"
-	after, err := json.Marshal(LondonFull())
+	after, err := jsonv2.Marshal(LondonFull(), json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -168,7 +169,7 @@ func TestLondonCentralMirroredBytesPinned(t *testing.T) {
 		t.Fatal("central display name changed")
 	}
 	config.Name = "Central London Underground-derived PRT"
-	raw, err := json.Marshal(config)
+	raw, err := jsonv2.Marshal(config, json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}

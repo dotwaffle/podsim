@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"flag"
 	"fmt"
 	"os"
@@ -46,7 +47,7 @@ func TestWriteConflictFixture(t *testing.T) {
 	}
 	var data bytes.Buffer
 	writer := gzip.NewWriter(&data)
-	if err := json.NewEncoder(writer).Encode(networks); err != nil {
+	if err := jsonv2.MarshalWrite(writer, networks, json.DefaultOptionsV1()); err != nil {
 		t.Fatal(err)
 	}
 	if err := writer.Close(); err != nil {

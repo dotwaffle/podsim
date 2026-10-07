@@ -2,6 +2,8 @@ package scenarios
 
 import (
 	"encoding/json"
+	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
 	"math"
 	"reflect"
 	"strings"
@@ -224,11 +226,11 @@ func TestLargestLondonFitsTheFileLimits(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	indented, err := json.MarshalIndent(config, "", "  ")
+	indented, err := jsonv2.Marshal(config, json.DefaultOptionsV1(), jsontext.WithIndent("  "))
 	if err != nil {
 		t.Fatal(err)
 	}
-	compact, err := json.Marshal(config)
+	compact, err := jsonv2.Marshal(config, json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}
