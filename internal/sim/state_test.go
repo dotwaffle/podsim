@@ -279,6 +279,27 @@ func TestRestoreInputCheckOrder(t *testing.T) {
 	}
 }
 
+func TestSavedRouteLimits(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name         string
+		nodes, lanes int
+		want         routeLimits
+	}{
+		{"small", 3, 5, routeLimits{pod: 8, trip: 3}},
+		{"pod cap", MaxSavedRouteLanes - 1, 2, routeLimits{pod: MaxSavedRouteLanes, trip: MaxSavedRouteLanes - 1}},
+		{"both caps", MaxSavedRouteLanes + 1, MaxSavedRouteLanes + 1, routeLimits{pod: MaxSavedRouteLanes, trip: MaxSavedRouteLanes}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			network := Network{Nodes: make([]Node, tc.nodes), Lanes: make([]Lane, tc.lanes)}
+			if got := newRouteLimits(network); got != tc.want {
+				t.Fatalf("route limits %+v, want %+v", got, tc.want)
+			}
+		})
+	}
+}
+
 // TestExportStateLimitsRoutes saves live routes at and over their limits, and
 // restores the result.
 func TestExportStateLimitsRoutes(t *testing.T) {

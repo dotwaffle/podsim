@@ -634,14 +634,19 @@ func (v *vehicle) savedRouteStart() (start int, offset float64, current int) {
 	return start, offset, current
 }
 
-// routeLimits bounds the length of saved routes. A waiting trip holds one
-// shortest path, which visits each node at most once, so a live trip route
-// is always within its limit. A pod route can grow when a pod diverts or
-// circles a full station, so its limit is larger.
+// MaxSavedRouteLanes bounds each pod or waiting trip route in a saved state.
+// It does not limit live routing or motion.
+const MaxSavedRouteLanes = 1024
+
+// routeLimits also keeps the smaller topology bounds. A shortest trip path
+// visits each node at most once. A pod can divert or circle a full station.
 type routeLimits struct{ pod, trip int }
 
 func newRouteLimits(network Network) routeLimits {
-	return routeLimits{pod: len(network.Lanes) + len(network.Nodes), trip: len(network.Nodes)}
+	return routeLimits{
+		pod:  min(MaxSavedRouteLanes, len(network.Lanes)+len(network.Nodes)),
+		trip: min(MaxSavedRouteLanes, len(network.Nodes)),
+	}
 }
 
 // laneIndexes returns the network index of each lane of a route. It returns

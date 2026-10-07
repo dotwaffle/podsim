@@ -121,15 +121,15 @@ var stateJSONLimits = jsonLimits{
 		"/project/demandProfiles/*/flows":              project.MaxFlows,
 		"/project/demandProfiles/*/flows/*":            project.MaxFlowValues,
 		"/simulation/pods":                             maxSavedPods,
-		// A saved pod route has at most as many lanes as the network has
-		// lanes and nodes.
+		// Read caps exceed sim.MaxSavedRouteLanes so the header scan can
+		// refuse an unsupported version before it checks route lengths.
+		// Export and restore enforce the smaller write cap.
 		"/simulation/pods/*/route": project.MaxLanes + project.MaxNodes,
 		// A pod has at most one rider and one stop for each party.
 		"/simulation/pods/*/riders": sim.MaxSharedRideParties,
 		"/simulation/pods/*/stops":  sim.MaxSharedRideParties,
 		"/simulation/waiting":       maxSavedTrips,
-		// A saved trip route has at most as many lanes as the network has
-		// nodes.
+		// Keep the trip read cap loose for the same header refusal order.
 		"/simulation/waiting/*/route": project.MaxNodes,
 		// A session records the sequences of at most clientLimit clients.
 		"/sequences": clientLimit,
