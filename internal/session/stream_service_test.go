@@ -3,6 +3,7 @@ package session
 import (
 	"bytes"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"reflect"
 	"strings"
 	"testing"
@@ -38,7 +39,7 @@ func TestStreamServiceTopologyVersions(t *testing.T) {
 	}
 	for _, value := range []string{`null`, `0`, `"3"`, `3.5`} {
 		var decoded TopologySnapshot
-		if err := json.Unmarshal([]byte(`{"projectVersion":`+value+`}`), &decoded); err == nil {
+		if err := jsonv2.Unmarshal([]byte(`{"projectVersion":`+value+`}`), &decoded, json.DefaultOptionsV1()); err == nil {
 			t.Errorf("accepted projectVersion %s", value)
 		}
 	}
@@ -70,7 +71,7 @@ func TestStreamServiceOrdersDelta(t *testing.T) {
 	if _, err = assembler.State(frame); err != nil {
 		t.Fatal(err)
 	}
-	before, err := json.Marshal(frame)
+	before, err := jsonv2.Marshal(frame, json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,7 +87,7 @@ func TestStreamServiceOrdersDelta(t *testing.T) {
 	if err != nil || !reflect.DeepEqual(got, next) {
 		t.Fatalf("rider delta mismatch: %v", err)
 	}
-	after, err := json.Marshal(frame)
+	after, err := jsonv2.Marshal(frame, json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}

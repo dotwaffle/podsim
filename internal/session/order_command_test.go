@@ -64,7 +64,7 @@ func TestOrderCommandRejectsUnchanged(t *testing.T) {
 			want := got
 			want.Project = new(project.Clone(config))
 			raw := `{"action":"trip","origin":"new",` + fields + `}`
-			if err := json.Unmarshal([]byte(raw), &got); err == nil {
+			if err := jsonv2.Unmarshal([]byte(raw), &got, json.DefaultOptionsV1()); err == nil {
 				t.Fatal("invalid explicit fields accepted")
 			}
 			if !reflect.DeepEqual(got, want) {
@@ -74,7 +74,7 @@ func TestOrderCommandRejectsUnchanged(t *testing.T) {
 	}
 	for _, action := range []string{"pause", "demand", "project", ""} {
 		var got Command
-		if err := json.Unmarshal([]byte(`{"action":"`+action+`","partySize":1}`), &got); err == nil {
+		if err := jsonv2.Unmarshal([]byte(`{"action":"`+action+`","partySize":1}`), &got, json.DefaultOptionsV1()); err == nil {
 			t.Fatalf("%q ignored an order field", action)
 		}
 	}
@@ -85,7 +85,7 @@ func TestOrderCommandDecodeFailureKeepsProject(t *testing.T) {
 	config := project.Default()
 	got := Command{Project: &config}
 	want := Command{Project: new(project.Clone(config))}
-	if err := json.Unmarshal([]byte(`{"project":{"name":"Changed"},"unknown":true}`), &got); err == nil {
+	if err := jsonv2.Unmarshal([]byte(`{"project":{"name":"Changed"},"unknown":true}`), &got, json.DefaultOptionsV1()); err == nil {
 		t.Fatal("unknown command field accepted")
 	}
 	if !reflect.DeepEqual(got, want) {
@@ -131,7 +131,7 @@ func TestOrderCommandEncodingKeepsOmittedOptions(t *testing.T) {
 					t.Fatal(err)
 				}
 				var got Command
-				if err := json.Unmarshal(raw, &got); err != nil {
+				if err := jsonv2.Unmarshal(raw, &got, json.DefaultOptionsV1()); err != nil {
 					t.Fatalf("decode %s: %v", raw, err)
 				}
 				if !reflect.DeepEqual(command, got) {
@@ -155,7 +155,7 @@ func TestCommandRefusesCaseVariantMembers(t *testing.T) {
 		`{"client":"c","sequence":1,"action":"trip","origin":"a","destination":"b","PartySize":2}`,
 	} {
 		var legacy, v2 Command
-		if err := json.Unmarshal([]byte(raw), &legacy); err == nil {
+		if err := jsonv2.Unmarshal([]byte(raw), &legacy, json.DefaultOptionsV1()); err == nil {
 			t.Errorf("legacy decoder accepted %s", raw)
 		}
 		if err := jsonv2.Unmarshal([]byte(raw), &v2); err == nil {
@@ -163,7 +163,7 @@ func TestCommandRefusesCaseVariantMembers(t *testing.T) {
 		}
 	}
 	var exact Command
-	if err := json.Unmarshal([]byte(`{"client":"c","sequence":1,"action":"pause","paused":true}`), &exact); err != nil || !exact.Paused {
+	if err := jsonv2.Unmarshal([]byte(`{"client":"c","sequence":1,"action":"pause","paused":true}`), &exact, json.DefaultOptionsV1()); err != nil || !exact.Paused {
 		t.Fatal("exact command changed", err)
 	}
 }

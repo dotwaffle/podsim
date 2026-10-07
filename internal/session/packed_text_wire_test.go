@@ -2,6 +2,7 @@ package session
 
 import (
 	"encoding/json"
+	"encoding/json/jsontext"
 	jsonv2 "encoding/json/v2"
 	"maps"
 	"os"
@@ -87,7 +88,7 @@ func TestPackedTextWireCost(t *testing.T) {
 			Gate:      packedTextWireGate,
 			Workloads: results,
 		}
-		data, err := json.MarshalIndent(record, "", "  ")
+		data, err := jsonv2.Marshal(record, json.DefaultOptionsV1(), jsontext.WithIndent("  "))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -157,14 +158,14 @@ func measurePackedTextWire(t *testing.T, name string, config project.Config) pac
 // packedTextWireGroups returns a copy of groups with the pending group of
 // frame built in one text encoding. The outer encoder options do not
 // reach a built group, so the group is built here.
-func packedTextWireGroups(t *testing.T, groups map[string]json.RawMessage, frame StreamFrame, packed bool) map[string]json.RawMessage {
+func packedTextWireGroups(t *testing.T, groups map[string]jsontext.Value, frame StreamFrame, packed bool) map[string]jsontext.Value {
 	t.Helper()
 	next := maps.Clone(groups)
 	var err error
 	if packed {
 		next["pending"], err = jsonv2.Marshal(frame.State.Simulation.Pending, json.DefaultOptionsV1(), packedRequestOptions())
 	} else {
-		next["pending"], err = json.Marshal(frame.State.Simulation.Pending)
+		next["pending"], err = jsonv2.Marshal(frame.State.Simulation.Pending, json.DefaultOptionsV1())
 	}
 	if err != nil {
 		t.Fatal(err)
@@ -181,7 +182,7 @@ func packedTextWireBytes(t *testing.T, e StreamEnvelope, packed bool) int {
 	if packed {
 		data, err = jsonv2.Marshal(e, json.DefaultOptionsV1(), packedRequestOptions())
 	} else {
-		data, err = json.Marshal(e)
+		data, err = jsonv2.Marshal(e, json.DefaultOptionsV1())
 	}
 	if err != nil {
 		t.Fatal(err)

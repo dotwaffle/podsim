@@ -3,6 +3,7 @@ package session
 import (
 	"bytes"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"math"
 	"reflect"
 	"slices"
@@ -199,7 +200,7 @@ func TestStreamBoardingBindingAndRollback(t *testing.T) {
 	if _, stateErr := a.State(frame); stateErr != nil {
 		t.Fatal("repeated berth rejected", stateErr)
 	}
-	raw, err := json.Marshal(frame)
+	raw, err := jsonv2.Marshal(frame, json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}

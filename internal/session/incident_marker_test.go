@@ -3,6 +3,7 @@ package session
 import (
 	"bytes"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"errors"
 	"reflect"
 	"strings"
@@ -54,12 +55,12 @@ func TestIncidentMarkerPropagation(t *testing.T) {
 	if topology.IncidentContract != sim.IncidentV1Contract || frames[0].State.Simulation.IncidentContract != sim.IncidentV1Contract {
 		t.Fatal("topology or frame lost the marker")
 	}
-	topologyJSON, err := json.Marshal(topology)
+	topologyJSON, err := jsonv2.Marshal(topology, json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}
 	var decodedTopology TopologySnapshot
-	if decodeErr := json.Unmarshal(topologyJSON, &decodedTopology); decodeErr != nil || decodedTopology.IncidentContract != sim.IncidentV1Contract {
+	if decodeErr := jsonv2.Unmarshal(topologyJSON, &decodedTopology, json.DefaultOptionsV1()); decodeErr != nil || decodedTopology.IncidentContract != sim.IncidentV1Contract {
 		t.Fatalf("decoded topology marker %q: %v", decodedTopology.IncidentContract, decodeErr)
 	}
 	httpState, err := EncodeStateJSON(topology, frames[0])
@@ -196,7 +197,7 @@ func TestIncidentMarkerRawValues(t *testing.T) {
 	}
 	t.Cleanup(marked.Close)
 	topology, frames := incidentFrames(t, marked)
-	topologyJSON, err := json.Marshal(topology)
+	topologyJSON, err := jsonv2.Marshal(topology, json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -216,7 +217,7 @@ func TestIncidentMarkerRawValues(t *testing.T) {
 		raw    []byte
 		decode func([]byte) error
 	}{
-		"topology": {topologyJSON, func(raw []byte) error { return json.Unmarshal(raw, new(TopologySnapshot)) }},
+		"topology": {topologyJSON, func(raw []byte) error { return jsonv2.Unmarshal(raw, new(TopologySnapshot), json.DefaultOptionsV1()) }},
 		"full":     {full, func(raw []byte) error { _, err := DecodeStreamJSON(raw); return err }},
 		"http":     {httpState, func(raw []byte) error { _, err := DecodeStateJSON(raw); return err }},
 	}

@@ -3,6 +3,8 @@ package session
 import (
 	"bytes"
 	"encoding/json"
+	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
 	"maps"
 	"reflect"
 	"slices"
@@ -206,7 +208,7 @@ func TestReplyStateSavedJSON(t *testing.T) {
 				t.Fatalf("stateSaved member = %q, present %t, want %q: %s", member, present, test.want, encoded)
 			}
 			var decoded Reply
-			if err := json.Unmarshal(encoded, &decoded); err != nil {
+			if err := jsonv2.Unmarshal(encoded, &decoded, json.DefaultOptionsV1()); err != nil {
 				t.Fatal(err)
 			}
 			if !reflect.DeepEqual(decoded, reply) {
@@ -244,10 +246,10 @@ func TestCommandReplyIsCompactTypedAcknowledgement(t *testing.T) {
 }
 
 // jsonKeys returns the top-level members of a JSON object.
-func jsonKeys(t *testing.T, encoded []byte) map[string]json.RawMessage {
+func jsonKeys(t *testing.T, encoded []byte) map[string]jsontext.Value {
 	t.Helper()
-	var keys map[string]json.RawMessage
-	if err := json.Unmarshal(encoded, &keys); err != nil {
+	var keys map[string]jsontext.Value
+	if err := jsonv2.Unmarshal(encoded, &keys, json.DefaultOptionsV1()); err != nil {
 		t.Fatal(err)
 	}
 	return keys
@@ -345,8 +347,8 @@ func TestVehicleFramePlatoonJSON(t *testing.T) {
 		{Pod: sim.Pod{ID: "03"}},
 	}}}
 	frame := stateFrame(state)
-	var vehicles []map[string]json.RawMessage
-	if err := json.Unmarshal(mustJSON(t, frame.Simulation.Vehicles), &vehicles); err != nil {
+	var vehicles []map[string]jsontext.Value
+	if err := jsonv2.Unmarshal(mustJSON(t, frame.Simulation.Vehicles), &vehicles, json.DefaultOptionsV1()); err != nil {
 		t.Fatal(err)
 	}
 	for index, want := range []string{`"01" 1`, `"01" 2`, " "} {
@@ -380,12 +382,12 @@ func TestVehicleFrameRidersJSON(t *testing.T) {
 		{Pod: sim.Pod{ID: "01"}, Riders: riders, Stops: []string{"garden", "market"}},
 		{Pod: sim.Pod{ID: "02"}},
 	}}})
-	var vehicles []map[string]json.RawMessage
-	if err := json.Unmarshal(mustJSON(t, frame.Simulation.Vehicles), &vehicles); err != nil {
+	var vehicles []map[string]jsontext.Value
+	if err := jsonv2.Unmarshal(mustJSON(t, frame.Simulation.Vehicles), &vehicles, json.DefaultOptionsV1()); err != nil {
 		t.Fatal(err)
 	}
-	var encoded []map[string]json.RawMessage
-	if err := json.Unmarshal(vehicles[0]["riders"], &encoded); err != nil {
+	var encoded []map[string]jsontext.Value
+	if err := jsonv2.Unmarshal(vehicles[0]["riders"], &encoded, json.DefaultOptionsV1()); err != nil {
 		t.Fatal(err)
 	}
 	members := []string{"boardedTick", "completed", "dispatchReason", "from", "id", "partySize", "podID", "requestedTick", "service", "sharingConsent", "to"}
@@ -421,12 +423,12 @@ func TestTopologyMapMetadata(t *testing.T) {
 	}
 	defer shared.Close()
 	topology := shared.Topology()
-	encoded, err := json.Marshal(topology)
+	encoded, err := jsonv2.Marshal(topology, json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}
 	var decoded TopologySnapshot
-	if err = json.Unmarshal(encoded, &decoded); err != nil {
+	if err = jsonv2.Unmarshal(encoded, &decoded, json.DefaultOptionsV1()); err != nil {
 		t.Fatal(err)
 	}
 	got, err := FrameState(decoded, shared.Frame())

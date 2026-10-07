@@ -3,6 +3,7 @@ package session
 import (
 	"context"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -279,7 +280,7 @@ func TestStreamPressureShedsLeaseOwnerAndDelivers(t *testing.T) {
 		t.Fatal(err)
 	}
 	var envelope StreamEnvelope
-	if err = json.Unmarshal(raw, &envelope); err != nil || envelope.Sequence != 2 {
+	if err = jsonv2.Unmarshal(raw, &envelope, json.DefaultOptionsV1()); err != nil || envelope.Sequence != 2 {
 		t.Fatal("healthy subscriber did not receive subsequent full", err)
 	}
 }

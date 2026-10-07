@@ -6,6 +6,7 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"fmt"
 	"io"
 	"net"
@@ -236,7 +237,7 @@ func TestLargeCommandGuard(t *testing.T) {
 		// The current project is a no-op apply without a save, so change it.
 		config := project.Default()
 		config.Name = "Large command guard"
-		command, err := json.Marshal(Command{Client: "project", Sequence: 1, Epoch: s.State().Epoch, Action: "project", Project: &config, ProjectRevision: s.State().ProjectRevision})
+		command, err := jsonv2.Marshal(Command{Client: "project", Sequence: 1, Epoch: s.State().Epoch, Action: "project", Project: &config, ProjectRevision: s.State().ProjectRevision}, json.DefaultOptionsV1())
 		if err != nil {
 			t.Fatal(err)
 		}

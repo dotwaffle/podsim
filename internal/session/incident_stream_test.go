@@ -3,6 +3,8 @@ package session
 import (
 	"bytes"
 	"encoding/json"
+	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
 	"maps"
 	"slices"
 	"strings"
@@ -367,7 +369,7 @@ func TestIncidentStreamNeedsMarker(t *testing.T) {
 	// group replacement refuses the incident group by itself.
 	for _, group := range []string{`{"interrupted":0,"interruptedPassengers":0}`, `{"interrupted":1,"interruptedPassengers":1}`} {
 		delta := incidentEnvelope(t, frames[0], frames[1], "delta")
-		delta.Delta.Groups["incident"] = json.RawMessage(group)
+		delta.Delta.Groups["incident"] = jsontext.Value(group)
 		if _, err := ApplyStream(frames[0], "incident", 1, delta); err == nil {
 			t.Errorf("ApplyStream accepts the unmarked incident group %s", group)
 		}
@@ -421,7 +423,7 @@ func TestIncidentStreamPackedLegOrigin(t *testing.T) {
 		}
 	}
 	var request sim.Request
-	if err := json.Unmarshal([]byte(`{"legFrom":"garden"}`), &request); err != nil || request.LegFrom != "garden" {
+	if err := jsonv2.Unmarshal([]byte(`{"legFrom":"garden"}`), &request, json.DefaultOptionsV1()); err != nil || request.LegFrom != "garden" {
 		t.Fatalf("the native member %q: %v", request.LegFrom, err)
 	}
 }

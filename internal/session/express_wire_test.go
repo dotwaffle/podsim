@@ -3,6 +3,7 @@ package session
 import (
 	"bytes"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"math"
 	"os"
 	"reflect"
@@ -191,7 +192,7 @@ func TestExpressTripMarker(t *testing.T) {
 	for _, marker := range []string{``, `,"orderContract":"express-v1"`, `,"orderContract":null`, `,"orderContract":"other"`} {
 		raw := `{"action":"trip","origin":"harbor","destination":"market","partySize":20` + marker + `}`
 		var command Command
-		err := json.Unmarshal([]byte(raw), &command)
+		err := jsonv2.Unmarshal([]byte(raw), &command, json.DefaultOptionsV1())
 		if (err == nil) != (marker == `,"orderContract":"express-v1"`) {
 			t.Fatal(raw, err)
 		}
@@ -262,7 +263,7 @@ func TestExpressPublicAssetRetention(t *testing.T) {
 		t.Fatal(err)
 	}
 	var topology TopologySnapshot
-	if err = json.Unmarshal(topologyBytes, &topology); err != nil {
+	if err = jsonv2.Unmarshal(topologyBytes, &topology, json.DefaultOptionsV1()); err != nil {
 		t.Fatal(err)
 	}
 	raw, err := os.ReadFile(dir + "/reference-full.json")

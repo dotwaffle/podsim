@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -179,7 +180,7 @@ func TestPublicOriginCommandAndStream(t *testing.T) {
 			if test.duplicate {
 				headers.Add("Origin", origin)
 			}
-			command, err := json.Marshal(Command{Client: "origin", Sequence: 1, Epoch: s.Frame().Epoch, Action: "pause", Paused: true})
+			command, err := jsonv2.Marshal(Command{Client: "origin", Sequence: 1, Epoch: s.Frame().Epoch, Action: "pause", Paused: true}, json.DefaultOptionsV1())
 			if err != nil {
 				t.Fatal(err)
 			}

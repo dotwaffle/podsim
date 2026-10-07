@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -161,7 +162,7 @@ func TestClosedSessionRejectsCommandsOverHTTP(t *testing.T) {
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
 	var reply Reply
-	if err := json.NewDecoder(response.Body).Decode(&reply); err != nil {
+	if err := jsonv2.UnmarshalRead(response.Body, &reply, json.DefaultOptionsV1()); err != nil {
 		t.Fatal(err)
 	}
 	if response.Code != http.StatusConflict || reply.ErrorCode != ServerStopping {

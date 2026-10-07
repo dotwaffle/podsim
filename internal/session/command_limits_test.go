@@ -3,6 +3,7 @@ package session
 import (
 	"bytes"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"fmt"
 	"math"
 	"net/http"
@@ -73,7 +74,7 @@ func postCommand(t *testing.T, handler http.Handler, body []byte) *httptest.Resp
 // empty lanes under the member name lanesName.
 func pauseWithLanes(t *testing.T, s *Session, client, lanesName string, lanes int) []byte {
 	t.Helper()
-	head, err := json.Marshal(Command{Client: client, Sequence: 1, Epoch: s.State().Epoch, Action: "pause", Paused: true})
+	head, err := jsonv2.Marshal(Command{Client: client, Sequence: 1, Epoch: s.State().Epoch, Action: "pause", Paused: true}, json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,7 +91,7 @@ func pauseWithLanes(t *testing.T, s *Session, client, lanesName string, lanes in
 // length bytes.
 func pauseWithOrigin(t *testing.T, s *Session, client string, length int) []byte {
 	t.Helper()
-	body, err := json.Marshal(Command{Client: client, Sequence: 1, Epoch: s.State().Epoch, Action: "pause", Paused: true})
+	body, err := jsonv2.Marshal(Command{Client: client, Sequence: 1, Epoch: s.State().Epoch, Action: "pause", Paused: true}, json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -174,10 +175,10 @@ func TestReceiptsKeepNoProject(t *testing.T) {
 	config := scenarios.LondonCentral()
 	bodies := make([][]byte, 16)
 	for index := range bodies {
-		body, err := json.Marshal(Command{
+		body, err := jsonv2.Marshal(Command{
 			Client: fmt.Sprintf("client-%d", index), Sequence: 1, Epoch: s.State().Epoch,
 			Action: "project", Project: &config, ProjectRevision: s.State().ProjectRevision,
-		})
+		}, json.DefaultOptionsV1())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -381,9 +382,9 @@ func TestProjectWithManyLanesAtOneNode(t *testing.T) {
 	for index := len(config.Network.Lanes); index < project.MaxLanes; index++ {
 		config.Network.Lanes = append(config.Network.Lanes, sim.Lane{ID: fmt.Sprintf("parallel-%d", index), From: "a", To: "b", SpeedLimit: 12})
 	}
-	body, err := json.Marshal(Command{
+	body, err := jsonv2.Marshal(Command{
 		Client: "lanes", Sequence: 1, Epoch: s.State().Epoch, Action: "project", Project: &config, ProjectRevision: s.State().ProjectRevision,
-	})
+	}, json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -393,7 +394,7 @@ func TestProjectWithManyLanesAtOneNode(t *testing.T) {
 	recorder := postCommand(t, handler, body)
 	runtime.ReadMemStats(&after)
 	var reply Reply
-	if err := json.Unmarshal(recorder.Body.Bytes(), &reply); err != nil {
+	if err := jsonv2.Unmarshal(recorder.Body.Bytes(), &reply, json.DefaultOptionsV1()); err != nil {
 		t.Fatalf("status %d, reply %q: %v", recorder.Code, recorder.Body.String(), err)
 	}
 	if recorder.Code != http.StatusConflict || reply.ErrorCode != CommandRejected || !strings.Contains(reply.Error, `node "a" has`) {

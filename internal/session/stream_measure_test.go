@@ -2,6 +2,7 @@ package session
 
 import (
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"fmt"
 	"slices"
 	"testing"
@@ -44,7 +45,7 @@ func TestStreamLondonWire(t *testing.T) {
 		}
 		started := time.Now()
 		frame := shared.Frame()
-		raw, err := json.Marshal(frame)
+		raw, err := jsonv2.Marshal(frame, json.DefaultOptionsV1())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -179,7 +180,7 @@ func largeRoutePublication(tb testing.TB, previous StreamFrame, laneIDs []string
 	for i := range legacy.Simulation.Vehicles {
 		legacy.Simulation.Vehicles[i].RouteLaneIDs = laneIDs
 	}
-	raw, err := json.Marshal(legacy)
+	raw, err := jsonv2.Marshal(legacy, json.DefaultOptionsV1())
 	if err != nil {
 		tb.Fatal(err)
 	}

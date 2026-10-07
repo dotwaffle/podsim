@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"encoding/binary"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"hash/crc32"
 	"testing"
 
@@ -134,7 +135,7 @@ func TestDecodeCapsAtCallers(t *testing.T) {
 		// has a 4 KiB cap, a control has the 1 KiB read limit, and a member
 		// is part of a document that decodeMarkedJSON bounds.
 		var hello StreamHello
-		raw, err := json.Marshal(StreamHello{Kind: "hello", Version: StreamVersion, ServerStart: "cap", OrderContract: sim.ExpressOrderContract})
+		raw, err := jsonv2.Marshal(StreamHello{Kind: "hello", Version: StreamVersion, ServerStart: "cap", OrderContract: sim.ExpressOrderContract}, json.DefaultOptionsV1())
 		if err != nil {
 			t.Fatal(err)
 		}

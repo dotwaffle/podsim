@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
 	"errors"
 	"fmt"
 	"net/http"
@@ -390,7 +391,7 @@ func escapedTopologySize(t *testing.T, config project.Config) int {
 	t.Helper()
 	// A server start has 16 characters, a new epoch has 26, and the
 	// preflight uses the largest project revision.
-	raw, err := json.Marshal(TopologySnapshot{ProjectVersion: config.Version, ServerStart: strings.Repeat("0", 16), Epoch: strings.Repeat("0", 26), ProjectRevision: sim.MaxCounter, Network: config.Network})
+	raw, err := jsonv2.Marshal(TopologySnapshot{ProjectVersion: config.Version, ServerStart: strings.Repeat("0", 16), Epoch: strings.Repeat("0", 26), ProjectRevision: sim.MaxCounter, Network: config.Network}, json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -404,7 +405,7 @@ func escapedTopologySize(t *testing.T, config project.Config) int {
 func stateHTTPReply(t *testing.T, s *Session, config project.Config, status int) []byte {
 	t.Helper()
 	topology := s.Topology()
-	raw, err := json.Marshal(topology)
+	raw, err := jsonv2.Marshal(topology, json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}

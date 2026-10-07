@@ -3,6 +3,7 @@ package session
 import (
 	"bytes"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"strings"
 	"testing"
 
@@ -16,7 +17,7 @@ func TestPlainTopologyProjectVersion(t *testing.T) {
 	t.Parallel()
 	base := TopologySnapshot{ProjectVersion: project.CurrentVersion, Network: sim.BankExample(),
 		ServerStart: "source", Epoch: "epoch", ProjectRevision: 1}
-	raw, err := json.Marshal(base)
+	raw, err := jsonv2.Marshal(base, json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -25,7 +26,7 @@ func TestPlainTopologyProjectVersion(t *testing.T) {
 		t.Fatalf("topology JSON has no %s", member)
 	}
 	var control TopologySnapshot
-	if err := json.Unmarshal(raw, &control); err != nil {
+	if err := jsonv2.Unmarshal(raw, &control, json.DefaultOptionsV1()); err != nil {
 		t.Fatal("refused version 1:", err)
 	}
 	for name, replacement := range map[string]string{
@@ -44,7 +45,7 @@ func TestPlainTopologyProjectVersion(t *testing.T) {
 				edited = bytes.Replace(raw, append(member, ','), nil, 1)
 			}
 			var topology TopologySnapshot
-			err := json.Unmarshal(edited, &topology)
+			err := jsonv2.Unmarshal(edited, &topology, json.DefaultOptionsV1())
 			want := "project version"
 			if name == "folded version 2" {
 				want = "unknown field"

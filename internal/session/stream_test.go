@@ -394,7 +394,7 @@ func assertStateMaximum(t *testing.T, frame StreamFrame) {
 	t.Helper()
 	_, fixture := streamFixture(t)
 	topology := TopologySnapshot{ProjectVersion: project.CurrentVersion, ServerStart: fixture.State.ServerStart, Epoch: fixture.State.Epoch}
-	topologyBytes, err := json.Marshal(topology)
+	topologyBytes, err := jsonv2.Marshal(topology, json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -905,7 +905,7 @@ func TestStreamExactBaseAndEmptyShapes(t *testing.T) {
 
 func streamJSON(t *testing.T, value any) []byte {
 	t.Helper()
-	data, err := json.Marshal(value)
+	data, err := jsonv2.Marshal(value, json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}

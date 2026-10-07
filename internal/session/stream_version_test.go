@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
 	"fmt"
 	"net/http/httptest"
 	"os"
@@ -49,7 +50,7 @@ func TestStreamHelloRefusesOtherVersions(t *testing.T) {
 	}
 	for _, order := range []sim.OrderContract{"", express} {
 		want := StreamHello{Kind: "hello", Version: StreamVersion, Build: "build", ServerStart: "source", OrderContract: order}
-		raw, err := json.Marshal(want)
+		raw, err := jsonv2.Marshal(want, json.DefaultOptionsV1())
 		if err != nil {
 			t.Fatal(err)
 		}

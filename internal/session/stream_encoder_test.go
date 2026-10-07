@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"math"
 	"math/rand/v2"
 	"net/http/httptest"
@@ -187,7 +188,7 @@ func TestStreamEncoderPublisherLifecycle(t *testing.T) {
 
 func BenchmarkStreamCompression(b *testing.B) {
 	for _, size := range []int{4096, 256 << 10} {
-		data, err := json.Marshal(map[string]string{"state": strings.Repeat("network-state-0123456789", size/24)})
+		data, err := jsonv2.Marshal(map[string]string{"state": strings.Repeat("network-state-0123456789", size/24)}, json.DefaultOptionsV1())
 		if err != nil {
 			b.Fatal(err)
 		}

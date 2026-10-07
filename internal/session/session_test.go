@@ -3,6 +3,7 @@ package session
 import (
 	"bytes"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -287,7 +288,7 @@ func TestHTTPValidationAndSharedObservers(t *testing.T) {
 	handler := s.Handler(t.TempDir())
 	command := commandFor(s, "trip")
 	command.Origin, command.Destination = "harbor", "market"
-	body, err := json.Marshal(command)
+	body, err := jsonv2.Marshal(command, json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -323,7 +324,7 @@ func TestHTTPValidationAndSharedObservers(t *testing.T) {
 				return
 			}
 			var reply Reply
-			if err := json.NewDecoder(response.Body).Decode(&reply); err != nil || reply.ErrorCode != CommandRejected {
+			if err := jsonv2.UnmarshalRead(response.Body, &reply, json.DefaultOptionsV1()); err != nil || reply.ErrorCode != CommandRejected {
 				t.Fatalf("reply=%+v err=%v, want %s", reply, err, CommandRejected)
 			}
 		})
@@ -349,7 +350,7 @@ func TestHTTPValidationAndSharedObservers(t *testing.T) {
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "http://example.com/api/topology", http.NoBody))
 	var topology TopologySnapshot
-	if err := json.NewDecoder(response.Body).Decode(&topology); err != nil {
+	if err := jsonv2.UnmarshalRead(response.Body, &topology, json.DefaultOptionsV1()); err != nil {
 		t.Fatal(err)
 	}
 	topology.Network.Stations[0].Berths[0].ID = "mutated"
@@ -360,7 +361,7 @@ func TestHTTPValidationAndSharedObservers(t *testing.T) {
 
 func mustJSON(t *testing.T, value any) []byte {
 	t.Helper()
-	b, err := json.Marshal(value)
+	b, err := jsonv2.Marshal(value, json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}

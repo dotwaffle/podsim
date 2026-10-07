@@ -3,6 +3,7 @@ package session
 import (
 	"bytes"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"errors"
 	"math/rand/v2"
 	"net/http"
@@ -116,7 +117,7 @@ func TestStaleProjectOverHTTP(t *testing.T) {
 	command := commandFor(session, "project")
 	command.ProjectRevision = session.Project().Revision + 1
 	command.Project = &config
-	body, err := json.Marshal(command)
+	body, err := jsonv2.Marshal(command, json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,7 +128,7 @@ func TestStaleProjectOverHTTP(t *testing.T) {
 	var reply struct {
 		ErrorCode string `json:"errorCode"`
 	}
-	if err := json.NewDecoder(response.Body).Decode(&reply); err != nil {
+	if err := jsonv2.UnmarshalRead(response.Body, &reply, json.DefaultOptionsV1()); err != nil {
 		t.Fatal(err)
 	}
 	if response.Code != http.StatusConflict || reply.ErrorCode != "stale_project" {
@@ -171,7 +172,7 @@ func TestProjectServerStart(t *testing.T) {
 				command.Paused = true
 			}
 			command.ServerStart = test.serverStart
-			body, err := json.Marshal(command)
+			body, err := jsonv2.Marshal(command, json.DefaultOptionsV1())
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -181,7 +182,7 @@ func TestProjectServerStart(t *testing.T) {
 			response := httptest.NewRecorder()
 			session.Handler(t.TempDir()).ServeHTTP(response, request)
 			var reply Reply
-			if err := json.NewDecoder(response.Body).Decode(&reply); err != nil {
+			if err := jsonv2.UnmarshalRead(response.Body, &reply, json.DefaultOptionsV1()); err != nil {
 				t.Fatal(err)
 			}
 			if response.Code != test.wantStatus || reply.ErrorCode != test.wantCode {
@@ -340,7 +341,7 @@ func TestProjectEndpointSupportsConcurrentDetachedObservers(t *testing.T) {
 				t.Errorf("status = %d", response.Code)
 				return
 			}
-			if err := json.NewDecoder(response.Body).Decode(&results[i]); err != nil {
+			if err := jsonv2.UnmarshalRead(response.Body, &results[i], json.DefaultOptionsV1()); err != nil {
 				t.Error(err)
 			}
 		})

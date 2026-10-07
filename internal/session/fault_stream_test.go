@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
+	"encoding/json/jsontext"
 	jsonv2 "encoding/json/v2"
 	"errors"
 	"fmt"
@@ -179,7 +180,7 @@ func TestFaultStreamNeedsMarker(t *testing.T) {
 		// document, has the one value that the server writes, as the web
 		// check requires. An unmarked topology with null or an empty
 		// marker is not read as an unmarked topology.
-		topologyJSON, marshalErr := json.Marshal(topology)
+		topologyJSON, marshalErr := jsonv2.Marshal(topology, json.DefaultOptionsV1())
 		if marshalErr != nil {
 			t.Fatal(marshalErr)
 		}
@@ -190,19 +191,19 @@ func TestFaultStreamNeedsMarker(t *testing.T) {
 				t.Errorf("marked %v, HTTP topology marker %s: accepted", marked, marker)
 			}
 			var decoded TopologySnapshot
-			if err := json.Unmarshal(append(append([]byte(`{`), insert...), topologyJSON[1:]...), &decoded); err == nil {
+			if err := jsonv2.Unmarshal(append(append([]byte(`{`), insert...), topologyJSON[1:]...), &decoded, json.DefaultOptionsV1()); err == nil {
 				t.Errorf("marked %v, topology marker %s: accepted", marked, marker)
 			}
 		}
 		var decoded TopologySnapshot
-		if err := json.Unmarshal(topologyJSON, &decoded); err != nil || decoded.FaultContract != topology.FaultContract {
+		if err := jsonv2.Unmarshal(topologyJSON, &decoded, json.DefaultOptionsV1()); err != nil || decoded.FaultContract != topology.FaultContract {
 			t.Errorf("marked %v, topology control: %v", marked, err)
 		}
 	}
 	// A caller builds a delta with the faults group and no decoder scan.
 	_, base, next := faultStreamFrames(t, false)
 	envelope := incidentEnvelope(t, base, next, "delta")
-	envelope.Delta.Groups["faults"] = json.RawMessage(`{}`)
+	envelope.Delta.Groups["faults"] = jsontext.Value(`{}`)
 	if _, err := ApplyStream(base, "incident", 1, envelope); !errors.Is(err, errFaultStreamUnmarked) {
 		t.Fatalf("direct faults group: %v", err)
 	}
@@ -210,11 +211,11 @@ func TestFaultStreamNeedsMarker(t *testing.T) {
 	// null.
 	_, base, next = faultStreamFrames(t, true)
 	envelope = incidentEnvelope(t, base, next, "delta")
-	envelope.Delta.Groups["faults"] = json.RawMessage(`{"counters":{"started":null}}`)
+	envelope.Delta.Groups["faults"] = jsontext.Value(`{"counters":{"started":null}}`)
 	if _, err := ApplyStream(base, "incident", 1, envelope); err == nil {
 		t.Fatal("direct faults group with a null counter")
 	}
-	envelope.Delta.Groups["faults"] = json.RawMessage(`{"counters":{"started":1}}`)
+	envelope.Delta.Groups["faults"] = jsontext.Value(`{"counters":{"started":1}}`)
 	if _, err := ApplyStream(base, "incident", 1, envelope); err != nil {
 		t.Fatal("direct faults group:", err)
 	}

@@ -3,6 +3,7 @@ package session
 import (
 	"bytes"
 	"encoding/json"
+	"encoding/json/jsontext"
 	jsonv2 "encoding/json/v2"
 	"fmt"
 	"math"
@@ -467,7 +468,7 @@ func TestComposedWorstCaseFormats(t *testing.T) { //nolint:tparallel // Subtests
 				"The HTTP state decodes with the bounded scans and the typed decode of DecodeStateJSON, without the state checks of the stream assembler.",
 			Sizes: sizes,
 		}
-		data, err := json.MarshalIndent(record, "", "  ")
+		data, err := jsonv2.Marshal(record, json.DefaultOptionsV1(), jsontext.WithIndent("  "))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -654,12 +655,12 @@ func measureComposedStream(t *testing.T, shape composedShape) []composedSize {
 			if err != nil || !decoded.incidentMembers || !decoded.faultMembers || !decoded.emergencyMembers {
 				t.Fatalf("%s delta decode: %v, incident members %v, fault members %v, emergency members %v", shape.name, err, decoded.incidentMembers, decoded.faultMembers, decoded.emergencyMembers)
 			}
-			var group []json.RawMessage
-			if err := json.Unmarshal(decoded.Delta.Groups["pending"], &group); err != nil {
+			var group []jsontext.Value
+			if err := jsonv2.Unmarshal(decoded.Delta.Groups["pending"], &group, json.DefaultOptionsV1()); err != nil {
 				t.Fatal(err)
 			}
 			var active sim.FaultsView
-			if err := json.Unmarshal(decoded.Delta.Groups["faults"], &active); err != nil {
+			if err := jsonv2.Unmarshal(decoded.Delta.Groups["faults"], &active, json.DefaultOptionsV1()); err != nil {
 				t.Fatal(err)
 			}
 			emergencyGroup, groupErr := decodeEmergenciesGroup(decoded.Delta.Groups["emergencies"])
@@ -683,7 +684,7 @@ func composedTopologyJSON(t *testing.T, topology TopologySnapshot, frame StreamF
 	t.Helper()
 	topology.IncidentContract, topology.FaultContract = frame.State.Simulation.IncidentContract, frame.State.Simulation.FaultContract
 	topology.EmergencyContract = frame.State.Simulation.EmergencyContract
-	raw, err := json.Marshal(topology)
+	raw, err := jsonv2.Marshal(topology, json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}

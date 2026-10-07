@@ -395,7 +395,7 @@ func TestExpressWidestTopologyHTTPAdapters(t *testing.T) {
 	}
 	express := contractMarkers{order: sim.ExpressOrderContract}
 	topology := widestTopology(t, express)
-	raw, err := json.Marshal(topology)
+	raw, err := jsonv2.Marshal(topology, json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -403,7 +403,7 @@ func TestExpressWidestTopologyHTTPAdapters(t *testing.T) {
 		t.Fatalf("the widest topology has %d bytes, more than the cap %d", len(raw), MaxTopologyJSON)
 	}
 	var decoded TopologySnapshot
-	if err = json.Unmarshal(raw, &decoded); err != nil {
+	if err = jsonv2.Unmarshal(raw, &decoded, json.DefaultOptionsV1()); err != nil {
 		t.Fatal(err)
 	}
 	// The widest network is under the cap. Station names longer than a
@@ -414,11 +414,11 @@ func TestExpressWidestTopologyHTTPAdapters(t *testing.T) {
 	for i := range oversized.Network.Stations {
 		oversized.Network.Stations[i].Name += strings.Repeat("&", extra)
 	}
-	large, err := json.Marshal(oversized)
+	large, err := jsonv2.Marshal(oversized, json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(large) <= project.MaxFileBytes+4096 || json.Unmarshal(large, &decoded) == nil {
+	if len(large) <= project.MaxFileBytes+4096 || jsonv2.Unmarshal(large, &decoded, json.DefaultOptionsV1()) == nil {
 		t.Fatal("topology cap failed")
 	}
 	if err = preflightTopology(project.Config{Version: project.CurrentVersion, OrderContract: sim.ExpressOrderContract, Network: oversized.Network, ExpressServices: oversized.ExpressServices}, "server", "epoch"); err == nil || err.Error() != "topology exceeds supported limit" {

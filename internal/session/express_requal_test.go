@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"encoding/base64"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"errors"
 	"math"
 	"os"
@@ -723,7 +724,7 @@ func TestExpressRequalCost(t *testing.T) {
 	}
 
 	var topology TopologySnapshot
-	must(json.Unmarshal(read("topology.json"), &topology))
+	must(jsonv2.Unmarshal(read("topology.json"), &topology, json.DefaultOptionsV1()))
 	reference := read("reference-full.json")
 	var candidate StreamFrame
 	var first State
