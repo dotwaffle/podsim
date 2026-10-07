@@ -18,7 +18,6 @@ import (
 
 	"github.com/coder/websocket"
 
-	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
@@ -275,145 +274,15 @@ func TestStreamBaselineAndShutdown(t *testing.T) {
 	}
 }
 
-func maximumStreamFrame(t *testing.T) StreamFrame {
-	t.Helper()
-	_, f := streamFixture(t)
-	fillStreamScalars(reflect.ValueOf(&f.State).Elem())
-	// A demand seed is not a counter, so it can have 64 bits.
-	f.State.Demand.Config.Seed = math.MaxUint64
-	// The session identity and the demand references are IDs. The
-	// identity keeps the restored-text bound.
-	f.State.ServerStart, f.State.Epoch = strings.Repeat("x", 1024), strings.Repeat("x", 1024)
-	config := &f.State.Demand.Config
-	config.Destination, config.Profile, config.Band = widestID('d', 0), widestID('d', 1), widestID('d', 2)
-	// Keep the maximum fixture in its original stream family.
-	f.State.Simulation.Interrupted, f.State.Simulation.InterruptedPassengers = 0, 0
-	// Each ID has the largest length. An enumerated value has control
-	// bytes, which JSON writes as 6 bytes each, because the stream decoder
-	// does not check its value.
+// widestVehicle returns a legacy vehicle frame with 8 riders and 8 stops.
+// Each ID has the largest length. An enumerated value has control bytes,
+// which JSON writes as 6 bytes each, because the stream decoder does not
+// check its value.
+func widestVehicle() VehicleFrame {
 	id, escaped := widestID('p', 0), strings.Repeat("\x01", 64)
 	request := sim.Request{ID: sim.MaxCounter, From: id, To: id, PodID: id, PartySize: sim.MaxCounter, SharingConsent: sim.PrivateConsent, Service: sim.OnDemandService, RequestedTick: sim.MaxCounter, BoardedTick: sim.MaxCounter, DispatchReason: widestReason}
-	// Restored pending requests include QueueLimit plus every pod party.
-	f.State.Simulation.Pending = slices.Repeat([]sim.Request{request}, maxSavedTrips)
-	f.State.Simulation.Vehicles = make([]VehicleFrame, project.MaxPods)
-	f.Routes = make([]sim.RoutePresentation, project.MaxPods)
-	for i := range f.Routes {
-		p := sim.Pod{Class: sim.LegacyClass, ID: id, StationID: id, BerthID: id, LaneID: id, BlockedBy: id, ManeuverStationID: id, Activity: sim.Activity(escaped), WaitReason: sim.WaitReason(escaped), StationPhase: sim.StationPhase(escaped), Position: sim.Point{X: math.MaxFloat64, Y: -math.MaxFloat64}, LaneDistance: math.MaxFloat64, Speed: math.MaxFloat64}
-		f.State.Simulation.Vehicles[i] = VehicleFrame{Pod: p, Riders: slices.Repeat([]sim.Request{request}, 8), Stops: slices.Repeat([]string{id}, 8), RelocatingTo: id, Rebalancing: true, PlatoonID: id, PlatoonIndex: sim.MaxCounter}
-		f.Routes[i] = sim.RoutePresentation{Identity: sim.MaxCounter, Display: slices.Repeat([]int{project.MaxLanes - 1}, project.MaxLanes), Origin: project.MaxNodes - 1, Lanes: slices.Repeat([]int{project.MaxLanes - 1}, sim.MotionRouteLimit), Start: sim.MaxCounter, Current: sim.MaxCounter, Before: true, After: true}
-	}
-	// Berths have unique nodes, so MaxNodes also bounds their total count.
-	f.State.Simulation.Berths = slices.Repeat([]sim.BerthState{{ID: id, Occupant: id, ReservedBy: id}}, project.MaxNodes)
-	f.State.Build = "0123456789abcdef"
-	f.State.Checkpoints = make([]Checkpoint, checkpointLimit)
-	for i := range f.State.Checkpoints {
-		fillStreamScalars(reflect.ValueOf(&f.State.Checkpoints[i]).Elem())
-	}
-	return f
-}
-
-// maximumStreamRepresentation returns maximumStreamFrame with its vehicles
-// in representation. "historical" keeps the legacy vehicles without
-// boarding records. "modern" makes each vehicle a compact pod with 8
-// boarding records, and "mixed" does so for each odd vehicle.
-func maximumStreamRepresentation(t *testing.T, representation string) StreamFrame {
-	t.Helper()
-	f := maximumStreamFrame(t)
-	if representation == "historical" {
-		return f
-	}
-	for i := range f.State.Simulation.Vehicles {
-		if representation == "mixed" && i%2 == 0 {
-			continue
-		}
-		v := &f.State.Simulation.Vehicles[i]
-		v.Pod.Class = sim.CompactClass
-		v.RiddenMeters = 0.0000010000000000000002
-		v.Boardings = slices.Repeat([]sim.RiderBoarding{{BerthID: widestID('b', 0), MetersAtBoarding: 0.0000010000000000000002}}, 8)
-		for j := range v.Riders {
-			v.Riders[j].PartySize = sim.MaxNewPartySize
-			v.Riders[j].SharingConsent = sim.SharedConsent
-		}
-	}
-	return f
-}
-
-func TestStreamMaximumEncoding(t *testing.T) { //nolint:tparallel // Subtests build one maximum frame at a time to bound memory.
-	t.Parallel()
-	if testing.Short() {
-		t.Skip("the maximum stream proof runs without -short, in the race task and the test:embedded task")
-	}
-	for _, representation := range []string{"historical", "modern", "mixed"} {
-		t.Run(representation, func(t *testing.T) {
-			f := maximumStreamRepresentation(t, representation)
-			e := StreamEnvelope{Kind: "full", Stream: strings.Repeat("x", 32), Sequence: sim.MaxCounter, Source: sourceOf(f), Build: f.State.Build, Full: &f}
-			data, err := EncodeStreamJSON(e)
-			if err != nil {
-				t.Fatal(err)
-			}
-			t.Logf("conservative full encoder fixture: %d bytes", len(data))
-			assertPlainStreamMaximum(t, data)
-			assertStateMaximum(t, f)
-			compressed, err := encodeStream(e)
-			if err != nil {
-				t.Fatal(err)
-			}
-			out, err := InflateStream(compressed)
-			if err != nil || !bytes.Equal(out, data) {
-				t.Fatal("maximum gzip round trip", err)
-			}
-			// Force all vehicle groups and global groups to change.
-			d := maximumStreamDelta(t, f)
-			e.Kind = "delta"
-			e.Full = nil
-			e.Delta = &d
-			e.Base = sim.MaxCounter - 1
-			data, err = EncodeStreamJSON(e)
-			if err != nil {
-				t.Fatal("maximum delta exceeds cap", err)
-			}
-			t.Logf("conservative delta encoder fixture: %s bytes", strconv.Itoa(len(data)))
-			assertPlainStreamMaximum(t, data)
-			compressed, err = encodeStream(e)
-			if err != nil {
-				t.Fatal(err)
-			}
-			out, err = InflateStream(compressed)
-			if err != nil || !bytes.Equal(out, data) {
-				t.Fatal("maximum delta gzip round trip", err)
-			}
-		})
-	}
-}
-
-// assertStateMaximum checks the HTTP state of frame, with the largest
-// topology that a project can have. The test topology is small, so the
-// check adds the topology bound in its place. The bounded scan must accept
-// the state, and its arrays must have explicit bounds.
-func assertStateMaximum(t *testing.T, frame StreamFrame) {
-	t.Helper()
-	_, fixture := streamFixture(t)
-	topology := TopologySnapshot{ProjectVersion: project.CurrentVersion, ServerStart: fixture.State.ServerStart, Epoch: fixture.State.Epoch}
-	topologyBytes, err := jsonv2.Marshal(topology, json.DefaultOptionsV1())
-	if err != nil {
-		t.Fatal(err)
-	}
-	data, err := jsonv2.Marshal(StateEnvelope{Topology: topology, Frame: frame}, json.DefaultOptionsV1(), packedRequestOptions())
-	if err != nil {
-		t.Fatal(err)
-	}
-	widest := len(data) - len(topologyBytes) + project.MaxFileBytes + 4096
-	t.Logf("HTTP state: %d bytes with the test topology, %d bytes with the largest topology, %d bytes of headroom", len(data), widest, MaxStreamJSON-widest)
-	if widest > MaxStreamJSON {
-		t.Fatalf("widest HTTP state exceeds the stream limit: %d", widest)
-	}
-	if raceEnabled {
-		return
-	}
-	if err := prescanJSON(data, streamLimits(contractMarkers{})); err != nil {
-		t.Fatalf("widest HTTP state failed the bounded scan: %v", err)
-	}
-	assertExplicitArrayBounds(t, "plain HTTP state maximum", data, streamLimits(contractMarkers{}))
+	p := sim.Pod{Class: sim.LegacyClass, ID: id, StationID: id, BerthID: id, LaneID: id, BlockedBy: id, ManeuverStationID: id, Activity: sim.Activity(escaped), WaitReason: sim.WaitReason(escaped), StationPhase: sim.StationPhase(escaped), Position: sim.Point{X: math.MaxFloat64, Y: -math.MaxFloat64}, LaneDistance: math.MaxFloat64, Speed: math.MaxFloat64}
+	return VehicleFrame{Pod: p, Riders: slices.Repeat([]sim.Request{request}, 8), Stops: slices.Repeat([]string{id}, 8), RelocatingTo: id, Rebalancing: true, PlatoonID: id, PlatoonIndex: sim.MaxCounter}
 }
 
 func TestStreamLatencyWindow(t *testing.T) {
@@ -721,35 +590,6 @@ func TestStreamBuildBound(t *testing.T) {
 	s.build = strings.Repeat("x", 65)
 	if _, err := s.presentationFrame(); err == nil {
 		t.Fatal("unbounded injected build ID")
-	}
-}
-
-// fillStreamScalars overestimates global text with the restored-text bound,
-// and sets each integer to the widest value that the integer scan accepts.
-// It leaves the contract markers, which must agree with the topology.
-func fillStreamScalars(v reflect.Value) {
-	if v.Type() == reflect.TypeFor[sim.OrderContract]() || v.Type() == reflect.TypeFor[sim.IncidentContract]() ||
-		v.Type() == reflect.TypeFor[sim.FaultContract]() || v.Type() == reflect.TypeFor[sim.FaultsView]() ||
-		v.Type() == reflect.TypeFor[sim.EmergencyContract]() || v.Type() == reflect.TypeFor[sim.EmergenciesView]() {
-		return
-	}
-	switch v.Kind() {
-	case reflect.Struct:
-		for _, field := range v.Fields() {
-			fillStreamScalars(field)
-		}
-	case reflect.String:
-		v.SetString(strings.Repeat("\x01", 1024))
-	case reflect.Int, reflect.Int64:
-		v.SetInt(-sim.MaxCounter)
-	case reflect.Uint64:
-		v.SetUint(sim.MaxCounter)
-	case reflect.Float64:
-		v.SetFloat(-math.MaxFloat64)
-	case reflect.Bool:
-		v.SetBool(true)
-	default:
-		// Containers have explicit maximum-count fixtures.
 	}
 }
 

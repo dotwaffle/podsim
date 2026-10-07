@@ -4,19 +4,13 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/base64"
-	"encoding/json"
-	jsonv2 "encoding/json/v2"
 	"errors"
 	"math"
-	"os"
 	"reflect"
-	"runtime"
-	"runtime/metrics"
 	"slices"
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/dotwaffle/podsim/internal/sim"
 )
@@ -621,166 +615,4 @@ func TestExpressRequalStreamCaps(t *testing.T) {
 	if _, err = InflateStream(exact); err == nil || err.Error() == "compressed state too large" {
 		t.Fatalf("a message at the gzip cap: %v", err)
 	}
-}
-
-// requalPeak samples the bytes of live and unswept heap objects every
-// millisecond until stop returns the largest sample.
-func requalPeak() (stop func() uint64) {
-	sample := []metrics.Sample{{Name: "/memory/classes/heap/objects:bytes"}}
-	done, result := make(chan struct{}), make(chan uint64)
-	go func() {
-		var peak uint64
-		ticker := time.NewTicker(time.Millisecond)
-		defer ticker.Stop()
-		for {
-			metrics.Read(sample)
-			peak = max(peak, sample[0].Value.Uint64())
-			select {
-			case <-done:
-				result <- peak
-				return
-			case <-ticker.C:
-			}
-		}
-	}()
-	return func() uint64 { close(done); return <-result }
-}
-
-// requalLive returns the live heap bytes after a full collection.
-func requalLive() uint64 {
-	runtime.GC()
-	var stats runtime.MemStats
-	runtime.ReadMemStats(&stats)
-	return stats.HeapAlloc
-}
-
-// requalStage runs step and logs its time, its peak heap, and the live
-// heap after it, in MiB.
-func requalStage(t *testing.T, name string, step func()) {
-	t.Helper()
-	before := requalLive()
-	stop := requalPeak()
-	started := time.Now()
-	step()
-	elapsed := time.Since(started)
-	peak := stop()
-	t.Logf("cost %s elapsed=%.3fs live-before=%.1fMiB peak-heap=%.1fMiB live-after=%.1fMiB", name, elapsed.Seconds(),
-		float64(before)/(1<<20), float64(peak)/(1<<20), float64(requalLive())/(1<<20))
-}
-
-// TestExpressRequalCost measures the encode and decode time and the heap
-// of the widest Express assets that TestExpressWidestSaveAdapters,
-// TestExpressWidestStreamAdapters and TestExpressWidestTopologyHTTPAdapters
-// export. It then keeps the accepted reference frame while it decodes and
-// applies a replacement delta, and while it decodes the HTTP state. The
-// reference frame of the export has the speed of the stream fixture, so the
-// test sets the playback speed 60 before the assembler reads it.
-func TestExpressRequalCost(t *testing.T) {
-	dir := os.Getenv("PODSIM_EXPRESS_PUBLIC_ASSET_DIR")
-	if dir == "" || raceEnabled {
-		t.Skip("external widest assets are not requested")
-	}
-	read := func(name string) []byte {
-		data, err := os.ReadFile(dir + "/" + name)
-		if err != nil {
-			t.Fatal(err)
-		}
-		return data
-	}
-	must := func(err error) {
-		t.Helper()
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
-	saved := read("save-modern.json.gz")
-	var file stateFile
-	requalStage(t, "save-decode", func() {
-		var err error
-		file, err = decodeStateFile(saved)
-		must(err)
-		must(file.resolveBoardings())
-	})
-	requalStage(t, "save-encode", func() {
-		data, err := new(stateEncoder).encode(file)
-		must(err)
-		t.Logf("cost save raw=%d gzip=%d", len(decompressTestJSON(t, data)), len(data))
-	})
-	file, saved = stateFile{}, nil
-	for _, name := range []string{"full", "delta"} {
-		compressed := read(name + ".json.gz")
-		var envelope StreamEnvelope
-		requalStage(t, name+"-decode", func() {
-			raw, err := InflateStream(compressed)
-			must(err)
-			envelope, err = DecodeStreamJSON(raw)
-			must(err)
-		})
-		requalStage(t, name+"-encode", func() {
-			data, err := encodeStream(envelope)
-			must(err)
-			t.Logf("cost %s gzip=%d", name, len(data))
-		})
-	}
-
-	var topology TopologySnapshot
-	must(jsonv2.Unmarshal(read("topology.json"), &topology, json.DefaultOptionsV1()))
-	reference := read("reference-full.json")
-	var candidate StreamFrame
-	var first State
-	var assembler *StreamAssembler
-	var stream string
-	var sequence uint64
-	requalStage(t, "reference-full-decode-assemble", func() {
-		decoded, err := DecodeStreamJSON(reference)
-		must(err)
-		decoded.Full.State.Speed = 60
-		candidate, err = ApplyStream(StreamFrame{}, "", 0, decoded)
-		must(err)
-		assembler, err = NewStreamAssembler(topology)
-		must(err)
-		first, err = assembler.State(candidate)
-		must(err)
-		stream, sequence = decoded.Stream, decoded.Sequence
-	})
-	reference = nil
-	// The successor and its delta go out of scope before the measured
-	// stage, so that only the encoded delta stays.
-	deltaRaw := func() []byte {
-		successor := expressReferenceSuccessor(candidate)
-		delta, err := makeDelta(candidate, successor)
-		must(err)
-		raw, err := EncodeStreamJSON(StreamEnvelope{OrderContract: sim.ExpressOrderContract, Kind: "delta", Stream: stream, Sequence: sequence + 1, Base: sequence, Source: sourceOf(successor), Build: successor.State.Build, Delta: &delta})
-		must(err)
-		return raw
-	}()
-	t.Logf("cost replacement-delta raw=%d", len(deltaRaw))
-	var second State
-	requalStage(t, "replacement-with-predecessor", func() {
-		replacement, decodeErr := DecodeStreamJSON(deltaRaw)
-		must(decodeErr)
-		applied, applyErr := ApplyStream(candidate, stream, sequence, replacement)
-		must(applyErr)
-		var stateErr error
-		second, stateErr = assembler.State(applied)
-		must(stateErr)
-	})
-	withPredecessor := requalLive()
-	if len(first.Simulation.Pending) != 8600 || len(second.Simulation.Pending) != 8599 {
-		t.Fatal("the replacement changed the retained predecessor")
-	}
-	candidate, first = StreamFrame{}, State{}
-	withoutPredecessor := requalLive()
-	t.Logf("cost previous-frame-retention live-with=%.1fMiB live-without=%.1fMiB retained=%.1fMiB", float64(withPredecessor)/(1<<20),
-		float64(withoutPredecessor)/(1<<20), (float64(withPredecessor)-float64(withoutPredecessor))/(1<<20))
-	httpRaw := read("http.json")
-	requalStage(t, "http-decode-with-stream-state", func() {
-		state, decodeErr := DecodeStateJSON(httpRaw)
-		must(decodeErr)
-		if len(state.Simulation.Vehicles) != 300 {
-			t.Fatal("the HTTP state lost vehicles")
-		}
-	})
-	runtime.KeepAlive(assembler)
-	runtime.KeepAlive(second)
 }

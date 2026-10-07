@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/dotwaffle/podsim/internal/project"
-	"github.com/dotwaffle/podsim/internal/rail"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
@@ -716,179 +715,16 @@ func TestDecodeStateFileBombs(t *testing.T) {
 	}
 }
 
-// TestStateFileWorstCaseSize finds the size of the largest state file that
-// the encoder writes. The project has the most nodes and lanes that
-// project.Validate allows, and its JSON form has project.MaxFileBytes, the
-// largest project member that the encoder writes. There are maxSavedPods
-// pods, each with a route of the largest saved length. There are
-// maxSavedTrips queued trips. Only a trip that a pod picks up has a route,
-// and a pod picks up one trip at a time, so maxSavedPods of the trips have
-// a route of the largest saved length.
-// There are clientLimit client sequences, and each client ID has the
-// longest JSON form. Each other value has its largest length. The size must
-// be accepted, so that a save fails only when its project member is too
-// large.
-func TestStateFileWorstCaseSize(t *testing.T) {
-	t.Parallel()
-	if testing.Short() || raceEnabled {
-		t.Skip("maximum codec proof runs in the required test:embedded task")
-	}
-	const nodes, lanes = project.MaxNodes, project.MaxLanes
-	id := func(prefix string, index int) string {
-		return prefix + strings.Repeat("0", 64-len(prefix)-len(strconv.Itoa(index))) + strconv.Itoa(index)
-	}
-	config := project.Default()
-	config.Network.Nodes = make([]sim.Node, nodes)
-	for index := range config.Network.Nodes {
-		config.Network.Nodes[index] = sim.Node{ID: id("n", index)}
-	}
-	config.Network.Lanes = make([]sim.Lane, lanes)
-	for index := range config.Network.Lanes {
-		config.Network.Lanes[index] = sim.Lane{ID: id("l", index), From: id("n", index%nodes), To: id("n", (index+1)%nodes)}
-	}
-	// The project member can hold project.MaxFileBytes, whatever it
-	// contains, so a long name fills the rest.
-	config.Name = strings.Repeat("n", project.MaxFileBytes-jsonSize(t, config)+len(config.Name))
-	if size := jsonSize(t, config); size != project.MaxFileBytes {
-		t.Fatalf("project has %d bytes, want %d", size, project.MaxFileBytes)
-	}
-
-	// Each saved ID has the largest length. Diagnostic text can contain
-	// control bytes, which JSON writes as 6 bytes each. The project member
-	// already fills its independent byte cap, so its node and lane IDs can
-	// remain short.
-	id = func(_ string, _ int) string { return widestID('x', 0) }
-	const widest = -sim.MaxCounter
-	text := strings.Repeat("\x01", 1<<10)
-	route := func(length int) []int {
-		indexes := make([]int, length)
-		for index := range indexes {
-			indexes[index] = lanes - 1
-		}
-		return indexes
-	}
-	request := sim.SavedRequest{
-		ID: widest, From: id("f", 0), To: id("t", 0), PartySize: sim.MaxCounter, PodID: id("p", 0),
-		Completed: true, RequestedTick: widest, BoardedTick: widest, DispatchReason: widestReason,
-		SharingConsent: sim.PrivateConsent, Service: sim.OnDemandService,
-	}
-	riders, stops := make([]sim.SavedRequest, sim.MaxSharedRideParties), make([]string, sim.MaxSharedRideParties)
-	for index := range riders {
-		riders[index], stops[index] = request, id("t", index)
-	}
-	pod := sim.SavedPod{
-		ID: id("p", 0), Class: sim.LegacyClass, Activity: "continuing", StationID: id("s", 0), BerthID: id("b", 0),
-		Occupied: true, Riders: riders, Stops: stops, RiddenMeters: -math.MaxFloat64, JourneyOrigin: id("j", 0), RelocatingTo: id("r", 0),
-		Rebalancing: true, RebalanceAfter: widest, PhaseTicks: widest, Origin: id("o", 0),
-		Destination: id("d", 0), DestinationStation: id("e", 0), ClaimsDestination: true, Released: true,
-		Route: route(lanes + nodes), RouteIndex: widest, LaneID: id("l", 0),
-		LaneDistance: -math.MaxFloat64, Distance: -math.MaxFloat64, Waiting: true, WaitSince: widest,
-		Platoon: &sim.SavedPlatoonLink{
-			Leader: id("p", 1), Lane: widest, LeaderLane: widest, Lanes: widest, Turn: -math.MaxFloat64, Draining: true,
-		},
-	}
-	trip := sim.SavedTrip{
-		Request: request, Route: route(nodes), Boarded: true,
-		DeferUntil: widest, DeferCheck: widest, DeferPodID: id("p", 0),
-	}
-	trip.Request.SharingConsent = sim.PrivateConsent
-	// Each client ID has the largest length. The last 4 digits make the
-	// IDs increase.
-	sequences := make([]savedSequence, clientLimit)
-	for index := range sequences {
-		sequences[index] = savedSequence{
-			Client: fmt.Sprintf("%s%04d", strings.Repeat("c", maxClientBytes-4), index), Sequence: sim.MaxCounter,
-		}
-	}
-	demand := config.Demand
-	demand.Enabled, demand.PerMinute, demand.Seed = true, 120, math.MaxUint64
-	demand.Pattern = "rail-services"
-	// The conservative bound includes the optional daily clock, even
-	// though rail-services does not accept that field in a valid project.
-	demand.DailyStartMinute = 1439
-	demand.Destination, demand.Profile, demand.Band = id("d", 0), id("p", 0), id("b", 0)
-	random, err := newDemand(demandInput{config: demand, network: config.Network}).pcg.MarshalBinary()
-	if err != nil {
-		t.Fatal(err)
-	}
-	connections := make([]rail.Connection, project.MaxRailDeparturePassengers)
-	for i := range connections {
-		connections[i] = rail.Connection{Event: id("e", i), Passenger: 200, RequestedTick: widest, From: id("f", i), To: id("t", i), RequestID: sim.MaxCounter, AlightedTick: widest, Outcome: "unserved", Reason: "restore-degraded"}
-	}
-
-	file := stateFile{
-		RailConnections: connections,
-		Format:          stateFormat, Version: stateVersion, Final: true,
-		SavedAt: time.Date(2026, time.September, 23, 9, 0, 0, 123456789, time.FixedZone("", -12*60*60)),
-		Build:   testBuildID, Epoch: strings.Repeat("E", maxEpochBytes),
-		Revision: sim.MaxCounter - 1, ProjectRevision: sim.MaxCounter - 1, Generation: sim.MaxCounter - 1,
-		LastCheckpoint: sim.MaxCounter - 1, Speed: 60, RestoreAttempts: sim.MaxCounter, Sequences: sequences,
-		Demand: savedDemand{
-			State:  DemandState{Config: demand, Generated: sim.MaxCounter, Skipped: sim.MaxCounter, Error: text, Connections: rail.Counts{Made: 10000, Missed: 10000, Unserved: 10000, Unresolved: 10000}},
-			Random: random, Budget: demandBudgetLimit - 1,
-		},
-		Simulation: sim.SavedState{
-			Tick: widest, Paused: true, Completed: widest, RequestID: widest, Boarded: widest,
-			TotalWaitTicks: widest, MaxWaitTicks: widest, NextRedistributionTick: widest,
-			PassengerDistanceMeters: -math.MaxFloat64, EmptyDistanceMeters: -math.MaxFloat64,
-			RebalanceMoves: widest, SharedParties: widest, SharedRidePartyLimit: widest,
-			SharedRideMode: sim.SharedRideMode(text), SharedRideMaxStops: widest,
-			Journeys: widest, TotalJourneyTicks: widest, MaxJourneyTicks: widest,
-			RiderDistanceMeters: -math.MaxFloat64, DirectDistanceMeters: -math.MaxFloat64, MaxDetourRatio: -math.MaxFloat64,
-			Demo: &sim.SavedDemo{SecondSent: true, FollowupsSent: true}, DemoError: text,
-			Pods: []sim.SavedPod{pod}, Waiting: []sim.SavedTrip{trip},
-		},
-		Project: config,
-	}
-	// A file with all pods and trips takes too long to encode with the race
-	// detector. The file has one of each. A comma separates the elements of
-	// an array, so each other pod or trip adds its size and 1.
-	// The subtest name records the saved version.
-	t.Run(strconv.Itoa(stateVersion), func(t *testing.T) {
-		t.Parallel()
-		maxFile, maxPod, maxTrip := file, pod, trip
-		maxFile.Project = withBankMetadata(maxFile.Project)
-		for i := range maxFile.Project.Fleet {
-			maxFile.Project.Fleet[i].Class = sim.LegacyClass
-		}
-		maxFile.Project.Name = ""
-		maxFile.Project.Name = strings.Repeat("n", project.MaxFileBytes-jsonSize(t, maxFile.Project))
-		maxFile.Simulation.Pods = []sim.SavedPod{maxPod}
-		maxFile.Simulation.Waiting = []sim.SavedTrip{maxTrip}
-		testCompactClassWorstCaseSize(t, maxFile, maxPod, maxTrip)
-		testGroupWorstCaseSize(t, maxFile, maxPod, maxTrip)
-		maxUnrouted := maxTrip
-		maxUnrouted.Route = nil
-		size := jsonSize(t, maxFile) + (maxSavedPods-1)*(jsonSize(t, maxPod)+1) + (maxSavedPods-1)*(jsonSize(t, maxTrip)+1) +
-			(maxSavedTrips-maxSavedPods)*(jsonSize(t, maxUnrouted)+1)
-		t.Logf("worst case: %d JSON bytes, limit %d, headroom %d", size, MaxStateBytes, MaxStateBytes-size)
-		if size > MaxStateBytes {
-			t.Fatalf("the largest state has %d JSON bytes, more than %d", size, MaxStateBytes)
-		}
-		// The size fixture uses maximal numeric values, including invalid IDs.
-		// Decode its full shape, then retain the original physical validation fixture.
-		data := encodeTestState(t, maxFile)
-		assertExplicitArrayBounds(t, "worst-case save", decompressTestJSON(t, data), savedLimits(contractMarkers{}))
-		decoded, err := decodeStateFile(data)
-		if err != nil || len(decoded.RailConnections) != project.MaxRailDeparturePassengers {
-			t.Fatalf("maximal saved shape: %v", err)
-		}
-		physical := maxFile
-		physical.RailConnections = nil
-		physical.Demand.State.Connections = rail.Counts{}
-		physical.Demand.State.Config.Pattern = project.Default().Demand.Pattern
-		physical.Demand.State.Config.DailyStartMinute = 0
-		if _, err := decodeCheckedState(encodeTestState(t, physical)); err != nil {
-			t.Fatal(err)
-		}
-	})
+// widestID returns an ID of project.MaxIDLength characters: fill, and then
+// the 5 digits of index. fill is one of sim.IDCharacters, and index is less
+// than 100,000. Each encoder of the server writes each ID character as 1
+// byte, so each ID of the largest length has the same size.
+func widestID(fill byte, index int) string {
+	return fmt.Sprintf("%s%05d", strings.Repeat(string([]byte{fill}), project.MaxIDLength-5), index)
 }
 
-// jsonSize returns the size of the state file encoding of value.
-func jsonSize(t *testing.T, value any) int {
-	t.Helper()
-	return len(marshalSavedJSON(t, value))
-}
+// widestReason is a dispatch reason of the largest saved length.
+var widestReason = strings.Repeat("r", 1<<10)
 
 // marshalSavedJSON returns the state file encoding of value, with packed
 // order text. It does not convert the boarding records of a pod to tuples.

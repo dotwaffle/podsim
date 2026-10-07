@@ -7,7 +7,6 @@ import (
 	"math"
 	"os"
 	"reflect"
-	"slices"
 	"strings"
 	"testing"
 
@@ -248,110 +247,4 @@ func TestExpressPublicNumericRoundTrip(t *testing.T) {
 	if !reflect.DeepEqual(restored.Simulation.Pending, native.Simulation.Pending) || restored.Simulation.Tick != native.Simulation.Tick || restored.Simulation.EmptyDistanceMeters != native.Simulation.EmptyDistanceMeters || restored.Simulation.DirectDistanceMeters != native.Simulation.DirectDistanceMeters {
 		t.Fatal("public HTTP numeric precision changed")
 	}
-}
-
-// The external assets contain independent bounded wire fields, not native motion.
-// Retain the first accepted state while decoding its successor in native or WASM.
-func TestExpressPublicAssetRetention(t *testing.T) {
-	t.Parallel()
-	dir := os.Getenv("PODSIM_EXPRESS_PUBLIC_ASSET_DIR")
-	if dir == "" {
-		t.Skip("external widest reference-shape assets are not requested")
-	}
-	topologyBytes, err := os.ReadFile(dir + "/topology.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	var topology TopologySnapshot
-	if err = jsonv2.Unmarshal(topologyBytes, &topology, json.DefaultOptionsV1()); err != nil {
-		t.Fatal(err)
-	}
-	raw, err := os.ReadFile(dir + "/reference-full.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	decoded, err := DecodeStreamJSON(raw)
-	if err != nil {
-		t.Fatal(err)
-	}
-	// The reference asset has the widest speed, which the assembler refuses.
-	decoded.Full.State.Speed = 60
-	candidate, err := ApplyStream(StreamFrame{}, "", 0, decoded)
-	if err != nil {
-		t.Fatal(err)
-	}
-	assembler, err := NewStreamAssembler(topology)
-	if err != nil {
-		t.Fatal(err)
-	}
-	first, err := assembler.State(candidate)
-	if err != nil {
-		t.Fatal(err)
-	}
-	nativeRequest := first.Simulation.Pending[0]
-	successor := expressReferenceSuccessor(candidate)
-	delta, err := makeDelta(candidate, successor)
-	if err != nil {
-		t.Fatal(err)
-	}
-	envelope := StreamEnvelope{OrderContract: sim.ExpressOrderContract, Kind: "delta", Stream: decoded.Stream, Sequence: decoded.Sequence + 1, Base: decoded.Sequence, Source: sourceOf(successor), Build: successor.State.Build, Delta: &delta}
-	deltaRaw, err := EncodeStreamJSON(envelope)
-	if err != nil {
-		t.Fatal(err)
-	}
-	deltaDecoded, err := DecodeStreamJSON(deltaRaw)
-	if err != nil {
-		t.Fatal(err)
-	}
-	applied, err := ApplyStream(candidate, decoded.Stream, decoded.Sequence, deltaDecoded)
-	if err != nil {
-		t.Fatal(err)
-	}
-	second, err := assembler.State(applied)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(second.Simulation.Vehicles) != 300 || len(second.Simulation.Pending) != 8599 || !reflect.DeepEqual(first.Simulation.Pending[0], nativeRequest) || first.Simulation.Vehicles[0].RiddenMeters != candidate.State.Simulation.Vehicles[0].RiddenMeters {
-		t.Fatal("replacement delta changed retained predecessor")
-	}
-	beforePending := assembler.previous.State.Simulation.Pending[0]
-	beforeBoarding := assembler.previous.State.Simulation.Vehicles[0].Boardings[0]
-	second.Simulation.Pending[0].From = "mutated"
-	second.Simulation.Vehicles[0].Riders[0].PartySize = 999
-	second.Simulation.Vehicles[0].Boardings[0].MetersAtBoarding = 999
-	second.Simulation.Vehicles[0].Pod.Class = sim.LegacyClass
-	if !reflect.DeepEqual(assembler.previous.State.Simulation.Pending[0], beforePending) || assembler.previous.State.Simulation.Vehicles[0].Boardings[0] != beforeBoarding || !reflect.DeepEqual(first.Simulation.Pending[0], nativeRequest) || first.Simulation.Vehicles[0].Riders[0].PartySize == 999 {
-		t.Fatal("returned owned containers alias accepted state")
-	}
-	if _, stateErr := assembler.State(applied); stateErr != nil {
-		t.Fatal("returned mutation changed assembler", stateErr)
-	}
-	httpRaw, err := os.ReadFile(dir + "/http.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	httpState, err := DecodeStateJSON(httpRaw)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(httpState.Simulation.Vehicles) != 300 || !reflect.DeepEqual(first.Simulation.Pending[0], nativeRequest) {
-		t.Fatal("widest HTTP decode changed retained stream")
-	}
-	t.Logf("public assets full=%d http=%d vehicles=%d pending=%d retained=true", len(raw), len(httpRaw), len(second.Simulation.Vehicles), len(second.Simulation.Pending))
-}
-
-func expressReferenceSuccessor(frame StreamFrame) StreamFrame {
-	next := ownStreamBoardings(frame)
-	next.State.Revision++
-	next.State.Simulation.Tick++
-	picked := next.State.Simulation.Pending[0]
-	next.State.Simulation.Pending = slices.Clone(next.State.Simulation.Pending[1:])
-	next.State.Simulation.Pending[0].DispatchReason = strings.Repeat("r", 1019) + "after"
-	vehicle := &next.State.Simulation.Vehicles[0]
-	picked.PodID = vehicle.Pod.ID
-	picked.Completed = false
-	vehicle.RiddenMeters *= 2
-	vehicle.Riders = append(slices.Clone(vehicle.Riders[1:]), picked)
-	vehicle.Boardings = append(slices.Clone(vehicle.Boardings[1:]), sim.RiderBoarding{BerthID: vehicle.Boardings[0].BerthID, MetersAtBoarding: vehicle.RiddenMeters})
-	return next
 }

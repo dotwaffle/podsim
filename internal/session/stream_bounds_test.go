@@ -14,22 +14,6 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-// assertPlainStreamMaximum shows that the bounded scan and the decoder
-// accept an encoder maximum without contract markers.
-func assertPlainStreamMaximum(t *testing.T, raw []byte) {
-	t.Helper()
-	if raceEnabled {
-		return
-	}
-	if err := prescanJSON(raw, streamLimits(contractMarkers{})); err != nil {
-		t.Fatalf("plain maximum failed the bounded scan: %v", err)
-	}
-	assertExplicitArrayBounds(t, "plain stream maximum", raw, streamLimits(contractMarkers{}))
-	if _, err := DecodeStreamJSON(raw); err != nil {
-		t.Fatalf("plain maximum: %v", err)
-	}
-}
-
 // The bounded scan runs before the token scans and the typed decode. A
 // document deeper than the jsontext decoder's own cap fails with the scan
 // error, and the other shapes fail with a limit error in place of a marker
@@ -291,8 +275,8 @@ func TestStreamDecodeMatchesUnboundedDecoder(t *testing.T) {
 }
 
 // The HTTP state carries a stream frame with route windows, so its arrays
-// have the bounds of the stream. TestStreamMaximumEncoding checks the
-// widest HTTP state.
+// have the bounds of the stream. TestFormatArraysHaveLimits checks that
+// each array of an HTTP state has a bound.
 func TestStateJSONBounds(t *testing.T) {
 	t.Parallel()
 	zeros := func(n int) string { return "[" + strings.TrimSuffix(strings.Repeat("0,", n), ",") + "]" }

@@ -29,9 +29,6 @@ const (
 
 // These are the largest counts that Validate accepts. The saved session
 // decoder uses the same limits, and web/editor.js has a copy of MaxLanes.
-// The maximum saved-state fixture includes the widest routes and a
-// MaxFileBytes project member.
-// TestStateFileWorstCaseSize must pass after any count or byte limit changes.
 const (
 	// MaxPods is the largest fleet.
 	MaxPods = 300

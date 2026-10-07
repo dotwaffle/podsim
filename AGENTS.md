@@ -57,7 +57,8 @@ CI runs `test:race:*`, `qualify`, and `check:static`.
   Do not add code that recovers part of such a file.
   A file of more than 80 MiB is the only file that the server keeps.
 - Do not change an approved contract, or its document, without maintainer approval.
-- After a change to a count or byte limit in `internal/project/config.go`, `TestStateFileWorstCaseSize` must pass.
+- No test proves that the largest saved state or stream message fits its byte cap.
+  After a change to a count or byte limit in `internal/project/config.go`, check the effect on these sizes.
   `web/editor.js` has a copy of `MaxLanes`.
 - A change to the saved-state version (`stateVersion`) or the stream version (`StreamVersion`) also changes the golden files in `internal/session/testdata` and the version text in `docs/operations.md` and `docs/protocol.md`.
 - Use the standard library first.

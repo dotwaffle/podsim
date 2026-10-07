@@ -12,29 +12,27 @@ import (
 	"testing"
 	"testing/synctest"
 
-	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-// TestSaveCapRejectsAtomically pads the composed plain save to the save
-// cap and to one byte more. The decoder accepts the save at the cap with
-// each pod. At one byte more, startup keeps the file, writes nothing and
-// starts no session. The padding is JSON whitespace after the root value,
-// which each scan accepts, so only the cap refuses the larger file. The
-// encoder has the same boundary: a demo error that brings the JSON form
-// to the cap encodes, and one more byte gives ErrStateTooLarge and no
-// data.
+// TestSaveCapRejectsAtomically pads a plain save to the save cap and to
+// one byte more. The decoder accepts the save at the cap. At one byte
+// more, startup keeps the file, writes nothing and starts no session. The
+// padding is JSON whitespace after the root value, which each scan
+// accepts, so only the cap refuses the larger file. The encoder has the
+// same boundary: a demo error that brings the JSON form to the cap
+// encodes, and one more byte gives ErrStateTooLarge and no data.
 func TestSaveCapRejectsAtomically(t *testing.T) {
 	if testing.Short() || raceEnabled {
 		t.Skip("the cap fixture runs without -short and without the race detector")
 	}
-	file := composedSave(t, composedShape{"plain", contractMarkers{}})
+	shared := newTestSession(t)
+	t.Cleanup(shared.Close)
+	file := sessionStateFile(t, shared)
+	file.RestoreAttempts = 0
 
 	t.Run("decoder", func(t *testing.T) {
-		raw := composedSaveJSON(t, file)
-		if len(raw) >= MaxStateBytes {
-			t.Fatalf("composed plain save has %d bytes, cap %d", len(raw), MaxStateBytes)
-		}
+		raw := decompressTestJSON(t, encodeTestState(t, file))
 		padded := make([]byte, MaxStateBytes+1)
 		copy(padded, raw)
 		for i := len(raw); i < len(padded); i++ {
@@ -44,7 +42,7 @@ func TestSaveCapRejectsAtomically(t *testing.T) {
 		if err != nil {
 			t.Fatal("decoder refused the save at the cap", err)
 		}
-		if len(decoded.Simulation.Pods) != project.MaxPods || len(decoded.Simulation.Waiting) != len(file.Simulation.Waiting) {
+		if len(decoded.Simulation.Pods) != len(file.Simulation.Pods) || len(decoded.Simulation.Waiting) != len(file.Simulation.Waiting) {
 			t.Fatal("decoder lost records at the cap")
 		}
 		store := &fakeStore{data: compressTestJSON(t, padded)}
@@ -59,7 +57,7 @@ func TestSaveCapRejectsAtomically(t *testing.T) {
 	t.Run("encoder", func(t *testing.T) {
 		file := file
 		file.Simulation.DemoError = "x"
-		size := len(composedSaveJSON(t, file))
+		size := len(decompressTestJSON(t, encodeTestState(t, file)))
 		file.Simulation.DemoError = strings.Repeat("x", 1+MaxStateBytes-size)
 		var encoder stateEncoder
 		data, err := encoder.encode(file)

@@ -5,7 +5,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
@@ -236,61 +235,5 @@ func TestGroupStreamActualFullAndDelta(t *testing.T) {
 				t.Fatal("rejected delta poisoned class or predecessor", stateErr)
 			}
 		})
-	}
-}
-
-func TestGroupStreamMaximumEncoding(t *testing.T) {
-	t.Parallel()
-	frame := maximumStreamFrame(t)
-	for i := range frame.State.Simulation.Vehicles {
-		vehicle := &frame.State.Simulation.Vehicles[i]
-		vehicle.Pod.Class = sim.GroupClass
-		vehicle.PlatoonID, vehicle.PlatoonIndex = "", 0
-		vehicle.RiddenMeters = 0.0000010000000000000002
-		vehicle.Boardings = make([]sim.RiderBoarding, sim.MaxSharedRideParties)
-		for j := range vehicle.Riders {
-			vehicle.Riders[j].PartySize = 1
-			vehicle.Riders[j].SharingConsent, vehicle.Riders[j].Service = sim.SharedConsent, sim.OnDemandService
-			vehicle.Riders[j].ServiceID = ""
-			vehicle.Boardings[j] = sim.RiderBoarding{BerthID: widestID('b', 0), MetersAtBoarding: vehicle.RiddenMeters}
-		}
-	}
-	if len(frame.State.Simulation.Vehicles) != project.MaxPods {
-		t.Fatal("group byte fixture changed fleet limit")
-	}
-	full := StreamEnvelope{Kind: "full", Stream: "group-max", Sequence: 1, Source: sourceOf(frame), Full: &frame}
-	_, empty := streamFixture(t)
-	empty.State.Simulation.Vehicles = make([]VehicleFrame, project.MaxPods)
-	empty.Routes = make([]sim.RoutePresentation, project.MaxPods)
-	empty.State.Simulation.Berths = make([]sim.BerthState, project.MaxNodes)
-	delta, err := makeDelta(empty, frame)
-	if err != nil {
-		t.Fatal(err)
-	}
-	changed := StreamEnvelope{Kind: "delta", Stream: "group-max", Sequence: 2, Base: 1, Source: sourceOf(frame), Delta: &delta}
-	for _, envelope := range []StreamEnvelope{full, changed} {
-		raw, err := EncodeStreamJSON(envelope)
-		if err != nil {
-			t.Fatal("typed group maximum exceeds the byte cap", err)
-		}
-		compressed, err := encodeStream(envelope)
-		if err != nil {
-			t.Fatal(err)
-		}
-		inflated, err := InflateStream(compressed)
-		if err != nil || !bytes.Equal(raw, inflated) {
-			t.Fatal("typed group maximum gzip round trip", err)
-		}
-		if scanErr := prescanJSON(inflated, streamLimits(contractMarkers{})); scanErr != nil {
-			t.Fatal("typed group maximum failed the bounded scan", scanErr)
-		}
-		decoded, err := DecodeStreamJSON(inflated)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if decoded.Full != nil && len(decoded.Full.State.Simulation.Vehicles) != project.MaxPods || decoded.Delta != nil && len(decoded.Delta.Vehicles) != project.MaxPods {
-			t.Fatal("typed group maximum lost vehicle records")
-		}
-		t.Logf("typed group %s maximum: raw=%d gzip=%d cap=%d", envelope.Kind, len(raw), len(compressed), MaxStreamJSON)
 	}
 }

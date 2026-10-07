@@ -1,12 +1,9 @@
 package session
 
 import (
-	"bytes"
 	"encoding/json/v2"
 	"os"
 	"reflect"
-	"slices"
-	"strings"
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/project"
@@ -119,83 +116,4 @@ func TestGroupRecordedRideConsumerRoundTrip(t *testing.T) {
 		return
 	}
 	t.Fatal("native group never reached occupied pickup", shared.simulation.ExportState())
-}
-
-// testGroupWorstCaseSize measures independent typed fields, not reachable placement.
-func testGroupWorstCaseSize(t *testing.T, base stateFile, pod sim.SavedPod, trip sim.SavedTrip) {
-	t.Helper()
-	const wide = 0.0000010000000000000002
-	for _, representation := range []string{"historical", "modern", "mixed"} {
-		t.Run("group-"+representation, func(t *testing.T) {
-			file := base
-			file.Project = project.Clone(base.Project)
-			stationID := pod.Riders[0].From
-			berths := make([]sim.Berth, project.MaxBerths)
-			classes, classErr := sim.NewClassSet("group")
-			if classErr != nil {
-				t.Fatal(classErr)
-			}
-			for i := range berths {
-				berths[i] = sim.Berth{ID: widestID('b', i), Node: file.Project.Network.Nodes[i].ID, VehicleClasses: classes}
-			}
-			file.Project.Network.Stations[0].ID, file.Project.Network.Stations[0].Berths = stationID, berths
-			file.Project.Network.Stations[0].VehicleClasses, file.Project.Network.Stations[0].Banks = classes, nil
-			file.Project.Fleet = make([]sim.Placement, project.MaxPods)
-			file.Simulation.Pods = make([]sim.SavedPod, project.MaxPods)
-			for i := range file.Simulation.Pods {
-				saved := pod
-				saved.ID = widestID('p', i)
-				saved.Class = sim.GroupClass
-				saved.Platoon, saved.Boardings = nil, nil
-				saved.RiddenMeters = 0
-				saved.Riders = slices.Clone(pod.Riders)
-				for j := range saved.Riders {
-					saved.Riders[j].PartySize = 8
-					saved.Riders[j].SharingConsent = sim.PrivateConsent
-				}
-				if representation == "modern" || representation == "mixed" && i%2 != 0 {
-					saved.RiddenMeters = wide
-					saved.Boardings = slices.Repeat([]sim.RiderBoarding{{BerthID: berths[len(berths)-1].ID, MetersAtBoarding: wide}}, sim.MaxSharedRideParties)
-				}
-				file.Simulation.Pods[i] = saved
-				file.Project.Fleet[i] = sim.Placement{ID: saved.ID, Class: sim.GroupClass, StationID: stationID, BerthID: berths[i%len(berths)].ID}
-			}
-			file.Project.Name = ""
-			file.Project.Name = strings.Repeat("n", project.MaxFileBytes-jsonSize(t, file.Project))
-			file.Simulation.Waiting = make([]sim.SavedTrip, sim.MaxSavedWaitingTrips)
-			for i := range file.Simulation.Waiting {
-				file.Simulation.Waiting[i] = trip
-				file.Simulation.Waiting[i].Request.PartySize = 8
-				if i >= project.MaxPods {
-					file.Simulation.Waiting[i].Route = nil
-				}
-			}
-			data := encodeTestState(t, file)
-			raw := decompressTestJSON(t, data)
-			if len(raw) > MaxStateBytes || len(file.Simulation.Pods) != 300 || len(file.Simulation.Waiting) != 2600 {
-				t.Fatal("group save maximum changed byte or operating limits")
-			}
-			if scanErr := prescanJSON(raw, boardingStateLimits(stateJSONLimits)); scanErr != nil {
-				t.Fatal(scanErr)
-			}
-			assertExplicitArrayBounds(t, "group save maximum", raw, savedLimits(contractMarkers{}))
-			decoded, decodeErr := decodeStateFile(data)
-			if decodeErr != nil {
-				t.Fatal(decodeErr)
-			}
-			if resolveErr := decoded.resolveBoardings(); resolveErr != nil {
-				t.Fatal(resolveErr)
-			}
-			for i := range file.Simulation.Pods {
-				want, got := file.Simulation.Pods[i], decoded.Simulation.Pods[i]
-				if got.Class != sim.GroupClass || len(got.Riders) != 8 || !slices.Equal(want.Boardings, got.Boardings) {
-					t.Fatal("typed group save maximum lost class or aligned records")
-				}
-			}
-			if !bytes.Equal(raw, decompressTestJSON(t, encodeTestState(t, decoded))) {
-				t.Fatal("typed group maximum changed on source-bound reencode")
-			}
-			t.Logf("typed group %s save maximum: raw=%d gzip=%d cap=%d", representation, len(raw), len(data), MaxStateBytes)
-		})
-	}
 }

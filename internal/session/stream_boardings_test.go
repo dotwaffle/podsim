@@ -254,8 +254,8 @@ func TestStreamOrdinaryBoardingBytes(t *testing.T) {
 		PlatoonIndex int    `json:"platoonIndex"`
 	}
 	_, frame := streamFixture(t)
-	historical := maximumStreamFrame(t)
-	for _, v := range []VehicleFrame{frame.State.Simulation.Vehicles[0], historical.State.Simulation.Vehicles[0]} {
+	historical := widestVehicle()
+	for _, v := range []VehicleFrame{frame.State.Simulation.Vehicles[0], historical} {
 		old := oldVehicle{v.Pod, v.Riders, v.Stops, v.RouteLaneIDs, v.RelocatingTo, v.Rebalancing, v.PlatoonID, v.PlatoonIndex}
 		if !bytes.Equal(streamJSON(t, v), streamJSON(t, old)) {
 			t.Fatal("ordinary vehicle bytes changed")
