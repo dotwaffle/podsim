@@ -128,7 +128,7 @@ func BenchmarkStreamLargeRouteWire(b *testing.B) {
 }
 
 // largeRouteFixture returns a frame with 200 pods. Each pod has an
-// 8,000-lane display route and a 2,048-lane motion route. It also returns
+// bounded display and motion window. It also returns
 // the 8,000 lane IDs that the legacy HTTP state sends for each pod.
 func largeRouteFixture(tb testing.TB) (StreamFrame, []string) {
 	tb.Helper()
@@ -150,7 +150,7 @@ func largeRouteFixture(tb testing.TB) (StreamFrame, []string) {
 	}
 	for i := range frame.Routes {
 		frame.State.Simulation.Vehicles[i].Pod.ID = fmt.Sprintf("pod-%03d", i)
-		frame.Routes[i] = sim.RoutePresentation{Identity: 1, Display: indexes, Lanes: indexes[:2048], Current: 1024, After: true}
+		frame.Routes[i] = sim.RoutePresentation{Identity: 1, Display: indexes[:sim.MotionRouteLimit], Lanes: indexes[:sim.MotionRouteLimit], Current: sim.MotionRouteLimit / 2, After: true}
 	}
 	return frame, laneIDs
 }

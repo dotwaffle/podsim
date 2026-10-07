@@ -222,6 +222,8 @@ func TestMotionBoundedRouteWindows(t *testing.T) {
 				after.Presentation.Start = 101
 				after.Presentation.Current = 101
 				after.Presentation.Motion = after.Route[1:]
+				before.Route = before.Route[:1]
+				after.Route = after.Route[1:]
 			}
 			if got := interpolate(a, b).Vehicles[0].Pod.Position; got != want {
 				t.Fatalf("position=%v want=%v", got, want)

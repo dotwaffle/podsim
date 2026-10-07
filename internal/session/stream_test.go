@@ -522,6 +522,27 @@ func TestStreamFieldOwnership(t *testing.T) {
 		}
 	}
 }
+func TestStreamAssemblerClippedDisplay(t *testing.T) {
+	t.Parallel()
+	s, _ := streamFixture(t)
+	a, err := NewStreamAssembler(s.Topology())
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := sim.RoutePresentation{
+		Identity: 1, Origin: 0, Display: []int{1}, Lanes: []int{1},
+		Start: sim.MotionRouteLimit, Current: sim.MotionRouteLimit, Before: true, After: true,
+	}
+	v := sim.Vehicle{Pod: sim.Pod{LaneID: a.topology.Network.Lanes[1].ID}}
+	if err := a.presentRoute(&v, r); err != nil {
+		t.Fatal(err)
+	}
+	if len(v.Route) != 1 || v.Route[0].ID != v.Pod.LaneID || len(v.Presentation.Motion) != 1 ||
+		v.Presentation.OriginNode != a.topology.Network.Nodes[r.Origin].ID {
+		t.Fatalf("clipped route %+v", v)
+	}
+}
+
 func TestStreamAssemblerCachesRoutes(t *testing.T) {
 	t.Parallel()
 	s, f := streamFixture(t)

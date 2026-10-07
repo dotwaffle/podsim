@@ -20,7 +20,7 @@ func TestPresentationRepeatedOccurrences(t *testing.T) {
 		t.Fatal(err)
 	}
 	r := routes[0]
-	if len(state.Vehicles[0].Route) != 0 || r.Current != 2500 || r.Start != 1476 || len(r.Lanes) != 2048 || len(r.Display) != 1 || !r.Before || !r.After {
+	if len(state.Vehicles[0].Route) != 0 || r.Current != 2500 || r.Start != 2500-MotionRouteLimit/2 || len(r.Lanes) != MotionRouteLimit || len(r.Display) != 1 || !r.Before || !r.After {
 		t.Fatalf("bad bounded route: %+v", r)
 	}
 	version := r.Identity
@@ -29,7 +29,7 @@ func TestPresentationRepeatedOccurrences(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if routes[0].Identity != version || routes[0].Start != 1576 {
+	if routes[0].Identity != version || routes[0].Start != 2600-MotionRouteLimit/2 {
 		t.Fatal("window shift changed route identity")
 	}
 	s.setVehicleRoute(v, slices.Clone(route))
@@ -62,6 +62,49 @@ func TestPresentationIsolationAndMalformedBlocks(t *testing.T) {
 	v.blocks = blockList{}
 	if _, _, err = s.PresentationSnapshot(); err == nil {
 		t.Fatal("accepted missing blocks")
+	}
+}
+
+func TestPresentationDisplayWindow(t *testing.T) {
+	t.Parallel()
+	for _, finished := range []bool{false, true} {
+		t.Run(fmt.Sprintf("finished-%t", finished), func(t *testing.T) {
+			t.Parallel()
+			s := newExample(t)
+			v := &s.vehicles[0]
+			route := make([]Lane, 2*MotionRouteLimit+1)
+			first := len(s.network.Lanes)
+			for i := range route {
+				route[i] = s.network.Lanes[0]
+				route[i].ID = fmt.Sprintf("window-%d", i)
+			}
+			s.network.Lanes = append(s.network.Lanes, route...)
+			v.replaceRoute(route)
+			v.Pod.LaneID = ""
+			if finished {
+				v.distance = 1
+			}
+			_, routes, err := s.PresentationSnapshot()
+			if err != nil {
+				t.Fatal(err)
+			}
+			r := routes[0]
+			start := 0
+			if finished {
+				start = len(route) - MotionRouteLimit/2
+			}
+			end := min(len(route), start+MotionRouteLimit)
+			want := make([]int, end-start)
+			for i := range want {
+				want[i] = first + start + i
+			}
+			if !slices.Equal(r.Display, want) || !slices.Equal(r.Lanes, want) || len(r.Display) > MotionRouteLimit {
+				t.Fatalf("display or motion differs from window [%d, %d): %+v", start, end, r)
+			}
+			if r.Origin != s.graph.nodes[route[0].From] || len(v.Route) != len(route) {
+				t.Fatal("window changed the origin or live route")
+			}
+		})
 	}
 }
 

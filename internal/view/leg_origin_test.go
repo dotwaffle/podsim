@@ -49,3 +49,14 @@ func TestLegOriginPodStations(t *testing.T) {
 		t.Errorf("rider stations %q", got)
 	}
 }
+
+func TestVehicleRouteOriginWithClippedDisplay(t *testing.T) {
+	t.Parallel()
+	v := sim.Vehicle{
+		Route:        []sim.Lane{{From: "window-start", To: "window-end"}},
+		Presentation: &sim.RoutePresentation{Start: sim.MotionRouteLimit, Before: true, OriginNode: "original-origin"},
+	}
+	if got := vehicleRouteOrigin(v); got != "original-origin" {
+		t.Fatalf("route origin %q, want original-origin", got)
+	}
+}

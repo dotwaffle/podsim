@@ -5,8 +5,8 @@ import (
 	"slices"
 )
 
-// MotionRouteLimit bounds the ordered route window of a stream vehicle.
-const MotionRouteLimit = 2048
+// MotionRouteLimit bounds the ordered window and unique display lanes of a stream vehicle.
+const MotionRouteLimit = 1024
 
 // RoutePresentation describes a route without its unbounded traveled prefix.
 // Motion and OriginNode are verified client geometry, not wire fields.
@@ -70,7 +70,7 @@ func (s *Simulation) PresentationSnapshot() (Snapshot, []RoutePresentation, erro
 			} else {
 				clear(seen)
 			}
-			for j, lane := range v.Route {
+			for _, lane := range v.Route[start:end] {
 				index, ok := lanes[lane.ID]
 				if !ok {
 					return Snapshot{}, nil, fmt.Errorf("unknown route lane %q", lane.ID)
@@ -79,9 +79,7 @@ func (s *Simulation) PresentationSnapshot() (Snapshot, []RoutePresentation, erro
 					route.Display = append(route.Display, index)
 					seen[index] = true
 				}
-				if j >= start && j < end {
-					route.Lanes = append(route.Lanes, index)
-				}
+				route.Lanes = append(route.Lanes, index)
 			}
 			slices.Sort(route.Display)
 		}
