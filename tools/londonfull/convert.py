@@ -84,7 +84,9 @@ def read_routes(root, manifest, mode, label):
                 require(50 < item["lat"] < 53 and -1 < item["lon"] < 1, "coordinate outside London")
                 require(item["id"] not in stops or stops[item["id"]] == item, "inconsistent source station")
                 stops[item["id"]] = item
-                hubs[item["id"]] = stop.get("topMostParentId", item["id"])
+                hub = stop.get("topMostParentId", item["id"])
+                require(item["id"] not in hubs or hubs[item["id"]] == hub, "inconsistent source hub")
+                hubs[item["id"]] = hub
                 ids.append(item["id"])
             sequences.append({"file": entry["file"], "line": data["lineId"], "direction": seq["direction"],
                               "branch": seq["branchId"], "next": seq["nextBranchIds"], "previous": seq["prevBranchIds"], "stops": ids})
@@ -125,7 +127,8 @@ def tube_manifest(manifest):
 
 
 def topology(root, manifest):
-    stops, hubs, sequences = read_routes(root, route_entries(manifest, False), "tube", "Tube")
+    provenance = json.loads((DATA / "london-full-provenance.json").read_text())
+    stops, hubs, sequences = pinned_tube(root, manifest, provenance)
     require(len(stops) == 272, "Tube roster count changed")
     site = {k: MERGES.get(k, k) for k in stops}
     edges = links(sequences, site)
@@ -226,8 +229,8 @@ def band_fields():
 
 def convert(root, output):
     manifest = tube_manifest(json.loads((HERE / "sources.json").read_text()))
-    verify_sources(root, manifest)
-    stops, tube, sequences, _ = topology(root, manifest)
+    verify_sources(root, [e for e in manifest if not e["file"].endswith("bound.json")])
+    stops, tube, sequences, hubs = topology(root, manifest)
     mapping, records, excluded = demand_mapping(root, stops, json.loads((HERE / "aliases.json").read_text()))
     weights, counts = read_demand(root, mapping)
     require(len(weights) == 60996, "normalized OD pair count changed")
@@ -238,7 +241,7 @@ def convert(root, output):
     write_json(output / "london-full-provenance.json", {
         "sources": manifest, "semantics": "2024 Tuesday-to-Thursday network journeys filtered to Tube endpoints, including journeys on other modes"}
         | band_fields() | {
-        "merges": MERGES, "source_stations": [stops[k] | {"site_id": MERGES.get(k, k)} for k in sorted(stops)],
+        "merges": MERGES, "source_stations": [stops[k] | {"site_id": MERGES.get(k, k), "hub": hubs[k]} for k in sorted(stops)],
         "sequences": sequences, "demand_mapping": records, "excluded_definitions": excluded,
         "counts": counts | {"source_stations": len(stops), "sites": len(tube["stations"]), "links": len(tube["links"]), "od_pairs": len(weights)},
         "band_totals": band_totals(weights)})
@@ -247,13 +250,14 @@ def convert(root, output):
 def pinned_tube(root, manifest, provenance):
     """Read the Tube routes and require the semantics pinned by the Tube provenance.
 
-    TfL responses change in fields that conversion does not read. The DLR
-    conversion accepts such files when the stops and sequences are unchanged.
+    TfL responses change in fields that conversion does not read. Both modes
+    accept such files when stops, hub IDs, and sequences are unchanged.
     """
     require(provenance["sources"] == tube_manifest(manifest), "Tube provenance does not match the manifest")
     stops, hubs, sequences = read_routes(root, route_entries(manifest, False), "tube", "Tube")
     pinned = {s["id"]: {k: s[k] for k in ("id", "name", "lat", "lon", "zone")} for s in provenance["source_stations"]}
-    require(stops == pinned and sequences == provenance["sequences"], "Tube route semantics changed")
+    pinned_hubs = {s["id"]: s["hub"] for s in provenance["source_stations"]}
+    require(stops == pinned and hubs == pinned_hubs and sequences == provenance["sequences"], "Tube route semantics changed")
     return stops, hubs, sequences
 
 

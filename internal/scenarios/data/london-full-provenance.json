@@ -171,7 +171,8 @@
       "lat": 51.479932,
       "lon": -0.142142,
       "zone": "1",
-      "site_id": "940GZZBPSUST"
+      "site_id": "940GZZBPSUST",
+      "hub": "940GZZBPSUST"
     },
     {
       "id": "940GZZLUACT",
@@ -179,7 +180,8 @@
       "lat": 51.503057,
       "lon": -0.280462,
       "zone": "3",
-      "site_id": "940GZZLUACT"
+      "site_id": "940GZZLUACT",
+      "hub": "940GZZLUACT"
     },
     {
       "id": "940GZZLUACY",
@@ -187,7 +189,8 @@
       "lat": 51.565478,
       "lon": -0.134819,
       "zone": "2+3",
-      "site_id": "940GZZLUACY"
+      "site_id": "940GZZLUACY",
+      "hub": "940GZZLUACY"
     },
     {
       "id": "940GZZLUADE",
@@ -195,7 +198,8 @@
       "lat": 51.515037,
       "lon": -0.072384,
       "zone": "1",
-      "site_id": "940GZZLUADE"
+      "site_id": "940GZZLUADE",
+      "hub": "940GZZLUADE"
     },
     {
       "id": "940GZZLUAGL",
@@ -203,7 +207,8 @@
       "lat": 51.53184,
       "lon": -0.10635,
       "zone": "1",
-      "site_id": "940GZZLUAGL"
+      "site_id": "940GZZLUAGL",
+      "hub": "940GZZLUAGL"
     },
     {
       "id": "940GZZLUALD",
@@ -211,7 +216,8 @@
       "lat": 51.514246,
       "lon": -0.075689,
       "zone": "1",
-      "site_id": "940GZZLUALD"
+      "site_id": "940GZZLUALD",
+      "hub": "940GZZLUALD"
     },
     {
       "id": "940GZZLUALP",
@@ -219,7 +225,8 @@
       "lat": 51.540627,
       "lon": -0.29961,
       "zone": "4",
-      "site_id": "940GZZLUALP"
+      "site_id": "940GZZLUALP",
+      "hub": "940GZZLUALP"
     },
     {
       "id": "940GZZLUAMS",
@@ -227,7 +234,8 @@
       "lat": 51.674126,
       "lon": -0.607714,
       "zone": "9",
-      "site_id": "940GZZLUAMS"
+      "site_id": "940GZZLUAMS",
+      "hub": "HUBAMR"
     },
     {
       "id": "940GZZLUASG",
@@ -235,7 +243,8 @@
       "lat": 51.616446,
       "lon": -0.133062,
       "zone": "4",
-      "site_id": "940GZZLUASG"
+      "site_id": "940GZZLUASG",
+      "hub": "940GZZLUASG"
     },
     {
       "id": "940GZZLUASL",
@@ -243,7 +252,8 @@
       "lat": 51.558655,
       "lon": -0.107457,
       "zone": "2",
-      "site_id": "940GZZLUASL"
+      "site_id": "940GZZLUASL",
+      "hub": "940GZZLUASL"
     },
     {
       "id": "940GZZLUBBB",
@@ -251,7 +261,8 @@
       "lat": 51.524839,
       "lon": -0.011538,
       "zone": "2/3",
-      "site_id": "940GZZLUBBB"
+      "site_id": "940GZZLUBBB",
+      "hub": "940GZZLUBBB"
     },
     {
       "id": "940GZZLUBBN",
@@ -259,7 +270,8 @@
       "lat": 51.520275,
       "lon": -0.097993,
       "zone": "1",
-      "site_id": "940GZZLUBBN"
+      "site_id": "940GZZLUBBN",
+      "hub": "940GZZLUBBN"
     },
     {
       "id": "940GZZLUBDS",
@@ -267,7 +279,8 @@
       "lat": 51.607034,
       "lon": -0.124235,
       "zone": "3+4",
-      "site_id": "940GZZLUBDS"
+      "site_id": "940GZZLUBDS",
+      "hub": "940GZZLUBDS"
     },
     {
       "id": "940GZZLUBEC",
@@ -275,7 +288,8 @@
       "lat": 51.540331,
       "lon": 0.127016,
       "zone": "5",
-      "site_id": "940GZZLUBEC"
+      "site_id": "940GZZLUBEC",
+      "hub": "940GZZLUBEC"
     },
     {
       "id": "940GZZLUBKE",
@@ -283,7 +297,8 @@
       "lat": 51.585689,
       "lon": 0.088585,
       "zone": "4",
-      "site_id": "940GZZLUBKE"
+      "site_id": "940GZZLUBKE",
+      "hub": "940GZZLUBKE"
     },
     {
       "id": "940GZZLUBKF",
@@ -291,7 +306,8 @@
       "lat": 51.511581,
       "lon": -0.103659,
       "zone": "1",
-      "site_id": "940GZZLUBKF"
+      "site_id": "940GZZLUBKF",
+      "hub": "HUBBFR"
     },
     {
       "id": "940GZZLUBKG",
@@ -299,7 +315,8 @@
       "lat": 51.539321,
       "lon": 0.081053,
       "zone": "4",
-      "site_id": "940GZZLUBKG"
+      "site_id": "940GZZLUBKG",
+      "hub": "HUBBKG"
     },
     {
       "id": "940GZZLUBKH",
@@ -307,7 +324,8 @@
       "lat": 51.626605,
       "lon": 0.046757,
       "zone": "5",
-      "site_id": "940GZZLUBKH"
+      "site_id": "940GZZLUBKH",
+      "hub": "940GZZLUBKH"
     },
     {
       "id": "940GZZLUBLG",
@@ -315,7 +333,8 @@
       "lat": 51.527222,
       "lon": -0.055506,
       "zone": "2",
-      "site_id": "940GZZLUBLG"
+      "site_id": "940GZZLUBLG",
+      "hub": "940GZZLUBLG"
     },
     {
       "id": "940GZZLUBLM",
@@ -323,7 +342,8 @@
       "lat": 51.443288,
       "lon": -0.152997,
       "zone": "3",
-      "site_id": "940GZZLUBLM"
+      "site_id": "940GZZLUBLM",
+      "hub": "HUBBAL"
     },
     {
       "id": "940GZZLUBLR",
@@ -331,7 +351,8 @@
       "lat": 51.586919,
       "lon": -0.04115,
       "zone": "3",
-      "site_id": "940GZZLUBLR"
+      "site_id": "940GZZLUBLR",
+      "hub": "HUBBHO"
     },
     {
       "id": "940GZZLUBMY",
@@ -339,7 +360,8 @@
       "lat": 51.49775,
       "lon": -0.063993,
       "zone": "2",
-      "site_id": "940GZZLUBMY"
+      "site_id": "940GZZLUBMY",
+      "hub": "940GZZLUBMY"
     },
     {
       "id": "940GZZLUBND",
@@ -347,7 +369,8 @@
       "lat": 51.514304,
       "lon": -0.149723,
       "zone": "1",
-      "site_id": "940GZZLUBND"
+      "site_id": "940GZZLUBND",
+      "hub": "HUBBDS"
     },
     {
       "id": "940GZZLUBNK",
@@ -355,7 +378,8 @@
       "lat": 51.513132,
       "lon": -0.090047,
       "zone": "1",
-      "site_id": "940GZZLUBNK"
+      "site_id": "940GZZLUBNK",
+      "hub": "HUBBAN"
     },
     {
       "id": "940GZZLUBOR",
@@ -363,7 +387,8 @@
       "lat": 51.501199,
       "lon": -0.09337,
       "zone": "1",
-      "site_id": "940GZZLUBOR"
+      "site_id": "940GZZLUBOR",
+      "hub": "940GZZLUBOR"
     },
     {
       "id": "940GZZLUBOS",
@@ -371,7 +396,8 @@
       "lat": 51.495635,
       "lon": -0.324939,
       "zone": "4",
-      "site_id": "940GZZLUBOS"
+      "site_id": "940GZZLUBOS",
+      "hub": "940GZZLUBOS"
     },
     {
       "id": "940GZZLUBSC",
@@ -379,7 +405,8 @@
       "lat": 51.490311,
       "lon": -0.213427,
       "zone": "2",
-      "site_id": "940GZZLUBSC"
+      "site_id": "940GZZLUBSC",
+      "hub": "940GZZLUBSC"
     },
     {
       "id": "940GZZLUBST",
@@ -387,7 +414,8 @@
       "lat": 51.522883,
       "lon": -0.15713,
       "zone": "1",
-      "site_id": "940GZZLUBST"
+      "site_id": "940GZZLUBST",
+      "hub": "940GZZLUBST"
     },
     {
       "id": "940GZZLUBTK",
@@ -395,7 +423,8 @@
       "lat": 51.602774,
       "lon": -0.264048,
       "zone": "4",
-      "site_id": "940GZZLUBTK"
+      "site_id": "940GZZLUBTK",
+      "hub": "940GZZLUBTK"
     },
     {
       "id": "940GZZLUBTX",
@@ -403,7 +432,8 @@
       "lat": 51.57665,
       "lon": -0.213622,
       "zone": "3",
-      "site_id": "940GZZLUBTX"
+      "site_id": "940GZZLUBTX",
+      "hub": "940GZZLUBTX"
     },
     {
       "id": "940GZZLUBWR",
@@ -411,7 +441,8 @@
       "lat": 51.52694,
       "lon": -0.025128,
       "zone": "2",
-      "site_id": "940GZZLUBWR"
+      "site_id": "940GZZLUBWR",
+      "hub": "940GZZLUBWR"
     },
     {
       "id": "940GZZLUBWT",
@@ -419,7 +450,8 @@
       "lat": 51.512284,
       "lon": -0.187938,
       "zone": "1",
-      "site_id": "940GZZLUBWT"
+      "site_id": "940GZZLUBWT",
+      "hub": "940GZZLUBWT"
     },
     {
       "id": "940GZZLUBXN",
@@ -427,7 +459,8 @@
       "lat": 51.462618,
       "lon": -0.114888,
       "zone": "2",
-      "site_id": "940GZZLUBXN"
+      "site_id": "940GZZLUBXN",
+      "hub": "HUBBRX"
     },
     {
       "id": "940GZZLUBZP",
@@ -435,7 +468,8 @@
       "lat": 51.550311,
       "lon": -0.164648,
       "zone": "2",
-      "site_id": "940GZZLUBZP"
+      "site_id": "940GZZLUBZP",
+      "hub": "940GZZLUBZP"
     },
     {
       "id": "940GZZLUCAL",
@@ -443,7 +477,8 @@
       "lat": 51.667985,
       "lon": -0.560689,
       "zone": "8",
-      "site_id": "940GZZLUCAL"
+      "site_id": "940GZZLUCAL",
+      "hub": "HUBCFO"
     },
     {
       "id": "940GZZLUCAR",
@@ -451,7 +486,8 @@
       "lat": 51.548519,
       "lon": -0.118493,
       "zone": "2",
-      "site_id": "940GZZLUCAR"
+      "site_id": "940GZZLUCAR",
+      "hub": "940GZZLUCAR"
     },
     {
       "id": "940GZZLUCFM",
@@ -459,7 +495,8 @@
       "lat": 51.544118,
       "lon": -0.153388,
       "zone": "2",
-      "site_id": "940GZZLUCFM"
+      "site_id": "940GZZLUCFM",
+      "hub": "940GZZLUCFM"
     },
     {
       "id": "940GZZLUCGN",
@@ -467,7 +504,8 @@
       "lat": 51.513093,
       "lon": -0.124436,
       "zone": "1",
-      "site_id": "940GZZLUCGN"
+      "site_id": "940GZZLUCGN",
+      "hub": "940GZZLUCGN"
     },
     {
       "id": "940GZZLUCGT",
@@ -475,7 +513,8 @@
       "lat": 51.513584,
       "lon": 0.008322,
       "zone": "2/3",
-      "site_id": "940GZZLUCGT"
+      "site_id": "940GZZLUCGT",
+      "hub": "HUBCAN"
     },
     {
       "id": "940GZZLUCHL",
@@ -483,7 +522,8 @@
       "lat": 51.518247,
       "lon": -0.111583,
       "zone": "1",
-      "site_id": "940GZZLUCHL"
+      "site_id": "940GZZLUCHL",
+      "hub": "940GZZLUCHL"
     },
     {
       "id": "940GZZLUCHX",
@@ -491,7 +531,8 @@
       "lat": 51.50741,
       "lon": -0.127277,
       "zone": "1",
-      "site_id": "940GZZLUCHX"
+      "site_id": "940GZZLUCHX",
+      "hub": "HUBCHX"
     },
     {
       "id": "940GZZLUCKS",
@@ -499,7 +540,8 @@
       "lat": 51.65152,
       "lon": -0.149171,
       "zone": "5",
-      "site_id": "940GZZLUCKS"
+      "site_id": "940GZZLUCKS",
+      "hub": "940GZZLUCKS"
     },
     {
       "id": "940GZZLUCND",
@@ -507,7 +549,8 @@
       "lat": 51.595424,
       "lon": -0.249919,
       "zone": "4",
-      "site_id": "940GZZLUCND"
+      "site_id": "940GZZLUCND",
+      "hub": "940GZZLUCND"
     },
     {
       "id": "940GZZLUCPC",
@@ -515,7 +558,8 @@
       "lat": 51.461742,
       "lon": -0.138317,
       "zone": "2",
-      "site_id": "940GZZLUCPC"
+      "site_id": "940GZZLUCPC",
+      "hub": "940GZZLUCPC"
     },
     {
       "id": "940GZZLUCPK",
@@ -523,7 +567,8 @@
       "lat": 51.607701,
       "lon": -0.294693,
       "zone": "5",
-      "site_id": "940GZZLUCPK"
+      "site_id": "940GZZLUCPK",
+      "hub": "940GZZLUCPK"
     },
     {
       "id": "940GZZLUCPN",
@@ -531,7 +576,8 @@
       "lat": 51.465135,
       "lon": -0.130016,
       "zone": "2",
-      "site_id": "940GZZLUCPN"
+      "site_id": "940GZZLUCPN",
+      "hub": "940GZZLUCPN"
     },
     {
       "id": "940GZZLUCPS",
@@ -539,7 +585,8 @@
       "lat": 51.452654,
       "lon": -0.147582,
       "zone": "2+3",
-      "site_id": "940GZZLUCPS"
+      "site_id": "940GZZLUCPS",
+      "hub": "940GZZLUCPS"
     },
     {
       "id": "940GZZLUCSD",
@@ -547,7 +594,8 @@
       "lat": 51.41816,
       "lon": -0.178086,
       "zone": "3",
-      "site_id": "940GZZLUCSD"
+      "site_id": "940GZZLUCSD",
+      "hub": "940GZZLUCSD"
     },
     {
       "id": "940GZZLUCSM",
@@ -555,7 +603,8 @@
       "lat": 51.705208,
       "lon": -0.611247,
       "zone": "9",
-      "site_id": "940GZZLUCSM"
+      "site_id": "940GZZLUCSM",
+      "hub": "940GZZLUCSM"
     },
     {
       "id": "940GZZLUCST",
@@ -563,7 +612,8 @@
       "lat": 51.51151,
       "lon": -0.090432,
       "zone": "1",
-      "site_id": "940GZZLUCST"
+      "site_id": "940GZZLUCST",
+      "hub": "HUBCST"
     },
     {
       "id": "940GZZLUCTN",
@@ -571,7 +621,8 @@
       "lat": 51.539292,
       "lon": -0.14274,
       "zone": "2",
-      "site_id": "940GZZLUCTN"
+      "site_id": "940GZZLUCTN",
+      "hub": "940GZZLUCTN"
     },
     {
       "id": "940GZZLUCWL",
@@ -579,7 +630,8 @@
       "lat": 51.617916,
       "lon": 0.075041,
       "zone": "4",
-      "site_id": "940GZZLUCWL"
+      "site_id": "940GZZLUCWL",
+      "hub": "940GZZLUCWL"
     },
     {
       "id": "940GZZLUCWP",
@@ -587,7 +639,8 @@
       "lat": 51.494627,
       "lon": -0.267972,
       "zone": "3",
-      "site_id": "940GZZLUCWP"
+      "site_id": "940GZZLUCWP",
+      "hub": "940GZZLUCWP"
     },
     {
       "id": "940GZZLUCWR",
@@ -595,7 +648,8 @@
       "lat": 51.497931,
       "lon": -0.049405,
       "zone": "2",
-      "site_id": "940GZZLUCWR"
+      "site_id": "940GZZLUCWR",
+      "hub": "HUBZCW"
     },
     {
       "id": "940GZZLUCXY",
@@ -603,7 +657,8 @@
       "lat": 51.647044,
       "lon": -0.441718,
       "zone": "7",
-      "site_id": "940GZZLUCXY"
+      "site_id": "940GZZLUCXY",
+      "hub": "940GZZLUCXY"
     },
     {
       "id": "940GZZLUCYD",
@@ -611,7 +666,8 @@
       "lat": 51.654358,
       "lon": -0.518461,
       "zone": "7",
-      "site_id": "940GZZLUCYD"
+      "site_id": "940GZZLUCYD",
+      "hub": "HUBCLW"
     },
     {
       "id": "940GZZLUCYF",
@@ -619,7 +675,8 @@
       "lat": 51.503488,
       "lon": -0.018246,
       "zone": "2",
-      "site_id": "940GZZLUCYF"
+      "site_id": "940GZZLUCYF",
+      "hub": "HUBCAW"
     },
     {
       "id": "940GZZLUDBN",
@@ -627,7 +684,8 @@
       "lat": 51.645386,
       "lon": 0.083782,
       "zone": "6",
-      "site_id": "940GZZLUDBN"
+      "site_id": "940GZZLUDBN",
+      "hub": "940GZZLUDBN"
     },
     {
       "id": "940GZZLUDGE",
@@ -635,7 +693,8 @@
       "lat": 51.544096,
       "lon": 0.166017,
       "zone": "5",
-      "site_id": "940GZZLUDGE"
+      "site_id": "940GZZLUDGE",
+      "hub": "940GZZLUDGE"
     },
     {
       "id": "940GZZLUDGY",
@@ -643,7 +702,8 @@
       "lat": 51.541639,
       "lon": 0.147527,
       "zone": "5",
-      "site_id": "940GZZLUDGY"
+      "site_id": "940GZZLUDGY",
+      "hub": "940GZZLUDGY"
     },
     {
       "id": "940GZZLUDOH",
@@ -651,7 +711,8 @@
       "lat": 51.551955,
       "lon": -0.239068,
       "zone": "3",
-      "site_id": "940GZZLUDOH"
+      "site_id": "940GZZLUDOH",
+      "hub": "940GZZLUDOH"
     },
     {
       "id": "940GZZLUEAC",
@@ -659,7 +720,8 @@
       "lat": 51.494536,
       "lon": -0.100606,
       "zone": "1+2",
-      "site_id": "940GZZLUEAC"
+      "site_id": "940GZZLUEAC",
+      "hub": "HUBEPH"
     },
     {
       "id": "940GZZLUEAE",
@@ -667,7 +729,8 @@
       "lat": 51.576506,
       "lon": -0.397373,
       "zone": "5",
-      "site_id": "940GZZLUEAE"
+      "site_id": "940GZZLUEAE",
+      "hub": "940GZZLUEAE"
     },
     {
       "id": "940GZZLUEAN",
@@ -675,7 +738,8 @@
       "lat": 51.516612,
       "lon": -0.247248,
       "zone": "2",
-      "site_id": "940GZZLUEAN"
+      "site_id": "940GZZLUEAN",
+      "hub": "940GZZLUEAN"
     },
     {
       "id": "940GZZLUEBY",
@@ -683,7 +747,8 @@
       "lat": 51.515017,
       "lon": -0.301457,
       "zone": "3",
-      "site_id": "940GZZLUEBY"
+      "site_id": "940GZZLUEBY",
+      "hub": "HUBEAL"
     },
     {
       "id": "940GZZLUECM",
@@ -691,7 +756,8 @@
       "lat": 51.51014,
       "lon": -0.288265,
       "zone": "3",
-      "site_id": "940GZZLUECM"
+      "site_id": "940GZZLUECM",
+      "hub": "940GZZLUECM"
     },
     {
       "id": "940GZZLUECT",
@@ -699,7 +765,8 @@
       "lat": 51.492063,
       "lon": -0.193378,
       "zone": "1+2",
-      "site_id": "940GZZLUECT"
+      "site_id": "940GZZLUECT",
+      "hub": "940GZZLUECT"
     },
     {
       "id": "940GZZLUEFY",
@@ -707,7 +774,8 @@
       "lat": 51.587131,
       "lon": -0.165012,
       "zone": "3",
-      "site_id": "940GZZLUEFY"
+      "site_id": "940GZZLUEFY",
+      "hub": "940GZZLUEFY"
     },
     {
       "id": "940GZZLUEGW",
@@ -715,7 +783,8 @@
       "lat": 51.613653,
       "lon": -0.274928,
       "zone": "5",
-      "site_id": "940GZZLUEGW"
+      "site_id": "940GZZLUEGW",
+      "hub": "940GZZLUEGW"
     },
     {
       "id": "940GZZLUEHM",
@@ -723,7 +792,8 @@
       "lat": 51.538948,
       "lon": 0.051186,
       "zone": "3+4",
-      "site_id": "940GZZLUEHM"
+      "site_id": "940GZZLUEHM",
+      "hub": "940GZZLUEHM"
     },
     {
       "id": "940GZZLUEMB",
@@ -731,7 +801,8 @@
       "lat": 51.507058,
       "lon": -0.122666,
       "zone": "1",
-      "site_id": "940GZZLUEMB"
+      "site_id": "940GZZLUEMB",
+      "hub": "940GZZLUEMB"
     },
     {
       "id": "940GZZLUEPG",
@@ -739,7 +810,8 @@
       "lat": 51.69368,
       "lon": 0.113767,
       "zone": "6",
-      "site_id": "940GZZLUEPG"
+      "site_id": "940GZZLUEPG",
+      "hub": "940GZZLUEPG"
     },
     {
       "id": "940GZZLUEPK",
@@ -747,7 +819,8 @@
       "lat": 51.549775,
       "lon": 0.19864,
       "zone": "6",
-      "site_id": "940GZZLUEPK"
+      "site_id": "940GZZLUEPK",
+      "hub": "940GZZLUEPK"
     },
     {
       "id": "940GZZLUEPY",
@@ -755,7 +828,8 @@
       "lat": 51.459205,
       "lon": -0.211,
       "zone": "2+3",
-      "site_id": "940GZZLUEPY"
+      "site_id": "940GZZLUEPY",
+      "hub": "940GZZLUEPY"
     },
     {
       "id": "940GZZLUERB",
@@ -763,7 +837,8 @@
       "lat": 51.520299,
       "lon": -0.17015,
       "zone": "1",
-      "site_id": "940GZZLUERB"
+      "site_id": "940GZZLUERB",
+      "hub": "940GZZLUERB"
     },
     {
       "id": "940GZZLUERC",
@@ -771,7 +846,8 @@
       "lat": 51.519858,
       "lon": -0.167832,
       "zone": "1",
-      "site_id": "940GZZLUERC"
+      "site_id": "940GZZLUERC",
+      "hub": "940GZZLUERC"
     },
     {
       "id": "940GZZLUESQ",
@@ -779,7 +855,8 @@
       "lat": 51.525604,
       "lon": -0.135829,
       "zone": "1",
-      "site_id": "940GZZLUESQ"
+      "site_id": "940GZZLUESQ",
+      "hub": "940GZZLUESQ"
     },
     {
       "id": "940GZZLUEUS",
@@ -787,7 +864,8 @@
       "lat": 51.527999,
       "lon": -0.133785,
       "zone": "1",
-      "site_id": "940GZZLUEUS"
+      "site_id": "940GZZLUEUS",
+      "hub": "HUBEUS"
     },
     {
       "id": "940GZZLUFBY",
@@ -795,7 +873,8 @@
       "lat": 51.480081,
       "lon": -0.195422,
       "zone": "2",
-      "site_id": "940GZZLUFBY"
+      "site_id": "940GZZLUFBY",
+      "hub": "940GZZLUFBY"
     },
     {
       "id": "940GZZLUFCN",
@@ -803,7 +882,8 @@
       "lat": 51.520252,
       "lon": -0.104913,
       "zone": "1",
-      "site_id": "940GZZLUFCN"
+      "site_id": "940GZZLUFCN",
+      "hub": "HUBZFD"
     },
     {
       "id": "940GZZLUFLP",
@@ -811,7 +891,8 @@
       "lat": 51.595618,
       "lon": 0.091004,
       "zone": "4",
-      "site_id": "940GZZLUFLP"
+      "site_id": "940GZZLUFLP",
+      "hub": "940GZZLUFLP"
     },
     {
       "id": "940GZZLUFPK",
@@ -819,7 +900,8 @@
       "lat": 51.564158,
       "lon": -0.106825,
       "zone": "2",
-      "site_id": "940GZZLUFPK"
+      "site_id": "940GZZLUFPK",
+      "hub": "HUBFPK"
     },
     {
       "id": "940GZZLUFYC",
@@ -827,7 +909,8 @@
       "lat": 51.600921,
       "lon": -0.192527,
       "zone": "4",
-      "site_id": "940GZZLUFYC"
+      "site_id": "940GZZLUFYC",
+      "hub": "940GZZLUFYC"
     },
     {
       "id": "940GZZLUFYR",
@@ -835,7 +918,8 @@
       "lat": 51.546825,
       "lon": -0.179845,
       "zone": "2",
-      "site_id": "940GZZLUFYR"
+      "site_id": "940GZZLUFYR",
+      "hub": "940GZZLUFYR"
     },
     {
       "id": "940GZZLUGBY",
@@ -843,7 +927,8 @@
       "lat": 51.491803,
       "lon": -0.275267,
       "zone": "3",
-      "site_id": "940GZZLUGBY"
+      "site_id": "940GZZLUGBY",
+      "hub": "HUBGUN"
     },
     {
       "id": "940GZZLUGDG",
@@ -851,7 +936,8 @@
       "lat": 51.520599,
       "lon": -0.134361,
       "zone": "1",
-      "site_id": "940GZZLUGDG"
+      "site_id": "940GZZLUGDG",
+      "hub": "940GZZLUGDG"
     },
     {
       "id": "940GZZLUGFD",
@@ -859,7 +945,8 @@
       "lat": 51.542424,
       "lon": -0.34605,
       "zone": "4",
-      "site_id": "940GZZLUGFD"
+      "site_id": "940GZZLUGFD",
+      "hub": "HUBGFD"
     },
     {
       "id": "940GZZLUGGH",
@@ -867,7 +954,8 @@
       "lat": 51.613378,
       "lon": 0.092066,
       "zone": "4",
-      "site_id": "940GZZLUGGH"
+      "site_id": "940GZZLUGGH",
+      "hub": "940GZZLUGGH"
     },
     {
       "id": "940GZZLUGGN",
@@ -875,7 +963,8 @@
       "lat": 51.572259,
       "lon": -0.194039,
       "zone": "3",
-      "site_id": "940GZZLUGGN"
+      "site_id": "940GZZLUGGN",
+      "hub": "940GZZLUGGN"
     },
     {
       "id": "940GZZLUGHK",
@@ -883,7 +972,8 @@
       "lat": 51.502005,
       "lon": -0.226715,
       "zone": "2",
-      "site_id": "940GZZLUGHK"
+      "site_id": "940GZZLUGHK",
+      "hub": "940GZZLUGHK"
     },
     {
       "id": "940GZZLUGPK",
@@ -891,7 +981,8 @@
       "lat": 51.506947,
       "lon": -0.142787,
       "zone": "1",
-      "site_id": "940GZZLUGPK"
+      "site_id": "940GZZLUGPK",
+      "hub": "940GZZLUGPK"
     },
     {
       "id": "940GZZLUGPS",
@@ -899,7 +990,8 @@
       "lat": 51.52384,
       "lon": -0.144262,
       "zone": "1",
-      "site_id": "940GZZLUGPS"
+      "site_id": "940GZZLUGPS",
+      "hub": "940GZZLUGPS"
     },
     {
       "id": "940GZZLUGTH",
@@ -907,7 +999,8 @@
       "lat": 51.576544,
       "lon": 0.066185,
       "zone": "4",
-      "site_id": "940GZZLUGTH"
+      "site_id": "940GZZLUGTH",
+      "hub": "940GZZLUGTH"
     },
     {
       "id": "940GZZLUGTR",
@@ -915,7 +1008,8 @@
       "lat": 51.494316,
       "lon": -0.182658,
       "zone": "1",
-      "site_id": "940GZZLUGTR"
+      "site_id": "940GZZLUGTR",
+      "hub": "940GZZLUGTR"
     },
     {
       "id": "940GZZLUHAI",
@@ -923,7 +1017,8 @@
       "lat": 51.54635,
       "lon": -0.103324,
       "zone": "2",
-      "site_id": "940GZZLUHAI"
+      "site_id": "940GZZLUHAI",
+      "hub": "HUBHHY"
     },
     {
       "id": "940GZZLUHAW",
@@ -931,7 +1026,8 @@
       "lat": 51.592268,
       "lon": -0.335217,
       "zone": "5",
-      "site_id": "940GZZLUHAW"
+      "site_id": "940GZZLUHAW",
+      "hub": "HUBHRW"
     },
     {
       "id": "940GZZLUHBN",
@@ -939,7 +1035,8 @@
       "lat": 51.51758,
       "lon": -0.120475,
       "zone": "1",
-      "site_id": "940GZZLUHBN"
+      "site_id": "940GZZLUHBN",
+      "hub": "940GZZLUHBN"
     },
     {
       "id": "940GZZLUHBT",
@@ -947,7 +1044,8 @@
       "lat": 51.650541,
       "lon": -0.194298,
       "zone": "5",
-      "site_id": "940GZZLUHBT"
+      "site_id": "940GZZLUHBT",
+      "hub": "940GZZLUHBT"
     },
     {
       "id": "940GZZLUHCH",
@@ -955,7 +1053,8 @@
       "lat": 51.554093,
       "lon": 0.219116,
       "zone": "6",
-      "site_id": "940GZZLUHCH"
+      "site_id": "940GZZLUHCH",
+      "hub": "940GZZLUHCH"
     },
     {
       "id": "940GZZLUHCL",
@@ -963,7 +1062,8 @@
       "lat": 51.583301,
       "lon": -0.226424,
       "zone": "3+4",
-      "site_id": "940GZZLUHCL"
+      "site_id": "940GZZLUHCL",
+      "hub": "940GZZLUHCL"
     },
     {
       "id": "940GZZLUHGD",
@@ -971,7 +1071,8 @@
       "lat": 51.553715,
       "lon": -0.449828,
       "zone": "6",
-      "site_id": "940GZZLUHGD"
+      "site_id": "940GZZLUHGD",
+      "hub": "940GZZLUHGD"
     },
     {
       "id": "940GZZLUHGR",
@@ -979,7 +1080,8 @@
       "lat": 51.530177,
       "lon": -0.292704,
       "zone": "3",
-      "site_id": "940GZZLUHGR"
+      "site_id": "940GZZLUHGR",
+      "hub": "940GZZLUHGR"
     },
     {
       "id": "940GZZLUHGT",
@@ -987,7 +1089,8 @@
       "lat": 51.577532,
       "lon": -0.145857,
       "zone": "3",
-      "site_id": "940GZZLUHGT"
+      "site_id": "940GZZLUHGT",
+      "hub": "940GZZLUHGT"
     },
     {
       "id": "940GZZLUHLT",
@@ -995,7 +1098,8 @@
       "lat": 51.603659,
       "lon": 0.093482,
       "zone": "4",
-      "site_id": "940GZZLUHLT"
+      "site_id": "940GZZLUHLT",
+      "hub": "940GZZLUHLT"
     },
     {
       "id": "940GZZLUHNX",
@@ -1003,7 +1107,8 @@
       "lat": 51.466747,
       "lon": -0.423191,
       "zone": "5+6",
-      "site_id": "940GZZLUHNX"
+      "site_id": "940GZZLUHNX",
+      "hub": "940GZZLUHNX"
     },
     {
       "id": "940GZZLUHOH",
@@ -1011,7 +1116,8 @@
       "lat": 51.579195,
       "lon": -0.337225,
       "zone": "5",
-      "site_id": "940GZZLUHOH"
+      "site_id": "940GZZLUHOH",
+      "hub": "HUBHOH"
     },
     {
       "id": "940GZZLUHPC",
@@ -1019,7 +1125,8 @@
       "lat": 51.503035,
       "lon": -0.152441,
       "zone": "1",
-      "site_id": "940GZZLUHPC"
+      "site_id": "940GZZLUHPC",
+      "hub": "940GZZLUHPC"
     },
     {
       "id": "940GZZLUHPK",
@@ -1027,7 +1134,8 @@
       "lat": 51.507143,
       "lon": -0.205679,
       "zone": "2",
-      "site_id": "940GZZLUHPK"
+      "site_id": "940GZZLUHPK",
+      "hub": "940GZZLUHPK"
     },
     {
       "id": "940GZZLUHR4",
@@ -1035,7 +1143,8 @@
       "lat": 51.458524,
       "lon": -0.445771,
       "zone": "6",
-      "site_id": "940GZZLUHR4"
+      "site_id": "940GZZLUHR4",
+      "hub": "HUBHX4"
     },
     {
       "id": "940GZZLUHR5",
@@ -1043,7 +1152,8 @@
       "lat": 51.470052,
       "lon": -0.49056,
       "zone": "6",
-      "site_id": "940GZZLUHR5"
+      "site_id": "940GZZLUHR5",
+      "hub": "HUBHX5"
     },
     {
       "id": "940GZZLUHRC",
@@ -1051,7 +1161,8 @@
       "lat": 51.471235,
       "lon": -0.452265,
       "zone": "6",
-      "site_id": "940GZZLUHRC"
+      "site_id": "940GZZLUHRC",
+      "hub": "HUBH13"
     },
     {
       "id": "940GZZLUHSC",
@@ -1059,7 +1170,8 @@
       "lat": 51.49339,
       "lon": -0.22503,
       "zone": "2",
-      "site_id": "940GZZLUHSD"
+      "site_id": "940GZZLUHSD",
+      "hub": "HUBHMS"
     },
     {
       "id": "940GZZLUHSD",
@@ -1067,7 +1179,8 @@
       "lat": 51.4923,
       "lon": -0.22362,
       "zone": "2",
-      "site_id": "940GZZLUHSD"
+      "site_id": "940GZZLUHSD",
+      "hub": "HUBHMS"
     },
     {
       "id": "940GZZLUHSK",
@@ -1075,7 +1188,8 @@
       "lat": 51.501055,
       "lon": -0.192792,
       "zone": "1",
-      "site_id": "940GZZLUHSK"
+      "site_id": "940GZZLUHSK",
+      "hub": "940GZZLUHSK"
     },
     {
       "id": "940GZZLUHSN",
@@ -1083,7 +1197,8 @@
       "lat": 51.53631,
       "lon": -0.257883,
       "zone": "3",
-      "site_id": "940GZZLUHSN"
+      "site_id": "940GZZLUHSN",
+      "hub": "HUBHDN"
     },
     {
       "id": "940GZZLUHTD",
@@ -1091,7 +1206,8 @@
       "lat": 51.556239,
       "lon": -0.177464,
       "zone": "2+3",
-      "site_id": "940GZZLUHTD"
+      "site_id": "940GZZLUHTD",
+      "hub": "940GZZLUHTD"
     },
     {
       "id": "940GZZLUHWC",
@@ -1099,7 +1215,8 @@
       "lat": 51.471295,
       "lon": -0.366578,
       "zone": "4",
-      "site_id": "940GZZLUHWC"
+      "site_id": "940GZZLUHWC",
+      "hub": "940GZZLUHWC"
     },
     {
       "id": "940GZZLUHWE",
@@ -1107,7 +1224,8 @@
       "lat": 51.473213,
       "lon": -0.356474,
       "zone": "4",
-      "site_id": "940GZZLUHWE"
+      "site_id": "940GZZLUHWE",
+      "hub": "940GZZLUHWE"
     },
     {
       "id": "940GZZLUHWT",
@@ -1115,7 +1233,8 @@
       "lat": 51.473469,
       "lon": -0.386544,
       "zone": "5",
-      "site_id": "940GZZLUHWT"
+      "site_id": "940GZZLUHWT",
+      "hub": "940GZZLUHWT"
     },
     {
       "id": "940GZZLUHWY",
@@ -1123,7 +1242,8 @@
       "lat": 51.552697,
       "lon": -0.113244,
       "zone": "2",
-      "site_id": "940GZZLUHWY"
+      "site_id": "940GZZLUHWY",
+      "hub": "940GZZLUHWY"
     },
     {
       "id": "940GZZLUICK",
@@ -1131,7 +1251,8 @@
       "lat": 51.56177,
       "lon": -0.442225,
       "zone": "6",
-      "site_id": "940GZZLUICK"
+      "site_id": "940GZZLUICK",
+      "hub": "940GZZLUICK"
     },
     {
       "id": "940GZZLUKBN",
@@ -1139,7 +1260,8 @@
       "lat": 51.547183,
       "lon": -0.204248,
       "zone": "2",
-      "site_id": "940GZZLUKBN"
+      "site_id": "940GZZLUKBN",
+      "hub": "940GZZLUKBN"
     },
     {
       "id": "940GZZLUKBY",
@@ -1147,7 +1269,8 @@
       "lat": 51.584845,
       "lon": -0.27879,
       "zone": "4",
-      "site_id": "940GZZLUKBY"
+      "site_id": "940GZZLUKBY",
+      "hub": "940GZZLUKBY"
     },
     {
       "id": "940GZZLUKEN",
@@ -1155,7 +1278,8 @@
       "lat": 51.581756,
       "lon": -0.31691,
       "zone": "4",
-      "site_id": "940GZZLUKEN"
+      "site_id": "940GZZLUKEN",
+      "hub": "HUBKNT"
     },
     {
       "id": "940GZZLUKNB",
@@ -1163,7 +1287,8 @@
       "lat": 51.501669,
       "lon": -0.160508,
       "zone": "1",
-      "site_id": "940GZZLUKNB"
+      "site_id": "940GZZLUKNB",
+      "hub": "940GZZLUKNB"
     },
     {
       "id": "940GZZLUKNG",
@@ -1171,7 +1296,8 @@
       "lat": 51.488337,
       "lon": -0.105963,
       "zone": "1+2",
-      "site_id": "940GZZLUKNG"
+      "site_id": "940GZZLUKNG",
+      "hub": "940GZZLUKNG"
     },
     {
       "id": "940GZZLUKOY",
@@ -1179,7 +1305,8 @@
       "lat": 51.497624,
       "lon": -0.210015,
       "zone": "2",
-      "site_id": "940GZZLUKOY"
+      "site_id": "940GZZLUKOY",
+      "hub": "HUBKPA"
     },
     {
       "id": "940GZZLUKPK",
@@ -1187,7 +1314,8 @@
       "lat": 51.534979,
       "lon": -0.194232,
       "zone": "2",
-      "site_id": "940GZZLUKPK"
+      "site_id": "940GZZLUKPK",
+      "hub": "940GZZLUKPK"
     },
     {
       "id": "940GZZLUKSH",
@@ -1195,7 +1323,8 @@
       "lat": 51.550312,
       "lon": -0.140733,
       "zone": "2",
-      "site_id": "940GZZLUKSH"
+      "site_id": "940GZZLUKSH",
+      "hub": "HUBKTN"
     },
     {
       "id": "940GZZLUKSL",
@@ -1203,7 +1332,8 @@
       "lat": 51.530539,
       "lon": -0.225016,
       "zone": "2",
-      "site_id": "940GZZLUKSL"
+      "site_id": "940GZZLUKSL",
+      "hub": "HUBKNL"
     },
     {
       "id": "940GZZLUKSX",
@@ -1211,7 +1341,8 @@
       "lat": 51.530663,
       "lon": -0.123194,
       "zone": "1",
-      "site_id": "940GZZLUKSX"
+      "site_id": "940GZZLUKSX",
+      "hub": "HUBKGX"
     },
     {
       "id": "940GZZLUKWG",
@@ -1219,7 +1350,8 @@
       "lat": 51.477058,
       "lon": -0.285241,
       "zone": "3+4",
-      "site_id": "940GZZLUKWG"
+      "site_id": "940GZZLUKWG",
+      "hub": "HUBKWG"
     },
     {
       "id": "940GZZLULAD",
@@ -1227,7 +1359,8 @@
       "lat": 51.517449,
       "lon": -0.210391,
       "zone": "2",
-      "site_id": "940GZZLULAD"
+      "site_id": "940GZZLULAD",
+      "hub": "940GZZLULAD"
     },
     {
       "id": "940GZZLULBN",
@@ -1235,7 +1368,8 @@
       "lat": 51.498808,
       "lon": -0.112315,
       "zone": "1",
-      "site_id": "940GZZLULBN"
+      "site_id": "940GZZLULBN",
+      "hub": "940GZZLULBN"
     },
     {
       "id": "940GZZLULGN",
@@ -1243,7 +1377,8 @@
       "lat": 51.641443,
       "lon": 0.055476,
       "zone": "6",
-      "site_id": "940GZZLULGN"
+      "site_id": "940GZZLULGN",
+      "hub": "940GZZLULGN"
     },
     {
       "id": "940GZZLULGT",
@@ -1251,7 +1386,8 @@
       "lat": 51.511723,
       "lon": -0.175494,
       "zone": "1",
-      "site_id": "940GZZLULGT"
+      "site_id": "940GZZLULGT",
+      "hub": "940GZZLULGT"
     },
     {
       "id": "940GZZLULNB",
@@ -1259,7 +1395,8 @@
       "lat": 51.505721,
       "lon": -0.088873,
       "zone": "1",
-      "site_id": "940GZZLULNB"
+      "site_id": "940GZZLULNB",
+      "hub": "HUBLBG"
     },
     {
       "id": "940GZZLULRD",
@@ -1267,7 +1404,8 @@
       "lat": 51.513389,
       "lon": -0.217799,
       "zone": "2",
-      "site_id": "940GZZLULRD"
+      "site_id": "940GZZLULRD",
+      "hub": "940GZZLULRD"
     },
     {
       "id": "940GZZLULSQ",
@@ -1275,7 +1413,8 @@
       "lat": 51.511386,
       "lon": -0.128426,
       "zone": "1",
-      "site_id": "940GZZLULSQ"
+      "site_id": "940GZZLULSQ",
+      "hub": "940GZZLULSQ"
     },
     {
       "id": "940GZZLULVT",
@@ -1283,7 +1422,8 @@
       "lat": 51.517372,
       "lon": -0.083182,
       "zone": "1",
-      "site_id": "940GZZLULVT"
+      "site_id": "940GZZLULVT",
+      "hub": "HUBLST"
     },
     {
       "id": "940GZZLULYN",
@@ -1291,7 +1431,8 @@
       "lat": 51.556589,
       "lon": -0.005523,
       "zone": "3",
-      "site_id": "940GZZLULYN"
+      "site_id": "940GZZLULYN",
+      "hub": "940GZZLULYN"
     },
     {
       "id": "940GZZLULYS",
@@ -1299,7 +1440,8 @@
       "lat": 51.568324,
       "lon": 0.008194,
       "zone": "3+4",
-      "site_id": "940GZZLULYS"
+      "site_id": "940GZZLULYS",
+      "hub": "940GZZLULYS"
     },
     {
       "id": "940GZZLUMBA",
@@ -1307,7 +1449,8 @@
       "lat": 51.513424,
       "lon": -0.158953,
       "zone": "1",
-      "site_id": "940GZZLUMBA"
+      "site_id": "940GZZLUMBA",
+      "hub": "940GZZLUMBA"
     },
     {
       "id": "940GZZLUMDN",
@@ -1315,7 +1458,8 @@
       "lat": 51.402142,
       "lon": -0.194839,
       "zone": "4",
-      "site_id": "940GZZLUMDN"
+      "site_id": "940GZZLUMDN",
+      "hub": "940GZZLUMDN"
     },
     {
       "id": "940GZZLUMED",
@@ -1323,7 +1467,8 @@
       "lat": 51.525122,
       "lon": -0.03364,
       "zone": "2",
-      "site_id": "940GZZLUMED"
+      "site_id": "940GZZLUMED",
+      "hub": "940GZZLUMED"
     },
     {
       "id": "940GZZLUMGT",
@@ -1331,7 +1476,8 @@
       "lat": 51.518176,
       "lon": -0.088322,
       "zone": "1",
-      "site_id": "940GZZLUMGT"
+      "site_id": "940GZZLUMGT",
+      "hub": "HUBZMG"
     },
     {
       "id": "940GZZLUMHL",
@@ -1339,7 +1485,8 @@
       "lat": 51.608229,
       "lon": -0.209986,
       "zone": "4",
-      "site_id": "940GZZLUMHL"
+      "site_id": "940GZZLUMHL",
+      "hub": "940GZZLUMHL"
     },
     {
       "id": "940GZZLUMMT",
@@ -1347,7 +1494,8 @@
       "lat": 51.5107,
       "lon": -0.085969,
       "zone": "1",
-      "site_id": "940GZZLUBNK"
+      "site_id": "940GZZLUBNK",
+      "hub": "940GZZLUMMT"
     },
     {
       "id": "940GZZLUMPK",
@@ -1355,7 +1503,8 @@
       "lat": 51.629845,
       "lon": -0.432454,
       "zone": "6+7",
-      "site_id": "940GZZLUMPK"
+      "site_id": "940GZZLUMPK",
+      "hub": "940GZZLUMPK"
     },
     {
       "id": "940GZZLUMRH",
@@ -1363,7 +1512,8 @@
       "lat": 51.570738,
       "lon": -0.096118,
       "zone": "2+3",
-      "site_id": "940GZZLUMRH"
+      "site_id": "940GZZLUMRH",
+      "hub": "940GZZLUMRH"
     },
     {
       "id": "940GZZLUMSH",
@@ -1371,7 +1521,8 @@
       "lat": 51.512117,
       "lon": -0.094009,
       "zone": "1",
-      "site_id": "940GZZLUMSH"
+      "site_id": "940GZZLUMSH",
+      "hub": "940GZZLUMSH"
     },
     {
       "id": "940GZZLUMTC",
@@ -1379,7 +1530,8 @@
       "lat": 51.534679,
       "lon": -0.138789,
       "zone": "2",
-      "site_id": "940GZZLUMTC"
+      "site_id": "940GZZLUMTC",
+      "hub": "940GZZLUMTC"
     },
     {
       "id": "940GZZLUMVL",
@@ -1387,7 +1539,8 @@
       "lat": 51.529777,
       "lon": -0.185758,
       "zone": "2",
-      "site_id": "940GZZLUMVL"
+      "site_id": "940GZZLUMVL",
+      "hub": "940GZZLUMVL"
     },
     {
       "id": "940GZZLUMYB",
@@ -1395,7 +1548,8 @@
       "lat": 51.522322,
       "lon": -0.163207,
       "zone": "1",
-      "site_id": "940GZZLUMYB"
+      "site_id": "940GZZLUMYB",
+      "hub": "HUBMYB"
     },
     {
       "id": "940GZZLUNAN",
@@ -1403,7 +1557,8 @@
       "lat": 51.523524,
       "lon": -0.259755,
       "zone": "2+3",
-      "site_id": "940GZZLUNAN"
+      "site_id": "940GZZLUNAN",
+      "hub": "940GZZLUNAN"
     },
     {
       "id": "940GZZLUNBP",
@@ -1411,7 +1566,8 @@
       "lat": 51.575726,
       "lon": 0.090004,
       "zone": "4",
-      "site_id": "940GZZLUNBP"
+      "site_id": "940GZZLUNBP",
+      "hub": "940GZZLUNBP"
     },
     {
       "id": "940GZZLUNDN",
@@ -1419,7 +1575,8 @@
       "lat": 51.553986,
       "lon": -0.249837,
       "zone": "3",
-      "site_id": "940GZZLUNDN"
+      "site_id": "940GZZLUNDN",
+      "hub": "940GZZLUNDN"
     },
     {
       "id": "940GZZLUNEN",
@@ -1427,7 +1584,8 @@
       "lat": 51.517505,
       "lon": -0.288868,
       "zone": "3",
-      "site_id": "940GZZLUNEN"
+      "site_id": "940GZZLUNEN",
+      "hub": "940GZZLUNEN"
     },
     {
       "id": "940GZZLUNFD",
@@ -1435,7 +1593,8 @@
       "lat": 51.499319,
       "lon": -0.314719,
       "zone": "3",
-      "site_id": "940GZZLUNFD"
+      "site_id": "940GZZLUNFD",
+      "hub": "940GZZLUNFD"
     },
     {
       "id": "940GZZLUNGW",
@@ -1443,7 +1602,8 @@
       "lat": 51.50047,
       "lon": 0.004287,
       "zone": "2/3",
-      "site_id": "940GZZLUNGW"
+      "site_id": "940GZZLUNGW",
+      "hub": "HUBNGW"
     },
     {
       "id": "940GZZLUNHA",
@@ -1451,7 +1611,8 @@
       "lat": 51.584872,
       "lon": -0.362408,
       "zone": "5",
-      "site_id": "940GZZLUNHA"
+      "site_id": "940GZZLUNHA",
+      "hub": "940GZZLUNHA"
     },
     {
       "id": "940GZZLUNHG",
@@ -1459,7 +1620,8 @@
       "lat": 51.509128,
       "lon": -0.196104,
       "zone": "1+2",
-      "site_id": "940GZZLUNHG"
+      "site_id": "940GZZLUNHG",
+      "hub": "940GZZLUNHG"
     },
     {
       "id": "940GZZLUNHT",
@@ -1467,7 +1629,8 @@
       "lat": 51.548236,
       "lon": -0.368699,
       "zone": "5",
-      "site_id": "940GZZLUNHT"
+      "site_id": "940GZZLUNHT",
+      "hub": "940GZZLUNHT"
     },
     {
       "id": "940GZZLUNKP",
@@ -1475,7 +1638,8 @@
       "lat": 51.578481,
       "lon": -0.318056,
       "zone": "4",
-      "site_id": "940GZZLUNKP"
+      "site_id": "940GZZLUNKP",
+      "hub": "940GZZLUNKP"
     },
     {
       "id": "940GZZLUNOW",
@@ -1483,7 +1647,8 @@
       "lat": 51.611053,
       "lon": -0.423829,
       "zone": "6",
-      "site_id": "940GZZLUNOW"
+      "site_id": "940GZZLUNOW",
+      "hub": "940GZZLUNOW"
     },
     {
       "id": "940GZZLUNWH",
@@ -1491,7 +1656,8 @@
       "lat": 51.600572,
       "lon": -0.409464,
       "zone": "6",
-      "site_id": "940GZZLUNWH"
+      "site_id": "940GZZLUNWH",
+      "hub": "940GZZLUNWH"
     },
     {
       "id": "940GZZLUNWY",
@@ -1499,7 +1665,8 @@
       "lat": 51.562551,
       "lon": -0.304,
       "zone": "4",
-      "site_id": "940GZZLUNWY"
+      "site_id": "940GZZLUNWY",
+      "hub": "HUBNWB"
     },
     {
       "id": "940GZZLUOAK",
@@ -1507,7 +1674,8 @@
       "lat": 51.647726,
       "lon": -0.132182,
       "zone": "5",
-      "site_id": "940GZZLUOAK"
+      "site_id": "940GZZLUOAK",
+      "hub": "940GZZLUOAK"
     },
     {
       "id": "940GZZLUODS",
@@ -1515,7 +1683,8 @@
       "lat": 51.525864,
       "lon": -0.08777,
       "zone": "1",
-      "site_id": "940GZZLUODS"
+      "site_id": "940GZZLUODS",
+      "hub": "HUBOLD"
     },
     {
       "id": "940GZZLUOSY",
@@ -1523,7 +1692,8 @@
       "lat": 51.481274,
       "lon": -0.352224,
       "zone": "4",
-      "site_id": "940GZZLUOSY"
+      "site_id": "940GZZLUOSY",
+      "hub": "940GZZLUOSY"
     },
     {
       "id": "940GZZLUOVL",
@@ -1531,7 +1701,8 @@
       "lat": 51.48185,
       "lon": -0.112439,
       "zone": "2",
-      "site_id": "940GZZLUOVL"
+      "site_id": "940GZZLUOVL",
+      "hub": "940GZZLUOVL"
     },
     {
       "id": "940GZZLUOXC",
@@ -1539,7 +1710,8 @@
       "lat": 51.515224,
       "lon": -0.141903,
       "zone": "1",
-      "site_id": "940GZZLUOXC"
+      "site_id": "940GZZLUOXC",
+      "hub": "940GZZLUOXC"
     },
     {
       "id": "940GZZLUPAC",
@@ -1547,7 +1719,8 @@
       "lat": 51.516581,
       "lon": -0.175689,
       "zone": "1",
-      "site_id": "940GZZLUPAC"
+      "site_id": "940GZZLUPAC",
+      "hub": "HUBPAD"
     },
     {
       "id": "940GZZLUPAH",
@@ -1555,7 +1728,8 @@
       "lat": 51.518187,
       "lon": -0.178306,
       "zone": "1",
-      "site_id": "940GZZLUPAC"
+      "site_id": "940GZZLUPAC",
+      "hub": "HUBPAD"
     },
     {
       "id": "940GZZLUPCC",
@@ -1563,7 +1737,8 @@
       "lat": 51.51005,
       "lon": -0.133798,
       "zone": "1",
-      "site_id": "940GZZLUPCC"
+      "site_id": "940GZZLUPCC",
+      "hub": "940GZZLUPCC"
     },
     {
       "id": "940GZZLUPCO",
@@ -1571,7 +1746,8 @@
       "lat": 51.489097,
       "lon": -0.133761,
       "zone": "1",
-      "site_id": "940GZZLUPCO"
+      "site_id": "940GZZLUPCO",
+      "hub": "940GZZLUPCO"
     },
     {
       "id": "940GZZLUPKR",
@@ -1579,7 +1755,8 @@
       "lat": 51.527123,
       "lon": -0.284341,
       "zone": "3",
-      "site_id": "940GZZLUPKR"
+      "site_id": "940GZZLUPKR",
+      "hub": "940GZZLUPKR"
     },
     {
       "id": "940GZZLUPLW",
@@ -1587,7 +1764,8 @@
       "lat": 51.531341,
       "lon": 0.017451,
       "zone": "3",
-      "site_id": "940GZZLUPLW"
+      "site_id": "940GZZLUPLW",
+      "hub": "940GZZLUPLW"
     },
     {
       "id": "940GZZLUPNR",
@@ -1595,7 +1773,8 @@
       "lat": 51.592901,
       "lon": -0.381161,
       "zone": "5",
-      "site_id": "940GZZLUPNR"
+      "site_id": "940GZZLUPNR",
+      "hub": "940GZZLUPNR"
     },
     {
       "id": "940GZZLUPRD",
@@ -1603,7 +1782,8 @@
       "lat": 51.571972,
       "lon": -0.295107,
       "zone": "4",
-      "site_id": "940GZZLUPRD"
+      "site_id": "940GZZLUPRD",
+      "hub": "940GZZLUPRD"
     },
     {
       "id": "940GZZLUPSG",
@@ -1611,7 +1791,8 @@
       "lat": 51.475277,
       "lon": -0.20117,
       "zone": "2",
-      "site_id": "940GZZLUPSG"
+      "site_id": "940GZZLUPSG",
+      "hub": "940GZZLUPSG"
     },
     {
       "id": "940GZZLUPVL",
@@ -1619,7 +1800,8 @@
       "lat": 51.536717,
       "lon": -0.323446,
       "zone": "4",
-      "site_id": "940GZZLUPVL"
+      "site_id": "940GZZLUPVL",
+      "hub": "940GZZLUPVL"
     },
     {
       "id": "940GZZLUPYB",
@@ -1627,7 +1809,8 @@
       "lat": 51.468262,
       "lon": -0.208731,
       "zone": "2",
-      "site_id": "940GZZLUPYB"
+      "site_id": "940GZZLUPYB",
+      "hub": "940GZZLUPYB"
     },
     {
       "id": "940GZZLUQBY",
@@ -1635,7 +1818,8 @@
       "lat": 51.594188,
       "lon": -0.286219,
       "zone": "4",
-      "site_id": "940GZZLUQBY"
+      "site_id": "940GZZLUQBY",
+      "hub": "940GZZLUQBY"
     },
     {
       "id": "940GZZLUQPS",
@@ -1643,7 +1827,8 @@
       "lat": 51.534158,
       "lon": -0.204574,
       "zone": "2",
-      "site_id": "940GZZLUQPS"
+      "site_id": "940GZZLUQPS",
+      "hub": "HUBQPW"
     },
     {
       "id": "940GZZLUQWY",
@@ -1651,7 +1836,8 @@
       "lat": 51.510312,
       "lon": -0.187152,
       "zone": "1",
-      "site_id": "940GZZLUQWY"
+      "site_id": "940GZZLUQWY",
+      "hub": "940GZZLUQWY"
     },
     {
       "id": "940GZZLURBG",
@@ -1659,7 +1845,8 @@
       "lat": 51.576243,
       "lon": 0.04536,
       "zone": "4",
-      "site_id": "940GZZLURBG"
+      "site_id": "940GZZLURBG",
+      "hub": "940GZZLURBG"
     },
     {
       "id": "940GZZLURGP",
@@ -1667,7 +1854,8 @@
       "lat": 51.523344,
       "lon": -0.146444,
       "zone": "1",
-      "site_id": "940GZZLURGP"
+      "site_id": "940GZZLURGP",
+      "hub": "940GZZLURGP"
     },
     {
       "id": "940GZZLURKW",
@@ -1675,7 +1863,8 @@
       "lat": 51.640207,
       "lon": -0.473703,
       "zone": "7",
-      "site_id": "940GZZLURKW"
+      "site_id": "940GZZLURKW",
+      "hub": "HUBRIC"
     },
     {
       "id": "940GZZLURMD",
@@ -1683,7 +1872,8 @@
       "lat": 51.463237,
       "lon": -0.301336,
       "zone": "4",
-      "site_id": "940GZZLURMD"
+      "site_id": "940GZZLURMD",
+      "hub": "HUBRMD"
     },
     {
       "id": "940GZZLURSG",
@@ -1691,7 +1881,8 @@
       "lat": 51.560736,
       "lon": -0.41071,
       "zone": "5",
-      "site_id": "940GZZLURSG"
+      "site_id": "940GZZLURSG",
+      "hub": "940GZZLURSG"
     },
     {
       "id": "940GZZLURSM",
@@ -1699,7 +1890,8 @@
       "lat": 51.573202,
       "lon": -0.412973,
       "zone": "6",
-      "site_id": "940GZZLURSM"
+      "site_id": "940GZZLURSM",
+      "hub": "940GZZLURSM"
     },
     {
       "id": "940GZZLURSP",
@@ -1707,7 +1899,8 @@
       "lat": 51.571354,
       "lon": -0.421898,
       "zone": "6",
-      "site_id": "940GZZLURSP"
+      "site_id": "940GZZLURSP",
+      "hub": "940GZZLURSP"
     },
     {
       "id": "940GZZLURSQ",
@@ -1715,7 +1908,8 @@
       "lat": 51.523073,
       "lon": -0.124285,
       "zone": "1",
-      "site_id": "940GZZLURSQ"
+      "site_id": "940GZZLURSQ",
+      "hub": "940GZZLURSQ"
     },
     {
       "id": "940GZZLURVP",
@@ -1723,7 +1917,8 @@
       "lat": 51.494122,
       "lon": -0.235881,
       "zone": "2",
-      "site_id": "940GZZLURVP"
+      "site_id": "940GZZLURVP",
+      "hub": "940GZZLURVP"
     },
     {
       "id": "940GZZLURVY",
@@ -1731,7 +1926,8 @@
       "lat": 51.617199,
       "lon": 0.043647,
       "zone": "4",
-      "site_id": "940GZZLURVY"
+      "site_id": "940GZZLURVY",
+      "hub": "940GZZLURVY"
     },
     {
       "id": "940GZZLURYL",
@@ -1739,7 +1935,8 @@
       "lat": 51.575147,
       "lon": -0.371127,
       "zone": "5",
-      "site_id": "940GZZLURYL"
+      "site_id": "940GZZLURYL",
+      "hub": "940GZZLURYL"
     },
     {
       "id": "940GZZLURYO",
@@ -1747,7 +1944,8 @@
       "lat": 51.519113,
       "lon": -0.188748,
       "zone": "2",
-      "site_id": "940GZZLURYO"
+      "site_id": "940GZZLURYO",
+      "hub": "940GZZLURYO"
     },
     {
       "id": "940GZZLUSBC",
@@ -1755,7 +1953,8 @@
       "lat": 51.504376,
       "lon": -0.218813,
       "zone": "2",
-      "site_id": "940GZZLUSBC"
+      "site_id": "940GZZLUSBC",
+      "hub": "HUBSPB"
     },
     {
       "id": "940GZZLUSBM",
@@ -1763,7 +1962,8 @@
       "lat": 51.505579,
       "lon": -0.226375,
       "zone": "2",
-      "site_id": "940GZZLUSBM"
+      "site_id": "940GZZLUSBM",
+      "hub": "940GZZLUSBM"
     },
     {
       "id": "940GZZLUSEA",
@@ -1771,7 +1971,8 @@
       "lat": 51.501003,
       "lon": -0.307424,
       "zone": "3",
-      "site_id": "940GZZLUSEA"
+      "site_id": "940GZZLUSEA",
+      "hub": "940GZZLUSEA"
     },
     {
       "id": "940GZZLUSFB",
@@ -1779,7 +1980,8 @@
       "lat": 51.494917,
       "lon": -0.245704,
       "zone": "2",
-      "site_id": "940GZZLUSFB"
+      "site_id": "940GZZLUSFB",
+      "hub": "940GZZLUSFB"
     },
     {
       "id": "940GZZLUSFS",
@@ -1787,7 +1989,8 @@
       "lat": 51.445073,
       "lon": -0.206602,
       "zone": "3",
-      "site_id": "940GZZLUSFS"
+      "site_id": "940GZZLUSFS",
+      "hub": "940GZZLUSFS"
     },
     {
       "id": "940GZZLUSGN",
@@ -1795,7 +1998,8 @@
       "lat": 51.521858,
       "lon": -0.046596,
       "zone": "2",
-      "site_id": "940GZZLUSGN"
+      "site_id": "940GZZLUSGN",
+      "hub": "940GZZLUSGN"
     },
     {
       "id": "940GZZLUSGP",
@@ -1803,7 +2007,8 @@
       "lat": 51.543959,
       "lon": -0.275892,
       "zone": "3",
-      "site_id": "940GZZLUSGP"
+      "site_id": "940GZZLUSGP",
+      "hub": "HUBSBP"
     },
     {
       "id": "940GZZLUSGT",
@@ -1811,7 +2016,8 @@
       "lat": 51.632315,
       "lon": -0.127816,
       "zone": "4",
-      "site_id": "940GZZLUSGT"
+      "site_id": "940GZZLUSGT",
+      "hub": "940GZZLUSGT"
     },
     {
       "id": "940GZZLUSHH",
@@ -1819,7 +2025,8 @@
       "lat": 51.564888,
       "lon": -0.352492,
       "zone": "5",
-      "site_id": "940GZZLUSHH"
+      "site_id": "940GZZLUSHH",
+      "hub": "940GZZLUSHH"
     },
     {
       "id": "940GZZLUSJP",
@@ -1827,7 +2034,8 @@
       "lat": 51.499544,
       "lon": -0.133608,
       "zone": "1",
-      "site_id": "940GZZLUSJP"
+      "site_id": "940GZZLUSJP",
+      "hub": "940GZZLUSJP"
     },
     {
       "id": "940GZZLUSJW",
@@ -1835,7 +2043,8 @@
       "lat": 51.534521,
       "lon": -0.173948,
       "zone": "2",
-      "site_id": "940GZZLUSJW"
+      "site_id": "940GZZLUSJW",
+      "hub": "940GZZLUSJW"
     },
     {
       "id": "940GZZLUSKS",
@@ -1843,7 +2052,8 @@
       "lat": 51.494094,
       "lon": -0.174138,
       "zone": "1",
-      "site_id": "940GZZLUSKS"
+      "site_id": "940GZZLUSKS",
+      "hub": "940GZZLUSKS"
     },
     {
       "id": "940GZZLUSKT",
@@ -1851,7 +2061,8 @@
       "lat": 51.570232,
       "lon": -0.308433,
       "zone": "4",
-      "site_id": "940GZZLUSKT"
+      "site_id": "940GZZLUSKT",
+      "hub": "HUBSOK"
     },
     {
       "id": "940GZZLUSKW",
@@ -1859,7 +2070,8 @@
       "lat": 51.472184,
       "lon": -0.122644,
       "zone": "2",
-      "site_id": "940GZZLUSKW"
+      "site_id": "940GZZLUSKW",
+      "hub": "940GZZLUSKW"
     },
     {
       "id": "940GZZLUSNB",
@@ -1867,7 +2079,8 @@
       "lat": 51.580678,
       "lon": 0.02144,
       "zone": "4",
-      "site_id": "940GZZLUSNB"
+      "site_id": "940GZZLUSNB",
+      "hub": "940GZZLUSNB"
     },
     {
       "id": "940GZZLUSPU",
@@ -1875,7 +2088,8 @@
       "lat": 51.514936,
       "lon": -0.097567,
       "zone": "1",
-      "site_id": "940GZZLUSPU"
+      "site_id": "940GZZLUSPU",
+      "hub": "940GZZLUSPU"
     },
     {
       "id": "940GZZLUSRP",
@@ -1883,7 +2097,8 @@
       "lat": 51.556853,
       "lon": -0.398915,
       "zone": "5",
-      "site_id": "940GZZLUSRP"
+      "site_id": "940GZZLUSRP",
+      "hub": "HUBSRU"
     },
     {
       "id": "940GZZLUSSQ",
@@ -1891,7 +2106,8 @@
       "lat": 51.49227,
       "lon": -0.156377,
       "zone": "1",
-      "site_id": "940GZZLUSSQ"
+      "site_id": "940GZZLUSSQ",
+      "hub": "940GZZLUSSQ"
     },
     {
       "id": "940GZZLUSTD",
@@ -1899,7 +2115,8 @@
       "lat": 51.541806,
       "lon": -0.003458,
       "zone": "2/3",
-      "site_id": "940GZZLUSTD"
+      "site_id": "940GZZLUSTD",
+      "hub": "HUBSRA"
     },
     {
       "id": "940GZZLUSTM",
@@ -1907,7 +2124,8 @@
       "lat": 51.619839,
       "lon": -0.303266,
       "zone": "5",
-      "site_id": "940GZZLUSTM"
+      "site_id": "940GZZLUSTM",
+      "hub": "940GZZLUSTM"
     },
     {
       "id": "940GZZLUSUH",
@@ -1915,7 +2133,8 @@
       "lat": 51.556946,
       "lon": -0.336435,
       "zone": "4",
-      "site_id": "940GZZLUSUH"
+      "site_id": "940GZZLUSUH",
+      "hub": "940GZZLUSUH"
     },
     {
       "id": "940GZZLUSUT",
@@ -1923,7 +2142,8 @@
       "lat": 51.550815,
       "lon": -0.315745,
       "zone": "4",
-      "site_id": "940GZZLUSUT"
+      "site_id": "940GZZLUSUT",
+      "hub": "940GZZLUSUT"
     },
     {
       "id": "940GZZLUSVS",
@@ -1931,7 +2151,8 @@
       "lat": 51.58333,
       "lon": -0.072584,
       "zone": "3",
-      "site_id": "940GZZLUSVS"
+      "site_id": "940GZZLUSVS",
+      "hub": "HUBSVS"
     },
     {
       "id": "940GZZLUSWC",
@@ -1939,7 +2160,8 @@
       "lat": 51.543681,
       "lon": -0.174894,
       "zone": "2",
-      "site_id": "940GZZLUSWC"
+      "site_id": "940GZZLUSWC",
+      "hub": "940GZZLUSWC"
     },
     {
       "id": "940GZZLUSWF",
@@ -1947,7 +2169,8 @@
       "lat": 51.591907,
       "lon": 0.027338,
       "zone": "4",
-      "site_id": "940GZZLUSWF"
+      "site_id": "940GZZLUSWF",
+      "hub": "940GZZLUSWF"
     },
     {
       "id": "940GZZLUSWK",
@@ -1955,7 +2178,8 @@
       "lat": 51.50427,
       "lon": -0.105331,
       "zone": "1",
-      "site_id": "940GZZLUSWK"
+      "site_id": "940GZZLUSWK",
+      "hub": "940GZZLUSWK"
     },
     {
       "id": "940GZZLUSWN",
@@ -1963,7 +2187,8 @@
       "lat": 51.415309,
       "lon": -0.192005,
       "zone": "3+4",
-      "site_id": "940GZZLUSWN"
+      "site_id": "940GZZLUSWN",
+      "hub": "940GZZLUSWN"
     },
     {
       "id": "940GZZLUTAW",
@@ -1971,7 +2196,8 @@
       "lat": 51.630597,
       "lon": -0.17921,
       "zone": "4",
-      "site_id": "940GZZLUTAW"
+      "site_id": "940GZZLUTAW",
+      "hub": "940GZZLUTAW"
     },
     {
       "id": "940GZZLUTBC",
@@ -1979,7 +2205,8 @@
       "lat": 51.435678,
       "lon": -0.159736,
       "zone": "3",
-      "site_id": "940GZZLUTBC"
+      "site_id": "940GZZLUTBC",
+      "hub": "940GZZLUTBC"
     },
     {
       "id": "940GZZLUTBY",
@@ -1987,7 +2214,8 @@
       "lat": 51.42763,
       "lon": -0.168374,
       "zone": "3",
-      "site_id": "940GZZLUTBY"
+      "site_id": "940GZZLUTBY",
+      "hub": "940GZZLUTBY"
     },
     {
       "id": "940GZZLUTCR",
@@ -1995,7 +2223,8 @@
       "lat": 51.516426,
       "lon": -0.13041,
       "zone": "1",
-      "site_id": "940GZZLUTCR"
+      "site_id": "940GZZLUTCR",
+      "hub": "HUBTCR"
     },
     {
       "id": "940GZZLUTFP",
@@ -2003,7 +2232,8 @@
       "lat": 51.556822,
       "lon": -0.138433,
       "zone": "2",
-      "site_id": "940GZZLUTFP"
+      "site_id": "940GZZLUTFP",
+      "hub": "940GZZLUTFP"
     },
     {
       "id": "940GZZLUTHB",
@@ -2011,7 +2241,8 @@
       "lat": 51.671759,
       "lon": 0.103085,
       "zone": "6",
-      "site_id": "940GZZLUTHB"
+      "site_id": "940GZZLUTHB",
+      "hub": "940GZZLUTHB"
     },
     {
       "id": "940GZZLUTMH",
@@ -2019,7 +2250,8 @@
       "lat": 51.588108,
       "lon": -0.060241,
       "zone": "3",
-      "site_id": "940GZZLUTMH"
+      "site_id": "940GZZLUTMH",
+      "hub": "HUBTOM"
     },
     {
       "id": "940GZZLUTMP",
@@ -2027,7 +2259,8 @@
       "lat": 51.511006,
       "lon": -0.11426,
       "zone": "1",
-      "site_id": "940GZZLUTMP"
+      "site_id": "940GZZLUTMP",
+      "hub": "940GZZLUTMP"
     },
     {
       "id": "940GZZLUTNG",
@@ -2035,7 +2268,8 @@
       "lat": 51.495148,
       "lon": -0.254555,
       "zone": "2+3",
-      "site_id": "940GZZLUTNG"
+      "site_id": "940GZZLUTNG",
+      "hub": "940GZZLUTNG"
     },
     {
       "id": "940GZZLUTPN",
@@ -2043,7 +2277,8 @@
       "lat": 51.590272,
       "lon": -0.102953,
       "zone": "3",
-      "site_id": "940GZZLUTPN"
+      "site_id": "940GZZLUTPN",
+      "hub": "940GZZLUTPN"
     },
     {
       "id": "940GZZLUTWH",
@@ -2051,7 +2286,8 @@
       "lat": 51.509971,
       "lon": -0.076546,
       "zone": "1",
-      "site_id": "940GZZLUTWH"
+      "site_id": "940GZZLUTWH",
+      "hub": "940GZZLUTWH"
     },
     {
       "id": "940GZZLUUPB",
@@ -2059,7 +2295,8 @@
       "lat": 51.55856,
       "lon": 0.235809,
       "zone": "6",
-      "site_id": "940GZZLUUPB"
+      "site_id": "940GZZLUUPB",
+      "hub": "940GZZLUUPB"
     },
     {
       "id": "940GZZLUUPK",
@@ -2067,7 +2304,8 @@
       "lat": 51.53534,
       "lon": 0.035263,
       "zone": "3",
-      "site_id": "940GZZLUUPK"
+      "site_id": "940GZZLUUPK",
+      "hub": "940GZZLUUPK"
     },
     {
       "id": "940GZZLUUPM",
@@ -2075,7 +2313,8 @@
       "lat": 51.559063,
       "lon": 0.250882,
       "zone": "6",
-      "site_id": "940GZZLUUPM"
+      "site_id": "940GZZLUUPM",
+      "hub": "HUBUPM"
     },
     {
       "id": "940GZZLUUPY",
@@ -2083,7 +2322,8 @@
       "lat": 51.538372,
       "lon": 0.10153,
       "zone": "4",
-      "site_id": "940GZZLUUPY"
+      "site_id": "940GZZLUUPY",
+      "hub": "940GZZLUUPY"
     },
     {
       "id": "940GZZLUUXB",
@@ -2091,7 +2331,8 @@
       "lat": 51.546565,
       "lon": -0.477949,
       "zone": "6",
-      "site_id": "940GZZLUUXB"
+      "site_id": "940GZZLUUXB",
+      "hub": "940GZZLUUXB"
     },
     {
       "id": "940GZZLUVIC",
@@ -2099,7 +2340,8 @@
       "lat": 51.496359,
       "lon": -0.143102,
       "zone": "1",
-      "site_id": "940GZZLUVIC"
+      "site_id": "940GZZLUVIC",
+      "hub": "HUBVIC"
     },
     {
       "id": "940GZZLUVXL",
@@ -2107,7 +2349,8 @@
       "lat": 51.485743,
       "lon": -0.124204,
       "zone": "1+2",
-      "site_id": "940GZZLUVXL"
+      "site_id": "940GZZLUVXL",
+      "hub": "HUBVXH"
     },
     {
       "id": "940GZZLUWAF",
@@ -2115,7 +2358,8 @@
       "lat": 51.657446,
       "lon": -0.417377,
       "zone": "7",
-      "site_id": "940GZZLUWAF"
+      "site_id": "940GZZLUWAF",
+      "hub": "940GZZLUWAF"
     },
     {
       "id": "940GZZLUWBN",
@@ -2123,7 +2367,8 @@
       "lat": 51.487268,
       "lon": -0.195599,
       "zone": "2",
-      "site_id": "940GZZLUWBN"
+      "site_id": "940GZZLUWBN",
+      "hub": "HUBWBP"
     },
     {
       "id": "940GZZLUWCY",
@@ -2131,7 +2376,8 @@
       "lat": 51.511959,
       "lon": -0.224297,
       "zone": "2",
-      "site_id": "940GZZLUWCY"
+      "site_id": "940GZZLUWCY",
+      "hub": "940GZZLUWCY"
     },
     {
       "id": "940GZZLUWFN",
@@ -2139,7 +2385,8 @@
       "lat": 51.609426,
       "lon": -0.188362,
       "zone": "4",
-      "site_id": "940GZZLUWFN"
+      "site_id": "940GZZLUWFN",
+      "hub": "940GZZLUWFN"
     },
     {
       "id": "940GZZLUWHM",
@@ -2147,7 +2394,8 @@
       "lat": 51.528136,
       "lon": 0.005055,
       "zone": "2/3",
-      "site_id": "940GZZLUWHM"
+      "site_id": "940GZZLUWHM",
+      "hub": "HUBWEH"
     },
     {
       "id": "940GZZLUWHP",
@@ -2155,7 +2403,8 @@
       "lat": 51.546638,
       "lon": -0.191059,
       "zone": "2",
-      "site_id": "940GZZLUWHP"
+      "site_id": "940GZZLUWHP",
+      "hub": "HUBWHD"
     },
     {
       "id": "940GZZLUWHW",
@@ -2163,7 +2412,8 @@
       "lat": 51.57971,
       "lon": -0.3534,
       "zone": "5",
-      "site_id": "940GZZLUWHW"
+      "site_id": "940GZZLUWHW",
+      "hub": "940GZZLUWHW"
     },
     {
       "id": "940GZZLUWIG",
@@ -2171,7 +2421,8 @@
       "lat": 51.549146,
       "lon": -0.221537,
       "zone": "2+3",
-      "site_id": "940GZZLUWIG"
+      "site_id": "940GZZLUWIG",
+      "hub": "940GZZLUWIG"
     },
     {
       "id": "940GZZLUWIM",
@@ -2179,7 +2430,8 @@
       "lat": 51.421207,
       "lon": -0.206573,
       "zone": "3",
-      "site_id": "940GZZLUWIM"
+      "site_id": "940GZZLUWIM",
+      "hub": "HUBWIM"
     },
     {
       "id": "940GZZLUWIP",
@@ -2187,7 +2439,8 @@
       "lat": 51.434573,
       "lon": -0.199719,
       "zone": "3",
-      "site_id": "940GZZLUWIP"
+      "site_id": "940GZZLUWIP",
+      "hub": "940GZZLUWIP"
     },
     {
       "id": "940GZZLUWJN",
@@ -2195,7 +2448,8 @@
       "lat": 51.532259,
       "lon": -0.244283,
       "zone": "2+3",
-      "site_id": "940GZZLUWJN"
+      "site_id": "940GZZLUWJN",
+      "hub": "HUBWIJ"
     },
     {
       "id": "940GZZLUWKA",
@@ -2203,7 +2457,8 @@
       "lat": 51.523263,
       "lon": -0.183783,
       "zone": "2",
-      "site_id": "940GZZLUWKA"
+      "site_id": "940GZZLUWKA",
+      "hub": "940GZZLUWKA"
     },
     {
       "id": "940GZZLUWKN",
@@ -2211,7 +2466,8 @@
       "lat": 51.490459,
       "lon": -0.206636,
       "zone": "2",
-      "site_id": "940GZZLUWKN"
+      "site_id": "940GZZLUWKN",
+      "hub": "940GZZLUWKN"
     },
     {
       "id": "940GZZLUWLA",
@@ -2219,7 +2475,8 @@
       "lat": 51.509669,
       "lon": -0.22453,
       "zone": "2",
-      "site_id": "940GZZLUWLA"
+      "site_id": "940GZZLUWLA",
+      "hub": "940GZZLUWLA"
     },
     {
       "id": "940GZZLUWLO",
@@ -2227,7 +2484,8 @@
       "lat": 51.503299,
       "lon": -0.11478,
       "zone": "1",
-      "site_id": "940GZZLUWLO"
+      "site_id": "940GZZLUWLO",
+      "hub": "HUBWAT"
     },
     {
       "id": "940GZZLUWOF",
@@ -2235,7 +2493,8 @@
       "lat": 51.606899,
       "lon": 0.03397,
       "zone": "4",
-      "site_id": "940GZZLUWOF"
+      "site_id": "940GZZLUWOF",
+      "hub": "940GZZLUWOF"
     },
     {
       "id": "940GZZLUWOG",
@@ -2243,7 +2502,8 @@
       "lat": 51.597479,
       "lon": -0.109886,
       "zone": "3",
-      "site_id": "940GZZLUWOG"
+      "site_id": "940GZZLUWOG",
+      "hub": "940GZZLUWOG"
     },
     {
       "id": "940GZZLUWOP",
@@ -2251,7 +2511,8 @@
       "lat": 51.618014,
       "lon": -0.18542,
       "zone": "4",
-      "site_id": "940GZZLUWOP"
+      "site_id": "940GZZLUWOP",
+      "hub": "940GZZLUWOP"
     },
     {
       "id": "940GZZLUWPL",
@@ -2259,7 +2520,8 @@
       "lat": 51.519518,
       "lon": -0.059971,
       "zone": "2",
-      "site_id": "940GZZLUWPL"
+      "site_id": "940GZZLUWPL",
+      "hub": "HUBZWL"
     },
     {
       "id": "940GZZLUWRP",
@@ -2267,7 +2529,8 @@
       "lat": 51.569688,
       "lon": -0.437886,
       "zone": "6",
-      "site_id": "940GZZLUWRP"
+      "site_id": "940GZZLUWRP",
+      "hub": "HUBWRU"
     },
     {
       "id": "940GZZLUWRR",
@@ -2275,7 +2538,8 @@
       "lat": 51.524951,
       "lon": -0.138321,
       "zone": "1",
-      "site_id": "940GZZLUWRR"
+      "site_id": "940GZZLUWRR",
+      "hub": "940GZZLUWRR"
     },
     {
       "id": "940GZZLUWSD",
@@ -2283,7 +2547,8 @@
       "lat": 51.575501,
       "lon": 0.028527,
       "zone": "4",
-      "site_id": "940GZZLUWSD"
+      "site_id": "940GZZLUWSD",
+      "hub": "940GZZLUWSD"
     },
     {
       "id": "940GZZLUWSM",
@@ -2291,7 +2556,8 @@
       "lat": 51.50132,
       "lon": -0.124861,
       "zone": "1",
-      "site_id": "940GZZLUWSM"
+      "site_id": "940GZZLUWSM",
+      "hub": "HUBWSM"
     },
     {
       "id": "940GZZLUWSP",
@@ -2299,7 +2565,8 @@
       "lat": 51.52111,
       "lon": -0.201065,
       "zone": "2",
-      "site_id": "940GZZLUWSP"
+      "site_id": "940GZZLUWSP",
+      "hub": "940GZZLUWSP"
     },
     {
       "id": "940GZZLUWTA",
@@ -2307,7 +2574,8 @@
       "lat": 51.518001,
       "lon": -0.28098,
       "zone": "3",
-      "site_id": "940GZZLUWTA"
+      "site_id": "940GZZLUWTA",
+      "hub": "940GZZLUWTA"
     },
     {
       "id": "940GZZLUWWL",
@@ -2315,7 +2583,8 @@
       "lat": 51.582965,
       "lon": -0.019885,
       "zone": "3",
-      "site_id": "940GZZLUWWL"
+      "site_id": "940GZZLUWWL",
+      "hub": "HUBWHC"
     },
     {
       "id": "940GZZLUWYC",
@@ -2323,7 +2592,8 @@
       "lat": 51.552304,
       "lon": -0.296852,
       "zone": "4",
-      "site_id": "940GZZLUWYC"
+      "site_id": "940GZZLUWYC",
+      "hub": "HUBWMB"
     },
     {
       "id": "940GZZLUWYP",
@@ -2331,7 +2601,8 @@
       "lat": 51.563198,
       "lon": -0.279262,
       "zone": "4",
-      "site_id": "940GZZLUWYP"
+      "site_id": "940GZZLUWYP",
+      "hub": "940GZZLUWYP"
     },
     {
       "id": "940GZZNEUGST",
@@ -2339,7 +2610,8 @@
       "lat": 51.479912,
       "lon": -0.128476,
       "zone": "1",
-      "site_id": "940GZZNEUGST"
+      "site_id": "940GZZNEUGST",
+      "hub": "940GZZNEUGST"
     }
   ],
   "sequences": [

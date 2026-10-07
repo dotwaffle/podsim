@@ -68,9 +68,40 @@ class ConversionTests(unittest.TestCase):
         for name, digest in {
             "london-full-tube.json": "af65234ca6be2d3280e48cf73773b574ec60c0cdd9e4473b2b3d5ad648bed139",
             "london-full-od-2024.csv": "605ac99f1e134dbd20e00401de4c671e3664b81e48e373df574927c7b60cb99c",
-            "london-full-provenance.json": "f9b56e33aa48842627e319113cc35b1b50085423c9baedea4c449f2c13f70e27",
+            "london-full-provenance.json": '0f8c5bbe96b52c6a5e64c7a3802d97bde11059a75357d89557b09640d36cc13c',
         }.items():
             self.assertEqual(hashlib.sha256((DATA / name).read_bytes()).hexdigest(), digest)
+
+    def test_tube_content_guard(self):
+        stops = {s["id"]: s for s in self.provenance["source_stations"]}
+        routes = {}
+        for seq in self.provenance["sequences"]:
+            route = routes.setdefault(seq["file"], {"mode": "tube", "lineId": seq["line"], "stopPointSequences": []})
+            route["stopPointSequences"].append({
+                "direction": seq["direction"], "branchId": seq["branch"],
+                "nextBranchIds": seq["next"], "prevBranchIds": seq["previous"],
+                "stopPoint": [{k: stops[s][k] for k in ("id", "name", "lat", "lon", "zone")} |
+                              {"topMostParentId": stops[s]["hub"]} for s in seq["stops"]]})
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            for filename, route in routes.items():
+                convert.write_json(root / filename, route | {"unused": "different bytes"})
+            _, topology, _, _ = convert.topology(root, self.provenance["sources"])
+            self.assertEqual(topology, self.topology)
+            filename = next(iter(routes))
+            for field, value in [("lat", 51.6), ("topMostParentId", "changed")]:
+                with self.subTest(field=field):
+                    changed = json.loads(json.dumps(routes[filename]))
+                    changed["stopPointSequences"][0]["stopPoint"][0][field] = value
+                    convert.write_json(root / filename, changed)
+                    with self.assertRaisesRegex(ValueError, "inconsistent source|semantics changed"):
+                        convert.topology(root, self.provenance["sources"])
+                    convert.write_json(root / filename, routes[filename])
+            changed = json.loads(json.dumps(routes[filename]))
+            changed["stopPointSequences"][0]["stopPoint"].reverse()
+            convert.write_json(root / filename, changed)
+            with self.assertRaisesRegex(ValueError, "semantics changed"):
+                convert.topology(root, self.provenance["sources"])
 
     def test_hash_guard(self):
         with tempfile.TemporaryDirectory() as name:
@@ -249,12 +280,17 @@ class DLRConversionTests(unittest.TestCase):
         manifest = json.loads((convert.HERE / "sources.json").read_text())
         stops = {s["id"]: {k: s[k] for k in ("id", "name", "lat", "lon", "zone")} for s in self.tube_provenance["source_stations"]}
         sequences = self.tube_provenance["sequences"]
-        with patch.object(convert, "read_routes", return_value=(stops, {}, sequences)):
+        hubs = {s["id"]: s["hub"] for s in self.tube_provenance["source_stations"]}
+        with patch.object(convert, "read_routes", return_value=(stops, hubs, sequences)):
             convert.pinned_tube(Path("unused"), manifest, self.tube_provenance)
         moved = {k: v | {"lat": v["lat"] + 0.001} if k == "940GZZLUBNK" else v for k, v in stops.items()}
-        with patch.object(convert, "read_routes", return_value=(moved, {}, sequences)):
+        with patch.object(convert, "read_routes", return_value=(moved, hubs, sequences)):
             with self.assertRaisesRegex(ValueError, "semantics changed"):
                 convert.pinned_tube(Path("unused"), manifest, self.tube_provenance)
+        for changed_hubs, changed_sequences in [(hubs | {"940GZZLUBNK": "changed"}, sequences), (hubs, sequences[:-1])]:
+            with patch.object(convert, "read_routes", return_value=(stops, changed_hubs, changed_sequences)):
+                with self.assertRaisesRegex(ValueError, "semantics changed"):
+                    convert.pinned_tube(Path("unused"), manifest, self.tube_provenance)
         with self.assertRaisesRegex(ValueError, "does not match the manifest"):
             convert.pinned_tube(Path("unused"), manifest[1:], self.tube_provenance)
 

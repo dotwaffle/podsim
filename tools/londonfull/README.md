@@ -16,7 +16,8 @@ python3 -m unittest discover -s tools/londonfull -v
 The manifest records their source URLs, byte counts, and SHA-256 hashes.
 The converter reads local files and makes no network requests.
 The Tube conversion uses the 24 files other than the two DLR route files.
-Each of these files must match its pinned hash before conversion starts.
+The NUMBAT files must match their pinned hashes.
+Tube stops, hub IDs, and ordered sequences must match `london-full-provenance.json`.
 The source audit retrieved these files on September 28, 2026.
 The [DLR conversion](#dlr-conversion) also uses the two DLR route files.
 
@@ -79,9 +80,9 @@ The DLR and NUMBAT files must match their pinned hashes.
 
 On October 7, 2026, TfL served different bytes for 20 of the 22 Tube route files.
 Their stops and sequences were unchanged.
-The DLR mode therefore reads the Tube route files and requires the stops and sequences in `london-full-provenance.json`.
-It does not require the Tube file hashes.
-The Tube mode still requires them.
+Both modes require the Tube stops, hub IDs, and sequences in `london-full-provenance.json`.
+Neither mode requires the Tube file hashes.
+Fields that conversion does not read can change.
 
 The 45 DLR stops give 41 new sites, so the topology has 310 sites and 360 links.
 The 47 DLR links have the line `dlr`.
@@ -90,7 +91,8 @@ A DLR stop merges into a Tube site only when one NUMBAT code has both the LU and
 Bank, Canning Town, Stratford, and West Ham merge.
 Canary Wharf DLR shares hub `HUBCAW` with the Jubilee station, but NUMBAT gives it a separate code, so it stays a separate site.
 A DLR stop that shares a hub with a Tube stop must have a merge or separate entry.
-The hub check uses the hub IDs in the route files, which the Tube provenance does not pin.
+The Tube provenance pins each `topMostParentId` as `hub`.
+Conversion rejects inconsistent hub IDs across route files.
 
 The DLR demand keeps journeys between Tube and DLR endpoints, including journeys on other modes.
 It maps 311 NUMBAT codes to the 310 sites.
