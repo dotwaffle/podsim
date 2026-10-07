@@ -64,6 +64,14 @@ class ConversionTests(unittest.TestCase):
         }.items():
             self.assertEqual(hashlib.sha256((DATA / name).read_bytes()).hexdigest(), digest)
 
+    def test_tube_outputs_unchanged(self):
+        for name, digest in {
+            "london-full-tube.json": "af65234ca6be2d3280e48cf73773b574ec60c0cdd9e4473b2b3d5ad648bed139",
+            "london-full-od-2024.csv": "605ac99f1e134dbd20e00401de4c671e3664b81e48e373df574927c7b60cb99c",
+            "london-full-provenance.json": "f9b56e33aa48842627e319113cc35b1b50085423c9baedea4c449f2c13f70e27",
+        }.items():
+            self.assertEqual(hashlib.sha256((DATA / name).read_bytes()).hexdigest(), digest)
+
     def test_hash_guard(self):
         with tempfile.TemporaryDirectory() as name:
             root = Path(name)
