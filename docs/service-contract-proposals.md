@@ -3,6 +3,8 @@
 Status: approved October 2, 2026.
 Runtime implementation and qualification are in progress.
 The user approved roadmap items 1 through 10 and continued local work on October 2, 2026.
+Station buffers and compact station queues were removed on October 7, 2026, because measurements showed that they lowered station entry throughput.
+The compact station queue section was deleted with them.
 The standing grant requires approval of concrete contract changes before implementation.
 Browser-facing JavaScript, existing defaults, and ordinary safety limits stay in force.
 
@@ -145,44 +147,3 @@ Keep file/envelope parsing, exports, bytes, decoding, DOM/SVG, storage, fetch, a
 Exports remain available after worker failure.
 Use native tests, real WASM calls, and browser import/restore/history tests to verify current acceptance and call order.
 Projection and canvas resampling extraction have lower priority.
-
-## Compact station queue
-
-Approve an opt-in `compact-v1` profile with these limits:
-
-- Straight fixed-entry station buffers, current four-meter profiles, and at most four linked pods only.
-  Both speeds stay at or below 2.5 m/s, or 9 km/h.
-  Existing remaining-route speed checks apply.
-  Curved entries, larger bodies, mixed physical profiles, and unrelated pairs receive no exception.
-- Standstill reference spacing is 6.01 meters, giving a 2.01-meter free gap between four-meter bodies.
-  Moving spacing retains the 0.5-second reaction allowance and positive relative braking allowance: `gap >= 6.01 + 0.5*vf + max(0, (vf*vf - vl*vl)/4)`.
-  Equal speeds of 9 km/h require at least 7.26 meters.
-  This is not a promise of six-meter moving gaps.
-- Retain the existing 2 m/s² acceleration/braking bound and owned-track stopping rules.
-  A new controller must prove the planned next-state envelope without instant stops or stronger braking.
-  Unsafe formation or extension fails before it changes membership.
-- Ordinary roads, junctions, static station geometry, resource tails, and unrelated same-plane pairs retain the 12-meter rule.
-  Shared admission remains inside certified plain entry cells.
-  Conflict and endpoint resources stay exclusive.
-- Reserve recovery room of `6*(members-1)` meters inside the existing entry frontier, at most 18 meters.
-  Keep certificates and speed caps while recovering, including after feature disable.
-  Recover every pair to stopped ordinary 12.01-meter spacing before suffix commitment or rerouting.
-- The project adds `stationQueueSpacing`, either `ordinary` or `compact-v1`, default ordinary.
-  With `orderContract: "express-v1"`, the setting needs no other marker.
-  The maintainer approved the removal of this rule on 2026-10-05, because one saved-state version and one stream version now carry the setting for every project kind.
-  Compact requires station buffers and a valid platoon limit.
-  It never changes lane speeds automatically.
-  The saved state uses distinct link kind `compact-buffer-v1` with phase `compact` or `recovering`.
-  The kind fixes the numeric profile.
-  Saved arbitrary clearance or braking values are invalid.
-  Old schema versions reject new policy or certificate presence.
-- The safety oracle grants exceptions only to validated direct neighbors inside the certified region.
-  Nonadjacent members and outside traffic retain 12 meters.
-  Browser flags cannot grant an exception.
-  Physical restore validates the whole group, recovery room, geometry, and outside separation before placement.
-  Invalid compact states fail physically, including LogicalOnly requests.
-  They cannot silently requeue in the same epoch.
-
-First qualify discrete braking, real blockers, outside traffic, disable/recovery, full discharge, and physical restore.
-Measure stopped span separately from discharge headway and passenger completion.
-A successful storage screen does not waive the existing service adoption gates.

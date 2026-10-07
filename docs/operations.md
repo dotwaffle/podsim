@@ -351,12 +351,6 @@ A pod index out of range, a pod with two records, and a pod with hold 2 and no r
 A pod with purpose 1 must have the owner 2 and a record.
 Then the party of the record must be aboard the pod, and `interrupt` must name only that party.
 A pod with a record and purpose 2 or 3 must have no party aboard.
-The optional pod field `stationBuffered` permits validated berthless occupancy of a station holding lane.
-Restore keeps those members draining, then applies the project's experimental policy settings.
-Buffer certificates of fixed station-entry platoons have the fields `kind` and `terminalCell`.
-Invalid buffer certificates fail restoration without a logical fallback or partial member demotion.
-Explicit logical recovery validates those certificates physically before it requeues orders.
-See the [fixed entry contract](station-entry-platoons.md) for field and restore checks.
 Bank-inconsistent retained routes reject restoration before either tier.
 See [independent station banks](station-banks.md) for bank membership, routing, and browser editing.
 An older server rejects version 9 with `unsupported_version` and moves the file aside.
@@ -374,7 +368,6 @@ Disabling buffers keeps existing flagged members draining.
 Reassignment cursors, cooldowns, counters, and experiment records reset after file restore.
 The saved routes and request bindings remain valid, but future experimental decisions can differ after restart.
 Older strict project readers reject exports that include these settings.
-See the [station buffer contract](station-buffer-state-proposal.md) for the experimental limits.
 The [file restart checks](experimental-policy-restarts.md) cover combined policies, the rejection of a version 2 file, and canceled or failed-sync saves.
 They do not simulate power loss.
 The optional project settings do not change command or WebSocket envelope formats.

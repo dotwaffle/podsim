@@ -228,7 +228,7 @@ No seed-2 study arm, repeated study, tuning, live integration, or adoption follo
 The earlier prefix work remains separate evidence.
 Restore probes cover accepted-cohort physical and twin controls, not the original run's complete offered future.
 
-Archived [shared forecast](forecast-shared-service-screen.md), [Group service](group-fleet-service-screen.md), [compact queues](compact-queue-speed-fixed-screen.md), and [policy reruns](policy-failures.md) retain failed service gates.
+Archived [shared forecast](forecast-shared-service-screen.md), [Group service](group-fleet-service-screen.md), and [policy reruns](policy-failures.md) retain failed service gates.
 They do not qualify sustained capacity or default adoption.
 The [adoption gates](experimental-adoption.md) still require matched service, loss, recovery, safety, and cost evidence.
 Successful safety checks or aggregate results do not waive individual service failures.

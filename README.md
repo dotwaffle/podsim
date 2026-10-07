@@ -1020,7 +1020,6 @@ The synthetic patterns are balanced, destination, hotspot, bursty-hotspot, and h
 | `-redistribution-policies off,on` | Select the positioning policies. `on` is guarded positioning. |
 | `-wait-rules current,strict,none` | Compare the finishing-pod wait rules from the dispatch section. |
 | `-platoon-policies off,virtual` | The experimental platoon A/B. `virtual` lets queued pods follow the pod ahead at a short gap. |
-| `-station-buffers off,on` | Compare independent station-buffer admission settings. The default is off. |
 | `-pickup-reassignment off,on` | Compare independent pickup reassignment settings. The default is off. |
 | `-queue-limit` | Change the limit of 200 pending requests. At the limit, the comparison skips new arrivals. |
 
@@ -1031,7 +1030,7 @@ Without the option, each arm uses the `unassigned` policy.
 The CSV report has the seat screen columns only when a `-sharing-limits` value is above 1.
 The JSON report always has them.
 
-The editor has separate experimental controls for station buffers and pickup reassignment.
+The editor has an experimental control for pickup reassignment.
 Pause and apply activates the draft settings.
 The comparison command uses its explicit policy flags, not the experimental settings in the input project.
 Without either flag, both policies stay off and the existing report format stays unchanged.
@@ -1057,7 +1056,7 @@ Set `GOGC` to use another value.
 #### Report columns
 
 The JSON report has `schema_version` 12.
-It is 13 with a station buffer, pickup reassignment, or station queue spacing column, 14 with an `onboard_pickups` column, and 15 with energy estimates.
+It is 13 with a pickup reassignment column, 14 with an `onboard_pickups` column, and 15 with energy estimates.
 These columns give the waits and journeys of the passengers.
 
 | Column | Definition |
@@ -1448,16 +1447,10 @@ A pod ahead in a platoon does not reserve a resource again while a pod behind it
 A linked empty pod cannot divert.
 The 12 m separation check does not change.
 
-With experimental station buffers enabled, eligible entry queues can form [fixed local links](docs/station-entry-platoons.md).
-These links share only complete interior track cells and cannot grow onto berth branches.
-A head can append an exclusive berth suffix while inherited ownership drains.
-Saved state keeps these links, and their service benefit remains unqualified.
-
 A saved state keeps each link in the `platoon` field of the follower.
 The field gives the predecessor, the run as indexes into the two saved routes, the turn, and whether the link drains.
 The restore checks the run, the turn, the speed limits, and the clearance against the network and the pods, and it does not plan the link again.
 An invalid complete-lane link fails the physical tier under the existing recovery rules.
-An invalid fixed-entry buffer certificate rejects the saved state without logical fallback or partial member demotion.
 A link that drains before the save also drains after the restore.
 The saved state does not keep the platoon limit.
 The restore uses the `platoonLimit` of the project.
@@ -1645,9 +1638,9 @@ They do not replace scenario qualification or authorize policy adoption.
 | Area | Records | Main limitation |
 | --- | --- | --- |
 | LondonFull | [Post-fix capacity](docs/london-full-postfix.md), [combined controllers](docs/experimental-adoption.md#rejected-candidates), [mirrored layout](docs/station-mirror-load.md) | Finite recovery and growing backlogs do not establish sustainable capacity. |
-| Pickup swaps and buffers | [Combined qualification](docs/dispatch-policy-qualification.md), [sustained comparison](docs/pickup-swap-sustained.md), [pickup tails](docs/experimental-adoption.md#rejected-candidates), [berth-route preference](docs/berth-route-preference.md) | Better averages coexist with slower individual requests. Both policies stay off by default. New routes avoid intermediate berths when a compatible path exists. |
-| Platoon queues | [Qualification follow-up](docs/platoon-followup.md), [Paddington reservation and resource histories](docs/experimental-adoption.md#rejected-candidates), [fixed station-entry links](docs/station-entry-platoons.md) | Paddington traces do not justify a clearance change. Fixed entry links are experimental and need station buffers. |
-| Terminus throughput | [Burst measurements](docs/buffer-late-claim.md#terminus-burst-service) | Buffers increase waits in the selected outbound Central bursts. Geometry and supply causes remain diagnostic work. |
+| Pickup swaps and removed buffers | [Combined qualification](docs/dispatch-policy-qualification.md), [sustained comparison](docs/pickup-swap-sustained.md), [pickup tails](docs/experimental-adoption.md#rejected-candidates), [berth-route preference](docs/berth-route-preference.md) | Better averages coexist with slower individual requests. Pickup swaps stay off by default, and station buffers were removed on October 7, 2026. New routes avoid intermediate berths when a compatible path exists. |
+| Platoon queues | [Qualification follow-up](docs/platoon-followup.md), [Paddington reservation and resource histories](docs/experimental-adoption.md#rejected-candidates) | Paddington traces do not justify a clearance change. |
+| Terminus throughput | [Burst measurements](docs/buffer-late-claim.md#terminus-burst-service) | The removed buffers increased waits in the selected outbound Central bursts and lowered [station entry throughput](docs/buffer-late-claim.md#station-entry-throughput). Geometry and supply causes remain diagnostic work. |
 | Server performance | [Live server and GC](docs/admission-live-performance.md) | Live results cover two short repetitions per case. GC defaults remain unchanged. |
 | Experimental adoption | [Proposed gates](docs/experimental-adoption.md) | Individual-tail and capacity thresholds need agreement before a default change. Historical 300-second counts remain diagnostics. |
 | Tests and restarts | [Test timing](docs/test-speed.md), [diagnostic study performance](docs/study-performance.md), [experimental policy file restarts](docs/experimental-policy-restarts.md) | Study timings cover one matched LondonFull workload. File tests do not simulate power loss. |

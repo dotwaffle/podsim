@@ -1,8 +1,35 @@
 # Later station-buffer berth claims
 
+Status: station buffers and compact station queues were removed on October 7, 2026.
+Measurements showed that they lowered station entry throughput.
+This record stays as the decision record.
+The sections after Station entry throughput describe the removed implementation as it was at each measurement.
+
 Delaying unlinked heads reduces sampled berth-claim time by less than one percent in the Acton screen.
 It also reduces completions and exceeds individual service limits.
-Keep the existing buffer implementation and leave buffers off by default.
+
+## Station entry throughput
+
+Every LondonFull station has one generated access lane from its diverge to its entry.
+The lane is 139 m long, has a speed limit of 14 m/s, and holds one pod at a time.
+The next pod stops about 56 m before the diverge with "Pod ahead" until the leader clears the whole lane, then starts from standstill.
+
+The scratch harness is not kept.
+It ran the user's LondonFull project (platoon limit 4, pickup reassignment on) with 60 orders per minute to one station.
+Each run covered 30 simulated minutes, and the first 10 minutes are excluded.
+The first arms ran at source commit `2a9d6b9`, and the later arms at `0f5ae61`.
+
+| Station | Buffers | Entries per minute | Headway p50 / p90, seconds |
+| --- | --- | ---: | --- |
+| King's Cross 940GZZLUKSX | off | 4.48 | 11.0 / 17.1 |
+| King's Cross | on, compact spacing | 3.99 | 13.0 / 19.1 |
+| King's Cross | on, ordinary spacing | 3.87 | not kept |
+| Waterloo 940GZZLUWLO | off | 4.40 to 4.50 | 14.0 / 18.5 (4.40 run) |
+
+King's Cross completed 121 orders with buffers off and 105 with buffers on and ordinary spacing.
+A free, unreserved berth existed in every sample while a pod queued, so the entry lane limits throughput, not the berths.
+Buffer links almost never formed.
+With compact spacing, two pods were on the entry lane in 5 of 18,000 samples.
 
 ## Candidate and checks
 

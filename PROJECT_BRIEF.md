@@ -31,7 +31,7 @@ These finite tests do not establish a sustainable capacity envelope.
 The original `london` selector is now `london-central`.
 
 A six-hour LondonFull screen finds growing backlogs at 15 and 20 requests per minute.
-Experimental station buffers do not resolve that overload.
+The removed station buffers did not resolve that overload.
 The [combined controller study](docs/experimental-adoption.md#rejected-candidates) compares 24 arms with matched requests and physical restores.
 Its late backlog stays nearly flat at 10/min, but grows under every policy at 15 and 20/min.
 The same study's 12/min four-seed extension and 13/min focused comparison also retain nearly flat late backlogs.
@@ -67,12 +67,11 @@ Total software-rendered browser CPU changes little.
 The label admission follow-up avoids repeated cache clears when visible labels exceed capacity.
 The publisher timer restores measured delivery toward 20 Hz at higher CPU and traffic cost.
 
-Experimental [station approach buffers](docs/station-buffer-state-proposal.md) and [pickup swaps](docs/pickup-reassignment.md) remain disabled by default.
-Separate saved project and editor controls permit opt-in testing, and explicit comparison flags select independent policy combinations.
-Saved state keeps explicit buffer membership.
-It also keeps [fixed station-entry platoons](docs/station-entry-platoons.md) until their ownership dependencies drain.
+Experimental [pickup swaps](docs/pickup-reassignment.md) remain disabled by default.
+A saved project and editor control permits opt-in testing, and an explicit comparison flag selects the policy.
+Station approach buffers and compact station queues were removed on October 7, 2026, because [measurements](docs/buffer-late-claim.md#station-entry-throughput) showed that they lowered station entry throughput.
 The [terminus burst fixture](docs/buffer-late-claim.md#terminus-burst-service) measures berth claims, pickup supply, and finite outbound service.
-Buffers increase waits in its selected Central comparisons, so throughput benefits remain unqualified.
+The buffers that it measured increased waits in its selected Central comparisons.
 Broader adoption requires separate qualification and a decision.
 The user approved the [adoption gates](docs/experimental-adoption.md) on October 1.
 They add explicit individual-tail limits without authorizing a default change.
@@ -409,41 +408,6 @@ The following ideas extend the map workflow and network simulation.
 None of them needs 3D.
 These are proposed experiments and design considerations.
 Status notes record the parts that Podsim now implements.
-
-### Station approach buffers
-
-**Status:** An experimental implementation is available through `Simulation.SetStationBuffers` and remains disabled by default.
-Saved states preserve existing buffer membership.
-The editor and comparison tool expose separate, saved opt-in controls for buffers and pickup reassignment.
-New pickup dispatch can defer berth choice at an eligible buffer approach without changing existing commitments.
-Fixed station-entry platoons are tested separately.
-Berth-access links remain excluded.
-The [saved-state proposal](docs/station-buffer-state-proposal.md) records the contract.
-The [combined dispatch qualification](docs/dispatch-policy-qualification.md) finds mixed service effects and individual tail regressions.
-These results do not support enabling either policy by default.
-The [file restart checks](docs/experimental-policy-restarts.md) cover saved settings, physical membership, disabled-mode drain, and failed saves.
-
-Use bounded holding space on station approaches to keep short arrival queues off the mainline.
-Choose a berth at the head of the buffer, before the pod commits to a berth branch.
-Use the Turnham Green approach to Acton Town as the first diagnostic case.
-Inspect junction reservation coverage before changing berth selection.
-The current conflict zone covers the full feeder from that approach, which can hold pods on the mainline.
-
-Derive buffer capacity from safe stopping positions outside merge, entry, and exit conflict regions.
-Keep departure paths clear.
-Define what happens when the buffer is full.
-A finite buffer cannot prevent spillback under sustained overload without upstream admission control.
-
-Include virtual platoons in the design, with safe separation before berth routes diverge.
-The [fixed entry implementation](docs/station-entry-platoons.md) shares complete interior cells while eligible buffer queues move.
-It retains at least 12 meters of separation, excludes berth-access links, and keeps a fixed certificate in the saved state.
-Blocked departures, exclusive berth suffixes, ownership transfer, and disabled-policy restoration have deterministic tests.
-Matched service qualification remains separate.
-Shared reservations do not imply tighter stopped queues.
-Preserve existing reservations, passenger and pickup priority, and the aging override.
-
-Validate merge contention, occupied berths, departure progress, full-buffer behavior, platoon separation, and saved-state restoration.
-Measure mainline blocking, passenger waits, station throughput, and buffer occupancy before proposing adoption or default changes.
 
 ### Geographic map import
 
