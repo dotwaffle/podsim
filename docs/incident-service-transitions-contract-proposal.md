@@ -159,6 +159,8 @@ Sections 4 to 10 do not depend on the formats.
 | `internal/rail/connections.go` `(*Connections).Advance` | Consumes completions. A pending record without an active request is invalid (`validateRecord`). | Interruption needs its own rail outcome, delivered before any save (section 8.5). |
 | `internal/session/persist.go` `MaxStateBytes` | 80 MiB for raw and compressed saves. | Section 11.7 budgets against it. |
 
+Status 2026-10-07: by maintainer decision, `MaxStateBytes` is now 100 MiB.
+
 ## 4. Service withdrawal
 
 ### 4.1 State
@@ -1501,6 +1503,8 @@ The narrowest save shape, Express with coupling, keeps 6,836,569 bytes before st
 
 The save keeps 80 MiB.
 A raise must also update the guard that proves the direct native-ID form is over the cap (`internal/session/compact_state_bytes_test.go`).
+
+Status 2026-10-07: the save cap is now 100 MiB, and `internal/session/compact_state_bytes_test.go` was deleted with the other worst-case byte proofs.
 
 Landing gate:
 
