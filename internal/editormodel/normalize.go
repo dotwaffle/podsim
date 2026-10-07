@@ -78,7 +78,6 @@ func normalizeProject(draft any) (projectChange, error) {
 	if !draftPlatoonLimit(out["platoonLimit"]) {
 		out["platoonLimit"] = float64(0)
 	}
-	out["stationBuffers"] = out["stationBuffers"] == true
 	out["pickupReassignment"] = out["pickupReassignment"] == true
 	out["redistribution"] = editorTruthy(out["redistribution"])
 	inferEditorStationLanes(network)

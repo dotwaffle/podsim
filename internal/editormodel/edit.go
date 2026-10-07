@@ -122,7 +122,7 @@ func proposeScalarEdit(draft any, command editCommand, value any) (projectChange
 		err = change.dailyStartTime(draft, value)
 	case "name":
 		err = change.name(draft, value)
-	case "demandEnabled", "redistribution", "stationBuffers", "pickupReassignment":
+	case "demandEnabled", "redistribution", "pickupReassignment":
 		err = change.operatingFlag(draft, command.Field, value)
 	case "demandRate", "demandSeed":
 		err = change.demandNumber(draft, command.Field, value)
@@ -175,8 +175,7 @@ func (c *projectChange) name(draft, value any) error {
 }
 
 // operatingFlag sets a Boolean operating flag. The change names the flag
-// when the draft already has a Boolean value for it. A station buffer
-// edit does not, when the draft has a station queue spacing.
+// when the draft already has a Boolean value for it.
 func (c *projectChange) operatingFlag(draft any, field string, value any) error {
 	flag, ok := value.(bool)
 	if !ok {
@@ -193,9 +192,6 @@ func (c *projectChange) operatingFlag(draft any, field string, value any) error 
 	}
 	if _, valid := previous.(bool); valid {
 		c.Flag = field
-	}
-	if field == "stationBuffers" && has(draft, "stationQueueSpacing") {
-		c.Flag = ""
 	}
 	return nil
 }

@@ -85,13 +85,4 @@ func TestStationQueueEditorChecksAndFlagInvalidation(t *testing.T) {
 			}
 		}
 	}
-	draft := serviceEditorDraft(t)
-	draft["stationQueueSpacing"], draft["stationBuffers"], draft["platoonLimit"] = "compact-v1", true, float64(4)
-	for _, flag := range []string{"stationBuffers", "redistribution"} {
-		raw, _ := json.Marshal(map[string]any{"field": flag, "value": false})
-		change, err := editProject(draft, raw)
-		if err != nil || (change.Flag == "") != (flag == "stationBuffers") {
-			t.Fatal("dependent buffer edit reused stale validation", err, change)
-		}
-	}
 }

@@ -12,7 +12,7 @@ import (
 
 func editFixture() map[string]any {
 	return map[string]any{
-		"name": "Draft", "redistribution": false, "stationBuffers": false, "pickupReassignment": false,
+		"name": "Draft", "redistribution": false, "pickupReassignment": false,
 		"demand":         map[string]any{"enabled": false, "perMinute": float64(12), "seed": float64(1), "pattern": "balanced", "profile": "old", "band": "old", "dailyStartMinute": float64(300)},
 		"demandProfiles": []any{map[string]any{"id": "first", "bands": []any{map[string]any{"id": "morning"}}}, map[string]any{"id": "second", "bands": []any{map[string]any{"id": "evening"}}}},
 	}
@@ -171,7 +171,7 @@ func TestDemandSelectionEdits(t *testing.T) {
 
 func TestEditFlagsNoopAndOwnership(t *testing.T) {
 	t.Parallel()
-	for _, field := range []string{"demandEnabled", "redistribution", "stationBuffers", "pickupReassignment"} {
+	for _, field := range []string{"demandEnabled", "redistribution", "pickupReassignment"} {
 		draft := editFixture()
 		change, err := editProject(draft, jsontext.Value(`{"field":"`+field+`","value":true}`))
 		if err != nil || change.Flag != field || len(change.Patch) != 1 {
@@ -245,7 +245,7 @@ func TestEditProtocolAndDiscardedProposal(t *testing.T) {
 	for _, command := range []string{
 		`{"field":"name","value":"New name"}`,
 		`{"field":"demandPattern","value":"profile"}`,
-		`{"field":"stationBuffers","value":true}`,
+		`{"field":"pickupReassignment","value":true}`,
 		`{"field":"fleetCount","target":"harbor","value":"0"}`,
 		`{"field":"dailyStartTime","value":"23:59"}`,
 		`{"field":"railArrival","value":{"action":"add"}}`,

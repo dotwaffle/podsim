@@ -103,7 +103,6 @@
       sharedRideJoin: "unassigned",
       sharedRideMaxStops: 3,
       platoonLimit: 0,
-      stationBuffers: false,
       pickupReassignment: false,
       redistribution: false,
     };

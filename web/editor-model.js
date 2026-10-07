@@ -387,7 +387,7 @@
         if (!result.error && (!result.view || ![result.view.x, result.view.y, result.view.scale].every(Number.isFinite) || result.view.scale <= 0)) throw new Error("Invalid Go view response");
         return result;
       } else if (data.op === "edit") {
-        if (!result.error && (!result.change || !result.change.patch || typeof result.change.patch !== "object" || Array.isArray(result.change.patch) || (result.change.flag !== undefined && !["demandEnabled", "redistribution", "stationBuffers", "pickupReassignment"].includes(result.change.flag)))) throw new Error("Invalid Go edit response");
+        if (!result.error && (!result.change || !result.change.patch || typeof result.change.patch !== "object" || Array.isArray(result.change.patch) || (result.change.flag !== undefined && !["demandEnabled", "redistribution", "pickupReassignment"].includes(result.change.flag)))) throw new Error("Invalid Go edit response");
         return result;
       } else {
         if (!result.error && (!result.profile || typeof result.profile !== "object" || typeof result.profile.id !== "string" || !Array.isArray(result.profile.bands) || !Array.isArray(result.profile.flows) || !result.demand || typeof result.demand !== "object" || typeof result.demand.pattern !== "string")) throw new Error("Invalid Go constructor response");
