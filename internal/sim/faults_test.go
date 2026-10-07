@@ -116,7 +116,7 @@ func TestPodFaultActivities(t *testing.T) {
 // Each case then removes its cause, and the same call succeeds.
 func TestPodFaultRefusals(t *testing.T) {
 	t.Parallel()
-	limit := int64(math.MaxInt64)
+	limit := int64(MaxCounter)
 	tests := []struct {
 		name     string
 		duration int64
@@ -146,7 +146,7 @@ func TestPodFaultRefusals(t *testing.T) {
 			func(s *Simulation, _ *vehicle) { s.tick-- }},
 		{"serial at the limit", 0, errIncidentLimit,
 			func(s *Simulation, traveling, _ *vehicle) *vehicle {
-				s.incidentSerial = math.MaxUint64
+				s.incidentSerial = MaxCounter
 				return traveling
 			},
 			func(s *Simulation, _ *vehicle) { s.incidentSerial-- }},
@@ -208,17 +208,17 @@ func TestPodFaultRefusals(t *testing.T) {
 func TestPodFaultTicksAtTheLimit(t *testing.T) {
 	t.Parallel()
 	s, traveling, _ := faultFixture(t)
-	s.tick = math.MaxInt64 - maxFaultSeconds*TicksPerSecond
+	s.tick = MaxCounter - maxFaultSeconds*TicksPerSecond
 	startFault(t, s, traveling, maxFaultSeconds)
-	if s.faults[0].end != math.MaxInt64 {
-		t.Fatalf("end tick %d, want %d", s.faults[0].end, int64(math.MaxInt64))
+	if s.faults[0].end != MaxCounter {
+		t.Fatalf("end tick %d, want %d", s.faults[0].end, int64(MaxCounter))
 	}
 	evacuating, traveling, idle := faultFixture(t)
 	evacuating.faultSettings.evacuationSeconds = 3600
-	evacuating.tick = math.MaxInt64 - 3600*TicksPerSecond
+	evacuating.tick = MaxCounter - 3600*TicksPerSecond
 	startFault(t, evacuating, traveling, 0)
-	evacuating.incidentSerial = math.MaxUint64 - 1
-	if id := startFault(t, evacuating, idle, 0); id != "i0.18446744073709551615" {
+	evacuating.incidentSerial = MaxCounter - 1
+	if id := startFault(t, evacuating, idle, 0); id != "i0.9007199254740991" {
 		t.Fatalf("ID %s, want the last serial", id)
 	}
 }
@@ -229,7 +229,7 @@ func TestPodFaultTicksAtTheLimit(t *testing.T) {
 func TestPodFaultPreconditionOrder(t *testing.T) {
 	t.Parallel()
 	s, traveling, _ := faultFixture(t)
-	s.faultsOn, s.incidentSerial = false, math.MaxUint64
+	s.faultsOn, s.incidentSerial = false, MaxCounter
 	traveling.faulted, traveling.follower, s.pass.active = true, 2, true
 	var v *vehicle
 	duration := int64(-1)
@@ -378,12 +378,12 @@ func TestFaultStageClearsAtTheEnd(t *testing.T) {
 }
 
 // TestFaultCountersSaturate checks that each counter stops at
-// math.MaxInt64, and that a fault start and a timed clear complete with a
+// MaxCounter, and that a fault start and a timed clear complete with a
 // counter at the maximum.
 func TestFaultCountersSaturate(t *testing.T) {
 	t.Parallel()
 	s, traveling, _ := faultFixture(t)
-	maximum := int64(math.MaxInt64)
+	maximum := int64(MaxCounter)
 	s.faultCounters = faultCounters{started: maximum - 1, cleared: maximum, evacuations: maximum, reroutes: maximum, faultWaitTicks: maximum}
 	startFault(t, s, traveling, 1)
 	startFault(t, s, s.findVehicle("02"), 0)

@@ -8,9 +8,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math"
 	"math/rand/v2"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -59,6 +59,7 @@ var (
 	errJSONArrayTooLong  = errors.New("JSON array has too many elements")
 	errJSONObjectTooLong = errors.New("JSON object has too many members")
 	errJSONStringTooLong = errors.New("JSON string is too long")
+	errJSONIntegerRange  = errors.New("JSON integer is out of range")
 	errProjectTooLarge   = errors.New("saved project is too large")
 )
 
@@ -72,6 +73,11 @@ var (
 // stringBytes is the largest size of a string or a name in the input,
 // with its quotes and escapes. When it is 0, strings have no limit.
 //
+// When exactIntegers is true, each integer in the input, a number without
+// a fraction and an exponent, must be from -sim.MaxCounter to
+// sim.MaxCounter. The value of a member named seed is the one exception,
+// because a demand seed is not a counter and can have 64 bits.
+//
 // The names of a path match the member names exactly, as the decoders
 // match them. allowInvalidUTF8 lets the scan go on past a string that is
 // not valid UTF-8, so that the scan checks the whole input.
@@ -81,6 +87,7 @@ type jsonLimits struct {
 	members          int64
 	arrays           map[string]int64
 	stringBytes      int
+	exactIntegers    bool
 	allowInvalidUTF8 bool
 }
 
@@ -94,7 +101,7 @@ type jsonLimits struct {
 // valid object has only a few tens of members. The member limit also bounds
 // the memory that the decoder uses to find duplicate names.
 var stateJSONLimits = jsonLimits{
-	depth: 64, elements: 65_536, members: 256,
+	depth: 64, elements: 65_536, members: 256, exactIntegers: true,
 	arrays: map[string]int64{
 		"/project/network/nodes":                       project.MaxNodes,
 		"/project/network/lanes":                       project.MaxLanes,
@@ -404,9 +411,13 @@ func decodeStateHeader(raw []byte) (stateHeader, error) {
 }
 
 // headerLimits returns the limits of the header scan. The Express table
-// contains the table of each other marker.
+// contains the table of each other marker. The header scan does not check
+// the integers, so that a file of another version with a larger integer
+// gets the reason of its version.
 func headerLimits() jsonLimits {
-	return savedLimits(contractMarkers{order: sim.ExpressOrderContract})
+	limits := savedLimits(contractMarkers{order: sim.ExpressOrderContract})
+	limits.exactIntegers = false
+	return limits
 }
 
 // markers returns the root markers of the header. An order marker other
@@ -514,14 +525,15 @@ func decompressState(data []byte) ([]byte, error) {
 
 // prescanJSON checks data against limits. It reads the tokens only and
 // makes no values. It does not look for duplicate names, because that needs
-// memory for each name.
+// memory for each name. The integer check of a number comes after the
+// depth and the size checks of the same token.
 func prescanJSON(data []byte, limits jsonLimits) error {
 	decoder := jsontext.NewDecoder(bytes.NewBuffer(data),
 		jsontext.AllowDuplicateNames(true), jsontext.AllowInvalidUTF8(limits.allowInvalidUTF8))
 	// arrayLimits holds the element limit of the array at each depth.
 	arrayLimits := make([]int64, limits.depth+1)
 	for {
-		kind, err := limits.readToken(decoder)
+		kind, number, err := limits.readToken(decoder)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				return nil
@@ -544,22 +556,54 @@ func prescanJSON(data []byte, limits jsonLimits) error {
 			// The length counts each name and each value.
 			return fmt.Errorf("%w: more than %d at byte %d", errJSONObjectTooLong, limits.members, decoder.InputOffset())
 		}
+		if number != nil && !exactInteger(number) && !seedMember(decoder) {
+			return fmt.Errorf("%w: more than %d at byte %d", errJSONIntegerRange, sim.MaxCounter, decoder.InputOffset())
+		}
 	}
 }
 
 // readToken reads the next token of decoder and returns its kind. It
-// checks the size of a string or a name against limits.stringBytes.
-func (limits jsonLimits) readToken(decoder *jsontext.Decoder) (jsontext.Kind, error) {
-	if limits.stringBytes == 0 || decoder.PeekKind() != jsontext.KindString {
-		token, err := decoder.ReadToken()
-		return token.Kind(), err
+// checks the size of a string or a name against limits.stringBytes. When
+// limits.exactIntegers is true, it also returns the input bytes of a
+// number.
+func (limits jsonLimits) readToken(decoder *jsontext.Decoder) (kind jsontext.Kind, number []byte, err error) {
+	switch kind = decoder.PeekKind(); {
+	case kind == jsontext.KindNumber && limits.exactIntegers:
+		// ReadValue gives the input bytes of the value and makes no copy.
+		number, err = decoder.ReadValue()
+		return kind, number, err
+	case kind != jsontext.KindString || limits.stringBytes == 0:
+		token, tokenErr := decoder.ReadToken()
+		return token.Kind(), nil, tokenErr
 	}
-	// ReadValue gives the input bytes of the string and makes no copy.
 	value, err := decoder.ReadValue()
 	if err == nil && len(value) > limits.stringBytes {
 		err = fmt.Errorf("%w: more than %d bytes at byte %d", errJSONStringTooLong, limits.stringBytes, decoder.InputOffset())
 	}
-	return jsontext.KindString, err
+	return jsontext.KindString, nil, err
+}
+
+// maxCounterText is sim.MaxCounter in decimal.
+var maxCounterText = strconv.FormatInt(sim.MaxCounter, 10)
+
+// exactInteger reports whether the JSON number literal is a number with a
+// fraction or an exponent, or an integer from -sim.MaxCounter to
+// sim.MaxCounter. A JSON integer has no leading zero, so the digit count
+// orders the values of different lengths.
+func exactInteger(literal []byte) bool {
+	if bytes.ContainsAny(literal, ".eE") {
+		return true
+	}
+	digits := bytes.TrimPrefix(literal, []byte("-"))
+	return len(digits) < len(maxCounterText) ||
+		len(digits) == len(maxCounterText) && string(digits) <= maxCounterText
+}
+
+// seedMember reports whether the value that decoder read last is the value
+// of a member named seed.
+func seedMember(decoder *jsontext.Decoder) bool {
+	kind, _ := decoder.StackIndex(decoder.StackDepth())
+	return kind == jsontext.KindBeginObject && strings.HasSuffix(string(decoder.StackPointer()), "/seed")
 }
 
 // arrayLimit returns the element limit of the array that the last token of
@@ -618,12 +662,16 @@ func (file *stateFile) validate() error {
 	case file.ProjectRevision == 0 || file.Generation == 0:
 		return fmt.Errorf("project revision %d and generation %d must be 1 or more",
 			file.ProjectRevision, file.Generation)
-	case file.Revision == math.MaxUint64 || file.ProjectRevision == math.MaxUint64 || file.Generation == math.MaxUint64:
+	case file.Revision >= sim.MaxCounter || file.ProjectRevision >= sim.MaxCounter || file.Generation >= sim.MaxCounter:
 		// A restore adds 1 to the revision and the generation. It also adds
 		// 1 to the project revision when it applies the demand settings of
-		// the project file.
+		// the project file. A saved counter must stay at most
+		// sim.MaxCounter.
 		return fmt.Errorf("revision %d, project revision %d or generation %d is at the largest value",
 			file.Revision, file.ProjectRevision, file.Generation)
+	case file.LastCheckpoint >= sim.MaxCounter:
+		// The next save point adds 1 to the save point ID.
+		return fmt.Errorf("last save point %d is at the largest value", file.LastCheckpoint)
 	case file.RestoreAttempts < 0:
 		return fmt.Errorf("restore attempts %d is negative", file.RestoreAttempts)
 	case !validSpeed(file.Speed):

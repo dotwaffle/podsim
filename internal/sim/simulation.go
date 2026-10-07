@@ -19,6 +19,12 @@ const (
 	Clearance = 4.0 + 8.0
 	// MaxSharedRideParties bounds the same-destination sharing experiment.
 	MaxSharedRideParties = 8
+	// MaxCounter is the largest value of a counter, a serial, a tick, or a
+	// generation in a saved state or a stream: 2^53-1. A browser reads a
+	// JSON number as a float64, which holds each integer up to this value
+	// exactly. The decoders refuse a larger integer, so a counter stops at
+	// this value, or the transition that would pass it fails.
+	MaxCounter = 1<<53 - 1
 )
 
 // Activity is the pod's current operation.

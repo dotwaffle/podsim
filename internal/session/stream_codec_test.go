@@ -57,6 +57,7 @@ func TestApplyStreamRefusalOrder(t *testing.T) {
 		{"full shape before identity", full(nil), "invalid full envelope"},
 		{"full identity", full(nil), "full identity mismatch"},
 		{"unknown kind", StreamEnvelope{Kind: "other", Stream: "test", Sequence: 1, Source: sourceOf(base)}, "unknown state envelope"},
+		{"sequence range before kind", StreamEnvelope{Kind: "other", Stream: "test", Sequence: sim.MaxCounter + 1, Source: sourceOf(base)}, "invalid stream identity"},
 		{"delta base", delta(StreamDelta{}, func(e *StreamEnvelope) { e.Base = 2; e.Source.Epoch = "other" }), "delta base mismatch"},
 		{"vehicle before berth", delta(StreamDelta{Vehicles: []VehicleDelta{{ID: "unknown"}}, Berths: []sim.BerthState{unknownBerth}}, nil), "invalid delta vehicle"},
 		{"duplicate vehicle", delta(StreamDelta{Vehicles: []VehicleDelta{{ID: other}, {ID: other}}}, nil), "invalid delta vehicle"},
@@ -73,6 +74,13 @@ func TestApplyStreamRefusalOrder(t *testing.T) {
 			f.State.Simulation.Vehicles[0].RouteLaneIDs = []string{"lane"}
 		}), "invalid presentation counts"},
 		{"unbounded route", full(func(f *StreamFrame) { f.State.Simulation.Vehicles[0].RouteLaneIDs = []string{"lane"} }), "unbounded stream route"},
+		{"unbounded route before identity range", full(func(f *StreamFrame) {
+			f.State.Simulation.Vehicles[0].RouteLaneIDs = []string{"lane"}
+			f.Routes[0].Identity = sim.MaxCounter + 1
+		}), "unbounded stream route"},
+		{"route identity range", full(func(f *StreamFrame) { f.Routes[0].Identity = sim.MaxCounter + 1 }), "stream route counter is out of range"},
+		{"route start range", full(func(f *StreamFrame) { f.Routes[0].Start = sim.MaxCounter + 1 }), "stream route counter is out of range"},
+		{"route current range", full(func(f *StreamFrame) { f.Routes[0].Current = sim.MaxCounter + 1 }), "stream route counter is out of range"},
 		{"identity before presence", delta(StreamDelta{}, func(e *StreamEnvelope) { members(true, true, true)(e); e.Stream = "" }),
 			"invalid stream identity"},
 		{"incident before fault presence", delta(StreamDelta{}, members(true, true, true)), errIncidentStreamUnmarked.Error()},

@@ -152,6 +152,8 @@ func shapeProject(t *testing.T) project.Config {
 	}
 	// Match the demand reserve in project.Validate. Positive finite weights
 	// fill the remaining bytes without an unknown field or opaque padding.
+	// A weight is at most sim.MaxCounter. The weight 1.0000000000000002e-6
+	// adds 23 bytes, and 10^k adds k bytes for k from 0 to 15.
 	widest := project.DemandConfig{PerMinute: 120, Pattern: "rail-arrivals", Seed: math.MaxUint64,
 		Destination: shapeID(0), Profile: shapeID(0), Band: shapeID(0), DailyStartMinute: 1439}
 	reserve := shapeBytes(t, widest) - shapeBytes(t, c.Demand)
@@ -163,7 +165,12 @@ func shapeProject(t *testing.T) project.Config {
 	for _, profile := range c.DemandProfiles {
 		for _, flow := range profile.Flows {
 			for i := range flow.Weights {
-				digits := min(extra, 20)
+				if extra >= 23 {
+					flow.Weights[i] = 0.0000010000000000000002
+					extra -= 23
+					continue
+				}
+				digits := min(extra, 15)
 				flow.Weights[i] = math.Pow10(int(digits))
 				extra -= digits
 			}

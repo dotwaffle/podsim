@@ -28,7 +28,7 @@ type FaultView struct {
 }
 
 // FaultCounters holds the fault counters. Each counter stops at
-// math.MaxInt64.
+// MaxCounter.
 type FaultCounters struct {
 	// Started counts the faults that started, and Cleared the faults that
 	// a command or a duration cleared.

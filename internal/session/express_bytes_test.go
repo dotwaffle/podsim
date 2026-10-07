@@ -46,7 +46,7 @@ func widestSavedBase(t *testing.T) stateFile {
 	// then occupies six JSON bytes. The project member already fills its
 	// independent byte cap, so its node and lane IDs can remain short.
 	id = func(_ string, _ int) string { return strings.Repeat("\x01", 64) }
-	const widest = math.MinInt64
+	const widest = -sim.MaxCounter
 	text := strings.Repeat("\x01", 1<<10)
 	route := func(length int) []int {
 		indexes := make([]int, length)
@@ -56,7 +56,7 @@ func widestSavedBase(t *testing.T) stateFile {
 		return indexes
 	}
 	request := sim.SavedRequest{
-		ID: widest, From: id("f", 0), To: id("t", 0), PartySize: math.MaxInt64, PodID: id("p", 0),
+		ID: widest, From: id("f", 0), To: id("t", 0), PartySize: sim.MaxCounter, PodID: id("p", 0),
 		Completed: true, RequestedTick: widest, BoardedTick: widest, DispatchReason: text,
 		SharingConsent: sim.PrivateConsent, Service: sim.OnDemandService,
 	}
@@ -86,7 +86,7 @@ func widestSavedBase(t *testing.T) stateFile {
 	for index := range sequences {
 		suffix := string([]byte{byte(0x10 + index/256), byte(0x10 + index/16%16), byte(0x10 + index%16)})
 		sequences[index] = savedSequence{
-			Client: strings.Repeat("\x01", maxClientBytes-len(suffix)) + suffix, Sequence: math.MaxUint64,
+			Client: strings.Repeat("\x01", maxClientBytes-len(suffix)) + suffix, Sequence: sim.MaxCounter,
 		}
 	}
 	demand := config.Demand
@@ -102,7 +102,7 @@ func widestSavedBase(t *testing.T) stateFile {
 	}
 	connections := make([]rail.Connection, project.MaxRailDeparturePassengers)
 	for i := range connections {
-		connections[i] = rail.Connection{Event: id("e", i), Passenger: 200, RequestedTick: widest, From: id("f", i), To: id("t", i), RequestID: math.MaxInt, AlightedTick: widest, Outcome: "unserved", Reason: "restore-degraded"}
+		connections[i] = rail.Connection{Event: id("e", i), Passenger: 200, RequestedTick: widest, From: id("f", i), To: id("t", i), RequestID: sim.MaxCounter, AlightedTick: widest, Outcome: "unserved", Reason: "restore-degraded"}
 	}
 
 	file := stateFile{
@@ -110,10 +110,10 @@ func widestSavedBase(t *testing.T) stateFile {
 		Format:          stateFormat, Version: stateVersion, Final: true,
 		SavedAt: time.Date(2026, time.September, 23, 9, 0, 0, 123456789, time.FixedZone("", -12*60*60)),
 		Build:   testBuildID, Epoch: strings.Repeat("\x01", maxEpochBytes),
-		Revision: math.MaxUint64 - 1, ProjectRevision: math.MaxUint64 - 1, Generation: math.MaxUint64 - 1,
-		LastCheckpoint: math.MaxUint64, Speed: 60, RestoreAttempts: math.MaxInt, Sequences: sequences,
+		Revision: sim.MaxCounter - 1, ProjectRevision: sim.MaxCounter - 1, Generation: sim.MaxCounter - 1,
+		LastCheckpoint: sim.MaxCounter - 1, Speed: 60, RestoreAttempts: sim.MaxCounter, Sequences: sequences,
 		Demand: savedDemand{
-			State:  DemandState{Config: demand, Generated: math.MaxInt, Skipped: math.MaxInt, Error: text, Connections: rail.Counts{Made: 10000, Missed: 10000, Unserved: 10000, Unresolved: 10000}},
+			State:  DemandState{Config: demand, Generated: sim.MaxCounter, Skipped: sim.MaxCounter, Error: text, Connections: rail.Counts{Made: 10000, Missed: 10000, Unserved: 10000, Unresolved: 10000}},
 			Random: random, Budget: demandBudgetLimit - 1,
 		},
 		Simulation: sim.SavedState{
@@ -304,10 +304,10 @@ func TestExpressWidestStreamAdapters(t *testing.T) {
 		t.Skip("maximum codec proof runs in the required test:embedded task")
 	}
 	frame := widestExpressStreamFrame(t)
-	full := StreamEnvelope{OrderContract: sim.ExpressOrderContract, Kind: "full", Stream: strings.Repeat("x", 32), Sequence: math.MaxUint64, Source: sourceOf(frame), Build: frame.State.Build, Full: &frame}
+	full := StreamEnvelope{OrderContract: sim.ExpressOrderContract, Kind: "full", Stream: strings.Repeat("x", 32), Sequence: sim.MaxCounter, Source: sourceOf(frame), Build: frame.State.Build, Full: &frame}
 	delta := maximumStreamDelta(t, frame)
 	changed := full
-	changed.Kind, changed.Full, changed.Delta, changed.Base = "delta", nil, &delta, math.MaxUint64-1
+	changed.Kind, changed.Full, changed.Delta, changed.Base = "delta", nil, &delta, sim.MaxCounter-1
 	for _, envelope := range []StreamEnvelope{full, changed} {
 		started := time.Now()
 		raw, err := EncodeStreamJSON(envelope)
@@ -357,7 +357,7 @@ func widestTopology(t *testing.T, escapes int, markers contractMarkers) Topology
 	if err != nil {
 		t.Fatal(err)
 	}
-	topology := TopologySnapshot{ProjectVersion: project.CurrentVersion, OrderContract: markers.order, ServerStart: "server", Epoch: "epoch", ProjectRevision: math.MaxUint64}
+	topology := TopologySnapshot{ProjectVersion: project.CurrentVersion, OrderContract: markers.order, ServerStart: "server", Epoch: "epoch", ProjectRevision: sim.MaxCounter}
 	topology.Network.Nodes = make([]sim.Node, 5000)
 	for i := range topology.Network.Nodes {
 		topology.Network.Nodes[i] = sim.Node{ID: id("n", i), Position: sim.Point{X: float64(i) * 40, Y: 0.0000010000000000000002}}
@@ -446,7 +446,7 @@ func TestExpressWidestTopologyHTTPAdapters(t *testing.T) {
 	frame := maximumStreamFrame(t)
 	frame.State.ServerStart, frame.State.Epoch, frame.State.ProjectRevision = topology.ServerStart, topology.Epoch, topology.ProjectRevision
 	frame.State.Simulation.OrderContract = sim.ExpressOrderContract
-	request := sim.Request{ID: math.MaxInt, From: topology.ExpressServices[0].From, To: topology.ExpressServices[0].To, PartySize: 20, SharingConsent: sim.SharedConsent, Service: sim.ExpressServiceChoice, ServiceID: topology.ExpressServices[0].ID, RequestedTick: math.MaxInt64, BoardedTick: math.MaxInt64, DispatchReason: strings.Repeat("\x01", 1024), PodID: fmt.Sprintf("%059s%05d", strings.Repeat("\x01", 59), 0)}
+	request := sim.Request{ID: sim.MaxCounter, From: topology.ExpressServices[0].From, To: topology.ExpressServices[0].To, PartySize: 20, SharingConsent: sim.SharedConsent, Service: sim.ExpressServiceChoice, ServiceID: topology.ExpressServices[0].ID, RequestedTick: sim.MaxCounter, BoardedTick: sim.MaxCounter, DispatchReason: strings.Repeat("\x01", 1024), PodID: fmt.Sprintf("%059s%05d", strings.Repeat("\x01", 59), 0)}
 	frame.State.Simulation.Pending = slices.Repeat([]sim.Request{request}, 8600)
 	frame.State.Simulation.Berths = make([]sim.BerthState, 0, 5000)
 	for _, station := range topology.Network.Stations {
@@ -468,10 +468,10 @@ func TestExpressWidestTopologyHTTPAdapters(t *testing.T) {
 		podID := fmt.Sprintf("%059s%05d", strings.Repeat("\x01", 59), i)
 		rider.PodID = podID
 		frame.State.Simulation.Vehicles[i] = VehicleFrame{Pod: sim.Pod{ID: podID, Class: sim.ExpressClass, Activity: sim.Traveling, LaneID: topology.Network.Lanes[0].ID, Position: sim.Point{X: -0.0000010000000000000002, Y: 0.0000010000000000000002}, StationID: topology.Network.Stations[0].ID, BerthID: topology.Network.Stations[0].Berths[0].ID, BlockedBy: request.PodID, ManeuverStationID: topology.Network.Stations[0].ID, Speed: math.MaxFloat64, LaneDistance: 0.0000010000000000000002}, Riders: slices.Repeat([]sim.Request{rider}, 20), Boardings: slices.Repeat([]sim.RiderBoarding{{BerthID: topology.Network.Stations[0].Berths[0].ID, MetersAtBoarding: 0.0000010000000000000002}}, 20), RiddenMeters: 0.0000010000000000000002, Stops: slices.Repeat([]string{request.To}, 8), RelocatingTo: request.To, Rebalancing: true}
-		frame.Routes[i] = sim.RoutePresentation{Identity: math.MaxUint64, Display: display, Origin: 0, Lanes: motion, Start: 0, Current: 0, After: true}
+		frame.Routes[i] = sim.RoutePresentation{Identity: sim.MaxCounter, Display: display, Origin: 0, Lanes: motion, Start: 0, Current: 0, After: true}
 	}
 	frame.State.Revision = 1
-	frame.State.Simulation.Tick = 9007199254740997
+	frame.State.Simulation.Tick = sim.MaxCounter
 	full := StreamEnvelope{OrderContract: sim.ExpressOrderContract, Kind: "full", Stream: "widest-reference-shape", Sequence: 1, Source: sourceOf(frame), Build: frame.State.Build, Full: &frame}
 	fullRaw, err := EncodeStreamJSON(full)
 	if err != nil {
@@ -498,7 +498,7 @@ func TestExpressWidestTopologyHTTPAdapters(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(state.Simulation.Pending) != 8600 || len(state.Simulation.Vehicles) != 300 || state.Simulation.Pending[0].RequestedTick != math.MaxInt64 {
+	if len(state.Simulation.Pending) != 8600 || len(state.Simulation.Vehicles) != 300 || state.Simulation.Pending[0].RequestedTick != sim.MaxCounter {
 		t.Fatal("HTTP maximum lost native fields")
 	}
 	gzipData, err := compressStreamJSON(httpRaw)

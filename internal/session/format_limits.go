@@ -57,7 +57,7 @@ func savedLimits(markers contractMarkers) jsonLimits {
 // the order marker changes a bound.
 func streamLimits(markers contractMarkers) jsonLimits {
 	orders, riders := markers.orderBounds()
-	limits := jsonLimits{depth: 64, elements: 65536, members: 256, arrays: map[string]int64{}}
+	limits := jsonLimits{depth: 64, elements: 65536, members: 256, exactIntegers: true, arrays: map[string]int64{}}
 	for _, prefix := range []string{"/full", "/frame"} {
 		limits.arrays[prefix+"/routes"] = project.MaxPods
 		limits.arrays[prefix+"/routes/*/display"] = project.MaxLanes

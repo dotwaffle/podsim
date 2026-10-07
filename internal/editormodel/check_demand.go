@@ -117,7 +117,7 @@ func invalidFlow(flow any, pair [2]string, weights []any, bandCount int, passeng
 // to the total of its band.
 func addFlowWeights(weights []any, totals []float64, prefix string, errors *checkList) {
 	for index, weight := range weights {
-		if !finite(weight) || number(weight) < 0 {
+		if !finite(weight) || number(weight) < 0 || number(weight) > sim.MaxCounter {
 			errors.add(prefix+" has an invalid weight.", nil)
 		} else {
 			totals[index] += number(weight)

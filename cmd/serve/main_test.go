@@ -670,17 +670,28 @@ func weightedProject() project.Config {
 	return config
 }
 
+// wideWeight has the longest canonical form of a weight, 24 bytes. A
+// weight is at most sim.MaxCounter, so an integral weight has at most 16
+// digits.
+const wideWeight = 0.0000010000000000000002
+
 // withEncodedSize raises the weights of config until its canonical encoding
 // has size bytes, as the size tests in internal/project do. Each weight
-// must be 1 at the start. The canonical form of 10^k has k+1 digits for k
-// from 0 to 20, so each weight can add 0 to 20 bytes.
+// must be 1 at the start. wideWeight adds 23 bytes to a weight, and the
+// canonical form of 10^k has k+1 digits, so 10^k adds k bytes for k from
+// 0 to 15.
 func withEncodedSize(t *testing.T, config project.Config, size int) project.Config {
 	t.Helper()
 	extra := size - len(canonicalJSON(t, config))
 	for _, profile := range config.DemandProfiles {
 		for _, flow := range profile.Flows {
 			for index := range flow.Weights {
-				digits := min(extra, 20)
+				if extra >= 23 {
+					flow.Weights[index] = wideWeight
+					extra -= 23
+					continue
+				}
+				digits := min(extra, 15)
 				flow.Weights[index] = math.Pow10(digits)
 				extra -= digits
 			}

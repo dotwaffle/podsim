@@ -410,7 +410,8 @@ func checkStreamEnvelope(e StreamEnvelope, previous StreamFrame) error {
 	if err := validateEnvelopeContract(e, previous); err != nil {
 		return err
 	}
-	if e.Stream == "" || e.Sequence == 0 || e.Source.ServerStart == "" || e.Source.Epoch == "" {
+	// The sequence is a JSON string, so the integer scan does not bound it.
+	if e.Stream == "" || e.Sequence == 0 || e.Sequence > sim.MaxCounter || e.Source.ServerStart == "" || e.Source.Epoch == "" {
 		return errors.New("invalid stream identity")
 	}
 	if err := checkIncidentPresence(e, previous); err != nil {
@@ -571,6 +572,11 @@ func checkStreamFrame(f StreamFrame) error {
 		if len(v.RouteLaneIDs) != 0 || len(f.Routes[i].Display) > project.MaxLanes || len(f.Routes[i].Lanes) > sim.MotionRouteLimit {
 			return errors.New("unbounded stream route")
 		}
+		// These numbers are JSON strings, so the integer scan does not
+		// bound them.
+		if route := f.Routes[i]; route.Identity > sim.MaxCounter || route.Start > sim.MaxCounter || route.Current > sim.MaxCounter {
+			return errors.New("stream route counter is out of range")
+		}
 	}
 	return nil
 }
@@ -666,10 +672,11 @@ func InflateStream(data []byte) ([]byte, error) {
 	return output, nil
 }
 
-// ParseStreamSequence accepts the canonical decimal sequence representation.
+// ParseStreamSequence accepts the canonical decimal sequence representation
+// of a sequence of at most sim.MaxCounter.
 func ParseStreamSequence(s string) (uint64, error) {
 	n, err := strconv.ParseUint(s, 10, 64)
-	if err != nil || strconv.FormatUint(n, 10) != s {
+	if err != nil || n > sim.MaxCounter || strconv.FormatUint(n, 10) != s {
 		return 0, errors.New("invalid stream sequence")
 	}
 	return n, nil

@@ -6,7 +6,9 @@ import (
 	"encoding/json/jsontext"
 	"errors"
 	"io"
+	"math"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/sim"
@@ -123,5 +125,48 @@ func TestStreamDecoderLegacyCompatibility(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestStreamIntegerRange checks the stream integers at sim.MaxCounter and
+// one above it: the integer scan of a document, a stream sequence in its
+// text form, and the numbers of a fault ID. A demand seed is not a counter
+// and can have 64 bits.
+func TestStreamIntegerRange(t *testing.T) {
+	t.Parallel()
+	_, frame := streamFixture(t)
+	frame.State.Demand.Config.Seed = math.MaxUint64
+	envelope := StreamEnvelope{Kind: "full", Stream: "range", Sequence: sim.MaxCounter, Source: sourceOf(frame), Build: frame.State.Build, Full: &frame}
+	raw, err := EncodeStreamJSON(envelope)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = DecodeStreamJSON(raw); err != nil {
+		t.Fatal("refused the largest sequence and a seed of 64 bits:", err)
+	}
+	// The sequence is a string, so ApplyStream checks it. The tick is a
+	// number, so the integer scan checks it.
+	above := bytes.Replace(raw, []byte(`"tick":`), []byte(`"tick":9007199254740992,"x":`), 1)
+	if bytes.Equal(above, raw) {
+		t.Fatal("the document has no tick")
+	}
+	if _, err = DecodeStreamJSON(above); !errors.Is(err, errJSONIntegerRange) ||
+		!strings.HasPrefix(err.Error(), "JSON integer is out of range: more than 9007199254740991 at byte ") {
+		t.Fatalf("tick above the largest counter: %v", err)
+	}
+	if n, err := ParseStreamSequence("9007199254740991"); err != nil || n != sim.MaxCounter {
+		t.Fatal("refused the largest stream sequence", err)
+	}
+	if _, err := ParseStreamSequence("9007199254740992"); err == nil || err.Error() != "invalid stream sequence" {
+		t.Fatalf("stream sequence above the largest counter: %v", err)
+	}
+	for id, want := range map[string]bool{
+		"i9007199254740991.9007199254740991": true,
+		"i9007199254740992.1":                false,
+		"i1.9007199254740992":                false,
+	} {
+		if _, ok := faultSerial(id); ok != want {
+			t.Errorf("fault ID %s: valid %t, want %t", id, ok, want)
+		}
 	}
 }

@@ -3,7 +3,6 @@ package sim
 import (
 	"errors"
 	"fmt"
-	"math"
 	"slices"
 )
 
@@ -42,7 +41,7 @@ func (r emergencyRecord) id() string {
 }
 
 // emergencyCounters counts the emergency events. Each counter stops at
-// math.MaxInt64. See addCount.
+// MaxCounter. See addCount.
 type emergencyCounters struct {
 	// started counts the records that started, and ended the records that
 	// the emergency stage ended. A restore or a reset does not count.
@@ -52,11 +51,11 @@ type emergencyCounters struct {
 	emergencyTicks int64
 }
 
-// addCount adds n, which is not negative, to counter. At math.MaxInt64 the
+// addCount adds n, which is not negative, to counter. At MaxCounter the
 // counter keeps its value, so a counter never stops a transition.
 func addCount(counter *int64, n int64) {
-	if n > math.MaxInt64-*counter {
-		*counter = math.MaxInt64
+	if n > MaxCounter-*counter {
+		*counter = MaxCounter
 		return
 	}
 	*counter += n
@@ -105,7 +104,7 @@ func (s *Simulation) Emergency(podID string, orderID int) (string, error) {
 	if party < 0 {
 		return "", errOrderNotAboard
 	}
-	if s.incidentSerial == math.MaxUint64 {
+	if s.incidentSerial >= MaxCounter {
 		return "", errIncidentLimit
 	}
 	id := s.nextIncidentID()

@@ -512,13 +512,14 @@ func (n Network) validateLaneFields(nodes map[string]Point) error {
 
 // invalidLane reports whether a lane has unknown vehicle classes, no ID,
 // an unknown end node, an invalid speed limit or length, or an invalid
-// station role.
+// station role. A speed limit is at most MaxCounter, because the decoders
+// refuse a larger integral number.
 func invalidLane(lane Lane, nodes map[string]Point) bool {
 	from, fromOK := nodes[lane.From]
 	to, toOK := nodes[lane.To]
 	length := indexedLaneLength(lane, from, to)
 	return lane.VehicleClasses & ^allClassBits != 0 || lane.ID == "" || !fromOK || !toOK ||
-		!finite(lane.SpeedLimit) || lane.SpeedLimit <= 0 || length <= 0 || !finite(length) ||
+		!finite(lane.SpeedLimit) || lane.SpeedLimit <= 0 || lane.SpeedLimit > MaxCounter || length <= 0 || !finite(length) ||
 		!validStationLaneRole(lane.StationRole) || (lane.StationID == "") != (lane.StationRole == "")
 }
 

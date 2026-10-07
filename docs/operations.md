@@ -337,6 +337,14 @@ Thus a version 9 file with a member of the removed physical coupling feature, fo
 Likewise, a version 9 file with a member of the removed station buffer or compact queue feature has an unknown member and gets `invalid_state`.
 Examples are `stationBuffered` or `compactQueue` on a pod, and `stationBuffers` or `stationQueueSpacing` in the embedded project.
 A project file with `stationBuffers` or `stationQueueSpacing` also fails as an unknown member.
+Until the first release, a narrower set of accepted values also keeps the version.
+Each integer of a version 9 file must be from -9007199254740991 to 9007199254740991, which is 2^53-1, as in the [protocol](protocol.md#shared-state-stream).
+The demand `seed` is the only exception.
+The scan that checks the integers comes after the version check, so an intact file of another version still gets `unsupported_version`.
+Within the scan, the depth and the size checks of a value come before its integer check.
+A file with a larger integer gets `invalid_state` with the error `JSON integer is out of range`.
+A saved revision, project revision, or generation of 2^53-1 also gets `invalid_state`, because the restore adds 1 to it.
+After that check, a saved last save point of 2^53-1 gets `invalid_state` with the error `last save point ... is at the largest value`, because the next save point adds 1 to it.
 The server does not try to recover any part of such a file.
 A file of more than 80 MiB is the only exception: the server keeps it, turns saving off, and fails to start.
 The server checks the fault records before either tier.

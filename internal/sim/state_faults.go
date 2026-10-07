@@ -3,7 +3,6 @@ package sim
 import (
 	"errors"
 	"fmt"
-	"math"
 	"slices"
 )
 
@@ -126,7 +125,7 @@ func checkSavedFaults(input RestoreStateInput) error {
 			return fmt.Errorf("%w: fault %s starts at tick %d, outside 0 to %d", errInvalidFaults, id, fault.Start, state.Tick)
 		case fault.End != 0 && fault.End <= fault.Start:
 			return fmt.Errorf("%w: fault %s ends at tick %d, not after its start", errInvalidFaults, id, fault.End)
-		case fault.Start > math.MaxInt64-evacuation:
+		case fault.Start > MaxCounter-evacuation:
 			return fmt.Errorf("%w: the evacuation tick of fault %s is out of range", errInvalidFaults, id)
 		}
 		if fault.Debris {

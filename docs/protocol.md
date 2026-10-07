@@ -119,6 +119,23 @@ The order text of each order (`from`, `to`, `podID`, `dispatchReason`, `serviceI
 This includes the pending replacement group of a delta and the HTTP state.
 No message has a `textEncoding` member.
 Sequence and base use decimal strings.
+
+Each integer of a message, also in the HTTP state and the topology, is from -9007199254740991 to 9007199254740991, which is 2^53-1.
+A browser reads a JSON number as a float64, which holds each integer in this range exactly.
+The `seed` of the demand settings is the only exception, because it is not a counter and can have 64 bits.
+A client refuses a document with a larger integer before the typed decode, with the error `JSON integer is out of range`.
+The scan checks each number without a fraction or an exponent, so it also refuses a float that the server writes in that form at 2^53 or more.
+The server does not write such a float.
+Project validation and the editor refuse a lane speed limit or a demand weight above 2^53-1, and a distance would need thousands of years of simulated time to reach 2^53 meters.
+The decimal strings have the same limit.
+A client refuses an envelope with a larger `sequence` as an invalid stream identity.
+It refuses a route with a larger `identity`, `start`, or `current`.
+It refuses a fault ID or an emergency ID with a larger generation or serial.
+The fault counters, the emergency counters, the route identity, and the sums of wait and journey ticks stop at 2^53-1.
+A new fault or emergency fails when its serial or one of its ticks would pass 2^53-1.
+A stream starts a new baseline at sequence 1 after sequence 2^53-1.
+Each other counter grows by a small amount for each tick or command, so the server cannot reach 2^53-1 in practice.
+At 60 times real speed, 2^53 ticks take about 79,000 years.
 A full message omits base and carries a `full` object with `state` and `routes`.
 A delta carries replacement `groups`, vehicle changes by pod ID, and changed berths by ID.
 A replacement wrapper has a `value` member, so null, zero, and an empty list differ from an absent group.
@@ -330,7 +347,7 @@ See [server restarts](#server-restarts).
 A command from another epoch gets `session_changed`.
 A `project` command with a `serverStart` that is not the `serverStart` of the server process also gets `session_changed`.
 Other actions ignore `serverStart`.
-A missing client ID, a client ID that is longer than 100 bytes or is not valid UTF-8, or a zero sequence gets `invalid_command`.
+A missing client ID, a client ID that is longer than 100 bytes or is not valid UTF-8, or a sequence of 0 or more than 9007199254740991 gets `invalid_command`.
 After the server records commands from 1,024 clients, a command from a new client gets `client_limit`.
 A command that the server cannot apply gets `command_rejected`.
 The exception is a `project` command to a paused session with a `projectRevision` that is not the current project revision.

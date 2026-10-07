@@ -19,7 +19,7 @@ import (
 const MaxTopologyJSON = project.MaxFileBytes + 4096
 
 var topologyJSONLimits = jsonLimits{
-	depth: 64, elements: 0, members: 256,
+	depth: 64, elements: 0, members: 256, exactIntegers: true,
 	arrays: map[string]int64{
 		"/expressServices":                            project.MaxExpressServices,
 		"/network/lanes/*/vehicleClasses":             4,

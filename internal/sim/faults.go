@@ -119,7 +119,7 @@ func (s *Simulation) SetFaults(enabled bool, settings FaultSettings) error {
 }
 
 // faultCounters counts the fault events. Each counter stops at
-// math.MaxInt64. See countFault.
+// MaxCounter. See countFault.
 type faultCounters struct {
 	// started counts the faults that started, and cleared the faults that
 	// a command or a duration cleared.
@@ -132,10 +132,10 @@ type faultCounters struct {
 	faultWaitTicks int64
 }
 
-// countFault adds 1 to counter. At math.MaxInt64 the counter keeps its
+// countFault adds 1 to counter. At MaxCounter the counter keeps its
 // value, so a counter never stops a transition.
 func countFault(counter *int64) {
-	if *counter < math.MaxInt64 {
+	if *counter < MaxCounter {
 		*counter++
 	}
 }
@@ -372,12 +372,13 @@ func (s *Simulation) routeBlocked(route []Lane) bool {
 
 // faultTicksFit reports whether a new fault with duration keeps the
 // arithmetic of its record in range. Its end tick and its evacuation tick
-// must fit in int64, and nextIncidentID must not wrap the serial.
+// must not pass MaxCounter, and nextIncidentID must not pass it with the
+// serial.
 func (s *Simulation) faultTicksFit(duration int64) bool {
-	room := (math.MaxInt64 - s.tick) / TicksPerSecond
+	room := (MaxCounter - s.tick) / TicksPerSecond
 	return duration <= room &&
 		s.faultSettings.evacuationSeconds <= room &&
-		s.incidentSerial < math.MaxUint64
+		s.incidentSerial < MaxCounter
 }
 
 // podFaultTarget reports whether a pod fault on v is supported. The pod

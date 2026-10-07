@@ -33,8 +33,9 @@ func requalText(size int) string {
 // records with boarding tuples: 19 completed history records and one
 // active party. The second pod has completed riders and the
 // journeyOrigin form, without boarding tuples. The third pod has no
-// riders. The numbers sit on both sides of the exponent boundaries of the
-// JSON encoder.
+// riders. The floats sit on both sides of the exponent boundaries of the
+// JSON encoder that the integer scan accepts, and the integers at the
+// largest counter, sim.MaxCounter.
 func expressRequalSave(t *testing.T) stateFile {
 	t.Helper()
 	shared := expressSession(t)
@@ -51,14 +52,14 @@ func expressRequalSave(t *testing.T) stateFile {
 	}
 	file.Simulation.Waiting = []sim.SavedTrip{{Request: file.Simulation.Pods[0].Riders[0]}}
 	waiting := &file.Simulation.Waiting[0].Request
-	waiting.ID, waiting.RequestedTick = 9007199254740993, math.MaxInt64
+	waiting.ID, waiting.RequestedTick = sim.MaxCounter, sim.MaxCounter
 	waiting.DispatchReason, waiting.PodID = requalText(1024), requalText(64)
 
 	rider := sim.SavedRequest{
 		ID: 1, From: "harbor", To: "market", PartySize: 1, SharingConsent: sim.SharedConsent, Service: sim.ExpressServiceChoice,
-		ServiceID: "harbor-market", Completed: true, RequestedTick: 9007199254740995, BoardedTick: math.MaxInt64, DispatchReason: requalText(1024),
+		ServiceID: "harbor-market", Completed: true, RequestedTick: sim.MaxCounter - 2, BoardedTick: sim.MaxCounter, DispatchReason: requalText(1024),
 	}
-	meters := []float64{0, 0.000001, 1e-07, 0.0000010000000000000002, math.SmallestNonzeroFloat64, 1e20, 1e21}
+	meters := []float64{0, 0.000001, 1e-07, 0.0000010000000000000002, math.SmallestNonzeroFloat64, 1e15, 1e21}
 	tuplePod := file.Simulation.Pods[0]
 	tuplePod.RiddenMeters = math.MaxFloat64
 	tuplePod.Riders, tuplePod.Boardings = nil, nil
@@ -84,8 +85,8 @@ func expressRequalSave(t *testing.T) stateFile {
 }
 
 // TestExpressRequalSaveShapes saves escaped and multibyte text at each
-// decoded limit, both boarding forms, optional history, integers above
-// 2^53, and floats on both sides of each exponent boundary. The decode
+// decoded limit, both boarding forms, optional history, integers at
+// sim.MaxCounter, and floats on both sides of each exponent boundary. The decode
 // gives the same values, and the second encode gives the same bytes.
 func TestExpressRequalSaveShapes(t *testing.T) {
 	t.Parallel()
@@ -93,8 +94,8 @@ func TestExpressRequalSaveShapes(t *testing.T) {
 	data := encodeTestState(t, file)
 	raw := decompressTestJSON(t, data)
 	for _, want := range []string{
-		`"boardings":[[0,0],[0,0.000001],[0,1e-7],[0,0.0000010000000000000002],[0,5e-324],[0,100000000000000000000],[0,1e+21],`,
-		`"journeyOrigin":"harbor-1"`, `"riddenMeters":1.7976931348623157e+308`, `"id":9007199254740993`, `"requestedTick":9223372036854775807`,
+		`"boardings":[[0,0],[0,0.000001],[0,1e-7],[0,0.0000010000000000000002],[0,5e-324],[0,1000000000000000],[0,1e+21],`,
+		`"journeyOrigin":"harbor-1"`, `"riddenMeters":1.7976931348623157e+308`, `"id":9007199254740991`, `"requestedTick":9007199254740991`,
 		`"dispatchReason":"` + base64.StdEncoding.EncodeToString([]byte(requalText(1024))) + `"`,
 		`"podID":"` + base64.StdEncoding.EncodeToString([]byte(requalText(64))) + `"`,
 	} {

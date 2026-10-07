@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"reflect"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/project"
@@ -312,6 +313,11 @@ func TestCheckProfilesErrorOrder(t *testing.T) {
 			p["flows"] = []any{flow("a", -1.0)}
 			return []any{p}
 		}, []string{weight, empty}},
+		// The decoders refuse an integral number above sim.MaxCounter.
+		{"weight_above_the_largest_counter", func(p map[string]any) any {
+			p["flows"] = []any{flow("a", 1e20)}
+			return []any{p}
+		}, []string{weight, empty}},
 		{"profile_order", func(p map[string]any) any {
 			p["flows"] = []any{flow("a", 0.0)}
 			return []any{p, profile("")}
@@ -331,4 +337,34 @@ func TestCheckProfilesErrorOrder(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestChecksRefuseSpeedLimitAboveCounter gives fixture 044 a speed limit
+// above sim.MaxCounter in place of 0. The decoders refuse such an integral
+// number, so the check gives the same report.
+func TestChecksRefuseSpeedLimitAboveCounter(t *testing.T) {
+	t.Parallel()
+	var fixtures []struct {
+		Name    string         `json:"name"`
+		Project map[string]any `json:"project"`
+		Checks  checkReport    `json:"checks"`
+	}
+	if err := json.Unmarshal(checkFixtures, &fixtures); err != nil {
+		t.Fatal(err)
+	}
+	for _, fixture := range fixtures {
+		if !strings.HasPrefix(fixture.Name, "044:") {
+			continue
+		}
+		for _, lane := range items(member(member(fixture.Project, "network"), "lanes")) {
+			if fields, ok := lane.(map[string]any); ok && text(fields["id"]) == "lane-7" {
+				fields["speedLimit"] = 1e20
+			}
+		}
+		if got := draftChecks(fixture.Project); !reflect.DeepEqual(got.Errors, fixture.Checks.Errors) {
+			t.Fatalf("got %+v, want %+v", got.Errors, fixture.Checks.Errors)
+		}
+		return
+	}
+	t.Fatal("no fixture 044")
 }

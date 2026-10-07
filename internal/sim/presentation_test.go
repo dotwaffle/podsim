@@ -68,10 +68,10 @@ func TestPresentationIsolationAndMalformedBlocks(t *testing.T) {
 func TestPresentationIdentityExhaustion(t *testing.T) {
 	s := newExample(t)
 	v := &s.vehicles[0]
-	v.routeVersion = ^uint64(0) - 1
+	v.routeVersion = MaxCounter - 1
 	v.replaceRoute(nil)
 	v.replaceRoute(nil)
-	if v.routeVersion != ^uint64(0) {
+	if v.routeVersion != MaxCounter {
 		t.Fatal("identity wrapped")
 	}
 	if _, _, err := s.PresentationSnapshot(); err == nil {

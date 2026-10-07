@@ -3,7 +3,6 @@ package session
 import (
 	"encoding/json"
 	"fmt"
-	"math"
 	"slices"
 	"testing"
 	"time"
@@ -85,12 +84,12 @@ func TestStreamLondonWire(t *testing.T) {
 // TestStreamLargeRouteWire checks that one delta publication is smaller
 // than the legacy HTTP state for 200 pods with 8,000-lane routes. The
 // sequences are the first publication, the changes from 1 to 2, 9 to 10,
-// and 19 to 20 decimal digits, and the largest sequence. The benchmark of
+// and 15 to 16 decimal digits, and the largest sequence. The benchmark of
 // the same name repeats the publication to measure codec work.
 func TestStreamLargeRouteWire(t *testing.T) {
 	t.Parallel()
 	previous, laneIDs := largeRouteFixture(t)
-	for _, sequence := range []uint64{2, 10, 1e9, 1e19, math.MaxUint64} {
+	for _, sequence := range []uint64{2, 10, 1e9, 1e15, sim.MaxCounter} {
 		current, sizes := largeRoutePublication(t, previous, laneIDs, sequence)
 		if sizes.delta >= sizes.full {
 			t.Fatalf("sequence %d: delta %d >= full %d", sequence, sizes.delta, sizes.full)

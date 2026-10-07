@@ -968,7 +968,7 @@ func (s *Simulation) podBerthNode(v *vehicle) string {
 // replaceRoute updates presentation identity without changing movement storage.
 func (v *vehicle) replaceRoute(route []Lane) {
 	v.stationPhase = stationPhaseCheck{}
-	if v.routeVersion < ^uint64(0) {
+	if v.routeVersion < MaxCounter {
 		v.routeVersion++
 	}
 	v.Route = route

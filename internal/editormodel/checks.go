@@ -257,7 +257,7 @@ func (g *draftNetwork) checkLanes(ids draftIDs, errors *checkList) map[[2]string
 		if object(lane) == nil || !g.nodeIDs[from] || !g.nodeIDs[to] || from == to {
 			errors.add("Lane "+label(id)+" has invalid endpoints.", at)
 		}
-		if !finite(member(lane, "speedLimit")) || number(member(lane, "speedLimit")) <= 0 {
+		if speed := member(lane, "speedLimit"); !finite(speed) || number(speed) <= 0 || number(speed) > sim.MaxCounter {
 			errors.add("Lane "+label(id)+" needs a positive speed limit.", at)
 		}
 		control := member(lane, "control")

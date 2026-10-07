@@ -250,6 +250,20 @@ func TestDecodeStateFileRejects(t *testing.T) {
 		{"version 8", edit(func(file *stateFile) { file.Version = 8 }), reasonUnsupportedVersion, nil},
 		{"version 2 with old orders", compressTestJSON(t, []byte(`{"format":"podsim-session","version":2,"simulation":{"pods":[{"riders":[{"partySize":12}]}]}}`)), reasonUnsupportedVersion, nil},
 		{"version 10", edit(func(file *stateFile) { file.Version = 10 }), reasonUnsupportedVersion, nil},
+		// The header scan does not check the integers, so a file of another
+		// version gets the reason of its version.
+		{"version 8 with a 20-digit revision", edit(func(file *stateFile) { file.Version, file.Revision = 8, math.MaxUint64 }), reasonUnsupportedVersion, nil},
+		{"revision above the largest counter", edit(func(file *stateFile) { file.Revision = sim.MaxCounter + 1 }), reasonInvalidState, errJSONIntegerRange},
+		{"most negative tick", edit(func(file *stateFile) { file.Simulation.Tick = -sim.MaxCounter - 1 }), reasonInvalidState, errJSONIntegerRange},
+		{"client sequence above the largest counter", edit(func(file *stateFile) {
+			file.Sequences = []savedSequence{{Client: "c", Sequence: sim.MaxCounter + 1}}
+		}), reasonInvalidState, errJSONIntegerRange},
+		{"integral float above the largest counter", edit(func(file *stateFile) {
+			file.Simulation.PassengerDistanceMeters = 1e20
+		}), reasonInvalidState, errJSONIntegerRange},
+		// The depth and the size checks of a token come before its integer
+		// check.
+		{"array too long at a large integer", insert(`{`, `"extra":[`+strings.Repeat("0,", 65_536)+`9007199254740992],`), reasonInvalidState, errJSONArrayTooLong},
 		{"text encoding marker", insert(`{`, `"textEncoding":"order-text-base64-v1",`), reasonInvalidState, nil},
 		{"unpacked order text", replace(`"from":"aGFyYm9y"`, `"from":"harbor"`), reasonInvalidState, nil},
 		{"format x", edit(func(file *stateFile) { file.Format = "x" }), reasonUnsupportedVersion, nil},
@@ -274,9 +288,10 @@ func TestDecodeStateFileRejects(t *testing.T) {
 		{"epoch of 101 bytes", edit(func(file *stateFile) { file.Epoch = strings.Repeat("E", 101) }), reasonInvalidState, nil},
 		{"project revision 0", edit(func(file *stateFile) { file.ProjectRevision = 0 }), reasonInvalidState, nil},
 		{"generation 0", edit(func(file *stateFile) { file.Generation = 0 }), reasonInvalidState, nil},
-		{"largest revision", edit(func(file *stateFile) { file.Revision = math.MaxUint64 }), reasonInvalidState, nil},
-		{"largest project revision", edit(func(file *stateFile) { file.ProjectRevision = math.MaxUint64 }), reasonInvalidState, nil},
-		{"largest generation", edit(func(file *stateFile) { file.Generation = math.MaxUint64 }), reasonInvalidState, nil},
+		{"largest revision", edit(func(file *stateFile) { file.Revision = sim.MaxCounter }), reasonInvalidState, nil},
+		{"largest project revision", edit(func(file *stateFile) { file.ProjectRevision = sim.MaxCounter }), reasonInvalidState, nil},
+		{"largest generation", edit(func(file *stateFile) { file.Generation = sim.MaxCounter }), reasonInvalidState, nil},
+		{"largest save point", edit(func(file *stateFile) { file.LastCheckpoint = sim.MaxCounter }), reasonInvalidState, nil},
 		{"negative restore attempts", edit(func(file *stateFile) { file.RestoreAttempts = -1 }), reasonInvalidState, nil},
 		{"speed 3", edit(func(file *stateFile) { file.Speed = 3 }), reasonInvalidState, nil},
 		{"demand rate 0", edit(func(file *stateFile) { file.Demand.State.Config.PerMinute = 0 }), reasonInvalidState, nil},
@@ -319,6 +334,34 @@ func TestDecodeStateFileRejects(t *testing.T) {
 				t.Fatalf("error %v does not wrap %v", err, tc.err)
 			}
 		})
+	}
+}
+
+// TestStateCounterRefusals pins the text and the order of the counter
+// refusals of a saved state. The integer scan comes first, and the revision
+// check comes before the save point check.
+func TestStateCounterRefusals(t *testing.T) {
+	t.Parallel()
+	valid := newTestStateFile(t)
+	for _, test := range []struct {
+		name   string
+		change func(*stateFile)
+		want   string
+	}{
+		{"scan before the revision check", func(file *stateFile) { file.Revision, file.Generation = sim.MaxCounter, sim.MaxCounter+1 },
+			"invalid_state: scan session state: JSON integer is out of range: more than 9007199254740991 at byte "},
+		{"revision before the save point", func(file *stateFile) { file.Revision, file.LastCheckpoint = sim.MaxCounter, sim.MaxCounter },
+			"invalid_state: revision 9007199254740991, project revision 1 or generation 1 is at the largest value"},
+		{"save point", func(file *stateFile) { file.LastCheckpoint = sim.MaxCounter },
+			"invalid_state: last save point 9007199254740991 is at the largest value"},
+	} {
+		file := valid
+		file.ProjectRevision, file.Generation = 1, 1
+		test.change(&file)
+		_, err := decodeCheckedState(encodeTestState(t, file))
+		if err == nil || !strings.HasPrefix(err.Error(), test.want) {
+			t.Errorf("%s: %v, want %q", test.name, err, test.want)
+		}
 	}
 }
 
@@ -371,7 +414,15 @@ func TestDecodeStateFileAcceptsLimits(t *testing.T) {
 		{"maximum pods", func(file *stateFile) { file.Simulation.Pods = make([]sim.SavedPod, maxSavedPods) }},
 		{"1,024 client sequences", func(file *stateFile) { file.Sequences = testSequences(clientLimit) }},
 		{"client ID of 100 bytes", func(file *stateFile) {
-			file.Sequences = []savedSequence{{Client: strings.Repeat("c", maxClientBytes), Sequence: math.MaxUint64}}
+			file.Sequences = []savedSequence{{Client: strings.Repeat("c", maxClientBytes), Sequence: sim.MaxCounter}}
+		}},
+		{"revision below the largest counter", func(file *stateFile) {
+			file.Revision, file.ProjectRevision, file.Generation = sim.MaxCounter-1, sim.MaxCounter-1, sim.MaxCounter-1
+			file.LastCheckpoint = sim.MaxCounter - 1
+		}},
+		// A demand seed is not a counter, so it can have 64 bits.
+		{"demand seed of 64 bits", func(file *stateFile) {
+			file.Demand.State.Config.Seed, file.Project.Demand.Seed = math.MaxUint64, math.MaxUint64
 		}},
 		{"no client sequences", func(file *stateFile) { file.Sequences = nil }},
 		{"destination demand", func(file *stateFile) {
@@ -671,7 +722,7 @@ func TestStateFileWorstCaseSize(t *testing.T) {
 	// then occupies six JSON bytes. The project member already fills its
 	// independent byte cap, so its node and lane IDs can remain short.
 	id = func(_ string, _ int) string { return strings.Repeat("\x01", 64) }
-	const widest = math.MinInt64
+	const widest = -sim.MaxCounter
 	text := strings.Repeat("\x01", 1<<10)
 	route := func(length int) []int {
 		indexes := make([]int, length)
@@ -681,7 +732,7 @@ func TestStateFileWorstCaseSize(t *testing.T) {
 		return indexes
 	}
 	request := sim.SavedRequest{
-		ID: widest, From: id("f", 0), To: id("t", 0), PartySize: math.MaxInt64, PodID: id("p", 0),
+		ID: widest, From: id("f", 0), To: id("t", 0), PartySize: sim.MaxCounter, PodID: id("p", 0),
 		Completed: true, RequestedTick: widest, BoardedTick: widest, DispatchReason: text,
 		SharingConsent: sim.PrivateConsent, Service: sim.OnDemandService,
 	}
@@ -711,7 +762,7 @@ func TestStateFileWorstCaseSize(t *testing.T) {
 	for index := range sequences {
 		suffix := string([]byte{byte(0x10 + index/256), byte(0x10 + index/16%16), byte(0x10 + index%16)})
 		sequences[index] = savedSequence{
-			Client: strings.Repeat("\x01", maxClientBytes-len(suffix)) + suffix, Sequence: math.MaxUint64,
+			Client: strings.Repeat("\x01", maxClientBytes-len(suffix)) + suffix, Sequence: sim.MaxCounter,
 		}
 	}
 	demand := config.Demand
@@ -727,7 +778,7 @@ func TestStateFileWorstCaseSize(t *testing.T) {
 	}
 	connections := make([]rail.Connection, project.MaxRailDeparturePassengers)
 	for i := range connections {
-		connections[i] = rail.Connection{Event: id("e", i), Passenger: 200, RequestedTick: widest, From: id("f", i), To: id("t", i), RequestID: math.MaxInt, AlightedTick: widest, Outcome: "unserved", Reason: "restore-degraded"}
+		connections[i] = rail.Connection{Event: id("e", i), Passenger: 200, RequestedTick: widest, From: id("f", i), To: id("t", i), RequestID: sim.MaxCounter, AlightedTick: widest, Outcome: "unserved", Reason: "restore-degraded"}
 	}
 
 	file := stateFile{
@@ -735,10 +786,10 @@ func TestStateFileWorstCaseSize(t *testing.T) {
 		Format:          stateFormat, Version: stateVersion, Final: true,
 		SavedAt: time.Date(2026, time.September, 23, 9, 0, 0, 123456789, time.FixedZone("", -12*60*60)),
 		Build:   testBuildID, Epoch: strings.Repeat("\x01", maxEpochBytes),
-		Revision: math.MaxUint64 - 1, ProjectRevision: math.MaxUint64 - 1, Generation: math.MaxUint64 - 1,
-		LastCheckpoint: math.MaxUint64, Speed: 60, RestoreAttempts: math.MaxInt, Sequences: sequences,
+		Revision: sim.MaxCounter - 1, ProjectRevision: sim.MaxCounter - 1, Generation: sim.MaxCounter - 1,
+		LastCheckpoint: sim.MaxCounter - 1, Speed: 60, RestoreAttempts: sim.MaxCounter, Sequences: sequences,
 		Demand: savedDemand{
-			State:  DemandState{Config: demand, Generated: math.MaxInt, Skipped: math.MaxInt, Error: text, Connections: rail.Counts{Made: 10000, Missed: 10000, Unserved: 10000, Unresolved: 10000}},
+			State:  DemandState{Config: demand, Generated: sim.MaxCounter, Skipped: sim.MaxCounter, Error: text, Connections: rail.Counts{Made: 10000, Missed: 10000, Unserved: 10000, Unresolved: 10000}},
 			Random: random, Budget: demandBudgetLimit - 1,
 		},
 		Simulation: sim.SavedState{

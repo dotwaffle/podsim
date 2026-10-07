@@ -39,7 +39,7 @@ func (s *Simulation) PresentationSnapshot() (Snapshot, []RoutePresentation, erro
 	var seen []bool
 	for i := range s.vehicles {
 		v := &s.vehicles[i]
-		if v.routeVersion == ^uint64(0) {
+		if v.routeVersion == MaxCounter {
 			return Snapshot{}, nil, fmt.Errorf("route identity exhausted for %q", v.Pod.ID)
 		}
 		route := RoutePresentation{Identity: v.routeVersion, Origin: -1}

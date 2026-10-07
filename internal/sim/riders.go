@@ -104,7 +104,8 @@ func (s *Simulation) completeRider(v *vehicle, index int, ridden float64) {
 	s.completed++
 	journey := s.tick - rider.RequestedTick
 	s.journeys++
-	s.totalJourneyTicks += journey
+	// The sum stops at MaxCounter, as the counters of a saved state do.
+	s.totalJourneyTicks = min(s.totalJourneyTicks+journey, MaxCounter)
 	s.maxJourneyTicks = max(s.maxJourneyTicks, journey)
 	s.riderDistanceMeters += partyRidden
 	if partyDirect > 0 {

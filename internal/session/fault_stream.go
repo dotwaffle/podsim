@@ -234,18 +234,19 @@ func checkFaultFrame(frame SimulationFrame) error {
 }
 
 // faultSerial returns the serial of a fault ID of the form
-// i<generation>.<serial>, with each number in its canonical decimal form.
+// i<generation>.<serial>, with each number in its canonical decimal form
+// and at most sim.MaxCounter.
 func faultSerial(id string) (uint64, bool) {
 	generation, serial, found := strings.Cut(strings.TrimPrefix(id, "i"), ".")
 	if !found || !strings.HasPrefix(id, "i") {
 		return 0, false
 	}
 	g, err := strconv.ParseUint(generation, 10, 64)
-	if err != nil || strconv.FormatUint(g, 10) != generation {
+	if err != nil || g > sim.MaxCounter || strconv.FormatUint(g, 10) != generation {
 		return 0, false
 	}
 	n, err := strconv.ParseUint(serial, 10, 64)
-	if err != nil || strconv.FormatUint(n, 10) != serial {
+	if err != nil || n > sim.MaxCounter || strconv.FormatUint(n, 10) != serial {
 		return 0, false
 	}
 	return n, true

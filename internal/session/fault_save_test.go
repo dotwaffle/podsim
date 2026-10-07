@@ -4,7 +4,6 @@ import (
 	"bytes"
 	jsonv2 "encoding/json/v2"
 	"errors"
-	"math"
 	"reflect"
 	"slices"
 	"strings"
@@ -348,14 +347,16 @@ func TestFaultSaveRejections(t *testing.T) {
 				state.Faults.Records = append(state.Faults.Records, sim.SavedFault{Generation: 1, Serial: state.IncidentSerial, Debris: true, Lane: lane, From: 1, To: 2})
 			}
 		}, "more than 64"},
-		"serials out of order":    {func(state *sim.SavedState) { state.Faults.Records[1].Serial = state.Faults.Records[0].Serial }, "serial order"},
-		"serial above the saved":  {func(state *sim.SavedState) { state.Faults.Records[1].Serial = state.IncidentSerial + 1 }, "above the saved serial"},
-		"negative start":          {func(state *sim.SavedState) { state.Faults.Records[0].Start = -1 }, "starts at tick"},
-		"start after the tick":    {func(state *sim.SavedState) { state.Faults.Records[0].Start = state.Tick + 1 }, "starts at tick"},
-		"negative end":            {func(state *sim.SavedState) { state.Faults.Records[0].End = -1 }, "not after its start"},
-		"end at the start":        {func(state *sim.SavedState) { state.Faults.Records[0].End = state.Faults.Records[0].Start }, "not after its start"},
-		"negative counter":        {func(state *sim.SavedState) { state.Faults.Counters.Reroutes = -1 }, "negative"},
-		"evacuation tick too far": {func(state *sim.SavedState) { state.Tick, state.Faults.Records[0].Start = math.MaxInt64, math.MaxInt64 }, "evacuation tick"},
+		"serials out of order":   {func(state *sim.SavedState) { state.Faults.Records[1].Serial = state.Faults.Records[0].Serial }, "serial order"},
+		"serial above the saved": {func(state *sim.SavedState) { state.Faults.Records[1].Serial = state.IncidentSerial + 1 }, "above the saved serial"},
+		"negative start":         {func(state *sim.SavedState) { state.Faults.Records[0].Start = -1 }, "starts at tick"},
+		"start after the tick":   {func(state *sim.SavedState) { state.Faults.Records[0].Start = state.Tick + 1 }, "starts at tick"},
+		"negative end":           {func(state *sim.SavedState) { state.Faults.Records[0].End = -1 }, "not after its start"},
+		"end at the start":       {func(state *sim.SavedState) { state.Faults.Records[0].End = state.Faults.Records[0].Start }, "not after its start"},
+		"negative counter":       {func(state *sim.SavedState) { state.Faults.Counters.Reroutes = -1 }, "negative"},
+		"evacuation tick too far": {func(state *sim.SavedState) {
+			state.Tick, state.Faults.Records[0].Start = sim.MaxCounter, sim.MaxCounter
+		}, "evacuation tick"},
 	}
 	for name, test := range native {
 		t.Run(name, func(t *testing.T) {

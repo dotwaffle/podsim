@@ -696,7 +696,8 @@ func (s *Simulation) boardingPods(pass *dispatchPass) map[string][]*vehicle {
 func (s *Simulation) recordBoarding(request Request, sharedWith int) {
 	wait := s.tick - request.RequestedTick
 	s.boarded++
-	s.totalWaitTicks += wait
+	// The sum stops at MaxCounter, as the counters of a saved state do.
+	s.totalWaitTicks = min(s.totalWaitTicks+wait, MaxCounter)
 	s.maxWaitTicks = max(s.maxWaitTicks, wait)
 	if !s.recordExperiments {
 		return

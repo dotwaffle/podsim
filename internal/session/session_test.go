@@ -110,13 +110,21 @@ func TestCommandClientRules(t *testing.T) {
 		// A state save cannot encode such an ID.
 		{"client ID not UTF-8", "c\xff", 1, InvalidCommand},
 		{"sequence 0", "c", 0, InvalidCommand},
+		// A state save stores the sequence, and the save decoder accepts at
+		// most sim.MaxCounter.
+		{"sequence above the largest counter", "c", sim.MaxCounter + 1, InvalidCommand},
 		{"client ID of 100 bytes", strings.Repeat("c", maxClientBytes), 1, ""},
+		{"sequence at the largest counter", "d", sim.MaxCounter, ""},
 	}
 	for _, test := range tests {
 		command := commandFor(s, "pause")
 		command.Client, command.Sequence = test.client, test.sequence
-		if reply := s.Apply(command); reply.ErrorCode != test.want {
+		reply := s.Apply(command)
+		if reply.ErrorCode != test.want {
 			t.Errorf("%s: reply = %+v, want error code %q", test.name, reply, test.want)
+		}
+		if test.want == InvalidCommand && reply.Error != "Invalid client or command sequence." {
+			t.Errorf("%s: error %q", test.name, reply.Error)
 		}
 	}
 }

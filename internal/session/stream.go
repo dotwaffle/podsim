@@ -360,8 +360,8 @@ func (p *statePublisher) publish(ctx context.Context, need, capture bool) error 
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
-	changed := p.sequence == 0 || p.sequence == ^uint64(0) || !reflect.DeepEqual(p.frame, frame)
-	reset := p.sequence == 0 || p.sequence == ^uint64(0) || !sameChain(p.frame, frame)
+	changed := p.sequence == 0 || p.sequence == sim.MaxCounter || !reflect.DeepEqual(p.frame, frame)
+	reset := p.sequence == 0 || p.sequence == sim.MaxCounter || !sameChain(p.frame, frame)
 	if changed {
 		stream, seq := p.stream, p.sequence+1
 		if reset {

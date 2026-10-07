@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"math"
 	"reflect"
 	"slices"
 	"strings"
@@ -455,7 +454,7 @@ func projectTopology(config project.Config, serverStart, epoch string, revision 
 // A restore keeps the saved epoch or makes a new one, so it uses the wider
 // of epoch and a new epoch.
 func preflightTopology(config project.Config, serverStart, epoch string) error {
-	data, err := json.Marshal(projectTopology(config, serverStart, widerEpoch(epoch), math.MaxUint64))
+	data, err := json.Marshal(projectTopology(config, serverStart, widerEpoch(epoch), sim.MaxCounter))
 	if err != nil {
 		return err
 	}
@@ -642,10 +641,11 @@ func (s *Session) applyCommand(command Command, digest commandDigest) commandRes
 	// restart then has the ID of the earlier server process.
 	case command.Action == "project" && command.ServerStart != "" && command.ServerStart != s.serverStart:
 		reply.reject(SessionChanged, "The server restarted. Review the current state and try again.")
-	// A state save stores the client ID, and the JSON encoder accepts only
-	// valid UTF-8.
+	// A state save stores the client ID and the sequence. The JSON encoder
+	// accepts only valid UTF-8, and the save decoder accepts a sequence of at
+	// most sim.MaxCounter.
 	case command.Client == "" || len(command.Client) > maxClientBytes || !utf8.ValidString(command.Client) ||
-		command.Sequence == 0:
+		command.Sequence == 0 || command.Sequence > sim.MaxCounter:
 		reply.reject(InvalidCommand, "Invalid client or command sequence.")
 	default:
 		previous, exists := s.receipts[command.Client]

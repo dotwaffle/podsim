@@ -55,7 +55,7 @@ type SavedEmergency struct {
 }
 
 // EmergencyCounters holds the emergency counters (section 10.5 of the
-// incident emergency contract). Each counter stops at math.MaxInt64.
+// incident emergency contract). Each counter stops at MaxCounter.
 type EmergencyCounters struct {
 	// Started counts the records that started, and Ended the records that
 	// the emergency stage ended. A restore or a reset does not count.

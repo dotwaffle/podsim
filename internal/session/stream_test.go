@@ -279,19 +279,21 @@ func maximumStreamFrame(t *testing.T) StreamFrame {
 	t.Helper()
 	_, f := streamFixture(t)
 	fillStreamScalars(reflect.ValueOf(&f.State).Elem())
+	// A demand seed is not a counter, so it can have 64 bits.
+	f.State.Demand.Config.Seed = math.MaxUint64
 	// Keep the maximum fixture in its original stream family.
 	f.State.Simulation.Interrupted, f.State.Simulation.InterruptedPassengers = 0, 0
 	escaped := strings.Repeat("\x01", 64)
 	reason := strings.Repeat("\x01", 1024)
-	request := sim.Request{ID: math.MaxInt, From: escaped, To: escaped, PodID: escaped, PartySize: math.MaxInt, SharingConsent: sim.PrivateConsent, Service: sim.OnDemandService, RequestedTick: math.MaxInt64, BoardedTick: math.MaxInt64, DispatchReason: reason}
+	request := sim.Request{ID: sim.MaxCounter, From: escaped, To: escaped, PodID: escaped, PartySize: sim.MaxCounter, SharingConsent: sim.PrivateConsent, Service: sim.OnDemandService, RequestedTick: sim.MaxCounter, BoardedTick: sim.MaxCounter, DispatchReason: reason}
 	// Restored pending requests include QueueLimit plus every pod party.
 	f.State.Simulation.Pending = slices.Repeat([]sim.Request{request}, maxSavedTrips)
 	f.State.Simulation.Vehicles = make([]VehicleFrame, project.MaxPods)
 	f.Routes = make([]sim.RoutePresentation, project.MaxPods)
 	for i := range f.Routes {
 		p := sim.Pod{Class: sim.LegacyClass, ID: escaped, StationID: escaped, BerthID: escaped, LaneID: escaped, BlockedBy: escaped, ManeuverStationID: escaped, Activity: sim.Activity(escaped), WaitReason: sim.WaitReason(escaped), StationPhase: sim.StationPhase(escaped), Position: sim.Point{X: math.MaxFloat64, Y: -math.MaxFloat64}, LaneDistance: math.MaxFloat64, Speed: math.MaxFloat64}
-		f.State.Simulation.Vehicles[i] = VehicleFrame{Pod: p, Riders: slices.Repeat([]sim.Request{request}, 8), Stops: slices.Repeat([]string{escaped}, 8), RelocatingTo: escaped, Rebalancing: true, PlatoonID: escaped, PlatoonIndex: math.MaxInt}
-		f.Routes[i] = sim.RoutePresentation{Identity: math.MaxUint64, Display: slices.Repeat([]int{project.MaxLanes - 1}, project.MaxLanes), Origin: project.MaxNodes - 1, Lanes: slices.Repeat([]int{project.MaxLanes - 1}, sim.MotionRouteLimit), Start: math.MaxUint64, Current: math.MaxUint64, Before: true, After: true}
+		f.State.Simulation.Vehicles[i] = VehicleFrame{Pod: p, Riders: slices.Repeat([]sim.Request{request}, 8), Stops: slices.Repeat([]string{escaped}, 8), RelocatingTo: escaped, Rebalancing: true, PlatoonID: escaped, PlatoonIndex: sim.MaxCounter}
+		f.Routes[i] = sim.RoutePresentation{Identity: sim.MaxCounter, Display: slices.Repeat([]int{project.MaxLanes - 1}, project.MaxLanes), Origin: project.MaxNodes - 1, Lanes: slices.Repeat([]int{project.MaxLanes - 1}, sim.MotionRouteLimit), Start: sim.MaxCounter, Current: sim.MaxCounter, Before: true, After: true}
 	}
 	// Berths have unique nodes, so MaxNodes also bounds their total count.
 	f.State.Simulation.Berths = slices.Repeat([]sim.BerthState{{ID: escaped, Occupant: escaped, ReservedBy: escaped}}, project.MaxNodes)
@@ -338,7 +340,7 @@ func TestStreamMaximumEncoding(t *testing.T) { //nolint:tparallel // Subtests bu
 	for _, representation := range []string{"historical", "modern", "mixed"} {
 		t.Run(representation, func(t *testing.T) {
 			f := maximumStreamRepresentation(t, representation)
-			e := StreamEnvelope{Kind: "full", Stream: strings.Repeat("x", 32), Sequence: math.MaxUint64, Source: sourceOf(f), Build: f.State.Build, Full: &f}
+			e := StreamEnvelope{Kind: "full", Stream: strings.Repeat("x", 32), Sequence: sim.MaxCounter, Source: sourceOf(f), Build: f.State.Build, Full: &f}
 			data, err := EncodeStreamJSON(e)
 			if err != nil {
 				t.Fatal(err)
@@ -359,7 +361,7 @@ func TestStreamMaximumEncoding(t *testing.T) { //nolint:tparallel // Subtests bu
 			e.Kind = "delta"
 			e.Full = nil
 			e.Delta = &d
-			e.Base = math.MaxUint64 - 1
+			e.Base = sim.MaxCounter - 1
 			data, err = EncodeStreamJSON(e)
 			if err != nil {
 				t.Fatal("maximum delta exceeds cap", err)
@@ -716,7 +718,8 @@ func TestStreamBuildBound(t *testing.T) {
 	}
 }
 
-// fillStreamScalars overestimates global text with the restored-text bound.
+// fillStreamScalars overestimates global text with the restored-text bound,
+// and sets each integer to the widest value that the integer scan accepts.
 // It leaves the contract markers, which must agree with the topology.
 func fillStreamScalars(v reflect.Value) {
 	if v.Type() == reflect.TypeFor[sim.OrderContract]() || v.Type() == reflect.TypeFor[sim.IncidentContract]() ||
@@ -732,9 +735,9 @@ func fillStreamScalars(v reflect.Value) {
 	case reflect.String:
 		v.SetString(strings.Repeat("\x01", 1024))
 	case reflect.Int, reflect.Int64:
-		v.SetInt(math.MinInt64)
+		v.SetInt(-sim.MaxCounter)
 	case reflect.Uint64:
-		v.SetUint(math.MaxUint64)
+		v.SetUint(sim.MaxCounter)
 	case reflect.Float64:
 		v.SetFloat(-math.MaxFloat64)
 	case reflect.Bool:
@@ -978,7 +981,7 @@ func TestStreamReplacementSlicesOwnStorage(t *testing.T) {
 func TestStreamSequenceWrapStartsNewChain(t *testing.T) {
 	t.Parallel()
 	s, f := streamFixture(t)
-	p := &statePublisher{session: s, frame: f, stream: "old", sequence: ^uint64(0), clients: map[*streamSubscriber]bool{}}
+	p := &statePublisher{session: s, frame: f, stream: "old", sequence: sim.MaxCounter, clients: map[*streamSubscriber]bool{}}
 	if err := p.publish(t.Context(), false, true); err != nil {
 		t.Fatal(err)
 	}

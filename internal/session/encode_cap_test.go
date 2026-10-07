@@ -6,7 +6,6 @@ import (
 	"encoding/json/jsontext"
 	"errors"
 	"fmt"
-	"math"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -134,8 +133,8 @@ func TestEncodeCapsAtCallers(t *testing.T) {
 			t.Fatal(err)
 		}
 		encode := func(epoch string) ([]byte, error) {
-			escaped.Epoch, escaped.ProjectRevision = epoch, math.MaxUint64
-			escapedFrame.State.Epoch, escapedFrame.State.ProjectRevision = epoch, math.MaxUint64
+			escaped.Epoch, escaped.ProjectRevision = epoch, sim.MaxCounter
+			escapedFrame.State.Epoch, escapedFrame.State.ProjectRevision = epoch, sim.MaxCounter
 			return EncodeStateJSON(escaped, escapedFrame)
 		}
 		raw, err := encode(escaped.Epoch)
@@ -381,7 +380,7 @@ func escapedTopologySize(t *testing.T, config project.Config) int {
 	t.Helper()
 	// A server start has 16 characters, a new epoch has 26, and the
 	// preflight uses the largest project revision.
-	raw, err := json.Marshal(TopologySnapshot{ProjectVersion: config.Version, ServerStart: strings.Repeat("0", 16), Epoch: strings.Repeat("0", 26), ProjectRevision: math.MaxUint64, Network: config.Network})
+	raw, err := json.Marshal(TopologySnapshot{ProjectVersion: config.Version, ServerStart: strings.Repeat("0", 16), Epoch: strings.Repeat("0", 26), ProjectRevision: sim.MaxCounter, Network: config.Network})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -399,7 +398,7 @@ func stateHTTPReply(t *testing.T, s *Session, config project.Config, status int)
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := escapedTopologySize(t, config) - len(strconv.FormatUint(math.MaxUint64, 10)) + len(strconv.FormatUint(topology.ProjectRevision, 10))
+	want := escapedTopologySize(t, config) - len(strconv.FormatUint(sim.MaxCounter, 10)) + len(strconv.FormatUint(topology.ProjectRevision, 10))
 	if len(raw) != want {
 		t.Fatalf("the session topology has %d bytes, want %d", len(raw), want)
 	}

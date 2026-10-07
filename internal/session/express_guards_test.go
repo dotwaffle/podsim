@@ -2,7 +2,6 @@ package session
 
 import (
 	"bytes"
-	"math"
 	"reflect"
 	"slices"
 	"strings"
@@ -114,7 +113,7 @@ func TestExpressPublicTextAndShapeGuards(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	frame.State.Simulation.Pending = []sim.Request{{ID: math.MaxInt, From: "harbor", To: "market", PartySize: 20, SharingConsent: sim.SharedConsent, Service: sim.ExpressServiceChoice, ServiceID: "harbor-market"}}
+	frame.State.Simulation.Pending = []sim.Request{{ID: sim.MaxCounter, From: "harbor", To: "market", PartySize: 20, SharingConsent: sim.SharedConsent, Service: sim.ExpressServiceChoice, ServiceID: "harbor-market"}}
 	envelope := StreamEnvelope{OrderContract: sim.ExpressOrderContract, Kind: "full", Stream: "guard", Sequence: 1, Source: sourceOf(frame), Full: &frame}
 	raw, err := EncodeStreamJSON(envelope)
 	if err != nil {

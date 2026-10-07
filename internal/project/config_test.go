@@ -159,6 +159,16 @@ func TestValidateRejectsMalformedProjects(t *testing.T) {
 			profile.Flows[0].Weights[0] = -1
 			config.DemandProfiles = []DemandProfile{profile}
 		}},
+		// The decoders refuse an integral number above sim.MaxCounter.
+		{"profile weight above the largest counter", func(config *Config) {
+			profile := testDemandProfile()
+			profile.Flows[0].Weights[0] = 1e20
+			config.DemandProfiles = []DemandProfile{profile}
+		}},
+		{"lane speed limit above the largest counter", func(config *Config) {
+			config.Network = CloneNetwork(config.Network)
+			config.Network.Lanes[0].SpeedLimit = 1e20
+		}},
 		{"duplicate profile", func(config *Config) {
 			profile := testDemandProfile()
 			config.DemandProfiles = []DemandProfile{profile, profile}
@@ -604,17 +614,27 @@ func loopNetwork(stations int) sim.Network {
 	return network
 }
 
+// wideWeight has the longest canonical form of a weight, 24 bytes. A
+// weight is at most sim.MaxCounter, so an integral weight has at most 16
+// digits.
+const wideWeight = 0.0000010000000000000002
+
 // withEncodedSize raises the weights of config until its canonical encoding
-// has size bytes. Each weight must be 1 at the start. The canonical form of
-// 10^k has k+1 digits for k from 0 to 20, so each weight can add 0 to 20
-// bytes.
+// has size bytes. Each weight must be 1 at the start. wideWeight adds 23
+// bytes to a weight, and the canonical form of 10^k has k+1 digits, so
+// 10^k adds k bytes for k from 0 to 15.
 func withEncodedSize(t *testing.T, config Config, size int) Config {
 	t.Helper()
 	extra := size - len(canonicalJSON(t, config))
 	for _, profile := range config.DemandProfiles {
 		for _, flow := range profile.Flows {
 			for index := range flow.Weights {
-				digits := min(extra, 20)
+				if extra >= 23 {
+					flow.Weights[index] = wideWeight
+					extra -= 23
+					continue
+				}
+				digits := min(extra, 15)
 				flow.Weights[index] = math.Pow10(digits)
 				extra -= digits
 			}
@@ -628,20 +648,25 @@ func withEncodedSize(t *testing.T, config Config, size int) Config {
 
 // shortExponentProject returns a project decoded from a file of at most
 // MaxFileBytes. The canonical encoding of the project has more than
-// MaxFileBytes. The file writes each weight as 1e20, and the canonical
-// encoding writes it with 21 digits.
+// MaxFileBytes. Half of the weights are 1e15, and the others wideWeight.
+// The file writes them as 1e15 and 1.0000000000000002e-6, and the
+// canonical encoding writes them with 16 and 24 bytes.
 func shortExponentProject(t *testing.T) Config {
 	t.Helper()
 	config := weightedProject()
 	for _, profile := range config.DemandProfiles {
 		for _, flow := range profile.Flows {
 			for index := range flow.Weights {
-				flow.Weights[index] = 1e20
+				flow.Weights[index] = 1e15
+				if index%2 == 0 {
+					flow.Weights[index] = wideWeight
+				}
 			}
 		}
 	}
 	canonical := canonicalJSON(t, config)
-	file := bytes.ReplaceAll(canonical, []byte("100000000000000000000"), []byte("1e20"))
+	file := bytes.ReplaceAll(canonical, []byte("0.0000010000000000000002"), []byte("1.0000000000000002e-6"))
+	file = bytes.ReplaceAll(file, []byte("1000000000000000"), []byte("1e15"))
 	if len(file) > MaxFileBytes || len(canonical) <= MaxFileBytes {
 		t.Fatalf("file has %d bytes and canonical encoding has %d bytes, limit %d", len(file), len(canonical), MaxFileBytes)
 	}

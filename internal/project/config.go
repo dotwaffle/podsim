@@ -883,7 +883,8 @@ func validateDemandProfile(profile DemandProfile, passenger map[string]bool) err
 		}
 		pairs[pair] = true
 		for index, weight := range flow.Weights {
-			if math.IsNaN(weight) || math.IsInf(weight, 0) || weight < 0 {
+			// The decoders refuse an integral number above sim.MaxCounter.
+			if math.IsNaN(weight) || math.IsInf(weight, 0) || weight < 0 || weight > sim.MaxCounter {
 				return fmt.Errorf("demand profile %s has an invalid weight", quoteID(profile.ID))
 			}
 			totals[index] += weight

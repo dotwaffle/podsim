@@ -122,7 +122,7 @@ func composedIncidentSave(t *testing.T, file stateFile) stateFile {
 	composedIncidentProject(t, &file.Project)
 	stations := file.Project.Network.Stations
 	state := &file.Simulation
-	state.Interrupted, state.InterruptedPassengers, state.IncidentSerial = math.MinInt64, math.MinInt64, math.MaxUint64
+	state.Interrupted, state.InterruptedPassengers, state.IncidentSerial = -sim.MaxCounter, -sim.MaxCounter, sim.MaxCounter
 	state.Pods = slices.Clone(state.Pods)
 	for i := range state.Pods {
 		pod := &state.Pods[i]
@@ -165,9 +165,9 @@ func composedFaultProject(t *testing.T, config *project.Config) {
 
 // composedFaultSave adds the stage 2 members of the incident suspension
 // contract to file at the widest values that a server writes (section
-// 13.6): the counters at the largest integer, and 300 pod records and 64
-// debris records. Each record has a 20-digit generation and serial, and
-// 19-digit ticks. Each pod record names pod index 299, and each debris
+// 13.6): the counters at sim.MaxCounter, and 300 pod records and 64
+// debris records. Each record has a 16-digit generation and serial, and
+// 16-digit ticks. Each pod record names pod index 299, and each debris
 // record the last lane index and segment bounds with 23 bytes. The save
 // decoder checks the shape of a tuple, and the restore checks its values.
 func composedFaultSave(t *testing.T, file stateFile) stateFile {
@@ -176,14 +176,14 @@ func composedFaultSave(t *testing.T, file stateFile) stateFile {
 	lane := len(file.Project.Network.Lanes) - 1
 	records := make([]sim.SavedFault, maxFaultRecords)
 	for i := range records {
-		record := sim.SavedFault{Generation: math.MaxUint64, Serial: math.MaxUint64 - uint64(len(records)-1-i), Start: math.MaxInt64, End: math.MaxInt64, Pod: project.MaxPods - 1}
+		record := sim.SavedFault{Generation: sim.MaxCounter, Serial: sim.MaxCounter - uint64(len(records)-1-i), Start: sim.MaxCounter, End: sim.MaxCounter, Pod: project.MaxPods - 1}
 		if i >= project.MaxPods {
 			record.Debris, record.Pod, record.Lane = true, 0, lane
 			record.From, record.To = composedDebrisFrom, composedDebrisTo
 		}
 		records[i] = record
 	}
-	counters := sim.FaultCounters{Started: math.MaxInt64, Cleared: math.MaxInt64, Evacuations: math.MaxInt64, Reroutes: math.MaxInt64, FaultWaitTicks: math.MaxInt64}
+	counters := sim.FaultCounters{Started: sim.MaxCounter, Cleared: sim.MaxCounter, Evacuations: sim.MaxCounter, Reroutes: sim.MaxCounter, FaultWaitTicks: sim.MaxCounter}
 	file.Simulation.Faults = &sim.SavedFaults{Records: records, Counters: counters}
 	return file
 }
@@ -206,22 +206,22 @@ func composedEmergencyProject(t *testing.T, config *project.Config) {
 
 // composedEmergencyRecord returns saved emergency record index of count
 // at its widest (section 11.6 of the incident emergency contract): a
-// 20-digit generation and serial, a 19-digit start and order, and pod
+// 16-digit generation and serial, a 16-digit start and order, and pod
 // index 299. The serials increase with index.
 func composedEmergencyRecord(index, count int) sim.SavedEmergency {
 	return sim.SavedEmergency{
-		Generation: math.MaxUint64, Serial: math.MaxUint64 - uint64(count-1-index),
-		Start: math.MaxInt64, Pod: project.MaxPods - 1, Order: math.MaxInt64,
+		Generation: sim.MaxCounter, Serial: sim.MaxCounter - uint64(count-1-index),
+		Start: sim.MaxCounter, Pod: project.MaxPods - 1, Order: sim.MaxCounter,
 	}
 }
 
 // composedEmergencyCounters are the widest emergency counters.
-var composedEmergencyCounters = sim.EmergencyCounters{Started: math.MaxInt64, Ended: math.MaxInt64, EmergencyTicks: math.MaxInt64}
+var composedEmergencyCounters = sim.EmergencyCounters{Started: sim.MaxCounter, Ended: sim.MaxCounter, EmergencyTicks: sim.MaxCounter}
 
 // composedEmergencySave adds the stage 3 members of the incident emergency
 // contract to file at the widest values that a server writes:
 // sim.MaxEmergencies records of composedEmergencyRecord and the counters
-// at the largest integer. The save decoder checks the shape of a tuple,
+// at sim.MaxCounter. The save decoder checks the shape of a tuple,
 // and the restore checks its values.
 func composedEmergencySave(t *testing.T, file stateFile) stateFile {
 	t.Helper()
@@ -235,27 +235,27 @@ func composedEmergencySave(t *testing.T, file stateFile) stateFile {
 }
 
 // composedEmergencyView returns the stream row of an active emergency at
-// its widest, for the pod podID: a 20-digit generation and serial, a
-// 19-digit order and start tick, and the phase unloading. The serial is
+// its widest, for the pod podID: a 16-digit generation and serial, a
+// 16-digit order and start tick, and the phase unloading. The serial is
 // below the serial of each composed fault, and it increases with index.
 func composedEmergencyView(index, count int, podID string) sim.EmergencyView {
-	serial := math.MaxUint64 - uint64(maxFaultRecords) - uint64(count-1-index)
+	serial := sim.MaxCounter - uint64(maxFaultRecords) - uint64(count-1-index)
 	return sim.EmergencyView{
-		ID: fmt.Sprintf("i%d.%d", uint64(math.MaxUint64), serial), PodID: podID,
-		OrderID: math.MaxInt64, Phase: sim.EmergencyPhaseUnloading, StartTick: math.MaxInt64,
+		ID: fmt.Sprintf("i%d.%d", uint64(sim.MaxCounter), serial), PodID: podID,
+		OrderID: sim.MaxCounter, Phase: sim.EmergencyPhaseUnloading, StartTick: sim.MaxCounter,
 	}
 }
 
 // composedEmergencyFrame adds the stage 3 stream members of the incident
 // emergency contract to frame at the widest values that ApplyStream
-// accepts: the emergency marker, the counters at the largest integer, and
+// accepts: the emergency marker, the counters at sim.MaxCounter, and
 // sim.MaxEmergencies rows of composedEmergencyView, each for a vehicle of
 // its own. The start of a row is not after the frame tick, so the frame
-// tick is the largest integer.
+// tick is sim.MaxCounter.
 func composedEmergencyFrame(frame StreamFrame) StreamFrame {
 	simulation := &frame.State.Simulation
 	simulation.EmergencyContract = sim.EmergencyV1Contract
-	simulation.Tick = math.MaxInt64
+	simulation.Tick = sim.MaxCounter
 	active := make([]sim.EmergencyView, sim.MaxEmergencies)
 	for i := range active {
 		active[i] = composedEmergencyView(i, len(active), simulation.Vehicles[i].Pod.ID)
@@ -312,7 +312,7 @@ func composedIncidentFrame(frame StreamFrame) StreamFrame {
 	legFrom := strings.Repeat("\x04", 64)
 	simulation := &frame.State.Simulation
 	simulation.IncidentContract = sim.IncidentV1Contract
-	simulation.Interrupted, simulation.InterruptedPassengers = math.MaxInt64, math.MaxInt64
+	simulation.Interrupted, simulation.InterruptedPassengers = sim.MaxCounter, sim.MaxCounter
 	simulation.Vehicles = slices.Clone(simulation.Vehicles)
 	for i := range simulation.Vehicles {
 		vehicle := &simulation.Vehicles[i]
@@ -331,22 +331,22 @@ func composedIncidentFrame(frame StreamFrame) StreamFrame {
 
 // composedFaultFrame adds the stage 2 stream members of the incident
 // suspension contract to frame at the widest values that ApplyStream
-// accepts: the fault marker, the counters at the largest integer, and 300
-// pod records and 64 debris records. Each record has a 20-digit generation
-// and serial, and 19-digit ticks. A pod record names a vehicle of its own,
+// accepts: the fault marker, the counters at sim.MaxCounter, and 300
+// pod records and 64 debris records. Each record has a 16-digit generation
+// and serial, and 16-digit ticks. A pod record names a vehicle of its own,
 // which has an ID of 386 JSON bytes, and has the phase evacuated. A debris
 // record has a lane ID of 386 JSON bytes and the widest segment. The start
-// of a record is not after the frame tick, so the frame tick is the
-// largest integer. The vehicle IDs of frame must differ.
+// of a record is not after the frame tick, so the frame tick is
+// sim.MaxCounter. The vehicle IDs of frame must differ.
 func composedFaultFrame(frame StreamFrame) StreamFrame {
 	simulation := &frame.State.Simulation
 	simulation.FaultContract = sim.FaultV1Contract
-	simulation.Tick = math.MaxInt64
-	start, end := int64(math.MaxInt64-1), int64(math.MaxInt64)
+	simulation.Tick = sim.MaxCounter
+	start, end := int64(sim.MaxCounter-1), int64(sim.MaxCounter)
 	from, to := composedDebrisFrom, composedDebrisTo
 	active := make([]sim.FaultView, maxFaultRecords)
 	for i := range active {
-		fault := sim.FaultView{ID: fmt.Sprintf("i%d.%d", uint64(math.MaxUint64), uint64(math.MaxUint64)-uint64(len(active)-1-i)), StartTick: start, EndTick: end}
+		fault := sim.FaultView{ID: fmt.Sprintf("i%d.%d", uint64(sim.MaxCounter), uint64(sim.MaxCounter)-uint64(len(active)-1-i)), StartTick: start, EndTick: end}
 		if i < len(simulation.Vehicles) {
 			fault.Kind, fault.PodID, fault.Phase, fault.EvacuateTick = sim.FaultKindPod, simulation.Vehicles[i].Pod.ID, sim.FaultPhaseEvacuated, &end
 		} else {
@@ -354,7 +354,7 @@ func composedFaultFrame(frame StreamFrame) StreamFrame {
 		}
 		active[i] = fault
 	}
-	counters := sim.FaultCounters{Started: math.MaxInt64, Cleared: math.MaxInt64, Evacuations: math.MaxInt64, Reroutes: math.MaxInt64, FaultWaitTicks: math.MaxInt64}
+	counters := sim.FaultCounters{Started: sim.MaxCounter, Cleared: sim.MaxCounter, Evacuations: sim.MaxCounter, Reroutes: sim.MaxCounter, FaultWaitTicks: sim.MaxCounter}
 	simulation.Faults = sim.FaultsView{Active: active, Counters: counters}
 	return frame
 }
@@ -436,6 +436,7 @@ func TestComposedWorstCaseFormats(t *testing.T) { //nolint:tparallel // Subtests
 			Test:   "internal/session TestComposedWorstCaseFormats",
 			Method: "Each fixture has the widest value of each member that a server can write and that the version 9 save decoder or the hello 6 stream decoder accepts. " +
 				"The values are independent maxima, not reachable placement or motion. " +
+				"Each integer is from -9007199254740991 to 9007199254740991, the range that the decoders accept; only a demand seed can have 64 bits. " +
 				"The decoder accepts a route on each waiting trip, but a server writes at most 300: dispatch gives a waiting trip a route only when it assigns a pod, each pod has at most one assigned trip, and a physical restore keeps waiting routes within its block budget. " +
 				"Plain save: widestSavedBase with 300 compact-class pods, each with the widest platoon link, and 2,600 trips, 300 of them with a route. " +
 				"Express save: widestExpressSave, with 300 Express pods that have 20 riders and 20 boarding records, and 8,600 trips. " +
@@ -445,15 +446,15 @@ func TestComposedWorstCaseFormats(t *testing.T) { //nolint:tparallel // Subtests
 				"Each saved pod has holds 3 and the operational tuple [1,2]: an interrupt bit needs an active rider, which omits the 17 bytes of completed. " +
 				"Each rider and each trip has a leg origin with a 3-digit station index; a rider with a boarding record has its origin, where the record is. " +
 				"Each trip has the excluded pod index 299, or 298 for a trip with pod 299, so no trip is boarded. " +
-				"The saved counters are the most negative integers, and the serial is the largest integer. " +
-				"In the streams, the counters are the largest integers, each vehicle has holds 3 and emergency-unload, and each rider and pending order has a leg origin of 64 bytes. " +
+				"The saved counters are -9007199254740991, the most negative integer that the decoders accept, and the serial is 9007199254740991. " +
+				"In the streams, the counters are 9007199254740991, each vehicle has holds 3 and emergency-unload, and each rider and pending order has a leg origin of 64 bytes. " +
 				"Each shape also has the fault marker and the stage 2 members at the widest values that a server writes. " +
-				"The saved project has the widest faults settings, and the save has 300 pod records and 64 debris records with 20-digit generations and serials, 19-digit ticks, pod index 299, the last lane index, segment bounds of 23 bytes, and the largest counters. " +
-				"In the streams, the faults have the largest counters, 300 pod records with the phase evacuated, and 64 debris records with lane IDs of 64 bytes and segment bounds of 23 bytes; each record has a 20-digit generation and serial and 19-digit ticks. " +
-				"Each vehicle has an ID of its own with 64 bytes, and the frame tick is the largest integer, because a fault does not start after the frame tick. " +
+				"The saved project has the widest faults settings, and the save has 300 pod records and 64 debris records with 16-digit generations and serials, 16-digit ticks, pod index 299, the last lane index, segment bounds of 23 bytes, and the largest counters. " +
+				"In the streams, the faults have the largest counters, 300 pod records with the phase evacuated, and 64 debris records with lane IDs of 64 bytes and segment bounds of 23 bytes; each record has a 16-digit generation and serial and 16-digit ticks. " +
+				"Each vehicle has an ID of its own with 64 bytes, and the frame tick is sim.MaxCounter, because a fault does not start after the frame tick. " +
 				"Each shape also has the emergency marker and the stage 3 members at the widest values that a server writes. " +
-				"The saved project has the widest emergencies settings, and the save has 4 records with 20-digit generations and serials, a 19-digit start and order, pod index 299, and the largest counters. " +
-				"In the streams, the emergencies have the largest counters and 4 rows with the phase unloading, each for a vehicle of its own, with a 20-digit generation and serial, and a 19-digit order and start tick. " +
+				"The saved project has the widest emergencies settings, and the save has 4 records with 16-digit generations and serials, a 16-digit start and order, pod index 299, and the largest counters. " +
+				"In the streams, the emergencies have the largest counters and 4 rows with the phase unloading, each for a vehicle of its own, with a 16-digit generation and serial, and a 16-digit order and start tick. " +
 				"Streams: plain is maximumStreamFrame with compact vehicles, boarding records and service IDs; Express is widestExpressStreamFrame. " +
 				"The delta changes each vehicle, berth and group from an empty base. " +
 				"The HTTP state has the widest topology that fits the topology cap of 10,489,856 bytes; bound_bytes sets the topology member to that cap. " +
@@ -583,7 +584,7 @@ func measureComposedStream(t *testing.T, shape composedShape) []composedSize {
 	fault.State.Simulation.EmergencyContract, fault.State.Simulation.Emergencies = "", sim.EmergenciesView{}
 	incident := fault
 	incident.State.Simulation.FaultContract, incident.State.Simulation.Faults = "", sim.FaultsView{}
-	incident.State.Simulation.Tick = math.MinInt64
+	incident.State.Simulation.Tick = -sim.MaxCounter
 	var incidentBytes, faultBytes []int
 	for _, document := range composedStreamDocuments(t, shape, incident, topology) {
 		incidentBytes = append(incidentBytes, len(document))
@@ -692,10 +693,10 @@ func composedStreamDocuments(t *testing.T, shape composedShape, frame StreamFram
 	t.Helper()
 	delta := maximumStreamDelta(t, frame)
 	full := StreamEnvelope{
-		OrderContract: shape.markers.order, Kind: "full", Stream: strings.Repeat("x", 32), Sequence: math.MaxUint64, Source: sourceOf(frame), Build: frame.State.Build, Full: &frame,
+		OrderContract: shape.markers.order, Kind: "full", Stream: strings.Repeat("x", 32), Sequence: sim.MaxCounter, Source: sourceOf(frame), Build: frame.State.Build, Full: &frame,
 	}
 	changed := full
-	changed.Kind, changed.Full, changed.Delta, changed.Base = "delta", nil, &delta, math.MaxUint64-1
+	changed.Kind, changed.Full, changed.Delta, changed.Base = "delta", nil, &delta, sim.MaxCounter-1
 	var documents [3][]byte
 	for index, envelope := range []StreamEnvelope{full, changed} {
 		raw, err := EncodeStreamJSON(envelope)
@@ -746,9 +747,10 @@ func composedStreamSize(t *testing.T, shape composedShape, format string, raw []
 
 // TestEmergencyByteAllocation encodes the stage 3 members with 300 records
 // at their widest, the pod limit, with no prescan and no decode (section
-// 14.4 of the incident emergency contract). The totals are the figures of
-// section 11.6, and they fit the stage 3 allocations, so the budget holds
-// for any record cap up to the pod limit.
+// 14.4 of the incident emergency contract). Section 11.6 gives the totals
+// for 20-digit numbers. The decoders accept at most 16 digits
+// (sim.MaxCounter), so the totals are smaller. They fit the stage 3
+// allocations, so the budget holds for any record cap up to the pod limit.
 func TestEmergencyByteAllocation(t *testing.T) {
 	t.Parallel()
 	const count = project.MaxPods
@@ -770,20 +772,20 @@ func TestEmergencyByteAllocation(t *testing.T) {
 	file := stateFile{}
 	saved := member("emergencies", sim.SavedEmergencies{Records: records, Counters: composedEmergencyCounters},
 		jsonv2.Deterministic(true), jsonv2.WithMarshalers(file.simulationMarshalers()))
-	if saved != 26_536 || saved > composedEmergencySaveAllocation {
-		t.Errorf("the save member has %d bytes, want 26,536 within the allocation of %d", saved, composedEmergencySaveAllocation)
+	if saved != 22_327 || saved > composedEmergencySaveAllocation {
+		t.Errorf("the save member has %d bytes, want 22,327 within the allocation of %d", saved, composedEmergencySaveAllocation)
 	}
 	widest, err := jsonv2.Marshal(views[count-1])
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(widest) != 528 {
-		t.Errorf("the widest row has %d bytes, want 528", len(widest))
+	if len(widest) != 514 {
+		t.Errorf("the widest row has %d bytes, want 514", len(widest))
 	}
 	stream := member("emergencies", sim.EmergenciesView{Active: views, Counters: composedEmergencyCounters}, json.DefaultOptionsV1())
 	marker := member("emergencyContract", sim.EmergencyV1Contract)
-	if stream != 158_835 || marker != 35 || stream+2*marker > composedEmergencyStreamAllocation {
-		t.Errorf("the stream member has %d bytes and each marker %d, want 158,835 and 35 within the allocation of %d", stream, marker, composedEmergencyStreamAllocation)
+	if stream != 154_626 || marker != 35 || stream+2*marker > composedEmergencyStreamAllocation {
+		t.Errorf("the stream member has %d bytes and each marker %d, want 154,626 and 35 within the allocation of %d", stream, marker, composedEmergencyStreamAllocation)
 	}
 	t.Logf("save member=%d allocation=%d stream member=%d markers=%d allocation=%d", saved, composedEmergencySaveAllocation, stream, 2*marker, composedEmergencyStreamAllocation)
 }

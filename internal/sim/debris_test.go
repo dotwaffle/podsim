@@ -240,7 +240,7 @@ func sameCursors(a, b *Simulation) bool {
 // free.
 func TestDebrisRefusals(t *testing.T) {
 	t.Parallel()
-	limit := int64(math.MaxInt64)
+	limit := int64(MaxCounter)
 	// on returns a call on the lane with the ID.
 	on := func(s *Simulation, lane string, from, to float64) debrisCall {
 		return debrisCall{lane: s.graph.lanes[lane], from: from, to: to}
@@ -283,7 +283,7 @@ func TestDebrisRefusals(t *testing.T) {
 			},
 			func(s *Simulation, _ *vehicle, _ *debrisCall) { s.tick-- }},
 		{"serial at the limit", errIncidentLimit,
-			func(s *Simulation, _ *vehicle) debrisCall { s.incidentSerial = math.MaxUint64; return free(s) },
+			func(s *Simulation, _ *vehicle) debrisCall { s.incidentSerial = MaxCounter; return free(s) },
 			func(s *Simulation, _ *vehicle, _ *debrisCall) { s.incidentSerial-- }},
 		{"negative lane", errUnknownLane,
 			func(s *Simulation, _ *vehicle) debrisCall { call := free(s); call.lane = -1; return call }, nil},
@@ -433,7 +433,7 @@ func TestDebrisPreconditionOrder(t *testing.T) {
 		s.pass = new(dispatchPass)
 	}
 	serial := s.incidentSerial
-	s.faultsOn, s.incidentSerial, s.pass.active = false, math.MaxUint64, true
+	s.faultsOn, s.incidentSerial, s.pass.active = false, MaxCounter, true
 	call := debrisCall{lane: -1, duration: -1}
 	for _, step := range []struct {
 		want error

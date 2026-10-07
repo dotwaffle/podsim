@@ -141,7 +141,7 @@ func TestExpressMarkersAndAtomicAssembly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	e := StreamEnvelope{OrderContract: sim.ExpressOrderContract, Kind: "full", Stream: "test", Sequence: math.MaxUint64, Source: sourceOf(frame), Full: &frame}
+	e := StreamEnvelope{OrderContract: sim.ExpressOrderContract, Kind: "full", Stream: "test", Sequence: sim.MaxCounter, Source: sourceOf(frame), Full: &frame}
 	raw, err := EncodeStreamJSON(e)
 	if err != nil {
 		t.Fatal(err)
@@ -206,13 +206,13 @@ func TestExpressPublicNumericRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	request := sim.Request{ID: 9007199254740993, From: "harbor", To: "market", PartySize: 20, SharingConsent: sim.SharedConsent, Service: sim.ExpressServiceChoice, ServiceID: "harbor-market", RequestedTick: 9007199254740995, DispatchReason: strings.Repeat("\x01", 1000) + "é中\"\\"}
+	request := sim.Request{ID: sim.MaxCounter, From: "harbor", To: "market", PartySize: 20, SharingConsent: sim.SharedConsent, Service: sim.ExpressServiceChoice, ServiceID: "harbor-market", RequestedTick: sim.MaxCounter - 2, DispatchReason: strings.Repeat("\x01", 1000) + "é中\"\\"}
 	frame.State.Simulation.Pending = []sim.Request{request}
-	frame.State.Simulation.Tick = 9007199254740997
+	frame.State.Simulation.Tick = sim.MaxCounter
 	frame.State.Simulation.PassengerDistanceMeters = 0.0000010000000000000002
 	frame.State.Simulation.EmptyDistanceMeters = math.MaxFloat64
 	frame.State.Simulation.DirectDistanceMeters = math.SmallestNonzeroFloat64
-	e := StreamEnvelope{OrderContract: sim.ExpressOrderContract, Kind: "full", Stream: "numeric", Sequence: math.MaxUint64, Source: sourceOf(frame), Build: frame.State.Build, Full: &frame}
+	e := StreamEnvelope{OrderContract: sim.ExpressOrderContract, Kind: "full", Stream: "numeric", Sequence: sim.MaxCounter, Source: sourceOf(frame), Build: frame.State.Build, Full: &frame}
 	raw, err := EncodeStreamJSON(e)
 	if err != nil {
 		t.Fatal(err)

@@ -5,7 +5,6 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
-	"math"
 	"path/filepath"
 	"reflect"
 	"slices"
@@ -209,7 +208,7 @@ func TestEmergencyRefusals(t *testing.T) {
 			func(*Simulation, *vehicle) target { return target{"01", 1} }},
 		{"incident limit", errIncidentLimit,
 			func(_ *testing.T, s *Simulation, _ *vehicle) target {
-				s.incidentSerial = math.MaxUint64
+				s.incidentSerial = MaxCounter
 				return target{"01", 0}
 			},
 			func(s *Simulation, _ *vehicle) target { s.incidentSerial--; return target{"01", 0} }},
@@ -244,7 +243,7 @@ func TestEmergencyPreconditionOrder(t *testing.T) {
 	for serial := range uint64(MaxEmergencies) {
 		s.emergencies = append(s.emergencies, emergencyRecord{serial: serial + 1, pod: 1})
 	}
-	s.incidentSerial = math.MaxUint64
+	s.incidentSerial = MaxCounter
 	steps := []struct {
 		pod   string
 		order int
@@ -733,12 +732,12 @@ func TestEmergencyCloneAndReset(t *testing.T) {
 }
 
 // TestEmergencyCountersSaturate checks that each counter stops at
-// math.MaxInt64, and that a start and an end complete with a counter at
+// MaxCounter, and that a start and an end complete with a counter at
 // the maximum.
 func TestEmergencyCountersSaturate(t *testing.T) {
 	t.Parallel()
 	s, v := emergencyFleet(t)
-	maximum := int64(math.MaxInt64)
+	maximum := int64(MaxCounter)
 	s.emergencyCounters = emergencyCounters{started: maximum, ended: maximum, emergencyTicks: maximum - 1}
 	startEmergency(t, s, v, 0)
 	stepUntil(t, s, "the end of the emergency", func() bool { return len(s.emergencies) == 0 })
