@@ -132,8 +132,6 @@ func proposeScalarEdit(draft any, command editCommand, value any) (projectChange
 		change.sharingLimit(draft, command.Field, value)
 	case "sharedRideMode", "sharedRideJoin":
 		err = change.sharingPolicy(draft, command.Field, value)
-	case "stationQueueSpacing":
-		err = change.stationQueueSpacing(draft, value)
 	case "platoonLimit":
 		change.platoonLimit(draft, command.Field, value)
 	default:
@@ -240,15 +238,6 @@ func (c *projectChange) sharingPolicy(draft any, field string, value any) error 
 		setting = fallback
 	}
 	c.set(draft, field, setting)
-	return nil
-}
-
-func (c *projectChange) stationQueueSpacing(draft, value any) error {
-	setting, ok := value.(string)
-	if !ok || !project.ValidStationQueueSpacing(sim.StationQueueSpacing(setting)) {
-		return errors.New("station queue spacing must be ordinary or compact-v1")
-	}
-	c.set(draft, "stationQueueSpacing", setting)
 	return nil
 }
 

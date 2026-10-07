@@ -106,9 +106,6 @@ func (scan *projectFieldScan) topMember(name string) error {
 	case "onboardPickups":
 		scan.fields.service = true
 		return scanOnboardPickups(decoder)
-	case "stationQueueSpacing":
-		scan.fields.service = true
-		return scanStationQueueSpacing(decoder)
 	case "expressServices":
 		scan.fields.service = true
 		if decoder.PeekKind() != jsontext.KindBeginArray {
@@ -161,17 +158,6 @@ func scanOnboardPickups(decoder *jsontext.Decoder) error {
 	}
 	if value.Kind() != jsontext.KindTrue && value.Kind() != jsontext.KindFalse {
 		return errors.New("onboard pickups must be Boolean")
-	}
-	return nil
-}
-
-func scanStationQueueSpacing(decoder *jsontext.Decoder) error {
-	value, err := decoder.ReadToken()
-	if err != nil {
-		return err
-	}
-	if value.Kind() != jsontext.KindString || !ValidStationQueueSpacing(sim.StationQueueSpacing(value.String())) {
-		return errors.New("station queue spacing must be ordinary or compact-v1")
 	}
 	return nil
 }

@@ -334,12 +334,12 @@
       "valid": false
     },
     {
-      "name": "queue spacing with Express only",
+      "name": "removed queue spacing member",
       "base": "express",
       "find": "\"version\":1",
       "replace": "\"version\":1,\"stationQueueSpacing\":\"ordinary\"",
       "duplicate": false,
-      "valid": true
+      "valid": false
     }
   ]
 }

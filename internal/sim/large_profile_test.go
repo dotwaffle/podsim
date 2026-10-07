@@ -143,11 +143,6 @@ func TestLargeProfileOraclePairBounds(t *testing.T) {
 		{[2]VehicleClass{GroupClass, GroupClass}, 20, true},
 	} {
 		o := SafetyObservation{Pods: []Pod{{ID: "a", Class: tc.classes[0]}, {ID: "b", Class: tc.classes[1], Position: Point{X: tc.gap}}}}
-		// A private compact exception cannot reduce a large-pair bound.
-		o.compactPairs = map[[2]string]compactSafetyPair{{"a", "b"}: {first: o.Pods[0], second: o.Pods[1], minimum: 6}}
-		if tc.classes[0] == LegacyClass {
-			o.compactPairs = nil
-		}
 		_, err := o.checkSeparation()
 		if (err == nil) != tc.valid {
 			t.Fatalf("class pair %v at %g: %v", tc.classes, tc.gap, err)

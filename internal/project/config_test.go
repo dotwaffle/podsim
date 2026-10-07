@@ -821,7 +821,6 @@ func TestValidateCheckOrder(t *testing.T) {
 		"validateSharedRideSettings",
 		"validateOnboardPickups",
 		"validatePlatoonLimit",
-		"validateStationQueueSpacing",
 		"validateGeoAndMap",
 		"validateNames",
 		"validateNetworkShape",

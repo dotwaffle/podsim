@@ -669,9 +669,6 @@ func TestLaneEvacuationRestore(t *testing.T) {
 		}
 		state := s.ExportState()
 		input := RestoreStateInput{Network: s.network, Fleet: s.initial, State: state, IncidentContract: IncidentV1Contract}
-		if lane == "" {
-			input.StationQueueSpacing = s.StationQueueSpacing()
-		}
 		restored, result, err := RestoreState(input)
 		if err != nil || !cleanRestore(result) || !reflect.DeepEqual(restored.ExportState(), state) {
 			t.Fatalf("%q: physical restore %v, %+v", lane, err, result)

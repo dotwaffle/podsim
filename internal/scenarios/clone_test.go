@@ -124,7 +124,6 @@ func TestLondonCloneContinuesExactly(t *testing.T) {
 			if !reflect.DeepEqual(got.snapshot, want[second].snapshot) {
 				t.Fatalf("the clone snapshot differs at tick %d", want[second].snapshot.Tick)
 			}
-			//nolint:govet // Compare complete observations, including retained controller state.
 			if !reflect.DeepEqual(got.safety, want[second].safety) {
 				t.Fatalf("the clone safety observation differs at tick %d", want[second].snapshot.Tick)
 			}

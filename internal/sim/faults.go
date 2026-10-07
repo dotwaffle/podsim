@@ -382,14 +382,12 @@ func (s *Simulation) faultTicksFit(duration int64) bool {
 
 // podFaultTarget reports whether a pod fault on v is supported. The pod
 // travels, or it is at a berth in a berth activity. A platoon leader or
-// follower and a compact queue member are not supported.
+// follower is not supported.
 func (s *Simulation) podFaultTarget(v *vehicle) bool {
 	switch {
 	case v.follower != 0:
 		return false
 	case v.link.leader != 0:
-		return false
-	case s.compactGroup(v) != nil:
 		return false
 	}
 	switch v.Pod.Activity {

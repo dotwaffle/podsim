@@ -1,7 +1,6 @@
 package sim
 
 import (
-	"slices"
 	"testing"
 )
 
@@ -110,59 +109,5 @@ func TestEmergencyPlatoonRefusal(t *testing.T) {
 				t.Fatalf("%s: tick %d: the pods link", end, s.tick)
 			}
 		}
-	}
-}
-
-// TestEmergencyCompactMember checks the compact rule of section 5.6 of the
-// incident emergency contract. A pod in a compact queue gets the hold at
-// the start and stays deferred while it is in the group. After it leaves
-// the group, it binds on its cadence and unloads.
-func TestEmergencyCompactMember(t *testing.T) {
-	t.Parallel()
-	s := departingBufferQueue(t)
-	s.emergenciesOn = true
-	if err := s.SetStationQueueSpacing(StationQueueCompactV1); err != nil {
-		t.Fatal(err)
-	}
-	for s.LinkedPods() != 4 {
-		compactTick(t, s)
-		if s.tick > 1000*TicksPerSecond {
-			t.Fatal("the compact queue did not form")
-		}
-	}
-	v := s.findVehicle("03")
-	if s.compactGroup(v) == nil || !v.carriesPassengers() {
-		t.Fatalf("pod 03 is not an occupied compact member: %+v", v.Pod)
-	}
-	checkEmergenciesEachTick(t, s)
-	party := v.Riders[0].ID
-	startEmergency(t, s, v, 0)
-	start := s.tick
-	for s.compactGroup(v) != nil {
-		if v.op.purpose != opService || v.withdrawn != emergencyHold {
-			t.Fatalf("tick %d: the compact member has the purpose %+v and the holds %#x", s.tick, v.op, v.withdrawn)
-		}
-		compactTick(t, s)
-		if s.tick > start+6000 {
-			t.Fatal("the pod did not leave the group")
-		}
-	}
-	for v.op.purpose == opService {
-		compactTick(t, s)
-		if s.tick > start+12000 {
-			t.Fatal("the pod did not bind")
-		}
-	}
-	if (s.tick-start)%60 != 0 || v.destination.ID != "market-1" {
-		t.Fatalf("the pod binds to %q at tick %d, %d ticks after the start", v.destination.ID, s.tick, s.tick-start)
-	}
-	for len(s.emergencies) != 0 {
-		compactTick(t, s)
-		if s.tick > start+20000 {
-			t.Fatal("the emergency did not end")
-		}
-	}
-	if !slices.Contains(s.undelivered, party) {
-		t.Fatalf("interrupted %v, want the party %d", s.undelivered, party)
 	}
 }

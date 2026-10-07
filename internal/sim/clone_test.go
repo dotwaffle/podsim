@@ -38,7 +38,6 @@ var cloneRules = map[reflect.Type]map[string]cloneRule{
 		"requestBoardings": cloneCopy, "requestCompletions": cloneCopy, "stepCompletions": cloneCopy, "nodePasses": cloneCopy, "monitor": cloneShare,
 		"pass": cloneDrop, "platoonData": cloneShare, "platoonOrder": cloneDrop, "platoonAhead": cloneDrop,
 		"platoonLanes": cloneDrop, "pickupSwaps": cloneCopy,
-		"compactGroups": cloneCopy, "compactNextGroups": cloneCopy, "compactMotions": cloneCopy, "compactFault": cloneShare,
 	},
 	reflect.TypeFor[vehicle](): {
 		"Vehicle": cloneCopy, "blocks": cloneShare, "blockStarts": cloneShare, "routeReleases": cloneCopy,
@@ -49,8 +48,6 @@ var cloneRules = map[reflect.Type]map[string]cloneRule{
 	reflect.TypeFor[routeResult]():          {"lanes": cloneShare, "err": cloneShare},
 	reflect.TypeFor[podQueueHistory]():      {"lanes": cloneCopy},
 	reflect.TypeFor[pickupSwapController](): {"cooldown": cloneCopy, "records": cloneCopy},
-	reflect.TypeFor[compactBufferGroup]():   {"members": cloneCopy, "recovery": cloneCopy},
-	reflect.TypeFor[compactQueueRecovery](): {"targets": cloneCopy, "landingSpeeds": cloneCopy},
 	reflect.TypeFor[motionRecorder]():       {"frame": cloneCopy, "pending": cloneCopy},
 	reflect.TypeFor[MotionFrame]():          {"Samples": cloneCopy},
 }
@@ -117,7 +114,7 @@ type fieldRuleCheck struct {
 // The rule tables name their fields as fields of Simulation.
 var fieldGroups = []reflect.Type{
 	reflect.TypeFor[metricCounters](), reflect.TypeFor[predictiveState](),
-	reflect.TypeFor[compactBufferState](), reflect.TypeFor[experimentRecords](), reflect.TypeFor[platooningState](),
+	reflect.TypeFor[experimentRecords](), reflect.TypeFor[platooningState](),
 }
 
 // ruledFields returns the fields of t. It returns the fields of each field
@@ -247,8 +244,6 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"platooning": persistSession, "platoonLimit": persistSession, "platoonLinks": persistDerive,
 		"platoonData": persistDerive, "platoonOrder": persistReset, "platoonAhead": persistReset,
 		"platoonLanes": persistReset, "stationBuffers": persistUnsupported, "pickupSwaps": persistUnsupported,
-		"stationQueueSpacing": persistSession, "compactGroups": persistSave,
-		"compactMotions": persistReset, "compactNextGroups": persistReset, "compactFault": persistReset,
 	},
 	reflect.TypeFor[vehicle](): {
 		"Vehicle": persistSave, "phaseTicks": persistSave, "blocks": persistDerive, "blockStarts": persistDerive,
@@ -506,9 +501,6 @@ func TestCloneFollowsRules(t *testing.T) {
 			// journey ends in the first 35 seconds, and no test monitor
 			// runs. Presentation exists only in remote snapshots.
 			uncovered: []string{"routeResult.err", "Simulation.requestCompletions", "Simulation.monitor", "Vehicle.Presentation",
-				// Real compact clone storage is covered by TestStationCompactCloneStorage.
-				"Simulation.compactGroups", "Simulation.compactNextGroups", "Simulation.compactMotions", "Simulation.compactFault",
-				"compactBufferGroup.members", "compactBufferGroup.recovery", "compactQueueRecovery.targets", "compactQueueRecovery.landingSpeeds",
 				// The routing view is nil outside a query.
 				"Simulation.routeView",
 				// Recorder ownership is covered by TestMotionLifecycle.

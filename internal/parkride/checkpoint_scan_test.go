@@ -35,7 +35,6 @@ func TestCheckpointPreallocationBounds(t *testing.T) {
 		{"native stops", "payload/native/pods/0/stops", "array exceeds bound", 9, "harbor"},
 		{"native stop object", "payload/native/pods/0/stops", "element type", 1, map[string]any{}},
 		{"native route object", "payload/native/pods/0/route", "element type", 1, map[string]any{}},
-		{"native compact null", "payload/native/pods/0/compactQueue/stopCells", "element type", 1, nil},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -117,11 +116,6 @@ func TestCheckpointCombinedPreallocationBounds(t *testing.T) {
 		{"combined rail events", "combined event bound", func(f *checkpointFile) {
 			f.Payload.Origin.Project.RailArrivals = make([]project.RailArrival, 128)
 			f.Payload.Origin.Project.RailDepartures = make([]project.RailDeparture, 129)
-		}},
-		{"disjoint compact members", "disjoint fleet bound", func(f *checkpointFile) {
-			q := &sim.SavedCompactQueue{Kind: "compact-buffer-v1", Phase: "compact", Lane: "x", Members: []string{"a"}, StopCells: []int{0}, Speeds: []float64{0}, Targets: []float64{0}, LandingSpeeds: []float64{0}}
-			f.Payload.Native.Pods[0].CompactQueue = q
-			f.Payload.Native.Pods[1].CompactQueue = q
 		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

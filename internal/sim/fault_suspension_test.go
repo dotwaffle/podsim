@@ -710,8 +710,7 @@ func TestFaultReusesRecoveryHold(t *testing.T) {
 // TestFaultLinkGates checks the gates that keep a faulted pod out of each
 // group, each with a control that forms the group without the fault.
 // Platoon links refuse a faulted leader or follower and a run with a
-// blocked lane. A faulted pod does not enter a compact queue and makes no
-// buffer head grant.
+// blocked lane. A faulted pod makes no buffer head grant.
 func TestFaultLinkGates(t *testing.T) {
 	t.Parallel()
 	t.Run("platoon link", func(t *testing.T) {
@@ -744,22 +743,6 @@ func TestFaultLinkGates(t *testing.T) {
 			if test.name == "faulted follower" && s.canLink(follower) {
 				t.Fatal("a faulted pod can link")
 			}
-		}
-	})
-	t.Run("compact entry", func(t *testing.T) {
-		t.Parallel()
-		s := occupiedBufferQueue(t, PlatooningVirtual)
-		if err := s.SetStationQueueSpacing(StationQueueCompactV1); err != nil {
-			t.Fatal(err)
-		}
-		s.admit()
-		head := &s.vehicles[0]
-		if _, _, ok := s.compactEntry(head); !ok {
-			t.Fatal("control: the head does not enter")
-		}
-		head.faulted = true
-		if _, _, ok := s.compactEntry(head); ok {
-			t.Fatal("a faulted head enters a compact queue")
 		}
 	})
 	t.Run("buffer head", func(t *testing.T) {

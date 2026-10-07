@@ -68,7 +68,6 @@ const (
 type platoonLink struct {
 	// buffer fixes the stopping frontier to terminalCell on one entry lane.
 	buffer       bool
-	compact      bool
 	terminalCell int
 	first        int
 	// leader is one plus the index in Simulation.vehicles of the
@@ -195,9 +194,6 @@ func (s *Simulation) SetPlatoonLimit(limit int) error {
 	if limit < MinPlatoonLimit || limit > MaxPlatoonLimit {
 		return fmt.Errorf("platoon limit must be between %d and %d", MinPlatoonLimit, MaxPlatoonLimit)
 	}
-	if err := s.prepareCompactLimit(limit); err != nil {
-		return err
-	}
 	s.platoonLimit = limit
 	return nil
 }
@@ -308,9 +304,6 @@ func (s *Simulation) returnsToShared(v *vehicle, from, through int) bool {
 // run of a link of v, as the follower or as the predecessor. A new route
 // from that lane would not follow the run.
 func (s *Simulation) inLinkRun(v *vehicle, index int) bool {
-	if s.compactGroup(v) != nil {
-		return true
-	}
 	if v.link.leader != 0 && index < v.link.lane+v.link.lanes {
 		return true
 	}
@@ -345,7 +338,6 @@ func (s *Simulation) holdsPending(v *vehicle) bool {
 // predecessor links to the pod ahead on its lane when tryLink accepts
 // the pair.
 func (s *Simulation) formPlatoons() {
-	s.formCompactQueues()
 	if s.platooning == PlatooningOff && s.platoonLinks == 0 {
 		return
 	}
@@ -420,9 +412,6 @@ func (s *Simulation) lanePredecessors() []int {
 // hand their resources to it as they pass them.
 func (s *Simulation) maintainLink(i, ahead int) {
 	v := &s.vehicles[i]
-	if v.link.compact {
-		return
-	}
 	leader := &s.vehicles[v.link.leader-1]
 	if v.link.buffer && !s.stationBuffers {
 		v.link.draining = true
@@ -531,9 +520,6 @@ func (s *Simulation) tryLink(i, ahead int) {
 		return
 	}
 	if largeVehicleClass(v.Pod.Class) || largeVehicleClass(leader.Pod.Class) {
-		return
-	}
-	if s.compactGroup(v) != nil || s.compactGroup(leader) != nil || s.compactEnabled() && v.buffered {
 		return
 	}
 	if !s.canLink(v) || leader.follower != 0 || s.platoonSize(v, leader) > s.platoonLimit {
@@ -701,7 +687,7 @@ func (s *Simulation) platoonCaps() {
 	}
 	for i := range s.vehicles {
 		v := &s.vehicles[i]
-		if v.link.leader == 0 || v.link.compact {
+		if v.link.leader == 0 {
 			continue
 		}
 		leader := &s.vehicles[v.link.leader-1]

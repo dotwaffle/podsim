@@ -223,10 +223,6 @@ func (r *Run) StepContext(ctx context.Context) error {
 	}
 	before := r.pods.Tick()
 	r.pods.Step()
-	if err := r.pods.CompactQueueError(); err != nil {
-		r.fault = err.Error()
-		return err
-	}
 	if r.pods.Tick() != before+1 {
 		r.fault = "native simulation did not advance one tick"
 		return errors.New(r.fault)

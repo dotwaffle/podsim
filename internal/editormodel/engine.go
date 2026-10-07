@@ -260,7 +260,7 @@ func copyDecodedBranch(config *project.Config, key string, branch projectBranch)
 }
 
 // serviceMetadataKeys are the branches that can hold service metadata.
-var serviceMetadataKeys = []string{"orderContract", "network", "fleet", "expressServices", "stationQueueSpacing", "onboardPickups"}
+var serviceMetadataKeys = []string{"orderContract", "network", "fleet", "expressServices", "onboardPickups"}
 
 // featureKeys are the incident, fault, and emergency branches. Branch
 // decoding accepts an empty or null incident, fault, or emergency marker, a
@@ -269,7 +269,7 @@ var featureKeys = []string{"incidentContract", "faultContract", "faults", "emerg
 
 // metadataKeys are the branches that checkMetadataBranches decodes
 // together.
-var metadataKeys = []string{"version", "orderContract", "network", "fleet", "expressServices", "stationQueueSpacing", "onboardPickups", "incidentContract", "faultContract", "faults", "emergencyContract", "emergencies"}
+var metadataKeys = []string{"version", "orderContract", "network", "fleet", "expressServices", "onboardPickups", "incidentContract", "faultContract", "faults", "emergencyContract", "emergencies"}
 
 // metadataCheckNeeded reports whether the metadata branches need the native
 // project decoder. This is so for banks, a version other than the current
@@ -318,7 +318,7 @@ func (e *engine) invalidateCaches(next map[string]projectBranch) {
 }
 
 // serviceCheckKeys are the branches that the cached service and contract checks read.
-var serviceCheckKeys = []string{"version", "orderContract", "fleet", "expressServices", "stationQueueSpacing", "onboardPickups", "sharedRidePartyLimit", "sharedRideMode"}
+var serviceCheckKeys = []string{"version", "orderContract", "fleet", "expressServices", "onboardPickups", "sharedRidePartyLimit", "sharedRideMode"}
 
 func copyBranch(dst *project.Config, key string, src project.Config) bool {
 	switch key {
@@ -364,8 +364,6 @@ func copyBranch(dst *project.Config, key string, src project.Config) bool {
 		dst.OnboardPickups = src.OnboardPickups
 	case "stationBuffers":
 		dst.StationBuffers = src.StationBuffers
-	case "stationQueueSpacing":
-		dst.StationQueueSpacing = src.StationQueueSpacing
 	case "pickupReassignment":
 		dst.PickupReassignment = src.PickupReassignment
 	case "platoonLimit":

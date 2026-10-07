@@ -30,11 +30,6 @@ func (o SafetyObservation) checkSeparationReference() (float64, error) {
 			dy := first.Position.Y - second.Position.Y
 			gapSquared := dx*dx + dy*dy
 			smallestSquared = min(smallestSquared, gapSquared)
-			if certified, ok := o.compactPairs[[2]string{first.ID, second.ID}]; minimum == Clearance && ok && certified.first == first && certified.second == second {
-				minimum = certified.minimum
-			} else if certified, ok := o.compactPairs[[2]string{second.ID, first.ID}]; minimum == Clearance && ok && certified.first == second && certified.second == first {
-				minimum = certified.minimum
-			}
 			if gapSquared < (minimum-separationTolerance)*(minimum-separationTolerance) {
 				return 0, &SeparationError{Tick: o.Tick, First: first.ID, Second: second.ID, Gap: math.Sqrt(gapSquared)}
 			}
@@ -45,9 +40,6 @@ func (o SafetyObservation) checkSeparationReference() (float64, error) {
 
 // checkReference is Check with checkSeparationReference.
 func (o SafetyObservation) checkReference() (float64, error) {
-	if o.compactError != nil {
-		return 0, o.compactError
-	}
 	for _, pod := range o.Pods {
 		if !finite(pod.Position.X) || !finite(pod.Position.Y) || !finite(pod.Speed) || pod.Speed < 0 {
 			return 0, fmt.Errorf("invalid pod at tick %d: %+v", o.Tick, pod)
@@ -82,7 +74,7 @@ func TestCheckSeparationMatchesReference(t *testing.T) {
 	t.Parallel()
 	skipLong(t)
 	r := rand.New(rand.NewPCG(19, 1041))
-	var violations, gaps, infinite, compact int
+	var violations, gaps, infinite int
 	for iteration := range 20000 {
 		o := randomSeparationObservation(r)
 		gap, err := o.checkSeparation()
@@ -98,19 +90,11 @@ func TestCheckSeparationMatchesReference(t *testing.T) {
 		default:
 			gaps++
 		}
-		index := o.separationIndex()
-		for _, links := range index.links {
-			for _, link := range links {
-				if link.compact {
-					compact++
-				}
-			}
-		}
 	}
-	t.Logf("%d violations, %d finite gaps, %d infinite gaps, %d compact pairs", violations, gaps, infinite, compact)
+	t.Logf("%d violations, %d finite gaps, %d infinite gaps", violations, gaps, infinite)
 	// The generator must reach each kind of result.
-	if violations == 0 || gaps == 0 || infinite == 0 || compact == 0 {
-		t.Fatalf("weak coverage: %d violations, %d finite gaps, %d infinite gaps, %d compact pairs", violations, gaps, infinite, compact)
+	if violations == 0 || gaps == 0 || infinite == 0 {
+		t.Fatalf("weak coverage: %d violations, %d finite gaps, %d infinite gaps", violations, gaps, infinite)
 	}
 }
 
@@ -127,7 +111,7 @@ func sameSeparationError(got, want error) bool {
 
 // randomSeparationObservation makes an observation with dense, tied and
 // boundary positions, mixed classes and planes, duplicate IDs, and
-// compact and envelope entries that match their pods or do not.
+// envelope entries that match their pods or do not.
 func randomSeparationObservation(r *rand.Rand) SafetyObservation {
 	classes := []VehicleClass{"", LegacyClass, CompactClass, GroupClass, ExpressClass}
 	groups := []string{"", "g1", "g2", "g3"}
@@ -175,19 +159,6 @@ func randomSeparationObservation(r *rand.Rand) SafetyObservation {
 	if n < 2 {
 		return o
 	}
-	// pick returns two pods, sometimes changed so that their values do not
-	// match the observation.
-	pick := func() (Pod, Pod) {
-		a, b := r.IntN(n), r.IntN(n)
-		first, second := o.Pods[a], o.Pods[b]
-		switch r.IntN(6) {
-		case 0:
-			first.Speed++
-		case 1:
-			second, first = first, second
-		}
-		return first, second
-	}
 	if r.IntN(2) == 0 {
 		o.envelopes = make(map[string]safetyEnvelope)
 		for _, pod := range o.Pods {
@@ -202,22 +173,6 @@ func randomSeparationObservation(r *rand.Rand) SafetyObservation {
 				locations = append(locations, location())
 			}
 			o.envelopes[pod.ID] = safetyEnvelope{pod: pod, locations: locations}
-		}
-	}
-	if r.IntN(2) == 0 {
-		minimums := []float64{2, 5.5, Clearance, 15, largeClearance + 5, -3, math.NaN(), math.Inf(1)}
-		o.compactPairs = make(map[[2]string]compactSafetyPair)
-		for range 1 + r.IntN(6) {
-			first, second := pick()
-			key := [2]string{first.ID, second.ID}
-			if r.IntN(8) == 0 {
-				key[0], key[1] = key[1], key[0]
-			}
-			minimum := r.Float64() * Clearance
-			if r.IntN(4) == 0 {
-				minimum = minimums[r.IntN(len(minimums))]
-			}
-			o.compactPairs[key] = compactSafetyPair{first: first, second: second, minimum: minimum}
 		}
 	}
 	return o
@@ -259,16 +214,13 @@ func separationBoundaryCases() []separationBoundaryCase {
 	}
 	// Distances just below, at and just above each squared threshold. The
 	// threshold compares squares, so step the distance around its root.
-	const compactMinimum = 5.5
 	thresholds := []struct {
 		name    string
 		class   VehicleClass
 		minimum float64
-		compact bool
 	}{
 		{name: "clearance", class: CompactClass, minimum: Clearance},
 		{name: "large", class: GroupClass, minimum: largeClearance},
-		{name: "compact", class: CompactClass, minimum: compactMinimum, compact: true},
 	}
 	for _, threshold := range thresholds {
 		root := math.Sqrt(separationThresholdSquared(threshold.minimum))
@@ -281,9 +233,6 @@ func separationBoundaryCases() []separationBoundaryCase {
 			for _, sign := range []float64{1, -1} {
 				pods := pair(threshold.class, sign*distance)
 				o := SafetyObservation{Tick: 1, Pods: pods}
-				if threshold.compact {
-					o.compactPairs = map[[2]string]compactSafetyPair{{"a", "b"}: {first: pods[0], second: pods[1], minimum: compactMinimum}}
-				}
 				add(fmt.Sprintf("%s distance %d sign %v", threshold.name, k, sign), o)
 			}
 		}
@@ -310,13 +259,12 @@ func separationBoundaryCases() []separationBoundaryCase {
 		{ID: "a", Position: Point{X: zero}},
 		{ID: "b", Position: Point{X: 0, Y: largeClearance}},
 	}})
-	// Certificates that name absent pods.
+	// An envelope that names an absent pod.
 	ghosts := pair(CompactClass, 3)
 	ghost := Pod{ID: "ghost", Class: CompactClass, Position: Point{X: 3}}
-	add("certificates of absent pods", SafetyObservation{
-		Pods:         ghosts,
-		compactPairs: map[[2]string]compactSafetyPair{{"ghost", "a"}: {first: ghost, second: ghosts[0], minimum: 1}, {"b", "ghost"}: {first: ghosts[1], second: ghost, minimum: 1}},
-		envelopes:    map[string]safetyEnvelope{"ghost": {pod: ghost, locations: []SafetyLocation{{SeparationGroup: "g1"}}}},
+	add("envelope of an absent pod", SafetyObservation{
+		Pods:      ghosts,
+		envelopes: map[string]safetyEnvelope{"ghost": {pod: ghost, locations: []SafetyLocation{{SeparationGroup: "g1"}}}},
 	})
 	return cases
 }

@@ -87,12 +87,12 @@ func (v *vehicle) marksActiveRiders(interrupt uint32) bool {
 	return true
 }
 
-// operationalMember returns an error when v is a compact or platoon
-// member. The operations of section 9 refuse such a pod. Its
-// caller waits until the pod leaves the group.
+// operationalMember returns an error when v is a platoon member. The
+// operations of section 9 refuse such a pod. Its caller waits until the
+// pod leaves the group.
 func (s *Simulation) operationalMember(v *vehicle) error {
-	if v.linked() || s.compactGroup(v) != nil {
-		return fmt.Errorf("pod %s is a member of a compact queue or a platoon", v.Pod.ID)
+	if v.linked() {
+		return fmt.Errorf("pod %s is a member of a platoon", v.Pod.ID)
 	}
 	return nil
 }
@@ -316,7 +316,7 @@ func (s *Simulation) finishOperationalUnload(v *vehicle) {
 // station as an empty recovery that the fault hold owns.
 //
 // It refuses, and changes nothing, when the pod has no fault hold, moves,
-// is a compact or platoon member, or is not at a berth or on a lane with
+// is a platoon member, or is not at a berth or on a lane with
 // passengers.
 func (s *Simulation) evacuate(v *vehicle) error {
 	if v.withdrawn&faultHold == 0 {

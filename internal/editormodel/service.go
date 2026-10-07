@@ -10,7 +10,7 @@ import (
 
 // Metadata presence includes null, as native project decoding counts it.
 func hasServiceMetadata(draft any) bool {
-	if has(draft, "orderContract") || has(draft, "expressServices") || has(draft, "stationQueueSpacing") || has(draft, "onboardPickups") {
+	if has(draft, "orderContract") || has(draft, "expressServices") || has(draft, "onboardPickups") {
 		return true
 	}
 	for _, pod := range items(member(draft, "fleet")) {

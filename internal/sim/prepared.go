@@ -226,13 +226,11 @@ type PreparedRestoreInput struct {
 	OrderContract    OrderContract
 	IncidentContract IncidentContract
 	// OnboardPickups enables new occupied pickups after restoration.
-	OnboardPickups      bool
-	ExpressServices     []ExpressService
-	Fleet               []Placement
-	State               SavedState
-	LogicalOnly         bool
-	StationQueueSpacing StationQueueSpacing
-	PlatoonLimit        int
+	OnboardPickups  bool
+	ExpressServices []ExpressService
+	Fleet           []Placement
+	State           SavedState
+	LogicalOnly     bool
 }
 
 // RestoreState rebuilds a simulation with this network's immutable geometry.
@@ -246,7 +244,6 @@ func (p *PreparedNetwork) RestoreState(input PreparedRestoreInput) (*Simulation,
 		OrderContract: input.OrderContract, IncidentContract: input.IncidentContract,
 		OnboardPickups: input.OnboardPickups, ExpressServices: input.ExpressServices,
 		Network: p.network, Fleet: input.Fleet, State: input.State, LogicalOnly: input.LogicalOnly,
-		StationQueueSpacing: input.StationQueueSpacing, PlatoonLimit: input.PlatoonLimit,
 	}
 	return restoreState(stateInput, func() (*Simulation, error) {
 		return p.NewFleetWithContracts(input.Fleet, stateInput.fleetContracts())

@@ -434,9 +434,6 @@ func decodeStateJSON(raw []byte, markers contractMarkers) (stateFile, error) {
 	if err := scanPackedOrders(raw); err != nil {
 		return stateFile{}, err
 	}
-	if err := scanStateCompactFields(raw); err != nil {
-		return stateFile{}, err
-	}
 	if err := scanStateOrderFields(raw); err != nil {
 		return stateFile{}, err
 	}
@@ -451,7 +448,7 @@ func decodeStateJSON(raw []byte, markers contractMarkers) (stateFile, error) {
 		return err
 	}
 	options := json.JoinOptions(strictStateOptions, json.WithUnmarshalers(json.JoinUnmarshalers(
-		json.UnmarshalFromFunc(decodeSavedProject), json.UnmarshalFromFunc(decodePlatoon), json.UnmarshalFromFunc(decodeCompactQueue),
+		json.UnmarshalFromFunc(decodeSavedProject), json.UnmarshalFromFunc(decodePlatoon),
 		json.UnmarshalFromFunc(decodePod), json.UnmarshalFromFunc(refs.decodeTrip), json.UnmarshalFromFunc(decodeSavedFault),
 		json.UnmarshalFromFunc(decodeSavedEmergency))))
 	var file stateFile
@@ -463,9 +460,6 @@ func decodeStateJSON(raw []byte, markers contractMarkers) (stateFile, error) {
 	}
 	if refs.present() {
 		file.incidentRefs = refs
-	}
-	if err := validateSavedCompactMembers(file.Simulation); err != nil {
-		return stateFile{}, err
 	}
 	if err := checkIncidentMembers(raw, file); err != nil {
 		return stateFile{}, err
@@ -515,29 +509,6 @@ func decodePlatoonFields(decoder *jsontext.Decoder) (sim.SavedPlatoonLink, jsont
 }
 
 func decodePlatoon(decoder *jsontext.Decoder, link *sim.SavedPlatoonLink) error {
-	value, err := decoder.ReadValue()
-	if err != nil {
-		return err
-	}
-	var fields map[string]jsontext.Value
-	if err := json.Unmarshal(value, &fields); err != nil {
-		return err
-	}
-	var kind string
-	if err := json.Unmarshal(fields["kind"], &kind); err != nil && fields["kind"] != nil {
-		return err
-	}
-	if kind == "compact-buffer-v1" {
-		for _, field := range fields {
-			if bytes.Equal(bytes.TrimSpace(field), []byte("null")) {
-				return errors.New("compact platoon link contains null")
-			}
-		}
-	}
-	return decodeFixedPlatoon(jsontext.NewDecoder(bytes.NewReader(value)), link)
-}
-
-func decodeFixedPlatoon(decoder *jsontext.Decoder, link *sim.SavedPlatoonLink) error {
 	saved, kind, terminal, err := decodePlatoonFields(decoder)
 	if err != nil {
 		return err
@@ -555,10 +526,7 @@ func decodeFixedPlatoon(decoder *jsontext.Decoder, link *sim.SavedPlatoonLink) e
 		if terminal != nil {
 			return errors.New("complete-lane platoon contains terminalCell")
 		}
-	case "buffer", "compact-buffer-v1":
-		if saved.Kind == "compact-buffer-v1" && (saved.Turn != 0 || saved.Draining) {
-			return errors.New("invalid compact platoon link")
-		}
+	case "buffer":
 		if terminal == nil || bytes.Equal(bytes.TrimSpace(terminal), []byte("null")) || saved.Lanes != 1 {
 			return errors.New("buffer platoon has no integer terminalCell or is not one lane")
 		}

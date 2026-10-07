@@ -88,7 +88,8 @@ func TestInterruptRider(t *testing.T) {
 }
 
 // TestInterruptRiderRefusals checks that the public entry refuses each
-// failed precondition and changes nothing.
+// failed precondition and changes nothing. A case with want pins the
+// error text.
 func TestInterruptRiderRefusals(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -96,6 +97,7 @@ func TestInterruptRiderRefusals(t *testing.T) {
 		pod    string
 		order  int
 		change func(*Simulation, *vehicle)
+		want   string
 	}{
 		{name: "unknown pod", pod: "09", order: 2},
 		{name: "unknown order", pod: "01", order: 9},
@@ -106,10 +108,8 @@ func TestInterruptRiderRefusals(t *testing.T) {
 		{name: "misaligned records", pod: "01", order: 2, change: func(_ *Simulation, v *vehicle) { v.Boardings = []RiderBoarding{{BerthID: "s0-1"}} }},
 		{name: "dispatch pass", pod: "01", order: 2, change: func(s *Simulation, _ *vehicle) { s.pass = &dispatchPass{active: true} }},
 		{name: "no incident marker", pod: "01", order: 2, change: func(s *Simulation, _ *vehicle) { s.incidentContract = "" }},
-		{name: "platoon member", pod: "01", order: 2, change: func(_ *Simulation, v *vehicle) { v.follower = 2 }},
-		{name: "Compact queue member", pod: "01", order: 2, change: func(s *Simulation, _ *vehicle) {
-			s.compactGroups = []*compactBufferGroup{{members: []int{s.vehicleIndexes["01"]}}}
-		}},
+		{name: "platoon member", pod: "01", order: 2, change: func(_ *Simulation, v *vehicle) { v.follower = 2 },
+			want: "pod 01: interruption of a platoon member"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -120,8 +120,12 @@ func TestInterruptRiderRefusals(t *testing.T) {
 				test.change(s, v)
 			}
 			before, riders := s.ExportState(), slices.Clone(v.Riders)
-			if err := s.InterruptRider(test.pod, test.order); err == nil {
+			err := s.InterruptRider(test.pod, test.order)
+			if err == nil {
 				t.Fatal("the interruption is accepted")
+			}
+			if test.want != "" && err.Error() != test.want {
+				t.Fatalf("error %q, want %q", err, test.want)
 			}
 			if !reflect.DeepEqual(s.ExportState(), before) || !reflect.DeepEqual(v.Riders, riders) ||
 				s.interrupted != 0 || s.interruptedPassengers != 0 || s.undelivered != nil {

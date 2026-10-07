@@ -87,7 +87,7 @@ func checkLargeMotionTick(t *testing.T, s *Simulation, before []Pod) float64 {
 			continue
 		}
 		if v.linked() {
-			t.Fatal("operating Group entered a virtual or compact link")
+			t.Fatal("operating Group entered a virtual link")
 		}
 		stop := v.blocks.end(v.reservedThrough)
 		if v.distance+pod.Speed*pod.Speed/4 > stop+1e-6 {

@@ -11,9 +11,6 @@ import (
 // frozenMove is the ordinary move caller before the motion kernel. It has
 // no fault branch.
 func (s *Simulation) frozenMove(v *vehicle) {
-	if s.moveCompact(v) {
-		return
-	}
 	limit := v.blocks.end(v.reservedThrough)
 	if v.link.leader != 0 && v.platoonCap < limit {
 		limit = v.platoonCap
@@ -65,14 +62,9 @@ func (s *Simulation) frozenMove(v *vehicle) {
 func (s *Simulation) frozenMoveAndMeasure(v *vehicle) {
 	sample := MotionSample{ID: v.Pod.ID, Class: v.Pod.Class, StartSpeed: v.Pod.Speed}
 	before := v.distance
-	beforeLocal := v.Pod.LaneDistance
-	compact := s.compactGroup(v) != nil
 	occupied := v.Pod.Occupied
 	s.frozenMove(v)
 	travel := v.distance - before
-	if compact {
-		travel = v.Pod.LaneDistance - beforeLocal
-	}
 	sample.DistanceMeters, sample.EndSpeed = travel, v.Pod.Speed
 	s.recordMotion(sample)
 	if occupied {

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"math"
 	"slices"
 
 	"github.com/dotwaffle/podsim/internal/project"
@@ -48,7 +49,7 @@ func (tuple *boardingTuple) UnmarshalJSONFrom(decoder *jsontext.Decoder) error {
 	if err := json.Unmarshal(numbers[1], &tuple.Meters); err != nil {
 		return err
 	}
-	if tuple.Index < 0 || !finiteCompactNumber(tuple.Meters) || tuple.Meters < 0 {
+	if tuple.Index < 0 || !finiteNumber(tuple.Meters) || tuple.Meters < 0 {
 		return errors.New("invalid saved boarding tuple numbers")
 	}
 	return nil
@@ -69,12 +70,12 @@ func savedPassengerMeters(pod sim.SavedPod) (float64, error) {
 	meters := pod.RiddenMeters
 	active := slices.ContainsFunc(pod.Riders, func(rider sim.SavedRequest) bool { return !rider.Completed })
 	if pod.Activity == "traveling" && active {
-		if !finiteCompactNumber(pod.Distance) || pod.Distance < 0 {
+		if !finiteNumber(pod.Distance) || pod.Distance < 0 {
 			return 0, errors.New("invalid saved passenger travel distance")
 		}
 		meters += pod.Distance
 	}
-	if !finiteCompactNumber(pod.RiddenMeters) || pod.RiddenMeters < 0 || !finiteCompactNumber(meters) {
+	if !finiteNumber(pod.RiddenMeters) || pod.RiddenMeters < 0 || !finiteNumber(meters) {
 		return 0, errors.New("invalid saved passenger cumulative distance")
 	}
 	return meters, nil
@@ -116,7 +117,7 @@ func (source boardingSource) encodePodContract(encoder *jsontext.Encoder, pod si
 	wire.Boardings = make([]boardingTuple, len(pod.Boardings))
 	wire.JourneyOrigin = ""
 	for index, record := range pod.Boardings {
-		if !finiteCompactNumber(record.MetersAtBoarding) || record.MetersAtBoarding < 0 || record.MetersAtBoarding > meters || !validBoardingConsent(pod.Riders[index]) {
+		if !finiteNumber(record.MetersAtBoarding) || record.MetersAtBoarding < 0 || record.MetersAtBoarding > meters || !validBoardingConsent(pod.Riders[index]) {
 			return errors.New("invalid native boarding baseline or consent")
 		}
 		berths := source[cmp.Or(pod.Riders[index].LegFrom, pod.Riders[index].From)]
@@ -168,7 +169,7 @@ func decodeBoardingPodContract(decoder *jsontext.Decoder, pod *sim.SavedPod, con
 	// The decode of value does not inherit the options of the state
 	// decoder, so it registers the packed rider decoder itself.
 	options := json.JoinOptions(json.RejectUnknownMembers(true), json.WithUnmarshalers(json.JoinUnmarshalers(
-		json.UnmarshalFromFunc(decodePlatoon), json.UnmarshalFromFunc(decodeCompactQueue), json.UnmarshalFromFunc(decodeRider))))
+		json.UnmarshalFromFunc(decodePlatoon), json.UnmarshalFromFunc(decodeRider))))
 	if err := json.Unmarshal(value, &wire, options); err != nil {
 		return savedPodRefs{}, err
 	}
@@ -220,7 +221,7 @@ func (file *stateFile) resolveBoardings() error {
 		records := make([]sim.RiderBoarding, len(tuples))
 		for index, tuple := range tuples {
 			berths := source[cmp.Or(pod.Riders[index].LegFrom, pod.Riders[index].From)]
-			if tuple.Index < 0 || tuple.Index >= len(berths) || !finiteCompactNumber(tuple.Meters) || tuple.Meters < 0 || tuple.Meters > meters || !validBoardingConsent(pod.Riders[index]) {
+			if tuple.Index < 0 || tuple.Index >= len(berths) || !finiteNumber(tuple.Meters) || tuple.Meters < 0 || tuple.Meters > meters || !validBoardingConsent(pod.Riders[index]) {
 				return errors.New("invalid saved source boarding reference or baseline")
 			}
 			records[index] = sim.RiderBoarding{BerthID: berths[tuple.Index].ID, MetersAtBoarding: tuple.Meters}
@@ -236,4 +237,9 @@ func boardingStateLimits(limits jsonLimits) jsonLimits {
 	limits.arrays["/simulation/pods/*/boardings"] = sim.MaxSharedRideParties
 	limits.arrays["/simulation/pods/*/boardings/*"] = 2
 	return limits
+}
+
+// finiteNumber reports whether value is neither NaN nor an infinity.
+func finiteNumber(value float64) bool {
+	return !math.IsNaN(value) && !math.IsInf(value, 0)
 }

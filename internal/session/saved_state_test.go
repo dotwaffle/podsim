@@ -248,18 +248,21 @@ func TestSavedInvalidMovedAside(t *testing.T) {
 }
 
 // TestSavedRemovedMembersMovedAside checks a version 9 file with a member
-// of the removed physical coupling feature. Before the first release a
-// removed member keeps the version, so the file is not of another version.
+// of a removed feature: physical coupling or compact station queues.
+// Before the first release a removed member keeps the version, so the
+// file is not of another version.
 // The strict decode refuses the member as unknown, and startup moves the
 // file aside as invalid_state and starts a new session.
 func TestSavedRemovedMembersMovedAside(t *testing.T) {
 	t.Parallel()
 	raw := decompressTestJSON(t, encodeTestState(t, newTestStateFile(t)))
 	for name, damaged := range map[string][]byte{
-		"couplingContract":            addMember(t, raw, "", "couplingContract", `"compact-pair-v1"`),
-		"simulation/couplingGroups":   addMember(t, raw, "simulation", "couplingGroups", `[]`),
-		"project/couplingContract":    addMember(t, raw, "project", "couplingContract", `"compact-pair-v1"`),
-		"simulation/couplingContract": addMember(t, raw, "simulation", "couplingContract", `"compact-pair-v1"`),
+		"couplingContract":             addMember(t, raw, "", "couplingContract", `"compact-pair-v1"`),
+		"simulation/couplingGroups":    addMember(t, raw, "simulation", "couplingGroups", `[]`),
+		"project/couplingContract":     addMember(t, raw, "project", "couplingContract", `"compact-pair-v1"`),
+		"simulation/couplingContract":  addMember(t, raw, "simulation", "couplingContract", `"compact-pair-v1"`),
+		"simulation/pods/compactQueue": insertAfter(t, raw, `"pods":[{`, `"compactQueue":{},`),
+		"project/stationQueueSpacing":  addMember(t, raw, "project", "stationQueueSpacing", `"ordinary"`),
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()

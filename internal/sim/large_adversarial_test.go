@@ -47,8 +47,8 @@ func largeAdversarialTick(t *testing.T, s *Simulation) {
 	checkIncrementalOwners(t, s)
 	for i := range s.vehicles {
 		v := &s.vehicles[i]
-		if largeVehicleClass(v.Pod.Class) && (v.link.leader != 0 || v.follower != 0 || s.compactGroup(v) != nil) {
-			t.Fatal("actual Group acquired a compact or ordinary link")
+		if largeVehicleClass(v.Pod.Class) && (v.link.leader != 0 || v.follower != 0) {
+			t.Fatal("actual Group acquired a link")
 		}
 		if v.Pod.Activity == Traveling && v.distance+stoppingDistance(v.Pod.Speed) > v.blocks.end(v.reservedThrough)+1e-8 {
 			t.Fatal("actual journey has an unowned stopping point")
@@ -274,77 +274,6 @@ func TestLargeAdversarialLivePlaneTransitions(t *testing.T) {
 	}
 	if !origin || !front || !rear || !arrival {
 		t.Fatalf("live plane phases absent origin=%v front=%v rear=%v arrival=%v", origin, front, rear, arrival)
-	}
-}
-
-func TestLargeAdversarialCompactQueueBesideGroup(t *testing.T) {
-	t.Parallel()
-	n := largeAdversarialNetwork(t, true)
-	for i := range n.Lanes {
-		if n.Lanes[i].StationID == "market" {
-			n.Lanes[i].SpeedLimit = 2.5
-		}
-		if n.Lanes[i].ID == "market-out" {
-			n.Lanes[i].VehicleClasses = largeGeometryClasses(t, "legacy", "compact")
-		}
-	}
-	fleet := []Placement{{ID: "one", Class: CompactClass, StationID: "harbor"}, {ID: "two", Class: LegacyClass, StationID: "garden"}, {ID: "three", Class: CompactClass, StationID: "parking", BerthID: "parking-1"}, {ID: "four", Class: LegacyClass, StationID: "parking", BerthID: "parking-2"}, {ID: "group", Class: GroupClass, StationID: "market"}}
-	s, err := NewFleet(n, fleet)
-	if err != nil {
-		t.Fatal(err)
-	}
-	s.SetStationBuffers(true)
-	if err := s.SetPlatooning(PlatooningVirtual); err != nil {
-		t.Fatal(err)
-	}
-	if err := s.SetStationQueueSpacing(StationQueueCompactV1); err != nil {
-		t.Fatal(err)
-	}
-	for _, p := range fleet[:4] {
-		if err := s.RequestJourney(p.ID, "market"); err != nil {
-			t.Fatal(err)
-		}
-	}
-	certified, stable := false, 0
-	for range 1000 * TicksPerSecond {
-		largeAdversarialTick(t, s)
-		o := s.SafetyObservation()
-		if len(o.compactPairs) > 0 {
-			certified = true
-		}
-		for _, group := range s.compactGroups {
-			for _, i := range group.members {
-				if largeVehicleClass(s.vehicles[i].Pod.Class) {
-					t.Fatal("compact queue included actual Group neighbor")
-				}
-			}
-		}
-		stopped := false
-		for _, group := range s.compactGroups {
-			if len(group.members) < 2 {
-				continue
-			}
-			stopped = true
-			for _, i := range group.members {
-				stopped = stopped && s.vehicles[i].Pod.Speed == 0
-			}
-		}
-		if stopped {
-			stable++
-		} else {
-			stable = 0
-		}
-		if stable >= TicksPerSecond {
-			break
-		}
-	}
-	if !certified || stable < TicksPerSecond || s.completed != 0 || s.findVehicle("group").Pod.BerthID != "market-1" {
-		t.Fatalf("actual compact/Group neighbor phase absent certified=%v stable=%d completed=%d state=%+v", certified, stable, s.completed, s.Snapshot())
-	}
-	head := s.compactGroups[0].members[0]
-	tail := s.compactGroups[0].members[len(s.compactGroups[0].members)-1]
-	if span := math.Abs(s.vehicles[head].Pod.LaneDistance - s.vehicles[tail].Pod.LaneDistance); span >= float64(len(s.compactGroups[0].members)-1)*12 {
-		t.Fatalf("queue never exercised compact small-pair envelope: span %g", span)
 	}
 }
 

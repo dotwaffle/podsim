@@ -230,19 +230,9 @@ func shapeNative(waiting int) sim.SavedState {
 			pod.Boardings = append(pod.Boardings, sim.RiderBoarding{BerthID: shapeID(0), MetersAtBoarding: wideFloat})
 			pod.Stops = append(pod.Stops, shapeID(1))
 		}
-		if i%4 == 0 {
-			q := &sim.SavedCompactQueue{Kind: "compact-buffer-v1", Phase: "recovering", Lane: shapeID(0), Start: wideFloat, Frontier: wideFloat}
-			for member := range 4 {
-				q.Members = append(q.Members, shapeID(i+member))
-				q.StopCells = append(q.StopCells, math.MaxInt)
-				q.Speeds, q.Targets, q.LandingSpeeds = append(q.Speeds, wideFloat), append(q.Targets, wideFloat), append(q.LandingSpeeds, wideFloat)
-			}
-			pod.CompactQueue = q
-		} else {
-			terminal := math.MaxInt
-			pod.Platoon = &sim.SavedPlatoonLink{Kind: "compact-buffer-v1", TerminalCell: &terminal, Leader: shapeID(i - 1), Lane: math.MaxInt,
-				LeaderLane: math.MaxInt, Lanes: math.MaxInt, Turn: wideFloat, Draining: true}
-		}
+		terminal := math.MaxInt
+		pod.Platoon = &sim.SavedPlatoonLink{Kind: "buffer", TerminalCell: &terminal, Leader: shapeID((i + project.MaxPods - 1) % project.MaxPods), Lane: math.MaxInt,
+			LeaderLane: math.MaxInt, Lanes: math.MaxInt, Turn: wideFloat, Draining: true}
 		state.Pods[i] = pod
 	}
 	for i := range state.Waiting {
@@ -333,7 +323,7 @@ func TestCheckpointCombinedEncodingShapes(t *testing.T) {
 	file.Payload.Origin.Implementation.GoVersion = strings.Repeat("\x01", 128)
 	file.Payload.Origin.Implementation.GoOS = strings.Repeat("o", 32)
 	file.Payload.Origin.Implementation.GoArch = strings.Repeat("a", 32)
-	// Maximum route, boarding, compact-group, and row widths can fit as a
+	// Maximum route, boarding, platoon link, and row widths can fit as a
 	// named encoding when waiting is empty. No semantic validator admits
 	// this constructed native state; the proof is limited to byte budgets.
 	fitting := file
@@ -350,7 +340,7 @@ func TestCheckpointCombinedEncodingShapes(t *testing.T) {
 	if fitSink.bytes != shapeBytes(t, fitting) || fitSink.bytes+fitBounded.remaining != MaxCheckpointBytes {
 		t.Fatal("fitting named envelope output differs from the complete encoding")
 	}
-	t.Logf("SHAPE encoding-envelope-only-fitting bytes=%d project=%d plan=%d native=%d ledger=%d records=%d lots=1 waiting=0 pods=300 pod-route=13000 boardings=300x8 compact-heads=75 compact-members=300", fitSink.bytes,
+	t.Logf("SHAPE encoding-envelope-only-fitting bytes=%d project=%d plan=%d native=%d ledger=%d records=%d lots=1 waiting=0 pods=300 pod-route=13000 boardings=300x8 platoon-links=300", fitSink.bytes,
 		shapeBytes(t, config), shapeBytes(t, plan), shapeBytes(t, fitting.Payload.Native), shapeBytes(t, fitting.Payload.Ledger), len(plan.Itineraries))
 	for _, counts := range []struct {
 		name    string
@@ -396,7 +386,7 @@ func TestCheckpointCombinedEncodingShapes(t *testing.T) {
 			if sink.bytes > MaxCheckpointBytes || sink.bytes+bounded.remaining != MaxCheckpointBytes {
 				t.Fatal("bounded output accounting differs")
 			}
-			t.Logf("SHAPE encoding-envelope-only bytes=%d project=%d plan=%d native=%d ledger=%d records=%d lots=%d waiting=%d pods=300 pod-route=13000 bound-waiting-routes=%dx5000 boardings=300x8 compact-heads=75 compact-members=300 emitted-before-rejection=%d storage-fits=%t", total,
+			t.Logf("SHAPE encoding-envelope-only bytes=%d project=%d plan=%d native=%d ledger=%d records=%d lots=%d waiting=%d pods=300 pod-route=13000 bound-waiting-routes=%dx5000 boardings=300x8 platoon-links=300 emitted-before-rejection=%d storage-fits=%t", total,
 				shapeBytes(t, config), shapeBytes(t, envelope.Payload.Origin.Plan), shapeBytes(t, envelope.Payload.Native), shapeBytes(t, envelope.Payload.Ledger), counts.n, counts.lots, waiting, min(waiting, project.MaxPods), sink.bytes, fitsStorage(int64(counts.lots), int64(counts.n)))
 		})
 	}

@@ -84,7 +84,7 @@ func checkExpressMotionTick(t *testing.T, s *Simulation, before []Pod) float64 {
 				t.Fatalf("tick %d position snap %g", s.tick, moved)
 			}
 		}
-		if large && (v.link.leader != 0 || v.follower != 0 || s.compactGroup(v) != nil) {
+		if large && (v.link.leader != 0 || v.follower != 0) {
 			t.Fatal("large pod acquired a link")
 		}
 		if pod.Activity != Traveling {
@@ -453,77 +453,6 @@ func TestExpressAdversarialLivePlaneTransitions(t *testing.T) {
 	}
 }
 
-func TestExpressAdversarialCompactQueueBesideGroup(t *testing.T) {
-	t.Parallel()
-	n := largeAdversarialNetwork(t, true)
-	for i := range n.Lanes {
-		if n.Lanes[i].StationID == "market" {
-			n.Lanes[i].SpeedLimit = 2.5
-		}
-		if n.Lanes[i].ID == "market-out" {
-			n.Lanes[i].VehicleClasses = largeGeometryClasses(t, "legacy", "compact")
-		}
-	}
-	fleet := []Placement{{ID: "one", Class: CompactClass, StationID: "harbor"}, {ID: "two", Class: LegacyClass, StationID: "garden"}, {ID: "three", Class: CompactClass, StationID: "parking", BerthID: "parking-1"}, {ID: "four", Class: LegacyClass, StationID: "parking", BerthID: "parking-2"}, {ID: "group", Class: ExpressClass, StationID: "market"}}
-	s, err := expressPhysicalFleet(n, fleet)
-	if err != nil {
-		t.Fatal(err)
-	}
-	s.SetStationBuffers(true)
-	if err := s.SetPlatooning(PlatooningVirtual); err != nil {
-		t.Fatal(err)
-	}
-	if err := s.SetStationQueueSpacing(StationQueueCompactV1); err != nil {
-		t.Fatal(err)
-	}
-	for _, p := range fleet[:4] {
-		if err := s.RequestJourney(p.ID, "market"); err != nil {
-			t.Fatal(err)
-		}
-	}
-	certified, stable := false, 0
-	for range 1000 * TicksPerSecond {
-		expressAdversarialTick(t, s)
-		o := s.SafetyObservation()
-		if len(o.compactPairs) > 0 {
-			certified = true
-		}
-		for _, group := range s.compactGroups {
-			for _, i := range group.members {
-				if largeVehicleClass(s.vehicles[i].Pod.Class) {
-					t.Fatal("compact queue included actual Group neighbor")
-				}
-			}
-		}
-		stopped := false
-		for _, group := range s.compactGroups {
-			if len(group.members) < 2 {
-				continue
-			}
-			stopped = true
-			for _, i := range group.members {
-				stopped = stopped && s.vehicles[i].Pod.Speed == 0
-			}
-		}
-		if stopped {
-			stable++
-		} else {
-			stable = 0
-		}
-		if stable >= TicksPerSecond {
-			break
-		}
-	}
-	if !certified || stable < TicksPerSecond || s.completed != 0 || s.findVehicle("group").Pod.BerthID != "market-1" {
-		t.Fatalf("actual compact/Group neighbor phase absent certified=%v stable=%d completed=%d state=%+v", certified, stable, s.completed, s.Snapshot())
-	}
-	head := s.compactGroups[0].members[0]
-	tail := s.compactGroups[0].members[len(s.compactGroups[0].members)-1]
-	if span := math.Abs(s.vehicles[head].Pod.LaneDistance - s.vehicles[tail].Pod.LaneDistance); span >= float64(len(s.compactGroups[0].members)-1)*12 {
-		t.Fatalf("queue never exercised compact small-pair envelope: span %g", span)
-	}
-}
-
 func TestExpressAdversarialCurvedStoppedFollowing(t *testing.T) {
 	t.Parallel()
 	skipLong(t)
@@ -581,20 +510,6 @@ func TestExpressAdversarialCurvedStoppedFollowing(t *testing.T) {
 func expressCertifiedSmallOwner(s *Simulation, v *vehicle, owner string) bool {
 	if v.Pod.Class == ExpressClass || v.Pod.Class == GroupClass || owner == "" {
 		return false
-	}
-	for _, g := range s.compactGroups {
-		hasPod, hasOwner := false, false
-		for _, index := range g.members {
-			p := s.vehicles[index].Pod
-			if p.Class == ExpressClass || p.Class == GroupClass {
-				return false
-			}
-			hasPod = hasPod || p.ID == v.Pod.ID
-			hasOwner = hasOwner || p.ID == owner
-		}
-		if hasPod && hasOwner {
-			return true
-		}
 	}
 	leader := v.link.leader
 	for leader != 0 {

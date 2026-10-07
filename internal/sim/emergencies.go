@@ -190,7 +190,7 @@ func (s *Simulation) advanceEmergency(record emergencyRecord) {
 	}
 	switch v.Pod.Activity {
 	case Boarding, Continuing, Unloading:
-		// startOperationalUnload refuses a platoon or compact member,
+		// startOperationalUnload refuses a platoon member,
 		// which stays deferred.
 		_ = s.startOperationalUnload(v, emergencyHold, 1<<party)
 	default:

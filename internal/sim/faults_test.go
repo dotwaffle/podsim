@@ -172,12 +172,6 @@ func TestPodFaultRefusals(t *testing.T) {
 		{"platoon follower", 0, errFaultTarget,
 			func(_ *Simulation, traveling, _ *vehicle) *vehicle { traveling.link.leader = 2; return traveling },
 			func(_ *Simulation, v *vehicle) { v.link.leader = 0 }},
-		{"compact queue member", 0, errFaultTarget,
-			func(s *Simulation, traveling, _ *vehicle) *vehicle {
-				s.compactGroups = []*compactBufferGroup{{members: []int{s.vehicleIndex(traveling)}}}
-				return traveling
-			},
-			func(s *Simulation, _ *vehicle) { s.compactGroups = nil }},
 		{"dispatch pass", 0, errFaultDispatch,
 			func(s *Simulation, _, idle *vehicle) *vehicle { s.pass.active = true; return idle },
 			func(s *Simulation, _ *vehicle) { s.pass.active = false }},
@@ -521,7 +515,7 @@ func TestCheckFaults(t *testing.T) {
 		{"faulted pod without a record", func(s *Simulation) { s.faults = s.faults[:1] }, "no fault record"},
 		{"faulted pod with no records", func(s *Simulation) { s.faults = nil; s.vehicles[0].faulted = true }, "no fault record"},
 		{"record of a pod without the fault hold", func(s *Simulation) { s.vehicles[s.faults[1].pod].withdrawn = 0 }, "no fault hold"},
-		{"faulted platoon follower", func(s *Simulation) { s.vehicles[s.faults[0].pod].link.leader = 2 }, "member of a compact queue or a platoon"},
+		{"faulted platoon follower", func(s *Simulation) { s.vehicles[s.faults[0].pod].link.leader = 2 }, "is a member of a platoon"},
 		{"cap behind the pod", func(s *Simulation) {
 			v := &s.vehicles[s.faults[0].pod]
 			v.faultCap = math.Nextafter(v.distance, 0)

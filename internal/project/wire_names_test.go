@@ -38,7 +38,7 @@ func TestProjectScannerLiteralsMatchTags(t *testing.T) {
 			t.Errorf("project array path %q has no member", path)
 		}
 	}
-	found, err := wirename.Mismatch([]string{"banks.go", "service.go", "config.go", "station_queue.go"}, wirename.Names(members))
+	found, err := wirename.Mismatch([]string{"banks.go", "service.go", "config.go"}, wirename.Names(members))
 	if err != nil {
 		t.Fatal(err)
 	}

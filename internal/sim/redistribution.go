@@ -165,14 +165,9 @@ func (s *Simulation) passengerArrivals() map[string]passengerArrival {
 func (s *Simulation) moveAndMeasure(v *vehicle) {
 	sample := MotionSample{ID: v.Pod.ID, Class: v.Pod.Class, StartSpeed: v.Pod.Speed}
 	before := v.distance
-	beforeLocal := v.Pod.LaneDistance
-	compact := s.compactGroup(v) != nil
 	occupied := v.Pod.Occupied
 	s.move(v)
 	travel := v.distance - before
-	if compact {
-		travel = v.Pod.LaneDistance - beforeLocal
-	}
 	sample.DistanceMeters, sample.EndSpeed = travel, v.Pod.Speed
 	s.recordMotion(sample)
 	if occupied {

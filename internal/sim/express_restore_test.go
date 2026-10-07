@@ -214,7 +214,7 @@ func TestExpressRestoreContinuingAuthored(t *testing.T) {
 
 func TestExpressRestoreLinksRejectBeforeTiers(t *testing.T) {
 	for _, classes := range [][2]VehicleClass{{ExpressClass, CompactClass}, {CompactClass, ExpressClass}, {ExpressClass, GroupClass}, {GroupClass, ExpressClass}} {
-		for _, kind := range []string{"virtual", "buffer-v1", "compact-buffer-v1", "compact-head"} {
+		for _, kind := range []string{"virtual", "buffer-v1"} {
 			for _, logical := range []bool{false, true} {
 				t.Run(string(classes[0])+"-"+string(classes[1])+"/"+kind+map[bool]string{false: "/physical", true: "/logical"}[logical], func(t *testing.T) {
 					n := expressNetwork(largeMotionNetwork(false))
@@ -224,18 +224,11 @@ func TestExpressRestoreLinksRejectBeforeTiers(t *testing.T) {
 						t.Fatal(err)
 					}
 					state := s.ExportState()
-					if kind == "compact-head" {
-						state.Pods[0].CompactQueue = &SavedCompactQueue{Members: []string{"02"}}
-					} else {
-						nativeKind := kind
-						if kind == "virtual" {
-							nativeKind = ""
-						}
-						if kind == "buffer-v1" {
-							nativeKind = "buffer"
-						}
-						state.Pods[1].Platoon = &SavedPlatoonLink{Leader: "01", Kind: nativeKind}
+					nativeKind := ""
+					if kind == "buffer-v1" {
+						nativeKind = "buffer"
 					}
+					state.Pods[1].Platoon = &SavedPlatoonLink{Leader: "01", Kind: nativeKind}
 					input := RestoreStateInput{OrderContract: ExpressOrderContract, Network: n, Fleet: fleet, State: state, LogicalOnly: logical}
 					if _, _, err := restoreState(input, func() (*Simulation, error) { t.Fatal("large link reached restore tier"); return nil, nil }); err == nil {
 						t.Fatal("large link accepted")

@@ -137,9 +137,6 @@ func (s *Simulation) bufferHead(v *vehicle, plan stationBufferPlan) bool {
 // assignment. A denied trial changes no ownership or committed route.
 func (s *Simulation) grantBufferedHead(in intent, plan stationBufferPlan) {
 	v := &s.vehicles[in.index]
-	if group := s.compactGroup(v); group != nil {
-		return
-	}
 	// A faulted head makes no attempt. The pods behind it keep their
 	// order, because its tail and its position stay on the lane.
 	if v.faulted {

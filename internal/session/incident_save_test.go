@@ -1,7 +1,6 @@
 package session
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
 	"slices"
@@ -170,7 +169,6 @@ func (x incidentSave) check(t *testing.T, name string) sim.SavedState {
 	logical, _, err := sim.RestoreState(sim.RestoreStateInput{
 		OrderContract: config.OrderContract, IncidentContract: config.IncidentContract,
 		Network: config.Network, Fleet: config.Fleet, State: file.Simulation, LogicalOnly: true,
-		StationQueueSpacing: project.EffectiveStationQueueSpacing(config), PlatoonLimit: config.PlatoonLimit,
 		ExpressServices: config.ExpressServices, OnboardPickups: config.OnboardPickups,
 		FaultContract: config.FaultContract, Faults: project.EffectiveFaultSettings(config),
 		EmergencyContract: config.EmergencyContract,
@@ -550,36 +548,6 @@ func TestIncidentSaveRailEvacuation(t *testing.T) {
 	if pod := savedPod(x.check(t, "purpose 3 arrival"), "01"); pod.BerthID != "harbor-1" || pod.Purpose != 0 || pod.Withdrawn != 1 {
 		t.Fatalf("pod after the arrival %+v", pod)
 	}
-}
-
-// TestIncidentSaveCompactPause saves a fault evacuation on a lane with a
-// rail-bound order aboard, in a tick that ends on the Compact pause return
-// of the step (incident contract, section 14.5). The step delivers the
-// interruptions before that return.
-func TestIncidentSaveCompactPause(t *testing.T) {
-	t.Parallel()
-	x, pair := railEvacuationSave(t)
-	cause := errors.New("injected Compact queue failure")
-	x.s.mu.Lock()
-	x.s.simulation.FailStepForTest(x.s.simulation.Tick()+1, cause, func(simulation *sim.Simulation) {
-		for _, operation := range []sim.IncidentTestOperation{{Kind: "withdraw", Hold: 1}, {Kind: "evacuate"}} {
-			if err := simulation.IncidentForTest("01", operation); err != nil {
-				t.Error(err)
-			}
-		}
-	})
-	x.s.step()
-	if !errors.Is(x.s.simulation.CompactQueueError(), cause) {
-		t.Fatalf("the step did not take the Compact pause return: %v", x.s.simulation.CompactQueueError())
-	}
-	checkDelivered(t, x.s, pair.bound, rail.Counts{Unserved: 1})
-	x.s.mu.Unlock()
-	published := x.s.State().Demand.Connections
-	state := x.check(t, "Compact pause")
-	if pod := savedPod(state, "01"); pod.Purpose != 3 || len(pod.Riders) != 0 || !state.Paused {
-		t.Fatalf("paused %t, pod %+v", state.Paused, pod)
-	}
-	x.checkRailSave(t, pair, published)
 }
 
 // TestIncidentSaveStranded saves a stranded transferred Express order: an

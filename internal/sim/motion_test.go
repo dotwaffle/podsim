@@ -174,57 +174,6 @@ func TestMotionLifecycle(t *testing.T) {
 	}
 }
 
-func TestMotionCompactAndFault(t *testing.T) {
-	t.Parallel()
-	s := compactStateFixture(t)
-	s.SetMotionRecording(true)
-	moving := 0
-	for range 20 {
-		before := s.Snapshot()
-		members := append([]int(nil), s.compactGroups[0].members...)
-		s.Step()
-		if err := s.CompactQueueError(); err != nil {
-			t.Fatal(err)
-		}
-		frame, _ := s.MotionFrame()
-		for _, index := range members {
-			v := s.vehicles[index]
-			old := before.Vehicles[index].Pod
-			want := v.Pod.LaneDistance - old.LaneDistance
-			if want <= 0 {
-				continue
-			}
-			found := false
-			for _, sample := range frame.Samples {
-				if sample.ID == v.Pod.ID {
-					found = true
-					moving++
-					if math.Abs(sample.DistanceMeters-want) > 1e-12 || sample.StartSpeed != old.Speed || sample.EndSpeed != v.Pod.Speed {
-						t.Fatal("compact sample used route distance or lost speed")
-					}
-				}
-			}
-			if !found {
-				t.Fatal("compact movement omitted")
-			}
-		}
-	}
-	if moving == 0 {
-		t.Fatal("fixture did not exercise compact motion")
-	}
-	head := &s.vehicles[s.compactGroups[0].members[0]]
-	plan, _ := s.bufferPlan(head)
-	s.owners[head.blocks.at(plan.frontier).resources[0]] = podResourceOwner("05")
-	before, _ := s.MotionFrame()
-	s.Step()
-	if s.CompactQueueError() == nil {
-		t.Fatal("fixture did not fault")
-	}
-	if after, _ := s.MotionFrame(); !reflect.DeepEqual(before, after) || after.Tick == s.Tick() {
-		t.Fatal("failed tick published frame")
-	}
-}
-
 func TestMotionZeroDistanceBraking(t *testing.T) {
 	t.Parallel()
 	s := newTraffic(t)

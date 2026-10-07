@@ -227,8 +227,6 @@ type Config struct {
 	OnboardPickups bool `json:"onboardPickups,omitzero"`
 	// StationBuffers enables experimental berthless station queues.
 	StationBuffers PolicyFlag `json:"stationBuffers,omitzero"`
-	// StationQueueSpacing selects opt-in compact queues. Omission keeps ordinary spacing.
-	StationQueueSpacing sim.StationQueueSpacing `json:"stationQueueSpacing,omitzero"`
 	// PickupReassignment enables experimental empty-pod pickup replacement.
 	PickupReassignment PolicyFlag `json:"pickupReassignment,omitzero"`
 	// PlatoonLimit is the largest number of pods in one virtual platoon,
@@ -269,7 +267,6 @@ var projectChecks = [...]func(Config) error{
 	validateSharedRideSettings,
 	validateOnboardPickups,
 	validatePlatoonLimit,
-	validateStationQueueSpacing,
 	validateGeoAndMap,
 	validateNames,
 	validateNetworkShape,

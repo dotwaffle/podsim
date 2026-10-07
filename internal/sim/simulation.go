@@ -226,8 +226,6 @@ type SafetyObservation struct {
 	Pods          []Pod
 	Berths        []BerthState
 	Locations     map[string]SafetyLocation
-	compactPairs  map[[2]string]compactSafetyPair
-	compactError  error
 	envelopes     map[string]safetyEnvelope
 }
 
@@ -331,7 +329,6 @@ type vehicle struct {
 // ensureNetworkIndexes.
 type Simulation struct {
 	*networkIndexes
-	compactBufferState
 	platooningState
 	predictiveState
 	experimentRecords
@@ -402,7 +399,6 @@ type Simulation struct {
 	routingPolicy               RoutingPolicy
 	finishingPodWait            FinishingPodWait
 	stationBuffers              bool
-	stationQueueSpacing         StationQueueSpacing
 	pickupSwaps                 *pickupSwapController
 	congestionRouteCosts        []float64
 	congestionRoutes            map[routeKey]routeResult
@@ -474,14 +470,6 @@ type predictiveState struct {
 	predictiveQueues    []float64
 	predictivePodQueues map[string]podQueueHistory
 	predictiveQueueTick int64
-}
-
-// compactBufferState holds the compact station queues.
-type compactBufferState struct {
-	compactGroups     []*compactBufferGroup
-	compactMotions    []compactBufferMotion
-	compactNextGroups []*compactBufferGroup
-	compactFault      error
 }
 
 // experimentRecords holds the experiment records.
@@ -585,7 +573,6 @@ func (s *Simulation) Reset() {
 		s.pickupSwaps = &pickupSwapController{enabled: s.pickupSwaps.enabled, right: 1, cooldown: make(map[string]int64)}
 	}
 	s.platoonLinks = 0
-	s.compactGroups, s.compactMotions, s.compactNextGroups, s.compactFault = nil, nil, nil, nil
 	s.owners = make(map[resource]resourceOwner)
 	s.vehicles = nil
 	for _, p := range s.initial {
@@ -686,7 +673,6 @@ func (s *Simulation) SafetyObservation() SafetyObservation {
 			state.Locations[pod.ID] = s.berthSafety[pod.BerthID]
 		}
 	}
-	s.compactSafety(&state)
 	s.largeSafety(&state)
 	return state
 }
@@ -821,8 +807,7 @@ func (s *Simulation) Step() {
 	if s.faultsOn {
 		s.faultStage()
 		// A clear in the fault stage defers the release of its debris
-		// resources to the end of the tick. Each exit of the tick, also an
-		// exit on a planning error, finishes the release before observe.
+		// resources to the end of the tick, before observe.
 		defer s.releaseFaultResources()
 	}
 	if s.emergenciesOn {
@@ -834,11 +819,6 @@ func (s *Simulation) Step() {
 	s.formPlatoons()
 	s.admit()
 	s.clearBlockedBerths()
-	s.formCompactQueues()
-	if err := s.planCompactQueues(); err != nil {
-		s.compactFault, s.paused = err, true
-		return
-	}
 	s.platoonCaps()
 	s.beginMotionFrame()
 	for i := range s.vehicles {
@@ -856,9 +836,6 @@ func (s *Simulation) Step() {
 			s.moveAndMeasure(v)
 		}
 	}
-	s.compactGroups = s.compactNextGroups
-	s.compactNextGroups = nil
-	s.finishCompactQueues()
 	// No pod can reuse resources released during this tick until the next tick.
 	s.releaseCleared()
 	for i := range s.vehicles {

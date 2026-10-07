@@ -225,7 +225,6 @@ func checkSettings(value any, errors *checkList) {
 			}
 		}
 	}
-	checkStationQueueSetting(value, errors)
 	if problem := onboardSettingError(value); problem != "" {
 		errors.add(problem, nil)
 	}

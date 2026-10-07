@@ -29,38 +29,36 @@ func rule(fields, required string) objectRule {
 
 // These names freeze the native encoding independently of future sim structs.
 var checkpointRules = map[string]objectRule{
-	"":                                    rule("format:s version:n checkpointID:s payload:o", "format version checkpointID payload"),
-	"/payload":                            rule("runID:s origin:o tick:n phase:s nativeEncoding:s native:o nativeHash:s ledger:o ledgerHash:s observationHash:s traceHash:s", "runID origin tick phase nativeEncoding native nativeHash ledger ledgerHash observationHash traceHash"),
-	"/payload/origin":                     rule("project:o plan:o projectHash:s planHash:s horizonTicks:n queueLimit:n reportBuild:s implementation:o", "project plan projectHash planHash horizonTicks queueLimit reportBuild implementation"),
-	"/payload/origin/implementation":      rule("sourceRevision:s executableSHA256:s goVersion:s goExperiment:s goOS:s goArch:s", "sourceRevision executableSHA256 goVersion goExperiment goOS goArch"),
-	"/payload/origin/plan":                rule("lots:a itineraries:a", "lots itineraries"),
-	"/payload/origin/plan/lots/*":         rule("id:s hub:s capacity:n", "id hub capacity"),
-	"/payload/origin/plan/itineraries/*":  rule("id:s carID:s lot:s destination:s carSeats:n partySize:n sharingConsent:s departureSeconds:n outwardSeconds:n returnNotBeforeSeconds:n activitySeconds:n retrievalSeconds:n homeboundSeconds:n outwardRefusal:s returnRefusal:s", "id carID lot destination carSeats partySize sharingConsent departureSeconds outwardSeconds returnNotBeforeSeconds activitySeconds retrievalSeconds homeboundSeconds outwardRefusal returnRefusal"),
-	"/payload/ledger":                     rule("lastTick:n records:a lots:a", "lastTick records lots"),
-	"/payload/ledger/records/*":           rule("stage:s outcome:s held:b carArrivalTick:n outward:o return:o returnEligibleTick:n carReleaseTick:n homeArrivalTick:n doorToDoorTicks:n", "stage outcome held carArrivalTick outward return returnEligibleTick carReleaseTick homeArrivalTick doorToDoorTicks"),
-	"/payload/ledger/records/*/outward":   rule("requestID:n offeredTick:n boardedTick:n alightedTick:n reason:s", "requestID offeredTick boardedTick alightedTick reason"),
-	"/payload/ledger/records/*/return":    rule("requestID:n offeredTick:n boardedTick:n alightedTick:n reason:s", "requestID offeredTick boardedTick alightedTick reason"),
-	"/payload/ledger/lots/*":              rule("occupancy:n peak:n", "occupancy peak"),
-	"/payload/native":                     rule("tick:n paused:b completed:n requestID:n boarded:n totalWaitTicks:n maxWaitTicks:n nextRedistributionTick:n passengerDistanceMeters:n emptyDistanceMeters:n rebalanceMoves:n sharedParties:n sharedRidePartyLimit:n sharedRideMode:s sharedRideMaxStops:n sharedRideJoin:s journeys:n totalJourneyTicks:n maxJourneyTicks:n riderDistanceMeters:n directDistanceMeters:n maxDetourRatio:n demo:o demoError:s pods:a waiting:a", "tick completed requestID boarded totalWaitTicks maxWaitTicks nextRedistributionTick passengerDistanceMeters emptyDistanceMeters rebalanceMoves sharedParties sharedRidePartyLimit pods"),
-	"/payload/native/demo":                rule("secondSent:b followupsSent:b", ""),
-	"/payload/native/pods/*":              rule("boardings:a class:s id:s activity:s stationID:s berthID:s occupied:b relocatingTo:s rebalancing:b rebalanceAfter:n phaseTicks:n origin:s destination:s destinationStation:s riders:a stops:a riddenMeters:n journeyOrigin:s claimsDestination:b released:b stationBuffered:b route:a routeIndex:n laneID:s laneDistance:n distance:n waiting:b waitSince:n platoon:o compactQueue:o", "id activity"),
-	"/payload/native/pods/*/riders/*":     rule("sharingConsent:s service:s serviceID:s id:n from:s to:s partySize:n podID:s completed:b requestedTick:n boardedTick:n dispatchReason:s", "sharingConsent service id from to partySize requestedTick"),
-	"/payload/native/waiting/*":           rule("request:o route:a boarded:b deferUntil:n deferCheck:n deferPodID:s", "request"),
-	"/payload/native/waiting/*/request":   rule("sharingConsent:s service:s serviceID:s id:n from:s to:s partySize:n podID:s completed:b requestedTick:n boardedTick:n dispatchReason:s", "sharingConsent service id from to partySize requestedTick"),
-	"/payload/native/pods/*/boardings/*":  rule("berthID:s metersAtBoarding:n", "berthID metersAtBoarding"),
-	"/payload/native/pods/*/platoon":      rule("kind:s terminalCell:n leader:s lane:n leaderLane:n lanes:n turn:n draining:b", "leader lane leaderLane lanes turn"),
-	"/payload/native/pods/*/compactQueue": rule("kind:s phase:s lane:s members:a start:n frontier:n stopCells:a speeds:a targets:a landingSpeeds:a", "kind phase lane members start frontier stopCells speeds targets landingSpeeds"),
+	"":                                   rule("format:s version:n checkpointID:s payload:o", "format version checkpointID payload"),
+	"/payload":                           rule("runID:s origin:o tick:n phase:s nativeEncoding:s native:o nativeHash:s ledger:o ledgerHash:s observationHash:s traceHash:s", "runID origin tick phase nativeEncoding native nativeHash ledger ledgerHash observationHash traceHash"),
+	"/payload/origin":                    rule("project:o plan:o projectHash:s planHash:s horizonTicks:n queueLimit:n reportBuild:s implementation:o", "project plan projectHash planHash horizonTicks queueLimit reportBuild implementation"),
+	"/payload/origin/implementation":     rule("sourceRevision:s executableSHA256:s goVersion:s goExperiment:s goOS:s goArch:s", "sourceRevision executableSHA256 goVersion goExperiment goOS goArch"),
+	"/payload/origin/plan":               rule("lots:a itineraries:a", "lots itineraries"),
+	"/payload/origin/plan/lots/*":        rule("id:s hub:s capacity:n", "id hub capacity"),
+	"/payload/origin/plan/itineraries/*": rule("id:s carID:s lot:s destination:s carSeats:n partySize:n sharingConsent:s departureSeconds:n outwardSeconds:n returnNotBeforeSeconds:n activitySeconds:n retrievalSeconds:n homeboundSeconds:n outwardRefusal:s returnRefusal:s", "id carID lot destination carSeats partySize sharingConsent departureSeconds outwardSeconds returnNotBeforeSeconds activitySeconds retrievalSeconds homeboundSeconds outwardRefusal returnRefusal"),
+	"/payload/ledger":                    rule("lastTick:n records:a lots:a", "lastTick records lots"),
+	"/payload/ledger/records/*":          rule("stage:s outcome:s held:b carArrivalTick:n outward:o return:o returnEligibleTick:n carReleaseTick:n homeArrivalTick:n doorToDoorTicks:n", "stage outcome held carArrivalTick outward return returnEligibleTick carReleaseTick homeArrivalTick doorToDoorTicks"),
+	"/payload/ledger/records/*/outward":  rule("requestID:n offeredTick:n boardedTick:n alightedTick:n reason:s", "requestID offeredTick boardedTick alightedTick reason"),
+	"/payload/ledger/records/*/return":   rule("requestID:n offeredTick:n boardedTick:n alightedTick:n reason:s", "requestID offeredTick boardedTick alightedTick reason"),
+	"/payload/ledger/lots/*":             rule("occupancy:n peak:n", "occupancy peak"),
+	"/payload/native":                    rule("tick:n paused:b completed:n requestID:n boarded:n totalWaitTicks:n maxWaitTicks:n nextRedistributionTick:n passengerDistanceMeters:n emptyDistanceMeters:n rebalanceMoves:n sharedParties:n sharedRidePartyLimit:n sharedRideMode:s sharedRideMaxStops:n sharedRideJoin:s journeys:n totalJourneyTicks:n maxJourneyTicks:n riderDistanceMeters:n directDistanceMeters:n maxDetourRatio:n demo:o demoError:s pods:a waiting:a", "tick completed requestID boarded totalWaitTicks maxWaitTicks nextRedistributionTick passengerDistanceMeters emptyDistanceMeters rebalanceMoves sharedParties sharedRidePartyLimit pods"),
+	"/payload/native/demo":               rule("secondSent:b followupsSent:b", ""),
+	"/payload/native/pods/*":             rule("boardings:a class:s id:s activity:s stationID:s berthID:s occupied:b relocatingTo:s rebalancing:b rebalanceAfter:n phaseTicks:n origin:s destination:s destinationStation:s riders:a stops:a riddenMeters:n journeyOrigin:s claimsDestination:b released:b stationBuffered:b route:a routeIndex:n laneID:s laneDistance:n distance:n waiting:b waitSince:n platoon:o", "id activity"),
+	"/payload/native/pods/*/riders/*":    rule("sharingConsent:s service:s serviceID:s id:n from:s to:s partySize:n podID:s completed:b requestedTick:n boardedTick:n dispatchReason:s", "sharingConsent service id from to partySize requestedTick"),
+	"/payload/native/waiting/*":          rule("request:o route:a boarded:b deferUntil:n deferCheck:n deferPodID:s", "request"),
+	"/payload/native/waiting/*/request":  rule("sharingConsent:s service:s serviceID:s id:n from:s to:s partySize:n podID:s completed:b requestedTick:n boardedTick:n dispatchReason:s", "sharingConsent service id from to partySize requestedTick"),
+	"/payload/native/pods/*/boardings/*": rule("berthID:s metersAtBoarding:n", "berthID metersAtBoarding"),
+	"/payload/native/pods/*/platoon":     rule("kind:s terminalCell:n leader:s lane:n leaderLane:n lanes:n turn:n draining:b", "leader lane leaderLane lanes turn"),
 }
 
 type checkpointScanner struct {
-	check          func() error
-	decoder        *jsontext.Decoder
-	counts         map[string]int64
-	compactMembers map[string]bool
+	check   func() error
+	decoder *jsontext.Decoder
+	counts  map[string]int64
 }
 
 func scanCheckpoint(ctx context.Context, data []byte) error {
-	s := checkpointScanner{check: ctx.Err, decoder: jsontext.NewDecoder(bytes.NewReader(data)), counts: make(map[string]int64), compactMembers: make(map[string]bool)}
+	s := checkpointScanner{check: ctx.Err, decoder: jsontext.NewDecoder(bytes.NewReader(data)), counts: make(map[string]int64)}
 	if err := s.value("", 0); err != nil {
 		return err
 	}
@@ -108,13 +106,6 @@ func (s *checkpointScanner) value(path string, depth int) error {
 	}
 	if expected := nativeElementKind(path); expected != 0 && !matchesKind(expected, token.Kind()) {
 		return fmt.Errorf("invalid native checkpoint element type at %q", path)
-	}
-	if path == "/payload/native/pods/*/compactQueue/members/*" {
-		id := token.String()
-		if s.compactMembers[id] || len(s.compactMembers) >= project.MaxPods {
-			return errors.New("native compact members exceed disjoint fleet bound")
-		}
-		s.compactMembers[id] = true
 	}
 	switch token.Kind() {
 	case jsontext.KindBeginObject:
@@ -260,8 +251,6 @@ func arrayLimit(path string) int64 {
 		return project.MaxBands
 	case "/payload/origin/project/demandProfiles/*/flows":
 		return project.MaxFlows
-	case "/payload/native/pods/*/compactQueue/members", "/payload/native/pods/*/compactQueue/stopCells", "/payload/native/pods/*/compactQueue/speeds", "/payload/native/pods/*/compactQueue/targets", "/payload/native/pods/*/compactQueue/landingSpeeds":
-		return 4
 	default:
 		return 65_536
 	}
@@ -272,9 +261,9 @@ func nativeElementKind(path string) byte {
 	switch path {
 	case "/payload/native/pods/*", "/payload/native/waiting/*", "/payload/native/pods/*/riders/*", "/payload/native/pods/*/boardings/*":
 		return 'o'
-	case "/payload/native/pods/*/stops/*", "/payload/native/pods/*/compactQueue/members/*":
+	case "/payload/native/pods/*/stops/*":
 		return 's'
-	case "/payload/native/pods/*/route/*", "/payload/native/waiting/*/route/*", "/payload/native/pods/*/compactQueue/stopCells/*", "/payload/native/pods/*/compactQueue/speeds/*", "/payload/native/pods/*/compactQueue/targets/*", "/payload/native/pods/*/compactQueue/landingSpeeds/*":
+	case "/payload/native/pods/*/route/*", "/payload/native/waiting/*/route/*":
 		return 'n'
 	default:
 		return 0

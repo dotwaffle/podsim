@@ -82,7 +82,6 @@ func TestScannerLimitPathsMatchTags(t *testing.T) {
 		"express save":    savedLimits(contractMarkers{order: sim.ExpressOrderContract}),
 		"express stream":  streamLimits(contractMarkers{order: sim.ExpressOrderContract}),
 		"unpacked stream": streamLimits(contractMarkers{}),
-		"compact save":    compactStateLimits(savedLimits(contractMarkers{})),
 		"boarding save":   boardingStateLimits(savedLimits(contractMarkers{})),
 	}
 	for name, limits := range sets {
@@ -104,7 +103,7 @@ func TestScannerLiteralsMatchTags(t *testing.T) {
 	t.Parallel()
 	_, members := wirePaths(t)
 	files := []string{
-		"boarding_state.go", "compact_state.go", "express_text.go",
+		"boarding_state.go", "express_text.go",
 		"emergency_state.go", "emergency_stream.go", "express_wire.go", "fault_state.go", "fault_stream.go", "http.go", "incident_state.go", "incident_stream.go", "order_command.go", "order_state.go", "protocol.go",
 		"state_file.go", "stream_boardings.go", "stream_codec.go", "stream_frame.go",
 		"state_http.go", "stream_service.go", "topology_decode.go", "../remote/client.go", "../remote/stream.go",

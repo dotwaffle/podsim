@@ -147,7 +147,7 @@ func testGroupWorstCaseSize(t *testing.T, base stateFile, pod sim.SavedPod, trip
 				saved := pod
 				saved.ID = strings.Repeat("\x01", 62) + string([]byte{alphabet[i/len(alphabet)], alphabet[i%len(alphabet)]})
 				saved.Class = sim.GroupClass
-				saved.Platoon, saved.CompactQueue, saved.Boardings = nil, nil, nil
+				saved.Platoon, saved.Boardings = nil, nil
 				saved.RiddenMeters = 0
 				saved.Riders = slices.Clone(pod.Riders)
 				for j := range saved.Riders {
@@ -176,7 +176,7 @@ func testGroupWorstCaseSize(t *testing.T, base stateFile, pod sim.SavedPod, trip
 			if len(raw) > MaxStateBytes || len(file.Simulation.Pods) != 300 || len(file.Simulation.Waiting) != 2600 {
 				t.Fatal("group save maximum changed byte or operating limits")
 			}
-			if scanErr := prescanJSON(raw, boardingStateLimits(compactStateLimits(stateJSONLimits))); scanErr != nil {
+			if scanErr := prescanJSON(raw, boardingStateLimits(stateJSONLimits)); scanErr != nil {
 				t.Fatal(scanErr)
 			}
 			assertExplicitArrayBounds(t, "group save maximum", raw, savedLimits(contractMarkers{}))

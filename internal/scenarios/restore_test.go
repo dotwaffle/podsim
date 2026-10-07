@@ -262,7 +262,6 @@ func TestLondonPlatoonsRestoreAndClone(t *testing.T) {
 	runLondon(t, clone, londonRun{
 		schedule: schedule, start: linked, end: linked + runTicks,
 		observe: func(observation londonObservation) {
-			//nolint:govet // Compare complete observations, including retained controller state.
 			if !reflect.DeepEqual(observation, observations[second]) {
 				t.Fatalf("the clone differs at tick %d", observations[second].snapshot.Tick)
 			}

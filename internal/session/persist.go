@@ -515,7 +515,6 @@ func (s *Session) loadState(input loadInput) (loaded loadedState, err error) {
 	restoreInput := sim.RestoreStateInput{
 		OrderContract: loaded.config.OrderContract, IncidentContract: loaded.config.IncidentContract,
 		Network: loaded.config.Network, Fleet: loaded.config.Fleet, State: file.Simulation, LogicalOnly: loaded.logicalOnly,
-		StationQueueSpacing: project.EffectiveStationQueueSpacing(loaded.config), PlatoonLimit: loaded.config.PlatoonLimit,
 		ExpressServices: loaded.config.ExpressServices, OnboardPickups: loaded.config.OnboardPickups,
 		FaultContract: loaded.config.FaultContract, Faults: project.EffectiveFaultSettings(loaded.config),
 		EmergencyContract: loaded.config.EmergencyContract,
@@ -592,7 +591,6 @@ func restoreProject(input loadInput, saved project.Config) (project.Config, erro
 	config.Demand = saved.Demand
 	comparison := config
 	comparison.StationBuffers = saved.StationBuffers
-	comparison.StationQueueSpacing = saved.StationQueueSpacing
 	comparison.PickupReassignment = saved.PickupReassignment
 	comparison.OnboardPickups = saved.OnboardPickups
 	same, err := sameProject(comparison, saved)

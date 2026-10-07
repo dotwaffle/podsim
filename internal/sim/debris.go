@@ -191,7 +191,7 @@ func (s *Simulation) releaseDebris(record faultRecord, inStage bool) {
 }
 
 // releaseFaultResources releases the debris resources that the clears of
-// the fault stage left in faultReleased. Step calls it at each exit of a
+// the fault stage left in faultReleased. Step calls it at the end of a
 // tick with faults on, so faultReleased is empty at each boundary. The
 // admission of the tick saw the fault owners of the cleared records, so it
 // can name them in a wait report. Those reports end here, and a completed

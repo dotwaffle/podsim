@@ -1,7 +1,6 @@
 package session
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/project"
@@ -249,38 +248,5 @@ func TestSaveAndPublicationDelivery(t *testing.T) {
 			t.Fatalf("restored counters %d and %d with %d unaccounted orders, want 1, 1, and 0",
 				got.Interrupted, got.InterruptedPassengers, restored.restore.Unaccounted)
 		}
-	})
-}
-
-// TestFaultReturnDelivery checks the delivery on the fault returns of a
-// step (incident contract, section 8.5). The step interrupts the bound
-// order and then fails a controller. The session delivers the interruption
-// before it returns, so the checks run before any publication or save.
-func TestFaultReturnDelivery(t *testing.T) {
-	t.Parallel()
-	want := rail.Counts{Unserved: 1}
-	// fail arms s to interrupt the bound order of pair at the end of the
-	// next step, and then to fail a controller with cause.
-	fail := func(t *testing.T, s *Session, pair railPair, cause error) {
-		t.Helper()
-		s.simulation.FailStepForTest(s.simulation.Tick()+1, cause, func(simulation *sim.Simulation) {
-			if err := simulation.InterruptRider(pair.pod, pair.bound); err != nil {
-				t.Error(err)
-			}
-		})
-	}
-	t.Run("Compact pause", func(t *testing.T) {
-		t.Parallel()
-		s := newRailSession(t, interruptionProject(3600))
-		s.mu.Lock()
-		defer s.mu.Unlock()
-		pair := boardRailPair(t, s)
-		cause := errors.New("injected Compact queue failure")
-		fail(t, s, pair, cause)
-		s.step()
-		if !errors.Is(s.simulation.CompactQueueError(), cause) {
-			t.Fatalf("the step did not take the Compact pause return: %v", s.simulation.CompactQueueError())
-		}
-		checkDelivered(t, s, pair.bound, want)
 	})
 }

@@ -24,7 +24,7 @@ func (markers contractMarkers) orderBounds() (orders, riders int64) {
 // savedLimits bound a state file with the given markers. Only the order
 // marker changes a bound.
 func savedLimits(markers contractMarkers) jsonLimits {
-	limits := boardingStateLimits(compactStateLimits(stateJSONLimits))
+	limits := boardingStateLimits(stateJSONLimits)
 	orders, riders := markers.orderBounds()
 	limits.arrays["/simulation/waiting"] = orders
 	limits.arrays["/simulation/pods/*/riders"] = riders

@@ -3,9 +3,7 @@ package session
 import (
 	"bytes"
 	"encoding/json/v2"
-	"math"
 	"slices"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -14,14 +12,13 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-// compactWorstCaseFile returns base with maxSavedPods typed compact pods
-// in queues of count members, and maxSavedTrips trips. Each pod is a copy
-// of pod and each trip a copy of trip. Only the first maxSavedPods trips
-// keep their route. Independent maxima bound bytes. They do not describe
-// reachable placement.
-func compactWorstCaseFile(base stateFile, pod sim.SavedPod, trip sim.SavedTrip, count int) stateFile {
+// compactClassWorstCaseFile returns base with maxSavedPods typed pods of
+// the compact class, and maxSavedTrips trips. Each pod is a copy of pod,
+// with its platoon link, and each trip a copy of trip. Only the first
+// maxSavedPods trips keep their route. Independent maxima bound bytes.
+// They do not describe reachable placement.
+func compactClassWorstCaseFile(base stateFile, pod sim.SavedPod, trip sim.SavedTrip) stateFile {
 	const longestNegative = -0.0000010000000000000002
-	const longestNonnegative = 0.0000010000000000000002
 	pod.Class = sim.CompactClass
 	pod.RiddenMeters, pod.LaneDistance, pod.Distance = longestNegative, longestNegative, longestNegative
 	file := base
@@ -34,27 +31,6 @@ func compactWorstCaseFile(base stateFile, pod sim.SavedPod, trip sim.SavedTrip, 
 		file.Simulation.Pods[i] = pod
 		file.Simulation.Pods[i].ID = strings.Repeat("\x01", 62) + string([]byte{alphabet[i/len(alphabet)], alphabet[i%len(alphabet)]})
 	}
-	for first := 0; first < maxSavedPods; first += count {
-		n := min(count, maxSavedPods-first)
-		queue := &sim.SavedCompactQueue{
-			Kind: "compact-buffer-v1", Phase: "recovering", Lane: strings.Repeat("\x01", 64),
-			Start: longestNegative, Frontier: longestNegative,
-			Members: make([]string, n), StopCells: make([]int, n), Speeds: make([]float64, n),
-			Targets: make([]float64, n), LandingSpeeds: make([]float64, n),
-		}
-		for offset := range n {
-			member := &file.Simulation.Pods[first+offset]
-			queue.Members[offset], queue.StopCells[offset] = member.ID, math.MaxInt
-			queue.Speeds[offset] = longestNonnegative
-			queue.Targets[offset], queue.LandingSpeeds[offset] = longestNegative, longestNegative
-			if offset == 0 {
-				member.Platoon, member.CompactQueue = nil, queue
-			} else {
-				member.Platoon = &sim.SavedPlatoonLink{Kind: "compact-buffer-v1", Leader: file.Simulation.Pods[first+offset-1].ID,
-					Lane: math.MaxInt, LeaderLane: math.MaxInt, Lanes: 1, TerminalCell: new(math.MaxInt)}
-			}
-		}
-	}
 	file.Simulation.Waiting = make([]sim.SavedTrip, maxSavedTrips)
 	for i := range file.Simulation.Waiting {
 		file.Simulation.Waiting[i] = trip
@@ -65,46 +41,45 @@ func compactWorstCaseFile(base stateFile, pod sim.SavedPod, trip sim.SavedTrip, 
 	return file
 }
 
-// testCompactWorstCaseSize encodes the full typed current-profile save shape.
-// Independent maxima bound bytes. They do not describe reachable placement.
-func testCompactWorstCaseSize(t *testing.T, base stateFile, pod sim.SavedPod, trip sim.SavedTrip) {
+// testCompactClassWorstCaseSize encodes the full typed current-profile
+// save shape. Independent maxima bound bytes. They do not describe
+// reachable placement.
+func testCompactClassWorstCaseSize(t *testing.T, base stateFile, pod sim.SavedPod, trip sim.SavedTrip) {
 	t.Helper()
-	for count := 1; count <= 4; count++ {
-		t.Run("compact-members-"+strconv.Itoa(count), func(t *testing.T) {
-			file := compactWorstCaseFile(base, pod, trip, count)
-			if len(file.Simulation.Waiting) != sim.MaxSavedWaitingTrips {
-				t.Fatal("byte fixture differs from the native waiting bound")
+	t.Run("compact-class", func(t *testing.T) {
+		file := compactClassWorstCaseFile(base, pod, trip)
+		if len(file.Simulation.Waiting) != sim.MaxSavedWaitingTrips {
+			t.Fatal("byte fixture differs from the native waiting bound")
+		}
+		for _, saved := range file.Simulation.Pods {
+			if len(saved.Riders) != sim.MaxSharedRideParties || len(saved.Stops) != sim.MaxSharedRideParties {
+				t.Fatal("byte fixture differs from the native stored-rider bound")
 			}
-			for _, saved := range file.Simulation.Pods {
-				if len(saved.Riders) != sim.MaxSharedRideParties || len(saved.Stops) != sim.MaxSharedRideParties {
-					t.Fatal("byte fixture differs from the native stored-rider bound")
-				}
-			}
-			raw := marshalSavedJSON(t, file)
-			t.Logf("typed compact members=%d: %d JSON bytes, limit %d, headroom %d", count, len(raw), MaxStateBytes, MaxStateBytes-len(raw))
-			if len(raw) > MaxStateBytes {
-				t.Fatal("typed compact save exceeds the byte cap")
-			}
-			// Use the operating array limits, including 2,600 records and eight riders.
-			if scanErr := prescanJSON(raw, compactStateLimits(stateJSONLimits)); scanErr != nil {
-				t.Fatalf("typed compact operating shape: %v", scanErr)
-			}
-			assertExplicitArrayBounds(t, "typed compact save maximum", raw, savedLimits(contractMarkers{}))
-			data := encodeTestState(t, file)
-			if encoded := decompressTestJSON(t, data); !bytes.Equal(encoded, raw) {
-				t.Fatal("typed compact fixture differs from the bounded state encoder")
-			}
-			testBoardingWorstCaseSize(t, file, count)
-			decoded, err := decodeStateFile(data)
-			if err != nil || len(decoded.Simulation.Pods) != maxSavedPods || len(decoded.Simulation.Waiting) != sim.MaxSavedWaitingTrips {
-				t.Fatalf("typed compact save decode: %v", err)
-			}
-		})
-	}
+		}
+		raw := marshalSavedJSON(t, file)
+		t.Logf("typed compact class: %d JSON bytes, limit %d, headroom %d", len(raw), MaxStateBytes, MaxStateBytes-len(raw))
+		if len(raw) > MaxStateBytes {
+			t.Fatal("typed compact save exceeds the byte cap")
+		}
+		// Use the operating array limits, including 2,600 records and eight riders.
+		if scanErr := prescanJSON(raw, stateJSONLimits); scanErr != nil {
+			t.Fatalf("typed compact operating shape: %v", scanErr)
+		}
+		assertExplicitArrayBounds(t, "typed compact save maximum", raw, savedLimits(contractMarkers{}))
+		data := encodeTestState(t, file)
+		if encoded := decompressTestJSON(t, data); !bytes.Equal(encoded, raw) {
+			t.Fatal("typed compact fixture differs from the bounded state encoder")
+		}
+		testBoardingWorstCaseSize(t, file)
+		decoded, err := decodeStateFile(data)
+		if err != nil || len(decoded.Simulation.Pods) != maxSavedPods || len(decoded.Simulation.Waiting) != sim.MaxSavedWaitingTrips {
+			t.Fatalf("typed compact save decode: %v", err)
+		}
+	})
 }
 
 // testBoardingWorstCaseSize sends modern and mixed maxima through the save adapter.
-func testBoardingWorstCaseSize(t *testing.T, base stateFile, count int) {
+func testBoardingWorstCaseSize(t *testing.T, base stateFile) {
 	t.Helper()
 	const wide = 0.0000010000000000000002
 	for _, mixed := range []bool{false, true} {
@@ -145,11 +120,11 @@ func testBoardingWorstCaseSize(t *testing.T, base stateFile, count int) {
 			}
 			data := encodeTestState(t, file)
 			raw := decompressTestJSON(t, data)
-			t.Logf("typed boarding %s compact members=%d: %d JSON bytes, limit %d, headroom %d", name, count, len(raw), MaxStateBytes, MaxStateBytes-len(raw))
+			t.Logf("typed boarding %s compact class: %d JSON bytes, limit %d, headroom %d", name, len(raw), MaxStateBytes, MaxStateBytes-len(raw))
 			if len(raw) > MaxStateBytes || len(file.Simulation.Pods) != 300 || len(file.Simulation.Waiting) != 2600 {
 				t.Fatal("boarding byte maximum exceeded an unchanged cap")
 			}
-			if err := prescanJSON(raw, boardingStateLimits(compactStateLimits(stateJSONLimits))); err != nil {
+			if err := prescanJSON(raw, boardingStateLimits(stateJSONLimits)); err != nil {
 				t.Fatal("boarding operating shape", err)
 			}
 			assertExplicitArrayBounds(t, "boarding save maximum", raw, savedLimits(contractMarkers{}))

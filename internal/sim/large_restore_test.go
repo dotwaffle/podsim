@@ -148,18 +148,6 @@ func TestLargeRestoreLinksRejectBeforeTiers(t *testing.T) {
 			i.Fleet[0].Class = GroupClass
 			i.State.Pods[1].Platoon = &SavedPlatoonLink{Leader: "01"}
 		}},
-		{"large compact head", func(i *RestoreStateInput) {
-			i.State.Pods[0].Class = GroupClass
-			i.State.Pods[0].CompactQueue = &SavedCompactQueue{Members: []string{"02"}}
-		}},
-		{"large compact member", func(i *RestoreStateInput) {
-			i.State.Pods[1].Class = GroupClass
-			i.State.Pods[0].CompactQueue = &SavedCompactQueue{Members: []string{"02"}}
-		}},
-		{"large compact link", func(i *RestoreStateInput) {
-			i.State.Pods[0].Class = GroupClass
-			i.State.Pods[1].Platoon = &SavedPlatoonLink{Leader: "01", Kind: "compact-buffer-v1"}
-		}},
 	}
 	for _, test := range tests {
 		for _, logical := range []bool{false, true} {

@@ -997,35 +997,6 @@
         ],
         "warnings": []
       }
-    },
-    {
-      "name": "queue spacing with Express only",
-      "changes": [
-        {
-          "path": [
-            "orderContract"
-          ],
-          "value": "express-v1"
-        },
-        {
-          "path": [
-            "fleet",
-            "0",
-            "class"
-          ],
-          "value": "express"
-        },
-        {
-          "path": [
-            "stationQueueSpacing"
-          ],
-          "value": "ordinary"
-        }
-      ],
-      "checks": {
-        "errors": [],
-        "warnings": []
-      }
     }
   ]
 }

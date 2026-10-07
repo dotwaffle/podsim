@@ -114,11 +114,11 @@ func TestHistoryTrimKeepsExpressMembers(t *testing.T) {
 		original[key] = slices.Clone(model.branches[key].raw)
 	}
 	acceptedHistory(t, model, historyCommand{Kind: "reset", Background: jsontext.Value(`null`)})
-	queueKeys := append(slices.Clone(keys), "stationQueueSpacing")
+	onboardKeys := append(slices.Clone(keys), "onboardPickups")
 	for _, edit := range []struct {
 		keys  []string
 		patch string
-	}{{keys, `{"name":"Edited Express project"}`}, {keys, `{"sharedRidePartyLimit":2}`}, {queueKeys, `{"stationQueueSpacing":"ordinary"}`}} {
+	}{{keys, `{"name":"Edited Express project"}`}, {keys, `{"sharedRidePartyLimit":2}`}, {onboardKeys, `{"onboardPickups":true}`}} {
 		if _, err := model.sync(request{Keys: edit.keys, Patch: jsontext.Value(edit.patch)}); err != nil {
 			t.Fatal(err)
 		}
@@ -148,12 +148,12 @@ func TestHistoryTrimKeepsExpressMembers(t *testing.T) {
 	for _, step := range []struct {
 		kind    string
 		limit   int
-		spacing sim.StationQueueSpacing
-	}{{"undo", 2, sim.StationQueueOrdinary}, {"undo", 2, ""}, {"undo", 1, ""}, {"redo", 2, ""}, {"redo", 2, sim.StationQueueOrdinary}, {"redo", 2, sim.StationQueueOrdinary}} {
+		onboard bool
+	}{{"undo", 2, true}, {"undo", 2, false}, {"undo", 1, false}, {"redo", 2, false}, {"redo", 2, true}, {"redo", 2, true}} {
 		acceptedHistory(t, model, historyCommand{Kind: step.kind})
 		check(step.kind)
-		if model.config.Name != "Edited Express project" || model.config.SharedRidePartyLimit != step.limit || model.config.StationQueueSpacing != step.spacing {
-			t.Fatal(step.kind, model.config.Name, model.config.SharedRidePartyLimit, model.config.StationQueueSpacing, "want", step.limit, step.spacing)
+		if model.config.Name != "Edited Express project" || model.config.SharedRidePartyLimit != step.limit || model.config.OnboardPickups != step.onboard {
+			t.Fatal(step.kind, model.config.Name, model.config.SharedRidePartyLimit, model.config.OnboardPickups, "want", step.limit, step.onboard)
 		}
 	}
 	if view := historyMetadata(model.timeline.state, model.timeline.revision, false); view.CanRedo || len(view.Retained) != 4 {

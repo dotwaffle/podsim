@@ -168,7 +168,7 @@ func widestExpressSave(t *testing.T) stateFile {
 	base.Project.Fleet = make([]sim.Placement, 300)
 	pod := base.Simulation.Pods[0]
 	pod.Class = sim.ExpressClass
-	pod.Platoon, pod.CompactQueue = nil, nil
+	pod.Platoon = nil
 	pod.RiddenMeters, pod.Distance, pod.LaneDistance = wide, wide, -wide
 	pod.Riders = slices.Repeat(pod.Riders[:1], 20)
 	pod.Boardings = slices.Repeat([]sim.RiderBoarding{{BerthID: berths[199].ID, MetersAtBoarding: wide}}, 20)
@@ -215,7 +215,6 @@ func TestExpressWidestSaveAdapters(t *testing.T) {
 	if testing.Short() || raceEnabled {
 		t.Skip("maximum codec proof runs in the required test:embedded task")
 	}
-	const wide = 0.0000010000000000000002
 	base := widestExpressSave(t)
 	for _, mixed := range []bool{false, true} {
 		file := base
@@ -227,7 +226,6 @@ func TestExpressWidestSaveAdapters(t *testing.T) {
 			p.Class = sim.CompactClass
 			p.Riders = p.Riders[:8]
 			p.Boardings = p.Boardings[:8]
-			p.CompactQueue = &sim.SavedCompactQueue{Kind: "compact-buffer-v1", Phase: "recovering", Lane: strings.Repeat("\x01", 64), Start: -wide, Frontier: -wide, Members: []string{p.ID}, StopCells: []int{math.MaxInt}, Speeds: []float64{wide}, Targets: []float64{-wide}, LandingSpeeds: []float64{-wide}}
 			file.Project.Fleet = slices.Clone(base.Project.Fleet)
 			file.Project.Fleet[0].Class = sim.CompactClass
 		}

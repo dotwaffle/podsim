@@ -774,7 +774,7 @@ func TestStateFileWorstCaseSize(t *testing.T) {
 		maxPod.Platoon = &link
 		maxFile.Simulation.Pods = []sim.SavedPod{maxPod}
 		maxFile.Simulation.Waiting = []sim.SavedTrip{maxTrip}
-		testCompactWorstCaseSize(t, maxFile, maxPod, maxTrip)
+		testCompactClassWorstCaseSize(t, maxFile, maxPod, maxTrip)
 		testGroupWorstCaseSize(t, maxFile, maxPod, maxTrip)
 		maxUnrouted := maxTrip
 		maxUnrouted.Route = nil

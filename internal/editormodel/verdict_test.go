@@ -231,23 +231,6 @@ func TestRequestLimitsMatchExactProjectNames(t *testing.T) {
 	}
 }
 
-// An Express file can have station queue spacing. Native and the import verdict accept it.
-func TestExpressQueueSpacingPassesTheVerdict(t *testing.T) {
-	t.Parallel()
-	for _, value := range []string{"ordinary", "compact-v1"} {
-		draft := configDraft(t, expressEditorConfig(t))
-		draft["stationQueueSpacing"] = value
-		draft["stationBuffers"], draft["platoonLimit"] = true, 2.0
-		raw := encodeDraft(t, draft)
-		if _, err := serverDecode(t, raw); err != nil {
-			t.Fatal("native refused queue spacing with Express", value, err)
-		}
-		if err := engineVerdict(raw); err != nil {
-			t.Fatal("editor verdict refused queue spacing with Express", value, err)
-		}
-	}
-}
-
 // Native validation accepts lane classes on each project. The edit does not
 // change the version.
 func TestLaneClassesKeepVersion(t *testing.T) {

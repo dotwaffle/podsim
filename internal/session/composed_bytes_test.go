@@ -297,7 +297,7 @@ func composedBaseSave(t *testing.T, shape composedShape) stateFile {
 			pod.Riders[i].ServiceID = composedServiceID
 		}
 		trip.Request.ServiceID = composedServiceID
-		file = compactWorstCaseFile(base, pod, trip, 1)
+		file = compactClassWorstCaseFile(base, pod, trip)
 	}
 	file.Simulation.SharedRideJoin = sim.SharedRideJoin(strings.Repeat("\x01", 1<<10))
 	return file
@@ -437,7 +437,7 @@ func TestComposedWorstCaseFormats(t *testing.T) { //nolint:tparallel // Subtests
 			Method: "Each fixture has the widest value of each member that a server can write and that the version 9 save decoder or the hello 6 stream decoder accepts. " +
 				"The values are independent maxima, not reachable placement or motion. " +
 				"The decoder accepts a route on each waiting trip, but a server writes at most 300: dispatch gives a waiting trip a route only when it assigns a pod, each pod has at most one assigned trip, and a physical restore keeps waiting routes within its block budget. " +
-				"Plain save: widestSavedBase with 300 compact pods, each the leader of a one-pod queue, and 2,600 trips, 300 of them with a route. " +
+				"Plain save: widestSavedBase with 300 compact-class pods, each with the widest platoon link, and 2,600 trips, 300 of them with a route. " +
 				"Express save: widestExpressSave, with 300 Express pods that have 20 riders and 20 boarding records, and 8,600 trips. " +
 				"Each save also has sharedRideJoin, and each plain order has a service ID. " +
 				"Each shape has the incident marker and the stage 1 members at the widest values that the decoders accept. " +

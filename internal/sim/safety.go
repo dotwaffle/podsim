@@ -29,12 +29,8 @@ func (e *SeparationError) Error() string {
 // separation and berth use. It returns the smallest gap in meters between two
 // pods on one plane. The gap is +Inf when no two pods share a plane. When two
 // pods are too close, the error is a *SeparationError. Check does not apply a
-// speed limit, because each lane has its own limit. Only certified direct
-// compact neighbors may use their validated envelope below Clearance.
+// speed limit, because each lane has its own limit.
 func (o SafetyObservation) Check() (float64, error) {
-	if o.compactError != nil {
-		return 0, o.compactError
-	}
 	for _, pod := range o.Pods {
 		if !finite(pod.Position.X) || !finite(pod.Position.Y) || !finite(pod.Speed) || pod.Speed < 0 {
 			return 0, fmt.Errorf("invalid pod at tick %d: %+v", o.Tick, pod)
@@ -122,17 +118,8 @@ type separationIndex struct {
 	// Empty locations never prove a separation, so a pod without an
 	// envelope has none.
 	envelopes [][]SafetyLocation
-	// links holds the certified pairs (i, j) with i < j in links[i].
-	links [][]separationLink
 	// reach is the largest squared separation threshold of any pair.
 	reach float64
-}
-
-// separationLink records a certified compact pair.
-type separationLink struct {
-	other    int
-	compact  bool
-	envelope float64
 }
 
 func (o SafetyObservation) separationIndex() separationIndex {
@@ -152,67 +139,12 @@ func (o SafetyObservation) separationIndex() separationIndex {
 			index.reach = max(index.reach, separationThresholdSquared(largeClearance))
 		}
 	}
-	if len(o.compactPairs) == 0 {
-		return index
-	}
-	ids := make(map[string][]int, len(o.Pods))
-	for i, pod := range o.Pods {
-		ids[pod.ID] = append(ids[pod.ID], i)
-	}
-	index.links = make([][]separationLink, len(o.Pods))
-	// Each key can match only the pods with its two IDs. The pair result
-	// comes from the lookups of the original pair loop, with the pods in
-	// their order in o.Pods.
-	for key, certified := range o.compactPairs {
-		if threshold := separationThresholdSquared(certified.minimum); threshold > index.reach {
-			index.reach = threshold
-		}
-		for _, pair := range idPairs(ids, key) {
-			if envelope, ok := o.compactPairMinimum(o.Pods[pair[0]], o.Pods[pair[1]]); ok {
-				link := index.link(pair[0], pair[1])
-				link.compact, link.envelope = true, envelope
-			}
-		}
-	}
 	return index
-}
-
-// idPairs returns each pair (i, j) with i < j of pods with the two IDs.
-func idPairs(ids map[string][]int, key [2]string) [][2]int {
-	var pairs [][2]int
-	for _, a := range ids[key[0]] {
-		for _, b := range ids[key[1]] {
-			if a != b {
-				pairs = append(pairs, [2]int{min(a, b), max(a, b)})
-			}
-		}
-	}
-	return pairs
-}
-
-// link returns the link of the pair (i, j) with i < j, and adds it when
-// it is not there.
-func (index *separationIndex) link(i, j int) *separationLink {
-	for k := range index.links[i] {
-		if index.links[i][k].other == j {
-			return &index.links[i][k]
-		}
-	}
-	index.links[i] = append(index.links[i], separationLink{other: j})
-	return &index.links[i][len(index.links[i])-1]
 }
 
 // pair tests the pods i < j. It returns their squared gap, whether the gap
 // counts toward the smallest gap, and whether they are too close.
 func (index *separationIndex) pair(pods []Pod, i, j int) (gapSquared float64, counted, violates bool) {
-	var link separationLink
-	if index.links != nil {
-		for _, candidate := range index.links[i] {
-			if candidate.other == j {
-				link = candidate
-			}
-		}
-	}
 	first, second := pods[i], pods[j]
 	dx := first.Position.X - second.Position.X
 	dy := first.Position.Y - second.Position.Y
@@ -227,9 +159,6 @@ func (index *separationIndex) pair(pods []Pod, i, j int) (gapSquared float64, co
 		return 0, false, false
 	}
 	gapSquared = dx*dx + dy*dy
-	if minimum == Clearance && link.compact {
-		minimum = link.envelope
-	}
 	return gapSquared, true, gapSquared < separationThresholdSquared(minimum)
 }
 
@@ -237,18 +166,6 @@ func (index *separationIndex) pair(pods []Pod, i, j int) (gapSquared float64, co
 // the given minimum is too close.
 func separationThresholdSquared(minimum float64) float64 {
 	return (minimum - separationTolerance) * (minimum - separationTolerance)
-}
-
-// compactPairMinimum returns the validated envelope of a certified compact
-// pair. It tries the key in the order of the pods first.
-func (o SafetyObservation) compactPairMinimum(first, second Pod) (float64, bool) {
-	if certified, ok := o.compactPairs[[2]string{first.ID, second.ID}]; ok && certified.first == first && certified.second == second {
-		return certified.minimum, true
-	}
-	if certified, ok := o.compactPairs[[2]string{second.ID, first.ID}]; ok && certified.first == second && certified.second == first {
-		return certified.minimum, true
-	}
-	return 0, false
 }
 
 // checkBerths verifies that each berth has at most one pod, and that the

@@ -17,7 +17,6 @@ var ErrBerthUnavailable = errors.New("destination berth is occupied or reserved"
 func (s *Simulation) clearBlockedBerths() {
 	for i := range s.vehicles {
 		arrival := &s.vehicles[i]
-		s.compactBerthBlocker(i)
 		if arrival.Pod.WaitReason != BerthOccupied || (!arrival.Pod.Occupied && arrival.RelocatingTo == "" && !s.assigned(arrival.Pod.ID)) {
 			continue
 		}

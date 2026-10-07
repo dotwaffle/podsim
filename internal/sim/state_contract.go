@@ -620,17 +620,6 @@ func checkLargeLinkFields(input RestoreStateInput) error {
 		if pod.Platoon != nil && (largeIDs[pod.ID] || largeIDs[pod.Platoon.Leader]) {
 			return fmt.Errorf("pod %s: large vehicle classes cannot have platoon links", pod.ID)
 		}
-		if pod.CompactQueue == nil {
-			continue
-		}
-		if largeIDs[pod.ID] {
-			return fmt.Errorf("pod %s: large vehicle classes cannot have compact queue certificates", pod.ID)
-		}
-		for _, member := range pod.CompactQueue.Members {
-			if largeIDs[member] {
-				return fmt.Errorf("pod %s: compact queue includes large pod %s", pod.ID, member)
-			}
-		}
 	}
 	return nil
 }
