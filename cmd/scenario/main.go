@@ -4,6 +4,7 @@ package main
 import (
 	"crypto/sha256"
 	"encoding/json"
+	"encoding/json/jsontext"
 	jsonv2 "encoding/json/v2"
 	"errors"
 	"flag"
@@ -108,7 +109,7 @@ func run(arguments []string, stdout, stderr io.Writer) error {
 // scenarioJSON keeps indented output when it fits the project file limit.
 // Larger projects use the same compact encoding as project validation.
 func scenarioJSON(config project.Config, limit int) ([]byte, error) {
-	data, err := json.MarshalIndent(config, "", "  ")
+	data, err := jsonv2.Marshal(config, json.DefaultOptionsV1(), jsontext.WithIndent("  "))
 	if err != nil {
 		return nil, fmt.Errorf("encode scenario: %w", err)
 	}
@@ -237,7 +238,7 @@ func writeSummary(stderr io.Writer, preset string, config project.Config, size i
 			passenger += len(station.Berths)
 		}
 	}
-	network, err := json.Marshal(config.Network)
+	network, err := jsonv2.Marshal(config.Network, json.DefaultOptionsV1())
 	if err != nil {
 		return fmt.Errorf("encode network: %w", err)
 	}

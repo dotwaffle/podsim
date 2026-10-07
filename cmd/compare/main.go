@@ -1894,8 +1894,6 @@ func writeReport(input writeReportInput) error {
 	}
 	switch input.format {
 	case "json":
-		encoder := json.NewEncoder(input.output)
-		encoder.SetIndent("", "  ")
 		version := 12
 		if slices.ContainsFunc(input.results, func(outcome result) bool {
 			return outcome.PickupReassignment != ""
@@ -1908,7 +1906,11 @@ func writeReport(input writeReportInput) error {
 		if slices.ContainsFunc(input.results, func(outcome result) bool { return outcome.Energy != nil }) {
 			version = 15
 		}
-		if err := encoder.Encode(report{SchemaVersion: version, Results: input.results}); err != nil {
+		data, err := jsonv2.Marshal(report{SchemaVersion: version, Results: input.results}, json.DefaultOptionsV1(), jsontext.WithIndent("  "))
+		if err == nil {
+			_, err = input.output.Write(append(data, '\n'))
+		}
+		if err != nil {
 			return fmt.Errorf("write JSON report: %w", err)
 		}
 		return nil

@@ -247,11 +247,11 @@ func energyCSVRow(report *energyReport) ([]string, error) {
 	if report == nil {
 		return make([]string, len(energyCSVHeader)), nil
 	}
-	profiles, err := json.Marshal(report.Profiles)
+	profiles, err := jsonv2.Marshal(report.Profiles, json.DefaultOptionsV1())
 	if err != nil {
 		return nil, fmt.Errorf("encode energy profiles: %w", err)
 	}
-	counts, err := json.Marshal(report.ClassCounts)
+	counts, err := jsonv2.Marshal(report.ClassCounts, json.DefaultOptionsV1())
 	if err != nil {
 		return nil, fmt.Errorf("encode energy class counts: %w", err)
 	}
@@ -264,7 +264,7 @@ func writeTableEnergy(output io.Writer, results []result) error {
 		if outcome.Energy == nil {
 			continue
 		}
-		data, err := json.Marshal(outcome.Energy)
+		data, err := jsonv2.Marshal(outcome.Energy, json.DefaultOptionsV1())
 		if err != nil {
 			return fmt.Errorf("encode table energy: %w", err)
 		}
