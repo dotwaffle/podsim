@@ -57,20 +57,16 @@ func encodePolicyState(t *testing.T, file map[string]json.RawMessage) []byte {
 }
 
 // policyRestartFixture combines two crossed pickup assignments and one
-// buffered pickup. It requires a real swap before exporting the physical state.
+// pickup from parking. It requires a real swap before exporting the
+// physical state.
 func policyRestartFixture(t *testing.T) (project.Config, sim.SavedState) {
 	t.Helper()
 	config := project.Default()
-	config.StationBuffers, config.PickupReassignment = true, true
+	config.PickupReassignment = true
 	config.Fleet = append(config.Fleet, sim.Placement{ID: "03", StationID: "parking", BerthID: "parking-1"})
 	for index := range config.Network.Nodes {
 		config.Network.Nodes[index].Position.X *= 4
 		config.Network.Nodes[index].Position.Y *= 4
-	}
-	for index := range config.Network.Lanes {
-		if config.Network.Lanes[index].ID == "market-approach" {
-			config.Network.Lanes[index].StationRole = sim.StationEntryRole
-		}
 	}
 	initial, err := sim.NewFleet(config.Network, config.Fleet)
 	if err != nil {
@@ -123,8 +119,8 @@ func policyRestartFixture(t *testing.T) (project.Config, sim.SavedState) {
 		t.Fatal(err)
 	}
 	state = simulation.ExportState()
-	if simulation.PickupSwapStats().Swaps != 1 || !state.Pods[2].StationBuffered || state.Pods[0].StationBuffered || state.Pods[1].StationBuffered {
-		t.Fatalf("fixture lacks swapped and mixed buffered pods: %+v %+v", simulation.PickupSwapStats(), state.Pods)
+	if simulation.PickupSwapStats().Swaps != 1 {
+		t.Fatalf("fixture lacks swapped pods: %+v %+v", simulation.PickupSwapStats(), state.Pods)
 	}
 	return config, state
 }
@@ -186,7 +182,7 @@ func TestSavedPolicyFileRestart(t *testing.T) {
 	storedPolicyFixture(t, store, config, physical)
 	restored := startPolicySession(t, store, nil)
 	checkPolicyPhysicalRestore(t, restored)
-	if got := restored.Project().Project; !got.StationBuffers || !got.PickupReassignment {
+	if got := restored.Project().Project; !got.PickupReassignment {
 		t.Fatal("restart lost the policy controls saved on disk")
 	}
 	finishPolicyRun(t, restored, 3)
@@ -228,43 +224,41 @@ func finishPolicyRun(t *testing.T, shared *session.Session, count int) {
 func TestCombinedPoliciesFileRestart(t *testing.T) {
 	t.Parallel()
 	config, physical := policyRestartFixture(t)
-	for _, buffers := range []bool{false, true} {
-		for _, reassignment := range []bool{false, true} {
-			t.Run(fmt.Sprintf("buffers%t-reassignment%t", buffers, reassignment), func(t *testing.T) {
-				t.Parallel()
-				store := openStore(t, "file://"+t.TempDir())
-				storedPolicyFixture(t, store, config, physical)
-				selected := project.Clone(config)
-				selected.StationBuffers, selected.PickupReassignment = project.PolicyFlag(buffers), project.PolicyFlag(reassignment)
-				shared := startPolicySession(t, store, &selected)
-				checkPolicyPhysicalRestore(t, shared)
-				if got := shared.Project().Project; got.StationBuffers != selected.StationBuffers || got.PickupReassignment != selected.PickupReassignment {
-					t.Fatal("restart lost the selected policy controls")
-				}
-				shared.Close()
-				if err := shared.SaveState(t.Context(), session.SaveFinal); err != nil {
-					t.Fatal(err)
-				}
-				var saved sim.SavedState
-				if err := json.Unmarshal(policyStateJSON(t, mustRead(t, store))["simulation"], &saved); err != nil {
-					t.Fatal(err)
-				}
-				if !reflect.DeepEqual(saved, packSavedOrders(physical)) {
-					t.Fatal("file restart changed physical assignments or mixed buffer membership")
-				}
-				restarted := startPolicySession(t, store, &selected)
-				checkPolicyPhysicalRestore(t, restarted)
-				finishPolicyRun(t, restarted, 3)
-				restarted.Close()
-				if err := restarted.SaveState(t.Context(), session.SaveFinal); err != nil {
-					t.Fatal(err)
-				}
-				wantVersion := "9"
-				if got := string(policyStateJSON(t, mustRead(t, store))["version"]); got != wantVersion {
-					t.Fatalf("drained save version=%s, want %s", got, wantVersion)
-				}
-			})
-		}
+	for _, reassignment := range []bool{false, true} {
+		t.Run(fmt.Sprintf("reassignment%t", reassignment), func(t *testing.T) {
+			t.Parallel()
+			store := openStore(t, "file://"+t.TempDir())
+			storedPolicyFixture(t, store, config, physical)
+			selected := project.Clone(config)
+			selected.PickupReassignment = project.PolicyFlag(reassignment)
+			shared := startPolicySession(t, store, &selected)
+			checkPolicyPhysicalRestore(t, shared)
+			if got := shared.Project().Project; got.PickupReassignment != selected.PickupReassignment {
+				t.Fatal("restart lost the selected policy controls")
+			}
+			shared.Close()
+			if err := shared.SaveState(t.Context(), session.SaveFinal); err != nil {
+				t.Fatal(err)
+			}
+			var saved sim.SavedState
+			if err := json.Unmarshal(policyStateJSON(t, mustRead(t, store))["simulation"], &saved); err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(saved, packSavedOrders(physical)) {
+				t.Fatal("file restart changed physical assignments")
+			}
+			restarted := startPolicySession(t, store, &selected)
+			checkPolicyPhysicalRestore(t, restarted)
+			finishPolicyRun(t, restarted, 3)
+			restarted.Close()
+			if err := restarted.SaveState(t.Context(), session.SaveFinal); err != nil {
+				t.Fatal(err)
+			}
+			wantVersion := "9"
+			if got := string(policyStateJSON(t, mustRead(t, store))["version"]); got != wantVersion {
+				t.Fatalf("drained save version=%s, want %s", got, wantVersion)
+			}
+		})
 	}
 }
 
@@ -376,7 +370,7 @@ func TestCombinedPolicyFailedFileSave(t *testing.T) {
 				t.Fatal(err)
 			}
 			if !reflect.DeepEqual(saved, packSavedOrders(physical)) {
-				t.Fatal("failed save changed physical assignments or buffer membership")
+				t.Fatal("failed save changed physical assignments")
 			}
 			if failure == "canceled write" && !bytes.Equal(data, old) {
 				t.Fatal("canceled save replaced the previous state")
