@@ -1,5 +1,8 @@
 # Dispatch policy qualification
 
+Status note, October 7, 2026: station buffers were removed.
+The buffer arms below remain evidence of the removed implementation, and statements that both controllers remain opt-in no longer apply to buffers.
+
 Both controllers remain opt-in.
 The completed pickup reassignment reduces average waits in these schedules, but some individual requests take much longer.
 Buffers now drain the two Acton bursts after a remote berth-claim fix, but increase their waits and upstream stopped time.

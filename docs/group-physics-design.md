@@ -4,6 +4,9 @@ The group class supports eight seats, parties through eight, and a six-meter bod
 The model uses the centered six-meter-radius envelope approved in [the large pod proposal](large-body-physics-proposal.md).
 Express retains its metadata and remains unavailable for physical operation.
 
+Status note, October 7, 2026: station buffers and compact station queues were removed.
+Statements below about compact queues, compact certificates, and buffer policies describe the code before the removal.
+
 This model does not certify a manufactured vehicle, steering geometry, or seating arrangement.
 No station, fleet, speed, or default policy changes automatically.
 

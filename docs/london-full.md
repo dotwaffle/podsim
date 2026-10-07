@@ -65,7 +65,7 @@ Higher rates increased waiting times in the sampled runs.
 These finite-arrival trials do not establish a sustainable rate.
 
 A later six-hour sustained-load screen finds growing AM peak backlogs at 15 and 20 requests per minute.
-Station approach buffers do not resolve that overload and remain disabled by default.
+Station approach buffers, since removed, did not resolve that overload.
 The [mirrored layout study](station-mirror-load.md) also finds growing backlogs at 15 and 20 requests per minute.
 
 A separate one-hour run checked safety each second and completed all 199 requests.

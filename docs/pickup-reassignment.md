@@ -109,8 +109,6 @@ For each candidate:
 Occupied or linked pods cannot take replacements.
 Assigned pickups must have one valid binding and matching pickup targets.
 Released and rebalancing pods cannot participate as assigned pickups.
-An upstream buffer member can divert before it reserves the station entry lane.
-A member committed to that entry keeps its queue position.
 Estimates extend a berthless route to a reachable berth, so entry-only and berth-ending costs are not compared directly.
 Future traffic and queue delays remain unknown.
 

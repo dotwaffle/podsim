@@ -523,7 +523,7 @@ The `error` message is one of these:
 | --- | --- |
 | `faults are not enabled` | The project has no fault marker, or the traffic demo turned faults off. |
 | `invalid fault duration` | `durationSeconds` is not from 1 to 86,400. |
-| `fault target is not supported` | The command has both `podID` and `laneID`, neither of them, or a segment with `podID`. Or the pod is in a platoon or a compact queue, or it is not traveling and not at a berth. |
+| `fault target is not supported` | The command has both `podID` and `laneID`, neither of them, or a segment with `podID`. Or the pod is in a platoon, or it is not traveling and not at a berth. |
 | `incident limit reached` | The end tick, the evacuation tick, or the incident serial would overflow. |
 | `unknown pod` | No pod has `podID`. |
 | `pod already has a fault` | The pod has a pod fault. |
@@ -550,7 +550,7 @@ Each other party completes when the station is its destination.
 Otherwise it waits at the station for its next leg.
 
 While the emergency is active, the pod gets a free junction, track cell, or berth before other pods that request it in the same tick.
-A pod in a platoon or a compact queue waits until it leaves the group.
+A pod in a platoon waits until it leaves the group.
 A platoon link with the pod ends.
 A faulted pod waits until the fault ends, and an evacuation ends the emergency.
 The emergency ends when no party is aboard the pod, or when the party leaves the pod before the pod starts its unload.

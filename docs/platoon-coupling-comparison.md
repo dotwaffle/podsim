@@ -24,7 +24,7 @@ This record stays as the reason for the removal.
   Probe seeds 4, 5, and 8, and preset seeds 1, 2, and 3.
 - Supplement: all arms, with 5 seeds and 35 simulated minutes.
 - The per-tick contract, safety, member motion, and platoon checks were off in the arms.
-  `CouplingError` (removed with the coupling feature) and `CompactQueueError` ran each tick, and the contract and safety checks ran once each simulated minute.
+  `CouplingError` (removed with the coupling feature) and `CompactQueueError` (removed with station buffers and compact queues) ran each tick, and the contract and safety checks ran once each simulated minute.
   Ten reruns with every per-tick check on passed and gave the same results.
 - Probe seed 4 reproduced the pinned 95 of 160 orders for B and 84 of 160 for D.
 

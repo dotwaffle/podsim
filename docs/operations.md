@@ -334,13 +334,16 @@ A damaged or invalid file gets `invalid_state`, and the server moves it aside an
 Examples are a gzip error, a JSON syntax error, a file over a scan limit, a header member of the wrong type, a missing, null, zero, or negative version, a value that the decoder refuses, and a restore that fails.
 Until the first release, the removal of a member keeps the version.
 Thus a version 9 file with a member of the removed physical coupling feature, for example `couplingContract` or `simulation.couplingGroups`, has an unknown member and gets `invalid_state`.
+Likewise, a version 9 file with a member of the removed station buffer or compact queue feature has an unknown member and gets `invalid_state`.
+Examples are `stationBuffered` or `compactQueue` on a pod, and `stationBuffers` or `stationQueueSpacing` in the embedded project.
+A project file with `stationBuffers` or `stationQueueSpacing` also fails as an unknown member.
 The server does not try to recover any part of such a file.
 A file of more than 80 MiB is the only exception: the server keeps it, turns saving off, and fails to start.
 The server checks the fault records before either tier.
 A fault record that is not valid gives `invalid_state` for the whole file, and the server does not try the `logical` tier.
 It does not remove one record to keep the others.
 Examples are records out of serial order, a serial above `incidentSerial`, a tick out of range, a negative counter, and more than 64 debris records.
-Other examples are a pod record for a pod without the fault hold or for a pod in a platoon or a compact queue, and a pod with two records.
+Other examples are a pod record for a pod without the fault hold or for a pod in a platoon, and a pod with two records.
 A debris segment that is not valid, and debris that meets other debris or a faulted pod, also give `invalid_state`.
 In the `physical` tier, a traveling pod that holds a resource of debris gives `invalid_state`.
 A file of the traffic demo with a fault record also gives `invalid_state`, because the demo runs without faults.
@@ -356,21 +359,20 @@ See [independent station banks](station-banks.md) for bank membership, routing, 
 An older server rejects version 9 with `unsupported_version` and moves the file aside.
 Keep a copy before a downgrade.
 
-Portable project version 1 accepts optional `stationBuffers` and `pickupReassignment` Boolean settings.
-Both default to false and are omitted from canonical exports when false.
-The server rejects non-Boolean values, including `null`.
-These settings enable experimental controllers, not qualified capacity improvements.
-Project load, reset, apply, demo, and checkpoint rewind preserve the selected settings.
-After file restore, the effective project controls new admissions and reassignment.
-A startup project can change these two settings without replacing valid saved physical state.
+Portable project version 1 accepts an optional `pickupReassignment` Boolean setting.
+It defaults to false and is omitted from canonical exports when false.
+The server rejects a non-Boolean value, including `null`.
+This setting enables an experimental controller, not a qualified capacity improvement.
+Project load, reset, apply, demo, and checkpoint rewind preserve the selected setting.
+After file restore, the effective project controls reassignment.
+A startup project can change this setting without replacing valid saved physical state.
 Other project identity checks remain in force.
-Disabling buffers keeps existing flagged members draining.
 Reassignment cursors, cooldowns, counters, and experiment records reset after file restore.
 The saved routes and request bindings remain valid, but future experimental decisions can differ after restart.
-Older strict project readers reject exports that include these settings.
-The [file restart checks](experimental-policy-restarts.md) cover combined policies, the rejection of a version 2 file, and canceled or failed-sync saves.
+Older strict project readers reject exports that include this setting.
+The [file restart checks](experimental-policy-restarts.md) cover pickup reassignment, the rejection of a version 2 file, and canceled or failed-sync saves.
 They do not simulate power loss.
-The optional project settings do not change command or WebSocket envelope formats.
+The optional project setting does not change command or WebSocket envelope formats.
 
 The reason for an `empty` start is `project_changed`, `unsupported_version`, `invalid_state`, `restore_loop`, or `unreadable`.
 A file of more than 80 MiB, compressed or decompressed, does not give an `empty` start, because the server keeps the file and fails to start.

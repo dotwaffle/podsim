@@ -15,7 +15,7 @@ Gates, track cells, berths, and merges retain ordinary resource control.
 An approach selects the reachable bank with the shortest free-flow external travel time.
 Exact ties use the minimum berth load, then bank order.
 A fixed destination berth uses its owning bank.
-Terminal berth choice and station buffers retain the entry already installed in the route.
+Terminal berth choice retains the entry already installed in the route.
 An eligible empty pickup can change banks at its existing safe diversion anchor.
 It keeps every reserved lane.
 
@@ -58,7 +58,7 @@ The decoder refuses project versions 2 through 5 and does not migrate them.
 Both project readers and nested transport decoders bound banks and berth membership before typed allocation.
 
 Banked sessions write saved-state version 9, as every other session does.
-Version 9 stores a version 1 project and supports buffer fields and fixed entry certificates.
+Version 9 stores a version 1 project.
 No saved pod bank field is added.
 Restore infers the bank from retained gates, local lanes, and berth assignments.
 A retained route that disagrees with its bank rejects the file before either restore tier.
