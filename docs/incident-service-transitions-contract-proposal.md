@@ -14,7 +14,8 @@ Where a rule lists a buffer or compact case with other cases, only that case is 
 The sentence above that keeps compact queue rules unchanged no longer covers them.
 The step-fault seam was removed with them: `compactFault`, `CompactQueueError`, `FailStepForTest`, and the Compact pause return in `Session.step`.
 Rows, clauses, and landing gates that name these no longer apply.
-Citations of removed files and functions, such as `compact_state_bytes_test.go`, no longer apply.
+Citations of removed controller files and functions no longer apply.
+`compact_state_bytes_test.go` remains, and its compact-class byte fixture and native-ID overflow guard keep their requirements.
 
 Status note, October 6, 2026: the maintainer stopped the incident redesign after stage 3.
 Stages 4 to 7 are out of scope.

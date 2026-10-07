@@ -1033,8 +1033,8 @@ The JSON report always has them.
 The editor has an experimental control for pickup reassignment.
 Pause and apply activates the draft settings.
 The comparison command uses its explicit policy flags, not the experimental settings in the input project.
-Without either flag, both policies stay off and the existing report format stays unchanged.
-With a flag, table and CSV output include its policy column, and JSON output includes its off/on value.
+Without `-pickup-reassignment`, the policy stays off and the existing report format stays unchanged.
+With it, table and CSV output include its policy column, and JSON output includes its off/on value.
 With `-pickup-reassignment`, JSON also records controller work, swaps, transfers, and predicted seconds saved.
 These predictions exclude future traffic; they do not establish realized service improvement.
 
