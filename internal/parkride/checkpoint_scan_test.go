@@ -31,7 +31,8 @@ func TestCheckpointPreallocationBounds(t *testing.T) {
 		{"rail origins", "payload/origin/project/railDepartures/0/origins", "array exceeds bound", 17, map[string]any{}},
 		{"profile bands", "payload/origin/project/demandProfiles/0/bands", "array exceeds bound", 25, map[string]any{}},
 		{"profile flows", "payload/origin/project/demandProfiles/0/flows", "array exceeds bound", 65001, map[string]any{}},
-		{"flow weights", "payload/origin/project/demandProfiles/0/flows/0/weights", "array exceeds bound", 25, 0},
+		{"profile stations", "payload/origin/project/demandProfiles/0/stations", "array exceeds bound", 301, "harbor"},
+		{"flow values", "payload/origin/project/demandProfiles/0/flows/0", "array exceeds bound", 27, 0},
 		{"native stops", "payload/native/pods/0/stops", "array exceeds bound", 9, "harbor"},
 		{"native stop object", "payload/native/pods/0/stops", "element type", 1, map[string]any{}},
 		{"native route object", "payload/native/pods/0/route", "element type", 1, map[string]any{}},
@@ -71,6 +72,10 @@ func replaceTreePath(t *testing.T, tree map[string]any, path []string, value any
 		if len(entries) == 0 {
 			entries = []any{map[string]any{}}
 			tree[path[0]] = entries
+		}
+		if len(path) == 2 {
+			entries[0] = value
+			return
 		}
 		entry, ok := entries[0].(map[string]any)
 		if !ok {

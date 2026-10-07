@@ -239,20 +239,41 @@ func TestChecksPreserveInvalidDraftTargetsAndOperationBarrier(t *testing.T) {
 // TestCheckProfilesErrorOrder pins the order of the demand profile errors.
 // checkProfiles checks the profile list, and then each profile in order.
 // For each profile it checks the ID, the name, the band and flow counts,
-// each band, each flow with its weights, and then the band totals. Most
-// cases break two adjacent checks, and the report lists the errors in check
-// order.
+// each band, each flow with its weights, the station list, and then the
+// band totals. Most cases break two adjacent checks, and the report lists
+// the errors in check order.
 func TestCheckProfilesErrorOrder(t *testing.T) {
 	t.Parallel()
 	passenger := map[string]bool{"a": true, "b": true}
 	band := func(name string) []any {
 		return []any{map[string]any{"id": "m", "name": name, "startMinute": 0.0, "durationMinutes": 60.0}}
 	}
-	flow := func(from string, weights ...any) map[string]any {
-		return map[string]any{"from": from, "to": "b", "weights": append([]any{}, weights...)}
+	type testFlow struct {
+		from    string
+		weights []any
+	}
+	flow := func(from string, weights ...any) testFlow { return testFlow{from, weights} }
+	// setFlows gives p the flows from each origin to "b", and lists their
+	// stations in the order of first use.
+	setFlows := func(p map[string]any, flows ...testFlow) {
+		stations, rows := []any{}, []any{}
+		index := func(id string) float64 {
+			if at := slices.Index(stations, any(id)); at >= 0 {
+				return float64(at)
+			}
+			stations = append(stations, id)
+			return float64(len(stations) - 1)
+		}
+		for _, flow := range flows {
+			from := index(flow.from)
+			rows = append(rows, append([]any{from, index("b")}, flow.weights...))
+		}
+		p["stations"], p["flows"] = stations, rows
 	}
 	profile := func(id string) map[string]any {
-		return map[string]any{"id": id, "name": "Peak", "bands": band("Morning"), "flows": []any{flow("a", 1.0)}}
+		p := map[string]any{"id": id, "name": "Peak", "bands": band("Morning")}
+		setFlows(p, flow("a", 1.0))
+		return p
 	}
 	const (
 		list     = "Demand profiles must be an array."
@@ -261,6 +282,7 @@ func TestCheckProfilesErrorOrder(t *testing.T) {
 		name     = "Demand profile p has an invalid name."
 		bandText = "Demand profile p has an invalid band."
 		flowText = "Demand profile p has an invalid flow."
+		list2    = "Demand profile p has an invalid station list."
 		weight   = "Demand profile p has an invalid weight."
 		empty    = "Demand profile p has an empty band."
 	)
@@ -286,42 +308,74 @@ func TestCheckProfilesErrorOrder(t *testing.T) {
 			return []any{p}
 		}, []string{id}},
 		{"name_before_bands", func(p map[string]any) any {
-			p["name"], p["bands"], p["flows"] = "", []any{}, []any{flow("a")}
+			p["name"], p["bands"] = "", []any{}
+			setFlows(p, flow("a"))
 			return []any{p}
 		}, []string{name, bands}},
 		{"bands_before_flows", func(p map[string]any) any {
-			p["bands"], p["flows"] = []any{}, []any{}
+			p["bands"] = []any{}
+			setFlows(p)
 			return []any{p}
 		}, []string{bands, flows}},
 		{"flows_before_band", func(p map[string]any) any {
-			p["bands"], p["flows"] = band(""), []any{}
+			p["bands"] = band("")
+			setFlows(p)
 			return []any{p}
 		}, []string{flows, bandText, empty}},
 		{"band_before_flow", func(p map[string]any) any {
-			p["bands"], p["flows"] = band(""), []any{flow("x", 1.0)}
+			p["bands"] = band("")
+			setFlows(p, flow("x", 1.0))
 			return []any{p}
 		}, []string{bandText, flowText, empty}},
 		{"weight_before_next_flow", func(p map[string]any) any {
-			p["flows"] = []any{flow("a", -1.0), flow("x", 1.0)}
+			setFlows(p, flow("a", -1.0), flow("x", 1.0))
 			return []any{p}
 		}, []string{weight, flowText, empty}},
 		{"flow_before_next_weight", func(p map[string]any) any {
-			p["flows"] = []any{flow("x", 1.0), flow("a", -1.0)}
+			setFlows(p, flow("x", 1.0), flow("a", -1.0))
 			return []any{p}
 		}, []string{flowText, weight, empty}},
 		{"weight_before_empty_band", func(p map[string]any) any {
-			p["flows"] = []any{flow("a", -1.0)}
+			setFlows(p, flow("a", -1.0))
 			return []any{p}
 		}, []string{weight, empty}},
 		// The decoders refuse an integral number above sim.MaxCounter.
 		{"weight_above_the_largest_counter", func(p map[string]any) any {
-			p["flows"] = []any{flow("a", 1e20)}
+			setFlows(p, flow("a", 1e20))
 			return []any{p}
 		}, []string{weight, empty}},
 		{"profile_order", func(p map[string]any) any {
-			p["flows"] = []any{flow("a", 0.0)}
+			setFlows(p, flow("a", 0.0))
 			return []any{p, profile("")}
 		}, []string{empty, id}},
+		{"weight_before_fractional_index", func(p map[string]any) any {
+			setFlows(p, flow("a", -1.0), flow("x", 1.0))
+			items(p["flows"])[1] = []any{2.0, 0.5, 1.0}
+			return []any{p}
+		}, []string{weight, flowText, list2, empty}},
+		{"short_flow", func(p map[string]any) any {
+			p["flows"] = []any{[]any{0.0}}
+			return []any{p}
+		}, []string{flowText, list2, empty}},
+		{"flow_before_station_list", func(p map[string]any) any {
+			setFlows(p, flow("x", 1.0))
+			p["stations"] = append(items(p["stations"]), "a")
+			return []any{p}
+		}, []string{flowText, list2, empty}},
+		{"repeated_station", func(p map[string]any) any {
+			p["stations"] = []any{"a", "b", "a"}
+			p["flows"] = []any{[]any{0.0, 1.0, 1.0}, []any{2.0, 1.0, 1.0}}
+			return []any{p}
+		}, []string{flowText, list2}},
+		{"station_list_not_an_array", func(p map[string]any) any {
+			p["stations"] = "a"
+			return []any{p}
+		}, []string{flowText, list2, empty}},
+		{"station_list_before_empty_band", func(p map[string]any) any {
+			setFlows(p, flow("a", 0.0))
+			p["stations"] = append(items(p["stations"]), "x")
+			return []any{p}
+		}, []string{list2, empty}},
 		{"valid", func(p map[string]any) any { return []any{p} }, nil},
 	} {
 		t.Run(test.name, func(t *testing.T) {

@@ -39,9 +39,12 @@ func wirePaths(t *testing.T) (map[string]bool, []wirename.Member) {
 	members, _ := wirename.Walk(wireRoots()...)
 	paths := wirename.Paths(members)
 	// The save adapter writes these members in place of native fields.
+	// A demand profile writes its station list in place of the station IDs
+	// of its flows.
 	for _, path := range []string{
 		"/simulation/pods/*/operational", "/simulation/pods/*/riders/*/legFrom",
 		"/simulation/waiting/*/request/legFrom", "/simulation/waiting/*/excludedPod",
+		"/project/demandProfiles/*/stations",
 	} {
 		paths[path] = true
 	}

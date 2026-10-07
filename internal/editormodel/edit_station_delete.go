@@ -52,6 +52,8 @@ func (g geometryDraft) replaceBranch(key string, owned any) {
 	}
 }
 
+// removeStationFlows removes the flows that start or end at the station from
+// each profile.
 func (g geometryDraft) removeStationFlows(id string) {
 	profiles, ok := member(g.draft, "demandProfiles").([]any)
 	if !ok {
@@ -59,13 +61,50 @@ func (g geometryDraft) removeStationFlows(id string) {
 	}
 	owned := items(cloneEditValue(profiles))
 	for _, profile := range owned {
-		if flows, ok := member(profile, "flows").([]any); ok {
-			object(profile)["flows"] = slices.DeleteFunc(flows, func(flow any) bool {
-				return member(flow, "from") == id || member(flow, "to") == id
-			})
+		stations, flows := items(member(profile, "stations")), items(member(profile, "flows"))
+		if flows != nil && slices.ContainsFunc(flows, func(flow any) bool { return flowNamesStation(flow, stations, id) }) {
+			object(profile)["stations"], object(profile)["flows"] = withoutStationFlows(stations, flows, id)
 		}
 	}
 	g.replaceBranch("demandProfiles", owned)
+}
+
+// flowNamesStation reports whether a flow starts or ends at the station id.
+func flowNamesStation(flow any, stations []any, id string) bool {
+	ends, ok := draftFlowEnds(flow, len(stations))
+	return ok && (stations[ends[0]] == id || stations[ends[1]] == id)
+}
+
+// withoutStationFlows returns the station list and the flows of a profile
+// without the flows that name the station id. The list keeps the stations
+// of the other flows in the order of first use, as the project encoding
+// does, so that no listed station is unused. The flows get the new indexes.
+// A flow that does not start with two valid station indexes stays the same.
+func withoutStationFlows(stations, flows []any, id string) (list, kept []any) {
+	list, kept = make([]any, 0, len(stations)), make([]any, 0, len(flows))
+	renumbered := make(map[int]float64, len(stations))
+	for _, flow := range flows {
+		ends, ok := draftFlowEnds(flow, len(stations))
+		if !ok {
+			kept = append(kept, flow)
+			continue
+		}
+		if stations[ends[0]] == id || stations[ends[1]] == id {
+			continue
+		}
+		row := items(flow)
+		for end, old := range ends {
+			index, found := renumbered[old]
+			if !found {
+				index = float64(len(list))
+				renumbered[old] = index
+				list = append(list, stations[old])
+			}
+			row[end] = index
+		}
+		kept = append(kept, row)
+	}
+	return list, kept
 }
 
 func (g geometryDraft) removeStationRailReferences(id, key, choices string) {

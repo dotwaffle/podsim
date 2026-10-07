@@ -28,8 +28,12 @@ func TestCommandLimitsCoverEachArray(t *testing.T) {
 	var paths []string
 	var walk func(typ reflect.Type, path string)
 	walk = func(typ reflect.Type, path string) {
-		if typ == reflect.TypeFor[sim.ClassSet]() {
+		switch typ {
+		case reflect.TypeFor[sim.ClassSet]():
 			paths = append(paths, path)
+			return
+		case reflect.TypeFor[project.DemandProfile]():
+			walk(reflect.TypeFor[demandProfileWire](), path)
 			return
 		}
 		switch typ.Kind() {

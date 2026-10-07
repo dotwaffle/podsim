@@ -737,6 +737,35 @@ func marshalSavedJSON(t *testing.T, value any) []byte {
 	return data
 }
 
+// TestStateScanBoundsCompactFlows checks the scan limits of the station
+// list of a demand profile and of the array of one flow, in each table
+// that reads a saved project.
+func TestStateScanBoundsCompactFlows(t *testing.T) {
+	t.Parallel()
+	list := func(item string, count int) string { return strings.TrimSuffix(strings.Repeat(item+",", count), ",") }
+	tables := map[string]jsonLimits{"state": stateJSONLimits, "save header": savedLimits(contractMarkers{order: sim.ExpressOrderContract})}
+	for _, test := range []struct {
+		name  string
+		input func(count int) string
+		limit int
+	}{
+		{"stations", func(count int) string { return `{"stations":[` + list(`""`, count) + `]}` }, project.MaxStations},
+		{"flow values", func(count int) string { return `{"flows":[[` + list("0", count) + `]]}` }, project.MaxFlowValues},
+	} {
+		for name, limits := range tables {
+			raw := func(count int) []byte {
+				return []byte(`{"project":{"demandProfiles":[` + test.input(count) + `]}}`)
+			}
+			if err := prescanJSON(raw(test.limit), limits); err != nil {
+				t.Errorf("%s %s: the scan refused %d values: %v", name, test.name, test.limit, err)
+			}
+			if err := prescanJSON(raw(test.limit+1), limits); !errors.Is(err, errJSONArrayTooLong) {
+				t.Errorf("%s %s: the scan of %d values gave %v", name, test.name, test.limit+1, err)
+			}
+		}
+	}
+}
+
 func TestEncodeStateFileTooLarge(t *testing.T) {
 	t.Parallel()
 	file := newTestStateFile(t)
@@ -744,8 +773,8 @@ func TestEncodeStateFileTooLarge(t *testing.T) {
 	// digits. The project is not valid, but the encoder does not check it.
 	const weights = project.MaxFileBytes/21 + 1
 	var profile project.DemandProfile
-	text := `{"id":"p","name":"P","flows":[{"from":"harbor","to":"market","weights":[` +
-		strings.Repeat("1e20,", weights-1) + `1e20]}]}`
+	text := `{"id":"p","name":"P","stations":["harbor","market"],"flows":[[0,1,` +
+		strings.Repeat("1e20,", weights-1) + `1e20]]}`
 	if err := json.Unmarshal([]byte(text), &profile); err != nil {
 		t.Fatal(err)
 	}
@@ -783,6 +812,17 @@ func TestEncodeStateFileTooLarge(t *testing.T) {
 			}
 		})
 	}
+}
+
+// demandProfileWire has the members of the JSON form of a
+// project.DemandProfile. Each flow is an array of two station indexes and
+// the weights. project.TestDemandProfileJSONShape pins the form.
+type demandProfileWire struct {
+	ID       string               `json:"id"`
+	Name     string               `json:"name"`
+	Bands    []project.DemandBand `json:"bands"`
+	Stations []string             `json:"stations"`
+	Flows    [][]float64          `json:"flows"`
 }
 
 // withoutMember returns typ with the JSON member name removed from each
@@ -834,6 +874,8 @@ func stateMembers(t *testing.T, path string, typ reflect.Type, parents []reflect
 		return []string{path + " time"}
 	case reflect.TypeFor[sim.ClassSet]():
 		return []string{path + " array", path + "[] string"}
+	case reflect.TypeFor[project.DemandProfile]():
+		return stateMembers(t, path, reflect.TypeFor[demandProfileWire](), parents)
 	case reflect.TypeFor[[]byte]():
 		return []string{path + " base64"}
 	}

@@ -117,8 +117,9 @@ var stateJSONLimits = jsonLimits{
 		"/project/railDepartures/*/origins":            project.MaxRailDestinations,
 		"/project/demandProfiles":                      project.MaxProfiles,
 		"/project/demandProfiles/*/bands":              project.MaxBands,
+		"/project/demandProfiles/*/stations":           project.MaxStations,
 		"/project/demandProfiles/*/flows":              project.MaxFlows,
-		"/project/demandProfiles/*/flows/*/weights":    project.MaxBands,
+		"/project/demandProfiles/*/flows/*":            project.MaxFlowValues,
 		"/simulation/pods":                             maxSavedPods,
 		// A saved pod route has at most as many lanes as the network has
 		// lanes and nodes.

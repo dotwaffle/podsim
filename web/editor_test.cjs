@@ -824,7 +824,7 @@ test("portable OD profiles round trip", () => {
   const [alpha, beta] = config.network.stations;
   config.demandProfiles = [{
     id: "weekday", name: "Weekday", bands: [{ id: "am", name: "AM peak", startMinute: 420, durationMinutes: 180 }],
-    flows: [{ from: alpha.id, to: beta.id, weights: [3] }],
+    stations: [alpha.id, beta.id], flows: [[0, 1, 3]],
   }];
   config.demand = { enabled: true, perMinute: 12, pattern: "profile", destination: "", profile: "weekday", band: "am", seed: 9 };
 
@@ -969,7 +969,7 @@ test("the network bounds hold the nodes and the background", () => {
 test("the station flow count on the generated london project gives the flows that name the station", needsGo, () => {
   const config = generatedProject("london-central");
   const station = config.network.stations.find((item) => !item.parkingOnly);
-  const naming = config.demandProfiles.flatMap((profile) => profile.flows).filter((flow) => flow.from === station.id || flow.to === station.id);
+  const naming = config.demandProfiles.flatMap((profile) => profile.flows.filter((flow) => profile.stations[flow[0]] === station.id || profile.stations[flow[1]] === station.id));
   assert.ok(naming.length > 0);
   assert.equal(editor.stationFlowCount(config, station.id), naming.length);
 });

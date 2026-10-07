@@ -379,9 +379,10 @@
   }
 
   // flowNamesStation reports whether a demand profile flow starts or ends at
-  // the station.
-  function flowNamesStation(flow, stationID) {
-    return Boolean(flow) && (flow.from === stationID || flow.to === stationID);
+  // the station. A flow is an array of the indexes in the station list of
+  // the profile of its origin and its destination, and then its weights.
+  function flowNamesStation(flow, stations, stationID) {
+    return Array.isArray(flow) && (stations[flow[0]] === stationID || stations[flow[1]] === stationID);
   }
 
   // stationFlowCount gives the number of demand profile flows that start or
@@ -389,7 +390,7 @@
   function stationFlowCount(config, stationID) {
     let count = 0;
     for (const profile of config.demandProfiles || []) {
-      if (profile && Array.isArray(profile.flows)) count += profile.flows.filter((flow) => flowNamesStation(flow, stationID)).length;
+      if (profile && Array.isArray(profile.flows) && Array.isArray(profile.stations)) count += profile.flows.filter((flow) => flowNamesStation(flow, profile.stations, stationID)).length;
     }
     return count;
   }

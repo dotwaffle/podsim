@@ -148,7 +148,11 @@ type DemandConfig struct {
 	DailyStartMinute int    `json:"dailyStartMinute,omitzero"`
 }
 
-// DemandProfile contains a portable origin-destination demand matrix.
+// DemandProfile contains a portable origin-destination demand matrix. Its
+// JSON form lists the stations one time and gives each flow as an array
+// (see demand_json.go).
+//
+//nolint:recvcheck // JSON encoding reads a value. Decoding must replace a pointer.
 type DemandProfile struct {
 	ID    string       `json:"id"`
 	Name  string       `json:"name"`

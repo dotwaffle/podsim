@@ -99,8 +99,9 @@ var commandJSONLimits = jsonLimits{
 		"/project/railDepartures/*/origins":                   project.MaxRailDestinations,
 		"/project/demandProfiles":                             project.MaxProfiles,
 		"/project/demandProfiles/*/bands":                     project.MaxBands,
+		"/project/demandProfiles/*/stations":                  project.MaxStations,
 		"/project/demandProfiles/*/flows":                     project.MaxFlows,
-		"/project/demandProfiles/*/flows/*/weights":           project.MaxBands,
+		"/project/demandProfiles/*/flows/*":                   project.MaxFlowValues,
 	},
 }
 

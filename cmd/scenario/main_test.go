@@ -94,7 +94,7 @@ func TestRunWithoutFlagsKeepsPresets(t *testing.T) {
 		"parking-constrained": "28cc9e22424a39991794f8981a0427db0964c985ac4b8d878da374ee2fa29f67",
 		"rail-hub":            "dddc9926188715eb653f20176dcbfc118a6b8f013ef5b0148d6efd3c5b5d9ff9",
 		"scale100":            "fc5896f7c9e5efd30e75a5b83937df95848c1e2d3133b5be07bbbcb792727dc1",
-		"london-central":      "78a6295bc278e001e235b27983a8d68bcc6bf5dcf1ceef07bbe39cd75c728388",
+		"london-central":      "a3f02c1cbba8941e8228a803134de1d8f78ec93669b3f23e862fe273bb22cb20",
 	}
 	for preset, want := range tests {
 		t.Run(preset, func(t *testing.T) {

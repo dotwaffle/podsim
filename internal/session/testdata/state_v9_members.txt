@@ -252,12 +252,11 @@ project.demandProfiles[].bands[].name string
 project.demandProfiles[].bands[].startMinute number
 project.demandProfiles[].bands[].durationMinutes number
 project.demandProfiles[].bands[].perMinute number
+project.demandProfiles[].stations array
+project.demandProfiles[].stations[] string
 project.demandProfiles[].flows array
-project.demandProfiles[].flows[] object
-project.demandProfiles[].flows[].from string
-project.demandProfiles[].flows[].to string
-project.demandProfiles[].flows[].weights array
-project.demandProfiles[].flows[].weights[] number
+project.demandProfiles[].flows[] array
+project.demandProfiles[].flows[][] number
 project.railArrivals array
 project.railArrivals[] object
 project.railArrivals[].id string

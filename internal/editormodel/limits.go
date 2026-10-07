@@ -113,10 +113,14 @@ func projectArrayLimit(path string) int64 {
 		return project.MaxRailDestinations
 	case "/project/demandProfiles":
 		return project.MaxProfiles
-	case "/project/demandProfiles/*/bands", "/project/demandProfiles/*/flows/*/weights":
+	case "/project/demandProfiles/*/bands":
 		return project.MaxBands
+	case "/project/demandProfiles/*/stations":
+		return project.MaxStations
 	case "/project/demandProfiles/*/flows":
 		return project.MaxFlows
+	case "/project/demandProfiles/*/flows/*":
+		return project.MaxFlowValues
 	default:
 		return 0
 	}

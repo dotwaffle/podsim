@@ -24,6 +24,9 @@ func TestCheckpointRulesMatchTags(t *testing.T) {
 		}
 	}
 	paths := wirename.Paths(members)
+	// A demand profile writes a station list in place of the station IDs of
+	// its flows.
+	paths["/payload/origin/project/demandProfiles/*/stations"] = true
 	for path, r := range checkpointRules {
 		if path != "" && !paths[trimElements(path)] {
 			t.Errorf("rule path %q names no member", path)

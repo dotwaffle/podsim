@@ -646,18 +646,18 @@ func withEncodedSize(t *testing.T, config Config, size int) Config {
 
 // shortExponentProject returns a project decoded from a file of at most
 // MaxFileBytes. The canonical encoding of the project has more than
-// MaxFileBytes. Half of the weights are 1e15, and the others wideWeight.
-// The file writes them as 1e15 and 1.0000000000000002e-6, and the
-// canonical encoding writes them with 16 and 24 bytes.
+// MaxFileBytes. One of each four weights is 1e15, and the others are
+// wideWeight. The file writes them as 1e15 and 1.0000000000000002e-6, and
+// the canonical encoding writes them with 16 and 24 bytes.
 func shortExponentProject(t *testing.T) Config {
 	t.Helper()
 	config := weightedProject()
 	for _, profile := range config.DemandProfiles {
 		for _, flow := range profile.Flows {
 			for index := range flow.Weights {
-				flow.Weights[index] = 1e15
-				if index%2 == 0 {
-					flow.Weights[index] = wideWeight
+				flow.Weights[index] = wideWeight
+				if index%4 == 3 {
+					flow.Weights[index] = 1e15
 				}
 			}
 		}

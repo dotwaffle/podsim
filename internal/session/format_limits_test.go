@@ -78,6 +78,9 @@ type familyLimits struct {
 // 600 pods. A path that had no explicit limit had the general element
 // limit. Version 9 replaced saves 6, 7 and 8. Its table for the markers
 // of each earlier family must not be looser than the table of that family.
+// The weights array of a flow, with 24 values, became the flow array, with
+// the two station indexes and the weights, so the file records 26 values
+// at /project/demandProfiles/*/flows/*.
 func TestLimitTablesNotLooser(t *testing.T) {
 	t.Parallel()
 	raw, err := os.ReadFile("testdata/family_limit_tables.json")

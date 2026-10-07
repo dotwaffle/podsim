@@ -52,7 +52,7 @@ func checkProfile(profile any, ids, passenger map[string]bool, errors *checkList
 	bands, flows := items(member(profile, "bands")), items(member(profile, "flows"))
 	checkProfileCounts(len(bands), len(flows), prefix, errors)
 	checkProfileBands(bands, prefix, errors)
-	totals := checkProfileFlows(flows, len(bands), passenger, prefix, errors)
+	totals := checkProfileFlows(profile, len(bands), passenger, prefix, errors)
 	if slices.ContainsFunc(totals, func(total float64) bool { return math.IsNaN(total) || math.IsInf(total, 0) || total <= 0 }) {
 		errors.add(prefix+" has an empty band.", nil)
 	}
@@ -90,27 +90,76 @@ func invalidBand(band any, bandIDs map[string]bool) bool {
 }
 
 // checkProfileFlows checks each flow of a profile in order, and then its
-// weights. It returns the total weight of each band.
-func checkProfileFlows(flows []any, bandCount int, passenger map[string]bool, prefix string, errors *checkList) []float64 {
-	totals, pairs := make([]float64, bandCount), make(map[[2]string]bool)
-	for _, flow := range flows {
-		weights, pair := items(member(flow, "weights")), [2]string{text(member(flow, "from")), text(member(flow, "to"))}
-		if invalidFlow(flow, pair, weights, bandCount, passenger, pairs) {
+// weights. It then checks the station list of the profile. It returns the
+// total weight of each band.
+func checkProfileFlows(profile any, bandCount int, passenger map[string]bool, prefix string, errors *checkList) []float64 {
+	stations := items(member(profile, "stations"))
+	totals, pairs, used := make([]float64, bandCount), make(map[[2]string]bool), make([]bool, len(stations))
+	for _, flow := range items(member(profile, "flows")) {
+		ends, ok := draftFlowEnds(flow, len(stations))
+		if !ok {
+			errors.add(prefix+" has an invalid flow.", nil)
+			continue
+		}
+		used[ends[0]], used[ends[1]] = true, true
+		weights, pair := items(flow)[2:], [2]string{text(stations[ends[0]]), text(stations[ends[1]])}
+		if invalidFlow(pair, weights, bandCount, passenger, pairs) {
 			errors.add(prefix+" has an invalid flow.", nil)
 			continue
 		}
 		pairs[pair] = true
 		addFlowWeights(weights, totals, prefix, errors)
 	}
+	if invalidStationList(member(profile, "stations"), used) {
+		errors.add(prefix+" has an invalid station list.", nil)
+	}
 	return totals
 }
 
-// invalidFlow reports whether a flow is not an object, does not join two
-// different passenger stations, repeats an earlier pair, or does not have
-// one weight for each band.
-func invalidFlow(flow any, pair [2]string, weights []any, bandCount int, passenger map[string]bool, pairs map[[2]string]bool) bool {
+// draftFlowEnds returns the two station indexes at the start of a flow
+// array. ok is false when the flow is not an array that starts with two
+// whole numbers from 0 to count-1.
+func draftFlowEnds(flow any, count int) (ends [2]int, ok bool) {
+	row := items(flow)
+	if len(row) < 2 {
+		return ends, false
+	}
+	for end := range ends {
+		index, valid := draftInt(row[end])
+		if !valid || index < 0 || index >= count {
+			return ends, false
+		}
+		ends[end] = index
+	}
+	return ends, true
+}
+
+// invalidFlow reports whether a flow does not join two different passenger
+// stations, repeats an earlier pair, or does not have one weight for each
+// band.
+func invalidFlow(pair [2]string, weights []any, bandCount int, passenger map[string]bool, pairs map[[2]string]bool) bool {
 	from, to := pair[0], pair[1]
-	return object(flow) == nil || !passenger[from] || !passenger[to] || from == to || pairs[pair] || weights == nil || len(weights) != bandCount
+	return !passenger[from] || !passenger[to] || from == to || pairs[pair] || len(weights) != bandCount
+}
+
+// invalidStationList reports whether the station list of a profile is
+// present but not an array, has an item that is not text, repeats a
+// station, or has a station that no flow names. used marks the stations
+// that the flows name.
+func invalidStationList(list any, used []bool) bool {
+	stations := items(list)
+	if list != nil && stations == nil {
+		return true
+	}
+	seen := make(map[string]bool, len(stations))
+	for index, station := range stations {
+		id, ok := station.(string)
+		if !ok || seen[id] || !used[index] {
+			return true
+		}
+		seen[id] = true
+	}
+	return false
 }
 
 // addFlowWeights checks each weight of a flow, and adds each valid weight

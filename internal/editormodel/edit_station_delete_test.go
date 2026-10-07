@@ -14,7 +14,8 @@ func TestStationDeletionPreservesMalformedReferencesAndOwnsProposals(t *testing.
 	draft := fleetDraft()
 	draft["demandProfiles"] = []any{nil, map[string]any{
 		"id": "profile", "custom": map[string]any{"keep": true},
-		"flows": []any{nil, map[string]any{"from": "alpha", "to": "beta"}, map[string]any{"from": "beta", "to": "gamma", "weights": []any{float64(2)}}},
+		"stations": []any{"alpha", "beta", "gamma"},
+		"flows":    []any{nil, []any{float64(0), float64(1)}, []any{float64(1), float64(2), float64(2)}},
 	}}
 	draft["railArrivals"] = []any{nil, map[string]any{"id": "unfinished"}, map[string]any{
 		"id": "arrival", "station": "beta", "destinations": []any{nil, map[string]any{"station": "alpha"}, map[string]any{"station": "gamma", "weight": float64(1)}},
@@ -48,13 +49,17 @@ func TestStationDeletionPreservesMalformedReferencesAndOwnsProposals(t *testing.
 	if len(items(profile["flows"])) != 2 || member(profile["custom"], "keep") != true {
 		t.Fatal("deletion lost unrelated or malformed profile fields")
 	}
+	// The kept flow gets the indexes of the new station list.
+	if !reflect.DeepEqual(profile["stations"], []any{"beta", "gamma"}) || !reflect.DeepEqual(items(profile["flows"])[1], []any{float64(0), float64(1), float64(2)}) {
+		t.Fatal("deletion did not list the stations of the kept flows again", profile["stations"], profile["flows"])
+	}
 	rail := items(result.Change.Patch["railArrivals"])
 	if len(rail) != 3 || len(items(member(rail[2], "destinations"))) != 2 {
 		t.Fatal("deletion lost unfinished rail events or unrelated choices")
 	}
 	expected := cloneEditValue(result.Change.Patch)
 	object(profile["custom"])["keep"] = false
-	object(items(profile["flows"])[1])["from"] = "mutated"
+	items(items(profile["flows"])[1])[0] = "mutated"
 	object(items(member(rail[2], "destinations"))[1])["station"] = "mutated"
 	object(items(result.Change.Patch["fleet"])[0])["id"] = "mutated"
 	if !reflect.DeepEqual(draft, before) || model.branches["demandProfiles"].value != nil || member(items(model.profiles)[1], "flows") != nil {

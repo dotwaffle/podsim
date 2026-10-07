@@ -20,18 +20,22 @@ func editFixture() map[string]any {
 
 func TestNearCapEditsRejectGrowthAndPermitShrink(t *testing.T) {
 	t.Parallel()
-	const prefix = `{"name":"Draft","demandProfiles":[{"id":"p","name":"P","bands":[],"flows":[`
+	// The third station ID pads the project to the size.
+	head := func(padding int) string {
+		return `{"name":"Draft","demandProfiles":[{"id":"p","name":"P","bands":[],"stations":["a","b","x` +
+			strings.Repeat("z", padding) + `"],"flows":[`
+	}
 	const suffix = `]}]}`
-	flow := `{"from":"` + strings.Repeat("a", 80) + `","to":"` + strings.Repeat("b", 60) + `","weights":[]}`
-	last := `{"from":"x","to":"y","weights":[]}`
+	const weight = "0.0000010000000000000002"
+	flow := `[0,1,` + strings.Repeat(weight+",", project.MaxBands-1) + weight + `]`
+	const last = `[2,0,1]`
 	wantSize := project.MaxFileBytes - 10
-	count := (wantSize - len(prefix) - len(suffix) - len(last)) / (len(flow) + 1)
+	count := (wantSize - len(head(0)) - len(suffix) - len(last)) / (len(flow) + 1)
 	if count >= project.MaxFlows {
 		t.Fatal("near-cap fixture exceeds the flow count")
 	}
-	padding := wantSize - len(prefix) - len(suffix) - count*(len(flow)+1) - len(last)
-	last = strings.Replace(last, `"x"`, `"x`+strings.Repeat("z", padding)+`"`, 1)
-	data := prefix + strings.Repeat(flow+",", count) + last + suffix
+	padding := wantSize - len(head(0)) - len(suffix) - count*(len(flow)+1) - len(last)
+	data := head(padding) + strings.Repeat(flow+",", count) + last + suffix
 	if len(data) != wantSize {
 		t.Fatal("fixture is not near the byte limit")
 	}

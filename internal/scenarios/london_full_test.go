@@ -173,7 +173,7 @@ func TestLondonCentralMirroredBytesPinned(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const want = "d9c3685e8472be1b876b84e366bd905d741101f0bb015a0f155a570130eea7db"
+	const want = "d981496aeefc7731455843732112f7fd4fdabf17263e3f9f5572b95dfd3d88e1"
 	if got := fmt.Sprintf("%x", sha256.Sum256(raw)); got != want {
 		t.Fatalf("central project hash=%s want %s", got, want)
 	}
