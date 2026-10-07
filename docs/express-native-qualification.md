@@ -8,6 +8,7 @@ This change does not activate a default or change a physical number.
 The [approved contract](express-physical-encoding-contract-proposal.md) defines the complete encoding and consumer requirements.
 
 Status 2026-10-07: the fleet limit is now 600 pods, the Express order bound is 17,000 orders, and the checkpoint cap is 100 MiB.
+The project limits are now 32 MiB of project JSON, 12,000 nodes, 20,000 lanes, and 600 stations.
 This record describes the tested source.
 
 ## Native and project behavior

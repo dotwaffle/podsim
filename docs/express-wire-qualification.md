@@ -9,6 +9,7 @@ The widest byte and browser receipts pin dependency v3.
 
 Status 2026-10-07: the widest-shape adapter tests, `TestExpressIncompressibleAssetAdapters`, `TestExpressRequalCost`, `TestExpressPublicAssetRetention`, and `TestComposedWorstCaseFormats` were deleted with the other worst-case byte proofs.
 The fleet limit is now 600 pods, the Express order bound is 17,000 orders, and the saved-state cap is 100 MiB.
+The project limits are now 32 MiB of project JSON, 12,000 nodes, 20,000 lanes, and 600 stations.
 This record describes the tested source.
 
 A final v6 bridge reruns real 20-person save, boarding restore, full/HTTP adapters, remote streams, and foundation byte controls.

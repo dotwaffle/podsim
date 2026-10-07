@@ -192,6 +192,7 @@ Unrelated subscribers remain connected.
 
 The server admits at most 64 sockets.
 Idle connections receive one application heartbeat per second, with at most one heartbeat outstanding.
+The heartbeat token is the decimal count of the heartbeats of the connection, starting at 1.
 State acknowledgments and heartbeat replies have separate 30-second progress deadlines.
 An old acknowledgment does not extend the state deadline.
 Socket writes have a 30-second outer deadline.

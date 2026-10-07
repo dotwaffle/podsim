@@ -9,6 +9,7 @@ It does not establish cross-build replay or physical admission for every support
 
 Status 2026-10-07: the checkpoint cap is now 100 MiB.
 This record describes the tested source, which had the 80 MiB cap.
+It also had the earlier project limits of 10 MiB of project JSON, 5,000 nodes, 8,000 lanes, and 300 stations.
 
 ## Use
 

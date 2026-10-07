@@ -65,9 +65,10 @@ The `qualify` task now runs only the two Station 19 drain tests and the two emer
 `TestEmergencyNoCandidateSearchCounts` checks one tick under every routing policy, cold and warm, on eight stations with 13 berths each.
 This small fixture has 160 nodes, 264 lanes, and 52 pods, and runs in normal, short, and race tests.
 The `test:embedded` task runs the full root and `cmd/serve` suites with the tag.
-In the session package, it runs only `TestPackedTextWireCost`, `TestSaveCapRejectsAtomically`, `TestDecodeCapsAtCallers`, `TestEncodeCapsAtCallers`, and `TestTopologyPreflightAtCallers`.
+In the session package, it runs only `TestPackedTextWireCost`, `TestSaveCapRejectsAtomically`, `TestDecodeCapsAtCallers`, `TestEncodeCapsAtCallers`, `TestTopologyPreflightAtCallers`, `TestPlainStateFileWorstCaseSize`, and `TestPlainStreamMaximumEncoding`.
 These tests skip under the race detector and under `-short`.
 On October 7, 2026, the maximum codec tests, `TestComposedWorstCaseFormats`, and `TestStreamMaximumEncoding` were deleted with the other worst-case byte proofs.
+The plain proofs `TestPlainStateFileWorstCaseSize` and `TestPlainStreamMaximumEncoding` remain.
 A new test that skips under the race detector must be added to the `-run` pattern of one of these tasks.
 A pattern that matches no test passes.
 
@@ -83,7 +84,7 @@ The workflow now runs five jobs on separate runners.
 `test:race:other` runs every package except `internal/sim` and `internal/session`, so a new package needs no task change.
 
 On the first warm run, `test:race:sim` took 16 minutes, and every other job took 8.5 minutes or less.
-The station and reassignment tests took 439 of 885 seconds of the local race test time, so they formed one of the two sim tasks.
+The station and reassignment tests took 439 of 885 seconds of the local race test time, so they formed one of two sim tasks until the merge that "Race split" describes.
 `check:static` runs the remaining tasks of `check`.
 `mise run check` still runs all of them on one machine.
 
@@ -106,7 +107,7 @@ Under `-short`, each sim test that calls `skipLong` skips.
 At the time of these runs, 53 sim tests called it.
 Each of them took one second or more in a serial run without the race detector, and together they took 235.5 of 294.0 seconds.
 They are the long scenarios, the parity tests that compare with a full scan or a reference, and the soak tests.
-In the session package, the eight session tests of `test:embedded`, `TestStreamLondonWire`, and `TestMaximalRequeueRoundTrip` skip under `-short`.
+In the session package, the seven session tests of `test:embedded`, `TestStreamLondonWire`, and `TestMaximalRequeueRoundTrip` skip under `-short`.
 In `internal/parkride`, six checkpoint tests skip under `-short`.
 They took 42.9 of 44.1 seconds in a serial run.
 In `cmd/compare`, nine experiment tests skip under `-short`.

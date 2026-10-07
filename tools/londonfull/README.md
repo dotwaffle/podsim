@@ -1,7 +1,7 @@
 # LondonFull source conversion
 
 This converter prepares data for the LondonFull preset.
-It does not enable a preset or change project limits.
+It does not change project limits.
 The existing central topology and 2019 demand files remain unchanged.
 
 Run with Python 3.9 or later from the repository root:
@@ -35,7 +35,7 @@ The three approved merges are:
 | Hammersmith H&C, `940GZZLUHSC` | Hammersmith, `940GZZLUHSD` |
 
 Edgware Road keeps two distinct sites.
-The generator will use bidirectional PRT guideways, not Tube service frequencies.
+The generator uses bidirectional PRT guideways, not Tube service frequencies.
 `london-full-provenance.json` retains all source stops, site mappings, line directions, branch IDs, and ordered stop sequences.
 Station coordinates come from the API, including Nine Elms and Battersea Power Station.
 Their positive longitude values in the NUMBAT definitions are not used.
