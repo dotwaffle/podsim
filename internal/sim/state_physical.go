@@ -698,8 +698,11 @@ func (r *physicalRestore) checkLinks() error {
 }
 
 // checkSavedLink checks the saved run of the link of the pod at index. Both
-// routes must hold the lanes of the run and a lane after it, and no lane of
-// the run can enter a station. The turn must be within platoonMaxTurn, and
+// routes must hold the lanes of the run and a lane after it. No lane of the
+// run can be a berth access lane or start at an entry node of the saved
+// destination station of either pod. Then, in a second pass, an entry lane
+// of the run must be an entry lane of the saved destination station of
+// both pods, as sharedLane allows. The turn must be within platoonMaxTurn, and
 // the total turn of the route of the pod from its lane to the end of the
 // run must be within the turn. As when a link forms, the rest of both
 // routes and the lanes of both destination stations must have one speed
@@ -719,10 +722,16 @@ func (r *physicalRestore) checkSavedLink(index int) error {
 	case math.IsNaN(link.Turn) || link.Turn < 0 || link.Turn > platoonMaxTurn:
 		return fmt.Errorf("the platoon turn %g is not between 0 and %g", link.Turn, platoonMaxTurn)
 	}
+	stations := [2]string{saved.DestinationStation, r.state.Pods[r.leaders[index]-1].DestinationStation}
 	for k := range link.Lanes {
 		lane := &v.Route[link.Lane+k]
-		if lane.ID != leader.Route[link.LeaderLane+k].ID || lane.StationRole == StationEntryRole || lane.StationRole == StationBerthAccessRole {
+		if lane.ID != leader.Route[link.LeaderLane+k].ID || lane.StationRole == StationBerthAccessRole || r.entryNode(stations, lane.From) {
 			return errors.New("the platoon run is not on both routes")
+		}
+	}
+	for _, lane := range v.Route[link.Lane : link.Lane+link.Lanes] {
+		if lane.StationRole == StationEntryRole && (lane.StationID != stations[0] || lane.StationID != stations[1]) {
+			return errors.New("the platoon run holds the entry lane of another station")
 		}
 	}
 	if last := link.Lane + link.Lanes - 1; saved.RouteIndex >= 0 && saved.RouteIndex <= last && r.s.runTurn(v.Route, saved.RouteIndex, last) > link.Turn+platoonTurnSlack {
@@ -738,6 +747,16 @@ func (r *physicalRestore) checkSavedLink(index int) error {
 		return errors.New("the routes of the platoon have more than one speed limit")
 	}
 	return nil
+}
+
+// entryNode reports whether node is an entry node of one of stations.
+func (r *physicalRestore) entryNode(stations [2]string, node string) bool {
+	for _, id := range stations {
+		if station, ok := r.s.station(id); ok && station.isEntry(node) {
+			return true
+		}
+	}
+	return false
 }
 
 // linkDepth returns the number of pods from the pod at index to the front

@@ -69,9 +69,16 @@ func (m *platoonMonitor) check(t *testing.T) {
 		if leader.follower != i+1 {
 			t.Fatalf("tick %d: pod %s names a predecessor that does not name it", s.tick, v.Pod.ID)
 		}
+		// A run holds no berth access lane and no lane from an entry node
+		// of the destination station of either pod. It can hold an entry
+		// lane only of the destination station of both pods.
+		follower, _ := s.station(v.destinationStation)
+		ahead, _ := s.station(leader.destinationStation)
 		for index := v.link.lane; index < v.link.lane+v.link.lanes; index++ {
-			if role := v.Route[index].StationRole; role == StationEntryRole || role == StationBerthAccessRole {
-				t.Fatalf("tick %d: the link of pod %s holds station lane %s", s.tick, v.Pod.ID, v.Route[index].ID)
+			lane := &v.Route[index]
+			if lane.StationRole == StationBerthAccessRole || follower.isEntry(lane.From) || ahead.isEntry(lane.From) ||
+				lane.StationRole == StationEntryRole && (lane.StationID != v.destinationStation || lane.StationID != leader.destinationStation) {
+				t.Fatalf("tick %d: the link of pod %s holds station lane %s", s.tick, v.Pod.ID, lane.ID)
 			}
 		}
 		if v.Pod.Activity != Traveling || leader.Pod.Activity != Traveling {

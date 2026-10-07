@@ -455,14 +455,15 @@ func (s *Simulation) unlink(v *vehicle) {
 }
 
 // extendLink adds lanes to the run of a link while the follower has
-// reserved into the lane of the end block of the link. A lane joins when it
-// is the next lane of both routes, both routes continue after it, it does
-// not enter a station, and the total turn from the lane of the follower to
-// the lane stays within the turn of the link. The turn and the clearance
-// of the link do not change. When the end block moves, the link stops
-// draining.
+// reserved into the lane of the end block of the link, or while its next
+// request goes past the end block onto the entry lane of its destination
+// station (see entryRequest). A lane joins when it is the next lane of
+// both routes, sharedLane accepts it, and the total turn from the lane of
+// the follower to the lane stays within the turn of the link. The turn and
+// the clearance of the link do not change. When the end block moves, the
+// link stops draining.
 func (s *Simulation) extendLink(v, leader *vehicle) {
-	for v.link.end >= 0 && v.reservedThrough >= v.blocks.laneFirst(v.blocks.routeLane(v.link.end)) {
+	for v.link.end >= 0 && (v.reservedThrough >= v.blocks.laneFirst(v.blocks.routeLane(v.link.end)) || s.entryRequest(v)) {
 		lane, leaderLane := v.link.lane+v.link.lanes, v.link.leaderLane+v.link.lanes
 		if !s.sharedLane(v, leader, lane, leaderLane) {
 			return
@@ -480,14 +481,68 @@ func (s *Simulation) extendLink(v, leader *vehicle) {
 
 // sharedLane reports whether the lane at route index lane of v and the lane
 // at route index leaderLane of leader can join a run. It must be one lane,
-// it must not enter a station, and both routes must continue after it.
+// and both routes must continue after it. It must not be a berth access
+// lane, and it must not start at an entry node of the destination station
+// of either pod, so a run of two pods to one station ends at the entry of
+// that station. An entry lane can join only when its station is the
+// destination station of both pods. A pod that passes a station thus has
+// no run on its entry lane.
 func (s *Simulation) sharedLane(v, leader *vehicle, lane, leaderLane int) bool {
 	if lane+1 >= len(v.Route) || leaderLane+1 >= len(leader.Route) {
 		return false
 	}
 	current := &v.Route[lane]
-	return current.ID == leader.Route[leaderLane].ID &&
-		current.StationRole != StationEntryRole && current.StationRole != StationBerthAccessRole
+	if current.ID != leader.Route[leaderLane].ID || current.StationRole == StationBerthAccessRole {
+		return false
+	}
+	for _, pod := range [2]*vehicle{v, leader} {
+		if station, ok := s.station(pod.destinationStation); ok && station.isEntry(current.From) {
+			return false
+		}
+	}
+	return current.StationRole != StationEntryRole ||
+		v.destinationStation == leader.destinationStation && current.StationID == v.destinationStation
+}
+
+// entryRunTurn returns the total turn of the route of v from route index
+// from to the end of the entry lane of its destination station. The entry
+// lane must start within platoonHorizon of v, and the turn must be within
+// platoonMaxTurn. Otherwise it returns 0. A new platoon takes at least
+// this turn, so that its run can grow onto the entry lane later. A larger
+// turn only gives a larger link clearance.
+func (s *Simulation) entryRunTurn(v *vehicle, from int) float64 {
+	for index := from; index < len(v.Route); index++ {
+		if index > from && v.blocks.lanes[index].start-v.distance > platoonHorizon {
+			return 0
+		}
+		if lane := &v.Route[index]; lane.StationRole == StationEntryRole && lane.StationID == v.destinationStation {
+			if turn := s.runTurn(v.Route, from, index); turn <= platoonMaxTurn {
+				return turn
+			}
+			return 0
+		}
+	}
+	return 0
+}
+
+// entryRequest reports whether the next request of the follower v ends
+// past the end block of its link, on the entry lane of its destination
+// station. The junction zone of a station diverge covers the end of an
+// approach and the start of the entry lane, so a follower can request the
+// approach after the end block and the entry lane in one request. Then it
+// does not reserve into the lane of the end block first, and the run grows
+// for the request.
+func (s *Simulation) entryRequest(v *vehicle) bool {
+	next := v.reservedThrough + 1
+	if next >= v.blocks.len() {
+		return false
+	}
+	through := reservationEnd(&v.blocks, next)
+	if through <= v.link.end {
+		return false
+	}
+	lane := v.blocks.lane(through)
+	return lane.StationRole == StationEntryRole && lane.StationID == v.destinationStation
 }
 
 // canLink reports whether platooning is on and the traveling pod v is
@@ -617,12 +672,14 @@ func (plan linkPlan) turnBound() float64 {
 // planLink returns a new link of plan.v to plan.leader. The run starts at
 // the lane of v and holds the next lanes that both routes share and that
 // keep the total turn of the run within plan.turnBound. After the next lane,
-// each lane must start within platoonHorizon. For a new platoon, the turn of the link is the turn of
-// the run. The follower must be able to reserve at least one more block as
-// a platoon member before the end block. The path distance between the
-// pods and between their stop points must be at least the clearance, so
-// the cap of the follower is not behind its stop point. A run does not
-// start on a station entry lane.
+// each lane must start within platoonHorizon. For a new platoon, the turn of
+// the link is the turn of the run, or the turn to the end of the entry lane
+// of the destination station of v when that is larger (see entryRunTurn).
+// The follower must be able to reserve at least one more block as a
+// platoon member before the end block. The path distance between the pods
+// and between their stop points must be at least the clearance, so the cap
+// of the follower is not behind its stop point. A run does not start on a
+// station entry lane.
 func (s *Simulation) planLink(plan linkPlan) (platoonLink, bool) {
 	v, leader := plan.v, plan.leader
 	if largeVehicleClass(v.Pod.Class) || largeVehicleClass(leader.Pod.Class) {
@@ -649,7 +706,7 @@ func (s *Simulation) planLink(plan linkPlan) (platoonLink, bool) {
 	if link.lanes == 0 {
 		return platoonLink{}, false
 	}
-	link.turn = sum.turn
+	link.turn = max(sum.turn, s.entryRunTurn(v, plan.lane))
 	if plan.fixed {
 		link.turn = plan.turn
 	}

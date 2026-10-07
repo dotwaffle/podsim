@@ -12,9 +12,13 @@ import (
 // entry lane. approach is the length of each approach lane. crossing adds
 // a lane through the node "p2" at the start of "dest-road-in-02", from the
 // node "x1" to the node "x2", and a lane from "x2" back to the origin.
+// third adds a third approach "dest-road-in-03" that joins at -join.
+// explicit gives "dest-01-arrival-link" the through role. alt adds the
+// lane "dest-alt" from the station entry to "dest-02-arrival", longer than
+// the chain of arrival links, with no station role.
 type entryShape struct {
-	join, approach float64
-	crossing       bool
+	join, approach                 float64
+	crossing, third, explicit, alt bool
 }
 
 // entryNetwork returns a station in the shape of a London station. Two
@@ -40,6 +44,8 @@ func entryNetwork(shape entryShape, fleet int) Network {
 			{ID: "dest-entry", Position: Point{X: 139}},
 			{ID: "dest-exit", Position: Point{X: 139, Y: 120}},
 			{ID: "dest-merge", Position: Point{X: 100, Y: 150}},
+			{ID: "g3", Position: Point{X: p2.X - 1300*cosine, Y: -p2.Y + 1300*sine}},
+			{ID: "p3", Position: Point{X: p2.X, Y: -p2.Y}},
 		},
 		Lanes: []Lane{
 			{ID: "origin-through", From: "origin-entry", To: "origin-exit", SpeedLimit: 14},
@@ -53,11 +59,18 @@ func entryNetwork(shape entryShape, fleet int) Network {
 			{ID: "dest-through", From: "dest-entry", To: "dest-exit", SpeedLimit: 14, StationID: "dest", StationRole: StationThroughRole},
 			{ID: "dest-access-out", From: "dest-exit", To: "dest-merge", SpeedLimit: 14, StationID: "dest", StationRole: StationExitRole},
 			{ID: "return", From: "dest-merge", To: "origin-entry", SpeedLimit: 14},
+			{ID: "feed-3", From: "origin-exit", To: "g3", SpeedLimit: 14},
+			{ID: "u3", From: "g3", To: "p3", SpeedLimit: 14},
+			{ID: "dest-road-in-03", From: "p3", To: "dest-diverge", SpeedLimit: 14, StationID: "dest", StationRole: StationApproachRole},
 		},
 		Stations: []Station{
 			{ID: "origin", Name: "Origin", Entry: "origin-entry", Exit: "origin-exit"},
 			{ID: "dest", Name: "Destination", Entry: "dest-entry", Exit: "dest-exit"},
 		},
+	}
+	if !shape.third {
+		network.Nodes = network.Nodes[:len(network.Nodes)-2]
+		network.Lanes = network.Lanes[:len(network.Lanes)-3]
 	}
 	if shape.crossing {
 		// The crossing lane passes p2 at a right angle to u2.
@@ -89,6 +102,14 @@ func entryNetwork(shape entryShape, fleet int) Network {
 		network.Stations[1].Berths = append(network.Stations[1].Berths, Berth{ID: id, Node: id + "-node"})
 		arrival, departure = id+"-arrival", id+"-departure"
 	}
+	for index := range network.Lanes {
+		if lane := &network.Lanes[index]; lane.ID == "dest-01-arrival-link" && shape.explicit {
+			lane.StationRole = StationThroughRole
+		}
+	}
+	if shape.alt {
+		network.Lanes = append(network.Lanes, Lane{ID: "dest-alt", From: "dest-entry", To: "dest-02-arrival", SpeedLimit: 14, Control: &Point{X: 209}})
+	}
 	for index := range fleet {
 		node := fmt.Sprintf("origin-berth-%02d", index+1)
 		network.Nodes = append(network.Nodes, Node{ID: node, Position: Point{X: -4960 + 25*float64(index), Y: 5060}})
@@ -104,16 +125,29 @@ func entryNetwork(shape entryShape, fleet int) Network {
 // at 30 degrees.
 var londonEntry = entryShape{join: 30, approach: 150}
 
-// entryPod is a pod at rest for restoreEntry. approach is 1 or 2 for a
+// entryPod is a pod at rest for restoreEntry. approach is 1 to 3 for a
 // pod on the upstream lane of an approach, at distance on that lane, with
-// a route to the station entry. approach 0 is a pod on the crossing lane
-// "x-in" with a route back to the origin. class is the class of the pod,
-// and link is its saved platoon link.
+// a route to the station entry. With lane "road", the pod is on the
+// approach lane instead, and with lane "feed", on the lane from the origin
+// to the upstream lane. approach 0 is a pod on the crossing lane "x-in"
+// with a route back to the origin. class is the class of the pod, link is
+// its saved platoon link, and since is its saved WaitSince.
+//
+// A pod on an approach carries a party to the station "dest". berth k > 0
+// gives it the berth "dest-0k" with a route through the chain of arrival
+// links, or through the lanes of path after the entry lane. With berth 0,
+// it has no berth yet, and path can add lanes back to the entry lane.
+// through makes the pod pass the station "dest": it relocates empty to its
+// origin berth through the station.
 type entryPod struct {
-	approach int
-	distance float64
-	class    VehicleClass
-	link     *SavedPlatoonLink
+	approach, berth int
+	distance        float64
+	class           VehicleClass
+	link            *SavedPlatoonLink
+	lane            string
+	path            []string
+	since           int64
+	through         bool
 }
 
 // entryLaneIndexes returns the index of each lane of network by lane ID.
@@ -125,34 +159,71 @@ func entryLaneIndexes(network Network) map[string]int {
 	return indexes
 }
 
-// restoreEntry restores pods at rest on the upstream lanes of entryNetwork,
-// with virtual platoons. Each pod on an approach carries a party to the
-// station "dest" and has no berth yet. Each pod on the crossing lane
-// relocates empty to a berth of the origin. The pod with index i is at the
-// origin berth i+1 of the fleet.
-func restoreEntry(t *testing.T, network Network, pods []entryPod) *Simulation {
-	t.Helper()
+// savedEntry returns the saved state of pods on entryNetwork at tick, and
+// the fleet. The pod with index i is at the origin berth i+1 of the fleet.
+func savedEntry(network Network, tick int64, pods []entryPod) (SavedState, []Placement) {
 	lanes := entryLaneIndexes(network)
 	var fleet []Placement
-	state := SavedState{SharedRidePartyLimit: 1}
+	state := SavedState{SharedRidePartyLimit: 1, Tick: tick}
 	for index, pod := range pods {
 		id := fmt.Sprintf("p%02d", index+1)
 		berth := fmt.Sprintf("origin-%02d", index+1)
 		fleet = append(fleet, Placement{ID: id, StationID: "origin", BerthID: berth, Class: pod.class})
-		saved := SavedPod{ID: id, Class: pod.class, Activity: "traveling", Origin: berth, LaneDistance: pod.distance, Distance: pod.distance, Platoon: pod.link}
-		if pod.approach == 0 {
-			saved.LaneID, saved.DestinationStation, saved.Destination, saved.RelocatingTo = "x-in", "origin", berth, "origin"
-			saved.Route = []int{lanes["x-in"], lanes["x-out"], lanes["x-return"], lanes[fmt.Sprintf("origin-berth-%02d-in", index+1)]}
-		} else {
+		saved := SavedPod{ID: id, Class: pod.class, Activity: "traveling", Origin: berth, LaneDistance: pod.distance, Distance: pod.distance, Platoon: pod.link, WaitSince: pod.since}
+		road := fmt.Sprintf("dest-road-in-%02d", pod.approach)
+		var path []string
+		switch {
+		case pod.approach == 0:
+			saved.DestinationStation, saved.Destination, saved.RelocatingTo = "origin", berth, "origin"
+			path = []string{"x-in", "x-out", "x-return"}
+		case pod.through:
+			saved.DestinationStation, saved.Destination, saved.RelocatingTo = "origin", berth, "origin"
+			path = []string{fmt.Sprintf("u%d", pod.approach), road, "dest-access-in", "dest-through", "dest-access-out", "return"}
+		default:
 			state.RequestID++
 			state.Boarded++
-			saved.LaneID = fmt.Sprintf("u%d", pod.approach)
 			saved.Occupied, saved.DestinationStation, saved.Stops = true, "dest", []string{"dest"}
 			saved.Riders = []SavedRequest{{SharingConsent: SharedConsent, Service: OnDemandService, ID: state.RequestID, From: "origin", To: "dest", PartySize: 1, PodID: id}}
-			saved.Route = []int{lanes[saved.LaneID], lanes[fmt.Sprintf("dest-road-in-%02d", pod.approach)], lanes["dest-access-in"]}
+			path = append([]string{fmt.Sprintf("u%d", pod.approach), road, "dest-access-in"}, pod.path...)
+			for k := 1; pod.path == nil && k <= pod.berth; k++ {
+				path = append(path, fmt.Sprintf("dest-%02d-arrival-link", k))
+			}
+			if pod.berth > 0 {
+				saved.Destination = fmt.Sprintf("dest-%02d", pod.berth)
+			}
+		}
+		if saved.Destination != "" {
+			path = append(path, saved.Destination+"-in")
+		}
+		if saved.DestinationStation == "origin" {
+			path[len(path)-1] = fmt.Sprintf("origin-berth-%02d-in", index+1)
+		}
+		switch pod.lane {
+		case "road":
+			path = path[1:]
+		case "feed":
+			path = append([]string{fmt.Sprintf("feed-%d", pod.approach)}, path...)
+		}
+		saved.LaneID = path[0]
+		for _, lane := range path {
+			saved.Route = append(saved.Route, lanes[lane])
 		}
 		state.Pods = append(state.Pods, saved)
 	}
+	return state, fleet
+}
+
+// restoreEntry restores pods at rest on entryNetwork (see entryPod), with
+// virtual platoons.
+func restoreEntry(t *testing.T, network Network, pods []entryPod) *Simulation {
+	t.Helper()
+	return restoreEntryAt(t, network, 0, pods)
+}
+
+// restoreEntryAt is restoreEntry with the saved tick tick.
+func restoreEntryAt(t *testing.T, network Network, tick int64, pods []entryPod) *Simulation {
+	t.Helper()
+	state, fleet := savedEntry(network, tick, pods)
 	s, result, err := RestoreState(RestoreStateInput{Network: network, Fleet: fleet, State: state})
 	if err != nil {
 		t.Fatal(err)
