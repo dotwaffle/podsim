@@ -78,9 +78,8 @@ All eight tasks of `mise run check` ran at the same time on that runner.
 The race tests of `internal/sim` took 920 to 1,250 seconds, and those of `internal/session` took 720 to 987 seconds.
 Two runs of the same source differed by about 35 percent between Azure regions.
 
-The workflow now runs six jobs on separate runners.
-`test:race` depends on every `test:race:*` task: `test:race:sim-stations`, `test:race:sim-other`, `test:race:session`, and `test:race:other`.
-The two `internal/sim` tasks share the `sim_race_split` pattern in `mise.toml`: one runs the matching tests and the other skips them.
+The workflow now runs five jobs on separate runners.
+`test:race` depends on every `test:race:*` task: `test:race:sim`, `test:race:session`, and `test:race:other`.
 `test:race:other` runs every package except `internal/sim` and `internal/session`, so a new package needs no task change.
 
 On the first warm run, `test:race:sim` took 16 minutes, and every other job took 8.5 minutes or less.
@@ -156,14 +155,6 @@ They compare consecutive ticks, and together they take about 2.5 seconds.
 
 ### Race split
 
-The `sim_race_split` pattern is `^Test(Reassign|Station)`.
-The task that runs the station and reassignment tests used 31 percent of the CPU time of the two tasks.
-A 4-CPU CI runner is CPU-bound, so the CPU time of each task sets its duration.
-
-| Race task | Pattern | Wall | CPU | Load (start / end) |
-| --- | --- | ---: | ---: | --- |
-| `test:race:sim-stations` | `^Test(Station\|Reassign)` | 195.5 s | 1,171 s | 10.6 / 14.0 |
-| `test:race:sim-other` | `^Test(Station\|Reassign)` | 327.1 s | 2,606 s | 14.0 / 19.1 |
-
-The runs include the sampled contract check.
-They predate the removal of physical coupling, whose tests then ran in `test:race:sim-other`.
+The `internal/sim` race tests ran as two tasks, `test:race:sim-stations` and `test:race:sim-other`, from a split on the pattern `^Test(Reassign|Station)`.
+After the station buffer removal and the move of the full no-candidate latency report to `qualify`, a cold-cache CI run on October 7, 2026 took 1 minute for `test:race:sim-stations` and 11 minutes for `test:race:sim-other`.
+The two tasks are now one task, `test:race:sim`.

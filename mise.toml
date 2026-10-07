@@ -38,13 +38,6 @@ if printf '%s\n' "$deps" | grep -E '^(gocloud\.dev|github\.com/aws|cloud\.google
 fi
 '''
 
-[vars]
-# The two internal/sim race tasks use one pattern: the first runs the
-# tests that match it and the second skips them, so together they run
-# every test. The reassignment and station tests take about half of the
-# package's race time.
-sim_race_split = "^Test(Reassign|Station)"
-
 [tasks.test]
 description = "Run the full test suite without the race detector"
 run = "go test ./..."
@@ -61,16 +54,12 @@ depends = ["test:race:*"]
 
 # test:race runs every test:race:* task, and CI runs each of them on its
 # own runner. The sim and session packages take most of the race time,
-# so they have their own tasks, and sim has two. test:race:other runs every other package, so
+# so they have their own tasks. test:race:other runs every other package, so
 # a new package needs no change here. A new test:race:* task also needs
 # an entry in the CI matrix.
-[tasks."test:race:sim-stations"]
-description = "Run the reassignment and station simulation tests with the race detector"
-run = "go test -race ./internal/sim -timeout=30m -run '{{vars.sim_race_split}}'"
-
-[tasks."test:race:sim-other"]
-description = "Run the other simulation tests with the race detector"
-run = "go test -race ./internal/sim -timeout=30m -skip '{{vars.sim_race_split}}'"
+[tasks."test:race:sim"]
+description = "Run the simulation tests with the race detector"
+run = "go test -race ./internal/sim -timeout=30m"
 
 [tasks."test:race:session"]
 description = "Run the session tests with the race detector"
