@@ -35,7 +35,7 @@ Queue refusal policies are required authored values.
 The first model supports outward `drive-home` and return `retain-car`.
 It rejects omitted or unsupported policies.
 These values describe the plan and do not become session defaults.
-The reader uses the existing 10 MiB project-file bound for each input.
+The reader uses the 32 MiB project-file bound for each input, and the plan decoder keeps its 10 MiB bound.
 Before allocation, charge 4,096 bytes per itinerary and 512 bytes per lot against the existing 256 MiB offline storage bound.
 The charge includes two offers, native experiment records, request bindings, events, and owned report copies.
 This resource bound is not a physical lot or traveler limit.

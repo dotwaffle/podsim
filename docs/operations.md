@@ -75,7 +75,7 @@ docker run --rm -p 8080:8080 ghcr.io/dotwaffle/podsim:latest -addr :8080
 The `-project` option needs an existing project file.
 Mount its directory with write access for UID 65532.
 Without write access, the server rejects project applies, demand changes, and rewinds that restore a project.
-For each of these changes, the server replaces the file with compact JSON of 10 MiB or less.
+For each of these changes, the server replaces the file with compact JSON of 32 MiB or less.
 The new file belongs to UID 65532 and has mode 0600.
 
 The `-state` option needs a directory that UID 65532 can write.
@@ -502,7 +502,7 @@ Validation also refuses these projects:
 - A fault marker other than `fault-v1`, also null or an empty text.
 - A null value at any level of `faults`.
 
-The size limit of 10 MiB counts `faults` at its widest value.
+The size limit of 32 MiB counts `faults` at its widest value.
 The editor has no control for the fault marker and `faults`, and it keeps them in a loaded project.
 `cmd/compare` and the car runs of `internal/parkride` refuse a project with the incident marker, so they also refuse the fault marker.
 A change to the fault marker or to `faults` is a project change.
@@ -551,7 +551,7 @@ Validation also refuses these projects:
 - A null value or an unknown member in `emergencies`.
 
 The emergency marker does not need the fault marker.
-The size limit of 10 MiB counts `emergencies` at its widest value.
+The size limit of 32 MiB counts `emergencies` at its widest value.
 The editor has no control for the emergency marker and `emergencies`, and it keeps them in a loaded project.
 `cmd/compare` and the car runs of `internal/parkride` refuse a project with the incident marker, so they also refuse the emergency marker.
 A change to the emergency marker or to `emergencies` is a project change.
@@ -592,13 +592,15 @@ A LondonCentral save with 20 orders per minute, after 15 simulated minutes, allo
 About 8 MB of this is JSON work on the 1.5 MiB project.
 The encoder checks and formats the project text again when it adds the project to the file.
 The compressed file is about 320 KB.
-A project near the 10 MiB file limit needs more memory.
+A project near the 32 MiB file limit needs more memory.
 
 Each project apply also allocates memory for a short time.
 The server decompresses, checks, and decodes the command, then validates and starts the project.
 An apply of a project with 7.2 MiB of JSON allocated about 190 MB and took about 0.55 s.
+An apply of a gzip project with 31 MiB of JSON, 12,000 nodes, 600 stations, and 359,400 flows allocated about 7.1 GiB in total and took about 9.8 s.
+At its peak, the heap was about 310 MiB larger.
 The server applies one gzip command or one plain command of more than 1 MiB at a time, and other such commands wait.
-At most 4 such command bodies of 4 MiB or less are in memory, so they use at most 16 MiB, and the server replies 503 to more.
+At most 4 such command bodies of 16 MiB or less are in memory, so they use at most 64 MiB, and the server replies 503 to more.
 Thus two editors that apply large projects at the same time do not double this memory.
 
 ## pprof

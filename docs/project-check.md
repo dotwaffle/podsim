@@ -16,7 +16,7 @@ The command exits successfully after the native checks pass.
 An argument, read, decode, validation, or summary write error produces a nonzero exit.
 Errors identify the failed stage.
 
-The reader accepts at most 10 MiB, the existing local project limit.
+The reader accepts at most 32 MiB, the local project limit.
 The command decodes the file as the server does: as `serve -project` reads its file and as the session project command reads its project.
 It then runs `project.Validate`.
 Member names must match exactly.

@@ -88,12 +88,12 @@ These trials do not prove a performance benefit from that extra capacity.
 These initial checks preceded the finite-arrival study below.
 They do not establish a complete qualification envelope.
 
-The project limits admit 5,000 nodes, 300 stations, 600 pods, 65,000 flows, and 10 MiB of project JSON.
+The project limits admit 12,000 nodes, 20,000 lanes, 600 stations, 600 pods, 400,000 flows, and 32 MiB of project JSON.
 The default project JSON has 4,644,705 bytes, and its flows use 2,650,208 bytes.
 The saved-state cap is 100 MiB.
 No test proves that the largest saved state fits that cap.
 Stream caps are 65 MiB of JSON and 66 MiB of gzip data.
-The lane, junction-pair, and track-cell limits remain unchanged.
+The junction-pair limit is 250,000, and the track-cell limit remains 64,000.
 
 ## Finite-arrival study, September 29, 2026
 

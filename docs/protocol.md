@@ -366,10 +366,10 @@ It gets `stale_project`, so that an editor can tell a stale draft from other fai
 After a graceful shutdown starts, the server rejects new commands with `server_stopping`.
 
 The request must have the `application/json` content type.
-The body must be at most 4 MiB and contain one JSON command with no unknown members.
+The body must be at most 16 MiB and contain one JSON command with no unknown members.
 The request can send the body with `Content-Encoding: gzip`.
-Then the 4 MiB limit applies to the compressed body, and the command JSON must be at most 10 MiB plus 64 KiB (10,551,296 bytes) after decompression.
-A project command that is larger than 4 MiB must use gzip.
+Then the 16 MiB limit applies to the compressed body, and the command JSON must be at most 32 MiB plus 64 KiB (33,619,968 bytes) after decompression.
+A project command that is larger than 16 MiB must use gzip.
 A gzip body must have one gzip member and no data after it.
 A request with another content encoding gets HTTP 415 with `Accept-Encoding: gzip`.
 The server decompresses, decodes, and applies one gzip command or one plain command of more than 1 MiB at a time.
@@ -379,7 +379,7 @@ The command keeps its place until the server applies it.
 When all places are in use, the server replies at once with HTTP 503, `Retry-After: 1`, and a plain text body.
 A smaller plain command, such as a pause, does not need a place.
 Each array in the body must have no more items than the project limits permit, also for an action that does not use the project.
-For example, `project.network.lanes` can have at most 8,000 items.
+For example, `project.network.lanes` can have at most 20,000 items.
 Each string and each member name in the body must have at most 1,024 bytes, including the quotes and the escapes.
 Commands and WebSocket upgrades share one Origin policy.
 Without `-public-origin`, Origin must match the request Host and local connection scheme.
@@ -391,10 +391,10 @@ See [TLS-terminating reverse proxies](operations.md#tls-terminating-reverse-prox
 A request that breaks these rules gets HTTP 400, 403, 413, 415, or 503 and a plain text body, not an acknowledgment.
 A body that is larger than a size limit, before or after decompression, gets HTTP 413, and the text gives the limit in bytes.
 These responses also have `Cache-Control: no-store`.
-A 403, 415, or 503 reply comes before the server reads the body, and a 413 reply for a body over the 4 MiB limit comes before the end of the body.
+A 403, 415, or 503 reply comes before the server reads the body, and a 413 reply for a body over the 16 MiB limit comes before the end of the body.
 The server closes the connection after these replies, so it does not wait for the rest of the body.
 
-A `project` command with more than 300 stations, 5,000 nodes, 8,000 lanes, or 600 pods gets HTTP 400, because these arrays are larger than the limits above.
+A `project` command with more than 600 stations, 12,000 nodes, 20,000 lanes, or 600 pods gets HTTP 400, because these arrays are larger than the limits above.
 A station with more than 200 berths also gets HTTP 400.
 A `project` command gets `command_rejected` when the project fails validation, for example when a node has more than 64 lanes.
 A lane counts at its start node and at its end node.

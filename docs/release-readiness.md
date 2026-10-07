@@ -12,6 +12,8 @@ This report does not authorize deployment, default adoption, or a cap change.
 Status 2026-10-07: after this report, the maintainer deleted the worst-case byte proofs and the composed worst-case record.
 The fleet limit is now 600 pods, the plain order bound is 5,000 orders, and the Express order bound is 17,000 orders.
 The saved-state cap and the checkpoint cap are now 100 MiB.
+The project limits are now 600 stations, 12,000 nodes, 20,000 lanes, 400,000 flows in each demand profile, and 32 MiB of project JSON.
+The editor import limit is now 43 MiB, and the command body limit is now 16 MiB.
 The other statements of this report describe the pinned source.
 
 The [measurement record](measurements/release-readiness.json) is unchanged in this update.
@@ -258,6 +260,7 @@ Forecast and archived service failures still block experimental adoption and cap
 No acceptance waiver follows from a successful build or a passing Check.
 
 The README records the existing 10 MiB project limit and 21 MiB editor import limit.
+Status 2026-10-07: these limits are now 32 MiB and 43 MiB.
 This update changes neither runtime limit.
 The [dependency review](dependencies.md) retains its source-specific advisory and filesystem trust-boundary notes.
 The vulnerability task in the passing `check:static` job did not replace those notes with a security exception.

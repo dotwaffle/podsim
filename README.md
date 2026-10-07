@@ -87,7 +87,7 @@ Before the server applies a setting change, it saves the file with an atomic rep
 If the save fails, the server rejects the change.
 A rewind that restores the project of a save point also rewrites this file.
 
-Validation limits each project to 10 MiB in this compact form, also after a demand change.
+Validation limits each project to 32 MiB in this compact form, also after a demand change.
 This limit lets the server read the file at the next start.
 
 The browser export wraps the `project` object as `scenario` and can also contain a background image.
@@ -609,8 +609,8 @@ The draft stays local until you select **Pause and apply**.
   Like the server, the import matches member names exactly.
   A file that repeats a member name in one object is not valid.
   The export is compact JSON.
-  The project file must be 21 MiB or smaller.
-  This limit includes the image in base64 form, the server's 10 MiB project limit, and an allowance for other fields.
+  The project file must be 43 MiB or smaller.
+  This limit includes the image in base64 form, the server's 32 MiB project limit, and an allowance for other fields.
   It also includes 128 KiB for the image frame and license, rounded up to a whole MiB.
   Thus the editor can import an export with the largest project and the largest background image.
 - The editor keeps the images of the undo history in the memory of the tab, up to 128 MiB.
@@ -875,18 +875,18 @@ It can use all lanes.
 A berth route goes from the station entry to the berth, or from the berth to the station exit.
 It can use a chain of lanes, as in the London stations.
 It cannot pass through the entry, exit, or berth node of a station.
-Validation also limits the compact JSON form of a project to 10 MiB or less.
+Validation also limits the compact JSON form of a project to 32 MiB or less.
 An ID has only the characters A-Z, a-z, 0-9, `.`, `+`, and `-`, and a name has no control character.
 The topology JSON writes each `<`, `>`, and `&` of a name as 6 bytes.
-The widest valid topology is about 8 MB, so the server limit of 10 MiB plus 4 KiB (`topology exceeds supported limit`) is a guard that a valid project does not reach.
+A topology at the node, lane, and station limits, with the widest IDs and names, has about 9 MB, so the server limit of 32 MiB plus 4 KiB (`topology exceeds supported limit`) is a guard that a valid project does not reach.
 The editor sends the project in one command, and it compresses a command of more than 64 KiB with gzip.
-The server accepts a command body of 4 MiB or less, and 10 MiB plus 64 KiB of command JSON after decompression.
+The server accepts a command body of 16 MiB or less, and 32 MiB plus 64 KiB of command JSON after decompression.
 Before the editor pauses the simulation for an apply, it checks the size of the project and shows the limit.
-A project can have at most 300 stations, 5,000 nodes, 8,000 lanes, and 600 pods.
+A project can have at most 600 stations, 12,000 nodes, 20,000 lanes, and 600 pods.
 Each station can have at most 200 berths.
 A node can have at most 64 lanes, counted at the start node and at the end node of each lane.
 At each node, the simulator compares each ordered pair of two different lanes at the node when it starts.
-The total of these pairs over all nodes can be at most 100,000, for example about 24 nodes with 64 lanes each.
+The total of these pairs over all nodes can be at most 250,000, for example about 62 nodes with 64 lanes each.
 Each coordinate of a node position or a lane control point must be from -100,000 to 100,000 meters.
 A project can have an optional `geo` member, the geographic reference of the network.
 An optional `map` member selects the live backdrop, for example `{"provider":"osm","opacity":0.45}`.
@@ -901,7 +901,7 @@ Simulation physics does not use the reference.
 The simulator divides each lane into track cells of about 30 meters, with at least 2 cells in each lane.
 All lanes together can have at most 64,000 cells, for example about 1,900 km of lanes.
 Two lanes cannot have the same start node, end node, and path.
-A demand profile can have at most 65,000 flows.
+A demand profile can have at most 400,000 flows.
 A demand profile has the members `id`, `name`, `bands`, `stations`, and `flows`.
 The `stations` member lists each station that a flow names one time.
 Each flow is an array: the index in `stations` of the origin, the index of the destination, and then one weight for each band.
