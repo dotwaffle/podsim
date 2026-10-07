@@ -3167,8 +3167,6 @@
     setScalarValue("#sharedRideMaxStops", config.sharedRideMaxStops);
     $("#sharedRideMaxStopsLabel").hidden = config.sharedRideMode !== "drop-offs";
     setScalarValue("#platoonLimit", String(config.platoonLimit));
-    $("#stationBuffers").checked = config.stationBuffers;
-    setScalarValue("#stationQueueSpacing", config.stationQueueSpacing || "ordinary");
     $("#pickupReassignment").checked = config.pickupReassignment;
   }
 
@@ -4374,7 +4372,7 @@
         queueRailEdit(kind, command, control);
       });
     }
-    for (const id of ["demandEnabled", "demandRate", "demandPattern", "demandDestination", "demandProfile", "demandBand", "sharedRidePartyLimit", "sharedRideMode", "sharedRideJoin", "sharedRideMaxStops", "platoonLimit", "demandSeed", "redistribution", "stationBuffers", "stationQueueSpacing", "pickupReassignment"]) bindScalarInput(id);
+    for (const id of ["demandEnabled", "demandRate", "demandPattern", "demandDestination", "demandProfile", "demandBand", "sharedRidePartyLimit", "sharedRideMode", "sharedRideJoin", "sharedRideMaxStops", "platoonLimit", "demandSeed", "redistribution", "pickupReassignment"]) bindScalarInput(id);
     bindScalarInput("scenarioName", "name");
     $("#fleetControls").addEventListener("input", (event) => { if (event.target.dataset.station) markTyping(event.target); });
     $("#fleetControls").addEventListener("change", (event) => { if (event.target.dataset.station) queueScalarEdit("fleetCount", event.target, event.target.dataset.station); });

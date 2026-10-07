@@ -233,13 +233,6 @@ test("the lane class options show the classes that native allows on each project
   assert.match(source, /box\.checked = classes\.classes\.includes\(box\.dataset\.class\); box\.disabled = classes\.disabled;/);
 });
 
-test("station queue spacing stays available with Express", () => {
-  const html = fs.readFileSync(path.join(__dirname, "editor.html"), "utf8");
-  assert.doesNotMatch(html, /stationQueueSpacingHint/);
-  const source = fs.readFileSync(path.join(__dirname, "editor.js"), "utf8");
-  assert.doesNotMatch(source, /stationQueueSpacingHint|\$\("#stationQueueSpacing"\)\.disabled/);
-});
-
 function nodePosition(config, id) {
   return config.network.nodes.find((node) => node.id === id).position;
 }
