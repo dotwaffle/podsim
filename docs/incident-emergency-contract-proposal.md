@@ -1439,6 +1439,9 @@ The default rate stays 0 until the maintainer chooses one in stage 7.
 | Web | The browser shell and editor with a marked project. | `mise run test:web` passes, and the marker checks refuse the cases of section 14.3. |
 | Product | The product choices of section 18.2. | Done: the maintainer approved P1 to P22 on October 5, 2026, and decided P23 on October 5, 2026, at 23:59Z. |
 
+Status 2026-10-07: the full-limit "Worst choice tick, no candidate" report runs only in `mise run qualify`.
+A small fixture checks the search counts in every test run.
+
 Status 2026-10-07: the project limits are now 600 stations, 12,000 nodes, and 20,000 lanes, and the latency fixtures have a fleet of 600 pods.
 The no-candidate fixture has 600 stations of 13 berths, 12,000 nodes, and 19,800 lanes.
 The delayed-routes fixture has 600 stations of one berth, 12,000 nodes, and 19,931 lanes.

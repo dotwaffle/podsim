@@ -61,6 +61,9 @@ The `qualify` task ran the full scenario suite without the race detector.
 
 The `test:race` task still runs every test.
 The `qualify` task now runs only the two Station 19 drain tests and the two emergency choice latency tests of `internal/sim`, which skip under the race detector.
+`TestEmergencyNoCandidateLatency` runs only when `PODSIM_QUALIFY=1`, which the `qualify` task sets for its sim command.
+`TestEmergencyNoCandidateSearchCounts` checks one tick under every routing policy, cold and warm, on eight stations with 13 berths each.
+This small fixture has 160 nodes, 264 lanes, and 52 pods, and runs in normal, short, and race tests.
 The `test:embedded` task runs the full root and `cmd/serve` suites with the tag.
 In the session package, it runs only `TestPackedTextWireCost`, `TestSaveCapRejectsAtomically`, `TestDecodeCapsAtCallers`, `TestEncodeCapsAtCallers`, and `TestTopologyPreflightAtCallers`.
 These tests skip under the race detector and under `-short`.
