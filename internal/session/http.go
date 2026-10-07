@@ -195,7 +195,7 @@ func (s *Session) commandHTTP(w http.ResponseWriter, r *http.Request) {
 	if reply.Error != "" {
 		w.WriteHeader(http.StatusConflict)
 	}
-	if err := json.NewEncoder(w).Encode(reply); err != nil {
+	if err := writeJSONLine(w, reply); err != nil {
 		slog.Error("Encode command reply", slog.Any("error", err))
 	}
 }
@@ -375,7 +375,18 @@ func writeError(w http.ResponseWriter, message string, status int) {
 func writeJSON(w http.ResponseWriter, value any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
-	if err := json.NewEncoder(w).Encode(value); err != nil {
+	if err := writeJSONLine(w, value); err != nil {
 		slog.Error("Encode state", slog.Any("error", err))
 	}
+}
+
+// writeJSONLine writes value as one JSON line with the options of the
+// v1 encoder, so reply bytes stay fixed.
+func writeJSONLine(w io.Writer, value any) error {
+	data, err := jsonv2.Marshal(value, json.DefaultOptionsV1())
+	if err != nil {
+		return err
+	}
+	_, err = w.Write(append(data, '\n'))
+	return err
 }

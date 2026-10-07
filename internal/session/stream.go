@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"errors"
 	"net/http"
 	"reflect"
@@ -503,7 +504,7 @@ func (s *Session) streamHTTP(w http.ResponseWriter, r *http.Request) {
 	p.mu.Lock()
 	c.orderContract = contract
 	p.mu.Unlock()
-	helloData, marshalErr := json.Marshal(hello)
+	helloData, marshalErr := jsonv2.Marshal(hello, json.DefaultOptionsV1())
 	if marshalErr != nil {
 		return
 	}
@@ -541,7 +542,7 @@ func (s *Session) streamHTTP(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if heartbeat != 0 {
-				body, marshalErr := json.Marshal(map[string]string{"kind": "heartbeat", "token": strconv.FormatUint(heartbeat, 10)})
+				body, marshalErr := jsonv2.Marshal(map[string]string{"kind": "heartbeat", "token": strconv.FormatUint(heartbeat, 10)}, json.DefaultOptionsV1())
 				if marshalErr != nil || streamWrite(ctx, conn, websocket.MessageText, body) != nil {
 					return
 				}

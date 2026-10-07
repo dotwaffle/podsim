@@ -118,9 +118,9 @@ func (v streamStatistics) replace(s *SimulationFrame) {
 
 // StreamDelta uses named replacement groups. Vehicle and berth order stays fixed.
 type StreamDelta struct {
-	Groups   map[string]json.RawMessage `json:"groups"`
-	Vehicles []VehicleDelta             `json:"vehicles"`
-	Berths   []sim.BerthState           `json:"berths"`
+	Groups   map[string]jsontext.Value `json:"groups"`
+	Vehicles []VehicleDelta            `json:"vehicles"`
+	Berths   []sim.BerthState          `json:"berths"`
 }
 
 // StreamEnvelope is one publication. Sequences use decimal strings on the wire.
@@ -207,7 +207,7 @@ func changedSlice[T comparable](a, b []T) *Replacement[[]T] {
 
 // frameGroups assigns every non-vehicle field to one replacement group.
 // JSON maps preserve clearing values and the existing decoder's null semantics.
-func frameGroups(f StreamFrame) (map[string]json.RawMessage, error) {
+func frameGroups(f StreamFrame) (map[string]jsontext.Value, error) {
 	state := f.State
 	values := map[string]any{
 		"controls": controlsGroup{state.Speed, state.Redistribution, state.SpeedReduction},
@@ -230,7 +230,7 @@ func frameGroups(f StreamFrame) (map[string]json.RawMessage, error) {
 	}
 	// Each group is raw bytes, so the options of the envelope encoder do
 	// not reach the orders of the pending group. Pack them here.
-	groups := make(map[string]json.RawMessage, len(values))
+	groups := make(map[string]jsontext.Value, len(values))
 	for key, value := range values {
 		var err error
 		if groups[key], err = jsonv2.Marshal(value, json.DefaultOptionsV1(), packedRequestOptions()); err != nil {
@@ -257,7 +257,7 @@ func makeDelta(a, b StreamFrame) (StreamDelta, error) {
 	if err != nil {
 		return StreamDelta{}, err
 	}
-	d := StreamDelta{Groups: map[string]json.RawMessage{}}
+	d := StreamDelta{Groups: map[string]jsontext.Value{}}
 	for k, v := range now {
 		if !bytes.Equal(v, old[k]) {
 			d.Groups[k] = v
@@ -286,7 +286,7 @@ func makeDelta(a, b StreamFrame) (StreamDelta, error) {
 	return d, nil
 }
 
-func applyGroups(f *StreamFrame, groups map[string]json.RawMessage) error {
+func applyGroups(f *StreamFrame, groups map[string]jsontext.Value) error {
 	for key, raw := range groups {
 		var target any
 		switch key {

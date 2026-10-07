@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -454,7 +455,7 @@ func projectTopology(config project.Config, serverStart, epoch string, revision 
 // A restore keeps the saved epoch or makes a new one, so it uses the wider
 // of epoch and a new epoch.
 func preflightTopology(config project.Config, serverStart, epoch string) error {
-	data, err := json.Marshal(projectTopology(config, serverStart, widerEpoch(epoch), sim.MaxCounter))
+	data, err := jsonv2.Marshal(projectTopology(config, serverStart, widerEpoch(epoch), sim.MaxCounter), json.DefaultOptionsV1())
 	if err != nil {
 		return err
 	}
@@ -468,7 +469,7 @@ func preflightTopology(config project.Config, serverStart, epoch string) error {
 // when that is wider in JSON.
 func widerEpoch(epoch string) string {
 	fresh := strings.Repeat("A", len(rand.Text()))
-	current, err := json.Marshal(epoch)
+	current, err := jsonv2.Marshal(epoch, json.DefaultOptionsV1())
 	if err != nil || len(current) < len(fresh)+2 {
 		return fresh
 	}

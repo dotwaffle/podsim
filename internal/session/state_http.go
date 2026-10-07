@@ -34,7 +34,7 @@ func EncodeStateJSON(topology TopologySnapshot, frame StreamFrame) ([]byte, erro
 	if _, stateErr := assembler.State(frame); stateErr != nil {
 		return nil, stateErr
 	}
-	topologyBytes, err := json.Marshal(topology)
+	topologyBytes, err := jsonv2.Marshal(topology, json.DefaultOptionsV1())
 	if err != nil {
 		return nil, err
 	}

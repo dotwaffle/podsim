@@ -90,14 +90,14 @@ func scanOrderFields(data []byte) (bool, error) {
 			seen[name] = true
 			if name == "orderContract" {
 				var contract sim.OrderContract
-				if string(raw) == "null" || json.Unmarshal(raw, &contract) != nil || contract != sim.ExpressOrderContract {
+				if string(raw) == "null" || unmarshalOrderScalar(raw, &contract) != nil || contract != sim.ExpressOrderContract {
 					return false, errors.New("invalid trip order contract")
 				}
 				continue
 			}
 			if name == "partySize" && marker.OrderContract == sim.ExpressOrderContract {
 				var size int
-				if json.Unmarshal(raw, &size) != nil || size < 1 || size > 20 {
+				if unmarshalOrderScalar(raw, &size) != nil || size < 1 || size > 20 {
 					return false, errors.New("party size must be 1 to 20")
 				}
 				continue
@@ -116,14 +116,20 @@ func validateExplicitOrderField(name string, raw jsontext.Value) error {
 	}
 	if name == "partySize" {
 		var size int
-		if err := json.Unmarshal(raw, &size); err != nil || size < 1 || size > sim.MaxNewPartySize {
+		if err := unmarshalOrderScalar(raw, &size); err != nil || size < 1 || size > sim.MaxNewPartySize {
 			return fmt.Errorf("party size must be 1 to %d", sim.MaxNewPartySize)
 		}
 		return nil
 	}
 	var value string
-	if err := json.Unmarshal(raw, &value); err != nil || value == "" {
+	if err := unmarshalOrderScalar(raw, &value); err != nil || value == "" {
 		return fmt.Errorf("order field %s needs nonempty text", name)
 	}
 	return nil
+}
+
+// unmarshalOrderScalar decodes one order field value with the same
+// acceptance as the order command decoder.
+func unmarshalOrderScalar(raw jsontext.Value, target any) error {
+	return jsonv2.Unmarshal(raw, target, json.DefaultOptionsV1(), jsonv2.MatchCaseInsensitiveNames(false))
 }

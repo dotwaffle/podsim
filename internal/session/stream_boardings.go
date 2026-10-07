@@ -3,7 +3,6 @@ package session
 import (
 	"bytes"
 	"cmp"
-	"encoding/json"
 	"encoding/json/jsontext"
 	"errors"
 	"io"
@@ -192,11 +191,11 @@ func streamArrayIndex(value string) bool {
 	return err == nil
 }
 
-func boardingMembers(raw []byte) (map[string]json.RawMessage, error) {
+func boardingMembers(raw []byte) (map[string]jsontext.Value, error) {
 	if len(raw) == 0 || raw[0] != '{' {
 		return nil, errors.New("boarding member needs an object")
 	}
-	var members map[string]json.RawMessage
+	var members map[string]jsontext.Value
 	if err := decodeStreamJSON(raw, &members); err != nil {
 		return nil, err
 	}
@@ -211,7 +210,7 @@ func scanBoardingRecordsLimit(raw []byte, allowEmpty bool, limit int) error {
 	if len(raw) == 0 || raw[0] != '[' {
 		return errors.New("boarding records need an array")
 	}
-	var records []json.RawMessage
+	var records []jsontext.Value
 	if err := decodeStreamJSON(raw, &records); err != nil {
 		return err
 	}
