@@ -1,7 +1,7 @@
 # Release readiness
 
-Status: release readiness on October 6, 2026.
-This report pins `15047a4f0a7984053cba87ddd49d3ebb646bedc2`, which is on main.
+Status: release readiness on October 7, 2026.
+This report pins `0ca0c63a2f19ae32bc5bd0abc8d0fd2ecb81d7ee`, which is on main.
 At this source, one saved-state version and one stream version serve every project kind.
 Hosted Check passed for this source.
 The Check run of this source published no image.
@@ -9,12 +9,11 @@ All four bounded browser performance candidates were rejected and closed.
 Physical coupling was removed on October 6, 2026, and the [platoon coupling comparison](platoon-coupling-comparison.md) is the decision record.
 This report does not authorize deployment, default adoption, or a cap change.
 
-Status 2026-10-07: after this report, the maintainer deleted the worst-case byte proofs and the composed worst-case record.
-The fleet limit is now 600 pods, the plain order bound is 5,000 orders, and the Express order bound is 17,000 orders.
-The saved-state cap and the checkpoint cap are now 100 MiB.
-The project limits are now 600 stations, 12,000 nodes, 20,000 lanes, 400,000 flows in each demand profile, and 32 MiB of project JSON.
-The editor import limit is now 43 MiB, and the command body limit is now 16 MiB.
-The other statements of this report describe the pinned source.
+Since the earlier `15047a4` pin, the maintainer deleted the worst-case byte proofs and the composed worst-case record.
+The fleet limit is 600 pods, the plain order bound is 5,000 orders, and the Express order bound is 17,000 orders.
+The saved-state cap and the checkpoint cap are 100 MiB.
+The project limits are 600 stations, 12,000 nodes, 20,000 lanes, 400,000 flows in each demand profile, and 32 MiB of project JSON.
+The editor import limit is 43 MiB, and the command body limit is 16 MiB.
 
 The [measurement record](measurements/release-readiness.json) is unchanged in this update.
 It still pins the earlier `8181495` source, its source-specific evidence, and its archived failures.
@@ -27,30 +26,39 @@ The `64b4f3f` source raised the stream and HTTP state cap to 65 MiB and the comp
 
 ## Hosted checks and image
 
-[Check](https://github.com/dotwaffle/podsim/actions/runs/37487384375) passed in 14m24s, from 15:25:37 to 15:40:01 UTC on October 6, 2026.
+[Check](https://github.com/dotwaffle/podsim/actions/runs/37633571268) passed in 11m33s, from 14:03:49 to 14:15:22 UTC on October 7, 2026.
 All six check jobs concluded with success, and the publish job was skipped.
+GitHub Actions caches were cleared before the push, so the jobs ran with a cold cache.
 The Check workflow runs six check jobs in parallel on separate hosted runners.
 Its publish job needs all six check jobs and does not run for pull requests.
 Since `6325cb3`, the publish job runs only for a version tag or a manual run, and a push to main runs the checks only.
 The `2140d40` and `31322b5` sources split the check, and `2138790` moved publication into Check.
+The later `34088a5` merges the two simulation jobs into one `test:race:sim` job, so the workflow has five check jobs after it.
 
 | Job | Seconds |
 | --- | ---: |
-| `test:race:sim-stations` | 864 |
-| `test:race:sim-other` | 604 |
-| `test:race:other` | 587 |
-| `test:race:session` | 342 |
-| `check:static` | 332 |
-| `qualify` | 149 |
+| `test:race:sim-other` | 689 |
+| `qualify` | 550 |
+| `test:race:session` | 501 |
+| `test:race:other` | 364 |
+| `check:static` | 221 |
+| `test:race:sim-stations` | 109 |
 
 The `check:static` job runs bounds, web tests, lint, vulnerability checks, builds, and embedded tests.
-The `qualify` job runs the two Station 19 drain tests and the two emergency choice latency tests, and `069bafb` gave it a 30-minute test timeout.
+The `qualify` job runs the two Station 19 drain tests and the emergency choice latency test.
+It also runs the full-limit no-candidate latency test, which runs only when `PODSIM_QUALIFY=1` and so only in this job.
+The `069bafb` source gave it a 30-minute test timeout.
 The `7c970c2` source reduced the local wall time of `TestScale100Station19BurstDrainsSafely` from 125.3 to 11.7 seconds.
 The `b70e46e` source runs 48 session tests in parallel.
 
 The linked Check run published no image for the pinned source.
 The image of the earlier `7c970c2` source is `ghcr.io/dotwaffle/podsim@sha256:8b60067be3eb2a298c381b033c1438fc6771dc4bb5cb045c25b6a3723b3398b9`.
 That image carries no later change and does not qualify the pinned source.
+
+The earlier `15047a4` [Check](https://github.com/dotwaffle/podsim/actions/runs/37487384375) passed in 14m24s, from 15:25:37 to 15:40:01 UTC on October 6, 2026.
+Its jobs took 864 seconds for `test:race:sim-stations`, 604 for `test:race:sim-other`, and 587 for `test:race:other`.
+They took 342 seconds for `test:race:session`, 332 for `check:static`, and 149 for `qualify`.
+This report does not record the cache state of that run.
 
 The earlier `7c970c2` [Check](https://github.com/dotwaffle/podsim/actions/runs/37318001608) passed in 14m00s, from 13:35:33 to 13:49:33 UTC, and its publish job took 101 seconds.
 Its check jobs took 726 seconds for `test:race:sim-other`, 384 for `test:race:sim-stations`, and 376 for `test:race:other`.
@@ -63,7 +71,8 @@ The earlier `8181495` Check ran all tasks in one 1,236-second job, and its race 
 Its publication ran in a separate workflow that did not wait for Check.
 Those results remain archived in the measurement record.
 Job durations vary between runs and runners.
-They do not establish a causal speedup against earlier runs or qualify a later source.
+The pinned run had a cold cache, and the cache state of the earlier runs is not recorded here.
+These durations do not establish a causal speedup against earlier runs or qualify a later source.
 
 The audit did not pull or execute any image, inspect an OCI manifest, or test an ARM runtime.
 A passing Check does not establish hosted health or deployment readiness.
@@ -83,14 +92,12 @@ The source overlays and original worktree hashes were verified afterward.
 The legal 65 MiB payload, production 30-second deadline, stalled-reader error, and cancellation controls remain.
 
 The plain `test:bounds` task in `check:static` retains every maximum checkpoint shape assertion.
-In the CI split qualification of the measurement record, the 80 MiB guard rejected the 1,265,591,604-byte counting envelope and accepted the 72,104,395-byte fitting envelope.
+In the CI split qualification of the measurement record, the earlier 80 MiB guard rejected the 1,265,591,604-byte counting envelope and accepted the 72,104,395-byte fitting envelope.
 This update did not measure those sizes again.
 Only this serial shape proof excludes race instrumentation in its package.
 The `test:embedded` task runs the root and `cmd/serve` suites with embedded assets.
-In the session package it runs only the worst-case save size test, three widest Express adapter tests, the packed text wire cost test, the maximum stream encoding test, the composed worst-case format proof, the save cap test, the encode and decode cap tests at their callers, and the topology preflight test at its callers.
-Bounded application tests and concurrency controls remain under the four race tasks.
-`TestComposedWorstCaseFormats` skips under the race detector.
-The `43e1361` source added it to the `test:embedded` pattern, so the `check:static` job of the pinned source runs it.
+In the session package it runs only the packed text wire cost test, the save cap test, the encode and decode cap tests at their callers, the topology preflight test at its callers, and the two plain byte proofs, `TestPlainStateFileWorstCaseSize` and `TestPlainStreamMaximumEncoding`.
+Bounded application tests and concurrency controls remain under the race tasks.
 The source audit and qualification retain exact assertion-body comparisons and the prior tool failures.
 
 ## Formats and versions
@@ -108,7 +115,7 @@ The contract markers select the optional members and the array bounds of each fo
 The order text is packed for every project kind, and no format has a `textEncoding` member.
 An intact saved state of version 1 through 8, or of version 10 or later, moves aside with `unsupported_version`.
 A damaged or invalid saved state moves aside with `invalid_state`, and the server starts a new session.
-A saved state of more than 80 MiB is the only file that the server keeps.
+A saved state of more than 100 MiB is the only file that the server keeps.
 Saving then stops, and startup fails.
 A restore counts the waiting orders and the requeued riders together against the queue bound of the contract (`e5933ce`).
 The [operations guide](operations.md#session-state) and the [protocol](protocol.md) give the full rules.
@@ -118,14 +125,12 @@ Their decoders match member names by exact case.
 Each saved state with the earlier names has a version before 9, so the server moves it aside with `unsupported_version`.
 The editor refuses a project file with the earlier names.
 
-The composed worst-case record measured one fixture for each shape and format.
-It limits each integer to 2^53-1, so each counter, tick, serial, and generation of a fixture has at most 16 digits.
-Its latest change limits each ID to the characters A-Z, a-z, 0-9, `.`, `+`, and `-`, which each encoder writes as 1 byte.
-Each fixture has every landed member at its widest at the same time.
-The values are independent maxima, not reachable states.
-Every fixture fits its cap.
-The narrowest stream shape is the Express HTTP state, with 9,783,253 bytes below the 65 MiB cap.
-The narrowest save shape is Express, with 14,430,072 bytes below the 80 MiB cap.
+The composed worst-case record and the worst-case byte proofs no longer exist.
+Two plain proofs remain.
+`TestPlainStateFileWorstCaseSize` bounds plain saved-state JSON below the 100 MiB cap.
+`TestPlainStreamMaximumEncoding` bounds plain full-stream and HTTP-state JSON below the 65 MiB cap.
+Express has no byte proof.
+The `test:embedded` task of the `check:static` job runs both proofs.
 
 ## Express operating limits
 
@@ -133,20 +138,22 @@ The [Express browser qualification](express-browser-qualification.md) covers the
 The [native](express-native-qualification.md) and [wire](express-wire-qualification.md) records preserve foundation behavior and physical limits.
 They do not certify every curve, service workload, browser, or hardware configuration.
 Express remains opt-in through the `express-v1` marker.
-Its party capacity remains 20, outstanding-order limit 8,600, and fleet and registry limit 300.
-In each format, the `express-v1` marker selects bounds of 8,600 waiting or pending orders and 20 riders per pod.
-Without the marker, the bounds are 2,600 orders and 8 riders per pod.
+Its party capacity remains 20 and its service registry limit remains 300.
+Its outstanding-order limit is 17,000, and the fleet limit is 600 for every project kind.
+In each format, the `express-v1` marker selects bounds of 17,000 waiting or pending orders and 20 riders per pod.
+Without the marker, the bounds are 5,000 orders and 8 riders per pod.
 Current defaults and physical constants remain unchanged.
-The saved-state limit remains 80 MiB.
+The saved-state limit is 100 MiB.
 At the pinned source, the stream and HTTP state limit is 65 MiB for every project kind.
 The compressed message limit is 66 MiB.
 Manual admission retains its 200-request queue limit.
 
 Physical session restore resets ordinary speed and reconstructs future grants.
 It does not preserve an exact trajectory.
-The widest encoded assets exercise independent field shapes, not reachable traffic or unique order conservation.
+The widest encoded assets of the Express qualification exercise independent field shapes, not reachable traffic or unique order conservation.
+They kept the earlier 300-pod, 80 MiB basis, and nobody measured them again at the current limits.
 
-The widest Chromium run reached 2,760,204 KiB of summed browser process RSS, about 2.63 GiB.
+On that earlier basis, the widest Chromium run reached 2,760,204 KiB of summed browser process RSS, about 2.63 GiB.
 WASM memory reached 2,457,337,856 bytes.
 The maximum 20-millisecond heartbeat gap was 14.136 seconds, and HTTP decoding took about 14.43 seconds.
 These results establish functional decoding with substantial event-loop blocking, not responsive maximum-size operation.
@@ -254,13 +261,12 @@ The container build covers the server, not the car CLI.
 Hosted Check passed for the pinned source, and that run published no image.
 Browser performance work closed with rejection.
 The incident redesign ended at stage 3.
-The `check:static` job runs the composed worst-case format proof.
+The `check:static` job runs the two plain byte proofs.
 Maximum Express costs limit responsive operating claims within the opt-in qualification.
 Forecast and archived service failures still block experimental adoption and capacity claims.
 No acceptance waiver follows from a successful build or a passing Check.
 
-The README records the existing 10 MiB project limit and 21 MiB editor import limit.
-Status 2026-10-07: these limits are now 32 MiB and 43 MiB.
+The README records the 32 MiB project limit and the 43 MiB editor import limit.
 This update changes neither runtime limit.
 The [dependency review](dependencies.md) retains its source-specific advisory and filesystem trust-boundary notes.
 The vulnerability task in the passing `check:static` job did not replace those notes with a security exception.
