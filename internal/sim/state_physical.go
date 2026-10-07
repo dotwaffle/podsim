@@ -874,7 +874,7 @@ func (r *physicalRestore) savedLink(index, leader int) (platoonLink, error) {
 		lane: saved.Lane, leaderLane: saved.LeaderLane, lanes: saved.Lanes,
 		turn: saved.Turn, clearance: linkClearance(saved.Turn), draining: saved.Draining,
 	}
-	_, link.end = linkEnds(&v.blocks, link)
+	_, link.end = r.s.linkEnds(v, link)
 	if gap := leaderPosition(v, ahead, link) - v.distance; gap < link.clearance-3*restoreTolerance {
 		return platoonLink{}, fmt.Errorf("the pod is %.6f m behind its platoon predecessor, less than the clearance %.6f m", gap, link.clearance)
 	}

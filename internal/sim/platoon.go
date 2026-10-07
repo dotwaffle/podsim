@@ -61,10 +61,9 @@ const (
 // While the follower reserves only blocks up to end that the predecessor
 // also reserved, a resource that a pod ahead in the platoon holds is free
 // for the follower. The follower then must stop within its cap (see
-// platoonCaps). Each pod that holds such a resource releases it at most
-// Clearance past its block, which is before the end of the run. Thus each
-// pod that the follower can come close to is on the run, and the zero value
-// is no link.
+// platoonCaps). Each pod that holds such a resource releases it before the
+// end of the run (see linkEnds). Thus each pod that the follower can come
+// close to is on the run, and the zero value is no link.
 type platoonLink struct {
 	// leader is one plus the index in Simulation.vehicles of the
 	// predecessor, or 0 when the pod has no predecessor.
@@ -136,24 +135,46 @@ func linkClearance(turn float64) float64 {
 	return Clearance/math.Cos(turn/2) + platoonMargin
 }
 
-// linkEnds returns the route distance at the end of the run of link, and
-// the last block whose resources a follower releases at least
-// platoonDrainSlack before that distance, or -1.
-func linkEnds(blocks *blockList, link platoonLink) (geometry float64, end int) {
+// linkEnds returns the route distance at the end of the run of link, the
+// link of the follower v, and the last block that v can reserve as a
+// platoon member, or -1. From the first block of the run, a block can be
+// shared while each of its resources has a release distance at least
+// platoonDrainSlack before the end of the run, and none of them is an
+// entry node of the destination station of v. The end block is the last
+// block before the first block that cannot be shared. A larger tail of a
+// cell (see indexGeometryTails) moves a release distance past the cell
+// end plus Clearance, so the test reads each release distance. With no
+// such tail, each block releases its last resource at its end plus
+// Clearance, and the end block is the last block whose end is that far
+// before the end of the run.
+func (s *Simulation) linkEnds(v *vehicle, link platoonLink) (geometry float64, end int) {
+	blocks := &v.blocks
 	last := link.lane + link.lanes - 1
-	terminal := blocks.laneFirst(last+1) - 1
-	geometry = blocks.cellEnd(last, terminal-blocks.laneFirst(last))
-	lane := last
-	first := blocks.laneFirst(link.lane)
-	for index := terminal; index >= first; index-- {
-		for index < blocks.laneFirst(lane) {
-			lane--
-		}
-		if blocks.cellEnd(lane, index-blocks.laneFirst(lane))+Clearance+platoonDrainSlack <= geometry {
-			return geometry, index
+	geometry = runGeometry(blocks, link)
+	station, _ := s.station(v.destinationStation)
+	end = -1
+	for lane := link.lane; lane <= last; lane++ {
+		entry := &blocks.lanes[lane]
+		for cell := range blocks.lanes[lane+1].first - entry.first {
+			start, cellEnd := blocks.cellBounds(lane, cell)
+			input := releaseInput{from: blocks.route[lane].From, start: start, end: cellEnd, tail: entry.cells.tail, fromTail: entry.cells.fromTail}
+			for _, r := range entry.cells.cell(cell) {
+				if releaseDistance(r, input)+platoonDrainSlack > geometry || r.kind == nodeResource && station.isEntry(r.id) {
+					return geometry, end
+				}
+			}
+			end = entry.first + cell
 		}
 	}
-	return geometry, -1
+	return geometry, end
+}
+
+// runGeometry returns the route distance at the end of the run of link: the
+// end of the last cell of its last lane.
+func runGeometry(blocks *blockList, link platoonLink) float64 {
+	last := link.lane + link.lanes - 1
+	terminal := blocks.laneFirst(last+1) - 1
+	return blocks.cellEnd(last, terminal-blocks.laneFirst(last))
 }
 
 // SetPlatooning selects the platooning mode. It returns an error for an
@@ -414,7 +435,10 @@ func (s *Simulation) maintainLink(i, ahead int) {
 		if !emergency {
 			s.extendLink(v, leader)
 		}
-		geometry, _ := linkEnds(&v.blocks, v.link)
+		// The end block of the link does not change here, so only the
+		// end of the run is necessary. linkEnds reads each cell of the
+		// run, and a run can start on a long lane.
+		geometry := runGeometry(&v.blocks, v.link)
 		v.link.draining = v.link.draining || v.reservedThrough >= v.link.end
 		over = v.link.draining || leaderPosition(v, leader, v.link) >= geometry+Clearance
 	}
@@ -448,7 +472,7 @@ func (s *Simulation) extendLink(v, leader *vehicle) {
 			return
 		}
 		v.link.lanes++
-		if _, end := linkEnds(&v.blocks, v.link); end > v.link.end {
+		if _, end := s.linkEnds(v, v.link); end > v.link.end {
 			v.link.end, v.link.draining = end, false
 		}
 	}
@@ -630,7 +654,7 @@ func (s *Simulation) planLink(plan linkPlan) (platoonLink, bool) {
 		link.turn = plan.turn
 	}
 	link.clearance = linkClearance(link.turn)
-	_, link.end = linkEnds(&v.blocks, link)
+	_, link.end = s.linkEnds(v, link)
 	position := leaderPosition(v, leader, link)
 	if link.end <= v.reservedThrough || position-v.distance < link.clearance ||
 		v.distance+stoppingDistance(v.Pod.Speed)+link.clearance > position+stoppingDistance(leader.Pod.Speed) {

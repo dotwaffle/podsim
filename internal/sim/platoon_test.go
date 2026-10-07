@@ -129,14 +129,20 @@ func (m *platoonMonitor) checkCertificate(t *testing.T, v, leader *vehicle) {
 			t.Fatalf("tick %d: the run of pod %s turns %v from its lane, more than %v", s.tick, v.Pod.ID, turn, link.turn)
 		}
 	}
-	geometry, _ := linkEnds(&v.blocks, *link)
-	for r := range v.routeReleases {
+	geometry, end := s.linkEnds(v, *link)
+	if legacyGeometry, legacy := legacyLinkEnds(&v.blocks, *link); !runHasTails(&v.blocks, *link) && (legacy != end || legacyGeometry != geometry) {
+		t.Fatalf("tick %d: the run of pod %s has no tails and ends at block %d, want %d of the old rule", s.tick, v.Pod.ID, end, legacy)
+	}
+	for r, releaseAt := range v.routeReleases {
 		owner := s.owners[r]
 		if owner == podResourceOwner(v.Pod.ID) {
 			continue
 		}
 		if !s.ownerAheadInPlatoon(v, owner) {
 			t.Fatalf("tick %d: pod %s holds %v of pod %s, which is not ahead of it in its platoon", s.tick, v.Pod.ID, r, owner)
+		}
+		if releaseAt+platoonDrainSlack > geometry+1e-9 {
+			t.Fatalf("tick %d: pod %s holds %v of pod %s until %v, less than the drain slack before the end of its run at %v", s.tick, v.Pod.ID, r, owner, releaseAt, geometry)
 		}
 		o := s.ownerVehicle(owner)
 		lane := o.blocks.routeLane(o.blockIndex)
@@ -151,6 +157,37 @@ func (m *platoonMonitor) checkCertificate(t *testing.T, v, leader *vehicle) {
 			t.Fatalf("tick %d: pod %s holds %v of pod %s, which is at %v on its run, outside %v to %v", s.tick, v.Pod.ID, r, owner, position, v.distance, geometry)
 		}
 	}
+}
+
+// legacyLinkEnds is linkEnds before the release test: the last block of
+// the run whose end is Clearance and the drain slack before the end of the
+// run. It is the same rule as linkEnds for a run of cells with no larger
+// tail.
+func legacyLinkEnds(blocks *blockList, link platoonLink) (geometry float64, end int) {
+	last := link.lane + link.lanes - 1
+	terminal := blocks.laneFirst(last+1) - 1
+	geometry = blocks.cellEnd(last, terminal-blocks.laneFirst(last))
+	lane := last
+	first := blocks.laneFirst(link.lane)
+	for index := terminal; index >= first; index-- {
+		for index < blocks.laneFirst(lane) {
+			lane--
+		}
+		if blocks.cellEnd(lane, index-blocks.laneFirst(lane))+Clearance+platoonDrainSlack <= geometry {
+			return geometry, index
+		}
+	}
+	return geometry, -1
+}
+
+// runHasTails reports whether a lane of the run of link has a larger tail.
+func runHasTails(blocks *blockList, link platoonLink) bool {
+	for lane := link.lane; lane < link.lane+link.lanes; lane++ {
+		if cells := blocks.lanes[lane].cells; cells.tail != 0 || cells.fromTail != 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // checkSpeeds checks that no traveling pod that is linked, or was linked
