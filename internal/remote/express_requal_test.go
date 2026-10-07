@@ -5,6 +5,8 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
+	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -32,9 +34,9 @@ func expressRequalFrame(t *testing.T) (session.TopologySnapshot, session.StreamF
 	response := httptest.NewRecorder()
 	shared.HandlerFS(nil).ServeHTTP(response, request)
 	var envelope struct {
-		Frame json.RawMessage `json:"frame"`
+		Frame jsontext.Value `json:"frame"`
 	}
-	if err = json.Unmarshal(response.Body.Bytes(), &envelope); err != nil {
+	if err = jsonv2.Unmarshal(response.Body.Bytes(), &envelope, json.DefaultOptionsV1()); err != nil {
 		t.Fatal(err)
 	}
 	state := shared.Frame()
@@ -94,7 +96,7 @@ func TestExpressRequalRemoteRecovery(t *testing.T) {
 			if phase.Load() > 0 {
 				current = recoveredTopology
 			}
-			_ = json.NewEncoder(w).Encode(current)
+			_ = jsonv2.MarshalWrite(w, current, json.DefaultOptionsV1())
 			return
 		}
 		index := int(connection.Add(1)) - 1
@@ -126,7 +128,7 @@ func TestExpressRequalRemoteRecovery(t *testing.T) {
 				Stream   string `json:"stream"`
 				Sequence string `json:"sequence"`
 			}
-			if json.Unmarshal(body, &ack) != nil || ack.Kind != "ack" {
+			if jsonv2.Unmarshal(body, &ack, json.DefaultOptionsV1()) != nil || ack.Kind != "ack" {
 				got = append(got, "invalid")
 				return
 			}

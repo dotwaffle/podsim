@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"math"
 	"net/http"
 	"net/http/httptest"
@@ -102,7 +103,7 @@ func TestStreamRejectsRestartTopologyRace(t *testing.T) {
 		if r.URL.Path == "/api/topology" {
 			topology := shared.Topology()
 			topology.ServerStart = "different"
-			_ = json.NewEncoder(w).Encode(topology)
+			_ = jsonv2.MarshalWrite(w, topology, json.DefaultOptionsV1())
 			return
 		}
 		handler.ServeHTTP(w, r)
@@ -166,7 +167,7 @@ func TestStreamRejectsSameServerRollback(t *testing.T) {
 
 func streamJSON(t *testing.T, value any) []byte {
 	t.Helper()
-	data, err := json.Marshal(value)
+	data, err := jsonv2.Marshal(value, json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}

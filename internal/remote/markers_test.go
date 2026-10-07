@@ -5,6 +5,8 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
+	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -31,9 +33,9 @@ func expressFullPublication(t *testing.T) (session.TopologySnapshot, session.Sta
 	response := httptest.NewRecorder()
 	shared.HandlerFS(nil).ServeHTTP(response, request)
 	var envelope struct {
-		Frame json.RawMessage `json:"frame"`
+		Frame jsontext.Value `json:"frame"`
 	}
-	if err = json.Unmarshal(response.Body.Bytes(), &envelope); err != nil {
+	if err = jsonv2.Unmarshal(response.Body.Bytes(), &envelope, json.DefaultOptionsV1()); err != nil {
 		t.Fatal(err)
 	}
 	state := shared.Frame()
@@ -71,7 +73,7 @@ func TestStreamMarkersMatchHello(t *testing.T) {
 			t.Parallel()
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if r.URL.Path == "/api/topology" {
-					_ = json.NewEncoder(w).Encode(test.topology)
+					_ = jsonv2.MarshalWrite(w, test.topology, json.DefaultOptionsV1())
 					return
 				}
 				conn, err := websocket.Accept(w, r, nil)

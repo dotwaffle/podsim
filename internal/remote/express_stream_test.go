@@ -5,6 +5,8 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
+	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -68,9 +70,9 @@ func TestExpressRemoteInvalidStateHasNoACK(t *testing.T) {
 	response := httptest.NewRecorder()
 	shared.HandlerFS(nil).ServeHTTP(response, request)
 	var envelope struct {
-		Frame json.RawMessage `json:"frame"`
+		Frame jsontext.Value `json:"frame"`
 	}
-	if err = json.Unmarshal(response.Body.Bytes(), &envelope); err != nil {
+	if err = jsonv2.Unmarshal(response.Body.Bytes(), &envelope, json.DefaultOptionsV1()); err != nil {
 		t.Fatal(err)
 	}
 	state := shared.Frame()
@@ -96,7 +98,7 @@ func TestExpressRemoteInvalidStateHasNoACK(t *testing.T) {
 	ack := make(chan bool, 1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/topology" {
-			_ = json.NewEncoder(w).Encode(shared.Topology())
+			_ = jsonv2.MarshalWrite(w, shared.Topology(), json.DefaultOptionsV1())
 			return
 		}
 		conn, acceptErr := websocket.Accept(w, r, nil)

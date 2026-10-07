@@ -2,6 +2,7 @@ package remote
 
 import (
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -89,7 +90,7 @@ func remoteExpressProject(t *testing.T) project.Config {
 		t.Fatal(err)
 	}
 	var config project.Config
-	if err = json.Unmarshal(raw, &config); err != nil {
+	if err = jsonv2.Unmarshal(raw, &config, json.DefaultOptionsV1()); err != nil {
 		t.Fatal(err)
 	}
 	config.OrderContract = sim.ExpressOrderContract

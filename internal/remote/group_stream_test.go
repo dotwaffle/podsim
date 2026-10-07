@@ -2,6 +2,7 @@ package remote
 
 import (
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -18,7 +19,7 @@ func TestGroupTopologyCacheRollbackAndInvalidation(t *testing.T) {
 		t.Fatal(err)
 	}
 	var config project.Config
-	if decodeErr := json.Unmarshal(raw, &config); decodeErr != nil {
+	if decodeErr := jsonv2.Unmarshal(raw, &config, json.DefaultOptionsV1()); decodeErr != nil {
 		t.Fatal(decodeErr)
 	}
 	shared, err := session.NewWithProject(config)
@@ -29,7 +30,10 @@ func TestGroupTopologyCacheRollbackAndInvalidation(t *testing.T) {
 	topology := shared.Topology()
 	frame := session.StreamFrame{State: shared.Frame(), Routes: []sim.RoutePresentation{{Origin: -1}}}
 	var fetches int
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { fetches++; _ = json.NewEncoder(w).Encode(topology) }))
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fetches++
+		_ = jsonv2.MarshalWrite(w, topology, json.DefaultOptionsV1())
+	}))
 	t.Cleanup(server.Close)
 	client := &Client{url: server.URL, http: server.Client()}
 	cache := streamTopology{}

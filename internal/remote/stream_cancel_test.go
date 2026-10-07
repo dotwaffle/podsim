@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"errors"
 	"io"
 	"net/http"
@@ -74,7 +75,7 @@ func TestStreamCanceledAfterAssembly(t *testing.T) {
 	acknowledged := make(chan bool, 1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/topology" {
-			_ = json.NewEncoder(w).Encode(topology)
+			_ = jsonv2.MarshalWrite(w, topology, json.DefaultOptionsV1())
 			return
 		}
 		conn, err := websocket.Accept(w, r, nil)

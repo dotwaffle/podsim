@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -107,7 +108,7 @@ func TestStreamBankProtocolVersions(t *testing.T) {
 func TestStreamTopologyRejectsUnknownBankMembers(t *testing.T) {
 	t.Parallel()
 	var topology session.TopologySnapshot
-	if err := json.Unmarshal([]byte(`{"network":{"stations":[{"banks":[{"extra":1}]}]}}`), &topology); err == nil {
+	if err := jsonv2.Unmarshal([]byte(`{"network":{"stations":[{"banks":[{"extra":1}]}]}}`), &topology, json.DefaultOptionsV1()); err == nil {
 		t.Fatal("accepted unknown bank member")
 	}
 }

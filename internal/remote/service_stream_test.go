@@ -2,6 +2,7 @@ package remote
 
 import (
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -27,7 +28,10 @@ func TestBoardingTopologyCacheRollbackAndInvalidation(t *testing.T) {
 	berth := topology.Network.Stations[0].Berths[0].ID
 	v.Boardings = []sim.RiderBoarding{{BerthID: berth}}
 	var fetches int
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { fetches++; _ = json.NewEncoder(w).Encode(topology) }))
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fetches++
+		_ = jsonv2.MarshalWrite(w, topology, json.DefaultOptionsV1())
+	}))
 	t.Cleanup(server.Close)
 	client := &Client{url: server.URL, http: server.Client()}
 	cache := streamTopology{}

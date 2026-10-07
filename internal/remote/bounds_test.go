@@ -3,6 +3,7 @@ package remote
 import (
 	"bytes"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
@@ -186,7 +187,7 @@ func TestExchangeServerResponsesMatchPlainDecode(t *testing.T) {
 			}
 			return
 		}
-		if decodeErr := json.Unmarshal(raw, target); decodeErr != nil {
+		if decodeErr := jsonv2.Unmarshal(raw, target, json.DefaultOptionsV1()); decodeErr != nil {
 			t.Fatal(decodeErr)
 		}
 	}
@@ -200,7 +201,7 @@ func TestExchangeServerResponsesMatchPlainDecode(t *testing.T) {
 	if err = client.exchange(t.Context(), http.MethodGet, "/api/state", nil, &state); err != nil || !reflect.DeepEqual(state, wantState) {
 		t.Fatal("state response changed", err)
 	}
-	command, err := json.Marshal(session.Command{Client: "bounds", Sequence: 1, Epoch: state.Epoch, Action: "trip", Origin: "harbor", Destination: "market"})
+	command, err := jsonv2.Marshal(session.Command{Client: "bounds", Sequence: 1, Epoch: state.Epoch, Action: "trip", Origin: "harbor", Destination: "market"}, json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}

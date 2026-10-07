@@ -3,6 +3,7 @@ package remote
 import (
 	"bytes"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -27,7 +28,7 @@ func TestStateForFrameCachesMatchingTopology(t *testing.T) {
 			t.Errorf("path = %q", r.URL.Path)
 		}
 		requests.Add(1)
-		_ = json.NewEncoder(w).Encode(shared.Topology())
+		_ = jsonv2.MarshalWrite(w, shared.Topology(), json.DefaultOptionsV1())
 	}))
 	defer server.Close()
 	client := &Client{url: server.URL, http: server.Client()}
@@ -59,7 +60,7 @@ func TestStateForFrameRefetchesTopologyAfterProjectRestore(t *testing.T) {
 			t.Errorf("path = %q", r.URL.Path)
 		}
 		requests.Add(1)
-		_ = json.NewEncoder(w).Encode(shared.Topology())
+		_ = jsonv2.MarshalWrite(w, shared.Topology(), json.DefaultOptionsV1())
 	}))
 	defer server.Close()
 	client := &Client{url: server.URL, http: server.Client()}
@@ -146,7 +147,7 @@ func TestReturnedEpochUsesItsTopology(t *testing.T) {
 	var requests atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requests.Add(1)
-		_ = json.NewEncoder(w).Encode(serving.Load().Topology())
+		_ = jsonv2.MarshalWrite(w, serving.Load().Topology(), json.DefaultOptionsV1())
 	}))
 	defer server.Close()
 	client := &Client{url: server.URL, http: server.Client()}
@@ -224,7 +225,7 @@ func TestLostReplyRetryAndReconnect(t *testing.T) {
 			return
 		}
 		var command session.Command
-		if err := json.NewDecoder(r.Body).Decode(&command); err != nil {
+		if err := jsonv2.UnmarshalRead(r.Body, &command, json.DefaultOptionsV1()); err != nil {
 			t.Error(err)
 			return
 		}
@@ -233,7 +234,7 @@ func TestLostReplyRetryAndReconnect(t *testing.T) {
 			http.Error(w, "reply lost", http.StatusServiceUnavailable)
 			return
 		}
-		_ = json.NewEncoder(w).Encode(reply)
+		_ = jsonv2.MarshalWrite(w, reply, json.DefaultOptionsV1())
 	}))
 	defer server.Close()
 	ctx := t.Context()
@@ -340,7 +341,7 @@ func TestLostReplyRewindAppliesOnce(t *testing.T) {
 			handler.ServeHTTP(w, r)
 		default:
 			var command session.Command
-			if err := json.NewDecoder(r.Body).Decode(&command); err != nil {
+			if err := jsonv2.UnmarshalRead(r.Body, &command, json.DefaultOptionsV1()); err != nil {
 				t.Error(err)
 				return
 			}
@@ -350,7 +351,7 @@ func TestLostReplyRewindAppliesOnce(t *testing.T) {
 				http.Error(w, "reply lost", http.StatusServiceUnavailable)
 				return
 			}
-			_ = json.NewEncoder(w).Encode(reply)
+			_ = jsonv2.MarshalWrite(w, reply, json.DefaultOptionsV1())
 		}
 	}))
 	defer server.Close()
@@ -413,7 +414,7 @@ func TestStateForFrameRefetchesTopologyForNewServerStart(t *testing.T) {
 		requests.Add(1)
 		topology := shared.Topology()
 		topology.ServerStart, _ = currentStart.Load().(string)
-		_ = json.NewEncoder(w).Encode(topology)
+		_ = jsonv2.MarshalWrite(w, topology, json.DefaultOptionsV1())
 	}))
 	defer server.Close()
 	frame := shared.Frame()
