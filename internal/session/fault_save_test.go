@@ -187,12 +187,12 @@ func TestFaultRecordArrayLimits(t *testing.T) {
 			value string
 			err   error
 		}{
-			"records at the limit":    {records(364, "[1]"), nil},
-			"records past the limit":  {records(365, "[1]"), errJSONArrayTooLong},
+			"records at the limit":    {records(maxFaultRecords, "[1]"), nil},
+			"records past the limit":  {records(maxFaultRecords+1, "[1]"), errJSONArrayTooLong},
 			"tuple at the limit":      {"[[1,2,3,4,5,6,7,8]]", nil},
 			"tuple past the limit":    {"[[1,2,3,4,5,6,7,8,9]]", errJSONArrayTooLong},
 			"nested under the tuple":  {"[[[1,2,3,4,5,6,7,8,9]]]", nil},
-			"records under the tuple": {"[" + records(365, "1") + "]", errJSONArrayTooLong},
+			"records under the tuple": {"[" + records(maxFaultRecords+1, "1") + "]", errJSONArrayTooLong},
 		} {
 			if err := prescanJSON(document(test.value), limits); !errors.Is(err, test.err) && (err != nil || test.err != nil) {
 				t.Errorf("%+v %s: scan: %v", markers, name, err)
@@ -202,7 +202,7 @@ func TestFaultRecordArrayLimits(t *testing.T) {
 	raw := string(decompressTestJSON(t, encodeTestState(t, faultMemberFile(t))))
 	const tuple = `[1,2,3,0,0,1]`
 	for name, edit := range map[string]string{
-		"records past the limit": records(365, tuple)[1 : len(records(365, tuple))-1],
+		"records past the limit": records(maxFaultRecords+1, tuple)[1 : len(records(maxFaultRecords+1, tuple))-1],
 		"tuple past the limit":   `[1,2,3,0,0,1,0,0,0]`,
 		"nested":                 `[[1,2,3,0,0,1,0,0,0]]`,
 	} {

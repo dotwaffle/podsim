@@ -13,7 +13,10 @@ type OrderContract string
 const ExpressOrderContract OrderContract = "express-v1"
 
 // MaxExpressWaitingTrips bounds both pending and outstanding Express orders.
-const MaxExpressWaitingTrips = 8600
+// It is the restore queue bound and MaxExpressParties orders for each pod
+// of the largest Express fleet, so that a logical restore of a full fleet
+// fits.
+const MaxExpressWaitingTrips = MaxSavedWaitingTrips + expressMaxPods*MaxExpressParties
 
 // ValidateOrderContract rejects unknown opt-in contracts.
 func ValidateOrderContract(contract OrderContract) error {

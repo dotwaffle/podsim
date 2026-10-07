@@ -243,7 +243,7 @@ func shapeNative(waiting int) sim.SavedState {
 	for i := range state.Waiting {
 		state.Waiting[i] = sim.SavedTrip{Request: request, Boarded: true, DeferUntil: math.MinInt64, DeferCheck: math.MinInt64, DeferPodID: shapeID(0)}
 		// Only existing bound pods can carry waiting route caches. At most
-		// 300 such records contribute the maximum 5000-value cache here.
+		// MaxPods such records contribute the maximum 5000-value cache here.
 		if i < project.MaxPods {
 			state.Waiting[i].Route = waitingRoute
 			state.Waiting[i].Request.PodID = shapeID(i)
@@ -346,7 +346,7 @@ func TestCheckpointCombinedEncodingShapes(t *testing.T) {
 	if fitSink.bytes != shapeBytes(t, fitting) || fitSink.bytes+fitBounded.remaining != MaxCheckpointBytes {
 		t.Fatal("fitting named envelope output differs from the complete encoding")
 	}
-	t.Logf("SHAPE encoding-envelope-only-fitting bytes=%d project=%d plan=%d native=%d ledger=%d records=%d lots=1 waiting=0 pods=300 pod-route=13000 boardings=300x8 platoon-links=300", fitSink.bytes,
+	t.Logf("SHAPE encoding-envelope-only-fitting bytes=%d project=%d plan=%d native=%d ledger=%d records=%d lots=1 waiting=0 pods=600 pod-route=13000 boardings=600x8 platoon-links=600", fitSink.bytes,
 		shapeBytes(t, config), shapeBytes(t, plan), shapeBytes(t, fitting.Payload.Native), shapeBytes(t, fitting.Payload.Ledger), len(plan.Itineraries))
 	for _, counts := range []struct {
 		name    string
@@ -383,7 +383,7 @@ func TestCheckpointCombinedEncodingShapes(t *testing.T) {
 				t.Fatal("actual checkpoint preflight accepted an oversized shape")
 			}
 			// The sink's independent work bound exceeds the admission cap,
-			// so only the actual production writer enforces the 80 MiB bound.
+			// so only the actual production writer enforces the 100 MiB bound.
 			sink := &shapeCounter{limit: 8 * storageLimit}
 			bounded := &boundedWriter{writer: sink, remaining: MaxCheckpointBytes}
 			if err := json.MarshalWrite(bounded, envelope, json.Deterministic(true)); err == nil {
@@ -392,7 +392,7 @@ func TestCheckpointCombinedEncodingShapes(t *testing.T) {
 			if sink.bytes > MaxCheckpointBytes || sink.bytes+bounded.remaining != MaxCheckpointBytes {
 				t.Fatal("bounded output accounting differs")
 			}
-			t.Logf("SHAPE encoding-envelope-only bytes=%d project=%d plan=%d native=%d ledger=%d records=%d lots=%d waiting=%d pods=300 pod-route=13000 bound-waiting-routes=%dx5000 boardings=300x8 platoon-links=300 emitted-before-rejection=%d storage-fits=%t", total,
+			t.Logf("SHAPE encoding-envelope-only bytes=%d project=%d plan=%d native=%d ledger=%d records=%d lots=%d waiting=%d pods=600 pod-route=13000 bound-waiting-routes=%dx5000 boardings=600x8 platoon-links=600 emitted-before-rejection=%d storage-fits=%t", total,
 				shapeBytes(t, config), shapeBytes(t, envelope.Payload.Origin.Plan), shapeBytes(t, envelope.Payload.Native), shapeBytes(t, envelope.Payload.Ledger), counts.n, counts.lots, waiting, min(waiting, project.MaxPods), sink.bytes, fitsStorage(int64(counts.lots), int64(counts.n)))
 		})
 	}

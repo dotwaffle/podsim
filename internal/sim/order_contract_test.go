@@ -262,13 +262,14 @@ func TestExpressNativeBoundPreflight(t *testing.T) {
 }
 
 func TestExpressMaximumRecoveryAndAggregate(t *testing.T) {
+	// Two berths at each of 300 stations hold the largest Express fleet.
 	specs := make([]lineStation, 300)
 	for i := range specs {
-		specs[i] = lineStation{id: fmt.Sprintf("s%d", i), berths: 1}
+		specs[i] = lineStation{id: fmt.Sprintf("s%d", i), berths: 2}
 	}
 	n := lineNetwork(specs)
 	n = expressNetwork(n)
-	fleet := make([]Placement, 0, 300)
+	fleet := make([]Placement, 0, expressMaxPods)
 	services := make([]ExpressService, 0, 300)
 	for i, st := range n.Stations {
 		services = append(services, ExpressService{ID: st.ID, Class: ExpressClass, From: st.ID, To: n.Stations[(i+1)%len(n.Stations)].ID, PartyLimit: 20})
@@ -305,7 +306,8 @@ func TestExpressMaximumRecoveryAndAggregate(t *testing.T) {
 			s.sharedParties++
 		}
 	}
-	for range 2600 {
+	boarded := expressMaxPods * MaxExpressParties
+	for range MaxSavedWaitingTrips {
 		s.requestID++
 		s.waiting = append(s.waiting, waitingTrip{request: requestFromOptions(TripOptions{From: "s0", To: "s1", PartySize: 1, SharingConsent: SharedConsent, Service: ExpressServiceChoice, ServiceID: "s0"}, s.requestID, s.tick)})
 	}
@@ -313,7 +315,7 @@ func TestExpressMaximumRecoveryAndAggregate(t *testing.T) {
 		t.Fatal(err)
 	}
 	state := s.ExportState()
-	if len(state.Waiting) != 2600 || s.outstandingOrders() != 8600 {
+	if len(fleet) != expressMaxPods || len(state.Waiting) != MaxSavedWaitingTrips || s.outstandingOrders() != MaxExpressWaitingTrips {
 		t.Fatal("seed shape")
 	}
 	if dir := os.Getenv("EXPRESS_EVIDENCE_DIR"); dir != "" {
@@ -321,7 +323,7 @@ func TestExpressMaximumRecoveryAndAggregate(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(filepath.Join(dir, "recovery-2600-plus-6000.state.json"), raw, 0o600); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, fmt.Sprintf("recovery-%d-plus-%d.state.json", MaxSavedWaitingTrips, boarded)), raw, 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -338,11 +340,11 @@ func TestExpressMaximumRecoveryAndAggregate(t *testing.T) {
 		if err != nil {
 			t.Fatal(attempt, err)
 		}
-		if receipt.Tier != RestoreLogical || receipt.Unaccounted != 0 || len(receipt.Dropped) != 0 || len(cold.waiting) != 8600 || cold.boarded != 6000 {
+		if receipt.Tier != RestoreLogical || receipt.Unaccounted != 0 || len(receipt.Dropped) != 0 || len(cold.waiting) != MaxExpressWaitingTrips || cold.boarded != boarded {
 			t.Fatal("recovery lost facts", receipt, len(cold.waiting))
 		}
 		for i, trip := range cold.waiting {
-			if trip.request.ID != i+1 || trip.request.Service != ExpressServiceChoice || trip.request.SharingConsent != SharedConsent || trip.request.PartySize != 1 || trip.boarded != (i < 6000) || trip.request.PodID != "" || len(trip.route) != 0 {
+			if trip.request.ID != i+1 || trip.request.Service != ExpressServiceChoice || trip.request.SharingConsent != SharedConsent || trip.request.PartySize != 1 || trip.boarded != (i < boarded) || trip.request.PodID != "" || len(trip.route) != 0 {
 				t.Fatal("recovery identity/options/bindings changed", i)
 			}
 		}

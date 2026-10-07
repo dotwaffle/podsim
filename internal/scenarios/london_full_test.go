@@ -92,7 +92,7 @@ func TestLondonFullWith(t *testing.T) {
 		{name: "default", change: func(*LondonOptions) {}, fleet: 287},
 		{name: "one fewer pod", change: func(o *LondonOptions) { o.Pods = map[string]int{"940GZZLUWLO": 0} }, fleet: 286},
 		{name: "unknown site", change: func(o *LondonOptions) { o.Berths["unknown"] = 2 }, wantError: "unknown London station"},
-		{name: "too many pods", change: func(o *LondonOptions) { o.StationPods = 2 }, wantError: "fleet has"},
+		{name: "too many pods", change: func(o *LondonOptions) { o.Berths = nil; o.StationBerths, o.StationPods = 3, 3 }, wantError: "fleet has"},
 		{name: "too many nodes", change: func(o *LondonOptions) { o.Berths = nil; o.StationBerths = 4 }, wantError: "nodes"},
 		{name: "Bank geometry", change: func(o *LondonOptions) { o.Berths["940GZZLUBNK"] = 4 }, wantError: "layout conflict"},
 	} {

@@ -208,9 +208,10 @@ func TestExpressRequalSavePackedTextRefusals(t *testing.T) {
 }
 
 // TestExpressRequalSavePrescanBounds checks the array bounds that the
-// root Express marker selects in a save: 8,600 waiting trips and 20 riders
-// and boarding tuples on a pod. The scan refuses one more of each before
-// the typed decode. Without the marker, the plain bounds apply.
+// root Express marker selects in a save: sim.MaxExpressWaitingTrips
+// waiting trips and 20 riders and boarding tuples on a pod. The scan
+// refuses one more of each before the typed decode. Without the marker,
+// the plain bounds apply.
 func TestExpressRequalSavePrescanBounds(t *testing.T) {
 	t.Parallel()
 	express := expressRequalSave(t)
@@ -232,12 +233,12 @@ func TestExpressRequalSavePrescanBounds(t *testing.T) {
 		file    stateFile
 		refused bool
 	}{
-		{"Express 8,600 waiting trips", trips(express, sim.MaxExpressWaitingTrips), false},
-		{"Express 8,601 waiting trips", trips(express, sim.MaxExpressWaitingTrips+1), true},
+		{"Express waiting trips at the bound", trips(express, sim.MaxExpressWaitingTrips), false},
+		{"Express waiting trips past the bound", trips(express, sim.MaxExpressWaitingTrips+1), true},
 		{"Express 20 riders", riders(express, sim.MaxExpressParties), false},
 		{"Express 21 riders", riders(express, sim.MaxExpressParties+1), true},
-		{"plain 2,600 waiting trips", trips(plain, maxSavedTrips), false},
-		{"plain 2,601 waiting trips", trips(plain, maxSavedTrips+1), true},
+		{"plain waiting trips at the bound", trips(plain, maxSavedTrips), false},
+		{"plain waiting trips past the bound", trips(plain, maxSavedTrips+1), true},
 		{"plain 8 riders", riders(plain, sim.MaxSharedRideParties), false},
 		{"plain 9 riders", riders(plain, sim.MaxSharedRideParties+1), true},
 	} {

@@ -74,7 +74,8 @@ type familyLimits struct {
 // TestLimitTablesNotLooser compares the table that decodes each family
 // with the table that it replaces. testdata/family_limit_tables.json holds
 // the tables of each family before savedLimits and streamLimits, from
-// commit 163bbe1. A path that had no explicit limit had the general element
+// commit 163bbe1, with the fleet and order bounds of the fleet limit of
+// 600 pods. A path that had no explicit limit had the general element
 // limit. Version 9 replaced saves 6, 7 and 8. Its table for the markers
 // of each earlier family must not be looser than the table of that family.
 func TestLimitTablesNotLooser(t *testing.T) {

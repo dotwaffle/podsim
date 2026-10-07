@@ -17,7 +17,7 @@ import (
 )
 
 // MaxCheckpointBytes bounds the complete file and each transient observation encoding.
-const MaxCheckpointBytes = 80 << 20
+const MaxCheckpointBytes = 100 << 20
 const checkpointFormat = "podsim-car-continuation"
 const nativeEncoding = "sim-saved-state-v1"
 

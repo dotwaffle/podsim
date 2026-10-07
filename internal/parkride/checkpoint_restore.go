@@ -40,7 +40,7 @@ func DecodeCheckpoint(ctx context.Context, reader io.Reader, input ResumeInput) 
 		return nil, fmt.Errorf("read checkpoint: %w", err)
 	}
 	if len(data) > MaxCheckpointBytes {
-		return nil, errors.New("checkpoint exceeds 80 MiB")
+		return nil, errors.New("checkpoint exceeds 100 MiB")
 	}
 	if err = scanCheckpoint(ctx, data); err != nil {
 		return nil, fmt.Errorf("scan checkpoint: %w", err)

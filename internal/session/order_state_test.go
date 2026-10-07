@@ -225,8 +225,8 @@ func TestCurrentSavedClassAndServiceRejections(t *testing.T) {
 
 func TestCurrentSupportedSavedCounts(t *testing.T) {
 	t.Parallel()
-	if sim.MaxSavedWaitingTrips != 2600 || sim.MaxSharedRideParties != 8 {
-		t.Fatal("supported-profile counts changed without byte qualification")
+	if sim.MaxSavedWaitingTrips != maxSavedTrips || sim.MaxSharedRideParties != 8 {
+		t.Fatal("the native queue bound differs from the session queue bound, or the party bound changed")
 	}
 	t.Run("waiting", func(t *testing.T) {
 		t.Parallel()

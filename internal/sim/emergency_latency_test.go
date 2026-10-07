@@ -217,6 +217,8 @@ func newChoiceTickFixture(t *testing.T, network Network, policy RoutingPolicy, w
 		}
 		passenger = append(passenger, station.ID)
 		for _, berth := range station.Berths {
+			// The fleet stays below the limit of 600 pods, because the
+			// networks of these fixtures cannot hold 600 berths.
 			if len(fleet) < 300 {
 				fleet = append(fleet, Placement{ID: fmt.Sprintf("%03d", len(fleet)+1), StationID: station.ID, BerthID: berth.ID})
 			}

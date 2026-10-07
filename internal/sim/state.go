@@ -7,11 +7,13 @@ import (
 )
 
 const (
-	// MaxSavedWaitingTrips keeps the current supported-profile restore queue bound.
-	MaxSavedWaitingTrips = 2600
+	// MaxSavedWaitingTrips is the restore queue bound of the session: its
+	// queue limit of 200 orders, and MaxSharedRideParties orders for each of
+	// maxSavedPods pods.
+	MaxSavedWaitingTrips = 5000
 	// maxSavedPods is the largest fleet that a saved state can hold. It is the
 	// project fleet limit. TestMaximalRequeueRoundTrip checks both limits.
-	maxSavedPods = 300
+	maxSavedPods = 600
 	// maxSavedText is the largest saved demo error or dispatch reason in bytes.
 	maxSavedText = 1 << 10
 )
