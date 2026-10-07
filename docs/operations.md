@@ -245,6 +245,8 @@ It reports them as unaccounted orders at each restore, together with the orders 
   In the `drop-offs` mode, the parties go back to the queue when the stops from the free berth take a party over the detour cap of 1.5.
   A pod in a [virtual platoon](../README.md#virtual-platoons) keeps its link to the pod ahead, with the same run of lanes, turn, and clearance.
   The tier checks each saved link against the network and the other pods, and a link that is not valid fails the tier.
+  A run can end on the entry lane of the destination station of both pods.
+  A run that holds a lane from the entry node of that station, or the entry lane of another station, is not valid.
   The file does not keep the platoon limit, so the restore uses the `platoonLimit` of the project.
   The file keeps the shared ride mode.
   A file without the mode restores in the default `drop-offs` mode.

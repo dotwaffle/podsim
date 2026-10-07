@@ -1632,6 +1632,65 @@ The historical results supported a project option for virtual platoons, off by d
 The `platoonLimit` project setting now gives this option.
 The [follow-up rows](measurements/platoon-followup.csv) repeat these arms on later source.
 
+## Station entry throughput
+
+Three changes raise the rate at which pods enter one busy station when platoons are on.
+A platoon run can end on the entry lane of the destination station of both pods.
+A pod that is not of a large class tries its berth choice when the entry lane comes within the platoon horizon, so a run can form before the pods reach that lane.
+A pod that waits for a contested station diverge can coast, so that it rolls into the diverge when the diverge frees.
+
+The measurement used the LondonFull project with a platoon limit of 4.
+It sent 60 orders a minute to one station for 30 minutes, with seeds `PCG(1, 2)` and `PCG(3, 4)`.
+The entry rate is 60 divided by the mean interval between entries onto the station entry lane, after the first 10 minutes.
+The same-approach interval is between two entries that come from one approach lane, and the other-approach interval is between entries from two approach lanes.
+`Completed` counts the finished orders in the 30 minutes.
+The harness is a scratch test outside the repository.
+The base is `a717e6c`.
+
+| Station | Seed | Build | Entries/min | Completed | Same-approach p50 / p90 | Other-approach p90 |
+| --- | --- | --- | ---: | ---: | --- | ---: |
+| KSX | 1, 2 | Base | 4.48 | 121 | 16.4 s / 17.1 s | 17.1 s |
+| KSX | 1, 2 | Coast only | 4.74 | 125 | 10.5 s / 17.1 s | 17.1 s |
+| KSX | 1, 2 | All three | 6.26 | 167 | 1.9 s / 17.1 s | 17.2 s |
+| KSX | 3, 4 | Base | 4.46 | 118 | 11.0 s / 17.1 s | 17.1 s |
+| KSX | 3, 4 | Coast only | 4.62 | 120 | 11.0 s / 17.1 s | 17.1 s |
+| KSX | 3, 4 | All three | 6.58 | 172 | 1.7 s / 16.6 s | 18.1 s |
+| WLO | 1, 2 | Base | 4.50 | 120 | 12.5 s / 14.5 s | 18.5 s |
+| WLO | 1, 2 | Coast only | 4.65 | 124 | 12.5 s / 18.5 s | 18.5 s |
+| WLO | 1, 2 | All three | 6.93 | 175 | 2.0 s / 14.8 s | 18.2 s |
+| WLO | 3, 4 | Base | 4.40 | 118 | 12.5 s / 18.5 s | 18.5 s |
+| WLO | 3, 4 | Coast only | 4.55 | 121 | 12.5 s / 18.5 s | 18.5 s |
+| WLO | 3, 4 | All three | 6.88 | 171 | 1.6 s / 14.7 s | 18.1 s |
+
+The design set these targets for the last build.
+
+| Target | Seed 1, 2 | Seed 3, 4 |
+| --- | --- | --- |
+| KSX at least 6.3 entries/min | Miss: 6.26 | Pass: 6.58 |
+| KSX at least 165 completed | Pass: 167 | Pass: 172 |
+| KSX other-approach p90 at most 17.1 s | Miss: 17.2 s | Miss: 18.1 s |
+| WLO at least 6.8 entries/min | Pass: 6.93 | Pass: 6.88 |
+
+The per-tick safety and link checks found no failure in these runs.
+Coast alone gives less than the prototype did: the design measured 5.29 entries/min at KSX with seed 1, 2 for its coast-only arm, and 6.44 entries/min with an other-approach p90 of 16.1 s for all three changes.
+Three scratch variants of the coast build at KSX with seed 1, 2 gave 4.74 entries/min each: one without the upstream gate, one with a fixed hold of 24.5 m, and one with the prototype braking floor.
+The cause is the choice of candidates.
+At a contested diverge, the first pod of a queue is usually a platoon follower.
+Admission refuses its request past the end of its link before the resource scan, so coast does not see it, and the pod starts from rest.
+The prototype took its coast candidates from the wait reasons of all waiting pods, so it saw these followers.
+A scratch build that passes these refusals to coast gave 5.26 entries/min for coast alone at KSX with seed 1, 2.
+
+With platoons off, KSX at seed 1, 2 gives the same output as the base, line for line: 4.59 entries/min and 123 completed.
+
+### Handover between approaches
+
+A platoon run that holds the diverge passes its members before an aged pod from another approach.
+There is no general bound on the number of such passages.
+In the test fixtures, a queued batch and a stream of pods each passed the platoon limit of 4 pods, and then the aged rival got the next free grant.
+A new pod links only to a pod ahead of it on its own lane, and a member counts in the platoon size until its link ends on the entry lane.
+No fixture produced a stream that refills the platoon while it holds the diverge.
+`TestPlatoonEntryBatch` in `internal/sim` pins this behavior.
+
 ## Seat screen for larger pods
 
 A pod with more seats can help only when the parties that a pod could take are more than its seats.

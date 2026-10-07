@@ -602,6 +602,9 @@ It is a research reference, not a proposed dependency for Podsim.
 **Status:** Virtual platoons are a project option, `platoonLimit`, and they are off by default.
 A slow pod in a queue can follow the pod ahead at a short gap and share its track cells, in platoons of up to 4 pods.
 Each link keeps a fixed certificate of a run of lanes that turns 120 degrees or less, and its clearance follows from that turn.
+A run can end on the entry lane of a station when both pods go to that station, and such pods choose their berths early.
+A pod that waits for a contested station diverge can coast so that it rolls into the diverge when it frees.
+See [station entry throughput](docs/qualification.md#station-entry-throughput).
 On the synthetic corridor, platoons of 4 give 2.5 to 3.1 times the flow of single pods.
 A London sweep with 198 pods found that track and junction flow limit the Early band at 9 to 12 requests per minute.
 The ten-seed follow-up raises the highest tested Early rate with one-hour recovery from 10/minute to 11/minute.

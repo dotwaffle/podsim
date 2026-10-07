@@ -1410,6 +1410,20 @@ Admission follows these rules:
 - Admission uses the state before movement.
 - Released resources become available on the next tick.
 
+With platoons on, a pod that waits for the conflict section of a station diverge can coast.
+The station diverge is the node where the entry lane of a station starts.
+The pod coasts only when another pod waits for the same section at the same tick, and the pods that hold the section move.
+Its hold point is before the end of its reservation by the square of the lane speed limit over four times the acceleration (24.5 m at 14 m/s), but not more than the gap to that end.
+Coast does not brake a pod harder than its usual stop, so a pod that arrives at the speed limit still stops at the end of its reservation.
+A pod that moves up slowly, such as the first pod of a queue, stops at the hold point.
+A platoon member that must first own the cells that it shares does not coast.
+It starts again so that it rolls into the section when the section frees.
+The pod that admission will take first starts early enough to reach the section at speed.
+Coast lowers only the commanded speed.
+It changes no admission order, and the stop point of the pod does not move back.
+A pod does not coast while it holds a junction or a node that it releases before the end of its reservation.
+Pods of a large class and pods with an emergency do not coast.
+
 The block model is conservative.
 It does not model continuous car-following or optimized junction capacity.
 The traffic model requires lanes at least 24 meters long.
@@ -1425,6 +1439,9 @@ It uses `-platoon-policies`, and the `virtual` policy has a limit of 4 pods.
 
 With platoons on, a slow pod in a queue can link to the pod ahead on the same lane.
 A mainline link needs shared succeeding lanes, and each route must have one speed limit.
+A run can hold the entry lane of a station when both pods go to a berth of that station.
+No run of such a pair continues past the entry node of that station, and no run starts on an entry lane.
+A lane after the entry node of the destination station of either pod, and the entry lane of a station that is not the destination of both pods, never join a run.
 
 Each link certifies a run of lanes that both routes share, from the lane of the follower.
 The total turn along the run must be at most 120 degrees.
@@ -1464,6 +1481,9 @@ The restore uses the `platoonLimit` of the project.
 Passenger journeys route to the station entry without a berth assignment.
 The controller chooses the least-assigned reachable berth when the next reservation of the pod starts on the final lane of the road route.
 It also chooses the berth when that reservation reaches the last block of the road route, as it can on a short final lane.
+With platoons on, the controller also tries the choice for a pod that is not of a large class when the entry lane starts within 300 m, or when the next reservation reaches that lane.
+Then the run of a platoon can grow onto the entry lane.
+If the early try finds no berth, the pod continues and tries again at the usual point.
 The controller can change this choice before it reserves a berth branch.
 A passenger or pickup pod can choose a free alternate berth before it reserves the next station branch.
 A route change preserves all admitted track.

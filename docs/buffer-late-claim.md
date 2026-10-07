@@ -30,6 +30,7 @@ King's Cross completed 121 orders with buffers off and 105 with buffers on and o
 A free, unreserved berth existed in every sample while a pod queued, so the entry lane limits throughput, not the berths.
 Buffer links almost never formed.
 With compact spacing, two pods were on the entry lane in 5 of 18,000 samples.
+The platoon entry runs, the early berth choice, and coast-in that replaced the buffers are measured in [station entry throughput](qualification.md#station-entry-throughput).
 
 ## Candidate and checks
 
