@@ -3,6 +3,7 @@ package project
 import (
 	"bytes"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"reflect"
 	"testing"
 
@@ -45,12 +46,12 @@ func TestExpressProjectRoundTrip(t *testing.T) {
 	if err := Validate(config); err != nil {
 		t.Fatal(err)
 	}
-	raw, err := json.Marshal(config)
+	raw, err := jsonv2.Marshal(config, json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}
 	var got Config
-	if err = json.Unmarshal(raw, &got); err != nil {
+	if err = jsonv2.Unmarshal(raw, &got, json.DefaultOptionsV1()); err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(config, got) {
@@ -78,7 +79,7 @@ func TestExpressProjectMarkersFailAtomically(t *testing.T) {
 	for _, raw := range []string{`{"version":1,"orderContract":null}`, `{"version":1,"orderContract":""}`, `{"version":1,"orderContract":"unknown"}`, `{"version":4,"orderContract":"express-v1"}`, `{"version":3,"orderContract":"express-v1"}`, `{"version":2,"orderContract":"express-v1"}`, `{"version":1,"orderContract":"express-v1","orderContract":"express-v1"}`} {
 		got := Default()
 		before := Clone(got)
-		if err := json.Unmarshal([]byte(raw), &got); err == nil {
+		if err := jsonv2.Unmarshal([]byte(raw), &got, json.DefaultOptionsV1()); err == nil {
 			t.Fatal("invalid marker accepted", raw)
 		}
 		if !reflect.DeepEqual(before, got) {
@@ -97,7 +98,7 @@ func TestExpressProjectMarkersFailAtomically(t *testing.T) {
 	if err := Validate(unmarked); err == nil {
 		t.Fatal("Express features accepted without the order contract")
 	}
-	raw, err := json.Marshal(Default())
+	raw, err := jsonv2.Marshal(Default(), json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -26,12 +26,12 @@ func TestConfigJSONRoundTripAndClone(t *testing.T) {
 	want.Network.Lanes[0].SeparationGroup = "surface"
 	want.Network.Stations[0].Berths[0].SeparationGroup = "surface"
 	want.DemandProfiles = []DemandProfile{testDemandProfile()}
-	data, err := json.Marshal(want)
+	data, err := jsonv2.Marshal(want, json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}
 	var got Config
-	if err = json.Unmarshal(data, &got); err != nil {
+	if err = jsonv2.Unmarshal(data, &got, json.DefaultOptionsV1()); err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(got, want) {
@@ -39,12 +39,12 @@ func TestConfigJSONRoundTripAndClone(t *testing.T) {
 	}
 	want.Geo = &Geo{Latitude: 51.5, Longitude: -0.1, Projection: GeoProjection, Radius: GeoRadius}
 	want.Map = &MapBackground{Provider: "osm", Opacity: .45}
-	data, err = json.Marshal(want)
+	data, err = jsonv2.Marshal(want, json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}
 	var withGeo Config
-	if err = json.Unmarshal(data, &withGeo); err != nil {
+	if err = jsonv2.Unmarshal(data, &withGeo, json.DefaultOptionsV1()); err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(withGeo, want) {
@@ -669,7 +669,7 @@ func shortExponentProject(t *testing.T) Config {
 		t.Fatalf("file has %d bytes and canonical encoding has %d bytes, limit %d", len(file), len(canonical), MaxFileBytes)
 	}
 	var decoded Config
-	if err := json.Unmarshal(file, &decoded); err != nil {
+	if err := jsonv2.Unmarshal(file, &decoded, json.DefaultOptionsV1()); err != nil {
 		t.Fatal(err)
 	}
 	return decoded
@@ -688,7 +688,7 @@ func canonicalJSON(t *testing.T, value any) []byte {
 
 func mustJSON(t *testing.T, value any) []byte {
 	t.Helper()
-	data, err := json.Marshal(value)
+	data, err := jsonv2.Marshal(value, json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -818,7 +818,7 @@ func TestProjectRefusesEarlierVersions(t *testing.T) {
 		}
 		raw := fmt.Appendf(nil, `{"version":%d}`, version)
 		got := Default()
-		if err := json.Unmarshal(raw, &got); err == nil || !strings.Contains(err.Error(), "use version 1") {
+		if err := jsonv2.Unmarshal(raw, &got, json.DefaultOptionsV1()); err == nil || !strings.Contains(err.Error(), "use version 1") {
 			t.Fatalf("decode version %d: %v", version, err)
 		}
 	}

@@ -3,6 +3,7 @@ package project
 import (
 	"bytes"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"errors"
 	"math"
 	"reflect"
@@ -26,7 +27,7 @@ func faultProject(faults FaultConfig) Config {
 // added at the root. extra starts with a comma.
 func rawProject(t *testing.T, extra string) []byte {
 	t.Helper()
-	base, err := json.Marshal(Default())
+	base, err := jsonv2.Marshal(Default(), json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,7 +39,7 @@ func rawProject(t *testing.T, extra string) []byte {
 // absent, and that a project without the marker has no fault member.
 func TestFaultMarkerRoundTrip(t *testing.T) {
 	t.Parallel()
-	plain, err := json.Marshal(Default())
+	plain, err := jsonv2.Marshal(Default(), json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,7 +57,7 @@ func TestFaultMarkerRoundTrip(t *testing.T) {
 			if err := Validate(config); err != nil {
 				t.Fatal(err)
 			}
-			raw, err := json.Marshal(config)
+			raw, err := jsonv2.Marshal(config, json.DefaultOptionsV1())
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -64,7 +65,7 @@ func TestFaultMarkerRoundTrip(t *testing.T) {
 				t.Fatal("marker omitted")
 			}
 			var got Config
-			if err := json.Unmarshal(raw, &got); err != nil {
+			if err := jsonv2.Unmarshal(raw, &got, json.DefaultOptionsV1()); err != nil {
 				t.Fatal(err)
 			}
 			if !reflect.DeepEqual(got, config) {
@@ -88,7 +89,7 @@ func TestFaultMarkerDecodeRefusals(t *testing.T) {
 		marked + `,"faults":{"evacuationSeconds":0,"perHour":0,"debrisShare":1,"debrisMeters":50,"duration":{"kind":"uniform","minSeconds":1,"maxSeconds":86400}}`,
 	} {
 		var got Config
-		if err := json.Unmarshal(rawProject(t, extra), &got); err != nil {
+		if err := jsonv2.Unmarshal(rawProject(t, extra), &got, json.DefaultOptionsV1()); err != nil {
 			t.Fatalf("control %s: %v", extra, err)
 		}
 	}
@@ -127,7 +128,7 @@ func TestFaultMarkerDecodeRefusals(t *testing.T) {
 	} {
 		got := Default()
 		before := Clone(got)
-		if err := json.Unmarshal(rawProject(t, extra), &got); err == nil {
+		if err := jsonv2.Unmarshal(rawProject(t, extra), &got, json.DefaultOptionsV1()); err == nil {
 			t.Errorf("decode accepted %s", extra)
 		}
 		if !reflect.DeepEqual(before, got) {

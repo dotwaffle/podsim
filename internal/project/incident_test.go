@@ -3,6 +3,7 @@ package project
 import (
 	"bytes"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"errors"
 	"reflect"
 	"testing"
@@ -14,7 +15,7 @@ import (
 // project round trip, and that a project without it has no member.
 func TestIncidentMarkerRoundTrip(t *testing.T) {
 	t.Parallel()
-	plain, err := json.Marshal(Default())
+	plain, err := jsonv2.Marshal(Default(), json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -26,7 +27,7 @@ func TestIncidentMarkerRoundTrip(t *testing.T) {
 	if validateErr := Validate(config); validateErr != nil {
 		t.Fatal(validateErr)
 	}
-	raw, err := json.Marshal(config)
+	raw, err := jsonv2.Marshal(config, json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -34,7 +35,7 @@ func TestIncidentMarkerRoundTrip(t *testing.T) {
 		t.Fatal("marker omitted")
 	}
 	var got Config
-	if err := json.Unmarshal(raw, &got); err != nil {
+	if err := jsonv2.Unmarshal(raw, &got, json.DefaultOptionsV1()); err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(got, config) {
@@ -52,7 +53,7 @@ func TestIncidentMarkerRejectsOtherValues(t *testing.T) {
 		got := Default()
 		before := Clone(got)
 		raw := []byte(`{"version":1,"incidentContract":` + value + `}`)
-		if err := json.Unmarshal(raw, &got); err == nil {
+		if err := jsonv2.Unmarshal(raw, &got, json.DefaultOptionsV1()); err == nil {
 			t.Errorf("incident marker %s accepted", value)
 		}
 		if !reflect.DeepEqual(before, got) {

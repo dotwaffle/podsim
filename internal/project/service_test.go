@@ -2,6 +2,7 @@ package project
 
 import (
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"fmt"
 	"reflect"
 	"strings"
@@ -18,12 +19,12 @@ func TestServiceProjectPermitsIndependentBanks(t *testing.T) {
 		if err := Validate(config); err != nil {
 			t.Fatal(err)
 		}
-		raw, err := json.Marshal(config)
+		raw, err := jsonv2.Marshal(config, json.DefaultOptionsV1())
 		if err != nil {
 			t.Fatal(err)
 		}
 		var got Config
-		if err := json.Unmarshal(raw, &got); err != nil {
+		if err := jsonv2.Unmarshal(raw, &got, json.DefaultOptionsV1()); err != nil {
 			t.Fatal(err)
 		}
 		if !reflect.DeepEqual(config, got) {
@@ -82,7 +83,7 @@ func TestProjectServicePresenceFailsAtomically(t *testing.T) {
 			got := Default()
 			want := Clone(got)
 			raw := fmt.Sprintf(`{"version":%d,"name":"Changed",%s}`, version, member)
-			err := json.Unmarshal([]byte(raw), &got)
+			err := jsonv2.Unmarshal([]byte(raw), &got, json.DefaultOptionsV1())
 			refused := version != CurrentVersion || strings.Contains(member, "null")
 			if (err != nil) != refused {
 				t.Fatalf("decode %s: %v", raw, err)

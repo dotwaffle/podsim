@@ -3,6 +3,7 @@ package project
 import (
 	"bytes"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"errors"
 	"math"
 	"reflect"
@@ -28,7 +29,7 @@ func emergencyProject(emergencies EmergencyConfig) Config {
 // member.
 func TestEmergencyMarkerRoundTrip(t *testing.T) {
 	t.Parallel()
-	plain, err := json.Marshal(Default())
+	plain, err := jsonv2.Marshal(Default(), json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,7 +50,7 @@ func TestEmergencyMarkerRoundTrip(t *testing.T) {
 			if err := Validate(config); err != nil {
 				t.Fatal(err)
 			}
-			raw, err := json.Marshal(config)
+			raw, err := jsonv2.Marshal(config, json.DefaultOptionsV1())
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -57,7 +58,7 @@ func TestEmergencyMarkerRoundTrip(t *testing.T) {
 				t.Fatalf("members missing: %s", raw)
 			}
 			var got Config
-			if err := json.Unmarshal(raw, &got); err != nil {
+			if err := jsonv2.Unmarshal(raw, &got, json.DefaultOptionsV1()); err != nil {
 				t.Fatal(err)
 			}
 			if !reflect.DeepEqual(got, config) {
@@ -84,7 +85,7 @@ func TestEmergencyMarkerDecodeRefusals(t *testing.T) {
 		marked + `,"faultContract":"fault-v1","faults":{},"emergencies":{}`,
 	} {
 		var got Config
-		if err := json.Unmarshal(rawProject(t, extra), &got); err != nil {
+		if err := jsonv2.Unmarshal(rawProject(t, extra), &got, json.DefaultOptionsV1()); err != nil {
 			t.Fatalf("control %s: %v", extra, err)
 		}
 	}
@@ -114,7 +115,7 @@ func TestEmergencyMarkerDecodeRefusals(t *testing.T) {
 	} {
 		got := Default()
 		before := Clone(got)
-		if err := json.Unmarshal(rawProject(t, extra), &got); err == nil {
+		if err := jsonv2.Unmarshal(rawProject(t, extra), &got, json.DefaultOptionsV1()); err == nil {
 			t.Errorf("decode accepted %s", extra)
 		}
 		if !reflect.DeepEqual(before, got) {

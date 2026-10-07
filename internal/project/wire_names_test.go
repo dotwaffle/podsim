@@ -52,7 +52,7 @@ func TestProjectScannerLiteralsMatchTags(t *testing.T) {
 // caller.
 func TestProjectRefusesCaseVariantMembers(t *testing.T) {
 	t.Parallel()
-	raw, err := json.Marshal(Default())
+	raw, err := jsonv2.Marshal(Default(), json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,7 +67,7 @@ func TestProjectRefusesCaseVariantMembers(t *testing.T) {
 		changed := bytes.Replace(raw, []byte(test.from), []byte(test.to), 1)
 		var legacy, v1, v2 Config
 		for name, err := range map[string]error{
-			"legacy": json.Unmarshal(changed, &legacy),
+			"legacy": jsonv2.Unmarshal(changed, &legacy, json.DefaultOptionsV1()),
 			"v1":     jsonv2.Unmarshal(changed, &v1, json.DefaultOptionsV1()),
 			"v2":     jsonv2.Unmarshal(changed, &v2, jsonv2.MatchCaseInsensitiveNames(true)),
 		} {

@@ -2,6 +2,7 @@ package project
 
 import (
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"os"
 	"reflect"
 	"testing"
@@ -16,7 +17,7 @@ func groupProjectFixture(t *testing.T) Config {
 		t.Fatal(err)
 	}
 	var config Config
-	if decodeErr := json.Unmarshal(raw, &config); decodeErr != nil {
+	if decodeErr := jsonv2.Unmarshal(raw, &config, json.DefaultOptionsV1()); decodeErr != nil {
 		t.Fatal(decodeErr)
 	}
 	return config
@@ -28,12 +29,12 @@ func TestGroupProjectExplicitAdmission(t *testing.T) {
 	if err := Validate(config); err != nil {
 		t.Fatal("authored group project rejected", err)
 	}
-	raw, err := json.Marshal(config)
+	raw, err := jsonv2.Marshal(config, json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}
 	var roundTrip Config
-	if decodeErr := json.Unmarshal(raw, &roundTrip); decodeErr != nil {
+	if decodeErr := jsonv2.Unmarshal(raw, &roundTrip, json.DefaultOptionsV1()); decodeErr != nil {
 		t.Fatal(decodeErr)
 	}
 	if !reflect.DeepEqual(config, roundTrip) {

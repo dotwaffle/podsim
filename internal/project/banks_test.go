@@ -93,7 +93,7 @@ func TestBankProjectPrescanBounds(t *testing.T) {
 			}
 			if test.bad {
 				var config Config
-				if err := json.Unmarshal([]byte(raw), &config); err == nil {
+				if err := jsonv2.Unmarshal([]byte(raw), &config, json.DefaultOptionsV1()); err == nil {
 					t.Fatal("decoder accepted excessive array")
 				}
 			}
@@ -104,7 +104,7 @@ func TestBankProjectPrescanBounds(t *testing.T) {
 				t.Fatalf("scan bounded another case: %v", err)
 			}
 			var config Config
-			if err := json.Unmarshal([]byte(upper), &config); err == nil {
+			if err := jsonv2.Unmarshal([]byte(upper), &config, json.DefaultOptionsV1()); err == nil {
 				t.Fatal("decoder accepted Banks")
 			}
 		})
@@ -156,7 +156,7 @@ func TestBankMetadataValidation(t *testing.T) {
 			if err := Validate(config); err == nil {
 				t.Fatal("accepted invalid bank metadata")
 			}
-			raw, err := json.Marshal(config)
+			raw, err := jsonv2.Marshal(config, json.DefaultOptionsV1())
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -166,7 +166,7 @@ func TestBankMetadataValidation(t *testing.T) {
 				return
 			}
 			var decoded Config
-			if err := json.Unmarshal(raw, &decoded); err == nil {
+			if err := jsonv2.Unmarshal(raw, &decoded, json.DefaultOptionsV1()); err == nil {
 				t.Fatal("decoder accepted invalid bank metadata")
 			}
 		})
@@ -176,14 +176,14 @@ func TestBankMetadataValidation(t *testing.T) {
 func TestBankNetworkCloneOwnsNestedStorage(t *testing.T) {
 	t.Parallel()
 	config := bankMetadataConfig()
-	before, err := json.Marshal(config)
+	before, err := jsonv2.Marshal(config, json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}
 	cloned := Clone(config)
 	cloned.Network.Stations[0].Banks[0].ID = "changed"
 	cloned.Network.Stations[0].Banks[0].BerthIDs[0] = "changed"
-	after, err := json.Marshal(config)
+	after, err := jsonv2.Marshal(config, json.DefaultOptionsV1())
 	if err != nil || !bytes.Equal(before, after) {
 		t.Fatal("clone aliases bank storage")
 	}
@@ -220,19 +220,19 @@ func TestBankMetadataAcceptsNameAndCountLimits(t *testing.T) {
 func TestBankProjectDecodeFailureKeepsStorage(t *testing.T) {
 	t.Parallel()
 	config := bankMetadataConfig()
-	before, err := json.Marshal(config)
+	before, err := jsonv2.Marshal(config, json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}
 	raw := []byte(`{"network":{"stations":[{"id":"changed","banks":[{"id":"changed","berthIDs":["changed"]}]}]},"version":2}`)
-	if decodeErr := json.Unmarshal(raw, &config); decodeErr == nil {
+	if decodeErr := jsonv2.Unmarshal(raw, &config, json.DefaultOptionsV1()); decodeErr == nil {
 		t.Fatal("accepted bank metadata in project version 2")
 	}
-	after, err := json.Marshal(config)
+	after, err := jsonv2.Marshal(config, json.DefaultOptionsV1())
 	if err != nil || !bytes.Equal(before, after) {
 		t.Fatal("failed decode changed project storage")
 	}
-	if err := json.Unmarshal([]byte(`{"demand":{"perMinute":6}}`), &config); err != nil {
+	if err := jsonv2.Unmarshal([]byte(`{"demand":{"perMinute":6}}`), &config, json.DefaultOptionsV1()); err != nil {
 		t.Fatal(err)
 	}
 	if config.Version != CurrentVersion || config.Demand.PerMinute != 6 || config.Network.Stations[0].Banks[0].ID != "a" {
