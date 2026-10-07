@@ -1,10 +1,15 @@
 package sim
 
-import "math"
+import (
+	"math"
+	"slices"
+)
 
 // deniedRequest is a request that grant refused because another pod holds
-// a track, node, or junction resource of it. in is a copy of the intent,
-// and through is the last block of the request.
+// a track, node, or junction resource of it, or because the pod is a
+// platoon member that must first own the cells that it shares (see grant).
+// in is a copy of the intent, and through is the last block of the
+// request.
 type deniedRequest struct {
 	in      intent
 	through int
@@ -102,7 +107,8 @@ func divergeJunction(blocks *blockList, d deniedRequest, diverges map[string]boo
 //  1. v is traveling, it is not faulted, it has no emergency record, and
 //     it is not a large class.
 //  2. v is not a follower whose request linkedSpan accepts.
-//  3. Another denied request waits for the junction.
+//  3. Another denied request waits for the junction, and its pod is not
+//     in the platoon of v. Such a request is a rival of v.
 //  4. v retains no node or junction resource whose release distance is
 //     after its position and at most its reservation end. So coast does
 //     not delay a node or junction release of v within its reservation.
@@ -128,7 +134,13 @@ func (s *Simulation) coastCeiling(denied []deniedRequest, k int, rivals []int) (
 	if v.link.leader != 0 && s.linkedSpan(v, d.in.block, d.through) {
 		return 0, false
 	}
-	if len(rivals) < 2 {
+	// A rival is another request at the diverge from a pod outside the
+	// platoon of v.
+	external := func(rival int) bool {
+		u := &s.vehicles[denied[rival].in.index]
+		return rival != k && !s.aheadInPlatoon(v, u.Pod.ID) && !s.aheadInPlatoon(u, v.Pod.ID)
+	}
+	if !slices.ContainsFunc(rivals, external) {
 		return 0, false
 	}
 	frontier := v.blocks.end(v.reservedThrough)
@@ -145,7 +157,7 @@ func (s *Simulation) coastCeiling(denied []deniedRequest, k int, rivals []int) (
 	at := s.tick + int64(math.Ceil(release*TicksPerSecond))
 	first := true
 	for _, rival := range rivals {
-		if rival != k && compareAdmission(denied[rival].in, d.in, at) < 0 {
+		if external(rival) && compareAdmission(denied[rival].in, d.in, at) < 0 {
 			first = false
 		}
 	}

@@ -338,3 +338,44 @@ func TestCoastRestoreAndClone(t *testing.T) {
 	restored := newEntryMonitor(first)
 	runEntry(t, first, restored)
 }
+
+// TestCoastHeldFollower queues six linked pods 45 m apart on each of two
+// approaches. A platoon member that holdsPending refuses at the diverge
+// waits for the diverge zone as a head does, so it coasts against the
+// heads of the other approach. At least one such pod stops at its hold
+// point, 10 m or more before the end of its reservation, and then takes
+// the diverge junction at 2 m/s or more.
+func TestCoastHeldFollower(t *testing.T) {
+	t.Parallel()
+	s := restoreEntry(t, entryNetwork(londonEntry, 12), append(approachQueue(1, 6, 1250, 45), approachQueue(2, 6, 1250, 45)...))
+	monitor := newEntryMonitor(s)
+	diverge := resource{kind: junctionResource, id: "dest-diverge"}
+	// hold is the largest hold at rest of each held follower, and grant
+	// is its speed when it takes the diverge after that hold.
+	hold := make(map[string]float64)
+	grant := make(map[string]float64)
+	var owner resourceOwner
+	monitor.extra = func(s *Simulation, _ []deniedRequest, results []coastResult) {
+		if next := s.owners[diverge]; next != owner {
+			owner = next
+			if v := s.ownerVehicle(next); v != nil {
+				if _, ok := hold[v.Pod.ID]; ok {
+					grant[v.Pod.ID] = v.Pod.Speed
+				}
+			}
+		}
+		for _, result := range results {
+			if v := &s.vehicles[result.index]; v.link.leader != 0 && s.holdsPending(v) && v.Pod.Speed == 0 {
+				hold[v.Pod.ID] = max(hold[v.Pod.ID], v.blocks.end(v.reservedThrough)-v.distance)
+			}
+		}
+	}
+	runEntry(t, s, monitor)
+	t.Logf("held followers: holds %v, diverge grant speeds %v", hold, grant)
+	for id, meters := range hold {
+		if speed, ok := grant[id]; ok && meters >= 10 && speed >= 2 {
+			return
+		}
+	}
+	t.Fatalf("no held follower held 10 m or more and then took the diverge at 2 m/s or more: holds %v, grant speeds %v", hold, grant)
+}

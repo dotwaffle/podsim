@@ -644,7 +644,9 @@ func compareAdmission(a, b intent, tick int64) int {
 // platoon holds, except a berth. That pod stays the owner, and the
 // resource passes to the follower when that pod releases it. A request
 // that another pod refuses with its track, node, or junction resource goes
-// to the denied requests of coastCaps.
+// to the denied requests of coastCaps. So does a request of a platoon
+// member that holdsPending or returnsToShared refuses: such a pod waits for
+// the next zone as a head does, often at the front of a queue.
 func (s *Simulation) grant(in intent) {
 	v := &s.vehicles[in.index]
 	through := reservationEnd(&v.blocks, in.block)
@@ -657,6 +659,7 @@ func (s *Simulation) grant(in intent) {
 		// until it owns each cell that it holds.
 		v.Pod.BlockedBy = s.vehicles[v.link.leader-1].Pod.ID
 		v.Pod.WaitReason = TrackOccupied
+		s.deny(deniedRequest{in: in, through: through})
 		return
 	}
 	// A route that passes a node again must not keep a resource that a
@@ -664,6 +667,7 @@ func (s *Simulation) grant(in intent) {
 	if v.follower != 0 && s.returnsToShared(v, in.block, through) {
 		v.Pod.BlockedBy = s.vehicles[v.follower-1].Pod.ID
 		v.Pod.WaitReason = TrackOccupied
+		s.deny(deniedRequest{in: in, through: through})
 		return
 	}
 	for resources := range v.blocks.spanResources(in.block, through+1) {
@@ -713,7 +717,14 @@ func (s *Simulation) refuseGrant(v *vehicle, d deniedRequest, r resource, owner 
 	case trackResource:
 		v.Pod.WaitReason = TrackOccupied
 	}
-	if work := s.admissionWork; work != nil && r.kind != berthResource {
+	if r.kind != berthResource {
+		s.deny(d)
+	}
+}
+
+// deny adds the refused request d to the denied requests of coastCaps.
+func (s *Simulation) deny(d deniedRequest) {
+	if work := s.admissionWork; work != nil {
 		work.denied = append(work.denied, d)
 	}
 }

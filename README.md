@@ -1412,11 +1412,11 @@ Admission follows these rules:
 
 With platoons on, a pod that waits for the conflict section of a station diverge can coast.
 The station diverge is the node where the entry lane of a station starts.
-The pod coasts only when another pod waits for the same section at the same tick, and the pods that hold the section move.
+The pod coasts only when a pod outside its platoon waits for the same section at the same tick, and the pods that hold the section move.
 Its hold point is before the end of its reservation by the square of the lane speed limit over four times the acceleration (24.5 m at 14 m/s), but not more than the gap to that end.
 Coast does not brake a pod harder than its usual stop, so a pod that arrives at the speed limit still stops at the end of its reservation.
 A pod that moves up slowly, such as the first pod of a queue, stops at the hold point.
-A platoon member that must first own the cells that it shares does not coast.
+A platoon member that must first own the cells that it shares also waits as a head, and it can coast.
 It starts again so that it rolls into the section when the section frees.
 The pod that admission will take first starts early enough to reach the section at speed.
 Coast lowers only the commanded speed.

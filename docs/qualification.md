@@ -1662,23 +1662,31 @@ The base is `a717e6c`.
 | WLO | 3, 4 | Coast only | 4.55 | 121 | 12.5 s / 18.5 s | 18.5 s |
 | WLO | 3, 4 | All three | 6.88 | 171 | 1.6 s / 14.7 s | 18.1 s |
 
-The design set these targets for the last build.
+Coast alone at first gave less than the prototype did: the design measured 5.29 entries/min at KSX with seed 1, 2 for its coast-only arm.
+At a contested diverge, the first pod of a queue is usually a platoon follower.
+Admission refused its request past the end of its link before the resource scan, so coast did not see it, and the pod started from rest.
+Coast now sees these refusals, and a rival must be a pod outside the platoon of the coasting pod.
+Coast alone then gave 5.26 entries/min at KSX with seed 1, 2.
+All three changes with this fix gave these results.
+
+| Station | Seed | Entries/min | Completed | Other-approach p90 |
+| --- | --- | ---: | ---: | ---: |
+| KSX | 1, 2 | 6.61 | 174 | 16.7 s |
+| KSX | 3, 4 | 6.69 | 174 | 19.0 s |
+| WLO | 1, 2 | 7.11 | 179 | 18.1 s |
+| WLO | 3, 4 | 6.73 | 174 | 18.2 s |
+
+The design set these targets.
 
 | Target | Seed 1, 2 | Seed 3, 4 |
 | --- | --- | --- |
-| KSX at least 6.3 entries/min | Miss: 6.26 | Pass: 6.58 |
-| KSX at least 165 completed | Pass: 167 | Pass: 172 |
-| KSX other-approach p90 at most 17.1 s | Miss: 17.2 s | Miss: 18.1 s |
-| WLO at least 6.8 entries/min | Pass: 6.93 | Pass: 6.88 |
+| KSX at least 6.3 entries/min | Pass: 6.61 | Pass: 6.69 |
+| KSX at least 165 completed | Pass: 174 | Pass: 174 |
+| KSX other-approach p90 at most 17.1 s | Pass: 16.7 s | Miss: 19.0 s |
+| WLO at least 6.8 entries/min | Pass: 7.11 | Miss: 6.73 |
 
+The maintainer accepted the two misses on October 7, 2026.
 The per-tick safety and link checks found no failure in these runs.
-Coast alone gives less than the prototype did: the design measured 5.29 entries/min at KSX with seed 1, 2 for its coast-only arm, and 6.44 entries/min with an other-approach p90 of 16.1 s for all three changes.
-Three scratch variants of the coast build at KSX with seed 1, 2 gave 4.74 entries/min each: one without the upstream gate, one with a fixed hold of 24.5 m, and one with the prototype braking floor.
-The cause is the choice of candidates.
-At a contested diverge, the first pod of a queue is usually a platoon follower.
-Admission refuses its request past the end of its link before the resource scan, so coast does not see it, and the pod starts from rest.
-The prototype took its coast candidates from the wait reasons of all waiting pods, so it saw these followers.
-A scratch build that passes these refusals to coast gave 5.26 entries/min for coast alone at KSX with seed 1, 2.
 
 With platoons off, KSX at seed 1, 2 gives the same output as the base, line for line: 4.59 entries/min and 123 completed.
 
