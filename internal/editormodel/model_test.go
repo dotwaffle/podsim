@@ -256,3 +256,17 @@ func TestParkRideRequiredFields(t *testing.T) {
 		}
 	}
 }
+
+// TestCallDecodeErrorWording checks that a decode error in the reply has
+// fixed wording, whatever modal verb encoding/json/v2 chose.
+func TestCallDecodeErrorWording(t *testing.T) {
+	t.Parallel()
+	var result response
+	reply := Call(`{"op":"validate","project":{"name":1}}`)
+	if err := json.Unmarshal([]byte(reply), &result); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(result.Error, "json: invalid JSON number at /name: expected Go string") {
+		t.Fatalf("reply %s has no fixed wording", reply)
+	}
+}

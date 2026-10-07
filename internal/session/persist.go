@@ -17,6 +17,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/dotwaffle/podsim/internal/jsonerr"
 	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/rail"
 	"github.com/dotwaffle/podsim/internal/sim"
@@ -429,7 +430,7 @@ func (s *Session) startRejected(ctx context.Context, input rejectInput) error {
 		return err
 	}
 	s.restore = RestoreInfo{Tier: restoreEmpty, Reason: input.reason}
-	s.logger.Warn("Rejected saved session state", slog.String("reason", input.reason), slog.Any("error", input.err))
+	s.logger.Warn("Rejected saved session state", slog.String("reason", input.reason), slog.Any("error", jsonerr.Wrap(input.err)))
 	rejectCtx, cancel := context.WithTimeoutCause(ctx, stateIOTimeout, errMoveTimeout)
 	defer cancel()
 	if err := s.persist.store.Reject(rejectCtx); err != nil {

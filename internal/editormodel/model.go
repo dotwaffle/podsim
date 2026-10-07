@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/dotwaffle/podsim/internal/jsonerr"
 	"github.com/dotwaffle/podsim/internal/project"
 )
 
@@ -55,7 +56,7 @@ func encodeResponse(result response, err error) string {
 	if result.helper && err != nil {
 		encoded, encodeErr := json.Marshal(struct {
 			Error string `json:"error"`
-		}{err.Error()})
+		}{jsonerr.Text(err)})
 		if encodeErr != nil {
 			return `{"error":"Cannot encode the editor helper error."}`
 		}
@@ -71,7 +72,7 @@ func encodeResponse(result response, err error) string {
 		return string(encoded)
 	}
 	if err != nil {
-		result = response{Error: err.Error(), Synced: result.Synced}
+		result = response{Error: jsonerr.Text(err), Synced: result.Synced}
 	}
 	encoded, err := json.Marshal(result)
 	if err != nil {

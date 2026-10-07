@@ -2,6 +2,8 @@ package session
 
 import (
 	"bytes"
+	"encoding/json/v2"
+	"errors"
 	"reflect"
 	"slices"
 	"strconv"
@@ -273,7 +275,9 @@ func TestSavedRemovedMembersMovedAside(t *testing.T) {
 			t.Parallel()
 			member := name[strings.LastIndex(name, "/")+1:]
 			data := compressTestJSON(t, damaged)
-			if _, err := decodeStateFile(data); err == nil || !strings.Contains(err.Error(), `unknown object member name "`+member+`"`) {
+			_, err := decodeStateFile(data)
+			semantic, ok := errors.AsType[*json.SemanticError](err)
+			if !ok || !errors.Is(err, json.ErrUnknownName) || semantic.JSONPointer.LastToken() != member {
 				t.Fatalf("decode: %v, want the unknown member %s", err, member)
 			}
 			store := &fakeStore{data: data}
