@@ -161,14 +161,19 @@ A delta must name the exact preceding stream and sequence.
 Invalid data closes the socket and retains the last valid view until reconnection.
 
 Stream routes replace complete ordered routes with sorted unique display lane indexes and a bounded ordered motion window.
-Display indexes cover every lane of the complete route, including traveled lanes.
-The motion window holds at most 2,048 lane occurrences around the current occurrence.
+Display indexes cover only the unique lanes in the motion window.
+The motion window holds at most 1,024 lane occurrences around the current occurrence.
+Thus the display also has at most 1,024 lanes.
 It carries an ephemeral route identity, absolute start and current occurrences, truncation flags, and the original origin node index.
 A route replacement changes identity, while a window shift preserves it.
 Motion holds the earlier position when identity changes or neither window contains the connecting path.
 The 150 ms motion buffer is unchanged.
-Simulator routes and saved states keep their existing representation.
+Simulator routes keep their existing representation and have no new length limit.
+Saved routes use the separate limits in [Session state](operations.md#session-state).
 The HTTP state carries the stream frame, so it has route windows, not complete routes.
+Display decoder caps stay at the project lane limit, with the same refusal order and error text.
+`TestPlainStreamMaximumEncoding` bounds plain full-stream and HTTP-state JSON below 65 MiB, including the topology cap for HTTP state.
+Express has no byte proof.
 
 The connection allows 64 outstanding state messages or 8 MiB, whichever limit it reaches first.
 A larger legal message uses that window alone.

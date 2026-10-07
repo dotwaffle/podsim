@@ -197,6 +197,14 @@ The server saves the session state at these times:
 
 A save copies the state while it holds the session lock.
 It encodes, compresses, and writes the copy after it releases the lock.
+Each saved pod or waiting trip route has at most 1,024 lanes.
+Smaller networks keep the lower bounds: lanes plus nodes for a pod, and nodes for a trip.
+The server omits a longer route without changing live routing or motion.
+Physical restore moves a pod with an omitted or over-limit route to a free berth.
+An over-limit trip loses its route and pod bindings.
+The decoder keeps larger route-array caps so long routes do not change the header refusal order.
+`TestPlainStateFileWorstCaseSize` bounds plain saved JSON, including a project at its byte cap, below 100 MiB.
+Express has no byte proof.
 Each startup or periodic save gets 30 seconds.
 A command save gets 2 seconds.
 This time includes the wait for an earlier save.
