@@ -35,11 +35,11 @@ const (
 	// MaxBerths is the largest number of berths in one station.
 	MaxBerths = 200
 	// MaxStations is the largest number of stations.
-	MaxStations = 300
+	MaxStations = 600
 	// MaxNodes is the largest number of network nodes.
-	MaxNodes = 5000
+	MaxNodes = 12000
 	// MaxLanes is the largest number of network lanes.
-	MaxLanes = 8000
+	MaxLanes = 20000
 	// MaxNodeLanes is the largest number of lanes at one node. A lane
 	// counts at its From node and at its To node.
 	MaxNodeLanes = 64
@@ -48,15 +48,16 @@ const (
 	// each of these pairs when it starts, so the limit bounds the start
 	// time. The largest total of a generated project in the tests is
 	// 32,752, in a ring of 4 stations with 62 berths each. A network with
-	// MaxNodes nodes and MaxLanes lanes has at least 48,000 pairs, so the
-	// limit also leaves space for a network with the most lanes.
-	MaxJunctionPairs = 100_000
+	// MaxNodes nodes and MaxLanes lanes has at least 96,000 pairs, with
+	// 3 or 4 lanes at each node, so the limit also leaves space for a
+	// network with the most lanes.
+	MaxJunctionPairs = 250_000
 	// MaxProfiles is the largest number of demand profiles.
 	MaxProfiles = 8
 	// MaxBands is the largest number of bands in one demand profile.
 	MaxBands = 24
 	// MaxFlows is the largest number of flows in one demand profile.
-	MaxFlows = 65000
+	MaxFlows = 400000
 )
 
 // These limits bound the network geometry. The coordinate limit keeps each
@@ -115,7 +116,7 @@ type MapBackground struct {
 // the project with the widest demand settings that ValidateDemand accepts.
 // Thus a session state file can hold each valid project, also after a
 // change to its demand settings.
-const MaxFileBytes = 10 << 20
+const MaxFileBytes = 32 << 20
 
 // errTooLarge means that the canonical encoding of a project, with the
 // widest demand settings, has more than MaxFileBytes.

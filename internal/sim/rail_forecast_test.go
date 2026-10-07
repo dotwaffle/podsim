@@ -262,7 +262,8 @@ func TestForecastRefusalOrder(t *testing.T) {
 		want    string
 	}{
 		{"targets_before_gates", true, []ForecastTarget{missing}, `invalid forecast target "missing"`},
-		{"count_before_targets", false, append([]ForecastTarget{missing}, make([]ForecastTarget, 300)...), "forecast must contain at most 300 stations"},
+		{"count_before_targets", false, append([]ForecastTarget{missing}, make([]ForecastTarget, 600)...), "forecast must contain at most 600 stations"},
+		{"count_at_the_limit", false, append([]ForecastTarget{missing}, make([]ForecastTarget, 599)...), `invalid forecast target "missing"`},
 		{"first_invalid_target", false, []ForecastTarget{missing, past}, `invalid forecast target "missing"`},
 		{"input_order", false, []ForecastTarget{past, missing}, `invalid forecast target "other"`},
 		{"after_valid_target", false, []ForecastTarget{valid, missing}, `invalid forecast target "missing"`},

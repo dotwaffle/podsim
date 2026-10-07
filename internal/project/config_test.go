@@ -207,7 +207,7 @@ func TestValidateRejectsMalformedProjects(t *testing.T) {
 
 // TestValidateAcceptsNetworkLimits checks a project with the most nodes and
 // lanes that Validate allows. The added nodes are on a circle 40 meters
-// apart, away from the stations. With 2 lanes to and 2 lanes from almost
+// apart about the origin, away from the stations. With 2 lanes to and 2 lanes from almost
 // each added node, the network has the fewest lane pairs at nodes that
 // MaxNodes and MaxLanes allow.
 func TestValidateAcceptsNetworkLimits(t *testing.T) {
@@ -218,7 +218,7 @@ func TestValidateAcceptsNetworkLimits(t *testing.T) {
 	for index := range count {
 		angle := 2 * math.Pi * float64(index) / float64(count)
 		config.Network.Nodes = append(config.Network.Nodes, sim.Node{
-			ID: fmt.Sprintf("far-%d", index), Position: sim.Point{X: 40_000 + radius*math.Cos(angle), Y: radius * math.Sin(angle)},
+			ID: fmt.Sprintf("far-%d", index), Position: sim.Point{X: radius * math.Cos(angle), Y: radius * math.Sin(angle)},
 		})
 	}
 	// Each added lane goes from an added node to one of the next added
@@ -556,12 +556,12 @@ func demandReserve(t *testing.T) int {
 	return len(canonicalJSON(t, widestDemand)) - len(canonicalJSON(t, Default().Demand))
 }
 
-// weightedProject returns a valid project with 50 passenger stations and the
+// weightedProject returns a valid project with 90 passenger stations and the
 // largest number of demand profiles and bands. Each profile has a flow for
-// each ordered pair of stations, so the project has 470,400 weights. Each
+// each ordered pair of stations, so the project has 1,537,920 weights. Each
 // weight is 1.
 func weightedProject() Config {
-	const stations = 50
+	const stations = 90
 	config := Default()
 	config.Network = loopNetwork(stations)
 	config.Fleet = []sim.Placement{{ID: "01", StationID: "s00", BerthID: "s00-1"}}

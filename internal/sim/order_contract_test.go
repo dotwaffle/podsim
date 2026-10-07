@@ -368,8 +368,52 @@ func TestExpressMaximumRecoveryAndAggregate(t *testing.T) {
 	}
 }
 
+// TestExpressNativeCountBounds puts the node, lane, and station counts of
+// an Express network at the project limits and one more. Only a count
+// over a limit gives the count refusal.
+func TestExpressNativeCountBounds(t *testing.T) {
+	t.Parallel()
+	const refusal = "the Express fleet or network exceeds project bounds"
+	network := func(nodes, lanes, stations int) Network {
+		n := Network{Nodes: make([]Node, nodes), Lanes: make([]Lane, lanes), Stations: make([]Station, stations)}
+		for i := range n.Nodes {
+			n.Nodes[i].ID = fmt.Sprintf("n%d", i)
+		}
+		return n
+	}
+	placements := []Placement{{ID: "01", StationID: "s"}}
+	for _, test := range []struct {
+		name                   string
+		nodes, lanes, stations int
+	}{
+		{"nodes", 12000, 1, 2},
+		{"lanes", 1, 20000, 2},
+		{"stations", 1, 1, 600},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			if err := validateContractFleetBounds(network(test.nodes, test.lanes, test.stations), placements, ExpressOrderContract); err == nil || err.Error() == refusal {
+				t.Fatalf("at the limit: %v", err)
+			}
+			over := network(test.nodes, test.lanes, test.stations)
+			switch test.name {
+			case "nodes":
+				over.Nodes = append(over.Nodes, Node{ID: "extra"})
+			case "lanes":
+				over.Lanes = append(over.Lanes, Lane{})
+			default:
+				over.Stations = append(over.Stations, Station{})
+			}
+			if err := validateContractFleetBounds(over, placements, ExpressOrderContract); err == nil || err.Error() != refusal {
+				t.Fatalf("over the limit: %v", err)
+			}
+		})
+	}
+}
+
 func TestExpressNativeGeometryBudgets(t *testing.T) {
-	for _, bundles := range []int{12, 13} {
+	// Each bundle has 2 * 64 * 63 = 8,064 junction pairs.
+	for _, bundles := range []int{31, 32} {
 		n := Network{}
 		for i := range bundles {
 			from, to := fmt.Sprintf("f%d", i), fmt.Sprintf("t%d", i)
@@ -378,7 +422,7 @@ func TestExpressNativeGeometryBudgets(t *testing.T) {
 				n.Lanes = append(n.Lanes, Lane{ID: fmt.Sprintf("l%d-%d", i, j), From: from, To: to, SpeedLimit: 12, Control: &Point{X: float64(i)*100 + float64(j), Y: 25}})
 			}
 		}
-		if err := validateContractGeometryBudget(n); (err == nil) != (bundles == 12) {
+		if err := validateContractGeometryBudget(n); (err == nil) != (bundles == 31) {
 			t.Fatalf("junction bundles %d: %v", bundles, err)
 		}
 	}

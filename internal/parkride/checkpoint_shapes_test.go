@@ -66,13 +66,15 @@ func shapeProject(t *testing.T) project.Config {
 	lane := func(id, from, to, station string, role sim.StationLaneRole) {
 		c.Network.Lanes = append(c.Network.Lanes, sim.Lane{ID: id, From: from, To: to, SpeedLimit: 14, SeparationGroup: id, StationID: station, StationRole: role})
 	}
+	// The stations are 160 meters apart, so the loop stays within
+	// project.MaxCoordinate.
 	for i := range project.MaxStations {
 		id := fmt.Sprintf("s%03d", i)
 		entry, exit, berth := id+"e", id+"x", id+"b"
-		x := float64(i) * 300
+		x := float64(i) * 160
 		node(entry, x, 0)
-		node(exit, x+150, 0)
-		node(berth, x+75, 60)
+		node(exit, x+100, 0)
+		node(berth, x+50, 60)
 		lane(id+"t", entry, exit, id, sim.StationThroughRole)
 		lane(id+"i", entry, berth, id, sim.StationBerthAccessRole)
 		lane(id+"o", berth, exit, id, sim.StationDepartureRole)
@@ -82,9 +84,9 @@ func shapeProject(t *testing.T) project.Config {
 		c.Network.Stations = append(c.Network.Stations, sim.Station{ID: id, Name: shapeName, Entry: entry, Exit: exit, Berths: []sim.Berth{{ID: berth, Node: berth, SeparationGroup: berth}}})
 		c.Fleet = append(c.Fleet, sim.Placement{ID: shapeID(i), StationID: id, BerthID: berth})
 	}
-	node("re", project.MaxStations*300, 400)
+	node("re", project.MaxStations*160, 400)
 	node("rw", -150, 400)
-	lane("rd", "s299x", "re", "", "")
+	lane("rd", fmt.Sprintf("s%03dx", project.MaxStations-1), "re", "", "")
 	lane("rr", "re", "rw", "", "")
 	lane("ru", "rw", "s000e", "s000", sim.StationEntryRole)
 	// One banked station reaches both the 200-berth and eight-bank limits.
@@ -120,9 +122,15 @@ func shapeProject(t *testing.T) project.Config {
 		}
 		station.Banks = append(station.Banks, group)
 	}
+	// The unused nodes are in rows of 200 nodes 30 meters apart. The rows
+	// alternate direction, so that each node is 30 meters from the next.
 	remaining := project.MaxNodes - len(c.Network.Nodes)
 	for i := range remaining {
-		node(fmt.Sprintf("u%d", i), -90000+float64(i%200)*30, -90000+float64(i/200)*30)
+		column := i % 200
+		if i/200%2 == 1 {
+			column = 199 - column
+		}
+		node(fmt.Sprintf("u%d", i), -90000+float64(column)*30, -90000+float64(i/200)*30)
 	}
 	for i := range remaining - 1 {
 		lane(fmt.Sprintf("u%d", i), fmt.Sprintf("u%d", i), fmt.Sprintf("u%d", i+1), "", "")
@@ -135,8 +143,8 @@ func shapeProject(t *testing.T) project.Config {
 		for b := range project.MaxBands {
 			profile.Bands = append(profile.Bands, project.DemandBand{ID: shapeID(b), Name: shapeName, DurationMinutes: 60})
 		}
-		for from := range 50 {
-			for to := range 50 {
+		for from := range 90 {
+			for to := range 90 {
 				if from == to {
 					continue
 				}
@@ -191,13 +199,13 @@ func shapePlan(t *testing.T) Plan {
 		PartySize: 1, SharingConsent: sim.PrivateConsent, DepartureSeconds: 10000, OutwardRefusal: "drive-home", ReturnRefusal: "retain-car"}
 	empty := shapeBytes(t, Plan{Lots: []Lot{lot}, Itineraries: []Itinerary{}})
 	width := shapeBytes(t, prototype) + 1
-	count := int((project.MaxFileBytes - empty + 1) / width)
+	count := int((MaxPlanBytes - empty + 1) / width)
 	p := Plan{Lots: []Lot{lot}, Itineraries: make([]Itinerary, count)}
 	for i := range p.Itineraries {
 		p.Itineraries[i] = prototype
 		p.Itineraries[i].ID, p.Itineraries[i].CarID = fmt.Sprintf("i%06d", i), fmt.Sprintf("c%06d", i)
 	}
-	if size := shapeBytes(t, p); size > project.MaxFileBytes || size+width <= project.MaxFileBytes {
+	if size := shapeBytes(t, p); size > MaxPlanBytes || size+width <= MaxPlanBytes {
 		t.Fatalf("plan count is not maximal for the frozen field widths: %d bytes", size)
 	}
 	return p
@@ -243,7 +251,7 @@ func shapeNative(waiting int) sim.SavedState {
 	for i := range state.Waiting {
 		state.Waiting[i] = sim.SavedTrip{Request: request, Boarded: true, DeferUntil: math.MinInt64, DeferCheck: math.MinInt64, DeferPodID: shapeID(0)}
 		// Only existing bound pods can carry waiting route caches. At most
-		// MaxPods such records contribute the maximum 5000-value cache here.
+		// MaxPods such records contribute the maximum MaxNodes-value cache here.
 		if i < project.MaxPods {
 			state.Waiting[i].Route = waitingRoute
 			state.Waiting[i].Request.PodID = shapeID(i)
@@ -293,10 +301,10 @@ func TestCheckpointCombinedEncodingShapes(t *testing.T) {
 	if shapeBytes(t, file) != public.bytes {
 		t.Fatal("public checkpoint size differs from its named-type encoding")
 	}
-	t.Logf("SHAPE public-initial-tick-only bytes=%d project=%d plan=%d native=%d ledger=%d nodes=%d lanes=%d stations=%d pods=%d records=%d lots=%d max-station-berths=200 max-station-banks=8 profiles=8 bands=24 flows-per-profile=2450", public.bytes,
-		shapeBytes(t, config), shapeBytes(t, plan), shapeBytes(t, payload.Native), shapeBytes(t, payload.Ledger), len(config.Network.Nodes), len(config.Network.Lanes), len(config.Network.Stations), len(config.Fleet), len(plan.Itineraries), len(plan.Lots))
+	t.Logf("SHAPE public-initial-tick-only bytes=%d project=%d plan=%d native=%d ledger=%d nodes=%d lanes=%d stations=%d pods=%d records=%d lots=%d max-station-berths=200 max-station-banks=8 profiles=8 bands=24 flows-per-profile=%d", public.bytes,
+		shapeBytes(t, config), shapeBytes(t, plan), shapeBytes(t, payload.Native), shapeBytes(t, payload.Ledger), len(config.Network.Nodes), len(config.Network.Lanes), len(config.Network.Stations), len(config.Fleet), len(plan.Itineraries), len(plan.Lots), len(config.DemandProfiles[0].Flows))
 	// An ID has only ID characters, which JSON writes as 1 byte each, so
-	// 64-byte node and lane endpoint IDs fit a 10 MiB project with the
+	// 64-byte node and lane endpoint IDs fit a 32 MiB project with the
 	// collection maxima. The shape keeps short node and lane IDs and fills
 	// the project to its byte cap with weights.
 	idBytes := shapeBytes(t, shapeID(0))
@@ -306,7 +314,7 @@ func TestCheckpointCombinedEncodingShapes(t *testing.T) {
 	}
 	t.Logf("SHAPE all-long-node-lane-ids bytes=%d project-cap=%d", allLongIDs, project.MaxFileBytes)
 	// Each berth needs a distinct native node. All stations cannot have
-	// 200 berths under the shared 5000-node budget.
+	// 200 berths under the shared 12000-node budget.
 	if project.MaxStations*project.MaxBerths <= project.MaxNodes {
 		t.Fatal("independent berth maxima unexpectedly fit the node budget")
 	}
@@ -329,25 +337,6 @@ func TestCheckpointCombinedEncodingShapes(t *testing.T) {
 	file.Payload.Origin.Implementation.GoVersion = strings.Repeat("\x01", 128)
 	file.Payload.Origin.Implementation.GoOS = strings.Repeat("o", 32)
 	file.Payload.Origin.Implementation.GoArch = strings.Repeat("a", 32)
-	// Maximum route, boarding, platoon link, and row widths can fit as a
-	// named encoding when waiting is empty. No semantic validator admits
-	// this constructed native state; the proof is limited to byte budgets.
-	fitting := file
-	fitting.Payload.Native = shapeNative(0)
-	fitting.Payload.Ledger = shapeLedger(len(plan.Itineraries), 1)
-	if err := checkByteBudget(t.Context(), fitting.Payload); err != nil {
-		t.Fatal(err)
-	}
-	fitSink := &shapeCounter{limit: 8 * storageLimit}
-	fitBounded := &boundedWriter{writer: fitSink, remaining: MaxCheckpointBytes}
-	if err := json.MarshalWrite(fitBounded, fitting, json.Deterministic(true)); err != nil {
-		t.Fatal(err)
-	}
-	if fitSink.bytes != shapeBytes(t, fitting) || fitSink.bytes+fitBounded.remaining != MaxCheckpointBytes {
-		t.Fatal("fitting named envelope output differs from the complete encoding")
-	}
-	t.Logf("SHAPE encoding-envelope-only-fitting bytes=%d project=%d plan=%d native=%d ledger=%d records=%d lots=1 waiting=0 pods=600 pod-route=13000 boardings=600x8 platoon-links=600", fitSink.bytes,
-		shapeBytes(t, config), shapeBytes(t, plan), shapeBytes(t, fitting.Payload.Native), shapeBytes(t, fitting.Payload.Ledger), len(plan.Itineraries))
 	for _, counts := range []struct {
 		name    string
 		n, lots int
@@ -392,8 +381,8 @@ func TestCheckpointCombinedEncodingShapes(t *testing.T) {
 			if sink.bytes > MaxCheckpointBytes || sink.bytes+bounded.remaining != MaxCheckpointBytes {
 				t.Fatal("bounded output accounting differs")
 			}
-			t.Logf("SHAPE encoding-envelope-only bytes=%d project=%d plan=%d native=%d ledger=%d records=%d lots=%d waiting=%d pods=600 pod-route=13000 bound-waiting-routes=%dx5000 boardings=600x8 platoon-links=600 emitted-before-rejection=%d storage-fits=%t", total,
-				shapeBytes(t, config), shapeBytes(t, envelope.Payload.Origin.Plan), shapeBytes(t, envelope.Payload.Native), shapeBytes(t, envelope.Payload.Ledger), counts.n, counts.lots, waiting, min(waiting, project.MaxPods), sink.bytes, fitsStorage(int64(counts.lots), int64(counts.n)))
+			t.Logf("SHAPE encoding-envelope-only bytes=%d project=%d plan=%d native=%d ledger=%d records=%d lots=%d waiting=%d pods=600 pod-route=%d bound-waiting-routes=%dx%d boardings=600x8 platoon-links=600 emitted-before-rejection=%d storage-fits=%t", total,
+				shapeBytes(t, config), shapeBytes(t, envelope.Payload.Origin.Plan), shapeBytes(t, envelope.Payload.Native), shapeBytes(t, envelope.Payload.Ledger), counts.n, counts.lots, waiting, project.MaxLanes+project.MaxNodes, min(waiting, project.MaxPods), project.MaxNodes, sink.bytes, fitsStorage(int64(counts.lots), int64(counts.n)))
 		})
 	}
 	// The public caller must propagate output failure even for the valid

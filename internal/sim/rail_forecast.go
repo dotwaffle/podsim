@@ -63,8 +63,8 @@ func (s *Simulation) PositionForForecast(targets []ForecastTarget) (ForecastPosi
 // checkForecastTargets checks the target count, and then each target in
 // input order.
 func (s *Simulation) checkForecastTargets(targets []ForecastTarget) error {
-	if len(targets) > 300 {
-		return errors.New("forecast must contain at most 300 stations")
+	if len(targets) > 600 {
+		return errors.New("forecast must contain at most 600 stations")
 	}
 	seen := make(map[string]bool, len(targets))
 	for _, target := range targets {

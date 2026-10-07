@@ -99,8 +99,8 @@ func TestLondonWithCapacity(t *testing.T) {
 		},
 		{
 			name:   "past the node limit",
-			change: func(options *LondonOptions) { options.StationBerths, options.ParkingBerths = 8, 200 },
-			err:    "London network needs 5262 nodes, more than the limit of 5000",
+			change: func(options *LondonOptions) { options.StationBerths, options.ParkingBerths = 40, 200 },
+			err:    "London network needs 14478 nodes, more than the limit of 12000",
 		},
 		{
 			name: "pods per station",

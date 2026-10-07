@@ -46,7 +46,7 @@ func readProject(path string) ([]byte, error) {
 		return nil, err
 	}
 	if len(data) > project.MaxFileBytes {
-		return nil, errors.New("project exceeds the 10 MiB input bound")
+		return nil, errors.New("project exceeds the 32 MiB input bound")
 	}
 	return data, nil
 }

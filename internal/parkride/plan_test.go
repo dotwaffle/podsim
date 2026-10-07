@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
@@ -46,7 +45,7 @@ func TestDecodePlanShape(t *testing.T) {
 		{"missing-policy", strings.Replace(valid, `,"returnRefusal":"retain-car"`, "", 1)},
 		{"wrong-policy", strings.Replace(valid, "retain-car", "retry", 1)},
 		{"trailing-value", valid + ` {}`},
-		{"oversized-file", strings.Repeat(" ", project.MaxFileBytes+1)},
+		{"oversized-file", strings.Repeat(" ", MaxPlanBytes+1)},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -61,6 +60,20 @@ func TestDecodePlanShape(t *testing.T) {
 	}
 	if _, err = DecodePlan([]byte(`{"lots":[],"itineraries":[]}`), sim.Example()); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// TestDecodePlanInputBound pads a valid plan with whitespace to the plan
+// bound of 10 MiB and to one byte more.
+func TestDecodePlanInputBound(t *testing.T) {
+	t.Parallel()
+	valid := planJSON(t)
+	padded := valid + strings.Repeat(" ", 10<<20-len(valid))
+	if _, err := DecodePlan([]byte(padded), sim.Example()); err != nil {
+		t.Fatal("refused a plan at the bound", err)
+	}
+	if _, err := DecodePlan([]byte(padded+" "), sim.Example()); err == nil || err.Error() != "plan exceeds the 10 MiB input bound" {
+		t.Fatalf("plan over the bound: %v", err)
 	}
 }
 

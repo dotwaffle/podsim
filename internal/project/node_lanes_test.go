@@ -18,7 +18,7 @@ import (
 // MaxNetworkBlocks. The simulator compares each lane pair over the full
 // length, so this is a slow layout for the lane limits.
 func bundles() Config {
-	const span = 2_450.0
+	const span = 900.0
 	config := Default()
 	total := 0
 	for _, count := range config.Network.JunctionPairs() {
@@ -101,6 +101,9 @@ func TestValidateNodeLanes(t *testing.T) {
 // fleet also keeps the resources of each block, which MaxNetworkBlocks
 // bounds. The test does not run in parallel, because it measures the heap.
 func TestNodeLaneLimitBoundsFleetMemory(t *testing.T) {
+	if testing.Short() {
+		t.Skip("the fleet at the junction pair limit takes about 10 seconds to start")
+	}
 	config := bundles()
 	if err := Validate(config); err != nil {
 		t.Fatal(err)

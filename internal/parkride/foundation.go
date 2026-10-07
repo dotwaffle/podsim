@@ -14,7 +14,7 @@ import (
 // The caller must still use the authoritative project decoder and validation.
 func CheckFoundationProject(data []byte) error {
 	if len(data) > project.MaxFileBytes {
-		return errors.New("project exceeds 10 MiB")
+		return errors.New("project exceeds 32 MiB")
 	}
 	decoder := jsontext.NewDecoder(bytes.NewReader(data))
 	for {

@@ -27,7 +27,7 @@ const (
 	// MaxCommandBytes is the largest body of a command request, as it
 	// comes from the network. For a body with the gzip content encoding,
 	// this is the compressed size.
-	MaxCommandBytes = 4 << 20
+	MaxCommandBytes = 16 << 20
 	// MaxInflatedCommandBytes is the largest command JSON in a body with
 	// the gzip content encoding. A project command holds the compact JSON
 	// form of a project, and project.Validate limits this form to
@@ -54,7 +54,7 @@ const (
 	// plain body with a larger Content-Length or no Content-Length, needs a
 	// place before the server reads it. The place stays in use until the
 	// server applies the command. Thus the bodies that wait for the large
-	// command guard use at most maxLargeBodies times MaxCommandBytes, 16
+	// command guard use at most maxLargeBodies times MaxCommandBytes, 64
 	// MiB. One place is for the command in the guard, and the others let a
 	// few commands wait for it.
 	maxLargeBodies = 4

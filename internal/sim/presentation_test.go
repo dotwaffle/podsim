@@ -117,7 +117,7 @@ func BenchmarkPresentationFleet(b *testing.B) {
 			route := slices.Repeat(s.network.Lanes[:2], 32)
 			// Extra lanes size the presentation index without changing the route.
 			detachIndexes(s)
-			for len(s.network.Lanes) < 8000 {
+			for len(s.network.Lanes) < 20000 {
 				lane := s.network.Lanes[0]
 				lane.ID = fmt.Sprintf("extra-%d", len(s.network.Lanes))
 				s.network.Lanes = append(s.network.Lanes, lane)

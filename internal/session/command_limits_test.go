@@ -407,7 +407,7 @@ func TestProjectWithManyLanesAtOneNode(t *testing.T) {
 	// The fleet would allocate more than 1 GiB for the pairs of lanes.
 	allocated := after.TotalAlloc - before.TotalAlloc
 	t.Logf("a project of %d bytes with %d lanes at one node allocated %d bytes", len(body), len(config.Network.Lanes), allocated)
-	if allocated >= 64<<20 {
+	if allocated >= 160<<20 {
 		t.Fatalf("the request allocated %d bytes", allocated)
 	}
 }

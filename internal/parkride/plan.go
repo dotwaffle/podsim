@@ -14,9 +14,12 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
+
+// MaxPlanBytes is the largest plan input, and the largest canonical plan
+// of a checkpoint.
+const MaxPlanBytes = 10 << 20
 
 const (
 	storageLimit   = 256 << 20
@@ -67,7 +70,7 @@ func (p Plan) clone() Plan {
 
 // DecodePlan rejects ambiguous input before allocating typed plan records.
 func DecodePlan(data []byte, network sim.Network) (Plan, error) {
-	if len(data) > project.MaxFileBytes {
+	if len(data) > MaxPlanBytes {
 		return Plan{}, errors.New("plan exceeds the 10 MiB input bound")
 	}
 	if err := scanStorage(data); err != nil {

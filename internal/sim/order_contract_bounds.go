@@ -10,13 +10,13 @@ import (
 // The explicit native contract uses the existing project geometry budgets.
 const (
 	expressMaxPods          = 600
-	expressMaxNodes         = 5000
-	expressMaxLanes         = 8000
-	expressMaxStations      = 300
+	expressMaxNodes         = 12000
+	expressMaxLanes         = 20000
+	expressMaxStations      = 600
 	expressMaxBerths        = 200
 	expressMaxCoordinate    = 100000.0
 	expressMaxNodeLanes     = 64
-	expressMaxJunctionPairs = 100000
+	expressMaxJunctionPairs = 250000
 	expressMaxNetworkBlocks = 64000
 )
 

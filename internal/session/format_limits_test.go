@@ -75,7 +75,8 @@ type familyLimits struct {
 // with the table that it replaces. testdata/family_limit_tables.json holds
 // the tables of each family before savedLimits and streamLimits, from
 // commit 163bbe1, with the fleet and order bounds of the fleet limit of
-// 600 pods. A path that had no explicit limit had the general element
+// 600 pods, and the station, node, lane and flow limits of the New York
+// scale limits. A path that had no explicit limit had the general element
 // limit. Version 9 replaced saves 6, 7 and 8. Its table for the markers
 // of each earlier family must not be looser than the table of that family.
 // The weights array of a flow, with 24 values, became the flow array, with

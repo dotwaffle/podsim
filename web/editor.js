@@ -26,7 +26,7 @@
   const STATION_PADDING = 12;
   // MAX_LANES is project.MaxLanes, the lane limit of the server. A Go test
   // in internal/project checks the mirror.
-  const MAX_LANES = 8000;
+  const MAX_LANES = 20000;
   // LANE_CLASSES gives the vehicle classes in the native order.
   const LANE_CLASSES = ["legacy", "compact", "group", "express"];
   // IMAGE_FILE_BYTES is the largest background image file that the editor
@@ -48,7 +48,7 @@
   // decoded. It holds a 48 megapixel photo of 8064 by 6048 pixels.
   const IMAGE_MAX_SIDE = 16384;
   const IMAGE_MAX_PIXELS = 64 * 1024 * 1024;
-  const SERVER_PROJECT_BYTES = 10 * 1024 * 1024;
+  const SERVER_PROJECT_BYTES = 32 * 1024 * 1024;
   const EXPORT_ALLOWANCE = 1024;
   const ASSET_ALLOWANCE = 128 * 1024;
   const PROJECT_FILE_BYTES = Math.ceil((dataURLBytes(IMAGE_FILE_BYTES) + SERVER_PROJECT_BYTES + EXPORT_ALLOWANCE + ASSET_ALLOWANCE) / MIB) * MIB;
@@ -60,7 +60,7 @@
   // command, such as a pause, stays plain JSON, because the server applies
   // one gzip command at a time. The compression makes a project command
   // about 6 times smaller, so a slow link sends it in less time.
-  const SERVER_COMMAND_BYTES = 4 * MIB;
+  const SERVER_COMMAND_BYTES = 16 * MIB;
   const SERVER_COMMAND_JSON_BYTES = SERVER_PROJECT_BYTES + 64 * 1024;
   const GZIP_COMMAND_BYTES = 64 * 1024;
 

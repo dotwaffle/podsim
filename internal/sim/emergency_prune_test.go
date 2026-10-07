@@ -360,7 +360,8 @@ func tiedKeys(t *testing.T, s *Simulation) bool {
 }
 
 // TestEmergencyChoiceLongPrefix gives pod 01 a route that repeats a loop,
-// with a kept prefix of more than 8,000 lanes. With the term guard
+// with a kept prefix of more than 20,000 lanes, the lane limit of a
+// project. With the term guard
 // holding, the pruned scan builds the tree and gives the pair of the
 // exhaustive scan. With a prefix that fails the guard, the choice builds
 // no tree, and it evaluates every station, as the exhaustive scan does.
@@ -377,13 +378,13 @@ func TestEmergencyChoiceLongPrefix(t *testing.T) {
 	for _, test := range []struct {
 		loops int
 		guard bool
-	}{{1400, true}, {4000, false}} {
+	}{{3400, true}, {4000, false}} {
 		route := []Lane{lane("h-1-out")}
 		for range test.loops {
 			route = append(route, loop...)
 		}
 		route = route[:len(route)-1]
-		if len(route) <= 8000 {
+		if len(route) <= 20000 {
 			t.Fatalf("the prefix has %d lanes", len(route))
 		}
 		c := s.Clone()

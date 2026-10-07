@@ -118,7 +118,7 @@ func readInput(path string) ([]byte, error) {
 		return nil, err
 	}
 	if len(data) > project.MaxFileBytes {
-		return nil, errors.New("input exceeds the 10 MiB file bound")
+		return nil, errors.New("input exceeds the 32 MiB file bound")
 	}
 	return data, nil
 }

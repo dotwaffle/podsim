@@ -31,12 +31,16 @@ func (config *Config) decodeJSON(data []byte, options jsonv2.Options) error {
 	return config.decodeJSONLimit(data, options, MaxFileBytes)
 }
 
+// maxCanonicalRawBytes is the largest raw JSON of a checkpoint project
+// component.
+const maxCanonicalRawBytes = 80 << 20
+
 // DecodeCanonicalJSON validates a project from a bounded checkpoint component.
 // Raw JSON can use 80 MiB. Its canonical project must still fit MaxFileBytes.
 // The checkpoint caller must bound its enclosing input before this call.
 func DecodeCanonicalJSON(raw []byte) (Config, error) {
 	var config Config
-	if err := config.decodeJSONLimit(raw, json.DefaultOptionsV1(), 8*MaxFileBytes); err != nil {
+	if err := config.decodeJSONLimit(raw, json.DefaultOptionsV1(), maxCanonicalRawBytes); err != nil {
 		return Config{}, err
 	}
 	if err := Validate(config); err != nil {

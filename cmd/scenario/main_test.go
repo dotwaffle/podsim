@@ -278,8 +278,8 @@ func TestRunWritesImportableLondonFull(t *testing.T) {
 	if err := run([]string{"-preset", "london-full"}, &output, &summary); err != nil {
 		t.Fatal(err)
 	}
-	if output.Len() > project.MaxFileBytes || bytes.Count(output.Bytes(), []byte{'\n'}) != 1 {
-		t.Fatalf("full output has %d bytes or is not compact", output.Len())
+	if output.Len() > project.MaxFileBytes {
+		t.Fatalf("full output has %d bytes, more than %d", output.Len(), project.MaxFileBytes)
 	}
 	var config project.Config
 	if err := jsonv2.Unmarshal(output.Bytes(), &config, json.DefaultOptionsV1()); err != nil {

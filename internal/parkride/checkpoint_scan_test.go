@@ -30,8 +30,8 @@ func TestCheckpointPreallocationBounds(t *testing.T) {
 		{"rail destinations", "payload/origin/project/railArrivals/0/destinations", "array exceeds bound", 17, map[string]any{}},
 		{"rail origins", "payload/origin/project/railDepartures/0/origins", "array exceeds bound", 17, map[string]any{}},
 		{"profile bands", "payload/origin/project/demandProfiles/0/bands", "array exceeds bound", 25, map[string]any{}},
-		{"profile flows", "payload/origin/project/demandProfiles/0/flows", "array exceeds bound", 65001, map[string]any{}},
-		{"profile stations", "payload/origin/project/demandProfiles/0/stations", "array exceeds bound", 301, "harbor"},
+		{"profile flows", "payload/origin/project/demandProfiles/0/flows", "array exceeds bound", project.MaxFlows + 1, map[string]any{}},
+		{"profile stations", "payload/origin/project/demandProfiles/0/stations", "array exceeds bound", project.MaxStations + 1, "harbor"},
 		{"flow values", "payload/origin/project/demandProfiles/0/flows/0", "array exceeds bound", 27, 0},
 		{"native stops", "payload/native/pods/0/stops", "array exceeds bound", 9, "harbor"},
 		{"native stop object", "payload/native/pods/0/stops", "element type", 1, map[string]any{}},
@@ -184,5 +184,21 @@ func TestCheckpointCanonicalComponentWhitespace(t *testing.T) {
 				t.Fatal("transport whitespace changed canonical identity")
 			}
 		})
+	}
+}
+
+// TestCheckpointOriginComponentBounds gives the byte budget a canonical
+// origin project and plan just over their input bounds: 32 MiB for the
+// project and 10 MiB for the plan. A plan of 10 MiB and one byte is less
+// than the project bound, so it shows that the plan has its own bound.
+func TestCheckpointOriginComponentBounds(t *testing.T) {
+	t.Parallel()
+	overProject := checkpointPayload{Origin: origin{Project: project.Config{Name: strings.Repeat("n", 32<<20)}}}
+	if err := checkByteBudget(t.Context(), overProject); err == nil || err.Error() != "canonical origin project exceeds 32 MiB" {
+		t.Fatalf("project over its bound: %v", err)
+	}
+	overPlan := checkpointPayload{Origin: origin{Plan: Plan{Lots: []Lot{{ID: strings.Repeat("l", 10<<20)}}}}}
+	if err := checkByteBudget(t.Context(), overPlan); err == nil || err.Error() != "canonical origin plan exceeds 10 MiB" {
+		t.Fatalf("plan over its bound: %v", err)
 	}
 }

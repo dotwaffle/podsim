@@ -84,8 +84,8 @@ func TestProjectValidateChecksDecodedFlows(t *testing.T) {
 		name, stations, flows, want string
 	}{
 		{"valid", `["harbor","garden"]`, `[[0,1,1]]`, ""},
-		{"no flows", `[]`, `[]`, `demand profile "weekday" must contain 1 to 65000 flows`},
-		{"null flows", `[]`, `null`, `demand profile "weekday" must contain 1 to 65000 flows`},
+		{"no flows", `[]`, `[]`, `demand profile "weekday" must contain 1 to 400000 flows`},
+		{"null flows", `[]`, `null`, `demand profile "weekday" must contain 1 to 400000 flows`},
 		{"no weights", `["harbor","garden"]`, `[[0,1]]`, `demand profile "weekday" has an invalid flow from "harbor" to "garden"`},
 		{"extra weight", `["harbor","garden"]`, `[[0,1,1,1]]`, `demand profile "weekday" has an invalid flow from "harbor" to "garden"`},
 		{"same station", `["harbor"]`, `[[0,0,1]]`, `demand profile "weekday" has an invalid flow from "harbor" to "harbor"`},

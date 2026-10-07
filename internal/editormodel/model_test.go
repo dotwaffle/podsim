@@ -194,7 +194,7 @@ func TestParkRideAllLongDestinations(t *testing.T) {
 		t.Fatal(err)
 	}
 	var result response
-	if err := json.Unmarshal([]byte(Call(string(input))), &result); err != nil || result.Error != "" || result.Profile == nil || len(result.Profile.Flows) != 598 {
+	if err := json.Unmarshal([]byte(Call(string(input))), &result); err != nil || result.Error != "" || result.Profile == nil || len(result.Profile.Flows) != 2*(project.MaxStations-1) {
 		t.Fatalf("full constructor failed: error=%s decode=%v", result.Error, err)
 	}
 }

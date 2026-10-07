@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	jsonv2 "encoding/json/v2"
+	"errors"
 	"reflect"
 	"testing"
 )
@@ -27,8 +28,14 @@ func TestDecodeCanonicalJSONCheckpointComponent(t *testing.T) {
 	if !reflect.DeepEqual(got, config) {
 		t.Fatal("checkpoint component changed project")
 	}
-	if _, err := DecodeCanonicalJSON(make([]byte, 8*MaxFileBytes+1)); err == nil {
-		t.Fatal("checkpoint raw cap bypassed")
+	// The raw cap of a checkpoint component is 80 MiB.
+	atCap := append([]byte{'{'}, bytes.Repeat([]byte{' '}, 80<<20-len(raw))...)
+	atCap = append(atCap, raw[1:]...)
+	if _, err := DecodeCanonicalJSON(atCap); err != nil {
+		t.Fatal("checkpoint component at the raw cap refused", err)
+	}
+	if _, err := DecodeCanonicalJSON(append([]byte{' '}, atCap...)); !errors.Is(err, errTooLarge) {
+		t.Fatal("checkpoint raw cap bypassed", err)
 	}
 }
 

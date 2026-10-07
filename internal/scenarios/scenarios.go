@@ -14,8 +14,10 @@ import (
 )
 
 const (
-	minimumStations      = 3
-	maximumStations      = project.MaxStations
+	minimumStations = 3
+	// maximumStations is the largest ring. The ring radius is 180 meters
+	// for each station, so a larger ring passes project.MaxCoordinate.
+	maximumStations      = 500
 	maximumPods          = project.MaxPods
 	maximumStationBerths = project.MaxNodeLanes - 2 // A ring entry or exit node has a lane for each berth and 2 more.
 	maximumNodes         = project.MaxNodes

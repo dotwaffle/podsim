@@ -295,8 +295,9 @@ func padTopologyMember(t *testing.T, raw []byte, size int) []byte {
 	}
 }
 
-// topologyProject returns a plain project with project.MaxStations
-// stations and project.MaxPods pods. Each ID and each separation group has
+// topologyProject returns a plain project with a ring of 342 stations,
+// the largest ring of 6 and 6 berths within project.MaxNetworkBlocks, and
+// project.MaxPods pods. Each ID and each separation group has
 // 64 ID characters. When size is 0, each station name has
 // project.MaxNameLength "<", which the topology encoding writes as 6
 // bytes, and the project is valid. Otherwise the station names give the
@@ -305,7 +306,7 @@ func padTopologyMember(t *testing.T, raw []byte, size int) []byte {
 // valid name. A "<" adds 6 bytes, and a letter adds 1.
 func topologyProject(t *testing.T, size int) project.Config {
 	t.Helper()
-	config, err := scenarios.Config(scenarios.Parameters{Name: "escaped topology", Stations: project.MaxStations, Pods: project.MaxPods, PassengerBerths: 6, ParkingBerths: 6, DemandPerMinute: 1})
+	config, err := scenarios.Config(scenarios.Parameters{Name: "escaped topology", Stations: 342, Pods: project.MaxPods, PassengerBerths: 6, ParkingBerths: 6, DemandPerMinute: 1})
 	if err != nil {
 		t.Fatal(err)
 	}

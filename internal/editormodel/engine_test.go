@@ -152,7 +152,9 @@ func TestEngineBoundsAccumulatedProject(t *testing.T) {
 		t.Fatal(err)
 	}
 	flow := `{"from":"` + strings.Repeat("a", 36) + `","to":"` + strings.Repeat("b", 36) + `","weights":[` + strings.Repeat(`0,`, 23) + `0]}`
-	profiles := `[{"id":"p","name":"Profile","bands":[],"flows":[` + strings.Repeat(flow+`,`, project.MaxFlows-1) + flow + `]}]`
+	// The flows fill the file limit, less half of the network.
+	flows := (project.MaxFileBytes - len(network)/2) / (len(flow) + 1)
+	profiles := `[{"id":"p","name":"Profile","bands":[],"flows":[` + strings.Repeat(flow+`,`, flows-1) + flow + `]}]`
 	if len(profiles) >= project.MaxFileBytes || len(profiles)+len(network) <= project.MaxFileBytes {
 		t.Fatal("fixture does not test accumulation across individually bounded updates")
 	}

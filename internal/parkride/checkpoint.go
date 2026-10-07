@@ -153,8 +153,11 @@ func (r *Run) enableContinuation(ctx context.Context, config project.Config, pla
 	}
 	c := &continuation{origin: origin{Project: config, Plan: plan, ProjectHash: r.provenance.ProjectHash, PlanHash: r.provenance.PlanHash,
 		HorizonTicks: r.provenance.HorizonTicks, QueueLimit: r.provenance.QueueLimit, ReportBuild: r.provenance.Build, Implementation: identity}, boarded: make(map[int]int64)}
-	for _, value := range []any{config, plan} {
-		if _, err := hashBounded(ctx, value, project.MaxFileBytes); err != nil {
+	for _, component := range []struct {
+		value any
+		limit int64
+	}{{config, project.MaxFileBytes}, {plan, MaxPlanBytes}} {
+		if _, err := hashBounded(ctx, component.value, component.limit); err != nil {
 			return fmt.Errorf("continuation origin: %w", err)
 		}
 	}
@@ -363,14 +366,19 @@ func checkCurrentHashes(ctx context.Context, r *Run, payload checkpointPayload) 
 }
 func checkByteBudget(ctx context.Context, payload checkpointPayload) error {
 	sizes := int64(8192 + 1024*len(payload.Ledger.Records) + 128*len(payload.Ledger.Lots))
+	// The canonical origin project and plan have their input limits.
+	origin := [...]struct {
+		limit int64
+		err   string
+	}{{project.MaxFileBytes, "canonical origin project exceeds 32 MiB"}, {MaxPlanBytes, "canonical origin plan exceeds 10 MiB"}}
 	for i, value := range []any{payload.Origin.Project, payload.Origin.Plan, payload.Native} {
 		counter := &boundedWriter{io.Discard, MaxCheckpointBytes}
 		if err := json.MarshalWrite(contextWriter{ctx.Err, counter}, value, json.Deterministic(true)); err != nil {
 			return err
 		}
 		size := int64(MaxCheckpointBytes) - counter.remaining
-		if i < 2 && size > project.MaxFileBytes {
-			return errors.New("canonical origin exceeds 10 MiB")
+		if i < len(origin) && size > origin[i].limit {
+			return errors.New(origin[i].err)
 		}
 		sizes += size
 	}

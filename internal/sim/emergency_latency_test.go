@@ -103,14 +103,18 @@ func BenchmarkEmergencyLimitSearch(b *testing.B) {
 }
 
 // delayedNetwork returns the network of the delayed-routes fixture at the
-// project limits: a street grid of 41 by 100 nodes with four more vertical
-// streets, and 300 stations with one berth each, one in each of 300 grid
+// project limits: a street grid of 102 by 100 nodes with 18 more vertical
+// streets, and 600 stations with one berth each, one in each of 600 grid
 // cells, entered from the lower left corner of the cell and left to the
-// lower right corner. It has 5,000 nodes and 7,975 lanes.
+// lower right corner. It has 12,000 nodes and 19,931 lanes.
 func delayedNetwork() Network {
-	network := streetGrid(41, 100, 1, 11, 21, 31)
-	for index := range 300 {
-		column, row := index%40, 6+12*(index/40)
+	extra := []int{101}
+	for column := 1; column < 100; column += 6 {
+		extra = append(extra, column)
+	}
+	network := streetGrid(102, 100, extra...)
+	for index := range 600 {
+		column, row := index%100, 6+16*(index/100)
 		id := fmt.Sprintf("d%d", index)
 		x, y := float64(column)*100, float64(row)*100
 		station := Station{ID: id, Name: id, Entry: id + "-entry", Exit: id + "-exit", Berths: []Berth{{ID: id + "-1", Node: id + "-1"}}}
@@ -130,11 +134,11 @@ func delayedNetwork() Network {
 }
 
 // missNetwork returns the network of the no-candidate fixture at the
-// project limits: 300 stations with one bank of 10 berths each, in a line
+// project limits: 600 stations with one bank of 13 berths each, in a line
 // along the x axis, in which passenger stations and parking stations
 // alternate. Each station leaves to a node from which the next station is
-// entered, and a road of 500 lanes returns from the last station to the
-// first. It has 5,000 nodes and 8,000 lanes. When the through lanes of the
+// entered, and a road of 1,200 lanes returns from the last station to the
+// first. It has 12,000 nodes and 19,800 lanes. When the through lanes of the
 // parking stations are blocked, no route search leaves a bank: a road to
 // another station passes the berths of a parking station, which the bank
 // rules forbid, and which the pruning tree allows.
@@ -146,7 +150,7 @@ func missNetwork() Network {
 	lane := func(id, from, to, station string, role StationLaneRole) {
 		network.Lanes = append(network.Lanes, Lane{ID: id, From: from, To: to, SpeedLimit: 14, StationID: station, StationRole: role})
 	}
-	const stations, berths = 300, 10
+	const stations, berths = 600, 13
 	previous := "return-end"
 	for index := range stations {
 		id := fmt.Sprintf("m%d", index)
@@ -178,7 +182,7 @@ func missNetwork() Network {
 	}
 	// The return road starts at the node after the last station.
 	end := float64(stations-1)*1000 + 800
-	const returns = 499
+	const returns = 1199
 	for index := range returns {
 		id := fmt.Sprintf("return-%d", index)
 		node(id, end-(end+200)*float64(index)/returns, -1000)
@@ -217,9 +221,7 @@ func newChoiceTickFixture(t *testing.T, network Network, policy RoutingPolicy, w
 		}
 		passenger = append(passenger, station.ID)
 		for _, berth := range station.Berths {
-			// The fleet stays below the limit of 600 pods, because the
-			// networks of these fixtures cannot hold 600 berths.
-			if len(fleet) < 300 {
+			if len(fleet) < 600 {
 				fleet = append(fleet, Placement{ID: fmt.Sprintf("%03d", len(fleet)+1), StationID: station.ID, BerthID: berth.ID})
 			}
 		}
@@ -444,8 +446,9 @@ func TestEmergencyNoCandidateLatency(t *testing.T) {
 					return nil
 				})
 				t.Logf("reported, not gated: slowest %v, median %v, fastest %v, against %v; searches %+v", tick.slowest, tick.median, tick.fastest, choiceTickLimit, tick.counts)
-				// The bound of section 9.1 for a tick of four choices.
-				if counts := tick.counts; counts.failed == 0 || counts.localFailed == 0 || counts.graph+counts.trees > 240_052 || counts.trees != 4 {
+				// The bound of section 9.1 for a tick of four choices, at
+				// 12,000 nodes.
+				if counts := tick.counts; counts.failed == 0 || counts.localFailed == 0 || counts.graph+counts.trees > 576_052 || counts.trees != 4 {
 					t.Errorf("searches %+v", counts)
 				}
 			})
