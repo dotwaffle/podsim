@@ -6,6 +6,10 @@ Group and express pods remain metadata until their applicable qualification gate
 The first implementation will model a conservative simulation envelope.
 It will not certify real steering, seating, or road vehicle dimensions.
 
+Station buffers and compact station queues were removed on October 7, 2026, because measurements showed that they lowered station entry throughput.
+Clauses that prohibit large pods in compact queues or buffer certificates now describe cases that cannot occur.
+They stay as written and are vacuous.
+
 ## Dimensions and position
 
 The current route position is an abstract point.

@@ -8,6 +8,14 @@ Clauses about the couplingContract marker, coupling sites and corridors, couplin
 Where a rule lists a coupling case with other cases, only the coupling case is removed.
 Platoon, compact queue, and station group rules are unchanged.
 
+Station buffers and compact station queues were removed on October 7, 2026, because measurements showed that they lowered station entry throughput.
+Clauses about buffered pods, buffer heads, buffer claims, compact queue members, and compact certificates no longer apply.
+Where a rule lists a buffer or compact case with other cases, only that case is removed.
+The sentence above that keeps compact queue rules unchanged no longer covers them.
+The step-fault seam was removed with them: `compactFault`, `CompactQueueError`, `FailStepForTest`, and the Compact pause return in `Session.step`.
+Rows, clauses, and landing gates that name these no longer apply.
+Citations of removed files and functions, such as `compact_state_bytes_test.go`, no longer apply.
+
 Status note, October 6, 2026: the maintainer stopped the incident redesign after stage 3.
 Stages 4 to 7 are out of scope.
 Text that names these stages describes refusals that stay in place.

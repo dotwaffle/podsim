@@ -9,6 +9,12 @@ The [measurement receipt](measurements/car-continuation-qualification.json) reco
 The approved design below preserves the original proposal and acceptance conditions.
 The project, session, stream, plan, and report formats retain their existing contracts.
 
+Station buffers and compact station queues were removed on October 7, 2026, because measurements showed that they lowered station entry throughput.
+Clauses that name buffer or compact certificates, policies, or queues now describe cases that cannot occur.
+The checkpoint payload is the saved simulation state, which no longer has their members.
+A checkpoint that still has one fails as an unknown member.
+The checkpoint version and the native encoding name are unchanged.
+
 ## Recommendation and source constraints
 
 Add one local, finite-plan checkpoint format to `internal/parkride` and `cmd/parkride`.

@@ -5,6 +5,8 @@ These thresholds do not authorize a default change.
 Pickup reassignment and sharing remain opt-in.
 Free-flow routing remains the default.
 Existing qualification rules and documented exceptions remain in force.
+Station buffers and compact station queues were removed on October 7, 2026, because measurements showed that they lowered station entry throughput.
+Gates and rows that name them are history.
 These gates add individual service limits and current-source coverage requirements.
 
 ## Evidence required

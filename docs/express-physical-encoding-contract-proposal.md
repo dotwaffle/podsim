@@ -5,6 +5,10 @@ The user approved item 8b and the contract below with the 6b/8b batch.
 Deployment, runtime enablement, and default changes require a separate batch.
 The [native](express-native-qualification.md), [wire](express-wire-qualification.md), and [browser](express-browser-qualification.md) records contain qualification evidence.
 
+Station buffers and compact station queues were removed on October 7, 2026, because measurements showed that they lowered station entry throughput.
+Clauses that name buffers, buffer certificates, compact queues, or compact certificates now describe cases that cannot occur.
+Their prohibitions and bounds stay as written and are vacuous.
+
 The source descriptions below refer to the reviewed baseline, `53321e4c5decc6c661df64a40378ee37614dcffc`.
 The [large-body proposal](large-body-physics-proposal.md) approved the dimensions and common conservative candidate.
 The [service contract](service-contract-proposals.md) and [byte contract](service-byte-contract-proposal.md) approved metadata and parser recognition.
