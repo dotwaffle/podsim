@@ -22,17 +22,15 @@ type RunInput struct {
 
 // Policies identifies the effective native policies of this run.
 type Policies struct {
-	PartyLimit          int                     `json:"partyLimit"`
-	SharingMode         sim.SharedRideMode      `json:"sharingMode"`
-	MaxStops            int                     `json:"maxStops"`
-	SharingJoin         sim.SharedRideJoin      `json:"sharingJoin"`
-	OnboardPickups      bool                    `json:"onboardPickups"`
-	PlatoonLimit        int                     `json:"platoonLimit"`
-	StationBuffers      bool                    `json:"stationBuffers"`
-	StationQueueSpacing sim.StationQueueSpacing `json:"stationQueueSpacing"`
-	PickupReassignment  bool                    `json:"pickupReassignment"`
-	Positioning         sim.Positioning         `json:"positioning"`
-	PositioningWeights  string                  `json:"positioningWeights"`
+	PartyLimit         int                `json:"partyLimit"`
+	SharingMode        sim.SharedRideMode `json:"sharingMode"`
+	MaxStops           int                `json:"maxStops"`
+	SharingJoin        sim.SharedRideJoin `json:"sharingJoin"`
+	OnboardPickups     bool               `json:"onboardPickups"`
+	PlatoonLimit       int                `json:"platoonLimit"`
+	PickupReassignment bool               `json:"pickupReassignment"`
+	Positioning        sim.Positioning    `json:"positioning"`
+	PositioningWeights string             `json:"positioningWeights"`
 }
 
 // PodMetrics keeps native measurements separate from car outcomes.
@@ -160,8 +158,7 @@ func NewRunContext(ctx context.Context, input RunInput) (*Run, error) {
 		ProjectHash: projectHash, PlanHash: planHash, Build: input.Build, HorizonTicks: input.HorizonTicks, QueueLimit: input.QueueLimit,
 		Policies: Policies{PartyLimit: project.EffectiveSharedRidePartyLimit(config), SharingMode: project.EffectiveSharedRideMode(config),
 			MaxStops: project.EffectiveSharedRideMaxStops(config), SharingJoin: project.EffectiveSharedRideJoin(config), OnboardPickups: config.OnboardPickups,
-			PlatoonLimit: config.PlatoonLimit, StationBuffers: bool(config.StationBuffers), StationQueueSpacing: project.EffectiveStationQueueSpacing(config),
-			PickupReassignment: bool(config.PickupReassignment), Positioning: mode, PositioningWeights: "one outward and one return origin per itinerary"}}}
+			PlatoonLimit: config.PlatoonLimit, PickupReassignment: bool(config.PickupReassignment), Positioning: mode, PositioningWeights: "one outward and one return origin per itinerary"}}}
 	if input.Continuation != nil {
 		if err := run.enableContinuation(ctx, config, plan, *input.Continuation); err != nil {
 			return nil, err

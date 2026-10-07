@@ -13,8 +13,6 @@
     "sharingJoin": "unassigned",
     "onboardPickups": false,
     "platoonLimit": 0,
-    "stationBuffers": false,
-    "stationQueueSpacing": "ordinary",
     "pickupReassignment": false,
     "positioning": 0,
     "positioningWeights": "one outward and one return origin per itinerary"
