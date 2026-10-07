@@ -478,9 +478,7 @@ func TestEnergyNativeNonlegacyMotion(t *testing.T) {
 			}
 			arrived, moving := false, false
 			for range 300 * sim.TicksPerSecond {
-				if err := stepComparison(s); err != nil {
-					t.Fatal(err)
-				}
+				s.Step()
 				if err := consumeEnergy(meter, s); err != nil {
 					t.Fatal(err)
 				}

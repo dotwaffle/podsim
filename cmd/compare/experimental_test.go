@@ -17,18 +17,16 @@ import (
 
 func TestExperimentalPolicyOptions(t *testing.T) {
 	t.Parallel()
-	for _, flag := range []string{"-station-buffers", "-pickup-reassignment"} {
-		for _, value := range []string{"", "true", "ON", "on,", "off,off"} {
-			if _, err := parseOptions([]string{flag, value}, &bytes.Buffer{}); err == nil {
-				t.Fatalf("accepted %s %q", flag, value)
-			}
+	for _, value := range []string{"", "true", "ON", "on,", "off,off"} {
+		if _, err := parseOptions([]string{"-pickup-reassignment", value}, &bytes.Buffer{}); err == nil {
+			t.Fatalf("accepted -pickup-reassignment %q", value)
 		}
 	}
-	opts, err := parseOptions([]string{"-station-buffers", "on, off", "-pickup-reassignment", "off,on"}, &bytes.Buffer{})
+	opts, err := parseOptions([]string{"-pickup-reassignment", "on, off"}, &bytes.Buffer{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Equal(opts.stationBuffers, []string{"on", "off"}) || !slices.Equal(opts.pickupReassignment, []string{"off", "on"}) {
+	if !slices.Equal(opts.pickupReassignment, []string{"on", "off"}) {
 		t.Fatalf("policy order changed: %+v", opts)
 	}
 }
@@ -48,7 +46,7 @@ func TestExperimentalArmsPairSchedulesAndPreserveDefault(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	opts, err = parseOptions(append(slices.Clone(args), "-station-buffers", "off,on", "-pickup-reassignment", "off,on"), &bytes.Buffer{})
+	opts, err = parseOptions(append(slices.Clone(args), "-pickup-reassignment", "off,on"), &bytes.Buffer{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,12 +54,12 @@ func TestExperimentalArmsPairSchedulesAndPreserveDefault(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(arms) != 4 {
-		t.Fatalf("got %d arms, want 4", len(arms))
+	if len(arms) != 2 {
+		t.Fatalf("got %d arms, want 2", len(arms))
 	}
-	seen := make(map[[2]string]bool)
+	seen := make(map[string]bool)
 	for _, arm := range arms {
-		seen[[2]string{arm.StationBuffers, arm.PickupReassignment}] = true
+		seen[arm.PickupReassignment] = true
 		if arm.ScheduleID != base[0].ScheduleID || arm.Scheduled != base[0].Scheduled {
 			t.Fatalf("unmatched demand schedule: %+v", arm)
 		}
@@ -76,11 +74,11 @@ func TestExperimentalArmsPairSchedulesAndPreserveDefault(t *testing.T) {
 			t.Fatal("enabled policy did not run assignment checks")
 		}
 	}
-	if len(seen) != 4 {
-		t.Fatalf("missing independent policy combinations: %+v", seen)
+	if len(seen) != 2 {
+		t.Fatalf("missing policy arms: %+v", seen)
 	}
 	unchanged := arms[0]
-	unchanged.StationBuffers, unchanged.PickupReassignment, unchanged.PickupReassignmentStats = "", "", nil
+	unchanged.PickupReassignment, unchanged.PickupReassignmentStats = "", nil
 	if !reflect.DeepEqual(unchanged, base[0]) {
 		t.Fatalf("explicit off changed baseline outcome: %+v != %+v", unchanged, base[0])
 	}
@@ -94,10 +92,10 @@ func TestExperimentalArmsPairSchedulesAndPreserveDefault(t *testing.T) {
 func TestExperimentalAdaptiveGroupsStayIndependent(t *testing.T) {
 	t.Parallel()
 	inputs := experimentalInputs([]runInput{{requestEvery: time.Second}}, options{
-		stationBuffers: []string{"off", "on"}, pickupReassignment: []string{"off", "on"},
+		pickupReassignment: []string{"off", "on"},
 	})
 	scheduler := newArmScheduler(inputs, 0)
-	if len(scheduler.groups) != 4 || len(scheduler.start()) != 4 {
+	if len(scheduler.groups) != 2 || len(scheduler.start()) != 2 {
 		t.Fatal("experimental policies shared an adaptive rate group")
 	}
 }
@@ -109,16 +107,16 @@ func TestExperimentalPoliciesCountTowardMatrixLimit(t *testing.T) {
 		seeds[i] = strconv.Itoa(i + 1)
 	}
 	_, err := parseOptions([]string{
-		"-seeds", strings.Join(seeds, ","), "-loads", "5s,10s,15s",
-		"-station-buffers", "off,on", "-pickup-reassignment", "off,on",
+		"-seeds", strings.Join(seeds, ","), "-loads", "5s,10s,15s,20s,25s,30s",
+		"-pickup-reassignment", "off,on",
 	}, &bytes.Buffer{})
 	if err == nil || !strings.Contains(err.Error(), "matrix") {
 		t.Fatalf("experimental arms escaped matrix limit: %v", err)
 	}
-	// Profile expansion must also count both new dimensions.
+	// Profile expansion must also count the policy arms.
 	opts, err := parseOptions([]string{
-		"-seeds", strings.Join(seeds, ","), "-pattern", "profile", "-bands", "all", "-loads", "10s,20s",
-		"-station-buffers", "off,on", "-pickup-reassignment", "off,on",
+		"-seeds", strings.Join(seeds, ","), "-pattern", "profile", "-bands", "all", "-loads", "10s,20s,30s",
+		"-pickup-reassignment", "off,on",
 	}, &bytes.Buffer{})
 	if err != nil {
 		t.Fatal(err)
@@ -140,7 +138,7 @@ func TestExperimentalPoliciesCountTowardMatrixLimit(t *testing.T) {
 
 func TestExperimentalReportMetadata(t *testing.T) {
 	t.Parallel()
-	results := []result{{SharingConsent: sim.PrivateConsent, StationBuffers: "on", PickupReassignment: "off", PickupReassignmentStats: &pickupPolicyStats{}}}
+	results := []result{{SharingConsent: sim.PrivateConsent, PickupReassignment: "off", PickupReassignmentStats: &pickupPolicyStats{}}}
 	var output bytes.Buffer
 	if err := writeReport(writeReportInput{output: &output, format: "json", results: results}); err != nil {
 		t.Fatal(err)
@@ -150,21 +148,21 @@ func TestExperimentalReportMetadata(t *testing.T) {
 		t.Fatalf("experimental JSON metadata lost: %v, %+v", err, decoded)
 	}
 	output.Reset()
-	if err := writeReport(writeReportInput{output: &output, format: "csv", results: results, stationBufferColumn: true, pickupReassignmentColumn: true}); err != nil {
+	if err := writeReport(writeReportInput{output: &output, format: "csv", results: results, pickupReassignmentColumn: true}); err != nil {
 		t.Fatal(err)
 	}
 	rows, err := csv.NewReader(&output).ReadAll()
 	if err != nil {
 		t.Fatal(err)
 	}
-	for column, value := range map[string]string{"station_buffers": "on", "pickup_reassignment": "off"} {
+	for column, value := range map[string]string{"pickup_reassignment": "off"} {
 		index := slices.Index(rows[0], column)
 		if index < 0 || rows[1][index] != value {
 			t.Fatalf("CSV lost %s: %+v", column, rows)
 		}
 	}
 	output.Reset()
-	if err := writeReport(writeReportInput{output: &output, format: "table", results: results, stationBufferColumn: true, pickupReassignmentColumn: true}); err != nil || !strings.Contains(output.String(), "BUFFERS") || !strings.Contains(output.String(), "REASSIGN") {
+	if err := writeReport(writeReportInput{output: &output, format: "table", results: results, pickupReassignmentColumn: true}); err != nil || !strings.Contains(output.String(), "REASSIGN") {
 		t.Fatalf("table lost policy columns: %v", err)
 	}
 }
@@ -179,10 +177,10 @@ func TestExperimentalArmConfiguration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := configureExperimentalPolicies(simulation, runInput{stationBuffers: "on", pickupReassignment: "on"}); err != nil || !simulation.NeedsBufferState() {
-		t.Fatalf("enabled policies did not configure simulation: %v", err)
+	if err := configureExperimentalPolicies(simulation, runInput{pickupReassignment: "on"}); err != nil {
+		t.Fatalf("enabled policy did not configure simulation: %v", err)
 	}
-	if err := configureExperimentalPolicies(simulation, runInput{stationBuffers: "invalid"}); err == nil {
+	if err := configureExperimentalPolicies(simulation, runInput{pickupReassignment: "invalid"}); err == nil {
 		t.Fatal("invalid direct arm accepted")
 	}
 }

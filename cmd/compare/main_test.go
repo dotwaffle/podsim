@@ -1241,7 +1241,6 @@ func TestParseOptionsStepOrder(t *testing.T) {
 		"parseGivenArmOptions",
 		"parseOnboardPickups",
 		"parseExperimentalOptions",
-		"checkStationQueueOptions",
 		"checkMatrixSize",
 	}
 	var got []string
@@ -1304,10 +1303,10 @@ func TestParseOptionsRefusalOrder(t *testing.T) {
 		{"wait_rules_before_platoon", []string{"-wait-rules", "lenient", "-platoon-policies", "linked"}, `unknown wait rule "lenient"`},
 		{"platoon_before_sharing_joins", []string{"-platoon-policies", "linked", "-sharing-joins", "reassign"}, `unknown platoon policy "linked"`},
 		{"sharing_joins_before_onboard", []string{"-sharing-joins", "reassign", "-onboard-pickups", "maybe"}, `unknown sharing join policy "reassign"`},
-		{"onboard_before_experimental", []string{"-onboard-pickups", "maybe", "-station-buffers", "maybe"},
+		{"onboard_before_experimental", []string{"-onboard-pickups", "maybe", "-pickup-reassignment", "maybe"},
 			`onboard-pickups must contain only off or on, got "maybe"`},
-		{"station_queue_before_matrix", []string{"-station-queue-spacing", "compact-v1", "-seeds", strings.Join(seeds, ","), "-loads", strings.Join(loads, ",")},
-			"compact-v1 requires station-buffers on for every arm"},
+		{"experimental_before_matrix", []string{"-pickup-reassignment", "maybe", "-seeds", strings.Join(seeds, ","), "-loads", strings.Join(loads, ",")},
+			`pickup-reassignment must contain only off or on, got "maybe"`},
 		{"matrix", []string{"-seeds", strings.Join(seeds, ","), "-loads", strings.Join(loads, ",")},
 			fmt.Sprintf("the matrix must contain at most %d comparisons", maxComparisons)},
 	} {
