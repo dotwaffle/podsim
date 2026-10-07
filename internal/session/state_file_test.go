@@ -726,7 +726,7 @@ func widestID(fill byte, index int) string {
 }
 
 // widestReason is a dispatch reason of the largest saved length.
-var widestReason = strings.Repeat("r", 1<<10)
+var widestReason = strings.Repeat("r", maxDemandErrorBytes)
 
 // marshalSavedJSON returns the state file encoding of value, with packed
 // order text. It does not convert the boarding records of a pod to tuples.

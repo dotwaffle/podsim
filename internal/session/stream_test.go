@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
+	"github.com/dotwaffle/podsim/internal/project"
 
 	"github.com/dotwaffle/podsim/internal/sim"
 )
@@ -274,15 +275,15 @@ func TestStreamBaselineAndShutdown(t *testing.T) {
 	}
 }
 
-// widestVehicle returns a legacy vehicle frame with 8 riders and 8 stops.
+// widestVehicle returns a legacy vehicle frame with the most riders and stops.
 // Each ID has the largest length. An enumerated value has control bytes,
 // which JSON writes as 6 bytes each, because the stream decoder does not
 // check its value.
 func widestVehicle() VehicleFrame {
-	id, escaped := widestID('p', 0), strings.Repeat("\x01", 64)
+	id, escaped := widestID('p', 0), strings.Repeat("\x01", project.MaxIDLength)
 	request := sim.Request{ID: sim.MaxCounter, From: id, To: id, PodID: id, PartySize: sim.MaxCounter, SharingConsent: sim.PrivateConsent, Service: sim.OnDemandService, RequestedTick: sim.MaxCounter, BoardedTick: sim.MaxCounter, DispatchReason: widestReason}
 	p := sim.Pod{Class: sim.LegacyClass, ID: id, StationID: id, BerthID: id, LaneID: id, BlockedBy: id, ManeuverStationID: id, Activity: sim.Activity(escaped), WaitReason: sim.WaitReason(escaped), StationPhase: sim.StationPhase(escaped), Position: sim.Point{X: math.MaxFloat64, Y: -math.MaxFloat64}, LaneDistance: math.MaxFloat64, Speed: math.MaxFloat64}
-	return VehicleFrame{Pod: p, Riders: slices.Repeat([]sim.Request{request}, 8), Stops: slices.Repeat([]string{id}, 8), RelocatingTo: id, Rebalancing: true, PlatoonID: id, PlatoonIndex: sim.MaxCounter}
+	return VehicleFrame{Pod: p, Riders: slices.Repeat([]sim.Request{request}, sim.MaxSharedRideParties), Stops: slices.Repeat([]string{id}, sim.MaxSharedRideParties), RelocatingTo: id, Rebalancing: true, PlatoonID: id, PlatoonIndex: sim.MaxCounter}
 }
 
 func TestStreamLatencyWindow(t *testing.T) {
@@ -540,6 +541,37 @@ func TestStreamAssemblerClippedDisplay(t *testing.T) {
 	if len(v.Route) != 1 || v.Route[0].ID != v.Pod.LaneID || len(v.Presentation.Motion) != 1 ||
 		v.Presentation.OriginNode != a.topology.Network.Nodes[r.Origin].ID {
 		t.Fatalf("clipped route %+v", v)
+	}
+}
+
+func TestMotionRouteDecoderCaps(t *testing.T) {
+	t.Parallel()
+	for _, entries := range []int{sim.MotionRouteLimit, sim.MotionRouteLimit + 1} {
+		t.Run(strconv.Itoa(entries), func(t *testing.T) {
+			t.Parallel()
+			s, f := streamFixture(t)
+			a, err := NewStreamAssembler(s.Topology())
+			if err != nil {
+				t.Fatal(err)
+			}
+			r := sim.RoutePresentation{Origin: 0, Display: []int{0}, Lanes: make([]int, entries)}
+			f.Routes[0] = r
+			for name, err := range map[string]error{"frame": checkStreamFrame(f), "window": a.checkRouteWindow(r)} {
+				if (err != nil) != (entries > sim.MotionRouteLimit) {
+					t.Errorf("%s with %d lanes: %v", name, entries, err)
+				}
+			}
+			lanes := "[" + strings.Repeat("0,", entries-1) + "0]"
+			for _, raw := range []string{
+				`{"full":{"routes":[{"lanes":` + lanes + `}]}}`,
+				`{"frame":{"routes":[{"lanes":` + lanes + `}]}}`,
+				`{"delta":{"vehicles":[{"route":{"value":{"lanes":` + lanes + `}}}]}}`,
+			} {
+				if err := prescanJSON([]byte(raw), streamLimits(contractMarkers{})); (err != nil) != (entries > sim.MotionRouteLimit) {
+					t.Errorf("scan with %d lanes: %v", entries, err)
+				}
+			}
+		})
 	}
 }
 
