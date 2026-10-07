@@ -514,11 +514,15 @@ func TestFaultInStationEntryQueue(t *testing.T) {
 			}
 			checkFaultsEachTick(t, s)
 		}
+		berth := resource{kind: berthResource, id: "market-1"}
+		if s.owners[berth].isPod(head.Pod.ID) {
+			t.Fatal("the head owns the berth before the release")
+		}
 		release()
 		berthed := false
 		for range 30 * TicksPerSecond {
 			s.Step()
-			berthed = berthed || head.destination.ID == "market-1"
+			berthed = berthed || s.owners[berth].isPod(head.Pod.ID)
 			// The head rests at the end of its entry route, where the
 			// publication reports an occupied berth for a pod in service.
 			if faulted && (head.Pod.WaitReason != FaultStopped || head.Pod.BlockedBy != id) {
@@ -527,12 +531,12 @@ func TestFaultInStationEntryQueue(t *testing.T) {
 		}
 		if !faulted {
 			if !berthed {
-				t.Fatalf("control: the head has the berth %q", head.destination.ID)
+				t.Fatal("control: the head never owns the berth")
 			}
 			continue
 		}
 		if head.Pod.LaneID != "market-approach" || head.Pod.Speed != 0 || !sameRouteSlice(head.Route, route) ||
-			s.owners[resource{kind: berthResource, id: "market-1"}].isPod(head.Pod.ID) {
+			s.owners[berth].isPod(head.Pod.ID) {
 			t.Fatalf("the faulted head moved to a berth: lane %q, destination %q", head.Pod.LaneID, head.destination.ID)
 		}
 		if !sameRouteSlice(behind.Route, behindRoute) || behind.Pod.LaneID == head.Pod.LaneID && behind.Pod.LaneDistance >= head.Pod.LaneDistance ||
