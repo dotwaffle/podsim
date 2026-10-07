@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/csv"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"math/rand/v2"
 	"reflect"
 	"slices"
@@ -211,7 +212,7 @@ func TestDailyComparisonAndReports(t *testing.T) {
 			}
 		}
 	}
-	legacy, err := json.Marshal(result{})
+	legacy, err := jsonv2.Marshal(result{}, json.DefaultOptionsV1())
 	if err != nil || bytes.Contains(legacy, []byte("daily_start_minute")) {
 		t.Fatal("daily field changed a legacy JSON report")
 	}

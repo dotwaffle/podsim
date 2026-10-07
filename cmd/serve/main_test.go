@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"encoding/json/jsontext"
 	jsonv2 "encoding/json/v2"
 	"errors"
 	"flag"
@@ -605,7 +606,7 @@ func limitProject(t *testing.T, demand project.DemandConfig) project.Config {
 	if err := project.Validate(sized(size + 1)); err == nil {
 		t.Fatalf("Validate accepted a canonical encoding of %d bytes", size+1)
 	}
-	indented, err := json.MarshalIndent(config, "", "  ")
+	indented, err := jsonv2.Marshal(config, json.DefaultOptionsV1(), jsontext.WithIndent("  "))
 	if err != nil {
 		t.Fatal(err)
 	}

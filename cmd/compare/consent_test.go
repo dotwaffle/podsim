@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/csv"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"reflect"
 	"slices"
 	"strings"
@@ -219,7 +220,7 @@ func TestComparisonConsentCLIProvenance(t *testing.T) {
 						want sim.SharingConsent
 					}{{baseline.Bytes(), sim.PrivateConsent}, {output.Bytes(), sim.SharingConsent(consent)}} {
 						var decoded report
-						if err := json.Unmarshal(source.data, &decoded); err != nil || decoded.SchemaVersion != 12 || len(decoded.Results) != 1 || decoded.Results[0].SharingConsent != source.want || !bytes.Contains(source.data, []byte(`"sharing_consent"`)) {
+						if err := jsonv2.Unmarshal(source.data, &decoded, json.DefaultOptionsV1()); err != nil || decoded.SchemaVersion != 12 || len(decoded.Results) != 1 || decoded.Results[0].SharingConsent != source.want || !bytes.Contains(source.data, []byte(`"sharing_consent"`)) {
 							t.Fatalf("missing effective JSON consent: %s", source.data)
 						}
 					}
@@ -260,7 +261,7 @@ func TestComparisonConsentReportDefaultsAreOwned(t *testing.T) {
 		t.Fatal(err)
 	}
 	var decoded report
-	if err := json.Unmarshal(output.Bytes(), &decoded); err != nil || decoded.Results[0].SharingConsent != sim.PrivateConsent || rows[0].SharingConsent != "" {
+	if err := jsonv2.Unmarshal(output.Bytes(), &decoded, json.DefaultOptionsV1()); err != nil || decoded.Results[0].SharingConsent != sim.PrivateConsent || rows[0].SharingConsent != "" {
 		t.Fatal("private synthetic fixture default changed its caller")
 	}
 	output.Reset()

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/csv"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"reflect"
 	"slices"
 	"strconv"
@@ -144,7 +145,7 @@ func TestExperimentalReportMetadata(t *testing.T) {
 		t.Fatal(err)
 	}
 	var decoded report
-	if err := json.Unmarshal(output.Bytes(), &decoded); err != nil || decoded.SchemaVersion != 13 || !reflect.DeepEqual(decoded.Results, results) {
+	if err := jsonv2.Unmarshal(output.Bytes(), &decoded, json.DefaultOptionsV1()); err != nil || decoded.SchemaVersion != 13 || !reflect.DeepEqual(decoded.Results, results) {
 		t.Fatalf("experimental JSON metadata lost: %v, %+v", err, decoded)
 	}
 	output.Reset()

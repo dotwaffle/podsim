@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"os"
 	"path/filepath"
 	"testing"
@@ -28,11 +29,11 @@ func TestCompareAuthoredGroupProject(t *testing.T) {
 		t.Fatal(err)
 	}
 	var config project.Config
-	if decodeErr := json.Unmarshal(raw, &config); decodeErr != nil {
+	if decodeErr := jsonv2.Unmarshal(raw, &config, json.DefaultOptionsV1()); decodeErr != nil {
 		t.Fatal(decodeErr)
 	}
 	config.Fleet[0].Class = sim.ExpressClass
-	raw, err = json.Marshal(config)
+	raw, err = jsonv2.Marshal(config, json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}

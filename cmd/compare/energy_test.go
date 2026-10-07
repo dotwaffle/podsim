@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/csv"
 	"encoding/json"
+	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
 	"math"
 	"os"
 	"path/filepath"
@@ -25,7 +27,7 @@ func energyTestModel() *energyModel {
 
 func energyTestJSON(t *testing.T) string {
 	t.Helper()
-	data, err := json.Marshal(energyTestModel())
+	data, err := jsonv2.Marshal(energyTestModel(), json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,22 +57,22 @@ func TestEnergyAuthoredModel(t *testing.T) {
 		"trailing":          valid + ` {}`,
 	}
 	for _, field := range []string{"mass_kg", "constant_resistance_n", "quadratic_resistance_n_per_mps2", "drive_efficiency", "recovery_fraction", "auxiliary_watts"} {
-		var members map[string]json.RawMessage
-		profile, err := json.Marshal(energyTestModel().Profiles[sim.LegacyClass])
+		var members map[string]jsontext.Value
+		profile, err := jsonv2.Marshal(energyTestModel().Profiles[sim.LegacyClass], json.DefaultOptionsV1())
 		if err != nil {
 			t.Fatal(err)
 		}
-		if decodeErr := json.Unmarshal(profile, &members); decodeErr != nil {
+		if decodeErr := jsonv2.Unmarshal(profile, &members, json.DefaultOptionsV1()); decodeErr != nil {
 			t.Fatal(decodeErr)
 		}
 		delete(members, field)
-		missing, err := json.Marshal(members)
+		missing, err := jsonv2.Marshal(members, json.DefaultOptionsV1())
 		if err != nil {
 			t.Fatal(err)
 		}
 		tests["missing "+field] = `{"model":"flat-v1","profiles":{"legacy":` + string(missing) + `}}`
-		members[field] = json.RawMessage(`null`)
-		null, err := json.Marshal(members)
+		members[field] = jsontext.Value(`null`)
+		null, err := jsonv2.Marshal(members, json.DefaultOptionsV1())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -96,7 +98,7 @@ func TestEnergyAuthoredModel(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			var raw map[string]any
-			if err := json.Unmarshal([]byte(valid), &raw); err != nil {
+			if err := jsonv2.Unmarshal([]byte(valid), &raw, json.DefaultOptionsV1()); err != nil {
 				t.Fatal(err)
 			}
 			profiles, ok := raw["profiles"].(map[string]any)
@@ -108,7 +110,7 @@ func TestEnergyAuthoredModel(t *testing.T) {
 				t.Fatal("profile")
 			}
 			profile[test.field] = test.value
-			data, err := json.Marshal(raw)
+			data, err := jsonv2.Marshal(raw, json.DefaultOptionsV1())
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -373,7 +375,7 @@ func TestEnergyRunAndReportParity(t *testing.T) {
 		}
 		if format == "json" {
 			var decoded report
-			if err := json.Unmarshal(on.Bytes(), &decoded); err != nil {
+			if err := jsonv2.Unmarshal(on.Bytes(), &decoded, json.DefaultOptionsV1()); err != nil {
 				t.Fatal(err)
 			}
 			if decoded.SchemaVersion != 15 || len(decoded.Results) != 1 || !reflect.DeepEqual(decoded.Results[0].Energy, energy) {
@@ -401,7 +403,7 @@ func TestEnergyCLIAndServiceClock(t *testing.T) {
 		t.Fatalf("CLI code=%d %s", code, &stderr)
 	}
 	var decoded report
-	if err := json.Unmarshal(out.Bytes(), &decoded); err != nil {
+	if err := jsonv2.Unmarshal(out.Bytes(), &decoded, json.DefaultOptionsV1()); err != nil {
 		t.Fatal(err)
 	}
 	if len(decoded.Results) != 1 || decoded.Results[0].Energy == nil || decoded.Results[0].Energy.WindowEndTick != 120 {

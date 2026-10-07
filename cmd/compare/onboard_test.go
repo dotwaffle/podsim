@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/csv"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"reflect"
 	"slices"
 	"strings"
@@ -110,10 +111,10 @@ func TestComparisonOnboardReportProvenance(t *testing.T) {
 		switch format {
 		case "json":
 			var baseline, decoded report
-			if err := json.Unmarshal(base.Bytes(), &baseline); err != nil {
+			if err := jsonv2.Unmarshal(base.Bytes(), &baseline, json.DefaultOptionsV1()); err != nil {
 				t.Fatal(err)
 			}
-			if err := json.Unmarshal(out.Bytes(), &decoded); err != nil {
+			if err := jsonv2.Unmarshal(out.Bytes(), &decoded, json.DefaultOptionsV1()); err != nil {
 				t.Fatal(err)
 			}
 			if baseline.SchemaVersion != 12 || bytes.Contains(base.Bytes(), []byte("onboard_pickups")) || decoded.SchemaVersion != 14 || len(decoded.Results) != 2 || decoded.Results[0].OnboardPickups != "off" || decoded.Results[1].OnboardPickups != "on" {

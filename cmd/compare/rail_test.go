@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"reflect"
 	"slices"
 	"strconv"
@@ -150,12 +151,12 @@ func TestRailComparisonWorkersAndSkippedIdentity(t *testing.T) {
 			}
 			previous = index
 		}
-		encoded, encodeErr := json.Marshal(row)
+		encoded, encodeErr := jsonv2.Marshal(row, json.DefaultOptionsV1())
 		if encodeErr != nil || !bytes.Contains(encoded, []byte(`"rail_skipped_offers"`)) {
 			t.Fatal("missing JSON evidence")
 		}
 	}
-	legacy, err := json.Marshal(result{})
+	legacy, err := jsonv2.Marshal(result{}, json.DefaultOptionsV1())
 	if err != nil || bytes.Contains(legacy, []byte(`"rail_skipped_offers"`)) {
 		t.Fatal("changed legacy JSON member set")
 	}

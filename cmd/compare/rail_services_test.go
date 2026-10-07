@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"reflect"
 	"slices"
 	"strconv"
@@ -89,14 +90,14 @@ func TestRailServiceReportsAndOriginalCap(t *testing.T) {
 				if tc.unresolved > 0 && row.ActualEndSeconds > 120 {
 					t.Fatal("extended original cap")
 				}
-				encoded, err := json.Marshal(row)
+				encoded, err := jsonv2.Marshal(row, json.DefaultOptionsV1())
 				if err != nil || !bytes.Contains(encoded, []byte(`"rail_connections"`)) {
 					t.Fatal("missing connection JSON")
 				}
 			}
 		})
 	}
-	encoded, err := json.Marshal(result{})
+	encoded, err := jsonv2.Marshal(result{}, json.DefaultOptionsV1())
 	if err != nil || bytes.Contains(encoded, []byte(`"rail_connections"`)) {
 		t.Fatal("changed absent JSON")
 	}

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/csv"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -315,7 +316,7 @@ func TestReportFormatsAreMachineReadable(t *testing.T) {
 		t.Fatal(err)
 	}
 	var decoded report
-	if err := json.Unmarshal(jsonOutput.Bytes(), &decoded); err != nil {
+	if err := jsonv2.Unmarshal(jsonOutput.Bytes(), &decoded, json.DefaultOptionsV1()); err != nil {
 		t.Fatal(err)
 	}
 	if decoded.SchemaVersion != 12 || !reflect.DeepEqual(decoded.Results, results) {
@@ -534,7 +535,7 @@ func TestReadProjectRejectsIncidentMarker(t *testing.T) {
 	markedPath := filepath.Join(t.TempDir(), "marked.json")
 	for path, marker := range map[string]sim.IncidentContract{plainPath: "", markedPath: sim.IncidentV1Contract} {
 		config.IncidentContract = marker
-		data, err := json.Marshal(config)
+		data, err := jsonv2.Marshal(config, json.DefaultOptionsV1())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -554,7 +555,7 @@ func TestReadProjectRejectsIncidentMarker(t *testing.T) {
 // returns its path. The ring has 12 pods and stations with four berths.
 func smallProject(t *testing.T) string {
 	t.Helper()
-	data, err := json.Marshal(scenarios.Small())
+	data, err := jsonv2.Marshal(scenarios.Small(), json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -883,7 +884,7 @@ func TestPlatoonColumnOnlyWhenRequested(t *testing.T) {
 func TestPlatoonPoliciesAddArms(t *testing.T) {
 	t.Parallel()
 	skipLong(t)
-	data, err := json.Marshal(scenarios.Busy())
+	data, err := jsonv2.Marshal(scenarios.Busy(), json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}

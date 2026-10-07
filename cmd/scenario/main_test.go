@@ -5,6 +5,8 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
 	"io"
 	"math"
 	"strconv"
@@ -21,7 +23,7 @@ func TestRunWritesRawProjectConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 	var config project.Config
-	if err := json.Unmarshal(first.Bytes(), &config); err != nil {
+	if err := jsonv2.Unmarshal(first.Bytes(), &config, json.DefaultOptionsV1()); err != nil {
 		t.Fatal(err)
 	}
 	if err := project.Validate(config); err != nil {
@@ -55,7 +57,7 @@ func TestRunWritesIndependentBankFixture(t *testing.T) {
 		t.Fatal(err)
 	}
 	var config project.Config
-	if err := json.Unmarshal(output.Bytes(), &config); err != nil {
+	if err := jsonv2.Unmarshal(output.Bytes(), &config, json.DefaultOptionsV1()); err != nil {
 		t.Fatal(err)
 	}
 	if config.Version != project.CurrentVersion || len(config.Network.Stations[1].Banks) != 2 {
@@ -73,7 +75,7 @@ func TestRunWritesRailHubPreset(t *testing.T) {
 		t.Fatal(err)
 	}
 	var config project.Config
-	if err := json.Unmarshal(output.Bytes(), &config); err != nil {
+	if err := jsonv2.Unmarshal(output.Bytes(), &config, json.DefaultOptionsV1()); err != nil {
 		t.Fatal(err)
 	}
 	hub, ok := config.Network.Station(config.Demand.Destination)
@@ -121,7 +123,7 @@ func generate(t *testing.T, arguments ...string) (project.Config, string) {
 		t.Fatal(err)
 	}
 	var config project.Config
-	if err := json.Unmarshal(output.Bytes(), &config); err != nil {
+	if err := jsonv2.Unmarshal(output.Bytes(), &config, json.DefaultOptionsV1()); err != nil {
 		t.Fatal(err)
 	}
 	return config, summary.String()
@@ -220,7 +222,7 @@ func TestRunRejectsBadCapacityFlags(t *testing.T) {
 func TestScenarioJSONFitsFileLimit(t *testing.T) {
 	t.Parallel()
 	config := project.Default()
-	pretty, err := json.MarshalIndent(config, "", "  ")
+	pretty, err := jsonv2.Marshal(config, json.DefaultOptionsV1(), jsontext.WithIndent("  "))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -252,14 +254,14 @@ func TestScenarioJSONFitsFileLimit(t *testing.T) {
 				t.Fatalf("indented = %t, want %t", got, test.wantIndented)
 			}
 			var decoded project.Config
-			if decodeErr := json.Unmarshal(data, &decoded); decodeErr != nil {
+			if decodeErr := jsonv2.Unmarshal(data, &decoded, json.DefaultOptionsV1()); decodeErr != nil {
 				t.Fatal(decodeErr)
 			}
-			want, err := json.Marshal(config)
+			want, err := jsonv2.Marshal(config, json.DefaultOptionsV1())
 			if err != nil {
 				t.Fatal(err)
 			}
-			got, err := json.Marshal(decoded)
+			got, err := jsonv2.Marshal(decoded, json.DefaultOptionsV1())
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -280,7 +282,7 @@ func TestRunWritesImportableLondonFull(t *testing.T) {
 		t.Fatalf("full output has %d bytes or is not compact", output.Len())
 	}
 	var config project.Config
-	if err := json.Unmarshal(output.Bytes(), &config); err != nil {
+	if err := jsonv2.Unmarshal(output.Bytes(), &config, json.DefaultOptionsV1()); err != nil {
 		t.Fatal(err)
 	}
 	if err := project.Validate(config); err != nil {
