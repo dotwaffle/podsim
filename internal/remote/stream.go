@@ -173,7 +173,7 @@ func (c *Client) receiveStream(ctx context.Context) error {
 	}
 }
 func writeControl(ctx context.Context, conn *websocket.Conn, value any) error {
-	body, err := json.Marshal(value)
+	body, err := jsonv2.Marshal(value, json.DefaultOptionsV1())
 	if err != nil {
 		return err
 	}

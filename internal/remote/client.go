@@ -148,7 +148,7 @@ func (c *Client) runCommands(ctx context.Context) {
 
 func (c *Client) send(ctx context.Context, command session.Command) Result {
 	result := Result{Command: command}
-	body, err := json.Marshal(command)
+	body, err := jsonv2.Marshal(command, json.DefaultOptionsV1())
 	if err != nil {
 		result.Err = err
 		return result
