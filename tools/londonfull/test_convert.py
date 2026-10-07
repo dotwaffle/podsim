@@ -130,5 +130,134 @@ class ConversionTests(unittest.TestCase):
             convert.demand([row, row], {"1": "a", "2": "b"})
 
 
+def read_od(path):
+    """Return the OD pairs, their endpoints, and the band totals of a normalized CSV."""
+    seen, endpoints = set(), set()
+    totals = [Decimal(0)] * 8
+    with path.open() as f:
+        for row in csv.DictReader(f):
+            key = row["from"], row["to"]
+            if key in seen or key[0] == key[1]:
+                raise AssertionError("duplicate or same-site pair: %s" % (key,))
+            seen.add(key)
+            endpoints.update(key)
+            weights = [Decimal(row[b]) for b in convert.BANDS]
+            if not all(w.is_finite() and w >= 0 for w in weights) or sum(weights) <= 0:
+                raise AssertionError("invalid weights: %s" % (key,))
+            totals = [a + b for a, b in zip(totals, weights)]
+    return seen, endpoints, totals
+
+
+class DLRConversionTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.provenance = json.loads((DATA / "london-full-dlr-provenance.json").read_text())
+        cls.topology = json.loads((DATA / "london-full-dlr.json").read_text())
+        cls.tube = json.loads((DATA / "london-full-tube.json").read_text())
+        cls.tube_provenance = json.loads((DATA / "london-full-provenance.json").read_text())
+        cls.review = json.loads((convert.HERE / "dlr.json").read_text())
+
+    def test_complete_snapshots(self):
+        sources = json.loads((convert.HERE / "sources.json").read_text())
+        self.assertEqual(self.provenance["sources"], sources)
+        self.assertEqual(len(sources), 26)
+        self.assertEqual(convert.tube_manifest(sources), self.tube_provenance["sources"])
+        self.assertEqual({s["file"] for s in sources if "retrieved" in s}, convert.DLR_FILES)
+        stops = self.provenance["dlr_source_stations"]
+        self.assertEqual(len(stops), 45)
+        sites = {s["id"] for s in self.topology["stations"]}
+        self.assertEqual(len(sites), 310)
+        self.assertEqual({s["site_id"] for s in stops} - sites, set())
+        merged = {m["stop"]: m["site"] for m in self.provenance["dlr_merges"]}
+        self.assertEqual(merged, {"940GZZDLBNK": "940GZZLUBNK", "940GZZDLCGT": "940GZZLUCGT",
+                                  "940GZZDLSTD": "940GZZLUSTD", "940GZZDLWHM": "940GZZLUWHM"})
+        for stop in stops:
+            self.assertEqual(stop["site_id"], merged.get(stop["id"], stop["id"]))
+        self.assertIn("940GZZDLWIQ", sites)
+        self.assertEqual(self.provenance["excluded_definitions"], [])
+        self.assertEqual(len(self.provenance["demand_mapping"]), 311)
+        self.assertEqual({r["site_id"] for r in self.provenance["demand_mapping"]}, sites)
+        self.assertEqual({r["line"] for r in self.provenance["dlr_sequences"]}, {"dlr"})
+
+    def test_tube_part_unchanged(self):
+        stations = {s["id"]: s for s in self.topology["stations"]}
+        for station in self.tube["stations"]:
+            self.assertEqual(stations[station["id"]], station)
+        links = {(l["a"], l["b"]): l["lines"] for l in self.topology["links"]}
+        tube = {(l["a"], l["b"]): l["lines"] for l in self.tube["links"]}
+        self.assertEqual(len(links), 360)
+        self.assertEqual({k: v for k, v in links.items() if k in tube}, tube)
+        self.assertEqual({tuple(v) for k, v in links.items() if k not in tube}, {("dlr",)})
+        self.assertEqual(len(links) - len(tube), 47)
+
+    def test_all_positive_pairs_and_band_totals(self):
+        seen, endpoints, totals = read_od(DATA / "london-full-dlr-od-2024.csv")
+        self.assertEqual(len(seen), 76776)
+        self.assertEqual(endpoints, {s["id"] for s in self.topology["stations"]})
+        self.assertEqual(totals, [Decimal(v) for v in self.provenance["band_totals"]])
+        self.assertEqual(totals[0], 0)
+        self.assertEqual(totals[7], 0)
+
+    def site_inputs(self):
+        tube_stops = {s["id"]: {k: s[k] for k in ("id", "name", "lat", "lon", "zone")} for s in self.tube_provenance["source_stations"]}
+        tube_site = {k: convert.MERGES.get(k, k) for k in tube_stops}
+        tube_hubs = {k: k for k in tube_stops} | {m["site"]: m["hub"] for m in self.review["merges"]} | {"940GZZLUCYF": "HUBCAW"}
+        dlr = {s["id"]: s for s in self.provenance["dlr_source_stations"]}
+        dlr_stops = {k: {f: s[f] for f in ("id", "name", "lat", "lon", "zone")} for k, s in dlr.items()}
+        dlr_hubs = {k: s["hub"] for k, s in dlr.items()}
+        codes = {m["code"]: m["code_name"] for m in self.provenance["dlr_merges"]}
+        naptan = {r["code"]: r["primary_naptan"] for r in self.provenance["demand_mapping"] if r["code"] in codes}
+        explicit = {r["code"]: r["source_id"] for r in self.provenance["demand_mapping"] if r["code"] in codes and r["mixed_mode_alias"]}
+        definition = (codes, naptan, set(codes), set(codes), explicit)
+        return tube_site, tube_stops, tube_hubs, dlr_stops, dlr_hubs, definition
+
+    def test_review_guards(self):
+        *inputs, definition = self.site_inputs()
+        site, merges = convert.dlr_sites(*inputs, self.review, definition)
+        self.assertEqual(merges, self.provenance["dlr_merges"])
+        self.assertEqual(site, {s["id"]: s["site_id"] for s in self.provenance["dlr_source_stations"]})
+        cases = [
+            ("separate", lambda r: r["separate"].pop(0), "unreviewed DLR hub"),
+            ("hub", lambda r: r["merges"][0].update(hub="HUBCAW"), "hub mismatch"),
+            ("code", lambda r: r["merges"][0].update(code="884"), "code mismatch"),
+            ("site", lambda r: r["merges"][0].update(site="940GZZLUCYF"), "code mismatch"),
+            ("name", lambda r: r["separate"][0].update(name="Incorrect"), "name mismatch"),
+            ("duplicate", lambda r: r["separate"].append(r["merges"][0]), "duplicate"),
+        ]
+        for name, change, message in cases:
+            with self.subTest(name=name):
+                review = json.loads(json.dumps(self.review))
+                change(review)
+                with self.assertRaisesRegex(ValueError, message):
+                    convert.dlr_sites(*inputs, review, definition)
+
+    def test_dlr_alias_guards(self):
+        stops = {s["id"]: s for s in self.provenance["dlr_source_stations"]}
+        aliases = self.review["aliases"]
+        names = {a["code"]: a["name"] for a in aliases}
+        naptan = {a["code"]: a["naptan"] for a in aliases}
+        self.assertEqual(convert.check_aliases(aliases, set(names), names, naptan, stops),
+                         {"573": "940GZZDLWLA", "928": "940GZZDLGRE"})
+        for field, value in [("name", "Incorrect"), ("naptan", "910GINCORRECT"), ("selected", "940GZZDLLEW")]:
+            with self.subTest(field=field):
+                changed = [a.copy() for a in aliases]
+                changed[0][field] = value
+                with self.assertRaisesRegex(ValueError, "alias .* mismatch"):
+                    convert.check_aliases(changed, set(names), names, naptan, stops)
+
+    def test_pinned_tube_semantics(self):
+        manifest = json.loads((convert.HERE / "sources.json").read_text())
+        stops = {s["id"]: {k: s[k] for k in ("id", "name", "lat", "lon", "zone")} for s in self.tube_provenance["source_stations"]}
+        sequences = self.tube_provenance["sequences"]
+        with patch.object(convert, "read_routes", return_value=(stops, {}, sequences)):
+            convert.pinned_tube(Path("unused"), manifest, self.tube_provenance)
+        moved = {k: v | {"lat": v["lat"] + 0.001} if k == "940GZZLUBNK" else v for k, v in stops.items()}
+        with patch.object(convert, "read_routes", return_value=(moved, {}, sequences)):
+            with self.assertRaisesRegex(ValueError, "semantics changed"):
+                convert.pinned_tube(Path("unused"), manifest, self.tube_provenance)
+        with self.assertRaisesRegex(ValueError, "does not match the manifest"):
+            convert.pinned_tube(Path("unused"), manifest[1:], self.tube_provenance)
+
+
 if __name__ == "__main__":
     unittest.main()

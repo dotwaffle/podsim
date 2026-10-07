@@ -48,6 +48,20 @@
     "sha256": "8ce005db41478c0116918b880dcdff77ccc06e219a94fc407f4143b1f76dec20"
   },
   {
+    "file": "dlr-inbound.json",
+    "url": "https://api.tfl.gov.uk/Line/dlr/Route/Sequence/inbound",
+    "bytes": 92690,
+    "sha256": "834cb7c503219b81adae97bb72e3a45d2af4d920b173a8f223bdae010d913469",
+    "retrieved": "2026-10-07"
+  },
+  {
+    "file": "dlr-outbound.json",
+    "url": "https://api.tfl.gov.uk/Line/dlr/Route/Sequence/outbound",
+    "bytes": 92364,
+    "sha256": "112e791603870b4db3385c15db40e760331563be106990dfbb64d005ab9df89c",
+    "retrieved": "2026-10-07"
+  },
+  {
     "file": "hammersmith-city-inbound.json",
     "url": "https://api.tfl.gov.uk/Line/hammersmith-city/Route/Sequence/inbound",
     "bytes": 86307,

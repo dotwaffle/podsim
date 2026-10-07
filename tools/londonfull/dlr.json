@@ -1,0 +1,107 @@
+{
+  "aliases": [
+    {
+      "code": "573",
+      "name": "Woolwich Arsenal",
+      "naptan": "910GWOLWCHA",
+      "selected": "940GZZDLWLA"
+    },
+    {
+      "code": "928",
+      "name": "Greenwich",
+      "naptan": "910GGNWH",
+      "selected": "940GZZDLGRE"
+    }
+  ],
+  "merges": [
+    {
+      "stop": "940GZZDLBNK",
+      "name": "Bank DLR Station",
+      "site": "940GZZLUBNK",
+      "code": "513",
+      "hub": "HUBBAN",
+      "reason": "NUMBAT code 513, Bank and Monument, covers LU and DLR. The stops share NaPTAN hub HUBBAN."
+    },
+    {
+      "stop": "940GZZDLCGT",
+      "name": "Canning Town DLR Station",
+      "site": "940GZZLUCGT",
+      "code": "884",
+      "hub": "HUBCAN",
+      "reason": "NUMBAT code 884, Canning Town, covers LU and DLR. The stops share NaPTAN hub HUBCAN."
+    },
+    {
+      "stop": "940GZZDLSTD",
+      "name": "Stratford DLR Station",
+      "site": "940GZZLUSTD",
+      "code": "719",
+      "hub": "HUBSRA",
+      "reason": "NUMBAT code 719, Stratford, covers LU, DLR, and rail. The stops share NaPTAN hub HUBSRA."
+    },
+    {
+      "stop": "940GZZDLWHM",
+      "name": "West Ham DLR Station",
+      "site": "940GZZLUWHM",
+      "code": "757",
+      "hub": "HUBWEH",
+      "reason": "NUMBAT code 757, West Ham, covers LU, DLR, and rail. The stops share NaPTAN hub HUBWEH."
+    }
+  ],
+  "separate": [
+    {
+      "stop": "940GZZDLCAN",
+      "name": "Canary Wharf DLR Station",
+      "reason": "The stops share NaPTAN hub HUBCAW, but NUMBAT gives separate codes, 842 for DLR and 852 for LU. The Tube conversion has no merge for this hub. Merging would follow the Hammersmith precedent, where codes 593 and 773 share hub HUBHMS."
+    },
+    {
+      "stop": "940GZZDLHEQ",
+      "name": "Heron Quays DLR Station",
+      "reason": "Own NUMBAT code 855 and no NaPTAN hub. NUMBAT puts it only in the Canary Wharf cluster CWFu."
+    },
+    {
+      "stop": "940GZZDLWIQ",
+      "name": "West India Quay DLR Station",
+      "reason": "Own NUMBAT code 866 and no NaPTAN hub. NUMBAT puts it only in the Canary Wharf cluster CWFu."
+    },
+    {
+      "stop": "940GZZDLPOP",
+      "name": "Poplar DLR Station",
+      "reason": "Own NUMBAT code 858 and no NaPTAN hub. NUMBAT puts it only in the Canary Wharf cluster CWFu."
+    },
+    {
+      "stop": "940GZZDLTWG",
+      "name": "Tower Gateway DLR Station",
+      "reason": "Own NUMBAT code 864. Its hub HUBTOG has no Tube stop, and Tower Hill, code 731, has no hub."
+    },
+    {
+      "stop": "940GZZDLBOW",
+      "name": "Bow Church DLR Station",
+      "reason": "Own NUMBAT code 851 and no NaPTAN hub. NUMBAT puts it only in the Bow Road cluster BWRu."
+    },
+    {
+      "stop": "940GZZDLSIT",
+      "name": "Stratford International DLR Station",
+      "reason": "Own NUMBAT code 504 and no NaPTAN hub."
+    },
+    {
+      "stop": "940GZZDLSHS",
+      "name": "Stratford High Street DLR Station",
+      "reason": "Own NUMBAT code 749 and no NaPTAN hub."
+    },
+    {
+      "stop": "940GZZDLSHA",
+      "name": "Shadwell DLR Station",
+      "reason": "Own NUMBAT code 860. Its hub HUBSDE has no Tube stop. Overground Shadwell is outside the roster."
+    },
+    {
+      "stop": "940GZZDLLIM",
+      "name": "Limehouse DLR Station",
+      "reason": "Own NUMBAT code 862. Its hub HUBLHS has no Tube stop."
+    },
+    {
+      "stop": "940GZZDLWLA",
+      "name": "Woolwich Arsenal DLR Station",
+      "reason": "NUMBAT code 573 has a rail primary NaPTAN and no LU mode. Its hub HUBWWA has no Tube stop."
+    }
+  ]
+}
