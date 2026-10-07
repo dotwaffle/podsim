@@ -16,6 +16,13 @@ Where a rule lists a buffer or compact case with other cases, only that case is 
 The sentence above that keeps compact queue rules unchanged no longer covers them.
 The function `checkCompactFields`, which the restore order below names, no longer exists.
 
+Station entry runs, an early berth choice, and coast-in were added on October 7, 2026.
+The sentence above that keeps platoon rules unchanged no longer covers them.
+A platoon run can end on the entry lane of the destination station of both pods, and it never continues past the entry node of that station.
+With platoons on, a pod that is not of a large class can try its berth choice before the usual point, and an early try that finds no berth does not refuse the pod.
+With platoons on, a pod that waits for a contested station diverge can coast: a speed ceiling lowers only its commanded speed.
+The incident refusal of platoon members and the emergency drain rule are unchanged.
+
 Status note, October 6, 2026: the maintainer stopped the incident redesign after stage 3.
 Stages 4 to 7 are out of scope.
 Text that names these stages describes refusals that stay in place.
