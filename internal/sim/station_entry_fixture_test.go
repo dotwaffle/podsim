@@ -15,10 +15,13 @@ import (
 // third adds a third approach "dest-road-in-03" that joins at -join.
 // explicit gives "dest-01-arrival-link" the through role. alt adds the
 // lane "dest-alt" from the station entry to "dest-02-arrival", longer than
-// the chain of arrival links, with no station role.
+// the chain of arrival links, with no station role. large spaces the
+// berth lanes of "dest" 50 m apart in place of 30 m, so that they are
+// long enough for a large class, and puts the origin berths in a column,
+// so that their lanes keep 20 m apart.
 type entryShape struct {
-	join, approach                 float64
-	crossing, third, explicit, alt bool
+	join, approach                        float64
+	crossing, third, explicit, alt, large bool
 }
 
 // entryNetwork returns a station in the shape of a London station. Two
@@ -30,6 +33,11 @@ type entryShape struct {
 // the origin station, and the station exit leads back to the origin.
 func entryNetwork(shape entryShape, fleet int) Network {
 	join := shape.join * math.Pi / 180
+	// comb is the spacing in meters of the berth lanes.
+	comb := 30.0
+	if shape.large {
+		comb = 50
+	}
 	cosine, sine := math.Cos(join), math.Sin(join)
 	p2 := Point{X: -shape.approach * cosine, Y: -shape.approach * sine}
 	network := Network{
@@ -42,8 +50,8 @@ func entryNetwork(shape entryShape, fleet int) Network {
 			{ID: "p2", Position: p2},
 			{ID: "dest-diverge", Position: Point{}},
 			{ID: "dest-entry", Position: Point{X: 139}},
-			{ID: "dest-exit", Position: Point{X: 139, Y: 120}},
-			{ID: "dest-merge", Position: Point{X: 100, Y: 150}},
+			{ID: "dest-exit", Position: Point{X: 139, Y: 4 * comb}},
+			{ID: "dest-merge", Position: Point{X: 100, Y: 5 * comb}},
 			{ID: "g3", Position: Point{X: p2.X - 1300*cosine, Y: -p2.Y + 1300*sine}},
 			{ID: "p3", Position: Point{X: p2.X, Y: -p2.Y}},
 		},
@@ -86,12 +94,12 @@ func entryNetwork(shape entryShape, fleet int) Network {
 	}
 	arrival, departure := "dest-entry", "dest-exit"
 	for k := 1; k <= 3; k++ {
-		x := 139 + 30*float64(k)
+		x := 139 + comb*float64(k)
 		id := fmt.Sprintf("dest-%02d", k)
 		network.Nodes = append(network.Nodes,
-			Node{ID: id + "-arrival", Position: Point{X: x, Y: 30}},
-			Node{ID: id + "-node", Position: Point{X: x, Y: 60}},
-			Node{ID: id + "-departure", Position: Point{X: x, Y: 90}},
+			Node{ID: id + "-arrival", Position: Point{X: x, Y: comb}},
+			Node{ID: id + "-node", Position: Point{X: x, Y: 2 * comb}},
+			Node{ID: id + "-departure", Position: Point{X: x, Y: 3 * comb}},
 		)
 		network.Lanes = append(network.Lanes,
 			Lane{ID: id + "-arrival-link", From: arrival, To: id + "-arrival", SpeedLimit: 14, StationID: "dest", StationRole: StationBerthAccessRole},
@@ -112,7 +120,11 @@ func entryNetwork(shape entryShape, fleet int) Network {
 	}
 	for index := range fleet {
 		node := fmt.Sprintf("origin-berth-%02d", index+1)
-		network.Nodes = append(network.Nodes, Node{ID: node, Position: Point{X: -4960 + 25*float64(index), Y: 5060}})
+		position := Point{X: -4960 + 25*float64(index), Y: 5060}
+		if shape.large {
+			position = Point{X: -4500, Y: 5000 + 200*float64(index+1)}
+		}
+		network.Nodes = append(network.Nodes, Node{ID: node, Position: position})
 		network.Lanes = append(network.Lanes,
 			Lane{ID: node + "-in", From: "origin-entry", To: node, SpeedLimit: 14},
 			Lane{ID: node + "-out", From: node, To: "origin-exit", SpeedLimit: 14})
@@ -179,6 +191,7 @@ func savedEntry(network Network, tick int64, pods []entryPod) (SavedState, []Pla
 		case pod.through:
 			saved.DestinationStation, saved.Destination, saved.RelocatingTo = "origin", berth, "origin"
 			path = []string{fmt.Sprintf("u%d", pod.approach), road, "dest-access-in", "dest-through", "dest-access-out", "return"}
+
 		default:
 			state.RequestID++
 			state.Boarded++

@@ -65,14 +65,16 @@ func runEntry(t *testing.T, s *Simulation, monitor *entryMonitor) []string {
 	return nil
 }
 
-// TestCoastTwoApproaches queues four pods on each approach. Heads that
+// TestCoastTwoApproaches queues four pods 100 m apart on each approach.
+// The pods choose their berths early and link, and the platoons on the
+// two approaches meet at the diverge. Heads that
 // wait for the diverge coast, also two or more at one tick, and the
 // monitor checks each coast rule at each tick. Coast changes no grant:
 // the pods take the diverge junction in the order of a run with no coast.
 func TestCoastTwoApproaches(t *testing.T) {
 	t.Parallel()
 	run := func(coast bool) ([]string, *entryMonitor) {
-		s := restoreEntry(t, entryNetwork(londonEntry, 8), append(approachQueue(1, 4, 1250, 45), approachQueue(2, 4, 1250, 45)...))
+		s := twoApproaches(t)
 		monitor := newEntryMonitor(s)
 		monitor.off = !coast
 		return runEntry(t, s, monitor), monitor
@@ -86,10 +88,11 @@ func TestCoastTwoApproaches(t *testing.T) {
 	}
 }
 
-// twoApproaches restores four pods on each approach of the London shape.
+// twoApproaches restores four pods 100 m apart on each approach of the
+// London shape.
 func twoApproaches(t *testing.T) *Simulation {
 	t.Helper()
-	return restoreEntry(t, entryNetwork(londonEntry, 8), append(approachQueue(1, 4, 1250, 45), approachQueue(2, 4, 1250, 45)...))
+	return restoreEntry(t, entryNetwork(londonEntry, 8), append(approachQueue(1, 4, 1250, 100), approachQueue(2, 4, 1250, 100)...))
 }
 
 // hasCeiling reports whether results has a ceiling for the pod at index.

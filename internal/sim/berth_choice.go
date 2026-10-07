@@ -4,7 +4,8 @@ import "slices"
 
 // assignTerminalBerth chooses a berth when the next reservation starts on
 // the final lane of the road route, or when it reaches the last block of
-// that route. The road route remains berth-independent.
+// that route. With platoons on, it also tries earlier (see
+// earlyBerthChoice). The road route remains berth-independent.
 func (s *Simulation) assignTerminalBerth(v *vehicle) bool {
 	if v.destination.ID != "" || len(v.Route) == 0 {
 		return true
@@ -19,6 +20,7 @@ func (s *Simulation) assignTerminalBerth(v *vehicle) bool {
 	if next < 0 || next >= v.blocks.len() {
 		return true
 	}
+	early := false
 	if v.blocks.lane(next).ID != v.Route[len(v.Route)-1].ID {
 		// A reservation that starts before the final lane can reach the
 		// last block of the route. For example, the junction zone of the
@@ -26,21 +28,46 @@ func (s *Simulation) assignTerminalBerth(v *vehicle) bool {
 		// reservation, the pod reserves no more blocks of the road route.
 		// Thus it must choose its berth now, or it arrives with no berth.
 		if _, through, _ := s.terminalLane(v); through < v.blocks.len()-1 {
-			return true
+			if !s.earlyBerthChoice(v, through) {
+				return true
+			}
+			early = true
 		}
 	}
+	// A failed early try does not refuse the pod. The usual point tries
+	// again and reports the failure.
 	station, ok := s.station(v.destinationStation)
 	if !ok {
-		return false
+		return early
 	}
 	suffix, berth, err := s.stationRouteByLoad(stationRouteInput{from: station.routeEntry(v.Route, v.destination), station: station.ID, class: v.Pod.Class, accept: s.berthFilterForVehicle(v)})
 	if err != nil {
-		return false
+		return early
 	}
 	s.setVehicleRoute(v, append(slices.Clone(v.Route), suffix...))
 	v.destination = berth
 	v.pending = -1
 	return true
+}
+
+// earlyBerthChoice reports whether v tries its berth choice before the
+// usual point, when through is the last block of its next reservation.
+// With platoons on, a pod that is not of a large class tries when the
+// final lane of its route is the entry lane of its destination station,
+// and its next reservation reaches that lane or the lane starts within
+// platoonHorizon. Then its run can grow onto the entry lane (see
+// sharedLane), which needs a lane after the entry lane in both routes.
+// The berth choice of a large class reads the station load, so it keeps
+// the usual point.
+func (s *Simulation) earlyBerthChoice(v *vehicle, through int) bool {
+	if s.platooning == PlatooningOff || largeVehicleClass(v.Pod.Class) {
+		return false
+	}
+	final := len(v.Route) - 1
+	if lane := &v.Route[final]; lane.StationRole != StationEntryRole || lane.StationID != v.destinationStation {
+		return false
+	}
+	return through >= v.blocks.laneFirst(final) || v.blocks.lanes[final].start-v.distance <= platoonHorizon
 }
 
 // reevaluateTerminalBerth chooses a free inlet before the pod commits to its
