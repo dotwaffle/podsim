@@ -52,6 +52,7 @@ type streamSubscriber struct {
 	sequence      uint64
 	progress      time.Time
 	heartbeat     uint64
+	heartbeats    uint64
 	heartbeatAt   time.Time
 	lastACK       streamSent
 	writing       *streamPayload
@@ -533,9 +534,7 @@ func (s *Session) streamHTTP(w http.ResponseWriter, r *http.Request) {
 			expired := streamExpired(c, now)
 			var heartbeat uint64
 			if !expired && c.heartbeat == 0 && len(c.sent) == 0 {
-				heartbeat = uint64(now.UnixNano())
-				c.heartbeat = heartbeat
-				c.heartbeatAt = now
+				heartbeat = c.startHeartbeat(now)
 			}
 			p.mu.Unlock()
 			if expired {
@@ -663,6 +662,16 @@ func (p *statePublisher) readControls(ctx context.Context, c *streamSubscriber) 
 		wakeStream(c.wake)
 	}
 }
+
+// startHeartbeat records a new pending heartbeat and returns its token.
+// The token counts the heartbeats of the connection, so it stays within
+// the sequence range that ParseStreamSequence accepts.
+func (c *streamSubscriber) startHeartbeat(now time.Time) uint64 {
+	c.heartbeats++
+	c.heartbeat, c.heartbeatAt = c.heartbeats, now
+	return c.heartbeat
+}
+
 func (p *statePublisher) control(c *streamSubscriber, kind, stream, sequence, token string, now time.Time) error {
 	switch kind {
 	case "heartbeat":

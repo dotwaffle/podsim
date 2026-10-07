@@ -214,6 +214,26 @@ func TestStreamCreditBoundaries(t *testing.T) {
 		t.Fatal("heartbeat ACK extended state progress deadline")
 	}
 }
+
+// TestStreamHeartbeatToken checks that the heartbeat tokens of a
+// connection at the current time pass ParseStreamSequence, which the
+// client and the server use for them, and that the server accepts each.
+func TestStreamHeartbeatToken(t *testing.T) {
+	t.Parallel()
+	p := &statePublisher{}
+	c := &streamSubscriber{}
+	now := time.Now()
+	for range 3 {
+		token := strconv.FormatUint(c.startHeartbeat(now), 10)
+		if _, err := ParseStreamSequence(token); err != nil {
+			t.Fatalf("heartbeat token %s: %v", token, err)
+		}
+		if err := p.control(c, "heartbeat", "", "", token, now); err != nil || c.heartbeat != 0 {
+			t.Fatalf("heartbeat %s: %v, pending %d", token, err, c.heartbeat)
+		}
+	}
+}
+
 func TestStreamOwnership(t *testing.T) {
 	t.Parallel()
 	p := &statePublisher{}
