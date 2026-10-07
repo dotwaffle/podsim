@@ -7,6 +7,9 @@ The [approved design](car-continuation-contract-proposal.md) defines the file an
 This qualification covers the selected foundation projects and schedules below.
 It does not establish cross-build replay or physical admission for every supported project.
 
+Status 2026-10-07: the checkpoint cap is now 100 MiB.
+This record describes the tested source, which had the 80 MiB cap.
+
 ## Use
 
 Build `cmd/parkride` from a clean, identified checkout with Go 1.27.1 and `GOEXPERIMENT=jsonv2`.

@@ -4,6 +4,10 @@ The opt-in `express-v1` browser path passed functional checks on October 3, 2026
 The largest accepted wire fixtures use substantial memory and block the browser event loop.
 These results do not authorize deployment or default enablement.
 
+Status 2026-10-07: the widest-asset tests, `TestExpressRequalCost` among them, were deleted with the other worst-case byte proofs.
+The fleet limit is now 600 pods, the Express order bound is 17,000 orders, and the saved-state cap is 100 MiB.
+This record describes the tested source.
+
 The operating limits and encoding rules are in [the approved Express contract](express-physical-encoding-contract-proposal.md).
 Native motion and restore evidence is in [the native qualification](express-native-qualification.md).
 Packed save, stream, and HTTP evidence is in [the wire qualification](express-wire-qualification.md).

@@ -62,10 +62,9 @@ The `qualify` task ran the full scenario suite without the race detector.
 The `test:race` task still runs every test.
 The `qualify` task now runs only the two Station 19 drain tests and the two emergency choice latency tests of `internal/sim`, which skip under the race detector.
 The `test:embedded` task runs the full root and `cmd/serve` suites with the tag.
-In the session package, it runs only the four maximum codec tests, `TestPackedTextWireCost`, `TestComposedWorstCaseFormats`, `TestSaveCapRejectsAtomically`, `TestDecodeCapsAtCallers`, `TestEncodeCapsAtCallers`, `TestTopologyPreflightAtCallers`, and `TestStreamMaximumEncoding`.
-The first ten tests skip under the race detector.
-`TestStreamMaximumEncoding` does its bounded-scan checks only without the race detector.
-All eleven tests skip under `-short`.
+In the session package, it runs only `TestPackedTextWireCost`, `TestSaveCapRejectsAtomically`, `TestDecodeCapsAtCallers`, `TestEncodeCapsAtCallers`, and `TestTopologyPreflightAtCallers`.
+These tests skip under the race detector and under `-short`.
+On October 7, 2026, the maximum codec tests, `TestComposedWorstCaseFormats`, and `TestStreamMaximumEncoding` were deleted with the other worst-case byte proofs.
 A new test that skips under the race detector must be added to the `-run` pattern of one of these tasks.
 A pattern that matches no test passes.
 

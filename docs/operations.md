@@ -259,7 +259,7 @@ It reports them as unaccounted orders at each restore, together with the orders 
   Parties that were unloading at their stop count as completed, if the pod is at a berth of a passenger station in the network.
   The party of an emergency unload ends interrupted.
   Each other party in a pod goes back to the queue as one order.
-  So the server refuses a file whose waiting orders and outstanding parties together exceed the queue bound of its contract: 2,600, or 8,600 with Express.
+  So the server refuses a file whose waiting orders and outstanding parties together exceed the queue bound of its contract: 5,000, or 17,000 with Express.
   An active traffic demo also counts the orders that it has still to submit.
   Every fault ends, and each pod loses its fault hold.
   The fault counters stay.
@@ -300,7 +300,7 @@ With it, the file can have `simulation.faults`, with these members:
   `start` and `end` are ticks, and `end` is 0 for a fault without an end.
   `pod` is an index into `simulation.pods`, and `lane` is an index into `project.network.lanes`.
   `from` and `to` are the debris segment in meters.
-  The file can have one record for each pod and 64 debris records, so at most 364 records.
+  The file can have one record for each pod and 64 debris records, so at most 664 records.
 - `counters`: the fault counters `started`, `cleared`, `evacuations`, `reroutes`, and `faultWaitTicks`, as in the [protocol](protocol.md#fault-members).
 
 The file omits `simulation.faults` when no fault is active and each counter is 0.
@@ -352,7 +352,7 @@ After the length check of a client ID, a client ID with another character gets t
 After the canonical base64 check, packed order text with another character gets `order ID has a character other than A-Z, a-z, 0-9, '.', '+' or '-'`, and a dispatch reason with a control character gets `order text has a control character`.
 The embedded project gets the error of project validation.
 The server does not try to recover any part of such a file.
-A file of more than 80 MiB is the only exception: the server keeps it, turns saving off, and fails to start.
+A file of more than 100 MiB is the only exception: the server keeps it, turns saving off, and fails to start.
 The server checks the fault records before either tier.
 A fault record that is not valid gives `invalid_state` for the whole file, and the server does not try the `logical` tier.
 It does not remove one record to keep the others.
@@ -389,7 +389,7 @@ They do not simulate power loss.
 The optional project setting does not change command or WebSocket envelope formats.
 
 The reason for an `empty` start is `project_changed`, `unsupported_version`, `invalid_state`, `restore_loop`, or `unreadable`.
-A file of more than 80 MiB, compressed or decompressed, does not give an `empty` start, because the server keeps the file and fails to start.
+A file of more than 100 MiB, compressed or decompressed, does not give an `empty` start, because the server keeps the file and fails to start.
 A file with another format version gets `unsupported_version`.
 Until the first release, an added optional member with a safe zero value keeps the format version.
 The file leaves out the member when its value is zero.
@@ -742,7 +742,7 @@ With `-state`, the server writes these log records at startup:
 - `Rejected saved session state` (WARN) gives the `reason` and the `error`.
 - `Restore failed with a panic` (ERROR) gives the `panic` and the `stack`.
   The server then rejects the file with reason `invalid_state`.
-- `Preserved saved session state` (ERROR) means that the decompressed saved state has more than 80 MiB.
+- `Preserved saved session state` (ERROR) means that the decompressed saved state has more than 100 MiB.
   It gives the `error` and `saving=false`.
   The server keeps the file and fails to start.
 - `Read saved session state` (ERROR) means that the read failed or timed out.

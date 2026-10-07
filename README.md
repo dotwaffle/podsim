@@ -882,7 +882,7 @@ The widest valid topology is about 8 MB, so the server limit of 10 MiB plus 4 Ki
 The editor sends the project in one command, and it compresses a command of more than 64 KiB with gzip.
 The server accepts a command body of 4 MiB or less, and 10 MiB plus 64 KiB of command JSON after decompression.
 Before the editor pauses the simulation for an apply, it checks the size of the project and shows the limit.
-A project can have at most 300 stations, 5,000 nodes, 8,000 lanes, and 300 pods.
+A project can have at most 300 stations, 5,000 nodes, 8,000 lanes, and 600 pods.
 Each station can have at most 200 berths.
 A node can have at most 64 lanes, counted at the start node and at the end node of each lane.
 At each node, the simulator compares each ordered pair of two different lanes at the node when it starts.

@@ -9,6 +9,11 @@ All four bounded browser performance candidates were rejected and closed.
 Physical coupling was removed on October 6, 2026, and the [platoon coupling comparison](platoon-coupling-comparison.md) is the decision record.
 This report does not authorize deployment, default adoption, or a cap change.
 
+Status 2026-10-07: after this report, the maintainer deleted the worst-case byte proofs and the composed worst-case record.
+The fleet limit is now 600 pods, the plain order bound is 5,000 orders, and the Express order bound is 17,000 orders.
+The saved-state cap and the checkpoint cap are now 100 MiB.
+The other statements of this report describe the pinned source.
+
 The [measurement record](measurements/release-readiness.json) is unchanged in this update.
 It still pins the earlier `8181495` source, its source-specific evidence, and its archived failures.
 This update read the pinned source in a detached worktree.
@@ -111,7 +116,7 @@ Their decoders match member names by exact case.
 Each saved state with the earlier names has a version before 9, so the server moves it aside with `unsupported_version`.
 The editor refuses a project file with the earlier names.
 
-The [composed worst-case record](measurements/composed-worst-case-formats.json) measures one fixture for each shape and format.
+The composed worst-case record measured one fixture for each shape and format.
 It limits each integer to 2^53-1, so each counter, tick, serial, and generation of a fixture has at most 16 digits.
 Its latest change limits each ID to the characters A-Z, a-z, 0-9, `.`, `+`, and `-`, which each encoder writes as 1 byte.
 Each fixture has every landed member at its widest at the same time.

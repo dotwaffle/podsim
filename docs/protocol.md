@@ -240,7 +240,7 @@ A rewind does not change it.
 | Member | Content |
 | --- | --- |
 | `tier` | `physical`: the pods kept their positions. `logical`: the pods started again at their initial berths. `empty`: the server did not use the saved state. |
-| `reason` | Why the tier is not `physical`. For `logical`: `physical_failed` or `restore_loop`. For `empty`: `project_changed`, `unsupported_version`, `invalid_state`, `unreadable`, or `restore_loop`. A file of more than 80 MiB gives no `empty` start, because the server keeps the file and fails to start. |
+| `reason` | Why the tier is not `physical`. For `logical`: `physical_failed` or `restore_loop`. For `empty`: `project_changed`, `unsupported_version`, `invalid_state`, `unreadable`, or `restore_loop`. A file of more than 100 MiB gives no `empty` start, because the server keeps the file and fails to start. |
 | `demoted` | The number of pods that the `physical` tier moved to a berth. |
 | `requeued` | The number of orders that went back to the queue. |
 | `dropped` | The number of orders that the restore removed because they were not valid. |
@@ -394,7 +394,7 @@ These responses also have `Cache-Control: no-store`.
 A 403, 415, or 503 reply comes before the server reads the body, and a 413 reply for a body over the 4 MiB limit comes before the end of the body.
 The server closes the connection after these replies, so it does not wait for the rest of the body.
 
-A `project` command with more than 300 stations, 5,000 nodes, 8,000 lanes, or 300 pods gets HTTP 400, because these arrays are larger than the limits above.
+A `project` command with more than 300 stations, 5,000 nodes, 8,000 lanes, or 600 pods gets HTTP 400, because these arrays are larger than the limits above.
 A station with more than 200 berths also gets HTTP 400.
 A `project` command gets `command_rejected` when the project fails validation, for example when a node has more than 64 lanes.
 A lane counts at its start node and at its end node.
@@ -513,10 +513,10 @@ It also refuses these records:
 - A `startTick` above the tick of the frame, an `endTick` that is not above `startTick`, or an `evacuateTick` below `startTick`.
 - A `podID` that is not a vehicle of the frame, or a second record for the same pod.
 - A `laneID` that is not in the topology, or a segment that does not have `0 <= fromMeters < toMeters`, ends past the lane, or is longer than 50 m.
-- More than 64 debris records, or more than 300 pod records.
+- More than 64 debris records, or more than 600 pod records.
 
 It also refuses a negative counter.
-The scan before the typed decode allows at most 364 records in `active`.
+The scan before the typed decode allows at most 664 records in `active`.
 Without the fault marker, a client refuses the `faults` member and the `faults` group, also with a value of null, `{}`, or `[]`.
 It refuses each `faultContract` value other than `fault-v1`, including null and an empty text.
 The same rules apply to the HTTP state.

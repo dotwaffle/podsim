@@ -6,6 +6,11 @@ See [the approved contract](express-physical-encoding-contract-proposal.md) and 
 Browser evidence is also recorded in `docs/express-browser-qualification.md`.
 The tested source starts at `27981fe35c9f2a7644327033405fcbf1a1130338`, with native dependency v6 and the owned session and remote patch.
 The widest byte and browser receipts pin dependency v3.
+
+Status 2026-10-07: the widest-shape adapter tests, `TestExpressIncompressibleAssetAdapters`, `TestExpressRequalCost`, `TestExpressPublicAssetRetention`, and `TestComposedWorstCaseFormats` were deleted with the other worst-case byte proofs.
+The fleet limit is now 600 pods, the Express order bound is 17,000 orders, and the saved-state cap is 100 MiB.
+This record describes the tested source.
+
 A final v6 bridge reruns real 20-person save, boarding restore, full/HTTP adapters, remote streams, and foundation byte controls.
 The native v3-to-v6 delta changes error text, comments, unused private wrappers, and the separately reviewed canonical project decoder helper.
 It preserves runtime semantics.

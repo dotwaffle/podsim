@@ -7,6 +7,9 @@ The current project format has one version, 1, and the `orderContract` marker se
 This change does not activate a default or change a physical number.
 The [approved contract](express-physical-encoding-contract-proposal.md) defines the complete encoding and consumer requirements.
 
+Status 2026-10-07: the fleet limit is now 600 pods, the Express order bound is 17,000 orders, and the checkpoint cap is 100 MiB.
+This record describes the tested source.
+
 ## Native and project behavior
 
 `OrderContract` is immutable after construction.

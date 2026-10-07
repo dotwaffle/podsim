@@ -85,8 +85,9 @@ These trials do not prove a performance benefit from that extra capacity.
 These initial checks preceded the finite-arrival study below.
 They do not establish a complete qualification envelope.
 
-The project limits admit 5,000 nodes, 300 stations and pods, 65,000 flows, and 10 MiB of project JSON.
-The saved-state cap is 80 MiB, including the conservative case with JSON-escaped IDs and diagnostic text.
+The project limits admit 5,000 nodes, 300 stations, 600 pods, 65,000 flows, and 10 MiB of project JSON.
+The saved-state cap is 100 MiB.
+No test proves that the largest saved state fits that cap.
 Stream caps are 65 MiB of JSON and 66 MiB of gzip data.
 The lane, junction-pair, and track-cell limits remain unchanged.
 
@@ -221,3 +222,4 @@ No 400-pod scenario or demand trial existed.
 Its worst-case full JSON was 78,625,591 bytes, above 64 MiB.
 Its saved-state JSON was 101,378,967 bytes, above 80 MiB.
 The limit change was rejected, and the production limits remained unchanged.
+On 2026-10-07, the maintainer raised the pod limit to 600 and the saved-state cap to 100 MiB, and dropped the worst-case byte proofs.
