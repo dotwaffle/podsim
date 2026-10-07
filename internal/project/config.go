@@ -127,15 +127,15 @@ var errTooLarge = fmt.Errorf("encoded project must have at most %d bytes with an
 // widestDemand has the longest canonical encoding of all demand settings
 // that ValidateDemand accepts. Enabled is false, because false is longer
 // than true. Rail-arrivals is the longest pattern name. Each reference has
-// the largest length, and each byte is a control character, which JSON
-// writes as a 6-byte escape. Keep this value in step with ValidateDemand.
+// the largest length. JSON writes each ID character as 1 byte. Keep this
+// value in step with ValidateDemand.
 var widestDemand = DemandConfig{
 	PerMinute:        120,
 	Pattern:          "rail-arrivals",
 	Seed:             math.MaxUint64,
-	Destination:      strings.Repeat("\x01", MaxIDLength),
-	Profile:          strings.Repeat("\x01", MaxIDLength),
-	Band:             strings.Repeat("\x01", MaxIDLength),
+	Destination:      strings.Repeat("z", MaxIDLength),
+	Profile:          strings.Repeat("z", MaxIDLength),
+	Band:             strings.Repeat("z", MaxIDLength),
 	DailyStartMinute: 1439,
 }
 
@@ -267,6 +267,7 @@ var projectChecks = [...]func(Config) error{
 	validatePlatoonLimit,
 	validateGeoAndMap,
 	validateNames,
+	validateCharacters,
 	validateNetworkShape,
 	validateProjectDemand,
 	validateScenario,
@@ -791,6 +792,9 @@ func ValidateDemand(config DemandConfig, context DemandContext) error {
 	}
 	if len(config.Destination) > MaxIDLength || len(config.Profile) > MaxIDLength || len(config.Band) > MaxIDLength {
 		return fmt.Errorf("demand references must contain at most %d characters", MaxIDLength)
+	}
+	if err := checkIDs(config.Destination, config.Profile, config.Band); err != nil {
+		return err
 	}
 	if config.Pattern == "rail-services" {
 		if len(context.RailArrivals)+len(context.RailDepartures) == 0 {

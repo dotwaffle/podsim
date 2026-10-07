@@ -24,12 +24,10 @@ func compactClassWorstCaseFile(base stateFile, pod sim.SavedPod, trip sim.SavedT
 	file := base
 	file.Simulation.PassengerDistanceMeters, file.Simulation.EmptyDistanceMeters = longestNegative, longestNegative
 	file.Simulation.RiderDistanceMeters, file.Simulation.DirectDistanceMeters, file.Simulation.MaxDetourRatio = longestNegative, longestNegative, longestNegative
-	// All 26 symbols have six-byte escapes. Two symbols distinguish 300 IDs.
-	alphabet := []byte{1, 2, 3, 4, 5, 6, 7, 11, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31}
 	file.Simulation.Pods = make([]sim.SavedPod, maxSavedPods)
 	for i := range file.Simulation.Pods {
 		file.Simulation.Pods[i] = pod
-		file.Simulation.Pods[i].ID = strings.Repeat("\x01", 62) + string([]byte{alphabet[i/len(alphabet)], alphabet[i%len(alphabet)]})
+		file.Simulation.Pods[i].ID = widestID('p', i)
 	}
 	file.Simulation.Waiting = make([]sim.SavedTrip, maxSavedTrips)
 	for i := range file.Simulation.Waiting {
@@ -92,9 +90,8 @@ func testBoardingWorstCaseSize(t *testing.T, base stateFile) {
 			file.Project = project.Clone(base.Project)
 			stationID := base.Simulation.Pods[0].Riders[0].From
 			berths := make([]sim.Berth, project.MaxBerths)
-			alphabet := []byte{1, 2, 3, 4, 5, 6, 7, 11, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31}
 			for i := range berths {
-				berths[i] = sim.Berth{ID: strings.Repeat("\x01", 62) + string([]byte{alphabet[i/len(alphabet)], alphabet[i%len(alphabet)]}), Node: file.Project.Network.Nodes[i].ID}
+				berths[i] = sim.Berth{ID: widestID('b', i), Node: file.Project.Network.Nodes[i].ID}
 			}
 			file.Project.Network.Stations[0].ID = stationID
 			file.Project.Network.Stations[0].Berths = berths
@@ -141,12 +138,16 @@ func testBoardingWorstCaseSize(t *testing.T, base stateFile) {
 				}
 			}
 			if !mixed {
-				// A direct native-ID encoding exceeds the save cap.
+				// A direct native-ID encoding writes each boarding record
+				// with its berth ID and the order text without packing.
+				// When IDs could hold control bytes, it exceeded the save
+				// cap. Each ID now has only ID characters, so it fits the
+				// cap, and the boarding adapter is headroom.
 				bypass, err := json.Marshal(file, json.Deterministic(true))
-				if err != nil || len(bypass) <= MaxStateBytes {
-					t.Fatalf("direct native-ID overflow fixture changed: bytes=%d error=%v", len(bypass), err)
+				if err != nil || len(bypass) > MaxStateBytes {
+					t.Fatalf("direct native-ID fixture changed: bytes=%d error=%v", len(bypass), err)
 				}
-				t.Logf("direct native-ID maximum: %d JSON bytes, excess %d", len(bypass), len(bypass)-MaxStateBytes)
+				t.Logf("direct native-ID maximum: %d JSON bytes, headroom %d, adapter %d bytes", len(bypass), MaxStateBytes-len(bypass), len(raw))
 			}
 		})
 	}

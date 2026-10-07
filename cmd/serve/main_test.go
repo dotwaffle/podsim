@@ -558,17 +558,17 @@ func TestProjectFileHoldsCanonicalEncoding(t *testing.T) {
 	}
 }
 
-// controlID is an ID of the largest valid length. JSON writes each of its
-// bytes as a 6-byte escape.
-var controlID = strings.Repeat("\x01", 64)
+// longID is an ID of the largest valid length. JSON writes each of its
+// bytes as 1 byte, as it writes each ID character.
+var longID = strings.Repeat("z", 64)
 
 // widestDemand returns the longest demand encoding without a rail plan.
-// weightedProject has a station with ID controlID, so the destination is
+// weightedProject has a station with ID longID, so the destination is
 // valid. limitProject reserves space for the longer rail pattern name.
 func widestDemand() project.DemandConfig {
 	return project.DemandConfig{
 		PerMinute: 120, Pattern: "destination", Seed: math.MaxUint64,
-		Destination: controlID, Profile: controlID, Band: controlID,
+		Destination: longID, Profile: longID, Band: longID,
 	}
 }
 
@@ -592,7 +592,7 @@ func limitProject(t *testing.T, demand project.DemandConfig) project.Config {
 		config.Demand = demand
 		if demand.Pattern == "rail-arrivals" {
 			config.RailArrivals = []project.RailArrival{{
-				ID: "train", Station: controlID, Passengers: 1,
+				ID: "train", Station: longID, Passengers: 1,
 				Destinations: []project.RailDestination{{Station: "s01", Weight: 1}},
 			}}
 		}
@@ -616,7 +616,7 @@ func limitProject(t *testing.T, demand project.DemandConfig) project.Config {
 }
 
 // weightedProject returns a valid project with a one-way loop of 48
-// passenger stations. The first station has the ID controlID. The project
+// passenger stations. The first station has the ID longID. The project
 // has the largest number of demand profiles and bands. Each profile has a
 // flow for each ordered pair of stations, so the project has 215,424
 // weights. Each weight is 1.
@@ -624,7 +624,7 @@ func weightedProject() project.Config {
 	const stations = 48
 	stationID := func(index int) string {
 		if index == 0 {
-			return controlID
+			return longID
 		}
 		return fmt.Sprintf("s%02d", index)
 	}

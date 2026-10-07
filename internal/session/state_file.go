@@ -657,6 +657,8 @@ func (file *stateFile) validate() error {
 	switch {
 	case file.Epoch == "" || len(file.Epoch) > maxEpochBytes:
 		return fmt.Errorf("epoch has %d bytes, not 1 to %d", len(file.Epoch), maxEpochBytes)
+	case !sim.ValidIDText(file.Epoch):
+		return fmt.Errorf("epoch %.20q has a character other than A-Z, a-z, 0-9, '.', '+' or '-'", file.Epoch)
 	case file.Build != "" && !isBuildID(file.Build):
 		return fmt.Errorf("build %.20q is not %d lowercase hex digits", file.Build, buildIDLength)
 	case file.ProjectRevision == 0 || file.Generation == 0:
@@ -698,6 +700,8 @@ func validateSequences(sequences []savedSequence) error {
 		switch {
 		case saved.Client == "" || len(saved.Client) > maxClientBytes:
 			return fmt.Errorf("client ID has %d bytes, not 1 to %d", len(saved.Client), maxClientBytes)
+		case !sim.ValidIDText(saved.Client):
+			return fmt.Errorf("client %.20q has a character other than A-Z, a-z, 0-9, '.', '+' or '-'", saved.Client)
 		case saved.Sequence == 0:
 			return fmt.Errorf("client %.20q has sequence 0", saved.Client)
 		case index > 0 && saved.Client <= sequences[index-1].Client:

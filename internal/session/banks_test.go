@@ -158,6 +158,56 @@ func TestTopologyBankRejectsInvalidMembership(t *testing.T) {
 	}
 }
 
+// TestTopologyIDCharacters pins the refusals of a topology with an ID or a
+// station name that a valid project cannot have. They come after the bank
+// check.
+func TestTopologyIDCharacters(t *testing.T) {
+	t.Parallel()
+	const characters = "has a character other than A-Z, a-z, 0-9, '.', '+' or '-'"
+	for _, test := range []struct {
+		name   string
+		change func(*TopologySnapshot)
+		want   string
+	}{
+		{"banks before characters", func(topology *TopologySnapshot) {
+			topology.Network.Stations[1].Banks[0].BerthIDs = nil
+			topology.Network.Lanes[0].ID = "l 0"
+		}, ""},
+		{"lane ID", func(topology *TopologySnapshot) { topology.Network.Lanes[0].ID = "l 0" }, `ID "l 0" ` + characters},
+		{"station name", func(topology *TopologySnapshot) { topology.Network.Stations[0].Name = "Hub\x01" },
+			`name "Hub\x01" has a control character or is not UTF-8`},
+		{"network before identity", func(topology *TopologySnapshot) {
+			topology.Network.Lanes[0].ID, topology.Epoch = "l_0", "e 1"
+		}, `ID "l_0" ` + characters},
+		{"identity", func(topology *TopologySnapshot) { topology.ServerStart = "s&1" }, "topology identity " + characters},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			topology := TopologySnapshot{ProjectVersion: project.CurrentVersion, Network: sim.BankExample(), ServerStart: "server", Epoch: "epoch"}
+			var decoded TopologySnapshot
+			if raw, err := json.Marshal(topology); err != nil || json.Unmarshal(raw, &decoded) != nil {
+				t.Fatalf("the base topology does not decode: %v", err)
+			}
+			test.change(&topology)
+			raw, err := json.Marshal(topology)
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = json.Unmarshal(raw, &decoded)
+			if test.want == "" {
+				if err == nil || strings.Contains(err.Error(), characters) {
+					t.Fatalf("got %v, want the bank refusal", err)
+				}
+				return
+			}
+			// The JSON decoder adds its own prefix.
+			if err == nil || !strings.HasSuffix(err.Error(), ": "+test.want) {
+				t.Fatalf("got %v, want %q", err, test.want)
+			}
+		})
+	}
+}
+
 func TestCommandBankShapeBounds(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {

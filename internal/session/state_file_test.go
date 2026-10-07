@@ -365,6 +365,41 @@ func TestStateCounterRefusals(t *testing.T) {
 	}
 }
 
+// TestStateIDCharacterRefusals pins the place and the text of the
+// refusals of an epoch and of a client ID with a character other than
+// sim.IDCharacters.
+func TestStateIDCharacterRefusals(t *testing.T) {
+	t.Parallel()
+	valid := newTestStateFile(t)
+	const characters = "has a character other than A-Z, a-z, 0-9, '.', '+' or '-'"
+	for _, test := range []struct {
+		name   string
+		change func(*stateFile)
+		want   string
+	}{
+		{"epoch length before characters", func(file *stateFile) { file.Epoch = strings.Repeat("_", maxEpochBytes+1) },
+			"invalid_state: epoch has 101 bytes, not 1 to 100"},
+		{"epoch characters before the build", func(file *stateFile) { file.Epoch, file.Build = "a b", "x" },
+			`invalid_state: epoch "a b" ` + characters},
+		{"client length before characters", func(file *stateFile) {
+			file.Sequences = []savedSequence{{Client: strings.Repeat("_", maxClientBytes+1), Sequence: 1}}
+		}, "invalid_state: client ID has 101 bytes, not 1 to 100"},
+		{"client characters before the sequence", func(file *stateFile) {
+			file.Sequences = []savedSequence{{Client: "c\x01", Sequence: 0}}
+		}, `invalid_state: client "c\x01" ` + characters},
+		{"client characters before the order", func(file *stateFile) {
+			file.Sequences = []savedSequence{{Client: "b", Sequence: 1}, {Client: "a_b", Sequence: 1}}
+		}, `invalid_state: client "a_b" ` + characters},
+	} {
+		file := valid
+		test.change(&file)
+		_, err := decodeCheckedState(encodeTestState(t, file))
+		if err == nil || err.Error() != test.want {
+			t.Errorf("%s: %v, want %q", test.name, err, test.want)
+		}
+	}
+}
+
 // TestDecodeStateFileSizeBoundary decodes files of MaxStateBytes and of
 // MaxStateBytes+1 bytes with a good, a bad and a cut gzip trailer. The last
 // read of the larger file also reads the trailer, so a trailer error comes
@@ -718,10 +753,11 @@ func TestStateFileWorstCaseSize(t *testing.T) {
 		t.Fatalf("project has %d bytes, want %d", size, project.MaxFileBytes)
 	}
 
-	// Saved IDs and diagnostic text can contain control bytes. Each byte
-	// then occupies six JSON bytes. The project member already fills its
-	// independent byte cap, so its node and lane IDs can remain short.
-	id = func(_ string, _ int) string { return strings.Repeat("\x01", 64) }
+	// Each saved ID has the largest length. Diagnostic text can contain
+	// control bytes, which JSON writes as 6 bytes each. The project member
+	// already fills its independent byte cap, so its node and lane IDs can
+	// remain short.
+	id = func(_ string, _ int) string { return widestID('x', 0) }
 	const widest = -sim.MaxCounter
 	text := strings.Repeat("\x01", 1<<10)
 	route := func(length int) []int {
@@ -733,7 +769,7 @@ func TestStateFileWorstCaseSize(t *testing.T) {
 	}
 	request := sim.SavedRequest{
 		ID: widest, From: id("f", 0), To: id("t", 0), PartySize: sim.MaxCounter, PodID: id("p", 0),
-		Completed: true, RequestedTick: widest, BoardedTick: widest, DispatchReason: text,
+		Completed: true, RequestedTick: widest, BoardedTick: widest, DispatchReason: widestReason,
 		SharingConsent: sim.PrivateConsent, Service: sim.OnDemandService,
 	}
 	riders, stops := make([]sim.SavedRequest, sim.MaxSharedRideParties), make([]string, sim.MaxSharedRideParties)
@@ -756,13 +792,12 @@ func TestStateFileWorstCaseSize(t *testing.T) {
 		DeferUntil: widest, DeferCheck: widest, DeferPodID: id("p", 0),
 	}
 	trip.Request.SharingConsent = sim.PrivateConsent
-	// A client ID of control characters has the longest JSON form, 6 bytes
-	// for each byte. The last 3 bytes make the IDs increase.
+	// Each client ID has the largest length. The last 4 digits make the
+	// IDs increase.
 	sequences := make([]savedSequence, clientLimit)
 	for index := range sequences {
-		suffix := string([]byte{byte(0x10 + index/256), byte(0x10 + index/16%16), byte(0x10 + index%16)})
 		sequences[index] = savedSequence{
-			Client: strings.Repeat("\x01", maxClientBytes-len(suffix)) + suffix, Sequence: sim.MaxCounter,
+			Client: fmt.Sprintf("%s%04d", strings.Repeat("c", maxClientBytes-4), index), Sequence: sim.MaxCounter,
 		}
 	}
 	demand := config.Demand
@@ -785,7 +820,7 @@ func TestStateFileWorstCaseSize(t *testing.T) {
 		RailConnections: connections,
 		Format:          stateFormat, Version: stateVersion, Final: true,
 		SavedAt: time.Date(2026, time.September, 23, 9, 0, 0, 123456789, time.FixedZone("", -12*60*60)),
-		Build:   testBuildID, Epoch: strings.Repeat("\x01", maxEpochBytes),
+		Build:   testBuildID, Epoch: strings.Repeat("E", maxEpochBytes),
 		Revision: sim.MaxCounter - 1, ProjectRevision: sim.MaxCounter - 1, Generation: sim.MaxCounter - 1,
 		LastCheckpoint: sim.MaxCounter - 1, Speed: 60, RestoreAttempts: sim.MaxCounter, Sequences: sequences,
 		Demand: savedDemand{

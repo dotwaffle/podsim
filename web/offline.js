@@ -14,7 +14,8 @@
   const number = (value, where) => { if (typeof value !== 'number' || !Number.isFinite(value)) fail(`${where}: supply a finite number.`); return value; };
   const integer = (value, where, min = 0) => { number(value, where); if (!Number.isSafeInteger(value) || value < min) fail(`${where}: supply an exact integer of at least ${min}.`); return value; };
   const string = (value, where) => { if (typeof value !== 'string') fail(`${where}: expected text.`); return value; };
-  const id = (value, where) => { string(value, where); if (!value || bytes(value) > 64 || /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/u.test(value)) fail(`${where}: supply 1 to 64 UTF-8 bytes.`); return value; };
+  // An ID has the characters of sim.IDCharacters in internal/sim/text.go.
+  const id = (value, where) => { string(value, where); if (!/^[A-Za-z0-9.+-]{1,64}$/.test(value)) fail(`${where}: supply 1 to 64 letters, digits, '.', '+' or '-'.`); return value; };
   function members(value, fields, where, optional = []) {
     object(value, where);
     for (const key of Object.keys(value)) if (!fields.includes(key)) fail(`${where}: unknown member ${key}.`);

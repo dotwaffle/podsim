@@ -3,7 +3,6 @@ package session
 import (
 	"bytes"
 	"reflect"
-	"strings"
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/project"
@@ -253,7 +252,7 @@ func TestGroupStreamMaximumEncoding(t *testing.T) {
 			vehicle.Riders[j].PartySize = 1
 			vehicle.Riders[j].SharingConsent, vehicle.Riders[j].Service = sim.SharedConsent, sim.OnDemandService
 			vehicle.Riders[j].ServiceID = ""
-			vehicle.Boardings[j] = sim.RiderBoarding{BerthID: strings.Repeat("\x01", 64), MetersAtBoarding: vehicle.RiddenMeters}
+			vehicle.Boardings[j] = sim.RiderBoarding{BerthID: widestID('b', 0), MetersAtBoarding: vehicle.RiddenMeters}
 		}
 	}
 	if len(frame.State.Simulation.Vehicles) != project.MaxPods {

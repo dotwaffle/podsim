@@ -20,7 +20,7 @@ func TestNormalizeTripOptions(t *testing.T) {
 		{"explicit shared group", sharedOrder(8), sharedOrder(8)},
 		{"express", expressOrder(1), expressOrder(1)},
 		{"express group", expressOrder(8), expressOrder(8)},
-		{"whitespace IDs preserve project acceptance", TripOptions{From: " ", To: "\t", SharingConsent: SharedConsent, Service: ExpressServiceChoice, ServiceID: " \t"}, TripOptions{From: " ", To: "\t", PartySize: 1, SharingConsent: SharedConsent, Service: ExpressServiceChoice, ServiceID: " \t"}},
+		{"ID characters", TripOptions{From: "a.B", To: "0+-", SharingConsent: SharedConsent, Service: ExpressServiceChoice, ServiceID: "e.1+x-Y"}, TripOptions{From: "a.B", To: "0+-", PartySize: 1, SharingConsent: SharedConsent, Service: ExpressServiceChoice, ServiceID: "e.1+x-Y"}},
 		{"bounded express ID", TripOptions{From: "harbor", To: "market", PartySize: 1, SharingConsent: SharedConsent, Service: ExpressServiceChoice, ServiceID: strings.Repeat("e", 64)}, TripOptions{From: "harbor", To: "market", PartySize: 1, SharingConsent: SharedConsent, Service: ExpressServiceChoice, ServiceID: strings.Repeat("e", 64)}},
 		{"bounded IDs", TripOptions{From: strings.Repeat("a", 64), To: strings.Repeat("b", 64)}, TripOptions{From: strings.Repeat("a", 64), To: strings.Repeat("b", 64), PartySize: 1, SharingConsent: PrivateConsent, Service: OnDemandService}},
 	} {
@@ -48,6 +48,11 @@ func TestNormalizeTripOptionsRejectsInvalid(t *testing.T) {
 		{"long origin", func(o *TripOptions) { o.From = strings.Repeat("a", 65) }},
 		{"missing destination", func(o *TripOptions) { o.To = "" }},
 		{"long destination", func(o *TripOptions) { o.To = strings.Repeat("a", 65) }},
+		{"space in origin", func(o *TripOptions) { o.From = " " }},
+		{"control in destination", func(o *TripOptions) { o.To = "\t" }},
+		{"express service ID character", func(o *TripOptions) {
+			o.Service, o.ServiceID, o.SharingConsent = ExpressServiceChoice, "express_1", SharedConsent
+		}},
 		{"same station", func(o *TripOptions) { o.To = o.From }},
 		{"negative party", func(o *TripOptions) { o.PartySize = -1 }},
 		{"oversized party", func(o *TripOptions) { o.PartySize = 9 }},

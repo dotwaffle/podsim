@@ -235,13 +235,21 @@ func TestInputAndOutputFailures(t *testing.T) {
 	if err := command([]string{"-project", path}, failedWriter{err: writeErr}); !errors.Is(err, writeErr) {
 		t.Fatalf("write failure lost: %v", err)
 	}
+	// Validation refuses a name with a control character, and the error
+	// quotes the name.
 	config := project.Default()
 	config.Name = "Line\n\x1b[31m"
+	err := command([]string{"-project", projectFile(t, projectData(t, config))}, io.Discard)
+	if err == nil || strings.ContainsAny(err.Error(), "\x1b") || !strings.Contains(err.Error(), `Line\n\x1b[31m`) {
+		t.Fatalf("project name was not refused and quoted: %v", err)
+	}
+	// The summary quotes a name with a quote.
+	config.Name = `Line "A"`
 	var output bytes.Buffer
 	if err := command([]string{"-project", projectFile(t, projectData(t, config))}, &output); err != nil {
 		t.Fatal(err)
 	}
-	if strings.ContainsAny(output.String(), "\x1b") || !strings.Contains(output.String(), `Line\n\x1b[31m`) {
+	if !strings.Contains(output.String(), `"Line \"A\""`) {
 		t.Fatalf("project name was not quoted: %q", &output)
 	}
 }

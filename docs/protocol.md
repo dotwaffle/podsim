@@ -120,6 +120,17 @@ This includes the pending replacement group of a delta and the HTTP state.
 No message has a `textEncoding` member.
 Sequence and base use decimal strings.
 
+Each ID of a message has only the characters A-Z, a-z, 0-9, `.`, `+`, and `-`, so each JSON encoder writes an ID without escapes.
+This includes the stream ID, the server start ID, the epoch, the client ID of a command, and each ID of the project, the pods, the berths, and the orders.
+A name and a dispatch reason are UTF-8 text without a control character, which is a C0 character, DEL, or a C1 character.
+A client refuses an envelope with another character in the stream ID, the server start ID, or the epoch as an invalid stream identity.
+After the route checks of a frame, it refuses another character in a pod, berth, lane, station, stop, platoon, boarding, fault, emergency, or demand ID with the error `frame ID has a character other than A-Z, a-z, 0-9, '.', '+' or '-'`.
+The HTTP state has this check after the reference checks.
+In packed order text, another character gets `order ID has a character other than A-Z, a-z, 0-9, '.', '+' or '-'`, and a control character in a dispatch reason gets `order text has a control character`.
+These checks come after the canonical base64 check.
+A topology gets the project validation error for another character in a network or service ID, or a control character in a station name.
+After that check, another character in its server start ID or epoch gets `topology identity has a character other than A-Z, a-z, 0-9, '.', '+' or '-'`.
+
 Each integer of a message, also in the HTTP state and the topology, is from -9007199254740991 to 9007199254740991, which is 2^53-1.
 A browser reads a JSON number as a float64, which holds each integer in this range exactly.
 The `seed` of the demand settings is the only exception, because it is not a counter and can have 64 bits.
@@ -347,7 +358,7 @@ See [server restarts](#server-restarts).
 A command from another epoch gets `session_changed`.
 A `project` command with a `serverStart` that is not the `serverStart` of the server process also gets `session_changed`.
 Other actions ignore `serverStart`.
-A missing client ID, a client ID that is longer than 100 bytes or is not valid UTF-8, or a sequence of 0 or more than 9007199254740991 gets `invalid_command`.
+A missing client ID, a client ID that is longer than 100 bytes or has a character other than A-Z, a-z, 0-9, `.`, `+`, or `-`, or a sequence of 0 or more than 9007199254740991 gets `invalid_command`.
 After the server records commands from 1,024 clients, a command from a new client gets `client_limit`.
 A command that the server cannot apply gets `command_rejected`.
 The exception is a `project` command to a paused session with a `projectRevision` that is not the current project revision.

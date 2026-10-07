@@ -34,7 +34,9 @@ test('car authoring preserves explicit zeros, omitted private consent, and round
     }
   }
   assert.throws(() => offline.formPlan({lots: [{id: 'lot', hub: 'hub', capacity: ''}], itineraries: []}), /including explicit zeros/);
-  for (const change of [p => {p.itineraries[0].sharingConsent = '';}, p => {p.itineraries[0].sharingConsent = null;}, p => {p.itineraries[0].outwardRefusal = '';}, p => {p.itineraries[0].returnRefusal = 'retry';}, p => {p.itineraries[0].partySize = 9;}, p => {p.itineraries[0].carSeats = 0;}, p => {p.itineraries[0].extra = 1;}, p => {p.lots.push(clone(p.lots[0]));}, p => {p.itineraries.push(clone(p.itineraries[0]));}, p => {p.itineraries[0].destination = p.lots[0].hub;}, p => {p.itineraries[0].id = 'a'.repeat(65);}, p => {p.itineraries[0].id = '\ud800';}, p => {p.itineraries[0].activitySeconds = Number.MAX_SAFE_INTEGER + 1;}]) {
+  assert.throws(() => offline.validatePlan({lots: [{id: 'lot 1', hub: 'hub', capacity: 0}], itineraries: []}), /Lot ID: supply 1 to 64 letters, digits, '\.', '\+' or '-'\./);
+  assert.equal(offline.validatePlan({lots: [{id: 'a.B+0-', hub: 'hub', capacity: 0}], itineraries: []}).lots[0].id, 'a.B+0-');
+  for (const change of [p => {p.itineraries[0].sharingConsent = '';}, p => {p.itineraries[0].sharingConsent = null;}, p => {p.itineraries[0].outwardRefusal = '';}, p => {p.itineraries[0].returnRefusal = 'retry';}, p => {p.itineraries[0].partySize = 9;}, p => {p.itineraries[0].carSeats = 0;}, p => {p.itineraries[0].extra = 1;}, p => {p.lots.push(clone(p.lots[0]));}, p => {p.itineraries.push(clone(p.itineraries[0]));}, p => {p.itineraries[0].destination = p.lots[0].hub;}, p => {p.itineraries[0].id = 'a'.repeat(65);}, p => {p.itineraries[0].id = '\ud800';}, p => {p.itineraries[0].id = 'party 1';}, p => {p.itineraries[0].carID = 'car_1';}, p => {p.lots[0].id = 'lot\u0001';}, p => {p.itineraries[0].activitySeconds = Number.MAX_SAFE_INTEGER + 1;}]) {
     const value = plan(); change(value); assert.throws(() => offline.validatePlan(value));
   }
 });

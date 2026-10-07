@@ -2,10 +2,8 @@ package session
 
 import (
 	"encoding/json/v2"
-	"fmt"
 	"reflect"
 	"slices"
-	"strings"
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/project"
@@ -197,7 +195,7 @@ func TestRailServicesMaximumValidLedger(t *testing.T) {
 	renamed := map[string]string{}
 	for i := range config.Network.Stations {
 		station := &config.Network.Stations[i]
-		renamed[station.ID] = strings.Repeat("\x01", 61) + fmt.Sprintf("%03d", i)
+		renamed[station.ID] = widestID('s', i)
 		station.ID = renamed[station.ID]
 	}
 	for i := range config.Network.Lanes {
@@ -211,7 +209,7 @@ func TestRailServicesMaximumValidLedger(t *testing.T) {
 	config.Demand = DemandConfig{Pattern: "rail-services", PerMinute: 12, Seed: 7}
 	passenger := project.PassengerStations(config.Network)
 	for i := range project.MaxRailDeparturePassengers / 200 {
-		config.RailDepartures = append(config.RailDepartures, project.RailDeparture{ID: strings.Repeat("\x01", 61) + fmt.Sprintf("%03d", i), Station: passenger[0].ID, AtSeconds: 600, RequestFromSeconds: i, RequestUntilSeconds: i, Passengers: 200, Origins: []project.RailOrigin{{Station: passenger[1].ID, Weight: 1}}})
+		config.RailDepartures = append(config.RailDepartures, project.RailDeparture{ID: widestID('d', i), Station: passenger[0].ID, AtSeconds: 600, RequestFromSeconds: i, RequestUntilSeconds: i, Passengers: 200, Origins: []project.RailOrigin{{Station: passenger[1].ID, Weight: 1}}})
 	}
 	s := newRailSession(t, config)
 	for range 15 * sim.TicksPerSecond {

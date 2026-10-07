@@ -198,3 +198,25 @@ func TestPickupReassignmentRecords(t *testing.T) {
 		t.Fatal("reset retained reassignment history")
 	}
 }
+
+// TestSavedDeferralPodIDText checks that a saved waiting trip names a
+// deferral pod with an ID of ID characters, after the order options.
+func TestSavedDeferralPodIDText(t *testing.T) {
+	t.Parallel()
+	state := crossedPickupFixture(t).ExportState()
+	if len(state.Waiting) == 0 {
+		t.Fatal("the fixture has no waiting trip")
+	}
+	if _, err := state.checkContract(); err != nil {
+		t.Fatal(err)
+	}
+	state.Waiting = slices.Clone(state.Waiting)
+	state.Waiting[0].DeferPodID = "0_1"
+	if _, err := state.checkContract(); err == nil || err.Error() != "pending order names a deferral pod that is not an ID" {
+		t.Fatalf("got %v", err)
+	}
+	state.Waiting[0].Request.SharingConsent = "unknown"
+	if _, err := state.checkContract(); err == nil || err.Error() != "pending order lacks valid effective options" {
+		t.Fatalf("got %v, want the options refusal first", err)
+	}
+}

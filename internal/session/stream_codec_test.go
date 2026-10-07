@@ -81,6 +81,24 @@ func TestApplyStreamRefusalOrder(t *testing.T) {
 		{"route identity range", full(func(f *StreamFrame) { f.Routes[0].Identity = sim.MaxCounter + 1 }), "stream route counter is out of range"},
 		{"route start range", full(func(f *StreamFrame) { f.Routes[0].Start = sim.MaxCounter + 1 }), "stream route counter is out of range"},
 		{"route current range", full(func(f *StreamFrame) { f.Routes[0].Current = sim.MaxCounter + 1 }), "stream route counter is out of range"},
+		{"route range before frame IDs", full(func(f *StreamFrame) {
+			f.Routes[0].Current = sim.MaxCounter + 1
+			f.State.Simulation.Vehicles[0].Pod.ID = "pod 1"
+		}), "stream route counter is out of range"},
+		{"pod ID characters", full(func(f *StreamFrame) { f.State.Simulation.Vehicles[0].Pod.ID = "pod 1" }), errFrameIDText.Error()},
+		{"stop characters", full(func(f *StreamFrame) { f.State.Simulation.Vehicles[0].Stops = []string{"a_b"} }), errFrameIDText.Error()},
+		{"platoon characters", full(func(f *StreamFrame) { f.State.Simulation.Vehicles[0].PlatoonID = "b\x01" }), errFrameIDText.Error()},
+		{"berth characters", full(func(f *StreamFrame) {
+			f.State.Simulation.Berths = slices.Clone(f.State.Simulation.Berths)
+			f.State.Simulation.Berths[0].ReservedBy = "p&q"
+		}), errFrameIDText.Error()},
+		{"demand reference characters", full(func(f *StreamFrame) { f.State.Demand.Config.Destination = "harbor<" }), errFrameIDText.Error()},
+		{"stream ID characters before kind", StreamEnvelope{Kind: "other", Stream: "a b", Sequence: 1, Source: sourceOf(base)}, "invalid stream identity"},
+		{"epoch characters before kind", StreamEnvelope{Kind: "other", Stream: "test", Sequence: 1, Source: func() StreamSource {
+			source := sourceOf(base)
+			source.Epoch = "e_1"
+			return source
+		}()}, "invalid stream identity"},
 		{"identity before presence", delta(StreamDelta{}, func(e *StreamEnvelope) { members(true, true, true)(e); e.Stream = "" }),
 			"invalid stream identity"},
 		{"incident before fault presence", delta(StreamDelta{}, members(true, true, true)), errIncidentStreamUnmarked.Error()},

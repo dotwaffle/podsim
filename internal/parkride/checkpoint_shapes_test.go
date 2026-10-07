@@ -39,17 +39,16 @@ func shapeBytes(t *testing.T, value any) int64 {
 	return w.bytes
 }
 
-// shapeID uses 64 valid UTF-8 bytes, each with a six-byte JSON escape.
-// Three suffix bytes distinguish the bounded collections in this test.
+// shapeID returns an ID of 64 ID characters, which JSON writes as 1 byte
+// each. Five suffix digits distinguish the bounded collections in this
+// test.
 func shapeID(index int) string {
-	alphabet := []byte{1, 2, 3, 4, 5, 6, 7, 11, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31}
-	id := []byte(strings.Repeat("\x01", 64))
-	for offset := range 3 {
-		id[63-offset] = alphabet[index%len(alphabet)]
-		index /= len(alphabet)
-	}
-	return string(id)
+	return fmt.Sprintf("%s%05d", strings.Repeat("z", 59), index)
 }
+
+// shapeName is a name of the largest length. JSON writes each quote of it
+// as 2 bytes, the widest character of a name.
+var shapeName = strings.Repeat(`"`, project.MaxNameLength)
 
 // shapeProject reaches the collection limits with a connected passenger
 // loop, authored separate path planes, and an unused directed component.
@@ -58,7 +57,7 @@ func shapeID(index int) string {
 func shapeProject(t *testing.T) project.Config {
 	t.Helper()
 	c := project.Default()
-	c.Name = strings.Repeat("\x01", 80)
+	c.Name = shapeName
 	c.Network, c.Fleet, c.DemandProfiles = sim.Network{}, nil, nil
 	c.Redistribution = false
 	node := func(id string, x, y float64) {
@@ -80,7 +79,7 @@ func shapeProject(t *testing.T) project.Config {
 		if i > 0 {
 			lane(id+"n", fmt.Sprintf("s%03dx", i-1), entry, "", "")
 		}
-		c.Network.Stations = append(c.Network.Stations, sim.Station{ID: id, Name: strings.Repeat("\x01", 80), Entry: entry, Exit: exit, Berths: []sim.Berth{{ID: berth, Node: berth, SeparationGroup: berth}}})
+		c.Network.Stations = append(c.Network.Stations, sim.Station{ID: id, Name: shapeName, Entry: entry, Exit: exit, Berths: []sim.Berth{{ID: berth, Node: berth, SeparationGroup: berth}}})
 		c.Fleet = append(c.Fleet, sim.Placement{ID: shapeID(i), StationID: id, BerthID: berth})
 	}
 	node("re", project.MaxStations*300, 400)
@@ -132,9 +131,9 @@ func shapeProject(t *testing.T) project.Config {
 		lane(fmt.Sprintf("v%d", i), fmt.Sprintf("u%d", i), fmt.Sprintf("u%d", i+2), "", "")
 	}
 	for p := range project.MaxProfiles {
-		profile := project.DemandProfile{ID: shapeID(p), Name: strings.Repeat("\x01", 80)}
+		profile := project.DemandProfile{ID: shapeID(p), Name: shapeName}
 		for b := range project.MaxBands {
-			profile.Bands = append(profile.Bands, project.DemandBand{ID: shapeID(b), Name: strings.Repeat("\x01", 80), DurationMinutes: 60})
+			profile.Bands = append(profile.Bands, project.DemandBand{ID: shapeID(b), Name: shapeName, DurationMinutes: 60})
 		}
 		for from := range 50 {
 			for to := range 50 {
@@ -211,7 +210,7 @@ func shapeNative(waiting int) sim.SavedState {
 	const wideFloat = -0.0000010000000000000002
 	request := sim.SavedRequest{SharingConsent: sim.SharedConsent, Service: sim.OnDemandService, ServiceID: shapeID(0),
 		ID: math.MaxInt, From: shapeID(0), To: shapeID(1), PartySize: math.MaxInt, PodID: shapeID(0), Completed: true,
-		RequestedTick: math.MinInt64, BoardedTick: math.MinInt64, DispatchReason: strings.Repeat("\x01", 1024)}
+		RequestedTick: math.MinInt64, BoardedTick: math.MinInt64, DispatchReason: strings.Repeat(`"`, 1024)}
 	podRoute, waitingRoute := make([]int, project.MaxLanes+project.MaxNodes), make([]int, project.MaxNodes)
 	for i := range podRoute {
 		podRoute[i] = project.MaxLanes - 1
@@ -296,15 +295,16 @@ func TestCheckpointCombinedEncodingShapes(t *testing.T) {
 	}
 	t.Logf("SHAPE public-initial-tick-only bytes=%d project=%d plan=%d native=%d ledger=%d nodes=%d lanes=%d stations=%d pods=%d records=%d lots=%d max-station-berths=200 max-station-banks=8 profiles=8 bands=24 flows-per-profile=2450", public.bytes,
 		shapeBytes(t, config), shapeBytes(t, plan), shapeBytes(t, payload.Native), shapeBytes(t, payload.Ledger), len(config.Network.Nodes), len(config.Network.Lanes), len(config.Network.Stations), len(config.Fleet), len(plan.Itineraries), len(plan.Lots))
-	// All 64-byte escaped node and lane endpoint IDs cannot accompany the
-	// collection maxima inside a 10 MiB project. Even these fields alone
-	// exceed it, before positions, station records, or project settings.
+	// An ID has only ID characters, which JSON writes as 1 byte each, so
+	// 64-byte node and lane endpoint IDs fit a 10 MiB project with the
+	// collection maxima. The shape keeps short node and lane IDs and fills
+	// the project to its byte cap with weights.
 	idBytes := shapeBytes(t, shapeID(0))
-	lowerBound := int64(project.MaxNodes+3*project.MaxLanes) * idBytes
-	if lowerBound <= project.MaxFileBytes {
-		t.Fatal("escaped-ID impossibility bound no longer exceeds the project limit")
+	allLongIDs := int64(project.MaxNodes+3*project.MaxLanes) * idBytes
+	if allLongIDs > project.MaxFileBytes {
+		t.Fatal("64-byte node and lane IDs no longer fit the project limit")
 	}
-	t.Logf("SHAPE impossible-all-escaped-node-lane-ids lower-bound=%d project-cap=%d", lowerBound, project.MaxFileBytes)
+	t.Logf("SHAPE all-long-node-lane-ids bytes=%d project-cap=%d", allLongIDs, project.MaxFileBytes)
 	// Each berth needs a distinct native node. All stations cannot have
 	// 200 berths under the shared 5000-node budget.
 	if project.MaxStations*project.MaxBerths <= project.MaxNodes {

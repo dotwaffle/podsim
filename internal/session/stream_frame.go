@@ -168,6 +168,9 @@ func (a *StreamAssembler) frameCandidate(f StreamFrame) (State, error) {
 	if err := a.references(f); err != nil {
 		return State{}, err
 	}
+	if err := checkFrameIDs(f.State); err != nil {
+		return State{}, err
+	}
 	return state, nil
 }
 

@@ -125,7 +125,6 @@ func TestGroupRecordedRideConsumerRoundTrip(t *testing.T) {
 func testGroupWorstCaseSize(t *testing.T, base stateFile, pod sim.SavedPod, trip sim.SavedTrip) {
 	t.Helper()
 	const wide = 0.0000010000000000000002
-	alphabet := []byte{1, 2, 3, 4, 5, 6, 7, 11, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31}
 	for _, representation := range []string{"historical", "modern", "mixed"} {
 		t.Run("group-"+representation, func(t *testing.T) {
 			file := base
@@ -137,7 +136,7 @@ func testGroupWorstCaseSize(t *testing.T, base stateFile, pod sim.SavedPod, trip
 				t.Fatal(classErr)
 			}
 			for i := range berths {
-				berths[i] = sim.Berth{ID: strings.Repeat("\x01", 62) + string([]byte{alphabet[i/len(alphabet)], alphabet[i%len(alphabet)]}), Node: file.Project.Network.Nodes[i].ID, VehicleClasses: classes}
+				berths[i] = sim.Berth{ID: widestID('b', i), Node: file.Project.Network.Nodes[i].ID, VehicleClasses: classes}
 			}
 			file.Project.Network.Stations[0].ID, file.Project.Network.Stations[0].Berths = stationID, berths
 			file.Project.Network.Stations[0].VehicleClasses, file.Project.Network.Stations[0].Banks = classes, nil
@@ -145,7 +144,7 @@ func testGroupWorstCaseSize(t *testing.T, base stateFile, pod sim.SavedPod, trip
 			file.Simulation.Pods = make([]sim.SavedPod, project.MaxPods)
 			for i := range file.Simulation.Pods {
 				saved := pod
-				saved.ID = strings.Repeat("\x01", 62) + string([]byte{alphabet[i/len(alphabet)], alphabet[i%len(alphabet)]})
+				saved.ID = widestID('p', i)
 				saved.Class = sim.GroupClass
 				saved.Platoon, saved.Boardings = nil, nil
 				saved.RiddenMeters = 0

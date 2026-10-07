@@ -165,13 +165,16 @@ func TestWorkerStructureBounds(t *testing.T) {
 	}
 }
 
-func TestParkRideAllEscapedDestinations(t *testing.T) {
+// TestParkRideAllLongDestinations sends a plan with the largest number of
+// destinations, each with an ID of the largest length. JSON writes each
+// ID character as 1 byte.
+func TestParkRideAllLongDestinations(t *testing.T) {
 	t.Parallel()
 	config, plan := project.Default(), validPlan()
 	config.Network.Stations = []sim.Station{{ID: "hub", Name: "Hub"}}
 	plan.Hub, plan.Destinations = "hub", nil
 	for index := range project.MaxStations - 1 {
-		id := strings.Repeat("\x01", 60) + strconv.Itoa(index)
+		id := strings.Repeat("d", project.MaxIDLength-3) + strconv.Itoa(index+100)
 		config.Network.Stations = append(config.Network.Stations, sim.Station{ID: id, Name: "Destination"})
 		plan.Destinations = append(plan.Destinations, destination{Station: id, Weight: 1})
 	}
@@ -179,7 +182,7 @@ func TestParkRideAllEscapedDestinations(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(encodedPlan) <= 64<<10 || len(encodedPlan) > MaxRequestBytes-project.MaxFileBytes {
+	if len(encodedPlan) > MaxRequestBytes-project.MaxFileBytes {
 		t.Fatalf("constructor envelope %d does not fit its allowance", len(encodedPlan))
 	}
 	encodedProject, err := json.Marshal(config)

@@ -76,6 +76,14 @@ func TestPlanAdmissionAndArithmetic(t *testing.T) {
 		{"duplicate-lot", func(p *Plan) { p.Lots = append(p.Lots, p.Lots[0]) }},
 		{"empty-ID", func(p *Plan) { p.Itineraries[0].ID = "" }},
 		{"long-ID", func(p *Plan) { p.Itineraries[0].CarID = strings.Repeat("x", 65) }},
+		{"lot-ID-character", func(p *Plan) {
+			p.Lots[0].ID = "harbor cars"
+			for i := range p.Itineraries {
+				p.Itineraries[i].Lot = p.Lots[0].ID
+			}
+		}},
+		{"itinerary-ID-character", func(p *Plan) { p.Itineraries[0].ID = "party_1" }},
+		{"car-ID-character", func(p *Plan) { p.Itineraries[0].CarID = "car\x01" }},
 		{"duplicate-itinerary", func(p *Plan) {
 			other := p.Itineraries[0]
 			other.CarID = "other"

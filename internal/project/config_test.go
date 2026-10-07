@@ -454,8 +454,8 @@ func TestDemandChangeKeepsProjectInLimit(t *testing.T) {
 	if err := Validate(config); err != nil {
 		t.Fatal(err)
 	}
-	control := strings.Repeat("\x01", MaxIDLength)
-	demand := DemandConfig{PerMinute: 120, Pattern: "balanced", Seed: math.MaxUint64, Destination: control, Profile: control, Band: control}
+	reference := strings.Repeat("z", MaxIDLength)
+	demand := DemandConfig{PerMinute: 120, Pattern: "balanced", Seed: math.MaxUint64, Destination: reference, Profile: reference, Band: reference}
 	if err := ValidateDemand(demand, DemandContext{Network: config.Network, Profiles: config.DemandProfiles}); err != nil {
 		t.Fatal(err)
 	}
@@ -473,24 +473,28 @@ func TestDemandChangeKeepsProjectInLimit(t *testing.T) {
 // accepts have a longer encoding.
 func TestWidestDemandBoundsDemandSettings(t *testing.T) {
 	t.Parallel()
-	control := strings.Repeat("\x01", MaxIDLength)
+	reference := strings.Repeat("z", MaxIDLength)
 	network := CloneNetwork(Default().Network)
-	network.Stations[0].ID = control
-	context := DemandContext{Network: network, Profiles: []DemandProfile{{ID: control, Bands: []DemandBand{{ID: control}}}}, RailArrivals: []RailArrival{{ID: "train", Station: control, Passengers: 1, Destinations: []RailDestination{{Station: "market", Weight: 1}}}}}
+	network.Stations[0].ID = reference
+	context := DemandContext{Network: network, Profiles: []DemandProfile{{ID: reference, Bands: []DemandBand{{ID: reference}}}}, RailArrivals: []RailArrival{{ID: "train", Station: reference, Passengers: 1, Destinations: []RailDestination{{Station: "market", Weight: 1}}}}}
 	tooFast := DemandConfig{PerMinute: widestDemand.PerMinute + 1, Pattern: "balanced"}
 	if err := ValidateDemand(tooFast, context); err == nil {
 		t.Errorf("ValidateDemand accepted %d orders per minute", tooFast.PerMinute)
 	}
-	tooLong := DemandConfig{PerMinute: 1, Pattern: "balanced", Band: control + "x"}
+	tooLong := DemandConfig{PerMinute: 1, Pattern: "balanced", Band: reference + "x"}
 	if err := ValidateDemand(tooLong, context); err == nil {
 		t.Errorf("ValidateDemand accepted a reference of %d bytes", len(tooLong.Band))
+	}
+	control := DemandConfig{PerMinute: 1, Pattern: "balanced", Band: "\x01"}
+	if err := ValidateDemand(control, context); err == nil || err.Error() != `ID "\x01" has a character other than A-Z, a-z, 0-9, '.', '+' or '-'` {
+		t.Errorf("ValidateDemand accepted a control character in a reference: %v", err)
 	}
 	widest := len(canonicalJSON(t, widestDemand))
 	for _, enabled := range []bool{false, true} {
 		for _, pattern := range []string{"balanced", "market", "destination", "profile", "rail-arrivals"} {
 			demand := DemandConfig{
 				Enabled: enabled, PerMinute: widestDemand.PerMinute, Pattern: pattern, Seed: math.MaxUint64,
-				Destination: control, Profile: control, Band: control,
+				Destination: reference, Profile: reference, Band: reference,
 			}
 			if err := ValidateDemand(demand, context); err != nil {
 				t.Fatalf("pattern %s: %v", pattern, err)
@@ -500,16 +504,10 @@ func TestWidestDemandBoundsDemandSettings(t *testing.T) {
 			}
 		}
 	}
-	// A control character has the longest escape. Compare it with each
-	// ASCII character and with some characters of 2 to 4 bytes.
-	runes := []rune{'\u00e9', '\u2028', '\ufffd', '\U0001f600'}
-	for r := range rune(utf8.RuneSelf) {
-		runes = append(runes, r)
-	}
-	for _, r := range runes {
-		reference := strings.Repeat(string(r), MaxIDLength/utf8.RuneLen(r))
-		if got, want := len(canonicalJSON(t, reference)), len(canonicalJSON(t, control)); got > want {
-			t.Errorf("rune %U: reference encodes to %d bytes, more than %d", r, got, want)
+	// No ID character has an escape.
+	for _, c := range []byte(sim.IDCharacters) {
+		if got, want := len(canonicalJSON(t, strings.Repeat(string(c), MaxIDLength))), len(canonicalJSON(t, reference)); got != want {
+			t.Errorf("character %q: reference encodes to %d bytes, not %d", c, got, want)
 		}
 	}
 }
@@ -848,6 +846,7 @@ func TestValidateCheckOrder(t *testing.T) {
 		"validatePlatoonLimit",
 		"validateGeoAndMap",
 		"validateNames",
+		"validateCharacters",
 		"validateNetworkShape",
 		"validateProjectDemand",
 		"validateScenario",
@@ -904,6 +903,41 @@ func TestValidateRefusalOrder(t *testing.T) {
 		{"map_before_names", func(config *Config) {
 			config.Map, config.Network.Stations[0].Name = &MapBackground{Provider: "osm"}, strings.Repeat("x", MaxNameLength+1)
 		}, "a map background needs a geographic reference"},
+		{"names_before_characters", func(config *Config) {
+			config.Network.Lanes[0].ID, config.Name = strings.Repeat("_", MaxIDLength+1), "Pod\x01"
+		}, fmt.Sprintf("lane IDs must contain 1 to %d characters", MaxIDLength)},
+		{"project_name_before_ids", func(config *Config) { config.Name, config.Network.Nodes[0].ID = "Pod\x01", "a_b" },
+			`name "Pod\x01" has a control character or is not UTF-8`},
+		{"nodes_before_station_names", func(config *Config) {
+			config.Network.Nodes[0].ID, config.Network.Stations[0].Name = "a_b", "Harbor\u0085"
+		}, `ID "a_b" has a character other than A-Z, a-z, 0-9, '.', '+' or '-'`},
+		{"station_names_before_fleet", func(config *Config) {
+			config.Network.Stations[0].Name, config.Fleet[0].ID = "Harbor\x7f", "0 1"
+		}, `name "Harbor\x7f" has a control character or is not UTF-8`},
+		{"fleet_before_profiles", func(config *Config) {
+			profile := testDemandProfile()
+			profile.Bands[0].Name = "AM\tpeak"
+			config.Fleet[0].ID, config.DemandProfiles = "0 1", []DemandProfile{profile}
+		}, `ID "0 1" has a character other than A-Z, a-z, 0-9, '.', '+' or '-'`},
+		{"profiles_before_rail_text", func(config *Config) {
+			profile := testDemandProfile()
+			profile.Bands[0].Name = "AM\tpeak"
+			arrival := testRailArrival()
+			arrival.ID = "train/1"
+			config.DemandProfiles, config.RailArrivals = []DemandProfile{profile}, []RailArrival{arrival}
+		}, `name "AM\tpeak" has a control character or is not UTF-8`},
+		{"rail_text_before_demand_text", func(config *Config) {
+			arrival := testRailArrival()
+			arrival.ID = "train/1"
+			config.RailArrivals, config.Demand.Destination = []RailArrival{arrival}, "harbor&"
+		}, `ID "train/1" has a character other than A-Z, a-z, 0-9, '.', '+' or '-'`},
+		{"express_text_before_demand_text", func(config *Config) {
+			config.ExpressServices, config.Demand.Destination = []sim.ExpressService{{ID: "a<b"}}, "harbor&"
+		}, `ID "a<b" has a character other than A-Z, a-z, 0-9, '.', '+' or '-'`},
+		{"characters_before_lanes", func(config *Config) {
+			duplicatePath(config)
+			config.Demand.Destination = "harbor&"
+		}, `ID "harbor&" has a character other than A-Z, a-z, 0-9, '.', '+' or '-'`},
 		{"lanes_before_geometry", func(config *Config) {
 			duplicatePath(config)
 			config.Network.Nodes[0].Position.X = MaxCoordinate + 1

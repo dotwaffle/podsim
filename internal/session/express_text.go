@@ -21,7 +21,22 @@ func packOrderText(text string, limit int) (string, error) {
 	return base64.StdEncoding.EncodeToString([]byte(text)), nil
 }
 
-func unpackOrderText(raw []byte, limit int) (string, error) {
+// The limits of packed order text. A dispatch reason is free text, and
+// each other packed field is an ID.
+const (
+	orderIDBytes   = 64
+	orderTextBytes = 1024
+)
+
+// unpackOrderText decodes the packed JSON string raw. When text is true,
+// raw holds free text of at most orderTextBytes bytes without a control
+// character. Otherwise raw holds an ID of at most orderIDBytes bytes of
+// sim.IDCharacters, or no ID.
+func unpackOrderText(raw []byte, text bool) (string, error) {
+	limit := orderIDBytes
+	if text {
+		limit = orderTextBytes
+	}
 	// Check the literal token before allocating the decoded bytes.
 	if len(raw) < 2 || raw[0] != '"' || raw[len(raw)-1] != '"' || len(raw)-2 > base64.StdEncoding.EncodedLen(limit) {
 		return "", errors.New("invalid packed order text size")
@@ -36,19 +51,26 @@ func unpackOrderText(raw []byte, limit int) (string, error) {
 	if err != nil || len(decoded) > limit || !utf8.Valid(decoded) || base64.StdEncoding.EncodeToString(decoded) != string(packed) {
 		return "", errors.New("invalid canonical order text")
 	}
+	switch {
+	case text && !sim.ValidText(string(decoded)):
+		return "", errors.New("order text has a control character")
+	case !text && !sim.ValidIDText(string(decoded)):
+		return "", errors.New("order ID has a character other than A-Z, a-z, 0-9, '.', '+' or '-'")
+	}
 	return string(decoded), nil
 }
 
 func transformOrderText(fields []*string, decode bool) error {
 	for i, field := range fields {
-		limit := 64
-		if i == 3 {
-			limit = 1024
+		// The fourth field is the dispatch reason.
+		text, limit := i == 3, orderIDBytes
+		if text {
+			limit = orderTextBytes
 		}
 		var next string
 		var err error
 		if decode {
-			next, err = unpackOrderText([]byte(`"`+*field+`"`), limit)
+			next, err = unpackOrderText([]byte(`"`+*field+`"`), text)
 		} else {
 			next, err = packOrderText(*field, limit)
 		}
@@ -121,7 +143,7 @@ func scanPackedOrders(data []byte) error {
 		if !order {
 			continue
 		}
-		limit := 64
+		text := false
 		switch token.String() {
 		case "from", "to", "podID", "serviceID":
 		case "legFrom":
@@ -130,7 +152,7 @@ func scanPackedOrders(data []byte) error {
 				continue
 			}
 		case "dispatchReason":
-			limit = 1024
+			text = true
 		default:
 			continue
 		}
@@ -138,7 +160,7 @@ func scanPackedOrders(data []byte) error {
 		if err != nil {
 			return err
 		}
-		if _, err = unpackOrderText(raw, limit); err != nil {
+		if _, err = unpackOrderText(raw, text); err != nil {
 			return err
 		}
 	}

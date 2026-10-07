@@ -20,10 +20,19 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-// requalText returns valid UTF-8 text of exactly size bytes. It repeats
-// an escaped control byte, a quote, a backslash and two multibyte runes.
+// requalText returns valid UTF-8 text of exactly size bytes without a
+// control character. It repeats a quote, a backslash, an HTML character
+// and two multibyte runes.
 func requalText(size int) string {
-	const unit = "\x01\"\\é中"
+	const unit = "\"\\&é中"
+	text := strings.Repeat(unit, size/len(unit))
+	return text + strings.Repeat("x", size-len(text))
+}
+
+// requalID returns an ID of exactly size bytes of each kind of ID
+// character.
+func requalID(size int) string {
+	const unit = "aZ0.+-"
 	text := strings.Repeat(unit, size/len(unit))
 	return text + strings.Repeat("x", size-len(text))
 }
@@ -53,7 +62,7 @@ func expressRequalSave(t *testing.T) stateFile {
 	file.Simulation.Waiting = []sim.SavedTrip{{Request: file.Simulation.Pods[0].Riders[0]}}
 	waiting := &file.Simulation.Waiting[0].Request
 	waiting.ID, waiting.RequestedTick = sim.MaxCounter, sim.MaxCounter
-	waiting.DispatchReason, waiting.PodID = requalText(1024), requalText(64)
+	waiting.DispatchReason, waiting.PodID = requalText(1024), requalID(64)
 
 	rider := sim.SavedRequest{
 		ID: 1, From: "harbor", To: "market", PartySize: 1, SharingConsent: sim.SharedConsent, Service: sim.ExpressServiceChoice,
@@ -97,7 +106,7 @@ func TestExpressRequalSaveShapes(t *testing.T) {
 		`"boardings":[[0,0],[0,0.000001],[0,1e-7],[0,0.0000010000000000000002],[0,5e-324],[0,1000000000000000],[0,1e+21],`,
 		`"journeyOrigin":"harbor-1"`, `"riddenMeters":1.7976931348623157e+308`, `"id":9007199254740991`, `"requestedTick":9007199254740991`,
 		`"dispatchReason":"` + base64.StdEncoding.EncodeToString([]byte(requalText(1024))) + `"`,
-		`"podID":"` + base64.StdEncoding.EncodeToString([]byte(requalText(64))) + `"`,
+		`"podID":"` + base64.StdEncoding.EncodeToString([]byte(requalID(64))) + `"`,
 	} {
 		if !bytes.Contains(raw, []byte(want)) {
 			t.Errorf("the save does not contain %s", want)
@@ -152,6 +161,8 @@ func TestExpressRequalSavePackedTextRefusals(t *testing.T) {
 		size      = "invalid packed order text size"
 		literal   = "packed order text must use literal base64"
 		canonical = "invalid canonical order text"
+		idText    = "order ID has a character other than A-Z, a-z, 0-9, '.', '+' or '-'"
+		freeText  = "order text has a control character"
 	)
 	encode := func(text string) string { return base64.StdEncoding.EncodeToString([]byte(text)) }
 	for _, field := range []struct {
@@ -163,6 +174,10 @@ func TestExpressRequalSavePackedTextRefusals(t *testing.T) {
 		{"rider dispatchReason", "requal-ridert", 1024},
 		{"rider podID", "requal-podr", 64},
 	} {
+		character, characterErr, widest := "requal_x", idText, requalID(field.limit)
+		if field.limit == orderTextBytes {
+			character, characterErr, widest = "requal\x7f", freeText, requalText(field.limit)
+		}
 		token := encode(field.text)
 		if !strings.HasSuffix(token, "=") || bytes.Count(raw, []byte(`"`+token+`"`)) != 1 {
 			t.Fatalf("%s: token %s needs padding and one place in the save", field.name, token)
@@ -177,6 +192,7 @@ func TestExpressRequalSavePackedTextRefusals(t *testing.T) {
 			{"invalid UTF-8", `"` + encode("\xff") + `"`, canonical},
 			{"decoded limit plus one", `"` + encode(strings.Repeat("x", field.limit+1)) + `"`, canonical},
 			{"encoded limit plus one", `"` + encode(strings.Repeat("x", field.limit+3)) + `"`, size},
+			{"character", `"` + encode(character) + `"`, characterErr},
 			{"null", `null`, size},
 			{"number", `1`, size},
 		} {
@@ -189,7 +205,7 @@ func TestExpressRequalSavePackedTextRefusals(t *testing.T) {
 				}
 			})
 		}
-		limit := bytes.Replace(raw, []byte(`"`+token+`"`), []byte(`"`+encode(requalText(field.limit))+`"`), 1)
+		limit := bytes.Replace(raw, []byte(`"`+token+`"`), []byte(`"`+encode(widest)+`"`), 1)
 		if _, err := decodeStateFile(compressTestJSON(t, limit)); err != nil {
 			t.Fatalf("%s: refused text at the decoded limit: %v", field.name, err)
 		}

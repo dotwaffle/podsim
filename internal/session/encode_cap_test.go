@@ -115,19 +115,20 @@ func TestEncodeCapsAtCallers(t *testing.T) {
 	})
 
 	t.Run("HTTP topology", func(t *testing.T) {
-		// The topology preflight measures the topology at the largest
-		// project revision and the widest epoch of the session, with the
-		// encoding of this cap, so no session reaches it (see
-		// TestTopologyPreflightAtCallers). The test calls EncodeStateJSON
-		// with the topology and the frame of a session at that revision,
-		// and then with an epoch of one more character.
-		config := escapedTopologyProject(t, project.MaxFileBytes+4096)
-		s, err := NewWithProject(config)
+		// No valid project has a topology at this cap (see
+		// TestTopologyPreflightAtCallers). The test gives the topology of
+		// a session the station names of a project whose topology, as the
+		// preflight measures it, is at the cap. It calls EncodeStateJSON
+		// with that topology and the frame of the session at the largest
+		// project revision, and then with an epoch of one more character.
+		config := topologyProject(t, project.MaxFileBytes+4096)
+		s, err := NewWithProject(topologyProject(t, 0))
 		if err != nil {
 			t.Fatal(err)
 		}
 		defer s.Close()
 		escaped := s.Topology()
+		escaped.Network = config.Network
 		escapedFrame, err := s.presentationFrame()
 		if err != nil {
 			t.Fatal(err)
@@ -293,11 +294,15 @@ func padTopologyMember(t *testing.T, raw []byte, size int) []byte {
 	}
 }
 
-// escapedTopologyProject returns a valid plain project whose topology, as
-// the topology preflight measures it, has size bytes. Each ID and each separation group
-// has 56 "<" and 8 digits. The station names set the exact size: a "<"
-// adds 6 bytes, and a letter adds 1.
-func escapedTopologyProject(t *testing.T, size int) project.Config {
+// topologyProject returns a plain project with project.MaxStations
+// stations and project.MaxPods pods. Each ID and each separation group has
+// 64 ID characters. When size is 0, each station name has
+// project.MaxNameLength "<", which the topology encoding writes as 6
+// bytes, and the project is valid. Otherwise the station names give the
+// topology, as the topology preflight measures it, size bytes. No valid
+// project has a topology at the cap, so such names are longer than a
+// valid name. A "<" adds 6 bytes, and a letter adds 1.
+func topologyProject(t *testing.T, size int) project.Config {
 	t.Helper()
 	config, err := scenarios.Config(scenarios.Parameters{Name: "escaped topology", Stations: project.MaxStations, Pods: project.MaxPods, PassengerBerths: 6, ParkingBerths: 6, DemandPerMinute: 1})
 	if err != nil {
@@ -306,7 +311,7 @@ func escapedTopologyProject(t *testing.T, size int) project.Config {
 	ids := map[string]string{}
 	rename := func(id *string) {
 		if _, ok := ids[*id]; !ok {
-			ids[*id] = strings.Repeat("<", 56) + fmt.Sprintf("%08d", len(ids))
+			ids[*id] = widestID('i', len(ids))
 		}
 		*id = ids[*id]
 	}
@@ -342,7 +347,7 @@ func escapedTopologyProject(t *testing.T, size int) project.Config {
 				rename(&bank.BerthIDs[k])
 			}
 		}
-		station.Name = "a"
+		station.Name = strings.Repeat("<", project.MaxNameLength)
 	}
 	for i := range config.Fleet {
 		rename(&config.Fleet[i].StationID)
@@ -351,24 +356,29 @@ func escapedTopologyProject(t *testing.T, size int) project.Config {
 	if config.Demand.Destination != "" {
 		rename(&config.Demand.Destination)
 	}
+	if size == 0 {
+		if err := project.Validate(config); err != nil {
+			t.Fatal(err)
+		}
+		return config
+	}
 	// Each name of n letters "<" and m letters "a" adds 6n+m-1 bytes to a
-	// name of one letter. With at most 454 bytes for each name, n is at
-	// most 75 and m at most 5.
+	// name of one letter.
+	for i := range network.Stations {
+		network.Stations[i].Name = "a"
+	}
 	extra := size - escapedTopologySize(t, config)
 	if extra < 0 {
 		t.Fatalf("the topology has %d bytes with names of one letter, more than %d", size-extra, size)
 	}
 	for i := range network.Stations {
-		add := min(extra, 454)
+		add := extra / (len(network.Stations) - i)
 		extra -= add
 		n := (add + 1) / 6
 		network.Stations[i].Name = strings.Repeat("<", n) + strings.Repeat("a", add+1-6*n)
 	}
-	if extra != 0 || escapedTopologySize(t, config) != size {
+	if escapedTopologySize(t, config) != size {
 		t.Fatalf("the names cannot give a topology of %d bytes", size)
-	}
-	if err := project.Validate(config); err != nil {
-		t.Fatal(err)
 	}
 	return config
 }

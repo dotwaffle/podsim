@@ -348,6 +348,54 @@
       "replace": "\"version\":1,\"stationBuffers\":true",
       "duplicate": false,
       "valid": false
+    },
+    {
+      "name": "pod ID of each ID character",
+      "base": "plain",
+      "find": "\"id\":\"01\"",
+      "replace": "\"id\":\"0.1+A-z\"",
+      "duplicate": false,
+      "valid": true
+    },
+    {
+      "name": "pod ID with an underscore",
+      "base": "plain",
+      "find": "\"id\":\"01\"",
+      "replace": "\"id\":\"0_1\"",
+      "duplicate": false,
+      "valid": false
+    },
+    {
+      "name": "pod ID with a space",
+      "base": "banks",
+      "find": "\"id\":\"01\"",
+      "replace": "\"id\":\"0 1\"",
+      "duplicate": false,
+      "valid": false
+    },
+    {
+      "name": "pod ID with an escaped control character",
+      "base": "express",
+      "find": "\"id\":\"01\"",
+      "replace": "\"id\":\"0\\u00011\"",
+      "duplicate": false,
+      "valid": false
+    },
+    {
+      "name": "project name with an escaped control character",
+      "base": "plain",
+      "find": "\"name\":\"Podsim example\"",
+      "replace": "\"name\":\"Podsim\\u0007example\"",
+      "duplicate": false,
+      "valid": false
+    },
+    {
+      "name": "project name with escaped HTML characters",
+      "base": "plain",
+      "find": "\"name\":\"Podsim example\"",
+      "replace": "\"name\":\"Podsim \\u003cA \\u0026 B\\u003e\"",
+      "duplicate": false,
+      "valid": true
     }
   ]
 }

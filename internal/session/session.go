@@ -641,10 +641,10 @@ func (s *Session) applyCommand(command Command, digest commandDigest) commandRes
 	// restart then has the ID of the earlier server process.
 	case command.Action == "project" && command.ServerStart != "" && command.ServerStart != s.serverStart:
 		reply.reject(SessionChanged, "The server restarted. Review the current state and try again.")
-	// A state save stores the client ID and the sequence. The JSON encoder
-	// accepts only valid UTF-8, and the save decoder accepts a sequence of at
-	// most sim.MaxCounter.
-	case command.Client == "" || len(command.Client) > maxClientBytes || !utf8.ValidString(command.Client) ||
+	// A state save stores the client ID and the sequence. The save decoder
+	// accepts a client ID of sim.IDCharacters and a sequence of at most
+	// sim.MaxCounter.
+	case command.Client == "" || len(command.Client) > maxClientBytes || !sim.ValidIDText(command.Client) ||
 		command.Sequence == 0 || command.Sequence > sim.MaxCounter:
 		reply.reject(InvalidCommand, "Invalid client or command sequence.")
 	default:

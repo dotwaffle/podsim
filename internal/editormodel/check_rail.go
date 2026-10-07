@@ -118,7 +118,7 @@ func checkRailArrivals(value any, passenger map[string]bool, errors *checkList) 
 
 func checkRailIdentity(event any, prefix string, passenger, ids map[string]bool, errors *checkList) {
 	id := member(event, "id")
-	if value, ok := id.(string); !ok || value == "" || len(value) > project.MaxIDLength || ids[value] {
+	if value, ok := id.(string); !ok || !validID(value) || ids[value] {
 		errors.add(prefix+" has an invalid or duplicate ID.", nil)
 	}
 	ids[text(id)] = true

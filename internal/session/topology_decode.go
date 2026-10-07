@@ -68,6 +68,12 @@ func (topology *TopologySnapshot) UnmarshalJSON(data []byte) error {
 	if err := decoded.Network.ValidateStationBanks(); err != nil {
 		return err
 	}
+	if err := project.ValidateNetworkText(decoded.Network, decoded.ExpressServices); err != nil {
+		return err
+	}
+	if !sim.ValidIDText(decoded.ServerStart) || !sim.ValidIDText(decoded.Epoch) {
+		return errors.New("topology identity has a character other than A-Z, a-z, 0-9, '.', '+' or '-'")
+	}
 	if markers.express {
 		if err := validateStreamTopology(TopologySnapshot(decoded), contract); err != nil {
 			return err

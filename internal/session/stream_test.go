@@ -281,23 +281,29 @@ func maximumStreamFrame(t *testing.T) StreamFrame {
 	fillStreamScalars(reflect.ValueOf(&f.State).Elem())
 	// A demand seed is not a counter, so it can have 64 bits.
 	f.State.Demand.Config.Seed = math.MaxUint64
+	// The session identity and the demand references are IDs. The
+	// identity keeps the restored-text bound.
+	f.State.ServerStart, f.State.Epoch = strings.Repeat("x", 1024), strings.Repeat("x", 1024)
+	config := &f.State.Demand.Config
+	config.Destination, config.Profile, config.Band = widestID('d', 0), widestID('d', 1), widestID('d', 2)
 	// Keep the maximum fixture in its original stream family.
 	f.State.Simulation.Interrupted, f.State.Simulation.InterruptedPassengers = 0, 0
-	escaped := strings.Repeat("\x01", 64)
-	reason := strings.Repeat("\x01", 1024)
-	request := sim.Request{ID: sim.MaxCounter, From: escaped, To: escaped, PodID: escaped, PartySize: sim.MaxCounter, SharingConsent: sim.PrivateConsent, Service: sim.OnDemandService, RequestedTick: sim.MaxCounter, BoardedTick: sim.MaxCounter, DispatchReason: reason}
+	// Each ID has the largest length. An enumerated value has control
+	// bytes, which JSON writes as 6 bytes each, because the stream decoder
+	// does not check its value.
+	id, escaped := widestID('p', 0), strings.Repeat("\x01", 64)
+	request := sim.Request{ID: sim.MaxCounter, From: id, To: id, PodID: id, PartySize: sim.MaxCounter, SharingConsent: sim.PrivateConsent, Service: sim.OnDemandService, RequestedTick: sim.MaxCounter, BoardedTick: sim.MaxCounter, DispatchReason: widestReason}
 	// Restored pending requests include QueueLimit plus every pod party.
 	f.State.Simulation.Pending = slices.Repeat([]sim.Request{request}, maxSavedTrips)
 	f.State.Simulation.Vehicles = make([]VehicleFrame, project.MaxPods)
 	f.Routes = make([]sim.RoutePresentation, project.MaxPods)
 	for i := range f.Routes {
-		p := sim.Pod{Class: sim.LegacyClass, ID: escaped, StationID: escaped, BerthID: escaped, LaneID: escaped, BlockedBy: escaped, ManeuverStationID: escaped, Activity: sim.Activity(escaped), WaitReason: sim.WaitReason(escaped), StationPhase: sim.StationPhase(escaped), Position: sim.Point{X: math.MaxFloat64, Y: -math.MaxFloat64}, LaneDistance: math.MaxFloat64, Speed: math.MaxFloat64}
-		f.State.Simulation.Vehicles[i] = VehicleFrame{Pod: p, Riders: slices.Repeat([]sim.Request{request}, 8), Stops: slices.Repeat([]string{escaped}, 8), RelocatingTo: escaped, Rebalancing: true, PlatoonID: escaped, PlatoonIndex: sim.MaxCounter}
+		p := sim.Pod{Class: sim.LegacyClass, ID: id, StationID: id, BerthID: id, LaneID: id, BlockedBy: id, ManeuverStationID: id, Activity: sim.Activity(escaped), WaitReason: sim.WaitReason(escaped), StationPhase: sim.StationPhase(escaped), Position: sim.Point{X: math.MaxFloat64, Y: -math.MaxFloat64}, LaneDistance: math.MaxFloat64, Speed: math.MaxFloat64}
+		f.State.Simulation.Vehicles[i] = VehicleFrame{Pod: p, Riders: slices.Repeat([]sim.Request{request}, 8), Stops: slices.Repeat([]string{id}, 8), RelocatingTo: id, Rebalancing: true, PlatoonID: id, PlatoonIndex: sim.MaxCounter}
 		f.Routes[i] = sim.RoutePresentation{Identity: sim.MaxCounter, Display: slices.Repeat([]int{project.MaxLanes - 1}, project.MaxLanes), Origin: project.MaxNodes - 1, Lanes: slices.Repeat([]int{project.MaxLanes - 1}, sim.MotionRouteLimit), Start: sim.MaxCounter, Current: sim.MaxCounter, Before: true, After: true}
 	}
 	// Berths have unique nodes, so MaxNodes also bounds their total count.
-	f.State.Simulation.Berths = slices.Repeat([]sim.BerthState{{ID: escaped, Occupant: escaped, ReservedBy: escaped}}, project.MaxNodes)
-	f.State.Simulation.DemoError = reason
+	f.State.Simulation.Berths = slices.Repeat([]sim.BerthState{{ID: id, Occupant: id, ReservedBy: id}}, project.MaxNodes)
 	f.State.Build = "0123456789abcdef"
 	f.State.Checkpoints = make([]Checkpoint, checkpointLimit)
 	for i := range f.State.Checkpoints {
@@ -323,7 +329,7 @@ func maximumStreamRepresentation(t *testing.T, representation string) StreamFram
 		v := &f.State.Simulation.Vehicles[i]
 		v.Pod.Class = sim.CompactClass
 		v.RiddenMeters = 0.0000010000000000000002
-		v.Boardings = slices.Repeat([]sim.RiderBoarding{{BerthID: strings.Repeat("\x01", 64), MetersAtBoarding: 0.0000010000000000000002}}, 8)
+		v.Boardings = slices.Repeat([]sim.RiderBoarding{{BerthID: widestID('b', 0), MetersAtBoarding: 0.0000010000000000000002}}, 8)
 		for j := range v.Riders {
 			v.Riders[j].PartySize = sim.MaxNewPartySize
 			v.Riders[j].SharingConsent = sim.SharedConsent

@@ -62,14 +62,20 @@ const (
 	composedEmergencyStreamAllocation = 196_608
 )
 
-// composedServiceID is the widest service ID of an order.
-var composedServiceID = strings.Repeat("\x03", 64)
-
-// widestControlID returns an ID of 64 control bytes, 6 JSON bytes each. The
-// last 2 bytes make the IDs of index differ. index is less than 256.
-func widestControlID(fill byte, index int) string {
-	return strings.Repeat(string([]byte{fill}), 62) + string([]byte{byte(0x10 + index/16), byte(0x10 + index%16)})
+// widestID returns an ID of project.MaxIDLength characters: fill, and then
+// the 5 digits of index. fill is one of sim.IDCharacters, and index is less
+// than 100,000. Each encoder of the server writes each ID character as 1
+// byte, so each ID of the largest length has the same size.
+func widestID(fill byte, index int) string {
+	return fmt.Sprintf("%s%05d", strings.Repeat(string([]byte{fill}), project.MaxIDLength-5), index)
 }
+
+// widestReason is a dispatch reason of the largest saved length. Order text
+// is packed, so its characters do not change its size.
+var widestReason = strings.Repeat("r", 1<<10)
+
+// composedServiceID is the widest service ID of an order.
+var composedServiceID = widestID('e', 0)
 
 // composedIncidentProject gives config the incident marker and
 // project.MaxStations stations, so that a station index has 3 digits. The
@@ -307,9 +313,9 @@ func composedBaseSave(t *testing.T, shape composedShape) stateFile {
 // contract to frame at the widest values that ApplyStream accepts: the
 // counters, holds 3 and the longest purpose on each vehicle, and a leg
 // origin of 64 bytes on each rider and each pending order. Packed text of
-// 64 bytes always has 88 bytes, so the leg origin needs no escapes.
+// 64 bytes always has 88 bytes.
 func composedIncidentFrame(frame StreamFrame) StreamFrame {
-	legFrom := strings.Repeat("\x04", 64)
+	legFrom := widestID('g', 0)
 	simulation := &frame.State.Simulation
 	simulation.IncidentContract = sim.IncidentV1Contract
 	simulation.Interrupted, simulation.InterruptedPassengers = sim.MaxCounter, sim.MaxCounter
@@ -334,8 +340,8 @@ func composedIncidentFrame(frame StreamFrame) StreamFrame {
 // accepts: the fault marker, the counters at sim.MaxCounter, and 300
 // pod records and 64 debris records. Each record has a 16-digit generation
 // and serial, and 16-digit ticks. A pod record names a vehicle of its own,
-// which has an ID of 386 JSON bytes, and has the phase evacuated. A debris
-// record has a lane ID of 386 JSON bytes and the widest segment. The start
+// which has an ID of 66 JSON bytes, and has the phase evacuated. A debris
+// record has a lane ID of 66 JSON bytes and the widest segment. The start
 // of a record is not after the frame tick, so the frame tick is
 // sim.MaxCounter. The vehicle IDs of frame must differ.
 func composedFaultFrame(frame StreamFrame) StreamFrame {
@@ -350,7 +356,7 @@ func composedFaultFrame(frame StreamFrame) StreamFrame {
 		if i < len(simulation.Vehicles) {
 			fault.Kind, fault.PodID, fault.Phase, fault.EvacuateTick = sim.FaultKindPod, simulation.Vehicles[i].Pod.ID, sim.FaultPhaseEvacuated, &end
 		} else {
-			fault.Kind, fault.LaneID, fault.FromMeters, fault.ToMeters = sim.FaultKindDebris, widestControlID(0x14, i-len(simulation.Vehicles)), &from, &to
+			fault.Kind, fault.LaneID, fault.FromMeters, fault.ToMeters = sim.FaultKindDebris, widestID('l', i-len(simulation.Vehicles)), &from, &to
 		}
 		active[i] = fault
 	}
@@ -359,15 +365,11 @@ func composedFaultFrame(frame StreamFrame) StreamFrame {
 	return frame
 }
 
-// composedVehicleEscapes are the control bytes that JSON writes as 6 bytes.
-const composedVehicleEscapes = "\x01\x02\x03\x04\x05\x06\x07\x0b\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f"
-
-// composedVehicleID returns the ID of vehicle index: 64 control bytes, 386
-// JSON bytes, as the ID of the widest builders. Vehicle 0 keeps the ID of
-// the widest builders, which the other members of the frame name.
+// composedVehicleID returns the ID of vehicle index, of the size of the
+// IDs of the widest builders. Vehicle 0 keeps the pod ID of the widest
+// builders, which the other members of the frame name.
 func composedVehicleID(index int) string {
-	n := len(composedVehicleEscapes)
-	return strings.Repeat("\x01", 62) + string([]byte{composedVehicleEscapes[index/n], composedVehicleEscapes[index%n]})
+	return widestID('p', index)
 }
 
 // composedStreamFrame returns the composed frame of shape with the stage
@@ -437,6 +439,8 @@ func TestComposedWorstCaseFormats(t *testing.T) { //nolint:tparallel // Subtests
 			Method: "Each fixture has the widest value of each member that a server can write and that the version 9 save decoder or the hello 6 stream decoder accepts. " +
 				"The values are independent maxima, not reachable placement or motion. " +
 				"Each integer is from -9007199254740991 to 9007199254740991, the range that the decoders accept; only a demand seed can have 64 bits. " +
+				"Each ID has 64 characters from A-Z, a-z, 0-9, '.', '+' and '-', which each encoder writes as 1 byte, and each dispatch reason has 1,024 bytes. " +
+				"Error text and enum members keep control bytes, which JSON writes as 6 bytes each, because the decoders do not check their characters. " +
 				"The decoder accepts a route on each waiting trip, but a server writes at most 300: dispatch gives a waiting trip a route only when it assigns a pod, each pod has at most one assigned trip, and a physical restore keeps waiting routes within its block budget. " +
 				"Plain save: widestSavedBase with 300 compact-class pods, each with the widest platoon link, and 2,600 trips, 300 of them with a route. " +
 				"Express save: widestExpressSave, with 300 Express pods that have 20 riders and 20 boarding records, and 8,600 trips. " +
@@ -457,7 +461,7 @@ func TestComposedWorstCaseFormats(t *testing.T) { //nolint:tparallel // Subtests
 				"In the streams, the emergencies have the largest counters and 4 rows with the phase unloading, each for a vehicle of its own, with a 16-digit generation and serial, and a 16-digit order and start tick. " +
 				"Streams: plain is maximumStreamFrame with compact vehicles, boarding records and service IDs; Express is widestExpressStreamFrame. " +
 				"The delta changes each vehicle, berth and group from an empty base. " +
-				"The HTTP state has the widest topology that fits the topology cap of 10,489,856 bytes; bound_bytes sets the topology member to that cap. " +
+				"The HTTP state has the widest topology of a valid project, with 64-byte IDs and station names of 80 characters '&'; bound_bytes sets the topology member to the topology cap of 10,489,856 bytes. " +
 				"Gzip bytes use gzip level 1, as the server does. " +
 				"Saves decode with decodeStateFile and resolveBoardings, and streams with DecodeStreamJSON. " +
 				"The HTTP state decodes with the bounded scans and the typed decode of DecodeStateJSON, without the state checks of the stream assembler.",
@@ -579,7 +583,7 @@ func measureComposedStream(t *testing.T, shape composedShape) []composedSize {
 	// DecodeStateJSON, because its values are independent maxima. The test
 	// encodes it with the options of EncodeStateJSON, and it decodes it with
 	// the bounded scans and the typed decode of DecodeStateJSON.
-	topology, _ := fitWidestTopology(t, shape.markers)
+	topology := widestTopology(t, shape.markers)
 	fault := frame
 	fault.State.Simulation.EmergencyContract, fault.State.Simulation.Emergencies = "", sim.EmergenciesView{}
 	incident := fault
@@ -748,8 +752,9 @@ func composedStreamSize(t *testing.T, shape composedShape, format string, raw []
 // TestEmergencyByteAllocation encodes the stage 3 members with 300 records
 // at their widest, the pod limit, with no prescan and no decode (section
 // 14.4 of the incident emergency contract). Section 11.6 gives the totals
-// for 20-digit numbers. The decoders accept at most 16 digits
-// (sim.MaxCounter), so the totals are smaller. They fit the stage 3
+// for 20-digit numbers and pod IDs of control bytes. The decoders accept
+// at most 16 digits (sim.MaxCounter), and a pod ID has only ID
+// characters, so the totals are smaller. They fit the stage 3
 // allocations, so the budget holds for any record cap up to the pod limit.
 func TestEmergencyByteAllocation(t *testing.T) {
 	t.Parallel()
@@ -779,13 +784,13 @@ func TestEmergencyByteAllocation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(widest) != 514 {
-		t.Errorf("the widest row has %d bytes, want 514", len(widest))
+	if len(widest) != 194 {
+		t.Errorf("the widest row has %d bytes, want 194", len(widest))
 	}
 	stream := member("emergencies", sim.EmergenciesView{Active: views, Counters: composedEmergencyCounters}, json.DefaultOptionsV1())
 	marker := member("emergencyContract", sim.EmergencyV1Contract)
-	if stream != 154_626 || marker != 35 || stream+2*marker > composedEmergencyStreamAllocation {
-		t.Errorf("the stream member has %d bytes and each marker %d, want 154,626 and 35 within the allocation of %d", stream, marker, composedEmergencyStreamAllocation)
+	if stream != 58_626 || marker != 35 || stream+2*marker > composedEmergencyStreamAllocation {
+		t.Errorf("the stream member has %d bytes and each marker %d, want 58,626 and 35 within the allocation of %d", stream, marker, composedEmergencyStreamAllocation)
 	}
 	t.Logf("save member=%d allocation=%d stream member=%d markers=%d allocation=%d", saved, composedEmergencySaveAllocation, stream, 2*marker, composedEmergencyStreamAllocation)
 }

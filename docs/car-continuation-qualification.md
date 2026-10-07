@@ -115,7 +115,10 @@ Four larger envelopes measure 297,507,537; 1,265,591,604; 514,549,468; and 884,2
 This fixture measures encoding and rejection, not physical state reachability or replay.
 The measurement receipt records each exact shape and byte count.
 Independent codec maxima must not be read as reachable physical states.
-Some independent maxima cannot coexist: 60,000 berth nodes exceed the 5,000-node limit, and all maximum flow or fully escaped network-ID collections exceed the 10 MiB component cap.
+Some independent maxima cannot coexist: 60,000 berth nodes exceed the 5,000-node limit, and all maximum flow collections exceed the 10 MiB component cap.
+These measurements come before the ID character rule.
+An ID now has only the characters A-Z, a-z, 0-9, `.`, `+`, and `-`, and a name has no control character, so the escaped IDs and names of these fixtures are not valid.
+The test now uses 64-byte IDs of 1-byte characters, and names of 80 quote characters.
 
 The preallocation scanner rejects invalid UTF-8, duplicate decoded names, unknown fields, null required values, wrong scalar types, excess nesting, and excess path-specific arrays before typed allocation.
 It checks native pending plus retained rider records against two offers per itinerary.

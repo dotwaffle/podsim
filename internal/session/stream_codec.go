@@ -411,7 +411,8 @@ func checkStreamEnvelope(e StreamEnvelope, previous StreamFrame) error {
 		return err
 	}
 	// The sequence is a JSON string, so the integer scan does not bound it.
-	if e.Stream == "" || e.Sequence == 0 || e.Sequence > sim.MaxCounter || e.Source.ServerStart == "" || e.Source.Epoch == "" {
+	if e.Stream == "" || e.Sequence == 0 || e.Sequence > sim.MaxCounter || e.Source.ServerStart == "" || e.Source.Epoch == "" ||
+		!sim.ValidIDText(e.Stream) || !sim.ValidIDText(e.Source.ServerStart) || !sim.ValidIDText(e.Source.Epoch) {
 		return errors.New("invalid stream identity")
 	}
 	if err := checkIncidentPresence(e, previous); err != nil {
@@ -576,6 +577,54 @@ func checkStreamFrame(f StreamFrame) error {
 		// bound them.
 		if route := f.Routes[i]; route.Identity > sim.MaxCounter || route.Start > sim.MaxCounter || route.Current > sim.MaxCounter {
 			return errors.New("stream route counter is out of range")
+		}
+	}
+	return checkFrameIDs(f.State)
+}
+
+// errFrameIDText means that a frame has an ID with a character other than
+// sim.IDCharacters.
+var errFrameIDText = errors.New("frame ID has a character other than A-Z, a-z, 0-9, '.', '+' or '-'")
+
+// checkFrameIDs refuses a frame with an ID that is not of
+// sim.IDCharacters. It checks the demand references, and the IDs of the
+// vehicles, their boarding records, the berths, the faults and the
+// emergencies. The decoder checks the packed IDs of the riders and the
+// pending orders, and checkFaultFrame and checkEmergencyFrame check the
+// fault and emergency IDs.
+func checkFrameIDs(state StateFrame) error {
+	ids := func(values ...string) bool {
+		return !slices.ContainsFunc(values, func(id string) bool { return !sim.ValidIDText(id) })
+	}
+	if demand := state.Demand.Config; !ids(demand.Destination, demand.Profile, demand.Band) {
+		return errFrameIDText
+	}
+	s := state.Simulation
+	for _, v := range s.Vehicles {
+		p := v.Pod
+		if !ids(p.ID, p.StationID, p.BerthID, p.LaneID, p.BlockedBy, p.ManeuverStationID, v.RelocatingTo, v.PlatoonID) ||
+			!ids(v.Stops...) || !ids(v.RouteLaneIDs...) {
+			return errFrameIDText
+		}
+		for _, boarding := range v.Boardings {
+			if !sim.ValidIDText(boarding.BerthID) {
+				return errFrameIDText
+			}
+		}
+	}
+	for _, berth := range s.Berths {
+		if !ids(berth.ID, berth.Occupant, berth.ReservedBy) {
+			return errFrameIDText
+		}
+	}
+	for _, fault := range s.Faults.Active {
+		if !ids(fault.PodID, fault.LaneID) {
+			return errFrameIDText
+		}
+	}
+	for _, emergency := range s.Emergencies.Active {
+		if !sim.ValidIDText(emergency.PodID) {
+			return errFrameIDText
 		}
 	}
 	return nil

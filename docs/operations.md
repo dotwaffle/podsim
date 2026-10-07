@@ -345,6 +345,12 @@ Within the scan, the depth and the size checks of a value come before its intege
 A file with a larger integer gets `invalid_state` with the error `JSON integer is out of range`.
 A saved revision, project revision, or generation of 2^53-1 also gets `invalid_state`, because the restore adds 1 to it.
 After that check, a saved last save point of 2^53-1 gets `invalid_state` with the error `last save point ... is at the largest value`, because the next save point adds 1 to it.
+Each ID of a version 9 file has only the characters A-Z, a-z, 0-9, `.`, `+`, and `-`.
+Each name and each dispatch reason is UTF-8 text without a control character, which is a C0 character, DEL, or a C1 character.
+After the length check of the epoch, an epoch with another character gets `invalid_state` with the error `epoch ... has a character other than A-Z, a-z, 0-9, '.', '+' or '-'`.
+After the length check of a client ID, a client ID with another character gets the error `client ... has a character other than A-Z, a-z, 0-9, '.', '+' or '-'`.
+After the canonical base64 check, packed order text with another character gets `order ID has a character other than A-Z, a-z, 0-9, '.', '+' or '-'`, and a dispatch reason with a control character gets `order text has a control character`.
+The embedded project gets the error of project validation.
 The server does not try to recover any part of such a file.
 A file of more than 80 MiB is the only exception: the server keeps it, turns saving off, and fails to start.
 The server checks the fault records before either tier.

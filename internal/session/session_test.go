@@ -107,8 +107,13 @@ func TestCommandClientRules(t *testing.T) {
 	}{
 		{"no client ID", "", 1, InvalidCommand},
 		{"client ID of 101 bytes", strings.Repeat("c", maxClientBytes+1), 1, InvalidCommand},
-		// A state save cannot encode such an ID.
+		// The save decoder refuses such an ID.
 		{"client ID not UTF-8", "c\xff", 1, InvalidCommand},
+		{"client ID with a space", "c d", 1, InvalidCommand},
+		{"client ID with an underscore", "c_d", 1, InvalidCommand},
+		{"client ID with a control character", "c\x01", 1, InvalidCommand},
+		// The editor gives such an ID when the browser has no UUID source.
+		{"client ID of each ID character", "editor-1759800000000-0.5+Az9", 1, ""},
 		{"sequence 0", "c", 0, InvalidCommand},
 		// A state save stores the sequence, and the save decoder accepts at
 		// most sim.MaxCounter.

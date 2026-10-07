@@ -206,7 +206,7 @@ func TestExpressPublicNumericRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	request := sim.Request{ID: sim.MaxCounter, From: "harbor", To: "market", PartySize: 20, SharingConsent: sim.SharedConsent, Service: sim.ExpressServiceChoice, ServiceID: "harbor-market", RequestedTick: sim.MaxCounter - 2, DispatchReason: strings.Repeat("\x01", 1000) + "é中\"\\"}
+	request := sim.Request{ID: sim.MaxCounter, From: "harbor", To: "market", PartySize: 20, SharingConsent: sim.SharedConsent, Service: sim.ExpressServiceChoice, ServiceID: "harbor-market", RequestedTick: sim.MaxCounter - 2, DispatchReason: strings.Repeat("&", 1000) + "é中\"\\"}
 	frame.State.Simulation.Pending = []sim.Request{request}
 	frame.State.Simulation.Tick = sim.MaxCounter
 	frame.State.Simulation.PassengerDistanceMeters = 0.0000010000000000000002
@@ -345,7 +345,7 @@ func expressReferenceSuccessor(frame StreamFrame) StreamFrame {
 	next.State.Simulation.Tick++
 	picked := next.State.Simulation.Pending[0]
 	next.State.Simulation.Pending = slices.Clone(next.State.Simulation.Pending[1:])
-	next.State.Simulation.Pending[0].DispatchReason = strings.Repeat("\x01", 1019) + "after"
+	next.State.Simulation.Pending[0].DispatchReason = strings.Repeat("r", 1019) + "after"
 	vehicle := &next.State.Simulation.Vehicles[0]
 	picked.PodID = vehicle.Pod.ID
 	picked.Completed = false

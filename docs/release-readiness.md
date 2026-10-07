@@ -112,12 +112,13 @@ Each saved state with the earlier names has a version before 9, so the server mo
 The editor refuses a project file with the earlier names.
 
 The [composed worst-case record](measurements/composed-worst-case-formats.json) measures one fixture for each shape and format.
-Its latest change limits each integer to 2^53-1, so each counter, tick, serial, and generation of a fixture has at most 16 digits.
+It limits each integer to 2^53-1, so each counter, tick, serial, and generation of a fixture has at most 16 digits.
+Its latest change limits each ID to the characters A-Z, a-z, 0-9, `.`, `+`, and `-`, which each encoder writes as 1 byte.
 Each fixture has every landed member at its widest at the same time.
 The values are independent maxima, not reachable states.
 Every fixture fits its cap.
-The narrowest stream shape is the Express HTTP state, with 1,477,013 bytes below the 65 MiB cap.
-The narrowest save shape is Express, with 6,763,612 bytes below the 80 MiB cap.
+The narrowest stream shape is the Express HTTP state, with 9,783,253 bytes below the 65 MiB cap.
+The narrowest save shape is Express, with 14,430,072 bytes below the 80 MiB cap.
 
 ## Express operating limits
 

@@ -46,7 +46,7 @@ func checkProfile(profile any, ids, passenger map[string]bool, errors *checkList
 	ids[text(id)] = true
 	prefix := "Demand profile " + text(id)
 	name := member(profile, "name")
-	if strings.TrimSpace(text(name)) == "" || len(text(name)) > project.MaxNameLength {
+	if strings.TrimSpace(text(name)) == "" || len(text(name)) > project.MaxNameLength || !sim.ValidText(text(name)) {
 		errors.add(prefix+" has an invalid name.", nil)
 	}
 	bands, flows := items(member(profile, "bands")), items(member(profile, "flows"))
@@ -85,7 +85,7 @@ func checkProfileBands(bands []any, prefix string, errors *checkList) {
 // name, or a start or duration outside one day.
 func invalidBand(band any, bandIDs map[string]bool) bool {
 	bandID, start, duration := member(band, "id"), member(band, "startMinute"), member(band, "durationMinutes")
-	return !validID(bandID) || bandIDs[text(bandID)] || strings.TrimSpace(text(member(band, "name"))) == "" ||
+	return !validID(bandID) || bandIDs[text(bandID)] || strings.TrimSpace(text(member(band, "name"))) == "" || !sim.ValidText(text(member(band, "name"))) ||
 		!integer(start) || number(start) < 0 || number(start) >= 1440 || !integer(duration) || number(duration) < 1 || number(duration) > 1440
 }
 
@@ -145,7 +145,7 @@ func checkDemand(value any, passenger map[string]bool, errors *checkList) {
 		errors.add("The passenger demand pattern is invalid.", nil)
 	}
 	if has(demand, "destination") {
-		if destination, ok := member(demand, "destination").(string); !ok || len(destination) > project.MaxIDLength {
+		if destination, ok := member(demand, "destination").(string); !ok || len(destination) > project.MaxIDLength || !sim.ValidIDText(destination) {
 			errors.add("The passenger demand destination is invalid.", nil)
 		}
 	}

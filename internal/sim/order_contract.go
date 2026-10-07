@@ -113,7 +113,7 @@ func (state SavedState) checkContractRoutes() error {
 	}
 	bound := make(map[string]bool)
 	for _, trip := range state.Waiting {
-		if !utf8.ValidString(trip.DeferPodID) || len(trip.DeferPodID) > 64 {
+		if !utf8.ValidString(trip.DeferPodID) || len(trip.DeferPodID) > 64 || !ValidIDText(trip.DeferPodID) {
 			return errors.New("the Express deferral pod ID needs bounded UTF-8")
 		}
 		if len(trip.Route) == 0 {

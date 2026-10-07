@@ -87,9 +87,17 @@ func draftPlatoonLimit(value any) bool {
 	return ok && project.ValidPlatoonLimit(limit)
 }
 
+// validID reports whether value is an ID of 1 to project.MaxIDLength
+// bytes, each one of sim.IDCharacters.
 func validID(value any) bool {
 	id, ok := value.(string)
-	return ok && strings.TrimSpace(id) != "" && len(id) <= project.MaxIDLength
+	return ok && id != "" && len(id) <= project.MaxIDLength && sim.ValidIDText(id)
+}
+
+// idTextMessage returns the check message for an ID of kind with a
+// character that is not one of sim.IDCharacters.
+func idTextMessage(kind, id string) string {
+	return fmt.Sprintf("%s ID %q has a character other than A-Z, a-z, 0-9, '.', '+' or '-'.", kind, id)
 }
 func has(value any, key string) bool { _, ok := object(value)[key]; return ok }
 
@@ -141,6 +149,9 @@ func preparedDraftChecks(value any, prepared *preparedChecks) checkReport {
 	}
 	if len(text(name)) > project.MaxNameLength {
 		errors.add(fmt.Sprintf("The scenario name exceeds %d bytes.", project.MaxNameLength), nil)
+	}
+	if !sim.ValidText(text(name)) {
+		errors.add("The scenario name has a control character.", nil)
 	}
 	network := member(value, "network")
 	if object(network) == nil || items(member(network, "nodes")) == nil || items(member(network, "lanes")) == nil || items(member(network, "stations")) == nil {
@@ -215,6 +226,9 @@ func (ids draftIDs) add(value any, kind, targetKind string, errors *checkList) {
 	id := text(value)
 	if len(id) > project.MaxIDLength {
 		errors.add(fmt.Sprintf("%s ID exceeds %d bytes.", kind, project.MaxIDLength), target(targetKind, value))
+	}
+	if !sim.ValidIDText(id) {
+		errors.add(idTextMessage(kind, id), target(targetKind, value))
 	}
 	if strings.TrimSpace(id) == "" {
 		errors.add(kind+" has no ID.", nil)
@@ -317,6 +331,9 @@ func (g *draftNetwork) checkStations(ids draftIDs, pairs map[[2]string]bool, err
 		}
 		if len(text(member(station, "name"))) > project.MaxNameLength {
 			errors.add(fmt.Sprintf("Station %s name exceeds %d bytes.", label(id), project.MaxNameLength), at)
+		}
+		if !sim.ValidText(text(member(station, "name"))) {
+			errors.add("Station "+label(id)+" name has a control character.", at)
 		}
 		berths := items(member(station, "berths"))
 		if len(berths) > project.MaxBerths {
@@ -465,6 +482,9 @@ func checkFleet(value any, g *draftNetwork, errors *checkList) {
 		id := member(pod, "id")
 		if len(text(id)) > project.MaxIDLength {
 			errors.add(fmt.Sprintf("A pod ID exceeds %d bytes.", project.MaxIDLength), nil)
+		}
+		if !sim.ValidIDText(text(id)) {
+			errors.add(idTextMessage("A pod", text(id)), nil)
 		}
 		if strings.TrimSpace(text(id)) == "" {
 			errors.add("A pod has no ID.", nil)

@@ -368,3 +368,37 @@ func TestChecksRefuseSpeedLimitAboveCounter(t *testing.T) {
 	}
 	t.Fatal("no fixture 044")
 }
+
+// TestChecksRefuseIDAndNameCharacters checks the editor messages for an ID
+// with a character other than sim.IDCharacters and for a name with a
+// control character.
+func TestChecksRefuseIDAndNameCharacters(t *testing.T) {
+	t.Parallel()
+	const characters = "has a character other than A-Z, a-z, 0-9, '.', '+' or '-'."
+	for _, test := range []struct {
+		name string
+		edit func(*project.Config)
+		want string
+	}{
+		{"node ID", func(c *project.Config) { c.Network.Nodes[0].ID = "a_b" }, `A node ID "a_b" ` + characters},
+		{"pod ID", func(c *project.Config) { c.Fleet[0].ID = "0 1" }, `A pod ID "0 1" ` + characters},
+		{"scenario name", func(c *project.Config) { c.Name = "Pod\x01" }, "The scenario name has a control character."},
+		{"station name", func(c *project.Config) { c.Network.Stations[0].Name = "Harbor\u0085" }, "Station harbor name has a control character."},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			config := project.Default()
+			config.Network = project.CloneNetwork(config.Network)
+			config.Fleet = slices.Clone(config.Fleet)
+			test.edit(&config)
+			var draft map[string]any
+			if err := json.Unmarshal(encodeDraft(t, config), &draft); err != nil {
+				t.Fatal(err)
+			}
+			got := draftChecks(draft)
+			if !slices.ContainsFunc(got.Errors, func(item check) bool { return item.Text == test.want }) {
+				t.Fatalf("got %+v, want %q", got.Errors, test.want)
+			}
+		})
+	}
+}

@@ -305,6 +305,9 @@ func (state SavedState) checkContract() (int, error) {
 		if !validSavedOptionsWithOrderContract(trip.Request, state.OrderContract) {
 			return 0, errors.New("pending order lacks valid effective options")
 		}
+		if len(trip.DeferPodID) > orderIDBytes || !ValidIDText(trip.DeferPodID) {
+			return 0, errors.New("pending order names a deferral pod that is not an ID")
+		}
 		if err := use(trip.Request.ID, "in the queue"); err != nil {
 			return 0, err
 		}

@@ -13,7 +13,6 @@ import (
 	"math"
 	"slices"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/sim"
@@ -193,7 +192,9 @@ func normalizePlan(plan Plan, network sim.Network) (Plan, error) {
 	return plan, nil
 }
 
-func validID(id string) bool { return id != "" && len(id) <= 64 && utf8.ValidString(id) }
+// validID reports whether id has 1 to 64 bytes, each one of
+// sim.IDCharacters.
+func validID(id string) bool { return id != "" && len(id) <= 64 && sim.ValidIDText(id) }
 
 type times struct{ departure, arrival, notBefore, activity, retrieval, homebound int64 }
 

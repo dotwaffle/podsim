@@ -42,10 +42,11 @@ func widestSavedBase(t *testing.T) stateFile {
 		t.Fatalf("project has %d bytes, want %d", size, project.MaxFileBytes)
 	}
 
-	// Saved IDs and diagnostic text can contain control bytes. Each byte
-	// then occupies six JSON bytes. The project member already fills its
-	// independent byte cap, so its node and lane IDs can remain short.
-	id = func(_ string, _ int) string { return strings.Repeat("\x01", 64) }
+	// Each saved ID has the largest length. Diagnostic text can contain
+	// control bytes, which JSON writes as 6 bytes each. The project member
+	// already fills its independent byte cap, so its node and lane IDs can
+	// remain short.
+	id = func(_ string, _ int) string { return widestID('x', 0) }
 	const widest = -sim.MaxCounter
 	text := strings.Repeat("\x01", 1<<10)
 	route := func(length int) []int {
@@ -57,7 +58,7 @@ func widestSavedBase(t *testing.T) stateFile {
 	}
 	request := sim.SavedRequest{
 		ID: widest, From: id("f", 0), To: id("t", 0), PartySize: sim.MaxCounter, PodID: id("p", 0),
-		Completed: true, RequestedTick: widest, BoardedTick: widest, DispatchReason: text,
+		Completed: true, RequestedTick: widest, BoardedTick: widest, DispatchReason: widestReason,
 		SharingConsent: sim.PrivateConsent, Service: sim.OnDemandService,
 	}
 	riders, stops := make([]sim.SavedRequest, sim.MaxSharedRideParties), make([]string, sim.MaxSharedRideParties)
@@ -80,13 +81,12 @@ func widestSavedBase(t *testing.T) stateFile {
 		DeferUntil: widest, DeferCheck: widest, DeferPodID: id("p", 0),
 	}
 	trip.Request.SharingConsent = sim.PrivateConsent
-	// A client ID of control characters has the longest JSON form, 6 bytes
-	// for each byte. The last 3 bytes make the IDs increase.
+	// Each client ID has the largest length. The last 4 digits make the
+	// IDs increase.
 	sequences := make([]savedSequence, clientLimit)
 	for index := range sequences {
-		suffix := string([]byte{byte(0x10 + index/256), byte(0x10 + index/16%16), byte(0x10 + index%16)})
 		sequences[index] = savedSequence{
-			Client: strings.Repeat("\x01", maxClientBytes-len(suffix)) + suffix, Sequence: sim.MaxCounter,
+			Client: fmt.Sprintf("%s%04d", strings.Repeat("c", maxClientBytes-4), index), Sequence: sim.MaxCounter,
 		}
 	}
 	demand := config.Demand
@@ -109,7 +109,7 @@ func widestSavedBase(t *testing.T) stateFile {
 		RailConnections: connections,
 		Format:          stateFormat, Version: stateVersion, Final: true,
 		SavedAt: time.Date(2026, time.September, 23, 9, 0, 0, 123456789, time.FixedZone("", -12*60*60)),
-		Build:   testBuildID, Epoch: strings.Repeat("\x01", maxEpochBytes),
+		Build:   testBuildID, Epoch: strings.Repeat("E", maxEpochBytes),
 		Revision: sim.MaxCounter - 1, ProjectRevision: sim.MaxCounter - 1, Generation: sim.MaxCounter - 1,
 		LastCheckpoint: sim.MaxCounter - 1, Speed: 60, RestoreAttempts: sim.MaxCounter, Sequences: sequences,
 		Demand: savedDemand{
@@ -156,10 +156,10 @@ func widestExpressSave(t *testing.T) stateFile {
 	if err != nil {
 		t.Fatal(err)
 	}
-	from, to := strings.Repeat("\x01", 64), strings.Repeat("\x02", 64)
+	from, to := widestID('f', 0), widestID('t', 0)
 	berths := make([]sim.Berth, project.MaxBerths)
 	for i := range berths {
-		berths[i] = sim.Berth{ID: fmt.Sprintf("%059s%05d", strings.Repeat("\x01", 59), i), Node: base.Project.Network.Nodes[i].ID, VehicleClasses: classes}
+		berths[i] = sim.Berth{ID: widestID('b', i), Node: base.Project.Network.Nodes[i].ID, VehicleClasses: classes}
 	}
 	base.Project.Network.Stations = []sim.Station{{ID: from, Name: "source", Entry: base.Project.Network.Nodes[0].ID, Exit: base.Project.Network.Nodes[1].ID, Berths: berths, VehicleClasses: classes}, {ID: to, Name: "target", Entry: base.Project.Network.Nodes[2].ID, Exit: base.Project.Network.Nodes[3].ID, Berths: []sim.Berth{{ID: "target", Node: base.Project.Network.Nodes[2].ID, VehicleClasses: classes}}, VehicleClasses: classes}}
 	for i := range base.Project.Network.Lanes {
@@ -177,19 +177,19 @@ func widestExpressSave(t *testing.T) stateFile {
 		r.From, r.To = from, to
 		r.PartySize = 20
 		r.SharingConsent, r.Service = sim.SharedConsent, sim.ExpressServiceChoice
-		r.ServiceID = strings.Repeat("\x03", 64)
+		r.ServiceID = composedServiceID
 	}
 	pod.StationID, pod.BerthID = from, berths[199].ID
 	base.Simulation.Pods = make([]sim.SavedPod, 300)
 	for i := range base.Simulation.Pods {
 		p := pod
-		p.ID = fmt.Sprintf("%059s%05d", strings.Repeat("\x01", 59), i)
+		p.ID = widestID('p', i)
 		base.Simulation.Pods[i] = p
 		base.Project.Fleet[i] = sim.Placement{ID: p.ID, Class: p.Class, StationID: from, BerthID: berths[i%200].ID}
 	}
 	base.Project.ExpressServices = make([]sim.ExpressService, 300)
 	for i := range base.Project.ExpressServices {
-		base.Project.ExpressServices[i] = sim.ExpressService{ID: fmt.Sprintf("%059s%05d", strings.Repeat("\x03", 59), i), From: from, To: to, Class: sim.ExpressClass, PartyLimit: 20}
+		base.Project.ExpressServices[i] = sim.ExpressService{ID: widestID('e', i), From: from, To: to, Class: sim.ExpressClass, PartyLimit: 20}
 	}
 	trip := base.Simulation.Waiting[0]
 	trip.Request = pod.Riders[0]
@@ -261,10 +261,10 @@ func widestExpressStreamFrame(t *testing.T) StreamFrame {
 	frame := maximumStreamFrame(t)
 	frame.State.Simulation.OrderContract = sim.ExpressOrderContract
 	request := frame.State.Simulation.Pending[0]
-	request.From, request.To = strings.Repeat("\x01", 64), strings.Repeat("\x02", 64)
+	request.From, request.To = widestID('f', 0), widestID('t', 0)
 	request.PartySize = 20
 	request.SharingConsent, request.Service = sim.SharedConsent, sim.ExpressServiceChoice
-	request.ServiceID = strings.Repeat("\x03", 64)
+	request.ServiceID = composedServiceID
 	frame.State.Simulation.Pending = slices.Repeat([]sim.Request{request}, 8600)
 	for i := range frame.State.Simulation.Vehicles {
 		v := &frame.State.Simulation.Vehicles[i]
@@ -274,7 +274,7 @@ func widestExpressStreamFrame(t *testing.T) StreamFrame {
 		r := request
 		r.Completed = true
 		v.Riders = slices.Repeat([]sim.Request{r}, 20)
-		v.Boardings = slices.Repeat([]sim.RiderBoarding{{BerthID: strings.Repeat("\x01", 64), MetersAtBoarding: v.RiddenMeters}}, 20)
+		v.Boardings = slices.Repeat([]sim.RiderBoarding{{BerthID: widestID('b', 0), MetersAtBoarding: v.RiddenMeters}}, 20)
 	}
 	return frame
 }
@@ -341,18 +341,14 @@ func TestExpressWidestStreamAdapters(t *testing.T) {
 	}
 }
 
-// widestTopology returns a topology of the largest network, with IDs that
-// contain escapes control bytes. markers select the Express services. The
-// HTTP topology cap bounds the member whatever it contains.
-func widestTopology(t *testing.T, escapes int, markers contractMarkers) TopologySnapshot {
+// widestTopology returns a topology of the largest network. Each ID has
+// the largest length, and each station name has the largest length in
+// "&", which the topology encoding writes as 6 bytes. markers select the
+// Express services. The HTTP topology cap bounds the member whatever it
+// contains.
+func widestTopology(t *testing.T, markers contractMarkers) TopologySnapshot {
 	t.Helper()
-	id := func(prefix string, i int) string {
-		width := escapes
-		if prefix == "s" || prefix == "b" || prefix == "e" || prefix == "l" && i == 0 {
-			width = 58
-		}
-		return prefix + strings.Repeat("\x01", width) + strings.Repeat("x", 58-width) + fmt.Sprintf("%05d", i)
-	}
+	id := func(prefix string, i int) string { return widestID(prefix[0], i) }
 	classes, err := sim.NewClassSet("legacy", "compact", "group", "express")
 	if err != nil {
 		t.Fatal(err)
@@ -370,7 +366,7 @@ func widestTopology(t *testing.T, escapes int, markers contractMarkers) Topology
 			count++
 		}
 		station := &topology.Network.Stations[i]
-		*station = sim.Station{ID: id("s", i), Name: strings.Repeat("\x01", 80), VehicleClasses: classes, Berths: make([]sim.Berth, count)}
+		*station = sim.Station{ID: id("s", i), Name: strings.Repeat("&", project.MaxNameLength), VehicleClasses: classes, Berths: make([]sim.Berth, count)}
 		for j := range station.Berths {
 			station.Berths[j] = sim.Berth{ID: id("b", next), Node: id("n", next), SeparationGroup: id("r", next), VehicleClasses: classes}
 			next++
@@ -390,29 +386,6 @@ func widestTopology(t *testing.T, escapes int, markers contractMarkers) Topology
 	return topology
 }
 
-// fitWidestTopology returns the widest topology of markers whose JSON form
-// fits the HTTP topology cap, and the first escape count that does not fit.
-func fitWidestTopology(t *testing.T, markers contractMarkers) (TopologySnapshot, int) {
-	t.Helper()
-	var topology TopologySnapshot
-	lo, hi := 0, 58
-	for lo <= hi {
-		mid := (lo + hi) / 2
-		candidate := widestTopology(t, mid, markers)
-		raw, err := json.Marshal(candidate)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if len(raw) <= project.MaxFileBytes+4096 {
-			topology = candidate
-			lo = mid + 1
-		} else {
-			hi = mid - 1
-		}
-	}
-	return topology, lo
-}
-
 // These topology and HTTP assets combine independent bounded fields.
 // Their parser acceptance does not qualify physical placement or motion.
 func TestExpressWidestTopologyHTTPAdapters(t *testing.T) {
@@ -421,16 +394,26 @@ func TestExpressWidestTopologyHTTPAdapters(t *testing.T) {
 		t.Skip("maximum codec proof runs in the required test:embedded task")
 	}
 	express := contractMarkers{order: sim.ExpressOrderContract}
-	topology, lo := fitWidestTopology(t, express)
+	topology := widestTopology(t, express)
 	raw, err := json.Marshal(topology)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if len(raw) > MaxTopologyJSON {
+		t.Fatalf("the widest topology has %d bytes, more than the cap %d", len(raw), MaxTopologyJSON)
 	}
 	var decoded TopologySnapshot
 	if err = json.Unmarshal(raw, &decoded); err != nil {
 		t.Fatal(err)
 	}
-	oversized := widestTopology(t, lo, express)
+	// The widest network is under the cap. Station names longer than a
+	// valid name take the topology over it, so the decoder and the
+	// preflight refusals stay covered.
+	oversized := widestTopology(t, express)
+	extra := (MaxTopologyJSON-len(raw))/(6*len(oversized.Network.Stations)) + 1
+	for i := range oversized.Network.Stations {
+		oversized.Network.Stations[i].Name += strings.Repeat("&", extra)
+	}
 	large, err := json.Marshal(oversized)
 	if err != nil {
 		t.Fatal(err)
@@ -441,12 +424,12 @@ func TestExpressWidestTopologyHTTPAdapters(t *testing.T) {
 	if err = preflightTopology(project.Config{Version: project.CurrentVersion, OrderContract: sim.ExpressOrderContract, Network: oversized.Network, ExpressServices: oversized.ExpressServices}, "server", "epoch"); err == nil || err.Error() != "topology exceeds supported limit" {
 		t.Fatal("producer topology preflight accepted overflow", err)
 	}
-	t.Logf("asset topology raw=%d cap=%d next-step-overflow=%d", len(raw), project.MaxFileBytes+4096, len(large))
+	t.Logf("asset topology raw=%d cap=%d headroom=%d oversized=%d", len(raw), MaxTopologyJSON, MaxTopologyJSON-len(raw), len(large))
 	exportExpressAsset(t, "topology.json", raw)
 	frame := maximumStreamFrame(t)
 	frame.State.ServerStart, frame.State.Epoch, frame.State.ProjectRevision = topology.ServerStart, topology.Epoch, topology.ProjectRevision
 	frame.State.Simulation.OrderContract = sim.ExpressOrderContract
-	request := sim.Request{ID: sim.MaxCounter, From: topology.ExpressServices[0].From, To: topology.ExpressServices[0].To, PartySize: 20, SharingConsent: sim.SharedConsent, Service: sim.ExpressServiceChoice, ServiceID: topology.ExpressServices[0].ID, RequestedTick: sim.MaxCounter, BoardedTick: sim.MaxCounter, DispatchReason: strings.Repeat("\x01", 1024), PodID: fmt.Sprintf("%059s%05d", strings.Repeat("\x01", 59), 0)}
+	request := sim.Request{ID: sim.MaxCounter, From: topology.ExpressServices[0].From, To: topology.ExpressServices[0].To, PartySize: 20, SharingConsent: sim.SharedConsent, Service: sim.ExpressServiceChoice, ServiceID: topology.ExpressServices[0].ID, RequestedTick: sim.MaxCounter, BoardedTick: sim.MaxCounter, DispatchReason: widestReason, PodID: widestID('p', 0)}
 	frame.State.Simulation.Pending = slices.Repeat([]sim.Request{request}, 8600)
 	frame.State.Simulation.Berths = make([]sim.BerthState, 0, 5000)
 	for _, station := range topology.Network.Stations {
@@ -465,7 +448,7 @@ func TestExpressWidestTopologyHTTPAdapters(t *testing.T) {
 	for i := range frame.State.Simulation.Vehicles {
 		rider := request
 		rider.Completed = true
-		podID := fmt.Sprintf("%059s%05d", strings.Repeat("\x01", 59), i)
+		podID := widestID('p', i)
 		rider.PodID = podID
 		frame.State.Simulation.Vehicles[i] = VehicleFrame{Pod: sim.Pod{ID: podID, Class: sim.ExpressClass, Activity: sim.Traveling, LaneID: topology.Network.Lanes[0].ID, Position: sim.Point{X: -0.0000010000000000000002, Y: 0.0000010000000000000002}, StationID: topology.Network.Stations[0].ID, BerthID: topology.Network.Stations[0].Berths[0].ID, BlockedBy: request.PodID, ManeuverStationID: topology.Network.Stations[0].ID, Speed: math.MaxFloat64, LaneDistance: 0.0000010000000000000002}, Riders: slices.Repeat([]sim.Request{rider}, 20), Boardings: slices.Repeat([]sim.RiderBoarding{{BerthID: topology.Network.Stations[0].Berths[0].ID, MetersAtBoarding: 0.0000010000000000000002}}, 20), RiddenMeters: 0.0000010000000000000002, Stops: slices.Repeat([]string{request.To}, 8), RelocatingTo: request.To, Rebalancing: true}
 		frame.Routes[i] = sim.RoutePresentation{Identity: sim.MaxCounter, Display: display, Origin: 0, Lanes: motion, Start: 0, Current: 0, After: true}

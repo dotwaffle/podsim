@@ -93,8 +93,10 @@ func NormalizeTripOptionsWithOrderContract(options TripOptions, contract OrderCo
 	return options, nil
 }
 
+// validOrderID reports whether id has 1 to orderIDBytes bytes, each one
+// of IDCharacters.
 func validOrderID(id string) bool {
-	return id != "" && len(id) <= orderIDBytes
+	return id != "" && len(id) <= orderIDBytes && ValidIDText(id)
 }
 
 // PartyFacts supplies one active or completed rider's effective order values.

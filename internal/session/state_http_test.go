@@ -1,7 +1,9 @@
 package session
 
 import (
+	"bytes"
 	"encoding/json/jsontext"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -192,5 +194,41 @@ func TestStateEnvelopeMarkersMatchTopology(t *testing.T) {
 	raw := joinObject(t, append([]rootMember{{"orderContract", express}}, splitObject(t, plainState)...))
 	if _, err := DecodeStateJSON(raw); err == nil || !strings.Contains(err.Error(), "contracts disagree") {
 		t.Errorf("got %v, want the contracts to disagree", err)
+	}
+}
+
+// TestStateFrameIDCharacters checks that the HTTP state decoder refuses a
+// frame with an ID that is not of sim.IDCharacters, after the reference
+// checks. The encoder refuses such a frame, so the test changes the JSON
+// text.
+func TestStateFrameIDCharacters(t *testing.T) {
+	t.Parallel()
+	s, frame := streamFixture(t)
+	t.Cleanup(s.Close)
+	frame.State.Demand.Config.Destination = "harbor9"
+	valid, err := EncodeStateJSON(s.Topology(), frame)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = DecodeStateJSON(valid); err != nil {
+		t.Fatal(err)
+	}
+	destination := []byte(`"destination":"harbor9"`)
+	if bytes.Count(valid, destination) != 1 {
+		t.Fatal("the HTTP state has no demand destination")
+	}
+	changed := bytes.Replace(valid, destination, []byte(`"destination":"harbor_"`), 1)
+	if _, err = DecodeStateJSON(changed); !errors.Is(err, errFrameIDText) {
+		t.Errorf("got %v, want %v", err, errFrameIDText)
+	}
+	// The pod reference check comes first.
+	vehicle := frame.State.Simulation.Vehicles[0]
+	stops := []byte(`"relocatingTo":"` + vehicle.RelocatingTo + `"`)
+	if !bytes.Contains(changed, stops) {
+		t.Fatal("the HTTP state has no relocation target")
+	}
+	changed = bytes.Replace(changed, stops, []byte(`"relocatingTo":"unknown"`), 1)
+	if _, err = DecodeStateJSON(changed); err == nil || err.Error() != "invalid pod reference" {
+		t.Errorf("got %v, want the reference refusal first", err)
 	}
 }
