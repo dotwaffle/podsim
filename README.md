@@ -280,6 +280,7 @@ See [the London qualification network](docs/london.md) for these rules.
   **Enter** in **To** orders the journey when both fields resolve.
   Typing in a field does not activate playback shortcuts.
   London uses the three-letter NaPTAN station suffix, such as **CHX** for Charing Cross.
+  A DLR station code starts with **D**, such as **DBEC** for Beckton, because some DLR suffixes are also Tube suffixes.
   **BPS** and **NEL** identify Battersea Power Station and Nine Elms.
   Full station IDs also work.
   Custom networks can use station names or full IDs.

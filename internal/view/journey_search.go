@@ -34,6 +34,11 @@ func stationCode(id string) string {
 	if suffix, ok := strings.CutPrefix(id, "940GZZLU"); ok && len(suffix) == 3 {
 		return suffix
 	}
+	// A DLR code starts with D, because some DLR suffixes are also Tube
+	// suffixes, such as BEC for Beckton and Becontree.
+	if suffix, ok := strings.CutPrefix(id, "940GZZDL"); ok && len(suffix) == 3 {
+		return "D" + suffix
+	}
 	return ""
 }
 

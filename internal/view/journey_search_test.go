@@ -82,6 +82,12 @@ func TestJourneySearchDoesNotGuessAmbiguousCodes(t *testing.T) {
 	if got := stationCode("custom-CHX"); got != "" {
 		t.Fatalf("invented custom station code %q", got)
 	}
+	if got := stationCode("940GZZDLBEC"); got != "DBEC" {
+		t.Fatalf("DLR code %q, want DBEC", got)
+	}
+	if got := newJourneyCatalog([]sim.Station{{ID: "940GZZLUBEC", Name: "Becontree"}, {ID: "940GZZDLBEC", Name: "Beckton"}}).matches("dbec"); len(got) != 1 || got[0].ID != "940GZZDLBEC" {
+		t.Fatalf("DLR code matched %+v", got)
+	}
 }
 
 func TestJourneyResultClickKeepsFilterAfterBlur(t *testing.T) {
