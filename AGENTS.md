@@ -55,7 +55,7 @@ CI runs `test:race:*`, `qualify`, and `check:static`.
   A refactor keeps both, and a test pins them.
 - A saved state that is damaged or invalid moves aside, and the server starts a new session.
   Do not add code that recovers part of such a file.
-  A file of more than 80 MiB is the only file that the server keeps.
+  A file of more than 100 MiB is the only file that the server keeps.
 - Do not change an approved contract, or its document, without maintainer approval.
 - No test proves that the largest saved state or stream message fits its byte cap.
   After a change to a count or byte limit in `internal/project/config.go`, check the effect on these sizes.
