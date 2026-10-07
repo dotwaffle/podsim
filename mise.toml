@@ -151,9 +151,10 @@ description = "Run the Station 19 scale and safety tests and the emergency choic
 # task runs this task, so such a test must be in one of these patterns.
 # Add it to a pattern, because a pattern that matches no test passes.
 # test:race runs the other tests.
+# The full-limit no-candidate timing report runs only in this task.
 run = '''
 go test ./internal/scenarios -count=1 -v -timeout=30m -run '^TestScale100Station19(Queue|Burst)DrainsSafely$' || exit 1
-go test ./internal/sim -count=1 -v -timeout=30m -run '^(TestEmergencyChoiceLatency|TestEmergencyNoCandidateLatency)$'
+PODSIM_QUALIFY=1 go test ./internal/sim -count=1 -v -timeout=30m -run '^(TestEmergencyChoiceLatency|TestEmergencyNoCandidateLatency)$'
 '''
 
 [tasks.benchmark]

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"maps"
 	"math/rand/v2"
+	"os"
 	"runtime"
 	"slices"
 	"testing"
@@ -133,16 +134,17 @@ func delayedNetwork() Network {
 	return network
 }
 
-// missNetwork returns the network of the no-candidate fixture at the
-// project limits: 600 stations with one bank of 13 berths each, in a line
+// missNetwork returns the network of the no-candidate fixture: stations
+// with one bank of berths each, in a line
 // along the x axis, in which passenger stations and parking stations
 // alternate. Each station leaves to a node from which the next station is
-// entered, and a road of 1,200 lanes returns from the last station to the
-// first. It has 12,000 nodes and 19,800 lanes. When the through lanes of the
+// entered, and a road of returnLanes lanes returns from the last station
+// to the first. At 600 stations, 13 berths, and 1,200 return lanes, it has
+// 12,000 nodes and 19,800 lanes. When the through lanes of the
 // parking stations are blocked, no route search leaves a bank: a road to
 // another station passes the berths of a parking station, which the bank
 // rules forbid, and which the pruning tree allows.
-func missNetwork() Network {
+func missNetwork(stations, berths, returnLanes int) Network {
 	var network Network
 	node := func(id string, x, y float64) {
 		network.Nodes = append(network.Nodes, Node{ID: id, Position: Point{X: x, Y: y}})
@@ -150,7 +152,6 @@ func missNetwork() Network {
 	lane := func(id, from, to, station string, role StationLaneRole) {
 		network.Lanes = append(network.Lanes, Lane{ID: id, From: from, To: to, SpeedLimit: 14, StationID: station, StationRole: role})
 	}
-	const stations, berths = 600, 13
 	previous := "return-end"
 	for index := range stations {
 		id := fmt.Sprintf("m%d", index)
@@ -182,10 +183,10 @@ func missNetwork() Network {
 	}
 	// The return road starts at the node after the last station.
 	end := float64(stations-1)*1000 + 800
-	const returns = 1199
+	returns := returnLanes - 1
 	for index := range returns {
 		id := fmt.Sprintf("return-%d", index)
-		node(id, end-(end+200)*float64(index)/returns, -1000)
+		node(id, end-(end+200)*float64(index)/float64(returns), -1000)
 		lane(id, previous, id, "", "")
 		previous = id
 	}
@@ -431,6 +432,9 @@ func TestEmergencyChoiceLatency(t *testing.T) {
 // The search counts are within the bound of section 9.1. The qualify
 // task runs it, so that the report has the times of the CI runner class.
 func TestEmergencyNoCandidateLatency(t *testing.T) {
+	if os.Getenv("PODSIM_QUALIFY") != "1" {
+		t.Skip("the full-limit timing report runs only in mise run qualify (PODSIM_QUALIFY=1)")
+	}
 	skipLong(t)
 	if raceEnabled {
 		t.Skip("the race detector slows the measured code")
@@ -438,7 +442,7 @@ func TestEmergencyNoCandidateLatency(t *testing.T) {
 	for policy := range RoutingPolicy(4) {
 		for _, warm := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s, warm %t", policyName(policy), warm), func(t *testing.T) {
-				fixture := missFixture(t, policy, warm)
+				fixture := missFixture(t, missNetwork(600, 13, 1200), policy, warm)
 				tick := measureChoiceTick(t, fixture, func(s *Simulation) error {
 					if len(s.emergencyMisses) != len(fixture.pods) {
 						return fmt.Errorf("memo %+v", s.emergencyMisses)
@@ -446,13 +450,50 @@ func TestEmergencyNoCandidateLatency(t *testing.T) {
 					return nil
 				})
 				t.Logf("reported, not gated: slowest %v, median %v, fastest %v, against %v; searches %+v", tick.slowest, tick.median, tick.fastest, choiceTickLimit, tick.counts)
-				// The bound of section 9.1 for a tick of four choices, at
-				// 12,000 nodes.
-				if counts := tick.counts; counts.failed == 0 || counts.localFailed == 0 || counts.graph+counts.trees > 576_052 || counts.trees != 4 {
-					t.Errorf("searches %+v", counts)
-				}
+				checkNoCandidateSearches(t, tick.counts, len(fixture.s.network.Nodes))
 			})
 		}
+	}
+}
+
+// TestEmergencyNoCandidateSearchCounts checks one choice tick on a small
+// no-candidate fixture under each routing policy, cold and warm.
+func TestEmergencyNoCandidateSearchCounts(t *testing.T) {
+	network := missNetwork(8, 13, 16)
+	for policy := range RoutingPolicy(4) {
+		for _, warm := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s, warm %t", policyName(policy), warm), func(t *testing.T) {
+				fixture := missFixture(t, network, policy, warm)
+				s := fixture.s
+				if fixture.cold {
+					if err := coldState(s); err != nil {
+						t.Fatal(err)
+					}
+				}
+				before := s.searchCounters
+				for _, id := range fixture.pods {
+					if _, err := s.Emergency(id, 0); err != nil {
+						t.Fatal(err)
+					}
+				}
+				if len(s.emergencyMisses) != len(fixture.pods) {
+					t.Fatalf("memo %+v", s.emergencyMisses)
+				}
+				checkNoCandidateSearches(t, subtractCounters(s.searchCounters, before), len(network.Nodes))
+			})
+		}
+	}
+}
+
+// checkNoCandidateSearches checks the bound of section 9.1: one tree and
+// at most 12 graph searches per node, plus one destination installation,
+// for each of MaxEmergencies choices.
+func checkNoCandidateSearches(t *testing.T, counts searchCounters, nodes int) {
+	t.Helper()
+	bound := int64(MaxEmergencies * (1 + (nodes+1)*12))
+	t.Logf("search bound %d; searches %+v", bound, counts)
+	if counts.graph+counts.trees > bound || counts.failed == 0 || counts.localFailed == 0 || counts.trees != 4 {
+		t.Errorf("searches %+v, bound %d", counts, bound)
 	}
 }
 
@@ -497,14 +538,14 @@ func delayRoutes(t *testing.T, fixture choiceTickFixture) {
 	}
 }
 
-// missFixture returns the no-candidate fixture on missNetwork with the
+// missFixture returns the no-candidate fixture on network with the
 // routing policy. Four pods ride from a passenger station to the next one
 // and are on the departure path of their bank. The through lanes of the
 // parking stations are then blocked, so no station has a candidate for
 // them, and the pruning tree reaches each berth.
-func missFixture(t *testing.T, policy RoutingPolicy, warm bool) choiceTickFixture {
+func missFixture(t *testing.T, network Network, policy RoutingPolicy, warm bool) choiceTickFixture {
 	t.Helper()
-	fixture := newChoiceTickFixture(t, missNetwork(), policy, warm, func(s *Simulation, v *vehicle) bool {
+	fixture := newChoiceTickFixture(t, network, policy, warm, func(s *Simulation, v *vehicle) bool {
 		_, from, _ := s.divertStart(v)
 		return s.graph.banks.nodes[s.graph.nodes[from]] >= 0
 	})
