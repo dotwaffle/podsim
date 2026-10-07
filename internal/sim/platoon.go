@@ -714,6 +714,8 @@ type platoonIndexData struct {
 	// stationLimits holds the lowest and the highest speed limit of the
 	// lanes of each station, by station ID.
 	stationLimits map[string][2]float64
+	// diverges holds each station diverge: the From node of an entry lane.
+	diverges map[string]bool
 }
 
 // platoonIndexes returns the network data that links read. It builds the
@@ -722,10 +724,13 @@ func (s *Simulation) platoonIndexes() *platoonIndexData {
 	if s.platoonData != nil && len(s.platoonData.shapes) == len(s.network.Lanes) {
 		return s.platoonData
 	}
-	data := &platoonIndexData{shapes: make(map[string]laneShape, len(s.network.Lanes)), stationLimits: make(map[string][2]float64)}
+	data := &platoonIndexData{shapes: make(map[string]laneShape, len(s.network.Lanes)), stationLimits: make(map[string][2]float64), diverges: make(map[string]bool)}
 	points := make([]Point, 0, 65)
 	for _, lane := range s.network.Lanes {
 		data.shapes[lane.ID] = newLaneShape(s.network.lanePoints(lane, points[:0]))
+		if lane.StationRole == StationEntryRole {
+			data.diverges[lane.From] = true
+		}
 		if lane.StationID == "" {
 			continue
 		}

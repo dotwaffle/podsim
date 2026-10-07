@@ -37,7 +37,7 @@ var cloneRules = map[reflect.Type]map[string]cloneRule{
 		"faults": cloneCopy, "faultReleased": cloneCopy, "emergencies": cloneCopy,
 		"requestBoardings": cloneCopy, "requestCompletions": cloneCopy, "stepCompletions": cloneCopy, "nodePasses": cloneCopy, "monitor": cloneShare,
 		"pass": cloneDrop, "platoonData": cloneShare, "platoonOrder": cloneDrop, "platoonAhead": cloneDrop,
-		"platoonLanes": cloneDrop, "pickupSwaps": cloneCopy,
+		"platoonLanes": cloneDrop, "pickupSwaps": cloneCopy, "coastCheck": cloneShare,
 	},
 	reflect.TypeFor[vehicle](): {
 		"Vehicle": cloneCopy, "blocks": cloneShare, "blockStarts": cloneShare, "routeReleases": cloneCopy,
@@ -243,7 +243,7 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"recordExperiments": persistUnsupported, "pass": persistReset,
 		"platooning": persistSession, "platoonLimit": persistSession, "platoonLinks": persistDerive,
 		"platoonData": persistDerive, "platoonOrder": persistReset, "platoonAhead": persistReset,
-		"platoonLanes": persistReset, "pickupSwaps": persistUnsupported,
+		"platoonLanes": persistReset, "pickupSwaps": persistUnsupported, "coastCheck": persistReset,
 	},
 	reflect.TypeFor[vehicle](): {
 		"Vehicle": persistSave, "phaseTicks": persistSave, "blocks": persistDerive, "blockStarts": persistDerive,
@@ -253,6 +253,8 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"rebalanceAfter": persistSave, "origin": persistSave, "destination": persistSave,
 		"destinationStation": persistSave, "released": persistSave, "terminal": persistReset,
 		"routeVersion": persistReset, "stationPhase": persistDerive, "routeLengths": persistDerive, "link": persistSave, "follower": persistDerive, "platoonCap": persistReset,
+		// A coast ceiling applies only in the tick that sets it.
+		"coast": persistReset,
 		// SavedPod has the holds and the operational destination, so
 		// ExportState, RestoreState, and the session save keep them.
 		"withdrawn": persistSave, "op": persistSave,
@@ -500,8 +502,9 @@ func TestCloneFollowsRules(t *testing.T) {
 			// journey ends in the first 35 seconds, and no test monitor
 			// runs. Presentation exists only in remote snapshots.
 			uncovered: []string{"routeResult.err", "Simulation.requestCompletions", "Simulation.monitor", "Vehicle.Presentation",
-				// The routing view is nil outside a query.
-				"Simulation.routeView",
+				// The routing view is nil outside a query, and the coast
+				// check is nil outside the coast tests.
+				"Simulation.routeView", "Simulation.coastCheck",
 				// Recorder ownership is covered by TestMotionLifecycle.
 				"Simulation.motion", "motionRecorder.frame", "motionRecorder.pending", "MotionFrame.Samples",
 				// The blocked routing case covers the blocked set and the

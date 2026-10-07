@@ -36,6 +36,15 @@ func ordinaryMoveStep(blocks *blockList, lane int, distance, speed, limit float6
 	return moveStep(blocks, lane, distance, speed+acceleration*dt, limit)
 }
 
+// coastMoveStep is ordinaryMoveStep with the commanded speed also at most
+// ceiling, the coast ceiling of coastCaps. The limit does not change, so
+// the pod still stops by the end of its reservation. With an infinite
+// ceiling it is ordinaryMoveStep.
+func coastMoveStep(blocks *blockList, lane int, distance, speed, limit, ceiling float64) ordinaryMoveResult {
+	dt := 1.0 / TicksPerSecond
+	return moveStep(blocks, lane, distance, math.Min(speed+acceleration*dt, ceiling), limit)
+}
+
 // faultMoveStep is the motion step of a faulted pod (incident suspension
 // contract, section 6.1). It is moveStep with the limit min(limit,
 // faultCap) and the ceiling speed, so the commanded speed never exceeds

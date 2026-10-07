@@ -487,10 +487,12 @@ type intent struct {
 }
 
 // admissionWork belongs to one simulation. Each pass clears pod IDs before
-// retaining the storage for the next pass.
+// retaining the storage for the next pass. denied holds the requests that
+// grant refused in this tick, and coastCaps clears it.
 type admissionWork struct {
 	intents []intent
 	pickups map[string]bool
+	denied  []deniedRequest
 }
 
 func (s *Simulation) setVehicleRoute(v *vehicle, route []Lane) {
@@ -532,6 +534,8 @@ func (s *Simulation) admit() {
 		s.admissionWork = &admissionWork{pickups: make(map[string]bool)}
 	}
 	work := s.admissionWork
+	clear(work.denied)
+	work.denied = work.denied[:0]
 	s.surrenderWaitingClaims()
 	intents := work.intents[:0]
 	for i := range s.vehicles {
@@ -638,7 +642,9 @@ func compareAdmission(a, b intent, tick int64) int {
 // zones when no other pod holds a resource of them. A follower that
 // linkedSpan accepts can also reserve a resource that a pod ahead in its
 // platoon holds, except a berth. That pod stays the owner, and the
-// resource passes to the follower when that pod releases it.
+// resource passes to the follower when that pod releases it. A request
+// that another pod refuses with its track, node, or junction resource goes
+// to the denied requests of coastCaps.
 func (s *Simulation) grant(in intent) {
 	v := &s.vehicles[in.index]
 	through := reservationEnd(&v.blocks, in.block)
@@ -664,20 +670,7 @@ func (s *Simulation) grant(in intent) {
 		for _, r := range resources {
 			if owner := s.owners[r]; !owner.isZero() && !owner.isPod(v.Pod.ID) &&
 				(!linked || r.kind == berthResource || !s.ownerAheadInPlatoon(v, owner)) {
-				if s.reportIncident(v, owner) {
-					return
-				}
-				v.Pod.BlockedBy = owner.String()
-				switch r.kind {
-				case berthResource:
-					v.Pod.WaitReason = BerthOccupied
-				case nodeResource:
-					v.Pod.WaitReason = JunctionOccupied
-				case junctionResource:
-					v.Pod.WaitReason = JunctionOccupied
-				case trackResource:
-					v.Pod.WaitReason = TrackOccupied
-				}
+				s.refuseGrant(v, deniedRequest{in: in, through: through}, r, owner)
 				return
 			}
 		}
@@ -700,6 +693,29 @@ func (s *Simulation) grant(in intent) {
 	}
 	v.reservedThrough = through
 	v.pending = -1
+}
+
+// refuseGrant records why grant refused the request d of v: owner holds r.
+// An incident report replaces the wait report. A refusal by a track,
+// node, or junction resource goes to the denied requests of coastCaps.
+func (s *Simulation) refuseGrant(v *vehicle, d deniedRequest, r resource, owner resourceOwner) {
+	if s.reportIncident(v, owner) {
+		return
+	}
+	v.Pod.BlockedBy = owner.String()
+	switch r.kind {
+	case berthResource:
+		v.Pod.WaitReason = BerthOccupied
+	case nodeResource:
+		v.Pod.WaitReason = JunctionOccupied
+	case junctionResource:
+		v.Pod.WaitReason = JunctionOccupied
+	case trackResource:
+		v.Pod.WaitReason = TrackOccupied
+	}
+	if work := s.admissionWork; work != nil && r.kind != berthResource {
+		work.denied = append(work.denied, d)
+	}
 }
 
 // reservationEnd reserves each contiguous conflict zone as one movement.
@@ -760,9 +776,13 @@ func (s *Simulation) move(v *vehicle) {
 	blocks := &v.blocks
 	current := blocks.find(v.blockIndex, &blocks.cursors[podCursor])
 	var next ordinaryMoveResult
-	if v.faulted {
+	ceiling, coasting := v.coast.at(s.tick)
+	switch {
+	case v.faulted:
 		next = faultMoveStep(blocks, current.lane, v.distance, v.Pod.Speed, limit, v.faultCap)
-	} else {
+	case coasting:
+		next = coastMoveStep(blocks, current.lane, v.distance, v.Pod.Speed, limit, ceiling)
+	default:
 		next = ordinaryMoveStep(blocks, current.lane, v.distance, v.Pod.Speed, limit)
 	}
 	s.publishVehicleTravel(v, next.distance, next.speed)

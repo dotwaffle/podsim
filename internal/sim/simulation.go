@@ -309,6 +309,9 @@ type vehicle struct {
 	link       platoonLink
 	follower   int
 	platoonCap float64
+	// coast is the coast ceiling of the pod. coastCaps sets it, and move
+	// uses it only in the tick in which coastCaps set it.
+	coast coastCap
 	// faulted is true while a fault record names the pod. faultCap is the
 	// route distance at which a faulted traveling pod stops. Fault start
 	// sets it, and the clear sets it to 0. No other code writes it.
@@ -503,6 +506,9 @@ type platooningState struct {
 	// formPlatoons. Clone does not share them.
 	platoonOrder, platoonAhead []int
 	platoonLanes               map[string]bool
+	// coastCheck is nil, or a test function that Step calls after
+	// platoonCaps, before coastCaps. Clone shares it.
+	coastCheck func(*Simulation)
 }
 
 // New creates a one-pod scenario for focused experiments.
@@ -822,6 +828,10 @@ func (s *Simulation) Step() {
 	s.admit()
 	s.clearBlockedBerths()
 	s.platoonCaps()
+	if s.coastCheck != nil {
+		s.coastCheck(s)
+	}
+	s.coastCaps()
 	s.beginMotionFrame()
 	for i := range s.vehicles {
 		v := &s.vehicles[i]

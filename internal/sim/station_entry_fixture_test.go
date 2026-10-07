@@ -1,0 +1,377 @@
+package sim
+
+import (
+	"fmt"
+	"math"
+	"slices"
+	"testing"
+)
+
+// entryShape selects the shape of entryNetwork. join is the angle in
+// degrees at which the approach "dest-road-in-02" joins the line of the
+// entry lane. approach is the length of each approach lane. crossing adds
+// a lane through the node "p2" at the start of "dest-road-in-02", from the
+// node "x1" to the node "x2", and a lane from "x2" back to the origin.
+type entryShape struct {
+	join, approach float64
+	crossing       bool
+}
+
+// entryNetwork returns a station in the shape of a London station. Two
+// approach lanes meet at the node "dest-diverge": "dest-road-in-01" is in
+// line with the entry lane, and "dest-road-in-02" joins it at shape.join.
+// The entry lane "dest-access-in" is 139 m long, as in LondonFull, so it
+// has five cells. After the station entry, a through lane and a chain of
+// three berth branches start. Each approach has a long upstream lane from
+// the origin station, and the station exit leads back to the origin.
+func entryNetwork(shape entryShape, fleet int) Network {
+	join := shape.join * math.Pi / 180
+	cosine, sine := math.Cos(join), math.Sin(join)
+	p2 := Point{X: -shape.approach * cosine, Y: -shape.approach * sine}
+	network := Network{
+		Nodes: []Node{
+			{ID: "origin-entry", Position: Point{X: -5000, Y: 5000}},
+			{ID: "origin-exit", Position: Point{X: -4000, Y: 5000}},
+			{ID: "g1", Position: Point{X: -shape.approach - 1350}},
+			{ID: "g2", Position: Point{X: p2.X - 1300*cosine, Y: p2.Y - 1300*sine}},
+			{ID: "p1", Position: Point{X: -shape.approach}},
+			{ID: "p2", Position: p2},
+			{ID: "dest-diverge", Position: Point{}},
+			{ID: "dest-entry", Position: Point{X: 139}},
+			{ID: "dest-exit", Position: Point{X: 139, Y: 120}},
+			{ID: "dest-merge", Position: Point{X: 100, Y: 150}},
+		},
+		Lanes: []Lane{
+			{ID: "origin-through", From: "origin-entry", To: "origin-exit", SpeedLimit: 14},
+			{ID: "feed-1", From: "origin-exit", To: "g1", SpeedLimit: 14},
+			{ID: "feed-2", From: "origin-exit", To: "g2", SpeedLimit: 14},
+			{ID: "u1", From: "g1", To: "p1", SpeedLimit: 14},
+			{ID: "u2", From: "g2", To: "p2", SpeedLimit: 14},
+			{ID: "dest-road-in-01", From: "p1", To: "dest-diverge", SpeedLimit: 14, StationID: "dest", StationRole: StationApproachRole},
+			{ID: "dest-road-in-02", From: "p2", To: "dest-diverge", SpeedLimit: 14, StationID: "dest", StationRole: StationApproachRole},
+			{ID: "dest-access-in", From: "dest-diverge", To: "dest-entry", SpeedLimit: 14, StationID: "dest", StationRole: StationEntryRole},
+			{ID: "dest-through", From: "dest-entry", To: "dest-exit", SpeedLimit: 14, StationID: "dest", StationRole: StationThroughRole},
+			{ID: "dest-access-out", From: "dest-exit", To: "dest-merge", SpeedLimit: 14, StationID: "dest", StationRole: StationExitRole},
+			{ID: "return", From: "dest-merge", To: "origin-entry", SpeedLimit: 14},
+		},
+		Stations: []Station{
+			{ID: "origin", Name: "Origin", Entry: "origin-entry", Exit: "origin-exit"},
+			{ID: "dest", Name: "Destination", Entry: "dest-entry", Exit: "dest-exit"},
+		},
+	}
+	if shape.crossing {
+		// The crossing lane passes p2 at a right angle to u2.
+		normal := Point{X: -sine, Y: cosine}
+		network.Nodes = append(network.Nodes,
+			Node{ID: "x1", Position: Point{X: p2.X - 1500*normal.X, Y: p2.Y - 1500*normal.Y}},
+			Node{ID: "x2", Position: Point{X: p2.X + 400*normal.X, Y: p2.Y + 400*normal.Y}})
+		network.Lanes = append(network.Lanes,
+			Lane{ID: "feed-x", From: "origin-exit", To: "x1", SpeedLimit: 14},
+			Lane{ID: "x-in", From: "x1", To: "p2", SpeedLimit: 14},
+			Lane{ID: "x-out", From: "p2", To: "x2", SpeedLimit: 14},
+			Lane{ID: "x-return", From: "x2", To: "origin-entry", SpeedLimit: 14})
+	}
+	arrival, departure := "dest-entry", "dest-exit"
+	for k := 1; k <= 3; k++ {
+		x := 139 + 30*float64(k)
+		id := fmt.Sprintf("dest-%02d", k)
+		network.Nodes = append(network.Nodes,
+			Node{ID: id + "-arrival", Position: Point{X: x, Y: 30}},
+			Node{ID: id + "-node", Position: Point{X: x, Y: 60}},
+			Node{ID: id + "-departure", Position: Point{X: x, Y: 90}},
+		)
+		network.Lanes = append(network.Lanes,
+			Lane{ID: id + "-arrival-link", From: arrival, To: id + "-arrival", SpeedLimit: 14, StationID: "dest", StationRole: StationBerthAccessRole},
+			Lane{ID: id + "-in", From: id + "-arrival", To: id + "-node", SpeedLimit: 14, StationID: "dest", StationRole: StationBerthAccessRole},
+			Lane{ID: id + "-out", From: id + "-node", To: id + "-departure", SpeedLimit: 14, StationID: "dest", StationRole: StationDepartureRole},
+			Lane{ID: id + "-departure-link", From: id + "-departure", To: departure, SpeedLimit: 14, StationID: "dest", StationRole: StationDepartureRole},
+		)
+		network.Stations[1].Berths = append(network.Stations[1].Berths, Berth{ID: id, Node: id + "-node"})
+		arrival, departure = id+"-arrival", id+"-departure"
+	}
+	for index := range fleet {
+		node := fmt.Sprintf("origin-berth-%02d", index+1)
+		network.Nodes = append(network.Nodes, Node{ID: node, Position: Point{X: -4960 + 25*float64(index), Y: 5060}})
+		network.Lanes = append(network.Lanes,
+			Lane{ID: node + "-in", From: "origin-entry", To: node, SpeedLimit: 14},
+			Lane{ID: node + "-out", From: node, To: "origin-exit", SpeedLimit: 14})
+		network.Stations[0].Berths = append(network.Stations[0].Berths, Berth{ID: fmt.Sprintf("origin-%02d", index+1), Node: node})
+	}
+	return network
+}
+
+// londonEntry is the shape of most tests: approaches of 150 m that meet
+// at 30 degrees.
+var londonEntry = entryShape{join: 30, approach: 150}
+
+// entryPod is a pod at rest for restoreEntry. approach is 1 or 2 for a
+// pod on the upstream lane of an approach, at distance on that lane, with
+// a route to the station entry. approach 0 is a pod on the crossing lane
+// "x-in" with a route back to the origin. class is the class of the pod,
+// and link is its saved platoon link.
+type entryPod struct {
+	approach int
+	distance float64
+	class    VehicleClass
+	link     *SavedPlatoonLink
+}
+
+// entryLaneIndexes returns the index of each lane of network by lane ID.
+func entryLaneIndexes(network Network) map[string]int {
+	indexes := make(map[string]int, len(network.Lanes))
+	for index, lane := range network.Lanes {
+		indexes[lane.ID] = index
+	}
+	return indexes
+}
+
+// restoreEntry restores pods at rest on the upstream lanes of entryNetwork,
+// with virtual platoons. Each pod on an approach carries a party to the
+// station "dest" and has no berth yet. Each pod on the crossing lane
+// relocates empty to a berth of the origin. The pod with index i is at the
+// origin berth i+1 of the fleet.
+func restoreEntry(t *testing.T, network Network, pods []entryPod) *Simulation {
+	t.Helper()
+	lanes := entryLaneIndexes(network)
+	var fleet []Placement
+	state := SavedState{SharedRidePartyLimit: 1}
+	for index, pod := range pods {
+		id := fmt.Sprintf("p%02d", index+1)
+		berth := fmt.Sprintf("origin-%02d", index+1)
+		fleet = append(fleet, Placement{ID: id, StationID: "origin", BerthID: berth, Class: pod.class})
+		saved := SavedPod{ID: id, Class: pod.class, Activity: "traveling", Origin: berth, LaneDistance: pod.distance, Distance: pod.distance, Platoon: pod.link}
+		if pod.approach == 0 {
+			saved.LaneID, saved.DestinationStation, saved.Destination, saved.RelocatingTo = "x-in", "origin", berth, "origin"
+			saved.Route = []int{lanes["x-in"], lanes["x-out"], lanes["x-return"], lanes[fmt.Sprintf("origin-berth-%02d-in", index+1)]}
+		} else {
+			state.RequestID++
+			state.Boarded++
+			saved.LaneID = fmt.Sprintf("u%d", pod.approach)
+			saved.Occupied, saved.DestinationStation, saved.Stops = true, "dest", []string{"dest"}
+			saved.Riders = []SavedRequest{{SharingConsent: SharedConsent, Service: OnDemandService, ID: state.RequestID, From: "origin", To: "dest", PartySize: 1, PodID: id}}
+			saved.Route = []int{lanes[saved.LaneID], lanes[fmt.Sprintf("dest-road-in-%02d", pod.approach)], lanes["dest-access-in"]}
+		}
+		state.Pods = append(state.Pods, saved)
+	}
+	s, result, err := RestoreState(RestoreStateInput{Network: network, Fleet: fleet, State: state})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Tier != RestorePhysical || len(result.Demoted) != 0 {
+		t.Fatalf("the pods did not restore in place: %+v", result)
+	}
+	if err := s.SetPlatooning(PlatooningVirtual); err != nil {
+		t.Fatal(err)
+	}
+	return s
+}
+
+// approachQueue returns count pods at rest on the upstream lane of approach,
+// gap meters apart, with the first pod at head.
+func approachQueue(approach, count int, head, gap float64) []entryPod {
+	pods := make([]entryPod, count)
+	for index := range pods {
+		pods[index] = entryPod{approach: approach, distance: head - gap*float64(index)}
+	}
+	return pods
+}
+
+// entryMonitor checks the rules of the station entry tests at each tick:
+// the platoon monitor, the safety observation, checkEntryLinks, and the
+// coast rules. Its coastCheck hook evaluates the coast ceilings from the
+// state after platoonCaps, forward and in reverse order, and requires one
+// result. After the step, each pod has the ceiling of that evaluation.
+type entryMonitor struct {
+	s       *Simulation
+	platoon *platoonMonitor
+	// expected holds the ceilings of the hook, by pod index, and motion
+	// the step of each such pod with the frozen inputs of the hook.
+	expected map[int]float64
+	motion   map[int]ordinaryMoveResult
+	// speeds and stops hold the speed and the stop point of each
+	// traveling pod after the last step.
+	speeds, stops map[int]float64
+	// coasted counts the ticks of pods with a ceiling. pairs counts the
+	// ticks with two or more ceilings. chained counts the ceilings whose
+	// releaser is a pod behind the owner of the resource.
+	coasted, pairs, chained int
+	// lanes holds each lane of the network by lane ID.
+	lanes map[string]Lane
+	// off drops the denied requests in the hook, so that no pod coasts.
+	off bool
+	// extra is nil, or a test function that the hook calls with the
+	// denied requests and the ceilings that it found.
+	extra func(s *Simulation, denied []deniedRequest, results []coastResult)
+}
+
+func newEntryMonitor(s *Simulation) *entryMonitor {
+	m := &entryMonitor{s: s, platoon: newPlatoonMonitor(s), speeds: make(map[int]float64), stops: make(map[int]float64), lanes: make(map[string]Lane)}
+	for _, lane := range s.network.Lanes {
+		m.lanes[lane.ID] = lane
+	}
+	m.attach(s)
+	return m
+}
+
+// attach installs the hook of the monitor in s.
+func (m *entryMonitor) attach(s *Simulation) {
+	m.s = s
+	s.coastCheck = func(s *Simulation) {
+		m.expected, m.motion = make(map[int]float64), make(map[int]ordinaryMoveResult)
+		if s.admissionWork == nil {
+			return
+		}
+		if m.off {
+			clear(s.admissionWork.denied)
+			s.admissionWork.denied = s.admissionWork.denied[:0]
+			return
+		}
+		denied := s.admissionWork.denied
+		forward := s.coastCeilings(denied)
+		reversed := slices.Clone(denied)
+		slices.Reverse(reversed)
+		reverse := s.coastCeilings(reversed)
+		if len(forward) != len(reverse) {
+			panic(fmt.Sprintf("tick %d: %d ceilings forward, %d in reverse", s.tick, len(forward), len(reverse)))
+		}
+		for _, result := range forward {
+			m.expected[result.index] = result.ceiling
+		}
+		for _, result := range reverse {
+			if want, ok := m.expected[result.index]; !ok || want != result.ceiling {
+				panic(fmt.Sprintf("tick %d: pod %d has ceiling %v in reverse, %v forward", s.tick, result.index, result.ceiling, want))
+			}
+		}
+		for index, ceiling := range m.expected {
+			v := &s.vehicles[index]
+			frontier := v.blocks.end(v.reservedThrough)
+			limit := frontier
+			if v.link.leader != 0 {
+				limit = min(limit, v.platoonCap)
+			}
+			lane := v.blocks.find(v.blockIndex, &v.blocks.cursors[podCursor]).lane
+			m.motion[index] = coastMoveStep(&v.blocks, lane, v.distance, v.Pod.Speed, limit, ceiling)
+			for r, releaseAt := range v.routeReleases {
+				if (r.kind == nodeResource || r.kind == junctionResource) && releaseAt > v.distance && releaseAt <= frontier {
+					panic(fmt.Sprintf("tick %d: pod %s coasts and retains %v until %v, before its reservation end %v", s.tick, v.Pod.ID, r, releaseAt, frontier))
+				}
+			}
+		}
+		diverge := resource{kind: junctionResource, id: "dest-diverge"}
+		for _, d := range denied {
+			if _, ok := m.expected[d.in.index]; !ok {
+				continue
+			}
+			// Only a request for the zone of the station diverge coasts.
+			holds := false
+			for resources := range s.vehicles[d.in.index].blocks.spanResources(d.in.block, d.through+1) {
+				holds = holds || slices.Contains(resources, diverge)
+			}
+			if !holds {
+				panic(fmt.Sprintf("tick %d: pod %s coasts for a request without the station diverge", s.tick, s.vehicles[d.in.index].Pod.ID))
+			}
+			for resources := range s.vehicles[d.in.index].blocks.spanResources(d.in.block, d.through+1) {
+				for _, r := range resources {
+					if owner := s.ownerVehicle(s.owners[r]); owner != nil && owner.Pod.ID != s.vehicles[d.in.index].Pod.ID {
+						if p := s.coastReleaser(s.owners[r], r); p != nil && p != owner {
+							m.chained++
+						}
+					}
+				}
+			}
+		}
+		m.coasted += len(m.expected)
+		if len(m.expected) >= 2 {
+			m.pairs++
+		}
+		if m.extra != nil {
+			m.extra(s, denied, forward)
+		}
+	}
+}
+
+// check checks the rules after a step.
+func (m *entryMonitor) check(t *testing.T) {
+	t.Helper()
+	s := m.s
+	m.platoon.check(t)
+	checkEntryLinks(t, s)
+	if _, err := s.SafetyObservation().Check(); err != nil {
+		t.Fatalf("tick %d: %v", s.tick, err)
+	}
+	speeds, stops := make(map[int]float64), make(map[int]float64)
+	for i := range s.vehicles {
+		v := &s.vehicles[i]
+		ceiling, coasting := v.coast.at(s.tick)
+		want, expected := m.expected[i]
+		if coasting != expected || coasting && ceiling != want {
+			t.Fatalf("tick %d: pod %s has ceiling %v (%v), the hook found %v (%v)", s.tick, v.Pod.ID, ceiling, coasting, want, expected)
+		}
+		if v.Pod.Activity != Traveling {
+			continue
+		}
+		speeds[i], stops[i] = v.Pod.Speed, v.distance+stoppingDistance(v.Pod.Speed)
+		if !coasting {
+			continue
+		}
+		// The pod moved with the ceiling and the limit of the frozen state.
+		if want := m.motion[i]; v.distance != want.distance || v.Pod.Speed != want.speed {
+			t.Fatalf("tick %d: coasting pod %s moved to %v at %v m/s, want %v at %v m/s", s.tick, v.Pod.ID, v.distance, v.Pod.Speed, want.distance, want.speed)
+		}
+		if before, ok := m.speeds[i]; ok && before-v.Pod.Speed > maxSpeedStep {
+			t.Fatalf("tick %d: coasting pod %s went from %v m/s to %v m/s", s.tick, v.Pod.ID, before, v.Pod.Speed)
+		}
+		if before, ok := m.stops[i]; ok && stops[i] < before-1e-9 {
+			t.Fatalf("tick %d: the stop point of coasting pod %s moved back from %v to %v", s.tick, v.Pod.ID, before, stops[i])
+		}
+		if end := v.blocks.end(v.reservedThrough); v.distance > end+1e-9 {
+			t.Fatalf("tick %d: coasting pod %s is at %v, past its reservation end %v", s.tick, v.Pod.ID, v.distance, end)
+		}
+	}
+	m.speeds, m.stops = speeds, stops
+}
+
+// checkEntryLinks fails when a follower holds, as a resource of another
+// pod, a berth, an entry node or its junction of its destination station,
+// a cell of a lane from such a node, or a resource whose release distance
+// is past the end of its run.
+func checkEntryLinks(t *testing.T, s *Simulation) {
+	t.Helper()
+	from := make(map[string]string, len(s.network.Lanes))
+	for _, lane := range s.network.Lanes {
+		from[lane.ID] = lane.From
+	}
+	for i := range s.vehicles {
+		v := &s.vehicles[i]
+		if v.link.leader == 0 {
+			continue
+		}
+		station, _ := s.station(v.destinationStation)
+		geometry, _ := s.linkEnds(v, v.link)
+		for r, releaseAt := range v.routeReleases {
+			owner := s.owners[r]
+			if owner.isZero() || owner.isPod(v.Pod.ID) {
+				continue
+			}
+			if r.kind == berthResource || (r.kind == nodeResource || r.kind == junctionResource) && station.isEntry(r.id) ||
+				r.kind == trackResource && station.isEntry(from[r.id]) || releaseAt > geometry {
+				t.Fatalf("tick %d: follower %s holds %v of %s until %v, run end %v", s.tick, v.Pod.ID, r, owner, releaseAt, geometry)
+			}
+		}
+	}
+}
+
+// divergeOrder records the pods in the order in which they take the
+// junction of the station diverge, from the owners after each step.
+type divergeOrder struct {
+	last  resourceOwner
+	order []string
+}
+
+func (o *divergeOrder) record(s *Simulation) {
+	owner := s.owners[resource{kind: junctionResource, id: "dest-diverge"}]
+	if !owner.isZero() && owner != o.last {
+		o.order = append(o.order, owner.String())
+	}
+	o.last = owner
+}
