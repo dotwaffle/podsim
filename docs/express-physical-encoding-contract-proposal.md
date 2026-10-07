@@ -465,7 +465,7 @@ Parser acceptance alone cannot pass a physical or operating gate.
 
 The wire and browser evidence for the "Save bytes and shape" and "Stream and public consumers" rows is historical.
 It measured save 7, project 4, hello 4, and the Express media type, which the format merge removed in commits `248f26e`, `9de7a3b`, and `5f1adac`.
-Requalification of these rows on the merged formats is pending.
+The "Requalification on the merged formats" sections of [the wire qualification](express-wire-qualification.md#requalification-on-the-merged-formats) and [the browser qualification](express-browser-qualification.md#requalification-on-the-merged-formats) requalify these rows on project version 1 with the `orderContract` marker, saved-state version 9, hello version 6, and the media type `application/vnd.podsim.state-6+json`.
 
 Run the relevant package suites, scoped races, vet, lint, and fresh Go diagnostics for the later implementation.
 Report assertion failures separately from parser rejection, byte overflow, watchdog expiration, and unavailable external gates.
