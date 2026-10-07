@@ -3,6 +3,7 @@ package editormodel
 import (
 	"bytes"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"slices"
 	"testing"
 
@@ -14,7 +15,7 @@ import (
 // accepts incident-v1 and refuses null, empty text and other values.
 func TestIncidentMarkerEditorVerdicts(t *testing.T) {
 	t.Parallel()
-	base, err := json.Marshal(project.Default())
+	base, err := jsonv2.Marshal(project.Default(), json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -5,9 +5,7 @@ import (
 	jsonv1 "encoding/json"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
-	"errors"
 	"fmt"
-	"io"
 	"maps"
 	"os"
 	"reflect"
@@ -41,9 +39,10 @@ func configDraft(t *testing.T, config project.Config) map[string]any {
 }
 
 // nativeVerdict decodes and validates a complete project with the server
-// decoders. cmd/serve reads a project file with an encoding/json Decoder that
-// disallows unknown fields. The session decodes the project command with
-// session.Command. Both use encoding/json options, and the two must agree.
+// decoders. cmd/serve reads a project file with a json/v2 decoder that
+// uses the v1 options and refuses unknown members. The session decodes the
+// project command with session.Command. Both use the same options, and the
+// two must agree.
 func nativeVerdict(t *testing.T, raw []byte) error {
 	t.Helper()
 	_, err := serverDecode(t, raw)
@@ -52,21 +51,13 @@ func nativeVerdict(t *testing.T, raw []byte) error {
 
 func serverDecode(t *testing.T, raw []byte) (project.Config, error) {
 	t.Helper()
-	file := jsonv1.NewDecoder(bytes.NewReader(raw))
-	file.DisallowUnknownFields()
 	var config project.Config
-	fileErr := file.Decode(&config)
+	fileErr := json.UnmarshalRead(bytes.NewReader(raw), &config, jsonv1.DefaultOptionsV1(), json.MatchCaseInsensitiveNames(false), json.RejectUnknownMembers(true))
 	if fileErr == nil {
-		if file.Decode(new(any)) != io.EOF {
-			fileErr = errors.New("expected one JSON value")
-		} else {
-			fileErr = project.Validate(config)
-		}
+		fileErr = project.Validate(config)
 	}
-	body := jsonv1.NewDecoder(strings.NewReader(`{"action":"project","projectRevision":1,"project":` + string(raw) + `}`))
-	body.DisallowUnknownFields()
 	var command session.Command
-	commandErr := body.Decode(&command)
+	commandErr := json.UnmarshalRead(strings.NewReader(`{"action":"project","projectRevision":1,"project":`+string(raw)+`}`), &command, jsonv1.DefaultOptionsV1(), json.MatchCaseInsensitiveNames(false), json.RejectUnknownMembers(true))
 	if commandErr == nil {
 		commandErr = project.Validate(*command.Project)
 	}

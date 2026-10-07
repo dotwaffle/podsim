@@ -3,6 +3,7 @@ package editormodel
 import (
 	"bytes"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"reflect"
 	"slices"
 	"testing"
@@ -18,7 +19,7 @@ import (
 // above 0. The engine keeps both members of an accepted draft.
 func TestEmergencyMarkerEditorVerdicts(t *testing.T) {
 	t.Parallel()
-	base, err := json.Marshal(project.Default())
+	base, err := jsonv2.Marshal(project.Default(), json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}
