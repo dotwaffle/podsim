@@ -159,7 +159,7 @@
       "sha256": "4b2bf85aa082a7452d8e6d1ea63d5b48498771c267a71c258a445c6c1a23940c"
     }
   ],
-  "tube_route_semantics": "Tube stops and sequences must equal london-full-provenance.json. Later TfL responses can differ in fields that conversion does not read.",
+  "tube_route_semantics": "Tube stops, hub IDs, and sequences must equal london-full-provenance.json. Later TfL responses can differ in fields that conversion does not read.",
   "semantics": "2024 Tuesday-to-Thursday network journeys filtered to Tube and DLR endpoints, including journeys on other modes",
   "empty_source_bands": [
     1,
@@ -233,11 +233,6 @@
       "reason": "Own NUMBAT code 855 and no NaPTAN hub. NUMBAT puts it only in the Canary Wharf cluster CWFu."
     },
     {
-      "stop": "940GZZDLWIQ",
-      "name": "West India Quay DLR Station",
-      "reason": "Own NUMBAT code 866 and no NaPTAN hub. NUMBAT puts it only in the Canary Wharf cluster CWFu."
-    },
-    {
       "stop": "940GZZDLPOP",
       "name": "Poplar DLR Station",
       "reason": "Own NUMBAT code 858 and no NaPTAN hub. NUMBAT puts it only in the Canary Wharf cluster CWFu."
@@ -278,7 +273,15 @@
       "reason": "NUMBAT code 573 has a rail primary NaPTAN and no LU mode. Its hub HUBWWA has no Tube stop."
     }
   ],
-  "definition_note": "Stn-Mode lists code 866, West India Quay, twice: one row has the LU flag and one has the DLR flag. The DLR conversion maps it to 940GZZDLWIQ.",
+  "dlr_omitted": [
+    {
+      "stop": "940GZZDLWIQ",
+      "name": "West India Quay DLR Station",
+      "connect_to": "940GZZDLCAN",
+      "reason": "The station leaves insufficient clearance beside Canary Wharf Jubilee and the Poplar delta. Omit this stop and its demand endpoints. Connect its guideways through Canary Wharf DLR."
+    }
+  ],
+  "definition_note": "Stn-Mode lists code 866, West India Quay, twice: one row has the LU flag and one has the DLR flag. The DLR conversion excludes both rows under the reviewed layout omission.",
   "dlr_source_stations": [
     {
       "id": "940GZZDLABR",
@@ -749,7 +752,7 @@
       "lon": -0.020311,
       "zone": "2",
       "hub": "940GZZDLWIQ",
-      "site_id": "940GZZDLWIQ",
+      "site_id": null,
       "nearest_tube_site": "940GZZLUCYF",
       "nearest_tube_distance_m": 419
     },
@@ -3577,14 +3580,6 @@
       "mixed_mode_alias": false
     },
     {
-      "code": "866",
-      "name": "West India Quay",
-      "primary_naptan": "940GZZDLWIQ",
-      "source_id": "940GZZDLWIQ",
-      "site_id": "940GZZDLWIQ",
-      "mixed_mode_alias": false
-    },
-    {
       "code": "867",
       "name": "Devons Road",
       "primary_naptan": "940GZZDLDEV",
@@ -3729,29 +3724,35 @@
       "mixed_mode_alias": false
     }
   ],
-  "excluded_definitions": [],
+  "excluded_definitions": [
+    {
+      "code": "866",
+      "name": "West India Quay",
+      "naptan": "940GZZDLWIQ"
+    }
+  ],
   "counts": {
     "source_rows": 1008816,
-    "retained_rows": 379773,
-    "excluded_endpoint_rows": 629032,
+    "retained_rows": 378894,
+    "excluded_endpoint_rows": 629911,
     "same_site_rows": 11,
     "tube_source_stations": 272,
     "dlr_source_stations": 45,
     "dlr_merges": 4,
-    "sites": 310,
-    "dlr_sites": 41,
-    "links": 360,
-    "dlr_links": 47,
-    "od_pairs": 76776
+    "sites": 309,
+    "dlr_sites": 40,
+    "links": 358,
+    "dlr_links": 45,
+    "od_pairs": 76567
   },
   "band_totals": [
     "0",
-    "137704.745038758854620",
-    "818373.65830948564044",
-    "995435.1892905136723",
-    "958660.99135963251587",
-    "411103.278388646135445",
-    "195940.4938937382800545",
+    "137568.817949927924620",
+    "817301.31293937624044",
+    "993880.3106418536723",
+    "957320.27681493251587",
+    "410258.494286572666745",
+    "195314.9998955134667145",
     "0"
   ]
 }

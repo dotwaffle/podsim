@@ -49,3 +49,35 @@ func TestLondonFullSafetyAndPhysicalRestore(t *testing.T) {
 	}
 	t.Logf("submitted=%d completed=%d restored_tick=%d final_tick=%d", after.Submitted, after.Completed, before.Tick, after.Tick)
 }
+
+// TestLondonFullDocklandsTripsDrain checks both sides of the Poplar delta
+// and the separate Canary Wharf stations with simultaneous requests.
+func TestLondonFullDocklandsTripsDrain(t *testing.T) {
+	t.Parallel()
+	live := newSimulation(t, LondonFull())
+	trips := [][2]string{
+		{"940GZZDLCAN", "940GZZDLPOP"},
+		{"940GZZDLPOP", "940GZZDLCAN"},
+		{"940GZZDLWFE", "940GZZDLCAN"},
+		{"940GZZLUCYF", "940GZZLUNGW"},
+		{"940GZZLUNGW", "940GZZLUCYF"},
+		{"940GZZDLHEQ", "940GZZDLWFE"},
+	}
+	for _, trip := range trips {
+		if err := live.RequestTrip(trip[0], trip[1]); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for tick := range 20 * 60 * sim.TicksPerSecond {
+		live.Step()
+		if tick%sim.TicksPerSecond != 0 {
+			continue
+		}
+		checkScaleSafety(t, live.SafetyObservation())
+		if state := live.Snapshot(); state.Completed == len(trips) {
+			t.Logf("completed=%d tick=%d", state.Completed, state.Tick)
+			return
+		}
+	}
+	t.Fatalf("Docklands trips did not drain: completed=%d of %d", live.Snapshot().Completed, len(trips))
+}

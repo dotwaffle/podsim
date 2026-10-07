@@ -13,7 +13,7 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-//go:embed data/london-full-tube.json
+//go:embed data/london-full-dlr.json
 var londonFullSourceJSON []byte
 
 var (
@@ -21,8 +21,8 @@ var (
 	londonFullPreset project.Config
 )
 
-// LondonFull returns an owned copy of the 269-site LondonFull preset.
-// Its demand contains 2024 network journeys filtered to Tube endpoints.
+// LondonFull returns an owned copy of the 309-site LondonFull preset.
+// Its demand contains 2024 network journeys filtered to Tube and DLR endpoints.
 func LondonFull() project.Config {
 	londonFullOnce.Do(func() {
 		source, err := decodeLondonFullSource()
@@ -82,8 +82,8 @@ func decodeLondonFullSource() (londonSource, error) {
 }
 
 func londonFullConfig(source londonSource, capacity londonCapacity, defaultCapacity bool) (project.Config, error) {
-	// These full-only headings clear the Bank and Mansion House guideways.
-	headings := map[string]float64{"940GZZLUBNK": 234 * math.Pi / 180, "940GZZLUMSH": 56 * math.Pi / 180}
+	// These headings clear guideways at Bank, Mansion House, and Canary Wharf.
+	headings := map[string]float64{"940GZZLUBNK": 234 * math.Pi / 180, "940GZZLUMSH": 56 * math.Pi / 180, "940GZZLUCYF": 330 * math.Pi / 180}
 	network, err := londonNetworkWithHeadings(source, capacity, headings)
 	if err != nil {
 		return project.Config{}, err

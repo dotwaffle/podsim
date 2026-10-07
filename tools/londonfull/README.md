@@ -7,9 +7,9 @@ The existing central topology and 2019 demand files remain unchanged.
 Run with Python 3.9 or later from the repository root:
 
 ```sh
-python3 tools/londonfull/convert.py SOURCE_DIRECTORY internal/scenarios/data
-python3 tools/londonfull/convert.py --dlr SOURCE_DIRECTORY internal/scenarios/data
-python3 -m unittest discover -s tools/londonfull -v
+python3 -I tools/londonfull/convert.py SOURCE_DIRECTORY OUTPUT_DIRECTORY
+python3 -I tools/londonfull/convert.py --dlr SOURCE_DIRECTORY internal/scenarios/data
+python3 -I -m unittest discover -s tools/londonfull -v
 ```
 
 `SOURCE_DIRECTORY` must contain the files listed in `sources.json`.
@@ -74,7 +74,10 @@ Review new source files and mappings before updating the pinned manifest.
 ## DLR conversion
 
 The `--dlr` mode writes `london-full-dlr.json`, `london-full-dlr-od-2024.csv`, and `london-full-dlr-provenance.json`.
-It does not change the Tube files, and no preset reads its output.
+LondonFull embeds its topology and demand.
+The Tube-only topology and demand files are no longer stored in the repository.
+The Tube provenance remains the content pin for both modes.
+Plain Tube mode still reproduces its original topology and demand bytes.
 The DLR route files were retrieved on October 7, 2026.
 The DLR and NUMBAT files must match their pinned hashes.
 
@@ -84,8 +87,9 @@ Both modes require the Tube stops, hub IDs, and sequences in `london-full-proven
 Neither mode requires the Tube file hashes.
 Fields that conversion does not read can change.
 
-The 45 DLR stops give 41 new sites, so the topology has 310 sites and 360 links.
-The 47 DLR links have the line `dlr`.
+The 45 DLR source stops give 40 new sites after merges and one omission.
+The topology has 309 sites and 358 links.
+The 45 DLR links have the line `dlr`.
 `dlr.json` lists the reviewed site decisions.
 A DLR stop merges into a Tube site only when one NUMBAT code has both the LU and DLR modes and the stops share a NaPTAN hub.
 Bank, Canning Town, Stratford, and West Ham merge.
@@ -95,10 +99,13 @@ The Tube provenance pins each `topMostParentId` as `hub`.
 Conversion rejects inconsistent hub IDs across route files.
 
 The DLR demand keeps journeys between Tube and DLR endpoints, including journeys on other modes.
-It maps 311 NUMBAT codes to the 310 sites.
-West India Quay, code 866, maps to its DLR site.
+It maps 310 NUMBAT codes to the 309 sites.
+West India Quay, code 866, is excluded from demand.
+The `omitted` entry in `dlr.json` records the layout reason and the guideway bypass through Canary Wharf DLR.
+The omission clears the space beside Canary Wharf Jubilee and the Poplar delta.
+Provenance retains the source stop and sequences, with a null site ID for West India Quay.
 Greenwich, code 928, and Woolwich Arsenal, code 573, have rail primary NaPTAN IDs, so `dlr.json` gives their DLR stops as aliases.
-The normalized CSV has 76,776 directed OD pairs with exact source weights.
+The normalized CSV has 76,567 directed OD pairs with exact source weights.
 The provenance file records the merges, the nearest Tube site of each DLR stop, the counts, and the band totals.
 
 ## Validation boundary

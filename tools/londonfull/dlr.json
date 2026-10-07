@@ -59,11 +59,6 @@
       "reason": "Own NUMBAT code 855 and no NaPTAN hub. NUMBAT puts it only in the Canary Wharf cluster CWFu."
     },
     {
-      "stop": "940GZZDLWIQ",
-      "name": "West India Quay DLR Station",
-      "reason": "Own NUMBAT code 866 and no NaPTAN hub. NUMBAT puts it only in the Canary Wharf cluster CWFu."
-    },
-    {
       "stop": "940GZZDLPOP",
       "name": "Poplar DLR Station",
       "reason": "Own NUMBAT code 858 and no NaPTAN hub. NUMBAT puts it only in the Canary Wharf cluster CWFu."
@@ -102,6 +97,14 @@
       "stop": "940GZZDLWLA",
       "name": "Woolwich Arsenal DLR Station",
       "reason": "NUMBAT code 573 has a rail primary NaPTAN and no LU mode. Its hub HUBWWA has no Tube stop."
+    }
+  ],
+  "omitted": [
+    {
+      "stop": "940GZZDLWIQ",
+      "name": "West India Quay DLR Station",
+      "connect_to": "940GZZDLCAN",
+      "reason": "The station leaves insufficient clearance beside Canary Wharf Jubilee and the Poplar delta. Omit this stop and its demand endpoints. Connect its guideways through Canary Wharf DLR."
     }
   ]
 }

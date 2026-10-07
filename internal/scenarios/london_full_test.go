@@ -20,15 +20,15 @@ func TestLondonFullPreset(t *testing.T) {
 	if err := project.Validate(config); err != nil {
 		t.Fatal(err)
 	}
-	if len(config.Network.Stations) != 272 || len(config.Network.Nodes) != 4988 || len(config.Network.Lanes) != 7778 || len(config.Fleet) != 287 {
+	if len(config.Network.Stations) != 312 || len(config.Network.Nodes) != 5658 || len(config.Network.Lanes) != 8844 || len(config.Fleet) != 327 {
 		t.Fatalf("counts stations=%d nodes=%d lanes=%d fleet=%d", len(config.Network.Stations), len(config.Network.Nodes), len(config.Network.Lanes), len(config.Fleet))
 	}
 	berths := 0
 	for _, station := range config.Network.Stations {
 		berths += len(station.Berths)
 	}
-	if berths != 674 {
-		t.Fatalf("berths=%d want 674", berths)
+	if berths != 754 {
+		t.Fatalf("berths=%d want 754", berths)
 	}
 	if config.Demand.PerMinute != 10 || config.Demand.Band != "am-peak" || config.Demand.Profile != londonFullDemandProfileID {
 		t.Fatalf("demand=%+v", config.Demand)
@@ -44,12 +44,12 @@ func TestLondonFullPreset(t *testing.T) {
 	for _, station := range config.Network.Stations {
 		ids[station.ID] = true
 	}
-	for _, id := range []string{"940GZZLUBNK", "940GZZLUPAC", "940GZZLUHSD", "940GZZLUERC", "940GZZLUERB", "940GZZNEUGST", "940GZZBPSUST"} {
+	for _, id := range []string{"940GZZLUBNK", "940GZZLUPAC", "940GZZLUHSD", "940GZZLUERC", "940GZZLUERB", "940GZZNEUGST", "940GZZBPSUST", "940GZZDLCAN", "940GZZLUCYF", "940GZZDLPOP", "940GZZDLWLA", "940GZZDLLEW", "940GZZDLBEC", "940GZZDLSIT"} {
 		if !ids[id] {
 			t.Fatalf("missing site %s", id)
 		}
 	}
-	for _, id := range []string{"940GZZLUMMT", "940GZZLUPAH", "940GZZLUHSC", "940GZZDLWIQ"} {
+	for _, id := range []string{"940GZZLUMMT", "940GZZLUPAH", "940GZZLUHSC", "940GZZDLWIQ", "940GZZDLBNK", "940GZZDLCGT", "940GZZDLSTD", "940GZZDLWHM"} {
 		if ids[id] {
 			t.Fatalf("unexpected site %s", id)
 		}
@@ -89,8 +89,8 @@ func TestLondonFullWith(t *testing.T) {
 		wantError string
 		fleet     int
 	}{
-		{name: "default", change: func(*LondonOptions) {}, fleet: 287},
-		{name: "one fewer pod", change: func(o *LondonOptions) { o.Pods = map[string]int{"940GZZLUWLO": 0} }, fleet: 286},
+		{name: "default", change: func(*LondonOptions) {}, fleet: 327},
+		{name: "one fewer pod", change: func(o *LondonOptions) { o.Pods = map[string]int{"940GZZLUWLO": 0} }, fleet: 326},
 		{name: "unknown site", change: func(o *LondonOptions) { o.Berths["unknown"] = 2 }, wantError: "unknown London station"},
 		{name: "too many pods", change: func(o *LondonOptions) { o.Berths = nil; o.StationBerths, o.StationPods = 3, 3 }, wantError: "fleet has"},
 		{name: "too many nodes", change: func(o *LondonOptions) { o.Berths = nil; o.StationBerths = 12 }, wantError: "nodes"},

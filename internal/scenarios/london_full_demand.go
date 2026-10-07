@@ -16,7 +16,7 @@ import (
 
 const londonFullDemandProfileID = "tfl-numbat-2024-twt"
 
-//go:embed data/london-full-od-2024.csv
+//go:embed data/london-full-dlr-od-2024.csv
 var londonFullDemandCSV string
 
 var (
@@ -27,7 +27,7 @@ var (
 
 // LondonFullDemand returns owned normalized demand for the six observed bands.
 // The 2024 source has no Early or Night rows. Journeys can use other modes
-// between their Tube endpoints.
+// between their Tube and DLR endpoints.
 func LondonFullDemand() []LondonDemandBand {
 	londonFullDemandOnce.Do(loadLondonFullDemand)
 	result := append([]LondonDemandBand(nil), londonFullDemand...)
@@ -57,13 +57,13 @@ func loadLondonFullDemand() {
 	if err != nil {
 		panic(err)
 	}
-	if len(source.Stations) != 269 || len(londonFullProfile.Flows) != 60996 {
-		panic("LondonFull source must contain 269 sites and 60996 OD pairs")
+	if len(source.Stations) != 309 || len(londonFullProfile.Flows) != 76567 {
+		panic("LondonFull source must contain 309 sites and 76567 OD pairs")
 	}
 }
 
 func readLondonFullDemand(data string, source londonSource) ([]LondonDemandBand, project.DemandProfile, error) {
-	profile := project.DemandProfile{ID: londonFullDemandProfileID, Name: "LondonFull 2024 Tube-endpoint journeys", Bands: []project.DemandBand{
+	profile := project.DemandProfile{ID: londonFullDemandProfileID, Name: "LondonFull 2024 Tube and DLR endpoint journeys", Bands: []project.DemandBand{
 		{ID: "morning", Name: "Morning", StartMinute: 300, DurationMinutes: 120},
 		{ID: "am-peak", Name: "AM peak", StartMinute: 420, DurationMinutes: 180},
 		{ID: "interpeak", Name: "Interpeak", StartMinute: 600, DurationMinutes: 360},

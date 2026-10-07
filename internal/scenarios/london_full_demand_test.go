@@ -14,7 +14,7 @@ func TestLondonFullDemandRoundsWeights(t *testing.T) {
 	t.Parallel()
 	bands := LondonFullDemand()
 	profile := londonFullDemandProfile()
-	if len(bands) != 6 || len(profile.Flows) != 60996 {
+	if len(bands) != 6 || len(profile.Flows) != 76567 {
 		t.Fatalf("bands=%d flows=%d", len(bands), len(profile.Flows))
 	}
 	starts := []int{300, 420, 600, 960, 1140, 1320}
@@ -46,7 +46,7 @@ func TestLondonFullDemandRoundsWeights(t *testing.T) {
 			}
 		}
 	}
-	if len(origins) != 269 || len(destinations) != 269 {
+	if len(origins) != 309 || len(destinations) != 309 {
 		t.Fatalf("demand coverage origins=%d destinations=%d", len(origins), len(destinations))
 	}
 	for index, band := range bands {

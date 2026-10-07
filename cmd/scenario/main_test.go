@@ -288,11 +288,11 @@ func TestRunWritesImportableLondonFull(t *testing.T) {
 	if err := project.Validate(config); err != nil {
 		t.Fatal(err)
 	}
-	if config.Name != "LondonFull" || len(config.Network.Stations) != 272 || len(config.Fleet) != 287 ||
-		len(config.DemandProfiles) != 1 || len(config.DemandProfiles[0].Flows) != 60996 || len(config.DemandProfiles[0].Bands) != 6 {
+	if config.Name != "LondonFull" || len(config.Network.Stations) != 312 || len(config.Fleet) != 327 ||
+		len(config.DemandProfiles) != 1 || len(config.DemandProfiles[0].Flows) != 76567 || len(config.DemandProfiles[0].Bands) != 6 {
 		t.Fatal("full export lost its preset identity, network, fleet, or demand")
 	}
-	if !strings.Contains(summary.String(), "soft_conflicts=3") {
+	if !strings.Contains(summary.String(), "soft_conflicts=4") {
 		t.Fatalf("full summary = %s", summary.String())
 	}
 }

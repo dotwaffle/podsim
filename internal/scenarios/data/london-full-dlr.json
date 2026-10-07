@@ -279,13 +279,6 @@
       "zone": "2"
     },
     {
-      "id": "940GZZDLWIQ",
-      "name": "West India Quay",
-      "lat": 51.50703,
-      "lon": -0.020311,
-      "zone": "2"
-    },
-    {
       "id": "940GZZDLWLA",
       "name": "Woolwich Arsenal",
       "lat": 51.490009,
@@ -2270,14 +2263,14 @@
     },
     {
       "a": "940GZZDLCAN",
-      "b": "940GZZDLWFE",
+      "b": "940GZZDLPOP",
       "lines": [
         "dlr"
       ]
     },
     {
       "a": "940GZZDLCAN",
-      "b": "940GZZDLWIQ",
+      "b": "940GZZDLWFE",
       "lines": [
         "dlr"
       ]
@@ -2430,13 +2423,6 @@
       ]
     },
     {
-      "a": "940GZZDLPOP",
-      "b": "940GZZDLWIQ",
-      "lines": [
-        "dlr"
-      ]
-    },
-    {
       "a": "940GZZDLPRE",
       "b": "940GZZDLRAL",
       "lines": [
@@ -2495,13 +2481,6 @@
     {
       "a": "940GZZDLSTL",
       "b": "940GZZLUWHM",
-      "lines": [
-        "dlr"
-      ]
-    },
-    {
-      "a": "940GZZDLWFE",
-      "b": "940GZZDLWIQ",
       "lines": [
         "dlr"
       ]

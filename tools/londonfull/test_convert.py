@@ -15,11 +15,18 @@ import convert
 DATA = convert.HERE.parents[1] / "internal/scenarios/data"
 
 
+def tube_topology(provenance):
+    stops = {s["id"]: {k: s[k] for k in ("id", "name", "lat", "lon", "zone")} for s in provenance["source_stations"]}
+    site = {s["id"]: s["site_id"] for s in provenance["source_stations"]}
+    return convert.network({"retrieved": "2026-09-28", "url": "https://api.tfl.gov.uk/Line/Mode/tube",
+                            "attribution": "Powered by TfL Open Data"}, stops, site, convert.links(provenance["sequences"], site))
+
+
 class ConversionTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.provenance = json.loads((DATA / "london-full-provenance.json").read_text())
-        cls.topology = json.loads((DATA / "london-full-tube.json").read_text())
+        cls.topology = tube_topology(cls.provenance)
 
     def test_complete_snapshots(self):
         source = self.provenance["source_stations"]
@@ -39,24 +46,6 @@ class ConversionTests(unittest.TestCase):
                 self.assertLess(station["lon"], 0)
                 self.assertEqual(station["lon"], next(r["lon"] for r in source if r["id"] == station["id"]))
 
-    def test_all_positive_pairs_and_band_totals(self):
-        seen, endpoints = set(), set()
-        totals = [Decimal(0)] * 8
-        with (DATA / "london-full-od-2024.csv").open() as f:
-            for row in csv.DictReader(f):
-                key = row["from"], row["to"]
-                self.assertNotIn(key, seen)
-                self.assertNotEqual(*key)
-                seen.add(key)
-                endpoints.update(key)
-                weights = [Decimal(row[b]) for b in convert.BANDS]
-                self.assertTrue(all(w.is_finite() and w >= 0 for w in weights))
-                self.assertGreater(sum(weights), 0)
-                totals = [a + b for a, b in zip(totals, weights)]
-        self.assertEqual(len(seen), 60996)
-        self.assertEqual(endpoints, {s["id"] for s in self.topology["stations"]})
-        self.assertEqual(totals, [Decimal(v) for v in self.provenance["band_totals"]])
-
     def test_central_files_unchanged(self):
         for name, digest in {
             "london-tube.json": "9a4326cd8e2c3517cf7c9a2a3a85c7e4208faeaff472cb495546d682ba6a7b66",
@@ -64,13 +53,13 @@ class ConversionTests(unittest.TestCase):
         }.items():
             self.assertEqual(hashlib.sha256((DATA / name).read_bytes()).hexdigest(), digest)
 
-    def test_tube_outputs_unchanged(self):
-        for name, digest in {
-            "london-full-tube.json": "af65234ca6be2d3280e48cf73773b574ec60c0cdd9e4473b2b3d5ad648bed139",
-            "london-full-od-2024.csv": "605ac99f1e134dbd20e00401de4c671e3664b81e48e373df574927c7b60cb99c",
-            "london-full-provenance.json": '0f8c5bbe96b52c6a5e64c7a3802d97bde11059a75357d89557b09640d36cc13c',
-        }.items():
-            self.assertEqual(hashlib.sha256((DATA / name).read_bytes()).hexdigest(), digest)
+    def test_tube_provenance_unchanged(self):
+        self.assertEqual(hashlib.sha256((DATA / "london-full-provenance.json").read_bytes()).hexdigest(),
+                         "0f8c5bbe96b52c6a5e64c7a3802d97bde11059a75357d89557b09640d36cc13c")
+
+    def test_tube_topology_unchanged(self):
+        raw = (json.dumps(self.topology, indent=2, ensure_ascii=False) + "\n").encode()
+        self.assertEqual(hashlib.sha256(raw).hexdigest(), "af65234ca6be2d3280e48cf73773b574ec60c0cdd9e4473b2b3d5ad648bed139")
 
     def test_tube_content_guard(self):
         stops = {s["id"]: s for s in self.provenance["source_stations"]}
@@ -184,7 +173,7 @@ class DLRConversionTests(unittest.TestCase):
     def setUpClass(cls):
         cls.provenance = json.loads((DATA / "london-full-dlr-provenance.json").read_text())
         cls.topology = json.loads((DATA / "london-full-dlr.json").read_text())
-        cls.tube = json.loads((DATA / "london-full-tube.json").read_text())
+        cls.tube = tube_topology(json.loads((DATA / "london-full-provenance.json").read_text()))
         cls.tube_provenance = json.loads((DATA / "london-full-provenance.json").read_text())
         cls.review = json.loads((convert.HERE / "dlr.json").read_text())
 
@@ -197,16 +186,17 @@ class DLRConversionTests(unittest.TestCase):
         stops = self.provenance["dlr_source_stations"]
         self.assertEqual(len(stops), 45)
         sites = {s["id"] for s in self.topology["stations"]}
-        self.assertEqual(len(sites), 310)
-        self.assertEqual({s["site_id"] for s in stops} - sites, set())
+        self.assertEqual(len(sites), 309)
+        self.assertEqual({s["site_id"] for s in stops if s["site_id"]} - sites, set())
         merged = {m["stop"]: m["site"] for m in self.provenance["dlr_merges"]}
         self.assertEqual(merged, {"940GZZDLBNK": "940GZZLUBNK", "940GZZDLCGT": "940GZZLUCGT",
                                   "940GZZDLSTD": "940GZZLUSTD", "940GZZDLWHM": "940GZZLUWHM"})
         for stop in stops:
-            self.assertEqual(stop["site_id"], merged.get(stop["id"], stop["id"]))
-        self.assertIn("940GZZDLWIQ", sites)
-        self.assertEqual(self.provenance["excluded_definitions"], [])
-        self.assertEqual(len(self.provenance["demand_mapping"]), 311)
+            self.assertEqual(stop["site_id"], None if stop["id"] == "940GZZDLWIQ" else merged.get(stop["id"], stop["id"]))
+        self.assertNotIn("940GZZDLWIQ", sites)
+        self.assertEqual(self.provenance["excluded_definitions"], [{"code": "866", "name": "West India Quay", "naptan": "940GZZDLWIQ"}])
+        self.assertEqual(self.provenance["dlr_omitted"], self.review["omitted"])
+        self.assertEqual(len(self.provenance["demand_mapping"]), 310)
         self.assertEqual({r["site_id"] for r in self.provenance["demand_mapping"]}, sites)
         self.assertEqual({r["line"] for r in self.provenance["dlr_sequences"]}, {"dlr"})
 
@@ -216,14 +206,14 @@ class DLRConversionTests(unittest.TestCase):
             self.assertEqual(stations[station["id"]], station)
         links = {(l["a"], l["b"]): l["lines"] for l in self.topology["links"]}
         tube = {(l["a"], l["b"]): l["lines"] for l in self.tube["links"]}
-        self.assertEqual(len(links), 360)
+        self.assertEqual(len(links), 358)
         self.assertEqual({k: v for k, v in links.items() if k in tube}, tube)
         self.assertEqual({tuple(v) for k, v in links.items() if k not in tube}, {("dlr",)})
-        self.assertEqual(len(links) - len(tube), 47)
+        self.assertEqual(len(links) - len(tube), 45)
 
     def test_all_positive_pairs_and_band_totals(self):
         seen, endpoints, totals = read_od(DATA / "london-full-dlr-od-2024.csv")
-        self.assertEqual(len(seen), 76776)
+        self.assertEqual(len(seen), 76567)
         self.assertEqual(endpoints, {s["id"] for s in self.topology["stations"]})
         self.assertEqual(totals, [Decimal(v) for v in self.provenance["band_totals"]])
         self.assertEqual(totals[0], 0)
@@ -232,7 +222,7 @@ class DLRConversionTests(unittest.TestCase):
     def site_inputs(self):
         tube_stops = {s["id"]: {k: s[k] for k in ("id", "name", "lat", "lon", "zone")} for s in self.tube_provenance["source_stations"]}
         tube_site = {k: convert.MERGES.get(k, k) for k in tube_stops}
-        tube_hubs = {k: k for k in tube_stops} | {m["site"]: m["hub"] for m in self.review["merges"]} | {"940GZZLUCYF": "HUBCAW"}
+        tube_hubs = {s["id"]: s["hub"] for s in self.tube_provenance["source_stations"]}
         dlr = {s["id"]: s for s in self.provenance["dlr_source_stations"]}
         dlr_stops = {k: {f: s[f] for f in ("id", "name", "lat", "lon", "zone")} for k, s in dlr.items()}
         dlr_hubs = {k: s["hub"] for k, s in dlr.items()}
@@ -246,7 +236,7 @@ class DLRConversionTests(unittest.TestCase):
         *inputs, definition = self.site_inputs()
         site, merges = convert.dlr_sites(*inputs, self.review, definition)
         self.assertEqual(merges, self.provenance["dlr_merges"])
-        self.assertEqual(site, {s["id"]: s["site_id"] for s in self.provenance["dlr_source_stations"]})
+        self.assertEqual(site, {s["id"]: s["site_id"] or s["id"] for s in self.provenance["dlr_source_stations"]})
         cases = [
             ("separate", lambda r: r["separate"].pop(0), "unreviewed DLR hub"),
             ("hub", lambda r: r["merges"][0].update(hub="HUBCAW"), "hub mismatch"),
@@ -261,6 +251,27 @@ class DLRConversionTests(unittest.TestCase):
                 change(review)
                 with self.assertRaisesRegex(ValueError, message):
                     convert.dlr_sites(*inputs, review, definition)
+
+    def test_omission_guards(self):
+        *inputs, definition = self.site_inputs()
+        site, _ = convert.dlr_sites(*inputs, self.review, definition)
+        stops = inputs[3]
+        self.assertEqual(convert.omitted_dlr_sites(self.review, stops, site), {"940GZZDLWIQ": "940GZZDLCAN"})
+        for field, value in [("stop", "unknown"), ("name", "Incorrect"), ("connect_to", "unknown"),
+                             ("connect_to", "940GZZDLWIQ"), ("reason", "")]:
+            with self.subTest(field=field):
+                review = json.loads(json.dumps(self.review))
+                review["omitted"][0][field] = value
+                with self.assertRaises(ValueError):
+                    convert.omitted_dlr_sites(review, stops, site)
+        review = json.loads(json.dumps(self.review))
+        review["omitted"] *= 2
+        with self.assertRaisesRegex(ValueError, "invalid DLR omission"):
+            convert.omitted_dlr_sites(review, stops, site)
+        edges = {(l["a"], l["b"]) for l in self.topology["links"]}
+        self.assertIn(("940GZZDLCAN", "940GZZDLPOP"), edges)
+        self.assertIn(("940GZZDLCAN", "940GZZDLWFE"), edges)
+        self.assertFalse(any("940GZZDLWIQ" in edge for edge in edges))
 
     def test_dlr_alias_guards(self):
         stops = {s["id"]: s for s in self.provenance["dlr_source_stations"]}

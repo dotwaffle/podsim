@@ -13,7 +13,7 @@ func TestJourneyStationNamesAndCodes(t *testing.T) {
 	t.Parallel()
 	game := journeyNetworkGame(t, scenarios.LondonFull().Network)
 	stations := game.journeyStations()
-	if stations[0].Name != "Acton Town" {
+	if stations[0].Name != "Abbey Road" {
 		t.Fatalf("first station: %s", stations[0].Name)
 	}
 	if !slices.IsSortedFunc(stations, func(a, b sim.Station) int { return strings.Compare(strings.ToLower(a.Name), strings.ToLower(b.Name)) }) {
@@ -21,6 +21,7 @@ func TestJourneyStationNamesAndCodes(t *testing.T) {
 	}
 	for _, tc := range []struct{ query, id string }{
 		{"chx", "940GZZLUCHX"}, {"Charing Cross", "940GZZLUCHX"}, {"charing", "940GZZLUCHX"},
+		{"Abbey Road", "940GZZDLABR"}, {"940GZZDLCAN", "940GZZDLCAN"},
 		{"BPS", "940GZZBPSUST"}, {"nel", "940GZZNEUGST"}, {"940GZZLUCHX", "940GZZLUCHX"},
 	} {
 		t.Run(tc.query, func(t *testing.T) {

@@ -1176,7 +1176,7 @@ mise run serve -- -project /tmp/podsim-scale100.json
 
 Presets include `small`, `busy`, `parking-constrained`, `rail-hub`, `scale100`, `london-central`, and `london-full`.
 LondonCentral preserves the central qualification network.
-[LondonFull](docs/london-full.md) covers 269 Tube sites with 2024 endpoint demand.
+[LondonFull](docs/london-full.md) covers 309 Tube and DLR sites with 2024 endpoint demand.
 Generated files contain raw server settings.
 The editor can export the loaded scenario with optional local background data.
 See [qualification results](docs/qualification.md) for safety checks, performance measurements, and redistribution limits.
@@ -1248,10 +1248,13 @@ The simulator infers through, berth access, and departure roles from the station
 
 #### london-full
 
-[LondonFull](docs/london-full.md) includes 269 passenger sites and three Parking facilities with 2024 endpoint demand.
-It starts with 287 pods, weighted station berths, and a configured rate of 10 requests per minute.
+[LondonFull](docs/london-full.md) includes 309 Tube and DLR passenger sites and three Parking facilities with 2024 endpoint demand.
+It starts with 327 pods, 754 berths, and a configured rate of 10 requests per minute.
+West India Quay is omitted for layout clearance.
+Canary Wharf DLR and Jubilee remain separate stations.
 Demand starts disabled.
-Its finite-arrival demo checks do not establish sustainable capacity or replace the LondonCentral qualification results.
+A short DLR smoke run does not establish sustainable capacity.
+The earlier finite-arrival studies used the Tube-only preset.
 
 ## Scope and model
 

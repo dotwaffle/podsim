@@ -1,6 +1,8 @@
 # LondonFull
 
-LondonFull (`london-full`) maps all 269 normalized London Underground passenger sites onto a PRT network.
+LondonFull (`london-full`) maps 269 normalized Tube sites and 40 additional DLR sites onto a PRT network.
+It includes the full DLR except West India Quay, omitted for layout clearance.
+It does not include Overground.
 It has three additional Parking facilities.
 Pods use independent guideways, not train schedules or Tube service frequencies.
 [LondonCentral](london.md) retains the smaller qualification network and its 2019 demand.
@@ -17,12 +19,16 @@ Its display name is `LondonFull`.
 
 ## Source and demand
 
-The topology contains 272 source stops merged into 269 passenger sites and 313 undirected adjacencies.
+The topology contains 272 Tube source stops and 45 DLR source stops.
+After merges and the West India Quay omission, it has 309 passenger sites and 358 undirected links.
 Monument merges into Bank, Paddington H&C into Paddington, and Hammersmith H&C into Hammersmith.
+Bank, Canning Town, Stratford, and West Ham each merge their Tube and DLR stops.
 The two Edgware Road sites remain separate.
+Canary Wharf DLR remains separate from Canary Wharf Jubilee.
 Coordinates come from the TfL Unified API, including Nine Elms and Battersea Power Station.
 
-Demand contains all 60,996 directed pairs from the 2024 Tuesday-to-Thursday network matrix whose endpoints map to the Tube roster.
+Demand contains 76,567 directed pairs from the 2024 Tuesday-to-Thursday network matrix.
+Both endpoints must map to a retained Tube or DLR site.
 Those journeys can use other modes between their endpoints.
 This differs from LondonCentral's 2019 LU-specific matrix.
 The full preset offers Morning, AM peak, Interpeak, PM peak, Evening, and Late.
@@ -32,12 +38,11 @@ The [offline converter](../tools/londonfull/README.md) documents all source hash
 It preserves all eight source columns, including the two empty columns.
 It does not truncate pairs or synthesize weights.
 The preset rounds each weight to four significant digits when it reads the matrix.
-This changes each band total by at most 2.3 parts per million.
-The converter output and the provenance totals keep the source values.
+The converter and provenance retain exact totals before rounding.
 
 ## Capacity and geometry
 
-The default has 287 pods, 674 berths, 4,988 nodes, and 7,778 lanes.
+The default has 327 pods, 754 berths, 5,658 nodes, and 8,844 lanes.
 Each passenger site starts with one pod and two berths.
 The three existing Parking facilities each have six pods and twelve berths.
 
@@ -45,10 +50,14 @@ The generator assigns 100 extra passenger berths from the largest boarding-plus-
 It uses the largest-remainder method, with station ID as the tie-breaker.
 Bank keeps two berths because more rows cause a hard layout conflict.
 Its two extra berths are reassigned by the same allocation rule.
-Bank and Mansion House use full-network headings of 234 and 56 degrees.
+Bank, Mansion House, and Canary Wharf Jubilee use full-network headings of 234, 56, and 330 degrees.
+The Canary Wharf heading clears the North Greenwich guideway.
+West India Quay leaves insufficient clearance beside Canary Wharf Jubilee and the Poplar delta.
+Its guideways connect through Canary Wharf DLR, and its demand endpoints are excluded.
+Poplar uses the shared heading search without an override.
 LondonCentral's headings and capacity remain unchanged.
 
-The layout audit reports no hard conflicts and three soft conflicts.
+The layout audit reports no hard conflicts and four soft conflicts.
 Soft conflicts describe overlap or proximity to source station positions.
 They do not establish that a running simulation is safe or that a demand rate is sustainable.
 
@@ -61,6 +70,25 @@ All generated capacity variants must pass normal project and layout validation.
 
 The initial demand setting is 10 requests per minute, with AM peak weights and seed 20260929.
 Automatic demand and redistribution start disabled.
+A ten-minute AM peak smoke run on October 7, 2026 generated 100 requests and completed 15, with no skipped requests.
+Safety checks passed each simulated second.
+The physical restore test preserved active requests and passed safety checks during its 30-second continuation.
+A separate test checks that simultaneous trips around Poplar and both Canary Wharf sites drain safely.
+These checks do not establish a sustainable demand rate.
+
+The project limits admit 12,000 nodes, 20,000 lanes, 600 stations, 600 pods, 400,000 flows, and 32 MiB of project JSON.
+The default compact project JSON has 5,562,812 bytes.
+The default indented export has 14,823,549 bytes.
+The saved-state cap is 100 MiB.
+No test proves that the largest saved state fits that cap.
+Stream caps are 65 MiB of JSON and 66 MiB of gzip data.
+The junction-pair limit is 250,000, and the track-cell limit remains 64,000.
+
+### Earlier Tube-only checks
+
+The remaining measurements on this page used the 269-site Tube-only preset.
+They do not qualify the DLR network.
+
 Bounded AM peak trials used 20 minutes of arrivals and three seeds.
 All requests drained at 10 requests per minute, within 64 simulated minutes.
 Mean pickup waits ranged from 63 to 84 seconds.
@@ -87,13 +115,6 @@ The preset retains demand-weighted berth space and the existing six-pod Parking 
 These trials do not prove a performance benefit from that extra capacity.
 These initial checks preceded the finite-arrival study below.
 They do not establish a complete qualification envelope.
-
-The project limits admit 12,000 nodes, 20,000 lanes, 600 stations, 600 pods, 400,000 flows, and 32 MiB of project JSON.
-The default project JSON has 4,644,705 bytes, and its flows use 2,650,208 bytes.
-The saved-state cap is 100 MiB.
-No test proves that the largest saved state fits that cap.
-Stream caps are 65 MiB of JSON and 66 MiB of gzip data.
-The junction-pair limit is 250,000, and the track-cell limit remains 64,000.
 
 ## Finite-arrival study, September 29, 2026
 

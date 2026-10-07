@@ -292,6 +292,19 @@ def dlr_sites(tube_site, tube_stops, tube_hubs, dlr_stops, dlr_hubs, review, def
     return site, records
 
 
+def omitted_dlr_sites(review, stops, site):
+    """Return reviewed guideway bypasses for stops excluded from demand."""
+    bypass = {}
+    for entry in review["omitted"]:
+        stop, target = entry["stop"], entry["connect_to"]
+        require(stop not in bypass and stop in stops and site.get(stop) == stop, "invalid DLR omission: " + stop)
+        require(entry["name"] == stops[stop]["name"] and entry["reason"], "DLR omission review mismatch: " + stop)
+        require(target != stop and target in site and site[target] == target, "invalid DLR bypass: " + stop)
+        bypass[stop] = target
+    require(not bypass.keys() & set(bypass.values()), "DLR bypass targets an omitted stop")
+    return bypass
+
+
 def nearest(stop, sites):
     best = min(sites, key=lambda s: (distance(stop, s), s["id"]))
     return {"nearest_tube_site": best["id"], "nearest_tube_distance_m": distance(stop, best)}
@@ -313,17 +326,19 @@ def convert_dlr(root, output):
     dlr_site, merges = dlr_sites(tube_site, tube_stops, tube_hubs, dlr_stops, dlr_hubs, review, (names, naptan, lu, dlr, explicit))
     site = tube_site | dlr_site
     stops = tube_stops | dlr_stops
-    edges = links(tube_sequences + dlr_sequences, site)
+    bypass = omitted_dlr_sites(review, dlr_stops, dlr_site)
+    edges = links(tube_sequences + dlr_sequences, site | bypass)
+    site = {k: v for k, v in site.items() if k not in bypass}
     full = network({"retrieved": "2026-09-28 (Tube), 2026-10-07 (DLR)", "url": "https://api.tfl.gov.uk/Line/Mode/tube,dlr",
                     "attribution": "Powered by TfL Open Data"}, stops, site, edges)
-    require(len(merges) == 4 and len(full["stations"]) == 310 and len(full["links"]) == 360, "normalized DLR topology count changed")
+    require(len(merges) == 4 and len(full["stations"]) == 309 and len(full["links"]) == 358, "normalized DLR topology count changed")
 
     explicit |= check_aliases(review["aliases"], dlr, names, naptan, dlr_stops)
     mapping, records, excluded = map_codes(lu | dlr, explicit, names, naptan, site)
-    require(excluded == [], "unreviewed LU or DLR definition exclusion")
-    require(len(mapping) == 311 and set(mapping.values()) == set(site.values()), "demand coverage changed")
+    require(excluded == [{"code": "866", "name": "West India Quay", "naptan": "940GZZDLWIQ"}], "unreviewed LU or DLR definition exclusion")
+    require(len(mapping) == 310 and set(mapping.values()) == set(site.values()), "demand coverage changed")
     weights, counts = read_demand(root, mapping)
-    require(len(weights) == 76776, "normalized OD pair count changed")
+    require(len(weights) == 76567, "normalized OD pair count changed")
     require({k for pair in weights for k in pair} == set(mapping.values()), "station without positive demand")
 
     tube_sites = [s for s in full["stations"] if s["id"] in set(tube_site.values())]
@@ -332,12 +347,12 @@ def convert_dlr(root, output):
     write_demand(output / "london-full-dlr-od-2024.csv", weights)
     write_json(output / "london-full-dlr-provenance.json", {
         "sources": manifest,
-        "tube_route_semantics": "Tube stops and sequences must equal london-full-provenance.json. Later TfL responses can differ in fields that conversion does not read.",
+        "tube_route_semantics": "Tube stops, hub IDs, and sequences must equal london-full-provenance.json. Later TfL responses can differ in fields that conversion does not read.",
         "semantics": "2024 Tuesday-to-Thursday network journeys filtered to Tube and DLR endpoints, including journeys on other modes"}
         | band_fields() | {
-        "tube_merges": MERGES, "dlr_merges": merges, "dlr_separate": review["separate"],
-        "definition_note": "Stn-Mode lists code 866, West India Quay, twice: one row has the LU flag and one has the DLR flag. The DLR conversion maps it to 940GZZDLWIQ.",
-        "dlr_source_stations": [dlr_stops[k] | {"hub": dlr_hubs[k], "site_id": site[k]} | nearest(dlr_stops[k], tube_sites) for k in sorted(dlr_stops)],
+        "tube_merges": MERGES, "dlr_merges": merges, "dlr_separate": review["separate"], "dlr_omitted": review["omitted"],
+        "definition_note": "Stn-Mode lists code 866, West India Quay, twice: one row has the LU flag and one has the DLR flag. The DLR conversion excludes both rows under the reviewed layout omission.",
+        "dlr_source_stations": [dlr_stops[k] | {"hub": dlr_hubs[k], "site_id": site.get(k)} | nearest(dlr_stops[k], tube_sites) for k in sorted(dlr_stops)],
         "dlr_sequences": dlr_sequences, "demand_mapping": records, "excluded_definitions": excluded,
         "counts": counts | {"tube_source_stations": len(tube_stops), "dlr_source_stations": len(dlr_stops), "dlr_merges": len(merges),
                             "sites": len(full["stations"]), "dlr_sites": len(full["stations"]) - len(tube_sites), "links": len(full["links"]),
