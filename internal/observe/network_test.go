@@ -3,6 +3,7 @@ package observe
 import (
 	"compress/gzip"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"math/rand/v2"
 	"os"
 	"slices"
@@ -168,7 +169,7 @@ func loadSummaryFixture(tb testing.TB, name string) (sim.Network, sim.Snapshot) 
 	}
 	defer reader.Close()
 	var fixture summaryFixture
-	if err := json.NewDecoder(reader).Decode(&fixture); err != nil {
+	if err := jsonv2.UnmarshalRead(reader, &fixture, json.DefaultOptionsV1()); err != nil {
 		tb.Fatal(err)
 	}
 	lanes := make(map[string]sim.Lane, len(network.Lanes))

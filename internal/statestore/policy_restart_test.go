@@ -8,6 +8,8 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
@@ -25,7 +27,7 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-func policyStateJSON(t *testing.T, data []byte) map[string]json.RawMessage {
+func policyStateJSON(t *testing.T, data []byte) map[string]jsontext.Value {
 	t.Helper()
 	reader, err := gzip.NewReader(bytes.NewReader(data))
 	if err != nil {
@@ -36,18 +38,18 @@ func policyStateJSON(t *testing.T, data []byte) map[string]json.RawMessage {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var file map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &file); err != nil {
+	var file map[string]jsontext.Value
+	if err := jsonv2.Unmarshal(raw, &file, json.DefaultOptionsV1()); err != nil {
 		t.Fatal(err)
 	}
 	return file
 }
 
-func encodePolicyState(t *testing.T, file map[string]json.RawMessage) []byte {
+func encodePolicyState(t *testing.T, file map[string]jsontext.Value) []byte {
 	t.Helper()
 	var data bytes.Buffer
 	writer := gzip.NewWriter(&data)
-	if err := json.NewEncoder(writer).Encode(file); err != nil {
+	if err := jsonv2.MarshalWrite(writer, file, json.DefaultOptionsV1()); err != nil {
 		t.Fatal(err)
 	}
 	if err := writer.Close(); err != nil {
@@ -143,7 +145,7 @@ func storedPolicyFixture(t *testing.T, store *Store, config project.Config, simu
 		t.Fatal(err)
 	}
 	file := policyStateJSON(t, mustRead(t, store))
-	raw, err := json.Marshal(packSavedOrders(simulation))
+	raw, err := jsonv2.Marshal(packSavedOrders(simulation), json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -241,7 +243,7 @@ func TestCombinedPoliciesFileRestart(t *testing.T) {
 				t.Fatal(err)
 			}
 			var saved sim.SavedState
-			if err := json.Unmarshal(policyStateJSON(t, mustRead(t, store))["simulation"], &saved); err != nil {
+			if err := jsonv2.Unmarshal(policyStateJSON(t, mustRead(t, store))["simulation"], &saved, json.DefaultOptionsV1()); err != nil {
 				t.Fatal(err)
 			}
 			if !reflect.DeepEqual(saved, packSavedOrders(physical)) {
@@ -283,7 +285,7 @@ func TestLegacyFileArchivedAtStartup(t *testing.T) {
 	// Historical files did not contain consent or vehicle-class metadata.
 	file := policyStateJSON(t, mustRead(t, store))
 	var saved sim.SavedState
-	if err := json.Unmarshal(file["simulation"], &saved); err != nil {
+	if err := jsonv2.Unmarshal(file["simulation"], &saved, json.DefaultOptionsV1()); err != nil {
 		t.Fatal(err)
 	}
 	strip := func(request *sim.SavedRequest) {
@@ -299,11 +301,11 @@ func TestLegacyFileArchivedAtStartup(t *testing.T) {
 	for index := range saved.Waiting {
 		strip(&saved.Waiting[index].Request)
 	}
-	raw, err := json.Marshal(saved)
+	raw, err := jsonv2.Marshal(saved, json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}
-	file["simulation"], file["version"] = raw, json.RawMessage("2")
+	file["simulation"], file["version"] = raw, jsontext.Value("2")
 	legacy := encodePolicyState(t, file)
 	mustWrite(t, store, legacy)
 
@@ -366,7 +368,7 @@ func TestCombinedPolicyFailedFileSave(t *testing.T) {
 			}
 			data := mustRead(t, store)
 			var saved sim.SavedState
-			if err := json.Unmarshal(policyStateJSON(t, data)["simulation"], &saved); err != nil {
+			if err := jsonv2.Unmarshal(policyStateJSON(t, data)["simulation"], &saved, json.DefaultOptionsV1()); err != nil {
 				t.Fatal(err)
 			}
 			if !reflect.DeepEqual(saved, packSavedOrders(physical)) {

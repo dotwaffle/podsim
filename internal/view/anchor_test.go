@@ -2,6 +2,7 @@ package view
 
 import (
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"fmt"
 	"math"
 	"os"
@@ -169,7 +170,7 @@ func londonSourcePositions(t *testing.T) map[string]sim.Point {
 			Longitude float64 `json:"lon"`
 		} `json:"stations"`
 	}
-	if err := json.Unmarshal(data, &source); err != nil {
+	if err := jsonv2.Unmarshal(data, &source, json.DefaultOptionsV1()); err != nil {
 		t.Fatal(err)
 	}
 	const (
