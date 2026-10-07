@@ -241,6 +241,8 @@ Stage 1 W3 does not change: the pod releases only its own claims, and it authori
 | Pod inspector | `internal/view/game.go` `(*Game).inspectionRows` (at 17ab489) | Rows of the selected pod. |
 | Web markers | `web/editor.js:1275`, `web/shell.js:147` | `markersAgree` and the incident marker. |
 
+Status 2026-10-07: `MaxLanes` is now 20,000, and `MaxCommandBytes` is now 16 MiB.
+
 ## 4. State
 
 ### 4.1 Records

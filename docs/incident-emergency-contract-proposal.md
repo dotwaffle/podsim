@@ -697,6 +697,8 @@ Proof of exactness.
      `L(S) = fl(P + min d)`, so `L(S) <= (1 + u)(1 + γn) · (P + Σ σ(l)) <= (1 + γ(n+1)) · (P + Σ σ(l))` over `U`.
    - Together, `L(S) <= E · (1 + γ(n+1)) / (1 - γ(3n))`.
      With `n <= 5,000`, this factor is less than `1 + 3e-12`.
+     Status 2026-10-07: the node limit is now 12,000.
+     With `n <= 12,000`, the factor is less than `1 + 6e-12`, and `(1 + 6e-12)(1 - 1e-9)(1 + u) < 1`, so the conclusion holds.
      `lower(L(S))` is at most `L(S) · (1 - 1e-9) · (1 + u)`, and `(1 + 3e-12)(1 - 1e-9)(1 + u) < 1`, so `lower(L(S))` is at most the computed `E` of each candidate of `S`, and the stop rule never removes a station that the exhaustive scan could choose.
    - This proof does not use the prefix length, because `P` is shared.
      The term guard of pruning step 6 still holds, and its constant does not change: it keeps `4p + 7n + 2k <= 90,000` (with `p` the prefix length and `k` the pod count), which bounds every accumulation of the choice, and `γ(90,000) < 1.0e-11` is still more than 100 times below the margin.
@@ -765,6 +767,11 @@ The bound counts graph searches:
 | Choices in one tick | `MaxEmergencies` = 4. Records that started on ticks with one remainder modulo 60 choose on the same ticks. | Section 4.3 |
 
 The worst tick therefore makes at most `4 · (1 + 5,001 · 12) = 240,052` graph searches, on a network of at most 5,000 nodes and 8,000 lanes (`internal/project/config.go` `MaxNodes`, `MaxLanes`).
+Status 2026-10-07: the project limits are now 12,000 nodes and 20,000 lanes, so the bound is `4 · (1 + 12,001 · 12) = 576,052` graph searches.
+The term guard constant does not change.
+At 12,000 nodes and 600 pods, `7n + 2k = 85,200`, so on such a network a choice prunes only with a prefix of at most 1,200 lanes.
+The preset networks are much smaller, so their choices do not change.
+The search measurement below and `BenchmarkEmergencyLimitSearch` keep the 5,000-node grid.
 Pruning does not lower this bound, because in a network where the tree reaches every berth and the restricted searches refuse each one, no station is pruned.
 The view does not write the free-flow memo, so the installation repeats the searches of the chosen pair unless the view keeps its suffix.
 
@@ -1432,7 +1439,12 @@ The default rate stays 0 until the maintainer chooses one in stage 7.
 | Web | The browser shell and editor with a marked project. | `mise run test:web` passes, and the marker checks refuse the cases of section 14.3. |
 | Product | The product choices of section 18.2. | Done: the maintainer approved P1 to P22 on October 5, 2026, and decided P23 on October 5, 2026, at 23:59Z. |
 
-Status 2026-10-07: the latency fixtures keep a fleet of 300 pods, below the limit of 600, because their networks cannot hold 600 berths.
+Status 2026-10-07: the project limits are now 600 stations, 12,000 nodes, and 20,000 lanes, and the latency fixtures have a fleet of 600 pods.
+The no-candidate fixture has 600 stations of 13 berths, 12,000 nodes, and 19,800 lanes.
+The delayed-routes fixture has 600 stations of one berth, 12,000 nodes, and 19,931 lanes.
+On an AMD Ryzen 5 3600 at `nice -n 19` under load, the slowest delayed-routes tick took 10.3 ms, within the 50 ms gate.
+The slowest no-candidate tick took 1.0 to 1.6 s, with at most 93,760 graph searches.
+The long-prefix test uses a prefix of more than 20,000 lane occurrences.
 
 The search counters are an unexported member of `Simulation`, written by the search code and read by the tests and benchmarks of `internal/sim`.
 No rule reads them, and they are not saved.

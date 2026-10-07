@@ -1446,6 +1446,7 @@ Notes on the counts:
   Express: 20 stored riders per pod and 8,600 waiting trips (`orderBounds`, `internal/session/format_limits.go` `(contractMarkers).orderBounds` at `475cc85`).
 - The station index has at most 3 digits, because a project has at most 300 stations (`internal/project/config.go` `MaxPods`).
   The pod index has at most 3 digits for 300 pods (`MaxPods`).
+  Status 2026-10-07: a project has at most 600 stations and 600 pods, so both indexes still have at most 3 digits.
 - The exclusion holds until the trip boards (maintainer decision of October 5, 2026), so a trip can carry both `podID` and `excludedPod`.
   The table counts the exclusion on every waiting trip.
 - Rider counts include completed history, because history keeps `legFrom` (section 7.2).

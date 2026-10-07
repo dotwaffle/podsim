@@ -364,6 +364,9 @@ The actual bounded checkpoint writer remains authoritative.
 At the retained-ledger count extremes, `N <= 65,536` and `L <= 524,288` independently.
 Either ledger charge alone can reach 64 MiB of encoded budget.
 Two 10 MiB inputs already leave less than 60 MiB for native state and the ledger.
+Status 2026-10-07: the canonical project limit is now 32 MiB (`project.MaxFileBytes`), and the canonical plan limit stays 10 MiB (`internal/parkride` `MaxPlanBytes`).
+In the 100 MiB checkpoint, the two inputs leave less than 58 MiB for native state and the ledger.
+The test that fitted a checkpoint at the count limits was deleted with the other worst-case byte proofs.
 Not every valid offline run can fit this checkpoint format.
 A size failure must preserve all parties and leave the old output unchanged.
 

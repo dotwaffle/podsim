@@ -239,6 +239,7 @@ Stream hello version 6 carries the marker and binds it to its source epoch and t
 Express topology carries `orderContract` and a bounded `expressServices` array, copied from the project registry.
 It retains project version, epoch, and revision binding.
 The entire topology, including the registry, must fit the existing 10 MiB plus 4 KiB cap.
+Status 2026-10-07: the project limit is now 32 MiB, so the topology cap is 32 MiB plus 4 KiB (33,558,528 bytes).
 
 The producer must encode and preflight it before activating an Express session.
 A failure rejects activation without dropping registry entries or raising the cap.
@@ -416,6 +417,7 @@ The resulting independent topology projection exceeds the existing topology cap.
 It therefore does not qualify every project that fits its own file cap.
 Producer preflight and real widest-shape topology assets must establish the accepted set.
 Do not assume a 10 MiB project proves canonical topology fit.
+Status 2026-10-07: the table above keeps its 10 MiB basis, and nobody measured it again at the 32 MiB project limit.
 
 The combined HTTP bound uses the qualified whole-topology cap and the larger full-stream envelope bound.
 It adds the 97-byte wrapper and removes its two four-byte null placeholders.
