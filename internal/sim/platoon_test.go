@@ -3,6 +3,7 @@ package sim
 import (
 	"bytes"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"fmt"
 	"maps"
 	"math"
@@ -585,7 +586,7 @@ func corridorQueues(head float64) []corridorPod {
 // platoonState returns the snapshot of s as JSON with the links of its pods.
 func platoonState(t *testing.T, s *Simulation) string {
 	t.Helper()
-	snapshot, err := json.Marshal(s.Snapshot())
+	snapshot, err := jsonv2.Marshal(s.Snapshot(), json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -704,7 +705,7 @@ func TestPlatoonSnapshotMembers(t *testing.T) {
 				t.Fatalf("tick %d: pod %s has platoon %q at %d, want %q at %d", s.tick, got.Pod.ID, got.PlatoonID, got.PlatoonIndex, wantID, wantIndex)
 			}
 			if wantID == "" {
-				data, err := json.Marshal(got)
+				data, err := jsonv2.Marshal(got, json.DefaultOptionsV1())
 				if err != nil {
 					t.Fatal(err)
 				}

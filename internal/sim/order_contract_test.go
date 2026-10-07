@@ -3,6 +3,7 @@ package sim
 import (
 	"bytes"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"fmt"
 	"math"
 	"os"
@@ -62,11 +63,11 @@ func TestExpressContractProfilesAndFoundation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	oldRaw, err := json.Marshal(old.ExportState())
+	oldRaw, err := jsonv2.Marshal(old.ExportState(), json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}
-	sameRaw, err := json.Marshal(same.ExportState())
+	sameRaw, err := jsonv2.Marshal(same.ExportState(), json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -319,7 +320,7 @@ func TestExpressMaximumRecoveryAndAggregate(t *testing.T) {
 		t.Fatal("seed shape")
 	}
 	if dir := os.Getenv("EXPRESS_EVIDENCE_DIR"); dir != "" {
-		raw, err := json.Marshal(state)
+		raw, err := jsonv2.Marshal(state, json.DefaultOptionsV1())
 		if err != nil {
 			t.Fatal(err)
 		}

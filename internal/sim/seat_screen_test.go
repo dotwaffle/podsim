@@ -3,6 +3,7 @@ package sim
 import (
 	"bytes"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"fmt"
 	"slices"
 	"testing"
@@ -254,11 +255,11 @@ func runRecordsOnAndOff(t *testing.T, placements []Placement, limit int, join Sh
 		if (tick+1)%TicksPerSecond != 0 {
 			continue
 		}
-		onState, err := json.Marshal(on.Snapshot())
+		onState, err := jsonv2.Marshal(on.Snapshot(), json.DefaultOptionsV1())
 		if err != nil {
 			t.Fatal(err)
 		}
-		offState, err := json.Marshal(off.Snapshot())
+		offState, err := jsonv2.Marshal(off.Snapshot(), json.DefaultOptionsV1())
 		if err != nil {
 			t.Fatal(err)
 		}

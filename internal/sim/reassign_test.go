@@ -3,6 +3,7 @@ package sim
 import (
 	"bytes"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"fmt"
 	"slices"
 	"testing"
@@ -383,11 +384,11 @@ func TestReassignWithoutSharing(t *testing.T) {
 		if (tick+1)%TicksPerSecond != 0 {
 			continue
 		}
-		want, err := json.Marshal(unassigned.Snapshot())
+		want, err := jsonv2.Marshal(unassigned.Snapshot(), json.DefaultOptionsV1())
 		if err != nil {
 			t.Fatal(err)
 		}
-		got, err := json.Marshal(reassign.Snapshot())
+		got, err := jsonv2.Marshal(reassign.Snapshot(), json.DefaultOptionsV1())
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"fmt"
 	"maps"
 	"math"
@@ -181,7 +182,7 @@ func scenarioNetworks(t *testing.T) map[string]Network {
 		t.Fatal(err)
 	}
 	var networks map[string]Network
-	if err := json.NewDecoder(reader).Decode(&networks); err != nil {
+	if err := jsonv2.UnmarshalRead(reader, &networks, json.DefaultOptionsV1()); err != nil {
 		t.Fatal(err)
 	}
 	return networks

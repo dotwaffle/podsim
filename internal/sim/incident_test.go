@@ -3,6 +3,7 @@ package sim
 import (
 	"bytes"
 	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"errors"
 	"testing"
 )
@@ -141,7 +142,7 @@ func TestIncidentSerialSaved(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw, err := json.Marshal(s.ExportState())
+	raw, err := jsonv2.Marshal(s.ExportState(), json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}
