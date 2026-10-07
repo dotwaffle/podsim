@@ -31,6 +31,9 @@ The source has no Early or Night demand, so those selections are absent.
 The [offline converter](../tools/londonfull/README.md) documents all source hashes, aliases, exclusions, and exact totals.
 It preserves all eight source columns, including the two empty columns.
 It does not truncate pairs or synthesize weights.
+The preset rounds each weight to four significant digits when it reads the matrix.
+This changes each band total by at most 2.3 parts per million.
+The converter output and the provenance totals keep the source values.
 
 ## Capacity and geometry
 
@@ -86,6 +89,7 @@ These initial checks preceded the finite-arrival study below.
 They do not establish a complete qualification envelope.
 
 The project limits admit 5,000 nodes, 300 stations, 600 pods, 65,000 flows, and 10 MiB of project JSON.
+The default project JSON has 4,644,705 bytes, and its flows use 2,650,208 bytes.
 The saved-state cap is 100 MiB.
 No test proves that the largest saved state fits that cap.
 Stream caps are 65 MiB of JSON and 66 MiB of gzip data.

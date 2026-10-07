@@ -902,6 +902,13 @@ The simulator divides each lane into track cells of about 30 meters, with at lea
 All lanes together can have at most 64,000 cells, for example about 1,900 km of lanes.
 Two lanes cannot have the same start node, end node, and path.
 A demand profile can have at most 65,000 flows.
+A demand profile has the members `id`, `name`, `bands`, `stations`, and `flows`.
+The `stations` member lists each station that a flow names one time.
+Each flow is an array: the index in `stations` of the origin, the index of the destination, and then one weight for each band.
+For example, with the stations `["harbor","garden"]` and two bands, the flow `[0,1,3,0.25]` goes from `harbor` to `garden`.
+An index is an integer from 0, with no fraction and no exponent.
+A project is not valid when its station list has a station two times or a station that no flow names.
+The server writes the stations in the order of their first use in the flows.
 The editor checks do not include the limits of the lane pairs, the coordinates, and the track cells.
 The server checks these limits when you apply the project.
 

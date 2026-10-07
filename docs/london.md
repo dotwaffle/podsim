@@ -152,7 +152,9 @@ The caller can apply one scale factor to choose the simulated request rate.
 This keeps the source station and OD ratios.
 It does not claim that the PRT system carries the complete Underground volume.
 
-The portable London project includes the raw OD weights and all eight bands.
+The portable London project includes the OD weights and all eight bands.
+The preset rounds each weight to four significant digits.
+This changes each band total by at most 12 parts per million.
 Its demand settings select the AM peak band at 20 requests per simulated minute by default.
 This rate is above the AM peak recovery limit of 13 requests per minute in the [London capacity envelope](qualification.md#london-capacity-envelope).
 The shared session samples those weights when automatic demand runs.
