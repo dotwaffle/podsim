@@ -121,9 +121,9 @@ func checkExpressMotionTick(t *testing.T, s *Simulation, before []Pod) float64 {
 	return minimum
 }
 
-func expressAdversarialTick(t *testing.T, s *Simulation) {
+func expressAdversarialTick(t *testing.T, s *Simulation, previous *motionPodBuffer) {
 	t.Helper()
-	before := largeMotionPods(s)
+	before := previous.capture(s)
 	s.Step()
 	checkExpressMotionTick(t, s, before)
 }
@@ -167,11 +167,12 @@ func TestExpressMotionFollowingAndMerge(t *testing.T) {
 				expressMotionRequest(t, s, "lead", "b")
 				gap := math.Inf(1)
 				sawFollowing := false
+				var previous motionPodBuffer
 				for steps := range 600 * 60 {
 					if steps == 2*60 {
 						expressMotionRequest(t, s, "follow", "b")
 					}
-					before := largeMotionPods(s)
+					before := previous.capture(s)
 					s.Step()
 					gap = min(gap, checkExpressMotionTick(t, s, before))
 					lead, follow := s.findVehicle("lead"), s.findVehicle("follow")
@@ -203,8 +204,9 @@ func TestExpressMotionBankAndParking(t *testing.T) {
 		t.Fatal(err)
 	}
 	sawParkingDeparture, sawBankArrival := false, false
+	var previous motionPodBuffer
 	for steps := 0; steps < 600*60 && s.completed == 0; steps++ {
-		before := largeMotionPods(s)
+		before := previous.capture(s)
 		s.Step()
 		checkExpressMotionTick(t, s, before)
 		v := &s.vehicles[0]
@@ -246,8 +248,9 @@ func TestExpressAdversarialCurvedFollowing(t *testing.T) {
 			}
 			overlap, moved := false, false
 			minimum := math.Inf(1)
+			var previous motionPodBuffer
 			for range 1000 * TicksPerSecond {
-				expressAdversarialTick(t, s)
+				expressAdversarialTick(t, s, &previous)
 				a, b := &s.vehicles[0], &s.vehicles[1]
 				if a.Pod.LaneID == "return" && b.Pod.LaneID == "return" {
 					overlap = true
@@ -323,8 +326,9 @@ func TestExpressAdversarialStationaryEndpoint(t *testing.T) {
 				t.Fatal(err)
 			}
 			stopped := false
+			var previous motionPodBuffer
 			for range 600 * TicksPerSecond {
-				expressAdversarialTick(t, s)
+				expressAdversarialTick(t, s, &previous)
 				group, small := s.findVehicle("group"), s.findVehicle("small")
 				if group.Pod.BerthID != "market-1" {
 					t.Fatal("endpoint occupant ceased being stationary")
@@ -341,7 +345,7 @@ func TestExpressAdversarialStationaryEndpoint(t *testing.T) {
 				t.Fatalf("real stationary endpoint was not reached completed=%d state=%+v", s.completed, s.Snapshot())
 			}
 			for range 2 * TicksPerSecond {
-				expressAdversarialTick(t, s)
+				expressAdversarialTick(t, s, &previous)
 			}
 			endpoint, _ := n.Node(incoming.To)
 			for cell := range cells.count() {
@@ -382,8 +386,9 @@ func TestExpressAdversarialLivePlaneTransitions(t *testing.T) {
 		t.Fatal(err)
 	}
 	origin, front, rear, arrival := false, false, false, false
+	var previous motionPodBuffer
 	for range 1000 * TicksPerSecond {
-		expressAdversarialTick(t, s)
+		expressAdversarialTick(t, s, &previous)
 		v := &s.vehicles[0]
 		o := s.SafetyObservation()
 		envelope, ok := o.envelopes[v.Pod.ID]
@@ -471,8 +476,9 @@ func TestExpressAdversarialCurvedStoppedFollowing(t *testing.T) {
 			}
 			stable := 0
 			gap := math.Inf(1)
+			var previous motionPodBuffer
 			for range 600 * TicksPerSecond {
-				expressAdversarialTick(t, s)
+				expressAdversarialTick(t, s, &previous)
 				leader, follower := s.findVehicle("leader"), s.findVehicle("follower")
 				if leader.Pod.LaneID == "market-in" && follower.Pod.LaneID == "market-in" && leader.Pod.Speed == 0 && follower.Pod.Speed == 0 {
 					stable++

@@ -204,6 +204,14 @@ type choiceTickFixture struct {
 	cold bool
 }
 
+type choiceTickInput struct {
+	network  Network
+	prepared *PreparedNetwork
+	policy   RoutingPolicy
+	warm     bool
+	ready    func(*Simulation, *vehicle) bool
+}
+
 // newChoiceTickFixture places a pod at each berth of the passenger
 // stations of the network, up to the fleet limit, with the routing
 // policy. When warm is true, it first runs 600 ticks of traffic, with a
@@ -211,9 +219,11 @@ type choiceTickFixture struct {
 // four idle pods board for another passenger station, and steps until the
 // four pods travel and can divert. When warm is false, it returns a clone
 // with no route memo and no routing-policy state. ready can refuse a
-// tick at which the pods can divert.
-func newChoiceTickFixture(t *testing.T, network Network, policy RoutingPolicy, warm bool, ready func(*Simulation, *vehicle) bool) choiceTickFixture {
+// tick at which the pods can divert. A prepared network shares only the
+// immutable indexes; fleet state and all warm-up steps are still fresh.
+func newChoiceTickFixture(t *testing.T, input choiceTickInput) choiceTickFixture {
 	t.Helper()
+	network, policy, warm := input.network, input.policy, input.warm
 	var fleet []Placement
 	var passenger []string
 	for _, station := range network.Stations {
@@ -227,7 +237,13 @@ func newChoiceTickFixture(t *testing.T, network Network, policy RoutingPolicy, w
 			}
 		}
 	}
-	s, err := NewFleet(network, fleet)
+	var s *Simulation
+	var err error
+	if input.prepared == nil {
+		s, err = NewFleet(network, fleet)
+	} else {
+		s, err = input.prepared.NewFleet(fleet)
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -267,7 +283,7 @@ func newChoiceTickFixture(t *testing.T, network Network, policy RoutingPolicy, w
 	}
 	stepUntil(t, s, "four divertible pods", func() bool {
 		for _, v := range pods {
-			if _, _, ok := s.divertStart(v); !ok || v.Pod.Activity != Traveling || ready != nil && !ready(s, v) {
+			if _, _, ok := s.divertStart(v); !ok || v.Pod.Activity != Traveling || input.ready != nil && !input.ready(s, v) {
 				return false
 			}
 		}
@@ -403,7 +419,7 @@ func TestEmergencyChoiceLatency(t *testing.T) {
 		for policy := range RoutingPolicy(4) {
 			for _, warm := range []bool{false, true} {
 				t.Run(fmt.Sprintf("%s, %s, warm %t", name, policyName(policy), warm), func(t *testing.T) {
-					fixture := newChoiceTickFixture(t, networks[name], policy, warm, nil)
+					fixture := newChoiceTickFixture(t, choiceTickInput{network: networks[name], policy: policy, warm: warm})
 					gate(t, measureChoiceTick(t, fixture, allBound(fixture)))
 				})
 			}
@@ -412,7 +428,7 @@ func TestEmergencyChoiceLatency(t *testing.T) {
 	for _, policy := range []RoutingPolicy{CongestionRouting, QueueRouting, PredictiveRouting} {
 		for _, warm := range []bool{false, true} {
 			t.Run(fmt.Sprintf("delayed routes, %s, warm %t", policyName(policy), warm), func(t *testing.T) {
-				fixture := newChoiceTickFixture(t, delayedNetwork(), policy, warm, nil)
+				fixture := newChoiceTickFixture(t, choiceTickInput{network: delayedNetwork(), policy: policy, warm: warm})
 				delayRoutes(t, fixture)
 				tick := measureChoiceTick(t, fixture, allBound(fixture))
 				gate(t, tick)
@@ -439,10 +455,15 @@ func TestEmergencyNoCandidateLatency(t *testing.T) {
 	if raceEnabled {
 		t.Skip("the race detector slows the measured code")
 	}
+	network := missNetwork(600, 13, 1200)
+	prepared, err := PrepareNetwork(network)
+	if err != nil {
+		t.Fatal(err)
+	}
 	for policy := range RoutingPolicy(4) {
 		for _, warm := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s, warm %t", policyName(policy), warm), func(t *testing.T) {
-				fixture := missFixture(t, missNetwork(600, 13, 1200), policy, warm)
+				fixture := missFixture(t, choiceTickInput{network: network, prepared: prepared, policy: policy, warm: warm})
 				tick := measureChoiceTick(t, fixture, func(s *Simulation) error {
 					if len(s.emergencyMisses) != len(fixture.pods) {
 						return fmt.Errorf("memo %+v", s.emergencyMisses)
@@ -463,7 +484,7 @@ func TestEmergencyNoCandidateSearchCounts(t *testing.T) {
 	for policy := range RoutingPolicy(4) {
 		for _, warm := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s, warm %t", policyName(policy), warm), func(t *testing.T) {
-				fixture := missFixture(t, network, policy, warm)
+				fixture := missFixture(t, choiceTickInput{network: network, policy: policy, warm: warm})
 				s := fixture.s
 				if fixture.cold {
 					if err := coldState(s); err != nil {
@@ -543,12 +564,13 @@ func delayRoutes(t *testing.T, fixture choiceTickFixture) {
 // and are on the departure path of their bank. The through lanes of the
 // parking stations are then blocked, so no station has a candidate for
 // them, and the pruning tree reaches each berth.
-func missFixture(t *testing.T, network Network, policy RoutingPolicy, warm bool) choiceTickFixture {
+func missFixture(t *testing.T, input choiceTickInput) choiceTickFixture {
 	t.Helper()
-	fixture := newChoiceTickFixture(t, network, policy, warm, func(s *Simulation, v *vehicle) bool {
+	input.ready = func(s *Simulation, v *vehicle) bool {
 		_, from, _ := s.divertStart(v)
 		return s.graph.banks.nodes[s.graph.nodes[from]] >= 0
-	})
+	}
+	fixture := newChoiceTickFixture(t, input)
 	var footprint faultFootprint
 	for _, station := range fixture.s.network.Stations {
 		if station.ParkingOnly {

@@ -7,7 +7,7 @@ Several independent network timing tests also ran serially.
 The production write deadline remains thirty seconds.
 A private writer interface lets a test inspect that deadline without waiting for it.
 The test checks earlier parent deadlines, cancellation, message forwarding, errors, and child-context cleanup.
-Real WebSocket tests still send a legal-size 66 MiB message through TCP backpressure.
+Real WebSocket tests still send a maximum-size gzip message through TCP backpressure.
 They use shorter injected deadlines for slow and stalled readers.
 Timing starts at writer entry, after payload allocation.
 
@@ -159,3 +159,38 @@ They compare consecutive ticks, and together they take about 2.5 seconds.
 The `internal/sim` race tests ran as two tasks, `test:race:sim-stations` and `test:race:sim-other`, from a split on the pattern `^Test(Reassign|Station)`.
 After the station buffer removal and the move of the full no-candidate latency report to `qualify`, a cold-cache CI run on October 7, 2026 took 1 minute for `test:race:sim-stations` and 11 minutes for `test:race:sim-other`.
 The two tasks are now one task, `test:race:sim`.
+
+## Test work reuse
+
+Traffic tests reuse one snapshot for checks made at the same tick.
+Motion tests keep a private pod buffer for each trajectory, including each parallel subtest.
+Each capture still copies every pod before the next step.
+The buffer grows if a restore changes the fleet size.
+All motion assertions and simulated ticks remain.
+
+The maximum requeue tests share only an immutable project and encoded seed.
+The seed comes from a real session startup.
+Each caller gets detached project data and bytes, and every restore case still starts its own session.
+The topology preflight test keeps HTTP round trips at revisions 1, 9, and 10.
+It still applies every intervening demand change and checks maximum-width revisions in the preflight cases.
+
+The emergency no-candidate latency test prepares its network once.
+Each case still builds a new fleet and runs all of its warm-up ticks.
+
+A combined local validation run can avoid repeating the seven session tests selected by `test:embedded`, the checkpoint shape test selected by `test:bounds`, and the four tests selected by `qualify`.
+Exclude only these names from that run's native sweep, and keep their dedicated gates.
+Do not add that exclusion to `mise run test` or the race tasks.
+The embedded server tests still need their tagged build.
+Keep the full race sweep and verify that every excluded name belongs to a required gate.
+
+### Boundary fixtures and guarded scratch
+
+The demo restore boundary test prepares filler orders as valid saved records.
+It still starts a real demo, exports the live state, and calls public restore.
+Both cases include future demo orders in the outstanding total.
+The exact-bound case must restore physically, and the over-bound case pins the physical refusal text.
+
+Guarded invariants reuse three independently owned maps for the previous claims, previous destinations, and next claims.
+Each capture clears its maps before filling them.
+All 90,000 simulated ticks, safety observations, and ownership checks remain.
+Route-free snapshots omit only routes that these checks do not inspect.

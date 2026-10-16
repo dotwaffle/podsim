@@ -129,8 +129,9 @@ func TestCompetingArrivalsCompleteOnSeparateTerminalBranches(t *testing.T) {
 	addMarketBerth(s)
 	for range 240 * TicksPerSecond {
 		s.Step()
-		checkTraffic(t, s.Snapshot())
-		if s.Snapshot().Completed == 2 {
+		state := s.Snapshot()
+		checkTraffic(t, state)
+		if state.Completed == 2 {
 			break
 		}
 	}

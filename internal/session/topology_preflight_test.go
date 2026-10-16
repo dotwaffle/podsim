@@ -43,10 +43,15 @@ func TestTopologyPreflightAtCallers(t *testing.T) {
 		defer s.Close()
 		client := newTestClient(s, "demand")
 		for {
-			if _, decodeErr := DecodeStateJSON(stateHTTPReply(t, s, widest, http.StatusOK)); decodeErr != nil {
-				t.Fatal("the client refused the HTTP state of the widest topology", decodeErr)
+			revision := s.Topology().ProjectRevision
+			// Revisions 2 through 8 have the same encoded width. Keep the
+			// initial revision and both sides of the decimal-width change.
+			if revision == 1 || revision >= 9 {
+				if _, decodeErr := DecodeStateJSON(stateHTTPReply(t, s, widest, http.StatusOK)); decodeErr != nil {
+					t.Fatal("the client refused the HTTP state of the widest topology", decodeErr)
+				}
 			}
-			if s.Topology().ProjectRevision == 10 {
+			if revision == 10 {
 				break
 			}
 			client.mustApply(t, Command{Action: "demand", Demand: widest.Demand})

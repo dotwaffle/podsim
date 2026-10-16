@@ -3,6 +3,7 @@ package sim
 import (
 	"fmt"
 	"math"
+	"slices"
 	"testing"
 )
 
@@ -102,11 +103,16 @@ func checkLargeMotionTick(t *testing.T, s *Simulation, before []Pod) float64 {
 	return minimum
 }
 
-func largeMotionPods(s *Simulation) []Pod {
-	pods := make([]Pod, len(s.vehicles))
+// motionPodBuffer belongs to one test trajectory. Each capture copies every
+// pod before Step, without sharing live state or allocating at each tick.
+type motionPodBuffer []Pod
+
+func (buffer *motionPodBuffer) capture(s *Simulation) []Pod {
+	pods := slices.Grow((*buffer)[:0], len(s.vehicles))[:len(s.vehicles)]
 	for index := range s.vehicles {
 		pods[index] = s.vehicles[index].Pod
 	}
+	*buffer = pods
 	return pods
 }
 
@@ -147,11 +153,12 @@ func TestLargeMotionFollowingAndMerge(t *testing.T) {
 				largeMotionRequest(t, s, "lead", "b")
 				gap := math.Inf(1)
 				sawFollowing := false
+				var previous motionPodBuffer
 				for steps := range 600 * 60 {
 					if steps == 2*60 {
 						largeMotionRequest(t, s, "follow", "b")
 					}
-					before := largeMotionPods(s)
+					before := previous.capture(s)
 					s.Step()
 					gap = min(gap, checkLargeMotionTick(t, s, before))
 					lead, follow := s.findVehicle("lead"), s.findVehicle("follow")
@@ -182,8 +189,9 @@ func TestLargeMotionBankAndParking(t *testing.T) {
 		t.Fatal(err)
 	}
 	sawParkingDeparture, sawBankArrival := false, false
+	var previous motionPodBuffer
 	for steps := 0; steps < 600*60 && s.completed == 0; steps++ {
-		before := largeMotionPods(s)
+		before := previous.capture(s)
 		s.Step()
 		checkLargeMotionTick(t, s, before)
 		v := &s.vehicles[0]

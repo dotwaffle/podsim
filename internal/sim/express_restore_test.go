@@ -35,8 +35,9 @@ func checkExpressJourneyColdRestore(t *testing.T, live *Simulation, network Netw
 		if err := s.SetOnboardPickups(false); err != nil {
 			t.Fatal(err)
 		}
+		var previous motionPodBuffer
 		for s.completed < saved.RequestID && s.tick < 600*60 {
-			before := largeMotionPods(s)
+			before := previous.capture(s)
 			s.Step()
 			checkExpressMotionTick(t, s, before)
 		}
@@ -74,6 +75,7 @@ func TestExpressRestoreProductionPhases(t *testing.T) {
 	if err := live.RequestJourneyOptions("01", TripOptions{To: "market", PartySize: 20, SharingConsent: PrivateConsent}); err != nil {
 		t.Fatal(err)
 	}
+	var previous motionPodBuffer
 	for steps := 0; live.completed < 1 && steps < 30000; steps++ {
 		v := findVehicle(t, live, "01")
 		capture(activityCode(v.Pod.Activity))
@@ -94,7 +96,7 @@ func TestExpressRestoreProductionPhases(t *testing.T) {
 				capture("occupied trim tail")
 			}
 		}
-		before := largeMotionPods(live)
+		before := previous.capture(live)
 		live.Step()
 		checkExpressMotionTick(t, live, before)
 	}
@@ -110,7 +112,7 @@ func TestExpressRestoreProductionPhases(t *testing.T) {
 		if !v.Pod.Occupied {
 			capture("empty " + activityCode(v.Pod.Activity))
 		}
-		before := largeMotionPods(live)
+		before := previous.capture(live)
 		live.Step()
 		checkExpressMotionTick(t, live, before)
 	}
@@ -151,6 +153,7 @@ func TestExpressRestoreIntermediateProduction(t *testing.T) {
 		t.Fatalf("Group parties did not join: %+v", live.Snapshot())
 	}
 	seen := make(map[podPhase]bool)
+	var previous motionPodBuffer
 	for steps := 0; live.completed < 2 && steps < 30000; steps++ {
 		saved := live.ExportState().Pods[0]
 		phase, err := phaseOf(saved)
@@ -165,7 +168,7 @@ func TestExpressRestoreIntermediateProduction(t *testing.T) {
 				checkExpressJourneyColdRestore(t, checkpoint, network, fleet)
 			})
 		}
-		before := largeMotionPods(live)
+		before := previous.capture(live)
 		live.Step()
 		checkExpressMotionTick(t, live, before)
 	}
@@ -201,8 +204,9 @@ func TestExpressRestoreContinuingAuthored(t *testing.T) {
 	}
 	expressEvidence(t, "continuing", s.ExportState())
 	checkIncrementalOwners(t, s)
+	var previous motionPodBuffer
 	for steps := 0; s.completed < 2 && steps < 30000; steps++ {
-		before := largeMotionPods(s)
+		before := previous.capture(s)
 		s.Step()
 		checkExpressMotionTick(t, s, before)
 	}
@@ -256,8 +260,9 @@ func TestExpressMixedPartyWholeCapacity(t *testing.T) {
 	if !reflect.DeepEqual(before, s.ExportState()) {
 		t.Fatal("rejection changed facts")
 	}
+	var previous motionPodBuffer
 	for s.completed < 3 && s.tick < 600*60 {
-		before := largeMotionPods(s)
+		before := previous.capture(s)
 		s.Step()
 		checkExpressMotionTick(t, s, before)
 	}

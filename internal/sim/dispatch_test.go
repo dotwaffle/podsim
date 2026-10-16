@@ -250,8 +250,9 @@ func TestStationRequestsAfterExpandedDemo(t *testing.T) {
 	}
 	for range 900 * TicksPerSecond {
 		s.Step()
-		checkTraffic(t, s.Snapshot())
-		if !s.Snapshot().Demo {
+		state := s.Snapshot()
+		checkTraffic(t, state)
+		if !state.Demo {
 			break
 		}
 	}

@@ -39,11 +39,12 @@ func TestExpressLaneSpeedMixedRestore(t *testing.T) {
 			restored, retained, released := false, false, false
 			entered := make(map[string]bool)
 			gap := math.Inf(1)
+			var previous motionPodBuffer
 			for tick := range 12000 {
 				if tick == 2*TicksPerSecond {
 					request("follow")
 				}
-				before := largeMotionPods(s)
+				before := previous.capture(s)
 				s.Step()
 				gap = math.Min(gap, checkExpressMotionTick(t, s, before))
 				for i := range s.vehicles {

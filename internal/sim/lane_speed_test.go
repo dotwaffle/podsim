@@ -102,8 +102,9 @@ func TestLaneSpeedPhysicalRestore(t *testing.T) {
 				t.Fatal(err)
 			}
 			restored, entered, braked := false, false, false
+			var previous motionPodBuffer
 			for range 3000 {
-				before := largeMotionPods(s)
+				before := previous.capture(s)
 				s.Step()
 				checkIncrementalOwners(t, s)
 				if _, err := s.SafetyObservation().Check(); err != nil {
@@ -200,11 +201,12 @@ func TestLaneSpeedLargeMixedRestore(t *testing.T) {
 			restored, retained, released := false, false, false
 			entered := make(map[string]bool)
 			gap := math.Inf(1)
+			var previous motionPodBuffer
 			for tick := range 12000 {
 				if tick == 2*TicksPerSecond {
 					request("follow")
 				}
-				before := largeMotionPods(s)
+				before := previous.capture(s)
 				s.Step()
 				gap = math.Min(gap, checkLargeMotionTick(t, s, before))
 				for i := range s.vehicles {

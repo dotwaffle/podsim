@@ -41,8 +41,9 @@ func TestExpressRegistryBoundAndRuntime(t *testing.T) {
 	}
 	expressEvidence(t, "service-20-with-one-pending", s.ExportState())
 	restored := false
+	var previous motionPodBuffer
 	for s.completed < 21 && s.tick < 600*60 {
-		before := largeMotionPods(s)
+		before := previous.capture(s)
 		s.Step()
 		checkExpressMotionTick(t, s, before)
 		if !restored && s.vehicles[0].Pod.Activity == Traveling {

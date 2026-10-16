@@ -22,11 +22,12 @@ func TestPassengerDispatchUsesFreeReachableBerth(t *testing.T) {
 	assigned := ""
 	for range 240 * TicksPerSecond {
 		s.Step()
-		checkTraffic(t, s.Snapshot())
+		state := s.Snapshot()
+		checkTraffic(t, state)
 		if v.destination.ID != "" && assigned == "" {
 			assigned = v.destination.ID
 		}
-		if s.Snapshot().Completed == 1 {
+		if state.Completed == 1 {
 			break
 		}
 	}
@@ -54,7 +55,8 @@ func TestPassengerDispatchSpreadsConcurrentArrivals(t *testing.T) {
 	assigned := map[string]string{"01": "", "02": ""}
 	for range 240 * TicksPerSecond {
 		s.Step()
-		checkTraffic(t, s.Snapshot())
+		state := s.Snapshot()
+		checkTraffic(t, state)
 		for _, v := range s.vehicles {
 			if assigned[v.Pod.ID] == "" && v.destination.ID != "" {
 				assigned[v.Pod.ID] = v.destination.ID
@@ -66,7 +68,7 @@ func TestPassengerDispatchSpreadsConcurrentArrivals(t *testing.T) {
 		if assigned["01"] != "" && assigned["01"] == assigned["02"] {
 			t.Fatalf("concurrent arrivals share berth %q", assigned["01"])
 		}
-		if s.Snapshot().Completed == 2 {
+		if state.Completed == 2 {
 			break
 		}
 	}

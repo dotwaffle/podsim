@@ -23,8 +23,9 @@ func newExpressOccupiedPickupRide(t *testing.T, network Network) *Simulation {
 			t.Fatal(err)
 		}
 	}
+	var previous motionPodBuffer
 	for range 300 * TicksPerSecond {
-		before := largeMotionPods(s)
+		before := previous.capture(s)
 		s.Step()
 		checkExpressMotionTick(t, s, before)
 		v := &s.vehicles[0]
@@ -44,6 +45,7 @@ func TestExpressRepeatedHistoryRetirement(t *testing.T) {
 		t.Fatal(err)
 	}
 	nextDestination := map[string]string{"market": "garden", "harbor": "market", "garden": "harbor"}
+	var previous motionPodBuffer
 	for range 22 {
 		v := &s.vehicles[0]
 		pickup := v.Stops[0]
@@ -56,7 +58,7 @@ func TestExpressRepeatedHistoryRetirement(t *testing.T) {
 		}
 		joined := false
 		for range 600 * TicksPerSecond {
-			before := largeMotionPods(s)
+			before := previous.capture(s)
 			s.Step()
 			checkExpressMotionTick(t, s, before)
 			if v.Pod.Activity == Boarding && v.Pod.Occupied && v.Pod.StationID == pickup {
@@ -88,7 +90,7 @@ func TestExpressRepeatedHistoryRetirement(t *testing.T) {
 		t.Fatal("history retirement rebased a positive baseline")
 	}
 	for range 600 * TicksPerSecond {
-		before := largeMotionPods(s)
+		before := previous.capture(s)
 		s.Step()
 		checkExpressMotionTick(t, s, before)
 	}
@@ -109,6 +111,7 @@ func TestExpressFoundationAndObservationParity(t *testing.T) {
 		t.Fatal(err)
 	}
 	pairs := [][2]string{{"harbor", "market"}, {"garden", "harbor"}, {"market", "garden"}}
+	var previous motionPodBuffer
 	for tick := range 12000 {
 		if tick%300 == 0 {
 			pair := pairs[(tick/300)%len(pairs)]
@@ -119,7 +122,7 @@ func TestExpressFoundationAndObservationParity(t *testing.T) {
 			}
 		}
 		off.Step()
-		before := largeMotionPods(opt)
+		before := previous.capture(opt)
 		opt.Step()
 		checkExpressMotionTick(t, opt, before)
 		a, b := off.ExportState(), opt.ExportState()
@@ -134,7 +137,7 @@ func TestExpressFoundationAndObservationParity(t *testing.T) {
 	observed := opt.Clone()
 	for range 1200 {
 		plain.Step()
-		before := largeMotionPods(observed)
+		before := previous.capture(observed)
 		observed.Step()
 		checkExpressMotionTick(t, observed, before)
 		if !reflect.DeepEqual(plain.ExportState(), observed.ExportState()) {
