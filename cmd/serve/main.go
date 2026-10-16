@@ -74,6 +74,8 @@ func configureMemoryLimit() {
 type runInput struct {
 	args  []string
 	ready func(addr string)
+	// newTelemetry overrides provider construction in lifecycle tests.
+	newTelemetry func(context.Context, string, func() session.Metrics) (*telemetry.Provider, error)
 }
 
 // run parses the flags in input.args. Then it serves the browser files and
@@ -151,8 +153,20 @@ func run(ctx context.Context, input runInput) error {
 			saveFinal(ctx, shared, slog.Default())
 		}
 	}()
-	telemetryProvider, err := telemetry.New(ctx, buildVersion(), shared.Metrics)
+	if cancelErr := ctx.Err(); cancelErr != nil {
+		slog.Info("Stop during startup", slog.String("cause", "signal"), slog.Any("error", cancelErr))
+		return nil
+	}
+	newTelemetry := input.newTelemetry
+	if newTelemetry == nil {
+		newTelemetry = telemetry.New
+	}
+	telemetryProvider, err := newTelemetry(ctx, buildVersion(), shared.Metrics)
 	if err != nil {
+		if ctx.Err() != nil {
+			slog.Info("Stop during startup", slog.String("cause", "signal"), slog.Any("error", err))
+			return nil
+		}
 		return err
 	}
 	defer func() {
