@@ -1,12 +1,11 @@
 # Dependency review notes
 
-## gRPC advisory, September 29, 2026
+## gRPC advisory
 
 Podsim uses gRPC 1.84.0 through its server-side dependencies.
 The [upstream advisory](https://github.com/grpc/grpc-go/security/advisories/GHSA-2v4p-qf9q-27wj) lists 1.84.0 as patched.
-However, [GO-2026-6443](https://pkg.go.dev/vuln/GO-2026-6443) includes that release in an affected development-version range.
-Its published range begins at 1.84.0-dev and ends at a 1.85.0-dev pseudo-version.
-Under semantic version ordering, that range includes the stable 1.84.0 release.
+[GO-2026-6443](https://pkg.go.dev/vuln/GO-2026-6443) first included that stable release in a development-version range from 1.84.0-dev to a 1.85.0-dev pseudo-version.
+The corrected [Go record](https://vuln.go.dev/ID/GO-2026-6443.json) splits that range, and stable 1.84.0 is outside it.
 
 The downloaded 1.84.0 source contains both missing-header guards:
 
@@ -16,13 +15,27 @@ The downloaded 1.84.0 source contains both missing-header guards:
 The upstream missing-header regression test passed against the unmodified module.
 Removing the transport guard in an isolated copy caused that test to fail.
 Podsim does not create a gRPC or xDS server.
-Its native symbol-level vulnerability scan reports no called vulnerable symbols.
-The scanner still reports the imported-package finding, and gopls reports GO-2026-6443.
-No scanner exclusion or vulnerability-database override is installed.
+No scanner exclusion, vulnerability-database override, or version override is installed.
+Recheck the advisory and source before changing this dependency again; a clean symbol scan alone is not the reason for accepting it.
 
-This review treats the finding for 1.84.0 as a version-range metadata error.
-Recheck the advisory and source before changing this dependency again.
-A clean symbol scan alone is not the reason for accepting this version.
+## Toolchain and module versions
+
+The tool-version selectors keep their existing pin styles.
+Go is at 1.27.2, Ebitengine at 2.10.5, Go Cloud at 0.47.0, and x/image at 0.47.0.
+The graphics dependencies require x/sync 0.24.0, x/sys 0.49.0, and x/text 0.43.0.
+Node stays on its 24.x line at 24.22.0; govulncheck is at 1.9.0 and rumdl at 0.2.79.
+
+Go 1.27.2 fixes CVE-2026-78667 in the asset-serving ServeContent path.
+The default ignores a Range header with more than 200 ranges.
+
+x/net is at 0.61.0.
+Version 0.60.0 fixes GO-2026-6603, GO-2026-6610, GO-2026-6611, GO-2026-6612, and GO-2026-6617.
+Podsim has no configured inbound HTTP/2 server or reverse proxy, but the indirect HTTP/2 implementation remains in the native dependency graph.
+The update removes the affected version instead of adding a scanner suppression.
+
+Go Cloud's fileblob hardening preserves the permitted keys because Podsim already refuses unsafe prefixes and `__` escape sequences.
+The store keeps its acquisition-only BeforeWrite hook and cancel-before-close protection.
+Cloud storage stays out of the browser WASM modules.
 
 ## State-store path analysis
 
