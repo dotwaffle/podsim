@@ -215,7 +215,7 @@ func (s *Simulation) assignPickupPod(i int, trip *waitingTrip, pass *dispatchPas
 	v := s.cachedPickupPod(trip, pass)
 	if v == nil {
 		trip.request.DispatchReason = "Waiting for an available pod"
-		if !s.hasFittingPod(trip.request) {
+		if !s.cachedHasFittingPod(trip.request, pass) {
 			trip.request.DispatchReason = "Waiting for a certified vehicle that fits this party and route"
 		}
 		return nil, false
@@ -253,6 +253,20 @@ func (s *Simulation) cachedPickupPod(trip *waitingTrip, pass *dispatchPass) *veh
 	}
 	pass.optionPickups[key] = v
 	return v
+}
+
+// cachedHasFittingPod caches hasFittingPod for the rest of the dispatch pass.
+func (s *Simulation) cachedHasFittingPod(request Request, pass *dispatchPass) bool {
+	key := dispatchFitKey{options: request.options(), origin: request.legOrigin()}
+	if fits, known := pass.fittingPods[key]; known {
+		return fits
+	}
+	fits := s.hasFittingPod(request)
+	if pass.fittingPods == nil {
+		pass.fittingPods = make(map[dispatchFitKey]bool)
+	}
+	pass.fittingPods[key] = fits
+	return fits
 }
 
 // sendTripPickup sends the pod v to the pickup of the trip. The route of the
@@ -368,6 +382,8 @@ type dispatchPass struct {
 	active bool
 	// optionPickups keeps the result of pickupPodForRequest for each key.
 	optionPickups map[dispatchKey]*vehicle
+	// fittingPods keeps both positive and negative fleet-wide fit results.
+	fittingPods map[dispatchFitKey]bool
 	// assigned holds the pods of the waiting trips. dispatch changes it
 	// during the pass.
 	assigned map[string]bool
@@ -400,6 +416,13 @@ type dispatchKey struct {
 	excluded string
 }
 
+// dispatchFitKey keeps order identity separate from the pickup station.
+// dispatchOptions loses the original origin that serviceMatches checks.
+type dispatchFitKey struct {
+	options TripOptions
+	origin  string
+}
+
 // begin starts a pass for the waiting trips. It reuses the buffers of the
 // last pass. Only map lookups read assigned and pickups, and the slices
 // are filled again after each reset, so a reused buffer gives the same
@@ -423,12 +446,14 @@ func (pass *dispatchPass) begin(waiting []waitingTrip) {
 // end marks the end of the pass.
 func (pass *dispatchPass) end() {
 	pass.active = false
+	clear(pass.fittingPods)
 }
 
 // reset removes the results of the pass.
 func (pass *dispatchPass) reset() {
 	clear(pass.pickups)
 	clear(pass.optionPickups)
+	clear(pass.fittingPods)
 	pass.free, pass.freeKnown = pass.free[:0], false
 	pass.candidates, pass.candidatesKnown = pass.candidates[:0], false
 	pass.idleKnown = false
