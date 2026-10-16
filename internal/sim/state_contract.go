@@ -259,8 +259,12 @@ func (state SavedState) checkContract() (int, error) {
 	if err := state.checkContractRoutes(); err != nil {
 		return 0, err
 	}
-	if len(state.Pods) == 0 || len(state.Pods) > maxSavedPods {
-		return 0, fmt.Errorf("the saved state has %d pods, want 1 to %d", len(state.Pods), maxSavedPods)
+	podLimit := maxSavedPods
+	if state.OrderContract == ExpressOrderContract {
+		podLimit = expressMaxPods
+	}
+	if len(state.Pods) == 0 || len(state.Pods) > podLimit {
+		return 0, fmt.Errorf("the saved state has %d pods, want 1 to %d", len(state.Pods), podLimit)
 	}
 	if err := checkLargeLinkFields(RestoreStateInput{State: state}); err != nil {
 		return 0, err

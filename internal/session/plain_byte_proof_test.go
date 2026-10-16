@@ -46,7 +46,6 @@ func widestPlainSavedState(t *testing.T) stateFile {
 		Occupied: true, RelocatingTo: id, Rebalancing: true, RebalanceAfter: widest,
 		PhaseTicks: widest, Origin: id, Destination: id, DestinationStation: id,
 		Riders:       slices.Repeat([]sim.SavedRequest{request}, sim.MaxSharedRideParties),
-		Stops:        slices.Repeat([]string{id}, sim.MaxSharedRideParties),
 		RiddenMeters: plainProofFloat, JourneyOrigin: id, ClaimsDestination: true, Released: true,
 		Route: indexes, RouteIndex: widest, LaneID: id, LaneDistance: plainProofFloat,
 		Distance: plainProofFloat, Waiting: true, WaitSince: widest,
@@ -56,6 +55,14 @@ func widestPlainSavedState(t *testing.T) stateFile {
 	// Keeping JourneyOrigin also overestimates the encoder with boardings.
 	pod.Boardings = slices.Repeat([]sim.RiderBoarding{{BerthID: id, MetersAtBoarding: plainProofFloat}}, sim.MaxSharedRideParties)
 	trip := sim.SavedTrip{Request: request, Route: indexes, Boarded: true, DeferUntil: widest, DeferCheck: widest, DeferPodID: id}
+	// Completed history does not consume the outstanding-order budget.
+	// Keep every history slot and fill the queue. An active rider replaces
+	// one history record and one queued trip, and can add at most one stop.
+	// The queued trip costs more than that change, so no stops is the bound.
+	trip.Request.Completed = false
+	active := request
+	active.Completed = false
+	assertPlainOrderTradeoff(t, marshalSavedJSON(t, trip), marshalSavedJSON(t, request), marshalSavedJSON(t, active), marshalSavedJSON(t, []string{id}))
 	state := sim.SavedState{}
 	fillPlainProofScalars(reflect.ValueOf(&state).Elem())
 	state.Interrupted, state.InterruptedPassengers, state.IncidentSerial = 0, 0, 0
@@ -118,7 +125,7 @@ func TestPlainStreamMaximumEncoding(t *testing.T) {
 	if testing.Short() || raceEnabled {
 		t.Skip("plain byte proofs run without -short or -race, in test:embedded")
 	}
-	f := widestPlainStreamFrame()
+	f := widestPlainStreamFrame(t)
 	e := StreamEnvelope{Kind: "full", Stream: strings.Repeat("x", maxEpochBytes), Sequence: sim.MaxCounter, Source: sourceOf(f), Build: f.State.Build, Full: &f}
 	data, err := EncodeStreamJSON(e)
 	if err != nil {
@@ -128,7 +135,8 @@ func TestPlainStreamMaximumEncoding(t *testing.T) {
 	assertPlainHTTPByteCap(t, f)
 }
 
-func widestPlainStreamFrame() StreamFrame {
+func widestPlainStreamFrame(t *testing.T) StreamFrame {
+	t.Helper()
 	f := StreamFrame{}
 	fillPlainProofScalars(reflect.ValueOf(&f.State).Elem())
 	f.State.Simulation.Interrupted, f.State.Simulation.InterruptedPassengers = 0, 0
@@ -142,7 +150,23 @@ func widestPlainStreamFrame() StreamFrame {
 	vehicle.Pod.LaneDistance, vehicle.Pod.Speed = plainProofFloat, plainProofFloat
 	vehicle.RiddenMeters = plainProofFloat
 	vehicle.Boardings = slices.Repeat([]sim.RiderBoarding{{BerthID: id, MetersAtBoarding: plainProofFloat}}, sim.MaxSharedRideParties)
-	f.State.Simulation.Pending = slices.Repeat(vehicle.Riders[:1], maxSavedTrips)
+	pending := vehicle.Riders[0]
+	for i := range vehicle.Riders {
+		vehicle.Riders[i].Completed = true
+	}
+	vehicle.Stops = nil
+	// As in the saved-state proof, keep history outside the outstanding
+	// budget. Replacing it with an active rider and a stop costs less than
+	// the pending order that must leave the full queue.
+	encode := func(value any) []byte {
+		data, err := jsonv2.Marshal(value, json.DefaultOptionsV1(), packedRequestOptions())
+		if err != nil {
+			t.Fatal(err)
+		}
+		return data
+	}
+	assertPlainOrderTradeoff(t, encode(pending), encode(vehicle.Riders[0]), encode(pending), encode([]string{id}))
+	f.State.Simulation.Pending = slices.Repeat([]sim.Request{pending}, maxSavedTrips)
 	f.State.Simulation.Vehicles = slices.Repeat([]VehicleFrame{vehicle}, project.MaxPods)
 	// The largest distinct indexes also have the widest decimal form.
 	indexes := make([]int, sim.MotionRouteLimit)
@@ -158,6 +182,18 @@ func widestPlainStreamFrame() StreamFrame {
 	return f
 }
 
+// assertPlainOrderTradeoff pins the byte inequality used by both fixtures.
+// Stops name the distinct destinations of active riders. Charging each stop
+// its own array and member header overestimates a shared stops array.
+func assertPlainOrderTradeoff(t *testing.T, queued, history, active, stop []byte) {
+	t.Helper()
+	removed := len(queued) + 1 // Include the queue element's comma.
+	added := max(0, len(active)-len(history)) + len(`,"stops":`) + len(stop)
+	if removed < added {
+		t.Fatalf("order-budget proof needs %d removed bytes to cover %d added bytes", removed, added)
+	}
+}
+
 func assertPlainHTTPByteCap(t *testing.T, frame StreamFrame) {
 	t.Helper()
 	topology := TopologySnapshot{ProjectVersion: project.CurrentVersion, ServerStart: frame.State.ServerStart, Epoch: frame.State.Epoch}
@@ -171,7 +207,7 @@ func assertPlainHTTPByteCap(t *testing.T, frame StreamFrame) {
 	}
 	// Replace the small topology with its independent admission cap.
 	// This bounds every accepted topology, including HTML name escapes.
-	assertPlainByteCap(t, "HTTP state", len(data)-len(topologyBytes)+MaxTopologyJSON, MaxStreamJSON)
+	assertPlainByteCap(t, "HTTP state", len(data)-len(topologyBytes)+MaxTopologyJSON, MaxHTTPStateJSON)
 }
 
 func assertPlainByteCap(t *testing.T, label string, size, limit int) {

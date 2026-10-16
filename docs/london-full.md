@@ -76,13 +76,47 @@ The physical restore test preserved active requests and passed safety checks dur
 A separate test checks that simultaneous trips around Poplar and both Canary Wharf sites drain safely.
 These checks do not establish a sustainable demand rate.
 
-The project limits admit 12,000 nodes, 20,000 lanes, 600 stations, 600 pods, 400,000 flows, and 32 MiB of project JSON.
+The project limits admit 12,000 nodes, 20,000 lanes, 600 stations, 1,000 pods, 400,000 flows, and 32 MiB of project JSON.
+Express projects retain their separate 600-pod limit.
 The default compact project JSON has 5,562,812 bytes.
 The default indented export has 14,823,549 bytes.
-The saved-state cap is 100 MiB.
-No test proves that the largest saved state fits that cap.
-Stream caps are 65 MiB of JSON and 66 MiB of gzip data.
+The saved-state cap is 128 MiB.
+The plain saved-state and full-stream byte proofs include completed history and the independent project and topology caps.
+Express has no byte proof.
+Stream JSON is capped at 64 MiB, with 32,832 bytes of gzip overhead; HTTP state has a separate 128 MiB cap.
 The junction-pair limit is 250,000, and the track-cell limit remains 64,000.
+
+### Matched fleet qualification
+
+`mise run qualify:london` runs 327, 600, and 1,000 pods on one capacity variant, at 10 and 120 requests per minute.
+The variant has 6,507 nodes, 9,976 lanes, 312 stations, and 1,037 berths.
+Passenger sites have at least three berths except Bank, which keeps two.
+Each parking site has 32 berths, and the berth pitch is 37.5 m.
+The default project and its parking behavior do not change.
+Smaller fleets sample the same 1,000 starting placements evenly.
+
+Each case warms up for 600 simulated seconds, measures 180 seconds of ticks, and checks safety and simulation contracts each second.
+It exercises production full and delta publications, gzip inflation, client validation and assembly, HTTP state, and physical restore.
+It then checks another 60 seconds of operation and requires pods to move after restore.
+Mean and p99 tick times must fit the 16.67 ms native 1x budget.
+The task is opt-in because all six traffic cases take several minutes.
+The overloaded cases fill the 200-order session queue; passing them does not establish a sustainable arrival rate.
+
+One run of all six cases on Go 1.27.2 passed without restore demotions.
+
+| Pods | Requests/minute | Mean tick, ms | p99 tick, ms | Pods moving after restore |
+| ---: | ---: | ---: | ---: | ---: |
+| 327 | 10 | 0.051 | 0.080 | 110 |
+| 327 | 120 | 0.249 | 0.481 | 327 |
+| 600 | 10 | 0.059 | 0.093 | 109 |
+| 600 | 120 | 0.588 | 8.228 | 581 |
+| 1,000 | 10 | 0.085 | 0.154 | 129 |
+| 1,000 | 120 | 1.104 | 14.736 | 838 |
+
+Some earlier runs of the overloaded 1,000-pod case missed the p99 budget, at 18.947 to 19.624 ms, on both Go 1.27.1 and Go 1.27.2.
+Later runs of that case passed, with a p99 of 14.1 to 14.9 ms in each run.
+The cause of the earlier misses is not known.
+If they occur again, keep the source, binary, and inputs of the failed run before you change the threshold.
 
 ### Earlier Tube-only checks
 

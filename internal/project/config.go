@@ -31,7 +31,7 @@ const (
 // decoder uses the same limits, and web/editor.js has a copy of MaxLanes.
 const (
 	// MaxPods is the largest fleet.
-	MaxPods = 600
+	MaxPods = 1000
 	// MaxBerths is the largest number of berths in one station.
 	MaxBerths = 200
 	// MaxStations is the largest number of stations.

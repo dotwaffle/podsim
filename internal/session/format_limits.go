@@ -21,6 +21,13 @@ func (markers contractMarkers) orderBounds() (orders, riders int64) {
 	return maxSavedTrips, sim.MaxSharedRideParties
 }
 
+func (markers contractMarkers) fleetBound() int {
+	if markers.order == sim.ExpressOrderContract {
+		return sim.MaxExpressPods
+	}
+	return project.MaxPods
+}
+
 // savedLimits bound a state file with the given markers. Only the order
 // marker changes a bound.
 func savedLimits(markers contractMarkers) jsonLimits {
@@ -57,13 +64,14 @@ func savedLimits(markers contractMarkers) jsonLimits {
 // the order marker changes a bound.
 func streamLimits(markers contractMarkers) jsonLimits {
 	orders, riders := markers.orderBounds()
+	pods := int64(markers.fleetBound())
 	limits := jsonLimits{depth: 64, elements: 65536, members: 256, exactIntegers: true, arrays: map[string]int64{}}
 	for _, prefix := range []string{"/full", "/frame"} {
-		limits.arrays[prefix+"/routes"] = project.MaxPods
+		limits.arrays[prefix+"/routes"] = pods
 		limits.arrays[prefix+"/routes/*/display"] = project.MaxLanes
 		limits.arrays[prefix+"/routes/*/lanes"] = sim.MotionRouteLimit
 		limits.arrays[prefix+"/state/checkpoints"] = checkpointLimit
-		limits.arrays[prefix+"/state/simulation/vehicles"] = project.MaxPods
+		limits.arrays[prefix+"/state/simulation/vehicles"] = pods
 		limits.arrays[prefix+"/state/simulation/berths"] = project.MaxNodes
 		limits.arrays[prefix+"/state/simulation/pending"] = orders
 		limits.arrays[prefix+"/state/simulation/vehicles/*/riders"] = riders
@@ -71,7 +79,7 @@ func streamLimits(markers contractMarkers) jsonLimits {
 		limits.arrays[prefix+"/state/simulation/vehicles/*/stops"] = sim.MaxSharedRideParties
 		limits.arrays[prefix+"/state/simulation/vehicles/*/routeLaneIDs"] = 0
 	}
-	limits.arrays["/delta/vehicles"] = project.MaxPods
+	limits.arrays["/delta/vehicles"] = pods
 	limits.arrays["/delta/berths"] = project.MaxNodes
 	limits.arrays["/delta/groups/checkpoints"] = checkpointLimit
 	limits.arrays["/delta/groups/pending"] = orders
@@ -93,6 +101,16 @@ func streamLimits(markers contractMarkers) jsonLimits {
 	}
 	for path, bound := range topologyJSONLimits.arrays {
 		limits.arrays["/topology"+path] = bound
+	}
+	return limits
+}
+
+// streamMarkerLimits contains both contract tables before the root marker
+// is known. Express has larger order groups but a smaller fleet than plain.
+func streamMarkerLimits() jsonLimits {
+	limits := streamLimits(contractMarkers{order: sim.ExpressOrderContract})
+	for path, bound := range streamLimits(contractMarkers{}).arrays {
+		limits.arrays[path] = max(limits.arrays[path], bound)
 	}
 	return limits
 }

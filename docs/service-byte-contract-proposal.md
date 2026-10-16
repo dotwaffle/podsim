@@ -4,7 +4,36 @@ Status: approved October 2, 2026.
 The byte caps at approval remained unchanged.
 Since 64b4f3f, the stream JSON cap is 65 MiB, and the gzip message cap is 66 MiB.
 Status 2026-10-07: by maintainer decision, the saved-state and stream byte proofs that this contract requires were deleted.
-The fleet limit is 600 pods, the plain queue bound is 5,000 records, and the saved-state cap is 100 MiB.
+At that decision, the fleet limit was 600 pods, the plain queue bound was 5,000 records, and the saved-state cap was 100 MiB.
+
+## October 15, 2026 amendment
+
+The maintainer approved separate binary byte budgets and restored the plain byte proofs.
+Projects remain capped at 32 MiB.
+Full-stream JSON is capped at 64 MiB.
+HTTP-state JSON and saved-state JSON are each capped at 128 MiB.
+The topology allowance remains the project cap plus 4 KiB for its envelope.
+Gzip stream messages add 32 bytes per 65,535-byte input block plus 32 bytes for the wrapper and final block.
+At the stream cap, that allowance is 32,832 bytes.
+The saved-state cap also limits compressed files to 128 MiB.
+
+`TestPlainStateFileWorstCaseSize` and `TestPlainStreamMaximumEncoding` bound the plain format through its production encoding rules.
+Completed rider history stays outside the outstanding-order budget and remains present in the proofs and the running simulation.
+Motion-only deltas use stream version 7 without changing full-frame or saved-state members.
+Express retains its separately qualified 600-pod fleet and 17,000-order bound.
+Increasing plain limits must not increase either Express limit implicitly.
+Express still has no independent worst-case byte proof.
+
+The approved fleet promotion requires matched London qualification at 327, 600, and 1,000 pods before the production plain limit changes.
+That qualification passed, including an isolated baseline/current comparison of the overloaded cases after an unexplained timing miss.
+The plain fleet and restore limits are now 1,000 pods and `200 + 1,000 * 8 = 8,200` outstanding orders.
+The session admission queue remains 200, and completed history remains outside the outstanding-order budget.
+The plain upper bounds are 125,380,377 saved JSON bytes, 48,618,482 full-stream JSON bytes, and 82,174,660 HTTP-state JSON bytes.
+Those bounds include the independent project or topology cap as appropriate and fit the separate budgets above.
+The qualification uses one geometry, normal and overloaded traffic, safety and progress checks, production encoders and client readers, physical restore, and continued movement.
+`mise run qualify:london` repeats those cases explicitly.
+
+## Earlier proposal
 
 The approved foundation requires saved-state and stream byte proofs before the expanded counts land.
 The existing conservative fixtures nearly fill their caps.

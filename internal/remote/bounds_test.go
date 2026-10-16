@@ -62,8 +62,8 @@ func TestExchangeBoundsResponseBodies(t *testing.T) {
 		body  []byte
 		ok    bool
 	}{
-		{"state at the limit", "/api/state", session.StateMediaType, padded(`{"epoch":"`, `"}`, session.MaxStreamJSON), true},
-		{"state past the limit", "/api/state", session.StateMediaType, padded(`{"epoch":"`, `"}`, session.MaxStreamJSON+1), false},
+		{"state at the limit", "/api/state", session.StateMediaType, padded(`{"epoch":"`, `"}`, session.MaxHTTPStateJSON), true},
+		{"state past the limit", "/api/state", session.StateMediaType, padded(`{"epoch":"`, `"}`, session.MaxHTTPStateJSON+1), false},
 		{"topology at the limit", "/api/topology", "application/json", append(topology(session.MaxTopologyJSON), '\n'), true},
 		{"topology past the limit", "/api/topology", "application/json", topology(session.MaxTopologyJSON + 2), false},
 		{"command reply past the limit", "/api/command", "application/json", padded(`{"epoch":"`, `"}`, session.MaxCommandBytes+1), false},

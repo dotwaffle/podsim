@@ -132,6 +132,10 @@ run = "go run ./cmd/scenario"
 description = "Run repeatable demand and policy experiments"
 run = "go run ./cmd/compare"
 
+[tasks."qualify:london"]
+description = "Qualify matched London fleets at normal and overloaded demand without the race detector"
+run = "PODSIM_QUALIFY_LONDON=1 go test -p 1 ./internal/session -count=1 -v -timeout=10m -run '^TestLondonFleetQualification$'"
+
 [tasks.qualify]
 description = "Run the Station 19 scale and safety tests and the emergency choice latency tests without the race detector"
 # A long test that runs one simulation on one goroutine skips under -race,

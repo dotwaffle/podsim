@@ -16,6 +16,8 @@ import (
 
 // checkFixtures captures distinct check reports from the former browser model.
 // It covers malformed drafts, links, berth chains, network groups, demand and rail.
+// Fleet-limit messages track the approved project limit rather than the
+// former browser's smaller limit; all other expectations stay unchanged.
 //
 //go:embed testdata/checks.json
 var checkFixtures []byte

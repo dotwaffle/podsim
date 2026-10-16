@@ -2787,26 +2787,49 @@ func TestNewFromStoreReportsUnaccountedOrders(t *testing.T) {
 	}
 }
 
-// maximalRequeueState gives a London project with maxSavedPods pods and a
-// logical-only state file in which each pod boards
-// sim.MaxSharedRideParties parties and QueueLimit+extra orders wait.
+// Only the immutable project and encoded seed are shared. The initializer
+// starts a real session; every restore test still starts its own session.
+var maximalRequeueSeed struct {
+	once   sync.Once
+	config project.Config
+	data   []byte
+}
+
+// maximalRequeueState gives each caller a detached London project and a
+// logical-only state file at the fleet and rider limits.
 func maximalRequeueState(t *testing.T, extra int) (project.Config, []byte) {
 	t.Helper()
-	var parking string
-	for _, station := range scenarios.LondonCentral().Network.Stations {
-		if station.ParkingOnly {
-			parking = station.ID
-			break
+	maximalRequeueSeed.once.Do(func() {
+		maximalRequeueSeed.config, maximalRequeueSeed.data = buildMaximalRequeueState(t)
+	})
+	if maximalRequeueSeed.data == nil {
+		t.Fatal("maximum requeue seed initialization failed")
+	}
+	config := project.Clone(maximalRequeueSeed.config)
+	if extra == 0 {
+		return config, bytes.Clone(maximalRequeueSeed.data)
+	}
+	file := decodeTestState(t, maximalRequeueSeed.data)
+	var passenger []string
+	for _, station := range config.Network.Stations {
+		if !station.ParkingOnly {
+			passenger = append(passenger, station.ID)
 		}
 	}
-	options := scenarios.DefaultLondonCentralOptions()
-	options.StationPods, options.ParkingPods = 2, (maxSavedPods-192)/3
-	options.StationBerths, options.ParkingBerths, options.BerthPitch = 3, 200, 40
-	options.Pods = map[string]int{parking: options.ParkingPods + (maxSavedPods-192)%3}
-	config, err := scenarios.LondonCentralWith(options)
-	if err != nil {
-		t.Fatal(err)
+	for index := QueueLimit; index < QueueLimit+extra; index++ {
+		file.Simulation.RequestID++
+		file.Simulation.Waiting = append(file.Simulation.Waiting, sim.SavedTrip{Request: sim.SavedRequest{
+			SharingConsent: sim.SharedConsent, Service: sim.OnDemandService, ID: file.Simulation.RequestID,
+			From: passenger[index%len(passenger)], To: passenger[(index+2)%len(passenger)], PartySize: 1,
+		}})
 	}
+	return config, encodeTestState(t, file)
+}
+
+func buildMaximalRequeueState(t *testing.T) (project.Config, []byte) {
+	t.Helper()
+	config := londonQualificationProject(t, maxSavedPods)
+	config.Demand.Enabled = false
 	if len(config.Fleet) != maxSavedPods {
 		t.Fatalf("the fleet has %d pods, want %d", len(config.Fleet), maxSavedPods)
 	}
@@ -2840,13 +2863,29 @@ func maximalRequeueState(t *testing.T, extra int) (project.Config, []byte) {
 		}
 		state.Boarded += sim.MaxSharedRideParties
 	}
-	for index := range QueueLimit + extra {
+	for index := range QueueLimit {
 		state.Waiting = append(state.Waiting, sim.SavedTrip{
 			Request: order(passenger[index%len(passenger)], passenger[(index+2)%len(passenger)], ""),
 		})
 	}
 	logicalOnly(&file)
 	return config, encodeTestState(t, file)
+}
+
+func TestMaximalRequeueSeedDetached(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("maximum restore fixture runs without -short")
+	}
+	config, data := maximalRequeueState(t, 0)
+	config.Network.Nodes[0].ID = "changed"
+	config.Network.Stations[0].Berths[0].ID = "changed"
+	config.Fleet[0].ID = "changed"
+	data[0] ^= 0xff
+	again, encoded := maximalRequeueState(t, 0)
+	if again.Network.Nodes[0].ID == "changed" || again.Network.Stations[0].Berths[0].ID == "changed" || again.Fleet[0].ID == "changed" || encoded[0] == data[0] {
+		t.Fatal("maximum restore fixture shares mutable storage")
+	}
 }
 
 // TestMaximalRequeueRoundTrip saves a London state with maxSavedPods pods,

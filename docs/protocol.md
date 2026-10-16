@@ -180,7 +180,7 @@ Simulator routes keep their existing representation and have no new length limit
 Saved routes use the separate limits in [Session state](operations.md#session-state).
 The HTTP state carries the stream frame, so it has route windows, not complete routes.
 Display decoder caps stay at the project lane limit, with the same refusal order and error text.
-`TestPlainStreamMaximumEncoding` bounds plain full-stream and HTTP-state JSON below 65 MiB, including the topology cap for HTTP state.
+`TestPlainStreamMaximumEncoding` bounds plain full-stream JSON below 64 MiB and HTTP-state JSON below 128 MiB, including the topology cap for HTTP state.
 Express has no byte proof.
 
 The connection allows 64 outstanding state messages or 8 MiB, whichever limit it reaches first.
@@ -191,7 +191,7 @@ The client does not wait for an acknowledgment before it receives the next delta
 Shared history holds at most 256 deltas or 32 MiB.
 Eviction sends a new shared full baseline when a client next has credit.
 The global payload budget includes ring ownership and in-progress socket writes.
-It allows 32 MiB of history plus two 66 MiB full-payload slots.
+It allows 32 MiB of history plus two maximum gzip-payload slots.
 The current detached frame and active encoding buffers are separate bounded allocations.
 Only one compressed encoding can wait for admission at a time.
 Under pressure, the publisher first releases history and cached full ownership, then cancels writers holding the oldest remaining payload.
@@ -207,7 +207,11 @@ Socket writes have a 30-second outer deadline.
 An independent watchdog applies the acknowledgment progress deadline during blocked writes.
 Shutdown closes upgraded sockets and waits for stream workers before the final state-save sequence.
 
-State JSON has a 65 MiB limit and compressed messages have a 66 MiB limit.
+Stream JSON has a 64 MiB limit; HTTP-state JSON has a separate 128 MiB limit.
+The gzip limit is 64 MiB plus 32,832 bytes of block and wrapper overhead.
+Go 1.27.2 BestSpeed consumes blocks of at most 65,535 bytes and selects stored blocks when compression would cost more.
+The allowance reserves 32 bytes per block for headers, pending end codes, and alignment, plus 32 bytes for the gzip wrapper and final empty block.
+`TestStreamGzipExpansionBound` checks an incompressible document at the JSON cap through the production compressor and inflater.
 The browser counts native decompression output before allocating the joined result.
 It requires WebSocket, DecompressionStream, and AbortController.
 Unsupported browsers show an error, and connection failures use bounded exponential reconnect delays.
@@ -254,7 +258,7 @@ A rewind does not change it.
 | Member | Content |
 | --- | --- |
 | `tier` | `physical`: the pods kept their positions. `logical`: the pods started again at their initial berths. `empty`: the server did not use the saved state. |
-| `reason` | Why the tier is not `physical`. For `logical`: `physical_failed` or `restore_loop`. For `empty`: `project_changed`, `unsupported_version`, `invalid_state`, `unreadable`, or `restore_loop`. A file of more than 100 MiB gives no `empty` start, because the server keeps the file and fails to start. |
+| `reason` | Why the tier is not `physical`. For `logical`: `physical_failed` or `restore_loop`. For `empty`: `project_changed`, `unsupported_version`, `invalid_state`, `unreadable`, or `restore_loop`. A file of more than 128 MiB gives no `empty` start, because the server keeps the file and fails to start. |
 | `demoted` | The number of pods that the `physical` tier moved to a berth. |
 | `requeued` | The number of orders that went back to the queue. |
 | `dropped` | The number of orders that the restore removed because they were not valid. |
@@ -408,7 +412,8 @@ These responses also have `Cache-Control: no-store`.
 A 403, 415, or 503 reply comes before the server reads the body, and a 413 reply for a body over the 16 MiB limit comes before the end of the body.
 The server closes the connection after these replies, so it does not wait for the rest of the body.
 
-A `project` command with more than 600 stations, 12,000 nodes, 20,000 lanes, or 600 pods gets HTTP 400, because these arrays are larger than the limits above.
+A `project` command with more than 600 stations, 12,000 nodes, 20,000 lanes, or 1,000 pods gets HTTP 400, because these arrays are larger than the limits above.
+An Express project retains its separately qualified limit of 600 pods.
 A station with more than 200 berths also gets HTTP 400.
 A `project` command gets `command_rejected` when the project fails validation, for example when a node has more than 64 lanes.
 A lane counts at its start node and at its end node.

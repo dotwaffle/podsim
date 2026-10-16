@@ -124,11 +124,11 @@ func TestDecodeBoundsBeforeHeader(t *testing.T) {
 	}
 }
 
-// The Express limits, which bound the read of the root markers, contain
-// the limits of every other marker.
+// The preliminary marker limits contain the plain table even though the
+// exact Express fleet bound is smaller.
 func TestStreamLimitsPackedContainUnpacked(t *testing.T) {
 	t.Parallel()
-	wide, exact := streamLimits(contractMarkers{order: sim.ExpressOrderContract}), streamLimits(contractMarkers{})
+	wide, exact := streamMarkerLimits(), streamLimits(contractMarkers{})
 	if wide.depth != exact.depth || wide.elements != exact.elements || wide.members != exact.members ||
 		wide.stringBytes != exact.stringBytes || wide.allowInvalidUTF8 != exact.allowInvalidUTF8 {
 		t.Fatal("packed and unpacked limits differ outside array bounds")

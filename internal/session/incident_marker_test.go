@@ -262,7 +262,7 @@ func TestIncidentMarkerRawValues(t *testing.T) {
 			t.Errorf("%s accepted a marker", item.name)
 		}
 	}
-	hello := []byte(`{"kind":"hello","version":6,"build":"","serverStart":"x",` + incidentMarkerMember + `}`)
+	hello := []byte(`{"kind":"hello","version":7,"build":"","serverStart":"x",` + incidentMarkerMember + `}`)
 	if _, err := DecodeStreamHello(hello); err == nil {
 		t.Error("hello accepted a marker")
 	}

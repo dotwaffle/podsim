@@ -5,7 +5,8 @@ The largest accepted wire fixtures use substantial memory and block the browser 
 These results do not authorize deployment or default enablement.
 
 Status 2026-10-07: the widest-asset tests, `TestExpressRequalCost` among them, were deleted with the other worst-case byte proofs.
-The fleet limit is now 600 pods, the Express order bound is 17,000 orders, and the saved-state cap is 100 MiB.
+The Express fleet limit is 600 pods, and its order bound is 17,000 orders.
+The October 15 byte-budget amendment sets the saved-state and HTTP-state caps to 128 MiB and stream JSON to 64 MiB, plus its derived gzip allowance.
 This record describes the tested source.
 
 The operating limits and encoding rules are in [the approved Express contract](express-physical-encoding-contract-proposal.md).

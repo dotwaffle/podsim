@@ -631,8 +631,11 @@ func TestStreamAssemblerCachesRoutes(t *testing.T) {
 }
 func TestStreamGzipExpansionBound(t *testing.T) {
 	t.Parallel()
-	// BestSpeed chooses stored blocks when compressed blocks cost more. Allow
-	// 64 KiB above the input for block headers, alignment and the gzip wrapper.
+	// Go 1.27.2 flate.deflateFast consumes 65,535-byte blocks regardless of
+	// Write boundaries. writeBlockDynamic and writeBlockHuff choose stored
+	// blocks when encoding costs more. A stored header uses at most five
+	// bytes; pending end codes and alignment fit well within 32 per block.
+	// Close adds an empty stored block and gzip adds 18 bytes, within 32.
 	data := make([]byte, MaxStreamJSON)
 	var x uint64 = 1
 	for i := range data {
@@ -645,10 +648,10 @@ func TestStreamGzipExpansionBound(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(compressed) > len(data)+(64<<10) {
+	if len(compressed) > len(data)+streamGzipOverhead {
 		t.Fatalf("gzip expansion exceeded proof allowance: %d", len(compressed))
 	}
-	t.Logf("65 MiB incompressible gzip fixture: %d bytes, cap %d", len(compressed), MaxStreamMessage)
+	t.Logf("64 MiB incompressible gzip fixture: %d bytes, cap %d", len(compressed), MaxStreamMessage)
 	output, err := InflateStream(compressed)
 	if err != nil || !bytes.Equal(output, data) {
 		t.Fatal("gzip boundary round trip", err)

@@ -487,32 +487,35 @@ func TestSavePointLabelsFit(t *testing.T) {
 
 // TestPodButtonsShowFleetNumbers checks that each pod button shows its
 // whole fleet number, up to the largest fleet, in every layout. A
-// three-digit number was cut to "1…" on a laptop.
+// three-digit number was cut to "1…" on a laptop. Four-digit numbers must
+// also pass without a character-count cutoff.
 func TestPodButtonsShowFleetNumbers(t *testing.T) {
 	t.Parallel()
 	for _, layout := range controlLayouts {
-		t.Run(layout.name, func(t *testing.T) {
-			t.Parallel()
-			game := controlTestGame(t, layout.input)
-			game.state.Simulation.Vehicles = make([]sim.Vehicle, project.MaxPods)
-			for i := range game.state.Simulation.Vehicles {
-				game.state.Simulation.Vehicles[i].Pod.ID = fmt.Sprintf("pod-%d", i)
-			}
-			for page := range podPageCount(project.MaxPods) {
-				game.podPage = page
-				for _, control := range game.buttons() {
-					if !strings.HasPrefix(control.action, "pod/") {
-						continue
-					}
-					if len(control.label) != len(strconv.Itoa(project.MaxPods)) {
-						t.Fatalf("page %d: label %q does not have the width of the fleet size %d", page, control.label, project.MaxPods)
-					}
-					if got, _ := game.buttonText(control); got != control.label {
-						t.Fatalf("page %d: label %q shown as %q in width %g", page, control.label, got, control.w)
+		for _, count := range []int{999, project.MaxPods} {
+			t.Run(fmt.Sprintf("%s/pods-%d", layout.name, count), func(t *testing.T) {
+				t.Parallel()
+				game := controlTestGame(t, layout.input)
+				game.state.Simulation.Vehicles = make([]sim.Vehicle, count)
+				for i := range game.state.Simulation.Vehicles {
+					game.state.Simulation.Vehicles[i].Pod.ID = fmt.Sprintf("pod-%d", i)
+				}
+				for page := range podPageCount(count) {
+					game.podPage = page
+					for _, control := range game.buttons() {
+						if !strings.HasPrefix(control.action, "pod/") {
+							continue
+						}
+						if len(control.label) != len(strconv.Itoa(count)) {
+							t.Fatalf("page %d: label %q does not have the width of the fleet size %d", page, control.label, count)
+						}
+						if got, _ := game.buttonText(control); got != control.label {
+							t.Fatalf("page %d: label %q shown as %q in width %g", page, control.label, got, control.w)
+						}
 					}
 				}
-			}
-		})
+			})
+		}
 	}
 }
 

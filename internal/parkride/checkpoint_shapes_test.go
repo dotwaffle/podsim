@@ -301,8 +301,9 @@ func TestCheckpointCombinedEncodingShapes(t *testing.T) {
 	if shapeBytes(t, file) != public.bytes {
 		t.Fatal("public checkpoint size differs from its named-type encoding")
 	}
+	projectBytes, initialPlanBytes := shapeBytes(t, config), shapeBytes(t, plan)
 	t.Logf("SHAPE public-initial-tick-only bytes=%d project=%d plan=%d native=%d ledger=%d nodes=%d lanes=%d stations=%d pods=%d records=%d lots=%d max-station-berths=200 max-station-banks=8 profiles=8 bands=24 flows-per-profile=%d", public.bytes,
-		shapeBytes(t, config), shapeBytes(t, plan), shapeBytes(t, payload.Native), shapeBytes(t, payload.Ledger), len(config.Network.Nodes), len(config.Network.Lanes), len(config.Network.Stations), len(config.Fleet), len(plan.Itineraries), len(plan.Lots), len(config.DemandProfiles[0].Flows))
+		projectBytes, initialPlanBytes, shapeBytes(t, payload.Native), shapeBytes(t, payload.Ledger), len(config.Network.Nodes), len(config.Network.Lanes), len(config.Network.Stations), len(config.Fleet), len(plan.Itineraries), len(plan.Lots), len(config.DemandProfiles[0].Flows))
 	// An ID has only ID characters, which JSON writes as 1 byte each, so
 	// 64-byte node and lane endpoint IDs fit a 32 MiB project with the
 	// collection maxima. The shape keeps short node and lane IDs and fills
@@ -348,6 +349,7 @@ func TestCheckpointCombinedEncodingShapes(t *testing.T) {
 	} {
 		t.Run(counts.name, func(t *testing.T) {
 			envelope := file
+			planBytes := initialPlanBytes
 			waiting := max(0, 2*counts.n-project.MaxPods*8)
 			envelope.Payload.Native = shapeNative(waiting)
 			envelope.Payload.Ledger = shapeLedger(counts.n, counts.lots)
@@ -363,6 +365,7 @@ func TestCheckpointCombinedEncodingShapes(t *testing.T) {
 					row.ActivitySeconds, row.RetrievalSeconds, row.HomeboundSeconds = math.MaxInt64, math.MaxInt64, math.MaxInt64
 					envelope.Payload.Origin.Plan.Itineraries[i] = row
 				}
+				planBytes = shapeBytes(t, envelope.Payload.Origin.Plan)
 			}
 			total := shapeBytes(t, envelope)
 			if total <= MaxCheckpointBytes {
@@ -381,8 +384,10 @@ func TestCheckpointCombinedEncodingShapes(t *testing.T) {
 			if sink.bytes > MaxCheckpointBytes || sink.bytes+bounded.remaining != MaxCheckpointBytes {
 				t.Fatal("bounded output accounting differs")
 			}
-			t.Logf("SHAPE encoding-envelope-only bytes=%d project=%d plan=%d native=%d ledger=%d records=%d lots=%d waiting=%d pods=600 pod-route=%d bound-waiting-routes=%dx%d boardings=600x8 platoon-links=600 emitted-before-rejection=%d storage-fits=%t", total,
-				shapeBytes(t, config), shapeBytes(t, envelope.Payload.Origin.Plan), shapeBytes(t, envelope.Payload.Native), shapeBytes(t, envelope.Payload.Ledger), counts.n, counts.lots, waiting, project.MaxLanes+project.MaxNodes, min(waiting, project.MaxPods), project.MaxNodes, sink.bytes, fitsStorage(int64(counts.lots), int64(counts.n)))
+			// The full count above already walks the native state and ledger.
+			// Do not encode those large components again just for the log.
+			t.Logf("SHAPE encoding-envelope-only bytes=%d project=%d plan=%d records=%d lots=%d waiting=%d pods=%d pod-route=%d bound-waiting-routes=%dx%d boardings=%dx8 platoon-links=%d emitted-before-rejection=%d storage-fits=%t", total,
+				projectBytes, planBytes, counts.n, counts.lots, waiting, project.MaxPods, project.MaxLanes+project.MaxNodes, min(waiting, project.MaxPods), project.MaxNodes, project.MaxPods, project.MaxPods, sink.bytes, fitsStorage(int64(counts.lots), int64(counts.n)))
 		})
 	}
 	// The public caller must propagate output failure even for the valid

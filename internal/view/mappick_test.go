@@ -207,6 +207,7 @@ func TestPodPager(t *testing.T) {
 		{name: "first page", pods: 12, action: "pods-prev", wantCount: "1 / 3"},
 		{name: "last page", pods: 12, page: 2, action: "pods-next", wantPage: 2, wantCount: "3 / 3"},
 		{name: "London fleet", pods: 114, page: 21, action: "pods-next", wantPage: 22, wantCount: "23 / 23"},
+		{name: "largest fleet", pods: 1000, page: 198, action: "pods-next", wantPage: 199, wantCount: "200/200"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -252,39 +253,41 @@ func TestPodPager(t *testing.T) {
 }
 
 // TestPodPagerFits checks at each control layout that the pod buttons, the
-// page arrows and the widest London page count do not overlap.
+// page arrows and the largest supported page count do not overlap.
 func TestPodPagerFits(t *testing.T) {
 	t.Parallel()
 	for _, layout := range controlLayouts {
-		t.Run(layout.name, func(t *testing.T) {
-			t.Parallel()
-			game := controlTestGame(t, layout.input)
-			game.state.Simulation.Vehicles = make([]sim.Vehicle, 114)
-			for i := range game.state.Simulation.Vehicles {
-				game.state.Simulation.Vehicles[i].Pod.ID = fleetPodLabel(i, len(game.state.Simulation.Vehicles))
-			}
-			game.podPage = podPageCount(114) - 1
-			count, ok := game.podPagerLabel()
-			if !ok {
-				t.Fatal("no page count")
-			}
-			countArea := game.labelArea(count)
-			var row []button
-			for _, control := range game.buttons() {
-				if control.action == "pods-prev" || control.action == "pods-next" || strings.HasPrefix(control.action, "pod/") {
-					row = append(row, control)
+		for _, fleet := range []int{114, 1000} {
+			t.Run(fmt.Sprintf("%s/pods-%d", layout.name, fleet), func(t *testing.T) {
+				t.Parallel()
+				game := controlTestGame(t, layout.input)
+				game.state.Simulation.Vehicles = make([]sim.Vehicle, fleet)
+				for i := range game.state.Simulation.Vehicles {
+					game.state.Simulation.Vehicles[i].Pod.ID = fleetPodLabel(i, len(game.state.Simulation.Vehicles))
 				}
-			}
-			for i, control := range row {
-				if countArea.overlaps(buttonArea(control)) {
-					t.Errorf("page count %+v overlaps %q %+v", countArea, control.action, buttonArea(control))
+				game.podPage = podPageCount(fleet) - 1
+				count, ok := game.podPagerLabel()
+				if !ok {
+					t.Fatal("no page count")
 				}
-				for _, other := range row[i+1:] {
-					if buttonArea(control).overlaps(buttonArea(other)) {
-						t.Errorf("%q overlaps %q", control.action, other.action)
+				countArea := game.labelArea(count)
+				var row []button
+				for _, control := range game.buttons() {
+					if control.action == "pods-prev" || control.action == "pods-next" || strings.HasPrefix(control.action, "pod/") {
+						row = append(row, control)
 					}
 				}
-			}
-		})
+				for i, control := range row {
+					if countArea.overlaps(buttonArea(control)) {
+						t.Errorf("page count %+v overlaps %q %+v", countArea, control.action, buttonArea(control))
+					}
+					for _, other := range row[i+1:] {
+						if buttonArea(control).overlaps(buttonArea(other)) {
+							t.Errorf("%q overlaps %q", control.action, other.action)
+						}
+					}
+				}
+			})
+		}
 	}
 }

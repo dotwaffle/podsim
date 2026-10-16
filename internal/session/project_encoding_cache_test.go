@@ -2,6 +2,8 @@ package session
 
 import (
 	"bytes"
+	"fmt"
+	"log/slog"
 	"math"
 	"reflect"
 	"testing"
@@ -122,4 +124,36 @@ func TestSaveStateProjectCacheInvalidation(t *testing.T) {
 	check()
 	client.mustApply(t, Command{Action: "rewind", Checkpoint: checkpoint})
 	check()
+}
+
+func BenchmarkLondonSavedProjectEncoding(b *testing.B) {
+	config := londonQualificationProject(b, 327)
+	shared, err := NewWithProject(config, WithLogger(slog.New(slog.DiscardHandler)))
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.Cleanup(shared.Close)
+	file, _, err := shared.captureState(saveStartup)
+	if err != nil {
+		b.Fatal(err)
+	}
+	for _, cached := range []bool{false, true} {
+		b.Run(fmt.Sprintf("cached-%t", cached), func(b *testing.B) {
+			var encoder stateEncoder
+			encode := encoder.encode
+			if cached {
+				encode = encoder.encodeCaptured
+			}
+			if _, err := encode(file); err != nil {
+				b.Fatal(err)
+			}
+			b.ReportAllocs()
+			b.ResetTimer()
+			for b.Loop() {
+				if _, err := encode(file); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
 }

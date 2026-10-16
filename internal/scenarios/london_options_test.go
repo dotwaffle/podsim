@@ -158,14 +158,14 @@ func TestLondonWithCapacity(t *testing.T) {
 		{
 			name:   "no pod",
 			change: func(options *LondonOptions) { options.StationPods, options.ParkingPods = 0, 0 },
-			err:    "fleet has 0 pods, want 1 to 600",
+			err:    "fleet has 0 pods, want 1 to 1000",
 		},
 		{
 			name: "too many pods",
 			change: func(options *LondonOptions) {
-				options.StationBerths, options.StationPods, options.ParkingPods = 6, 6, 12
+				options.StationBerths, options.StationPods, options.ParkingPods = 11, 11, 12
 			},
-			err: "fleet has 612 pods, want 1 to 600",
+			err: "fleet has 1092 pods, want 1 to 1000",
 		},
 		{
 			name:   "pitch below the floor",

@@ -12,11 +12,14 @@ type OrderContract string
 // ExpressOrderContract permits the approved Express profile and order bounds.
 const ExpressOrderContract OrderContract = "express-v1"
 
+// Express keeps its own 600-pod and 5,000-queued baseline.
+// A plain fleet increase must not silently increase Express admission.
+const expressBaseWaitingTrips = 200 + expressMaxPods*MaxSharedRideParties
+
 // MaxExpressWaitingTrips bounds both pending and outstanding Express orders.
-// It is the restore queue bound and MaxExpressParties orders for each pod
-// of the largest Express fleet, so that a logical restore of a full fleet
-// fits.
-const MaxExpressWaitingTrips = MaxSavedWaitingTrips + expressMaxPods*MaxExpressParties
+// It includes MaxExpressParties orders for each pod of the largest Express
+// fleet, so a logical restore of that fleet and its baseline queue fits.
+const MaxExpressWaitingTrips = expressBaseWaitingTrips + expressMaxPods*MaxExpressParties
 
 // ValidateOrderContract rejects unknown opt-in contracts.
 func ValidateOrderContract(contract OrderContract) error {

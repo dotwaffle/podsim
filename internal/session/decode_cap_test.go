@@ -109,11 +109,11 @@ func TestDecodeCapsAtCallers(t *testing.T) {
 	}
 
 	t.Run("HTTP state", func(t *testing.T) {
-		state, err := DecodeStateJSON(padJSON(t, httpState, MaxStreamJSON))
+		state, err := DecodeStateJSON(padJSON(t, httpState, MaxHTTPStateJSON))
 		if err != nil || state.Simulation.OrderContract != sim.ExpressOrderContract {
 			t.Fatal("refused the HTTP state at the cap", err)
 		}
-		_, err = DecodeStateJSON(padJSON(t, httpState, MaxStreamJSON+1))
+		_, err = DecodeStateJSON(padJSON(t, httpState, MaxHTTPStateJSON+1))
 		wantError(t, err, "HTTP state exceeds supported limit")
 	})
 

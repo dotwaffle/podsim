@@ -185,7 +185,7 @@ var errResponseTooLarge = errors.New("server response exceeds supported limit")
 func responseLimit(path string) int64 {
 	switch path {
 	case "/api/state":
-		return session.MaxStreamJSON
+		return session.MaxHTTPStateJSON
 	case "/api/topology":
 		return session.MaxTopologyJSON + 1
 	default:

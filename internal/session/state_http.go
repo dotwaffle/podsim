@@ -16,6 +16,9 @@ import (
 // The state endpoint replies only to a request that accepts it.
 const StateMediaType = "application/vnd.podsim.state-6+json"
 
+// MaxHTTPStateJSON limits an HTTP state, including its topology.
+const MaxHTTPStateJSON = 128 << 20
+
 // StateEnvelope binds the stream frame of the HTTP state to its topology.
 // The contract markers are the markers of the topology and of the frame.
 type StateEnvelope struct {
@@ -43,7 +46,7 @@ func EncodeStateJSON(topology TopologySnapshot, frame StreamFrame) ([]byte, erro
 	}
 	envelope := StateEnvelope{OrderContract: topology.OrderContract, Topology: topology, Frame: frame}
 	data, err := jsonv2.Marshal(envelope, json.DefaultOptionsV1(), packedRequestOptions())
-	if err == nil && len(data) > MaxStreamJSON {
+	if err == nil && len(data) > MaxHTTPStateJSON {
 		err = errors.New("HTTP state exceeds supported limit")
 	}
 	return data, err
@@ -53,11 +56,11 @@ func EncodeStateJSON(topology TopologySnapshot, frame StreamFrame) ([]byte, erro
 // contract markers select the rules, and they must be the markers of the
 // topology.
 func DecodeStateJSON(raw []byte) (State, error) {
-	if len(raw) > MaxStreamJSON {
+	if len(raw) > MaxHTTPStateJSON {
 		return State{}, errors.New("HTTP state exceeds supported limit")
 	}
 	var envelope StateEnvelope
-	members, err := decodeMarkedJSON(raw, &envelope)
+	members, err := decodeMarkedJSONLimit(raw, &envelope, MaxHTTPStateJSON)
 	if err != nil {
 		return State{}, err
 	}

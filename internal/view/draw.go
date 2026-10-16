@@ -30,7 +30,12 @@ func (g *Game) podPagerLabel() (label, bool) {
 	right := g.layout.right(1060 - podPagerArrowWidth)
 	top := g.layout.bottom(podSelectorTop)
 	area := image.Rect(int(math.Round(left)), int(math.Round(top)), int(math.Round(right)), int(math.Round(top+34*g.layout.unit)))
-	return g.centerLabel(area, label{size: 10, value: fmt.Sprintf("%d / %d", g.podPage+1, pages), color: muted}), true
+	value := label{size: 10, value: fmt.Sprintf("%d / %d", g.podPage+1, pages), color: muted}
+	if pages >= 100 {
+		// Keep the complete counter clear of the arrows at fractional scales.
+		value.size, value.value = 9.5, fmt.Sprintf("%d/%d", g.podPage+1, pages)
+	}
+	return g.centerLabel(area, value), true
 }
 
 // Draw renders an independent snapshot without changing simulation state.
@@ -237,11 +242,11 @@ func (g *Game) drawButton(screen *ebiten.Image, b button) {
 
 // buttonText returns the label that button b shows and its font size. A
 // pod button is narrow, so it uses a smaller font and a smaller padding
-// than other buttons. Then a three-digit fleet number fits.
+// than other buttons. Then a four-digit fleet number fits.
 func (g *Game) buttonText(b button) (string, float64) {
 	if strings.HasPrefix(b.action, "pod/") {
-		const size, padding = 12, 4
-		return fitText(shortText(b.label, 3), textFit{face: g.textFace(size), width: max(1, b.w-padding*g.layout.unit)}), size
+		const size, padding = 12, 2
+		return fitText(b.label, textFit{face: g.textFace(size), width: max(1, b.w-padding*g.layout.unit)}), size
 	}
 	size := cmp.Or(b.fontSize, 14)
 	return g.fitButtonText(b.label, size, b.w), size

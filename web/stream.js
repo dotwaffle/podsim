@@ -2,7 +2,9 @@
   "use strict";
   // inflate counts native decoder output before it allocates the joined bytes.
   async function inflate(bytes, limit, signal) {
-    if (bytes.byteLength > 66 * 1024 * 1024) throw new Error("Compressed state is too large.");
+    const jsonLimit = 64 * 1024 * 1024;
+    const gzipLimit = jsonLimit + 32 * Math.ceil(jsonLimit / 65535) + 32;
+    if (bytes.byteLength > gzipLimit) throw new Error("Compressed state is too large.");
     const reader = new ReadableStream({
       start(controller) { controller.enqueue(bytes); controller.close(); }
     }).pipeThrough(new DecompressionStream("gzip")).getReader();

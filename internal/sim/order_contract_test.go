@@ -308,7 +308,7 @@ func TestExpressMaximumRecoveryAndAggregate(t *testing.T) {
 		}
 	}
 	boarded := expressMaxPods * MaxExpressParties
-	for range MaxSavedWaitingTrips {
+	for range expressBaseWaitingTrips {
 		s.requestID++
 		s.waiting = append(s.waiting, waitingTrip{request: requestFromOptions(TripOptions{From: "s0", To: "s1", PartySize: 1, SharingConsent: SharedConsent, Service: ExpressServiceChoice, ServiceID: "s0"}, s.requestID, s.tick)})
 	}
@@ -316,7 +316,7 @@ func TestExpressMaximumRecoveryAndAggregate(t *testing.T) {
 		t.Fatal(err)
 	}
 	state := s.ExportState()
-	if len(fleet) != expressMaxPods || len(state.Waiting) != MaxSavedWaitingTrips || s.outstandingOrders() != MaxExpressWaitingTrips {
+	if len(fleet) != expressMaxPods || len(state.Waiting) != expressBaseWaitingTrips || s.outstandingOrders() != MaxExpressWaitingTrips {
 		t.Fatal("seed shape")
 	}
 	if dir := os.Getenv("EXPRESS_EVIDENCE_DIR"); dir != "" {
@@ -324,7 +324,7 @@ func TestExpressMaximumRecoveryAndAggregate(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(filepath.Join(dir, fmt.Sprintf("recovery-%d-plus-%d.state.json", MaxSavedWaitingTrips, boarded)), raw, 0o600); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, fmt.Sprintf("recovery-%d-plus-%d.state.json", expressBaseWaitingTrips, boarded)), raw, 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}

@@ -8,7 +8,8 @@ The tested source starts at `27981fe35c9f2a7644327033405fcbf1a1130338`, with nat
 The widest byte and browser receipts pin dependency v3.
 
 Status 2026-10-07: the widest-shape adapter tests, `TestExpressIncompressibleAssetAdapters`, `TestExpressRequalCost`, `TestExpressPublicAssetRetention`, and `TestComposedWorstCaseFormats` were deleted with the other worst-case byte proofs.
-The fleet limit is now 600 pods, the Express order bound is 17,000 orders, and the saved-state cap is 100 MiB.
+The Express fleet limit is 600 pods, and its order bound is 17,000 orders.
+The October 15 [byte-budget amendment](service-byte-contract-proposal.md#october-15-2026-amendment) supersedes the byte caps in the historical measurements below.
 The project limits are now 32 MiB of project JSON, 12,000 nodes, 20,000 lanes, and 600 stations.
 This record describes the tested source.
 

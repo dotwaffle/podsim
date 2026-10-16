@@ -102,15 +102,15 @@ func TestEncodeCapsAtCallers(t *testing.T) {
 		wide.State.Simulation.DemoError = demoErrorTo(t, func(text string) ([]byte, error) {
 			wide.State.Simulation.DemoError = text
 			return EncodeStateJSON(topology, wide)
-		}, MaxStreamJSON)
+		}, MaxHTTPStateJSON)
 		raw, err := EncodeStateJSON(topology, wide)
-		if err != nil || len(raw) != MaxStreamJSON {
+		if err != nil || len(raw) != MaxHTTPStateJSON {
 			t.Fatalf("encoded %d bytes and %v at the cap", len(raw), err)
 		}
 		wide.State.Simulation.DemoError += "x"
 		raw, err = EncodeStateJSON(topology, wide)
 		wantError(t, err, "HTTP state exceeds supported limit")
-		if len(raw) != MaxStreamJSON+1 {
+		if len(raw) != MaxHTTPStateJSON+1 {
 			t.Fatalf("the HTTP state over the cap has %d bytes", len(raw))
 		}
 	})

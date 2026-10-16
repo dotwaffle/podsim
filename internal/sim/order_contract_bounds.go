@@ -20,6 +20,9 @@ const (
 	expressMaxNetworkBlocks = 64000
 )
 
+// MaxExpressPods is the fleet bound of express-v1.
+const MaxExpressPods int = expressMaxPods
+
 func boundedContractID(id string) bool {
 	return id != "" && len(id) <= 64 && utf8.ValidString(id)
 }

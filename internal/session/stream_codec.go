@@ -22,11 +22,14 @@ const (
 	// StreamVersion is the hello version of the one stream family. The
 	// contract markers of a connection select its optional sections.
 	StreamVersion = 7
-	// MaxStreamJSON limits the JSON of a stream envelope and of the HTTP
-	// state. MaxStreamMessage limits the gzip data, with 1 MiB for the
-	// expansion of stored blocks.
-	MaxStreamJSON    = 65 << 20
-	MaxStreamMessage = 66 << 20
+	// MaxStreamJSON limits the inflated JSON of a stream envelope.
+	MaxStreamJSON = 64 << 20
+	// BestSpeed consumes blocks of at most 65,535 bytes. Reserve 32 bytes
+	// per block for headers, pending end codes and alignment, then 32 for
+	// the gzip wrapper and final empty block. See the expansion-bound test.
+	streamGzipOverhead = 32*((MaxStreamJSON+65534)/65535) + 32
+	// MaxStreamMessage includes the proved BestSpeed expansion allowance.
+	MaxStreamMessage = MaxStreamJSON + streamGzipOverhead
 )
 
 // StreamSource identifies one coherent authoritative state.
@@ -564,7 +567,8 @@ func applyBerthDeltas(f *StreamFrame, deltas []sim.BerthState, seen map[string]b
 // checkStreamFrame checks the counts, the stage state, and the routes of
 // the frame that an envelope gives.
 func checkStreamFrame(f StreamFrame) error {
-	if len(f.Routes) != len(f.State.Simulation.Vehicles) || len(f.Routes) > project.MaxPods || len(f.State.Simulation.Berths) > project.MaxNodes {
+	markers := contractMarkers{order: f.State.Simulation.OrderContract}
+	if len(f.Routes) != len(f.State.Simulation.Vehicles) || len(f.Routes) > markers.fleetBound() || len(f.State.Simulation.Berths) > project.MaxNodes {
 		return errors.New("invalid presentation counts")
 	}
 	if err := checkIncidentFrame(f.State.Simulation); err != nil {

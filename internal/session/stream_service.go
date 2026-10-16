@@ -39,7 +39,11 @@ type markedMembers struct {
 // fault member, and a stage 3 emergency member. The caller checks that
 // against the markers.
 func decodeMarkedJSON(data []byte, target any) (markedMembers, error) {
-	if len(data) > MaxStreamJSON {
+	return decodeMarkedJSONLimit(data, target, MaxStreamJSON)
+}
+
+func decodeMarkedJSONLimit(data []byte, target any, limit int) (markedMembers, error) {
+	if len(data) > limit {
 		return markedMembers{}, errors.New("state JSON too large")
 	}
 	markers, err := scanRootMarkers(data)
@@ -70,16 +74,28 @@ func decodeMarkedJSON(data []byte, target any) (markedMembers, error) {
 	if scanErr != nil {
 		return markedMembers{}, scanErr
 	}
-	return markedMembers{incident: incident, fault: fault, emergency: emergency}, decodePackedStreamJSON(data, target)
+	members := markedMembers{incident: incident, fault: fault, emergency: emergency}
+	if err := decodePackedStreamJSON(data, target); err != nil {
+		return members, err
+	}
+	// Keep every other scan and strict typed refusal ahead of the Express
+	// fleet refusal. The earlier scans keep the plain fleet bound.
+	if markers.order == sim.ExpressOrderContract {
+		if err := prescanJSON(data, streamLimits(markers)); err != nil {
+			return members, err
+		}
+	}
+	return members, nil
 }
 
 // scanRootMarkers bounds data with the limits of its root contract markers
-// and returns the markers. The Express limits contain the other limits, so
-// the first scan bounds the read of the markers without refusing a
-// document that the exact scan accepts. The other scans check the values
-// and the duplicates of the markers.
+// and returns the markers. The first scan contains both contract tables,
+// so it bounds the read of the markers without refusing a
+// document that the exact scan accepts. The exact plain scan stays here;
+// the exact Express fleet scan follows strict decoding. The other
+// scans check the values and the duplicates of the markers.
 func scanRootMarkers(data []byte) (contractMarkers, error) {
-	if err := prescanJSON(data, streamLimits(contractMarkers{order: sim.ExpressOrderContract})); err != nil {
+	if err := prescanJSON(data, streamMarkerLimits()); err != nil {
 		return contractMarkers{}, err
 	}
 	var header struct {
@@ -237,7 +253,7 @@ func (a *StreamAssembler) rememberClasses(frame StreamFrame) error {
 		profile, _ := sim.LookupVehicleClassWithOrderContract(vehicle.Pod.Class, a.topology.OrderContract)
 		next[vehicle.Pod.ID] = profile.Class
 	}
-	if len(next) > project.MaxPods {
+	if len(next) > (contractMarkers{order: a.topology.OrderContract}).fleetBound() {
 		return errors.New("stream project exceeds fleet identity limit")
 	}
 	a.classes = next

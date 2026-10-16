@@ -10,6 +10,8 @@ Clauses that name buffers, buffer certificates, compact queues, or compact certi
 Their prohibitions and bounds stay as written and are vacuous.
 
 Status 2026-10-07: by maintainer decision, the fleet limit is 600 pods and the saved-state cap is 100 MiB.
+Status 2026-10-15: the [byte-budget amendment](service-byte-contract-proposal.md#october-15-2026-amendment) sets save and HTTP-state caps to 128 MiB, stream JSON to 64 MiB, and a source-derived gzip allowance.
+Express keeps its separately qualified 600-pod fleet and 17,000-order bound, independent of any later plain-fleet promotion.
 The Express fleet bound and the bound of pending routes are 600.
 The Express pending and outstanding bound is 17,000, from `5,000 + 600 * 20`.
 The byte evidence below keeps its 300-pod and 80 MiB basis, and nobody measured it again.

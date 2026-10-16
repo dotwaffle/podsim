@@ -58,10 +58,10 @@ const (
 	podsPerPage = 5
 	// podButtonStep is the distance in design units from one pod button to
 	// the next.
-	podButtonStep = 35.0
+	podButtonStep = 34.0
 	// podPagerLeft and podPagerArrowWidth set the page arrows of the pod
 	// selector in design units. The page count is between the arrows.
-	podPagerLeft       = 985.0
+	podPagerLeft       = 981.0
 	podPagerArrowWidth = 20.0
 )
 
