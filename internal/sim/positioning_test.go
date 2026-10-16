@@ -906,8 +906,8 @@ func TestGuardedYieldInCommittedInlet(t *testing.T) {
 
 // guardedClaims returns the pods that hold a guarded claim, with the
 // destination berth of each.
-func guardedClaims(s *Simulation) map[string]string {
-	claims := make(map[string]string)
+func guardedClaims(s *Simulation, claims map[string]string) map[string]string {
+	clear(claims)
 	for index := range s.vehicles {
 		v := &s.vehicles[index]
 		if v.Rebalancing && s.owners[resource{kind: berthResource, id: v.destination.ID}] == podResourceOwner(v.Pod.ID) {
@@ -925,8 +925,23 @@ type claimState struct {
 	moves        int
 }
 
-func newClaimState(s *Simulation) claimState {
-	state := claimState{claims: guardedClaims(s), destinations: make(map[string]string, len(s.vehicles)), moves: s.rebalanceMoves}
+// guardedScratch owns three independent maps for one test trajectory.
+type guardedScratch struct {
+	before claimState
+	after  map[string]string
+}
+
+func newGuardedScratch(size int) guardedScratch {
+	return guardedScratch{
+		before: claimState{claims: make(map[string]string, size), destinations: make(map[string]string, size)},
+		after:  make(map[string]string, size),
+	}
+}
+
+func newClaimState(s *Simulation, state claimState) claimState {
+	guardedClaims(s, state.claims)
+	clear(state.destinations)
+	state.moves = s.rebalanceMoves
 	for index := range s.vehicles {
 		state.destinations[s.vehicles[index].Pod.ID] = s.vehicles[index].destination.ID
 	}
@@ -939,13 +954,13 @@ func newClaimState(s *Simulation) claimState {
 // available now, or when only pods that chose it in the step hold it or go
 // to it. After the guarded check, only a pod that chooses a berth can take
 // one.
-func checkNewClaimsLeaveABerth(t *testing.T, s *Simulation, before claimState) int {
+func checkNewClaimsLeaveABerth(t *testing.T, s *Simulation, before claimState, after map[string]string) int {
 	t.Helper()
 	chose := func(v *vehicle, berthID string) bool {
 		return before.destinations[v.Pod.ID] != berthID && v.destination.ID == berthID
 	}
 	claims := 0
-	for podID, berthID := range guardedClaims(s) {
+	for podID, berthID := range guardedClaims(s, after) {
 		if before.claims[podID] == berthID {
 			continue
 		}
@@ -992,6 +1007,7 @@ func TestGuardedInvariants(t *testing.T) {
 	// Requests every 80 s are active for a fleet of 16.
 	rng := rand.New(rand.NewPCG(1, 2))
 	refills, bumps := 0, 0
+	scratch := newGuardedScratch(len(s.vehicles))
 	for tick := range 1500 * TicksPerSecond {
 		if tick > 0 && tick%(80*TicksPerSecond) == 0 {
 			from := rng.IntN(12)
@@ -1000,13 +1016,13 @@ func TestGuardedInvariants(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		before := newClaimState(s)
+		before := newClaimState(s, scratch.before)
 		s.Step()
 		if s.rebalanceMoves > s.boarded {
 			t.Fatalf("tick %d: %d moves for %d boardings", s.tick, s.rebalanceMoves, s.boarded)
 		}
-		claims := checkNewClaimsLeaveABerth(t, s, before)
-		checkTraffic(t, s.Snapshot())
+		claims := checkNewClaimsLeaveABerth(t, s, before, scratch.after)
+		checkTraffic(t, s.snapshot(false))
 		if _, err := s.SafetyObservation().Check(); err != nil {
 			t.Fatalf("tick %d: %v", s.tick, err)
 		}

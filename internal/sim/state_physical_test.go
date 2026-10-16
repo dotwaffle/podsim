@@ -1264,6 +1264,7 @@ func TestRestoreKeepsRoomForDemoOrders(t *testing.T) {
 				t.Fatal(err)
 			}
 			state := live.ExportState()
+			initialWaiting := len(state.Waiting)
 			outstanding := len(state.Waiting)
 			for _, pod := range state.Pods {
 				for _, rider := range pod.Riders {
@@ -1276,18 +1277,27 @@ func TestRestoreKeepsRoomForDemoOrders(t *testing.T) {
 				t.Fatalf("the new demo has %d remaining orders, want %d", got, demoJourneys-1)
 			}
 			for range MaxSavedWaitingTrips - outstanding - (demoJourneys - 1) + extra {
-				if err := live.RequestTrip("harbor", "garden"); err != nil {
-					t.Fatal(err)
-				}
+				state.RequestID++
+				state.Waiting = append(state.Waiting, SavedTrip{Request: SavedRequest{
+					ID: state.RequestID, From: "harbor", To: "garden", PartySize: 1,
+					SharingConsent: PrivateConsent, Service: OnDemandService, RequestedTick: state.Tick,
+				}})
 			}
-			_, result, err := RestoreState(RestoreStateInput{Network: Example(), Fleet: demoFleet(), State: live.ExportState()})
+			if held := outstanding + len(state.Waiting) - initialWaiting + savedDemoOrders(state.Demo); held != MaxSavedWaitingTrips+extra || len(state.Waiting) >= MaxSavedWaitingTrips {
+				t.Fatalf("fixture has %d outstanding orders and %d waiting trips", held, len(state.Waiting))
+			}
+			restored, result, err := RestoreState(RestoreStateInput{Network: Example(), Fleet: demoFleet(), State: state})
 			if extra == 0 {
-				if err != nil {
-					t.Fatalf("restore at the bound: %v", err)
+				if err != nil || !cleanRestore(result) {
+					t.Fatalf("restore at the bound: %v, %+v", err, result)
+				}
+				got := restored.ExportState()
+				if got.Demo == nil || *got.Demo != *state.Demo || got.DemoError != "" || len(got.Waiting) != len(state.Waiting) || got.RequestID != state.RequestID {
+					t.Fatalf("restore lost demo progress or orders: demo %+v, error %q, waiting %d, request ID %d", got.Demo, got.DemoError, len(got.Waiting), got.RequestID)
 				}
 				return
 			}
-			if err == nil || result.PhysicalError == nil || !strings.Contains(result.PhysicalError.Error(), "outstanding orders") {
+			if err == nil || result.PhysicalError == nil || result.PhysicalError.Error() != "too many saved outstanding orders" {
 				t.Fatalf("restore past the bound: %v, %+v", err, result)
 			}
 		})
