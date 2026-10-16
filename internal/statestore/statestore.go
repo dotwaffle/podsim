@@ -403,8 +403,8 @@ func (s *Store) writeFile(ctx context.Context, key string, src io.Reader) error 
 	var file *os.File
 	writer, err := s.bucket.NewWriter(ctx, key, &blob.WriterOptions{
 		ContentType: contentType,
-		// Only get the file here. fileblob keeps the temporary file open
-		// when BeforeWrite returns an error.
+		// Only get the file here. Fallible work runs below so a failure
+		// cancels the write before Close can publish the partial file.
 		BeforeWrite: func(as func(any) bool) error {
 			as(&file)
 			return nil
