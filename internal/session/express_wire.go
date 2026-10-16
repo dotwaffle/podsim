@@ -45,6 +45,13 @@ func validateEncodedContract(e StreamEnvelope) error {
 			return errors.New("publication order contract mismatch")
 		}
 	}
+	if e.Delta != nil {
+		for _, vehicle := range e.Delta.Vehicles {
+			if err := validateMotionDelta(vehicle); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 

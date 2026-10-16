@@ -1,0 +1,60 @@
+{
+  "kind": "delta",
+  "stream": "motion",
+  "sequence": "2",
+  "base": "1",
+  "build": "golden-build",
+  "source": {
+    "serverStart": "golden-start",
+    "epoch": "golden-epoch",
+    "projectRevision": 1,
+    "generation": 1,
+    "revision": 0
+  },
+  "delta": {
+    "groups": {
+      "global": {
+        "submitted": 1,
+        "tick": 203,
+        "paused": false,
+        "completed": 0,
+        "demo": false,
+        "demoError": ""
+      },
+      "statistics": {
+        "wait": {
+          "averageSeconds": 0,
+          "maxSeconds": 0
+        },
+        "journey": {
+          "averageSeconds": 0,
+          "maxSeconds": 0
+        },
+        "passengerDistanceMeters": 0.15333333333333332,
+        "riderDistanceMeters": 0,
+        "directDistanceMeters": 0,
+        "maxDetourRatio": 0,
+        "sharedParties": 0,
+        "sharedRidePartyLimit": 1,
+        "emptyDistanceMeters": 0,
+        "rebalanceMoves": 0
+      }
+    },
+    "vehicles": [
+      {
+        "id": "01",
+        "motion": {
+          "value": {
+            "position": {
+              "x": 130.09413756073894,
+              "y": 349.8789659933356
+            },
+            "laneDistance": 0.15333333333333332,
+            "speed": 0.7666666666666666
+          }
+        }
+      }
+    ],
+    "berths": null
+  }
+}

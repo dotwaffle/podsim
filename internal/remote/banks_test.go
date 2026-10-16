@@ -22,7 +22,7 @@ import (
 
 func TestStreamBankProtocolVersions(t *testing.T) {
 	t.Parallel()
-	for _, version := range []int{1, 2, 3, 4, 5, session.StreamVersion, 7} {
+	for version := 1; version <= session.StreamVersion+1; version++ {
 		for _, banks := range []string{"omitted", "valid", "empty", "null"} {
 			t.Run(fmt.Sprintf("hello%d/%s", version, banks), func(t *testing.T) {
 				t.Parallel()

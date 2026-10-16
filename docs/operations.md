@@ -154,6 +154,7 @@ This server build has only the `file://` driver.
 Without `-state`, the server does not save or read a session state.
 The saved state holds the last command sequence of each client, but not the save points or the command receipts.
 A restart clears those.
+Clients use stream version 7, including motion-only vehicle deltas, as described in [Client protocol](protocol.md#shared-state-stream).
 
 A `file://` URL needs an empty host and an absolute path, for example `file:///var/lib/podsim`.
 `file://var/lib/podsim` is not valid, because `var` is then the host.

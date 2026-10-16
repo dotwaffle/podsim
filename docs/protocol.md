@@ -99,7 +99,7 @@ A restore rejects any other speed, including 4 and 8.
 ## Shared state stream
 
 The server sends a text hello with `version`, `build`, and `serverStart` before any binary state message.
-The version is 6 for every project kind.
+The version is 7 for every project kind.
 The hello also has the `orderContract` marker of the project, when the project has it.
 The markers select the optional sections of each message on the connection.
 A client refuses every other version, and it records the `build` of the hello before it refuses the version.
@@ -155,7 +155,15 @@ The groups are controls, demand, restore, checkpoints, pending requests, global 
 With the incident marker, the `incident` group has the interrupted counters.
 With the fault marker, the `faults` group has the active faults and the fault counters (see [Faults](#faults)).
 With the emergency marker, the `emergencies` group has the active emergencies and the emergency counters (see [Emergencies](#emergencies)).
-Vehicle groups are pod fields, presentation route, riders, stops, and relocation, platoon, or incident metadata.
+Vehicle groups are pod fields, motion, presentation route, riders, stops, and relocation, platoon, or incident metadata.
+A motion replacement has `position` with `x` and `y`, `laneDistance`, and `speed` inside its `value` object.
+Every motion field is present, including zero values, and every number is finite.
+Lane distance and speed are nonnegative.
+Position coordinates can be negative.
+A vehicle change cannot contain both pod and motion replacements.
+The server uses motion only when those continuous values change and every other pod field stays the same.
+A lane, class, activity, station, wait, or other pod-field change replaces the complete pod.
+Applying motion preserves those fields and does not mutate the preceding frame.
 Membership, order, source, project, or generation changes start a new full baseline.
 A delta must name the exact preceding stream and sequence.
 Invalid data closes the socket and retains the last valid view until reconnection.

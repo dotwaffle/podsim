@@ -2,6 +2,7 @@ package session
 
 import (
 	"bytes"
+	"fmt"
 	"reflect"
 	"slices"
 	"strings"
@@ -224,14 +225,19 @@ func TestExpressPublicClassBindings(t *testing.T) {
 
 func TestExpressHelloMarkers(t *testing.T) {
 	t.Parallel()
-	for _, raw := range []string{
-		`{"kind":"hello","version":6,"serverStart":"source","orderContract":null}`,
-		`{"kind":"hello","version":6,"serverStart":"source","orderContract":""}`,
-		`{"kind":"hello","version":6,"serverStart":"source","orderContract":"other"}`,
-		`{"kind":"hello","version":6,"serverStart":"source","textEncoding":""}`,
-		`{"kind":"hello","version":6,"serverStart":"source","orderContract":"express-v1","orderContract":"express-v1"}`,
-		`{"kind":"hello","version":6,"serverStart":"source","orderContract":"express-v1","OrderContract":"express-v1"}`,
+	base := fmt.Sprintf(`{"kind":"hello","version":%d,"build":"marker-test","serverStart":"source"`, StreamVersion)
+	if _, err := DecodeStreamHello([]byte(base + `,"orderContract":"express-v1"}`)); err != nil {
+		t.Fatalf("valid hello prerequisite: %v", err)
+	}
+	for _, members := range []string{
+		`"orderContract":null`,
+		`"orderContract":""`,
+		`"orderContract":"other"`,
+		`"textEncoding":""`,
+		`"orderContract":"express-v1","orderContract":"express-v1"`,
+		`"orderContract":"express-v1","OrderContract":"express-v1"`,
 	} {
+		raw := base + "," + members + "}"
 		if _, err := DecodeStreamHello([]byte(raw)); err == nil {
 			t.Fatal("accepted contradictory hello", raw)
 		}

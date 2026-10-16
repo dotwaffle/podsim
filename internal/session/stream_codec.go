@@ -21,7 +21,7 @@ import (
 const (
 	// StreamVersion is the hello version of the one stream family. The
 	// contract markers of a connection select its optional sections.
-	StreamVersion = 6
+	StreamVersion = 7
 	// MaxStreamJSON limits the JSON of a stream envelope and of the HTTP
 	// state. MaxStreamMessage limits the gzip data, with 1 MiB for the
 	// expansion of stored blocks.
@@ -53,6 +53,7 @@ type Replacement[T any] struct {
 type VehicleDelta struct {
 	ID        string                              `json:"id"`
 	Pod       *Replacement[sim.Pod]               `json:"pod,omitempty"`
+	Motion    *Replacement[podMotion]             `json:"motion,omitempty"`
 	Route     *Replacement[sim.RoutePresentation] `json:"route,omitempty"`
 	Boardings *Replacement[[]sim.RiderBoarding]   `json:"boardings,omitempty"`
 	Riders    *Replacement[[]sim.Request]         `json:"riders,omitempty"`
@@ -266,6 +267,9 @@ func makeDelta(a, b StreamFrame) (StreamDelta, error) {
 	for i, v := range b.State.Simulation.Vehicles {
 		p := a.State.Simulation.Vehicles[i]
 		item := VehicleDelta{ID: v.Pod.ID, Pod: changedValue(p.Pod, v.Pod), Route: changed(a.Routes[i], b.Routes[i]), Riders: changedSlice(p.Riders, v.Riders), Boardings: changedSlice(p.Boardings, v.Boardings), Stops: changedSlice(p.Stops, v.Stops), Metadata: changedValue(meta(p), meta(v))}
+		if item.Pod != nil && sameStationaryPod(p.Pod, v.Pod) {
+			item.Motion, item.Pod = &Replacement[podMotion]{Value: motionOf(v.Pod)}, nil
+		}
 		if (len(p.Boardings) > 0 || len(v.Boardings) > 0) && (item.Riders != nil || item.Boardings != nil) {
 			item.Riders = &Replacement[[]sim.Request]{v.Riders}
 			records := v.Boardings
@@ -274,7 +278,7 @@ func makeDelta(a, b StreamFrame) (StreamDelta, error) {
 			}
 			item.Boardings = &Replacement[[]sim.RiderBoarding]{records}
 		}
-		if item.Boardings != nil || item.Pod != nil || item.Route != nil || item.Riders != nil || item.Stops != nil || item.Metadata != nil {
+		if item.Boardings != nil || item.Pod != nil || item.Motion != nil || item.Route != nil || item.Riders != nil || item.Stops != nil || item.Metadata != nil {
 			d.Vehicles = append(d.Vehicles, item)
 		}
 	}
@@ -492,11 +496,17 @@ func applyVehicleDelta(f *StreamFrame, i int, v VehicleDelta) error {
 	if err := applyBoardingsDelta(dst, v); err != nil {
 		return err
 	}
+	if err := validateMotionDelta(v); err != nil {
+		return err
+	}
 	if v.Pod != nil {
 		if v.Pod.Value.ID != v.ID {
 			return errors.New("changed pod ID")
 		}
 		dst.Pod = v.Pod.Value
+	}
+	if v.Motion != nil {
+		v.Motion.Value.replace(&dst.Pod)
 	}
 	if v.Route != nil {
 		f.Routes[i] = v.Route.Value

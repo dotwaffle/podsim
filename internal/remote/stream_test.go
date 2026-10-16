@@ -25,7 +25,8 @@ func TestStreamBuildBeforeIncompatiblePayload(t *testing.T) {
 		"hello 3":       {"kind": "hello", "version": 3, "build": "b", "serverStart": "new"},
 		"hello 4":       {"kind": "hello", "version": 4, "build": "b", "serverStart": "new", "orderContract": "express-v1", "textEncoding": "order-text-base64-v1"},
 		"hello 5":       {"kind": "hello", "version": 5, "build": "b", "serverStart": "new"},
-		"hello 7":       {"kind": "hello", "version": 7, "build": "b", "serverStart": "new"},
+		"hello 6":       {"kind": "hello", "version": 6, "build": "b", "serverStart": "new"},
+		"hello 8":       {"kind": "hello", "version": 8, "build": "b", "serverStart": "new"},
 		"hello 999":     {"kind": "hello", "version": 999, "build": "b", "serverStart": "new"},
 		"current hello": {"kind": "hello", "version": session.StreamVersion, "build": "b", "serverStart": "new"},
 	} {

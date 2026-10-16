@@ -125,6 +125,7 @@ func scanStreamBoardingMembers(data []byte, markers contractMarkers) error {
 type boardingScanTarget struct {
 	distance bool
 	delta    bool
+	motion   bool
 }
 
 // boardingScanTargetOf reports whether token names the boarding records or
@@ -135,14 +136,15 @@ func boardingScanTargetOf(decoder *jsontext.Decoder, token jsontext.Token) (boar
 		return boardingScanTarget{}, false
 	}
 	name := token.String()
-	if name != "boardings" && name != "riddenMeters" {
+	if name != "boardings" && name != "riddenMeters" && name != "motion" {
 		return boardingScanTarget{}, false
 	}
 	path := strings.Split(string(decoder.StackPointer()), "/")
 	full, delta := fullVehiclePath(path), deltaVehiclePath(path)
 	records := name == "boardings" && (full || delta)
 	distance := name == "riddenMeters" && (full || deltaMetadataPath(path))
-	return boardingScanTarget{distance: distance, delta: delta}, records || distance
+	motion := name == "motion" && delta
+	return boardingScanTarget{distance: distance, delta: delta, motion: motion}, records || distance || motion
 }
 
 // fullVehiclePath matches a member of a vehicle in a full or frame state.
@@ -166,6 +168,9 @@ func deltaMetadataPath(path []string) bool {
 // checkBoardingScanTarget checks a distance, or the replacement shape and
 // then the records of a boarding member.
 func checkBoardingScanTarget(raw []byte, target boardingScanTarget, markers contractMarkers) error {
+	if target.motion {
+		return scanMotionReplacement(raw)
+	}
 	if target.distance {
 		var meters float64
 		if bytes.Equal(raw, []byte("null")) || decodeStreamJSON(raw, &meters) != nil || !finiteNonnegative(meters) {
