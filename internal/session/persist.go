@@ -768,7 +768,7 @@ func (s *Session) SaveState(ctx context.Context, kind SaveKind) error {
 		file.RestoreAttempts = persist.attempts
 	}
 	encodeStarted := time.Now()
-	data, err := persist.encoder.encode(file)
+	data, err := persist.encoder.encodeCaptured(file)
 	encode := time.Since(encodeStarted)
 	var writeTime time.Duration
 	if err == nil {

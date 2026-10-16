@@ -242,7 +242,14 @@ type stateEncoder struct {
 	zw     *gzip.Writer
 	buffer bytes.Buffer
 	// project holds the JSON form of the project member.
-	project bytes.Buffer
+	project       bytes.Buffer
+	projectKey    projectEncodingKey
+	projectCached bool
+}
+
+type projectEncodingKey struct {
+	epoch    string
+	revision uint64
 }
 
 // encode returns the deterministic JSON form of file, compressed with gzip
@@ -251,6 +258,32 @@ type stateEncoder struct {
 // MaxStateBytes, or the project member has more than project.MaxFileBytes,
 // because decodeStateFile rejects such a file.
 func (e *stateEncoder) encode(file stateFile) ([]byte, error) {
+	// General callers can edit a stateFile without changing its revision.
+	// Their project must always be encoded and checked again.
+	e.projectCached = false
+	return e.encodeWithProject(file, e.encodeProject)
+}
+
+// encodeCaptured encodes a session-owned capture. A session replaces its
+// immutable project whenever ProjectRevision changes, including demand
+// changes and rewinds. The key belongs only to this serialized saver.
+func (e *stateEncoder) encodeCaptured(file stateFile) ([]byte, error) {
+	key := projectEncodingKey{epoch: file.Epoch, revision: file.ProjectRevision}
+	encodeProject := e.encodeProject
+	if e.projectCached && e.projectKey == key {
+		encodeProject = func(encoder *jsontext.Encoder, _ project.Config) error {
+			return encoder.WriteValue(e.project.Bytes())
+		}
+	}
+	e.projectCached = false
+	data, err := e.encodeWithProject(file, encodeProject)
+	if err == nil {
+		e.projectKey, e.projectCached = key, true
+	}
+	return data, err
+}
+
+func (e *stateEncoder) encodeWithProject(file stateFile, encodeProject func(*jsontext.Encoder, project.Config) error) ([]byte, error) {
 	e.buffer.Reset()
 	if e.zw == nil {
 		zw, err := gzip.NewWriterLevel(&e.buffer, gzip.BestSpeed)
@@ -269,7 +302,7 @@ func (e *stateEncoder) encode(file stateFile) ([]byte, error) {
 		return nil, err
 	}
 	options := json.JoinOptions(json.Deterministic(true), json.WithMarshalers(json.JoinMarshalers(
-		json.MarshalToFunc(e.encodeProject), file.simulationMarshalers())))
+		json.MarshalToFunc(encodeProject), file.simulationMarshalers())))
 	if err := json.MarshalWrite(limited, file, options); err != nil {
 		return nil, fmt.Errorf("encode session state: %w", err)
 	}

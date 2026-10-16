@@ -27,14 +27,8 @@ type RoutePresentation struct {
 // The caller owns synchronization, as for Snapshot. Indexes refer to Network.
 func (s *Simulation) PresentationSnapshot() (Snapshot, []RoutePresentation, error) {
 	state := s.snapshot(false)
-	lanes := make(map[string]int, len(s.network.Lanes))
-	nodes := make(map[string]int, len(s.network.Nodes))
-	for i, lane := range s.network.Lanes {
-		lanes[lane.ID] = i
-	}
-	for i, node := range s.network.Nodes {
-		nodes[node.ID] = i
-	}
+	// The prepared network already owns immutable indexes in wire order.
+	lanes, nodes := s.graph.lanes, s.graph.nodes
 	routes := make([]RoutePresentation, len(s.vehicles))
 	var seen []bool
 	for i := range s.vehicles {
@@ -70,6 +64,8 @@ func (s *Simulation) PresentationSnapshot() (Snapshot, []RoutePresentation, erro
 			} else {
 				clear(seen)
 			}
+			route.Lanes = make([]int, 0, end-start)
+			route.Display = make([]int, 0, end-start)
 			for _, lane := range v.Route[start:end] {
 				index, ok := lanes[lane.ID]
 				if !ok {

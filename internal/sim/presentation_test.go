@@ -71,6 +71,7 @@ func TestPresentationDisplayWindow(t *testing.T) {
 		t.Run(fmt.Sprintf("finished-%t", finished), func(t *testing.T) {
 			t.Parallel()
 			s := newExample(t)
+			detachIndexes(s)
 			v := &s.vehicles[0]
 			route := make([]Lane, 2*MotionRouteLimit+1)
 			first := len(s.network.Lanes)
@@ -79,6 +80,7 @@ func TestPresentationDisplayWindow(t *testing.T) {
 				route[i].ID = fmt.Sprintf("window-%d", i)
 			}
 			s.network.Lanes = append(s.network.Lanes, route...)
+			s.graph = newRouteGraph(s.network)
 			v.replaceRoute(route)
 			v.Pod.LaneID = ""
 			if finished {
@@ -166,6 +168,7 @@ func BenchmarkPresentationFleet(b *testing.B) {
 				s.network.Lanes = append(s.network.Lanes, lane)
 			}
 			s.vehicles = slices.Repeat(s.vehicles, size)
+			s.graph = newRouteGraph(s.network)
 			for i := range s.vehicles {
 				s.setVehicleRoute(&s.vehicles[i], route)
 				s.vehicles[i].Pod.LaneID = ""

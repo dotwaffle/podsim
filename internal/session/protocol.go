@@ -204,6 +204,16 @@ func frameState(topology TopologySnapshot, frame StateFrame, immutable bool) (St
 }
 
 func stateFrame(state State) StateFrame {
+	return makeStateFrame(state, false)
+}
+
+// ownedStateFrame takes ownership of a detached snapshot. The presentation
+// capture already copied its mutable slices, so a second copy is not needed.
+func ownedStateFrame(state State) StateFrame {
+	return makeStateFrame(state, true)
+}
+
+func makeStateFrame(state State, owned bool) StateFrame {
 	vehicles := make([]VehicleFrame, len(state.Simulation.Vehicles))
 	for index, vehicle := range state.Simulation.Vehicles {
 		var routeIDs []string
@@ -213,15 +223,23 @@ func stateFrame(state State) StateFrame {
 		for routeIndex, lane := range vehicle.Route {
 			routeIDs[routeIndex] = lane.ID
 		}
+		boardings, riders, stops := vehicle.Boardings, vehicle.Riders, vehicle.Stops
+		if !owned {
+			boardings, riders, stops = slices.Clone(boardings), slices.Clone(riders), slices.Clone(stops)
+		}
 		vehicles[index] = VehicleFrame{
-			Boardings: slices.Clone(vehicle.Boardings), RiddenMeters: vehicle.RiddenMeters,
-			Pod: vehicle.Pod, Riders: slices.Clone(vehicle.Riders), Stops: slices.Clone(vehicle.Stops), RouteLaneIDs: routeIDs,
+			Boardings: boardings, RiddenMeters: vehicle.RiddenMeters,
+			Pod: vehicle.Pod, Riders: riders, Stops: stops, RouteLaneIDs: routeIDs,
 			RelocatingTo: vehicle.RelocatingTo, Rebalancing: vehicle.Rebalancing,
 			PlatoonID: vehicle.PlatoonID, PlatoonIndex: vehicle.PlatoonIndex,
 			Withdrawn: vehicle.Withdrawn, Operational: vehicle.Operational,
 		}
 	}
 	snapshot := state.Simulation
+	faults, emergencies, checkpoints := snapshot.Faults, snapshot.Emergencies, state.Checkpoints
+	if !owned {
+		faults, emergencies, checkpoints = cloneFaults(faults), cloneEmergencies(emergencies), slices.Clone(checkpoints)
+	}
 	return StateFrame{
 		Epoch: state.Epoch, Revision: state.Revision, ProjectRevision: state.ProjectRevision,
 		Generation: state.Generation, Redistribution: state.Redistribution,
@@ -236,10 +254,10 @@ func stateFrame(state State) StateFrame {
 			SharedParties:  snapshot.SharedParties, SharedRidePartyLimit: snapshot.SharedRidePartyLimit,
 			EmptyDistanceMeters: snapshot.EmptyDistanceMeters, RebalanceMoves: snapshot.RebalanceMoves,
 			Interrupted: snapshot.Interrupted, InterruptedPassengers: snapshot.InterruptedPassengers,
-			FaultContract: snapshot.FaultContract, Faults: cloneFaults(snapshot.Faults),
-			EmergencyContract: snapshot.EmergencyContract, Emergencies: cloneEmergencies(snapshot.Emergencies),
+			FaultContract: snapshot.FaultContract, Faults: faults,
+			EmergencyContract: snapshot.EmergencyContract, Emergencies: emergencies,
 		},
-		Speed: state.Speed, SpeedReduction: state.SpeedReduction, Demand: state.Demand, Checkpoints: slices.Clone(state.Checkpoints),
+		Speed: state.Speed, SpeedReduction: state.SpeedReduction, Demand: state.Demand, Checkpoints: checkpoints,
 		Build: state.Build, ServerStart: state.ServerStart, Restore: state.Restore,
 	}
 }
