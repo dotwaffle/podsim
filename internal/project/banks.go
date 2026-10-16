@@ -95,6 +95,7 @@ func (config *Config) decodeJSONLimit(data []byte, options jsonv2.Options, rawLi
 // scanProjectBanks bounds bank arrays without allocating their elements.
 func scanProjectBanks(data []byte) error {
 	decoder := jsontext.NewDecoder(bytes.NewReader(data))
+	inNetwork := false
 	for {
 		token, err := decoder.ReadToken()
 		if errors.Is(err, io.EOF) {
@@ -104,12 +105,27 @@ func scanProjectBanks(data []byte) error {
 			return err
 		}
 		tokenKind := token.Kind()
+		depth := decoder.StackDepth()
+		kind, length := decoder.StackIndex(depth)
+		if depth == 1 && kind == jsontext.KindBeginObject && length%2 == 1 && tokenKind == jsontext.KindString {
+			inNetwork = token.String() == "network"
+		}
+		// Keep reading every token for syntax errors and duplicate names,
+		// but only network fields can name station banks.
+		if !inNetwork {
+			continue
+		}
+		member := kind == jsontext.KindBeginObject && length%2 == 1 && tokenKind == jsontext.KindString && token.String() == "banks"
+		empty := tokenKind == jsontext.KindBeginArray && depth == 5 && decoder.PeekKind() == jsontext.KindEndArray
+		bounded := kind == jsontext.KindBeginArray && (depth == 5 && length > sim.MaxStationBanks || depth == 7 && length > MaxBerths)
+		if !member && !empty && !bounded {
+			continue
+		}
 		path := strings.Split(string(decoder.StackPointer()), "/")
 		if len(path) < 5 || path[1] != "network" || path[2] != "stations" || path[4] != "banks" {
 			continue
 		}
 		if len(path) == 5 {
-			kind, length := decoder.StackIndex(decoder.StackDepth())
 			if kind == jsontext.KindBeginObject && length%2 == 1 {
 				if decoder.PeekKind() != jsontext.KindBeginArray {
 					return errors.New("station banks must be a nonempty array")
@@ -119,8 +135,6 @@ func scanProjectBanks(data []byte) error {
 				return errors.New("station banks must be a nonempty array")
 			}
 		}
-		depth := decoder.StackDepth()
-		kind, length := decoder.StackIndex(depth)
 		if kind == jsontext.KindBeginArray {
 			limit := int64(0)
 			switch {

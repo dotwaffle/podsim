@@ -41,6 +41,7 @@ type projectFields struct {
 type projectFieldScan struct {
 	decoder *jsontext.Decoder
 	fields  projectFields
+	root    string
 }
 
 func scanProjectFields(data []byte) (projectFields, error) {
@@ -63,17 +64,28 @@ func scanProjectFields(data []byte) (projectFields, error) {
 // elements. When token is an object member name, it then checks the
 // member at the path.
 func (scan *projectFieldScan) token(token jsontext.Token) error {
-	path := strings.Split(string(scan.decoder.StackPointer()), "/")
-	kind, length := scan.decoder.StackIndex(scan.decoder.StackDepth())
-	if kind == jsontext.KindBeginArray && len(path) == 3 && path[1] == "expressServices" && length > MaxExpressServices {
+	depth := scan.decoder.StackDepth()
+	kind, length := scan.decoder.StackIndex(depth)
+	if depth == 0 {
+		scan.root = ""
+		return nil
+	}
+	if kind == jsontext.KindBeginArray && depth == 2 && scan.root == "expressServices" && length > MaxExpressServices {
 		return fmt.Errorf("express registry has more than %d services", MaxExpressServices)
 	}
 	if token.Kind() != jsontext.KindString || kind != jsontext.KindBeginObject || length%2 != 1 {
 		return nil
 	}
-	if len(path) == 2 {
-		return scan.topMember(path[1])
+	if depth == 1 {
+		scan.root = token.String()
+		return scan.topMember(scan.root)
 	}
+	// Only these two top-level fields can contain class members. The
+	// remaining tokens still pass through the decoder's syntax checks.
+	if scan.root != "network" && scan.root != "fleet" {
+		return nil
+	}
+	path := strings.Split(string(scan.decoder.StackPointer()), "/")
 	return scan.nestedMember(path)
 }
 
