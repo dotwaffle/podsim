@@ -27,10 +27,11 @@ const (
 // buildJunctionConflicts uses the movement polylines to bound conflicts between
 // incident lanes. Unconnected crossings remain outside junction control.
 func buildJunctionConflicts(network Network) map[string][]laneConflict {
+	positions := indexNodePositions(network.Nodes)
 	conflicts := make(map[string][]laneConflict)
 	polylines := make(map[string]*conflictPolyline, len(network.Lanes))
 	for _, lane := range network.Lanes {
-		polylines[lane.ID] = newConflictPolyline(network.lanePoints(lane, make([]Point, 0, 65)))
+		polylines[lane.ID] = newConflictPolyline(lanePointsBetween(lane, positions[lane.From], positions[lane.To], make([]Point, 0, 65)))
 	}
 	forEachJunctionPair(network, func(node string, lane, other Lane) {
 		start, end := conflictExtentWithClearance(polylines[lane.ID], polylines[other.ID], classSetPairClearance(lane.VehicleClasses, other.VehicleClasses))

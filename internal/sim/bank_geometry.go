@@ -22,13 +22,14 @@ func (n Network) ValidateBankGeometry() error {
 	if !banks && !large {
 		return nil
 	}
+	positions := indexNodePositions(n.Nodes)
 	var incident map[string][]Lane
 	if large {
 		incident = incidentLanes(n)
 	}
 	paths := make([]bankAuditPath, 0, len(n.Lanes))
 	for _, lane := range n.Lanes {
-		points := n.Polyline(lane)
+		points := lanePointsBetween(lane, positions[lane.From], positions[lane.To], make([]Point, 0, 65))
 		path := bankAuditPath{id: lane.ID, location: SafetyLocation{SeparationGroup: lane.SeparationGroup, From: lane.From, To: lane.To}, points: points, min: points[0], max: points[0], large: largeClassSet(lane.VehicleClasses)}
 		if large {
 			path.locations = []SafetyLocation{path.location}
@@ -41,11 +42,11 @@ func (n Network) ValidateBankGeometry() error {
 	}
 	for _, station := range n.Stations {
 		for _, berth := range station.Berths {
-			node, ok := n.Node(berth.Node)
+			position, ok := positions[berth.Node]
 			if !ok {
 				return fmt.Errorf("berth %q has an unknown node", berth.ID)
 			}
-			path := bankAuditPath{id: berth.ID, location: SafetyLocation{SeparationGroup: berth.SeparationGroup, From: berth.Node, To: berth.Node}, points: []Point{node.Position, node.Position}, min: node.Position, max: node.Position, large: largeBerth(station, berth)}
+			path := bankAuditPath{id: berth.ID, location: SafetyLocation{SeparationGroup: berth.SeparationGroup, From: berth.Node, To: berth.Node}, points: []Point{position, position}, min: position, max: position, large: largeBerth(station, berth)}
 			if large {
 				path.locations = berthGeometryLocations(berth, incident[berth.Node])
 			}

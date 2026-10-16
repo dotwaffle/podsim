@@ -68,10 +68,14 @@ func indexGeometryTails(network Network) map[string]geometryTails {
 		}
 	}
 	tails := make(map[string]geometryTails, len(network.Lanes))
+	var positions map[string]Point
 	for _, lane := range network.Lanes {
 		var bounds geometryTails
 		if nodes[lane.From] || nodes[lane.To] {
-			bounds.tail = largePathTail(network.Polyline(lane))
+			if positions == nil {
+				positions = indexNodePositions(network.Nodes)
+			}
+			bounds.tail = largePathTail(lanePointsBetween(lane, positions[lane.From], positions[lane.To], make([]Point, 0, 65)))
 		}
 		if nodes[lane.From] {
 			bounds.fromTail = bounds.tail

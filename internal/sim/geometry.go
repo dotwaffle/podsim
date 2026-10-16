@@ -16,10 +16,11 @@ type laneSegment struct {
 // buildLaneGeometry returns the geometry of each lane by lane ID. The lane
 // cells and the route blocks point to the values, so no code writes to them.
 func buildLaneGeometry(network Network) map[string]*laneGeometry {
+	positions := indexNodePositions(network.Nodes)
 	storage := make([]laneGeometry, len(network.Lanes))
 	geometry := make(map[string]*laneGeometry, len(network.Lanes))
 	for laneIndex, lane := range network.Lanes {
-		points := network.lanePoints(lane, make([]Point, 0, 65))
+		points := lanePointsBetween(lane, positions[lane.From], positions[lane.To], make([]Point, 0, 65))
 		indexed := laneGeometry{end: points[len(points)-1]}
 		for index := 1; index < len(points); index++ {
 			length := pointDistance(points[index-1], points[index])

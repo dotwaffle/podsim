@@ -145,14 +145,30 @@ func (n Network) Polyline(lane Lane) []Point {
 func (n Network) lanePoints(lane Lane, points []Point) []Point {
 	a, _ := n.Node(lane.From)
 	b, _ := n.Node(lane.To)
+	return lanePointsBetween(lane, a.Position, b.Position, points)
+}
+
+// indexNodePositions is local to one geometry operation. The first ID
+// wins, as in Network.Node, also for an unvalidated editor draft.
+func indexNodePositions(nodes []Node) map[string]Point {
+	positions := make(map[string]Point, len(nodes))
+	for _, node := range nodes {
+		if _, exists := positions[node.ID]; !exists {
+			positions[node.ID] = node.Position
+		}
+	}
+	return positions
+}
+
+func lanePointsBetween(lane Lane, from, to Point, points []Point) []Point {
 	if lane.Control == nil {
-		return append(points, a.Position, b.Position)
+		return append(points, from, to)
 	}
 	points = points[:65]
 	for i := range points {
 		t := float64(i) / 64
 		u := 1 - t
-		points[i] = Point{X: u*u*a.Position.X + 2*u*t*lane.Control.X + t*t*b.Position.X, Y: u*u*a.Position.Y + 2*u*t*lane.Control.Y + t*t*b.Position.Y}
+		points[i] = Point{X: u*u*from.X + 2*u*t*lane.Control.X + t*t*to.X, Y: u*u*from.Y + 2*u*t*lane.Control.Y + t*t*to.Y}
 	}
 	return points
 }
@@ -574,8 +590,9 @@ func (n Network) validateLaneStations(stations map[string]bool) error {
 // entry to each berth and from each berth to its exit.
 func (n Network) validateStationRoutes(graph routeGraph) error {
 	forbidden := n.stationForbidden()
+	var work routeSearchWork
 	for _, station := range n.Stations {
-		if station.Banks == nil && !n.stationRoutesExist(station, forbidden, graph) {
+		if station.Banks == nil && !n.stationRoutesExist(station, forbidden, graph, &work) {
 			return fmt.Errorf("station %q needs entry, exit, and through lanes", station.ID)
 		}
 	}
@@ -584,15 +601,15 @@ func (n Network) validateStationRoutes(graph routeGraph) error {
 
 // stationRoutesExist reports whether a station has its through lane and
 // the routes to and from each berth, in berth order.
-func (n Network) stationRoutesExist(station Station, forbidden map[string]bool, graph routeGraph) bool {
+func (n Network) stationRoutesExist(station Station, forbidden map[string]bool, graph routeGraph, work *routeSearchWork) bool {
 	if !n.connected(station.Entry, station.Exit) {
 		return false
 	}
 	for _, berth := range station.Berths {
-		if _, err := n.routeIndexed(networkRouteInput{class: topologyClass, from: station.Entry, to: berth.Node, forbidden: forbidden}, graph); err != nil {
+		if _, err := n.routeIndexedWithWork(networkRouteInput{class: topologyClass, from: station.Entry, to: berth.Node, forbidden: forbidden}, graph, work); err != nil {
 			return false
 		}
-		if _, err := n.routeIndexed(networkRouteInput{class: topologyClass, from: berth.Node, to: station.Exit, forbidden: forbidden}, graph); err != nil {
+		if _, err := n.routeIndexedWithWork(networkRouteInput{class: topologyClass, from: berth.Node, to: station.Exit, forbidden: forbidden}, graph, work); err != nil {
 			return false
 		}
 	}
