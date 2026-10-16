@@ -2,6 +2,7 @@
   "use strict";
   if (typeof document === "undefined" && typeof importScripts === "function") importScripts("./tiles.js");
   const Tiles = typeof module !== "undefined" && module.exports ? require("./tiles.js") : root.PodsimTiles;
+  const StationObservations = typeof module !== "undefined" && module.exports ? require("./station-observations.js") : root.PodsimStationObservations;
 
   const MIN_LANE_LENGTH = 24;
   // A view scale is in screen pixels per meter. Fit keeps FIT_MARGIN pixels of
@@ -1170,6 +1171,17 @@
     const live = liveStateFrame(await getJSON(connection, "/api/state", LIVE_STATE_ACCEPT, LIVE_STATE_ACCEPT));
     if (connection.onServerStart) connection.onServerStart(live.serverStart);
     return live;
+  }
+
+  // One manual read uses the topology bundled with this state envelope.
+  // It does not update the editor's project base or connection identity.
+  async function readStationObservations(connection, signal) {
+    const isolated = { fetch: (url, init) => connection.fetch(url, { ...init, signal }) };
+    const reply = await getJSON(isolated, "/api/state", LIVE_STATE_ACCEPT, LIVE_STATE_ACCEPT);
+    liveStateFrame(reply);
+    const report = StationObservations.observe(reply);
+    if (report.status !== "snapshot") throw new Error(report.reason);
+    return report;
   }
 
   // liveStateFrame gives the state of a live state reply. The reply is the
@@ -2490,9 +2502,42 @@
     return { ...metadata, urlFacts: facts };
   }
 
+  // Drawing only: this helper never changes the draft, history, or selection.
+  // create is injected so the same SVG/text behavior can be tested in Node.
+  function drawMeasurementReport(report, { layer, summary, create, scale }) {
+    if (!layer || !summary) return;
+    layer.replaceChildren();
+    if (!report.enabled) { summary.textContent = "Measurements are off. No project changes."; return; }
+    // Fit can be below MIN_ZOOM on a large network.
+    const safeScale = Number.isFinite(scale) && scale >= 1e-6 && scale <= MAX_ZOOM ? scale : 1;
+    const size = 11 / safeScale, shown = report.items.slice(0, 200);
+    const descriptions = [];
+    for (const item of shown) {
+      const { from, to, control } = item;
+      const path = create("path", { class: `measurement-ruler ${item.kind}`, d: control
+        ? `M ${from.x} ${from.y} Q ${control.x} ${control.y} ${to.x} ${to.y}`
+        : `M ${from.x} ${from.y} L ${to.x} ${to.y}` });
+      layer.append(path);
+      for (const point of [from, to]) layer.append(create("circle", { class: "measurement-end", cx: point.x, cy: point.y, r: 3 / safeScale }));
+      const label = create("text", { class: "measurement-label", x: control ? (from.x + 2 * control.x + to.x) / 4 : (from.x + to.x) / 2,
+        y: (control ? (from.y + 2 * control.y + to.y) / 4 : (from.y + to.y) / 2) - 8 / safeScale, "font-size": size });
+      const description = `${item.label}: ${item.meters.toFixed(2)} m (${item.method})`;
+      label.textContent = description; layer.append(label); descriptions.push(description);
+    }
+    if (report.items.length > shown.length) descriptions.push(`Only the first ${shown.length} of ${report.items.length} measurements are shown.`);
+    summary.textContent = [report.scope, ...descriptions, ...report.unavailable].join(" ");
+  }
+
+  function drawObservationLines(lines, { container, create }) {
+    container.replaceChildren();
+    for (const line of lines) {
+      const paragraph = create("p"); paragraph.textContent = line; container.append(paragraph);
+    }
+  }
+
   const API = {
 
-    MIN_LANE_LENGTH, MIN_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, LANE_PAIR_OFFSET, CHEVRON_LANE_LENGTH, STATION_PADDING, CHECK_DELAY, emptyConfig, fallbackConfig,
+    drawMeasurementReport, drawObservationLines, readStationObservations, MIN_LANE_LENGTH, MIN_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, LANE_PAIR_OFFSET, CHEVRON_LANE_LENGTH, STATION_PADDING, CHECK_DELAY, emptyConfig, fallbackConfig,
     stationBearing, stationShape, stationLayout, stationGeometryCommand, berthChain, stationFlowCount, stationRailReferences, fleetRows, fleetClassNotice, selectionCard, berthFocusID, laneClassState, undoFocus,
     laneLength, curveLength, stationNodeOwners, dragTargets, checkSelector, checkSelection, selectionPoint, focusView,
     FRAME_SOURCES, ALIGN_TOLERANCE, RESAMPLE_MAX_SIDE, projectPoint, frameError, framePlacement, frameAligned, resampleSize, mercatorY, resampleRows,
@@ -2633,6 +2678,7 @@
       epoch: "",
     },
     selection: null,
+    measurements: false,
     tool: "select",
     linkFrom: "",
     view: { x: 0, y: 0, scale: 1 },
@@ -2643,6 +2689,48 @@
     calibrationPoints: [],
     toastTimer: 0,
   };
+
+  const stationObservationReader = StationObservations.createManualReader({
+    read: (signal) => readStationObservations(state.connection, signal),
+    onChange: renderStationObservations,
+  });
+  $("#measurementToggle").addEventListener("change", (event) => {
+    state.measurements = event.target.checked;
+    renderMeasurements();
+  });
+  $("#stationObservationRefresh").addEventListener("click", () => stationObservationReader.refresh());
+  $("#stationObservationCancel").addEventListener("click", () => stationObservationReader.cancel());
+  $("#stationObservationStation").addEventListener("change", renderStationObservationDetails);
+  root.addEventListener("pagehide", () => stationObservationReader.cancel());
+
+  function renderStationObservations(view) {
+    const picker = $("#stationObservationStation"), selected = picker.value;
+    $("#stationObservationRefresh").disabled = view.busy;
+    $("#stationObservationCancel").disabled = !view.busy;
+    picker.replaceChildren();
+    const report = view.result;
+    if (report) for (const station of report.stations) {
+      const option = document.createElement("option"); option.value = station.id; option.textContent = `${station.name} (${station.id})`; picker.append(option);
+    }
+    picker.disabled = !report || !report.stations.length;
+    if (report?.stations.some((station) => station.id === selected)) picker.value = selected;
+    $("#stationObservationStatus").textContent = report
+      ? `As of manual snapshot: server ${report.identity.serverStart}, epoch ${report.identity.epoch}, project revision ${report.identity.projectRevision}, state revision ${report.revision}, simulated tick ${report.tick}. ${report.scope}`
+      : view.status === "loading" ? "Reading one live snapshot. Previous data cleared. This may be a large response."
+        : view.error || "No snapshot read. Data unavailable.";
+    renderStationObservationScope(); renderStationObservationDetails();
+  }
+  function renderStationObservationScope() {
+    const report = stationObservationReader.view.result;
+    $("#stationObservationScope").textContent = report
+      ? StationObservations.draftScope(report, { epoch: state.draftBase.epoch, serverStart: state.draftBase.serverStart, projectRevision: state.draftBase.revision }, Boolean(state.live && sameDraft(draft(), state.live.snapshot)))
+      : "No live data is mapped onto the draft. Snapshot observations may be stale until you request another read.";
+  }
+  function renderStationObservationDetails() {
+    const report = stationObservationReader.view.result, container = $("#stationObservationDetails");
+    const station = report?.stations.find((station) => station.id === $("#stationObservationStation").value);
+    drawObservationLines([...StationObservations.stationLines(station), ...(report ? [report.association] : [])], { container, create: (name) => document.createElement(name) });
+  }
 
   let tilePageActive = true;
   const tiles = Tiles.createLayer({ container: $(".map-panel"), onStatus: (text) => { $("#mapDiagnostics").textContent = text; } });
@@ -2698,6 +2786,12 @@
     if (state.map && state.map.laneScale !== state.view.scale) scaleLanes();
     if (state.map && state.map.labelScale !== state.view.scale) renderNodeLabels();
     renderTiles();
+    renderMeasurements();
+  }
+
+  function renderMeasurements(config = state.drag?.working || draft()) {
+    const report = StationObservations.measurements(config, state.selection, curveLength, state.measurements);
+    drawMeasurementReport(report, { layer: $("#measurementLayer"), summary: $("#measurementSummary"), create: svgElement, scale: state.view.scale });
   }
   function zoomAt(factor, clientX, clientY) {
     const rect = $("#networkMap").getBoundingClientRect();
@@ -2879,6 +2973,7 @@
         if (position && marker && map.markers.has(nodeID)) setAttributes(marker, placeMarker(position, place.angle));
       }
     }
+    renderMeasurements(config);
   }
 
   // SELECTION_FORMS gives the Selection panel fields for each type of item.
@@ -3230,6 +3325,7 @@
       renderMap(); drawnNetwork = config.network; drawnBackground = backgroundKey; drawnSelection = selectionKey;
     } else { renderTiles(); }
     renderSelection(); renderFleet(); renderDemand(); renderRailArrivals(config); renderRailArrivals(config, "departure"); updatePrompt(); renderBackground(); renderApply();
+    renderStationObservationScope();
     restorePendingInputs();
   }
   function restorePendingInputs() {

@@ -170,6 +170,8 @@
         <h2>View</h2>
         <p class="hint">Drag empty space to pan. Use the wheel to zoom. Zoom in to show junction labels. Press Escape to cancel drawing or moving an item.</p>
         <button id="fitButton" class="wide" type="button">Fit network</button>
+        <label class="check"><input id="measurementToggle" type="checkbox"> Measure selected geometry</label>
+        <p id="measurementSummary" class="hint">Measurements are off. No project changes.</p>
         <form id="placeSearchForm" class="subpanel">
           <label>Find a place<input id="placeSearchQuery" type="search" maxlength="200" required autocomplete="off"></label>
           <button id="placeSearchButton" class="wide" type="submit">Search</button>
@@ -200,6 +202,7 @@
           <g id="nodeLayer"></g>
           <g id="labelLayer"></g>
           <g id="handleLayer"></g>
+          <g id="measurementLayer" aria-hidden="true"></g>
         </g>
       </svg>
       <div id="mapPrompt" class="map-prompt">Select an item to edit it.</div>
@@ -218,6 +221,16 @@
       <section id="selectionPanel">
         <h2>Selection</h2>
         <div id="selectionContent" class="empty">No item selected.</div>
+      </section>
+      <section aria-labelledby="stationObservationHeading">
+        <h2 id="stationObservationHeading">Live station observations</h2>
+        <p class="hint">Manual server snapshot only, separate from this draft. No polling or causal bottleneck diagnosis.</p>
+        <button id="stationObservationRefresh" type="button">Read live snapshot</button>
+        <button id="stationObservationCancel" type="button" disabled>Cancel read</button>
+        <p id="stationObservationStatus" role="status" aria-live="polite">No snapshot read. Data unavailable.</p>
+        <p id="stationObservationScope" class="hint"></p>
+        <label>Station in server snapshot<select id="stationObservationStation" disabled><option value="">No snapshot</option></select></label>
+        <div id="stationObservationDetails"></div>
       </section>
       <section>
         <h2>Fleet</h2>
@@ -284,6 +297,7 @@
   <script src="tiles.js"></script>
   <script src="editor-model.js"></script>
   <script src="place-search.js"></script>
+  <script src="station-observations.js"></script>
   <script src="editor.js"></script>
 </body>
 </html>

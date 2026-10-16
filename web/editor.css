@@ -93,6 +93,13 @@ output { float: right; color: var(--text); }
 .station-shape.selected { fill: #26424d; stroke-width: 4; }
 .station-label { fill: #eef4f7; font-size: 12px; font-weight: 700; text-anchor: middle; pointer-events: none; paint-order: stroke; stroke: #081018; stroke-width: 3px; }
 .node-label { fill: #88a3b2; pointer-events: none; }
+#measurementLayer { pointer-events: none; }
+.measurement-ruler { fill: none; stroke: var(--cyan); stroke-width: 2; stroke-dasharray: 5 4; vector-effect: non-scaling-stroke; }
+.measurement-ruler.spacing { stroke: var(--orange); }
+.measurement-end { fill: var(--text); }
+.measurement-label { fill: var(--text); text-anchor: middle; paint-order: stroke; stroke: var(--bg); stroke-width: 3px; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+#measurementSummary, #stationObservationDetails { overflow-wrap: anywhere; }
+#stationObservationDetails ul { padding-left: 18px; }
 .control-line { fill: none; stroke: var(--orange); stroke-width: 1.5; stroke-dasharray: 4 3; vector-effect: non-scaling-stroke; pointer-events: none; }
 .control-handle { fill: var(--orange); stroke: #fff0db; stroke-width: 2; cursor: move; vector-effect: non-scaling-stroke; }
 .calibration-point { fill: var(--danger); stroke: white; stroke-width: 2; vector-effect: non-scaling-stroke; }
