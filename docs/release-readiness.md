@@ -170,16 +170,17 @@ The `test:embedded` task of the `check:static` job runs both proofs.
 None of these features changed the saved-state version, the stream version, or the HTTP state media type.
 Each one is off unless the project uses it.
 
-- Compact bays (maneuver groups) are off by default.
-  The `compact-station` preset enables them, and no scenario flag does.
+- Compact bays (maneuver groups) are off unless the project uses them.
+  The `compact-station` preset and both London presets use them, and the `-compact-stations` flag of the scenario command sets the London stations that have them.
   The marker is the network member `maneuverGroups`, which has the digest tag `ext=13` and the `omitzero` JSON tag, so a network without groups writes the same bytes as before.
   The decision record is the README section [Compact bays](../README.md#compact-bays) and the `compact-station` preset section, with the format note in the [operations guide](operations.md).
 - Clearance layer A has no marker and no flag.
   It reduces the retention of a straight lane with a speed limit below about 3.74 m/s when the track near the lane qualifies, and every other lane keeps its 12-meter clearance.
   Layer B (close-up following) was measured and not built, as the [close-up measurement](close-up-measurement.md) records.
   The rule is in `internal/sim/retention.go` and the README.
-- Queued parking depots are off by default.
-  The `-parking-lanes` flag of the scenario command enables them on the ring and London presets, and a custom project can add the network member `depots`.
+- Queued parking depots are off unless the project uses them.
+  Both London presets use them.
+  The `-parking-lanes` flag of the scenario command sets them on the ring and London presets, and a custom project can add the network member `depots`.
   The markers are `depots` (`ext=14`, `omitzero`) and the pod member `parkedSince`, which a file writes only for a pod that is idle at a depot slot or moves up in a depot lane.
   The [station banks](station-banks.md#depot-lanes) document and the README section [Parking depots](../README.md#parking-depots) are the decision record.
 - The depot lateral rule lets two lanes of one depot sit closer than 12 meters.

@@ -5,7 +5,7 @@ Pods use the guideways as independent vehicles.
 The preset does not simulate Underground trains or service patterns.
 [LondonFull](london-full.md) extends the source boundary to all 269 normalized Tube sites.
 Historical London measurements refer to this central preset.
-Its topology, demand data, and defaults remain unchanged after the rename.
+Its topology and demand data remain unchanged after the rename.
 
 ## Initial boundary
 
@@ -18,11 +18,13 @@ Shared Underground corridors produce one PRT connection, not duplicate overlappi
 Each connection has two offset, directed guideways.
 
 Each passenger station has two off-line berths.
-West, north, and east Parking facilities each have 12 berths.
+Seven passenger stations are Compact stations with four bays in place of their berths.
+These are Regent's Park, Lambeth North, Lancaster Gate, Edgware Road (Bakerloo), Bayswater, Hyde Park Corner, and Borough.
+West, north, and east Parking facilities are depots, each with 2 lanes of 6 slots.
 The Parking facilities connect at Hammersmith (west), Finsbury Park (north), and Mile End (east).
-The initial fleet has 114 pods: one at each passenger station and six at each Parking facility.
-The scenario command can change these counts.
-See [capacity options](#capacity-options).
+The initial fleet has 114 Compact pods: one at each passenger station and six at each Parking facility.
+The scenario command can change these counts and layouts.
+See [capacity options](#capacity-options) and [depots and Compact stations](london-full.md#depots-and-compact-stations).
 
 Paddington's two Underground stop records are one PRT station.
 Bank and Monument are also one station because they form one interchange complex.
@@ -191,22 +193,22 @@ mise run scenario -- -preset london-central -output /tmp/podsim-london.json
 mise run serve -- -project /tmp/podsim-london.json
 ```
 
-The generated project has 99 stations, 1,842 nodes, 3,101 lanes, and 114 pods.
+The generated project has 99 stations, 1,907 nodes, 3,248 lanes, and 114 pods.
 Project validation checks directed reachability between all passenger berths.
 The preset starts with automatic demand and redistribution disabled.
 It turns on [virtual platoons](../README.md#virtual-platoons) with at most 4 pods in a platoon.
 
 A project can have at most 600 stations, 12,000 nodes, and 20,000 lanes.
 The lane pairs at the nodes can be at most 250,000 in total.
-The London preset has 20,096 pairs and the largest London capacity options in the tests have 29,336.
+The London preset has 21,132 pairs and the largest London capacity options in the tests have 29,336.
 The lanes can have at most 64,000 track cells of about 30 meters in total.
-The London preset has 17,013 cells and the largest London capacity options in the tests have 24,675.
+The London preset has 16,976 cells and the largest London capacity options in the tests have 24,675.
 These limits also apply to an edit of the London project in the editor.
 The `serve` and `compare` commands read a `-project` file of 32 MiB or less.
-The central generated file is indented, so it is about 2.5 MiB (2,633,332 bytes).
+The central generated file is indented, so it is about 2.6 MiB (2,701,670 bytes).
 The generator uses compact JSON when indentation would exceed the project file limit.
 Project validation also limits the compact JSON form of a project to 32 MiB, with room for the widest demand settings.
-In that form, the London project is about 1.1 MiB (1,162,536 bytes).
+In that form, the London project is about 1.1 MiB (1,199,208 bytes).
 The server writes the `-project` file in this form when it saves it.
 When the editor applies the project, it compresses the command with gzip, so it sends about 0.2 MiB.
 The server accepts a compressed command of 16 MiB or less, with 32 MiB plus 64 KiB of JSON or less after decompression.
@@ -218,7 +220,7 @@ The marker of a passenger station is at its junction, at the mean position of it
 This point is within about 60 meters of the TfL station position.
 The berths are about 250 to 430 meters away, and their rings replace the marker when you zoom in.
 At the largest zoom, each station shows its berths, also the 6-meter slots of a depot and the Compact bays (see [Map navigation](../README.md#map-navigation)).
-A Parking marker stays at the center of its berths, so it does not cover the marker of its gateway station.
+A Parking marker stays at the center of its depot slots, so it does not cover the marker of its gateway station.
 The project also has more than 100 lanes, so the map sizes change with the zoom.
 A marker has a radius of 150 meters on the map, but at least 3 and at most 10 CSS pixels.
 A lane has a width of 30 meters on the map, but at least 2 and at most 5 CSS pixels.
@@ -234,6 +236,7 @@ The direction arrows on these lanes are also dimmer.
 A station lane that connects two lanes outside stations keeps the normal style.
 Because of this, the rings of the `busy` and `rail-hub` presets stay continuous at each station.
 Node dots show only when you zoom in far enough for the berths of a station to separate.
+The slots of a depot and the bays of a Compact station are 6 meters apart, so these stations show one marker at all zoom levels.
 Networks with 100 lanes or fewer, such as the example, keep each marker at the center of its berths.
 They keep fixed marker and lane sizes and show node dots at all zoom levels.
 A lane of any length can have a direction arrow.
@@ -286,10 +289,11 @@ The preset has one soft conflict, at Mansion House.
 With 3 berths at each passenger station, a core lane at Embankment crosses a guideway.
 All other passenger stations take a third berth.
 With a 40-meter pitch, all 96 passenger stations take 3 berths.
+The next two projects use `-parking-lanes 0 -compact-stations none`.
 A third berth at 95 stations and 24 berths at each Parking facility give 2,235 nodes and 3,625 lanes, with 4 soft conflicts.
-The generated file has 2,868,254 bytes.
+The generated file has 2,868,208 bytes.
 With a 40-meter pitch, 3 berths at each passenger station and 200 berths at each Parking facility give 3,822 nodes and 5,741 lanes, with 1 soft conflict.
-This generated file has 3,835,587 bytes.
+This generated file has 3,835,541 bytes.
 When the editor applies this project, the command has about 1.9 MiB of JSON, and the editor sends about 0.3 MiB with gzip.
 Capacity options must also pass the layout audit.
 A project below the node limit can still have station lanes that cross guideways.

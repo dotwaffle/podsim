@@ -16,7 +16,8 @@ The first station-maneuver slice is complete: station lanes have explicit roles,
 The scenario command sets the berths and berth pitch of the generated presets and the initial pods of both London presets.
 A layout check rejects lanes that come too near.
 The [station-layout editor](docs/station-layout-editor.md) adjusts berth pitch, entry/exit spacing, and approach setback for supported straight chains.
-[Independent berth banks](docs/station-banks.md), the opt-in Compact station, and queued parking depots are also implemented.
+[Independent berth banks](docs/station-banks.md), the Compact station, and queued parking depots are also implemented.
+The London presets have Compact stations and depots by default.
 See [compact bays](README.md#compact-bays) and [parking depots](README.md#parking-depots).
 The other experiments in Section 6 retain their separate status.
 See [README.md](README.md) for controls, validation commands, and current model limits.

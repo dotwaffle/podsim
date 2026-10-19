@@ -3,7 +3,7 @@
 LondonFull (`london-full`) maps 269 normalized Tube sites and 40 additional DLR sites onto a PRT network.
 It includes the full DLR except West India Quay, omitted for layout clearance.
 It does not include Overground.
-It has three additional Parking facilities.
+It has three additional Parking facilities, each a depot, and eight Compact stations.
 Pods use independent guideways, not train schedules or Tube service frequencies.
 [LondonCentral](london.md) retains the smaller qualification network and its 2019 demand.
 
@@ -42,9 +42,11 @@ The converter and provenance retain exact totals before rounding.
 
 ## Capacity and geometry
 
-The default has 327 pods, 754 berths, 5,658 nodes, and 8,844 lanes.
+The default has 327 pods, 770 berths, 5,740 nodes, and 9,024 lanes.
 Each passenger site starts with one pod and two berths.
-The three existing Parking facilities each have six pods and twelve berths.
+A Compact station has four bays in place of its berths.
+The three existing Parking facilities are depots, each with six pods and 12 slots.
+See [Depots and Compact stations](#depots-and-compact-stations).
 
 The generator assigns 100 extra passenger berths from the largest boarding-plus-alighting share of each site across the six observed bands.
 It uses the largest-remainder method, with station ID as the tie-breaker.
@@ -68,21 +70,25 @@ All generated capacity variants must pass normal project and layout validation.
 
 ## Depots and Compact stations
 
-Two flags of the scenario command change the station layouts of `london-full` and `london-central`.
-Both are opt-in, and the presets without them do not change.
-A changed layout gives the project name the suffix " (custom capacity)", also when the berth counts stay the same.
+Both London presets have depots and Compact stations by default.
+Two flags of the scenario command change these layouts on `london-full` and `london-central`.
+A layout other than the default gives the project name the suffix " (custom capacity)", also when the berth counts stay the same.
+These opt-out flags give the presets with ordinary Parking facilities and ordinary stations:
 
 ```sh
-mise run scenario -- -preset london-full -parking-lanes 2 -parking-berths 6 \
-  -compact-stations 940GZZLURGP,940GZZLULBN,940GZZLULGT,940GZZLUERB,940GZZLUBWT,940GZZLUHPC,940GZZLUBOR,940GZZDLTWG \
-  -output /tmp/podsim-london-full-flagged.json
+mise run scenario -- -preset london-full -parking-lanes 0 -compact-stations none \
+  -output /tmp/podsim-london-full-ordinary.json
 ```
+
+Before October 19, 2026, this layout was the default.
 
 ### Depots
 
-`-parking-lanes N` makes each of the three Parking facilities a [depot](../README.md#parking-depots) with N queue lanes.
-`-parking-berths` then sets the slots of each lane, and `-berths parking-north=M` sets the slots of each lane of one facility.
-`-parking-lanes 2 -parking-berths 6` keeps the 12 slots of the default.
+Each of the three Parking facilities is a [depot](../README.md#parking-depots) with 2 queue lanes of 6 slots.
+`-parking-lanes N` sets the lanes of each depot.
+`-parking-berths` sets the slots of each lane, and `-berths parking-north=M` sets the slots of each lane of one facility.
+`-parking-lanes 0` gives ordinary Parking facilities with 12 berths each.
+With `-parking-lanes 0`, `-parking-berths` and `-berths parking-north=M` set the berths of the ordinary facilities.
 The depot lies outward from the through lane of the facility, with its entry and exit 200 meters from the station axis.
 The heading search uses the shape of an ordinary Parking facility with 12 berths, so the other stations keep their headings.
 
@@ -96,13 +102,17 @@ This table gives the most slots in each lane of a depot:
 
 ### Compact stations
 
-`-compact-stations ID,ID` gives at most 8 passenger stations the four [Compact bays](../README.md#compact-bays) of the `compact-station` preset.
-The command refuses an unknown ID, a Parking facility, a repeated ID, more than 8 IDs, and a `-berths` item for a listed station, also when the item has the preset value.
-A listed station has 4 berths and at most 4 initial pods.
-Its berth count without the flag still sets its shape in the heading search, so the other stations keep their headings.
+The default Compact stations of LondonFull are eight zone 1 stations with 2 berths and low demand: Regent's Park, Lambeth North, Lancaster Gate, Edgware Road (Bakerloo), Bayswater, Hyde Park Corner, Borough, and Tower Gateway.
+LondonCentral has the first seven and not Tower Gateway.
+Each Compact station has the four [Compact bays](../README.md#compact-bays) of the `compact-station` preset.
+`-compact-stations ID,ID` replaces the list with at most 8 passenger stations, and `-compact-stations none` gives no Compact stations.
+The command refuses an unknown ID, a Parking facility, a repeated ID, more than 8 IDs, and a `-berths` item for a Compact station, also when the item has the preset value.
+For a default Compact station, a `-berths` item needs `-compact-stations none` or a list without the station.
+A Compact station has 4 berths and at most 4 initial pods.
+Its berth count in the capacity options still sets its shape in the heading search, so the other stations keep their headings.
 The compact layout replaces the through lane as a rigid body.
 Its aisle is 200 meters from the station axis, its bays face outward, and its bypass curves toward the station throat.
-Each pod of the project is then Compact, because only a Compact pod can use the bays.
+With a Compact station, each pod of the project is Compact, because only a Compact pod can use the bays.
 
 One visit to a bay holds the aisle for about 30 to 43 seconds, so a Compact station serves about 1.4 to 2 visits per minute.
 Each trip end is about one visit.
@@ -110,25 +120,26 @@ Use a Compact station only where the demand share of the station times the reque
 The share is the largest share of the station across the demand bands.
 In each band, the shares of all stations add to 2, but the largest shares of all stations add to about 2.75.
 
-The suggested list has eight zone 1 stations with 2 berths and low demand, with shares from 0.0025 to 0.0041: Regent's Park, Lambeth North, Lancaster Gate, Edgware Road (Bakerloo), Bayswater, Hyde Park Corner, Borough, and Tower Gateway.
+The default Compact stations have shares from 0.0025 to 0.0041.
 At 120 requests per minute, they have 0.29 to 0.49 trip ends per minute.
-LondonCentral has the first seven and not Tower Gateway.
-With the suggested flags, LondonFull has 5,740 nodes, 9,024 lanes, and 4 soft conflicts, and its indented export has 14,912,471 bytes.
+With the opt-out flags, LondonFull has 5,658 nodes, 8,844 lanes, and 4 soft conflicts, and its indented export has 14,823,567 bytes.
 
 ### Measurements, October 19, 2026
 
 The candidates are LondonFull projects from the scenario command.
 The network SHA-256 is the `network_sha256` value of its summary line.
+The runs were before the Both arm became the default.
+The flags in the table give the same networks with the current defaults.
 
 | Arm | Flags | Network SHA-256 |
 | --- | --- | --- |
-| Default | none | `61761e3b5281228dac678ade72be718b5406ea4a150dcc400ffe5f52e26976db` |
-| Depots | `-parking-lanes 2 -parking-berths 6` | `4630e4984fd828ed4d04c7e3fbb03235e8407fbd63db7493608a68d7bb08548e` |
-| Compact stations | `-compact-stations` with the eight suggested IDs | `9275645171f4c9e5cf34a36727bc11895e5026a0457424d70ee397d3a6d31807` |
-| Both | both flag sets | `83d4a83f4f9931a1382e143ef645bd0a31fcb22f0314998087512ad01581ea39` |
+| Ordinary | `-parking-lanes 0 -compact-stations none` | `61761e3b5281228dac678ade72be718b5406ea4a150dcc400ffe5f52e26976db` |
+| Depots | `-compact-stations none` | `4630e4984fd828ed4d04c7e3fbb03235e8407fbd63db7493608a68d7bb08548e` |
+| Compact stations | `-parking-lanes 0` | `9275645171f4c9e5cf34a36727bc11895e5026a0457424d70ee397d3a6d31807` |
+| Both | none, the default | `83d4a83f4f9931a1382e143ef645bd0a31fcb22f0314998087512ad01581ea39` |
 
-Two more arms set `"class": "compact"` on each fleet placement of the Default and Depots projects, with no other change.
-They give the same results as Default and Depots in every run below, so the tables leave them out.
+Two more arms set `"class": "compact"` on each fleet placement of the Ordinary and Depots projects, with no other change.
+They give the same results as Ordinary and Depots in every run below, so the tables leave them out.
 
 The smoke runs each arm with a fixed 30-minute window:
 
@@ -140,7 +151,7 @@ mise run compare -- -project ARM.json -seed 1 -arrivals-for 20m -duration 30m -l
 Each arm gets the same request schedule.
 For seed 1, the schedule ID is `2f47adff4fa5d2f7` at 10 requests per minute (199 requests) and `d0e1f87e74785b19` at 60 requests per minute (1,199 requests).
 For seeds 2 and 3 at 60 requests per minute, the schedule IDs are `a38852cc1e08ae5a` and `fa529e7ef5e9bc92`.
-Without `-platoon-policies virtual`, the Default arm gives 360 served, 607 skipped, a 470.5 s mean wait, and 845 stopped pod-seconds at 60 requests per minute.
+Without `-platoon-policies virtual`, the Ordinary arm gives 360 served, 607 skipped, a 470.5 s mean wait, and 845 stopped pod-seconds at 60 requests per minute.
 
 To divide the stopped pod-seconds, a local overlay of the compare command sorted the samples that make up `stopped_pod_seconds`.
 The compare command takes a sample at each whole simulated second.
@@ -154,11 +165,11 @@ Seed 1, per run:
 
 | Arm | Load | Served | Skipped | Wait mean (s) | Stopped pod-s | Parking | Guideway | Stations |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| Default | 10/min | 152 | 0 | 55.4 | 42 | | | |
+| Ordinary | 10/min | 152 | 0 | 55.4 | 42 | | | |
 | Depots | 10/min | 152 | 0 | 55.9 | 43 | | | |
 | Compact stations | 10/min | 152 | 0 | 55.9 | 42 | | | |
 | Both | 10/min | 152 | 0 | 56.4 | 43 | | | |
-| Default | 60/min | 363 | 602 | 464.9 | 954 | 33 | 816 | 105 |
+| Ordinary | 60/min | 363 | 602 | 464.9 | 954 | 33 | 816 | 105 |
 | Depots | 60/min | 359 | 610 | 472.2 | 2,107 | 1,258 | 749 | 100 |
 | Compact stations | 60/min | 364 | 599 | 461.0 | 941 | 23 | 835 | 83 |
 | Both | 60/min | 364 | 607 | 464.1 | 2,273 | 1,268 | 828 | 177 |
@@ -167,11 +178,11 @@ Seeds 2 and 3 at 60 requests per minute, per run, not summed:
 
 | Seed | Arm | Served | Skipped | Wait mean (s) | Stopped pod-s | Parking | Guideway | Stations |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 2 | Default | 365 | 615 | 465.5 | 876 | 11 | 754 | 111 |
+| 2 | Ordinary | 365 | 615 | 465.5 | 876 | 11 | 754 | 111 |
 | 2 | Depots | 369 | 616 | 467.3 | 1,580 | 704 | 768 | 108 |
 | 2 | Compact stations | 363 | 611 | 467.6 | 975 | 11 | 791 | 173 |
 | 2 | Both | 365 | 612 | 466.9 | 1,771 | 704 | 929 | 138 |
-| 3 | Default | 345 | 626 | 477.6 | 1,126 | 39 | 933 | 154 |
+| 3 | Ordinary | 345 | 626 | 477.6 | 1,126 | 39 | 933 | 154 |
 | 3 | Depots | 346 | 629 | 483.6 | 1,591 | 626 | 830 | 135 |
 | 3 | Compact stations | 354 | 618 | 472.1 | 1,462 | 39 | 1,160 | 263 |
 | 3 | Both | 349 | 623 | 478.0 | 1,986 | 626 | 1,164 | 196 |
@@ -197,11 +208,11 @@ The stopped pod-seconds are the sum of the three seeds, and the wait is the mean
 
 | Arm | Load | Served | Drained | Wait mean (s) | Stopped pod-s | Parking |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
-| Default | 10/min | 1,797 | 3 of 3 | 156.7 | 1,416 | 0 |
+| Ordinary | 10/min | 1,797 | 3 of 3 | 156.7 | 1,416 | 0 |
 | Depots | 10/min | 1,797 | 3 of 3 | 158.0 | 3,064 | 1,737 |
 | Compact stations | 10/min | 1,797 | 3 of 3 | 156.9 | 1,726 | |
 | Both | 10/min | 1,797 | 3 of 3 | 157.6 | 3,033 | |
-| Default | 15/min | 2,695 | 1 of 3 | 242.6 | 3,274 | 10 |
+| Ordinary | 15/min | 2,695 | 1 of 3 | 242.6 | 3,274 | 10 |
 | Depots | 15/min | 2,695 | 1 of 3 | 243.5 | 4,937 | 1,919 |
 | Compact stations | 15/min | 2,695 | 1 of 3 | 243.1 | 3,034 | |
 | Both | 15/min | 2,695 | 1 of 3 | 242.9 | 4,431 | |
@@ -213,7 +224,7 @@ These runs do not establish a sustainable demand rate.
 
 The initial demand setting is 10 requests per minute, with AM peak weights and seed 20260929.
 Automatic demand and redistribution start disabled.
-A ten-minute AM peak smoke run on October 7, 2026 generated 100 requests and completed 15, with no skipped requests.
+A ten-minute AM peak smoke run on October 7, 2026, with ordinary Parking facilities and stations, generated 100 requests and completed 15, with no skipped requests.
 Safety checks passed each simulated second.
 The physical restore test preserved active requests and passed safety checks during its 30-second continuation.
 A separate test checks that simultaneous trips around Poplar and both Canary Wharf sites drain safely.
@@ -221,8 +232,8 @@ These checks do not establish a sustainable demand rate.
 
 The project limits admit 12,000 nodes, 20,000 lanes, 600 stations, 1,000 pods, 400,000 flows, and 32 MiB of project JSON.
 Express projects retain their separate 600-pod limit.
-The default compact project JSON has 5,562,812 bytes.
-The default indented export has 14,823,549 bytes.
+The default compact project JSON has 5,612,313 bytes.
+The default indented export has 14,912,453 bytes.
 The saved-state cap is 128 MiB.
 The plain saved-state and full-stream byte proofs include completed history and the independent project and topology caps.
 Express has no byte proof.
@@ -232,10 +243,11 @@ The junction-pair limit is 250,000, and the track-cell limit remains 64,000.
 ### Matched fleet qualification
 
 `mise run qualify:london` runs 327, 600, and 1,000 pods on one capacity variant, at 10 and 120 requests per minute.
-The variant has 6,507 nodes, 9,976 lanes, 312 stations, and 1,037 berths.
+The variant has 6,463 nodes, 9,968 lanes, 312 stations, and 1,045 berths.
 Passenger sites have at least three berths except Bank, which keeps two.
-Each parking site has 32 berths, and the berth pitch is 37.5 m.
-The default project and its parking behavior do not change.
+The eight Compact stations of the default have four bays each, and each pod is Compact.
+Each parking site is a depot of 4 lanes of 8 slots, and the berth pitch is 37.5 m.
+The default project does not change.
 Smaller fleets sample the same 1,000 starting placements evenly.
 
 Each case warms up for 600 simulated seconds, measures 180 seconds of ticks, and checks safety and simulation contracts each second.

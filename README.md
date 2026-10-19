@@ -531,7 +531,7 @@ The draft stays local until you select **Pause and apply**.
   When the editor loads such a project, it gives each of these lanes the station ID and the role that the simulation gives it.
   Thus **Remove** accepts these lanes.
   An export and **Pause and apply** keep the new values.
-- A generated London or scale100 station is a berth chain.
+- A generated London or scale100 station is a berth chain, except a London depot or Compact station.
   Each berth row has an arrival node, a berth node, and a departure node.
   On a berth chain station, **Add physical berth** adds one more row at the end of the chain.
   The row has three nodes and four lanes: the arrival link, the lane in, the lane out, and the departure link.
@@ -1244,13 +1244,13 @@ A flag that is not on the command line keeps the preset value, so the output wit
 | Flag | Effect |
 | --- | --- |
 | `-station-berths N` | Set the berths of each passenger station. |
-| `-parking-berths N` | Set the berths of each Parking station. |
-| `-parking-lanes N` | Ring and London presets. Make each Parking station a [depot](#parking-depots) with 1 to 8 lanes. `-parking-berths` then sets the slots of each lane, and `-berths` sets the slots of each lane of one London facility. A London depot is at most 200 meters long. |
+| `-parking-berths N` | Set the berths of each Parking station, or the slots of each lane of a depot. |
+| `-parking-lanes N` | Ring and London presets. Make each Parking station a [depot](#parking-depots) with 1 to 8 lanes. `-parking-berths` then sets the slots of each lane, and `-berths` sets the slots of each lane of one London facility. A London depot is at most 200 meters long. The London presets have depots of 2 lanes of 6 slots by default, and `-parking-lanes 0` gives ordinary Parking facilities with 12 berths. |
 | `-berths ID=N,ID=N` | Set the berths of single stations by station ID, such as `station-19` or the ID of a TfL station. |
 | `-station-pods N` | London presets only. Set the initial pods of each passenger station. |
 | `-parking-pods N` | London presets only. Set the initial pods of each Parking facility. |
 | `-berth-pitch M` | Set the distance in meters between two berths of a station. The minimum is 25. |
-| `-compact-stations ID,ID` | London presets only. Give at most 8 passenger stations the four bays of the [compact station](#compact-bays). Each pod is then Compact. `-berths` must not name such a station. |
+| `-compact-stations ID,ID` | London presets only. Give at most 8 passenger stations the four bays of the [compact station](#compact-bays), in place of the default list. `none` gives no Compact stations. With a Compact station, each pod is Compact. `-berths` must not name a Compact station. |
 
 A ring station has a 30-meter pitch, and a `scale100`, `london-central`, or `london-full` station has a 75-meter pitch.
 The ring and `scale100` presets put the initial pods round robin on the passenger stations, and a full station gets no more pods.
@@ -1275,7 +1275,7 @@ The London presets can have soft conflicts, for example berths that are nearer t
 
 ```sh
 mise run scenario -- -preset scale100 -berths station-19=8 -berth-pitch 68 -output /tmp/podsim-station19-8.json
-mise run scenario -- -preset london-central -station-berths 3 -berths 940GZZLUEMB=2 -parking-berths 24 -output /tmp/podsim-london-3.json
+mise run scenario -- -preset london-central -station-berths 3 -berths 940GZZLUEMB=2 -parking-lanes 0 -parking-berths 24 -output /tmp/podsim-london-3.json
 ```
 
 #### rail-hub
@@ -1308,19 +1308,21 @@ Station lanes identify approach, entry, berth access, through, departure, and ex
 The pod inspector shows the current maneuver in **Station phase** and the station name on the line below it.
 Projects without this optional lane metadata still load.
 The simulator infers through, berth access, and departure roles from the station paths.
-`-parking-lanes` makes its Parking facilities [depots](#parking-depots), and `-compact-stations` gives up to 8 of its stations [Compact bays](#compact-bays), as in [london-full](#london-full).
-The suggested Compact list for LondonCentral has seven stations: the LondonFull list without Tower Gateway.
+Its Parking facilities are [depots](#parking-depots), and seven of its stations have [Compact bays](#compact-bays), as in [london-full](#london-full).
+Its Compact stations are those of LondonFull without Tower Gateway.
+`-parking-lanes 0 -compact-stations none` gives ordinary Parking facilities and ordinary stations.
 
 #### london-full
 
 [LondonFull](docs/london-full.md) includes 309 Tube and DLR passenger sites and three Parking facilities with 2024 endpoint demand.
-It starts with 327 pods, 754 berths, and a configured rate of 10 requests per minute.
+It starts with 327 Compact pods, 770 berths, and a configured rate of 10 requests per minute.
 West India Quay is omitted for layout clearance.
 Canary Wharf DLR and Jubilee remain separate stations.
 Demand starts disabled.
 A short DLR smoke run does not establish sustainable capacity.
 The earlier finite-arrival studies used the Tube-only preset.
-The opt-in flags `-parking-lanes` and `-compact-stations` give it [depots and Compact stations](docs/london-full.md#depots-and-compact-stations).
+Its three Parking facilities are depots, and eight of its stations are Compact stations (see [depots and Compact stations](docs/london-full.md#depots-and-compact-stations)).
+The flags `-parking-lanes` and `-compact-stations` change these layouts, and `-parking-lanes 0 -compact-stations none` turns them off.
 That section gives the depot length limit, the capacity rule for a Compact station, and the measurements.
 
 #### compact-station
@@ -1636,7 +1638,8 @@ As at an ordinary station, a custom network with more pods than its bays and roa
 The `compact-station` preset has enough room for its pods.
 The map shows a pod in a bay as a round mark, with no heading.
 
-The `-compact-stations` flag of the scenario command puts these bays at up to 8 stations of a London preset, and each pod is then Compact.
+The London presets put these bays at 7 or 8 stations by default, and each of their pods is Compact.
+The `-compact-stations` flag of the scenario command sets these stations.
 One visit holds the aisle for about 30 to 43 seconds.
 Use a Compact station only where its demand share times the request rate is below about 0.7 trip ends per minute (see [LondonFull Compact stations](docs/london-full.md#compact-stations)).
 
@@ -1684,9 +1687,9 @@ The browser editor keeps the depots of a project, but it cannot make a depot.
 It refuses each station action that changes the geometry or the berths of a depot station.
 A project with a depot gets the full network validation of the server in the editor.
 The editor runs the depot validation of the server first, so an invalid depot draft gets the server depot error, not a lane gap or bank error.
-The `-parking-lanes` flag of the scenario command makes a ring or a London preset with depots (see [generated scenarios](#generated-scenarios)).
+The London presets have depots by default, and the `-parking-lanes` flag of the scenario command sets the depot lanes of a ring or a London preset (see [generated scenarios](#generated-scenarios)).
 A London depot is at most 200 meters long (see [LondonFull depots](docs/london-full.md#depots)).
-In a LondonFull run at 60 requests per minute, the depots served within four requests of the default, and empty pods stopped inside the depots for 1,225 more pod-seconds while other pods of the same depot moved.
+In a LondonFull run at 60 requests per minute, the depots served within four requests of ordinary Parking facilities, and empty pods stopped inside the depots for 1,225 more pod-seconds while other pods of the same depot moved.
 
 #### Idle pods
 
