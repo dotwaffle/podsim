@@ -1860,7 +1860,7 @@ mise run check
 
 | Task | What it runs |
 | --- | --- |
-| `mise run check` | Workflow validation, Markdown checks, race tests, the tests that skip under the race detector, the `test:web` tests, vet, lint, vulnerability checks, the native and browser builds, the embedded server tests, and the checkpoint bound test. |
+| `mise run check` | Workflow validation, Markdown checks, race tests, the tests that skip under the race detector, the `test:web` tests, vet, lint, vulnerability checks, the native and browser builds, the embedded server tests, and the checkpoint bound test. It runs `check:static`, `qualify`, and the three race tasks one after another, and stops at the first failure. |
 | `mise run format` | Formats the Go sources and the Markdown files. |
 | `mise run test:quick` | `go test -short ./...`. It skips the long tests of `internal/sim`, `internal/session`, `internal/parkride`, `internal/project`, `internal/scenarios`, `cmd/compare`, and `cmd/serve`. The race tasks, `test:embedded`, and `test:bounds` run them. |
 | `mise run lint` | actionlint, rumdl, `go vet`, golangci-lint, and the check that `podsim.wasm` does not link cloud storage. |

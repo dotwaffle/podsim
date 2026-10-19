@@ -86,7 +86,7 @@ The workflow now runs five jobs on separate runners.
 On the first warm run, `test:race:sim` took 16 minutes, and every other job took 8.5 minutes or less.
 The station and reassignment tests took 439 of 885 seconds of the local race test time, so they formed one of two sim tasks until the merge that "Race split" describes.
 `check:static` runs the remaining tasks of `check`.
-`mise run check` still runs all of them on one machine.
+`mise run check` still runs all of them on one machine, one after another.
 
 `TestStreamLargeRouteWire` checked 20 publications of the same shape, with 200 pods and 8,000-lane routes.
 Now it checks five publications: the first, the sequences where the width changes from 1 to 2, 9 to 10, and 19 to 20 decimal digits, and the largest sequence.

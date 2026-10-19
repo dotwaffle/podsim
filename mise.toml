@@ -116,9 +116,18 @@ description = "Test editor page, Go model client, game loader, and page shell"
 env = { PODSIM_REQUIRE_GO = "1" }
 run = "node --test web/editor-model_test.cjs web/place-search_test.cjs web/tiles_test.cjs web/simulation-map_test.cjs web/editor_test.cjs web/loader_test.cjs web/shell_test.cjs web/stream_test.cjs web/offline_test.cjs web/editor-history_test.cjs"
 
+# check runs its parts one after another. In parallel they overload one
+# machine, and the latency tests of qualify then fail. CI runs each part
+# on its own runner, so it does not use this task.
 [tasks.check]
 description = "Run tests, static analysis, and native and browser builds"
-depends = ["test:race", "qualify", "check:static"]
+run = [
+  { task = "check:static" },
+  { task = "qualify" },
+  { task = "test:race:sim" },
+  { task = "test:race:session" },
+  { task = "test:race:other" },
+]
 
 [tasks."check:static"]
 description = "Run the checks other than the race tests and qualify"

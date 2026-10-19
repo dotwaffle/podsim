@@ -32,7 +32,7 @@ Keep this file short, and point to other documents instead of copying them.
 
 The `mise` tasks are the source of truth.
 CI runs `test:race:*`, `qualify`, and `check:static`.
-`mise run check` runs all of them.
+`mise run check` runs all of them, one after another, so that the latency tests run on a quiet machine.
 
 - Quick loop: `go build ./...`, `go vet ./...`, and `mise run test:quick`.
   `test:quick` runs `go test -short ./...`, which skips the long tests.
