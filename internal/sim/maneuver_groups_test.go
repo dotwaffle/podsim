@@ -345,3 +345,42 @@ func TestManeuverGroupPhases(t *testing.T) {
 		}
 	}
 }
+
+// TestManeuverGroupArrivalRestore moves a Compact pod from the loop stop
+// into bay 2. The restores during the arrival must match the live
+// simulation. The saved route can leave out the approach lane before the
+// group run, but the pod on the group lanes must still be accessing its
+// berth, and not departing.
+func TestManeuverGroupArrivalRestore(t *testing.T) {
+	t.Parallel()
+	network := tallBayNetwork(2, 7)
+	s, err := NewFleet(network, []Placement{{ID: "01", StationID: "stop", Class: CompactClass}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	v := s.findVehicle("01")
+	bays, _ := s.station("bays")
+	if err := s.startEmptyMove(v, emptyDestination{station: "bays", berth: bays.Berths[1], reserveBerth: true}); err != nil {
+		t.Fatal(err)
+	}
+	accessing := 0
+	stepUntil(t, s, "pod 01 idle at bay 2", func() bool {
+		if v.Pod.Activity == Traveling {
+			if lane := v.blocks.currentLane(v.blockIndex); s.maneuvers.groupLane(lane.ID) {
+				if v.Pod.StationPhase != AccessingBerth {
+					t.Fatalf("tick %d: phase %q on group lane %s", s.tick, v.Pod.StationPhase, lane.ID)
+				}
+				accessing++
+			}
+			restored, result, err := RestoreState(RestoreStateInput{Network: network, Fleet: s.initial, State: roundTripState(t, s.ExportState())})
+			if err != nil || !cleanRestore(result) {
+				t.Fatalf("tick %d: restore %+v, %v", s.tick, result, err)
+			}
+			checkRestoredMatches(t, s, restored)
+		}
+		return v.Pod.Activity == Idle
+	})
+	if v.Pod.BerthID != "bay-2" || accessing == 0 {
+		t.Fatalf("pod 01 idle at %s after %d ticks on group lanes", v.Pod.BerthID, accessing)
+	}
+}

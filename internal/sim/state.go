@@ -142,8 +142,9 @@ type SavedPod struct {
 	// depot lane, and a pod placed in the lane has 0.
 	ParkedSince int64 `json:"parkedSince,omitzero"`
 	// Route holds the lanes that the pod still needs. The route of a traveling
-	// pod starts at the first lane that can still hold a resource, and
-	// RouteIndex and Distance count from the start of that lane.
+	// pod starts at the first lane that can still hold a resource, or at an
+	// earlier lane (see savedStart), and RouteIndex and Distance count from
+	// the start of that lane.
 	Route        []int   `json:"route,omitempty"`
 	RouteIndex   int     `json:"routeIndex,omitzero"`
 	LaneID       string  `json:"laneID,omitempty"`
@@ -599,15 +600,17 @@ func (s *Simulation) savedRun(v *vehicle, start int) (leader *vehicle, skip int,
 }
 
 // savedStart returns the values of savedRouteStart for the traveling pod v,
-// with an earlier start when the saved link of its follower needs it. The
-// saved run of the follower starts at the first lane of the run that the
-// saved route of the follower holds. The predecessor can have passed that
-// lane, but a junction section of the lane can be in its next lane too,
-// and the follower can share it. So the saved route of the predecessor
-// starts at that lane at the latest.
+// with an earlier start when its origin tail (see originSavedStart), its
+// group run (see groupSavedStart), or the saved link of its follower needs
+// it. The saved run of the follower starts at the first lane of the run
+// that the saved route of the follower holds. The predecessor can have
+// passed that lane, but a junction section of the lane can be in its next
+// lane too, and the follower can share it. So the saved route of the
+// predecessor starts at that lane at the latest.
 func (s *Simulation) savedStart(v *vehicle) (start int, offset float64, current int) {
 	start, offset, current = v.savedRouteStart()
 	start, offset = originSavedStart(v, start, offset)
+	start, offset = s.groupSavedStart(v, start, offset, current)
 	if v.follower == 0 {
 		return start, offset, current
 	}
@@ -633,6 +636,24 @@ func originSavedStart(v *vehicle, start int, offset float64) (int, float64) {
 	for start > 0 && v.distance-offset < v.originTailFrom(start) {
 		start--
 		offset = v.blocks.lanes[start].start
+	}
+	return start, offset
+}
+
+// groupSavedStart moves the saved route start of v back to the last lane
+// before it that is not a lane of a maneuver group, when each lane from the
+// start to the current lane is a group lane. routeStationPhase tells a
+// group run that leaves the origin berth from a group run that the route
+// enters from such a lane, so the saved route keeps that lane.
+func (s *Simulation) groupSavedStart(v *vehicle, start int, offset float64, current int) (int, float64) {
+	grouped := func(lane Lane) bool { return s.maneuvers.groupLane(lane.ID) }
+	if slices.ContainsFunc(v.Route[start:current+1], func(lane Lane) bool { return !grouped(lane) }) {
+		return start, offset
+	}
+	for index := start - 1; index >= 0; index-- {
+		if !grouped(v.Route[index]) {
+			return index, v.blocks.lanes[index].start
+		}
 	}
 	return start, offset
 }
