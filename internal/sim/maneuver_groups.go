@@ -45,6 +45,9 @@ type maneuverIndex struct {
 	chainBerths map[string]string
 	// inLanes holds the forward chain lane that ends at each group berth.
 	inLanes map[string]string
+	// berthKeys holds the index of each berth of the network in the
+	// berths of all stations, in station order.
+	berthKeys map[string]int
 }
 
 // groupLane reports whether a lane is in a maneuver group.
@@ -148,6 +151,7 @@ func newManeuverIndex(n Network, nodes map[string]Point) (*maneuverIndex, error)
 	m := &maneuverIndex{
 		groups: n.ManeuverGroups, laneGroups: make(map[string]int), berthGroups: make(map[string]int),
 		reverse: make(map[string]bool), chainBerths: make(map[string]string), inLanes: make(map[string]string),
+		berthKeys: make(map[string]int),
 	}
 	lanes := make(map[string]int, len(n.Lanes))
 	incident := make(map[string][]int)
@@ -165,6 +169,9 @@ func newManeuverIndex(n Network, nodes map[string]Point) (*maneuverIndex, error)
 		for _, berth := range station.Berths {
 			berths[berth.ID], berthStations[berth.ID] = berth, station.ID
 			berthNodes[berth.Node] = true
+			if _, ok := m.berthKeys[berth.ID]; !ok {
+				m.berthKeys[berth.ID] = len(m.berthKeys)
+			}
 		}
 	}
 	ids := make(map[string]bool)

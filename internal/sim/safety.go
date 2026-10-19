@@ -121,6 +121,11 @@ type separationIndex struct {
 	// chains holds the window positions of each small pod in a window. It
 	// is nil when the observation has no positions.
 	chains []safetyChain
+	// keys holds the separation key of each pod whose key is bound to its
+	// value, and certified the certified pairs. keys is nil when the
+	// observation has no keys.
+	keys      []separationKey
+	certified certifiedPairs
 	// reach is the largest squared separation threshold of any pair.
 	reach float64
 }
@@ -136,6 +141,9 @@ func (o SafetyObservation) separationIndex() separationIndex {
 	if len(o.chains) > 0 {
 		index.chains = make([]safetyChain, len(o.Pods))
 	}
+	if len(o.keys) > 0 {
+		index.keys, index.certified = make([]separationKey, len(o.Pods)), o.certified
+	}
 	for i, pod := range o.Pods {
 		index.locations[i] = o.Locations[pod.ID]
 		if envelope, ok := o.envelopes[pod.ID]; ok && envelope.pod == pod {
@@ -143,6 +151,9 @@ func (o SafetyObservation) separationIndex() separationIndex {
 		}
 		if chain, ok := o.chains[pod.ID]; ok && chain.pod == pod {
 			index.chains[i] = chain
+		}
+		if key, ok := o.keys[pod.ID]; ok && key.pod == pod {
+			index.keys[i] = key.key
 		}
 		if largeVehicleClass(pod.Class) {
 			index.reach = max(index.reach, separationThresholdSquared(largeClearance))
@@ -152,11 +163,15 @@ func (o SafetyObservation) separationIndex() separationIndex {
 }
 
 // pair tests the pods i < j. It returns their squared gap, whether the gap
-// counts toward the smallest gap, and whether they are too close. A small
-// pair that a window certifies needs compactClearance at the speed of the
-// follower (see certifiedClearance), and every other small pair needs
-// Clearance.
+// counts toward the smallest gap, and whether they are too close. A pair
+// whose bound keys form a certified pair of the maneuver certification is
+// skipped. A small pair that a window certifies needs compactClearance at
+// the speed of the follower (see certifiedClearance), and every other
+// small pair needs Clearance.
 func (index *separationIndex) pair(pods []Pod, i, j int) (gapSquared float64, counted, violates bool) {
+	if len(index.keys) > 0 && index.certified.certified(index.keys[i], index.keys[j]) {
+		return 0, false, false
+	}
 	first, second := pods[i], pods[j]
 	dx := first.Position.X - second.Position.X
 	dy := first.Position.Y - second.Position.Y

@@ -236,6 +236,11 @@ type SafetyObservation struct {
 	// chains holds the window positions of each small pod in a window of a
 	// qualifying lane. An observation without them certifies no pair.
 	chains map[string]safetyChain
+	// keys holds the separation key of each pod, and certified the pairs
+	// of keys that the maneuver certification clears. An observation
+	// without them skips no pair.
+	keys      map[string]podKey
+	certified certifiedPairs
 }
 
 // SafetyLocation identifies the physical plane and endpoints occupied by a pod.
