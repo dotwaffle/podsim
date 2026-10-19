@@ -218,7 +218,7 @@ func TestLondonStationsLieBesideTheirLines(t *testing.T) {
 	// facilities. Each of the 127 links has 6 nodes. Each station has 4
 	// nodes and 3 more for each berth.
 	passenger, parking := 96, len(londonParkingFacilities)
-	wantBerths := passenger*londonStationBerths + parking*londonParkingBerths
+	wantBerths := passenger*londonStationBerths + parking*LondonParkingBerths
 	wantPods := passenger*londonStationPods + parking*londonParkingPods
 	wantNodes := 6*127 + 4*(passenger+parking) + 3*wantBerths
 	if len(network.Nodes) != wantNodes || len(network.Lanes) != 3101 || len(network.Stations) != passenger+parking || berths != wantBerths || len(config.Fleet) != wantPods {

@@ -51,12 +51,12 @@ func run(arguments []string, stdout, stderr io.Writer) error {
 	var options capacity
 	flags.IntVar(&options.stationBerths, "station-berths", 0, "Berths at each passenger station; omit to keep the preset value")
 	flags.IntVar(&options.parkingBerths, "parking-berths", 0, "Berths at each Parking station; omit to keep the preset value")
-	flags.IntVar(&options.parkingLanes, "parking-lanes", 0, "Ring and London presets: queue lanes of a depot at each Parking station; -parking-berths then sets the slots of each lane")
+	flags.IntVar(&options.parkingLanes, "parking-lanes", 0, "Ring and London presets: queue lanes of a depot at each Parking station; -parking-berths then sets the slots of each lane; 0 gives London the ordinary facilities of "+strconv.Itoa(scenarios.LondonParkingBerths)+" berths")
 	berths := flags.String("berths", "", "Berths at single stations, as comma-separated ID=N items")
 	flags.IntVar(&options.stationPods, "station-pods", 0, "London presets only: initial pods at each passenger station")
 	flags.IntVar(&options.parkingPods, "parking-pods", 0, "London presets only: initial pods at each Parking facility")
 	flags.Float64Var(&options.berthPitch, "berth-pitch", 0, "Distance in meters between two berths of a station, at least 25")
-	compactStations := flags.String("compact-stations", "", "London presets only: comma-separated IDs of at most 8 passenger stations with Compact bays; each pod is then Compact")
+	compactStations := flags.String("compact-stations", "", "London presets only: comma-separated IDs of at most 8 passenger stations with Compact bays, or none; each pod is then Compact")
 	if err := flags.Parse(arguments); err != nil {
 		return err
 	}
@@ -193,6 +193,14 @@ func londonPresetConfig(name string, options capacity) (project.Config, error) {
 	setInt(options.set["station-pods"], &london.StationPods, options.stationPods)
 	setInt(options.set["parking-pods"], &london.ParkingPods, options.parkingPods)
 	setInt(options.set["parking-lanes"], &london.ParkingLanes, options.parkingLanes)
+	// The berth count of a depot is the slot count of each lane, so the
+	// ordinary facilities get their own default.
+	if options.set["parking-lanes"] && options.parkingLanes == 0 && !options.set["parking-berths"] {
+		london.ParkingBerths = scenarios.LondonParkingBerths
+	}
+	if options.set["compact-stations"] {
+		london.CompactStations = options.compactStations
+	}
 	if options.set["berths"] {
 		if london.Berths == nil {
 			london.Berths = make(map[string]int)
@@ -204,12 +212,11 @@ func londonPresetConfig(name string, options capacity) (project.Config, error) {
 	}
 	// The preset gives each LondonFull station a berth count, so only the
 	// -berths flag tells an explicit count of a Compact station.
-	for _, id := range options.compactStations {
+	for _, id := range london.CompactStations {
 		if _, ok := options.berths[id]; ok {
-			return project.Config{}, fmt.Errorf("-berths names Compact station %q, which has the 4 bays of the compact station", id)
+			return project.Config{}, fmt.Errorf("-berths names Compact station %q, which has the 4 bays of the compact station; use -compact-stations none or a list without it", id)
 		}
 	}
-	london.CompactStations = options.compactStations
 	return build(london)
 }
 
@@ -242,8 +249,11 @@ func parseBerths(text string) (map[string]int, error) {
 }
 
 // parseCompactStations parses a -compact-stations value of comma-separated
-// station IDs.
+// station IDs. The value none gives no IDs.
 func parseCompactStations(text string) ([]string, error) {
+	if text == "none" {
+		return nil, nil
+	}
 	var ids []string
 	for item := range strings.SplitSeq(text, ",") {
 		id := strings.TrimSpace(item)

@@ -147,6 +147,42 @@ func TestRunWithoutFlagsKeepsPresets(t *testing.T) {
 	}
 }
 
+// TestRunLondonOptOut pins the network SHA-256 of the London presets with
+// the flags that turn off the depots and the Compact stations. Without
+// -parking-berths, -parking-lanes 0 gives the ordinary facilities their
+// own berth count.
+func TestRunLondonOptOut(t *testing.T) {
+	t.Parallel()
+	const (
+		central = "2d11daaf9e6dc8c13b05c25529af55014db103bdc0985991c7704546534666d7"
+		full    = "61761e3b5281228dac678ade72be718b5406ea4a150dcc400ffe5f52e26976db"
+	)
+	tests := []struct {
+		name, preset, network string
+		flags                 []string
+		groups, depots        int
+	}{
+		{name: "LondonCentral", preset: "london-central", network: central, flags: []string{"-parking-lanes", "0", "-compact-stations", "none"}},
+		{name: "LondonCentral without depots", preset: "london-central", network: central, flags: []string{"-parking-lanes", "0"}},
+		{name: "LondonCentral without Compact stations", preset: "london-central", network: central, flags: []string{"-compact-stations", "none"}},
+		{name: "LondonFull", preset: "london-full", network: full, flags: []string{"-parking-lanes", "0", "-compact-stations", "none"}},
+		{name: "LondonFull without depots", preset: "london-full", network: full, flags: []string{"-parking-lanes", "0"}},
+		{name: "LondonFull without Compact stations", preset: "london-full", network: full, flags: []string{"-compact-stations", "none"}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			config, summary := generate(t, append([]string{"-preset", test.preset}, test.flags...)...)
+			if !strings.Contains(summary, " network_sha256="+test.network+" ") {
+				t.Fatalf("summary = %q, want network SHA-256 %s", summary, test.network)
+			}
+			if len(config.Network.ManeuverGroups) != test.groups || len(config.Network.Depots) != test.depots {
+				t.Fatalf("%d maneuver groups and %d depots, want %d and %d", len(config.Network.ManeuverGroups), len(config.Network.Depots), test.groups, test.depots)
+			}
+		})
+	}
+}
+
 // TestRunKeepsDepotRing pins the output of a ring with a depot.
 func TestRunKeepsDepotRing(t *testing.T) {
 	t.Parallel()
@@ -291,7 +327,7 @@ func TestRunRejectsBadCapacityFlags(t *testing.T) {
 		{name: "Compact stations for a ring", arguments: []string{"-preset", "busy", "-compact-stations", "s01"}, err: "-compact-stations applies only to the London presets"},
 		{name: "Compact stations for a fixture", arguments: []string{"-preset", "compact-station", "-compact-stations", "compact"}, err: "-compact-stations does not apply to the compact station fixture"},
 		{name: "empty Compact station", arguments: []string{"-preset", "london-central", "-compact-stations", "940GZZLURGP,,940GZZLUBOR"}, err: `-compact-stations item "" has no station ID`},
-		{name: "berths of a Compact station", arguments: []string{"-preset", "london-full", "-compact-stations", "940GZZLUBOR,940GZZLURGP", "-berths", "940GZZLURGP=2"}, err: `-berths names Compact station "940GZZLURGP", which has the 4 bays of the compact station`},
+		{name: "berths of a Compact station", arguments: []string{"-preset", "london-full", "-compact-stations", "940GZZLUBOR,940GZZLURGP", "-berths", "940GZZLURGP=2"}, err: `-berths names Compact station "940GZZLURGP", which has the 4 bays of the compact station; use -compact-stations none or a list without it`},
 		{name: "Parking as a Compact station", arguments: []string{"-preset", "london-central", "-compact-stations", "parking-west"}, err: "West London Parking (parking-west) is a Parking facility, not a passenger station for Compact bays"},
 		{name: "pitch below the floor", arguments: []string{"-preset", "london-central", "-berth-pitch", "20"}, err: "berth pitch"},
 		{name: "layout conflict", arguments: []string{"-preset", "london-central", "-berths", "940GZZLUEMB=3"}, err: "Embankment (940GZZLUEMB)"},

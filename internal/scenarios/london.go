@@ -27,10 +27,8 @@ const (
 	// pod counts of a passenger station.
 	londonStationBerths = 2
 	londonStationPods   = 1
-	// londonParkingBerths and londonParkingPods are the default berth and
-	// pod counts of a Parking facility.
-	londonParkingBerths = 12
-	londonParkingPods   = 6
+	// londonParkingPods is the default pod count of a Parking facility.
+	londonParkingPods = 6
 	// londonBerthPitch is the default distance between two berth rows.
 	londonBerthPitch = 75.0
 	// customCapacitySuffix ends the name of a generated project with other
@@ -42,6 +40,10 @@ const (
 	// or less stays inside its area.
 	londonDepotLength = 200.0
 )
+
+// LondonParkingBerths is the berth count of an ordinary London Parking
+// facility, which has no depot.
+const LondonParkingBerths = 12
 
 //go:embed data/london-tube.json
 var londonSourceJSON []byte
@@ -112,7 +114,8 @@ func LondonCentral() project.Config {
 type LondonOptions struct {
 	// StationBerths is the berth count of each passenger station.
 	StationBerths int
-	// ParkingBerths is the berth count of each Parking facility.
+	// ParkingBerths is the berth count of each Parking facility, or with
+	// depots the slot count of each depot lane.
 	ParkingBerths int
 	// StationPods is the initial pod count of each passenger station.
 	StationPods int
@@ -126,21 +129,21 @@ type LondonOptions struct {
 	// be at least minimumBerthPitch.
 	BerthPitch float64
 	// ParkingLanes is the number of depot lanes of each Parking facility.
-	// Zero keeps the ordinary facilities. With depots, the berth count of
+	// Zero gives the ordinary facilities. With depots, the berth count of
 	// a Parking facility is the slot count of each of its lanes.
 	ParkingLanes int
 	// CompactStations lists the TfL IDs of at most sim.MaxManeuverGroups
 	// passenger stations with the four bays of the compact station in
-	// place of their berth rows. The berth count of such a station sets
-	// only its shape in the heading search. With a Compact station, each
-	// pod is Compact.
+	// place of their berth rows. An empty list gives ordinary stations.
+	// The berth count of such a station sets only its shape in the heading
+	// search. With a Compact station, each pod is Compact.
 	CompactStations []string
 }
 
 // DefaultLondonCentralOptions returns the options of the London preset.
 func DefaultLondonCentralOptions() LondonOptions {
 	return LondonOptions{
-		StationBerths: londonStationBerths, ParkingBerths: londonParkingBerths,
+		StationBerths: londonStationBerths, ParkingBerths: LondonParkingBerths,
 		StationPods: londonStationPods, ParkingPods: londonParkingPods,
 		BerthPitch: londonBerthPitch,
 	}
@@ -159,10 +162,14 @@ func LondonCentralWith(options LondonOptions) (project.Config, error) {
 	if err != nil {
 		return project.Config{}, err
 	}
-	if capacity.isDefault() {
+	defaults, err := DefaultLondonCentralOptions().resolve(source)
+	if err != nil {
+		return project.Config{}, err
+	}
+	if capacity.equal(defaults) {
 		return LondonCentral(), nil
 	}
-	config, err := londonConfig(source, capacity)
+	config, err := londonConfig(source, capacity, false)
 	if err != nil {
 		return project.Config{}, err
 	}
@@ -205,7 +212,7 @@ func (capacity londonCapacity) depot(index int) (depotLayout, bool) {
 // headings of all sites are those of the ordinary facilities.
 func (capacity londonCapacity) search(index int) int {
 	if _, ok := capacity.depot(index); ok {
-		return londonParkingBerths
+		return LondonParkingBerths
 	}
 	return capacity.berths[index]
 }
@@ -225,22 +232,10 @@ func (capacity londonCapacity) sameLayout(other londonCapacity) bool {
 	return capacity.lanes == other.lanes && slices.Equal(compact(capacity), compact(other))
 }
 
-// isDefault reports whether the capacity is that of the London preset.
-func (capacity londonCapacity) isDefault() bool {
-	if capacity.pitch != londonBerthPitch || !capacity.sameLayout(londonCapacity{}) {
-		return false
-	}
-	passenger := len(capacity.berths) - len(londonParkingFacilities)
-	for index := range capacity.berths {
-		berths, pods := londonStationBerths, londonStationPods
-		if index >= passenger {
-			berths, pods = londonParkingBerths, londonParkingPods
-		}
-		if capacity.berths[index] != berths || capacity.pods[index] != pods {
-			return false
-		}
-	}
-	return true
+// equal reports whether the capacity has the pitch, the berth and pod
+// counts, and the station layouts of the other capacity.
+func (capacity londonCapacity) equal(other londonCapacity) bool {
+	return capacity.pitch == other.pitch && slices.Equal(capacity.berths, other.berths) && slices.Equal(capacity.pods, other.pods) && capacity.sameLayout(other)
 }
 
 // resolve returns the berth and pod counts of each site. It checks the
@@ -350,7 +345,7 @@ func mustLondonConfig() project.Config {
 	if err != nil {
 		panic(err)
 	}
-	config, err := londonConfig(source, capacity)
+	config, err := londonConfig(source, capacity, true)
 	if err != nil {
 		panic(err)
 	}
@@ -358,13 +353,14 @@ func mustLondonConfig() project.Config {
 }
 
 // londonConfig builds and validates the London project with the capacity.
-func londonConfig(source londonSource, capacity londonCapacity) (project.Config, error) {
+// Without defaultCapacity, the project name ends with customCapacitySuffix.
+func londonConfig(source londonSource, capacity londonCapacity, defaultCapacity bool) (project.Config, error) {
 	network, err := londonNetwork(source, capacity)
 	if err != nil {
 		return project.Config{}, err
 	}
 	name := "LondonCentral"
-	if !capacity.isDefault() {
+	if !defaultCapacity {
 		name += customCapacitySuffix
 	}
 	config := project.Config{

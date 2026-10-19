@@ -264,7 +264,7 @@ func TestLondonHasDistributedParking(t *testing.T) {
 		}
 		if station.ParkingOnly {
 			parking++
-			if len(station.Berths) != londonParkingBerths {
+			if len(station.Berths) != LondonParkingBerths {
 				t.Fatalf("parking %q has %d berths", station.Name, len(station.Berths))
 			}
 		}

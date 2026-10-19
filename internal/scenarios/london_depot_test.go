@@ -291,7 +291,7 @@ func TestLondonDepotCapacityIsNotThePreset(t *testing.T) {
 	t.Parallel()
 	for _, preset := range londonVariantPresets {
 		options := preset.options()
-		options.ParkingLanes, options.ParkingBerths = 1, londonParkingBerths
+		options.ParkingLanes, options.ParkingBerths = 1, LondonParkingBerths
 		config, err := preset.build(options)
 		if err != nil {
 			t.Fatal(err)
@@ -338,7 +338,7 @@ func TestLondonDepotAudit(t *testing.T) {
 	layout := depotLayout{lanes: 2, slots: 6}
 	center := sim.Point{X: 5000, Y: 5000}
 	at := func(x, y float64) sim.Point { return sim.Point{X: center.X + x, Y: center.Y + y} }
-	b := londonStationShape{center: center, berths: londonParkingBerths, pitch: londonBerthPitch}
+	b := londonStationShape{center: center, berths: LondonParkingBerths, pitch: londonBerthPitch}
 	t.Run("clear", func(t *testing.T) {
 		t.Parallel()
 		// The diverge node of a is 50 m outside depot lane 2.

@@ -158,7 +158,7 @@ func TestLondonCompactStations(t *testing.T) {
 				options.CompactStations = suggestedCompact(preset)
 				options.ParkingLanes, options.ParkingBerths = lanes, 6
 				if lanes == 0 {
-					options.ParkingBerths = londonParkingBerths
+					options.ParkingBerths = LondonParkingBerths
 				}
 				config, err := preset.build(options)
 				if err != nil {

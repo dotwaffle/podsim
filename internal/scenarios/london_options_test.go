@@ -35,7 +35,7 @@ func TestLondonWithDefaultOptionsIsLondon(t *testing.T) {
 	}
 	// Overrides with the default values also give the preset.
 	options := DefaultLondonCentralOptions()
-	options.Berths = map[string]int{"940GZZLUKSX": londonStationBerths, "parking-west": londonParkingBerths}
+	options.Berths = map[string]int{"940GZZLUKSX": londonStationBerths, "parking-west": LondonParkingBerths}
 	options.Pods = map[string]int{"940GZZLUKSX": londonStationPods}
 	config, err = LondonCentralWith(options)
 	if err != nil {

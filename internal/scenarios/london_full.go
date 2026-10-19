@@ -67,7 +67,7 @@ func LondonFullWith(options LondonOptions) (project.Config, error) {
 	if err != nil {
 		return project.Config{}, err
 	}
-	if capacity.pitch == defaults.pitch && slices.Equal(capacity.berths, defaults.berths) && slices.Equal(capacity.pods, defaults.pods) && capacity.sameLayout(defaults) {
+	if capacity.equal(defaults) {
 		return LondonFull(), nil
 	}
 	return londonFullConfig(source, capacity, false)
