@@ -212,6 +212,16 @@ func TestRunCapacityFlags(t *testing.T) {
 			t.Fatalf("summary = %q", summary)
 		}
 	})
+	t.Run("London Parking lanes", func(t *testing.T) {
+		t.Parallel()
+		config, summary := generate(t, "-preset", "london-central", "-parking-lanes", "2", "-parking-berths", "6", "-berths", "parking-north=9")
+		if len(config.Network.Depots) != 3 || len(config.Network.Depots[1].Lanes) != 2 || len(config.Network.Depots[1].Lanes[0].BerthIDs) != 9 {
+			t.Fatalf("depots %+v", config.Network.Depots)
+		}
+		if !strings.Contains(summary, " parking_berths=42 pods=114 ") || config.Name != "LondonCentral (custom capacity)" {
+			t.Fatalf("summary %q, name %q", summary, config.Name)
+		}
+	})
 	t.Run("berths of single stations", func(t *testing.T) {
 		t.Parallel()
 		config, _ := generate(t, "-preset", "scale100", "-berths", "station-19=8, station-02=2", "-berth-pitch", "68")
@@ -255,7 +265,8 @@ func TestRunRejectsBadCapacityFlags(t *testing.T) {
 		{name: "unknown London station", arguments: []string{"-preset", "london-central", "-berths", "940GZZLUXXX=3"}, err: `unknown London station ID "940GZZLUXXX"`},
 		{name: "pods for a ring", arguments: []string{"-preset", "busy", "-station-pods", "2"}, err: "-station-pods applies only to the London presets"},
 		{name: "Parking pods for the mesh", arguments: []string{"-preset", "scale100", "-parking-pods", "2"}, err: "-parking-pods applies only to the London presets"},
-		{name: "Parking lanes for London", arguments: []string{"-preset", "london-central", "-parking-lanes", "2"}, err: "-parking-lanes applies only to the ring presets"},
+		{name: "negative Parking lanes for London", arguments: []string{"-preset", "london-central", "-parking-lanes", "-1"}, err: "parking lanes must not be negative"},
+		{name: "London depot too long", arguments: []string{"-preset", "london-full", "-parking-lanes", "6"}, err: "West London Parking (parking-west): the depot of 6 lanes of 12 slots is 202.03 meters long, more than 200 meters"},
 		{name: "Parking lanes for the mesh", arguments: []string{"-preset", "scale100", "-parking-lanes", "2"}, err: "parking lanes apply only to a ring"},
 		{name: "Parking lanes for a fixture", arguments: []string{"-preset", "compact-station", "-parking-lanes", "2"}, err: "-parking-lanes does not apply to the compact station fixture"},
 		{name: "pitch below the floor", arguments: []string{"-preset", "london-central", "-berth-pitch", "20"}, err: "berth pitch"},

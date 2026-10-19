@@ -1241,7 +1241,7 @@ A flag that is not on the command line keeps the preset value, so the output wit
 | --- | --- |
 | `-station-berths N` | Set the berths of each passenger station. |
 | `-parking-berths N` | Set the berths of each Parking station. |
-| `-parking-lanes N` | Ring presets only. Make the Parking station a [depot](#parking-depots) with 1 to 8 lanes. `-parking-berths` then sets the slots of each lane. |
+| `-parking-lanes N` | Ring and London presets. Make each Parking station a [depot](#parking-depots) with 1 to 8 lanes. `-parking-berths` then sets the slots of each lane, and `-berths` sets the slots of each lane of one London facility. A London depot is at most 200 meters long. |
 | `-berths ID=N,ID=N` | Set the berths of single stations by station ID, such as `station-19` or the ID of a TfL station. |
 | `-station-pods N` | London presets only. Set the initial pods of each passenger station. |
 | `-parking-pods N` | London presets only. Set the initial pods of each Parking facility. |
