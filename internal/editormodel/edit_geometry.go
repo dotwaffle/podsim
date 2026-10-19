@@ -145,16 +145,22 @@ func decodeGeometryPoint(raw jsontext.Value) (geometryPoint, error) {
 	return geometryPoint{X: number(point["x"]), Y: number(point["y"])}, nil
 }
 
+var errEmptyReference = errors.New("a geometry reference needs a nonempty ID")
+
+func missingItem(key, id string) error {
+	return fmt.Errorf("the %s item %s no longer exists", key, id)
+}
+
 func (g geometryDraft) find(key, id string) (map[string]any, error) {
 	if id == "" {
-		return nil, errors.New("a geometry reference needs a nonempty ID")
+		return nil, errEmptyReference
 	}
 	for _, item := range items(g.network[key]) {
 		if text(member(item, "id")) == id && object(item) != nil {
 			return object(item), nil
 		}
 	}
-	return nil, fmt.Errorf("the %s item %s no longer exists", key, id)
+	return nil, missingItem(key, id)
 }
 
 func (g geometryDraft) point(id string) (geometryPoint, error) {
@@ -162,11 +168,54 @@ func (g geometryDraft) point(id string) (geometryPoint, error) {
 	if err != nil {
 		return geometryPoint{}, err
 	}
+	return nodePoint(node)
+}
+
+func nodePoint(node map[string]any) (geometryPoint, error) {
 	position := object(node["position"])
 	if !finite(position["x"]) || !finite(position["y"]) {
 		return geometryPoint{}, errors.New("the node needs finite coordinates")
 	}
 	return geometryPoint{number(position["x"]), number(position["y"])}, nil
+}
+
+// geometryIndex holds the nodes and the lanes of a network by ID. For a
+// network that does not change, its find and point give the results of
+// the geometryDraft methods without a scan. The first item with an ID
+// wins, as in find. An item that is not an object has no ID, and find
+// refuses the empty ID first.
+type geometryIndex map[string]map[string]map[string]any
+
+func newGeometryIndex(network map[string]any) geometryIndex {
+	index := make(geometryIndex, 2)
+	for _, key := range []string{"nodes", "lanes"} {
+		byID := make(map[string]map[string]any, len(items(network[key])))
+		for _, item := range items(network[key]) {
+			if id := text(member(item, "id")); byID[id] == nil {
+				byID[id] = object(item)
+			}
+		}
+		index[key] = byID
+	}
+	return index
+}
+
+func (x geometryIndex) find(key, id string) (map[string]any, error) {
+	if id == "" {
+		return nil, errEmptyReference
+	}
+	if item := x[key][id]; item != nil {
+		return item, nil
+	}
+	return nil, missingItem(key, id)
+}
+
+func (x geometryIndex) point(id string) (geometryPoint, error) {
+	node, err := x.find("nodes", id)
+	if err != nil {
+		return geometryPoint{}, err
+	}
+	return nodePoint(node)
 }
 
 func (g geometryDraft) allIDs() map[string]bool {

@@ -410,19 +410,20 @@ func (g geometryDraft) validateBankChanges(original map[string]any) error {
 		return err
 	}
 	clearance, oldClearance := newDraftClearance(g.network), newDraftClearance(original)
+	index, oldIndex := newGeometryIndex(g.network), newGeometryIndex(original)
 	for _, lane := range items(g.network["lanes"]) {
-		before, _ := old.find("lanes", text(member(lane, "id")))
+		before, _ := oldIndex.find("lanes", text(member(lane, "id")))
 		from, to := text(member(lane, "from")), text(member(lane, "to"))
-		a, err := g.point(from)
+		a, err := index.point(from)
 		if err != nil {
 			return err
 		}
-		b, err := g.point(to)
+		b, err := index.point(to)
 		if err != nil {
 			return err
 		}
-		oldA, _ := old.point(from)
-		oldB, _ := old.point(to)
+		oldA, _ := oldIndex.point(from)
+		oldB, _ := oldIndex.point(to)
 		minimum := clearance.laneMinimum(lane)
 		// A speed edit on a nearby lane can raise the minimum of a lane
 		// whose own geometry did not change.
