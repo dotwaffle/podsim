@@ -236,6 +236,13 @@ project.network.maneuverGroups[].berthIDs array
 project.network.maneuverGroups[].berthIDs[] string
 project.network.maneuverGroups[].reverseLaneIDs array
 project.network.maneuverGroups[].reverseLaneIDs[] string
+project.network.depots array
+project.network.depots[] object
+project.network.depots[].station string
+project.network.depots[].lanes array
+project.network.depots[].lanes[] object
+project.network.depots[].lanes[].berthIDs array
+project.network.depots[].lanes[].berthIDs[] string
 project.fleet array
 project.fleet[] object
 project.fleet[].class string

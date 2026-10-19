@@ -227,13 +227,15 @@ func boundsTopology(t *testing.T, topology TopologySnapshot) TopologySnapshot {
 	return topology
 }
 
-// boundsGroups gives network a maneuver group with one element in each of
-// its arrays. The decoders bound the arrays and do not validate the group.
+// boundsGroups gives network a maneuver group and a depot with one element
+// in each of their arrays. The decoders bound the arrays and do not
+// validate the group or the depot.
 func boundsGroups(network sim.Network) sim.Network {
 	network = project.CloneNetwork(network)
 	station := network.Stations[0]
 	lane := network.Lanes[0].ID
 	network.ManeuverGroups = []sim.ManeuverGroup{{ID: "bounds-group", StationID: station.ID, LaneIDs: []string{lane}, BerthIDs: []string{station.Berths[0].ID}, ReverseLaneIDs: []string{lane}}}
+	network.Depots = []sim.Depot{{Station: station.ID, Lanes: []sim.DepotLane{{BerthIDs: []string{station.Berths[0].ID}}}}}
 	return network
 }
 

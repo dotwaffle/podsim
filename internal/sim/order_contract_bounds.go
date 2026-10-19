@@ -52,7 +52,7 @@ func validateContractFleetBounds(network Network, placements []Placement, contra
 }
 
 // validateContractNetworkRecords checks the nodes, then the lanes, then
-// each station with its berths and banks.
+// each station with its berths and banks. Last, it refuses depots.
 func validateContractNetworkRecords(network Network) error {
 	nodes, err := contractNodeSet(network.Nodes)
 	if err != nil {
@@ -67,6 +67,9 @@ func validateContractNetworkRecords(network Network) error {
 		if err := validateContractStation(st, nodes); err != nil {
 			return err
 		}
+	}
+	if len(network.Depots) > 0 {
+		return errors.New("the Express order contract does not allow depots")
 	}
 	return nil
 }

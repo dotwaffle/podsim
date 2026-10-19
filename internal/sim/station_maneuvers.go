@@ -41,13 +41,14 @@ func inferStationLaneRoles(n *Network) {
 			}
 		}
 		for _, berth := range station.Berths {
-			arrival, err := n.routeIndexed(networkRouteInput{class: topologyClass, from: station.Entry, to: berth.Node, forbidden: forbidden}, graph)
+			berthForbidden := n.depotForbidden(forbidden, berth.ID)
+			arrival, err := n.routeIndexed(networkRouteInput{class: topologyClass, from: station.Entry, to: berth.Node, forbidden: berthForbidden}, graph)
 			if err == nil {
 				for _, lane := range arrival {
 					setStationLaneRole(n, graph, grouped, lane.ID, station.ID, StationBerthAccessRole)
 				}
 			}
-			departure, err := n.routeIndexed(networkRouteInput{class: topologyClass, from: berth.Node, to: station.Exit, forbidden: forbidden}, graph)
+			departure, err := n.routeIndexed(networkRouteInput{class: topologyClass, from: berth.Node, to: station.Exit, forbidden: berthForbidden}, graph)
 			if err == nil {
 				for _, lane := range departure {
 					setStationLaneRole(n, graph, grouped, lane.ID, station.ID, StationDepartureRole)

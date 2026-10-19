@@ -23,15 +23,25 @@ type bankAudit struct {
 	retention *laneRetention
 	maneuvers *maneuverIndex
 	certified certifiedPairs
+	depots    *depotIndex
 }
 
 // ValidateBankGeometry audits nonincident paths affected by banks, large
-// classes or maneuver groups. Shared endpoints remain subject to ordinary
-// junction resource control.
+// classes, maneuver groups or depots. Shared endpoints remain subject to
+// ordinary junction resource control.
 func (n Network) ValidateBankGeometry() error {
 	var audit bankAudit
-	if n.hasStationBanks() || len(n.ManeuverGroups) > 0 {
+	if n.hasStationBanks() || len(n.ManeuverGroups) > 0 || len(n.Depots) > 0 {
 		audit.retention = newLaneRetention(n, indexGeometryTails(n))
+	}
+	if len(n.Depots) > 0 {
+		nodes, err := n.validateNodes()
+		if err != nil {
+			return err
+		}
+		if audit.depots, err = newDepotIndex(n, nodes); err != nil {
+			return err
+		}
 	}
 	if len(n.ManeuverGroups) > 0 {
 		nodes, err := n.validateNodes()
@@ -54,11 +64,12 @@ func (n Network) ValidateBankGeometry() error {
 // Clearance. With a maneuver group, the audit checks each pair, as with
 // banks. It skips the certified pairs, two lanes of one group, which one
 // pod at a time uses, and a lane of a closed bay chain with its own berth,
-// which the chain cells hold.
+// which the chain cells hold. With a depot and no bank or group, it checks
+// each pair with a depot lane or a slot.
 func (n Network) validateBankGeometry(audit bankAudit) error {
 	retention, maneuvers := audit.retention, audit.maneuvers
 	banks, large, groups := n.hasStationBanks(), n.hasLargeGeometry(), maneuvers != nil
-	if !banks && !large && !groups {
+	if !banks && !large && !groups && audit.depots == nil {
 		return nil
 	}
 	positions := indexNodePositions(n.Nodes)
@@ -117,7 +128,7 @@ func (n Network) validateBankGeometry(audit bankAudit) error {
 			if second.min.X-first.max.X >= scanClearance {
 				break
 			}
-			if !banks && !groups && !first.large && !second.large {
+			if !banks && !groups && !first.large && !second.large && !audit.depots.auditPath(first) && !audit.depots.auditPath(second) {
 				continue
 			}
 			clearance := Clearance

@@ -885,6 +885,20 @@ func TestValidateRefusalOrder(t *testing.T) {
 		{"group_berths", func(config *Config) {
 			config.Network.ManeuverGroups = []sim.ManeuverGroup{{ID: "g", BerthIDs: make([]string, sim.MaxManeuverGroupBerths+1)}}
 		}, fmt.Sprintf(`maneuver group "g" must contain at most %d lanes, %d berths, and %d reverse lanes`, sim.MaxManeuverGroupLanes, sim.MaxManeuverGroupBerths, sim.MaxManeuverGroupLanes)},
+		{"group_arrays_before_depots", func(config *Config) {
+			config.Network.ManeuverGroups = []sim.ManeuverGroup{{ID: "g", BerthIDs: make([]string, sim.MaxManeuverGroupBerths+1)}}
+			config.Network.Depots = make([]sim.Depot, MaxStations+1)
+		}, fmt.Sprintf(`maneuver group "g" must contain at most %d lanes, %d berths, and %d reverse lanes`, sim.MaxManeuverGroupLanes, sim.MaxManeuverGroupBerths, sim.MaxManeuverGroupLanes)},
+		{"depots_before_depot_arrays", func(config *Config) {
+			config.Network.Depots = make([]sim.Depot, MaxStations+1)
+			config.Network.Depots[0].Lanes = make([]sim.DepotLane, sim.MaxDepotLanes+1)
+		}, fmt.Sprintf("network must contain at most %d depots", MaxStations)},
+		{"depot_lanes_before_fleet", func(config *Config) {
+			config.Network.Depots, config.Fleet = []sim.Depot{{Station: "d", Lanes: make([]sim.DepotLane, sim.MaxDepotLanes+1)}}, nil
+		}, fmt.Sprintf(`depot of station "d" must contain at most %d lanes of at most %d berths`, sim.MaxDepotLanes, MaxBerths)},
+		{"depot_slots", func(config *Config) {
+			config.Network.Depots = []sim.Depot{{Station: "d", Lanes: []sim.DepotLane{{BerthIDs: make([]string, MaxBerths+1)}}}}
+		}, fmt.Sprintf(`depot of station "d" must contain at most %d lanes of at most %d berths`, sim.MaxDepotLanes, MaxBerths)},
 		{"fleet_before_party_limit", func(config *Config) { config.Fleet, config.SharedRidePartyLimit = nil, -1 },
 			fmt.Sprintf("fleet must contain 1 to %d pods", MaxPods)},
 		{"party_limit_before_mode", func(config *Config) { config.SharedRidePartyLimit, config.SharedRideMode = -1, "pickups" },
@@ -922,6 +936,13 @@ func TestValidateRefusalOrder(t *testing.T) {
 		{"station_names_before_groups", func(config *Config) {
 			config.Network.Stations[0].Name, config.Network.ManeuverGroups = "Harbor\x7f", []sim.ManeuverGroup{{ID: "g/1"}}
 		}, `name "Harbor\x7f" has a control character or is not UTF-8`},
+		{"group_text_before_depot_text", func(config *Config) {
+			config.Network.ManeuverGroups = []sim.ManeuverGroup{{ID: "g", ReverseLaneIDs: []string{"r/1"}}}
+			config.Network.Depots = []sim.Depot{{Station: "d/1"}}
+		}, `ID "r/1" has a character other than A-Z, a-z, 0-9, '.', '+' or '-'`},
+		{"depot_text_before_fleet", func(config *Config) {
+			config.Network.Depots, config.Fleet[0].ID = []sim.Depot{{Station: "d", Lanes: []sim.DepotLane{{BerthIDs: []string{"b/1"}}}}}, "0 1"
+		}, `ID "b/1" has a character other than A-Z, a-z, 0-9, '.', '+' or '-'`},
 		{"group_text_before_fleet", func(config *Config) {
 			config.Network.ManeuverGroups, config.Fleet[0].ID = []sim.ManeuverGroup{{ID: "g", ReverseLaneIDs: []string{"r/1"}}}, "0 1"
 		}, `ID "r/1" has a character other than A-Z, a-z, 0-9, '.', '+' or '-'`},
@@ -996,5 +1017,23 @@ func TestCloneNetworkManeuverGroups(t *testing.T) {
 	}
 	if CloneNetwork(sim.Network{}).ManeuverGroups != nil {
 		t.Fatal("clone made groups for a network with none")
+	}
+}
+
+// TestCloneNetworkDepots checks that CloneNetwork copies the depots, their
+// lanes and their berth IDs, and keeps nil depots nil.
+func TestCloneNetworkDepots(t *testing.T) {
+	t.Parallel()
+	network := sim.Network{Depots: []sim.Depot{{Station: "s", Lanes: []sim.DepotLane{{BerthIDs: []string{"a", "b"}}}}}}
+	clone := CloneNetwork(network)
+	network.Depots[0].Station = "changed"
+	network.Depots[0].Lanes[0].BerthIDs[0] = "changed"
+	network.Depots[0].Lanes = append(network.Depots[0].Lanes, sim.DepotLane{})
+	want := []sim.Depot{{Station: "s", Lanes: []sim.DepotLane{{BerthIDs: []string{"a", "b"}}}}}
+	if !reflect.DeepEqual(clone.Depots, want) {
+		t.Fatalf("clone depots %+v", clone.Depots)
+	}
+	if CloneNetwork(sim.Network{}).Depots != nil {
+		t.Fatal("clone made depots for a network with none")
 	}
 }

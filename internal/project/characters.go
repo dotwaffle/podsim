@@ -48,9 +48,9 @@ func validateCharacters(config Config) error {
 // ValidateNetworkText checks that each ID of network and of services uses
 // only sim.IDCharacters, and that each station name is UTF-8 text without
 // a control character. It checks the nodes, the lanes, the stations with
-// their berths and banks, the maneuver groups, and then the services. A
-// topology decode uses it for the network and the services that the server
-// sends.
+// their berths and banks, the maneuver groups, the depots, and then the
+// services. A topology decode uses it for the network and the services that
+// the server sends.
 func ValidateNetworkText(network sim.Network, services []sim.ExpressService) error {
 	for _, node := range network.Nodes {
 		if err := checkIDs(node.ID); err != nil {
@@ -73,6 +73,16 @@ func ValidateNetworkText(network sim.Network, services []sim.ExpressService) err
 		}
 		for _, ids := range [][]string{group.LaneIDs, group.BerthIDs, group.ReverseLaneIDs} {
 			if err := checkIDs(ids...); err != nil {
+				return err
+			}
+		}
+	}
+	for _, depot := range network.Depots {
+		if err := checkIDs(depot.Station); err != nil {
+			return err
+		}
+		for _, lane := range depot.Lanes {
+			if err := checkIDs(lane.BerthIDs...); err != nil {
 				return err
 			}
 		}

@@ -108,6 +108,12 @@ func projectArrayLimit(path string) int64 {
 		return sim.MaxManeuverGroupLanes
 	case "/project/network/maneuverGroups/*/berthIDs":
 		return sim.MaxManeuverGroupBerths
+	case "/project/network/depots":
+		return project.MaxStations
+	case "/project/network/depots/*/lanes":
+		return sim.MaxDepotLanes
+	case "/project/network/depots/*/lanes/*/berthIDs":
+		return project.MaxBerths
 	case "/project/fleet":
 		return project.MaxPods
 	case "/project/expressServices":

@@ -45,6 +45,9 @@ type networkIndexes struct {
 	// clears. The bank audit and the safety observation skip them.
 	maneuvers *maneuverIndex
 	certified certifiedPairs
+	// depots holds the depots and their lane paths, or nil when the
+	// network has none.
+	depots *depotIndex
 }
 
 // PrepareNetwork validates and copies network, then builds its immutable indexes.
@@ -65,6 +68,7 @@ type networkPreparation struct {
 	retention *laneRetention
 	maneuvers *maneuverIndex
 	certified certifiedPairs
+	depots    *depotIndex
 }
 
 // prepareNetwork validates network and returns an owned copy. It builds the
@@ -86,7 +90,9 @@ func prepareNetwork(network Network) (networkPreparation, error) {
 	if err != nil {
 		return networkPreparation{}, err
 	}
-	if err := network.validateBankGeometry(bankAudit{retention: retention, maneuvers: maneuvers, certified: certified}); err != nil {
+	// validate checked the depots, so the index has no error.
+	depots, _ := newDepotIndex(owned, indexNodePositions(owned.Nodes))
+	if err := network.validateBankGeometry(bankAudit{retention: retention, maneuvers: maneuvers, certified: certified, depots: depots}); err != nil {
 		return networkPreparation{}, err
 	}
 	for index, lane := range owned.Lanes {
@@ -108,7 +114,7 @@ func prepareNetwork(network Network) (networkPreparation, error) {
 			}
 		}
 	}
-	return networkPreparation{network: owned, graph: graph, retention: retention, maneuvers: maneuvers, certified: certified}, nil
+	return networkPreparation{network: owned, graph: graph, retention: retention, maneuvers: maneuvers, certified: certified, depots: depots}, nil
 }
 
 func validateLargeLaneCells(id string, length float64, count int) error {
@@ -124,7 +130,7 @@ func validateLargeLaneCells(id string, length float64, count int) error {
 func newPreparedNetwork(prepared networkPreparation) *PreparedNetwork {
 	owned := prepared.network
 	p := &PreparedNetwork{
-		network: owned, graph: prepared.graph, retention: prepared.retention, maneuvers: prepared.maneuvers, certified: prepared.certified,
+		network: owned, graph: prepared.graph, retention: prepared.retention, maneuvers: prepared.maneuvers, certified: prepared.certified, depots: prepared.depots,
 		stationIndexes: indexStations(owned), stationForbidden: owned.stationForbidden(),
 		geometry: buildLaneGeometry(owned), junctionConflicts: buildJunctionConflicts(owned),
 		berthResources: indexBerthResources(owned),

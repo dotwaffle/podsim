@@ -294,7 +294,7 @@ func validateIncidentContract(config Config) error {
 }
 
 // validateFormatBounds checks the length of the project name, and then the
-// counts of nodes, lanes, stations, maneuver groups and pods.
+// counts of nodes, lanes, stations, maneuver groups, depots and pods.
 func validateFormatBounds(config Config) error {
 	if strings.TrimSpace(config.Name) == "" || len(config.Name) > MaxNameLength {
 		return fmt.Errorf("project name must contain 1 to %d characters", MaxNameLength)
@@ -309,6 +309,9 @@ func validateFormatBounds(config Config) error {
 		return fmt.Errorf("network must contain 2 to %d stations", MaxStations)
 	}
 	if err := validateManeuverGroupCounts(config.Network.ManeuverGroups); err != nil {
+		return err
+	}
+	if err := validateDepotCounts(config.Network.Depots); err != nil {
 		return err
 	}
 	if len(config.Fleet) == 0 || len(config.Fleet) > MaxPods {
@@ -327,6 +330,20 @@ func validateManeuverGroupCounts(groups []sim.ManeuverGroup) error {
 		if len(group.LaneIDs) > sim.MaxManeuverGroupLanes || len(group.BerthIDs) > sim.MaxManeuverGroupBerths || len(group.ReverseLaneIDs) > sim.MaxManeuverGroupLanes {
 			return fmt.Errorf("maneuver group %s must contain at most %d lanes, %d berths, and %d reverse lanes",
 				quoteID(group.ID), sim.MaxManeuverGroupLanes, sim.MaxManeuverGroupBerths, sim.MaxManeuverGroupLanes)
+		}
+	}
+	return nil
+}
+
+// validateDepotCounts checks the count of depots, and then the counts of
+// the lanes and slots of each depot.
+func validateDepotCounts(depots []sim.Depot) error {
+	if len(depots) > MaxStations {
+		return fmt.Errorf("network must contain at most %d depots", MaxStations)
+	}
+	for _, depot := range depots {
+		if len(depot.Lanes) > sim.MaxDepotLanes || slices.ContainsFunc(depot.Lanes, func(lane sim.DepotLane) bool { return len(lane.BerthIDs) > MaxBerths }) {
+			return fmt.Errorf("depot of station %s must contain at most %d lanes of at most %d berths", quoteID(depot.Station), sim.MaxDepotLanes, MaxBerths)
 		}
 	}
 	return nil
@@ -1033,6 +1050,14 @@ func CloneNetwork(network sim.Network) sim.Network {
 		group.LaneIDs = slices.Clone(group.LaneIDs)
 		group.BerthIDs = slices.Clone(group.BerthIDs)
 		group.ReverseLaneIDs = slices.Clone(group.ReverseLaneIDs)
+	}
+	clone.Depots = slices.Clone(network.Depots)
+	for i := range clone.Depots {
+		depot := &clone.Depots[i]
+		depot.Lanes = slices.Clone(depot.Lanes)
+		for j := range depot.Lanes {
+			depot.Lanes[j].BerthIDs = slices.Clone(depot.Lanes[j].BerthIDs)
+		}
 	}
 	return clone
 }

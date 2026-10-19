@@ -98,12 +98,30 @@ const (
 	MaxManeuverGroupBerths = 8
 )
 
+// Depot makes a parking station a set of parallel queue lanes. Pods park
+// nose to tail in each lane, join the lane with the fewest pods, and leave
+// from the head that waited longest. See validateDepots.
+type Depot struct {
+	Station string      `json:"station"`
+	Lanes   []DepotLane `json:"lanes"`
+}
+
+// DepotLane lists the slots of one queue lane, from the head to the tail.
+// Each slot is a berth of the depot station.
+type DepotLane struct {
+	BerthIDs []string `json:"berthIDs"`
+}
+
+// MaxDepotLanes bounds the lanes of one depot.
+const MaxDepotLanes = 8
+
 // Network describes immutable geometry and connectivity during a run.
 type Network struct {
 	Nodes          []Node          `json:"nodes"`
 	Lanes          []Lane          `json:"lanes"`
 	Stations       []Station       `json:"stations"`
 	ManeuverGroups []ManeuverGroup `json:"maneuverGroups,omitzero" digest:"ext=13"`
+	Depots         []Depot         `json:"depots,omitzero" digest:"ext=14"`
 }
 
 // ErrUnreachable means no directed route connects the requested nodes.
@@ -511,8 +529,8 @@ func routeQueueLess(a, b routeQueueItem) bool {
 
 // validate checks the network in a fixed order: the nodes, the lanes, each
 // station with its berths, the stations of the lanes, the maneuver groups,
-// the station banks, and then the routes through each station with no
-// banks. The first error
+// the depots, the station banks, and then the routes through each station
+// with no banks. The first error
 // is the refusal, so the order is part of the result.
 func (n Network) validate() error {
 	nodes, err := n.validateNodes()
@@ -530,6 +548,9 @@ func (n Network) validate() error {
 		return err
 	}
 	if err := n.validateManeuvers(nodes); err != nil {
+		return err
+	}
+	if err := n.validateDepots(nodes); err != nil {
 		return err
 	}
 	graph := newRouteGraph(n)
@@ -639,16 +660,18 @@ func (n Network) validateStationRoutes(graph routeGraph) error {
 }
 
 // stationRoutesExist reports whether a station has its through lane and
-// the routes to and from each berth, in berth order.
+// the routes to and from each berth, in berth order. A route to or from a
+// depot slot can pass the other slots of its lane (see depotForbidden).
 func (n Network) stationRoutesExist(station Station, forbidden map[string]bool, graph routeGraph, work *routeSearchWork) bool {
 	if !n.connected(station.Entry, station.Exit) {
 		return false
 	}
 	for _, berth := range station.Berths {
-		if _, err := n.routeIndexedWithWork(networkRouteInput{class: topologyClass, from: station.Entry, to: berth.Node, forbidden: forbidden}, graph, work); err != nil {
+		berthForbidden := n.depotForbidden(forbidden, berth.ID)
+		if _, err := n.routeIndexedWithWork(networkRouteInput{class: topologyClass, from: station.Entry, to: berth.Node, forbidden: berthForbidden}, graph, work); err != nil {
 			return false
 		}
-		if _, err := n.routeIndexedWithWork(networkRouteInput{class: topologyClass, from: berth.Node, to: station.Exit, forbidden: forbidden}, graph, work); err != nil {
+		if _, err := n.routeIndexedWithWork(networkRouteInput{class: topologyClass, from: berth.Node, to: station.Exit, forbidden: berthForbidden}, graph, work); err != nil {
 			return false
 		}
 	}
@@ -696,7 +719,21 @@ func (n Network) clone() Network {
 		}
 	}
 	n.ManeuverGroups = cloneManeuverGroups(n.ManeuverGroups)
+	n.Depots = cloneDepots(n.Depots)
 	return n
+}
+
+// cloneDepots copies the depots, their lanes and their berth IDs. A nil
+// slice stays nil, so a network with no depot keeps its encoding.
+func cloneDepots(depots []Depot) []Depot {
+	depots = slices.Clone(depots)
+	for i := range depots {
+		depots[i].Lanes = slices.Clone(depots[i].Lanes)
+		for j := range depots[i].Lanes {
+			depots[i].Lanes[j].BerthIDs = slices.Clone(depots[i].Lanes[j].BerthIDs)
+		}
+	}
+	return depots
 }
 
 // cloneManeuverGroups copies the groups and their ID slices. A nil slice
