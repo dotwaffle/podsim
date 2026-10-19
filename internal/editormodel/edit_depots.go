@@ -19,6 +19,24 @@ func hasDepots(network any) bool {
 	return len(items(member(network, "depots"))) > 0
 }
 
+// validateDraftDepots runs the depot validation of the server on a draft
+// with depots, and returns its error with the prefix of validateBankDraft.
+// A draft that does not decode gets no error here, and validateBankDraft
+// names the decode error.
+func validateDraftDepots(network any) error {
+	if !hasDepots(network) {
+		return nil
+	}
+	typed, err := decodeDraftNetwork(network)
+	if err != nil {
+		return nil //nolint:nilerr // validateBankDraft names the decode error.
+	}
+	if err := typed.ValidateDepots(); err != nil {
+		return fmt.Errorf("validate depots: %w", err)
+	}
+	return nil
+}
+
 // checkDepotEdit refuses a geometry or berth action on a depot station.
 func checkDepotEdit(network any, command geometryEdit) error {
 	if !slices.Contains(depotStationActions, command.Action) {

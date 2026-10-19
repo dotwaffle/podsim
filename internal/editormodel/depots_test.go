@@ -4,11 +4,13 @@ import (
 	"encoding/json"
 	"encoding/json/jsontext"
 	jsonv2 "encoding/json/v2"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/scenarios"
+	"github.com/dotwaffle/podsim/internal/sim"
 )
 
 // queueDraft returns the small ring with a depot of two lanes of three
@@ -158,6 +160,142 @@ func TestDepotNormalize(t *testing.T) {
 		}
 		if !reflect.DeepEqual(member(network, "depots"), member(draft["network"], "depots")) {
 			t.Errorf("depots %v", member(network, "depots"))
+		}
+	}
+}
+
+// queueStation returns the depot station of a draft network.
+func queueStation(t *testing.T, network any) map[string]any {
+	t.Helper()
+	for _, station := range items(member(network, "stations")) {
+		if text(member(station, "id")) == "parking" {
+			return object(station)
+		}
+	}
+	t.Fatal("no depot station")
+	return nil
+}
+
+// queueLane returns a lane of a draft network.
+func queueLane(t *testing.T, network any, id string) map[string]any {
+	t.Helper()
+	for _, lane := range items(member(network, "lanes")) {
+		if text(member(lane, "id")) == id {
+			return object(lane)
+		}
+	}
+	t.Fatalf("no lane %s", id)
+	return nil
+}
+
+// invalidQueueDrafts returns depot drafts that the depot validation of the
+// server refuses, by name.
+func invalidQueueDrafts(t *testing.T) map[string]map[string]any {
+	t.Helper()
+	drafts := make(map[string]map[string]any)
+	add := func(name string, change func(network map[string]any)) {
+		draft := queueDraft(t)
+		change(object(draft["network"]))
+		drafts[name] = draft
+	}
+	add("empty banks", func(network map[string]any) { queueStation(t, network)["banks"] = []any{} })
+	add("malformed banks", func(network map[string]any) {
+		queueStation(t, network)["banks"] = []any{map[string]any{"id": "a"}}
+	})
+	add("berth separation group", func(network map[string]any) {
+		object(items(queueStation(t, network)["berths"])[0])["separationGroup"] = "upper"
+	})
+	add("lane separation group", func(network map[string]any) { queueLane(t, network, "s05-in-1")["separationGroup"] = "upper" })
+	add("partial depot", func(network map[string]any) {
+		lane := object(items(member(items(network["depots"])[0], "lanes"))[0])
+		lane["berthIDs"] = items(lane["berthIDs"])[:2]
+	})
+	add("moved entry", func(network map[string]any) { queueStation(t, network)["entry"] = "s05-lead-1" })
+	add("not parking", func(network map[string]any) { queueStation(t, network)["parkingOnly"] = false })
+	return drafts
+}
+
+// TestDraftClearanceDepotFields checks that the clearance index of a draft
+// copies each member that the depot validation and the lateral index of
+// the server read: the projection equals the server decode except for the
+// members that neither reads. Each draft also gets the same depot result.
+func TestDraftClearanceDepotFields(t *testing.T) {
+	t.Parallel()
+	drafts := invalidQueueDrafts(t)
+	drafts["preset"] = queueDraft(t)
+	// Banks with members, and a null banks member.
+	withBanks := queueDraft(t)
+	queueStation(t, withBanks["network"])["banks"] = []any{map[string]any{"id": "a", "entry": "s05-entry", "exit": "s05-exit", "berthIDs": []any{"parking-1-01"}}}
+	drafts["banks"] = withBanks
+	nullBanks := queueDraft(t)
+	queueStation(t, nullBanks["network"])["banks"] = nil
+	drafts["null banks"] = nullBanks
+	unread := func(network sim.Network) sim.Network {
+		network.ManeuverGroups = nil
+		for i := range network.Stations {
+			network.Stations[i].Name = ""
+		}
+		for i := range network.Lanes {
+			network.Lanes[i].StationID, network.Lanes[i].StationRole = "", ""
+		}
+		return network
+	}
+	for name, draft := range drafts {
+		typed, err := decodeDraftNetwork(draft["network"])
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		projected, ok := draftClearanceNetwork(draft["network"])
+		if !ok {
+			t.Fatalf("%s: no projection", name)
+		}
+		if got, want := unread(projected), unread(typed); !reflect.DeepEqual(got, want) {
+			t.Errorf("%s: the projection drops a member", name)
+		}
+		if got, want := fmt.Sprint(projected.ValidateDepots()), fmt.Sprint(typed.ValidateDepots()); got != want {
+			t.Errorf("%s: projection %s, server %s", name, got, want)
+		}
+	}
+}
+
+// TestDepotDraftServerErrorFirst checks that both editor paths name the
+// depot error of the server for a draft whose depot the server refuses:
+// the geometry edit check before its lane minimums, here with a chain lane
+// shorter than its minimum, and the full validation before its bank
+// checks.
+func TestDepotDraftServerErrorFirst(t *testing.T) {
+	t.Parallel()
+	shorten := func(draft map[string]any) {
+		// Slot 2 of lane 1 moves 0.6 m toward slot 3, so the chain lane
+		// from slot 3 is shorter than its minimum.
+		slot2, slot1 := queueNode(t, draft, "s05-slot-1-02"), queueNode(t, draft, "s05-slot-1-01")
+		for _, axis := range []string{"x", "y"} {
+			slot2[axis] = number(slot2[axis]) - 0.1*(number(slot1[axis])-number(slot2[axis]))
+		}
+	}
+	valid := queueDraft(t)
+	shorten(valid)
+	g := geometryDraft{network: object(valid["network"])}
+	if err := g.validateBankChanges(object(queueDraft(t)["network"])); err == nil || strings.HasPrefix(err.Error(), "validate depots: ") {
+		t.Fatalf("the short chain lane alone: %v", err)
+	}
+	for name, draft := range invalidQueueDrafts(t) {
+		typed, err := decodeDraftNetwork(draft["network"])
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, serverErr := sim.PrepareNetwork(typed)
+		if serverErr == nil || !strings.HasPrefix(serverErr.Error(), "depot station ") {
+			t.Fatalf("%s: server %v", name, serverErr)
+		}
+		want := "validate depots: " + serverErr.Error()
+		if err := validateBankDraft(draft["network"]); err == nil || err.Error() != want {
+			t.Errorf("%s: full validation %v, want %s", name, err, want)
+		}
+		shorten(draft)
+		g := geometryDraft{network: object(draft["network"])}
+		if err := g.validateBankChanges(object(queueDraft(t)["network"])); err == nil || err.Error() != want {
+			t.Errorf("%s: edit check %v, want %s", name, err, want)
 		}
 	}
 }

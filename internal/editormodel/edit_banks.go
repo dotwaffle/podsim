@@ -22,14 +22,32 @@ func hasBanks(network any) bool {
 	return false
 }
 
-func validateBankDraft(network any) error {
+// decodeDraftNetwork decodes a draft network as the server does.
+func decodeDraftNetwork(network any) (sim.Network, error) {
 	raw, err := json.Marshal(network)
 	if err != nil {
-		return fmt.Errorf("encode bank geometry: %w", err)
+		return sim.Network{}, fmt.Errorf("encode bank geometry: %w", err)
 	}
 	var typed sim.Network
 	if err := json.Unmarshal(raw, &typed, json.RejectUnknownMembers(true)); err != nil {
-		return fmt.Errorf("decode bank geometry: %w", err)
+		return sim.Network{}, fmt.Errorf("decode bank geometry: %w", err)
+	}
+	return typed, nil
+}
+
+// validateBankDraft runs the server validation of a draft with banks,
+// large geometry, maneuver groups or depots. For a draft with depots, the
+// depot validation of the server comes before the bank checks, so that a
+// depot station with banks gets the depot error of the server.
+func validateBankDraft(network any) error {
+	typed, err := decodeDraftNetwork(network)
+	if err != nil {
+		return err
+	}
+	if hasDepots(network) {
+		if err := typed.ValidateDepots(); err != nil {
+			return fmt.Errorf("validate depots: %w", err)
+		}
 	}
 	for _, station := range items(member(network, "stations")) {
 		if has(station, "banks") {
@@ -385,6 +403,11 @@ func (g geometryDraft) validateBankChanges(original map[string]any) error {
 				return fmt.Errorf("a berth ID must contain 1 to %d bytes", project.MaxIDLength)
 			}
 		}
+	}
+	// The lane minimums of a depot depend on its depot lanes, so a draft
+	// with a depot that the server refuses names the depot error first.
+	if err := validateDraftDepots(g.network); err != nil {
+		return err
 	}
 	clearance, oldClearance := newDraftClearance(g.network), newDraftClearance(original)
 	for _, lane := range items(g.network["lanes"]) {

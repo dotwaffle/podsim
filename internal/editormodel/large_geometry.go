@@ -42,7 +42,10 @@ func hasManeuverGroups(network any) bool {
 }
 
 // draftClearanceNetwork copies the members of a draft that the index reads.
-// The depots let the index find the chain lanes.
+// The depots let the index find the chain lanes. The station gates, the
+// parking flag, the banks and the separation groups are the other members
+// that the depot validation of the server reads, so that the index
+// accepts the depots of a draft only when the server does.
 func draftClearanceNetwork(network any) (sim.Network, bool) {
 	var typed sim.Network
 	for _, node := range items(member(network, "nodes")) {
@@ -61,13 +64,27 @@ func draftClearanceNetwork(network any) (sim.Network, bool) {
 		if !valid {
 			return sim.Network{}, false
 		}
-		station := sim.Station{ID: text(member(item, "id")), VehicleClasses: classes}
+		station := sim.Station{
+			ID: text(member(item, "id")), VehicleClasses: classes,
+			Entry: text(member(item, "entry")), Exit: text(member(item, "exit")), ParkingOnly: member(item, "parkingOnly") == true,
+		}
+		// A null member decodes to no banks, and an empty array to banks.
+		if member(item, "banks") != nil {
+			station.Banks = []sim.StationBank{}
+			for _, bank := range items(member(item, "banks")) {
+				var ids []string
+				for _, id := range items(member(bank, "berthIDs")) {
+					ids = append(ids, text(id))
+				}
+				station.Banks = append(station.Banks, sim.StationBank{ID: text(member(bank, "id")), Entry: text(member(bank, "entry")), Exit: text(member(bank, "exit")), BerthIDs: ids})
+			}
+		}
 		for _, berth := range items(member(item, "berths")) {
 			classes, valid := draftClassSet(berth)
 			if !valid {
 				return sim.Network{}, false
 			}
-			station.Berths = append(station.Berths, sim.Berth{ID: text(member(berth, "id")), Node: text(member(berth, "node")), VehicleClasses: classes})
+			station.Berths = append(station.Berths, sim.Berth{ID: text(member(berth, "id")), Node: text(member(berth, "node")), VehicleClasses: classes, SeparationGroup: text(member(berth, "separationGroup"))})
 		}
 		typed.Stations = append(typed.Stations, station)
 	}
@@ -90,7 +107,7 @@ func draftClearanceNetwork(network any) (sim.Network, bool) {
 func draftSimLane(item any) (sim.Lane, bool) {
 	classes, valid := draftClassSet(item)
 	lane := sim.Lane{ID: text(member(item, "id")), From: text(member(item, "from")), To: text(member(item, "to")),
-		SpeedLimit: number(member(item, "speedLimit")), VehicleClasses: classes}
+		SpeedLimit: number(member(item, "speedLimit")), VehicleClasses: classes, SeparationGroup: text(member(item, "separationGroup"))}
 	if control := member(item, "control"); control != nil {
 		lane.Control = &sim.Point{X: number(member(control, "x")), Y: number(member(control, "y"))}
 	}

@@ -159,6 +159,17 @@ func (n Network) validateDepots(nodes map[string]Point) error {
 	return err
 }
 
+// ValidateDepots checks the nodes and then the depots of a network, as
+// the network validation of the server does, so that the editor can name
+// the depot error of the server before its own checks.
+func (n Network) ValidateDepots() error {
+	nodes, err := n.validateNodes()
+	if err != nil {
+		return err
+	}
+	return n.validateDepots(nodes)
+}
+
 // newDepotIndex checks the depots of a network, in the order of
 // validateDepots, and returns their index. It returns nil when the network
 // has no depot.
