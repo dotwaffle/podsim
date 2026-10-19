@@ -266,32 +266,17 @@ func (s *Simulation) plannedBerthDetour(rider riderDetour, stops []string, start
 			if accept != nil && !accept(berth) {
 				continue
 			}
-			path, err := s.stationPathForClass(station.berthEntry(berth), berth.Node, start.class)
-			if err != nil {
+			meters, baseline, ok := s.plannedStationMeters(station, berth, start.class, static && rider.destination == "")
+			if !ok {
 				continue
 			}
-			meters := s.lanesMeters(path)
 			arrival := ridden + meters
 			if known {
 				arrival = ridden
 			}
-			legacyDirect := direct + meters
-			if static && rider.destination == "" {
-				// The legacy baseline uses the station path of the static
-				// graph, as routeMetersForClass does.
-				baseline, err := s.stationPathOn(true, station.berthEntry(berth), berth.Node, start.class)
-				if err != nil {
-					continue
-				}
-				legacyDirect = direct + s.lanesMeters(baseline)
-			}
-			ratio := s.plannedArrivalDetour(rider, stop, berth, start.class, arrival, legacyDirect)
+			ratio := s.plannedArrivalDetour(rider, stop, berth, start.class, arrival, direct+baseline)
 			largest, found = max(largest, ratio), true
-			if index+1 < len(stops) {
-				if onward, err := s.stationApproachForStops(berth.Node, stops[index+1:], start.class); err == nil {
-					next = max(next, arrival+s.lanesMeters(onward))
-				}
-			}
+			next = max(next, s.nextStopMeters(berth, stops[index+1:], start.class, arrival))
 		}
 		if !found || index+1 < len(stops) && math.IsInf(next, -1) {
 			return math.Inf(1)
@@ -299,6 +284,41 @@ func (s *Simulation) plannedBerthDetour(rider riderDetour, stops []string, start
 		ridden = next
 	}
 	return largest
+}
+
+// plannedStationMeters returns the length of the station path from the
+// entry of a station to a berth, and the length that the legacy baseline
+// uses. When static is true, the baseline uses the station path of the
+// static graph, as routeMetersForClass does. It reports false when a path
+// does not exist.
+func (s *Simulation) plannedStationMeters(station Station, berth Berth, class VehicleClass, static bool) (meters, baseline float64, ok bool) {
+	path, err := s.stationPathForClass(station.berthEntry(berth), berth.Node, class)
+	if err != nil {
+		return 0, 0, false
+	}
+	meters = s.lanesMeters(path)
+	if !static {
+		return meters, meters, true
+	}
+	staticPath, err := s.stationPathOn(true, station.berthEntry(berth), berth.Node, class)
+	if err != nil {
+		return 0, 0, false
+	}
+	return meters, s.lanesMeters(staticPath), true
+}
+
+// nextStopMeters returns the planned distance to the entry of the first of
+// stops when the pod leaves berth after arrival meters. It returns -Inf
+// when stops is empty or the route does not exist.
+func (s *Simulation) nextStopMeters(berth Berth, stops []string, class VehicleClass, arrival float64) float64 {
+	if len(stops) == 0 {
+		return math.Inf(-1)
+	}
+	onward, err := s.stationApproachForStops(berth.Node, stops, class)
+	if err != nil {
+		return math.Inf(-1)
+	}
+	return arrival + s.lanesMeters(onward)
 }
 
 // routeMetersForClass returns the length of the free-flow route from a
