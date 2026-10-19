@@ -137,6 +137,10 @@ type SavedPod struct {
 	// station to relocate to, a rebalancing pod, or a pod that is not
 	// traveling or departing empty.
 	Released bool `json:"released,omitzero"`
+	// ParkedSince is the tick at which a pod parked in its depot lane. It is
+	// not zero only for a pod idle at a depot slot or that moves up in one
+	// depot lane, and a pod placed in the lane has 0.
+	ParkedSince int64 `json:"parkedSince,omitzero"`
 	// Route holds the lanes that the pod still needs. The route of a traveling
 	// pod starts at the first lane that can still hold a resource, and
 	// RouteIndex and Distance count from the start of that lane.
@@ -346,6 +350,7 @@ var restoreInputChecks = [...]func(RestoreStateInput) error{
 	checkSavedEmergencies,
 	checkSavedServices,
 	checkSavedBankRoutes,
+	checkSavedDepotFields,
 }
 
 func restoreState(input RestoreStateInput, newFleet func() (*Simulation, error)) (*Simulation, RestoreResult, error) {
@@ -517,6 +522,9 @@ func (s *Simulation) exportPod(v *vehicle, limits routeLimits) SavedPod {
 		LaneID:            v.Pod.LaneID, LaneDistance: v.Pod.LaneDistance, Waiting: v.pending >= 0, Released: v.released,
 		Withdrawn: uint8(v.withdrawn), Purpose: uint8(v.op.purpose), Owner: uint8(v.op.owner), Interrupt: v.op.interrupt,
 	}
+	if s.depotParked(v) {
+		pod.ParkedSince = v.parkedSince
+	}
 	for _, rider := range v.Riders {
 		pod.Riders = append(pod.Riders, SavedRequest(rider))
 	}
@@ -599,6 +607,7 @@ func (s *Simulation) savedRun(v *vehicle, start int) (leader *vehicle, skip int,
 // starts at that lane at the latest.
 func (s *Simulation) savedStart(v *vehicle) (start int, offset float64, current int) {
 	start, offset, current = v.savedRouteStart()
+	start, offset = s.depotSavedStart(v, start, offset)
 	if v.follower == 0 {
 		return start, offset, current
 	}
@@ -612,6 +621,20 @@ func (s *Simulation) savedStart(v *vehicle) (start int, offset float64, current 
 		offset = v.blocks.lanes[start].start
 	}
 	return start, offset, current
+}
+
+// depotSavedStart moves the saved route start of v back, in a network with
+// depots, until v is at least the origin tail of the saved route past its
+// start. A restore demotes a pod that is short of that tail on a route that
+// does not start at its origin. A depot lane releases a lane one reduced
+// retention past its end, so the start of savedRouteStart can be short of
+// the origin tail of the next lane.
+func (s *Simulation) depotSavedStart(v *vehicle, start int, offset float64) (int, float64) {
+	for s.depots != nil && start > 0 && v.distance-offset < v.originTailFrom(start) {
+		start--
+		offset = v.blocks.lanes[start].start
+	}
+	return start, offset
 }
 
 // savedRouteStart returns the first route index that a restore of a traveling

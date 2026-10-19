@@ -361,7 +361,7 @@ func (r *physicalRestore) decodePod(index int, saved SavedPod) error {
 		Pod:       Pod{ID: saved.ID, Class: saved.Class, Activity: activity, Occupied: saved.Occupied},
 		Boardings: slices.Clone(saved.Boardings), Stops: slices.Clone(saved.Stops), RelocatingTo: saved.RelocatingTo, Rebalancing: saved.Rebalancing,
 		phaseTicks: saved.PhaseTicks, rebalanceAfter: saved.RebalanceAfter, destinationStation: saved.DestinationStation,
-		pending: -1, reservedThrough: -1, withdrawn: serviceHold(saved.Withdrawn),
+		pending: -1, reservedThrough: -1, withdrawn: serviceHold(saved.Withdrawn), parkedSince: saved.ParkedSince,
 		op: operationalDestination{purpose: opPurpose(saved.Purpose), owner: serviceHold(saved.Owner), interrupt: saved.Interrupt},
 	}
 	if v.op.purpose == opRefuge && activity == Unloading {
@@ -707,8 +707,8 @@ func (r *physicalRestore) checkLinks() error {
 // run must be within the turn. As when a link forms, the rest of both
 // routes and the lanes of both destination stations must have one speed
 // limit, because a pod slows down at once to a lower limit. Last, no lane
-// of the run can be in a maneuver group. It does not check a pod that lost
-// its route.
+// of the run can be in a maneuver group, and then no lane can be a depot
+// lane. It does not check a pod that lost its route.
 func (r *physicalRestore) checkSavedLink(index int) error {
 	v, leader := &r.s.vehicles[index], &r.s.vehicles[r.leaders[index]-1]
 	saved := r.state.Pods[index]
@@ -749,6 +749,9 @@ func (r *physicalRestore) checkSavedLink(index int) error {
 	}
 	if slices.ContainsFunc(v.Route[link.Lane:link.Lane+link.Lanes], func(lane Lane) bool { return r.s.maneuvers.groupLane(lane.ID) }) {
 		return errors.New("the platoon run holds a lane of a maneuver group")
+	}
+	if slices.ContainsFunc(v.Route[link.Lane:link.Lane+link.Lanes], func(lane Lane) bool { return r.s.depots.depotLane(lane.ID) }) {
+		return errors.New("the platoon run holds a lane of a depot")
 	}
 	return nil
 }
@@ -836,12 +839,26 @@ func (r *physicalRestore) placeTravelingPod(index, leader int) (bool, error) {
 		}
 	}
 	through := reservationEnd(&v.blocks, current)
+	// A pod binds its depot slot when its reservation ends at the entry,
+	// and the binding adds the lanes after the entry to its route. Until a
+	// grant takes its slot, its reservation still ends at the entry. The
+	// grant after the entry takes each lane up to the slot.
+	if entry, ok := r.s.depotEntryBlock(v); ok && current <= entry {
+		if saved.ClaimsDestination {
+			through = max(through, reservationEnd(&v.blocks, entry+1))
+		} else {
+			through = min(through, entry)
+		}
+	}
 	if distance < v.originTail() && (v.origin.ID == "" || v.Route[0].From != v.origin.Node) {
 		return false, nil
 	}
 	// A pod that has no berth yet chooses one before it reserves the last
-	// lane, so such a pod with a reservation into its last lane demotes.
-	if lastLane, _ := routeLaneBlocks(&v.blocks, len(v.Route)-1); v.destination.ID == "" && through >= lastLane {
+	// lane, so such a pod with a reservation into its last lane demotes. A
+	// pod that goes to a depot entry binds its slot when it owns the last
+	// cell of the incoming lane, so it stays, and the next bindDepotArrivals
+	// binds it.
+	if lastLane, _ := routeLaneBlocks(&v.blocks, len(v.Route)-1); v.destination.ID == "" && through >= lastLane && !r.s.depotEntryWait(v) {
 		return false, nil
 	}
 	v.distance, v.blockIndex = distance, current
@@ -1002,11 +1019,15 @@ func (v *vehicle) footprint(through int, distance float64) []resource {
 
 // claimDestinations gives each relocating pod the destination claim that it
 // held, when no other pod holds the berth or its node. Route admission still
-// protects a berth without a claim.
+// protects a berth without a claim. A pod bound to a depot slot holds the
+// slot only through its restored reservation, so it gets no claim.
 func (r *physicalRestore) claimDestinations() {
 	for index, saved := range r.state.Pods {
 		v := &r.s.vehicles[index]
 		if r.demoted[index] || !saved.ClaimsDestination || v.RelocatingTo == "" || v.destination.ID == "" {
+			continue
+		}
+		if _, slot := r.s.depots.slot(v.destination.ID); slot {
 			continue
 		}
 		claims := berthResources(v.destination)
@@ -1067,7 +1088,8 @@ func (r *physicalRestore) separate() error {
 // berth take a rider over maxSharedRideDetour, the request goes back to the
 // queue with its party count and the pod waits empty. An empty pod goes to
 // the first free berth in this order: its destination, its origin, a berth
-// of its destination station, then any berth.
+// of its destination station, then any berth. A pod placed at a depot slot
+// parks at the restore tick.
 func (r *physicalRestore) placeDemoted(index int) error {
 	v := &r.s.vehicles[index]
 	emergency := v.op.purpose == opEmergencyUnload
@@ -1105,12 +1127,17 @@ func (r *physicalRestore) placeDemoted(index int) error {
 	v.blocks, v.routeLengths, v.blockStarts, v.terminal = blockList{}, nil, nil, terminalCheck{}
 	v.RelocatingTo, v.Rebalancing, v.released = "", false, false
 	v.origin, v.destination, v.destinationStation = Berth{}, berth, station
+	if _, slot := r.s.depots.slot(berth.ID); slot {
+		v.parkedSince = max(r.s.tick, 1)
+	}
 	return nil
 }
 
+// freeBerth returns the first of candidates that no other pod holds. A
+// depot slot must also be open (see depotSlotOpen).
 func (r *physicalRestore) freeBerth(v *vehicle, candidates []Berth) (Berth, bool) {
 	for _, berth := range candidates {
-		if berth.ID == "" || !r.s.berthAvailableTo(v, berth) {
+		if berth.ID == "" || !r.s.berthAvailableTo(v, berth) || !r.s.depotSlotOpen(v, berth) {
 			continue
 		}
 		claims := berthResources(berth)

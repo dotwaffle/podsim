@@ -907,12 +907,18 @@ func retainedClearance(retention float64) float64 {
 }
 
 func (v *vehicle) originTail() float64 {
+	return v.originTailFrom(0)
+}
+
+// originTailFrom returns originTail for the route of v from the route
+// index lane on.
+func (v *vehicle) originTailFrom(lane int) float64 {
 	minimum := Clearance
 	if largeVehicleClass(v.Pod.Class) {
 		minimum = largeClearance
 	}
-	if len(v.blocks.lanes) > 1 && v.blocks.lanes[0].cells != nil {
-		cells := v.blocks.lanes[0].cells
+	if len(v.blocks.lanes) > lane+1 && v.blocks.lanes[lane].cells != nil {
+		cells := v.blocks.lanes[lane].cells
 		if !largeVehicleClass(v.Pod.Class) {
 			minimum = retainedClearance(cells.retention)
 		}

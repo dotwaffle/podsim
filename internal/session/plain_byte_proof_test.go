@@ -46,7 +46,7 @@ func widestPlainSavedState(t *testing.T) stateFile {
 		Occupied: true, RelocatingTo: id, Rebalancing: true, RebalanceAfter: widest,
 		PhaseTicks: widest, Origin: id, Destination: id, DestinationStation: id,
 		Riders:       slices.Repeat([]sim.SavedRequest{request}, sim.MaxSharedRideParties),
-		RiddenMeters: plainProofFloat, JourneyOrigin: id, ClaimsDestination: true, Released: true,
+		RiddenMeters: plainProofFloat, JourneyOrigin: id, ClaimsDestination: true, Released: true, ParkedSince: widest,
 		Route: indexes, RouteIndex: widest, LaneID: id, LaneDistance: plainProofFloat,
 		Distance: plainProofFloat, Waiting: true, WaitSince: widest,
 		Platoon: &sim.SavedPlatoonLink{Leader: id, Lane: widest, LeaderLane: widest, Lanes: widest, Turn: plainProofFloat, Draining: true},

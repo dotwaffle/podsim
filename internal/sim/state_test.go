@@ -268,6 +268,7 @@ func TestRestoreInputCheckOrder(t *testing.T) {
 		"checkSavedEmergencies",
 		"checkSavedServices",
 		"checkSavedBankRoutes",
+		"checkSavedDepotFields",
 	}
 	var got []string
 	for _, check := range restoreInputChecks {

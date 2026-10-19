@@ -125,6 +125,7 @@ simulation.pods[].riddenMeters number
 simulation.pods[].journeyOrigin string
 simulation.pods[].claimsDestination boolean
 simulation.pods[].released boolean
+simulation.pods[].parkedSince number
 simulation.pods[].route array
 simulation.pods[].route[] number
 simulation.pods[].routeIndex number

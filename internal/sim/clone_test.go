@@ -264,10 +264,10 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		// A restore leaves the dwell latch empty, and the latch finds the
 		// boundary again.
 		"reversal": persistReset,
-		// No save writes the parked tick yet, so a restore orders the
-		// depot heads by lane. The arrival flag lives only from an arrival
-		// to the release at the end of that tick, so no save sees it.
-		"parkedSince": persistReset, "depotArrived": persistReset,
+		// SavedPod has the parked tick. The arrival flag lives only from an
+		// arrival to the release at the end of that tick, so no save sees
+		// it.
+		"parkedSince": persistSave, "depotArrived": persistReset,
 	},
 	reflect.TypeFor[Vehicle](): {
 		"Pod": persistSave, "Riders": persistSave, "Boardings": persistSave, "RiddenMeters": persistDerive, "Stops": persistSave, "Route": persistSave, "Presentation": persistReset,
