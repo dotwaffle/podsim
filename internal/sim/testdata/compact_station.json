@@ -1,0 +1,943 @@
+{
+	"network": {
+		"nodes": [
+			{
+				"id": "entry",
+				"position": {
+					"x": -49.14,
+					"y": -4.008168830740232
+				}
+			},
+			{
+				"id": "hold",
+				"position": {
+					"x": -19.14,
+					"y": -4.008168830740232
+				}
+			},
+			{
+				"id": "receive",
+				"position": {
+					"x": 28.4,
+					"y": -4.008168830740232
+				}
+			},
+			{
+				"id": "exit",
+				"position": {
+					"x": 58.4,
+					"y": -4.008168830740232
+				}
+			},
+			{
+				"id": "branch-1",
+				"position": {
+					"x": -7.130145734696745,
+					"y": -4.008168830740232
+				}
+			},
+			{
+				"id": "bay-1-node-1",
+				"position": {
+					"x": -5.1805840982983185,
+					"y": -3.620733127694332
+				}
+			},
+			{
+				"id": "bay-1-node-2",
+				"position": {
+					"x": -3.527301231745697,
+					"y": -2.5173053950019146
+				}
+			},
+			{
+				"id": "bay-1-node-3",
+				"position": {
+					"x": -2.5132114206539233,
+					"y": -1.5046405432237189
+				}
+			},
+			{
+				"id": "bay-1-node-4",
+				"position": {
+					"x": -1.8439369594113044,
+					"y": -0.9436537173087962
+				}
+			},
+			{
+				"id": "berth-1",
+				"position": {
+					"x": -1.0875693444439796,
+					"y": -0.5071419140888394
+				}
+			},
+			{
+				"id": "branch-2",
+				"position": {
+					"x": -4.09346119233851,
+					"y": -4.008168830740232
+				}
+			},
+			{
+				"id": "bay-2-node-1",
+				"position": {
+					"x": -3.0581382318006156,
+					"y": -3.9004219953306585
+				}
+			},
+			{
+				"id": "bay-2-node-2",
+				"position": {
+					"x": -2.0671878593793327,
+					"y": -3.581799377558709
+				}
+			},
+			{
+				"id": "bay-2-node-3",
+				"position": {
+					"x": 4.814301872038984,
+					"y": -0.551619698303913
+				}
+			},
+			{
+				"id": "berth-2",
+				"position": {
+					"x": 4.9124306555560215,
+					"y": -0.5071419140888389
+				}
+			},
+			{
+				"id": "branch-3",
+				"position": {
+					"x": 1.9065388076614909,
+					"y": -4.008168830740232
+				}
+			},
+			{
+				"id": "bay-3-node-1",
+				"position": {
+					"x": 2.9418617681993853,
+					"y": -3.9004219953306585
+				}
+			},
+			{
+				"id": "bay-3-node-2",
+				"position": {
+					"x": 3.932812140620668,
+					"y": -3.581799377558709
+				}
+			},
+			{
+				"id": "bay-3-node-3",
+				"position": {
+					"x": 10.814301872038985,
+					"y": -0.551619698303913
+				}
+			},
+			{
+				"id": "berth-3",
+				"position": {
+					"x": 10.912430655556022,
+					"y": -0.5071419140888389
+				}
+			},
+			{
+				"id": "branch-4",
+				"position": {
+					"x": 7.906538807661489,
+					"y": -4.008168830740232
+				}
+			},
+			{
+				"id": "bay-4-node-1",
+				"position": {
+					"x": 8.941861768199384,
+					"y": -3.9004219953306585
+				}
+			},
+			{
+				"id": "bay-4-node-2",
+				"position": {
+					"x": 9.932812140620667,
+					"y": -3.581799377558709
+				}
+			},
+			{
+				"id": "bay-4-node-3",
+				"position": {
+					"x": 16.814301872038982,
+					"y": -0.551619698303913
+				}
+			},
+			{
+				"id": "berth-4",
+				"position": {
+					"x": 16.91243065555602,
+					"y": -0.5071419140888389
+				}
+			},
+			{
+				"id": "town-entry",
+				"position": {
+					"x": 84.63,
+					"y": -154.00816883074023
+				}
+			},
+			{
+				"id": "town-exit",
+				"position": {
+					"x": -75.37,
+					"y": -154.00816883074023
+				}
+			},
+			{
+				"id": "town-berth-1",
+				"position": {
+					"x": 4.629999999999999,
+					"y": -274.00816883074026
+				}
+			},
+			{
+				"id": "town-berth-2",
+				"position": {
+					"x": 4.629999999999999,
+					"y": -304.00816883074026
+				}
+			},
+			{
+				"id": "town-berth-3",
+				"position": {
+					"x": 4.629999999999999,
+					"y": -334.00816883074026
+				}
+			}
+		],
+		"lanes": [
+			{
+				"id": "approach",
+				"from": "entry",
+				"to": "hold",
+				"speedLimit": 14
+			},
+			{
+				"id": "bypass",
+				"from": "entry",
+				"to": "exit",
+				"speedLimit": 14,
+				"control": {
+					"x": 4.629999999999999,
+					"y": -36.00816883074023
+				}
+			},
+			{
+				"id": "leave",
+				"from": "receive",
+				"to": "exit",
+				"speedLimit": 14
+			},
+			{
+				"vehicleClasses": [
+					"compact"
+				],
+				"id": "aisle-1",
+				"from": "hold",
+				"to": "branch-1",
+				"speedLimit": 2
+			},
+			{
+				"vehicleClasses": [
+					"compact"
+				],
+				"id": "bay-1-in-1",
+				"from": "branch-1",
+				"to": "bay-1-node-1",
+				"speedLimit": 2,
+				"control": {
+					"x": -6.116867435527405,
+					"y": -4.008168830740232
+				}
+			},
+			{
+				"vehicleClasses": [
+					"compact"
+				],
+				"id": "bay-1-in-2",
+				"from": "bay-1-node-1",
+				"to": "bay-1-node-2",
+				"speedLimit": 2,
+				"control": {
+					"x": -4.244300761069231,
+					"y": -3.233297424648432
+				}
+			},
+			{
+				"vehicleClasses": [
+					"compact"
+				],
+				"id": "bay-1-in-3",
+				"from": "bay-1-node-2",
+				"to": "bay-1-node-3",
+				"speedLimit": 2
+			},
+			{
+				"vehicleClasses": [
+					"compact"
+				],
+				"id": "bay-1-in-4",
+				"from": "bay-1-node-3",
+				"to": "bay-1-node-4",
+				"speedLimit": 2,
+				"control": {
+					"x": -2.203064505327241,
+					"y": -1.1949294342040702
+				}
+			},
+			{
+				"vehicleClasses": [
+					"compact"
+				],
+				"id": "bay-1-in-5",
+				"from": "bay-1-node-4",
+				"to": "berth-1",
+				"speedLimit": 2,
+				"control": {
+					"x": -1.4848094134953678,
+					"y": -0.6923780004135223
+				}
+			},
+			{
+				"vehicleClasses": [
+					"compact"
+				],
+				"id": "bay-1-out-5",
+				"from": "berth-1",
+				"to": "bay-1-node-4",
+				"speedLimit": 2,
+				"control": {
+					"x": -1.4848094134953678,
+					"y": -0.6923780004135223
+				}
+			},
+			{
+				"vehicleClasses": [
+					"compact"
+				],
+				"id": "bay-1-out-4",
+				"from": "bay-1-node-4",
+				"to": "bay-1-node-3",
+				"speedLimit": 2,
+				"control": {
+					"x": -2.203064505327241,
+					"y": -1.1949294342040702
+				}
+			},
+			{
+				"vehicleClasses": [
+					"compact"
+				],
+				"id": "bay-1-out-3",
+				"from": "bay-1-node-3",
+				"to": "bay-1-node-2",
+				"speedLimit": 2
+			},
+			{
+				"vehicleClasses": [
+					"compact"
+				],
+				"id": "bay-1-out-2",
+				"from": "bay-1-node-2",
+				"to": "bay-1-node-1",
+				"speedLimit": 2,
+				"control": {
+					"x": -4.244300761069231,
+					"y": -3.233297424648432
+				}
+			},
+			{
+				"vehicleClasses": [
+					"compact"
+				],
+				"id": "bay-1-out-1",
+				"from": "bay-1-node-1",
+				"to": "branch-1",
+				"speedLimit": 2,
+				"control": {
+					"x": -6.116867435527405,
+					"y": -4.008168830740232
+				}
+			},
+			{
+				"vehicleClasses": [
+					"compact"
+				],
+				"id": "aisle-2",
+				"from": "branch-1",
+				"to": "branch-2",
+				"speedLimit": 2
+			},
+			{
+				"vehicleClasses": [
+					"compact"
+				],
+				"id": "bay-2-in-1",
+				"from": "branch-2",
+				"to": "bay-2-node-1",
+				"speedLimit": 2,
+				"control": {
+					"x": -3.5701930651664813,
+					"y": -4.008168830740232
+				}
+			},
+			{
+				"vehicleClasses": [
+					"compact"
+				],
+				"id": "bay-2-in-2",
+				"from": "bay-2-node-1",
+				"to": "bay-2-node-2",
+				"speedLimit": 2,
+				"control": {
+					"x": -2.5460833984347495,
+					"y": -3.7926751599210853
+				}
+			},
+			{
+				"vehicleClasses": [
+					"compact"
+				],
+				"id": "bay-2-in-3",
+				"from": "bay-2-node-2",
+				"to": "bay-2-node-3",
+				"speedLimit": 2
+			},
+			{
+				"vehicleClasses": [
+					"compact"
+				],
+				"id": "bay-2-in-4",
+				"from": "bay-2-node-3",
+				"to": "berth-2",
+				"speedLimit": 2,
+				"control": {
+					"x": 4.863605813831636,
+					"y": -0.5299093116931257
+				}
+			},
+			{
+				"vehicleClasses": [
+					"compact"
+				],
+				"id": "bay-2-out-4",
+				"from": "berth-2",
+				"to": "bay-2-node-3",
+				"speedLimit": 2,
+				"control": {
+					"x": 4.863605813831636,
+					"y": -0.5299093116931257
+				}
+			},
+			{
+				"vehicleClasses": [
+					"compact"
+				],
+				"id": "bay-2-out-3",
+				"from": "bay-2-node-3",
+				"to": "bay-2-node-2",
+				"speedLimit": 2
+			},
+			{
+				"vehicleClasses": [
+					"compact"
+				],
+				"id": "bay-2-out-2",
+				"from": "bay-2-node-2",
+				"to": "bay-2-node-1",
+				"speedLimit": 2,
+				"control": {
+					"x": -2.5460833984347495,
+					"y": -3.7926751599210853
+				}
+			},
+			{
+				"vehicleClasses": [
+					"compact"
+				],
+				"id": "bay-2-out-1",
+				"from": "bay-2-node-1",
+				"to": "branch-2",
+				"speedLimit": 2,
+				"control": {
+					"x": -3.5701930651664813,
+					"y": -4.008168830740232
+				}
+			},
+			{
+				"vehicleClasses": [
+					"compact"
+				],
+				"id": "aisle-3",
+				"from": "branch-2",
+				"to": "branch-3",
+				"speedLimit": 2
+			},
+			{
+				"vehicleClasses": [
+					"compact"
+				],
+				"id": "bay-3-in-1",
+				"from": "branch-3",
+				"to": "bay-3-node-1",
+				"speedLimit": 2,
+				"control": {
+					"x": 2.4298069348335196,
+					"y": -4.008168830740232
+				}
+			},
+			{
+				"vehicleClasses": [
+					"compact"
+				],
+				"id": "bay-3-in-2",
+				"from": "bay-3-node-1",
+				"to": "bay-3-node-2",
+				"speedLimit": 2,
+				"control": {
+					"x": 3.4539166015652514,
+					"y": -3.7926751599210853
+				}
+			},
+			{
+				"vehicleClasses": [
+					"compact"
+				],
+				"id": "bay-3-in-3",
+				"from": "bay-3-node-2",
+				"to": "bay-3-node-3",
+				"speedLimit": 2
+			},
+			{
+				"vehicleClasses": [
+					"compact"
+				],
+				"id": "bay-3-in-4",
+				"from": "bay-3-node-3",
+				"to": "berth-3",
+				"speedLimit": 2,
+				"control": {
+					"x": 10.863605813831636,
+					"y": -0.5299093116931257
+				}
+			},
+			{
+				"vehicleClasses": [
+					"compact"
+				],
+				"id": "bay-3-out-4",
+				"from": "berth-3",
+				"to": "bay-3-node-3",
+				"speedLimit": 2,
+				"control": {
+					"x": 10.863605813831636,
+					"y": -0.5299093116931257
+				}
+			},
+			{
+				"vehicleClasses": [
+					"compact"
+				],
+				"id": "bay-3-out-3",
+				"from": "bay-3-node-3",
+				"to": "bay-3-node-2",
+				"speedLimit": 2
+			},
+			{
+				"vehicleClasses": [
+					"compact"
+				],
+				"id": "bay-3-out-2",
+				"from": "bay-3-node-2",
+				"to": "bay-3-node-1",
+				"speedLimit": 2,
+				"control": {
+					"x": 3.4539166015652514,
+					"y": -3.7926751599210853
+				}
+			},
+			{
+				"vehicleClasses": [
+					"compact"
+				],
+				"id": "bay-3-out-1",
+				"from": "bay-3-node-1",
+				"to": "branch-3",
+				"speedLimit": 2,
+				"control": {
+					"x": 2.4298069348335196,
+					"y": -4.008168830740232
+				}
+			},
+			{
+				"vehicleClasses": [
+					"compact"
+				],
+				"id": "aisle-4",
+				"from": "branch-3",
+				"to": "branch-4",
+				"speedLimit": 2
+			},
+			{
+				"vehicleClasses": [
+					"compact"
+				],
+				"id": "bay-4-in-1",
+				"from": "branch-4",
+				"to": "bay-4-node-1",
+				"speedLimit": 2,
+				"control": {
+					"x": 8.429806934833518,
+					"y": -4.008168830740232
+				}
+			},
+			{
+				"vehicleClasses": [
+					"compact"
+				],
+				"id": "bay-4-in-2",
+				"from": "bay-4-node-1",
+				"to": "bay-4-node-2",
+				"speedLimit": 2,
+				"control": {
+					"x": 9.45391660156525,
+					"y": -3.7926751599210853
+				}
+			},
+			{
+				"vehicleClasses": [
+					"compact"
+				],
+				"id": "bay-4-in-3",
+				"from": "bay-4-node-2",
+				"to": "bay-4-node-3",
+				"speedLimit": 2
+			},
+			{
+				"vehicleClasses": [
+					"compact"
+				],
+				"id": "bay-4-in-4",
+				"from": "bay-4-node-3",
+				"to": "berth-4",
+				"speedLimit": 2,
+				"control": {
+					"x": 16.863605813831633,
+					"y": -0.5299093116931257
+				}
+			},
+			{
+				"vehicleClasses": [
+					"compact"
+				],
+				"id": "bay-4-out-4",
+				"from": "berth-4",
+				"to": "bay-4-node-3",
+				"speedLimit": 2,
+				"control": {
+					"x": 16.863605813831633,
+					"y": -0.5299093116931257
+				}
+			},
+			{
+				"vehicleClasses": [
+					"compact"
+				],
+				"id": "bay-4-out-3",
+				"from": "bay-4-node-3",
+				"to": "bay-4-node-2",
+				"speedLimit": 2
+			},
+			{
+				"vehicleClasses": [
+					"compact"
+				],
+				"id": "bay-4-out-2",
+				"from": "bay-4-node-2",
+				"to": "bay-4-node-1",
+				"speedLimit": 2,
+				"control": {
+					"x": 9.45391660156525,
+					"y": -3.7926751599210853
+				}
+			},
+			{
+				"vehicleClasses": [
+					"compact"
+				],
+				"id": "bay-4-out-1",
+				"from": "bay-4-node-1",
+				"to": "branch-4",
+				"speedLimit": 2,
+				"control": {
+					"x": 8.429806934833518,
+					"y": -4.008168830740232
+				}
+			},
+			{
+				"vehicleClasses": [
+					"compact"
+				],
+				"id": "aisle-out",
+				"from": "branch-4",
+				"to": "receive",
+				"speedLimit": 2
+			},
+			{
+				"id": "loop-down",
+				"from": "exit",
+				"to": "town-entry",
+				"speedLimit": 14
+			},
+			{
+				"id": "town-through",
+				"from": "town-entry",
+				"to": "town-exit",
+				"speedLimit": 14
+			},
+			{
+				"id": "loop-up",
+				"from": "town-exit",
+				"to": "entry",
+				"speedLimit": 14
+			},
+			{
+				"id": "town-in-1",
+				"from": "town-entry",
+				"to": "town-berth-1",
+				"speedLimit": 14,
+				"control": {
+					"x": 164.63,
+					"y": -214.00816883074023
+				}
+			},
+			{
+				"id": "town-out-1",
+				"from": "town-berth-1",
+				"to": "town-exit",
+				"speedLimit": 14,
+				"control": {
+					"x": -155.37,
+					"y": -214.00816883074023
+				}
+			},
+			{
+				"id": "town-in-2",
+				"from": "town-entry",
+				"to": "town-berth-2",
+				"speedLimit": 14,
+				"control": {
+					"x": 224.63,
+					"y": -229.00816883074023
+				}
+			},
+			{
+				"id": "town-out-2",
+				"from": "town-berth-2",
+				"to": "town-exit",
+				"speedLimit": 14,
+				"control": {
+					"x": -215.37,
+					"y": -229.00816883074023
+				}
+			},
+			{
+				"id": "town-in-3",
+				"from": "town-entry",
+				"to": "town-berth-3",
+				"speedLimit": 14,
+				"control": {
+					"x": 284.63,
+					"y": -244.00816883074023
+				}
+			},
+			{
+				"id": "town-out-3",
+				"from": "town-berth-3",
+				"to": "town-exit",
+				"speedLimit": 14,
+				"control": {
+					"x": -275.37,
+					"y": -244.00816883074023
+				}
+			}
+		],
+		"stations": [
+			{
+				"id": "compact",
+				"name": "Compact bays",
+				"entry": "entry",
+				"exit": "exit",
+				"berths": [
+					{
+						"vehicleClasses": [
+							"compact"
+						],
+						"id": "bay-1",
+						"node": "berth-1"
+					},
+					{
+						"vehicleClasses": [
+							"compact"
+						],
+						"id": "bay-2",
+						"node": "berth-2"
+					},
+					{
+						"vehicleClasses": [
+							"compact"
+						],
+						"id": "bay-3",
+						"node": "berth-3"
+					},
+					{
+						"vehicleClasses": [
+							"compact"
+						],
+						"id": "bay-4",
+						"node": "berth-4"
+					}
+				],
+				"parkingOnly": false
+			},
+			{
+				"id": "town",
+				"name": "Town",
+				"entry": "town-entry",
+				"exit": "town-exit",
+				"berths": [
+					{
+						"id": "town-1",
+						"node": "town-berth-1"
+					},
+					{
+						"id": "town-2",
+						"node": "town-berth-2"
+					},
+					{
+						"id": "town-3",
+						"node": "town-berth-3"
+					}
+				],
+				"parkingOnly": false
+			}
+		],
+		"maneuverGroups": [
+			{
+				"id": "compact-bays",
+				"stationID": "compact",
+				"laneIDs": [
+					"aisle-1",
+					"bay-1-in-1",
+					"bay-1-in-2",
+					"bay-1-in-3",
+					"bay-1-in-4",
+					"bay-1-in-5",
+					"bay-1-out-5",
+					"bay-1-out-4",
+					"bay-1-out-3",
+					"bay-1-out-2",
+					"bay-1-out-1",
+					"aisle-2",
+					"bay-2-in-1",
+					"bay-2-in-2",
+					"bay-2-in-3",
+					"bay-2-in-4",
+					"bay-2-out-4",
+					"bay-2-out-3",
+					"bay-2-out-2",
+					"bay-2-out-1",
+					"aisle-3",
+					"bay-3-in-1",
+					"bay-3-in-2",
+					"bay-3-in-3",
+					"bay-3-in-4",
+					"bay-3-out-4",
+					"bay-3-out-3",
+					"bay-3-out-2",
+					"bay-3-out-1",
+					"aisle-4",
+					"bay-4-in-1",
+					"bay-4-in-2",
+					"bay-4-in-3",
+					"bay-4-in-4",
+					"bay-4-out-4",
+					"bay-4-out-3",
+					"bay-4-out-2",
+					"bay-4-out-1",
+					"aisle-out"
+				],
+				"berthIDs": [
+					"bay-1",
+					"bay-2",
+					"bay-3",
+					"bay-4"
+				],
+				"reverseLaneIDs": [
+					"bay-1-out-5",
+					"bay-1-out-4",
+					"bay-1-out-3",
+					"bay-1-out-2",
+					"bay-1-out-1",
+					"bay-2-out-4",
+					"bay-2-out-3",
+					"bay-2-out-2",
+					"bay-2-out-1",
+					"bay-3-out-4",
+					"bay-3-out-3",
+					"bay-3-out-2",
+					"bay-3-out-1",
+					"bay-4-out-4",
+					"bay-4-out-3",
+					"bay-4-out-2",
+					"bay-4-out-1"
+				]
+			}
+		]
+	},
+	"fleet": [
+		{
+			"class": "compact",
+			"id": "01",
+			"stationID": "compact",
+			"berthID": "bay-1"
+		},
+		{
+			"class": "compact",
+			"id": "02",
+			"stationID": "compact",
+			"berthID": "bay-2"
+		},
+		{
+			"class": "compact",
+			"id": "03",
+			"stationID": "compact",
+			"berthID": "bay-3"
+		},
+		{
+			"class": "compact",
+			"id": "04",
+			"stationID": "town",
+			"berthID": "town-1"
+		},
+		{
+			"class": "compact",
+			"id": "05",
+			"stationID": "town",
+			"berthID": "town-2"
+		},
+		{
+			"class": "compact",
+			"id": "06",
+			"stationID": "town",
+			"berthID": "town-3"
+		}
+	]
+}
