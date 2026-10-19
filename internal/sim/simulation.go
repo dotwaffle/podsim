@@ -687,6 +687,7 @@ func (s *Simulation) SafetyObservation() SafetyObservation {
 	}
 	s.largeSafety(&state)
 	s.chainSafety(&state)
+	s.maneuverSafety(&state)
 	return state
 }
 

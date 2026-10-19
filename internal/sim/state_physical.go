@@ -706,8 +706,9 @@ func (r *physicalRestore) checkLinks() error {
 // the total turn of the route of the pod from its lane to the end of the
 // run must be within the turn. As when a link forms, the rest of both
 // routes and the lanes of both destination stations must have one speed
-// limit, because a pod slows down at once to a lower limit. It does not
-// check a pod that lost its route.
+// limit, because a pod slows down at once to a lower limit. Last, no lane
+// of the run can be in a maneuver group. It does not check a pod that lost
+// its route.
 func (r *physicalRestore) checkSavedLink(index int) error {
 	v, leader := &r.s.vehicles[index], &r.s.vehicles[r.leaders[index]-1]
 	saved := r.state.Pods[index]
@@ -745,6 +746,9 @@ func (r *physicalRestore) checkSavedLink(index int) error {
 	}
 	if limit := v.Route[saved.RouteIndex].SpeedLimit; !r.s.oneSpeedLimit(v, saved.RouteIndex, limit) || !r.s.oneSpeedLimit(leader, ahead, limit) {
 		return errors.New("the routes of the platoon have more than one speed limit")
+	}
+	if slices.ContainsFunc(v.Route[link.Lane:link.Lane+link.Lanes], func(lane Lane) bool { return r.s.maneuvers.groupLane(lane.ID) }) {
+		return errors.New("the platoon run holds a lane of a maneuver group")
 	}
 	return nil
 }

@@ -31,6 +31,10 @@ var topologyJSONLimits = jsonLimits{
 		"/network/stations/*/berths":                  project.MaxBerths,
 		"/network/stations/*/banks":                   sim.MaxStationBanks,
 		"/network/stations/*/banks/*/berthIDs":        project.MaxBerths,
+		"/network/maneuverGroups":                     sim.MaxManeuverGroups,
+		"/network/maneuverGroups/*/laneIDs":           sim.MaxManeuverGroupLanes,
+		"/network/maneuverGroups/*/berthIDs":          sim.MaxManeuverGroupBerths,
+		"/network/maneuverGroups/*/reverseLaneIDs":    sim.MaxManeuverGroupLanes,
 	},
 }
 

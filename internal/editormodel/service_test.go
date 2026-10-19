@@ -343,3 +343,26 @@ func TestServiceRequestContainerBounds(t *testing.T) {
 		}
 	}
 }
+
+func TestServiceRequestManeuverGroupBounds(t *testing.T) {
+	t.Parallel()
+	list := func(count int) string { return "[" + strings.TrimSuffix(strings.Repeat(`"a",`, count), ",") + "]" }
+	for _, envelope := range []string{"project", "patch"} {
+		for _, array := range []struct {
+			container string
+			limit     int
+		}{
+			{`"maneuverGroups":%s`, sim.MaxManeuverGroups},
+			{`"maneuverGroups":[{"laneIDs":%s}]`, sim.MaxManeuverGroupLanes},
+			{`"maneuverGroups":[{"berthIDs":%s}]`, sim.MaxManeuverGroupBerths},
+			{`"maneuverGroups":[{"reverseLaneIDs":%s}]`, sim.MaxManeuverGroupLanes},
+		} {
+			for _, count := range []int{array.limit, array.limit + 1} {
+				request := `{"` + envelope + `":{"network":{` + strings.Replace(array.container, "%s", list(count), 1) + `}}}`
+				if err := scanRequest([]byte(request)); (err == nil) != (count == array.limit) {
+					t.Errorf("%s with %d elements: %v", request[:min(len(request), 60)], count, err)
+				}
+			}
+		}
+	}
+}

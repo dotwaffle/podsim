@@ -14,25 +14,51 @@ type bankAuditPath struct {
 	large     bool
 	locations []SafetyLocation
 	member    auditMember
+	// key is the separation key of the lane or the berth.
+	key separationKey
 }
 
-// ValidateBankGeometry audits nonincident paths affected by banks or large classes.
-// Shared endpoints remain subject to ordinary junction resource control.
+// bankAudit holds the indexes of a network that the bank audit reads.
+type bankAudit struct {
+	retention *laneRetention
+	maneuvers *maneuverIndex
+	certified certifiedPairs
+}
+
+// ValidateBankGeometry audits nonincident paths affected by banks, large
+// classes or maneuver groups. Shared endpoints remain subject to ordinary
+// junction resource control.
 func (n Network) ValidateBankGeometry() error {
-	var retention *laneRetention
-	if n.hasStationBanks() {
-		retention = newLaneRetention(n, indexGeometryTails(n))
+	var audit bankAudit
+	if n.hasStationBanks() || len(n.ManeuverGroups) > 0 {
+		audit.retention = newLaneRetention(n, indexGeometryTails(n))
 	}
-	return n.validateBankGeometry(retention)
+	if len(n.ManeuverGroups) > 0 {
+		nodes, err := n.validateNodes()
+		if err != nil {
+			return err
+		}
+		if audit.maneuvers, err = newManeuverIndex(n, nodes); err != nil {
+			return err
+		}
+		if audit.certified, err = certifyManeuvers(n, audit.maneuvers); err != nil {
+			return err
+		}
+	}
+	return n.validateBankGeometry(audit)
 }
 
-// validateBankGeometry is ValidateBankGeometry with the retention index of
-// the network. Each pair of positions needs the clearance that pairPieces
+// validateBankGeometry is ValidateBankGeometry with the indexes of the
+// network. Each pair of positions needs the clearance that pairPieces
 // gives, so a piece that the safety observation certifies needs less than
-// Clearance.
-func (n Network) validateBankGeometry(retention *laneRetention) error {
-	banks, large := n.hasStationBanks(), n.hasLargeGeometry()
-	if !banks && !large {
+// Clearance. With a maneuver group, the audit checks each pair, as with
+// banks. It skips the certified pairs, two lanes of one group, which one
+// pod at a time uses, and a lane of a closed bay chain with its own berth,
+// which the chain cells hold.
+func (n Network) validateBankGeometry(audit bankAudit) error {
+	retention, maneuvers := audit.retention, audit.maneuvers
+	banks, large, groups := n.hasStationBanks(), n.hasLargeGeometry(), maneuvers != nil
+	if !banks && !large && !groups {
 		return nil
 	}
 	positions := indexNodePositions(n.Nodes)
@@ -41,9 +67,9 @@ func (n Network) validateBankGeometry(retention *laneRetention) error {
 		incident = incidentLanes(n)
 	}
 	paths := make([]bankAuditPath, 0, len(n.Lanes))
-	for _, lane := range n.Lanes {
+	for index, lane := range n.Lanes {
 		points := lanePointsBetween(lane, positions[lane.From], positions[lane.To], make([]Point, 0, 65))
-		path := bankAuditPath{id: lane.ID, location: SafetyLocation{SeparationGroup: lane.SeparationGroup, From: lane.From, To: lane.To}, points: points, min: points[0], max: points[0], large: largeClassSet(lane.VehicleClasses)}
+		path := bankAuditPath{id: lane.ID, location: SafetyLocation{SeparationGroup: lane.SeparationGroup, From: lane.From, To: lane.To}, points: points, min: points[0], max: points[0], large: largeClassSet(lane.VehicleClasses), key: laneKey(index)}
 		path.member = auditMember{spans: retention.laneSpans(lane.ID), speed: lane.SpeedLimit, large: path.large}
 		for index := 1; index < len(points); index++ {
 			path.member.length += pointDistance(points[index-1], points[index])
@@ -57,13 +83,15 @@ func (n Network) validateBankGeometry(retention *laneRetention) error {
 		}
 		paths = append(paths, path)
 	}
+	berthIndex := 0
 	for _, station := range n.Stations {
 		for _, berth := range station.Berths {
 			position, ok := positions[berth.Node]
 			if !ok {
 				return fmt.Errorf("berth %q has an unknown node", berth.ID)
 			}
-			path := bankAuditPath{id: berth.ID, location: SafetyLocation{SeparationGroup: berth.SeparationGroup, From: berth.Node, To: berth.Node}, points: []Point{position, position}, min: position, max: position, large: largeBerth(station, berth)}
+			path := bankAuditPath{id: berth.ID, location: SafetyLocation{SeparationGroup: berth.SeparationGroup, From: berth.Node, To: berth.Node}, points: []Point{position, position}, min: position, max: position, large: largeBerth(station, berth), key: berthKey(berthIndex)}
+			berthIndex++
 			path.member = auditMember{spans: retention.nodeSpans(berth.Node), large: path.large}
 			if large {
 				path.locations = berthGeometryLocations(berth, incident[berth.Node])
@@ -89,14 +117,15 @@ func (n Network) validateBankGeometry(retention *laneRetention) error {
 			if second.min.X-first.max.X >= scanClearance {
 				break
 			}
-			if !banks && !first.large && !second.large {
+			if !banks && !groups && !first.large && !second.large {
 				continue
 			}
 			clearance := Clearance
 			if first.large || second.large {
 				clearance = largeClearance
 			}
-			if first.min.Y-second.max.Y >= clearance || second.min.Y-first.max.Y >= clearance || safetyLocationsShareNode(first.location, second.location) || first.separated(second) {
+			if first.min.Y-second.max.Y >= clearance || second.min.Y-first.max.Y >= clearance || safetyLocationsShareNode(first.location, second.location) || first.separated(second) ||
+				groups && (maneuvers.auditSkips(first, second) || audit.certified.certified(first.key, second.key)) {
 				continue
 			}
 			pieces := retention.pairPieces(first.member, second.member)

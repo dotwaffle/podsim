@@ -137,6 +137,10 @@ type laneCellsInput struct {
 	geometry       *laneGeometry
 	berths         []resource
 	conflicts      []laneConflict
+	// every holds the resources that each cell of the lane holds: the
+	// junction resource of a maneuver group, and the berth of a closed bay
+	// chain.
+	every []resource
 }
 
 // newLaneCells divides a lane into laneBlockCount cells of equal length.
@@ -151,9 +155,13 @@ func newLaneCells(input laneCellsInput) *laneCells {
 	for cell := range count {
 		last := cell == count-1
 		start, end := cellOffset(cell, count, length), cellOffset(cell+1, count, length)
-		resources = resources[:0]
+		resources = append(resources[:0], input.every...)
 		if last {
-			resources = append(resources, input.berths...)
+			for _, berth := range input.berths {
+				if !slices.Contains(resources, berth) {
+					resources = append(resources, berth)
+				}
+			}
 		}
 		if cell == 0 || start < cells.fromTail {
 			resources = append(resources, resource{kind: nodeResource, id: lane.From})
@@ -162,10 +170,11 @@ func newLaneCells(input laneCellsInput) *laneCells {
 			resources = append(resources, resource{kind: nodeResource, id: lane.To})
 		}
 		// A lane has conflicts only at its From and To nodes, so a cell gets
-		// at most two junction resources. Many lanes can conflict with the
-		// lane at one node, but a second copy of a resource does not change
-		// a reservation, so the cell keeps only the first. Thus a cell has
-		// at most six resources.
+		// at most two junction resources from them. Many lanes can conflict
+		// with the lane at one node, but a second copy of a resource does
+		// not change a reservation, so the cell keeps only the first. A
+		// lane of a maneuver group also has the group junction in each
+		// cell.
 		for _, conflict := range input.conflicts {
 			junction := resource{kind: junctionResource, id: conflict.junction}
 			if start < conflict.end && conflict.start < end && !slices.Contains(resources, junction) {
@@ -198,7 +207,7 @@ func indexLaneCells(input laneCellsIndexInput) map[string]*laneCells {
 		cells[lane.ID] = newLaneCells(laneCellsInput{
 			tail: tails[lane.ID].tail, fromTail: tails[lane.ID].fromTail, retention: input.retention.of(lane.ID),
 			lane: lane, length: indexedLaneLength(lane, positions[lane.From], positions[lane.To]), geometry: input.geometry[lane.ID],
-			berths: input.berths[lane.To], conflicts: input.conflicts[lane.ID],
+			berths: input.berths[lane.To], conflicts: input.conflicts[lane.ID], every: input.maneuvers.everyCell(lane.ID),
 		})
 	}
 	return cells
@@ -212,6 +221,7 @@ type laneCellsIndexInput struct {
 	conflicts map[string][]laneConflict
 	berths    map[string][]resource
 	retention *laneRetention
+	maneuvers *maneuverIndex
 }
 
 // routeLaneCells holds the blocks of one lane of a route.
@@ -648,8 +658,9 @@ func compareAdmission(a, b intent, tick int64) int {
 // grant reserves the blocks of an intent up to the end of their conflict
 // zones when no other pod holds a resource of them. A follower that
 // linkedSpan accepts can also reserve a resource that a pod ahead in its
-// platoon holds, except a berth. That pod stays the owner, and the
-// resource passes to the follower when that pod releases it. A request
+// platoon holds, except a berth or the junction of a maneuver group. That
+// pod stays the owner, and the resource passes to the follower when that
+// pod releases it. A request
 // that another pod refuses with its track, node, or junction resource goes
 // to the denied requests of coastCaps. So does a request of a platoon
 // member that holdsPending or returnsToShared refuses: such a pod waits for
@@ -680,7 +691,7 @@ func (s *Simulation) grant(in intent) {
 	for resources := range v.blocks.spanResources(in.block, through+1) {
 		for _, r := range resources {
 			if owner := s.owners[r]; !owner.isZero() && !owner.isPod(v.Pod.ID) &&
-				(!linked || r.kind == berthResource || !s.ownerAheadInPlatoon(v, owner)) {
+				(!linked || r.kind == berthResource || r.kind == junctionResource && s.maneuvers.groupResource(r) || !s.ownerAheadInPlatoon(v, owner)) {
 				s.refuseGrant(v, deniedRequest{in: in, through: through}, r, owner)
 				return
 			}

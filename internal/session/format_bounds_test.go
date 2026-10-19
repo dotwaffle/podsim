@@ -84,6 +84,7 @@ func boundsSaveJSON(t *testing.T, markers contractMarkers) []byte {
 	config.IncidentContract = sim.IncidentV1Contract
 	config.FaultContract, config.Faults = sim.FaultV1Contract, &project.FaultConfig{}
 	config.EmergencyContract, config.Emergencies = sim.EmergencyV1Contract, &project.EmergencyConfig{}
+	config.Network = boundsGroups(config.Network)
 	file.Project = config
 	file.RailConnections = []rail.Connection{{Event: "arrival", Passenger: 1, From: config.Network.Stations[0].ID, To: config.Network.Stations[1].ID, Outcome: "unserved", Reason: "restore-degraded"}}
 	file.Sequences = append(slices.Clone(file.Sequences), savedSequence{Client: "bounds", Sequence: 1})
@@ -222,8 +223,18 @@ func boundsTopology(t *testing.T, topology TopologySnapshot) TopologySnapshot {
 			network.Stations[i].Berths[0].VehicleClasses = classes
 		}
 	}
-	topology.Network = network
+	topology.Network = boundsGroups(network)
 	return topology
+}
+
+// boundsGroups gives network a maneuver group with one element in each of
+// its arrays. The decoders bound the arrays and do not validate the group.
+func boundsGroups(network sim.Network) sim.Network {
+	network = project.CloneNetwork(network)
+	station := network.Stations[0]
+	lane := network.Lanes[0].ID
+	network.ManeuverGroups = []sim.ManeuverGroup{{ID: "bounds-group", StationID: station.ID, LaneIDs: []string{lane}, BerthIDs: []string{station.Berths[0].ID}, ReverseLaneIDs: []string{lane}}}
+	return network
 }
 
 // TestFormatArraysHaveLimits checks that each array of a save, a full

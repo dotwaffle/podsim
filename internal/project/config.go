@@ -294,7 +294,7 @@ func validateIncidentContract(config Config) error {
 }
 
 // validateFormatBounds checks the length of the project name, and then the
-// counts of nodes, lanes, stations and pods.
+// counts of nodes, lanes, stations, maneuver groups and pods.
 func validateFormatBounds(config Config) error {
 	if strings.TrimSpace(config.Name) == "" || len(config.Name) > MaxNameLength {
 		return fmt.Errorf("project name must contain 1 to %d characters", MaxNameLength)
@@ -308,8 +308,26 @@ func validateFormatBounds(config Config) error {
 	if len(config.Network.Stations) < 2 || len(config.Network.Stations) > MaxStations {
 		return fmt.Errorf("network must contain 2 to %d stations", MaxStations)
 	}
+	if err := validateManeuverGroupCounts(config.Network.ManeuverGroups); err != nil {
+		return err
+	}
 	if len(config.Fleet) == 0 || len(config.Fleet) > MaxPods {
 		return fmt.Errorf("fleet must contain 1 to %d pods", MaxPods)
+	}
+	return nil
+}
+
+// validateManeuverGroupCounts checks the count of maneuver groups, and then
+// the counts of the lanes, berths and reverse lanes of each group.
+func validateManeuverGroupCounts(groups []sim.ManeuverGroup) error {
+	if len(groups) > sim.MaxManeuverGroups {
+		return fmt.Errorf("network must contain at most %d maneuver groups", sim.MaxManeuverGroups)
+	}
+	for _, group := range groups {
+		if len(group.LaneIDs) > sim.MaxManeuverGroupLanes || len(group.BerthIDs) > sim.MaxManeuverGroupBerths || len(group.ReverseLaneIDs) > sim.MaxManeuverGroupLanes {
+			return fmt.Errorf("maneuver group %s must contain at most %d lanes, %d berths, and %d reverse lanes",
+				quoteID(group.ID), sim.MaxManeuverGroupLanes, sim.MaxManeuverGroupBerths, sim.MaxManeuverGroupLanes)
+		}
 	}
 	return nil
 }
@@ -1003,6 +1021,13 @@ func CloneNetwork(network sim.Network) sim.Network {
 		for j := range clone.Stations[i].Banks {
 			clone.Stations[i].Banks[j].BerthIDs = slices.Clone(network.Stations[i].Banks[j].BerthIDs)
 		}
+	}
+	clone.ManeuverGroups = slices.Clone(network.ManeuverGroups)
+	for i := range clone.ManeuverGroups {
+		group := &clone.ManeuverGroups[i]
+		group.LaneIDs = slices.Clone(group.LaneIDs)
+		group.BerthIDs = slices.Clone(group.BerthIDs)
+		group.ReverseLaneIDs = slices.Clone(group.ReverseLaneIDs)
 	}
 	return clone
 }

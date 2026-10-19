@@ -226,6 +226,16 @@ project.network.stations[].banks[].entry string
 project.network.stations[].banks[].exit string
 project.network.stations[].banks[].berthIDs array
 project.network.stations[].banks[].berthIDs[] string
+project.network.maneuverGroups array
+project.network.maneuverGroups[] object
+project.network.maneuverGroups[].id string
+project.network.maneuverGroups[].stationID string
+project.network.maneuverGroups[].laneIDs array
+project.network.maneuverGroups[].laneIDs[] string
+project.network.maneuverGroups[].berthIDs array
+project.network.maneuverGroups[].berthIDs[] string
+project.network.maneuverGroups[].reverseLaneIDs array
+project.network.maneuverGroups[].reverseLaneIDs[] string
 project.fleet array
 project.fleet[] object
 project.fleet[].class string

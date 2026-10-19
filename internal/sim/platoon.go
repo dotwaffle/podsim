@@ -482,9 +482,9 @@ func (s *Simulation) extendLink(v, leader *vehicle) {
 // sharedLane reports whether the lane at route index lane of v and the lane
 // at route index leaderLane of leader can join a run. It must be one lane,
 // and both routes must continue after it. It must not be a berth access
-// lane, and it must not start at an entry node of the destination station
-// of either pod, so a run of two pods to one station ends at the entry of
-// that station. An entry lane can join only when its station is the
+// lane or a lane of a maneuver group, and it must not start at an entry
+// node of the destination station of either pod, so a run of two pods to
+// one station ends at the entry of that station. An entry lane can join only when its station is the
 // destination station of both pods. A pod that passes a station thus has
 // no run on its entry lane.
 func (s *Simulation) sharedLane(v, leader *vehicle, lane, leaderLane int) bool {
@@ -492,7 +492,7 @@ func (s *Simulation) sharedLane(v, leader *vehicle, lane, leaderLane int) bool {
 		return false
 	}
 	current := &v.Route[lane]
-	if current.ID != leader.Route[leaderLane].ID || current.StationRole == StationBerthAccessRole {
+	if current.ID != leader.Route[leaderLane].ID || current.StationRole == StationBerthAccessRole || s.maneuvers.groupLane(current.ID) {
 		return false
 	}
 	for _, pod := range [2]*vehicle{v, leader} {

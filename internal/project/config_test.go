@@ -872,6 +872,19 @@ func TestValidateRefusalOrder(t *testing.T) {
 		}, fmt.Sprintf("network must contain 1 to %d lanes", MaxLanes)},
 		{"stations_before_fleet", func(config *Config) { config.Network.Stations, config.Fleet = config.Network.Stations[:1], nil },
 			fmt.Sprintf("network must contain 2 to %d stations", MaxStations)},
+		{"stations_before_groups", func(config *Config) {
+			config.Network.Stations, config.Network.ManeuverGroups = config.Network.Stations[:1], make([]sim.ManeuverGroup, sim.MaxManeuverGroups+1)
+		}, fmt.Sprintf("network must contain 2 to %d stations", MaxStations)},
+		{"groups_before_group_arrays", func(config *Config) {
+			config.Network.ManeuverGroups = make([]sim.ManeuverGroup, sim.MaxManeuverGroups+1)
+			config.Network.ManeuverGroups[0].LaneIDs = make([]string, sim.MaxManeuverGroupLanes+1)
+		}, fmt.Sprintf("network must contain at most %d maneuver groups", sim.MaxManeuverGroups)},
+		{"group_arrays_before_fleet", func(config *Config) {
+			config.Network.ManeuverGroups, config.Fleet = []sim.ManeuverGroup{{ID: "g", ReverseLaneIDs: make([]string, sim.MaxManeuverGroupLanes+1)}}, nil
+		}, fmt.Sprintf(`maneuver group "g" must contain at most %d lanes, %d berths, and %d reverse lanes`, sim.MaxManeuverGroupLanes, sim.MaxManeuverGroupBerths, sim.MaxManeuverGroupLanes)},
+		{"group_berths", func(config *Config) {
+			config.Network.ManeuverGroups = []sim.ManeuverGroup{{ID: "g", BerthIDs: make([]string, sim.MaxManeuverGroupBerths+1)}}
+		}, fmt.Sprintf(`maneuver group "g" must contain at most %d lanes, %d berths, and %d reverse lanes`, sim.MaxManeuverGroupLanes, sim.MaxManeuverGroupBerths, sim.MaxManeuverGroupLanes)},
 		{"fleet_before_party_limit", func(config *Config) { config.Fleet, config.SharedRidePartyLimit = nil, -1 },
 			fmt.Sprintf("fleet must contain 1 to %d pods", MaxPods)},
 		{"party_limit_before_mode", func(config *Config) { config.SharedRidePartyLimit, config.SharedRideMode = -1, "pickups" },
@@ -900,6 +913,12 @@ func TestValidateRefusalOrder(t *testing.T) {
 		{"station_names_before_fleet", func(config *Config) {
 			config.Network.Stations[0].Name, config.Fleet[0].ID = "Harbor\x7f", "0 1"
 		}, `name "Harbor\x7f" has a control character or is not UTF-8`},
+		{"station_names_before_groups", func(config *Config) {
+			config.Network.Stations[0].Name, config.Network.ManeuverGroups = "Harbor\x7f", []sim.ManeuverGroup{{ID: "g/1"}}
+		}, `name "Harbor\x7f" has a control character or is not UTF-8`},
+		{"group_text_before_fleet", func(config *Config) {
+			config.Network.ManeuverGroups, config.Fleet[0].ID = []sim.ManeuverGroup{{ID: "g", ReverseLaneIDs: []string{"r/1"}}}, "0 1"
+		}, `ID "r/1" has a character other than A-Z, a-z, 0-9, '.', '+' or '-'`},
 		{"fleet_before_profiles", func(config *Config) {
 			profile := testDemandProfile()
 			profile.Bands[0].Name = "AM\tpeak"
@@ -954,5 +973,22 @@ func TestValidateRefusalOrder(t *testing.T) {
 				t.Fatalf("got %v, want %q", err, test.want)
 			}
 		})
+	}
+}
+
+// TestCloneNetworkManeuverGroups checks that CloneNetwork copies the
+// maneuver groups and each of their ID slices, and keeps nil groups nil.
+func TestCloneNetworkManeuverGroups(t *testing.T) {
+	t.Parallel()
+	network := sim.Network{ManeuverGroups: []sim.ManeuverGroup{{ID: "g", StationID: "s", LaneIDs: []string{"a"}, BerthIDs: []string{"b"}, ReverseLaneIDs: []string{"r"}}}}
+	clone := CloneNetwork(network)
+	network.ManeuverGroups[0].ID = "changed"
+	network.ManeuverGroups[0].LaneIDs[0], network.ManeuverGroups[0].BerthIDs[0], network.ManeuverGroups[0].ReverseLaneIDs[0] = "changed", "changed", "changed"
+	want := []sim.ManeuverGroup{{ID: "g", StationID: "s", LaneIDs: []string{"a"}, BerthIDs: []string{"b"}, ReverseLaneIDs: []string{"r"}}}
+	if !reflect.DeepEqual(clone.ManeuverGroups, want) {
+		t.Fatalf("clone groups %+v", clone.ManeuverGroups)
+	}
+	if CloneNetwork(sim.Network{}).ManeuverGroups != nil {
+		t.Fatal("clone made groups for a network with none")
 	}
 }

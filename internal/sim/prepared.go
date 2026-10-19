@@ -40,6 +40,11 @@ type networkIndexes struct {
 	// retention holds the reduced retention of the qualifying lanes and
 	// their windows. The lane cells and the safety observation read it.
 	retention *laneRetention
+	// maneuvers holds the maneuver groups, or nil when the network has
+	// none. certified holds the pairs that the maneuver certification
+	// clears. The bank audit and the safety observation skip them.
+	maneuvers *maneuverIndex
+	certified certifiedPairs
 }
 
 // PrepareNetwork validates and copies network, then builds its immutable indexes.
@@ -58,6 +63,8 @@ type networkPreparation struct {
 	network   Network
 	graph     routeGraph
 	retention *laneRetention
+	maneuvers *maneuverIndex
+	certified certifiedPairs
 }
 
 // prepareNetwork validates network and returns an owned copy. It builds the
@@ -73,12 +80,23 @@ func prepareNetwork(network Network) (networkPreparation, error) {
 	graph := newRouteGraph(owned)
 	tails := indexGeometryTails(owned)
 	retention := newLaneRetention(owned, tails)
-	if err := network.validateBankGeometry(retention); err != nil {
+	// validate checked the groups, so the index has no error.
+	maneuvers, _ := newManeuverIndex(owned, indexNodePositions(owned.Nodes))
+	certified, err := certifyManeuvers(owned, maneuvers)
+	if err != nil {
+		return networkPreparation{}, err
+	}
+	if err := network.validateBankGeometry(bankAudit{retention: retention, maneuvers: maneuvers, certified: certified}); err != nil {
 		return networkPreparation{}, err
 	}
 	for index, lane := range owned.Lanes {
 		if bounds := tails[lane.ID]; !finite(bounds.tail) || !finite(bounds.fromTail) {
 			return networkPreparation{}, fmt.Errorf("lane %q has an unsupported large-vehicle path shape", lane.ID)
+		}
+		// A lane of a maneuver group needs only a positive length (see
+		// invalidLane): one pod at a time uses the group.
+		if maneuvers.groupLane(lane.ID) {
+			continue
 		}
 		length, minimum := graph.lengths[index], retention.laneMinimum(lane)
 		if length < minimum {
@@ -90,7 +108,7 @@ func prepareNetwork(network Network) (networkPreparation, error) {
 			}
 		}
 	}
-	return networkPreparation{network: owned, graph: graph, retention: retention}, nil
+	return networkPreparation{network: owned, graph: graph, retention: retention, maneuvers: maneuvers, certified: certified}, nil
 }
 
 func validateLargeLaneCells(id string, length float64, count int) error {
@@ -106,7 +124,7 @@ func validateLargeLaneCells(id string, length float64, count int) error {
 func newPreparedNetwork(prepared networkPreparation) *PreparedNetwork {
 	owned := prepared.network
 	p := &PreparedNetwork{
-		network: owned, graph: prepared.graph, retention: prepared.retention,
+		network: owned, graph: prepared.graph, retention: prepared.retention, maneuvers: prepared.maneuvers, certified: prepared.certified,
 		stationIndexes: indexStations(owned), stationForbidden: owned.stationForbidden(),
 		geometry: buildLaneGeometry(owned), junctionConflicts: buildJunctionConflicts(owned),
 		berthResources: indexBerthResources(owned),
@@ -121,7 +139,7 @@ func newPreparedNetwork(prepared networkPreparation) *PreparedNetwork {
 			p.berthSafety[berth.ID] = SafetyLocation{SeparationGroup: berth.SeparationGroup, From: berth.Node, To: berth.Node}
 		}
 	}
-	p.laneCells = indexLaneCells(laneCellsIndexInput{network: owned, geometry: p.geometry, conflicts: p.junctionConflicts, berths: p.berthResources, retention: p.retention})
+	p.laneCells = indexLaneCells(laneCellsIndexInput{network: owned, geometry: p.geometry, conflicts: p.junctionConflicts, berths: p.berthResources, retention: p.retention, maneuvers: p.maneuvers})
 	p.resourceLanes = indexResourceLanes(owned, p.laneCells)
 	return p
 }

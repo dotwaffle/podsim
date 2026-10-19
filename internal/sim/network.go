@@ -78,11 +78,32 @@ type Station struct {
 	Banks          []StationBank `json:"banks,omitempty"`
 }
 
+// ManeuverGroup holds the lanes and berths of one station area in which
+// pods move one at a time. Each berth of the group has a closed bay chain
+// of group lanes. ReverseLaneIDs holds the lanes on which a pod faces
+// against its direction of travel. See validateManeuvers.
+type ManeuverGroup struct {
+	ID             string   `json:"id"`
+	StationID      string   `json:"stationID"`
+	LaneIDs        []string `json:"laneIDs"`
+	BerthIDs       []string `json:"berthIDs"`
+	ReverseLaneIDs []string `json:"reverseLaneIDs,omitzero"`
+}
+
+// Maneuver group bounds. They bound the groups of a network, and the lanes,
+// berths and reverse lanes of one group.
+const (
+	MaxManeuverGroups      = 8
+	MaxManeuverGroupLanes  = 64
+	MaxManeuverGroupBerths = 8
+)
+
 // Network describes immutable geometry and connectivity during a run.
 type Network struct {
-	Nodes    []Node    `json:"nodes"`
-	Lanes    []Lane    `json:"lanes"`
-	Stations []Station `json:"stations"`
+	Nodes          []Node          `json:"nodes"`
+	Lanes          []Lane          `json:"lanes"`
+	Stations       []Station       `json:"stations"`
+	ManeuverGroups []ManeuverGroup `json:"maneuverGroups,omitzero" digest:"ext=13"`
 }
 
 // ErrUnreachable means no directed route connects the requested nodes.
@@ -489,8 +510,9 @@ func routeQueueLess(a, b routeQueueItem) bool {
 }
 
 // validate checks the network in a fixed order: the nodes, the lanes, each
-// station with its berths, the stations of the lanes, the station banks,
-// and then the routes through each station with no banks. The first error
+// station with its berths, the stations of the lanes, the maneuver groups,
+// the station banks, and then the routes through each station with no
+// banks. The first error
 // is the refusal, so the order is part of the result.
 func (n Network) validate() error {
 	nodes, err := n.validateNodes()
@@ -505,6 +527,9 @@ func (n Network) validate() error {
 		return err
 	}
 	if err := n.validateLaneStations(stations); err != nil {
+		return err
+	}
+	if err := n.validateManeuvers(nodes); err != nil {
 		return err
 	}
 	graph := newRouteGraph(n)
@@ -670,7 +695,20 @@ func (n Network) clone() Network {
 			n.Stations[i].Banks[j].BerthIDs = slices.Clone(n.Stations[i].Banks[j].BerthIDs)
 		}
 	}
+	n.ManeuverGroups = cloneManeuverGroups(n.ManeuverGroups)
 	return n
+}
+
+// cloneManeuverGroups copies the groups and their ID slices. A nil slice
+// stays nil, so a network with no group keeps its encoding.
+func cloneManeuverGroups(groups []ManeuverGroup) []ManeuverGroup {
+	groups = slices.Clone(groups)
+	for i := range groups {
+		groups[i].LaneIDs = slices.Clone(groups[i].LaneIDs)
+		groups[i].BerthIDs = slices.Clone(groups[i].BerthIDs)
+		groups[i].ReverseLaneIDs = slices.Clone(groups[i].ReverseLaneIDs)
+	}
+	return groups
 }
 
 // berth returns the first berth when id is empty.

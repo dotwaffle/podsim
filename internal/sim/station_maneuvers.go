@@ -1,5 +1,7 @@
 package sim
 
+import "slices"
+
 // StationPhase describes a pod's current physical station maneuver.
 type StationPhase string
 
@@ -15,9 +17,19 @@ const (
 )
 
 // inferStationLaneRoles gives legacy station-local paths the same observable
-// roles as new projects. Explicit project roles always win.
+// roles as new projects. Explicit project roles always win. A lane of a
+// maneuver group gets no role: routeStationPhase names its phase.
 func inferStationLaneRoles(n *Network) {
 	graph := newRouteGraph(*n)
+	var grouped map[string]bool
+	for _, group := range n.ManeuverGroups {
+		if grouped == nil {
+			grouped = make(map[string]bool)
+		}
+		for _, id := range group.LaneIDs {
+			grouped[id] = true
+		}
+	}
 	forbidden := n.stationForbidden()
 	for _, station := range n.Stations {
 		if station.Banks != nil {
@@ -25,29 +37,29 @@ func inferStationLaneRoles(n *Network) {
 		}
 		for _, lane := range n.Lanes {
 			if lane.From == station.Entry && lane.To == station.Exit {
-				setStationLaneRole(n, graph, lane.ID, station.ID, StationThroughRole)
+				setStationLaneRole(n, graph, grouped, lane.ID, station.ID, StationThroughRole)
 			}
 		}
 		for _, berth := range station.Berths {
 			arrival, err := n.routeIndexed(networkRouteInput{class: topologyClass, from: station.Entry, to: berth.Node, forbidden: forbidden}, graph)
 			if err == nil {
 				for _, lane := range arrival {
-					setStationLaneRole(n, graph, lane.ID, station.ID, StationBerthAccessRole)
+					setStationLaneRole(n, graph, grouped, lane.ID, station.ID, StationBerthAccessRole)
 				}
 			}
 			departure, err := n.routeIndexed(networkRouteInput{class: topologyClass, from: berth.Node, to: station.Exit, forbidden: forbidden}, graph)
 			if err == nil {
 				for _, lane := range departure {
-					setStationLaneRole(n, graph, lane.ID, station.ID, StationDepartureRole)
+					setStationLaneRole(n, graph, grouped, lane.ID, station.ID, StationDepartureRole)
 				}
 			}
 		}
 	}
 }
 
-func setStationLaneRole(n *Network, graph routeGraph, laneID, stationID string, role StationLaneRole) {
+func setStationLaneRole(n *Network, graph routeGraph, grouped map[string]bool, laneID, stationID string, role StationLaneRole) {
 	index, ok := graph.lanes[laneID]
-	if !ok || n.Lanes[index].StationRole != "" {
+	if !ok || n.Lanes[index].StationRole != "" || grouped[laneID] {
 		return
 	}
 	n.Lanes[index].StationID = stationID
@@ -70,14 +82,18 @@ func (s *Simulation) updateStationPhase(v *vehicle) {
 		return
 	}
 	if !v.stationPhase.valid || v.stationPhase.blockIndex != v.blockIndex {
-		phase, stationID := routeStationPhase(v)
+		phase, stationID := routeStationPhase(v, s.maneuvers)
 		v.stationPhase = stationPhaseCheck{blockIndex: v.blockIndex, phase: phase, stationID: stationID, valid: true}
 	}
 	v.Pod.StationPhase = v.stationPhase.phase
 	v.Pod.ManeuverStationID = v.stationPhase.stationID
 }
 
-func routeStationPhase(v *vehicle) (StationPhase, string) {
+// routeStationPhase returns the phase of the lane that v is in. A lane of a
+// maneuver group with no role is in the run of group lanes at the start of
+// the route, after the origin berth, or in the run at the end, before the
+// route berth. The first is DepartingBerth and the second AccessingBerth.
+func routeStationPhase(v *vehicle, maneuvers *maneuverIndex) (StationPhase, string) {
 	lane := currentManeuverLane(v)
 	if lane == nil {
 		return "", ""
@@ -86,6 +102,15 @@ func routeStationPhase(v *vehicle) (StationPhase, string) {
 		return phase, lane.StationID
 	}
 	index := v.blocks.locate(v.firstBlockForLane(lane.ID), 0)
+	if group, ok := maneuvers.laneGroup(lane.ID); ok && index >= 0 {
+		grouped := func(lane Lane) bool { return maneuvers.groupLane(lane.ID) }
+		switch {
+		case !slices.ContainsFunc(v.Route[:index], func(lane Lane) bool { return !grouped(lane) }):
+			return DepartingBerth, group.StationID
+		case !slices.ContainsFunc(v.Route[index+1:], func(lane Lane) bool { return !grouped(lane) }):
+			return AccessingBerth, group.StationID
+		}
+	}
 	if index >= 0 && index+1 < len(v.Route) {
 		next := v.Route[index+1]
 		if next.StationRole == StationEntryRole || next.StationRole == StationBerthAccessRole {

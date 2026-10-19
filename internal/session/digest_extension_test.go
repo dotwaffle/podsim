@@ -451,4 +451,5 @@ var digestExtensions = []digestExtension{
 	{n: 10, path: "Project.EmergencyContract"},
 	{n: 11, path: "Project.Emergencies"},
 	{n: 12, path: "OrderID"},
+	{n: 13, path: "Project.Network.ManeuverGroups"},
 }
