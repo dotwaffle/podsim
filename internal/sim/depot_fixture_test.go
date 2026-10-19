@@ -8,13 +8,15 @@ import (
 )
 
 // depotLayout describes a test depot that replaces the parking siding of
-// Example. The lanes run west from the entry at (620, 460), each width
-// meters south of the one before it, and pitch meters separate the slots of
-// a lane. A fan of zero gives the shortest fan for the lanes, and a leadOut
-// of zero the shortest lead-out.
+// Example. The lanes run west from the entry at (620, 460). The first lane
+// is Clearance south of the through lane, each other lane width meters
+// south of the one before it, and pitch meters separate the slots of a
+// lane. A fan, a leadIn or a leadOut of zero gives the shortest lane for
+// the layout, and a throat of zero a throat at 5 m/s.
 type depotLayout struct {
 	lanes, slots               int
 	pitch, width, fan, leadOut float64
+	leadIn, throat             float64
 }
 
 // depotSpeed is the depot speed for a 6 m pitch.
@@ -26,17 +28,18 @@ func depotSlotID(lane, slot int) string { return fmt.Sprintf("parking-%d-%d", la
 
 // depotStagger is the distance by which the lead-in of each lane starts
 // east of the lead-in of the lane north of it. The lead-outs end in the
-// same way. Thus a fan or a throat that turns toward the next lane stays
-// more than Clearance from it, also along the polyline of the curve.
+// same way. With lanes Clearance apart, a fan or a throat that turns
+// toward the next lane thus stays more than Clearance from it, also along
+// the polyline of the curve. With lanes closer together, the lateral
+// certification clears those pairs.
 const depotStagger = 1.0
 
 // depotNetwork returns Example with a depot in place of its parking siding.
 // Each fan lane curves from the entry to its lead-in and arrives parallel
 // to the lanes, and each throat lane leaves its lead-out parallel to the
-// lanes. Their curvature keeps them Clearance from the next lane. The
-// lead-in is 2R long for the largest fan turn plus 1 cm, and the shortest
-// lead-out is 2*Clearance long plus 1 cm, or layout.leadOut when it is
-// longer.
+// lanes. With lanes Clearance apart, their curvature keeps them Clearance
+// from the next lane. The shortest lead-in is 2R long for the largest fan
+// turn plus 1 cm, and the shortest lead-out is 2*Clearance long plus 1 cm.
 func depotNetwork(layout depotLayout) Network {
 	example := Example()
 	network := Network{}
@@ -53,10 +56,11 @@ func depotNetwork(layout depotLayout) Network {
 	network.Stations = slices.DeleteFunc(example.Stations, func(station Station) bool { return station.ID == "parking" })
 	entry := Point{X: 620, Y: 460}
 	// A curved fan or throat lane does not qualify, so it needs
-	// 2*Clearance.
-	fan := max(math.Ceil(layout.width*math.Sqrt(2*float64(layout.lanes)))+1, 2*Clearance, layout.fan)
-	turn := math.Atan(2 * layout.width * float64(layout.lanes) / fan)
-	leadIn := 2*reducedRetention(stopDistance(depotSpeed), turn) + 0.01
+	// 2*Clearance. The outer fan ends with a radius of at least Clearance.
+	outer := Clearance + layout.width*float64(layout.lanes-1)
+	fan := max(math.Ceil(math.Sqrt(2*outer*Clearance))+1, 2*Clearance, layout.fan)
+	turn := math.Atan(2 * outer / fan)
+	leadIn := max(2*reducedRetention(stopDistance(depotSpeed), turn)+0.01, layout.leadIn)
 	chain := layout.pitch * float64(layout.slots-1)
 	leadOut := max(layout.leadOut, 2*Clearance+0.01)
 	// The lead-in of lane n starts at start(n), and its lead-out ends at
@@ -80,7 +84,7 @@ func depotNetwork(layout depotLayout) Network {
 		network.Lanes = append(network.Lanes, Lane{ID: id, From: from, To: to, SpeedLimit: speed, Control: control})
 	}
 	for lane := 1; lane <= layout.lanes; lane++ {
-		y := entry.Y + layout.width*float64(lane)
+		y := entry.Y + Clearance + layout.width*float64(lane-1)
 		lead, out := fmt.Sprintf("parking-lead-%d", lane), fmt.Sprintf("parking-tail-%d", lane)
 		head := start(lane) - leadIn - chain
 		addNode(lead, start(lane), y)
@@ -98,7 +102,11 @@ func depotNetwork(layout depotLayout) Network {
 		}
 		addLane(fmt.Sprintf("parking-in-%d", lane), lead, depotSlotID(lane, layout.slots), depotSpeed, nil)
 		addLane(fmt.Sprintf("parking-out-%d", lane), depotSlotID(lane, 1), out, depotSpeed, nil)
-		addLane(fmt.Sprintf("parking-throat-%d", lane), out, "parking-exit", 5, &Point{X: (tail(lane) + exit.X) / 2, Y: y})
+		throat := layout.throat
+		if throat == 0 {
+			throat = 5
+		}
+		addLane(fmt.Sprintf("parking-throat-%d", lane), out, "parking-exit", throat, &Point{X: (tail(lane) + exit.X) / 2, Y: y})
 		depot.Lanes = append(depot.Lanes, DepotLane{BerthIDs: ids})
 	}
 	addLane("parking-through", "parking-entry", "parking-exit", 14, nil)

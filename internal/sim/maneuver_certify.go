@@ -56,17 +56,19 @@ func (c certifiedPairs) certified(a, b separationKey) bool {
 	if c == nil {
 		return false
 	}
-	if b.kind < a.kind || b.kind == a.kind && b.index < a.index {
-		a, b = b, a
-	}
-	return c[[2]separationKey{a, b}]
+	return c[keyPair(a, b)]
 }
 
 func (c certifiedPairs) add(a, b separationKey) {
+	c[keyPair(a, b)] = true
+}
+
+// keyPair returns two keys as a pair, with the lower key first.
+func keyPair(a, b separationKey) [2]separationKey {
 	if b.kind < a.kind || b.kind == a.kind && b.index < a.index {
 		a, b = b, a
 	}
-	c[[2]separationKey{a, b}] = true
+	return [2]separationKey{a, b}
 }
 
 // sweepPose is the rear axle position and the heading of the body.
@@ -369,9 +371,17 @@ func sweepAxes(heading float64) [2]Point {
 
 func dotPoint(p, axis Point) float64 { return p.X*axis.X + p.Y*axis.Y }
 
-func worldCorner(p sweepPose, corner Point) Point {
+// sweepFrame is a pose with the sine and the cosine of its heading.
+type sweepFrame struct{ x, y, s, c float64 }
+
+func frameOf(p sweepPose) sweepFrame {
 	s, c := math.Sincos(p.heading)
-	return Point{X: p.x + corner.X*c - corner.Y*s, Y: p.y + corner.X*s + corner.Y*c}
+	return sweepFrame{x: p.x, y: p.y, s: s, c: c}
+}
+
+// worldCorner returns a corner of a body at the pose of the frame.
+func (f sweepFrame) worldCorner(corner Point) Point {
+	return Point{X: f.x + corner.X*f.c - corner.Y*f.s, Y: f.y + corner.X*f.s + corner.Y*f.c}
 }
 
 // projection is a closed range on an axis.
@@ -392,9 +402,9 @@ func intervalsDisjoint(a, b projection) bool {
 
 func staticProjection(r sweepRectangle, axis Point) projection {
 	low, high := math.Inf(1), math.Inf(-1)
-	pose := sweepPose{x: r.x, y: r.y, heading: r.heading}
+	frame := frameOf(sweepPose{x: r.x, y: r.y, heading: r.heading})
 	for _, corner := range [4]Point{{-r.halfLength, -r.halfWidth}, {r.halfLength, -r.halfWidth}, {r.halfLength, r.halfWidth}, {-r.halfLength, r.halfWidth}} {
-		v := dotPoint(worldCorner(pose, corner), axis)
+		v := dotPoint(frame.worldCorner(corner), axis)
 		low, high = min(low, v), max(high, v)
 	}
 	return padded(low, high)
@@ -406,9 +416,13 @@ func staticProjection(r sweepRectangle, axis Point) projection {
 // circle about the point on the path.
 func movingProjection(step sweepStep, body sweepBody, axis Point, lo, hi float64) projection {
 	low, high := math.Inf(1), math.Inf(-1)
+	var first, last sweepFrame
+	if step.sweep == 0 {
+		first, last = frameOf(step.at(lo)), frameOf(step.at(hi))
+	}
 	for _, corner := range body.corners {
 		if step.sweep == 0 {
-			v0, v1 := dotPoint(worldCorner(step.at(lo), corner), axis), dotPoint(worldCorner(step.at(hi), corner), axis)
+			v0, v1 := dotPoint(first.worldCorner(corner), axis), dotPoint(last.worldCorner(corner), axis)
 			low, high = min(low, v0, v1), max(high, v0, v1)
 			continue
 		}

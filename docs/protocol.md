@@ -560,6 +560,7 @@ A client accepts a `blockedBy` that names a pod or an active fault of the frame.
 `fault` needs one of `podID` and `laneID`, but not both.
 `fromMeters` and `toMeters` go only with `laneID`, and debris needs both.
 Debris blocks each track cell of its lane within 12 m of the segment.
+It also blocks each track cell of a neighboring depot lane that comes closer than 12 m to the segment.
 A cell at a lane end holds the node and the junction resources, so debris near a junction also blocks the lanes that share it.
 A paused session accepts both commands.
 The acknowledgment of a fault command has no `stateSaved`.

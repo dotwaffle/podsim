@@ -533,6 +533,10 @@ Debris never revokes an existing claim: it starts only on resources that are fre
 ### 7.2 Footprint
 
 The footprint `F` of debris on lane `l` with segment `[from, to]` is the union of the resources of each cell of `l` that meets `[from - Clearance, to + Clearance]`.
+`F` also holds the resources of each cell of a lateral neighbor of `l` that comes closer than `Clearance` to the segment.
+A lateral neighbor is a depot lane that the lateral certification pairs with `l` (`internal/sim/depot_lateral.go`), so it can be closer than `Clearance` to `l`.
+The distance test is strict, so a depot with lanes `Clearance` apart has only the cells of `l` in `F`.
+The resources of `l` come first, then the resources of each neighbor in lane order and cell order, with no resource twice.
 The cells come from the shared lane cells (`internal/sim/traffic.go` `newLaneCells`).
 A cell at a lane end includes its node and junction resources (`newLaneCells`), so debris near a junction blocks the junction and each lane that shares it.
 `F` is a function of the network and the segment.
@@ -562,6 +566,7 @@ In this order, with the error of section 12.4, all before the ID is taken and be
 Decision 2 follows from precondition 8.
 A pod can always stop inside its grants, and no pod has a grant in `F`, so no pod has `F` inside its stopping distance.
 The cells of `F` extend `Clearance` past the segment, so a pod that stops at its grant end keeps its clearance from the debris.
+A pod on a lateral neighbor keeps it too, because `F` holds each neighbor cell that comes closer than `Clearance` to the segment.
 
 Precondition 8 refuses more than decision 2 needs: it also refuses a claim beyond the stopping distance.
 This avoids any revocation in stage 2 (product choice P1).
@@ -593,6 +598,7 @@ A saved debris record whose segment fails precondition 5 against the saved proje
 A lane is blocked when any resource of any cell of the lane is in an active fault footprint.
 A berth is blocked when its berth resource or its berth node resource is in an active fault footprint.
 A berth with a faulted pod is therefore blocked, and a lane that shares a junction with a footprint is blocked.
+A lateral neighbor with a cell in a debris footprint (section 7.2) is blocked too.
 
 The simulation keeps a static index from each resource to the lanes whose cells hold it.
 It is built once from the lane cells, with the network indexes (`internal/sim/routes.go` `(*Simulation).ensureNetworkIndexes`), and it is a cache of the network.

@@ -88,15 +88,24 @@ func (s *Simulation) debrisSegment(lane int, from, to float64) ([]resource, erro
 // debrisFootprint returns the footprint of debris on the segment [from,
 // to] of the lane with the index lane (section 7.2 of the incident
 // suspension contract): each resource of each cell of the lane that meets
-// [from - Clearance, to + Clearance]. A cell meets the interval when the
-// closed ranges share a point. A cell at a lane end holds the node and the
-// junction resources, so debris near a junction also blocks the lanes that
-// share it. The footprint is a function of the network and the segment.
+// [from - Clearance, to + Clearance], and then each resource of each cell
+// of a lateral neighbor of the lane that comes closer than Clearance to
+// the segment. A cell meets the interval when the closed ranges share a
+// point. A cell at a lane end holds the node and the junction resources,
+// so debris near a junction also blocks the lanes that share it. The
+// footprint is a function of the network and the segment.
 func (s *Simulation) debrisFootprint(lane int, from, to float64) []resource {
 	cells := s.laneCells[s.network.Lanes[lane].ID]
 	length := s.graph.lengths[lane]
 	low, high := from-Clearance, to+Clearance
 	var footprint []resource
+	add := func(cell []resource) {
+		for _, r := range cell {
+			if !slices.Contains(footprint, r) {
+				footprint = append(footprint, r)
+			}
+		}
+	}
 	count := cells.count()
 	for cell := range count {
 		if cellOffset(cell+1, count, length) < low {
@@ -105,9 +114,22 @@ func (s *Simulation) debrisFootprint(lane int, from, to float64) []resource {
 		if cellOffset(cell, count, length) > high {
 			break
 		}
-		for _, r := range cells.cell(cell) {
-			if !slices.Contains(footprint, r) {
-				footprint = append(footprint, r)
+		add(cells.cell(cell))
+	}
+	neighbors := s.lateral.neighborLanes(lane)
+	if len(neighbors) == 0 {
+		return footprint
+	}
+	// A lateral neighbor can be closer than Clearance to the lane, so its
+	// cells near the segment are in the footprint too.
+	segment := polylinePiece(s.lateral.points[lane], from, to)
+	for _, neighbor := range neighbors {
+		cells, length := s.laneCells[s.network.Lanes[neighbor].ID], s.graph.lengths[neighbor]
+		count := cells.count()
+		for cell := range count {
+			piece := polylinePiece(s.lateral.points[neighbor], cellOffset(cell, count, length), cellOffset(cell+1, count, length))
+			if bankPathsClose(segment, piece, Clearance) {
+				add(cells.cell(cell))
 			}
 		}
 	}

@@ -51,6 +51,9 @@ type networkIndexes struct {
 	// berthKeys holds the separation key index of each berth (see
 	// indexBerthKeys).
 	berthKeys map[string]int
+	// lateral holds the lateral pairs of the depot lanes. The debris
+	// footprint reads it.
+	lateral *depotLateral
 }
 
 // PrepareNetwork validates and copies network, then builds its immutable indexes.
@@ -73,6 +76,7 @@ type networkPreparation struct {
 	certified certifiedPairs
 	depots    *depotIndex
 	berthKeys map[string]int
+	lateral   *depotLateral
 }
 
 // prepareNetwork validates network and returns an owned copy. It builds the
@@ -97,6 +101,7 @@ func prepareNetwork(network Network) (networkPreparation, error) {
 	}
 	// validate checked the depots, so the index has no error.
 	depots, _ := newDepotIndex(owned, indexNodePositions(owned.Nodes))
+	lateral := newDepotLateral(owned, depots, tails, berthKeys)
 	if err := network.validateBankGeometry(bankAudit{retention: retention, maneuvers: maneuvers, certified: certified, depots: depots}); err != nil {
 		return networkPreparation{}, err
 	}
@@ -119,7 +124,7 @@ func prepareNetwork(network Network) (networkPreparation, error) {
 			}
 		}
 	}
-	return networkPreparation{network: owned, graph: graph, retention: retention, maneuvers: maneuvers, certified: certified, depots: depots, berthKeys: berthKeys}, nil
+	return networkPreparation{network: owned, graph: graph, retention: retention, maneuvers: maneuvers, certified: certified, depots: depots, berthKeys: berthKeys, lateral: lateral}, nil
 }
 
 func validateLargeLaneCells(id string, length float64, count int) error {
@@ -136,7 +141,7 @@ func newPreparedNetwork(prepared networkPreparation) *PreparedNetwork {
 	owned := prepared.network
 	p := &PreparedNetwork{
 		network: owned, graph: prepared.graph, retention: prepared.retention, maneuvers: prepared.maneuvers, certified: prepared.certified, depots: prepared.depots,
-		berthKeys:      prepared.berthKeys,
+		berthKeys: prepared.berthKeys, lateral: prepared.lateral,
 		stationIndexes: indexStations(owned), stationForbidden: owned.stationForbidden(),
 		geometry: buildLaneGeometry(owned), junctionConflicts: buildJunctionConflicts(owned),
 		berthResources: indexBerthResources(owned),
