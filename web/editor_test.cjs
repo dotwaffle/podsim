@@ -873,6 +873,31 @@ test("a fixture test skips without Go unless PODSIM_REQUIRE_GO is 1", () => {
   for (const item of cases) assert.deepEqual(fixtureOptions(item.hasGo, item.env), { skip: item.skip }, item.name);
 });
 
+// londonCompactStations holds the suggested Compact stations of LondonFull.
+// LondonCentral has the first seven.
+const londonCompactStations = ["940GZZLURGP", "940GZZLULBN", "940GZZLULGT", "940GZZLUERB", "940GZZLUBWT", "940GZZLUHPC", "940GZZLUBOR", "940GZZDLTWG"];
+
+test("London projects with depots and Compact stations keep their scenario through import and export", needsGo, () => {
+  const cases = [
+    ["london-central"],
+    ["london-central", "-parking-lanes", "2", "-parking-berths", "6", "-compact-stations", londonCompactStations.slice(0, 7).join(",")],
+    ["london-full"],
+    ["london-full", "-parking-lanes", "2", "-parking-berths", "6", "-compact-stations", londonCompactStations.join(",")],
+  ];
+  for (const flags of cases) {
+    const name = flags.join(" ");
+    const config = generatedProject(...flags);
+    const groups = flags.includes("-compact-stations") ? (flags[0] === "london-full" ? 8 : 7) : 0;
+    assert.equal((config.network.depots ?? []).length, groups ? 3 : 0, `${name} depots`);
+    assert.equal((config.network.maneuverGroups ?? []).length, groups, `${name} groups`);
+    const imported = editor.parseDocument(generatedFile(...flags)).scenario;
+    assert.deepEqual(imported, config, `${name} import`);
+    const exported = editor.serializeDocument(imported);
+    assert.equal(exported, JSON.stringify({ format: "podsim", version: 1, scenario: config }), `${name} export`);
+    assert.deepEqual(editor.parseDocument(exported).scenario, config, `${name} import of the export`);
+  }
+});
+
 test("each station shape on the generated london project holds its station nodes", needsGo, () => {
   const config = generatedProject("london-central");
   const owners = editor.stationNodeOwners(config); const pad = editor.STATION_PADDING;

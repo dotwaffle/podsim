@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/project"
+	"github.com/dotwaffle/podsim/internal/sim"
 )
 
 func TestRunWritesRawProjectConfig(t *testing.T) {
@@ -222,6 +223,24 @@ func TestRunCapacityFlags(t *testing.T) {
 			t.Fatalf("summary %q, name %q", summary, config.Name)
 		}
 	})
+	t.Run("London Compact stations", func(t *testing.T) {
+		t.Parallel()
+		// The suggested stations on the untouched LondonFull defaults,
+		// which give each station a berth count.
+		ids := "940GZZLURGP, 940GZZLULBN,940GZZLULGT,940GZZLUERB,940GZZLUBWT,940GZZLUHPC,940GZZLUBOR,940GZZDLTWG"
+		config, _ := generate(t, "-preset", "london-full", "-compact-stations", ids, "-parking-lanes", "2", "-parking-berths", "6")
+		if len(config.Network.ManeuverGroups) != 8 || len(config.Network.Depots) != 3 || berthCount(t, config, "940GZZLURGP") != 4 {
+			t.Fatalf("%d groups, %d depots, %d Regent's Park berths", len(config.Network.ManeuverGroups), len(config.Network.Depots), berthCount(t, config, "940GZZLURGP"))
+		}
+		for _, pod := range config.Fleet {
+			if pod.Class != sim.CompactClass {
+				t.Fatalf("pod %s has the class %q", pod.ID, pod.Class)
+			}
+		}
+		if config.Name != "LondonFull (custom capacity)" {
+			t.Fatalf("name %q", config.Name)
+		}
+	})
 	t.Run("berths of single stations", func(t *testing.T) {
 		t.Parallel()
 		config, _ := generate(t, "-preset", "scale100", "-berths", "station-19=8, station-02=2", "-berth-pitch", "68")
@@ -269,6 +288,11 @@ func TestRunRejectsBadCapacityFlags(t *testing.T) {
 		{name: "London depot too long", arguments: []string{"-preset", "london-full", "-parking-lanes", "6"}, err: "West London Parking (parking-west): the depot of 6 lanes of 12 slots is 202.03 meters long, more than 200 meters"},
 		{name: "Parking lanes for the mesh", arguments: []string{"-preset", "scale100", "-parking-lanes", "2"}, err: "parking lanes apply only to a ring"},
 		{name: "Parking lanes for a fixture", arguments: []string{"-preset", "compact-station", "-parking-lanes", "2"}, err: "-parking-lanes does not apply to the compact station fixture"},
+		{name: "Compact stations for a ring", arguments: []string{"-preset", "busy", "-compact-stations", "s01"}, err: "-compact-stations applies only to the London presets"},
+		{name: "Compact stations for a fixture", arguments: []string{"-preset", "compact-station", "-compact-stations", "compact"}, err: "-compact-stations does not apply to the compact station fixture"},
+		{name: "empty Compact station", arguments: []string{"-preset", "london-central", "-compact-stations", "940GZZLURGP,,940GZZLUBOR"}, err: `-compact-stations item "" has no station ID`},
+		{name: "berths of a Compact station", arguments: []string{"-preset", "london-full", "-compact-stations", "940GZZLUBOR,940GZZLURGP", "-berths", "940GZZLURGP=2"}, err: `-berths names Compact station "940GZZLURGP", which has the 4 bays of the compact station`},
+		{name: "Parking as a Compact station", arguments: []string{"-preset", "london-central", "-compact-stations", "parking-west"}, err: "West London Parking (parking-west) is a Parking facility, not a passenger station for Compact bays"},
 		{name: "pitch below the floor", arguments: []string{"-preset", "london-central", "-berth-pitch", "20"}, err: "berth pitch"},
 		{name: "layout conflict", arguments: []string{"-preset", "london-central", "-berths", "940GZZLUEMB=3"}, err: "Embankment (940GZZLUEMB)"},
 	}

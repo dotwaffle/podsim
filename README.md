@@ -1246,6 +1246,7 @@ A flag that is not on the command line keeps the preset value, so the output wit
 | `-station-pods N` | London presets only. Set the initial pods of each passenger station. |
 | `-parking-pods N` | London presets only. Set the initial pods of each Parking facility. |
 | `-berth-pitch M` | Set the distance in meters between two berths of a station. The minimum is 25. |
+| `-compact-stations ID,ID` | London presets only. Give at most 8 passenger stations the four bays of the [compact station](#compact-bays). Each pod is then Compact. `-berths` must not name such a station. |
 
 A ring station has a 30-meter pitch, and a `scale100`, `london-central`, or `london-full` station has a 75-meter pitch.
 The ring and `scale100` presets put the initial pods round robin on the passenger stations, and a full station gets no more pods.
