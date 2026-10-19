@@ -1670,6 +1670,7 @@ An operational target cannot be a depot station.
 The browser editor keeps the depots of a project, but it cannot make a depot.
 It refuses each station action that changes the geometry or the berths of a depot station.
 A project with a depot gets the full network validation of the server in the editor.
+The editor runs the depot validation of the server first, so an invalid depot draft gets the server depot error, not a lane gap or bank error.
 The `-parking-lanes` flag of the scenario command makes a ring with a depot (see [generated scenarios](#generated-scenarios)).
 
 #### Idle pods

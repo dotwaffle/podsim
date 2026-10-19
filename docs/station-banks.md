@@ -81,6 +81,14 @@ The ring depots of the generated scenarios put the first lane 12 meters from the
 Their run lanes and throats run at 2 m/s.
 This is the highest 0.1 m/s step at or below 2.3 m/s that the audit accepts for every legal layout.
 
+A follow-up tried to win back depot exit time by letting the throats run fast.
+Nested throats converge on the exit and never get 12 meters apart.
+Only the first and the outer lane can run fast, and only after their run lanes climb outward.
+On 8 lanes, lane 1 went from 44 to 32 s and lane 8 from 62 to 43 s, while the six middle lanes got 3 to 4 s slower.
+The average gain is about 1.3 s.
+The outer lane moved out from 54 to 66 meters, and the overload results did not change.
+The change was not adopted.
+
 ## Formats and restore
 
 Projects use version 1 with or without `banks`.

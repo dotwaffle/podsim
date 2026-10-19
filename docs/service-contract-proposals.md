@@ -40,8 +40,10 @@ Approve these data and compatibility rules as one foundation:
   Its window of lanes has no lane that admits a large class and no geometry tail, one incoming and one outgoing lane at each inner node, a total turn of at most 90 degrees, and a reduced retention below 12 meters.
   The window runs from the upstream braking reach to twice the clearance past the end of the lane.
   There, the follower keeps `4 + min(8, 1 + 2u)` meters behind the pod ahead, where `u` is the braking distance of the follower at its speed.
+  Two small pods on a certified lateral pair of depot lanes (`internal/sim/depot_lateral.go`) keep `W(v) = 3.1 + v²/2` meters, where `v` is the higher lane limit of the pair.
+  That rule assumes guideway-bound pods: a pod stays within 0.25 meters of its lane and follows its heading.
   Every other pair of small pods keeps 12 meters, and a pair with a large pod keeps 20 meters.
-  Debris clearance stays 12 meters.
+  Debris clearance stays 12 meters, and debris on a depot lane also blocks the cells of the neighbor depot lanes within 12 meters.
   Group has an approved physical profile (`internal/sim/vehicle_class.go`).
   Express needs an approved physical profile, through the `express-v1` contract, before placement, simulation start, or restore.
   Do not reuse ordinary legacy links for a larger body without a separately qualified class certificate.
