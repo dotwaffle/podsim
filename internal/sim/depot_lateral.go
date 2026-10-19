@@ -341,14 +341,14 @@ func sweepEnclosed(first []sweepStep, step sweepStep, body sweepBody, lo, hi flo
 	}
 	*visits++
 	obstacle := sweepEnclosure(step, body, lo, hi)
-	axes := sweepAxes(obstacle.heading)
+	shape := newSweepObstacle(obstacle)
 	status := sweepClear
 	var open []sweepStep
 	for _, other := range first {
-		if sweepFar(other, body, obstacle, axes) {
+		if sweepFar(other, body, obstacle, shape.axes) {
 			continue
 		}
-		if result := sweepOne(other, body, obstacle, options, visits); result != sweepClear {
+		if result := sweepOne(other, body, &shape, options, visits); result != sweepClear {
 			status = max(status, result)
 			open = append(open, other)
 		}

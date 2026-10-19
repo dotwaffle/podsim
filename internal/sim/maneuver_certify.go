@@ -282,8 +282,9 @@ func rotation(at Point, from, to float64) sweepStep {
 // one obstacle. The steps share the work allowance.
 func sweepSteps(steps []sweepStep, body sweepBody, obstacle sweepRectangle, options sweepOptions) sweepStatus {
 	visits := 0
+	shape := newSweepObstacle(obstacle)
 	for _, step := range steps {
-		if status := sweepOne(step, body, obstacle, options, &visits); status != sweepClear {
+		if status := sweepOne(step, body, &shape, options, &visits); status != sweepClear {
 			return status
 		}
 	}
@@ -294,7 +295,7 @@ func sweepSteps(steps []sweepStep, body sweepBody, obstacle sweepRectangle, opti
 // step until each interval is separated, a pose touches the obstacle, an
 // interval reaches the tolerance or the depth limit, or the work allowance
 // ends.
-func sweepOne(step sweepStep, body sweepBody, obstacle sweepRectangle, options sweepOptions, visits *int) sweepStatus {
+func sweepOne(step sweepStep, body sweepBody, obstacle *sweepObstacle, options sweepOptions, visits *int) sweepStatus {
 	for _, fraction := range [2]float64{0, 1} {
 		if !sweepSeparated(step, body, obstacle, fraction, fraction) {
 			return sweepCollision
@@ -338,11 +339,12 @@ func sweepOne(step sweepStep, body sweepBody, obstacle sweepRectangle, options s
 // sweepSeparated reports whether a separating axis of the body at the
 // middle of the interval or of the obstacle separates the body over the
 // interval from the obstacle.
-func sweepSeparated(step sweepStep, body sweepBody, obstacle sweepRectangle, lo, hi float64) bool {
+func sweepSeparated(step sweepStep, body sweepBody, obstacle *sweepObstacle, lo, hi float64) bool {
 	mid := step.at((lo + hi) / 2)
-	for _, heading := range [2]float64{mid.heading, obstacle.heading} {
-		for _, axis := range sweepAxes(heading) {
-			if intervalsDisjoint(movingProjection(step, body, axis, lo, hi), staticProjection(obstacle, axis)) {
+	span := newSweepSpan(step, body, lo, hi)
+	for _, axes := range [2][2]Point{sweepAxes(mid.heading), obstacle.axes} {
+		for _, axis := range axes {
+			if intervalsDisjoint(span.projection(body, axis), obstacle.projection(axis)) {
 				return true
 			}
 		}
@@ -400,53 +402,104 @@ func intervalsDisjoint(a, b projection) bool {
 	return a.high < b.low-sweepGuard || b.high < a.low-sweepGuard
 }
 
-func staticProjection(r sweepRectangle, axis Point) projection {
-	low, high := math.Inf(1), math.Inf(-1)
+// sweepObstacle is a rectangle with the values that each separation test
+// reads: its axes and its corners. One obstacle serves each step of a
+// sweep.
+type sweepObstacle struct {
+	axes    [2]Point
+	corners [4]Point
+}
+
+func newSweepObstacle(r sweepRectangle) sweepObstacle {
+	obstacle := sweepObstacle{axes: sweepAxes(r.heading)}
 	frame := frameOf(sweepPose{x: r.x, y: r.y, heading: r.heading})
-	for _, corner := range [4]Point{{-r.halfLength, -r.halfWidth}, {r.halfLength, -r.halfWidth}, {r.halfLength, r.halfWidth}, {-r.halfLength, r.halfWidth}} {
-		v := dotPoint(frame.worldCorner(corner), axis)
+	for i, corner := range [4]Point{{-r.halfLength, -r.halfWidth}, {r.halfLength, -r.halfWidth}, {r.halfLength, r.halfWidth}, {-r.halfLength, r.halfWidth}} {
+		obstacle.corners[i] = frame.worldCorner(corner)
+	}
+	return obstacle
+}
+
+func (o *sweepObstacle) projection(axis Point) projection {
+	low, high := math.Inf(1), math.Inf(-1)
+	for _, corner := range o.corners {
+		v := dotPoint(corner, axis)
 		low, high = min(low, v), max(high, v)
 	}
 	return padded(low, high)
 }
 
-// movingProjection bounds the projection of a body over a part of a step.
-// A translation moves each corner along a line, so the range of the
-// corners at the two ends holds it. A rotation moves each corner on a
-// circle about the point on the path.
-func movingProjection(step sweepStep, body sweepBody, axis Point, lo, hi float64) projection {
-	low, high := math.Inf(1), math.Inf(-1)
-	var first, last sweepFrame
+func staticProjection(r sweepRectangle, axis Point) projection {
+	obstacle := newSweepObstacle(r)
+	return obstacle.projection(axis)
+}
+
+// sweepSpan is the part [lo, hi] of a step with the values that each axis
+// of a separation test reads. A translation keeps the corners of the body
+// at the two ends. A rotation keeps the headings at the two ends, with
+// their cosines and sines.
+type sweepSpan struct {
+	step        sweepStep
+	first, last [4]Point
+	headings    [2]float64
+	cos, sin    [2]float64
+}
+
+func newSweepSpan(step sweepStep, body sweepBody, lo, hi float64) sweepSpan {
+	span := sweepSpan{step: step}
 	if step.sweep == 0 {
-		first, last = frameOf(step.at(lo)), frameOf(step.at(hi))
+		first, last := frameOf(step.at(lo)), frameOf(step.at(hi))
+		for i, corner := range body.corners {
+			span.first[i], span.last[i] = first.worldCorner(corner), last.worldCorner(corner)
+		}
+		return span
 	}
-	for _, corner := range body.corners {
+	span.headings = [2]float64{step.start.heading + step.sweep*lo, step.start.heading + step.sweep*hi}
+	for i, h := range span.headings {
+		span.cos[i], span.sin[i] = math.Cos(h), math.Sin(h)
+	}
+	return span
+}
+
+// movingProjection bounds the projection of a body over a part of a step.
+func movingProjection(step sweepStep, body sweepBody, axis Point, lo, hi float64) projection {
+	span := newSweepSpan(step, body, lo, hi)
+	return span.projection(body, axis)
+}
+
+// projection bounds the projection of a body over the span. A translation
+// moves each corner along a line, so the range of the corners at the two
+// ends holds it. A rotation moves each corner on a circle about the point
+// on the path.
+func (span *sweepSpan) projection(body sweepBody, axis Point) projection {
+	low, high := math.Inf(1), math.Inf(-1)
+	step := span.step
+	for i, corner := range body.corners {
 		if step.sweep == 0 {
-			v0, v1 := dotPoint(first.worldCorner(corner), axis), dotPoint(last.worldCorner(corner), axis)
+			v0, v1 := dotPoint(span.first[i], axis), dotPoint(span.last[i], axis)
 			low, high = min(low, v0, v1), max(high, v0, v1)
 			continue
 		}
 		a := axis.X*corner.X + axis.Y*corner.Y
 		b := axis.Y*corner.X - axis.X*corner.Y
-		span := trigRange(a, b, step.start.heading+step.sweep*lo, step.start.heading+step.sweep*hi)
+		trig := span.trigRange(a, b)
 		constant := dotPoint(Point{X: step.start.x, Y: step.start.y}, axis)
-		low, high = min(low, constant+span.low), max(high, constant+span.high)
+		low, high = min(low, constant+trig.low), max(high, constant+trig.high)
 	}
 	return padded(low, high)
 }
 
-// trigRange returns the range of a cos h + b sin h for h between low and
-// high.
-func trigRange(a, b, low, high float64) projection {
+// trigRange returns the range of a cos h + b sin h for h between the
+// headings of the span.
+func (span *sweepSpan) trigRange(a, b float64) projection {
+	low, high, lower, upper := span.headings[0], span.headings[1], 0, 1
 	if low > high {
-		low, high = high, low
+		low, high, lower, upper = high, low, 1, 0
 	}
 	amplitude := math.Hypot(a, b)
 	if high-low >= 2*math.Pi-sweepAnglePad {
 		return projection{-amplitude, amplitude}
 	}
-	f := func(h float64) float64 { return a*math.Cos(h) + b*math.Sin(h) }
-	v0, v1 := f(low), f(high)
+	v0, v1 := a*span.cos[lower]+b*span.sin[lower], a*span.cos[upper]+b*span.sin[upper]
 	result := projection{min(v0, v1), max(v0, v1)}
 	phase := math.Atan2(b, a)
 	first := math.Ceil((low - sweepAnglePad - phase) / math.Pi)
