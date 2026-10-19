@@ -3,7 +3,6 @@
   if (typeof document === "undefined" && typeof importScripts === "function") importScripts("./tiles.js");
   const Tiles = typeof module !== "undefined" && module.exports ? require("./tiles.js") : root.PodsimTiles;
 
-  const MIN_LANE_LENGTH = 24;
   // A view scale is in screen pixels per meter. Fit keeps FIT_MARGIN pixels of
   // the map free, half on each side of the network.
   const MIN_ZOOM = 0.15;
@@ -577,8 +576,8 @@
   }
 
   // repeatedMember gives the first member name that an object of the JSON
-  // text repeats, or null. The server decoder rejects a repeated name, but
-  // JSON.parse keeps the last value. The text must be valid JSON.
+  // text repeats, or null. The server decoder and JSON.parse keep the last
+  // value, but the editor refuses the file. The text must be valid JSON.
   function repeatedMember(text) {
     const stack = [];
     for (let index = 0; index < text.length; index++) {
@@ -2449,7 +2448,7 @@
 
   const API = {
 
-    drawMeasurementReport, drawObservationLines, readStationObservations, createManualReader, MIN_LANE_LENGTH, MIN_ZOOM, MAX_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, LANE_PAIR_OFFSET, CHEVRON_LANE_LENGTH, STATION_PADDING, CHECK_DELAY, emptyConfig, fallbackConfig,
+    drawMeasurementReport, drawObservationLines, readStationObservations, createManualReader, MIN_ZOOM, MAX_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, LANE_PAIR_OFFSET, CHEVRON_LANE_LENGTH, STATION_PADDING, CHECK_DELAY, emptyConfig, fallbackConfig,
     stationBearing, stationShape, stationGeometryCommand, stationFlowCount, stationRailReferences, fleetRows, fleetClassNotice, selectionCard, berthFocusID, laneClassState, undoFocus,
     laneLength, curveLength, stationNodeOwners, dragTargets, checkSelector, checkSelection, selectionPoint, focusView,
     FRAME_SOURCES, ALIGN_TOLERANCE, RESAMPLE_MAX_SIDE, projectPoint, frameError, framePlacement, frameAligned, resampleSize, mercatorY, resampleRows,
