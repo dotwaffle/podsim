@@ -307,6 +307,33 @@ type guardedSupplyInput struct {
 func (s *Simulation) guardedSupply(input guardedSupplyInput) ([]bool, map[string]bool) {
 	supplied := make([]bool, len(input.demand))
 	busy := make(map[string]bool)
+	s.waitingSupply(supplied, busy)
+	var inbound []*vehicle
+	for i := range s.vehicles {
+		v := &s.vehicles[i]
+		if v.Pod.Activity != Idle {
+			busyBerths(v, busy)
+		}
+		// A withdrawn pod is not supply, but its destination berth
+		// stays busy.
+		if !v.inService() {
+			continue
+		}
+		station, arriving := s.supplyStation(v, input.view)
+		if arriving {
+			inbound = append(inbound, v)
+		}
+		if index, ok := s.stationIndex(station); ok {
+			supplied[index] = true
+		}
+	}
+	s.inboundSupply(inbound, input.demand, supplied)
+	return supplied, busy
+}
+
+// waitingSupply marks the leg origin of each waiting trip as supplied and
+// the destination berth of each waiting trip as busy.
+func (s *Simulation) waitingSupply(supplied []bool, busy map[string]bool) {
 	for _, trip := range s.waiting {
 		if index, ok := s.stationIndex(trip.request.legOrigin()); ok {
 			supplied[index] = true
@@ -315,58 +342,60 @@ func (s *Simulation) guardedSupply(input guardedSupplyInput) ([]bool, map[string
 			busy[trip.destination.ID] = true
 		}
 	}
-	var inbound []*vehicle
-	for i := range s.vehicles {
-		v := &s.vehicles[i]
-		if v.Pod.Activity != Idle {
-			if v.destination.ID != "" {
-				busy[v.destination.ID] = true
+}
+
+// busyBerths marks the destination berth of a pod that is not idle as
+// busy, and the berths that its route enters after its claims.
+func busyBerths(v *vehicle, busy map[string]bool) {
+	if v.destination.ID != "" {
+		busy[v.destination.ID] = true
+	}
+	// A diversion can start inside the berth access of a station, so
+	// that the new route crosses a berth that the pod does not claim.
+	// A guarded move that claims that berth would stop the pod
+	// before the berth, and each pod would wait for the other.
+	for resources := range v.blocks.spanResources(v.reservedThrough+1, v.blocks.len()) {
+		for _, r := range resources {
+			if r.kind == berthResource {
+				busy[r.id] = true
 			}
-			// A diversion can start inside the berth access of a station, so
-			// that the new route crosses a berth that the pod does not claim.
-			// A guarded move that claims that berth would stop the pod
-			// before the berth, and each pod would wait for the other.
-			for resources := range v.blocks.spanResources(v.reservedThrough+1, v.blocks.len()) {
-				for _, r := range resources {
-					if r.kind == berthResource {
-						busy[r.id] = true
-					}
-				}
-			}
-		}
-		// A withdrawn pod is not supply, but its destination berth
-		// stays busy.
-		if !v.inService() {
-			continue
-		}
-		station := ""
-		switch {
-		case v.Pod.Activity == Idle && !input.view.assigned[v.Pod.ID]:
-			station = v.Pod.StationID
-			if index, ok := s.stationIndex(station); ok {
-				input.view.idle[index]++
-			}
-		case v.Pod.Activity == Unloading && len(v.Stops) == 0:
-			station = v.Pod.StationID
-		case !v.Pod.Occupied && v.RelocatingTo != "" && !input.view.assigned[v.Pod.ID]:
-			station = v.RelocatingTo
-		case v.Pod.Occupied && (v.Pod.Activity == Traveling || v.Pod.Activity == Continuing || v.Pod.Activity == Unloading):
-			inbound = append(inbound, v)
-		}
-		if index, ok := s.stationIndex(station); ok {
-			supplied[index] = true
 		}
 	}
+}
+
+// supplyStation returns the station that an in-service pod supplies, or
+// "". It counts an idle pod in the view. It reports true for a pod with
+// passengers that can supply its last stop later.
+func (s *Simulation) supplyStation(v *vehicle, view *guardedView) (string, bool) {
+	switch {
+	case v.Pod.Activity == Idle && !view.assigned[v.Pod.ID]:
+		if index, ok := s.stationIndex(v.Pod.StationID); ok {
+			view.idle[index]++
+		}
+		return v.Pod.StationID, false
+	case v.Pod.Activity == Unloading && len(v.Stops) == 0:
+		return v.Pod.StationID, false
+	case !v.Pod.Occupied && v.RelocatingTo != "" && !view.assigned[v.Pod.ID]:
+		return v.RelocatingTo, false
+	case v.Pod.Occupied && (v.Pod.Activity == Traveling || v.Pod.Activity == Continuing || v.Pod.Activity == Unloading):
+		return "", true
+	}
+	return "", false
+}
+
+// inboundSupply marks the last stop of an inbound pod as supplied when it
+// is a demand station without supply and the pod becomes available in
+// guardedReachSeconds or less.
+func (s *Simulation) inboundSupply(inbound []*vehicle, demand, supplied []bool) {
 	for _, v := range inbound {
 		index, ok := s.stationIndex(v.lastStop())
-		if !ok || !input.demand[index] || supplied[index] {
+		if !ok || !demand[index] || supplied[index] {
 			continue
 		}
 		if _, seconds, ok := s.finishEstimate(v); ok && seconds <= guardedReachSeconds {
 			supplied[index] = true
 		}
 	}
-	return supplied, busy
 }
 
 // stationIndex returns the index of a station in the network. It reports
