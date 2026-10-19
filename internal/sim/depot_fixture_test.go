@@ -51,7 +51,9 @@ func depotNetwork(layout depotLayout) Network {
 	}
 	network.Stations = slices.DeleteFunc(example.Stations, func(station Station) bool { return station.ID == "parking" })
 	entry := Point{X: 620, Y: 460}
-	fan := math.Ceil(layout.width*math.Sqrt(2*float64(layout.lanes))) + 1
+	// A curved fan or throat lane does not qualify, so it needs
+	// 2*Clearance.
+	fan := max(math.Ceil(layout.width*math.Sqrt(2*float64(layout.lanes)))+1, 2*Clearance)
 	turn := math.Atan(2 * layout.width * float64(layout.lanes) / fan)
 	leadIn := 2*reducedRetention(stopDistance(depotSpeed), turn) + 0.01
 	chain := layout.pitch * float64(layout.slots-1)

@@ -203,7 +203,7 @@ func (s *Simulation) ensureNetworkIndexes() {
 	p.retention = newLaneRetention(p.network, indexGeometryTails(p.network))
 	p.maneuvers, _ = newManeuverIndex(p.network, indexNodePositions(p.network.Nodes))
 	p.depots, _ = newDepotIndex(p.network, indexNodePositions(p.network.Nodes))
-	p.laneCells = indexLaneCells(laneCellsIndexInput{network: p.network, geometry: p.geometry, conflicts: p.junctionConflicts, berths: p.berthResources, retention: p.retention, maneuvers: p.maneuvers})
+	p.laneCells = indexLaneCells(laneCellsIndexInput{network: p.network, geometry: p.geometry, conflicts: p.junctionConflicts, berths: p.berthResources, retention: p.retention, maneuvers: p.maneuvers, depots: p.depots})
 	p.resourceLanes = indexResourceLanes(p.network, p.laneCells)
 	s.networkIndexes = &p
 	s.lengths = nil

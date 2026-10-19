@@ -104,7 +104,7 @@ func prepareNetwork(network Network) (networkPreparation, error) {
 		if maneuvers.groupLane(lane.ID) {
 			continue
 		}
-		length, minimum := graph.lengths[index], retention.laneMinimum(lane)
+		length, minimum := graph.lengths[index], depots.chainMinimum(lane, retention)
 		if length < minimum {
 			return networkPreparation{}, fmt.Errorf("lane %q must be at least %g meters long", lane.ID, minimum)
 		}
@@ -145,7 +145,7 @@ func newPreparedNetwork(prepared networkPreparation) *PreparedNetwork {
 			p.berthSafety[berth.ID] = SafetyLocation{SeparationGroup: berth.SeparationGroup, From: berth.Node, To: berth.Node}
 		}
 	}
-	p.laneCells = indexLaneCells(laneCellsIndexInput{network: owned, geometry: p.geometry, conflicts: p.junctionConflicts, berths: p.berthResources, retention: p.retention, maneuvers: p.maneuvers})
+	p.laneCells = indexLaneCells(laneCellsIndexInput{network: owned, geometry: p.geometry, conflicts: p.junctionConflicts, berths: p.berthResources, retention: p.retention, maneuvers: p.maneuvers, depots: p.depots})
 	p.resourceLanes = indexResourceLanes(owned, p.laneCells)
 	return p
 }

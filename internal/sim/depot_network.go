@@ -20,6 +20,8 @@ type depotIndex struct {
 	// lanes holds the depot lanes: the fan path, the lead-in, the chain
 	// lanes, the lead-out, and the throat path of each depot lane.
 	lanes map[string]bool
+	// chains holds the slot at the end of each chain lane, by lane ID.
+	chains map[string]Berth
 }
 
 // depotInfo is one depot. incoming is the one lane that ends at the entry.
@@ -64,6 +66,35 @@ func (d *depotIndex) slot(berthID string) (depotSlot, bool) {
 // depotLane reports whether a lane is a depot lane.
 func (d *depotIndex) depotLane(id string) bool {
 	return d != nil && d.lanes[id]
+}
+
+// chainMinimum returns the minimum length of a lane with a reduced
+// retention. A chain lane needs only its retention, because its cells make
+// it one atomic span (see everyCell). Any other lane needs twice its
+// retention. A lane that does not qualify keeps LaneMinimumLength.
+func (d *depotIndex) chainMinimum(lane Lane, retention *laneRetention) float64 {
+	if r := retention.of(lane.ID); r > 0 && d != nil {
+		if _, ok := d.chains[lane.ID]; ok {
+			return r
+		}
+	}
+	return retention.laneMinimum(lane)
+}
+
+// everyCell returns the resources that each cell of a lane holds: for a
+// qualifying chain lane shorter than twice its retention, the slot at its
+// end, its From node and its To node. Then no pod can enter the lane while
+// another pod holds the slot ahead, and two pods are never in one chain
+// lane.
+func (d *depotIndex) everyCell(lane Lane, retention, length float64) []resource {
+	if d == nil || !(retention > 0) || length >= 2*retention {
+		return nil
+	}
+	slot, ok := d.chains[lane.ID]
+	if !ok {
+		return nil
+	}
+	return []resource{{kind: berthResource, id: slot.ID}, {kind: nodeResource, id: lane.From}, {kind: nodeResource, id: lane.To}}
 }
 
 // auditPath reports whether a path of the bank audit is a depot lane or a
@@ -126,7 +157,10 @@ func newDepotIndex(n Network, nodes map[string]Point) (*depotIndex, error) {
 	if len(n.Depots) == 0 {
 		return nil, nil
 	}
-	d := &depotIndex{stations: make(map[string]int), slots: make(map[string]depotSlot), nodes: make(map[string]depotSlot), lanes: make(map[string]bool)}
+	d := &depotIndex{
+		stations: make(map[string]int), slots: make(map[string]depotSlot), nodes: make(map[string]depotSlot),
+		lanes: make(map[string]bool), chains: make(map[string]Berth),
+	}
 	incoming, outgoing := make(map[string][]int), make(map[string][]int)
 	for index, lane := range n.Lanes {
 		incoming[lane.To] = append(incoming[lane.To], index)
@@ -195,6 +229,9 @@ func newDepotIndex(n Network, nodes map[string]Point) (*depotIndex, error) {
 		for _, path := range info.lanes {
 			for _, lane := range path.lanes() {
 				d.lanes[lane.ID] = true
+			}
+			for slot, lane := range path.chain {
+				d.chains[lane.ID] = path.slots[slot]
 			}
 		}
 		if slices.ContainsFunc(station.Berths, func(berth Berth) bool { return berth.SeparationGroup != "" }) ||

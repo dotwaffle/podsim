@@ -138,8 +138,8 @@ type laneCellsInput struct {
 	berths         []resource
 	conflicts      []laneConflict
 	// every holds the resources that each cell of the lane holds: the
-	// junction resource of a maneuver group, and the berth of a closed bay
-	// chain.
+	// junction resource of a maneuver group, the berth of a closed bay
+	// chain, and the slot and the end nodes of a short depot chain lane.
 	every []resource
 }
 
@@ -163,11 +163,11 @@ func newLaneCells(input laneCellsInput) *laneCells {
 				}
 			}
 		}
-		if cell == 0 || start < cells.fromTail {
-			resources = append(resources, resource{kind: nodeResource, id: lane.From})
+		if from := (resource{kind: nodeResource, id: lane.From}); (cell == 0 || start < cells.fromTail) && !slices.Contains(resources, from) {
+			resources = append(resources, from)
 		}
-		if last || end > length-cells.tail && cells.tail > 0 {
-			resources = append(resources, resource{kind: nodeResource, id: lane.To})
+		if to := (resource{kind: nodeResource, id: lane.To}); (last || end > length-cells.tail && cells.tail > 0) && !slices.Contains(resources, to) {
+			resources = append(resources, to)
 		}
 		// A lane has conflicts only at its From and To nodes, so a cell gets
 		// at most two junction resources from them. Many lanes can conflict
@@ -204,10 +204,12 @@ func indexLaneCells(input laneCellsIndexInput) map[string]*laneCells {
 		if _, ok := cells[lane.ID]; ok {
 			continue
 		}
+		retention, length := input.retention.of(lane.ID), indexedLaneLength(lane, positions[lane.From], positions[lane.To])
 		cells[lane.ID] = newLaneCells(laneCellsInput{
-			tail: tails[lane.ID].tail, fromTail: tails[lane.ID].fromTail, retention: input.retention.of(lane.ID),
-			lane: lane, length: indexedLaneLength(lane, positions[lane.From], positions[lane.To]), geometry: input.geometry[lane.ID],
-			berths: input.berths[lane.To], conflicts: input.conflicts[lane.ID], every: input.maneuvers.everyCell(lane.ID),
+			tail: tails[lane.ID].tail, fromTail: tails[lane.ID].fromTail, retention: retention,
+			lane: lane, length: length, geometry: input.geometry[lane.ID],
+			berths: input.berths[lane.To], conflicts: input.conflicts[lane.ID],
+			every: append(input.maneuvers.everyCell(lane.ID), input.depots.everyCell(lane, retention, length)...),
 		})
 	}
 	return cells
@@ -222,6 +224,7 @@ type laneCellsIndexInput struct {
 	berths    map[string][]resource
 	retention *laneRetention
 	maneuvers *maneuverIndex
+	depots    *depotIndex
 }
 
 // routeLaneCells holds the blocks of one lane of a route.
