@@ -817,7 +817,13 @@ func TestDepotBoundFault(t *testing.T) {
 // owners must hold at each tick.
 func TestDepotLiveness(t *testing.T) {
 	t.Parallel()
-	network := shortDepotNetwork(2, 3)
+	depotLiveness(t, shortDepotNetwork(2, 3), func(*Simulation) {})
+}
+
+// depotLiveness is TestDepotLiveness on a depot network of 2 lanes of 3
+// slots. It calls check after each step.
+func depotLiveness(t *testing.T, network Network, check func(*Simulation)) {
+	t.Helper()
 	s, err := NewFleet(network, depotPlacements(network, 4))
 	if err != nil {
 		t.Fatal(err)
@@ -870,6 +876,7 @@ func TestDepotLiveness(t *testing.T) {
 	var held *vehicle
 	var restoreAt int64
 	stepDepot(t, s, 60*60*TicksPerSecond, func() bool {
+		check(s)
 		if overloaded() {
 			overload++
 		}

@@ -180,24 +180,40 @@ func TestDepotStationRoutes(t *testing.T) {
 }
 
 // TestDepotAuditScope checks that the bank audit runs for a network whose
-// only feature is a depot: a lateral spacing below Clearance is refused,
-// and so is a fan that passes near a slot of another lane. A spacing of
+// only feature is a depot. Slow lanes 4 m apart, below the lateral
+// clearance, are refused, and so is a throat above the speed gate beside
+// the lead-out of the next lane. Slow lanes 11.99 m apart pass, also in
+// ValidateBankGeometry, because the lateral certification clears them. A
+// slow fan that bends near the lead-in of another lane passes when the
+// sweep clears it, and is refused above the speed gate. A spacing of
 // Clearance passes, and pods in every slot keep the safety observation
 // clean.
 func TestDepotAuditScope(t *testing.T) {
 	t.Parallel()
-	narrow := depotNetwork(depotLayout{lanes: 3, slots: 4, pitch: 12, width: 11.99})
-	if _, err := PrepareNetwork(narrow); err == nil || !strings.Contains(err.Error(), "are less than 12 meters apart") {
-		t.Fatalf("11.99 m lanes: %v", err)
+	refusals := []struct {
+		name    string
+		network Network
+		want    string
+	}{
+		{"slow lanes 4 m apart", depotNetwork(depotLayout{lanes: 3, slots: 4, pitch: 12, width: 4, throat: 1.4}), `nonincident paths "parking-throat-1" and "parking-out-2" are less than 12 meters apart`},
+		{"a fast throat 11.99 m apart", depotNetwork(depotLayout{lanes: 3, slots: 4, pitch: 12, width: 11.99}), `nonincident paths "parking-throat-1" and "parking-out-2" are less than 12 meters apart`},
+		{"a fast bent fan", bentFan(t, 4), `nonincident paths "parking-in-1" and "parking-fan-2" are less than 12 meters apart`},
 	}
-	bent := testDepotNetwork()
-	slot := findNode(&bent, depotSlotID(1, 4)).Position
-	findLane(&bent, "parking-fan-2").Control = &Point{X: slot.X + 30, Y: slot.Y - 4}
-	if err := bent.validate(); err != nil {
-		t.Fatalf("validate the bent fan: %v", err)
+	for _, refusal := range refusals {
+		if _, err := PrepareNetwork(refusal.network); err == nil || err.Error() != refusal.want {
+			t.Errorf("%s: %v", refusal.name, err)
+		}
 	}
-	if _, err := PrepareNetwork(bent); err == nil || !strings.Contains(err.Error(), `"parking-fan-2"`) {
-		t.Fatalf("bent fan: %v", err)
+	for name, network := range map[string]Network{
+		"slow lanes 11.99 m apart": depotNetwork(depotLayout{lanes: 3, slots: 4, pitch: 12, width: 11.99, throat: 1.4}),
+		"a slow bent fan":          bentFan(t, depotSpeed),
+	} {
+		if _, err := PrepareNetwork(network); err != nil {
+			t.Errorf("%s: %v", name, err)
+		}
+		if err := network.ValidateBankGeometry(); err != nil {
+			t.Errorf("%s: bank geometry: %v", name, err)
+		}
 	}
 	network := testDepotNetwork()
 	s, err := NewFleet(network, depotPlacements(network, 12))
@@ -210,6 +226,20 @@ func TestDepotAuditScope(t *testing.T) {
 			t.Fatalf("tick %d: %v", s.tick, err)
 		}
 	}
+}
+
+// bentFan returns the test depot network with the fan of lane 2 bent
+// toward the lead-in of lane 1, at a speed limit.
+func bentFan(t *testing.T, speed float64) Network {
+	t.Helper()
+	bent := testDepotNetwork()
+	slot := findNode(&bent, depotSlotID(1, 4)).Position
+	fan := findLane(&bent, "parking-fan-2")
+	fan.Control, fan.SpeedLimit = &Point{X: slot.X + 30, Y: slot.Y - 4}, speed
+	if err := bent.validate(); err != nil {
+		t.Fatalf("validate the bent fan: %v", err)
+	}
+	return bent
 }
 
 // TestDepotNetworkClone checks that a network copy owns its depots, their

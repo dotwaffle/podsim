@@ -446,6 +446,11 @@ type LaneClearance struct {
 	retention *laneRetention
 	// depots holds only the chain lanes of the depots.
 	depots *depotIndex
+	// lateral holds the lateral pairs of the depot lanes, and lanes the
+	// index of each lane ID. lateral is nil when the depots are not
+	// valid.
+	lateral *depotLateral
+	lanes   map[string]int
 }
 
 // NewLaneClearance returns the index of a network. The network does not
@@ -453,9 +458,30 @@ type LaneClearance struct {
 // bounds. The chain lanes of the index are the chain lanes as the depots
 // list them (see depotChainLanes), so that for a depot that is not valid
 // the editor reports the depot error of the server and not a short chain
-// lane.
+// lane. When the depots are not valid, the index has no lateral pair, and
+// each depot pair keeps Clearance.
 func NewLaneClearance(network Network) LaneClearance {
-	return LaneClearance{retention: newLaneRetention(network, indexGeometryTails(network)), depots: depotChainLanes(network)}
+	tails := indexGeometryTails(network)
+	clearance := LaneClearance{retention: newLaneRetention(network, tails), depots: depotChainLanes(network)}
+	if len(network.Depots) == 0 {
+		return clearance
+	}
+	nodes, err := network.validateNodes()
+	if err != nil {
+		return clearance
+	}
+	depots, err := newDepotIndex(network, nodes)
+	if err != nil {
+		return clearance
+	}
+	clearance.lateral = newDepotLateral(network, depots, tails, indexBerthKeys(network))
+	clearance.lanes = make(map[string]int, len(network.Lanes))
+	for index, lane := range network.Lanes {
+		if _, repeated := clearance.lanes[lane.ID]; !repeated {
+			clearance.lanes[lane.ID] = index
+		}
+	}
+	return clearance
 }
 
 // depotChainLanes returns an index with only the chain lanes of the
@@ -506,8 +532,16 @@ type PairPiece struct {
 }
 
 // PairPieces divides two nonincident lanes with the given lengths into
-// pieces, as the bank audit of PrepareNetwork does.
+// pieces, as the bank audit of PrepareNetwork does. Two lanes that form a
+// lateral pair are one piece at the clearance of the pair.
 func (c LaneClearance) PairPieces(first, second Lane, firstLength, secondLength float64) []PairPiece {
+	if c.lateral.any() {
+		a, aOK := c.lanes[first.ID]
+		b, bOK := c.lanes[second.ID]
+		if clearance, ok := c.lateral.clearance(laneKey(a), laneKey(b)); aOK && bOK && ok {
+			return []PairPiece{{First: [2]float64{0, firstLength}, Second: [2]float64{0, secondLength}, Clearance: clearance}}
+		}
+	}
 	member := func(lane Lane, length float64) auditMember {
 		return auditMember{spans: c.retention.laneSpans(lane.ID), length: length, speed: lane.SpeedLimit, large: largeClassSet(lane.VehicleClasses)}
 	}

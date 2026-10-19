@@ -370,25 +370,18 @@ func TestSmallClassWidth(t *testing.T) {
 	}
 }
 
-// unauditedFleet returns a simulation with faults on whose network is
-// network, with the indexes of PrepareNetwork but without its bank audit.
-// The pods are at the passenger stations of Example. The audit refuses
-// depot lanes that are less than Clearance apart until it accepts lateral
-// pairs.
-func unauditedFleet(t *testing.T, network Network) *Simulation {
+// faultDepotFleet returns a simulation with faults on, on a depot network,
+// with pods at the passenger stations and the given depot slots.
+func faultDepotFleet(t *testing.T, network Network, slots ...string) *Simulation {
 	t.Helper()
-	if err := network.validate(); err != nil {
-		t.Fatal(err)
+	placements := depotPlacements(network, 0)
+	for _, slot := range slots {
+		placements = append(placements, Placement{ID: "pod-" + slot, StationID: "parking", BerthID: slot})
 	}
-	s, err := NewFleet(testDepotNetwork(), depotPlacements(testDepotNetwork(), 0))
+	s, err := NewFleet(network, placements)
 	if err != nil {
 		t.Fatal(err)
 	}
-	owned := network.clone()
-	inferStationLaneRoles(&owned)
-	detachIndexes(s)
-	s.network, s.graph = owned, routeGraph{}
-	s.ensureNetworkIndexes()
 	s.incidentContract = IncidentV1Contract
 	if err := s.SetFaults(true, FaultSettings{EvacuationSeconds: 300}); err != nil {
 		t.Fatal(err)
@@ -410,15 +403,16 @@ func ownFootprint(s *Simulation, lane int, from, to float64) []resource {
 // TestDebrisLateralNeighbors checks the debris footprint at 6 m spacing.
 // Debris at the start of a 60 m lead-in of lane 2 holds the end of the
 // fan and the lead-in cells of lanes 1 and 3 after the cells of its own
-// lane, and it blocks lanes 1 and 3. Debris at the end of the fan of lane
-// 3 is refused, because the lead-in of lane 2 is shorter than 13 m, and
-// its cell within Clearance of the debris holds the tail slot. Debris in
-// the middle of a fan blocks the fans of the other lanes through the
-// entry junction.
+// lane, and it blocks lanes 1 and 3. The debris owns its footprint, a pod
+// sent to the depot waits before the entry, and a save restores the same
+// owners. Debris at the end of the fan of lane 3 is refused, because the
+// lead-in of lane 2 is shorter than 13 m, and its cell within Clearance of
+// the debris holds the tail slot. Debris in the middle of a fan blocks the
+// fans of the other lanes through the entry junction.
 func TestDebrisLateralNeighbors(t *testing.T) {
 	t.Parallel()
 	network := depotNetwork(depotLayout{lanes: 3, slots: 4, pitch: 6, width: 6, leadIn: 60, throat: 2})
-	s := unauditedFleet(t, network)
+	s := faultDepotFleet(t, network, depotSlotID(1, 1), depotSlotID(3, 1))
 	lane := laneIndex(t, s, "parking-in-2")
 	own := ownFootprint(s, lane, 0, 1)
 	footprint := s.debrisFootprint(lane, 0, 1)
@@ -433,13 +427,38 @@ func TestDebrisLateralNeighbors(t *testing.T) {
 	if _, err := s.debrisSegment(lane, 0, 1); err != nil {
 		t.Fatalf("debris at the start of the lead-in: %v", err)
 	}
-	startDebris(t, s, "parking-in-2", 0, 1, 0)
-	for _, id := range []string{"parking-in-1", "parking-in-3", "parking-fan-1", "parking-fan-3"} {
-		if !s.blocked.lanes[laneIndex(t, s, id)] {
-			t.Errorf("lane %s is not blocked", id)
+	mover := sendToDepot(t, s, "market-pod")
+	id := startDebris(t, s, "parking-in-2", 0, 1, 0)
+	for _, lane := range []string{"parking-in-1", "parking-in-3", "parking-fan-1", "parking-fan-3"} {
+		if !laneBlocked(s, lane) {
+			t.Errorf("lane %s is not blocked", lane)
 		}
 	}
-	short := unauditedFleet(t, narrowDepot(2))
+	for _, r := range footprint {
+		if s.owners[r] != (resourceOwner{kind: faultOwnerKind, id: id}) {
+			t.Fatalf("%v has the owner %v", r, s.owners[r])
+		}
+	}
+	// The pod sent to the depot stops before the entry and waits.
+	stepDepot(t, s, 300*TicksPerSecond, func() bool {
+		return mover.Pod.WaitReason == BlockedByIncident && mover.Pod.BlockedBy == id && mover.Pod.Speed == 0
+	})
+	if mover.Pod.LaneID != "return-to-parking" {
+		t.Fatalf("mover waits on %q", mover.Pod.LaneID)
+	}
+	if err := s.checkDebrisOwners(); err != nil {
+		t.Fatal(err)
+	}
+	restored := physicalSave(t, s, "lateral debris")
+	if got := restored.debrisFootprint(lane, 0, 1); !slices.Equal(got, footprint) {
+		t.Fatalf("restored footprint %v, want %v", got, footprint)
+	}
+	for _, r := range footprint {
+		if restored.owners[r] != s.owners[r] {
+			t.Fatalf("%v restores the owner %v, want %v", r, restored.owners[r], s.owners[r])
+		}
+	}
+	short := faultDepotFleet(t, narrowDepot(2))
 	fan3 := laneIndex(t, short, "parking-fan-3")
 	length := short.graph.lengths[fan3]
 	if got := ownFootprint(short, fan3, length-1, length); slices.ContainsFunc(got, func(r resource) bool {
@@ -451,12 +470,12 @@ func TestDebrisLateralNeighbors(t *testing.T) {
 		t.Fatalf("debris near a neighbor slot: %v", err)
 	}
 	// Debris in the middle of the fan of lane 1 blocks the other fans.
-	fans := unauditedFleet(t, network)
+	fans := faultDepotFleet(t, network)
 	fan := laneIndex(t, fans, "parking-fan-1")
 	middle := fans.graph.lengths[fan] / 2
 	startDebris(t, fans, "parking-fan-1", middle, middle+1, 0)
 	for _, id := range []string{"parking-fan-2", "parking-fan-3"} {
-		if !fans.blocked.lanes[laneIndex(t, fans, id)] {
+		if !laneBlocked(fans, id) {
 			t.Errorf("debris in the middle of the fan of lane 1 leaves %s open", id)
 		}
 	}
@@ -495,7 +514,7 @@ func TestDebrisFootprintTwelve(t *testing.T) {
 	}
 	for _, angle := range []float64{0, math.Pi / 6} {
 		network := rotateNetwork(testDepotNetwork(), angle)
-		s := unauditedFleet(t, network)
+		s := faultDepotFleet(t, network)
 		neighbors := 0
 		for lane, item := range s.network.Lanes {
 			if !s.depots.depotLane(item.ID) {
@@ -512,6 +531,170 @@ func TestDebrisFootprintTwelve(t *testing.T) {
 		}
 		if neighbors == 0 {
 			t.Fatalf("angle %g: no lateral neighbors", angle)
+		}
+	}
+}
+
+// TestLateralAuditMatchesObserver checks that the bank audit, the editor
+// pair pieces, and the safety observation agree on each lateral pair of a
+// 6 m depot. The audit and PairPieces give one whole piece at the
+// clearance of the pair. Pods with the keys of the pair pass at that
+// clearance and fail just below it. Pods with the keys of a pair that is
+// not lateral keep Clearance.
+func TestLateralAuditMatchesObserver(t *testing.T) {
+	t.Parallel()
+	network := narrowDepot(2)
+	p, err := PrepareNetwork(network)
+	if err != nil {
+		t.Fatal(err)
+	}
+	audit, editor := bankAudit{retention: p.retention, depots: p.depots, lateral: p.lateral}, NewLaneClearance(network)
+	path := func(key separationKey) bankAuditPath {
+		if key.kind == laneKeyKind {
+			lane := p.network.Lanes[key.index]
+			return bankAuditPath{key: key, member: auditMember{spans: p.retention.laneSpans(lane.ID), length: p.graph.lengths[key.index], speed: lane.SpeedLimit}}
+		}
+		return bankAuditPath{key: key}
+	}
+	observe := func(a, b separationKey, gap float64) error {
+		first, second := Pod{ID: "a", Class: CompactClass}, Pod{ID: "b", Class: CompactClass, Position: Point{X: gap}}
+		o := SafetyObservation{Pods: []Pod{first, second}, keys: map[string]podKey{"a": {pod: first, key: a}, "b": {pod: second, key: b}}, lateral: p.lateral}
+		_, err := o.Check()
+		return err
+	}
+	lanes := 0
+	for pair, want := range p.lateral.pairs {
+		first, second := path(pair[0]), path(pair[1])
+		pieces := audit.pieces(first, second)
+		if len(pieces) != 1 || pieces[0].clearance != want || pieces[0].first != [2]float64{0, first.member.length} || pieces[0].second != [2]float64{0, second.member.length} {
+			t.Fatalf("pair %v: audit pieces %+v, want one piece at %g", pair, pieces, want)
+		}
+		if pair[0].kind == laneKeyKind && pair[1].kind == laneKeyKind {
+			lanes++
+			a, b := p.network.Lanes[pair[0].index], p.network.Lanes[pair[1].index]
+			got := editor.PairPieces(a, b, first.member.length, second.member.length)
+			if wantPieces := []PairPiece{{First: pieces[0].first, Second: pieces[0].second, Clearance: want}}; !reflect.DeepEqual(got, wantPieces) {
+				t.Fatalf("%s and %s: editor pieces %+v, want %+v", a.ID, b.ID, got, wantPieces)
+			}
+		}
+		if err := observe(pair[0], pair[1], want); err != nil {
+			t.Fatalf("pair %v at %g: %v", pair, want, err)
+		}
+		if err := observe(pair[1], pair[0], want-1e-3); err == nil {
+			t.Fatalf("pair %v below %g passes", pair, want)
+		}
+	}
+	if lanes == 0 {
+		t.Fatal("no lateral pair of two lanes")
+	}
+	in1, through := laneKey(p.graph.lanes["parking-in-1"]), laneKey(p.graph.lanes["harbor-through"])
+	if _, ok := p.lateral.clearance(in1, through); ok {
+		t.Fatal("a lead-in and a through lane form a lateral pair")
+	}
+	if err := observe(in1, through, lateralClearance(depotSpeed)); err == nil {
+		t.Fatal("a pair that is not lateral passes at the lateral clearance")
+	}
+}
+
+// TestDepotLateralDeparture checks the observation of a pod that leaves
+// the head slot of lane 1 while the head of lane 2 is idle 6.08 m away.
+// On the tick that it leaves, the pod has no lane and no berth, and the
+// origin case of separationKey gives it the key of its slot.
+func TestDepotLateralDeparture(t *testing.T) {
+	t.Parallel()
+	s, err := NewFleet(narrowDepot(2), []Placement{
+		{ID: "lane-1-head", StationID: "parking", BerthID: depotSlotID(1, 1)},
+		{ID: "lane-2-head", StationID: "parking", BerthID: depotSlotID(2, 1)},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	v, head := s.findVehicle("lane-1-head"), s.findVehicle("lane-2-head")
+	if gap := pointDistance(v.Pod.Position, head.Pod.Position); math.Abs(gap-math.Sqrt(37)) > 1e-9 {
+		t.Fatalf("heads %g m apart", gap)
+	}
+	harbor, _ := s.station("harbor")
+	if err := s.startEmptyMove(v, emptyDestination{station: "harbor", berth: harbor.Berths[0], reserveBerth: true}); err != nil {
+		t.Fatal(err)
+	}
+	leaving := 0
+	stepDepot(t, s, 60*TicksPerSecond, func() bool {
+		if v.Pod.LaneID == "" && v.Pod.BerthID == "" {
+			leaving++
+		}
+		return v.Pod.LaneID == "parking-throat-1"
+	})
+	if leaving == 0 || head.Pod.Activity != Idle || head.Pod.BerthID != depotSlotID(2, 1) {
+		t.Fatalf("%d leaving ticks, head %+v", leaving, head.Pod)
+	}
+}
+
+// TestDepotLateralSpeeds runs the liveness test on a depot with lanes
+// 6 m apart, with arrivals, move-ups, releases, pod faults, and
+// withdrawals. At each tick, each pod on a lane with a lateral neighbor
+// is at most at the speed limit of the lane, so its stop distance is at
+// most the one that the lateral clearance assumes. Pods with lateral keys
+// must come closer than Clearance at some tick.
+func TestDepotLateralSpeeds(t *testing.T) {
+	t.Parallel()
+	network := depotNetwork(depotLayout{lanes: 2, slots: 3, pitch: 6, width: 6, throat: 2})
+	lateral, near := 0, 0
+	depotLiveness(t, network, func(s *Simulation) {
+		o := s.SafetyObservation()
+		for index := range s.vehicles {
+			pod := s.vehicles[index].Pod
+			lane, ok := s.graph.lanes[pod.LaneID]
+			if !ok || len(s.lateral.neighborLanes(lane)) == 0 {
+				continue
+			}
+			lateral++
+			if limit := s.network.Lanes[lane].SpeedLimit; pod.Speed > limit {
+				t.Fatalf("tick %d: pod %s at %g m/s on %s, limit %g", s.tick, pod.ID, pod.Speed, pod.LaneID, limit)
+			}
+		}
+		for i, a := range o.Pods {
+			for _, b := range o.Pods[i+1:] {
+				first, firstOK := o.keys[a.ID]
+				second, secondOK := o.keys[b.ID]
+				if _, ok := s.lateral.clearance(first.key, second.key); ok && firstOK && secondOK && pointDistance(a.Position, b.Position) < Clearance {
+					near++
+				}
+			}
+		}
+	})
+	if lateral == 0 || near == 0 {
+		t.Fatalf("%d pod ticks on lateral lanes, %d close lateral pairs", lateral, near)
+	}
+	t.Logf("%d pod ticks on lateral lanes, %d close lateral pairs", lateral, near)
+}
+
+// TestCheckSeparationDepotAllocations bounds the allocations of the key
+// pass of Check on a depot network with lateral pairs. The separation
+// index of an observation with keys makes one allocation more than the
+// same observation without them, the keys of the index, for 3 pods and
+// for 12. The observation without keys is too close, so the test
+// compares the index and not Check.
+func TestCheckSeparationDepotAllocations(t *testing.T) {
+	network := narrowDepot(2)
+	for _, count := range []int{3, 12} {
+		s, err := NewFleet(network, depotPlacements(network, count))
+		if err != nil {
+			t.Fatal(err)
+		}
+		o := s.SafetyObservation()
+		if len(o.keys) != len(o.Pods) || o.lateral == nil {
+			t.Fatalf("the observation has %d keys", len(o.keys))
+		}
+		if _, err := o.Check(); err != nil {
+			t.Fatal(err)
+		}
+		bare := o
+		bare.keys, bare.lateral = nil, nil
+		got := testing.AllocsPerRun(20, func() { _ = o.separationIndex() })
+		want := testing.AllocsPerRun(20, func() { _ = bare.separationIndex() })
+		t.Logf("%d depot pods: %v allocations, without keys: %v", count, got, want)
+		if got > want+1 {
+			t.Fatalf("%d depot pods: the index makes %v allocations, want at most %v", count, got, want+1)
 		}
 	}
 }

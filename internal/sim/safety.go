@@ -122,10 +122,11 @@ type separationIndex struct {
 	// is nil when the observation has no positions.
 	chains []safetyChain
 	// keys holds the separation key of each pod whose key is bound to its
-	// value, and certified the certified pairs. keys is nil when the
-	// observation has no keys.
+	// value, certified the certified pairs, and lateral the lateral pairs.
+	// keys is nil when the observation has no keys.
 	keys      []separationKey
 	certified certifiedPairs
+	lateral   *depotLateral
 	// reach is the largest squared separation threshold of any pair.
 	reach float64
 }
@@ -142,7 +143,7 @@ func (o SafetyObservation) separationIndex() separationIndex {
 		index.chains = make([]safetyChain, len(o.Pods))
 	}
 	if len(o.keys) > 0 {
-		index.keys, index.certified = make([]separationKey, len(o.Pods)), o.certified
+		index.keys, index.certified, index.lateral = make([]separationKey, len(o.Pods)), o.certified, o.lateral
 	}
 	for i, pod := range o.Pods {
 		index.locations[i] = o.Locations[pod.ID]
@@ -166,8 +167,9 @@ func (o SafetyObservation) separationIndex() separationIndex {
 // counts toward the smallest gap, and whether they are too close. A pair
 // whose bound keys form a certified pair of the maneuver certification is
 // skipped. A small pair that a window certifies needs compactClearance at
-// the speed of the follower (see certifiedClearance), and every other
-// small pair needs Clearance.
+// the speed of the follower (see certifiedClearance). A small pair whose
+// bound keys form a lateral pair needs the clearance of that pair (see
+// lateralClearance). Every other small pair needs Clearance.
 func (index *separationIndex) pair(pods []Pod, i, j int) (gapSquared float64, counted, violates bool) {
 	if len(index.keys) > 0 && index.certified.certified(index.keys[i], index.keys[j]) {
 		return 0, false, false
@@ -187,6 +189,11 @@ func (index *separationIndex) pair(pods []Pod, i, j int) (gapSquared float64, co
 	}
 	if minimum == Clearance && len(index.chains) > 0 {
 		if clearance, ok := certifiedClearance(index.chains[i], index.chains[j]); ok {
+			minimum = clearance
+		}
+	}
+	if minimum == Clearance && len(index.keys) > 0 {
+		if clearance, ok := index.lateral.clearance(index.keys[i], index.keys[j]); ok {
 			minimum = clearance
 		}
 	}

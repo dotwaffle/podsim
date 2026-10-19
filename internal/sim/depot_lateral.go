@@ -167,6 +167,11 @@ func (l *depotLateral) clearance(a, b separationKey) (float64, bool) {
 	return clearance, ok
 }
 
+// any reports whether the index has a lateral pair.
+func (l *depotLateral) any() bool {
+	return l != nil && len(l.pairs) > 0
+}
+
 // neighborLanes returns the lanes that form a lateral pair with a lane, in
 // network lane order.
 func (l *depotLateral) neighborLanes(lane int) []int {

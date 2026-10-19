@@ -18,6 +18,12 @@ func (o SafetyObservation) checkSeparationReference() (float64, error) {
 	smallestSquared := math.Inf(1)
 	for index, first := range o.Pods {
 		for offset, second := range o.Pods[index+1:] {
+			a, aOK := o.keys[first.ID]
+			b, bOK := o.keys[second.ID]
+			bound := aOK && bOK && a.pod == first && b.pod == second
+			if bound && o.certified.certified(a.key, b.key) {
+				continue
+			}
 			minimum := classPairClearance(first.Class, second.Class)
 			separated := safetyLocationsSeparated(locations[index], locations[index+1+offset])
 			if minimum > Clearance {
@@ -25,6 +31,9 @@ func (o SafetyObservation) checkSeparationReference() (float64, error) {
 			}
 			if separated {
 				continue
+			}
+			if clearance, ok := o.lateral.clearance(a.key, b.key); bound && minimum == Clearance && ok {
+				minimum = clearance
 			}
 			dx := first.Position.X - second.Position.X
 			dy := first.Position.Y - second.Position.Y
@@ -110,8 +119,9 @@ func sameSeparationError(got, want error) bool {
 }
 
 // randomSeparationObservation makes an observation with dense, tied and
-// boundary positions, mixed classes and planes, duplicate IDs, and
-// envelope entries that match their pods or do not.
+// boundary positions, mixed classes and planes, duplicate IDs, envelope
+// entries that match their pods or do not, and separation keys that match
+// their pods or do not, with certified and lateral pairs.
 func randomSeparationObservation(r *rand.Rand) SafetyObservation {
 	classes := []VehicleClass{"", LegacyClass, CompactClass, GroupClass, ExpressClass}
 	groups := []string{"", "g1", "g2", "g3"}
@@ -119,7 +129,7 @@ func randomSeparationObservation(r *rand.Rand) SafetyObservation {
 	location := func() SafetyLocation {
 		return SafetyLocation{SeparationGroup: groups[r.IntN(len(groups))], From: nodes[r.IntN(len(nodes))], To: nodes[r.IntN(len(nodes))]}
 	}
-	offsets := []float64{0, Clearance, largeClearance, Clearance - separationTolerance, largeClearance - 2*separationTolerance, 3, 7.5}
+	offsets := []float64{0, Clearance, largeClearance, Clearance - separationTolerance, largeClearance - 2*separationTolerance, 3, 7.5, lateralClearance(0), lateralClearance(2), lateralClearance(2) - 2*separationTolerance}
 	n := r.IntN(60)
 	if r.IntN(4) == 0 {
 		n = r.IntN(3)
@@ -175,7 +185,39 @@ func randomSeparationObservation(r *rand.Rand) SafetyObservation {
 			o.envelopes[pod.ID] = safetyEnvelope{pod: pod, locations: locations}
 		}
 	}
+	if r.IntN(2) == 0 {
+		addRandomKeys(r, &o)
+	}
 	return o
+}
+
+// addRandomKeys binds separation keys to the pods of an observation, with
+// random certified and lateral pairs of those keys. Some keys are bound to
+// a changed pod, and some pods have no key.
+func addRandomKeys(r *rand.Rand, o *SafetyObservation) {
+	keys := []separationKey{laneKey(0), laneKey(1), laneKey(2), berthKey(0), berthKey(1), berthKey(2)}
+	key := func() separationKey { return keys[r.IntN(len(keys))] }
+	o.keys = make(map[string]podKey)
+	for _, pod := range o.Pods {
+		if r.IntN(4) == 0 {
+			continue
+		}
+		if r.IntN(6) == 0 {
+			pod.Speed++
+		}
+		o.keys[pod.ID] = podKey{pod: pod, key: key()}
+	}
+	clearances := []float64{lateralClearance(0), lateralClearance(2), lateralClearance(3.5)}
+	o.lateral = &depotLateral{pairs: make(map[[2]separationKey]float64)}
+	for range r.IntN(8) {
+		o.lateral.pairs[keyPair(key(), key())] = clearances[r.IntN(len(clearances))]
+	}
+	if r.IntN(2) == 0 {
+		o.certified = make(certifiedPairs)
+		for range r.IntN(3) {
+			o.certified[keyPair(key(), key())] = true
+		}
+	}
 }
 
 // TestCheckSeparationBoundaryCases compares checkSeparation and Check with
@@ -222,6 +264,18 @@ func separationBoundaryCases() []separationBoundaryCase {
 		{name: "clearance", class: CompactClass, minimum: Clearance},
 		{name: "large", class: GroupClass, minimum: largeClearance},
 	}
+	// lateral binds the keys of a lateral pair to the pods, and certified
+	// those of a certified pair.
+	lateral := func(pods []Pod, o SafetyObservation) SafetyObservation {
+		o.keys = map[string]podKey{pods[0].ID: {pod: pods[0], key: laneKey(0)}, pods[1].ID: {pod: pods[1], key: berthKey(0)}}
+		o.lateral = &depotLateral{pairs: map[[2]separationKey]float64{keyPair(laneKey(0), berthKey(0)): lateralClearance(2)}}
+		return o
+	}
+	certified := func(pods []Pod, o SafetyObservation) SafetyObservation {
+		o.keys = map[string]podKey{pods[0].ID: {pod: pods[0], key: laneKey(0)}, pods[1].ID: {pod: pods[1], key: laneKey(1)}}
+		o.certified = certifiedPairs{keyPair(laneKey(0), laneKey(1)): true}
+		return o
+	}
 	for _, threshold := range thresholds {
 		root := math.Sqrt(separationThresholdSquared(threshold.minimum))
 		distances := []float64{
@@ -234,8 +288,22 @@ func separationBoundaryCases() []separationBoundaryCase {
 				pods := pair(threshold.class, sign*distance)
 				o := SafetyObservation{Tick: 1, Pods: pods}
 				add(fmt.Sprintf("%s distance %d sign %v", threshold.name, k, sign), o)
+				add(fmt.Sprintf("%s distance %d sign %v with lateral keys", threshold.name, k, sign), lateral(pods, o))
+				add(fmt.Sprintf("%s distance %d sign %v with certified keys", threshold.name, k, sign), certified(pods, o))
 			}
 		}
+	}
+	// Distances about the threshold of a lateral pair, and the same pair
+	// with a key bound to a changed pod.
+	root := math.Sqrt(separationThresholdSquared(lateralClearance(2)))
+	for k, distance := range []float64{math.Nextafter(root, 0), root, math.Nextafter(root, math.Inf(1)), lateralClearance(2)} {
+		pods := pair(CompactClass, distance)
+		add(fmt.Sprintf("lateral distance %d", k), lateral(pods, SafetyObservation{Tick: 1, Pods: pods}))
+		unbound := lateral(pods, SafetyObservation{Tick: 1, Pods: pods})
+		changed := pods[1]
+		changed.Speed++
+		unbound.keys[changed.ID] = podKey{pod: changed, key: berthKey(0)}
+		add(fmt.Sprintf("lateral distance %d with a changed pod", k), unbound)
 	}
 	// Finite coordinates whose dx*dx overflows to +Inf.
 	add("overflow", SafetyObservation{Pods: []Pod{

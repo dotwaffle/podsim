@@ -299,3 +299,94 @@ func TestDepotDraftServerErrorFirst(t *testing.T) {
 		}
 	}
 }
+
+// lateralQueueDraft returns the preset draft with lane 2 of the depot
+// moved toward lane 1, so the lanes are width apart, and with the run
+// lanes and the throats at speed.
+func lateralQueueDraft(t *testing.T, width, speed float64) map[string]any {
+	t.Helper()
+	draft := queueDraft(t)
+	inner, outer := queueNode(t, draft, "s05-slot-1-01"), queueNode(t, draft, "s05-slot-2-01")
+	shift := (12 - width) / 12
+	dx, dy := shift*(number(inner["x"])-number(outer["x"])), shift*(number(inner["y"])-number(outer["y"]))
+	for _, node := range items(member(draft["network"], "nodes")) {
+		if id := text(member(node, "id")); strings.Contains(id, "-2-") || strings.HasSuffix(id, "-2") {
+			position := object(member(node, "position"))
+			position["x"], position["y"] = number(position["x"])+dx, number(position["y"])+dy
+		}
+	}
+	for _, item := range items(member(draft["network"], "lanes")) {
+		lane := object(item)
+		id := text(lane["id"])
+		if strings.HasSuffix(id, "-2") && lane["control"] != nil {
+			control := object(lane["control"])
+			control["x"], control["y"] = number(control["x"])+dx, number(control["y"])+dy
+		}
+		if strings.HasPrefix(id, "s05-run-") || strings.HasPrefix(id, "s05-throat-") {
+			lane["speedLimit"] = speed
+		}
+	}
+	return draft
+}
+
+// TestDepotLateralDraft checks that the editor and the server agree on a
+// depot with lanes 6 m apart. The server accepts the draft, and the
+// checks of the editor report no error. The pair pieces of the editor
+// equal those of the server index for each pair of depot lanes, and the
+// lead-ins are one piece at the lateral clearance. Lanes 4 m apart are
+// refused by both.
+func TestDepotLateralDraft(t *testing.T) {
+	t.Parallel()
+	draft := lateralQueueDraft(t, 6, 2)
+	typed, err := decodeDraftNetwork(draft["network"])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = sim.PrepareNetwork(typed); err != nil {
+		t.Fatalf("server: %v", err)
+	}
+	if report := draftChecks(draft); len(report.Errors) != 0 {
+		t.Fatalf("editor checks: %+v", report.Errors)
+	}
+	editor, server := newDraftClearance(draft["network"]), sim.NewLaneClearance(typed)
+	typedLane := func(id string) sim.Lane {
+		for _, lane := range typed.Lanes {
+			if lane.ID == id {
+				return lane
+			}
+		}
+		t.Fatalf("no lane %s", id)
+		return sim.Lane{}
+	}
+	lanes := make(map[string]any)
+	var ids []string
+	for _, item := range items(member(draft["network"], "lanes")) {
+		if id := text(member(item, "id")); strings.HasPrefix(id, "s05-") && !strings.HasSuffix(id, "through") {
+			lanes[id] = item
+			ids = append(ids, id)
+		}
+	}
+	for i, a := range ids {
+		for _, b := range ids[i+1:] {
+			got, want := editor.pairPieces(lanes[a], lanes[b], 10, 20), server.PairPieces(typedLane(a), typedLane(b), 10, 20)
+			if !reflect.DeepEqual(got, want) {
+				t.Fatalf("%s and %s: editor %+v, server %+v", a, b, got, want)
+			}
+		}
+	}
+	if got := server.PairPieces(typedLane("s05-in-1"), typedLane("s05-in-2"), 10, 20); len(got) != 1 || got[0].Clearance >= sim.Clearance {
+		t.Fatalf("lead-in pieces %+v", got)
+	}
+	tight := lateralQueueDraft(t, 4, 2)
+	typed, err = decodeDraftNetwork(tight["network"])
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, serverErr := sim.PrepareNetwork(typed)
+	if serverErr == nil || !strings.Contains(serverErr.Error(), "less than 12 meters apart") {
+		t.Fatalf("server at 4 m: %v", serverErr)
+	}
+	if report := draftChecks(tight); len(report.Errors) == 0 {
+		t.Fatal("the editor accepts lanes 4 m apart")
+	}
+}

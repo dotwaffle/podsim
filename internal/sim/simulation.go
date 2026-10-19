@@ -238,9 +238,11 @@ type SafetyObservation struct {
 	chains map[string]safetyChain
 	// keys holds the separation key of each pod, and certified the pairs
 	// of keys that the maneuver certification clears. An observation
-	// without them skips no pair.
+	// without them skips no pair. lateral holds the lateral pairs of the
+	// depot lanes. An observation without it reduces no minimum.
 	keys      map[string]podKey
 	certified certifiedPairs
+	lateral   *depotLateral
 }
 
 // SafetyLocation identifies the physical plane and endpoints occupied by a pod.

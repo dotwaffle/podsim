@@ -51,8 +51,8 @@ type networkIndexes struct {
 	// berthKeys holds the separation key index of each berth (see
 	// indexBerthKeys).
 	berthKeys map[string]int
-	// lateral holds the lateral pairs of the depot lanes. The debris
-	// footprint reads it.
+	// lateral holds the lateral pairs of the depot lanes. The bank audit,
+	// the safety observation, and the debris footprint read it.
 	lateral *depotLateral
 }
 
@@ -102,7 +102,7 @@ func prepareNetwork(network Network) (networkPreparation, error) {
 	// validate checked the depots, so the index has no error.
 	depots, _ := newDepotIndex(owned, indexNodePositions(owned.Nodes))
 	lateral := newDepotLateral(owned, depots, tails, berthKeys)
-	if err := network.validateBankGeometry(bankAudit{retention: retention, maneuvers: maneuvers, certified: certified, depots: depots}); err != nil {
+	if err := network.validateBankGeometry(bankAudit{retention: retention, maneuvers: maneuvers, certified: certified, depots: depots, lateral: lateral}); err != nil {
 		return networkPreparation{}, err
 	}
 	for index, lane := range owned.Lanes {

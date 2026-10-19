@@ -24,6 +24,7 @@ type bankAudit struct {
 	maneuvers *maneuverIndex
 	certified certifiedPairs
 	depots    *depotIndex
+	lateral   *depotLateral
 }
 
 // ValidateBankGeometry audits nonincident paths affected by banks, large
@@ -42,6 +43,7 @@ func (n Network) ValidateBankGeometry() error {
 		if audit.depots, err = newDepotIndex(n, nodes); err != nil {
 			return err
 		}
+		audit.lateral = newDepotLateral(n, audit.depots, indexGeometryTails(n), indexBerthKeys(n))
 	}
 	if len(n.ManeuverGroups) > 0 {
 		nodes, err := n.validateNodes()
@@ -65,7 +67,9 @@ func (n Network) ValidateBankGeometry() error {
 // banks. It skips the certified pairs, two lanes of one group, which one
 // pod at a time uses, and a lane of a closed bay chain with its own berth,
 // which the chain cells hold. With a depot and no bank or group, it checks
-// each pair with a depot lane or a slot.
+// each pair with a depot lane or a slot. A lateral pair of the depot
+// lanes (see depotLateral) needs its lateral clearance along its whole
+// length.
 func (n Network) validateBankGeometry(audit bankAudit) error {
 	retention, maneuvers := audit.retention, audit.maneuvers
 	banks, large, groups := n.hasStationBanks(), n.hasLargeGeometry(), maneuvers != nil
@@ -139,7 +143,7 @@ func (n Network) validateBankGeometry(audit bankAudit) error {
 				groups && (maneuvers.auditSkips(first, second) || audit.certified.certified(first.key, second.key)) {
 				continue
 			}
-			pieces := retention.pairPieces(first.member, second.member)
+			pieces := audit.pieces(first, second)
 			for _, piece := range pieces {
 				a, b := first.points, second.points
 				if len(pieces) > 1 {
@@ -152,6 +156,15 @@ func (n Network) validateBankGeometry(audit bankAudit) error {
 		}
 	}
 	return nil
+}
+
+// pieces returns the pieces of a pair of paths: one piece at the clearance
+// of a lateral pair, and otherwise the pieces of pairPieces.
+func (audit bankAudit) pieces(first, second bankAuditPath) []pairPiece {
+	if clearance, ok := audit.lateral.clearance(first.key, second.key); ok {
+		return []pairPiece{{first: [2]float64{0, first.member.length}, second: [2]float64{0, second.member.length}, clearance: clearance}}
+	}
+	return audit.retention.pairPieces(first.member, second.member)
 }
 
 // bankPathsClose reports whether two polylines come closer than clearance.
