@@ -9,16 +9,16 @@ import (
 	"testing"
 )
 
-func stationBaselineRefusal(t *testing.T, digest hash.Hash, s *Simulation, name string, want error, command func() error) {
+func baselineRefusal(t *testing.T, digest hash.Hash, s *Simulation, name string, want error, command func() error) {
 	t.Helper()
 	before := sha256.New()
-	stationBaselineObserve(t, before, s)
+	baselineObserve(t, before, s)
 	err := command()
 	if !errors.Is(err, want) {
 		t.Fatalf("%s: error=%v, want %v", name, err, want)
 	}
 	after := sha256.New()
-	stationBaselineObserve(t, after, s)
+	baselineObserve(t, after, s)
 	if hex.EncodeToString(before.Sum(nil)) != hex.EncodeToString(after.Sum(nil)) {
 		t.Fatalf("%s changed baseline state on refusal", name)
 	}
@@ -32,10 +32,10 @@ func stationBaselineRefusal(t *testing.T, digest hash.Hash, s *Simulation, name 
 	if _, writeErr := digest.Write([]byte{'\n'}); writeErr != nil {
 		t.Fatal(writeErr)
 	}
-	stationBaselineObserve(t, digest, s)
+	baselineObserve(t, digest, s)
 }
 
-type stationIncidentBaselineCase struct {
+type incidentBaselineCase struct {
 	name          string
 	duration      int64
 	evacuation    int
@@ -45,7 +45,7 @@ type stationIncidentBaselineCase struct {
 	want          string
 }
 
-func stationIncidentBaselineCommand(t *testing.T, s *Simulation, digest hash.Hash, test stationIncidentBaselineCase, tick int, faultID string) string {
+func incidentBaselineCommand(t *testing.T, s *Simulation, digest hash.Hash, test incidentBaselineCase, tick int, faultID string) string {
 	t.Helper()
 	if tick == 600 {
 		if s.vehicles[0].Pod.Activity != Traveling || s.vehicles[0].Pod.Speed <= 0 {
@@ -60,8 +60,8 @@ func stationIncidentBaselineCommand(t *testing.T, s *Simulation, digest hash.Has
 		if err != nil {
 			t.Fatal(err)
 		}
-		stationBaselineObserve(t, digest, s)
-		stationBaselineRefusal(t, digest, s, "duplicate-fault", errPodFaulted, func() error {
+		baselineObserve(t, digest, s)
+		baselineRefusal(t, digest, s, "duplicate-fault", errPodFaulted, func() error {
 			_, err := s.Fault(FaultRequest{PodID: "01"})
 			return err
 		})
@@ -69,7 +69,7 @@ func stationIncidentBaselineCommand(t *testing.T, s *Simulation, digest hash.Has
 			if _, err := s.Emergency("01", 0); err != nil {
 				t.Fatal(err)
 			}
-			stationBaselineObserve(t, digest, s)
+			baselineObserve(t, digest, s)
 		}
 	}
 	if test.clearTick != 0 && tick == test.clearTick {
@@ -79,14 +79,14 @@ func stationIncidentBaselineCommand(t *testing.T, s *Simulation, digest hash.Has
 		if err := s.ClearFault(faultID); err != nil {
 			t.Fatal(err)
 		}
-		stationBaselineObserve(t, digest, s)
-		stationBaselineRefusal(t, digest, s, "clear-removed-fault", errUnknownFault, func() error { return s.ClearFault(faultID) })
+		baselineObserve(t, digest, s)
+		baselineRefusal(t, digest, s, "clear-removed-fault", errUnknownFault, func() error { return s.ClearFault(faultID) })
 	}
 	return faultID
 }
 
-func TestStationIntegrationIncidentBaseline(t *testing.T) {
-	for _, test := range []stationIncidentBaselineCase{
+func TestIncidentBaseline(t *testing.T) {
+	for _, test := range []incidentBaselineCase{
 		{name: "moving-clear", evacuation: 300, clearTick: 660, want: "2e493f88cae65d438febb1a3c2a9afa952e3ae3436f40e6549a36a8db7a65970"},
 		{name: "duration-expiry", duration: 1, evacuation: 300, want: "f1f702df241618dd4e1ad6cc3c40e9170e6fc222db372190ead9dc6038a1136a"},
 		{name: "emergency-while-faulted", evacuation: 300, clearTick: 660, emergency: true, want: "181bda4495724c9a56e188921a4dcb7a6fdc99011851b9f1c7e908869d013207"},
@@ -107,19 +107,19 @@ func TestStationIntegrationIncidentBaseline(t *testing.T) {
 				t.Fatal(err)
 			}
 			digest := sha256.New()
-			stationBaselineObserve(t, digest, s)
+			baselineObserve(t, digest, s)
 			if err := s.RequestJourney("01", "market"); err != nil {
 				t.Fatal(err)
 			}
-			stationBaselineObserve(t, digest, s)
+			baselineObserve(t, digest, s)
 			var faultID string
 			for tick := range 18000 {
-				faultID = stationIncidentBaselineCommand(t, s, digest, test, tick, faultID)
+				faultID = incidentBaselineCommand(t, s, digest, test, tick, faultID)
 				s.Step()
 				if err := s.CheckContract(); err != nil {
 					t.Fatalf("tick %d: %v", s.tick, err)
 				}
-				stationBaselineObserve(t, digest, s)
+				baselineObserve(t, digest, s)
 			}
 			if len(s.faults) != 0 || len(s.emergencies) != 0 || s.faultCounters.started != 1 || s.faultCounters.cleared != 1 {
 				t.Fatalf("incident lifecycle incomplete: faults=%d emergencies=%d counters=%+v", len(s.faults), len(s.emergencies), s.faultCounters)
@@ -135,7 +135,7 @@ func TestStationIntegrationIncidentBaseline(t *testing.T) {
 			}
 			got := hex.EncodeToString(digest.Sum(nil))
 			if got != test.want {
-				t.Fatalf("legacy incident digest = %s, want %s", got, test.want)
+				t.Fatalf("incident baseline digest = %s, want %s", got, test.want)
 			}
 		})
 	}

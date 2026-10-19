@@ -134,7 +134,7 @@ func stationSwitchObservation(t *testing.T, s *Simulation) []byte {
 
 func stationSwitchObserve(t *testing.T, digest hash.Hash, s *Simulation) {
 	t.Helper()
-	stationBaselineObserve(t, digest, s)
+	baselineObserve(t, digest, s)
 	stationSwitchSavedExtras(t, digest, s.ExportState())
 	stationSwitchEncode(t, digest, struct {
 		Generation          uint64
