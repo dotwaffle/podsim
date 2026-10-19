@@ -709,6 +709,11 @@ func validateNames(config Config) error {
 			return err
 		}
 	}
+	for _, group := range config.Network.ManeuverGroups {
+		if len(group.ID) > MaxIDLength {
+			return fmt.Errorf("maneuver group IDs must contain at most %d characters", MaxIDLength)
+		}
+	}
 	// Each pod names its berth. The editor checks reject a pod with no
 	// berth ID, so the server does not select a berth for one.
 	for _, placement := range config.Fleet {

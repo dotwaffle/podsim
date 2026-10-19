@@ -905,6 +905,12 @@ func TestValidateRefusalOrder(t *testing.T) {
 		{"names_before_characters", func(config *Config) {
 			config.Network.Lanes[0].ID, config.Name = strings.Repeat("_", MaxIDLength+1), "Pod\x01"
 		}, fmt.Sprintf("lane IDs must contain 1 to %d characters", MaxIDLength)},
+		{"group_names_before_fleet_names", func(config *Config) {
+			config.Network.ManeuverGroups, config.Fleet[0].ID = []sim.ManeuverGroup{{ID: strings.Repeat("g", MaxIDLength+1)}}, ""
+		}, fmt.Sprintf("maneuver group IDs must contain at most %d characters", MaxIDLength)},
+		{"group_names_before_characters", func(config *Config) {
+			config.Network.ManeuverGroups, config.Name = []sim.ManeuverGroup{{ID: strings.Repeat("g", MaxIDLength+1)}}, "Pod\x01"
+		}, fmt.Sprintf("maneuver group IDs must contain at most %d characters", MaxIDLength)},
 		{"project_name_before_ids", func(config *Config) { config.Name, config.Network.Nodes[0].ID = "Pod\x01", "a_b" },
 			`name "Pod\x01" has a control character or is not UTF-8`},
 		{"nodes_before_station_names", func(config *Config) {
