@@ -8,10 +8,12 @@ The [native](express-native-qualification.md), [wire](express-wire-qualification
 Station buffers and compact station queues were removed on October 7, 2026, because measurements showed that they lowered station entry throughput.
 Clauses that name buffers, buffer certificates, compact queues, or compact certificates now describe cases that cannot occur.
 Their prohibitions and bounds stay as written and are vacuous.
+The opt-in Compact station added in October 2026 (maneuver groups, `internal/sim/maneuver_*.go` and `internal/sim/station_maneuvers.go`) is a different feature, and this removal does not cover it.
 
 Status 2026-10-07: by maintainer decision, the fleet limit is 600 pods and the saved-state cap is 100 MiB.
 Status 2026-10-15: the [byte-budget amendment](service-byte-contract-proposal.md#october-15-2026-amendment) sets save and HTTP-state caps to 128 MiB, stream JSON to 64 MiB, and a source-derived gzip allowance.
-Express keeps its separately qualified 600-pod fleet and 17,000-order bound, independent of any later plain-fleet promotion.
+Status 2026-10-19: the plain fleet limit is now 1,000 pods.
+Express keeps its own 600-pod fleet and 17,000-order bound (`internal/sim/order_contract_bounds.go`), independent of the plain fleet.
 The Express fleet bound and the bound of pending routes are 600.
 The Express pending and outstanding bound is 17,000, from `5,000 + 600 * 20`.
 The byte evidence below keeps its 300-pod and 80 MiB basis, and nobody measured it again.
@@ -31,7 +33,7 @@ The approved batch covers implementation and qualification of the following cont
 
 | Decision | Proposed bound or rule |
 | --- | --- |
-| Opt-in contract | `express-v1` in a version 1 project. It selects the Express bounds in saved-state version 9 and stream hello version 6 |
+| Opt-in contract | `express-v1` in a version 1 project. It selects the Express bounds in saved-state version 9 and stream hello version 7 |
 | Express profile under that contract | 20 seats, new whole-party size 1 through 20, centered 10 m body, maximum width 2.5 m |
 | Large interaction candidate | Existing 6 m envelope radius, 20 m separation and retention, lanes at least 40 m, actual cells at least 20 m |
 | Stored Express records | At most 20 rider records, including completed history, with at most 20 aligned boarding records |
@@ -60,7 +62,7 @@ At the reviewed baseline, `order_state.go` recognized 6,200 waiting records and 
 Those parser limits do not authorize such native operating states.
 [`state.go`](../internal/sim/state.go) and [`state_contract.go`](../internal/sim/state_contract.go) still enforce 2,600 pending records and eight stored riders.
 Stream publication also retains those operating bounds.
-Saved-state version 9 and stream hello version 6 now take their array bounds from the contract markers.
+Saved-state version 9 and stream hello version 7 now take their array bounds from the contract markers.
 The bounds are 2,600 waiting records and eight riders per pod, or 8,600 and 20 with `express-v1`.
 
 The current session derives its recovery bound from `200 + 300 * 8 = 2,600` total orders.
@@ -76,6 +78,7 @@ They are new limits requiring approval, not consequences of the existing parser 
 
 Status 2026-10-07: the same derivation at 600 pods gives the plain bound `200 + 600 * 8 = 5,000` and the Express bound `5,000 + 600 * 20 = 17,000`.
 The code uses 17,000 for the Express pending and outstanding bounds, and 8,600 elsewhere in this document is the earlier value.
+Status 2026-10-15: the plain bound is now `200 + 1,000 * 8 = 8,200`.
 
 ## Immutable orders and admission
 
@@ -237,7 +240,7 @@ Test the retained 20 m influence of a large neighbor without changing those comp
 The project marker is `orderContract: "express-v1"` in a version 1 project.
 The decoder refuses project versions 2 through 5 and does not migrate them.
 Saved-state version 9 carries that marker at its root.
-Stream hello version 6 carries the marker and binds it to its source epoch and topology.
+Stream hello version 7 carries the marker and binds it to its source epoch and topology.
 Express topology carries `orderContract` and a bounded `expressServices` array, copied from the project registry.
 It retains project version, epoch, and revision binding.
 The entire topology, including the registry, must fit the existing 10 MiB plus 4 KiB cap.

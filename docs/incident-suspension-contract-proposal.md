@@ -11,6 +11,7 @@ Platoon, compact queue, and station group rules are unchanged.
 
 Station buffers and compact station queues were removed on October 7, 2026, because measurements showed that they lowered station entry throughput.
 Clauses about buffered pods, buffer heads, buffer claims, compact queue members, and compact certificates no longer apply.
+The opt-in Compact station added in October 2026 (maneuver groups, `internal/sim/maneuver_*.go` and `internal/sim/station_maneuvers.go`) is a different feature, and this removal does not cover it.
 Where a rule lists a buffer or compact case with other cases, only that case is removed.
 The sentence above that keeps compact queue rules unchanged no longer covers them.
 
@@ -242,6 +243,7 @@ Stage 1 W3 does not change: the pod releases only its own claims, and it authori
 | Web markers | `web/editor.js:1275`, `web/shell.js:147` | `markersAgree` and the incident marker. |
 
 Status 2026-10-07: `MaxLanes` is now 20,000, and `MaxCommandBytes` is now 16 MiB.
+Status 2026-10-15: `MaxStateBytes` is now 128 MiB.
 
 ## 4. State
 
@@ -313,6 +315,7 @@ A pod fault owns no resource: the pod keeps its own owners.
 ### 4.3 Limits
 
 Status 2026-10-07: the fleet limit is 600 pods, so the limit of pod faults is 600 and the limit of records is 664.
+Status 2026-10-19: the fleet limit is 1,000 pods, so the limit of pod faults is 1,000 and the limit of records is 1,064 (`maxFaultRecords`).
 
 | Limit | Value | Reason |
 | --- | ---: | --- |
@@ -1315,7 +1318,9 @@ Each limit has a test at the limit, at the limit plus one before typed decoding,
 ### 13.6 Byte budget
 
 Status 2026-10-07: by maintainer decision, the fleet limit is 600 pods and the save cap is 100 MiB.
+Status 2026-10-19: the plain fleet limit is now 1,000 pods and the save cap is 128 MiB.
 The prescan limits of section 13.5 that this section gives as 364 are now 664.
+Status 2026-10-19: they are now 1,064.
 The budget below keeps its 300-pod and 80 MiB basis, and nobody measured it again.
 The composed fixtures of section 16.4 were deleted, so the Formats gate of section 17 no longer applies.
 

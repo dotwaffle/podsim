@@ -413,7 +413,7 @@ A 403, 415, or 503 reply comes before the server reads the body, and a 413 reply
 The server closes the connection after these replies, so it does not wait for the rest of the body.
 
 A `project` command with more than 600 stations, 12,000 nodes, 20,000 lanes, or 1,000 pods gets HTTP 400, because these arrays are larger than the limits above.
-An Express project retains its separately qualified limit of 600 pods.
+An Express project retains its own limit of 600 pods.
 A station with more than 200 berths or more than 8 banks also gets HTTP 400.
 More than 8 maneuver groups, a group with more than 64 lanes or 64 reverse lanes, and a group with more than 8 berths also get HTTP 400.
 More than 600 depots, a depot with more than 8 lanes, and a depot lane with more than 200 berths also get HTTP 400.

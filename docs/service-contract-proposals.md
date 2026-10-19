@@ -5,6 +5,7 @@ Runtime implementation and qualification are in progress.
 The user approved roadmap items 1 through 10 and continued local work on October 2, 2026.
 Station buffers and compact station queues were removed on October 7, 2026, because measurements showed that they lowered station entry throughput.
 The compact station queue section was deleted with them.
+The opt-in Compact station added in October 2026 (maneuver groups, `internal/sim/maneuver_*.go` and `internal/sim/station_maneuvers.go`) is a different feature, and this removal does not cover it.
 The standing grant requires approval of concrete contract changes before implementation.
 Browser-facing JavaScript, existing defaults, and ordinary safety limits stay in force.
 
@@ -33,8 +34,16 @@ Approve these data and compatibility rules as one foundation:
   Its logical seats are not a physical capacity certification.
   Legacy keeps size-one party admission, including the existing explicitly consented singleton sharing experiment.
   Larger new parties need an explicitly authored class that fits them.
-  Compact uses the current four-meter simulation profile, ordinary 12-meter clearance, and current acceleration and speed rules.
-  Group and express need an approved physical profile before placement, simulation start, or restore.
+  Compact uses the current four-meter simulation profile and current acceleration and speed rules.
+  Clearance layer A (`internal/sim/retention.go`) reduces the clearance between two small pods, legacy or compact, on a qualifying lane.
+  A qualifying lane has no control, is straight, and has a speed limit below about 3.7 meters per second.
+  Its window of lanes has no lane that admits a large class and no geometry tail, one incoming and one outgoing lane at each inner node, a total turn of at most 90 degrees, and a reduced retention below 12 meters.
+  The window runs from the upstream braking reach to twice the clearance past the end of the lane.
+  There, the follower keeps `4 + min(8, 1 + 2u)` meters behind the pod ahead, where `u` is the braking distance of the follower at its speed.
+  Every other pair of small pods keeps 12 meters, and a pair with a large pod keeps 20 meters.
+  Debris clearance stays 12 meters.
+  Group has an approved physical profile (`internal/sim/vehicle_class.go`).
+  Express needs an approved physical profile, through the `express-v1` contract, before placement, simulation start, or restore.
   Do not reuse ordinary legacy links for a larger body without a separately qualified class certificate.
 - Stations, berths, and lanes have optional `vehicleClasses` allowlists.
   Omission permits legacy and compact.
@@ -47,7 +56,7 @@ Approve these data and compatibility rules as one foundation:
   Do not wait to fill seats or invent a departure interval.
   A large pod can separately serve one private on-demand group when all compatibility checks pass.
   Fare calculation and a fixed timetable require later contracts.
-- Use project version 1, saved-state version 9, and stream hello version 6.
+- Use project version 1, saved-state version 9, and stream hello version 7.
   A project permits banks and service metadata independently, by their presence.
   Browser file wrapper version 1 stays unchanged.
   The decoder refuses project versions 2 through 5 and does not migrate them.
@@ -58,6 +67,8 @@ Approve these data and compatibility rules as one foundation:
   Bound the express registry at 300 services.
   Prove worst-case saves and frames fit existing byte limits before landing.
   Status 2026-10-07: the maintainer dropped this proof, raised the fleet to 600 pods, the plain queue bound to 5,000 orders, and the Express queue bound to 17,000 orders, and raised the save cap to 100 MiB.
+  Status 2026-10-15: the byte-budget amendment raised the plain fleet to 1,000 pods, the plain queue bound to 8,200 orders, and the save cap to 128 MiB.
+  Express keeps 600 pods and 17,000 orders.
 - Each saved and streamed order has explicit `private` or `shared` consent.
   Restore and new trip commands reject all other consent values.
   The server does not migrate saves of an earlier version.
@@ -91,20 +102,30 @@ Approve these private worker extensions, with current acceptance rules preserved
   Browser URL parsing supplies protocol facts so this move does not replace current URL acceptance with a stricter Go parser.
   Go retains original attribution text.
   Browser link construction still checks HTTPS.
-- `canonicalImport` gives the canonical project of an import when the server decoder reads member names that differ only in case.
-  It does not repair the draft or apply defaults before validation.
-  The Go checks and the server reject a pod without a berth ID.
 - `stationLayout` returns selected station/bank dimensions and separate unavailable reasons for each control.
   It tolerates incomplete drafts and does not require a startable simulation.
   Browser rendering rejects stale selection or geometry replies.
+- `measurements` returns the ruler overlay of the draft for one selection and map scale.
+  It tolerates a draft that breaks the project limits and does not require a startable simulation.
+  The request has `project` and `measure`, and `measure` holds `selection` and `scale`.
+  The map shows at most 200 rulers, and the summary text covers all measurements.
+- `stationObservations` counts the station facts that one HTTP state reply supplies.
+  The request has only `state`, a live state object, and no project.
+  A missing or malformed source makes its counts null, not zero.
+  Only a JSON syntax error is an error.
+  Its request limit is the HTTP state limit plus 64 KiB, not the project request limit.
+- `observationScope` returns the text that tells how a station observation relates to the draft.
+  The request has only `scope`, with `identity`, `base`, and `unchanged`.
 
 The private operation shapes are:
 
 | Operation | Request members beyond `op` | Successful result |
 | --- | --- | --- |
 | `backgroundMetadata` | `metadata` with optional `placement`, optional `asset`, and bounded `urlFacts` | `valid: true` and owned effective `metadata` |
-| `canonicalImport` | Raw `project` object | Optional `replace` with the canonical project |
 | `stationLayout` | Raw `project` and `layout` with `stationID` and optional `bankID` | `layout` with field-specific value and unavailable reason |
+| `measurements` | Raw `project` and `measure` with `selection` and `scale` | `measurements` with `items`, `fontSize`, `radius`, and `summary` |
+| `stationObservations` | `state`, a live HTTP state object | `observations` with `status` of `snapshot` or `unavailable`, `stations`, and the scope text |
+| `observationScope` | `scope` with `identity`, `base`, and `unchanged` | `scope` text |
 
 Placement contains `x`, `y`, `width`, `height`, and `opacity`.
 Asset contains `frameState`, `frame`, and `license`.

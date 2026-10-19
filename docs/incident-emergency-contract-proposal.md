@@ -12,6 +12,7 @@ Platoon, compact queue, and station group rules are unchanged.
 
 Station buffers and compact station queues were removed on October 7, 2026, because measurements showed that they lowered station entry throughput.
 Clauses about buffered pods, buffer heads, buffer claims, compact queue members, and compact certificates no longer apply.
+The opt-in Compact station added in October 2026 (maneuver groups, `internal/sim/maneuver_*.go` and `internal/sim/station_maneuvers.go`) is a different feature, and this removal does not cover it.
 Where a rule lists a buffer or compact case with other cases, only that case is removed.
 The sentence above that keeps compact queue rules unchanged no longer covers them.
 The function `checkCompactFields`, which the restore order below names, no longer exists.
@@ -770,6 +771,7 @@ The worst tick therefore makes at most `4 · (1 + 5,001 · 12) = 240,052` graph 
 Status 2026-10-07: the project limits are now 12,000 nodes and 20,000 lanes, so the bound is `4 · (1 + 12,001 · 12) = 576,052` graph searches.
 The term guard constant does not change.
 At 12,000 nodes and 600 pods, `7n + 2k = 85,200`, so on such a network a choice prunes only with a prefix of at most 1,200 lanes.
+Status 2026-10-19: at 1,000 pods the guard term is 86,000, so the prefix is at most 1,000 lanes.
 The preset networks are much smaller, so their choices do not change.
 The search measurement below and `BenchmarkEmergencyLimitSearch` keep the 5,000-node grid.
 Pruning does not lower this bound, because in a network where the tree reaches every berth and the restricted searches refuse each one, no station is pruned.
@@ -1170,6 +1172,8 @@ Each limit has a test at the limit, at the limit plus one before typed decoding,
 ### 11.6 Byte budget
 
 Status 2026-10-07: by maintainer decision, the fleet limit is 600 pods and the save cap is 100 MiB.
+Status 2026-10-19: the plain fleet limit is now 1,000 pods and the save cap is 128 MiB.
+Express keeps 600 pods.
 The budget below keeps its 300-record basis, and nobody measured it again.
 The composed fixtures and the allocation test of section 14.4 were deleted, so the Formats gate of section 15 no longer applies.
 

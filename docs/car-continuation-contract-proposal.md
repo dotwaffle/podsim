@@ -11,6 +11,7 @@ The project, session, stream, plan, and report formats retain their existing con
 
 Station buffers and compact station queues were removed on October 7, 2026, because measurements showed that they lowered station entry throughput.
 Clauses that name buffer or compact certificates, policies, or queues now describe cases that cannot occur.
+The opt-in Compact station added in October 2026 (maneuver groups, `internal/sim/maneuver_*.go` and `internal/sim/station_maneuvers.go`) is a different feature, and this removal does not cover it.
 The checkpoint payload is the saved simulation state, which no longer has their members.
 A checkpoint that still has one fails as an unknown member.
 The checkpoint version and the native encoding name are unchanged.
@@ -122,6 +123,7 @@ Generate the observation object from the candidate runtime, not the supplied nat
 Stream its canonical encoding through a byte counter into SHA-256.
 Do not retain its encoded bytes.
 Bound each observation encoding at 80 MiB as a proposed checkpoint-eligibility rule, separate from complete-file storage.
+Status 2026-10-07: `MaxCheckpointBytes` is 100 MiB, and it also bounds each observation encoding.
 An exceeded bound invalidates checkpoint eligibility without truncating the observation or changing native admission.
 Full `Snapshot` evidence includes ordinary pod speed that `SavedState` omits.
 The trace makes intermediate observable differences detectable, even if the endpoint later matches.
@@ -360,6 +362,7 @@ Let `N` and `L` be itinerary and lot counts.
 Require `P + A + S + 1024*N + 128*L + 8192 <= 83,886,080` for conservative preflight.
 No observation object length `O` enters this storage formula because the file contains only its hash.
 The independent observation encoder enforces `O <= 83,886,080` bytes while hashing.
+Status 2026-10-07: both bounds above are now 100 MiB, or 104,857,600 bytes (`MaxCheckpointBytes`).
 The actual bounded checkpoint writer remains authoritative.
 At the retained-ledger count extremes, `N <= 65,536` and `L <= 524,288` independently.
 Either ledger charge alone can reach 64 MiB of encoded budget.
@@ -437,7 +440,7 @@ A selected service or continuation fixture does not qualify physical defaults, e
 | Schema | Separate uncompressed `podsim-car-continuation` version 1 with the origin and snapshot members above. |
 | Boarding receipt | Enable new version-1 run origin ownership, bounded boarding receipts, native rider observation, and rolling trace from initialization. Keep report version 1 unchanged. |
 | CLI | Optional input/output and absolute stop tick, origin-owned controls on resume, explicit replay timeout, and strict path separation. |
-| Bounds | Existing 80 MiB complete-file and 10 MiB component caps. Separate proposed 80 MiB observation-hashing ceiling. Optional save rejects ineligible runs. No truncation or increased operating limit. |
+| Bounds | Existing 100 MiB complete-file and 10 MiB component caps. Separate proposed 100 MiB observation-hashing ceiling. Optional save rejects ineligible runs. No truncation or increased operating limit. |
 | Identity and migration | Match the identified executable and build facts. Reject historical non-car files and cross-build migration. |
 | Failure policy | Preserve input and prior complete output before rename. Reject partial/faulted state. Disclose uncertain durability after rename. |
 | Scope | Offline finite plans only. No live session, stream, browser checkpoint, comparison-arm, or dynamic-offer persistence. |

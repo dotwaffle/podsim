@@ -1,7 +1,7 @@
 # Incident service transitions contract proposal
 
 Status: approved on 2026-10-05, with the proposed default for each open question in section 18.
-Revised for item 7: one save family (version 9) and one stream family (hello 6).
+Revised for item 7: one save family (version 9) and one stream family (hello 6, hello 7 since the motion-only deltas).
 
 Physical coupling was removed on October 6, 2026.
 Clauses about the couplingContract marker, coupling sites and corridors, coupling approaches, and coupled trains and their members no longer apply.
@@ -10,6 +10,7 @@ Platoon, compact queue, and station group rules are unchanged.
 
 Station buffers and compact station queues were removed on October 7, 2026, because measurements showed that they lowered station entry throughput.
 Clauses about buffered pods, buffer heads, buffer claims, compact queue members, and compact certificates no longer apply.
+The opt-in Compact station added in October 2026 (maneuver groups, `internal/sim/maneuver_*.go` and `internal/sim/station_maneuvers.go`) is a different feature, and this removal does not cover it.
 Where a rule lists a buffer or compact case with other cases, only that case is removed.
 The sentence above that keeps compact queue rules unchanged no longer covers them.
 The step-fault seam was removed with them: `compactFault`, `CompactQueueError`, `FailStepForTest`, and the Compact pause return in `Session.step`.
@@ -160,6 +161,7 @@ Sections 4 to 10 do not depend on the formats.
 | `internal/session/persist.go` `MaxStateBytes` | 80 MiB for raw and compressed saves. | Section 11.7 budgets against it. |
 
 Status 2026-10-07: by maintainer decision, `MaxStateBytes` is now 100 MiB.
+Status 2026-10-15: it is now 128 MiB.
 
 ## 4. Service withdrawal
 
@@ -1231,7 +1233,7 @@ Members use post-item-5 lowerCamel names.
 References in this section to item 7 code are for `475cc85`.
 The save is version 9.
 Its array limits come from `savedLimits` (`internal/session/format_limits.go` `savedLimits`), which selects the order bounds by marker (`(contractMarkers).orderBounds`).
-The stream is hello version 6, with limits from `streamLimits`.
+The stream is hello version 7, with limits from `streamLimits`.
 The HTTP state has one envelope and one media type.
 
 ### 11.2 Marker and its propagation
@@ -1405,6 +1407,7 @@ It is dispatch state, as `deferPodID` is.
 ### 11.7 Joint byte budget
 
 Status 2026-10-07: by maintainer decision, the fleet limit is 600 pods and the save cap is 100 MiB.
+Status 2026-10-19: the plain fleet limit is now 1,000 pods and the save cap is 128 MiB.
 The composed worst-case fixtures, their record, and the landing gate of this section were deleted.
 The measurements below keep their 300-pod and 80 MiB basis, and nobody measured them again.
 `TestFormatArraysHaveLimits` now does the array audit of section 11.6 on small save, full, delta, and HTTP fixtures.
@@ -1445,6 +1448,7 @@ Stage 1 growth per shape, with the widest encodings:
 Notes on the counts:
 
 - Plain: 300 pods with 8 riders each, and 2,600 waiting trips (`internal/session/state_file.go` `maxSavedTrips`).
+  Status 2026-10-19: `maxSavedTrips` is now `200 + 8 * 1,000 = 8,200`.
   Express: 20 stored riders per pod and 8,600 waiting trips (`orderBounds`, `internal/session/format_limits.go` `(contractMarkers).orderBounds` at `475cc85`).
 - The station index has at most 3 digits, because a project has at most 300 stations (`internal/project/config.go` `MaxPods`).
   The pod index has at most 3 digits for 300 pods (`MaxPods`).
@@ -1504,7 +1508,7 @@ The narrowest save shape, Express with coupling, keeps 6,836,569 bytes before st
 The save keeps 80 MiB.
 A raise must also update the guard that proves the direct native-ID form is over the cap (`internal/session/compact_state_bytes_test.go`).
 
-Status 2026-10-07: the save cap is now 100 MiB, and `internal/session/compact_state_bytes_test.go` was deleted with the other worst-case byte proofs.
+Status 2026-10-07: the save cap is now 100 MiB (128 MiB since 2026-10-15), and `internal/session/compact_state_bytes_test.go` was deleted with the other worst-case byte proofs.
 
 Landing gate:
 
@@ -1805,7 +1809,7 @@ Sections 5.2, 5.3, 5.5, and 14.6 changed for it.
 | 8 | Does an emergency unload or an empty recovery release its owner hold on arrival? | No. Arrival clears the purpose. The policy calls `restoreService`, so a faulted pod stays withdrawn until the fault clears. |
 | 9 | Do completed riders keep `legFrom`? | Yes. It is saved and never inferred. |
 | 10 | Do park-and-ride runs and `cmd/compare` accept the incident marker in stage 1? | No. The ledger outcome `interrupted` lands with the first policy that can interrupt a park-and-ride party. |
-| 11 | Is the save cap raised, and when? | Item 7 keeps 80 MiB. The item 7 patch 8 fixtures leave at least 6,463,453 save bytes after stage 1. Stage 0 decides the stream and HTTP allocation on the same fixtures. A composed shape over its cap raises that cap just enough (maintainer, October 5, 2026). |
+| 11 | Is the save cap raised, and when? | Item 7 keeps 80 MiB (128 MiB since 2026-10-15). The item 7 patch 8 fixtures leave at least 6,463,453 save bytes after stage 1. Stage 0 decides the stream and HTTP allocation on the same fixtures. A composed shape over its cap raises that cap just enough (maintainer, October 5, 2026). |
 | 12 | Does a restore keep holds? | Yes. Each later stage releases its own hold when its records do not survive. |
 | 13 | Is the exclusion visible to clients? | No. The dispatch reason covers it. |
 | 14 | Can a refuge be a parking station? | Yes, when the berth allows the class. Emergency unloading needs a passenger station. |

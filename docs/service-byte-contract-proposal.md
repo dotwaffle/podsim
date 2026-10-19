@@ -20,7 +20,7 @@ The saved-state cap also limits compressed files to 128 MiB.
 `TestPlainStateFileWorstCaseSize` and `TestPlainStreamMaximumEncoding` bound the plain format through its production encoding rules.
 Completed rider history stays outside the outstanding-order budget and remains present in the proofs and the running simulation.
 Motion-only deltas use stream version 7 without changing full-frame or saved-state members.
-Express retains its separately qualified 600-pod fleet and 17,000-order bound.
+Express retains its own 600-pod fleet and 17,000-order bound.
 Increasing plain limits must not increase either Express limit implicitly.
 Express still has no independent worst-case byte proof.
 
