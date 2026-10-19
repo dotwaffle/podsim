@@ -443,26 +443,26 @@ It keeps its route, its physical destination, and its claims until a later stage
   Each pod is withdrawn.
   Each never-boarded trip keeps `ID`, `RequestedTick`, `deferUntil`, and its queue index, and has `excludedPod` set.
   No owner changes.
-- A trip bound to pod C with stale `deferPodID` B.
-  Withdraw B.
-  The trip stays bound to C, has no exclusion, and has empty `deferPodID`.
-- A hold past its `deferUntil` that names B.
-  Withdraw B.
+- A trip bound to pod `C` with stale `deferPodID` `B`.
+  Withdraw `B`.
+  The trip stays bound to `C`, has no exclusion, and has empty `deferPodID`.
+- A hold past its `deferUntil` that names `B`.
+  Withdraw `B`.
   The trip gets no exclusion.
-- A transferred trip and a restore-requeued trip, each bound to pod B.
-  Withdraw B.
+- A transferred trip and a restore-requeued trip, each bound to pod `B`.
+  Withdraw `B`.
   Neither trip gets an exclusion.
 - A trip whose best finishing pod is its excluded pod.
   The trip gets no hold for that pod.
-- A trip released from A holds for B, and then B is withdrawn.
-  The exclusion names B, and the hold ends.
-  The trip can then get A, and it never gets B.
+- A trip released from `A` holds for `B`, and then `B` is withdrawn.
+  The exclusion names `B`, and the hold ends.
+  The trip can then get `A`, and it never gets `B`.
 - For each gate in section 5.3, a fixture in which the excluded pod is the best candidate.
   The trip gets another pod or waits, and keeps its exclusion.
-- A trip excluded from pod A and later assigned to pod B.
-  The exclusion stays until the trip boards B, also after A is in service again.
-- A trip excluded from pod A and bound to pod B, with pickup swaps on.
-  No swap, transfer, or reassignment gives the trip A.
+- A trip excluded from pod `A` and later assigned to pod `B`.
+  The exclusion stays until the trip boards `B`, also after `A` is in service again.
+- A trip excluded from pod `A` and bound to pod `B`, with pickup swaps on.
+  No swap, transfer, or reassignment gives the trip `A`.
 - X1 and X2 on every tick of the dispatch, swap, and onboard pickup suites with withdrawals injected.
 
 ## 6. Claim kinds

@@ -12,7 +12,7 @@ go = "1.27"
 golangci-lint = "2"
 govulncheck = "1"
 node = "24"
-rumdl = "0.2"
+rumdl = "0.3"
 
 [tasks.format]
 description = "Format Go sources and Markdown"
