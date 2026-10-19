@@ -1304,6 +1304,8 @@ Station lanes identify approach, entry, berth access, through, departure, and ex
 The pod inspector shows the current maneuver in **Station phase** and the station name on the line below it.
 Projects without this optional lane metadata still load.
 The simulator infers through, berth access, and departure roles from the station paths.
+`-parking-lanes` makes its Parking facilities [depots](#parking-depots), and `-compact-stations` gives up to 8 of its stations [Compact bays](#compact-bays), as in [london-full](#london-full).
+The suggested Compact list for LondonCentral has seven stations: the LondonFull list without Tower Gateway.
 
 #### london-full
 
@@ -1314,6 +1316,8 @@ Canary Wharf DLR and Jubilee remain separate stations.
 Demand starts disabled.
 A short DLR smoke run does not establish sustainable capacity.
 The earlier finite-arrival studies used the Tube-only preset.
+The opt-in flags `-parking-lanes` and `-compact-stations` give it [depots and Compact stations](docs/london-full.md#depots-and-compact-stations).
+That section gives the depot length limit, the capacity rule for a Compact station, and the measurements.
 
 #### compact-station
 
@@ -1628,6 +1632,10 @@ As at an ordinary station, a custom network with more pods than its bays and roa
 The `compact-station` preset has enough room for its pods.
 The map shows a pod in a bay as a round mark, with no heading.
 
+The `-compact-stations` flag of the scenario command puts these bays at up to 8 stations of a London preset, and each pod is then Compact.
+One visit holds the aisle for about 30 to 43 seconds.
+Use a Compact station only where its demand share times the request rate is below about 0.7 trip ends per minute (see [LondonFull Compact stations](docs/london-full.md#compact-stations)).
+
 #### Parking depots
 
 The optional network member `depots` makes a Parking station a depot of queue lanes.
@@ -1672,7 +1680,9 @@ The browser editor keeps the depots of a project, but it cannot make a depot.
 It refuses each station action that changes the geometry or the berths of a depot station.
 A project with a depot gets the full network validation of the server in the editor.
 The editor runs the depot validation of the server first, so an invalid depot draft gets the server depot error, not a lane gap or bank error.
-The `-parking-lanes` flag of the scenario command makes a ring with a depot (see [generated scenarios](#generated-scenarios)).
+The `-parking-lanes` flag of the scenario command makes a ring or a London preset with depots (see [generated scenarios](#generated-scenarios)).
+A London depot is at most 200 meters long (see [LondonFull depots](docs/london-full.md#depots)).
+In a LondonFull run at 60 requests per minute, the depots served within four requests of the default, and empty pods stopped inside the depots for 1,225 more pod-seconds while other pods of the same depot moved.
 
 #### Idle pods
 

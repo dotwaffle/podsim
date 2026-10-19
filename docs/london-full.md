@@ -66,6 +66,149 @@ A `-berths ID=N` override changes that site and preserves the remaining defaults
 When both flags are present, the site override applies over the uniform base.
 All generated capacity variants must pass normal project and layout validation.
 
+## Depots and Compact stations
+
+Two flags of the scenario command change the station layouts of `london-full` and `london-central`.
+Both are opt-in, and the presets without them do not change.
+A changed layout gives the project name the suffix " (custom capacity)", also when the berth counts stay the same.
+
+```sh
+mise run scenario -- -preset london-full -parking-lanes 2 -parking-berths 6 \
+  -compact-stations 940GZZLURGP,940GZZLULBN,940GZZLULGT,940GZZLUERB,940GZZLUBWT,940GZZLUHPC,940GZZLUBOR,940GZZDLTWG \
+  -output /tmp/podsim-london-full-flagged.json
+```
+
+### Depots
+
+`-parking-lanes N` makes each of the three Parking facilities a [depot](../README.md#parking-depots) with N queue lanes.
+`-parking-berths` then sets the slots of each lane, and `-berths parking-north=M` sets the slots of each lane of one facility.
+`-parking-lanes 2 -parking-berths 6` keeps the 12 slots of the default.
+The depot lies outward from the through lane of the facility, with its entry and exit 200 meters from the station axis.
+The heading search uses the shape of an ordinary Parking facility with 12 berths, so the other stations keep their headings.
+
+A London depot is at most 200 meters long.
+The command refuses a longer depot and names the facility.
+This table gives the most slots in each lane of a depot:
+
+| Lanes | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Slots | 16 | 15 | 15 | 13 | 12 | 11 | 10 | 9 |
+
+### Compact stations
+
+`-compact-stations ID,ID` gives at most 8 passenger stations the four [Compact bays](../README.md#compact-bays) of the `compact-station` preset.
+The command refuses an unknown ID, a Parking facility, a repeated ID, more than 8 IDs, and a `-berths` item for a listed station, also when the item has the preset value.
+A listed station has 4 berths and at most 4 initial pods.
+Its berth count without the flag still sets its shape in the heading search, so the other stations keep their headings.
+The compact layout replaces the through lane as a rigid body.
+Its aisle is 200 meters from the station axis, its bays face outward, and its bypass curves toward the station throat.
+Each pod of the project is then Compact, because only a Compact pod can use the bays.
+
+One visit to a bay holds the aisle for about 30 to 43 seconds, so a Compact station serves about 1.4 to 2 visits per minute.
+Each trip end is about one visit.
+Use a Compact station only where the demand share of the station times the request rate is below about 0.7 trip ends per minute.
+The share is the largest share of the station across the demand bands.
+In each band, the shares of all stations add to 2, but the largest shares of all stations add to about 2.75.
+
+The suggested list has eight zone 1 stations with 2 berths and low demand, with shares from 0.0025 to 0.0041: Regent's Park, Lambeth North, Lancaster Gate, Edgware Road (Bakerloo), Bayswater, Hyde Park Corner, Borough, and Tower Gateway.
+At 120 requests per minute, they have 0.29 to 0.49 trip ends per minute.
+LondonCentral has the first seven and not Tower Gateway.
+With the suggested flags, LondonFull has 5,740 nodes, 9,024 lanes, and 4 soft conflicts, and its indented export has 14,912,471 bytes.
+
+### Measurements, October 19, 2026
+
+The candidates are LondonFull projects from the scenario command.
+The network SHA-256 is the `network_sha256` value of its summary line.
+
+| Arm | Flags | Network SHA-256 |
+| --- | --- | --- |
+| Default | none | `61761e3b5281228dac678ade72be718b5406ea4a150dcc400ffe5f52e26976db` |
+| Depots | `-parking-lanes 2 -parking-berths 6` | `4630e4984fd828ed4d04c7e3fbb03235e8407fbd63db7493608a68d7bb08548e` |
+| Compact stations | `-compact-stations` with the eight suggested IDs | `9275645171f4c9e5cf34a36727bc11895e5026a0457424d70ee397d3a6d31807` |
+| Both | both flag sets | `83d4a83f4f9931a1382e143ef645bd0a31fcb22f0314998087512ad01581ea39` |
+
+Two more arms set `"class": "compact"` on each fleet placement of the Default and Depots projects, with no other change.
+They give the same results as Default and Depots in every run below, so the tables leave them out.
+
+The smoke runs each arm with a fixed 30-minute window:
+
+```sh
+mise run compare -- -project ARM.json -seed 1 -arrivals-for 20m -duration 30m -loads 6s,1s \
+  -pattern profile -redistribution-policies off -platoon-policies virtual
+```
+
+Each arm gets the same request schedule.
+For seed 1, the schedule ID is `2f47adff4fa5d2f7` at 10 requests per minute (199 requests) and `d0e1f87e74785b19` at 60 requests per minute (1,199 requests).
+For seeds 2 and 3 at 60 requests per minute, the schedule IDs are `a38852cc1e08ae5a` and `fa529e7ef5e9bc92`.
+Without `-platoon-policies virtual`, the Default arm gives 360 served, 607 skipped, a 470.5 s mean wait, and 845 stopped pod-seconds at 60 requests per minute.
+
+To divide the stopped pod-seconds, a local overlay of the compare command sorted the samples that make up `stopped_pod_seconds`.
+The compare command takes a sample at each whole simulated second.
+Each pod that has a wait reason and a speed below 0.1 m/s gives one stopped pod-second.
+The overlay gives the sample to the maneuver station of the pod, or else to the station of its lane, or else, at a berth, to the station of the pod.
+A sample at a Parking facility is in the Parking area, which is the depot when the facility is a depot.
+A sample at a passenger station is in the station area, and a sample with no station is on the guideway.
+The overlay also records the wait reason and the activity of the pod that `BlockedBy` names.
+
+Seed 1, per run:
+
+| Arm | Load | Served | Skipped | Wait mean (s) | Stopped pod-s | Parking | Guideway | Stations |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Default | 10/min | 152 | 0 | 55.4 | 42 | | | |
+| Depots | 10/min | 152 | 0 | 55.9 | 43 | | | |
+| Compact stations | 10/min | 152 | 0 | 55.9 | 42 | | | |
+| Both | 10/min | 152 | 0 | 56.4 | 43 | | | |
+| Default | 60/min | 363 | 602 | 464.9 | 954 | 33 | 816 | 105 |
+| Depots | 60/min | 359 | 610 | 472.2 | 2,107 | 1,258 | 749 | 100 |
+| Compact stations | 60/min | 364 | 599 | 461.0 | 941 | 23 | 835 | 83 |
+| Both | 60/min | 364 | 607 | 464.1 | 2,273 | 1,268 | 828 | 177 |
+
+Seeds 2 and 3 at 60 requests per minute, per run, not summed:
+
+| Seed | Arm | Served | Skipped | Wait mean (s) | Stopped pod-s | Parking | Guideway | Stations |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 2 | Default | 365 | 615 | 465.5 | 876 | 11 | 754 | 111 |
+| 2 | Depots | 369 | 616 | 467.3 | 1,580 | 704 | 768 | 108 |
+| 2 | Compact stations | 363 | 611 | 467.6 | 975 | 11 | 791 | 173 |
+| 2 | Both | 365 | 612 | 466.9 | 1,771 | 704 | 929 | 138 |
+| 3 | Default | 345 | 626 | 477.6 | 1,126 | 39 | 933 | 154 |
+| 3 | Depots | 346 | 629 | 483.6 | 1,591 | 626 | 830 | 135 |
+| 3 | Compact stations | 354 | 618 | 472.1 | 1,462 | 39 | 1,160 | 263 |
+| 3 | Both | 349 | 623 | 478.0 | 1,986 | 626 | 1,164 | 196 |
+
+The depots more than double the stopped time at 60 requests per minute, and the time is in the Parking areas.
+With seed 1, the depot interiors have 1,258 stopped pod-seconds against 33 at the ordinary facilities.
+These are empty pods in the depots.
+They wait for a slot whose pod moves up or starts to leave (359 s: 276 s behind a pod that departs empty from its slot, 83 s behind a pod that travels), for junction traffic of another pod in the same depot (569 s against 29 s), and for a pod ahead (330 s against 4 s).
+With seeds 2 and 3, the depot interiors add 693 and 587 pod-seconds.
+The guideway and station times change in both directions from seed to seed and arm to arm.
+In the Compact stations and Both runs at 60 requests per minute, the eight Compact stations have no stopped time.
+
+A separate service screen uses seeds 1 to 3, 60 minutes of arrivals, and a window that ends when the arm drains or at 120 minutes:
+
+```sh
+mise run compare -- -project ARM.json -seeds 1,2,3 -arrivals-for 60m -duration 120m -stop-when-drained -loads 6s,4s \
+  -pattern profile -redistribution-policies off -platoon-policies virtual -workers 3
+```
+
+The schedule IDs are `f8b0e224cb7ab4ee`, `6cbd0c4c6bd1b023`, and `d766c53f0dec233d` at 10 requests per minute, and `a752dc5ce2ced72e`, `d3120e74bb38bfc0`, and `06e57a6e6dc09108` at 15 requests per minute.
+The windows of an arm can end up to 11 s apart from those of another arm.
+The stopped pod-seconds are the sum of the three seeds, and the wait is the mean of the three seed means.
+
+| Arm | Load | Served | Drained | Wait mean (s) | Stopped pod-s | Parking |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| Default | 10/min | 1,797 | 3 of 3 | 156.7 | 1,416 | 0 |
+| Depots | 10/min | 1,797 | 3 of 3 | 158.0 | 3,064 | 1,737 |
+| Compact stations | 10/min | 1,797 | 3 of 3 | 156.9 | 1,726 | |
+| Both | 10/min | 1,797 | 3 of 3 | 157.6 | 3,033 | |
+| Default | 15/min | 2,695 | 1 of 3 | 242.6 | 3,274 | 10 |
+| Depots | 15/min | 2,695 | 1 of 3 | 243.5 | 4,937 | 1,919 |
+| Compact stations | 15/min | 2,695 | 1 of 3 | 243.1 | 3,034 | |
+| Both | 15/min | 2,695 | 1 of 3 | 242.9 | 4,431 | |
+
+At 15 requests per minute, 2 requests remain in each arm.
+These runs do not establish a sustainable demand rate.
+
 ## Validation boundary
 
 The initial demand setting is 10 requests per minute, with AM peak weights and seed 20260929.

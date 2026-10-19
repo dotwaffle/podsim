@@ -179,7 +179,7 @@ Each one is off unless the project uses it.
   Layer B (close-up following) was measured and not built, as the [close-up measurement](close-up-measurement.md) records.
   The rule is in `internal/sim/retention.go` and the README.
 - Queued parking depots are off by default.
-  The `-parking-lanes` flag of the scenario command enables them on the ring presets, and a custom project can add the network member `depots`.
+  The `-parking-lanes` flag of the scenario command enables them on the ring and London presets, and a custom project can add the network member `depots`.
   The markers are `depots` (`ext=14`, `omitzero`) and the pod member `parkedSince`, which a file writes only for a pod that is idle at a depot slot or moves up in a depot lane.
   The [station banks](station-banks.md#depot-lanes) document and the README section [Parking depots](../README.md#parking-depots) are the decision record.
 - The depot lateral rule lets two lanes of one depot sit closer than 12 meters.
