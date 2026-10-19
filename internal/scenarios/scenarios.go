@@ -343,10 +343,6 @@ func scale100Parameters() Parameters {
 	}
 }
 
-func scale100Ring() project.Config {
-	return mustConfig(scale100Parameters())
-}
-
 func scaleMesh(parameters Parameters) sim.Network {
 	const (
 		columns = 5

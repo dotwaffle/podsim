@@ -406,3 +406,17 @@ func TestInvalidDemandDoesNotChangeState(t *testing.T) {
 		}
 	}
 }
+
+func (s *Session) advance() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed.Load() || s.simulation.Paused() {
+		return
+	}
+	for range s.speed {
+		s.step()
+	}
+	if s.speed > 0 {
+		s.revision++
+	}
+}

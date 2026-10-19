@@ -395,20 +395,6 @@ func (s *Session) Close() {
 	}
 }
 
-func (s *Session) advance() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.closed.Load() || s.simulation.Paused() {
-		return
-	}
-	for range s.speed {
-		s.step()
-	}
-	if s.speed > 0 {
-		s.revision++
-	}
-}
-
 // State returns a detached snapshot safe for concurrent observers.
 func (s *Session) State() State { s.mu.Lock(); defer s.mu.Unlock(); return s.state() }
 

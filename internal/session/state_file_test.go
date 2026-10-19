@@ -918,3 +918,15 @@ func stateMembers(t *testing.T, path string, typ reflect.Type, parents []reflect
 		return nil
 	}
 }
+
+// encode returns the deterministic JSON form of file, compressed with gzip
+// BestSpeed. The result is valid until the next call. The error wraps
+// ErrStateTooLarge when the JSON form or the compressed form has more than
+// MaxStateBytes, or the project member has more than project.MaxFileBytes,
+// because decodeStateFile rejects such a file.
+func (e *stateEncoder) encode(file stateFile) ([]byte, error) {
+	// General callers can edit a stateFile without changing its revision.
+	// Their project must always be encoded and checked again.
+	e.projectCached = false
+	return e.encodeWithProject(file, e.encodeProject)
+}

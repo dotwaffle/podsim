@@ -530,16 +530,6 @@ func redistributionText(state session.State) string {
 	return fmt.Sprintf("Redistribution: %s / %d %s / %s distance empty", setting, moves, unit, share)
 }
 
-// travelDistanceText returns meters as a distance to show. A distance
-// below 1 km shows in whole meters. A longer distance shows in km with one
-// decimal.
-func travelDistanceText(meters float64) string {
-	if math.Round(meters) < 1000 {
-		return fmt.Sprintf("%.0f m", meters)
-	}
-	return fmt.Sprintf("%.1f km", meters/1000)
-}
-
 // wrapText splits value at spaces into lines that fit the width of fit.
 // It returns at most limit lines, and no lines for a value with no words.
 // When value needs more lines, the last line ends with an ellipsis. A word

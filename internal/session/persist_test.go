@@ -2953,3 +2953,13 @@ func TestStoreOpaqueReadTooLarge(t *testing.T) {
 		t.Fatal("lost original read-size error", err)
 	}
 }
+
+// withClock sets the clock that gives the save times. Tests use it. It
+// applies only to a session from NewFromStore.
+func withClock(now func() time.Time) Option {
+	return func(session *Session) {
+		if session.persist != nil {
+			session.persist.now = now
+		}
+	}
+}

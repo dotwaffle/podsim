@@ -302,3 +302,10 @@ func TestRailServicesLogicalRestoreReceipts(t *testing.T) {
 		}
 	})
 }
+
+func (d *demandRun) connectionRecords() []rail.Connection {
+	if d.connections == nil {
+		return nil
+	}
+	return d.connections.Records()
+}

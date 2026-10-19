@@ -27,12 +27,6 @@ func validateVersion(config Config) error {
 	return sim.ValidateOrderContract(config.OrderContract)
 }
 
-// scanProjectService checks new field presence and shape before typed allocation.
-func scanProjectService(data []byte) (bool, error) {
-	fields, err := scanProjectFields(data)
-	return fields.service, err
-}
-
 type projectFields struct {
 	service bool
 }

@@ -381,3 +381,7 @@ func TestScale100Station19QueueDrainsSafely(t *testing.T) {
 	state := simulation.Snapshot()
 	t.Fatalf("Station 19 queue did not drain: completed=%d submitted=%d", state.Completed, submitted)
 }
+
+func scale100Ring() project.Config {
+	return mustConfig(scale100Parameters())
+}

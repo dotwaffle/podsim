@@ -97,24 +97,6 @@ func (s *Simulation) operationalMember(v *vehicle) error {
 	return nil
 }
 
-// rebindOperationalOwner moves the operational purpose of v to the hold to,
-// which v also has. A recovery that outlives the cause that started it uses
-// this transition before the policy of that cause calls restoreService. It
-// refuses, and changes nothing, when v has no purpose, when to is not one
-// held hold, or when to already owns the purpose.
-func (s *Simulation) rebindOperationalOwner(v *vehicle, to serviceHold) error {
-	switch {
-	case v.op.purpose == opService:
-		return fmt.Errorf("pod %s has no operational purpose", v.Pod.ID)
-	case !v.holdsOwner(to):
-		return fmt.Errorf("pod %s: service hold %#x is not one held hold", v.Pod.ID, to)
-	case to == v.op.owner:
-		return fmt.Errorf("pod %s: service hold %#x already owns the purpose", v.Pod.ID, to)
-	}
-	v.op.owner = to
-	return nil
-}
-
 // setOperationalDestination gives a traveling or departing pod a new
 // physical destination berth with a purpose (incident contract, section
 // 9.3). The new route keeps the prefix of divertStart, so the distance,

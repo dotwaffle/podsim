@@ -327,10 +327,3 @@ func (d *demandRun) releaseServices(simulation *sim.Simulation) {
 		d.state.Connections = d.connections.Counts()
 	}
 }
-
-func (d *demandRun) connectionRecords() []rail.Connection {
-	if d.connections == nil {
-		return nil
-	}
-	return d.connections.Records()
-}

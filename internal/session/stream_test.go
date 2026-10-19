@@ -960,3 +960,11 @@ func TestStreamReplacementClearsOmittedFields(t *testing.T) {
 		})
 	}
 }
+
+func encodeStream(e StreamEnvelope) ([]byte, error) {
+	return new(streamEncoder).encode(e)
+}
+
+func compressStreamJSON(data []byte) ([]byte, error) {
+	return new(streamEncoder).compressJSON(data)
+}

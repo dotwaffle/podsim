@@ -198,16 +198,6 @@ func newPersistence(store StateStore) *persistence {
 	return persist
 }
 
-// withClock sets the clock that gives the save times. Tests use it. It
-// applies only to a session from NewFromStore.
-func withClock(now func() time.Time) Option {
-	return func(session *Session) {
-		if session.persist != nil {
-			session.persist.now = now
-		}
-	}
-}
-
 // setMetrics sets the state fields of metrics. revision is the current
 // revision of the session. setMetrics reads only the atomic fields and does
 // not lock mu, so the caller can hold the session lock.

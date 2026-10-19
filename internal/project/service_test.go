@@ -94,3 +94,9 @@ func TestProjectServicePresenceFailsAtomically(t *testing.T) {
 		}
 	}
 }
+
+// scanProjectService checks new field presence and shape before typed allocation.
+func scanProjectService(data []byte) (bool, error) {
+	fields, err := scanProjectFields(data)
+	return fields.service, err
+}

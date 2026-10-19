@@ -123,10 +123,6 @@ func readInput(path string) ([]byte, error) {
 	return data, nil
 }
 
-func command(args []string, stdout io.Writer) error {
-	return commandWith(context.Background(), args, stdout, io.Discard, currentImplementation)
-}
-
 func commandWith(ctx context.Context, args []string, stdout, stderr io.Writer, identify func() (parkride.Implementation, error)) (commandErr error) {
 	opts, err := parseOptions(args, stdout)
 	if errors.Is(err, flag.ErrHelp) {

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json/v2"
 	"errors"
 	"io"
@@ -154,4 +155,8 @@ func TestCommandInputAndOutputGuards(t *testing.T) {
 	if _, err := parseOptions(append(args, "-output", link), io.Discard); err == nil {
 		t.Fatal("output overwrites input through hard link")
 	}
+}
+
+func command(args []string, stdout io.Writer) error {
+	return commandWith(context.Background(), args, stdout, io.Discard, currentImplementation)
 }

@@ -665,10 +665,6 @@ func decodePackedStreamJSON(data []byte, target any) error {
 	return jsonv2.Unmarshal(data, target, json.DefaultOptionsV1(), jsonv2.MatchCaseInsensitiveNames(false), jsonv2.RejectUnknownMembers(true), packedDecodeOptions())
 }
 
-func encodeStream(e StreamEnvelope) ([]byte, error) {
-	return new(streamEncoder).encode(e)
-}
-
 // streamEncoder belongs to one publication goroutine.
 // The writer keeps the buffer address, but each call releases its backing array.
 type streamEncoder struct {
@@ -685,10 +681,6 @@ func (c *streamEncoder) encode(e StreamEnvelope) ([]byte, error) {
 		return nil, errors.New("state JSON exceeds supported limit")
 	}
 	return c.compressJSON(data)
-}
-
-func compressStreamJSON(data []byte) ([]byte, error) {
-	return new(streamEncoder).compressJSON(data)
 }
 
 func (c *streamEncoder) compressJSON(data []byte) ([]byte, error) {

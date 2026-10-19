@@ -5,11 +5,6 @@ import (
 	"slices"
 )
 
-// pickupRoute includes the track already committed by a pod moving toward parking.
-func (s *Simulation) pickupRoute(v *vehicle, stationID string) ([]Lane, Berth, bool) {
-	return s.pickupRouteWithAssignments(pickupRouteInput{pod: v, station: stationID})
-}
-
 // pickupRouteInput is the input of pickupRouteWithAssignments.
 type pickupRouteInput struct {
 	pod     *vehicle
@@ -157,10 +152,6 @@ func (s *Simulation) pickupSeconds(v *vehicle, route []Lane) float64 {
 		motion = motionEstimate{distance: v.distance, speed: v.Pod.Speed}
 	}
 	return s.routeSeconds(route, motion)
-}
-
-func (s *Simulation) sendPickup(v *vehicle, stationID string) error {
-	return s.sendPickupMatching(v, stationID, nil)
 }
 
 func (s *Simulation) sendPickupForRequest(v *vehicle, request Request) error {
