@@ -48,6 +48,9 @@ type networkIndexes struct {
 	// depots holds the depots and their lane paths, or nil when the
 	// network has none.
 	depots *depotIndex
+	// berthKeys holds the separation key index of each berth (see
+	// indexBerthKeys).
+	berthKeys map[string]int
 }
 
 // PrepareNetwork validates and copies network, then builds its immutable indexes.
@@ -69,6 +72,7 @@ type networkPreparation struct {
 	maneuvers *maneuverIndex
 	certified certifiedPairs
 	depots    *depotIndex
+	berthKeys map[string]int
 }
 
 // prepareNetwork validates network and returns an owned copy. It builds the
@@ -86,7 +90,8 @@ func prepareNetwork(network Network) (networkPreparation, error) {
 	retention := newLaneRetention(owned, tails)
 	// validate checked the groups, so the index has no error.
 	maneuvers, _ := newManeuverIndex(owned, indexNodePositions(owned.Nodes))
-	certified, err := certifyManeuvers(owned, maneuvers)
+	berthKeys := indexBerthKeys(owned)
+	certified, err := certifyManeuvers(owned, maneuvers, berthKeys)
 	if err != nil {
 		return networkPreparation{}, err
 	}
@@ -114,7 +119,7 @@ func prepareNetwork(network Network) (networkPreparation, error) {
 			}
 		}
 	}
-	return networkPreparation{network: owned, graph: graph, retention: retention, maneuvers: maneuvers, certified: certified, depots: depots}, nil
+	return networkPreparation{network: owned, graph: graph, retention: retention, maneuvers: maneuvers, certified: certified, depots: depots, berthKeys: berthKeys}, nil
 }
 
 func validateLargeLaneCells(id string, length float64, count int) error {
@@ -131,6 +136,7 @@ func newPreparedNetwork(prepared networkPreparation) *PreparedNetwork {
 	owned := prepared.network
 	p := &PreparedNetwork{
 		network: owned, graph: prepared.graph, retention: prepared.retention, maneuvers: prepared.maneuvers, certified: prepared.certified, depots: prepared.depots,
+		berthKeys:      prepared.berthKeys,
 		stationIndexes: indexStations(owned), stationForbidden: owned.stationForbidden(),
 		geometry: buildLaneGeometry(owned), junctionConflicts: buildJunctionConflicts(owned),
 		berthResources: indexBerthResources(owned),

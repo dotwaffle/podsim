@@ -51,7 +51,7 @@ func (n Network) ValidateBankGeometry() error {
 		if audit.maneuvers, err = newManeuverIndex(n, nodes); err != nil {
 			return err
 		}
-		if audit.certified, err = certifyManeuvers(n, audit.maneuvers); err != nil {
+		if audit.certified, err = certifyManeuvers(n, audit.maneuvers, indexBerthKeys(n)); err != nil {
 			return err
 		}
 	}

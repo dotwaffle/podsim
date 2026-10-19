@@ -126,11 +126,12 @@ func parkedEnvelope(x, y, heading float64) sweepRectangle {
 // berths of a group need disjoint envelopes. Then each group lane, in
 // lane order, must be clear of each envelope of its group except the one
 // of the berth of its closed bay chain. It returns the certified pairs.
-func certifyManeuvers(network Network, maneuvers *maneuverIndex) (certifiedPairs, error) {
+// berthKeys are the berth keys of the network (see indexBerthKeys).
+func certifyManeuvers(network Network, maneuvers *maneuverIndex, berthKeys map[string]int) (certifiedPairs, error) {
 	if maneuvers == nil {
 		return nil, nil
 	}
-	return newManeuverCertifier(network, maneuvers).certify(certifyOptions)
+	return newManeuverCertifier(network, maneuvers, berthKeys).certify(certifyOptions)
 }
 
 type maneuverCertifier struct {
@@ -138,6 +139,7 @@ type maneuverCertifier struct {
 	maneuvers *maneuverIndex
 	positions map[string]Point
 	lanes     map[string]int
+	berthKeys map[string]int
 	// envelopes holds the parked envelope of each group berth.
 	envelopes map[string]sweepRectangle
 	// lanePoses holds the heading of the first and the last segment of
@@ -145,9 +147,9 @@ type maneuverCertifier struct {
 	first, last map[string]float64
 }
 
-func newManeuverCertifier(network Network, maneuvers *maneuverIndex) *maneuverCertifier {
+func newManeuverCertifier(network Network, maneuvers *maneuverIndex, berthKeys map[string]int) *maneuverCertifier {
 	c := &maneuverCertifier{
-		network: network, maneuvers: maneuvers, positions: indexNodePositions(network.Nodes), lanes: make(map[string]int),
+		network: network, maneuvers: maneuvers, positions: indexNodePositions(network.Nodes), lanes: make(map[string]int), berthKeys: berthKeys,
 		envelopes: make(map[string]sweepRectangle), first: make(map[string]float64), last: make(map[string]float64),
 	}
 	for index, lane := range network.Lanes {
@@ -180,7 +182,7 @@ func (c *maneuverCertifier) certify(options sweepOptions) (certifiedPairs, error
 				if !rectanglesSeparated(c.envelopes[first], c.envelopes[second]) {
 					return nil, fmt.Errorf("maneuver group %q berths %q and %q overlap", group.ID, first, second)
 				}
-				pairs.add(berthKey(c.maneuvers.berthKeys[first]), berthKey(c.maneuvers.berthKeys[second]))
+				pairs.add(berthKey(c.berthKeys[first]), berthKey(c.berthKeys[second]))
 			}
 		}
 		for _, id := range group.LaneIDs {
@@ -193,7 +195,7 @@ func (c *maneuverCertifier) certify(options sweepOptions) (certifiedPairs, error
 				if status := sweepSteps(steps, maneuverBody, c.envelopes[berth], options); status != sweepClear {
 					return nil, fmt.Errorf("maneuver group %q lane %q is not clear of berth %q", group.ID, id, berth)
 				}
-				pairs.add(laneKey(c.lanes[id]), berthKey(c.maneuvers.berthKeys[berth]))
+				pairs.add(laneKey(c.lanes[id]), berthKey(c.berthKeys[berth]))
 			}
 		}
 	}

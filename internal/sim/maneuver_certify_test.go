@@ -3,6 +3,7 @@ package sim
 import (
 	"math"
 	"reflect"
+	"slices"
 	"testing"
 )
 
@@ -79,7 +80,7 @@ func TestManeuverCertificationStatus(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		return newManeuverCertifier(network, maneuvers)
+		return newManeuverCertifier(network, maneuvers, indexBerthKeys(network))
 	}
 	c := certifier(5)
 	if status := sweepSteps(c.steps("bay-2-in-3"), maneuverBody, c.envelopes["bay-3"], certifyOptions); status != sweepCollision {
@@ -139,7 +140,7 @@ func TestManeuverCertificationBerthSteps(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	c := newManeuverCertifier(network, maneuvers)
+	c := newManeuverCertifier(network, maneuvers, indexBerthKeys(network))
 	berth := network.Stations[0].Berths[1]
 	node, _ := network.Node(berth.Node)
 	parked := c.envelopes[berth.ID].heading
@@ -197,7 +198,7 @@ func TestManeuverCertificationLaneSteps(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	c := newManeuverCertifier(network, maneuvers)
+	c := newManeuverCertifier(network, maneuvers, indexBerthKeys(network))
 	segments := 0
 	for _, step := range c.steps("bay-1-out-inner-1") {
 		if step.dx != 0 || step.dy != 0 {
@@ -327,5 +328,44 @@ func TestManeuverSafetyKeys(t *testing.T) {
 	}
 	if !reflect.DeepEqual(plain.SafetyObservation(), plain.SafetyObservation()) {
 		t.Fatal("observations differ")
+	}
+}
+
+// TestBerthKeys checks that the berth keys of a network follow the berths
+// in station order, as the bank audit numbers them, that a repeated ID
+// keeps its first index, and that a prepared network and a simulation
+// after a network change hold them without a maneuver group.
+func TestBerthKeys(t *testing.T) {
+	t.Parallel()
+	network := testDepotNetwork()
+	keys, index := indexBerthKeys(network), 0
+	for _, station := range network.Stations {
+		for _, berth := range station.Berths {
+			if keys[berth.ID] != index {
+				t.Fatalf("berth %s has key %d, want %d", berth.ID, keys[berth.ID], index)
+			}
+			index++
+		}
+	}
+	if len(keys) != index {
+		t.Fatalf("%d keys for %d berths", len(keys), index)
+	}
+	repeated := Network{Stations: []Station{{Berths: []Berth{{ID: "a"}, {ID: "b"}}}, {Berths: []Berth{{ID: "a"}, {ID: "c"}}}}}
+	if got := indexBerthKeys(repeated); !reflect.DeepEqual(got, map[string]int{"a": 0, "b": 1, "c": 2}) {
+		t.Fatalf("repeated keys %v", got)
+	}
+	s, err := NewFleet(network, depotPlacements(network, 2))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(s.berthKeys, keys) {
+		t.Fatalf("prepared keys %v", s.berthKeys)
+	}
+	detachIndexes(s)
+	s.network.Nodes = append(slices.Clone(s.network.Nodes), Node{ID: "extra", Position: Point{X: -1000, Y: -1000}})
+	s.berthKeys = nil
+	s.ensureNetworkIndexes()
+	if !reflect.DeepEqual(s.berthKeys, keys) {
+		t.Fatalf("keys after a network change %v", s.berthKeys)
 	}
 }

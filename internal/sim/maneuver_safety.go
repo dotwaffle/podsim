@@ -33,11 +33,11 @@ func (s *Simulation) separationKey(v *vehicle) (separationKey, bool) {
 		index, ok := s.graph.lanes[pod.LaneID]
 		return laneKey(index), ok
 	case pod.BerthID != "":
-		index, ok := s.maneuvers.berthKeys[pod.BerthID]
+		index, ok := s.berthKeys[pod.BerthID]
 		return berthKey(index), ok
 	case pod.Activity == Traveling && v.distance == 0 && v.origin.ID != "":
 		node, ok := s.network.Node(v.origin.Node)
-		index, known := s.maneuvers.berthKeys[v.origin.ID]
+		index, known := s.berthKeys[v.origin.ID]
 		return berthKey(index), ok && known && pod.Position == node.Position
 	}
 	return separationKey{}, false
