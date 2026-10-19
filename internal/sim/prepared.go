@@ -66,6 +66,14 @@ func PrepareNetwork(network Network) (*PreparedNetwork, error) {
 	return newPreparedNetwork(prepared), nil
 }
 
+// ValidateNetwork returns the error of PrepareNetwork for network. It does
+// not build the indexes that a prepared network keeps for a simulation,
+// because they cannot refuse a network.
+func ValidateNetwork(network Network) error {
+	_, err := prepareNetwork(network)
+	return err
+}
+
 // networkPreparation holds a validated copy of a network, its route graph
 // and its retention index.
 type networkPreparation struct {

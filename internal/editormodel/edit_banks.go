@@ -91,19 +91,19 @@ func (d *serverDraft) validate() error {
 		return fmt.Errorf("validate station banks: %w", err)
 	}
 	if hasLargeGeometry(network) {
-		if _, err := sim.PrepareNetwork(typed); err != nil {
+		if err := sim.ValidateNetwork(typed); err != nil {
 			return fmt.Errorf("validate large geometry: %w", err)
 		}
 		return nil
 	}
 	if hasManeuverGroups(network) {
-		if _, err := sim.PrepareNetwork(typed); err != nil {
+		if err := sim.ValidateNetwork(typed); err != nil {
 			return fmt.Errorf("validate maneuver groups: %w", err)
 		}
 		return nil
 	}
 	if hasDepots(network) {
-		if _, err := sim.PrepareNetwork(typed); err != nil {
+		if err := sim.ValidateNetwork(typed); err != nil {
 			return fmt.Errorf("validate depots: %w", err)
 		}
 		return nil
