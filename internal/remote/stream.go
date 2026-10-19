@@ -66,79 +66,54 @@ func (c *Client) receiveStream(ctx context.Context) error {
 	c.mu.Unlock()
 	defer func() { _ = conn.CloseNow(); c.mu.Lock(); c.socket = nil; c.mu.Unlock() }()
 	conn.SetReadLimit(session.MaxStreamMessage)
-	read := func() (websocket.MessageType, []byte, error) {
-		bounded, cancel := context.WithTimeout(ctx, 35*time.Second)
-		defer cancel()
-		kind, data, readErr := conn.Read(bounded)
-		if readErr == nil {
-			streamDiagnostic("received", len(data))
-		}
-		return kind, data, readErr
-	}
-	kind, data, err := read()
+	hello, err := c.readHello(ctx, conn)
 	if err != nil {
 		return err
 	}
+	return c.receiveFrames(ctx, conn, hello)
+}
+
+// readStream reads one stream message within the read deadline.
+func readStream(ctx context.Context, conn *websocket.Conn) (websocket.MessageType, []byte, error) {
+	bounded, cancel := context.WithTimeout(ctx, 35*time.Second)
+	defer cancel()
+	kind, data, err := conn.Read(bounded)
+	if err == nil {
+		streamDiagnostic("received", len(data))
+	}
+	return kind, data, err
+}
+
+// readHello reads and decodes the first message of a connection.
+func (c *Client) readHello(ctx context.Context, conn *websocket.Conn) (session.StreamHello, error) {
+	kind, data, err := readStream(ctx, conn)
+	if err != nil {
+		return session.StreamHello{}, err
+	}
 	if kind != websocket.MessageText || len(data) > 4096 {
-		return errors.New("missing state stream hello")
+		return session.StreamHello{}, errors.New("missing state stream hello")
 	}
 	hello, err := session.DecodeStreamHello(data)
 	c.noteBuild(hello.Build)
-	if err != nil {
-		return err
-	}
+	return hello, err
+}
+
+// receiveFrames applies the publications of a connection after its hello
+// and answers its heartbeats. It returns only with an error.
+func (c *Client) receiveFrames(ctx context.Context, conn *websocket.Conn, hello session.StreamHello) error {
 	var frame session.StreamFrame
 	var stream string
 	var sequence uint64
 	cache := streamTopology{hello: hello}
 	for {
-		kind, data, err = read()
+		data, err := c.readPublication(ctx, conn)
 		if err != nil {
 			return err
-		}
-		if kind == websocket.MessageText {
-			if len(data) > 1024 {
-				return errors.New("state control too large")
-			}
-			var heartbeat struct {
-				Kind  string `json:"kind"`
-				Token string `json:"token"`
-			}
-			if err = jsonv2.Unmarshal(data, &heartbeat, json.DefaultOptionsV1(), jsonv2.MatchCaseInsensitiveNames(false)); err != nil || heartbeat.Kind != "heartbeat" {
-				return errors.New("invalid heartbeat")
-			}
-			if _, err = session.ParseStreamSequence(heartbeat.Token); err != nil {
-				return err
-			}
-			if err := writeControl(ctx, conn, heartbeat); err != nil {
-				return err
-			}
-			c.mu.Lock()
-			if c.connected {
-				c.lastFrame = time.Now()
-				streamDiagnostic("heartbeat")
-			}
-			c.mu.Unlock()
-			continue
-		}
-		if kind != websocket.MessageBinary {
-			return errors.New("invalid state message")
 		}
 		processingStarted := time.Now()
-		inflated, err := inflatePublication(ctx, data)
+		envelope, err := c.decodePublication(ctx, data, hello)
 		if err != nil {
 			return err
-		}
-		envelope, err := session.DecodeStreamJSON(inflated)
-		c.noteBuild(envelope.Build)
-		if err != nil {
-			return err
-		}
-		if envelope.OrderContract != hello.OrderContract {
-			return errors.New("stream publication contract differs from hello")
-		}
-		if envelope.Source.ServerStart != hello.ServerStart {
-			return errors.New("state server identity changed within connection")
 		}
 		candidate, err := session.ApplyStream(frame, stream, sequence, envelope)
 		if err != nil {
@@ -151,19 +126,8 @@ func (c *Client) receiveStream(ctx context.Context) error {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		c.mu.Lock()
-		// This worker owns connections sequentially. No old connection can publish
-		// after its successor. A verified baseline can restore an earlier epoch.
-		stale := state.ServerStart == c.state.ServerStart && state.Epoch == c.state.Epoch && state.Revision < c.state.Revision
-		if !stale {
-			c.state = state
-			c.connected = true
-			c.connectionError = ""
-			c.lastFrame = time.Now()
-		}
-		c.mu.Unlock()
-		if stale {
-			return errors.New("stale same-server state")
+		if err := c.publish(state); err != nil {
+			return err
 		}
 		streamDiagnostic("applied", float64(time.Since(processingStarted))/float64(time.Millisecond), envelope.Kind)
 		frame, stream, sequence = candidate, envelope.Stream, envelope.Sequence
@@ -172,6 +136,96 @@ func (c *Client) receiveStream(ctx context.Context) error {
 		}
 	}
 }
+
+// readPublication reads messages until a binary publication arrives. It
+// answers each heartbeat before it.
+func (c *Client) readPublication(ctx context.Context, conn *websocket.Conn) ([]byte, error) {
+	for {
+		kind, data, err := readStream(ctx, conn)
+		if err != nil {
+			return nil, err
+		}
+		if kind == websocket.MessageText {
+			if err := c.answerHeartbeat(ctx, conn, data); err != nil {
+				return nil, err
+			}
+			continue
+		}
+		if kind != websocket.MessageBinary {
+			return nil, errors.New("invalid state message")
+		}
+		return data, nil
+	}
+}
+
+// answerHeartbeat checks a heartbeat control message and echoes it.
+func (c *Client) answerHeartbeat(ctx context.Context, conn *websocket.Conn, data []byte) error {
+	if len(data) > 1024 {
+		return errors.New("state control too large")
+	}
+	var heartbeat struct {
+		Kind  string `json:"kind"`
+		Token string `json:"token"`
+	}
+	if err := jsonv2.Unmarshal(data, &heartbeat, json.DefaultOptionsV1(), jsonv2.MatchCaseInsensitiveNames(false)); err != nil || heartbeat.Kind != "heartbeat" {
+		return errors.New("invalid heartbeat")
+	}
+	if _, err := session.ParseStreamSequence(heartbeat.Token); err != nil {
+		return err
+	}
+	if err := writeControl(ctx, conn, heartbeat); err != nil {
+		return err
+	}
+	c.mu.Lock()
+	if c.connected {
+		c.lastFrame = time.Now()
+		streamDiagnostic("heartbeat")
+	}
+	c.mu.Unlock()
+	return nil
+}
+
+// decodePublication inflates and decodes a binary publication and checks
+// it against the hello of the connection.
+func (c *Client) decodePublication(ctx context.Context, data []byte, hello session.StreamHello) (session.StreamEnvelope, error) {
+	inflated, err := inflatePublication(ctx, data)
+	if err != nil {
+		return session.StreamEnvelope{}, err
+	}
+	envelope, err := session.DecodeStreamJSON(inflated)
+	c.noteBuild(envelope.Build)
+	if err != nil {
+		return session.StreamEnvelope{}, err
+	}
+	if envelope.OrderContract != hello.OrderContract {
+		return session.StreamEnvelope{}, errors.New("stream publication contract differs from hello")
+	}
+	if envelope.Source.ServerStart != hello.ServerStart {
+		return session.StreamEnvelope{}, errors.New("state server identity changed within connection")
+	}
+	return envelope, nil
+}
+
+// publish stores an assembled state unless it is older than the current
+// state of the same server and epoch.
+func (c *Client) publish(state session.State) error {
+	c.mu.Lock()
+	// This worker owns connections sequentially. No old connection can publish
+	// after its successor. A verified baseline can restore an earlier epoch.
+	stale := state.ServerStart == c.state.ServerStart && state.Epoch == c.state.Epoch && state.Revision < c.state.Revision
+	if !stale {
+		c.state = state
+		c.connected = true
+		c.connectionError = ""
+		c.lastFrame = time.Now()
+	}
+	c.mu.Unlock()
+	if stale {
+		return errors.New("stale same-server state")
+	}
+	return nil
+}
+
 func writeControl(ctx context.Context, conn *websocket.Conn, value any) error {
 	body, err := jsonv2.Marshal(value, json.DefaultOptionsV1())
 	if err != nil {
