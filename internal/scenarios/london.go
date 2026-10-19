@@ -29,6 +29,10 @@ const (
 	londonStationPods   = 1
 	// londonParkingPods is the default pod count of a Parking facility.
 	londonParkingPods = 6
+	// londonDepotLanes and londonDepotSlots are the default depot lanes of
+	// a Parking facility and the slots of each lane.
+	londonDepotLanes = 2
+	londonDepotSlots = 6
 	// londonBerthPitch is the default distance between two berth rows.
 	londonBerthPitch = 75.0
 	// customCapacitySuffix ends the name of a generated project with other
@@ -44,6 +48,14 @@ const (
 // LondonParkingBerths is the berth count of an ordinary London Parking
 // facility, which has no depot.
 const LondonParkingBerths = 12
+
+// londonCompactStations are the default Compact stations of LondonFull:
+// Regent's Park, Lambeth North, Lancaster Gate, Edgware Road (Bakerloo),
+// Bayswater, Hyde Park Corner, Borough, and Tower Gateway. LondonCentral
+// has the first seven.
+var londonCompactStations = []string{
+	"940GZZLURGP", "940GZZLULBN", "940GZZLULGT", "940GZZLUERB", "940GZZLUBWT", "940GZZLUHPC", "940GZZLUBOR", "940GZZDLTWG",
+}
 
 //go:embed data/london-tube.json
 var londonSourceJSON []byte
@@ -140,12 +152,15 @@ type LondonOptions struct {
 	CompactStations []string
 }
 
-// DefaultLondonCentralOptions returns the options of the London preset.
+// DefaultLondonCentralOptions returns owned options of the London preset.
+// Each Parking facility is a depot, and seven passenger stations are
+// Compact stations.
 func DefaultLondonCentralOptions() LondonOptions {
 	return LondonOptions{
-		StationBerths: londonStationBerths, ParkingBerths: LondonParkingBerths,
+		StationBerths: londonStationBerths, ParkingBerths: londonDepotSlots,
 		StationPods: londonStationPods, ParkingPods: londonParkingPods,
-		BerthPitch: londonBerthPitch,
+		BerthPitch: londonBerthPitch, ParkingLanes: londonDepotLanes,
+		CompactStations: slices.Clone(londonCompactStations[:7]),
 	}
 }
 

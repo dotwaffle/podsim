@@ -55,8 +55,9 @@ func TestPresetsValidateAndRemainStable(t *testing.T) {
 			if !bytes.Equal(firstJSON, secondJSON) {
 				t.Fatal("preset JSON is not repeatable")
 			}
+			layout := londonLayoutLanes(first.Network)
 			for _, lane := range first.Network.Lanes {
-				if length := first.Network.Length(lane); length < 2*sim.Clearance {
+				if length := first.Network.Length(lane); length < 2*sim.Clearance && !layout[lane.ID] {
 					t.Fatalf("lane %q is only %.2f meters", lane.ID, length)
 				}
 			}
@@ -104,8 +105,9 @@ func TestLondonUsesRealScaleAndDirectedGuideways(t *testing.T) {
 	}
 
 	pairedSegments := 0
+	layout := londonLayoutLanes(config.Network)
 	for _, lane := range config.Network.Lanes {
-		if lane.SeparationGroup == "" {
+		if lane.SeparationGroup == "" && !layout[lane.ID] {
 			t.Fatalf("London lane %q has no separation group", lane.ID)
 		}
 		if strings.HasPrefix(lane.ID, "london-link-") {
@@ -120,7 +122,7 @@ func TestLondonUsesRealScaleAndDirectedGuideways(t *testing.T) {
 func TestLondonWaterlooUsesIndependentPortalMovements(t *testing.T) {
 	t.Parallel()
 	network := LondonCentral().Network
-	if len(network.Nodes) != 1842 || len(network.Lanes) != 3101 {
+	if len(network.Nodes) != 1907 || len(network.Lanes) != 3248 {
 		t.Fatalf("London network has %d nodes and %d lanes", len(network.Nodes), len(network.Lanes))
 	}
 	lanes := make(map[string]sim.Lane, len(network.Lanes))
@@ -187,11 +189,22 @@ func TestLondonStationsExposeManeuverRoles(t *testing.T) {
 		sim.StationDepartureRole,
 		sim.StationExitRole,
 	}
+	// A depot has no station roles between its entry and its exit. The
+	// depot and Compact tests check the lanes of their berths.
+	depotRoles := []sim.StationLaneRole{sim.StationApproachRole, sim.StationEntryRole, sim.StationThroughRole, sim.StationExitRole}
+	layout := londonLayoutStations(config.Network)
 	for _, station := range config.Network.Stations {
-		for _, role := range wantRoles {
+		want := wantRoles
+		if slices.ContainsFunc(config.Network.Depots, func(depot sim.Depot) bool { return depot.Station == station.ID }) {
+			want = depotRoles
+		}
+		for _, role := range want {
 			if !rolesByStation[station.ID][role] {
 				t.Fatalf("station %q has no %q lane", station.Name, role)
 			}
+		}
+		if layout[station.ID] {
+			continue
 		}
 		for _, berth := range station.Berths {
 			in := lanesByID[berth.ID+"-in"]
@@ -256,15 +269,16 @@ func TestLondonHasDistributedParking(t *testing.T) {
 	t.Parallel()
 	config := LondonCentral()
 	parking, parkingPods := 0, 0
+	layout := londonLayoutStations(config.Network)
 	for _, station := range config.Network.Stations {
 		for _, berth := range station.Berths {
-			if berth.SeparationGroup == "" {
+			if berth.SeparationGroup == "" && !layout[station.ID] {
 				t.Fatalf("London berth %q has no separation group", berth.ID)
 			}
 		}
 		if station.ParkingOnly {
 			parking++
-			if len(station.Berths) != LondonParkingBerths {
+			if !layout[station.ID] || len(station.Berths) != londonDepotLanes*londonDepotSlots {
 				t.Fatalf("parking %q has %d berths", station.Name, len(station.Berths))
 			}
 		}
@@ -590,7 +604,8 @@ func TestScale100StationAccessPreservesRoadTravel(t *testing.T) {
 // for a reduced retention, and each lane minimum keeps its class bound.
 // The default project at ten times its scale and 1 m/s, which a compare
 // test uses, has none either,
-// because each slow lane is next to a station node.
+// because each slow lane is next to a station node. The slow depot lanes
+// of the London presets qualify by design, so the check skips them.
 func TestPresetsHaveNoQualifyingLanes(t *testing.T) {
 	t.Parallel()
 	slow := project.Default()
@@ -617,8 +632,9 @@ func TestPresetsHaveNoQualifyingLanes(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			index := sim.NewLaneClearance(test.config.Network)
+			depot := depotLanes(test.config.Network)
 			for _, lane := range test.config.Network.Lanes {
-				if got, want := index.LaneMinimum(lane), sim.LaneMinimumLength(lane); got != want {
+				if got, want := index.LaneMinimum(lane), sim.LaneMinimumLength(lane); got != want && depot[lane.ID] == "" {
 					t.Fatalf("lane %s minimum = %g, want %g", lane.ID, got, want)
 				}
 			}

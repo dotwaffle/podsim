@@ -208,13 +208,15 @@ func TestSearchLondonHeadings(t *testing.T) {
 // between a guideway and a station road.
 func TestLondonStationsLieBesideTheirLines(t *testing.T) {
 	t.Parallel()
-	config := LondonCentral()
+	// The heading search uses the shapes of the ordinary stations, so the
+	// test builds the layout of the opt-out flags.
+	config := londonVariantPresets[0].ordinary(t)
 	network := config.Network
 	berths := 0
 	for _, station := range network.Stations {
 		berths += len(station.Berths)
 	}
-	// The default options give 96 passenger stations and 3 Parking
+	// The opt-out options give 96 passenger stations and 3 Parking
 	// facilities. Each of the 127 links has 6 nodes. Each station has 4
 	// nodes and 3 more for each berth.
 	passenger, parking := 96, len(londonParkingFacilities)

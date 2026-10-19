@@ -3,6 +3,7 @@ package scenarios
 import (
 	"fmt"
 	"math"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -11,20 +12,12 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-// suggestedCompactStations are the suggested Compact stations of the docs:
-// Regent's Park, Lambeth North, Lancaster Gate, Edgware Road (Bakerloo),
-// Bayswater, Hyde Park Corner, Borough, and Tower Gateway. LondonCentral
-// has the first seven.
-var suggestedCompactStations = []string{
-	"940GZZLURGP", "940GZZLULBN", "940GZZLULGT", "940GZZLUERB", "940GZZLUBWT", "940GZZLUHPC", "940GZZLUBOR", "940GZZDLTWG",
-}
-
-// suggestedCompact returns the suggested Compact stations of a preset.
+// suggestedCompact returns the default Compact stations of a preset.
 func suggestedCompact(preset londonVariantPreset) []string {
 	if preset.name == "LondonCentral" {
-		return suggestedCompactStations[:7]
+		return slices.Clone(londonCompactStations[:7])
 	}
-	return suggestedCompactStations
+	return slices.Clone(londonCompactStations)
 }
 
 // checkLondonCompact checks the Compact stations of a project: one
@@ -144,21 +137,21 @@ func checkLondonCompact(t *testing.T, config project.Config, ids []string, pods 
 	}
 }
 
-// TestLondonCompactStations builds each preset with its suggested Compact
-// stations, with and without depots. Each project is the preset outside
-// the replaced stations, so the heading search and the mirror pass keep
-// every other station.
+// TestLondonCompactStations builds each preset in the opt-out layout with
+// its default Compact stations, with and without the default depots. Each
+// project is the opt-out project outside the replaced stations, so the
+// heading search and the mirror pass keep every other station. With the
+// depots, the project is the preset.
 func TestLondonCompactStations(t *testing.T) {
 	t.Parallel()
 	for _, preset := range londonVariantPresets {
-		for _, lanes := range []int{0, 2} {
+		for _, lanes := range []int{0, londonDepotLanes} {
 			t.Run(fmt.Sprintf("%s with %d depot lanes", preset.name, lanes), func(t *testing.T) {
 				t.Parallel()
-				options := preset.options()
+				options := ordinaryLondonOptions(preset.options())
 				options.CompactStations = suggestedCompact(preset)
-				options.ParkingLanes, options.ParkingBerths = lanes, 6
-				if lanes == 0 {
-					options.ParkingBerths = LondonParkingBerths
+				if lanes != 0 {
+					options.ParkingLanes, options.ParkingBerths = lanes, londonDepotSlots
 				}
 				config, err := preset.build(options)
 				if err != nil {
@@ -168,29 +161,34 @@ func TestLondonCompactStations(t *testing.T) {
 				replaced := slices.Clone(options.CompactStations)
 				if lanes != 0 {
 					replaced = append(replaced, londonFacilityIDs()...)
-					checkLondonDepots(t, config, lanes, 6, londonParkingPods)
+					checkLondonDepots(t, config, lanes, londonDepotSlots, londonParkingPods)
+					if !reflect.DeepEqual(config, preset.preset()) {
+						t.Fatal("the default layout is not the preset")
+					}
+				} else if !strings.HasSuffix(config.Name, customCapacitySuffix) {
+					t.Fatalf("name %q", config.Name)
 				}
-				checkLondonParity(t, preset.preset(), config, replaced...)
+				checkLondonParity(t, preset.ordinary(t), config, replaced...)
 			})
 		}
 	}
 }
 
-// TestLondonCompactEachStation builds LondonFull with each suggested
-// station alone as a Compact station, and with Paddington, whose four
-// berths are the bay count. With -short, it builds Borough and
-// Paddington. Each project has its own name and is the preset outside the
+// TestLondonCompactEachStation builds LondonFull in the opt-out layout
+// with each default Compact station alone as a Compact station, and with
+// Paddington, whose four berths are the bay count. With -short, it builds
+// Borough and Paddington. Each project is the opt-out project outside the
 // station.
 func TestLondonCompactEachStation(t *testing.T) {
 	t.Parallel()
-	reference := LondonFull()
-	for _, id := range append(slices.Clone(suggestedCompactStations), "940GZZLUPAC") {
+	reference := londonVariantPresets[1].ordinary(t)
+	for _, id := range append(slices.Clone(londonCompactStations), "940GZZLUPAC") {
 		if testing.Short() && id != "940GZZLUBOR" && id != "940GZZLUPAC" {
 			continue
 		}
 		t.Run(id, func(t *testing.T) {
 			t.Parallel()
-			options := DefaultLondonFullOptions()
+			options := ordinaryLondonOptions(DefaultLondonFullOptions())
 			options.CompactStations = []string{id}
 			config, err := LondonFullWith(options)
 			if err != nil {
@@ -198,6 +196,9 @@ func TestLondonCompactEachStation(t *testing.T) {
 			}
 			checkLondonCompact(t, config, []string{id}, londonStationPods)
 			checkLondonParity(t, reference, config, id)
+			if !strings.HasSuffix(config.Name, customCapacitySuffix) {
+				t.Fatalf("name %q", config.Name)
+			}
 		})
 	}
 }
@@ -243,7 +244,7 @@ func TestLondonCompactPods(t *testing.T) {
 // pods of each station.
 func TestLondonCompactRefusals(t *testing.T) {
 	t.Parallel()
-	nine := append(slices.Clone(suggestedCompactStations[:7]), "940GZZLUEMB", "940GZZLUKSX")
+	nine := append(slices.Clone(londonCompactStations[:7]), "940GZZLUEMB", "940GZZLUKSX")
 	tests := []struct {
 		name   string
 		change func(*LondonOptions)
@@ -384,7 +385,8 @@ func TestLondonCompactArea(t *testing.T) {
 
 // TestLondonSizeEstimate checks the node and lane counts that the size
 // check estimates against the counts of the network that the builder makes,
-// for the default layout, Compact stations, depots, and both. Limits at the
+// for the default layout, and for the opt-out layout alone, with Compact
+// stations, with depots, and with both. Limits at the
 // estimate let the build go on. A lane limit one below the estimate, with
 // the node limit at its estimate, refuses the network.
 func TestLondonSizeEstimate(t *testing.T) {
@@ -403,7 +405,8 @@ func TestLondonSizeEstimate(t *testing.T) {
 			}
 		}
 		layouts := map[string]func(*LondonOptions){
-			"default": func(*LondonOptions) {},
+			"default": func(options *LondonOptions) { *options = preset.options() },
+			"opt-out": func(*LondonOptions) {},
 			"compact": func(options *LondonOptions) { options.CompactStations = suggestedCompact(preset) },
 			"depots":  func(options *LondonOptions) { options.ParkingLanes = 2 },
 			"both": func(options *LondonOptions) {
@@ -413,7 +416,7 @@ func TestLondonSizeEstimate(t *testing.T) {
 		for name, change := range layouts {
 			t.Run(preset.name+" "+name, func(t *testing.T) {
 				t.Parallel()
-				options := preset.options()
+				options := ordinaryLondonOptions(preset.options())
 				change(&options)
 				capacity, err := options.resolve(source)
 				if err != nil {

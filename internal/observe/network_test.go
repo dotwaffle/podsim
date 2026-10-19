@@ -149,15 +149,22 @@ type summaryFixture struct {
 
 func loadSummaryFixture(tb testing.TB, name string) (sim.Network, sim.Snapshot) {
 	tb.Helper()
-	var network sim.Network
+	// The fixtures come from the presets without depots and Compact
+	// stations, the layout of the opt-out flags.
+	options, build := scenarios.DefaultLondonCentralOptions(), scenarios.LondonCentralWith
 	switch name {
 	case "central":
-		network = scenarios.LondonCentral().Network
 	case "full":
-		network = scenarios.LondonFull().Network
+		options, build = scenarios.DefaultLondonFullOptions(), scenarios.LondonFullWith
 	default:
 		tb.Fatalf("unknown fixture %q", name)
 	}
+	options.ParkingLanes, options.ParkingBerths, options.CompactStations = 0, scenarios.LondonParkingBerths, nil
+	config, err := build(options)
+	if err != nil {
+		tb.Fatal(err)
+	}
+	network := config.Network
 	file, err := os.Open("testdata/" + name + "-station-summary.json.gz")
 	if err != nil {
 		tb.Fatal(err)

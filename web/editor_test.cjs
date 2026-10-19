@@ -873,22 +873,24 @@ test("a fixture test skips without Go unless PODSIM_REQUIRE_GO is 1", () => {
   for (const item of cases) assert.deepEqual(fixtureOptions(item.hasGo, item.env), { skip: item.skip }, item.name);
 });
 
-// londonCompactStations holds the suggested Compact stations of LondonFull.
+// londonCompactStations holds the default Compact stations of LondonFull.
 // LondonCentral has the first seven.
 const londonCompactStations = ["940GZZLURGP", "940GZZLULBN", "940GZZLULGT", "940GZZLUERB", "940GZZLUBWT", "940GZZLUHPC", "940GZZLUBOR", "940GZZDLTWG"];
 
 test("London projects with depots and Compact stations keep their scenario through import and export", needsGo, () => {
+  const optOut = ["-parking-lanes", "0", "-compact-stations", "none"];
   const cases = [
-    ["london-central"],
-    ["london-central", "-parking-lanes", "2", "-parking-berths", "6", "-compact-stations", londonCompactStations.slice(0, 7).join(",")],
-    ["london-full"],
-    ["london-full", "-parking-lanes", "2", "-parking-berths", "6", "-compact-stations", londonCompactStations.join(",")],
+    { flags: ["london-central"], depots: 3, groups: 7 },
+    { flags: ["london-central", "-parking-lanes", "2", "-parking-berths", "6", "-compact-stations", londonCompactStations.slice(0, 7).join(",")], depots: 3, groups: 7 },
+    { flags: ["london-central", ...optOut], depots: 0, groups: 0 },
+    { flags: ["london-full"], depots: 3, groups: 8 },
+    { flags: ["london-full", "-parking-lanes", "2", "-parking-berths", "6", "-compact-stations", londonCompactStations.join(",")], depots: 3, groups: 8 },
+    { flags: ["london-full", ...optOut], depots: 0, groups: 0 },
   ];
-  for (const flags of cases) {
+  for (const { flags, depots, groups } of cases) {
     const name = flags.join(" ");
     const config = generatedProject(...flags);
-    const groups = flags.includes("-compact-stations") ? (flags[0] === "london-full" ? 8 : 7) : 0;
-    assert.equal((config.network.depots ?? []).length, groups ? 3 : 0, `${name} depots`);
+    assert.equal((config.network.depots ?? []).length, depots, `${name} depots`);
     assert.equal((config.network.maneuverGroups ?? []).length, groups, `${name} groups`);
     const imported = editor.parseDocument(generatedFile(...flags)).scenario;
     assert.deepEqual(imported, config, `${name} import`);

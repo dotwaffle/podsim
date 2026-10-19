@@ -498,13 +498,17 @@ func TestStationTextFormOnLondon(t *testing.T) {
 	} {
 		t.Run(fmt.Sprintf("%dx%d", input.outsideWidth, input.outsideHeight), func(t *testing.T) {
 			t.Parallel()
-			for _, zoom := range []float64{20, mapMaxZoom} {
+			for _, largest := range []bool{false, true} {
 				long, short := 0, 0
 				for _, stationID := range []string{"parking-west", "940GZZLUGDG", "940GZZLUALD"} {
 					game := journeyNetworkGame(t, network)
 					game.state = session.State{Epoch: "london"}
 					game.layoutFor(input)
 					game.fitNetwork()
+					zoom := 20.0
+					if largest {
+						zoom = game.camera.maxScale / game.camera.scale
+					}
 					game.camera.zoomAt(game.mapPoint(game.stationAnchors()[stationID]), zoom)
 					game.syncCamera()
 					_, placed, _ := placedTestText(game)
@@ -520,11 +524,11 @@ func TestStationTextFormOnLondon(t *testing.T) {
 						}
 					}
 				}
-				if zoom < mapMaxZoom && short == 0 {
-					t.Errorf("zoom %g: %d long and %d short station text blocks, want short blocks", zoom, long, short)
+				if !largest && short == 0 {
+					t.Errorf("zoom 20: %d long and %d short station text blocks, want short blocks", long, short)
 				}
-				if zoom == mapMaxZoom && (long == 0 || short > 0) {
-					t.Errorf("zoom %g: %d long and %d short station text blocks, want only long blocks", zoom, long, short)
+				if largest && (long == 0 || short > 0) {
+					t.Errorf("largest zoom: %d long and %d short station text blocks, want only long blocks", long, short)
 				}
 			}
 		})

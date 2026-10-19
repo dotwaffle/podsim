@@ -116,14 +116,14 @@ func TestRunWithoutFlagsKeepsPresets(t *testing.T) {
 		"parking-constrained": "28cc9e22424a39991794f8981a0427db0964c985ac4b8d878da374ee2fa29f67",
 		"rail-hub":            "dddc9926188715eb653f20176dcbfc118a6b8f013ef5b0148d6efd3c5b5d9ff9",
 		"scale100":            "fc5896f7c9e5efd30e75a5b83937df95848c1e2d3133b5be07bbbcb792727dc1",
-		"london-central":      "a53c7134d687f2c57741ee2545b52a240af763133b5c0e9fa01b239cc65dda63",
-		"london-full":         "ebf6f2cd4b819959f3c8bb803a33c39092b0907fd2841e6383e1244d6c3c52b4",
+		"london-central":      "788735e3bb5e45989bb447faac82bd6e1ab3d678039d941e55632db4f59f749f",
+		"london-full":         "e218b3ceeb67bd3fb1ecce6f62a5f070e76ba2a2e0deb82a84a3f6714aa8f329",
 	}
 	// networks holds the network SHA-256 of the summary line of the London
 	// presets.
 	networks := map[string]string{
-		"london-central": "2d11daaf9e6dc8c13b05c25529af55014db103bdc0985991c7704546534666d7",
-		"london-full":    "61761e3b5281228dac678ade72be718b5406ea4a150dcc400ffe5f52e26976db",
+		"london-central": "dc91937b90b5a22eb64f7012fb6656bfe5abeae2cfa98fc05a5b5e6fdf00c4a1",
+		"london-full":    "83d4a83f4f9931a1382e143ef645bd0a31fcb22f0314998087512ad01581ea39",
 	}
 	for preset, want := range tests {
 		t.Run(preset, func(t *testing.T) {
@@ -148,26 +148,29 @@ func TestRunWithoutFlagsKeepsPresets(t *testing.T) {
 }
 
 // TestRunLondonOptOut pins the network SHA-256 of the London presets with
-// the flags that turn off the depots and the Compact stations. Without
-// -parking-berths, -parking-lanes 0 gives the ordinary facilities their
-// own berth count.
+// the flags that turn off the depots and the Compact stations. Both flags
+// give the networks of the presets without depots and Compact stations.
+// Without -parking-berths, -parking-lanes 0 gives the ordinary facilities
+// their own berth count.
 func TestRunLondonOptOut(t *testing.T) {
 	t.Parallel()
-	const (
-		central = "2d11daaf9e6dc8c13b05c25529af55014db103bdc0985991c7704546534666d7"
-		full    = "61761e3b5281228dac678ade72be718b5406ea4a150dcc400ffe5f52e26976db"
-	)
 	tests := []struct {
 		name, preset, network string
 		flags                 []string
 		groups, depots        int
 	}{
-		{name: "LondonCentral", preset: "london-central", network: central, flags: []string{"-parking-lanes", "0", "-compact-stations", "none"}},
-		{name: "LondonCentral without depots", preset: "london-central", network: central, flags: []string{"-parking-lanes", "0"}},
-		{name: "LondonCentral without Compact stations", preset: "london-central", network: central, flags: []string{"-compact-stations", "none"}},
-		{name: "LondonFull", preset: "london-full", network: full, flags: []string{"-parking-lanes", "0", "-compact-stations", "none"}},
-		{name: "LondonFull without depots", preset: "london-full", network: full, flags: []string{"-parking-lanes", "0"}},
-		{name: "LondonFull without Compact stations", preset: "london-full", network: full, flags: []string{"-compact-stations", "none"}},
+		{name: "LondonCentral", preset: "london-central", network: "2d11daaf9e6dc8c13b05c25529af55014db103bdc0985991c7704546534666d7",
+			flags: []string{"-parking-lanes", "0", "-compact-stations", "none"}},
+		{name: "LondonCentral without depots", preset: "london-central", network: "9bd69c7051a9bb4fb823a2e3452bab2f6a8af198a841b5af813991967d93deab",
+			flags: []string{"-parking-lanes", "0"}, groups: 7},
+		{name: "LondonCentral without Compact stations", preset: "london-central", network: "a6d9340fd425a7bca7fafe79189b38a306aff82a440f14be76192339e7c6a185",
+			flags: []string{"-compact-stations", "none"}, depots: 3},
+		{name: "LondonFull", preset: "london-full", network: "61761e3b5281228dac678ade72be718b5406ea4a150dcc400ffe5f52e26976db",
+			flags: []string{"-parking-lanes", "0", "-compact-stations", "none"}},
+		{name: "LondonFull without depots", preset: "london-full", network: "9275645171f4c9e5cf34a36727bc11895e5026a0457424d70ee397d3a6d31807",
+			flags: []string{"-parking-lanes", "0"}, groups: 8},
+		{name: "LondonFull without Compact stations", preset: "london-full", network: "4630e4984fd828ed4d04c7e3fbb03235e8407fbd63db7493608a68d7bb08548e",
+			flags: []string{"-compact-stations", "none"}, depots: 3},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -261,8 +264,8 @@ func TestRunCapacityFlags(t *testing.T) {
 	})
 	t.Run("London Compact stations", func(t *testing.T) {
 		t.Parallel()
-		// The suggested stations on the untouched LondonFull defaults,
-		// which give each station a berth count.
+		// The default stations and depots on the untouched LondonFull
+		// defaults, which give each station a berth count.
 		ids := "940GZZLURGP, 940GZZLULBN,940GZZLULGT,940GZZLUERB,940GZZLUBWT,940GZZLUHPC,940GZZLUBOR,940GZZDLTWG"
 		config, _ := generate(t, "-preset", "london-full", "-compact-stations", ids, "-parking-lanes", "2", "-parking-berths", "6")
 		if len(config.Network.ManeuverGroups) != 8 || len(config.Network.Depots) != 3 || berthCount(t, config, "940GZZLURGP") != 4 {
@@ -273,8 +276,15 @@ func TestRunCapacityFlags(t *testing.T) {
 				t.Fatalf("pod %s has the class %q", pod.ID, pod.Class)
 			}
 		}
-		if config.Name != "LondonFull (custom capacity)" {
+		if config.Name != "LondonFull" {
 			t.Fatalf("name %q", config.Name)
+		}
+	})
+	t.Run("berths of a London station without Compact stations", func(t *testing.T) {
+		t.Parallel()
+		config, _ := generate(t, "-preset", "london-central", "-compact-stations", "none", "-berths", "940GZZLURGP=3")
+		if berthCount(t, config, "940GZZLURGP") != 3 || len(config.Network.ManeuverGroups) != 0 {
+			t.Fatalf("%d Regent's Park berths, %d groups", berthCount(t, config, "940GZZLURGP"), len(config.Network.ManeuverGroups))
 		}
 	})
 	t.Run("berths of single stations", func(t *testing.T) {
@@ -299,7 +309,7 @@ func TestRunCapacityFlags(t *testing.T) {
 		if berthCount(t, config, "940GZZLUKSX") != 3 || len(config.Fleet) != 36 {
 			t.Fatalf("got %d King's Cross berths and %d pods", berthCount(t, config, "940GZZLUKSX"), len(config.Fleet))
 		}
-		if !strings.Contains(summary, "pods=36 nodes=1845/") || !strings.Contains(summary, " soft_conflicts=1\n") {
+		if !strings.Contains(summary, "pods=36 nodes=1946/") || !strings.Contains(summary, " soft_conflicts=1\n") {
 			t.Fatalf("summary = %q", summary)
 		}
 	})
@@ -321,13 +331,14 @@ func TestRunRejectsBadCapacityFlags(t *testing.T) {
 		{name: "pods for a ring", arguments: []string{"-preset", "busy", "-station-pods", "2"}, err: "-station-pods applies only to the London presets"},
 		{name: "Parking pods for the mesh", arguments: []string{"-preset", "scale100", "-parking-pods", "2"}, err: "-parking-pods applies only to the London presets"},
 		{name: "negative Parking lanes for London", arguments: []string{"-preset", "london-central", "-parking-lanes", "-1"}, err: "parking lanes must not be negative"},
-		{name: "London depot too long", arguments: []string{"-preset", "london-full", "-parking-lanes", "6"}, err: "West London Parking (parking-west): the depot of 6 lanes of 12 slots is 202.03 meters long, more than 200 meters"},
+		{name: "London depot too long", arguments: []string{"-preset", "london-full", "-parking-lanes", "6", "-parking-berths", "12"}, err: "West London Parking (parking-west): the depot of 6 lanes of 12 slots is 202.03 meters long, more than 200 meters"},
 		{name: "Parking lanes for the mesh", arguments: []string{"-preset", "scale100", "-parking-lanes", "2"}, err: "parking lanes apply only to a ring"},
 		{name: "Parking lanes for a fixture", arguments: []string{"-preset", "compact-station", "-parking-lanes", "2"}, err: "-parking-lanes does not apply to the compact station fixture"},
 		{name: "Compact stations for a ring", arguments: []string{"-preset", "busy", "-compact-stations", "s01"}, err: "-compact-stations applies only to the London presets"},
 		{name: "Compact stations for a fixture", arguments: []string{"-preset", "compact-station", "-compact-stations", "compact"}, err: "-compact-stations does not apply to the compact station fixture"},
 		{name: "empty Compact station", arguments: []string{"-preset", "london-central", "-compact-stations", "940GZZLURGP,,940GZZLUBOR"}, err: `-compact-stations item "" has no station ID`},
 		{name: "berths of a Compact station", arguments: []string{"-preset", "london-full", "-compact-stations", "940GZZLUBOR,940GZZLURGP", "-berths", "940GZZLURGP=2"}, err: `-berths names Compact station "940GZZLURGP", which has the 4 bays of the compact station; use -compact-stations none or a list without it`},
+		{name: "berths of a default Compact station", arguments: []string{"-preset", "london-central", "-berths", "940GZZLUBOR=3"}, err: `-berths names Compact station "940GZZLUBOR", which has the 4 bays of the compact station; use -compact-stations none or a list without it`},
 		{name: "Parking as a Compact station", arguments: []string{"-preset", "london-central", "-compact-stations", "parking-west"}, err: "West London Parking (parking-west) is a Parking facility, not a passenger station for Compact bays"},
 		{name: "pitch below the floor", arguments: []string{"-preset", "london-central", "-berth-pitch", "20"}, err: "berth pitch"},
 		{name: "layout conflict", arguments: []string{"-preset", "london-central", "-berths", "940GZZLUEMB=3"}, err: "Embankment (940GZZLUEMB)"},

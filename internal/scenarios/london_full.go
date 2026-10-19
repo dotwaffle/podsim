@@ -45,10 +45,13 @@ func LondonFull() project.Config {
 // It gives each passenger site two berths and one pod, then allocates 100
 // extra berths by demand share. Bank keeps two berths for layout clearance.
 // Berths overrides take precedence over StationBerths, as in LondonOptions.
+// The depots are those of LondonCentral, and eight passenger stations are
+// Compact stations.
 func DefaultLondonFullOptions() LondonOptions {
 	londonFullDemandOnce.Do(loadLondonFullDemand)
 	options := DefaultLondonCentralOptions()
 	options.Berths = londonFullBerths(londonFullProfile)
+	options.CompactStations = slices.Clone(londonCompactStations)
 	return options
 }
 

@@ -20,15 +20,15 @@ func TestLondonFullPreset(t *testing.T) {
 	if err := project.Validate(config); err != nil {
 		t.Fatal(err)
 	}
-	if len(config.Network.Stations) != 312 || len(config.Network.Nodes) != 5658 || len(config.Network.Lanes) != 8844 || len(config.Fleet) != 327 {
+	if len(config.Network.Stations) != 312 || len(config.Network.Nodes) != 5740 || len(config.Network.Lanes) != 9024 || len(config.Fleet) != 327 {
 		t.Fatalf("counts stations=%d nodes=%d lanes=%d fleet=%d", len(config.Network.Stations), len(config.Network.Nodes), len(config.Network.Lanes), len(config.Fleet))
 	}
 	berths := 0
 	for _, station := range config.Network.Stations {
 		berths += len(station.Berths)
 	}
-	if berths != 754 {
-		t.Fatalf("berths=%d want 754", berths)
+	if berths != 770 {
+		t.Fatalf("berths=%d want 770", berths)
 	}
 	if config.Demand.PerMinute != 10 || config.Demand.Band != "am-peak" || config.Demand.Profile != londonFullDemandProfileID {
 		t.Fatalf("demand=%+v", config.Demand)
@@ -162,20 +162,31 @@ func TestLondonFullOwnedAndDeterministic(t *testing.T) {
 	}
 }
 
+// TestLondonCentralMirroredBytesPinned pins LondonCentral, and the
+// opt-out layout at the hash of the preset before depots and Compact
+// stations became the default.
 func TestLondonCentralMirroredBytesPinned(t *testing.T) {
 	t.Parallel()
 	config := LondonCentral()
 	if config.Name != "LondonCentral" {
 		t.Fatal("central display name changed")
 	}
-	config.Name = "Central London Underground-derived PRT"
-	raw, err := jsonv2.Marshal(config, json.DefaultOptionsV1())
-	if err != nil {
-		t.Fatal(err)
-	}
-	const want = "4cda23d6a93502a77ee8f696841aed92919c607dc07bc4e59abbd10ad26bb783"
-	if got := fmt.Sprintf("%x", sha256.Sum256(raw)); got != want {
-		t.Fatalf("central project hash=%s want %s", got, want)
+	for _, test := range []struct {
+		name   string
+		config project.Config
+		want   string
+	}{
+		{"default", config, "7d9259b02d1f067419ac1dd4dcda4ff811f2950c27332c8844cc57c4c1175c4e"},
+		{"opt-out", londonVariantPresets[0].ordinary(t), "4cda23d6a93502a77ee8f696841aed92919c607dc07bc4e59abbd10ad26bb783"},
+	} {
+		test.config.Name = "Central London Underground-derived PRT"
+		raw, err := jsonv2.Marshal(test.config, json.DefaultOptionsV1())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := fmt.Sprintf("%x", sha256.Sum256(raw)); got != test.want {
+			t.Fatalf("%s central project hash=%s want %s", test.name, got, test.want)
+		}
 	}
 }
 

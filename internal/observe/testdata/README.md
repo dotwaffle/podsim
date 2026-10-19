@@ -3,9 +3,10 @@
 These are projections of physically restored simulation snapshots at tick 72000.
 The extraction used simulation code from commit 50346e8.
 The source projects match its LondonCentral and LondonFull preset networks.
+These networks have no depots and no Compact stations, so the tests build the presets with `-parking-lanes 0 -compact-stations none`.
 The source demand seeds are recorded below.
 Each fixture keeps all vehicles, their activity/speed/wait/current-lane fields, full ordered route lane IDs, and all berth states.
-Tests resolve lane IDs against the unchanged preset network.
+Tests resolve lane IDs against that network.
 The projection omits fields that neither station-summary path reads.
 It does not truncate or deduplicate routes.
 

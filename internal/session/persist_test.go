@@ -2657,10 +2657,12 @@ func hasField(typ reflect.Type, name string) bool {
 // TestLondonStateSave saves and restores a London session with demand. It
 // reports the time that SaveState holds the session lock. It does not check
 // the time, because the time depends on the machine. The larger project has
-// 3,822 nodes, near the node limit of 4,000.
+// ordinary Parking facilities, no Compact stations, and 3,822 nodes, near
+// the node limit of 4,000.
 func TestLondonStateSave(t *testing.T) {
 	t.Parallel()
 	larger := scenarios.DefaultLondonCentralOptions()
+	larger.ParkingLanes, larger.CompactStations = 0, nil
 	larger.StationBerths, larger.ParkingBerths, larger.BerthPitch = 3, 200, 40
 	largerConfig, err := scenarios.LondonCentralWith(larger)
 	if err != nil {
@@ -2828,7 +2830,7 @@ func maximalRequeueState(t *testing.T, extra int) (project.Config, []byte) {
 
 func buildMaximalRequeueState(t *testing.T) (project.Config, []byte) {
 	t.Helper()
-	config := londonQualificationProject(t, maxSavedPods)
+	config := londonOrdinaryProject(t, maxSavedPods)
 	config.Demand.Enabled = false
 	if len(config.Fleet) != maxSavedPods {
 		t.Fatalf("the fleet has %d pods, want %d", len(config.Fleet), maxSavedPods)

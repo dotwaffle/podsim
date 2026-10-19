@@ -14,12 +14,12 @@ import (
 )
 
 // largestLondonOptions returns the London options of the largest project in
-// the tests: 3 berths at each passenger station, 200 berths at each Parking
-// facility, and a 40 meter pitch. It has 3,822 of the 4,000 nodes that the
-// project limits allow. 4 berths at each passenger station would need 4,110
-// nodes.
+// the tests: 3 berths at each passenger station, 200 berths at each ordinary
+// Parking facility, no Compact stations, and a 40 meter pitch. It has 3,822
+// of the 4,000 nodes that the project limits allow. 4 berths at each
+// passenger station would need 4,110 nodes.
 func largestLondonOptions() LondonOptions {
-	options := DefaultLondonCentralOptions()
+	options := ordinaryLondonOptions(DefaultLondonCentralOptions())
 	options.StationBerths, options.ParkingBerths, options.BerthPitch = 3, 200, 40
 	return options
 }
@@ -35,7 +35,7 @@ func TestLondonWithDefaultOptionsIsLondon(t *testing.T) {
 	}
 	// Overrides with the default values also give the preset.
 	options := DefaultLondonCentralOptions()
-	options.Berths = map[string]int{"940GZZLUKSX": londonStationBerths, "parking-west": LondonParkingBerths}
+	options.Berths = map[string]int{"940GZZLUKSX": londonStationBerths, "parking-west": londonDepotSlots}
 	options.Pods = map[string]int{"940GZZLUKSX": londonStationPods}
 	config, err = LondonCentralWith(options)
 	if err != nil {
@@ -61,7 +61,7 @@ func TestLondonWithCapacity(t *testing.T) {
 		{
 			name:   "third berth at King's Cross",
 			change: func(options *LondonOptions) { options.Berths = map[string]int{"940GZZLUKSX": 3} },
-			nodes:  1845,
+			nodes:  1910,
 			check: func(t *testing.T, config project.Config) {
 				t.Helper()
 				station, _ := config.Network.Station("940GZZLUKSX")
@@ -86,9 +86,12 @@ func TestLondonWithCapacity(t *testing.T) {
 			nodes:  3822,
 		},
 		{
-			name:   "24 Parking berths",
-			change: func(options *LondonOptions) { options.ParkingBerths = 24 },
-			nodes:  1950,
+			name: "24 Parking berths",
+			change: func(options *LondonOptions) {
+				*options = ordinaryLondonOptions(*options)
+				options.ParkingBerths = 24
+			},
+			nodes: 1950,
 			check: func(t *testing.T, config project.Config) {
 				t.Helper()
 				station, _ := config.Network.Station("parking-north")
@@ -98,9 +101,12 @@ func TestLondonWithCapacity(t *testing.T) {
 			},
 		},
 		{
-			name:   "past the node limit",
-			change: func(options *LondonOptions) { options.StationBerths, options.ParkingBerths = 40, 200 },
-			err:    "London network needs 14478 nodes, more than the limit of 12000",
+			name: "past the node limit",
+			change: func(options *LondonOptions) {
+				*options = ordinaryLondonOptions(*options)
+				options.StationBerths, options.ParkingBerths = 40, 200
+			},
+			err: "London network needs 14478 nodes, more than the limit of 12000",
 		},
 		{
 			name: "pods per station",
@@ -108,7 +114,7 @@ func TestLondonWithCapacity(t *testing.T) {
 				options.StationPods, options.ParkingPods = 2, 0
 				options.Pods = map[string]int{"parking-east": 10, "940GZZLUKSX": 0}
 			},
-			nodes: 1842,
+			nodes: 1907,
 			check: func(t *testing.T, config project.Config) {
 				t.Helper()
 				count := make(map[string]int)
@@ -123,12 +129,12 @@ func TestLondonWithCapacity(t *testing.T) {
 		{
 			name:   "shorter pitch",
 			change: func(options *LondonOptions) { options.StationBerths, options.BerthPitch = 3, 40 },
-			nodes:  2130,
+			nodes:  2174,
 		},
 		{
 			name: "Parking pods past the berths",
 			change: func(options *LondonOptions) {
-				options.Berths = map[string]int{"parking-east": 4}
+				options.Berths = map[string]int{"parking-east": 2}
 			},
 			err: "East London Parking (parking-east) has 6 pods, want 0 to its 4 berths",
 		},
@@ -164,6 +170,7 @@ func TestLondonWithCapacity(t *testing.T) {
 			name: "too many pods",
 			change: func(options *LondonOptions) {
 				options.StationBerths, options.StationPods, options.ParkingPods = 11, 11, 12
+				options.CompactStations = nil
 			},
 			err: "fleet has 1092 pods, want 1 to 1000",
 		},

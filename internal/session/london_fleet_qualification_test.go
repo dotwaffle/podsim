@@ -18,28 +18,70 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-// The narrower berth pitch is above the generator's 25 m minimum. It fits
-// three passenger berths without the hard layout conflicts of a 75 m pitch.
-// Bank retains two berths. The three parking sites have 32 berths each.
-var londonQualificationBase = sync.OnceValues(func() (project.Config, error) {
+// londonQualificationBuild builds the London qualification network. The
+// narrower berth pitch is above the generator's 25 m minimum. It fits three
+// passenger berths without the hard layout conflicts of a 75 m pitch. Bank
+// retains two berths. The three parking sites are depots of 4 lanes of 8
+// slots each. With compact, the eight Compact stations of the preset stay;
+// without it, the stations are ordinary.
+func londonQualificationBuild(compact bool) (project.Config, error) {
 	options := scenarios.DefaultLondonFullOptions()
 	options.StationPods, options.ParkingPods = 1, 1
-	options.ParkingBerths, options.BerthPitch = 32, 37.5
+	options.ParkingLanes, options.ParkingBerths, options.BerthPitch = 4, 8, 37.5
+	if !compact {
+		options.CompactStations = nil
+	}
 	for id, count := range options.Berths {
 		if id != "940GZZLUBNK" && count < 3 {
 			options.Berths[id] = 3
 		}
 	}
 	return scenarios.LondonFullWith(options)
-})
+}
 
+var (
+	londonQualificationBase = sync.OnceValues(func() (project.Config, error) { return londonQualificationBuild(true) })
+	londonOrdinaryBase      = sync.OnceValues(func() (project.Config, error) { return londonQualificationBuild(false) })
+)
+
+// londonQualificationProject returns the London qualification project with
+// pods pods, with the Compact stations of the preset and a Compact fleet.
 func londonQualificationProject(tb testing.TB, pods int) project.Config {
 	tb.Helper()
-	base, err := londonQualificationBase()
+	return londonFleetProject(tb, londonQualificationBase, pods)
+}
+
+// londonOrdinaryProject returns the London qualification project with
+// ordinary stations and a fleet of the default class, so that each pod can
+// carry sim.MaxSharedRideParties parties.
+func londonOrdinaryProject(tb testing.TB, pods int) project.Config {
+	tb.Helper()
+	return londonFleetProject(tb, londonOrdinaryBase, pods)
+}
+
+func londonFleetProject(tb testing.TB, build func() (project.Config, error), pods int) project.Config {
+	tb.Helper()
+	base, err := build()
 	if err != nil {
 		tb.Fatal(err)
 	}
 	config := project.Clone(base)
+	// heads holds the slots of each depot heads first, the order of the
+	// depot placements of the preset: the first slot of each lane, then
+	// the second slot of each lane, and so on.
+	heads := make(map[string][]string)
+	for _, depot := range config.Network.Depots {
+		for slot := range len(depot.Lanes[0].BerthIDs) {
+			for _, lane := range depot.Lanes {
+				heads[depot.Station] = append(heads[depot.Station], lane.BerthIDs[slot])
+			}
+		}
+	}
+	// With Compact stations, each pod is Compact.
+	var class sim.VehicleClass
+	if len(config.Network.ManeuverGroups) > 0 {
+		class = sim.CompactClass
+	}
 	var full []sim.Placement
 	firstParking := true
 	for _, station := range config.Network.Stations {
@@ -54,15 +96,25 @@ func londonQualificationProject(tb testing.TB, pods int) project.Config {
 			}
 		}
 		for i := range count {
-			full = append(full, sim.Placement{ID: fmt.Sprintf("qualification-pod-%04d", len(full)+1), StationID: station.ID, BerthID: station.Berths[i].ID})
+			full = append(full, sim.Placement{
+				ID: fmt.Sprintf("qualification-pod-%04d", len(full)+1), StationID: station.ID, BerthID: station.Berths[i].ID, Class: class,
+			})
 		}
 	}
 	if len(full) != 1000 || pods < 1 || pods > len(full) {
 		tb.Fatalf("qualification fleet %d, requested %d", len(full), pods)
 	}
+	// A smaller fleet samples the full fleet evenly. The pods of a depot
+	// then take its slots heads first, so no lane has a gap ahead of a pod.
 	config.Fleet = make([]sim.Placement, pods)
+	taken := make(map[string]int)
 	for i := range config.Fleet {
-		config.Fleet[i] = full[i*len(full)/pods]
+		pod := full[i*len(full)/pods]
+		if slots, ok := heads[pod.StationID]; ok {
+			pod.BerthID = slots[taken[pod.StationID]]
+			taken[pod.StationID]++
+		}
+		config.Fleet[i] = pod
 	}
 	config.Demand.Enabled = true
 	return config
@@ -86,6 +138,20 @@ func TestLondonFleetQualificationTopology(t *testing.T) {
 		if pods <= project.MaxPods {
 			if err := project.Validate(config); err != nil {
 				t.Fatal(err)
+			}
+		}
+		// No depot lane has an empty slot ahead of a pod.
+		taken := make(map[string]bool)
+		for _, pod := range config.Fleet {
+			taken[pod.BerthID] = true
+		}
+		for _, depot := range config.Network.Depots {
+			for _, lane := range depot.Lanes {
+				for slot := 1; slot < len(lane.BerthIDs); slot++ {
+					if taken[lane.BerthIDs[slot]] && !taken[lane.BerthIDs[slot-1]] {
+						t.Fatalf("%d-pod case: depot slot %s is empty ahead of a pod", pods, lane.BerthIDs[slot-1])
+					}
+				}
 			}
 		}
 	}

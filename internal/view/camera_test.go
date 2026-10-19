@@ -517,27 +517,24 @@ var maxZoomLayouts = []layoutInput{
 	{outsideWidth: 1920, outsideHeight: 1080, deviceScale: 2},
 }
 
-// TestMaxZoomExpandsEveryStation checks the London presets with depots and
-// Compact stations, and LondonFull. Their depot slots and Compact bays are
-// 6 meters apart, and LondonFull does not separate its berths at
-// mapMaxZoom times the Fit scale in a small window. At the largest zoom,
-// also after Fit, each station shows its berths.
+// TestMaxZoomExpandsEveryStation checks the London presets, with their
+// depots and Compact stations, and the ordinary LondonFull. The depot slots
+// and Compact bays are 6 meters apart, and the ordinary LondonFull does not
+// separate its berths at mapMaxZoom times the Fit scale in a small window.
+// At the largest zoom, also after Fit, each station shows its berths.
 func TestMaxZoomExpandsEveryStation(t *testing.T) {
 	t.Parallel()
-	compact := []string{"940GZZLURGP", "940GZZLULBN", "940GZZLULGT", "940GZZLUERB", "940GZZLUBWT", "940GZZLUHPC", "940GZZLUBOR", "940GZZDLTWG"}
-	central := scenarios.DefaultLondonCentralOptions()
-	central.ParkingLanes, central.ParkingBerths, central.CompactStations = 2, 6, compact[:7]
-	full := scenarios.DefaultLondonFullOptions()
-	full.ParkingLanes, full.ParkingBerths, full.CompactStations = 2, 6, compact
+	ordinary := scenarios.DefaultLondonFullOptions()
+	ordinary.ParkingLanes, ordinary.ParkingBerths, ordinary.CompactStations = 0, scenarios.LondonParkingBerths, nil
 	networks := []struct {
 		name  string
 		build func() (project.Config, error)
 		// depots is true for a network with depots and Compact stations.
 		depots bool
 	}{
-		{name: "LondonCentral with depots", build: func() (project.Config, error) { return scenarios.LondonCentralWith(central) }, depots: true},
-		{name: "LondonFull with depots", build: func() (project.Config, error) { return scenarios.LondonFullWith(full) }, depots: true},
-		{name: "LondonFull", build: func() (project.Config, error) { return scenarios.LondonFull(), nil }},
+		{name: "LondonCentral", build: func() (project.Config, error) { return scenarios.LondonCentral(), nil }, depots: true},
+		{name: "LondonFull", build: func() (project.Config, error) { return scenarios.LondonFull(), nil }, depots: true},
+		{name: "LondonFull, ordinary", build: func() (project.Config, error) { return scenarios.LondonFullWith(ordinary) }},
 	}
 	for _, network := range networks {
 		t.Run(network.name, func(t *testing.T) {
@@ -592,7 +589,11 @@ func TestMaxZoomOfExpandedNetworks(t *testing.T) {
 		{name: "small with a depot", build: func() (project.Config, error) {
 			return scenarios.PresetWith("small", func(parameters *scenarios.Parameters) { parameters.ParkingLanes = 2 })
 		}},
-		{name: "LondonCentral", build: preset(scenarios.LondonCentral())},
+		{name: "LondonCentral, ordinary", build: func() (project.Config, error) {
+			options := scenarios.DefaultLondonCentralOptions()
+			options.ParkingLanes, options.ParkingBerths, options.CompactStations = 0, scenarios.LondonParkingBerths, nil
+			return scenarios.LondonCentralWith(options)
+		}},
 	}
 	for _, network := range networks {
 		t.Run(network.name, func(t *testing.T) {

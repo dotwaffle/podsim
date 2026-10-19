@@ -7,31 +7,18 @@ import (
 )
 
 // TestLondonValidateNetworkMatchesPrepare checks that sim.ValidateNetwork
-// gives the error of sim.PrepareNetwork on the London presets with depots
-// and the suggested Compact stations, and on each one with the second bay
+// gives the error of sim.PrepareNetwork on the London presets, with their
+// depots and Compact stations, and on each one with the second bay
 // of its first maneuver group moved onto the first bay. Without -short it
 // also checks LondonFull.
 func TestLondonValidateNetworkMatchesPrepare(t *testing.T) {
 	t.Parallel()
-	central := DefaultLondonCentralOptions()
-	central.ParkingLanes, central.ParkingBerths, central.CompactStations = 2, 6, suggestedCompactStations[:7]
-	builds := []func() (sim.Network, error){func() (sim.Network, error) {
-		config, err := LondonCentralWith(central)
-		return config.Network, err
-	}}
+	builds := []func() sim.Network{func() sim.Network { return LondonCentral().Network }}
 	if !testing.Short() {
-		full := DefaultLondonFullOptions()
-		full.ParkingLanes, full.ParkingBerths, full.CompactStations = 2, 6, suggestedCompactStations
-		builds = append(builds, func() (sim.Network, error) {
-			config, err := LondonFullWith(full)
-			return config.Network, err
-		})
+		builds = append(builds, func() sim.Network { return LondonFull().Network })
 	}
 	for _, build := range builds {
-		network, err := build()
-		if err != nil {
-			t.Fatal(err)
-		}
+		network := build()
 		checkValidateNetwork(t, network, false)
 		checkValidateNetwork(t, overlappingBays(network), true)
 	}

@@ -10,11 +10,11 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-// londonFlaggedTrips returns trips for each depot and each Compact station.
+// londonLayoutTrips returns trips for each depot and each Compact station.
 // Trips from the stations near a depot take pods out of the depot. Then
 // trips into the two nearest stations fill their berths, so that idle pods
 // there go to a depot. Last come trips to and from each Compact station.
-func londonFlaggedTrips(config project.Config, compact []string) [][2]string {
+func londonLayoutTrips(config project.Config, compact []string) [][2]string {
 	at := make(map[string]sim.Point)
 	for _, node := range config.Network.Nodes {
 		at[node.ID] = node.Position
@@ -56,21 +56,15 @@ func londonFlaggedTrips(config project.Config, compact []string) [][2]string {
 	return trips
 }
 
-// TestLondonFlaggedRun runs London Central with three depots and seven
+// TestLondonLayoutRun runs LondonCentral, which has three depots and seven
 // Compact stations. Each depot releases pods from its lane heads and takes
 // new pods into its own slots. Different maneuver groups move pods at the
 // same time, and a group never moves two pods at once. A physical restore
 // every five minutes keeps every pod.
-func TestLondonFlaggedRun(t *testing.T) {
+func TestLondonLayoutRun(t *testing.T) {
 	t.Parallel()
 	compact := suggestedCompact(londonVariantPresets[0])
-	options := DefaultLondonCentralOptions()
-	options.ParkingLanes, options.ParkingBerths = 2, 6
-	options.CompactStations = compact
-	config, err := LondonCentralWith(options)
-	if err != nil {
-		t.Fatal(err)
-	}
+	config := LondonCentral()
 	groups := make(map[string]string)
 	for _, group := range config.Network.ManeuverGroups {
 		for _, lane := range group.LaneIDs {
@@ -95,7 +89,7 @@ func TestLondonFlaggedRun(t *testing.T) {
 	for _, pod := range config.Fleet {
 		parked[pod.ID], berth[pod.ID] = slots[pod.BerthID], pod.BerthID
 	}
-	trips := londonFlaggedTrips(config, compact)
+	trips := londonLayoutTrips(config, compact)
 	arrived := make(map[string]int)
 	released := make(map[string]int)
 	visited := make(map[string]bool)

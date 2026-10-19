@@ -2,7 +2,9 @@ package view
 
 import (
 	"fmt"
+	"maps"
 	"math"
+	"slices"
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/scenarios"
@@ -470,11 +472,23 @@ func TestNetworkStyleOnLondon(t *testing.T) {
 		t.Fatalf("lane width, collapsed lane width = %v, %v at Fit, want 2, 1", style.laneWidth, style.collapsedLaneWidth)
 	}
 
+	// The slots of a depot and the bays of a Compact station are too near
+	// to separate on the screen, so only these stations stay collapsed at
+	// maximum zoom.
+	var dense []string
+	for _, depot := range network.Depots {
+		dense = append(dense, depot.Station)
+	}
+	for _, group := range network.ManeuverGroups {
+		dense = append(dense, group.StationID)
+	}
 	zoomed := zoomedGame(network, input, mapMaxZoom)
 	markers = zoomed.collapsedStationMarkers()
 	style = newNetworkStyle(networkStyleInput{network: network, markers: markers, lineLanes: zoomed.currentLineLanes(), scale: zoomed.mapScale, unit: zoomed.layout.unit})
-	if len(markers) != 0 || !style.nodeDots {
-		t.Fatalf("%d collapsed stations and node dots %t at maximum zoom, want 0 and true", len(markers), style.nodeDots)
+	collapsed := slices.Sorted(maps.Keys(markers))
+	slices.Sort(dense)
+	if len(dense) != 10 || !slices.Equal(collapsed, dense) || !style.nodeDots {
+		t.Fatalf("collapsed stations %q and node dots %t at maximum zoom, want the 3 depots and 7 Compact stations %q and true", collapsed, style.nodeDots, dense)
 	}
 	if style.markerRadius != 10 || style.laneWidth != 5 {
 		t.Fatalf("marker radius, lane width = %v, %v at maximum zoom, want 10, 5", style.markerRadius, style.laneWidth)

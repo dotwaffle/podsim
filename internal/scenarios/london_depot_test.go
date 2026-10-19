@@ -25,6 +25,52 @@ var londonVariantPresets = []londonVariantPreset{
 	{name: "LondonFull", options: DefaultLondonFullOptions, build: LondonFullWith, preset: LondonFull},
 }
 
+// ordinaryLondonOptions returns the options with the layout of the
+// opt-out flags: ordinary Parking facilities and no Compact stations.
+func ordinaryLondonOptions(options LondonOptions) LondonOptions {
+	options.ParkingLanes, options.ParkingBerths, options.CompactStations = 0, LondonParkingBerths, nil
+	return options
+}
+
+// ordinary returns the preset with the layout of the opt-out flags.
+func (preset londonVariantPreset) ordinary(tb testing.TB) project.Config {
+	tb.Helper()
+	config, err := preset.build(ordinaryLondonOptions(preset.options()))
+	if err != nil {
+		tb.Fatal(err)
+	}
+	return config
+}
+
+// londonLayoutStations returns the IDs of the depot stations and the
+// Compact stations of a network.
+func londonLayoutStations(network sim.Network) map[string]bool {
+	stations := make(map[string]bool)
+	for _, depot := range network.Depots {
+		stations[depot.Station] = true
+	}
+	for _, group := range network.ManeuverGroups {
+		stations[group.StationID] = true
+	}
+	return stations
+}
+
+// londonLayoutLanes returns the lanes of the depots and the Compact
+// stations of a London network that have no separation group, by lane ID.
+// These are the depot lanes and the lanes of the compact layout. The depot
+// and compact tests cover their lengths and their reduced retention.
+func londonLayoutLanes(network sim.Network) map[string]bool {
+	stations := londonLayoutStations(network)
+	owners := londonLaneOwners(network)
+	lanes := make(map[string]bool)
+	for _, lane := range network.Lanes {
+		if stations[owners[lane.ID]] && lane.SeparationGroup == "" {
+			lanes[lane.ID] = true
+		}
+	}
+	return lanes
+}
+
 // replacedLondonID reports whether a node or lane ID belongs to the inside
 // of a replaced station: an ID of the station other than its diverge and
 // merge nodes, its road lanes, and its movement lanes.
@@ -102,9 +148,6 @@ func checkLondonParity(t *testing.T, reference, variant project.Config, replaced
 	if !slices.Equal(pods(variant), pods(reference)) {
 		t.Fatal("the pods outside the replaced stations differ")
 	}
-	if !strings.HasSuffix(variant.Name, customCapacitySuffix) {
-		t.Fatalf("name %q", variant.Name)
-	}
 }
 
 // londonFacilityIDs returns the IDs of the Parking facilities.
@@ -167,6 +210,9 @@ func TestLondonDepots(t *testing.T) {
 					}
 					checkLondonDepots(t, config, lanes, slots, options.ParkingPods)
 					checkLondonParity(t, reference, config, londonFacilityIDs()...)
+					if !strings.HasSuffix(config.Name, customCapacitySuffix) {
+						t.Fatalf("name %q", config.Name)
+					}
 				})
 			}
 		}
@@ -260,7 +306,7 @@ func TestLondonDepotRefusals(t *testing.T) {
 			"West London Parking (parking-west): the depot has 8 lanes of 26 slots, want 1 to 200 slots in all"},
 		{"17 slots in one lane", func(options *LondonOptions) { options.ParkingLanes, options.ParkingBerths = 1, 17 },
 			"West London Parking (parking-west): the depot of 1 lanes of 17 slots is 204.03 meters long, more than 200 meters"},
-		{"six lanes of 12 slots", func(options *LondonOptions) { options.ParkingLanes = 6 },
+		{"six lanes of 12 slots", func(options *LondonOptions) { options.ParkingLanes, options.ParkingBerths = 6, 12 },
 			"West London Parking (parking-west): the depot of 6 lanes of 12 slots is 202.03 meters long, more than 200 meters"},
 		{"one long facility", func(options *LondonOptions) {
 			options.ParkingLanes, options.ParkingBerths, options.Berths = 2, 6, map[string]int{"parking-east": 16}
