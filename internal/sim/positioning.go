@@ -458,17 +458,22 @@ func (s *Simulation) positionGuarded() {
 // empty pod in service that no waiting trip names and that has no rebalance
 // cooldown. It must be at a parking station, at a station with a weight of
 // 0, or at a station with at least two idle pods that no waiting trip
-// names. Thus a lone idle pod at a weighted station never moves. It
-// reports false when no pod is a candidate.
+// names. Thus a lone idle pod at a weighted station never moves. In a
+// depot, only the oldest head that is a candidate is one (see
+// depotOldestHead). It reports false when no pod is a candidate.
 func (s *Simulation) guardedCandidates(view guardedView) ([]int, bool) {
 	rank := make([]int, len(s.network.Nodes))
 	for i := range rank {
 		rank[i] = -1
 	}
 	found := false
+	candidate := func(v *vehicle) bool {
+		return v.Pod.Activity == Idle && !v.Pod.Occupied && v.inService() && v.Pod.BerthID != "" && !view.assigned[v.Pod.ID] && v.rebalanceAfter <= s.tick
+	}
+	gate := depotGate{s: s, accept: candidate}
 	for i := range s.vehicles {
 		v := &s.vehicles[i]
-		if v.Pod.Activity != Idle || v.Pod.Occupied || !v.inService() || v.Pod.BerthID == "" || view.assigned[v.Pod.ID] || v.rebalanceAfter > s.tick {
+		if !candidate(v) || !gate.releasable(v) {
 			continue
 		}
 		index, ok := s.stationIndex(v.Pod.StationID)
@@ -523,10 +528,12 @@ type guardedBump struct {
 	gate guardedGate
 }
 
-// bumpGoal is a berth that a bumped pod can go to.
+// bumpGoal is a berth that a bumped pod can go to. With depot, it is the
+// entry of a depot station and has no berth.
 type bumpGoal struct {
 	station string
 	berth   Berth
+	depot   bool
 }
 
 // guardedBumpToDeficit moves the blocker to the available berth of a
@@ -563,7 +570,9 @@ func (s *Simulation) guardedBumpToDeficit(bump guardedBump) bool {
 }
 
 // guardedBumpToParking moves the blocker to the parking berth with the
-// lowest route cost whose berth and node no pod holds.
+// lowest route cost whose berth and node no pod holds. A depot takes part
+// with its entry when depotGoal accepts the blocker, and the move then
+// reserves nothing.
 func (s *Simulation) guardedBumpToParking(bump guardedBump) bool {
 	rank := make([]int, len(s.network.Nodes))
 	for i := range rank {
@@ -572,6 +581,13 @@ func (s *Simulation) guardedBumpToParking(bump guardedBump) bool {
 	var goals []bumpGoal
 	for _, station := range s.network.Stations {
 		if !station.ParkingOnly {
+			continue
+		}
+		if s.depots.isDepot(station.ID) {
+			if node, ok := s.graph.nodes[station.Entry]; ok && rank[node] < 0 && s.depotGoal(bump.blocker, station) {
+				rank[node] = len(goals)
+				goals = append(goals, bumpGoal{station: station.ID, depot: true})
+			}
 			continue
 		}
 		for _, berth := range station.Berths {
@@ -592,5 +608,5 @@ func (s *Simulation) guardedBumpToParking(bump guardedBump) bool {
 		return false
 	}
 	goal := goals[rank[node]]
-	return s.startEmptyMove(bump.blocker, emptyDestination{station: goal.station, berth: goal.berth, reserveBerth: true}) == nil
+	return s.startEmptyMove(bump.blocker, emptyDestination{station: goal.station, berth: goal.berth, reserveBerth: !goal.depot, depot: goal.depot}) == nil
 }

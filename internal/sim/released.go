@@ -85,6 +85,9 @@ func releasable(v *vehicle) bool {
 // The pod keeps its route when it must finish a committed inlet, when no
 // free berth is reachable, or when its current destination berth is the
 // nearest free berth.
+//
+// The goal of a depot is its entry (see depotGoal). The pod then reserves
+// nothing, and it is no longer released.
 func (s *Simulation) parkReleased(v *vehicle) {
 	prefix, from, ok := s.divertStart(v)
 	if !ok {
@@ -94,14 +97,25 @@ func (s *Simulation) parkReleased(v *vehicle) {
 	if !ok {
 		return
 	}
-	if berth.ID != v.destination.ID {
-		suffix, err := s.assignedRoute(v, from, berth.Node)
+	if berth.ID != v.destination.ID || station != v.destinationStation {
+		target := berth.Node
+		if berth.ID == "" {
+			depot, _ := s.station(station)
+			target = depot.Entry
+		}
+		suffix, err := s.assignedRoute(v, from, target)
 		if err != nil {
 			return
 		}
 		s.redirect(v, redirection{route: append(slices.Clone(v.Route[:prefix]), suffix...), berth: berth, station: station})
 	}
 	if v.RelocatingTo == "" {
+		return
+	}
+	// A depot goal claims nothing, so the pod is no longer released, and
+	// parkUnclaimedReleased does not send it again.
+	if berth.ID == "" {
+		v.released = false
 		return
 	}
 	for _, r := range berthResources(berth) {
@@ -125,7 +139,9 @@ func (s *Simulation) parkUnclaimedReleased() {
 
 // nearestFreeBerth returns the free berth with the lowest route cost from
 // the node and the station of that berth. It uses the rank order of
-// parkReleased. It reports false when no free berth is reachable.
+// parkReleased. It reports false when no free berth is reachable. A depot
+// takes part with its entry and no berth when depotGoal accepts the pod,
+// and never with its slots.
 func (s *Simulation) nearestFreeBerth(v *vehicle, from string) (Berth, string, bool) {
 	s.ensureNetworkIndexes()
 	busy := make(map[string]bool)
@@ -167,8 +183,20 @@ func (s *Simulation) nearestFreeBerth(v *vehicle, from string) (Berth, string, b
 		rank[node] = len(candidates)
 		candidates = append(candidates, candidate{berth: berth, station: station})
 	}
+	// addDepot adds the entry of a depot station, and reports false for
+	// any other station.
+	addDepot := func(station Station) bool {
+		if !s.depots.isDepot(station.ID) {
+			return false
+		}
+		if node, ok := s.graph.nodes[station.Entry]; ok && rank[node] < 0 && s.depotGoal(v, station) {
+			rank[node] = len(candidates)
+			candidates = append(candidates, candidate{station: station.ID})
+		}
+		return true
+	}
 	current, hasCurrent := s.station(v.destinationStation)
-	if hasCurrent {
+	if hasCurrent && !addDepot(current) {
 		if berth, ok := current.berth(v.destination.ID); ok {
 			add(berth, current.ID)
 		}
@@ -177,7 +205,7 @@ func (s *Simulation) nearestFreeBerth(v *vehicle, from string) (Berth, string, b
 		}
 	}
 	for _, station := range s.network.Stations {
-		if hasCurrent && station.ID == current.ID {
+		if hasCurrent && station.ID == current.ID || addDepot(station) {
 			continue
 		}
 		for _, berth := range station.Berths {

@@ -156,7 +156,7 @@ func (s *Simulation) setOperationalDestination(v *vehicle, to operationalTarget)
 }
 
 // checkOperationalTarget checks the purpose, the owner, the interrupt set,
-// and the station of a target for v.
+// and the station of a target for v. Last, it refuses a depot station.
 func (s *Simulation) checkOperationalTarget(v *vehicle, to operationalTarget) error {
 	station, ok := s.station(to.station)
 	switch {
@@ -178,6 +178,8 @@ func (s *Simulation) checkOperationalTarget(v *vehicle, to operationalTarget) er
 		return errors.New("the interrupt set names a rider that is not active")
 	case to.purpose == opRefuge && slices.Contains(v.Stops, station.ID):
 		return fmt.Errorf("refuge %s is a stop of the riders", station.ID)
+	case s.depots.isDepot(station.ID):
+		return fmt.Errorf("station %s is a depot", station.ID)
 	}
 	return nil
 }

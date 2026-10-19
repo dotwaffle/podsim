@@ -836,9 +836,13 @@ func (s *Simulation) publishVehicleTravel(v *vehicle, distance, speed float64) {
 			s.recordLaneEntries(v, entered, current.lane)
 			if v.destination.ID == "" {
 				v.Pod.Speed = 0
-				// A faulted pod keeps the fault report of admission.
+				// A faulted pod keeps the fault report of admission. A pod
+				// with no slot at the entry of a depot has no lane to park.
 				if !v.faulted {
 					v.Pod.WaitReason = BerthOccupied
+					if s.depotEntryWait(v) {
+						v.Pod.WaitReason = ParkingUnavailable
+					}
 				}
 				return
 			}

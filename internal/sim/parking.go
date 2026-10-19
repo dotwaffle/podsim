@@ -78,9 +78,17 @@ func (s *Simulation) clearToPassengerBerth(v *vehicle) bool {
 }
 
 // park reserves a reachable destination before an empty pod leaves its passenger berth.
+// For a depot, the pod goes to the entry and reserves nothing (see
+// depotGoal).
 func (s *Simulation) park(v *vehicle) bool {
 	for _, station := range s.network.Stations {
 		if !station.ParkingOnly {
+			continue
+		}
+		if s.depots.isDepot(station.ID) {
+			if s.depotGoal(v, station) && s.startEmptyMove(v, emptyDestination{station: station.ID, depot: true}) == nil {
+				return true
+			}
 			continue
 		}
 		for _, berth := range station.Berths {
@@ -92,11 +100,14 @@ func (s *Simulation) park(v *vehicle) bool {
 	return false
 }
 
+// emptyDestination is the destination of an empty move. With depot, the
+// move goes to the entry of the depot station and has no berth.
 type emptyDestination struct {
 	station      string
 	berth        Berth
 	reserveBerth bool
 	rebalance    bool
+	depot        bool
 }
 
 func (s *Simulation) startEmptyMove(v *vehicle, to emptyDestination) error {
@@ -108,15 +119,22 @@ func (s *Simulation) startEmptyMove(v *vehicle, to emptyDestination) error {
 	return nil
 }
 
+// prepareEmptyMove returns the route of an empty move. No move can reserve
+// a depot slot.
 func (s *Simulation) prepareEmptyMove(v *vehicle, to emptyDestination) ([]Lane, error) {
 	space := resource{kind: berthResource, id: to.berth.ID}
 	node := resource{kind: nodeResource, id: to.berth.Node}
-	if to.reserveBerth && (!s.owners[space].isZero() || !s.owners[node].isZero()) {
+	if _, slot := s.depots.slot(to.berth.ID); to.reserveBerth && (slot || !s.owners[space].isZero() || !s.owners[node].isZero()) {
 		return nil, ErrBerthUnavailable
 	}
 	from, _ := s.station(v.Pod.StationID)
 	origin, _ := from.berth(v.Pod.BerthID)
-	route, err := s.assignedRoute(v, origin.Node, to.berth.Node)
+	target := to.berth.Node
+	if to.depot {
+		station, _ := s.station(to.station)
+		target = station.Entry
+	}
+	route, err := s.assignedRoute(v, origin.Node, target)
 	if err != nil {
 		return nil, fmt.Errorf("empty route %s to %s: %w", from.ID, to.station, err)
 	}

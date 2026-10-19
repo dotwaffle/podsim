@@ -109,8 +109,13 @@ func (s *Simulation) candidateRoutePartsMatching(v *vehicle, stationID string, l
 // A pod must finish its committed berth inlet and the full arrival chain
 // once it reserves a lane leaving the destination station's entry.
 // Pods in a platoon cannot divert because their links depend on the routes.
+// A pod whose destination is a depot slot cannot divert: it is a pod of
+// the depot lane, bound or moving up.
 func (s *Simulation) divertStart(v *vehicle) (int, string, bool) {
 	if v.Pod.Activity != Traveling && v.Pod.Activity != DepartingEmpty || v.linked() {
+		return 0, "", false
+	}
+	if _, slot := s.depots.slot(v.destination.ID); slot {
 		return 0, "", false
 	}
 	prefix, from := 0, v.origin.Node

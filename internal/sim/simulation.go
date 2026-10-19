@@ -870,6 +870,7 @@ func (s *Simulation) Step() {
 	s.dispatch()
 	s.swapPickups()
 	s.redistribute()
+	s.bindDepotArrivals()
 	s.formPlatoons()
 	s.admit()
 	s.clearBlockedBerths()

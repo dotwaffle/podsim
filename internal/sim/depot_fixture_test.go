@@ -10,10 +10,10 @@ import (
 // depotLayout describes a test depot that replaces the parking siding of
 // Example. The lanes run west from the entry at (620, 460), each width
 // meters south of the one before it, and pitch meters separate the slots of
-// a lane.
+// a lane. A fan of zero gives the shortest fan for the lanes.
 type depotLayout struct {
-	lanes, slots int
-	pitch, width float64
+	lanes, slots      int
+	pitch, width, fan float64
 }
 
 // depotSpeed is the depot speed for a 6 m pitch: the speed at which
@@ -53,7 +53,7 @@ func depotNetwork(layout depotLayout) Network {
 	entry := Point{X: 620, Y: 460}
 	// A curved fan or throat lane does not qualify, so it needs
 	// 2*Clearance.
-	fan := max(math.Ceil(layout.width*math.Sqrt(2*float64(layout.lanes)))+1, 2*Clearance)
+	fan := max(math.Ceil(layout.width*math.Sqrt(2*float64(layout.lanes)))+1, 2*Clearance, layout.fan)
 	turn := math.Atan(2 * layout.width * float64(layout.lanes) / fan)
 	leadIn := 2*reducedRetention(stopDistance(depotSpeed), turn) + 0.01
 	chain := layout.pitch * float64(layout.slots-1)

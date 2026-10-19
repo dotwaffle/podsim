@@ -97,10 +97,20 @@ func (s *Simulation) freePickupAlternative(v *vehicle) bool {
 
 // tryPickupTransfer prepares the replacement before releasing the old pickup.
 // An idle replacement keeps its origin claim until ordinary departure.
+// In a depot, only the oldest head that can take the pickup replaces.
 func (s *Simulation) tryPickupTransfer(index int, replacement *vehicle) bool {
 	trip := &s.waiting[index]
 	old := s.findVehicle(trip.request.PodID)
 	if !s.podFitsRequest(replacement, trip.request) || !s.pickupAccess(replacement, trip.request) {
+		return false
+	}
+	if !s.depotReleasable(replacement, func(head *vehicle) bool {
+		if trip.excludes(head.Pod.ID) || !s.freePickupAlternative(head) || !s.podFitsRequest(head, trip.request) || !s.pickupAccess(head, trip.request) {
+			return false
+		}
+		_, berth, ok := s.candidateRouteForRequest(head, trip.request, nil)
+		return ok && s.pickupBerthFitsRequest(head, trip.request, berth)
+	}) {
 		return false
 	}
 	route, berth, ok := s.candidateRouteForRequest(replacement, trip.request, nil)

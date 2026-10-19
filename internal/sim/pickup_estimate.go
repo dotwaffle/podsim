@@ -169,13 +169,21 @@ func (s *Simulation) keepHold(trip *waitingTrip, pass *dispatchPass) bool {
 // candidates of the pass, in fleet order. A berth load changes only the berth that stationRouteByLoad
 // chooses. It does not change whether the station has a berth that the pod
 // can reach. Thus pickupAvailable does not compute the berth loads. It
-// skips the pod excluded, as pickupPodForRequest does.
+// skips the pod excluded, as pickupPodForRequest does, and a depot pod
+// that is not the oldest head that can serve the station.
 func (s *Simulation) pickupAvailable(stationID, excluded string, pass *dispatchPass) bool {
-	for _, v := range s.pickupCandidates(pass) {
+	serves := func(v *vehicle) bool {
 		if excluded != "" && v.Pod.ID == excluded {
-			continue
+			return false
 		}
-		if _, _, _, ok := s.candidateRouteParts(v, stationID, noBerthLoad); ok {
+		_, _, _, ok := s.candidateRouteParts(v, stationID, noBerthLoad)
+		return ok
+	}
+	gate := depotGate{s: s, accept: func(head *vehicle) bool {
+		return s.pickupCandidate(head, pass.assigned) && serves(head)
+	}}
+	for _, v := range s.pickupCandidates(pass) {
+		if gate.releasable(v) && serves(v) {
 			return true
 		}
 	}

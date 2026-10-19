@@ -538,8 +538,26 @@ func (s *Simulation) pickupPodMatching(stationID string, pass *dispatchPass, req
 	bestTime := math.Inf(1)
 	load := s.berthLoads()
 	var bounds []float64
+	usable := func(v *vehicle) bool {
+		return (excluded == "" || v.Pod.ID != excluded) && (request == nil || s.podFitsRequest(v, *request))
+	}
+	// In a depot, only the oldest head that serves this pickup is a
+	// candidate, so a head that cannot serve it does not hide a younger
+	// head of another lane.
+	gate := depotGate{s: s, accept: func(head *vehicle) bool {
+		if !usable(head) || !s.pickupCandidate(head, pass.assigned) {
+			return false
+		}
+		var ok bool
+		if request == nil {
+			_, _, ok = s.candidateRoute(head, stationID, load)
+		} else {
+			_, _, ok = s.candidateRouteForRequest(head, *request, load)
+		}
+		return ok
+	}}
 	for _, v := range candidates {
-		if excluded != "" && v.Pod.ID == excluded || request != nil && !s.podFitsRequest(v, *request) {
+		if !usable(v) || !gate.releasable(v) {
 			continue
 		}
 		if best != nil {
