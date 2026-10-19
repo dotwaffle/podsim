@@ -415,6 +415,7 @@ The server closes the connection after these replies, so it does not wait for th
 A `project` command with more than 600 stations, 12,000 nodes, 20,000 lanes, or 1,000 pods gets HTTP 400, because these arrays are larger than the limits above.
 An Express project retains its separately qualified limit of 600 pods.
 A station with more than 200 berths also gets HTTP 400.
+More than 600 depots, a depot with more than 8 lanes, and a depot lane with more than 200 berths also get HTTP 400.
 A `project` command gets `command_rejected` when the project fails validation, for example when a node has more than 64 lanes.
 A lane counts at its start node and at its end node.
 The total of the lane pairs at the nodes, the node coordinates, and the total of the track cells of the lanes also have limits.

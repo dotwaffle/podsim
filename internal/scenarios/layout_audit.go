@@ -196,7 +196,9 @@ func sharesNode(a, b sim.Lane) bool {
 
 // auditPlanarLayout returns the hard conflicts of a ring or mesh network.
 // Two lanes that have no common node must not cross, and must be at least
-// sim.Clearance apart.
+// sim.Clearance apart. The audit skips each pair with a depot lane, because
+// the depot lanes are nearer than that, and the bank audit of
+// sim.PrepareNetwork checks each such pair (see depotLanes).
 // A conflict between lanes of two stations names the second station too.
 func auditPlanarLayout(network sim.Network) []layoutConflict {
 	names := make(map[string]string, len(network.Stations))
@@ -204,10 +206,11 @@ func auditPlanarLayout(network sim.Network) []layoutConflict {
 		names[station.ID] = station.Name
 	}
 	lanes := newAuditLanes(network)
+	depot := depotLanes(network)
 	var conflicts []layoutConflict
 	for index, first := range lanes {
 		for _, second := range lanes[index+1:] {
-			if sharesNode(first.lane, second.lane) || !first.near(second, sim.Clearance) {
+			if depot[first.lane.ID] || depot[second.lane.ID] || sharesNode(first.lane, second.lane) || !first.near(second, sim.Clearance) {
 				continue
 			}
 			station := first.lane.StationID
@@ -228,6 +231,35 @@ func auditPlanarLayout(network sim.Network) []layoutConflict {
 		}
 	}
 	return conflicts
+}
+
+// depotLanes returns the lanes of the depot lane paths, by lane ID: each
+// lane that reaches a slot node through nodes other than the entry and the
+// exit of the depot station.
+func depotLanes(network sim.Network) map[string]bool {
+	lanes := make(map[string]bool)
+	for _, depot := range network.Depots {
+		station, _ := network.Station(depot.Station)
+		inner := make(map[string]bool)
+		for _, berth := range station.Berths {
+			inner[berth.Node] = true
+		}
+		for changed := true; changed; {
+			changed = false
+			for _, lane := range network.Lanes {
+				if lanes[lane.ID] || !inner[lane.From] && !inner[lane.To] {
+					continue
+				}
+				lanes[lane.ID], changed = true, true
+				for _, node := range []string{lane.From, lane.To} {
+					if node != station.Entry && node != station.Exit {
+						inner[node] = true
+					}
+				}
+			}
+		}
+	}
+	return lanes
 }
 
 // londonLaneKind sorts the lanes of a London network for the audit.

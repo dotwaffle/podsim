@@ -36,6 +36,7 @@ func main() {
 type capacity struct {
 	set                          map[string]bool
 	stationBerths, parkingBerths int
+	parkingLanes                 int
 	stationPods, parkingPods     int
 	berths                       map[string]int
 	berthPitch                   float64
@@ -49,6 +50,7 @@ func run(arguments []string, stdout, stderr io.Writer) error {
 	var options capacity
 	flags.IntVar(&options.stationBerths, "station-berths", 0, "Berths at each passenger station; omit to keep the preset value")
 	flags.IntVar(&options.parkingBerths, "parking-berths", 0, "Berths at each Parking station; omit to keep the preset value")
+	flags.IntVar(&options.parkingLanes, "parking-lanes", 0, "Ring presets only: queue lanes of a depot at the Parking station; -parking-berths then sets the slots of each lane")
 	berths := flags.String("berths", "", "Berths at single stations, as comma-separated ID=N items")
 	flags.IntVar(&options.stationPods, "station-pods", 0, "London presets only: initial pods at each passenger station")
 	flags.IntVar(&options.parkingPods, "parking-pods", 0, "London presets only: initial pods at each Parking facility")
@@ -132,7 +134,7 @@ func presetConfig(name string, options capacity) (project.Config, error) {
 	}
 	fixtures := map[string]string{"independent-banks": "independent bank fixture", "compact-station": "compact station fixture"}
 	if fixture, ok := fixtures[name]; ok {
-		for _, key := range []string{"station-berths", "parking-berths", "station-pods", "parking-pods", "berths", "berth-pitch"} {
+		for _, key := range []string{"station-berths", "parking-berths", "parking-lanes", "station-pods", "parking-pods", "berths", "berth-pitch"} {
 			if options.set[key] {
 				return project.Config{}, fmt.Errorf("-%s does not apply to the %s", key, fixture)
 			}
@@ -148,6 +150,9 @@ func presetConfig(name string, options capacity) (project.Config, error) {
 		return config, nil
 	}
 	if name == "london-central" || name == "london-full" {
+		if options.set["parking-lanes"] {
+			return project.Config{}, errors.New("-parking-lanes applies only to the ring presets")
+		}
 		return londonPresetConfig(name, options)
 	}
 	for _, flag := range []string{"station-pods", "parking-pods"} {
@@ -158,6 +163,7 @@ func presetConfig(name string, options capacity) (project.Config, error) {
 	return scenarios.PresetWith(name, func(parameters *scenarios.Parameters) {
 		setInt(options.set["station-berths"], &parameters.PassengerBerths, options.stationBerths)
 		setInt(options.set["parking-berths"], &parameters.ParkingBerths, options.parkingBerths)
+		setInt(options.set["parking-lanes"], &parameters.ParkingLanes, options.parkingLanes)
 		if options.set["berths"] {
 			parameters.StationBerths = options.berths
 		}

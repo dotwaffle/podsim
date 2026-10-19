@@ -47,6 +47,25 @@ type Parameters struct {
 	// Zero keeps the pitch of the layout: berthSpacing for a ring station and
 	// meshBerthPitch for a mesh station.
 	BerthPitch float64
+	// ParkingLanes is the number of depot lanes of the Parking station of
+	// a ring. Zero keeps berths. When it is set, the berth count of the
+	// Parking station is the number of slots of each lane.
+	ParkingLanes int
+}
+
+// depot returns the depot of the Parking station, or false when the
+// Parking station has berths.
+func (parameters Parameters) depot() (depotLayout, bool) {
+	return depotLayout{lanes: parameters.ParkingLanes, slots: parameters.berths(parameters.Stations - 1)}, parameters.ParkingLanes != 0
+}
+
+// parkingCapacity returns the number of pods that the Parking station
+// holds.
+func (parameters Parameters) parkingCapacity() int {
+	if layout, ok := parameters.depot(); ok {
+		return layout.lanes * layout.slots
+	}
+	return parameters.berths(parameters.Stations - 1)
 }
 
 // stationID returns the ID of the station at index. The last station is
@@ -101,9 +120,20 @@ func checkParameters(parameters Parameters) (int, error) {
 			return 0, fmt.Errorf("unknown station ID %q", id)
 		}
 	}
+	if parameters.ParkingLanes < 0 {
+		return 0, errors.New("parking lanes must not be negative")
+	}
+	layout, depot := parameters.depot()
 	passengerBerths, berthCount := 0, 0
 	for index, id := range ids {
 		berths := parameters.berths(index)
+		if depot && index == parameters.Stations-1 {
+			if err := checkDepotLayout(layout); err != nil {
+				return 0, err
+			}
+			berthCount += layout.lanes * layout.slots
+			continue
+		}
 		if berths < 1 || berths > maximumStationBerths {
 			return 0, fmt.Errorf("station %s has %d berths, want 1 to %d", id, berths, maximumStationBerths)
 		}
@@ -119,7 +149,7 @@ func checkParameters(parameters Parameters) (int, error) {
 	if parameters.Pods < 1 || parameters.InitialParkingPods < 0 || passengerPods < 0 {
 		return 0, errors.New("pod counts must be positive and internally consistent")
 	}
-	if passengerPods > passengerBerths || parameters.InitialParkingPods > parameters.berths(parameters.Stations-1) {
+	if passengerPods > passengerBerths || parameters.InitialParkingPods > parameters.parkingCapacity() {
 		return 0, errors.New("initial pods exceed berth capacity")
 	}
 	return berthCount, nil
@@ -132,6 +162,11 @@ func Config(parameters Parameters) (project.Config, error) {
 		return project.Config{}, err
 	}
 	nodes, lanes := 2*parameters.Stations+berthCount, 2*(parameters.Stations+berthCount)
+	if layout, ok := parameters.depot(); ok {
+		slots := layout.lanes * layout.slots
+		nodes += layout.nodes() - slots
+		lanes += layout.laneCount() - 2*slots
+	}
 	if nodes > maximumNodes || lanes > maximumLanes {
 		return project.Config{}, fmt.Errorf("generated network needs %d nodes and %d lanes, more than the limits of %d and %d", nodes, lanes, maximumNodes, maximumLanes)
 	}
@@ -312,6 +347,9 @@ func scale100Config(parameters Parameters) (project.Config, error) {
 	if parameters.Stations != meshStations {
 		return project.Config{}, fmt.Errorf("the mesh has %d stations, not %d", meshStations, parameters.Stations)
 	}
+	if parameters.ParkingLanes != 0 {
+		return project.Config{}, errors.New("parking lanes apply only to a ring")
+	}
 	if _, err := checkParameters(parameters); err != nil {
 		return project.Config{}, err
 	}
@@ -439,11 +477,22 @@ func ring(parameters Parameters) sim.Network {
 	stations := make([]sim.Station, 0, parameters.Stations)
 	var nodes []sim.Node
 	var lanes []sim.Lane
+	var depots []sim.Depot
 	for index := range parameters.Stations {
-		station, stationNodes, stationLanes := stationGeometry(stationParameters{
+		geometry := stationParameters{
 			index: index, count: parameters.Stations, berths: parameters.berths(index),
 			parking: index == parameters.Stations-1, pitch: parameters.pitch(berthSpacing),
-		})
+		}
+		var station sim.Station
+		var stationNodes []sim.Node
+		var stationLanes []sim.Lane
+		if layout, ok := parameters.depot(); ok && geometry.parking {
+			var depot sim.Depot
+			station, stationNodes, stationLanes, depot = depotGeometry(geometry, layout)
+			depots = append(depots, depot)
+		} else {
+			station, stationNodes, stationLanes = stationGeometry(geometry)
+		}
 		stations = append(stations, station)
 		nodes = append(nodes, stationNodes...)
 		lanes = append(lanes, stationLanes...)
@@ -455,7 +504,7 @@ func ring(parameters Parameters) sim.Network {
 			From: stationNodeID(index, "exit"), To: stationNodeID(next, "entry"), SpeedLimit: speedLimit,
 		})
 	}
-	return sim.Network{Nodes: nodes, Lanes: lanes, Stations: stations}
+	return sim.Network{Nodes: nodes, Lanes: lanes, Stations: stations, Depots: depots}
 }
 
 type stationParameters struct {
@@ -510,7 +559,8 @@ func stationGeometry(parameters stationParameters) (sim.Station, []sim.Node, []s
 
 // placements puts the passenger pods round robin on the passenger
 // stations, and a full station gets no more pods. Each station fills its
-// berths in order. The other pods go to the Parking station.
+// berths in order. The other pods go to the Parking station, and to the
+// heads of its depot lanes first (see depotPlacements).
 func placements(parameters Parameters) []sim.Placement {
 	passengerPods := parameters.Pods - parameters.InitialParkingPods
 	placements := make([]sim.Placement, 0, parameters.Pods)
@@ -528,6 +578,9 @@ func placements(parameters Parameters) []sim.Placement {
 				BerthID: fmt.Sprintf("%s-%02d", stationID, round+1),
 			})
 		}
+	}
+	if layout, ok := parameters.depot(); ok {
+		return append(placements, depotPlacements(layout, parameters.InitialParkingPods, passengerPods+1)...)
 	}
 	for parkingIndex := range parameters.InitialParkingPods {
 		placements = append(placements, sim.Placement{

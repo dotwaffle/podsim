@@ -2,6 +2,7 @@ package editormodel
 
 import (
 	"fmt"
+	"maps"
 	"math"
 	"slices"
 	"strings"
@@ -190,6 +191,7 @@ func preparedDraftChecks(value any, prepared *preparedChecks) checkReport {
 
 type draftNetwork struct {
 	nodes, lanes, stations, passenger []any
+	depots                            []any
 	nodeIDs, stationIDs, berthIDs     map[string]bool
 	positions                         map[string]any
 	directed                          map[string][]string
@@ -202,6 +204,7 @@ func checkNetwork(value any, errors *checkList) *draftNetwork {
 	previousErrors := len(errors.items)
 	g := &draftNetwork{
 		nodes: items(member(value, "nodes")), lanes: items(member(value, "lanes")), stations: items(member(value, "stations")),
+		depots:  items(member(value, "depots")),
 		nodeIDs: make(map[string]bool), stationIDs: make(map[string]bool), berthIDs: make(map[string]bool),
 		positions: make(map[string]any), directed: make(map[string][]string),
 		stationNodes: make(map[string]bool), brokenBerths: make(map[string]bool),
@@ -212,7 +215,7 @@ func checkNetwork(value any, errors *checkList) *draftNetwork {
 	g.checkStations(ids, pairs, errors)
 	g.checkBerthRoutes(errors)
 	g.checkStationRoles(errors)
-	if hasBanks(value) || (hasLargeGeometry(value) || hasManeuverGroups(value)) && draftGeometryClassesValid(value) && len(errors.items) == previousErrors {
+	if hasBanks(value) || (hasLargeGeometry(value) || hasManeuverGroups(value) || hasDepots(value)) && draftGeometryClassesValid(value) && len(errors.items) == previousErrors {
 		if err := validateBankDraft(value); err != nil {
 			errors.add(err.Error(), nil)
 		}
@@ -414,8 +417,12 @@ func draftLaneLength(from, to, control any) float64 {
 	return length
 }
 
+// checkBerthRoutes checks that each berth has a route from the entry and a
+// route to the exit of its station that pass no other station node. A
+// route to a depot slot can pass the other slots of its depot lane.
 func (g *draftNetwork) checkBerthRoutes(errors *checkList) {
 	for _, station := range g.stations {
+		blocked := g.depotBlocked(station)
 		for _, berth := range items(member(station, "berths")) {
 			if object(berth) == nil {
 				continue
@@ -425,8 +432,12 @@ func (g *draftNetwork) checkBerthRoutes(errors *checkList) {
 			if has(station, "banks") {
 				gates = bankForBerth(station, text(id))
 			}
-			entry := draftRoute(g.directed, text(member(gates, "entry")), node, g.stationNodes)
-			exit := draftRoute(g.directed, node, text(member(gates, "exit")), g.stationNodes)
+			nodes := g.stationNodes
+			if lane, ok := blocked[text(id)]; ok {
+				nodes = lane
+			}
+			entry := draftRoute(g.directed, text(member(gates, "entry")), node, nodes)
+			exit := draftRoute(g.directed, node, text(member(gates, "exit")), nodes)
 			if !entry {
 				errors.add("Berth "+label(id)+" needs an entry lane.", target("berth", id))
 			}
@@ -438,6 +449,35 @@ func (g *draftNetwork) checkBerthRoutes(errors *checkList) {
 			}
 		}
 	}
+}
+
+// depotBlocked returns the blocked nodes of the routes to each slot of a
+// depot station, by berth ID: the station nodes without the slot nodes of
+// its depot lane. It returns nil for a station that is not a depot.
+func (g *draftNetwork) depotBlocked(station any) map[string]map[string]bool {
+	nodes := make(map[string]string)
+	for _, berth := range items(member(station, "berths")) {
+		nodes[text(member(berth, "id"))] = text(member(berth, "node"))
+	}
+	var blocked map[string]map[string]bool
+	for _, depot := range g.depots {
+		if text(member(depot, "station")) != text(member(station, "id")) {
+			continue
+		}
+		for _, lane := range items(member(depot, "lanes")) {
+			open := maps.Clone(g.stationNodes)
+			for _, id := range items(member(lane, "berthIDs")) {
+				delete(open, nodes[text(id)])
+			}
+			for _, id := range items(member(lane, "berthIDs")) {
+				if blocked == nil {
+					blocked = make(map[string]map[string]bool)
+				}
+				blocked[text(id)] = open
+			}
+		}
+	}
+	return blocked
 }
 
 func draftRoute(graph map[string][]string, from, to string, blocked map[string]bool) bool {

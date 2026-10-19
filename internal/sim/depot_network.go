@@ -50,6 +50,15 @@ type depotSlot struct {
 	depot, lane, slot int
 }
 
+// DepotSpeed returns the speed limit in meters per second for the lanes of
+// a depot whose slots are pitch meters apart. At this speed a small pod
+// needs 1 cm less than pitch behind the pod ahead (see compactClearance),
+// so a chain lane of the pitch qualifies. pitch must be more than 5.01 m
+// and less than Clearance.
+func DepotSpeed(pitch float64) float64 {
+	return math.Sqrt(acceleration * (pitch - 0.01 - compactBody - 1))
+}
+
 // depotDirectionTolerance bounds the difference of two unit directions
 // that validateDepots treats as one direction.
 const depotDirectionTolerance = 1e-9

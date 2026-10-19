@@ -59,6 +59,9 @@ func editGeometry(draft any, raw jsontext.Value) (projectChange, error) {
 	if original == nil {
 		return projectChange{}, errors.New("the draft needs a network object")
 	}
+	if err := checkDepotEdit(original, command); err != nil {
+		return projectChange{}, err
+	}
 	change := projectChange{Patch: make(map[string]any)}
 	geometry := geometryDraft{network: object(cloneEditValue(original)), draft: draft, patch: change.Patch}
 	if err := geometry.change(command); err != nil {
@@ -69,12 +72,12 @@ func editGeometry(draft any, raw jsontext.Value) (projectChange, error) {
 			return projectChange{}, fmt.Errorf("the edit exceeds the %s count limit", key)
 		}
 	}
-	if hasBanks(original) || hasBanks(geometry.network) || hasLargeGeometry(original) || hasLargeGeometry(geometry.network) || hasManeuverGroups(original) || hasManeuverGroups(geometry.network) {
+	if hasBanks(original) || hasBanks(geometry.network) || hasLargeGeometry(original) || hasLargeGeometry(geometry.network) || hasManeuverGroups(original) || hasManeuverGroups(geometry.network) || hasDepots(original) || hasDepots(geometry.network) {
 		if err := geometry.validateBankChanges(original); err != nil {
 			return projectChange{}, err
 		}
 	}
-	if hasBanks(geometry.network) || hasLargeGeometry(geometry.network) || hasManeuverGroups(geometry.network) {
+	if hasBanks(geometry.network) || hasLargeGeometry(geometry.network) || hasManeuverGroups(geometry.network) || hasDepots(geometry.network) {
 		if err := validateBankDraft(geometry.network); err != nil {
 			return projectChange{}, err
 		}

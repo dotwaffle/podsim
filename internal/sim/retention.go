@@ -444,20 +444,57 @@ func certifiedClearance(first, second safetyChain) (float64, bool) {
 // zero value has no qualifying lane.
 type LaneClearance struct {
 	retention *laneRetention
+	// depots holds only the chain lanes of the depots.
+	depots *depotIndex
 }
 
 // NewLaneClearance returns the index of a network. The network does not
 // need to be valid. A lane that the index cannot certify keeps the class
-// bounds.
+// bounds. The chain lanes of the index are the chain lanes as the depots
+// list them (see depotChainLanes), so that for a depot that is not valid
+// the editor reports the depot error of the server and not a short chain
+// lane.
 func NewLaneClearance(network Network) LaneClearance {
-	return LaneClearance{retention: newLaneRetention(network, indexGeometryTails(network))}
+	return LaneClearance{retention: newLaneRetention(network, indexGeometryTails(network)), depots: depotChainLanes(network)}
 }
 
-// LaneMinimum returns the minimum length of a lane, found by its ID: twice
-// its reduced retention when it qualifies, and LaneMinimumLength when it
-// does not.
+// depotChainLanes returns an index with only the chain lanes of the
+// depots as they are listed: each lane from the node of a listed slot to
+// the node of the slot before it in the same depot lane. For a valid
+// network these are the chain lanes of newDepotIndex.
+func depotChainLanes(network Network) *depotIndex {
+	if len(network.Depots) == 0 {
+		return nil
+	}
+	lanes := make(map[[2]string][]string)
+	for _, lane := range network.Lanes {
+		lanes[[2]string{lane.From, lane.To}] = append(lanes[[2]string{lane.From, lane.To}], lane.ID)
+	}
+	d := &depotIndex{chains: make(map[string]Berth)}
+	for _, depot := range network.Depots {
+		station, _ := network.Station(depot.Station)
+		for _, lane := range depot.Lanes {
+			for i := 1; i < len(lane.BerthIDs); i++ {
+				from, fromOK := station.berth(lane.BerthIDs[i])
+				to, toOK := station.berth(lane.BerthIDs[i-1])
+				if !fromOK || !toOK {
+					continue
+				}
+				for _, id := range lanes[[2]string{from.Node, to.Node}] {
+					d.chains[id] = to
+				}
+			}
+		}
+	}
+	return d
+}
+
+// LaneMinimum returns the minimum length of a lane, found by its ID: its
+// reduced retention for a qualifying chain lane of a depot, twice its
+// reduced retention for any other qualifying lane, and LaneMinimumLength
+// when it does not qualify.
 func (c LaneClearance) LaneMinimum(lane Lane) float64 {
-	return c.retention.laneMinimum(lane)
+	return c.depots.chainMinimum(lane, c.retention)
 }
 
 // PairPiece is a part of a pair of nonincident lanes and the clearance in

@@ -179,6 +179,16 @@ func TestRunCapacityFlags(t *testing.T) {
 			t.Fatalf("got %d Parking berths", berthCount(t, config, "parking"))
 		}
 	})
+	t.Run("Parking lanes", func(t *testing.T) {
+		t.Parallel()
+		config, summary := generate(t, "-preset", "rail-hub", "-parking-lanes", "3", "-parking-berths", "4")
+		if len(config.Network.Depots) != 1 || len(config.Network.Depots[0].Lanes) != 3 || len(config.Network.Depots[0].Lanes[2].BerthIDs) != 4 {
+			t.Fatalf("depots %+v", config.Network.Depots)
+		}
+		if !strings.Contains(summary, " parking_berths=12 pods=30 ") {
+			t.Fatalf("summary = %q", summary)
+		}
+	})
 	t.Run("berths of single stations", func(t *testing.T) {
 		t.Parallel()
 		config, _ := generate(t, "-preset", "scale100", "-berths", "station-19=8, station-02=2", "-berth-pitch", "68")
@@ -222,6 +232,9 @@ func TestRunRejectsBadCapacityFlags(t *testing.T) {
 		{name: "unknown London station", arguments: []string{"-preset", "london-central", "-berths", "940GZZLUXXX=3"}, err: `unknown London station ID "940GZZLUXXX"`},
 		{name: "pods for a ring", arguments: []string{"-preset", "busy", "-station-pods", "2"}, err: "-station-pods applies only to the London presets"},
 		{name: "Parking pods for the mesh", arguments: []string{"-preset", "scale100", "-parking-pods", "2"}, err: "-parking-pods applies only to the London presets"},
+		{name: "Parking lanes for London", arguments: []string{"-preset", "london-central", "-parking-lanes", "2"}, err: "-parking-lanes applies only to the ring presets"},
+		{name: "Parking lanes for the mesh", arguments: []string{"-preset", "scale100", "-parking-lanes", "2"}, err: "parking lanes apply only to a ring"},
+		{name: "Parking lanes for a fixture", arguments: []string{"-preset", "compact-station", "-parking-lanes", "2"}, err: "-parking-lanes does not apply to the compact station fixture"},
 		{name: "pitch below the floor", arguments: []string{"-preset", "london-central", "-berth-pitch", "20"}, err: "berth pitch"},
 		{name: "layout conflict", arguments: []string{"-preset", "london-central", "-berths", "940GZZLUEMB=3"}, err: "Embankment (940GZZLUEMB)"},
 	}

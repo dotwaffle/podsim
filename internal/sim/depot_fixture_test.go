@@ -16,9 +16,8 @@ type depotLayout struct {
 	pitch, width, fan float64
 }
 
-// depotSpeed is the depot speed for a 6 m pitch: the speed at which
-// compactClearance is 1 cm less than the pitch.
-var depotSpeed = math.Sqrt(acceleration * (6 - 0.01 - compactBody - 1))
+// depotSpeed is the depot speed for a 6 m pitch.
+var depotSpeed = DepotSpeed(6)
 
 // depotSlotID returns the berth ID of a slot. lane and slot count from 1,
 // and slot 1 is the head.

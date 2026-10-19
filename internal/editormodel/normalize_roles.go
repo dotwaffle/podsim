@@ -30,8 +30,13 @@ func inferEditorStationLanes(network map[string]any) {
 			forbidden[graph.nodes[id]] = true
 		}
 	}
+	depots := make(map[string]bool)
+	for _, depot := range items(network["depots"]) {
+		depots[text(member(depot, "station"))] = true
+	}
 	for _, station := range stations {
-		if has(station, "banks") {
+		// The lanes of a bank or a depot keep the roles that they have.
+		if has(station, "banks") || depots[text(member(station, "id"))] {
 			continue
 		}
 		roles := make(map[int]string)

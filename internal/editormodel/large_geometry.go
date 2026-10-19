@@ -42,6 +42,7 @@ func hasManeuverGroups(network any) bool {
 }
 
 // draftClearanceNetwork copies the members of a draft that the index reads.
+// The depots let the index find the chain lanes.
 func draftClearanceNetwork(network any) (sim.Network, bool) {
 	var typed sim.Network
 	for _, node := range items(member(network, "nodes")) {
@@ -69,6 +70,17 @@ func draftClearanceNetwork(network any) (sim.Network, bool) {
 			station.Berths = append(station.Berths, sim.Berth{ID: text(member(berth, "id")), Node: text(member(berth, "node")), VehicleClasses: classes})
 		}
 		typed.Stations = append(typed.Stations, station)
+	}
+	for _, item := range items(member(network, "depots")) {
+		depot := sim.Depot{Station: text(member(item, "station"))}
+		for _, lane := range items(member(item, "lanes")) {
+			var ids []string
+			for _, id := range items(member(lane, "berthIDs")) {
+				ids = append(ids, text(id))
+			}
+			depot.Lanes = append(depot.Lanes, sim.DepotLane{BerthIDs: ids})
+		}
+		typed.Depots = append(typed.Depots, depot)
 	}
 	return typed, true
 }

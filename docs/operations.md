@@ -257,6 +257,7 @@ It reports them as unaccounted orders at each restore, together with the orders 
   A run can end on the entry lane of the destination station of both pods.
   A run that holds a lane from the entry node of that station, or the entry lane of another station, is not valid.
   A run that holds a lane of a [maneuver group](../README.md#compact-bays) is not valid.
+  A run that holds a lane of a [depot](../README.md#parking-depots) is not valid.
   The file does not keep the platoon limit, so the restore uses the `platoonLimit` of the project.
   The file keeps the shared ride mode.
   A file without the mode restores in the default `drop-offs` mode.
@@ -384,6 +385,15 @@ Bank-inconsistent retained routes reject restoration before either tier.
 See [independent station banks](station-banks.md) for bank membership, routing, and browser editing.
 The optional network member `maneuverGroups` of the [compact bays](../README.md#compact-bays) keeps the save version 9, the stream version 7, and the HTTP state `state-6`.
 A network without groups writes the same bytes as before.
+The optional network member `depots` of the [parking depots](../README.md#parking-depots) and the optional pod member `parkedSince` also keep these versions.
+A file writes `parkedSince` only for a pod that is idle at a depot slot or moves up in one depot lane, so a network without depots writes the same bytes as before.
+After the earlier checks, the restore refuses a negative parked tick, and then a parked tick after the saved tick.
+Then it refuses a parked tick on a pod that is not parked in a depot lane.
+Last, it refuses a depot lane whose pods are not in slot order from the head to the tail.
+In the physical tier, a pod that left a slot keeps the lanes of its route that its origin still holds.
+A pod bound at the entry keeps its reservation up to the end of the incoming lane, or through its slot when it held that grant.
+A pod that the tier must move takes a slot only when no pod of that lane moves, and only the slot behind the rearmost taken slot.
+Its parked tick is then the saved tick.
 The file does not keep the 1 second stop at a change of the reverse flag.
 Thus a pod that was in this stop stops for the full second again after a restore.
 An older server rejects version 9 with `unsupported_version` and moves the file aside.

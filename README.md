@@ -912,11 +912,13 @@ If a worker acknowledgment fails, apply stops and the visible draft remains avai
 The browser keeps queued input and waits for pending edits before apply, export, undo, or redo.
 Validation checks routes between passenger stations, berth routes, pod placement, resource IDs, and the 24-meter minimum lane length.
 A lane of a [maneuver group](#compact-bays) has no minimum length, but its length must be more than 0.
+A chain lane of a [depot](#parking-depots) needs only its reduced retention.
 A route between passenger stations goes from each berth of one station to each berth of the other station.
 It can use all lanes.
 A berth route goes from the station entry to the berth, or from the berth to the station exit.
 It can use a chain of lanes, as in the London stations.
 It cannot pass through the entry, exit, or berth node of a station.
+A route to a depot slot can pass through the other slots of its depot lane.
 Validation also limits the compact JSON form of a project to 32 MiB or less.
 An ID has only the characters A-Z, a-z, 0-9, `.`, `+`, and `-`, and a name has no control character.
 The topology JSON writes each `<`, `>`, and `&` of a name as 6 bytes.
@@ -928,6 +930,7 @@ A project can have at most 600 stations, 12,000 nodes, 20,000 lanes, and 600 pod
 Each station can have at most 200 berths.
 A project can have at most 8 maneuver groups.
 A group can have at most 64 lanes, 64 reverse lanes, and 8 berths.
+A depot can have at most 8 lanes.
 A node can have at most 64 lanes, counted at the start node and at the end node of each lane.
 At each node, the simulator compares each ordered pair of two different lanes at the node when it starts.
 The total of these pairs over all nodes can be at most 250,000, for example about 62 nodes with 64 lanes each.
@@ -1231,6 +1234,7 @@ A flag that is not on the command line keeps the preset value, so the output wit
 | --- | --- |
 | `-station-berths N` | Set the berths of each passenger station. |
 | `-parking-berths N` | Set the berths of each Parking station. |
+| `-parking-lanes N` | Ring presets only. Make the Parking station a [depot](#parking-depots) with 1 to 8 lanes. `-parking-berths` then sets the slots of each lane. |
 | `-berths ID=N,ID=N` | Set the berths of single stations by station ID, such as `station-19` or the ID of a TfL station. |
 | `-station-pods N` | London presets only. Set the initial pods of each passenger station. |
 | `-parking-pods N` | London presets only. Set the initial pods of each Parking facility. |
@@ -1247,6 +1251,9 @@ An unknown station ID, a berth count out of range, more pods than berths, or a n
 A London station can have 1 to 200 berths.
 A ring or mesh station can have 1 to 62 berths.
 The entry and exit nodes of a ring station have a lane for each berth, and a node can have at most 64 lanes.
+A ring depot can have at most 200 slots.
+Its lanes are 12 meters apart, its slots are 6 meters apart, and the initial Parking pods fill the heads of the lanes first.
+The layout check skips the depot lanes, because the lane gap audit of the server checks them.
 
 The command writes one summary line to standard error.
 The line gives the preset, the passenger and Parking berths, the pods, the nodes and lanes with their limits, the output bytes, the SHA-256 of the network, and the number of soft layout conflicts.
@@ -1611,6 +1618,47 @@ A pod that waits for a full bay can wait for a pod that waits for the exit.
 As at an ordinary station, a custom network with more pods than its bays and roads can hold can stall.
 The `compact-station` preset has enough room for its pods.
 The map shows a pod in a bay as a round mark, with no heading.
+
+#### Parking depots
+
+The optional network member `depots` makes a Parking station a depot of queue lanes.
+Each depot has a `station` and its `lanes`.
+Each lane lists the `berthIDs` of its slots from the head to the tail.
+A depot has 1 to 8 lanes, and it lists each berth of its station one time.
+The station must be a Parking station with no banks.
+Its slots need one class set with no large class.
+
+Each lane is a straight line of nodes.
+A lead-in goes to the tail slot, a chain lane goes from each slot to the slot ahead, and a lead-out leaves the head slot.
+A fan path goes from the station entry to each lead-in, and a throat path goes from each lead-out to the station exit.
+The entry has exactly one incoming lane.
+The lanes of a depot are parallel.
+The lane gap audit checks each pair of paths that includes a depot lane or a slot, so two depot lanes must be at least 12 meters apart.
+A chain lane needs only its reduced retention, because each of its cells holds the slot ahead and both of its nodes.
+At about 1.41 m/s, slots can be 6 meters apart.
+A depot lane cannot have a separation group, and a virtual platoon run cannot hold a depot lane.
+
+A pod that goes to park at a depot gets the entry as its destination.
+It can divert until it binds a slot.
+It binds when it owns the last cell of the incoming lane.
+It takes the slot behind the rearmost taken slot of the lane with the fewest pods, and the lowest lane index on a tie.
+A slot is taken when a pod is idle at it or goes to it.
+A lane with a faulted or withdrawn pod, a full lane, and a lane that is closed or does not admit the class of the pod take no pod.
+When no lane takes the pod, it looks for an open berth at another station, and it waits at the entry when it finds none.
+A pod at the entry with no slot shows **No parking available**.
+
+A pod in service starts to move up when the slot ahead of it is free.
+A move-up keeps the parked tick of the pod, and a new arrival sets it.
+Only the head of a lane, at its first slot, can leave the depot.
+Dispatch, pickup transfer, and guarded positioning take the head that parked first, and then the lowest lane index.
+They skip a head that is faulted, withdrawn, or not eligible for the request, and a head whose lead-out or throat path is blocked.
+A faulted or withdrawn pod keeps its slot, and the pods behind it wait.
+An operational target cannot be a depot station.
+
+The browser editor keeps the depots of a project, but it cannot make a depot.
+It refuses each station action that changes the geometry or the berths of a depot station.
+A project with a depot gets the full network validation of the server in the editor.
+The `-parking-lanes` flag of the scenario command makes a ring with a depot (see [generated scenarios](#generated-scenarios)).
 
 #### Idle pods
 
