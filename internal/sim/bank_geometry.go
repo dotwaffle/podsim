@@ -13,11 +13,24 @@ type bankAuditPath struct {
 	min, max  Point
 	large     bool
 	locations []SafetyLocation
+	member    auditMember
 }
 
 // ValidateBankGeometry audits nonincident paths affected by banks or large classes.
 // Shared endpoints remain subject to ordinary junction resource control.
 func (n Network) ValidateBankGeometry() error {
+	var retention *laneRetention
+	if n.hasStationBanks() {
+		retention = newLaneRetention(n, indexGeometryTails(n))
+	}
+	return n.validateBankGeometry(retention)
+}
+
+// validateBankGeometry is ValidateBankGeometry with the retention index of
+// the network. Each pair of positions needs the clearance that pairPieces
+// gives, so a piece that the safety observation certifies needs less than
+// Clearance.
+func (n Network) validateBankGeometry(retention *laneRetention) error {
 	banks, large := n.hasStationBanks(), n.hasLargeGeometry()
 	if !banks && !large {
 		return nil
@@ -31,6 +44,10 @@ func (n Network) ValidateBankGeometry() error {
 	for _, lane := range n.Lanes {
 		points := lanePointsBetween(lane, positions[lane.From], positions[lane.To], make([]Point, 0, 65))
 		path := bankAuditPath{id: lane.ID, location: SafetyLocation{SeparationGroup: lane.SeparationGroup, From: lane.From, To: lane.To}, points: points, min: points[0], max: points[0], large: largeClassSet(lane.VehicleClasses)}
+		path.member = auditMember{spans: retention.laneSpans(lane.ID), speed: lane.SpeedLimit, large: path.large}
+		for index := 1; index < len(points); index++ {
+			path.member.length += pointDistance(points[index-1], points[index])
+		}
 		if large {
 			path.locations = []SafetyLocation{path.location}
 		}
@@ -47,6 +64,7 @@ func (n Network) ValidateBankGeometry() error {
 				return fmt.Errorf("berth %q has an unknown node", berth.ID)
 			}
 			path := bankAuditPath{id: berth.ID, location: SafetyLocation{SeparationGroup: berth.SeparationGroup, From: berth.Node, To: berth.Node}, points: []Point{position, position}, min: position, max: position, large: largeBerth(station, berth)}
+			path.member = auditMember{spans: retention.nodeSpans(berth.Node), large: path.large}
 			if large {
 				path.locations = berthGeometryLocations(berth, incident[berth.Node])
 			}
@@ -81,16 +99,31 @@ func (n Network) ValidateBankGeometry() error {
 			if first.min.Y-second.max.Y >= clearance || second.min.Y-first.max.Y >= clearance || safetyLocationsShareNode(first.location, second.location) || first.separated(second) {
 				continue
 			}
-			for a := 1; a < len(first.points); a++ {
-				for b := 1; b < len(second.points); b++ {
-					if bankSegmentGap(first.points[a-1], first.points[a], second.points[b-1], second.points[b], clearance) < clearance-separationTolerance {
-						return fmt.Errorf("nonincident paths %q and %q are less than %.0f meters apart", first.id, second.id, clearance)
-					}
+			pieces := retention.pairPieces(first.member, second.member)
+			for _, piece := range pieces {
+				a, b := first.points, second.points
+				if len(pieces) > 1 {
+					a, b = polylinePiece(a, piece.first[0], piece.first[1]), polylinePiece(b, piece.second[0], piece.second[1])
+				}
+				if bankPathsClose(a, b, piece.clearance) {
+					return fmt.Errorf("nonincident paths %q and %q are less than %g meters apart", first.id, second.id, piece.clearance)
 				}
 			}
 		}
 	}
 	return nil
+}
+
+// bankPathsClose reports whether two polylines come closer than clearance.
+func bankPathsClose(first, second []Point, clearance float64) bool {
+	for a := 1; a < len(first); a++ {
+		for b := 1; b < len(second); b++ {
+			if bankSegmentGap(first[a-1], first[a], second[b-1], second[b], clearance) < clearance-separationTolerance {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (path bankAuditPath) separated(other bankAuditPath) bool {

@@ -200,7 +200,8 @@ func (s *Simulation) ensureNetworkIndexes() {
 	p.geometry = buildLaneGeometry(p.network)
 	p.junctionConflicts = buildJunctionConflicts(p.network)
 	p.berthResources = indexBerthResources(p.network)
-	p.laneCells = indexLaneCells(laneCellsIndexInput{network: p.network, geometry: p.geometry, conflicts: p.junctionConflicts, berths: p.berthResources})
+	p.retention = newLaneRetention(p.network, indexGeometryTails(p.network))
+	p.laneCells = indexLaneCells(laneCellsIndexInput{network: p.network, geometry: p.geometry, conflicts: p.junctionConflicts, berths: p.berthResources, retention: p.retention})
 	p.resourceLanes = indexResourceLanes(p.network, p.laneCells)
 	s.networkIndexes = &p
 	s.lengths = nil

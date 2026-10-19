@@ -143,10 +143,10 @@ func linkClearance(turn float64) float64 {
 // entry node of the destination station of v. The end block is the last
 // block before the first block that cannot be shared. A larger tail of a
 // cell (see indexGeometryTails) moves a release distance past the cell
-// end plus Clearance, so the test reads each release distance. With no
-// such tail, each block releases its last resource at its end plus
-// Clearance, and the end block is the last block whose end is that far
-// before the end of the run.
+// end plus its retention, so the test reads each release distance. With no
+// such tail, each block releases its last resource at its end plus its
+// retention (see retainedClearance), and the end block is the last block
+// whose end is that far before the end of the run.
 func (s *Simulation) linkEnds(v *vehicle, link platoonLink) (geometry float64, end int) {
 	blocks := &v.blocks
 	last := link.lane + link.lanes - 1
@@ -157,7 +157,7 @@ func (s *Simulation) linkEnds(v *vehicle, link platoonLink) (geometry float64, e
 		entry := &blocks.lanes[lane]
 		for cell := range blocks.lanes[lane+1].first - entry.first {
 			start, cellEnd := blocks.cellBounds(lane, cell)
-			input := releaseInput{from: blocks.route[lane].From, start: start, end: cellEnd, tail: entry.cells.tail, fromTail: entry.cells.fromTail}
+			input := releaseInput{from: blocks.route[lane].From, start: start, end: cellEnd, tail: entry.cells.tail, fromTail: entry.cells.fromTail, retention: entry.cells.retention}
 			for _, r := range entry.cells.cell(cell) {
 				if releaseDistance(r, input)+platoonDrainSlack > geometry || r.kind == nodeResource && station.isEntry(r.id) {
 					return geometry, end

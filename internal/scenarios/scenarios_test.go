@@ -584,3 +584,44 @@ func TestScale100StationAccessPreservesRoadTravel(t *testing.T) {
 		}
 	}
 }
+
+// TestPresetsHaveNoQualifyingLanes pins the identity of speed-dependent
+// clearance: each preset lane has the 14 m/s limit, so no lane qualifies
+// for a reduced retention, and each lane minimum keeps its class bound.
+// The default project at ten times its scale and 1 m/s, which a compare
+// test uses, has none either,
+// because each slow lane is next to a station node.
+func TestPresetsHaveNoQualifyingLanes(t *testing.T) {
+	t.Parallel()
+	slow := project.Default()
+	for index := range slow.Network.Nodes {
+		slow.Network.Nodes[index].Position.X *= 10
+		slow.Network.Nodes[index].Position.Y *= 10
+	}
+	for index := range slow.Network.Lanes {
+		lane := &slow.Network.Lanes[index]
+		lane.SpeedLimit = 1
+		if lane.Control != nil {
+			lane.Control = &sim.Point{X: lane.Control.X * 10, Y: lane.Control.Y * 10}
+		}
+	}
+	for _, test := range []struct {
+		name   string
+		config project.Config
+	}{
+		{"small", Small()}, {"busy", Busy()}, {"parking constrained", ParkingConstrained()},
+		{"rail hub", RailHub()}, {"scale 100", Scale100()},
+		{"london central", LondonCentral()}, {"london full", LondonFull()},
+		{"default", project.Default()}, {"default at 1 m/s", slow},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			index := sim.NewLaneClearance(test.config.Network)
+			for _, lane := range test.config.Network.Lanes {
+				if got, want := index.LaneMinimum(lane), sim.LaneMinimumLength(lane); got != want {
+					t.Fatalf("lane %s minimum = %g, want %g", lane.ID, got, want)
+				}
+			}
+		})
+	}
+}

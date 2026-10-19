@@ -6,6 +6,7 @@ type geometryPath struct {
 	lane      map[string]any
 	points    []geometryPoint
 	low, high geometryPoint
+	length    float64
 }
 
 type geometryConflict struct {
@@ -63,7 +64,56 @@ func geometryPathGap(first, second []geometryPoint) float64 {
 	return gap
 }
 
+// geometryPolylinePiece returns the part of a polyline between two path
+// distances.
+func geometryPolylinePiece(points []geometryPoint, from, to float64) []geometryPoint {
+	piece := make([]geometryPoint, 0, len(points)+1)
+	distance := 0.0
+	for index := 1; index < len(points); index++ {
+		a, b := points[index-1], points[index]
+		length := math.Hypot(b.X-a.X, b.Y-a.Y)
+		at := func(target float64) geometryPoint {
+			if length == 0 {
+				return a
+			}
+			t := min(1, max(0, (target-distance)/length))
+			return geometryPoint{a.X + t*(b.X-a.X), a.Y + t*(b.Y-a.Y)}
+		}
+		if len(piece) == 0 && from <= distance+length {
+			piece = append(piece, at(from))
+		}
+		if len(piece) > 0 {
+			if to <= distance+length {
+				return append(piece, at(to))
+			}
+			piece = append(piece, b)
+		}
+		distance += length
+	}
+	if len(piece) == 0 {
+		piece = append(piece, points[len(points)-1])
+	}
+	return append(piece, points[len(points)-1])
+}
+
+// pairConflict returns the first piece of two paths that comes closer than
+// its clearance, as the bank audit of the server judges it.
+func (c draftClearance) pairConflict(path, other geometryPath) (gap, minimum float64, conflict bool) {
+	pieces := c.pairPieces(path.lane, other.lane, path.length, other.length)
+	for _, piece := range pieces {
+		a, b := path.points, other.points
+		if len(pieces) > 1 {
+			a, b = geometryPolylinePiece(a, piece.First[0], piece.First[1]), geometryPolylinePiece(b, piece.Second[0], piece.Second[1])
+		}
+		if gap := geometryPathGap(a, b); gap < piece.Clearance {
+			return gap, piece.Clearance, true
+		}
+	}
+	return 0, 0, false
+}
+
 func (g geometryDraft) laneConflict(ids []string, separationGroups bool) *geometryConflict {
+	clearance := newDraftClearance(g.network)
 	paths, byID := []geometryPath{}, map[string]geometryPath{}
 	for _, item := range items(g.network["lanes"]) {
 		lane := object(item)
@@ -86,9 +136,12 @@ func (g geometryDraft) laneConflict(ids []string, separationGroups bool) *geomet
 			control = &geometryPoint{number(member(value, "x")), number(member(value, "y"))}
 		}
 		path := geometryPath{lane: lane, points: geometryPolyline(from, to, control), low: geometryPoint{math.Inf(1), math.Inf(1)}, high: geometryPoint{math.Inf(-1), math.Inf(-1)}}
-		for _, p := range path.points {
+		for index, p := range path.points {
 			path.low.X, path.low.Y = min(path.low.X, p.X), min(path.low.Y, p.Y)
 			path.high.X, path.high.Y = max(path.high.X, p.X), max(path.high.Y, p.Y)
+			if index > 0 {
+				path.length += math.Hypot(p.X-path.points[index-1].X, p.Y-path.points[index-1].Y)
+			}
 		}
 		paths = append(paths, path)
 		byID[text(lane["id"])] = path
@@ -99,7 +152,8 @@ func (g geometryDraft) laneConflict(ids []string, separationGroups bool) *geomet
 			continue
 		}
 		for _, other := range paths {
-			minimum := draftPairClearance(path.lane, other.lane)
+			// No piece needs more than the class clearance of the pair.
+			minimum := max(draftClassMinimum(path.lane), draftClassMinimum(other.lane)) / 2
 			if other.lane["id"] == id || path.low.X-other.high.X >= minimum || other.low.X-path.high.X >= minimum || path.low.Y-other.high.Y >= minimum || other.low.Y-path.high.Y >= minimum {
 				continue
 			}
@@ -110,7 +164,7 @@ func (g geometryDraft) laneConflict(ids []string, separationGroups bool) *geomet
 			if separationGroups && first != "" && second != "" && first != second {
 				continue
 			}
-			if gap := geometryPathGap(path.points, other.points); gap < minimum {
+			if gap, minimum, conflict := clearance.pairConflict(path, other); conflict {
 				return &geometryConflict{id, text(other.lane["id"]), gap, minimum}
 			}
 		}

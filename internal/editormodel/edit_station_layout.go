@@ -249,6 +249,7 @@ func (g geometryDraft) setLayoutDimensions(layout stationDimensions, raw jsontex
 		moved[id] = true
 	}
 	lanes := []string{}
+	clearance := newDraftClearance(g.network)
 	for _, lane := range items(g.network["lanes"]) {
 		from, to := text(member(lane, "from")), text(member(lane, "to"))
 		if !moved[from] && !moved[to] {
@@ -262,7 +263,7 @@ func (g geometryDraft) setLayoutDimensions(layout stationDimensions, raw jsontex
 		if err != nil {
 			return err
 		}
-		minimum := draftLaneMinimum(lane)
+		minimum := clearance.laneMinimum(lane)
 		if length := draftLaneLength(map[string]any{"x": a.X, "y": a.Y}, map[string]any{"x": b.X, "y": b.Y}, member(lane, "control")); check && length < minimum {
 			return fmt.Errorf("lane %s would be shorter than %g meters", text(member(lane, "id")), minimum)
 		}

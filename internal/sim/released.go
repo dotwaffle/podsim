@@ -80,7 +80,7 @@ func releasable(v *vehicle) bool {
 // reserves the chosen berth, as a pod on its way to parking does. A
 // departing pod that has not left its berth can choose that berth. It then
 // stays there and becomes idle. A moving pod cannot choose its origin berth
-// until it is Clearance from that berth.
+// until it releases that berth (see originTail).
 //
 // The pod keeps its route when it must finish a committed inlet, when no
 // free berth is reachable, or when its current destination berth is the
@@ -158,9 +158,9 @@ func (s *Simulation) nearestFreeBerth(v *vehicle, from string) (Berth, string, b
 		if berth.Node == from && v.Pod.Activity == Traveling {
 			return
 		}
-		// A moving pod gives up its origin berth at Clearance, and that
+		// A moving pod gives up its origin berth at originTail, and that
 		// release would also remove a new claim on the berth. So the pod
-		// cannot choose its origin before Clearance.
+		// cannot choose its origin before that release.
 		if v.Pod.Activity == Traveling && !v.originReleased && berth.ID == v.origin.ID {
 			return
 		}

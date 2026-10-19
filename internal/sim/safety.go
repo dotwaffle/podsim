@@ -118,6 +118,9 @@ type separationIndex struct {
 	// Empty locations never prove a separation, so a pod without an
 	// envelope has none.
 	envelopes [][]SafetyLocation
+	// chains holds the window positions of each small pod in a window. It
+	// is nil when the observation has no positions.
+	chains []safetyChain
 	// reach is the largest squared separation threshold of any pair.
 	reach float64
 }
@@ -130,10 +133,16 @@ func (o SafetyObservation) separationIndex() separationIndex {
 	if len(o.envelopes) > 0 {
 		index.envelopes = make([][]SafetyLocation, len(o.Pods))
 	}
+	if len(o.chains) > 0 {
+		index.chains = make([]safetyChain, len(o.Pods))
+	}
 	for i, pod := range o.Pods {
 		index.locations[i] = o.Locations[pod.ID]
 		if envelope, ok := o.envelopes[pod.ID]; ok && envelope.pod == pod {
 			index.envelopes[i] = envelope.locations
+		}
+		if chain, ok := o.chains[pod.ID]; ok && chain.pod == pod {
+			index.chains[i] = chain
 		}
 		if largeVehicleClass(pod.Class) {
 			index.reach = max(index.reach, separationThresholdSquared(largeClearance))
@@ -143,7 +152,10 @@ func (o SafetyObservation) separationIndex() separationIndex {
 }
 
 // pair tests the pods i < j. It returns their squared gap, whether the gap
-// counts toward the smallest gap, and whether they are too close.
+// counts toward the smallest gap, and whether they are too close. A small
+// pair that a window certifies needs compactClearance at the speed of the
+// follower (see certifiedClearance), and every other small pair needs
+// Clearance.
 func (index *separationIndex) pair(pods []Pod, i, j int) (gapSquared float64, counted, violates bool) {
 	first, second := pods[i], pods[j]
 	dx := first.Position.X - second.Position.X
@@ -157,6 +169,11 @@ func (index *separationIndex) pair(pods []Pod, i, j int) (gapSquared float64, co
 	}
 	if separated {
 		return 0, false, false
+	}
+	if minimum == Clearance && len(index.chains) > 0 {
+		if clearance, ok := certifiedClearance(index.chains[i], index.chains[j]); ok {
+			minimum = clearance
+		}
 	}
 	gapSquared = dx*dx + dy*dy
 	return gapSquared, true, gapSquared < separationThresholdSquared(minimum)

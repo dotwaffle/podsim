@@ -37,59 +37,76 @@ type networkIndexes struct {
 	resourceLanes map[resource][]int32
 	laneSafety    map[string]SafetyLocation
 	berthSafety   map[string]SafetyLocation
+	// retention holds the reduced retention of the qualifying lanes and
+	// their windows. The lane cells and the safety observation read it.
+	retention *laneRetention
 }
 
 // PrepareNetwork validates and copies network, then builds its immutable indexes.
 // Later changes to the caller's network do not change the prepared network.
 func PrepareNetwork(network Network) (*PreparedNetwork, error) {
-	owned, graph, err := prepareNetwork(network)
+	prepared, err := prepareNetwork(network)
 	if err != nil {
 		return nil, err
 	}
-	return newPreparedNetwork(owned, graph), nil
+	return newPreparedNetwork(prepared), nil
 }
 
-func prepareNetwork(network Network) (Network, routeGraph, error) {
+// networkPreparation holds a validated copy of a network, its route graph
+// and its retention index.
+type networkPreparation struct {
+	network   Network
+	graph     routeGraph
+	retention *laneRetention
+}
+
+// prepareNetwork validates network and returns an owned copy. It builds the
+// retention index one time, before the bank audit and the length checks,
+// which read it. The index does not refuse a network, so the order of the
+// refusals does not change.
+func prepareNetwork(network Network) (networkPreparation, error) {
 	if err := network.validate(); err != nil {
-		return Network{}, routeGraph{}, err
-	}
-	if err := network.ValidateBankGeometry(); err != nil {
-		return Network{}, routeGraph{}, err
+		return networkPreparation{}, err
 	}
 	owned := network.clone()
 	inferStationLaneRoles(&owned)
 	graph := newRouteGraph(owned)
 	tails := indexGeometryTails(owned)
+	retention := newLaneRetention(owned, tails)
+	if err := network.validateBankGeometry(retention); err != nil {
+		return networkPreparation{}, err
+	}
 	for index, lane := range owned.Lanes {
 		if bounds := tails[lane.ID]; !finite(bounds.tail) || !finite(bounds.fromTail) {
-			return Network{}, routeGraph{}, fmt.Errorf("lane %q has an unsupported large-vehicle path shape", lane.ID)
+			return networkPreparation{}, fmt.Errorf("lane %q has an unsupported large-vehicle path shape", lane.ID)
 		}
-		length, minimum := graph.lengths[index], LaneMinimumLength(lane)
+		length, minimum := graph.lengths[index], retention.laneMinimum(lane)
 		if length < minimum {
-			return Network{}, routeGraph{}, fmt.Errorf("lane %q must be at least %.0f meters long", lane.ID, minimum)
+			return networkPreparation{}, fmt.Errorf("lane %q must be at least %g meters long", lane.ID, minimum)
 		}
 		if largeClassSet(lane.VehicleClasses) {
 			if err := validateLargeLaneCells(lane.ID, length, laneBlockCount(length)); err != nil {
-				return Network{}, routeGraph{}, err
+				return networkPreparation{}, err
 			}
 		}
 	}
-	return owned, graph, nil
+	return networkPreparation{network: owned, graph: graph, retention: retention}, nil
 }
 
 func validateLargeLaneCells(id string, length float64, count int) error {
 	for cell := range count {
 		start, end := cellOffset(cell, count, length), cellOffset(cell+1, count, length)
 		if end-start < largeClearance {
-			return fmt.Errorf("lane %q needs actual track cells of at least %.0f meters", id, largeClearance)
+			return fmt.Errorf("lane %q needs actual track cells of at least %g meters", id, largeClearance)
 		}
 	}
 	return nil
 }
 
-func newPreparedNetwork(owned Network, graph routeGraph) *PreparedNetwork {
+func newPreparedNetwork(prepared networkPreparation) *PreparedNetwork {
+	owned := prepared.network
 	p := &PreparedNetwork{
-		network: owned, graph: graph,
+		network: owned, graph: prepared.graph, retention: prepared.retention,
 		stationIndexes: indexStations(owned), stationForbidden: owned.stationForbidden(),
 		geometry: buildLaneGeometry(owned), junctionConflicts: buildJunctionConflicts(owned),
 		berthResources: indexBerthResources(owned),
@@ -104,7 +121,7 @@ func newPreparedNetwork(owned Network, graph routeGraph) *PreparedNetwork {
 			p.berthSafety[berth.ID] = SafetyLocation{SeparationGroup: berth.SeparationGroup, From: berth.Node, To: berth.Node}
 		}
 	}
-	p.laneCells = indexLaneCells(laneCellsIndexInput{network: owned, geometry: p.geometry, conflicts: p.junctionConflicts, berths: p.berthResources})
+	p.laneCells = indexLaneCells(laneCellsIndexInput{network: owned, geometry: p.geometry, conflicts: p.junctionConflicts, berths: p.berthResources, retention: p.retention})
 	p.resourceLanes = indexResourceLanes(owned, p.laneCells)
 	return p
 }

@@ -233,6 +233,9 @@ type SafetyObservation struct {
 	Berths        []BerthState
 	Locations     map[string]SafetyLocation
 	envelopes     map[string]safetyEnvelope
+	// chains holds the window positions of each small pod in a window of a
+	// qualifying lane. An observation without them certifies no pair.
+	chains map[string]safetyChain
 }
 
 // SafetyLocation identifies the physical plane and endpoints occupied by a pod.
@@ -518,31 +521,32 @@ func New(network Network, startStation string) (*Simulation, error) {
 
 // NewFleet validates and copies a fixed fleet. An omitted berth ID selects the first berth.
 func NewFleet(network Network, placements []Placement) (*Simulation, error) {
-	owned, graph, err := prepareFleet(network, placements)
+	prepared, err := prepareFleet(network, placements)
 	if err != nil {
 		return nil, err
 	}
-	return newPreparedNetwork(owned, graph).newFleet(placements), nil
+	return newPreparedNetwork(prepared).newFleet(placements), nil
 }
 
 // ValidateFleet returns the error that NewFleet returns for the same network and fleet.
 // It does not build the simulation, so it costs less than NewFleet.
 func ValidateFleet(network Network, placements []Placement) error {
-	_, _, err := prepareFleet(network, placements)
+	_, err := prepareFleet(network, placements)
 	return err
 }
 
 // prepareFleet validates a network and a fleet. It returns an owned copy of the
-// network with inferred station lane roles, and the route graph of that copy.
-func prepareFleet(network Network, placements []Placement) (Network, routeGraph, error) {
-	owned, graph, err := prepareNetwork(network)
+// network with inferred station lane roles, the route graph of that copy and
+// its retention index.
+func prepareFleet(network Network, placements []Placement) (networkPreparation, error) {
+	prepared, err := prepareNetwork(network)
 	if err != nil {
-		return Network{}, routeGraph{}, err
+		return networkPreparation{}, err
 	}
-	if err := validatePlacements(owned, placements); err != nil {
-		return Network{}, routeGraph{}, err
+	if err := validatePlacements(prepared.network, placements); err != nil {
+		return networkPreparation{}, err
 	}
-	return owned, graph, nil
+	return prepared, nil
 }
 
 // Reset restores the initial fleet, clock, and resources. It clears supplied
@@ -682,7 +686,33 @@ func (s *Simulation) SafetyObservation() SafetyObservation {
 		}
 	}
 	s.largeSafety(&state)
+	s.chainSafety(&state)
 	return state
+}
+
+// chainSafety adds the window positions of the small pods. A pod at a
+// berth has speed 0.
+func (s *Simulation) chainSafety(observation *SafetyObservation) {
+	if s.retention == nil || len(s.retention.windows) == 0 {
+		return
+	}
+	for _, pod := range observation.Pods {
+		if largeVehicleClass(pod.Class) {
+			continue
+		}
+		berthNode, speed := "", pod.Speed
+		if pod.LaneID == "" {
+			berthNode, speed = s.berthSafety[pod.BerthID].From, 0
+		}
+		positions := s.retention.chainPositions(pod, berthNode)
+		if len(positions) == 0 {
+			continue
+		}
+		if observation.chains == nil {
+			observation.chains = make(map[string]safetyChain)
+		}
+		observation.chains[pod.ID] = safetyChain{pod: pod, positions: positions, speed: speed}
+	}
 }
 
 func (s *Simulation) berthStates() []BerthState {

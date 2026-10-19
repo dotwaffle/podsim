@@ -208,7 +208,7 @@ func checkNetwork(value any, errors *checkList) *draftNetwork {
 	}
 	ids := make(draftIDs)
 	g.checkNodes(ids, errors)
-	pairs := g.checkLanes(ids, errors)
+	pairs := g.checkLanes(ids, newDraftClearance(value), errors)
 	g.checkStations(ids, pairs, errors)
 	g.checkBerthRoutes(errors)
 	g.checkStationRoles(errors)
@@ -259,7 +259,7 @@ func (g *draftNetwork) checkNodes(ids draftIDs, errors *checkList) {
 	}
 }
 
-func (g *draftNetwork) checkLanes(ids draftIDs, errors *checkList) map[[2]string]bool {
+func (g *draftNetwork) checkLanes(ids draftIDs, clearance draftClearance, errors *checkList) map[[2]string]bool {
 	pairs, paths := make(map[[2]string]bool), make(map[string]string)
 	incident := make(map[string]int)
 	var nodeOrder []string
@@ -281,7 +281,7 @@ func (g *draftNetwork) checkLanes(ids draftIDs, errors *checkList) map[[2]string
 		if object(lane) == nil {
 			continue
 		}
-		minimum := draftLaneMinimum(lane)
+		minimum := clearance.laneMinimum(lane)
 		if g.nodeIDs[from] && g.nodeIDs[to] && draftLaneLength(g.positions[from], g.positions[to], control) < minimum {
 			errors.add(fmt.Sprintf("Lane %s is shorter than %g m.", label(id), minimum), at)
 		}

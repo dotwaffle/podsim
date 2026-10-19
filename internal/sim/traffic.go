@@ -38,6 +38,8 @@ type block struct {
 	geometry *laneGeometry
 	// Larger immutable geometry bounds apply to every owner of the cell.
 	tail, fromTail float64
+	// retention is the reduced retention of the lane, or 0 for Clearance.
+	retention float64
 }
 
 type laneConflict struct {
@@ -87,6 +89,9 @@ func indexBerthResources(network Network) map[string][]resource {
 // build the cells of each network lane, and no code writes to them.
 type laneCells struct {
 	tail, fromTail float64
+	// retention is the reduced retention of a qualifying lane (see
+	// newLaneRetention), or 0 for Clearance.
+	retention float64
 	// geometry is the geometry of the lane, or nil when the geometry index
 	// does not have the lane.
 	geometry *laneGeometry
@@ -126,6 +131,7 @@ func cellOffset(cell, count int, length float64) float64 {
 // the berth resources at the To node of the lane.
 type laneCellsInput struct {
 	tail, fromTail float64
+	retention      float64
 	lane           Lane
 	length         float64
 	geometry       *laneGeometry
@@ -137,9 +143,9 @@ type laneCellsInput struct {
 func newLaneCells(input laneCellsInput) *laneCells {
 	lane, length := input.lane, input.length
 	count := laneBlockCount(length)
-	cells := laneCells{tail: input.tail, fromTail: input.fromTail}
+	cells := laneCells{tail: input.tail, fromTail: input.fromTail, retention: input.retention}
 	if largeClassSet(lane.VehicleClasses) {
-		cells.tail, cells.fromTail = max(largeClearance, cells.tail), max(largeClearance, cells.fromTail)
+		cells.tail, cells.fromTail, cells.retention = max(largeClearance, cells.tail), max(largeClearance, cells.fromTail), 0
 	}
 	var resources []resource
 	for cell := range count {
@@ -169,7 +175,7 @@ func newLaneCells(input laneCellsInput) *laneCells {
 		cells.add(append(resources, resource{kind: trackResource, id: lane.ID, cell: cell}))
 	}
 	// The cells keep only the memory that they use.
-	return &laneCells{tail: cells.tail, fromTail: cells.fromTail, geometry: input.geometry, resources: slices.Clone(cells.resources), ends: slices.Clone(cells.ends)}
+	return &laneCells{tail: cells.tail, fromTail: cells.fromTail, retention: cells.retention, geometry: input.geometry, resources: slices.Clone(cells.resources), ends: slices.Clone(cells.ends)}
 }
 
 // indexLaneCells returns the cells of each network lane. The cells of all
@@ -190,7 +196,7 @@ func indexLaneCells(input laneCellsIndexInput) map[string]*laneCells {
 			continue
 		}
 		cells[lane.ID] = newLaneCells(laneCellsInput{
-			tail: tails[lane.ID].tail, fromTail: tails[lane.ID].fromTail,
+			tail: tails[lane.ID].tail, fromTail: tails[lane.ID].fromTail, retention: input.retention.of(lane.ID),
 			lane: lane, length: indexedLaneLength(lane, positions[lane.From], positions[lane.To]), geometry: input.geometry[lane.ID],
 			berths: input.berths[lane.To], conflicts: input.conflicts[lane.ID],
 		})
@@ -205,6 +211,7 @@ type laneCellsIndexInput struct {
 	geometry  map[string]*laneGeometry
 	conflicts map[string][]laneConflict
 	berths    map[string][]resource
+	retention *laneRetention
 }
 
 // routeLaneCells holds the blocks of one lane of a route.
@@ -367,7 +374,7 @@ func (l *blockList) block(lane, cell int) block {
 	return block{
 		lane: l.route[lane], geometry: entry.geometry, cell: cell, start: start, end: end,
 		laneStart: entry.start, resources: entry.cells.cell(cell), last: cell == count-1,
-		tail: entry.cells.tail, fromTail: entry.cells.fromTail,
+		tail: entry.cells.tail, fromTail: entry.cells.fromTail, retention: entry.cells.retention,
 	}
 }
 
@@ -461,7 +468,7 @@ func (s *Simulation) routeBlocks(route []Lane) (blockList, []float64) {
 				fallbackTails = indexGeometryTails(s.network)
 			}
 			cells = newLaneCells(laneCellsInput{
-				tail: fallbackTails[lane.ID].tail, fromTail: fallbackTails[lane.ID].fromTail,
+				tail: fallbackTails[lane.ID].tail, fromTail: fallbackTails[lane.ID].fromTail, retention: s.retention.of(lane.ID),
 				lane: lane, length: length, geometry: s.geometry[lane.ID],
 				berths: s.berthResources[lane.To], conflicts: s.junctionConflicts[lane.ID],
 			})
@@ -692,7 +699,7 @@ func (s *Simulation) grant(in intent) {
 			if !linked || s.owners[r].isZero() {
 				s.owners[r] = podResourceOwner(v.Pod.ID)
 			}
-			v.retainRouteResource(r, releaseDistance(r, releaseInput{from: blocks.route[lane].From, start: start, end: end, tail: cells.tail, fromTail: cells.fromTail}))
+			v.retainRouteResource(r, releaseDistance(r, releaseInput{from: blocks.route[lane].From, start: start, end: end, tail: cells.tail, fromTail: cells.fromTail, retention: cells.retention}))
 		}
 	}
 	v.reservedThrough = through
@@ -866,10 +873,19 @@ func (s *Simulation) releaseCleared() {
 }
 
 func resourceReleaseDistance(b block, r resource) float64 {
-	return releaseDistance(r, releaseInput{from: b.lane.From, start: b.start, end: b.end, tail: b.tail, fromTail: b.fromTail})
+	return releaseDistance(r, releaseInput{from: b.lane.From, start: b.start, end: b.end, tail: b.tail, fromTail: b.fromTail, retention: b.retention})
 }
 
-func blockTail(b block) float64 { return max(Clearance, b.tail) }
+func blockTail(b block) float64 { return max(retainedClearance(b.retention), b.tail) }
+
+// retainedClearance returns the retention of a cell: a reduced retention,
+// or Clearance for 0.
+func retainedClearance(retention float64) float64 {
+	if retention > 0 {
+		return retention
+	}
+	return Clearance
+}
 
 func (v *vehicle) originTail() float64 {
 	minimum := Clearance
@@ -877,7 +893,11 @@ func (v *vehicle) originTail() float64 {
 		minimum = largeClearance
 	}
 	if len(v.blocks.lanes) > 1 && v.blocks.lanes[0].cells != nil {
-		return max(minimum, v.blocks.lanes[0].cells.fromTail)
+		cells := v.blocks.lanes[0].cells
+		if !largeVehicleClass(v.Pod.Class) {
+			minimum = retainedClearance(cells.retention)
+		}
+		return max(minimum, cells.fromTail)
 	}
 	return minimum
 }
@@ -889,6 +909,7 @@ type releaseInput struct {
 	from           string
 	start, end     float64
 	tail, fromTail float64
+	retention      float64
 }
 
 // releaseDistance returns the route distance at which a pod releases r of
@@ -899,9 +920,9 @@ func releaseDistance(r resource, b releaseInput) float64 {
 	}
 	// A departure clears the node before it clears the first downstream cell.
 	if r.kind == nodeResource && r.id == b.from {
-		return b.start + max(Clearance, b.fromTail)
+		return b.start + max(retainedClearance(b.retention), b.fromTail)
 	}
-	return b.end + max(Clearance, b.tail)
+	return b.end + max(retainedClearance(b.retention), b.tail)
 }
 
 // retainRouteResource keeps r until the pod is at releaseAt. The pod or a

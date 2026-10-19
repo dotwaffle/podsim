@@ -1446,6 +1446,15 @@ On clear track, this allows steady cruising at 14 m/s across block boundaries.
 The local controller divides lanes into exclusive blocks of up to 30 meters.
 It retains trailing blocks until a four-meter pod and an eight-meter gap have cleared.
 
+On a qualifying slow lane, the blocks are retained for a distance R of less than 12 meters.
+A lane qualifies when it is straight and its speed limit is less than the square root of 14 m/s (about 3.74 m/s).
+The track near the lane must also be one chain of lanes without large classes, with a total turn of at most 90 degrees.
+This track starts where a pod that can stop on the lane can be, and it ends 24 meters after the lane.
+R is (5 + 2u) / cos(T/2) - u meters, where u is the largest stopping distance on that track, but not more than 3.5 meters, and T is its total turn.
+Two small pods on this track must be at least 5 + v²/2 meters apart, but not more than 12, where v is the speed of the rear pod.
+The station bank check uses the same rule for the parts of two paths that are on this track.
+Large classes keep their 20-meter clearance.
+
 Each junction has one conflict resource for nearby sections of its incident lanes.
 The controller derives these sections from the same geometry used for movement, including the 12-meter clearance.
 It acquires each continuous conflict section together, including the downstream cells needed to cross lane endpoints.
@@ -1477,7 +1486,7 @@ Pods of a large class and pods with an emergency do not coast.
 
 The block model is conservative.
 It does not model continuous car-following or optimized junction capacity.
-The traffic model requires lanes at least 24 meters long.
+The traffic model requires lanes at least 24 meters long, or 2R meters long for a qualifying slow lane.
 
 #### Virtual platoons
 

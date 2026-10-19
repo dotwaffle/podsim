@@ -374,6 +374,7 @@ func (g geometryDraft) validateBankChanges(original map[string]any) error {
 			}
 		}
 	}
+	clearance, oldClearance := newDraftClearance(g.network), newDraftClearance(original)
 	for _, lane := range items(g.network["lanes"]) {
 		before, _ := old.find("lanes", text(member(lane, "id")))
 		from, to := text(member(lane, "from")), text(member(lane, "to"))
@@ -387,7 +388,10 @@ func (g geometryDraft) validateBankChanges(original map[string]any) error {
 		}
 		oldA, _ := old.point(from)
 		oldB, _ := old.point(to)
-		if before != nil && reflect.DeepEqual(before, lane) && a == oldA && b == oldB {
+		minimum := clearance.laneMinimum(lane)
+		// A speed edit on a nearby lane can raise the minimum of a lane
+		// whose own geometry did not change.
+		if before != nil && reflect.DeepEqual(before, lane) && a == oldA && b == oldB && minimum <= oldClearance.laneMinimum(before) {
 			continue
 		}
 		var control *geometryPoint
@@ -402,7 +406,6 @@ func (g geometryDraft) validateBankChanges(original map[string]any) error {
 		for index := 1; index < len(points); index++ {
 			length += math.Hypot(points[index].X-points[index-1].X, points[index].Y-points[index-1].Y)
 		}
-		minimum := draftLaneMinimum(lane)
 		if length < minimum {
 			return fmt.Errorf("lane %s would be shorter than %g meters", text(member(lane, "id")), minimum)
 		}

@@ -5,6 +5,8 @@ import (
 	"encoding/json/v2"
 	"os"
 	"reflect"
+	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -29,11 +31,11 @@ func TestLargeDraftBounds(t *testing.T) {
 			if test.classes != nil {
 				lane["vehicleClasses"] = test.classes
 			}
-			if got := draftLaneMinimum(lane); got != test.want {
+			if got := (draftClearance{}).laneMinimum(lane); got != test.want {
 				t.Fatalf("minimum = %g, want %g", got, test.want)
 			}
-			if got := draftPairClearance(lane, map[string]any{}); got != test.want/2 {
-				t.Fatalf("pair bound = %g", got)
+			if got := (draftClearance{}).pairPieces(lane, map[string]any{}, 100, 100); len(got) != 1 || got[0].Clearance != test.want/2 {
+				t.Fatalf("pair bound = %+v", got)
 			}
 		})
 	}
@@ -71,7 +73,7 @@ func TestLargeDraftPairClearance(t *testing.T) {
 			if (conflict != nil) != test.conflict {
 				t.Fatalf("conflict = %+v", conflict)
 			}
-			if conflict != nil && conflict.minimum != draftPairClearance(items(geometry.network["lanes"])[0], items(geometry.network["lanes"])[1]) {
+			if conflict != nil && conflict.minimum != max(draftClassMinimum(items(geometry.network["lanes"])[0]), draftClassMinimum(items(geometry.network["lanes"])[1]))/2 {
 				t.Fatal("wrong reported minimum")
 			}
 		})
@@ -276,5 +278,114 @@ func TestLargeDraftBankChainMaskPreservation(t *testing.T) {
 		if !reflect.DeepEqual(member(berth, "vehicleClasses"), mask) {
 			t.Fatal("chain edit lost berth mask", berth)
 		}
+	}
+}
+
+// depotDraft returns BankExample with a straight chain of 1 m/s lanes, as a
+// draft network. The slot nodes are 11 m apart, so the two middle lanes
+// qualify with a minimum of 10.5 m. A positive offset adds a parallel chain
+// that far beside it.
+func depotDraft(t *testing.T, offset float64) (sim.Network, map[string]any) {
+	t.Helper()
+	network := sim.BankExample()
+	add := func(prefix string, y, side float64) {
+		node := func(index int) string { return prefix + "-d" + strconv.Itoa(index) }
+		for index, x := range []float64{-100, 0, 11, 22, 122} {
+			network.Nodes = append(network.Nodes, sim.Node{ID: node(index), Position: sim.Point{X: x, Y: y}})
+		}
+		for index := range 4 {
+			network.Lanes = append(network.Lanes, sim.Lane{ID: prefix + "-c" + strconv.Itoa(index), From: node(index), To: node(index + 1), SpeedLimit: 1})
+		}
+		network.Lanes = append(network.Lanes, sim.Lane{ID: prefix + "-through", From: node(0), To: node(4), SpeedLimit: 14, Control: &sim.Point{X: 11, Y: y + side*150}})
+	}
+	add("depot", 5000, -1)
+	if offset > 0 {
+		add("other", 5000+offset, 1)
+	}
+	raw, err := json.Marshal(network)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var draft map[string]any
+	if err := json.Unmarshal(raw, &draft); err != nil {
+		t.Fatal(err)
+	}
+	return network, draft
+}
+
+func TestDraftClearanceMatchesServer(t *testing.T) {
+	t.Parallel()
+	network, draft := depotDraft(t, 0)
+	server, clearance := sim.NewLaneClearance(network), newDraftClearance(draft)
+	for index, lane := range items(draft["lanes"]) {
+		want := server.LaneMinimum(network.Lanes[index])
+		if got := clearance.laneMinimum(lane); got != want {
+			t.Fatalf("lane %s minimum = %g, want %g", network.Lanes[index].ID, got, want)
+		}
+		if id := network.Lanes[index].ID; (id == "depot-c1" || id == "depot-c2") != (want == 10.5) {
+			t.Fatalf("lane %s minimum = %g", id, want)
+		}
+	}
+	if _, err := sim.PrepareNetwork(network); err != nil {
+		t.Fatal(err)
+	}
+	shorter := func(network any) []string {
+		var report checkList
+		checkNetwork(network, &report)
+		var found []string
+		for _, item := range report.items {
+			if strings.Contains(item.Text, "shorter") {
+				found = append(found, item.Text)
+			}
+		}
+		return found
+	}
+	if found := shorter(draft); len(found) != 0 {
+		t.Fatalf("checks: %v", found)
+	}
+	for _, node := range items(draft["nodes"]) {
+		if member(node, "id") == "depot-d2" {
+			object(member(node, "position"))["x"] = 10.4
+		}
+	}
+	if found := shorter(draft); !slices.Equal(found, []string{"Lane depot-c1 is shorter than 10.5 m."}) {
+		t.Fatalf("checks: %v", found)
+	}
+}
+
+func TestDraftClearanceLaneConflictByPosition(t *testing.T) {
+	t.Parallel()
+	// The lane before the slots is 11 m from the lead-out lane. Both slot
+	// windows certify the first 24 m of the lead-out lane.
+	_, draft := depotDraft(t, 0)
+	if conflict := (geometryDraft{network: draft}).laneConflict([]string{"depot-c3", "depot-c1"}, true); conflict != nil {
+		t.Fatalf("one chain: %+v", conflict)
+	}
+	_, parallel := depotDraft(t, 7)
+	conflict := (geometryDraft{network: parallel}).laneConflict([]string{"other-c1"}, true)
+	if conflict == nil || conflict.minimum != sim.Clearance {
+		t.Fatalf("parallel chains: %+v", conflict)
+	}
+}
+
+func TestDraftClearanceBankEdit(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		x     float64
+		error string
+	}{{10.6, ""}, {10.4, "lane depot-c1 would be shorter than 10.5 meters"}} {
+		_, network := depotDraft(t, 0)
+		draft := map[string]any{"network": network}
+		_, err := editGeometry(draft, jsontext.Value(`{"action":"moveNode","id":"depot-d2","point":{"x":`+strconv.FormatFloat(test.x, 'g', -1, 64)+`,"y":5000}}`))
+		if test.error == "" && err != nil || test.error != "" && (err == nil || err.Error() != test.error) {
+			t.Fatalf("move to %g: %v", test.x, err)
+		}
+	}
+	// A faster lane before the chain raises the minimum of the unchanged
+	// lane after it.
+	_, network := depotDraft(t, 0)
+	_, err := editGeometry(map[string]any{"network": network}, jsontext.Value(`{"action":"laneSpeed","id":"depot-c0","value":7.2}`))
+	if err == nil || err.Error() != "lane depot-c1 would be shorter than 12 meters" {
+		t.Fatalf("speed edit: %v", err)
 	}
 }
