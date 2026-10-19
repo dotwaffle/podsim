@@ -35,19 +35,50 @@ func decodeDraftNetwork(network any) (sim.Network, error) {
 	return typed, nil
 }
 
+// serverDraft decodes a draft network one time for the server checks of
+// one edit. The network must not change after the first decode.
+// depotsValid records that the depot validation of the server accepted
+// the decoded network.
+type serverDraft struct {
+	network     any
+	typed       sim.Network
+	decoded     bool
+	depotsValid bool
+}
+
+// decode keeps only a decode that succeeds. A draft that does not decode
+// is decoded again at each call, as before the shared decode: the encoded
+// member order of a map can change between two encodes, and with it the
+// first decode error.
+func (d *serverDraft) decode() (sim.Network, error) {
+	if d.decoded {
+		return d.typed, nil
+	}
+	typed, err := decodeDraftNetwork(d.network)
+	if err != nil {
+		return sim.Network{}, err
+	}
+	d.typed, d.decoded = typed, true
+	return typed, nil
+}
+
 // validateBankDraft runs the server validation of a draft with banks,
-// large geometry, maneuver groups or depots. For a draft with depots, the
-// depot validation of the server comes before the bank checks, so that a
-// depot station with banks gets the depot error of the server.
+// large geometry, maneuver groups or depots.
 func validateBankDraft(network any) error {
-	typed, err := decodeDraftNetwork(network)
+	return (&serverDraft{network: network}).validate()
+}
+
+// validate is validateBankDraft. For a draft with depots, the depot
+// validation of the server comes before the bank checks, so that a depot
+// station with banks gets the depot error of the server.
+func (d *serverDraft) validate() error {
+	network := d.network
+	typed, err := d.decode()
 	if err != nil {
 		return err
 	}
-	if hasDepots(network) {
-		if err := typed.ValidateDepots(); err != nil {
-			return fmt.Errorf("validate depots: %w", err)
-		}
+	if err := d.validateDepots(); err != nil {
+		return err
 	}
 	for _, station := range items(member(network, "stations")) {
 		if has(station, "banks") {
@@ -375,7 +406,9 @@ func bankForBerth(station any, berthID string) any {
 	return nil
 }
 
-func (g geometryDraft) validateBankChanges(original map[string]any) error {
+// validateBankChanges checks the lanes of an edit. server is the draft
+// of g.network.
+func (g geometryDraft) validateBankChanges(original map[string]any, server *serverDraft) error {
 	old := geometryDraft{network: original}
 	oldCounts, _ := old.nodeLaneCounts()
 	counts, order := g.nodeLaneCounts()
@@ -406,7 +439,7 @@ func (g geometryDraft) validateBankChanges(original map[string]any) error {
 	}
 	// The lane minimums of a depot depend on its depot lanes, so a draft
 	// with a depot that the server refuses names the depot error first.
-	if err := validateDraftDepots(g.network); err != nil {
+	if err := server.validateDepots(); err != nil {
 		return err
 	}
 	clearance, oldClearance := newDraftClearance(g.network), newDraftClearance(original)

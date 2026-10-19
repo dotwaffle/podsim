@@ -72,20 +72,29 @@ func editGeometry(draft any, raw jsontext.Value) (projectChange, error) {
 			return projectChange{}, fmt.Errorf("the edit exceeds the %s count limit", key)
 		}
 	}
-	if hasBanks(original) || hasBanks(geometry.network) || hasLargeGeometry(original) || hasLargeGeometry(geometry.network) || hasManeuverGroups(original) || hasManeuverGroups(geometry.network) || hasDepots(original) || hasDepots(geometry.network) {
-		if err := geometry.validateBankChanges(original); err != nil {
-			return projectChange{}, err
-		}
-	}
-	if hasBanks(geometry.network) || hasLargeGeometry(geometry.network) || hasManeuverGroups(geometry.network) || hasDepots(geometry.network) {
-		if err := validateBankDraft(geometry.network); err != nil {
-			return projectChange{}, err
-		}
+	if err := geometry.serverChecks(original); err != nil {
+		return projectChange{}, err
 	}
 	if !reflect.DeepEqual(original, geometry.network) {
 		change.Patch["network"] = geometry.network
 	}
 	return change, nil
+}
+
+// serverChecks runs the server checks of an edit of a draft with banks,
+// large geometry, maneuver groups or depots. The lane checks and the
+// server validation share one decode of the edited network.
+func (g geometryDraft) serverChecks(original map[string]any) error {
+	server := &serverDraft{network: g.network}
+	if hasBanks(original) || hasBanks(g.network) || hasLargeGeometry(original) || hasLargeGeometry(g.network) || hasManeuverGroups(original) || hasManeuverGroups(g.network) || hasDepots(original) || hasDepots(g.network) {
+		if err := g.validateBankChanges(original, server); err != nil {
+			return err
+		}
+	}
+	if hasBanks(g.network) || hasLargeGeometry(g.network) || hasManeuverGroups(g.network) || hasDepots(g.network) {
+		return server.validate()
+	}
+	return nil
 }
 
 func decodeGeometryEdit(raw jsontext.Value) (geometryEdit, error) {

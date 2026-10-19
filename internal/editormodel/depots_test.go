@@ -277,7 +277,7 @@ func TestDepotDraftServerErrorFirst(t *testing.T) {
 	valid := queueDraft(t)
 	shorten(valid)
 	g := geometryDraft{network: object(valid["network"])}
-	if err := g.validateBankChanges(object(queueDraft(t)["network"])); err == nil || strings.HasPrefix(err.Error(), "validate depots: ") {
+	if err := g.validateBankChanges(object(queueDraft(t)["network"]), &serverDraft{network: g.network}); err == nil || strings.HasPrefix(err.Error(), "validate depots: ") {
 		t.Fatalf("the short chain lane alone: %v", err)
 	}
 	for name, draft := range invalidQueueDrafts(t) {
@@ -295,7 +295,7 @@ func TestDepotDraftServerErrorFirst(t *testing.T) {
 		}
 		shorten(draft)
 		g := geometryDraft{network: object(draft["network"])}
-		if err := g.validateBankChanges(object(queueDraft(t)["network"])); err == nil || err.Error() != want {
+		if err := g.validateBankChanges(object(queueDraft(t)["network"]), &serverDraft{network: g.network}); err == nil || err.Error() != want {
 			t.Errorf("%s: edit check %v, want %s", name, err, want)
 		}
 	}

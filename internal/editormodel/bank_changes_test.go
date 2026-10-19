@@ -12,6 +12,7 @@ import (
 
 	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/scenarios"
+	"github.com/dotwaffle/podsim/internal/sim"
 )
 
 // londonCompactStations are the Compact stations of the London drafts.
@@ -97,7 +98,7 @@ func referenceBankChanges(g geometryDraft, original map[string]any) error {
 			}
 		}
 	}
-	if err := validateDraftDepots(g.network); err != nil {
+	if err := referenceDraftDepots(g.network); err != nil {
 		return err
 	}
 	clearance, oldClearance := newDraftClearance(g.network), newDraftClearance(original)
@@ -191,6 +192,18 @@ var networkMutations = []networkMutation{
 	{"renamed lane", func(_, lane map[string]any) { lane["id"] = "renamed-lane" }},
 	{"faster lane", func(_, lane map[string]any) { lane["speedLimit"] = number(lane["speedLimit"]) * 4 }},
 	{"bad control", func(_, lane map[string]any) { lane["control"] = map[string]any{"x": "bad", "y": 0.0} }},
+	{"unknown member", func(_, lane map[string]any) { lane["unknown"] = true }},
+	{"unknown members on two lanes", func(network, lane map[string]any) {
+		lane["unknown"] = true
+		lanes := items(network["lanes"])
+		object(lanes[len(lanes)-1])["other"] = true
+	}},
+	{"unknown member on a short lane", func(network, lane map[string]any) {
+		lane["unknown"] = true
+		from := object(nodeOf(network, text(lane["from"]))["position"])
+		to := object(nodeOf(network, text(lane["to"]))["position"])
+		to["x"], to["y"] = number(from["x"])+0.25, number(from["y"])
+	}},
 }
 
 // mutationLanes returns the lanes that the mutations change: the first
@@ -243,12 +256,141 @@ func TestBankChangesMatchScan(t *testing.T) {
 					}
 					mutation.mutate(network, lane)
 					g := geometryDraft{network: network}
-					got, want := errorText(g.validateBankChanges(original)), errorText(referenceBankChanges(g, original))
+					got, want := errorText(g.validateBankChanges(original, &serverDraft{network: network})), errorText(referenceBankChanges(g, original))
 					if got != want {
 						t.Errorf("lane %s %s: got %q, want %q", laneID, mutation.name, got, want)
 					}
 				}
 			}
 		})
+	}
+}
+
+// referenceServerChecks is serverChecks before the shared decode: the lane
+// checks and the server validation each decode the edited network.
+func referenceServerChecks(g geometryDraft, original map[string]any) error {
+	if hasBanks(original) || hasBanks(g.network) || hasLargeGeometry(original) || hasLargeGeometry(g.network) || hasManeuverGroups(original) || hasManeuverGroups(g.network) || hasDepots(original) || hasDepots(g.network) {
+		if err := referenceBankChanges(g, original); err != nil {
+			return err
+		}
+	}
+	if hasBanks(g.network) || hasLargeGeometry(g.network) || hasManeuverGroups(g.network) || hasDepots(g.network) {
+		return referenceBankDraft(g.network)
+	}
+	return nil
+}
+
+// referenceDraftDepots is the depot check of the lane checks before the
+// shared decode.
+func referenceDraftDepots(network any) error {
+	if !hasDepots(network) {
+		return nil
+	}
+	typed, err := decodeDraftNetwork(network)
+	if err != nil {
+		return nil //nolint:nilerr // referenceBankDraft names the decode error.
+	}
+	if err := typed.ValidateDepots(); err != nil {
+		return fmt.Errorf("validate depots: %w", err)
+	}
+	return nil
+}
+
+// referenceBankDraft is validateBankDraft before the shared decode.
+func referenceBankDraft(network any) error {
+	typed, err := decodeDraftNetwork(network)
+	if err != nil {
+		return err
+	}
+	if hasDepots(network) {
+		if err := typed.ValidateDepots(); err != nil {
+			return fmt.Errorf("validate depots: %w", err)
+		}
+	}
+	for _, station := range items(member(network, "stations")) {
+		if has(station, "banks") {
+			if err := validateBankMembers(station); err != nil {
+				return err
+			}
+		}
+	}
+	if err := typed.ValidateStationBanks(); err != nil {
+		return fmt.Errorf("validate station banks: %w", err)
+	}
+	if hasLargeGeometry(network) {
+		if _, err := sim.PrepareNetwork(typed); err != nil {
+			return fmt.Errorf("validate large geometry: %w", err)
+		}
+		return nil
+	}
+	if hasManeuverGroups(network) {
+		if _, err := sim.PrepareNetwork(typed); err != nil {
+			return fmt.Errorf("validate maneuver groups: %w", err)
+		}
+		return nil
+	}
+	if hasDepots(network) {
+		if _, err := sim.PrepareNetwork(typed); err != nil {
+			return fmt.Errorf("validate depots: %w", err)
+		}
+		return nil
+	}
+	if err := typed.ValidateBankGeometry(); err != nil {
+		return fmt.Errorf("validate bank geometry: %w", err)
+	}
+	return nil
+}
+
+// TestServerChecksMatchSeparateDecodes checks that the server checks of an
+// edit with one decode give the error of the checks with a decode each.
+func TestServerChecksMatchSeparateDecodes(t *testing.T) {
+	t.Parallel()
+	for _, fixture := range equivalenceDrafts(t) {
+		t.Run(fixture.name, func(t *testing.T) {
+			t.Parallel()
+			original := object(member(fixture.draft, "network"))
+			lanes, mutations := mutationLanes(original), networkMutations
+			if fixture.large {
+				lanes, mutations = lanes[:1], mutations[:2]
+			}
+			for _, laneID := range lanes {
+				for _, mutation := range mutations {
+					network := object(cloneEditValue(original))
+					lane, err := geometryDraft{network: network}.find("lanes", laneID)
+					if err != nil {
+						t.Fatal(err)
+					}
+					mutation.mutate(network, lane)
+					g := geometryDraft{network: network}
+					got, want := errorText(g.serverChecks(original)), errorText(referenceServerChecks(g, original))
+					if got != want {
+						t.Errorf("lane %s %s: got %q, want %q", laneID, mutation.name, got, want)
+					}
+				}
+			}
+		})
+	}
+}
+
+// TestServerChecksRepeatFailedDecode checks that the server checks of an
+// edit decode a draft that does not decode again for the full
+// validation, and keep no failed decode.
+func TestServerChecksRepeatFailedDecode(t *testing.T) {
+	t.Parallel()
+	draft := queueDraft(t)
+	network := object(cloneEditValue(draft["network"]))
+	lane := object(items(network["lanes"])[0])
+	lane["unknown"], lane["other"] = true, true
+	server := &serverDraft{network: network}
+	if err := server.validateDepots(); err != nil {
+		t.Fatalf("the depot check names the decode error: %v", err)
+	}
+	if server.decoded {
+		t.Fatal("the failed decode is kept")
+	}
+	delete(lane, "unknown")
+	delete(lane, "other")
+	if err := server.validate(); err != nil {
+		t.Fatalf("the full validation did not decode again: %v", err)
 	}
 }
