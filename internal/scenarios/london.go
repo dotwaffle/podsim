@@ -129,6 +129,12 @@ type LondonOptions struct {
 	// Zero keeps the ordinary facilities. With depots, the berth count of
 	// a Parking facility is the slot count of each of its lanes.
 	ParkingLanes int
+	// CompactStations lists the TfL IDs of at most sim.MaxManeuverGroups
+	// passenger stations with the four bays of the compact station in
+	// place of their berth rows. The berth count of such a station sets
+	// only its shape in the heading search. With a Compact station, each
+	// pod is Compact.
+	CompactStations []string
 }
 
 // DefaultLondonCentralOptions returns the options of the London preset.
@@ -176,6 +182,13 @@ type londonCapacity struct {
 	// lanes is the depot lane count of each Parking facility, or 0 for
 	// the ordinary facilities.
 	lanes int
+	// compact holds, for each site, whether it is a Compact station.
+	compact []bool
+}
+
+// hasCompact reports whether a site is a Compact station.
+func (capacity londonCapacity) hasCompact() bool {
+	return slices.Contains(capacity.compact, true)
 }
 
 // depot returns the depot layout of the site at index, or false when the
@@ -198,9 +211,18 @@ func (capacity londonCapacity) search(index int) int {
 }
 
 // sameLayout reports whether the capacity has the station layouts of the
-// other capacity: the same depot lanes.
+// other capacity: the same depot lanes and the same Compact stations.
 func (capacity londonCapacity) sameLayout(other londonCapacity) bool {
-	return capacity.lanes == other.lanes
+	compact := func(capacity londonCapacity) []int {
+		var indexes []int
+		for index, ok := range capacity.compact {
+			if ok {
+				indexes = append(indexes, index)
+			}
+		}
+		return indexes
+	}
+	return capacity.lanes == other.lanes && slices.Equal(compact(capacity), compact(other))
 }
 
 // isDefault reports whether the capacity is that of the London preset.
@@ -245,7 +267,25 @@ func (options LondonOptions) resolve(source londonSource) (londonCapacity, error
 	if options.ParkingLanes < 0 {
 		return londonCapacity{}, errors.New("parking lanes must not be negative")
 	}
-	capacity := londonCapacity{berths: make([]int, len(ids)), pods: make([]int, len(ids)), pitch: options.BerthPitch, lanes: options.ParkingLanes}
+	capacity := londonCapacity{
+		berths: make([]int, len(ids)), pods: make([]int, len(ids)), pitch: options.BerthPitch, lanes: options.ParkingLanes,
+		compact: make([]bool, len(ids)),
+	}
+	for _, id := range options.CompactStations {
+		index := slices.Index(ids, id)
+		switch {
+		case index < 0:
+			return londonCapacity{}, fmt.Errorf("unknown London station ID %q", id)
+		case index >= len(source.Stations):
+			return londonCapacity{}, fmt.Errorf("%s (%s) is a Parking facility, not a passenger station for Compact bays", names[index], id)
+		case capacity.compact[index]:
+			return londonCapacity{}, fmt.Errorf("%s (%s) is listed more than once as a Compact station", names[index], id)
+		}
+		capacity.compact[index] = true
+	}
+	if len(options.CompactStations) > sim.MaxManeuverGroups {
+		return londonCapacity{}, fmt.Errorf("%d Compact stations, want at most %d", len(options.CompactStations), sim.MaxManeuverGroups)
+	}
 	total := 0
 	for index, id := range ids {
 		berths, pods := options.StationBerths, options.StationPods
@@ -279,7 +319,8 @@ func (options LondonOptions) resolve(source londonSource) (londonCapacity, error
 
 // berthLimit returns the number of berths of the site at index, or 0 when
 // its berth count is out of range. For a depot, it checks the layout and
-// then the length, and the limit is the slot count of the depot.
+// then the length, and the limit is the slot count of the depot. A Compact
+// station has the bays of the compact station.
 func (capacity londonCapacity) berthLimit(index int) (int, error) {
 	berths := capacity.berths[index]
 	if layout, ok := capacity.depot(index); ok {
@@ -293,6 +334,9 @@ func (capacity londonCapacity) berthLimit(index int) (int, error) {
 	}
 	if berths < 1 || berths > project.MaxBerths {
 		return 0, nil
+	}
+	if capacity.compact[index] {
+		return len(compactBays), nil
 	}
 	return berths, nil
 }
@@ -362,12 +406,21 @@ func decodeLondonSource(source *londonSource) error {
 // search, it checks that the network stays in the project node and lane
 // limits.
 func londonNetwork(source londonSource, capacity londonCapacity) (sim.Network, error) {
-	return londonNetworkWithHeadings(source, capacity, nil)
+	return londonNetworkWithHeadings(source, capacity, nil, projectLondonLimits)
 }
+
+// londonLimits holds the node and lane limits of the London size check.
+type londonLimits struct {
+	nodes, lanes int
+}
+
+// projectLondonLimits holds the project node and lane limits.
+var projectLondonLimits = londonLimits{nodes: project.MaxNodes, lanes: project.MaxLanes}
 
 // londonNetworkWithHeadings applies preset-specific headings after the shared search.
 // The size checks and station construction are the same for both presets.
-func londonNetworkWithHeadings(source londonSource, capacity londonCapacity, overrides map[string]float64) (sim.Network, error) {
+// The presets check the size with projectLondonLimits.
+func londonNetworkWithHeadings(source londonSource, capacity londonCapacity, overrides map[string]float64, limits londonLimits) (sim.Network, error) {
 	network := sim.Network{}
 	positions := make(map[string]sim.Point, len(source.Stations))
 	portals := make(map[string]*londonStationPortals, len(source.Stations))
@@ -388,7 +441,7 @@ func londonNetworkWithHeadings(source londonSource, capacity londonCapacity, ove
 		neighbors[link.B] = append(neighbors[link.B], a)
 	}
 	facilities := londonParkingFacilities
-	if err := checkLondonSize(network, source, portals, capacity); err != nil {
+	if err := checkLondonSize(network, source, portals, capacity, limits); err != nil {
 		return sim.Network{}, err
 	}
 	input := londonHeadingInput{links: londonLaneSegments(network)}
@@ -426,7 +479,7 @@ func londonNetworkWithHeadings(source londonSource, capacity londonCapacity, ove
 		addLondonMovements(&network, station.ID, positions[station.ID], *portals[station.ID])
 		addLondonStation(&network, londonStationInput{
 			id: station.ID, name: station.Name, portals: *portals[station.ID],
-			shape: shapes[index],
+			shape: shapes[index], compact: capacity.compact[index],
 		})
 	}
 	for index, parking := range facilities {
@@ -447,9 +500,12 @@ func londonNetworkWithHeadings(source londonSource, capacity londonCapacity, ove
 // a movement lane from each arrival portal to each departure portal. Each
 // station adds a road lane to or from each portal, 3 lanes from the
 // diverge node to the merge node, and 4 lanes for each berth. A depot has
-// the nodes and lanes of its layout in place of the berths.
-func checkLondonSize(network sim.Network, source londonSource, portals map[string]*londonStationPortals, capacity londonCapacity) error {
+// the nodes and lanes of its layout in place of the berths, and a Compact
+// station has those of the compact station in place of the berths and the
+// through lane.
+func checkLondonSize(network sim.Network, source londonSource, portals map[string]*londonStationPortals, capacity londonCapacity, limits londonLimits) error {
 	nodes, lanes := len(network.Nodes), len(network.Lanes)
+	compact := compactStation(nil, "", "")
 	for index, berths := range capacity.berths {
 		var station londonStationPortals
 		if index < len(source.Stations) {
@@ -463,14 +519,20 @@ func checkLondonSize(network sim.Network, source londonSource, portals map[strin
 			nodes, lanes = nodes+layout.nodes(), lanes+layout.laneCount()
 			continue
 		}
+		if capacity.compact[index] {
+			// The compact layout has the entry and exit nodes and the
+			// lanes between them.
+			nodes, lanes = nodes+len(compact.nodes)-2, lanes+len(compact.lanes)-1
+			continue
+		}
 		nodes += 3 * berths
 		lanes += 4 * berths
 	}
-	if nodes > project.MaxNodes {
-		return fmt.Errorf("generated London network needs %d nodes, more than the limit of %d", nodes, project.MaxNodes)
+	if nodes > limits.nodes {
+		return fmt.Errorf("generated London network needs %d nodes, more than the limit of %d", nodes, limits.nodes)
 	}
-	if lanes > project.MaxLanes {
-		return fmt.Errorf("generated London network needs %d lanes, more than the limit of %d", lanes, project.MaxLanes)
+	if lanes > limits.lanes {
+		return fmt.Errorf("generated London network needs %d lanes, more than the limit of %d", lanes, limits.lanes)
 	}
 	return nil
 }
@@ -599,12 +661,17 @@ type londonStationInput struct {
 	// depot is the depot layout of a Parking facility, or zero for berth
 	// rows.
 	depot depotLayout
+	// compact gives a passenger station the bays of the compact station.
+	compact bool
 }
 
 // addLondonStation adds a station with its roads. A station has berth
-// rows, or a depot in place of them. The depot lies outward from its
-// through lane, and its entry and exit are half its length to each side of
-// the station axis, 200 meters out.
+// rows, or a depot or Compact bays in place of them. The depot lies
+// outward from its through lane, and its entry and exit are half its length
+// to each side of the station axis, 200 meters out. The compact station
+// replaces the through lane as a rigid body: its aisle is 200 meters out,
+// its entry and exit are equally far to each side of the station axis, its
+// bays lie outward of the aisle, and its bypass curves toward the throat.
 func addLondonStation(network *sim.Network, input londonStationInput) {
 	id := input.id
 	positions := input.shape.nodes()
@@ -613,6 +680,16 @@ func addLondonStation(network *sim.Network, input londonStationInput) {
 		frame, half := input.shape.frame(), input.depot.length()/2
 		at = func(along, across float64) sim.Point { return frame.position(along-half, 200+across) }
 		positions.entry, positions.exit, positions.berths = at(0, 0), at(input.depot.length(), 0), nil
+	}
+	var compact compactLayout
+	if input.compact {
+		frame, middle := input.shape.frame(), (compactHoldX+compactReceiveX)/2
+		compact = compactStation(func(point sim.Point) sim.Point {
+			return frame.position(point.X-middle, 200+point.Y-compactAisleY)
+		}, id+"-", id)
+		// The first four nodes are the entry, holding, receiving, and
+		// exit nodes.
+		positions.entry, positions.exit, positions.berths = compact.nodes[0].Position, compact.nodes[3].Position, nil
 	}
 	divergeID, mergeID := id+"-diverge", id+"-merge"
 	entryID, exitID := id+"-entry", id+"-exit"
@@ -630,11 +707,15 @@ func addLondonStation(network *sim.Network, input londonStationInput) {
 			SpeedLimit: speedLimit, SeparationGroup: laneID, StationID: id, StationRole: sim.StationApproachRole,
 		})
 	}
-	network.Lanes = append(network.Lanes,
-		sim.Lane{ID: id + "-access-in", From: divergeID, To: entryID, SpeedLimit: speedLimit, SeparationGroup: separationGroup, StationID: id, StationRole: sim.StationEntryRole},
-		sim.Lane{ID: id + "-through", From: entryID, To: exitID, SpeedLimit: speedLimit, SeparationGroup: separationGroup, StationID: id, StationRole: sim.StationThroughRole},
-		sim.Lane{ID: id + "-access-out", From: exitID, To: mergeID, SpeedLimit: speedLimit, SeparationGroup: separationGroup, StationID: id, StationRole: sim.StationExitRole},
-	)
+	access := []sim.Lane{
+		{ID: id + "-access-in", From: divergeID, To: entryID, SpeedLimit: speedLimit, SeparationGroup: separationGroup, StationID: id, StationRole: sim.StationEntryRole},
+		{ID: id + "-through", From: entryID, To: exitID, SpeedLimit: speedLimit, SeparationGroup: separationGroup, StationID: id, StationRole: sim.StationThroughRole},
+		{ID: id + "-access-out", From: exitID, To: mergeID, SpeedLimit: speedLimit, SeparationGroup: separationGroup, StationID: id, StationRole: sim.StationExitRole},
+	}
+	if input.compact {
+		access = slices.Delete(access, 1, 2)
+	}
+	network.Lanes = append(network.Lanes, access...)
 	for index, portal := range input.portals.departures {
 		laneID := fmt.Sprintf("%s-road-out-%02d", id, index+1)
 		network.Lanes = append(network.Lanes, sim.Lane{
@@ -647,6 +728,10 @@ func addLondonStation(network *sim.Network, input londonStationInput) {
 		depotStation, nodes, lanes, depot := depotGeometry(input.depot, depotPlacement{at: at, station: station, prefix: id})
 		network.Nodes, network.Lanes = append(network.Nodes, nodes...), append(network.Lanes, lanes...)
 		network.Stations, network.Depots = append(network.Stations, depotStation), append(network.Depots, depot)
+		return
+	}
+	if input.compact {
+		addLondonCompact(network, station, compact)
 		return
 	}
 	previousArrival, previousDeparture := entryID, exitID
@@ -671,9 +756,32 @@ func addLondonStation(network *sim.Network, input londonStationInput) {
 	network.Stations = append(network.Stations, station)
 }
 
+// addLondonCompact adds the nodes, the lanes, the bays, and the maneuver
+// group of a Compact station. The entry and exit nodes are already in the
+// network. The approach, the bypass, and the leave lane get the station
+// roles of berth access, through, and departure. The group lanes have no
+// station and no role.
+func addLondonCompact(network *sim.Network, station sim.Station, compact compactLayout) {
+	roles := map[string]sim.StationLaneRole{
+		station.ID + "-approach": sim.StationBerthAccessRole, station.ID + "-bypass": sim.StationThroughRole, station.ID + "-leave": sim.StationDepartureRole,
+	}
+	network.Nodes = append(network.Nodes, compact.nodes[1], compact.nodes[2])
+	network.Nodes = append(network.Nodes, compact.nodes[4:]...)
+	for _, lane := range compact.lanes {
+		if role, ok := roles[lane.ID]; ok {
+			lane.StationID, lane.StationRole = station.ID, role
+		}
+		network.Lanes = append(network.Lanes, lane)
+	}
+	station.Berths = compact.berths
+	network.Stations = append(network.Stations, station)
+	network.ManeuverGroups = append(network.ManeuverGroups, compact.group)
+}
+
 // londonFleet places pods on the first berths of each station, and on the
 // heads of the lanes of a depot first (see depotPlacements). The capacity
-// holds the pod count of each station, in network order.
+// holds the pod count of each station, in network order. With a Compact
+// station, each pod is Compact.
 func londonFleet(network sim.Network, capacity londonCapacity) []sim.Placement {
 	pods := capacity.pods
 	total := 0
@@ -695,6 +803,11 @@ func londonFleet(network sim.Network, capacity londonCapacity) []sim.Placement {
 				StationID: station.ID,
 				BerthID:   station.Berths[index].ID,
 			})
+		}
+	}
+	if capacity.hasCompact() {
+		for index := range placements {
+			placements[index].Class = sim.CompactClass
 		}
 	}
 	return placements

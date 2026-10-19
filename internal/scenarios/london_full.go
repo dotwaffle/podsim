@@ -84,7 +84,7 @@ func decodeLondonFullSource() (londonSource, error) {
 func londonFullConfig(source londonSource, capacity londonCapacity, defaultCapacity bool) (project.Config, error) {
 	// These headings clear guideways at Bank, Mansion House, and Canary Wharf.
 	headings := map[string]float64{"940GZZLUBNK": 234 * math.Pi / 180, "940GZZLUMSH": 56 * math.Pi / 180, "940GZZLUCYF": 330 * math.Pi / 180}
-	network, err := londonNetworkWithHeadings(source, capacity, headings)
+	network, err := londonNetworkWithHeadings(source, capacity, headings, projectLondonLimits)
 	if err != nil {
 		return project.Config{}, err
 	}
