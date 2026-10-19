@@ -152,12 +152,16 @@ func selectedVehicle(state sim.Snapshot, index int) (sim.Vehicle, bool) {
 	return state.Vehicles[index], true
 }
 
+// berthSeparation is the smallest screen distance in layout units between
+// two berths of a station that shows its berths.
+const berthSeparation = 34
+
 // showStationBerths reports whether the berths of a station separate on the
 // screen. A station with fewer than two berth nodes in the network always
 // shows its berths.
 func (g *Game) showStationBerths(station sim.Station) bool {
 	spacing, ok := g.displayIndex().berthSpacing[station.ID]
-	return !ok || spacing*g.mapScale >= 34*g.layout.unit
+	return !ok || spacing*g.mapScale >= berthSeparation*g.layout.unit
 }
 
 // overviewNameRunes is the largest number of runes of a station name in an

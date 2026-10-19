@@ -639,7 +639,7 @@ func (g *Game) pressMapControl(action string) bool {
 		g.zoomMap(mapZoomStep)
 	case "map-fit":
 		g.followSelected = false
-		g.camera.fit(cameraFit{bounds: g.camera.world, viewport: g.layout.mapViewport, unit: g.layout.unit})
+		g.fitCamera(g.camera.world)
 		g.syncCamera()
 	case "map-follow":
 		g.toggleFollow()
@@ -884,7 +884,9 @@ func networkBounds(network sim.Network) (worldBounds, bool) {
 
 // fitNetwork fits the camera to the whole network when the epoch or the
 // network bounds change. A layout change also clears the camera and causes a
-// fit. Otherwise the camera keeps the zoom and pan of the user.
+// fit. Otherwise the camera keeps the zoom and pan of the user, and only
+// the largest zoom follows the berth spacing of the network. A project edit
+// can change the spacing and keep the epoch and the bounds.
 func (g *Game) fitNetwork() {
 	index := g.displayIndex()
 	bounds := index.bounds
@@ -895,11 +897,20 @@ func (g *Game) fitNetwork() {
 	}
 	key := cameraFitKey{epoch: g.state.Epoch, bounds: bounds}
 	if g.camera.initialized && g.cameraKey == key {
+		if g.camera.limitZoom(index.smallestBerthSpacing) {
+			g.syncCamera()
+		}
 		return
 	}
-	g.camera.fit(cameraFit{bounds: bounds, viewport: g.layout.mapViewport, unit: g.layout.unit})
+	g.fitCamera(bounds)
 	g.cameraKey = key
 	g.syncCamera()
+}
+
+// fitCamera fits the camera to bounds in the map viewport. The smallest
+// berth spacing of the network sets the largest zoom.
+func (g *Game) fitCamera(bounds worldBounds) {
+	g.camera.fit(cameraFit{bounds: bounds, viewport: g.layout.mapViewport, unit: g.layout.unit, berthSpacing: g.displayIndex().smallestBerthSpacing})
 }
 
 func (g *Game) normalizeSelection() {

@@ -236,6 +236,10 @@ See [distribution and operations](docs/operations.md) for build and runtime sett
 - Zoom in to see individual berths in crowded stations.
   Until then, such a station shows one marker.
   The map does not show the idle pods in the station, except the selected pod.
+- The largest zoom is 40 times the **Fit** scale.
+  When the berths of a station do not separate at that zoom, the largest zoom rises to one zoom step past the zoom at which they separate.
+  Examples are the 6-meter slots of a depot and the Compact bays of a London preset.
+  Only a station with berths less than 1 meter apart can keep its marker at the largest zoom.
 
 ### Station labels
 

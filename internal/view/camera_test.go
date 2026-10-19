@@ -6,6 +6,8 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/dotwaffle/podsim/internal/project"
+	"github.com/dotwaffle/podsim/internal/scenarios"
 	"github.com/dotwaffle/podsim/internal/session"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
@@ -388,6 +390,222 @@ func TestMapCameraAtMaxZoom(t *testing.T) {
 			}
 			if got := camera.atMaxZoom(); got != test.want {
 				t.Fatalf("atMaxZoom() = %t, want %t", got, test.want)
+			}
+		})
+	}
+}
+
+func TestMaxMapScale(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name                     string
+		fit, spacing, unit, want float64
+	}{
+		{name: "no berth spacing", fit: 0.025, unit: 1, want: 1},
+		{name: "berths separate at mapMaxZoom", fit: 0.025, spacing: 75, unit: 1, want: 1},
+		{name: "berths separate exactly at mapMaxZoom", fit: 0.025, spacing: 34, unit: 1, want: 1},
+		{name: "6 m berths", fit: 0.025, spacing: 6, unit: 1, want: 34.0 / 6 * mapZoomStep},
+		{name: "6 m berths at a layout unit of 2", fit: 0.05, spacing: 6, unit: 2, want: 68.0 / 6 * mapZoomStep},
+		{name: "spacing below the minimum", fit: 0.025, spacing: 0.001, unit: 1, want: 34 * mapZoomStep},
+		{name: "spacing below the minimum at a large Fit scale", fit: 2, spacing: 0.1, unit: 1, want: 80},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			if got := maxMapScale(test.fit, test.spacing, test.unit); !(math.Abs(got-test.want) <= 1e-12) {
+				t.Fatalf("maxMapScale(%g, %g, %g) = %g, want %g", test.fit, test.spacing, test.unit, got, test.want)
+			}
+		})
+	}
+}
+
+// TestEditChangesLargestZoom checks a project edit that moves a berth and
+// keeps the epoch and the network bounds. The camera does not fit again,
+// so the zoom and the pan stay, but the largest zoom follows the new berth
+// spacing. When it becomes smaller than the zoom, the zoom becomes the
+// largest zoom at the center of the map.
+func TestEditChangesLargestZoom(t *testing.T) {
+	t.Parallel()
+	network := func(spacing float64) sim.Network {
+		return sim.Network{
+			Nodes: []sim.Node{
+				{ID: "b1", Position: sim.Point{X: 100, Y: 100}},
+				{ID: "b2", Position: sim.Point{X: 100 + spacing, Y: 100}},
+				{ID: "far", Position: sim.Point{X: 100000, Y: 50000}},
+			},
+			Stations: []sim.Station{{ID: "parking", Name: "Parking", ParkingOnly: true, Berths: []sim.Berth{{ID: "1", Node: "b1"}, {ID: "2", Node: "b2"}}}},
+		}
+	}
+	game := &Game{network: network(10), state: session.State{Epoch: "server", Generation: 1}}
+	game.ensureLayout()
+	game.fitNetwork()
+	key := game.cameraKey
+	center := sim.Point{X: float64(game.camera.viewport.Min.X+game.camera.viewport.Max.X) / 2, Y: float64(game.camera.viewport.Min.Y+game.camera.viewport.Max.Y) / 2}
+	largest := func(spacing float64) float64 {
+		return maxMapScale(game.camera.minScale, spacing, game.layout.unit)
+	}
+	if got, want := game.camera.maxScale, largest(10); got != want || !(want > game.camera.minScale*mapMaxZoom) {
+		t.Fatalf("largest scale %g, want %g, more than mapMaxZoom times Fit", got, want)
+	}
+	edit := func(spacing float64) {
+		t.Helper()
+		game.network = network(spacing)
+		game.state.Generation++
+		game.state.ProjectRevision++
+		game.fitNetwork()
+		if game.cameraKey != key {
+			t.Fatalf("camera key %+v after the edit, want %+v", game.cameraKey, key)
+		}
+		if got, want := game.camera.maxScale, largest(spacing); got != want {
+			t.Fatalf("%g m berths: largest scale %g, want %g", spacing, got, want)
+		}
+		if game.mapScale != game.camera.scale || game.mapOrigin != game.camera.origin {
+			t.Fatalf("map scale %g and origin %+v not synced with the camera", game.mapScale, game.mapOrigin)
+		}
+	}
+
+	// A smaller spacing raises the largest zoom. The zoom and the pan stay.
+	game.zoomMap(1e6)
+	before := game.camera
+	edit(6)
+	if game.camera.scale != before.scale || game.camera.origin != before.origin || game.camera.minScale != before.minScale {
+		t.Fatalf("scale %g, origin %+v, Fit %g after the edit, want %g, %+v, %g", game.camera.scale, game.camera.origin, game.camera.minScale, before.scale, before.origin, before.minScale)
+	}
+	if !(game.camera.maxScale > before.maxScale) {
+		t.Fatalf("largest scale %g, want more than %g", game.camera.maxScale, before.maxScale)
+	}
+
+	// A larger spacing lowers the largest zoom below the zoom. The zoom
+	// becomes the largest zoom at the center of the map.
+	game.zoomMap(1e6)
+	world := game.camera.worldPoint(center)
+	edit(10)
+	if !game.camera.atMaxZoom() || game.camera.scale != game.camera.maxScale {
+		t.Fatalf("scale %g, want the largest scale %g", game.camera.scale, game.camera.maxScale)
+	}
+	if got := game.camera.worldPoint(center); !(math.Abs(got.X-world.X) <= 1e-6 && math.Abs(got.Y-world.Y) <= 1e-6) {
+		t.Fatalf("world point at the map center %+v, want %+v", got, world)
+	}
+}
+
+// TestSmallestSpacing checks that berths at one point, which never
+// separate, do not set the largest zoom.
+func TestSmallestSpacing(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name     string
+		spacings map[string]float64
+		want     float64
+	}{
+		{name: "no spacings"},
+		{name: "berths at one point", spacings: map[string]float64{"a": 0}},
+		{name: "smallest positive", spacings: map[string]float64{"a": 0, "b": 75, "c": 6}, want: 6},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			if got := smallestSpacing(test.spacings); got != test.want {
+				t.Fatalf("smallestSpacing(%v) = %g, want %g", test.spacings, got, test.want)
+			}
+		})
+	}
+}
+
+// maxZoomLayouts are the window sizes of the largest zoom tests.
+var maxZoomLayouts = []layoutInput{
+	{outsideWidth: minimumWidth, outsideHeight: minimumHeight, deviceScale: 1},
+	{outsideWidth: 1920, outsideHeight: 1080, deviceScale: 2},
+}
+
+// TestMaxZoomExpandsEveryStation checks the London presets with depots and
+// Compact stations, and LondonFull. Their depot slots and Compact bays are
+// 6 meters apart, and LondonFull does not separate its berths at
+// mapMaxZoom times the Fit scale in a small window. At the largest zoom,
+// also after Fit, each station shows its berths.
+func TestMaxZoomExpandsEveryStation(t *testing.T) {
+	t.Parallel()
+	compact := []string{"940GZZLURGP", "940GZZLULBN", "940GZZLULGT", "940GZZLUERB", "940GZZLUBWT", "940GZZLUHPC", "940GZZLUBOR", "940GZZDLTWG"}
+	central := scenarios.DefaultLondonCentralOptions()
+	central.ParkingLanes, central.ParkingBerths, central.CompactStations = 2, 6, compact[:7]
+	full := scenarios.DefaultLondonFullOptions()
+	full.ParkingLanes, full.ParkingBerths, full.CompactStations = 2, 6, compact
+	networks := []struct {
+		name  string
+		build func() (project.Config, error)
+		// depots is true for a network with depots and Compact stations.
+		depots bool
+	}{
+		{name: "LondonCentral with depots", build: func() (project.Config, error) { return scenarios.LondonCentralWith(central) }, depots: true},
+		{name: "LondonFull with depots", build: func() (project.Config, error) { return scenarios.LondonFullWith(full) }, depots: true},
+		{name: "LondonFull", build: func() (project.Config, error) { return scenarios.LondonFull(), nil }},
+	}
+	for _, network := range networks {
+		t.Run(network.name, func(t *testing.T) {
+			t.Parallel()
+			config, err := network.build()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if network.depots && (len(config.Network.Depots) != 3 || len(config.Network.ManeuverGroups) == 0) {
+				t.Fatalf("%d depots and %d maneuver groups, want 3 depots and Compact stations", len(config.Network.Depots), len(config.Network.ManeuverGroups))
+			}
+			for _, input := range maxZoomLayouts {
+				game := zoomedGame(config.Network, input, 1e6)
+				for _, fit := range []bool{false, true} {
+					if fit {
+						game.pressMapControl("map-fit")
+						game.zoomMap(1e6)
+					}
+					if !game.camera.atMaxZoom() {
+						t.Fatalf("%dx%d: scale %g, want the largest zoom %g", input.outsideWidth, input.outsideHeight, game.mapScale, game.camera.maxScale)
+					}
+					for _, station := range config.Network.Stations {
+						if !game.showStationBerths(station) {
+							t.Fatalf("%dx%d, Fit %t: station %s does not show its berths at the largest zoom, %g times Fit", input.outsideWidth, input.outsideHeight, fit, station.ID, game.camera.maxScale/game.camera.minScale)
+						}
+					}
+				}
+			}
+		})
+	}
+}
+
+// TestMaxZoomOfExpandedNetworks checks that the largest zoom stays
+// mapMaxZoom times the Fit scale on networks whose stations all show their
+// berths at that zoom.
+func TestMaxZoomOfExpandedNetworks(t *testing.T) {
+	t.Parallel()
+	preset := func(config project.Config) func() (project.Config, error) {
+		return func() (project.Config, error) { return config, nil }
+	}
+	networks := []struct {
+		name  string
+		build func() (project.Config, error)
+	}{
+		{name: "example", build: preset(project.Config{Network: sim.Example()})},
+		{name: "small", build: preset(scenarios.Small())},
+		{name: "busy", build: preset(scenarios.Busy())},
+		{name: "parking-constrained", build: preset(scenarios.ParkingConstrained())},
+		{name: "rail-hub", build: preset(scenarios.RailHub())},
+		{name: "scale100", build: preset(scenarios.Scale100())},
+		{name: "compact-station", build: scenarios.CompactStation},
+		{name: "small with a depot", build: func() (project.Config, error) {
+			return scenarios.PresetWith("small", func(parameters *scenarios.Parameters) { parameters.ParkingLanes = 2 })
+		}},
+		{name: "LondonCentral", build: preset(scenarios.LondonCentral())},
+	}
+	for _, network := range networks {
+		t.Run(network.name, func(t *testing.T) {
+			t.Parallel()
+			config, err := network.build()
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, input := range maxZoomLayouts {
+				game := zoomedGame(config.Network, input, 1)
+				if got, want := game.camera.maxScale, game.camera.minScale*mapMaxZoom; got != want {
+					t.Fatalf("%dx%d: largest scale %g, want %g, mapMaxZoom times Fit", input.outsideWidth, input.outsideHeight, got, want)
+				}
 			}
 		})
 	}

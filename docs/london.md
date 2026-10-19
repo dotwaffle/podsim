@@ -217,6 +217,7 @@ Until the berths of a station separate on the screen, the station shows one mark
 The marker of a passenger station is at its junction, at the mean position of its arrival portals.
 This point is within about 60 meters of the TfL station position.
 The berths are about 250 to 430 meters away, and their rings replace the marker when you zoom in.
+At the largest zoom, each station shows its berths, also the 6-meter slots of a depot and the Compact bays (see [Map navigation](../README.md#map-navigation)).
 A Parking marker stays at the center of its berths, so it does not cover the marker of its gateway station.
 The project also has more than 100 lanes, so the map sizes change with the zoom.
 A marker has a radius of 150 meters on the map, but at least 3 and at most 10 CSS pixels.

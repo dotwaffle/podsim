@@ -37,6 +37,9 @@ type networkIndex struct {
 	// nodes of a station, by station ID. It holds only the stations with two
 	// or more berth nodes in the network.
 	berthSpacing map[string]float64
+	// smallestBerthSpacing is the smallest positive value in berthSpacing,
+	// or zero. It sets the largest zoom of the camera. See maxMapScale.
+	smallestBerthSpacing float64
 	// lineLanes holds the IDs of the station lanes that continue a line.
 	lineLanes map[string]bool
 	// labelRanks holds the station label rank by station ID.
@@ -60,18 +63,32 @@ func newNetworkIndex(network sim.Network) *networkIndex {
 			passengers = append(passengers, station)
 		}
 	}
+	spacings := berthSpacings(network.Stations, positions)
 	return &networkIndex{
-		bounds:         bounds,
-		hasBounds:      hasBounds,
-		stationMonitor: observe.NewNetworkMonitor(network),
-		positions:      positions,
-		anchors:        collapsedStationAnchors(network),
-		berthSpacing:   berthSpacings(network.Stations, positions),
-		lineLanes:      stationLineLanes(network),
-		labelRanks:     stationLabelRanks(network),
-		passengers:     passengers,
-		journeys:       newJourneyCatalog(passengers),
+		bounds:               bounds,
+		hasBounds:            hasBounds,
+		stationMonitor:       observe.NewNetworkMonitor(network),
+		positions:            positions,
+		anchors:              collapsedStationAnchors(network),
+		berthSpacing:         spacings,
+		smallestBerthSpacing: smallestSpacing(spacings),
+		lineLanes:            stationLineLanes(network),
+		labelRanks:           stationLabelRanks(network),
+		passengers:           passengers,
+		journeys:             newJourneyCatalog(passengers),
 	}
+}
+
+// smallestSpacing returns the smallest positive value in spacings, or zero
+// when spacings has no positive value.
+func smallestSpacing(spacings map[string]float64) float64 {
+	smallest := 0.0
+	for _, spacing := range spacings {
+		if spacing > 0 && (smallest == 0 || spacing < smallest) {
+			smallest = spacing
+		}
+	}
+	return smallest
 }
 
 // berthSpacings returns the shortest distance in meters between two berth
