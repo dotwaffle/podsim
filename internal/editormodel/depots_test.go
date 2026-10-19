@@ -5,6 +5,7 @@ import (
 	"encoding/json/jsontext"
 	jsonv2 "encoding/json/v2"
 	"fmt"
+	"math"
 	"reflect"
 	"strings"
 	"testing"
@@ -301,14 +302,15 @@ func TestDepotDraftServerErrorFirst(t *testing.T) {
 }
 
 // lateralQueueDraft returns the preset draft with lane 2 of the depot
-// moved toward lane 1, so the lanes are width apart, and with the run
+// moved across, so the lanes are width apart, and with the run
 // lanes and the throats at speed.
 func lateralQueueDraft(t *testing.T, width, speed float64) map[string]any {
 	t.Helper()
 	draft := queueDraft(t)
 	inner, outer := queueNode(t, draft, "s05-slot-1-01"), queueNode(t, draft, "s05-slot-2-01")
-	shift := (12 - width) / 12
-	dx, dy := shift*(number(inner["x"])-number(outer["x"])), shift*(number(inner["y"])-number(outer["y"]))
+	dx, dy := number(inner["x"])-number(outer["x"]), number(inner["y"])-number(outer["y"])
+	shift := 1 - width/math.Hypot(dx, dy)
+	dx, dy = shift*dx, shift*dy
 	for _, node := range items(member(draft["network"], "nodes")) {
 		if id := text(member(node, "id")); strings.Contains(id, "-2-") || strings.HasSuffix(id, "-2") {
 			position := object(member(node, "position"))

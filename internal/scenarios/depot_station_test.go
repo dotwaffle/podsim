@@ -3,9 +3,11 @@ package scenarios
 import (
 	"fmt"
 	"math"
+	"regexp"
 	"strings"
 	"testing"
 
+	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
@@ -119,8 +121,8 @@ func TestDepotRingRefusals(t *testing.T) {
 // TestDepotLeadOut checks the departure path of each depot lane for 1, 2
 // and the most lanes. The lead-out runs at the depot speed for only
 // depotLeadOut, and it qualifies with no turn, as the chain lanes do. A
-// straight run lane at depotThroatSpeed of at least depotLead follows it,
-// and then the throat. The node and lane counts of the layout match the
+// straight run lane at depotRunSpeed of at least depotLead follows it,
+// and then the throat at depotThroatSpeed. The node and lane counts of the layout match the
 // geometry.
 func TestDepotLeadOut(t *testing.T) {
 	t.Parallel()
@@ -152,7 +154,7 @@ func TestDepotLeadOut(t *testing.T) {
 			if out.SpeedLimit != sim.DepotSpeed(depotPitch) || math.Abs(length(out)-depotLeadOut) > 1e-6 || clearance.LaneMinimum(out) != 2*clearance.LaneMinimum(chain) {
 				t.Errorf("%d lanes: lead-out %d at %g m/s is %g m long with minimum %g, chain minimum %g", lanes, lane, out.SpeedLimit, length(out), clearance.LaneMinimum(out), clearance.LaneMinimum(chain))
 			}
-			if run.From != out.To || run.To != throat.From || run.Control != nil || run.SpeedLimit != depotThroatSpeed || length(run) < depotLead-1e-6 {
+			if run.From != out.To || run.To != throat.From || run.Control != nil || run.SpeedLimit != depotRunSpeed || throat.SpeedLimit != depotThroatSpeed || length(run) < depotLead-1e-6 {
 				t.Errorf("%d lanes: run lane %d %+v is %g m long", lanes, lane, run, length(run))
 			}
 		}
@@ -160,6 +162,68 @@ func TestDepotLeadOut(t *testing.T) {
 		_, nodes, laneList, _ := depotGeometry(stationParameters{index: 4, count: 5}, layout)
 		if len(nodes) != layout.nodes()+2 || len(laneList) != layout.laneCount()+1 {
 			t.Errorf("%d lanes: %d nodes and %d lanes, want %d and %d", lanes, len(nodes), len(laneList), layout.nodes()+2, layout.laneCount()+1)
+		}
+	}
+}
+
+// TestDepotSpeedPins pins depotRunSpeed and depotThroatSpeed. The lane
+// gap audit accepts each legal layout with them. With either speed 0.1
+// m/s higher, it refuses each layout of three or more lanes, at the run
+// lane of a lane and the throat of the next lane. Two lanes accept 0.1
+// m/s more, but the speeds are the same for every layout. Without
+// -short, the test checks the acceptance for every legal layout and the
+// refusals for the fewest and the most slots of each lane count. With
+// -short, it checks 1, 3, and the most lanes.
+func TestDepotSpeedPins(t *testing.T) {
+	t.Parallel()
+	if depotRunSpeed > 2.3 || depotThroatSpeed > 2.3 {
+		t.Fatalf("run lane at %g m/s and throat at %g m/s, want at most 2.3", depotRunSpeed, depotThroatSpeed)
+	}
+	network := func(lanes, slots int, run, throat float64) sim.Network {
+		config, err := PresetWith("small", func(parameters *Parameters) {
+			*parameters = depotRing(t, lanes, slots, 0)
+			parameters.PassengerBerths = 4
+		})
+		if err != nil {
+			t.Fatalf("%d lanes of %d slots: %v", lanes, slots, err)
+		}
+		for index := range config.Network.Lanes {
+			lane := &config.Network.Lanes[index]
+			switch {
+			case strings.HasPrefix(lane.ID, "s05-run-"):
+				lane.SpeedLimit = run
+			case strings.HasPrefix(lane.ID, "s05-throat-"):
+				lane.SpeedLimit = throat
+			}
+		}
+		return config.Network
+	}
+	refusal := regexp.MustCompile(`^nonincident paths "s05-run-(\d)" and "s05-throat-(\d)" are less than 12 meters apart$`)
+	for lanes := 1; lanes <= sim.MaxDepotLanes; lanes++ {
+		if testing.Short() && lanes != 1 && lanes != 3 && lanes != sim.MaxDepotLanes {
+			continue
+		}
+		most := project.MaxBerths / lanes
+		for slots := 1; slots <= most; slots++ {
+			ends := slots == 1 || slots == most
+			if testing.Short() && !ends {
+				continue
+			}
+			if _, err := sim.PrepareNetwork(network(lanes, slots, depotRunSpeed, depotThroatSpeed)); err != nil {
+				t.Errorf("%d lanes of %d slots: %v", lanes, slots, err)
+			}
+			if lanes < 3 || !ends {
+				continue
+			}
+			for _, faster := range []struct {
+				name        string
+				run, throat float64
+			}{{"run lane", depotRunSpeed + 0.1, depotThroatSpeed}, {"throat", depotRunSpeed, depotThroatSpeed + 0.1}} {
+				_, err := sim.PrepareNetwork(network(lanes, slots, faster.run, faster.throat))
+				if match := refusal.FindStringSubmatch(fmt.Sprint(err)); len(match) != 3 || match[2][0] != match[1][0]+1 {
+					t.Errorf("%d lanes of %d slots, faster %s: %v", lanes, slots, faster.name, err)
+				}
+			}
 		}
 	}
 }

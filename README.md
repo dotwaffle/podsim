@@ -1259,7 +1259,8 @@ A London station can have 1 to 200 berths.
 A ring or mesh station can have 1 to 62 berths.
 The entry and exit nodes of a ring station have a lane for each berth, and a node can have at most 64 lanes.
 A ring depot can have at most 200 slots.
-Its lanes are 12 meters apart, its slots are 6 meters apart, and the initial Parking pods fill the heads of the lanes first.
+Its first lane is 12 meters from the through lane, its lanes are 6 meters apart, its slots are 6 meters apart, and the initial Parking pods fill the heads of the lanes first.
+Its run lanes and throats run at 2 m/s, so that the lane gap audit accepts the 6-meter spacing.
 The layout check skips the depot lanes, because the lane gap audit of the server checks them.
 
 The command writes one summary line to standard error.
@@ -1640,7 +1641,11 @@ A lead-in goes to the tail slot, a chain lane goes from each slot to the slot ah
 A fan path goes from the station entry to each lead-in, and a throat path goes from each lead-out to the station exit.
 The entry has exactly one incoming lane.
 The lanes of a depot are parallel.
-The lane gap audit checks each pair of paths that includes a depot lane or a slot, so two depot lanes must be at least 12 meters apart.
+The lane gap audit checks each pair of paths that includes a depot lane or a slot.
+Two slow paths of different lanes of one depot need only 3.1 + v²/2 meters, where v is the higher speed limit of the two, when a swept-body check clears them.
+At the depot speed, this is 4.09 meters.
+Other pairs keep their usual clearance.
+The rule assumes that the guideway keeps a pod on its lane and at the heading of its lane (see [station banks](docs/station-banks.md#depot-lanes)).
 A chain lane needs only its reduced retention, because each of its cells holds the slot ahead and both of its nodes.
 At about 1.41 m/s, slots can be 6 meters apart.
 A depot lane cannot have a separation group, and a virtual platoon run cannot hold a depot lane.

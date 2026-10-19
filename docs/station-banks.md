@@ -55,6 +55,32 @@ Maneuver groups and depots (`internal/sim/depot.go`) use the same audit.
 With a depot and no bank, the audit checks only the pairs with a depot lane or a slot.
 The editor uses the same index (`sim.NewLaneClearance`), so its checks match the server.
 
+## Depot lanes
+
+Two paths of different lanes of one depot can be closer than 12 meters.
+Only the lane paths of a depot, from the entry to the exit, and its slots can qualify.
+A pair qualifies when its paths share no node, admit no large class, do not touch the node of a large berth, and have speed limits below 3.742 m/s (`reducedClearanceSpeed`).
+A slot counts as a path at speed 0.
+The audit sweeps a body along both paths, including the turns at their ends.
+The body extends 2.5 meters behind the reference of the pod, 3.7 meters ahead, and 1.05 meters to each side, and it grows on each side for the higher speed limit `v` of the pair.
+When the two bodies never meet, the pair needs `W(v) = 3.1 + v²/2` meters along its whole length.
+Otherwise the pair needs 12 meters, and the audit error does not change.
+`W` is a 1.6-meter body width, 0.25 meters of lateral tracking on each side, the 1-meter margin of the retention rules, and twice the stop distance at `v`.
+At the depot speed of a 6-meter pitch (1.41 m/s), `W` is 4.09 meters.
+The safety check requires `W(v)` between two pods on such a pair.
+Debris on a depot lane also blocks each track cell of a qualifying neighbor that comes closer than 12 meters to the debris (section 7.2 of the incident suspension contract).
+
+The rule assumes a guideway-bound pod.
+The guideway keeps the reference of a pod within 0.25 meters of its lane and its heading at the heading of the lane.
+Thus a guidance fault cannot turn a body out of its swept envelope, and a fault stops the pod on its lane.
+This is an assumption of the model, not a derived result.
+A pod that could turn freely would need a disk of radius 2.15 meters, and `W` would be `5.81 + v²/2` meters.
+Every pair that is not a depot pair keeps its rule.
+
+The ring depots of the generated scenarios put the first lane 12 meters from the through lane, because the through lane is fast, and each next lane 6 meters further out.
+Their run lanes and throats run at 2 m/s.
+This is the highest 0.1 m/s step at or below 2.3 m/s that the audit accepts for every legal layout.
+
 ## Formats and restore
 
 Projects use version 1 with or without `banks`.

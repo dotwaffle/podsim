@@ -10,9 +10,11 @@ import (
 
 const (
 	// depotPitch is the distance in meters between two slots of a depot
-	// lane, and depotWidth the distance between two depot lanes.
+	// lane, and depotWidth the distance between two depot lanes. The lane
+	// gap audit certifies slow depot lanes at less than sim.Clearance
+	// apart (see docs/station-banks.md).
 	depotPitch = 6.0
-	depotWidth = 12.0
+	depotWidth = 6.0
 	// depotLead is the length of the lead-in and of the shortest run lane.
 	// It is more than twice the reduced retention of a small pod for any
 	// fan turn. The shortest run lane keeps the throat out of the windows
@@ -26,12 +28,18 @@ const (
 	depotLeadOut = sim.Clearance + 0.01
 	// depotStagger is the distance by which each lead-in starts after the
 	// lead-in of the lane outside it, and by which each run lane ends after
-	// the run lane of the lane inside it. A fan or a throat that turns
-	// across the lanes inside it then stays sim.Clearance from them.
+	// the run lane of the lane inside it. A fan or a throat then turns
+	// across the lanes inside it only before they start or after they
+	// end. The lane gap audit certifies the swept bodies of these pairs at
+	// the lateral clearance.
 	depotStagger = 1.0
-	// depotThroatSpeed is the speed limit of the run lanes and of the
-	// curved throat lanes.
-	depotThroatSpeed = 5.0
+	// depotRunSpeed is the speed limit of the run lanes, and
+	// depotThroatSpeed that of the curved throat lanes. Each is the
+	// highest 0.1 m/s step at or below 2.3 m/s that the lane gap audit
+	// accepts for every legal layout, which TestDepotSpeedPins pins. The
+	// run lane of a lane and the throat of the next lane bind both.
+	depotRunSpeed    = 2.0
+	depotThroatSpeed = 2.0
 )
 
 // depotLayout is the depot of a ring Parking station: lanes depot lanes of
@@ -40,11 +48,20 @@ type depotLayout struct {
 	lanes, slots int
 }
 
+// depotAcross returns the distance of a depot lane outside the through
+// lane.
+// Lane 1 is sim.Clearance outside it, because the through lane is fast,
+// and each next lane depotWidth further out.
+func depotAcross(lane int) float64 {
+	return sim.Clearance + depotWidth*float64(lane-1)
+}
+
 // fan returns the length along the station of each fan and throat lane.
-// It lets the outer fan reach its lane, and it is at least 2*sim.Clearance,
-// because a curved lane does not qualify.
+// It lets the outer fan reach its lane with an end curvature that the
+// lane gap audit accepts, and it is at least 2*sim.Clearance, because a
+// curved lane does not qualify.
 func (layout depotLayout) fan() float64 {
-	return max(math.Ceil(depotWidth*math.Sqrt(2*float64(layout.lanes)))+1, 2*sim.Clearance)
+	return max(math.Ceil(math.Sqrt(2*depotAcross(layout.lanes)*sim.Clearance))+1, 2*sim.Clearance)
 }
 
 // start returns the distance from the entry to the start of the lead-in of
@@ -102,13 +119,13 @@ func depotSlotID(lane, slot int) string {
 
 // depotGeometry returns the Parking station of a ring as a depot. The
 // depot lanes run along the station from the entry side to the exit side,
-// depotWidth apart and outside the through lane. A curved fan lane goes
-// from the entry to the lead-in of each lane. A straight lead-out leaves
-// the head slot of each lane, a straight run lane goes on from it, and a
-// curved throat lane goes from the run lane to the exit. The lead-in, the
-// chain lanes and the lead-out run at the depot speed. The run lane and the
-// throat run at depotThroatSpeed, so a departing pod speeds up after
-// depotLeadOut.
+// outside the through lane, at the distances of depotAcross. A curved fan
+// lane goes from the entry to the lead-in of each lane. A straight
+// lead-out leaves the head slot of each lane, a straight run lane goes on
+// from it, and a curved throat lane goes from the run lane to the exit.
+// The lead-in, the chain lanes and the lead-out run at the depot speed.
+// The run lane runs at depotRunSpeed and the throat at depotThroatSpeed,
+// so a departing pod speeds up after depotLeadOut.
 func depotGeometry(parameters stationParameters, layout depotLayout) (sim.Station, []sim.Node, []sim.Lane, sim.Depot) {
 	theta := 2 * math.Pi * float64(parameters.index) / float64(parameters.count)
 	radius := 180 * float64(parameters.count)
@@ -132,7 +149,7 @@ func depotGeometry(parameters stationParameters, layout depotLayout) (sim.Statio
 		StationID: station.ID, StationRole: sim.StationThroughRole,
 	}}
 	for lane := 1; lane <= layout.lanes; lane++ {
-		across := depotWidth * float64(lane)
+		across := depotAcross(lane)
 		lead, cleared, tail := fmt.Sprintf("%s-lead-%d", prefix, lane), fmt.Sprintf("%s-clear-%d", prefix, lane), fmt.Sprintf("%s-tail-%d", prefix, lane)
 		slotNode := func(slot int) string { return fmt.Sprintf("%s-slot-%d-%02d", prefix, lane, slot) }
 		nodes = append(nodes, sim.Node{ID: lead, Position: at(layout.start(lane), across)},
@@ -154,7 +171,7 @@ func depotGeometry(parameters stationParameters, layout depotLayout) (sim.Statio
 		}
 		lanes = append(lanes,
 			sim.Lane{ID: fmt.Sprintf("%s-out-%d", prefix, lane), From: slotNode(1), To: cleared, SpeedLimit: speed},
-			sim.Lane{ID: fmt.Sprintf("%s-run-%d", prefix, lane), From: cleared, To: tail, SpeedLimit: depotThroatSpeed},
+			sim.Lane{ID: fmt.Sprintf("%s-run-%d", prefix, lane), From: cleared, To: tail, SpeedLimit: depotRunSpeed},
 			sim.Lane{ID: fmt.Sprintf("%s-throat-%d", prefix, lane), From: tail, To: exitID, SpeedLimit: depotThroatSpeed, Control: new(at((layout.tail(lane)+layout.length())/2, across))},
 		)
 		depot.Lanes = append(depot.Lanes, sim.DepotLane{BerthIDs: ids})
