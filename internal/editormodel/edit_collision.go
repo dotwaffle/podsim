@@ -164,6 +164,13 @@ func (g geometryDraft) laneConflict(ids []string, separationGroups bool) *geomet
 			if separationGroups && first != "" && second != "" && first != second {
 				continue
 			}
+			// The lanes of one maneuver group never move at once, and the
+			// server certifies them against the parked bays.
+			if group, grouped := clearance.grouped[id]; grouped {
+				if otherGroup, otherGrouped := clearance.grouped[text(other.lane["id"])]; otherGrouped && otherGroup == group {
+					continue
+				}
+			}
 			if gap, minimum, conflict := clearance.pairConflict(path, other); conflict {
 				return &geometryConflict{id, text(other.lane["id"]), gap, minimum}
 			}

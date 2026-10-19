@@ -22,7 +22,7 @@ import (
 )
 
 // presets lists the preset names in help order.
-var presets = []string{"small", "busy", "parking-constrained", "rail-hub", "scale100", "london-central", "london-full", "independent-banks"}
+var presets = []string{"small", "busy", "parking-constrained", "rail-hub", "scale100", "london-central", "london-full", "independent-banks", "compact-station"}
 
 func main() {
 	if err := run(os.Args[1:], os.Stdout, os.Stderr); err != nil && !errors.Is(err, flag.ErrHelp) {
@@ -130,12 +130,18 @@ func presetConfig(name string, options capacity) (project.Config, error) {
 	if !slices.Contains(presets, name) {
 		return project.Config{}, fmt.Errorf("unknown preset %q", name)
 	}
-	if name == "independent-banks" {
+	fixtures := map[string]string{"independent-banks": "independent bank fixture", "compact-station": "compact station fixture"}
+	if fixture, ok := fixtures[name]; ok {
 		for _, key := range []string{"station-berths", "parking-berths", "station-pods", "parking-pods", "berths", "berth-pitch"} {
 			if options.set[key] {
-				return project.Config{}, fmt.Errorf("-%s does not apply to the independent bank fixture", key)
+				return project.Config{}, fmt.Errorf("-%s does not apply to the %s", key, fixture)
 			}
 		}
+	}
+	if name == "compact-station" {
+		return scenarios.CompactStation()
+	}
+	if name == "independent-banks" {
 		config := project.Default()
 		config.Name, config.Network = "Independent station banks", sim.BankExample()
 		config.Fleet = []sim.Placement{{ID: "01", StationID: "origin", BerthID: "origin-1"}, {ID: "02", StationID: "hub", BerthID: "bank-a-1"}, {ID: "03", StationID: "parking", BerthID: "parking-1"}}

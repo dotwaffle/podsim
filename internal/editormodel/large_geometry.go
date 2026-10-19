@@ -4,19 +4,41 @@ import "github.com/dotwaffle/podsim/internal/sim"
 
 // draftClearance is the lane clearance index of one draft network, so the
 // editor applies the lane minimums and the pair clearances of the server.
-// Its zero value keeps the class bounds.
+// Its zero value keeps the class bounds. grouped holds the lanes of the
+// maneuver groups, which have no minimum length.
 type draftClearance struct {
-	index sim.LaneClearance
+	index   sim.LaneClearance
+	grouped map[string]string
 }
 
 // newDraftClearance returns the index of a draft network. A draft with an
 // invalid class set gets the zero index.
 func newDraftClearance(network any) draftClearance {
-	typed, ok := draftClearanceNetwork(network)
-	if !ok {
-		return draftClearance{}
+	clearance := draftClearance{grouped: draftManeuverLanes(network)}
+	if typed, ok := draftClearanceNetwork(network); ok {
+		clearance.index = sim.NewLaneClearance(typed)
 	}
-	return draftClearance{index: sim.NewLaneClearance(typed)}
+	return clearance
+}
+
+// draftManeuverLanes returns the maneuver group ID of each group lane of a
+// draft, by lane ID. The first group of a lane wins.
+func draftManeuverLanes(network any) map[string]string {
+	groups := make(map[string]string)
+	for _, group := range items(member(network, "maneuverGroups")) {
+		for _, lane := range items(member(group, "laneIDs")) {
+			if _, found := groups[text(lane)]; !found {
+				groups[text(lane)] = text(member(group, "id"))
+			}
+		}
+	}
+	return groups
+}
+
+// hasManeuverGroups reports whether a draft has a maneuver group. Such a
+// draft gets the full validation of the server.
+func hasManeuverGroups(network any) bool {
+	return len(items(member(network, "maneuverGroups"))) > 0
 }
 
 // draftClearanceNetwork copies the members of a draft that the index reads.
@@ -63,9 +85,13 @@ func draftSimLane(item any) (sim.Lane, bool) {
 	return lane, valid
 }
 
-// laneMinimum returns the minimum length of a draft lane. A lane with an
-// invalid class set needs 2*sim.Clearance.
+// laneMinimum returns the minimum length of a draft lane. A lane of a
+// maneuver group has none, and the server checks only that its length is
+// positive. A lane with an invalid class set needs 2*sim.Clearance.
 func (c draftClearance) laneMinimum(lane any) float64 {
+	if _, grouped := c.grouped[text(member(lane, "id"))]; grouped {
+		return 0
+	}
 	typed, valid := draftSimLane(lane)
 	if !valid {
 		return 2 * sim.Clearance

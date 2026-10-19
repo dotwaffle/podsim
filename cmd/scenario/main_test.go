@@ -68,6 +68,27 @@ func TestRunWritesIndependentBankFixture(t *testing.T) {
 	}
 }
 
+func TestRunWritesCompactStationPreset(t *testing.T) {
+	t.Parallel()
+	var output bytes.Buffer
+	if err := run([]string{"-preset", "compact-station"}, &output, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	var config project.Config
+	if err := jsonv2.Unmarshal(output.Bytes(), &config, json.DefaultOptionsV1()); err != nil {
+		t.Fatal(err)
+	}
+	if err := project.Validate(config); err != nil {
+		t.Fatal(err)
+	}
+	if len(config.Network.ManeuverGroups) != 1 || len(config.Network.ManeuverGroups[0].BerthIDs) != 4 || len(config.Fleet) != 6 {
+		t.Fatal("preset lost its maneuver group or pods")
+	}
+	if err := run([]string{"-preset", "compact-station", "-berth-pitch", "40"}, &bytes.Buffer{}, io.Discard); err == nil {
+		t.Fatal("preset accepted a whole-station generation flag")
+	}
+}
+
 func TestRunWritesRailHubPreset(t *testing.T) {
 	t.Parallel()
 	var output bytes.Buffer

@@ -47,6 +47,12 @@ func validateBankDraft(network any) error {
 		}
 		return nil
 	}
+	if hasManeuverGroups(network) {
+		if _, err := sim.PrepareNetwork(typed); err != nil {
+			return fmt.Errorf("validate maneuver groups: %w", err)
+		}
+		return nil
+	}
 	if err := typed.ValidateBankGeometry(); err != nil {
 		return fmt.Errorf("validate bank geometry: %w", err)
 	}

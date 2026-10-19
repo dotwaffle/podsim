@@ -256,6 +256,7 @@ It reports them as unaccounted orders at each restore, together with the orders 
   The tier checks each saved link against the network and the other pods, and a link that is not valid fails the tier.
   A run can end on the entry lane of the destination station of both pods.
   A run that holds a lane from the entry node of that station, or the entry lane of another station, is not valid.
+  A run that holds a lane of a [maneuver group](../README.md#compact-bays) is not valid.
   The file does not keep the platoon limit, so the restore uses the `platoonLimit` of the project.
   The file keeps the shared ride mode.
   A file without the mode restores in the default `drop-offs` mode.
@@ -381,6 +382,10 @@ Then the party of the record must be aboard the pod, and `interrupt` must name o
 A pod with a record and purpose 2 or 3 must have no party aboard.
 Bank-inconsistent retained routes reject restoration before either tier.
 See [independent station banks](station-banks.md) for bank membership, routing, and browser editing.
+The optional network member `maneuverGroups` of the [compact bays](../README.md#compact-bays) keeps the save version 9, the stream version 7, and the HTTP state `state-6`.
+A network without groups writes the same bytes as before.
+The file does not keep the 1 second stop at a change of the reverse flag.
+Thus a pod that was in this stop stops for the full second again after a restore.
 An older server rejects version 9 with `unsupported_version` and moves the file aside.
 Keep a copy before a downgrade.
 

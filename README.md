@@ -911,6 +911,7 @@ Image imports prepare any required history trim before publication and keep the 
 If a worker acknowledgment fails, apply stops and the visible draft remains available for export.
 The browser keeps queued input and waits for pending edits before apply, export, undo, or redo.
 Validation checks routes between passenger stations, berth routes, pod placement, resource IDs, and the 24-meter minimum lane length.
+A lane of a [maneuver group](#compact-bays) has no minimum length, but its length must be more than 0.
 A route between passenger stations goes from each berth of one station to each berth of the other station.
 It can use all lanes.
 A berth route goes from the station entry to the berth, or from the berth to the station exit.
@@ -925,6 +926,8 @@ The server accepts a command body of 16 MiB or less, and 32 MiB plus 64 KiB of c
 Before the editor pauses the simulation for an apply, it checks the size of the project and shows the limit.
 A project can have at most 600 stations, 12,000 nodes, 20,000 lanes, and 600 pods.
 Each station can have at most 200 berths.
+A project can have at most 8 maneuver groups.
+A group can have at most 64 lanes, 64 reverse lanes, and 8 berths.
 A node can have at most 64 lanes, counted at the start node and at the end node of each lane.
 At each node, the simulator compares each ordered pair of two different lanes at the node when it starts.
 The total of these pairs over all nodes can be at most 250,000, for example about 62 nodes with 64 lanes each.
@@ -1296,6 +1299,19 @@ Demand starts disabled.
 A short DLR smoke run does not establish sustainable capacity.
 The earlier finite-arrival studies used the Tube-only preset.
 
+#### compact-station
+
+The compact-station preset has a station with four [compact bays](#compact-bays) at 25 degrees and a 6 m pitch.
+Pods wait at a holding node and go through a shared aisle one at a time to park at rest in a bay.
+A pod that leaves backs out of its bay, stops for 1 second at the aisle, and drives forward to a receiving node.
+The lanes of the bays and the aisle have a speed limit of 2 m/s.
+A loop connects the station to an ordinary station with three berths.
+The preset has 6 Compact pods, and the capacity flags do not apply to it.
+
+```sh
+mise run scenario -- -preset compact-station -output /tmp/podsim-compact.json
+```
+
 ## Scope and model
 
 ### Time, geometry, and routing
@@ -1563,6 +1579,38 @@ Passenger and parking stations can have multiple berths.
 Berths can connect through intermediate arrival and departure lanes, separate from through traffic.
 Station-local paths cannot cross another berth or station.
 Each station retains a direct entry-to-exit through lane.
+
+#### Compact bays
+
+The optional network member `maneuverGroups` adds angled bays for Compact pods to a station.
+Each group has an `id`, a `stationID`, and the `laneIDs`, `berthIDs`, and `reverseLaneIDs` of the group.
+A pod on a reverse lane faces against its direction of travel.
+Each lane and berth of a group admits only Compact pods.
+Each berth of a group needs a closed bay chain.
+This is a chain of group lanes from a branch node to the berth, and a chain of reverse lanes back over the same nodes.
+A node inside a chain has only the four lanes of its chain, and the berth node has only its two lanes.
+The reverse lanes of the group are the lanes of these chains back to the branch nodes.
+A lane of a group has no minimum length.
+
+Only one pod at a time moves on the lanes of a group.
+All cells of the group lanes share one junction resource.
+A pod in a virtual platoon cannot share this resource, or a lane of the group, with the pod ahead.
+Each cell of a bay chain also holds the berth of the chain, so a pod in a bay chain always owns that berth.
+When the reverse flag changes between two lanes of a route, the pod stops for 1 second at the start of the second lane.
+Pickup and emergency estimates do not include this stop.
+
+When the server prepares the network, it sweeps the body of a Compact pod along each lane of a group.
+The sweep includes the turns in place at the nodes and at the berths.
+Each lane must be clear of the parked envelope of each berth of the group, except the berth of its own chain.
+The envelope is 5 m long and 2.1 m wide, with its center 1.2 m ahead of the berth node.
+Each two envelopes of a group must also be clear of each other.
+Otherwise the network is not valid, and the error names the lane and the berth, for example `maneuver group "compact-bays" lane "bay-2-in-3" is not clear of berth "bay-3"`.
+The lane gap audit and the separation check skip each pair that the sweep clears.
+
+A pod that waits for a full bay can wait for a pod that waits for the exit.
+As at an ordinary station, a custom network with more pods than its bays and roads can hold can stall.
+The `compact-station` preset has enough room for its pods.
+The map shows a pod in a bay as a round mark, with no heading.
 
 #### Idle pods
 

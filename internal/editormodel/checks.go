@@ -212,7 +212,7 @@ func checkNetwork(value any, errors *checkList) *draftNetwork {
 	g.checkStations(ids, pairs, errors)
 	g.checkBerthRoutes(errors)
 	g.checkStationRoles(errors)
-	if hasBanks(value) || hasLargeGeometry(value) && draftGeometryClassesValid(value) && len(errors.items) == previousErrors {
+	if hasBanks(value) || (hasLargeGeometry(value) || hasManeuverGroups(value)) && draftGeometryClassesValid(value) && len(errors.items) == previousErrors {
 		if err := validateBankDraft(value); err != nil {
 			errors.add(err.Error(), nil)
 		}
