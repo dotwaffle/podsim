@@ -36,74 +36,96 @@ func (a *StreamAssembler) expressOrders(frame StreamFrame) error {
 	if frame.State.Simulation.OrderContract != a.topology.OrderContract {
 		return errors.New("state contract does not match topology")
 	}
-	outstanding := len(frame.State.Simulation.Pending)
+	if err := a.expressPendingOrders(frame); err != nil {
+		return err
+	}
+	active, err := a.expressVehicleOrders(frame)
+	if err != nil {
+		return err
+	}
+	if len(frame.State.Simulation.Pending)+active > sim.MaxExpressWaitingTrips {
+		return errors.New("express outstanding orders exceed supported limit")
+	}
+	return nil
+}
+
+func (a *StreamAssembler) expressPendingOrders(frame StreamFrame) error {
 	for _, r := range frame.State.Simulation.Pending {
 		if !validStreamOrderContract(r, a.topology.OrderContract) || !a.validLegOrigin(r) {
 			return errors.New("invalid Express pending order")
 		}
-		if _, err := a.expressService(r); err != nil {
+		limit, err := a.expressService(r)
+		if err != nil {
 			return err
 		}
 		// A pending order must have a compatible certified vehicle and passenger path.
-		compatible := false
-		for _, v := range frame.State.Simulation.Vehicles {
-			limit, _ := a.expressService(r)
-			if sim.CheckPartyAdmissionWithOrderContract(sim.PartyAdmissionInput{Class: v.Pod.Class, Request: orderOptions(r), PartyLimit: limit}, a.topology.OrderContract) == nil && a.passengerPath(r, v.Pod.Class) {
-				compatible = true
-				break
-			}
-		}
-		if !compatible && !a.strandedOrder(r, frame) {
+		if !a.servedOrder(r, limit, frame) && !a.strandedOrder(r, frame) {
 			return errors.New("pending order has no compatible class and passenger path")
 		}
 	}
+	return nil
+}
+
+// servedOrder reports whether some vehicle admits the party of a pending
+// order and its class has a passenger path for the order.
+func (a *StreamAssembler) servedOrder(r sim.Request, limit int, frame StreamFrame) bool {
+	for _, v := range frame.State.Simulation.Vehicles {
+		if sim.CheckPartyAdmissionWithOrderContract(sim.PartyAdmissionInput{Class: v.Pod.Class, Request: orderOptions(r), PartyLimit: limit}, a.topology.OrderContract) == nil && a.passengerPath(r, v.Pod.Class) {
+			return true
+		}
+	}
+	return false
+}
+
+// expressVehicleOrders checks the vehicles and their riders. It returns
+// the number of active riders.
+func (a *StreamAssembler) expressVehicleOrders(frame StreamFrame) (int, error) {
+	active := 0
 	for _, v := range frame.State.Simulation.Vehicles {
 		profile, known := sim.LookupVehicleClassWithOrderContract(v.Pod.Class, a.topology.OrderContract)
 		if !known || sim.ValidateVehicleClassProfileWithOrderContract(v.Pod.Class, a.topology.OrderContract) != nil {
-			return errors.New("unsupported Express stream vehicle")
+			return 0, errors.New("unsupported Express stream vehicle")
 		}
 		if old, exists := a.classes[v.Pod.ID]; exists && old != profile.Class {
-			return errors.New("stream vehicle class changed within project")
+			return 0, errors.New("stream vehicle class changed within project")
 		}
 		if len(v.Riders) > sim.MaxStoredRidersForOrderContract(v.Pod.Class, a.topology.OrderContract) {
-			return errors.New("too many stored riders")
+			return 0, errors.New("too many stored riders")
 		}
 		facts := []sim.PartyFacts{}
 		for _, r := range v.Riders {
-			if !validStreamOrderContract(r, a.topology.OrderContract) {
-				return errors.New("invalid Express rider order")
+			var err error
+			if facts, err = a.expressRider(r, profile.Class, facts); err != nil {
+				return 0, err
 			}
-			if _, err := a.expressService(r); err != nil {
-				return err
+			if !r.Completed {
+				active++
 			}
-			if r.Completed {
-				limit, err := a.expressService(r)
-				if err != nil {
-					return err
-				}
-				if err := sim.CheckPartyAdmissionWithOrderContract(sim.PartyAdmissionInput{Class: profile.Class, Request: orderOptions(r), PartyLimit: limit}, a.topology.OrderContract); err != nil {
-					return err
-				}
-				continue
-			}
-			outstanding++
-			if !a.passengerPath(r, profile.Class) {
-				return errors.New("active rider has incompatible profile or passenger path")
-			}
-			limit, err := a.expressService(r)
-			if err != nil {
-				return err
-			}
-			if err := sim.CheckPartyAdmissionWithOrderContract(sim.PartyAdmissionInput{Class: profile.Class, Request: orderOptions(r), Active: facts, PartyLimit: limit}, a.topology.OrderContract); err != nil {
-				return err
-			}
-			facts = append(facts, sim.PartyFacts{TripOptions: orderOptions(r)})
 		}
 	}
-	if outstanding > sim.MaxExpressWaitingTrips {
-		return errors.New("express outstanding orders exceed supported limit")
+	return active, nil
+}
+
+// expressRider checks a rider of a vehicle of the class. facts holds the
+// active riders before r. It returns facts with r added when r is active.
+func (a *StreamAssembler) expressRider(r sim.Request, class sim.VehicleClass, facts []sim.PartyFacts) ([]sim.PartyFacts, error) {
+	if !validStreamOrderContract(r, a.topology.OrderContract) {
+		return facts, errors.New("invalid Express rider order")
 	}
-	return nil
+	limit, err := a.expressService(r)
+	if err != nil {
+		return facts, err
+	}
+	if r.Completed {
+		return facts, sim.CheckPartyAdmissionWithOrderContract(sim.PartyAdmissionInput{Class: class, Request: orderOptions(r), PartyLimit: limit}, a.topology.OrderContract)
+	}
+	if !a.passengerPath(r, class) {
+		return facts, errors.New("active rider has incompatible profile or passenger path")
+	}
+	if err := sim.CheckPartyAdmissionWithOrderContract(sim.PartyAdmissionInput{Class: class, Request: orderOptions(r), Active: facts, PartyLimit: limit}, a.topology.OrderContract); err != nil {
+		return facts, err
+	}
+	return append(facts, sim.PartyFacts{TripOptions: orderOptions(r)}), nil
 }
 
 // strandedOrder reports whether a pending order with no compatible class
