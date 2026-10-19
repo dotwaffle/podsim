@@ -13,16 +13,24 @@ const (
 	// lane, and depotWidth the distance between two depot lanes.
 	depotPitch = 6.0
 	depotWidth = 12.0
-	// depotLead is the length of the lead-in and of the shortest lead-out.
+	// depotLead is the length of the lead-in and of the shortest run lane.
 	// It is more than twice the reduced retention of a small pod for any
-	// fan turn, and the shortest lead-out lets each chain lane qualify.
+	// fan turn. The shortest run lane keeps the throat out of the windows
+	// of the chain lanes and of the lead-out, so they qualify with no turn.
 	depotLead = 2*sim.Clearance + 0.01
+	// depotLeadOut is the length of the lead-out, the depot speed lane from
+	// the head slot to the run lane. The run lane is faster than the depot
+	// speed, so the lane gap audit needs sim.Clearance between it and the
+	// chain lane to the head slot. The lead-out is also more than twice its
+	// reduced retention with no turn.
+	depotLeadOut = sim.Clearance + 0.01
 	// depotStagger is the distance by which each lead-in starts after the
-	// lead-in of the lane outside it, and by which each lead-out ends after
-	// the lead-out of the lane inside it. A fan or a throat that turns
+	// lead-in of the lane outside it, and by which each run lane ends after
+	// the run lane of the lane inside it. A fan or a throat that turns
 	// across the lanes inside it then stays sim.Clearance from them.
 	depotStagger = 1.0
-	// depotThroatSpeed is the speed limit of the curved throat lanes.
+	// depotThroatSpeed is the speed limit of the run lanes and of the
+	// curved throat lanes.
 	depotThroatSpeed = 5.0
 )
 
@@ -51,10 +59,16 @@ func (layout depotLayout) slot(lane, slot int) float64 {
 	return layout.start(lane) + depotLead + depotPitch*float64(layout.slots-slot)
 }
 
-// tail returns the distance from the entry to the end of the lead-out of
+// clear returns the distance from the entry to the end of the lead-out of
+// lane.
+func (layout depotLayout) clear(lane int) float64 {
+	return layout.slot(lane, 1) + depotLeadOut
+}
+
+// tail returns the distance from the entry to the end of the run lane of
 // lane.
 func (layout depotLayout) tail(lane int) float64 {
-	return layout.slot(1, 1) + depotLead + float64(lane-1)*depotStagger
+	return layout.clear(1) + depotLead + float64(lane-1)*depotStagger
 }
 
 // length returns the distance from the entry to the exit.
@@ -64,8 +78,8 @@ func (layout depotLayout) length() float64 {
 
 // nodes and laneCount return the number of nodes and lanes of the depot
 // station, without its entry and exit nodes and its through lane.
-func (layout depotLayout) nodes() int     { return layout.lanes * (layout.slots + 2) }
-func (layout depotLayout) laneCount() int { return layout.lanes * (layout.slots + 3) }
+func (layout depotLayout) nodes() int     { return layout.lanes * (layout.slots + 3) }
+func (layout depotLayout) laneCount() int { return layout.lanes * (layout.slots + 4) }
 
 // checkDepotLayout checks the lane and slot counts of a depot. The caller
 // refuses a negative lane count, and a depot has at least one lane. The
@@ -89,9 +103,12 @@ func depotSlotID(lane, slot int) string {
 // depotGeometry returns the Parking station of a ring as a depot. The
 // depot lanes run along the station from the entry side to the exit side,
 // depotWidth apart and outside the through lane. A curved fan lane goes
-// from the entry to the lead-in of each lane, and a curved throat lane goes
-// from the lead-out of each lane to the exit. The chain lanes and the lead
-// lanes run at the depot speed.
+// from the entry to the lead-in of each lane. A straight lead-out leaves
+// the head slot of each lane, a straight run lane goes on from it, and a
+// curved throat lane goes from the run lane to the exit. The lead-in, the
+// chain lanes and the lead-out run at the depot speed. The run lane and the
+// throat run at depotThroatSpeed, so a departing pod speeds up after
+// depotLeadOut.
 func depotGeometry(parameters stationParameters, layout depotLayout) (sim.Station, []sim.Node, []sim.Lane, sim.Depot) {
 	theta := 2 * math.Pi * float64(parameters.index) / float64(parameters.count)
 	radius := 180 * float64(parameters.count)
@@ -116,9 +133,10 @@ func depotGeometry(parameters stationParameters, layout depotLayout) (sim.Statio
 	}}
 	for lane := 1; lane <= layout.lanes; lane++ {
 		across := depotWidth * float64(lane)
-		lead, tail := fmt.Sprintf("%s-lead-%d", prefix, lane), fmt.Sprintf("%s-tail-%d", prefix, lane)
+		lead, cleared, tail := fmt.Sprintf("%s-lead-%d", prefix, lane), fmt.Sprintf("%s-clear-%d", prefix, lane), fmt.Sprintf("%s-tail-%d", prefix, lane)
 		slotNode := func(slot int) string { return fmt.Sprintf("%s-slot-%d-%02d", prefix, lane, slot) }
-		nodes = append(nodes, sim.Node{ID: lead, Position: at(layout.start(lane), across)}, sim.Node{ID: tail, Position: at(layout.tail(lane), across)})
+		nodes = append(nodes, sim.Node{ID: lead, Position: at(layout.start(lane), across)},
+			sim.Node{ID: cleared, Position: at(layout.clear(lane), across)}, sim.Node{ID: tail, Position: at(layout.tail(lane), across)})
 		lanes = append(lanes,
 			sim.Lane{ID: fmt.Sprintf("%s-fan-%d", prefix, lane), From: entryID, To: lead, SpeedLimit: speed, Control: new(at(layout.start(lane)/2, across))},
 			sim.Lane{ID: fmt.Sprintf("%s-in-%d", prefix, lane), From: lead, To: slotNode(layout.slots), SpeedLimit: speed},
@@ -135,7 +153,8 @@ func depotGeometry(parameters stationParameters, layout depotLayout) (sim.Statio
 			ids = append(ids, depotSlotID(lane, slot))
 		}
 		lanes = append(lanes,
-			sim.Lane{ID: fmt.Sprintf("%s-out-%d", prefix, lane), From: slotNode(1), To: tail, SpeedLimit: speed},
+			sim.Lane{ID: fmt.Sprintf("%s-out-%d", prefix, lane), From: slotNode(1), To: cleared, SpeedLimit: speed},
+			sim.Lane{ID: fmt.Sprintf("%s-run-%d", prefix, lane), From: cleared, To: tail, SpeedLimit: depotThroatSpeed},
 			sim.Lane{ID: fmt.Sprintf("%s-throat-%d", prefix, lane), From: tail, To: exitID, SpeedLimit: depotThroatSpeed, Control: new(at((layout.tail(lane)+layout.length())/2, across))},
 		)
 		depot.Lanes = append(depot.Lanes, sim.DepotLane{BerthIDs: ids})

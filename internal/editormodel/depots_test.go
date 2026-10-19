@@ -63,11 +63,11 @@ func TestDepotDraftChecks(t *testing.T) {
 	if report := draftChecks(short); len(report.Errors) != 1 || !strings.HasPrefix(report.Errors[0].Text, "Lane s05-chain-1-02 is shorter than 5.49") {
 		t.Fatalf("short chain lane: %+v", report.Errors)
 	}
-	// The tail node of lane 1 off the line of the lane passes the editor
-	// checks, and only the depot rules of the server refuse it.
+	// The end of the lead-out of lane 1 off the line of the lane passes the
+	// editor checks, and only the depot rules of the server refuse it.
 	bent := queueDraft(t)
-	tail := queueNode(t, bent, "s05-tail-1")
-	tail["x"] = number(tail["x"]) + 0.5
+	end := queueNode(t, bent, "s05-clear-1")
+	end["x"] = number(end["x"]) - 0.5
 	report := draftChecks(bent)
 	if len(report.Errors) != 1 || report.Errors[0].Text != `validate depots: depot station "parking" lane 0 is not straight and ordered` {
 		t.Fatalf("bent lane: %+v", report.Errors)

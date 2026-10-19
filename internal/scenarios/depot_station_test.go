@@ -1,6 +1,8 @@
 package scenarios
 
 import (
+	"fmt"
+	"math"
 	"strings"
 	"testing"
 
@@ -111,5 +113,53 @@ func TestDepotRingRefusals(t *testing.T) {
 	}
 	if _, err := PresetWith("scale100", func(parameters *Parameters) { parameters.ParkingLanes = 2 }); err == nil || err.Error() != "parking lanes apply only to a ring" {
 		t.Errorf("mesh: got %v", err)
+	}
+}
+
+// TestDepotLeadOut checks the departure path of each depot lane for 1, 2
+// and the most lanes. The lead-out runs at the depot speed for only
+// depotLeadOut, and it qualifies with no turn, as the chain lanes do. A
+// straight run lane at depotThroatSpeed of at least depotLead follows it,
+// and then the throat. The node and lane counts of the layout match the
+// geometry.
+func TestDepotLeadOut(t *testing.T) {
+	t.Parallel()
+	for _, lanes := range []int{1, 2, sim.MaxDepotLanes} {
+		config, err := PresetWith("small", func(parameters *Parameters) {
+			*parameters = depotRing(t, lanes, 3, 0)
+			parameters.PassengerBerths = 4
+		})
+		if err != nil {
+			t.Fatalf("%d lanes: %v", lanes, err)
+		}
+		network := config.Network
+		positions := make(map[string]sim.Point)
+		for _, node := range network.Nodes {
+			positions[node.ID] = node.Position
+		}
+		byID := make(map[string]sim.Lane)
+		for _, lane := range network.Lanes {
+			byID[lane.ID] = lane
+		}
+		length := func(lane sim.Lane) float64 {
+			from, to := positions[lane.From], positions[lane.To]
+			return math.Hypot(to.X-from.X, to.Y-from.Y)
+		}
+		clearance := sim.NewLaneClearance(network)
+		for lane := 1; lane <= lanes; lane++ {
+			out, run, throat := byID[fmt.Sprintf("s05-out-%d", lane)], byID[fmt.Sprintf("s05-run-%d", lane)], byID[fmt.Sprintf("s05-throat-%d", lane)]
+			chain := byID[fmt.Sprintf("s05-chain-%d-01", lane)]
+			if out.SpeedLimit != sim.DepotSpeed(depotPitch) || math.Abs(length(out)-depotLeadOut) > 1e-6 || clearance.LaneMinimum(out) != 2*clearance.LaneMinimum(chain) {
+				t.Errorf("%d lanes: lead-out %d at %g m/s is %g m long with minimum %g, chain minimum %g", lanes, lane, out.SpeedLimit, length(out), clearance.LaneMinimum(out), clearance.LaneMinimum(chain))
+			}
+			if run.From != out.To || run.To != throat.From || run.Control != nil || run.SpeedLimit != depotThroatSpeed || length(run) < depotLead-1e-6 {
+				t.Errorf("%d lanes: run lane %d %+v is %g m long", lanes, lane, run, length(run))
+			}
+		}
+		layout := depotLayout{lanes: lanes, slots: 3}
+		_, nodes, laneList, _ := depotGeometry(stationParameters{index: 4, count: 5}, layout)
+		if len(nodes) != layout.nodes()+2 || len(laneList) != layout.laneCount()+1 {
+			t.Errorf("%d lanes: %d nodes and %d lanes, want %d and %d", lanes, len(nodes), len(laneList), layout.nodes()+2, layout.laneCount()+1)
+		}
 	}
 }
