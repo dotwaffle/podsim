@@ -85,14 +85,41 @@ func (step sweepStep) at(fraction float64) sweepPose {
 	return sweepPose{x: step.start.x + step.dx*fraction, y: step.start.y + step.dy*fraction, heading: step.start.heading + step.sweep*fraction}
 }
 
-// travel bounds the distance that a corner of the body moves in the step.
-func (step sweepStep) travel() float64 {
-	return math.Hypot(step.dx, step.dy) + math.Hypot(sweepFront, sweepHalfWidth)*math.Abs(step.sweep)
+// travel bounds the distance that a corner of a body moves in the step.
+func (step sweepStep) travel(body sweepBody) float64 {
+	return math.Hypot(step.dx, step.dy) + body.reach*math.Abs(step.sweep)
 }
 
-// sweepRectangle is a parked envelope.
+// sweepBody is a moving body: its corners about the point on the path, and
+// reach, the largest distance of a corner from that point.
+type sweepBody struct {
+	corners [4]Point
+	reach   float64
+}
+
+// maneuverBody is the moving body of the maneuver certification.
+var maneuverBody = newSweepBody(sweepRear, sweepFront, sweepHalfWidth)
+
+// newSweepBody returns a body that extends rear and front along its heading
+// and halfWidth to each side.
+func newSweepBody(rear, front, halfWidth float64) sweepBody {
+	body := sweepBody{corners: [4]Point{{-rear, -halfWidth}, {front, -halfWidth}, {front, halfWidth}, {-rear, halfWidth}}}
+	for _, corner := range body.corners {
+		body.reach = max(body.reach, math.Hypot(corner.X, corner.Y))
+	}
+	return body
+}
+
+// sweepRectangle is a rectangle about its center, such as a parked
+// envelope.
 type sweepRectangle struct {
-	x, y, heading float64
+	x, y, heading         float64
+	halfLength, halfWidth float64
+}
+
+// parkedEnvelope returns the parked envelope with its center at (x, y).
+func parkedEnvelope(x, y, heading float64) sweepRectangle {
+	return sweepRectangle{x: x, y: y, heading: heading, halfLength: envelopeLength / 2, halfWidth: envelopeWidth / 2}
 }
 
 // certifyManeuvers certifies the maneuver groups, in group order. Two
@@ -139,7 +166,7 @@ func newManeuverCertifier(network Network, maneuvers *maneuverIndex) *maneuverCe
 			}
 			to := c.positions[lane.To]
 			heading := math.Atan2(to.Y-from.Y, to.X-from.X)
-			c.envelopes[id] = sweepRectangle{x: to.X + envelopeAhead*math.Cos(heading), y: to.Y + envelopeAhead*math.Sin(heading), heading: heading}
+			c.envelopes[id] = parkedEnvelope(to.X+envelopeAhead*math.Cos(heading), to.Y+envelopeAhead*math.Sin(heading), heading)
 		}
 	}
 	return c
@@ -163,7 +190,7 @@ func (c *maneuverCertifier) certify(options sweepOptions) (certifiedPairs, error
 				if berth == own {
 					continue
 				}
-				if status := sweepSteps(steps, c.envelopes[berth], options); status != sweepClear {
+				if status := sweepSteps(steps, maneuverBody, c.envelopes[berth], options); status != sweepClear {
 					return nil, fmt.Errorf("maneuver group %q lane %q is not clear of berth %q", group.ID, id, berth)
 				}
 				pairs.add(laneKey(c.lanes[id]), berthKey(c.maneuvers.berthKeys[berth]))
@@ -247,12 +274,12 @@ func rotation(at Point, from, to float64) sweepStep {
 	return sweepStep{start: sweepPose{x: at.X, y: at.Y, heading: from}, sweep: sweep}
 }
 
-// sweepSteps returns the most severe result of the steps against one
-// envelope. The steps share the work allowance.
-func sweepSteps(steps []sweepStep, obstacle sweepRectangle, options sweepOptions) sweepStatus {
+// sweepSteps returns the most severe result of a body on the steps against
+// one obstacle. The steps share the work allowance.
+func sweepSteps(steps []sweepStep, body sweepBody, obstacle sweepRectangle, options sweepOptions) sweepStatus {
 	visits := 0
 	for _, step := range steps {
-		if status := sweepOne(step, obstacle, options, &visits); status != sweepClear {
+		if status := sweepOne(step, body, obstacle, options, &visits); status != sweepClear {
 			return status
 		}
 	}
@@ -263,9 +290,9 @@ func sweepSteps(steps []sweepStep, obstacle sweepRectangle, options sweepOptions
 // step until each interval is separated, a pose touches the obstacle, an
 // interval reaches the tolerance or the depth limit, or the work allowance
 // ends.
-func sweepOne(step sweepStep, obstacle sweepRectangle, options sweepOptions, visits *int) sweepStatus {
+func sweepOne(step sweepStep, body sweepBody, obstacle sweepRectangle, options sweepOptions, visits *int) sweepStatus {
 	for _, fraction := range [2]float64{0, 1} {
-		if !sweepSeparated(step, obstacle, fraction, fraction) {
+		if !sweepSeparated(step, body, obstacle, fraction, fraction) {
 			return sweepCollision
 		}
 	}
@@ -278,7 +305,7 @@ func sweepOne(step sweepStep, obstacle sweepRectangle, options sweepOptions, vis
 	}
 	var stack [sweepDepth + 1]interval
 	stack[0] = interval{lo: 0, hi: 1}
-	size, status, travel := 1, sweepClear, step.travel()
+	size, status, travel := 1, sweepClear, step.travel(body)
 	for size > 0 {
 		size--
 		current := stack[size]
@@ -287,10 +314,10 @@ func sweepOne(step sweepStep, obstacle sweepRectangle, options sweepOptions, vis
 		}
 		*visits++
 		mid := (current.lo + current.hi) / 2
-		if !sweepSeparated(step, obstacle, mid, mid) {
+		if !sweepSeparated(step, body, obstacle, mid, mid) {
 			return sweepCollision
 		}
-		if sweepSeparated(step, obstacle, current.lo, current.hi) {
+		if sweepSeparated(step, body, obstacle, current.lo, current.hi) {
 			continue
 		}
 		if travel*(current.hi-current.lo) <= options.tolerance || current.depth >= sweepDepth {
@@ -304,17 +331,14 @@ func sweepOne(step sweepStep, obstacle sweepRectangle, options sweepOptions, vis
 	return status
 }
 
-// sweepCorners are the corners of the moving body about the rear axle.
-var sweepCorners = [4]Point{{-sweepRear, -sweepHalfWidth}, {sweepFront, -sweepHalfWidth}, {sweepFront, sweepHalfWidth}, {-sweepRear, sweepHalfWidth}}
-
 // sweepSeparated reports whether a separating axis of the body at the
 // middle of the interval or of the obstacle separates the body over the
 // interval from the obstacle.
-func sweepSeparated(step sweepStep, obstacle sweepRectangle, lo, hi float64) bool {
+func sweepSeparated(step sweepStep, body sweepBody, obstacle sweepRectangle, lo, hi float64) bool {
 	mid := step.at((lo + hi) / 2)
 	for _, heading := range [2]float64{mid.heading, obstacle.heading} {
 		for _, axis := range sweepAxes(heading) {
-			if intervalsDisjoint(movingProjection(step, axis, lo, hi), staticProjection(obstacle, axis)) {
+			if intervalsDisjoint(movingProjection(step, body, axis, lo, hi), staticProjection(obstacle, axis)) {
 				return true
 			}
 		}
@@ -366,21 +390,21 @@ func intervalsDisjoint(a, b projection) bool {
 
 func staticProjection(r sweepRectangle, axis Point) projection {
 	low, high := math.Inf(1), math.Inf(-1)
-	pose := sweepPose(r)
-	for _, corner := range [4]Point{{-envelopeLength / 2, -envelopeWidth / 2}, {envelopeLength / 2, -envelopeWidth / 2}, {envelopeLength / 2, envelopeWidth / 2}, {-envelopeLength / 2, envelopeWidth / 2}} {
+	pose := sweepPose{x: r.x, y: r.y, heading: r.heading}
+	for _, corner := range [4]Point{{-r.halfLength, -r.halfWidth}, {r.halfLength, -r.halfWidth}, {r.halfLength, r.halfWidth}, {-r.halfLength, r.halfWidth}} {
 		v := dotPoint(worldCorner(pose, corner), axis)
 		low, high = min(low, v), max(high, v)
 	}
 	return padded(low, high)
 }
 
-// movingProjection bounds the projection of the body over a part of a
-// step. A translation moves each corner along a line, so the range of the
+// movingProjection bounds the projection of a body over a part of a step.
+// A translation moves each corner along a line, so the range of the
 // corners at the two ends holds it. A rotation moves each corner on a
-// circle about the rear axle.
-func movingProjection(step sweepStep, axis Point, lo, hi float64) projection {
+// circle about the point on the path.
+func movingProjection(step sweepStep, body sweepBody, axis Point, lo, hi float64) projection {
 	low, high := math.Inf(1), math.Inf(-1)
-	for _, corner := range sweepCorners {
+	for _, corner := range body.corners {
 		if step.sweep == 0 {
 			v0, v1 := dotPoint(worldCorner(step.at(lo), corner), axis), dotPoint(worldCorner(step.at(hi), corner), axis)
 			low, high = min(low, v0, v1), max(high, v0, v1)

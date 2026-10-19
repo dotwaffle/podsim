@@ -82,7 +82,7 @@ func TestManeuverCertificationStatus(t *testing.T) {
 		return newManeuverCertifier(network, maneuvers)
 	}
 	c := certifier(5)
-	if status := sweepSteps(c.steps("bay-2-in-3"), c.envelopes["bay-3"], certifyOptions); status != sweepCollision {
+	if status := sweepSteps(c.steps("bay-2-in-3"), maneuverBody, c.envelopes["bay-3"], certifyOptions); status != sweepCollision {
 		t.Fatalf("status %d at a 5 meter pitch, want a collision", status)
 	}
 	c = certifier(5.28)
@@ -94,7 +94,7 @@ func TestManeuverCertificationStatus(t *testing.T) {
 		{options: sweepOptions{tolerance: 100, visits: 8192}, want: sweepPotential},
 		{options: sweepOptions{tolerance: 1e-3, visits: 1}, want: sweepUnresolved},
 	} {
-		if status := sweepSteps(c.steps("bay-3-in-2"), c.envelopes["bay-2"], test.options); status != test.want {
+		if status := sweepSteps(c.steps("bay-3-in-2"), maneuverBody, c.envelopes["bay-2"], test.options); status != test.want {
 			t.Errorf("options %+v: status %d, want %d", test.options, status, test.want)
 		}
 		_, err := c.certify(test.options)
@@ -236,10 +236,10 @@ func TestManeuverCertificationLaneSteps(t *testing.T) {
 func TestManeuverSweepStatus(t *testing.T) {
 	t.Parallel()
 	through := sweepStep{start: sweepPose{}, dx: 20}
-	if status := sweepSteps([]sweepStep{through}, sweepRectangle{x: 10}, certifyOptions); status != sweepCollision {
+	if status := sweepSteps([]sweepStep{through}, maneuverBody, parkedEnvelope(10, 0, 0), certifyOptions); status != sweepCollision {
 		t.Errorf("translation status %d, want a collision", status)
 	}
-	if status := sweepSteps([]sweepStep{through}, sweepRectangle{x: 10, y: 4}, certifyOptions); status != sweepClear {
+	if status := sweepSteps([]sweepStep{through}, maneuverBody, parkedEnvelope(10, 4, 0), certifyOptions); status != sweepClear {
 		t.Errorf("clear translation status %d", status)
 	}
 	// The front corner is 3.846 meters from the rear axle. At headings
@@ -253,8 +253,8 @@ func TestManeuverSweepStatus(t *testing.T) {
 		{low: reach - 0.05, want: sweepCollision},
 		{low: reach + 0.01, want: sweepClear},
 	} {
-		envelope := sweepRectangle{y: test.low + envelopeLength/2, heading: math.Pi / 2}
-		if status := sweepSteps([]sweepStep{turn}, envelope, certifyOptions); status != test.want {
+		envelope := parkedEnvelope(0, test.low+envelopeLength/2, math.Pi/2)
+		if status := sweepSteps([]sweepStep{turn}, maneuverBody, envelope, certifyOptions); status != test.want {
 			t.Errorf("rotation with the envelope from %g: status %d, want %d", test.low, status, test.want)
 		}
 	}
