@@ -10,10 +10,11 @@ import (
 // depotLayout describes a test depot that replaces the parking siding of
 // Example. The lanes run west from the entry at (620, 460), each width
 // meters south of the one before it, and pitch meters separate the slots of
-// a lane. A fan of zero gives the shortest fan for the lanes.
+// a lane. A fan of zero gives the shortest fan for the lanes, and a leadOut
+// of zero the shortest lead-out.
 type depotLayout struct {
-	lanes, slots      int
-	pitch, width, fan float64
+	lanes, slots               int
+	pitch, width, fan, leadOut float64
 }
 
 // depotSpeed is the depot speed for a 6 m pitch.
@@ -34,7 +35,8 @@ const depotStagger = 1.0
 // to the lanes, and each throat lane leaves its lead-out parallel to the
 // lanes. Their curvature keeps them Clearance from the next lane. The
 // lead-in is 2R long for the largest fan turn plus 1 cm, and the shortest
-// lead-out is 2*Clearance long plus 1 cm.
+// lead-out is 2*Clearance long plus 1 cm, or layout.leadOut when it is
+// longer.
 func depotNetwork(layout depotLayout) Network {
 	example := Example()
 	network := Network{}
@@ -56,11 +58,12 @@ func depotNetwork(layout depotLayout) Network {
 	turn := math.Atan(2 * layout.width * float64(layout.lanes) / fan)
 	leadIn := 2*reducedRetention(stopDistance(depotSpeed), turn) + 0.01
 	chain := layout.pitch * float64(layout.slots-1)
+	leadOut := max(layout.leadOut, 2*Clearance+0.01)
 	// The lead-in of lane n starts at start(n), and its lead-out ends at
 	// tail(n).
 	start := func(lane int) float64 { return entry.X - fan - float64(layout.lanes-lane)*depotStagger }
 	tail := func(lane int) float64 {
-		return start(1) - leadIn - chain - (2*Clearance + 0.01) - float64(lane-1)*depotStagger
+		return start(1) - leadIn - chain - leadOut - float64(lane-1)*depotStagger
 	}
 	exit := Point{X: tail(layout.lanes) - fan, Y: entry.Y}
 	for i := range network.Nodes {

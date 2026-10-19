@@ -1,6 +1,7 @@
 package sim
 
 import (
+	"fmt"
 	"math"
 	"reflect"
 	"slices"
@@ -238,5 +239,68 @@ func TestDepotExpressRefusal(t *testing.T) {
 	network.Stations[0].Name = ""
 	if err := validateContractNetworkRecords(network); err == nil || err.Error() != "invalid Express station record" {
 		t.Fatalf("station before depot: %v", err)
+	}
+}
+
+// splitLeadOut ends the lead-out of a lane length meters after the head
+// slot, at a new node, and adds a straight run lane at 5 m/s from that node
+// to the throat, as the ring depot preset does.
+func splitLeadOut(network *Network, lane int, length float64) {
+	out := findLane(network, fmt.Sprintf("parking-out-%d", lane))
+	from, to := findNode(network, out.From).Position, findNode(network, out.To).Position
+	t := length / pointDistance(from, to)
+	cleared, tail := fmt.Sprintf("parking-clear-%d", lane), out.To
+	out.To = cleared
+	network.Nodes = append(network.Nodes, Node{ID: cleared, Position: Point{X: from.X + t*(to.X-from.X), Y: from.Y + t*(to.Y-from.Y)}})
+	network.Lanes = append(network.Lanes, Lane{ID: fmt.Sprintf("parking-run-%d", lane), From: cleared, To: tail, SpeedLimit: 5})
+}
+
+// TestDepotSplitLeadOut checks a lead-out that ends just past Clearance
+// from the head slot, with a faster straight lane after it. The lead-out
+// qualifies with no turn, because the run lane keeps the throat out of its
+// window. The throat path holds the run lane, and a blocked run lane keeps
+// the head in the depot. A run lane less than Clearance from the
+// chain lane to the head slot fails the lane gap audit.
+func TestDepotSplitLeadOut(t *testing.T) {
+	t.Parallel()
+	// The run lane is a 2*Clearance lane plus 1 cm.
+	layout := depotLayout{lanes: 2, slots: 2, pitch: 6, width: 12, leadOut: 3*Clearance + 0.02}
+	network := depotNetwork(layout)
+	splitLeadOut(&network, 1, Clearance+0.01)
+	prepared, err := PrepareNetwork(network)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := prepared.depots.depots[0].lanes[0]
+	var throat []string
+	for _, lane := range path.throat {
+		throat = append(throat, lane.ID)
+	}
+	if path.leadOut.ID != "parking-out-1" || !slices.Equal(throat, []string{"parking-run-1", "parking-throat-1"}) || !prepared.depots.depotLane("parking-run-1") {
+		t.Fatalf("lead-out %s, throat path %v", path.leadOut.ID, throat)
+	}
+	if prepared.retention.of("parking-out-1") != reducedRetention(stopDistance(depotSpeed), 0) || prepared.retention.of("parking-run-1") != 0 {
+		t.Fatalf("retention of the lead-out %g, of the run lane %g", prepared.retention.of("parking-out-1"), prepared.retention.of("parking-run-1"))
+	}
+	s := headFleetOn(t, network)
+	pickup := func() string {
+		trip := newTrip(s, "harbor", "garden")
+		if v := s.pickupPodForRequest(trip.request, "", &dispatchPass{assigned: map[string]bool{}}); v != nil {
+			return v.Pod.ID
+		}
+		return ""
+	}
+	if got := pickup(); got != "lane-1-head" {
+		t.Fatalf("pickup with open lanes %q", got)
+	}
+	s.blocked.lanes = make([]bool, len(s.network.Lanes))
+	s.blocked.lanes[s.graph.lanes["parking-run-1"]] = true
+	if got := pickup(); got != "lane-2-head" {
+		t.Fatalf("pickup with a blocked run lane %q", got)
+	}
+	short := depotNetwork(layout)
+	splitLeadOut(&short, 1, Clearance-0.01)
+	if _, err := PrepareNetwork(short); err == nil || err.Error() != `nonincident paths "parking-run-1" and "parking-chain-1-1" are less than 12 meters apart` {
+		t.Fatalf("run lane 11.99 m from the head slot: %v", err)
 	}
 }
