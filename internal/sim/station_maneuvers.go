@@ -94,16 +94,18 @@ func (s *Simulation) updateStationPhase(v *vehicle) {
 // maneuver group with no role is in the run of group lanes at the start of
 // the route, after the origin berth, or in the run at the end, before the
 // route berth. The first is DepartingBerth and the second AccessingBerth.
+// The phase reads the route around the route index of the block of v,
+// because a route can use a lane more than once.
 func routeStationPhase(v *vehicle, maneuvers *maneuverIndex) (StationPhase, string) {
-	lane := currentManeuverLane(v)
-	if lane == nil {
+	index := currentManeuverIndex(v)
+	if index < 0 {
 		return "", ""
 	}
+	lane := &v.blocks.route[index]
 	if phase := phaseForStationRole(lane.StationRole); phase != "" {
 		return phase, lane.StationID
 	}
-	index := v.blocks.locate(v.firstBlockForLane(lane.ID), 0)
-	if group, ok := maneuvers.laneGroup(lane.ID); ok && index >= 0 {
+	if group, ok := maneuvers.laneGroup(lane.ID); ok {
 		grouped := func(lane Lane) bool { return maneuvers.groupLane(lane.ID) }
 		switch {
 		case !slices.ContainsFunc(v.Route[:index], func(lane Lane) bool { return !grouped(lane) }):
@@ -112,7 +114,7 @@ func routeStationPhase(v *vehicle, maneuvers *maneuverIndex) (StationPhase, stri
 			return AccessingBerth, group.StationID
 		}
 	}
-	if index >= 0 && index+1 < len(v.Route) {
+	if index+1 < len(v.Route) {
 		next := v.Route[index+1]
 		if next.StationRole == StationEntryRole || next.StationRole == StationBerthAccessRole {
 			return ApproachingStation, next.StationID
@@ -121,12 +123,13 @@ func routeStationPhase(v *vehicle, maneuvers *maneuverIndex) (StationPhase, stri
 	return "", ""
 }
 
-// currentManeuverLane returns the lane of the block that v is in, or nil.
-func currentManeuverLane(v *vehicle) *Lane {
+// currentManeuverIndex returns the route index of the lane of the block
+// that v is in, or -1.
+func currentManeuverIndex(v *vehicle) int {
 	if v.blockIndex < 0 || v.blockIndex >= v.blocks.len() {
-		return nil
+		return -1
 	}
-	return v.blocks.currentLane(v.blockIndex)
+	return v.blocks.currentRouteLane(v.blockIndex)
 }
 
 func phaseForStationRole(role StationLaneRole) StationPhase {

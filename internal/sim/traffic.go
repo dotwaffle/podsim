@@ -347,7 +347,13 @@ func (l *blockList) lane(index int) *Lane {
 
 // currentLane returns the lane of the block that the pod is in, at index.
 func (l *blockList) currentLane(index int) *Lane {
-	return &l.route[l.find(index, &l.cursors[podCursor]).lane]
+	return &l.route[l.currentRouteLane(index)]
+}
+
+// currentRouteLane returns the route index of the lane of the block that
+// the pod is in, at index.
+func (l *blockList) currentRouteLane(index int) int {
+	return l.find(index, &l.cursors[podCursor]).lane
 }
 
 // end returns the route distance at the end of the last block that the pod

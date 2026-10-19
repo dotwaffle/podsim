@@ -109,16 +109,16 @@ func uncachedStationPhase(v *vehicle) {
 		return
 	}
 	v.Pod.StationPhase, v.Pod.ManeuverStationID = "", ""
-	lane := currentManeuverLane(v)
-	if lane == nil {
+	index := currentManeuverIndex(v)
+	if index < 0 {
 		return
 	}
+	lane := &v.blocks.route[index]
 	if phase := phaseForStationRole(lane.StationRole); phase != "" {
 		v.Pod.StationPhase, v.Pod.ManeuverStationID = phase, lane.StationID
 		return
 	}
-	index := v.blocks.locate(v.firstBlockForLane(lane.ID), 0)
-	if index >= 0 && index+1 < len(v.Route) {
+	if index+1 < len(v.Route) {
 		next := v.Route[index+1]
 		if next.StationRole == StationEntryRole || next.StationRole == StationBerthAccessRole {
 			v.Pod.StationPhase, v.Pod.ManeuverStationID = ApproachingStation, next.StationID
@@ -146,13 +146,21 @@ func TestStationManeuverRouteIndex(t *testing.T) {
 			s.network.Lanes = []Lane{through, entry, back, plain}
 			v := &vehicle{}
 			s.setVehicleRoute(v, []Lane{through, entry, back, through, plain})
-			v.blockIndex = v.blocks.laneFirst(3)
 			if !tc.indexed {
 				v.blockStarts = nil
 			}
-			s.updateStationPhase(v)
-			if v.Pod.StationPhase != ApproachingStation || v.Pod.ManeuverStationID != "target" {
-				t.Fatalf("repeated lane phase %q station %q", v.Pod.StationPhase, v.Pod.ManeuverStationID)
+			// The first use of the through lane leads to the entry, and the
+			// second does not.
+			for _, pass := range []struct {
+				lane    int
+				phase   StationPhase
+				station string
+			}{{0, ApproachingStation, "target"}, {3, "", ""}} {
+				v.blockIndex = v.blocks.laneFirst(pass.lane)
+				s.updateStationPhase(v)
+				if v.Pod.StationPhase != pass.phase || v.Pod.ManeuverStationID != pass.station {
+					t.Fatalf("route lane %d: phase %q station %q", pass.lane, v.Pod.StationPhase, v.Pod.ManeuverStationID)
+				}
 			}
 			s.setVehicleRoute(v, []Lane{through, plain})
 			v.blockIndex = 0
@@ -164,6 +172,57 @@ func TestStationManeuverRouteIndex(t *testing.T) {
 				t.Fatalf("replacement route retained phase %q station %q", v.Pod.StationPhase, v.Pod.ManeuverStationID)
 			}
 		})
+	}
+}
+
+// TestStationPhaseRepeatedLaneRestore moves a pod on a route that uses
+// two lanes twice. The pod passes the parking siding, goes around the
+// network, and then enters the siding. On each pass, the live phase must
+// match the phase of a restore, which saves only the rest of the route.
+func TestStationPhaseRepeatedLaneRestore(t *testing.T) {
+	t.Parallel()
+	s, err := NewFleet(Example(), []Placement{{ID: "market-pod", StationID: "market"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	v := s.findVehicle("market-pod")
+	var route []Lane
+	for _, id := range []string{
+		"market-out", "return-start", "return-to-parking", "parking-through", "return", "harbor-approach", "harbor-through",
+		"approach-branch", "bypass-in", "bypass-merge", "market-approach", "market-through", "return-start", "return-to-parking",
+		"parking-in-1",
+	} {
+		route = append(route, s.network.Lanes[s.graph.lanes[id]])
+	}
+	parking, _ := s.station("parking")
+	s.installEmptyMove(v, emptyDestination{station: "parking", berth: parking.Berths[0], reserveBerth: true}, route)
+	// want holds the phase on each use of the lane to the siding, by route
+	// index. Only the second use leads to a berth access lane.
+	want := map[int]StationPhase{2: "", 13: ApproachingStation}
+	seen := make(map[int]bool)
+	restoredIndex := -1
+	stepUntil(t, s, "pod idle at parking", func() bool {
+		if v.Pod.Activity == Traveling {
+			index := currentManeuverIndex(v)
+			if phase, ok := want[index]; ok {
+				if v.Pod.StationPhase != phase {
+					t.Fatalf("tick %d: route lane %d has phase %q, want %q", s.tick, index, v.Pod.StationPhase, phase)
+				}
+				seen[index] = true
+			}
+			if index != restoredIndex || s.tick%10 == 0 {
+				restoredIndex = index
+				restored, result, err := RestoreState(RestoreStateInput{Network: Example(), Fleet: s.initial, State: s.ExportState()})
+				if err != nil || !cleanRestore(result) {
+					t.Fatalf("tick %d: restore %+v, %v", s.tick, result, err)
+				}
+				checkRestoredMatches(t, s, restored)
+			}
+		}
+		return v.Pod.Activity == Idle
+	})
+	if v.Pod.BerthID != "parking-1" || len(seen) != len(want) {
+		t.Fatalf("pod idle at %s, saw route lanes %v", v.Pod.BerthID, seen)
 	}
 }
 
