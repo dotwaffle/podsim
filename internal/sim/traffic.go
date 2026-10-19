@@ -958,6 +958,9 @@ func (v *vehicle) retainRouteResource(r resource, releaseAt float64) {
 
 func (s *Simulation) releaseVehicleResources(v *vehicle) {
 	if v.Pod.Activity != Traveling {
+		if v.depotArrived {
+			s.releaseDepotOrigin(v)
+		}
 		if len(v.routeReleases) == 0 {
 			return
 		}

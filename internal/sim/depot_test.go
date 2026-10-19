@@ -7,13 +7,16 @@ import (
 )
 
 // stepDepot steps s up to ticks times and checks the safety observation
-// after each step. It stops when done reports true, and fails the test
+// and the owners (see checkOwners) after each step. It stops when done reports true, and fails the test
 // when the ticks run out first.
 func stepDepot(t *testing.T, s *Simulation, ticks int, done func() bool) {
 	t.Helper()
 	for range ticks {
 		s.Step()
 		if _, err := s.SafetyObservation().Check(); err != nil {
+			t.Fatalf("tick %d: %v", s.tick, err)
+		}
+		if err := checkOwners(s); err != nil {
 			t.Fatalf("tick %d: %v", s.tick, err)
 		}
 		if done() {
@@ -88,6 +91,14 @@ func TestDepotLaneView(t *testing.T) {
 	if _, slot, ok := s.depotChoice(market, depot); !ok || slot.ID != depotSlotID(2, 2) {
 		t.Fatalf("choice %q %v", slot.ID, ok)
 	}
+	// A pod that crosses slot 2 of lane 2 holds its node for a moment, and
+	// that does not take the slot.
+	crossed := resource{kind: nodeResource, id: depotSlotID(2, 2)}
+	s.owners[crossed] = podResourceOwner("garden-pod")
+	if _, slot, ok := s.depotChoice(market, depot); !ok || slot.ID != depotSlotID(2, 2) {
+		t.Fatalf("choice with a crossed slot %q %v", slot.ID, ok)
+	}
+	delete(s.owners, crossed)
 	lane2 := s.findVehicle("depot-pod-02")
 	lane2.faulted = true
 	if _, slot, ok := s.depotChoice(market, depot); !ok || slot.ID != depotSlotID(1, 3) {
@@ -185,7 +196,9 @@ func TestDepotEntryWait(t *testing.T) {
 		t.Fatal(err)
 	}
 	stopper := s.findVehicle("pod-" + depotSlotID(2, 2))
-	stopper.withdrawn = faultHold
+	if err := s.withdrawService(stopper, emergencyHold); err != nil {
+		t.Fatal(err)
+	}
 	mover := sendToDepot(t, s, "pod-"+depotSlotID(2, 1))
 	stepDepot(t, s, 300*TicksPerSecond, func() bool {
 		return mover.Pod.WaitReason == ParkingUnavailable
@@ -193,9 +206,15 @@ func TestDepotEntryWait(t *testing.T) {
 	if !s.depotEntryWait(mover) || mover.destination.ID != "" || mover.Pod.Speed != 0 {
 		t.Fatalf("mover %+v destination %q", mover.Pod, mover.destination.ID)
 	}
-	stopper.withdrawn = 0
+	if stopper.Pod.Activity != Idle || stopper.Pod.BerthID != depotSlotID(2, 2) {
+		t.Fatalf("the withdrawn pod moves up: %+v", stopper.Pod)
+	}
+	if err := s.restoreService(stopper, emergencyHold); err != nil {
+		t.Fatal(err)
+	}
+	// The pod at slot 2 moves up to slot 1, and the mover binds slot 2.
 	stepDepot(t, s, 120*TicksPerSecond, func() bool { return mover.Pod.Activity == Idle })
-	if mover.Pod.BerthID != depotSlotID(2, 3) {
+	if mover.Pod.BerthID != depotSlotID(2, 2) || stopper.Pod.BerthID != depotSlotID(2, 1) {
 		t.Fatalf("mover idle at %s", mover.Pod.BerthID)
 	}
 }
@@ -660,7 +679,9 @@ func TestDepotFaultedArrival(t *testing.T) {
 					t.Fatal(err)
 				}
 			} else {
-				v.withdrawn = emergencyHold
+				if err := s.withdrawService(v, emergencyHold); err != nil {
+					t.Fatal(err)
+				}
 			}
 			returns := s.tick + 10*TicksPerSecond
 			stepDepot(t, s, 300*TicksPerSecond, func() bool {
@@ -668,7 +689,9 @@ func TestDepotFaultedArrival(t *testing.T) {
 					t.Fatalf("tick %d: the pod binds %s out of service", s.tick, v.destination.ID)
 				}
 				if name != "fault" && s.tick == returns {
-					v.withdrawn = 0
+					if err := s.restoreService(v, emergencyHold); err != nil {
+						t.Fatal(err)
+					}
 				}
 				return v.Pod.Activity == Idle
 			})
@@ -677,4 +700,225 @@ func TestDepotFaultedArrival(t *testing.T) {
 			}
 		})
 	}
+}
+
+// depotOnlyPlacements returns count pods in the depot, placed from the head
+// of each lane in lane order, and no pod at a passenger station.
+func depotOnlyPlacements(network Network, count int) []Placement {
+	return depotPlacements(network, count)[3:]
+}
+
+// TestDepotMoveUp checks a lane that drains and fills: when the head
+// leaves, each pod behind it moves up one slot, keeps its parked tick, and
+// releases the slot that it left, and a new arrival parks at the rear with
+// the tick of its arrival.
+func TestDepotMoveUp(t *testing.T) {
+	t.Parallel()
+	network := shortDepotNetwork(1, 3)
+	s, err := NewFleet(network, depotOnlyPlacements(network, 3))
+	if err != nil {
+		t.Fatal(err)
+	}
+	head, second, third := s.findVehicle("depot-pod-01"), s.findVehicle("depot-pod-02"), s.findVehicle("depot-pod-03")
+	harbor, _ := s.station("harbor")
+	if err := s.startEmptyMove(head, emptyDestination{station: "harbor", berth: harbor.Berths[0], reserveBerth: true}); err != nil {
+		t.Fatal(err)
+	}
+	stepDepot(t, s, 120*TicksPerSecond, func() bool {
+		return second.Pod.Activity == Idle && second.Pod.BerthID == depotSlotID(1, 1) && third.Pod.Activity == Idle && third.Pod.BerthID == depotSlotID(1, 2)
+	})
+	if second.parkedSince != 0 || third.parkedSince != 0 {
+		t.Fatalf("parked ticks after the move-up %d %d", second.parkedSince, third.parkedSince)
+	}
+	tail, _ := findNodeIndex(s, depotSlotID(1, 3))
+	if !s.owners[resource{kind: berthResource, id: depotSlotID(1, 3)}].isZero() || !s.owners[resource{kind: nodeResource, id: depotSlotID(1, 3)}].isZero() || tail < 0 {
+		t.Fatal("the tail slot is still held")
+	}
+	stepDepot(t, s, 300*TicksPerSecond, func() bool { return head.Pod.Activity == Idle })
+	sendToDepot(t, s, head.Pod.ID)
+	stepDepot(t, s, 300*TicksPerSecond, func() bool { return head.Pod.Activity == Idle })
+	if head.Pod.BerthID != depotSlotID(1, 3) || head.parkedSince <= 0 || head.parkedSince > s.tick {
+		t.Fatalf("the arrival is at %s with the parked tick %d", head.Pod.BerthID, head.parkedSince)
+	}
+}
+
+// findNodeIndex returns the graph index of a node.
+func findNodeIndex(s *Simulation, id string) (int, bool) {
+	index, ok := s.graph.nodes[id]
+	return index, ok
+}
+
+// TestDepotOldestByParkedTick checks that a pod that leaves a lane and parks
+// in it again gets a new parked tick, and that the head that parked first
+// leaves first, also when its lane index is higher.
+func TestDepotOldestByParkedTick(t *testing.T) {
+	t.Parallel()
+	network := shortDepotNetwork(2, 2)
+	s, err := NewFleet(network, depotOnlyPlacements(network, 2))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The lane 1 head leaves, goes round the loop, and parks again at the
+	// same slot.
+	first := sendToDepot(t, s, "depot-pod-01")
+	stepDepot(t, s, 300*TicksPerSecond, func() bool { return first.Pod.Activity == Idle })
+	if first.Pod.BerthID != depotSlotID(1, 1) || first.parkedSince == 0 {
+		t.Fatalf("the pod parks at %s with the parked tick %d", first.Pod.BerthID, first.parkedSince)
+	}
+	trip := newTrip(s, "garden", "market")
+	if v := s.pickupPodForRequest(trip.request, "", &dispatchPass{assigned: map[string]bool{}}); v == nil || v.Pod.ID != "depot-pod-02" {
+		t.Fatalf("pickup %v", v)
+	}
+}
+
+// TestDepotBoundFault checks a bound pod that faults on the fan: it keeps
+// its slot, and after the fault clears, a later arrival binds behind it
+// while it is still on the fan, and both park.
+func TestDepotBoundFault(t *testing.T) {
+	t.Parallel()
+	network := depotNetwork(depotLayout{lanes: 1, slots: 3, pitch: 6, width: 12, fan: 60})
+	s, err := NewFleet(network, depotPlacements(network, 0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetFaults(true, FaultSettings{EvacuationSeconds: 300}); err != nil {
+		t.Fatal(err)
+	}
+	a := sendToDepot(t, s, "market-pod")
+	stepDepot(t, s, 120*TicksPerSecond, func() bool { return a.Pod.LaneID == "parking-fan-1" })
+	if a.destination.ID != depotSlotID(1, 1) {
+		t.Fatalf("A binds %q", a.destination.ID)
+	}
+	seconds := int64(10)
+	if _, err := s.Fault(FaultRequest{PodID: a.Pod.ID, DurationSeconds: &seconds}); err != nil {
+		t.Fatal(err)
+	}
+	stepDepot(t, s, 60*TicksPerSecond, func() bool {
+		if a.destination.ID != depotSlotID(1, 1) {
+			t.Fatalf("tick %d: the faulted pod names %q", s.tick, a.destination.ID)
+		}
+		return !a.faulted
+	})
+	if a.Pod.LaneID != "parking-fan-1" {
+		t.Fatalf("A is on %q when the fault clears", a.Pod.LaneID)
+	}
+	b := sendToDepot(t, s, "garden-pod")
+	stepDepot(t, s, 300*TicksPerSecond, func() bool { return a.Pod.Activity == Idle && b.Pod.Activity == Idle })
+	if a.Pod.BerthID != depotSlotID(1, 1) || b.Pod.BerthID != depotSlotID(1, 2) {
+		t.Fatalf("A at %s, B at %s", a.Pod.BerthID, b.Pod.BerthID)
+	}
+}
+
+// TestDepotLiveness overloads a depot, runs demand, faults and withdraws
+// heads and bound pods, and then stops the demand. A withdrawn pod at slot
+// 2 of lane 2 stops that lane during the demand, and the three pods at the
+// passenger stations go to the depot at once, where one slot is free. Each
+// trip must complete before a deadline, and the safety observation and the
+// owners must hold at each tick.
+func TestDepotLiveness(t *testing.T) {
+	t.Parallel()
+	network := shortDepotNetwork(2, 3)
+	s, err := NewFleet(network, depotPlacements(network, 4))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetFaults(true, FaultSettings{EvacuationSeconds: 300}); err != nil {
+		t.Fatal(err)
+	}
+	stopper := s.findVehicle("depot-pod-04")
+	if err := s.withdrawService(stopper, emergencyHold); err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{"harbor-pod", "garden-pod", "market-pod"} {
+		sendToDepot(t, s, id)
+	}
+	// overloaded reports whether pods go to the depot with no slot, and no
+	// eligible lane has a free slot.
+	station, _ := s.station("parking")
+	overloaded := func() bool {
+		for i := range s.vehicles {
+			if v := &s.vehicles[i]; s.depotUnbound(v, "parking") {
+				return !s.depotGoal(v, station)
+			}
+		}
+		return false
+	}
+	// head and bound find a pod idle at the head of a lane, and a pod that
+	// travels to a slot.
+	head := func(v *vehicle) bool {
+		slot, ok := s.depotIdleSlot(v)
+		return ok && slot.slot == 0
+	}
+	bound := func(v *vehicle) bool {
+		_, slot := s.depots.slot(v.destination.ID)
+		return slot && v.Pod.Activity == Traveling
+	}
+	find := func(match func(*vehicle) bool) *vehicle {
+		for i := range s.vehicles {
+			if v := &s.vehicles[i]; match(v) && v.inService() && !v.faulted {
+				return v
+			}
+		}
+		return nil
+	}
+	stations := []string{"harbor", "garden", "market"}
+	const demandEnd = 6 * 60 * TicksPerSecond
+	seconds := int64(10)
+	trips, overload := 0, 0
+	var faulted, withdrawn [2]int
+	var nextFault, nextWithdrawal [2]int64
+	var held *vehicle
+	var restoreAt int64
+	stepDepot(t, s, 60*60*TicksPerSecond, func() bool {
+		if overloaded() {
+			overload++
+		}
+		if s.tick < demandEnd {
+			if s.tick%(8*TicksPerSecond) == 0 {
+				from := stations[trips%3]
+				to := stations[(trips+1+trips/3%2)%3]
+				if _, err := s.SubmitTrip(from, to); err != nil {
+					t.Fatal(err)
+				}
+				trips++
+			}
+			for kind, match := range []func(*vehicle) bool{head, bound} {
+				if faulted[kind] < 3 && s.tick >= nextFault[kind] {
+					if v := find(match); v != nil {
+						if _, err := s.Fault(FaultRequest{PodID: v.Pod.ID, DurationSeconds: &seconds}); err != nil {
+							t.Fatal(err)
+						}
+						faulted[kind]++
+						nextFault[kind] = s.tick + 37*TicksPerSecond
+					}
+				}
+				if held == nil && withdrawn[kind] < 3 && s.tick >= nextWithdrawal[kind] {
+					if v := find(match); v != nil {
+						if err := s.withdrawService(v, emergencyHold); err != nil {
+							t.Fatal(err)
+						}
+						held, restoreAt = v, s.tick+20*TicksPerSecond
+						withdrawn[kind]++
+						nextWithdrawal[kind] = s.tick + 53*TicksPerSecond
+					}
+				}
+			}
+		} else if !stopper.inService() {
+			if err := s.restoreService(stopper, emergencyHold); err != nil {
+				t.Fatal(err)
+			}
+			restoreAt = min(restoreAt, s.tick)
+		}
+		if held != nil && s.tick >= restoreAt {
+			if err := s.restoreService(held, emergencyHold); err != nil {
+				t.Fatal(err)
+			}
+			held = nil
+		}
+		return s.tick > demandEnd && held == nil && len(s.faults) == 0 && s.completed == trips
+	})
+	if faulted[0] == 0 || faulted[1] == 0 || withdrawn[0] == 0 || withdrawn[1] == 0 || overload == 0 {
+		t.Fatalf("faults %v, withdrawals %v, %d overloaded ticks", faulted, withdrawn, overload)
+	}
+	t.Logf("%d trips, faults %v, withdrawals %v, %d overloaded ticks, done at tick %d", trips, faulted, withdrawn, overload, s.tick)
 }

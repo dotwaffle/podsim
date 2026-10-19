@@ -210,7 +210,8 @@ func (s *Simulation) depotIdleSlot(v *vehicle) (depotSlot, bool) {
 // depotOldestHead returns the head of a depot that leaves first, or nil. A
 // head is a pod idle at slot 1 of its lane. The head must be in service,
 // not faulted, and accepted by accept, and no lane of its lead-out or
-// throat path can be blocked. The lowest lane index wins.
+// throat path can be blocked. The head that parked first wins, and then
+// the lowest lane index.
 func (s *Simulation) depotOldestHead(depot int, accept func(*vehicle) bool) *vehicle {
 	type head struct {
 		v    *vehicle
@@ -223,7 +224,9 @@ func (s *Simulation) depotOldestHead(depot int, accept func(*vehicle) bool) *veh
 			heads = append(heads, head{v: v, lane: slot.lane})
 		}
 	}
-	slices.SortFunc(heads, func(a, b head) int { return cmp.Compare(a.lane, b.lane) })
+	slices.SortFunc(heads, func(a, b head) int {
+		return cmp.Or(cmp.Compare(a.v.parkedSince, b.v.parkedSince), cmp.Compare(a.lane, b.lane))
+	})
 	for _, h := range heads {
 		if h.v.inService() && !h.v.faulted && !s.depotExitBlocked(depot, h.lane) && accept(h.v) {
 			return h.v
@@ -275,4 +278,71 @@ func (g *depotGate) releasable(v *vehicle) bool {
 func (s *Simulation) depotReleasable(v *vehicle, accept func(*vehicle) bool) bool {
 	gate := depotGate{s: s, accept: accept}
 	return gate.releasable(v)
+}
+
+// advanceDepots moves pods up in each depot lane. A pod idle at a slot
+// moves to the slot ahead when no pod of the lane takes that slot in the
+// lane view, and when the pod is in service, not faulted, empty, and named
+// by no waiting trip. The move reserves nothing: the grants of the pod take
+// the slot resources. The view is the one at the start of the pass, so a
+// pod behind a pod that starts to move up follows it in the next tick.
+func (s *Simulation) advanceDepots() {
+	if s.depots == nil {
+		return
+	}
+	taken := make(map[depotSlot]bool)
+	for i := range s.vehicles {
+		if slot, ok := s.depotSlotOf(&s.vehicles[i]); ok {
+			taken[slot] = true
+		}
+	}
+	for i := range s.vehicles {
+		v := &s.vehicles[i]
+		slot, ok := s.depotIdleSlot(v)
+		if !ok || slot.slot == 0 {
+			continue
+		}
+		ahead := slot
+		ahead.slot--
+		if taken[ahead] || !v.inService() || v.faulted || v.Pod.Occupied || s.assigned(v.Pod.ID) {
+			continue
+		}
+		info := &s.depots.depots[ahead.depot]
+		_ = s.startEmptyMove(v, emptyDestination{station: info.station.ID, berth: info.lanes[ahead.lane].slots[ahead.slot]})
+	}
+}
+
+// arriveDepot handles the arrival of v at a depot slot. It marks the
+// arrival for releaseDepotOrigin. An arrival from the slot behind is a
+// move-up and keeps parkedSince. Each other arrival sets it to the tick,
+// at least 1.
+func (s *Simulation) arriveDepot(v *vehicle) {
+	slot, ok := s.depots.slot(v.destination.ID)
+	if !ok {
+		return
+	}
+	v.depotArrived = true
+	from, ok := s.depots.slot(v.origin.ID)
+	if !ok || from.depot != slot.depot || from.lane != slot.lane || from.slot != slot.slot+1 {
+		v.parkedSince = max(s.tick, 1)
+	}
+}
+
+// releaseDepotOrigin releases the origin of a pod that arrived at a depot
+// slot in this tick. motion releases the origin only while the pod
+// travels, and a pod that arrives in the tick in which it passes the
+// origin tail is idle, so it would keep its origin. The release skips the
+// berth and the node of the destination.
+func (s *Simulation) releaseDepotOrigin(v *vehicle) {
+	v.depotArrived = false
+	if v.originReleased || v.distance < v.originTail() {
+		return
+	}
+	destination := berthResources(v.destination)
+	for _, r := range berthResources(v.origin) {
+		if !slices.Contains(destination[:], r) {
+			s.releaseOwned(v, r)
+		}
+	}
+	v.originReleased = true
 }

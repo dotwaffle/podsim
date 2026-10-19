@@ -328,6 +328,13 @@ type vehicle struct {
 	// reversal is the dwell latch at a change of the reverse flag. See
 	// reversal_dwell.go.
 	reversal reversal
+	// parkedSince is the tick at which the pod parked in its depot lane, 0
+	// for a pod placed there. A move-up keeps it. Only a pod idle at a depot
+	// slot or in a move-up reads it (see depotOldestHead). depotArrived is
+	// true from the arrival of the pod at a depot slot to the release at
+	// the end of that tick (see releaseDepotOrigin).
+	parkedSince  int64
+	depotArrived bool
 }
 
 // Simulation owns a fixed fleet and local track, junction, and berth resources.
@@ -870,6 +877,7 @@ func (s *Simulation) Step() {
 	s.dispatch()
 	s.swapPickups()
 	s.redistribute()
+	s.advanceDepots()
 	s.bindDepotArrivals()
 	s.formPlatoons()
 	s.admit()
@@ -914,6 +922,7 @@ func (s *Simulation) arrive(v *vehicle) {
 	}
 	v.phaseTicks = unloadingTicks
 	v.clearReversal()
+	s.arriveDepot(v)
 	switch {
 	case v.op.purpose == opEmergencyUnload:
 		v.Stops = withoutStop(v.Stops, station.ID)
