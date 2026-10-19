@@ -188,6 +188,8 @@ func (s *Simulation) startPodFault(v *vehicle, duration int64) (string, error) {
 	if v.Pod.Activity == Traveling {
 		v.faultCap = math.Min(v.distance+stoppingDistance(v.Pod.Speed), v.blocks.end(v.reservedThrough))
 	}
+	// A dwell at a reverse flag change starts again after the clear.
+	v.reversal.ticks = 0
 	v.pending = -1
 	s.rebuildBlocked()
 	countFault(&s.faultCounters.started)

@@ -261,6 +261,9 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		// A physical restore derives faulted from the fault records, and
 		// sets faultCap to the distance of a faulted traveling pod.
 		"faulted": persistDerive, "faultCap": persistDerive,
+		// A restore leaves the dwell latch empty, and the latch finds the
+		// boundary again.
+		"reversal": persistReset,
 	},
 	reflect.TypeFor[Vehicle](): {
 		"Pod": persistSave, "Riders": persistSave, "Boardings": persistSave, "RiddenMeters": persistDerive, "Stops": persistSave, "Route": persistSave, "Presentation": persistReset,

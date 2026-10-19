@@ -804,6 +804,7 @@ func (s *Simulation) move(v *vehicle) {
 	}
 	blocks := &v.blocks
 	current := blocks.find(v.blockIndex, &blocks.cursors[podCursor])
+	limit = s.reversalLimit(v, current.lane, limit)
 	var next ordinaryMoveResult
 	ceiling, coasting := v.coast.at(s.tick)
 	switch {
@@ -1031,6 +1032,7 @@ func (s *Simulation) podBerthNode(v *vehicle) string {
 // replaceRoute updates presentation identity without changing movement storage.
 func (v *vehicle) replaceRoute(route []Lane) {
 	v.stationPhase = stationPhaseCheck{}
+	v.clearReversal()
 	if v.routeVersion < MaxCounter {
 		v.routeVersion++
 	}

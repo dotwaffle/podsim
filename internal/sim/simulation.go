@@ -320,6 +320,9 @@ type vehicle struct {
 	// sets it, and the clear sets it to 0. No other code writes it.
 	faulted  bool
 	faultCap float64
+	// reversal is the dwell latch at a change of the reverse flag. See
+	// reversal_dwell.go.
+	reversal reversal
 }
 
 // Simulation owns a fixed fleet and local track, junction, and berth resources.
@@ -897,6 +900,7 @@ func (s *Simulation) arrive(v *vehicle) {
 		StationPhase: AtBerth, ManeuverStationID: station.ID,
 	}
 	v.phaseTicks = unloadingTicks
+	v.clearReversal()
 	switch {
 	case v.op.purpose == opEmergencyUnload:
 		v.Stops = withoutStop(v.Stops, station.ID)
