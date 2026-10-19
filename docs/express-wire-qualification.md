@@ -30,7 +30,8 @@ The tested source used these separate formats.
 | HTTP state | Original `application/json` state | Explicit Express media type and packed topology/frame envelope |
 
 Later changes merged these formats.
-The current formats are project version 1 with the `orderContract` marker, saved-state version 9, and hello version 6.
+The merged formats were project version 1 with the `orderContract` marker, saved-state version 9, and hello version 6.
+The hello version is now 7.
 The HTTP state has one media type, `application/vnd.podsim.state-6+json`, for every project kind.
 See [the protocol](protocol.md) and [operations](operations.md).
 
@@ -114,7 +115,8 @@ A second run replaces every order reason with a distinct deterministic 1,024-byt
 The next topology escape step produces 10,637,898 bytes and is rejected.
 The save cap applies to both raw JSON and the gzip file.
 At the tested source, the stream cap was 64 MiB raw and 65 MiB binary, and this patch did not change the caps.
-The current stream caps are 65 MiB raw and 66 MiB binary.
+The stream caps of the merged formats were 65 MiB raw and 66 MiB binary.
+The stream JSON cap is now 64 MiB, plus a derived gzip allowance (`MaxStreamJSON` and `MaxStreamMessage` in `internal/session/stream_codec.go`), and the saved-state cap is 128 MiB.
 
 These are independent wire-field shapes, not a proof that every combination is a reachable native state.
 The reference HTTP shape passes public class, route, registry, and reference checks, but repeats order IDs and physical occupancy for width coverage.
@@ -177,7 +179,10 @@ Final gate statuses and source pins are in the measurement JSON and durable mani
 
 This section requalifies the "Save bytes and shape" and "Stream and public consumers" rows of the approved contract on the current formats.
 The earlier sections of this record are historical.
-The current formats are project version 1 with the `orderContract` marker, saved-state version 9, hello version 6, and the HTTP media type `application/vnd.podsim.state-6+json`.
+The tested formats were project version 1 with the `orderContract` marker, saved-state version 9, hello version 6, and the HTTP media type `application/vnd.podsim.state-6+json`.
+Status 2026-10-19: the hello version is now 7, and the saved-state and stream caps are those in the status note above.
+The widest-shape tests that this section names (`TestExpressWidestSaveAdapters`, `TestExpressWidestStreamAdapters`, `TestExpressWidestTopologyHTTPAdapters`, `TestExpressIncompressibleAssetAdapters`, `TestExpressRequalCost`, `TestExpressPublicAssetRetention`, and `TestComposedWorstCaseFormats`) no longer exist.
+The sizes, times, and mutation line numbers below are those of `e7d653d`.
 The tested source is `e7d653d` with two new test files, `internal/session/express_requal_test.go` and `internal/remote/express_requal_test.go`.
 No production code changed.
 The data is under `requalification_merged_formats` in [the measurement record](measurements/express-wire-qualification.json).
@@ -228,8 +233,8 @@ On the second connection it reads the topology of the new epoch and acknowledges
 
 The class lane cache refuses a lane that admits Express by itself when the lane ends at a berth of a station that refuses Express, or belongs to such a station.
 A vehicle without a class uses the legacy lanes.
-The stream caps test decodes exactly 65 MiB of JSON and refuses one more byte.
-It refuses a gzip message of 66 MiB plus one byte, a second gzip member, and an inflated size past the JSON cap.
+The stream caps test decodes exactly `MaxStreamJSON` bytes of JSON (65 MiB at `e7d653d`) and refuses one more byte.
+It refuses a gzip message of `MaxStreamMessage` plus one byte (66 MiB at `e7d653d`), a second gzip member, and an inflated size past the JSON cap.
 The HTTP state uses one media type for every project kind.
 The Express and compact-pair media types of earlier servers get HTTP 406, and the client refuses a reply of another media type.
 
@@ -255,7 +260,7 @@ The runs used Go 1.27.1, `GOMAXPROCS=2`, and the default `GOGC=100`.
 
 The next topology escape step produces 10,637,898 bytes, and the decoder and the producer preflight refuse it.
 The save cap applies to the raw JSON and to the gzip file.
-The stream caps are 65 MiB of JSON and 66 MiB of gzip.
+The stream caps of that source were 65 MiB of JSON and 66 MiB of gzip.
 
 ### Time and heap on the merged formats
 

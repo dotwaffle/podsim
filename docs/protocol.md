@@ -414,7 +414,8 @@ The server closes the connection after these replies, so it does not wait for th
 
 A `project` command with more than 600 stations, 12,000 nodes, 20,000 lanes, or 1,000 pods gets HTTP 400, because these arrays are larger than the limits above.
 An Express project retains its separately qualified limit of 600 pods.
-A station with more than 200 berths also gets HTTP 400.
+A station with more than 200 berths or more than 8 banks also gets HTTP 400.
+More than 8 maneuver groups, a group with more than 64 lanes or 64 reverse lanes, and a group with more than 8 berths also get HTTP 400.
 More than 600 depots, a depot with more than 8 lanes, and a depot lane with more than 200 berths also get HTTP 400.
 A `project` command gets `command_rejected` when the project fails validation, for example when a node has more than 64 lanes.
 A lane counts at its start node and at its end node.
@@ -533,10 +534,10 @@ It also refuses these records:
 - A `startTick` above the tick of the frame, an `endTick` that is not above `startTick`, or an `evacuateTick` below `startTick`.
 - A `podID` that is not a vehicle of the frame, or a second record for the same pod.
 - A `laneID` that is not in the topology, or a segment that does not have `0 <= fromMeters < toMeters`, ends past the lane, or is longer than 50 m.
-- More than 64 debris records, or more than 600 pod records.
+- More than 64 debris records, or more than 1,000 pod records.
 
 It also refuses a negative counter.
-The scan before the typed decode allows at most 664 records in `active`.
+The scan before the typed decode allows at most 1,064 records in `active`.
 Without the fault marker, a client refuses the `faults` member and the `faults` group, also with a value of null, `{}`, or `[]`.
 It refuses each `faultContract` value other than `fault-v1`, including null and an empty text.
 The same rules apply to the HTTP state.

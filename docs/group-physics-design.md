@@ -2,7 +2,7 @@
 
 The group class supports eight seats, parties through eight, and a six-meter body length.
 The model uses the centered six-meter-radius envelope approved in [the large pod proposal](large-body-physics-proposal.md).
-Express retains its metadata and remains unavailable for physical operation.
+Express is unavailable for physical operation unless a project selects the opt-in `express-v1` order contract (see [the native qualification](express-native-qualification.md)).
 
 Status note, October 7, 2026: station buffers and compact station queues were removed.
 Statements below about compact queues, compact certificates, and buffer policies describe the code before the removal.
@@ -78,7 +78,7 @@ The focused tests include actual journeys with group, compact, and legacy leader
 They cover straight and curved motion, stopped following, merges, ordinary and bank stations, parking, and buffer policies.
 Every observed tick checks physical separation, speed changes, owned stopping bounds, position continuity, and order conservation.
 Cold checkpoints cover passenger service, empty fetch, origin retention, route trimming, and intermediate shared unloading.
-At qualification, actual consumers exercised save-6 restore and hello-3 full and replacement-delta frames.
+At qualification, actual consumers exercised save-6 restore and hello-3 full and replacement-delta frames; those versions are now 9 and 7.
 
 Independent review found a missing raw origin plane during departure.
 The corrected observer retains that plane until origin release.
@@ -88,6 +88,7 @@ The tests fail on that measured gap before their resource-cell assertions.
 
 Four complete 36,000-tick ordinary snapshot traces match the pre-change baseline exactly.
 Existing ordinary encoded fixtures remain unchanged.
+The caps in the table below are those of the tested source; the saved-state cap is now 128 MiB and the stream JSON cap 64 MiB.
 Separate maximum encoding fixtures contain actual group class values and use the existing count limits.
 They do not claim that every combined maximum is physically reachable.
 

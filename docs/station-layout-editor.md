@@ -24,7 +24,10 @@ The controls show the reason when the layout is unsupported.
 
 A rejected preview leaves the draft unchanged.
 Every lane with a moved endpoint must remain at least 24 m long.
+A slow, straight small-class lane that the retention rules of `internal/sim/retention.go` certify needs only twice its reduced retention.
 The preview checks sampled paths for crossings and gaps below 12 m, including the approach lanes.
+It reads the clearance of each pair from the same index as the server bank audit (`sim.NewLaneClearance`), so a certified pair can come closer than 12 m.
+A station that a depot uses has fixed geometry and berths, so the controls refuse it.
 Lanes that share a node use the existing junction control.
 Distinct nonempty separation groups represent separate planes when the lanes share no node, as in the simulator.
 The edit never changes a separation group to avoid a rejected crossing.

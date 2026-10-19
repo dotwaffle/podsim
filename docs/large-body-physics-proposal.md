@@ -5,6 +5,7 @@ Dimensions, the conservative safety candidate, and group-first delivery are appr
 Group and express pods remain metadata until their applicable qualification gates pass.
 The first implementation will model a conservative simulation envelope.
 It will not certify real steering, seating, or road vehicle dimensions.
+The group class is implemented ([group physics](group-physics-design.md)), and Express is available under the opt-in `express-v1` contract ([native qualification](express-native-qualification.md)).
 
 Station buffers and compact station queues were removed on October 7, 2026, because measurements showed that they lowered station entry throughput.
 Clauses that prohibit large pods in compact queues or buffer certificates now describe cases that cannot occur.
@@ -61,7 +62,7 @@ Recommend group pods first, with the current 2,600 saved waiting records and eig
 Express retains its route, station, capacity, and service metadata during that stage.
 Full express-20 operation needs both physical qualification and a separately reviewed larger-state encoding.
 At approval, the 80 MiB save and 64 MiB stream caps remained unchanged.
-Since 64b4f3f, the stream JSON cap is 65 MiB, and the gzip message cap is 66 MiB.
+Since the October 15 byte-budget amendment, the saved-state cap is 128 MiB and the stream JSON cap is 64 MiB, plus a derived gzip allowance.
 Do not truncate accepted requests or retained rider history to fit those caps.
 
 A joint group-and-express release is possible but needs more encoding and mixed-state work before either class becomes usable.

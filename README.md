@@ -609,7 +609,7 @@ The draft stays local until you select **Pause and apply**.
 - Export JSON to save the scenario and optional background.
   Import JSON to restore a draft.
   Like the server, the import matches member names exactly.
-  A file that repeats a member name in one object is not valid.
+  Unlike the server, which keeps the last value, the import rejects a file that repeats a member name in one object.
   The export is compact JSON.
   The project file must be 43 MiB or smaller.
   This limit includes the image in base64 form, the server's 32 MiB project limit, and an allowance for other fields.
@@ -926,7 +926,7 @@ A topology at the node, lane, and station limits, with the widest IDs and names,
 The editor sends the project in one command, and it compresses a command of more than 64 KiB with gzip.
 The server accepts a command body of 16 MiB or less, and 32 MiB plus 64 KiB of command JSON after decompression.
 Before the editor pauses the simulation for an apply, it checks the size of the project and shows the limit.
-A project can have at most 600 stations, 12,000 nodes, 20,000 lanes, and 600 pods.
+A project can have at most 600 stations, 12,000 nodes, 20,000 lanes, and 1,000 pods.
 Each station can have at most 200 berths.
 A project can have at most 8 maneuver groups.
 A group can have at most 64 lanes, 64 reverse lanes, and 8 berths.
@@ -1048,6 +1048,7 @@ At the first skipped arrival, the compare command turns the policy off for the r
 See [qualification results](docs/qualification.md#guarded-positioning-in-the-london-sweep).
 Pending requests contribute their elapsed wait at the end of the measurement window.
 The synthetic patterns are balanced, destination, hotspot, bursty-hotspot, and hub-burst.
+The default `-pattern` is `hotspot`.
 
 | Flag | Effect |
 | --- | --- |
@@ -1078,6 +1079,10 @@ The synthetic patterns are balanced, destination, hotspot, bursty-hotspot, and h
 | `-platoon-policies off,virtual` | The experimental platoon A/B. `virtual` lets queued pods follow the pod ahead at a short gap. |
 | `-pickup-reassignment off,on` | Compare independent pickup reassignment settings. The default is off. |
 | `-queue-limit` | Change the limit of 200 pending requests. At the limit, the comparison skips new arrivals. |
+| `-sharing-consent shared` | Give every offered party the consent `private` (default) or `shared`. See [sharing consent](docs/compare-sharing-consent.md). |
+| `-onboard-pickups off,on` | Compare occupied pickup policies. `on` needs a party limit above 1 and the drop-offs mode. |
+| `-energy-file` | Add energy estimates from an authored energy model file. See [energy model design](docs/energy-model-design.md). |
+| `-rail-forecast` | Position empty pods for known rail offers. See [scheduled train connections](docs/rail-connections.md). |
 
 The report has a `wait_rule` column or JSON field only when you give `-wait-rules`.
 The report has a `platoon_policy` column or JSON field only when you give `-platoon-policies`.
@@ -1220,7 +1225,9 @@ mise run scenario -- -preset scale100 -output /tmp/podsim-scale100.json
 mise run serve -- -project /tmp/podsim-scale100.json
 ```
 
-Presets include `small`, `busy`, `parking-constrained`, `rail-hub`, `scale100`, `london-central`, and `london-full`.
+Presets are `small`, `busy`, `parking-constrained`, `rail-hub`, `scale100`, `london-central`, `london-full`, `independent-banks`, and `compact-station`.
+The `independent-banks` preset is a planar station with two independent gates and a separate Parking station.
+The capacity flags do not apply to `independent-banks` or `compact-station`.
 LondonCentral preserves the central qualification network.
 [LondonFull](docs/london-full.md) covers 309 Tube and DLR sites with 2024 endpoint demand.
 Generated files contain raw server settings.
@@ -1470,7 +1477,7 @@ The local controller divides lanes into exclusive blocks of up to 30 meters.
 It retains trailing blocks until a four-meter pod and an eight-meter gap have cleared.
 
 On a qualifying slow lane, the blocks are retained for a distance R of less than 12 meters.
-A lane qualifies when it is straight and its speed limit is less than the square root of 14 m/s (about 3.74 m/s).
+A lane qualifies when it is straight and its speed limit is less than the square root of 14 (about 3.74 m/s).
 The track near the lane must also be one chain of lanes without large classes, with a total turn of at most 90 degrees.
 This track starts where a pod that can stop on the lane can be, and it ends 24 meters after the lane.
 R is (5 + 2u) / cos(T/2) - u meters, where u is the largest stopping distance on that track, but not more than 3.5 meters, and T is its total turn.
@@ -1792,8 +1799,11 @@ See [the project brief](PROJECT_BRIEF.md) for the wider scope and research.
 | --- | --- |
 | `internal/sim` | Network, routing, requests, pod movement, state export and restore, and deterministic tests. |
 | `internal/observe` | Station berth and queue metrics for the view and comparison reports. |
+| `internal/rail` | Pod transfers to scheduled train departures. |
+| `internal/parkride` | Offline car journeys around native pod trips. |
+| `internal/jsonerr`, `internal/wirename` | Fixed wording for JSON errors, and the JSON member names of the wire and file formats. |
 | `internal/project` | Versioned scenario settings, validation, and detached copies. |
-| `internal/editormodel` | Go editor worker state, checks, edits, normalization, undo history, daily profile construction, and place navigation. |
+| `internal/editormodel` | Go editor worker state, checks, edits, normalization, undo history, daily profile construction, place navigation, and the observation and measurement panels. |
 | `internal/scenarios` | Deterministic scenario presets, including `scale100`, `london-central`, and `london-full`, and qualification tests. |
 | `internal/session` | Shared clock, command validation, save points, saved session state, HTTP API, and repeatable demand. |
 | `internal/statestore` | Saved session state in a `file://` blob bucket, for the server only. |
@@ -1806,6 +1816,8 @@ See [the project brief](PROJECT_BRIEF.md) for the wider scope and research.
 | `cmd/serve` | Shared session, saved session state, browser assets, health checks, and diagnostics. |
 | `cmd/compare` | Reproducible policy comparisons. |
 | `cmd/scenario` | Generated scenario files. |
+| `cmd/projectcheck` | Validation of a local project file. See [project check](docs/project-check.md). |
+| `cmd/parkride` | Finite car itineraries around native pod journeys. |
 | `web` | Browser page, game loader, and scenario editor. |
 
 ### Measurement reports
@@ -1845,7 +1857,10 @@ mise run check
 | --- | --- |
 | `mise run check` | Workflow validation, Markdown checks, race tests, the tests that skip under the race detector, the `test:web` tests, vet, lint, vulnerability checks, the native and browser builds, the embedded server tests, and the checkpoint bound test. |
 | `mise run format` | Formats the Go sources and the Markdown files. |
-| `mise run test:quick` | `go test -short ./...`. It skips the long tests of `internal/sim`, `internal/session`, `internal/parkride`, `internal/scenarios`, `cmd/compare`, and `cmd/serve`. The race tasks, `test:embedded`, and `test:bounds` run them. |
+| `mise run test:quick` | `go test -short ./...`. It skips the long tests of `internal/sim`, `internal/session`, `internal/parkride`, `internal/project`, `internal/scenarios`, `cmd/compare`, and `cmd/serve`. The race tasks, `test:embedded`, and `test:bounds` run them. |
+| `mise run lint` | actionlint, rumdl, `go vet`, golangci-lint, and the check that `podsim.wasm` does not link cloud storage. |
+| `mise run check:static` | The checks other than the race tests and `qualify`: `test:bounds`, `test:web`, `lint`, `vulncheck`, `build`, and `test:embedded`. |
+| `mise run test:race` | The `test:race:sim`, `test:race:session`, and `test:race:other` tasks. |
 | `mise run test:web` | Only the editor, loader, and page tests. |
 | `mise run qualify` | The two Station 19 drain tests in `internal/scenarios` and the two emergency choice latency tests in `internal/sim`, without the race detector. These tests skip under the race detector, so in `mise run check` only this task runs them. The `test:race` task runs the other tests of these packages. |
 | `mise run test:embedded` | The root and `cmd/serve` tests with the `embed_assets` tag. It also runs the session tests that skip under the race detector or check more without it. The `test:race` task runs the other session tests. |

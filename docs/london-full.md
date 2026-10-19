@@ -282,3 +282,4 @@ Its worst-case full JSON was 78,625,591 bytes, above 64 MiB.
 Its saved-state JSON was 101,378,967 bytes, above 80 MiB.
 The limit change was rejected, and the production limits remained unchanged.
 On 2026-10-07, the maintainer raised the pod limit to 600 and the saved-state cap to 100 MiB, and dropped the worst-case byte proofs.
+The October 15 byte-budget amendment later set the saved-state cap to 128 MiB, and the pod limit of non-Express projects is now 1,000.

@@ -47,7 +47,13 @@ Approach and departure lengths must be at least 24 meters.
 Length edits need one straight lane and a dedicated external anchor with two incident lanes.
 Shared anchors and curves reject the edit.
 All changed lanes remain at least 24 meters long.
-Banked imports, edits, and simulation admission check the full network against the existing 12-meter nonincident clearance.
+A slow, straight small-class lane that meets the retention rules in `internal/sim/retention.go` needs only twice its reduced retention.
+Banked imports, edits, and simulation admission check the full network with the bank audit (`ValidateBankGeometry`).
+The audit compares the positions of each pair of nonincident paths.
+It requires 12 meters between two paths, or less on a lane that the retention rules certify.
+Maneuver groups and depots (`internal/sim/depot.go`) use the same audit.
+With a depot and no bank, the audit checks only the pairs with a depot lane or a slot.
+The editor uses the same index (`sim.NewLaneClearance`), so its checks match the server.
 
 ## Formats and restore
 
@@ -65,7 +71,7 @@ A retained route that disagrees with its bank rejects the file before either res
 Existing missing-route and route-budget demotions remain.
 Physical restore retains position tolerances, resets speed, and rebuilds ordinary reservations.
 
-Sessions send stream hello version 6 for every project kind.
+Sessions send stream hello version 7 for every project kind.
 Clients reject every other hello version.
 Geometry changes start a new stream chain and send the full network.
 

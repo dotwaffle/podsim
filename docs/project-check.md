@@ -11,7 +11,7 @@ The command requires one `-project` path.
 It rejects positional arguments and unsupported flags.
 It does not write or convert the input file.
 
-A valid project produces a quoted name, project version, station count, lane count, and fleet count.
+A valid project produces a quoted name, project version, station count, lane count, and pod count.
 The command exits successfully after the native checks pass.
 An argument, read, decode, validation, or summary write error produces a nonzero exit.
 Errors identify the failed stage.
@@ -21,7 +21,8 @@ The command decodes the file as the server does: as `serve -project` reads its f
 It then runs `project.Validate`.
 Member names must match exactly.
 A name that differs from a declared name only in case is an unknown member.
-The command rejects unknown members, a name that repeats in one object, and a second JSON value.
+The command rejects unknown members and a second JSON value.
+When a name repeats in one object, the last value applies, as in the server.
 It retains native version, class, bank, and null rules.
 Historical optional null values keep their existing meaning.
 It does not add a separate browser validator or new project defaults.

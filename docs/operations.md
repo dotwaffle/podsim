@@ -313,7 +313,7 @@ With it, the file can have `simulation.faults`, with these members:
   `start` and `end` are ticks, and `end` is 0 for a fault without an end.
   `pod` is an index into `simulation.pods`, and `lane` is an index into `project.network.lanes`.
   `from` and `to` are the debris segment in meters.
-  The file can have one record for each pod and 64 debris records, so at most 664 records.
+  The file can have one record for each pod and 64 debris records, so at most 1,064 records.
 - `counters`: the fault counters `started`, `cleared`, `evacuations`, `reroutes`, and `faultWaitTicks`, as in the [protocol](protocol.md#fault-members).
 
 The file omits `simulation.faults` when no fault is active and each counter is 0.

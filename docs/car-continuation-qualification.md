@@ -7,9 +7,10 @@ The [approved design](car-continuation-contract-proposal.md) defines the file an
 This qualification covers the selected foundation projects and schedules below.
 It does not establish cross-build replay or physical admission for every supported project.
 
-Status 2026-10-07: the checkpoint cap is now 100 MiB.
+Status 2026-10-19: the checkpoint cap is now 100 MiB, and the project limits are 32 MiB of project JSON, 12,000 nodes, 20,000 lanes, and 600 stations.
 This record describes the tested source, which had the 80 MiB cap.
 It also had the earlier project limits of 10 MiB of project JSON, 5,000 nodes, 8,000 lanes, and 300 stations.
+The sizes and limits below are those of the tested source.
 
 ## Use
 

@@ -92,7 +92,8 @@ The measurement record names each evidence directory.
 
 This section covers the browser/WASM roundtrip case of the "Stream and public consumers" row on the current formats.
 The earlier sections of this record are historical.
-The current formats are saved-state version 9, hello version 6, and the HTTP media type `application/vnd.podsim.state-6+json`.
+The tested formats are saved-state version 9, hello version 6, and the HTTP media type `application/vnd.podsim.state-6+json`.
+The stream version is now 7; the saved-state version and the media type are unchanged.
 The Node runs tested `e7d653d` with the new requalification tests.
 The Chromium run tested `94683aa` before a review fold that only clears a restore mark in compact queue motion.
 The wire record lists the other cases in [its requalification section](express-wire-qualification.md#requalification-on-the-merged-formats).

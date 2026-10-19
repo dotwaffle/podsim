@@ -48,7 +48,7 @@ Switching to an ordinary pattern clears the daily clock setting.
 Creation uses Go/WASM validation in a browser worker.
 An unavailable worker blocks apply and keeps export available.
 A response cannot overwrite a draft that changed while the worker ran.
-The creator respects the existing eight-profile and 299-destination limits.
+The creator respects the existing eight-profile and 599-destination limits.
 
 ## Comparisons
 

@@ -8,6 +8,7 @@ They compare the accepted `0f8f10f` baseline with the changes documented here.
 The recorded scale measurements use the ring fixture from `fe8fbe7`, before the mesh and map-navigation changes.
 Run the commands below to repeat the checks on another machine.
 Code changes after a measurement can give different results.
+The recorded presets use lane limits of 14 m/s, so the later speed-dependent retention on slow straight lanes (below 3.74 m/s) does not apply to the recorded runs.
 [Recorded performance samples](measurements/performance.json) retain the individual step benchmark, WASM loading, and moving-browser measurements.
 
 The [selected current-source policy rerun](policy-failures.md) records later platoon, sharing, and positioning outcomes separately.

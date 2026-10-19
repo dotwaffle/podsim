@@ -203,12 +203,12 @@ The lanes can have at most 64,000 track cells of about 30 meters in total.
 The London preset has 17,013 cells and the largest London capacity options in the tests have 24,675.
 These limits also apply to an edit of the London project in the editor.
 The `serve` and `compare` commands read a `-project` file of 32 MiB or less.
-The central generated file is indented, so it is about 3.3 MiB.
+The central generated file is indented, so it is about 2.5 MiB (2,633,332 bytes).
 The generator uses compact JSON when indentation would exceed the project file limit.
 Project validation also limits the compact JSON form of a project to 32 MiB, with room for the widest demand settings.
-In that form, the London project is about 1.5 MiB (1,591,128 bytes).
+In that form, the London project is about 1.1 MiB (1,162,536 bytes).
 The server writes the `-project` file in this form when it saves it.
-When the editor applies the project, it compresses the command with gzip, so it sends about 0.3 MiB.
+When the editor applies the project, it compresses the command with gzip, so it sends about 0.2 MiB.
 The server accepts a compressed command of 16 MiB or less, with 32 MiB plus 64 KiB of JSON or less after decompression.
 Change a limit only after measured editor validation.
 
@@ -286,10 +286,10 @@ With 3 berths at each passenger station, a core lane at Embankment crosses a gui
 All other passenger stations take a third berth.
 With a 40-meter pitch, all 96 passenger stations take 3 berths.
 A third berth at 95 stations and 24 berths at each Parking facility give 2,235 nodes and 3,625 lanes, with 4 soft conflicts.
-The generated file has 3,643,373 bytes.
+The generated file has 2,868,254 bytes.
 With a 40-meter pitch, 3 berths at each passenger station and 200 berths at each Parking facility give 3,822 nodes and 5,741 lanes, with 1 soft conflict.
-This generated file has 4,610,706 bytes.
-When the editor applies this project, the command has about 2.3 MiB of JSON, and the editor sends about 0.3 MiB with gzip.
+This generated file has 3,835,587 bytes.
+When the editor applies this project, the command has about 1.9 MiB of JSON, and the editor sends about 0.3 MiB with gzip.
 Capacity options must also pass the layout audit.
 A project below the node limit can still have station lanes that cross guideways.
 The capacity tests in the [qualification results](qualification.md#more-london-berths) did not find a change with the same 114 pods.

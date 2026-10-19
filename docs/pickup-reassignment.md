@@ -125,7 +125,8 @@ Reset keeps enablement but clears cursors, budgets, cooldowns, and counters.
 Clone copies controller storage.
 File restore keeps valid routes and bindings but disables the policy until its owner configures it.
 Controller history is not saved, so restart does not promise identical future experimental decisions.
-Project files and WebSocket frames do not change in this controller slice.
+Project files and WebSocket frames did not change in this controller slice.
+The project member `pickupReassignment` (`internal/project/config.go`) came later.
 
 Counters include assignment checks, transfers, swaps, route attempts, and rejection reasons.
 With experiment recording enabled, each changed request records its old and new pod and predicted pickup time.

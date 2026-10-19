@@ -16,11 +16,12 @@ The first station-maneuver slice is complete: station lanes have explicit roles,
 The scenario command sets the berths and berth pitch of the generated presets and the initial pods of both London presets.
 A layout check rejects lanes that come too near.
 The [station-layout editor](docs/station-layout-editor.md) adjusts berth pitch, entry/exit spacing, and approach setback for supported straight chains.
-Independent berth banks and richer storage layouts remain later work.
+[Independent berth banks](docs/station-banks.md), the opt-in Compact station, and queued parking depots are also implemented.
+See [compact bays](README.md#compact-bays) and [parking depots](README.md#parking-depots).
 The other experiments in Section 6 retain their separate status.
 See [README.md](README.md) for controls, validation commands, and current model limits.
 
-**Current work status, October 1, 2026:**
+**Current work status, October 19, 2026:**
 
 LondonCentral (`london-central`) retains the central qualification network and its 2019 demand.
 [LondonFull](docs/london-full.md) adds 269 Tube sites with 2024 endpoint demand.
@@ -44,6 +45,12 @@ Service results are mixed, with higher LondonCentral Early waits under mirrored 
 The [selected resource histories](docs/experimental-adoption.md#rejected-candidates) identify predecessor-frontier limits as most observed shared-guard failures in two Central schedules, then follow releases, ownership transfers, and later grants.
 All 128 full-arm selections reach their original frontier within 24 simulated seconds after selection.
 These histories do not measure the entire wait from its onset or identify one geometric root cause.
+
+On lanes that are straight, small-class, and slower than 3.74 m/s, the gap behind a pod now grows with its speed, so a slow queue packs closer.
+The Compact station adds angled bays with closed bay chains, a 1 second stop at each change of the reverse flag, and a sweep that certifies each lane against the parked bays.
+A Parking station can be a depot of queue lanes, with a saved parked tick for each pod.
+The observation and measurement panels of the editor now run in Go (`internal/editormodel`).
+The saved-state version is 9, the stream version is 7, and the HTTP state is `state-6`.
 
 The editor imports georeferenced PNG or JPEG backgrounds with stored bounds, projection, attribution, and an atomic undo step.
 Live OSM raster tiles provide a zoom-dependent backdrop in the editor and simulation.
@@ -87,7 +94,7 @@ The [route preference and commitment fix](docs/berth-route-preference.md) addres
 Sharing remains off by default.
 The opt-in `reassign-existing` join policy and guarded-positioning follow-up still fail adoption rules.
 These results do not reverse the earlier adoption of the drop-offs mode when sharing is enabled.
-Larger pods remain parked.
+Larger pods exist only in the opt-in Express contract (see the [Express native qualification](docs/express-native-qualification.md)), and no default changes.
 The bounded [predictive routing prototype](docs/predictive-routing.md) is implemented for comparison, with free-flow routing retained by default.
 Local Chromium software-rendering checks cover the viewer, editor, and high-latency streams.
 Desktop Chrome is the required browser for current development.

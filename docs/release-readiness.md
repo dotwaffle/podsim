@@ -9,6 +9,10 @@ All four bounded browser performance candidates were rejected and closed.
 Physical coupling was removed on October 6, 2026, and the [platoon coupling comparison](platoon-coupling-comparison.md) is the decision record.
 This report does not authorize deployment, default adoption, or a cap change.
 
+Later changes outdate several numbers below.
+At HEAD the fleet limit is 1,000 pods (`MaxPods` in `internal/project/config.go`), the saved-state and HTTP-state caps are 128 MiB (`MaxStateBytes`, `MaxHTTPStateJSON`), the stream JSON cap is 64 MiB (`MaxStreamJSON`), and the stream hello is version 7 (`StreamVersion`).
+The saved-state version is still 9, and the HTTP state media type is still `state-6`.
+
 Since the earlier `15047a4` pin, the maintainer deleted the worst-case byte proofs and the composed worst-case record.
 The fleet limit is 600 pods, the plain order bound is 5,000 orders, and the Express order bound is 17,000 orders.
 The saved-state cap and the checkpoint cap are 100 MiB.

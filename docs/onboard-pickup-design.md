@@ -140,6 +140,7 @@ The hypothetical pod is 169 bytes smaller than the historical maximum pod.
 The final compact typed fixture measures 83,698,502 bytes, leaving 187,578 bytes.
 The tuple estimate does not replace a combined typed fixture.
 The existing cap is 83,886,080 bytes.
+The saved-state cap is now 128 MiB (`MaxStateBytes` in `internal/session/persist.go`), so the byte figures here record the earlier fixture.
 These independent maxima bound encoding size.
 They do not describe a physically reachable state.
 The evidence is `onboard-boarding-byte-design.log` in the current service evidence cache.
