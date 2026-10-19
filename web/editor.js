@@ -25,9 +25,6 @@
   // STATION_PADDING is the distance in meters from the outer station nodes
   // to the edge of the drawn station shape.
   const STATION_PADDING = 12;
-  // MAX_LANES is project.MaxLanes, the lane limit of the server. A Go test
-  // in internal/project checks the mirror.
-  const MAX_LANES = 20000;
   // LANE_CLASSES gives the vehicle classes in the native order.
   const LANE_CLASSES = ["legacy", "compact", "group", "express"];
   // IMAGE_FILE_BYTES is the largest background image file that the editor
@@ -190,118 +187,8 @@
     return { center, width, height, angle: Math.atan2(along.y, along.x) * 180 / Math.PI, top };
   }
 
-  // berthChain gives the berth rows of a berth chain station, in berth
-  // order, or null when the station is not a berth chain. The generated
-  // London and scale100 stations are berth chains. In a chain, each berth
-  // node has one lane in, from its arrival node, and one lane out, to its
-  // departure node. An arrival link goes from the arrival node of the
-  // previous row, or from the station entry for the first row, to the
-  // arrival node. A departure link goes from the departure node to the
-  // departure node of the previous row, or to the station exit. The arrival
-  // and departure nodes are not entry, exit or berth nodes. A new station
-  // is not a chain, because its berth lanes go directly to the entry and the
-  // exit. Each row has berth, the berth, arrival and
-  // departure, the node IDs, and arrivalLink, departureLink, inLane and
-  // outLane, the lanes.
-  function berthChain(config, station) {
-    const core = stationCoreNodeIDs(station);
-    const byFrom = new Map(); const byTo = new Map();
-    for (const lane of config.network.lanes) {
-      if (!byFrom.has(lane.from)) byFrom.set(lane.from, []);
-      if (!byTo.has(lane.to)) byTo.set(lane.to, []);
-      byFrom.get(lane.from).push(lane); byTo.get(lane.to).push(lane);
-    }
-    const link = (from, to) => (byFrom.get(from) || []).find((lane) => lane.to === to);
-    const rows = [];
-    let arrival = station.entry; let departure = station.exit;
-    for (const berth of station.berths || []) {
-      const ins = byTo.get(berth.node) || []; const outs = byFrom.get(berth.node) || [];
-      if (ins.length !== 1 || outs.length !== 1) return null;
-      const row = { berth, arrival: ins[0].from, departure: outs[0].to, inLane: ins[0], outLane: outs[0] };
-      if (row.arrival === row.departure || core.has(row.arrival) || core.has(row.departure)) return null;
-      row.arrivalLink = link(arrival, row.arrival); row.departureLink = link(row.departure, departure);
-      if (!row.arrivalLink || !row.departureLink) return null;
-      rows.push(row);
-      arrival = row.arrival; departure = row.departure;
-    }
-    return rows.length ? rows : null;
-  }
-
-  // Station dimensions come from existing coordinates. Only aligned, straight
-  // berth chains support these controls. Other layouts keep manual node edits.
-  function stationLayout(config, stationID, bankID = "") {
-    let station = config.network.stations.find((item) => item.id === stationID);
-    if (station && Object.hasOwn(station, "banks")) {
-      const bank = station.banks?.find((item) => item.id === bankID);
-      if (!bank) return { error: "Select a station bank." };
-      station = bankStation(station, bank);
-    }
-    const rows = station && berthChain(config, station);
-    const unsupported = (reason) => ({ error: reason, approachLength: bankID && station ? bankAccessLength(config, station, "entry") : null, departureLength: bankID && station ? bankAccessLength(config, station, "exit") : null });
-    if (!rows) return unsupported("Layout controls require a straight berth chain.");
-    const nodes = new Map(config.network.nodes.map((node) => [node.id, node.position]));
-    const entry = nodes.get(station.entry); const exit = nodes.get(station.exit);
-    if (!entry || !exit) return unsupported("The station entry or exit is missing.");
-    const frame = stationAxes(entry, exit); const spacing = Math.hypot(exit.x - entry.x, exit.y - entry.y);
-    if (spacing < 2 * MIN_LANE_LENGTH) return unsupported("Entry/exit spacing must be at least 48 m.");
-    const offset = (id, axis) => { const at = nodes.get(id); return at && (at.x - frame.origin.x) * frame[axis].x + (at.y - frame.origin.y) * frame[axis].y; };
-    const near = (a, b) => Number.isFinite(a) && Number.isFinite(b) && Math.abs(a - b) < 1e-6;
-    const body = new Set([station.entry, station.exit]); const rowNodes = new Set(); const rowLanes = new Set();
-    for (const row of rows) {
-      for (const id of [row.arrival, row.berth.node, row.departure]) {
-        if (body.has(id)) return unsupported("Berth rows must use distinct nodes.");
-        body.add(id); rowNodes.add(id);
-      }
-      for (const lane of [row.arrivalLink, row.departureLink, row.inLane, row.outLane]) rowLanes.add(lane.id);
-    }
-    if (config.network.stations.some((other) => other.id !== stationID && [...stationCoreNodeIDs(other)].some((id) => body.has(id)))) return unsupported("Another station shares these nodes.");
-    for (const lane of config.network.lanes) {
-      if (!body.has(lane.from) && !body.has(lane.to)) continue;
-      if (lane.control) return unsupported(`Curved lane ${lane.id} requires manual node edits.`);
-      if ((rowNodes.has(lane.from) || rowNodes.has(lane.to)) && (!rowLanes.has(lane.id) || lane.stationID !== stationID)) return unsupported(`Lane ${lane.id} shares a berth row node.`);
-    }
-    const firstDepth = offset(rows[0].berth.node, "across"); const side = Math.sign(firstDepth);
-    if (!side) return unsupported("Berth rows must lie on one side of the station mouth.");
-    const depths = rows.map((row) => side * offset(row.berth.node, "across"));
-    const pitch = rows.length > 1 ? depths[1] - depths[0] : null;
-    for (const [index, row] of rows.entries()) {
-      if (!near(offset(row.arrival, "along"), -spacing / 2) || !near(offset(row.departure, "along"), spacing / 2) || !near(offset(row.berth.node, "along"), 0) ||
-          !near(offset(row.arrival, "across"), side * depths[index]) || !near(offset(row.departure, "across"), side * depths[index]) || depths[index] <= 0 ||
-          (pitch !== null && (pitch < 25 - 1e-6 || !near(depths[index], depths[0] + index * pitch)))) return unsupported("Berth rows must form an aligned rectangular chain with uniform pitch of at least 25 m.");
-    }
-    const incoming = config.network.lanes.filter((lane) => lane.to === station.entry && lane.stationID === stationID && lane.stationRole === "entry");
-    const outgoing = config.network.lanes.filter((lane) => lane.from === station.exit && lane.stationID === stationID && lane.stationRole === "exit");
-    let setback = null;
-    if (incoming.length === 1 && outgoing.length === 1 && !body.has(incoming[0].from) && !body.has(outgoing[0].to) &&
-        near(offset(incoming[0].from, "across"), offset(outgoing[0].to, "across")) && near(offset(incoming[0].from, "along") + offset(outgoing[0].to, "along"), 0)) {
-      const depth = -side * offset(incoming[0].from, "across");
-      if (depth > 0) setback = depth;
-    }
-    return { station, rows, frame, side, body, pitch, spacing, setback, error: "",
-      approachLength: bankID ? bankAccessLength(config, station, "entry") : null,
-      departureLength: bankID ? bankAccessLength(config, station, "exit") : null };
-  }
-
   function selectedBank(station, selection) {
     return station.banks?.find((bank) => bank.id === selection?.bank) || station.banks?.find((bank) => bank.berthIDs.includes(selection?.berth)) || station.banks?.[0];
-  }
-
-  function bankStation(station, bank) {
-    const ids = new Set(bank.berthIDs);
-    return { ...station, banks: undefined, entry: bank.entry, exit: bank.exit, berths: station.berths.filter((berth) => ids.has(berth.id)) };
-  }
-
-  function bankAccessLength(config, station, role) {
-    const gate = role === "entry" ? station.entry : station.exit;
-    const lanes = config.network.lanes.filter((lane) => lane.stationID === station.id && lane.stationRole === role && (role === "entry" ? lane.to === gate : lane.from === gate));
-    if (lanes.length !== 1 || lanes[0].control) return null;
-    const anchor = role === "entry" ? lanes[0].from : lanes[0].to;
-    const incident = config.network.lanes.filter((lane) => lane.from === anchor || lane.to === anchor);
-    if (incident.length !== 2 || incident.some((lane) => lane.control) || config.network.stations.some((other) => stationCoreNodeIDs(other).has(anchor))) return null;
-    const otherRole = role === "entry" ? "approach" : "exit";
-    if (incident.some((lane) => lane.id !== lanes[0].id && (lane.stationID && (lane.stationID !== station.id || lane.stationRole !== otherRole) || lane.from === gate || lane.to === gate))) return null;
-    const length = laneLength(config, lanes[0]);
-    return length > 0 ? length : null;
   }
 
   function stationGeometryCommand(config, id, action, value, bankID = "") {
@@ -2538,7 +2425,7 @@
   const API = {
 
     drawMeasurementReport, drawObservationLines, readStationObservations, MIN_LANE_LENGTH, MIN_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, LANE_PAIR_OFFSET, CHEVRON_LANE_LENGTH, STATION_PADDING, CHECK_DELAY, emptyConfig, fallbackConfig,
-    stationBearing, stationShape, stationLayout, stationGeometryCommand, berthChain, stationFlowCount, stationRailReferences, fleetRows, fleetClassNotice, selectionCard, berthFocusID, laneClassState, undoFocus,
+    stationBearing, stationShape, stationGeometryCommand, stationFlowCount, stationRailReferences, fleetRows, fleetClassNotice, selectionCard, berthFocusID, laneClassState, undoFocus,
     laneLength, curveLength, stationNodeOwners, dragTargets, checkSelector, checkSelection, selectionPoint, focusView,
     FRAME_SOURCES, ALIGN_TOLERANCE, RESAMPLE_MAX_SIDE, projectPoint, frameError, framePlacement, frameAligned, resampleSize, mercatorY, resampleRows,
     problemCountText, createCheckTimer, validationSummary, checkFocusKey, IMAGE_FILE_BYTES, IMAGE_MAX_SIDE, IMAGE_MAX_PIXELS, imageFacts, imageBytesFacts, dataURLToBytes, bytesToDataURL, checkImageSize,

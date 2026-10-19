@@ -4067,21 +4067,13 @@ test("bank controls send scoped Go geometry commands", () => {
   assert.deepEqual(config, before);
 });
 
-test("bank views select berth membership and dedicated anchor dimensions", () => {
+test("bank views select berth membership", () => {
   const config = independentBankFixture();
   const card = editor.selectionCard(config, { type: "station", id: "layout", bank: "b", berth: "b-berth1" });
   assert.equal(card.bank, "b"); assert.deepEqual(card.banks, [{ id: "a" }, { id: "b" }]);
   assert.deepEqual(card.berths, [{ id: "b-berth0", selected: false }, { id: "b-berth1", selected: true }, { id: "b-berth2", selected: false }]);
   assert.equal(editor.selectionCard(config, { type: "station", id: "layout", bank: "removed" }).bank, "a");
   assert.equal(editor.selectionCard(config, { type: "station", id: "layout", berth: "b-berth1" }).bank, "b");
-  assert.match(editor.stationLayout(config, "layout").error, /Select/);
-  const a = editor.stationLayout(config, "layout", "a"), b = editor.stationLayout(config, "layout", "b");
-  assert.equal(a.error, ""); assert.equal(b.error, ""); assert.equal(b.pitch, 75); assert.equal(b.spacing, 200);
-  assert.equal(b.station.entry, "b-entry"); assert.ok(b.approachLength > 120); assert.ok(b.departureLength > 120);
-  Object.assign(config.network.lanes.find((lane) => lane.id === "b-road-in"), { stationID: "layout", stationRole: "approach" });
-  assert.ok(editor.stationLayout(config, "layout", "b").approachLength > 120);
-  config.network.lanes.push({ id: "shared", from: "b-diverge", to: "road-in", speedLimit: 14 });
-  assert.equal(editor.stationLayout(config, "layout", "b").approachLength, null);
 });
 
 test("bank import and export preserve the bank metadata", () => {

@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"os"
 	"reflect"
 	"runtime"
 	"slices"
@@ -287,19 +286,6 @@ func TestValidateLimitsGeometry(t *testing.T) {
 				t.Fatalf("Validate = %v, want %q", err, test.want)
 			}
 		})
-	}
-}
-
-// TestEditorMirrorsLimits checks that the editor uses the lane limit of
-// Validate.
-func TestEditorMirrorsLimits(t *testing.T) {
-	t.Parallel()
-	source, err := os.ReadFile("../../web/editor.js")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if want := fmt.Sprintf("const MAX_LANES = %d;", MaxLanes); !strings.Contains(string(source), want) {
-		t.Errorf("web/editor.js does not have %s", want)
 	}
 }
 

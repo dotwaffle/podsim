@@ -60,7 +60,6 @@ CI runs `test:race:*`, `qualify`, and `check:static`.
 - `TestPlainStateFileWorstCaseSize` and `TestPlainStreamMaximumEncoding` prove the plain saved-state, full-stream, and HTTP-state byte bounds.
   Express has no byte proof.
   After a change to a count or byte limit in `internal/project/config.go`, check the effect on these sizes.
-  `web/editor.js` has a copy of `MaxLanes`.
 - A change to the saved-state version (`stateVersion`) or the stream version (`StreamVersion`) also changes the golden files in `internal/session/testdata` and the version text in `docs/operations.md` and `docs/protocol.md`.
 - Use the standard library first.
   JSON uses `encoding/json/v2`.
