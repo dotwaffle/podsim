@@ -112,42 +112,65 @@ func checkDepotLayout(layout depotLayout) error {
 	return nil
 }
 
-// depotSlotID returns the berth ID of a depot slot.
-func depotSlotID(lane, slot int) string {
-	return fmt.Sprintf("parking-%d-%02d", lane, slot)
+// depotSlotID returns the berth ID of a depot slot of a station.
+func depotSlotID(station string, lane, slot int) string {
+	return fmt.Sprintf("%s-%d-%02d", station, lane, slot)
 }
 
-// depotGeometry returns the Parking station of a ring as a depot. The
-// depot lanes run along the station from the entry side to the exit side,
-// outside the through lane, at the distances of depotAcross. A curved fan
-// lane goes from the entry to the lead-in of each lane. A straight
-// lead-out leaves the head slot of each lane, a straight run lane goes on
-// from it, and a curved throat lane goes from the run lane to the exit.
-// The lead-in, the chain lanes and the lead-out run at the depot speed.
-// The run lane runs at depotRunSpeed and the throat at depotThroatSpeed,
-// so a departing pod speeds up after depotLeadOut.
-func depotGeometry(parameters stationParameters, layout depotLayout) (sim.Station, []sim.Node, []sim.Lane, sim.Depot) {
+// depotPlacement places a depot. at returns the point along meters from
+// the entry and across meters outside the through lane. station holds the
+// ID, the name, the entry, and the exit of the depot station. The depot
+// nodes and lanes take the ID prefix.
+type depotPlacement struct {
+	at      func(along, across float64) sim.Point
+	station sim.Station
+	prefix  string
+}
+
+// ringDepotGeometry returns the Parking station of a ring as a depot,
+// with its entry and exit nodes and its through lane first.
+func ringDepotGeometry(parameters stationParameters, layout depotLayout) (sim.Station, []sim.Node, []sim.Lane, sim.Depot) {
 	theta := 2 * math.Pi * float64(parameters.index) / float64(parameters.count)
 	radius := 180 * float64(parameters.count)
 	center := sim.Point{X: radius * math.Cos(theta), Y: radius * math.Sin(theta)}
 	tangent := sim.Point{X: -math.Sin(theta), Y: math.Cos(theta)}
 	radial := sim.Point{X: math.Cos(theta), Y: math.Sin(theta)}
 	half := layout.length() / 2
-	// at returns the point along meters from the entry and across meters
-	// outside the through lane.
 	at := func(along, across float64) sim.Point {
 		return add(add(center, scale(tangent, along-half)), scale(radial, across))
 	}
-	prefix := fmt.Sprintf("s%02d", parameters.index+1)
 	entryID, exitID := stationNodeID(parameters.index, "entry"), stationNodeID(parameters.index, "exit")
-	speed := sim.DepotSpeed(depotPitch)
-	station := sim.Station{ID: "parking", Name: "Parking", Entry: entryID, Exit: exitID, ParkingOnly: true}
-	depot := sim.Depot{Station: station.ID}
-	nodes := []sim.Node{{ID: entryID, Position: at(0, 0)}, {ID: exitID, Position: at(layout.length(), 0)}}
-	lanes := []sim.Lane{{
+	station, depotNodes, depotLanes, depot := depotGeometry(layout, depotPlacement{
+		at:      at,
+		station: sim.Station{ID: "parking", Name: "Parking", Entry: entryID, Exit: exitID, ParkingOnly: true},
+		prefix:  fmt.Sprintf("s%02d", parameters.index+1),
+	})
+	nodes := append([]sim.Node{{ID: entryID, Position: at(0, 0)}, {ID: exitID, Position: at(layout.length(), 0)}}, depotNodes...)
+	lanes := append([]sim.Lane{{
 		ID: stationLaneID(parameters.index, "through"), From: entryID, To: exitID, SpeedLimit: speedLimit,
 		StationID: station.ID, StationRole: sim.StationThroughRole,
-	}}
+	}}, depotLanes...)
+	return station, nodes, lanes, depot
+}
+
+// depotGeometry returns a depot station with its slots, the depot nodes
+// and lanes, and the depot. The caller adds the entry and exit nodes and
+// the through lane. The depot lanes run along the station from the entry
+// side to the exit side, outside the through lane, at the distances of
+// depotAcross. A curved fan lane goes from the entry to the lead-in of
+// each lane. A straight lead-out leaves the head slot of each lane, a
+// straight run lane goes on from it, and a curved throat lane goes from
+// the run lane to the exit. The lead-in, the chain lanes and the lead-out
+// run at the depot speed. The run lane runs at depotRunSpeed and the
+// throat at depotThroatSpeed, so a departing pod speeds up after
+// depotLeadOut.
+func depotGeometry(layout depotLayout, placement depotPlacement) (sim.Station, []sim.Node, []sim.Lane, sim.Depot) {
+	at, prefix, station := placement.at, placement.prefix, placement.station
+	entryID, exitID := station.Entry, station.Exit
+	speed := sim.DepotSpeed(depotPitch)
+	depot := sim.Depot{Station: station.ID}
+	var nodes []sim.Node
+	var lanes []sim.Lane
 	for lane := 1; lane <= layout.lanes; lane++ {
 		across := depotAcross(lane)
 		lead, cleared, tail := fmt.Sprintf("%s-lead-%d", prefix, lane), fmt.Sprintf("%s-clear-%d", prefix, lane), fmt.Sprintf("%s-tail-%d", prefix, lane)
@@ -166,8 +189,8 @@ func depotGeometry(parameters stationParameters, layout depotLayout) (sim.Statio
 			}
 		}
 		for slot := 1; slot <= layout.slots; slot++ {
-			station.Berths = append(station.Berths, sim.Berth{ID: depotSlotID(lane, slot), Node: slotNode(slot)})
-			ids = append(ids, depotSlotID(lane, slot))
+			station.Berths = append(station.Berths, sim.Berth{ID: depotSlotID(station.ID, lane, slot), Node: slotNode(slot)})
+			ids = append(ids, depotSlotID(station.ID, lane, slot))
 		}
 		lanes = append(lanes,
 			sim.Lane{ID: fmt.Sprintf("%s-out-%d", prefix, lane), From: slotNode(1), To: cleared, SpeedLimit: speed},
@@ -179,15 +202,15 @@ func depotGeometry(parameters stationParameters, layout depotLayout) (sim.Statio
 	return station, nodes, lanes, depot
 }
 
-// depotPlacements returns count pods at the depot slots from the head:
-// slot 1 of each lane in lane order, then slot 2, and so on. first is the
-// number of the first pod.
-func depotPlacements(layout depotLayout, count, first int) []sim.Placement {
+// depotPlacements returns count pods at the slots of the depot station
+// from the head: slot 1 of each lane in lane order, then slot 2, and so
+// on. id returns the ID of the pod with an index from 0.
+func depotPlacements(layout depotLayout, station string, count int, id func(int) string) []sim.Placement {
 	placements := make([]sim.Placement, 0, count)
 	for slot := 1; len(placements) < count; slot++ {
 		for lane := 1; lane <= layout.lanes && len(placements) < count; lane++ {
 			placements = append(placements, sim.Placement{
-				ID: fmt.Sprintf("pod-%03d", first+len(placements)), StationID: "parking", BerthID: depotSlotID(lane, slot),
+				ID: id(len(placements)), StationID: station, BerthID: depotSlotID(station, lane, slot),
 			})
 		}
 	}

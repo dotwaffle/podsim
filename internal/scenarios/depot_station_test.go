@@ -159,7 +159,7 @@ func TestDepotLeadOut(t *testing.T) {
 			}
 		}
 		layout := depotLayout{lanes: lanes, slots: 3}
-		_, nodes, laneList, _ := depotGeometry(stationParameters{index: 4, count: 5}, layout)
+		_, nodes, laneList, _ := ringDepotGeometry(stationParameters{index: 4, count: 5}, layout)
 		if len(nodes) != layout.nodes()+2 || len(laneList) != layout.laneCount()+1 {
 			t.Errorf("%d lanes: %d nodes and %d lanes, want %d and %d", lanes, len(nodes), len(laneList), layout.nodes()+2, layout.laneCount()+1)
 		}

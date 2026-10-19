@@ -116,6 +116,13 @@ func TestRunWithoutFlagsKeepsPresets(t *testing.T) {
 		"rail-hub":            "dddc9926188715eb653f20176dcbfc118a6b8f013ef5b0148d6efd3c5b5d9ff9",
 		"scale100":            "fc5896f7c9e5efd30e75a5b83937df95848c1e2d3133b5be07bbbcb792727dc1",
 		"london-central":      "a53c7134d687f2c57741ee2545b52a240af763133b5c0e9fa01b239cc65dda63",
+		"london-full":         "ebf6f2cd4b819959f3c8bb803a33c39092b0907fd2841e6383e1244d6c3c52b4",
+	}
+	// networks holds the network SHA-256 of the summary line of the London
+	// presets.
+	networks := map[string]string{
+		"london-central": "2d11daaf9e6dc8c13b05c25529af55014db103bdc0985991c7704546534666d7",
+		"london-full":    "61761e3b5281228dac678ade72be718b5406ea4a150dcc400ffe5f52e26976db",
 	}
 	for preset, want := range tests {
 		t.Run(preset, func(t *testing.T) {
@@ -132,7 +139,23 @@ func TestRunWithoutFlagsKeepsPresets(t *testing.T) {
 			if !strings.HasPrefix(line, "preset="+preset+" ") || strings.Count(line, "\n") != 1 || !strings.Contains(line, " bytes="+strconv.Itoa(output.Len())+" ") {
 				t.Fatalf("summary = %q", line)
 			}
+			if network, ok := networks[preset]; ok && !strings.Contains(line, " network_sha256="+network+" ") {
+				t.Fatalf("summary = %q, want network SHA-256 %s", line, network)
+			}
 		})
+	}
+}
+
+// TestRunKeepsDepotRing pins the output of a ring with a depot.
+func TestRunKeepsDepotRing(t *testing.T) {
+	t.Parallel()
+	var output bytes.Buffer
+	if err := run([]string{"-preset", "small", "-parking-lanes", "3", "-parking-berths", "5"}, &output, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	sum := sha256.Sum256(output.Bytes())
+	if got, want := hex.EncodeToString(sum[:]), "638def202c4e350fb55fdedfab1f0d58929b0d41f8a966e1bda5f3b80497ac7b"; got != want {
+		t.Fatalf("output SHA-256 = %s, want %s", got, want)
 	}
 }
 

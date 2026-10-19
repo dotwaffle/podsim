@@ -488,7 +488,7 @@ func ring(parameters Parameters) sim.Network {
 		var stationLanes []sim.Lane
 		if layout, ok := parameters.depot(); ok && geometry.parking {
 			var depot sim.Depot
-			station, stationNodes, stationLanes, depot = depotGeometry(geometry, layout)
+			station, stationNodes, stationLanes, depot = ringDepotGeometry(geometry, layout)
 			depots = append(depots, depot)
 		} else {
 			station, stationNodes, stationLanes = stationGeometry(geometry)
@@ -580,7 +580,9 @@ func placements(parameters Parameters) []sim.Placement {
 		}
 	}
 	if layout, ok := parameters.depot(); ok {
-		return append(placements, depotPlacements(layout, parameters.InitialParkingPods, passengerPods+1)...)
+		return append(placements, depotPlacements(layout, "parking", parameters.InitialParkingPods, func(index int) string {
+			return fmt.Sprintf("pod-%03d", passengerPods+1+index)
+		})...)
 	}
 	for parkingIndex := range parameters.InitialParkingPods {
 		placements = append(placements, sim.Placement{
