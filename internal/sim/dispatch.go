@@ -550,8 +550,9 @@ func (s *Simulation) pickupPodMatching(stationID string, pass *dispatchPass, req
 	bestTime := math.Inf(1)
 	load := s.berthLoads()
 	var bounds []float64
+	fits := classFits{s: s, request: request}
 	usable := func(v *vehicle) bool {
-		return (excluded == "" || v.Pod.ID != excluded) && (request == nil || s.podFitsRequest(v, *request))
+		return (excluded == "" || v.Pod.ID != excluded) && (request == nil || fits.pod(v))
 	}
 	// In a depot, only the oldest head that serves this pickup is a
 	// candidate, so a head that cannot serve it does not hide a younger

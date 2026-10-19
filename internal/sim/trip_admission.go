@@ -185,6 +185,7 @@ func (s *Simulation) partyLimit(request Request) int {
 	return s.sharedRidePartyLimit
 }
 
+// podFitsRequest reads the pod only through its class.
 func (s *Simulation) podFitsRequest(v *vehicle, request Request) bool {
 	if ValidateVehicleClassProfileWithOrderContract(v.Pod.Class, s.orderContract) != nil {
 		return false
@@ -198,6 +199,31 @@ func (s *Simulation) podFitsRequest(v *vehicle, request Request) bool {
 	from, fromOK := s.station(request.legOrigin())
 	to, toOK := s.station(request.To)
 	return fromOK && toOK && !from.ParkingOnly && !to.ParkingOnly && s.stationsConnectedForClass(from, to, v.Pod.Class)
+}
+
+// classFits keeps the results of podFitsRequest for one request, by
+// vehicle class. podFitsRequest reads a pod only through its class, so
+// the pods of a class get the same result. A loop over the fleet for one
+// request then tests each class one time. Use a classFits only while the
+// network, the order contract, the services and the blocked set stay the
+// same.
+type classFits struct {
+	s       *Simulation
+	request *Request
+	classes []VehicleClass
+	fits    []bool
+}
+
+// pod returns podFitsRequest for v and the request.
+func (f *classFits) pod(v *vehicle) bool {
+	for i, class := range f.classes {
+		if class == v.Pod.Class {
+			return f.fits[i]
+		}
+	}
+	fits := f.s.podFitsRequest(v, *f.request)
+	f.classes, f.fits = append(f.classes, v.Pod.Class), append(f.fits, fits)
+	return fits
 }
 
 // pickupBerthFitsRequest checks the passenger leg from the selected pickup berth.

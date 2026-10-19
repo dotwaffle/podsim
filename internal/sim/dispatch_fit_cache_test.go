@@ -259,3 +259,39 @@ func BenchmarkDispatchFitCache(b *testing.B) {
 		}
 	}
 }
+
+// TestClassFitsMatchesPodFits checks classFits beside podFitsRequest for
+// each pod of a fleet of two classes. The two classes admit different
+// party sizes, so they give different results.
+func TestClassFitsMatchesPodFits(t *testing.T) {
+	t.Parallel()
+	network := lineNetwork([]lineStation{{id: "harbor", berths: 4}, {id: "garden", berths: 1}, {id: "market", berths: 1}, {id: "parking", berths: 1, parking: true}})
+	fleet := make([]Placement, 4)
+	for i := range fleet {
+		class := CompactClass
+		if i%2 == 1 {
+			class = LegacyClass
+		}
+		fleet[i] = Placement{ID: strconv.Itoa(i + 1), Class: class, StationID: "harbor", BerthID: "harbor-" + strconv.Itoa(i+1)}
+	}
+	s, err := NewFleet(network, fleet)
+	if err != nil {
+		t.Fatal(err)
+	}
+	differ := false
+	for _, size := range []int{1, 4, 5} {
+		request := Request{From: "harbor", To: "garden", PartySize: size, SharingConsent: PrivateConsent, Service: OnDemandService}
+		fits := classFits{s: s, request: &request}
+		for i := range s.vehicles {
+			v := &s.vehicles[i]
+			want := s.podFitsRequest(v, request)
+			if got := fits.pod(v); got != want {
+				t.Fatalf("party of %d, pod %s of class %s: classFits %v, podFitsRequest %v", size, v.Pod.ID, v.Pod.Class, got, want)
+			}
+			differ = differ || want != s.podFitsRequest(&s.vehicles[0], request)
+		}
+	}
+	if !differ {
+		t.Fatal("the classes give the same results")
+	}
+}

@@ -90,9 +90,10 @@ func (s *Simulation) waitForFinishingPod(trip *waitingTrip, idle *vehicle, assig
 	}
 	var best *vehicle
 	var bounds []float64
+	fits := classFits{s: s, request: &trip.request}
 	for i := range s.vehicles {
 		v := &s.vehicles[i]
-		if v == idle || !v.inService() || trip.excludes(v.Pod.ID) || !s.podFitsRequest(v, trip.request) {
+		if v == idle || !v.inService() || trip.excludes(v.Pod.ID) || !fits.pod(v) {
 			continue
 		}
 		node, remaining, ok := s.passAvailableAfter(i)
