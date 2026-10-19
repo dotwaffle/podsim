@@ -210,7 +210,7 @@ func auditPlanarLayout(network sim.Network) []layoutConflict {
 	var conflicts []layoutConflict
 	for index, first := range lanes {
 		for _, second := range lanes[index+1:] {
-			if depot[first.lane.ID] || depot[second.lane.ID] || sharesNode(first.lane, second.lane) || !first.near(second, sim.Clearance) {
+			if depot[first.lane.ID] != "" || depot[second.lane.ID] != "" || sharesNode(first.lane, second.lane) || !first.near(second, sim.Clearance) {
 				continue
 			}
 			station := first.lane.StationID
@@ -233,11 +233,11 @@ func auditPlanarLayout(network sim.Network) []layoutConflict {
 	return conflicts
 }
 
-// depotLanes returns the lanes of the depot lane paths, by lane ID: each
-// lane that reaches a slot node through nodes other than the entry and the
-// exit of the depot station.
-func depotLanes(network sim.Network) map[string]bool {
-	lanes := make(map[string]bool)
+// depotLanes returns the depot station of each lane of the depot lane
+// paths, by lane ID: each lane that reaches a slot node through nodes other
+// than the entry and the exit of the depot station.
+func depotLanes(network sim.Network) map[string]string {
+	lanes := make(map[string]string)
 	for _, depot := range network.Depots {
 		station, _ := network.Station(depot.Station)
 		inner := make(map[string]bool)
@@ -247,10 +247,10 @@ func depotLanes(network sim.Network) map[string]bool {
 		for changed := true; changed; {
 			changed = false
 			for _, lane := range network.Lanes {
-				if lanes[lane.ID] || !inner[lane.From] && !inner[lane.To] {
+				if lanes[lane.ID] != "" || !inner[lane.From] && !inner[lane.To] {
 					continue
 				}
-				lanes[lane.ID], changed = true, true
+				lanes[lane.ID], changed = depot.Station, true
 				for _, node := range []string{lane.From, lane.To} {
 					if node != station.Entry && node != station.Exit {
 						inner[node] = true
@@ -272,17 +272,60 @@ const (
 	londonCoreLane
 )
 
-// londonKind returns the kind of a lane in a London network.
-func londonKind(lane sim.Lane) londonLaneKind {
+// londonKind returns the kind of a lane in a London network. owner is the
+// station of the lane (see londonLaneOwners).
+func londonKind(lane sim.Lane, owner string) londonLaneKind {
 	switch {
 	case strings.HasPrefix(lane.ID, "london-link-"):
 		return londonLinkLane
-	case lane.StationID == "":
+	case owner == "":
 		return londonMovementLane
 	case strings.Contains(lane.ID, "-road-in-"), strings.Contains(lane.ID, "-road-out-"):
 		return londonRoadLane
 	}
 	return londonCoreLane
+}
+
+// londonLaneOwners returns the station of each station lane, by lane ID.
+// A lane belongs to its station, a depot lane to its depot station, and a
+// lane of a maneuver group to the station of the group. The depot lanes
+// and the group lanes have no station ID.
+func londonLaneOwners(network sim.Network) map[string]string {
+	owners := depotLanes(network)
+	for _, lane := range network.Lanes {
+		if lane.StationID != "" {
+			owners[lane.ID] = lane.StationID
+		}
+	}
+	for _, group := range network.ManeuverGroups {
+		for _, id := range group.LaneIDs {
+			owners[id] = group.StationID
+		}
+	}
+	return owners
+}
+
+// laneArea returns the area of a station with a depot or a maneuver group:
+// the smallest rectangle that holds the paths of the lanes, with two sides
+// parallel to the line from the entry to the exit. The corners are in order
+// round the rectangle.
+func laneArea(entry, exit sim.Point, lanes []auditLane) [4]sim.Point {
+	length := math.Hypot(exit.X-entry.X, exit.Y-entry.Y)
+	along := sim.Point{X: (exit.X - entry.X) / length, Y: (exit.Y - entry.Y) / length}
+	across := sim.Point{X: -along.Y, Y: along.X}
+	low, high := sim.Point{X: math.Inf(1), Y: math.Inf(1)}, sim.Point{X: math.Inf(-1), Y: math.Inf(-1)}
+	for _, lane := range lanes {
+		for _, part := range lane.parts {
+			for _, point := range []sim.Point{part.from, part.to} {
+				offset := sim.Point{X: point.X - entry.X, Y: point.Y - entry.Y}
+				frame := sim.Point{X: offset.X*along.X + offset.Y*along.Y, Y: offset.X*across.X + offset.Y*across.Y}
+				low = sim.Point{X: min(low.X, frame.X), Y: min(low.Y, frame.Y)}
+				high = sim.Point{X: max(high.X, frame.X), Y: max(high.Y, frame.Y)}
+			}
+		}
+	}
+	corner := func(x, y float64) sim.Point { return add(entry, add(scale(along, x), scale(across, y))) }
+	return [4]sim.Point{corner(low.X, low.Y), corner(high.X, low.Y), corner(high.X, high.Y), corner(low.X, high.Y)}
 }
 
 // londonAuditInput holds the values that the London audit needs in addition
@@ -303,8 +346,11 @@ type londonAuditStation struct {
 	low, high   sim.Point
 }
 
-// auditLondonLayout returns the conflicts of a London network. These are
-// hard conflicts:
+// auditLondonLayout returns the conflicts of a London network. The area of
+// an ordinary station holds its entry, its exit, and its last berth row.
+// The area of a station with a depot or a maneuver group is the laneArea
+// of its core lanes other than the access lanes to the entry and from the
+// exit. These are hard conflicts:
 //
 //   - a core lane that crosses a guideway or a movement lane
 //   - a lane that crosses a lane of another station, other than a road lane
@@ -329,23 +375,31 @@ func auditLondonLayout(network sim.Network, input londonAuditInput) []layoutConf
 		nodes[node.ID] = node.Position
 	}
 	lanes := newAuditLanes(network)
+	owners := londonLaneOwners(network)
+	replaced := make(map[string]bool)
+	for _, depot := range network.Depots {
+		replaced[depot.Station] = true
+	}
+	for _, group := range network.ManeuverGroups {
+		replaced[group.StationID] = true
+	}
 	stations := make(map[string]*londonAuditStation, len(network.Stations))
 	for _, station := range network.Stations {
-		last := station.Berths[len(station.Berths)-1].ID
-		stations[station.ID] = &londonAuditStation{
-			station: station,
-			area:    [4]sim.Point{nodes[station.Entry], nodes[station.Exit], nodes[last+"-departure"], nodes[last+"-arrival"]},
+		stations[station.ID] = &londonAuditStation{station: station}
+		if !replaced[station.ID] {
+			last := station.Berths[len(station.Berths)-1].ID
+			stations[station.ID].area = [4]sim.Point{nodes[station.Entry], nodes[station.Exit], nodes[last+"-departure"], nodes[last+"-arrival"]}
 		}
 	}
 	var guideways []auditLane
 	var conflicts []layoutConflict
 	for _, lane := range lanes {
-		kind := londonKind(lane.lane)
+		kind := londonKind(lane.lane, owners[lane.lane.ID])
 		if kind == londonLinkLane || kind == londonMovementLane {
 			guideways = append(guideways, lane)
 			continue
 		}
-		station, ok := stations[lane.lane.StationID]
+		station, ok := stations[owners[lane.lane.ID]]
 		if !ok {
 			continue
 		}
@@ -367,6 +421,13 @@ func auditLondonLayout(network sim.Network, input londonAuditInput) []layoutConf
 		}
 		station.core = append(station.core, lane)
 	}
+	for id := range replaced {
+		station := stations[id]
+		inner := slices.DeleteFunc(slices.Clone(station.core), func(lane auditLane) bool {
+			return lane.lane.StationRole == sim.StationEntryRole || lane.lane.StationRole == sim.StationExitRole
+		})
+		station.area = laneArea(nodes[station.station.Entry], nodes[station.station.Exit], inner)
+	}
 	for _, source := range network.Stations {
 		station := stations[source.ID]
 		for _, core := range station.core {
@@ -381,7 +442,7 @@ func auditLondonLayout(network sim.Network, input londonAuditInput) []layoutConf
 	}
 	for index, first := range network.Stations {
 		for _, second := range network.Stations[index+1:] {
-			conflicts = append(conflicts, auditLondonStationPair(stations[first.ID], stations[second.ID], input, nodes)...)
+			conflicts = append(conflicts, auditLondonStationPair(stations[first.ID], stations[second.ID], input, nodes, owners)...)
 		}
 	}
 	return append(conflicts, auditLondonPositions(network, stations, input)...)
@@ -389,7 +450,7 @@ func auditLondonLayout(network sim.Network, input londonAuditInput) []layoutConf
 
 // auditLondonStationPair returns the hard conflicts between two London
 // stations.
-func auditLondonStationPair(first, second *londonAuditStation, input londonAuditInput, nodes map[string]sim.Point) []layoutConflict {
+func auditLondonStationPair(first, second *londonAuditStation, input londonAuditInput, nodes map[string]sim.Point, owners map[string]string) []layoutConflict {
 	if second.low.X-first.high.X >= londonStationGap || first.low.X-second.high.X >= londonStationGap ||
 		second.low.Y-first.high.Y >= londonStationGap || first.low.Y-second.high.Y >= londonStationGap {
 		return nil
@@ -397,8 +458,10 @@ func auditLondonStationPair(first, second *londonAuditStation, input londonAudit
 	shared := input.gateways[first.station.ID] == second.station.ID || input.gateways[second.station.ID] == first.station.ID
 	var conflicts []layoutConflict
 	for _, a := range first.all {
+		aKind := londonKind(a.lane, owners[a.lane.ID])
 		for _, b := range second.all {
-			roads := londonKind(a.lane) == londonRoadLane && londonKind(b.lane) == londonRoadLane
+			bKind := londonKind(b.lane, owners[b.lane.ID])
+			roads := aKind == londonRoadLane && bKind == londonRoadLane
 			switch {
 			case roads && shared:
 			case a.crosses(b):
@@ -406,7 +469,7 @@ func auditLondonStationPair(first, second *londonAuditStation, input londonAudit
 					station: first.station.ID, first: fmt.Sprintf("lane %q", a.lane.ID),
 					second: fmt.Sprintf("%s lane %q", second.station.Name, b.lane.ID), reason: "crosses",
 				})
-			case londonKind(a.lane) == londonCoreLane && londonKind(b.lane) == londonCoreLane && a.near(b, londonStationGap):
+			case aKind == londonCoreLane && bKind == londonCoreLane && a.near(b, londonStationGap):
 				conflicts = append(conflicts, layoutConflict{
 					station: first.station.ID, first: fmt.Sprintf("lane %q", a.lane.ID),
 					second: fmt.Sprintf("%s lane %q", second.station.Name, b.lane.ID), reason: fmt.Sprintf("is nearer than %.0f meters to", londonStationGap),

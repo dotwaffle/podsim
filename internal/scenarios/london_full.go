@@ -67,7 +67,7 @@ func LondonFullWith(options LondonOptions) (project.Config, error) {
 	if err != nil {
 		return project.Config{}, err
 	}
-	if capacity.pitch == defaults.pitch && slices.Equal(capacity.berths, defaults.berths) && slices.Equal(capacity.pods, defaults.pods) {
+	if capacity.pitch == defaults.pitch && slices.Equal(capacity.berths, defaults.berths) && slices.Equal(capacity.pods, defaults.pods) && capacity.sameLayout(defaults) {
 		return LondonFull(), nil
 	}
 	return londonFullConfig(source, capacity, false)
@@ -97,7 +97,7 @@ func londonFullConfig(source londonSource, capacity londonCapacity, defaultCapac
 	}
 	config := project.Config{
 		Version: 1, Name: name, Network: network,
-		Fleet:          londonFleet(network, capacity.pods),
+		Fleet:          londonFleet(network, capacity),
 		Demand:         project.DemandConfig{PerMinute: 10, Pattern: "profile", Seed: 20260929, Profile: londonFullDemandProfileID, Band: "am-peak"},
 		DemandProfiles: []project.DemandProfile{londonFullDemandProfile()},
 		PlatoonLimit:   sim.MaxPlatoonLimit,

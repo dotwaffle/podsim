@@ -3,6 +3,7 @@ package scenarios
 import (
 	_ "embed"
 	"encoding/json/v2"
+	"errors"
 	"fmt"
 	"maps"
 	"math"
@@ -35,6 +36,11 @@ const (
 	// customCapacitySuffix ends the name of a generated project with other
 	// than the default capacity.
 	customCapacitySuffix = " (custom capacity)"
+	// londonDepotLength is the longest depot at a Parking facility, the
+	// distance between the entry and the exit of an ordinary station. The
+	// heading search uses the ordinary shape, and a depot of this length
+	// or less stays inside its area.
+	londonDepotLength = 200.0
 )
 
 //go:embed data/london-tube.json
@@ -119,6 +125,10 @@ type LondonOptions struct {
 	// BerthPitch is the distance in meters between two berth rows. It must
 	// be at least minimumBerthPitch.
 	BerthPitch float64
+	// ParkingLanes is the number of depot lanes of each Parking facility.
+	// Zero keeps the ordinary facilities. With depots, the berth count of
+	// a Parking facility is the slot count of each of its lanes.
+	ParkingLanes int
 }
 
 // DefaultLondonCentralOptions returns the options of the London preset.
@@ -158,15 +168,44 @@ func LondonCentralWith(options LondonOptions) (project.Config, error) {
 
 // londonCapacity holds the berth and pod counts of each London site, in
 // network order: the passenger stations in source order, then the Parking
-// facilities.
+// facilities. With depots, the berth count of a Parking facility is the
+// slot count of each of its lanes.
 type londonCapacity struct {
 	berths, pods []int
 	pitch        float64
+	// lanes is the depot lane count of each Parking facility, or 0 for
+	// the ordinary facilities.
+	lanes int
+}
+
+// depot returns the depot layout of the site at index, or false when the
+// site is not a depot.
+func (capacity londonCapacity) depot(index int) (depotLayout, bool) {
+	if capacity.lanes == 0 || index < len(capacity.berths)-len(londonParkingFacilities) {
+		return depotLayout{}, false
+	}
+	return depotLayout{lanes: capacity.lanes, slots: capacity.berths[index]}, true
+}
+
+// search returns the berth count of the site at index for the heading
+// search. A depot uses the ordinary shape of a Parking facility, so the
+// headings of all sites are those of the ordinary facilities.
+func (capacity londonCapacity) search(index int) int {
+	if _, ok := capacity.depot(index); ok {
+		return londonParkingBerths
+	}
+	return capacity.berths[index]
+}
+
+// sameLayout reports whether the capacity has the station layouts of the
+// other capacity: the same depot lanes.
+func (capacity londonCapacity) sameLayout(other londonCapacity) bool {
+	return capacity.lanes == other.lanes
 }
 
 // isDefault reports whether the capacity is that of the London preset.
 func (capacity londonCapacity) isDefault() bool {
-	if capacity.pitch != londonBerthPitch {
+	if capacity.pitch != londonBerthPitch || !capacity.sameLayout(londonCapacity{}) {
 		return false
 	}
 	passenger := len(capacity.berths) - len(londonParkingFacilities)
@@ -203,7 +242,10 @@ func (options LondonOptions) resolve(source londonSource) (londonCapacity, error
 			}
 		}
 	}
-	capacity := londonCapacity{berths: make([]int, len(ids)), pods: make([]int, len(ids)), pitch: options.BerthPitch}
+	if options.ParkingLanes < 0 {
+		return londonCapacity{}, errors.New("parking lanes must not be negative")
+	}
+	capacity := londonCapacity{berths: make([]int, len(ids)), pods: make([]int, len(ids)), pitch: options.BerthPitch, lanes: options.ParkingLanes}
 	total := 0
 	for index, id := range ids {
 		berths, pods := options.StationBerths, options.StationPods
@@ -216,19 +258,43 @@ func (options LondonOptions) resolve(source londonSource) (londonCapacity, error
 		if value, ok := options.Pods[id]; ok {
 			pods = value
 		}
-		if berths < 1 || berths > project.MaxBerths {
+		capacity.berths[index], capacity.pods[index] = berths, pods
+		limit, err := capacity.berthLimit(index)
+		if err != nil {
+			return londonCapacity{}, fmt.Errorf("%s (%s): %w", names[index], id, err)
+		}
+		if limit == 0 {
 			return londonCapacity{}, fmt.Errorf("%s (%s) has %d berths, want 1 to %d", names[index], id, berths, project.MaxBerths)
 		}
-		if pods < 0 || pods > berths {
-			return londonCapacity{}, fmt.Errorf("%s (%s) has %d pods, want 0 to its %d berths", names[index], id, pods, berths)
+		if pods < 0 || pods > limit {
+			return londonCapacity{}, fmt.Errorf("%s (%s) has %d pods, want 0 to its %d berths", names[index], id, pods, limit)
 		}
-		capacity.berths[index], capacity.pods[index] = berths, pods
 		total += pods
 	}
 	if total < 1 || total > project.MaxPods {
 		return londonCapacity{}, fmt.Errorf("fleet has %d pods, want 1 to %d", total, project.MaxPods)
 	}
 	return capacity, nil
+}
+
+// berthLimit returns the number of berths of the site at index, or 0 when
+// its berth count is out of range. For a depot, it checks the layout and
+// then the length, and the limit is the slot count of the depot.
+func (capacity londonCapacity) berthLimit(index int) (int, error) {
+	berths := capacity.berths[index]
+	if layout, ok := capacity.depot(index); ok {
+		if err := checkDepotLayout(layout); err != nil {
+			return 0, err
+		}
+		if length := layout.length(); length > londonDepotLength {
+			return 0, fmt.Errorf("the depot of %d lanes of %d slots is %.2f meters long, more than %.0f meters", layout.lanes, layout.slots, length, londonDepotLength)
+		}
+		return layout.lanes * layout.slots, nil
+	}
+	if berths < 1 || berths > project.MaxBerths {
+		return 0, nil
+	}
+	return berths, nil
 }
 
 func mustLondonConfig() project.Config {
@@ -277,7 +343,7 @@ func londonConfig(source londonSource, capacity londonCapacity) (project.Config,
 		// reference of londonPoint.
 		Geo: &project.Geo{Latitude: londonReferenceLatitude, Longitude: londonReferenceLongitude, Projection: project.GeoProjection, Radius: project.GeoRadius},
 	}
-	config.Fleet = londonFleet(config.Network, capacity.pods)
+	config.Fleet = londonFleet(config.Network, capacity)
 	if err := project.Validate(config); err != nil {
 		return project.Config{}, fmt.Errorf("validate London scenario: %w", err)
 	}
@@ -345,7 +411,7 @@ func londonNetworkWithHeadings(source londonSource, capacity londonCapacity, ove
 			panic(fmt.Sprintf("unknown London parking gateway %q", parking.Gateway))
 		}
 		input.sites = append(input.sites, londonSite{
-			center: positions[parking.Gateway], berths: capacity.berths[len(source.Stations)+index], pitch: capacity.pitch, own: gateway,
+			center: positions[parking.Gateway], berths: capacity.search(len(source.Stations) + index), pitch: capacity.pitch, own: gateway,
 			arrivals:   londonPortalPositions(portals[parking.Gateway].arrivals),
 			departures: londonPortalPositions(portals[parking.Gateway].departures),
 			preferred:  []londonPreference{{direction: parking.Direction}},
@@ -365,9 +431,10 @@ func londonNetworkWithHeadings(source londonSource, capacity londonCapacity, ove
 	}
 	for index, parking := range facilities {
 		site := len(source.Stations) + index
+		depot, _ := capacity.depot(site)
 		addLondonStation(&network, londonStationInput{
 			id: parking.ID, name: parking.Name, portals: *portals[parking.Gateway], parking: true,
-			shape: shapes[site],
+			shape: shapes[site], depot: depot,
 		})
 	}
 	return network, nil
@@ -379,7 +446,8 @@ func londonNetworkWithHeadings(source londonSource, capacity londonCapacity, ove
 // and merge nodes, and 3 nodes for each berth. Each passenger station adds
 // a movement lane from each arrival portal to each departure portal. Each
 // station adds a road lane to or from each portal, 3 lanes from the
-// diverge node to the merge node, and 4 lanes for each berth.
+// diverge node to the merge node, and 4 lanes for each berth. A depot has
+// the nodes and lanes of its layout in place of the berths.
 func checkLondonSize(network sim.Network, source londonSource, portals map[string]*londonStationPortals, capacity londonCapacity) error {
 	nodes, lanes := len(network.Nodes), len(network.Lanes)
 	for index, berths := range capacity.berths {
@@ -390,8 +458,13 @@ func checkLondonSize(network sim.Network, source londonSource, portals map[strin
 		} else {
 			station = *portals[londonParkingFacilities[index-len(source.Stations)].Gateway]
 		}
-		nodes += 4 + 3*berths
-		lanes += len(station.arrivals) + len(station.departures) + 3 + 4*berths
+		nodes, lanes = nodes+4, lanes+len(station.arrivals)+len(station.departures)+3
+		if layout, ok := capacity.depot(index); ok {
+			nodes, lanes = nodes+layout.nodes(), lanes+layout.laneCount()
+			continue
+		}
+		nodes += 3 * berths
+		lanes += 4 * berths
 	}
 	if nodes > project.MaxNodes {
 		return fmt.Errorf("generated London network needs %d nodes, more than the limit of %d", nodes, project.MaxNodes)
@@ -523,11 +596,24 @@ type londonStationInput struct {
 	shape    londonStationShape
 	portals  londonStationPortals
 	parking  bool
+	// depot is the depot layout of a Parking facility, or zero for berth
+	// rows.
+	depot depotLayout
 }
 
+// addLondonStation adds a station with its roads. A station has berth
+// rows, or a depot in place of them. The depot lies outward from its
+// through lane, and its entry and exit are half its length to each side of
+// the station axis, 200 meters out.
 func addLondonStation(network *sim.Network, input londonStationInput) {
 	id := input.id
 	positions := input.shape.nodes()
+	var at func(along, across float64) sim.Point
+	if input.depot.lanes != 0 {
+		frame, half := input.shape.frame(), input.depot.length()/2
+		at = func(along, across float64) sim.Point { return frame.position(along-half, 200+across) }
+		positions.entry, positions.exit, positions.berths = at(0, 0), at(input.depot.length(), 0), nil
+	}
 	divergeID, mergeID := id+"-diverge", id+"-merge"
 	entryID, exitID := id+"-entry", id+"-exit"
 	separationGroup := id + "-station"
@@ -557,6 +643,12 @@ func addLondonStation(network *sim.Network, input londonStationInput) {
 		})
 	}
 	station := sim.Station{ID: id, Name: input.name, Entry: entryID, Exit: exitID, ParkingOnly: input.parking}
+	if at != nil {
+		depotStation, nodes, lanes, depot := depotGeometry(input.depot, depotPlacement{at: at, station: station, prefix: id})
+		network.Nodes, network.Lanes = append(network.Nodes, nodes...), append(network.Lanes, lanes...)
+		network.Stations, network.Depots = append(network.Stations, depotStation), append(network.Depots, depot)
+		return
+	}
 	previousArrival, previousDeparture := entryID, exitID
 	for index, berth := range positions.berths {
 		berthID := fmt.Sprintf("%s-%02d", id, index+1)
@@ -579,15 +671,24 @@ func addLondonStation(network *sim.Network, input londonStationInput) {
 	network.Stations = append(network.Stations, station)
 }
 
-// londonFleet places pods on the first berths of each station. pods holds
-// the pod count of each station, in network order.
-func londonFleet(network sim.Network, pods []int) []sim.Placement {
+// londonFleet places pods on the first berths of each station, and on the
+// heads of the lanes of a depot first (see depotPlacements). The capacity
+// holds the pod count of each station, in network order.
+func londonFleet(network sim.Network, capacity londonCapacity) []sim.Placement {
+	pods := capacity.pods
 	total := 0
 	for _, count := range pods {
 		total += count
 	}
 	placements := make([]sim.Placement, 0, total)
 	for stationIndex, station := range network.Stations {
+		if layout, ok := capacity.depot(stationIndex); ok {
+			first := len(placements)
+			placements = append(placements, depotPlacements(layout, station.ID, pods[stationIndex], func(index int) string {
+				return fmt.Sprintf("london-pod-%03d", first+index+1)
+			})...)
+			continue
+		}
 		for index := range pods[stationIndex] {
 			placements = append(placements, sim.Placement{
 				ID:        fmt.Sprintf("london-pod-%03d", len(placements)+1),

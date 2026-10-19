@@ -250,7 +250,7 @@ func TestLondonStationsLieBesideTheirLines(t *testing.T) {
 	var guideways []guideway
 	linkInto, linkFrom := make(map[string]sim.Lane), make(map[string]sim.Lane)
 	for _, lane := range network.Lanes {
-		switch londonKind(lane) {
+		switch londonKind(lane, lane.StationID) {
 		case londonLinkLane, londonMovementLane:
 			parts := []lineSegment{segment(lane)}
 			if lane.Control != nil {
@@ -264,7 +264,7 @@ func TestLondonStationsLieBesideTheirLines(t *testing.T) {
 				}
 			}
 			guideways = append(guideways, guideway{id: lane.ID, parts: parts})
-			if londonKind(lane) == londonLinkLane {
+			if londonKind(lane, lane.StationID) == londonLinkLane {
 				linkInto[lane.To], linkFrom[lane.From] = lane, lane
 			}
 		case londonRoadLane, londonCoreLane:
@@ -281,7 +281,7 @@ func TestLondonStationsLieBesideTheirLines(t *testing.T) {
 		// has its own separation group.
 		for _, station := range network.Stations {
 			for _, lane := range byStation[station.ID] {
-				if londonKind(lane) != londonCoreLane {
+				if londonKind(lane, lane.StationID) != londonCoreLane {
 					continue
 				}
 				for _, guideway := range guideways {
@@ -334,13 +334,13 @@ func TestLondonStationsLieBesideTheirLines(t *testing.T) {
 			for _, second := range network.Stations[index+1:] {
 				for _, a := range byStation[first.ID] {
 					for _, b := range byStation[second.ID] {
-						if londonKind(a) == londonRoadLane && londonKind(b) == londonRoadLane && shared(first, second) {
+						if londonKind(a, a.StationID) == londonRoadLane && londonKind(b, b.StationID) == londonRoadLane && shared(first, second) {
 							continue
 						}
 						if segmentsCross(segment(a), segment(b)) {
 							t.Errorf("%s lane %q crosses %s lane %q", first.Name, a.ID, second.Name, b.ID)
 						}
-						if londonKind(a) != londonCoreLane || londonKind(b) != londonCoreLane {
+						if londonKind(a, a.StationID) != londonCoreLane || londonKind(b, b.StationID) != londonCoreLane {
 							continue
 						}
 						// The lanes do not cross, so the gap is at an end point.
@@ -354,12 +354,12 @@ func TestLondonStationsLieBesideTheirLines(t *testing.T) {
 				}
 				other := areas[second.ID]
 				for _, lane := range byStation[second.ID] {
-					if londonKind(lane) == londonCoreLane && (inArea(nodes[lane.From], area) || inArea(nodes[lane.To], area)) {
+					if londonKind(lane, lane.StationID) == londonCoreLane && (inArea(nodes[lane.From], area) || inArea(nodes[lane.To], area)) {
 						t.Errorf("%s lane %q is on %s", second.Name, lane.ID, first.Name)
 					}
 				}
 				for _, lane := range byStation[first.ID] {
-					if londonKind(lane) == londonCoreLane && (inArea(nodes[lane.From], other) || inArea(nodes[lane.To], other)) {
+					if londonKind(lane, lane.StationID) == londonCoreLane && (inArea(nodes[lane.From], other) || inArea(nodes[lane.To], other)) {
 						t.Errorf("%s lane %q is on %s", first.Name, lane.ID, second.Name)
 					}
 				}
@@ -417,7 +417,7 @@ func TestLondonStationsLieBesideTheirLines(t *testing.T) {
 		largest := 0.0
 		for _, station := range network.Stations {
 			for _, lane := range byStation[station.ID] {
-				if londonKind(lane) != londonRoadLane {
+				if londonKind(lane, lane.StationID) != londonRoadLane {
 					continue
 				}
 				var turn float64
