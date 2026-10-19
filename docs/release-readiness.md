@@ -1,32 +1,61 @@
 # Release readiness
 
-Status: release readiness on October 7, 2026.
-This report pins `0ca0c63a2f19ae32bc5bd0abc8d0fd2ecb81d7ee`, which is on main.
+Status: release readiness on October 19, 2026.
+This report pins `201031792a4c52aad621953b2f55ea897865ec55`, which is on main, as a source that this update read.
 At this source, one saved-state version and one stream version serve every project kind.
-Hosted Check passed for this source.
-The Check run of this source published no image.
+The local `mise run check` on `43d0e40` passed every task except `TestEmergencyChoiceLatency`, which failed on wall-clock time under host load.
+Both emergency latency tests then passed when run alone, in 301 seconds.
+The commits after `43d0e40` change only `mise.toml` and documents.
+The dependency update `0e842ea` came after this source, and this report does not cover it.
+Hosted Check has not run on this source, because the source is not pushed.
+No image was published for it.
 All four bounded browser performance candidates were rejected and closed.
 Physical coupling was removed on October 6, 2026, and the [platoon coupling comparison](platoon-coupling-comparison.md) is the decision record.
 This report does not authorize deployment, default adoption, or a cap change.
+Deployment, defaults, and caps are unchanged.
 
-Later changes outdate several numbers below.
-At HEAD the fleet limit is 1,000 pods (`MaxPods` in `internal/project/config.go`), the saved-state and HTTP-state caps are 128 MiB (`MaxStateBytes`, `MaxHTTPStateJSON`), the stream JSON cap is 64 MiB (`MaxStreamJSON`), and the stream hello is version 7 (`StreamVersion`).
-The saved-state version is still 9, and the HTTP state media type is still `state-6`.
+The hosted Check results below are for the earlier `0ca0c63a2f19ae32bc5bd0abc8d0fd2ecb81d7ee` source of October 7, 2026.
+They do not qualify the pinned source.
 
-Since the earlier `15047a4` pin, the maintainer deleted the worst-case byte proofs and the composed worst-case record.
-The fleet limit is 600 pods, the plain order bound is 5,000 orders, and the Express order bound is 17,000 orders.
-The saved-state cap and the checkpoint cap are 100 MiB.
-The project limits are 600 stations, 12,000 nodes, 20,000 lanes, 400,000 flows in each demand profile, and 32 MiB of project JSON.
-The editor import limit is 43 MiB, and the command body limit is 16 MiB.
+## Limits and versions at the pinned source
+
+Each value comes from the constant named here.
+
+| Item | Value | Source |
+| --- | ---: | --- |
+| Plain fleet limit | 1,000 pods | `MaxPods` in `internal/project/config.go` |
+| Plain outstanding-order bound | 8,200 orders | `MaxSavedWaitingTrips` in `internal/sim/state.go` (200 plus 1,000 pods times 8 riders) |
+| Express fleet limit | 600 pods | `expressMaxPods` in `internal/sim/order_contract_bounds.go` |
+| Express outstanding-order bound | 17,000 orders | `MaxExpressWaitingTrips` in `internal/sim/order_contract.go` |
+| Saved-state cap | 128 MiB | `MaxStateBytes` in `internal/session/persist.go` |
+| HTTP state cap | 128 MiB | `MaxHTTPStateJSON` in `internal/session/state_http.go` |
+| Stream JSON cap | 64 MiB | `MaxStreamJSON` in `internal/session/stream_codec.go` |
+| Compressed stream message cap | 64 MiB plus 32,832 bytes | `MaxStreamMessage` in `internal/session/stream_codec.go` |
+| Checkpoint cap | 100 MiB | `MaxCheckpointBytes` in `internal/parkride/checkpoint.go` |
+| Stations | 600 | `MaxStations` in `internal/project/config.go` |
+| Nodes | 12,000 | `MaxNodes` in `internal/project/config.go` |
+| Lanes | 20,000 | `MaxLanes` in `internal/project/config.go` |
+| Flows in each demand profile | 400,000 | `MaxFlows` in `internal/project/config.go` |
+| Project JSON | 32 MiB | `MaxFileBytes` in `internal/project/config.go` |
+| Editor import | 43 MiB | `PROJECT_FILE_BYTES` in `web/editor.js` |
+| Command body | 16 MiB | `MaxCommandBytes` in `internal/session/http.go` |
+| Saved-state version | 9 | `stateVersion` in `internal/session/state_file.go` |
+| Stream version | 7 | `StreamVersion` in `internal/session/stream_codec.go` |
+| HTTP state media type | `application/vnd.podsim.state-6+json` | `StateMediaType` in `internal/session/state_http.go` |
+
+Without the `express-v1` marker, a pod holds at most 8 riders.
+The Express bounds apply only with the marker.
 
 The [measurement record](measurements/release-readiness.json) is unchanged in this update.
 It still pins the earlier `8181495` source, its source-specific evidence, and its archived failures.
 This update read the pinned source in a detached worktree.
 It did not build the source or run tests.
+The local check results above come from the run on `43d0e40`.
 
 This source adds the incident, fault, and emergency markers.
 The incident redesign stopped at stage 3.
 The `64b4f3f` source raised the stream and HTTP state cap to 65 MiB and the compressed message cap to 66 MiB.
+Later sources set the caps in the table.
 
 ## Hosted checks and image
 
@@ -55,9 +84,9 @@ The `069bafb` source gave it a 30-minute test timeout.
 The `7c970c2` source reduced the local wall time of `TestScale100Station19BurstDrainsSafely` from 125.3 to 11.7 seconds.
 The `b70e46e` source runs 48 session tests in parallel.
 
-The linked Check run published no image for the pinned source.
+The linked Check run published no image for the `0ca0c63` source.
 The image of the earlier `7c970c2` source is `ghcr.io/dotwaffle/podsim@sha256:8b60067be3eb2a298c381b033c1438fc6771dc4bb5cb045c25b6a3723b3398b9`.
-That image carries no later change and does not qualify the pinned source.
+That image carries no later change and does not qualify the `0ca0c63` source or the pinned source.
 
 The earlier `15047a4` [Check](https://github.com/dotwaffle/podsim/actions/runs/37487384375) passed in 14m24s, from 15:25:37 to 15:40:01 UTC on October 6, 2026.
 Its jobs took 864 seconds for `test:race:sim-stations`, 604 for `test:race:sim-other`, and 587 for `test:race:other`.
@@ -75,7 +104,7 @@ The earlier `8181495` Check ran all tasks in one 1,236-second job, and its race 
 Its publication ran in a separate workflow that did not wait for Check.
 Those results remain archived in the measurement record.
 Job durations vary between runs and runners.
-The pinned run had a cold cache, and the cache state of the earlier runs is not recorded here.
+The `0ca0c63` run had a cold cache, and the cache state of the earlier runs is not recorded here.
 These durations do not establish a causal speedup against earlier runs or qualify a later source.
 
 The audit did not pull or execute any image, inspect an OCI manifest, or test an ARM runtime.
@@ -93,7 +122,7 @@ The test repair captures completion time with the writer result.
 A compiled caller control passed with a 919.839-millisecond write and result observation after 5.314 seconds.
 A mutant that restored the old sample compiled and failed after 5.308 seconds.
 The source overlays and original worktree hashes were verified afterward.
-The legal 65 MiB payload, production 30-second deadline, stalled-reader error, and cancellation controls remain.
+The legal maximum-size payload, production 30-second deadline, stalled-reader error, and cancellation controls remain.
 
 The plain `test:bounds` task in `check:static` retains every maximum checkpoint shape assertion.
 In the CI split qualification of the measurement record, the earlier 80 MiB guard rejected the 1,265,591,604-byte counting envelope and accepted the 72,104,395-byte fitting envelope.
@@ -113,13 +142,13 @@ The server refuses project versions 2 through 5 and does not migrate them.
 
 Item 7 merged the save and stream families into one family for every project kind.
 Every session writes saved-state version 9, and the server reads only version 9 (`9de7a3b`).
-Hello 6 is the only stream version (`5f1adac`).
+Hello 7 is the only stream version (`5f1adac` merged the families, and `aa1f2f0` raised the version from 6 to 7).
 `GET /api/state` has one media type, `application/vnd.podsim.state-6+json`, for every project kind.
 The contract markers select the optional members and the array bounds of each format.
 The order text is packed for every project kind, and no format has a `textEncoding` member.
 An intact saved state of version 1 through 8, or of version 10 or later, moves aside with `unsupported_version`.
 A damaged or invalid saved state moves aside with `invalid_state`, and the server starts a new session.
-A saved state of more than 100 MiB is the only file that the server keeps.
+A saved state of more than 128 MiB is the only file that the server keeps.
 Saving then stops, and startup fails.
 A restore counts the waiting orders and the requeued riders together against the queue bound of the contract (`e5933ce`).
 The [operations guide](operations.md#session-state) and the [protocol](protocol.md) give the full rules.
@@ -131,10 +160,38 @@ The editor refuses a project file with the earlier names.
 
 The composed worst-case record and the worst-case byte proofs no longer exist.
 Two plain proofs remain.
-`TestPlainStateFileWorstCaseSize` bounds plain saved-state JSON below the 100 MiB cap.
-`TestPlainStreamMaximumEncoding` bounds plain full-stream and HTTP-state JSON below the 65 MiB cap.
+`TestPlainStateFileWorstCaseSize` bounds plain saved-state JSON below the 128 MiB cap.
+`TestPlainStreamMaximumEncoding` bounds plain full-stream and HTTP-state JSON below their caps, which are 64 MiB for the stream and 128 MiB for the HTTP state.
 Express has no byte proof.
 The `test:embedded` task of the `check:static` job runs both proofs.
+
+## Opt-in features since the earlier pin
+
+None of these features changed the saved-state version, the stream version, or the HTTP state media type.
+Each one is off unless the project uses it.
+
+- Compact bays (maneuver groups) are off by default.
+  The `compact-station` preset enables them, and no scenario flag does.
+  The marker is the network member `maneuverGroups`, which has the digest tag `ext=13` and the `omitzero` JSON tag, so a network without groups writes the same bytes as before.
+  The decision record is the README section [Compact bays](../README.md#compact-bays) and the `compact-station` preset section, with the format note in the [operations guide](operations.md).
+- Clearance layer A has no marker and no flag.
+  It reduces the retention of a straight lane with a speed limit below about 3.74 m/s when the track near the lane qualifies, and every other lane keeps its 12-meter clearance.
+  Layer B (close-up following) was measured and not built, as the [close-up measurement](close-up-measurement.md) records.
+  The rule is in `internal/sim/retention.go` and the README.
+- Queued parking depots are off by default.
+  The `-parking-lanes` flag of the scenario command enables them on the ring presets, and a custom project can add the network member `depots`.
+  The markers are `depots` (`ext=14`, `omitzero`) and the pod member `parkedSince`, which a file writes only for a pod that is idle at a depot slot or moves up in a depot lane.
+  The [station banks](station-banks.md#depot-lanes) document and the README section [Parking depots](../README.md#parking-depots) are the decision record.
+- The depot lateral rule lets two lanes of one depot sit closer than 12 meters.
+  It applies only to depot lane pairs that a swept-body check clears, under the assumption that a guideway keeps each pod on its lane and heading.
+  The generated ring depots put the first lane 12 meters from the through lane and each next lane 6 meters further out.
+  Debris on a depot lane also blocks the neighbor cells that come closer than 12 meters.
+  The [station banks](station-banks.md#depot-lanes) document gives the rule and its assumption.
+- The observation and measurement helpers of the editor moved to Go, and the editor offers a measurement overlay and a live station snapshot.
+  Both are off until the user selects them, and neither changes the project or any format.
+  The README sections [Measure geometry](../README.md#measure-geometry) and [Live station observations](../README.md#live-station-observations) describe them.
+
+The contract documents were amended on October 19, 2026, with maintainer approval.
 
 ## Express operating limits
 
@@ -143,13 +200,13 @@ The [native](express-native-qualification.md) and [wire](express-wire-qualificat
 They do not certify every curve, service workload, browser, or hardware configuration.
 Express remains opt-in through the `express-v1` marker.
 Its party capacity remains 20 and its service registry limit remains 300.
-Its outstanding-order limit is 17,000, and the fleet limit is 600 for every project kind.
+Its outstanding-order limit is 17,000, and its fleet limit is 600 pods.
+The plain fleet limit is 1,000 pods.
 In each format, the `express-v1` marker selects bounds of 17,000 waiting or pending orders and 20 riders per pod.
-Without the marker, the bounds are 5,000 orders and 8 riders per pod.
+Without the marker, the bounds are 8,200 orders and 8 riders per pod.
 Current defaults and physical constants remain unchanged.
-The saved-state limit is 100 MiB.
-At the pinned source, the stream and HTTP state limit is 65 MiB for every project kind.
-The compressed message limit is 66 MiB.
+The saved-state and HTTP state limits are 128 MiB.
+The stream JSON limit is 64 MiB, and the compressed message limit is 64 MiB plus 32,832 bytes.
 Manual admission retains its 200-request queue limit.
 
 Physical session restore resets ordinary speed and reconstructs future grants.
@@ -262,10 +319,11 @@ Since `96bcb9f`, checkpoint decoding matches member names by exact case.
 The version-1 foundation contract does not qualify Express car plans.
 The container build covers the server, not the car CLI.
 
-Hosted Check passed for the pinned source, and that run published no image.
+Hosted Check passed for the `0ca0c63` source, and that run published no image.
+Hosted Check has not run on the pinned source.
 Browser performance work closed with rejection.
 The incident redesign ended at stage 3.
-The `check:static` job runs the two plain byte proofs.
+The `check:static` job runs the two plain byte proofs in CI.
 Maximum Express costs limit responsive operating claims within the opt-in qualification.
 Forecast and archived service failures still block experimental adoption and capacity claims.
 No acceptance waiver follows from a successful build or a passing Check.
