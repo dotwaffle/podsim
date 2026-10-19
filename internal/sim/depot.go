@@ -290,7 +290,11 @@ func (s *Simulation) advanceDepots() {
 	if s.depots == nil {
 		return
 	}
-	taken := make(map[depotSlot]bool)
+	if s.depotTaken == nil {
+		s.depotTaken = make(map[depotSlot]bool)
+	}
+	taken := s.depotTaken
+	clear(taken)
 	for i := range s.vehicles {
 		if slot, ok := s.depotSlotOf(&s.vehicles[i]); ok {
 			taken[slot] = true

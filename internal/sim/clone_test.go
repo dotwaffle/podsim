@@ -27,7 +27,7 @@ var cloneRules = map[reflect.Type]map[string]cloneRule{
 	reflect.TypeFor[Simulation](): {
 		"motion":         cloneCopy,
 		"networkIndexes": cloneShare, "lengths": cloneDrop, "routes": cloneDrop, "routeOrder": cloneDrop,
-		"pickupBounds": cloneDrop, "routeWork": cloneDrop, "routeView": cloneDrop, "admissionWork": cloneDrop, "emergencyMisses": cloneDrop,
+		"pickupBounds": cloneDrop, "routeWork": cloneDrop, "routeView": cloneDrop, "admissionWork": cloneDrop, "depotTaken": cloneDrop, "emergencyMisses": cloneDrop,
 		"initial":  cloneShare,
 		"vehicles": cloneCopy, "expressServices": cloneCopy, "owners": cloneCopy, "demo": cloneCopy, "waiting": cloneCopy, "undelivered": cloneCopy,
 		"demandWeights": cloneShare, "congestionRouteCosts": cloneShare, "congestionRoutes": cloneCopy, "predictiveQueues": cloneCopy, "predictivePodQueues": cloneCopy,
@@ -208,7 +208,7 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		// prepared network from it.
 		"networkIndexes":  persistSession,
 		"expressServices": persistSession, "lengths": persistReset, "routes": persistReset, "routeOrder": persistReset,
-		"pickupBounds": persistReset, "routeWork": persistReset, "routeView": persistReset, "admissionWork": persistReset,
+		"pickupBounds": persistReset, "routeWork": persistReset, "routeView": persistReset, "admissionWork": persistReset, "depotTaken": persistReset,
 		"emergencyMisses": persistReset, "searchCounters": persistReset,
 		"initial":  persistSession,
 		"vehicles": persistSave, "owners": persistDerive, "tick": persistSave, "paused": persistSave,
@@ -522,7 +522,10 @@ func TestCloneFollowsRules(t *testing.T) {
 				// The no-candidate memo tests cover the memo.
 				"Simulation.emergencyMisses",
 				// The release boundary of each tick empties it.
-				"Simulation.faultReleased"},
+				"Simulation.faultReleased",
+				// The example has no depot. The depot case covers the
+				// depot slot view.
+				"Simulation.depotTaken"},
 		},
 		{
 			name: "blocked routing storage",
@@ -550,6 +553,17 @@ func TestCloneFollowsRules(t *testing.T) {
 				return s
 			},
 			required: []string{"Simulation.faults"},
+		},
+		{
+			name: "depot slot view",
+			build: func(t *testing.T) *Simulation {
+				t.Helper()
+				network := shortDepotNetwork(2, 3)
+				s := newDepotFleet(t, network, depotPlacements(network, 6))
+				s.Step()
+				return s
+			},
+			required: []string{"Simulation.depotTaken"},
 		},
 		{
 			name: "emergency records",

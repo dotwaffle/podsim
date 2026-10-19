@@ -468,6 +468,10 @@ type Simulation struct {
 	// and reuses it at each later call. It is not part of the state. Clone
 	// drops it, so two simulations never share the buffers.
 	pass *dispatchPass
+	// depotTaken holds the taken depot slots of advanceDepots. Each pass
+	// clears it before use and keeps the storage for the next tick. It is
+	// not part of the state, and Clone drops it.
+	depotTaken map[depotSlot]bool
 }
 
 // metricCounters holds the service counters of a simulation.
