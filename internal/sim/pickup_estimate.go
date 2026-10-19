@@ -95,7 +95,7 @@ func (s *Simulation) waitForFinishingPod(trip *waitingTrip, idle *vehicle, assig
 		if v == idle || !v.inService() || trip.excludes(v.Pod.ID) || !s.podFitsRequest(v, trip.request) {
 			continue
 		}
-		node, remaining, ok := s.availableAfter(v)
+		node, remaining, ok := s.passAvailableAfter(i)
 		if !ok {
 			continue
 		}
@@ -192,6 +192,32 @@ func (s *Simulation) pickupAvailable(stationID, excluded string, pass *dispatchP
 
 // noBerthLoad gives each berth a load of zero.
 func noBerthLoad(Berth) int { return 0 }
+
+// passAvailableAfter returns availableAfter for the pod at fleet index i.
+// During a dispatch pass, it keeps the result until the next reset of the
+// pass, so the trips that one pass checks for a finishing pod compute the
+// estimate of each pod one time. availableAfter reads the pods, the waiting
+// trips and the routes. The pass resets after each change to the pods or
+// the waiting trips, and a cached route is equal to a new route. A hold
+// writes only the deferral fields and the dispatch reason of its trip, and
+// availableAfter reads neither. The Express clear of a trip route before
+// the check is on a trip with no pod, and availableAfter reads only the
+// trips of the pod that it estimates. Outside a pass, it keeps nothing.
+func (s *Simulation) passAvailableAfter(i int) (string, float64, bool) {
+	pass := s.pass
+	if pass == nil || !pass.active {
+		return s.availableAfter(&s.vehicles[i])
+	}
+	if len(pass.finish) != len(s.vehicles) {
+		pass.finish = make([]finishMemo, len(s.vehicles))
+	}
+	memo := &pass.finish[i]
+	if !memo.known {
+		memo.node, memo.remaining, memo.ok = s.availableAfter(&s.vehicles[i])
+		memo.known = true
+	}
+	return memo.node, memo.remaining, memo.ok
+}
 
 // availableAfter includes every committed leg before a busy pod becomes available.
 // It reports false for an idle pod and for a pod that waits at rest.

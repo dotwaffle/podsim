@@ -405,6 +405,17 @@ type dispatchPass struct {
 	// true. See boardingPods.
 	boarding      map[string][]*vehicle
 	boardingKnown bool
+	// finish keeps the result of availableAfter for each pod, by fleet
+	// index. See passAvailableAfter.
+	finish []finishMemo
+}
+
+// finishMemo is one result of availableAfter. It is valid while known is
+// true.
+type finishMemo struct {
+	node      string
+	remaining float64
+	ok, known bool
 }
 
 // dispatchKey selects a cached pickup pod. The pickup station is the leg
@@ -458,6 +469,7 @@ func (pass *dispatchPass) reset() {
 	pass.candidates, pass.candidatesKnown = pass.candidates[:0], false
 	pass.idleKnown = false
 	pass.boardingKnown = false
+	clear(pass.finish)
 }
 
 // mayBeIdle reports false only when no pod is idle at the station. It
