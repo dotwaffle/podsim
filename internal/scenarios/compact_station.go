@@ -118,32 +118,53 @@ func compactBay(index int) (sim.Point, []compactPiece) {
 	return branch, compactArcPieces(pieces, second, middle, first.sweep)
 }
 
-// compactStationNetwork returns the network of the compact station
-// preset: four bays for Compact pods in one maneuver group, the roads to
-// and from them, and a loop through an ordinary station.
-func compactStationNetwork() sim.Network {
+// compactLayout holds a compact station: its entry, holding, receiving,
+// and exit nodes and the nodes of its bays, its approach, bypass, and
+// leave lanes and then its group lanes, its bays, and its maneuver group.
+type compactLayout struct {
+	nodes  []sim.Node
+	lanes  []sim.Lane
+	berths []sim.Berth
+	group  sim.ManeuverGroup
+}
+
+// compactStation returns the compact station of the station ID. at moves
+// a point of the station, or nil keeps the points. The station moves as a
+// rigid body, so at must keep distances. Each node, lane, and berth ID and
+// the group ID start with prefix.
+func compactStation(at func(sim.Point) sim.Point, prefix, station string) compactLayout {
+	move := func(point sim.Point) sim.Point { return point }
+	if at != nil {
+		move = at
+	}
+	moveControl := func(control *sim.Point) *sim.Point {
+		if control == nil || at == nil {
+			return control
+		}
+		return new(at(*control))
+	}
 	y := compactAisleY
 	entryX, exitX := compactHoldX-compactRoad, compactReceiveX+compactRoad
-	network := sim.Network{
-		Nodes: []sim.Node{
-			{ID: "entry", Position: sim.Point{X: entryX, Y: y}}, {ID: "hold", Position: sim.Point{X: compactHoldX, Y: y}},
-			{ID: "receive", Position: sim.Point{X: compactReceiveX, Y: y}}, {ID: "exit", Position: sim.Point{X: exitX, Y: y}},
+	id := func(name string) string { return prefix + name }
+	layout := compactLayout{
+		nodes: []sim.Node{
+			{ID: id("entry"), Position: move(sim.Point{X: entryX, Y: y})}, {ID: id("hold"), Position: move(sim.Point{X: compactHoldX, Y: y})},
+			{ID: id("receive"), Position: move(sim.Point{X: compactReceiveX, Y: y})}, {ID: id("exit"), Position: move(sim.Point{X: exitX, Y: y})},
 		},
-		Lanes: []sim.Lane{
-			{ID: "approach", From: "entry", To: "hold", SpeedLimit: speedLimit},
-			{ID: "bypass", From: "entry", To: "exit", SpeedLimit: speedLimit, Control: &sim.Point{X: (entryX + exitX) / 2, Y: y - 32}},
-			{ID: "leave", From: "receive", To: "exit", SpeedLimit: speedLimit},
+		lanes: []sim.Lane{
+			{ID: id("approach"), From: id("entry"), To: id("hold"), SpeedLimit: speedLimit},
+			{ID: id("bypass"), From: id("entry"), To: id("exit"), SpeedLimit: speedLimit, Control: moveControl(&sim.Point{X: (entryX + exitX) / 2, Y: y - 32})},
+			{ID: id("leave"), From: id("receive"), To: id("exit"), SpeedLimit: speedLimit},
 		},
-		Stations: []sim.Station{{ID: "compact", Name: "Compact bays", Entry: "entry", Exit: "exit"}},
+		group: sim.ManeuverGroup{ID: id(compactGroupID), StationID: station},
 	}
-	group := sim.ManeuverGroup{ID: compactGroupID, StationID: "compact"}
 	// A group lane or berth admits only Compact pods.
 	compactClasses, _ := sim.NewClassSet(string(sim.CompactClass))
-	addLane := func(id, from, to string, control *sim.Point, reverse bool) {
-		network.Lanes = append(network.Lanes, sim.Lane{ID: id, From: from, To: to, SpeedLimit: compactManeuverSpeed, VehicleClasses: compactClasses, Control: control})
-		group.LaneIDs = append(group.LaneIDs, id)
+	addLane := func(name, from, to string, control *sim.Point, reverse bool) {
+		layout.lanes = append(layout.lanes, sim.Lane{ID: id(name), From: id(from), To: id(to), SpeedLimit: compactManeuverSpeed, VehicleClasses: compactClasses, Control: moveControl(control)})
+		layout.group.LaneIDs = append(layout.group.LaneIDs, id(name))
 		if reverse {
-			group.ReverseLaneIDs = append(group.ReverseLaneIDs, id)
+			layout.group.ReverseLaneIDs = append(layout.group.ReverseLaneIDs, id(name))
 		}
 	}
 	previous := "hold"
@@ -151,17 +172,17 @@ func compactStationNetwork() sim.Network {
 		branch, pieces := compactBay(index)
 		bay := index + 1
 		branchID := fmt.Sprint("branch-", bay)
-		network.Nodes = append(network.Nodes, sim.Node{ID: branchID, Position: branch})
+		layout.nodes = append(layout.nodes, sim.Node{ID: id(branchID), Position: move(branch)})
 		addLane(fmt.Sprint("aisle-", bay), previous, branchID, nil, false)
 		previous = branchID
 		nodes := []string{branchID}
 		for k, piece := range pieces {
-			id := fmt.Sprintf("bay-%d-node-%d", bay, k+1)
+			name := fmt.Sprintf("bay-%d-node-%d", bay, k+1)
 			if k == len(pieces)-1 {
-				id = fmt.Sprint("berth-", bay)
+				name = fmt.Sprint("berth-", bay)
 			}
-			network.Nodes = append(network.Nodes, sim.Node{ID: id, Position: piece.end})
-			nodes = append(nodes, id)
+			layout.nodes = append(layout.nodes, sim.Node{ID: id(name), Position: move(piece.end)})
+			nodes = append(nodes, name)
 		}
 		for k, piece := range pieces {
 			addLane(fmt.Sprintf("bay-%d-in-%d", bay, k+1), nodes[k], nodes[k+1], piece.control, false)
@@ -169,13 +190,26 @@ func compactStationNetwork() sim.Network {
 		for k, piece := range slices.Backward(pieces) {
 			addLane(fmt.Sprintf("bay-%d-out-%d", bay, k+1), nodes[k+1], nodes[k], piece.control, true)
 		}
-		berthID := fmt.Sprint("bay-", bay)
-		network.Stations[0].Berths = append(network.Stations[0].Berths, sim.Berth{ID: berthID, Node: nodes[len(nodes)-1], VehicleClasses: compactClasses})
-		group.BerthIDs = append(group.BerthIDs, berthID)
+		berthID := id(fmt.Sprint("bay-", bay))
+		layout.berths = append(layout.berths, sim.Berth{ID: berthID, Node: id(nodes[len(nodes)-1]), VehicleClasses: compactClasses})
+		layout.group.BerthIDs = append(layout.group.BerthIDs, berthID)
 	}
 	addLane("aisle-out", previous, "receive", nil, false)
-	network.ManeuverGroups = []sim.ManeuverGroup{group}
-	addCompactTown(&network, entryX, exitX)
+	return layout
+}
+
+// compactStationNetwork returns the network of the compact station
+// preset: four bays for Compact pods in one maneuver group, the roads to
+// and from them, and a loop through an ordinary station.
+func compactStationNetwork() sim.Network {
+	layout := compactStation(nil, "", "compact")
+	network := sim.Network{
+		Nodes:          layout.nodes,
+		Lanes:          layout.lanes,
+		Stations:       []sim.Station{{ID: "compact", Name: "Compact bays", Entry: "entry", Exit: "exit", Berths: layout.berths}},
+		ManeuverGroups: []sim.ManeuverGroup{layout.group},
+	}
+	addCompactTown(&network, compactHoldX-compactRoad, compactReceiveX+compactRoad)
 	return network
 }
 
