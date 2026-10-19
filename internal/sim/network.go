@@ -243,6 +243,7 @@ func (n Network) routeIndexedWithWork(input networkRouteInput, graph routeGraph,
 	}
 	work.reset(len(n.Nodes))
 	distance, previous, visited := work.distance, work.previous, work.visited
+	filtered := input.bankExternal || input.allowedLanes != nil || input.forbidden != nil || input.ownBerthsOnly
 	distance[from] = input.startCost
 	work.queue = append(work.queue, routeQueueItem{node: from, distance: input.startCost})
 	queue := work.queue
@@ -263,30 +264,10 @@ func (n Network) routeIndexedWithWork(input networkRouteInput, graph routeGraph,
 			if !graph.laneAllows(laneIndex, input.class) || !graph.laneOpen(laneIndex) {
 				continue
 			}
-			if input.bankExternal && graph.banks.lanes[laneIndex] >= 0 && n.Lanes[laneIndex].StationRole != StationThroughRole {
+			if filtered && routeLaneFiltered(&input, &graph, n.Lanes, laneIndex, from, to) {
 				continue
 			}
-			if input.allowedLanes != nil && !input.allowedLanes[laneIndex] {
-				continue
-			}
-			// The node indexes are equal only when the node IDs are equal.
-			if input.forbidden != nil && edge.to != from && edge.to != to && input.forbidden[n.Lanes[laneIndex].To] {
-				continue
-			}
-			if input.ownBerthsOnly && !graph.berthAllowed(edge.to, from, to) {
-				continue
-			}
-			extra := 0.0
-			if laneIndex < len(input.extraCost) {
-				extra = input.extraCost[laneIndex]
-			}
-			if laneIndex < len(input.discharge) {
-				extra += queueDelay(input.discharge[laneIndex], item.distance)
-			}
-			if laneIndex < len(input.forecasts) {
-				extra += input.forecasts[laneIndex].delay(input.forecastStart + item.distance)
-			}
-			candidate := item.distance + edge.seconds + extra
+			candidate := item.distance + edge.seconds + routeLaneExtra(&input, laneIndex, item.distance)
 			if candidate < distance[edge.to] {
 				distance[edge.to], previous[edge.to] = candidate, laneIndex
 				queue.push(routeQueueItem{node: edge.to, distance: candidate})
@@ -295,6 +276,39 @@ func (n Network) routeIndexedWithWork(input networkRouteInput, graph routeGraph,
 	}
 	work.queue = queue[:0]
 	return n.routeLanes(graph, from, to, distance, previous)
+}
+
+// routeLaneFiltered reports whether an optional filter of input removes a
+// lane from a route search from node from to node to.
+func routeLaneFiltered(input *networkRouteInput, graph *routeGraph, lanes []Lane, laneIndex, from, to int) bool {
+	if input.bankExternal && graph.banks.lanes[laneIndex] >= 0 && lanes[laneIndex].StationRole != StationThroughRole {
+		return true
+	}
+	if input.allowedLanes != nil && !input.allowedLanes[laneIndex] {
+		return true
+	}
+	next := graph.edges[laneIndex].to
+	// The node indexes are equal only when the node IDs are equal.
+	if input.forbidden != nil && next != from && next != to && input.forbidden[lanes[laneIndex].To] {
+		return true
+	}
+	return input.ownBerthsOnly && !graph.berthAllowed(next, from, to)
+}
+
+// routeLaneExtra returns the cost that input adds to a lane that the
+// route search enters at start seconds.
+func routeLaneExtra(input *networkRouteInput, laneIndex int, start float64) float64 {
+	extra := 0.0
+	if laneIndex < len(input.extraCost) {
+		extra = input.extraCost[laneIndex]
+	}
+	if laneIndex < len(input.discharge) {
+		extra += queueDelay(input.discharge[laneIndex], start)
+	}
+	if laneIndex < len(input.forecasts) {
+		extra += input.forecasts[laneIndex].delay(input.forecastStart + start)
+	}
+	return extra
 }
 
 // routeLanes returns the route from node from to node to that a route
