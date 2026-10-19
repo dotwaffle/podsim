@@ -23,6 +23,10 @@ func TestCheckpointPreallocationBounds(t *testing.T) {
 		element            any
 	}{
 		{"banks", "payload/origin/project/network/stations/0/banks", "array exceeds bound", 9, map[string]any{}},
+		{"maneuver groups", "payload/origin/project/network/maneuverGroups", "array exceeds bound", sim.MaxManeuverGroups + 1, map[string]any{}},
+		{"group lanes", "payload/origin/project/network/maneuverGroups/0/laneIDs", "array exceeds bound", sim.MaxManeuverGroupLanes + 1, "lane"},
+		{"group berths", "payload/origin/project/network/maneuverGroups/0/berthIDs", "array exceeds bound", sim.MaxManeuverGroupBerths + 1, "berth"},
+		{"group reverse lanes", "payload/origin/project/network/maneuverGroups/0/reverseLaneIDs", "array exceeds bound", sim.MaxManeuverGroupLanes + 1, "lane"},
 		{"station classes", "payload/origin/project/network/stations/0/vehicleClasses", "array exceeds bound", 5, "legacy"},
 		{"lane classes", "payload/origin/project/network/lanes/0/vehicleClasses", "array exceeds bound", 5, "legacy"},
 		{"berth classes", "payload/origin/project/network/stations/0/berths/0/vehicleClasses", "array exceeds bound", 5, "legacy"},

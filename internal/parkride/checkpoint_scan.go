@@ -239,6 +239,12 @@ func arrayLimit(path string) int64 {
 		return project.MaxBerths
 	case "/payload/origin/project/network/stations/*/banks":
 		return sim.MaxStationBanks
+	case "/payload/origin/project/network/maneuverGroups":
+		return sim.MaxManeuverGroups
+	case "/payload/origin/project/network/maneuverGroups/*/laneIDs", "/payload/origin/project/network/maneuverGroups/*/reverseLaneIDs":
+		return sim.MaxManeuverGroupLanes
+	case "/payload/origin/project/network/maneuverGroups/*/berthIDs":
+		return sim.MaxManeuverGroupBerths
 	case "/payload/origin/project/network/lanes/*/vehicleClasses", "/payload/origin/project/network/stations/*/vehicleClasses", "/payload/origin/project/network/stations/*/berths/*/vehicleClasses":
 		return 4
 	case "/payload/origin/project/railArrivals", "/payload/origin/project/railDepartures":
