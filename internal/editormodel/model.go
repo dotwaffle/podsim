@@ -25,6 +25,9 @@ type request struct {
 	History  jsontext.Value `json:"history,omitempty"`
 	Metadata jsontext.Value `json:"metadata,omitempty"`
 	Layout   jsontext.Value `json:"layout,omitempty"`
+	Measure  jsontext.Value `json:"measure,omitempty"`
+	State    jsontext.Value `json:"state,omitempty"`
+	Scope    jsontext.Value `json:"scope,omitempty"`
 }
 
 type response struct {
@@ -40,6 +43,10 @@ type response struct {
 	History  *historyView           `json:"history,omitempty"`
 	Metadata jsontext.Value         `json:"metadata,omitempty"`
 	Layout   *layoutSummary         `json:"layout,omitempty"`
+	// The helper fields hold the result of a helper operation.
+	Measurements *measurementReport `json:"-"`
+	Observations *observationReport `json:"-"`
+	ScopeText    string             `json:"-"`
 }
 
 // Call handles one bounded JSON request without retaining caller data.
@@ -63,9 +70,13 @@ func encodeResponse(result response, err error) string {
 		return string(encoded)
 	}
 	if err == nil && result.helper {
+		// A missing observation count or list is null, not an empty list.
 		encoded, encodeErr := json.Marshal(struct {
-			Layout *layoutSummary `json:"layout"`
-		}{result.Layout})
+			Layout       *layoutSummary     `json:"layout,omitzero"`
+			Measurements *measurementReport `json:"measurements,omitzero"`
+			Observations *observationReport `json:"observations,omitzero"`
+			Scope        string             `json:"scope,omitzero"`
+		}{result.Layout, result.Measurements, result.Observations, result.ScopeText}, json.FormatNilSliceAsNull(true))
 		if encodeErr != nil {
 			return `{"error":"The editor helper response could not be encoded."}`
 		}
@@ -135,7 +146,7 @@ func execute(input string) (response, error) {
 }
 
 func decodeRequest(input string) (request, error) {
-	if len(input) > MaxRequestBytes {
+	if len(input) > MaxObservationRequestBytes {
 		return request{}, errors.New("editor model request is too large")
 	}
 	var header struct {
@@ -144,11 +155,21 @@ func decodeRequest(input string) (request, error) {
 	if err := json.Unmarshal([]byte(input), &header, jsontext.AllowInvalidUTF8(true)); err != nil {
 		return request{Op: header.Op}, fmt.Errorf("decode editor operation: %w", err)
 	}
+	// A live state reply is larger than a project and has its own limits.
+	// The station observations read only bounded parts of it.
+	observations := header.Op == "stationObservations"
+	if !observations && len(input) > MaxRequestBytes {
+		return request{Op: header.Op}, errors.New("editor model request is too large")
+	}
 	metadata := header.Op == "backgroundMetadata"
 	var scanErr error
-	if metadata {
+	switch {
+	case observations, header.Op == "measurements":
+		// A draft can break the project limits, and the measurements still
+		// read it. MaxRequestBytes bounds the draft.
+	case metadata:
 		scanErr = scanRequestOptions([]byte(input), true)
-	} else {
+	default:
 		scanErr = scanRequest([]byte(input))
 	}
 	if scanErr != nil {
@@ -158,7 +179,7 @@ func decodeRequest(input string) (request, error) {
 	if err := json.Unmarshal([]byte(input), &command, json.RejectUnknownMembers(true), jsontext.AllowInvalidUTF8(metadata)); err != nil {
 		return request{Op: header.Op}, fmt.Errorf("decode editor request: %w", err)
 	}
-	if !helperOperation(command.Op) && (len(command.Metadata) != 0 || len(command.Layout) != 0) {
+	if !helperOperation(command.Op) && (len(command.Metadata) != 0 || len(command.Layout) != 0 || len(command.Measure) != 0 || len(command.State) != 0 || len(command.Scope) != 0) {
 		return request{}, errors.New("editor operation has unrelated helper parameters")
 	}
 	return command, nil

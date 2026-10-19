@@ -2,7 +2,6 @@
   "use strict";
   if (typeof document === "undefined" && typeof importScripts === "function") importScripts("./tiles.js");
   const Tiles = typeof module !== "undefined" && module.exports ? require("./tiles.js") : root.PodsimTiles;
-  const StationObservations = typeof module !== "undefined" && module.exports ? require("./station-observations.js") : root.PodsimStationObservations;
 
   const MIN_LANE_LENGTH = 24;
   // A view scale is in screen pixels per meter. Fit keeps FIT_MARGIN pixels of
@@ -1062,13 +1061,46 @@
 
   // One manual read uses the topology bundled with this state envelope.
   // It does not update the editor's project base or connection identity.
-  async function readStationObservations(connection, signal) {
+  // observe gives the Go station observations of the reply.
+  async function readStationObservations(connection, signal, observe) {
     const isolated = { fetch: (url, init) => connection.fetch(url, { ...init, signal }) };
     const reply = await getJSON(isolated, "/api/state", LIVE_STATE_ACCEPT, LIVE_STATE_ACCEPT);
     liveStateFrame(reply);
-    const report = StationObservations.observe(reply);
+    const report = await observe(reply);
     if (report.status !== "snapshot") throw new Error(report.reason);
     return report;
+  }
+
+  // createManualReader reads a snapshot only when refresh is called.
+  // Cancellation invalidates publication immediately but retains the in-flight
+  // slot until read settles, even when a transport ignores AbortSignal.
+  function createManualReader({ read, onChange = () => {}, controllerFactory = () => new AbortController() }) {
+    let serial = 0, running = null;
+    let view = { busy: false, status: "not-read", result: null, error: "" };
+    function publish(next) { view = next; onChange(view); }
+    return {
+      get view() { return view; },
+      async refresh() {
+        if (running) return false;
+        const ticket = { serial: ++serial, controller: controllerFactory() }; running = ticket;
+        publish({ busy: true, status: "loading", result: null, error: "" });
+        try {
+          const result = await read(ticket.controller.signal);
+          if (ticket.serial === serial) publish({ busy: true, status: "snapshot", result, error: "" });
+        } catch (error) {
+          if (ticket.serial === serial) publish({ busy: true, status: "unavailable", result: null, error: error instanceof Error ? error.message : "Snapshot unavailable." });
+        } finally {
+          if (running === ticket) running = null;
+          publish({ ...view, busy: false });
+        }
+        return true;
+      },
+      cancel() {
+        serial++;
+        if (running) running.controller.abort();
+        publish({ busy: Boolean(running), status: "cancelled", result: null, error: "Canceled. No current snapshot is displayed." });
+      },
+    };
   }
 
   // liveStateFrame gives the state of a live state reply. The reply is the
@@ -2391,28 +2423,21 @@
 
   // Drawing only: this helper never changes the draft, history, or selection.
   // create is injected so the same SVG/text behavior can be tested in Node.
-  function drawMeasurementReport(report, { layer, summary, create, scale }) {
+  // report is the Go measurement report, or null when measurements are off.
+  function drawMeasurementReport(report, { layer, summary, create }) {
     if (!layer || !summary) return;
     layer.replaceChildren();
-    if (!report.enabled) { summary.textContent = "Measurements are off. No project changes."; return; }
-    // Fit can be below MIN_ZOOM on a large network.
-    const safeScale = Number.isFinite(scale) && scale >= 1e-6 && scale <= MAX_ZOOM ? scale : 1;
-    const size = 11 / safeScale, shown = report.items.slice(0, 200);
-    const descriptions = [];
-    for (const item of shown) {
+    if (!report) { summary.textContent = "Measurements are off. No project changes."; return; }
+    for (const item of report.items) {
       const { from, to, control } = item;
-      const path = create("path", { class: `measurement-ruler ${item.kind}`, d: control
+      layer.append(create("path", { class: `measurement-ruler ${item.kind}`, d: control
         ? `M ${from.x} ${from.y} Q ${control.x} ${control.y} ${to.x} ${to.y}`
-        : `M ${from.x} ${from.y} L ${to.x} ${to.y}` });
-      layer.append(path);
-      for (const point of [from, to]) layer.append(create("circle", { class: "measurement-end", cx: point.x, cy: point.y, r: 3 / safeScale }));
-      const label = create("text", { class: "measurement-label", x: control ? (from.x + 2 * control.x + to.x) / 4 : (from.x + to.x) / 2,
-        y: (control ? (from.y + 2 * control.y + to.y) / 4 : (from.y + to.y) / 2) - 8 / safeScale, "font-size": size });
-      const description = `${item.label}: ${item.meters.toFixed(2)} m (${item.method})`;
-      label.textContent = description; layer.append(label); descriptions.push(description);
+        : `M ${from.x} ${from.y} L ${to.x} ${to.y}` }));
+      for (const point of [from, to]) layer.append(create("circle", { class: "measurement-end", cx: point.x, cy: point.y, r: report.radius }));
+      const label = create("text", { class: "measurement-label", x: item.labelAt.x, y: item.labelAt.y, "font-size": report.fontSize });
+      label.textContent = item.text; layer.append(label);
     }
-    if (report.items.length > shown.length) descriptions.push(`Only the first ${shown.length} of ${report.items.length} measurements are shown.`);
-    summary.textContent = [report.scope, ...descriptions, ...report.unavailable].join(" ");
+    summary.textContent = report.summary;
   }
 
   function drawObservationLines(lines, { container, create }) {
@@ -2424,7 +2449,7 @@
 
   const API = {
 
-    drawMeasurementReport, drawObservationLines, readStationObservations, MIN_LANE_LENGTH, MIN_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, LANE_PAIR_OFFSET, CHEVRON_LANE_LENGTH, STATION_PADDING, CHECK_DELAY, emptyConfig, fallbackConfig,
+    drawMeasurementReport, drawObservationLines, readStationObservations, createManualReader, MIN_LANE_LENGTH, MIN_ZOOM, MAX_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, LANE_PAIR_OFFSET, CHEVRON_LANE_LENGTH, STATION_PADDING, CHECK_DELAY, emptyConfig, fallbackConfig,
     stationBearing, stationShape, stationGeometryCommand, stationFlowCount, stationRailReferences, fleetRows, fleetClassNotice, selectionCard, berthFocusID, laneClassState, undoFocus,
     laneLength, curveLength, stationNodeOwners, dragTargets, checkSelector, checkSelection, selectionPoint, focusView,
     FRAME_SOURCES, ALIGN_TOLERANCE, RESAMPLE_MAX_SIDE, projectPoint, frameError, framePlacement, frameAligned, resampleSize, mercatorY, resampleRows,
@@ -2577,8 +2602,14 @@
     toastTimer: 0,
   };
 
-  const stationObservationReader = StationObservations.createManualReader({
-    read: (signal) => readStationObservations(state.connection, signal),
+  // goHelper gives the result of a Go helper operation, and throws its error.
+  async function goHelper(op, plan, config = null) {
+    const result = await goModel.call(config, op, plan);
+    if (result.error) throw new Error(result.error);
+    return result;
+  }
+  const stationObservationReader = createManualReader({
+    read: (signal) => readStationObservations(state.connection, signal, async (reply) => (await goHelper("stationObservations", reply)).observations),
     onChange: renderStationObservations,
   });
   $("#measurementToggle").addEventListener("change", (event) => {
@@ -2607,16 +2638,33 @@
         : view.error || "No snapshot read. Data unavailable.";
     renderStationObservationScope(); renderStationObservationDetails();
   }
+  // The scope text changes only with the report, the draft base, or a
+  // change of the draft from its live baseline, so other renders skip Go.
+  let observationScopeKey = "", observationScopeSerial = 0;
   function renderStationObservationScope() {
     const report = stationObservationReader.view.result;
-    $("#stationObservationScope").textContent = report
-      ? StationObservations.draftScope(report, { epoch: state.draftBase.epoch, serverStart: state.draftBase.serverStart, projectRevision: state.draftBase.revision }, Boolean(state.live && sameDraft(draft(), state.live.snapshot)))
-      : "No live data is mapped onto the draft. Snapshot observations may be stale until you request another read.";
+    if (!report) {
+      observationScopeKey = ""; observationScopeSerial++;
+      $("#stationObservationScope").textContent = "No live data is mapped onto the draft. Snapshot observations may be stale until you request another read.";
+      return;
+    }
+    const scope = { identity: report.identity, base: { epoch: state.draftBase.epoch, serverStart: state.draftBase.serverStart, projectRevision: state.draftBase.revision }, unchanged: Boolean(state.live && sameDraft(draft(), state.live.snapshot)) };
+    const key = JSON.stringify(scope);
+    if (key === observationScopeKey) return;
+    observationScopeKey = key;
+    const serial = ++observationScopeSerial;
+    goHelper("observationScope", scope).then((result) => {
+      if (serial === observationScopeSerial) $("#stationObservationScope").textContent = result.scope;
+    }, (error) => {
+      if (error?.name === "AbortError" || serial !== observationScopeSerial) return;
+      observationScopeKey = "";
+      $("#stationObservationScope").textContent = error.message;
+    });
   }
   function renderStationObservationDetails() {
     const report = stationObservationReader.view.result, container = $("#stationObservationDetails");
     const station = report?.stations.find((station) => station.id === $("#stationObservationStation").value);
-    drawObservationLines([...StationObservations.stationLines(station), ...(report ? [report.association] : [])], { container, create: (name) => document.createElement(name) });
+    drawObservationLines([...(station ? station.lines : ["Station data unavailable."]), ...(report ? [report.association] : [])], { container, create: (name) => document.createElement(name) });
   }
 
   let tilePageActive = true;
@@ -2676,9 +2724,21 @@
     renderMeasurements();
   }
 
+  // Go measures the draft in the worker. A reply draws when it is newer
+  // than the drawn reply, so a drag shows replies while it continues. Turning
+  // measurements off discards the replies of older requests.
+  let measurementSerial = 0, drawnMeasurement = 0;
   function renderMeasurements(config = state.drag?.working || draft()) {
-    const report = StationObservations.measurements(config, state.selection, curveLength, state.measurements);
-    drawMeasurementReport(report, { layer: $("#measurementLayer"), summary: $("#measurementSummary"), create: svgElement, scale: state.view.scale });
+    const target = { layer: $("#measurementLayer"), summary: $("#measurementSummary"), create: svgElement };
+    const serial = ++measurementSerial;
+    if (!state.measurements) { drawnMeasurement = serial; drawMeasurementReport(null, target); return; }
+    goHelper("measurements", { selection: state.selection, scale: state.view.scale }, { network: config.network }).then((result) => {
+      if (serial <= drawnMeasurement) return;
+      drawnMeasurement = serial; drawMeasurementReport(result.measurements, target);
+    }, (error) => {
+      if (error?.name === "AbortError" || serial <= drawnMeasurement) return;
+      drawnMeasurement = serial; target.layer.replaceChildren(); target.summary.textContent = `Measurements unavailable: ${error.message}`;
+    });
   }
   function zoomAt(factor, clientX, clientY) {
     const rect = $("#networkMap").getBoundingClientRect();

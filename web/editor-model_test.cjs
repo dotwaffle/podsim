@@ -211,10 +211,13 @@ test("helper client bypasses synchronization and leaves branch transport unchang
   for (const [op, project, plan, parameter] of [
     ["backgroundMetadata", null, { asset: null }, "metadata"],
     ["stationLayout", { network: {} }, { stationID: "missing" }, "layout"],
+    ["measurements", { network: {} }, { selection: null, scale: 1 }, "measure"],
+    ["stationObservations", null, { topology: {} }, "state"],
+    ["observationScope", null, { unchanged: true }, "scope"],
   ]) {
     const pending = f.client.call(project, op, plan), sent = f.sent.at(-1);
     assert.equal(sent.op, op); assert.equal(sent.keys, undefined); assert.equal(sent.patch, undefined);
-    if (op === "backgroundMetadata") assert.equal(Object.hasOwn(sent, "project"), false); else assert.strictEqual(sent.project, project);
+    if (project === null) assert.equal(Object.hasOwn(sent, "project"), false); else assert.strictEqual(sent.project, project);
     if (parameter) assert.strictEqual(sent[parameter], plan);
     f.worker.onmessage({ data: { id: sent.id, result: { error: "helper rejection" } } });
     assert.deepEqual(await pending, { error: "helper rejection" });
@@ -240,6 +243,14 @@ test("helper responses reject missing, unrelated and malformed result fields", (
   const field = { value: null, reason: "Unavailable" };
   const layout = { layout: Object.fromEntries(["pitch", "spacing", "setback", "approachLength", "departureLength"].map((key) => [key, field])) };
   assert.strictEqual(checkedHelper(layout, "stationLayout"), layout);
+  const ruler = { kind: "lane", label: "Lane a", from: { x: 0, y: 0 }, to: { x: 1, y: 0 }, control: { x: 1, y: 1 }, meters: 1, method: "m", text: "t", labelAt: { x: 0, y: 0 } };
+  const measurements = { measurements: { items: [ruler], fontSize: 11, radius: 3, summary: "s" } };
+  assert.strictEqual(checkedHelper(measurements, "measurements"), measurements);
+  const observations = { observations: { status: "snapshot", identity: { epoch: "e", serverStart: "s", projectRevision: 1 }, revision: 1, tick: 1, stations: [{ id: "s", lines: ["line"] }], scope: "s", association: "a" } };
+  assert.strictEqual(checkedHelper(observations, "stationObservations"), observations);
+  const unavailable = { observations: { status: "unavailable", reason: "gone", stations: [] } };
+  assert.strictEqual(checkedHelper(unavailable, "stationObservations"), unavailable);
+  assert.deepEqual(checkedHelper({ scope: "text" }, "observationScope"), { scope: "text" });
   for (const [op, result] of [
     ["backgroundMetadata", { valid: true }],
     ["backgroundMetadata", { ...metadata, checks: {} }],
@@ -249,6 +260,17 @@ test("helper responses reject missing, unrelated and malformed result fields", (
     ["stationLayout", { layout: { ...layout.layout, spacing: { value: 75, reason: "unavailable" } } }],
     ["stationLayout", { layout: { ...layout.layout, spacing: { value: "75", reason: "" } } }],
     ["stationLayout", { error: "failure", layout: {} }],
+    ["measurements", { measurements: { ...measurements.measurements, fontSize: "11" } }],
+    ["measurements", { measurements: { ...measurements.measurements, items: [{ ...ruler, labelAt: { x: 1 } }] } }],
+    ["measurements", { measurements: { ...measurements.measurements, items: [{ ...ruler, control: null }] } }],
+    ["measurements", { measurements: { ...measurements.measurements, items: Array(201).fill(ruler) } }],
+    ["measurements", { ...measurements, layout: {} }],
+    ["stationObservations", { observations: { ...observations.observations, status: "stale" } }],
+    ["stationObservations", { observations: { ...observations.observations, stations: [{ id: "s", lines: [1] }] } }],
+    ["stationObservations", { observations: { status: "unavailable", reason: "gone", stations: [{ id: "s", lines: [] }] } }],
+    ["stationObservations", { observations: { ...observations.observations, identity: {} } }],
+    ["observationScope", { scope: "" }],
+    ["observationScope", { scope: "text", layout: {} }],
   ]) assert.throws(() => checkedHelper(result, op), /Invalid Go/);
 });
 
@@ -271,4 +293,21 @@ test("layout inspections coalesce pending selections and preserve queued edits",
   f.worker.onmessage({ data: { id: f.sent.at(-1).id, result: { error: "last unavailable" } } });
   const results = await Promise.all(pending);
   assert.ok(results.slice(0, -1).every((error) => error.name === "AbortError"));assert.deepEqual(results.at(-1), { error: "last unavailable" });
+});
+
+test("measurement and observation scope requests coalesce only with their own operation", async () => {
+  const f = fixture(), config = { network: {} };
+  const active = f.client.call(config, "measurements", { selection: null, scale: 1 });
+  const pending = [];
+  for (const op of ["measurements", "observationScope", "measurements", "observationScope", "stationLayout"]) pending.push(f.client.call(config, op, { op }).catch((error) => error));
+  f.worker.onmessage({ data: { id: f.sent.at(-1).id, result: { error: "first" } } }); await active;
+  const order = [];
+  for (let index = 0; index < 3; index++) {
+    order.push(f.sent.at(-1).op);
+    f.worker.onmessage({ data: { id: f.sent.at(-1).id, result: { error: "done" } } });
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+  assert.deepEqual(order, ["measurements", "observationScope", "stationLayout"]);
+  const results = await Promise.all(pending);
+  assert.deepEqual(results.map((result) => result.name || result.error), ["AbortError", "AbortError", "done", "done", "done"]);
 });

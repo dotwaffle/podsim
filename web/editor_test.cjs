@@ -4161,3 +4161,258 @@ test("station layout rendering rejects older selection and geometry replies", as
     assert.equal(calls[1].op, "stationLayout");assert.equal(calls[1].layout.stationID, state.selection.id);
   });
 });
+
+// goEditorOperations builds the Go editor model for js/wasm once and runs
+// it in this process. It gives the worker operations of editor-model.js, so
+// a test calls the Go model as the editor worker does. A test that calls it
+// must use the needsGo options.
+let goEditor = null;
+function goEditorOperations() {
+  if (goEditor) return goEditor;
+  const dir = fs.mkdtempSync(path.join(require("node:os").tmpdir(), "podsim-editor-model-"));
+  try {
+    const module = path.join(dir, "editor-model.wasm");
+    execFileSync("go", ["build", "-o", module, "./cmd/editormodel"], { cwd: repoRoot, env: { ...process.env, GOOS: "js", GOARCH: "wasm" }, stdio: "pipe" });
+    const goRoot = execFileSync("go", ["env", "GOROOT"], { cwd: repoRoot, encoding: "utf8" }).trim();
+    require(path.join(goRoot, "lib", "wasm", "wasm_exec.js"));
+    const go = new globalThis.Go();
+    // The model waits for calls, so the run never ends.
+    go.run(new WebAssembly.Instance(new WebAssembly.Module(fs.readFileSync(module)), go.importObject));
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+  const call = globalThis.podsimEditorCall;
+  goEditor = require("./editor-model.js").createOperations((command) => JSON.parse(call(JSON.stringify(command))));
+  return goEditor;
+}
+function goObserve(reply) { return goEditorOperations().handle({ id: 1, op: "stationObservations", state: reply }).observations; }
+function goMeasure(config, selection, scale = 1) { return goEditorOperations().handle({ id: 1, op: "measurements", project: config, measure: { selection, scale } }).measurements; }
+
+const packedText = (value) => Buffer.from(value, "utf8").toString("base64");
+function wireRequest(fields) {
+  const value = { sharingConsent: "shared", service: "on-demand", id: 1, from: "s", to: "t", partySize: 1,
+    podID: "", completed: false, requestedTick: 0, dispatchReason: "", ...fields };
+  for (const key of ["from", "to", "podID", "dispatchReason", "serviceID", "legFrom"]) if (Object.hasOwn(value, key)) value[key] = packedText(value[key]);
+  return value;
+}
+function measuredConfig() {
+  return { network: {
+    nodes: [{ id: "a", position: { x: 0, y: 0 } }, { id: "b", position: { x: 30, y: 0 } },
+      { id: "c", position: { x: 30, y: 40 } }, { id: "d", position: { x: 60, y: 40 } }],
+    lanes: [{ id: "straight", from: "a", to: "b", stationID: "s" },
+      { id: "curve", from: "b", to: "c", stationID: "s", control: { x: 60, y: 0 } },
+      { id: "road", from: "a", to: "d" }],
+    stations: [{ id: "s", name: "Station S", berths: [{ id: "b1", node: "b" }, { id: "b2", node: "c" }, { id: "b3", node: "d" }] },
+      { id: "t", name: "Station T", berths: [{ id: "bt", node: "a" }] }],
+  } };
+}
+function observedEnvelope() {
+  const identity = { epoch: "epoch-1", serverStart: "server-1", projectRevision: 7 };
+  const pod = (id, fields) => ({ pod: { id, stationID: "s", berthID: "", laneID: "", activity: "Ready", stationPhase: "At berth", waitReason: "", blockedBy: "", ...fields } });
+  return { topology: { ...identity, network: measuredConfig().network }, frame: { state: { ...identity, revision: 120, generation: 2,
+    simulation: { paused: false, tick: 100,
+      berths: [{ id: "b1", occupant: "p1", reservedBy: "p1" }, { id: "b2", occupant: "", reservedBy: "p2" },
+        { id: "b3", occupant: "", reservedBy: "" }, { id: "bt", occupant: "p4", reservedBy: "" }],
+      vehicles: [pod("p1", { berthID: "b1" }), pod("p2", { stationID: "", maneuverStationID: "s", laneID: "straight", activity: "Boarding", waitReason: "Junction traffic", blockedBy: "p3" }),
+        pod("p3", { laneID: "curve", activity: "Traveling", stationPhase: "Departing berth", waitReason: "Pod ahead", blockedBy: "p1" }), pod("p4", { stationID: "t", berthID: "bt" })],
+      pending: [wireRequest({ id: 1, from: "s", dispatchReason: "No available pod" }), wireRequest({ id: 2, from: "t", legFrom: "s", dispatchReason: "" }), wireRequest({ id: 3, from: "t", dispatchReason: "Assigned" })],
+    } } } };
+}
+function deepFrozen(value) {
+  if (value && typeof value === "object") { for (const child of Object.values(value)) deepFrozen(child); Object.freeze(value); }
+  return value;
+}
+function stateResponse(body, media = editor.LIVE_STATE_ACCEPT) {
+  return { ok: true, headers: { get: () => media }, json: async () => body };
+}
+function settleLater() {
+  let resolve, reject;
+  const promise = new Promise((yes, no) => { resolve = yes; reject = no; });
+  return { promise, resolve, reject };
+}
+class FakeElement {
+  constructor(name, attributes = {}) { this.name = name; this.attributes = attributes; this.children = []; this.textContent = ""; }
+  append(child) { this.children.push(child); }
+  replaceChildren() { this.children = []; }
+  set innerHTML(_) { assert.fail("Measurements must use safe text nodes"); }
+}
+
+test("actual Go EncodeStateJSON golden reads through the editor and the Go model", needsGo, async () => {
+  const fixture = JSON.parse(fs.readFileSync(path.join(__dirname, "testdata", "station-observations.json"), "utf8"));
+  assert.equal(fixture.status, "GENERATED BY EncodeStateJSON", "Fixture has NOT been generated or verified. Run TestStationObservationsHTTPFixture with -update-station-observations first.");
+  assert.deepEqual(fixture.cases.map((entry) => entry.name), ["queued", "empty-queue"]);
+  for (const entry of fixture.cases) {
+    const wire = deepFrozen(entry.envelope), before = JSON.stringify(wire), report = goObserve(wire);
+    assert.equal(report.status, "snapshot");
+    for (const expected of entry.expected) {
+      const station = report.stations.find((station) => station.id === expected.id);
+      assert.ok(station); assert.equal(station.pendingOriginRequests, expected.pendingOriginRequests);
+      assert.deepEqual(station.dispatchReasons, expected.dispatchReasons);
+    }
+    const integrated = await editor.readStationObservations({ fetch: async () => stateResponse(wire) }, undefined, goObserve);
+    assert.deepEqual(integrated, report);
+    assert.equal(JSON.stringify(wire), before);
+  }
+});
+
+test("live integration sends one GET with existing media validation and cancellation signal, without changing editor identity", needsGo, async () => {
+  const controller = new AbortController(), calls = [], connection = { epoch: "old", onServerStart: () => assert.fail("Observation must not change the editor base") };
+  connection.fetch = async (url, init) => { calls.push({ url, init }); return stateResponse(observedEnvelope()); };
+  const report = await editor.readStationObservations(connection, controller.signal, goObserve);
+  assert.equal(report.status, "snapshot"); assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/state"); assert.equal(calls[0].init.headers.Accept, editor.LIVE_STATE_ACCEPT);
+  assert.equal(calls[0].init.signal, controller.signal); assert.equal(connection.epoch, "old");
+  assert.deepEqual(report.stations[0].occupancy, { occupied: 1, reservedEmpty: 1, free: 1, capacity: 3 });
+  let decoded = false;
+  await assert.rejects(editor.readStationObservations({ fetch: async () => ({ ...stateResponse(null, "application/json"), json: async () => { decoded = true; return null; } }) }, undefined, goObserve), /unsupported media type/);
+  assert.equal(decoded, false);
+  const wrong = observedEnvelope(); wrong.topology.projectRevision++;
+  await assert.rejects(editor.readStationObservations({ fetch: async () => stateResponse(wrong) }, undefined, goObserve), /identity/);
+  const removed = observedEnvelope(); removed.topology.textEncoding = "bad";
+  await assert.rejects(editor.readStationObservations({ fetch: async () => stateResponse(removed) }, undefined, () => assert.fail("An invalid reply must not reach Go")), /not valid/);
+});
+
+test("manual reader never auto-reads and permits only one in-flight request, even after cancellation", async () => {
+  const held = settleLater(), fresh = settleLater(), log = [], signals = [];
+  const reader = editor.createManualReader({ read: (signal) => { signals.push(signal); return signals.length === 1 ? held.promise : fresh.promise; }, onChange: (view) => log.push(view) });
+  assert.equal(signals.length, 0); assert.equal(reader.view.status, "not-read");
+  const first = reader.refresh();
+  assert.equal(signals.length, 1); assert.equal(reader.view.busy, true);
+  assert.equal(await reader.refresh(), false);
+  reader.cancel();
+  assert.equal(signals[0].aborted, true); assert.equal(reader.view.result, null);
+  assert.equal(reader.view.busy, true); assert.equal(await reader.refresh(), false);
+  held.resolve({ stale: true }); await first;
+  assert.equal(reader.view.busy, false); assert.equal(reader.view.status, "cancelled"); assert.equal(reader.view.result, null);
+  assert.ok(!log.some((view) => view.result?.stale));
+  const next = reader.refresh(); fresh.resolve({ fresh: true }); await next;
+  assert.equal(signals.length, 2); assert.equal(reader.view.result.fresh, true); assert.equal(reader.view.busy, false);
+});
+
+test("manual reader clears old observations on refresh, failures, and stale rejected responses", async () => {
+  const values = [settleLater(), settleLater(), settleLater()]; let calls = 0;
+  const reader = editor.createManualReader({ read: () => values[calls++].promise });
+  let pending = reader.refresh(); values[0].resolve({ tick: 1 }); await pending;
+  assert.equal(reader.view.result.tick, 1);
+  pending = reader.refresh(); assert.equal(reader.view.result, null);
+  values[1].reject(new Error("network failed")); await pending;
+  assert.equal(reader.view.status, "unavailable"); assert.equal(reader.view.error, "network failed");
+  pending = reader.refresh(); reader.cancel(); values[2].reject(new Error("late rejection")); await pending;
+  assert.equal(reader.view.status, "cancelled"); assert.ok(!reader.view.error.includes("late"));
+});
+
+test("Go measurements match the editor lane length and leave the draft unchanged", needsGo, () => {
+  const draft = deepFrozen(measuredConfig()), before = JSON.stringify(draft);
+  const report = goMeasure(draft, { type: "station", id: "s" });
+  assert.deepEqual(report.items.map((item) => item.kind), ["lane", "lane", "spacing", "spacing"]);
+  assert.equal(report.items[0].meters, 30);
+  assert.equal(report.items[1].meters, editor.laneLength(draft, draft.network.lanes[1]));
+  assert.deepEqual(report.items.slice(2).map((item) => item.meters), [40, 30]);
+  assert.equal(goMeasure(draft, { type: "lane", id: "road" }).items[0].meters, Math.hypot(60, 40));
+  assert.equal(JSON.stringify(draft), before);
+  assert.equal(goMeasure(draft, { type: "lane", id: "straight" }, editor.MAX_ZOOM).fontSize, 11 / editor.MAX_ZOOM);
+  assert.equal(goMeasure(draft, { type: "lane", id: "straight" }, editor.MAX_ZOOM * 1.01).fontSize, 11);
+});
+
+test("actual ruler renderer draws curves, endpoints, and meter labels with a safe accessible summary", needsGo, () => {
+  const draft = measuredConfig(); draft.network.lanes[0].id = "<script>";
+  const layer = new FakeElement("g"), summary = new FakeElement("p"), create = (name, attributes) => new FakeElement(name, attributes);
+  editor.drawMeasurementReport(goMeasure(draft, { type: "station", id: "s" }, 2), { layer, summary, create });
+  assert.equal(layer.children.filter((e) => e.name === "path").length, 4);
+  assert.equal(layer.children.filter((e) => e.name === "circle").length, 8);
+  assert.ok(layer.children.some((e) => e.name === "path" && e.attributes.d.includes(" Q ")));
+  assert.equal(layer.children.find((e) => e.name === "circle").attributes.r, 1.5);
+  assert.match(summary.textContent, /30.00 m \(straight centerline\)/);
+  assert.match(summary.textContent, /40.00 m \(straight center chord/);
+  assert.match(summary.textContent, /<script>/);
+  for (const scale of [NaN, Infinity, -1, 0]) {
+    editor.drawMeasurementReport(goMeasure(draft, { type: "station", id: "s" }, scale), { layer, summary, create });
+    for (const element of layer.children) assert.ok(!JSON.stringify(element.attributes).match(/NaN|Infinity|null/));
+  }
+  editor.drawMeasurementReport(goMeasure(draft, { type: "station", id: "s" }, 0.001), { layer, summary, create });
+  assert.equal(layer.children.find((element) => element.name === "text").attributes["font-size"], 11000);
+  editor.drawMeasurementReport(null, { layer, summary, create });
+  assert.equal(layer.children.length, 0); assert.match(summary.textContent, /off/);
+});
+
+test("editor observation hooks are manual, default-off, shipped, and separate from live project mutation", () => {
+  const html = fs.readFileSync(path.join(__dirname, "editor.html"), "utf8");
+  const source = fs.readFileSync(path.join(__dirname, "editor.js"), "utf8");
+  assert.match(html, /id="measurementToggle" type="checkbox"/);
+  assert.doesNotMatch(html, /id="measurementToggle"[^>]*checked/);
+  assert.match(html, /id="measurementLayer" aria-hidden="true"/);
+  assert.match(html, /id="measurementSummary"/);
+  for (const name of ["stationObservationRefresh", "stationObservationCancel", "stationObservationStation", "stationObservationStatus", "stationObservationDetails"]) assert.ok(html.includes(`id="${name}"`));
+  assert.match(source, /measurements: false/);
+  assert.match(source, /pagehide.*stationObservationReader.cancel/);
+  assert.equal((source.match(/stationObservationReader.refresh\(/g) || []).length, 1);
+  const section = source.slice(source.indexOf('$("#measurementToggle").addEventListener'), source.indexOf("let tilePageActive"));
+  assert.doesNotMatch(section, /innerHTML|postCommand|setInterval|setTimeout|keeper\.schedule|history\./);
+});
+
+test("actual observation renderer treats server wait reasons and blocker IDs only as text", needsGo, () => {
+  const reply = observedEnvelope(), pod = reply.frame.state.simulation.vehicles[0].pod;
+  pod.waitReason = '<img src=x onerror="alert(1)">'; pod.blockedBy = "<script>";
+  const station = goObserve(reply).stations[0], container = new FakeElement("div");
+  editor.drawObservationLines(station.lines, { container, create: (name) => new FakeElement(name) });
+  assert.ok(container.children.every((element) => element.name === "p"));
+  assert.match(container.children.map((element) => element.textContent).join(" "), /<img src=x/);
+  assert.match(container.children.map((element) => element.textContent).join(" "), /blockedBy <script>/);
+});
+
+// editorFunction gives a function of editor.js, from its source text that
+// starts at start and ends at the end of the function named name, with deps
+// as its free variables.
+function editorFunction(start, name, deps) {
+  const source = fs.readFileSync(path.join(__dirname, "editor.js"), "utf8");
+  const from = source.indexOf(start), body = source.indexOf(`\n  function ${name}(`, from), end = source.indexOf("\n  }\n", body) + 5;
+  assert.ok(from >= 0 && body > from && end > body);
+  return new Function(...Object.keys(deps), `${source.slice(from, end)}\nreturn ${name};`)(...Object.values(deps));
+}
+
+test("measurement rendering draws only newer Go replies and discards replies after measurements turn off", async () => {
+  const calls = [], drawn = [], summary = { textContent: "" }, layer = { replaceChildren() {} };
+  const state = { measurements: true, selection: { type: "lane", id: "a" }, view: { scale: 2 }, drag: null };
+  const deps = { state, draft: () => ({ network: { lanes: [] } }), $: (selector) => selector === "#measurementSummary" ? summary : layer, svgElement: () => ({}),
+    goHelper(op, plan, project) { const pending = Promise.withResolvers(); calls.push({ op, plan, project, pending }); return pending.promise; },
+    drawMeasurementReport: (report) => drawn.push(report) };
+  const render = editorFunction("  // Go measures the draft in the worker.", "renderMeasurements", deps);
+  render(); render();
+  assert.deepEqual(calls.map((call) => [call.op, call.plan.scale, Object.keys(call.project)]), [["measurements", 2, ["network"]], ["measurements", 2, ["network"]]]);
+  calls[1].pending.resolve({ measurements: "second" }); await tick();
+  calls[0].pending.resolve({ measurements: "first" }); await tick();
+  assert.deepEqual(drawn, ["second"], "an older reply must not replace a newer one");
+  render(); render();
+  calls[2].pending.resolve({ measurements: "third" }); await tick();
+  calls[3].pending.reject(new DOMException("replaced", "AbortError")); await tick();
+  assert.deepEqual(drawn, ["second", "third"], "a drag draws each newer reply");
+  render(); state.measurements = false; render();
+  assert.equal(calls.length, 5); assert.deepEqual(drawn.at(-1), null);
+  calls[4].pending.resolve({ measurements: "late" }); await tick();
+  assert.deepEqual(drawn, ["second", "third", null], "turning measurements off discards older replies");
+  state.measurements = true; render();
+  calls[5].pending.reject(new Error("worker failed")); await tick();
+  assert.equal(summary.textContent, "Measurements unavailable: worker failed");
+});
+
+test("observation scope asks Go only when its inputs change and keeps the newest reply", async () => {
+  const calls = [], element = { textContent: "" };
+  const reader = { view: { result: { identity: { epoch: "e", serverStart: "s", projectRevision: 1 } } } };
+  let unchanged = true;
+  const state = { draftBase: { epoch: "e", serverStart: "s", revision: 1 }, live: { snapshot: {} } };
+  const deps = { stationObservationReader: reader, state, sameDraft: () => unchanged, draft: () => ({}), $: () => element,
+    goHelper(op, plan) { const pending = Promise.withResolvers(); calls.push({ op, plan, pending }); return pending.promise; } };
+  const render = editorFunction("  // The scope text changes only with the report", "renderStationObservationScope", deps);
+  render(); render();
+  assert.equal(calls.length, 1, "an unchanged scope must not call Go again");
+  assert.deepEqual(calls[0].plan, { identity: reader.view.result.identity, base: { epoch: "e", serverStart: "s", projectRevision: 1 }, unchanged: true });
+  unchanged = false; render();
+  calls[1].pending.resolve({ scope: "changed" }); await tick();
+  calls[0].pending.resolve({ scope: "older" }); await tick();
+  assert.equal(element.textContent, "changed");
+  unchanged = true; render();
+  reader.view.result = null; render();
+  assert.match(element.textContent, /No live data is mapped onto the draft/);
+  calls[2].pending.resolve({ scope: "late" }); await tick();
+  assert.match(element.textContent, /No live data is mapped onto the draft/, "a reply after the report is cleared must not show");
+});

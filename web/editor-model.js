@@ -34,9 +34,9 @@
         if (active.op === "history" && !historyCreates(active.plan)) {
           worker.postMessage({ id: active.id, op: active.op, history: active.plan });
         } else if (helperOperation(active.op)) {
-          const message = { id: active.id, op: active.op };
-          if (active.op === "backgroundMetadata") message.metadata = active.plan;
-          else { message.project = active.config; if (active.op === "stationLayout") message.layout = active.plan; }
+          const [field, project] = HELPERS[active.op], message = { id: active.id, op: active.op };
+          if (project) message.project = active.config;
+          message[field] = active.plan;
           worker.postMessage(message);
         } else if (active.op === "place-view") {
           worker.postMessage({ id: active.id, op: active.op, project: active.config, view: active.plan });
@@ -59,8 +59,8 @@
           queue.splice(index, 1)[0].reject(new DOMException("A newer draft replaced this validation.", "AbortError"));
         }
       }
-      if (op === "stationLayout") for (let index = queue.length - 1; index >= 0; index--) {
-        if (queue[index].op === "stationLayout") queue.splice(index, 1)[0].reject(new DOMException("A newer selection replaced this layout inspection.", "AbortError"));
+      if (Object.hasOwn(REPLACED, op)) for (let index = queue.length - 1; index >= 0; index--) {
+        if (queue[index].op === op) queue.splice(index, 1)[0].reject(new DOMException(REPLACED[op], "AbortError"));
       }
       if (queue.length >= 8) throw new Error("The Go editor model is busy. Try the action again.");
       return new Promise((resolve, reject) => {
@@ -88,7 +88,11 @@
     };
   }
 
-  function helperOperation(op) { return ["backgroundMetadata", "stationLayout"].includes(op); }
+  // HELPERS gives the request member of each helper operation, and whether it sends the project.
+  const HELPERS = { backgroundMetadata: ["metadata", false], stationLayout: ["layout", true], measurements: ["measure", true], stationObservations: ["state", false], observationScope: ["scope", false] };
+  // REPLACED gives the operations where a newer request replaces a queued one.
+  const REPLACED = { stationLayout: "A newer selection replaced this layout inspection.", measurements: "A newer view replaced these measurements.", observationScope: "A newer draft replaced this observation scope." };
+  function helperOperation(op) { return Object.hasOwn(HELPERS, op); }
 
   function checkedHelper(result, op) {
     if (!result || typeof result !== "object" || Array.isArray(result)) throw new Error("Invalid Go helper response");
@@ -106,6 +110,20 @@
           (metadata.asset.frameState === "none") !== (metadata.asset.frame === null) ||
           !(metadata.asset.license === null || exact(metadata.asset.license, ["source", "attribution", "license", "licenseURL", "copyrightURL", "retrieved", "method", "notice"]) && Object.values(metadata.asset.license).every((value) => typeof value === "string")) ||
           (metadata.placement !== undefined && (!exact(metadata.placement, ["x", "y", "width", "height", "opacity"]) || !Object.values(metadata.placement).every(Number.isFinite) || metadata.placement.width <= 0 || metadata.placement.height <= 0 || metadata.placement.opacity < 0 || metadata.placement.opacity > 1))) throw new Error("Invalid Go metadata response");
+    } else if (op === "measurements") {
+      const point = (value) => exact(value, ["x", "y"]) && Number.isFinite(value.x) && Number.isFinite(value.y);
+      const report = result.measurements;
+      if (!exact(result, ["measurements"]) || !exact(report, ["items", "fontSize", "radius", "summary"]) || !Array.isArray(report.items) || report.items.length > 200 ||
+          !Number.isFinite(report.fontSize) || !Number.isFinite(report.radius) || typeof report.summary !== "string" ||
+          !report.items.every((item) => object(item) && typeof item.kind === "string" && typeof item.text === "string" && point(item.from) && point(item.to) && point(item.labelAt) &&
+            (item.control === undefined || point(item.control)))) throw new Error("Invalid Go measurement response");
+    } else if (op === "stationObservations") {
+      const report = result.observations;
+      if (!exact(result, ["observations"]) || !object(report) || !["snapshot", "unavailable"].includes(report.status) || !Array.isArray(report.stations) ||
+          (report.status === "unavailable" ? typeof report.reason !== "string" || report.stations.length : !exact(report.identity, ["epoch", "serverStart", "projectRevision"])) ||
+          !report.stations.every((station) => object(station) && typeof station.id === "string" && Array.isArray(station.lines) && station.lines.every((line) => typeof line === "string"))) throw new Error("Invalid Go observation response");
+    } else if (op === "observationScope") {
+      if (!exact(result, ["scope"]) || typeof result.scope !== "string" || !result.scope) throw new Error("Invalid Go observation scope response");
     } else {
       const keys = ["pitch", "spacing", "setback", "approachLength", "departureLength"];
       if (!exact(result, ["layout"]) || !exact(result.layout, keys) || !keys.every((key) => {

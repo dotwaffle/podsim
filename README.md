@@ -808,6 +808,45 @@ The server does not follow redirects or use environment proxy settings for searc
 Multiple server deployments need a shared limiter before using the public provider.
 Tests use a local fake provider and make no public searches.
 
+### Measure geometry
+
+Under **View**, select **Measure selected geometry**.
+The overlay is off by default, and it does not change the project, the selection, or the undo history.
+Select a guideway to measure its centerline.
+Select a station to measure the guideways that have its station ID, and the distance between consecutive berth centers in the order of the berths.
+A straight length is the straight line between the draft coordinates.
+A curve length is the sum of 16 straight parts of the curve, so it is an approximation.
+Berth spacing is a center-to-center distance, not a clearance between pods.
+The rulers follow a drag of the selected geometry.
+The text below the toggle gives the same values.
+The map shows at most 200 rulers.
+Missing or invalid geometry shows as unavailable, not as a zero length.
+Draft coordinates are not surveyed distances.
+
+### Live station observations
+
+In **Live station observations**, select **Read live snapshot** to read the state of the server one time.
+The editor does not poll, and the read does not change the draft or the server.
+The response can be large.
+Select **Cancel read** to stop a read.
+Only one read runs at a time.
+A failed or canceled read clears the previous report.
+
+Select a station of the snapshot to show its berths, pods, and pending requests.
+The report shows the server start, epoch, project revision, state revision, and simulated tick of the snapshot.
+It also tells you when the draft base differs from the snapshot, or when the draft has unsaved changes.
+The snapshot can become stale immediately, so read again to update it.
+
+Each berth counts once: occupied, reserved and empty, or free.
+A pod belongs to its maneuver station, else the station of its berth, else the station of its guideway, else its reported station.
+This does not prove that the pod is inside the station.
+The pod categories can overlap.
+Pending request counts use the transfer origin of a request when it has one.
+They count requests, not passengers.
+A missing or malformed value shows as unavailable, not as zero.
+The panel lists at most 100 pods and 100 reason groups, and the counts include all of them.
+The counts do not identify the cause of congestion.
+
 ### Apply a draft
 
 **Pause and apply** is disabled when the draft scenario is the same as the live scenario.

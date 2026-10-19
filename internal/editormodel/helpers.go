@@ -9,17 +9,38 @@ import (
 	"github.com/dotwaffle/podsim/internal/project"
 )
 
+// helperFields gives the request members of each helper operation other
+// than op. A helper operation does not use the synchronized project.
+var helperFields = map[string][]string{
+	"backgroundMetadata":  {"metadata"},
+	"stationLayout":       {"project", "layout"},
+	"measurements":        {"project", "measure"},
+	"stationObservations": {"state"},
+	"observationScope":    {"scope"},
+}
+
 func helperOperation(op string) bool {
-	return op == "backgroundMetadata" || op == "stationLayout"
+	_, ok := helperFields[op]
+	return ok
 }
 
 func executeHelper(command request, input string) (response, error) {
 	allowed := map[string]bool{"op": true}
-	switch command.Op {
-	case "backgroundMetadata":
-		allowed["metadata"] = true
-	case "stationLayout":
-		allowed["project"], allowed["layout"] = true, true
+	for _, field := range helperFields[command.Op] {
+		allowed[field] = true
+	}
+	if command.Op == "stationObservations" {
+		// The live state is large, so check the decoded members and do not
+		// decode the request again.
+		if len(command.Project) != 0 || len(command.ParkRide) != 0 || len(command.View) != 0 || command.Keys != nil || len(command.Patch) != 0 ||
+			len(command.Edit) != 0 || len(command.History) != 0 || len(command.Metadata) != 0 || len(command.Layout) != 0 || len(command.Measure) != 0 || len(command.Scope) != 0 {
+			return response{}, errors.New("station observations accept only a live state")
+		}
+		if command.State.Kind() != '{' {
+			return response{}, errors.New("station observations need a live state object")
+		}
+		report, err := decodeStationObservations(command.State)
+		return response{Observations: &report}, err
 	}
 	var fields map[string]jsontext.Value
 	if err := json.Unmarshal([]byte(input), &fields, jsontext.AllowInvalidUTF8(command.Op == "backgroundMetadata")); err != nil {
@@ -30,9 +51,13 @@ func executeHelper(command request, input string) (response, error) {
 			return response{}, fmt.Errorf("helper operation does not accept %s", key)
 		}
 	}
-	if command.Op == "backgroundMetadata" {
+	switch command.Op {
+	case "backgroundMetadata":
 		metadata, err := backgroundMetadata(command.Metadata)
 		return response{Valid: err == nil, Metadata: metadata}, err
+	case "observationScope":
+		scope, err := observationScopeText(command.Scope)
+		return response{ScopeText: scope}, err
 	}
 	if command.Project.Kind() != '{' {
 		return response{}, errors.New("helper request needs a project object")
@@ -43,6 +68,10 @@ func executeHelper(command request, input string) (response, error) {
 	var draft any
 	if err := json.Unmarshal(command.Project, &draft); err != nil {
 		return response{}, fmt.Errorf("decode helper draft: %w", err)
+	}
+	if command.Op == "measurements" {
+		report, err := inspectMeasurements(draft, command.Measure)
+		return response{Measurements: &report}, err
 	}
 	summary, err := inspectStationLayout(draft, command.Layout)
 	return response{Layout: &summary, helper: true}, err
