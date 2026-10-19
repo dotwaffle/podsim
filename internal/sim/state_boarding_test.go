@@ -137,7 +137,7 @@ func TestBoardingRecordsCompletedDestinationRevisit(t *testing.T) {
 	old := state.Pods[0]
 	old.Boardings = nil
 	old.Occupied = false
-	if err := state.checkPod(old); err == nil {
+	if err := state.checkPod(old, Network{}); err == nil {
 		t.Fatal("ordinary boarding accepted completed destination history")
 	}
 }

@@ -19,7 +19,7 @@ func TestPickupReassignmentAtAssignment(t *testing.T) {
 		s.waiting[0].request.PodID != "02" || s.waiting[1].request.PodID != "01" {
 		t.Fatalf("assignment did not check crossed pickups immediately: %+v %+v", s.PickupSwapStats(), s.waiting)
 	}
-	if _, err := s.ExportState().checkContract(); err != nil {
+	if _, err := s.ExportState().checkContract(Network{}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -96,7 +96,7 @@ func TestPickupReassignmentEmptyAlternatives(t *testing.T) {
 					if _, err := simulation.SafetyObservation().Check(); err != nil {
 						t.Fatal(err)
 					}
-					if _, err := simulation.ExportState().checkContract(); err != nil {
+					if _, err := simulation.ExportState().checkContract(Network{}); err != nil {
 						t.Fatal(err)
 					}
 					if simulation.completed == 1 {
@@ -207,16 +207,16 @@ func TestSavedDeferralPodIDText(t *testing.T) {
 	if len(state.Waiting) == 0 {
 		t.Fatal("the fixture has no waiting trip")
 	}
-	if _, err := state.checkContract(); err != nil {
+	if _, err := state.checkContract(Network{}); err != nil {
 		t.Fatal(err)
 	}
 	state.Waiting = slices.Clone(state.Waiting)
 	state.Waiting[0].DeferPodID = "0_1"
-	if _, err := state.checkContract(); err == nil || err.Error() != "pending order names a deferral pod that is not an ID" {
+	if _, err := state.checkContract(Network{}); err == nil || err.Error() != "pending order names a deferral pod that is not an ID" {
 		t.Fatalf("got %v", err)
 	}
 	state.Waiting[0].Request.SharingConsent = "unknown"
-	if _, err := state.checkContract(); err == nil || err.Error() != "pending order lacks valid effective options" {
+	if _, err := state.checkContract(Network{}); err == nil || err.Error() != "pending order lacks valid effective options" {
 		t.Fatalf("got %v, want the options refusal first", err)
 	}
 }

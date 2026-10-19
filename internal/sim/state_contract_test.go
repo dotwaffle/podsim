@@ -216,7 +216,7 @@ func TestPhaseContractMutations(t *testing.T) {
 			mutated.Riders, mutated.Stops = slices.Clone(mutated.Riders), slices.Clone(mutated.Stops)
 			mutation.edit(&state, &mutated)
 			state.Pods[sample.pod] = mutated
-			if _, err := state.checkContract(); err == nil {
+			if _, err := state.checkContract(Example()); err == nil {
 				t.Errorf("phase %d, %s: the contract accepts %+v", phase, mutation.name, mutated)
 				continue
 			}

@@ -255,7 +255,7 @@ func TestInterruptedCounterValidation(t *testing.T) {
 	s, v := pooledLegFleet(t, false)
 	s.interruptRider(v, 0)
 	valid := s.ExportState()
-	if _, err := valid.checkContract(); err != nil {
+	if _, err := valid.checkContract(Network{}); err != nil {
 		t.Fatal(err)
 	}
 	for _, test := range []struct {
@@ -270,7 +270,7 @@ func TestInterruptedCounterValidation(t *testing.T) {
 	} {
 		state := valid
 		test.change(&state)
-		if _, err := state.checkContract(); err == nil {
+		if _, err := state.checkContract(Network{}); err == nil {
 			t.Fatalf("%s: the state is accepted", test.name)
 		}
 	}
@@ -283,7 +283,7 @@ func TestInterruptedCounterValidation(t *testing.T) {
 	}
 	state = valid
 	state.Interrupted, state.InterruptedPassengers = 0, 0
-	if unaccounted, err := state.checkContract(); err != nil || unaccounted != 1 {
+	if unaccounted, err := state.checkContract(Network{}); err != nil || unaccounted != 1 {
 		t.Fatalf("a state without the counters has %d unaccounted orders: %v", unaccounted, err)
 	}
 }

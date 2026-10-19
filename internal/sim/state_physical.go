@@ -78,7 +78,7 @@ type physicalRestore struct {
 // valid, when two pods at berths conflict, or when a demoted pod finds no
 // free berth.
 func restorePhysical(input RestoreStateInput, newFleet func() (*Simulation, error)) (*Simulation, RestoreResult, error) {
-	unaccounted, err := validateSavedState(input.State)
+	unaccounted, err := validateSavedState(input.State, input.Network)
 	if err != nil {
 		return nil, RestoreResult{}, err
 	}
@@ -161,9 +161,10 @@ func restorePhysical(input RestoreStateInput, newFleet func() (*Simulation, erro
 	return s, r.result, nil
 }
 
-// validateSavedState checks the rules that do not need the network. See
-// checkContract. It returns the unaccounted orders of the saved state.
-func validateSavedState(state SavedState) (int, error) {
+// validateSavedState checks the bounds of the queue and the contract of the
+// saved state. See checkContract. It returns the unaccounted orders of the
+// saved state.
+func validateSavedState(state SavedState, network Network) (int, error) {
 	limit := MaxWaitingTripsForOrderContract(state.OrderContract)
 	if len(state.Waiting) > limit {
 		return 0, errors.New("too many saved waiting trips")
@@ -183,7 +184,7 @@ func validateSavedState(state SavedState) (int, error) {
 	if held > limit {
 		return 0, errors.New("too many saved outstanding orders")
 	}
-	return state.checkContract()
+	return state.checkContract(network)
 }
 
 func (state SavedState) validateCounters() error {

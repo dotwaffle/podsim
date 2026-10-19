@@ -153,8 +153,10 @@ func phaseOf(pod SavedPod) (podPhase, error) {
 
 // ruleForPod retains the boarding phase while allowing an accepted occupied
 // pickup. A traveling pod with an emergency unload or a refuge needs a
-// destination berth, and its stops need not start with its destination.
-func ruleForPod(pod SavedPod, phase podPhase) phaseRule {
+// destination berth, and its stops need not start with its destination. A
+// pod that departs empty to the entry of a depot station has no
+// destination berth (see depotDeparture).
+func ruleForPod(pod SavedPod, phase podPhase, network Network) phaseRule {
 	if phase == phaseBoarding && pod.Occupied {
 		return phaseRule{active: true, history: true, occupied: true, atBerth: true, maxPhase: boardingTicks, stops: routeStops, startsAtBerth: true}
 	}
@@ -164,7 +166,31 @@ func ruleForPod(pod SavedPod, phase podPhase) phaseRule {
 			rule.stops, rule.hasDestination = serviceStops, true
 		}
 	}
+	if phase == phaseDepartingEmpty && depotDeparture(network, pod) {
+		rule.hasDestination = false
+	}
 	return rule
+}
+
+// depotDeparture reports whether a saved pod goes to park at the entry of
+// a depot station of the network: its destination station is a depot
+// station, and its route ends at the entry of that station. The pod has no
+// slot until it reaches the entry (see bindDepotArrivals). This is the
+// condition of depotEntryWait, which a restore of a traveling pod uses.
+// The relocation rule of a departing pod makes RelocatingTo equal to the
+// destination station. ExportState leaves out a route that is longer than
+// its limit, so a pod with no saved route also counts. The physical tier
+// demotes such a pod, as it demotes each pod with a route that is too long.
+func depotDeparture(network Network, pod SavedPod) bool {
+	if !slices.ContainsFunc(network.Depots, func(depot Depot) bool { return depot.Station == pod.DestinationStation }) {
+		return false
+	}
+	if len(pod.Route) == 0 {
+		return true
+	}
+	station, ok := network.Station(pod.DestinationStation)
+	last := pod.Route[len(pod.Route)-1]
+	return ok && last >= 0 && last < len(network.Lanes) && network.Lanes[last].To == station.Entry
 }
 
 // checkPodOperational checks the holds and the operational destination of
@@ -243,13 +269,13 @@ func savedRiders(pod SavedPod) (active, history []SavedRequest) {
 	return active, history
 }
 
-// checkContract checks the rules of a saved state that do not need the
-// network: the counters, the phase contract of each pod, the identity of
-// each order, and that no queued order is bound to or holds for a
-// withdrawn pod (invariant W2). Both restore tiers check it first. It returns the unaccounted orders: the orders that the
-// state submitted but that are not complete, not in the queue and not
-// aboard a pod. A live simulation has none.
-func (state SavedState) checkContract() (int, error) {
+// checkContract checks the counters, the phase contract of each pod, the
+// identity of each order, and that no queued order is bound to or holds
+// for a withdrawn pod (invariant W2). Both restore tiers check it first.
+// Only depotDeparture reads the network. It returns the unaccounted
+// orders: the orders that the state submitted but that are not complete,
+// not in the queue and not aboard a pod. A live simulation has none.
+func (state SavedState) checkContract(network Network) (int, error) {
 	if err := ValidateOrderContract(state.OrderContract); err != nil {
 		return 0, err
 	}
@@ -291,7 +317,7 @@ func (state SavedState) checkContract() (int, error) {
 		if pod.ID == "" || index > 0 && pod.ID <= state.Pods[index-1].ID {
 			return 0, fmt.Errorf("saved pod %q is empty or out of order", pod.ID)
 		}
-		if err := state.checkPod(pod); err != nil {
+		if err := state.checkPod(pod, network); err != nil {
 			return 0, fmt.Errorf("pod %s: %w", pod.ID, err)
 		}
 		for _, rider := range pod.Riders {
@@ -341,7 +367,7 @@ func (state SavedState) validTrip(request SavedRequest, boarded bool) bool {
 }
 
 // checkPod checks a saved pod against the rule of its phase.
-func (state SavedState) checkPod(pod SavedPod) error {
+func (state SavedState) checkPod(pod SavedPod, network Network) error {
 	if err := checkSavedBoardingsWithOrderContract(pod, state.OrderContract); err != nil {
 		return err
 	}
@@ -352,7 +378,7 @@ func (state SavedState) checkPod(pod SavedPod) error {
 	if err := checkPodOperational(pod, phase); err != nil {
 		return err
 	}
-	rule := ruleForPod(pod, phase)
+	rule := ruleForPod(pod, phase, network)
 	active, history := savedRiders(pod)
 	if err := checkSavedAdmissionWithOrderContract(pod, active, state.OrderContract); err != nil {
 		return err
@@ -505,7 +531,7 @@ func (s *Simulation) CheckContract() error {
 		return err
 	}
 	state := s.ExportState()
-	unaccounted, err := state.checkContract()
+	unaccounted, err := state.checkContract(s.network)
 	if err != nil {
 		return err
 	}

@@ -415,7 +415,7 @@ func checkExpressSavedState(input RestoreStateInput) error {
 	if input.OrderContract != ExpressOrderContract {
 		return nil
 	}
-	_, err := validateSavedState(input.State)
+	_, err := validateSavedState(input.State, input.Network)
 	return err
 }
 

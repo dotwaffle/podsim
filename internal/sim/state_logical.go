@@ -33,7 +33,7 @@ type logicalTrip struct {
 // when the saved state is not valid or when the result fails a check.
 func restoreLogical(input RestoreStateInput, newFleet func() (*Simulation, error)) (*Simulation, RestoreResult, error) {
 	state := input.State
-	unaccounted, err := validateSavedState(state)
+	unaccounted, err := validateSavedState(state, input.Network)
 	if err != nil {
 		return nil, RestoreResult{}, err
 	}

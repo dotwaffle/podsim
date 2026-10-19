@@ -453,11 +453,11 @@ func TestLegOriginSavedChecks(t *testing.T) {
 			t.Fatalf("pod 02 is %s", v.Pod.Activity)
 		}
 		state := s.ExportState()
-		if _, err := state.checkContract(); err != nil {
+		if _, err := state.checkContract(Network{}); err != nil {
 			t.Fatal(err)
 		}
 		state.Pods[1].Riders[0].LegFrom = "s2"
-		if _, err := state.checkContract(); err == nil {
+		if _, err := state.checkContract(Network{}); err == nil {
 			t.Fatal("a rider with its leg origin at its destination is accepted")
 		}
 	})

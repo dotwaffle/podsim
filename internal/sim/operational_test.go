@@ -1174,7 +1174,7 @@ func TestOperationalPhaseMutations(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		mutations := contractMutations(ruleForPod(pod, phase), pod)
+		mutations := contractMutations(ruleForPod(pod, phase, sample.network), pod)
 		if len(pod.Boardings) > 0 {
 			// Boarding records prove the leg origin of each rider.
 			mutations = slices.DeleteFunc(mutations, func(mutation podMutation) bool {
@@ -1219,7 +1219,7 @@ func TestOperationalPhaseMutations(t *testing.T) {
 			mutated.Riders, mutated.Stops = slices.Clone(mutated.Riders), slices.Clone(mutated.Stops)
 			mutation.edit(&state, &mutated)
 			state.Pods[0] = mutated
-			if _, err := state.checkContract(); err == nil {
+			if _, err := state.checkContract(sample.network); err == nil {
 				t.Errorf("%s, %s: the contract accepts %+v", sample.name, mutation.name, mutated)
 				continue
 			}

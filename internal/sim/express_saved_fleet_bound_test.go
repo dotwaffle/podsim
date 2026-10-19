@@ -25,7 +25,7 @@ func TestSavedFleetContractBounds(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			state := savedFleetCountContract(test.contract, test.count)
-			unaccounted, err := state.checkContract()
+			unaccounted, err := state.checkContract(Network{})
 			if test.want != "" {
 				if err == nil || err.Error() != test.want {
 					t.Fatalf("checkContract error = %v, want %q", err, test.want)
@@ -74,7 +74,7 @@ func TestExpressSavedFleetRefusalOrder(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			state := savedFleetCountContract(ExpressOrderContract, test.count)
 			test.change(&state)
-			if _, err := state.checkContract(); err == nil || err.Error() != test.want {
+			if _, err := state.checkContract(Network{}); err == nil || err.Error() != test.want {
 				t.Fatalf("checkContract error = %v, want %q", err, test.want)
 			}
 			for _, logicalOnly := range []bool{false, true} {

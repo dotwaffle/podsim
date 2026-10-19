@@ -54,7 +54,10 @@ func restoreDepot(t *testing.T, network Network, s *Simulation) *Simulation {
 }
 
 // depotPodKinds names the kinds of depot pods that a restore must keep.
-var depotPodKinds = []string{"idle", "moving up", "bound with its slot", "bound without its slot", "unbound at the entry", "departing", "faulted"}
+var depotPodKinds = []string{
+	"idle", "moving up", "bound with its slot", "bound without its slot", "unbound at the entry", "departing to the entry",
+	"departing", "faulted",
+}
 
 // depotPodKind returns the kind of a pod of a depot, or "".
 func (s *Simulation) depotPodKind(v *vehicle) string {
@@ -73,6 +76,8 @@ func (s *Simulation) depotPodKind(v *vehicle) string {
 		return "bound without its slot"
 	case s.depotUnbound(v, "parking") && s.owners[last].isPod(v.Pod.ID):
 		return "unbound at the entry"
+	case v.Pod.Activity == DepartingEmpty && s.depotUnbound(v, "parking"):
+		return "departing to the entry"
 	case v.Pod.Activity != Idle && s.depots.isDepot(v.origin.ID) || v.Pod.Activity != Idle && v.Pod.StationID == "parking":
 		return "departing"
 	}
@@ -83,8 +88,9 @@ func (s *Simulation) depotPodKind(v *vehicle) string {
 }
 
 // TestDepotRestore restores the state of a congested depot run at many
-// ticks. Each restore must keep every pod in place and match the live
-// simulation, and the samples must hold each kind of depot pod.
+// ticks, from the tick at which three pods leave for the depot. Each
+// restore must keep every pod in place and match the live simulation, and
+// the samples must hold each kind of depot pod.
 func TestDepotRestore(t *testing.T) {
 	t.Parallel()
 	network := shortDepotNetwork(2, 3)
@@ -96,6 +102,23 @@ func TestDepotRestore(t *testing.T) {
 	const demandEnd = 6 * 60 * TicksPerSecond
 	seconds := int64(10)
 	seen := make(map[string]int)
+	// sample restores the state when it holds a pod of a short-lived kind,
+	// and at some other ticks.
+	sample := func() {
+		kinds := make(map[string]bool)
+		for i := range s.vehicles {
+			if kind := s.depotPodKind(&s.vehicles[i]); kind != "" {
+				kinds[kind] = true
+			}
+		}
+		if kinds["unbound at the entry"] || kinds["departing to the entry"] || kinds["moving up"] && s.tick%5 == 0 || s.tick%41 == 0 {
+			restoreDepot(t, network, s)
+			for kind := range kinds {
+				seen[kind]++
+			}
+		}
+	}
+	sample()
 	trips := 0
 	stepDepot(t, s, 60*60*TicksPerSecond, func() bool {
 		if s.tick < demandEnd && s.tick%(8*TicksPerSecond) == 0 {
@@ -114,24 +137,187 @@ func TestDepotRestore(t *testing.T) {
 				}
 			}
 		}
-		kinds := make(map[string]bool)
-		for i := range s.vehicles {
-			if kind := s.depotPodKind(&s.vehicles[i]); kind != "" {
-				kinds[kind] = true
-			}
-		}
-		if kinds["unbound at the entry"] || kinds["moving up"] && s.tick%5 == 0 || s.tick%41 == 0 {
-			restoreDepot(t, network, s)
-			for kind := range kinds {
-				seen[kind]++
-			}
-		}
+		sample()
 		return s.tick > demandEnd && len(s.faults) == 0 && s.completed == trips
 	})
 	for _, kind := range depotPodKinds {
 		if seen[kind] == 0 {
 			t.Errorf("no restore with a pod %s: %v", kind, seen)
 		}
+	}
+}
+
+// restoreDepotDeparture checks that v departs empty to the depot entry
+// with no destination berth, and that both restore tiers accept the saved
+// state. The physical restore must match s.
+func restoreDepotDeparture(t *testing.T, network Network, s *Simulation, v *vehicle) {
+	t.Helper()
+	if v.Pod.Activity != DepartingEmpty || v.destination.ID != "" || v.RelocatingTo != "parking" || s.depotPodKind(v) != "departing to the entry" {
+		t.Fatalf("pod %s is %s to %s %q", v.Pod.ID, v.Pod.Activity, v.RelocatingTo, v.destination.ID)
+	}
+	restoreDepot(t, network, s)
+	_, result, err := RestoreState(RestoreStateInput{
+		IncidentContract: IncidentV1Contract, FaultContract: FaultV1Contract, Faults: depotFaultSettings,
+		Network: network, Fleet: s.initial, State: s.ExportState(), LogicalOnly: true,
+	})
+	if err != nil || result.Tier != RestoreLogical {
+		t.Fatalf("logical restore %+v, error %v", result, err)
+	}
+}
+
+// TestDepotDepartureRestore restores a pod that departs empty to the entry
+// of a depot station, for each path that starts such a move. The pod has
+// no destination berth until it binds a slot at the entry.
+func TestDepotDepartureRestore(t *testing.T) {
+	t.Parallel()
+	t.Run("empty move", func(t *testing.T) {
+		t.Parallel()
+		network := shortDepotNetwork(2, 3)
+		s := newDepotFleet(t, network, depotPlacements(network, 6))
+		restoreDepotDeparture(t, network, s, sendToDepot(t, s, "harbor-pod"))
+	})
+	t.Run("blocking pod", func(t *testing.T) {
+		t.Parallel()
+		network := shortDepotNetwork(2, 3)
+		s := newDepotFleet(t, network, depotPlacements(network, 1))
+		v := s.findVehicle("garden-pod")
+		if !s.park(v) {
+			t.Fatal("no parking move")
+		}
+		restoreDepotDeparture(t, network, s, v)
+	})
+	t.Run("guarded bump", func(t *testing.T) {
+		t.Parallel()
+		network := shortDepotNetwork(2, 3)
+		s := newDepotFleet(t, network, depotPlacements(network, 1))
+		v := s.findVehicle("market-pod")
+		if !s.guardedBumpToParking(guardedBump{blocker: v, from: "market-berth"}) {
+			t.Fatal("no bump")
+		}
+		restoreDepotDeparture(t, network, s, v)
+	})
+	t.Run("released pod", func(t *testing.T) {
+		t.Parallel()
+		network := shortDepotNetwork(1, 3)
+		s := newDepotFleet(t, network, depotPlacements(network, 0))
+		// The pods at market and garden trade berths, so each passenger
+		// berth is held or named (see TestDepotReleasedPark).
+		v, other := s.findVehicle("market-pod"), s.findVehicle("garden-pod")
+		if err := s.startEmptyMove(v, emptyDestination{station: "garden", berth: Berth{ID: "garden-1", Node: "garden-berth"}}); err != nil {
+			t.Fatal(err)
+		}
+		if err := s.startEmptyMove(other, emptyDestination{station: "market", berth: Berth{ID: "market-1", Node: "market-berth"}}); err != nil {
+			t.Fatal(err)
+		}
+		v.released = true
+		s.parkUnclaimedReleased()
+		restoreDepotDeparture(t, network, s, v)
+	})
+}
+
+// TestDepotDepartureOverLimit departs a pod to the depot entry on a route
+// that circles the network until it is longer than the saved route limit.
+// The saved state leaves out the route. The physical tier must demote the
+// pod to a berth, and the logical tier must accept the state.
+func TestDepotDepartureOverLimit(t *testing.T) {
+	t.Parallel()
+	network := shortDepotNetwork(2, 3)
+	s := newDepotFleet(t, network, depotPlacements(network, 6))
+	lanes := func(ids ...string) []Lane {
+		var route []Lane
+		for _, id := range ids {
+			route = append(route, s.network.Lanes[s.graph.lanes[id]])
+		}
+		return route
+	}
+	// toDepot runs from the exit of harbor to the depot entry, and loop
+	// goes on from there back to the exit of harbor.
+	toDepot := lanes("approach-branch", "bypass-in", "bypass-merge", "market-approach", "market-through", "return-start", "return-to-parking")
+	loop := lanes("parking-through", "return", "harbor-approach", "harbor-through")
+	route := lanes("harbor-out")
+	for len(route) <= newRouteLimits(s.network).pod {
+		route = append(append(route, toDepot...), loop...)
+	}
+	route = append(route, toDepot...)
+	v := s.findVehicle("harbor-pod")
+	s.installEmptyMove(v, emptyDestination{station: "parking", depot: true}, route)
+	state := roundTripState(t, s.ExportState())
+	if pod := state.Pods[slices.IndexFunc(state.Pods, func(p SavedPod) bool { return p.ID == "harbor-pod" })]; pod.Route != nil ||
+		pod.Activity != activityCode(DepartingEmpty) || pod.Destination != "" || pod.RelocatingTo != "parking" {
+		t.Fatalf("saved pod %+v", pod)
+	}
+	for _, logicalOnly := range []bool{false, true} {
+		restored, result, err := RestoreState(RestoreStateInput{
+			IncidentContract: IncidentV1Contract, FaultContract: FaultV1Contract, Faults: depotFaultSettings,
+			Network: network, Fleet: s.initial, State: state, LogicalOnly: logicalOnly,
+		})
+		if err != nil {
+			t.Fatalf("logical only %t: restore %+v, error %v", logicalOnly, result, err)
+		}
+		if logicalOnly {
+			continue
+		}
+		if result.Tier != RestorePhysical || !slices.Equal(result.Demoted, []string{"harbor-pod"}) || result.OverCap != 1 {
+			t.Fatalf("restore %+v", result)
+		}
+		checkAtBerth(t, restored, "harbor-pod", Idle, "harbor-1")
+	}
+}
+
+// TestDepotDepartureRefusals checks that a pod that departs empty with no
+// destination berth is refused, with the text and at the place of the
+// refusal of any such pod, unless it goes to the entry of a depot station.
+// A traveling pod with a refuge needs a destination berth, also when its
+// route ends at a depot entry.
+func TestDepotDepartureRefusals(t *testing.T) {
+	t.Parallel()
+	network := shortDepotNetwork(2, 3)
+	s := newDepotFleet(t, network, depotPlacements(network, 6))
+	sendToDepot(t, s, "harbor-pod")
+	saved := s.ExportState()
+	index := slices.IndexFunc(saved.Pods, func(p SavedPod) bool { return p.ID == "harbor-pod" })
+	lane := func(id string) int { return s.graph.lanes[id] }
+	noDepot := network
+	noDepot.Depots = nil
+	const noBerth = "pod harbor-pod: the pod has no destination berth"
+	tests := []struct {
+		name    string
+		network Network
+		change  func(*SavedPod)
+		want    string
+	}{
+		{"no depot in the network", noDepot, func(*SavedPod) {}, noBerth},
+		{"a passenger station", network, func(p *SavedPod) {
+			p.RelocatingTo, p.DestinationStation = "garden", "garden"
+			p.Route = []int{lane("harbor-out"), lane("approach-branch"), lane("garden-approach")}
+		}, noBerth},
+		{"a route short of the entry", network, func(p *SavedPod) { p.Route = p.Route[:len(p.Route)-1] }, noBerth},
+		{"a route lane out of range", network, func(p *SavedPod) { p.Route[len(p.Route)-1] = len(network.Lanes) }, noBerth},
+		{"no relocation", network, func(p *SavedPod) { p.RelocatingTo = "" }, "pod harbor-pod: the empty move does not go to the destination station"},
+	}
+	for _, test := range tests {
+		state := saved
+		state.Pods = slices.Clone(saved.Pods)
+		state.Pods[index].Route = slices.Clone(state.Pods[index].Route)
+		test.change(&state.Pods[index])
+		if _, err := state.checkContract(test.network); err == nil || err.Error() != test.want {
+			t.Errorf("%s: contract error %v, want %q", test.name, err, test.want)
+		}
+		for _, logicalOnly := range []bool{false, true} {
+			_, result, err := RestoreState(RestoreStateInput{
+				IncidentContract: IncidentV1Contract, FaultContract: FaultV1Contract, Faults: depotFaultSettings,
+				Network: test.network, Fleet: s.initial, State: state, LogicalOnly: logicalOnly,
+			})
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Errorf("%s, logical only %t: restore %+v, error %v, want %q", test.name, logicalOnly, result, err, test.want)
+			}
+		}
+	}
+	refuge := saved.Pods[index]
+	refuge.Activity, refuge.StationID, refuge.BerthID, refuge.Occupied = activityCode(Traveling), "", "", true
+	refuge.RelocatingTo, refuge.Purpose = "", uint8(opRefuge)
+	if !ruleForPod(refuge, phaseTravelingOccupied, network).hasDestination {
+		t.Error("a refuge at a depot entry needs no destination berth")
 	}
 }
 

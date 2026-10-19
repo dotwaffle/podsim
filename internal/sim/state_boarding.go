@@ -14,7 +14,7 @@ func checkBoardingFields(input RestoreStateInput) error {
 			}
 			continue
 		}
-		if err := input.State.checkPod(pod); err != nil {
+		if err := input.State.checkPod(pod, input.Network); err != nil {
 			return fmt.Errorf("pod %s boarding records: %w", pod.ID, err)
 		}
 		if err := checkBoardingBerths(input.Network, pod); err != nil {
@@ -82,7 +82,7 @@ func checkBoardingBerths(network Network, pod SavedPod) error {
 	if err != nil {
 		return err
 	}
-	rule := ruleForPod(pod, phase)
+	rule := ruleForPod(pod, phase, network)
 	if !rule.atBerth {
 		return nil
 	}

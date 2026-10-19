@@ -267,7 +267,7 @@ func TestLargeRestoreContractLinks(t *testing.T) {
 	state := f.state()
 	state.Pods[0].Class = GroupClass
 	state.Pods[1].Platoon = &SavedPlatoonLink{Leader: "01"}
-	if _, err := state.checkContract(); err == nil {
+	if _, err := state.checkContract(Network{}); err == nil {
 		t.Fatal("live contract accepted a large linked pod")
 	}
 }

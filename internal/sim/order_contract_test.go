@@ -209,14 +209,14 @@ func TestExpressRestoreMarkersAndRouteBindings(t *testing.T) {
 		t.Fatal("unbound route admitted")
 	}
 	state.Waiting[0].Request.PodID = "missing"
-	if _, err := validateSavedState(state); err == nil {
+	if _, err := validateSavedState(state, Network{}); err == nil {
 		t.Fatal("missing target admitted")
 	}
 	state.Waiting[0].Request.PodID = "01"
 	state.Waiting = append(state.Waiting, state.Waiting[0])
 	state.Waiting[1].Request.ID = 2
 	state.RequestID = 2
-	if _, err := validateSavedState(state); err == nil {
+	if _, err := validateSavedState(state, Network{}); err == nil {
 		t.Fatal("duplicate target admitted")
 	}
 }
