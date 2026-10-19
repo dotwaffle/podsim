@@ -517,3 +517,41 @@ func laneByID(network Network, id string) Lane {
 	}
 	return Lane{}
 }
+
+// TestSavedRouteOriginTail checks that a saved route keeps the lanes that
+// the origin tail of the retained route still covers. The pod is 9 m into
+// approach and released exit, the qualifying lane before it, at 8.5 m.
+// approach does not qualify, so its origin tail is Clearance. A saved
+// route that started at approach would put the pod short of that tail on
+// a route that does not start at its origin, and the restore would demote
+// it.
+func TestSavedRouteOriginTail(t *testing.T) {
+	t.Parallel()
+	network := setSpeed(mergeCorridor(false, 0), 2.5, "exit")
+	route := []string{"exit", "approach", "dest-berth-01-in"}
+	indexes := make([]int, len(route))
+	for position, id := range route {
+		indexes[position] = slices.IndexFunc(network.Lanes, func(lane Lane) bool { return lane.ID == id })
+	}
+	state := SavedState{SharedRidePartyLimit: 1, RequestID: 1, Boarded: 1, Pods: []SavedPod{{
+		ID: "p01", Activity: "traveling", Occupied: true, Origin: "origin-1", Destination: "dest-01", DestinationStation: "dest",
+		Riders: []SavedRequest{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "origin", To: "dest", PartySize: 1, PodID: "p01"}},
+		Stops:  []string{"dest"},
+		Route:  indexes, RouteIndex: 1, LaneID: "approach", LaneDistance: 9, Distance: corridorExitLength + 9,
+	}}}
+	fleet := []Placement{{ID: "p01", StationID: "dest", BerthID: "dest-02"}}
+	for round := range 2 {
+		s, result, err := RestoreState(RestoreStateInput{Network: network, Fleet: fleet, State: state})
+		if err != nil {
+			t.Fatal(err)
+		}
+		pod := s.vehicles[0].Pod
+		if result.Tier != RestorePhysical || len(result.Demoted) != 0 || pod.Activity != Traveling || pod.LaneID != "approach" || pod.LaneDistance != 9 {
+			t.Fatalf("restore %d: %+v, pod on %q at %g", round, result, pod.LaneID, pod.LaneDistance)
+		}
+		state = s.ExportState()
+		if saved := state.Pods[0]; len(saved.Route) != len(route) || saved.RouteIndex != 1 || saved.Distance != corridorExitLength+9 {
+			t.Fatalf("restore %d: saved route %v at index %d, distance %g", round, saved.Route, saved.RouteIndex, saved.Distance)
+		}
+	}
+}

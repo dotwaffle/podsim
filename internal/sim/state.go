@@ -607,7 +607,7 @@ func (s *Simulation) savedRun(v *vehicle, start int) (leader *vehicle, skip int,
 // starts at that lane at the latest.
 func (s *Simulation) savedStart(v *vehicle) (start int, offset float64, current int) {
 	start, offset, current = v.savedRouteStart()
-	start, offset = s.depotSavedStart(v, start, offset)
+	start, offset = originSavedStart(v, start, offset)
 	if v.follower == 0 {
 		return start, offset, current
 	}
@@ -623,14 +623,14 @@ func (s *Simulation) savedStart(v *vehicle) (start int, offset float64, current 
 	return start, offset, current
 }
 
-// depotSavedStart moves the saved route start of v back, in a network with
-// depots, until v is at least the origin tail of the saved route past its
-// start. A restore demotes a pod that is short of that tail on a route that
-// does not start at its origin. A depot lane releases a lane one reduced
-// retention past its end, so the start of savedRouteStart can be short of
-// the origin tail of the next lane.
-func (s *Simulation) depotSavedStart(v *vehicle, start int, offset float64) (int, float64) {
-	for s.depots != nil && start > 0 && v.distance-offset < v.originTailFrom(start) {
+// originSavedStart moves the saved route start of v back until v is at
+// least the origin tail of the saved route past its start. A restore
+// demotes a pod that is short of that tail on a route that does not start
+// at its origin. A qualifying lane is released one reduced retention past
+// its end, and the origin tail of the next lane can be longer, so the start
+// of savedRouteStart can be short of it.
+func originSavedStart(v *vehicle, start int, offset float64) (int, float64) {
+	for start > 0 && v.distance-offset < v.originTailFrom(start) {
 		start--
 		offset = v.blocks.lanes[start].start
 	}
