@@ -658,7 +658,7 @@ If the draft was saved before the server restarted, the bar also tells you that 
 The editor compares the server start ID of the draft with the server start ID of the latest live state that it read.
 Each read of the live state updates the bar, for example the read of an apply.
 While the bar shows, the editor also reads the live state when its window gets the focus, for example when you go back to the editor.
-A draft from an older editor has no server start ID, so the bar does not show this warning.
+A draft that was saved while the live scenario could not load has no server start ID, so the bar does not show this warning.
 Select **Restore draft** to put the saved draft back.
 The undo history then starts from the restored draft.
 The restored draft is not applied, and it keeps the revision that it is based on and the server start ID of that state.

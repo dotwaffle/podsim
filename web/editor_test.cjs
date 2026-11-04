@@ -2774,7 +2774,8 @@ test("after an apply clears the saved draft, a reload still gets the background"
 test("the page offers a saved draft only when it differs from the live scenario", () => {
   const live = { scenario: JSON.stringify(connectedScenario()), revision: 5 };
   const liveRecord = { scenario: connectedScenario(), revision: 5, epoch: "epoch-1", serverStart: "start-1" };
-  const olderRecord = savedRecord("Changed"); delete olderRecord.serverStart;
+  const withoutStart = savedRecord("Changed"); delete withoutStart.serverStart;
+  const localRecord = editor.draftRecordFor({ scenario: savedRecord("Changed").scenario }, { scenario: JSON.stringify(connectedScenario()), revision: null }, { revision: 0, epoch: "", serverStart: "" });
   // want gives the revision, the epoch, the server start ID, the scenario
   // name, and the members of the offered draft, or null for no offer.
   const cases = [
@@ -2788,8 +2789,9 @@ test("the page offers a saved draft only when it differs from the live scenario"
     { name: "a changed scenario and a background of an older editor", record: { ...savedRecord("Changed"), background: TEST_BACKGROUND }, want: { revision: 3, epoch: "epoch-1", serverStart: "start-1", name: "Changed", members: ["scenario"] } },
     { name: "a revision that is not a number", record: { ...savedRecord("Changed"), revision: "x" }, want: { revision: 0, epoch: "epoch-1", serverStart: "start-1", name: "Changed", members: ["scenario"] } },
     { name: "an epoch that is not a string", record: { ...savedRecord("Changed"), epoch: 7 }, want: { revision: 3, epoch: "", serverStart: "start-1", name: "Changed", members: ["scenario"] } },
-    { name: "a record from an older editor without a server start ID", record: olderRecord, want: { revision: 3, epoch: "epoch-1", serverStart: "", name: "Changed", members: ["scenario"] } },
-    { name: "a server start ID that is not a string", record: { ...savedRecord("Changed"), serverStart: 7 }, want: { revision: 3, epoch: "epoch-1", serverStart: "", name: "Changed", members: ["scenario"] } },
+    { name: "a record without a server start ID", record: withoutStart, want: null },
+    { name: "a server start ID that is not a string", record: { ...savedRecord("Changed"), serverStart: 7 }, want: null },
+    { name: "a draft saved while the live scenario did not load", record: localRecord, want: { revision: 0, epoch: "", serverStart: "", name: "Changed", members: ["scenario"] } },
   ];
   for (const item of cases) {
     const offer = editor.draftOffer(item.record, live);
@@ -2816,7 +2818,7 @@ test("the page offers a saved draft only when it differs from the live scenario"
       want: `This browser has a saved draft that is not applied. The draft is based on revision 3. The live scenario is now revision 5. ${editor.DRAFT_RESTART_TEXT}`,
     },
     {
-      name: "a draft from an older editor", offer: { revision: 5, live: 5, serverStart: "", liveStart: "start-2" },
+      name: "a draft saved while the live scenario did not load", offer: { revision: 5, live: 5, serverStart: "", liveStart: "start-2" },
       want: "This browser has a saved draft that is not applied. The draft is based on revision 5.",
     },
     {
@@ -2872,7 +2874,7 @@ test("the status after a restore names the live changes that an older draft repl
       want: `Live revision 5. The restored draft is not applied. ${editor.RESTORED_RESTART_TEXT}`,
     },
     {
-      name: "a draft from an older editor", draft: { revision: 3, live: 5, serverStart: "", liveStart: "start-2" },
+      name: "a draft saved while the live scenario did not load", draft: { revision: 3, live: 5, serverStart: "", liveStart: "start-2" },
       want: "Live revision 5. The restored draft is not applied. It is based on revision 3. Pause and apply replaces the live changes after revision 3.",
     },
   ];

@@ -1339,7 +1339,7 @@
   // applyToServer applies a project to the live session. It gives revision,
   // the new project revision, stateSaved, the stateSaved member of the
   // reply, and serverStart, the server start ID that it read before the
-  // pause, or an empty string. stateSaved is false when the server could
+  // pause. stateSaved is false when the server could
   // not save the session state before its reply, and undefined when the
   // reply does not have the member. The server applies a project only while
   // the simulation is paused, so applyToServer pauses the simulation first.
@@ -1831,15 +1831,15 @@
   // saved in the draft. revision is the project
   // revision that the draft started from, epoch is the session epoch of
   // that revision, and serverStart is the server start ID of that state.
-  // A record from an older editor has no serverStart, so it gets an empty
-  // string.
+  // A draft that the page saved while the live scenario did not load has an
+  // empty serverStart. A record without a serverStart string gets no offer.
   function draftOffer(record, live) {
     const isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
-    if (!isObject(record) || !isObject(record.scenario)) return null;
+    if (!isObject(record) || !isObject(record.scenario) || typeof record.serverStart !== "string") return null;
     const draft = { scenario: record.scenario };
     if (!draftChanged(draft, live)) return null;
     const text = (value) => (typeof value === "string" ? value : "");
-    return { draft, revision: Math.max(0, Math.floor(Number(record.revision) || 0)), epoch: text(record.epoch), serverStart: text(record.serverStart) };
+    return { draft, revision: Math.max(0, Math.floor(Number(record.revision) || 0)), epoch: text(record.epoch), serverStart: record.serverStart };
   }
 
   // backgroundRecordFor gives the record that the background keeper saves
@@ -3938,9 +3938,7 @@
       if (!await readyToApply(project)) return;
       button.textContent = "Pausing…"; keeper.flush();
       const applied = await applyToServer({ connection: state.connection, revision: base.revision, serverStart: base.serverStart, project, onApplying: () => { button.textContent = "Applying…"; } });
-      // A restored draft from an older editor has no server start ID. The
-      // applied state then gets the ID that the apply read.
-      const serverStart = applied.serverStart || base.serverStart;
+      const { serverStart } = applied;
       state.loadedRevision = applied.revision; state.loadedStart = serverStart; state.draftBase = { revision: applied.revision, epoch: state.connection.epoch, serverStart };
       model.setLoaded({ scenario: project, background: state.background ? clone(state.background) : null });
       setLive(model.loaded, applied.revision); renderOffer(); showConflict(null);
