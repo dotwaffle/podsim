@@ -28,7 +28,7 @@ Open <http://127.0.0.1:8080> in desktop Chrome, and keep the server running whil
 Desktop Chrome is the browser target, so Firefox and Safari validation are not required.
 Current development uses a local server, and hosted deployment checks are release-stage work.
 
-The first build downloads the Go dependencies, and [the dependency review notes](docs/design/dependencies.md) record the gRPC advisory discrepancy and the state-store lint annotations.
+The first build downloads the Go dependencies.
 The build creates static files in `dist/`, including the matching Go WebAssembly runtime and the gzip WASM file `podsim.wasm.gz`.
 
 From there, order a journey under **ORDER A JOURNEY**, or open **Demand** and select **Start traffic demo** to see merge and station queues.
