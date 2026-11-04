@@ -233,3 +233,44 @@ func (s *Simulation) sampledLane(u float64) int {
 	}
 	return -1
 }
+
+// sampleEmergencies starts the emergency event that is due. An event uses the
+// pod and the party draws and then the draw of the next interval, whatever
+// its outcome, so later events do not depend on outcomes. A refused start is
+// a skip, and it changes no state.
+func (s *Simulation) sampleEmergencies() {
+	sampler := &s.emergencySampler
+	if !sampler.due(s.tick) {
+		return
+	}
+	pod := sampler.uniform()
+	party := sampler.uniform()
+	addCount(&s.emergencyCounters.sampled, 1)
+	if s.startSampledEmergency(pod, party) != nil {
+		addCount(&s.emergencyCounters.skipped, 1)
+	}
+	sampler.schedule(s.tick)
+}
+
+// startSampledEmergency starts the emergency of one event: the pod at the
+// index floor(u x n) over all pods, in pod ID order, and the party at the
+// index floor(u x k) over its k active riders, in Riders order. A fleet with
+// no pod or a pod with no active rider has no target.
+func (s *Simulation) startSampledEmergency(pod, party float64) error {
+	if len(s.vehicles) == 0 {
+		return errUnknownPod
+	}
+	v := &s.vehicles[int(pod*float64(len(s.vehicles)))]
+	target := int(party * float64(v.RidersAboard()))
+	for index := range v.Riders {
+		if v.Riders[index].Completed {
+			continue
+		}
+		if target == 0 {
+			_, err := s.startEmergency(v.Pod.ID, v.Riders[index].ID)
+			return err
+		}
+		target--
+	}
+	return errNoPassenger
+}

@@ -871,7 +871,7 @@ func TestEmergencyInvariants(t *testing.T) {
 	}
 }
 
-// TestEmergencyHoldCallers checks the code part of F11: only Emergency
+// TestEmergencyHoldCallers checks the code part of F11: only startEmergency
 // and advanceEmergency call withdrawService with the emergency hold.
 func TestEmergencyHoldCallers(t *testing.T) {
 	t.Parallel()
@@ -908,7 +908,7 @@ func TestEmergencyHoldCallers(t *testing.T) {
 		}
 	}
 	slices.Sort(callers)
-	if want := []string{"Emergency", "advanceEmergency"}; !slices.Equal(callers, want) {
+	if want := []string{"advanceEmergency", "startEmergency"}; !slices.Equal(callers, want) {
 		t.Fatalf("callers of withdrawService with the emergency hold %v, want %v", callers, want)
 	}
 }

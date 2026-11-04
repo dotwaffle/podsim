@@ -49,6 +49,13 @@ type emergencyCounters struct {
 	// emergencyTicks is the sum over the emergency stages of the number of
 	// records after the stage.
 	emergencyTicks int64
+	// sampled counts the sampler events that came due, and skipped those
+	// with no start. Only the sampler changes them.
+	sampled, skipped int64
+	// endedTicks is the sum of the lengths of the records that ended, and
+	// maxTicks the longest of them. They move only while the sampler is
+	// live, so a manual emergency at rate 0 changes neither.
+	endedTicks, maxTicks int64
 }
 
 // addCount adds n, which is not negative, to counter. At MaxCounter the
@@ -75,11 +82,22 @@ func (s *Simulation) emergencyOf(v *vehicle) int {
 
 // Emergency starts an emergency for a party of pod podID at a command
 // boundary, and then runs the monitor once (section 5.2 of the incident
-// emergency contract). orderID 0 selects the first active rider in Riders
-// order. It returns the record ID. It checks each precondition of section
-// 6.1, in order, before its first write, and a refusal changes nothing. A
-// paused simulation accepts the start.
+// emergency contract). A paused simulation accepts the start.
 func (s *Simulation) Emergency(podID string, orderID int) (string, error) {
+	id, err := s.startEmergency(podID, orderID)
+	if err != nil {
+		return "", err
+	}
+	s.observe()
+	return id, nil
+}
+
+// startEmergency is the start of Emergency without the monitor, so the
+// sampler can use it inside a tick. orderID 0 selects the first active rider
+// in Riders order. It returns the record ID. It checks each precondition of
+// section 6.1 of the incident emergency contract, in order, before its first
+// write, and a refusal changes nothing.
+func (s *Simulation) startEmergency(podID string, orderID int) (string, error) {
 	if !s.emergenciesOn {
 		return "", errEmergenciesOff
 	}
@@ -116,7 +134,6 @@ func (s *Simulation) Emergency(podID string, orderID int) (string, error) {
 	// releases the pending pickups of the pod.
 	_ = s.withdrawService(v, emergencyHold)
 	s.advanceEmergency(record)
-	s.observe()
 	return id, nil
 }
 
@@ -139,15 +156,19 @@ func (s *Simulation) SetEmergencies(enabled bool) error {
 
 // emergencyStage runs in Step after the fault stage and before dispatch,
 // only when emergencies are on (section 5.3 of the incident emergency
-// contract). For each record, in serial order, it ends the record when the
-// pod carries no passenger, or when the record is deferred and the party
-// is not an active rider. Otherwise it advances the record. Last, it adds
-// the number of remaining records to emergencyTicks.
+// contract). First the sampler starts the event that is due. Then, for each
+// record, in serial order, it ends the record when the pod carries no
+// passenger, or when the record is deferred and the party is not an active
+// rider. Otherwise it advances the record. A record that the sampler started
+// advances a second time here. That call does nothing for a bound pod, and
+// the no-candidate memo limits a failed search. Last, it adds the number of
+// remaining records to emergencyTicks.
 //
 // It runs after the unloading loop and the fault stage, so an unload or an
 // evacuation in this tick ends its record in this tick. It runs before
 // dispatch, so a pod that the end releases is supply in this tick.
 func (s *Simulation) emergencyStage() {
+	s.sampleEmergencies()
 	for index := 0; index < len(s.emergencies); {
 		record := s.emergencies[index]
 		v := &s.vehicles[record.pod]
@@ -210,6 +231,11 @@ func (s *Simulation) endEmergency(index int) {
 	s.emergencies = slices.Delete(s.emergencies, index, index+1)
 	s.dropEmergencyMiss(record.serial)
 	addCount(&s.emergencyCounters.ended, 1)
+	if s.emergencySampler.live {
+		length := s.tick - record.start
+		addCount(&s.emergencyCounters.endedTicks, length)
+		s.emergencyCounters.maxTicks = max(s.emergencyCounters.maxTicks, length)
+	}
 	if v := &s.vehicles[record.pod]; v.withdrawn&emergencyHold != 0 {
 		_ = s.restoreService(v, emergencyHold)
 	}
@@ -224,6 +250,9 @@ func (s *Simulation) endEmergency(index int) {
 func (s *Simulation) checkEmergencies() error {
 	if err := s.emergencySampler.check("E9", s.emergenciesOn, s.tick); err != nil {
 		return err
+	}
+	if counters := s.emergencyCounters; counters.skipped > counters.sampled {
+		return fmt.Errorf("E9: %d events skipped, more than the %d sampled", counters.skipped, counters.sampled)
 	}
 	if !s.emergenciesOn && len(s.emergencies) > 0 {
 		return fmt.Errorf("E7: %d emergency records exist with emergencies off", len(s.emergencies))
