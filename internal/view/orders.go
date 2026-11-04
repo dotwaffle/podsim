@@ -156,14 +156,29 @@ func (g *Game) currentOrderPage(rows []orderRow) orderPage {
 // orderPagerButtons returns the previous and next page arrows of the Orders
 // panel. There are no arrows when all the rows fit on one page.
 func (g *Game) orderPagerButtons(state sim.Snapshot) []button {
-	page := g.currentOrderPage(outstandingOrders(state))
+	return pagerButtons(g.currentOrderPage(outstandingOrders(state)), "orders-")
+}
+
+// pagerButtons returns the previous and next page arrows of a side panel,
+// with actions that start with prefix. There are no arrows when all the rows
+// fit on one page.
+func pagerButtons(page orderPage, prefix string) []button {
 	if page.pages < 2 {
 		return nil
 	}
 	return []button{
-		{x: 810, y: orderPagerTop, w: orderPagerArrowWidth, h: orderPagerHeight, label: "‹", disabled: page.page == 0, action: "orders-prev"},
-		{x: 1060 - orderPagerArrowWidth, y: orderPagerTop, w: orderPagerArrowWidth, h: orderPagerHeight, label: "›", disabled: page.page == page.pages-1, action: "orders-next"},
+		{x: 810, y: orderPagerTop, w: orderPagerArrowWidth, h: orderPagerHeight, label: "‹", disabled: page.page == 0, action: prefix + "prev"},
+		{x: 1060 - orderPagerArrowWidth, y: orderPagerTop, w: orderPagerArrowWidth, h: orderPagerHeight, label: "›", disabled: page.page == page.pages-1, action: prefix + "next"},
 	}
+}
+
+// pagerLabel returns the page count between the page arrows of a side panel.
+func (g *Game) pagerLabel(page orderPage) label {
+	unit := g.layout.unit
+	left := g.layout.right(810 + orderPagerArrowWidth)
+	top := g.layout.bottom(orderPagerTop)
+	area := image.Rect(int(math.Round(left)), int(math.Round(top)), int(math.Round(g.layout.right(1060-orderPagerArrowWidth))), int(math.Round(top+orderPagerHeight*unit)))
+	return g.centerLabel(area, label{size: 12, value: fmt.Sprintf("Page %d of %d", page.page+1, page.pages), color: muted})
 }
 
 // turnOrderPage moves the Orders panel by step pages from the page that it
@@ -223,12 +238,7 @@ func (g *Game) orderLabels(state sim.Snapshot) []label {
 			panelLabel(y+orderStatusOffset, 11, status, muted))
 	}
 	if page.pages > 1 {
-		unit := g.layout.unit
-		left := g.layout.right(810 + orderPagerArrowWidth)
-		top := g.layout.bottom(orderPagerTop)
-		area := image.Rect(int(math.Round(left)), int(math.Round(top)), int(math.Round(g.layout.right(1060-orderPagerArrowWidth))), int(math.Round(top+orderPagerHeight*unit)))
-		value := fmt.Sprintf("Page %d of %d", page.page+1, page.pages)
-		labels = append(labels, g.centerLabel(area, label{size: 12, value: value, color: muted}))
+		labels = append(labels, g.pagerLabel(page))
 	}
 	return labels
 }

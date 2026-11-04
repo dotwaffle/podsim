@@ -417,13 +417,17 @@ func TestControlsDoNotOverlap(t *testing.T) {
 	t.Parallel()
 	savePoints := []session.Checkpoint{{ID: 1, Tick: 600}, {ID: 2, Tick: 1200, RestoresProject: true}}
 	for _, layout := range controlLayouts {
-		for _, showDemand := range []bool{false, true} {
+		for _, panel := range []string{"", "demand", incidentsAction} {
 			for _, checkpoints := range [][]session.Checkpoint{nil, savePoints} {
-				name := fmt.Sprintf("%s demand %t save points %d", layout.name, showDemand, len(checkpoints))
+				name := fmt.Sprintf("%s panel %q save points %d", layout.name, panel, len(checkpoints))
 				t.Run(name, func(t *testing.T) {
 					t.Parallel()
 					game := controlTestGame(t, layout.input)
-					game.showDemand = showDemand
+					game.showDemand = panel == "demand"
+					game.showIncidents = panel == incidentsAction
+					if game.showIncidents {
+						fillIncidents(game, 40)
+					}
 					game.state.Checkpoints = checkpoints
 					// The inspector has the fault button, and the emergency
 					// button for a pod with a party.
@@ -431,7 +435,7 @@ func TestControlsDoNotOverlap(t *testing.T) {
 					controls := game.buttons()
 					findButton(t, controls, "checkpoint")
 					findButton(t, controls, "rewind")
-					if !showDemand {
+					if panel == "" {
 						findButton(t, controls, emergencyActionPrefix+fleetPodLabel(game.selected, len(game.state.Simulation.Vehicles)))
 					}
 					bounds := area{right: float64(game.layout.width), bottom: float64(game.layout.height)}
@@ -605,7 +609,7 @@ func (g *Game) rightPanelArea() area {
 // the bottom of the right panel.
 func rightBottomGroup(action string) bool {
 	switch action {
-	case "pause", "speed", "reset", "orders", "demand", "pods-prev", "pods-next":
+	case "pause", "speed", "reset", "orders", "demand", incidentsAction, "pods-prev", "pods-next":
 		return true
 	}
 	return strings.HasPrefix(action, "pod/")

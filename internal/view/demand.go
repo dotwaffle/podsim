@@ -71,8 +71,8 @@ const (
 	// bottom of the Demand panel in a tall window.
 	demoButtonTop = podSelectorTop - 32
 	// demoButtonLeft, demoButtonWidth and demoButtonHeight set the other
-	// edges of Start traffic demo in design units. The button has the left
-	// edge and the width of the Demand button.
+	// edges of Start traffic demo in design units. The button ends at the
+	// right edge of the panel buttons.
 	demoButtonLeft   = 940.0
 	demoButtonWidth  = 120.0
 	demoButtonHeight = 26.0

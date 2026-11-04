@@ -115,7 +115,13 @@ type Game struct {
 	// button.
 	shownEmergency button
 	emergencyShown bool
-	layout         displayLayout
+	// showIncidents reports whether the Incidents panel is open.
+	// incidentPage is its zero-based page. shownClears holds the Clear
+	// buttons of the last drawn frame. See shownIncidentClears.
+	showIncidents bool
+	incidentPage  int
+	shownClears   []button
+	layout        displayLayout
 	// imageLimit is the largest side in pixels of an image. Draw reads it
 	// from Ebiten in each frame. See imageSideLimit.
 	imageLimit int
@@ -262,6 +268,7 @@ func (g *Game) selectAdjacentPod(step int) {
 func (g *Game) selectPod(index int) {
 	g.selected, g.podPage = index, index/podsPerPage
 	g.showOrders, g.showDemand = false, false
+	g.closeIncidents()
 	g.message = ""
 }
 
@@ -470,19 +477,22 @@ func (g *Game) buttons() []button {
 		{x: 651, y: 72, w: 28, h: 24, label: "+", action: "map-zoom-in"},
 		{x: 685, y: 72, w: 66, h: 24, label: "Fit", action: "map-fit"},
 		{x: 964, y: 72, w: 96, h: 24, label: followLabel, selected: g.followSelected, action: "map-follow", fontSize: 11},
-		{x: 810, y: 465, w: 120, h: 26, label: fmt.Sprintf("Orders %d", orders), selected: g.showOrders, action: "orders"},
-		{x: 940, y: 465, w: 120, h: 26, label: "Demand", selected: g.showDemand, action: "demand"},
+		{x: 810, y: 465, w: 82, h: 26, label: fmt.Sprintf("Orders %d", orders), selected: g.showOrders, action: "orders", fontSize: 11},
+		{x: 894, y: 465, w: 82, h: 26, label: "Demand", selected: g.showDemand, action: "demand", fontSize: 11},
 		{x: 930, y: 612, w: 130, h: 42, label: requestLabel, selected: true, disabled: busy || g.destination == g.origin || g.journeySearch.unresolved[0] || g.journeySearch.unresolved[1], action: "request"},
 		{x: 810, y: 397, w: 250, h: 32, label: pauseLabel, action: "pause"},
 		{x: 810, y: 431, w: 119, h: 32, label: fmt.Sprintf("Speed %dx [S]", g.state.Speed), action: "speed"},
 		{x: 941, y: 431, w: 119, h: 32, label: "Reset [Shift+R]", action: "reset"},
+	}
+	if !state.OperationsOff {
+		buttons = append(buttons, button{x: 978, y: 465, w: 82, h: 26, label: "Incidents", selected: g.showIncidents, action: incidentsAction, fontSize: 11})
 	}
 	buttons = append(buttons, g.shellButtons()...)
 	for i, v := range state.Vehicles {
 		if i/podsPerPage != g.podPage {
 			continue
 		}
-		buttons = append(buttons, button{x: 810 + float64(i%podsPerPage)*podButtonStep, y: podSelectorTop, w: 32, h: 34, label: fleetPodLabel(i, len(state.Vehicles)), selected: !g.showOrders && !g.showDemand && g.selected == i, action: "pod/" + v.Pod.ID})
+		buttons = append(buttons, button{x: 810 + float64(i%podsPerPage)*podButtonStep, y: podSelectorTop, w: 32, h: 34, label: fleetPodLabel(i, len(state.Vehicles)), selected: !g.showOrders && !g.showDemand && !g.showIncidents && g.selected == i, action: "pod/" + v.Pod.ID})
 	}
 	if control, ok := g.faultButton(state); ok {
 		buttons = append(buttons, control)
@@ -506,6 +516,9 @@ func (g *Game) buttons() []button {
 	if g.showOrders {
 		buttons = append(buttons, g.orderPagerButtons(state)...)
 	}
+	if g.incidentsOpen(state) {
+		buttons = append(buttons, g.incidentButtons(state)...)
+	}
 	for i := range buttons {
 		switch buttons[i].action {
 		case "pause", "speed", "reset", "checkpoint":
@@ -523,9 +536,11 @@ func (g *Game) layoutButton(b button) button {
 	if b.x >= 796 && !b.expandsWithMap || strings.HasPrefix(b.action, "map-") || strings.HasPrefix(b.action, "shell-") || b.action == "request" {
 		x += g.layout.extraX
 	}
-	// The Orders page controls and Start traffic demo are above the pod
-	// selector, but they move down with it.
-	if movesDown(b.x, b.y) || strings.HasPrefix(b.action, "orders-") || b.action == "demo" {
+	// The page controls and Start traffic demo are above the pod selector,
+	// but they move down with it. A Clear button stays beside its row,
+	// which a tall window can place below the top of the pod selector.
+	moves := movesDown(b.x, b.y) && !isIncidentClear(b)
+	if moves || strings.HasPrefix(b.action, "orders-") || strings.HasPrefix(b.action, incidentsPagerPrefix) || b.action == "demo" {
 		y += g.layout.extraY
 	}
 	b.x, b.y, b.w, b.h = x, y, b.w*g.layout.unit, b.h*g.layout.unit
@@ -558,7 +573,7 @@ func (g *Game) press(action string) {
 	if action != "search-from" && action != "search-to" {
 		g.journeySearch.focus = 0
 	}
-	if g.pressHeader(action) || g.pressMapControl(action) || g.pressPodControl(action) || g.pressSidePanel(action) || g.pressJourney(action) {
+	if g.pressHeader(action) || g.pressMapControl(action) || g.pressPodControl(action) || g.pressSidePanel(action) || g.pressIncidents(action) || g.pressJourney(action) {
 		return
 	}
 	g.message = ""
@@ -635,6 +650,7 @@ func (g *Game) pressPodControl(action string) bool {
 		}
 	}
 	g.showOrders, g.showDemand = false, false
+	g.closeIncidents()
 	g.message = ""
 	return true
 }
@@ -652,9 +668,11 @@ func (g *Game) pressSidePanel(action string) bool {
 	case "orders":
 		g.showOrders = !g.showOrders
 		g.showDemand = false
+		g.closeIncidents()
 	case "demand":
 		g.showDemand = !g.showDemand
 		g.showOrders = false
+		g.closeIncidents()
 	case "demand-rate", "demand-pattern", "demand-seed", "demand-toggle":
 		g.submit(session.Command{Action: "demand", Demand: nextDemandConfig(g.state.Demand.Config, action, g.destination)})
 	case "demo":

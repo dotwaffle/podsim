@@ -37,7 +37,7 @@ func podFault(faults sim.FaultsView, podID string) (sim.FaultView, bool) {
 // refuses a command that fails one, and the message line shows the error.
 // The button is right of the activity label, which ends before it.
 func (g *Game) faultButton(state sim.Snapshot) (button, bool) {
-	if state.OperationsOff || g.showOrders || g.showDemand {
+	if state.OperationsOff || g.showOrders || g.showDemand || g.showIncidents {
 		return button{}, false
 	}
 	vehicle, ok := selectedVehicle(state, g.selected)
@@ -82,9 +82,11 @@ func (g *Game) frameControls() []frameControl {
 }
 
 // frameButtons returns the buttons of a new frame. It keeps the fault
-// button and the emergency button of the frame for clickButtons.
+// button, the emergency button, and the Clear buttons of the panel of the
+// frame for clickButtons.
 func (g *Game) frameButtons() []button {
 	buttons := g.buttons()
+	g.keepIncidentClears(buttons)
 	for _, frame := range g.frameControls() {
 		i := slices.IndexFunc(buttons, frame.match)
 		*frame.shown = i >= 0
@@ -113,7 +115,7 @@ func (g *Game) clickButtons() []button {
 			buttons = append(buttons, control)
 		}
 	}
-	return buttons
+	return g.shownIncidentClears(buttons)
 }
 
 // isFaultButton reports whether control is the fault button.

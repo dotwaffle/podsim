@@ -38,7 +38,7 @@ func hasEmergency(emergencies sim.EmergenciesView, podID string) bool {
 // fails one, and the message line shows the error. The button is below the
 // fault button, between the status line and the journey line.
 func (g *Game) emergencyButton(state sim.Snapshot) (button, bool) {
-	if state.OperationsOff || g.showOrders || g.showDemand {
+	if state.OperationsOff || g.showOrders || g.showDemand || g.showIncidents {
 		return button{}, false
 	}
 	vehicle, ok := selectedVehicle(state, g.selected)

@@ -1,6 +1,7 @@
 package view
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/project"
@@ -39,6 +40,9 @@ func TestButtonsFollowOperations(t *testing.T) {
 		}
 		if _, shown := game.emergencyButton(game.state.Simulation); shown != want {
 			t.Errorf("%s: emergency button shown %t, want %t", stage, shown, want)
+		}
+		if shown := slices.ContainsFunc(game.buttons(), func(control button) bool { return control.action == incidentsAction }); shown != want {
+			t.Errorf("%s: Incidents tab shown %t, want %t", stage, shown, want)
 		}
 	}
 	check("start", s.State().Simulation, true)

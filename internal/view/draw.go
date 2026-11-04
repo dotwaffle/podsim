@@ -73,6 +73,8 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		g.drawDemand(screen)
 	case g.showOrders:
 		g.drawOrders(screen, state)
+	case g.incidentsOpen(state):
+		g.drawIncidents(screen, state)
 	default:
 		g.drawInspection(screen, state)
 	}

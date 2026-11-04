@@ -27,6 +27,7 @@ func (g *Game) handleResult(result remote.Result) {
 		g.message = result.Reply.Error
 	case result.Command.Action == "trip":
 		g.showOrders, g.showDemand = true, false
+		g.closeIncidents()
 		g.commands.acceptedOrigin, g.commands.acceptedDestination = result.Command.Origin, result.Command.Destination
 		from, _ := g.network.Station(result.Command.Origin)
 		to, _ := g.network.Station(result.Command.Destination)
@@ -44,6 +45,7 @@ func (g *Game) handleResult(result remote.Result) {
 		}
 	case result.Command.Action == "reset" || result.Command.Action == "demo":
 		g.showOrders, g.showDemand = false, false
+		g.closeIncidents()
 		g.notice.clear()
 		g.selected, g.podPage = 0, 0
 		g.normalizeSelection()

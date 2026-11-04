@@ -24,6 +24,9 @@ func (g *Game) readRemote() {
 		}
 		g.network = state.Network
 		g.normalizeSelection()
+		if state.Simulation.OperationsOff {
+			g.closeIncidents()
+		}
 	}
 	select {
 	case result := <-g.client.Results():
