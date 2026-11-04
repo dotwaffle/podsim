@@ -1,6 +1,8 @@
 # Incident suspension contract proposal
 
 Status: approved, revision 5, October 5, 2026, by the coordinator under the maintainer delegation of October 5, 2026, after blind Astra review rounds and an adversarial check.
+Trimmed on November 4, 2026: review history removed.
+Git history keeps it.
 The approval changes no binding decision and no product choice beyond the maintainer-approved amendment D3 and the stage 2 defaults.
 Line references are at `3c77045`.
 
@@ -39,10 +41,7 @@ Stage 1 patches 8 and 9 have not landed: the operational destination and the sta
 This contract cites those parts by stage 1 section, not by `file:line`.
 Stage 2 starts after stage 1 patch 9.
 
-Revision 2 folded the first external review (section 21).
 Revision 3 narrows the rules for obstructed pods after the second review, with the shape that the maintainer approved on October 5, 2026 at 17:43Z.
-Revision 4 folds the third review, and revision 5 folds the check of revision 4.
-Section 22 maps each finding of the later reviews to its resolution.
 
 ## 1. Scope
 
@@ -1640,67 +1639,6 @@ The off-state gates of section 14 run after each patch.
 Patches 2 to 5 are internal.
 Their tests call the operations directly, as stage 1 tests do.
 
-## 19. Reuse of the parked fault contract
-
-The parked contract is an uncommitted draft, `docs/vehicle-fault-contract-proposal.md` revision 2, against `5c90c9f`.
-Its two Codex reviews and the holistic review stopped it.
-This contract reuses the parts that fit stage 2, anchored again at `3c77045` and placed on the stage 1 API.
-
-### 19.1 Reused
-
-| Parked section | Here | Change |
-| --- | --- | --- |
-| 4.1 Blocked set | 8.1 | Lanes and berths as before, with a static resource index and a synchronous rebuild. |
-| 4.2 Route searches | 8.2, 8.4 | The `blocked` member on `routeGraph` instead of `networkRouteInput`, so every reader of the graph gets it. Admission stays static through `staticConnected`, which also covers `podFitsRequest`. |
-| 4.3 Caches | 8.3 | Same set plus `congestionRouteCosts`, without `approachStations`, which is a static index of the network (`internal/sim/drop_offs.go` `(*Simulation).stationsOnRouteForClass`). |
-| 4.4 Replan pass | 9.2, 9.3 | Narrowed to one route-only reroute of a healthy pod to its own endpoint, at the same cadence. No classes, no withdrawal of a healthy pod, and no refuge. Trapped pods wait instead of reversing. |
-| 6.1, 6.2 Pod on a lane and at a berth | 5.2, 6 | Same braking cap and berth footprint. The cap enters every motion proof through one step function, from parked section 5.8 item 1. |
-| 7.1 State machine | 4.1, 5.5 | Same phases, now derived. Clear before evacuation. Evacuation needs rest. |
-| 7.3 Start validation | 7.3, 12.4 | Same checks, with the claim refusal, the remaining-route refusal, and the arithmetic preflight. |
-| 7.4 Scenario sampler | 12.2 | Mechanism only, with its own RNG stream. It lands in stage 7. |
-| 7.5 Debris footprint | 7.2 | Same footprint from lane cells. Berth resources are excluded. |
-| 7.7 Session events | 12.7 | Same table, with stage 1 restore tiers, the hold rule, and the demotion rule. |
-| 8.2 Project settings | 12.1 | Same members. `perHour` is refused above 0 until stage 7. |
-| 8.3 Commands, errors, and the digest rule | 12.3, 12.4, 13.2 | Same actions and messages, plus `invalid fault duration`, `debris meets a reserved resource`, and `incident limit reached`. The digest rule is the stage 1 registry. |
-| 8.6 Prescan limits | 13.5 | The delta path is `/delta/groups/faults/active`, and semantic stream rules carry the record contract. |
-| 10.4 Capability matrix | 1.4 | Unsupported targets and positive rates are refused before any change. |
-
-### 19.2 Dropped
-
-| Parked section | Reason |
-| --- | --- |
-| 4.6 Grant retraction | No stage 2 operation revokes a grant (section 6.4). A certified release is product choice P9. Revision 1 of this contract used it, and the first review moved it out. |
-| 7.5 Pending debris resources | Debris starts only on free, unclaimed resources (section 7.3), so no resource passes from a pod to debris. |
-| 5 Reverse motion | Stage 5. Rounds 1 and 2 found deadlock and certificate blockers in it. Stage 2 pods wait (decision 3). |
-| 6.3 Compact recovery and the predecessor transition | Stage 6. Round 2, finding 1: compact recovery moved a stopped faulted pod. Stage 2 refuses compact and platoon members. |
-| 6.4 Physical trains | Stage 4. Rounds 1 and 2 found certificate blockers. Stage 2 refuses coupling and approach members. |
-| 4.4 `unbindPickups` | Replaced by stage 1 `withdrawService` and `releasePickups` for a faulted pod, and by the dispatch access test for a healthy pod (section 9.4). Neither changes an owner. |
-| 4.5 `refuge` field and `Holding` activity | Stage 2 has no refuge. |
-| 7.2 `StepInterruption` and `fault-interrupted` | Replaced by the stage 1 interrupted outcome and rail reason `interrupted`. |
-| 7.2 Completion of riders at their destination berth | Decision 4: every evacuated party is interrupted. |
-| 7.6 `f<generation>.<serial>` and `SetFaultGeneration` | Replaced by stage 1 IDs and `SetIncidentGeneration`. |
-| 8.4 Pod fields `faultID` and `reversing` | No vehicle member is needed. `BlockedBy` and the `faults` group carry the ID. |
-| 8.5 Saved IDs of 386 bytes and `reverse` state | Records use indexes. Reverse state is stage 5. |
-| 8.5 Saved coordinate origin | Needed only for reverse targets, stage 5. |
-| 9 Byte table | Replaced by section 13.6 against stage 1 section 11.7. |
-| 4.7 Park-and-ride outcome | Stage 1 defines the ledger outcome. Park-and-ride keeps refusing the marker in stage 2. |
-
-### 19.3 Parked review findings that must not return
-
-| Finding | Where this contract closes it |
-| --- | --- |
-| Round 1, 1: digests change | Section 13.2 uses the stage 1 registry. |
-| Round 1, 8: release before admission | No stage 2 operation revokes a grant. Debris release in the fault stage waits for `releaseCleared`. |
-| Round 1, 9, and round 2, 8 and 9: pickup unbinding | Section 5.2 calls `withdrawService` at the first accepted fault. Section 9.4 unbinds a pickup of a healthy pod only through dispatch. Neither releases a berth claim. |
-| Round 1, 10: refuge phase | Stage 2 has no refuge. |
-| Round 1, 11, and round 2, 7: prescan | Section 13.5, from real envelopes. |
-| Round 1, 12, and round 2, 6: bytes | Section 13.6, with indexes and the measured stage 1 headroom. |
-| Round 1, 14: IDs after rewind | Stage 1 IDs. Test in section 16.2. |
-| Round 1, 15: stage gates | Section 1.4. Tests in section 16.1. |
-| Round 2, 1: a stopped faulted pod moves | F4. Compact members are refused. |
-| Holistic review: phase changes inside the causing operation | Section 11, and the synchronous rebuild of section 8.3. |
-| Holistic review: service cancellation is not physical release | Withdrawal and debris change no grant. |
-
 ## 20. Requirements and product choices
 
 ### 20.1 Settled requirements
@@ -1717,7 +1655,7 @@ A binding decision, the approved stage 1 contract, or a safety rule settles each
 | S6 | An obstructed pod keeps the order of its `Stops`. Skipping a stop needs a new stop rule and a later stage. | Stage 1, section 9.4. |
 | S7 | Riders never leave a pod that is obstructed but not faulted, except at their stops. | Decision 4 names only the stopped pod. |
 | S8 | A logical restore and a physical restore that would demote a faulted pod drop every fault, release `faultHold`, and keep the counters. | Maintainer decision of October 5, 2026; `AGENTS.md`. |
-| S9 | Park-and-ride and `cmd/compare` refuse the fault marker. | Stage 1, open question 10. |
+| S9 | Park-and-ride and `cmd/compare` refuse the fault marker. | Stage 1 contract, section 18, question 10. |
 | S10 | The fault switch is the `faultContract` marker, which requires `incidentContract`. | Stage 1, section 11.2. |
 | S11 | Moot in revision 3: stage 2 has no refuge. | Decision 11. |
 | S12 | A pod in its fault recovery can fault again, and its hold is reused. | Stage 1 W5 and the hold rules; no new transition. |
@@ -1743,89 +1681,3 @@ The maintainer accepted the defaults of P1, P2, and P5 to P9 on October 5, 2026.
 | P9 | Unused grants of a stopped pod | Accepted: kept until a certified release transition exists. | Retract them at rest with a deferred release at `releaseCleared`, as revision 1 specified. This needs its own certification. |
 | P10 | A revocable destination claim of a faulted pod | Superseded by the amendment of section 1.6 (D3): the pod gives up its `claimService` claim after fault withdrawal. | |
 | P11 | Unreachable occupied service | Removed in revision 3. An occupied healthy pod reroutes to its endpoint or waits. A refuge policy is a stage 3 product choice. | |
-
-## 21. Round 1 resolutions
-
-The first external review had two parts: an adversarial review of revision 1 (findings A1 to A14) and an independent design (items B-A to B-G).
-
-| # | Severity | Finding | Resolution | Sections |
-| --- | --- | --- | --- | --- |
-| A1 | Blocker | A refuge pod could hold forever after the last clear. | Superseded in revision 3: stage 2 has no refuge (section 22). | 1.2 |
-| A2 | Major | Lazy invalidation came after cache hits. | Every footprint change rebuilds the blocked set and clears the caches in the same operation, cached failures and `routeStations` included. The static switch reads the same rebuilt set. | 8.3, 8.4, 16.1 |
-| A3 | Major | "Fault ahead" missed several permanent waits. | Superseded in revision 3 by wait reports derived at each tick (section 22). | 9.6 |
-| A4 | Major | The bound-pickup reroute went through a path that refuses an assigned pod. | Superseded in revision 3 by the endpoint reroute and the pickup access test (section 22). | 9.3, 9.4 |
-| A5 | Major | Occupied rerouting missed entry-ending routes and berth departures. | Superseded in revision 3 by the endpoint reroute, which covers both (section 22). | 9.3 |
-| A6 | Major | Committed and trapped pods kept their pickups. | Superseded in revision 3 by the pickup access test (section 22). | 9.4 |
-| A7 | Major | Debris had no explicit refusal for the future route of an approach. | Precondition 9 refuses a footprint on the remaining route of a coupling or approach member, past its grants, before any write. | 7.3, 16.1 |
-| A8 | Major | Physical restore had no rule for a faulted pod that it would demote. | The physical tier fails; the logical tier then drops every fault where a fallback is allowed. Coordinator decision; the alternative of cancelling one record is rejected. | 12.7, 20.1 S8 |
-| A9 | Major | Time and serial arithmetic could fail after a write. | Checked additions and serial exhaustion are preflighted before `nextIncidentID`, with a new error. Decoders reject negative values and an overflowing evacuation tick. Revision 3 adds saturating counters (N7). | 5.2, 7.3, 12.4, 12.5, 13.5 |
-| A10 | Major | Stream validation was weaker than the record contract. | Required and forbidden members per kind, unique IDs, per-kind and per-pod counts, numeric bounds, and tick order, for full frames and replacement groups. Revision 3 completes the rules (N8). | 13.4, 13.5, 16.3 |
-| A11 | Major | The test oracle could not show refusal atomicity or stopped immobility. | A clone comparison for every refusal, a transition helper for F3 and F4, and a mutation per guard and path. Revision 3 makes the helper compare pose and speed (N9). | 10, 11, 16.1, 16.6 |
-| A12 | Major | The rail gate contradicted the stage 1 `missed` rule. | Only `pending` records change; `missed` stays; orders without a record get none. | 17 |
-| A13 | Minor | Save headroom used the old stage 1 Express total. | Amended totals 129,516 and 373,116 and the reserve of 2,203,613. Express with coupling keeps 6,427,359 bytes after revision 3. | 13.6 |
-| A14 | Minor | Section 20 mixed settled requirements with product choices. | Split into settled requirements (20.1) and product choices (20.2). | 20 |
-| B-A | Adopted | One braking calculation for motion and for every foreign proof, frozen at onset before capture; arrival during braking keeps the suspension; the faulted entry-queue head makes no berth-grant attempt. | `faultMoveStep`, the deceleration bound, F3 and F4 with a test, and the buffer head gate. | 6.1, 6.2, 6.3, 10 |
-| B-A | Adopted | Keep every grant of a faulted pod until a certified release. | Retraction is dropped from stage 2. | 6.4, 20.2 P9 |
-| B-B | Adopted | Debris never revokes a claim. | Debris starts only on free, unclaimed resources, so the stopping-distance rule holds for every pod. Revision 1 retracted grants; that is dropped. | 7.1, 7.3, 7.4 |
-| B-C | Adopted | Closure applies to every search, and cached failures and cost snapshots are invalidated. | Bank searches and `congestionRouteCosts` are named. Station maneuvers stay static. | 8.2, 8.3 |
-| B-D | Adopted | Separate the timed mechanical fault from the service suspension that keeps `faultHold`. | The record ends at its duration or clear; the fault recovery is the stage 1 purpose with owner `faultHold`. F12. | 2, 5.4, 10 |
-| B-D | Rejected | Cancel one pod record on physical demotion. | Coordinator decision: no partial recovery. | 12.7 |
-| B-E | Adopted | Report fault braking, fault stopped, blocked by incident, and no forward route, with the incident ID. | Section 9.6. `BlockedBy` holds the fault ID; the `faults` group gives the pod or lane and the onset tick. Revision 3 drops "Holding at refuge". | 9.6, 13.4 |
-| B-E | Not adopted | Wait-start tick and affected rider count in each report. | The saved `waitSince` and the rider lists already hold them. No new member. | 9.6 |
-| B-F | Adopted | Debris before pods at restore, elapsed timers kept, braking restored as stopped. | Section 12.7. | 7.6, 12.7 |
-| B-G | Adopted | The incident sampler has its own RNG stream and never draws from the demand RNG. | Section 12.2, with a matched-seed test. | 12.2, 14 |
-| B-B | Not adopted | Snap the debris interval to cell boundaries and exclude node and junction cells. | The footprint already covers whole cells. Junction cells stay allowed, because the claim refusal makes them safe. Berth cells are excluded. | 7.2, 7.3 |
-
-## 22. Later review resolutions
-
-### 22.1 Round 2
-
-The second external review of revision 2 had four parts: an adversarial review (the status of A1 to A14 and new findings N1 to N9), an own analysis, a blind design, and an adversarial check of the points where the designs disagreed (D1 to D3 and check findings 1 to 5).
-Two rounds found a blocker in recovery liveness, and the findings shared root causes: retained claims with no owner release, a sticky obstruction state with an extra hold, and a custom reroute for each route shape.
-The maintainer approved the narrowed shape and the D3 amendment on October 5, 2026 at 17:43Z.
-
-| # | Severity | Finding | Resolution | Sections |
-| --- | --- | --- | --- | --- |
-| N1 | Blocker | A buffered recovery could deadlock after every clear: a withdrawn head cannot make a claim yield, and an empty pod behind it kept its claim on the only berth. | The waiting owner gives up its unused service claim in the first phase of `admit`, while an incident is outstanding. Two-pod one-berth test. | 9.5, 16.1 |
-| N2 | Major | A retained destination claim of a faulted pod was missing from the classification. | The faulted pod gives up its service claim at fault start (D3). No classification remains. | 1.6, 5.2 |
-| N3 | Major | Withdrawal disabled later reroutes. | Healthy pods are never withdrawn, and the reroute pass does not test service membership. | 9.1, 9.2 |
-| N4 | Major | The sticky obstruction state had no cleanup at arrival, settlement, or clear. | No sticky state: each tick derives each report again. The clear resets each `BlockedBy` that names the cleared fault. | 5.4, 9.6 |
-| N5 | Major | The pickup reroute used `request.From` and an implicit prefix. | Pickup access uses `legOrigin()`. The endpoint reroute builds the kept prefix plus the suffix explicitly. No reroute for pickups alone remains. | 9.3, 9.4 |
-| N6 | Major | An entry-ending route could be unaffected while every berth of its station was blocked. | No classification remains. The failed terminal berth choice reports "Blocked by incident", and the pod waits. | 9.6, 9.7 |
-| N7 | Major | Counters could overflow after a write. | Every counter saturates at `math.MaxInt64`. Restored-limit tests. | 12.5, 16.1 |
-| N8 | Major | Stream validation had undefined and missing cases. | Presence-aware decoding with no null, `endTick > startTick` only when present, `startTick` not above the frame tick, `toMeters` not above the lane length, the same rules for full frames and replacement groups, and the base kept on a rejected delta. | 13.5, 16.3 |
-| N9 | Minor | The immobility helper compared route coordinates, not physical motion. | The helper compares pose and speed, and route coordinates only while they stay the same; berth settlement and the clear end that comparison. | 10, 16.1 |
-| D1 | Decision | Rerouting of occupied pods. | One route-only installer to the current endpoint, with the kept prefix, the detour limits of the actual endpoint, and no `redirect`. | 9.3 |
-| D2 | Decision | Unreachable bound pickups. | A separate access test, used only while the blocked set is not empty. Dispatch unbinds with no new exclusion, and the assignment, hold, swap, and boarding paths use the same test. | 9.4 |
-| D3 | Decision | The service claim of a faulted pod. | Approved amendment to stage 1. | 1.6, 5.2 |
-| Check 1 | Blocker | The surrender needed a gate that is off in the off state and stays on through the recovery. | The gate is an active record or a pod with `faultHold`. A faulted pod gives up its claim at fault start; a recovery hold does not exempt a pod. No motion gate tests `withdrawn`. | 6.2, 9.5, 14 |
-| Check 2 | Blocker | The surrender had to follow every claim producer and cover the complete buffer path. | The first phase of `admit`, after dispatch parking, redistribution, and positioning, with no parking claim before the grants. It covers the terminal berth choice and the complete berth path of a buffer head, and keeps the buffer rollback and yield rules. Parking again after a surrender is stated. | 9.5 |
-| Check 3 | Major | An incident owner of the next resource is not a complete wait detector. | The wait derivation covers each attempted continuation, and a pod behind a healthy pod that waits. | 9.5, 9.6 |
-| Check 4 | Major | Operational searches had to stay separate from structural checks. | The arrival-chain test of `divertStart` and admission connectivity stay static. The multi-target search is operational. | 8.4, 8.5 |
-| Check 5 | Minor | The refuge rationale misstated the purpose mapping. | Purpose 2 stays an unused stage 1 capability. | 1.2, 20.2 |
-| Liveness | Required | Graph reachability alone cannot promise recovery. | Conditional liveness with the wait table. | 9.7, 17, 20.1 S16 |
-
-Revision 3 deletes these parts of revision 2, each replaced by a row above: `obstructionHold`, the vehicle fields `obstruction` and `replanned`, the replan classes and goals, `rerouteService`, `reroutePickup`, withdraw and wait, the refuge recheck, the obstruction states, and the refuge rows of sections 11, 12, 16, and 20.
-
-### 22.2 Round 3
-
-The third external review checked revision 3.
-It found no blocker, and it confirmed recovery liveness, the safety of D3, the off state, and the formats.
-
-| # | Severity | Finding | Resolution | Sections |
-| --- | --- | --- | --- | --- |
-| R3-1 | Major | Pickup access accepted an open route to a bank entry whose compatible berths were all blocked, and it searched from any berth of the end station. | Access needs a complete forward continuation from the actual endpoint through a compatible pickup berth, with the bank and onward constraints. A busy pod searches from the node where it becomes available. Owners are ignored. | 9.4, 16.1, 16.6 |
-| R3-2 | Major | Operational routing changed the denominator of the detour limit. | The direct-distance and legacy baselines read the static graph while the blocked set is not empty. Candidate travel and onward feasibility stay operational. | 8.2, 8.5, 14, 16.1, 16.6, 18 |
-| R3-3 | Major | Terminal reevaluation moved a pod away from its blocked berth. | Not gated, as the coordinator decided: reevaluation moves an uncommitted pod to another free, reachable berth of the same station, which keeps the station, the riders, and the stops. The pod waits only when no such berth is free. | 9.3, 9.5, 9.7, 16.1, 16.6 |
-| R3-4 | Minor | The installer could clear the buffer membership. | `endpointRoute` refuses a new last lane for a buffered pod, and the pod waits. | 9.3, 16.1, 16.6 |
-| R3-5 | Minor | The transition helper refused valid braking. | Distance equality applies only to a pod already at rest. During braking, the distance never decreases and stays at most the cap. | 10, 16.1 |
-
-### 22.3 Check of revision 4
-
-A Sol check of revision 4 confirmed that R3-2, R3-4, and R3-5 are closed and that the unchanged rule for a pod idle at the origin is sound.
-
-| # | Severity | Finding | Resolution | Sections |
-| --- | --- | --- | --- | --- |
-| R4-1 | Major | R3-1 was only partly closed: on a network without class restrictions, a pod that failed rule 3 could win the same assignment again on each tick. | `pickupBerthFilter` enforces compatible pickup berths in candidate selection, installation, the vehicle berth filter, the holds, and `assignedPickupFitsRequest`, while the blocked set is not empty. The idle-origin exception stays. Repeated dispatch test and a mutation row. | 9.4, 14, 16.1, 16.6, 18 |
-| R4-2 | Minor | Rule 4 trusted the cached `trip.route` and the `Berths[0]` shortcut of `finishEstimate`. | An incident-only continuation check searches the passenger leg and the final berth. The off-state branch does not change. Tests of a stale route and of a blocked first berth. | 9.4, 14, 16.1, 16.6 |
-| R4-3 | Minor | Section 9.1 and one fixture still said that a pod with a blocked berth end always waits. | Section 9.1 exempts terminal reevaluation, and the fixture applies to a committed pod or a pod with no free, reachable alternative. | 9.1, 16.1 |

@@ -1,6 +1,8 @@
 # Incident emergency contract proposal
 
 Status: Approved revision 7, October 6, 2026.
+Trimmed on November 4, 2026: review history removed.
+Git history keeps it.
 The maintainer approved product choices P1 to P22 of section 18.2 as proposed, on October 5, 2026, at 22:08Z, and decided P23 on October 5, 2026, at 23:59Z.
 The contract authorizes no implementation, default change, or deployment.
 Line references are at `481c145`.
@@ -42,13 +44,6 @@ Stage 2 patches 4 to 9 have not landed: debris, the rules for obstructed pods wi
 This contract cites those parts by stage 2 section, not by `file:line`.
 Stage 3 starts after stage 2 patch 9, except patch 1 of section 16, which can land at any time.
 
-Revision 2 folds the first external review (section 19.1).
-Revision 3 folds the adversarial review (section 19.2).
-Revision 4 folds the confirmation review (section 19.3).
-Revision 5 folds the second confirmation check (section 19.4).
-Revision 6 folds the maintainer decision on the latency of the station choice (product choice P23, section 19.5).
-Revision 7 folds the maintainer decision on the discovery skip for emergency records (section 19.6).
-
 ## 1. Scope
 
 ### 1.1 What stage 3 delivers
@@ -89,7 +84,7 @@ They are not open to change in this contract.
    A target that the stage does not support is refused before any change.
 7. Coupling discovery and adoption skip a withdrawn pod and a pod with an operational purpose (review finding Q7 and the patch 8 note: a purpose 3 pod adopted into coupling keeps its purpose until the retirement and the next arrival, so the train delays its recovery).
    Stage 3 owns this fix.
-   Revision 7 extends the discovery skip to a pod that a record names, by the maintainer decision of October 6, 2026 (section 19.6).
+   Revision 7 extends the discovery skip to a pod that a record names, by the maintainer decision of October 6, 2026.
 8. No build tags.
    Exported test entries are allowed, and section 13 lists each one.
 
@@ -1484,66 +1479,6 @@ Their tests call the operations directly.
 Stage 2 patch 3 has landed, so patch 2 can use `faulted`.
 Patch 3 needs stage 2 patch 5 for the endpoint reroute amendment, and patch 4 needs it for the claim surrender.
 
-## 17. Reuse of the parked emergency contract
-
-The parked contract is the rider emergency contract proposal, round 2, against `5c90c9f`.
-It was never committed.
-Two Codex review rounds stopped it.
-This contract reuses the parts that fit stage 3, anchored again at `236ca65` and placed on the stage 1 and stage 2 API.
-
-### 17.1 Reused
-
-| Parked section | Here | Change |
-| --- | --- | --- |
-| Start and eligibility | 5.2, 6.1 | Same checks and order, without the demo check. The default party is the first active rider. The later work goes through `withdrawService`. |
-| Estimate, `T` and `Q` | 9.1 | One time base, the edge seconds of the routing graph, on the installed route from the route distance. `Q` counts only pods ahead on the current lane, as before. |
-| Tie breaks | 9.1 | Whole ticks, then the station index. |
-| Platoon draining | 5.6 | Same rule: drain on each tick, no extension, no new link. Round 2 marked it resolved. |
-| Admission order | 9.3 | Same tier before the age rule, ordered by serial instead of start tick. |
-| Liveness, without the proof | 9.5 | Only the claims that round 2 accepted: no finite wait under a sustained rate, and the cap as an admission limit. |
-| `maxActiveEmergencies` = 4 | 4.3 | Now product choice P19. |
-| Command, errors, reply | 10.3, 10.4 | Same action and members, on the stage 1 digest registry. |
-| Restore outcomes | 10.7 | Replaced by the stage 1 tiers, with the stage 2 demotion rule. |
-| Metrics | 10.5 | Three counters. The rest moves to stage 7. |
-| Game presentation | 10.6 | One inspector button. |
-| Mutation table | 14.6 | Rewritten for the new mechanisms. |
-
-### 17.2 Dropped
-
-| Parked section | Reason |
-| --- | --- |
-| Berth term `B` | Round 2, finding D: two emergencies at one berth made the estimate recursive. The tier and terminal reevaluation take the next free berth instead. |
-| Switching rule, `switches`, and the decision window | Round 2, finding H: commitment after a refused diversion was not saved. Here the purpose 1 tuple is the commitment, and the station never changes. |
-| Cost bound by pruning | Replaced by exact pruning, which keeps the result of the exhaustive scan and does not lower the worst-case bound (section 9.1). |
-| Emergency reroute and `stops = [S]` | Replaced by `setOperationalDestination` with the stage 1 stop rules. Round 2, findings A and C. |
-| Later work by `podFitsRequest` and the exclusion that lasts for the record | Replaced by `withdrawService` and the stage 1 exclusion that holds until boarding. Round 2, finding F. |
-| `bufferClaimCanYield` changes and the guarded yield | Round 2, finding B: they changed behavior with the feature off. Decision 1 forbids revocation. |
-| Bank and entry yield rules | Decision 1. The station choice compares entries. |
-| Order outcomes, `legFrom`, and journey-origin inference | Stage 1, sections 7 and 8. Round 2, findings E, J, and K. |
-| State machine with a stored phase | The phase is derived (section 4.2). |
-| Separate `emergencyReleasedPickups` counter | The stage 1 release counts. |
-| Byte table for one shape | Section 11.6 covers each shape. Round 2, finding L. |
-| `N` 1 to 15 for emergencies | The stage 1 registry assigns `N` in order. |
-
-### 17.3 Parked review findings that must not return
-
-| Finding | Where this contract closes it |
-| --- | --- |
-| Round 1, 1: digests change | Section 11.2 uses the stage 1 registry. |
-| Round 2, A: phase rules reject valid transitions | `startOperationalUnload` and the stage 1 stop rules (stage 1, sections 9.3 and 9.4). |
-| Round 2, B: off-state change in `bufferClaimCanYield` | No change to it. The Q7 fix is its own patch, with its own parity gate. |
-| Round 2, C: mixed coordinates | The estimate runs on the installed route from the route distance (section 9.1). |
-| Round 2, D: recursive berth estimates | No berth term. The estimate reads no other emergency. |
-| Round 2, E and K: `From` readers and origin inference | Stage 1 leg origin. |
-| Round 2, F: the exclusion ends too early | Stage 1 exclusion until boarding. |
-| Round 2, G: liveness proof | Section 9.5 states conditions, not a proof. |
-| Round 2, H: commitment not saved | The purpose is saved. No window exists. |
-| Round 2, I: restore outcomes | Stage 1 tiers, and section 10.7. |
-| Round 2, J: zero index omitted | Every tuple element is present (section 11.3). |
-| Round 2, L: allocation for one shape | Section 11.6 covers every shape. |
-| Parked redirect that set `RelocatingTo` | Purpose 1 leaves `RelocatingTo` empty (stage 1, section 9.3). |
-| Non-persistent draining | The rule sets `draining` again on each tick, so a restore keeps it. |
-
 ## 18. Requirements and product choices
 
 ### 18.1 Settled requirements
@@ -1586,102 +1521,3 @@ The maintainer approved choices P1 to P22 as proposed on October 5, 2026, at 22:
 | P21 | UI control | Approved by the maintainer, 2026-10-05. One "Emergency" inspector button with one press, as the stage 2 "Fault" button. | Consistent with stage 2. | A confirmation step, or a party picker. |
 | P22 | Cancel | Approved by the maintainer, 2026-10-05. No cancel command. | A cancel needs `rebindOperationalOwner` or a new end rule for each phase. | A `clearEmergency` command for a deferred record. |
 | P23 | Latency of the station choice | Decided by the maintainer, 2026-10-05: "Exact P13, gate realistic". P13 stays exact with pruning, the term guard, and the no-candidate memo. The worst choice tick is gated at 50 ms on the CI runner class on LondonCentral and the rail-hub preset with four emergencies on one tick, and on the delayed-routes fixture at the project limits. The adversarial no-candidate fixture is reported only. | The exact rule keeps the approved result of P13. Realistic networks meet the threshold, and on an adversarial network a pathological first choice stalls one tick and the memo stops it from repeating. | The budgeted scan of revisions 3 to 5, rejected because it changes the result of P13. A higher threshold. |
-
-## 19. Review resolutions
-
-### 19.1 Round 1
-
-The first blind external review (Astra) checked revision 1 against `236ca65`, and its verdict was to approve after changes.
-Revision 2 is rebased on `481c145`, where stage 2 patch 3 has landed, and every `file:line` reference is checked again against that source.
-The coordinator decided each finding, and the maintainer approved every product choice as proposed on October 5, 2026, at 22:08Z.
-No resolution changes a product choice.
-
-| # | Severity | Finding | Decision | Resolution | Sections |
-| --- | --- | --- | --- | --- | --- |
-| 1 | Blocker | The unconditional Q7 fix contradicts emergency-off identity. | Change rejected. Q7 stays unconditional, because the maintainer chose to fix the bug in stage 3. The text is fixed. | Section 12 states the exception: runs in which a withdrawn or purpose pod would have been discovered or adopted for coupling, which need the incident or fault marker. A save with such a pod in a coupling group breaks E6 and moves aside. The patch 1 matched-seed check stays. | 5.8, 11.5, 12 |
-| 2 | Major | The station choice can exclude a station with a reachable berth or bank. | Accepted. | Each entry group tries its compatible, unblocked berths in order until one has a route, and a station is excluded only when no group has a candidate. The lowest `E` wins. `E` still has no berth term (P13). | 9.1 |
-| 3 | Major | The logical tier keeps saved holds, so dropped records leave orphan holds. | Accepted. | With the marker, the logical tier releases `emergencyHold` after it clears the purposes. Without the marker, stage 1 restore behavior does not change. | 3, 10.7 |
-| 4 | Major | Emergency validation runs too late for the logical tier. | Accepted. | `checkSavedEmergencies` checks the saved records and pod relations, E2 to E6, before either tier. A failure rejects the whole save with no logical fallback. | 11.5, 14.2 |
-| 5 | Major | Serial 0 passes decoding, and serials are not unique across kinds. | Accepted. | Serials are positive, at most `incidentSerial`, and unique across fault and emergency records, in the save checks, in `CheckContract` (E1), and in stream validation. | 8, 11.5 |
-| 6 | Major | The station choice writes routing-policy state. | Accepted. | The choice and the installation run under one frozen routing view, which writes no congestion or predictive state. The refusal oracle compares that state. | 7, 9.1 |
-| 7 | Minor | The coupled-arrival rationale and the alighting fixture contradict the source. | Accepted. | Section 5.6 states the retirement-then-arrival sequence, and no rider alights in a train. Q7 rests on recruitment and adoption alone, with direct recruitment tests. The claim that a purpose 3 pod in a train never clears its purpose is false: after the retirement, `arrive` clears it. It is removed. | 5.5, 5.6, 5.8, 14.1 |
-| 8 | Minor | The search bound counts calls, not search work. | Accepted. | Section 9.1 counts graph searches: preferred and fallback, the policy search, bank subsearches, and the search at installation, with four records on one tick. Section 15 adds a fixture at the project limits with a synchronized cadence. | 9.1, 15 |
-| 9 | Minor | The invariant plan is incomplete. | Accepted. | F11 is split into a state predicate for `CheckContract` and a transition requirement for a transition helper and a caller test. An invariant-to-mutation table covers E1 to E7 and F11, with duplicate records, orphan holds, and a wrong purpose owner. E2 and E4 hold with the marker, because the stage 1 test entry can set the hold and purpose 1 without it. | 8, 14.6 |
-| 10 | Minor | The composed-format gate cannot accept 300 records. | Accepted. | The decoder round trips use `MaxEmergencies` records. The 300-record totals are an encoding-only allocation test. | 14.4 |
-
-### 19.2 Round 2
-
-The adversarial review (Sol) checked revision 2 against `481c145`, and its verdict was to approve after changes.
-The coordinator accepted all seven findings and decided each one.
-No resolution changes a product choice: P13 and the unconditional Q7 fix stay.
-The review also confirmed the F11 mask, the pre-tier place of `checkSavedEmergencies`, and the determinism of the entry groups.
-
-| # | Severity | Finding | Decision | Resolution | Sections |
-| --- | --- | --- | --- | --- | --- |
-| 1 | Major | The cadence does not make the scan acceptable in one tick. | Accepted. Resolved by the maintainer decision of 2026-10-05 (P23, section 19.5); revisions 4 and 5 marked it partially resolved. Exact lower-bound pruning, a measured latency, a proposed threshold, and a fallback marked proposed. | The choice prunes with one class-compatible tree of base edge seconds on the blocked graph, with the bank and berth rules relaxed, and with a stated float margin. The text proves that the result is the result of the exhaustive scan, and that only base costs are admissible for `E`. A randomized test compares both scans. One project-limit search takes 0.51 to 0.95 ms under load. The proposed threshold is 50 ms for the worst choice tick on the CI runner class. The exhaustive worst case cannot meet it, so section 9.1.1 proposes a budgeted scan, which the contract does not apply. | 9.1, 9.1.1, 14.1, 14.6, 15 |
-| 2 | Major | The worst-tick fixture misses the policy work. | Accepted. | A second project-limit fixture has reachable berths and delayed routes. Both fixtures are measured cold and warm and assert the branches that ran through search counters. Revision 4 corrects this row: the delayed-routes fixture is gated on the threshold, and the no-candidate fixture reports against it. | 15 |
-| 3 | Minor | The search bound omits the failed same-bank local attempt. | Accepted. | A route search makes at most 4 graph searches, and an `assignedRoute` call at most 12. A fixture covers the case. | 9.1, 14.1 |
-| 4 | Major | The frozen view needs explicit predictive initialization. | Accepted. | An immutable routing view for each choice replaces the flag. It holds the congestion costs, the queue discharge, the lane-sized raw sample and history, and the per-pod history, and it reads the route memos and writes none. An absent history is zero history with the current sample, without the emergency pod. The text states that the installation is not an ordinary assignment in the same tick, and why that is deterministic and safe. Three tests cover first use, an overdue refresh, and an existing history. | 7, 9.1, 12, 13, 14.1, 14.6 |
-| 5 | Major | Production restore accepts an incident save with emergency state and no emergency marker. | Accepted. | `CheckIncidentPolicy` rejects hold 2 and purpose 1 without the marker, in a session restore step before either tier. The stage 1 primitive validator, `sim.RestoreState`, `CheckContract`, and `IncidentForTest` do not change. The fixture exception is in the restores of `internal/session/incident_save_test.go`. | 8, 10.7, 11.5, 13, 14.2, 14.6, 16 |
-| 6 | Major | A record pod with purpose 2 can keep riders. | Accepted. | E8: the pod of a record has no active rider when its purpose is not 0 or 1, in `CheckContract` and in `checkSavedEmergencies`. | 4.2, 8, 11.5, 14.2, 14.6 |
-| 7 | Minor | E5 cannot detect the E5 mutation. | Accepted. | The mutation fails an explicit post-stage assertion of the evacuation test: the record is absent and `emergencyHold` is cleared. E5 has its own mutation. | 8 |
-
-### 19.3 Round 3
-
-The confirmation review (Sol) checked revision 3 against `481c145`, and its verdict was to approve after changes.
-It found the relaxed tree, the bound `L = P + min d`, the visit order, the strict stop rule, the routing view, E8, the evacuation assertion, and the place of `CheckIncidentPolicy` sound.
-The coordinator accepted every finding and made the no-candidate memo of the review normative.
-No resolution changes a product choice, and section 9.1.1 stays proposed.
-
-| # | Severity | Finding | Decision | Resolution | Sections |
-| --- | --- | --- | --- | --- | --- |
-| 1 | Major | The float proof assumes that a route has at most `MaxLanes` lanes, and a live pod route can be longer. | Accepted. | A term guard computes the term count from the live prefix, the node count, and the pod count, and the choice prunes only when the stated margin covers it. Otherwise it evaluates every station. A test uses a prefix of more than 8,000 lane occurrences. | 9.1, 14.1, 14.6 |
-| 2 | Major | The worst-tick latency is still open, and resolution 2 of round 2 calls both fixtures gated. | Accepted. | Round 2 finding 1 is partially resolved. Resolution 2 is corrected: the delayed-routes fixture gates, and the no-candidate fixture reports. Section 15 has an open item for the maintainer: the acceptance of the worst-tick latency of exact P13. Section 9.1.1 is not applied. | 9.1, 15, 19.2 |
-| 3 | Minor | The differences of the budgeted scan from P13 are incomplete. | Accepted. | Section 9.1.1 states that `bestTick` is compared with bounds from later views and that the installation recomputes under a later view, and it adds a no-best guard and a final revalidation. It stays proposed. | 9.1.1 |
-| 4 | Minor | Aggregate progress does not bound the progress of each record. | Accepted. | Section 9.1.1 states that there is no per-record completion bound under serial scheduling until the proposal specifies a fair allocation. | 9.1.1 |
-| 5 | Minor | The oracle of a successful installation leaves out stage 1 installation effects. | Accepted. | The oracle allows every stage 1 installation effect: the release of revocable claims, the buffer fields, and the pending and wait fields. It still requires equal routing-policy state and route memos. | 7 |
-| 6 | Minor | Two summaries contradict the normative text. | Accepted. | Section 1.3 describes the recruitment delay, and section 17.2 describes exact pruning with no lower worst-case bound. | 1.3, 17.2 |
-| 7 | Answer | A no-candidate memo is sound. | Applied as normative. | `emergencyMisses` keeps a proven no-candidate result by record, `from`, and class. The blocked-set epoch, a network rebuild, `Reset`, a project replacement, and a restore clear it. It never holds a winner or a refused installation. Section 9.1 proves that the other inputs need no invalidation. It reduces the retries only. | 4.1, 7, 9.1, 12, 13, 14.1, 14.6, 16 |
-
-### 19.4 Round 4
-
-The second confirmation check (Sol) checked revision 4 against `481c145`, and its verdict was to approve after changes.
-The coordinator accepted its four minor findings.
-No resolution changes a product choice.
-After this round, the only open item is the maintainer decision on the worst-tick latency of exact P13 (section 15).
-
-| # | Severity | Finding | Decision | Resolution | Sections |
-| --- | --- | --- | --- | --- | --- |
-| 1 | Minor | The float proof uses a first-order error, and the queue delays depend on the rounded accumulator. | Accepted. | The proof compares the computed `E` with a base-only accumulation from the same computed `P`, and bounds both sides with `γm = m·u/(1 - m·u)`. The term guard still holds, and its constant does not change. | 9.1 |
-| 2 | Minor | The clone tests compare internal state that includes the memo and the search counters. | Accepted. | Section 4.1 excludes both from the internal-state equality of the clone tests, `clone_test.go` gets matching rules, and a warm-memo clone parity test compares the exported trajectories. | 4.1, 14.1 |
-| 3 | Minor | The no-candidate test expects a search on the next cadence tick. | Accepted. | With the memo, the retries make no search until a key input changes or the memo is cleared. | 14.1 |
-| 4 | Minor | A multi-tick scan does not prove a no-candidate result. | Accepted. | The budgeted scan never fills the no-candidate memo. | 9.1.1 |
-
-### 19.5 Maintainer decision on latency
-
-The maintainer answered the open item of section 15 on 2026-10-05: "Exact P13, gate realistic".
-Revision 6 folds the decision as product choice P23, and the contract is approved at revision 6.
-
-| Item | Resolution | Sections |
-| --- | --- | --- |
-| Station choice rule | P13 stays exact, with pruning, the term guard, and the no-candidate memo. | 9.1, 18.2 |
-| Gate | The worst choice tick is gated at 50 ms on the CI runner class on LondonCentral and the rail-hub preset with four emergencies on one tick, and on the delayed-routes fixture at the project limits. | 9.1, 15 |
-| Adversarial fixture | The no-candidate fixture is reported only, and never gated. A pathological first choice on such a network can stall one tick, and the memo stops it from repeating. | 9.1, 15 |
-| Budgeted scan | Rejected by the maintainer, because it changes the result of P13. Section 9.1.1 is a short note, and no other section has its cursor, budget, or save bytes. The rows of sections 19.2 to 19.4 that name it describe the rejected proposal. | 9.1.1 |
-| Open item | Closed. Round 2 finding 1 is resolved by this decision. | 15, 19.2 |
-
-### 19.6 Maintainer decision on the discovery skip for records
-
-The maintainer approved this change on 2026-10-06 at 11:25Z.
-The coupling incident qualification found that discovery runs before the emergency stage.
-A coupling member with a record has no hold in the tick after its split, so discovery could recruit it into an approach.
-Section 5.6 said that the emergency stage of that tick withdraws the pod before `dispatch`, which was then false.
-No invariant broke: `changed` aborts that approach, and `couplingAttempts` limits the retries.
-
-| Item | Resolution | Sections |
-| --- | --- | --- |
-| Discovery skip | `discoverCouplingApproaches` also skips a front or rear pod that a record names. | 5.8 |
-| Group members | Discovery of the tick after the split or the approach end skips the pod, and the emergency stage of that tick withdraws it. | 5.6 |
-| Adoption | No change: `changed` aborts an approach with a record before adoption. | 5.8 |
-| Off state | A record needs the emergency marker, so the term is gated by state. | 12 |
-| Tests | A recruitment test of a member with a record after its split, with a mutation row. | 14.1, 14.6 |

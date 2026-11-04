@@ -1,6 +1,8 @@
 # Incident service transitions contract proposal
 
 Status: approved on 2026-10-05, with the proposed default for each open question in section 18.
+Trimmed on November 4, 2026: review history removed.
+Git history keeps it.
 Revised for item 7: one save family (version 9) and one stream family (hello 6, hello 7 since the motion-only deltas).
 
 Physical coupling was removed on October 6, 2026.
@@ -37,9 +39,6 @@ Later stages call the operations below, and each later stage is a thin policy on
 The audited source is `069bafb`.
 Its Go sources are identical to `5c90c9f`, so line references from the parked fault and emergency reviews are valid here.
 Every `file:line` reference below is for `069bafb`, except where a reference names another commit.
-
-Revision: round 3, after the Codex reviews of rounds 1 and 2.
-Sections 16 and 17 map each finding to its fix.
 
 ## 1. Scope
 
@@ -1757,43 +1756,6 @@ Each patch compiles and passes the full suite on its own.
 9. Save and stream members, strict decoding, prescan limits, and the composed fixtures.
 
 The off-state gates of section 12 run after each patch from patch 2.
-
-## 16. Round 1 resolutions
-
-The Codex review of round 1 reported 1 blocker, 10 major findings, and 1 minor finding.
-Its verdict was "targeted corrections, no wholesale redesign".
-
-| # | Severity | Finding | Fix | Sections |
-| --- | --- | --- | --- | --- |
-| 1 | Blocker | `evacuate` completed riders at their destination berth (`internal/sim/riders.go` `(*Simulation).completeRider`). | `evacuate` interrupts every active rider. Destination completion stays only for unmarked riders of an emergency unload. The composite table and the tests changed. | 8.2, 10, 14.1, 14.6 |
-| 2 | Major | An infeasible transfer interrupted the party as a fallback. | No fallback. The transfer always happens. A narrow stranded-order exception (S1 to S3) changes `internal/sim/order_contract_restore.go` `checkContractRestoreSemantics` and `internal/session/express_orders.go` `(*StreamAssembler).expressOrders`, and nothing wider. `continuationFeasible` is a precondition a policy may use. | 7.3, 7.6, 9.5, 13 |
-| 3 | Major | An exclusion could be replaced through a hold, and a transferred party could get one. | Only never-boarded trips (`boarded` false) get an exclusion. One field holds the exclusion. Superseded by the maintainer decision of October 5, 2026 (section 17): the exclusion holds until boarding, an excluded trip may hold only for another pod, a later release replaces the exclusion, and the budget grows by 18 bytes per waiting trip (section 11.7). | 5.1, 5.2, 5.3, 11.7 |
-| 4 | Major | Stale deferral metadata could release another pod's assignment (`internal/sim/dispatch.go` `(*Simulation).dispatch`). | Four exclusive cases: bound, active hold, stale deferral, unrelated. A stale deferral only loses `deferCheck` and `deferPodID`. | 5.1, 5.5 |
-| 5 | Major | Emergency demand could authorize `yieldRelocationClaims` (`internal/sim/redistribution.go` `(*Simulation).yieldRelocationClaims`) and the buffer head yield (`internal/sim/station_buffer_claim.go` `(*Simulation).bufferClaimCanYield`). | Withdrawn pods are not passenger arrivals (`internal/sim/redistribution.go` `(*Simulation).passengerArrivals`) and fail the head test. Berth accounting does not change. A test uses an ordinary revocable claim. | 4.3, 6.2, 14.1 |
-| 6 | Major | Berth evacuation left phase, purpose, and other fields. | `settleIdleAtBerth` sets each field. Owners stay until the release boundary. | 8.2 |
-| 7 | Major | Empty recovery missed entry-ended routes (`internal/sim/berth_choice.go` `(*Simulation).assignTerminalBerth`, `internal/sim/state_physical.go` `(*physicalRestore).buildRoutes`). | Purpose 3 continues on berth-ended, entry-ended, and buffered routes, in live checks and in restore. | 9.4, 9.5, 9.6 |
-| 8 | Major | A parking refuge failed `internal/sim/state_boarding.go` `checkBoardingBerths`. | The current-berth test exempts refuge holding. Rider origins and emergency unloading keep the passenger-station rule. | 9.4, 9.6, 14.1 |
-| 9 | Major | Removal of a nonfinal hold could leave a purpose without its owner. | `restoreService` refuses the owner hold. `rebindOperationalOwner` moves the purpose. Every purpose needs an owner (W5). | 4.2, 4.5, 9.2, 9.5 |
-| 10 | Major | Command-boundary interruptions could miss rail and reach a save. | `undelivered` persists until drained. The session drains it under `s.mu` on every step return path and at the end of each command. Saves and publications read the state only after delivery. A full session save is tested. | 8.1, 8.5, 14.5 |
-| 11 | Major | Stream decoders had no marker binding. | The marker goes in the topology, the full frame, and HTTP state. `frameState` checks agreement. The delta groups are named. | 11.2, 11.5 |
-| 12 | Minor | Three literal contradictions. | X2 now applies only to a nonempty exclusion and moved into X1. The inverse states the `released` exception. Section 12 separates absent-marker identity from marker-only differences. | 4.2, 5.2, 12 |
-
-## 17. Round 2 resolutions
-
-The Codex review of round 2 found no blocker, and resolved or narrowed 9 of the 12 round 1 findings.
-Two major and four minor findings remained.
-
-| # | Severity | Finding | Fix | Sections |
-| --- | --- | --- | --- | --- |
-| 1 | Major | A transfer as the last outcome left retained boarding baselines above `RiddenMeters` after `settleIdleAtBerth` zeroed `distance` (`internal/sim/riders.go` `(*vehicle).riddenMeters`). | Each composite captures the cumulative distance before its first outcome, and sets `riddenBase` to it while boarding records remain, whatever the last outcome. Mixed-unload fixture with a transfer last. | 8.2, 9.5, 10, 14.1 |
-| 2 | Major | Delivery after `demand.step` let `Advance` mark a departure-tick interruption `missed` (`internal/rail/connections.go` `(*Connections).Advance`). | Delivery runs right after `Simulation.Step`, before `demand.step` and before both early returns. Counts are refreshed after delivery and after the coupling error restore. Departure-tick test. | 8.5, 14.1, 14.6 |
-| 3 | Minor | S1 to S3 missed `boarded`, `deferCheck`, the admitting-class scope, and on-demand Express orders. | S1 needs `boarded`. S2 needs `deferCheck == 0`. Infeasibility is over admitting classes. The service pair applies only to `ExpressServiceChoice`. | 7.6 |
-| 4 | Minor | A mask of two holds passed the `restoreService` preconditions. | Exactly one known bit. Atomic rejection test through `CheckContract`. | 4.2, 14.1 |
-| 5 | Minor | The assembler cannot see raw member presence in a markerless delta. | A raw scan in `DecodeStreamJSON` records presence, and `ApplyStream` checks it before delta application. | 11.2, 14.3 |
-| 6 | Minor | A non-project command with a marked project also gets the trailer (`internal/session/session.go` `(*Session).Apply`). | Section 12 states that any command whose supplied project has the marker gets the trailer. The digest order does not change. | 12 |
-
-Maintainer decision 2026-10-05: the exclusion holds until boarding.
-Sections 5.2, 5.3, 5.5, and 14.6 changed for it.
 
 ## 18. Open questions
 

@@ -33,23 +33,6 @@ Those bounds include the independent project or topology cap as appropriate and 
 The qualification uses one geometry, normal and overloaded traffic, safety and progress checks, production encoders and client readers, physical restore, and continued movement.
 `mise run qualify:london` repeats those cases explicitly.
 
-## Earlier proposal
-
-The approved foundation requires saved-state and stream byte proofs before the expanded counts land.
-The existing conservative fixtures nearly fill their caps.
-An isolated count projection fails both gates before it adds the new order fields.
-
-| Fixture | Current bytes | Expanded count projection | Limit |
-| --- | ---: | ---: | ---: |
-| Saved JSON | 83,301,596 | 140,440,796 | 83,886,080 |
-| Full stream JSON | 60,852,176 | 114,664,976 | 67,108,864 |
-
-The projection uses 6,200 pending records and 20 stored riders per pod.
-It retains existing text, route, project, fleet, and byte bounds.
-These are conservative independent maxima.
-They do not prove that a supported fleet can reach that combination.
-Completed rider history does not count as an outstanding order, so an outstanding-order bound alone does not remove that history.
-
 ## Recommended staged contract
 
 Approve this qualification scope:
@@ -70,9 +53,3 @@ Approve this qualification scope:
 This stages the count amendment.
 It does not increase byte caps or discard historical passenger records.
 The current-profile fixtures must include all new order fields and migration markers before this foundation lands.
-
-## Alternative
-
-Design and approve the larger-state encoding now, before any foundation integration lands.
-This keeps the count amendment in one delivery but delays the consent and compatibility work.
-The staged contract lets those features finish while the physical and larger-state contracts remain under review.
