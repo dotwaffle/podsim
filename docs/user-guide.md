@@ -49,7 +49,7 @@ A [fault](model.md#faults) adds four more reasons: **Fault braking**, **Fault st
 
 The inspector has two incident buttons.
 **Fault** starts a fault with no end on the selected pod, and on a faulted pod the button reads **Clear fault** and ends that fault.
-**Emergency** shows on a pod that carries passengers and has no emergency, and it starts an [emergency](model.md) for the first party aboard.
+**Emergency** shows on a pod that carries passengers and has no emergency, and it starts an [emergency](model.md#emergencies) for the first party aboard.
 Neither button shows during the traffic demo, or after the demo until a reset or a project apply.
 The buttons do not work while the connection is down or while a command waits for its reply.
 The server refuses a pod that it does not support, and the message line shows the error.
@@ -159,7 +159,7 @@ When **From** and **To** are the same station, **Order [Enter]** is disabled, an
 The controls beside the order button set who travels.
 **−** and **+** set the size of the party, from 1 to 8, or from 1 to 20 with the Express contract.
 **Private party** changes to **Share allowed** when you select it, and the party can then ride with other parties that also allow sharing.
-A pod takes a party only when the party fits its [class](model.md).
+A pod takes a party only when the party fits its [class](model.md#vehicle-classes).
 When no pod of the fleet can take the party, the order waits in the queue with the status **Waiting for a certified vehicle that fits this party and route**.
 
 An idle pod at the origin serves the order, and otherwise the nearest available empty pod comes to collect the party.
