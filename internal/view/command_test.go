@@ -44,7 +44,7 @@ func TestOrderAcceptedLabel(t *testing.T) {
 				Reply:   session.Reply{OrderID: 7},
 			})
 			for range test.ticks {
-				game.tickNotice()
+				game.notice.tick()
 			}
 			for _, action := range test.clicks {
 				game.click(centerOfButton(findButton(t, game.buttons(), action)))

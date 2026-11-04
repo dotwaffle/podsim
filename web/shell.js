@@ -107,7 +107,7 @@
 
   // NOTICE_MS is the time in milliseconds that the shell shows the result of
   // a debug capture that did not fail. The game shows its notices for the
-  // same time. See noticeDuration in internal/view/command.go.
+  // same time. See noticeDuration in internal/view/notice.go.
   const NOTICE_MS = 3000;
 
   // debugResult gives the active result of a debug capture that the shell

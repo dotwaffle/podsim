@@ -90,7 +90,7 @@ func TestDemoAsksAgain(t *testing.T) {
 			game := sharedTestGame(t)
 			for index, press := range test.presses {
 				for range press.ticks {
-					game.tickNotice()
+					game.notice.tick()
 				}
 				game.showDemand = true
 				if press.wantDemo {

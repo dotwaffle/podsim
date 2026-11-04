@@ -139,7 +139,7 @@ func TestShellNotices(t *testing.T) {
 			shell := newFakeShell()
 			game.shell = shell
 			if test.confirm {
-				game.showNotice(resetConfirmAction, resetConfirmNotice)
+				game.notice.show(resetConfirmAction, resetConfirmNotice)
 			}
 			shell.notices <- test.notice
 			game.readShell()

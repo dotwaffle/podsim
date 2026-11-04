@@ -33,7 +33,9 @@ func (g *Game) readRemote() {
 	// Compare the states after the command result. A session change notice
 	// then replaces a notice or an error of a command result in the same
 	// update.
-	g.announceSpeedReduction(previous)
+	if notice := speedReductionNotice(previous, g.state); notice != "" {
+		g.notice.show("speed", notice)
+	}
 	g.announceSessionChange(previous)
 	// Check the build after the command result. handleResult clears the
 	// message, and the update message must then show again at once.

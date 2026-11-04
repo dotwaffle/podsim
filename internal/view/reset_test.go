@@ -53,10 +53,10 @@ func TestResetAsksAgain(t *testing.T) {
 			wantSpeed := 2
 			for index, press := range test.presses {
 				for range press.ticks {
-					game.tickNotice()
+					game.notice.tick()
 				}
 				if press.notice != "" {
-					game.showNotice("checkpoint", press.notice)
+					game.notice.show("checkpoint", press.notice)
 				}
 				if press.message != "" {
 					game.message = press.message
@@ -267,7 +267,7 @@ func TestResetResultNotice(t *testing.T) {
 		t.Run(test.action, func(t *testing.T) {
 			t.Parallel()
 			game := journeyTestGame(t, 2)
-			game.showNotice(resetConfirmAction, resetConfirmNotice)
+			game.notice.show(resetConfirmAction, resetConfirmNotice)
 			game.handleResult(remote.Result{Command: session.Command{Action: test.action}})
 			if game.notice.text != test.wantNotice || game.notice.action != test.wantAction {
 				t.Fatalf("notice %q action %q, want notice %q action %q", game.notice.text, game.notice.action, test.wantNotice, test.wantAction)

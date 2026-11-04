@@ -115,16 +115,17 @@ func (g *Game) announceSessionChange(previous session.State) {
 		return
 	}
 	g.message = ""
-	g.showNotice(sessionChangeAction, notice)
+	g.notice.show(sessionChangeAction, notice)
 }
 
-// announceSpeedReduction shows each server reduction once. A first connection
-// or a new process does not repeat a historical reduction.
-func (g *Game) announceSpeedReduction(previous session.State) {
-	reduction := g.state.SpeedReduction
-	if previous.Epoch == "" || previous.ServerStart != g.state.ServerStart ||
-		previous.Epoch != g.state.Epoch || reduction.Sequence <= previous.SpeedReduction.Sequence {
-		return
+// speedReductionNotice returns the notice for a server speed reduction in
+// current that previous does not have. A first connection or a new process
+// does not repeat a historical reduction, so it returns an empty string.
+func speedReductionNotice(previous, current session.State) string {
+	reduction := current.SpeedReduction
+	if previous.Epoch == "" || previous.ServerStart != current.ServerStart ||
+		previous.Epoch != current.Epoch || reduction.Sequence <= previous.SpeedReduction.Sequence {
+		return ""
 	}
-	g.showNotice("speed", fmt.Sprintf("Speed reduced from %dx to %dx: the simulation could not keep up.", reduction.From, reduction.To))
+	return fmt.Sprintf("Speed reduced from %dx to %dx: the simulation could not keep up.", reduction.From, reduction.To)
 }

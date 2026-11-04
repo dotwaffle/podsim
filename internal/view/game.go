@@ -143,20 +143,6 @@ type Game struct {
 	sprites spriteCache
 }
 
-// noticeState is the notice in the hint line. A notice can also be a
-// confirmation. See confirmSubmit.
-type noticeState struct {
-	// text is the text of the notice. action names the command or the
-	// prompt that caused the notice. ticks is the time in game ticks until
-	// the notice ends. See showNotice and tickNotice.
-	text   string
-	action string
-	ticks  int
-	// confirmDeadline is the wall-clock time at which the confirmation
-	// that shows ends. See confirmSubmit.
-	confirmDeadline time.Time
-}
-
 // commandTracking holds the state of the commands that the game sent and
 // of their accepted replies.
 type commandTracking struct {
@@ -219,7 +205,7 @@ func (g *Game) Update() error {
 	g.readRemote()
 	g.readShell()
 	g.fitNetwork()
-	g.tickNotice()
+	g.notice.tick()
 	if !g.updateJourneyInput() {
 		if inpututil.IsKeyJustPressed(ebiten.KeyTab) {
 			step := 1
@@ -290,18 +276,6 @@ func (g *Game) turnPodPage(step int) {
 	g.podPage = min(max(0, g.podPage+step), podPageCount(len(g.state.Simulation.Vehicles))-1)
 }
 
-// tickNotice counts down the notice time by one tick. It clears the notice
-// when the time ends.
-func (g *Game) tickNotice() {
-	if g.notice.ticks == 0 {
-		return
-	}
-	g.notice.ticks--
-	if g.notice.ticks == 0 {
-		g.notice.text, g.notice.action = "", ""
-	}
-}
-
 // updateMapInput applies the mouse input of this frame. pointer corrects
 // the cursor position. See pointerTransform. It returns true when a click
 // presses Reset, Start traffic demo, or Rewind. See click.
@@ -361,24 +335,6 @@ const demoConfirmAction = "demo-confirm"
 // resets the session for every browser, so one press does not start it.
 const demoConfirmNotice = "Select Start traffic demo again within 3 s to reset the shared session and start the demo."
 
-// confirmation is a notice that asks for a second press of a control. It
-// guards a command that resets the shared session.
-type confirmation struct {
-	// action is the notice action of the confirmation, and notice is its
-	// text.
-	action, notice string
-}
-
-// isConfirmation reports whether action is the notice action of a
-// confirmation.
-func isConfirmation(action string) bool {
-	return action == resetConfirmAction || action == demoConfirmAction
-}
-
-// confirmWindow is the wall-clock time in which a second press sends the
-// command of a confirmation. It is the time of noticeDuration.
-const confirmWindow = 3 * time.Second
-
 // confirmSubmit sends command only while prompt shows and before the
 // confirmation window ends. now is the time of the press. The first press
 // shows prompt, starts the window, and sends nothing. prompt shows for
@@ -394,15 +350,12 @@ const confirmWindow = 3 * time.Second
 // notice ticks then stop, but the window ends after confirmWindow. A press
 // after the window is a new first press.
 func (g *Game) confirmSubmit(prompt confirmation, command session.Command, now time.Time) {
-	if g.notice.action == prompt.action && g.notice.ticks > 0 && now.Before(g.notice.confirmDeadline) {
-		g.notice.text, g.notice.action, g.notice.ticks = "", "", 0
-		g.notice.confirmDeadline = time.Time{}
+	if g.notice.takeConfirmation(prompt, now) {
 		g.submit(command)
 		return
 	}
 	g.message = ""
-	g.showNotice(prompt.action, prompt.notice)
-	g.notice.confirmDeadline = now.Add(confirmWindow)
+	g.notice.ask(prompt, now)
 }
 
 // reset sends the reset command on the second press of Reset or Shift+R.
