@@ -65,8 +65,9 @@ func nearestCandidate(point sim.Point, candidates []mapCandidate, radius float64
 // chips are disabled.
 func (g *Game) mapPickTargets(point sim.Point) mapPickInput {
 	input := mapPickInput{point: point, podRadius: podPickRadius * g.layout.unit, stationRadius: stationPickRadius * g.layout.unit}
+	incidents := incidentPods(g.state.Simulation.Faults, g.state.Simulation.Emergencies)
 	for i, v := range g.mapSnapshot().Vehicles {
-		if g.podHiddenInCluster(v, i) {
+		if g.podHiddenInCluster(v, i, incidents) {
 			continue
 		}
 		input.pods = append(input.pods, mapCandidate{pod: i, center: g.mapPoint(v.Pod.Position)})

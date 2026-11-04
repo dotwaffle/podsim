@@ -427,7 +427,7 @@ func TestPodMapLabels(t *testing.T) {
 			game.selected = 2
 			game.camera = mapCamera{scale: 0.5 * test.zoom, minScale: 0.5, origin: sim.Point{X: 100, Y: 200}}
 			game.syncCamera()
-			labels := game.podMapLabels(vehicles, collapsed)
+			labels := game.podMapLabels(vehicles, collapsed, nil)
 			for index, podLabel := range labels {
 				if podLabel.value != test.want[index] {
 					t.Fatalf("pod %d label = %q, want %q", index, podLabel.value, test.want[index])
@@ -455,7 +455,7 @@ func TestPodLabelClearsSelectionRing(t *testing.T) {
 			game.camera = mapCamera{scale: 1, minScale: 0.5}
 			game.syncCamera()
 			vehicles := []sim.Vehicle{{Pod: sim.Pod{ID: "traveling", Activity: sim.Traveling, Position: sim.Point{X: 70, Y: 80}}, Stops: []string{"940GZZLUACT"}}}
-			podLabel := game.podMapLabels(vehicles, map[string]bool{})[0]
+			podLabel := game.podMapLabels(vehicles, map[string]bool{}, nil)[0]
 			bounds := game.labelBounds(podLabel)
 			center := game.mapPoint(vehicles[0].Pod.Position)
 			// The nearest point of the label area to the center of the pod.

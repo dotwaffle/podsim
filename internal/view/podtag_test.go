@@ -64,7 +64,7 @@ func TestPodTagBoundsIncludeDestination(t *testing.T) {
 	game := journeyTestGame(t, 31)
 	game.selected = 0
 	vehicle := sim.Vehicle{Pod: sim.Pod{Activity: sim.Traveling}, Stops: []string{"940GZZLUACT"}}
-	tag := game.podMapLabels([]sim.Vehicle{vehicle}, nil)[0]
+	tag := game.podMapLabels([]sim.Vehicle{vehicle}, nil, nil)[0]
 	if tag.value != "01\n>ACT" || tag.lineSpacing <= 0 {
 		t.Fatalf("tag = %+v", tag)
 	}

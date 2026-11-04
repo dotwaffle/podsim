@@ -354,6 +354,86 @@ func TestPodRingColor(t *testing.T) {
 	}
 }
 
+// TestPodCollapsed checks which pods the map hides under the marker of a
+// collapsed station.
+func TestPodCollapsed(t *testing.T) {
+	t.Parallel()
+	collapsed := map[string]bool{"collapsed": true}
+	for _, test := range []struct {
+		name               string
+		activity           sim.Activity
+		station            string
+		selected, incident bool
+		want               bool
+	}{
+		{name: "idle at a collapsed station", activity: sim.Idle, station: "collapsed", want: true},
+		{name: "selected", activity: sim.Idle, station: "collapsed", selected: true},
+		{name: "incident", activity: sim.Idle, station: "collapsed", incident: true},
+		{name: "moving", activity: sim.Traveling, station: "collapsed"},
+		{name: "idle at an open station", activity: sim.Idle, station: "open"},
+	} {
+		incidents := map[string]bool{}
+		if test.incident {
+			incidents["pod"] = true
+		}
+		pod := sim.Pod{ID: "pod", Activity: test.activity, StationID: test.station}
+		if got := podCollapsed(pod, test.selected, collapsed, incidents); got != test.want {
+			t.Errorf("%s: collapsed = %t, want %t", test.name, got, test.want)
+		}
+	}
+}
+
+// TestFaultedParkedPodStaysOnMap faults an idle pod in a berth through a
+// session. The pod stays idle, so only the incident keeps it on the map, and
+// its label shows.
+func TestFaultedParkedPodStaysOnMap(t *testing.T) {
+	t.Parallel()
+	game := sharedProjectGame(t, faultProject())
+	game.selected = 1
+	clickFault(t, game, faultActionPrefix+game.state.Simulation.Vehicles[1].Pod.ID)
+	syncGame(t, game, func() bool { return len(game.state.Simulation.Faults.Active) == 1 })
+	game.selected = 0
+	state := game.state.Simulation
+	faulted := state.Vehicles[1].Pod
+	if faulted.Activity != sim.Idle || faulted.StationID == "" {
+		t.Fatalf("faulted pod = %+v, want an idle pod at a station", faulted)
+	}
+	collapsed := map[string]bool{faulted.StationID: true}
+	incidents := incidentPods(state.Faults, state.Emergencies)
+	if !podCollapsed(faulted, false, collapsed, nil) || podCollapsed(faulted, false, collapsed, incidents) {
+		t.Error("only the incident must keep the faulted pod on the map")
+	}
+	if got := game.podMapLabels(state.Vehicles, collapsed, incidents)[1]; got.value == "" {
+		t.Error("the faulted pod has no label")
+	}
+	if got := game.podMapLabels(state.Vehicles, collapsed, nil)[1]; got.value != "" {
+		t.Errorf("a parked pod has the label %q", got.value)
+	}
+}
+
+// TestFaultedParkedPodCanBeClicked checks that a click can select an idle pod
+// at a station whose berths do not separate only when the pod has an
+// incident.
+func TestFaultedParkedPodCanBeClicked(t *testing.T) {
+	t.Parallel()
+	game := zoomedGame(denseStyleNetwork(), layoutInput{outsideWidth: minimumWidth, outsideHeight: minimumHeight, deviceScale: 1}, 1)
+	game.mapScale = 0.1
+	station, _ := game.network.Station("a")
+	if game.showStationBerths(station) {
+		t.Fatal("the berths of the station separate")
+	}
+	vehicle := sim.Vehicle{Pod: sim.Pod{ID: "pod", Activity: sim.Idle, StationID: "a"}}
+	game.state.Simulation.Vehicles = []sim.Vehicle{{}, vehicle}
+	targets := func() int { return len(game.mapPickTargets(sim.Point{}).pods) }
+	if got := targets(); got != 1 {
+		t.Fatalf("%d pods are targets with no incident, want only the selected pod", got)
+	}
+	game.state.Simulation.Faults.Active = []sim.FaultView{{ID: "i1.1", Kind: sim.FaultKindPod, PodID: "pod"}}
+	if got := targets(); got != 2 {
+		t.Fatalf("%d pods are targets with a faulted pod, want 2", got)
+	}
+}
+
 // horizontalTarget returns a lane target from x 0 to x 100 at the height y.
 // The lane has 400 m.
 func horizontalTarget(id string, y float64) laneTarget {

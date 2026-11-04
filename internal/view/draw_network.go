@@ -77,7 +77,8 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 	// the text.
 	placedText := g.placeExpandedStationText(expanded, lanes)
 	g.drawStationText(mapScreen, placedText)
-	podLabels := g.podMapLabels(state.Vehicles, collapsedStations)
+	incidents := incidentPods(state.Faults, state.Emergencies)
+	podLabels := g.podMapLabels(state.Vehicles, collapsedStations, incidents)
 	// The selected index can be past the pods of an empty or smaller state.
 	var selectedPodLabel label
 	if g.selected >= 0 && g.selected < len(podLabels) {
@@ -116,10 +117,8 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 		from, to := g.mapPoint(state.Vehicles[link.follower].Pod.Position), g.mapPoint(state.Vehicles[link.ahead].Pod.Position)
 		vector.StrokeLine(mapScreen, float32(from.X), float32(from.Y), float32(to.X), float32(to.Y), float32(platoonLinkWidth*g.layout.unit), rgb(foreground), style.antialias)
 	}
-	incidents := incidentPods(state.Faults, state.Emergencies)
 	for i, v := range state.Vehicles {
-		parkedInCluster := v.Pod.Activity == sim.Idle && collapsedStations[v.Pod.StationID]
-		if parkedInCluster && i != g.selected {
+		if podCollapsed(v.Pod, i == g.selected, collapsedStations, incidents) {
 			continue
 		}
 		p := g.mapPoint(v.Pod.Position)
@@ -401,11 +400,10 @@ func selectCollapsedStationLabels(selection collapsedLabelSelection) []bool {
 // than the selected pod, a pod that is parked in a collapsed station has no
 // map label. collapsedStations is true for the ID of each collapsed station.
 // See showPodMapLabel for the zoom rule.
-func (g *Game) podMapLabels(vehicles []sim.Vehicle, collapsedStations map[string]bool) []label {
+func (g *Game) podMapLabels(vehicles []sim.Vehicle, collapsedStations, incidents map[string]bool) []label {
 	labels := make([]label, len(vehicles))
 	for index, vehicle := range vehicles {
-		parkedInCluster := vehicle.Pod.Activity == sim.Idle && collapsedStations[vehicle.Pod.StationID]
-		if (parkedInCluster && index != g.selected) || !g.showPodMapLabel(index) {
+		if podCollapsed(vehicle.Pod, index == g.selected, collapsedStations, incidents) || !g.showPodMapLabel(index) {
 			continue
 		}
 		p := g.mapPoint(vehicle.Pod.Position)
@@ -423,8 +421,20 @@ func (g *Game) showPodMapLabel(index int) bool {
 	return index == g.selected || len(g.network.Stations) <= 30 || g.mapScale >= 4*g.camera.minScale
 }
 
-func (g *Game) podHiddenInCluster(vehicle sim.Vehicle, index int) bool {
-	if index == g.selected || vehicle.Pod.Activity != sim.Idle {
+// podCollapsed reports whether the map hides a pod under the marker of a
+// collapsed station: an idle pod at such a station. The selected pod stays
+// visible. A pod with an incident also stays visible, because a pod fault can
+// start on an idle pod in a berth and leave it idle, and its danger ring must
+// show.
+func podCollapsed(pod sim.Pod, selected bool, collapsedStations, incidents map[string]bool) bool {
+	return pod.Activity == sim.Idle && collapsedStations[pod.StationID] && !selected && !incidents[pod.ID]
+}
+
+// podHiddenInCluster reports whether a click cannot select the pod, because
+// the berths of its station do not separate. See podCollapsed for the pods
+// that stay visible.
+func (g *Game) podHiddenInCluster(vehicle sim.Vehicle, index int, incidents map[string]bool) bool {
+	if index == g.selected || vehicle.Pod.Activity != sim.Idle || incidents[vehicle.Pod.ID] {
 		return false
 	}
 	station, ok := g.network.Station(vehicle.Pod.StationID)
