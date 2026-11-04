@@ -287,70 +287,120 @@ func (g geometryDraft) removeBerth(stationID, berthID string) error {
 		return nil
 	}
 	node := text(member(berths[index], "node"))
-	if _, nodeErr := g.point(node); nodeErr != nil {
+	if nodeErr := g.checkBerthNode(stationID, node); nodeErr != nil {
 		return nodeErr
+	}
+	gone := berthRemoval{nodes: map[string]bool{node: true}, lanes: map[string]bool{}}
+	chainStation, owningBank, err := berthOwner(station, berthID)
+	if err != nil {
+		return err
+	}
+	if err := g.markLastBerthRow(chainStation, berthID, gone); err != nil {
+		return err
+	}
+	if owningBank != nil {
+		if err := g.removeBankBerth(station, owningBank, berthID, gone); err != nil {
+			return err
+		}
+	}
+	station["berths"] = slices.Delete(berths, index, index+1)
+	g.network["nodes"] = slices.DeleteFunc(items(g.network["nodes"]), func(item any) bool { return gone.nodes[text(member(item, "id"))] })
+	g.network["lanes"] = slices.DeleteFunc(items(g.network["lanes"]), func(item any) bool {
+		return member(item, "from") == node || member(item, "to") == node || gone.lanes[text(member(item, "id"))]
+	})
+	g.removeBerthPods(berthID)
+	return nil
+}
+
+// berthRemoval holds the IDs of the nodes and the lanes that a berth removal
+// deletes.
+type berthRemoval struct {
+	nodes, lanes map[string]bool
+}
+
+// checkBerthNode refuses a berth node that does not exist, or that has a
+// lane of a different station.
+func (g geometryDraft) checkBerthNode(stationID, node string) error {
+	if _, err := g.point(node); err != nil {
+		return err
 	}
 	for _, lane := range items(g.network["lanes"]) {
 		if (member(lane, "from") == node || member(lane, "to") == node) && member(lane, "stationID") != stationID {
 			return errors.New("delete nonstation lanes at the berth node first")
 		}
 	}
-	goneNodes, goneLanes := map[string]bool{node: true}, map[string]bool{}
-	chainStation := station
-	var owningBank map[string]any
-	if has(station, "banks") {
-		for _, bank := range items(station["banks"]) {
-			if slices.ContainsFunc(items(member(bank, "berthIDs")), func(id any) bool { return id == berthID }) {
-				owningBank = object(bank)
-				chainStation = bankStation(station, owningBank)
-				break
-			}
-		}
-		if owningBank == nil {
-			return errors.New("the berth has no owning bank")
+	return nil
+}
+
+// berthOwner returns the station form that holds the berth chain of berthID,
+// and the bank that owns the berth. A station without banks has no owning
+// bank, and it holds its own chain.
+func berthOwner(station map[string]any, berthID string) (map[string]any, map[string]any, error) {
+	if !has(station, "banks") {
+		return station, nil, nil
+	}
+	for _, bank := range items(station["banks"]) {
+		if slices.ContainsFunc(items(member(bank, "berthIDs")), func(id any) bool { return id == berthID }) {
+			return bankStation(station, object(bank)), object(bank), nil
 		}
 	}
-	if rows := g.berthChain(chainStation); len(rows) != 0 {
-		last := rows[len(rows)-1]
-		if last.berth["id"] == berthID {
-			goneNodes[last.arrival], goneNodes[last.departure] = true, true
-			for _, lane := range []map[string]any{last.arrivalLink, last.departureLink, last.inlet, last.outlet} {
-				goneLanes[text(lane["id"])] = true
-			}
-			for _, lane := range items(g.network["lanes"]) {
-				if !goneLanes[text(member(lane, "id"))] && (member(lane, "from") == last.arrival || member(lane, "to") == last.arrival || member(lane, "from") == last.departure || member(lane, "to") == last.departure) {
-					return errors.New("delete shared lanes at the berth row nodes first")
-				}
-			}
+	return nil, nil, errors.New("the berth has no owning bank")
+}
+
+// markLastBerthRow adds the nodes and the lanes of the last row of the
+// berth chain to gone when that row holds berthID. It refuses a row whose
+// nodes have other lanes.
+func (g geometryDraft) markLastBerthRow(chainStation map[string]any, berthID string, gone berthRemoval) error {
+	rows := g.berthChain(chainStation)
+	if len(rows) == 0 {
+		return nil
+	}
+	last := rows[len(rows)-1]
+	if last.berth["id"] != berthID {
+		return nil
+	}
+	gone.nodes[last.arrival], gone.nodes[last.departure] = true, true
+	for _, lane := range []map[string]any{last.arrivalLink, last.departureLink, last.inlet, last.outlet} {
+		gone.lanes[text(lane["id"])] = true
+	}
+	for _, lane := range items(g.network["lanes"]) {
+		if !gone.lanes[text(member(lane, "id"))] && (member(lane, "from") == last.arrival || member(lane, "to") == last.arrival || member(lane, "from") == last.departure || member(lane, "to") == last.departure) {
+			return errors.New("delete shared lanes at the berth row nodes first")
 		}
 	}
-	if owningBank != nil {
-		owningBank["berthIDs"] = slices.DeleteFunc(items(owningBank["berthIDs"]), func(id any) bool { return id == berthID })
-		if len(items(owningBank["berthIDs"])) == 0 {
-			for _, key := range []string{"entry", "exit"} {
-				goneNodes[text(owningBank[key])] = true
+	return nil
+}
+
+// removeBankBerth removes berthID from bank. A bank with no berths left goes
+// from station, and its gate nodes and their lanes go to gone. It refuses a
+// gate node with a lane of a different station.
+func (g geometryDraft) removeBankBerth(station, bank map[string]any, berthID string, gone berthRemoval) error {
+	bank["berthIDs"] = slices.DeleteFunc(items(bank["berthIDs"]), func(id any) bool { return id == berthID })
+	if len(items(bank["berthIDs"])) != 0 {
+		return nil
+	}
+	for _, key := range []string{"entry", "exit"} {
+		gone.nodes[text(bank[key])] = true
+	}
+	for _, lane := range items(g.network["lanes"]) {
+		if gone.nodes[text(member(lane, "from"))] || gone.nodes[text(member(lane, "to"))] {
+			if member(lane, "stationID") != member(station, "id") {
+				return errors.New("delete nonstation lanes at the bank gates first")
 			}
-			for _, lane := range items(g.network["lanes"]) {
-				if goneNodes[text(member(lane, "from"))] || goneNodes[text(member(lane, "to"))] {
-					if member(lane, "stationID") != stationID {
-						return errors.New("delete nonstation lanes at the bank gates first")
-					}
-					goneLanes[text(member(lane, "id"))] = true
-				}
-			}
-			station["banks"] = slices.DeleteFunc(items(station["banks"]), func(bank any) bool { return member(bank, "id") == owningBank["id"] })
-			refreshBankAliases(station)
+			gone.lanes[text(member(lane, "id"))] = true
 		}
 	}
-	station["berths"] = slices.Delete(berths, index, index+1)
-	g.network["nodes"] = slices.DeleteFunc(items(g.network["nodes"]), func(item any) bool { return goneNodes[text(member(item, "id"))] })
-	g.network["lanes"] = slices.DeleteFunc(items(g.network["lanes"]), func(item any) bool {
-		return member(item, "from") == node || member(item, "to") == node || goneLanes[text(member(item, "id"))]
-	})
+	station["banks"] = slices.DeleteFunc(items(station["banks"]), func(item any) bool { return member(item, "id") == bank["id"] })
+	refreshBankAliases(station)
+	return nil
+}
+
+// removeBerthPods removes the pods of the fleet at berthID. The patch gets
+// the fleet only when a pod goes.
+func (g geometryDraft) removeBerthPods(berthID string) {
 	fleet := items(cloneEditValue(member(g.draft, "fleet")))
 	fleet = slices.DeleteFunc(fleet, func(pod any) bool { return member(pod, "berthID") == berthID })
 	if !reflect.DeepEqual(items(member(g.draft, "fleet")), fleet) {
 		g.patch["fleet"] = fleet
 	}
-	return nil
 }
