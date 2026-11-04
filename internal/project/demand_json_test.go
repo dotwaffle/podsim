@@ -68,9 +68,6 @@ func TestProjectDecodeRefusesInvalidFlowJSON(t *testing.T) {
 			if err == nil || err.Error() != test.want {
 				t.Fatalf("decode error %v, want %s", err, test.want)
 			}
-			if _, err := DecodeCanonicalJSON(raw); err == nil || err.Error() != test.want {
-				t.Fatalf("canonical decode error %v, want %s", err, test.want)
-			}
 		})
 	}
 }
@@ -96,7 +93,11 @@ func TestProjectValidateChecksDecodedFlows(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			_, err := DecodeCanonicalJSON(profileProjectJSON(t, test.stations, test.flows))
+			var config Config
+			err := json.Unmarshal(profileProjectJSON(t, test.stations, test.flows), &config)
+			if err == nil {
+				err = Validate(config)
+			}
 			if test.want == "" && err != nil || test.want != "" && (err == nil || err.Error() != test.want) {
 				t.Fatalf("error %v, want %q", err, test.want)
 			}

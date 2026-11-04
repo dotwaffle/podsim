@@ -1,5 +1,10 @@
 # Offline car continuation qualification
 
+Status: **retired on November 4, 2026**.
+The maintainer removed car checkpoint and resume from `internal/parkride` and `cmd/parkride`, with the executable identity checks.
+Finite car runs stay.
+The text below records the earlier design, and it does not describe the current code.
+
 The version-1 checkpoint implementation uses deterministic replay of an owned finite plan.
 It does not restore a native saved state as an exact continuation.
 The [measurement receipt](measurements/car-continuation-qualification.json) records the tested executable, inputs, costs, and source pins.

@@ -9,9 +9,9 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"log/slog"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"runtime/debug"
 	"strings"
 	"syscall"
@@ -24,7 +24,7 @@ import (
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	commandErr := commandWith(ctx, os.Args[1:], os.Stdout, os.Stderr, currentImplementation)
+	commandErr := commandWith(ctx, os.Args[1:], os.Stdout)
 	stop()
 	if commandErr != nil {
 		fmt.Fprintln(os.Stderr, commandErr)
@@ -33,13 +33,9 @@ func main() {
 }
 
 type options struct {
-	project, plan, output             string
-	duration                          time.Duration
-	queueLimit                        int
-	checkpointInput, checkpointOutput string
-	replayTimeout                     time.Duration
-	stopAt                            int64
-	stopGiven                         bool
+	project, plan, output string
+	duration              time.Duration
+	queueLimit            int
 }
 
 func parseOptions(args []string, help io.Writer) (options, error) {
@@ -51,49 +47,51 @@ func parseOptions(args []string, help io.Writer) (options, error) {
 	flags.DurationVar(&opts.duration, "duration", 0, "observation horizon, at most 24h (required)")
 	flags.IntVar(&opts.queueLimit, "queue-limit", 0, "pending pod admission limit, 1 to 1000000 (required)")
 	flags.StringVar(&opts.output, "output", "", "JSON report path (default stdout)")
-	flags.StringVar(&opts.checkpointInput, "checkpoint-input", "", "version-1 checkpoint to replay")
-	flags.StringVar(&opts.checkpointOutput, "checkpoint-output", "", "atomic local version-1 checkpoint output")
-	flags.Int64Var(&opts.stopAt, "stop-at", 0, "absolute checkpoint stop tick (requires checkpoint output)")
-	flags.DurationVar(&opts.replayTimeout, "replay-timeout", 0, "positive replay watchdog duration (required for resume)")
 	if err := flags.Parse(args); err != nil {
 		return options{}, err
 	}
-	given := make(map[string]bool)
-	flags.Visit(func(f *flag.Flag) { given[f.Name] = true })
-	opts.stopGiven = given["stop-at"]
 	if len(flags.Args()) != 0 {
 		return options{}, errors.New("parkride accepts no positional arguments")
 	}
-	if opts.checkpointInput != "" {
-		for _, name := range []string{"project", "plan", "duration", "queue-limit"} {
-			if given[name] {
-				return options{}, errors.New("resume controls come from the checkpoint origin")
-			}
-		}
-		if opts.replayTimeout <= 0 {
-			return options{}, errors.New("resume requires a positive -replay-timeout")
-		}
-	} else {
-		if given["replay-timeout"] {
-			return options{}, errors.New("-replay-timeout requires -checkpoint-input")
-		}
-		if opts.project == "" || opts.plan == "" {
-			return options{}, errors.New("provide -project, -plan, -duration, and -queue-limit")
-		}
-		if opts.duration <= 0 || opts.duration > 24*time.Hour || durationTicks(opts.duration) < 1 {
-			return options{}, errors.New("duration must be at least one simulation tick and at most 24h")
-		}
-		if opts.queueLimit < 1 || opts.queueLimit > parkride.MaxQueueLimit {
-			return options{}, errors.New("queue-limit must be 1 to 1000000")
-		}
+	if opts.project == "" || opts.plan == "" {
+		return options{}, errors.New("provide -project, -plan, -duration, and -queue-limit")
 	}
-	if opts.stopGiven && (opts.checkpointOutput == "" || opts.stopAt < 0 || opts.stopAt > parkride.MaxHorizonTicks) {
-		return options{}, errors.New("-stop-at requires checkpoint output and a bounded nonnegative tick")
+	if opts.duration <= 0 || opts.duration > 24*time.Hour || durationTicks(opts.duration) < 1 {
+		return options{}, errors.New("duration must be at least one simulation tick and at most 24h")
+	}
+	if opts.queueLimit < 1 || opts.queueLimit > parkride.MaxQueueLimit {
+		return options{}, errors.New("queue-limit must be 1 to 1000000")
 	}
 	if err := checkOutputPaths(opts); err != nil {
 		return options{}, err
 	}
 	return opts, nil
+}
+
+// checkOutputPaths refuses a report path that would replace an input.
+func checkOutputPaths(opts options) error {
+	if opts.output == "" {
+		return nil
+	}
+	for _, source := range []string{opts.project, opts.plan} {
+		if samePath(source, opts.output) {
+			return errors.New("output must not replace a project or plan")
+		}
+	}
+	return nil
+}
+
+// resolvedPath resolves existing parent links even when the file does not exist.
+func resolvedPath(path string) (string, error) {
+	absolute, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	parent, err := filepath.EvalSymlinks(filepath.Dir(absolute))
+	if err != nil {
+		return "", fmt.Errorf("resolve output parent %q: %w", path, err)
+	}
+	return filepath.Join(parent, filepath.Base(absolute)), nil
 }
 
 func samePath(a, b string) bool {
@@ -123,7 +121,9 @@ func readInput(path string) ([]byte, error) {
 	return data, nil
 }
 
-func commandWith(ctx context.Context, args []string, stdout, stderr io.Writer, identify func() (parkride.Implementation, error)) (commandErr error) {
+// commandWith runs the command. When ctx ends, the run stops at the next tick
+// and the command still writes the partial report.
+func commandWith(ctx context.Context, args []string, stdout io.Writer) error {
 	opts, err := parseOptions(args, stdout)
 	if errors.Is(err, flag.ErrHelp) {
 		return nil
@@ -131,66 +131,20 @@ func commandWith(ctx context.Context, args []string, stdout, stderr io.Writer, i
 	if err != nil {
 		return err
 	}
-	logger := slog.New(slog.NewJSONHandler(stderr, nil))
-	checkpointing := opts.checkpointInput != "" || opts.checkpointOutput != ""
-	if checkpointing {
-		defer func() {
-			if commandErr != nil {
-				logger.ErrorContext(ctx, "Car continuation failed", slog.Any("error", commandErr))
-			}
-		}()
+	input, err := freshRunInput(opts)
+	if err != nil {
+		return err
 	}
-	var identity *parkride.Implementation
-	if checkpointing {
-		facts, err := identify()
-		if err != nil {
-			return err
-		}
-		identity = &facts
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return ctxErr
 	}
-	var run *parkride.Run
-	var runErr error
-	if opts.checkpointInput != "" {
-		file, err := os.Open(opts.checkpointInput) // #nosec G304 G703 -- The operator selects this local checkpoint input.
-		if err != nil {
-			return err
-		}
-		defer func() { _ = file.Close() }()
-		replayCtx, cancel := context.WithTimeout(ctx, opts.replayTimeout)
-		started := time.Now()
-		run, runErr = parkride.DecodeCheckpoint(replayCtx, file, parkride.ResumeInput{Implementation: *identity, Progress: func(progress parkride.ResumeProgress) {
-			logger.InfoContext(replayCtx, "Replay candidate", slog.String("path", opts.checkpointInput), slog.String("checkpoint", progress.CheckpointID), slog.Int64("tick", progress.Tick), slog.Int64("targetTick", progress.TargetTick), slog.Duration("elapsed", time.Since(started)))
-		}})
-		cancel()
-		if runErr != nil {
-			return runErr
-		}
-		if err := file.Close(); err != nil {
-			return err
-		}
-		logger.InfoContext(ctx, "Replay accepted", slog.String("path", opts.checkpointInput), slog.Int64("tick", run.Report().EndpointTick), slog.Duration("elapsed", time.Since(started)))
-	} else {
-		input, err := freshRunInput(opts)
-		if err != nil {
-			return err
-		}
-		input.Continuation = identity
-		run, runErr = parkride.NewRunContext(ctx, input)
-		if run == nil {
-			return runErr
-		}
+	run, runErr := parkride.NewRun(input)
+	if run == nil {
+		return runErr
 	}
-	report := run.Report()
-	if opts.stopGiven && (opts.stopAt < report.EndpointTick || opts.stopAt > report.HorizonTicks) {
-		return errors.New("-stop-at lies outside the checkpoint origin interval")
-	}
-	for runErr == nil && !run.Done() && (!opts.stopGiven || run.Report().EndpointTick < opts.stopAt) {
-		runErr = run.StepContext(ctx)
-	}
-	if runErr == nil && opts.checkpointOutput != "" {
-		runErr = publishCheckpoint(ctx, opts.checkpointOutput, opts, func(w io.Writer) error { return run.EncodeCheckpoint(ctx, w) }, localFileOps())
-		if runErr == nil {
-			logger.InfoContext(ctx, "Checkpoint published", slog.String("path", opts.checkpointOutput), slog.Int64("tick", run.Report().EndpointTick))
+	for runErr == nil && !run.Done() {
+		if runErr = ctx.Err(); runErr == nil {
+			runErr = run.Step()
 		}
 	}
 	if err := writeReport(opts.output, stdout, run.Report()); err != nil {

@@ -86,7 +86,8 @@ Unfinished stages remain censored with their identities and held slots.
 
 The ledger owns its plan and records.
 An in-memory clone copies the ledger independently alongside `Simulation.Clone`.
-Durable car continuation was outside this first implementation; see the later [continuation qualification](car-continuation-qualification.md).
+A run cannot continue after its process ends.
+A later checkpoint format was removed on November 4, 2026; see its [retired proposal](car-continuation-contract-proposal.md).
 Restoring the simulation alone cannot recover car release events.
 
 ## Report and gates

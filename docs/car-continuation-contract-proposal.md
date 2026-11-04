@@ -1,6 +1,11 @@
 # Durable offline car continuation proposal
 
-Status: **approved on October 3, 2026; implemented and qualified**.
+Status: **retired on November 4, 2026**.
+The maintainer removed car checkpoint and resume from `internal/parkride` and `cmd/parkride`, with the executable identity checks.
+Finite car runs stay.
+The text below records the earlier design, and it does not describe the current code.
+
+Earlier status: approved on October 3, 2026; implemented and qualified.
 The user approved item 6b and the decisions below with the 6b/8b batch.
 Item 6a used source revision `53321e4c5decc6c661df64a40378ee37614dcffc`.
 That revision identifies the original audit, not a checkpoint-capable executable.

@@ -31,7 +31,6 @@ Each value comes from the constant named here.
 | HTTP state cap | 128 MiB | `MaxHTTPStateJSON` in `internal/session/state_http.go` |
 | Stream JSON cap | 64 MiB | `MaxStreamJSON` in `internal/session/stream_codec.go` |
 | Compressed stream message cap | 64 MiB plus 32,832 bytes | `MaxStreamMessage` in `internal/session/stream_codec.go` |
-| Checkpoint cap | 100 MiB | `MaxCheckpointBytes` in `internal/parkride/checkpoint.go` |
 | Stations | 600 | `MaxStations` in `internal/project/config.go` |
 | Nodes | 12,000 | `MaxNodes` in `internal/project/config.go` |
 | Lanes | 20,000 | `MaxLanes` in `internal/project/config.go` |
@@ -124,10 +123,6 @@ A mutant that restored the old sample compiled and failed after 5.308 seconds.
 The source overlays and original worktree hashes were verified afterward.
 The legal maximum-size payload, production 30-second deadline, stalled-reader error, and cancellation controls remain.
 
-The plain `test:bounds` task in `check:static` retains every maximum checkpoint shape assertion.
-In the CI split qualification of the measurement record, the earlier 80 MiB guard rejected the 1,265,591,604-byte counting envelope and accepted the 72,104,395-byte fitting envelope.
-This update did not measure those sizes again.
-Only this serial shape proof excludes race instrumentation in its package.
 The `test:embedded` task runs the root and `cmd/serve` suites with embedded assets.
 In the session package it runs only the packed text wire cost test, the save cap test, the encode and decode cap tests at their callers, the topology preflight test at its callers, and the two plain byte proofs, `TestPlainStateFileWorstCaseSize` and `TestPlainStreamMaximumEncoding`.
 Bounded application tests and concurrency controls remain under the race tasks.
@@ -310,14 +305,11 @@ They do not qualify sustained capacity or default adoption.
 The [adoption gates](experimental-adoption.md) still require matched service, loss, recovery, safety, and cost evidence.
 Successful safety checks or aggregate results do not waive individual service failures.
 
-## Car continuation and release decision
+## Car runs and release decision
 
-The [car qualification](car-continuation-qualification.md) requires the same identified executable for checkpoint replay.
-The earlier clean `a13bbae` bridge used executable SHA-256 `a20ef6960345fecfc22d6d58816669b10556b53a75a6447f514e58d4d94a193d`.
-Four selected cases and 34 independent CLI calls preserved exact checkpoint and future report bytes.
-This does not migrate another executable's checkpoints or claim identity for later builds.
-Since `96bcb9f`, checkpoint decoding matches member names by exact case.
-The version-1 foundation contract does not qualify Express car plans.
+`cmd/parkride` runs finite car itineraries.
+Car checkpoint and resume were removed on November 4, 2026, with their executable identity checks.
+Car runs refuse a project with the Express or incident marker.
 The container build covers the server, not the car CLI.
 
 Hosted Check passed for the `0ca0c63` source, and that run published no image.

@@ -42,7 +42,7 @@ fi
 description = "Run the full test suite without the race detector"
 run = "go test ./..."
 
-# -short skips the long tests of sim, session, parkride, and compare.
+# -short skips the long tests of sim, session, and compare.
 # No CI task passes -short, so CI still runs them.
 [tasks."test:quick"]
 description = "Run the test suite without the long tests"
@@ -71,10 +71,6 @@ run = '''
 packages=$(go list ./... | grep -v -x -e github.com/dotwaffle/podsim/internal/sim -e github.com/dotwaffle/podsim/internal/session) || exit 1
 go test -race -timeout=30m $packages
 '''
-
-[tasks."test:bounds"]
-description = "Check the maximum checkpoint encoding without race instrumentation"
-run = "go test ./internal/parkride -run '^TestCheckpointCombinedEncodingShapes$' -count=1 -v"
 
 [tasks.vulncheck]
 description = "Check dependencies for known vulnerabilities"
@@ -131,7 +127,7 @@ run = [
 
 [tasks."check:static"]
 description = "Run the checks other than the race tests and qualify"
-depends = ["test:bounds", "test:web", "lint", "vulncheck", "build", "test:embedded"]
+depends = ["test:web", "lint", "vulncheck", "build", "test:embedded"]
 
 [tasks.scenario]
 description = "Write a generated scenario JSON file"

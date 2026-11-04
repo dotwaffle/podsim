@@ -17,8 +17,7 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-// MaxPlanBytes is the largest plan input, and the largest canonical plan
-// of a checkpoint.
+// MaxPlanBytes is the largest plan input.
 const MaxPlanBytes = 10 << 20
 
 const (

@@ -108,12 +108,10 @@ At the time of these runs, 53 sim tests called it.
 Each of them took one second or more in a serial run without the race detector, and together they took 235.5 of 294.0 seconds.
 They are the long scenarios, the parity tests that compare with a full scan or a reference, and the soak tests.
 In the session package, the seven session tests of `test:embedded`, `TestStreamLondonWire`, and `TestMaximalRequeueRoundTrip` skip under `-short`.
-In `internal/parkride`, six checkpoint tests skip under `-short`.
-They took 42.9 of 44.1 seconds in a serial run.
 In `cmd/compare`, nine experiment tests skip under `-short`.
 They took 19.3 of 25.5 seconds in a serial run.
 No CI task passes `-short`.
-The race tasks, `test:embedded`, and `test:bounds` still run all of these tests.
+The race tasks and `test:embedded` still run all of these tests.
 
 | `go test -short -count=1 ./...` | Wall | User CPU | Load (start / end) |
 | --- | ---: | ---: | --- |
@@ -177,7 +175,7 @@ It still applies every intervening demand change and checks maximum-width revisi
 The emergency no-candidate latency test prepares its network once.
 Each case still builds a new fleet and runs all of its warm-up ticks.
 
-A combined local validation run can avoid repeating the seven session tests selected by `test:embedded`, the checkpoint shape test selected by `test:bounds`, and the four tests selected by `qualify`.
+A combined local validation run can avoid repeating the seven session tests selected by `test:embedded` and the four tests selected by `qualify`.
 Exclude only these names from that run's native sweep, and keep their dedicated gates.
 Do not add that exclusion to `mise run test` or the race tasks.
 The embedded server tests still need their tagged build.

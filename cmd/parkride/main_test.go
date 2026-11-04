@@ -157,6 +157,97 @@ func TestCommandInputAndOutputGuards(t *testing.T) {
 	}
 }
 
+func TestFoundationRawPresence(t *testing.T) {
+	t.Parallel()
+	for _, member := range []string{"orderContract", "incidentContract"} {
+		for _, value := range []string{"null", "0", `""`, "1"} {
+			if err := parkride.CheckFoundationProject([]byte(`{"version":1,"` + member + `":` + value + `}`)); err == nil {
+				t.Fatal("contract marker presence accepted", member)
+			}
+		}
+	}
+	args := commandInputs(t)
+	data, err := os.ReadFile(args[1])
+	if err != nil {
+		t.Fatal(err)
+	}
+	var config map[string]any
+	if err = json.Unmarshal(data, &config); err != nil {
+		t.Fatal(err)
+	}
+	config["orderContract"] = nil
+	data, err = json.Marshal(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(args[1], data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := command(args, io.Discard); err == nil {
+		t.Fatal("ordinary run accepted orderContract")
+	}
+}
+
+// stopAfterContext is a context that ends after a number of Err calls. The
+// command is the only caller, so the count selects the place of the stop.
+type stopAfterContext struct {
+	remaining *int
+}
+
+// Deadline reports no deadline.
+func (stopAfterContext) Deadline() (time.Time, bool) { return time.Time{}, false }
+
+// Done returns no channel, because the command reads only Err.
+func (stopAfterContext) Done() <-chan struct{} { return nil }
+
+// Value returns no values.
+func (stopAfterContext) Value(any) any { return nil }
+
+// Err returns context.Canceled when no calls remain.
+func (c stopAfterContext) Err() error {
+	if *c.remaining == 0 {
+		return context.Canceled
+	}
+	*c.remaining--
+	return nil
+}
+
+func TestCommandStopsWhenContextEnds(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name       string
+		checks     int
+		wantReport bool
+	}{
+		{name: "before the run", checks: 0},
+		{name: "before the first tick", checks: 1, wantReport: true},
+		{name: "after the first tick", checks: 2, wantReport: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			var output bytes.Buffer
+			remaining := test.checks
+			err := commandWith(stopAfterContext{&remaining}, commandInputs(t), &output)
+			if !errors.Is(err, context.Canceled) {
+				t.Fatalf("error %v, want %v", err, context.Canceled)
+			}
+			if !test.wantReport {
+				if output.Len() != 0 {
+					t.Fatalf("report without a run: %s", output.String())
+				}
+				return
+			}
+			var report parkride.Report
+			if err := json.Unmarshal(output.Bytes(), &report); err != nil {
+				t.Fatal(err)
+			}
+			if want := int64(test.checks - 1); report.EndpointTick != want {
+				t.Fatalf("endpoint tick %d, want %d", report.EndpointTick, want)
+			}
+		})
+	}
+}
+
 func command(args []string, stdout io.Writer) error {
-	return commandWith(context.Background(), args, stdout, io.Discard, currentImplementation)
+	return commandWith(context.Background(), args, stdout)
 }

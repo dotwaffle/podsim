@@ -2,6 +2,7 @@ package parkride
 
 import (
 	"encoding/json/v2"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -236,4 +237,156 @@ func TestPreflightChecksReturnDirection(t *testing.T) {
 	if run, err := NewRun(input); err == nil || run != nil || !strings.Contains(err.Error(), "market to harbor") {
 		t.Fatalf("return direction bypassed preflight: %v", err)
 	}
+}
+
+// assertSameRun fails when two runs differ in their native state or report.
+func assertSameRun(t *testing.T, a, b *Run) {
+	t.Helper()
+	if !reflect.DeepEqual(a.pods.ExportState(), b.pods.ExportState()) || !reflect.DeepEqual(a.pods.Snapshot(), b.pods.Snapshot()) || !reflect.DeepEqual(a.Report(), b.Report()) {
+		t.Fatalf("runs differ at tick %d", a.pods.Tick())
+	}
+}
+
+func TestOccupiedPickupBindsItsItinerary(t *testing.T) {
+	t.Parallel()
+	input := runInput()
+	input.Project.Fleet = input.Project.Fleet[:1]
+	input.Project.SharedRidePartyLimit = 4
+	input.Project.OnboardPickups = true
+	input.HorizonTicks = 300 * sim.TicksPerSecond
+	input.Plan.Lots = []Lot{{ID: "harbor-cars", Hub: "harbor", Capacity: 2}, {ID: "garden-cars", Hub: "garden", Capacity: 1}}
+	base := input.Plan.Itineraries[0]
+	base.DepartureSeconds, base.OutwardSeconds = 0, 0
+	base.ActivitySeconds = 600
+	base.SharingConsent = sim.SharedConsent
+	input.Plan.Itineraries = []Itinerary{base, base, base}
+	for i, id := range []string{"a", "b", "c"} {
+		input.Plan.Itineraries[i].ID = id
+		input.Plan.Itineraries[i].CarID = id
+		input.Plan.Itineraries[i].Lot = "harbor-cars"
+	}
+	input.Plan.Itineraries[1].Destination = "garden"
+	input.Plan.Itineraries[2].Lot = "garden-cars"
+	run, err := NewRun(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for !run.Done() {
+		for _, pod := range run.pods.ExportState().Pods {
+			for i, boarding := range pod.Boardings {
+				if boarding.MetersAtBoarding <= 0 || pod.Riders[i].Completed {
+					continue
+				}
+				rider := pod.Riders[i]
+				if rider.From != "garden" || rider.ID != run.ledger.records[2].Outward.RequestID {
+					t.Fatalf("occupied boarding of %+v does not match itinerary c", rider)
+				}
+				clone := run.Clone()
+				finishRun(t, run)
+				finishRun(t, clone)
+				assertSameRun(t, run, clone)
+				if run.Report().Pods.Completed != 3 {
+					t.Fatal("occupied parties did not all unload")
+				}
+				return
+			}
+		}
+		if stepErr := run.Step(); stepErr != nil {
+			t.Fatal(stepErr)
+		}
+	}
+	t.Fatal("authored finite plan did not exercise occupied pickup")
+}
+
+// pickupLoop returns a directed loop of five stations. It follows the native
+// positioning and pickup test geometry.
+func pickupLoop() sim.Network {
+	var network sim.Network
+	node := func(id string, x, y float64) {
+		network.Nodes = append(network.Nodes, sim.Node{ID: id, Position: sim.Point{X: x, Y: y}})
+	}
+	lane := func(id, from, to string) {
+		network.Lanes = append(network.Lanes, sim.Lane{ID: id, From: from, To: to, SpeedLimit: 14})
+	}
+	for i := range 5 {
+		id := fmt.Sprintf("s%d", i)
+		x := float64(i) * 300
+		station := sim.Station{ID: id, Name: id, Entry: id + "-entry", Exit: id + "-exit"}
+		node(station.Entry, x, 0)
+		node(station.Exit, x+150, 0)
+		lane(id+"-through", station.Entry, station.Exit)
+		for berth := range 2 {
+			berthID := fmt.Sprintf("%s-%d", id, berth+1)
+			y := 60.0
+			if berth == 1 {
+				y = -y
+			}
+			node(berthID, x+75, y)
+			lane(berthID+"-in", station.Entry, berthID)
+			lane(berthID+"-out", berthID, station.Exit)
+			station.Berths = append(station.Berths, sim.Berth{ID: berthID, Node: berthID})
+		}
+		network.Stations = append(network.Stations, station)
+		if i > 0 {
+			lane(fmt.Sprintf("s%d-link", i-1), fmt.Sprintf("s%d-exit", i-1), station.Entry)
+		}
+	}
+	node("return-east", 1500, 400)
+	node("return-west", -150, 400)
+	lane("return-down", "s4-exit", "return-east")
+	lane("return", "return-east", "return-west")
+	lane("return-up", "return-west", "s0-entry")
+	return network
+}
+
+func TestPickupReassignmentKeepsCloneParity(t *testing.T) {
+	t.Parallel()
+	input := runInput()
+	input.Project.Redistribution = false
+	input.Project.PickupReassignment = true
+	input.Project.Network = pickupLoop()
+	input.Project.Fleet = []sim.Placement{{ID: "01", StationID: "s0", BerthID: "s0-1"}, {ID: "02", StationID: "s2", BerthID: "s2-1"}}
+	input.HorizonTicks = 600 * sim.TicksPerSecond
+	input.Plan.Lots = []Lot{{ID: "cars-s2", Hub: "s2", Capacity: 1}, {ID: "cars-s4", Hub: "s4", Capacity: 1}}
+	base := input.Plan.Itineraries[0]
+	base.DepartureSeconds, base.OutwardSeconds = 0, 0
+	base.ReturnNotBeforeSeconds = 3600
+	first, second := base, base
+	first.ID, first.CarID, first.Lot, first.Destination = "a-busy", "car-a", "cars-s2", "s3"
+	second.ID, second.CarID, second.Lot, second.Destination = "b-pickup", "car-b", "cars-s4", "s0"
+	input.Plan.Itineraries = []Itinerary{first, second}
+	run, err := NewRun(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for !run.Done() {
+		stats := run.pods.PickupSwapStats()
+		if stats.Transfers+stats.Swaps == 0 {
+			if stepErr := run.Step(); stepErr != nil {
+				t.Fatal(stepErr)
+			}
+			continue
+		}
+		clone := run.Clone()
+		for range 1200 {
+			if run.Done() {
+				break
+			}
+			if stepErr := run.Step(); stepErr != nil {
+				t.Fatal(stepErr)
+			}
+			if stepErr := clone.Step(); stepErr != nil {
+				t.Fatal(stepErr)
+			}
+			assertSameRun(t, run, clone)
+			if run.pods.PickupSwapStats() != clone.pods.PickupSwapStats() {
+				t.Fatal("pickup cooldown diverged in the clone")
+			}
+		}
+		if run.pods.PickupSwapStats().CooldownPairs == 0 {
+			t.Fatal("the cooldown guard did not run")
+		}
+		return
+	}
+	t.Fatalf("authored pickup loop did not replace an assignment: %+v", run.pods.PickupSwapStats())
 }

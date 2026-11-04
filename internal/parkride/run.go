@@ -1,7 +1,6 @@
 package parkride
 
 import (
-	"context"
 	"errors"
 	"fmt"
 
@@ -16,8 +15,6 @@ type RunInput struct {
 	HorizonTicks int64
 	QueueLimit   int
 	Build        string
-	// Continuation enables version-1 receipts and replay evidence from initialization.
-	Continuation *Implementation
 }
 
 // Policies identifies the effective native policies of this run.
@@ -64,34 +61,17 @@ type Report struct {
 // Run owns a simulation and car ledger. Use it from one goroutine at a time.
 // Clone copies both states. Native saved-state restoration cannot restore cars.
 type Run struct {
-	pods         *sim.Simulation
-	ledger       *ledger
-	provenance   Report
-	fault        string
-	continuation *continuation
+	pods       *sim.Simulation
+	ledger     *ledger
+	provenance Report
+	fault      string
 }
 
 // NewRun validates and owns inputs before issuing any itinerary order.
 // A runtime error can return a partial run for its report.
 func NewRun(input RunInput) (*Run, error) {
-	return NewRunContext(context.Background(), input)
-}
-
-// NewRunContext constructs a run and permits cancellation of checkpoint capture.
-func NewRunContext(ctx context.Context, input RunInput) (*Run, error) {
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
 	if err := validateFoundationConfig(input.Project); err != nil {
 		return nil, err
-	}
-	if input.Continuation != nil {
-		if err := validateImplementation(*input.Continuation); err != nil {
-			return nil, err
-		}
-		if !foundationProject(input.Project) {
-			return nil, errFoundationProject
-		}
 	}
 	if input.HorizonTicks < 1 || input.HorizonTicks > MaxHorizonTicks {
 		return nil, errors.New("horizon must be 1 tick through 24 hours")
@@ -159,16 +139,8 @@ func NewRunContext(ctx context.Context, input RunInput) (*Run, error) {
 		Policies: Policies{PartyLimit: project.EffectiveSharedRidePartyLimit(config), SharingMode: project.EffectiveSharedRideMode(config),
 			MaxStops: project.EffectiveSharedRideMaxStops(config), SharingJoin: project.EffectiveSharedRideJoin(config), OnboardPickups: config.OnboardPickups,
 			PlatoonLimit: config.PlatoonLimit, PickupReassignment: bool(config.PickupReassignment), Positioning: mode, PositioningWeights: "one outward and one return origin per itinerary"}}}
-	if input.Continuation != nil {
-		if err := run.enableContinuation(ctx, config, plan, *input.Continuation); err != nil {
-			return nil, err
-		}
-	}
-	if err := run.ledger.advance(0, nil, run.service()); err != nil {
+	if err := run.ledger.advance(0, nil, run.pods); err != nil {
 		run.fault = err.Error()
-		return run, err
-	}
-	if err := run.captureBoundary(ctx); err != nil {
 		return run, err
 	}
 	return run, nil
@@ -192,11 +164,10 @@ func preflight(pods *sim.Simulation, plan Plan, lots map[string]Lot) error {
 	return nil
 }
 
-// Clone returns independent native and ledger state with the same continuation.
+// Clone returns independent native and ledger state.
 func (r *Run) Clone() *Run {
 	clone := *r
 	clone.pods, clone.ledger = r.pods.Clone(), r.ledger.clone()
-	clone.continuation = r.continuation.clone()
 	return &clone
 }
 
@@ -207,14 +178,6 @@ func (r *Run) Done() bool {
 
 // Step advances one native tick and then applies ordered car events.
 func (r *Run) Step() error {
-	return r.StepContext(context.Background())
-}
-
-// StepContext advances a tick and permits cancellation of checkpoint hashing.
-func (r *Run) StepContext(ctx context.Context) error {
-	if err := ctx.Err(); err != nil {
-		return err
-	}
 	if r.fault != "" {
 		return errors.New(r.fault)
 	}
@@ -227,14 +190,11 @@ func (r *Run) StepContext(ctx context.Context) error {
 		r.fault = "native simulation did not advance one tick"
 		return errors.New(r.fault)
 	}
-	if r.continuation != nil {
-		r.continuation.observeBoardings(r.pods)
-	}
-	if err := r.ledger.advance(r.pods.Tick(), r.pods.StepCompletions(), r.service()); err != nil {
+	if err := r.ledger.advance(r.pods.Tick(), r.pods.StepCompletions(), r.pods); err != nil {
 		r.fault = err.Error()
 		return err
 	}
-	return r.captureBoundary(ctx)
+	return nil
 }
 
 // Report returns owned partial or final evidence. It does not change the run.
