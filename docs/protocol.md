@@ -418,7 +418,7 @@ A `project` command gets `command_rejected` when the project fails validation, f
 A lane counts at its start node and at its end node.
 The total of the lane pairs at the nodes, the node coordinates, and the total of the track cells of the lanes also have limits.
 Two lanes with the same start node, end node, and path also give `command_rejected`.
-See [project files and validation](reference.md#project-files-and-validation) for all limits.
+See [validation and limits](reference.md#validation-and-limits) for all limits.
 
 ## Save points
 

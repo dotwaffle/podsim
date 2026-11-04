@@ -511,7 +511,7 @@ Three tools author more complex demand:
 - **Rail departures** sets request windows, outbound train times, transfer times, and weighted origins.
   **Rail arrivals and departures** runs both plans, and the demand inspector shows made, missed, unserved, and unresolved connections (see [scheduled train connections](rail-connections.md)).
 
-The editor also has an experimental control for [pickup reassignment](reference.md), and **Pause and apply** activates the draft setting.
+The editor also has an experimental control for [pickup reassignment](reference.md#pickup-reassignment), and **Pause and apply** activates the draft setting.
 
 ### Background images
 
@@ -690,7 +690,7 @@ Select the number to show the **Checks** section, which lists the errors first a
 When the draft has only warnings, the summary tells you that the scenario is ready to apply and gives the number of warnings.
 
 When the checks find errors, **Pause and apply** does not send the draft and shows the **Checks** section.
-The server checks the project again when you apply it, and it also checks the [limits](reference.md#project-files-and-validation) that the editor does not check.
+The server checks the project again when you apply it, and it also checks the [limits](reference.md#validation-and-limits) that the editor does not check.
 If the server project fails these checks, the editor still loads it as the draft, and the section shows the geometry errors that the server reports.
 
 Two checks give warnings and not errors: a junction with no lanes, and a network section that no lane connects to the other nodes.
