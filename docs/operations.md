@@ -400,10 +400,9 @@ Then the party of the record must be aboard the pod, and `interrupt` must name o
 A pod with a record and purpose 2 or 3 must have no party aboard.
 Bank-inconsistent retained routes reject restoration before either tier.
 See [independent station banks](station-banks.md) for bank membership, routing, and browser editing.
-The optional network member `maneuverGroups` of the [compact bays](model.md#compact-bays) keeps the save version 10, the stream version 8, and the HTTP state `state-7`.
-A network without groups writes the same bytes as before.
-The optional network member `depots` of the [parking depots](model.md#parking-depots) and the optional pod member `parkedSince` also keep these versions.
-A file writes `parkedSince` only for a pod that is idle at a depot slot or moves up in one depot lane, so a network without depots writes the same bytes as before.
+The optional network member `maneuverGroups` of the [compact bays](model.md#compact-bays) is absent from a network without groups.
+The optional network member `depots` of the [parking depots](model.md#parking-depots) and the optional pod member `parkedSince` follow the same rule.
+A file writes `parkedSince` only for a pod that is idle at a depot slot or moves up in one depot lane.
 After the earlier checks, the restore refuses a negative parked tick, and then a parked tick after the saved tick.
 Then it refuses a parked tick on a pod that is not parked in a depot lane.
 Last, it refuses a depot lane whose pods are not in slot order from the head to the tail.
@@ -426,7 +425,6 @@ A startup project can change this setting without replacing valid saved physical
 Other project identity checks remain in force.
 Reassignment cursors, cooldowns, counters, and experiment records reset after file restore.
 The saved routes and request bindings remain valid, but future experimental decisions can differ after restart.
-Older strict project readers reject exports that include this setting.
 The [file restart checks](studies/experimental-policy-restarts.md) cover pickup reassignment, the rejection of a version 2 file, and canceled or failed-sync saves.
 They do not simulate power loss.
 The optional project setting does not change command or WebSocket envelope formats.
@@ -436,12 +434,8 @@ A file of more than 128 MiB, compressed or decompressed, does not give an `empty
 A file with another format version gets `unsupported_version`.
 Until the first release, an added optional member with a safe zero value keeps the format version.
 The file leaves out the member when its value is zero.
-An older server restores a file without the member, but it gets `invalid_state` for a file with the member and moves that file aside.
 Each other change to the members of the file gets a new format version.
-Thus after a downgrade past such a change, the older server moves the file aside.
-The change to lowerCamel member names kept the format version.
 The server matches member names exactly.
-Each file with the earlier names has a version before 9, so the server moves it aside with `unsupported_version`.
 With `-project`, the project file has priority, and a saved state with a different project gets `project_changed`.
 When only demand or experimental policy settings differ, the server restores the saved state.
 A demand change writes the project file at once and the session state about 1 second later.

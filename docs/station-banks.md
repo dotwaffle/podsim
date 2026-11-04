@@ -92,17 +92,16 @@ The change was not adopted.
 ## Formats and restore
 
 Projects use version 1 with or without `banks`.
-Projects without `banks` keep their existing behavior.
 An explicit null or empty `banks` member is invalid.
 The decoder refuses project versions 2 through 5 and does not migrate them.
 Both project readers and nested transport decoders bound banks and berth membership before typed allocation.
 
 Banked sessions write saved-state version 10, as every other session does.
 Version 10 stores a version 1 project.
-No saved pod bank field is added.
+A saved pod has no bank field.
 Restore infers the bank from retained gates, local lanes, and berth assignments.
 A retained route that disagrees with its bank rejects the file before either restore tier.
-Existing missing-route and route-budget demotions remain.
+The missing-route and route-budget demotions also apply.
 Physical restore retains position tolerances, resets speed, and rebuilds ordinary reservations.
 
 Sessions send stream hello version 8 for every project kind.
