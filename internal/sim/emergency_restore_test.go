@@ -9,15 +9,15 @@ import (
 )
 
 // emergencyRestoreInput returns the input that restores state, a save of
-// s, with the incident and emergency markers, and with the fault marker
-// and the fault settings of s when s has faults on.
+// s, with the emergency switch on, and with the fault switch and the fault
+// settings of s when s has faults on.
 func emergencyRestoreInput(s *Simulation, state SavedState) RestoreStateInput {
 	input := RestoreStateInput{
 		Network: s.network, Fleet: s.initial, State: state,
-		IncidentContract: IncidentV1Contract, EmergencyContract: EmergencyV1Contract,
+		EmergenciesOn: true,
 	}
 	if s.faultsOn {
-		input.FaultContract = FaultV1Contract
+		input.FaultsOn = true
 		input.Faults = FaultSettings{EvacuationSeconds: int(s.faultSettings.evacuationSeconds)}
 	}
 	return input
@@ -297,11 +297,11 @@ func TestEmergencyRestorePreTier(t *testing.T) {
 			t.Errorf("%s: error %v, result %+v, want %q", test.name, err, result, test.want)
 		}
 	}
-	// Records need the emergency marker.
+	// Records need the emergency switch.
 	input := emergencyRestoreInput(bound, boundState)
-	input.EmergencyContract = ""
-	if _, _, err := RestoreState(input); err == nil || !strings.Contains(err.Error(), "need the emergency contract") {
-		t.Fatalf("a save with a record and no marker: %v", err)
+	input.EmergenciesOn = false
+	if _, _, err := RestoreState(input); err == nil || err.Error() != "saved emergencies need emergencies on" {
+		t.Fatalf("a save with a record and the switch off: %v", err)
 	}
 	// A save without the record restores with the logical tier only when
 	// the pre-tier checks pass: the control has a demoted pod and a valid
@@ -330,7 +330,7 @@ func TestEmergencyPlatoonRestore(t *testing.T) {
 	}
 	restored, result, err := RestoreState(RestoreStateInput{
 		Network: s.network, Fleet: s.initial, State: s.ExportState(),
-		IncidentContract: IncidentV1Contract, EmergencyContract: EmergencyV1Contract,
+		EmergenciesOn: true,
 	})
 	if err != nil || !cleanRestore(result) {
 		t.Fatalf("restore %v, %+v", err, result)
@@ -383,63 +383,93 @@ func TestEmergencyRestoreMemo(t *testing.T) {
 	}
 }
 
-// TestCheckIncidentPolicy checks the production policy validator (section
-// 8 of the incident emergency contract). With the incident marker and
-// without the emergency marker, it refuses the emergency hold and the
-// emergency unload of the stage 1 fixtures, which RestoreState still
-// restores. With the emergency marker, or without the incident marker,
-// it accepts them: the pre-tier checks and the stage 1 checks of
-// RestoreState refuse them there.
+// TestCheckIncidentPolicy checks the production policy validator, with the
+// order and the text of each refusal. A pod rule of the first pod comes
+// before a pod rule of a later pod. Each pod rule comes before each demo
+// rule, and the demo pod rule comes before the demo fleet rule.
 func TestCheckIncidentPolicy(t *testing.T) {
+	t.Parallel()
+	fault, emergency := uint8(faultHold), uint8(emergencyHold)
+	recovery, refuge, unload := uint8(opEmptyRecovery), uint8(opRefuge), uint8(opEmergencyUnload)
+	demo := &SavedDemo{}
+	faults := &SavedFaults{Counters: FaultCounters{Started: 1}}
+	emergencies := &SavedEmergencies{Counters: EmergencyCounters{Started: 1}}
+	const refugeA = "saved pod a has a refuge"
+	const recoveryA = "saved pod a has an empty recovery with the emergency owner"
+	const demoPodA = "saved demo pod a has a service hold or an operational purpose"
+	const demoFleet = "saved demo fleet has fault or emergency state"
+	for _, test := range []struct {
+		name  string
+		fleet int
+		state SavedState
+		want  string
+	}{
+		{name: "plain", fleet: 1, state: SavedState{Pods: []SavedPod{{ID: "a"}}}},
+		{name: "fault hold", fleet: 1, state: SavedState{Pods: []SavedPod{{ID: "a", Withdrawn: fault}}}},
+		{name: "emergency hold", fleet: 1, state: SavedState{Pods: []SavedPod{{ID: "a", Withdrawn: emergency}}}},
+		{name: "fault-owned recovery", fleet: 1, state: SavedState{Pods: []SavedPod{{ID: "a", Withdrawn: fault, Purpose: recovery, Owner: fault}}}},
+		{name: "fault-owned recovery with both holds", fleet: 1, state: SavedState{Pods: []SavedPod{{ID: "a", Withdrawn: fault | emergency, Purpose: recovery, Owner: fault}}}},
+		{name: "emergency unload", fleet: 1, state: SavedState{Pods: []SavedPod{{ID: "a", Withdrawn: emergency, Purpose: unload, Owner: emergency}}}},
+		{name: "ordinary fleet with fault and emergency state", fleet: 1, state: SavedState{Pods: []SavedPod{{ID: "a"}}, Faults: faults, Emergencies: emergencies}},
+		{name: "refuge, fault owner", fleet: 1, state: SavedState{Pods: []SavedPod{{ID: "a", Withdrawn: fault, Purpose: refuge, Owner: fault}}}, want: refugeA},
+		{name: "refuge, emergency owner", fleet: 1, state: SavedState{Pods: []SavedPod{{ID: "a", Withdrawn: emergency, Purpose: refuge, Owner: emergency}}}, want: refugeA},
+		{name: "refuge, no owner", fleet: 1, state: SavedState{Pods: []SavedPod{{ID: "a", Purpose: refuge}}}, want: refugeA},
+		{name: "recovery, emergency hold", fleet: 1, state: SavedState{Pods: []SavedPod{{ID: "a", Withdrawn: emergency, Purpose: recovery, Owner: emergency}}}, want: recoveryA},
+		{name: "recovery, fault hold", fleet: 1, state: SavedState{Pods: []SavedPod{{ID: "a", Withdrawn: fault, Purpose: recovery, Owner: emergency}}}, want: recoveryA},
+		{name: "recovery, both holds", fleet: 1, state: SavedState{Pods: []SavedPod{{ID: "a", Withdrawn: fault | emergency, Purpose: recovery, Owner: emergency}}}, want: recoveryA},
+		{name: "recovery, no hold", fleet: 1, state: SavedState{Pods: []SavedPod{{ID: "a", Purpose: recovery, Owner: emergency}}}, want: recoveryA},
+		{name: "recovery before a refuge", fleet: 2, state: SavedState{Pods: []SavedPod{{ID: "a", Purpose: recovery, Owner: emergency}, {ID: "b", Purpose: refuge}}}, want: recoveryA},
+		{name: "refuge before a recovery", fleet: 2, state: SavedState{Pods: []SavedPod{{ID: "a", Purpose: refuge}, {ID: "b", Purpose: recovery, Owner: emergency}}}, want: refugeA},
+		{name: "refuge of a later pod before the demo", fleet: 2, state: SavedState{Demo: demo, Faults: faults, Pods: []SavedPod{{ID: "b", Withdrawn: fault}, {ID: "a", Purpose: refuge}}}, want: refugeA},
+		{name: "recovery of a later pod before the demo", fleet: 2, state: SavedState{Demo: demo, Faults: faults, Pods: []SavedPod{{ID: "b", Withdrawn: fault}, {ID: "a", Purpose: recovery, Owner: emergency}}}, want: recoveryA},
+		{name: "plain demo", fleet: 1, state: SavedState{Demo: demo, Pods: []SavedPod{{ID: "a"}}}},
+		{name: "demo hold", fleet: 1, state: SavedState{Demo: demo, Pods: []SavedPod{{ID: "a", Withdrawn: fault}}}, want: demoPodA},
+		{name: "demo purpose", fleet: 1, state: SavedState{Demo: demo, Pods: []SavedPod{{ID: "a", Purpose: unload}}}, want: demoPodA},
+		{name: "demo owner", fleet: 1, state: SavedState{Demo: demo, Pods: []SavedPod{{ID: "a", Owner: fault}}}, want: demoPodA},
+		{name: "demo interrupt", fleet: 1, state: SavedState{Demo: demo, Pods: []SavedPod{{ID: "a", Interrupt: 1}}}, want: demoPodA},
+		{name: "ended demo hold, more pods than the fleet", fleet: 1, state: SavedState{Pods: []SavedPod{{ID: "b"}, {ID: "a", Withdrawn: emergency}}}, want: demoPodA},
+		{name: "demo pod before the demo fleet", fleet: 1, state: SavedState{Demo: demo, Faults: faults, Emergencies: emergencies, Pods: []SavedPod{{ID: "a", Withdrawn: fault}}}, want: demoPodA},
+		{name: "demo faults", fleet: 1, state: SavedState{Demo: demo, Faults: faults, Pods: []SavedPod{{ID: "a"}}}, want: demoFleet},
+		{name: "demo emergencies", fleet: 1, state: SavedState{Demo: demo, Emergencies: emergencies, Pods: []SavedPod{{ID: "a"}}}, want: demoFleet},
+		{name: "ended demo faults, more pods than the fleet", fleet: 1, state: SavedState{Faults: faults, Pods: []SavedPod{{ID: "a"}, {ID: "b"}}}, want: demoFleet},
+		{name: "ended demo emergencies, more pods than the fleet", fleet: 1, state: SavedState{Emergencies: emergencies, Pods: []SavedPod{{ID: "a"}, {ID: "b"}}}, want: demoFleet},
+	} {
+		input := RestoreStateInput{Fleet: make([]Placement, test.fleet), State: test.state}
+		err := CheckIncidentPolicy(input)
+		if test.want == "" && err != nil || test.want != "" && (err == nil || err.Error() != test.want) {
+			t.Errorf("%s: %v, want %q", test.name, err, test.want)
+		}
+	}
+}
+
+// TestEmergencyHoldRestoreRules checks the states of the stage 1 fixtures
+// that have an emergency hold and no record. The policy does not refuse
+// them. With the switch on, RestoreState refuses them by E2 before either
+// tier. With the switch off, RestoreState restores them.
+func TestEmergencyHoldRestoreRules(t *testing.T) {
 	t.Parallel()
 	traveling, unloading, s := emergencyStates(t)
 	holdOnly := traveling
 	holdOnly.Pods = slices.Clone(holdOnly.Pods)
 	holdOnly.Pods[0].Purpose, holdOnly.Pods[0].Owner, holdOnly.Pods[0].Interrupt = 0, 0, 0
-	plain := incidentLegFleet(t).ExportState()
 	for _, test := range []struct {
 		name  string
 		state SavedState
-		want  string
-	}{
-		{"traveling", traveling, "has the emergency hold"},
-		{"unloading", unloading, "has the emergency hold"},
-		{"hold only", holdOnly, "has the emergency hold"},
-		{"plain", plain, ""},
-	} {
-		input := RestoreStateInput{Network: s.network, Fleet: s.initial, State: test.state, IncidentContract: IncidentV1Contract}
-		if err := CheckIncidentPolicy(input); test.want == "" && err != nil || test.want != "" && (err == nil || !strings.Contains(err.Error(), test.want)) {
-			t.Errorf("%s: %v, want %q", test.name, err, test.want)
+	}{{"traveling", traveling}, {"unloading", unloading}, {"hold only", holdOnly}} {
+		input := RestoreStateInput{Network: s.network, Fleet: s.initial, State: test.state}
+		if err := CheckIncidentPolicy(input); err != nil {
+			t.Errorf("%s: policy: %v", test.name, err)
 		}
 		if _, _, err := RestoreState(input); err != nil {
-			t.Errorf("%s: RestoreState: %v", test.name, err)
+			t.Errorf("%s: switch off: %v", test.name, err)
 		}
-		input.EmergencyContract = EmergencyV1Contract
-		if err := CheckIncidentPolicy(input); err != nil {
-			t.Errorf("%s with the emergency marker: %v", test.name, err)
+		input.EmergenciesOn = true
+		for _, logical := range []bool{false, true} {
+			input.LogicalOnly = logical
+			if _, _, err := RestoreState(input); !errors.Is(err, errInvalidEmergencies) || !strings.Contains(err.Error(), "E2:") {
+				t.Errorf("%s, logical %t: switch on: %v", test.name, logical, err)
+			}
 		}
-		input.IncidentContract, input.EmergencyContract = "", ""
-		if err := CheckIncidentPolicy(input); err != nil {
-			t.Errorf("%s without the incident marker: %v", test.name, err)
-		}
-	}
-	// A purpose 1 pod without the hold is refused by its purpose. The
-	// stage 1 checks of RestoreState also refuse it.
-	purpose := traveling
-	purpose.Pods = slices.Clone(purpose.Pods)
-	purpose.Pods[0].Withdrawn, purpose.Pods[0].Owner = uint8(faultHold), uint8(faultHold)
-	err := CheckIncidentPolicy(RestoreStateInput{State: purpose, IncidentContract: IncidentV1Contract})
-	if err == nil || !strings.Contains(err.Error(), "has an emergency unload") {
-		t.Fatalf("purpose 1 with the fault hold: %v", err)
-	}
-	// A pod whose purpose the emergency hold owns is refused by its owner,
-	// also when it has only the fault hold and another purpose.
-	owner := traveling
-	owner.Pods = slices.Clone(owner.Pods)
-	owner.Pods[0].Withdrawn, owner.Pods[0].Owner, owner.Pods[0].Purpose = uint8(faultHold), uint8(emergencyHold), uint8(opEmptyRecovery)
-	err = CheckIncidentPolicy(RestoreStateInput{State: owner, IncidentContract: IncidentV1Contract})
-	if err == nil || !strings.Contains(err.Error(), "has the emergency hold") {
-		t.Fatalf("an emergency owner with the fault hold: %v", err)
 	}
 }
 

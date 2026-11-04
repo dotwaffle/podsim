@@ -238,7 +238,7 @@ func TestBerthClearingUsesFreePassengerBerthWhenParkingIsFull(t *testing.T) {
 
 func TestCruiseOnClearStraight(t *testing.T) {
 	t.Parallel()
-	s, err := New(Example(), "market")
+	s, err := NewFleet(Example(), []Placement{{ID: "01", StationID: "market"}})
 	if err != nil {
 		t.Fatal(err)
 	}

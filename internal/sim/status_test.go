@@ -13,7 +13,7 @@ func TestPendingCountFollowsDispatch(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			s, err := New(Example(), test.station)
+			s, err := NewFleet(Example(), []Placement{{ID: "01", StationID: test.station}})
 			if err != nil {
 				t.Fatal(err)
 			}

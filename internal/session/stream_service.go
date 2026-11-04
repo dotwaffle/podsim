@@ -20,72 +20,56 @@ import (
 // markers of the frame.
 func DecodeStreamJSON(data []byte) (StreamEnvelope, error) {
 	var envelope StreamEnvelope
-	members, err := decodeMarkedJSON(data, &envelope)
-	envelope.incidentMembers, envelope.faultMembers, envelope.emergencyMembers = members.incident, members.fault, members.emergency
+	err := decodeMarkedJSON(data, &envelope)
 	return envelope, err
 }
 
-// markedMembers records whether a document has a stage 1 incident member,
-// a stage 2 fault member, and a stage 3 emergency member, with any value.
-type markedMembers struct {
-	incident, fault, emergency bool
-}
-
 // decodeMarkedJSON decodes a stream envelope or an HTTP state into
-// target. The root contract markers of the
-// document select the rules of the scans. Each scan reads the tokens only,
-// so it bounds the document before the typed decode makes values. It
-// reports whether the document has a stage 1 incident member, a stage 2
-// fault member, and a stage 3 emergency member. The caller checks that
-// against the markers.
-func decodeMarkedJSON(data []byte, target any) (markedMembers, error) {
+// target. The root contract markers of the document select the rules of
+// the scans. Each scan reads the tokens only, so it bounds the document
+// before the typed decode makes values.
+func decodeMarkedJSON(data []byte, target any) error {
 	return decodeMarkedJSONLimit(data, target, MaxStreamJSON)
 }
 
-func decodeMarkedJSONLimit(data []byte, target any, limit int) (markedMembers, error) {
+func decodeMarkedJSONLimit(data []byte, target any, limit int) error {
 	if len(data) > limit {
-		return markedMembers{}, errors.New("state JSON too large")
+		return errors.New("state JSON too large")
 	}
 	markers, err := scanRootMarkers(data)
 	if err != nil {
-		return markedMembers{}, err
+		return err
 	}
 	if err := scanContractMarkers(data, markers.order == sim.ExpressOrderContract); err != nil {
-		return markedMembers{}, err
+		return err
 	}
 	if err := scanPackedOrders(data); err != nil {
-		return markedMembers{}, err
+		return err
 	}
 	if err := scanStreamBoardingMembers(data, markers); err != nil {
-		return markedMembers{}, err
+		return err
 	}
 	if err := scanStreamServiceMembers(data); err != nil {
-		return markedMembers{}, err
+		return err
 	}
-	incident, scanErr := scanIncidentMembers(data)
-	if scanErr != nil {
-		return markedMembers{}, scanErr
+	if err := scanIncidentMembers(data); err != nil {
+		return err
 	}
-	fault, scanErr := scanFaultMembers(data)
-	if scanErr != nil {
-		return markedMembers{}, scanErr
+	if err := scanFaultMembers(data); err != nil {
+		return err
 	}
-	emergency, scanErr := scanEmergencyMembers(data)
-	if scanErr != nil {
-		return markedMembers{}, scanErr
+	if err := scanEmergencyMembers(data); err != nil {
+		return err
 	}
-	members := markedMembers{incident: incident, fault: fault, emergency: emergency}
 	if err := decodePackedStreamJSON(data, target); err != nil {
-		return members, err
+		return err
 	}
 	// Keep every other scan and strict typed refusal ahead of the Express
 	// fleet refusal. The earlier scans keep the plain fleet bound.
 	if markers.order == sim.ExpressOrderContract {
-		if err := prescanJSON(data, streamLimits(markers)); err != nil {
-			return members, err
-		}
+		return prescanJSON(data, streamLimits(markers))
 	}
-	return members, nil
+	return nil
 }
 
 // scanRootMarkers bounds data with the limits of its root contract markers

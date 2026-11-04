@@ -196,7 +196,7 @@ const (
 // it.
 var persistRules = map[reflect.Type]map[string]persistRule{
 	reflect.TypeFor[Simulation](): {
-		"orderContract": persistSave, "incidentContract": persistSession, "faultContract": persistSession, "emergencyContract": persistSession,
+		"orderContract":  persistSave,
 		"incidentSerial": persistSave, "incidentGeneration": persistSession,
 		// SavedState has the interrupted counters, so ExportState and
 		// RestoreState keep them. No session save writes them yet. Section
@@ -227,13 +227,12 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"blocked": persistDerive, "rerouteDue": persistDerive,
 		"staticConnected": persistReset, "staticRoutes": persistReset,
 		// SavedState has the fault records and counters, and the session
-		// gives the fault marker and the settings again.
+		// gives the switch and the settings again.
 		"faultsOn": persistSession, "faultSettings": persistSession, "faults": persistSave, "faultCounters": persistSave,
 		// The release boundary of each tick empties faultReleased.
 		"faultReleased": persistReset,
 		// SavedState has the emergency records and counters, and
-		// RestoreState sets the switch from the emergency marker that the
-		// session gives again.
+		// the session gives the switch again.
 		"emergenciesOn": persistSession, "emergencies": persistSave, "emergencyCounters": persistSave,
 		"predictiveQueues": persistUnsupported, "predictivePodQueues": persistUnsupported, "predictiveQueueTick": persistUnsupported,
 		"routingPolicy": persistUnsupported, "congestionRouteCosts": persistUnsupported,

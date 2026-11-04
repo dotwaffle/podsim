@@ -21,7 +21,7 @@ import (
 const (
 	// StreamVersion is the hello version of the one stream family. The
 	// contract markers of a connection select its optional sections.
-	StreamVersion = 7
+	StreamVersion = 8
 	// MaxStreamJSON limits the inflated JSON of a stream envelope.
 	MaxStreamJSON = 64 << 20
 	// BestSpeed consumes blocks of at most 65,535 bytes. Reserve 32 bytes
@@ -93,8 +93,7 @@ type controlsGroup struct {
 	SpeedReduction SpeedReduction `json:"speedReduction"`
 }
 
-// incidentGroup is the "incident" replacement group of a stream delta. A
-// delta has it only with the incident marker.
+// incidentGroup is the "incident" replacement group of a stream delta.
 type incidentGroup struct {
 	Interrupted           int `json:"interrupted"`
 	InterruptedPassengers int `json:"interruptedPassengers"`
@@ -138,16 +137,6 @@ type StreamEnvelope struct {
 	Source        StreamSource      `json:"source"`
 	Full          *StreamFrame      `json:"full,omitempty"`
 	Delta         *StreamDelta      `json:"delta,omitempty"`
-	// incidentMembers records that the decoded bytes have a stage 1 member
-	// or the incident group, with any value. The typed fields cannot show
-	// an explicit zero or null. See scanIncidentMembers.
-	incidentMembers bool
-	// faultMembers records the same for a stage 2 member or the faults
-	// group. See scanFaultMembers.
-	faultMembers bool
-	// emergencyMembers records the same for a stage 3 member or the
-	// emergencies group. See scanEmergencyMembers.
-	emergencyMembers bool
 }
 
 func sourceOf(f StreamFrame) StreamSource {
@@ -155,7 +144,7 @@ func sourceOf(f StreamFrame) StreamSource {
 	return StreamSource{s.ServerStart, s.Epoch, s.ProjectRevision, s.Generation, s.Revision}
 }
 func sameChain(a, b StreamFrame) bool {
-	if a.State.Simulation.OrderContract != b.State.Simulation.OrderContract {
+	if a.State.Simulation.OrderContract != b.State.Simulation.OrderContract || a.State.Simulation.OperationsOff != b.State.Simulation.OperationsOff {
 		return false
 	}
 	x, y := sourceOf(a), sourceOf(b)
@@ -219,19 +208,11 @@ func frameGroups(f StreamFrame) (map[string]jsontext.Value, error) {
 		"global": globalGroup{state.Simulation.Submitted, state.Simulation.Tick, state.Simulation.Paused, state.Simulation.Completed, state.Simulation.Demo, state.Simulation.DemoError},
 	}
 	values["statistics"] = statisticsOf(state.Simulation)
-	if state.Simulation.IncidentContract != "" {
-		values["incident"] = incidentGroup{state.Simulation.Interrupted, state.Simulation.InterruptedPassengers}
-	}
-	// With the fault marker, the faults group is {} when no fault is
-	// active and each counter is 0.
-	if state.Simulation.FaultContract != "" {
-		values["faults"] = state.Simulation.Faults
-	}
-	// With the emergency marker, the emergencies group is {} when no
-	// emergency is active and each counter is 0.
-	if state.Simulation.EmergencyContract != "" {
-		values["emergencies"] = state.Simulation.Emergencies
-	}
+	values["incident"] = incidentGroup{state.Simulation.Interrupted, state.Simulation.InterruptedPassengers}
+	// The faults group is {} when no fault is active and each counter is
+	// 0, and the emergencies group is the same.
+	values["faults"] = state.Simulation.Faults
+	values["emergencies"] = state.Simulation.Emergencies
 	// Each group is raw bytes, so the options of the envelope encoder do
 	// not reach the orders of the pending group. Pack them here.
 	groups := make(map[string]jsontext.Value, len(values))
@@ -306,10 +287,7 @@ func applyGroups(f *StreamFrame, groups map[string]jsontext.Value) error {
 			f.State.SpeedReduction = v.SpeedReduction
 			continue
 		case "incident":
-			if f.State.Simulation.IncidentContract == "" {
-				return errIncidentStreamUnmarked
-			}
-			if _, err := scanIncidentPaths(raw, incidentGroupPaths); err != nil {
+			if err := scanIncidentPaths(raw, incidentGroupPaths); err != nil {
 				return err
 			}
 			var v incidentGroup
@@ -319,8 +297,8 @@ func applyGroups(f *StreamFrame, groups map[string]jsontext.Value) error {
 			f.State.Simulation.Interrupted, f.State.Simulation.InterruptedPassengers = v.Interrupted, v.InterruptedPassengers
 			continue
 		case "faults":
-			if f.State.Simulation.FaultContract == "" {
-				return errFaultStreamUnmarked
+			if f.State.Simulation.OperationsOff {
+				return errFaultStreamOff
 			}
 			faults, err := decodeFaultsGroup(raw)
 			if err != nil {
@@ -329,8 +307,8 @@ func applyGroups(f *StreamFrame, groups map[string]jsontext.Value) error {
 			f.State.Simulation.Faults = faults
 			continue
 		case "emergencies":
-			if f.State.Simulation.EmergencyContract == "" {
-				return errEmergencyStreamUnmarked
+			if f.State.Simulation.OperationsOff {
+				return errEmergencyStreamOff
 			}
 			emergencies, err := decodeEmergenciesGroup(raw)
 			if err != nil {
@@ -363,9 +341,7 @@ func applyGroups(f *StreamFrame, groups map[string]jsontext.Value) error {
 			f.State.Checkpoints = nil
 			target = &f.State.Checkpoints
 		case "pending":
-			// A leg origin that the scan accepts is not empty, so
-			// checkIncidentFrame refuses it without the marker.
-			if _, err := scanIncidentPaths(raw, pendingGroupPaths); err != nil {
+			if err := scanIncidentPaths(raw, pendingGroupPaths); err != nil {
 				return err
 			}
 			f.State.Simulation.Pending = nil
@@ -411,8 +387,8 @@ func ApplyStream(previous StreamFrame, stream string, sequence uint64, e StreamE
 	return ownStreamBoardings(f), nil
 }
 
-// checkStreamEnvelope checks the contract, the identity, and the stage
-// members of an envelope before ApplyStream reads its kind.
+// checkStreamEnvelope checks the contract and the identity of an envelope
+// before ApplyStream reads its kind.
 func checkStreamEnvelope(e StreamEnvelope, previous StreamFrame) error {
 	if err := validateEnvelopeContract(e, previous); err != nil {
 		return err
@@ -422,13 +398,7 @@ func checkStreamEnvelope(e StreamEnvelope, previous StreamFrame) error {
 		!sim.ValidIDText(e.Stream) || !sim.ValidIDText(e.Source.ServerStart) || !sim.ValidIDText(e.Source.Epoch) {
 		return errors.New("invalid stream identity")
 	}
-	if err := checkIncidentPresence(e, previous); err != nil {
-		return err
-	}
-	if err := checkFaultPresence(e, previous); err != nil {
-		return err
-	}
-	return checkEmergencyPresence(e, previous)
+	return nil
 }
 
 // fullStreamFrame returns the frame of a full envelope.

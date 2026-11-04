@@ -228,7 +228,7 @@ func TestLondonJourneyReportsStationManeuvers(t *testing.T) {
 	}
 	holborn := stations["Holborn"]
 	chancery := stations["Chancery Lane"]
-	simulation, err := sim.New(config.Network, holborn.ID)
+	simulation, err := sim.NewFleet(config.Network, []sim.Placement{{ID: "01", StationID: holborn.ID}})
 	if err != nil {
 		t.Fatal(err)
 	}

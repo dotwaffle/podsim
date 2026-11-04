@@ -25,28 +25,21 @@ func (flag *PolicyFlag) UnmarshalJSON(data []byte) error {
 }
 
 // ConfigureExperiments applies the project's experimental controllers.
-// It also turns the fault operations on, with the faults settings, for a
-// project with the fault marker, and off for every other project. It does
-// the same for the emergency operations and the emergency marker. It
-// cannot turn faults off while a fault is active, or emergencies while an
-// emergency is active, so a caller that changes the project makes a new
-// fleet first.
-func ConfigureExperiments(simulation *sim.Simulation, config Config) error {
+// It also turns the fault and emergency operations on or off, as operations
+// says, with the faults settings. It cannot turn faults off while a fault is
+// active, or emergencies while an emergency is active, so a caller that
+// changes the project makes a new fleet first.
+func ConfigureExperiments(simulation *sim.Simulation, config Config, operations bool) error {
 	simulation.SetPickupSwaps(bool(config.PickupReassignment))
-	if err := simulation.SetFaults(config.FaultContract != "", EffectiveFaultSettings(config)); err != nil {
+	if err := simulation.SetFaults(operations, EffectiveFaultSettings(config)); err != nil {
 		return err
 	}
-	return simulation.SetEmergencies(config.EmergencyContract != "")
+	return simulation.SetEmergencies(operations)
 }
 
-// EffectiveFaultSettings returns the fault settings of a project with the
-// fault marker, with the default for each absent member, and the zero
-// settings for every other project. A restore gets the settings of the
-// saved project from it.
+// EffectiveFaultSettings returns the fault settings of a project, with the
+// default for each absent member. A restore gets the settings of the saved
+// project from it.
 func EffectiveFaultSettings(config Config) sim.FaultSettings {
-	var faults sim.FaultSettings
-	if config.FaultContract != "" {
-		faults.EvacuationSeconds = evacuationSeconds(config.Faults)
-	}
-	return faults
+	return sim.FaultSettings{EvacuationSeconds: evacuationSeconds(config.Faults)}
 }

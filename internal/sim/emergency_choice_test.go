@@ -92,7 +92,6 @@ func choiceFleet(t *testing.T, network Network, parking int, target string, plac
 	if err != nil {
 		t.Fatal(err)
 	}
-	s.incidentContract = IncidentV1Contract
 	s.emergenciesOn = true
 	v := s.findVehicle("01")
 	if err := s.board(v, newTrip(s, "h", target)); err != nil {
@@ -322,7 +321,7 @@ func TestEmergencyChoiceCandidates(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		s.incidentContract, s.emergenciesOn = IncidentV1Contract, true
+		s.emergenciesOn = true
 		v := s.findVehicle("01")
 		if err := s.board(v, newTrip(s, "origin", "hub")); err != nil {
 			t.Fatal(err)

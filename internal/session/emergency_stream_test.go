@@ -18,34 +18,28 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-// emergencyStreamProject returns the example project with the incident,
-// fault, and emergency markers.
+// emergencyStreamProject returns the example project with shared rides of
+// 4 parties and empty fault and emergency settings.
 func emergencyStreamProject() project.Config {
 	config := emergencySessionProject(project.EmergencyConfig{})
-	config.FaultContract, config.Faults = project.FaultV1Contract, &project.FaultConfig{}
+	config.Faults = &project.FaultConfig{}
 	return config
 }
 
 // emergencyStreamFrames returns the topology and two frames of a paused
 // session of the example project in which pod 01 carries an order. With
-// marked, the session has the incident, fault, and emergency markers, and
-// the second frame has an emergency i1.1 on pod 01, which unloads at its
-// berth, and a fault i1.2 on pod 02. Without it, the session has the incident marker only, and
-// the frames differ in their pause.
-func emergencyStreamFrames(t *testing.T, marked bool) (TopologySnapshot, StreamFrame, StreamFrame) {
+// records, the second frame has an emergency i1.1 on pod 01, which unloads
+// at its berth, and a fault i1.2 on pod 02. Without records, the frames
+// differ in their pause.
+func emergencyStreamFrames(t *testing.T, records bool) (TopologySnapshot, StreamFrame, StreamFrame) {
 	t.Helper()
-	config := markedProject()
-	config.SharedRidePartyLimit = 4
-	if marked {
-		config = emergencyStreamProject()
-	}
-	client := newFaultClient(t, config)
+	client := newFaultClient(t, emergencyStreamProject())
 	client.boardOrders(t, 1)
 	base, err := client.session.presentationFrame()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if marked {
+	if records {
 		client.mustApply(t, Command{Action: "emergency", PodID: "01"})
 		client.mustApply(t, Command{Action: "fault", PodID: "02"})
 	} else {
@@ -61,14 +55,10 @@ func emergencyStreamFrames(t *testing.T, marked bool) (TopologySnapshot, StreamF
 // TestEmergencyStreamMembers checks that the client gets the emergencies of
 // a frame back from a full frame, a delta with the emergencies group, and
 // the HTTP state (section 11.4 of the incident emergency contract). The
-// group is {} with the marker and no emergency, and the delta has it only
-// when it changes.
+// group is {} with no emergency, and the delta has it only when it changes.
 func TestEmergencyStreamMembers(t *testing.T) {
 	t.Parallel()
 	topology, base, next := emergencyStreamFrames(t, true)
-	if topology.EmergencyContract != sim.EmergencyV1Contract || base.State.Simulation.EmergencyContract != sim.EmergencyV1Contract {
-		t.Fatalf("markers %q %q", topology.EmergencyContract, base.State.Simulation.EmergencyContract)
-	}
 	want := next.State.Simulation.Emergencies
 	if len(want.Active) != 1 || want.Active[0] != (sim.EmergencyView{ID: "i1.1", PodID: "01", OrderID: want.Active[0].OrderID, Phase: sim.EmergencyPhaseUnloading, StartTick: next.State.Simulation.Tick}) ||
 		want.Active[0].OrderID <= 0 || want.Counters != (sim.EmergencyCounters{Started: 1}) {
@@ -104,131 +94,123 @@ func TestEmergencyStreamMembers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Contains(data, []byte(`"emergencyContract":"emergency-v1"`)) {
-		t.Fatalf("the HTTP state has no marker: %s", data)
-	}
 	state, err := DecodeStateJSON(data)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := stateFrame(state).Simulation; got.EmergencyContract != sim.EmergencyV1Contract || !reflect.DeepEqual(got.Emergencies, want) {
-		t.Fatalf("HTTP state gives %q %+v", got.EmergencyContract, got.Emergencies)
+	if got := stateFrame(state).Simulation; !reflect.DeepEqual(got.Emergencies, want) {
+		t.Fatalf("HTTP state gives %+v", got.Emergencies)
 	}
-	// Without the marker, no document has a stage 3 member.
+	// With no emergency and zero counters, no document has a stage 3 member.
 	topology, base, next = emergencyStreamFrames(t, false)
 	for _, raw := range [][]byte{faultEnvelopeJSON(t, base, next, "full"), faultEnvelopeJSON(t, base, next, "delta")} {
 		if bytes.Contains(raw, []byte("emergenc")) {
-			t.Fatalf("an unmarked document has an emergency member: %s", raw)
+			t.Fatalf("a document has an emergency member: %s", raw)
 		}
 	}
 	if data, err = EncodeStateJSON(topology, next); err != nil || bytes.Contains(data, []byte("emergenc")) {
-		t.Fatalf("the unmarked HTTP state has an emergency member: %v", err)
+		t.Fatalf("the HTTP state has an emergency member: %v", err)
 	}
 }
 
-// TestEmergencyStreamNeedsMarker checks that each stage 3 member without
-// the marker is refused, also as null, {}, and [], in a full frame, a
-// delta group, and an HTTP state (sections 11.1, 11.5, and 14.3 of the
-// incident emergency contract). With the marker, an empty value is
-// accepted where the shape allows it, and null is refused.
-func TestEmergencyStreamNeedsMarker(t *testing.T) {
+// TestEmergencyStreamValues checks the raw stage 3 values in a full frame,
+// a delta group, and an HTTP state, with the operations on and off. The
+// scans refuse null with the operations on or off. With the operations off,
+// only a full-frame value that decodes to the zero value passes, because the
+// rule reads typed values, and each delta group is refused. A name of a
+// removed marker is an unknown member with each value.
+func TestEmergencyStreamValues(t *testing.T) {
 	t.Parallel()
 	edits := []struct {
 		name, kind, insert string
-		// valid is true when the edit is valid with the marker.
-		valid bool
+		validOn, validOff  bool
 	}{
-		{"emergencies null", "full", `"emergencies":null,`, false},
-		{"emergencies empty object", "full", `"emergencies":{},`, true},
-		{"emergencies empty array", "full", `"emergencies":[],`, false},
-		{"emergencies zero", "full", `"emergencies":0,`, false},
-		{"active null", "full", `"emergencies":{"active":null},`, false},
-		{"active empty", "full", `"emergencies":{"active":[]},`, true},
-		{"counters null", "full", `"emergencies":{"counters":null},`, false},
-		{"counter null", "full", `"emergencies":{"counters":{"ended":null}},`, false},
-		{"marker null", "full", `"emergencyContract":null,`, false},
-		{"marker empty", "full", `"emergencyContract":"",`, false},
-		{"marker unknown", "full", `"emergencyContract":"emergency-v2",`, false},
-		{"group null", "delta", `"emergencies":null,`, false},
-		{"group empty", "delta", `"emergencies":{},`, true},
-		{"group empty array", "delta", `"emergencies":[],`, false},
-		{"group counters null", "delta", `"emergencies":{"counters":null},`, false},
-		{"group counters", "delta", `"emergencies":{"counters":{"started":1}},`, true},
+		{"emergencies null", "full", `"emergencies":null,`, false, false},
+		{"emergencies empty object", "full", `"emergencies":{},`, true, true},
+		{"emergencies empty array", "full", `"emergencies":[],`, false, false},
+		{"emergencies zero", "full", `"emergencies":0,`, false, false},
+		{"active null", "full", `"emergencies":{"active":null},`, false, false},
+		{"active empty", "full", `"emergencies":{"active":[]},`, true, false},
+		{"counters null", "full", `"emergencies":{"counters":null},`, false, false},
+		{"counter null", "full", `"emergencies":{"counters":{"ended":null}},`, false, false},
+		{"counter", "full", `"emergencies":{"counters":{"started":1}},`, true, false},
+		{"marker null", "full", `"emergencyContract":null,`, false, false},
+		{"marker empty", "full", `"emergencyContract":"",`, false, false},
+		{"marker old value", "full", `"emergencyContract":"emergency-v1",`, false, false},
+		{"marker unknown", "full", `"emergencyContract":"emergency-v2",`, false, false},
+		{"group null", "delta", `"emergencies":null,`, false, false},
+		{"group empty", "delta", `"emergencies":{},`, true, false},
+		{"group empty array", "delta", `"emergencies":[],`, false, false},
+		{"group counters null", "delta", `"emergencies":{"counters":null},`, false, false},
+		{"group counters", "delta", `"emergencies":{"counters":{"started":1}},`, true, false},
 	}
 	at := map[string]string{"full": `"simulation":{`, "delta": `"groups":{`}
-	for _, marked := range []bool{false, true} {
-		config := markedProject()
-		if marked {
-			config = emergencySessionProject(project.EmergencyConfig{})
+	for _, off := range []bool{false, true} {
+		client := newFaultClient(t, emergencySessionProject(project.EmergencyConfig{}))
+		if off {
+			client.mustApply(t, Command{Action: "demo"})
 		}
-		s, err := NewWithProject(config)
-		if err != nil {
-			t.Fatal(err)
+		topology, frames := incidentFrames(t, client.session)
+		if frames[0].State.Simulation.OperationsOff != off {
+			t.Fatalf("frame operationsOff %t, want %t", frames[0].State.Simulation.OperationsOff, off)
 		}
-		t.Cleanup(s.Close)
-		topology, frames := incidentFrames(t, s)
 		raw := map[string][]byte{"full": faultEnvelopeJSON(t, frames[0], frames[1], "full"), "delta": faultEnvelopeJSON(t, frames[0], frames[1], "delta")}
 		http, err := EncodeStateJSON(topology, frames[1])
 		if err != nil {
 			t.Fatal(err)
 		}
 		for _, edit := range edits {
-			// The marked frame has its marker, so a second one is a
-			// duplicate member.
-			valid := marked && edit.valid
+			valid := edit.validOn
+			if off {
+				valid = edit.validOff
+			}
 			data := bytes.Replace(raw[edit.kind], []byte(at[edit.kind]), []byte(at[edit.kind]+edit.insert), 1)
 			if _, err := applyIncidentJSON(frames[0], data); (err == nil) != valid {
-				t.Errorf("marked %v, %s: error %v, want valid %v", marked, edit.name, err, valid)
+				t.Errorf("off %t, %s: error %v, want valid %t", off, edit.name, err, valid)
 			}
 			if edit.kind != "full" {
 				continue
 			}
 			data = bytes.Replace(http, []byte(at["full"]), []byte(at["full"]+edit.insert), 1)
 			if _, err := DecodeStateJSON(data); (err == nil) != valid {
-				t.Errorf("marked %v, HTTP %s: error %v, want valid %v", marked, edit.name, err, valid)
+				t.Errorf("off %t, HTTP %s: error %v, want valid %t", off, edit.name, err, valid)
 			}
 		}
-		// An emergency marker in the topology of an HTTP state, or in a
-		// topology document, has the one value that the server writes.
+		// A marker name in the topology of an HTTP state, or in a topology
+		// document, is an unknown member with each value.
 		topologyJSON, marshalErr := jsonv2.Marshal(topology, json.DefaultOptionsV1())
 		if marshalErr != nil {
 			t.Fatal(marshalErr)
 		}
-		for _, marker := range []string{`null`, `""`, `"emergency-v2"`} {
+		for _, marker := range []string{`null`, `""`, `"emergency-v1"`, `"emergency-v2"`} {
 			insert := []byte(`"emergencyContract":` + marker + `,`)
 			data := bytes.Replace(http, []byte(`"topology":{`), append([]byte(`"topology":{`), insert...), 1)
 			if _, err := DecodeStateJSON(data); err == nil {
-				t.Errorf("marked %v, HTTP topology marker %s: accepted", marked, marker)
+				t.Errorf("off %t, HTTP topology marker %s: accepted", off, marker)
 			}
 			var decoded TopologySnapshot
 			if err := jsonv2.Unmarshal(append(append([]byte(`{`), insert...), topologyJSON[1:]...), &decoded, json.DefaultOptionsV1()); err == nil {
-				t.Errorf("marked %v, topology marker %s: accepted", marked, marker)
+				t.Errorf("off %t, topology marker %s: accepted", off, marker)
 			}
 		}
 		var decoded TopologySnapshot
-		if err := jsonv2.Unmarshal(topologyJSON, &decoded, json.DefaultOptionsV1()); err != nil || decoded.EmergencyContract != topology.EmergencyContract {
-			t.Errorf("marked %v, topology control: %v", marked, err)
+		if err := jsonv2.Unmarshal(topologyJSON, &decoded, json.DefaultOptionsV1()); err != nil {
+			t.Errorf("off %t, topology control: %v", off, err)
 		}
-	}
-	// A caller builds a delta with the emergencies group and no decoder
-	// scan.
-	_, base, next := emergencyStreamFrames(t, false)
-	envelope := incidentEnvelope(t, base, next, "delta")
-	envelope.Delta.Groups["emergencies"] = jsontext.Value(`{}`)
-	if _, err := ApplyStream(base, "incident", 1, envelope); !errors.Is(err, errEmergencyStreamUnmarked) {
-		t.Fatalf("direct emergencies group: %v", err)
-	}
-	// With the marker, ApplyStream scans a group that a caller builds for
-	// null.
-	_, base, next = emergencyStreamFrames(t, true)
-	envelope = incidentEnvelope(t, base, next, "delta")
-	envelope.Delta.Groups["emergencies"] = jsontext.Value(`{"counters":{"started":null}}`)
-	if _, err := ApplyStream(base, "incident", 1, envelope); err == nil {
-		t.Fatal("direct emergencies group with a null counter")
-	}
-	envelope.Delta.Groups["emergencies"] = jsontext.Value(`{"counters":{"started":1}}`)
-	if _, err := ApplyStream(base, "incident", 1, envelope); err != nil {
-		t.Fatal("direct emergencies group:", err)
+		// A caller builds a delta group and no decoder scan runs.
+		envelope := incidentEnvelope(t, frames[0], frames[1], "delta")
+		for _, value := range []string{`{"counters":{"started":null}}`, `{"counters":{"started":1}}`} {
+			envelope.Delta.Groups["emergencies"] = jsontext.Value(value)
+			_, err := ApplyStream(frames[0], "incident", 1, envelope)
+			switch {
+			case off && !errors.Is(err, errEmergencyStreamOff):
+				t.Errorf("off, direct emergencies group %s: %v", value, err)
+			case !off && strings.Contains(value, "null") && err == nil:
+				t.Errorf("on, direct emergencies group %s: accepted", value)
+			case !off && !strings.Contains(value, "null") && err != nil:
+				t.Errorf("on, direct emergencies group %s: %v", value, err)
+			}
+		}
 	}
 }
 
@@ -240,8 +222,7 @@ func TestEmergencyFrameTypedRules(t *testing.T) {
 	t.Parallel()
 	topology, base, next := emergencyStreamFrames(t, true)
 	edits := map[string]func(*SimulationFrame){
-		"unmarked emergencies": func(frame *SimulationFrame) { frame.EmergencyContract = "" },
-		"unknown marker":       func(frame *SimulationFrame) { frame.EmergencyContract = "emergency-v2" },
+		"operations off":       func(frame *SimulationFrame) { frame.OperationsOff = true },
 		"serial 0":             func(frame *SimulationFrame) { frame.Emergencies.Active[0].ID = "i1.0" },
 		"serial of a fault":    func(frame *SimulationFrame) { frame.Emergencies.Active[0].ID = frame.Faults.Active[0].ID },
 		"unknown pod":          func(frame *SimulationFrame) { frame.Emergencies.Active[0].PodID = "nobody" },
@@ -309,63 +290,12 @@ func TestEmergencyFrameTypedRules(t *testing.T) {
 			t.Errorf("%d records: %v", records, err)
 		}
 	}
-	// FrameState checks the markers of the topology itself.
-	topology.IncidentContract = ""
-	state := next.State
-	state.Simulation.IncidentContract = ""
-	state.Simulation.FaultContract, state.Simulation.Faults = "", sim.FaultsView{}
-	topology.FaultContract = ""
-	if _, err := FrameState(topology, state); err == nil {
-		t.Fatal("FrameState accepts the emergency marker without the incident marker")
-	}
 }
 
-// TestEmergencyMarkerBinding checks that a frame whose emergency marker
-// differs from the topology marker is refused, also as a change inside one
-// stream, and that the topology marker needs the incident marker (section
-// 11.1 of the incident emergency contract). A traffic demo keeps the
-// marker of the topology.
-func TestEmergencyMarkerBinding(t *testing.T) {
+// TestEmergencyDemoFrame checks that the frame and the HTTP state of the
+// traffic demo have operationsOff.
+func TestEmergencyDemoFrame(t *testing.T) {
 	t.Parallel()
-	marked, _, next := emergencyStreamFrames(t, true)
-	unmarked := marked
-	unmarked.EmergencyContract = ""
-	assembler, err := NewStreamAssembler(unmarked)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, stateErr := assembler.State(next); stateErr == nil {
-		t.Fatal("an unmarked topology accepts a marked frame")
-	}
-	if _, encodeErr := EncodeStateJSON(unmarked, next); encodeErr == nil {
-		t.Fatal("the HTTP state of an unmarked topology and a marked frame encodes")
-	}
-	// The assembler of a stream accepts the marked frame, and then refuses
-	// the same frame without the marker.
-	assembler, err = NewStreamAssembler(marked)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, stateErr := assembler.State(next); stateErr != nil {
-		t.Fatal(stateErr)
-	}
-	changed := next
-	changed.State.Simulation.EmergencyContract, changed.State.Simulation.Emergencies = "", sim.EmergenciesView{}
-	if _, stateErr := assembler.State(changed); stateErr == nil {
-		t.Fatal("the assembler accepts a change of the emergency marker")
-	}
-	for name, change := range map[string]func(*TopologySnapshot){
-		"no incident marker": func(topology *TopologySnapshot) { topology.IncidentContract, topology.FaultContract = "", "" },
-		"unknown marker":     func(topology *TopologySnapshot) { topology.EmergencyContract = "emergency-v2" },
-	} {
-		topology := marked
-		change(&topology)
-		if _, assemblerErr := NewStreamAssembler(topology); assemblerErr == nil {
-			t.Errorf("%s: the assembler accepts the topology", name)
-		}
-	}
-	// The demo fleet keeps the emergency marker, so its frames bind to the
-	// topology of the project.
 	client := newFaultClient(t, emergencySessionProject(project.EmergencyConfig{}))
 	client.mustApply(t, Command{Action: "demo"})
 	client.mustApply(t, Command{Action: "pause", Paused: true})
@@ -374,15 +304,19 @@ func TestEmergencyMarkerBinding(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !frame.State.Simulation.Demo || frame.State.Simulation.EmergencyContract != sim.EmergencyV1Contract || topology.EmergencyContract != sim.EmergencyV1Contract {
-		t.Fatalf("demo frame markers %q %q", frame.State.Simulation.EmergencyContract, topology.EmergencyContract)
+	if !frame.State.Simulation.Demo || !frame.State.Simulation.OperationsOff {
+		t.Fatalf("demo %t, operationsOff %t", frame.State.Simulation.Demo, frame.State.Simulation.OperationsOff)
 	}
 	data, err := EncodeStateJSON(topology, frame)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := DecodeStateJSON(data); err != nil {
+	state, err := DecodeStateJSON(data)
+	if err != nil {
 		t.Fatal("demo HTTP state:", err)
+	}
+	if !state.Simulation.OperationsOff {
+		t.Fatal("the HTTP state lost operationsOff")
 	}
 }
 

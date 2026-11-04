@@ -69,8 +69,7 @@ func boundsProject(t *testing.T, config project.Config) project.Config {
 }
 
 // boundsSaveJSON returns the JSON form of a save with markers and at least
-// one element in each array of the save format. It has the incident,
-// fault and emergency markers.
+// one element in each array of the save format.
 func boundsSaveJSON(t *testing.T, markers contractMarkers) []byte {
 	t.Helper()
 	var file stateFile
@@ -81,9 +80,8 @@ func boundsSaveJSON(t *testing.T, markers contractMarkers) []byte {
 		file = newTestStateFile(t)
 	}
 	config := boundsProject(t, file.Project)
-	config.IncidentContract = sim.IncidentV1Contract
-	config.FaultContract, config.Faults = sim.FaultV1Contract, &project.FaultConfig{}
-	config.EmergencyContract, config.Emergencies = sim.EmergencyV1Contract, &project.EmergencyConfig{}
+	config.Faults = &project.FaultConfig{}
+	config.Emergencies = &project.EmergencyConfig{}
 	config.Network = boundsGroups(config.Network)
 	file.Project = config
 	file.RailConnections = []rail.Connection{{Event: "arrival", Passenger: 1, From: config.Network.Stations[0].ID, To: config.Network.Stations[1].ID, Outcome: "unserved", Reason: "restore-degraded"}}
@@ -133,9 +131,6 @@ func changedDelta(t *testing.T, frame StreamFrame) StreamDelta {
 	_, empty := streamFixture(t)
 	simulation := frame.State.Simulation
 	empty.State.Simulation.OrderContract = simulation.OrderContract
-	empty.State.Simulation.IncidentContract = simulation.IncidentContract
-	empty.State.Simulation.FaultContract = simulation.FaultContract
-	empty.State.Simulation.EmergencyContract = simulation.EmergencyContract
 	empty.State.Simulation.Vehicles = make([]VehicleFrame, len(simulation.Vehicles))
 	empty.State.Simulation.Berths = make([]sim.BerthState, len(simulation.Berths))
 	empty.Routes = make([]sim.RoutePresentation, len(frame.Routes))
@@ -148,7 +143,6 @@ func changedDelta(t *testing.T, frame StreamFrame) StreamDelta {
 
 // boundsStreamJSON returns a full frame, a delta and an HTTP state with
 // markers and at least one element in each array of the stream format.
-// The plain documents have the incident, fault and emergency markers.
 func boundsStreamJSON(t *testing.T, markers contractMarkers) map[string][]byte {
 	t.Helper()
 	var topology TopologySnapshot
@@ -200,7 +194,7 @@ func boundsStreamJSON(t *testing.T, markers contractMarkers) map[string][]byte {
 		t.Fatal(err)
 	}
 	var decoded StateEnvelope
-	if _, err := decodeMarkedJSON(raw, &decoded); err != nil {
+	if err := decodeMarkedJSON(raw, &decoded); err != nil {
 		t.Fatalf("HTTP state with markers %+v: %v", markers, err)
 	}
 	documents["HTTP"] = raw

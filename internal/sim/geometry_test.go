@@ -56,7 +56,7 @@ func TestCachedLaneGeometryMatchesNetwork(t *testing.T) {
 	t.Parallel()
 	network := Example()
 	network.Lanes[0].Control = &Point{X: 150, Y: 100}
-	simulation, err := New(network, "harbor")
+	simulation, err := NewFleet(network, []Placement{{ID: "01", StationID: "harbor"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +75,7 @@ func TestCachedLaneGeometryMatchesNetwork(t *testing.T) {
 func TestCurveRejectsNonfiniteControl(t *testing.T) {
 	n := Example()
 	n.Lanes[0].Control = &Point{X: math.NaN()}
-	if _, err := New(n, "harbor"); err == nil {
+	if _, err := NewFleet(n, []Placement{{ID: "01", StationID: "harbor"}}); err == nil {
 		t.Fatal("accepted nonfinite control")
 	}
 }
@@ -107,7 +107,7 @@ func laneDistances(geometry *laneGeometry, length float64) []float64 {
 
 func TestBlockPositionMatchesPosition(t *testing.T) {
 	t.Parallel()
-	s, err := New(curvedExample(), "harbor")
+	s, err := NewFleet(curvedExample(), []Placement{{ID: "01", StationID: "harbor"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,7 +137,7 @@ func TestBlockPositionMatchesPosition(t *testing.T) {
 // the point that position gives for its lane and lane distance.
 func TestMovingPodPositionMatchesLaneGeometry(t *testing.T) {
 	t.Parallel()
-	s, err := New(curvedExample(), "harbor")
+	s, err := NewFleet(curvedExample(), []Placement{{ID: "01", StationID: "harbor"}})
 	if err != nil {
 		t.Fatal(err)
 	}

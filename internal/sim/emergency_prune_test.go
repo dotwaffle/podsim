@@ -222,7 +222,7 @@ func pruneCase(t *testing.T, seed uint64) *Simulation {
 	if err != nil {
 		t.Fatalf("seed %d: %v", seed, err)
 	}
-	s.incidentContract, s.emergenciesOn = IncidentV1Contract, true
+	s.emergenciesOn = true
 	v := s.findVehicle("01")
 	if err := s.board(v, newTrip(s, origin.ID, target.ID)); err != nil {
 		return nil

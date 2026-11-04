@@ -151,7 +151,7 @@ func TestBlockedRouteSearches(t *testing.T) {
 	})
 	t.Run("station path", func(t *testing.T) {
 		t.Parallel()
-		s, err := New(ladderNetwork(), "harbor")
+		s, err := NewFleet(ladderNetwork(), []Placement{{ID: "01", StationID: "harbor"}})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -165,7 +165,7 @@ func TestBlockedRouteSearches(t *testing.T) {
 	})
 	t.Run("multi-target search", func(t *testing.T) {
 		t.Parallel()
-		s, err := New(ladderNetwork(), "harbor")
+		s, err := NewFleet(ladderNetwork(), []Placement{{ID: "01", StationID: "harbor"}})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -181,7 +181,7 @@ func TestBlockedRouteSearches(t *testing.T) {
 	})
 	t.Run("bank searches", func(t *testing.T) {
 		t.Parallel()
-		s, err := New(BankExample(), "origin")
+		s, err := NewFleet(BankExample(), []Placement{{ID: "01", StationID: "origin"}})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -332,7 +332,7 @@ func TestBlockedRouteSearches(t *testing.T) {
 	})
 	t.Run("station route by load", func(t *testing.T) {
 		t.Parallel()
-		s, err := New(ladderNetwork(), "harbor")
+		s, err := NewFleet(ladderNetwork(), []Placement{{ID: "01", StationID: "harbor"}})
 		if err != nil {
 			t.Fatal(err)
 		}

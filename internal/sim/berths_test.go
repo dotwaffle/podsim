@@ -7,7 +7,7 @@ import (
 
 func TestPassengerBerthAssignedAtStationAccess(t *testing.T) {
 	t.Parallel()
-	simulation, err := New(Example(), "harbor")
+	simulation, err := NewFleet(Example(), []Placement{{ID: "01", StationID: "harbor"}})
 	if err != nil {
 		t.Fatal(err)
 	}

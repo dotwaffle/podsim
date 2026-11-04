@@ -29,9 +29,6 @@ func EncodeStreamJSON(e StreamEnvelope) ([]byte, error) {
 // the publisher writes them.
 func validateEncodedContract(e StreamEnvelope) error {
 	if e.Full != nil {
-		if err := sim.ValidateIncidentContract(e.Full.State.Simulation.IncidentContract); err != nil {
-			return err
-		}
 		if err := checkIncidentFrame(e.Full.State.Simulation); err != nil {
 			return err
 		}
@@ -57,15 +54,10 @@ func validateEncodedContract(e StreamEnvelope) error {
 
 func validateEnvelopeContract(e StreamEnvelope, previous StreamFrame) error {
 	contract := previous.State.Simulation.OrderContract
-	incident := previous.State.Simulation.IncidentContract
 	if e.Full != nil {
 		contract = e.Full.State.Simulation.OrderContract
-		incident = e.Full.State.Simulation.IncidentContract
 	}
 	if err := sim.ValidateOrderContract(contract); err != nil {
-		return err
-	}
-	if err := sim.ValidateIncidentContract(incident); err != nil {
 		return err
 	}
 	if e.OrderContract != contract {
@@ -78,9 +70,6 @@ func (file *stateFile) validateWireContract() error {
 	if file.OrderContract != "" && file.OrderContract != sim.ExpressOrderContract ||
 		file.Simulation.OrderContract != file.OrderContract || file.Project.OrderContract != file.OrderContract {
 		return errors.New("saved order contract markers disagree")
-	}
-	if err := file.validateIncidentValues(); err != nil {
-		return err
 	}
 	if err := file.validateFaultValues(); err != nil {
 		return err

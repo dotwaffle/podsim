@@ -170,11 +170,8 @@ func scanPackedOrders(data []byte) error {
 // express reports the Express marker of the document. Each orderContract
 // member must then be the Express marker, and the root must have one.
 // Without it, each orderContract member is refused. No document has a
-// textEncoding member: the order text is always packed. Each
-// incidentContract member must be the incident marker, each faultContract
-// member the fault marker, and each emergencyContract member the emergency
-// marker, so that an explicit null or empty marker is not read as no
-// marker. The typed decode decides where the member can be.
+// textEncoding member: the order text is always packed. The typed decode
+// decides where the member can be.
 func scanContractMarkers(data []byte, express bool) error {
 	d := jsontext.NewDecoder(bytes.NewReader(data))
 	seen := map[string]bool{}
@@ -191,12 +188,6 @@ func scanContractMarkers(data []byte, express bool) error {
 			continue
 		}
 		name := token.String()
-		if name == "incidentContract" || name == "faultContract" || name == "emergencyContract" {
-			if markerErr := scanFeatureMarker(d, name); markerErr != nil {
-				return markerErr
-			}
-			continue
-		}
 		if name != "orderContract" && name != "textEncoding" {
 			continue
 		}
@@ -221,27 +212,6 @@ func scanContractMarkers(data []byte, express bool) error {
 	}
 	if express && !seen["/orderContract"] {
 		return errors.New("missing Express contract marker")
-	}
-	return nil
-}
-
-// scanFeatureMarker reads the value of the incidentContract, the
-// faultContract, or the emergencyContract member name. It refuses each
-// value other than the marker of that name.
-func scanFeatureMarker(d *jsontext.Decoder, name string) error {
-	marker, unknown := string(sim.IncidentV1Contract), sim.ErrUnknownIncidentContract
-	switch name {
-	case "faultContract":
-		marker, unknown = string(sim.FaultV1Contract), sim.ErrUnknownFaultContract
-	case "emergencyContract":
-		marker, unknown = string(sim.EmergencyV1Contract), sim.ErrUnknownEmergencyContract
-	}
-	value, err := d.ReadToken()
-	if err != nil {
-		return err
-	}
-	if value.Kind() != jsontext.KindString || value.String() != marker {
-		return unknown
 	}
 	return nil
 }

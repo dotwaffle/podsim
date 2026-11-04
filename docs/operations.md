@@ -154,7 +154,7 @@ This server build has only the `file://` driver.
 Without `-state`, the server does not save or read a session state.
 The saved state holds the last command sequence of each client, but not the save points or the command receipts.
 A restart clears those.
-Clients use stream version 7, including motion-only vehicle deltas, as described in [Client protocol](protocol.md#shared-state-stream).
+Clients use stream version 8, including motion-only vehicle deltas, as described in [Client protocol](protocol.md#shared-state-stream).
 
 A `file://` URL needs an empty host and an absolute path, for example `file:///var/lib/podsim`.
 `file://var/lib/podsim` is not valid, because `var` is then the host.
@@ -281,12 +281,10 @@ It reports them as unaccounted orders at each restore, together with the orders 
 - `empty`: The server does not use the saved state and starts a new session.
   Except after a read failure, it moves `session.json.gz` to a rejected file.
 
-Each session writes saved-state version 9, and this server accepts only version 9.
-The root markers of the file select its optional sections.
-The `orderContract` marker `express-v1` selects the Express order bounds.
-The project and the simulation must have the same markers as the root.
-The incident marker `incidentContract` `incident-v1` is only in the saved project.
-With it, the file can have these incident members, and it omits each one at 0 or when it is absent:
+Each session writes saved-state version 10, and this server accepts only version 10.
+The root `orderContract` marker `express-v1` selects the Express order bounds.
+The project and the simulation must have the same marker as the root.
+The file can have these incident members, and it omits each one at 0 or when it is absent:
 
 - `simulation.interrupted` and `simulation.interruptedPassengers`: the orders that ended interrupted, and the sum of their party sizes.
 - `simulation.incidentSerial`: the serial of the last incident record.
@@ -301,12 +299,18 @@ Index 0 is a present value.
 A leg origin is a passenger station other than the destination.
 An order with an excluded pod did not board, and its pod and its hold are not the excluded pod.
 The file must not have a null incident member.
-Without the marker, the file must not have an incident member, also not 0, null, or an empty array.
-Hold 2 and purpose 1 need the emergency marker.
-Without the emergency marker, a pod with hold 2, with the owner 2, or with purpose 1 gives `invalid_state`.
+A pod with hold 2 or purpose 1 needs an emergency record.
 
-The fault marker `faultContract` `fault-v1` is also only in the saved project, with the `faults` settings, and it needs the incident marker.
-With it, the file can have `simulation.faults`, with these members:
+The restore refuses these saves before either tier, because no code can release their holds:
+
+- A pod with a refuge.
+- A pod with an empty recovery that the emergency hold owns.
+- A demo save with a hold, a purpose, an owner, or an interrupt on a pod, or with `simulation.faults` or `simulation.emergencies`.
+  A save is a demo save when it has `simulation.demo`, or when it has more pods than its fleet.
+
+Each of these saves gets `invalid_state`.
+
+The file can have `simulation.faults`, with these members:
 
 - `records`: the active faults, in the order of the fault serial.
   A pod fault is `[generation, serial, start, end, 0, pod]`, and debris is `[generation, serial, start, end, 1, lane, from, to]`.
@@ -318,11 +322,9 @@ With it, the file can have `simulation.faults`, with these members:
 
 The file omits `simulation.faults` when no fault is active and each counter is 0.
 It omits an empty `records` and each counter at 0.
-The file must not have a null fault member.
-Without the marker, the file must not have `simulation.faults`, also not null or an empty object.
+The file must not have a null fault member, or an empty `simulation.faults`.
 
-The emergency marker `emergencyContract` `emergency-v1` is also only in the saved project, with the `emergencies` settings, and it needs the incident marker.
-With it, the file can have `simulation.emergencies`, with these members:
+The file can have `simulation.emergencies`, with these members:
 
 - `records`: the active emergencies, in the order of the incident serial.
   An emergency is `[generation, serial, start, pod, order]`.
@@ -334,31 +336,31 @@ The file omits `simulation.emergencies` when no emergency is active and each cou
 It omits an empty `records`, each counter at 0, and `counters` when each counter is 0.
 The file must not have a null emergency member, or a `simulation.emergencies` with no record and with each counter at 0.
 Each record must have exactly 5 numbers.
-Without the marker, the file must not have `simulation.emergencies`, also not null or an empty object.
 
 The order text of each queued order and each rider is canonical base64 text, for each project kind.
 The file has no `textEncoding` member.
 Each saved version stores a version 1 project.
 A saved project of version 2 through 5 gets reason `invalid_state`, as other bad saves do.
-An intact file of version 1 through 8, or of version 10 or later, gets reason `unsupported_version`.
+An intact file of version 1 through 9, or of version 11 or later, gets reason `unsupported_version`.
 The server moves it aside and starts a new session.
 It does not migrate the file.
 A damaged or invalid file gets `invalid_state`, and the server moves it aside and starts a new session.
 Examples are a gzip error, a JSON syntax error, a file over a scan limit, a header member of the wrong type, a missing, null, zero, or negative version, a value that the decoder refuses, and a restore that fails.
 Until the first release, the removal of a member keeps the version.
-Thus a version 9 file with a member of the removed physical coupling feature, for example `couplingContract` or `simulation.couplingGroups`, has an unknown member and gets `invalid_state`.
-Likewise, a version 9 file with a member of the removed station buffer or compact queue feature has an unknown member and gets `invalid_state`.
+Thus a version 10 file with a member of the removed physical coupling feature, for example `couplingContract` or `simulation.couplingGroups`, has an unknown member and gets `invalid_state`.
+Likewise, a version 10 file with a member of the removed station buffer or compact queue feature has an unknown member and gets `invalid_state`.
+A version 10 file with `incidentContract`, `faultContract`, or `emergencyContract` also has an unknown member and gets `invalid_state`.
 Examples are `stationBuffered` or `compactQueue` on a pod, and `stationBuffers` or `stationQueueSpacing` in the embedded project.
 A project file with `stationBuffers` or `stationQueueSpacing` also fails as an unknown member.
 Until the first release, a narrower set of accepted values also keeps the version.
-Each integer of a version 9 file must be from -9007199254740991 to 9007199254740991, which is 2^53-1, as in the [protocol](protocol.md#shared-state-stream).
+Each integer of a version 10 file must be from -9007199254740991 to 9007199254740991, which is 2^53-1, as in the [protocol](protocol.md#shared-state-stream).
 The demand `seed` is the only exception.
 The scan that checks the integers comes after the version check, so an intact file of another version still gets `unsupported_version`.
 Within the scan, the depth and the size checks of a value come before its integer check.
 A file with a larger integer gets `invalid_state` with the error `JSON integer is out of range`.
 A saved revision, project revision, or generation of 2^53-1 also gets `invalid_state`, because the restore adds 1 to it.
 After that check, a saved last save point of 2^53-1 gets `invalid_state` with the error `last save point ... is at the largest value`, because the next save point adds 1 to it.
-Each ID of a version 9 file has only the characters A-Z, a-z, 0-9, `.`, `+`, and `-`.
+Each ID of a version 10 file has only the characters A-Z, a-z, 0-9, `.`, `+`, and `-`.
 Each name and each dispatch reason is UTF-8 text without a control character, which is a C0 character, DEL, or a C1 character.
 After the length check of the epoch, an epoch with another character gets `invalid_state` with the error `epoch ... has a character other than A-Z, a-z, 0-9, '.', '+' or '-'`.
 After the length check of a client ID, a client ID with another character gets the error `client ... has a character other than A-Z, a-z, 0-9, '.', '+' or '-'`.
@@ -383,7 +385,7 @@ Then the party of the record must be aboard the pod, and `interrupt` must name o
 A pod with a record and purpose 2 or 3 must have no party aboard.
 Bank-inconsistent retained routes reject restoration before either tier.
 See [independent station banks](station-banks.md) for bank membership, routing, and browser editing.
-The optional network member `maneuverGroups` of the [compact bays](../README.md#compact-bays) keeps the save version 9, the stream version 7, and the HTTP state `state-6`.
+The optional network member `maneuverGroups` of the [compact bays](../README.md#compact-bays) keeps the save version 10, the stream version 8, and the HTTP state `state-7`.
 A network without groups writes the same bytes as before.
 The optional network member `depots` of the [parking depots](../README.md#parking-depots) and the optional pod member `parkedSince` also keep these versions.
 A file writes `parkedSince` only for a pod that is idle at a depot slot or moves up in one depot lane, so a network without depots writes the same bytes as before.
@@ -396,7 +398,7 @@ A pod that the tier must move takes a slot only when no pod of that lane moves, 
 Its parked tick is then the saved tick.
 The file does not keep the 1 second stop at a change of the reverse flag.
 Thus a pod that was in this stop stops for the full second again after a restore.
-An older server rejects version 9 with `unsupported_version` and moves the file aside.
+An older server rejects version 10 with `unsupported_version` and moves the file aside.
 Keep a copy before a downgrade.
 
 Portable project version 1 accepts an optional `pickupReassignment` Boolean setting.
@@ -491,16 +493,14 @@ To start a new session:
 
 ## Faults
 
-Faults are off by default.
-A project turns them on with the fault marker and the `faults` settings, for example:
+Faults are on in each session, except during the traffic demo.
+A project can set the optional `faults` member, for example:
 
 ```json
-"incidentContract": "incident-v1",
-"faultContract": "fault-v1",
 "faults": {"evacuationSeconds": 300}
 ```
 
-Each member of `faults` is optional:
+Each member of `faults` is optional, and an absent `faults` member gives the same values as `{}`:
 
 | Member | Value | Default |
 | --- | --- | --- |
@@ -519,17 +519,13 @@ Each value is an integer from 1 to 86,400 seconds.
 `minSeconds` must be at most `maxSeconds`, and `meanSeconds` must be from `minSeconds` to `maxSeconds`.
 A member of another kind is refused.
 
-Validation also refuses these projects:
+Validation also refuses a null value at any level of `faults`.
+A project with `incidentContract`, `faultContract`, or `emergencyContract` has an unknown member.
 
-- A project with the fault marker and without the incident marker or without `faults`.
-- A project with `faults` and without the fault marker, also with null or an empty object.
-- A fault marker other than `fault-v1`, also null or an empty text.
-- A null value at any level of `faults`.
-
-The size limit of 32 MiB counts `faults` at its widest value.
-The editor has no control for the fault marker and `faults`, and it keeps them in a loaded project.
-`cmd/compare` and the car runs of `internal/parkride` refuse a project with the incident marker, so they also refuse the fault marker.
-A change to the fault marker or to `faults` is a project change.
+The size limit of 32 MiB counts `faults` at its widest value, for each project.
+The editor has no control for `faults`, and it keeps them in a loaded project.
+`cmd/compare` and the car runs of `internal/parkride` accept a project with `faults`, and they run with faults off, because they send no fault command.
+A change to `faults` is a project change.
 A project apply then replaces the fleet, and every fault ends.
 With `-project`, a saved state with other fault settings gets `project_changed`.
 
@@ -540,7 +536,7 @@ A reset ends every fault and sets the fault counters to 0, and it keeps faults o
 A save point keeps the faults and the counters, and a rewind restores them.
 
 The traffic demo runs without faults.
-The topology and the frames keep the fault marker, but a fault command gets `faults are not enabled`.
+The frames have `operationsOff`, the inspector does not show the button, and a fault command gets `faults are not enabled`.
 Faults stay off after the demo until a reset or a project apply.
 A restore of the demo fleet also keeps faults off.
 
@@ -549,16 +545,14 @@ They are not OpenTelemetry metrics.
 
 ## Emergencies
 
-Emergencies are off by default.
-A project turns them on with the emergency marker and the `emergencies` settings, for example:
+Emergencies are on in each session, except during the traffic demo.
+A project can set the optional `emergencies` member, for example:
 
 ```json
-"incidentContract": "incident-v1",
-"emergencyContract": "emergency-v1",
 "emergencies": {"perHour": 0}
 ```
 
-`emergencies` has one optional member:
+`emergencies` has one optional member, and an absent `emergencies` member gives the same value as `{}`:
 
 | Member | Value | Default |
 | --- | --- | --- |
@@ -567,18 +561,12 @@ A project turns them on with the emergency marker and the `emergencies` settings
 `perHour` is for a scenario emergency rate.
 This server has no scenario rate, so `perHour` must be 0, and only the `emergency` command starts an emergency.
 
-Validation also refuses these projects:
+Validation also refuses a null value or an unknown member in `emergencies`.
 
-- A project with the emergency marker and without the incident marker or without `emergencies`.
-- A project with `emergencies` and without the emergency marker, also with null or an empty object.
-- An emergency marker other than `emergency-v1`, also null or an empty text.
-- A null value or an unknown member in `emergencies`.
-
-The emergency marker does not need the fault marker.
-The size limit of 32 MiB counts `emergencies` at its widest value.
-The editor has no control for the emergency marker and `emergencies`, and it keeps them in a loaded project.
-`cmd/compare` and the car runs of `internal/parkride` refuse a project with the incident marker, so they also refuse the emergency marker.
-A change to the emergency marker or to `emergencies` is a project change.
+The size limit of 32 MiB counts `emergencies` at its widest value, for each project.
+The editor has no control for `emergencies`, and it keeps them in a loaded project.
+`cmd/compare` and the car runs of `internal/parkride` accept a project with `emergencies`, and they run with emergencies off, because they send no emergency command.
+A change to `emergencies` is a project change.
 A project apply then replaces the fleet, and every emergency ends.
 With `-project`, a saved state with other emergency settings gets `project_changed`.
 
@@ -590,7 +578,7 @@ A reset ends every emergency and sets the emergency counters to 0, and it keeps 
 A save point keeps the emergencies and the counters, and a rewind restores them.
 
 The traffic demo runs without emergencies.
-The topology and the frames keep the emergency marker, but the `emergency` command gets `emergencies are not enabled`.
+The frames have `operationsOff`, the inspector does not show the button, and the `emergency` command gets `emergencies are not enabled`.
 Emergencies stay off after the demo until a reset or a project apply.
 A restore of the demo fleet also keeps emergencies off.
 

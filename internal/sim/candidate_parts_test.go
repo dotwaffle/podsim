@@ -91,7 +91,7 @@ func TestCandidateRoutePartsCommitmentAndOwnership(t *testing.T) {
 	for _, noReservations := range []bool{false, true} {
 		t.Run(map[bool]string{false: "reserved-prefix", true: "zero-prefix"}[noReservations], func(t *testing.T) {
 			t.Parallel()
-			s, err := New(twoBerthMarket(), "harbor")
+			s, err := NewFleet(twoBerthMarket(), []Placement{{ID: "01", StationID: "harbor"}})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -142,7 +142,7 @@ func TestCandidateRoutePartsCommitmentAndOwnership(t *testing.T) {
 	}
 	t.Run("parking-inlet", func(t *testing.T) {
 		t.Parallel()
-		s, err := New(twoBerthMarket(), "harbor")
+		s, err := NewFleet(twoBerthMarket(), []Placement{{ID: "01", StationID: "harbor"}})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -171,7 +171,7 @@ func TestCandidateRoutePartsUnreachable(t *testing.T) {
 	network.Lanes = slices.DeleteFunc(network.Lanes, func(lane Lane) bool {
 		return lane.ID == "approach-branch"
 	})
-	s, err := New(network, "harbor")
+	s, err := NewFleet(network, []Placement{{ID: "01", StationID: "harbor"}})
 	if err != nil {
 		t.Fatal(err)
 	}

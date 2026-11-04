@@ -13,28 +13,31 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-// emergencyProject returns the default project with the incident marker,
-// the emergency marker, and emergencies.
+// emergenciesReserve returns the bytes that the widest emergencies settings
+// add to a project without an emergencies member.
+func emergenciesReserve(t *testing.T) int {
+	t.Helper()
+	return len(`"emergencies":,`) + len(canonicalJSON(t, widestEmergencies))
+}
+
+// emergencyProject returns the default project with emergencies.
 func emergencyProject(emergencies EmergencyConfig) Config {
 	config := Default()
-	config.IncidentContract = sim.IncidentV1Contract
-	config.EmergencyContract = EmergencyV1Contract
 	config.Emergencies = &emergencies
 	return config
 }
 
-// TestEmergencyMarkerRoundTrip checks that the emergency marker and the
-// emergencies settings survive a project round trip, that an absent rate
-// stays absent, and that a project without the marker has no emergency
-// member.
-func TestEmergencyMarkerRoundTrip(t *testing.T) {
+// TestEmergenciesRoundTrip checks that the emergencies settings survive a
+// project round trip, that an absent rate stays absent, and that a project
+// without emergencies has no emergency member.
+func TestEmergenciesRoundTrip(t *testing.T) {
 	t.Parallel()
 	plain, err := jsonv2.Marshal(Default(), json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}
 	if bytes.Contains(plain, []byte("emergenc")) {
-		t.Fatal("unmarked project has an emergency member")
+		t.Fatal("a project without emergencies has an emergency member")
 	}
 	for name, test := range map[string]struct {
 		emergencies EmergencyConfig
@@ -54,7 +57,7 @@ func TestEmergencyMarkerRoundTrip(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !bytes.Contains(raw, []byte(`"emergencyContract":"emergency-v1"`)) || !bytes.Contains(raw, []byte(test.encoded)) {
+			if !bytes.Contains(raw, []byte(test.encoded)) {
 				t.Fatalf("members missing: %s", raw)
 			}
 			var got Config
@@ -68,21 +71,19 @@ func TestEmergencyMarkerRoundTrip(t *testing.T) {
 	}
 }
 
-// TestEmergencyMarkerDecodeRefusals checks the raw rules of the emergency
-// marker and of emergencies. The decoder refuses a marker other than
-// emergency-v1, also null and empty text. It refuses emergencies that are
-// null or that are not an object, emergencies without the marker, also as
-// {}, a null member, an unknown member, a member of the wrong type, and a
-// rate above 0. A failed decode does not change the project. The control
-// members decode, also with the fault marker and without it.
-func TestEmergencyMarkerDecodeRefusals(t *testing.T) {
+// TestEmergenciesDecodeRefusals checks the raw rules of emergencies. The
+// decoder refuses emergencies that are null or that are not an object, a
+// null member, an unknown member, a member of the wrong type, and a rate
+// above 0. A failed decode does not change the project. The control members
+// decode, also with faults and without them.
+func TestEmergenciesDecodeRefusals(t *testing.T) {
 	t.Parallel()
-	const marked = `,"incidentContract":"incident-v1","emergencyContract":"emergency-v1"`
 	for _, extra := range []string{
-		marked + `,"emergencies":{}`,
-		marked + `,"emergencies":{"perHour":0}`,
-		marked + `,"emergencies":{"perHour":-0}`,
-		marked + `,"faultContract":"fault-v1","faults":{},"emergencies":{}`,
+		``,
+		`,"emergencies":{}`,
+		`,"emergencies":{"perHour":0}`,
+		`,"emergencies":{"perHour":-0}`,
+		`,"faults":{},"emergencies":{}`,
 	} {
 		var got Config
 		if err := jsonv2.Unmarshal(rawProject(t, extra), &got, json.DefaultOptionsV1()); err != nil {
@@ -90,28 +91,15 @@ func TestEmergencyMarkerDecodeRefusals(t *testing.T) {
 		}
 	}
 	for _, extra := range []string{
-		`,"incidentContract":"incident-v1","emergencyContract":null,"emergencies":{}`,
-		`,"incidentContract":"incident-v1","emergencyContract":"","emergencies":{}`,
-		`,"incidentContract":"incident-v1","emergencyContract":"emergency-v2","emergencies":{}`,
-		`,"incidentContract":"incident-v1","emergencyContract":"Emergency-v1","emergencies":{}`,
-		`,"incidentContract":"incident-v1","emergencyContract":1,"emergencies":{}`,
-		`,"emergencyContract":null`,
-		`,"emergencyContract":""`,
-		`,"incidentContract":"incident-v1","emergencyContract":null`,
-		`,"emergencyContract":"emergency-v1","emergencies":{}`,
-		marked,
-		marked + `,"emergencies":null`,
-		marked + `,"emergencies":[]`,
-		marked + `,"emergencies":0`,
-		`,"incidentContract":"incident-v1","emergencies":{}`,
-		`,"incidentContract":"incident-v1","emergencies":null`,
-		`,"emergencies":{"perHour":0}`,
-		marked + `,"emergencies":{"perHour":null}`,
-		marked + `,"emergencies":{"rate":0}`,
-		marked + `,"emergencies":{"PerHour":0}`,
-		marked + `,"emergencies":{"perHour":"0"}`,
-		marked + `,"emergencies":{"perHour":1}`,
-		marked + `,"emergencies":{"perHour":-1}`,
+		`,"emergencies":null`,
+		`,"emergencies":[]`,
+		`,"emergencies":0`,
+		`,"emergencies":{"perHour":null}`,
+		`,"emergencies":{"rate":0}`,
+		`,"emergencies":{"PerHour":0}`,
+		`,"emergencies":{"perHour":"0"}`,
+		`,"emergencies":{"perHour":1}`,
+		`,"emergencies":{"perHour":-1}`,
 	} {
 		got := Default()
 		before := Clone(got)
@@ -124,43 +112,27 @@ func TestEmergencyMarkerDecodeRefusals(t *testing.T) {
 	}
 }
 
-// TestEmergencyMarkerRules checks the typed rules of the emergency marker
-// and of emergencies: the marker needs the incident marker and
-// emergencies, emergencies need the marker, the marker must be
-// emergency-v1, and the rate must be 0. The marker does not need the fault
-// marker.
-func TestEmergencyMarkerRules(t *testing.T) {
+// TestEmergencyRateRules checks the typed rule of emergencies: the rate must
+// be 0.
+func TestEmergencyRateRules(t *testing.T) {
 	t.Parallel()
-	noIncident := emergencyProject(EmergencyConfig{})
-	noIncident.IncidentContract = ""
-	noEmergencies := emergencyProject(EmergencyConfig{})
-	noEmergencies.Emergencies = nil
-	unmarked := Default()
-	unmarked.IncidentContract = sim.IncidentV1Contract
-	unmarked.Emergencies = &EmergencyConfig{}
-	unknown := emergencyProject(EmergencyConfig{})
-	unknown.EmergencyContract = "emergency-v2"
 	for name, test := range map[string]struct {
 		config Config
 		text   string
 	}{
-		"marker without the incident marker": {noIncident, "requires incidentContract"},
-		"marker without emergencies":         {noEmergencies, "requires emergencies"},
-		"emergencies without the marker":     {unmarked, "emergencies require emergencyContract"},
-		"unknown marker":                     {unknown, "emergency contract must be emergency-v1"},
-		"rate above 0":                       {emergencyProject(EmergencyConfig{PerHour: new(math.SmallestNonzeroFloat64)}), "perHour must be 0"},
-		"negative rate":                      {emergencyProject(EmergencyConfig{PerHour: new(-1.0)}), "perHour must be 0"},
-		"rate not a number":                  {emergencyProject(EmergencyConfig{PerHour: new(math.NaN())}), "perHour must be 0"},
+		"rate above 0":      {emergencyProject(EmergencyConfig{PerHour: new(math.SmallestNonzeroFloat64)}), "perHour must be 0"},
+		"negative rate":     {emergencyProject(EmergencyConfig{PerHour: new(-1.0)}), "perHour must be 0"},
+		"rate not a number": {emergencyProject(EmergencyConfig{PerHour: new(math.NaN())}), "perHour must be 0"},
 	} {
 		if err := Validate(test.config); err == nil || !strings.Contains(err.Error(), test.text) {
 			t.Errorf("%s: Validate error %v, want %q", name, err, test.text)
 		}
 	}
 	both := emergencyProject(EmergencyConfig{PerHour: new(math.Copysign(0, -1))})
-	both.FaultContract, both.Faults = FaultV1Contract, &FaultConfig{}
-	for _, config := range []Config{emergencyProject(EmergencyConfig{PerHour: new(0.0)}), both} {
+	both.Faults = &FaultConfig{}
+	for _, config := range []Config{emergencyProject(EmergencyConfig{}), emergencyProject(EmergencyConfig{PerHour: new(0.0)}), both} {
 		if err := Validate(config); err != nil {
-			t.Errorf("Validate refused a valid marked project: %v", err)
+			t.Errorf("Validate refused a valid project: %v", err)
 		}
 	}
 }
@@ -185,8 +157,7 @@ func TestWidestEmergenciesBoundsEachValue(t *testing.T) {
 }
 
 // TestValidateMeasuresWidestEmergencies checks that Validate measures a
-// project with the emergency marker with the widest emergencies settings.
-// Thus a change of the settings to any valid value keeps the project in
+// project with the widest emergencies settings. Thus a change of the settings to any valid value keeps the project in
 // MaxFileBytes.
 func TestValidateMeasuresWidestEmergencies(t *testing.T) {
 	t.Parallel()
@@ -194,16 +165,16 @@ func TestValidateMeasuresWidestEmergencies(t *testing.T) {
 	if reserve <= 0 {
 		t.Fatalf("the widest emergencies reserve %d bytes", reserve)
 	}
-	limit := MaxFileBytes - demandReserve(t) - reserve
-	marked := func(size int) Config {
+	limit := MaxFileBytes - demandReserve(t) - reserve - faultsReserve(t)
+	project := func(size int) Config {
 		config := weightedProject()
-		config.IncidentContract, config.EmergencyContract, config.Emergencies = sim.IncidentV1Contract, EmergencyV1Contract, &EmergencyConfig{}
+		config.Emergencies = &EmergencyConfig{}
 		return withEncodedSize(t, config, size)
 	}
-	if err := Validate(marked(limit)); err != nil {
+	if err := Validate(project(limit)); err != nil {
 		t.Fatalf("project at the limit: %v", err)
 	}
-	if err := Validate(marked(limit + 1)); !errors.Is(err, errTooLarge) {
+	if err := Validate(project(limit + 1)); !errors.Is(err, errTooLarge) {
 		t.Fatalf("project one byte past the limit: %v, want %v", err, errTooLarge)
 	}
 }
@@ -224,34 +195,31 @@ func TestCloneDetachesEmergencies(t *testing.T) {
 	}
 }
 
-// TestConfigureEmergencies checks that ConfigureExperiments turns
-// emergencies on for a project with the emergency marker, also with the
-// fault marker, and off for a project without it. Pod 01 boards a rider
-// at Harbor, and then an emergency command starts or is refused. While a
-// record is active, ConfigureExperiments refuses a project without the
-// marker.
+// TestConfigureEmergencies checks that the operations argument of
+// ConfigureExperiments turns emergencies on or off, whatever the settings of
+// the project. Pod 01 boards a rider at Harbor, and then an emergency
+// command starts or is refused. While a record is active,
+// ConfigureExperiments refuses to turn the operations off.
 func TestConfigureEmergencies(t *testing.T) {
 	t.Parallel()
-	incident := Default()
-	incident.IncidentContract = sim.IncidentV1Contract
 	both := emergencyProject(EmergencyConfig{})
-	both.FaultContract, both.Faults = FaultV1Contract, &FaultConfig{}
+	both.Faults = &FaultConfig{}
 	for name, test := range map[string]struct {
 		config Config
 		on     bool
 	}{
-		"unmarked":        {Default(), false},
-		"incident marker": {incident, false},
-		"marked":          {emergencyProject(EmergencyConfig{}), true},
-		"with faults":     {both, true},
+		"operations off":   {both, false},
+		"no settings":      {Default(), true},
+		"with emergencies": {emergencyProject(EmergencyConfig{}), true},
+		"with faults":      {both, true},
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			simulation, err := sim.NewFleetWithContracts(test.config.Network, test.config.Fleet, sim.FleetContracts{IncidentContract: test.config.IncidentContract})
+			simulation, err := sim.NewFleet(test.config.Network, test.config.Fleet)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err = ConfigureExperiments(simulation, test.config); err != nil {
+			if err = ConfigureExperiments(simulation, test.config, test.on); err != nil {
 				t.Fatal(err)
 			}
 			if err = simulation.RequestJourney("01", "market"); err != nil {
@@ -270,7 +238,7 @@ func TestConfigureEmergencies(t *testing.T) {
 			if !test.on {
 				return
 			}
-			if err = ConfigureExperiments(simulation, incident); err == nil {
+			if err = ConfigureExperiments(simulation, test.config, false); err == nil {
 				t.Fatal("ConfigureExperiments turned emergencies off with an active record")
 			}
 		})

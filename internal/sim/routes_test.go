@@ -10,7 +10,7 @@ import (
 
 func TestCachedRoutesMatchNetwork(t *testing.T) {
 	t.Parallel()
-	simulation, err := New(Example(), "harbor")
+	simulation, err := NewFleet(Example(), []Placement{{ID: "01", StationID: "harbor"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -39,7 +39,7 @@ func TestCachedRoutesMatchNetwork(t *testing.T) {
 
 func TestRouteCacheCapacity(t *testing.T) {
 	t.Parallel()
-	simulation, err := New(Example(), "harbor")
+	simulation, err := NewFleet(Example(), []Placement{{ID: "01", StationID: "harbor"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,7 +59,7 @@ func TestRouteCacheCapacity(t *testing.T) {
 
 func TestRouteCacheEvictsOldestEntry(t *testing.T) {
 	t.Parallel()
-	simulation, err := New(Example(), "harbor")
+	simulation, err := NewFleet(Example(), []Placement{{ID: "01", StationID: "harbor"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,7 +85,7 @@ func TestRouteCacheEvictsOldestEntry(t *testing.T) {
 func TestStationRoutesFillRouteCache(t *testing.T) {
 	t.Parallel()
 	for _, congestion := range []bool{false, true} {
-		simulation, err := New(ladderNetwork(), "harbor")
+		simulation, err := NewFleet(ladderNetwork(), []Placement{{ID: "01", StationID: "harbor"}})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -187,7 +187,7 @@ func TestRouteLengthsFollowTerminalBerthChoice(t *testing.T) {
 
 func TestRouteSecondsWithLengths(t *testing.T) {
 	t.Parallel()
-	s, err := New(curvedExample(), "harbor")
+	s, err := NewFleet(curvedExample(), []Placement{{ID: "01", StationID: "harbor"}})
 	if err != nil {
 		t.Fatal(err)
 	}

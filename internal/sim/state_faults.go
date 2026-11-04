@@ -7,7 +7,7 @@ import (
 )
 
 // SavedFaults holds the fault records and the fault counters of a saved
-// state. They need the fault marker.
+// state. They need the fault switch.
 type SavedFaults struct {
 	// Records holds the active records in serial order.
 	Records  []SavedFault  `json:"records,omitempty"`
@@ -73,27 +73,23 @@ func (c FaultCounters) counters() faultCounters {
 // checkSavedFaults checks the saved fault records and counters before
 // either restore tier, with the rules of section 13.5 of the incident
 // suspension contract that do not need the network. Records and counters
-// need the fault marker, and the marker needs the incident marker. The
-// records are in strictly increasing serial order up to the saved serial,
+// need the fault switch. The records are in strictly increasing serial order up to the saved serial,
 // and at most maxDebrisFaults are debris. Each start is from 0 to the
 // saved tick, each end is 0 or after its start, and each evacuation tick
 // fits in int64. A pod record names a saved pod with the fault hold, at
 // most one record names a pod, and the pod is a supported target: no
 // platoon leader or follower (invariant F2). A save of the traffic demo
-// has no record, because the demo project has no fault marker (section
+// has no record, because the demo fleet has the operations off (section
 // 12.7). The logical tier
 // drops the demo and the records, so only this check refuses such a save.
 // Each failure makes the save invalid.
 func checkSavedFaults(input RestoreStateInput) error {
-	if err := ValidateFaultContracts(input.FaultContract, input.IncidentContract); err != nil {
-		return err
-	}
 	saved := input.State.Faults
 	if saved == nil {
 		return nil
 	}
-	if input.FaultContract == "" {
-		return errors.New("saved faults need the fault contract")
+	if !input.FaultsOn {
+		return errors.New("saved faults need faults on")
 	}
 	counters := saved.Counters
 	if counters.Started < 0 || counters.Cleared < 0 || counters.Evacuations < 0 || counters.Reroutes < 0 || counters.FaultWaitTicks < 0 {
@@ -150,13 +146,12 @@ func checkSavedFaults(input RestoreStateInput) error {
 	return nil
 }
 
-// setFaultContract gives a restored simulation the fault marker of input.
-// With the marker, the fault operations are on with the settings of input.
-// The session turns them off again for the fleet of the traffic demo, which
-// has no record.
-func (s *Simulation) setFaultContract(input RestoreStateInput) error {
-	s.faultContract = input.FaultContract
-	if input.FaultContract == "" {
+// setRestoredFaults gives a restored simulation the fault switch of input.
+// With the switch on, the fault operations are on with the settings of
+// input. The session turns them off again for the fleet of the traffic
+// demo, which has no record.
+func (s *Simulation) setRestoredFaults(input RestoreStateInput) error {
+	if !input.FaultsOn {
 		return nil
 	}
 	return s.SetFaults(true, input.Faults)
@@ -319,7 +314,7 @@ func (r *physicalRestore) restoreFaultedPods() error {
 // loses the fault hold: the tier puts each pod at its initial berth with
 // no purpose. It returns the number of records that ended.
 func (s *Simulation) dropSavedFaults(saved *SavedFaults) int {
-	if s.faultContract != "" {
+	if s.faultsOn {
 		for index := range s.vehicles {
 			s.vehicles[index].withdrawn &^= faultHold
 		}

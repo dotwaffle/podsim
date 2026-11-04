@@ -31,7 +31,6 @@ func surrenderQueue(t *testing.T) (s *Simulation, head, behind *vehicle, release
 	if err != nil {
 		t.Fatal(err)
 	}
-	s.incidentContract = IncidentV1Contract
 	s.faultsOn = true
 	barriers := []resource{{kind: berthResource, id: "market-1"}, {kind: trackResource, id: "market-in"}}
 	for _, barrier := range barriers {
@@ -112,7 +111,7 @@ func TestClaimSurrenderTwoPodsOneBerth(t *testing.T) {
 	}
 	s.faultsOn = false
 	if s.incidentOutstanding() {
-		t.Fatal("the gate is on without the fault marker")
+		t.Fatal("the gate is on with faults off")
 	}
 	s.faultsOn = true
 	stepUntil(t, s, "the head at the berth", func() bool { return head.Pod.BerthID == "market-1" })

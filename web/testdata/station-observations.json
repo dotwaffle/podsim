@@ -5,7 +5,6 @@
       "name": "queued",
       "envelope": {
         "topology": {
-          "incidentContract": "incident-v1",
           "projectVersion": 1,
           "serverStart": "station-fixture-server",
           "epoch": "station-fixture-epoch",
@@ -388,7 +387,6 @@
             "generation": 2,
             "redistribution": false,
             "simulation": {
-              "incidentContract": "incident-v1",
               "submitted": 2,
               "tick": 0,
               "paused": false,
@@ -588,7 +586,6 @@
       "name": "empty-queue",
       "envelope": {
         "topology": {
-          "incidentContract": "incident-v1",
           "projectVersion": 1,
           "serverStart": "station-fixture-server",
           "epoch": "station-fixture-epoch",
@@ -971,7 +968,6 @@
             "generation": 2,
             "redistribution": false,
             "simulation": {
-              "incidentContract": "incident-v1",
               "submitted": 0,
               "tick": 0,
               "paused": false,

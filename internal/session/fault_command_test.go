@@ -8,15 +8,11 @@ import (
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/project"
-	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-// faultSessionProject returns the example project with the incident
-// marker, the fault marker, and faults.
+// faultSessionProject returns the example project with the fault settings.
 func faultSessionProject(faults project.FaultConfig) project.Config {
 	config := project.Default()
-	config.IncidentContract = sim.IncidentV1Contract
-	config.FaultContract = project.FaultV1Contract
 	config.Faults = &faults
 	return config
 }
@@ -99,10 +95,11 @@ func TestFaultCommands(t *testing.T) {
 // reach the limits and the reserved resources.
 func TestFaultCommandErrors(t *testing.T) {
 	t.Parallel()
-	unmarked := newFaultClient(t, project.Default())
-	unmarked.mustReject(t, Command{Action: "fault", PodID: "01"}, "faults are not enabled")
-	unmarked.mustReject(t, debrisCommand(), "faults are not enabled")
-	unmarked.mustReject(t, Command{Action: "clearFault", FaultID: "i1.1"}, "faults are not enabled")
+	demo := newFaultClient(t, project.Default())
+	demo.mustApply(t, Command{Action: "demo"})
+	demo.mustReject(t, Command{Action: "fault", PodID: "01"}, "faults are not enabled")
+	demo.mustReject(t, debrisCommand(), "faults are not enabled")
+	demo.mustReject(t, Command{Action: "clearFault", FaultID: "i1.1"}, "faults are not enabled")
 
 	client := newFaultClient(t, faultSessionProject(project.FaultConfig{}))
 	client.mustApply(t, Command{Action: "fault", PodID: "02"})
@@ -139,14 +136,14 @@ func TestFaultCommandErrors(t *testing.T) {
 // TestFaultSessionEvents checks the faults across the session events of
 // the incident suspension contract. A reset, a rewind, and the apply of a
 // changed project end every fault and keep faults on. The apply of the
-// same project keeps the faults. The apply of a project without the
-// marker turns faults off. A demo ends every fault, also a fault on a demo
+// same project keeps the faults. The apply of a project with no fault
+// settings keeps faults on. A demo ends every fault, also a fault on a demo
 // route, and turns faults off until a reset.
 func TestFaultSessionEvents(t *testing.T) {
 	t.Parallel()
 	config := faultSessionProject(project.FaultConfig{})
 	changed := faultSessionProject(project.FaultConfig{EvacuationSeconds: new(0)})
-	unmarked := project.Default()
+	plain := project.Default()
 	pod := Command{Action: "fault", PodID: "01"}
 	tests := []struct {
 		name  string
@@ -212,18 +209,18 @@ func TestFaultSessionEvents(t *testing.T) {
 		client.mustApply(t, debrisCommand())
 		client.mustApply(t, pod)
 	})
-	t.Run("unmarked project", func(t *testing.T) {
+	t.Run("project with no settings", func(t *testing.T) {
 		t.Parallel()
 		client := newFaultClient(t, config)
+		id := client.mustApply(t, Command{Action: "fault", PodID: "01"}).FaultID
+		client.mustApply(t, Command{Action: "project", ProjectRevision: client.session.Project().Revision, Project: &plain})
+		client.mustReject(t, Command{Action: "clearFault", FaultID: id}, "unknown fault")
 		client.mustApply(t, Command{Action: "fault", PodID: "01"})
-		client.mustApply(t, Command{Action: "project", ProjectRevision: client.session.Project().Revision, Project: &unmarked})
-		client.mustReject(t, Command{Action: "fault", PodID: "01"}, "faults are not enabled")
 	})
 }
 
 // TestFaultRestoreKeepsFaultsOn checks that a session restored from a save
-// of a project with the fault marker has faults on, also when the save has
-// an active fault.
+// has faults on, also when the save has an active fault.
 func TestFaultRestoreKeepsFaultsOn(t *testing.T) {
 	t.Parallel()
 	for _, active := range []bool{false, true} {

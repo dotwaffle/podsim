@@ -97,7 +97,7 @@ func NewRun(input RunInput) (*Run, error) {
 	if platoonErr := project.ConfigurePlatoons(pods, config); platoonErr != nil {
 		return nil, platoonErr
 	}
-	if experimentErr := project.ConfigureExperiments(pods, config); experimentErr != nil {
+	if experimentErr := project.ConfigureExperiments(pods, config, false); experimentErr != nil {
 		return nil, experimentErr
 	}
 	weights := make(map[string]float64)

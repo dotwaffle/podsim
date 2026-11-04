@@ -24,12 +24,12 @@ func boardParty(vehicle *sim.Vehicle) {
 	vehicle.Riders = []sim.Request{{ID: 7, From: "station-01", To: "station-02", PartySize: 2}}
 }
 
-// emergencyTestGame returns a connected game with three pods and the
-// emergency marker. The second pod is selected and carries a party.
+// emergencyTestGame returns a connected game with three pods. The second pod
+// is selected and carries a party.
 func emergencyTestGame(t *testing.T) *Game {
 	t.Helper()
 	game := journeyTestGame(t, 2)
-	game.state.Simulation.EmergencyContract = sim.EmergencyV1Contract
+	game.state.Simulation.OperationsOff = false
 	game.state.Simulation.Vehicles = []sim.Vehicle{{Pod: sim.Pod{ID: "pod-a"}}, {Pod: sim.Pod{ID: "pod-b"}}, {Pod: sim.Pod{ID: "pod-c"}}}
 	boardParty(&game.state.Simulation.Vehicles[0])
 	boardParty(&game.state.Simulation.Vehicles[1])
@@ -39,7 +39,7 @@ func emergencyTestGame(t *testing.T) *Game {
 
 // TestEmergencyButton checks when the pod inspector shows the emergency
 // button, and its target and its state. The button shows only with the
-// emergency marker, while the inspector shows, on a pod that carries a
+// operations on, while the inspector shows, on a pod that carries a
 // party by the rule of the emergency command, and without an emergency of
 // that pod. A pause does not disable it: the server accepts the command in
 // a paused session.
@@ -55,7 +55,7 @@ func TestEmergencyButton(t *testing.T) {
 		wantShown    bool
 		wantDisabled bool
 	}{
-		{name: "no emergency marker", change: func(g *Game) { g.state.Simulation.EmergencyContract = "" }},
+		{name: "operations off", change: func(g *Game) { g.state.Simulation.OperationsOff = true }},
 		{name: "orders panel", change: func(g *Game) { g.showOrders = true }},
 		{name: "demand panel", change: func(g *Game) { g.showDemand = true }},
 		{name: "no pods", change: func(g *Game) { g.state.Simulation.Vehicles, g.selected = nil, 0 }},
@@ -126,8 +126,8 @@ func TestEmergencyCommand(t *testing.T) {
 	}
 }
 
-// TestEmergencyButtonFits checks in each layout, with the fault marker and
-// the emergency marker, that the label of the emergency button fits in it
+// TestEmergencyButtonFits checks in each layout, with the fault button and
+// the emergency button, that the label of the emergency button fits in it
 // and that it is inside the right panel. The button must not overlap an
 // activity label, the fault button, a full status line, a full journey
 // line, or another control.
@@ -145,8 +145,6 @@ func TestEmergencyButtonFits(t *testing.T) {
 		t.Run(layout.name, func(t *testing.T) {
 			t.Parallel()
 			game := controlTestGame(t, layout.input)
-			game.state.Simulation.FaultContract = sim.FaultV1Contract
-			game.state.Simulation.EmergencyContract = sim.EmergencyV1Contract
 			boardParty(&game.state.Simulation.Vehicles[game.selected])
 			lines := []label{
 				{x: inspectionLeft, y: 151, size: 13, value: game.fitText(long, 13, inspectionRight-inspectionLeft)},
@@ -190,11 +188,9 @@ func TestEmergencyButtonFits(t *testing.T) {
 	}
 }
 
-// emergencyProject returns the default project with the emergency marker.
+// emergencyProject returns the default project with emergency settings.
 func emergencyProject() project.Config {
 	config := project.Default()
-	config.IncidentContract = sim.IncidentV1Contract
-	config.EmergencyContract = project.EmergencyV1Contract
 	config.Emergencies = &project.EmergencyConfig{}
 	return config
 }
@@ -288,7 +284,7 @@ func TestEmergencyClickUsesShownButton(t *testing.T) {
 func TestDrawKeepsEmergencyButton(t *testing.T) {
 	t.Parallel()
 	game := exampleTestGame(t)
-	game.state.Simulation.EmergencyContract = sim.EmergencyV1Contract
+	game.state.Simulation.OperationsOff = false
 	boardParty(&game.state.Simulation.Vehicles[0])
 	screen := ebiten.NewImage(game.layout.width, game.layout.height)
 	defer screen.Deallocate()
@@ -332,9 +328,8 @@ func sendCommand(t *testing.T, game *Game, command session.Command) {
 	game.handleResult(result)
 }
 
-// TestEmergencyButtonStartsEmergency orders a journey in a session with
-// the emergency marker, runs the clock until a pod carries the party, and
-// pauses the session. It then clicks Emergency on that pod. The command
+// TestEmergencyButtonStartsEmergency orders a journey in a session, runs
+// the clock until a pod carries the party, and pauses the session. It then clicks Emergency on that pod. The command
 // has the pod ID and no order ID, the reply has the emergency ID, and the
 // button hides when the state shows the emergency of the pod.
 func TestEmergencyButtonStartsEmergency(t *testing.T) {

@@ -40,7 +40,6 @@ type stationObservationHTTPCase struct {
 // -update-station-observations after an approved wire change alters the fixture.
 func TestStationObservationsHTTPFixture(t *testing.T) {
 	config := project.Default()
-	config.IncidentContract = sim.IncidentV1Contract
 	shared, err := NewWithProject(config)
 	if err != nil {
 		t.Fatal(err)

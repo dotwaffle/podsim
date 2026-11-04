@@ -26,10 +26,6 @@ func TestFaultDigestTrailers(t *testing.T) {
 		set   func(*Command) any
 		field string
 	}{
-		{2, func(c *Command) any {
-			c.Project.FaultContract = project.FaultV1Contract
-			return c.Project.FaultContract
-		}, "Project.FaultContract"},
 		{3, func(c *Command) any { c.Project.Faults = faults; return c.Project.Faults }, "Project.Faults"},
 		{4, func(c *Command) any { c.PodID = "01"; return c.PodID }, "PodID"},
 		{5, func(c *Command) any { c.LaneID = "bypass-in"; return c.LaneID }, "LaneID"},

@@ -262,14 +262,13 @@ func copyDecodedBranch(config *project.Config, key string, branch projectBranch)
 // serviceMetadataKeys are the branches that can hold service metadata.
 var serviceMetadataKeys = []string{"orderContract", "network", "fleet", "expressServices", "onboardPickups"}
 
-// featureKeys are the incident, fault, and emergency branches. Branch
-// decoding accepts an empty or null incident, fault, or emergency marker, a
-// null faults or emergencies value, and settings without their marker.
-var featureKeys = []string{"incidentContract", "faultContract", "faults", "emergencyContract", "emergencies"}
+// featureKeys are the fault and emergency branches. Branch decoding accepts
+// a null faults or emergencies value.
+var featureKeys = []string{"faults", "emergencies"}
 
 // metadataKeys are the branches that checkMetadataBranches decodes
 // together.
-var metadataKeys = []string{"version", "orderContract", "network", "fleet", "expressServices", "onboardPickups", "incidentContract", "faultContract", "faults", "emergencyContract", "emergencies"}
+var metadataKeys = []string{"version", "orderContract", "network", "fleet", "expressServices", "onboardPickups", "faults", "emergencies"}
 
 // metadataCheckNeeded reports whether the metadata branches need the native
 // project decoder. This is so for banks, a version other than the current
@@ -326,14 +325,8 @@ func copyBranch(dst *project.Config, key string, src project.Config) bool {
 		dst.Version = src.Version
 	case "orderContract":
 		dst.OrderContract = src.OrderContract
-	case "incidentContract":
-		dst.IncidentContract = src.IncidentContract
-	case "faultContract":
-		dst.FaultContract = src.FaultContract
 	case "faults":
 		dst.Faults = src.Faults
-	case "emergencyContract":
-		dst.EmergencyContract = src.EmergencyContract
 	case "emergencies":
 		dst.Emergencies = src.Emergencies
 	case "name":

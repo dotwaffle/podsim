@@ -18,27 +18,17 @@ import (
 )
 
 // faultStreamFrames returns the topology and two frames of a paused
-// session of the example project. With marked, the session has the fault
-// marker, and the second frame has a pod fault on 01 with an end and a
-// debris record without one. Without it, the session has the incident
-// marker only, and the frames differ in their revision.
-func faultStreamFrames(t *testing.T, marked bool) (TopologySnapshot, StreamFrame, StreamFrame) {
+// session of the example project. The second frame has a pod fault on 01
+// with an end and a debris record without one.
+func faultStreamFrames(t *testing.T) (TopologySnapshot, StreamFrame, StreamFrame) {
 	t.Helper()
-	config := markedProject()
-	if marked {
-		config = faultSessionProject(project.FaultConfig{})
-	}
-	client := newFaultClient(t, config)
+	client := newFaultClient(t, project.Default())
 	base, err := client.session.presentationFrame()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if marked {
-		client.mustApply(t, Command{Action: "fault", PodID: "01", DurationSeconds: new(int64(600))})
-		client.mustApply(t, debrisCommand())
-	} else {
-		client.mustApply(t, Command{Action: "pause", Paused: false})
-	}
+	client.mustApply(t, Command{Action: "fault", PodID: "01", DurationSeconds: new(int64(600))})
+	client.mustApply(t, debrisCommand())
 	next, err := client.session.presentationFrame()
 	if err != nil {
 		t.Fatal(err)
@@ -81,10 +71,7 @@ func applyFaultJSON(topology TopologySnapshot, base StreamFrame, raw []byte) (St
 // without endTick is accepted.
 func TestFaultStreamMembers(t *testing.T) {
 	t.Parallel()
-	topology, base, next := faultStreamFrames(t, true)
-	if topology.FaultContract != sim.FaultV1Contract || next.State.Simulation.FaultContract != sim.FaultV1Contract {
-		t.Fatalf("markers %q %q", topology.FaultContract, next.State.Simulation.FaultContract)
-	}
+	topology, base, next := faultStreamFrames(t)
 	want := next.State.Simulation.Faults
 	if len(want.Active) != 2 || want.Active[0].EndTick == 0 || want.Active[1].EndTick != 0 || want.Counters.Started != 2 {
 		t.Fatalf("faults %+v", want)
@@ -114,110 +101,106 @@ func TestFaultStreamMembers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := stateFrame(state).Simulation; got.FaultContract != sim.FaultV1Contract || !reflect.DeepEqual(got.Faults, want) {
-		t.Fatalf("HTTP state gives %q %+v", got.FaultContract, got.Faults)
+	if got := stateFrame(state).Simulation; !reflect.DeepEqual(got.Faults, want) {
+		t.Fatalf("HTTP state gives %+v", got.Faults)
 	}
 }
 
-// TestFaultStreamNeedsMarker checks that each stage 2 member without the
-// marker is refused, also as null, {}, and [], in a full frame, a delta
-// group, and an HTTP state (sections 13.1 and 16.3 of the incident
-// suspension contract). With the marker, an empty value is accepted where
-// the shape allows it, and null is refused.
-func TestFaultStreamNeedsMarker(t *testing.T) {
+// TestFaultStreamValues checks the raw stage 2 values in a full frame, a
+// delta group, and an HTTP state, with the operations on and off. The
+// scans refuse null with the operations on or off. With the operations off,
+// only a full-frame value that decodes to the zero value passes, because the
+// rule reads typed values, and each delta group is refused. A name of a
+// removed marker is an unknown member with each value.
+func TestFaultStreamValues(t *testing.T) {
 	t.Parallel()
 	edits := []struct {
 		name, kind, insert string
-		// valid is true when the edit is valid with the marker.
-		valid bool
+		validOn, validOff  bool
 	}{
-		{"faults null", "full", `"faults":null,`, false},
-		{"faults empty object", "full", `"faults":{},`, true},
-		{"faults empty array", "full", `"faults":[],`, false},
-		{"faults zero", "full", `"faults":0,`, false},
-		{"active null", "full", `"faults":{"active":null},`, false},
-		{"active empty", "full", `"faults":{"active":[]},`, true},
-		{"counter null", "full", `"faults":{"counters":{"started":null}},`, false},
-		{"marker null", "full", `"faultContract":null,`, false},
-		{"marker empty", "full", `"faultContract":"",`, false},
-		{"group null", "delta", `"faults":null,`, false},
-		{"group empty", "delta", `"faults":{},`, true},
-		{"group empty array", "delta", `"faults":[],`, false},
-		{"group counters null", "delta", `"faults":{"counters":null},`, false},
+		{"faults null", "full", `"faults":null,`, false, false},
+		{"faults empty object", "full", `"faults":{},`, true, true},
+		{"faults empty array", "full", `"faults":[],`, false, false},
+		{"faults zero", "full", `"faults":0,`, false, false},
+		{"active null", "full", `"faults":{"active":null},`, false, false},
+		{"active empty", "full", `"faults":{"active":[]},`, true, false},
+		{"counter null", "full", `"faults":{"counters":{"started":null}},`, false, false},
+		{"counter", "full", `"faults":{"counters":{"started":1}},`, true, false},
+		{"marker null", "full", `"faultContract":null,`, false, false},
+		{"marker empty", "full", `"faultContract":"",`, false, false},
+		{"marker old value", "full", `"faultContract":"fault-v1",`, false, false},
+		{"group null", "delta", `"faults":null,`, false, false},
+		{"group empty", "delta", `"faults":{},`, true, false},
+		{"group empty array", "delta", `"faults":[],`, false, false},
+		{"group counters null", "delta", `"faults":{"counters":null},`, false, false},
 	}
 	at := map[string]string{"full": `"simulation":{`, "delta": `"groups":{`}
-	for _, marked := range []bool{false, true} {
-		config := markedProject()
-		if marked {
-			config = faultSessionProject(project.FaultConfig{})
+	for _, off := range []bool{false, true} {
+		client := newFaultClient(t, project.Default())
+		if off {
+			client.mustApply(t, Command{Action: "demo"})
 		}
-		s, err := NewWithProject(config)
-		if err != nil {
-			t.Fatal(err)
+		topology, frames := incidentFrames(t, client.session)
+		if frames[0].State.Simulation.OperationsOff != off {
+			t.Fatalf("frame operationsOff %t, want %t", frames[0].State.Simulation.OperationsOff, off)
 		}
-		t.Cleanup(s.Close)
-		topology, frames := incidentFrames(t, s)
 		raw := map[string][]byte{"full": faultEnvelopeJSON(t, frames[0], frames[1], "full"), "delta": faultEnvelopeJSON(t, frames[0], frames[1], "delta")}
 		http, err := EncodeStateJSON(topology, frames[1])
 		if err != nil {
 			t.Fatal(err)
 		}
 		for _, edit := range edits {
-			valid := marked && edit.valid
+			valid := edit.validOn
+			if off {
+				valid = edit.validOff
+			}
 			data := bytes.Replace(raw[edit.kind], []byte(at[edit.kind]), []byte(at[edit.kind]+edit.insert), 1)
 			if _, err := applyIncidentJSON(frames[0], data); (err == nil) != valid {
-				t.Errorf("marked %v, %s: error %v, want valid %v", marked, edit.name, err, valid)
+				t.Errorf("off %t, %s: error %v, want valid %t", off, edit.name, err, valid)
 			}
 			if edit.kind != "full" {
 				continue
 			}
 			data = bytes.Replace(http, []byte(at["full"]), []byte(at["full"]+edit.insert), 1)
 			if _, err := DecodeStateJSON(data); (err == nil) != valid {
-				t.Errorf("marked %v, HTTP %s: error %v, want valid %v", marked, edit.name, err, valid)
+				t.Errorf("off %t, HTTP %s: error %v, want valid %t", off, edit.name, err, valid)
 			}
 		}
-		// A fault marker in the topology of an HTTP state, or in a topology
-		// document, has the one value that the server writes, as the web
-		// check requires. An unmarked topology with null or an empty
-		// marker is not read as an unmarked topology.
+		// A marker name in the topology of an HTTP state, or in a topology
+		// document, is an unknown member with each value.
 		topologyJSON, marshalErr := jsonv2.Marshal(topology, json.DefaultOptionsV1())
 		if marshalErr != nil {
 			t.Fatal(marshalErr)
 		}
-		for _, marker := range []string{`null`, `""`, `"fault-v2"`} {
+		for _, marker := range []string{`null`, `""`, `"fault-v1"`, `"fault-v2"`} {
 			insert := []byte(`"faultContract":` + marker + `,`)
 			data := bytes.Replace(http, []byte(`"topology":{`), append([]byte(`"topology":{`), insert...), 1)
 			if _, err := DecodeStateJSON(data); err == nil {
-				t.Errorf("marked %v, HTTP topology marker %s: accepted", marked, marker)
+				t.Errorf("off %t, HTTP topology marker %s: accepted", off, marker)
 			}
 			var decoded TopologySnapshot
 			if err := jsonv2.Unmarshal(append(append([]byte(`{`), insert...), topologyJSON[1:]...), &decoded, json.DefaultOptionsV1()); err == nil {
-				t.Errorf("marked %v, topology marker %s: accepted", marked, marker)
+				t.Errorf("off %t, topology marker %s: accepted", off, marker)
 			}
 		}
 		var decoded TopologySnapshot
-		if err := jsonv2.Unmarshal(topologyJSON, &decoded, json.DefaultOptionsV1()); err != nil || decoded.FaultContract != topology.FaultContract {
-			t.Errorf("marked %v, topology control: %v", marked, err)
+		if err := jsonv2.Unmarshal(topologyJSON, &decoded, json.DefaultOptionsV1()); err != nil {
+			t.Errorf("off %t, topology control: %v", off, err)
 		}
-	}
-	// A caller builds a delta with the faults group and no decoder scan.
-	_, base, next := faultStreamFrames(t, false)
-	envelope := incidentEnvelope(t, base, next, "delta")
-	envelope.Delta.Groups["faults"] = jsontext.Value(`{}`)
-	if _, err := ApplyStream(base, "incident", 1, envelope); !errors.Is(err, errFaultStreamUnmarked) {
-		t.Fatalf("direct faults group: %v", err)
-	}
-	// With the marker, ApplyStream scans a group that a caller builds for
-	// null.
-	_, base, next = faultStreamFrames(t, true)
-	envelope = incidentEnvelope(t, base, next, "delta")
-	envelope.Delta.Groups["faults"] = jsontext.Value(`{"counters":{"started":null}}`)
-	if _, err := ApplyStream(base, "incident", 1, envelope); err == nil {
-		t.Fatal("direct faults group with a null counter")
-	}
-	envelope.Delta.Groups["faults"] = jsontext.Value(`{"counters":{"started":1}}`)
-	if _, err := ApplyStream(base, "incident", 1, envelope); err != nil {
-		t.Fatal("direct faults group:", err)
+		// A caller builds a delta group and no decoder scan runs.
+		envelope := incidentEnvelope(t, frames[0], frames[1], "delta")
+		for _, value := range []string{`{"counters":{"started":null}}`, `{"counters":{"started":1}}`} {
+			envelope.Delta.Groups["faults"] = jsontext.Value(value)
+			_, err := ApplyStream(frames[0], "incident", 1, envelope)
+			switch {
+			case off && !errors.Is(err, errFaultStreamOff):
+				t.Errorf("off, direct faults group %s: %v", value, err)
+			case !off && strings.Contains(value, "null") && err == nil:
+				t.Errorf("on, direct faults group %s: accepted", value)
+			case !off && !strings.Contains(value, "null") && err != nil:
+				t.Errorf("on, direct faults group %s: %v", value, err)
+			}
+		}
 	}
 }
 
@@ -228,9 +211,9 @@ func TestFaultStreamNeedsMarker(t *testing.T) {
 // active fault.
 func TestFaultFrameTypedRules(t *testing.T) {
 	t.Parallel()
-	topology, base, next := faultStreamFrames(t, true)
+	topology, base, next := faultStreamFrames(t)
 	edits := map[string]func(*SimulationFrame){
-		"unmarked faults": func(frame *SimulationFrame) { frame.FaultContract = "" },
+		"operations off": func(frame *SimulationFrame) { frame.OperationsOff = true },
 		"end at the start": func(frame *SimulationFrame) {
 			frame.Tick = 5
 			fault := &frame.Faults.Active[0]
@@ -303,49 +286,6 @@ func TestFaultFrameTypedRules(t *testing.T) {
 	if err := assemble(frame); err != nil {
 		t.Fatal("a wait report of an active fault:", err)
 	}
-	// FrameState checks the markers of the topology itself.
-	topology.IncidentContract = ""
-	state := next.State
-	state.Simulation.IncidentContract = ""
-	if _, err := FrameState(topology, state); err == nil {
-		t.Fatal("FrameState accepts the fault marker without the incident marker")
-	}
-}
-
-// TestFaultMarkerBinding checks that a frame whose fault marker differs
-// from the topology marker is refused, and that the topology marker needs
-// the incident marker (section 13.1 of the incident suspension contract).
-func TestFaultMarkerBinding(t *testing.T) {
-	t.Parallel()
-	marked, _, next := faultStreamFrames(t, true)
-	unmarked := marked
-	unmarked.FaultContract = ""
-	assembler, err := NewStreamAssembler(unmarked)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, stateErr := assembler.State(next); stateErr == nil {
-		t.Fatal("an unmarked topology accepts a marked frame")
-	}
-	_, _, plain := faultStreamFrames(t, false)
-	plainTopology := marked
-	assembler, err = NewStreamAssembler(plainTopology)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := assembler.State(plain); err == nil {
-		t.Fatal("a marked topology accepts an unmarked frame")
-	}
-	for name, change := range map[string]func(*TopologySnapshot){
-		"no incident marker": func(topology *TopologySnapshot) { topology.IncidentContract = "" },
-		"unknown marker":     func(topology *TopologySnapshot) { topology.FaultContract = "fault-v2" },
-	} {
-		topology := marked
-		change(&topology)
-		if _, err := NewStreamAssembler(topology); err == nil {
-			t.Errorf("%s: the assembler accepts the topology", name)
-		}
-	}
 }
 
 // faultRecords returns the faults of frame as generic JSON values.
@@ -368,7 +308,7 @@ func faultRecords(t *testing.T, faults sim.FaultsView) map[string]any {
 // was.
 func TestFaultStreamRules(t *testing.T) {
 	t.Parallel()
-	topology, base, next := faultStreamFrames(t, true)
+	topology, base, next := faultStreamFrames(t)
 	lane, _ := topologyLane(topology, "bypass-in")
 	length := topology.Network.Length(lane)
 	active := func(value map[string]any) []any {
@@ -487,7 +427,7 @@ func topologyLane(topology TopologySnapshot, id string) (sim.Lane, bool) {
 // decode, and a gzip body that expands past the byte cap is refused.
 func TestFaultStreamArrayLimits(t *testing.T) {
 	t.Parallel()
-	topology, base, next := faultStreamFrames(t, true)
+	topology, base, next := faultStreamFrames(t)
 	encoded, err := jsonv2.Marshal(next.State.Simulation.Faults, json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)

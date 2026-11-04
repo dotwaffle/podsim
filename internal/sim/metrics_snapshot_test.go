@@ -43,7 +43,7 @@ func TestMetricsRouteContext(t *testing.T) {
 
 func TestMetricsSnapshotEqualityAndOwnership(t *testing.T) {
 	t.Parallel()
-	s, err := New(Example(), "harbor")
+	s, err := NewFleet(Example(), []Placement{{ID: "01", StationID: "harbor"}})
 	if err != nil {
 		t.Fatal(err)
 	}

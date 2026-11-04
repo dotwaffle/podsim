@@ -29,28 +29,14 @@ const (
 	savedDebrisFault = 1
 )
 
-// errFaultMemberUnmarked refuses a stage 2 member in a saved state whose
-// project has no fault marker.
-var errFaultMemberUnmarked = errors.New("saved state without the fault marker contains a fault member")
-
 // savedFaultPath is the path of the stage 2 member of a save. Each member
 // below it is also a stage 2 member.
 const savedFaultPath = "/simulation/faults"
 
-// scanSavedFaultMembers reads the tokens of a saved state. Without the
-// fault marker, it refuses the stage 2 member with any value, also null or
-// an empty object: the typed decode reads such a value as no member, so
-// only this scan sees it. With the marker, it refuses null for the member
-// and for each member below it, which no encoder writes.
-func scanSavedFaultMembers(data []byte, marked bool) error {
-	return scanSavedMarkedMember(data, savedFaultPath, marked, errFaultMemberUnmarked)
-}
-
-// scanSavedMarkedMember reads the tokens of a saved state for the member
-// at the path member, which needs a marker. Without the marker, it refuses
-// the member with any value, with the error unmarked. With the marker, it
-// refuses null for the member and for each member below it.
-func scanSavedMarkedMember(data []byte, member string, marked bool, unmarked error) error {
+// scanSavedMember refuses null for the member of a saved state at the path
+// member and for each member below it. No encoder writes null, and the typed
+// decode reads it as no member, so only this scan sees it.
+func scanSavedMember(data []byte, member string) error {
 	decoder := jsontext.NewDecoder(bytes.NewReader(data))
 	for {
 		token, err := decoder.ReadToken()
@@ -67,32 +53,22 @@ func scanSavedMarkedMember(data []byte, member string, marked bool, unmarked err
 		if path := arrayPath(decoder); path != member && !strings.HasPrefix(path, member+"/") {
 			continue
 		}
-		if !marked {
-			return fmt.Errorf("%w: %s", unmarked, decoder.StackPointer())
-		}
 		if decoder.PeekKind() == 'n' {
 			return fmt.Errorf("saved member %s is null", decoder.StackPointer())
 		}
 	}
 }
 
-// checkFaultMembers checks the raw stage 2 members of a decoded saved
-// state against the fault marker of its project.
-func checkFaultMembers(data []byte, file stateFile) error {
-	return scanSavedFaultMembers(data, file.Project.FaultContract != "")
+// checkFaultMembers checks the raw stage 2 members of a saved state.
+func checkFaultMembers(data []byte) error {
+	return scanSavedMember(data, savedFaultPath)
 }
 
-// validateFaultValues refuses the fault records and counters of a state
-// file whose project has no fault marker, and an empty faults member,
-// which the save omits. The encoder calls it.
+// validateFaultValues refuses an empty faults member, which the save omits.
+// The encoder calls it.
 func (file *stateFile) validateFaultValues() error {
 	faults := file.Simulation.Faults
-	switch {
-	case faults == nil:
-		return nil
-	case file.Project.FaultContract == "":
-		return errFaultMemberUnmarked
-	case len(faults.Records) == 0 && faults.Counters == (sim.FaultCounters{}):
+	if faults != nil && len(faults.Records) == 0 && faults.Counters == (sim.FaultCounters{}) {
 		return errors.New("saved faults member is empty")
 	}
 	return nil

@@ -15,15 +15,10 @@ import (
 )
 
 // incidentStreamFrames returns the topology and two frames of the example
-// project with a pause change between them. marked selects the incident
-// marker.
-func incidentStreamFrames(t *testing.T, marked bool) (TopologySnapshot, [2]StreamFrame) {
+// project with a pause change between them.
+func incidentStreamFrames(t *testing.T) (TopologySnapshot, [2]StreamFrame) {
 	t.Helper()
-	config := project.Default()
-	if marked {
-		config.IncidentContract = sim.IncidentV1Contract
-	}
-	s, err := NewWithProject(config)
+	s, err := NewWithProject(project.Default())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,7 +76,7 @@ func applyIncidentJSON(base StreamFrame, raw []byte) (StreamFrame, error) {
 // the HTTP state, and that the global group does not change.
 func TestIncidentStreamGroups(t *testing.T) {
 	t.Parallel()
-	topology, frames := incidentStreamFrames(t, true)
+	topology, frames := incidentStreamFrames(t)
 	base := frames[1]
 	changed := withIncidentMembers(base)
 	delta, err := makeDelta(base, changed)
@@ -117,13 +112,11 @@ func TestIncidentStreamGroups(t *testing.T) {
 	if !bytes.Equal(groups["global"], changedGroups["global"]) {
 		t.Fatalf("the counters change the global group: %s and %s", groups["global"], changedGroups["global"])
 	}
-	_, plainFrames := incidentStreamFrames(t, false)
-	plainGroups, err := frameGroups(plainFrames[1])
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, found := plainGroups["incident"]; found || !bytes.Equal(plainGroups["global"], groups["global"]) {
-		t.Fatalf("unmarked groups %v, global %s", slices.Sorted(maps.Keys(plainGroups)), plainGroups["global"])
+	// The encoder writes the three groups of each frame, also with no value.
+	for group, want := range map[string]string{"incident": `{"interrupted":0,"interruptedPassengers":0}`, "faults": `{}`, "emergencies": `{}`} {
+		if got := string(groups[group]); got != want {
+			t.Fatalf("group %s is %s, want %s", group, got, want)
+		}
 	}
 	want := incidentView(changed.State.Simulation)
 	for _, kind := range []string{"full", "delta"} {
@@ -180,8 +173,8 @@ func mustDecodeStream(t *testing.T, raw []byte) StreamEnvelope {
 // incidentMemberEdit inserts a raw member into an encoded envelope.
 type incidentMemberEdit struct {
 	name, kind, at, insert string
-	// marked is true when the edit is valid with the incident marker.
-	marked bool
+	// valid is true when a decoder accepts the edit.
+	valid bool
 }
 
 // incidentMemberEdits are a stage 1 member at each stream place, as an
@@ -206,9 +199,9 @@ var incidentMemberEdits = []incidentMemberEdit{
 // incidentEditFrames returns a base frame and a next frame with a changed
 // vehicle metadata group, a changed rider list, and a changed pending
 // group, with no stage 1 member.
-func incidentEditFrames(t *testing.T, marked bool) (StreamFrame, StreamFrame) {
+func incidentEditFrames(t *testing.T) (StreamFrame, StreamFrame) {
 	t.Helper()
-	_, frames := incidentStreamFrames(t, marked)
+	_, frames := incidentStreamFrames(t)
 	next := withIncidentMembers(frames[1])
 	simulation := &next.State.Simulation
 	simulation.Interrupted, simulation.InterruptedPassengers = 0, 0
@@ -219,50 +212,44 @@ func incidentEditFrames(t *testing.T, marked bool) (StreamFrame, StreamFrame) {
 	return frames[1], next
 }
 
-// TestIncidentStreamRawPresence checks the raw presence rule of section
-// 11.2 of the incident contract: under a frame without the marker, a
-// stage 1 member with an explicit zero, null, or empty value is refused
-// before the delta applies, although the typed decode reads it as no
-// member. With the marker, an explicit zero is accepted, and null or an
-// empty text is refused.
-func TestIncidentStreamRawPresence(t *testing.T) {
+// TestIncidentStreamRawValues checks the raw values of section 11.2 of the
+// incident contract: an explicit zero is accepted, and null or an empty text
+// is refused before the delta applies, although the typed decode reads it
+// as no member.
+func TestIncidentStreamRawValues(t *testing.T) {
 	t.Parallel()
-	for _, marked := range []bool{false, true} {
-		base, next := incidentEditFrames(t, marked)
-		raw := map[string][]byte{}
-		for _, kind := range []string{"full", "delta"} {
-			var err error
-			if raw[kind], err = EncodeStreamJSON(incidentEnvelope(t, base, next, kind)); err != nil {
-				t.Fatal(err)
-			}
-			if _, err := applyIncidentJSON(base, raw[kind]); err != nil {
-				t.Fatalf("marked %v: control %s: %v", marked, kind, err)
-			}
+	base, next := incidentEditFrames(t)
+	raw := map[string][]byte{}
+	for _, kind := range []string{"full", "delta"} {
+		var err error
+		if raw[kind], err = EncodeStreamJSON(incidentEnvelope(t, base, next, kind)); err != nil {
+			t.Fatal(err)
 		}
-		for _, edit := range incidentMemberEdits {
-			data := raw[edit.kind]
-			if bytes.Count(data, []byte(edit.at)) < 1 {
-				t.Fatalf("%s: the %s envelope has no %s", edit.name, edit.kind, edit.at)
-			}
-			data = bytes.Replace(data, []byte(edit.at), []byte(edit.at+edit.insert), 1)
-			_, err := applyIncidentJSON(base, data)
-			if valid := marked && edit.marked; (err == nil) != valid {
-				t.Errorf("marked %v, %s: error %v, want valid %v", marked, edit.name, err, valid)
-			}
+		if _, err := applyIncidentJSON(base, raw[kind]); err != nil {
+			t.Fatalf("control %s: %v", kind, err)
+		}
+	}
+	for _, edit := range incidentMemberEdits {
+		data := raw[edit.kind]
+		if bytes.Count(data, []byte(edit.at)) < 1 {
+			t.Fatalf("%s: the %s envelope has no %s", edit.name, edit.kind, edit.at)
+		}
+		data = bytes.Replace(data, []byte(edit.at), []byte(edit.at+edit.insert), 1)
+		if _, err := applyIncidentJSON(base, data); (err == nil) != edit.valid {
+			t.Errorf("%s: error %v, want valid %v", edit.name, err, edit.valid)
 		}
 	}
 }
 
-// TestIncidentStreamDirectGroups checks the raw presence rule of section
-// 11.2 of the incident contract on a delta that a caller builds. Such an
-// envelope has no decoder scan, so ApplyStream scans the raw incident and
-// pending groups itself.
+// TestIncidentStreamDirectGroups checks the raw values of section 11.2 of
+// the incident contract on a delta that a caller builds. Such an envelope
+// has no decoder scan, so ApplyStream scans the raw incident and pending
+// groups itself.
 func TestIncidentStreamDirectGroups(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name, group, value string
-		// marked is true when the group is valid with the incident marker.
-		marked bool
+		valid              bool
 	}{
 		{"pending leg origin null", "pending", `[{"legFrom":null,`, false},
 		{"pending leg origin empty", "pending", `[{"legFrom":"",`, false},
@@ -271,26 +258,23 @@ func TestIncidentStreamDirectGroups(t *testing.T) {
 		{"interrupted passengers null", "incident", `{"interrupted":0,"interruptedPassengers":null}`, false},
 		{"incident counters zero", "incident", `{"interrupted":0,"interruptedPassengers":0}`, true},
 	}
-	for _, marked := range []bool{false, true} {
-		base, next := incidentEditFrames(t, marked)
-		if _, err := ApplyStream(base, "incident", 1, incidentEnvelope(t, base, next, "delta")); err != nil {
-			t.Fatalf("marked %v: control: %v", marked, err)
+	base, next := incidentEditFrames(t)
+	if _, err := ApplyStream(base, "incident", 1, incidentEnvelope(t, base, next, "delta")); err != nil {
+		t.Fatalf("control: %v", err)
+	}
+	for _, test := range tests {
+		e := incidentEnvelope(t, base, next, "delta")
+		value := []byte(test.value)
+		if test.group == "pending" {
+			pending := e.Delta.Groups["pending"]
+			if !bytes.HasPrefix(pending, []byte(`[{`)) {
+				t.Fatalf("pending group %s", pending)
+			}
+			value = append(value, pending[2:]...)
 		}
-		for _, test := range tests {
-			e := incidentEnvelope(t, base, next, "delta")
-			value := []byte(test.value)
-			if test.group == "pending" {
-				pending := e.Delta.Groups["pending"]
-				if !bytes.HasPrefix(pending, []byte(`[{`)) {
-					t.Fatalf("pending group %s", pending)
-				}
-				value = append(value, pending[2:]...)
-			}
-			e.Delta.Groups[test.group] = value
-			_, err := ApplyStream(base, "incident", 1, e)
-			if valid := marked && test.marked; (err == nil) != valid {
-				t.Errorf("marked %v, %s: error %v, want valid %v", marked, test.name, err, valid)
-			}
+		e.Delta.Groups[test.group] = value
+		if _, err := ApplyStream(base, "incident", 1, e); (err == nil) != test.valid {
+			t.Errorf("%s: error %v, want valid %v", test.name, err, test.valid)
 		}
 	}
 }
@@ -301,7 +285,7 @@ func TestIncidentStreamDirectGroups(t *testing.T) {
 // station. Each decoder and each encoder refuses them.
 func TestIncidentStreamValues(t *testing.T) {
 	t.Parallel()
-	topology, frames := incidentStreamFrames(t, true)
+	topology, frames := incidentStreamFrames(t)
 	tests := []struct {
 		name   string
 		change func(*SimulationFrame)
@@ -346,50 +330,52 @@ func TestIncidentStreamValues(t *testing.T) {
 	}
 }
 
-// TestIncidentStreamNeedsMarker checks that without the marker no encoder
-// writes a stage 1 stream member, and that the HTTP state decoder refuses
-// one also as an explicit zero.
-func TestIncidentStreamNeedsMarker(t *testing.T) {
+// TestIncidentStreamMembersPass checks that a plain project takes each stage
+// 1 stream member at each encoder and in ApplyStream, and that the HTTP
+// state decoder accepts an explicit zero and refuses null.
+func TestIncidentStreamMembersPass(t *testing.T) {
 	t.Parallel()
-	topology, frames := incidentStreamFrames(t, false)
+	topology, frames := incidentStreamFrames(t)
 	changed := withIncidentMembers(frames[1])
-	if _, err := EncodeStreamJSON(incidentEnvelope(t, frames[0], changed, "full")); err == nil {
-		t.Error("the full encoder writes a stage 1 member without the marker")
+	if _, err := EncodeStreamJSON(incidentEnvelope(t, frames[0], changed, "full")); err != nil {
+		t.Error("the full encoder:", err)
 	}
-	if _, err := makeDelta(frames[0], changed); err == nil {
-		t.Error("the delta encoder writes a stage 1 member without the marker")
+	if _, err := makeDelta(frames[0], changed); err != nil {
+		t.Error("the delta encoder:", err)
 	}
-	if _, err := EncodeStateJSON(topology, changed); err == nil {
-		t.Error("the HTTP state encoder writes a stage 1 member without the marker")
+	if _, err := EncodeStateJSON(topology, changed); err != nil {
+		t.Error("the HTTP state encoder:", err)
 	}
-	if _, err := ApplyStream(StreamFrame{}, "", 0, incidentEnvelope(t, frames[0], changed, "full")); err == nil {
-		t.Error("ApplyStream accepts a typed stage 1 member without the marker")
+	if _, err := ApplyStream(StreamFrame{}, "", 0, incidentEnvelope(t, frames[0], changed, "full")); err != nil {
+		t.Error("ApplyStream:", err)
 	}
-	// A delta that the process builds has no raw presence record, so the
-	// group replacement refuses the incident group by itself.
 	for _, group := range []string{`{"interrupted":0,"interruptedPassengers":0}`, `{"interrupted":1,"interruptedPassengers":1}`} {
 		delta := incidentEnvelope(t, frames[0], frames[1], "delta")
 		delta.Delta.Groups["incident"] = jsontext.Value(group)
-		if _, err := ApplyStream(frames[0], "incident", 1, delta); err == nil {
-			t.Errorf("ApplyStream accepts the unmarked incident group %s", group)
+		if _, err := ApplyStream(frames[0], "incident", 1, delta); err != nil {
+			t.Errorf("ApplyStream refuses the incident group %s: %v", group, err)
 		}
 	}
 	httpState, err := EncodeStateJSON(topology, frames[1])
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := DecodeStateJSON(httpState); err != nil {
-		t.Fatal("control", err)
-	}
-	for _, insert := range []string{`"interrupted":0,`, `"interruptedPassengers":0,`} {
-		edited := bytes.Replace(httpState, []byte(`"simulation":{`), []byte(`"simulation":{`+insert), 1)
-		if _, err := DecodeStateJSON(edited); err == nil {
-			t.Errorf("the HTTP state decoder accepts %s without the marker", insert)
+	for _, test := range []struct {
+		at, insert string
+		valid      bool
+	}{
+		{`"simulation":{`, `"interrupted":0,`, true},
+		{`"simulation":{`, `"interruptedPassengers":0,`, true},
+		{`"vehicles":[{`, `"withdrawn":0,`, true},
+		{`"simulation":{`, `"interrupted":null,`, false},
+		{`"simulation":{`, `"interruptedPassengers":null,`, false},
+		{`"vehicles":[{`, `"withdrawn":null,`, false},
+		{`"vehicles":[{`, `"operational":"",`, false},
+	} {
+		edited := bytes.Replace(httpState, []byte(test.at), []byte(test.at+test.insert), 1)
+		if _, err := DecodeStateJSON(edited); (err == nil) != test.valid {
+			t.Errorf("the HTTP state decoder with %s: %v, want valid %t", test.insert, err, test.valid)
 		}
-	}
-	edited := bytes.Replace(httpState, []byte(`"vehicles":[{`), []byte(`"vehicles":[{"withdrawn":0,`), 1)
-	if _, err := DecodeStateJSON(edited); err == nil {
-		t.Error("the HTTP state decoder accepts withdrawn 0 without the marker")
 	}
 }
 
@@ -398,7 +384,7 @@ func TestIncidentStreamNeedsMarker(t *testing.T) {
 // (incident contract, section 14.3).
 func TestIncidentStreamPackedLegOrigin(t *testing.T) {
 	t.Parallel()
-	_, frames := incidentStreamFrames(t, true)
+	_, frames := incidentStreamFrames(t)
 	changed := withIncidentMembers(frames[1])
 	packed := []byte(`"legFrom":"Z2FyZGVu"`)
 	for _, kind := range []string{"full", "delta"} {
@@ -428,7 +414,7 @@ func TestIncidentStreamPackedLegOrigin(t *testing.T) {
 	}
 }
 
-// TestIncidentPathsMatchTags checks that each path of the raw presence
+// TestIncidentPathsMatchTags checks that each path of the raw value
 // scans names a member with its exact case.
 func TestIncidentPathsMatchTags(t *testing.T) {
 	t.Parallel()

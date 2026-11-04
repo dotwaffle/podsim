@@ -220,7 +220,7 @@ func TestFinishingPodWaitAtBoundary(t *testing.T) {
 func TestEmptySecondsIsNotNegative(t *testing.T) {
 	t.Parallel()
 	for _, network := range []Network{Example(), twoBerthMarket()} {
-		s, err := New(network, "harbor")
+		s, err := NewFleet(network, []Placement{{ID: "01", StationID: "harbor"}})
 		if err != nil {
 			t.Fatal(err)
 		}

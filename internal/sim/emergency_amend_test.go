@@ -55,7 +55,7 @@ func TestEmergencyBerthFilter(t *testing.T) {
 func TestEmergencyTerminalBerth(t *testing.T) {
 	t.Parallel()
 	s := newLegFleet(t, "s0-1", "s1-2")
-	s.incidentContract, s.emergenciesOn = IncidentV1Contract, true
+	s.emergenciesOn = true
 	if err := s.SetSharedRidePartyLimit(4); err != nil {
 		t.Fatal(err)
 	}

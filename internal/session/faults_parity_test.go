@@ -11,11 +11,11 @@ import (
 )
 
 // TestFaultsOnWithoutFaultsOnPresets runs LondonCentral and the rail-hub
-// preset with demand in two sessions, one with the incident marker only
-// and one with the incident marker, the fault marker and faults, and no
-// fault. At every 600th tick of 36,000 ticks, the exported states, the
-// demand states and the demand random streams must be equal. At the end,
-// a fault command proves that only the marked session has faults on.
+// preset with demand in two sessions, one with the operations off and one
+// with the operations on and fault settings, and no fault. At every 600th
+// tick of 36,000 ticks, the exported states, the demand states and the
+// demand random streams must be equal. At the end, a fault command proves
+// that only the second session has faults on.
 func TestFaultsOnWithoutFaultsOnPresets(t *testing.T) {
 	t.Parallel()
 	for name, config := range map[string]project.Config{"london-central": scenarios.LondonCentral(), "rail-hub": scenarios.RailHub()} {
@@ -25,12 +25,14 @@ func TestFaultsOnWithoutFaultsOnPresets(t *testing.T) {
 			if config.Demand.PerMinute == 0 {
 				config.Demand.PerMinute = 12
 			}
-			config.IncidentContract = sim.IncidentV1Contract
 			off, err := NewWithProject(config)
 			if err != nil {
 				t.Fatal(err)
 			}
-			config.FaultContract, config.Faults = project.FaultV1Contract, &project.FaultConfig{}
+			if err = project.ConfigureExperiments(off.simulation, config, false); err != nil {
+				t.Fatal(err)
+			}
+			config.Faults = &project.FaultConfig{}
 			on, err := NewWithProject(config)
 			if err != nil {
 				t.Fatal(err)
@@ -47,10 +49,10 @@ func TestFaultsOnWithoutFaultsOnPresets(t *testing.T) {
 			}
 			pod := config.Fleet[0].ID
 			if _, err := off.simulation.Fault(sim.FaultRequest{PodID: pod}); err == nil {
-				t.Fatal("the session without the fault marker started a fault")
+				t.Fatal("the session with the operations off started a fault")
 			}
 			if _, err := on.simulation.Fault(sim.FaultRequest{PodID: pod}); err != nil && err.Error() == "faults are not enabled" {
-				t.Fatal("the session with the fault marker has faults off")
+				t.Fatal("the session with the operations on has faults off")
 			}
 		})
 	}

@@ -382,7 +382,6 @@ func faultDepotFleet(t *testing.T, network Network, slots ...string) *Simulation
 	if err != nil {
 		t.Fatal(err)
 	}
-	s.incidentContract = IncidentV1Contract
 	if err := s.SetFaults(true, FaultSettings{EvacuationSeconds: 300}); err != nil {
 		t.Fatal(err)
 	}

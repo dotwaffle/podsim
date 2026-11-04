@@ -168,9 +168,7 @@ func TestRestoreSavedFaultRules(t *testing.T) {
 	}
 	s, state := build(t)
 	for name, edit := range map[string]func(*RestoreStateInput){
-		"no fault marker":     func(input *RestoreStateInput) { input.FaultContract = "" },
-		"no incident marker":  func(input *RestoreStateInput) { input.IncidentContract = "" },
-		"unknown marker":      func(input *RestoreStateInput) { input.FaultContract = "fault-v2" },
+		"faults off":          func(input *RestoreStateInput) { input.FaultsOn = false },
 		"evacuation too long": func(input *RestoreStateInput) { input.Faults.EvacuationSeconds = 3601 },
 	} {
 		input := faultRestoreInput(s, state)
@@ -232,7 +230,6 @@ func TestRestoreFaultedServiceClaim(t *testing.T) {
 	t.Run("service claim", func(t *testing.T) {
 		t.Parallel()
 		s, relocating, _ := faultFixture(t)
-		s.incidentContract = IncidentV1Contract
 		startFault(t, s, relocating, 0)
 		state := s.ExportState()
 		state.Pods = slices.Clone(state.Pods)
@@ -254,7 +251,6 @@ func TestRestoreFaultedServiceClaim(t *testing.T) {
 	t.Run("stopping claim", func(t *testing.T) {
 		t.Parallel()
 		s, relocating, _ := faultFixture(t)
-		s.incidentContract = IncidentV1Contract
 		// A pod at rest keeps the reservation of its current block, so the
 		// fault starts where that reservation reaches the berth.
 		stepUntil(t, s, "a stopping grant at Market at rest", func() bool {

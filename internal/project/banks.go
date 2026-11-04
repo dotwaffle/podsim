@@ -48,17 +48,12 @@ func (config *Config) decodeJSON(data []byte, options jsonv2.Options) error {
 			return err
 		}
 	}
-	if err := sim.ValidateIncidentContract(decoded.IncidentContract); err != nil {
+	// The scan above refuses a null faults or emergencies value, which the
+	// typed decode reads as an absent member.
+	if err := validateFaults(Config(decoded)); err != nil {
 		return err
 	}
-	// The scan above refuses a null faults value, which the typed decode
-	// reads as no faults. The marker rules then hold for the decoded
-	// project.
-	if err := validateFaultContract(Config(decoded)); err != nil {
-		return err
-	}
-	// The scan also refuses a null emergencies value.
-	if err := validateEmergencyContract(Config(decoded)); err != nil {
+	if err := validateEmergencies(Config(decoded)); err != nil {
 		return err
 	}
 	for _, station := range decoded.Network.Stations {

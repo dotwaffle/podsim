@@ -14,7 +14,6 @@ import (
 // test submits the orders itself.
 func interruptionProject(atSeconds int) project.Config {
 	config := project.Default()
-	config.IncidentContract = sim.IncidentV1Contract
 	config.Fleet = config.Fleet[:1]
 	config.SharedRidePartyLimit = 2
 	config.Demand = DemandConfig{Pattern: "rail-services", PerMinute: 12, Seed: 7}

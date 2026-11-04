@@ -74,8 +74,8 @@ var (
 // From and To never change after acceptance. LegFrom is the station where
 // the party boards its current pod. Only a transfer sets it, and then it
 // stays until the next transfer of the order, also after completion. It is
-// empty for every other order. See legOrigin. It needs the incident
-// marker. The session save writes it as a station index.
+// empty for every other order. See legOrigin. The session save writes it
+// as a station index.
 type Request struct {
 	SharingConsent SharingConsent `json:"sharingConsent"`
 	Service        ServiceChoice  `json:"service"`
@@ -149,7 +149,7 @@ type Vehicle struct {
 	// for an emergency. Operational is the purpose of an operational
 	// destination: OperationalEmergencyUnload, OperationalRefuge, or
 	// OperationalEmptyRecovery. It is empty for a pod in service.
-	// Snapshot sets both. They need the incident marker.
+	// Snapshot sets both.
 	Withdrawn   uint8  `json:"withdrawn,omitzero"`
 	Operational string `json:"operational,omitzero"`
 }
@@ -171,17 +171,14 @@ type BerthState struct {
 
 // Snapshot is a copy of the fleet, clock, and station resources.
 type Snapshot struct {
-	OrderContract    OrderContract    `json:"orderContract,omitzero"`
-	IncidentContract IncidentContract `json:"incidentContract,omitzero"`
-	// FaultContract is the fault marker. Faults holds the active faults and
-	// the fault counters. It is zero without the marker.
-	FaultContract FaultContract `json:"faultContract,omitzero"`
-	Faults        FaultsView    `json:"faults,omitzero"`
-	// EmergencyContract is the emergency marker. Emergencies holds the
-	// active emergencies and the emergency counters. It is zero without
-	// the marker.
-	EmergencyContract EmergencyContract `json:"emergencyContract,omitzero"`
-	Emergencies       EmergenciesView   `json:"emergencies,omitzero"`
+	OrderContract OrderContract `json:"orderContract,omitzero"`
+	// OperationsOff is true when the fault or the emergency operations are
+	// off. In production that means the fleet of the traffic demo.
+	OperationsOff bool `json:"operationsOff,omitzero"`
+	// Faults holds the active faults and the fault counters.
+	Faults FaultsView `json:"faults,omitzero"`
+	// Emergencies holds the active emergencies and the emergency counters.
+	Emergencies EmergenciesView `json:"emergencies,omitzero"`
 
 	// Submitted counts accepted passenger orders since reset.
 	Submitted int          `json:"submitted"`
@@ -193,8 +190,7 @@ type Snapshot struct {
 	Demo      bool         `json:"demo"`
 	DemoError string       `json:"demoError"`
 	// Interrupted counts the orders that ended interrupted since reset, and
-	// InterruptedPassengers is the sum of their party sizes. They need the
-	// incident marker.
+	// InterruptedPassengers is the sum of their party sizes.
 	Interrupted           int `json:"interrupted,omitzero"`
 	InterruptedPassengers int `json:"interruptedPassengers,omitzero"`
 	// Pending holds passenger requests that have not started boarding.
@@ -359,16 +355,7 @@ type Simulation struct {
 	predictiveState
 	experimentRecords
 	metricCounters
-	orderContract    OrderContract
-	incidentContract IncidentContract
-	// faultContract is the fault marker of the project. The frames copy
-	// it. faultsOn is the switch of the operations: the traffic demo keeps
-	// the marker and turns the operations off.
-	faultContract FaultContract
-	// emergencyContract is the emergency marker of the project. The frames
-	// copy it. emergenciesOn is the switch of the operations: the traffic
-	// demo keeps the marker and turns the operations off.
-	emergencyContract EmergencyContract
+	orderContract OrderContract
 	// incidentSerial counts the incident records. It is saved, and a reset
 	// keeps it. incidentGeneration is the session generation of the IDs.
 	incidentSerial     uint64
@@ -535,11 +522,6 @@ type platooningState struct {
 	coastCheck func(*Simulation)
 }
 
-// New creates a one-pod scenario for focused experiments.
-func New(network Network, startStation string) (*Simulation, error) {
-	return NewFleet(network, []Placement{{ID: "01", StationID: startStation}})
-}
-
 // NewFleet validates and copies a fixed fleet. An omitted berth ID selects the first berth.
 func NewFleet(network Network, placements []Placement) (*Simulation, error) {
 	prepared, err := prepareFleet(network, placements)
@@ -639,7 +621,7 @@ func (s *Simulation) Snapshot() Snapshot { return s.snapshot(true) }
 
 func (s *Simulation) snapshot(routes bool) Snapshot {
 	state := Snapshot{
-		OrderContract: s.orderContract, IncidentContract: s.incidentContract, FaultContract: s.faultContract, EmergencyContract: s.emergencyContract,
+		OrderContract: s.orderContract, OperationsOff: !s.faultsOn || !s.emergenciesOn,
 		Submitted: s.requestID, Tick: s.tick, Paused: s.paused,
 		Completed: s.completed, Demo: s.demo != nil, DemoError: s.demoError,
 		Interrupted: s.interrupted, InterruptedPassengers: s.interruptedPassengers,
@@ -680,12 +662,8 @@ func (s *Simulation) snapshot(routes bool) Snapshot {
 		}
 	}
 	state.Berths = s.berthStates()
-	if s.faultContract != "" {
-		state.Faults = s.faultsView()
-	}
-	if s.emergencyContract != "" {
-		state.Emergencies = s.emergenciesView()
-	}
+	state.Faults = s.faultsView()
+	state.Emergencies = s.emergenciesView()
 	return state
 }
 

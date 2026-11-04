@@ -30,12 +30,8 @@ type IncidentTestOperation struct {
 //
 // It is a test entry (incident contract, section 13). The session tests
 // use it to save each stage 1 state. No production code calls it. It
-// refuses a simulation without the incident marker and a call during a
-// dispatch pass.
+// refuses a call during a dispatch pass.
 func (s *Simulation) IncidentForTest(podID string, operation IncidentTestOperation) error {
-	if s.incidentContract != IncidentV1Contract {
-		return errors.New("an incident operation needs the incident contract")
-	}
 	if s.pass != nil && s.pass.active {
 		return errors.New("an incident operation during a dispatch pass")
 	}

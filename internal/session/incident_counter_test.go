@@ -2,8 +2,8 @@ package session
 
 import (
 	"bytes"
-	"errors"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/project"
@@ -22,7 +22,7 @@ func incidentGeneration(s *Session) uint64 {
 // a reset, the demo, a project apply, a rewind and a restart.
 func TestIncidentGenerationHook(t *testing.T) {
 	t.Parallel()
-	config := markedProject()
+	config := project.Default()
 	store := &fakeStore{}
 	s := startFromStore(t, StoreInput{Store: store, Project: &config})
 	client := newTestClient(s, "incident")
@@ -41,7 +41,7 @@ func TestIncidentGenerationHook(t *testing.T) {
 	client.mustApply(t, Command{Action: "demo"})
 	check("demo", s)
 	client.mustApply(t, Command{Action: "pause", Paused: true})
-	next := markedProject()
+	next := project.Default()
 	next.Name = "Incident project apply"
 	client.mustApply(t, Command{Action: "project", Project: &next, ProjectRevision: s.Project().Revision})
 	check("project", s)
@@ -57,14 +57,14 @@ func TestIncidentGenerationHook(t *testing.T) {
 }
 
 // TestIncidentSerialSaveMember checks the saved member
-// /simulation/incidentSerial. A marked state keeps the serial through a
-// restore, also an explicit 0. Without the marker, the decoder refuses the
-// member, also as 0 or null.
+// /simulation/incidentSerial. A state keeps the serial through a restore,
+// also an explicit 0. A serial of 0 has no member, and the decoder refuses
+// null.
 func TestIncidentSerialSaveMember(t *testing.T) {
 	t.Parallel()
-	encode := func(config project.Config, serial uint64) []byte {
+	encode := func(serial uint64) []byte {
 		t.Helper()
-		s, err := NewWithProject(config)
+		s, err := NewWithProject(project.Default())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -80,17 +80,17 @@ func TestIncidentSerialSaveMember(t *testing.T) {
 		loaded, err := s.loadState(loadInput{data: compressTestJSON(t, raw), steps: realRestoreSteps()})
 		return loaded.simulation, err
 	}
-	marked := encode(markedProject(), 7)
-	if !bytes.Contains(marked, []byte(`"incidentSerial":7`)) {
-		t.Fatal("marked save lost the serial")
+	withSerial := encode(7)
+	if !bytes.Contains(withSerial, []byte(`"incidentSerial":7`)) {
+		t.Fatal("the save lost the serial")
 	}
-	simulation, err := restore(marked)
+	simulation, err := restore(withSerial)
 	if err != nil || simulation.ExportState().IncidentSerial != 7 {
-		t.Fatalf("marked restore: %v", err)
+		t.Fatalf("restore: %v", err)
 	}
-	unmarked := encode(project.Default(), 0)
-	if bytes.Contains(unmarked, []byte("incidentSerial")) {
-		t.Fatal("unmarked save has an incident serial")
+	zero := encode(0)
+	if bytes.Contains(zero, []byte("incidentSerial")) {
+		t.Fatal("the save has a zero incident serial")
 	}
 	explicit := func(raw []byte, value string) []byte {
 		t.Helper()
@@ -100,16 +100,18 @@ func TestIncidentSerialSaveMember(t *testing.T) {
 		}
 		return edited
 	}
-	if _, err := restore(explicit(encode(markedProject(), 0), "0")); err != nil {
-		t.Fatal("marked save refused an explicit zero serial", err)
+	for value, serial := range map[string]uint64{"0": 0, "3": 3} {
+		restored, restoreErr := restore(explicit(zero, value))
+		if restoreErr != nil || restored.ExportState().IncidentSerial != serial {
+			t.Fatalf("explicit serial %s: %v", value, restoreErr)
+		}
 	}
-	if _, err := restore(unmarked); err != nil {
+	if _, err = restore(zero); err != nil {
 		t.Fatal("control refused", err)
 	}
-	for _, value := range []string{"0", "null", "3"} {
-		_, err := restore(explicit(unmarked, value))
-		if !errors.Is(err, errIncidentMemberUnmarked) {
-			t.Errorf("unmarked save with serial %s: error %v, want %v", value, err, errIncidentMemberUnmarked)
-		}
+	_, err = restore(explicit(zero, "null"))
+	const want = "saved incident member /simulation/incidentSerial is null"
+	if err == nil || !strings.Contains(err.Error(), want) {
+		t.Errorf("null serial: error %v, want %q", err, want)
 	}
 }

@@ -6,36 +6,8 @@ import (
 	"slices"
 )
 
-// EmergencyContract selects the emergency operations of the incident
-// emergency contract. It requires the incident marker. Without it, no
-// saved state has an emergency member.
-type EmergencyContract string
-
-// EmergencyV1Contract permits the emergency operations and the emergency
-// members.
-const EmergencyV1Contract EmergencyContract = "emergency-v1"
-
-// ErrUnknownEmergencyContract means that the emergency marker is not
-// EmergencyV1Contract.
-var ErrUnknownEmergencyContract = errors.New("unknown emergency contract")
-
-// ValidateEmergencyContracts accepts no emergency marker, and
-// EmergencyV1Contract with the incident marker. The emergency marker does
-// not need the fault marker.
-func ValidateEmergencyContracts(emergency EmergencyContract, incident IncidentContract) error {
-	switch {
-	case emergency == "":
-		return nil
-	case emergency != EmergencyV1Contract:
-		return ErrUnknownEmergencyContract
-	case incident == "":
-		return errors.New("the emergency contract requires the incident contract")
-	}
-	return nil
-}
-
 // SavedEmergencies holds the emergency records and the emergency counters
-// of a saved state. They need the emergency marker.
+// of a saved state. They need the emergency switch.
 type SavedEmergencies struct {
 	// Records holds the active records in serial order.
 	Records  []SavedEmergency  `json:"records,omitempty"`
@@ -104,17 +76,14 @@ func (s *Simulation) exportEmergencies() *SavedEmergencies {
 // checkSavedEmergencies checks the saved emergency data before either
 // restore tier (section 11.5 of the incident emergency contract). It reads
 // only the saved records and pod tuples, so the logical tier cannot remove
-// the evidence that it needs. Records and counters need the marker. With the
-// marker, the records meet E1, and the saved pods meet E2 to E5 and E8.
+// the evidence that it needs. Records and counters need the switch. With the
+// switch on, the records meet E1, and the saved pods meet E2 to E5 and E8.
 // Each failure makes the whole save invalid.
 func checkSavedEmergencies(input RestoreStateInput) error {
-	if err := ValidateEmergencyContracts(input.EmergencyContract, input.IncidentContract); err != nil {
-		return err
-	}
 	state := input.State
-	if input.EmergencyContract == "" {
+	if !input.EmergenciesOn {
 		if state.Emergencies != nil {
-			return errors.New("saved emergencies need the emergency contract")
+			return errors.New("saved emergencies need emergencies on")
 		}
 		return nil
 	}
@@ -206,38 +175,45 @@ func checkSavedEmergencyPod(pod SavedPod, party int) error {
 	return nil
 }
 
-// CheckIncidentPolicy is the production policy validator of a saved state
-// (section 8 of the incident emergency contract). It reads only the saved
-// state. With the incident marker and without the emergency marker, it
-// refuses a saved pod with the emergency hold, in its holds or as the
-// owner of its purpose, and a saved pod with an emergency unload, because
-// no emergency record exists without the marker (E7). No production path
-// makes these states. The stage 1 test entry IncidentForTest can, and
-// RestoreState still restores them, so the session runs this check before
-// RestoreState. With the emergency marker, RestoreState refuses the same
-// states by E2 and E4.
+// CheckIncidentPolicy is the production policy validator of a saved state.
+// It refuses the states that have no owner to release them: a refuge with
+// any owner, an empty recovery with the emergency owner, and a save of the
+// traffic demo with a hold, a purpose, an owner, an interrupt, a fault
+// member, or an emergency member. It reads only the saved state, because
+// the logical tier removes the demo fleet and clears its holds and
+// purposes. No production path makes these states. The stage 1 test entry
+// IncidentForTest can, and RestoreState still restores them, so the session
+// runs this check before RestoreState.
 func CheckIncidentPolicy(input RestoreStateInput) error {
-	if input.IncidentContract == "" || input.EmergencyContract != "" {
+	state := input.State
+	for _, pod := range state.Pods {
+		purpose := opPurpose(pod.Purpose)
+		switch {
+		case purpose == opRefuge:
+			return fmt.Errorf("saved pod %s has a refuge", pod.ID)
+		case purpose == opEmptyRecovery && serviceHold(pod.Owner) == emergencyHold:
+			return fmt.Errorf("saved pod %s has an empty recovery with the emergency owner", pod.ID)
+		}
+	}
+	if state.Demo == nil && len(state.Pods) <= len(input.Fleet) {
 		return nil
 	}
-	for _, pod := range input.State.Pods {
-		switch {
-		case serviceHold(pod.Withdrawn)&emergencyHold != 0 || serviceHold(pod.Owner) == emergencyHold:
-			return fmt.Errorf("saved pod %s has the emergency hold without the emergency contract", pod.ID)
-		case opPurpose(pod.Purpose) == opEmergencyUnload:
-			return fmt.Errorf("saved pod %s has an emergency unload without the emergency contract", pod.ID)
+	for _, pod := range state.Pods {
+		if pod.Withdrawn != 0 || pod.Purpose != 0 || pod.Owner != 0 || pod.Interrupt != 0 {
+			return fmt.Errorf("saved demo pod %s has a service hold or an operational purpose", pod.ID)
 		}
+	}
+	if state.Faults != nil || state.Emergencies != nil {
+		return errors.New("saved demo fleet has fault or emergency state")
 	}
 	return nil
 }
 
-// setEmergencyContract gives a restored simulation the emergency marker of
-// input: with the marker, the emergency start and the emergency stage are
-// on. The session turns them off again for the fleet of the traffic demo,
-// which keeps the marker.
-func (s *Simulation) setEmergencyContract(input RestoreStateInput) {
-	s.emergencyContract = input.EmergencyContract
-	s.emergenciesOn = input.EmergencyContract != ""
+// setRestoredEmergencies gives a restored simulation the emergency switch
+// of input. The session turns the operations off again for the fleet of
+// the traffic demo.
+func (s *Simulation) setRestoredEmergencies(input RestoreStateInput) {
+	s.emergenciesOn = input.EmergenciesOn
 }
 
 // restoreEmergencies restores the records and the counters after each pod
@@ -267,10 +243,10 @@ func (r *physicalRestore) restoreEmergencies() error {
 
 // dropSavedEmergencies ends each saved record in the logical tier
 // (section 10.7 of the incident emergency contract). The counters stay.
-// With the emergency marker, each pod returns to service from the
+// With the emergency switch on, each pod returns to service from the
 // emergency hold: the tier puts each pod at its initial berth with no
 // purpose, so the hold owns no purpose.
-// Without the marker, the pods keep the hold, as the stage 1 tier keeps
+// With the switch off, the pods keep the hold, as the stage 1 tier keeps
 // each hold. It returns the number of records that ended.
 func (s *Simulation) dropSavedEmergencies(saved *SavedEmergencies) (int, error) {
 	if s.emergenciesOn {

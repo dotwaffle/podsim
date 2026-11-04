@@ -18,17 +18,76 @@ import (
 // plainProofFloat uses a sign and the longest fixed decimal form.
 const plainProofFloat = -0.0000010000000000000002
 
-// These fixtures bound unmarked plain state, without Express, compact pods,
-// or groups. Scalar widths and field combinations overestimate valid state.
-// The project and topology use their independent byte caps.
+// These fixtures bound plain state, without Express, compact pods, or
+// groups, with each incident, fault, and emergency member at its widest.
+// Scalar widths and field combinations overestimate valid state. The project
+// and topology use their independent byte caps.
 func TestPlainStateFileWorstCaseSize(t *testing.T) {
 	t.Parallel()
 	if testing.Short() || raceEnabled {
 		t.Skip("plain byte proofs run without -short or -race, in test:embedded")
 	}
 	file := widestPlainSavedState(t)
-	data := marshalSavedJSON(t, file)
-	assertPlainByteCap(t, "saved state", len(data), MaxStateBytes)
+	addWidestSavedMembers(&file)
+	data := marshalWidestSave(t, file)
+	// The pod encoder of a save writes the operational tuple. The native pod
+	// has no such member, so the proof counts its bytes here.
+	operational := len(`,"operational":[1,2,4294967295]`) * project.MaxPods
+	t.Logf("saved state: %d encoded bytes, %d operational tuple bytes", len(data), operational)
+	assertPlainByteCap(t, "saved state", len(data)+operational, MaxStateBytes)
+}
+
+// addWidestSavedMembers gives file each incident, fault, and emergency member
+// of a save at its widest. Each pod has both holds and an emergency unload
+// with a full interrupt set, each order a leg origin of the last station, and
+// each waiting trip an excluded pod. Each record is the widest tuple, in
+// serial order, and each counter is sim.MaxCounter.
+func addWidestSavedMembers(file *stateFile) {
+	state := &file.Simulation
+	state.Interrupted, state.InterruptedPassengers, state.IncidentSerial = sim.MaxCounter, sim.MaxCounter, math.MaxUint64
+	station := file.Project.Network.Stations[project.MaxStations-1].ID
+	state.Pods = slices.Clone(state.Pods)
+	for index := range state.Pods {
+		pod := &state.Pods[index]
+		pod.Withdrawn, pod.Purpose, pod.Owner, pod.Interrupt = 3, 1, 2, math.MaxUint32
+		pod.Riders = slices.Clone(pod.Riders)
+		for rider := range pod.Riders {
+			pod.Riders[rider].LegFrom = station
+		}
+	}
+	state.Waiting = slices.Clone(state.Waiting)
+	for index := range state.Waiting {
+		state.Waiting[index].Request.LegFrom = station
+		state.Waiting[index].ExcludedPod = state.Pods[0].ID
+	}
+	faults := make([]sim.SavedFault, maxFaultRecords)
+	for index := range faults {
+		faults[index] = sim.SavedFault{Generation: math.MaxUint64, Serial: math.MaxUint64 - uint64(maxFaultRecords-index), Debris: true,
+			Start: sim.MaxCounter, End: sim.MaxCounter, Lane: project.MaxLanes - 1, From: plainProofFloat, To: plainProofFloat}
+	}
+	state.Faults = &sim.SavedFaults{Records: faults, Counters: sim.FaultCounters{Started: sim.MaxCounter, Cleared: sim.MaxCounter,
+		Evacuations: sim.MaxCounter, Reroutes: sim.MaxCounter, FaultWaitTicks: sim.MaxCounter}}
+	emergencies := make([]sim.SavedEmergency, sim.MaxEmergencies)
+	for index := range emergencies {
+		emergencies[index] = sim.SavedEmergency{Generation: math.MaxUint64, Serial: math.MaxUint64 - uint64(sim.MaxEmergencies-index),
+			Start: sim.MaxCounter, Pod: project.MaxPods - 1, Order: sim.MaxCounter}
+	}
+	state.Emergencies = &sim.SavedEmergencies{Records: emergencies, Counters: sim.EmergencyCounters{Started: sim.MaxCounter,
+		Ended: sim.MaxCounter, EmergencyTicks: sim.MaxCounter}}
+}
+
+// marshalWidestSave encodes file with the marshalers of the saved orders and
+// the saved records.
+func marshalWidestSave(t *testing.T, file stateFile) []byte {
+	t.Helper()
+	indexes := newSavedIndexes(file)
+	data, err := jsonv2.Marshal(file, jsonv2.Deterministic(true), jsonv2.WithMarshalers(jsonv2.JoinMarshalers(
+		jsonv2.MarshalToFunc(indexes.encodeTrip), jsonv2.MarshalToFunc(indexes.encodeRequest),
+		jsonv2.MarshalToFunc(encodeSavedFault), jsonv2.MarshalToFunc(encodeSavedEmergency))))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return data
 }
 
 func widestPlainSavedState(t *testing.T) stateFile {
@@ -65,7 +124,7 @@ func widestPlainSavedState(t *testing.T) stateFile {
 	assertPlainOrderTradeoff(t, marshalSavedJSON(t, trip), marshalSavedJSON(t, request), marshalSavedJSON(t, active), marshalSavedJSON(t, []string{id}))
 	state := sim.SavedState{}
 	fillPlainProofScalars(reflect.ValueOf(&state).Elem())
-	state.Interrupted, state.InterruptedPassengers, state.IncidentSerial = 0, 0, 0
+	// addWidestSavedMembers sets the incident members.
 	state.Demo = &sim.SavedDemo{SecondSent: true, FollowupsSent: true}
 	state.Pods = slices.Repeat([]sim.SavedPod{pod}, project.MaxPods)
 	// A restore can keep a cached route on a waiting trip that no pod is
@@ -131,15 +190,47 @@ func TestPlainStreamMaximumEncoding(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertPlainByteCap(t, "full stream", len(data), MaxStreamJSON)
-	assertPlainHTTPByteCap(t, f)
+	apart := widestPlainStreamRecordBytes(t)
+	t.Logf("full stream: %d encoded bytes, %d bytes of records measured apart", len(data), apart)
+	assertPlainByteCap(t, "full stream", len(data)+apart, MaxStreamJSON)
+	assertPlainHTTPByteCap(t, f, apart)
+}
+
+// widestPlainStreamRecordBytes measures the widest faults and emergencies
+// members of a frame. All vehicles of the widest frame have one ID, and the
+// frame check allows one record for each pod and 64 debris records, so these
+// records cannot pass the encoder. The proof adds their bytes to the total.
+// Each record has the members of both kinds, and the widest ID and ticks.
+func widestPlainStreamRecordBytes(t *testing.T) int {
+	t.Helper()
+	id := widestID('p', 0)
+	from, to, tick := plainProofFloat, plainProofFloat, int64(-sim.MaxCounter)
+	fault := sim.FaultView{ID: "i18446744073709551615.18446744073709551615", Kind: sim.FaultKindDebris, PodID: id, LaneID: id, FromMeters: &from, ToMeters: &to,
+		Phase: sim.FaultPhaseEvacuated, StartTick: tick, EndTick: tick, EvacuateTick: &tick}
+	faults := sim.FaultsView{Active: slices.Repeat([]sim.FaultView{fault}, maxFaultRecords), Counters: sim.FaultCounters{Started: sim.MaxCounter, Cleared: sim.MaxCounter,
+		Evacuations: sim.MaxCounter, Reroutes: sim.MaxCounter, FaultWaitTicks: sim.MaxCounter}}
+	emergency := sim.EmergencyView{ID: fault.ID, PodID: id, OrderID: sim.MaxCounter, Phase: sim.EmergencyPhaseUnloading, StartTick: tick}
+	emergencies := sim.EmergenciesView{Active: slices.Repeat([]sim.EmergencyView{emergency}, sim.MaxEmergencies), Counters: sim.EmergencyCounters{Started: sim.MaxCounter,
+		Ended: sim.MaxCounter, EmergencyTicks: sim.MaxCounter}}
+	faultBytes, err := jsonv2.Marshal(faults)
+	if err != nil {
+		t.Fatal(err)
+	}
+	emergencyBytes, err := jsonv2.Marshal(emergencies)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return len(`"faults":,`) + len(faultBytes) + len(`"emergencies":,`) + len(emergencyBytes)
 }
 
 func widestPlainStreamFrame(t *testing.T) StreamFrame {
 	t.Helper()
 	f := StreamFrame{}
 	fillPlainProofScalars(reflect.ValueOf(&f.State).Elem())
-	f.State.Simulation.Interrupted, f.State.Simulation.InterruptedPassengers = 0, 0
+	// The widest counters pass the encoder, and the records are measured
+	// apart. A frame with operationsOff has none of these members.
+	f.State.Simulation.OperationsOff = false
+	f.State.Simulation.Interrupted, f.State.Simulation.InterruptedPassengers = sim.MaxCounter, sim.MaxCounter
 	f.State.Demand.Config.Seed = math.MaxUint64
 	f.State.ServerStart, f.State.Epoch = strings.Repeat("x", maxDemandErrorBytes), strings.Repeat("x", maxDemandErrorBytes)
 	id := widestID('p', 0)
@@ -155,6 +246,12 @@ func widestPlainStreamFrame(t *testing.T) StreamFrame {
 		vehicle.Riders[i].Completed = true
 	}
 	vehicle.Stops = nil
+	vehicle.Withdrawn, vehicle.Operational = 3, sim.OperationalEmergencyUnload
+	escaped := strings.Repeat("\x01", project.MaxIDLength)
+	pending.LegFrom = escaped
+	for i := range vehicle.Riders {
+		vehicle.Riders[i].LegFrom = escaped
+	}
 	// As in the saved-state proof, keep history outside the outstanding
 	// budget. Replacing it with an active rider and a stop costs less than
 	// the pending order that must leave the full queue.
@@ -194,7 +291,9 @@ func assertPlainOrderTradeoff(t *testing.T, queued, history, active, stop []byte
 	}
 }
 
-func assertPlainHTTPByteCap(t *testing.T, frame StreamFrame) {
+// assertPlainHTTPByteCap bounds the HTTP state of frame. apart is the number
+// of bytes of the records that frame does not hold.
+func assertPlainHTTPByteCap(t *testing.T, frame StreamFrame, apart int) {
 	t.Helper()
 	topology := TopologySnapshot{ProjectVersion: project.CurrentVersion, ServerStart: frame.State.ServerStart, Epoch: frame.State.Epoch}
 	topologyBytes, err := jsonv2.Marshal(topology, json.DefaultOptionsV1())
@@ -207,7 +306,7 @@ func assertPlainHTTPByteCap(t *testing.T, frame StreamFrame) {
 	}
 	// Replace the small topology with its independent admission cap.
 	// This bounds every accepted topology, including HTML name escapes.
-	assertPlainByteCap(t, "HTTP state", len(data)-len(topologyBytes)+MaxTopologyJSON, MaxHTTPStateJSON)
+	assertPlainByteCap(t, "HTTP state", len(data)-len(topologyBytes)+MaxTopologyJSON+apart, MaxHTTPStateJSON)
 }
 
 func assertPlainByteCap(t *testing.T, label string, size, limit int) {
@@ -218,14 +317,13 @@ func assertPlainByteCap(t *testing.T, label string, size, limit int) {
 	}
 }
 
-// fillPlainProofScalars leaves optional contract fields absent. Containers
+// fillPlainProofScalars leaves the order contract, the fault members, and the
+// emergency members absent. The builders set the members. Containers
 // get their explicit count bounds in the builders. Control bytes bound text
 // escapes, and negative numbers include the widest sign and numeric value.
 func fillPlainProofScalars(v reflect.Value) {
 	switch v.Type() {
-	case reflect.TypeFor[sim.OrderContract](), reflect.TypeFor[sim.IncidentContract](),
-		reflect.TypeFor[sim.FaultContract](), reflect.TypeFor[sim.FaultsView](),
-		reflect.TypeFor[sim.EmergencyContract](), reflect.TypeFor[sim.EmergenciesView]():
+	case reflect.TypeFor[sim.OrderContract](), reflect.TypeFor[sim.FaultsView](), reflect.TypeFor[sim.EmergenciesView]():
 		return
 	}
 	switch v.Kind() {

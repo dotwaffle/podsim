@@ -61,7 +61,7 @@ func TestConfigureExperiments(t *testing.T) {
 		t.Fatal(err)
 	}
 	config.PickupReassignment = true
-	ConfigureExperiments(simulation, config)
+	ConfigureExperiments(simulation, config, false)
 	if err := simulation.RequestTrip("market", "garden"); err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +70,7 @@ func TestConfigureExperiments(t *testing.T) {
 	}
 	simulation.Reset()
 	config.PickupReassignment = false
-	ConfigureExperiments(simulation, config)
+	ConfigureExperiments(simulation, config, false)
 	if err := simulation.RequestTrip("market", "garden"); err != nil {
 		t.Fatal(err)
 	}

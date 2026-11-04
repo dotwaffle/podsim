@@ -53,20 +53,16 @@ type SavedState struct {
 	DirectDistanceMeters float64 `json:"directDistanceMeters,omitzero"`
 	MaxDetourRatio       float64 `json:"maxDetourRatio,omitzero"`
 	// Interrupted counts the orders that ended interrupted, and
-	// InterruptedPassengers is the sum of their party sizes. They need the
-	// incident marker.
+	// InterruptedPassengers is the sum of their party sizes.
 	Interrupted           int `json:"interrupted,omitzero"`
 	InterruptedPassengers int `json:"interruptedPassengers,omitzero"`
-	// IncidentSerial is the serial of the last incident record. It needs
-	// the incident marker.
+	// IncidentSerial is the serial of the last incident record.
 	IncidentSerial uint64 `json:"incidentSerial,omitzero"`
-	// Faults holds the fault records and the fault counters. It needs the
-	// fault marker. It is nil when no record is active and each counter is
-	// 0.
+	// Faults holds the fault records and the fault counters. It is nil when
+	// no record is active and each counter is 0.
 	Faults *SavedFaults `json:"faults,omitzero"`
 	// Emergencies holds the emergency records and the emergency counters.
-	// It needs the emergency marker. It is nil when no record is active
-	// and each counter is 0.
+	// It is nil when no record is active and each counter is 0.
 	Emergencies *SavedEmergencies `json:"emergencies,omitzero"`
 	// Demo is nil when the traffic demo does not run.
 	Demo      *SavedDemo `json:"demo,omitzero"`
@@ -161,8 +157,7 @@ type SavedPod struct {
 	// Interrupt hold its operational destination: the purpose code, the
 	// hold that owns the purpose, and the riders whose orders end
 	// interrupted at an emergency unload, by index in Riders. Each is zero
-	// for a pod in service. They need the incident marker. The session
-	// adapter saves the operational destination as one tuple.
+	// for a pod in service. The session adapter saves the operational destination as one tuple.
 	Withdrawn uint8  `json:"withdrawn,omitzero"`
 	Purpose   uint8  `json:"-"`
 	Owner     uint8  `json:"-"`
@@ -223,18 +218,13 @@ const (
 // and its saved state.
 type RestoreStateInput struct {
 	OrderContract OrderContract
-	// IncidentContract is the incident marker of the saved project. A
-	// JSON copy of an input without it keeps the bytes that it had before
-	// the marker.
-	IncidentContract IncidentContract `json:",omitzero"`
-	// FaultContract is the fault marker of the saved project, and Faults
-	// its fault settings. The restored simulation has the fault operations
-	// on with the marker.
-	FaultContract FaultContract `json:",omitzero"`
-	Faults        FaultSettings `json:",omitzero"`
-	// EmergencyContract is the emergency marker of the saved project. The
-	// restored simulation has the emergency operations on with the marker.
-	EmergencyContract EmergencyContract `json:",omitzero"`
+	// FaultsOn turns on the fault rules of the restore and the fault
+	// operations of the restored simulation, with the settings of Faults.
+	FaultsOn bool          `json:",omitzero"`
+	Faults   FaultSettings `json:",omitzero"`
+	// EmergenciesOn turns on the emergency rules of the restore and the
+	// emergency operations of the restored simulation.
+	EmergenciesOn bool `json:",omitzero"`
 	// OnboardPickups permits new occupied pickups after restoration.
 	OnboardPickups  bool
 	ExpressServices []ExpressService
@@ -288,15 +278,9 @@ type RestoreResult struct {
 
 // checkOperationalFields checks the holds and the operational destinations
 // of the saved pods, and the pickup exclusions of the saved waiting trips,
-// before either restore tier. Holds and purposes need the incident
-// contract, and an emergency unload needs a passenger station.
+// before either restore tier. An emergency unload needs a passenger
+// station.
 func checkOperationalFields(input RestoreStateInput) error {
-	operational := func(pod SavedPod) bool {
-		return pod.Withdrawn != 0 || pod.Purpose != 0 || pod.Owner != 0 || pod.Interrupt != 0
-	}
-	if input.IncidentContract == "" && slices.ContainsFunc(input.State.Pods, operational) {
-		return errors.New("saved service holds and operational destinations need the incident contract")
-	}
 	if err := checkSavedExclusions(input.State); err != nil {
 		return err
 	}
@@ -331,7 +315,7 @@ func checkSavedExclusions(state SavedState) error {
 // tried. Invalid saved faults return an error without a logical fallback.
 func RestoreState(input RestoreStateInput) (*Simulation, RestoreResult, error) {
 	return restoreState(input, func() (*Simulation, error) {
-		return NewFleetWithContracts(input.Network, input.Fleet, input.fleetContracts())
+		return NewFleetWithOrderContract(input.Network, input.Fleet, input.OrderContract)
 	})
 }
 
@@ -340,7 +324,6 @@ func RestoreState(input RestoreStateInput) (*Simulation, RestoreResult, error) {
 // of the result.
 var restoreInputChecks = [...]func(RestoreStateInput) error{
 	checkRestoreOrderContract,
-	checkRestoreIncidentFields,
 	checkExpressSavedState,
 	checkContractRestoreSemantics,
 	checkSavedServiceLimits,
@@ -391,21 +374,6 @@ func checkRestoreOrderContract(input RestoreStateInput) error {
 	}
 	if input.OrderContract != input.State.OrderContract {
 		return errors.New("saved and input order contracts differ")
-	}
-	return nil
-}
-
-// checkRestoreIncidentFields checks the incident contract. A saved incident
-// serial and saved interrupted orders need the contract.
-func checkRestoreIncidentFields(input RestoreStateInput) error {
-	if err := ValidateIncidentContract(input.IncidentContract); err != nil {
-		return err
-	}
-	if input.IncidentContract == "" && input.State.IncidentSerial != 0 {
-		return errors.New("saved incident serial needs the incident contract")
-	}
-	if input.IncidentContract == "" && (input.State.Interrupted != 0 || input.State.InterruptedPassengers != 0) {
-		return errors.New("saved interrupted orders need the incident contract")
 	}
 	return nil
 }

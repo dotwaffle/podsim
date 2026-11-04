@@ -336,17 +336,9 @@ func newServerStart() string {
 
 // startProject starts a new simulation of a copy of config in a new epoch.
 // config must be valid.
-// fleetContracts returns the contracts of config for a new fleet.
-func fleetContracts(config project.Config) sim.FleetContracts {
-	return sim.FleetContracts{
-		OrderContract: config.OrderContract, IncidentContract: config.IncidentContract,
-		FaultContract: config.FaultContract, EmergencyContract: config.EmergencyContract,
-	}
-}
-
 func (s *Session) startProject(config project.Config) error {
 	owned := project.Clone(config)
-	simulation, err := sim.NewFleetWithContracts(owned.Network, owned.Fleet, fleetContracts(owned))
+	simulation, err := sim.NewFleetWithOrderContract(owned.Network, owned.Fleet, owned.OrderContract)
 	if err != nil {
 		return fmt.Errorf("create shared fleet: %w", err)
 	}
@@ -356,7 +348,7 @@ func (s *Session) startProject(config project.Config) error {
 	if err := project.ConfigurePlatoons(simulation, owned); err != nil {
 		return fmt.Errorf("configure platoons: %w", err)
 	}
-	if err := project.ConfigureExperiments(simulation, owned); err != nil {
+	if err := project.ConfigureExperiments(simulation, owned, true); err != nil {
 		return fmt.Errorf("configure experimental policies: %w", err)
 	}
 	epoch := rand.Text()
@@ -414,8 +406,7 @@ func (s *Session) topologyLocked() TopologySnapshot {
 // preflight measures the topology that the session writes.
 func projectTopology(config project.Config, serverStart, epoch string, revision uint64) TopologySnapshot {
 	topology := TopologySnapshot{
-		ProjectVersion: config.Version, OrderContract: config.OrderContract, IncidentContract: config.IncidentContract,
-		FaultContract: config.FaultContract, EmergencyContract: config.EmergencyContract,
+		ProjectVersion: config.Version, OrderContract: config.OrderContract,
 		ServerStart: serverStart, Epoch: epoch, ProjectRevision: revision,
 		Network: project.CloneNetwork(config.Network), DemoAvailable: demoAvailable(config),
 	}
@@ -787,7 +778,7 @@ func (s *Session) apply(command Command) (outcome, error) {
 	case "reset":
 		paused := s.simulation.Snapshot().Paused
 		s.simulation.Reset()
-		if err := project.ConfigureExperiments(s.simulation, s.project); err != nil {
+		if err := project.ConfigureExperiments(s.simulation, s.project, true); err != nil {
 			return outcome{}, fmt.Errorf("configure experimental policies: %w", err)
 		}
 		s.simulation.SetPaused(paused)
@@ -806,16 +797,14 @@ func (s *Session) apply(command Command) (outcome, error) {
 		}
 		// The demo makes a new fleet with the default settings. A reset
 		// after the demo keeps them, so apply the project settings again.
-		// The demo project has no fault marker and no emergency marker, so
-		// faults and emergencies stay off until a reset or a project apply.
-		demo := demoProject(s.project)
-		if err := project.ConfigureSharedRides(s.simulation, demo); err != nil {
+		// Faults and emergencies stay off until a reset or a project apply.
+		if err := project.ConfigureSharedRides(s.simulation, s.project); err != nil {
 			return outcome{}, fmt.Errorf("configure shared rides: %w", err)
 		}
-		if err := project.ConfigurePlatoons(s.simulation, demo); err != nil {
+		if err := project.ConfigurePlatoons(s.simulation, s.project); err != nil {
 			return outcome{}, fmt.Errorf("configure platoons: %w", err)
 		}
-		if err := project.ConfigureExperiments(s.simulation, demo); err != nil {
+		if err := project.ConfigureExperiments(s.simulation, s.project, false); err != nil {
 			return outcome{}, fmt.Errorf("configure experimental policies: %w", err)
 		}
 		s.speed = 1
@@ -917,7 +906,7 @@ func (s *Session) applyProject(command Command) (bool, error) {
 	if same, err := sameProject(s.project, config); err == nil && same {
 		return false, nil
 	}
-	candidate, err := sim.NewFleetWithContracts(config.Network, config.Fleet, fleetContracts(config))
+	candidate, err := sim.NewFleetWithOrderContract(config.Network, config.Fleet, config.OrderContract)
 	if err != nil {
 		return false, fmt.Errorf("create project fleet: %w", err)
 	}
@@ -927,7 +916,7 @@ func (s *Session) applyProject(command Command) (bool, error) {
 	if err := project.ConfigurePlatoons(candidate, config); err != nil {
 		return false, fmt.Errorf("configure platoons: %w", err)
 	}
-	if err := project.ConfigureExperiments(candidate, config); err != nil {
+	if err := project.ConfigureExperiments(candidate, config, true); err != nil {
 		return false, fmt.Errorf("configure experimental policies: %w", err)
 	}
 	if err := preflightTopology(config, s.serverStart, s.epoch); err != nil {
@@ -955,15 +944,6 @@ func (s *Session) applyProject(command Command) (bool, error) {
 func demoAvailable(config project.Config) bool {
 	defaults := project.Default()
 	return reflect.DeepEqual(config.Network, defaults.Network) && reflect.DeepEqual(config.Fleet, defaults.Fleet)
-}
-
-// demoProject returns the project of the traffic demo: config without the
-// fault and emergency markers and their settings. The demo keeps the
-// incident marker of config, because the topology keeps it.
-func demoProject(config project.Config) project.Config {
-	config.FaultContract, config.Faults = "", nil
-	config.EmergencyContract, config.Emergencies = "", nil
-	return config
 }
 
 // demoFleet reports whether simulation has the fleet of the traffic demo.

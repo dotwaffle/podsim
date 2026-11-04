@@ -6,6 +6,7 @@ import (
 	"encoding/json/v2"
 	"errors"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -159,11 +160,9 @@ func TestCommandInputAndOutputGuards(t *testing.T) {
 
 func TestFoundationRawPresence(t *testing.T) {
 	t.Parallel()
-	for _, member := range []string{"orderContract", "incidentContract"} {
-		for _, value := range []string{"null", "0", `""`, "1"} {
-			if err := parkride.CheckFoundationProject([]byte(`{"version":1,"` + member + `":` + value + `}`)); err == nil {
-				t.Fatal("contract marker presence accepted", member)
-			}
+	for _, value := range []string{"null", "0", `""`, "1"} {
+		if err := parkride.CheckFoundationProject([]byte(`{"version":1,"orderContract":` + value + `}`)); err == nil {
+			t.Fatal("contract marker presence accepted")
 		}
 	}
 	args := commandInputs(t)
@@ -250,4 +249,46 @@ func TestCommandStopsWhenContextEnds(t *testing.T) {
 
 func command(args []string, stdout io.Writer) error {
 	return commandWith(context.Background(), args, stdout)
+}
+
+// TestRemovedMarkerRefused checks that a car run refuses each removed marker
+// as an unknown member of the project, and that a run accepts a project with
+// fault and emergency settings.
+func TestRemovedMarkerRefused(t *testing.T) {
+	t.Parallel()
+	args := commandInputs(t)
+	path := args[1]
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var config map[string]any
+	if err = json.Unmarshal(data, &config); err != nil {
+		t.Fatal(err)
+	}
+	write := func(edit func(map[string]any)) {
+		t.Helper()
+		next := maps.Clone(config)
+		edit(next)
+		raw, marshalErr := json.Marshal(next)
+		if marshalErr != nil {
+			t.Fatal(marshalErr)
+		}
+		if writeErr := os.WriteFile(path, raw, 0o600); writeErr != nil {
+			t.Fatal(writeErr)
+		}
+	}
+	write(func(next map[string]any) {
+		next["faults"] = map[string]any{"evacuationSeconds": 0}
+		next["emergencies"] = map[string]any{}
+	})
+	if err := command(args, io.Discard); err != nil {
+		t.Fatal("a project with settings:", err)
+	}
+	for _, member := range []string{"incidentContract", "faultContract", "emergencyContract"} {
+		write(func(next map[string]any) { next[member] = "v1" })
+		if err := command(args, io.Discard); err == nil || !strings.Contains(err.Error(), member) {
+			t.Errorf("%s: %v, want a refusal that names the member", member, err)
+		}
+	}
 }

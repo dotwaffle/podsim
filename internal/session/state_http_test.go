@@ -78,7 +78,7 @@ func TestAcceptsStateMedia(t *testing.T) {
 		{[]string{StateMediaType + ";q=0.001"}, true},
 		{[]string{StateMediaType + ";q=0."}, false},
 		{[]string{"  " + StateMediaType + " ; q=0.8 "}, true},
-		{[]string{"Application/VND.podsim.state-6+JSON"}, true},
+		{[]string{"Application/VND.podsim.state-7+JSON"}, true},
 		{[]string{StateMediaType + ";charset=utf-8;q=0.9"}, true},
 		{[]string{"application/json;q=0.9, " + StateMediaType + ";q=0.1"}, true},
 		{[]string{"application/json, text/plain", StateMediaType + ";q=0.7"}, true},

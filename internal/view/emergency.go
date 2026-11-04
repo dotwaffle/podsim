@@ -31,14 +31,14 @@ func hasEmergency(emergencies sim.EmergenciesView, podID string) bool {
 
 // emergencyButton returns the emergency control of the pod inspector
 // (section 10.6 of the incident emergency contract). It shows only with
-// the emergency marker, only while the inspector shows the selected pod,
+// the operations on, only while the inspector shows the selected pod,
 // and only on a pod that carries a party and has no emergency. The command
 // has no order ID, so the party is the first active rider. The view does
 // not check the other preconditions: the server refuses a command that
 // fails one, and the message line shows the error. The button is below the
 // fault button, between the status line and the journey line.
 func (g *Game) emergencyButton(state sim.Snapshot) (button, bool) {
-	if state.EmergencyContract == "" || g.showOrders || g.showDemand {
+	if state.OperationsOff || g.showOrders || g.showDemand {
 		return button{}, false
 	}
 	vehicle, ok := selectedVehicle(state, g.selected)

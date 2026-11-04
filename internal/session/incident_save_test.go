@@ -12,12 +12,11 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-// incidentSaveProject returns the example project with the incident
-// marker, the first pods of its fleet, and shared rides of 4 parties.
+// incidentSaveProject returns the example project with the first pods of
+// its fleet and shared rides of 4 parties.
 // Demand is off, so the test submits the orders itself.
 func incidentSaveProject(pods int) project.Config {
 	config := project.Default()
-	config.IncidentContract = sim.IncidentV1Contract
 	config.Fleet = config.Fleet[:pods]
 	config.SharedRidePartyLimit = 4
 	return config
@@ -29,6 +28,9 @@ type incidentSave struct {
 	s      *Session
 	store  *fakeStore
 	stream *incidentStream
+	// stageOne tells that the session runs the stage 1 test entries, which
+	// need both switches off.
+	stageOne bool
 }
 
 // incidentStream is the stream client of an incidentSave: the last
@@ -48,6 +50,24 @@ func newIncidentSave(t *testing.T, config project.Config) incidentSave {
 	}
 	t.Cleanup(s.Close)
 	return incidentSave{s: s, store: store, stream: &incidentStream{}}
+}
+
+// newStageOneSave returns an incidentSave of config with both switches off,
+// as the stage 1 test entries need. No production fleet with holds has
+// them off, so only these fixtures do this.
+func newStageOneSave(t *testing.T, config project.Config) incidentSave {
+	t.Helper()
+	x := newIncidentSave(t, config)
+	x.stageOne = true
+	x.s.mu.Lock()
+	defer x.s.mu.Unlock()
+	if err := x.s.simulation.SetFaults(false, sim.FaultSettings{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := x.s.simulation.SetEmergencies(false); err != nil {
+		t.Fatal(err)
+	}
+	return x
 }
 
 // operate runs one stage 1 operation at a paused command boundary: under
@@ -110,14 +130,20 @@ func (x incidentSave) stepUntil(t *testing.T, what string, done func(sim.SavedSt
 
 // fixtureRestoreSteps returns the restore steps of NewFromStore without
 // the incident policy step. The stage 1 test entry IncidentForTest makes
-// states with the emergency hold or an emergency unload and no emergency
-// marker, which no production path makes and which the policy step
-// rejects (section 8 of the incident emergency contract). Only the
-// session restores of these fixtures use these steps.
-// TestIncidentSavePolicy checks that NewFromStore rejects the same saves.
-func fixtureRestoreSteps() restoreSteps {
+// states with a refuge, or with the emergency hold and no record, which no
+// production path makes. With stageOne, the steps also restore with the
+// switches off, because the on rules refuse such a state. Only the session
+// restores of these fixtures use these steps. TestIncidentSavePolicy checks
+// that NewFromStore rejects the same saves.
+func fixtureRestoreSteps(stageOne bool) restoreSteps {
 	steps := realRestoreSteps()
 	steps.checkPolicy = nil
+	if stageOne {
+		steps.restoreSimulation = func(input sim.RestoreStateInput) (*sim.Simulation, sim.RestoreResult, error) {
+			input.FaultsOn, input.EmergenciesOn = false, false
+			return sim.RestoreState(input)
+		}
+	}
 	return steps
 }
 
@@ -154,7 +180,7 @@ func (x incidentSave) check(t *testing.T, name string) sim.SavedState {
 	if !reflect.DeepEqual(file.Simulation, want) {
 		t.Fatalf("%s: the save gives\n%+v\nwant\n%+v", name, file.Simulation, want)
 	}
-	restored, err := newFromStore(t.Context(), StoreInput{Store: &fakeStore{data: data}}, fixtureRestoreSteps())
+	restored, err := newFromStore(t.Context(), StoreInput{Store: &fakeStore{data: data}}, fixtureRestoreSteps(x.stageOne))
 	if err != nil || restored.restore.Tier != "physical" {
 		t.Fatalf("%s: restore: %v, %+v", name, err, restored.restore)
 	}
@@ -167,11 +193,10 @@ func (x incidentSave) check(t *testing.T, name string) sim.SavedState {
 	}
 	config := file.Project
 	logical, _, err := sim.RestoreState(sim.RestoreStateInput{
-		OrderContract: config.OrderContract, IncidentContract: config.IncidentContract,
-		Network: config.Network, Fleet: config.Fleet, State: file.Simulation, LogicalOnly: true,
+		OrderContract: config.OrderContract,
+		Network:       config.Network, Fleet: config.Fleet, State: file.Simulation, LogicalOnly: true,
 		ExpressServices: config.ExpressServices, OnboardPickups: config.OnboardPickups,
-		FaultContract: config.FaultContract, Faults: project.EffectiveFaultSettings(config),
-		EmergencyContract: config.EmergencyContract,
+		FaultsOn: !x.stageOne, Faults: project.EffectiveFaultSettings(config), EmergenciesOn: !x.stageOne,
 	})
 	if err != nil {
 		t.Fatalf("%s: logical restore: %v", name, err)
@@ -253,25 +278,22 @@ func (x incidentSave) checkStream(t *testing.T, name string) {
 	}
 }
 
-// incidentView is the incident marker and the stage 1 members of a frame,
-// with each order in the form "id:legFrom", the fault marker and the
-// faults of the frame, and the emergency marker and the emergencies of the
-// frame.
+// incidentFrameView is operationsOff and the stage 1 members of a frame,
+// with each order in the form "id:legFrom", the faults of the frame, and
+// the emergencies of the frame.
 type incidentFrameView struct {
-	Marker                             sim.IncidentContract
+	OperationsOff                      bool
 	Interrupted, InterruptedPassengers int
 	Vehicles                           []string
 	Pending                            []string
-	FaultMarker                        sim.FaultContract
 	Faults                             sim.FaultsView
-	EmergencyMarker                    sim.EmergencyContract
 	Emergencies                        sim.EmergenciesView
 }
 
 func incidentView(frame SimulationFrame) incidentFrameView {
 	order := func(r sim.Request) string { return fmt.Sprintf("%d:%s", r.ID, r.LegFrom) }
-	view := incidentFrameView{Marker: frame.IncidentContract, Interrupted: frame.Interrupted, InterruptedPassengers: frame.InterruptedPassengers,
-		FaultMarker: frame.FaultContract, Faults: frame.Faults, EmergencyMarker: frame.EmergencyContract, Emergencies: frame.Emergencies}
+	view := incidentFrameView{OperationsOff: frame.OperationsOff, Interrupted: frame.Interrupted, InterruptedPassengers: frame.InterruptedPassengers,
+		Faults: frame.Faults, Emergencies: frame.Emergencies}
 	for _, vehicle := range frame.Vehicles {
 		riders := make([]string, len(vehicle.Riders))
 		for i, rider := range vehicle.Riders {
@@ -322,7 +344,7 @@ func (x incidentSave) boardTwo(t *testing.T) {
 // berth, and a leg origin waiting, aboard, and in history.
 func TestIncidentSaveEmergencyUnload(t *testing.T) {
 	t.Parallel()
-	x := newIncidentSave(t, incidentSaveProject(1))
+	x := newStageOneSave(t, incidentSaveProject(1))
 	x.boardTwo(t)
 	x.operate(t, "01", sim.IncidentTestOperation{Kind: "withdraw", Hold: 2})
 	if pod := savedPod(x.check(t, "withdrawn traveling"), "01"); pod.Withdrawn != 2 {
@@ -356,46 +378,51 @@ func TestIncidentSaveEmergencyUnload(t *testing.T) {
 	}
 }
 
-// TestIncidentSavePolicy checks the incident policy step of NewFromStore
-// (section 8 of the incident emergency contract). A save without the
-// emergency marker with the emergency hold, and one with an emergency
-// unload, restore in the physical tier without the policy step. With the
-// step, each one is invalid_state before either tier, and it moves aside.
-// With the emergency marker, the policy accepts the same saves, and the
-// pre-tier checks reject them, because no record names the pod (E2).
+// TestIncidentSavePolicy checks the restore of each stage 1 state that no
+// production path makes. The states restore in the physical tier without
+// the policy step and with the switches off. With the real steps, each one
+// is invalid_state before either tier, and it moves aside: a refuge by the
+// policy step, and an emergency hold or an emergency unload with no record
+// by the pre-tier checks with the switches on (E2 and E4).
 func TestIncidentSavePolicy(t *testing.T) {
 	t.Parallel()
-	x := newIncidentSave(t, incidentSaveProject(1))
+	type policySave struct {
+		name, want string
+		data       []byte
+	}
+	last := func(x incidentSave) []byte { return x.store.writeList()[len(x.store.writeList())-1] }
+	var saves []policySave
+	x := newStageOneSave(t, incidentSaveProject(1))
 	x.boardTwo(t)
-	var saves [][]byte
 	x.operate(t, "01", sim.IncidentTestOperation{Kind: "withdraw", Hold: 2})
 	x.check(t, "emergency hold")
-	saves = append(saves, x.store.writeList()[len(x.store.writeList())-1])
+	saves = append(saves, policySave{"emergency hold", "E2: pod 01 has the emergency hold and no emergency record", last(x)})
 	x.operate(t, "01", sim.IncidentTestOperation{Kind: "destination", Hold: 2, Purpose: 1, Interrupt: 1, Station: "garden", Berth: "garden-1"})
 	x.check(t, "emergency unload")
-	saves = append(saves, x.store.writeList()[len(x.store.writeList())-1])
-	marked := func(file *stateFile) {
-		file.Project.EmergencyContract, file.Project.Emergencies = project.EmergencyV1Contract, &project.EmergencyConfig{}
-	}
-	for index, data := range saves {
-		for _, test := range []struct {
-			save []byte
-			want string
-		}{
-			{data, "without the emergency contract"},
-			{storedRun{data: data}.edited(t, marked), "E2: pod 01 has the emergency hold and no emergency record"},
-		} {
-			if _, err := newTestSession(t).loadState(loadInput{data: test.save, steps: realRestoreSteps()}); err == nil || !strings.Contains(err.Error(), test.want) {
-				t.Errorf("save %d: load error %v, want %q", index, err, test.want)
+	saves = append(saves, policySave{"emergency unload", "E2: pod 01 has the emergency hold and no emergency record", last(x)})
+	refuge := newStageOneSave(t, incidentSaveProject(1))
+	refuge.boardTwo(t)
+	refuge.operate(t, "01", sim.IncidentTestOperation{Kind: "withdraw", Hold: 1})
+	refuge.operate(t, "01", sim.IncidentTestOperation{Kind: "destination", Hold: 1, Purpose: 2, Station: "parking", Berth: "parking-1"})
+	refuge.check(t, "refuge")
+	saves = append(saves, policySave{"refuge", "saved pod 01 has a refuge", last(refuge)})
+	for _, save := range saves {
+		for _, logical := range []bool{false, true} {
+			data := save.data
+			if logical {
+				data = storedRun{data: data}.edited(t, func(file *stateFile) { file.RestoreAttempts = restoreLoopAttempts - 1 })
 			}
-			store := &fakeStore{data: test.save}
+			if _, err := newTestSession(t).loadState(loadInput{data: data, steps: realRestoreSteps()}); stateReason(err) != reasonInvalidState || !strings.Contains(err.Error(), save.want) {
+				t.Errorf("%s, logical %t: load error %v, want %q", save.name, logical, err, save.want)
+			}
+			store := &fakeStore{data: data}
 			s, err := NewFromStore(t.Context(), StoreInput{Store: store})
 			if err != nil {
 				t.Fatal(err)
 			}
 			if s.restore.Tier != restoreEmpty || s.restore.Reason != reasonInvalidState ||
 				!slices.Equal(store.callList(), []string{"read", "reject", "write"}) {
-				t.Errorf("save %d: restore %+v, store calls %v", index, s.restore, store.callList())
+				t.Errorf("%s, logical %t: restore %+v, store calls %v", save.name, logical, s.restore, store.callList())
 			}
 			s.Close()
 		}
@@ -409,7 +436,7 @@ func TestIncidentSaveRefuge(t *testing.T) {
 	t.Parallel()
 	hold := func(t *testing.T) incidentSave {
 		t.Helper()
-		x := newIncidentSave(t, incidentSaveProject(1))
+		x := newStageOneSave(t, incidentSaveProject(1))
 		x.boardTwo(t)
 		x.operate(t, "01", sim.IncidentTestOperation{Kind: "withdraw", Hold: 1})
 		x.operate(t, "01", sim.IncidentTestOperation{Kind: "destination", Hold: 1, Purpose: 2, Station: "parking", Berth: "parking-1"})
@@ -443,7 +470,7 @@ func TestIncidentSaveRefuge(t *testing.T) {
 // of its pod, and after its assignment to another pod.
 func TestIncidentSaveExcludedTrip(t *testing.T) {
 	t.Parallel()
-	x := newIncidentSave(t, incidentSaveProject(2))
+	x := newStageOneSave(t, incidentSaveProject(2))
 	order := x.submit(t, sim.TripOptions{From: "market", To: "harbor"})
 	var pod string
 	x.stepUntil(t, "an empty pod on its way to market", func(state sim.SavedState) bool {
@@ -468,8 +495,7 @@ func TestIncidentSaveExcludedTrip(t *testing.T) {
 	}
 }
 
-// railEvacuationSave returns a session with the stage 1 marker and two
-// pods. The rail-bound order of interruptionProject and its companion ride
+// railEvacuationSave returns a stage 1 session with two pods. The rail-bound order of interruptionProject and its companion ride
 // pod 01 from market to harbor. Pod 02 has a fault hold at the only berth
 // of harbor, so pod 01 stops on the berth access lane with both orders
 // aboard. The session runs.
@@ -477,7 +503,7 @@ func railEvacuationSave(t *testing.T) (incidentSave, railPair) {
 	t.Helper()
 	config := interruptionProject(3600)
 	config.Fleet = []sim.Placement{{ID: "01", StationID: "market", BerthID: "market-1"}, {ID: "02", StationID: "harbor", BerthID: "harbor-1"}}
-	x := newIncidentSave(t, config)
+	x := newStageOneSave(t, config)
 	x.operate(t, "02", sim.IncidentTestOperation{Kind: "withdraw", Hold: 1})
 	x.s.mu.Lock()
 	defer x.s.mu.Unlock()
@@ -556,7 +582,6 @@ func TestIncidentSaveRailEvacuation(t *testing.T) {
 func TestIncidentSaveStranded(t *testing.T) {
 	t.Parallel()
 	config := expressConsumerProject(t)
-	config.IncidentContract = sim.IncidentV1Contract
 	classes, err := sim.NewClassSet("group")
 	if err != nil {
 		t.Fatal(err)
@@ -566,7 +591,7 @@ func TestIncidentSaveStranded(t *testing.T) {
 			config.Network.Lanes[i].VehicleClasses = classes
 		}
 	}
-	x := newIncidentSave(t, config)
+	x := newStageOneSave(t, config)
 	for range 2 {
 		x.submit(t, sim.TripOptions{From: "harbor", To: "market", Service: sim.ExpressServiceChoice, ServiceID: "harbor-market"})
 	}

@@ -36,7 +36,6 @@ func bankAccessFleet(t *testing.T, contract OrderContract) *Simulation {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s.incidentContract = IncidentV1Contract
 	if err := s.SetFaults(true, FaultSettings{EvacuationSeconds: 300}); err != nil {
 		t.Fatal(err)
 	}

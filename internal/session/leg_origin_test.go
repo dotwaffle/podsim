@@ -16,7 +16,6 @@ import (
 func strandedSession(t *testing.T) *Session {
 	t.Helper()
 	config := expressConsumerProject(t)
-	config.IncidentContract = sim.IncidentV1Contract
 	classes, err := sim.NewClassSet("group")
 	if err != nil {
 		t.Fatal(err)

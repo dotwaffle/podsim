@@ -7,8 +7,8 @@ import (
 	"testing"
 )
 
-// altLineFleet returns a simulation with faults on, the incident marker, a
-// party limit of 4 and drop-offs, on lineNetwork(lineStations(1, 1, 2, 2,
+// altLineFleet returns a simulation with faults on, a party limit of 4 and
+// drop-offs, on lineNetwork(lineStations(1, 1, 2, 2,
 // 1)) with a second road from the exit of s1 to the entry of s2. The road
 // passes the node alt, at altY meters from the line. The direct lane
 // s1-link is 150 m long. A road at altY -100 is 250 m long, so it keeps a
@@ -33,7 +33,6 @@ func altLineFleetClasses(t *testing.T, altY float64, classes ClassSet, berths ..
 	if err != nil {
 		t.Fatal(err)
 	}
-	s.incidentContract = IncidentV1Contract
 	if err := s.SetSharedRidePartyLimit(4); err != nil {
 		t.Fatal(err)
 	}
@@ -209,7 +208,7 @@ func TestEndpointRerouteOverDetourLimit(t *testing.T) {
 }
 
 // asymmetricBankFleet returns a simulation on BankExample with faults on,
-// the incident marker, a party limit of 4 and drop-offs. Pod 01 is idle at
+// a party limit of 4 and drop-offs. Pod 01 is idle at
 // the origin. The road to bank b has a bend of 480 m, so a pod from the
 // origin goes to bank a. A detour of 750 m from the split to the approach
 // of bank a goes around the approach lane a-approach. On the detour, a
@@ -233,7 +232,6 @@ func asymmetricBankFleet(t *testing.T) (*Simulation, *vehicle) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s.incidentContract = IncidentV1Contract
 	if err := s.SetSharedRidePartyLimit(4); err != nil {
 		t.Fatal(err)
 	}

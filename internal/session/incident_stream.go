@@ -6,16 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"slices"
 	"strings"
 
 	"github.com/dotwaffle/podsim/internal/sim"
 )
-
-// errIncidentStreamUnmarked refuses a stage 1 member in a stream frame,
-// a delta, or an HTTP state without the incident marker (incident
-// contract, section 11.2).
-var errIncidentStreamUnmarked = errors.New("stream state without the incident marker contains an incident member")
 
 // streamIncidentPaths are the paths of the stage 1 members of a stream
 // envelope and an HTTP state, with "*" for each array index (section
@@ -59,74 +53,49 @@ func groupIncidentPaths(name string) map[string]bool {
 	return paths
 }
 
-// scanIncidentMembers reports whether data has a stage 1 member or the
-// incident group, with any value. The typed decode reads an explicit
-// zero or null as no member, so only this scan sees it. The marker of a
-// delta is the marker of its base frame, so the caller checks the result.
-// No encoder writes null or an empty text, so the scan refuses them.
-func scanIncidentMembers(data []byte) (bool, error) {
+// scanIncidentMembers refuses null and an empty text for each stage 1 member
+// or the incident group. No encoder writes them, and the typed decode reads
+// them as no member, so only this scan sees them.
+func scanIncidentMembers(data []byte) error {
 	return scanIncidentPaths(data, streamIncidentPaths)
 }
 
 // scanIncidentPaths is scanIncidentMembers for the members at paths.
-func scanIncidentPaths(data []byte, paths map[string]bool) (bool, error) {
+func scanIncidentPaths(data []byte, paths map[string]bool) error {
 	decoder := jsontext.NewDecoder(bytes.NewReader(data))
-	found := false
 	for {
 		token, err := decoder.ReadToken()
 		if errors.Is(err, io.EOF) {
-			return found, nil
+			return nil
 		}
 		if err != nil {
-			return false, err
+			return err
 		}
 		kind, length := decoder.StackIndex(decoder.StackDepth())
 		if token.Kind() != jsontext.KindString || kind != jsontext.KindBeginObject || length%2 != 1 || !paths[arrayPath(decoder)] {
 			continue
 		}
-		found = true
 		kind = decoder.PeekKind()
 		if kind == jsontext.KindNull {
-			return false, fmt.Errorf("stream incident member %s is null", decoder.StackPointer())
+			return fmt.Errorf("stream incident member %s is null", decoder.StackPointer())
 		}
 		if kind != jsontext.KindString {
 			continue
 		}
 		value, err := decoder.ReadToken()
 		if err != nil {
-			return false, err
+			return err
 		}
 		if value.String() == "" {
-			return false, fmt.Errorf("stream incident member %s is empty", decoder.StackPointer())
+			return fmt.Errorf("stream incident member %s is empty", decoder.StackPointer())
 		}
 	}
 }
 
-// checkIncidentPresence refuses an envelope whose bytes have a stage 1
-// member when the frame that it makes has no incident marker. A delta
-// has the marker of its base frame.
-func checkIncidentPresence(e StreamEnvelope, previous StreamFrame) error {
-	marker := previous.State.Simulation.IncidentContract
-	if e.Full != nil {
-		marker = e.Full.State.Simulation.IncidentContract
-	}
-	if e.incidentMembers && marker == "" {
-		return errIncidentStreamUnmarked
-	}
-	return nil
-}
-
-// checkIncidentFrame checks the typed stage 1 members of a frame. Without
-// the incident marker, it refuses each nonzero member. It refuses a
-// negative counter, an unknown hold bit, an unknown purpose, and a purpose
+// checkIncidentFrame checks the typed stage 1 members of a frame. It refuses
+// a negative counter, an unknown hold bit, an unknown purpose, and a purpose
 // without a hold (section 11.6).
 func checkIncidentFrame(frame SimulationFrame) error {
-	if frame.IncidentContract == "" {
-		if hasIncidentFrameFields(frame) {
-			return errIncidentStreamUnmarked
-		}
-		return nil
-	}
 	if frame.Interrupted < 0 || frame.InterruptedPassengers < 0 {
 		return errors.New("negative interrupted counter")
 	}
@@ -153,15 +122,4 @@ func validateVehicleIncident(vehicle VehicleFrame) error {
 		return errors.New("operational purpose without a hold")
 	}
 	return nil
-}
-
-// hasIncidentFrameFields reports a nonzero stage 1 member in frame.
-func hasIncidentFrameFields(frame SimulationFrame) bool {
-	legFrom := func(request sim.Request) bool { return request.LegFrom != "" }
-	if frame.Interrupted != 0 || frame.InterruptedPassengers != 0 || slices.ContainsFunc(frame.Pending, legFrom) {
-		return true
-	}
-	return slices.ContainsFunc(frame.Vehicles, func(vehicle VehicleFrame) bool {
-		return vehicle.Withdrawn != 0 || vehicle.Operational != "" || slices.ContainsFunc(vehicle.Riders, legFrom)
-	})
 }

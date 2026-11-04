@@ -15,7 +15,7 @@ import (
 )
 
 // CurrentVersion is the only supported project version. Field presence
-// and the contract markers select the optional features of a project.
+// and the order contract select the optional features of a project.
 const CurrentVersion = 1
 
 // These limits bound the text of a project. The browser editor checks a
@@ -188,27 +188,20 @@ type DemandContext struct {
 // Config is the versioned, portable scenario configuration.
 type Config struct {
 	OrderContract sim.OrderContract `json:"orderContract,omitzero"`
-	// IncidentContract selects the incident service transitions. It is an
-	// extension field of the command digest, so a command without it keeps
-	// its digest.
-	IncidentContract sim.IncidentContract `json:"incidentContract,omitzero" digest:"ext=1"`
-	// FaultContract selects the fault operations, and Faults holds their
-	// settings. Each one is an extension field of the command digest.
-	FaultContract FaultContract `json:"faultContract,omitzero" digest:"ext=2"`
-	Faults        *FaultConfig  `json:"faults,omitzero" digest:"ext=3"`
-	// EmergencyContract selects the emergency operations, and Emergencies
-	// holds their settings. Each one is an extension field of the command
-	// digest.
-	EmergencyContract EmergencyContract `json:"emergencyContract,omitzero" digest:"ext=10"`
-	Emergencies       *EmergencyConfig  `json:"emergencies,omitzero" digest:"ext=11"`
-	Version           int               `json:"version"`
-	Name              string            `json:"name"`
-	Network           sim.Network       `json:"network"`
-	Fleet             []sim.Placement   `json:"fleet"`
-	Demand            DemandConfig      `json:"demand"`
-	DemandProfiles    []DemandProfile   `json:"demandProfiles,omitempty"`
-	RailArrivals      []RailArrival     `json:"railArrivals,omitempty"`
-	RailDepartures    []RailDeparture   `json:"railDepartures,omitempty"`
+	// Faults holds the fault settings, and Emergencies the emergency
+	// settings. Each one is an extension field of the command digest, so a
+	// command without it keeps its digest. Extensions 1, 2, and 10 are
+	// retired, and no field can use them again.
+	Faults         *FaultConfig     `json:"faults,omitzero" digest:"ext=3"`
+	Emergencies    *EmergencyConfig `json:"emergencies,omitzero" digest:"ext=11"`
+	Version        int              `json:"version"`
+	Name           string           `json:"name"`
+	Network        sim.Network      `json:"network"`
+	Fleet          []sim.Placement  `json:"fleet"`
+	Demand         DemandConfig     `json:"demand"`
+	DemandProfiles []DemandProfile  `json:"demandProfiles,omitempty"`
+	RailArrivals   []RailArrival    `json:"railArrivals,omitempty"`
+	RailDepartures []RailDeparture  `json:"railDepartures,omitempty"`
 	// ExpressServices declares directed hub pairs without a fill or timetable rule.
 	ExpressServices []sim.ExpressService `json:"expressServices,omitempty"`
 	// SharedRidePartyLimit caps the parties per pod. Zero loads as one.
@@ -260,9 +253,8 @@ func Default() Config {
 // error is the refusal, so the order is part of the result.
 var projectChecks = [...]func(Config) error{
 	validateVersion,
-	validateIncidentContract,
-	validateFaultContract,
-	validateEmergencyContract,
+	validateFaults,
+	validateEmergencies,
 	validateFormatBounds,
 	validateSharedRideSettings,
 	validateOnboardPickups,
@@ -286,11 +278,6 @@ func Validate(config Config) error {
 		}
 	}
 	return validateWidestSize(config)
-}
-
-// validateIncidentContract checks the incident contract marker.
-func validateIncidentContract(config Config) error {
-	return sim.ValidateIncidentContract(config.IncidentContract)
 }
 
 // validateFormatBounds checks the length of the project name, and then the
@@ -430,18 +417,13 @@ func validatePassengerStations(config Config) error {
 // validateWidestSize checks the encoded size of the project. Validate runs
 // it last, because it encodes the full project. It measures the project
 // with the widest demand settings, because the demand command checks new
-// settings with ValidateDemand only. It also measures the faults settings
-// of a project with the fault marker, and the emergencies settings of a
-// project with the emergency marker, at their widest.
+// settings with ValidateDemand only. It also measures the faults and the
+// emergencies settings at their widest.
 func validateWidestSize(config Config) error {
 	measured := config
 	measured.Demand = widestDemand
-	if config.FaultContract != "" {
-		measured.Faults = &widestFaults
-	}
-	if config.EmergencyContract != "" {
-		measured.Emergencies = &widestEmergencies
-	}
+	measured.Faults = &widestFaults
+	measured.Emergencies = &widestEmergencies
 	_, err := encodedSize(measured)
 	return err
 }

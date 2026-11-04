@@ -14,7 +14,7 @@ import (
 
 // StateMediaType is the media type of the HTTP state of every project.
 // The state endpoint replies only to a request that accepts it.
-const StateMediaType = "application/vnd.podsim.state-6+json"
+const StateMediaType = "application/vnd.podsim.state-7+json"
 
 // MaxHTTPStateJSON limits an HTTP state, including its topology.
 const MaxHTTPStateJSON = 128 << 20
@@ -60,18 +60,8 @@ func DecodeStateJSON(raw []byte) (State, error) {
 		return State{}, errors.New("HTTP state exceeds supported limit")
 	}
 	var envelope StateEnvelope
-	members, err := decodeMarkedJSONLimit(raw, &envelope, MaxHTTPStateJSON)
-	if err != nil {
+	if err := decodeMarkedJSONLimit(raw, &envelope, MaxHTTPStateJSON); err != nil {
 		return State{}, err
-	}
-	if members.incident && envelope.Frame.State.Simulation.IncidentContract == "" {
-		return State{}, errIncidentStreamUnmarked
-	}
-	if members.fault && envelope.Frame.State.Simulation.FaultContract == "" {
-		return State{}, errFaultStreamUnmarked
-	}
-	if members.emergency && envelope.Frame.State.Simulation.EmergencyContract == "" {
-		return State{}, errEmergencyStreamUnmarked
 	}
 	if envelope.OrderContract != envelope.Topology.OrderContract {
 		return State{}, errors.New("HTTP order contracts disagree")

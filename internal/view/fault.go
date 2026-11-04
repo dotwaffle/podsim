@@ -29,15 +29,15 @@ func podFault(faults sim.FaultsView, podID string) (sim.FaultView, bool) {
 }
 
 // faultButton returns the fault control of the pod inspector (section 12.6
-// of the incident suspension contract). It shows only with the fault
-// marker and only while the inspector shows the selected pod. On a pod
+// of the incident suspension contract). It shows only with the operations
+// on and only while the inspector shows the selected pod. On a pod
 // without a fault, it reads Fault and starts a fault without a duration.
 // On a faulted pod, it reads Clear fault and clears that fault. The view
 // does not check the other preconditions of the commands: the server
 // refuses a command that fails one, and the message line shows the error.
 // The button is right of the activity label, which ends before it.
 func (g *Game) faultButton(state sim.Snapshot) (button, bool) {
-	if state.FaultContract == "" || g.showOrders || g.showDemand {
+	if state.OperationsOff || g.showOrders || g.showDemand {
 		return button{}, false
 	}
 	vehicle, ok := selectedVehicle(state, g.selected)

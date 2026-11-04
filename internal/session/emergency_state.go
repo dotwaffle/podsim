@@ -14,41 +14,20 @@ import (
 // contract, section 11.3).
 const emergencyTupleLength = 5
 
-// errEmergencyMemberUnmarked refuses a stage 3 member in a saved state
-// whose project has no emergency marker.
-var errEmergencyMemberUnmarked = errors.New("saved state without the emergency marker contains an emergency member")
-
 // savedEmergencyPath is the path of the stage 3 member of a save. Each
 // member below it is also a stage 3 member.
 const savedEmergencyPath = "/simulation/emergencies"
 
-// scanSavedEmergencyMembers reads the tokens of a saved state. Without the
-// emergency marker, it refuses the stage 3 member with any value, also
-// null, an empty object, or an empty array: the typed decode reads such a
-// value as no member, so only this scan sees it. With the marker, it
-// refuses null for the member and for each member below it, which no
-// encoder writes.
-func scanSavedEmergencyMembers(data []byte, marked bool) error {
-	return scanSavedMarkedMember(data, savedEmergencyPath, marked, errEmergencyMemberUnmarked)
+// checkEmergencyMembers checks the raw stage 3 members of a saved state.
+func checkEmergencyMembers(data []byte) error {
+	return scanSavedMember(data, savedEmergencyPath)
 }
 
-// checkEmergencyMembers checks the raw stage 3 members of a decoded saved
-// state against the emergency marker of its project.
-func checkEmergencyMembers(data []byte, file stateFile) error {
-	return scanSavedEmergencyMembers(data, file.Project.EmergencyContract != "")
-}
-
-// validateEmergencyValues refuses the emergency records and counters of a
-// state file whose project has no emergency marker, and an empty
-// emergencies member, which the save omits. The encoder calls it.
+// validateEmergencyValues refuses an empty emergencies member, which the
+// save omits. The encoder calls it.
 func (file *stateFile) validateEmergencyValues() error {
 	emergencies := file.Simulation.Emergencies
-	switch {
-	case emergencies == nil:
-		return nil
-	case file.Project.EmergencyContract == "":
-		return errEmergencyMemberUnmarked
-	case len(emergencies.Records) == 0 && emergencies.Counters == (sim.EmergencyCounters{}):
+	if emergencies != nil && len(emergencies.Records) == 0 && emergencies.Counters == (sim.EmergencyCounters{}) {
 		return errors.New("saved emergencies member is empty")
 	}
 	return nil

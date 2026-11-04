@@ -8,8 +8,6 @@ import (
 
 // depotContracts are the contracts of the depot restore tests, so that a
 // save holds the faults.
-var depotContracts = FleetContracts{IncidentContract: IncidentV1Contract, FaultContract: FaultV1Contract}
-
 // depotFaultSettings are the fault settings of the depot restore tests.
 var depotFaultSettings = FaultSettings{EvacuationSeconds: 300}
 
@@ -17,7 +15,7 @@ var depotFaultSettings = FaultSettings{EvacuationSeconds: 300}
 // operations on.
 func newDepotFleet(t *testing.T, network Network, placements []Placement) *Simulation {
 	t.Helper()
-	s, err := NewFleetWithContracts(network, placements, depotContracts)
+	s, err := NewFleet(network, placements)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,7 +36,7 @@ func restoreDepot(t *testing.T, network Network, s *Simulation) *Simulation {
 		state = roundTripState(t, state)
 	}
 	restored, result, err := RestoreState(RestoreStateInput{
-		IncidentContract: IncidentV1Contract, FaultContract: FaultV1Contract, Faults: depotFaultSettings,
+		FaultsOn: true, Faults: depotFaultSettings,
 		Network: network, Fleet: s.initial, State: state,
 	})
 	if err != nil || !cleanRestore(result) {
@@ -157,7 +155,7 @@ func restoreDepotDeparture(t *testing.T, network Network, s *Simulation, v *vehi
 	}
 	restoreDepot(t, network, s)
 	_, result, err := RestoreState(RestoreStateInput{
-		IncidentContract: IncidentV1Contract, FaultContract: FaultV1Contract, Faults: depotFaultSettings,
+		FaultsOn: true, Faults: depotFaultSettings,
 		Network: network, Fleet: s.initial, State: s.ExportState(), LogicalOnly: true,
 	})
 	if err != nil || result.Tier != RestoreLogical {
@@ -248,7 +246,7 @@ func TestDepotDepartureOverLimit(t *testing.T) {
 	}
 	for _, logicalOnly := range []bool{false, true} {
 		restored, result, err := RestoreState(RestoreStateInput{
-			IncidentContract: IncidentV1Contract, FaultContract: FaultV1Contract, Faults: depotFaultSettings,
+			FaultsOn: true, Faults: depotFaultSettings,
 			Network: network, Fleet: s.initial, State: state, LogicalOnly: logicalOnly,
 		})
 		if err != nil {
@@ -305,7 +303,7 @@ func TestDepotDepartureRefusals(t *testing.T) {
 		}
 		for _, logicalOnly := range []bool{false, true} {
 			_, result, err := RestoreState(RestoreStateInput{
-				IncidentContract: IncidentV1Contract, FaultContract: FaultV1Contract, Faults: depotFaultSettings,
+				FaultsOn: true, Faults: depotFaultSettings,
 				Network: test.network, Fleet: s.initial, State: state, LogicalOnly: logicalOnly,
 			})
 			if err == nil || !strings.Contains(err.Error(), test.want) {

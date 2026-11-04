@@ -430,17 +430,16 @@ type digestExtension struct {
 	// n is the N of the tag. It is unique in the Command type tree.
 	n uint64
 	// path is the field path from Command, with the field names joined by
-	// dots, for example "Project.IncidentContract".
+	// dots, for example "Project.Faults".
 	path string
 }
 
 // digestExtensions lists each extension field, in increasing order of N.
-// A new extension field takes the next free N. An extension field must
+// A new extension field takes the next free N. The numbers 1, 2, and 10
+// belonged to removed fields, and they stay retired. An extension field must
 // have a fixed path: it must not be in a slice element or a map element.
 // TestDigestExtensionRegistry checks the table against the Command type.
 var digestExtensions = []digestExtension{
-	{n: 1, path: "Project.IncidentContract"},
-	{n: 2, path: "Project.FaultContract"},
 	{n: 3, path: "Project.Faults"},
 	{n: 4, path: "PodID"},
 	{n: 5, path: "LaneID"},
@@ -448,7 +447,6 @@ var digestExtensions = []digestExtension{
 	{n: 7, path: "ToMeters"},
 	{n: 8, path: "DurationSeconds"},
 	{n: 9, path: "FaultID"},
-	{n: 10, path: "Project.EmergencyContract"},
 	{n: 11, path: "Project.Emergencies"},
 	{n: 12, path: "OrderID"},
 	{n: 13, path: "Project.Network.ManeuverGroups"},

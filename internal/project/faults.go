@@ -7,17 +7,7 @@ import (
 	"fmt"
 	"io"
 	"math"
-
-	"github.com/dotwaffle/podsim/internal/sim"
 )
-
-// FaultContract selects the fault operations of the incident suspension
-// contract. It requires the incident marker. The simulation owns the type,
-// as it owns the incident marker.
-type FaultContract = sim.FaultContract
-
-// FaultV1Contract permits the fault commands and the faults settings.
-const FaultV1Contract = sim.FaultV1Contract
 
 // These limits bound the faults settings. The simulation has the same
 // limits for the evacuation delay and for a fault duration.
@@ -29,8 +19,8 @@ const (
 	maxDebrisMeters           = 50
 )
 
-// FaultConfig holds the faults settings of a project with the fault
-// marker. Each member is optional. A nil member has its default:
+// FaultConfig holds the faults settings of a project. Each member is
+// optional. A nil member has its default:
 // EvacuationSeconds 300, PerHour 0, DebrisShare 0, DebrisMeters 2, and no
 // Duration.
 type FaultConfig struct {
@@ -64,13 +54,9 @@ type FaultDuration struct {
 	MeanSeconds *int   `json:"meanSeconds,omitzero"`
 }
 
-// errUnknownFaultContract means that the fault marker is not
-// FaultV1Contract.
-var errUnknownFaultContract = errors.New("fault contract must be fault-v1")
-
 // widestFaults has the longest canonical encoding of the faults settings
-// that Validate accepts. Validate measures a project with the fault marker
-// with it, as it measures each project with widestDemand. JSON writes a
+// that Validate accepts. Validate measures each project with it, as it
+// measures each project with widestDemand. JSON writes a
 // number from 1e-6 to 1e21 in decimal form, so the widest debris share is
 // a number just above 1e-6 with 17 significant digits, which takes 24
 // bytes. The widest debris length takes 18 bytes. Validate accepts a rate
@@ -85,27 +71,18 @@ var widestFaults = FaultConfig{
 		MaxSeconds: new(maxFaultSeconds), MeanSeconds: new(maxFaultSeconds)},
 }
 
-// validateFaultContract checks the fault marker and the faults settings.
-// The marker needs the incident marker and the settings. The settings
-// need the marker.
-func validateFaultContract(config Config) error {
-	switch {
-	case config.FaultContract == "" && config.Faults != nil:
-		return errors.New("faults require faultContract fault-v1")
-	case config.FaultContract == "":
+// validateFaults checks the faults settings of a project with a faults
+// member.
+func validateFaults(config Config) error {
+	if config.Faults == nil {
 		return nil
-	case config.FaultContract != FaultV1Contract:
-		return errUnknownFaultContract
-	case config.IncidentContract == "":
-		return errors.New("faultContract requires incidentContract incident-v1")
-	case config.Faults == nil:
-		return errors.New("faultContract requires faults")
 	}
-	return validateFaults(*config.Faults)
+	return validateFaultSettings(*config.Faults)
 }
 
-// validateFaults checks the range of each faults member that is present.
-func validateFaults(faults FaultConfig) error {
+// validateFaultSettings checks the range of each faults member that is
+// present.
+func validateFaultSettings(faults FaultConfig) error {
 	if value := faults.EvacuationSeconds; value != nil && (*value < 0 || *value > maxFaultEvacuationSeconds) {
 		return fmt.Errorf("faults evacuationSeconds must be 0 to %d", maxFaultEvacuationSeconds)
 	}
@@ -210,8 +187,8 @@ func clonePointer[T any](pointer *T) *T {
 	return new(*pointer)
 }
 
-// evacuationSeconds returns the evacuation delay of a project with the
-// fault marker, with the default for an absent member.
+// evacuationSeconds returns the evacuation delay of a project, with the
+// default for an absent member.
 func evacuationSeconds(faults *FaultConfig) int {
 	if faults == nil || faults.EvacuationSeconds == nil {
 		return defaultEvacuationSeconds

@@ -26,24 +26,20 @@ The client uses these message boundaries:
 | Command | `POST /api/command` | Retry-safe mutation and compact acknowledgment. |
 
 Every project has version 1, and the server refuses project versions 2 through 5.
-The contract markers of the project select its kind.
-`GET /api/state` has one reply shape for every project kind, with the media type `application/vnd.podsim.state-6+json`.
+The `orderContract` marker of the project selects its kind.
+`GET /api/state` has one reply shape for every project kind, with the media type `application/vnd.podsim.state-7+json`.
 The request must name that media type in `Accept`, with no quality value or a quality value above zero.
 A wildcard such as `*/*` does not name the media type.
 Without the media type, the request gets HTTP 406.
-The reply is an envelope with the root contract markers of the project, `topology`, and `frame`.
+The reply is an envelope with the root `orderContract` marker of the project, `topology`, and `frame`.
 The frame is a full stream frame, so the state values are in `frame.state`, and the routes are route windows (see "Shared state stream").
 The envelope has `orderContract` only when the project has it.
 The editor and the debug capture send the media type.
 They refuse a reply with another media type before they read it.
-They also refuse a reply that has a `textEncoding` or `couplingContract` member at any level, or that is over the stream limits of 64 levels and 65536 elements in an array.
-The root, `topology` and `frame.state.simulation` must have the same contract markers.
+They also refuse a reply that has a `textEncoding`, `couplingContract`, `incidentContract`, `faultContract`, or `emergencyContract` member at any level, or that is over the stream limits of 64 levels and 65536 elements in an array.
+The root, `topology` and `frame.state.simulation` must have the same `orderContract` marker.
 When present, `orderContract` must be `express-v1`.
-A project with the incident marker `incidentContract` `incident-v1` puts it in `topology` and in `frame.state.simulation`, not at the root.
-These two markers must agree, and the value must be `incident-v1`, also not null or empty.
-The fault marker `faultContract` `fault-v1` and the emergency marker `emergencyContract` `emergency-v1` have the same rules.
-A reply with the fault marker or the emergency marker must also have the incident marker.
-The emergency marker does not need the fault marker.
+The Go decoders refuse `incidentContract`, `faultContract`, and `emergencyContract` as unknown members.
 
 All JSON member names use lowerCamel case, such as `projectRevision`, `routeLaneIDs` and `id`.
 A decoder matches member names exactly.
@@ -99,22 +95,16 @@ A restore rejects any other speed, including 4 and 8.
 ## Shared state stream
 
 The server sends a text hello with `version`, `build`, and `serverStart` before any binary state message.
-The version is 7 for every project kind.
+The version is 8 for every project kind.
 The hello also has the `orderContract` marker of the project, when the project has it.
-The markers select the optional sections of each message on the connection.
+The marker selects the Express bounds of each message on the connection.
 A client refuses every other version, and it records the `build` of the hello before it refuses the version.
 Then a page of an earlier build loads the files of the server.
 Each binary message contains one gzip member and one JSON envelope.
 The envelope contains `kind`, `stream`, `sequence`, `base`, `build`, and `source`.
-The envelope has the same contract markers as the hello, the full frame, and the topology.
-A client refuses an envelope whose markers differ from the markers of the hello.
-A topology whose markers differ from the markers of the hello is also refused.
-The incident marker `incidentContract` is only in the topology and in the simulation of a full frame.
-The hello, the envelope root, and a delta do not have it.
-A client refuses a frame whose incident marker differs from the marker of its topology.
-A change of the marker is a project change, so it comes with a new project revision and a new topology.
-The fault marker `faultContract` has the same rules, and it needs the incident marker.
-The emergency marker `emergencyContract` has the same rules, and it also needs the incident marker.
+The envelope has the same `orderContract` marker as the hello, the full frame, and the topology.
+A client refuses an envelope whose marker differs from the marker of the hello.
+A topology whose marker differs from the marker of the hello is also refused.
 The order text of each order (`from`, `to`, `podID`, `dispatchReason`, `serviceID`, and `legFrom`) is canonical base64 of the UTF-8 text, for every project kind.
 This includes the pending replacement group of a delta and the HTTP state.
 No message has a `textEncoding` member.
@@ -152,9 +142,10 @@ A delta carries replacement `groups`, vehicle changes by pod ID, and changed ber
 A replacement wrapper has a `value` member, so null, zero, and an empty list differ from an absent group.
 
 The groups are controls, demand, restore, checkpoints, pending requests, global simulation state, and statistics.
-With the incident marker, the `incident` group has the interrupted counters.
-With the fault marker, the `faults` group has the active faults and the fault counters (see [Faults](#faults)).
-With the emergency marker, the `emergencies` group has the active emergencies and the emergency counters (see [Emergencies](#emergencies)).
+The `incident` group has the interrupted counters.
+The `faults` group has the active faults and the fault counters (see [Faults](#faults)).
+The `emergencies` group has the active emergencies and the emergency counters (see [Emergencies](#emergencies)).
+A delta sends only a changed group.
 Vehicle groups are pod fields, motion, presentation route, riders, stops, and relocation, platoon, or incident metadata.
 A motion replacement has `position` with `x` and `y`, `laneDistance`, and `speed` inside its `value` object.
 Every motion field is present, including zero values, and every number is finite.
@@ -289,7 +280,7 @@ Thus the pod ahead of a pod with index 3 has the same `platoonID` and index 2.
 A pod that is not in a platoon omits both keys.
 With platoons off, no pod has these keys, so the frame does not change.
 
-With the incident marker, a frame can have these members:
+A frame can have these incident members:
 
 | Member | Content | Delta group |
 | --- | --- | --- |
@@ -304,8 +295,14 @@ The `incident` group of a delta has both counters.
 A vehicle with `operational` also has `withdrawn`.
 A client refuses an unknown hold bit, an unknown purpose, and a `legFrom` that is not a passenger station or that is the destination of the order.
 It also refuses null and an empty text in these members.
-Without the marker, a client refuses each of these members and the `incident` group, also with a value of 0, null, or empty.
 The same rules apply to the HTTP state.
+
+`simulation.operationsOff` is true when the fleet has faults or emergencies off, and in a session this is the fleet of the traffic demo.
+A frame omits it when it is false.
+The value changes only with a new fleet, and a new fleet starts a new generation.
+A frame with a different value is on a different chain, so a delta cannot change the value.
+With `operationsOff`, a client refuses a frame with a fault or an emergency record or counter, and a delta with a `faults` or an `emergencies` group.
+The view does not show the **Fault** and **Emergency** buttons of the pod inspector with `operationsOff`.
 
 The `simulation` object has these ride metrics:
 
@@ -475,9 +472,8 @@ A rewind to an unknown or removed ID gets `command_rejected`.
 
 ## Faults
 
-A project turns faults on with the fault marker `faultContract` `fault-v1` and the `faults` settings.
-The fault marker needs the incident marker.
-See [faults](operations.md#faults) for the settings.
+Faults are on in each fleet except the fleet of the traffic demo.
+See [faults](operations.md#faults) for the optional settings.
 
 A pod fault brakes the pod to rest.
 The pod stays there until the fault ends.
@@ -487,7 +483,7 @@ Only the `fault` command starts debris, and the simulation view does not draw de
 
 ### Fault members
 
-With the fault marker, `simulation.faults` of a full frame and of the HTTP state has the members `active` and `counters`.
+`simulation.faults` of a full frame and of the HTTP state has the members `active` and `counters`.
 A frame omits `faults` when no fault is active and each counter is 0.
 The `faults` group of a delta has the same members, and it is `{}` in that case.
 The group has no `value` wrapper.
@@ -536,10 +532,11 @@ It also refuses these records:
 - A `laneID` that is not in the topology, or a segment that does not have `0 <= fromMeters < toMeters`, ends past the lane, or is longer than 50 m.
 - More than 64 debris records, or more than 1,000 pod records.
 
-It also refuses a negative counter.
+It also refuses a negative counter, and null in `faults`, `active`, `counters`, or a counter.
 The scan before the typed decode allows at most 1,064 records in `active`.
-Without the fault marker, a client refuses the `faults` member and the `faults` group, also with a value of null, `{}`, or `[]`.
-It refuses each `faultContract` value other than `fault-v1`, including null and an empty text.
+With `operationsOff`, a client refuses the `faults` group with each value, and a `faults` member with `active` or a counter.
+It gives `stream state with operations off contains a fault member`.
+A `faultContract` member is an unknown member.
 The same rules apply to the HTTP state.
 
 ### Wait reasons
@@ -571,7 +568,7 @@ The `error` message is one of these:
 
 | Message | Cause |
 | --- | --- |
-| `faults are not enabled` | The project has no fault marker, or the traffic demo turned faults off. |
+| `faults are not enabled` | The traffic demo turned faults off, and no reset or project apply came after it. |
 | `invalid fault duration` | `durationSeconds` is not from 1 to 86,400. |
 | `fault target is not supported` | The command has both `podID` and `laneID`, neither of them, or a segment with `podID`. Or the pod is in a platoon, or it is not traveling and not at a berth. |
 | `incident limit reached` | The end tick, the evacuation tick, or the incident serial would overflow. |
@@ -586,9 +583,8 @@ The `error` message is one of these:
 
 ## Emergencies
 
-A project turns emergencies on with the emergency marker `emergencyContract` `emergency-v1` and the `emergencies` settings.
-The emergency marker needs the incident marker, but not the fault marker.
-See [emergencies](operations.md#emergencies) for the settings.
+Emergencies are on in each fleet except the fleet of the traffic demo.
+See [emergencies](operations.md#emergencies) for the optional settings.
 
 An emergency starts for one party aboard a pod.
 The pod leaves service, and its pending pickups go to other pods.
@@ -608,7 +604,7 @@ Then the pod returns to service, unless it has a fault.
 
 ### Emergency members
 
-With the emergency marker, `simulation.emergencies` of a full frame and of the HTTP state has the members `active` and `counters`.
+`simulation.emergencies` of a full frame and of the HTTP state has the members `active` and `counters`.
 A frame omits `emergencies` when no emergency is active and each counter is 0.
 The `emergencies` group of a delta has the same members, and it is `{}` in that case.
 The group has no `value` wrapper.
@@ -663,8 +659,9 @@ It also refuses these records:
 
 It also refuses a negative counter, and null in `emergencies`, `active`, `counters`, or a counter.
 The scan before the typed decode allows at most 4 records in `active`.
-Without the emergency marker, a client refuses the `emergencies` member and the `emergencies` group, also with a value of null, `{}`, or `[]`.
-It refuses each `emergencyContract` value other than `emergency-v1`, including null and an empty text.
+With `operationsOff`, a client refuses the `emergencies` group with each value, and an `emergencies` member with `active` or a counter.
+It gives `stream state with operations off contains an emergency member`.
+An `emergencyContract` member is an unknown member.
 The same rules apply to the HTTP state.
 
 ### Emergency commands
@@ -682,7 +679,7 @@ The server checks the causes in the order of the table, and the first cause that
 
 | Message | Cause |
 | --- | --- |
-| `emergencies are not enabled` | The project has no emergency marker, or the traffic demo turned emergencies off. |
+| `emergencies are not enabled` | The traffic demo turned emergencies off, and no reset or project apply came after it. |
 | `unknown pod` | No pod has `podID`, or the command has no `podID`. |
 | `pod carries no passenger` | The pod has no party aboard. |
 | `pod already has an emergency` | An active emergency names the pod. |

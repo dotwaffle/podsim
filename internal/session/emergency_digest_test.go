@@ -23,10 +23,6 @@ func TestEmergencyDigestTrailers(t *testing.T) {
 		set   func(*Command) any
 		field string
 	}{
-		{10, func(c *Command) any {
-			c.Project.EmergencyContract = project.EmergencyV1Contract
-			return c.Project.EmergencyContract
-		}, "Project.EmergencyContract"},
 		// An empty object is set: the pointer keeps it apart from no
 		// settings.
 		{11, func(c *Command) any { c.Project.Emergencies = &project.EmergencyConfig{}; return c.Project.Emergencies }, "Project.Emergencies"},

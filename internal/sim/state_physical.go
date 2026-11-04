@@ -89,10 +89,10 @@ func restorePhysical(input RestoreStateInput, newFleet func() (*Simulation, erro
 	if err := s.SetExpressServices(input.ExpressServices); err != nil {
 		return nil, RestoreResult{}, err
 	}
-	if err := s.setFaultContract(input); err != nil {
+	if err := s.setRestoredFaults(input); err != nil {
 		return nil, RestoreResult{}, err
 	}
-	s.setEmergencyContract(input)
+	s.setRestoredEmergencies(input)
 	if err := s.checkSavedClasses(input.State); err != nil {
 		return nil, RestoreResult{}, err
 	}

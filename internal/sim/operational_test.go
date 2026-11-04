@@ -10,12 +10,11 @@ import (
 )
 
 // incidentLegFleet returns a simulation on lineNetwork(lineStations(1, 1,
-// 2, 1)) with the incident marker, a party limit of 4, and drop-offs. Pod 01 is idle
+// 2, 1)) with a party limit of 4 and drop-offs. Pod 01 is idle
 // at s0-1, and pod 02 is idle at the parking berth p-1.
 func incidentLegFleet(t *testing.T) *Simulation {
 	t.Helper()
 	s := newLegFleet(t, "s0-1", "p-1")
-	s.incidentContract = IncidentV1Contract
 	if err := s.SetSharedRidePartyLimit(4); err != nil {
 		t.Fatal(err)
 	}
@@ -630,7 +629,7 @@ func TestLaneEvacuationRestore(t *testing.T) {
 			t.Fatal(err)
 		}
 		state := s.ExportState()
-		input := RestoreStateInput{Network: s.network, Fleet: s.initial, State: state, IncidentContract: IncidentV1Contract}
+		input := RestoreStateInput{Network: s.network, Fleet: s.initial, State: state}
 		restored, result, err := RestoreState(input)
 		if err != nil || !cleanRestore(result) || !reflect.DeepEqual(restored.ExportState(), state) {
 			t.Fatalf("%q: physical restore %v, %+v", lane, err, result)
@@ -670,7 +669,6 @@ func parkingRefuge(t *testing.T, blocked bool) (*Simulation, *vehicle) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s.incidentContract = IncidentV1Contract
 	if err := s.SetSharedRidePartyLimit(4); err != nil {
 		t.Fatal(err)
 	}
@@ -700,7 +698,7 @@ func TestParkingRefuge(t *testing.T) {
 	t.Parallel()
 	s, _ := parkingRefuge(t, false)
 	state := s.ExportState()
-	input := RestoreStateInput{Network: s.network, Fleet: s.initial, State: state, IncidentContract: IncidentV1Contract}
+	input := RestoreStateInput{Network: s.network, Fleet: s.initial, State: state}
 	restored, result, err := RestoreState(input)
 	if err != nil || !cleanRestore(result) {
 		t.Fatalf("physical restore: %v, %+v", err, result)
@@ -807,7 +805,7 @@ func TestStartOperationalUnload(t *testing.T) {
 			}
 			// The save at the command boundary restores in both tiers.
 			state := s.ExportState()
-			input := RestoreStateInput{Network: s.network, Fleet: s.initial, State: state, IncidentContract: IncidentV1Contract}
+			input := RestoreStateInput{Network: s.network, Fleet: s.initial, State: state}
 			restored, result, err := RestoreState(input)
 			if err != nil || !cleanRestore(result) || !reflect.DeepEqual(restored.ExportState(), state) {
 				t.Fatalf("physical restore: %v, %+v", err, result)
@@ -1053,7 +1051,7 @@ func TestOperationalRestoreTiers(t *testing.T) {
 	traveling, unloading, s := emergencyStates(t)
 	restore := func(t *testing.T, state SavedState, logical bool) (*Simulation, RestoreResult) {
 		t.Helper()
-		restored, result, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: state, IncidentContract: IncidentV1Contract, LogicalOnly: logical})
+		restored, result, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: state, LogicalOnly: logical})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -1095,10 +1093,6 @@ func TestOperationalRestoreTiers(t *testing.T) {
 		restored.interrupted != 1 || restored.completed != 1 {
 		t.Fatalf("logical restore of the unloading pod: %+v", result)
 	}
-	// Each state needs the incident marker.
-	if _, _, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: traveling}); err == nil {
-		t.Fatal("a restore without the incident marker accepted an operational pod")
-	}
 }
 
 // TestRefugeRestoreTiers checks the refuge rows of section 9.6 for a pod
@@ -1116,7 +1110,7 @@ func TestRefugeRestoreTiers(t *testing.T) {
 		t.Fatal(err)
 	}
 	state := s.ExportState()
-	input := RestoreStateInput{Network: s.network, Fleet: s.initial, State: state, IncidentContract: IncidentV1Contract}
+	input := RestoreStateInput{Network: s.network, Fleet: s.initial, State: state}
 	restored, result, err := RestoreState(input)
 	if err != nil || !cleanRestore(result) || !reflect.DeepEqual(restored.ExportState(), state) {
 		t.Fatalf("physical restore: %v, %+v", err, result)
@@ -1224,7 +1218,7 @@ func TestOperationalPhaseMutations(t *testing.T) {
 				continue
 			}
 			for _, logical := range []bool{false, true} {
-				if _, _, err := RestoreState(RestoreStateInput{Network: sample.network, Fleet: sample.fleet, State: state, IncidentContract: IncidentV1Contract, LogicalOnly: logical}); err == nil {
+				if _, _, err := RestoreState(RestoreStateInput{Network: sample.network, Fleet: sample.fleet, State: state, LogicalOnly: logical}); err == nil {
 					t.Errorf("%s, %s: logical only %t restores", sample.name, mutation.name, logical)
 				}
 			}
@@ -1235,7 +1229,7 @@ func TestOperationalPhaseMutations(t *testing.T) {
 	state := traveling
 	state.Pods = slices.Clone(state.Pods)
 	state.Pods[0].DestinationStation, state.Pods[0].Destination = "p", "p-1"
-	if _, _, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: state, IncidentContract: IncidentV1Contract}); err == nil {
+	if _, _, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: state}); err == nil {
 		t.Fatal("an emergency unload at a parking station restores")
 	}
 }
@@ -1248,7 +1242,6 @@ func TestOperationalPhaseMutations(t *testing.T) {
 func TestStrandedOperationalUnload(t *testing.T) {
 	t.Parallel()
 	s, _, _ := newStrandedFleet(t)
-	s.incidentContract = IncidentV1Contract
 	if err := s.SetExpressServices([]ExpressService{{ID: "harbor-market", Class: ExpressClass, From: "harbor", To: "market", PartyLimit: 20}}); err != nil {
 		t.Fatal(err)
 	}
@@ -1288,7 +1281,6 @@ func TestStrandedOperationalUnload(t *testing.T) {
 func TestEmptyRecoveryTakenBerth(t *testing.T) {
 	t.Parallel()
 	s := newLegFleet(t, "s0-1", "p-1", "s1-1")
-	s.incidentContract = IncidentV1Contract
 	blocker, v := s.findVehicle("03"), s.findVehicle("02")
 	if err := s.withdrawService(blocker, faultHold); err != nil {
 		t.Fatal(err)
@@ -1339,7 +1331,7 @@ func TestWithdrawnBindingRejected(t *testing.T) {
 				t.Fatalf("the live contract: %v", err)
 			}
 			for _, logical := range []bool{false, true} {
-				_, _, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: s.ExportState(), IncidentContract: IncidentV1Contract, LogicalOnly: logical})
+				_, _, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: s.ExportState(), LogicalOnly: logical})
 				if err == nil || !strings.Contains(err.Error(), "W2") {
 					t.Fatalf("logical only %t: restore %v", logical, err)
 				}
@@ -1446,7 +1438,7 @@ func TestStartOperationalUnloadLaterStop(t *testing.T) {
 	}
 	checkNow(t, s)
 	state := s.ExportState()
-	restored, result, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: state, IncidentContract: IncidentV1Contract})
+	restored, result, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: state})
 	if err != nil || !cleanRestore(result) || !reflect.DeepEqual(restored.ExportState(), state) {
 		t.Fatalf("physical restore: %v, %+v", err, result)
 	}

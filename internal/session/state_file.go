@@ -26,7 +26,7 @@ const (
 	// a new version.
 	stateFormat = "podsim-session"
 	// stateVersion is the only version that the session writes and reads.
-	stateVersion = 9
+	stateVersion = 10
 	// maxEpochBytes is the largest saved epoch.
 	maxEpochBytes = 100
 	// buildIDLength is the number of lowercase hex digits in a build ID.
@@ -143,13 +143,12 @@ var stateJSONLimits = jsonLimits{
 	},
 }
 
-// stateFile is version 9 of the saved session state. The file on disk is
+// stateFile is version 10 of the saved session state. The file on disk is
 // the JSON form of stateFile, compressed with gzip. The order text of each
 // waiting trip and each rider is packed as canonical base64.
 //
-// The root contract markers select the optional sections. orderContract
-// selects the Express order bounds. The project and simulation markers
-// must equal the root markers.
+// The root orderContract marker selects the Express order bounds. The
+// project and simulation markers must equal the root marker.
 //
 // Each change to a member, also in the simulation and in the project,
 // needs a new version. Until the first release, two changes are
@@ -404,7 +403,7 @@ func decodeStateFile(data []byte) (stateFile, error) {
 }
 
 // unsupportedState returns the error for a file of another format or of
-// a version other than 9. Such a file moves aside.
+// a version other than 10. Such a file moves aside.
 func unsupportedState(header stateHeader) error {
 	err := &stateError{reason: reasonUnsupportedVersion}
 	switch {
@@ -461,7 +460,7 @@ func (header stateHeader) markers() contractMarkers {
 	return markers
 }
 
-// decodeStateJSON decodes the JSON form of a version 9 state file with the
+// decodeStateJSON decodes the JSON form of a version 10 state file with the
 // rules of markers. Each scan reads the tokens only, so it bounds the file
 // before the typed decode makes values.
 func decodeStateJSON(raw []byte, markers contractMarkers) (stateFile, error) {
@@ -501,13 +500,13 @@ func decodeStateJSON(raw []byte, markers contractMarkers) (stateFile, error) {
 	if refs.present() {
 		file.incidentRefs = refs
 	}
-	if err := checkIncidentMembers(raw, file); err != nil {
+	if err := checkIncidentMembers(raw); err != nil {
 		return stateFile{}, err
 	}
-	if err := checkFaultMembers(raw, file); err != nil {
+	if err := checkFaultMembers(raw); err != nil {
 		return stateFile{}, err
 	}
-	if err := checkEmergencyMembers(raw, file); err != nil {
+	if err := checkEmergencyMembers(raw); err != nil {
 		return stateFile{}, err
 	}
 	if err := file.validateProjectVersion(); err != nil {

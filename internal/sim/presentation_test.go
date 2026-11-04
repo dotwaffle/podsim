@@ -155,7 +155,7 @@ func TestPresentationVehicleMarksAreIndependent(t *testing.T) {
 func BenchmarkPresentationFleet(b *testing.B) {
 	for _, size := range []int{1, 300} {
 		b.Run(fmt.Sprintf("vehicles-%d", size), func(b *testing.B) {
-			s, err := New(Example(), "harbor")
+			s, err := NewFleet(Example(), []Placement{{ID: "01", StationID: "harbor"}})
 			if err != nil {
 				b.Fatal(err)
 			}

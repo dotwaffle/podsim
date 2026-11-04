@@ -26,10 +26,6 @@ const (
 	incidentEmptyRecovery   = 3
 )
 
-// errIncidentMemberUnmarked refuses a stage 1 member in a saved state
-// whose project has no incident marker.
-var errIncidentMemberUnmarked = errors.New("saved state without the incident marker contains an incident member")
-
 // savedIncidentPaths are the paths of the stage 1 members of a save, with
 // "*" for each array index (section 11.5).
 var savedIncidentPaths = map[string]bool{
@@ -43,12 +39,10 @@ var savedIncidentPaths = map[string]bool{
 	"/simulation/waiting/*/excludedPod":     true,
 }
 
-// scanSavedIncidentMembers reads the tokens of a saved state. Without the
-// incident marker, it refuses each stage 1 member with any value, also 0,
-// null, or an empty array: the typed decode reads such a value as no
-// member, so only this scan sees it. With the marker, it refuses null,
-// which no encoder writes.
-func scanSavedIncidentMembers(data []byte, marked bool) error {
+// checkIncidentMembers refuses null for each raw stage 1 member of a saved
+// state. No encoder writes null, and the typed decode reads it as no member,
+// so only this scan sees it.
+func checkIncidentMembers(data []byte) error {
 	decoder := jsontext.NewDecoder(bytes.NewReader(data))
 	for {
 		token, err := decoder.ReadToken()
@@ -62,44 +56,10 @@ func scanSavedIncidentMembers(data []byte, marked bool) error {
 		if token.Kind() != jsontext.KindString || kind != jsontext.KindBeginObject || length%2 != 1 || !savedIncidentPaths[arrayPath(decoder)] {
 			continue
 		}
-		if !marked {
-			return fmt.Errorf("%w: %s", errIncidentMemberUnmarked, decoder.StackPointer())
-		}
 		if decoder.PeekKind() == 'n' {
 			return fmt.Errorf("saved incident member %s is null", decoder.StackPointer())
 		}
 	}
-}
-
-// checkIncidentMembers checks the raw stage 1 members of a decoded saved
-// state against the incident marker of its project.
-func checkIncidentMembers(data []byte, file stateFile) error {
-	return scanSavedIncidentMembers(data, file.Project.IncidentContract != "")
-}
-
-// validateIncidentValues refuses a stage 1 value in a state file whose
-// project has no incident marker. The encoder calls it, so that no save
-// without the marker has a stage 1 member.
-func (file *stateFile) validateIncidentValues() error {
-	if file.Project.IncidentContract != "" {
-		return nil
-	}
-	state := file.Simulation
-	if state.Interrupted != 0 || state.InterruptedPassengers != 0 || state.IncidentSerial != 0 {
-		return errIncidentMemberUnmarked
-	}
-	legFrom := func(request sim.SavedRequest) bool { return request.LegFrom != "" }
-	for _, pod := range state.Pods {
-		if pod.Withdrawn != 0 || pod.Purpose != 0 || pod.Owner != 0 || pod.Interrupt != 0 || slices.ContainsFunc(pod.Riders, legFrom) {
-			return errIncidentMemberUnmarked
-		}
-	}
-	for _, trip := range state.Waiting {
-		if trip.ExcludedPod != "" || legFrom(trip.Request) {
-			return errIncidentMemberUnmarked
-		}
-	}
-	return nil
 }
 
 // operationalTuple is the saved operational destination of a pod:

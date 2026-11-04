@@ -10,7 +10,7 @@ func TestParkingDiversionPreservesMotion(t *testing.T) {
 	for _, phase := range []string{"before departure", "on return lane"} {
 		t.Run(phase, func(t *testing.T) {
 			t.Parallel()
-			s, err := New(Example(), "market")
+			s, err := NewFleet(Example(), []Placement{{ID: "01", StationID: "market"}})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -66,7 +66,7 @@ func TestParkingDiversionPreservesMotion(t *testing.T) {
 
 func TestCommittedParkingInletFinishesBeforePickup(t *testing.T) {
 	t.Parallel()
-	s, err := New(Example(), "market")
+	s, err := NewFleet(Example(), []Placement{{ID: "01", StationID: "market"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,7 +105,7 @@ func TestCommittedParkingInletFinishesBeforePickup(t *testing.T) {
 
 func TestParkingDepartureCanceledForLocalOrder(t *testing.T) {
 	t.Parallel()
-	s, err := New(Example(), "market")
+	s, err := NewFleet(Example(), []Placement{{ID: "01", StationID: "market"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -267,7 +267,7 @@ func TestParkingArrivalReservationBoundary(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			s, err := New(chainedParkingArrival(), "market")
+			s, err := NewFleet(chainedParkingArrival(), []Placement{{ID: "01", StationID: "market"}})
 			if err != nil {
 				t.Fatal(err)
 			}

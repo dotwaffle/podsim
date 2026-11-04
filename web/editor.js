@@ -1027,7 +1027,7 @@
   // LIVE_STATE_ACCEPT is the Accept header of a live state read. The server
   // replies only to session.StateMediaType, with the envelope of the state.
   // A Go test in internal/session checks the media type.
-  const LIVE_STATE_ACCEPT = "application/vnd.podsim.state-6+json";
+  const LIVE_STATE_ACCEPT = "application/vnd.podsim.state-7+json";
 
   // getJSON gets one JSON document. It throws the server error or the HTTP
   // status. When media is set, a successful reply must have that media
@@ -1131,26 +1131,11 @@
   // one value that the server sends.
   const CONTRACT_MARKERS = [["orderContract", "express-v1"]];
 
-  // INCIDENT_MARKER is the incident marker of a state reply and the one
-  // value that the server sends. Only the topology and the simulation
-  // carry it. The root does not.
-  const INCIDENT_MARKER = ["incidentContract", "incident-v1"];
-
-  // FAULT_MARKER is the fault marker of a state reply and the one value
-  // that the server sends. As the incident marker, only the topology and
-  // the simulation carry it. It needs the incident marker.
-  const FAULT_MARKER = ["faultContract", "fault-v1"];
-
-  // EMERGENCY_MARKER is the emergency marker of a state reply and the one
-  // value that the server sends. As the incident marker, only the topology
-  // and the simulation carry it. It needs the incident marker.
-  const EMERGENCY_MARKER = ["emergencyContract", "emergency-v1"];
-
   // REMOVED_MEMBERS are members that earlier servers sent and the server
-  // no longer writes: textEncoding, and the couplingContract marker of the
-  // removed physical coupling feature. The native decoders refuse them as
-  // unknown members.
-  const REMOVED_MEMBERS = ["textEncoding", "couplingContract"];
+  // no longer writes: textEncoding, the couplingContract marker of the
+  // removed physical coupling feature, and the removed incident, fault, and
+  // emergency markers. The native decoders refuse them as unknown members.
+  const REMOVED_MEMBERS = ["textEncoding", "couplingContract", "incidentContract", "faultContract", "emergencyContract"];
 
   // plainStateTree is true when value has at most MAX_STATE_DEPTH levels
   // of arrays and objects, no array with more than MAX_STATE_ELEMENTS
@@ -1173,34 +1158,15 @@
   // markersAgree is true when the reply has a topology object, and the
   // reply, its topology and the simulation of state have the same contract
   // markers. Each marker that is present must have the value in
-  // CONTRACT_MARKERS. The topology and the simulation must have the same
-  // incident marker, absent or the value in INCIDENT_MARKER, the same
-  // fault marker, absent or the value in FAULT_MARKER, and the same
-  // emergency marker, absent or the value in EMERGENCY_MARKER. The root
-  // must not have any of them, and the fault and emergency markers need
-  // the incident marker. The server decoder also refuses a reply without
-  // a topology object. shell.js has the same function.
+  // CONTRACT_MARKERS. The server decoder also refuses a reply without a
+  // topology object. shell.js has the same function.
   function markersAgree(reply, state) {
     if (!isObject(reply.topology)) return false;
-    const incident = frameMarker(reply, state, INCIDENT_MARKER);
-    const features = [FAULT_MARKER, EMERGENCY_MARKER].map((marker) => frameMarker(reply, state, marker));
-    if (incident === null || features.some((marker) => marker === null || (marker !== undefined && incident === undefined))) return false;
     const holders = [reply, reply.topology, state.simulation];
     return CONTRACT_MARKERS.every(([name, allowed]) => {
       const values = holders.map((holder) => Object.hasOwn(holder, name) ? holder[name] : undefined);
       return values.every((marker) => marker === values[0] && (marker === undefined || marker === allowed));
     });
-  }
-
-  // frameMarker gives the marker [name, allowed] of the topology and the
-  // simulation of a reply: allowed, or undefined when both omit it. It
-  // gives null when the root has the marker, when the topology and the
-  // simulation differ, or when the marker has another value. shell.js has
-  // the same function.
-  function frameMarker(reply, state, [name, allowed]) {
-    const [topology, simulation] = [reply.topology, state.simulation].map((holder) => Object.hasOwn(holder, name) ? holder[name] : undefined);
-    if (Object.hasOwn(reply, name) || topology !== simulation || (topology !== undefined && topology !== allowed)) return null;
-    return topology;
   }
 
   // isObject is true for a JSON object that is not an array.

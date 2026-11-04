@@ -51,7 +51,7 @@ On lanes that are straight, small-class, and slower than 3.74 m/s, the gap behin
 The Compact station adds angled bays with closed bay chains, a 1 second stop at each change of the reverse flag, and a sweep that certifies each lane against the parked bays.
 A Parking station can be a depot of queue lanes, with a saved parked tick for each pod.
 The observation and measurement panels of the editor now run in Go (`internal/editormodel`).
-The saved-state version is 9, the stream version is 7, and the HTTP state is `state-6`.
+The saved-state version is 10, the stream version is 8, and the HTTP state is `state-7`.
 
 The editor imports georeferenced PNG or JPEG backgrounds with stored bounds, projection, attribution, and an atomic undo step.
 Live OSM raster tiles provide a zoom-dependent backdrop in the editor and simulation.
@@ -655,7 +655,7 @@ Free-flow routing remains the default.
 
 ### Rider emergency stop
 
-**Status:** Implemented as an opt-in feature with the emergency marker (see [emergencies](docs/operations.md#emergencies)).
+**Status:** Implemented, and on in each session except during the traffic demo (see [emergencies](docs/operations.md#emergencies)).
 The `emergency` command and the **Emergency** button of the pod inspector start an emergency.
 There is no scenario emergency rate.
 The user noted this idea on 2026-10-04.
@@ -682,7 +682,7 @@ Open question: how the game and the metrics show the event.
 
 ### Vehicle fault or accident
 
-**Status:** Implemented as an opt-in feature with the fault marker (see [faults](docs/operations.md#faults)).
+**Status:** Implemented, and on in each session except during the traffic demo (see [faults](docs/operations.md#faults)).
 The `fault` command and the **Fault** button of the pod inspector start a fault.
 There is no scenario fault rate, and pods do not reverse.
 The maintainer stopped the incident work after stage 3.

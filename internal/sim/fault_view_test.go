@@ -1,13 +1,12 @@
 package sim
 
 import (
-	"errors"
 	"testing"
 )
 
 // TestFaultView checks the faults of a snapshot (section 13.4 of the
-// incident suspension contract). Without the fault marker, a snapshot has
-// no fault member. With it, each record has the members of its kind, and
+// incident suspension contract). With faults off, a snapshot has no fault
+// member. With faults on, each record has the members of its kind, and
 // the phase of a pod fault follows the pod: braking while it moves,
 // stopped at rest while it has an active rider, and evacuated at rest
 // from its evacuation tick when it has no active rider. The pod has no
@@ -21,13 +20,9 @@ func TestFaultView(t *testing.T) {
 	v := boardParties(t, s, "s2")
 	cruiseOn(t, s, v, "s0-link")
 	id := startFault(t, s, v, 10)
-	if view := s.Snapshot(); view.FaultContract != "" || view.Faults.Active != nil || view.Faults.Counters != (FaultCounters{}) {
-		t.Fatalf("unmarked snapshot: %q %+v", view.FaultContract, view.Faults)
-	}
-	s.faultContract = FaultV1Contract
 	view := s.Snapshot()
-	if view.FaultContract != FaultV1Contract || len(view.Faults.Active) != 1 || view.Faults.Counters != (FaultCounters{Started: 1}) {
-		t.Fatalf("marked snapshot: %q %+v", view.FaultContract, view.Faults)
+	if len(view.Faults.Active) != 1 || view.Faults.Counters != (FaultCounters{Started: 1}) {
+		t.Fatalf("snapshot: %+v", view.Faults)
 	}
 	fault := view.Faults.Active[0]
 	start := s.faults[0].start
@@ -65,7 +60,6 @@ func TestFaultView(t *testing.T) {
 func TestDebrisFaultView(t *testing.T) {
 	t.Parallel()
 	s := debrisFleet(t)
-	s.faultContract = FaultV1Contract
 	lane := s.network.Lanes[laneIndex(t, s, "s2-link")]
 	id := startDebris(t, s, lane.ID, 0, 2, 0)
 	fault := s.Snapshot().Faults.Active[0]
@@ -75,38 +69,46 @@ func TestDebrisFaultView(t *testing.T) {
 	}
 }
 
-// TestFaultContractMarker checks the fault marker of a fleet. It needs the
-// incident marker, and only fault-v1 is known. The traffic demo and a
-// reset keep the marker, and the demo turns the fault operations off.
-func TestFaultContractMarker(t *testing.T) {
+// TestOperationsOffSnapshot checks operationsOff in a snapshot. A new fleet
+// has both switches off. The value is false only with both on. The traffic
+// demo turns both off, and a reset keeps them.
+func TestOperationsOffSnapshot(t *testing.T) {
 	t.Parallel()
-	for _, test := range []struct {
-		name      string
-		contracts FleetContracts
-		err       error
-	}{
-		{"without the incident marker", FleetContracts{FaultContract: FaultV1Contract}, nil},
-		{"unknown", FleetContracts{IncidentContract: IncidentV1Contract, FaultContract: "fault-v2"}, ErrUnknownFaultContract},
-	} {
-		if _, err := NewFleetWithContracts(Example(), demoFleet(), test.contracts); err == nil || test.err != nil && !errors.Is(err, test.err) {
-			t.Errorf("%s: %v", test.name, err)
-		}
-	}
-	s, err := NewFleetWithContracts(Example(), demoFleet(), FleetContracts{IncidentContract: IncidentV1Contract, FaultContract: FaultV1Contract})
+	s, err := NewFleet(Example(), demoFleet())
 	if err != nil {
 		t.Fatal(err)
 	}
+	check := func(stage string, want bool) {
+		t.Helper()
+		if got := s.Snapshot().OperationsOff; got != want {
+			t.Fatalf("%s: operationsOff %t, want %t", stage, got, want)
+		}
+	}
+	check("new fleet", true)
 	if err := s.SetFaults(true, FaultSettings{EvacuationSeconds: 300}); err != nil {
 		t.Fatal(err)
 	}
+	check("faults on", true)
+	if err := s.SetEmergencies(true); err != nil {
+		t.Fatal(err)
+	}
+	check("both on", false)
+	if err := s.SetFaults(false, FaultSettings{}); err != nil {
+		t.Fatal(err)
+	}
+	check("emergencies on", true)
+	if err := s.SetFaults(true, FaultSettings{EvacuationSeconds: 300}); err != nil {
+		t.Fatal(err)
+	}
+	s.Reset()
+	check("reset with both on", false)
 	if err := s.StartDemo(); err != nil {
 		t.Fatal(err)
 	}
-	if view := s.Snapshot(); s.faultsOn || view.FaultContract != FaultV1Contract || view.Faults.Active != nil {
-		t.Fatalf("demo: faults on %t, marker %q, faults %+v", s.faultsOn, view.FaultContract, view.Faults)
+	check("demo", true)
+	if view := s.Snapshot(); s.faultsOn || s.emergenciesOn || view.Faults.Active != nil || view.Emergencies.Active != nil {
+		t.Fatalf("demo: faults on %t, emergencies on %t, view %+v %+v", s.faultsOn, s.emergenciesOn, view.Faults, view.Emergencies)
 	}
 	s.Reset()
-	if s.Snapshot().FaultContract != FaultV1Contract {
-		t.Fatal("the reset lost the fault marker")
-	}
+	check("reset after the demo", true)
 }

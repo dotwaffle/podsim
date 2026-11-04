@@ -135,7 +135,7 @@ func TestEmergencyMissKey(t *testing.T) {
 			}},
 			{"restore", func(s *Simulation) *Simulation {
 				restored, _, err := RestoreState(RestoreStateInput{
-					IncidentContract: IncidentV1Contract, EmergencyContract: EmergencyV1Contract, Network: s.network, Fleet: s.initial, State: s.ExportState(),
+					EmergenciesOn: true, Network: s.network, Fleet: s.initial, State: s.ExportState(),
 				})
 				if err != nil {
 					t.Fatal(err)

@@ -105,7 +105,7 @@ func TestProjectScansMatchFullPaths(t *testing.T) {
 	registry := `[` + strings.Repeat(`{},`, MaxExpressServices) + `{}]`
 	for _, test := range []struct{ name, raw string }{
 		{"empty", `{}`},
-		{"top-level markers", `{"incidentContract":"incident-v1","orderContract":"express-v1","onboardPickups":true}`},
+		{"top-level markers", `{"orderContract":"express-v1","onboardPickups":true}`},
 		{"bank presence", `{"network":{"stations":[{"banks":null}]}}`},
 		{"empty banks", `{"network":{"stations":[{"banks":[]}]}}`},
 		{"bank bound", `{"network":{"stations":[{"banks":` + banks + `}]}}`},

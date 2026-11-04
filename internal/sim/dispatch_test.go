@@ -128,7 +128,7 @@ func TestRemotePickupYieldsToNewLocalPod(t *testing.T) {
 
 func TestQueuedRequestsReusePod(t *testing.T) {
 	t.Parallel()
-	s, err := New(Example(), "parking")
+	s, err := NewFleet(Example(), []Placement{{ID: "01", StationID: "parking"}})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -12,15 +12,13 @@ import (
 // debrisFleet returns a simulation with faults on, on a line network of a
 // parking station and the passenger stations s0 to s5. The lane "return"
 // is 2,250 m long, with 75 cells of 30 m, and no berth is near it. Pod 01
-// is idle at s0, and pod 02 at s5. The fault marker needs the incident
-// marker, so the fleet has the incident contract.
+// is idle at s0, and pod 02 at s5.
 func debrisFleet(t *testing.T) *Simulation {
 	t.Helper()
 	s, err := NewFleet(lineNetwork(lineStations(1, 1, 1, 1, 1, 1, 1)), place("s0-1", "s5-1"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	s.incidentContract = IncidentV1Contract
 	if err := s.SetFaults(true, FaultSettings{EvacuationSeconds: 300}); err != nil {
 		t.Fatal(err)
 	}

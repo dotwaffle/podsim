@@ -14,49 +14,45 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-// errFaultStreamUnmarked refuses a stage 2 member in a stream frame, a
-// delta, or an HTTP state without the fault marker (incident suspension
-// contract, section 13.1).
-var errFaultStreamUnmarked = errors.New("stream state without the fault marker contains a fault member")
+// errFaultStreamOff refuses a stage 2 value in a stream frame, a delta, or
+// an HTTP state with the operations off (incident suspension contract,
+// section 13.1).
+var errFaultStreamOff = errors.New("stream state with operations off contains a fault member")
 
 // streamFaultPaths are the paths of the stage 2 members of a stream
 // envelope and an HTTP state. Each member below one of them is also a
 // stage 2 member. The faults group key is a member of its own.
 var streamFaultPaths = []string{
-	"/full/state/simulation/faultContract", "/full/state/simulation/faults",
-	"/frame/state/simulation/faultContract", "/frame/state/simulation/faults",
+	"/full/state/simulation/faults",
+	"/frame/state/simulation/faults",
 	"/delta/groups/faults",
 }
 
-// scanFaultMembers reports whether data has a stage 2 member or the faults
-// group, with any value. The typed decode reads an explicit zero, null, or
-// empty object as no member, so only this scan sees it. The marker of a
-// delta is the marker of its base frame, so the caller checks the result.
-// No encoder writes null, so the scan refuses null for each stage 2
-// member and each member below it.
-func scanFaultMembers(data []byte) (bool, error) {
+// scanFaultMembers refuses null for each stage 2 member and each member
+// below it, which no encoder writes. The typed decode reads null as no
+// member, so only this scan sees it.
+func scanFaultMembers(data []byte) error {
 	return scanFaultPaths(data, streamFaultPaths)
 }
 
 // scanFaultPaths is scanFaultMembers for the members at prefixes and
 // below them. The prefix "" names each member of data.
-func scanFaultPaths(data []byte, prefixes []string) (bool, error) {
-	return scanMarkedPaths(data, prefixes, "fault")
+func scanFaultPaths(data []byte, prefixes []string) error {
+	return scanMemberPaths(data, prefixes, "fault")
 }
 
-// scanMarkedPaths reports whether data has a member at one of prefixes or
-// below it, with any value. It refuses null for each such member. label
-// names the members in the error. The prefix "" names each member of data.
-func scanMarkedPaths(data []byte, prefixes []string, label string) (bool, error) {
+// scanMemberPaths refuses null for each member of data at one of prefixes
+// or below it. label names the members in the error. The prefix "" names
+// each member of data.
+func scanMemberPaths(data []byte, prefixes []string, label string) error {
 	decoder := jsontext.NewDecoder(bytes.NewReader(data))
-	found := false
 	for {
 		token, err := decoder.ReadToken()
 		if errors.Is(err, io.EOF) {
-			return found, nil
+			return nil
 		}
 		if err != nil {
-			return false, err
+			return err
 		}
 		kind, length := decoder.StackIndex(decoder.StackDepth())
 		if token.Kind() != jsontext.KindString || kind != jsontext.KindBeginObject || length%2 != 1 {
@@ -70,28 +66,10 @@ func scanMarkedPaths(data []byte, prefixes []string, label string) (bool, error)
 				break
 			}
 		}
-		if !matched {
-			continue
-		}
-		found = true
-		if decoder.PeekKind() == jsontext.KindNull {
-			return false, fmt.Errorf("stream %s member %s is null", label, decoder.StackPointer())
+		if matched && decoder.PeekKind() == jsontext.KindNull {
+			return fmt.Errorf("stream %s member %s is null", label, decoder.StackPointer())
 		}
 	}
-}
-
-// checkFaultPresence refuses an envelope whose bytes have a stage 2 member
-// when the frame that it makes has no fault marker. A delta has the marker
-// of its base frame.
-func checkFaultPresence(e StreamEnvelope, previous StreamFrame) error {
-	marker := previous.State.Simulation.FaultContract
-	if e.Full != nil {
-		marker = e.Full.State.Simulation.FaultContract
-	}
-	if e.faultMembers && marker == "" {
-		return errFaultStreamUnmarked
-	}
-	return nil
 }
 
 // faultKindMembers are the members of each kind of fault record (section
@@ -160,7 +138,7 @@ func decodeFaultsGroup(raw []byte) (sim.FaultsView, error) {
 	if err := prescanJSON(raw, streamLimits(contractMarkers{})); err != nil {
 		return sim.FaultsView{}, err
 	}
-	if _, err := scanFaultPaths(raw, []string{""}); err != nil {
+	if err := scanFaultPaths(raw, []string{""}); err != nil {
 		return sim.FaultsView{}, err
 	}
 	var group sim.FaultsView
@@ -171,20 +149,17 @@ func decodeFaultsGroup(raw []byte) (sim.FaultsView, error) {
 }
 
 // checkFaultFrame checks the typed stage 2 members of a frame (section
-// 13.5). Without the fault marker, it refuses each nonzero member. With
-// it, the records have unique IDs of the form i<generation>.<serial> in
+// 13.5). With the operations off, it refuses each nonzero member.
+// Otherwise the records have unique IDs of the form i<generation>.<serial> in
 // strictly increasing serial order, at most one record for each pod, and
 // at most maxDebrisRecords debris records.
 // Each record has the values of its kind, and no tick above the tick of
 // the frame. StreamAssembler checks the lanes against the topology.
 func checkFaultFrame(frame SimulationFrame) error {
-	if err := sim.ValidateFaultContracts(frame.FaultContract, frame.IncidentContract); err != nil {
-		return err
-	}
 	faults := frame.Faults
-	if frame.FaultContract == "" {
+	if frame.OperationsOff {
 		if faults.Active != nil || faults.Counters != (sim.FaultCounters{}) {
-			return errFaultStreamUnmarked
+			return errFaultStreamOff
 		}
 		return nil
 	}
@@ -290,20 +265,6 @@ func checkDebrisFaultView(fault sim.FaultView) error {
 
 // maxDebrisMeters is the longest debris segment (section 7.3).
 const maxDebrisMeters = 50
-
-// faultFrameBinding refuses a frame whose fault marker is not the marker
-// of its topology, and a topology whose markers are not valid. A delta
-// carries no marker, so the marker of a stream changes only with a new
-// topology.
-func faultFrameBinding(topology TopologySnapshot, frame SimulationFrame) error {
-	if err := sim.ValidateFaultContracts(topology.FaultContract, topology.IncidentContract); err != nil {
-		return err
-	}
-	if topology.FaultContract != frame.FaultContract {
-		return errors.New("topology fault contract does not match state")
-	}
-	return nil
-}
 
 // faultLanes checks each debris record of a frame against the topology:
 // the lane is known, and the segment ends within the lane.

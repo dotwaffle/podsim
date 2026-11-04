@@ -145,7 +145,6 @@ func TestFaultRequestStarts(t *testing.T) {
 func TestDemoEndsFaults(t *testing.T) {
 	t.Parallel()
 	s := newTraffic(t)
-	s.incidentContract = IncidentV1Contract
 	if err := s.SetFaults(true, FaultSettings{EvacuationSeconds: 300}); err != nil {
 		t.Fatal(err)
 	}

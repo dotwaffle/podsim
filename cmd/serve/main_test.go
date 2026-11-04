@@ -587,7 +587,7 @@ func limitProject(t *testing.T, demand project.DemandConfig) project.Config {
 	reserve := widestDemand()
 	reserve.Pattern = "rail-arrivals"
 	reserve.DailyStartMinute = 1439
-	size := project.MaxFileBytes - len(canonicalJSON(t, reserve)) + len(canonicalJSON(t, demand))
+	size := project.MaxFileBytes - len(canonicalJSON(t, reserve)) + len(canonicalJSON(t, demand)) - widestSettingsBytes(t)
 	sized := func(length int) project.Config {
 		config := weightedProject()
 		config.Demand = demand
@@ -614,6 +614,24 @@ func limitProject(t *testing.T, demand project.DemandConfig) project.Config {
 		t.Fatalf("indented encoding has %d bytes, want more than %d", len(indented), project.MaxFileBytes)
 	}
 	return config
+}
+
+// widestSettingsBytes returns the bytes of the widest faults and emergencies
+// members, which project.Validate counts for each project. limitProject
+// proves the value: a project one byte longer fails.
+func widestSettingsBytes(t *testing.T) int {
+	t.Helper()
+	config := project.Default()
+	config.Faults, config.Emergencies = nil, nil
+	plain := len(canonicalJSON(t, config))
+	negativeZero := math.Copysign(0, -1)
+	config.Faults = &project.FaultConfig{
+		EvacuationSeconds: new(3600), PerHour: &negativeZero,
+		DebrisShare: new(1.0000000000000002e-06), DebrisMeters: new(0.5000000000000001),
+		Duration: &project.FaultDuration{Kind: "exponential", MinSeconds: new(86400), MaxSeconds: new(86400), MeanSeconds: new(86400)},
+	}
+	config.Emergencies = &project.EmergencyConfig{PerHour: &negativeZero}
+	return len(canonicalJSON(t, config)) - plain
 }
 
 // weightedProject returns a valid project with a one-way loop of 90

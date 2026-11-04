@@ -72,7 +72,7 @@ func TestForecastWaitIsBounded(t *testing.T) {
 
 func TestPickupForecastIncludesCommittedPassengerTrip(t *testing.T) {
 	t.Parallel()
-	s, err := New(Example(), "parking")
+	s, err := NewFleet(Example(), []Placement{{ID: "01", StationID: "parking"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -94,7 +94,7 @@ func TestPickupForecastIncludesCommittedPassengerTrip(t *testing.T) {
 
 func TestPickupForecastUsesStationBeforeBerthAssignment(t *testing.T) {
 	t.Parallel()
-	s, err := New(Example(), "harbor")
+	s, err := NewFleet(Example(), []Placement{{ID: "01", StationID: "harbor"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,7 +117,7 @@ func TestPickupForecastUsesStationBeforeBerthAssignment(t *testing.T) {
 
 func TestWaitStatistics(t *testing.T) {
 	t.Parallel()
-	s, err := New(Example(), "harbor")
+	s, err := NewFleet(Example(), []Placement{{ID: "01", StationID: "harbor"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -343,7 +343,7 @@ func TestKeepHoldBetweenChecks(t *testing.T) {
 
 func TestSetFinishingPodWaitRejectsUnknownRule(t *testing.T) {
 	t.Parallel()
-	s, err := New(Example(), "harbor")
+	s, err := NewFleet(Example(), []Placement{{ID: "01", StationID: "harbor"}})
 	if err != nil {
 		t.Fatal(err)
 	}

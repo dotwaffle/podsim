@@ -65,10 +65,6 @@ func (s *Simulation) StartDemo() error {
 		return err
 	}
 	candidate.initial, candidate.monitor = s.initial, s.monitor
-	// The topology of the project keeps the incident, fault, and emergency
-	// markers, so the demo fleet keeps them. The fault and emergency
-	// operations stay off.
-	candidate.incidentContract, candidate.faultContract, candidate.emergencyContract = s.incidentContract, s.faultContract, s.emergencyContract
 	// The incident serial only increases in a generation.
 	candidate.incidentSerial, candidate.incidentGeneration = s.incidentSerial, s.incidentGeneration
 	*s = *candidate

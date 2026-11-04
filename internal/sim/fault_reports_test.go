@@ -59,7 +59,6 @@ func TestIncidentReportOfQueueHead(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s.incidentContract = IncidentV1Contract
 	s.faultsOn = true
 	id := startFault(t, s, s.findVehicle("03"), 0)
 	checkFaultsEachTick(t, s)
@@ -88,7 +87,6 @@ func TestIncidentReportOfQueueHead(t *testing.T) {
 func TestIncidentReportAtTerminalBerthChoice(t *testing.T) {
 	t.Parallel()
 	s := newLegFleet(t, "s0-1", "s2-1")
-	s.incidentContract = IncidentV1Contract
 	if err := s.SetFaults(true, FaultSettings{EvacuationSeconds: 300}); err != nil {
 		t.Fatal(err)
 	}

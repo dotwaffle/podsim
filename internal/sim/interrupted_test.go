@@ -107,7 +107,6 @@ func TestInterruptRiderRefusals(t *testing.T) {
 		{name: "completed companion", pod: "01", order: 2, change: func(_ *Simulation, v *vehicle) { v.Riders[1].Completed = true }},
 		{name: "misaligned records", pod: "01", order: 2, change: func(_ *Simulation, v *vehicle) { v.Boardings = []RiderBoarding{{BerthID: "s0-1"}} }},
 		{name: "dispatch pass", pod: "01", order: 2, change: func(s *Simulation, _ *vehicle) { s.pass = &dispatchPass{active: true} }},
-		{name: "no incident marker", pod: "01", order: 2, change: func(s *Simulation, _ *vehicle) { s.incidentContract = "" }},
 		{name: "platoon member", pod: "01", order: 2, change: func(_ *Simulation, v *vehicle) { v.follower = 2 },
 			want: "pod 01: interruption of a platoon member"},
 	}
@@ -115,7 +114,6 @@ func TestInterruptRiderRefusals(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			s, v := pooledLegFleet(t, true)
-			s.incidentContract = IncidentV1Contract
 			if test.change != nil {
 				test.change(s, v)
 			}
@@ -134,7 +132,6 @@ func TestInterruptRiderRefusals(t *testing.T) {
 		})
 	}
 	s, _ := pooledLegFleet(t, true)
-	s.incidentContract = IncidentV1Contract
 	if err := s.InterruptRider("01", 2); err != nil {
 		t.Fatal(err)
 	}
@@ -151,7 +148,6 @@ func TestInterruptionConservation(t *testing.T) {
 	t.Parallel()
 	skipLong(t)
 	s := newLegFleet(t, "s0-1", "s1-1")
-	s.incidentContract = IncidentV1Contract
 	if err := s.SetSharedRidePartyLimit(4); err != nil {
 		t.Fatal(err)
 	}
@@ -212,9 +208,8 @@ func (s *Simulation) interruptSharedRider(t *testing.T) {
 }
 
 // TestInterruptedCountersRestore checks that both restore tiers and a
-// clone keep the counters, that a reset clears them, and that a restore
-// without the incident marker refuses them (incident contract, sections
-// 8.3 and 8.7).
+// clone keep the counters, and that a reset clears them (incident contract,
+// sections 8.3 and 8.7).
 func TestInterruptedCountersRestore(t *testing.T) {
 	t.Parallel()
 	s, v := pooledLegFleet(t, false)
@@ -224,7 +219,7 @@ func TestInterruptedCountersRestore(t *testing.T) {
 	if !slices.Equal(s.undelivered, []int{1}) || clone.interrupted != 1 || clone.interruptedPassengers != 1 {
 		t.Fatalf("clone: %v, %d, %d; source %v", clone.undelivered, clone.interrupted, clone.interruptedPassengers, s.undelivered)
 	}
-	input := RestoreStateInput{Network: s.network, Fleet: s.initial, IncidentContract: IncidentV1Contract, State: s.ExportState()}
+	input := RestoreStateInput{Network: s.network, Fleet: s.initial, State: s.ExportState()}
 	for _, logical := range []bool{false, true} {
 		input.LogicalOnly = logical
 		restored, result, err := RestoreState(input)
@@ -237,10 +232,6 @@ func TestInterruptedCountersRestore(t *testing.T) {
 		if err := checkOrderBalance(restored); err != nil {
 			t.Fatal(err)
 		}
-	}
-	input.IncidentContract = ""
-	if _, _, err := RestoreState(input); err == nil || !strings.Contains(err.Error(), "incident contract") {
-		t.Fatalf("restore without the marker: %v", err)
 	}
 	s.Reset()
 	if s.interrupted != 0 || s.interruptedPassengers != 0 || s.undelivered != nil {

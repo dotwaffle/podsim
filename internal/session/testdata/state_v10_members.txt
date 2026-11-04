@@ -165,8 +165,6 @@ simulation.waiting[].deferCheck number
 simulation.waiting[].deferPodID string
 project object
 project.orderContract string
-project.incidentContract string
-project.faultContract string
 project.faults object
 project.faults.evacuationSeconds number
 project.faults.perHour number
@@ -178,7 +176,6 @@ project.faults.duration.seconds number
 project.faults.duration.minSeconds number
 project.faults.duration.maxSeconds number
 project.faults.duration.meanSeconds number
-project.emergencyContract string
 project.emergencies object
 project.emergencies.perHour number
 project.version number

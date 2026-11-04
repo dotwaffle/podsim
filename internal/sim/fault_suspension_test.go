@@ -471,7 +471,6 @@ func entryQueue(t *testing.T) (s *Simulation, release func()) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s.incidentContract = IncidentV1Contract
 	for _, id := range []string{"01", "02"} {
 		if err := s.RequestJourney(id, "market"); err != nil {
 			t.Fatal(err)
@@ -767,11 +766,11 @@ func TestFaultLinkGates(t *testing.T) {
 }
 
 // faultRestoreInput returns the input that restores the saved state of s
-// with the fault marker and the fault settings of s.
+// with faults on and the fault settings of s.
 func faultRestoreInput(s *Simulation, state SavedState) RestoreStateInput {
 	return RestoreStateInput{
-		Network: s.network, Fleet: s.initial, State: state, IncidentContract: s.incidentContract,
-		FaultContract: FaultV1Contract, Faults: FaultSettings{EvacuationSeconds: int(s.faultSettings.evacuationSeconds)},
+		Network: s.network, Fleet: s.initial, State: state,
+		FaultsOn: true, Faults: FaultSettings{EvacuationSeconds: int(s.faultSettings.evacuationSeconds)},
 	}
 }
 
@@ -801,7 +800,7 @@ func physicalSave(t *testing.T, s *Simulation, at string) *Simulation {
 		t.Fatalf("%s: the restored state saves another state", at)
 	}
 	if !restored.faultsOn || restored.faultSettings != s.faultSettings || !slices.Equal(restored.faults, s.faults) ||
-		restored.faultCounters != s.faultCounters || restored.faultContract != FaultV1Contract {
+		restored.faultCounters != s.faultCounters {
 		t.Fatalf("%s: the restore lost the records, the counters or the settings", at)
 	}
 	if len(s.faults) > 0 && !restored.rerouteDue {

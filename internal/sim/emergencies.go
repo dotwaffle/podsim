@@ -121,7 +121,7 @@ func (s *Simulation) Emergency(podID string, orderID int) (string, error) {
 }
 
 // SetEmergencies turns the emergency start and the emergency stage on or
-// off. The session turns them on for a project with the emergency marker
+// off. The session turns them on for every fleet but the demo fleet
 // (section 10.1 of the incident emergency contract). It refuses to turn
 // emergencies off while a record exists, because then no emergency stage
 // could end the record. Reset keeps the switch.

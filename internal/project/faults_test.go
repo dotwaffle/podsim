@@ -7,18 +7,21 @@ import (
 	"errors"
 	"math"
 	"reflect"
-	"strings"
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-// faultProject returns the default project with the incident marker, the
-// fault marker, and faults.
+// faultsReserve returns the bytes that the widest faults settings add to a
+// project without a faults member.
+func faultsReserve(t *testing.T) int {
+	t.Helper()
+	return len(`"faults":,`) + len(canonicalJSON(t, widestFaults))
+}
+
+// faultProject returns the default project with faults.
 func faultProject(faults FaultConfig) Config {
 	config := Default()
-	config.IncidentContract = sim.IncidentV1Contract
-	config.FaultContract = FaultV1Contract
 	config.Faults = &faults
 	return config
 }
@@ -34,17 +37,17 @@ func rawProject(t *testing.T, extra string) []byte {
 	return append(bytes.TrimSuffix(base, []byte("}")), []byte(extra+"}")...)
 }
 
-// TestFaultMarkerRoundTrip checks that the fault marker and each faults
-// member survive a project round trip, that an absent member stays
-// absent, and that a project without the marker has no fault member.
-func TestFaultMarkerRoundTrip(t *testing.T) {
+// TestFaultsRoundTrip checks that each faults member survives a project
+// round trip, that an absent member stays absent, and that a project
+// without faults has no fault member.
+func TestFaultsRoundTrip(t *testing.T) {
 	t.Parallel()
 	plain, err := jsonv2.Marshal(Default(), json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}
 	if bytes.Contains(plain, []byte("fault")) {
-		t.Fatal("unmarked project has a fault member")
+		t.Fatal("a project without faults has a fault member")
 	}
 	for name, faults := range map[string]FaultConfig{
 		"empty":  {},
@@ -61,9 +64,6 @@ func TestFaultMarkerRoundTrip(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !bytes.Contains(raw, []byte(`"faultContract":"fault-v1"`)) {
-				t.Fatal("marker omitted")
-			}
 			var got Config
 			if err := jsonv2.Unmarshal(raw, &got, json.DefaultOptionsV1()); err != nil {
 				t.Fatal(err)
@@ -75,18 +75,17 @@ func TestFaultMarkerRoundTrip(t *testing.T) {
 	}
 }
 
-// TestFaultMarkerDecodeRefusals checks the raw rules of the fault marker
-// and of faults. The decoder refuses a marker other than fault-v1, also
-// null and empty text. It refuses faults that are null or that are not an
-// object, faults without the marker, also as {}, a null member at any
-// depth, an unknown member, and a member of the wrong type. A failed
+// TestFaultsDecodeRefusals checks the raw rules of faults. The decoder
+// refuses faults that are null or that are not an object, a null member at
+// any depth, an unknown member, and a member of the wrong type. A failed
 // decode does not change the project. The control members decode.
-func TestFaultMarkerDecodeRefusals(t *testing.T) {
+func TestFaultsDecodeRefusals(t *testing.T) {
 	t.Parallel()
-	const marked = `,"incidentContract":"incident-v1","faultContract":"fault-v1"`
 	for _, extra := range []string{
-		marked + `,"faults":{}`,
-		marked + `,"faults":{"evacuationSeconds":0,"perHour":0,"debrisShare":1,"debrisMeters":50,"duration":{"kind":"uniform","minSeconds":1,"maxSeconds":86400}}`,
+		``,
+		`,"faults":{}`,
+		`,"faults":{"evacuationSeconds":300}`,
+		`,"faults":{"evacuationSeconds":0,"perHour":0,"debrisShare":1,"debrisMeters":50,"duration":{"kind":"uniform","minSeconds":1,"maxSeconds":86400}}`,
 	} {
 		var got Config
 		if err := jsonv2.Unmarshal(rawProject(t, extra), &got, json.DefaultOptionsV1()); err != nil {
@@ -94,37 +93,24 @@ func TestFaultMarkerDecodeRefusals(t *testing.T) {
 		}
 	}
 	for _, extra := range []string{
-		`,"incidentContract":"incident-v1","faultContract":null,"faults":{}`,
-		`,"incidentContract":"incident-v1","faultContract":"","faults":{}`,
-		`,"incidentContract":"incident-v1","faultContract":"fault-v2","faults":{}`,
-		`,"incidentContract":"incident-v1","faultContract":"Fault-v1","faults":{}`,
-		`,"incidentContract":"incident-v1","faultContract":1,"faults":{}`,
-		`,"faultContract":null`,
-		`,"faultContract":""`,
-		`,"incidentContract":"incident-v1","faultContract":null`,
-		`,"faultContract":"fault-v1","faults":{}`,
-		marked,
-		marked + `,"faults":null`,
-		marked + `,"faults":[]`,
-		marked + `,"faults":0`,
-		`,"incidentContract":"incident-v1","faults":{}`,
-		`,"incidentContract":"incident-v1","faults":null`,
-		`,"faults":{"evacuationSeconds":300}`,
-		marked + `,"faults":{"evacuationSeconds":null}`,
-		marked + `,"faults":{"perHour":null}`,
-		marked + `,"faults":{"debrisShare":null}`,
-		marked + `,"faults":{"debrisMeters":null}`,
-		marked + `,"faults":{"duration":null}`,
-		marked + `,"faults":{"duration":{"kind":null}}`,
-		marked + `,"faults":{"duration":{"kind":"fixed","seconds":null}}`,
-		marked + `,"faults":{"duration":{"kind":"fixed","seconds":600,"minSeconds":null}}`,
-		marked + `,"faults":{"rate":0}`,
-		marked + `,"faults":{"duration":{"kind":"fixed","seconds":600,"extra":1}}`,
-		marked + `,"faults":{"EvacuationSeconds":300}`,
-		marked + `,"faults":{"evacuationSeconds":1.5}`,
-		marked + `,"faults":{"evacuationSeconds":"300"}`,
-		marked + `,"faults":{"perHour":1}`,
-		marked + `,"faults":{"duration":{"kind":"fixed","seconds":600,"minSeconds":0}}`,
+		`,"faults":null`,
+		`,"faults":[]`,
+		`,"faults":0`,
+		`,"faults":{"evacuationSeconds":null}`,
+		`,"faults":{"perHour":null}`,
+		`,"faults":{"debrisShare":null}`,
+		`,"faults":{"debrisMeters":null}`,
+		`,"faults":{"duration":null}`,
+		`,"faults":{"duration":{"kind":null}}`,
+		`,"faults":{"duration":{"kind":"fixed","seconds":null}}`,
+		`,"faults":{"duration":{"kind":"fixed","seconds":600,"minSeconds":null}}`,
+		`,"faults":{"rate":0}`,
+		`,"faults":{"duration":{"kind":"fixed","seconds":600,"extra":1}}`,
+		`,"faults":{"EvacuationSeconds":300}`,
+		`,"faults":{"evacuationSeconds":1.5}`,
+		`,"faults":{"evacuationSeconds":"300"}`,
+		`,"faults":{"perHour":1}`,
+		`,"faults":{"duration":{"kind":"fixed","seconds":600,"minSeconds":0}}`,
 	} {
 		got := Default()
 		before := Clone(got)
@@ -137,8 +123,7 @@ func TestFaultMarkerDecodeRefusals(t *testing.T) {
 	}
 }
 
-// TestFaultSettingsBounds checks each typed rule of the fault marker and
-// of faults at its limit and one step past it.
+// TestFaultSettingsBounds checks each typed rule of faults at its limit and one step past it.
 func TestFaultSettingsBounds(t *testing.T) {
 	t.Parallel()
 	fixed := func(seconds int) *FaultDuration { return &FaultDuration{Kind: "fixed", Seconds: &seconds} }
@@ -206,35 +191,6 @@ func TestFaultSettingsBounds(t *testing.T) {
 				t.Fatalf("Validate error %v, want accepted %t", err, test.ok)
 			}
 		})
-	}
-}
-
-// TestFaultMarkerRules checks the rules between the markers and faults:
-// the fault marker needs the incident marker and faults, faults need the
-// marker, and the marker must be fault-v1.
-func TestFaultMarkerRules(t *testing.T) {
-	t.Parallel()
-	noIncident := faultProject(FaultConfig{})
-	noIncident.IncidentContract = ""
-	noFaults := faultProject(FaultConfig{})
-	noFaults.Faults = nil
-	unmarked := Default()
-	unmarked.IncidentContract = sim.IncidentV1Contract
-	unmarked.Faults = &FaultConfig{}
-	unknown := faultProject(FaultConfig{})
-	unknown.FaultContract = "fault-v2"
-	for name, test := range map[string]struct {
-		config Config
-		text   string
-	}{
-		"marker without the incident marker": {noIncident, "requires incidentContract"},
-		"marker without faults":              {noFaults, "requires faults"},
-		"faults without the marker":          {unmarked, "faults require faultContract"},
-		"unknown marker":                     {unknown, "fault contract must be fault-v1"},
-	} {
-		if err := Validate(test.config); err == nil || !strings.Contains(err.Error(), test.text) {
-			t.Errorf("%s: Validate error %v, want %q", name, err, test.text)
-		}
 	}
 }
 
@@ -319,21 +275,21 @@ func TestWidestFaultsBoundsEachMember(t *testing.T) {
 }
 
 // TestValidateMeasuresWidestFaults checks that Validate measures a project
-// with the fault marker with the widest faults settings. Thus a change of
-// the settings to any valid value keeps the project in MaxFileBytes.
+// with the widest faults settings. Thus a change of the settings to any
+// valid value keeps the project in MaxFileBytes.
 func TestValidateMeasuresWidestFaults(t *testing.T) {
 	t.Parallel()
 	reserve := len(canonicalJSON(t, widestFaults)) - len(canonicalJSON(t, FaultConfig{}))
-	limit := MaxFileBytes - demandReserve(t) - reserve
-	marked := func(size int) Config {
+	limit := MaxFileBytes - demandReserve(t) - reserve - emergenciesReserve(t)
+	project := func(size int) Config {
 		config := weightedProject()
-		config.IncidentContract, config.FaultContract, config.Faults = sim.IncidentV1Contract, FaultV1Contract, &FaultConfig{}
+		config.Faults = &FaultConfig{}
 		return withEncodedSize(t, config, size)
 	}
-	if err := Validate(marked(limit)); err != nil {
+	if err := Validate(project(limit)); err != nil {
 		t.Fatalf("project at the limit: %v", err)
 	}
-	if err := Validate(marked(limit + 1)); !errors.Is(err, errTooLarge) {
+	if err := Validate(project(limit + 1)); !errors.Is(err, errTooLarge) {
 		t.Fatalf("project one byte past the limit: %v, want %v", err, errTooLarge)
 	}
 }
@@ -360,30 +316,30 @@ func TestCloneDetachesFaults(t *testing.T) {
 	}
 }
 
-// TestConfigureFaults checks that ConfigureExperiments turns faults on
-// with the evacuation delay of a project with the fault marker, with the
-// default delay for an absent member, and off for a project without the
-// marker. Pod 01 boards a rider at Harbor, and then a fault command starts
-// a fault on it or is refused. With no delay, the next tick evacuates the
-// pod and interrupts the order. With the default delay of 300 seconds, it
-// does not.
+// TestConfigureFaults checks that the operations argument of
+// ConfigureExperiments turns faults on or off, with the evacuation delay of
+// the project and the default delay for an absent member. Pod 01 boards a
+// rider at Harbor, and then a fault command starts a fault on it or is
+// refused. With no delay, the next tick evacuates the pod and interrupts the
+// order. With the default delay of 300 seconds, it does not.
 func TestConfigureFaults(t *testing.T) {
 	t.Parallel()
 	for name, test := range map[string]struct {
 		config      Config
 		on, evacuee bool
 	}{
-		"unmarked":      {Default(), false, false},
-		"default delay": {faultProject(FaultConfig{}), true, false},
-		"no delay":      {faultProject(FaultConfig{EvacuationSeconds: new(0)}), true, true},
+		"operations off": {faultProject(FaultConfig{EvacuationSeconds: new(0)}), false, false},
+		"no faults":      {Default(), true, false},
+		"default delay":  {faultProject(FaultConfig{}), true, false},
+		"no delay":       {faultProject(FaultConfig{EvacuationSeconds: new(0)}), true, true},
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			simulation, err := sim.NewFleetWithContracts(test.config.Network, test.config.Fleet, sim.FleetContracts{IncidentContract: test.config.IncidentContract})
+			simulation, err := sim.NewFleet(test.config.Network, test.config.Fleet)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err = ConfigureExperiments(simulation, test.config); err != nil {
+			if err = ConfigureExperiments(simulation, test.config, test.on); err != nil {
 				t.Fatal(err)
 			}
 			if err = simulation.RequestJourney("01", "market"); err != nil {

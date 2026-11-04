@@ -187,7 +187,7 @@ func TestRouteBlocksMatchReference(t *testing.T) {
 	for _, name := range slices.Sorted(maps.Keys(networks)) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			s, err := New(networks[name], networks[name].Stations[0].ID)
+			s, err := NewFleet(networks[name], []Placement{{ID: "01", StationID: networks[name].Stations[0].ID}})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -248,7 +248,7 @@ func TestNetworkIndexesRebuildBerthResources(t *testing.T) {
 // of 200 stations with 18 berths each: 4,000 nodes and 7,600 lanes. The
 // setup takes some seconds, so run it with -benchtime=10x or similar.
 func BenchmarkRouteBlocks(b *testing.B) {
-	s, err := New(circleRing(200, 18), "s000")
+	s, err := NewFleet(circleRing(200, 18), []Placement{{ID: "01", StationID: "s000"}})
 	if err != nil {
 		b.Fatal(err)
 	}

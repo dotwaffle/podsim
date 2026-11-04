@@ -16,8 +16,6 @@ import (
 // marker, the emergency marker, and emergencies.
 func emergencySessionProject(emergencies project.EmergencyConfig) project.Config {
 	config := project.Default()
-	config.IncidentContract = sim.IncidentV1Contract
-	config.EmergencyContract = project.EmergencyV1Contract
 	config.Emergencies = &emergencies
 	config.SharedRidePartyLimit = 4
 	return config
@@ -91,13 +89,10 @@ func TestEmergencyCommand(t *testing.T) {
 // changes nothing. The simulation tests reach the limits.
 func TestEmergencyCommandErrors(t *testing.T) {
 	t.Parallel()
-	incident := project.Default()
-	incident.IncidentContract = sim.IncidentV1Contract
-	for _, config := range []project.Config{project.Default(), incident} {
-		unmarked := newFaultClient(t, config)
-		unmarked.mustReject(t, Command{Action: "emergency", PodID: "01"}, "emergencies are not enabled")
-		unmarked.mustReject(t, Command{Action: "emergency"}, "emergencies are not enabled")
-	}
+	demo := newFaultClient(t, project.Default())
+	demo.mustApply(t, Command{Action: "demo"})
+	demo.mustReject(t, Command{Action: "emergency", PodID: "01"}, "emergencies are not enabled")
+	demo.mustReject(t, Command{Action: "emergency"}, "emergencies are not enabled")
 	client := newFaultClient(t, emergencySessionProject(project.EmergencyConfig{}))
 	orders := client.boardOrders(t, 1)
 	for _, test := range []struct {
@@ -132,8 +127,7 @@ func TestEmergencySessionEvents(t *testing.T) {
 	t.Parallel()
 	config := emergencySessionProject(project.EmergencyConfig{})
 	changed := emergencySessionProject(project.EmergencyConfig{PerHour: new(0.0)})
-	unmarked := project.Default()
-	unmarked.IncidentContract = sim.IncidentV1Contract
+	plain := project.Default()
 	tests := []struct {
 		name string
 		// event runs the event after the emergency command.
@@ -155,10 +149,10 @@ func TestEmergencySessionEvents(t *testing.T) {
 			t.Helper()
 			client.mustApply(t, Command{Action: "project", ProjectRevision: client.session.Project().Revision, Project: &changed})
 		}, false, true},
-		{"unmarked project", func(t *testing.T, client *testClient) {
+		{"project with no settings", func(t *testing.T, client *testClient) {
 			t.Helper()
-			client.mustApply(t, Command{Action: "project", ProjectRevision: client.session.Project().Revision, Project: &unmarked})
-		}, false, false},
+			client.mustApply(t, Command{Action: "project", ProjectRevision: client.session.Project().Revision, Project: &plain})
+		}, false, true},
 		{"demo", func(t *testing.T, client *testClient) {
 			t.Helper()
 			client.mustApply(t, Command{Action: "demo"})

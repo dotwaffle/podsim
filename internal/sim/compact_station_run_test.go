@@ -48,14 +48,11 @@ func newCompactRun(t *testing.T, s *Simulation) *compactRun {
 	return r
 }
 
-// newCompactSimulation returns the preset with the fault and emergency
-// contracts.
+// newCompactSimulation returns the preset.
 func newCompactSimulation(t *testing.T) *Simulation {
 	t.Helper()
 	network, fleet := loadCompactStation(t)
-	s, err := NewFleetWithContracts(network, fleet, FleetContracts{
-		IncidentContract: IncidentV1Contract, FaultContract: FaultV1Contract, EmergencyContract: EmergencyV1Contract,
-	})
+	s, err := NewFleet(network, fleet)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -208,7 +205,7 @@ func (r *compactRun) restore() *compactRun {
 	r.t.Helper()
 	network, fleet := loadCompactStation(r.t)
 	restored, result, err := RestoreState(RestoreStateInput{
-		IncidentContract: IncidentV1Contract, FaultContract: FaultV1Contract, EmergencyContract: EmergencyV1Contract,
+		FaultsOn: true, EmergenciesOn: true,
 		Network: network, Fleet: fleet, State: r.s.ExportState(),
 	})
 	if err != nil || result.Tier != RestorePhysical || len(result.Demoted) != 0 {

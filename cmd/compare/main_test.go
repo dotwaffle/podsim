@@ -525,29 +525,62 @@ func TestOnPolicyMatchesOffAtHighRate(t *testing.T) {
 	}
 }
 
-// TestReadProjectRejectsIncidentMarker checks that a comparison refuses a
-// project with the incident marker. A comparison has no interrupted outcome
-// in stage 1. The same project without the marker loads.
-func TestReadProjectRejectsIncidentMarker(t *testing.T) {
-	t.Parallel()
-	config := scenarios.Small()
-	plainPath := filepath.Join(t.TempDir(), "plain.json")
-	markedPath := filepath.Join(t.TempDir(), "marked.json")
-	for path, marker := range map[string]sim.IncidentContract{plainPath: "", markedPath: sim.IncidentV1Contract} {
-		config.IncidentContract = marker
-		data, err := jsonv2.Marshal(config, json.DefaultOptionsV1())
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err = os.WriteFile(path, data, 0o600); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if _, err := readProject(plainPath); err != nil {
+// runComparison returns the results of a comparison with args.
+func runComparison(t *testing.T, args []string) []result {
+	t.Helper()
+	opts, err := parseOptions(args, &bytes.Buffer{})
+	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := readProject(markedPath); err == nil || !strings.Contains(err.Error(), "incidentContract") {
-		t.Fatalf("marked project error %v, want a refusal of incidentContract", err)
+	caseStudy, err := loadScenario(opts.projectPath, opts.focus)
+	if err != nil {
+		t.Fatal(err)
+	}
+	results, err := compare(opts, caseStudy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) == 0 {
+		t.Fatal("no result")
+	}
+	return results
+}
+
+// TestReadProjectRemovedMarkers checks that a comparison refuses each removed
+// marker as an unknown member of the project. The same project with fault
+// and emergency settings loads.
+func TestReadProjectRemovedMarkers(t *testing.T) {
+	t.Parallel()
+	config := scenarios.Small()
+	config.Faults = &project.FaultConfig{}
+	config.Emergencies = &project.EmergencyConfig{}
+	data, err := jsonv2.Marshal(config, json.DefaultOptionsV1())
+	if err != nil {
+		t.Fatal(err)
+	}
+	plainPath := filepath.Join(t.TempDir(), "plain.json")
+	if err = os.WriteFile(plainPath, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = readProject(plainPath); err != nil {
+		t.Fatal(err)
+	}
+	// A comparison runs such a project, and the settings change no result.
+	args := []string{"-duration", "4m", "-request-every", "1m", "-seed", "1", "-pattern", "hotspot"}
+	withSettings := runComparison(t, slices.Concat([]string{"-project", plainPath}, args))
+	without := runComparison(t, slices.Concat([]string{"-project", smallProject(t)}, args))
+	if !reflect.DeepEqual(withSettings, without) {
+		t.Fatalf("the settings change the result:\n%+v\n%+v", withSettings, without)
+	}
+	for _, member := range []string{"incidentContract", "faultContract", "emergencyContract"} {
+		marked := bytes.Replace(data, []byte("{"), []byte(`{"`+member+`":"v1",`), 1)
+		path := filepath.Join(t.TempDir(), member+".json")
+		if err = os.WriteFile(path, marked, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := readProject(path); err == nil || !strings.Contains(err.Error(), member) {
+			t.Errorf("%s: %v, want a refusal that names the member", member, err)
+		}
 	}
 }
 

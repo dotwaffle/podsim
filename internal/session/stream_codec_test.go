@@ -41,13 +41,6 @@ func TestApplyStreamRefusalOrder(t *testing.T) {
 	renamed.ID = "renamed"
 	unknownBerth := sim.BerthState{ID: "unknown"}
 	crossEpoch := func(e *StreamEnvelope) { e.Source.Epoch = "other" }
-	// members marks the stage members that a decode found in an envelope
-	// without the stage markers.
-	members := func(incident, fault, emergency bool) func(*StreamEnvelope) {
-		return func(e *StreamEnvelope) {
-			e.incidentMembers, e.faultMembers, e.emergencyMembers = incident, fault, emergency
-		}
-	}
 	cases := []struct {
 		name string
 		e    StreamEnvelope
@@ -99,12 +92,6 @@ func TestApplyStreamRefusalOrder(t *testing.T) {
 			source.Epoch = "e_1"
 			return source
 		}()}, "invalid stream identity"},
-		{"identity before presence", delta(StreamDelta{}, func(e *StreamEnvelope) { members(true, true, true)(e); e.Stream = "" }),
-			"invalid stream identity"},
-		{"incident before fault presence", delta(StreamDelta{}, members(true, true, true)), errIncidentStreamUnmarked.Error()},
-		{"fault before emergency presence", delta(StreamDelta{}, members(false, true, true)), errFaultStreamUnmarked.Error()},
-		{"emergency presence before delta base", delta(StreamDelta{}, func(e *StreamEnvelope) { members(false, false, true)(e); e.Base = 2 }),
-			errEmergencyStreamUnmarked.Error()},
 	}
 	cases[1].e.Delta = &StreamDelta{}
 	cases[1].e.Source.Revision++

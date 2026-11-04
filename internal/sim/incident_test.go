@@ -4,90 +4,58 @@ import (
 	"bytes"
 	"encoding/json"
 	jsonv2 "encoding/json/v2"
-	"errors"
 	"testing"
 )
 
-// incidentMarkerFleets returns a plain fleet with the incident marker, and
-// its restore input without its saved state.
-func incidentMarkerFleets(t *testing.T) map[string]RestoreStateInput {
-	t.Helper()
+// plainFleetInput returns the restore input of a plain fleet, without its
+// saved state.
+func plainFleetInput() RestoreStateInput {
 	demo := []Placement{{ID: "01", StationID: "harbor", BerthID: "harbor-1"}, {ID: "02", StationID: "garden", BerthID: "garden-1"}}
-	return map[string]RestoreStateInput{
-		"plain": {IncidentContract: IncidentV1Contract, Network: Example(), Fleet: demo},
-	}
+	return RestoreStateInput{Network: Example(), Fleet: demo}
 }
 
-// TestIncidentMarkerSurvivesFleetChanges checks that each constructor, the
-// clone, a reset, the traffic demo and both restore tiers keep the incident
-// marker in the snapshot. The full frame copies the marker from there.
-func TestIncidentMarkerSurvivesFleetChanges(t *testing.T) {
+// TestRestoreSwitchesForwarded checks that each form of the restore gives
+// the simulation the fault and emergency switches of its input, with the
+// fault settings, in both tiers.
+func TestRestoreSwitchesForwarded(t *testing.T) {
 	t.Parallel()
-	for name, input := range incidentMarkerFleets(t) {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-			check := func(stage string, s *Simulation, err error) {
-				t.Helper()
-				if err != nil {
-					t.Fatal(stage, err)
-				}
-				if got := s.Snapshot().IncidentContract; got != IncidentV1Contract {
-					t.Fatalf("%s: marker %q, want %q", stage, got, IncidentV1Contract)
-				}
-			}
-			s, err := NewFleetWithContracts(input.Network, input.Fleet, input.fleetContracts())
-			check("new fleet", s, err)
-			p, err := PrepareNetwork(input.Network)
+	input := plainFleetInput()
+	s, err := NewFleet(input.Network, input.Fleet)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := PrepareNetwork(input.Network)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.Step()
+	input.State = s.ExportState()
+	input.Faults = FaultSettings{EvacuationSeconds: 77}
+	for _, test := range []struct{ faults, emergencies bool }{{false, false}, {true, false}, {false, true}, {true, true}} {
+		for _, logical := range []bool{false, true} {
+			input.FaultsOn, input.EmergenciesOn, input.LogicalOnly = test.faults, test.emergencies, logical
+			direct, _, err := RestoreState(input)
 			if err != nil {
 				t.Fatal(err)
 			}
-			prepared, err := p.NewFleetWithContracts(input.Fleet, input.fleetContracts())
-			check("prepared fleet", prepared, err)
-			check("clone", s.Clone(), nil)
-			s.Step()
-			input.State = s.ExportState()
-			for _, logical := range []bool{false, true} {
-				input.LogicalOnly = logical
-				restored, _, restoreErr := RestoreState(input)
-				check("restore", restored, restoreErr)
-				restored, _, restoreErr = p.RestoreState(PreparedRestoreInput{IncidentContract: input.IncidentContract,
-					Fleet: input.Fleet, State: input.State, LogicalOnly: logical})
-				check("prepared restore", restored, restoreErr)
+			prepared, _, err := p.RestoreState(PreparedRestoreInput{FaultsOn: test.faults, Faults: input.Faults, EmergenciesOn: test.emergencies,
+				Fleet: input.Fleet, State: input.State, LogicalOnly: logical})
+			if err != nil {
+				t.Fatal(err)
 			}
-			s.Reset()
-			check("reset", s, nil)
-			if name == "plain" {
-				check("demo", s, s.StartDemo())
+			wantSeconds := int64(0)
+			if test.faults {
+				wantSeconds = 77
 			}
-		})
-	}
-}
-
-// ValidateFleetWithContracts checks the same startup rules without live state.
-func ValidateFleetWithContracts(network Network, placements []Placement, contracts FleetContracts) error {
-	if err := validateFleetContracts(contracts); err != nil {
-		return err
-	}
-	return ValidateFleetWithOrderContract(network, placements, contracts.OrderContract)
-}
-
-// TestIncidentMarkerUnknownRefused checks that a fleet refuses a marker
-// that is not incident-v1, and that a fleet without the marker has none.
-func TestIncidentMarkerUnknownRefused(t *testing.T) {
-	t.Parallel()
-	input := incidentMarkerFleets(t)["plain"]
-	contracts := input.fleetContracts()
-	contracts.IncidentContract = "incident-v2"
-	if _, err := NewFleetWithContracts(input.Network, input.Fleet, contracts); !errors.Is(err, ErrUnknownIncidentContract) {
-		t.Fatalf("new fleet error %v, want an unknown incident contract", err)
-	}
-	if err := ValidateFleetWithContracts(input.Network, input.Fleet, contracts); !errors.Is(err, ErrUnknownIncidentContract) {
-		t.Fatalf("validation error %v, want an unknown incident contract", err)
-	}
-	contracts.IncidentContract = ""
-	s, err := NewFleetWithContracts(input.Network, input.Fleet, contracts)
-	if err != nil || s.Snapshot().IncidentContract != "" {
-		t.Fatalf("unmarked fleet has marker %q: %v", s.Snapshot().IncidentContract, err)
+			for name, restored := range map[string]*Simulation{"direct": direct, "prepared": prepared} {
+				if restored.faultsOn != test.faults || restored.emergenciesOn != test.emergencies || restored.faultSettings.evacuationSeconds != wantSeconds {
+					t.Errorf("%s, logical %t, input %+v: faults %t, emergencies %t, settings %+v", name, logical, test, restored.faultsOn, restored.emergenciesOn, restored.faultSettings)
+				}
+				if want := !test.faults || !test.emergencies; restored.Snapshot().OperationsOff != want {
+					t.Errorf("%s, logical %t, input %+v: operationsOff %t", name, logical, test, restored.Snapshot().OperationsOff)
+				}
+			}
+		}
 	}
 }
 
@@ -97,8 +65,8 @@ func TestIncidentMarkerUnknownRefused(t *testing.T) {
 // abandoned timeline did not use.
 func TestIncidentIDs(t *testing.T) {
 	t.Parallel()
-	input := incidentMarkerFleets(t)["plain"]
-	s, err := NewFleetWithContracts(input.Network, input.Fleet, input.fleetContracts())
+	input := plainFleetInput()
+	s, err := NewFleet(input.Network, input.Fleet)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -133,12 +101,11 @@ func TestIncidentIDs(t *testing.T) {
 }
 
 // TestIncidentSerialSaved checks that both restore tiers keep the saved
-// serial, that a state without a record has no serial member, and that a
-// restore without the incident marker refuses a serial.
+// serial, and that a state without a record has no serial member.
 func TestIncidentSerialSaved(t *testing.T) {
 	t.Parallel()
-	input := incidentMarkerFleets(t)["plain"]
-	s, err := NewFleetWithContracts(input.Network, input.Fleet, input.fleetContracts())
+	input := plainFleetInput()
+	s, err := NewFleet(input.Network, input.Fleet)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -165,9 +132,5 @@ func TestIncidentSerialSaved(t *testing.T) {
 		if id := restored.nextIncidentID(); id != "i0.4" {
 			t.Fatalf("logical %v: ID after the restore %q, want i0.4", logical, id)
 		}
-	}
-	input.IncidentContract = ""
-	if _, _, err := RestoreState(input); err == nil {
-		t.Fatal("a restore without the marker accepted a serial")
 	}
 }

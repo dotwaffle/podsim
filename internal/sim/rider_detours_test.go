@@ -22,7 +22,7 @@ func TestPlannedRiderDetourLegacyEquivalence(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			s, err := New(test.network, test.network.Stations[0].ID)
+			s, err := NewFleet(test.network, []Placement{{ID: "01", StationID: test.network.Stations[0].ID}})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -53,7 +53,7 @@ func TestPlannedRiderDetourLegacyEquivalence(t *testing.T) {
 
 func TestPlannedRiderDetourOriginsAndBaselines(t *testing.T) {
 	t.Parallel()
-	s, err := New(Example(), "harbor")
+	s, err := NewFleet(Example(), []Placement{{ID: "01", StationID: "harbor"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,7 +84,7 @@ func TestPlannedRiderDetourOriginsAndBaselines(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			// Each case owns its route caches.
-			local, err := New(Example(), "harbor")
+			local, err := NewFleet(Example(), []Placement{{ID: "01", StationID: "harbor"}})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -98,7 +98,7 @@ func TestPlannedRiderDetourOriginsAndBaselines(t *testing.T) {
 
 func TestPlannedRiderDetourChecksOnlyDestination(t *testing.T) {
 	t.Parallel()
-	s, err := New(Example(), "harbor")
+	s, err := NewFleet(Example(), []Placement{{ID: "01", StationID: "harbor"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -132,7 +132,7 @@ func TestPlannedRiderDetourRejectsInvalidInput(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			s, err := New(Example(), "harbor")
+			s, err := NewFleet(Example(), []Placement{{ID: "01", StationID: "harbor"}})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -160,7 +160,7 @@ func TestPlannedRiderDetourBankSelection(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			s, err := New(BankExample(), "origin")
+			s, err := NewFleet(BankExample(), []Placement{{ID: "01", StationID: "origin"}})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -206,7 +206,7 @@ func TestPlannedRiderDetourActualClassContinuation(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			s, err := New(continuationNetwork(t), "harbor")
+			s, err := NewFleet(continuationNetwork(t), []Placement{{ID: "01", StationID: "harbor"}})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -238,7 +238,7 @@ func TestPlannedRiderDetourConservativeBerths(t *testing.T) {
 			network.Nodes[index].Position.Y = -800
 		}
 	}
-	s, err := New(network, "harbor")
+	s, err := NewFleet(network, []Placement{{ID: "01", StationID: "harbor"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -269,7 +269,7 @@ func TestPlannedRiderDetourConservativeBerths(t *testing.T) {
 
 func TestPlannedRiderDetourBankBoardingOrigin(t *testing.T) {
 	t.Parallel()
-	s, err := New(BankExample(), "origin")
+	s, err := NewFleet(BankExample(), []Placement{{ID: "01", StationID: "origin"}})
 	if err != nil {
 		t.Fatal(err)
 	}

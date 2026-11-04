@@ -21,7 +21,6 @@ func incidentMemberFile(t *testing.T) stateFile {
 	t.Helper()
 	file := newTestStateFile(t)
 	file.Project = project.Clone(file.Project)
-	file.Project.IncidentContract = sim.IncidentV1Contract
 	state := &file.Simulation
 	state.Interrupted, state.InterruptedPassengers, state.IncidentSerial = 2, 3, 4
 	pod := &state.Pods[0]
@@ -176,50 +175,15 @@ func TestIncidentSaveRejections(t *testing.T) {
 	}
 }
 
-// TestIncidentSaveMembersNeedMarker checks that a save without the incident
-// marker has no stage 1 member: the encoder refuses each stage 1 value,
-// and the decoder refuses each member, also as 0, null, or an empty array
+// TestIncidentSaveMemberValues checks a stage 1 member with an explicit
+// value in a save of a project with no settings. No member needs a project
+// setting. An explicit 0 of a number reads as no value, and null is refused
 // (incident contract, sections 11.2 and 14.3).
-func TestIncidentSaveMembersNeedMarker(t *testing.T) {
+func TestIncidentSaveMemberValues(t *testing.T) {
 	t.Parallel()
-	unmarked := func(t *testing.T) stateFile {
-		t.Helper()
-		file := incidentMemberFile(t)
-		file.Project.IncidentContract = ""
-		file.Simulation = newTestStateFile(t).Simulation
-		return file
-	}
-	for name, change := range map[string]func(*sim.SavedState){
-		"interrupted":            func(state *sim.SavedState) { state.Interrupted = 1 },
-		"interrupted passengers": func(state *sim.SavedState) { state.InterruptedPassengers = 1 },
-		"incident serial":        func(state *sim.SavedState) { state.IncidentSerial = 1 },
-		"withdrawn":              func(state *sim.SavedState) { state.Pods[0].Withdrawn = 1 },
-		"purpose":                func(state *sim.SavedState) { state.Pods[0].Purpose = 3 },
-		"owner":                  func(state *sim.SavedState) { state.Pods[0].Owner = 1 },
-		"interrupt":              func(state *sim.SavedState) { state.Pods[0].Interrupt = 1 },
-		"rider leg origin": func(state *sim.SavedState) {
-			state.Pods[0].Riders = append([]sim.SavedRequest(nil), state.Pods[0].Riders...)
-			state.Pods[0].Riders[0].LegFrom = "harbor"
-		},
-		"leg origin": func(state *sim.SavedState) {
-			state.Waiting = append([]sim.SavedTrip(nil), state.Waiting...)
-			state.Waiting[0].Request.LegFrom = "market"
-		},
-		"excluded pod": func(state *sim.SavedState) {
-			state.Waiting = append([]sim.SavedTrip(nil), state.Waiting...)
-			state.Waiting[0].ExcludedPod = "02"
-		},
-	} {
-		t.Run("encode "+name, func(t *testing.T) {
-			t.Parallel()
-			file := unmarked(t)
-			change(&file.Simulation)
-			if _, err := new(stateEncoder).encode(file); !errors.Is(err, errIncidentMemberUnmarked) {
-				t.Fatalf("encode: %v", err)
-			}
-		})
-	}
-	raw := string(decompressTestJSON(t, encodeTestState(t, unmarked(t))))
+	file := incidentMemberFile(t)
+	file.Simulation = newTestStateFile(t).Simulation
+	raw := string(decompressTestJSON(t, encodeTestState(t, file)))
 	if _, err := decodeIncidentSave(compressTestJSON(t, []byte(raw))); err != nil {
 		t.Fatal("control:", err)
 	}
@@ -233,29 +197,46 @@ func TestIncidentSaveMembersNeedMarker(t *testing.T) {
 		"leg origin":             {`"request":{`, `"legFrom":`},
 		"excluded pod":           {`"waiting":[{`, `"excludedPod":`},
 	}
-	for name, place := range places {
-		for _, value := range []string{"0", "null", "[]", "1", "[3,1]"} {
-			t.Run(name+" "+value, func(t *testing.T) {
-				t.Parallel()
-				if !strings.Contains(raw, place[0]) {
-					t.Fatalf("the save has no %s", place[0])
-				}
-				edited := strings.Replace(raw, place[0], place[0]+place[1]+value+",", 1)
-				_, err := decodeIncidentSave(compressTestJSON(t, []byte(edited)))
-				if err == nil || stateReason(err) != reasonInvalidState {
-					t.Fatalf("decode: %v", err)
-				}
-			})
+	decode := func(t *testing.T, place [2]string, value string) error {
+		t.Helper()
+		if !strings.Contains(raw, place[0]) {
+			t.Fatalf("the save has no %s", place[0])
 		}
+		edited := strings.Replace(raw, place[0], place[0]+place[1]+value+",", 1)
+		_, err := decodeIncidentSave(compressTestJSON(t, []byte(edited)))
+		return err
+	}
+	for name, place := range places {
+		t.Run(name+" null", func(t *testing.T) {
+			t.Parallel()
+			err := decode(t, place, "null")
+			if err == nil || stateReason(err) != reasonInvalidState || !strings.Contains(err.Error(), "saved incident member ") {
+				t.Fatalf("decode: %v", err)
+			}
+		})
+		t.Run(name+" empty array", func(t *testing.T) {
+			t.Parallel()
+			if err := decode(t, place, "[]"); err == nil || stateReason(err) != reasonInvalidState {
+				t.Fatalf("decode: %v", err)
+			}
+		})
+	}
+	for _, name := range []string{"interrupted", "interrupted passengers", "incident serial", "withdrawn"} {
+		t.Run(name+" zero", func(t *testing.T) {
+			t.Parallel()
+			if err := decode(t, places[name], "0"); err != nil {
+				t.Fatalf("decode: %v", err)
+			}
+		})
 	}
 }
 
-// TestIncidentSaveScanRefusesMember checks the raw scan alone: without the
-// marker, a stage 1 member with an explicit zero is refused before the
-// typed decode loses it.
-func TestIncidentSaveScanRefusesMember(t *testing.T) {
+// TestIncidentSaveScanRefusesNull checks the raw scan alone: it refuses
+// null for each stage 1 member before the typed decode loses it, and it
+// passes any other value to the typed decode.
+func TestIncidentSaveScanRefusesNull(t *testing.T) {
 	t.Parallel()
-	for path := range savedIncidentPaths {
+	document := func(path, value string) []byte {
 		parts := strings.Split(strings.TrimPrefix(path, "/"), "/")
 		var document strings.Builder
 		for _, part := range parts[:len(parts)-1] {
@@ -265,7 +246,7 @@ func TestIncidentSaveScanRefusesMember(t *testing.T) {
 			}
 			document.WriteString(`{"` + part + `":`)
 		}
-		document.WriteString(`{"` + parts[len(parts)-1] + `":0}`)
+		document.WriteString(`{"` + parts[len(parts)-1] + `":` + value + `}`)
 		for i := len(parts) - 2; i >= 0; i-- {
 			if parts[i] == "*" {
 				document.WriteString("]")
@@ -273,18 +254,22 @@ func TestIncidentSaveScanRefusesMember(t *testing.T) {
 				document.WriteString("}")
 			}
 		}
-		data := []byte(document.String())
-		if err := scanSavedIncidentMembers(data, false); !errors.Is(err, errIncidentMemberUnmarked) {
+		return []byte(document.String())
+	}
+	for path := range savedIncidentPaths {
+		data := document(path, "null")
+		if err := checkIncidentMembers(data); err == nil || !strings.Contains(err.Error(), "saved incident member ") || !strings.HasSuffix(err.Error(), " is null") {
 			t.Errorf("%s: scan of %s: %v", path, data, err)
 		}
-		if err := scanSavedIncidentMembers(data, true); err != nil {
-			t.Errorf("%s: marked scan of %s: %v", path, data, err)
+		data = document(path, "0")
+		if err := checkIncidentMembers(data); err != nil {
+			t.Errorf("%s: scan of %s: %v", path, data, err)
 		}
 	}
 }
 
 // TestOperationalArrayLimit checks the scan limit of the operational tuple
-// (incident contract, section 11.6): 3 numbers pass the scan of each marker
+// (incident contract, section 11.6): 3 numbers pass the scan of each contract
 // table, 4 fail it before the typed decode, a nested array under the tuple
 // passes the scan and fails the typed decode, and a gzip body that expands
 // past the save cap is too large.

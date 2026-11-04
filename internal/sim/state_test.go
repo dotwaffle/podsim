@@ -214,9 +214,8 @@ func TestRestorePhysicalDemo(t *testing.T) {
 }
 
 // TestRestoreStateRefusalOrder pins the error that an invalid save gets.
-// The checks before the tiers refuse the order contract before the incident
-// fields, and the incident serial before the interrupted orders. An error
-// of both tiers names each tier that the restore tried.
+// The checks before the tiers refuse the order contract first. An error of
+// both tiers names each tier that the restore tried.
 func TestRestoreStateRefusalOrder(t *testing.T) {
 	t.Parallel()
 	const counter = "a saved counter is negative or not finite"
@@ -227,13 +226,16 @@ func TestRestoreStateRefusalOrder(t *testing.T) {
 		want     string
 		physical bool
 	}{
-		{"order_before_incident", func(in *RestoreStateInput) {
-			in.State.OrderContract, in.State.IncidentSerial = ExpressOrderContract, 1
+		{"order_before_faults", func(in *RestoreStateInput) {
+			in.State.OrderContract, in.State.Faults = ExpressOrderContract, &SavedFaults{}
 		}, "saved and input order contracts differ", false},
-		{"serial_before_interrupted", func(in *RestoreStateInput) {
-			in.State.IncidentSerial, in.State.Interrupted = 1, 1
-		}, "saved incident serial needs the incident contract", false},
-		{"interrupted", func(in *RestoreStateInput) { in.State.InterruptedPassengers = 1 }, "saved interrupted orders need the incident contract", false},
+		{"order_before_counter", func(in *RestoreStateInput) {
+			in.State.OrderContract, in.State.Tick = ExpressOrderContract, -1
+		}, "saved and input order contracts differ", false},
+		{"faults_before_emergencies", func(in *RestoreStateInput) {
+			in.State.Faults, in.State.Emergencies = &SavedFaults{}, &SavedEmergencies{}
+		}, "saved faults need faults on", false},
+		{"emergencies", func(in *RestoreStateInput) { in.State.Emergencies = &SavedEmergencies{} }, "saved emergencies need emergencies on", false},
 		{"both_tiers", func(in *RestoreStateInput) { in.State.Tick = -1 },
 			"restore the saved simulation: physical tier: " + counter + ", logical tier: " + counter, true},
 		{"logical_only", func(in *RestoreStateInput) { in.State.Tick, in.LogicalOnly = -1, true },
@@ -257,7 +259,6 @@ func TestRestoreInputCheckOrder(t *testing.T) {
 	t.Parallel()
 	want := []string{
 		"checkRestoreOrderContract",
-		"checkRestoreIncidentFields",
 		"checkExpressSavedState",
 		"checkContractRestoreSemantics",
 		"checkSavedServiceLimits",

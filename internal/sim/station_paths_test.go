@@ -46,7 +46,7 @@ func TestStationAccessPaths(t *testing.T) {
 			if tc.change != nil {
 				tc.change(&network)
 			}
-			_, err := New(network, "harbor")
+			_, err := NewFleet(network, []Placement{{ID: "01", StationID: "harbor"}})
 			if (err == nil) != tc.valid {
 				t.Fatalf("New() error = %v, valid = %v", err, tc.valid)
 			}
@@ -57,7 +57,7 @@ func TestStationAccessPaths(t *testing.T) {
 func TestStationPathCacheDoesNotShareRoadRoutes(t *testing.T) {
 	t.Parallel()
 	for _, stationFirst := range []bool{false, true} {
-		s, err := New(ladderNetwork(), "harbor")
+		s, err := NewFleet(ladderNetwork(), []Placement{{ID: "01", StationID: "harbor"}})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -84,7 +84,7 @@ func TestLegacyStationPathsInferManeuvers(t *testing.T) {
 			t.Fatal("legacy input unexpectedly has a station role")
 		}
 	}
-	simulation, err := New(network, "harbor")
+	simulation, err := NewFleet(network, []Placement{{ID: "01", StationID: "harbor"}})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -504,11 +504,10 @@ func (s *Session) loadState(input loadInput) (loaded loadedState, err error) {
 		return loaded, invalidState(err)
 	}
 	restoreInput := sim.RestoreStateInput{
-		OrderContract: loaded.config.OrderContract, IncidentContract: loaded.config.IncidentContract,
-		Network: loaded.config.Network, Fleet: loaded.config.Fleet, State: file.Simulation, LogicalOnly: loaded.logicalOnly,
+		OrderContract: loaded.config.OrderContract,
+		Network:       loaded.config.Network, Fleet: loaded.config.Fleet, State: file.Simulation, LogicalOnly: loaded.logicalOnly,
 		ExpressServices: loaded.config.ExpressServices, OnboardPickups: loaded.config.OnboardPickups,
-		FaultContract: loaded.config.FaultContract, Faults: project.EffectiveFaultSettings(loaded.config),
-		EmergencyContract: loaded.config.EmergencyContract,
+		FaultsOn: true, Faults: project.EffectiveFaultSettings(loaded.config), EmergenciesOn: true,
 	}
 	// The incident policy reads only the saved state, and it runs before
 	// either tier, so a rejected save gets no logical fallback (section 8
@@ -524,16 +523,12 @@ func (s *Session) loadState(input loadInput) (loaded loadedState, err error) {
 	}
 	// The saved state does not keep the platooning mode. The project gives
 	// it. A saved link to a pod ahead stays also when the project has no
-	// platoons, and it then drains. The demo fleet gets the settings of
-	// the demo project, as the demo command applies them.
-	settings := loaded.config
-	if demoFleet(loaded.simulation, loaded.config.Fleet) {
-		settings = demoProject(loaded.config)
-	}
-	if err = project.ConfigurePlatoons(loaded.simulation, settings); err != nil {
+	// platoons, and it then drains. The demo fleet has the operations off,
+	// as the demo command sets them.
+	if err = project.ConfigurePlatoons(loaded.simulation, loaded.config); err != nil {
 		return loaded, invalidState(err)
 	}
-	if err = project.ConfigureExperiments(loaded.simulation, settings); err != nil {
+	if err = project.ConfigureExperiments(loaded.simulation, loaded.config, !demoFleet(loaded.simulation, loaded.config.Fleet)); err != nil {
 		return loaded, invalidState(err)
 	}
 	// The demand command refuses a change while the traffic demo runs, so

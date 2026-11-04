@@ -22,10 +22,10 @@ type logicalTrip struct {
 // the network. These journeys do not count
 // in the journey totals. Each other active rider of a pod goes back to the
 // queue as one trip, and its boarding stays recorded. Each pod keeps its
-// service holds and has no operational purpose. With the fault marker,
+// service holds and has no operational purpose. With the fault switch on,
 // every fault record ends, the fault counters stay, and each pod loses
 // the fault hold (incident suspension contract, section 12.7). With the
-// emergency marker, every emergency record ends, the emergency counters
+// emergency switch on, every emergency record ends, the emergency counters
 // stay, and each pod loses the emergency hold (incident emergency
 // contract, section 10.7).
 // The queued trips lose their pod bindings. As after Reset,
@@ -44,10 +44,10 @@ func restoreLogical(input RestoreStateInput, newFleet func() (*Simulation, error
 	if err := s.SetExpressServices(input.ExpressServices); err != nil {
 		return nil, RestoreResult{}, err
 	}
-	if err := s.setFaultContract(input); err != nil {
+	if err := s.setRestoredFaults(input); err != nil {
 		return nil, RestoreResult{}, err
 	}
-	s.setEmergencyContract(input)
+	s.setRestoredEmergencies(input)
 	if err := s.checkSavedClasses(state); err != nil {
 		return nil, RestoreResult{}, err
 	}

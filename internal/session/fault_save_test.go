@@ -20,8 +20,6 @@ func faultMemberFile(t *testing.T) stateFile {
 	t.Helper()
 	file := newTestStateFile(t)
 	file.Project = project.Clone(file.Project)
-	file.Project.IncidentContract = sim.IncidentV1Contract
-	file.Project.FaultContract = project.FaultV1Contract
 	file.Project.Faults = &project.FaultConfig{}
 	file.Simulation.IncidentSerial = 5
 	file.Simulation.Faults = &sim.SavedFaults{
@@ -90,47 +88,41 @@ func TestSavedFaultTupleShapes(t *testing.T) {
 	}
 }
 
-// TestFaultSaveMembersNeedMarker checks that a save without the fault
-// marker has no stage 2 member: the encoder refuses the records and the
-// counters, and the decoder refuses the member, also as null, an empty
-// object, or an empty array (sections 13.3 and 13.5 of the incident
-// suspension contract). With the marker, the decoder refuses null.
-func TestFaultSaveMembersNeedMarker(t *testing.T) {
+// TestFaultSaveValues checks the rules on the values of the stage 2 member
+// of a save (sections 13.3 and 13.5 of the incident suspension contract).
+// The encoder refuses an empty member. The decoder refuses null at each
+// level and an empty member, and it accepts a member with a value in each
+// project.
+func TestFaultSaveValues(t *testing.T) {
 	t.Parallel()
-	unmarked := func(t *testing.T) stateFile {
-		t.Helper()
-		file := faultMemberFile(t)
-		file.Project.FaultContract, file.Project.Faults = "", nil
-		return file
+	const empty = "saved faults member is empty"
+	file := faultMemberFile(t)
+	file.Simulation.Faults = &sim.SavedFaults{}
+	if _, err := new(stateEncoder).encode(file); err == nil || err.Error() != empty {
+		t.Fatalf("encode empty: %v", err)
 	}
-	file := unmarked(t)
-	if _, err := new(stateEncoder).encode(file); !errors.Is(err, errFaultMemberUnmarked) {
-		t.Fatalf("encode: %v", err)
-	}
-	file.Simulation.Faults = &sim.SavedFaults{Counters: sim.FaultCounters{Reroutes: 1}}
-	if _, err := new(stateEncoder).encode(file); !errors.Is(err, errFaultMemberUnmarked) {
-		t.Fatalf("encode counters: %v", err)
-	}
-	marked := faultMemberFile(t)
-	marked.Simulation.Faults = &sim.SavedFaults{}
-	if _, err := new(stateEncoder).encode(marked); err == nil {
-		t.Fatal("the encoder writes an empty faults member")
-	}
+	file.Project.Faults = nil
 	file.Simulation.Faults = nil
 	raw := string(decompressTestJSON(t, encodeTestState(t, file)))
 	if _, err := decodeIncidentSave(compressTestJSON(t, []byte(raw))); err != nil {
 		t.Fatal("control:", err)
 	}
 	place := `"simulation":{`
-	for _, value := range []string{"null", "{}", "[]", "0", `{"records":[]}`, `{"counters":{}}`, `{"counters":{"started":1}}`} {
-		t.Run("unmarked "+value, func(t *testing.T) {
+	for value, want := range map[string]string{
+		"null":                       "saved member /simulation/faults is null",
+		"{}":                         empty,
+		"[]":                         "unmarshal JSON array",
+		"0":                          "unmarshal JSON number",
+		`{"records":[]}`:             empty,
+		`{"counters":{}}`:            empty,
+		`{"counters":{"started":1}}`: "",
+	} {
+		t.Run("member "+value, func(t *testing.T) {
 			t.Parallel()
 			edited := strings.Replace(raw, place, place+`"faults":`+value+",", 1)
-			// The typed decode refuses a value that is not an object
-			// first.
 			_, err := decodeIncidentSave(compressTestJSON(t, []byte(edited)))
-			if stateReason(err) != reasonInvalidState || (value == "null" || value[0] == '{') && !errors.Is(err, errFaultMemberUnmarked) {
-				t.Fatalf("decode: %v", err)
+			if want == "" && err != nil || want != "" && (err == nil || stateReason(err) != reasonInvalidState || !strings.Contains(err.Error(), want)) {
+				t.Fatalf("decode: %v, want %q", err, want)
 			}
 		})
 	}
@@ -153,24 +145,18 @@ func TestFaultSaveMembersNeedMarker(t *testing.T) {
 			}
 		})
 	}
-	// The scan alone: a null counter without the marker, and each member
-	// with the marker.
-	for _, document := range []string{`{"simulation":{"faults":{"counters":{"started":null}}}}`, `{"simulation":{"faults":{"records":[[1,2,3,0,0,1]]}}}`} {
-		if err := scanSavedFaultMembers([]byte(document), false); !errors.Is(err, errFaultMemberUnmarked) {
-			t.Errorf("unmarked scan of %s: %v", document, err)
-		}
+	// The scan alone.
+	if err := checkFaultMembers([]byte(`{"simulation":{"faults":{"records":[[1,2,3,0,0,1]],"counters":{"started":1}}}}`)); err != nil {
+		t.Errorf("scan: %v", err)
 	}
-	if err := scanSavedFaultMembers([]byte(`{"simulation":{"faults":{"records":[[1,2,3,0,0,1]],"counters":{"started":1}}}}`), true); err != nil {
-		t.Errorf("marked scan: %v", err)
-	}
-	if err := scanSavedFaultMembers([]byte(`{"simulation":{"faults":{"counters":{"started":null}}}}`), true); err == nil {
-		t.Error("the marked scan accepts a null counter")
+	if err := checkFaultMembers([]byte(`{"simulation":{"faults":{"counters":{"started":null}}}}`)); err == nil || err.Error() != "saved member /simulation/faults/counters/started is null" {
+		t.Errorf("the scan of a null counter: %v", err)
 	}
 }
 
 // TestFaultRecordArrayLimits checks the scan limits of the records and of
 // a tuple (section 13.5 of the incident suspension contract): the limit
-// passes the scan of each marker table, the limit plus one fails it before
+// passes the scan of each contract table, the limit plus one fails it before
 // the typed decode, a deeper nesting passes the scan and fails the typed
 // decode, and a gzip body that expands past the save cap is too large.
 func TestFaultRecordArrayLimits(t *testing.T) {
@@ -224,7 +210,6 @@ func TestFaultRecordArrayLimits(t *testing.T) {
 func faultSave(t *testing.T, pods, evacuation int) incidentSave {
 	t.Helper()
 	config := incidentSaveProject(pods)
-	config.FaultContract = project.FaultV1Contract
 	config.Faults = &project.FaultConfig{EvacuationSeconds: new(evacuation)}
 	return newIncidentSave(t, config)
 }
@@ -427,29 +412,33 @@ func TestFaultSaveLogicalRestore(t *testing.T) {
 	}
 }
 
-// TestFaultSaveOfDemoFleet checks the derivation of the demo settings in a
-// restore (section 12.7 of the incident suspension contract: the demo
-// project has no fault marker). The demo fleet has the fault operations
-// off, so no record can start while the demo runs. A save of a demo fleet
-// with a record is invalid_state before either restore tier, also in a
-// restore that has only the logical tier.
+// TestFaultSaveOfDemoFleet checks the restore of a save of a demo fleet. The
+// demo fleet has the fault operations off and zero counters, so a save with
+// a hold, a record, or a counter is invalid_state before either restore
+// tier, also in a restore that has only the logical tier.
 func TestFaultSaveOfDemoFleet(t *testing.T) {
 	t.Parallel()
 	file, _ := faultSessionData(t)
 	file.Simulation.Demo = &sim.SavedDemo{}
-	// The last attempt before the restore loop limit restores only in the
-	// logical tier, which drops the demo and the records.
-	for _, attempts := range []int{0, restoreLoopAttempts - 1} {
-		file.RestoreAttempts = attempts
-		_, err := newTestSession(t).loadState(loadInput{data: encodeTestState(t, file), steps: realRestoreSteps()})
-		if stateReason(err) != reasonInvalidState || !strings.Contains(err.Error(), "the traffic demo has fault records") {
-			t.Fatalf("restore attempts %d: %v", attempts, err)
+	file.Simulation.Pods = slices.Clone(file.Simulation.Pods)
+	check := func(want string) {
+		t.Helper()
+		// The last attempt before the restore loop limit restores only in
+		// the logical tier, which drops the demo and the records.
+		for _, attempts := range []int{0, restoreLoopAttempts - 1} {
+			file.RestoreAttempts = attempts
+			_, err := newTestSession(t).loadState(loadInput{data: encodeTestState(t, file), steps: realRestoreSteps()})
+			if stateReason(err) != reasonInvalidState || !strings.Contains(err.Error(), want) {
+				t.Fatalf("restore attempts %d: %v, want %q", attempts, err, want)
+			}
 		}
 	}
-	// The counters of the demo fleet stay without a record.
-	file.RestoreAttempts = 0
-	file.Simulation.Faults = &sim.SavedFaults{Counters: file.Simulation.Faults.Counters}
-	if _, err := newTestSession(t).loadState(loadInput{data: encodeTestState(t, file), steps: realRestoreSteps()}); err != nil {
-		t.Fatalf("restore of the counters: %v", err)
+	check("saved demo pod 01 has a service hold or an operational purpose")
+	for index := range file.Simulation.Pods {
+		pod := &file.Simulation.Pods[index]
+		pod.Withdrawn, pod.Purpose, pod.Owner, pod.Interrupt = 0, 0, 0, 0
 	}
+	check("saved demo fleet has fault or emergency state")
+	file.Simulation.Faults = &sim.SavedFaults{Counters: file.Simulation.Faults.Counters}
+	check("saved demo fleet has fault or emergency state")
 }

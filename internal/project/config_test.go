@@ -409,7 +409,7 @@ func TestValidateLimitsEncodedSize(t *testing.T) {
 	t.Parallel()
 	// Validate measures the project with the widest demand settings. The
 	// weighted project has the default demand settings.
-	limit := MaxFileBytes - demandReserve(t)
+	limit := MaxFileBytes - demandReserve(t) - faultsReserve(t) - emergenciesReserve(t)
 	tests := []struct {
 		name   string
 		config Config
@@ -436,7 +436,7 @@ func TestValidateLimitsEncodedSize(t *testing.T) {
 // The demand command checks the new settings with ValidateDemand only.
 func TestDemandChangeKeepsProjectInLimit(t *testing.T) {
 	t.Parallel()
-	config := withEncodedSize(t, weightedProject(), MaxFileBytes-demandReserve(t))
+	config := withEncodedSize(t, weightedProject(), MaxFileBytes-demandReserve(t)-faultsReserve(t)-emergenciesReserve(t))
 	if err := Validate(config); err != nil {
 		t.Fatal(err)
 	}
@@ -823,9 +823,8 @@ func TestValidateCheckOrder(t *testing.T) {
 	t.Parallel()
 	want := []string{
 		"validateVersion",
-		"validateIncidentContract",
-		"validateFaultContract",
-		"validateEmergencyContract",
+		"validateFaults",
+		"validateEmergencies",
 		"validateFormatBounds",
 		"validateSharedRideSettings",
 		"validateOnboardPickups",

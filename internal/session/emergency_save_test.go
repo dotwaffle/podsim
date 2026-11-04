@@ -22,8 +22,6 @@ func emergencyMemberFile(t *testing.T) stateFile {
 	t.Helper()
 	file := newTestStateFile(t)
 	file.Project = project.Clone(file.Project)
-	file.Project.IncidentContract = sim.IncidentV1Contract
-	file.Project.EmergencyContract = project.EmergencyV1Contract
 	file.Project.Emergencies = &project.EmergencyConfig{}
 	file.Simulation.IncidentSerial = 5
 	file.Simulation.Emergencies = &sim.SavedEmergencies{
@@ -60,9 +58,9 @@ func TestEmergencySaveMemberRoundTrip(t *testing.T) {
 	if raw := decompressTestJSON(t, encodeTestState(t, file)); !bytes.Contains(raw, []byte(`"emergencies":{"records":[[1,2,3,1,7]]}`)) {
 		t.Errorf("the save writes zero counters: %s", raw)
 	}
-	// With the marker and no member, the save has no stage 3 member.
+	// With no member, the save has no stage 3 member.
 	file.Simulation.Emergencies = nil
-	if raw := decompressTestJSON(t, encodeTestState(t, file)); bytes.Contains(raw, []byte(`"emergencies":{"`)) || !bytes.Contains(raw, []byte(`"emergencyContract":"emergency-v1"`)) {
+	if raw := decompressTestJSON(t, encodeTestState(t, file)); bytes.Contains(raw, []byte(`"emergencies":{"`)) {
 		t.Errorf("the save without records has an emergencies member: %s", raw)
 	}
 }
@@ -88,48 +86,47 @@ func TestSavedEmergencyTupleShapes(t *testing.T) {
 	}
 }
 
-// TestEmergencySaveMembersNeedMarker checks that a save without the
-// emergency marker has no stage 3 member: the encoder refuses the records
-// and the counters, and the decoder refuses the member, also as null, an
-// empty object, or an empty array (sections 11.3 and 11.5 of the incident
-// emergency contract). With the marker, the decoder refuses null.
-func TestEmergencySaveMembersNeedMarker(t *testing.T) {
+// TestEmergencySaveValues checks the rules on the values of the stage 3
+// member of a save (sections 11.3 and 11.5 of the incident emergency
+// contract). The encoder refuses an empty member. The decoder refuses null
+// at each level and an empty member, and it accepts a member with a value
+// in each project.
+func TestEmergencySaveValues(t *testing.T) {
 	t.Parallel()
+	const empty = "saved emergencies member is empty"
 	file := emergencyMemberFile(t)
-	file.Project.EmergencyContract, file.Project.Emergencies = "", nil
-	if _, err := new(stateEncoder).encode(file); !errors.Is(err, errEmergencyMemberUnmarked) {
-		t.Fatalf("encode: %v", err)
+	file.Simulation.Emergencies = &sim.SavedEmergencies{}
+	if _, err := new(stateEncoder).encode(file); err == nil || err.Error() != empty {
+		t.Fatalf("encode empty: %v", err)
 	}
-	file.Simulation.Emergencies = &sim.SavedEmergencies{Counters: sim.EmergencyCounters{EmergencyTicks: 1}}
-	if _, err := new(stateEncoder).encode(file); !errors.Is(err, errEmergencyMemberUnmarked) {
-		t.Fatalf("encode counters: %v", err)
-	}
-	marked := emergencyMemberFile(t)
-	marked.Simulation.Emergencies = &sim.SavedEmergencies{}
-	if _, err := new(stateEncoder).encode(marked); err == nil {
-		t.Fatal("the encoder writes an empty emergencies member")
-	}
+	file.Project.Emergencies = nil
 	file.Simulation.Emergencies = nil
 	raw := string(decompressTestJSON(t, encodeTestState(t, file)))
 	if _, err := decodeIncidentSave(compressTestJSON(t, []byte(raw))); err != nil {
 		t.Fatal("control:", err)
 	}
 	place := `"simulation":{`
-	for _, value := range []string{"null", "{}", "[]", "0", `{"records":[]}`, `{"counters":{}}`, `{"counters":{"started":1}}`, `{"records":[[1,1,0,0,1]]}`} {
-		t.Run("unmarked "+value, func(t *testing.T) {
+	for value, want := range map[string]string{
+		"null":                       "saved member /simulation/emergencies is null",
+		"{}":                         empty,
+		"[]":                         "unmarshal JSON array",
+		"0":                          "unmarshal JSON number",
+		`{"records":[]}`:             empty,
+		`{"counters":{}}`:            empty,
+		`{"counters":{"started":1}}`: "",
+	} {
+		t.Run("member "+value, func(t *testing.T) {
 			t.Parallel()
 			edited := strings.Replace(raw, place, place+`"emergencies":`+value+",", 1)
-			// The typed decode refuses a value that is not an object
-			// first.
 			_, err := decodeIncidentSave(compressTestJSON(t, []byte(edited)))
-			if stateReason(err) != reasonInvalidState || (value == "null" || value[0] == '{') && !errors.Is(err, errEmergencyMemberUnmarked) {
-				t.Fatalf("decode: %v", err)
+			if want == "" && err != nil || want != "" && (err == nil || stateReason(err) != reasonInvalidState || !strings.Contains(err.Error(), want)) {
+				t.Fatalf("decode: %v, want %q", err, want)
 			}
 		})
 	}
 	markedRaw := string(decompressTestJSON(t, encodeTestState(t, emergencyMemberFile(t))))
 	if _, err := decodeIncidentSave(compressTestJSON(t, []byte(markedRaw))); err != nil {
-		t.Fatal("marked control:", err)
+		t.Fatal("control with members:", err)
 	}
 	for name, edit := range map[string][2]string{
 		"null emergencies": {`"emergencies":{"records"`, `"emergencies":null,"x":{"records"`},
@@ -150,24 +147,18 @@ func TestEmergencySaveMembersNeedMarker(t *testing.T) {
 			}
 		})
 	}
-	// The scan alone: a null counter without the marker, and each member
-	// with the marker.
-	for _, document := range []string{`{"simulation":{"emergencies":{"counters":{"ended":null}}}}`, `{"simulation":{"emergencies":{"records":[[1,2,3,4,5]]}}}`} {
-		if err := scanSavedEmergencyMembers([]byte(document), false); !errors.Is(err, errEmergencyMemberUnmarked) {
-			t.Errorf("unmarked scan of %s: %v", document, err)
-		}
+	// The scan alone.
+	if err := checkEmergencyMembers([]byte(`{"simulation":{"emergencies":{"records":[[1,2,3,4,5]],"counters":{"started":1}}}}`)); err != nil {
+		t.Errorf("scan: %v", err)
 	}
-	if err := scanSavedEmergencyMembers([]byte(`{"simulation":{"emergencies":{"records":[[1,2,3,4,5]],"counters":{"started":1}}}}`), true); err != nil {
-		t.Errorf("marked scan: %v", err)
-	}
-	if err := scanSavedEmergencyMembers([]byte(`{"simulation":{"emergencies":{"counters":{"ended":null}}}}`), true); err == nil {
-		t.Error("the marked scan accepts a null counter")
+	if err := checkEmergencyMembers([]byte(`{"simulation":{"emergencies":{"counters":{"ended":null}}}}`)); err == nil || err.Error() != "saved member /simulation/emergencies/counters/ended is null" {
+		t.Errorf("the scan of a null counter: %v", err)
 	}
 }
 
 // TestEmergencyRecordArrayLimits checks the scan limits of the records and
 // of a tuple (section 11.5 of the incident emergency contract): the limit
-// passes the scan of each marker table, the limit plus one fails it before
+// passes the scan of each contract table, the limit plus one fails it before
 // the typed decode, a deeper nesting passes the scan and fails the typed
 // decode, and a gzip body that expands past the save cap is too large.
 func TestEmergencyRecordArrayLimits(t *testing.T) {
@@ -234,10 +225,8 @@ func TestEmergencyRecordArrayLimits(t *testing.T) {
 func emergencySave(t *testing.T, pods int, faults bool) incidentSave {
 	t.Helper()
 	config := incidentSaveProject(pods)
-	config.EmergencyContract = project.EmergencyV1Contract
 	config.Emergencies = &project.EmergencyConfig{}
 	if faults {
-		config.FaultContract = project.FaultV1Contract
 		config.Faults = &project.FaultConfig{EvacuationSeconds: new(3600)}
 	}
 	return newIncidentSave(t, config)
@@ -283,16 +272,9 @@ func savedEmergencyPhase(t *testing.T, state sim.SavedState) string {
 
 // checkFrameEmergencies checks that the frame of a session shows the
 // emergency records and counters of its saved state, with the phase that
-// savedEmergencyPhase derives. Without the emergency marker, the frame
-// has no stage 3 member.
+// savedEmergencyPhase derives.
 func checkFrameEmergencies(t *testing.T, name string, saved sim.SavedState, frame SimulationFrame) {
 	t.Helper()
-	if frame.EmergencyContract == "" {
-		if !reflect.DeepEqual(frame.Emergencies, sim.EmergenciesView{}) {
-			t.Fatalf("%s: the unmarked frame has emergencies %+v", name, frame.Emergencies)
-		}
-		return
-	}
 	var want sim.EmergenciesView
 	if saved.Emergencies != nil {
 		want.Counters = saved.Emergencies.Counters
@@ -454,8 +436,15 @@ func TestEmergencySaveRejections(t *testing.T) {
 		}, "E3"},
 		"interrupt of two riders (E3)": {func(state *sim.SavedState) { state.Pods[pod].Interrupt = 3 }, "E3"},
 		"recovery with an active rider (E8)": {func(state *sim.SavedState) {
-			state.Pods[pod].Purpose, state.Pods[pod].Interrupt = 3, 0
+			state.Pods[pod].Purpose, state.Pods[pod].Interrupt, state.Pods[pod].Owner, state.Pods[pod].Withdrawn = 3, 0, 1, 3
 		}, "E8"},
+		"recovery with the emergency owner before E8": {func(state *sim.SavedState) {
+			state.Pods[pod].Purpose, state.Pods[pod].Interrupt = 3, 0
+		}, "saved pod 01 has an empty recovery with the emergency owner"},
+		"refuge before the record rules": {func(state *sim.SavedState) {
+			state.Pods[pod].Purpose, state.Pods[pod].Interrupt = 2, 0
+			state.Emergencies = &sim.SavedEmergencies{Counters: state.Emergencies.Counters}
+		}, "saved pod 01 has a refuge"},
 	}
 	for name, test := range native {
 		t.Run(name, func(t *testing.T) {
@@ -480,15 +469,14 @@ func TestEmergencySaveRejections(t *testing.T) {
 			}
 		})
 	}
-	// A save with a record and no marker, and tuples of a wrong length.
+	// Tuples of a wrong length.
 	raw := string(decompressTestJSON(t, data))
 	start := strings.Index(raw, `"emergencies":{"records":[[`) + len(`"emergencies":{"records":[`)
 	end := start + strings.Index(raw[start:], "]") + 1
 	tuple := raw[start:end]
 	for name, edited := range map[string]string{
-		"record without the marker": strings.Replace(strings.Replace(raw, `"emergencyContract":"emergency-v1",`, "", 1), `"emergencies":{},`, "", 1),
-		"tuple of 4 numbers":        raw[:start] + tuple[:strings.LastIndex(tuple, ",")] + "]" + raw[end:],
-		"tuple of 6 numbers":        raw[:start] + strings.TrimSuffix(tuple, "]") + ",1]" + raw[end:],
+		"tuple of 4 numbers": raw[:start] + tuple[:strings.LastIndex(tuple, ",")] + "]" + raw[end:],
+		"tuple of 6 numbers": raw[:start] + strings.TrimSuffix(tuple, "]") + ",1]" + raw[end:],
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
@@ -496,7 +484,7 @@ func TestEmergencySaveRejections(t *testing.T) {
 				t.Fatal("no edit")
 			}
 			_, err := newTestSession(t).loadState(loadInput{data: compressTestJSON(t, []byte(edited)), steps: realRestoreSteps()})
-			if stateReason(err) != reasonInvalidState || name == "record without the marker" && !errors.Is(err, errEmergencyMemberUnmarked) {
+			if stateReason(err) != reasonInvalidState {
 				t.Fatalf("restore: %v", err)
 			}
 		})

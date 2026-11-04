@@ -183,12 +183,13 @@ See [distribution and operations](docs/operations.md) for build and runtime sett
 - The display distinguishes a pod ahead, conflicting junction traffic, an occupied berth, and unavailable parking.
   The waiting reason names the blocking pod by its fleet number, for example **Pod ahead / pod 02**.
 - With [faults](#faults), the waiting reason can also be **Fault braking**, **Fault stopped**, **Blocked by incident**, or **No forward route**.
-- When the project has the fault marker, the inspector shows a **Fault** button to the right of the activity.
+- The inspector shows a **Fault** button to the right of the activity.
+  It does not show the button during the traffic demo, or after the demo until a reset or a project apply.
   **Fault** starts a fault on the selected pod, with no end.
   On a faulted pod, the button shows **Clear fault** and ends that fault.
   The button is not available while the connection is down or a command waits for its reply.
   The server refuses a pod that it does not support, and the message line shows the error.
-- When the project has the [emergency marker](docs/operations.md#emergencies), the inspector shows an **Emergency** button on a pod that carries passengers and has no emergency.
+- The inspector shows an **Emergency** button on a pod that carries passengers and has no emergency, with the same demo rule (see [emergencies](docs/operations.md#emergencies)).
   **Emergency** starts an emergency for the first party aboard the pod.
 
 ### Pod colors and shapes
@@ -1715,8 +1716,8 @@ The tests establish progress for feasible supplied scenarios, not for every satu
 
 ### Faults
 
-Faults are off by default.
-A project with the fault marker can stop a pod with a pod fault, or block a lane segment with debris.
+A session can stop a pod with a pod fault, or block a lane segment with debris.
+Faults are off during the traffic demo, and after the demo until a reset or a project apply.
 A pod fault brakes the pod to rest, and its pending pickups go to other pods.
 After the evacuation delay, the riders leave the pod at rest, and their orders end interrupted.
 Other pods route around a fault, or wait.

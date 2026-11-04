@@ -247,7 +247,7 @@ func newChoiceTickFixture(t *testing.T, input choiceTickInput) choiceTickFixture
 	if err != nil {
 		t.Fatal(err)
 	}
-	s.incidentContract, s.emergenciesOn = IncidentV1Contract, true
+	s.emergenciesOn = true
 	if err := s.SetRoutingPolicy(policy); err != nil {
 		t.Fatal(err)
 	}

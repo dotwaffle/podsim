@@ -10,7 +10,7 @@ import (
 
 func newExample(t *testing.T) *Simulation {
 	t.Helper()
-	s, err := New(Example(), "harbor")
+	s, err := NewFleet(Example(), []Placement{{ID: "01", StationID: "harbor"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,7 +127,7 @@ func TestStationManeuverPhases(t *testing.T) {
 			network.Lanes[index].StationRole = role.role
 		}
 	}
-	s, err := New(network, "harbor")
+	s, err := NewFleet(network, []Placement{{ID: "01", StationID: "harbor"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -265,7 +265,7 @@ func TestPlaybackGrouping(t *testing.T) {
 func TestScenarioAndSnapshotIsolation(t *testing.T) {
 	t.Parallel()
 	network := Example()
-	s, err := New(network, "harbor")
+	s, err := NewFleet(network, []Placement{{ID: "01", StationID: "harbor"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -393,7 +393,7 @@ func TestInvalidNetwork(t *testing.T) {
 			t.Parallel()
 			network := Example()
 			tc.change(&network)
-			if _, err := New(network, "harbor"); err == nil {
+			if _, err := NewFleet(network, []Placement{{ID: "01", StationID: "harbor"}}); err == nil {
 				t.Fatal("invalid network accepted")
 			}
 		})
@@ -404,7 +404,7 @@ func TestUnreachableRequest(t *testing.T) {
 	t.Parallel()
 	n := Example()
 	n.Lanes = slices.DeleteFunc(n.Lanes, func(l Lane) bool { return l.ID == "garden-approach" })
-	s, err := New(n, "harbor")
+	s, err := NewFleet(n, []Placement{{ID: "01", StationID: "harbor"}})
 	if err != nil {
 		t.Fatal(err)
 	}

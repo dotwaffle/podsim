@@ -11,18 +11,15 @@ import (
 
 // TopologySnapshot contains geometry that changes only with the project.
 type TopologySnapshot struct {
-	OrderContract     sim.OrderContract      `json:"orderContract,omitzero"`
-	IncidentContract  sim.IncidentContract   `json:"incidentContract,omitzero"`
-	FaultContract     sim.FaultContract      `json:"faultContract,omitzero"`
-	EmergencyContract sim.EmergencyContract  `json:"emergencyContract,omitzero"`
-	ExpressServices   []sim.ExpressService   `json:"expressServices,omitempty"`
-	ProjectVersion    int                    `json:"projectVersion,omitzero"`
-	ServerStart       string                 `json:"serverStart"`
-	Epoch             string                 `json:"epoch"`
-	ProjectRevision   uint64                 `json:"projectRevision"`
-	Network           sim.Network            `json:"network"`
-	Geo               *project.Geo           `json:"geo,omitzero"`
-	Map               *project.MapBackground `json:"map,omitzero"`
+	OrderContract   sim.OrderContract      `json:"orderContract,omitzero"`
+	ExpressServices []sim.ExpressService   `json:"expressServices,omitempty"`
+	ProjectVersion  int                    `json:"projectVersion,omitzero"`
+	ServerStart     string                 `json:"serverStart"`
+	Epoch           string                 `json:"epoch"`
+	ProjectRevision uint64                 `json:"projectRevision"`
+	Network         sim.Network            `json:"network"`
+	Geo             *project.Geo           `json:"geo,omitzero"`
+	Map             *project.MapBackground `json:"map,omitzero"`
 	// DemoAvailable is true when the project is the example project, the
 	// only project in which the traffic demo starts.
 	DemoAvailable bool `json:"demoAvailable,omitzero"`
@@ -54,40 +51,40 @@ type StateFrame struct {
 
 // SimulationFrame replaces repeated route lane objects with stable lane IDs.
 type SimulationFrame struct {
-	OrderContract           sim.OrderContract    `json:"orderContract,omitzero"`
-	IncidentContract        sim.IncidentContract `json:"incidentContract,omitzero"`
-	Submitted               int                  `json:"submitted"`
-	Tick                    int64                `json:"tick"`
-	Paused                  bool                 `json:"paused"`
-	Vehicles                []VehicleFrame       `json:"vehicles"`
-	Berths                  []sim.BerthState     `json:"berths"`
-	Completed               int                  `json:"completed"`
-	Demo                    bool                 `json:"demo"`
-	DemoError               string               `json:"demoError"`
-	Pending                 []sim.Request        `json:"pending"`
-	Wait                    sim.WaitStats        `json:"wait"`
-	Journey                 sim.JourneyStats     `json:"journey"`
-	PassengerDistanceMeters float64              `json:"passengerDistanceMeters"`
-	RiderDistanceMeters     float64              `json:"riderDistanceMeters"`
-	DirectDistanceMeters    float64              `json:"directDistanceMeters"`
-	MaxDetourRatio          float64              `json:"maxDetourRatio"`
-	SharedParties           int                  `json:"sharedParties"`
-	SharedRidePartyLimit    int                  `json:"sharedRidePartyLimit"`
-	EmptyDistanceMeters     float64              `json:"emptyDistanceMeters"`
-	RebalanceMoves          int                  `json:"rebalanceMoves"`
+	OrderContract sim.OrderContract `json:"orderContract,omitzero"`
+	// OperationsOff is true when the fault or the emergency operations are
+	// off, which in production means the fleet of the traffic demo. The
+	// value changes only with a new fleet, so a delta has no such member,
+	// and sameChain compares it.
+	OperationsOff           bool             `json:"operationsOff,omitzero"`
+	Submitted               int              `json:"submitted"`
+	Tick                    int64            `json:"tick"`
+	Paused                  bool             `json:"paused"`
+	Vehicles                []VehicleFrame   `json:"vehicles"`
+	Berths                  []sim.BerthState `json:"berths"`
+	Completed               int              `json:"completed"`
+	Demo                    bool             `json:"demo"`
+	DemoError               string           `json:"demoError"`
+	Pending                 []sim.Request    `json:"pending"`
+	Wait                    sim.WaitStats    `json:"wait"`
+	Journey                 sim.JourneyStats `json:"journey"`
+	PassengerDistanceMeters float64          `json:"passengerDistanceMeters"`
+	RiderDistanceMeters     float64          `json:"riderDistanceMeters"`
+	DirectDistanceMeters    float64          `json:"directDistanceMeters"`
+	MaxDetourRatio          float64          `json:"maxDetourRatio"`
+	SharedParties           int              `json:"sharedParties"`
+	SharedRidePartyLimit    int              `json:"sharedRidePartyLimit"`
+	EmptyDistanceMeters     float64          `json:"emptyDistanceMeters"`
+	RebalanceMoves          int              `json:"rebalanceMoves"`
 	// Interrupted and InterruptedPassengers are the interrupted counters
-	// of sim.Snapshot. They need the incident marker.
+	// of sim.Snapshot.
 	Interrupted           int `json:"interrupted,omitzero"`
 	InterruptedPassengers int `json:"interruptedPassengers,omitzero"`
-	// FaultContract and Faults are the fault marker and the active faults
-	// of sim.Snapshot. Faults needs the fault marker.
-	FaultContract sim.FaultContract `json:"faultContract,omitzero"`
-	Faults        sim.FaultsView    `json:"faults,omitzero"`
-	// EmergencyContract and Emergencies are the emergency marker and the
-	// active emergencies of sim.Snapshot. Emergencies needs the emergency
-	// marker.
-	EmergencyContract sim.EmergencyContract `json:"emergencyContract,omitzero"`
-	Emergencies       sim.EmergenciesView   `json:"emergencies,omitzero"`
+	// Faults holds the active faults and the fault counters of sim.Snapshot.
+	Faults sim.FaultsView `json:"faults,omitzero"`
+	// Emergencies holds the active emergencies and the emergency counters
+	// of sim.Snapshot.
+	Emergencies sim.EmergenciesView `json:"emergencies,omitzero"`
 }
 
 // VehicleFrame contains dynamic vehicle data and its ordered route IDs.
@@ -105,7 +102,7 @@ type VehicleFrame struct {
 	PlatoonID    string `json:"platoonID,omitempty"`
 	PlatoonIndex int    `json:"platoonIndex,omitzero"`
 	// Withdrawn and Operational are the service holds and the operational
-	// purpose of the pod. See sim.Vehicle. They need the incident marker.
+	// purpose of the pod. See sim.Vehicle.
 	Withdrawn   uint8  `json:"withdrawn,omitzero"`
 	Operational string `json:"operational,omitzero"`
 }
@@ -124,15 +121,6 @@ func frameState(topology TopologySnapshot, frame StateFrame, immutable bool) (St
 	}
 	if topology.OrderContract != frame.Simulation.OrderContract {
 		return State{}, errors.New("topology order contract does not match state")
-	}
-	if err := incidentFrameBinding(topology, frame.Simulation); err != nil {
-		return State{}, err
-	}
-	if err := faultFrameBinding(topology, frame.Simulation); err != nil {
-		return State{}, err
-	}
-	if err := emergencyFrameBinding(topology, frame.Simulation); err != nil {
-		return State{}, err
 	}
 	if topology.ServerStart != frame.ServerStart || topology.Epoch != frame.Epoch || topology.ProjectRevision != frame.ProjectRevision {
 		return State{}, errors.New("topology revision does not match state frame")
@@ -184,7 +172,7 @@ func frameState(topology TopologySnapshot, frame StateFrame, immutable bool) (St
 		Generation: frame.Generation, Redistribution: frame.Redistribution,
 		Network: network, Geo: geo, Map: background, DemoAvailable: topology.DemoAvailable,
 		Simulation: sim.Snapshot{
-			OrderContract: snapshot.OrderContract, IncidentContract: snapshot.IncidentContract,
+			OrderContract: snapshot.OrderContract, OperationsOff: snapshot.OperationsOff,
 			Submitted: snapshot.Submitted, Tick: snapshot.Tick, Paused: snapshot.Paused,
 			Vehicles: vehicles, Berths: snapshot.Berths, Completed: snapshot.Completed,
 			Demo: snapshot.Demo, DemoError: snapshot.DemoError, Pending: snapshot.Pending,
@@ -194,8 +182,7 @@ func frameState(topology TopologySnapshot, frame StateFrame, immutable bool) (St
 			SharedParties:  snapshot.SharedParties, SharedRidePartyLimit: snapshot.SharedRidePartyLimit,
 			EmptyDistanceMeters: snapshot.EmptyDistanceMeters, RebalanceMoves: snapshot.RebalanceMoves,
 			Interrupted: snapshot.Interrupted, InterruptedPassengers: snapshot.InterruptedPassengers,
-			FaultContract: snapshot.FaultContract, Faults: cloneFaults(snapshot.Faults),
-			EmergencyContract: snapshot.EmergencyContract, Emergencies: cloneEmergencies(snapshot.Emergencies),
+			Faults: cloneFaults(snapshot.Faults), Emergencies: cloneEmergencies(snapshot.Emergencies),
 		},
 		Speed: frame.Speed, SpeedReduction: frame.SpeedReduction, Demand: frame.Demand, Checkpoints: slices.Clone(frame.Checkpoints),
 		Build: frame.Build, ServerStart: frame.ServerStart, Restore: frame.Restore,
@@ -244,7 +231,7 @@ func makeStateFrame(state State, owned bool) StateFrame {
 		Epoch: state.Epoch, Revision: state.Revision, ProjectRevision: state.ProjectRevision,
 		Generation: state.Generation, Redistribution: state.Redistribution,
 		Simulation: SimulationFrame{
-			OrderContract: snapshot.OrderContract, IncidentContract: snapshot.IncidentContract,
+			OrderContract: snapshot.OrderContract, OperationsOff: snapshot.OperationsOff,
 			Submitted: snapshot.Submitted, Tick: snapshot.Tick, Paused: snapshot.Paused,
 			Vehicles: vehicles, Berths: snapshot.Berths, Completed: snapshot.Completed,
 			Demo: snapshot.Demo, DemoError: snapshot.DemoError, Pending: snapshot.Pending,
@@ -254,23 +241,9 @@ func makeStateFrame(state State, owned bool) StateFrame {
 			SharedParties:  snapshot.SharedParties, SharedRidePartyLimit: snapshot.SharedRidePartyLimit,
 			EmptyDistanceMeters: snapshot.EmptyDistanceMeters, RebalanceMoves: snapshot.RebalanceMoves,
 			Interrupted: snapshot.Interrupted, InterruptedPassengers: snapshot.InterruptedPassengers,
-			FaultContract: snapshot.FaultContract, Faults: faults,
-			EmergencyContract: snapshot.EmergencyContract, Emergencies: emergencies,
+			Faults: faults, Emergencies: emergencies,
 		},
 		Speed: state.Speed, SpeedReduction: state.SpeedReduction, Demand: state.Demand, Checkpoints: checkpoints,
 		Build: state.Build, ServerStart: state.ServerStart, Restore: state.Restore,
 	}
-}
-
-// incidentFrameBinding refuses a frame whose incident marker is not the
-// marker of its topology, and an unknown marker. A delta carries no
-// marker, so the marker of a stream changes only with a new topology.
-func incidentFrameBinding(topology TopologySnapshot, frame SimulationFrame) error {
-	if err := sim.ValidateIncidentContract(topology.IncidentContract); err != nil {
-		return err
-	}
-	if topology.IncidentContract != frame.IncidentContract {
-		return errors.New("topology incident contract does not match state")
-	}
-	return nil
 }

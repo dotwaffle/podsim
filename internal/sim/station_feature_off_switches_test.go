@@ -12,12 +12,6 @@ import (
 	"testing"
 )
 
-type stationSwitchProfile struct {
-	name      string
-	contracts FleetContracts
-	refusal   string
-}
-
 type stationSwitchSettings struct {
 	name           string
 	faults         bool
@@ -327,17 +321,7 @@ func stationSwitchRun(t *testing.T, digest hash.Hash, s *Simulation, settings st
 
 func TestStationFeatureOffSwitchBaseline(t *testing.T) {
 	stationSwitchCheckOmittedFields(t)
-	// Native markers describe formats. Native operation switches gate commands.
-	profiles := []stationSwitchProfile{
-		{name: "none"},
-		{name: "incident", contracts: FleetContracts{IncidentContract: IncidentV1Contract}},
-		{name: "fault-without-incident", contracts: FleetContracts{FaultContract: FaultV1Contract}, refusal: "the fault contract requires the incident contract"},
-		{name: "incident-fault", contracts: FleetContracts{IncidentContract: IncidentV1Contract, FaultContract: FaultV1Contract}},
-		{name: "emergency-without-incident", contracts: FleetContracts{EmergencyContract: EmergencyV1Contract}, refusal: "the emergency contract requires the incident contract"},
-		{name: "incident-emergency", contracts: FleetContracts{IncidentContract: IncidentV1Contract, EmergencyContract: EmergencyV1Contract}},
-		{name: "fault-emergency-without-incident", contracts: FleetContracts{FaultContract: FaultV1Contract, EmergencyContract: EmergencyV1Contract}, refusal: "the fault contract requires the incident contract"},
-		{name: "all", contracts: FleetContracts{IncidentContract: IncidentV1Contract, FaultContract: FaultV1Contract, EmergencyContract: EmergencyV1Contract}},
-	}
+	// Native operation switches gate commands.
 	settings := []stationSwitchSettings{
 		{name: "both-off"},
 		{name: "fault-on", faults: true, faultID: "i7.1", faultCount: 1},
@@ -345,58 +329,25 @@ func TestStationFeatureOffSwitchBaseline(t *testing.T) {
 		{name: "both-on", faults: true, emergencies: true, faultID: "i7.1", emergencyID: "i7.2", faultCount: 1, emergencyCount: 1},
 	}
 	digest := sha256.New()
-	valid, refused := 0, 0
-	seen := make(map[struct {
-		Contracts           FleetContracts
-		Faults, Emergencies bool
-	}]bool)
-	for _, profile := range profiles {
-		for _, switches := range settings {
-			name := profile.name + "/" + switches.name
-			key := struct {
-				Contracts           FleetContracts
+	for _, switches := range settings {
+		t.Run(switches.name, func(t *testing.T) {
+			row := sha256.New()
+			stationSwitchEncode(t, row, struct {
+				Name                string
 				Faults, Emergencies bool
-			}{profile.contracts, switches.faults, switches.emergencies}
-			if seen[key] {
-				t.Fatalf("duplicate marker/switch input: %s", name)
+				EvacuationSeconds   int
+			}{switches.name, switches.faults, switches.emergencies, 300})
+			s, err := NewFleet(Example(), []Placement{{ID: "01", StationID: "harbor"}})
+			if err != nil {
+				t.Fatal(err)
 			}
-			seen[key] = true
-			t.Run(name, func(t *testing.T) {
-				row := sha256.New()
-				stationSwitchEncode(t, row, struct {
-					Name                string
-					Contracts           FleetContracts
-					Faults, Emergencies bool
-					EvacuationSeconds   int
-				}{name, profile.contracts, switches.faults, switches.emergencies, 300})
-				s, err := NewFleetWithContracts(Example(), []Placement{{ID: "01", StationID: "harbor"}}, profile.contracts)
-				if profile.refusal != "" {
-					if err == nil || err.Error() != profile.refusal || s != nil {
-						t.Fatalf("constructor refusal: simulation=%v error=%v, want nil and %q", s != nil, err, profile.refusal)
-					}
-					refused++
-					stationSwitchEncode(t, row, struct{ ConstructorError string }{err.Error()})
-				} else {
-					if err != nil {
-						t.Fatal(err)
-					}
-					view := s.Snapshot()
-					if view.IncidentContract != profile.contracts.IncidentContract || view.FaultContract != profile.contracts.FaultContract || view.EmergencyContract != profile.contracts.EmergencyContract {
-						t.Fatal("constructor changed independent native markers")
-					}
-					valid++
-					stationSwitchRun(t, row, s, switches)
-				}
-				got := hex.EncodeToString(row.Sum(nil))
-				t.Logf("switch row %s SHA-256 %s", name, got)
-				stationSwitchEncode(t, digest, struct{ Name, Digest string }{name, got})
-			})
-		}
+			stationSwitchRun(t, row, s, switches)
+			got := hex.EncodeToString(row.Sum(nil))
+			t.Logf("switch row %s SHA-256 %s", switches.name, got)
+			stationSwitchEncode(t, digest, struct{ Name, Digest string }{switches.name, got})
+		})
 	}
-	if len(profiles) != 8 || len(settings) != 4 || len(seen) != 32 || valid != 20 || refused != 12 {
-		t.Fatalf("switch matrix coverage: profiles=%d settings=%d valid=%d refused=%d, want 8/4/20/12", len(profiles), len(settings), valid, refused)
-	}
-	const want = "ba5d0d301ea1d92d0b5cd7d94ac32bc8691f0e459d7f651a7735bd4fdc799b22"
+	const want = "4454e68dd0c31f1e706f94204f546f5df28af8cb58a2a8cfe64d0f4cb40d4a65"
 	if got := hex.EncodeToString(digest.Sum(nil)); got != want {
 		t.Fatalf("native switch boundary digest = %s, want %s", got, want)
 	}

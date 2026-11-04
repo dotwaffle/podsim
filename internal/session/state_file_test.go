@@ -248,7 +248,8 @@ func TestDecodeStateFileRejects(t *testing.T) {
 		{"version 7", edit(func(file *stateFile) { file.Version = 7 }), reasonUnsupportedVersion, nil},
 		{"version 8", edit(func(file *stateFile) { file.Version = 8 }), reasonUnsupportedVersion, nil},
 		{"version 2 with old orders", compressTestJSON(t, []byte(`{"format":"podsim-session","version":2,"simulation":{"pods":[{"riders":[{"partySize":12}]}]}}`)), reasonUnsupportedVersion, nil},
-		{"version 10", edit(func(file *stateFile) { file.Version = 10 }), reasonUnsupportedVersion, nil},
+		{"version 9", edit(func(file *stateFile) { file.Version = 9 }), reasonUnsupportedVersion, nil},
+		{"version 11", edit(func(file *stateFile) { file.Version = 11 }), reasonUnsupportedVersion, nil},
 		{"unsupported version with long pod route", compressTestJSON(t, []byte(`{"format":"podsim-session","version":8,"simulation":{"pods":[{"route":`+zeros(sim.MaxSavedRouteLanes+1)+`}]}}`)), reasonUnsupportedVersion, nil},
 		{"unsupported version with long trip route", compressTestJSON(t, []byte(`{"format":"podsim-session","version":8,"simulation":{"waiting":[{"route":`+zeros(sim.MaxSavedRouteLanes+1)+`}]}}`)), reasonUnsupportedVersion, nil},
 		// The header scan does not check the integers, so a file of another

@@ -14,12 +14,12 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-// faultTestGame returns a connected game with three pods and the fault
-// marker. The second pod is selected.
+// faultTestGame returns a connected game with three pods. The second pod is
+// selected.
 func faultTestGame(t *testing.T) *Game {
 	t.Helper()
 	game := journeyTestGame(t, 2)
-	game.state.Simulation.FaultContract = sim.FaultV1Contract
+	game.state.Simulation.OperationsOff = false
 	game.state.Simulation.Vehicles = []sim.Vehicle{{Pod: sim.Pod{ID: "pod-a"}}, {Pod: sim.Pod{ID: "pod-b"}}, {Pod: sim.Pod{ID: "pod-c"}}}
 	game.selected = 1
 	return game
@@ -27,7 +27,7 @@ func faultTestGame(t *testing.T) *Game {
 
 // TestFaultButton checks when the pod inspector shows the fault button,
 // and its label, its target, and its state. The button shows only with
-// the fault marker and while the inspector shows. Only a pod fault of the
+// the operations on and while the inspector shows. Only a pod fault of the
 // selected pod changes it to Clear fault. A pause does not disable it: the
 // server accepts both commands in a paused session.
 func TestFaultButton(t *testing.T) {
@@ -45,7 +45,7 @@ func TestFaultButton(t *testing.T) {
 		wantAction   string
 		wantDisabled bool
 	}{
-		{name: "no fault marker", change: func(g *Game) { g.state.Simulation.FaultContract = "" }},
+		{name: "operations off", change: func(g *Game) { g.state.Simulation.OperationsOff = true }},
 		{name: "orders panel", change: func(g *Game) { g.showOrders = true }},
 		{name: "demand panel", change: func(g *Game) { g.showDemand = true }},
 		{name: "no pods", change: func(g *Game) { g.state.Simulation.Vehicles, g.selected = nil, 0 }},
@@ -133,7 +133,6 @@ func TestFaultButtonFits(t *testing.T) {
 		t.Run(layout.name, func(t *testing.T) {
 			t.Parallel()
 			game := controlTestGame(t, layout.input)
-			game.state.Simulation.FaultContract = sim.FaultV1Contract
 			for _, faults := range [][]sim.FaultView{nil, {{ID: "i1.1", Kind: sim.FaultKindPod, PodID: fleetPodLabel(0, len(game.state.Simulation.Vehicles))}}} {
 				game.state.Simulation.Faults.Active = faults
 				control, ok := game.faultButton(game.state.Simulation)
@@ -158,11 +157,9 @@ func TestFaultButtonFits(t *testing.T) {
 	}
 }
 
-// faultProject returns the default project with the fault marker.
+// faultProject returns the default project with fault settings.
 func faultProject() project.Config {
 	config := project.Default()
-	config.IncidentContract = sim.IncidentV1Contract
-	config.FaultContract = project.FaultV1Contract
 	config.Faults = &project.FaultConfig{}
 	return config
 }
@@ -176,7 +173,7 @@ func clickFault(t *testing.T, game *Game, action string) remote.Result {
 }
 
 // TestFaultButtonCommands clicks Fault and then Clear fault in a game that
-// is connected to a session with the fault marker. Fault sends the ID of
+// is connected to a session. Fault sends the ID of
 // the selected pod and no duration. Clear fault sends the fault ID from the
 // faults group.
 func TestFaultButtonCommands(t *testing.T) {
@@ -310,7 +307,7 @@ func TestFaultClickUsesShownButton(t *testing.T) {
 func TestDrawKeepsFaultButton(t *testing.T) {
 	t.Parallel()
 	game := exampleTestGame(t)
-	game.state.Simulation.FaultContract = sim.FaultV1Contract
+	game.state.Simulation.OperationsOff = false
 	screen := ebiten.NewImage(game.layout.width, game.layout.height)
 	defer screen.Deallocate()
 	game.Draw(screen)

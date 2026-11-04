@@ -57,15 +57,6 @@ func NewStreamAssembler(topology TopologySnapshot) (*StreamAssembler, error) {
 	if err := sim.ValidateOrderContract(topology.OrderContract); err != nil {
 		return nil, err
 	}
-	if err := sim.ValidateIncidentContract(topology.IncidentContract); err != nil {
-		return nil, err
-	}
-	if err := sim.ValidateFaultContracts(topology.FaultContract, topology.IncidentContract); err != nil {
-		return nil, err
-	}
-	if err := sim.ValidateEmergencyContracts(topology.EmergencyContract, topology.IncidentContract); err != nil {
-		return nil, err
-	}
 	markers := contractMarkers{order: topology.OrderContract}
 	if markers != (contractMarkers{}) {
 		if err := validateStreamTopology(topology, markers); err != nil {

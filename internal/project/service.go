@@ -88,24 +88,12 @@ func (scan *projectFieldScan) token(token jsontext.Token) error {
 func (scan *projectFieldScan) topMember(name string) error {
 	decoder := scan.decoder
 	switch name {
-	case "incidentContract":
-		// An explicit null or empty marker is presence. The typed
-		// check cannot see it.
-		return scanContractMarker(decoder, string(sim.IncidentV1Contract), sim.ErrUnknownIncidentContract)
-	case "faultContract":
-		// An explicit null or empty marker is presence, as for the
-		// incident marker.
-		return scanContractMarker(decoder, string(FaultV1Contract), errUnknownFaultContract)
 	case "faults", "emergencies":
 		value, err := decoder.ReadValue()
 		if err != nil {
 			return err
 		}
 		return scanSettings(name, value)
-	case "emergencyContract":
-		// An explicit null or empty marker is presence, as for the
-		// incident marker.
-		return scanContractMarker(decoder, string(EmergencyV1Contract), errUnknownEmergencyContract)
 	case "orderContract":
 		scan.fields.service = true
 		return scanContractMarker(decoder, string(sim.ExpressOrderContract), errors.New("order contract must be express-v1"))

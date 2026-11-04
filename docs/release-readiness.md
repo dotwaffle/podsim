@@ -66,7 +66,7 @@ Successful safety checks or aggregate results do not waive individual service fa
 
 `cmd/parkride` runs finite car itineraries.
 Car checkpoint and resume were removed on November 4, 2026, with their executable identity checks.
-Car runs refuse a project with the Express or incident marker.
+Car runs refuse a project with the Express marker.
 The container build covers the server, not the car CLI.
 
 Browser performance work closed with rejection.

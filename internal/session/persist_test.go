@@ -591,11 +591,12 @@ func TestNewFromStoreRejects(t *testing.T) {
 			}}},
 		},
 		{name: "newer version", data: run.edited(t, newerVersion), reason: reasonUnsupportedVersion},
-		// The decoder rejects versions 2 through 8 before a restore step.
-		{name: "version 2", data: run.edited(t, func(file *stateFile) { file.Version = 2 }), reason: reasonUnsupportedVersion, errText: "version 2 is older than version 9"},
-		{name: "version 6", data: run.edited(t, func(file *stateFile) { file.Version = 6 }), reason: reasonUnsupportedVersion, errText: "version 6 is older than version 9"},
-		{name: "version 7", data: run.edited(t, func(file *stateFile) { file.Version = 7 }), reason: reasonUnsupportedVersion, errText: "version 7 is older than version 9"},
-		{name: "version 8", data: run.edited(t, func(file *stateFile) { file.Version = 8 }), reason: reasonUnsupportedVersion, errText: "version 8 is older than version 9"},
+		// The decoder rejects versions 2 through 9 before a restore step.
+		{name: "version 2", data: run.edited(t, func(file *stateFile) { file.Version = 2 }), reason: reasonUnsupportedVersion, errText: "version 2 is older than version 10"},
+		{name: "version 6", data: run.edited(t, func(file *stateFile) { file.Version = 6 }), reason: reasonUnsupportedVersion, errText: "version 6 is older than version 10"},
+		{name: "version 7", data: run.edited(t, func(file *stateFile) { file.Version = 7 }), reason: reasonUnsupportedVersion, errText: "version 7 is older than version 10"},
+		{name: "version 8", data: run.edited(t, func(file *stateFile) { file.Version = 8 }), reason: reasonUnsupportedVersion, errText: "version 8 is older than version 10"},
+		{name: "version 9", data: run.edited(t, func(file *stateFile) { file.Version = 9 }), reason: reasonUnsupportedVersion, errText: "version 9 is older than version 10"},
 		{name: "truncated file", data: run.data[:len(run.data)/2], reason: reasonInvalidState},
 		{name: "too large to read", data: run.data, readErr: tooLarge, reason: reasonTooLarge, preserve: true},
 	}
