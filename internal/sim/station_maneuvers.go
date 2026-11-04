@@ -109,15 +109,18 @@ func routeStationPhase(v *vehicle, maneuvers *maneuverIndex) (StationPhase, stri
 		return "", ""
 	}
 	lane := &v.blocks.route[index]
-	if phase := phaseForStationRole(lane.StationRole); phase != "" {
+	// A lane of a maneuver group takes its phase from the route. The editor
+	// gives such a lane a role, because its station edits read lane owners.
+	group, grouped := maneuvers.laneGroup(lane.ID)
+	if phase := phaseForStationRole(lane.StationRole); phase != "" && !grouped {
 		return phase, lane.StationID
 	}
-	if group, ok := maneuvers.laneGroup(lane.ID); ok {
-		grouped := func(lane Lane) bool { return maneuvers.groupLane(lane.ID) }
+	if grouped {
+		outside := func(lane Lane) bool { return !maneuvers.groupLane(lane.ID) }
 		switch {
-		case !slices.ContainsFunc(v.Route[:index], func(lane Lane) bool { return !grouped(lane) }):
+		case !slices.ContainsFunc(v.Route[:index], outside):
 			return DepartingBerth, group.StationID
-		case !slices.ContainsFunc(v.Route[index+1:], func(lane Lane) bool { return !grouped(lane) }):
+		case !slices.ContainsFunc(v.Route[index+1:], outside):
 			return AccessingBerth, group.StationID
 		}
 	}
