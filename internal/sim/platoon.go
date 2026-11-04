@@ -505,16 +505,14 @@ func (s *Simulation) sharedLane(v, leader *vehicle, lane, leaderLane int) bool {
 }
 
 // entryRunTurn returns the total turn of the route of v from route index
-// from to the end of the entry lane of its destination station. The entry
-// lane must start within platoonHorizon of v, and the turn must be within
-// platoonMaxTurn. Otherwise it returns 0. A new platoon takes at least
-// this turn, so that its run can grow onto the entry lane later. A larger
-// turn only gives a larger link clearance.
+// from to the end of the entry lane of its destination station. The turn
+// must be within platoonMaxTurn. Otherwise it returns 0. A new platoon takes
+// at least this turn at any distance from the entry lane, because a queue
+// can be longer than platoonHorizon and a link does not change its turn. Then
+// its run can grow onto the entry lane later. A larger turn only gives a
+// larger link clearance.
 func (s *Simulation) entryRunTurn(v *vehicle, from int) float64 {
 	for index := from; index < len(v.Route); index++ {
-		if index > from && v.blocks.lanes[index].start-v.distance > platoonHorizon {
-			return 0
-		}
 		if lane := &v.Route[index]; lane.StationRole == StationEntryRole && lane.StationID == v.destinationStation {
 			if turn := s.runTurn(v.Route, from, index); turn <= platoonMaxTurn {
 				return turn

@@ -247,6 +247,8 @@ The turn of the run sets the clearance of the link.
 The total turn along the run must be at most 120 degrees, counting each turn in a curved lane and at each lane join one time, by size and not by sign.
 The link clearance is 12 m divided by the cosine of half of the turn, plus 0.01 m, so two pods at least that far apart along the path are at least 12 m apart.
 All links of one platoon have the same turn and clearance, and a link keeps them until it ends.
+A new platoon takes at least the turn from the lane of the follower to the end of the entry lane of its destination station, when that turn is at most 120 degrees, at any distance from that lane.
+Then its run can grow onto the entry lane, and a queue longer than 300 m crosses the diverge as a group.
 A link forms only when the two pods and their stop points are at least the clearance apart.
 
 A linked pod can reserve the track cells and junction sections that the pods ahead of it in its platoon hold.

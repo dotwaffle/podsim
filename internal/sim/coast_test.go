@@ -237,6 +237,8 @@ func TestCoastUpstreamGate(t *testing.T) {
 // that each pod makes progress: every trip completes, and every crossing
 // pod passes p2. The approaches are 150 m long, or 36 m as the approach
 // "road-in-02" of KSX, where the diverge zone covers the whole approach.
+// The crossing pods start close enough to p2 to reach it before the last
+// queued pod passes it.
 func TestCoastQueuedFollowerCrossing(t *testing.T) {
 	t.Parallel()
 	for _, approach := range []float64{150, 36} {
@@ -244,7 +246,7 @@ func TestCoastQueuedFollowerCrossing(t *testing.T) {
 			t.Parallel()
 			const queued = 20
 			pods := append(approachQueue(2, 16, 1200, 45), approachQueue(1, 4, 1200, 45)...)
-			pods = append(pods, entryPod{distance: 260}, entryPod{distance: 200}, entryPod{distance: 140})
+			pods = append(pods, entryPod{distance: 760}, entryPod{distance: 700}, entryPod{distance: 640})
 			s := restoreEntry(t, entryNetwork(entryShape{join: 30, approach: approach, crossing: true}, len(pods)), pods)
 			monitor := newEntryMonitor(s)
 			blocked := 0

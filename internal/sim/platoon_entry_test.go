@@ -284,6 +284,43 @@ func TestPlatoonEntryLaneGrowth(t *testing.T) {
 	}
 }
 
+// TestPlatoonEntryLaneFarQueue queues four pods with no berth on the second
+// approach, so that each follower starts more than platoonHorizon before the
+// entry lane. The links form before the run can hold the entry lane, and
+// each takes the turn to the end of that lane. Each run then grows onto the
+// entry lane, and the pods cross the diverge as one group: only the first
+// pod takes the junction when it is free.
+func TestPlatoonEntryLaneFarQueue(t *testing.T) {
+	t.Parallel()
+	for _, approach := range []float64{150, 36} {
+		t.Run(fmt.Sprint(approach), func(t *testing.T) {
+			t.Parallel()
+			// The entry lane starts 345 m ahead of the first pod.
+			pods := approachQueue(2, 4, 1300+approach-345, 45)
+			s := restoreEntry(t, entryNetwork(entryShape{join: 30, approach: approach}, 4), pods)
+			watch := newEntryWatch(s)
+			watch.step(t, s)
+			for _, v := range s.vehicles[1:] {
+				if v.link.leader == 0 || holdsEntryLane(&v) {
+					t.Fatalf("pod %s has the link %+v, want a link with a run that does not hold the entry lane", v.Pod.ID, v.link)
+				}
+				if start := v.blocks.lanes[2].start - v.distance; start <= platoonHorizon {
+					t.Fatalf("pod %s is %v m before the entry lane, want more than %v m", v.Pod.ID, start, platoonHorizon)
+				}
+			}
+			watch.until(t, s, "the arrival of each pod", func() bool { return s.completed == len(s.vehicles) })
+			for index := range s.vehicles[1:] {
+				if !watch.growth.grown[index+1] {
+					t.Fatalf("the run of pod %d did not grow onto the entry lane: %v", index+1, watch.growth.grown)
+				}
+			}
+			if !slices.Equal(watch.grants.order, []string{"p01"}) || watch.runs.diverge == 0 {
+				t.Fatalf("free grants of the diverge %v, want only p01, and entry runs %+v", watch.grants.order, watch.runs)
+			}
+		})
+	}
+}
+
 // TestPlatoonEntryLaneEnds checks that no run continues past the station
 // entry node of its pods. The pods wait on the approaches, so the lane
 // after the entry lane is within platoonHorizon when the links form. In
