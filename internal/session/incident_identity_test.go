@@ -31,13 +31,11 @@ const (
 // state without its version and project members: the version can move, and
 // the project member keeps its own bytes.
 //
-// A run is deterministic on one architecture only (section 5.1.4), so the
-// digests hold on amd64.
+// On each CPU type, the four forms give one digest and write no sampler
+// member. A run is deterministic on one architecture only (section 5.1.4), so
+// the pinned digests hold on amd64.
 func TestIncidentRateZeroIdentity(t *testing.T) {
 	t.Parallel()
-	if runtime.GOARCH != "amd64" {
-		t.Skip("the digests are from amd64")
-	}
 	negativeZero := math.Copysign(0, -1)
 	forms := []struct {
 		name        string
@@ -62,15 +60,76 @@ func TestIncidentRateZeroIdentity(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
+			first := ""
 			for _, form := range forms {
 				config := test.preset()
 				config.Demand.Enabled = true
 				config.Faults, config.Emergencies = form.faults, form.emergencies
-				if got := incidentIdentityDigest(t, config, test.script); got != test.want {
+				got := incidentIdentityDigest(t, config, test.script)
+				if first == "" {
+					first = got
+				}
+				if got != first {
+					t.Errorf("%s: digest %s, want the digest %s of %s", form.name, got, first, forms[0].name)
+				}
+				if identityDigestGolden() && got != test.want {
 					t.Errorf("%s: digest %s, want %s", form.name, got, test.want)
 				}
 			}
 		})
+	}
+}
+
+// identityDigestGolden reports whether the pinned digests hold on this CPU
+// type (section 5.1.4 of the incident stage 7 contract).
+func identityDigestGolden() bool {
+	return runtime.GOARCH == "amd64"
+}
+
+// identityForbiddenMembers are the member names of stage 7 that a run at rate
+// 0 never writes in a save or a frame (section 5.1.5 of the incident stage 7
+// contract).
+var identityForbiddenMembers = []string{"random", "nextTick", "sampled", "skipped", "clearedTicks", "delayedRiderTicks", "endedTicks", "maxTicks"}
+
+// checkIdentityGroup fails the test when the JSON of a faults or an
+// emergencies group has a member of stage 7.
+func checkIdentityGroup(t *testing.T, where string, group []byte) {
+	t.Helper()
+	for _, name := range identityForbiddenMembers {
+		if bytes.Contains(group, []byte(`"`+name+`"`)) {
+			t.Fatalf("%s at rate 0 has the member %s: %s", where, name, group)
+		}
+	}
+}
+
+// checkIdentityFrame checks both incident groups of a frame.
+func checkIdentityFrame(t *testing.T, frame StreamFrame) {
+	t.Helper()
+	simulation := frame.State.Simulation
+	for name, group := range map[string]any{"frame faults": simulation.Faults, "frame emergencies": simulation.Emergencies} {
+		data, err := json.Marshal(group)
+		if err != nil {
+			t.Fatal(err)
+		}
+		checkIdentityGroup(t, name, data)
+	}
+}
+
+// checkIdentitySave checks both incident groups of a saved simulation. A run
+// with no command writes neither group, because it has no record and no
+// counter.
+func checkIdentitySave(t *testing.T, simulation jsontext.Value, script bool) {
+	t.Helper()
+	var members map[string]jsontext.Value
+	if err := json.Unmarshal(simulation, &members); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"faults", "emergencies"} {
+		group, found := members[name]
+		if found && !script {
+			t.Fatalf("a run with no command has the saved member %s: %s", name, group)
+		}
+		checkIdentityGroup(t, "saved "+name, group)
 	}
 }
 
@@ -96,6 +155,7 @@ func incidentIdentityDigest(t *testing.T, config project.Config, script bool) st
 			continue
 		}
 		frame := sessionFrame(t, s)
+		checkIdentityFrame(t, frame)
 		for _, kind := range []string{"full", "delta"} {
 			digest.Write(faultEnvelopeJSON(t, identityFrame(base), identityFrame(frame), kind))
 		}
@@ -112,6 +172,7 @@ func incidentIdentityDigest(t *testing.T, config project.Config, script bool) st
 	if err := json.Unmarshal(saved, &members); err != nil {
 		t.Fatal(err)
 	}
+	checkIdentitySave(t, members["simulation"], script)
 	delete(members, "version")
 	delete(members, "project")
 	for _, name := range slices.Sorted(maps.Keys(members)) {

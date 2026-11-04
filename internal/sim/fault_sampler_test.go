@@ -89,12 +89,11 @@ func submitTraceTrips(t *testing.T, s *Simulation) {
 // and the next tick (section 5.1.8 of the incident stage 7 contract). Faults
 // overlap in the run, so the count of free pods differs from the fleet.
 //
-// A run is deterministic on one architecture only (section 5.1.4).
+// Each target is checked against its draws on each CPU type. A run is
+// deterministic on one architecture only (section 5.1.4), so the fixture
+// shape and the pinned text hold on amd64.
 func TestFaultSamplerTrace(t *testing.T) {
 	t.Parallel()
-	if runtime.GOARCH != "amd64" {
-		t.Skip("the trace is from amd64")
-	}
 	s := traceFleet(t)
 	checkFaultsEachTick(t, s)
 	rate := FaultRate{PerHour: 60, DebrisShare: 0.5, DebrisMeters: 3,
@@ -105,12 +104,14 @@ func TestFaultSamplerTrace(t *testing.T) {
 	for len(trace) < 20 {
 		submitTraceTrips(t, s)
 		before := s.faultSampler
-		started, free := s.faultCounters.started, 0
+		started := s.faultCounters.started
+		var freePods []string
 		for index := range s.vehicles {
 			if !s.vehicles[index].faulted {
-				free++
+				freePods = append(freePods, s.vehicles[index].Pod.ID)
 			}
 		}
+		free := len(freePods)
 		s.Step()
 		if !before.due(s.tick) {
 			continue
@@ -124,9 +125,16 @@ func TestFaultSamplerTrace(t *testing.T) {
 			}
 			record := s.faults[len(s.faults)-1]
 			if record.kind == debrisFault {
+				if want := laneByRunningSum(s.graph.lengths, draws[1]); record.lane != want {
+					t.Fatalf("tick %d: debris on lane %d, want %d for the draw %v", s.tick, record.lane, want, draws[1])
+				}
 				outcome = fmt.Sprintf("debris %s from=%.6f to=%.6f end=%d", s.network.Lanes[record.lane].ID, record.from, record.to, record.end)
 			} else {
-				outcome = fmt.Sprintf("pod %s end=%d", s.vehicles[record.pod].Pod.ID, record.end)
+				id := s.vehicles[record.pod].Pod.ID
+				if want := freePods[int(draws[1]*float64(free))]; id != want {
+					t.Fatalf("tick %d: fault on pod %s, want %s for the draw %v over %v", s.tick, id, want, draws[1], freePods)
+				}
+				outcome = fmt.Sprintf("pod %s end=%d", id, record.end)
 			}
 		} else {
 			skips++
@@ -134,11 +142,14 @@ func TestFaultSamplerTrace(t *testing.T) {
 		trace = append(trace, fmt.Sprintf("tick=%d free=%d kind=%.6f target=%.6f position=%.6f duration=%.6f interval=%.6f %s next=%d",
 			s.tick, free, draws[0], draws[1], draws[2], draws[3], draws[4], outcome, s.faultSampler.nextTick))
 	}
-	if starts == 0 || skips == 0 || overlaps == 0 {
-		t.Fatalf("the fixture has %d starts, %d skips, and %d overlaps", starts, skips, overlaps)
-	}
 	if s.faultCounters.sampled != 20 || s.faultCounters.skipped != int64(skips) {
 		t.Fatalf("counters %+v, want 20 sampled and %d skipped", s.faultCounters, skips)
+	}
+	if !incidentTraceGolden() {
+		return
+	}
+	if starts == 0 || skips == 0 || overlaps == 0 {
+		t.Fatalf("the fixture has %d starts, %d skips, and %d overlaps", starts, skips, overlaps)
 	}
 	const want = `tick=6587 free=5 kind=0.553975 target=0.893192 position=0.537084 duration=0.789673 interval=0.019215 pod 05 end=49987 next=6657
 tick=6657 free=4 kind=0.924038 target=0.195145 position=0.551245 duration=0.464577 interval=0.687805 pod 01 end=33672 next=10848
@@ -163,6 +174,80 @@ tick=84768 free=0 kind=0.425550 target=0.842589 position=0.490569 duration=0.804
 	if got := strings.Join(trace, "\n"); got != want {
 		t.Fatalf("the trace differs:\n%s", got)
 	}
+}
+
+// incidentTraceGolden reports whether the pinned traces hold on this CPU type
+// (section 5.1.4 of the incident stage 7 contract).
+func incidentTraceGolden() bool {
+	return runtime.GOARCH == "amd64"
+}
+
+// laneByRunningSum returns the first lane whose running sum of lengths is
+// above u x the total length.
+func laneByRunningSum(lengths []float64, u float64) int {
+	var total, sum float64
+	for _, length := range lengths {
+		total += length
+	}
+	for lane, length := range lengths {
+		sum += length
+		if sum > u*total {
+			return lane
+		}
+	}
+	return -1
+}
+
+// TestSampledTargetOrder checks each target walk on each CPU type: the pod
+// index counts only pods without a fault, in s.vehicles order, and the lane
+// is the first in network order whose running sum is above the draw (rule G11
+// and section 5.1.1 of the incident stage 7 contract).
+func TestSampledTargetOrder(t *testing.T) {
+	t.Parallel()
+	t.Run("pods", func(t *testing.T) {
+		t.Parallel()
+		s := traceFleet(t)
+		s.vehicles[1].faulted, s.vehicles[3].faulted = true, true
+		for _, test := range []struct {
+			u    float64
+			want string
+		}{{0, "01"}, {0.33, "01"}, {0.34, "03"}, {0.66, "03"}, {0.67, "05"}, {0.99, "05"}} {
+			got := s.sampledPod(test.u)
+			if got == nil {
+				t.Errorf("sampledPod(%v) has no pod, want pod %s", test.u, test.want)
+			} else if got.Pod.ID != test.want {
+				t.Errorf("sampledPod(%v) = pod %s, want pod %s", test.u, got.Pod.ID, test.want)
+			}
+		}
+		for index := range s.vehicles {
+			s.vehicles[index].faulted = true
+		}
+		if got := s.sampledPod(0.5); got != nil {
+			t.Errorf("sampledPod with no free pod = %v", got.Pod.ID)
+		}
+	})
+	t.Run("lanes", func(t *testing.T) {
+		t.Parallel()
+		s := traceFleet(t)
+		s.ensureNetworkIndexes()
+		lengths := s.graph.lengths
+		var total, sum float64
+		for _, length := range lengths {
+			total += length
+		}
+		if got := s.sampledLane(0); got != 0 {
+			t.Errorf("sampledLane(0) = %d", got)
+		}
+		for lane, length := range lengths[:len(lengths)-1] {
+			sum += length
+			u := sum / total
+			// The running sum must be above the draw, so the draw at the end
+			// of a lane selects the next one.
+			if got := s.sampledLane(u); got != lane+1 {
+				t.Errorf("sampledLane(%v) = %d, want lane %d", u, got, lane+1)
+			}
+		}
+	})
 }
 
 // TestFaultDurationTicks checks each duration rule and the rounding up to

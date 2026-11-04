@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"runtime"
 	"strings"
 	"testing"
 )
@@ -58,12 +57,11 @@ func sharedTraceFleet(t *testing.T) *Simulation {
 // and the value of each draw, then the target, the outcome, and the next tick
 // (section 5.1.8 of the incident stage 7 contract).
 //
-// A run is deterministic on one architecture only (section 5.1.4).
+// Each pod target is checked against its draw on each CPU type. A run is
+// deterministic on one architecture only (section 5.1.4), so the fixture
+// shape and the pinned text hold on amd64.
 func TestEmergencySamplerTrace(t *testing.T) {
 	t.Parallel()
-	if runtime.GOARCH != "amd64" {
-		t.Skip("the trace is from amd64")
-	}
 	s := sharedTraceFleet(t)
 	checkEmergenciesEachTick(t, s)
 	startEmergencySampler(t, s)
@@ -86,6 +84,9 @@ func TestEmergencySamplerTrace(t *testing.T) {
 		if s.emergencyCounters.started > started {
 			starts++
 			record := s.emergencies[len(s.emergencies)-1]
+			if want := int(draws[0] * float64(len(s.vehicles))); record.pod != want {
+				t.Fatalf("tick %d: emergency on pod index %d, want %d for the draw %v", s.tick, record.pod, want, draws[0])
+			}
 			if aboard[record.pod] > 1 {
 				shared++
 			}
@@ -96,11 +97,14 @@ func TestEmergencySamplerTrace(t *testing.T) {
 		trace = append(trace, fmt.Sprintf("tick=%d aboard=%v pod=%.6f party=%.6f interval=%.6f %s next=%d",
 			s.tick, aboard, draws[0], draws[1], draws[2], outcome, s.emergencySampler.nextTick))
 	}
-	if starts == 0 || skips == 0 || shared == 0 {
-		t.Fatalf("the fixture has %d starts, %d skips, and %d shared pods:\n%s", starts, skips, shared, strings.Join(trace, "\n"))
-	}
 	if c := s.emergencyCounters; c.sampled != 20 || c.skipped != int64(skips) {
 		t.Fatalf("counters %+v, want 20 sampled and %d skipped", c, skips)
+	}
+	if !incidentTraceGolden() {
+		return
+	}
+	if starts == 0 || skips == 0 || shared == 0 {
+		t.Fatalf("the fixture has %d starts, %d skips, and %d shared pods:\n%s", starts, skips, shared, strings.Join(trace, "\n"))
 	}
 	const want = `tick=1170 aboard=[2 2 2 0 0] pod=0.414406 party=0.910334 interval=0.541557 pod 03 order=6 start=1170 next=3978
 tick=3978 aboard=[4 0 2 4 0] pod=0.165492 party=0.387480 interval=0.302576 pod 01 order=11 start=3978 next=5276
@@ -124,6 +128,64 @@ tick=82694 aboard=[4 3 0 4 0] pod=0.127582 party=0.215210 interval=0.254637 skip
 tick=83752 aboard=[4 3 0 4 0] pod=0.222128 party=0.332889 interval=0.262765 pod 02 order=275 start=83752 next=84850`
 	if got := strings.Join(trace, "\n"); got != want {
 		t.Fatalf("the trace differs:\n%s", got)
+	}
+}
+
+// TestSampledEmergencyPlatoon checks decision 3 of the incident stage 7
+// contract. A sampled event accepts a linked platoon leader or follower with
+// no skip. The record stays deferred while the link drains, and the pod then
+// binds on its cadence. Faults refuse platoon members, and emergencies do not.
+func TestSampledEmergencyPlatoon(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		end string
+		pod func(leader, follower *vehicle) *vehicle
+		// accept selects the pod draw of the end: index 0 is the leader.
+		accept func(pod, party float64) bool
+	}{
+		{"leader", func(leader, _ *vehicle) *vehicle { return leader }, func(pod, _ float64) bool { return pod < 0.5 }},
+		{"follower", func(_, follower *vehicle) *vehicle { return follower }, func(pod, _ float64) bool { return pod >= 0.5 }},
+	} {
+		t.Run(test.end, func(t *testing.T) {
+			t.Parallel()
+			s, leader, follower := emergencyPlatoon(t)
+			checkEmergenciesEachTick(t, s)
+			startEmergencySampler(t, s)
+			s.emergencySampler.nextTick = MaxCounter
+			s.Step()
+			if follower.link.leader == 0 || follower.link.draining || leader.follower == 0 {
+				t.Fatalf("the first step did not link the pods: %+v", follower.link)
+			}
+			lanes := follower.link.lanes
+			v := test.pod(leader, follower)
+			emergencyDue(t, s, test.accept)
+			s.Step()
+			start := s.tick
+			// One event: later events would count in the checks below.
+			s.emergencySampler.nextTick = MaxCounter
+			if c := s.emergencyCounters; c.sampled != 1 || c.skipped != 0 || c.started != 1 {
+				t.Fatalf("the sampled start has the counters %+v", c)
+			}
+			if len(s.emergencies) != 1 || s.vehicles[s.emergencies[0].pod].Pod.ID != v.Pod.ID {
+				t.Fatalf("the records are %+v, want one on pod %s", s.emergencies, v.Pod.ID)
+			}
+			for follower.link.leader != 0 {
+				if phase := emergencyPhase(v); phase != EmergencyPhaseDeferred || v.op.purpose != opService {
+					t.Fatalf("tick %d: the record of the linked pod has the phase %s and the purpose %+v", s.tick, phase, v.op)
+				}
+				s.Step()
+				if follower.link.leader != 0 && (!follower.link.draining || follower.link.lanes != lanes) {
+					t.Fatalf("tick %d: the link does not drain: %+v", s.tick, follower.link)
+				}
+				if s.tick > start+600 {
+					t.Fatal("the link did not end")
+				}
+			}
+			stepUntil(t, s, "the bind", func() bool { return v.op.purpose == opEmergencyUnload })
+			if c := s.emergencyCounters; c.sampled != 1 || c.skipped != 0 {
+				t.Fatalf("the deferred record has the counters %+v", c)
+			}
+		})
 	}
 }
 
