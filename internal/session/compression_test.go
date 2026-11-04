@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -26,13 +27,13 @@ func TestCompressionNegotiation(t *testing.T) {
 func TestCompressedSnapshotsAndAssets(t *testing.T) {
 	t.Parallel()
 	directory := t.TempDir()
-	asset := bytes.Repeat([]byte("\x00asm example"), 1024)
-	if err := os.WriteFile(filepath.Join(directory, "podsim.wasm"), asset, 0o600); err != nil {
+	asset := bytes.Repeat([]byte("example();\n"), 1024)
+	if err := os.WriteFile(filepath.Join(directory, "loader.js"), asset, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	shared := newTestSession(t)
 	handler := shared.Handler(directory)
-	for _, path := range []string{"/api/state", "/podsim.wasm"} {
+	for _, path := range []string{"/api/state", "/loader.js"} {
 		t.Run(path, func(t *testing.T) {
 			t.Parallel()
 			request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, http.NoBody)
@@ -65,13 +66,13 @@ func TestCompressedSnapshotsAndAssets(t *testing.T) {
 				if state.Epoch != shared.State().Epoch {
 					t.Fatal("incorrect snapshot")
 				}
-			} else if !bytes.Equal(decoded, asset) || response.Header().Get("Content-Type") != "application/wasm" {
-				t.Fatal("invalid WASM response")
+			} else if !bytes.Equal(decoded, asset) || !strings.HasPrefix(response.Header().Get("Content-Type"), "text/javascript") {
+				t.Fatal("invalid file response")
 			}
 		})
 	}
 	for _, tc := range []struct{ encoding, byteRange string }{{"gzip;q=0", ""}, {"gzip", "bytes=0-3"}} {
-		request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/podsim.wasm", http.NoBody)
+		request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/loader.js", http.NoBody)
 		request.Header.Set("Accept-Encoding", tc.encoding)
 		request.Header.Set("Range", tc.byteRange)
 		response := httptest.NewRecorder()

@@ -280,7 +280,7 @@ func loopbackListener(t *testing.T) net.Listener {
 func browserDirectory(t *testing.T) string {
 	t.Helper()
 	directory := t.TempDir()
-	for _, name := range []string{"index.html", "game.html", "podsim.wasm"} {
+	for _, name := range []string{"index.html", "game.html", "podsim.wasm.gz"} {
 		if err := os.WriteFile(filepath.Join(directory, name), []byte(name), 0o600); err != nil {
 			t.Fatal(err)
 		}

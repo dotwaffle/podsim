@@ -96,8 +96,8 @@ func TestPrecompressedWASM(t *testing.T) {
 	}
 }
 
-// TestPrecompressedWASMRawOnly checks a -dir tree from an older build that
-// has only podsim.wasm.
+// TestPrecompressedWASMRawOnly checks that a -dir tree with only podsim.wasm
+// does not serve the module.
 func TestPrecompressedWASMRawOnly(t *testing.T) {
 	t.Parallel()
 	raw := bytes.Repeat([]byte("\x00asm old module"), 100)
@@ -106,28 +106,19 @@ func TestPrecompressedWASMRawOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 	handler := newTestSession(t).Handler(directory)
-	for _, tc := range []struct{ encoding, byteRange string }{{"", ""}, {"gzip", ""}, {"", "bytes=0-3"}} {
-		request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/podsim.wasm", http.NoBody)
+	for _, tc := range []struct {
+		method, encoding, byteRange string
+	}{{http.MethodGet, "", ""}, {http.MethodGet, "gzip", ""}, {http.MethodGet, "", "bytes=0-3"}, {http.MethodHead, "gzip", ""}} {
+		request := httptest.NewRequestWithContext(t.Context(), tc.method, "/podsim.wasm", http.NoBody)
 		request.Header.Set("Accept-Encoding", tc.encoding)
 		request.Header.Set("Range", tc.byteRange)
 		response := httptest.NewRecorder()
 		handler.ServeHTTP(response, request)
-		body := response.Body.Bytes()
-		if response.Header().Get("Content-Encoding") == "gzip" {
-			reader, err := gzip.NewReader(bytes.NewReader(body))
-			if err != nil {
-				t.Fatal(err)
-			}
-			if body, err = io.ReadAll(reader); err != nil {
-				t.Fatal(err)
-			}
+		if response.Code != http.StatusNotFound {
+			t.Fatalf("%s %q %q: status %d, want 404", tc.method, tc.encoding, tc.byteRange, response.Code)
 		}
-		want := raw
-		if tc.byteRange != "" {
-			want = raw[:4]
-		}
-		if response.Code >= 300 || !bytes.Equal(body, want) {
-			t.Fatalf("%q %q: status %d, incorrect body", tc.encoding, tc.byteRange, response.Code)
+		if bytes.Contains(response.Body.Bytes(), raw[:4]) {
+			t.Fatalf("%s %q %q: the reply has the raw module", tc.method, tc.encoding, tc.byteRange)
 		}
 	}
 }
@@ -231,15 +222,43 @@ func TestPrecompressedWASMCorrupt(t *testing.T) {
 	}
 }
 
-// TestPrecompressedWASMRawNewer checks that a podsim.wasm that is newer than
-// podsim.wasm.gz wins, as in a -dir tree where only the raw module was
-// rebuilt.
-func TestPrecompressedWASMRawNewer(t *testing.T) {
+// failingFS fails each Open with err.
+type failingFS struct{ err error }
+
+func (f failingFS) Open(string) (fs.File, error) { return nil, f.err }
+
+// TestPrecompressedWASMUnreadable checks that a module that the server cannot
+// read gets the WASM error, and does not go to the file server.
+func TestPrecompressedWASMUnreadable(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name  string
+		files fs.FS
+	}{
+		{"open error", failingFS{fs.ErrPermission}},
+		{"not a regular file", fstest.MapFS{"podsim.wasm.gz": {Mode: fs.ModeDir}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			fallback := http.HandlerFunc(func(http.ResponseWriter, *http.Request) { t.Error("the request went to the file server") })
+			request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/podsim.wasm", http.NoBody)
+			response := httptest.NewRecorder()
+			precompressedWASM(tc.files, fallback).ServeHTTP(response, request)
+			if response.Code != http.StatusInternalServerError {
+				t.Fatalf("status %d, want 500", response.Code)
+			}
+		})
+	}
+}
+
+// TestPrecompressedWASMIgnoresNewerRaw checks that podsim.wasm.gz wins over a
+// newer podsim.wasm in a -dir tree.
+func TestPrecompressedWASMIgnoresNewerRaw(t *testing.T) {
 	t.Parallel()
 	directory := t.TempDir()
-	old, current := []byte("\x00asm old build"), []byte("\x00asm new raw build")
-	writeStamped(t, filepath.Join(directory, "podsim.wasm.gz"), gzipModule(t, old), 1)
-	writeStamped(t, filepath.Join(directory, "podsim.wasm"), current, 2)
+	current, stale := []byte("\x00asm gzip build"), []byte("\x00asm raw file")
+	writeStamped(t, filepath.Join(directory, "podsim.wasm.gz"), gzipModule(t, current), 1)
+	writeStamped(t, filepath.Join(directory, "podsim.wasm"), stale, 2)
 	handler := newTestSession(t).Handler(directory)
 	for _, encoding := range []string{"", "gzip"} {
 		request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/podsim.wasm", http.NoBody)

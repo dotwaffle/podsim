@@ -3,6 +3,7 @@ package session
 import (
 	"bytes"
 	"compress/gzip"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -25,7 +26,7 @@ func staticFiles(files fs.FS) http.Handler {
 	})
 }
 
-// compressedWASMName is the only copy of the WASM module in a current build.
+// compressedWASMName is the only copy of the WASM module.
 const compressedWASMName = "podsim.wasm.gz"
 
 // precompressedWASM serves /podsim.wasm from podsim.wasm.gz.
@@ -33,10 +34,8 @@ const compressedWASMName = "podsim.wasm.gz"
 // A client without gzip and a Range request get the decompressed module, so
 // byte offsets refer to the module. The handler decompresses the module on
 // the first such request and keeps it until podsim.wasm.gz changes.
-// A tree without podsim.wasm.gz, such as an older dist directory with only
-// podsim.wasm, goes to fallback. A tree with a podsim.wasm that is newer
-// than podsim.wasm.gz also goes to fallback, because the raw module is then
-// the current build.
+// A tree without podsim.wasm.gz gets 404, and a podsim.wasm file in a tree
+// is not read.
 // The responses have an ETag from the module content and no Last-Modified
 // header. A replacement can keep the modification time, so only the ETag
 // can show that the module changed.
@@ -48,14 +47,22 @@ func precompressedWASM(files fs.FS, fallback http.Handler) http.Handler {
 			return
 		}
 		compressed, err := files.Open(compressedWASMName)
+		if errors.Is(err, fs.ErrNotExist) {
+			writeError(w, "WASM module unavailable", http.StatusNotFound)
+			return
+		}
 		if err != nil {
-			fallback.ServeHTTP(w, r)
+			serveWASMError(w, fmt.Errorf("open %s: %w", compressedWASMName, err))
 			return
 		}
 		defer func() { _ = compressed.Close() }()
 		info, err := compressed.Stat()
-		if err != nil || !info.Mode().IsRegular() || rawIsNewer(files, info) {
-			fallback.ServeHTTP(w, r)
+		if err != nil {
+			serveWASMError(w, fmt.Errorf("stat %s: %w", compressedWASMName, err))
+			return
+		}
+		if !info.Mode().IsRegular() {
+			serveWASMError(w, fmt.Errorf("%s is not a regular file", compressedWASMName))
 			return
 		}
 		seeker, ok := compressed.(io.ReadSeeker)
@@ -91,13 +98,6 @@ func precompressedWASM(files fs.FS, fallback http.Handler) http.Handler {
 func serveWASMError(w http.ResponseWriter, err error) {
 	slog.Error("Serve WASM module", slog.Any("error", err))
 	writeError(w, "WASM module unavailable", http.StatusInternalServerError)
-}
-
-// rawIsNewer reports whether files has a podsim.wasm that is newer than the
-// compressed module described by compressed.
-func rawIsNewer(files fs.FS, compressed fs.FileInfo) bool {
-	raw, err := fs.Stat(files, "podsim.wasm")
-	return err == nil && raw.Mode().IsRegular() && raw.ModTime().After(compressed.ModTime())
 }
 
 // wasmIdentity identifies one podsim.wasm.gz. The gzip trailer holds the

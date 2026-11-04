@@ -1760,9 +1760,8 @@ For a client without gzip or for a Range request, the server decompresses the mo
 Byte ranges then use the offsets of the uncompressed module.
 The build writes `podsim.wasm.gz` to a temporary file and then renames it, so a running server never reads a partial module.
 
-A `-dir` directory from an older build with only `podsim.wasm` still works.
-The server then compresses that file for each gzip request.
-If a `-dir` directory has a `podsim.wasm` that is newer than `podsim.wasm.gz`, the server uses `podsim.wasm`.
+The server sends the module only from `podsim.wasm.gz`, also when the directory has a `podsim.wasm` file.
+A `-dir` directory without `podsim.wasm.gz` answers `404` for the module, so the page then shows that it could not start.
 
 While the page downloads the WASM file, it shows the received size in megabytes.
 With gzip, the page counts the bytes after decompression, so the count goes up to the WASM size and not to the smaller gzip size.
