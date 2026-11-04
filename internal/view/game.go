@@ -31,6 +31,7 @@ const (
 	accent        = 0x6de5c1
 	track         = 0x354b5e
 	amber         = 0xf3c479
+	danger        = 0xf2545b
 	detailedLanes = 100
 	// markerOutlineWidth is the width in display units of the outline of a
 	// collapsed station marker.

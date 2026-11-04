@@ -30,6 +30,8 @@ type networkIndex struct {
 	stationMonitor observe.NetworkMonitor
 	// positions holds the position of each node by node ID.
 	positions map[string]sim.Point
+	// lanes holds each lane by lane ID.
+	lanes map[string]sim.Lane
 	// anchors holds the collapsed station anchors by station ID. See
 	// collapsedStationAnchors.
 	anchors map[string]sim.Point
@@ -57,6 +59,10 @@ func newNetworkIndex(network sim.Network) *networkIndex {
 	for _, node := range network.Nodes {
 		positions[node.ID] = node.Position
 	}
+	lanes := make(map[string]sim.Lane, len(network.Lanes))
+	for _, lane := range network.Lanes {
+		lanes[lane.ID] = lane
+	}
 	var passengers []sim.Station
 	for _, station := range network.Stations {
 		if !station.ParkingOnly {
@@ -69,6 +75,7 @@ func newNetworkIndex(network sim.Network) *networkIndex {
 		hasBounds:            hasBounds,
 		stationMonitor:       observe.NewNetworkMonitor(network),
 		positions:            positions,
+		lanes:                lanes,
 		anchors:              collapsedStationAnchors(network),
 		berthSpacing:         spacings,
 		smallestBerthSpacing: smallestSpacing(spacings),

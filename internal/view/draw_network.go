@@ -108,12 +108,15 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 			}
 		}
 	}
+	// Debris goes after the route, and below the platoon lines and the pods.
+	g.drawDebrisMarks(mapScreen, state.Faults, style, scale)
 	// A line joins each linked pod to the pod ahead of it in its platoon.
 	// The pods go on top of the lines.
 	for _, link := range platoonLinks(state.Vehicles) {
 		from, to := g.mapPoint(state.Vehicles[link.follower].Pod.Position), g.mapPoint(state.Vehicles[link.ahead].Pod.Position)
 		vector.StrokeLine(mapScreen, float32(from.X), float32(from.Y), float32(to.X), float32(to.Y), float32(platoonLinkWidth*g.layout.unit), rgb(foreground), style.antialias)
 	}
+	incidents := incidentPods(state.Faults, state.Emergencies)
 	for i, v := range state.Vehicles {
 		parkedInCluster := v.Pod.Activity == sim.Idle && collapsedStations[v.Pod.StationID]
 		if parkedInCluster && i != g.selected {
@@ -122,8 +125,8 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 		p := g.mapPoint(v.Pod.Position)
 		purpose := g.podPurpose(v, state)
 		shade := purpose.color()
-		if v.Pod.WaitReason != sim.NoWait {
-			g.sprites.draw(mapScreen, spriteDraw{center: p, key: ringSprite(11*g.layout.unit, 2*g.layout.unit, amber), scale: scale})
+		if ring, ok := podRingColor(v.Pod, incidents[v.Pod.ID]); ok {
+			g.sprites.draw(mapScreen, spriteDraw{center: p, key: ringSprite(11*g.layout.unit, 2*g.layout.unit, ring), scale: scale})
 		}
 		if i == g.selected {
 			g.sprites.draw(mapScreen, spriteDraw{center: p, key: ringSprite(9*g.layout.unit, 1.5*g.layout.unit, foreground), scale: scale})
