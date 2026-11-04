@@ -1,7 +1,7 @@
 # Offline energy estimate
 
 Status: implemented and checked on October 3, 2026, under the October 2 compatible-contract grant.
-The [qualification record](measurements/energy-model-qualification.json) identifies the source and verification evidence.
+The [qualification record](../measurements/energy-model-qualification.json) identifies the source and verification evidence.
 The comparison command gains an opt-in `flat-v1` estimate.
 Energy does not control native physics, routes, or dispatch.
 Project, save, snapshot, session, and stream schemas stay unchanged.

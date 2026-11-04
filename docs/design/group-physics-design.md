@@ -2,7 +2,7 @@
 
 The group class supports eight seats, parties through eight, and a six-meter body length.
 The model uses a centered six-meter-radius envelope, approved by the user on October 3, 2026.
-Express is unavailable for physical operation unless a project selects the opt-in `express-v1` order contract (see [the Express qualification](express-qualification.md)).
+Express is unavailable for physical operation unless a project selects the opt-in `express-v1` order contract (see [the Express qualification](../studies/express-qualification.md)).
 
 Station buffers and compact station queues were removed on October 7, 2026, because measurements showed that they lowered station entry throughput.
 
@@ -86,7 +86,7 @@ It rejects group links before class caches or published frames change.
 
 ## Qualification evidence
 
-The [measurement record](measurements/group-physics-qualification.json) pins native sources, checks, trace hashes, and byte maxima.
+The [measurement record](../measurements/group-physics-qualification.json) pins native sources, checks, trace hashes, and byte maxima.
 
 The focused tests include actual journeys with group, compact, and legacy leaders and followers.
 They cover straight and curved motion, stopped following, merges, ordinary and bank stations, and parking.

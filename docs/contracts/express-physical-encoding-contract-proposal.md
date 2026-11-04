@@ -3,7 +3,7 @@
 Status: **approved, implemented, and qualified on October 3, 2026**.
 The user approved item 8b and the contract below with the 6b/8b batch.
 Deployment, runtime enablement, and default changes require a separate batch.
-The [Express qualification](express-qualification.md) records the qualification conclusions.
+The [Express qualification](../studies/express-qualification.md) records the qualification conclusions.
 
 Station buffers and compact station queues were removed on October 7, 2026, because measurements showed that they lowered station entry throughput.
 Clauses that name buffers, buffer certificates, compact queues, or compact certificates now describe cases that cannot occur.
@@ -20,9 +20,9 @@ The byte evidence below keeps its 300-pod and 80 MiB basis, and nobody measured 
 The worst-case byte proofs and their fixture constructors were deleted.
 
 The source descriptions below refer to the reviewed baseline, `53321e4c5decc6c661df64a40378ee37614dcffc`.
-The [group physics design](group-physics-design.md) records the approved dimensions and common conservative candidate.
+The [group physics design](../design/group-physics-design.md) records the approved dimensions and common conservative candidate.
 The [service contract](service-contract-proposals.md) and [byte contract](service-byte-contract-proposal.md) approved metadata and parser recognition.
-Group passed its applicable gates in [qualification](qualification.md).
+Group passed its applicable gates in [qualification](../studies/qualification.md).
 The qualification records cover the opt-in contract and retain its resource limits.
 The combined Go suite, web tests, static checks, and production builds passed.
 
@@ -55,11 +55,11 @@ No common small-class arithmetic, authored speed, or protected compact rule chan
 
 ## Existing recognition is not operating approval
 
-[`vehicle_class.go`](../internal/sim/vehicle_class.go) currently reports Express as 20 seats, maximum new party size eight, body length zero, and physically unsupported.
+[`vehicle_class.go`](../../internal/sim/vehicle_class.go) currently reports Express as 20 seats, maximum new party size eight, body length zero, and physically unsupported.
 Placement, startup, and both restore tiers reject that unsupported profile.
 At the reviewed baseline, `order_state.go` recognized 6,200 waiting records and 20 rider records in save 6.
 Those parser limits do not authorize such native operating states.
-[`state.go`](../internal/sim/state.go) and [`state_contract.go`](../internal/sim/state_contract.go) still enforce 2,600 pending records and eight stored riders.
+[`state.go`](../../internal/sim/state.go) and [`state_contract.go`](../../internal/sim/state_contract.go) still enforce 2,600 pending records and eight stored riders.
 Stream publication also retains those operating bounds.
 Saved-state version 9 and stream hello version 7 now take their array bounds from the contract markers.
 The bounds are 2,600 waiting records and eight riders per pod, or 8,600 and 20 with `express-v1`.
@@ -96,7 +96,7 @@ A party of nine through 20 needs a certified Express pod even for private on-dem
 Private orders cannot join another party or accept another party onboard.
 Shared on-demand orders retain the existing party, stop, join, and occupied-pickup policies.
 The eight-stop bound does not become 20.
-Retain the existing bounded completed-history lifecycle in [`onboard_pickups.go`](../internal/sim/onboard_pickups.go).
+Retain the existing bounded completed-history lifecycle in [`onboard_pickups.go`](../../internal/sim/onboard_pickups.go).
 
 At the Express 20-record bound, a pickup may replace the oldest completed record and its aligned boarding record.
 It must refuse when no completed record exists.
@@ -112,7 +112,7 @@ An Express service has one passenger destination, not 20 independent stops.
 
 No timetable, fill-before-departure delay, intermediate service stop, or fare policy enters this contract.
 
-[`trip_admission.go`](../internal/sim/trip_admission.go) already checks passenger station roles, registry identity, compatible berths, and directed path reachability.
+[`trip_admission.go`](../../internal/sim/trip_admission.go) already checks passenger station roles, registry identity, compatible berths, and directed path reachability.
 The extension must retain those checks at submission, dispatch, pickup, and restore.
 Station, berth, every display route lane, and every native motion route lane must admit the effective class.
 Omitted allowlists continue to admit legacy and compact only.
@@ -143,7 +143,7 @@ That refusal also applies while a restored backlog exceeds 200.
 Native submission retains its current queue policy outside the opt-in contract.
 Within `express-v1`, a submission that would exceed 8,600 outstanding records must refuse before creating an accepted request.
 
-Logical recovery uses the existing stable request-ID ordering in [`state_logical.go`](../internal/sim/state_logical.go).
+Logical recovery uses the existing stable request-ID ordering in [`state_logical.go`](../../internal/sim/state_logical.go).
 It preserves immutable options and original request timing.
 It retains the existing already-boarded marker so recovery does not count waiting or boarding twice.
 It clears physical pod, route, and deferral-check bindings using the existing recovery rules.
@@ -153,7 +153,7 @@ Existing valid destination arrivals retain the existing accounted logical-comple
 Repeated recovery must conserve the same identities, effective options, aggregate, and accounting.
 The pending bound therefore remains 8,600 after any number of requeues.
 
-Retain the current ordinary physical reconstruction in [`state_physical.go`](../internal/sim/state_physical.go).
+Retain the current ordinary physical reconstruction in [`state_physical.go`](../../internal/sim/state_physical.go).
 Ordinary `ExportState` does not save speed or the exact future reservation frontier.
 A physical restore resets ordinary speed to zero and reconstructs forward grants from route geometry.
 Preserve position, current footprint, retained past ownership, riders, timing, and accounting when their physical proof is valid.
@@ -204,7 +204,7 @@ The existing 6 m circle contains that rectangle at every orientation.
 This is a simulation envelope, not an axle, steering, seating, or manufactured-vehicle certification.
 No new physical number is proposed.
 
-[`profile_geometry.go`](../internal/sim/profile_geometry.go) already treats Group and Express as large for shared geometry preparation.
+[`profile_geometry.go`](../../internal/sim/profile_geometry.go) already treats Group and Express as large for shared geometry preparation.
 Retain 20 m interaction clearance when either participant is large.
 Prepare resources for the largest admitted class even when no Express pod starts in the fleet.
 Include small-only incident lanes and neighboring berths that share affected resources.
@@ -293,8 +293,8 @@ The adapter must decode pending groups, full vehicle records, and replacement ri
 Each replacement is self-contained and needs no dictionary or prior text references.
 
 Public admission and route checks must use contract-aware normalized classes and the topology registry.
-The current Group-only lane cache in [`stream_frame.go`](../internal/session/stream_frame.go) cannot certify Express routes.
-The current on-demand-only check in [`stream_service.go`](../internal/session/stream_service.go) cannot certify an Express-service order.
+The current Group-only lane cache in [`stream_frame.go`](../../internal/session/stream_frame.go) cannot certify Express routes.
+The current on-demand-only check in [`stream_service.go`](../../internal/session/stream_service.go) cannot certify an Express-service order.
 Extend those consumers explicitly rather than treating their current acceptance as qualification.
 Request identities, ticks, sequence strings, exponents, and boarding distances must roundtrip without conversion through JavaScript numbers.
 
@@ -319,9 +319,9 @@ These endpoint, constructor, and version changes require explicit approval befor
 
 ## Byte evidence and alternatives
 
-The source baseline uses committed Group measurements in [`group-physics-qualification.json`](measurements/group-physics-qualification.json).
-The exact fixture constructors are `testGroupWorstCaseSize` in [`group_state_test.go`](../internal/session/group_state_test.go) and `maximumStreamFrame` in [`stream_test.go`](../internal/session/stream_test.go).
-`TestGroupStreamMaximumEncoding` in [`stream_group_test.go`](../internal/session/stream_group_test.go) supplies the Group full and replacement-delta modifications.
+The source baseline uses committed Group measurements in [`group-physics-qualification.json`](../measurements/group-physics-qualification.json).
+The exact fixture constructors are `testGroupWorstCaseSize` in [`group_state_test.go`](../../internal/session/group_state_test.go) and `maximumStreamFrame` in [`stream_test.go`](../../internal/session/stream_test.go).
+`TestGroupStreamMaximumEncoding` in [`stream_group_test.go`](../../internal/session/stream_group_test.go) supplies the Group full and replacement-delta modifications.
 Those fixtures encode independent typed maxima, including a project member at its 10 MiB cap.
 They do not represent a jointly reachable physical placement.
 
@@ -484,7 +484,7 @@ Parser acceptance alone cannot pass a physical or operating gate.
 
 The wire and browser evidence for the "Save bytes and shape" and "Stream and public consumers" rows is historical.
 It measured save 7, project 4, hello 4, and the Express media type, which the format merge removed in commits `248f26e`, `9de7a3b`, and `5f1adac`.
-The requalification on the merged formats, summarized in the [Express qualification](express-qualification.md), requalified these rows on project version 1 with the `orderContract` marker, saved-state version 9, hello version 6, and the media type `application/vnd.podsim.state-6+json`.
+The requalification on the merged formats, summarized in the [Express qualification](../studies/express-qualification.md), requalified these rows on project version 1 with the `orderContract` marker, saved-state version 9, hello version 6, and the media type `application/vnd.podsim.state-6+json`.
 
 Run the relevant package suites, scoped races, vet, lint, and fresh Go diagnostics for the later implementation.
 Report assertion failures separately from parser rejection, byte overflow, watchdog expiration, and unavailable external gates.
@@ -500,7 +500,7 @@ Show Express operation as unavailable until the opt-in capability and applicable
 The browser must use the matching native/WASM decoder for packed state and reject unknown capabilities.
 Do not let a cached old worker accept partial topology or lose rider records.
 
-[`web/offline.js`](../web/offline.js) still limits its separate car itinerary contract to parties of eight.
+[`web/offline.js`](../../web/offline.js) still limits its separate car itinerary contract to parties of eight.
 This proposal does not change car-plan, car-report, energy-report, comparison, or CLI schemas.
 Offline project authoring may preserve Express metadata and explicitly select the Express marker after approval.
 Do not automatically upgrade old projects or saves to the opt-in contract.

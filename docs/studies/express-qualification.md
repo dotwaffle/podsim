@@ -1,13 +1,13 @@
 # Express qualification
 
 This record states the conclusions of the native, wire, and browser qualification of the opt-in `express-v1` order contract.
-The [approved contract](express-physical-encoding-contract-proposal.md) defines the encoding and the consumer requirements.
+The [approved contract](../contracts/express-physical-encoding-contract-proposal.md) defines the encoding and the consumer requirements.
 The detailed runs, measurement data, and mutation tables are in git history.
 
 ## Authority
 
 The results authorize no deployment and no default.
-Express stays opt-in through the `orderContract` marker (see [operations](operations.md)).
+Express stays opt-in through the `orderContract` marker (see [operations](../operations.md)).
 No physical number changed.
 Foundation behavior and byte output stayed the same with the marker absent.
 
@@ -23,7 +23,7 @@ Foundation behavior and byte output stayed the same with the marker absent.
 | Project size | 12,000 nodes, 20,000 lanes, 600 stations |
 | Stored riders for one Express pod | 20, including completed history |
 
-The October 15 [byte-budget amendment](service-byte-contract-proposal.md#october-15-2026-amendment) sets the byte caps.
+The October 15 [byte-budget amendment](../contracts/service-byte-contract-proposal.md#october-15-2026-amendment) sets the byte caps.
 Earlier byte figures in the first runs used smaller caps and are no longer current.
 
 ## Express has no byte proof

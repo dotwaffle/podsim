@@ -11,7 +11,7 @@ Keep this file short, and point to other documents instead of copying them.
 - [docs/protocol.md](docs/protocol.md): the client protocol.
 - [PROJECT_BRIEF.md](PROJECT_BRIEF.md): product goals and architecture.
   It is long, so read only the section that you need.
-- The contract documents in `docs/*-contract-proposal.md`.
+- The contract documents in `docs/contracts/`.
   An approved contract is binding.
 
 ## Layout

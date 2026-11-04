@@ -177,7 +177,7 @@ The changed Rail Hub arms completed one extra passenger each, but rejected 52 an
 They exceeded individual pickup limits for two and seven matched passengers, and journey limits for two and five.
 Maximum matched pickup increases were 326.6 and 909.5 seconds.
 Mean wait and journey gains remained below the required 5% benefit threshold.
-Both changed pairs fail the [adoption gates](experimental-adoption.md).
+Both changed pairs fail the [adoption gates](design/experimental-adoption.md).
 
 Every outbound record resolved in these overloaded workloads, but no passenger made a train connection.
 The counts retain rejected offers separately from accepted passengers who missed:

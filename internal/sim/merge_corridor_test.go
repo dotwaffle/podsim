@@ -229,7 +229,7 @@ func meanHeadway(ticks []int64) float64 {
 // TestMergeCorridorHeadway pins the saturation headway of a stopped queue on
 // a synthetic corridor with 30 m cells. A platoon or cell change must
 // compare its headway with these values. See the platoon screening in
-// docs/qualification.md.
+// docs/studies/qualification.md.
 func TestMergeCorridorHeadway(t *testing.T) {
 	t.Parallel()
 	skipLong(t)
@@ -259,7 +259,7 @@ func TestMergeCorridorHeadway(t *testing.T) {
 // platoons that are linked and close, as a queue with platoons is. The
 // design estimates the gain of platoons of 4 as 2.4 times the flow of
 // single pods on a lane and 2.7 times at a 30 degree merge. See the
-// platoon screening in docs/qualification.md.
+// platoon screening in docs/studies/qualification.md.
 func TestMergeCorridorPlatoonHeadway(t *testing.T) {
 	t.Parallel()
 	skipLong(t)

@@ -4,7 +4,7 @@ Status: approved on 2026-10-05, with the proposed default for each open question
 Trimmed on November 4, 2026: review history removed.
 Git history keeps it.
 Revised for item 7: one save family (version 9) and one stream family (hello 6, hello 7 since the motion-only deltas).
-On November 4, 2026, `docs/marker-removal-contract-proposal.md` removed the markers, so text about the markers describes the earlier design.
+On November 4, 2026, `docs/contracts/marker-removal-contract-proposal.md` removed the markers, so text about the markers describes the earlier design.
 
 Physical coupling was removed on October 6, 2026.
 Clauses about the couplingContract marker, coupling sites and corridors, coupling approaches, and coupled trains and their members no longer apply.
@@ -72,7 +72,7 @@ It exposes no command.
 
 ### 1.3 Binding user decisions
 
-From the [project brief](../PROJECT_BRIEF.md#rider-emergency-stop), October 4, 2026:
+From the [project brief](../../PROJECT_BRIEF.md#rider-emergency-stop), October 4, 2026:
 
 - An emergency pod drops all of its later work.
   Its pending pickups go back to dispatch as ordinary orders and keep their original request times.

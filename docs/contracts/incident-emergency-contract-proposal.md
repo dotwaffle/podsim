@@ -6,7 +6,7 @@ Git history keeps it.
 The maintainer approved product choices P1 to P22 of section 18.2 as proposed, on October 5, 2026, at 22:08Z, and decided P23 on October 5, 2026, at 23:59Z.
 The contract authorizes no implementation, default change, or deployment.
 Line references are at `481c145`.
-On November 4, 2026, `docs/marker-removal-contract-proposal.md` removed the markers, so text about the markers describes the earlier design.
+On November 4, 2026, `docs/contracts/marker-removal-contract-proposal.md` removed the markers, so text about the markers describes the earlier design.
 
 Physical coupling was removed on October 6, 2026.
 Clauses about the couplingContract marker, coupling sites and corridors, coupling approaches, and coupled trains and their members no longer apply.

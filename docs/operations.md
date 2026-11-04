@@ -412,7 +412,7 @@ Other project identity checks remain in force.
 Reassignment cursors, cooldowns, counters, and experiment records reset after file restore.
 The saved routes and request bindings remain valid, but future experimental decisions can differ after restart.
 Older strict project readers reject exports that include this setting.
-The [file restart checks](experimental-policy-restarts.md) cover pickup reassignment, the rejection of a version 2 file, and canceled or failed-sync saves.
+The [file restart checks](studies/experimental-policy-restarts.md) cover pickup reassignment, the rejection of a version 2 file, and canceled or failed-sync saves.
 They do not simulate power loss.
 The optional project setting does not change command or WebSocket envelope formats.
 

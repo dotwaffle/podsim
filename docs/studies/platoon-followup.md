@@ -101,7 +101,7 @@ It therefore does not claim a new pass for all seven original adoption rules.
 Journey statistics include completed requests only.
 The dataset retains unfinished requests and failed recovery outcomes.
 
-[Per-arm measurements](measurements/platoon-followup.csv) and [metadata](measurements/platoon-followup.json) retain the full results.
+[Per-arm measurements](../measurements/platoon-followup.csv) and [metadata](../measurements/platoon-followup.json) retain the full results.
 The [historical A/B](qualification.md#platoon-ab) remains a separate measurement record.
 The local evidence includes generated projects, hashes, helper overlays, commands, logs, manifests, and exit markers.
 

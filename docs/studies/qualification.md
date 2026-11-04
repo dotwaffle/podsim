@@ -9,10 +9,10 @@ The recorded scale measurements use the ring fixture from `fe8fbe7`, before the 
 Run the commands below to repeat the checks on another machine.
 Code changes after a measurement can give different results.
 The recorded presets use lane limits of 14 m/s, so the later speed-dependent retention on slow straight lanes (below 3.74 m/s) does not apply to the recorded runs.
-[Recorded performance samples](measurements/performance.json) retain the individual step benchmark, WASM loading, and moving-browser measurements.
+[Recorded performance samples](../measurements/performance.json) retain the individual step benchmark, WASM loading, and moving-browser measurements.
 
 The [selected current-source policy rerun](policy-failures.md) records later platoon, sharing, and positioning outcomes separately.
-The [rejected candidates](experimental-adoption.md#rejected-candidates) record the later controller, capacity, and queue-limit studies.
+The [rejected candidates](../design/experimental-adoption.md#rejected-candidates) record the later controller, capacity, and queue-limit studies.
 Neither report replaces the historical qualification matrices below or authorizes a default change.
 The weighted redistribution policy that guarded positioning replaced, and studies whose numbers no current setting or test uses, are not in this record.
 The raw data of those studies is in git history.
@@ -304,7 +304,7 @@ Scratch probes with 15 s and 30 s for each stopped pod in Early at 15 and 20/min
 A cost that comes from the planned routes of the pods can predict these queues, and it is the next candidate policy.
 
 The raw results of the rail-hub, scale-100, and London 192 sweeps are in git history.
-The raw results of the London envelope sweep are in [`measurements/routing-queue-london-envelope.csv`](measurements/routing-queue-london-envelope.csv).
+The raw results of the London envelope sweep are in [`measurements/routing-queue-london-envelope.csv`](../measurements/routing-queue-london-envelope.csv).
 
 ## WASM loading
 
@@ -456,7 +456,7 @@ At the end, it checks completion, queue accounting, and terminal berth assignmen
 London guideways, movement lanes, and station paths have explicit separation groups.
 The oracle excludes only pairs in different groups that do not share a junction.
 Unlabeled projects retain the original two-dimensional all-pairs check.
-See [the London network notes](london.md) for the boundary and source details.
+See [the London network notes](../london.md) for the boundary and source details.
 
 ### Route search and dispatch scans
 
@@ -554,7 +554,7 @@ Thus the older files do not have the columns that version 6 adds, such as `wait_
 The platoon A/B file has the columns of version 6, and the `platoon_policy` and `coupled_time_percent` columns that version 9 adds.
 The platoon capacity file comes from version 9, so it also has the rider columns of version 8.
 The seat screen files come from version 10, so they also have the seat screen columns.
-See [report columns](../README.md#report-columns) for the definitions.
+See [report columns](../../README.md#report-columns) for the definitions.
 
 At the limit rate, every seed has all 114 pods with work at the same time in AM peak, Interpeak, PM peak, Evening, and Late.
 The highest seed peak at the limit rate is 104 pods in Early, 99 pods in Morning, and 105 pods in Night.
@@ -600,7 +600,7 @@ Compare the limits of two sweeps only when they use the same cap.
 The earlier shared-junction network had recovery limits of 2/min in Early, 3/min in Night, and 6 to 7/min in the other bands.
 The portal network replaced it.
 Each arm is independent and deterministic, so the number of workers does not change the rows.
-Raw results are the free-flow rows of [`measurements/routing-queue-london-envelope.csv`](measurements/routing-queue-london-envelope.csv), which the [queue routing screen](#london-envelope) recorded again with more columns.
+Raw results are the free-flow rows of [`measurements/routing-queue-london-envelope.csv`](../measurements/routing-queue-london-envelope.csv), which the [queue routing screen](#london-envelope) recorded again with more columns.
 This document calls these rows the free-flow envelope.
 
 ### With virtual platoons
@@ -676,7 +676,7 @@ With the 65-minute cap, an arm must also drain, because each arm that does not d
 With this cap, platoons lower the Late limit from 14/min to 13/min, and the other limits are the same.
 At Late 14/min with seed 2, the arm without platoons finishes its 420 requests at 3,856 seconds.
 With platoons, the arm serves 419 of them by 3,900 seconds.
-Raw results are in [`measurements/london-capacity-platoons.csv`](measurements/london-capacity-platoons.csv).
+Raw results are in [`measurements/london-capacity-platoons.csv`](../measurements/london-capacity-platoons.csv).
 
 ### Finishing-pod wait rules
 
@@ -816,7 +816,7 @@ The raw results are in git history.
 ### Drop-offs sharing in London
 
 In the `drop-offs` mode, a party can join a boarding pod that passes its destination or that can add it as a stop.
-See [parties](../README.md#parties).
+See [parties](../../README.md#parties).
 This measurement compares the mode with same-destination sharing at a party limit of 4, with the default stop limit of 3.
 The code at commit `a06afef` gives the recorded values.
 The compare command writes report `schema_version` 8.
@@ -933,7 +933,7 @@ The raw results are in git history.
 #### Drop-offs with a detour cap
 
 Since commit `b6d2b1d`, a pod in the `drop-offs` mode adds a stop only when the planned detour ratio of each party, new or aboard, is at most 1.5.
-See [parties](../README.md#parties).
+See [parties](../../README.md#parties).
 The plan uses the berth at each stop that gives the largest ratio, so the cap also refuses some joins that end with a measured ratio below 1.5.
 A leg on a costed route and a change to another berth get the same check.
 When a costed leg fails the check, the pod takes the free-flow leg, which the plan used.
@@ -1445,7 +1445,7 @@ This historical A/B did not run them.
 The [follow-up](platoon-followup.md) completes those measurements and records the expanded study's failures.
 The historical results supported a project option for virtual platoons, off by default, and the defaults do not change.
 The `platoonLimit` project setting now gives this option.
-The [follow-up rows](measurements/platoon-followup.csv) repeat these arms on later source.
+The [follow-up rows](../measurements/platoon-followup.csv) repeat these arms on later source.
 
 ## Seat screen for larger pods
 
@@ -1455,7 +1455,7 @@ It has no physical model of a larger pod.
 Each pod keeps its 4 m body, its acceleration, and its dwell, so the 8-seat arms give an optimistic gain.
 Both arms use the drop-offs mode with the stop limit of 3 and the detour cap of 1.5.
 The arms are Early, Night, and AM peak in London, and the rail-hub schedule.
-See [report columns](../README.md#report-columns) for the seat screen columns.
+See [report columns](../../README.md#report-columns) for the seat screen columns.
 
 The 4-seat and 8-seat arms have equal 60-minute limits: 15/min in Early, which is the highest tested rate, 11/min in Night, and 14/min in AM peak.
 The 4-seat arms refuse a fifth party for 3.70% of the served requests in Early and 2.82% in rail-hub.
@@ -1472,7 +1472,7 @@ The `reassign-existing` join policy remains opt-in.
 It improves average journeys, but fails the all-band adoption rules.
 Late and Morning each lose one capacity step, from 13/min to 12/min.
 The default remains `unassigned`, and sharing remains off unless the party limit exceeds one.
-See [parties](../README.md#parties) for the policy semantics.
+See [parties](../../README.md#parties) for the policy semantics.
 
 These experiments used four parties per pod, drop-offs mode, three intermediate stops, a 1.5 detour cap, virtual platoons, free-flow routing, and redistribution off.
 London arms admitted requests for 30 minutes and ran for up to 65 minutes, stopping when drained.

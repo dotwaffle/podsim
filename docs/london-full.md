@@ -294,7 +294,7 @@ These finite-arrival trials do not establish a sustainable rate.
 
 A later six-hour sustained-load screen finds growing AM peak backlogs at 15 and 20 requests per minute.
 Station approach buffers, since removed, did not resolve that overload.
-The [mirrored layout study](station-mirror-load.md) also finds growing backlogs at 15 and 20 requests per minute.
+The [mirrored layout study](studies/station-mirror-load.md) also finds growing backlogs at 15 and 20 requests per minute.
 
 A separate one-hour run checked safety each second and completed all 199 requests.
 A physical restore at 20 minutes preserved the 287-pod fleet and its pending requests.
@@ -316,7 +316,7 @@ They do not establish a complete qualification envelope.
 ## Finite-arrival study, September 29, 2026
 
 The measurements below precede the parking diversion fix.
-The [308-arm post-fix study](london-full-postfix.md) repeats this matrix and its conditional selection rules.
+The [308-arm post-fix study](studies/london-full-postfix.md) repeats this matrix and its conditional selection rules.
 
 The study used 60 minutes of arrivals and at most 60 additional minutes to complete them.
 A recovery pass means all scheduled requests completed by minute 120, with no skipped demand or sampled safety/accounting failure.
@@ -409,7 +409,7 @@ The complete study contains 302 distinct arms: 198 baseline, 54 screens, 36 next
 All planned and conditional arms have confirmed successful test-process exits.
 `fleet300` recovered in 9 of 10 seeds at rate 15 in both PM peak and Evening, compared with baseline counts of 5 and 3.
 Each of these two failed confirmation seeds left one unfinished request.
-The [targeted diagnosis](experimental-adoption.md#rejected-candidates) found long journeys in these two cases and a parking-diversion deadlock in baseline AM peak seed 8.
+The [targeted diagnosis](design/experimental-adoption.md#rejected-candidates) found long journeys in these two cases and a parking-diversion deadlock in baseline AM peak seed 8.
 Neither result meets the all-ten recovery criterion.
 No candidate established an all-ten recovery improvement at its next tested rate.
 The preset and its defaults remain unchanged.

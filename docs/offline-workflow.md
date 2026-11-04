@@ -96,6 +96,6 @@ Download names and displayed command paths are fixed.
 Project association does not add members to exported plan or energy files.
 No project, save, stream, or report contract changes.
 
-See [car journey design](car-journey-design.md) and [energy model design](energy-model-design.md) for model assumptions.
+See [car journey design](design/car-journey-design.md) and [energy model design](design/energy-model-design.md) for model assumptions.
 Test fixtures under `web/testdata/offline` use analytic authored coefficients, not physical defaults.
 Their generation commands are in [the fixture record](../web/testdata/offline/README.md).

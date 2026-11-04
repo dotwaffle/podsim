@@ -5,7 +5,7 @@ Trimmed on November 4, 2026: review history removed.
 Git history keeps it.
 The approval changes no binding decision and no product choice beyond the maintainer-approved amendment D3 and the stage 2 defaults.
 Line references are at `3c77045`.
-On November 4, 2026, `docs/marker-removal-contract-proposal.md` removed the markers, so text about the markers describes the earlier design.
+On November 4, 2026, `docs/contracts/marker-removal-contract-proposal.md` removed the markers, so text about the markers describes the earlier design.
 
 Physical coupling was removed on October 6, 2026.
 Clauses about the couplingContract marker, coupling sites and corridors, coupling approaches, and coupled trains and their members no longer apply.

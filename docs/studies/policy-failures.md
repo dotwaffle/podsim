@@ -112,14 +112,14 @@ These controls do not replace a full guarded-positioning qualification.
 
 ## Individual outcomes and evidence
 
-[Pair totals](measurements/policy-failures-pairs.csv) retain maximum individual changes and the [adoption-limit](experimental-adoption.md) counts.
+[Pair totals](../measurements/policy-failures-pairs.csv) retain maximum individual changes and the [adoption-limit](../design/experimental-adoption.md) counts.
 Every active sharing pair has requests that exceed those individual limits.
 The active positioning controls and most platoon pairs also have individual increases.
 The user approved the limits on October 1.
 These selected counts do not establish full qualification or authorize a default change.
 
-[Arm totals](measurements/policy-failures-arms.csv) retain recovery, safety checks, and policy activity.
-[Metadata](measurements/policy-failures.json) retains group statistics, selected request tails, P95 ranks, source hashes, and run outcomes.
+[Arm totals](../measurements/policy-failures-arms.csv) retain recovery, safety checks, and policy activity.
+[Metadata](../measurements/policy-failures.json) retains group statistics, selected request tails, P95 ranks, source hashes, and run outcomes.
 Observed pickup pods, stopping, and coupling counts are samples, not complete transition or resource-grant histories.
 The owned run stopped successfully, and its scratch binary was removed.
 A fleet-history follow-up on frozen source `e285e69` replayed ten selected arms and traced the earlier assignments and empty destinations behind the pickup delays.

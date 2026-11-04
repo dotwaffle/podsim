@@ -1,7 +1,7 @@
 # Offline car journeys and parking
 
 Status: implemented and checked on October 3, 2026, under the October 2 compatible-contract grant.
-The [qualification record](measurements/car-journey-qualification.json) identifies the source and verification evidence.
+The [qualification record](../measurements/car-journey-qualification.json) identifies the source and verification evidence.
 This adds an offline `cmd/parkride` command and a separate car ledger.
 Project, session, saved simulation, and stream schemas stay at their current versions.
 
@@ -109,7 +109,7 @@ Real native journeys must complete both pod legs and preserve car identity.
 Physical checks and clone continuations cover the selected native fixtures.
 The first model makes no road-capacity, battery, or empirical travel-time claim.
 
-Use the [command instructions](../internal/parkride/README.md) and supplied plan fixture to run this model.
+Use the [command instructions](../../internal/parkride/README.md) and supplied plan fixture to run this model.
 The command honors project redistribution with itinerary-origin weights and the existing observed-rate fallback.
 Native experiment histories remain off.
 The ledger retains its own bounded request bindings and actual unloading times.

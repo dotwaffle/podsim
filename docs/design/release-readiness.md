@@ -3,10 +3,10 @@
 Status: release readiness on October 19, 2026, trimmed on November 4, 2026.
 The report pinned `201031792a4c52aad621953b2f55ea897865ec55`.
 Limit tables, version pins, hosted check results, and the CI failure history were removed.
-Git history keeps them, and the README and the [operations guide](operations.md) give the current limits and versions.
+Git history keeps them, and the README and the [operations guide](../operations.md) give the current limits and versions.
 This report does not authorize deployment, default adoption, or a cap change.
-Physical coupling was removed on October 6, 2026, and the [platoon coupling comparison](platoon-coupling-comparison.md) is the decision record.
-Express remains opt-in; see the [Express qualification](express-qualification.md).
+Physical coupling was removed on October 6, 2026, and the [platoon coupling comparison](../studies/platoon-coupling-comparison.md) is the decision record.
+Express remains opt-in; see the [Express qualification](../studies/express-qualification.md).
 
 ## Browser candidates remain unaccepted
 
@@ -28,12 +28,12 @@ The maintainer stopped the incident redesign after stage 3.
 Stages 1, 2, and 3 landed and are on main.
 Stages 4 to 7 were dropped and have no contracts.
 
-- Stage 1 is the [service transitions contract](incident-service-transitions-contract-proposal.md).
+- Stage 1 is the [service transitions contract](../contracts/incident-service-transitions-contract-proposal.md).
   The maintainer approved it on October 5, 2026, in `482d93d`.
   It defines the service withdrawal and pickup release that vehicle faults and rider emergencies share.
-- Stage 2 is the [suspension contract](incident-suspension-contract-proposal.md).
+- Stage 2 is the [suspension contract](../contracts/incident-suspension-contract-proposal.md).
   It adds pod faults and debris.
-- Stage 3 is the [emergency contract](incident-emergency-contract-proposal.md).
+- Stage 3 is the [emergency contract](../contracts/incident-emergency-contract-proposal.md).
   It adds rider emergencies on ordinary pods.
 
 ## Forecast rejection and service boundaries
@@ -57,7 +57,7 @@ No seed-2 study arm, repeated study, tuning, live integration, or adoption follo
 The earlier prefix work remains separate evidence.
 Restore probes cover accepted-cohort physical and twin controls, not the original run's complete offered future.
 
-The archived shared forecast and Group service screens (see the [rejected candidates](experimental-adoption.md#rejected-candidates)) and the [policy reruns](policy-failures.md) retain failed service gates.
+The archived shared forecast and Group service screens (see the [rejected candidates](experimental-adoption.md#rejected-candidates)) and the [policy reruns](../studies/policy-failures.md) retain failed service gates.
 They do not qualify sustained capacity or default adoption.
 The [adoption gates](experimental-adoption.md) still require matched service, loss, recovery, safety, and cost evidence.
 Successful safety checks or aggregate results do not waive individual service failures.

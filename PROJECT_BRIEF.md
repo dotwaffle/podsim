@@ -26,7 +26,7 @@ See [README.md](README.md) for controls, validation commands, and current model 
 
 LondonCentral (`london-central`) retains the central qualification network and its 2019 demand.
 [LondonFull](docs/london-full.md) adds 269 Tube sites with 2024 endpoint demand.
-Its [308-arm post-fix study](docs/london-full-postfix.md) tested 60 minutes of arrivals with up to 60 minutes to recover.
+Its [308-arm post-fix study](docs/studies/london-full-postfix.md) tested 60 minutes of arrivals with up to 60 minutes to recover.
 Six historical cases improve recovery after the parking diversion fix.
 No fleet candidate established an all-ten recovery improvement at its next tested rate.
 These finite tests do not establish a sustainable capacity envelope.
@@ -34,16 +34,16 @@ The original `london` selector is now `london-central`.
 
 A six-hour LondonFull screen finds growing backlogs at 15 and 20 requests per minute.
 The removed station buffers did not resolve that overload.
-The [combined controller study](docs/experimental-adoption.md#rejected-candidates) compares 24 arms with matched requests and physical restores.
+The [combined controller study](docs/design/experimental-adoption.md#rejected-candidates) compares 24 arms with matched requests and physical restores.
 Its late backlog stays nearly flat at 10/min, but grows under every policy at 15 and 20/min.
 The same study's 12/min four-seed extension and 13/min focused comparison also retain nearly flat late backlogs.
 In the pre-routing 14/min study, baseline seed 2 grows a backlog, while the other tested seeds remain nearly flat.
-The [post-routing service study](docs/berth-route-preference.md#stratford-request-1324) reduces that seed-2 growth from 1.683 to 0.139 orders per minute.
+The [post-routing service study](docs/studies/berth-route-preference.md#stratford-request-1324) reduces that seed-2 growth from 1.683 to 0.139 orders per minute.
 It still has positive growth and three parties aboard at the observation cap.
 Individual wait regressions still prevent an adoption recommendation.
-The [paired mirrored-layout study](docs/station-mirror-load.md) passes its sampled safety and 48 physical-restore checks.
+The [paired mirrored-layout study](docs/studies/station-mirror-load.md) passes its sampled safety and 48 physical-restore checks.
 Service results are mixed, with higher LondonCentral Early waits under mirrored geometry.
-The [selected resource histories](docs/experimental-adoption.md#rejected-candidates) identify predecessor-frontier limits as most observed shared-guard failures in two Central schedules, then follow releases, ownership transfers, and later grants.
+The [selected resource histories](docs/design/experimental-adoption.md#rejected-candidates) identify predecessor-frontier limits as most observed shared-guard failures in two Central schedules, then follow releases, ownership transfers, and later grants.
 All 128 full-arm selections reach their original frontier within 24 simulated seconds after selection.
 These histories do not measure the entire wait from its onset or identify one geometric root cause.
 
@@ -64,10 +64,10 @@ The live viewer uses shared gzip WebSocket deltas, and explicit public-origin co
 Prepared network geometry speeds repeated isolated restores without changing the saved format or removing restore assertions.
 The renderer batches station summaries, and presentation snapshots reuse call-local lane marks.
 The restore and rendering optimizations preserve simulation behavior and existing protocol semantics.
-The [pickup-bound cache measurements](docs/pickup-routing-performance.md) show lower CPU use and allocations in an unpaced LondonFull probe.
+The [pickup-bound cache measurements](docs/studies/pickup-routing-performance.md) show lower CPU use and allocations in an unpaced LondonFull probe.
 They do not establish live playback speed or a capacity improvement.
 Reusable admission storage lowers allocations and usually CPU in paired equal-work studies.
-The [live follow-up](docs/admission-live-performance.md) sustains approximately 60x with GC 100 and 400 in short one-client runs.
+The [live follow-up](docs/studies/admission-live-performance.md) sustains approximately 60x with GC 100 and 400 in short one-client runs.
 The finishing-pod bounds reduce Full CPU use by about 14% in short matched live runs.
 The server retains GOGC 100 and the comparison command retains 400.
 The journey page cache and the label cache lower measured page script time.
@@ -75,28 +75,28 @@ Total software-rendered browser CPU changes little.
 The label admission follow-up avoids repeated cache clears when visible labels exceed capacity.
 The publisher timer restores measured delivery toward 20 Hz at higher CPU and traffic cost.
 
-Experimental [pickup swaps](docs/pickup-reassignment.md) remain disabled by default.
+Experimental [pickup swaps](docs/studies/pickup-reassignment.md) remain disabled by default.
 A saved project and editor control permits opt-in testing, and an explicit comparison flag selects the policy.
-Station approach buffers and compact station queues were removed on October 7, 2026, because [measurements](docs/buffer-late-claim.md#station-entry-throughput) showed that they lowered station entry throughput.
-The [terminus burst fixture](docs/buffer-late-claim.md#terminus-burst-service) measures berth claims, pickup supply, and finite outbound service.
+Station approach buffers and compact station queues were removed on October 7, 2026, because [measurements](docs/studies/buffer-late-claim.md#station-entry-throughput) showed that they lowered station entry throughput.
+The [terminus burst fixture](docs/studies/buffer-late-claim.md#terminus-burst-service) measures berth claims, pickup supply, and finite outbound service.
 The buffers that it measured increased waits in its selected Central comparisons.
 Broader adoption requires separate qualification and a decision.
-The user approved the [adoption gates](docs/experimental-adoption.md) on October 1.
+The user approved the [adoption gates](docs/design/experimental-adoption.md) on October 1.
 They add explicit individual-tail limits without authorizing a default change.
-The [sustained pickup swap comparison](docs/pickup-swap-sustained.md) records average benefits, tail regressions, and remaining work.
+The [sustained pickup swap comparison](docs/studies/pickup-swap-sustained.md) records average benefits, tail regressions, and remaining work.
 The compatible stream decoder lowers decode and apply time without a whole-browser CPU gain.
-The [sustained pickup-swap study](docs/pickup-swap-sustained.md) lowers average waits and empty distance in its tested pairs, but every arm still grows a backlog.
+The [sustained pickup-swap study](docs/studies/pickup-swap-sustained.md) lowers average waits and empty distance in its tested pairs, but every arm still grows a backlog.
 Its matched-request diagnosis in the same document separates unfinished requests from completed maxima and retains actual same-request regressions.
-The [selected service-tail cases](docs/experimental-adoption.md#rejected-candidates) trace long pickup waits to earlier fleet-availability changes.
+The [selected service-tail cases](docs/design/experimental-adoption.md#rejected-candidates) trace long pickup waits to earlier fleet-availability changes.
 Removing one selected swap does not remove every regression.
 The Stratford diagnosis captures reciprocal waits at an intermediate berth.
-The [route preference and commitment fix](docs/berth-route-preference.md) addresses that mechanism for new routes while preserving old physical saves.
+The [route preference and commitment fix](docs/studies/berth-route-preference.md) addresses that mechanism for new routes while preserving old physical saves.
 
 Sharing remains off by default.
 The opt-in `reassign-existing` join policy and guarded-positioning follow-up still fail adoption rules.
 These results do not reverse the earlier adoption of the drop-offs mode when sharing is enabled.
-Larger pods exist only in the opt-in Express contract (see the [Express qualification](docs/express-qualification.md)), and no default changes.
-The bounded [predictive routing prototype](docs/predictive-routing.md) is implemented for comparison, with free-flow routing retained by default.
+Larger pods exist only in the opt-in Express contract (see the [Express qualification](docs/studies/express-qualification.md)), and no default changes.
+The bounded [predictive routing prototype](docs/studies/predictive-routing.md) is implemented for comparison, with free-flow routing retained by default.
 Local Chromium software-rendering checks cover the viewer, editor, and high-latency streams.
 Desktop Chrome is the required browser for current development.
 Firefox and Safari validation are not required.
@@ -104,14 +104,14 @@ The simulator currently runs on the local machine.
 Fly deployment and hosted-origin validation are deferred until release preparation.
 Software-rendering measurements do not establish physical-GPU performance.
 
-The [maintained metrics snapshot](docs/study-performance.md) gives comparison tooling owned route context without copying route geometry.
+The [maintained metrics snapshot](docs/studies/study-performance.md) gives comparison tooling owned route context without copying route geometry.
 Its measured output matches the full snapshot across the recorded small, rail-hub, Central, and Full arms.
 The station-phase cache reduces server CPU by 13.67% in short matched one-Chrome 60x runs.
 It retains exact state parity in the separate fixed replay.
 These measurements do not establish indefinite capacity or physical-GPU performance.
 
-The [pickup supply](docs/pickup-supply.md), [later buffer claims](docs/buffer-late-claim.md), and [pickup safeguards](docs/experimental-adoption.md#rejected-candidates) retain failed service candidates.
-The [shorter Paddington paths](docs/experimental-adoption.md#rejected-candidates) improve mean pickup wait in a focused workload but exceed individual limits.
+The [pickup supply](docs/studies/pickup-supply.md), [later buffer claims](docs/studies/buffer-late-claim.md), and [pickup safeguards](docs/design/experimental-adoption.md#rejected-candidates) retain failed service candidates.
+The [shorter Paddington paths](docs/design/experimental-adoption.md#rejected-candidates) improve mean pickup wait in a focused workload but exceed individual limits.
 None passes its selected screen, so broader qualification does not start and defaults stay unchanged.
 The pickup and busy-station service problems remain unresolved.
 
@@ -402,11 +402,11 @@ It submitted a journey through the simulation UI and observed its completion.
 It also toggled pod following and reported no browser errors.
 
 Separate browser checks cover invalid input, reset, stale edit conflicts, and the 20-station, 100-pod scenario.
-The hardware and performance record is in [docs/qualification.md](docs/qualification.md).
+The hardware and performance record is in [docs/studies/qualification.md](docs/studies/qualification.md).
 Two later commits made route search and dispatch faster, and the simulation output did not change.
 Commit `40fc98f` finds the routes to all berths of a station with one search, and commit `80c47dc` skips dispatch scans at stations with no idle pod.
 From commit `40fc98f` to commit `80c47dc`, a heavy London compare arm fell from 10.1 to 7.1 seconds of wall time.
-See [route search and dispatch scans](docs/qualification.md#route-search-and-dispatch-scans).
+See [route search and dispatch scans](docs/studies/qualification.md#route-search-and-dispatch-scans).
 
 The project added the save point, rewind, and `-state` restart checks above on September 23, 2026, after this acceptance.
 
@@ -452,14 +452,14 @@ The portal network drained all 199 requests, while the old network left five req
 A capacity sweep measured the portal network across all eight bands, 15 offered rates, and three seeds.
 Recovery limits range from 7 requests per minute in Early to 14 in Interpeak and Evening.
 In every band except Early, the results suggest that the 114-pod fleet, not track congestion, sets the limit.
-See [docs/london.md](docs/london.md) and [docs/qualification.md](docs/qualification.md#london-capacity-envelope).
+See [docs/london.md](docs/london.md) and [docs/studies/qualification.md](docs/studies/qualification.md#london-capacity-envelope).
 
 The network does not include stored tunnel depth or map pixels.
 The optional live map supplies a geographic backdrop.
 Automatic guideway generation and editable OSM vectors are shelved at the user's request.
 Local georeferenced image import is implemented and preserves frame and attribution data.
 LondonFull is a separate generated preset with 269 passenger sites and 2024 endpoint demand.
-Its [308-arm post-fix study](docs/london-full-postfix.md) repeats the original 302 arms and adds six conditional AM peak cases.
+Its [308-arm post-fix study](docs/studies/london-full-postfix.md) repeats the original 302 arms and adds six conditional AM peak cases.
 It uses 60 minutes of arrivals and up to 60 minutes to recover.
 No fleet candidate met the all-ten recovery criterion at its next tested rate.
 These finite tests do not establish sustainable capacity or replace the LondonCentral measurements above.
@@ -473,16 +473,16 @@ Snapshots and the pod inspector use these roles to report station maneuvers with
 
 ### Intermediate berth routing
 
-The [Stratford diagnosis](docs/berth-route-preference.md) records a stalled empty pod whose Leyton route crosses a Stratford berth.
+The [Stratford diagnosis](docs/studies/berth-route-preference.md) records a stalled empty pod whose Leyton route crosses a Stratford berth.
 That pod blocks the Stratford berth's arriving claimant, which owns the berth and blocks the first pod.
 The diagnosis identifies this cycle in a captured snapshot, without changing routing or reservation rules.
 
-The [implemented route preference](docs/berth-route-preference.md) treats direct and cached station searches consistently.
+The [implemented route preference](docs/studies/berth-route-preference.md) treats direct and cached station searches consistently.
 New routes avoid intermediate berths when a compatible path exists.
 Authored layouts without an independent through path retain the unrestricted fallback.
 The passenger arrival-chain guard preserves committed prefixes.
 Existing physical saves retain their routes, and berth ownership and reservation guards remain intact.
-The [selected service qualification](docs/berth-route-preference.md#stratford-request-1324) retains individual tail regressions despite improved aggregate results.
+The [selected service qualification](docs/studies/berth-route-preference.md#stratford-request-1324) retains individual tail regressions despite improved aggregate results.
 
 ### Congestion-aware routing
 
@@ -500,7 +500,7 @@ SUMO's [taxi dispatch documentation](https://sumo.dlr.de/docs/Simulation/Taxi.ht
 
 **Status:** A first experimental policy added costs for owned track and stopped pods when it assigned a route.
 It served fewer requests than free-flow routing, which remains the default.
-See [docs/qualification.md](docs/qualification.md#congestion-aware-routing-experiment).
+See [docs/studies/qualification.md](docs/studies/qualification.md#congestion-aware-routing-experiment).
 
 Both costed policies now apply costs only to the route that a pod gets, and their routes do not go through the berths of a third station.
 A second policy, `queue`, adds the part of each queue that remains when the pod gets to it.
@@ -519,7 +519,7 @@ These historical results did not meet the original prerequisite for planned-rout
 A separate bounded predictive prototype is now approved for comparison.
 It combines observed delays and already-planned arrivals, updates forecasts between assignments, and bounds free-flow detours.
 It selects new routes or uncommitted suffixes and preserves existing defaults.
-See [docs/qualification.md](docs/qualification.md#queue-routing-screen).
+See [docs/studies/qualification.md](docs/studies/qualification.md#queue-routing-screen).
 
 ### Mixed vehicle capacities and shared rides
 
@@ -544,7 +544,7 @@ MATSim's [demand-responsive transport module](https://github.com/matsim-org/mats
 **Status:** Step 1 is available as the `destination` shared ride mode.
 In this mode, a limit of two to eight parties lets a party join a pod that is still boarding at the same origin for the same destination.
 The default limit of one disables sharing.
-See [docs/qualification.md](docs/qualification.md#same-destination-sharing).
+See [docs/studies/qualification.md](docs/studies/qualification.md#same-destination-sharing).
 
 The drop-offs mode, a part of step 3, is the default mode when sharing is on.
 A party can join a boarding pod that passes its destination, or a pod that can add that destination as its last stop.
@@ -555,7 +555,7 @@ In London at a limit of 4, the mode raises five 60-minute band limits and lowers
 The first measurement did not meet two of the seven adoption rules, because five arms ended late and the largest detour ratio was 1.509.
 With the detour cap, the mode meets the seven rules on the full envelope with seeds 1 to 3 and with 10 seeds at the rates near the band limits.
 On 2026-09-28, the user made drop-offs the default mode, and same-destination sharing stays available as an option.
-See [docs/qualification.md](docs/qualification.md#drop-offs-sharing-in-london).
+See [docs/studies/qualification.md](docs/studies/qualification.md#drop-offs-sharing-in-london).
 
 ### Railway and park-and-ride hubs
 
@@ -612,7 +612,7 @@ A slow pod in a queue can follow the pod ahead at a short gap and share its trac
 Each link keeps a fixed certificate of a run of lanes that turns 120 degrees or less, and its clearance follows from that turn.
 A run can end on the entry lane of a station when both pods go to that station, and such pods choose their berths early.
 A pod that waits for a contested station diverge can coast so that it rolls into the diverge when it frees.
-See [station entry throughput](docs/buffer-late-claim.md#station-entry-throughput).
+See [station entry throughput](docs/studies/buffer-late-claim.md#station-entry-throughput).
 On the synthetic corridor, platoons of 4 give 2.5 to 3.1 times the flow of single pods.
 A London sweep with 198 pods found that track and junction flow limit the Early band at 9 to 12 requests per minute.
 The ten-seed follow-up raises the highest tested Early rate with one-hour recovery from 10/minute to 11/minute.
@@ -621,14 +621,14 @@ The expanded study finds one recovery-rule failure at AM peak 24/minute and thre
 All five rail-hub pairs pass the no-harm thresholds.
 The historical three-seed A/B met the seven adoption rules, but the expanded study fails the recovery and no-harm rules.
 All 162 follow-up arms passed the per-tick safety and ownership checks.
-See the [platoon follow-up](docs/platoon-followup.md) for the full results and validation limits.
+See the [platoon follow-up](docs/studies/platoon-followup.md) for the full results and validation limits.
 The editor sets the option, the state frame gives the platoon of each pod, and the view draws a line between the pods of a platoon.
 A saved state keeps the links.
 The LondonCentral preset turns platoons on with a limit of 4 pods.
 The follow-up preserves this preset and all other defaults.
 In the historical three-seed London capacity envelope with 114 pods, platoons raised the Early limit from 7/minute to 10/minute.
 No band limit fell in that envelope.
-See [docs/qualification.md](docs/qualification.md#platoon-screening) and [the envelope with platoons](docs/qualification.md#with-virtual-platoons).
+See [docs/studies/qualification.md](docs/studies/qualification.md#platoon-screening) and [the envelope with platoons](docs/studies/qualification.md#with-virtual-platoons).
 
 ### Suggested first extension experiment
 
@@ -644,7 +644,7 @@ The five-seed experiment served all demand with either policy.
 The experiment used the weighted redistribution policy, which moved empty pods toward the demand weights at any load.
 Guarded positioning later replaced that policy.
 The weighted policy reduced mean pickup wait by about four seconds, added 45.2 km of empty travel, and reduced loaded distance from 45.96% to 42.15%.
-See [docs/qualification.md](docs/qualification.md#rail-hub-burst-experiment).
+See [docs/studies/qualification.md](docs/studies/qualification.md#rail-hub-burst-experiment).
 
 With redistribution off, the four-party sharing arm reduced mean wait by 65%, queue clearance by 53%, and empty travel by 49%.
 It served every request.

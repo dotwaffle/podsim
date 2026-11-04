@@ -68,16 +68,16 @@ If a candidate fails, retain its measured results and experimental control.
 Fix a reproduced defect or choose a different candidate, then rerun the affected comparisons.
 
 Current reports retain unresolved individual tails and overload cases.
-See [sustained pickup swaps](pickup-swap-sustained.md), [post-routing service](berth-route-preference.md#stratford-request-1324), and [sharing rules](qualification.md).
+See [sustained pickup swaps](../studies/pickup-swap-sustained.md), [post-routing service](../studies/berth-route-preference.md#stratford-request-1324), and [sharing rules](../studies/qualification.md).
 The [expanded controller screen](#rejected-candidates) retains live queue loss, censored requests, and individual-limit exceedances.
-The [selected policy rerun](policy-failures.md) separates historical failures from these qualification limits.
+The [selected policy rerun](../studies/policy-failures.md) separates historical failures from these qualification limits.
 The [Paddington trials](#rejected-candidates) reject unsafe partial fixtures while preserving individual regressions in the complete layouts.
 The [predictive screen](#rejected-candidates) finds no service gain in its six matched pairs.
 
 ## Later bounded candidate screens
 
-The [pickup supply screen](pickup-supply.md) tests four current LondonFull fleet placements and sizes.
-The [later buffer claims](buffer-late-claim.md) reduce sampled claim duration without a service gain.
+The [pickup supply screen](../studies/pickup-supply.md) tests four current LondonFull fleet placements and sizes.
+The [later buffer claims](../studies/buffer-late-claim.md) reduce sampled claim duration without a service gain.
 The [pickup safeguards](#rejected-candidates) test request age and local idle-pod reserves independently.
 The [shorter Paddington paths](#rejected-candidates) include a focused mean gain that still exceeds individual limits.
 No changed candidate passes its selected service screen.
@@ -102,10 +102,10 @@ The records that the buffer removal of October 7, 2026 retired are at `0f5ae61`,
 | Selected predictive-routing service comparisons | `a54281e`; diagnosis `e285e69` | LondonCentral Early 10/min and LondonFull Morning 13 and 14/min, seeds 1 and 2, 6 h, 7 h cap; Acton mixed burst, 2 h, 3 h cap | 40,794 evaluations change no request, boarding tick, or completion tick (39,501 forecast no delay, 18 distinct candidates save less than 2.8 s); Acton completes 1,012 against 1,029 journeys with 418 alternatives returned | No service or capacity benefit; free-flow routing stays the default | `docs/predictive-service.md` |
 | Occupied pickup service screen with competing pods | `5a57e4c` | Example network, 2 and 3 legacy 4 m pods, 4 waves, 900 s horizon | 2 pods: pickup p95 201.867 s to 36.050 s; 3 pods: 184.850 s to 121.250 s; the final Garden-to-Harbor party waits 106.400 s longer and completes 94.033 s later | The 2-pod fixture passes; the 3-pod fixture fails the individual pickup and journey limits; the policy stays opt-in | `docs/occupied-pickup-multipod-screen.md` |
 | Onboard pickup service screen | Not named in the record | Example network, one 4 m pod, three manual orders, 600 s | Maximum pickup wait 225.57 s to 46.05 s and empty distance 1,844.21 m to 0 m with shared consent; no change with private consent | Bounded result; no network capacity or default adoption claim | `docs/onboard-pickup-service-screen.md` |
-| Station buffers and compact station queues | `2a9d6b9`, `0f5ae61` | LondonFull user project, platoon limit 4, pickup reassignment on; 60 orders/min to one station, 30 min, first 10 min excluded | King's Cross entries/min: 4.48 buffers off (121 completed), 3.99 buffers on with compact spacing, 3.87 with ordinary spacing (105 completed); Waterloo off 4.40 to 4.50; two pods on the entry lane in 5 of 18,000 samples with compact spacing | Removed on October 7, 2026: buffers lowered station entry throughput and links almost never formed | `docs/buffer-late-claim.md` (kept as the decision record) |
+| Station buffers and compact station queues | `2a9d6b9`, `0f5ae61` | LondonFull user project, platoon limit 4, pickup reassignment on; 60 orders/min to one station, 30 min, first 10 min excluded | King's Cross entries/min: 4.48 buffers off (121 completed), 3.99 buffers on with compact spacing, 3.87 with ordinary spacing (105 completed); Waterloo off 4.40 to 4.50; two pods on the entry lane in 5 of 18,000 samples with compact spacing | Removed on October 7, 2026: buffers lowered station entry throughput and links almost never formed | `docs/studies/buffer-late-claim.md` (kept as the decision record) |
 | Compact queue speed screen after the lane-speed fix | `30d8e34` | Seven compact pods, 28 accepted requests, 2,400 s cap; two ordinary and compact-v1 pairs with buffers and virtual platoons on (limit 4), queue limit 200 | All four arms complete 4 of 28 requests by the cap; compact groups first appear at 502.65 s and keep three occupied members; censored requests and failed disabled-policy drainage | No compact queue service benefit; feature removed on October 7, 2026 | `docs/compact-queue-speed-fixed-screen.md`, with `docs/measurements/compact-queue-speed-fixed-screen.json` |
 | Station buffer contract and fixed entry platoons | `0f5ae61` | Saved-state membership contract (approved September 29 and 30, 2026), fixed station-entry platoons, and recruitment inside stopped buffers | Closed records of the removed feature | Retired with the feature on October 7, 2026 | `docs/station-buffer-state-proposal.md`, `docs/station-entry-platoons.md`, `docs/station-buffer-recruitment.md` |
-| Compact-v1 contracts | `0f5ae61` | Retained physical recovery state (approved October 2, 2026), the compact pilot note, and the compact section of the service contract proposals | Closed records of the removed feature | Retired with the feature on October 7, 2026; the section of `docs/service-contract-proposals.md` is at `0f5ae61` | `docs/compact-recovery-state-contract-proposal.md`, `docs/compact-station-queues.md` |
+| Compact-v1 contracts | `0f5ae61` | Retained physical recovery state (approved October 2, 2026), the compact pilot note, and the compact section of the service contract proposals | Closed records of the removed feature | Retired with the feature on October 7, 2026; the section of `docs/contracts/service-contract-proposals.md` is at `0f5ae61` | `docs/compact-recovery-state-contract-proposal.md`, `docs/compact-station-queues.md` |
 
 The shared forecast screen (Rail Hub, 1,440 one-person shared offers per seed, `9113bb3`) found no gain.
 Seed 1 completed 862 requests with the forecast off and 877 with it on, and seed 2 completed 920 and 916.

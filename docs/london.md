@@ -93,7 +93,7 @@ Acton Town in LondonFull decreases from 11 such crossings to 5.
 Some crossings remain because each arrival portal connects to the station and each departure portal connects from it.
 Existing saved projects keep their stored geometry.
 Historical capacity measurements describe the earlier geometry and do not qualify the mirrored presets.
-The [paired load and restore study](station-mirror-load.md) passes its safety checks but finds mixed service results.
+The [paired load and restore study](studies/station-mirror-load.md) passes its safety checks but finds mixed service results.
 LondonCentral Early demand has higher waits with mirroring.
 
 The following crossing counts describe the layout before the mirror pass.
@@ -158,7 +158,7 @@ The portable London project includes the OD weights and all eight bands.
 The preset rounds each weight to four significant digits.
 This changes each band total by at most 12 parts per million.
 Its demand settings select the AM peak band at 20 requests per simulated minute by default.
-This rate is above the AM peak recovery limit of 13 requests per minute in the [London capacity envelope](qualification.md#london-capacity-envelope).
+This rate is above the AM peak recovery limit of 13 requests per minute in the [London capacity envelope](studies/qualification.md#london-capacity-envelope).
 The shared session samples those weights when automatic demand runs.
 The editor can select another band before it applies the project.
 State frames contain only the selected profile and band IDs, not the complete OD matrix.
@@ -297,7 +297,7 @@ This generated file has 3,835,541 bytes.
 When the editor applies this project, the command has about 1.9 MiB of JSON, and the editor sends about 0.3 MiB with gzip.
 Capacity options must also pass the layout audit.
 A project below the node limit can still have station lanes that cross guideways.
-The capacity tests in the [qualification results](qualification.md#more-london-berths) did not find a change with the same 114 pods.
+The capacity tests in the [qualification results](studies/qualification.md#more-london-berths) did not find a change with the same 114 pods.
 
 On a London station, the editor **Add physical berth** button adds one more row at the end of the berth chain.
 The row gets the IDs that the scenario command gives to one more berth.

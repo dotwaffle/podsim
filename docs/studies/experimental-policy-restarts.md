@@ -39,4 +39,4 @@ Repeated startup without a successful periodic or final save still invokes the e
 
 The tests exercise file writes, renames, sync errors, gzip decoding, and physical restore.
 They do not simulate a power loss or establish durability across a filesystem failure.
-For the file-store guarantees, see [operations](operations.md).
+For the file-store guarantees, see [operations](../operations.md).
