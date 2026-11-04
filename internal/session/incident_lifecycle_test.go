@@ -147,10 +147,20 @@ func advanceUntilSampled(t *testing.T, s *Session, faults, emergencies int64) {
 	t.Fatalf("no %d and %d events in %d ticks: %+v", faults, emergencies, limit, traceOf(s))
 }
 
+// firstEvent returns the count of events to wait for at a rate: a rate of 0
+// has no event.
+func firstEvent(rate float64) int64 {
+	if rate > 0 {
+		return 1
+	}
+	return 0
+}
+
 // TestSamplerSessionStarts checks each start path of section 5.1.3 and the
 // session events of section 5.1.4: session start, reset, and project apply
-// start new samplers from tick 0. A demand command and an apply of the same
-// project keep the stream, and the next reset uses the new seed.
+// start new samplers from tick 0. An apply reads the rates and the seed of the
+// new project. A demand command and an apply of the same project keep the
+// stream, and the next reset uses the new seed.
 func TestSamplerSessionStarts(t *testing.T) {
 	t.Parallel()
 	t.Run("start", func(t *testing.T) {
@@ -172,24 +182,40 @@ func TestSamplerSessionStarts(t *testing.T) {
 		newTestClient(s, "test").mustApply(t, Command{Action: "reset"})
 		checkFirstMembers(t, s, config, 0)
 	})
-	t.Run("project apply", func(t *testing.T) {
-		t.Parallel()
-		config := rateProject(60, 30)
-		s := rateSession(t, config)
-		client := newTestClient(s, "test")
-		advanceUntilSampled(t, s, 1, 1)
-		client.mustApply(t, Command{Action: "pause", Paused: true})
-		before := traceOf(s)
-		client.mustApply(t, Command{Action: "project", ProjectRevision: s.Project().Revision, Project: &config})
-		if after := traceOf(s); !reflect.DeepEqual(after, before) {
-			t.Fatalf("an apply of the same project moves the samplers: %+v, want %+v", after, before)
-		}
-		other := rateProject(60, 30)
-		other.Name = "another project"
-		other.Demand.Seed = config.Demand.Seed + 1
-		client.mustApply(t, Command{Action: "project", ProjectRevision: s.Project().Revision, Project: &other})
-		checkFirstMembers(t, s, other, 0)
-	})
+	for _, test := range []struct {
+		name                        string
+		fromFaults, fromEmergencies float64
+		toFaults, toEmergencies     float64
+	}{
+		{"project apply, the same rates", 60, 30, 60, 30},
+		{"project apply, other rates", 60, 30, 10, 5},
+		{"project apply, both rates to 0", 60, 30, 0, 0},
+		{"project apply, both rates from 0", 0, 0, 60, 30},
+		{"project apply, fault rate to 0", 60, 30, 0, 30},
+		{"project apply, fault rate from 0", 0, 30, 60, 30},
+		{"project apply, emergency rate to 0", 60, 30, 60, 0},
+		{"project apply, emergency rate from 0", 60, 0, 60, 30},
+		{"project apply, one rate to the other", 60, 0, 0, 30},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			config := rateProject(test.fromFaults, test.fromEmergencies)
+			s := rateSession(t, config)
+			client := newTestClient(s, "test")
+			advanceUntilSampled(t, s, firstEvent(test.fromFaults), firstEvent(test.fromEmergencies))
+			client.mustApply(t, Command{Action: "pause", Paused: true})
+			before := traceOf(s)
+			client.mustApply(t, Command{Action: "project", ProjectRevision: s.Project().Revision, Project: &config})
+			if after := traceOf(s); !reflect.DeepEqual(after, before) {
+				t.Fatalf("an apply of the same project moves the samplers: %+v, want %+v", after, before)
+			}
+			other := rateProject(test.toFaults, test.toEmergencies)
+			other.Name = "another project"
+			other.Demand.Seed = config.Demand.Seed + 1
+			client.mustApply(t, Command{Action: "project", ProjectRevision: s.Project().Revision, Project: &other})
+			checkFirstMembers(t, s, other, 0)
+		})
+	}
 	t.Run("demand keeps the stream", func(t *testing.T) {
 		t.Parallel()
 		config := rateProject(60, 30)
