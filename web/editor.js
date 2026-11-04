@@ -1611,10 +1611,8 @@
   // its own database at version 1. Thus a new store needs no version
   // upgrade, which an open editor tab of an older version can block.
   const DRAFT_STORE = { database: "podsim-editor", store: "drafts" };
-  // The background database has the suffix -2, because its record holds
-  // the image as bytes with an image key. The editor does not open the
-  // older podsim-editor-backgrounds database, so an open tab of an older
-  // editor cannot read or delete a record of this form.
+  // The name of the background database has the suffix -2. Its record holds
+  // the image as bytes with an image key.
   const BACKGROUND_STORE = { database: "podsim-editor-backgrounds-2", store: "backgrounds" };
 
   // openRecordStore gives a record store that keeps records in IndexedDB.

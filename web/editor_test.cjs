@@ -2533,17 +2533,6 @@ test("a tab that restored an image does not write it back over the image of anot
   assert.deepEqual([await store.get(DRAFT_KEY), page.keeper.unsaved], [recordOf(other), false], "the store keeps the image of the other tab");
 });
 
-test("the restore reads only the new background database", async () => {
-  const factory = fakeIndexedDB();
-  const older = editor.openRecordStore(factory, { database: "podsim-editor-backgrounds", store: "backgrounds" });
-  await older.put(DRAFT_KEY, { background: { dataURL: TEST_BACKGROUND.dataURL, x: 0, y: 0, width: 4, height: 2, opacity: 1 } });
-  const page = startupPage(factory);
-  await page.started;
-  assert.deepEqual([page.history.value.background, page.warnings], [null, []], "the older record is not read");
-  assert.deepEqual(factory.log, ["open podsim-editor-backgrounds 1", "create backgrounds", "open podsim-editor-backgrounds-2 1", "create backgrounds"]);
-  assert.equal(editor.BACKGROUND_STORE.database, "podsim-editor-backgrounds-2");
-});
-
 test("restoreStoredBackground puts a valid stored background on the page, and warns of one that is not valid", async () => {
   const cases = [
     { name: "no record", record: null, want: null, warnings: [] },

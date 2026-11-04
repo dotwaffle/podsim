@@ -704,7 +704,6 @@ Thus a tab that shows an older background does not replace a newer background fr
 If the stored background is not valid, the editor shows an error notice and does not delete it.
 The browser keeps it until a new background in the page replaces it.
 The browser keeps the image in the IndexedDB database `podsim-editor-backgrounds-2`, with a random image key, the placement, the opacity, the frame state, and the frame and the license of the image.
-The editor does not read the background of an older editor, which is in the `podsim-editor-backgrounds` database.
 If the browser cannot keep the background, the editor shows an error notice.
 Then export the project to keep the background.
 When the background has changes that are not saved in the browser, the browser asks before you leave or reload the page.
