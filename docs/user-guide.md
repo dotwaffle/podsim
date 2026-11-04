@@ -6,7 +6,7 @@ The [simulation model](model.md) explains why pods behave as they do, and the [r
 
 An order is the request of one party to travel between two stations.
 A lane is a one-way path between two nodes, and the editor controls call it a guideway.
-The README has a glossary of the other terms.
+The [glossary](../README.md#glossary) has the other terms.
 
 ## Simulation view
 
