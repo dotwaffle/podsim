@@ -8,6 +8,7 @@ The [Express qualification](../studies/express-qualification.md) records the qua
 Station buffers and compact station queues were removed on October 7, 2026, because measurements showed that they lowered station entry throughput.
 Clauses that name buffers, buffer certificates, compact queues, or compact certificates now describe cases that cannot occur.
 Their prohibitions and bounds stay as written and are vacuous.
+On November 4, 2026, [the marker removal contract](marker-removal-contract-proposal.md) removed the incident, fault, and emergency markers and raised the saved-state version to 10 and the stream version to 8, so text about these markers or the earlier versions describes the earlier design.
 The opt-in Compact station added in October 2026 (maneuver groups, `internal/sim/maneuver_*.go` and `internal/sim/station_maneuvers.go`) is a different feature, and this removal does not cover it.
 
 Status 2026-10-07: by maintainer decision, the fleet limit is 600 pods and the saved-state cap is 100 MiB.

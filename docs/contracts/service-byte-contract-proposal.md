@@ -5,6 +5,7 @@ The byte caps at approval remained unchanged.
 Since 64b4f3f, the stream JSON cap is 65 MiB, and the gzip message cap is 66 MiB.
 Status 2026-10-07: by maintainer decision, the saved-state and stream byte proofs that this contract requires were deleted.
 At that decision, the fleet limit was 600 pods, the plain queue bound was 5,000 records, and the saved-state cap was 100 MiB.
+On November 4, 2026, [the marker removal contract](marker-removal-contract-proposal.md) removed the incident, fault, and emergency markers and raised the saved-state version to 10 and the stream version to 8, so text about these markers or the earlier versions describes the earlier design.
 
 ## October 15, 2026 amendment
 

@@ -8,6 +8,7 @@ The compact station queue section was deleted with them.
 The opt-in Compact station added in October 2026 (maneuver groups, `internal/sim/maneuver_*.go` and `internal/sim/station_maneuvers.go`) is a different feature, and this removal does not cover it.
 The standing grant requires approval of concrete contract changes before implementation.
 Browser-facing JavaScript, existing defaults, and ordinary safety limits stay in force.
+On November 4, 2026, [the marker removal contract](marker-removal-contract-proposal.md) removed the incident, fault, and emergency markers and raised the saved-state version to 10 and the stream version to 8, so text about these markers or the earlier versions describes the earlier design.
 
 ## Order consent and vehicle compatibility
 
