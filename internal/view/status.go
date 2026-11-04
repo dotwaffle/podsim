@@ -167,18 +167,34 @@ func (g *Game) drawPodLegend(screen *ebiten.Image, scale spriteScale) {
 		g.sprites.draw(screen, spriteDraw{center: sim.Point{X: g.layout.x(x), Y: g.layout.bottom(y + 6)}, key: podMarkSprite(purpose, g.layout.unit), scale: scale})
 		g.label(screen, label{x: g.layout.x(x + 9), y: g.layout.bottom(y), size: 10, value: purpose.label(), color: purpose.color(), physical: true})
 	}
-	// The map draws the Waiting and Selected rings around a pod. The legend
-	// draws them around an idle pod, so a ring of pod size means only an
-	// empty move.
-	for _, marker := range []struct {
-		x     float64
-		value string
-		color uint32
-	}{{x: 480, value: "Waiting", color: amber}, {x: 610, value: "Selected", color: foreground}} {
+	// The map draws the Waiting, Selected, and Incident rings around a pod.
+	// The legend draws them around an idle pod, so a ring of pod size means
+	// only an empty move.
+	for _, marker := range podLegendRings {
 		x, y := g.layout.x(marker.x-3), g.layout.bottom(522)
 		center := sim.Point{X: x, Y: y}
 		g.sprites.draw(screen, spriteDraw{center: center, key: podMarkSprite(purposeIdle, g.layout.unit), scale: scale})
 		g.sprites.draw(screen, spriteDraw{center: center, key: ringSprite(7*g.layout.unit, 1.5*g.layout.unit, marker.color), scale: scale})
-		g.label(screen, label{x: g.layout.x(marker.x + 9), y: g.layout.bottom(516), size: 10, value: marker.value, color: marker.color, physical: true})
+		g.label(screen, g.podLegendRingLabel(marker))
 	}
+}
+
+// podLegendRing is a ring of the pod legend. x is its place in design units.
+type podLegendRing struct {
+	x     float64
+	value string
+	color uint32
+}
+
+// podLegendRings holds the rings of the pod legend. The third ring is nearer
+// than the column spacing of the legend, so that its label stays in the map
+// panel.
+var podLegendRings = []podLegendRing{
+	{x: 480, value: "Waiting", color: amber},
+	{x: 610, value: "Selected", color: foreground},
+	{x: 700, value: "Incident", color: danger},
+}
+
+func (g *Game) podLegendRingLabel(marker podLegendRing) label {
+	return label{x: g.layout.x(marker.x + 9), y: g.layout.bottom(516), size: 10, value: marker.value, color: marker.color, physical: true}
 }

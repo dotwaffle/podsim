@@ -2,6 +2,7 @@ package view
 
 import (
 	"math"
+	"slices"
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/sim"
@@ -309,4 +310,38 @@ func ciede2000(first, second [3]float64) float64 {
 	chroma := deltaC / (1 + 0.045*meanC)
 	hue := deltaH / (1 + 0.015*meanC*t)
 	return math.Sqrt(lightness*lightness + chroma*chroma + hue*hue + rotation*chroma*hue)
+}
+
+// TestPodLegendRingsFit checks that the legend names the danger ring, and that
+// the ring labels stay in the map panel, off each other, and off the buttons,
+// in each layout.
+func TestPodLegendRingsFit(t *testing.T) {
+	t.Parallel()
+	if !slices.ContainsFunc(podLegendRings, func(marker podLegendRing) bool { return marker.color == danger }) {
+		t.Error("the legend has no entry for the danger ring")
+	}
+	for _, layout := range controlLayouts {
+		t.Run(layout.name, func(t *testing.T) {
+			t.Parallel()
+			game := controlTestGame(t, layout.input)
+			right := game.layout.x(24+748) + game.layout.extraX
+			previous := area{}
+			for _, marker := range podLegendRings {
+				got := game.labelArea(game.podLegendRingLabel(marker))
+				if got.right > right {
+					t.Errorf("%s ends at %g, past the map panel at %g", marker.value, got.right, right)
+				}
+				// The ring reaches 10 design units left of the label.
+				if ring := got.left - 10*game.layout.unit; ring < previous.right {
+					t.Errorf("the ring of %s starts at %g, before the end %g of the last label", marker.value, ring, previous.right)
+				}
+				previous = got
+				for _, control := range game.buttons() {
+					if got.overlaps(buttonArea(control)) {
+						t.Errorf("%s overlaps the button %q", marker.value, control.action)
+					}
+				}
+			}
+		})
+	}
 }

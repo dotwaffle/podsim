@@ -67,6 +67,7 @@ The colors stay different with protanopia, deuteranopia, and tritanopia.
 | Ring in a color | A pod that moves empty. |
 | Amber ring around a pod | A waiting pod. |
 | White ring around a pod | The selected pod. |
+| Red ring around a pod | A pod with a fault or an emergency. This ring replaces the amber ring. |
 | White line between pods | Each pod of a [virtual platoon](model.md#virtual-platoons) joined to the pod ahead of it. |
 | Berth ring in a color | The color of a moving or busy pod in the berth. A berth with an idle pod keeps the gray ring. |
 
