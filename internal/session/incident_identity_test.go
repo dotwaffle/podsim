@@ -1,0 +1,176 @@
+package session
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+	"maps"
+	"math"
+	"runtime"
+	"slices"
+	"testing"
+
+	"github.com/dotwaffle/podsim/internal/project"
+	"github.com/dotwaffle/podsim/internal/scenarios"
+)
+
+// incidentIdentityTicks is the length of each run of the rate-0 identity,
+// and incidentIdentityFrame the ticks between two frames that it encodes.
+const (
+	incidentIdentityTicks = 6000
+	incidentIdentityFrame = 600
+)
+
+// TestIncidentRateZeroIdentity checks section 5.1.5 of the incident stage 7
+// contract. Each of the four forms of a rate of 0 gives the digest that the
+// commit before the stage 7 sampler gave, on Busy and on the rail hub, with
+// no command and with a script of fault, debris, emergency, and clear
+// commands. The digest covers the full and the delta frames, and the saved
+// state without its version and project members: the version can move, and
+// the project member keeps its own bytes.
+//
+// A run is deterministic on one architecture only (section 5.1.4), so the
+// digests hold on amd64.
+func TestIncidentRateZeroIdentity(t *testing.T) {
+	t.Parallel()
+	if runtime.GOARCH != "amd64" {
+		t.Skip("the digests are from amd64")
+	}
+	negativeZero := math.Copysign(0, -1)
+	forms := []struct {
+		name        string
+		faults      *project.FaultConfig
+		emergencies *project.EmergencyConfig
+	}{
+		{"absent", nil, nil},
+		{"empty", &project.FaultConfig{}, &project.EmergencyConfig{}},
+		{"zero", &project.FaultConfig{PerHour: new(0.0)}, &project.EmergencyConfig{PerHour: new(0.0)}},
+		{"negative zero", &project.FaultConfig{PerHour: &negativeZero}, &project.EmergencyConfig{PerHour: &negativeZero}},
+	}
+	for _, test := range []struct {
+		name   string
+		preset func() project.Config
+		script bool
+		want   string
+	}{
+		{"busy", scenarios.Busy, false, "69ec6d63a90e9029b1c00b48c9aa78488f7c744c058eb5eb67b8b50f5140884f"},
+		{"busy commands", scenarios.Busy, true, "a3a436c543779b58eb465a812a6b2230804937e29516e81f988f196271830b7f"},
+		{"rail hub", scenarios.RailHub, false, "2175bf81addb819968e90c5d9e9f2898b5aa5c356b7bd72b14597003512d1d7c"},
+		{"rail hub commands", scenarios.RailHub, true, "cbe67983b4be33ef21302d18e1984b5ae80968566979157537ba822bcf2759ab"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			for _, form := range forms {
+				config := test.preset()
+				config.Demand.Enabled = true
+				config.Faults, config.Emergencies = form.faults, form.emergencies
+				if got := incidentIdentityDigest(t, config, test.script); got != test.want {
+					t.Errorf("%s: digest %s, want %s", form.name, got, test.want)
+				}
+			}
+		})
+	}
+}
+
+// incidentIdentityDigest runs a session of config and returns the digest of
+// its frames and its final saved state.
+func incidentIdentityDigest(t *testing.T, config project.Config, script bool) string {
+	t.Helper()
+	s, err := NewWithProject(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(s.Close)
+	s.simulation.SetPaused(false)
+	client := newTestClient(s, "identity")
+	digest := sha256.New()
+	base := sessionFrame(t, s)
+	for tick := 1; tick <= incidentIdentityTicks; tick++ {
+		s.advance()
+		if script {
+			runIdentityScript(t, client, config, tick)
+		}
+		if tick%incidentIdentityFrame != 0 {
+			continue
+		}
+		frame := sessionFrame(t, s)
+		for _, kind := range []string{"full", "delta"} {
+			digest.Write(faultEnvelopeJSON(t, identityFrame(base), identityFrame(frame), kind))
+		}
+		base = frame
+	}
+	if state := s.simulation.ExportState(); state.Tick != incidentIdentityTicks || state.RequestID == 0 {
+		t.Fatalf("the run did not advance with demand: tick %d, orders %d", state.Tick, state.RequestID)
+	}
+	saved, err := decompress(bytes.NewReader(encodeTestState(t, identityFile(t, s))))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var members map[string]jsontext.Value
+	if err := json.Unmarshal(saved, &members); err != nil {
+		t.Fatal(err)
+	}
+	delete(members, "version")
+	delete(members, "project")
+	for _, name := range slices.Sorted(maps.Keys(members)) {
+		digest.Write([]byte(name))
+		digest.Write(members[name])
+	}
+	return hex.EncodeToString(digest.Sum(nil))
+}
+
+// identityFrame returns frame with the session identity fixed.
+func identityFrame(frame StreamFrame) StreamFrame {
+	frame = ownStreamBoardings(frame)
+	frame.State.ServerStart, frame.State.Epoch, frame.State.Build = "identity-start", "identity-epoch", "identity-build"
+	return frame
+}
+
+// runIdentityScript applies the commands of the tick: debris and a clear of
+// it, an emergency, a pod fault and a clear of it, and a pod fault that its
+// duration ends. Each start takes the first target that the session accepts.
+func runIdentityScript(t *testing.T, client *testClient, config project.Config, tick int) {
+	t.Helper()
+	pods := func(command Command) []Command {
+		commands := make([]Command, 0, len(config.Fleet))
+		for _, placement := range config.Fleet {
+			command.PodID = placement.ID
+			commands = append(commands, command)
+		}
+		return commands
+	}
+	switch tick {
+	case 600:
+		var commands []Command
+		for _, lane := range config.Network.Lanes {
+			commands = append(commands, Command{Action: "fault", LaneID: lane.ID, FromMeters: new(1.0), ToMeters: new(3.0)})
+		}
+		identityStart(t, client, commands)
+	case 1200:
+		identityStart(t, client, pods(Command{Action: "emergency"}))
+	case 1800:
+		identityStart(t, client, pods(Command{Action: "fault"}))
+	case 2400, 3000:
+		client.mustApply(t, Command{Action: "clearFault", FaultID: identityActiveFault(client)})
+	case 3300:
+		identityStart(t, client, pods(Command{Action: "fault", DurationSeconds: new(int64(10))}))
+	}
+}
+
+// identityStart applies the commands in order until the session accepts one.
+func identityStart(t *testing.T, client *testClient, commands []Command) {
+	t.Helper()
+	for _, command := range commands {
+		if reply := client.session.Apply(client.next(command)); reply.Error == "" {
+			return
+		}
+	}
+	t.Fatalf("the session refused each %s command", commands[0].Action)
+}
+
+// identityActiveFault returns the ID of the oldest active fault.
+func identityActiveFault(client *testClient) string {
+	return client.session.State().Simulation.Faults.Active[0].ID
+}

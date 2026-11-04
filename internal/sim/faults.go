@@ -79,7 +79,9 @@ type FaultSettings struct {
 // SetFaults turns the fault operations and the fault stage on or off, with
 // the settings. It refuses a delay out of range, and it refuses to turn
 // faults off while a fault is active, because then no clear could end the
-// fault. Reset keeps the settings.
+// fault. Turning faults off stops the fault sampler. No call draws from the
+// sampler, so a call after a restore keeps its stream. Reset keeps the
+// settings.
 func (s *Simulation) SetFaults(enabled bool, settings FaultSettings) error {
 	if settings.EvacuationSeconds < 0 || settings.EvacuationSeconds > maxEvacuationSeconds {
 		return fmt.Errorf("evacuation delay %d s is outside 0 to %d s", settings.EvacuationSeconds, maxEvacuationSeconds)
@@ -88,6 +90,9 @@ func (s *Simulation) SetFaults(enabled bool, settings FaultSettings) error {
 		return fmt.Errorf("%d faults are active", len(s.faults))
 	}
 	s.faultsOn = enabled
+	if !enabled {
+		s.faultSampler, s.faultRate = incidentSampler{}, FaultRate{}
+	}
 	s.faultSettings = faultSettings{evacuationSeconds: int64(settings.EvacuationSeconds)}
 	return nil
 }
@@ -515,8 +520,11 @@ func (s *Simulation) releaseFaultHolds() {
 // of the record footprints, and the fault hold is the only hold, or with
 // emergencies on, the fault hold and the emergency hold are the only
 // holds. With faults off, the stage 1 operations can use each hold, and no
-// record exists.
+// record exists. It also checks F13 of the incident stage 7 contract.
 func (s *Simulation) checkFaults() error {
+	if err := s.faultSampler.check("F13", s.faultsOn, s.tick); err != nil {
+		return err
+	}
 	if len(s.faultReleased) > 0 {
 		return fmt.Errorf("%d released debris resources stay after the release boundary", len(s.faultReleased))
 	}

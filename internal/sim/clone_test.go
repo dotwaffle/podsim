@@ -234,6 +234,9 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		// SavedState has the emergency records and counters, and
 		// the session gives the switch again.
 		"emergenciesOn": persistSession, "emergencies": persistSave, "emergencyCounters": persistSave,
+		// No save has the sampler members yet, so a restore starts with no
+		// sampler.
+		"faultSampler": persistReset, "faultRate": persistReset, "emergencySampler": persistReset,
 		"predictiveQueues": persistUnsupported, "predictivePodQueues": persistUnsupported, "predictiveQueueTick": persistUnsupported,
 		"routingPolicy": persistUnsupported, "congestionRouteCosts": persistUnsupported,
 		"congestionRoutes": persistUnsupported, "nextCongestionRouteRefresh": persistUnsupported,

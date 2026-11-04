@@ -376,9 +376,16 @@ type Simulation struct {
 	// Reset keeps it. emergencies holds the active emergency records in
 	// serial order, and emergencyCounters counts the emergency events.
 	// Reset clears both. See emergencies.go.
-	emergenciesOn          bool
-	emergencies            []emergencyRecord
-	emergencyCounters      emergencyCounters
+	emergenciesOn     bool
+	emergencies       []emergencyRecord
+	emergencyCounters emergencyCounters
+	// faultSampler and emergencySampler start scenario incidents, each from
+	// its own stream. faultRate holds the settings of the fault events. A
+	// switch that turns off stops its sampler, and Reset stops both. See
+	// incident_sampler.go.
+	faultSampler           incidentSampler
+	faultRate              FaultRate
+	emergencySampler       incidentSampler
 	motion                 *motionRecorder
 	expressServices        map[string]ExpressService
 	lengths                map[string]float64
@@ -555,11 +562,12 @@ func prepareFleet(network Network, placements []Placement) (networkPreparation, 
 // Reset restores the initial fleet, clock, and resources. It clears supplied
 // demo requests, the fault records, counters and blocked set, and the
 // emergency records, counters, and no-candidate memo. The new fleet has no
-// hold. It keeps the incident serial, the fault settings, and the emergency
-// switch.
+// hold. It stops both incident samplers, and the caller starts them again.
+// It keeps the incident serial, the fault settings, and the emergency switch.
 func (s *Simulation) Reset() {
 	defer s.observe()
 	s.admissionWork = nil
+	s.faultSampler, s.faultRate, s.emergencySampler = incidentSampler{}, FaultRate{}, incidentSampler{}
 	s.faults, s.faultCounters, s.faultReleased = nil, faultCounters{}, nil
 	s.emergencies, s.emergencyCounters, s.emergencyMisses = nil, emergencyCounters{}, nil
 	if s.blockedActive() {

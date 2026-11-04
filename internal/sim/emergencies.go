@@ -124,12 +124,16 @@ func (s *Simulation) Emergency(podID string, orderID int) (string, error) {
 // off. The session turns them on for every fleet but the demo fleet
 // (section 10.1 of the incident emergency contract). It refuses to turn
 // emergencies off while a record exists, because then no emergency stage
-// could end the record. Reset keeps the switch.
+// could end the record. Turning emergencies off stops the emergency
+// sampler. No call draws from the sampler. Reset keeps the switch.
 func (s *Simulation) SetEmergencies(enabled bool) error {
 	if !enabled && len(s.emergencies) > 0 {
 		return fmt.Errorf("%d emergencies are active", len(s.emergencies))
 	}
 	s.emergenciesOn = enabled
+	if !enabled {
+		s.emergencySampler = incidentSampler{}
+	}
 	return nil
 }
 
@@ -215,8 +219,12 @@ func (s *Simulation) endEmergency(index int) {
 // emergency contract (section 8). checkFaults checks the state part of
 // F11. E2 and E4 hold only with
 // emergencies on: without them, the stage 1 operations can set the
-// emergency hold and purpose 1 with another owner.
+// emergency hold and purpose 1 with another owner. It also checks E9 of the
+// incident stage 7 contract.
 func (s *Simulation) checkEmergencies() error {
+	if err := s.emergencySampler.check("E9", s.emergenciesOn, s.tick); err != nil {
+		return err
+	}
 	if !s.emergenciesOn && len(s.emergencies) > 0 {
 		return fmt.Errorf("E7: %d emergency records exist with emergencies off", len(s.emergencies))
 	}
