@@ -1,8 +1,7 @@
 # Incident stage 7 contract proposal
 
-Status: proposal, not approved.
-Nothing in this document binds until the maintainer approves it.
-It was drafted on November 4, 2026, against `57902a7`.
+Status: approved by the maintainer on November 4, 2026, as option B with amendments A1 to A4, after two review rounds.
+It was drafted against `57902a7`.
 Each `file:line` reference is for that tree, unless it names a commit.
 References to the old `README.md` and `PROJECT_BRIEF.md` name `485f2f5`.
 
@@ -410,9 +409,8 @@ Named exceptions:
 The 44 bytes: `Validate` measures each project with `widestFaults` and `widestEmergencies` (`internal/project/config.go:430`).
 With rates to 60, the widest rate is `1.0000000000000002e-06`, 24 bytes in place of 2 for `-0` (`internal/project/faults.go:61`), in two groups.
 The consent contract avoided a widest change because its member is outside the substituted structs (`docs/contracts/generated-order-consent-contract-proposal.md:68`), and `perHour` is inside them.
-The avoidance here is to keep `-0` for a rate of 0 and to measure a rate above 0 at its own bytes.
-This is sound, because no live command changes a rate, and each apply runs `Validate`.
-It amends suspension 12.1, emergency `:947`, and the marker removal table (`docs/contracts/marker-removal-contract-proposal.md:181`), which all say the widest settings.
+Decision 15 keeps the unconditional widest settings, so the widest rate takes effect for each project.
+The rejected answer kept `-0` for a rate of 0 and measured a rate above 0 at its own bytes, which amends suspension 12.1, emergency `:947`, and the marker removal table (`docs/contracts/marker-removal-contract-proposal.md:181`).
 
 #### 5.1.6 Invariants
 
@@ -445,7 +443,7 @@ Earlier patches test through `sim` entries.
 | Golden first 8 raw draws for seed 1, each sampler | The seed rule, the byte orders, and the uniform form. | Swap a byte order. Use `rand.Rand`. |
 | Event trace fixture, each sampler, with 20 events: for each draw its role and value, then the target, segment, end tick, outcome, and next tick | Draw roles and event meaning, which raw draws cannot show. | Draw the next interval before the event draws. Swap position and duration. Count over all pods in the fault sampler. Round a duration down. |
 | Interval table: `u = 0`, the largest `u`, a rate of 60, and a rate of `1e-300` | `max(1, ...)` and the terminal value. | Drop `max(1, ...)`. Remove the saturation. |
-| Terminal run: set the tick to `MaxCounter-1` with `nextTick` at that tick, then step, save, restore, and check no event and valid F13 and E9 | One terminal rule in all three places. | Use `tick >= nextTick` alone. Remove the exemption from F13 or from the range check. |
+| Terminal run: set the tick to `MaxCounter-1` with `nextTick` at `MaxCounter`, then step, save, restore, and check no event and valid F13 and E9 | One terminal rule in all three places. | Use `tick >= nextTick` alone. Remove the exemption from F13 or from the range check. |
 | Boundary fixture: in one tick, a pod unloads, a fault end comes due, and both samplers come due | The sampler sees the state after the unloading loop (`internal/sim/simulation.go:833`) and before the clears (`internal/sim/faults.go:454`), and the emergency sampler runs before the records. Target and outcome differ for each wrong place. | Move the fault sampler after the clears. Move a sampler before the unloading loop. Move the emergency sampler after the records. |
 | Draw count for each outcome: accepted, each refusal, and `n == 0` | Later events do not depend on outcomes. | Skip the unused draws on a refused event. |
 | Vehicle order: placements in reverse ID order, then a new fleet, a reset, a clone, and both restore tiers | G11. | Remove the sort in `newFleet`. Remove the order check of a saved pod. |
@@ -483,7 +481,7 @@ A number in the Amendment column shows the one change that needs an answer.
 | Contract | Emergency | The same soak, with E1 to E8, F11, W1 to W5, and the new E9 after each tick. | No violation. | |
 | Conservation | Both | The same soaks. | `RequestID = Completed + Interrupted + queued + aboard` at every tick. | |
 | Rail | Suspension | The same soak. | Each interrupted order with a `pending` rail record ends `unserved` with reason `interrupted`. A `missed` record stays `missed`. An order with no record gets none. | |
-| Progress after the clear | Suspension | At hour 24 the test entry stops the samplers, and the driver clears each active fault by command. The 30 minutes start at the last clear, with demand running. | Within 30 simulated minutes, no pod has `faultHold`, no pod has an incident wait, and the waiting queue returns to the size range of a run without faults. A miss lists each remaining wait with its reason and blocker. | |
+| Progress after the clear | Suspension | At hour 24 the test entry sets `nextTick` of each sampler to `MaxCounter`, so no new event starts while the samplers stay live and their counters keep moving, and the driver clears each active fault by command. The 30 minutes start at the last clear, with demand running. | Within 30 simulated minutes, no pod has `faultHold`, no pod has an incident wait, and the waiting queue returns to the size range of a run without faults. A miss lists each remaining wait with its reason and blocker. | |
 | Progress | Emergency | The same soak. | Each record ends, and each record of an ordinary pod ends within 10 simulated minutes. A miss lists each record with its phase and wait reason. | |
 | Choice | Emergency | The estimate of the chosen station against the actual time to the unload. | Reported, not gated. | |
 | Ordinary traffic | Emergency | Admission wait of ordinary intents against a run without emergencies. | Reported, not gated. | |
@@ -728,7 +726,7 @@ Not proposed:
 
 `session.Metrics` and OpenTelemetry, option B, have these instruments:
 
-`podsim.incident.fault.active`, `.started`, `.skipped`, and `.delayed_rider_ticks`, and `podsim.incident.emergency.active`, `.started`, and `.skipped`.
+`podsim.incident.fault.active`, `.started`, `.sampled`, `.skipped`, and `.delayed_rider_ticks`, and `podsim.incident.emergency.active`, `.started`, `.sampled`, and `.skipped`.
 
 They are observable gauges, as the existing journey series are (`internal/telemetry/telemetry.go:236`).
 They do not change a format or a digest.
@@ -925,8 +923,8 @@ Hours are for option B, by judgment, and they exclude the integration row of sec
 | # | Subject | Needs | Option B contents | Option A contents | Hours |
 | ---: | --- | --- | --- | --- | ---: |
 | 1 | `sim: Add the incident sampler state` | None | The types, the idempotent start, the uniform draw, the interval, the terminal rule, `Clone`, `Reset`, F13, E9, and the vehicle order test. | The same. | 3 to 5 |
-| 2 | `sim: Start faults from the sampler` | 1 | The start in ticks, targets, segments, durations, the stage hook, and event trace and boundary fixtures. `sampled`, `skipped`, and the gated fault counters. | The same, with `sampled` and `skipped` only. | 5 to 8 |
-| 3 | `sim: Start emergencies from the sampler` | 1 | `startEmergency`, targets, event trace and boundary fixtures. `sampled`, `skipped`, and the gated emergency counters. | The same, with `sampled` and `skipped` only. | 4 to 5 |
+| 2 | `sim: Start faults from the sampler` | 1 | The start in ticks, targets, segments, durations, the stage hook, and the event trace fixture and a fault-only boundary fixture. `sampled`, `skipped`, and the gated fault counters. | The same, with `sampled` and `skipped` only. | 5 to 8 |
+| 3 | `sim: Start emergencies from the sampler` | 1, 2 | `startEmergency`, targets, the event trace fixture, and the boundary fixture with both samplers. `sampled`, `skipped`, and the gated emergency counters. | The same, with `sampled` and `skipped` only. | 4 to 5 |
 | 4 | `project: Derive the incident rates` | 1 | `EffectiveIncidentRates`, `incidentSeeds`, `ConfigureIncidentSampling`, and a golden seed test. No caller outside tests. Validators do not change. | The same. | 1 |
 | 5 | `session: Save the incident samplers` | 2, 3, 4 | Saved members with pointer presence, exported counters, `Rates` in the restore input, the demo save helper, the refusals, the start calls at session start, reset, apply, and restore, the version rule, golden files, byte proofs, and browser constants if the versions move. | The same, with fewer counters. | 6 to 9 |
 | 6 | `project: Accept incident rates` | 5 | Validators, the widest rate of decision 15, both tool refusals, session lifecycle and parity tests, size boundary, and the settings text of `docs/operations.md`. | The same. | 4 to 6 |
@@ -1003,3 +1001,5 @@ These must be measured before or during the work:
 | 9 | Accepted | `nextTick` is a pointer, and the explicit-zero table is in section 4.3. |
 | 10 | Accepted | G11 was wrong: `s.vehicles` is in ID order, and a test pins it. |
 | 11 | Accepted | `emergencyTicks / ended` is not a completed mean, so `endedTicks` adds 30 bytes, by decision 11. |
+
+The second round found no blocker, and all five of its findings are accepted: the soak stop keeps the samplers live, the fixture with both samplers moves to patch 3, the terminal fixture starts valid, the text of the rejected answer to decision 15 is marked, and the instruments list `sampled`.

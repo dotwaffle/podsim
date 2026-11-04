@@ -155,7 +155,7 @@ An approved contract in `docs/contracts/` is binding, and each document gives it
 | [Service transitions](docs/contracts/incident-service-transitions-contract-proposal.md), [suspension](docs/contracts/incident-suspension-contract-proposal.md), [emergency](docs/contracts/incident-emergency-contract-proposal.md) | The incident stages. |
 | [Marker removal](docs/contracts/marker-removal-contract-proposal.md) | Faults and emergencies with no project switch. |
 | [Generated-order consent](docs/contracts/generated-order-consent-contract-proposal.md) | The `generatedOrderConsent` setting. |
-| [Incident stage 7](docs/contracts/incident-stage7-contract-proposal.md) | Random faults and emergencies. A proposal that is not yet approved. |
+| [Incident stage 7](docs/contracts/incident-stage7-contract-proposal.md) | Random faults and emergencies. Approved, and not yet implemented. |
 
 ### Designs
 

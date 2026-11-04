@@ -124,7 +124,7 @@ The pickup and busy-station service problems stay unresolved.
 Faults and emergencies are always on, with no project switch, as the [marker removal contract](docs/contracts/marker-removal-contract-proposal.md) sets.
 The exception is the traffic demo: they are off during it and stay off until a reset or a project apply.
 Stages 1 to 3 of the incident work landed, and stages 4 to 6 were dropped with no contracts.
-The maintainer reopened stage 7 on November 4, 2026, for the scenario rates, and it has no contract yet.
+The maintainer reopened stage 7 on November 4, 2026, for the scenario rates, under [its contract](docs/contracts/incident-stage7-contract-proposal.md).
 
 ### Rider emergency stop
 
