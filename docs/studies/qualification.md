@@ -29,7 +29,7 @@ They do not replace scenario qualification or authorize policy adoption.
 | Platoon queues | [Qualification follow-up](platoon-followup.md), [Paddington reservation and resource histories](../design/experimental-adoption.md#rejected-candidates) | Paddington traces do not justify a clearance change. |
 | Terminus throughput | [Burst measurements](buffer-late-claim.md#terminus-burst-service) | The removed buffers increased waits in the selected outbound Central bursts and lowered [station entry throughput](buffer-late-claim.md#station-entry-throughput). Geometry and supply causes remain diagnostic work. |
 | Server performance | [Live server and GC](admission-live-performance.md) | Live results cover two short repetitions per case. GC defaults remain unchanged. |
-| Experimental adoption | [Proposed gates](../design/experimental-adoption.md) | Individual-tail and capacity thresholds need agreement before a default change. Historical 300-second counts remain diagnostics. |
+| Experimental adoption | [Approved gates](../design/experimental-adoption.md) | The maintainer approved the limits on October 1, 2026. They authorize no default change. Historical 300-second counts remain diagnostics. |
 | Tests and restarts | [Test timing](test-speed.md), [diagnostic study performance](study-performance.md), [experimental policy file restarts](experimental-policy-restarts.md) | Study timings cover one matched LondonFull workload. File tests do not simulate power loss. |
 
 Current-source follow-ups retain their own fixtures and limits:

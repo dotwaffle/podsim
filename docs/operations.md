@@ -11,7 +11,7 @@ go build -trimpath -tags=embed_assets -o podsim-server ./cmd/serve
 
 The executable contains the HTML, CSS, JavaScript, and gzip WASM files.
 It does not contain an uncompressed WASM module.
-This keeps the executable at about 35 MB, not 64 MB.
+This keeps the executable at about 41 MB, not 65 MB.
 The server decompresses the module in memory only for a client without gzip or for a Range request.
 It does not need a `dist` directory at runtime.
 The `-dir` option overrides embedded files for development.
@@ -901,7 +901,7 @@ mise run check
 | --- | --- |
 | `mise run check` | Workflow validation, Markdown checks, race tests, the tests that skip under the race detector, the `test:web` tests, vet, lint, vulnerability checks, the native and browser builds, and the embedded server tests. It runs `check:static`, `qualify`, and the three race tasks one after another, and stops at the first failure. |
 | `mise run format` | Formats the Go sources and the Markdown files. |
-| `mise run test:quick` | `go test -short ./...`. It skips the long tests of `internal/sim`, `internal/session`, `internal/project`, `internal/scenarios`, `cmd/compare`, and `cmd/serve`. The race tasks and `test:embedded` run them. |
+| `mise run test:quick` | `go test -short ./...`. It skips the long tests. The race tasks and `test:embedded` run them. |
 | `mise run lint` | actionlint, rumdl, `go vet`, golangci-lint, and the check that `podsim.wasm` does not link cloud storage. |
 | `mise run check:static` | The checks other than the race tests and `qualify`: `test:web`, `lint`, `vulncheck`, `build`, and `test:embedded`. |
 | `mise run test:race` | The `test:race:sim`, `test:race:session`, and `test:race:other` tasks. |
@@ -922,7 +922,8 @@ The `test:web` task sets `PODSIM_REQUIRE_GO=1`, so a missing Go makes the task a
 GitHub Actions runs the same check on pull requests, pushes to `main`, and version tags.
 The workflow also supports a manual trigger.
 It splits the check into five parallel jobs: `test:race:sim`, `test:race:session`, `test:race:other`, `qualify`, and `check:static`.
-After all five pass, a push or a manual run publishes the container image.
+After all five pass, a version tag or a manual run publishes the container image.
+A push to `main` runs the checks and publishes no image.
 New pull-request updates cancel older runs.
 Each `main` push keeps its own run.
 The workflow uses major-version action tags and installs tools from `mise.lock`.

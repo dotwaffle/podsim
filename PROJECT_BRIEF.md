@@ -25,7 +25,7 @@ See [README.md](README.md) for controls, validation commands, and current model 
 **Current work status, October 19, 2026:**
 
 LondonCentral (`london-central`) retains the central qualification network and its 2019 demand.
-[LondonFull](docs/london-full.md) adds 269 Tube sites with 2024 endpoint demand.
+[LondonFull](docs/london-full.md) has 309 sites, 269 Tube and 40 DLR, with 2024 endpoint demand.
 Its [308-arm post-fix study](docs/studies/london-full-postfix.md) tested 60 minutes of arrivals with up to 60 minutes to recover.
 Six historical cases improve recovery after the parking diversion fix.
 No fleet candidate established an all-ten recovery improvement at its next tested rate.
@@ -95,7 +95,8 @@ The [route preference and commitment fix](docs/studies/berth-route-preference.md
 Sharing remains off by default.
 The opt-in `reassign-existing` join policy and guarded-positioning follow-up still fail adoption rules.
 These results do not reverse the earlier adoption of the drop-offs mode when sharing is enabled.
-Larger pods exist only in the opt-in Express contract (see the [Express qualification](docs/studies/express-qualification.md)), and no default changes.
+The [Group class](docs/design/group-physics-design.md) has 8 seats, and the opt-in Express contract (see the [Express qualification](docs/studies/express-qualification.md)) has 20 seats.
+No default changes.
 The bounded [predictive routing prototype](docs/studies/predictive-routing.md) is implemented for comparison, with free-flow routing retained by default.
 Local Chromium software-rendering checks cover the viewer, editor, and high-latency streams.
 Desktop Chrome is the required browser for current development.
@@ -324,7 +325,7 @@ Keep demand generation, dispatch, route choice, and physical movement separate:
 These boundaries allow later experiments to change one policy while retaining the same network and movement model.
 Use explicit types and functions.
 Add interfaces when there is a concrete need for interchangeable policies.
-Do not implement mixed fleets, transfers, or platooning to establish these boundaries.
+These boundaries did not need mixed fleets, transfers, or platooning.
 
 ### What a later Three.js version would involve
 
@@ -458,7 +459,7 @@ The network does not include stored tunnel depth or map pixels.
 The optional live map supplies a geographic backdrop.
 Automatic guideway generation and editable OSM vectors are shelved at the user's request.
 Local georeferenced image import is implemented and preserves frame and attribution data.
-LondonFull is a separate generated preset with 269 passenger sites and 2024 endpoint demand.
+LondonFull is a separate generated preset with 309 passenger sites, 269 Tube and 40 DLR, and 2024 endpoint demand.
 Its [308-arm post-fix study](docs/studies/london-full-postfix.md) repeats the original 302 arms and adds six conditional AM peak cases.
 It uses 60 minutes of arrivals and up to 60 minutes to recover.
 No fleet candidate met the all-ten recovery criterion at its next tested rate.
@@ -549,7 +550,7 @@ See [docs/studies/qualification.md](docs/studies/qualification.md#same-destinati
 The drop-offs mode, a part of step 3, is the default mode when sharing is on.
 A party can join a boarding pod that passes its destination, or a pod that can add that destination as its last stop.
 The pod stops at each destination on its way.
-The stops do not change after the pod departs, and a pod with passengers does not pick up parties.
+The stops do not change after the pod departs, and a pod with passengers picks up parties only with the opt-in `onboardPickups` setting.
 A pod adds a stop only when the planned detour ratio of each party, new or aboard, is 1.5 or less.
 In London at a limit of 4, the mode raises five 60-minute band limits and lowers the journey time, the wait, and the empty distance in each band.
 The first measurement did not meet two of the seven adoption rules, because five arms ended late and the largest detour ratio was 1.509.
@@ -565,7 +566,7 @@ The editor authors plans and the comparison tool retains offered identities, inc
 Outbound train plans, request windows, transfer deadlines, connection outcomes, editor controls, and restart accounting are implemented.
 The bounded forecast controller remains comparison-only after its selected service screen failed.
 Repeating [daily demand profiles](docs/daily-demand.md) and morning/evening park-and-ride authoring are implemented.
-Explicit car journeys and parking capacity remain later work.
+Offline car journeys and parking capacity are in [`cmd/parkride`](docs/design/car-journey-design.md), and the live simulation does not run them.
 
 Point-to-point pod journeys can already concentrate at a hub.
 Further studies can test achievable train connections and station throughput under different demand schedules.
@@ -583,7 +584,7 @@ Represent outbound trains with departure times and a minimum transfer time.
 This allows connection experiments without first implementing a full railway simulator.
 
 For a park-and-ride hub, use time-varying arrivals and departures to represent morning and evening flows.
-Later experiments can add parking capacity or explicit journeys by car.
+The offline `cmd/parkride` command adds parking capacity and explicit journeys by car.
 
 Study loading areas, vehicle storage, and station exits as separate possible bottlenecks.
 Measure queue-clearance time, waiting-time distributions, missed connections, and unmet demand.
@@ -675,8 +676,8 @@ Decisions (user, 2026-10-04):
 - A game control on an occupied pod, a scenario rate, and a protocol command can each start an emergency.
 - The pod drops all of its later work.
   Its pending pickups go back to dispatch as ordinary orders and keep their original request times.
-- The feature is off by default.
-  When a scenario does not enable it, the protocol command is refused with `command_rejected`.
+- The feature was off by default at first.
+  It is now on in each session, with no project switch.
 
 Open question: how the game and the metrics show the event.
 
@@ -685,7 +686,8 @@ Open question: how the game and the metrics show the event.
 **Status:** Implemented, and on in each session except during the traffic demo (see [faults](docs/operations.md#faults)).
 The `fault` command and the **Fault** button of the pod inspector start a fault.
 There is no scenario fault rate, and pods do not reverse.
-The maintainer stopped the incident work after stage 3.
+The maintainer stopped the incident work after stage 3 and reopened stage 7 on November 4, 2026.
+Stage 7 has no contract yet.
 The user noted this idea on 2026-10-04.
 
 A pod stops and cannot move until an operator clears it.
@@ -712,8 +714,8 @@ Decisions (user, 2026-10-04, later):
 - A fault can occur anywhere.
   At a station berth, the berth is blocked.
   In a station entry queue, the pods behind it reverse or change route.
-- The feature is off by default.
-  When a scenario does not enable it, the protocol command is refused with `command_rejected`.
+- The feature was off by default at first.
+  It is now on in each session, with no project switch.
 
 Open questions: routes, pickups, and berth reservations that use the blocked lane, and how the metrics show the effect on service.
 

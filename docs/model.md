@@ -36,9 +36,11 @@ With `-project`, **Start demand** saves this setting in the file, so demand star
 
 ### Parties
 
-One party contains one passenger.
+A party is the group of passengers of one order, from 1 to 8 passengers, or from 1 to 20 with the Express contract.
+Generated and demo orders have one passenger and are private.
+A generated order is shared only when the project sets `generatedOrderConsent` to `shared`, and a manual order is shared when the party allows it.
 By default, each party uses one pod.
-An optional limit of two to eight lets waiting parties join a pod that is still boarding at their origin.
+An optional limit of two to eight lets waiting parties join a pod that is still boarding at their origin, when each party in the pod has shared consent.
 The project setting `sharedRideMode` selects the parties that can join:
 
 | Mode | Parties that can join |
@@ -68,7 +70,8 @@ The default is 3.
 The stops do not change after the pod departs.
 At each stop, the parties for that stop alight, and the pod continues to its next stop with the other parties.
 While it waits for track at such a stop, its activity is **Continuing**.
-Sharing does not wait for more parties, and a pod with passengers does not pick up parties on its way.
+Sharing does not wait for more parties.
+A pod with passengers picks up parties on its way only with the project setting `onboardPickups`, which needs a limit above one and the `drop-offs` mode (see [onboard pickup design](design/onboard-pickup-design.md)).
 
 The project setting `sharedRideJoin` selects the waiting parties that can join by their pickup state:
 

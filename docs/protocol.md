@@ -747,7 +747,9 @@ When two frames both have a `serverStart` ID and the IDs are different, the serv
 This rule also finds a restart when the client did not get the first frames after the restart, for example in a hidden browser tab.
 The client does not show a notice for its first frame.
 
-When one of the two frames has no `serverStart` ID, the server is older, and the client uses the epoch and the restore tier.
+The stream refuses a frame without a `serverStart` ID, so two stream frames always have IDs to compare.
+The client code keeps one more rule for two frames when one of them has no ID, and that rule uses the epoch and the restore tier.
+This rule is not a promise about other server versions.
 Only a restart makes a new epoch.
 With a kept epoch, the first frame after the restart has a new generation, a `restore` tier of `physical` or `logical`, and no save points.
 A reset, a demo, and a project apply that replaces the fleet remove the `restore` key, and a rewind keeps the save points.

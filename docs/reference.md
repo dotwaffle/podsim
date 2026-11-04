@@ -16,6 +16,9 @@ This limit lets the server read the file at the next start.
 The browser export wraps the `project` object as `scenario` and can also contain a background image.
 **Import JSON** accepts the browser export and the server file, such as the output of `mise run scenario`.
 When the file leaves out an optional setting, such as the party limit, the shared ride mode, or the platoon limit, the import uses the default value.
+The optional top-level member `generatedOrderConsent` is `private` or `shared`, and an absent member means `private`.
+It applies to each order that the demand run offers, with each pattern, and not to the traffic demo.
+The compare command ignores it.
 `-project` does not accept the browser export.
 
 ## Project files and validation
@@ -103,7 +106,9 @@ The report includes:
 - Peak queues and berth use at the focus station.
 - Passenger and empty travel, loaded-distance percentage, and positioning moves.
 
-The default comparison uses a Market-heavy pickup forecast and identical initial fleets.
+The default `hotspot` pattern favors one station, in the requests and in the station weights that guarded positioning reads.
+That station is the `-focus` station, then the `demand.destination` of the project, then a station with the ID `market`, then the last passenger station.
+Each arm starts with the same fleet.
 Schedule IDs identify the identical requests used for each off/on pair.
 The `on` policy is guarded positioning, as in the server.
 The compare command gives the policy no configured rate, so the gate reads the mean rate of the accepted requests.
@@ -142,7 +147,7 @@ The default `-pattern` is `hotspot`.
 | `-platoon-policies off,virtual` | The experimental platoon A/B. `virtual` lets queued pods follow the pod ahead at a short gap. |
 | `-pickup-reassignment off,on` | Compare independent pickup reassignment settings. The default is off. |
 | `-queue-limit` | Change the limit of 200 pending requests. At the limit, the comparison skips new arrivals. |
-| `-sharing-consent shared` | Give every offered party the consent `private` (default) or `shared`. See [sharing consent](compare-sharing-consent.md). |
+| `-sharing-consent shared` | Give every offered party the consent `private` (default) or `shared`. The command ignores `generatedOrderConsent` in the project. See [sharing consent](compare-sharing-consent.md). |
 | `-onboard-pickups off,on` | Compare occupied pickup policies. `on` needs a party limit above 1 and the drop-offs mode. |
 | `-energy-file` | Add energy estimates from an authored energy model file. See [energy model design](design/energy-model-design.md). |
 | `-rail-forecast` | Position empty pods for known rail offers. See [scheduled train connections](rail-connections.md). |

@@ -157,6 +157,9 @@ See [the London qualification network](london.md) for these rules.
 - When the stations do not fit in one row, select **‹** or **›** to show the other stations, or click the station on the map.
 - When **From** and **To** are the same station, **Order [Enter]** is disabled.
   The line below **From** and **To** then shows **Choose a different destination.** in amber.
+- Beside **To**, select **−** and **+** to set the size of the party, from 1 to 8, or from 1 to 20 with the Express contract.
+  Select **Private party** to change it to **Share allowed**, so that the party can ride with other parties that also allow it.
+  A party waits in the queue with the status **Waiting for a certified vehicle that fits this party and route** when no pod of the fleet can take it.
 - An idle local pod serves the order.
   Otherwise, the nearest available empty pod comes to collect the passenger.
 - Orders wait when no pod is available.
@@ -287,7 +290,7 @@ The demo starts four pods: pod 01 at Harbor, pod 02 at Garden, and pods 03 and 0
 Use 15x speed to see the experiment in about 22 seconds if the server keeps up, or select a lower speed to inspect a queue.
 
 Starting the demo resets the current run and disables automatic demand.
-The demo uses the shared ride and platoon settings of the project, so with sharing on, a party can join a pod in the demo.
+The demo uses the shared ride and platoon settings of the project, but its orders are private, so no party joins a pod in the demo.
 The demo also disables manual requests until it ends.
 The four pods remain available after it ends.
 **Reset** stops the demo and restores the configured fleet.
@@ -323,6 +326,9 @@ The traffic patterns:
 - Daily profiles repeat authored bands across simulated days.
   Gaps and zero-rate bands generate no traffic.
   See [repeating daily demand](daily-demand.md) for rates, authoring, and restart behavior.
+
+Generated passengers ride alone unless the project sets `generatedOrderConsent` to `shared`.
+See [the project file](reference.md#project-file).
 
 Starting demand or changing enabled settings restarts the stream and its counters.
 Pause stops both movement and arrivals.
@@ -430,6 +436,8 @@ The draft stays local until you select **Pause and apply**.
   The project file has no bearing field.
   The editor gets the bearing from the entry and exit positions.
 - Set the passenger generation option, rate, pattern, destination, OD profile, time band, party limit, shared ride mode, stop limit, platoon limit, seed, and redistribution option.
+  The **Generated passengers** select in the shared ride section is **Private** or **Shared**.
+  **Shared** writes `generatedOrderConsent` to the project, and **Private** deletes it.
   The stop limit shows only for the drop-offs mode.
 - Use **Create a park-and-ride profile** for weighted morning departures and evening returns.
   The creator records one undo step and selects daily demand.

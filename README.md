@@ -123,7 +123,7 @@ See [session state logs](docs/operations.md#session-state-logs) for the logs.
 
 `go generate ./...` builds the browser application and the gzip WASM file.
 An `embed_assets` server build contains all browser files in one executable.
-The executable holds only the gzip WASM file, so it is about 35 MB and not 64 MB.
+The executable holds only the gzip WASM file, so it is about 41 MB and not 65 MB.
 
 The project also includes a non-root, multiarchitecture ko image and a GHCR publishing workflow.
 The server provides `/healthz`, opt-in pprof on a separate listener, and opt-in OTLP telemetry.
