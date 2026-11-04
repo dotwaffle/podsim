@@ -273,7 +273,7 @@ An order stays in `riders` with `completed` set to `true` after the party leaves
 With a party limit above 1 in the default `drop-offs` mode, `stops` can have more than one station.
 A pod omits each key when its array is empty.
 
-A pod in a [virtual platoon](../README.md#virtual-platoons) also has `platoonID` and `platoonIndex`.
+A pod in a [virtual platoon](model.md#virtual-platoons) also has `platoonID` and `platoonIndex`.
 `platoonID` is the ID of the first pod of the platoon.
 `platoonIndex` is the position of the pod in the platoon, from 1 for the first pod.
 Thus the pod ahead of a pod with index 3 has the same `platoonID` and index 2.
@@ -418,7 +418,7 @@ A `project` command gets `command_rejected` when the project fails validation, f
 A lane counts at its start node and at its end node.
 The total of the lane pairs at the nodes, the node coordinates, and the total of the track cells of the lanes also have limits.
 Two lanes with the same start node, end node, and path also give `command_rejected`.
-See [project files and validation](../README.md#project-files-and-validation) for all limits.
+See [project files and validation](reference.md#project-files-and-validation) for all limits.
 
 ## Save points
 

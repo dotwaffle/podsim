@@ -3,7 +3,7 @@
 Status: release readiness on October 19, 2026, trimmed on November 4, 2026.
 The report pinned `201031792a4c52aad621953b2f55ea897865ec55`.
 Limit tables, version pins, hosted check results, and the CI failure history were removed.
-Git history keeps them, and the README and the [operations guide](../operations.md) give the current limits and versions.
+Git history keeps them, and the [reference](../reference.md) and the [operations guide](../operations.md) give the current limits and versions.
 This report does not authorize deployment, default adoption, or a cap change.
 Physical coupling was removed on October 6, 2026, and the [platoon coupling comparison](../studies/platoon-coupling-comparison.md) is the decision record.
 Express remains opt-in; see the [Express qualification](../studies/express-qualification.md).
@@ -75,7 +75,7 @@ Maximum Express costs limit responsive operating claims within the opt-in qualif
 Forecast and archived service failures still block experimental adoption and capacity claims.
 No acceptance waiver follows from a successful build or a passing Check.
 
-The README records the 32 MiB project limit and the 43 MiB editor import limit.
+The [reference](../reference.md) records the 32 MiB project limit, and the [user guide](../user-guide.md) records the 43 MiB editor import limit.
 The [dependency review](dependencies.md) retains its source-specific advisory and filesystem trust-boundary notes.
 
 Deployment remains separately authorized.

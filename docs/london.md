@@ -196,7 +196,7 @@ mise run serve -- -project /tmp/podsim-london.json
 The generated project has 99 stations, 1,907 nodes, 3,248 lanes, and 114 pods.
 Project validation checks directed reachability between all passenger berths.
 The preset starts with automatic demand and redistribution disabled.
-It turns on [virtual platoons](../README.md#virtual-platoons) with at most 4 pods in a platoon.
+It turns on [virtual platoons](model.md#virtual-platoons) with at most 4 pods in a platoon.
 
 A project can have at most 600 stations, 12,000 nodes, and 20,000 lanes.
 The lane pairs at the nodes can be at most 250,000 in total.
@@ -219,7 +219,7 @@ Until the berths of a station separate on the screen, the station shows one mark
 The marker of a passenger station is at its junction, at the mean position of its arrival portals.
 This point is within about 60 meters of the TfL station position.
 The berths are about 250 to 430 meters away, and their rings replace the marker when you zoom in.
-At the largest zoom, each station shows its berths, also the 6-meter slots of a depot and the Compact bays (see [Map navigation](../README.md#map-navigation)).
+At the largest zoom, each station shows its berths, also the 6-meter slots of a depot and the Compact bays (see [Map navigation](user-guide.md#map-navigation)).
 A Parking marker stays at the center of its depot slots, so it does not cover the marker of its gateway station.
 The project also has more than 100 lanes, so the map sizes change with the zoom.
 A marker has a radius of 150 meters on the map, but at least 3 and at most 10 CSS pixels.
@@ -301,4 +301,4 @@ The capacity tests in the [qualification results](studies/qualification.md#more-
 
 On a London station, the editor **Add physical berth** button adds one more row at the end of the berth chain.
 The row gets the IDs that the scenario command gives to one more berth.
-See [Edit the network](../README.md#edit-the-network).
+See [Edit the network](user-guide.md#edit-the-network).

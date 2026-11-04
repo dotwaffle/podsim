@@ -17,6 +17,31 @@ Neither report replaces the historical qualification matrices below or authorize
 The weighted redistribution policy that guarded positioning replaced, and studies whose numbers no current setting or test uses, are not in this record.
 The raw data of those studies is in git history.
 
+## Measurement reports
+
+These reports record tested workloads and their limits.
+They do not replace scenario qualification or authorize policy adoption.
+
+| Area | Records | Main limitation |
+| --- | --- | --- |
+| LondonFull | [Post-fix capacity](london-full-postfix.md), [combined controllers](../design/experimental-adoption.md#rejected-candidates), [mirrored layout](station-mirror-load.md) | Finite recovery and growing backlogs do not establish sustainable capacity. |
+| Pickup swaps and removed buffers | [Sustained and finite-schedule comparison](pickup-swap-sustained.md), [pickup tails](../design/experimental-adoption.md#rejected-candidates), [berth-route preference](berth-route-preference.md) | Better averages coexist with slower individual requests. Pickup swaps stay off by default, and station buffers were removed on October 7, 2026. New routes avoid intermediate berths when a compatible path exists. |
+| Platoon queues | [Qualification follow-up](platoon-followup.md), [Paddington reservation and resource histories](../design/experimental-adoption.md#rejected-candidates) | Paddington traces do not justify a clearance change. |
+| Terminus throughput | [Burst measurements](buffer-late-claim.md#terminus-burst-service) | The removed buffers increased waits in the selected outbound Central bursts and lowered [station entry throughput](buffer-late-claim.md#station-entry-throughput). Geometry and supply causes remain diagnostic work. |
+| Server performance | [Live server and GC](admission-live-performance.md) | Live results cover two short repetitions per case. GC defaults remain unchanged. |
+| Experimental adoption | [Proposed gates](../design/experimental-adoption.md) | Individual-tail and capacity thresholds need agreement before a default change. Historical 300-second counts remain diagnostics. |
+| Tests and restarts | [Test timing](test-speed.md), [diagnostic study performance](study-performance.md), [experimental policy file restarts](experimental-policy-restarts.md) | Study timings cover one matched LondonFull workload. File tests do not simulate power loss. |
+
+Current-source follow-ups retain their own fixtures and limits:
+
+- [Pickup tails](../design/experimental-adoption.md#rejected-candidates) trace selected reassignment regressions without finding a new movement defect, and show how one early swap changes later pickup availability.
+- [Policy failures](policy-failures.md) retain selected platoon, sharing, and positioning failures after the routing fixes, and separate earlier pickup changes, percentile ranks, and same-request delays.
+- [Paddington position trials](../design/experimental-adoption.md#rejected-candidates) improve selected full-restoration outcomes, but reject both partial layouts on safety.
+- [Controller and capacity trials](../design/experimental-adoption.md#rejected-candidates) retain Acton overload, individual regressions, unfinished six-hour AM baselines, and exhausted AM14/AM15 pickup supply.
+- [Buffer claims and station speed](buffer-late-claim.md#acton-buffer-discharge-and-station-speed) retain the Acton buffer loss and negative lower-speed trials.
+- [Predictive service trials](../design/experimental-adoption.md#rejected-candidates) leave matched request outcomes unchanged.
+- [Predictive cost trials](admission-live-performance.md#predictive-routing-cost) measure CPU, allocation, and GC tradeoffs separately from service outcomes.
+
 ## Scale and safety
 
 The measured ring fixture has 20 stations, including one parking station, and 100 pods in 138 berths.
@@ -554,7 +579,7 @@ Thus the older files do not have the columns that version 6 adds, such as `wait_
 The platoon A/B file has the columns of version 6, and the `platoon_policy` and `coupled_time_percent` columns that version 9 adds.
 The platoon capacity file comes from version 9, so it also has the rider columns of version 8.
 The seat screen files come from version 10, so they also have the seat screen columns.
-See [report columns](../../README.md#report-columns) for the definitions.
+See [report columns](../reference.md#report-columns) for the definitions.
 
 At the limit rate, every seed has all 114 pods with work at the same time in AM peak, Interpeak, PM peak, Evening, and Late.
 The highest seed peak at the limit rate is 104 pods in Early, 99 pods in Morning, and 105 pods in Night.
@@ -816,7 +841,7 @@ The raw results are in git history.
 ### Drop-offs sharing in London
 
 In the `drop-offs` mode, a party can join a boarding pod that passes its destination or that can add it as a stop.
-See [parties](../../README.md#parties).
+See [parties](../model.md#parties).
 This measurement compares the mode with same-destination sharing at a party limit of 4, with the default stop limit of 3.
 The code at commit `a06afef` gives the recorded values.
 The compare command writes report `schema_version` 8.
@@ -933,7 +958,7 @@ The raw results are in git history.
 #### Drop-offs with a detour cap
 
 Since commit `b6d2b1d`, a pod in the `drop-offs` mode adds a stop only when the planned detour ratio of each party, new or aboard, is at most 1.5.
-See [parties](../../README.md#parties).
+See [parties](../model.md#parties).
 The plan uses the berth at each stop that gives the largest ratio, so the cap also refuses some joins that end with a measured ratio below 1.5.
 A leg on a costed route and a change to another berth get the same check.
 When a costed leg fails the check, the pod takes the free-flow leg, which the plan used.
@@ -1455,7 +1480,7 @@ It has no physical model of a larger pod.
 Each pod keeps its 4 m body, its acceleration, and its dwell, so the 8-seat arms give an optimistic gain.
 Both arms use the drop-offs mode with the stop limit of 3 and the detour cap of 1.5.
 The arms are Early, Night, and AM peak in London, and the rail-hub schedule.
-See [report columns](../../README.md#report-columns) for the seat screen columns.
+See [report columns](../reference.md#report-columns) for the seat screen columns.
 
 The 4-seat and 8-seat arms have equal 60-minute limits: 15/min in Early, which is the highest tested rate, 11/min in Night, and 14/min in AM peak.
 The 4-seat arms refuse a fifth party for 3.70% of the served requests in Early and 2.82% in rail-hub.
@@ -1472,7 +1497,7 @@ The `reassign-existing` join policy remains opt-in.
 It improves average journeys, but fails the all-band adoption rules.
 Late and Morning each lose one capacity step, from 13/min to 12/min.
 The default remains `unassigned`, and sharing remains off unless the party limit exceeds one.
-See [parties](../../README.md#parties) for the policy semantics.
+See [parties](../model.md#parties) for the policy semantics.
 
 These experiments used four parties per pod, drop-offs mode, three intermediate stops, a 1.5 detour cap, virtual platoons, free-flow routing, and redistribution off.
 London arms admitted requests for 30 minutes and ran for up to 65 minutes, stopping when drained.

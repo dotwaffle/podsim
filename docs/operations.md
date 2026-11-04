@@ -31,6 +31,21 @@ The WASM module is an exception, because a browser can check its ETag.
 The application serves `GET /healthz` without reading simulation state.
 The response is `200 OK` with the body `ok` and a newline.
 
+### Compression and the WASM module
+
+State stream messages always use gzip.
+HTTP snapshots and browser assets use gzip when the client supports it.
+Range responses remain uncompressed.
+
+The build keeps only `podsim.wasm.gz`, which it compresses at the maximum level one time.
+The server sends these bytes to browsers that accept gzip.
+For a client without gzip or for a Range request, the server decompresses the module on the first request and keeps it in memory.
+Byte ranges then use the offsets of the uncompressed module.
+The build writes `podsim.wasm.gz` to a temporary file and then renames it, so a running server never reads a partial module.
+
+The server sends the module only from `podsim.wasm.gz`, also when the directory has a `podsim.wasm` file.
+A `-dir` directory without `podsim.wasm.gz` answers `404` for the module, so the page then shows that it could not start.
+
 ## Build ID
 
 At startup, the server makes a build ID from the browser files that it serves.
@@ -252,12 +267,12 @@ It reports them as unaccounted orders at each restore, together with the orders 
   The tier fails when two pods at berths conflict, or when a traveling pod finds no free berth.
   Its parties board again at their origin station, or go back to the queue.
   In the `drop-offs` mode, the parties go back to the queue when the stops from the free berth take a party over the detour cap of 1.5.
-  A pod in a [virtual platoon](../README.md#virtual-platoons) keeps its link to the pod ahead, with the same run of lanes, turn, and clearance.
+  A pod in a [virtual platoon](model.md#virtual-platoons) keeps its link to the pod ahead, with the same run of lanes, turn, and clearance.
   The tier checks each saved link against the network and the other pods, and a link that is not valid fails the tier.
   A run can end on the entry lane of the destination station of both pods.
   A run that holds a lane from the entry node of that station, or the entry lane of another station, is not valid.
-  A run that holds a lane of a [maneuver group](../README.md#compact-bays) is not valid.
-  A run that holds a lane of a [depot](../README.md#parking-depots) is not valid.
+  A run that holds a lane of a [maneuver group](model.md#compact-bays) is not valid.
+  A run that holds a lane of a [depot](model.md#parking-depots) is not valid.
   The file does not keep the platoon limit, so the restore uses the `platoonLimit` of the project.
   The file keeps the shared ride mode.
   A file without the mode restores in the default `drop-offs` mode.
@@ -385,9 +400,9 @@ Then the party of the record must be aboard the pod, and `interrupt` must name o
 A pod with a record and purpose 2 or 3 must have no party aboard.
 Bank-inconsistent retained routes reject restoration before either tier.
 See [independent station banks](station-banks.md) for bank membership, routing, and browser editing.
-The optional network member `maneuverGroups` of the [compact bays](../README.md#compact-bays) keeps the save version 10, the stream version 8, and the HTTP state `state-7`.
+The optional network member `maneuverGroups` of the [compact bays](model.md#compact-bays) keeps the save version 10, the stream version 8, and the HTTP state `state-7`.
 A network without groups writes the same bytes as before.
-The optional network member `depots` of the [parking depots](../README.md#parking-depots) and the optional pod member `parkedSince` also keep these versions.
+The optional network member `depots` of the [parking depots](model.md#parking-depots) and the optional pod member `parkedSince` also keep these versions.
 A file writes `parkedSince` only for a pod that is idle at a depot slot or moves up in one depot lane, so a network without depots writes the same bytes as before.
 After the earlier checks, the restore refuses a negative parked tick, and then a parked tick after the saved tick.
 Then it refuses a parked tick on a pod that is not parked in a depot lane.
@@ -829,3 +844,112 @@ This is 5 seconds for the requests, 5 for the clock, 1 for the saver, 6 for the 
 `docker stop` waits only 10 seconds by default, then it kills the process.
 Use `docker stop -t 30`, or `--stop-timeout 30` with `docker run`.
 On Kubernetes, keep `terminationGracePeriodSeconds` at 30 or more.
+
+## Command receipts
+
+The server deduplicates command retries by client and sequence.
+The server keeps command receipts for at most 1,024 clients per session.
+Each simulation view, editor, and desktop client that sends a command is one client.
+A page reload makes new clients.
+If a new page reports the session client limit, restart the server.
+
+If the server made its final save at a graceful shutdown and restores the session with the `physical` or `logical` tier, the session continues.
+Then a retry of a command from before the restart gets the `expired_command` error, and the server does not apply the command again.
+The clients from before the restart also stay in the limit of 1,024 clients.
+
+The session does not continue after a restart at the client limit or after other restarts.
+Then the retry gets the `session_changed` error, and the count starts again.
+See [server restarts](protocol.md#server-restarts).
+
+## Development
+
+### Code layout
+
+| Path | Purpose |
+| --- | --- |
+| `internal/sim` | Network, routing, requests, pod movement, state export and restore, and deterministic tests. |
+| `internal/observe` | Station berth and queue metrics for the view and comparison reports. |
+| `internal/rail` | Pod transfers to scheduled train departures. |
+| `internal/parkride` | Offline car journeys around native pod trips. |
+| `internal/jsonerr`, `internal/wirename` | Fixed wording for JSON errors, and the JSON member names of the wire and file formats. |
+| `internal/project` | Versioned scenario settings, validation, and detached copies. |
+| `internal/editormodel` | Go editor worker state, checks, edits, normalization, undo history, daily profile construction, place navigation, and the observation and measurement panels. |
+| `internal/scenarios` | Deterministic scenario presets, including `scale100`, `london-central`, and `london-full`, and qualification tests. |
+| `internal/session` | Shared clock, command validation, save points, saved session state, HTTP API, and repeatable demand. |
+| `internal/statestore` | Saved session state in a `file://` blob bucket, for the server only. |
+| `internal/remote` | Shared state streaming, motion buffering, command retries, and connection state. |
+| `internal/view` | Ebitengine rendering and input against copied snapshots. |
+| `internal/telemetry` | Optional OTLP traces, HTTP metrics, runtime metrics, session gauges, and session state metrics. |
+| `internal/cmd/buildweb` | Generated browser files and gzip WASM file. |
+| `cmd/podsim` | Desktop and WASM entry point. |
+| `cmd/editormodel` | Separate WASM entry point for the editor worker. |
+| `cmd/serve` | Shared session, saved session state, browser assets, health checks, and diagnostics. |
+| `cmd/compare` | Reproducible policy comparisons. |
+| `cmd/scenario` | Generated scenario files. |
+| `cmd/projectcheck` | Validation of a local project file. See [project check](project-check.md). |
+| `cmd/parkride` | Finite car itineraries around native pod journeys. |
+| `web` | Browser page, game loader, and scenario editor. |
+
+### Tasks
+
+```sh
+mise run test
+mise run check
+```
+
+| Task | What it runs |
+| --- | --- |
+| `mise run check` | Workflow validation, Markdown checks, race tests, the tests that skip under the race detector, the `test:web` tests, vet, lint, vulnerability checks, the native and browser builds, and the embedded server tests. It runs `check:static`, `qualify`, and the three race tasks one after another, and stops at the first failure. |
+| `mise run format` | Formats the Go sources and the Markdown files. |
+| `mise run test:quick` | `go test -short ./...`. It skips the long tests of `internal/sim`, `internal/session`, `internal/project`, `internal/scenarios`, `cmd/compare`, and `cmd/serve`. The race tasks and `test:embedded` run them. |
+| `mise run lint` | actionlint, rumdl, `go vet`, golangci-lint, and the check that `podsim.wasm` does not link cloud storage. |
+| `mise run check:static` | The checks other than the race tests and `qualify`: `test:web`, `lint`, `vulncheck`, `build`, and `test:embedded`. |
+| `mise run test:race` | The `test:race:sim`, `test:race:session`, and `test:race:other` tasks. |
+| `mise run test:web` | Only the editor, loader, and page tests. |
+| `mise run qualify` | The two Station 19 drain tests in `internal/scenarios` and the two emergency choice latency tests in `internal/sim`, without the race detector. These tests skip under the race detector, so in `mise run check` only this task runs them. The `test:race` task runs the other tests of these packages. |
+| `mise run test:embedded` | The root and `cmd/serve` tests with the `embed_assets` tag. It also runs the session tests that skip under the race detector or check more without it. The `test:race` task runs the other session tests. |
+| `mise run benchmark` | 6,000 simulation steps on the 100-pod ring fixture, not on the current `scale100` mesh. |
+
+`mise.toml` tracks Go 1.27, rumdl 0.3, and major versions for the other development tools.
+`mise.lock` records the resolved tool downloads.
+
+Some editor tests use Go to generate the `scale100` and `london-central` projects.
+If Go is not on `PATH`, `node --test web/editor_test.cjs` skips these tests and gives the reason.
+The `test:web` task sets `PODSIM_REQUIRE_GO=1`, so a missing Go makes the task and `mise run check` fail.
+
+### Continuous integration
+
+GitHub Actions runs the same check on pull requests, pushes to `main`, and version tags.
+The workflow also supports a manual trigger.
+It splits the check into five parallel jobs: `test:race:sim`, `test:race:session`, `test:race:other`, `qualify`, and `check:static`.
+After all five pass, a push or a manual run publishes the container image.
+New pull-request updates cancel older runs.
+Each `main` push keeps its own run.
+The workflow uses major-version action tags and installs tools from `mise.lock`.
+Go module, build, and lint analysis caches use keys for each job and task, and refresh after successful runs.
+
+### Lint and package boundaries
+
+The lint configuration adds resource, context, and security linters to the standard golangci-lint set.
+It also checks these package boundaries:
+
+- `internal/sim` can import only the standard library.
+- `internal/session`, `internal/project`, and `cmd/serve` cannot import the renderer or browser APIs.
+- Packages in the browser build cannot import cloud storage packages or `internal/statestore`.
+  Lint also lists every package that the WASM build links, and fails if the list has one of these packages.
+
+rumdl checks the Markdown files with the settings in `.rumdl.toml`.
+Each sentence has its own source line, so a prose change does not reflow the lines around it.
+Run `mise run format` to fix the layout.
+
+### Test coverage
+
+Validation has six main parts:
+
+- Core tests cover routing, journeys, invalid requests, pause and reset behavior, repeatability, and state isolation.
+- Session and server tests cover save points, exact rewind, project restore, saved session state, save point and session state logs, and graceful shutdown.
+- Rendering tests cover buffered movement, lane corners, station movement, pause and reset behavior, and stale snapshots.
+- HTTP tests cover compression, topology and frame decoding, command acknowledgments, WASM responses, byte ranges, health, and diagnostics.
+- Traffic tests cover separation, merge contention, berth capacity, stopped queues, through traffic, and eventual progress.
+- Browser checks confirm visible movement and working controls.
+  A WASM build alone is not sufficient.

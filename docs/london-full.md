@@ -84,7 +84,7 @@ Before October 19, 2026, this layout was the default.
 
 ### Depots
 
-Each of the three Parking facilities is a [depot](../README.md#parking-depots) with 2 queue lanes of 6 slots.
+Each of the three Parking facilities is a [depot](model.md#parking-depots) with 2 queue lanes of 6 slots.
 `-parking-lanes N` sets the lanes of each depot.
 `-parking-berths` sets the slots of each lane, and `-berths parking-north=M` sets the slots of each lane of one facility.
 `-parking-lanes 0` gives ordinary Parking facilities with 12 berths each.
@@ -104,7 +104,7 @@ This table gives the most slots in each lane of a depot:
 
 The default Compact stations of LondonFull are eight zone 1 stations with 2 berths and low demand: Regent's Park, Lambeth North, Lancaster Gate, Edgware Road (Bakerloo), Bayswater, Hyde Park Corner, Borough, and Tower Gateway.
 LondonCentral has the first seven and not Tower Gateway.
-Each Compact station has the four [Compact bays](../README.md#compact-bays) of the `compact-station` preset.
+Each Compact station has the four [Compact bays](model.md#compact-bays) of the `compact-station` preset.
 `-compact-stations ID,ID` replaces the list with at most 8 passenger stations, and `-compact-stations none` gives no Compact stations.
 The command refuses an unknown ID, a Parking facility, a repeated ID, more than 8 IDs, and a `-berths` item for a Compact station, also when the item has the preset value.
 For a default Compact station, a `-berths` item needs `-compact-stations none` or a list without the station.

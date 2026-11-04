@@ -18,7 +18,7 @@ A layout check rejects lanes that come too near.
 The [station-layout editor](docs/station-layout-editor.md) adjusts berth pitch, entry/exit spacing, and approach setback for supported straight chains.
 [Independent berth banks](docs/station-banks.md), the Compact station, and queued parking depots are also implemented.
 The London presets have Compact stations and depots by default.
-See [compact bays](README.md#compact-bays) and [parking depots](README.md#parking-depots).
+See [compact bays](docs/model.md#compact-bays) and [parking depots](docs/model.md#parking-depots).
 The other experiments in Section 6 retain their separate status.
 See [README.md](README.md) for controls, validation commands, and current model limits.
 
@@ -58,7 +58,7 @@ Live OSM raster tiles provide a zoom-dependent backdrop in the editor and simula
 Projects save provider settings and geographic coordinates.
 Each simulation viewer can hide the map.
 The map does not create guideways or editable OSM vectors.
-See [georeferenced backgrounds](README.md#georeferenced-background).
+See [georeferenced backgrounds](docs/user-guide.md#georeferenced-background).
 
 The live viewer uses shared gzip WebSocket deltas, and explicit public-origin configuration supports a TLS-terminating proxy.
 Prepared network geometry speeds repeated isolated restores without changing the saved format or removing restore assertions.
@@ -429,7 +429,7 @@ Ordinary image files retain their manual calibration, attribution, export, and u
 Older schematic images remain usable.
 Tile failures leave the network usable, and the user can retry failed tiles.
 There is no bulk tile download, offline map archive, tile proxy, or automatic guideway generation.
-See [live OpenStreetMap](README.md#live-openstreetmap-backdrop) for the current workflow.
+See [live OpenStreetMap](docs/user-guide.md#live-openstreetmap-backdrop) for the current workflow.
 
 The editor supports explicit place search through a cached, rate-limited native Nominatim proxy.
 Selecting a result changes only the view.
