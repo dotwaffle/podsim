@@ -311,6 +311,7 @@ The optional network member `maneuverGroups` defines the bays.
 Each group has an `id`, a `stationID`, and the `laneIDs`, `berthIDs`, and `reverseLaneIDs` of the group.
 A pod on a reverse lane faces against its direction of travel.
 Each lane and berth of a group admits only Compact pods, and a lane of a group has no minimum length, but its length must be more than 0.
+A pod on a lane of a group takes its station phase from its route: `Departing berth` when each earlier lane of the route is a lane of a group, and `Accessing berth` when each later lane is.
 
 Each berth of a group needs a closed bay chain, which is a chain of group lanes from a branch node to the berth and a chain of reverse lanes back over the same nodes.
 A node inside a chain has only the four lanes of its chain, and the berth node has only its two lanes.

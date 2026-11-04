@@ -323,7 +323,7 @@ A full queue skips generated arrivals and rejects new manual orders.
 Skipped arrivals show in the **Demand** panel, and they do not accumulate for a later burst.
 If the simulation rejects a generated order, the panel shows the last error in amber.
 
-The panel also reports [redistribution](model.md#redistribution): whether it is on, the number of moves, and the distance that pods traveled with no passenger, for example **Redistribution: on / 3 moves / 15.3 km empty**.
+The panel also reports [redistribution](model.md#redistribution): whether it is on, the number of moves, and the share of all pod distance since reset that pods traveled with no passenger, for example **Redistribution: on / 3 moves / 15.3% distance empty**.
 Redistribution moves pods only at a low demand rate, so the panel can show 0 moves while it is on.
 
 ### Connection status
