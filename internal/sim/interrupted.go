@@ -44,15 +44,14 @@ func (s *Simulation) DrainInterruptions() []int {
 // interrupted. It is the public entry of interruptRider, and it runs the
 // monitor once after the change.
 //
-// Stage 1 has no policy that interrupts an order, so no production code
-// calls it. The operational settlement of a pod comes with a later stage,
-// so InterruptRider accepts only a rider whose destination another active
-// rider of the pod shares. The stops and the phase of the pod then stay
-// valid. It also refuses a simulation without the incident marker, a
-// platoon member, a pod with an operational
-// destination, and a call during a dispatch pass, as the operations of the
-// contract do. A refusal returns an error
-// and changes nothing.
+// No production code calls it: an operational unload and an evacuation call
+// interruptRider directly. InterruptRider does not settle the pod, so it
+// accepts only a rider whose destination another active rider of the pod
+// shares. The stops and the phase of the pod then stay valid. It also
+// refuses a simulation without the incident marker, a platoon member, a pod
+// with an operational destination, and a call during a dispatch pass, as the
+// operations of the contract do. A refusal returns an error and changes
+// nothing.
 func (s *Simulation) InterruptRider(podID string, orderID int) error {
 	if s.incidentContract != IncidentV1Contract {
 		return errors.New("an interruption needs the incident contract")
