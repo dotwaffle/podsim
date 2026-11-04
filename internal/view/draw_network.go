@@ -495,6 +495,42 @@ func (g *Game) laneGeometry(lane sim.Lane, detailed bool) laneGeometry {
 	return geometry
 }
 
+// laneMeters returns the distance along the lane, in the geometry of the
+// simulation, of each of the count points of laneGeometry(lane, detailed). The
+// simulation measures a curved lane on sim.Network.Polyline. The map can draw
+// the same curve with fewer segments, and a fraction of the length of those
+// segments is not the same fraction of the simulation length. The last
+// distance is equal to sim.Network.Length.
+func (g *Game) laneMeters(lane sim.Lane, count int, detailed bool) []float64 {
+	meters := make([]float64, count)
+	segments := count - 1
+	if detailed || lane.Control == nil {
+		// laneGeometry divides a detailed lane by distance.
+		length := g.network.Length(lane)
+		for i := range meters {
+			meters[i] = length * float64(i) / float64(segments)
+		}
+		return meters
+	}
+	// laneGeometry divides this lane by the curve parameter, and so does the
+	// polyline.
+	polyline := g.network.Polyline(lane)
+	walked := make([]float64, len(polyline))
+	for i := 1; i < len(polyline); i++ {
+		a, b := polyline[i-1], polyline[i]
+		walked[i] = walked[i-1] + math.Hypot(b.X-a.X, b.Y-a.Y)
+	}
+	for i := range meters {
+		place := float64(i*(len(polyline)-1)) / float64(segments)
+		vertex := int(place)
+		meters[i] = walked[vertex]
+		if t := place - float64(vertex); t > 0 {
+			meters[i] += (walked[vertex+1] - walked[vertex]) * t
+		}
+	}
+	return meters
+}
+
 // along returns the point at a fraction of the screen length of the lane,
 // and the direction of the lane segment at that point. On a lane with no
 // screen length, the direction is zero.

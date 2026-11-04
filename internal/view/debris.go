@@ -37,39 +37,47 @@ func (g *Game) debrisMarks(faults sim.FaultsView, detailed bool) []debrisMark {
 			continue
 		}
 		lane, ok := g.displayIndex().lanes[fault.LaneID]
-		length := g.network.Length(lane)
-		if !ok || length <= 0 {
+		if !ok || g.network.Length(lane) <= 0 {
 			continue
 		}
-		marks = append(marks, g.laneGeometry(lane, detailed).debrisMark(*fault.FromMeters/length, *fault.ToMeters/length))
+		geometry := g.laneGeometry(lane, detailed)
+		marks = append(marks, geometry.debrisMark(g.laneMeters(lane, geometry.count, detailed), *fault.FromMeters, *fault.ToMeters))
 	}
 	return marks
 }
 
-// debrisMark returns the mark of the part of the lane between two fractions
-// of its screen length.
-func (geometry laneGeometry) debrisMark(from, to float64) debrisMark {
-	mark := debrisMark{path: geometry.between(from, to)}
+// debrisMark returns the mark of the part of the lane between two distances.
+// meters holds the distance of each lane point. See laneMeters.
+func (geometry laneGeometry) debrisMark(meters []float64, from, to float64) debrisMark {
+	mark := debrisMark{path: geometry.between(meters, from, to)}
 	mark.from, mark.to = mark.path[0], mark.path[len(mark.path)-1]
-	mark.center, _ = geometry.along((from + to) / 2)
+	mark.center = geometry.atMeters(meters, (from+to)/2)
 	return mark
 }
 
-// between returns the points of the lane between two fractions of its
-// screen length: the two ends, and each lane point between them.
-func (geometry laneGeometry) between(from, to float64) []sim.Point {
-	start, _ := geometry.along(from)
-	end, _ := geometry.along(to)
-	total, distance := geometry.screenLength(), 0.0
-	path := []sim.Point{start}
+// between returns the points of the lane between two distances: the two
+// ends, and each lane point between them.
+func (geometry laneGeometry) between(meters []float64, from, to float64) []sim.Point {
+	path := []sim.Point{geometry.atMeters(meters, from)}
 	for i := 1; i < geometry.count; i++ {
-		a, b := geometry.points[i-1], geometry.points[i]
-		distance += math.Hypot(b.X-a.X, b.Y-a.Y)
-		if from*total < distance && distance < to*total {
-			path = append(path, b)
+		if from < meters[i] && meters[i] < to {
+			path = append(path, geometry.points[i])
 		}
 	}
-	return append(path, end)
+	return append(path, geometry.atMeters(meters, to))
+}
+
+// atMeters returns the screen point at a distance along the lane, clamped to
+// its ends.
+func (geometry laneGeometry) atMeters(meters []float64, distance float64) sim.Point {
+	for i := 1; i < geometry.count; i++ {
+		if span := meters[i] - meters[i-1]; distance <= meters[i] && span > 0 {
+			a, b := geometry.points[i-1], geometry.points[i]
+			t := max(0, distance-meters[i-1]) / span
+			return sim.Point{X: a.X + (b.X-a.X)*t, Y: a.Y + (b.Y-a.Y)*t}
+		}
+	}
+	return geometry.points[geometry.count-1]
 }
 
 // drawDebrisMarks draws a stroke and a ring for each active debris fault.
@@ -132,17 +140,19 @@ const (
 	noLaneMessage = "No lane at that point. Click a lane, or press the button again to stop."
 )
 
-// laneTarget is a drawn lane that a debris click can pick.
+// laneTarget is a drawn lane that a debris click can pick. meters holds the
+// distance along the lane of each point of path.
 type laneTarget struct {
-	lane sim.Lane
-	path lanePath
+	lane   sim.Lane
+	path   lanePath
+	meters []float64
 }
 
-// lanePick is the lane that a click picks, and the place of the click on
-// the lane as a fraction of its screen length.
+// lanePick is the lane that a click picks, and the distance along the lane
+// of the click.
 type lanePick struct {
-	lane     sim.Lane
-	fraction float64
+	lane   sim.Lane
+	meters float64
 }
 
 // pickLane returns the lane nearest to point, within radius. The first lane
@@ -151,36 +161,32 @@ func pickLane(point sim.Point, lanes []laneTarget, radius float64) (lanePick, bo
 	var found lanePick
 	best := math.Inf(1)
 	for _, target := range lanes {
-		if distance, fraction := nearestOnPath(point, target.path); distance < best {
-			found, best = lanePick{lane: target.lane, fraction: fraction}, distance
+		if distance, segment, t := nearestOnPath(point, target.path); distance < best {
+			from, to := target.meters[segment-1], target.meters[segment]
+			found, best = lanePick{lane: target.lane, meters: from + (to-from)*t}, distance
 		}
 	}
 	return found, best <= radius
 }
 
 // nearestOnPath returns the distance from point to path, and the place of
-// the nearest point as a fraction of the path length. A path with no length
-// has fraction 0. An empty path is at an infinite distance.
-func nearestOnPath(point sim.Point, path lanePath) (distance, fraction float64) {
+// the nearest point: the fraction t of the segment from path[segment-1] to
+// path[segment]. A segment with no length has t 0. A path with fewer than two
+// points is at an infinite distance.
+func nearestOnPath(point sim.Point, path lanePath) (distance float64, segment int, t float64) {
 	distance = math.Inf(1)
-	walked, nearest := 0.0, 0.0
 	for i := 1; i < len(path); i++ {
 		a, b := path[i-1], path[i]
 		dx, dy := b.X-a.X, b.Y-a.Y
-		length := math.Hypot(dx, dy)
-		t := 0.0
-		if length > 0 {
-			t = min(1, max(0, ((point.X-a.X)*dx+(point.Y-a.Y)*dy)/(length*length)))
+		along := 0.0
+		if length := math.Hypot(dx, dy); length > 0 {
+			along = min(1, max(0, ((point.X-a.X)*dx+(point.Y-a.Y)*dy)/(length*length)))
 		}
-		if d := math.Hypot(a.X+dx*t-point.X, a.Y+dy*t-point.Y); d < distance {
-			distance, nearest = d, walked+length*t
+		if d := math.Hypot(a.X+dx*along-point.X, a.Y+dy*along-point.Y); d < distance {
+			distance, segment, t = d, i, along
 		}
-		walked += length
 	}
-	if walked > 0 {
-		fraction = nearest / walked
-	}
-	return distance, fraction
+	return distance, segment, t
 }
 
 // debrisSegment returns the segment of placedDebrisMeters centered on the
@@ -203,7 +209,7 @@ func (g *Game) laneTargets() []laneTarget {
 			continue
 		}
 		if _, path, ok := g.baseLane(lane, style.detailed, g.layout.mapViewport); ok {
-			targets = append(targets, laneTarget{lane: lane, path: path})
+			targets = append(targets, laneTarget{lane: lane, path: path, meters: g.laneMeters(lane, len(path), style.detailed)})
 		}
 	}
 	return targets
@@ -221,8 +227,7 @@ func (g *Game) placeDebris(point sim.Point) {
 		return
 	}
 	g.debrisArmed = false
-	length := g.network.Length(pick.lane)
-	from, to := debrisSegment(pick.fraction*length, length)
+	from, to := debrisSegment(pick.meters, g.network.Length(pick.lane))
 	g.submit(session.Command{Action: "fault", LaneID: pick.lane.ID, FromMeters: new(from), ToMeters: new(to)})
 }
 
