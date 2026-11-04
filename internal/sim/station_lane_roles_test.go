@@ -46,8 +46,8 @@ func roleStation(id string, berthNodes ...string) Station {
 }
 
 // stationLaneRoleCases gives the networks of the golden file. Each network
-// has station lanes without StationID and StationRole, as a legacy or a
-// hand-written import can give them.
+// has station lanes without StationID and StationRole, as a generated or a
+// hand-written project can have them.
 func stationLaneRoleCases() []stationLaneRolesCase {
 	// star has three berths with lanes directly from the entry and to the
 	// exit. One lane is curved and one is slower. A road loop goes from the

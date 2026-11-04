@@ -16,9 +16,11 @@ const (
 	ExitingStation     StationPhase = "Exiting station"
 )
 
-// inferStationLaneRoles gives legacy station-local paths the same observable
-// roles as new projects. Explicit project roles always win. A lane of a
-// maneuver group gets no role: routeStationPhase names its phase.
+// inferStationLaneRoles gives each station-local path without metadata its
+// observable role. The depot, Compact, and generated London networks depend
+// on it, and a hand-written project can too. Explicit project roles always
+// win. A lane of a maneuver group gets no role: routeStationPhase names its
+// phase.
 func inferStationLaneRoles(n *Network) {
 	graph := newRouteGraph(*n)
 	var grouped map[string]bool
