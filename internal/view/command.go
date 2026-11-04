@@ -78,7 +78,19 @@ func rewindNotice(checkpoints []session.Checkpoint, result remote.Result) string
 // server. The hint line does not show this wait, because a wait is not an
 // error.
 func (g *Game) submit(command session.Command) {
-	if err := g.client.Submit(command); err != nil {
+	g.finishSubmit(command, g.client.Submit(command))
+}
+
+// submitShown sends a command of a button of the last drawn frame, as submit
+// does. A session change after that frame refuses the command, because the
+// target of the button can have another meaning in the new session.
+func (g *Game) submitShown(command session.Command) {
+	g.finishSubmit(command, g.client.SubmitIn(g.shownSession, command))
+}
+
+// finishSubmit records the outcome err of sending command.
+func (g *Game) finishSubmit(command session.Command, err error) {
+	if err != nil {
 		g.message = err.Error()
 		return
 	}

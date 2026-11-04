@@ -4,6 +4,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/dotwaffle/podsim/internal/remote"
 	"github.com/dotwaffle/podsim/internal/session"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
@@ -83,9 +84,10 @@ func (g *Game) frameControls() []frameControl {
 
 // frameButtons returns the buttons of a new frame. It keeps the fault
 // button, the emergency button, and the Clear buttons of the panel of the
-// frame for clickButtons.
+// frame, and the session of the frame, for clickButtons.
 func (g *Game) frameButtons() []button {
 	buttons := g.buttons()
+	g.shownSession = remote.SessionOf(g.state)
 	g.keepIncidentClears(buttons)
 	for _, frame := range g.frameControls() {
 		i := slices.IndexFunc(buttons, frame.match)
@@ -104,7 +106,8 @@ func (g *Game) frameButtons() []button {
 // positions and their targets: a fault that clears, an emergency that
 // starts, or a pod that moves in the fleet must not change the command of
 // a button that the user saw. Only the connection and a waiting command,
-// which make each command button disabled, come from the current state.
+// which make each command button disabled, come from the current state. A
+// session change refuses the command in submitShown.
 func (g *Game) clickButtons() []button {
 	buttons := g.buttons()
 	for _, frame := range g.frameControls() {

@@ -503,3 +503,26 @@ func TestStreamTopologyRefreshPreservesPublishedState(t *testing.T) {
 		})
 	}
 }
+
+// TestSessionOf checks that a change of each member gives another identity,
+// and that a new revision of the same session does not.
+func TestSessionOf(t *testing.T) {
+	t.Parallel()
+	base := session.State{ServerStart: "s", Epoch: "e", Generation: 1, Revision: 1}
+	same := base
+	same.Revision = 2
+	if SessionOf(same) != SessionOf(base) {
+		t.Error("a new revision changes the session")
+	}
+	for name, change := range map[string]func(*session.State){
+		"server start": func(s *session.State) { s.ServerStart = "other" },
+		"epoch":        func(s *session.State) { s.Epoch = "other" },
+		"generation":   func(s *session.State) { s.Generation = 2 },
+	} {
+		other := base
+		change(&other)
+		if SessionOf(other) == SessionOf(base) {
+			t.Errorf("a new %s keeps the session", name)
+		}
+	}
+}

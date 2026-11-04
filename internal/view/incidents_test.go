@@ -375,6 +375,102 @@ func TestIncidentClearUsesLastFrame(t *testing.T) {
 	}
 }
 
+// TestStaleClearAfterReconnect reconnects to a new server process that has
+// a fault with the same ID, and clicks a Clear button of the old session
+// before another frame. The click must not clear the fault of the new
+// session, also when the game has not read the new state. A new frame then
+// sends the command.
+func TestStaleClearAfterReconnect(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name   string
+		panel  bool
+		prefix string
+		read   bool
+	}{
+		{name: "panel, state read", panel: true, prefix: incidentClearPrefix, read: true},
+		{name: "panel, state not read", panel: true, prefix: incidentClearPrefix},
+		{name: "inspector, state read", prefix: clearFaultActionPrefix, read: true},
+		{name: "inspector, state not read", prefix: clearFaultActionPrefix},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			env := newChangeEnv(t)
+			game := env.game
+			podID := game.state.Simulation.Vehicles[game.selected].Pod.ID
+			faultID := clickFault(t, game, faultActionPrefix+podID).Reply.FaultID
+			syncGame(t, game, func() bool { return len(game.state.Simulation.Faults.Active) == 1 })
+			if test.panel {
+				game.press(incidentsAction)
+			}
+			point := centerOfButton(findButton(t, game.frameButtons(), test.prefix+faultID))
+			before := game.state.Epoch
+
+			replacement, err := session.NewWithProject(project.Default(), session.WithLogger(slog.New(slog.DiscardHandler)))
+			if err != nil {
+				t.Fatalf("create session: %v", err)
+			}
+			reply := replacement.Apply(session.Command{Action: "fault", PodID: podID, Client: "other", Sequence: 1, Epoch: replacement.State().Epoch})
+			if reply.FaultID != faultID {
+				t.Fatalf("new session fault = %+v, want the ID %q again", reply, faultID)
+			}
+			env.server.use(replacement)
+			waitFor(t, func() bool {
+				state, connected, _ := game.client.View()
+				return connected && state.Epoch != before
+			})
+			if test.read {
+				game.readRemote()
+			}
+			active := func() int { return len(replacement.State().Simulation.Faults.Active) }
+
+			game.click(point)
+			if game.pending || game.message != remote.ErrSessionChanged.Error() {
+				t.Fatalf("pending %t message %q, want a refusal", game.pending, game.message)
+			}
+			if got := active(); got != 1 {
+				t.Fatalf("the new session has %d faults, want 1", got)
+			}
+
+			syncGame(t, game, func() bool { return game.state.Epoch != before })
+			point = centerOfButton(findButton(t, game.frameButtons(), test.prefix+faultID))
+			game.click(point)
+			if result := clickResult(t, game); result.Reply.Error != "" || result.Command.FaultID != faultID {
+				t.Fatalf("clear after a new frame = %+v", result)
+			}
+			if got := active(); got != 0 {
+				t.Fatalf("the new session has %d faults after the clear, want 0", got)
+			}
+		})
+	}
+}
+
+// TestStaleInspectorCommandAfterReconnect presses the fault button and the
+// emergency button of the last frame after a reconnect. A pod in the new
+// session can have the same ID, but it is not the pod that the user saw.
+func TestStaleInspectorCommandAfterReconnect(t *testing.T) {
+	t.Parallel()
+	for _, prefix := range []string{faultActionPrefix, emergencyActionPrefix} {
+		t.Run(prefix, func(t *testing.T) {
+			t.Parallel()
+			env := newChangeEnv(t)
+			game := env.game
+			game.frameButtons()
+			before := game.state.Epoch
+			replacement, err := session.NewWithProject(project.Default(), session.WithLogger(slog.New(slog.DiscardHandler)))
+			if err != nil {
+				t.Fatalf("create session: %v", err)
+			}
+			env.server.use(replacement)
+			syncGame(t, game, func() bool { return game.state.Epoch != before })
+			game.press(prefix + game.state.Simulation.Vehicles[game.selected].Pod.ID)
+			if game.pending || game.message != remote.ErrSessionChanged.Error() {
+				t.Fatalf("pending %t message %q, want a refusal", game.pending, game.message)
+			}
+		})
+	}
+}
+
 // TestIncidentClearDisabled checks that a stored Clear button takes the
 // connection and a waiting command from the current state.
 func TestIncidentClearDisabled(t *testing.T) {

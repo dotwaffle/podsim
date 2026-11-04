@@ -176,7 +176,7 @@ func (g *Game) pressIncidents(action string) bool {
 		if !ok {
 			return false
 		}
-		g.submit(session.Command{Action: "clearFault", FaultID: faultID})
+		g.submitShown(session.Command{Action: "clearFault", FaultID: faultID})
 	}
 	return true
 }
@@ -195,7 +195,8 @@ func (g *Game) keepIncidentClears(buttons []button) {
 // shownIncidentClears replaces the Clear buttons in buttons with those of
 // the last drawn frame, so that a click sends the fault ID of the row that
 // the user saw. The server refuses an ID that is gone, and the message line
-// shows the error.
+// shows the error. A new session can use the ID again, so submitShown
+// refuses the command after a session change.
 func (g *Game) shownIncidentClears(buttons []button) []button {
 	buttons = slices.DeleteFunc(buttons, isIncidentClear)
 	for _, control := range g.shownClears {

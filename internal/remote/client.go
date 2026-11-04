@@ -31,6 +31,23 @@ type Result struct {
 	Err     error
 }
 
+// ErrSessionChanged reports a command from a control of a session that the
+// client no longer follows.
+var ErrSessionChanged = errors.New("the session changed; check the map and press again")
+
+// SessionID identifies one generation of one shared session. A fault ID or
+// a lane ID has its meaning only in the session that showed it: a new server
+// process starts its IDs again, and a project apply replaces the lanes.
+type SessionID struct {
+	ServerStart, Epoch string
+	Generation         uint64
+}
+
+// SessionOf returns the identity of the session of state.
+func SessionOf(state session.State) SessionID {
+	return SessionID{ServerStart: state.ServerStart, Epoch: state.Epoch, Generation: state.Generation}
+}
+
 // Client streams state and serializes commands. All returned state is immutable.
 type Client struct {
 	mu              sync.Mutex
@@ -93,6 +110,24 @@ func (c *Client) Results() <-chan Result { return c.results }
 func (c *Client) Submit(command session.Command) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	return c.submitLocked(command)
+}
+
+// SubmitIn is Submit for a command with a target from the session shown. It
+// refuses the command with ErrSessionChanged when the client follows another
+// session. Submit gives a command the current epoch, so the server cannot
+// find this difference. The stream can change the session at any time, so
+// the check holds the lock that Submit uses to read the epoch.
+func (c *Client) SubmitIn(shown SessionID, command session.Command) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if SessionOf(c.state) != shown {
+		return ErrSessionChanged
+	}
+	return c.submitLocked(command)
+}
+
+func (c *Client) submitLocked(command session.Command) error {
 	if !c.connected {
 		return errors.New("waiting for the server connection")
 	}

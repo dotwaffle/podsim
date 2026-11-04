@@ -115,6 +115,9 @@ type Game struct {
 	// button.
 	shownEmergency button
 	emergencyShown bool
+	// shownSession is the session of the last drawn frame. A button of that
+	// frame sends its command only in that session. See submitShown.
+	shownSession remote.SessionID
 	// showIncidents reports whether the Incidents panel is open.
 	// incidentPage is its zero-based page. shownClears holds the Clear
 	// buttons of the last drawn frame. See shownIncidentClears. debrisArmed
@@ -634,11 +637,11 @@ func (g *Game) pressPodControl(action string) bool {
 		return true
 	}
 	if command, ok := faultCommand(action); ok {
-		g.submit(command)
+		g.submitShown(command)
 		return true
 	}
 	if command, ok := emergencyCommand(action); ok {
-		g.submit(command)
+		g.submitShown(command)
 		return true
 	}
 	id, ok := strings.CutPrefix(action, "pod/")
