@@ -9,6 +9,8 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
+
+	"github.com/dotwaffle/podsim/internal/remote"
 )
 
 func (g *Game) readRemote() {
@@ -19,6 +21,11 @@ func (g *Game) readRemote() {
 	if state.Epoch != "" {
 		g.motion.Observe(state, time.Now())
 		g.state = state
+		// A new session or generation can replace the network and the fleet,
+		// and the user armed the click for the old ones.
+		if remote.SessionOf(previous) != remote.SessionOf(state) {
+			g.debrisArmed = false
+		}
 		if g.selected >= len(state.Simulation.Vehicles) {
 			g.selected = 0
 		}

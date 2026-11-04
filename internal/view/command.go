@@ -85,7 +85,13 @@ func (g *Game) submit(command session.Command) {
 // does. A session change after that frame refuses the command, because the
 // target of the button can have another meaning in the new session.
 func (g *Game) submitShown(command session.Command) {
-	g.finishSubmit(command, g.client.SubmitIn(g.shownSession, command))
+	g.submitIn(g.shownSession, command)
+}
+
+// submitIn sends a command with a target from the session shown, as submit
+// does. A client that follows another session refuses the command.
+func (g *Game) submitIn(shown remote.SessionID, command session.Command) {
+	g.finishSubmit(command, g.client.SubmitIn(shown, command))
 }
 
 // finishSubmit records the outcome err of sending command.

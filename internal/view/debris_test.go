@@ -2,10 +2,14 @@ package view
 
 import (
 	"fmt"
+	"log/slog"
 	"math"
 	"slices"
 	"testing"
 
+	"github.com/dotwaffle/podsim/internal/project"
+	"github.com/dotwaffle/podsim/internal/remote"
+	"github.com/dotwaffle/podsim/internal/session"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
@@ -640,7 +644,8 @@ func TestArmedClickPlacesDebris(t *testing.T) {
 }
 
 // TestArmedClickMiss checks that a click with no lane in reach sends nothing,
-// selects nothing, shows a message, and stays armed.
+// selects nothing, shows a message, and ends the arming, because a press arms
+// one click. The next click at a pod selects the pod.
 func TestArmedClickMiss(t *testing.T) {
 	t.Parallel()
 	game := debrisTestGame(t)
@@ -648,8 +653,109 @@ func TestArmedClickMiss(t *testing.T) {
 	game.showIncidents, game.debrisArmed = true, true
 	viewport := game.layout.mapViewport
 	game.pickOnMap(sim.Point{X: float64(viewport.Min.X + 2), Y: float64(viewport.Max.Y - 2)}, false)
-	if !game.debrisArmed || game.message != noLaneMessage || game.pending {
-		t.Fatalf("armed %t message %q pending %t", game.debrisArmed, game.message, game.pending)
+	if game.debrisArmed || game.message != noLaneMessage || game.pending || game.selected != 0 {
+		t.Fatalf("armed %t message %q pending %t selected %d", game.debrisArmed, game.message, game.pending, game.selected)
+	}
+	game.pickOnMap(game.mapPoint(sim.Point{X: 100}), false)
+	if game.selected != 1 || game.pending {
+		t.Fatalf("selected %d pending %t, want a selection of the second pod", game.selected, game.pending)
+	}
+}
+
+// TestSessionChangeEndsArming changes the session while a debris click is
+// armed. The next click must select, and not place debris on the new
+// network. A new revision of the same session keeps the arming.
+func TestSessionChangeEndsArming(t *testing.T) {
+	t.Parallel()
+	apply := func(t *testing.T, shared *session.Session, command session.Command) {
+		t.Helper()
+		command.Client, command.Sequence, command.Epoch = "other-"+command.Action, 1, shared.State().Epoch
+		if reply := shared.Apply(command); reply.Error != "" {
+			t.Fatalf("%s: %s", command.Action, reply.Error)
+		}
+	}
+	for _, test := range []struct {
+		name   string
+		change func(*testing.T, changeEnv)
+	}{
+		{name: "project apply", change: func(t *testing.T, env changeEnv) {
+			t.Helper()
+			next := project.Default()
+			next.Name = "Replacement"
+			apply(t, env.shared, session.Command{Action: "project", Project: &next, ProjectRevision: env.shared.Project().Revision})
+		}},
+		{name: "reset", change: func(t *testing.T, env changeEnv) {
+			t.Helper()
+			apply(t, env.shared, session.Command{Action: "reset"})
+		}},
+		{name: "reconnect to a new session", change: func(t *testing.T, env changeEnv) {
+			t.Helper()
+			replacement, err := session.NewWithProject(project.Default(), session.WithLogger(slog.New(slog.DiscardHandler)))
+			if err != nil {
+				t.Fatalf("create session: %v", err)
+			}
+			env.server.use(replacement)
+		}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			env := newChangeEnv(t)
+			game := env.game
+			game.fitNetwork()
+			game.press(incidentsAction)
+			game.press(placeDebrisAction)
+			before := remote.SessionOf(game.state)
+
+			apply(t, env.shared, session.Command{Action: "pause", Paused: true})
+			syncGame(t, game, func() bool { return game.state.Simulation.Paused })
+			if !game.debrisArmed {
+				t.Fatal("a new revision of the session ended the arming")
+			}
+
+			test.change(t, env)
+			syncGame(t, game, func() bool { return remote.SessionOf(game.state) != before })
+			if game.state.Simulation.OperationsOff || game.debrisArmed {
+				t.Fatalf("operations off %t, armed %t, want operations on and no arming", game.state.Simulation.OperationsOff, game.debrisArmed)
+			}
+			if !game.showIncidents {
+				t.Error("the session change closed the panel")
+			}
+			game.selected = 0
+			game.pickOnMap(game.mapPoint(game.state.Simulation.Vehicles[1].Pod.Position), false)
+			if game.pending || game.selected != 1 {
+				t.Fatalf("pending %t selected %d, want a selection and no command", game.pending, game.selected)
+			}
+		})
+	}
+}
+
+// TestArmedClickRefusedAfterUnreadSessionChange clicks while the client
+// follows a new session that the game has not read. The lane and the meters
+// come from the old network, so the click sends nothing.
+func TestArmedClickRefusedAfterUnreadSessionChange(t *testing.T) {
+	t.Parallel()
+	env := newChangeEnv(t)
+	game := env.game
+	game.fitNetwork()
+	game.press(incidentsAction)
+	game.press(placeDebrisAction)
+	before := game.state.Epoch
+	replacement, err := session.NewWithProject(project.Default(), session.WithLogger(slog.New(slog.DiscardHandler)))
+	if err != nil {
+		t.Fatalf("create session: %v", err)
+	}
+	env.server.use(replacement)
+	waitFor(t, func() bool {
+		state, connected, _ := game.client.View()
+		return connected && state.Epoch != before
+	})
+	lane := game.network.Lanes[0]
+	game.pickOnMap(game.mapPoint(game.network.Position(lane, game.network.Length(lane)/2)), false)
+	if game.pending || game.debrisArmed || game.message != remote.ErrSessionChanged.Error() {
+		t.Fatalf("pending %t armed %t message %q, want a refusal", game.pending, game.debrisArmed, game.message)
+	}
+	if got := len(replacement.State().Simulation.Faults.Active); got != 0 {
+		t.Fatalf("the new session has %d faults", got)
 	}
 }
 

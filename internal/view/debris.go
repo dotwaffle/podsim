@@ -6,6 +6,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 
+	"github.com/dotwaffle/podsim/internal/remote"
 	"github.com/dotwaffle/podsim/internal/session"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
@@ -136,8 +137,9 @@ const (
 	lanePickRadius = 12.0
 	// placedDebrisMeters is the length of the debris that a click places.
 	placedDebrisMeters = 2.0
-	// noLaneMessage tells the user that an armed click found no lane.
-	noLaneMessage = "No lane at that point. Click a lane, or press the button again to stop."
+	// noLaneMessage tells the user that an armed click found no lane. The
+	// click ended the arming.
+	noLaneMessage = "No lane at that point. Press Place debris to try again."
 )
 
 // laneTarget is a drawn lane that a debris click can pick. meters holds the
@@ -215,20 +217,22 @@ func (g *Game) laneTargets() []laneTarget {
 	return targets
 }
 
-// placeDebris handles an armed click at point on the map. It sends a fault
-// with no duration, so the debris lasts until a clear, and it disarms. The
-// view checks nothing else: the server refuses a segment that fails a
-// precondition, and the message line shows the error. A click that finds no
-// lane sends nothing and stays armed.
+// placeDebris handles an armed click at point on the map. The button arms one
+// click, so each click disarms, also a click that finds no lane and sends
+// nothing. It sends a fault with no duration, so the debris lasts until a
+// clear. The view checks nothing else: the server refuses a segment that fails
+// a precondition, and the message line shows the error. The lane and its
+// meters come from the network of the current state, so a session change
+// that the game has not read refuses the command.
 func (g *Game) placeDebris(point sim.Point) {
+	g.debrisArmed = false
 	pick, ok := pickLane(point, g.laneTargets(), lanePickRadius*g.layout.unit)
 	if !ok {
 		g.message = noLaneMessage
 		return
 	}
-	g.debrisArmed = false
 	from, to := debrisSegment(pick.meters, g.network.Length(pick.lane))
-	g.submit(session.Command{Action: "fault", LaneID: pick.lane.ID, FromMeters: new(from), ToMeters: new(to)})
+	g.submitIn(remote.SessionOf(g.state), session.Command{Action: "fault", LaneID: pick.lane.ID, FromMeters: new(from), ToMeters: new(to)})
 }
 
 // placeDebrisButton returns the button that arms and disarms a debris click.
