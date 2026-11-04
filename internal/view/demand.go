@@ -6,6 +6,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 
 	"github.com/dotwaffle/podsim/internal/session"
+	"github.com/dotwaffle/podsim/internal/sim"
 )
 
 // demandPatternLabel returns the label of the Pattern button for config.
@@ -32,14 +33,15 @@ func demandPatternLabel(config session.DemandConfig, destination string) string 
 	return "Pattern: " + pattern
 }
 
-func (g *Game) demandButtons() []button {
-	config := g.state.Demand.Config
-	destination, _ := g.network.Station(config.Destination)
+// demandButtons returns the buttons of the Demand panel for state. network
+// gives the name of the destination station. busy disables the buttons.
+func demandButtons(state session.State, network sim.Network, busy bool) []button {
+	config := state.Demand.Config
+	destination, _ := network.Station(config.Destination)
 	toggle := "Start demand"
 	if config.Enabled {
 		toggle = "Stop demand"
 	}
-	disabled := !g.connected || g.pending || g.state.Simulation.Demo
 	rateLabel := fmt.Sprintf("Rate: %d orders/min", config.PerMinute)
 	if config.Pattern == "rail-arrivals" {
 		rateLabel = "Rate: scheduled arrivals"
@@ -48,14 +50,14 @@ func (g *Game) demandButtons() []button {
 		rateLabel = "Rate: scheduled services"
 	}
 	buttons := []button{
-		{x: 810, y: 144, w: 250, h: 24, label: rateLabel, disabled: disabled || config.Pattern == "rail-arrivals" || config.Pattern == "rail-services", action: "demand-rate"},
-		{x: 810, y: 174, w: 250, h: 24, label: demandPatternLabel(config, destination.Name), disabled: disabled, action: "demand-pattern"},
-		{x: 810, y: 204, w: 250, h: 24, label: fmt.Sprintf("Seed: %d", config.Seed), disabled: disabled, action: "demand-seed"},
-		{x: 810, y: 234, w: 250, h: 24, label: toggle, selected: config.Enabled, disabled: disabled, action: "demand-toggle"},
+		{x: 810, y: 144, w: 250, h: 24, label: rateLabel, disabled: busy || config.Pattern == "rail-arrivals" || config.Pattern == "rail-services", action: "demand-rate"},
+		{x: 810, y: 174, w: 250, h: 24, label: demandPatternLabel(config, destination.Name), disabled: busy, action: "demand-pattern"},
+		{x: 810, y: 204, w: 250, h: 24, label: fmt.Sprintf("Seed: %d", config.Seed), disabled: busy, action: "demand-seed"},
+		{x: 810, y: 234, w: 250, h: 24, label: toggle, selected: config.Enabled, disabled: busy, action: "demand-toggle"},
 	}
 	// The server starts the demo only for the supplied example project.
-	if g.state.DemoAvailable {
-		buttons = append(buttons, button{x: demoButtonLeft, y: demoButtonTop, w: demoButtonWidth, h: demoButtonHeight, label: demoButtonLabel, disabled: disabled, action: "demo", fontSize: demoButtonFontSize})
+	if state.DemoAvailable {
+		buttons = append(buttons, button{x: demoButtonLeft, y: demoButtonTop, w: demoButtonWidth, h: demoButtonHeight, label: demoButtonLabel, disabled: busy, action: "demo", fontSize: demoButtonFontSize})
 	}
 	return buttons
 }
@@ -78,19 +80,20 @@ const (
 	demoButtonFontSize = 12.0
 )
 
-func (g *Game) changeDemand(action string) {
-	config := g.state.Demand.Config
+// nextDemandConfig returns config after a press of the Demand panel button
+// with action. destination is the selected To station.
+func nextDemandConfig(config session.DemandConfig, action, destination string) session.DemandConfig {
 	switch action {
 	case "demand-rate":
 		config.PerMinute = nextDemandRate(config.PerMinute)
 	case "demand-pattern":
-		config = nextDemandPattern(config, g.destination)
+		config = nextDemandPattern(config, destination)
 	case "demand-seed":
 		config.Seed = nextDemandSeed(config.Seed)
 	case "demand-toggle":
 		config.Enabled = !config.Enabled
 	}
-	g.submit(session.Command{Action: "demand", Demand: config})
+	return config
 }
 
 func nextDemandPattern(config session.DemandConfig, destination string) session.DemandConfig {
@@ -135,9 +138,14 @@ func nextDemandSeed(seed uint64) uint64 {
 const demandSavesNote = "Changes save to the project"
 
 func (g *Game) drawDemand(screen *ebiten.Image) {
-	for _, value := range g.demandLabels() {
+	for _, value := range demandLabels(g.state, g.demandTextFit()) {
 		g.label(screen, value)
 	}
+}
+
+// demandTextFit returns the fit of the small text in the Demand panel.
+func (g *Game) demandTextFit() textFit {
+	return textFit{face: g.textFace(10), width: demandTextWidth * g.layout.unit}
 }
 
 const (
@@ -149,23 +157,23 @@ const (
 	demandErrorLines = 2
 )
 
-// demandLabels returns the text of the Demand panel. Below the counters,
-// the last demand error shows in amber on at most demandErrorLines lines.
-func (g *Game) demandLabels() []label {
-	demand := g.state.Demand
+// demandLabels returns the text of the Demand panel for state. fit is the
+// fit of the small text. Below the counters, the last demand error shows in
+// amber on at most demandErrorLines lines.
+func demandLabels(state session.State, fit textFit) []label {
+	demand := state.Demand
 	labels := []label{
 		{x: 816, y: 83, size: 12, value: "PASSENGER DEMAND", color: muted},
 		{x: 816, y: 108, size: 11, value: "Per simulated minute / shared settings", color: foreground},
 		{x: 816, y: 126, size: 10, value: demandSavesNote, color: muted},
 		{x: 816, y: 264, size: 11, value: fmt.Sprintf("Generated %d / skipped %d", demand.Generated, demand.Skipped), color: foreground},
-		{x: 816, y: 282, size: 10, value: g.fitText(redistributionText(g.state), 10, demandTextWidth), color: muted},
+		{x: 816, y: 282, size: 10, value: fitText(redistributionText(state), fit), color: muted},
 	}
 	if c := demand.Connections; c.Made+c.Missed+c.Unserved+c.Unresolved > 0 {
 		labels[1].value = fmt.Sprintf("Trains: %d made / %d missed", c.Made, c.Missed)
 		labels[2].value = fmt.Sprintf("%d unserved / %d unresolved", c.Unserved, c.Unresolved)
 	}
-	errorFit := textFit{face: g.textFace(10), width: demandTextWidth * g.layout.unit}
-	for index, line := range wrapText(demand.Error, errorFit, demandErrorLines) {
+	for index, line := range wrapText(demand.Error, fit, demandErrorLines) {
 		labels = append(labels, label{x: 816, y: 299 + 13*float64(index), size: 10, value: line, color: amber})
 	}
 	return labels

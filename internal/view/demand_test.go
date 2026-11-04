@@ -143,7 +143,7 @@ func TestDemandLabelsFitPanel(t *testing.T) {
 			game.state.Simulation.RebalanceMoves, game.state.Simulation.EmptyDistanceMeters = 12345, 12345600
 			controls := game.buttons()
 			panel := area{left: game.layout.right(796), top: game.layout.y(headerHeight), right: game.layout.right(1076), bottom: game.layout.bottom(538)}
-			labels := game.demandLabels()
+			labels := demandLabels(game.state, game.demandTextFit())
 			if !slices.ContainsFunc(labels, func(value label) bool { return value.value == demandSavesNote && value.color == muted }) {
 				t.Fatalf("Demand panel does not show %q in the muted color", demandSavesNote)
 			}
@@ -184,7 +184,7 @@ func TestDemandLabelsWithoutError(t *testing.T) {
 	game := controlTestGame(t, controlLayouts[0].input)
 	game.state.Redistribution = true
 	game.state.Simulation.RebalanceMoves, game.state.Simulation.EmptyDistanceMeters = 3, 15327
-	labels := game.demandLabels()
+	labels := demandLabels(game.state, game.demandTextFit())
 	for _, value := range labels {
 		if value.color == amber {
 			t.Errorf("label %q is amber without a demand error", value.value)
@@ -382,7 +382,7 @@ func TestRailDemandRateButton(t *testing.T) {
 	t.Parallel()
 	game := controlTestGame(t, controlLayouts[0].input)
 	game.state.Demand.Config = session.DemandConfig{Pattern: "rail-arrivals", PerMinute: 120}
-	rate := findButton(t, game.demandButtons(), "demand-rate")
+	rate := findButton(t, demandButtons(game.state, game.network, false), "demand-rate")
 	if rate.label != "Rate: scheduled arrivals" || !rate.disabled {
 		t.Fatalf("rail rate control: %+v", rate)
 	}
@@ -399,7 +399,7 @@ func TestRailConnectionCountsFitDemandPanel(t *testing.T) {
 			game.state.Demand.Connections.Unserved = 10000
 			game.state.Demand.Connections.Unresolved = 10000
 			game.state.Demand.Error = londonDemandError
-			labels := game.demandLabels()
+			labels := demandLabels(game.state, game.demandTextFit())
 			for _, want := range []string{"Trains: 10000 made / 10000 missed", "10000 unserved / 10000 unresolved"} {
 				if !slices.ContainsFunc(labels, func(value label) bool { return value.value == want }) {
 					t.Fatalf("missing counts %q", want)
@@ -413,7 +413,7 @@ func TestRailConnectionCountsFitDemandPanel(t *testing.T) {
 				}
 			}
 			game.state.Demand.Config.Pattern = "rail-services"
-			rate := findButton(t, game.demandButtons(), "demand-rate")
+			rate := findButton(t, demandButtons(game.state, game.network, false), "demand-rate")
 			if !rate.disabled || rate.label != "Rate: scheduled services" {
 				t.Fatal("fixed volume rate control")
 			}

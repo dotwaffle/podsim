@@ -500,7 +500,7 @@ func (g *Game) buttons() []button {
 	buttons = append(buttons, g.journeyButtons(state.Demo || !g.connected)...)
 	buttons = append(buttons, g.orderChoiceButtons(state.Demo || !g.connected)...)
 	if g.showDemand {
-		buttons = append(buttons, g.demandButtons()...)
+		buttons = append(buttons, demandButtons(g.state, g.network, busy)...)
 	}
 	if g.showOrders {
 		buttons = append(buttons, g.orderPagerButtons(state)...)
@@ -655,7 +655,7 @@ func (g *Game) pressSidePanel(action string) bool {
 		g.showDemand = !g.showDemand
 		g.showOrders = false
 	case "demand-rate", "demand-pattern", "demand-seed", "demand-toggle":
-		g.changeDemand(action)
+		g.submit(session.Command{Action: "demand", Demand: nextDemandConfig(g.state.Demand.Config, action, g.destination)})
 	case "demo":
 		g.startDemo(time.Now())
 	case "pause":
