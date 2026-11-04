@@ -225,6 +225,9 @@ type RestoreStateInput struct {
 	// EmergenciesOn turns on the emergency rules of the restore and the
 	// emergency operations of the restored simulation.
 	EmergenciesOn bool `json:",omitzero"`
+	// Rates holds the scenario rates of the project, for the presence checks
+	// of the sampler members and for the restored samplers.
+	Rates IncidentRates `json:",omitzero"`
 	// OnboardPickups permits new occupied pickups after restoration.
 	OnboardPickups  bool
 	ExpressServices []ExpressService

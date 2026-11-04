@@ -6,12 +6,19 @@ import (
 	"slices"
 )
 
-// SavedFaults holds the fault records and the fault counters of a saved
-// state. They need the fault switch.
+// SavedFaults holds the fault records, the fault counters, and the fault
+// sampler of a saved state. They need the fault switch.
 type SavedFaults struct {
 	// Records holds the active records in serial order.
 	Records  []SavedFault  `json:"records,omitempty"`
 	Counters FaultCounters `json:"counters,omitzero"`
+	// Random is the state of the sampler stream, from rand.PCG.MarshalBinary,
+	// and NextTick the tick of the next event. Both are present exactly when
+	// the sampler is live. Presence does not depend on the value: an empty
+	// Random and a NextTick of 0 are present. So Random has omitzero, because
+	// omitempty would drop an empty slice that is not nil.
+	Random   []byte `json:"random,omitzero"`
+	NextTick *int64 `json:"nextTick,omitzero"`
 }
 
 // SavedFault is one saved fault record. Its ID is i<Generation>.<Serial>.
@@ -36,13 +43,14 @@ type SavedFault struct {
 // damaged save gets no partial recovery.
 var errInvalidFaults = errors.New("invalid saved fault")
 
-// exportFaults returns the saved records and counters, or nil when no
-// record is active and each counter is 0.
+// exportFaults returns the saved records, counters, and sampler, or nil when
+// no record is active, each counter is 0, and the sampler is not live.
 func (s *Simulation) exportFaults() *SavedFaults {
-	if len(s.faults) == 0 && s.faultCounters == (faultCounters{}) {
+	if len(s.faults) == 0 && s.faultCounters == (faultCounters{}) && !s.faultSampler.live {
 		return nil
 	}
 	saved := &SavedFaults{Counters: s.faultCounters.exported()}
+	saved.Random, saved.NextTick = s.faultSampler.savedMembers()
 	for _, record := range s.faults {
 		fault := SavedFault{Generation: record.generation, Serial: record.serial, Start: record.start, End: record.end}
 		if record.kind == debrisFault {
@@ -67,13 +75,16 @@ func (fault SavedFault) record() faultRecord {
 
 // counters returns the native form of saved counters.
 func (c FaultCounters) counters() faultCounters {
-	return faultCounters{started: c.Started, cleared: c.Cleared, evacuations: c.Evacuations, reroutes: c.Reroutes, faultWaitTicks: c.FaultWaitTicks}
+	return faultCounters{started: c.Started, cleared: c.Cleared, evacuations: c.Evacuations, reroutes: c.Reroutes, faultWaitTicks: c.FaultWaitTicks,
+		sampled: c.Sampled, skipped: c.Skipped, clearedTicks: c.ClearedTicks, delayedRiderTicks: c.DelayedRiderTicks}
 }
 
-// checkSavedFaults checks the saved fault records and counters before
-// either restore tier, with the rules of section 13.5 of the incident
-// suspension contract that do not need the network. Records and counters
-// need the fault switch. The records are in strictly increasing serial order up to the saved serial,
+// checkSavedFaults checks the saved fault records, counters, and sampler
+// before either restore tier, with the rules of section 13.5 of the incident
+// suspension contract that do not need the network, and section 4.3 of the
+// incident stage 7 contract. An ordinary save of a project with a rate has
+// the member. Records, counters, and sampler need the fault switch. The
+// records are in strictly increasing serial order up to the saved serial,
 // and at most maxDebrisFaults are debris. Each start is from 0 to the
 // saved tick, each end is 0 or after its start, and each evacuation tick
 // fits in int64. A pod record names a saved pod with the fault hold, at
@@ -86,14 +97,21 @@ func (c FaultCounters) counters() faultCounters {
 func checkSavedFaults(input RestoreStateInput) error {
 	saved := input.State.Faults
 	if saved == nil {
+		if input.FaultsOn && input.Rates.Faults.PerHour > 0 && !demoSave(input) {
+			return fmt.Errorf("%w: %w", errInvalidFaults, errSamplerMissing)
+		}
 		return nil
 	}
 	if !input.FaultsOn {
 		return errors.New("saved faults need faults on")
 	}
 	counters := saved.Counters
-	if counters.Started < 0 || counters.Cleared < 0 || counters.Evacuations < 0 || counters.Reroutes < 0 || counters.FaultWaitTicks < 0 {
+	if counters.Started < 0 || counters.Cleared < 0 || counters.Evacuations < 0 || counters.Reroutes < 0 || counters.FaultWaitTicks < 0 ||
+		counters.Sampled < 0 || counters.Skipped < 0 || counters.ClearedTicks < 0 || counters.DelayedRiderTicks < 0 {
 		return fmt.Errorf("%w: a fault counter is negative", errInvalidFaults)
+	}
+	if err := checkSavedSampler(input, saved.Random, saved.NextTick, input.Rates.Faults.PerHour); err != nil {
+		return fmt.Errorf("%w: %w", errInvalidFaults, err)
 	}
 	state := input.State
 	if state.Demo != nil && len(saved.Records) > 0 {
@@ -148,13 +166,22 @@ func checkSavedFaults(input RestoreStateInput) error {
 
 // setRestoredFaults gives a restored simulation the fault switch of input.
 // With the switch on, the fault operations are on with the settings of
-// input. The session turns them off again for the fleet of the traffic
-// demo, which has no record.
+// input, and a saved sampler continues with its stream, its next tick, and
+// the rates of input. The session turns them off again for the fleet of the
+// traffic demo, which has no record and no sampler.
 func (s *Simulation) setRestoredFaults(input RestoreStateInput) error {
 	if !input.FaultsOn {
 		return nil
 	}
-	return s.SetFaults(true, input.Faults)
+	if err := s.SetFaults(true, input.Faults); err != nil {
+		return err
+	}
+	saved := input.State.Faults
+	if saved == nil || saved.NextTick == nil {
+		return nil
+	}
+	s.faultRate = input.Rates.Faults
+	return s.faultSampler.restore(saved.Random, *saved.NextTick, input.Rates.Faults.PerHour)
 }
 
 // savedDebris checks each saved debris record against the network:

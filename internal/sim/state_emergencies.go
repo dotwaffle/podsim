@@ -6,12 +6,16 @@ import (
 	"slices"
 )
 
-// SavedEmergencies holds the emergency records and the emergency counters
-// of a saved state. They need the emergency switch.
+// SavedEmergencies holds the emergency records, the emergency counters, and
+// the emergency sampler of a saved state. They need the emergency switch.
 type SavedEmergencies struct {
 	// Records holds the active records in serial order.
 	Records  []SavedEmergency  `json:"records,omitempty"`
 	Counters EmergencyCounters `json:"counters,omitzero"`
+	// Random and NextTick are the members of the same name of SavedFaults,
+	// for the emergency sampler.
+	Random   []byte `json:"random,omitzero"`
+	NextTick *int64 `json:"nextTick,omitzero"`
 }
 
 // SavedEmergency is one saved emergency record. Its ID is
@@ -36,6 +40,15 @@ type EmergencyCounters struct {
 	// EmergencyTicks is the sum over the emergency stages of the number of
 	// records after the stage.
 	EmergencyTicks int64 `json:"emergencyTicks,omitzero"`
+	// Sampled counts the sampler events that came due, and Skipped those
+	// with no start. Only the sampler changes them.
+	Sampled int64 `json:"sampled,omitzero"`
+	Skipped int64 `json:"skipped,omitzero"`
+	// EndedTicks is the sum of the lengths of the records that ended, and
+	// MaxTicks the longest of them. They move only while the emergency
+	// sampler is live.
+	EndedTicks int64 `json:"endedTicks,omitzero"`
+	MaxTicks   int64 `json:"maxTicks,omitzero"`
 }
 
 // errInvalidEmergencies marks saved emergency data that makes the whole
@@ -45,12 +58,14 @@ var errInvalidEmergencies = errors.New("invalid saved emergency")
 
 // exported returns the saved form of the counters.
 func (c emergencyCounters) exported() EmergencyCounters {
-	return EmergencyCounters{Started: c.started, Ended: c.ended, EmergencyTicks: c.emergencyTicks}
+	return EmergencyCounters{Started: c.started, Ended: c.ended, EmergencyTicks: c.emergencyTicks,
+		Sampled: c.sampled, Skipped: c.skipped, EndedTicks: c.endedTicks, MaxTicks: c.maxTicks}
 }
 
 // counters returns the native form of saved counters.
 func (c EmergencyCounters) counters() emergencyCounters {
-	return emergencyCounters{started: c.Started, ended: c.Ended, emergencyTicks: c.EmergencyTicks}
+	return emergencyCounters{started: c.Started, ended: c.Ended, emergencyTicks: c.EmergencyTicks,
+		sampled: c.Sampled, skipped: c.Skipped, endedTicks: c.EndedTicks, maxTicks: c.MaxTicks}
 }
 
 // record returns the native record of a saved record.
@@ -58,13 +73,14 @@ func (e SavedEmergency) record() emergencyRecord {
 	return emergencyRecord{generation: e.Generation, serial: e.Serial, start: e.Start, pod: e.Pod, order: e.Order}
 }
 
-// exportEmergencies returns the saved records and counters, or nil when no
-// record is active and each counter is 0.
+// exportEmergencies returns the saved records, counters, and sampler, or nil
+// when no record is active, each counter is 0, and the sampler is not live.
 func (s *Simulation) exportEmergencies() *SavedEmergencies {
-	if len(s.emergencies) == 0 && s.emergencyCounters == (emergencyCounters{}) {
+	if len(s.emergencies) == 0 && s.emergencyCounters == (emergencyCounters{}) && !s.emergencySampler.live {
 		return nil
 	}
 	saved := &SavedEmergencies{Counters: s.emergencyCounters.exported()}
+	saved.Random, saved.NextTick = s.emergencySampler.savedMembers()
 	for _, record := range s.emergencies {
 		saved.Records = append(saved.Records, SavedEmergency{
 			Generation: record.generation, Serial: record.serial, Start: record.start, Pod: record.pod, Order: record.order,
@@ -76,9 +92,10 @@ func (s *Simulation) exportEmergencies() *SavedEmergencies {
 // checkSavedEmergencies checks the saved emergency data before either
 // restore tier (section 11.5 of the incident emergency contract). It reads
 // only the saved records and pod tuples, so the logical tier cannot remove
-// the evidence that it needs. Records and counters need the switch. With the
-// switch on, the records meet E1, and the saved pods meet E2 to E5 and E8.
-// Each failure makes the whole save invalid.
+// the evidence that it needs. Records, counters, and sampler need the switch.
+// With the switch on, the records meet E1, the sampler meets section 4.3 of
+// the incident stage 7 contract, and the saved pods meet E2 to E5 and E8. Each
+// failure makes the whole save invalid.
 func checkSavedEmergencies(input RestoreStateInput) error {
 	state := input.State
 	if !input.EmergenciesOn {
@@ -89,6 +106,14 @@ func checkSavedEmergencies(input RestoreStateInput) error {
 	}
 	parties, err := savedEmergencyParties(state)
 	if err != nil {
+		return fmt.Errorf("%w: %w", errInvalidEmergencies, err)
+	}
+	var random []byte
+	var nextTick *int64
+	if state.Emergencies != nil {
+		random, nextTick = state.Emergencies.Random, state.Emergencies.NextTick
+	}
+	if err := checkSavedSampler(input, random, nextTick, input.Rates.EmergenciesPerHour); err != nil {
 		return fmt.Errorf("%w: %w", errInvalidEmergencies, err)
 	}
 	for index, pod := range state.Pods {
@@ -109,7 +134,8 @@ func savedEmergencyParties(state SavedState) ([]int, error) {
 		return parties, nil
 	}
 	counters := saved.Counters
-	if counters.Started < 0 || counters.Ended < 0 || counters.EmergencyTicks < 0 {
+	if counters.Started < 0 || counters.Ended < 0 || counters.EmergencyTicks < 0 ||
+		counters.Sampled < 0 || counters.Skipped < 0 || counters.EndedTicks < 0 || counters.MaxTicks < 0 {
 		return nil, errors.New("an emergency counter is negative")
 	}
 	if len(saved.Records) > MaxEmergencies {
@@ -195,7 +221,7 @@ func CheckIncidentPolicy(input RestoreStateInput) error {
 			return fmt.Errorf("saved pod %s has an empty recovery with the emergency owner", pod.ID)
 		}
 	}
-	if state.Demo == nil && len(state.Pods) <= len(input.Fleet) {
+	if !demoSave(input) {
 		return nil
 	}
 	for _, pod := range state.Pods {
@@ -209,11 +235,23 @@ func CheckIncidentPolicy(input RestoreStateInput) error {
 	return nil
 }
 
+// demoSave reports whether a saved state is a save of the traffic demo: it
+// has the demo member, or more pods than the fleet.
+func demoSave(input RestoreStateInput) bool {
+	return input.State.Demo != nil || len(input.State.Pods) > len(input.Fleet)
+}
+
 // setRestoredEmergencies gives a restored simulation the emergency switch
-// of input. The session turns the operations off again for the fleet of
+// of input. A saved sampler continues with its stream, its next tick, and the
+// rate of input. The session turns the operations off again for the fleet of
 // the traffic demo.
-func (s *Simulation) setRestoredEmergencies(input RestoreStateInput) {
+func (s *Simulation) setRestoredEmergencies(input RestoreStateInput) error {
 	s.emergenciesOn = input.EmergenciesOn
+	saved := input.State.Emergencies
+	if !input.EmergenciesOn || saved == nil || saved.NextTick == nil {
+		return nil
+	}
+	return s.emergencySampler.restore(saved.Random, *saved.NextTick, input.Rates.EmergenciesPerHour)
 }
 
 // restoreEmergencies restores the records and the counters after each pod

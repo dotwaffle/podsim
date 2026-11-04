@@ -258,10 +258,7 @@ func TestEmergencySamplerDrawCount(t *testing.T) {
 			if s.emergencyCounters.skipped != 1 || s.emergencyCounters.started != started {
 				t.Fatalf("a refused event has the counters %+v", s.emergencyCounters)
 			}
-			// No save has the sampler counters yet, but exportEmergencies
-			// sees them.
-			s.emergencyCounters.sampled, s.emergencyCounters.skipped = 0, 0
-			if !reflect.DeepEqual(s.ExportState(), state) || len(s.emergencies) != records || s.incidentSerial != serial {
+			if !reflect.DeepEqual(withoutSamplerMoves(s.ExportState()), withoutSamplerMoves(state)) || len(s.emergencies) != records || s.incidentSerial != serial {
 				t.Fatal("a refused start changed the state")
 			}
 		})
@@ -397,6 +394,7 @@ func TestEmergencySamplerTerminal(t *testing.T) {
 	if err := s.CheckContract(); err != nil {
 		t.Fatal(err)
 	}
+	checkTerminalRestore(t, s, IncidentRates{EmergenciesPerHour: 60})
 }
 
 // TestIncidentStreamsSeparate runs one rate at a time, each way. The state of

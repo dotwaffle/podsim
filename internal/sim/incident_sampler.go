@@ -1,6 +1,7 @@
 package sim
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"math/rand/v2"
@@ -61,6 +62,23 @@ type incidentSampler struct {
 func (m *incidentSampler) start(seed [2]uint64, perHour float64, tick int64) {
 	*m = incidentSampler{live: true, stream: *rand.NewPCG(seed[0], seed[1]), perHour: perHour}
 	m.schedule(tick)
+}
+
+// savedMembers returns the state of the stream and the next tick of a live
+// sampler, or nil and nil for a sampler that is not live.
+func (m *incidentSampler) savedMembers() ([]byte, *int64) {
+	if !m.live {
+		return nil, nil
+	}
+	// MarshalBinary of a PCG cannot fail.
+	random, _ := m.stream.MarshalBinary()
+	return random, new(m.nextTick)
+}
+
+// restore makes the sampler live with a saved stream and a saved next tick.
+func (m *incidentSampler) restore(random []byte, nextTick int64, perHour float64) error {
+	*m = incidentSampler{live: true, nextTick: nextTick, perHour: perHour}
+	return m.stream.UnmarshalBinary(random)
 }
 
 // uniform returns the next draw of the stream, from 0 to below 1. The
@@ -126,6 +144,37 @@ func nextIncidentTick(tick int64, u, perHour float64) int64 {
 		return MaxCounter
 	}
 	return int64(next)
+}
+
+// errSamplerMissing refuses an ordinary save of a project with a rate and no
+// sampler members.
+var errSamplerMissing = errors.New("a rate above 0 needs the sampler members")
+
+// checkSavedSampler checks the sampler members of one group of a saved state
+// against the project rate (section 4.3 of the incident stage 7 contract).
+// Presence does not depend on value, so an empty random and a next tick of 0
+// are present. A demo save has no live sampler, so it needs no members. The
+// next tick is the terminal value or after the saved tick. The order of the
+// checks is part of the format.
+func checkSavedSampler(input RestoreStateInput, random []byte, nextTick *int64, perHour float64) error {
+	switch {
+	case (random == nil) != (nextTick == nil):
+		return errors.New("random and nextTick need each other")
+	case nextTick != nil && !(perHour > 0):
+		return errors.New("the sampler members need a rate above 0")
+	case nextTick == nil && perHour > 0 && !demoSave(input):
+		return errSamplerMissing
+	case nextTick == nil:
+		return nil
+	}
+	if err := new(rand.PCG).UnmarshalBinary(random); err != nil {
+		return errors.New("the random source is not valid")
+	}
+	tick := input.State.Tick
+	if next := *nextTick; next != MaxCounter && (next <= tick || next > MaxCounter) {
+		return fmt.Errorf("nextTick %d is outside %d to %d", next, tick+1, MaxCounter)
+	}
+	return nil
 }
 
 // StartIncidentSampling starts each sampler that has a rate above 0, its

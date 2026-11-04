@@ -508,6 +508,7 @@ func (s *Session) loadState(input loadInput) (loaded loadedState, err error) {
 		Network:       loaded.config.Network, Fleet: loaded.config.Fleet, State: file.Simulation, LogicalOnly: loaded.logicalOnly,
 		ExpressServices: loaded.config.ExpressServices, OnboardPickups: loaded.config.OnboardPickups,
 		FaultsOn: true, Faults: project.EffectiveFaultSettings(loaded.config), EmergenciesOn: true,
+		Rates: project.EffectiveIncidentRates(loaded.config),
 	}
 	// The incident policy reads only the saved state, and it runs before
 	// either tier, so a rejected save gets no logical fallback (section 8
@@ -528,8 +529,17 @@ func (s *Session) loadState(input loadInput) (loaded loadedState, err error) {
 	if err = project.ConfigurePlatoons(loaded.simulation, loaded.config); err != nil {
 		return loaded, invalidState(err)
 	}
-	if err = project.ConfigureExperiments(loaded.simulation, loaded.config, !demoFleet(loaded.simulation, loaded.config.Fleet)); err != nil {
+	operations := !demoFleet(loaded.simulation, loaded.config.Fleet)
+	if err = project.ConfigureExperiments(loaded.simulation, loaded.config, operations); err != nil {
 		return loaded, invalidState(err)
+	}
+	// A restored sampler keeps its stream. Only the logical tier of a demo
+	// save has an ordinary fleet with no saved sampler, and it starts one
+	// here, from the seed of the saved project and the restored tick.
+	if operations {
+		if err = project.ConfigureIncidentSampling(loaded.simulation, loaded.config); err != nil {
+			return loaded, invalidState(err)
+		}
 	}
 	// The demand command refuses a change while the traffic demo runs, so
 	// a restored demo cannot apply other demand settings. The restore then

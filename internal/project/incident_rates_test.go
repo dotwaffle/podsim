@@ -83,6 +83,19 @@ func TestEffectiveIncidentRates(t *testing.T) {
 	}
 }
 
+// savedNextTicks returns the saved next tick of each sampler, or 0 for a
+// sampler that is not live. A live sampler has a next tick of at least 1.
+func savedNextTicks(simulation *sim.Simulation) (fault, emergency int64) {
+	state := simulation.ExportState()
+	if state.Faults != nil && state.Faults.NextTick != nil {
+		fault = *state.Faults.NextTick
+	}
+	if state.Emergencies != nil && state.Emergencies.NextTick != nil {
+		emergency = *state.Emergencies.NextTick
+	}
+	return fault, emergency
+}
+
 // TestConfigureIncidentSampling checks the start of the samplers of a project.
 // Each form of a rate of 0 starts nothing, and each rate starts its own
 // sampler from the stream of the demand seed. The next ticks come from a
@@ -127,7 +140,7 @@ func TestConfigureIncidentSampling(t *testing.T) {
 			if err := ConfigureIncidentSampling(simulation, config); err != nil {
 				t.Fatal(err)
 			}
-			fault, emergency := simulation.IncidentNextTicksForTest()
+			fault, emergency := savedNextTicks(simulation)
 			if fault != test.fault || emergency != test.emergency {
 				t.Fatalf("next ticks %d and %d, want %d and %d", fault, emergency, test.fault, test.emergency)
 			}
@@ -138,14 +151,14 @@ func TestConfigureIncidentSampling(t *testing.T) {
 			if err := ConfigureIncidentSampling(simulation, config); err != nil {
 				t.Fatal(err)
 			}
-			if again, other := simulation.IncidentNextTicksForTest(); again != fault || other != emergency {
+			if again, other := savedNextTicks(simulation); again != fault || other != emergency {
 				t.Fatalf("a second call moved the samplers to %d and %d", again, other)
 			}
 			// The operations off stop both samplers.
 			if err := ConfigureExperiments(simulation, config, false); err != nil {
 				t.Fatal(err)
 			}
-			if fault, emergency := simulation.IncidentNextTicksForTest(); fault != 0 || emergency != 0 {
+			if fault, emergency := savedNextTicks(simulation); fault != 0 || emergency != 0 {
 				t.Fatalf("the operations off left the next ticks %d and %d", fault, emergency)
 			}
 		})
@@ -159,7 +172,7 @@ func TestConfigureIncidentSampling(t *testing.T) {
 		if err := ConfigureIncidentSampling(simulation, config); err != nil {
 			t.Fatal(err)
 		}
-		if fault, emergency := simulation.IncidentNextTicksForTest(); fault != 0 || emergency != 0 {
+		if fault, emergency := savedNextTicks(simulation); fault != 0 || emergency != 0 {
 			t.Fatalf("next ticks %d and %d with the operations off", fault, emergency)
 		}
 	})

@@ -284,11 +284,12 @@ func (p *PreparedNetwork) newFleet(placements []Placement) *Simulation {
 // The network must be the one that the saved simulation used.
 type PreparedRestoreInput struct {
 	OrderContract OrderContract
-	// FaultsOn, Faults, and EmergenciesOn are the members of the same name
-	// of RestoreStateInput.
+	// FaultsOn, Faults, EmergenciesOn, and Rates are the members of the same
+	// name of RestoreStateInput.
 	FaultsOn      bool
 	Faults        FaultSettings
 	EmergenciesOn bool
+	Rates         IncidentRates
 	// OnboardPickups enables new occupied pickups after restoration.
 	OnboardPickups  bool
 	ExpressServices []ExpressService
@@ -306,7 +307,7 @@ func (p *PreparedNetwork) RestoreState(input PreparedRestoreInput) (*Simulation,
 	}
 	stateInput := RestoreStateInput{
 		OrderContract: input.OrderContract,
-		FaultsOn:      input.FaultsOn, Faults: input.Faults, EmergenciesOn: input.EmergenciesOn,
+		FaultsOn:      input.FaultsOn, Faults: input.Faults, EmergenciesOn: input.EmergenciesOn, Rates: input.Rates,
 		OnboardPickups: input.OnboardPickups, ExpressServices: input.ExpressServices,
 		Network: p.network, Fleet: input.Fleet, State: input.State, LogicalOnly: input.LogicalOnly,
 	}

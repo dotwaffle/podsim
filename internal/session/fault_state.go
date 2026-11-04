@@ -65,10 +65,10 @@ func checkFaultMembers(data []byte) error {
 }
 
 // validateFaultValues refuses an empty faults member, which the save omits.
-// The encoder calls it.
+// A member with a sampler member is not empty. The encoder calls it.
 func (file *stateFile) validateFaultValues() error {
 	faults := file.Simulation.Faults
-	if faults != nil && len(faults.Records) == 0 && faults.Counters == (sim.FaultCounters{}) {
+	if faults != nil && len(faults.Records) == 0 && faults.Counters == (sim.FaultCounters{}) && faults.Random == nil && faults.NextTick == nil {
 		return errors.New("saved faults member is empty")
 	}
 	return nil

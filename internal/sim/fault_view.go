@@ -41,6 +41,16 @@ type FaultCounters struct {
 	// FaultWaitTicks counts the ticks of healthy pods that wait for a
 	// fault, one for each pod in each tick.
 	FaultWaitTicks int64 `json:"faultWaitTicks,omitzero"`
+	// Sampled counts the sampler events that came due, and Skipped those
+	// with no start. Only the sampler changes them.
+	Sampled int64 `json:"sampled,omitzero"`
+	Skipped int64 `json:"skipped,omitzero"`
+	// ClearedTicks is the sum of the lengths of the faults that ended, and
+	// DelayedRiderTicks the sum over ticks of the active riders aboard
+	// healthy pods with an incident wait. They move only while the fault
+	// sampler is live.
+	ClearedTicks      int64 `json:"clearedTicks,omitzero"`
+	DelayedRiderTicks int64 `json:"delayedRiderTicks,omitzero"`
 }
 
 // FaultsView holds the active faults in serial order and the fault
@@ -52,7 +62,8 @@ type FaultsView struct {
 
 // exported returns the counters in their exported form.
 func (c faultCounters) exported() FaultCounters {
-	return FaultCounters{Started: c.started, Cleared: c.cleared, Evacuations: c.evacuations, Reroutes: c.reroutes, FaultWaitTicks: c.faultWaitTicks}
+	return FaultCounters{Started: c.started, Cleared: c.cleared, Evacuations: c.evacuations, Reroutes: c.reroutes, FaultWaitTicks: c.faultWaitTicks,
+		Sampled: c.sampled, Skipped: c.skipped, ClearedTicks: c.clearedTicks, DelayedRiderTicks: c.delayedRiderTicks}
 }
 
 // faultsView returns the active faults and the counters of s.

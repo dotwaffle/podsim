@@ -24,10 +24,11 @@ func checkEmergencyMembers(data []byte) error {
 }
 
 // validateEmergencyValues refuses an empty emergencies member, which the
-// save omits. The encoder calls it.
+// save omits. A member with a sampler member is not empty. The encoder calls
+// it.
 func (file *stateFile) validateEmergencyValues() error {
 	emergencies := file.Simulation.Emergencies
-	if emergencies != nil && len(emergencies.Records) == 0 && emergencies.Counters == (sim.EmergencyCounters{}) {
+	if emergencies != nil && len(emergencies.Records) == 0 && emergencies.Counters == (sim.EmergencyCounters{}) && emergencies.Random == nil && emergencies.NextTick == nil {
 		return errors.New("saved emergencies member is empty")
 	}
 	return nil

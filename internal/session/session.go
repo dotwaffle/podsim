@@ -351,6 +351,9 @@ func (s *Session) startProject(config project.Config) error {
 	if err := project.ConfigureExperiments(simulation, owned, true); err != nil {
 		return fmt.Errorf("configure experimental policies: %w", err)
 	}
+	if err := project.ConfigureIncidentSampling(simulation, owned); err != nil {
+		return fmt.Errorf("configure incident sampling: %w", err)
+	}
 	epoch := rand.Text()
 	if err := preflightTopology(owned, s.serverStart, epoch); err != nil {
 		return err
@@ -781,6 +784,9 @@ func (s *Session) apply(command Command) (outcome, error) {
 		if err := project.ConfigureExperiments(s.simulation, s.project, true); err != nil {
 			return outcome{}, fmt.Errorf("configure experimental policies: %w", err)
 		}
+		if err := project.ConfigureIncidentSampling(s.simulation, s.project); err != nil {
+			return outcome{}, fmt.Errorf("configure incident sampling: %w", err)
+		}
 		s.simulation.SetPaused(paused)
 		s.speed = 1
 		s.demand = newDemand(demandInput{config: s.project.Demand, network: s.project.Network, profiles: s.project.DemandProfiles, arrivals: s.project.RailArrivals, departures: s.project.RailDepartures, consent: s.project.GeneratedOrderConsent})
@@ -918,6 +924,9 @@ func (s *Session) applyProject(command Command) (bool, error) {
 	}
 	if err := project.ConfigureExperiments(candidate, config, true); err != nil {
 		return false, fmt.Errorf("configure experimental policies: %w", err)
+	}
+	if err := project.ConfigureIncidentSampling(candidate, config); err != nil {
+		return false, fmt.Errorf("configure incident sampling: %w", err)
 	}
 	if err := preflightTopology(config, s.serverStart, s.epoch); err != nil {
 		return false, err

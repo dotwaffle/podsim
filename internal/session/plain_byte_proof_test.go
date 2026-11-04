@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	jsonv2 "encoding/json/v2"
 	"math"
+	"math/rand/v2"
 	"reflect"
 	"slices"
 	"strings"
@@ -28,7 +29,7 @@ func TestPlainStateFileWorstCaseSize(t *testing.T) {
 		t.Skip("plain byte proofs run without -short or -race, in test:embedded")
 	}
 	file := widestPlainSavedState(t)
-	addWidestSavedMembers(&file)
+	addWidestSavedMembers(t, &file)
 	data := marshalWidestSave(t, file)
 	// The pod encoder of a save writes the operational tuple. The native pod
 	// has no such member, so the proof counts its bytes here.
@@ -41,8 +42,10 @@ func TestPlainStateFileWorstCaseSize(t *testing.T) {
 // of a save at its widest. Each pod has both holds and an emergency unload
 // with a full interrupt set, each order a leg origin of the last station, and
 // each waiting trip an excluded pod. Each record is the widest tuple, in
-// serial order, and each counter is sim.MaxCounter.
-func addWidestSavedMembers(file *stateFile) {
+// serial order, each counter is sim.MaxCounter, and each sampler has a valid
+// stream and the widest next tick.
+func addWidestSavedMembers(t *testing.T, file *stateFile) {
+	t.Helper()
 	state := &file.Simulation
 	state.Interrupted, state.InterruptedPassengers, state.IncidentSerial = sim.MaxCounter, sim.MaxCounter, math.MaxUint64
 	station := file.Project.Network.Stations[project.MaxStations-1].ID
@@ -65,15 +68,30 @@ func addWidestSavedMembers(file *stateFile) {
 		faults[index] = sim.SavedFault{Generation: math.MaxUint64, Serial: math.MaxUint64 - uint64(maxFaultRecords-index), Debris: true,
 			Start: sim.MaxCounter, End: sim.MaxCounter, Lane: project.MaxLanes - 1, From: plainProofFloat, To: plainProofFloat}
 	}
-	state.Faults = &sim.SavedFaults{Records: faults, Counters: sim.FaultCounters{Started: sim.MaxCounter, Cleared: sim.MaxCounter,
-		Evacuations: sim.MaxCounter, Reroutes: sim.MaxCounter, FaultWaitTicks: sim.MaxCounter}}
+	// The scalar filler cannot build a valid PCG state.
+	random, err := rand.NewPCG(math.MaxUint64, math.MaxUint64).MarshalBinary()
+	if err != nil {
+		t.Fatal(err)
+	}
+	state.Faults = &sim.SavedFaults{Records: faults, Counters: widestFaultCounters(), Random: random, NextTick: new(int64(sim.MaxCounter))}
 	emergencies := make([]sim.SavedEmergency, sim.MaxEmergencies)
 	for index := range emergencies {
 		emergencies[index] = sim.SavedEmergency{Generation: math.MaxUint64, Serial: math.MaxUint64 - uint64(sim.MaxEmergencies-index),
 			Start: sim.MaxCounter, Pod: project.MaxPods - 1, Order: sim.MaxCounter}
 	}
-	state.Emergencies = &sim.SavedEmergencies{Records: emergencies, Counters: sim.EmergencyCounters{Started: sim.MaxCounter,
-		Ended: sim.MaxCounter, EmergencyTicks: sim.MaxCounter}}
+	state.Emergencies = &sim.SavedEmergencies{Records: emergencies, Counters: widestEmergencyCounters(), Random: random, NextTick: new(int64(sim.MaxCounter))}
+}
+
+// widestFaultCounters has each fault counter at its widest.
+func widestFaultCounters() sim.FaultCounters {
+	return sim.FaultCounters{Started: sim.MaxCounter, Cleared: sim.MaxCounter, Evacuations: sim.MaxCounter, Reroutes: sim.MaxCounter, FaultWaitTicks: sim.MaxCounter,
+		Sampled: sim.MaxCounter, Skipped: sim.MaxCounter, ClearedTicks: sim.MaxCounter, DelayedRiderTicks: sim.MaxCounter}
+}
+
+// widestEmergencyCounters has each emergency counter at its widest.
+func widestEmergencyCounters() sim.EmergencyCounters {
+	return sim.EmergencyCounters{Started: sim.MaxCounter, Ended: sim.MaxCounter, EmergencyTicks: sim.MaxCounter,
+		Sampled: sim.MaxCounter, Skipped: sim.MaxCounter, EndedTicks: sim.MaxCounter, MaxTicks: sim.MaxCounter}
 }
 
 // marshalWidestSave encodes file with the marshalers of the saved orders and
@@ -207,11 +225,9 @@ func widestPlainStreamRecordBytes(t *testing.T) int {
 	from, to, tick := plainProofFloat, plainProofFloat, int64(-sim.MaxCounter)
 	fault := sim.FaultView{ID: "i18446744073709551615.18446744073709551615", Kind: sim.FaultKindDebris, PodID: id, LaneID: id, FromMeters: &from, ToMeters: &to,
 		Phase: sim.FaultPhaseEvacuated, StartTick: tick, EndTick: tick, EvacuateTick: &tick}
-	faults := sim.FaultsView{Active: slices.Repeat([]sim.FaultView{fault}, maxFaultRecords), Counters: sim.FaultCounters{Started: sim.MaxCounter, Cleared: sim.MaxCounter,
-		Evacuations: sim.MaxCounter, Reroutes: sim.MaxCounter, FaultWaitTicks: sim.MaxCounter}}
+	faults := sim.FaultsView{Active: slices.Repeat([]sim.FaultView{fault}, maxFaultRecords), Counters: widestFaultCounters()}
 	emergency := sim.EmergencyView{ID: fault.ID, PodID: id, OrderID: sim.MaxCounter, Phase: sim.EmergencyPhaseUnloading, StartTick: tick}
-	emergencies := sim.EmergenciesView{Active: slices.Repeat([]sim.EmergencyView{emergency}, sim.MaxEmergencies), Counters: sim.EmergencyCounters{Started: sim.MaxCounter,
-		Ended: sim.MaxCounter, EmergencyTicks: sim.MaxCounter}}
+	emergencies := sim.EmergenciesView{Active: slices.Repeat([]sim.EmergencyView{emergency}, sim.MaxEmergencies), Counters: widestEmergencyCounters()}
 	faultBytes, err := jsonv2.Marshal(faults)
 	if err != nil {
 		t.Fatal(err)

@@ -106,7 +106,8 @@ func checkEmergencyFrame(frame SimulationFrame) error {
 		return nil
 	}
 	counters := emergencies.Counters
-	if counters.Started < 0 || counters.Ended < 0 || counters.EmergencyTicks < 0 {
+	if counters.Started < 0 || counters.Ended < 0 || counters.EmergencyTicks < 0 ||
+		counters.Sampled < 0 || counters.Skipped < 0 || counters.EndedTicks < 0 || counters.MaxTicks < 0 {
 		return errors.New("negative emergency counter")
 	}
 	if len(emergencies.Active) > sim.MaxEmergencies {

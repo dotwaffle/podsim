@@ -47,7 +47,9 @@ func restoreLogical(input RestoreStateInput, newFleet func() (*Simulation, error
 	if err := s.setRestoredFaults(input); err != nil {
 		return nil, RestoreResult{}, err
 	}
-	s.setRestoredEmergencies(input)
+	if err := s.setRestoredEmergencies(input); err != nil {
+		return nil, RestoreResult{}, err
+	}
 	if err := s.checkSavedClasses(state); err != nil {
 		return nil, RestoreResult{}, err
 	}

@@ -66,17 +66,3 @@ func (s *Simulation) IncidentForTest(podID string, operation IncidentTestOperati
 	s.observe()
 	return nil
 }
-
-// IncidentNextTicksForTest returns the next tick of the fault sampler and of
-// the emergency sampler, or 0 for a sampler that is not live. A live sampler
-// has a next tick of at least 1. It is a test entry for the project tests,
-// because no save has the sampler members yet. No production code calls it.
-func (s *Simulation) IncidentNextTicksForTest() (fault, emergency int64) {
-	if s.faultSampler.live {
-		fault = s.faultSampler.nextTick
-	}
-	if s.emergencySampler.live {
-		emergency = s.emergencySampler.nextTick
-	}
-	return fault, emergency
-}

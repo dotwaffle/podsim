@@ -176,6 +176,22 @@ tick=84768 free=0 kind=0.425550 target=0.842589 position=0.490569 duration=0.804
 	}
 }
 
+// withoutSamplerMoves returns state without the members that a skipped event
+// moves: the sampler members and the sampler counters.
+func withoutSamplerMoves(state SavedState) SavedState {
+	if state.Faults != nil {
+		faults := *state.Faults
+		faults.Random, faults.NextTick, faults.Counters.Sampled, faults.Counters.Skipped = nil, nil, 0, 0
+		state.Faults = &faults
+	}
+	if state.Emergencies != nil {
+		emergencies := *state.Emergencies
+		emergencies.Random, emergencies.NextTick, emergencies.Counters.Sampled, emergencies.Counters.Skipped = nil, nil, 0, 0
+		state.Emergencies = &emergencies
+	}
+	return state
+}
+
 // incidentTraceGolden reports whether the pinned traces hold on this CPU type
 // (section 5.1.4 of the incident stage 7 contract).
 func incidentTraceGolden() bool {
@@ -439,9 +455,7 @@ func TestFaultSamplerDrawCount(t *testing.T) {
 			if s.faultCounters.skipped != 1 || s.faultCounters.started != started {
 				t.Fatalf("a refused event has the counters %+v", s.faultCounters)
 			}
-			// No save has the sampler counters yet, but exportFaults sees them.
-			s.faultCounters.sampled, s.faultCounters.skipped = 0, 0
-			if !reflect.DeepEqual(s.ExportState(), state) || len(s.faults) != faults || s.incidentSerial != serial {
+			if !reflect.DeepEqual(withoutSamplerMoves(s.ExportState()), withoutSamplerMoves(state)) || len(s.faults) != faults || s.incidentSerial != serial {
 				t.Fatal("a refused start changed the state")
 			}
 		})
@@ -508,6 +522,7 @@ func TestFaultSamplerTerminal(t *testing.T) {
 	if err := s.CheckContract(); err != nil {
 		t.Fatal(err)
 	}
+	checkTerminalRestore(t, s, IncidentRates{Faults: faultRateForTest()})
 	s = samplerFleet(t)
 	checkFaultsEachTick(t, s)
 	startFaultSampler(t, s, faultRateForTest())
@@ -519,6 +534,28 @@ func TestFaultSamplerTerminal(t *testing.T) {
 	}
 	if next := s.faultSampler.nextTick; next != MaxCounter && next <= s.tick {
 		t.Fatalf("next tick %d at tick %d", next, s.tick)
+	}
+}
+
+// checkTerminalRestore saves s at the tick limit with the terminal value of
+// each live sampler, and restores it in each tier. The restore keeps the
+// terminal value, which the range check accepts at each tick, and the state
+// contract holds.
+func checkTerminalRestore(t *testing.T, s *Simulation, rates IncidentRates) {
+	t.Helper()
+	for _, logical := range []bool{false, true} {
+		input := samplerRestoreInput(s, s.ExportState(), rates)
+		input.LogicalOnly = logical
+		restored, _, err := RestoreState(input)
+		if err != nil {
+			t.Fatalf("logical %t: %v", logical, err)
+		}
+		if restored.tick != MaxCounter || restored.faultSampler != s.faultSampler || restored.emergencySampler != s.emergencySampler {
+			t.Fatalf("logical %t: tick %d, samplers %+v and %+v", logical, restored.tick, restored.faultSampler, restored.emergencySampler)
+		}
+		if err := restored.CheckContract(); err != nil {
+			t.Fatalf("logical %t: %v", logical, err)
+		}
 	}
 }
 

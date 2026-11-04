@@ -164,7 +164,8 @@ func checkFaultFrame(frame SimulationFrame) error {
 		return nil
 	}
 	counters := faults.Counters
-	if counters.Started < 0 || counters.Cleared < 0 || counters.Evacuations < 0 || counters.Reroutes < 0 || counters.FaultWaitTicks < 0 {
+	if counters.Started < 0 || counters.Cleared < 0 || counters.Evacuations < 0 || counters.Reroutes < 0 || counters.FaultWaitTicks < 0 ||
+		counters.Sampled < 0 || counters.Skipped < 0 || counters.ClearedTicks < 0 || counters.DelayedRiderTicks < 0 {
 		return errors.New("negative fault counter")
 	}
 	vehicles := make(map[string]bool, len(frame.Vehicles))
