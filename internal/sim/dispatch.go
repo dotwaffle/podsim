@@ -79,6 +79,10 @@ func (s *Simulation) SubmitTripOptions(options TripOptions) (int, error) {
 // excludes. mayBeIdle computes the filter again at the first use after a
 // reset of the pass. Thus the filter includes each station with an idle pod.
 //
+// A station with an idle pod can have many waiting trips, and few of the
+// later trips hold an idle pod at their pickup. promoteReadyPickup needs only
+// those later trips, so the pass keeps them in queue order. See readyTrips.
+//
 // When a local idle pod takes a trip from a pod on its way to the pickup,
 // dispatch releases the other pod. The released pod can divert at once, so
 // a later trip in the same pass can take it. After the pass, each released
@@ -117,7 +121,7 @@ func (s *Simulation) dispatch() {
 // of the next trip: i when the trip leaves the queue, and i+1 when the trip
 // stays.
 func (s *Simulation) dispatchTrip(i int, pass *dispatchPass) int {
-	if s.mayBeIdle(pass, s.waiting[i].request.legOrigin()) && s.promoteReadyPickup(i) {
+	if s.mayBeIdle(pass, s.waiting[i].request.legOrigin()) && s.promoteReadyPickup(i, pass) {
 		pass.reset()
 	}
 	trip := &s.waiting[i]
@@ -405,6 +409,10 @@ type dispatchPass struct {
 	// true. See boardingPods.
 	boarding      map[string][]*vehicle
 	boardingKnown bool
+	// ready holds the queue indexes of the trips that readyPickupPod accepts,
+	// in queue order, when readyKnown is true. See readyTrips.
+	ready      []int
+	readyKnown bool
 	// finish keeps the result of availableAfter for each pod, by fleet
 	// index. See passAvailableAfter.
 	finish []finishMemo
@@ -469,6 +477,7 @@ func (pass *dispatchPass) reset() {
 	pass.candidates, pass.candidatesKnown = pass.candidates[:0], false
 	pass.idleKnown = false
 	pass.boardingKnown = false
+	pass.ready, pass.readyKnown = pass.ready[:0], false
 	clear(pass.finish)
 }
 
@@ -479,6 +488,34 @@ func (s *Simulation) mayBeIdle(pass *dispatchPass, stationID string) bool {
 		pass.idle, pass.idleKnown = s.idleStations(), true
 	}
 	return pass.idle.mayHave(stationID)
+}
+
+// readyPickupPod returns the pod of the trip when the pod is in service and
+// idle at the pickup of the trip. Otherwise it returns nil.
+func (s *Simulation) readyPickupPod(trip *waitingTrip) *vehicle {
+	v := s.findVehicle(trip.request.PodID)
+	if v == nil || !v.inService() || v.Pod.Activity != Idle || v.Pod.StationID != trip.request.legOrigin() {
+		return nil
+	}
+	return v
+}
+
+// readyTrips returns the queue index of each trip that readyPickupPod
+// accepts, in queue order. It finds the trips at the first call after a
+// reset of the pass. The result depends on the pods and the waiting trips.
+// dispatch resets the pass before it changes a pod binding, the activity of
+// a pod, or the queue, and it does not call readyTrips between the reset and
+// the change.
+func (s *Simulation) readyTrips(pass *dispatchPass) []int {
+	if !pass.readyKnown {
+		for i := range s.waiting {
+			if s.readyPickupPod(&s.waiting[i]) != nil {
+				pass.ready = append(pass.ready, i)
+			}
+		}
+		pass.readyKnown = true
+	}
+	return pass.ready
 }
 
 // freePods returns each pod in service that is idle or not occupied, in
@@ -743,20 +780,23 @@ func (s *Simulation) recordBoarding(request Request, sharedWith int) {
 // promoteReadyPickup serves the oldest passenger first when pickup pods arrive out of order.
 // Both pods retain the same pickup station; only their unboarded passenger orders swap.
 // It reports whether it swapped the pods of two trips. Neither trip gets
-// the pod that it excludes.
-func (s *Simulation) promoteReadyPickup(index int) bool {
+// the pod that it excludes. It reads the later trips from readyTrips, because
+// only a trip with a ready pod can give its pod to the trip at index.
+func (s *Simulation) promoteReadyPickup(index int, pass *dispatchPass) bool {
 	trip := &s.waiting[index]
 	current := s.findVehicle(trip.request.PodID)
 	if current != nil && current.Pod.Activity == Idle && current.Pod.StationID == trip.request.legOrigin() {
 		return false
 	}
-	for j := index + 1; j < len(s.waiting); j++ {
+	readyIndexes := s.readyTrips(pass)
+	first, _ := slices.BinarySearch(readyIndexes, index+1)
+	for _, j := range readyIndexes[first:] {
 		later := &s.waiting[j]
 		if later.request.legOrigin() != trip.request.legOrigin() {
 			continue
 		}
-		ready := s.findVehicle(later.request.PodID)
-		if ready == nil || !ready.inService() || trip.excludes(ready.Pod.ID) || ready.Pod.Activity != Idle || ready.Pod.StationID != trip.request.legOrigin() || !s.podFitsRequest(ready, trip.request) || !s.assignedPickupFitsRequest(ready, trip.request) {
+		ready := s.readyPickupPod(later)
+		if trip.excludes(ready.Pod.ID) || !s.podFitsRequest(ready, trip.request) || !s.assignedPickupFitsRequest(ready, trip.request) {
 			continue
 		}
 		if current != nil && (later.excludes(current.Pod.ID) || !s.podFitsRequest(current, later.request) || !s.assignedPickupFitsRequest(current, later.request)) {

@@ -285,7 +285,7 @@ func TestOrderPickupChangesKeepCompatibleBerths(t *testing.T) {
 			case "swap":
 				changed = s.tryPickupSwap(0, 1)
 			default:
-				changed = s.promoteReadyPickup(0)
+				changed = s.promoteReadyPickup(0, new(dispatchPass))
 			}
 			if changed || !reflect.DeepEqual(before, s.ExportState()) {
 				t.Fatal("incompatible continuation changed an assignment")
@@ -309,7 +309,7 @@ func TestOrderPickupChangesAllowCompatibleBerths(t *testing.T) {
 				request.ID, request.PodID = 2, "02"
 				s.waiting = append(s.waiting, waitingTrip{request: request})
 				s.requestID = 2
-				changed = s.promoteReadyPickup(0)
+				changed = s.promoteReadyPickup(0, new(dispatchPass))
 			}
 			if !changed || s.waiting[0].request.PodID != "02" {
 				t.Fatal("compatible berth could not serve the older request")

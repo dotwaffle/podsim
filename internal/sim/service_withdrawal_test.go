@@ -211,7 +211,7 @@ func withdrawalGateCases() []withdrawalGateCase {
 				return s, v
 			},
 			selects: func(_ *testing.T, s *Simulation, v *vehicle) bool {
-				return s.promoteReadyPickup(0) && s.waiting[0].request.PodID == v.Pod.ID
+				return s.promoteReadyPickup(0, new(dispatchPass)) && s.waiting[0].request.PodID == v.Pod.ID
 			},
 		},
 		{

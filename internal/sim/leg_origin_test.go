@@ -235,7 +235,7 @@ func TestLegOriginDispatchPass(t *testing.T) {
 		later := newTrip(s, "s1", "s2")
 		later.request.PodID = "03"
 		s.waiting = []waitingTrip{trip, later}
-		if s.promoteReadyPickup(0) {
+		if s.promoteReadyPickup(0, new(dispatchPass)) {
 			t.Fatalf("promotion swapped the pods: %+v", s.waiting)
 		}
 	})

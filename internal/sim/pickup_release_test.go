@@ -370,7 +370,7 @@ func exclusionGateCases() []exclusionGateCase {
 				return s, v, 0
 			},
 			selects: func(_ *testing.T, s *Simulation, v *vehicle, trip int) bool {
-				return s.promoteReadyPickup(trip) && s.waiting[trip].request.PodID == v.Pod.ID
+				return s.promoteReadyPickup(trip, new(dispatchPass)) && s.waiting[trip].request.PodID == v.Pod.ID
 			},
 		},
 		{
@@ -390,7 +390,7 @@ func exclusionGateCases() []exclusionGateCase {
 				return s, v, 1
 			},
 			selects: func(_ *testing.T, s *Simulation, v *vehicle, trip int) bool {
-				return s.promoteReadyPickup(0) && s.waiting[trip].request.PodID == v.Pod.ID
+				return s.promoteReadyPickup(0, new(dispatchPass)) && s.waiting[trip].request.PodID == v.Pod.ID
 			},
 		},
 		{

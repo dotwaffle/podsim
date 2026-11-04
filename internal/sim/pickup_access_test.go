@@ -424,7 +424,7 @@ func TestPickupPromotionNeedsCompatibleBerth(t *testing.T) {
 				t.Fatal("the blocked berth fails pickupBerthFitsRequest")
 			}
 		}
-		if promoted := s.promoteReadyPickup(0); promoted == blocked {
+		if promoted := s.promoteReadyPickup(0, new(dispatchPass)); promoted == blocked {
 			t.Fatalf("blocked %v: promoted %v", blocked, promoted)
 		}
 	}
