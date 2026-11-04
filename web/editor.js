@@ -1827,8 +1827,7 @@
   // null. record is the record that createDraftKeeper saved, and live is
   // the live baseline, as draftChanged uses it. The editor offers a record
   // that has a scenario object that differs from the live scenario. It
-  // ignores other members, such as the background that an older editor
-  // saved in the draft. revision is the project
+  // ignores other members. revision is the project
   // revision that the draft started from, epoch is the session epoch of
   // that revision, and serverStart is the server start ID of that state.
   // A draft that the page saved while the live scenario did not load has an
@@ -3894,8 +3893,7 @@
   // scenario cannot load, the local fallback draft is the baseline. Then
   // the editor offers a saved draft that is different. readLive gives the
   // live scenario with the revision, the epoch and the server start ID of
-  // the same server state. The load ignores a background in a saved draft
-  // of an older editor.
+  // the same server state.
   async function loadServerProject() {
     updateStatus("Loading the live scenario…");
     try {

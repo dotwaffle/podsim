@@ -710,7 +710,6 @@ Then export the project to keep the background.
 When the background has changes that are not saved in the browser, the browser asks before you leave or reload the page.
 This includes a removed background that the browser has not yet deleted.
 The editor puts the stored background on the page before it accepts input.
-The editor ignores the background in a saved draft of an older editor.
 The **Background** section shows the image memory of the tab, the size of the stored image, and a notice that the exported project file is the only durable copy.
 
 ### Georeferenced background
