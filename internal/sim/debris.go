@@ -12,19 +12,25 @@ const (
 
 // startDebris starts debris on the segment [from, to] of the lane with the
 // index lane. duration is 0 for debris without an end, or a number of
-// seconds from 1 to maxFaultSeconds. It checks each precondition, in the
-// order of section 7.3 of the incident suspension contract, before its
-// first write, and it changes nothing when one fails. Debris starts only on
-// free resources that no pod claims, so it revokes no grant, and no pod
-// has it inside its stopping distance. It returns the fault ID.
+// seconds from 1 to maxFaultSeconds.
 func (s *Simulation) startDebris(lane int, from, to float64, duration int64) (string, error) {
+	return s.startDebrisTicks(lane, from, to, faultDurationTicks(duration))
+}
+
+// startDebrisTicks is startDebris with a duration in ticks. It checks each
+// precondition, in the order of section 7.3 of the incident suspension
+// contract, before its first write, and it changes nothing when one fails.
+// Debris starts only on free resources that no pod claims, so it revokes no
+// grant, and no pod has it inside its stopping distance. It returns the
+// fault ID.
+func (s *Simulation) startDebrisTicks(lane int, from, to float64, ticks int64) (string, error) {
 	if !s.faultsOn {
 		return "", errFaultsOff
 	}
-	if duration < 0 || duration > maxFaultSeconds {
+	if ticks < 0 || ticks > maxFaultSeconds*TicksPerSecond {
 		return "", errFaultDuration
 	}
-	if !s.faultTicksFit(duration) {
+	if !s.faultTicksFit(ticks) {
 		return "", errIncidentLimit
 	}
 	footprint, err := s.debrisSegment(lane, from, to)
@@ -45,8 +51,8 @@ func (s *Simulation) startDebris(lane int, from, to float64, duration int64) (st
 	}
 	id := s.nextIncidentID()
 	record := faultRecord{generation: s.incidentGeneration, serial: s.incidentSerial, kind: debrisFault, start: s.tick, lane: lane, from: from, to: to}
-	if duration > 0 {
-		record.end = s.tick + duration*TicksPerSecond
+	if ticks > 0 {
+		record.end = s.tick + ticks
 	}
 	s.faults = append(s.faults, record)
 	owner := resourceOwner{kind: faultOwnerKind, id: id}

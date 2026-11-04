@@ -98,6 +98,22 @@ func (m *incidentSampler) check(name string, on bool, tick int64) error {
 	return nil
 }
 
+// ticks returns the duration of a fault for the draw u, rounded up to whole
+// ticks. A rule with no kind gives 0.
+func (r FaultDurationRule) ticks(u float64) int64 {
+	var seconds float64
+	low, high := float64(r.MinSeconds), float64(r.MaxSeconds)
+	switch r.Kind {
+	case FaultDurationFixed:
+		seconds = float64(r.Seconds)
+	case FaultDurationUniform:
+		seconds = low + u*(high-low)
+	case FaultDurationExponential:
+		seconds = min(high, max(low, -math.Log(1-u)*float64(r.MeanSeconds)))
+	}
+	return int64(math.Ceil(seconds * TicksPerSecond))
+}
+
 // nextIncidentTick returns the tick of the next event after tick, for the
 // draw u and a rate above 0. The interval is at least one tick, so a
 // sampler has at most one event in a tick. A result at or above MaxCounter,
@@ -130,4 +146,90 @@ func (s *Simulation) StartIncidentSampling(rates IncidentRates) error {
 		s.emergencySampler.start(rates.EmergencySeed, rates.EmergenciesPerHour, s.tick)
 	}
 	return nil
+}
+
+// sampleFaults starts the fault event that is due. An event uses four draws
+// and then the draw of the next interval, whatever its kind and its outcome,
+// so later events do not depend on outcomes. A refused start is a skip, and
+// it changes no state, because each start checks before its first write.
+func (s *Simulation) sampleFaults() {
+	sampler := &s.faultSampler
+	if !sampler.due(s.tick) {
+		return
+	}
+	kind := sampler.uniform()
+	target := sampler.uniform()
+	position := sampler.uniform()
+	duration := sampler.uniform()
+	countFault(&s.faultCounters.sampled)
+	if s.startSampledFault(kind, target, position, duration) != nil {
+		countFault(&s.faultCounters.skipped)
+	}
+	sampler.schedule(s.tick)
+}
+
+// startSampledFault starts the fault of one event, from its four draws:
+// debris when kind is below the debris share, or else a pod fault. A sampled
+// fault always has an end, so a duration of 0 ticks is refused. A segment on
+// a lane shorter than the debris has a negative start, and the debris start
+// refuses it.
+func (s *Simulation) startSampledFault(kind, target, position, duration float64) error {
+	rate := &s.faultRate
+	ticks := rate.Duration.ticks(duration)
+	if ticks < 1 {
+		return errFaultDuration
+	}
+	if kind >= rate.DebrisShare {
+		_, err := s.startPodFaultTicks(s.sampledPod(target), ticks)
+		return err
+	}
+	lane := s.sampledLane(target)
+	if lane < 0 {
+		return errUnknownLane
+	}
+	from := position * (s.graph.lengths[lane] - rate.DebrisMeters)
+	_, err := s.startDebrisTicks(lane, from, from+rate.DebrisMeters, ticks)
+	return err
+}
+
+// sampledPod returns the pod at the index floor(u x n) over the n pods
+// without a fault, or nil with no such pod. s.vehicles is in pod ID order
+// (rule G11 of the incident stage 7 contract).
+func (s *Simulation) sampledPod(u float64) *vehicle {
+	free := 0
+	for index := range s.vehicles {
+		if !s.vehicles[index].faulted {
+			free++
+		}
+	}
+	target := int(u * float64(free))
+	for index := range s.vehicles {
+		v := &s.vehicles[index]
+		if v.faulted {
+			continue
+		}
+		if target == 0 {
+			return v
+		}
+		target--
+	}
+	return nil
+}
+
+// sampledLane returns the index of the first lane in network order whose
+// running sum of lengths is above u x the total length, or -1 with no lane.
+func (s *Simulation) sampledLane(u float64) int {
+	s.ensureNetworkIndexes()
+	var total float64
+	for _, length := range s.graph.lengths {
+		total += length
+	}
+	var sum float64
+	for lane, length := range s.graph.lengths {
+		sum += length
+		if sum > u*total {
+			return lane
+		}
+	}
+	return -1
 }

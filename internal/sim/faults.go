@@ -109,6 +109,14 @@ type faultCounters struct {
 	// faultWaitTicks counts the ticks of healthy pods that wait for a
 	// fault, one for each pod in each tick.
 	faultWaitTicks int64
+	// sampled counts the sampler events that came due, and skipped those
+	// with no start. Only the sampler changes them.
+	sampled, skipped int64
+	// clearedTicks is the sum of the lengths of the faults that ended, and
+	// delayedRiderTicks the sum over ticks of the active riders aboard
+	// healthy pods with an incident wait. They move only while the sampler
+	// is live, so a manual fault at rate 0 changes neither.
+	clearedTicks, delayedRiderTicks int64
 }
 
 // countFault adds 1 to counter. At MaxCounter the counter keeps its
@@ -119,19 +127,33 @@ func countFault(counter *int64) {
 	}
 }
 
+// faultDurationTicks returns the ticks of a duration in seconds. A duration
+// outside 0 to maxFaultSeconds gives -1, which each start refuses in its
+// place in the order of the checks.
+func faultDurationTicks(seconds int64) int64 {
+	if seconds < 0 || seconds > maxFaultSeconds {
+		return -1
+	}
+	return seconds * TicksPerSecond
+}
+
 // startPodFault starts a pod fault on v. duration is 0 for a fault
-// without an end, or a number of seconds from 1 to maxFaultSeconds. It
-// checks each precondition, in the order of the contract, before its
-// first write, and it changes nothing when one fails. It returns the
-// fault ID.
+// without an end, or a number of seconds from 1 to maxFaultSeconds.
 func (s *Simulation) startPodFault(v *vehicle, duration int64) (string, error) {
+	return s.startPodFaultTicks(v, faultDurationTicks(duration))
+}
+
+// startPodFaultTicks is startPodFault with a duration in ticks. It checks
+// each precondition, in the order of the contract, before its first write,
+// and it changes nothing when one fails. It returns the fault ID.
+func (s *Simulation) startPodFaultTicks(v *vehicle, ticks int64) (string, error) {
 	if !s.faultsOn {
 		return "", errFaultsOff
 	}
-	if duration < 0 || duration > maxFaultSeconds {
+	if ticks < 0 || ticks > maxFaultSeconds*TicksPerSecond {
 		return "", errFaultDuration
 	}
-	if !s.faultTicksFit(duration) {
+	if !s.faultTicksFit(ticks) {
 		return "", errIncidentLimit
 	}
 	index := -1
@@ -152,8 +174,8 @@ func (s *Simulation) startPodFault(v *vehicle, duration int64) (string, error) {
 	}
 	id := s.nextIncidentID()
 	record := faultRecord{generation: s.incidentGeneration, serial: s.incidentSerial, kind: podFault, start: s.tick, pod: index}
-	if duration > 0 {
-		record.end = s.tick + duration*TicksPerSecond
+	if ticks > 0 {
+		record.end = s.tick + ticks
 	}
 	s.faults = append(s.faults, record)
 	// The preflight refuses each pod that withdrawService refuses, so the
@@ -351,14 +373,14 @@ func (s *Simulation) routeBlocked(route []Lane) bool {
 	return false
 }
 
-// faultTicksFit reports whether a new fault with duration keeps the
-// arithmetic of its record in range. Its end tick and its evacuation tick
-// must not pass MaxCounter, and nextIncidentID must not pass it with the
-// serial.
-func (s *Simulation) faultTicksFit(duration int64) bool {
-	room := (MaxCounter - s.tick) / TicksPerSecond
-	return duration <= room &&
-		s.faultSettings.evacuationSeconds <= room &&
+// faultTicksFit reports whether a new fault with a duration in ticks keeps
+// the arithmetic of its record in range. Its end tick and its evacuation
+// tick must not pass MaxCounter, and nextIncidentID must not pass it with
+// the serial.
+func (s *Simulation) faultTicksFit(ticks int64) bool {
+	room := MaxCounter - s.tick
+	return ticks <= room &&
+		s.faultSettings.evacuationSeconds <= room/TicksPerSecond &&
 		s.incidentSerial < MaxCounter
 }
 
@@ -435,6 +457,9 @@ func (s *Simulation) removeFault(index int, inStage bool) {
 	s.rebuildBlocked()
 	s.endFaultReports(record.id())
 	countFault(&s.faultCounters.cleared)
+	if s.faultSampler.live {
+		addCount(&s.faultCounters.clearedTicks, s.tick-record.start)
+	}
 }
 
 // endFaultReports ends each wait report that names one of the fault IDs.
@@ -449,13 +474,16 @@ func (s *Simulation) endFaultReports(ids ...string) {
 
 // faultStage runs in Step after the unloading loop and before dispatch,
 // only when faults are on (section 5.5 of the incident suspension
-// contract). It clears each record whose duration ended, in serial order.
+// contract). First the sampler starts the event that is due, so the event
+// sees the state after the unloading loop and before the clears. Then the
+// stage clears each record whose duration ended, in serial order.
 // Then it evacuates each faulted pod at rest with an active rider once its
 // evacuation tick is reached. The clears come first, so a fault that ends
 // at or before its evacuation tick never evacuates. Then it runs the
 // reroute pass when it is due, and it applies the hold release rule. Last,
 // it counts the healthy pods that wait for an incident.
 func (s *Simulation) faultStage() {
+	s.sampleFaults()
 	for index := 0; index < len(s.faults); {
 		if end := s.faults[index].end; end != 0 && end <= s.tick {
 			s.removeFault(index, true)
@@ -479,6 +507,9 @@ func (s *Simulation) faultStage() {
 	for index := range s.vehicles {
 		if v := &s.vehicles[index]; !v.faulted && incidentWait(v) {
 			countFault(&s.faultCounters.faultWaitTicks)
+			if s.faultSampler.live {
+				addCount(&s.faultCounters.delayedRiderTicks, int64(v.RidersAboard()))
+			}
 		}
 	}
 }
@@ -524,6 +555,9 @@ func (s *Simulation) releaseFaultHolds() {
 func (s *Simulation) checkFaults() error {
 	if err := s.faultSampler.check("F13", s.faultsOn, s.tick); err != nil {
 		return err
+	}
+	if counters := s.faultCounters; counters.skipped > counters.sampled {
+		return fmt.Errorf("F13: %d events skipped, more than the %d sampled", counters.skipped, counters.sampled)
 	}
 	if len(s.faultReleased) > 0 {
 		return fmt.Errorf("%d released debris resources stay after the release boundary", len(s.faultReleased))
