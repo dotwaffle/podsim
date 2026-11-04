@@ -22,7 +22,7 @@ import (
 )
 
 // presets lists the preset names in help order.
-var presets = []string{"small", "busy", "parking-constrained", "rail-hub", "scale100", "london-central", "london-full", "independent-banks", "compact-station"}
+var presets = []string{"small", "busy", "parking-constrained", "rail-hub", "rail-hub-incidents", "scale100", "london-central", "london-full", "independent-banks", "compact-station"}
 
 func main() {
 	if err := run(os.Args[1:], os.Stdout, os.Stderr); err != nil && !errors.Is(err, flag.ErrHelp) {
@@ -57,6 +57,8 @@ func run(arguments []string, stdout, stderr io.Writer) error {
 	flags.IntVar(&options.parkingPods, "parking-pods", 0, "London presets only: initial pods at each Parking facility")
 	flags.Float64Var(&options.berthPitch, "berth-pitch", 0, "Distance in meters between two berths of a station, at least 25")
 	compactStations := flags.String("compact-stations", "", "London presets only: comma-separated IDs of at most 8 passenger stations with Compact bays, or none; each pod is then Compact")
+	var incidents incidentFlags
+	incidents.register(flags)
 	if err := flags.Parse(arguments); err != nil {
 		return err
 	}
@@ -79,10 +81,14 @@ func run(arguments []string, stdout, stderr io.Writer) error {
 		}
 		options.compactStations = parsed
 	}
+	if err := incidents.parse(options.set); err != nil {
+		return err
+	}
 	config, err := presetConfig(*preset, options)
 	if err != nil {
 		return err
 	}
+	incidents.write(&config, options.set)
 	if validateErr := project.Validate(config); validateErr != nil {
 		return fmt.Errorf("validate %s preset: %w", *preset, validateErr)
 	}
@@ -263,6 +269,96 @@ func parseCompactStations(text string) ([]string, error) {
 		ids = append(ids, id)
 	}
 	return ids, nil
+}
+
+// incidentFlags holds the incident flags. Each flag that is set writes its
+// project member over the preset value, and a flag that is not set writes
+// nothing. duration is the parsed value of -fault-duration.
+type incidentFlags struct {
+	faultRate, debrisShare, debrisMeters, emergencyRate float64
+	evacuationSeconds                                   int
+	faultDuration                                       string
+	duration                                            *project.FaultDuration
+}
+
+// register adds the incident flags to flags.
+func (f *incidentFlags) register(flags *flag.FlagSet) {
+	flags.Float64Var(&f.faultRate, "fault-rate", 0, "Scenario faults in a simulated hour, from 0 to 60; omit to keep the preset value")
+	flags.Float64Var(&f.debrisShare, "debris-share", 0, "Share of scenario faults that are debris, from 0 to 1; needs -fault-rate")
+	flags.Float64Var(&f.debrisMeters, "debris-meters", 0, "Length of scenario debris, from 0.5 to 50 meters; needs -fault-rate")
+	flags.StringVar(&f.faultDuration, "fault-duration", "", "Duration of scenario faults in seconds, as fixed:S, uniform:MIN:MAX, or exponential:MIN:MAX:MEAN; needs -fault-rate")
+	flags.IntVar(&f.evacuationSeconds, "evacuation-seconds", 0, "Seconds from a pod fault to the evacuation, from 0 to 3,600; omit to keep the preset value")
+	flags.Float64Var(&f.emergencyRate, "emergency-rate", 0, "Scenario emergencies in a simulated hour, from 0 to 60; omit to keep the preset value")
+}
+
+// parse applies the refusals of the incident flags, in their fixed order.
+// project.Validate checks the values later.
+func (f *incidentFlags) parse(set map[string]bool) error {
+	if set["fault-duration"] {
+		duration, err := parseFaultDuration(f.faultDuration)
+		if err != nil {
+			return err
+		}
+		f.duration = duration
+	}
+	if !set["fault-rate"] && (set["debris-share"] || set["debris-meters"] || set["fault-duration"]) {
+		return errors.New("-debris-share, -debris-meters, and -fault-duration need -fault-rate")
+	}
+	return nil
+}
+
+// write sets the project member of each flag in set.
+func (f *incidentFlags) write(config *project.Config, set map[string]bool) {
+	if set["fault-rate"] {
+		faultConfig(config).PerHour = new(f.faultRate)
+	}
+	if set["debris-share"] {
+		faultConfig(config).DebrisShare = new(f.debrisShare)
+	}
+	if set["debris-meters"] {
+		faultConfig(config).DebrisMeters = new(f.debrisMeters)
+	}
+	if set["fault-duration"] {
+		faultConfig(config).Duration = f.duration
+	}
+	if set["evacuation-seconds"] {
+		faultConfig(config).EvacuationSeconds = new(f.evacuationSeconds)
+	}
+	if set["emergency-rate"] {
+		config.Emergencies = &project.EmergencyConfig{PerHour: new(f.emergencyRate)}
+	}
+}
+
+// faultConfig returns the faults member of config, and adds it when it is
+// absent.
+func faultConfig(config *project.Config) *project.FaultConfig {
+	if config.Faults == nil {
+		config.Faults = &project.FaultConfig{}
+	}
+	return config.Faults
+}
+
+// parseFaultDuration parses a -fault-duration value.
+func parseFaultDuration(text string) (*project.FaultDuration, error) {
+	errForm := errors.New("-fault-duration must be fixed:S, uniform:MIN:MAX, or exponential:MIN:MAX:MEAN")
+	kind, rest, _ := strings.Cut(text, ":")
+	var values []*int
+	for item := range strings.SplitSeq(rest, ":") {
+		value, err := strconv.Atoi(item)
+		if err != nil {
+			return nil, errForm
+		}
+		values = append(values, new(value))
+	}
+	switch {
+	case kind == "fixed" && len(values) == 1:
+		return &project.FaultDuration{Kind: kind, Seconds: values[0]}, nil
+	case kind == "uniform" && len(values) == 2:
+		return &project.FaultDuration{Kind: kind, MinSeconds: values[0], MaxSeconds: values[1]}, nil
+	case kind == "exponential" && len(values) == 3:
+		return &project.FaultDuration{Kind: kind, MinSeconds: values[0], MaxSeconds: values[1], MeanSeconds: values[2]}, nil
+	}
+	return nil, errForm
 }
 
 // countingWriter counts the bytes that it writes.

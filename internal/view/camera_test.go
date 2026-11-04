@@ -584,6 +584,7 @@ func TestMaxZoomOfExpandedNetworks(t *testing.T) {
 		{name: "busy", build: preset(scenarios.Busy())},
 		{name: "parking-constrained", build: preset(scenarios.ParkingConstrained())},
 		{name: "rail-hub", build: preset(scenarios.RailHub())},
+		{name: "rail-hub-incidents", build: preset(scenarios.RailHubIncidents())},
 		{name: "scale100", build: preset(scenarios.Scale100())},
 		{name: "compact-station", build: scenarios.CompactStation},
 		{name: "small with a depot", build: func() (project.Config, error) {

@@ -27,6 +27,7 @@ func TestPresetsValidateAndRemainStable(t *testing.T) {
 		{name: "busy", config: Busy, stations: 8, pods: 32},
 		{name: "parking constrained", config: ParkingConstrained, stations: 6, pods: 20},
 		{name: "rail hub", config: RailHub, stations: 7, pods: 30},
+		{name: "rail hub incidents", config: RailHubIncidents, stations: 7, pods: 30},
 		{name: "scale 100", config: Scale100, stations: 20, pods: 100},
 		{name: "London", config: LondonCentral, stations: 99, pods: 114},
 	}
@@ -625,7 +626,7 @@ func TestPresetsHaveNoQualifyingLanes(t *testing.T) {
 		config project.Config
 	}{
 		{"small", Small()}, {"busy", Busy()}, {"parking constrained", ParkingConstrained()},
-		{"rail hub", RailHub()}, {"scale 100", Scale100()},
+		{"rail hub", RailHub()}, {"rail hub incidents", RailHubIncidents()}, {"scale 100", Scale100()},
 		{"london central", LondonCentral()}, {"london full", LondonFull()},
 		{"default", project.Default()}, {"default at 1 m/s", slow},
 	} {

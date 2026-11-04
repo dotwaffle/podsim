@@ -22,6 +22,7 @@ func TestPresetWithNoChangeIsPreset(t *testing.T) {
 			parameters.StationBerths = map[string]int{"station-01": 4, "parking": 1}
 		}},
 		{name: "rail-hub", config: RailHub, change: func(*Parameters) {}},
+		{name: "rail-hub-incidents", config: RailHubIncidents, change: func(*Parameters) {}},
 		{name: "scale100", config: Scale100, change: func(parameters *Parameters) { parameters.BerthPitch = meshBerthPitch }},
 	}
 	for _, test := range tests {
@@ -35,6 +36,38 @@ func TestPresetWithNoChangeIsPreset(t *testing.T) {
 				t.Fatal("PresetWith with the preset values is not the preset")
 			}
 		})
+	}
+}
+
+// TestRailHubIncidents checks that the preset is the rail hub with the rates of
+// decision 7 of the incident stage 7 contract, and that the rail hub has none.
+func TestRailHubIncidents(t *testing.T) {
+	t.Parallel()
+	config := RailHubIncidents()
+	if err := project.Validate(config); err != nil {
+		t.Fatal(err)
+	}
+	wantFaults := &project.FaultConfig{
+		PerHour: new(10.0), DebrisShare: new(0.25), DebrisMeters: new(2.0),
+		Duration: &project.FaultDuration{Kind: "fixed", Seconds: new(600)},
+	}
+	if !reflect.DeepEqual(config.Faults, wantFaults) {
+		t.Errorf("faults = %+v, want %+v", config.Faults, wantFaults)
+	}
+	if want := (&project.EmergencyConfig{PerHour: new(10.0)}); !reflect.DeepEqual(config.Emergencies, want) {
+		t.Errorf("emergencies = %+v, want %+v", config.Emergencies, want)
+	}
+	rates := project.EffectiveIncidentRates(config)
+	if rates.Faults.PerHour != 10 || rates.Faults.DebrisShare != 0.25 || rates.Faults.DebrisMeters != 2 || rates.Faults.Duration.Seconds != 600 || rates.EmergenciesPerHour != 10 {
+		t.Errorf("rates = %+v", rates)
+	}
+	rest, hub := config, RailHub()
+	rest.Faults, rest.Emergencies = nil, nil
+	if !reflect.DeepEqual(rest, hub) {
+		t.Error("the preset differs from the rail hub in another member")
+	}
+	if hub.Faults != nil || hub.Emergencies != nil {
+		t.Errorf("the rail hub has the members %+v and %+v", hub.Faults, hub.Emergencies)
 	}
 }
 

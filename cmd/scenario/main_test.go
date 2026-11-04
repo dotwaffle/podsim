@@ -9,11 +9,13 @@ import (
 	jsonv2 "encoding/json/v2"
 	"io"
 	"math"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/project"
+	"github.com/dotwaffle/podsim/internal/scenarios"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
@@ -115,6 +117,7 @@ func TestRunWithoutFlagsKeepsPresets(t *testing.T) {
 		"busy":                "cebfe3bd173bdfbd3d852034b1670a056225ad49d4dde44f9cf52fc5dcddb402",
 		"parking-constrained": "28cc9e22424a39991794f8981a0427db0964c985ac4b8d878da374ee2fa29f67",
 		"rail-hub":            "dddc9926188715eb653f20176dcbfc118a6b8f013ef5b0148d6efd3c5b5d9ff9",
+		"rail-hub-incidents":  "63df0003611da26cc5796ea2e5a977c459f2bab16a19fe80226b6864a486d7ab",
 		"scale100":            "fc5896f7c9e5efd30e75a5b83937df95848c1e2d3133b5be07bbbcb792727dc1",
 		"london-central":      "788735e3bb5e45989bb447faac82bd6e1ab3d678039d941e55632db4f59f749f",
 		"london-full":         "e218b3ceeb67bd3fb1ecce6f62a5f070e76ba2a2e0deb82a84a3f6714aa8f329",
@@ -350,6 +353,112 @@ func TestRunRejectsBadCapacityFlags(t *testing.T) {
 			err := run(test.arguments, &output, io.Discard)
 			if err == nil || !strings.Contains(err.Error(), test.err) {
 				t.Fatalf("run error = %v, want an error with %q", err, test.err)
+			}
+			if output.Len() != 0 {
+				t.Fatalf("run wrote %d bytes after an error", output.Len())
+			}
+		})
+	}
+}
+
+// TestRunIncidentFlags checks that each flag writes its member and no other.
+// A flag works on each kind of preset, and over a preset value.
+func TestRunIncidentFlags(t *testing.T) {
+	t.Parallel()
+	rate := []string{"-fault-rate", "5", "-fault-duration", "fixed:600"}
+	base := func() *project.FaultConfig {
+		return &project.FaultConfig{PerHour: new(5.0), Duration: &project.FaultDuration{Kind: "fixed", Seconds: new(600)}}
+	}
+	edited := func(edit func(*project.FaultConfig)) *project.FaultConfig {
+		faults := base()
+		edit(faults)
+		return faults
+	}
+	preset := scenarios.RailHubIncidents()
+	for _, test := range []struct {
+		name        string
+		preset      string
+		flags       []string
+		faults      *project.FaultConfig
+		emergencies *project.EmergencyConfig
+	}{
+		{name: "no flag", preset: "small"},
+		{name: "fault rate and fixed duration", preset: "small", flags: rate, faults: base()},
+		{name: "uniform duration", preset: "small", flags: []string{"-fault-rate", "5", "-fault-duration", "uniform:60:600"},
+			faults: &project.FaultConfig{PerHour: new(5.0), Duration: &project.FaultDuration{Kind: "uniform", MinSeconds: new(60), MaxSeconds: new(600)}}},
+		{name: "exponential duration", preset: "small", flags: []string{"-fault-rate", "5", "-fault-duration", "exponential:60:3600:600"},
+			faults: &project.FaultConfig{PerHour: new(5.0), Duration: &project.FaultDuration{Kind: "exponential", MinSeconds: new(60), MaxSeconds: new(3600), MeanSeconds: new(600)}}},
+		{name: "debris share", preset: "small", flags: append([]string{"-debris-share", "0.5"}, rate...),
+			faults: edited(func(faults *project.FaultConfig) { faults.DebrisShare = new(0.5) })},
+		{name: "debris meters", preset: "small", flags: append([]string{"-debris-meters", "3"}, rate...),
+			faults: edited(func(faults *project.FaultConfig) { faults.DebrisMeters = new(3.0) })},
+		{name: "evacuation seconds", preset: "small", flags: []string{"-evacuation-seconds", "30"}, faults: &project.FaultConfig{EvacuationSeconds: new(30)}},
+		{name: "evacuation seconds of 0", preset: "small", flags: []string{"-evacuation-seconds", "0"}, faults: &project.FaultConfig{EvacuationSeconds: new(0)}},
+		{name: "emergency rate", preset: "small", flags: []string{"-emergency-rate", "7"}, emergencies: &project.EmergencyConfig{PerHour: new(7.0)}},
+		{name: "rates of 0", preset: "small", flags: []string{"-fault-rate", "0", "-emergency-rate", "0"},
+			faults: &project.FaultConfig{PerHour: new(0.0)}, emergencies: &project.EmergencyConfig{PerHour: new(0.0)}},
+		{name: "a fixture", preset: "compact-station", flags: []string{"-emergency-rate", "7"}, emergencies: &project.EmergencyConfig{PerHour: new(7.0)}},
+		{name: "the mesh", preset: "scale100", flags: rate, faults: base()},
+		{name: "over a preset fault rate", preset: "rail-hub-incidents", flags: []string{"-fault-rate", "0"}, emergencies: preset.Emergencies,
+			faults: &project.FaultConfig{PerHour: new(0.0), DebrisShare: preset.Faults.DebrisShare, DebrisMeters: preset.Faults.DebrisMeters, Duration: preset.Faults.Duration}},
+		{name: "over a preset emergency rate", preset: "rail-hub-incidents", flags: []string{"-emergency-rate", "1"}, faults: preset.Faults, emergencies: &project.EmergencyConfig{PerHour: new(1.0)}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			config, _ := generate(t, append([]string{"-preset", test.preset}, test.flags...)...)
+			if !reflect.DeepEqual(config.Faults, test.faults) {
+				t.Errorf("faults = %+v, want %+v", config.Faults, test.faults)
+			}
+			if !reflect.DeepEqual(config.Emergencies, test.emergencies) {
+				t.Errorf("emergencies = %+v, want %+v", config.Emergencies, test.emergencies)
+			}
+			if err := project.Validate(config); err != nil {
+				t.Error(err)
+			}
+		})
+	}
+}
+
+// TestRunRejectsBadIncidentFlags checks the refusals of the flag parser and
+// their order, and that project.Validate gives each other refusal.
+func TestRunRejectsBadIncidentFlags(t *testing.T) {
+	t.Parallel()
+	const (
+		form = "-fault-duration must be fixed:S, uniform:MIN:MAX, or exponential:MIN:MAX:MEAN"
+		need = "-debris-share, -debris-meters, and -fault-duration need -fault-rate"
+	)
+	tests := []struct {
+		name  string
+		flags []string
+		want  string
+	}{
+		{"form before the rate", []string{"-fault-duration", "soon", "-debris-share", "0.5"}, form},
+		{"debris share needs the rate", []string{"-debris-share", "0.5"}, need},
+		{"debris meters needs the rate", []string{"-debris-meters", "3"}, need},
+		{"duration needs the rate", []string{"-fault-duration", "fixed:600"}, need},
+		{"the preset rate is not the flag", []string{"-preset", "rail-hub-incidents", "-debris-share", "0.5"}, need},
+		{"parser before the preset", []string{"-preset", "missing", "-debris-share", "0.5"}, need},
+		{"rate above the limit", []string{"-fault-rate", "61"}, "faults perHour must be 0 to 60"},
+		{"NaN rate", []string{"-emergency-rate", "NaN"}, "emergencies perHour must be 0 to 60"},
+		{"rate with no duration", []string{"-fault-rate", "5"}, "faults perHour above 0 needs a duration"},
+		{"share above 1", []string{"-fault-rate", "5", "-fault-duration", "fixed:600", "-debris-share", "2"}, "faults debrisShare must be 0 to 1"},
+		{"evacuation above the limit", []string{"-evacuation-seconds", "3601"}, "faults evacuationSeconds must be 0 to 3600"},
+		{"uniform out of order", []string{"-fault-rate", "5", "-fault-duration", "uniform:600:60"}, "faults duration"},
+	}
+	for _, text := range []string{"", "fixed", "fixed:", "fixed:a", "fixed:1.5", "fixed:1:2", "uniform:1", "uniform:1:2:3", "exponential:1:2", "exponential:1:2:3:4", "other:1"} {
+		tests = append(tests, struct {
+			name  string
+			flags []string
+			want  string
+		}{"form " + text, []string{"-fault-rate", "5", "-fault-duration", text}, form})
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			var output bytes.Buffer
+			err := run(append([]string{"-preset", "small"}, test.flags...), &output, io.Discard)
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("run error = %v, want an error with %q", err, test.want)
 			}
 			if output.Len() != 0 {
 				t.Fatalf("run wrote %d bytes after an error", output.Len())

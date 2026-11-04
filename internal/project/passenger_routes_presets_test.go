@@ -22,6 +22,7 @@ func TestPassengerRoutesMatchReferenceOnPresets(t *testing.T) {
 		{name: "busy", config: scenarios.Busy()},
 		{name: "parking-constrained", config: scenarios.ParkingConstrained()},
 		{name: "rail-hub", config: scenarios.RailHub()},
+		{name: "rail-hub-incidents", config: scenarios.RailHubIncidents()},
 		{name: "scale100", config: scenarios.Scale100()},
 		{name: "london", config: scenarios.LondonCentral()},
 	} {

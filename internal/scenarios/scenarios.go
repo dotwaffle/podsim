@@ -202,6 +202,7 @@ var ringPresets = map[string]ringPreset{
 	"busy":                {parameters: busyParameters, build: Config, pitch: berthSpacing},
 	"parking-constrained": {parameters: parkingConstrainedParameters, build: Config, pitch: berthSpacing},
 	"rail-hub":            {parameters: railHubParameters, build: railHubConfig, pitch: berthSpacing},
+	"rail-hub-incidents":  {parameters: railHubParameters, build: railHubIncidentsConfig, pitch: berthSpacing},
 	"scale100":            {parameters: scale100Parameters, build: scale100Config, pitch: meshBerthPitch},
 }
 
@@ -329,6 +330,35 @@ func railHubConfig(parameters Parameters) (project.Config, error) {
 	config.Demand.Destination = "station-01"
 	if err := project.Validate(config); err != nil {
 		return project.Config{}, fmt.Errorf("validate rail-hub scenario: %w", err)
+	}
+	return config, nil
+}
+
+// RailHubIncidents returns the rail hub with scenario faults and emergencies:
+// 10 of each in a simulated hour, with faults of 600 seconds, of which a
+// quarter are debris of 2 meters.
+func RailHubIncidents() project.Config {
+	config, err := railHubIncidentsConfig(railHubParameters())
+	if err != nil {
+		panic(err)
+	}
+	return config
+}
+
+// railHubIncidentsConfig builds the rail-hub ring with the incident rates of
+// the rail-hub-incidents preset.
+func railHubIncidentsConfig(parameters Parameters) (project.Config, error) {
+	config, err := railHubConfig(parameters)
+	if err != nil {
+		return project.Config{}, err
+	}
+	config.Faults = &project.FaultConfig{
+		PerHour: new(10.0), DebrisShare: new(0.25), DebrisMeters: new(2.0),
+		Duration: &project.FaultDuration{Kind: "fixed", Seconds: new(600)},
+	}
+	config.Emergencies = &project.EmergencyConfig{PerHour: new(10.0)}
+	if err := project.Validate(config); err != nil {
+		return project.Config{}, fmt.Errorf("validate rail-hub-incidents scenario: %w", err)
 	}
 	return config, nil
 }
