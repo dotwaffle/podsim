@@ -101,6 +101,9 @@ type result struct {
 	IntermediateStops              int                `json:"intermediate_stops"`
 	PositioningMoveCount           int                `json:"positioning_moves"`
 	PlatoonTimePercent             float64            `json:"platoon_time_percent"`
+	// incidentColumns is nil when the project has no rate, so a report with no
+	// rate has none of its members.
+	*incidentColumns
 }
 
 type writeReportInput struct {
@@ -203,7 +206,7 @@ func writeTable(input writeReportInput) error {
 	if input.pickupReassignmentColumn {
 		policyHeader += "\tREASSIGN"
 	}
-	if _, err := fmt.Fprintln(w, "PATTERN\tBAND\tLOAD (S)\tOFFERED/M\tARRIVAL/M\tLATE/M\tBACKLOG\tLATE DELTA\tDRAIN (S)\tSEED\t"+policyHeader+"\tWAIT AVG\tWAIT MAX\tWAIT P95\tJOURNEY AVG\tJOURNEY P95\tSERVED\tLEFT\tSKIPPED\tPEAK OUT\tPEAK ACTIVE\tPEAK PAX\tPEAK STOPPED\tHUB IN\tHUB OUT\tHUB OCC\tHUB RSV\tPASSENGER (M)\tEMPTY (M)\tLOADED %\tMOVES"); err != nil {
+	if _, err := fmt.Fprintln(w, "PATTERN\tBAND\tLOAD (S)\tOFFERED/M\tARRIVAL/M\tLATE/M\tBACKLOG\tLATE DELTA\tDRAIN (S)\tSEED\t"+policyHeader+"\tWAIT AVG\tWAIT MAX\tWAIT P95\tJOURNEY AVG\tJOURNEY P95\tSERVED\tLEFT\tSKIPPED\tPEAK OUT\tPEAK ACTIVE\tPEAK PAX\tPEAK STOPPED\tHUB IN\tHUB OUT\tHUB OCC\tHUB RSV\tPASSENGER (M)\tEMPTY (M)\tLOADED %\tMOVES"+incidentTableHeader(results)); err != nil {
 		return fmt.Errorf("write table header: %w", err)
 	}
 	for _, outcome := range results {
@@ -226,7 +229,7 @@ func writeTable(input writeReportInput) error {
 		if input.pickupReassignmentColumn {
 			policy += "\t" + outcome.PickupReassignment
 		}
-		if _, err := fmt.Fprintf(w, "%s\t%s\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%d\t%s\t%d\t%s\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.1f\t%.1f\t%.2f\t%d\n",
+		if _, err := fmt.Fprintf(w, "%s\t%s\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%d\t%s\t%d\t%s\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.1f\t%.1f\t%.2f\t%d%s\n",
 			outcome.Pattern, outcome.DemandBand, outcome.RequestEverySeconds, outcome.OfferedPerMinute,
 			outcome.ArrivalThroughputPerMinute, outcome.LateArrivalThroughputPerMinute,
 			outcome.BacklogAtArrivalEnd, outcome.LateBacklogChange, drainText(outcome), outcome.Seed, policy,
@@ -236,7 +239,7 @@ func writeTable(input writeReportInput) error {
 			outcome.PeakFocusEntranceStopped, outcome.PeakFocusExitStopped,
 			outcome.PeakFocusOccupiedBerths, outcome.PeakFocusReservedEmptyBerths,
 			outcome.PassengerDistanceMeters, outcome.EmptyDistanceMeters, outcome.LoadedDistancePercent,
-			outcome.PositioningMoveCount); err != nil {
+			outcome.PositioningMoveCount, incidentTableCells(results, outcome)); err != nil {
 			return fmt.Errorf("write table row: %w", err)
 		}
 	}
@@ -275,19 +278,20 @@ func writeCSV(input writeReportInput) error {
 	return nil
 }
 
-// csvColumns selects the optional columns of a CSV report. energy and daily
-// come from the results, and the others come from input.
+// csvColumns selects the optional columns of a CSV report. energy, daily, and
+// incidents come from the results, and the others come from input.
 type csvColumns struct {
-	input         writeReportInput
-	energy, daily bool
+	input                    writeReportInput
+	energy, daily, incidents bool
 }
 
 // newCSVColumns returns the optional columns of the report of input.
 func newCSVColumns(input writeReportInput) csvColumns {
 	return csvColumns{
-		input:  input,
-		energy: slices.ContainsFunc(input.results, func(r result) bool { return r.Energy != nil }),
-		daily:  slices.ContainsFunc(input.results, func(r result) bool { return r.DailyStartMinute != nil }),
+		input:     input,
+		energy:    slices.ContainsFunc(input.results, func(r result) bool { return r.Energy != nil }),
+		daily:     slices.ContainsFunc(input.results, func(r result) bool { return r.DailyStartMinute != nil }),
+		incidents: hasIncidentColumns(input.results),
 	}
 }
 
@@ -338,6 +342,9 @@ func (columns csvColumns) header() []string {
 	}
 	if columns.energy {
 		header = append(header, energyCSVHeader...)
+	}
+	if columns.incidents {
+		header = append(header, incidentCSVHeader...)
 	}
 	return header
 }
@@ -407,6 +414,9 @@ func (columns csvColumns) row(outcome result) ([]string, error) {
 			return nil, err
 		}
 		row = append(row, values...)
+	}
+	if columns.incidents {
+		row = append(row, incidentCSVRow(outcome.incidentColumns)...)
 	}
 	return row, nil
 }

@@ -192,31 +192,39 @@ func (input *runInput) sharingSettings() (sim.SharedRideMode, int) {
 }
 
 func run(input runInput) (result, error) {
-	meter, err := newEnergyMeter(input.energy, input.scenario.fleet, 0)
+	arm, err := startArm(&input)
 	if err != nil {
 		return result{}, err
 	}
-	consent, err := comparisonConsent(input.sharingConsent)
-	if err != nil {
-		return result{}, err
-	}
-	simulation, err := sim.NewFleet(input.scenario.network, input.scenario.fleet)
-	if err != nil {
-		return result{}, fmt.Errorf("create comparison: %w", err)
-	}
-	mode, err := configureRun(simulation, &input, meter != nil)
-	if err != nil {
-		return result{}, err
-	}
-	metrics, err := newRunMetrics(input.scenario, input.schedule)
-	if err != nil {
-		return result{}, err
-	}
-	arm := newArmRun(simulation, &input, armSettings{mode: mode, consent: consent, meter: meter}, metrics)
 	if err := arm.simulate(); err != nil {
 		return result{}, err
 	}
 	return arm.result(), nil
+}
+
+// startArm returns the configured arm of input, before its first tick.
+func startArm(input *runInput) (*armRun, error) {
+	meter, err := newEnergyMeter(input.energy, input.scenario.fleet, 0)
+	if err != nil {
+		return nil, err
+	}
+	consent, err := comparisonConsent(input.sharingConsent)
+	if err != nil {
+		return nil, err
+	}
+	simulation, err := sim.NewFleet(input.scenario.network, input.scenario.fleet)
+	if err != nil {
+		return nil, fmt.Errorf("create comparison: %w", err)
+	}
+	mode, err := configureRun(simulation, input, meter != nil)
+	if err != nil {
+		return nil, err
+	}
+	metrics, err := newRunMetrics(input.scenario, input.schedule)
+	if err != nil {
+		return nil, err
+	}
+	return newArmRun(simulation, input, armSettings{mode: mode, consent: consent, meter: meter}, metrics), nil
 }
 
 // configureRun applies the policies of input to simulation in a fixed
@@ -243,6 +251,9 @@ func configureRun(simulation *sim.Simulation, input *runInput, motion bool) (sim
 		return 0, err
 	}
 	if err := configureExperimentalPolicies(simulation, *input); err != nil {
+		return 0, err
+	}
+	if err := configureIncidents(simulation, input.scenario, input.seed); err != nil {
 		return 0, err
 	}
 	mode, ok := redistributionPolicyValues[input.policy]
@@ -348,6 +359,9 @@ type armRun struct {
 	// schedule indices for a rail pattern.
 	next, skipped int
 	railSkipped   []int
+	// delivered counts the interrupted orders that the arm drained, so the
+	// simulation keeps no undelivered order between ticks.
+	delivered int
 	// The arm keeps the snapshots at the arrival midpoint and at the end of
 	// the arrival window.
 	arrivalWindowTicks, arrivalMidpointTicks int64
@@ -402,6 +416,7 @@ func (arm *armRun) step(tick int64) (bool, error) {
 	}
 	if !service {
 		arm.simulation.Step()
+		arm.drainInterruptions()
 	}
 	if err := consumeEnergy(arm.meter, arm.simulation); err != nil {
 		return false, err
@@ -434,13 +449,22 @@ func (arm *armRun) followDailyBand() error {
 func (arm *armRun) stepService() int64 {
 	arm.simulation.Step()
 	tick := arm.simulation.Tick()
+	interrupted := arm.drainInterruptions()
 	if arm.connections != nil {
 		// Interruptions reach rail before Advance scores the
 		// departures of the tick, as in the session.
-		arm.connections.Interrupt(tick, arm.simulation.DrainInterruptions())
+		arm.connections.Interrupt(tick, interrupted)
 		arm.connections.Advance(tick, arm.simulation.StepCompletions())
 	}
 	return tick
+}
+
+// drainInterruptions takes the orders interrupted since the last drain from
+// the simulation, counts them, and returns them.
+func (arm *armRun) drainInterruptions() []int {
+	interrupted := arm.simulation.DrainInterruptions()
+	arm.delivered += len(interrupted)
+	return interrupted
 }
 
 // submitDue offers each schedule request of tick. It skips a request when
@@ -545,10 +569,10 @@ func (arm *armRun) sample(advancedTick int64) bool {
 }
 
 // drainedAfterArrivals reports whether the arrival window is over, every
-// request was offered and completed, and no rail connection can still
+// request was offered and is terminal, and no rail connection can still
 // become due.
 func (arm *armRun) drainedAfterArrivals(state sim.Snapshot) bool {
-	return state.Tick >= arm.arrivalWindowTicks && arm.next == len(arm.input.schedule) && state.Completed == state.Submitted &&
+	return state.Tick >= arm.arrivalWindowTicks && arm.next == len(arm.input.schedule) && outstanding(state) == 0 &&
 		!connectionPendingWithin(arm.connections, arm.input.scenario.railDepartures, durationTicks(arm.input.duration))
 }
 
@@ -579,15 +603,15 @@ func (arm *armRun) result() result {
 	if len(input.schedule) > 0 {
 		arrivalEnd = float64(input.schedule[len(input.schedule)-1].tick) / sim.TicksPerSecond
 	}
-	drained := arm.next == len(input.schedule) && state.Completed == state.Submitted
+	drained := arm.next == len(input.schedule) && outstanding(state) == 0
 	drainSeconds := 0.0
 	if drained && state.Tick > arm.arrivalWindowTicks {
 		drainSeconds = float64(state.Tick-arm.arrivalWindowTicks) / sim.TicksPerSecond
 	}
 	arrivalMinutes := input.arrivalsFor.Minutes()
 	lateArrivalMinutes := float64(arm.arrivalWindowTicks-arm.arrivalMidpointTicks) / sim.TicksPerSecond / 60
-	midpointBacklog := midpointState.Submitted - midpointState.Completed
-	arrivalBacklog := arrivalState.Submitted - arrivalState.Completed
+	midpointBacklog := outstanding(midpointState)
+	arrivalBacklog := outstanding(arrivalState)
 	var dailyStart *int
 	if input.daily != nil {
 		dailyStart = new(input.dailyStartMinute)
@@ -610,8 +634,8 @@ func (arm *armRun) result() result {
 		FocusStation:            input.scenario.focus,
 		WindowStartSeconds:      0, WindowEndSeconds: input.duration.Seconds(), ActualEndSeconds: float64(state.Tick) / sim.TicksPerSecond,
 		ArrivalWindowSeconds: input.arrivalsFor.Seconds(), ArrivalEndSeconds: arrivalEnd, ScheduleID: input.scheduleID,
-		Scheduled: len(input.schedule), Served: state.Completed, Remaining: state.Submitted - state.Completed, Skipped: arm.skipped, RailSkippedOffers: arm.railSkipped, RailConnections: reportConnections(arm.connections),
-		CompletedAtArrivalEnd: arrivalState.Completed, BacklogAtArrivalEnd: arrivalState.Submitted - arrivalState.Completed,
+		Scheduled: len(input.schedule), Served: state.Completed, Remaining: outstanding(state), incidentColumns: incidentReport(input.scenario, state), Skipped: arm.skipped, RailSkippedOffers: arm.railSkipped, RailConnections: reportConnections(arm.connections),
+		CompletedAtArrivalEnd: arrivalState.Completed, BacklogAtArrivalEnd: arrivalBacklog,
 		ArrivalThroughputPerMinute: float64(arrivalState.Completed) / arrivalMinutes,
 		CompletedAtArrivalMidpoint: midpointState.Completed, BacklogAtArrivalMidpoint: midpointBacklog,
 		LateArrivalThroughputPerMinute: float64(arrivalState.Completed-midpointState.Completed) / lateArrivalMinutes,
@@ -720,7 +744,7 @@ func newRunMetrics(caseStudy scenario, schedule []scheduledRequest) (runMetrics,
 func (metrics *runMetrics) observe(state sim.Snapshot) {
 	station := metrics.monitor.Summarize(metrics.station, state)
 	metrics.peakPending = max(metrics.peakPending, len(state.Pending))
-	metrics.peakOutstanding = max(metrics.peakOutstanding, state.Submitted-state.Completed)
+	metrics.peakOutstanding = max(metrics.peakOutstanding, outstanding(state))
 	active, passenger, stopped := state.WorkingVehicles(), 0, 0
 	for _, vehicle := range state.Vehicles {
 		if vehicle.Pod.Occupied {

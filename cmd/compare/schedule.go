@@ -39,6 +39,9 @@ type scenario struct {
 	demandProfiles []project.DemandProfile
 	railArrivals   []project.RailArrival
 	railDepartures []project.RailDeparture
+	// faults and emergencies are the incident settings of the project.
+	faults      *project.FaultConfig
+	emergencies *project.EmergencyConfig
 }
 
 func loadScenario(path, focus string) (scenario, error) {
@@ -85,6 +88,7 @@ func loadScenario(path, focus string) (scenario, error) {
 	return scenario{
 		network: config.Network, fleet: config.Fleet, passengers: passengers, focus: focus,
 		demand: config.Demand, demandProfiles: config.DemandProfiles, railArrivals: config.RailArrivals, railDepartures: config.RailDepartures,
+		faults: config.Faults, emergencies: config.Emergencies,
 	}, nil
 }
 
@@ -112,9 +116,6 @@ func readProject(path string) (project.Config, error) {
 	}
 	if err := project.Validate(config); err != nil {
 		return project.Config{}, fmt.Errorf("validate project %s: %w", path, err)
-	}
-	if rates := project.EffectiveIncidentRates(config); rates.Faults.PerHour > 0 || rates.EmergenciesPerHour > 0 {
-		return project.Config{}, fmt.Errorf("read project %s: comparisons do not support a fault or emergency rate", path)
 	}
 	return config, nil
 }
