@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/dotwaffle/podsim/internal/session"
-	"github.com/dotwaffle/podsim/internal/sim"
 )
 
 // startsGeneration reports whether a command with action starts a new
@@ -52,12 +51,10 @@ type sessionChangeInput struct {
 // state to the current state that this game did not cause. It returns an
 // empty string when there is no such change, and for the first state frame.
 //
-// Each server process sends its own start ID. A new start ID shows that the
-// server restarted, also when the epoch stays the same and the game did not
-// get the first frames after the restart. When one of the two states has no
-// start ID, the server is older. Then a new epoch shows a restart. A
-// restart with the -state option can keep the epoch. Then the generation
-// changes, and keptEpochRestart is true for the current state.
+// Each server process sends its own start ID, and the stream refuses a frame
+// without one. A new start ID shows that the server restarted, also when the
+// epoch stays the same and the game did not get the first frames after the
+// restart. A new epoch also shows a restart.
 //
 // Other changes of the generation come from a reset, a demo, a rewind, or a
 // project apply. They show otherBrowserNotice, but not while a command of
@@ -69,18 +66,15 @@ type sessionChangeInput struct {
 // process does not apply.
 func sessionChangeNotice(input sessionChangeInput) string {
 	previous, current := input.previous, input.current
-	startKnown := previous.ServerStart != "" && current.ServerStart != ""
 	switch {
 	case previous.Epoch == "":
 		return ""
-	case startKnown && current.ServerStart != previous.ServerStart:
+	case current.ServerStart != previous.ServerStart:
 		return restartNotice
 	case current.Epoch != previous.Epoch:
 		return restartNotice
 	case current.Generation == previous.Generation:
 		return ""
-	case !startKnown && keptEpochRestart(current):
-		return restartNotice
 	case input.inFlight:
 		return ""
 	case current.Epoch == input.ownEpoch && current.ServerStart == input.ownStart && current.Generation <= input.ownGeneration:
@@ -88,17 +82,6 @@ func sessionChangeNotice(input sessionChangeInput) string {
 	default:
 		return otherBrowserNotice
 	}
-}
-
-// keptEpochRestart reports whether a state with a new generation comes from
-// a server restart that kept the epoch. The server keeps the epoch only
-// after a physical or a logical restore, and a restart clears the save
-// points. A reset, a demo, and a project apply clear the restore tier, and
-// a rewind keeps the save points. Thus no other change gives a state with
-// both properties.
-func keptEpochRestart(state session.State) bool {
-	tier := sim.RestoreTier(state.Restore.Tier)
-	return len(state.Checkpoints) == 0 && (tier == sim.RestorePhysical || tier == sim.RestoreLogical)
 }
 
 // announceSessionChange shows a notice when the state changed from previous

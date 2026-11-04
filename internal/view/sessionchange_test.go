@@ -27,7 +27,6 @@ import (
 func TestSessionChangeNotice(t *testing.T) {
 	t.Parallel()
 	physical := session.RestoreInfo{Tier: string(sim.RestorePhysical)}
-	logical := session.RestoreInfo{Tier: string(sim.RestoreLogical), Reason: "physical_failed"}
 	savePoints := []session.Checkpoint{{ID: 1, Tick: 600}}
 	tests := []struct {
 		name  string
@@ -81,23 +80,6 @@ func TestSessionChangeNotice(t *testing.T) {
 			current:  session.State{Epoch: "a", Generation: 5},
 			ownEpoch: "b", ownGeneration: 9,
 		}, want: otherBrowserNotice},
-		{name: "restart with a kept epoch", input: sessionChangeInput{
-			previous: session.State{Epoch: "a", Generation: 4, Checkpoints: savePoints},
-			current:  session.State{Epoch: "a", Generation: 5, Restore: physical},
-		}, want: restartNotice},
-		{name: "logical restart with a kept epoch", input: sessionChangeInput{
-			previous: session.State{Epoch: "a", Generation: 4},
-			current:  session.State{Epoch: "a", Generation: 5, Restore: logical},
-		}, want: restartNotice},
-		{name: "restart with a kept epoch while a reset waits", input: sessionChangeInput{
-			previous: session.State{Epoch: "a", Generation: 4},
-			current:  session.State{Epoch: "a", Generation: 5, Restore: physical},
-			inFlight: true, ownEpoch: "a", ownGeneration: 5,
-		}, want: restartNotice},
-		{name: "frame after a restart with a kept epoch", input: sessionChangeInput{
-			previous: session.State{Epoch: "a", Revision: 8, Generation: 5, Restore: physical},
-			current:  session.State{Epoch: "a", Revision: 9, Generation: 5, Restore: physical},
-		}},
 		{name: "rewind after a restart", input: sessionChangeInput{
 			previous: session.State{Epoch: "a", Generation: 5, Restore: physical, Checkpoints: savePoints},
 			current:  session.State{Epoch: "a", Generation: 6, Restore: physical, Checkpoints: savePoints},
@@ -136,26 +118,6 @@ func TestSessionChangeNotice(t *testing.T) {
 			current:  session.State{Epoch: "a", Generation: 5, ServerStart: "s2"},
 			ownEpoch: "a", ownGeneration: 6, ownStart: "s2",
 		}},
-		{name: "no previous start ID with a kept epoch", input: sessionChangeInput{
-			previous: session.State{Epoch: "a", Generation: 4},
-			current:  session.State{Epoch: "a", Generation: 5, ServerStart: "s2", Restore: physical},
-		}, want: restartNotice},
-		{name: "no previous start ID with save points", input: sessionChangeInput{
-			previous: session.State{Epoch: "a", Generation: 4},
-			current:  session.State{Epoch: "a", Generation: 5, ServerStart: "s2", Restore: physical, Checkpoints: savePoints},
-		}, want: otherBrowserNotice},
-		{name: "no current start ID with a kept epoch", input: sessionChangeInput{
-			previous: session.State{Epoch: "a", Generation: 4, ServerStart: "s1"},
-			current:  session.State{Epoch: "a", Generation: 5, Restore: logical},
-		}, want: restartNotice},
-		{name: "no current start ID with a new epoch", input: sessionChangeInput{
-			previous: session.State{Epoch: "a", Generation: 4, ServerStart: "s1"},
-			current:  session.State{Epoch: "b", Generation: 1},
-		}, want: restartNotice},
-		{name: "no current start ID with a new generation", input: sessionChangeInput{
-			previous: session.State{Epoch: "a", Generation: 4, ServerStart: "s1"},
-			current:  session.State{Epoch: "a", Generation: 5},
-		}, want: otherBrowserNotice},
 		{name: "empty restore tier", input: sessionChangeInput{
 			previous: session.State{Epoch: "a", Generation: 4},
 			current:  session.State{Epoch: "a", Generation: 5, Restore: session.RestoreInfo{Tier: "empty", Reason: "project_changed"}},
