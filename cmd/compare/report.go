@@ -255,32 +255,68 @@ func writeTable(input writeReportInput) error {
 // as before them.
 func writeCSV(input writeReportInput) error {
 	w := csv.NewWriter(input.output)
-	energyColumn := slices.ContainsFunc(input.results, func(r result) bool { return r.Energy != nil })
-	dailyColumn := slices.ContainsFunc(input.results, func(r result) bool { return r.DailyStartMinute != nil })
+	columns := newCSVColumns(input)
+	if err := w.Write(columns.header()); err != nil {
+		return fmt.Errorf("write CSV header: %w", err)
+	}
+	for _, outcome := range input.results {
+		row, err := columns.row(outcome)
+		if err != nil {
+			return err
+		}
+		if err := w.Write(row); err != nil {
+			return fmt.Errorf("write CSV row: %w", err)
+		}
+	}
+	w.Flush()
+	if err := w.Error(); err != nil {
+		return fmt.Errorf("flush CSV report: %w", err)
+	}
+	return nil
+}
+
+// csvColumns selects the optional columns of a CSV report. energy and daily
+// come from the results, and the others come from input.
+type csvColumns struct {
+	input         writeReportInput
+	energy, daily bool
+}
+
+// newCSVColumns returns the optional columns of the report of input.
+func newCSVColumns(input writeReportInput) csvColumns {
+	return csvColumns{
+		input:  input,
+		energy: slices.ContainsFunc(input.results, func(r result) bool { return r.Energy != nil }),
+		daily:  slices.ContainsFunc(input.results, func(r result) bool { return r.DailyStartMinute != nil }),
+	}
+}
+
+// header returns the header row of the report.
+func (columns csvColumns) header() []string {
 	header := []string{
 		"pattern", "demand_profile", "demand_band", "request_every_seconds", "offered_per_minute", "burst_size", "seed", "policy", "routing_policy",
 	}
-	if input.sharingConsentColumn {
+	if columns.input.sharingConsentColumn {
 		header = append(header, "sharing_consent")
 	}
-	if input.waitRuleColumn {
+	if columns.input.waitRuleColumn {
 		header = append(header, "wait_rule")
 	}
-	if input.platoonColumn {
+	if columns.input.platoonColumn {
 		header = append(header, "platoon_policy")
 	}
-	if input.pickupReassignmentColumn {
+	if columns.input.pickupReassignmentColumn {
 		header = append(header, "pickup_reassignment")
 	}
 	header = append(header, "shared_ride_party_limit", "sharing_mode")
-	if input.sharingJoinColumn {
+	if columns.input.sharingJoinColumn {
 		header = append(header, "sharing_join")
 	}
-	if input.onboardPickupsColumn {
+	if columns.input.onboardPickupsColumn {
 		header = append(header, "onboard_pickups")
 	}
 	header = append(header, "shared_parties")
-	if input.seatColumns {
+	if columns.input.seatColumns {
 		header = append(header, "full_pod_refusals", "full_departures", "departure_backlog", "departures_demand_over_four", "departures_over_four_aboard",
 			"join_eligible_assigned", "join_eligible_existing_stop", "join_eligible_added_stop_only", "reassigned_parties")
 	}
@@ -297,89 +333,82 @@ func writeCSV(input writeReportInput) error {
 		"rider_distance_meters", "direct_distance_meters", "detour_ratio_mean", "detour_ratio_max", "intermediate_stops", "positioning_moves",
 		"platoon_time_percent",
 	)
-	if dailyColumn {
+	if columns.daily {
 		header = append(header, "daily_start_minute")
 	}
-	if energyColumn {
+	if columns.energy {
 		header = append(header, energyCSVHeader...)
 	}
-	if err := w.Write(header); err != nil {
-		return fmt.Errorf("write CSV header: %w", err)
+	return header
+}
+
+// row returns the row of the report for outcome.
+func (columns csvColumns) row(outcome result) ([]string, error) {
+	row := []string{
+		outcome.Pattern, outcome.DemandProfile, outcome.DemandBand, floatText(outcome.RequestEverySeconds), floatText(outcome.OfferedPerMinute), strconv.Itoa(outcome.BurstSize), strconv.FormatInt(outcome.Seed, 10), outcome.Policy, outcome.RoutingPolicy,
 	}
-	for _, outcome := range input.results {
-		row := []string{
-			outcome.Pattern, outcome.DemandProfile, outcome.DemandBand, floatText(outcome.RequestEverySeconds), floatText(outcome.OfferedPerMinute), strconv.Itoa(outcome.BurstSize), strconv.FormatInt(outcome.Seed, 10), outcome.Policy, outcome.RoutingPolicy,
-		}
-		if input.sharingConsentColumn {
-			row = append(row, string(outcome.SharingConsent))
-		}
-		if input.waitRuleColumn {
-			row = append(row, outcome.WaitRule)
-		}
-		if input.platoonColumn {
-			row = append(row, outcome.PlatoonPolicy)
-		}
-		if input.pickupReassignmentColumn {
-			row = append(row, outcome.PickupReassignment)
-		}
-		row = append(row, strconv.Itoa(outcome.SharedRidePartyLimit), outcome.SharingMode)
-		if input.sharingJoinColumn {
-			row = append(row, outcome.SharingJoin)
-		}
-		if input.onboardPickupsColumn {
-			row = append(row, outcome.OnboardPickups)
-		}
-		row = append(row, strconv.Itoa(outcome.SharedParties))
-		if input.seatColumns {
-			row = append(row, strconv.Itoa(outcome.FullPodRefusals), strconv.Itoa(outcome.FullDepartures), strconv.Itoa(outcome.DepartureBacklog),
-				strconv.Itoa(outcome.DeparturesDemandOverFour), strconv.Itoa(outcome.DeparturesOverFourAboard),
-				strconv.Itoa(outcome.JoinEligibleAssigned), strconv.Itoa(outcome.JoinEligibleExistingStop), strconv.Itoa(outcome.JoinEligibleAddedStopOnly),
-				strconv.Itoa(outcome.ReassignedParties))
-		}
-		row = append(row,
-			outcome.FocusStation,
-			floatText(outcome.WindowStartSeconds), floatText(outcome.WindowEndSeconds), floatText(outcome.ActualEndSeconds), floatText(outcome.ArrivalWindowSeconds), floatText(outcome.ArrivalEndSeconds), outcome.ScheduleID,
-			strconv.Itoa(outcome.Scheduled), strconv.Itoa(outcome.Served), strconv.Itoa(outcome.Remaining), strconv.Itoa(outcome.Skipped),
-			strconv.Itoa(outcome.CompletedAtArrivalEnd), strconv.Itoa(outcome.BacklogAtArrivalEnd), floatText(outcome.ArrivalThroughputPerMinute),
-			strconv.Itoa(outcome.CompletedAtArrivalMidpoint), strconv.Itoa(outcome.BacklogAtArrivalMidpoint), floatText(outcome.LateArrivalThroughputPerMinute), strconv.Itoa(outcome.LateBacklogChange),
-			strconv.FormatBool(outcome.Drained), floatText(outcome.DrainSeconds),
-			strconv.Itoa(outcome.PeakPending), strconv.Itoa(outcome.PeakOutstanding), strconv.Itoa(outcome.PeakActiveVehicles), strconv.Itoa(outcome.PeakPassengerVehicles), strconv.Itoa(outcome.PeakStoppedVehicles),
-			strconv.Itoa(outcome.PeakFocusApproaching), strconv.Itoa(outcome.PeakFocusEntranceStopped), strconv.Itoa(outcome.PeakFocusExitStopped),
-			strconv.Itoa(outcome.PeakFocusOccupiedBerths), strconv.Itoa(outcome.PeakFocusReservedEmptyBerths),
-			floatText(outcome.StoppedPodSeconds), floatText(outcome.JunctionWaitSeconds), floatText(outcome.TrackWaitSeconds),
-			strconv.Itoa(outcome.PeakNodeThroughputPerMinute), outcome.PeakNode,
-			strconv.FormatBool(outcome.QueueCleared), floatText(outcome.QueueClearSeconds),
-			floatText(outcome.WaitAverageSeconds), floatText(outcome.WaitMaximumSeconds), floatText(outcome.WaitP95Seconds),
-			floatText(outcome.JourneyAverageSeconds), floatText(outcome.JourneyP95Seconds), floatText(outcome.JourneyMaximumSeconds),
-			floatText(outcome.PassengerDistanceMeters),
-			floatText(outcome.EmptyDistanceMeters), floatText(outcome.LoadedDistancePercent), floatText(outcome.Occupancy),
-			floatText(outcome.RiderDistanceMeters), floatText(outcome.DirectDistanceMeters),
-			floatText(outcome.DetourRatioMean), floatText(outcome.DetourRatioMax), strconv.Itoa(outcome.IntermediateStops),
-			strconv.Itoa(outcome.PositioningMoveCount), floatText(outcome.PlatoonTimePercent),
-		)
-		if dailyColumn {
-			value := ""
-			if outcome.DailyStartMinute != nil {
-				value = strconv.Itoa(*outcome.DailyStartMinute)
-			}
-			row = append(row, value)
-		}
-		if energyColumn {
-			values, err := energyCSVRow(outcome.Energy)
-			if err != nil {
-				return err
-			}
-			row = append(row, values...)
-		}
-		if err := w.Write(row); err != nil {
-			return fmt.Errorf("write CSV row: %w", err)
-		}
+	if columns.input.sharingConsentColumn {
+		row = append(row, string(outcome.SharingConsent))
 	}
-	w.Flush()
-	if err := w.Error(); err != nil {
-		return fmt.Errorf("flush CSV report: %w", err)
+	if columns.input.waitRuleColumn {
+		row = append(row, outcome.WaitRule)
 	}
-	return nil
+	if columns.input.platoonColumn {
+		row = append(row, outcome.PlatoonPolicy)
+	}
+	if columns.input.pickupReassignmentColumn {
+		row = append(row, outcome.PickupReassignment)
+	}
+	row = append(row, strconv.Itoa(outcome.SharedRidePartyLimit), outcome.SharingMode)
+	if columns.input.sharingJoinColumn {
+		row = append(row, outcome.SharingJoin)
+	}
+	if columns.input.onboardPickupsColumn {
+		row = append(row, outcome.OnboardPickups)
+	}
+	row = append(row, strconv.Itoa(outcome.SharedParties))
+	if columns.input.seatColumns {
+		row = append(row, strconv.Itoa(outcome.FullPodRefusals), strconv.Itoa(outcome.FullDepartures), strconv.Itoa(outcome.DepartureBacklog),
+			strconv.Itoa(outcome.DeparturesDemandOverFour), strconv.Itoa(outcome.DeparturesOverFourAboard),
+			strconv.Itoa(outcome.JoinEligibleAssigned), strconv.Itoa(outcome.JoinEligibleExistingStop), strconv.Itoa(outcome.JoinEligibleAddedStopOnly),
+			strconv.Itoa(outcome.ReassignedParties))
+	}
+	row = append(row,
+		outcome.FocusStation,
+		floatText(outcome.WindowStartSeconds), floatText(outcome.WindowEndSeconds), floatText(outcome.ActualEndSeconds), floatText(outcome.ArrivalWindowSeconds), floatText(outcome.ArrivalEndSeconds), outcome.ScheduleID,
+		strconv.Itoa(outcome.Scheduled), strconv.Itoa(outcome.Served), strconv.Itoa(outcome.Remaining), strconv.Itoa(outcome.Skipped),
+		strconv.Itoa(outcome.CompletedAtArrivalEnd), strconv.Itoa(outcome.BacklogAtArrivalEnd), floatText(outcome.ArrivalThroughputPerMinute),
+		strconv.Itoa(outcome.CompletedAtArrivalMidpoint), strconv.Itoa(outcome.BacklogAtArrivalMidpoint), floatText(outcome.LateArrivalThroughputPerMinute), strconv.Itoa(outcome.LateBacklogChange),
+		strconv.FormatBool(outcome.Drained), floatText(outcome.DrainSeconds),
+		strconv.Itoa(outcome.PeakPending), strconv.Itoa(outcome.PeakOutstanding), strconv.Itoa(outcome.PeakActiveVehicles), strconv.Itoa(outcome.PeakPassengerVehicles), strconv.Itoa(outcome.PeakStoppedVehicles),
+		strconv.Itoa(outcome.PeakFocusApproaching), strconv.Itoa(outcome.PeakFocusEntranceStopped), strconv.Itoa(outcome.PeakFocusExitStopped),
+		strconv.Itoa(outcome.PeakFocusOccupiedBerths), strconv.Itoa(outcome.PeakFocusReservedEmptyBerths),
+		floatText(outcome.StoppedPodSeconds), floatText(outcome.JunctionWaitSeconds), floatText(outcome.TrackWaitSeconds),
+		strconv.Itoa(outcome.PeakNodeThroughputPerMinute), outcome.PeakNode,
+		strconv.FormatBool(outcome.QueueCleared), floatText(outcome.QueueClearSeconds),
+		floatText(outcome.WaitAverageSeconds), floatText(outcome.WaitMaximumSeconds), floatText(outcome.WaitP95Seconds),
+		floatText(outcome.JourneyAverageSeconds), floatText(outcome.JourneyP95Seconds), floatText(outcome.JourneyMaximumSeconds),
+		floatText(outcome.PassengerDistanceMeters),
+		floatText(outcome.EmptyDistanceMeters), floatText(outcome.LoadedDistancePercent), floatText(outcome.Occupancy),
+		floatText(outcome.RiderDistanceMeters), floatText(outcome.DirectDistanceMeters),
+		floatText(outcome.DetourRatioMean), floatText(outcome.DetourRatioMax), strconv.Itoa(outcome.IntermediateStops),
+		strconv.Itoa(outcome.PositioningMoveCount), floatText(outcome.PlatoonTimePercent),
+	)
+	if columns.daily {
+		value := ""
+		if outcome.DailyStartMinute != nil {
+			value = strconv.Itoa(*outcome.DailyStartMinute)
+		}
+		row = append(row, value)
+	}
+	if columns.energy {
+		values, err := energyCSVRow(outcome.Energy)
+		if err != nil {
+			return nil, err
+		}
+		row = append(row, values...)
+	}
+	return row, nil
 }
 
 func floatText(value float64) string { return strconv.FormatFloat(value, 'f', -1, 64) }
