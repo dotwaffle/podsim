@@ -154,8 +154,9 @@ func TestDemoClosesIncidentPanel(t *testing.T) {
 	game.client = remote.New(t.Context(), server.URL)
 	syncGame(t, game, func() bool { return game.state.Epoch != "" })
 	game.press(incidentsAction)
-	if !game.showIncidents {
-		t.Fatal("press does not open the panel")
+	game.press(placeDebrisAction)
+	if !game.showIncidents || !game.debrisArmed {
+		t.Fatalf("panel %t armed %t, want both", game.showIncidents, game.debrisArmed)
 	}
 	other := func(sequence uint64, action string) {
 		t.Helper()
@@ -168,10 +169,13 @@ func TestDemoClosesIncidentPanel(t *testing.T) {
 	if game.showIncidents {
 		t.Fatal("a state with the operations off leaves the panel open")
 	}
+	if game.debrisArmed {
+		t.Fatal("a state with the operations off leaves debris armed")
+	}
 	other(2, "reset")
 	syncGame(t, game, func() bool { return !game.state.Simulation.OperationsOff })
-	if game.showIncidents {
-		t.Fatal("the panel opens again after a reset")
+	if game.showIncidents || game.debrisArmed {
+		t.Fatalf("after a reset: panel %t armed %t", game.showIncidents, game.debrisArmed)
 	}
 }
 
@@ -228,7 +232,7 @@ func TestIncidentTabSwitchesPanels(t *testing.T) {
 func TestIncidentPanelPages(t *testing.T) {
 	t.Parallel()
 	game := faultTestGame(t)
-	fillIncidents(game, 7)
+	fillIncidents(game, minimumIncidentRows+2)
 	game.showIncidents = true
 	first := actionsWithPrefix(game.buttons(), incidentClearPrefix)
 	if len(first) != minimumIncidentRows || first[0] != incidentClearPrefix+"i1.0" {
@@ -237,7 +241,7 @@ func TestIncidentPanelPages(t *testing.T) {
 	findButton(t, game.buttons(), incidentsPagerPrefix+"next")
 	game.press(incidentsPagerPrefix + "next")
 	second := actionsWithPrefix(game.buttons(), incidentClearPrefix)
-	if len(second) != 2 || second[0] != incidentClearPrefix+"i1.5" {
+	if len(second) != 2 || second[0] != fmt.Sprintf("%si1.%d", incidentClearPrefix, minimumIncidentRows) {
 		t.Fatalf("second page Clear buttons = %q, want two fault rows", second)
 	}
 	game.press(incidentsPagerPrefix + "next")

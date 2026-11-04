@@ -44,6 +44,10 @@ func TestButtonsFollowOperations(t *testing.T) {
 		if shown := slices.ContainsFunc(game.buttons(), func(control button) bool { return control.action == incidentsAction }); shown != want {
 			t.Errorf("%s: Incidents tab shown %t, want %t", stage, shown, want)
 		}
+		game.showIncidents = true
+		if shown := slices.ContainsFunc(game.buttons(), func(control button) bool { return control.action == placeDebrisAction }); shown != want {
+			t.Errorf("%s: Place debris shown %t, want %t", stage, shown, want)
+		}
 	}
 	check("start", s.State().Simulation, true)
 	sequence++

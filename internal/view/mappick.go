@@ -94,8 +94,13 @@ func (g *Game) mapPickTargets(point sim.Point) mapPickInput {
 // pickOnMap handles a click at point on the map. A click on a pod selects
 // the pod. A click on a station sets From. With toStation true, for example
 // with Shift pressed, it sets To. The station page then shows the chip of
-// the station.
+// the station. While a debris click is armed, a click selects nothing and
+// places debris.
 func (g *Game) pickOnMap(point sim.Point, toStation bool) {
+	if g.debrisArmed {
+		g.placeDebris(point)
+		return
+	}
 	target, ok := pickMapTarget(g.mapPickTargets(point))
 	if !ok {
 		return

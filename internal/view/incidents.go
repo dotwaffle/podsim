@@ -23,15 +23,15 @@ const (
 	incidentClearPrefix = "incident-clear/"
 	// incidentRowsTop and incidentRowSpacing place the rows of the panel in
 	// design units, and incidentRowHeight is the height of a Clear button.
-	incidentRowsTop    = 196.0
-	incidentRowSpacing = 26.0
-	incidentRowHeight  = 22.0
+	incidentRowsTop    = 214.0
+	incidentRowSpacing = 24.0
+	incidentRowHeight  = 20.0
 	// incidentClearLeft and incidentClearWidth set the Clear buttons.
 	incidentClearLeft  = 1004.0
 	incidentClearWidth = 56.0
 	// minimumIncidentRows is the number of rows in a window of the minimum
 	// size.
-	minimumIncidentRows = 5
+	minimumIncidentRows = 4
 )
 
 // incidentRow is one row of the Incidents panel. A row with a fault ID has
@@ -111,9 +111,9 @@ func (g *Game) incidentsOpen(state sim.Snapshot) bool {
 	return g.showIncidents && !state.OperationsOff
 }
 
-// closeIncidents closes the Incidents panel.
+// closeIncidents closes the Incidents panel and ends an armed debris click.
 func (g *Game) closeIncidents() {
-	g.showIncidents = false
+	g.showIncidents, g.debrisArmed = false, false
 }
 
 // incidentRowLimit returns the number of rows that fit above the page
@@ -135,12 +135,12 @@ func (g *Game) turnIncidentPage(step int) {
 	g.incidentPage = min(max(0, page.page+step), page.pages-1)
 }
 
-// incidentButtons returns the buttons of the open Incidents panel: a Clear
-// button for each fault row of the page, and the page arrows.
+// incidentButtons returns the buttons of the open Incidents panel: Place
+// debris, a Clear button for each fault row of the page, and the page arrows.
 func (g *Game) incidentButtons(state sim.Snapshot) []button {
 	rows := incidentRows(state)
 	page := g.currentIncidentPage(rows)
-	var buttons []button
+	buttons := []button{g.placeDebrisButton()}
 	for i, row := range rows[page.start:page.end] {
 		if row.faultID != "" {
 			buttons = append(buttons, button{
@@ -157,13 +157,16 @@ func isIncidentClear(control button) bool {
 	return strings.HasPrefix(control.action, incidentClearPrefix)
 }
 
-// pressIncidents applies a press of the Incidents tab, of a page arrow of
-// the panel, or of a Clear button. It returns false for any other action.
+// pressIncidents applies a press of the Incidents tab, of Place debris, of a
+// page arrow of the panel, or of a Clear button. It returns false for any other action.
 func (g *Game) pressIncidents(action string) bool {
 	switch action {
 	case incidentsAction:
-		g.showIncidents = !g.showIncidents
+		g.showIncidents, g.debrisArmed = !g.showIncidents, false
 		g.showOrders, g.showDemand = false, false
+	case placeDebrisAction:
+		g.debrisArmed = !g.debrisArmed
+		g.message = ""
 	case incidentsPagerPrefix + "prev":
 		g.turnIncidentPage(-1)
 	case incidentsPagerPrefix + "next":
@@ -223,7 +226,7 @@ func (g *Game) incidentLabels(state sim.Snapshot) []label {
 		if i == 0 {
 			size, shade = 11, foreground
 		}
-		labels = append(labels, panelLabel(106+float64(i)*14.5, size, fullWidth, line, shade))
+		labels = append(labels, panelLabel(127+float64(i)*14, size, fullWidth, line, shade))
 	}
 	rows := incidentRows(state)
 	if len(rows) == 0 {
@@ -235,7 +238,7 @@ func (g *Game) incidentLabels(state sim.Snapshot) []label {
 		if row.faultID != "" {
 			width = incidentClearLeft - 6 - orderTextLeft
 		}
-		labels = append(labels, panelLabel(incidentRowsTop+float64(i)*incidentRowSpacing+3, 11, width, row.text, foreground))
+		labels = append(labels, panelLabel(incidentRowsTop+float64(i)*incidentRowSpacing+2, 11, width, row.text, foreground))
 	}
 	if page.pages > 1 {
 		labels = append(labels, g.pagerLabel(page))

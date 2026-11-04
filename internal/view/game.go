@@ -117,10 +117,12 @@ type Game struct {
 	emergencyShown bool
 	// showIncidents reports whether the Incidents panel is open.
 	// incidentPage is its zero-based page. shownClears holds the Clear
-	// buttons of the last drawn frame. See shownIncidentClears.
+	// buttons of the last drawn frame. See shownIncidentClears. debrisArmed
+	// reports whether the next map click places debris. See placeDebris.
 	showIncidents bool
 	incidentPage  int
 	shownClears   []button
+	debrisArmed   bool
 	layout        displayLayout
 	// imageLimit is the largest side in pixels of an image. Draw reads it
 	// from Ebiten in each frame. See imageSideLimit.
