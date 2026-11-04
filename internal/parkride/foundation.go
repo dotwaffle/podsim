@@ -47,6 +47,9 @@ func validateFoundationConfig(config project.Config) error {
 	if !foundationProject(config) {
 		return errFoundationProject
 	}
+	if rates := project.EffectiveIncidentRates(config); rates.Faults.PerHour > 0 || rates.EmergenciesPerHour > 0 {
+		return errors.New("car runs do not support a fault or emergency rate")
+	}
 	data, err := json.Marshal(config)
 	if err != nil {
 		return err

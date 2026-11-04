@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math"
 )
 
 // These limits bound the faults settings. The simulation has the same
@@ -17,6 +16,8 @@ const (
 	maxFaultSeconds           = 86_400
 	minDebrisMeters           = 0.5
 	maxDebrisMeters           = 50
+	// maxIncidentPerHour bounds the fault rate and the emergency rate.
+	maxIncidentPerHour = 60
 )
 
 // FaultConfig holds the faults settings of a project. Each member is
@@ -27,8 +28,8 @@ type FaultConfig struct {
 	// EvacuationSeconds is the time from fault onset to evacuation, from 0
 	// to 3,600 seconds.
 	EvacuationSeconds *int `json:"evacuationSeconds,omitzero"`
-	// PerHour is the scenario fault rate. It must be 0, because the
-	// scenario sampler is not available yet.
+	// PerHour is the scenario fault rate, from 0 to 60. A rate above 0 needs
+	// a Duration.
 	PerHour *float64 `json:"perHour,omitzero"`
 	// DebrisShare is the share of scenario faults that are debris, from 0
 	// to 1.
@@ -59,12 +60,11 @@ type FaultDuration struct {
 // measures each project with widestDemand. JSON writes a
 // number from 1e-6 to 1e21 in decimal form, so the widest debris share is
 // a number just above 1e-6 with 17 significant digits, which takes 24
-// bytes. The widest debris length takes 18 bytes. Validate accepts a rate
-// of negative zero, which JSON writes as -0. The exponential kind has the
-// longest name and the most members.
+// bytes. The widest rate is the same number. The widest debris length takes
+// 18 bytes. The exponential kind has the longest name and the most members.
 var widestFaults = FaultConfig{
 	EvacuationSeconds: new(maxFaultEvacuationSeconds),
-	PerHour:           new(math.Copysign(0, -1)),
+	PerHour:           new(1.0000000000000002e-06),
 	DebrisShare:       new(1.0000000000000002e-06),
 	DebrisMeters:      new(0.5000000000000001),
 	Duration: &FaultDuration{Kind: "exponential", MinSeconds: new(maxFaultSeconds),
@@ -86,9 +86,10 @@ func validateFaultSettings(faults FaultConfig) error {
 	if value := faults.EvacuationSeconds; value != nil && (*value < 0 || *value > maxFaultEvacuationSeconds) {
 		return fmt.Errorf("faults evacuationSeconds must be 0 to %d", maxFaultEvacuationSeconds)
 	}
-	// A rate above 0 needs the scenario sampler. NaN is not 0.
-	if value := faults.PerHour; value != nil && *value != 0 {
-		return errors.New("faults perHour must be 0")
+	// NaN fails this check. -0 is a rate of 0.
+	rate := faults.PerHour
+	if rate != nil && !(*rate >= 0 && *rate <= maxIncidentPerHour) {
+		return fmt.Errorf("faults perHour must be 0 to %d", maxIncidentPerHour)
 	}
 	if value := faults.DebrisShare; value != nil && !(*value >= 0 && *value <= 1) {
 		return errors.New("faults debrisShare must be 0 to 1")
@@ -98,6 +99,9 @@ func validateFaultSettings(faults FaultConfig) error {
 	}
 	if faults.Duration != nil {
 		return validateFaultDuration(*faults.Duration)
+	}
+	if rate != nil && *rate > 0 {
+		return errors.New("faults perHour above 0 needs a duration")
 	}
 	return nil
 }

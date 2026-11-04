@@ -1,9 +1,6 @@
 package project
 
-import (
-	"errors"
-	"math"
-)
+import "fmt"
 
 // EmergencyConfig holds the emergencies settings of a project. Each member
 // is optional. A nil member has its default: PerHour 0.
@@ -15,9 +12,9 @@ type EmergencyConfig struct {
 
 // widestEmergencies has the longest canonical encoding of the emergencies
 // settings that Validate accepts. Validate measures each project with it.
-// Validate accepts a rate of negative zero,
-// which JSON writes as -0.
-var widestEmergencies = EmergencyConfig{PerHour: new(math.Copysign(0, -1))}
+// The widest rate is a number just above 1e-6 with 17 significant digits,
+// which JSON writes in decimal form in 24 bytes.
+var widestEmergencies = EmergencyConfig{PerHour: new(1.0000000000000002e-06)}
 
 // WidestOperationSettings returns the widest faults and emergencies settings
 // that Validate measures each project with. A test that sizes a project near
@@ -33,9 +30,9 @@ func validateEmergencies(config Config) error {
 	if config.Emergencies == nil {
 		return nil
 	}
-	// A rate above 0 needs the scenario sampler. NaN is not 0.
-	if value := config.Emergencies.PerHour; value != nil && *value != 0 {
-		return errors.New("emergencies perHour must be 0")
+	// NaN fails this check. -0 is a rate of 0.
+	if value := config.Emergencies.PerHour; value != nil && !(*value >= 0 && *value <= maxIncidentPerHour) {
+		return fmt.Errorf("emergencies perHour must be 0 to %d", maxIncidentPerHour)
 	}
 	return nil
 }

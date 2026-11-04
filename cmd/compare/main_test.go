@@ -1352,3 +1352,44 @@ func TestParseOptionsRefusalOrder(t *testing.T) {
 		})
 	}
 }
+
+// TestReadProjectRefusesIncidentRates checks each of the two rates. The
+// project validation runs first, so a project with a rate and another error
+// keeps the text of that error.
+func TestReadProjectRefusesIncidentRates(t *testing.T) {
+	t.Parallel()
+	const refusal = "comparisons do not support a fault or emergency rate"
+	duration := &project.FaultDuration{Kind: "fixed", Seconds: new(600)}
+	for name, test := range map[string]struct {
+		faults      *project.FaultConfig
+		emergencies *project.EmergencyConfig
+		name        string
+		want        string
+	}{
+		"fault rate":     {faults: &project.FaultConfig{PerHour: new(1.0), Duration: duration}, want: refusal},
+		"emergency rate": {emergencies: &project.EmergencyConfig{PerHour: new(1.0)}, want: refusal},
+		"validate first": {emergencies: &project.EmergencyConfig{PerHour: new(1.0)}, name: " ", want: "project name"},
+		"rates of 0":     {faults: &project.FaultConfig{PerHour: new(0.0)}, emergencies: &project.EmergencyConfig{PerHour: new(0.0)}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			config := scenarios.Small()
+			config.Faults, config.Emergencies = test.faults, test.emergencies
+			if test.name != "" {
+				config.Name = test.name
+			}
+			data, err := jsonv2.Marshal(config, json.DefaultOptionsV1())
+			if err != nil {
+				t.Fatal(err)
+			}
+			path := filepath.Join(t.TempDir(), "project.json")
+			if err = os.WriteFile(path, data, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			_, err = readProject(path)
+			if test.want == "" && err != nil || test.want != "" && (err == nil || !strings.Contains(err.Error(), test.want)) {
+				t.Fatalf("readProject: %v, want %q", err, test.want)
+			}
+		})
+	}
+}

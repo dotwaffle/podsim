@@ -43,9 +43,11 @@ func TestEmergenciesRoundTrip(t *testing.T) {
 		emergencies EmergencyConfig
 		encoded     string
 	}{
-		"empty":  {EmergencyConfig{}, `"emergencies":{}`},
-		"zero":   {EmergencyConfig{PerHour: new(0.0)}, `"emergencies":{"perHour":0}`},
-		"widest": {widestEmergencies, `"emergencies":{"perHour":-0}`},
+		"empty":         {EmergencyConfig{}, `"emergencies":{}`},
+		"zero":          {EmergencyConfig{PerHour: new(0.0)}, `"emergencies":{"perHour":0}`},
+		"negative zero": {EmergencyConfig{PerHour: new(math.Copysign(0, -1))}, `"emergencies":{"perHour":-0}`},
+		"highest":       {EmergencyConfig{PerHour: new(60.0)}, `"emergencies":{"perHour":60}`},
+		"widest":        {widestEmergencies, `"emergencies":{"perHour":0.0000010000000000000002}`},
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
@@ -83,6 +85,8 @@ func TestEmergenciesDecodeRefusals(t *testing.T) {
 		`,"emergencies":{}`,
 		`,"emergencies":{"perHour":0}`,
 		`,"emergencies":{"perHour":-0}`,
+		`,"emergencies":{"perHour":1}`,
+		`,"emergencies":{"perHour":60}`,
 		`,"faults":{},"emergencies":{}`,
 	} {
 		var got Config
@@ -98,7 +102,7 @@ func TestEmergenciesDecodeRefusals(t *testing.T) {
 		`,"emergencies":{"rate":0}`,
 		`,"emergencies":{"PerHour":0}`,
 		`,"emergencies":{"perHour":"0"}`,
-		`,"emergencies":{"perHour":1}`,
+		`,"emergencies":{"perHour":61}`,
 		`,"emergencies":{"perHour":-1}`,
 	} {
 		got := Default()
@@ -112,17 +116,18 @@ func TestEmergenciesDecodeRefusals(t *testing.T) {
 	}
 }
 
-// TestEmergencyRateRules checks the typed rule of emergencies: the rate must
-// be 0.
+// TestEmergencyRateRules checks the typed rule of emergencies: the rate is
+// from 0 to 60. A rate above 0 needs nothing else.
 func TestEmergencyRateRules(t *testing.T) {
 	t.Parallel()
 	for name, test := range map[string]struct {
 		config Config
 		text   string
 	}{
-		"rate above 0":      {emergencyProject(EmergencyConfig{PerHour: new(math.SmallestNonzeroFloat64)}), "perHour must be 0"},
-		"negative rate":     {emergencyProject(EmergencyConfig{PerHour: new(-1.0)}), "perHour must be 0"},
-		"rate not a number": {emergencyProject(EmergencyConfig{PerHour: new(math.NaN())}), "perHour must be 0"},
+		"rate past the limit": {emergencyProject(EmergencyConfig{PerHour: new(math.Nextafter(60, 61))}), "emergencies perHour must be 0 to 60"},
+		"infinite rate":       {emergencyProject(EmergencyConfig{PerHour: new(math.Inf(1))}), "emergencies perHour must be 0 to 60"},
+		"negative rate":       {emergencyProject(EmergencyConfig{PerHour: new(-math.SmallestNonzeroFloat64)}), "emergencies perHour must be 0 to 60"},
+		"rate not a number":   {emergencyProject(EmergencyConfig{PerHour: new(math.NaN())}), "emergencies perHour must be 0 to 60"},
 	} {
 		if err := Validate(test.config); err == nil || !strings.Contains(err.Error(), test.text) {
 			t.Errorf("%s: Validate error %v, want %q", name, err, test.text)
@@ -130,7 +135,8 @@ func TestEmergencyRateRules(t *testing.T) {
 	}
 	both := emergencyProject(EmergencyConfig{PerHour: new(math.Copysign(0, -1))})
 	both.Faults = &FaultConfig{}
-	for _, config := range []Config{emergencyProject(EmergencyConfig{}), emergencyProject(EmergencyConfig{PerHour: new(0.0)}), both} {
+	for _, config := range []Config{emergencyProject(EmergencyConfig{}), emergencyProject(EmergencyConfig{PerHour: new(0.0)}), both,
+		emergencyProject(EmergencyConfig{PerHour: new(math.SmallestNonzeroFloat64)}), emergencyProject(EmergencyConfig{PerHour: new(60.0)})} {
 		if err := Validate(config); err != nil {
 			t.Errorf("Validate refused a valid project: %v", err)
 		}
@@ -145,7 +151,7 @@ func TestWidestEmergenciesBoundsEachValue(t *testing.T) {
 		t.Fatal(err)
 	}
 	widest := len(canonicalJSON(t, widestEmergencies))
-	for _, value := range []*float64{nil, new(0.0), new(math.Copysign(0, -1))} {
+	for _, value := range incidentRateVariants() {
 		emergencies := EmergencyConfig{PerHour: value}
 		if err := Validate(emergencyProject(emergencies)); err != nil {
 			t.Fatal(err)

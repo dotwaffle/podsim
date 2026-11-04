@@ -35,6 +35,8 @@ func TestFaultSettingsEditorVerdicts(t *testing.T) {
 		{`,"faults":{"perHour":null}`, false},
 		{`,"faults":{"evacuationSeconds":null}`, false},
 		{`,"faults":{"perHour":1}`, false},
+		{`,"faults":{"perHour":1,"duration":{"kind":"fixed","seconds":600}}`, true},
+		{`,"faults":{"perHour":61,"duration":{"kind":"fixed","seconds":600}}`, false},
 		{`,"faultContract":"fault-v1"`, false},
 		{`,"faultContract":"fault-v1"` + faults, false},
 		{`,"faultContract":null`, false},

@@ -3,6 +3,7 @@ package parkride
 import (
 	"encoding/json/v2"
 	"fmt"
+	"math"
 	"reflect"
 	"strings"
 	"testing"
@@ -389,4 +390,38 @@ func TestPickupReassignmentKeepsCloneParity(t *testing.T) {
 		return
 	}
 	t.Fatalf("authored pickup loop did not replace an assignment: %+v", run.pods.PickupSwapStats())
+}
+
+// TestNewRunRefusesIncidentRates checks each of the two rates. A car ledger
+// has no interruption path. A rate of 0 stays valid, and a project with a
+// contract marker gets its own refusal first.
+func TestNewRunRefusesIncidentRates(t *testing.T) {
+	t.Parallel()
+	const refusal = "car runs do not support a fault or emergency rate"
+	duration := &project.FaultDuration{Kind: "fixed", Seconds: new(600)}
+	for name, test := range map[string]struct {
+		edit func(*project.Config)
+		want string
+	}{
+		"fault rate":     {func(c *project.Config) { c.Faults = &project.FaultConfig{PerHour: new(1.0), Duration: duration} }, refusal},
+		"emergency rate": {func(c *project.Config) { c.Emergencies = &project.EmergencyConfig{PerHour: new(1.0)} }, refusal},
+		"marker first": {func(c *project.Config) {
+			c.Emergencies = &project.EmergencyConfig{PerHour: new(1.0)}
+			c.OrderContract = sim.ExpressOrderContract
+		}, errFoundationProject.Error()},
+		"rates of 0": {func(c *project.Config) {
+			c.Faults = &project.FaultConfig{PerHour: new(0.0)}
+			c.Emergencies = &project.EmergencyConfig{PerHour: new(math.Copysign(0, -1))}
+		}, ""},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			input := runInput()
+			test.edit(&input.Project)
+			_, err := NewRun(input)
+			if test.want == "" && err != nil || test.want != "" && (err == nil || err.Error() != test.want) {
+				t.Fatalf("NewRun: %v, want %q", err, test.want)
+			}
+		})
+	}
 }

@@ -52,10 +52,10 @@ func TestProjectDecodeRefusalOrder(t *testing.T) {
 		{"null emergencies before an earlier marker", `{"incidentContract":1,"emergencies":null}`, "emergencies must be an object"},
 		{"null faults member before a later marker", `{"faults":{"perHour":null},"faultContract":"x"}`, "faults members must not be null"},
 		{"marker before the version", `{"version":99,"faultContract":"fault-v1"}`, unknownFault},
-		{"marker before the faults range", `{"faults":{"perHour":1},"faultContract":"fault-v1"}`, unknownFault},
-		{"version before the faults range", `{"version":99,"faults":{"perHour":1}}`, "project version must be 1"},
-		{"faults range before the emergencies range", `{"emergencies":{"perHour":1},"faults":{"perHour":1}}`, "faults perHour must be 0"},
-		{"emergencies range", `{"emergencies":{"perHour":1}}`, "emergencies perHour must be 0"},
+		{"marker before the faults range", `{"faults":{"perHour":61},"faultContract":"fault-v1"}`, unknownFault},
+		{"version before the faults range", `{"version":99,"faults":{"perHour":61}}`, "project version must be 1"},
+		{"faults range before the emergencies range", `{"emergencies":{"perHour":61},"faults":{"perHour":61}}`, "faults perHour must be 0 to 60"},
+		{"emergencies range", `{"emergencies":{"perHour":61}}`, "emergencies perHour must be 0 to 60"},
 	} {
 		got := Default()
 		err := jsonv2.Unmarshal([]byte(test.raw), &got, json.DefaultOptionsV1())
@@ -69,16 +69,16 @@ func TestProjectDecodeRefusalOrder(t *testing.T) {
 // with inputs that have more than one error.
 func TestProjectValidateRefusalOrder(t *testing.T) {
 	t.Parallel()
-	badFaults := &FaultConfig{PerHour: new(1.0)}
-	badEmergencies := &EmergencyConfig{PerHour: new(1.0)}
+	badFaults := &FaultConfig{PerHour: new(61.0)}
+	badEmergencies := &EmergencyConfig{PerHour: new(61.0)}
 	for _, test := range []struct {
 		name string
 		edit func(*Config)
 		want string
 	}{
 		{"version before the faults", func(c *Config) { c.Version, c.Faults = 99, badFaults }, "project version must be 1"},
-		{"faults before the emergencies", func(c *Config) { c.Faults, c.Emergencies = badFaults, badEmergencies }, "faults perHour must be 0"},
-		{"emergencies before the name", func(c *Config) { c.Emergencies, c.Name = badEmergencies, "" }, "emergencies perHour must be 0"},
+		{"faults before the emergencies", func(c *Config) { c.Faults, c.Emergencies = badFaults, badEmergencies }, "faults perHour must be 0 to 60"},
+		{"emergencies before the name", func(c *Config) { c.Emergencies, c.Name = badEmergencies, "" }, "emergencies perHour must be 0 to 60"},
 	} {
 		config := Default()
 		test.edit(&config)

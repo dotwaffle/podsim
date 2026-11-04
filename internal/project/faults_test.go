@@ -7,6 +7,7 @@ import (
 	"errors"
 	"math"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/sim"
@@ -86,6 +87,8 @@ func TestFaultsDecodeRefusals(t *testing.T) {
 		`,"faults":{}`,
 		`,"faults":{"evacuationSeconds":300}`,
 		`,"faults":{"evacuationSeconds":0,"perHour":0,"debrisShare":1,"debrisMeters":50,"duration":{"kind":"uniform","minSeconds":1,"maxSeconds":86400}}`,
+		`,"faults":{"perHour":60,"duration":{"kind":"fixed","seconds":600}}`,
+		`,"faults":{"perHour":-0}`,
 	} {
 		var got Config
 		if err := jsonv2.Unmarshal(rawProject(t, extra), &got, json.DefaultOptionsV1()); err != nil {
@@ -110,6 +113,8 @@ func TestFaultsDecodeRefusals(t *testing.T) {
 		`,"faults":{"evacuationSeconds":1.5}`,
 		`,"faults":{"evacuationSeconds":"300"}`,
 		`,"faults":{"perHour":1}`,
+		`,"faults":{"perHour":61,"duration":{"kind":"fixed","seconds":600}}`,
+		`,"faults":{"perHour":-1}`,
 		`,"faults":{"duration":{"kind":"fixed","seconds":600,"minSeconds":0}}`,
 	} {
 		got := Default()
@@ -144,9 +149,13 @@ func TestFaultSettingsBounds(t *testing.T) {
 		{"evacuation delay past the limit", FaultConfig{EvacuationSeconds: new(3601)}, false},
 		{"no rate", FaultConfig{PerHour: new(0.0)}, true},
 		{"negative zero rate", FaultConfig{PerHour: new(math.Copysign(0, -1))}, true},
-		{"rate above 0", FaultConfig{PerHour: new(math.SmallestNonzeroFloat64)}, false},
-		{"negative rate", FaultConfig{PerHour: new(-1.0)}, false},
-		{"rate not a number", FaultConfig{PerHour: new(math.NaN())}, false},
+		{"smallest rate and no duration", FaultConfig{PerHour: new(math.SmallestNonzeroFloat64)}, false},
+		{"smallest rate", FaultConfig{PerHour: new(math.SmallestNonzeroFloat64), Duration: fixed(1)}, true},
+		{"highest rate", FaultConfig{PerHour: new(60.0), Duration: fixed(1)}, true},
+		{"rate past the limit", FaultConfig{PerHour: new(math.Nextafter(60, 61)), Duration: fixed(1)}, false},
+		{"negative rate", FaultConfig{PerHour: new(-math.SmallestNonzeroFloat64), Duration: fixed(1)}, false},
+		{"rate not a number", FaultConfig{PerHour: new(math.NaN()), Duration: fixed(1)}, false},
+		{"infinite rate", FaultConfig{PerHour: new(math.Inf(1)), Duration: fixed(1)}, false},
 		{"no debris", FaultConfig{DebrisShare: new(0.0)}, true},
 		{"negative debris share", FaultConfig{DebrisShare: new(-math.SmallestNonzeroFloat64)}, false},
 		{"only debris", FaultConfig{DebrisShare: new(1.0)}, true},
@@ -236,7 +245,7 @@ func TestWidestFaultsBoundsEachMember(t *testing.T) {
 		faults.EvacuationSeconds = value
 		variants = append(variants, faults)
 	}
-	for _, value := range []*float64{nil, new(0.0), new(math.Copysign(0, -1))} {
+	for _, value := range incidentRateVariants() {
 		faults := clone()
 		faults.PerHour = value
 		variants = append(variants, faults)
@@ -257,6 +266,9 @@ func TestWidestFaultsBoundsEachMember(t *testing.T) {
 		{Kind: "exponential", MinSeconds: new(1), MaxSeconds: new(maxFaultSeconds), MeanSeconds: new(maxFaultSeconds)}} {
 		faults := clone()
 		faults.Duration = value
+		if value == nil {
+			faults.PerHour = nil
+		}
 		variants = append(variants, faults)
 	}
 	for _, faults := range variants {
@@ -267,11 +279,22 @@ func TestWidestFaultsBoundsEachMember(t *testing.T) {
 			t.Errorf("faults encode to %d bytes, more than %d: %s", got, widest, canonicalJSON(t, faults))
 		}
 	}
-	positive := clone()
-	positive.PerHour = new(0.0)
-	if got := len(canonicalJSON(t, positive)); got != widest-1 {
-		t.Errorf("a rate of positive zero encodes to %d bytes, want %d", got, widest-1)
+	// Decision 15 of the stage 7 contract: the widest rate takes 22 bytes more
+	// than the 2 bytes of -0.
+	negative := clone()
+	negative.PerHour = new(math.Copysign(0, -1))
+	if got := len(canonicalJSON(t, negative)); got != widest-22 {
+		t.Errorf("a rate of -0 encodes to %d bytes, want %d", got, widest-22)
 	}
+}
+
+// incidentRateVariants returns accepted rates, with each form that JSON
+// writes in another number of bytes, and the rates around the point where
+// JSON changes from decimal form to exponent form.
+func incidentRateVariants() []*float64 {
+	return []*float64{nil, new(0.0), new(math.Copysign(0, -1)), new(1.0), new(60.0), new(59.99999999999999),
+		new(math.SmallestNonzeroFloat64), new(1.2345678901234567e-07), new(9.999999999999999e-7),
+		new(1.0000000000000002e-06), new(1.0000000000000002e-05), new(0.9999999999999999)}
 }
 
 // TestValidateMeasuresWidestFaults checks that Validate measures a project
@@ -360,5 +383,75 @@ func TestConfigureFaults(t *testing.T) {
 				t.Fatalf("%d orders interrupted, want an evacuation %t", got, test.evacuee)
 			}
 		})
+	}
+}
+
+// TestFaultSettingsRefusalOrder pins the order of the checks of the faults
+// settings with inputs that have more than one error. The new duration check
+// runs last, so each other error comes first.
+func TestFaultSettingsRefusalOrder(t *testing.T) {
+	t.Parallel()
+	const needsDuration = "faults perHour above 0 needs a duration"
+	badDuration := &FaultDuration{Kind: "none"}
+	for _, test := range []struct {
+		name   string
+		faults FaultConfig
+		want   string
+	}{
+		{"evacuation before the rate", FaultConfig{EvacuationSeconds: new(-1), PerHour: new(61.0)}, "faults evacuationSeconds must be 0 to 3600"},
+		{"rate before the debris share", FaultConfig{PerHour: new(61.0), DebrisShare: new(2.0)}, "faults perHour must be 0 to 60"},
+		{"rate not a number before the debris share", FaultConfig{PerHour: new(math.NaN()), DebrisShare: new(2.0)}, "faults perHour must be 0 to 60"},
+		{"debris share before the debris length", FaultConfig{DebrisShare: new(2.0), DebrisMeters: new(0.0)}, "faults debrisShare must be 0 to 1"},
+		{"debris length before the duration", FaultConfig{DebrisMeters: new(0.0), Duration: badDuration}, "faults debrisMeters must be 0.5 to 50"},
+		{"debris share before a missing duration", FaultConfig{PerHour: new(1.0), DebrisShare: new(2.0)}, "faults debrisShare must be 0 to 1"},
+		{"debris length before a missing duration", FaultConfig{PerHour: new(1.0), DebrisMeters: new(0.0)}, "faults debrisMeters must be 0.5 to 50"},
+		{"a bad duration with a rate", FaultConfig{PerHour: new(1.0), Duration: badDuration}, `faults duration kind must be`},
+		{"a missing duration", FaultConfig{PerHour: new(1.0)}, needsDuration},
+		{"the smallest rate and a missing duration", FaultConfig{PerHour: new(math.SmallestNonzeroFloat64)}, needsDuration},
+	} {
+		err := Validate(faultProject(test.faults))
+		if err == nil || !strings.Contains(err.Error(), test.want) {
+			t.Errorf("%s: %v, want %q", test.name, err, test.want)
+		}
+	}
+	// A rate of 0 needs no duration, in any of its forms.
+	for _, rate := range []*float64{nil, new(0.0), new(math.Copysign(0, -1))} {
+		if err := Validate(faultProject(FaultConfig{PerHour: rate})); err != nil {
+			t.Errorf("rate %v: %v", rate, err)
+		}
+	}
+}
+
+// TestValidateWidestRateBoundary checks exception 2 of section 5.1.5 of the
+// incident stage 7 contract, for a project with rates of 0. Each group has the
+// widest rate, which takes 22 bytes more than -0, so the cap moves by 44 bytes.
+// The test measures from -0, so the widest settings of the package do not
+// decide the limit. A project at the cap with the widest rate in each group
+// encodes within the cap.
+func TestValidateWidestRateBoundary(t *testing.T) {
+	t.Parallel()
+	const moved = 44
+	withRate := func(rate float64) (FaultConfig, EmergencyConfig) {
+		faults := *cloneFaults(&widestFaults)
+		faults.PerHour = new(rate)
+		return faults, EmergencyConfig{PerHour: new(rate)}
+	}
+	faults, emergencies := withRate(math.Copysign(0, -1))
+	limit := MaxFileBytes - demandReserve(t) - len(`"faults":,`) - len(canonicalJSON(t, faults)) -
+		len(`"emergencies":,`) - len(canonicalJSON(t, emergencies)) - moved
+	project := func(size int) Config { return withEncodedSize(t, weightedProject(), size) }
+	if err := Validate(project(limit)); err != nil {
+		t.Fatalf("project at the cap: %v", err)
+	}
+	for _, size := range []int{limit + 1, limit + moved} {
+		if err := Validate(project(size)); !errors.Is(err, errTooLarge) {
+			t.Errorf("project %d bytes past the cap: %v, want %v", size-limit, err, errTooLarge)
+		}
+	}
+	rated := project(limit)
+	widestRateFaults, widestRateEmergencies := withRate(1.0000000000000002e-06)
+	rated.Demand, rated.Faults, rated.Emergencies = widestDemand, &widestRateFaults, &widestRateEmergencies
+	if size, err := encodedSize(rated); err != nil || size > MaxFileBytes {
+		t.Fatalf("a project at the cap with the widest rates encodes to %d bytes: %v", size, err)
 	}
 }

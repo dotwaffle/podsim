@@ -514,15 +514,17 @@ Each member of `faults` is optional, and an absent `faults` member gives the sam
 | Member | Value | Default |
 | --- | --- | --- |
 | `evacuationSeconds` | An integer from 0 to 3,600. | 300 |
-| `perHour` | 0. | 0 |
+| `perHour` | A number from 0 to 60. A rate above 0 needs a `duration`. | 0 |
 | `debrisShare` | A number from 0 to 1. | 0 |
 | `debrisMeters` | A number from 0.5 to 50. | 2 |
 | `duration` | An object with `kind` and the values of that kind. | None |
 
 `evacuationSeconds` is the time from the start of a pod fault to the evacuation of its riders.
 The riders leave the pod only when it is at rest, and each evacuated order ends interrupted.
-The other members are for a scenario fault rate.
-This server has no scenario rate, so `perHour` must be 0, and only the `fault` command starts a fault.
+The other members set the scenario fault rate.
+`perHour` is the mean number of scenario faults in each simulated hour.
+At a rate of 0, only the `fault` command starts a fault.
+`debrisShare` is the share of scenario faults that are debris on a lane, and `debrisMeters` is the length of that debris.
 The `duration` kind is `fixed` with `seconds`, `uniform` with `minSeconds` and `maxSeconds`, or `exponential` with `minSeconds`, `maxSeconds`, and `meanSeconds`.
 Each value is an integer from 1 to 86,400 seconds.
 `minSeconds` must be at most `maxSeconds`, and `meanSeconds` must be from `minSeconds` to `maxSeconds`.
@@ -533,7 +535,8 @@ A project with `incidentContract`, `faultContract`, or `emergencyContract` has a
 
 The size limit of 32 MiB counts `faults` at its widest value, for each project.
 The editor has no control for `faults`, and it keeps them in a loaded project.
-`cmd/compare` and the car runs of `internal/parkride` accept a project with `faults`, and they run with faults off, because they send no fault command.
+`cmd/compare` and the car runs of `internal/parkride` refuse a fault rate above 0.
+They accept other `faults` settings, and they run with faults off, because they send no fault command.
 A change to `faults` is a project change.
 A project apply then replaces the fleet, and every fault ends.
 With `-project`, a saved state with other fault settings gets `project_changed`.
@@ -565,16 +568,17 @@ A project can set the optional `emergencies` member, for example:
 
 | Member | Value | Default |
 | --- | --- | --- |
-| `perHour` | 0. | 0 |
+| `perHour` | A number from 0 to 60. | 0 |
 
-`perHour` is for a scenario emergency rate.
-This server has no scenario rate, so `perHour` must be 0, and only the `emergency` command starts an emergency.
+`perHour` is the mean number of scenario emergencies in each simulated hour.
+At a rate of 0, only the `emergency` command starts an emergency.
 
 Validation also refuses a null value or an unknown member in `emergencies`.
 
 The size limit of 32 MiB counts `emergencies` at its widest value, for each project.
 The editor has no control for `emergencies`, and it keeps them in a loaded project.
-`cmd/compare` and the car runs of `internal/parkride` accept a project with `emergencies`, and they run with emergencies off, because they send no emergency command.
+`cmd/compare` and the car runs of `internal/parkride` refuse an emergency rate above 0.
+They accept `emergencies` with a rate of 0, and they run with emergencies off, because they send no emergency command.
 A change to `emergencies` is a project change.
 A project apply then replaces the fleet, and every emergency ends.
 With `-project`, a saved state with other emergency settings gets `project_changed`.

@@ -113,6 +113,9 @@ func readProject(path string) (project.Config, error) {
 	if err := project.Validate(config); err != nil {
 		return project.Config{}, fmt.Errorf("validate project %s: %w", path, err)
 	}
+	if rates := project.EffectiveIncidentRates(config); rates.Faults.PerHour > 0 || rates.EmergenciesPerHour > 0 {
+		return project.Config{}, fmt.Errorf("read project %s: comparisons do not support a fault or emergency rate", path)
+	}
 	return config, nil
 }
 
