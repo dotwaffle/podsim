@@ -111,6 +111,7 @@ The two links of Willesden Green go in almost the same direction.
 No road lane turns more than 135 degrees from its guideway.
 
 Each station lane has one maneuver role: approach, entry, berth access, through, departure, or exit.
+A lane of a Compact maneuver group takes its phase from the route.
 At the end of each tick, the simulation sets each pod's station phase from its berth, its current lane, or its next lane.
 The pod inspector shows phases such as `Approaching station`, `Accessing berth`, and `Departing berth`.
 The station name shows on the line below the phase.
