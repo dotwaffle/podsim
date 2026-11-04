@@ -847,6 +847,11 @@ The soak then gives the evidence for or against the rows of option C.
 
 ## 8. Decisions for the maintainer
 
+The maintainer answered these on November 4, 2026, and each answer was the recommendation.
+So this contract is option B, and amendments A1 to A4 apply.
+A5 does not apply.
+The rest of this section keeps the options, so that a reader can see what each answer excludes.
+
 1. **Scope.**
    A: minimal, 37 to 57 h; B: full, no new holds, 66 to 106 h; C: B plus new policy, 98 to 166 h.
    Recommend B.
