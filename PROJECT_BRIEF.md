@@ -1,723 +1,158 @@
-# Podsim: Project Brief and Research
+# Podsim: Project Brief
 
-**Status:** The project accepted the initial usable 2D version on September 21, 2026.
-
-The browser supports local map backgrounds, scale calibration, network editing, and project persistence.
-It also supports manual and automatic demand, pod dispatch, local traffic control, inspection, pod following, and fleet-use statistics.
-The server owns one shared simulation session for all connected browsers.
-Any browser can keep an exact save point of the running simulation in server memory and rewind the session to the latest save point.
-With the `-state` option, the server also saves the shared session to disk and restores it after a restart when it can.
-Optional redistribution runs guarded positioning, which moves idle empty pods only at a low demand rate.
-It remains off by default.
-
-The rail-hub, London capacity envelope, same-destination sharing, drop-offs sharing, and first congestion-aware routing experiments are complete.
-The screen of the queue routing policy and the platoon screening are also complete.
-The first station-maneuver slice is complete: station lanes have explicit roles, pod snapshots expose the current phase, and the inspector names the maneuver.
-The scenario command sets the berths and berth pitch of the generated presets and the initial pods of both London presets.
-A layout check rejects lanes that come too near.
-The [station-layout editor](docs/station-layout-editor.md) adjusts berth pitch, entry/exit spacing, and approach setback for supported straight chains.
-[Independent berth banks](docs/station-banks.md), the Compact station, and queued parking depots are also implemented.
-The London presets have Compact stations and depots by default.
-See [compact bays](docs/model.md#compact-bays) and [parking depots](docs/model.md#parking-depots).
-The other experiments in Section 6 retain their separate status.
-See [README.md](README.md) for controls, validation commands, and current model limits.
-
-**Current work status, October 19, 2026:**
-
-LondonCentral (`london-central`) retains the central qualification network and its 2019 demand.
-[LondonFull](docs/london-full.md) has 309 sites, 269 Tube and 40 DLR, with 2024 endpoint demand.
-Its [308-arm post-fix study](docs/studies/london-full-postfix.md) tested 60 minutes of arrivals with up to 60 minutes to recover.
-Six historical cases improve recovery after the parking diversion fix.
-No fleet candidate established an all-ten recovery improvement at its next tested rate.
-These finite tests do not establish a sustainable capacity envelope.
-The original `london` selector is now `london-central`.
-
-A six-hour LondonFull screen finds growing backlogs at 15 and 20 requests per minute.
-The removed station buffers did not resolve that overload.
-The [combined controller study](docs/design/experimental-adoption.md#rejected-candidates) compares 24 arms with matched requests and physical restores.
-Its late backlog stays nearly flat at 10/min, but grows under every policy at 15 and 20/min.
-The same study's 12/min four-seed extension and 13/min focused comparison also retain nearly flat late backlogs.
-In the pre-routing 14/min study, baseline seed 2 grows a backlog, while the other tested seeds remain nearly flat.
-The [post-routing service study](docs/studies/berth-route-preference.md#stratford-request-1324) reduces that seed-2 growth from 1.683 to 0.139 orders per minute.
-It still has positive growth and three parties aboard at the observation cap.
-Individual wait regressions still prevent an adoption recommendation.
-The [paired mirrored-layout study](docs/studies/station-mirror-load.md) passes its sampled safety and 48 physical-restore checks.
-Service results are mixed, with higher LondonCentral Early waits under mirrored geometry.
-The [selected resource histories](docs/design/experimental-adoption.md#rejected-candidates) identify predecessor-frontier limits as most observed shared-guard failures in two Central schedules, then follow releases, ownership transfers, and later grants.
-All 128 full-arm selections reach their original frontier within 24 simulated seconds after selection.
-These histories do not measure the entire wait from its onset or identify one geometric root cause.
-
-On lanes that are straight, small-class, and slower than 3.74 m/s, the gap behind a pod now grows with its speed, so a slow queue packs closer.
-The Compact station adds angled bays with closed bay chains, a 1 second stop at each change of the reverse flag, and a sweep that certifies each lane against the parked bays.
-A Parking station can be a depot of queue lanes, with a saved parked tick for each pod.
-The observation and measurement panels of the editor now run in Go (`internal/editormodel`).
-The saved-state version is 10, the stream version is 8, and the HTTP state is `state-7`.
-
-The editor imports georeferenced PNG or JPEG backgrounds with stored bounds, projection, attribution, and an atomic undo step.
-Live OSM raster tiles provide a zoom-dependent backdrop in the editor and simulation.
-Projects save provider settings and geographic coordinates.
-Each simulation viewer can hide the map.
-The map does not create guideways or editable OSM vectors.
-See [georeferenced backgrounds](docs/user-guide.md#georeferenced-background).
-
-The live viewer uses shared gzip WebSocket deltas, and explicit public-origin configuration supports a TLS-terminating proxy.
-Prepared network geometry speeds repeated isolated restores without changing the saved format or removing restore assertions.
-The renderer batches station summaries, and presentation snapshots reuse call-local lane marks.
-The restore and rendering optimizations preserve simulation behavior and existing protocol semantics.
-The [pickup-bound cache measurements](docs/studies/pickup-routing-performance.md) show lower CPU use and allocations in an unpaced LondonFull probe.
-They do not establish live playback speed or a capacity improvement.
-Reusable admission storage lowers allocations and usually CPU in paired equal-work studies.
-The [live follow-up](docs/studies/admission-live-performance.md) sustains approximately 60x with GC 100 and 400 in short one-client runs.
-The finishing-pod bounds reduce Full CPU use by about 14% in short matched live runs.
-The server retains GOGC 100 and the comparison command retains 400.
-The journey page cache and the label cache lower measured page script time.
-Total software-rendered browser CPU changes little.
-The label admission follow-up avoids repeated cache clears when visible labels exceed capacity.
-The publisher timer restores measured delivery toward 20 Hz at higher CPU and traffic cost.
-
-Experimental [pickup swaps](docs/studies/pickup-reassignment.md) remain disabled by default.
-A saved project and editor control permits opt-in testing, and an explicit comparison flag selects the policy.
-Station approach buffers and compact station queues were removed on October 7, 2026, because [measurements](docs/studies/buffer-late-claim.md#station-entry-throughput) showed that they lowered station entry throughput.
-The [terminus burst fixture](docs/studies/buffer-late-claim.md#terminus-burst-service) measures berth claims, pickup supply, and finite outbound service.
-The buffers that it measured increased waits in its selected Central comparisons.
-Broader adoption requires separate qualification and a decision.
-The user approved the [adoption gates](docs/design/experimental-adoption.md) on October 1.
-They add explicit individual-tail limits without authorizing a default change.
-The [sustained pickup swap comparison](docs/studies/pickup-swap-sustained.md) records average benefits, tail regressions, and remaining work.
-The compatible stream decoder lowers decode and apply time without a whole-browser CPU gain.
-The [sustained pickup-swap study](docs/studies/pickup-swap-sustained.md) lowers average waits and empty distance in its tested pairs, but every arm still grows a backlog.
-Its matched-request diagnosis in the same document separates unfinished requests from completed maxima and retains actual same-request regressions.
-The [selected service-tail cases](docs/design/experimental-adoption.md#rejected-candidates) trace long pickup waits to earlier fleet-availability changes.
-Removing one selected swap does not remove every regression.
-The Stratford diagnosis captures reciprocal waits at an intermediate berth.
-The [route preference and commitment fix](docs/studies/berth-route-preference.md) addresses that mechanism for new routes while preserving old physical saves.
-
-Sharing remains off by default.
-The opt-in `reassign-existing` join policy and guarded-positioning follow-up still fail adoption rules.
-These results do not reverse the earlier adoption of the drop-offs mode when sharing is enabled.
-The [Group class](docs/design/group-physics-design.md) has 8 seats, and the opt-in Express contract (see the [Express qualification](docs/studies/express-qualification.md)) has 20 seats.
-No default changes.
-The bounded [predictive routing prototype](docs/studies/predictive-routing.md) is implemented for comparison, with free-flow routing retained by default.
-Local Chromium software-rendering checks cover the viewer, editor, and high-latency streams.
-Desktop Chrome is the required browser for current development.
-Firefox and Safari validation are not required.
-The simulator currently runs on the local machine.
-Fly deployment and hosted-origin validation are deferred until release preparation.
-Software-rendering measurements do not establish physical-GPU performance.
-
-The [maintained metrics snapshot](docs/studies/study-performance.md) gives comparison tooling owned route context without copying route geometry.
-Its measured output matches the full snapshot across the recorded small, rail-hub, Central, and Full arms.
-The station-phase cache reduces server CPU by 13.67% in short matched one-Chrome 60x runs.
-It retains exact state parity in the separate fixed replay.
-These measurements do not establish indefinite capacity or physical-GPU performance.
-
-The [pickup supply](docs/studies/pickup-supply.md), [later buffer claims](docs/studies/buffer-late-claim.md), and [pickup safeguards](docs/design/experimental-adoption.md#rejected-candidates) retain failed service candidates.
-The [shorter Paddington paths](docs/design/experimental-adoption.md#rejected-candidates) improve mean pickup wait in a focused workload but exceed individual limits.
-None passes its selected screen, so broader qualification does not start and defaults stay unchanged.
-The pickup and busy-station service problems remain unresolved.
-
-[Scheduled rail arrivals](docs/rail-arrivals.md) now release passengers after walking delays in the editor, live simulation, and comparison tool.
-Their equal-volume timing study preserves skipped offers and matched passenger outcomes.
-Selected train bursts reject more passengers and increase matched waits compared with regular releases.
-[Scheduled train connections](docs/rail-connections.md) now add outbound windows, transfer deadlines, and persisted made, missed, unserved, and unresolved outcomes.
-Missed passengers continue normally, without deadline priority or rebooking.
-Bounded forecast positioning is available through an explicit comparison flag.
-The selected mixed-service screen fails individual gates at Rail Hub and makes no positioning moves in LondonFull.
-The controller remains comparison-only, with no live exposure or default change.
-
-This document records the project direction, initial feature scope, architecture, effort estimates, and research.
-The initial scope and policies were the starting point for implementation planning.
-Future experiments are separate possibilities, not initial delivery commitments.
+This brief gives the current goals and architecture of Podsim.
+The [README](README.md) tells how to run it, and the [document index](README.md#documents) lists the guides, contracts, designs, and studies.
+Git history keeps the earlier plans, status notes, and effort estimates.
 
 ## 1. Product vision
 
-Build a browser-based playground for designing and observing personal rapid transit networks.
-
-The user imports a map, draws guideways, places stations, and watches pods serve passenger journeys.
+Podsim is a browser-based playground for designing and observing personal rapid transit networks.
+The user draws guideways over a map, places stations, and watches pods serve passenger journeys.
 The main interest is network behavior: routing, demand, dispatch, congestion, and station capacity.
 
-Use **Go and Ebitengine, compiled to WebAssembly**.
-Target desktop Chrome with mouse and keyboard.
-The browser renders the application and sends commands to a Go server.
-The server owns the simulation clock and sends shared gzip JSON state updates over WebSocket.
-
-This is a hobby simulator.
+Podsim is a hobby simulator.
 Engineering certification, construction planning, and accurate predictions for real transport systems are outside its purpose.
 
-### First-version success
+The test of success is that a user can build a small network over a familiar map, run it, understand where delays occur, and change the design.
+The experience must stay useful and enjoyable without a future 3D version.
 
-The user can build a small network over a familiar map, run it, understand where delays occur, and change the design.
+Desktop Chrome with mouse and keyboard is the target, so Firefox and Safari validation are not required.
+The simulator runs on a local machine, and hosted deployment and origin validation wait for release preparation.
+Software-rendering measurements do not establish physical GPU performance.
 
-The experience should remain useful and enjoyable without a future 3D version.
+## 2. Principles
 
-### First playable milestone
+- **Show the problem**: the simulation exposes congestion and unmet demand, and it does not add vehicles to hide them.
+- **Local queues**: pods depart when local conditions permit, then slow or wait for occupied track, merges, or station access.
+  A journey needs no reserved timetable, and local admission and spacing rules prevent conflicting movements.
+- **Explicit crossings**: crossing lines do not connect, and each direction uses a separate lane.
+- **Stations are places**: berths and station entry and exit connections have stable identities, separate from the map symbol of the station, and berths stay separate from through traffic.
+- **Repeatable runs**: a saved scenario and a seed give repeatable results, and changing playback speed does not change them.
+- **Simple defaults**: routing uses the shortest free-flow travel time, and dispatch uses the nearest available pod.
+  One party per pod and no intermediate stops are the default service, and they are policies and not limits of the model.
+- **Evidence before a default**: an experimental policy stays opt-in until it passes the [adoption gates](docs/design/experimental-adoption.md), and a study records its limits.
 
-Start with simulation on a supplied small network before building the map editor.
-Include a branch, a merge, and stations with berths separate from through traffic.
-Provide demand controls and enough inspection to explain pod movement and waiting.
+## 3. Architecture
 
-Use local queues: pods depart when local conditions permit, then slow or wait for occupied track, merges, or station access.
-Do not require a reserved timetable for the entire journey before departure.
-Local admission and spacing rules must still prevent conflicting movements.
+The server owns one simulation session for all clients, and the clients only show it and send commands.
+The [simulation model](docs/model.md) gives the behavior, the [client protocol](docs/protocol.md) gives the messages, and the [operations guide](docs/operations.md#code-layout) gives the code layout.
 
-Map import and network editing follow this first simulation milestone.
-They remain part of the initial usable version described below.
+### Simulation core
 
-## 2. Initial feature scope
+Ordinary Go packages hold the network, routing, dispatch, movement, traffic control, demand, statistics, and project validation.
+The simulation core does not import Ebitengine, browser APIs, or I/O.
+It stores geometry in world units, advances in fixed time steps, and keeps rendering independent of simulation speed.
+Commands, simulation updates, and the state exposed for display have a clear boundary.
+There is no general plugin system.
 
-### R1: Map background
+Passengers, vehicles, and service policies stay separate.
+An order describes a desired journey, a pod is the vehicle available to serve it, and the service policy decides how orders use pods.
+Demand, dispatch, route choice, and movement also stay separate, so that an experiment can change one policy and keep the same network and movement model:
 
-- Import a local PNG or JPEG.
-- Set scale by marking two points and entering their real-world distance.
-- Pan, zoom, and adjust background opacity.
-- Support networks without a background image.
-- Keep imported images local to the browser.
-
-Local PNG/JPEG import remains part of the initial usable version after the simulation-first milestone.
-Direct geographic area import is a later extension described in Section 6.
-
-### R2: Network editor
-
-- Create, name, move, and delete stations.
-- Draw and adjust curved guideways.
-- Create explicit junctions.
-  Crossing lines do not connect automatically.
-- Support one-way guideways and paired lanes for two-way travel.
-- Display direction arrows.
-- Support undo and redo.
-- Explain invalid connections and unreachable destinations before a run.
-
-**Initial default:** Each direction uses a separate lane.
-Opposing traffic on shared single track is a later feature.
-
-### R3: Simulation
-
-- Configure a finite fleet, station berth capacity, and passenger demand.
-- Treat each demand event as one traveling party requiring one pod.
-- Support automatic demand and manually requested station-to-station journeys.
-- Route occupied pods to their destination without intermediate passenger stops.
-- Dispatch empty pods to waiting parties.
-- Model boarding time, unloading time, acceleration, braking, and speed limits.
-- Prevent overlapping pods and conflicting movement through junctions.
-- Keep station berths separate from through traffic.
-- Expose congestion and unmet demand instead of silently adding vehicles.
-
-Initial routing uses shortest expected travel time without congestion prediction.
-Initial dispatch chooses the nearest available, reachable empty pod.
-
-These are understandable starting policies, not attempts to optimize the entire network.
-One party per pod and no intermediate stops are initial service policies, not permanent limits of the simulation model.
-
-### R4: Controls and inspection
-
-- Start, pause, resume, reset, and change simulation speed.
-- Save the running state and rewind to the latest save point.
-- Select a pod to inspect its destination, route, and current activity.
-- Follow a pod with the map camera.
-- Inspect station queues and berth occupancy.
-- Show completed journeys, waiting times, and fleet use.
-- Explain why a selected pod is waiting.
-
-Applying network edits requires a paused run.
-Applying edits resets simulation state while preserving the design.
-A rewind to a save point from before an applied edit or a demand change restores the earlier design and settings.
-
-### Station modeling direction
-
-Physical station layouts are an intended capability, not only a possible visual upgrade.
-Schematic station treatment is acceptable for the first milestone.
-The initial model must allow later entry-lane, berth-access, and exit movements without replacing the entire station abstraction.
-
-Give berths and station entry/exit connections stable identities.
-Keep station capacity, passenger queues, and berth occupancy separate from the station's map symbol.
-Treat omitted internal maneuvers as explicit simulation simplifications.
-Do not represent every station permanently as one point with a single boarding timer.
-
-Detailed station geometry and movement rules can follow the first milestone.
-Keep internal path lengths and movement conflicts possible in the model even when the first milestone abstracts them.
-
-### R5: Persistence
-
-- Export and import a portable project containing the network, settings, and optional background image.
-- Version the project format.
-- Report malformed or unsupported files without replacing the current project.
-- Include a small example network.
-- Save the scenario configuration in project files, rather than the exact running state.
-- With the `-project` server option, load the server project from an existing file.
-  For each project apply, demand change, or rewind that restores a project, save the changed project to that file.
-- Keep at most eight exact save points of the running simulation in server memory only.
-  A server restart clears them.
-  At the limit, a new save point removes the oldest one.
-- With the `-state` server option, save the live shared session to disk and restore it on a best-effort basis after a server restart.
-  The `physical` restore tier keeps the pod positions and moves a traveling pod that cannot keep its position to a free berth.
-  When the `physical` tier fails, the `logical` tier starts the pods again at their initial berths.
-  Parties that were unloading count as completed, and the other parties in pods go back to the queue.
-  The saved state does not hold save points or command receipts.
-
-## 3. Architecture and future 3D
-
-### Keep the simulation independent
-
-Use ordinary Go packages for:
-
-- Network geometry and connectivity.
-- Routing and dispatch.
-- Vehicle movement and traffic control.
-- Passenger demand and statistics.
-- Project data and validation.
-
-The simulation core must not import Ebitengine or browser APIs.
-Store geometry in world units, not screen coordinates.
-
-Advance simulation through fixed time steps.
-Keep rendering independent of simulation speed.
-A saved scenario and random seed should produce repeatable results.
-
-Ebitengine draws the simulation view and handles its controls.
-A separate HTML and JavaScript page provides the scenario editor, background images, and project import and export.
-Its Go/WASM worker computes project checks, settings, fleet and rail edits, geometry edit proposals, demand profile construction, and place-search projection.
-The worker retains changed project branches and caches checks for unchanged topology and demand flows.
-JavaScript handles browser controls, drawing, storage, and image decoding.
-It orders asynchronous edits and keeps newer typing when an older worker reply arrives.
-JavaScript previews drags.
-Go computes each completed geometry edit.
-Go normalizes live, imported, and restored drafts.
-Go proposes live-map metadata and geographic-reference edits.
-Go also proposes image placement, frame attachment, opacity, and scale calibration.
-Go owns undo and redo snapshots and prepares background metadata with each history change.
-JavaScript retains drawing copies by Go snapshot ID, image bytes, storage pins, image decoding, and license metadata.
-Image admission prepares replacement and oldest-history trimming together before publication.
-Worker failure blocks apply and keeps the visible draft available for export.
-
-Define a clear boundary between user commands, simulation updates, and state exposed for display.
-Avoid a general plugin system in the first version.
-
-### Typed client protocol
-
-Use shared gzip JSON full baselines and deltas over WebSocket for the simulation view.
-Keep commands, topology, and editor data on HTTP.
-Require native browser gzip decompression, with no HTTP polling fallback.
-Preserve the authoritative server and retry-safe command identity.
-
-The September 22 evaluation normalized recurring JSON state, then compared it with ConnectRPC and binary Protocol Buffers.
-Protobuf reduced the London gzip frame by another 10.3%.
-At 20 Hz, its encoding and compression would save about 0.7% of one CPU core per client.
-
-No application client used the experimental service.
-The project removed it to avoid a second protocol implementation and an alpha runtime dependency.
-Review this choice if remote traffic, multiple viewers, or external clients make a typed RPC protocol useful.
-See [the protocol evaluation](docs/protocol.md).
-
-### Separate passengers, vehicles, and service policies
-
-Keep passenger requests and party size separate from vehicles and assignments.
-A request describes a desired journey.
-A vehicle describes the pod available to serve it.
-The service policy determines how requests use vehicles.
-
-Keep demand generation, dispatch, route choice, and physical movement separate:
-
-- Demand generation determines when and where parties request journeys.
-- Dispatch assigns vehicles to requests and decides where empty pods should wait.
+- Demand generation decides when and where parties order journeys.
+- Dispatch assigns pods to orders and decides where empty pods wait.
 - Route choice selects a path through the network.
 - Physical movement enforces speed, spacing, junction access, and station capacity.
 
-These boundaries allow later experiments to change one policy while retaining the same network and movement model.
-Use explicit types and functions.
-Add interfaces when there is a concrete need for interchangeable policies.
-These boundaries did not need mixed fleets, transfers, or platooning.
-
-### What a later Three.js version would involve
-
-A future browser renderer could consume snapshots from the same Go simulation server.
-
-**Reusable:** network data, routing, demand, dispatch, movement rules, statistics, and most tests.
-
-**New work:** JavaScript or TypeScript presentation code, 3D track geometry, pod models, cameras, selection, and scenery.
-
-Ebitengine's drawing code would not automatically become Three.js code.
-A first-person ride would therefore be a substantial presentation extension, but it would reuse the simulation.
-
-Elevation and terrain are outside the initial model.
-Adding them later may require changes to geometry and saved projects.
-Do not build speculative 3D infrastructure now.
-
-## 4. Delivery stages and effort
-
-Estimates cover one developer, including debugging and tests.
-Browser development experience and interface polish will affect the range.
-Refine these ranges after the first browser prototype.
-Detailed station layouts beyond the initial schematic treatment need a separate scope and estimate.
-
-| Stage | Deliverable | Estimated effort |
-|---|---|---:|
-| Playable experiment | Supplied network, demand controls, routing, local queues, moving pods, inspection | 20-40 hours |
-| Usable 2D version | Curves, undo, persistence, finite fleet, demand, dispatch, traffic control, statistics | 80-160 hours total |
-| Optional shared track | Opposing traffic, reservations, fairness, deadlock handling | Additional 40-100 hours |
-| Optional basic 3D client | Three.js rendering, ride camera, pods, stations, live map | Additional 60-140 hours |
-| Optional scenery | Terrain, buildings, trees, atmosphere | Separate project-sized effort |
-
-The 3D estimate includes introducing a second renderer and browser integration.
-Significant JavaScript learning may extend it.
-
-At eight hours per week, the usable 2D version represents roughly 10-20 weeks.
-The first experiment should provide something playable much earlier.
-
-Keep multiplayer features beyond one shared session, realistic scenery, legacy simulator file import, and advanced fleet optimization outside the first release.
-The experiments in Section 6 also remain outside the initial scope.
-This brief does not estimate their effort, except where an optional stage appears in the table above.
-
-## 5. Acceptance and validation
-
-### Simulation tests
-
-- Pods choose valid routes through one-way and paired-lane networks.
-- Unreachable journeys produce a clear result.
-- Competing pods pass through a merge without overlap.
-- A full station does not accept more pods than its capacity permits.
-- A finite fleet leaves excess demand waiting.
-- Empty-pod dispatch eventually serves waiting parties in a feasible, uncongested test network.
-- Identical scenarios and seeds produce repeatable outcomes.
-- A rewind to a save point replays exactly.
-  The same actions after each rewind produce the same outcomes.
-- Changing playback speed preserves simulation results at equal simulated times.
-
-### Browser checks
-
-- Import an image, calibrate scale, draw a network, and complete a journey.
-- Export and reload the project with its background intact.
-- Exercise undo, invalid input, pause, reset, and pod following.
-- Select Save point, run the simulation, then select Rewind.
-  The session must pause at the saved time.
-- Start the server with `-state`, and run the simulation with pods and orders for at least 60 s.
-  Stop the server with Ctrl-C, then start it again with the same command.
-  The `Restored session` log record must give `tier=physical` and `epochKept=true`.
-  The pods must continue from the same positions, and the open page must keep its session.
-- Run a proposed baseline of 20 stations and 100 pods.
-- Record hardware, frame rate, and simulation update cost before establishing performance guarantees.
-
-**Acceptance status:** Complete for the initial usable version on September 21, 2026.
-A combined browser run imported a PNG, calibrated 200 meters, and exercised drawing and undo.
-It edited the network, exported and reloaded the project with its background, and then applied the network.
-It submitted a journey through the simulation UI and observed its completion.
-It also toggled pod following and reported no browser errors.
-
-Separate browser checks cover invalid input, reset, stale edit conflicts, and the 20-station, 100-pod scenario.
-The hardware and performance record is in [docs/studies/qualification.md](docs/studies/qualification.md).
-Two later commits made route search and dispatch faster, and the simulation output did not change.
-Commit `40fc98f` finds the routes to all berths of a station with one search, and commit `80c47dc` skips dispatch scans at stations with no idle pod.
-From commit `40fc98f` to commit `80c47dc`, a heavy London compare arm fell from 10.1 to 7.1 seconds of wall time.
-See [route search and dispatch scans](docs/studies/qualification.md#route-search-and-dispatch-scans).
-
-The project added the save point, rewind, and `-state` restart checks above on September 23, 2026, after this acceptance.
-
-## 6. Future extensions and experiments
-
-The following ideas extend the map workflow and network simulation.
-None of them needs 3D.
-These are proposed experiments and design considerations.
-Status notes record the parts that Podsim now implements.
-
-### Geographic map import
-
-The editor supports local georeferenced images and a live OpenStreetMap raster backdrop.
-The simulation shares the live map settings, with an independent visibility toggle for each browser.
-Visible tiles load as the user pans and zooms, with more detail at higher zoom levels.
-The browser reprojects them into the network's existing geographic coordinate system.
-
-Projects save provider settings and the geographic reference, not downloaded tile images.
-Ordinary image files retain their manual calibration, attribution, export, and undo behavior.
-Older schematic images remain usable.
-Tile failures leave the network usable, and the user can retry failed tiles.
-There is no bulk tile download, offline map archive, tile proxy, or automatic guideway generation.
-See [live OpenStreetMap](docs/user-guide.md#live-openstreetmap-backdrop) for the current workflow.
-
-The editor supports explicit place search through a cached, rate-limited native Nominatim proxy.
-Selecting a result changes only the view.
-Go/WASM computes its projected position and zoom.
-Editable geographic objects, automatic guideway generation, and aerial imagery are shelved as very low priority at the user's request.
-
-**London presets:** LondonCentral supplies a generated geographic network independently of the background importer.
-It uses a normalized TfL topology snapshot for 96 passenger stations, their real names and locations, and 127 unique adjacencies.
-The preset adds twin directed guideways, off-line berths, and three Parking facilities.
-The local projection uses meters.
-
-A separate normalized 2019 midweek NUMBAT profile provides 8,474 in-scope OD pairs across eight time bands.
-The portable London project includes these bands, and the live session can generate requests from a selected band.
-The fixed 40-request AM peak sample completed every request.
-
-Directional portals now keep opposite guideways and unrelated corridors on separate station resources.
-A high-load A/B run reduced peak stopped pods from 60 to three.
-The portal network drained all 199 requests, while the old network left five requests after 60 simulated minutes.
-
-A capacity sweep measured the portal network across all eight bands, 15 offered rates, and three seeds.
-Recovery limits range from 7 requests per minute in Early to 14 in Interpeak and Evening.
-In every band except Early, the results suggest that the 114-pod fleet, not track congestion, sets the limit.
-See [docs/london.md](docs/london.md) and [docs/studies/qualification.md](docs/studies/qualification.md#london-capacity-envelope).
-
-The network does not include stored tunnel depth or map pixels.
-The optional live map supplies a geographic backdrop.
-Automatic guideway generation and editable OSM vectors are shelved at the user's request.
-Local georeferenced image import is implemented and preserves frame and attribution data.
-LondonFull is a separate generated preset with 309 passenger sites, 269 Tube and 40 DLR, and 2024 endpoint demand.
-Its [308-arm post-fix study](docs/studies/london-full-postfix.md) repeats the original 302 arms and adds six conditional AM peak cases.
-It uses 60 minutes of arrivals and up to 60 minutes to recover.
-No fleet candidate met the all-ten recovery criterion at its next tested rate.
-These finite tests do not establish sustainable capacity or replace the LondonCentral measurements above.
-
-Explicit separation groups distinguish unrelated grade-separated paths.
-Directional portals retain geometric checks at real diverges and merges.
-The London AM peak sample now runs the separation oracle once per simulated second.
-
-Each station lane also identifies its approach, entry, berth access, through, departure, or exit role.
-Snapshots and the pod inspector use these roles to report station maneuvers without changing the existing traffic controller.
-
-### Intermediate berth routing
-
-The [Stratford diagnosis](docs/studies/berth-route-preference.md) records a stalled empty pod whose Leyton route crosses a Stratford berth.
-That pod blocks the Stratford berth's arriving claimant, which owns the berth and blocks the first pod.
-The diagnosis identifies this cycle in a captured snapshot, without changing routing or reservation rules.
-
-The [implemented route preference](docs/studies/berth-route-preference.md) treats direct and cached station searches consistently.
-New routes avoid intermediate berths when a compatible path exists.
-Authored layouts without an independent through path retain the unrestricted fallback.
-The passenger arrival-chain guard preserves committed prefixes.
-Existing physical saves retain their routes, and berth ownership and reservation guards remain intact.
-The [selected service qualification](docs/studies/berth-route-preference.md#stratford-request-1324) retains individual tail regressions despite improved aggregate results.
-
-### Congestion-aware routing
-
-Compare the initial shortest expected travel-time policy with a policy that accounts for observed queues and delays.
-An alternative route may be longer but faster under the current load.
-
-First compare smoothed delay estimates and planned incoming routes at route assignment.
-Keep committed route prefixes intact.
-Rerouting at junctions remains later work.
-Keep route choice separate from the movement rules that prevent conflicting access to track and junctions.
-
-Useful comparisons include completed journeys, journey-time distributions, queue lengths, and empty-pod travel.
-Repeat each policy comparison with the same demand and random seeds.
-SUMO's [taxi dispatch documentation](https://sumo.dlr.de/docs/Simulation/Taxi.html) provides examples of dispatch using current, smoothed travel times.
-
-**Status:** A first experimental policy added costs for owned track and stopped pods when it assigned a route.
-It served fewer requests than free-flow routing, which remains the default.
-See [docs/studies/qualification.md](docs/studies/qualification.md#congestion-aware-routing-experiment).
-
-Both costed policies now apply costs only to the route that a pod gets, and their routes do not go through the berths of a third station.
-A second policy, `queue`, adds the part of each queue that remains when the pod gets to it.
-In rail-hub, scale100, London-192, and the London envelope, each `queue` result is equal to free-flow, so the policy is not adopted.
-Most delays that it sees are on the departure lane of the pod, which no route can avoid.
-The guarded `congestion` arm serves more requests in the congested London-192 Early band, but it lowers two London band limits.
-The existing `congestion` and `queue` policies remain unadopted.
-Free-flow routing stays the default, and the `congestion` arm keeps its two guards.
-The plan made a cost from the planned routes of the pods the next candidate, but only if platoons or shared rides do not relieve the congested Early band.
-Platoons relieve it.
-The historical three-seed platoon A/B with 198 pods raised the tested Early recovery limit from 10 to at least 12 requests per minute.
-The ten-seed follow-up recovered all seeds at 11/minute and nine of ten at 12/minute.
-The historical three-seed London preset envelope with `platoonLimit` 4 raised its Early recovery limit from 7 to 10 requests per minute.
-These finite-arrival experiments do not establish sustained capacity.
-These historical results did not meet the original prerequisite for planned-route costs.
-A separate bounded predictive prototype is now approved for comparison.
-It combines observed delays and already-planned arrivals, updates forecasts between assignments, and bounds free-flow detours.
-It selects new routes or uncommitted suffixes and preserves existing defaults.
-See [docs/studies/qualification.md](docs/studies/qualification.md#queue-routing-screen).
-
-### Mixed vehicle capacities and shared rides
-
-Explore a fleet with personal pods and a smaller number of larger shared vehicles.
-Larger vehicles need suitable demand and service policies.
-Additional seats alone do not improve the initial one-party-per-pod service.
-
-A useful progression is:
-
-1. Allow several parties with the same destination to share a pod.
-2. Use larger pods for busy hub-to-hub journeys.
-3. Allow shared journeys with intermediate pickups and drop-offs.
-
-Study the tradeoff between waiting for more passengers and leaving immediately with empty seats.
-For multiple destinations, include limits on detours and additional stops.
-Account for vehicle length, capacity, acceleration, boarding time, and berth compatibility.
-
-Keep passenger capacity distinct from the number of parties aboard.
-Compare passenger throughput, waiting, occupancy, and empty running across fleet mixes.
-MATSim's [demand-responsive transport module](https://github.com/matsim-org/matsim-libs/blob/main/contribs/drt/README.md) supports shared taxis or minibuses and additional pickups during occupied journeys.
-
-**Status:** Step 1 is available as the `destination` shared ride mode.
-In this mode, a limit of two to eight parties lets a party join a pod that is still boarding at the same origin for the same destination.
-The default limit of one disables sharing.
-See [docs/studies/qualification.md](docs/studies/qualification.md#same-destination-sharing).
-
-The drop-offs mode, a part of step 3, is the default mode when sharing is on.
-A party can join a boarding pod that passes its destination, or a pod that can add that destination as its last stop.
-The pod stops at each destination on its way.
-The stops do not change after the pod departs, and a pod with passengers picks up parties only with the opt-in `onboardPickups` setting.
-A pod adds a stop only when the planned detour ratio of each party, new or aboard, is 1.5 or less.
-In London at a limit of 4, the mode raises five 60-minute band limits and lowers the journey time, the wait, and the empty distance in each band.
-The first measurement did not meet two of the seven adoption rules, because five arms ended late and the largest detour ratio was 1.509.
-With the detour cap, the mode meets the seven rules on the full envelope with seeds 1 to 3 and with 10 seeds at the rates near the band limits.
-On 2026-09-28, the user made drop-offs the default mode, and same-destination sharing stays available as an option.
-See [docs/studies/qualification.md](docs/studies/qualification.md#drop-offs-sharing-in-london).
-
-### Railway and park-and-ride hubs
-
-**Status:** [Scheduled rail arrivals](docs/rail-arrivals.md) and walking delays are implemented.
-Projects retain event plans, and physical restart resumes without replaying past releases.
-The editor authors plans and the comparison tool retains offered identities, including rejected passengers.
-Outbound train plans, request windows, transfer deadlines, connection outcomes, editor controls, and restart accounting are implemented.
-The bounded forecast controller remains comparison-only after its selected service screen failed.
-Repeating [daily demand profiles](docs/daily-demand.md) and morning/evening park-and-ride authoring are implemented.
-Offline car journeys and parking capacity are in [`cmd/parkride`](docs/design/car-journey-design.md), and the live simulation does not run them.
-
-Point-to-point pod journeys can already concentrate at a hub.
-Further studies can test achievable train connections and station throughput under different demand schedules.
-
-Compare these invented demand scenarios:
-
-- Twelve passengers arrive each minute.
-- A train delivers 120 passengers every ten minutes.
-
-Both produce the same average demand.
-The experiment should compare queues, berth requirements, and the benefit of positioning empty pods before a train arrives.
-
-Initially, represent a train arrival as an event that releases passenger parties into the hub after a walking delay.
-Represent outbound trains with departure times and a minimum transfer time.
-This allows connection experiments without first implementing a full railway simulator.
-
-For a park-and-ride hub, use time-varying arrivals and departures to represent morning and evening flows.
-The offline `cmd/parkride` command adds parking capacity and explicit journeys by car.
-
-Study loading areas, vehicle storage, and station exits as separate possible bottlenecks.
-Measure queue-clearance time, waiting-time distributions, missed connections, and unmet demand.
-SUMO's [intermodal routing documentation](https://sumo.dlr.de/docs/IntermodalRouting.html) describes journeys with walking, waiting, and multiple transport modes.
-
-### Platoons
-
-A virtual platoon consists of separate pods that coordinate their movement.
-It requires rules for formation, splitting, merging, and compatible routes.
-Track spacing within a platoon separately from spacing between platoons.
-Include the space and time needed to form a platoon and separate it before destinations diverge.
-
-Compare faster travel against the delay incurred while waiting to form a platoon.
-Test whether longer platoons obstruct merges or station access.
-Reduced headway must follow an explicit control model rather than a capacity multiplier.
-
-Measure passenger throughput, travel time, and empty running first.
-Energy comparisons require an energy model with explicit assumptions about speed, resistance, acceleration, and braking.
-Do not infer energy savings from shorter spacing alone.
-
-[Plexe](https://plexe.car2x.org/) provides examples of cooperative maneuvers, vehicle dynamics, and platoon control.
-It is a research reference, not a proposed dependency for Podsim.
-
-**Status:** Virtual platoons are a project option, `platoonLimit`, and they are off by default.
-A slow pod in a queue can follow the pod ahead at a short gap and share its track cells, in platoons of up to 4 pods.
-Each link keeps a fixed certificate of a run of lanes that turns 120 degrees or less, and its clearance follows from that turn.
-A run can end on the entry lane of a station when both pods go to that station, and such pods choose their berths early.
-A pod that waits for a contested station diverge can coast so that it rolls into the diverge when it frees.
-See [station entry throughput](docs/studies/buffer-late-claim.md#station-entry-throughput).
-On the synthetic corridor, platoons of 4 give 2.5 to 3.1 times the flow of single pods.
-A London sweep with 198 pods found that track and junction flow limit the Early band at 9 to 12 requests per minute.
-The ten-seed follow-up raises the highest tested Early rate with one-hour recovery from 10/minute to 11/minute.
-At 12/minute, virtual platoons recover nine of ten seeds within one hour.
-The expanded study finds one recovery-rule failure at AM peak 24/minute and three no-harm failures in default-London controls.
-All five rail-hub pairs pass the no-harm thresholds.
-The historical three-seed A/B met the seven adoption rules, but the expanded study fails the recovery and no-harm rules.
-All 162 follow-up arms passed the per-tick safety and ownership checks.
-See the [platoon follow-up](docs/studies/platoon-followup.md) for the full results and validation limits.
-The editor sets the option, the state frame gives the platoon of each pod, and the view draws a line between the pods of a platoon.
-A saved state keeps the links.
-The LondonCentral preset turns platoons on with a limit of 4 pods.
-The follow-up preserves this preset and all other defaults.
-In the historical three-seed London capacity envelope with 114 pods, platoons raised the Early limit from 7/minute to 10/minute.
-No band limit fell in that envelope.
-See [docs/studies/qualification.md](docs/studies/qualification.md#platoon-screening) and [the envelope with platoons](docs/studies/qualification.md#with-virtual-platoons).
-
-### Suggested first extension experiment
-
-After the initial simulator works, build a railway-hub scenario with a burst of arriving passengers.
-Compare immediate personal departures, same-destination sharing, and advance positioning of empty pods.
-Then add an alternative route to test congestion-aware routing.
-
-This provides a small, observable experiment before introducing mixed fleets or platoons.
-The sequence is a recommendation, not a committed roadmap.
-
-**Status:** The repeatable `rail-hub` preset, finite burst schedule, station capacity measurements, and advance-positioning comparison are complete.
-The five-seed experiment served all demand with either policy.
-The experiment used the weighted redistribution policy, which moved empty pods toward the demand weights at any load.
-Guarded positioning later replaced that policy.
-The weighted policy reduced mean pickup wait by about four seconds, added 45.2 km of empty travel, and reduced loaded distance from 45.96% to 42.15%.
-See [docs/studies/qualification.md](docs/studies/qualification.md#rail-hub-burst-experiment).
-
-With redistribution off, the four-party sharing arm reduced mean wait by 65%, queue clearance by 53%, and empty travel by 49%.
-It served every request.
-
-In a three-seed alternate-route experiment, the first occupied-track snapshot-cost policy served 1.33 fewer requests on average than free-flow routing.
-It also increased mean wait and added empty travel.
-Free-flow routing remains the default.
+The code uses explicit types and functions, and it adds an interface when there is a concrete need for interchangeable policies.
+
+### Clients and protocol
+
+Ebitengine draws the simulation view and handles its controls, in the browser through WebAssembly and on the desktop as a native client.
+The view gets shared gzip JSON baselines and deltas over WebSocket, and it needs native browser gzip, with no HTTP polling fallback.
+Commands, topology, and editor data use HTTP, and the server keeps retry-safe command identity.
+The September 22 evaluation found that Protocol Buffers would reduce a London gzip frame by another 10.3% and save about 0.7% of one CPU core per client at 20 Hz, so the project removed the experimental service.
+Review this choice if remote traffic, multiple viewers, or external clients make a typed RPC protocol useful (see [the protocol evaluation](docs/protocol.md#removed-connectrpc-experiment)).
+
+### Editor
+
+The scenario editor is a separate HTML and JavaScript page with a Go/WASM worker, which does its checks off the main browser thread.
+
+| Part | Owns |
+| --- | --- |
+| Go worker | Project checks, settings, fleet and rail edits, geometry edit proposals, demand profile construction, place-search projection, live-map and geographic-reference edits, image placement and calibration, normalization of drafts, and the undo and redo timeline with background metadata. |
+| JavaScript | Browser controls, drawing, storage, image bytes and decoding, storage pins, license metadata, drawing copies by Go snapshot ID, and drag previews. |
+
+The worker keeps changed project branches and reuses topology and demand flow checks until their inputs change.
+JavaScript orders asynchronous edits, keeps newer typing when an older worker reply arrives, keeps queued input, and waits for pending edits before apply, export, undo, or redo.
+Image imports prepare any history trim before publication and keep the image table within 128 MiB.
+A worker failure blocks an apply and keeps the visible draft available for export.
+
+### Persistence
+
+A project file holds the design and settings, and it has a versioned format.
+A save point is an exact copy of the running simulation in server memory, and a server restart clears it.
+The `-state` saved state keeps the live session across a restart on a best-effort basis, and the [restore rules](docs/operations.md#session-state) say what it keeps.
+A damaged saved state moves aside and the server starts a new session, with no recovery.
+Applying network edits resets the simulation and keeps the design.
+
+## 4. Scope limits
+
+These stay out of the project until someone decides otherwise.
+
+| Item | Status |
+| --- | --- |
+| Multiplayer beyond one shared session, realistic scenery, legacy simulator file import, and advanced fleet optimization | Not planned. |
+| Editable geographic objects, automatic guideway generation, editable OSM vectors, and aerial imagery | Shelved at the maintainer's request. |
+| Opposing traffic on shared single track | Not built. It needs reservations, fairness, and deadlock handling. |
+| A 3D client | Not built. Do not build speculative 3D infrastructure now. |
+| Stored tunnel depth, elevation, and terrain | Not in the model. Adding them can change geometry and saved projects. |
+
+A later Three.js renderer could read snapshots from the same Go server.
+The network data, routing, demand, dispatch, movement rules, statistics, and most tests would stay.
+JavaScript or TypeScript presentation code, 3D track geometry, pod models, cameras, selection, and scenery would be new, and Ebitengine drawing code would not carry over.
+
+## 5. Current experiments
+
+Each study records what it establishes, and no study authorizes a default change until it passes the gates.
+The defaults stay: free-flow routing, one party per pod, no platoons on a project that does not set them, and no redistribution.
+The pickup and busy-station service problems stay unresolved.
+
+| Area | Status | Record |
+| --- | --- | --- |
+| Congestion-aware routing | `congestion`, `queue`, and `predictive` are comparison policies, and none is adopted. Rerouting at junctions is not built. | [Queue routing screen](docs/studies/qualification.md#queue-routing-screen), [predictive routing](docs/studies/predictive-routing.md) |
+| Shared rides | `destination` and `drop-offs` are opt-in, and `drop-offs` is the default mode when sharing is on. `reassign-existing` fails the adoption rules. Waiting for more passengers against leaving at once is not studied. | [Drop-offs sharing](docs/studies/qualification.md#drop-offs-sharing-in-london), [policy failures](docs/studies/policy-failures.md) |
+| Mixed vehicle classes | Legacy, Compact, Group, and opt-in Express pods exist, and no default changes. | [Group physics](docs/design/group-physics-design.md), [Express qualification](docs/studies/express-qualification.md) |
+| Pickup reassignment | Opt-in, off by default. It lowers mean waits in tested pairs and has individual tail regressions. | [Sustained swaps](docs/studies/pickup-swap-sustained.md) |
+| Rail and park-and-ride hubs | Rail arrivals, train connections, and daily park-and-ride profiles are in the live simulation. Forecast positioning stays in the compare command. Car journeys and parking capacity are offline in `cmd/parkride`. | [Rail arrivals](docs/rail-arrivals.md), [train connections](docs/rail-connections.md), [car journeys](docs/design/car-journey-design.md) |
+| Virtual platoons | A project option, and LondonCentral and LondonFull turn it on. The expanded study fails the recovery and no-harm rules. | [Platoon follow-up](docs/studies/platoon-followup.md) |
+| Stations | Compact bays and depots are on the London presets, and independent banks are available. Station buffers were removed on October 7, 2026, because they lowered entry throughput. | [Compact bays](docs/model.md#compact-bays), [depots](docs/model.md#parking-depots), [buffers](docs/studies/buffer-late-claim.md#station-entry-throughput) |
+| London capacity | Finite tests show no sustainable capacity envelope. LondonFull grows backlogs at 15 and 20 orders per minute, and no fleet candidate met the all-ten recovery criterion. | [LondonCentral envelope](docs/studies/qualification.md#london-capacity-envelope), [LondonFull post-fix](docs/studies/london-full-postfix.md) |
+
+## 6. Incidents
+
+Faults and emergencies are always on, with no project switch, as the [marker removal contract](docs/contracts/marker-removal-contract-proposal.md) sets.
+The exception is the traffic demo: they are off during it and stay off until a reset or a project apply.
+Stages 1 to 3 of the incident work landed, and stages 4 to 6 were dropped with no contracts.
+The maintainer reopened stage 7 on November 4, 2026, for the scenario rates, and it has no contract yet.
+The decisions as first written on October 4, 2026, are at `6227cf7:PROJECT_BRIEF.md:687-711`.
 
 ### Rider emergency stop
 
-**Status:** Implemented, and on in each session except during the traffic demo (see [emergencies](docs/operations.md#emergencies)).
-The `emergency` command and the **Emergency** button of the pod inspector start an emergency.
-There is no scenario emergency rate.
-The user noted this idea on 2026-10-04.
-
-A rider in a pod presses an emergency button, for example for a medical emergency.
-The pod then goes at once to the station where it can unload soonest.
-That station is not always the nearest one.
-A station entry queue on the path can make a farther station faster.
-Estimate the arrival time from current reservations and queues, not only from distance.
-
-Decisions (user, 2026-10-04):
+A rider in a pod presses an emergency button, for example for a medical emergency, and the pod goes at once to the station where it can unload soonest.
+That station is not always the nearest one, because an entry queue on the path can make a farther station faster, so the estimate uses current reservations and queues as well as distance.
+The `emergency` command and the **Emergency** button start an emergency (see [emergencies](docs/operations.md#emergencies) and the [contract](docs/contracts/incident-emergency-contract-proposal.md)).
 
 - All parties in the pod unload at that station.
-  Each other party gets a new pod from there to its original destination and keeps its order identity.
-- The pod wins contention at junctions, station entry, and berths, and moves ahead of entry queues.
-  It never forces another pod to reverse or to leave a committed path.
-- A game control on an occupied pod, a scenario rate, and a protocol command can each start an emergency.
-- The pod drops all of its later work.
-  Its pending pickups go back to dispatch as ordinary orders and keep their original request times.
-- The feature was off by default at first.
-  It is now on in each session, with no project switch.
-
-Open question: how the game and the metrics show the event.
+  The party that started the emergency is interrupted, and each other party continues to its original destination and keeps its order identity.
+- The pod gets free junctions, track cells, and berths first.
+  It never takes an owned resource, and it never forces another pod to reverse or to leave a committed path.
+- The pod drops all of its later work, and its pending pickups go back to dispatch as ordinary orders with their original request times.
+- There is no scenario emergency rate yet.
 
 ### Vehicle fault or accident
 
-**Status:** Implemented, and on in each session except during the traffic demo (see [faults](docs/operations.md#faults)).
-The `fault` command and the **Fault** button of the pod inspector start a fault.
-There is no scenario fault rate, and pods do not reverse.
-The maintainer stopped the incident work after stage 3 and reopened stage 7 on November 4, 2026.
-Stage 7 has no contract yet.
-The user noted this idea on 2026-10-04.
+A pod stops and cannot move until the fault ends, for example after a collision with debris or a vehicle fault.
+The stopped pod blocks its lane, and other pods route around it or wait.
+The `fault` command and the **Fault** button start a fault (see [faults](docs/operations.md#faults) and the [contract](docs/contracts/incident-suspension-contract-proposal.md)).
 
-A pod stops and cannot move until an operator clears it.
-The cause can be a collision with debris, a vehicle fault, or another failure.
-The stopped pod blocks its lane.
-Other pods must route around it.
-Pods behind it can be stuck with no forward path, so they can need to reverse to the previous junction.
+- A fault can have a duration, and it clears when the duration ends or when the user clears it, whichever is first.
+- Riders leave the stopped pod after 300 simulated seconds by default, a project can set another delay, and their orders end interrupted.
+- A fault can also block a lane segment with no pod in it, as debris.
+- Pods do not reverse, because the simulator moves pods only forward on directed lanes, and reverse movement has no contract.
+- There is no scenario fault rate yet.
 
-Decisions (user, 2026-10-04):
-
-- A fault can have a duration.
-  It clears when the duration ends or when the user clears it in the game, whichever is first.
-- After a delay, riders leave the stopped pod, and their trips end as interrupted.
-- A pod behind the fault that has no forward path reverses at low speed along its lane to the previous junction, and then gets a new route.
-  The simulator moves pods only forward on directed lanes today.
-  Reverse movement needs new motion, reservation, and safety rules.
-- A game control on a pod, a scenario rate with a duration distribution, and a protocol command can each start a fault.
-- A fault can also block a lane segment with no pod in it, for example debris.
-
-Decisions (user, 2026-10-04, later):
-
-- Riders leave the stopped pod after 300 simulated seconds by default.
-  A scenario can set another delay.
-- A fault can occur anywhere.
-  At a station berth, the berth is blocked.
-  In a station entry queue, the pods behind it reverse or change route.
-- The feature was off by default at first.
-  It is now on in each session, with no project switch.
-
-Open questions: routes, pickups, and berth reservations that use the blocked lane, and how the metrics show the effect on service.
+Open question: how the metrics show the effect of an incident on service.
 
 ## 7. Research and reference tools
 
@@ -751,18 +186,19 @@ Podaris documents [PRT-specific layers](https://support.podaris.com/personal-rap
 Its [2019 article](https://blog.podaris.com/prt/) separately describes integration with a vendor's detailed microsimulator.
 Do not assume that its planning tools reproduce individual pod movement and traffic control in the way proposed for Podsim.
 
+SUMO's [intermodal routing documentation](https://sumo.dlr.de/docs/IntermodalRouting.html) describes journeys with walking, waiting, and multiple transport modes, which matters for further hub studies.
+
 ### Historical archives and further leads
 
 - The [University of Washington catalog](https://faculty.washington.edu/jbs/itrans/simu.htm) was last modified on September 27, 2013.
   It lists Hermes, BeamEd, RUF, and other simulators to investigate if the project needs further examples.
   Its availability claims need fresh verification.
-- The [Google Code PRT-Sim archive](https://code.google.com/archive/p/prt-sim/) did not render through the research browser.
-  Its [project metadata](https://storage.googleapis.com/google-code-archive/v2/code.google.com/prt-sim/project.json) and [source index](https://storage.googleapis.com/google-code-archive/v2/code.google.com/prt-sim/source-page-1.json) remained accessible.
+- The [Google Code PRT-Sim archive](https://code.google.com/archive/p/prt-sim/) has [project metadata](https://storage.googleapis.com/google-code-archive/v2/code.google.com/prt-sim/project.json) and a [source index](https://storage.googleapis.com/google-code-archive/v2/code.google.com/prt-sim/source-page-1.json).
   Metadata describes an alpha-stage Python control-system testbed with GPLv3 source.
   The project has not installed or reused any legacy code.
 - [SUMOPy documentation](https://sumo.dlr.de/docs/Contributed/SUMOPy.html), now describing hybridPY, lists support for PRT services.
   Schweizer and Rupi's 2017 paper, [Personal Rapid Transit simulations with SUMO](https://cris.unibo.it/handle/11585/631734), is a further reading lead.
-  The research browser could not retrieve the full proceedings PDF, so the detailed results remain unreviewed.
+  Its detailed results remain unreviewed.
 
 ### Original simulator and browser technology
 
@@ -776,14 +212,3 @@ Do not assume that its planning tools reproduce individual pod movement and traf
 The ATS/CityMobil ZIP downloaded successfully during the initial investigation.
 It contained a launcher, Java components, and bundled case studies.
 The investigation did not run the program.
-
-### Suggested study order
-
-1. Read Andréasson's short paper for concrete network experiments.
-2. Read Homerick's architecture discussion and inspect the editor screenshots.
-3. Study SUMO's dispatch and intermodal examples.
-4. Use Podaris for editor and planning ideas.
-5. Return to MATSim and Plexe when shared-service and platooning experiments become relevant.
-
-The initial feature groups and acceptance scenarios defined the initial usable version.
-Section 5 records its acceptance.

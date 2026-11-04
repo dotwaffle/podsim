@@ -89,7 +89,7 @@ They are not open to change in this contract.
 8. No build tags.
    Exported test entries are allowed, and section 13 lists each one.
 
-The product brief records the earlier user decisions of October 4, 2026 (`PROJECT_BRIEF.md:687-711`).
+The product brief records the earlier user decisions of October 4, 2026 (`6227cf7:PROJECT_BRIEF.md:687-711`).
 Decisions 1 and 3 above narrow two of them: "moves ahead of entry queues" becomes decision 1, and "a new pod" becomes decision 3.
 
 ### 1.4 Capability matrix
@@ -1490,7 +1490,7 @@ A binding decision, an approved contract, or a safety rule settles each row.
 | --- | --- | --- |
 | R1 | The emergency pod gets free resources first and never takes an owned one. | Decision 1. |
 | R2 | A coupling member stays in its train until the split at its committed split site. | Decision 2; stage 1, section 13. |
-| R3 | Every party leaves the pod at the emergency station. The party is interrupted. Each other party completes or is transferred, and can ride any pod. | `PROJECT_BRIEF.md:700-701`; decision 3; stage 1, section 9.5. |
+| R3 | Every party leaves the pod at the emergency station. The party is interrupted. Each other party completes or is transferred, and can ride any pod. | `6227cf7:PROJECT_BRIEF.md:700-701`; decision 3; stage 1, section 9.5. |
 | R4 | Pending pickups of the pod go to other pods, with the exclusion until boarding. | Decision 4. |
 | R5 | An emergency never evacuates. A fault evacuation, at rest only, interrupts every rider. | Decision 5; stage 2, section 5.5. |
 | R6 | The stage is off by default, with off-state parity, and refuses each unsupported target before any change. | Decision 6. |

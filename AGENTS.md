@@ -6,11 +6,12 @@ Keep this file short, and point to other documents instead of copying them.
 
 ## Read first
 
-- [README.md](README.md): how to run the server, the clients, and the editor.
-- [docs/operations.md](docs/operations.md): server operation, the session state file, and the restore rules.
+- [README.md](README.md): how to run the server and the clients, and an index of all documents.
+- [docs/user-guide.md](docs/user-guide.md), [docs/reference.md](docs/reference.md), and [docs/model.md](docs/model.md): the controls and the editor, the project format and the tools, and the simulation behavior.
+- [docs/operations.md](docs/operations.md): server operation, the session state file, the restore rules, and the code layout, tasks, and CI.
 - [docs/protocol.md](docs/protocol.md): the client protocol.
-- [PROJECT_BRIEF.md](PROJECT_BRIEF.md): product goals and architecture.
-  It is long, so read only the section that you need.
+- [PROJECT_BRIEF.md](PROJECT_BRIEF.md): the current product goals and architecture.
+  Git history keeps the earlier plans and status notes.
 - The contract documents in `docs/contracts/`.
   An approved contract is binding.
 

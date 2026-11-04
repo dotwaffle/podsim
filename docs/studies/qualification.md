@@ -42,6 +42,36 @@ Current-source follow-ups retain their own fixtures and limits:
 - [Predictive service trials](../design/experimental-adoption.md#rejected-candidates) leave matched request outcomes unchanged.
 - [Predictive cost trials](admission-live-performance.md#predictive-routing-cost) measure CPU, allocation, and GC tradeoffs separately from service outcomes.
 
+## Acceptance checks
+
+The project accepted its first usable version on September 21, 2026, and later changes keep these checks.
+The simulation tests must show:
+
+- Pods choose valid routes through one-way and paired-lane networks.
+- Unreachable journeys produce a clear result.
+- Competing pods pass through a merge without overlap.
+- A full station does not accept more pods than its capacity permits.
+- A finite fleet leaves excess demand waiting.
+- Empty-pod dispatch eventually serves waiting parties in a feasible, uncongested test network.
+- Identical scenarios and seeds produce repeatable outcomes.
+- A rewind to a save point replays exactly.
+  The same actions after each rewind produce the same outcomes.
+- Changing playback speed preserves simulation results at equal simulated times.
+
+The browser checks are:
+
+- Import an image, calibrate scale, draw a network, and complete a journey.
+- Export and reload the project with its background intact.
+- Exercise undo, invalid input, pause, reset, and pod following.
+- Select Save point, run the simulation, then select Rewind.
+  The session must pause at the saved time.
+- Start the server with `-state`, and run the simulation with pods and orders for at least 60 s.
+  Stop the server with Ctrl-C, then start it again with the same command.
+  The `Restored session` log record must give `tier=physical` and `epochKept=true`.
+  The pods must continue from the same positions, and the open page must keep its session.
+- Run a proposed baseline of 20 stations and 100 pods.
+- Record hardware, frame rate, and simulation update cost before establishing performance guarantees.
+
 ## Scale and safety
 
 The measured ring fixture has 20 stations, including one parking station, and 100 pods in 138 berths.
