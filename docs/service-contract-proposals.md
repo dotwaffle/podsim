@@ -1,7 +1,7 @@
 # Service contract proposals
 
 Status: approved October 2, 2026.
-Runtime implementation and qualification are in progress.
+Implementation landed: order consent, vehicle classes, Express, and the Go editor helpers are in the code.
 The user approved roadmap items 1 through 10 and continued local work on October 2, 2026.
 Station buffers and compact station queues were removed on October 7, 2026, because measurements showed that they lowered station entry throughput.
 The compact station queue section was deleted with them.

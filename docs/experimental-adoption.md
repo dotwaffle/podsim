@@ -68,7 +68,7 @@ If a candidate fails, retain its measured results and experimental control.
 Fix a reproduced defect or choose a different candidate, then rerun the affected comparisons.
 
 Current reports retain unresolved individual tails and overload cases.
-See [dispatch qualification](dispatch-policy-qualification.md), [post-routing service](berth-route-preference.md#stratford-request-1324), and [sharing rules](qualification.md).
+See [sustained pickup swaps](pickup-swap-sustained.md), [post-routing service](berth-route-preference.md#stratford-request-1324), and [sharing rules](qualification.md).
 The [expanded controller screen](#rejected-candidates) retains live queue loss, censored requests, and individual-limit exceedances.
 The [selected policy rerun](policy-failures.md) separates historical failures from these qualification limits.
 The [Paddington trials](#rejected-candidates) reject unsafe partial fixtures while preserving individual regressions in the complete layouts.
@@ -106,3 +106,16 @@ The records that the buffer removal of October 7, 2026 retired are at `0f5ae61`,
 | Compact queue speed screen after the lane-speed fix | `30d8e34` | Seven compact pods, 28 accepted requests, 2,400 s cap; two ordinary and compact-v1 pairs with buffers and virtual platoons on (limit 4), queue limit 200 | All four arms complete 4 of 28 requests by the cap; compact groups first appear at 502.65 s and keep three occupied members; censored requests and failed disabled-policy drainage | No compact queue service benefit; feature removed on October 7, 2026 | `docs/compact-queue-speed-fixed-screen.md`, with `docs/measurements/compact-queue-speed-fixed-screen.json` |
 | Station buffer contract and fixed entry platoons | `0f5ae61` | Saved-state membership contract (approved September 29 and 30, 2026), fixed station-entry platoons, and recruitment inside stopped buffers | Closed records of the removed feature | Retired with the feature on October 7, 2026 | `docs/station-buffer-state-proposal.md`, `docs/station-entry-platoons.md`, `docs/station-buffer-recruitment.md` |
 | Compact-v1 contracts | `0f5ae61` | Retained physical recovery state (approved October 2, 2026), the compact pilot note, and the compact section of the service contract proposals | Closed records of the removed feature | Retired with the feature on October 7, 2026; the section of `docs/service-contract-proposals.md` is at `0f5ae61` | `docs/compact-recovery-state-contract-proposal.md`, `docs/compact-station-queues.md` |
+
+The shared forecast screen (Rail Hub, 1,440 one-person shared offers per seed, `9113bb3`) found no gain.
+Seed 1 completed 862 requests with the forecast off and 877 with it on, and seed 2 completed 920 and 916.
+The candidate skipped 154 and 178 offers that the baseline completed, and 165 and 342 common offers exceeded the individual pickup limit.
+A separate private parking-only screen completed 363 requests with the forecast off, 364 with the current forecast, and 361 with the candidate.
+Both forecast candidates fail the gates, and live integration stays closed.
+Do not repeat the matrix without a new, concrete forecast hypothesis.
+
+The Group and mixed-fleet service screen (`5a57e4c`, straight large-motion network, 48 whole parties per timing variation) improved completions.
+Six Group pods completed 48 of 48 parties, against 40 of 48 for two Legacy and four Compact pods.
+Every Group and mixed candidate still exceeded the individual pickup and journey limits in both timing variations, from 4 exceedances (six Group pods) to 20 (two Group, one Legacy, two Compact).
+The six-Group arm added 485.25 s of wait for one event against an allowed 30 s.
+The screen does not qualify sustained capacity or default adoption.

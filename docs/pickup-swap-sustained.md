@@ -173,3 +173,20 @@ These results do not establish sustainable capacity, universal benefit, or polic
 They cover two paired schedules, not every demand band, seed, fleet, or station layout.
 Physical restore evidence has the same controller-history limits as the original study.
 Functional runs overlap other diagnostic work, so their wall times do not measure CPU overhead or playback speed.
+
+## Finite-schedule qualification
+
+An earlier finite-arrival qualification ran pickup reassignment on five schedule groups: two Acton seeds (128 requests in eight minutes), LondonCentral and LondonFull (899 requests at 15 per minute), and a rail-hub burst (119 requests).
+Sharing and redistribution were off, and routing was free-flow.
+The buffer arms of that study measured the removed station buffers and are not repeated here.
+
+Reassignment lowered the mean wait in every group, from 0.59 s in Full to 204.98 s in Central.
+Mean matched journey time fell in every group by a similar amount.
+The largest single-journey regression was 42.68 s to 85.58 s in the Acton groups and 55.55 s in the rail hub.
+It was 780.15 s in Central and 655.97 s in Full, where 3 and 6 matched journeys were more than 300 s worse.
+In Central, the 454 requests in swap decisions improved by 241.38 s on average, but 33 waited longer, 2 of them by more than 300 s.
+Full finished 896 requests with reassignment and 897 without.
+
+The controller tests only the free-flow pickup cost of the swapped pair.
+It does not account for later contention or for effects on other requests.
+These runs support continued experiments, not default enablement.

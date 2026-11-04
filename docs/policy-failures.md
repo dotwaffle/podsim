@@ -122,5 +122,7 @@ These selected counts do not establish full qualification or authorize a default
 [Metadata](measurements/policy-failures.json) retains group statistics, selected request tails, P95 ranks, source hashes, and run outcomes.
 Observed pickup pods, stopping, and coupling counts are samples, not complete transition or resource-grant histories.
 The owned run stopped successfully, and its scratch binary was removed.
-The [fleet-history follow-up](policy-fleet-history.md) traces earlier assignments and empty destinations behind selected pickup delays.
-It separates percentile ranks from same-request changes and retains the remaining failures.
+A fleet-history follow-up on frozen source `e285e69` replayed ten selected arms and traced the earlier assignments and empty destinations behind the pickup delays.
+The remaining platoon and sharing failures change later pickup availability: a pod that moves empty toward another station or carries an earlier passenger is not free for the tail request.
+Some aggregate P95 regressions select a different passenger whose own timing does not worsen, so percentile ranks differ from same-request changes.
+The traces show no safety or dispatch defect and give no general safe fix, so the existing policies and defaults stay.

@@ -3,7 +3,7 @@
 Status: **approved, implemented, and qualified on October 3, 2026**.
 The user approved item 8b and the contract below with the 6b/8b batch.
 Deployment, runtime enablement, and default changes require a separate batch.
-The [native](express-native-qualification.md), [wire](express-wire-qualification.md), and [browser](express-browser-qualification.md) records contain qualification evidence.
+The [Express qualification](express-qualification.md) records the qualification conclusions.
 
 Station buffers and compact station queues were removed on October 7, 2026, because measurements showed that they lowered station entry throughput.
 Clauses that name buffers, buffer certificates, compact queues, or compact certificates now describe cases that cannot occur.
@@ -20,12 +20,11 @@ The byte evidence below keeps its 300-pod and 80 MiB basis, and nobody measured 
 The worst-case byte proofs and their fixture constructors were deleted.
 
 The source descriptions below refer to the reviewed baseline, `53321e4c5decc6c661df64a40378ee37614dcffc`.
-The [large-body proposal](large-body-physics-proposal.md) approved the dimensions and common conservative candidate.
+The [group physics design](group-physics-design.md) records the approved dimensions and common conservative candidate.
 The [service contract](service-contract-proposals.md) and [byte contract](service-byte-contract-proposal.md) approved metadata and parser recognition.
 Group passed its applicable gates in [qualification](qualification.md).
 The qualification records cover the opt-in contract and retain its resource limits.
 The combined Go suite, web tests, static checks, and production builds passed.
-See [the integration measurement](measurements/continuation-express-integration.json).
 
 ## Recommended decisions
 
@@ -485,7 +484,7 @@ Parser acceptance alone cannot pass a physical or operating gate.
 
 The wire and browser evidence for the "Save bytes and shape" and "Stream and public consumers" rows is historical.
 It measured save 7, project 4, hello 4, and the Express media type, which the format merge removed in commits `248f26e`, `9de7a3b`, and `5f1adac`.
-The "Requalification on the merged formats" sections of [the wire qualification](express-wire-qualification.md#requalification-on-the-merged-formats) and [the browser qualification](express-browser-qualification.md#requalification-on-the-merged-formats) requalify these rows on project version 1 with the `orderContract` marker, saved-state version 9, hello version 6, and the media type `application/vnd.podsim.state-6+json`.
+The requalification on the merged formats, summarized in the [Express qualification](express-qualification.md), requalified these rows on project version 1 with the `orderContract` marker, saved-state version 9, hello version 6, and the media type `application/vnd.podsim.state-6+json`.
 
 Run the relevant package suites, scoped races, vet, lint, and fresh Go diagnostics for the later implementation.
 Report assertion failures separately from parser rejection, byte overflow, watchdog expiration, and unavailable external gates.

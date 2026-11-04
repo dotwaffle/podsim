@@ -78,3 +78,12 @@ Endpoint RSS does not measure long-term retention.
 Ambient host contention and active profiling can affect timing.
 
 The raw measurement data is in git history.
+
+## Predictive routing cost
+
+An isolated comparison on LondonFull AM12 seed 4 and Morning14 seed 1 (free-flow against predictive routing, baseline `b4cfefe`, candidate `a54281e`) measured CPU and allocation in fresh single-core processes.
+With the predictive code disabled, median CPU changed by -0.20% and +0.19%, within the repetition range.
+With GC 100, enabling prediction added 1.9% to 2.7% median CPU and 4.1% to 5.2% allocated bytes, with identical result fields.
+In the AM workload, GC 400 saved about 12% CPU and used about 2.3 times the peak RSS of GC 100.
+The server keeps its GC 100 default.
+The comparison does not establish a live playback-speed limit.

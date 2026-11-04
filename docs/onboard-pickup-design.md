@@ -202,3 +202,11 @@ Verify rail binding, request identity, completion timings, and conservation acro
 Run matched offers with the policy off and on, recording effective consent in each result.
 Report completion, pickup and journey tails, detours, occupancy, and empty running separately.
 No service or capacity claim precedes those checks.
+
+## Rail Hub screen
+
+A bounded Rail Hub screen (`bb8f577`, October 3, 2026) offered 1,440 shared one-person parties per seed with 30 legacy pods.
+Enabling occupied pickups changed no outcome in either seed: every result field and passenger record matched the off arm, and no occupied pickup or intermediate stop occurred.
+Seed 1 completed 862 offers and seed 2 completed 920.
+The shared arms combine parties at initial boarding, so the screen gives no occupied-pickup service evidence beyond the manual screen in [experimental adoption](experimental-adoption.md#rejected-candidates).
+Do not repeat it without a changed, explicit intermediate-stop hypothesis.

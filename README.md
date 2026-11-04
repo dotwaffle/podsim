@@ -1852,7 +1852,7 @@ They do not replace scenario qualification or authorize policy adoption.
 | Area | Records | Main limitation |
 | --- | --- | --- |
 | LondonFull | [Post-fix capacity](docs/london-full-postfix.md), [combined controllers](docs/experimental-adoption.md#rejected-candidates), [mirrored layout](docs/station-mirror-load.md) | Finite recovery and growing backlogs do not establish sustainable capacity. |
-| Pickup swaps and removed buffers | [Combined qualification](docs/dispatch-policy-qualification.md), [sustained comparison](docs/pickup-swap-sustained.md), [pickup tails](docs/experimental-adoption.md#rejected-candidates), [berth-route preference](docs/berth-route-preference.md) | Better averages coexist with slower individual requests. Pickup swaps stay off by default, and station buffers were removed on October 7, 2026. New routes avoid intermediate berths when a compatible path exists. |
+| Pickup swaps and removed buffers | [Sustained and finite-schedule comparison](docs/pickup-swap-sustained.md), [pickup tails](docs/experimental-adoption.md#rejected-candidates), [berth-route preference](docs/berth-route-preference.md) | Better averages coexist with slower individual requests. Pickup swaps stay off by default, and station buffers were removed on October 7, 2026. New routes avoid intermediate berths when a compatible path exists. |
 | Platoon queues | [Qualification follow-up](docs/platoon-followup.md), [Paddington reservation and resource histories](docs/experimental-adoption.md#rejected-candidates) | Paddington traces do not justify a clearance change. |
 | Terminus throughput | [Burst measurements](docs/buffer-late-claim.md#terminus-burst-service) | The removed buffers increased waits in the selected outbound Central bursts and lowered [station entry throughput](docs/buffer-late-claim.md#station-entry-throughput). Geometry and supply causes remain diagnostic work. |
 | Server performance | [Live server and GC](docs/admission-live-performance.md) | Live results cover two short repetitions per case. GC defaults remain unchanged. |
@@ -1862,13 +1862,12 @@ They do not replace scenario qualification or authorize policy adoption.
 Current-source follow-ups retain their own fixtures and limits:
 
 - [Pickup tails](docs/experimental-adoption.md#rejected-candidates) trace selected reassignment regressions without finding a new movement defect, and show how one early swap changes later pickup availability.
-- [Policy failures](docs/policy-failures.md) retain selected platoon, sharing, and positioning failures after the routing fixes.
-- [Policy fleet histories](docs/policy-fleet-history.md) separate earlier pickup changes, percentile ranks, and same-request delays.
+- [Policy failures](docs/policy-failures.md) retain selected platoon, sharing, and positioning failures after the routing fixes, and separate earlier pickup changes, percentile ranks, and same-request delays.
 - [Paddington position trials](docs/experimental-adoption.md#rejected-candidates) improve selected full-restoration outcomes, but reject both partial layouts on safety.
 - [Controller and capacity trials](docs/experimental-adoption.md#rejected-candidates) retain Acton overload, individual regressions, unfinished six-hour AM baselines, and exhausted AM14/AM15 pickup supply.
 - [Buffer claims and station speed](docs/buffer-late-claim.md#acton-buffer-discharge-and-station-speed) retain the Acton buffer loss and negative lower-speed trials.
 - [Predictive service trials](docs/experimental-adoption.md#rejected-candidates) leave matched request outcomes unchanged.
-- [Predictive cost trials](docs/predictive-cost.md) measure CPU, allocation, and GC tradeoffs separately from service outcomes.
+- [Predictive cost trials](docs/admission-live-performance.md#predictive-routing-cost) measure CPU, allocation, and GC tradeoffs separately from service outcomes.
 
 ### Tasks
 

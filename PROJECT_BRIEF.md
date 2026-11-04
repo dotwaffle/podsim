@@ -83,7 +83,7 @@ The buffers that it measured increased waits in its selected Central comparisons
 Broader adoption requires separate qualification and a decision.
 The user approved the [adoption gates](docs/experimental-adoption.md) on October 1.
 They add explicit individual-tail limits without authorizing a default change.
-The [combined dispatch qualification](docs/dispatch-policy-qualification.md) records average benefits, tail regressions, and remaining work.
+The [sustained pickup swap comparison](docs/pickup-swap-sustained.md) records average benefits, tail regressions, and remaining work.
 The compatible stream decoder lowers decode and apply time without a whole-browser CPU gain.
 The [sustained pickup-swap study](docs/pickup-swap-sustained.md) lowers average waits and empty distance in its tested pairs, but every arm still grows a backlog.
 Its matched-request diagnosis in the same document separates unfinished requests from completed maxima and retains actual same-request regressions.
@@ -95,7 +95,7 @@ The [route preference and commitment fix](docs/berth-route-preference.md) addres
 Sharing remains off by default.
 The opt-in `reassign-existing` join policy and guarded-positioning follow-up still fail adoption rules.
 These results do not reverse the earlier adoption of the drop-offs mode when sharing is enabled.
-Larger pods exist only in the opt-in Express contract (see the [Express native qualification](docs/express-native-qualification.md)), and no default changes.
+Larger pods exist only in the opt-in Express contract (see the [Express qualification](docs/express-qualification.md)), and no default changes.
 The bounded [predictive routing prototype](docs/predictive-routing.md) is implemented for comparison, with free-flow routing retained by default.
 Local Chromium software-rendering checks cover the viewer, editor, and high-latency streams.
 Desktop Chrome is the required browser for current development.
@@ -612,7 +612,7 @@ A slow pod in a queue can follow the pod ahead at a short gap and share its trac
 Each link keeps a fixed certificate of a run of lanes that turns 120 degrees or less, and its clearance follows from that turn.
 A run can end on the entry lane of a station when both pods go to that station, and such pods choose their berths early.
 A pod that waits for a contested station diverge can coast so that it rolls into the diverge when it frees.
-See [station entry throughput](docs/qualification.md#station-entry-throughput).
+See [station entry throughput](docs/buffer-late-claim.md#station-entry-throughput).
 On the synthetic corridor, platoons of 4 give 2.5 to 3.1 times the flow of single pods.
 A London sweep with 198 pods found that track and junction flow limit the Early band at 9 to 12 requests per minute.
 The ten-seed follow-up raises the highest tested Early rate with one-hour recovery from 10/minute to 11/minute.

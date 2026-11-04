@@ -1,14 +1,29 @@
 # Group pod physics
 
 The group class supports eight seats, parties through eight, and a six-meter body length.
-The model uses the centered six-meter-radius envelope approved in [the large pod proposal](large-body-physics-proposal.md).
-Express is unavailable for physical operation unless a project selects the opt-in `express-v1` order contract (see [the native qualification](express-native-qualification.md)).
+The model uses a centered six-meter-radius envelope, approved by the user on October 3, 2026.
+Express is unavailable for physical operation unless a project selects the opt-in `express-v1` order contract (see [the Express qualification](express-qualification.md)).
 
-Status note, October 7, 2026: station buffers and compact station queues were removed.
-Statements below about compact queues, compact certificates, and buffer policies describe the code before the removal.
+Station buffers and compact station queues were removed on October 7, 2026, because measurements showed that they lowered station entry throughput.
 
 This model does not certify a manufactured vehicle, steering geometry, or seating arrangement.
 No station, fleet, speed, or default policy changes automatically.
+
+## Class dimensions
+
+The route position of a large class is the center of its body envelope.
+Small-class position behavior is unchanged.
+
+| Class | Logical seats | Length | Maximum width | Envelope radius |
+| --- | ---: | ---: | ---: | ---: |
+| Group | 8 | 6 m | 2.5 m | 6 m |
+| Express | 20 | 10 m | 2.5 m | 6 m |
+
+These dimensions are simulation assumptions, not measured vehicle specifications.
+A centered 10-by-2.5-meter rectangle has a half-diagonal of about 5.154 meters, so the six-meter circle encloses it in every orientation.
+Both classes use the same circle to reduce the mixed-class cases to prove.
+A later per-class envelope can use less space after separate qualification.
+The approval does not authorize default adoption, deployment, real vehicle certification, or a detailed axle and steering model.
 
 ## Geometry and ownership
 
@@ -34,8 +49,7 @@ An unrelated destination node cannot enlarge the retained origin.
 Junction conflict intervals already contain their clearance expansion, so release does not add another tail.
 
 Old-only lanes retain the existing 24-meter minimum, 12-meter clearance, and release arithmetic.
-The compact queue formula and its protected constants stay unchanged.
-Large and mixed virtual links and compact certificates are invalid.
+Large and mixed virtual links are invalid.
 An ordinary compact group beside a large pod must satisfy the larger outside separation bound.
 
 ## Body planes
@@ -56,7 +70,7 @@ The observation uses the existing tick rate, acceleration, braking, and authored
 Physical restore reconstructs the current footprint and all unexpired past resources with the larger tails.
 It preserves retained berth, node, and junction ownership.
 Future track grants can differ because saves do not retain speed.
-Restore rejects large links and compact certificates before either restore tier runs.
+Restore rejects large links before either restore tier runs.
 Recorded fallback preserves request identities, consent, original times, and distance baselines.
 
 Native saves have no geometry fingerprint.
@@ -75,7 +89,7 @@ It rejects group links before class caches or published frames change.
 The [measurement record](measurements/group-physics-qualification.json) pins native sources, checks, trace hashes, and byte maxima.
 
 The focused tests include actual journeys with group, compact, and legacy leaders and followers.
-They cover straight and curved motion, stopped following, merges, ordinary and bank stations, parking, and buffer policies.
+They cover straight and curved motion, stopped following, merges, ordinary and bank stations, and parking.
 Every observed tick checks physical separation, speed changes, owned stopping bounds, position continuity, and order conservation.
 Cold checkpoints cover passenger service, empty fetch, origin retention, route trimming, and intermediate shared unloading.
 At qualification, actual consumers exercised save-6 restore and hello-3 full and replacement-delta frames; those versions are now 9 and 7.
