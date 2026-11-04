@@ -136,8 +136,14 @@ func proposeScalarEdit(draft any, command editCommand, value any) (projectChange
 		err = change.generatedOrderConsent(draft, value)
 	case "platoonLimit":
 		change.platoonLimit(draft, command.Field, value)
+	case "faultDurationKind":
+		err = change.faultDurationKind(draft, value)
 	default:
-		return projectChange{}, errors.New("unknown editor field")
+		field, known := incidentFields[command.Field]
+		if !known {
+			return projectChange{}, errors.New("unknown editor field")
+		}
+		err = change.incidentNumber(draft, field, value)
 	}
 	if err != nil {
 		return projectChange{}, err

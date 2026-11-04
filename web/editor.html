@@ -277,6 +277,20 @@
         <p class="hint">Use Apply draft to activate this setting. It is off by default and can change passenger waits.</p>
       </section>
       <section>
+        <h2>Faults and emergencies</h2>
+        <p class="hint">An empty field keeps its default. Rates start random incidents. A rate above 0 for faults needs a duration. Use Apply draft to activate these settings. Apply rebuilds the fleet.</p>
+        <label>Faults per hour<input id="faultPerHour" type="number" min="0" max="60" step="any" placeholder="0"></label>
+        <label>Debris share of faults<input id="faultDebrisShare" type="number" min="0" max="1" step="any" placeholder="0"></label>
+        <label>Debris length (m)<input id="faultDebrisMeters" type="number" min="0.5" max="50" step="any" placeholder="2"></label>
+        <label>Time to evacuation (s)<input id="faultEvacuationSeconds" type="number" min="0" max="3600" step="1" placeholder="300"></label>
+        <label>Fault duration<select id="faultDurationKind"><option value="">Not set</option><option value="fixed">Fixed</option><option value="uniform">Uniform</option><option value="exponential">Exponential</option></select></label>
+        <label id="faultDurationSecondsLabel" hidden>Duration (s)<input id="faultDurationSeconds" type="number" min="1" max="86400" step="1"></label>
+        <label id="faultDurationMinSecondsLabel" hidden>Shortest duration (s)<input id="faultDurationMinSeconds" type="number" min="1" max="86400" step="1"></label>
+        <label id="faultDurationMaxSecondsLabel" hidden>Longest duration (s)<input id="faultDurationMaxSeconds" type="number" min="1" max="86400" step="1"></label>
+        <label id="faultDurationMeanSecondsLabel" hidden>Mean duration (s)<input id="faultDurationMeanSeconds" type="number" min="1" max="86400" step="1"></label>
+        <label>Emergencies per hour<input id="emergencyPerHour" type="number" min="0" max="60" step="any" placeholder="0"></label>
+      </section>
+      <section>
         <div class="section-title"><h2>Rail arrivals</h2><button id="addRailArrival" type="button">Add arrival</button></div>
         <p class="hint">Times use simulated seconds since reset. Walking delays postpone requests. Select Rail arrivals in Passenger demand to use this plan.</p>
         <div id="railArrivalRows"></div>

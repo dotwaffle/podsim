@@ -4342,8 +4342,8 @@ function scalarEditor(config) {
     editorProposal: async (project, edit) => go.handle({ id: 1, op: "edit", keys: Object.keys(project), patch: project, edit: { ...edit, editor: true } }),
     toast: (text) => page.toasts.push(text), setScalarValue() {}, renderDemand() {}, renderFleet() {}, renderHistoryButtons() {}, renderApply() {}, restorePendingInputs() {},
   };
-  page.edit = async (value) => {
-    editorFunction("  function cancelPendingEdits() {", "queueScalarEdit", deps)("generatedOrderConsent", { type: "select-one", value });
+  page.edit = async (value, field = "generatedOrderConsent") => {
+    editorFunction("  function cancelPendingEdits() {", "queueScalarEdit", deps)(field, { type: "select-one", value });
     await page.pending.catch(() => {}); await tick();
   };
   return page;
@@ -4377,6 +4377,105 @@ test("normalization and import keep the generated passengers member as the file 
   assert.equal(editor.parseDocument(editor.serializeDocument(shared)).scenario.generatedOrderConsent, "shared");
   const pooled = { ...absent, generatedOrderConsent: "pooled" }, refused = go.handle({ id: 1, op: "validate", keys: Object.keys(pooled), patch: pooled });
   assert.ok(refused.errors.some((row) => row.text === "The generated order consent must be private or shared."), "the checks accepted another value");
+});
+
+test("the incident form offers each setting of the project with its limits", () => {
+  const html = fs.readFileSync(path.join(__dirname, "editor.html"), "utf8"), source = fs.readFileSync(path.join(__dirname, "editor.js"), "utf8");
+  const limits = { faultPerHour: [0, 60], faultDebrisShare: [0, 1], faultDebrisMeters: [0.5, 50], faultEvacuationSeconds: [0, 3600], faultDurationSeconds: [1, 86400], faultDurationMinSeconds: [1, 86400], faultDurationMaxSeconds: [1, 86400], faultDurationMeanSeconds: [1, 86400], emergencyPerHour: [0, 60] };
+  for (const [id, [low, high]] of Object.entries(limits)) {
+    const input = html.match(new RegExp(`<input id="${id}" type="number" min="([^"]+)" max="([^"]+)"`));
+    assert.ok(input, `the form has no field ${id}`);
+    assert.deepEqual([Number(input[1]), Number(input[2])], [low, high], id);
+    assert.ok(source.includes(`"${id}"`), `${id} has no binding`);
+  }
+  const kinds = html.match(/<select id="faultDurationKind">(.*?)<\/select>/);
+  assert.deepEqual([...kinds[1].matchAll(/<option value="(\w*)">/g)].map((match) => match[1]), ["", "fixed", "uniform", "exponential"]);
+  assert.ok(source.includes(`"faultDurationKind"`));
+});
+
+// incidentForm renders the incident form on fake fields, and returns them.
+function incidentForm(config) {
+  const fields = new Map(), field = (selector) => { if (!fields.has(selector)) fields.set(selector, { value: "", hidden: true }); return fields.get(selector); };
+  const setScalarValue = (selector, value) => { field(selector).value = String(value); };
+  editorFunction("  // renderIncidentSettings shows", "renderIncidentSettings", { $: field, setScalarValue })(config);
+  return { value: (id) => field(`#${id}`).value, shown: (id) => !field(`#${id}Label`).hidden };
+}
+
+test("the incident form shows an absent member as an empty field and writes nothing", () => {
+  const config = connectedScenario(), before = editor.serializeDocument(config), form = incidentForm(config);
+  for (const id of ["faultPerHour", "faultDebrisShare", "faultDebrisMeters", "faultEvacuationSeconds", "faultDurationKind", "faultDurationSeconds", "emergencyPerHour"]) assert.equal(form.value(id), "", id);
+  assert.equal(editor.serializeDocument(config), before, "rendering the form changed the export");
+  for (const id of ["faultDurationSeconds", "faultDurationMinSeconds", "faultDurationMaxSeconds", "faultDurationMeanSeconds"]) assert.equal(form.shown(id), false, id);
+});
+
+test("the incident form shows the values and the duration fields of each kind", () => {
+  const form = (duration) => incidentForm({ faults: { perHour: 0, debrisShare: 0.25, debrisMeters: 3, evacuationSeconds: 0, duration }, emergencies: { perHour: 4 } });
+  const fixed = form({ kind: "fixed", seconds: 600 });
+  assert.deepEqual(["faultPerHour", "faultDebrisShare", "faultDebrisMeters", "faultEvacuationSeconds", "faultDurationKind", "faultDurationSeconds", "emergencyPerHour"].map(fixed.value), ["0", "0.25", "3", "0", "fixed", "600", "4"]);
+  const shown = (duration) => ["faultDurationSeconds", "faultDurationMinSeconds", "faultDurationMaxSeconds", "faultDurationMeanSeconds"].map(form(duration).shown);
+  assert.deepEqual(shown({ kind: "fixed", seconds: 600 }), [true, false, false, false]);
+  assert.deepEqual(shown({ kind: "uniform" }), [false, true, true, false]);
+  assert.deepEqual(shown({ kind: "exponential" }), [false, true, true, true]);
+  const uniform = form({ kind: "uniform", minSeconds: 10, maxSeconds: 20 });
+  assert.deepEqual([uniform.value("faultDurationMinSeconds"), uniform.value("faultDurationMaxSeconds")], ["10", "20"]);
+});
+
+test("a form edit writes the member, and clearing it restores the bytes of a project with no settings", needsGo, async () => {
+  const absent = connectedScenario(), baseline = editor.serializeDocument(absent);
+  assert.equal(Object.hasOwn(absent, "faults"), false);
+  assert.equal(Object.hasOwn(absent, "emergencies"), false);
+  const page = scalarEditor(absent);
+  await page.edit("", "faultPerHour");
+  await page.edit("", "emergencyPerHour");
+  assert.equal(editor.serializeDocument(page.config), baseline, "a clear on an absent member changed the export");
+  await page.edit("0", "faultPerHour");
+  assert.deepEqual(page.config.faults, { perHour: 0 });
+  await page.edit("fixed", "faultDurationKind");
+  await page.edit("600", "faultDurationSeconds");
+  await page.edit("3", "emergencyPerHour");
+  assert.deepEqual(page.config.faults, { perHour: 0, duration: { kind: "fixed", seconds: 600 } });
+  assert.deepEqual(page.config.emergencies, { perHour: 3 });
+  assert.deepEqual(editor.parseDocument(editor.serializeDocument(page.config)).scenario.faults, page.config.faults);
+  await page.edit("", "faultPerHour");
+  assert.deepEqual(page.config.faults, { duration: { kind: "fixed", seconds: 600 } });
+  await page.edit("", "faultDurationKind");
+  assert.equal(Object.hasOwn(page.config, "faults"), false, "the last clear left the member in the draft");
+  await page.edit("", "emergencyPerHour");
+  assert.equal(Object.hasOwn(page.config, "emergencies"), false, "the last clear left the member in the draft");
+  assert.equal(editor.serializeDocument(page.config), baseline, "the export after the clears has other bytes");
+  assert.deepEqual(page.toasts, []);
+});
+
+test("a loaded project with settings keeps them through normalization and an unrelated edit", needsGo, async () => {
+  const go = goEditorOperations(), normalize = (project) => go.handle({ id: 1, op: "edit", keys: Object.keys(project), patch: project, edit: { field: "normalize", value: true, editor: true } }).change.patch;
+  const absent = connectedScenario();
+  assert.equal(Object.hasOwn(normalize(absent), "faults"), false, "normalization added the member");
+  assert.equal(Object.hasOwn(normalize(absent), "emergencies"), false, "normalization added the member");
+  const zero = { ...absent, faults: {}, emergencies: { perHour: 0 } }, baseline = editor.serializeDocument(zero);
+  assert.equal(Object.hasOwn(normalize(zero), "faults"), false, "normalization changed a member");
+  const page = scalarEditor(zero);
+  await page.edit("shared");
+  await page.edit("private");
+  assert.equal(editor.serializeDocument(page.config), baseline, "an unrelated edit changed the settings");
+});
+
+test("the native model refuses incident settings with the refusals of the server", needsGo, () => {
+  const go = goEditorOperations(), base = connectedScenario(), reply = (project) => go.handle({ id: 1, op: "validate", keys: Object.keys(project), patch: project });
+  const refused = (project, text) => { const result = reply(project); assert.equal(result.valid, false, text); assert.ok(result.errors.some((row) => row.text.includes(text)), `${text}: ${JSON.stringify(result.errors)}`); };
+  refused({ ...base, faults: { perHour: 61, duration: { kind: "fixed", seconds: 600 } } }, "faults perHour must be 0 to 60");
+  refused({ ...base, faults: { perHour: 1 } }, "faults perHour above 0 needs a duration");
+  refused({ ...base, emergencies: { perHour: 61 } }, "emergencies perHour must be 0 to 60");
+  assert.equal(reply({ ...base, faults: { perHour: 1, duration: { kind: "fixed", seconds: 600 } }, emergencies: { perHour: 1 } }).valid, true);
+});
+
+test("the form can repair a draft that the native model refuses", needsGo, async () => {
+  const absent = connectedScenario(), page = scalarEditor(absent);
+  await page.edit("5", "faultPerHour");
+  assert.deepEqual(page.config.faults, { perHour: 5 });
+  await page.edit("fixed", "faultDurationKind");
+  await page.edit("600", "faultDurationSeconds");
+  assert.deepEqual(page.config.faults, { perHour: 5, duration: { kind: "fixed", seconds: 600 } });
+  assert.deepEqual(page.toasts, []);
 });
 
 test("measurement rendering draws only newer Go replies and discards replies after measurements turn off", async () => {

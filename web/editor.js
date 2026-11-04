@@ -3173,6 +3173,27 @@
     setScalarValue("#generatedOrderConsent", config.generatedOrderConsent || "private");
     setScalarValue("#platoonLimit", String(config.platoonLimit));
     $("#pickupReassignment").checked = config.pickupReassignment;
+    renderIncidentSettings(config);
+  }
+
+  // renderIncidentSettings shows the form of the faults and emergencies
+  // settings. An absent member shows as an empty field, and the form writes
+  // nothing until a field changes, so that a loaded project keeps its bytes.
+  function renderIncidentSettings(config) {
+    const faults = config.faults || {}, duration = faults.duration || {}, emergencies = config.emergencies || {};
+    setScalarValue("#faultPerHour", faults.perHour ?? "");
+    setScalarValue("#faultDebrisShare", faults.debrisShare ?? "");
+    setScalarValue("#faultDebrisMeters", faults.debrisMeters ?? "");
+    setScalarValue("#faultEvacuationSeconds", faults.evacuationSeconds ?? "");
+    setScalarValue("#faultDurationKind", duration.kind ?? "");
+    setScalarValue("#faultDurationSeconds", duration.seconds ?? "");
+    setScalarValue("#faultDurationMinSeconds", duration.minSeconds ?? "");
+    setScalarValue("#faultDurationMaxSeconds", duration.maxSeconds ?? "");
+    setScalarValue("#faultDurationMeanSeconds", duration.meanSeconds ?? "");
+    setScalarValue("#emergencyPerHour", emergencies.perHour ?? "");
+    $("#faultDurationSecondsLabel").hidden = duration.kind !== "fixed";
+    $("#faultDurationMinSecondsLabel").hidden = $("#faultDurationMaxSecondsLabel").hidden = !["uniform", "exponential"].includes(duration.kind);
+    $("#faultDurationMeanSecondsLabel").hidden = duration.kind !== "exponential";
   }
 
   let parkRideStations = null, parkRideBusy = false;
@@ -3658,8 +3679,8 @@
       if (!current()) return false;
       if (config !== draft() || generation !== model.edits || state.drag && state.drag.type !== "pan" || model.gestureOpen) throw new Error("The draft changed during the edit. Enter the setting again.");
       const scenario = { ...config, ...result.change.patch };
-      // Private removes the member, so that an export has the bytes of a private project.
-      if (result.change.patch.generatedOrderConsent === null) delete scenario.generatedOrderConsent;
+      // A null value removes the member, so that an export has the bytes of a project without it.
+      for (const [key, value] of Object.entries(result.change.patch)) if (value === null) delete scenario[key];
       await state.history.replace({ scenario, background: state.background }, true, Boolean(result.change.flag), { current });
       return true;
     }).catch((error) => toast(error.message, true)).finally(() => {
@@ -4380,6 +4401,7 @@
     }
     for (const id of ["demandEnabled", "demandRate", "demandPattern", "demandDestination", "demandProfile", "demandBand", "sharedRidePartyLimit", "sharedRideMode", "sharedRideJoin", "sharedRideMaxStops", "platoonLimit", "demandSeed", "redistribution", "pickupReassignment"]) bindScalarInput(id);
     bindScalarInput("generatedOrderConsent");
+    for (const id of ["faultPerHour", "faultDebrisShare", "faultDebrisMeters", "faultEvacuationSeconds", "faultDurationKind", "faultDurationSeconds", "faultDurationMinSeconds", "faultDurationMaxSeconds", "faultDurationMeanSeconds", "emergencyPerHour"]) bindScalarInput(id);
     bindScalarInput("scenarioName", "name");
     $("#fleetControls").addEventListener("input", (event) => { if (event.target.dataset.station) markTyping(event.target); });
     $("#fleetControls").addEventListener("change", (event) => { if (event.target.dataset.station) queueScalarEdit("fleetCount", event.target, event.target.dataset.station); });
