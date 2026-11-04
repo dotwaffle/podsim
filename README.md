@@ -92,20 +92,15 @@ The server saves at startup, every 60 seconds while the session changes, about 1
 It waits at most 2 seconds for the save before a reply, and if the save fails or takes longer, the reply tells the client and the view or the editor shows a warning.
 After a stop without the final save, the restored session can be up to about 60 seconds old.
 
-At startup, the server restores the session with one of three tiers, and state frames give the result in `restore`:
-
-| Tier | Behavior |
-| --- | --- |
-| `physical` | The pods keep their positions and start again from rest. A traveling pod that cannot keep its position goes to a free berth. |
-| `logical` | The pods start again at their initial berths. Parties that were unloading at their stop count as completed, and each other party in a pod goes back to the order queue as one order. |
-| `empty` | The server does not use the saved state and starts a new session. Except after a read failure, it moves the file aside. |
+At startup, the server restores the session with one of three tiers, `physical`, `logical`, or `empty`, and state frames give the result in `restore`.
+The `physical` tier keeps the pod positions, the `logical` tier starts the pods again at their initial berths, and the `empty` tier starts a new session.
 
 With `-project`, the project file has priority.
 If the saved project differs, the server starts a new session with the file.
 If only demand or experimental policy settings differ, the server restores the session and applies the settings of the file, unless the saved traffic demo is running, which starts a new session.
 Without `-project`, the server restores the saved project.
 
-See [session state](docs/operations.md#session-state) for the file names and the recovery steps, and [session state logs](docs/operations.md#session-state-logs) for the logs.
+See [session state](docs/operations.md#session-state) for the file names, the restore rules, and the recovery steps, and [session state logs](docs/operations.md#session-state-logs) for the logs.
 
 ### Production server
 

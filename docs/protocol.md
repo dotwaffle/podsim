@@ -39,7 +39,6 @@ They refuse a reply with another media type before they read it.
 They also refuse a reply that has a `textEncoding`, `couplingContract`, `incidentContract`, `faultContract`, or `emergencyContract` member at any level, or that is over the stream limits of 64 levels and 65536 elements in an array.
 The root, `topology` and `frame.state.simulation` must have the same `orderContract` marker.
 When present, `orderContract` must be `express-v1`.
-The Go decoders refuse `incidentContract`, `faultContract`, and `emergencyContract` as unknown members.
 
 All JSON member names use lowerCamel case, such as `projectRevision`, `routeLaneIDs` and `id`.
 A decoder matches member names exactly.
