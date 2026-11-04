@@ -19,6 +19,14 @@ type EmergencyConfig struct {
 // which JSON writes as -0.
 var widestEmergencies = EmergencyConfig{PerHour: new(math.Copysign(0, -1))}
 
+// WidestOperationSettings returns the widest faults and emergencies settings
+// that Validate measures each project with. A test that sizes a project near
+// the file limit needs them. The values share their pointers with the
+// package, so a caller must not change what the pointers hold.
+func WidestOperationSettings() (FaultConfig, EmergencyConfig) {
+	return widestFaults, widestEmergencies
+}
+
 // validateEmergencies checks the emergencies settings of a project with an
 // emergencies member.
 func validateEmergencies(config Config) error {

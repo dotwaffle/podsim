@@ -624,13 +624,8 @@ func widestSettingsBytes(t *testing.T) int {
 	config := project.Default()
 	config.Faults, config.Emergencies = nil, nil
 	plain := len(canonicalJSON(t, config))
-	negativeZero := math.Copysign(0, -1)
-	config.Faults = &project.FaultConfig{
-		EvacuationSeconds: new(3600), PerHour: &negativeZero,
-		DebrisShare: new(1.0000000000000002e-06), DebrisMeters: new(0.5000000000000001),
-		Duration: &project.FaultDuration{Kind: "exponential", MinSeconds: new(86400), MaxSeconds: new(86400), MeanSeconds: new(86400)},
-	}
-	config.Emergencies = &project.EmergencyConfig{PerHour: &negativeZero}
+	faults, emergencies := project.WidestOperationSettings()
+	config.Faults, config.Emergencies = &faults, &emergencies
 	return len(canonicalJSON(t, config)) - plain
 }
 
