@@ -89,50 +89,28 @@ type runInput struct {
 // cases the flag set already printed the usage text to standard error. run
 // never exits the process.
 func run(ctx context.Context, input runInput) error {
-	flags := flag.NewFlagSet("serve", flag.ContinueOnError)
-	address := flags.String("addr", "127.0.0.1:8080", "HTTP listen address")
-	directory := flags.String("dir", "", "Browser build directory; overrides embedded assets")
-	pprofAddress := flags.String("pprof-addr", "", "Separate pprof listen address; disabled when empty")
-	geocodingURL := flags.String("geocoding-url", "https://nominatim.openstreetmap.org/search", "Nominatim-compatible search URL; empty disables place search")
-	projectPath := flags.String("project", "", "Project JSON file to load and save")
-	publicOrigin := flags.String("public-origin", "", "Canonical public HTTP or HTTPS origin for commands and streams")
-	stateURL := flags.String("state", "", "Bucket URL for the saved session state, for example file:///var/lib/podsim. Off when empty.")
-	if err := flags.Parse(input.args); err != nil {
-		return fmt.Errorf("%w: %w", errFlags, err)
-	}
-	originOption, err := session.WithPublicOrigin(*publicOrigin)
+	flags, err := parseServeFlags(input.args)
 	if err != nil {
-		return fmt.Errorf("%w: %w", errFlags, err)
+		return err
 	}
-	geocodingOption, err := session.WithGeocodingURL(*geocodingURL)
-	if err != nil {
-		return fmt.Errorf("%w: %w", errFlags, err)
-	}
-	files, err := browserFiles(*directory)
+	files, err := browserFiles(flags.directory)
 	if err != nil {
 		return err
 	}
 	build := buildIDOrRandom(slog.Default(), files)
-	config := project.Default()
-	options := []session.Option{originOption, geocodingOption, session.WithLogger(slog.Default()), session.WithBuildID(build)}
-	if *projectPath != "" {
-		loaded, loadErr := loadProject(*projectPath)
-		if loadErr != nil {
-			return loadErr
-		}
-		config = loaded
-		options = append(options, session.WithProjectSaver(func(config project.Config) error {
-			return saveProject(*projectPath, config)
-		}))
+	flags.options = append(flags.options, session.WithLogger(slog.Default()), session.WithBuildID(build))
+	config, options, err := loadStartProject(flags.projectPath, flags.options)
+	if err != nil {
+		return err
 	}
 	shared, closeStore, err := openSession(ctx, openInput{
-		config: config, projectSet: *projectPath != "", stateURL: *stateURL, logger: slog.Default(), options: options,
+		config: config, projectSet: flags.projectPath != "", stateURL: flags.stateURL, logger: slog.Default(), options: options,
 	})
 	if err != nil {
 		// NewFromStore stops when ctx ends during the read of the saved
 		// state. This is a clean stop, as it is in runServers.
 		if ctx.Err() != nil {
-			slog.Info("Stop during startup", slog.String("cause", "signal"), slog.Any("error", err))
+			logStartupStop(err)
 			return nil
 		}
 		return err
@@ -148,13 +126,13 @@ func run(ctx context.Context, input runInput) error {
 	// starts do not reject the saved state with reason restore_loop.
 	clockStarted := false
 	defer func() {
-		if !clockStarted && *stateURL != "" {
+		if !clockStarted && flags.stateURL != "" {
 			shared.Close()
 			saveFinal(ctx, shared, slog.Default())
 		}
 	}()
 	if cancelErr := ctx.Err(); cancelErr != nil {
-		slog.Info("Stop during startup", slog.String("cause", "signal"), slog.Any("error", cancelErr))
+		logStartupStop(cancelErr)
 		return nil
 	}
 	newTelemetry := input.newTelemetry
@@ -164,7 +142,7 @@ func run(ctx context.Context, input runInput) error {
 	telemetryProvider, err := newTelemetry(ctx, buildVersion(), shared.Metrics)
 	if err != nil {
 		if ctx.Err() != nil {
-			slog.Info("Stop during startup", slog.String("cause", "signal"), slog.Any("error", err))
+			logStartupStop(err)
 			return nil
 		}
 		return err
@@ -176,11 +154,83 @@ func run(ctx context.Context, input runInput) error {
 			slog.Warn("Shut down telemetry", slog.Any("error", err))
 		}
 	}()
-	handler := telemetryProvider.HTTPHandler(shared.HandlerFS(files))
+	servers := newServers(flags, telemetryProvider.HTTPHandler(shared.HandlerFS(files)))
+	if err := openListeners(ctx, servers); err != nil {
+		return err
+	}
+	if input.ready != nil {
+		input.ready(servers[0].listener.Addr().String())
+	}
+	slog.Info("Open Podsim in your browser", slog.String("url", "http://"+servers[0].logAddress()), slog.String("build", build))
+	if flags.pprofAddress != "" {
+		slog.Info("Enabled pprof", slog.String("address", servers[1].logAddress()))
+	}
+	clockStarted = true
+	return serveSession(ctx, serveSessionInput{shared: shared, servers: servers, saveState: flags.stateURL != ""})
+}
+
+// serveFlags holds the command-line flags of run. options holds the session
+// options that come from the flags.
+type serveFlags struct {
+	address, directory, pprofAddress, projectPath, stateURL string
+	options                                                 []session.Option
+}
+
+// parseServeFlags parses args. A bad flag or a bad flag value gives an error
+// that wraps errFlags.
+func parseServeFlags(args []string) (serveFlags, error) {
+	flags := flag.NewFlagSet("serve", flag.ContinueOnError)
+	address := flags.String("addr", "127.0.0.1:8080", "HTTP listen address")
+	directory := flags.String("dir", "", "Browser build directory; overrides embedded assets")
+	pprofAddress := flags.String("pprof-addr", "", "Separate pprof listen address; disabled when empty")
+	geocodingURL := flags.String("geocoding-url", "https://nominatim.openstreetmap.org/search", "Nominatim-compatible search URL; empty disables place search")
+	projectPath := flags.String("project", "", "Project JSON file to load and save")
+	publicOrigin := flags.String("public-origin", "", "Canonical public HTTP or HTTPS origin for commands and streams")
+	stateURL := flags.String("state", "", "Bucket URL for the saved session state, for example file:///var/lib/podsim. Off when empty.")
+	if err := flags.Parse(args); err != nil {
+		return serveFlags{}, fmt.Errorf("%w: %w", errFlags, err)
+	}
+	originOption, err := session.WithPublicOrigin(*publicOrigin)
+	if err != nil {
+		return serveFlags{}, fmt.Errorf("%w: %w", errFlags, err)
+	}
+	geocodingOption, err := session.WithGeocodingURL(*geocodingURL)
+	if err != nil {
+		return serveFlags{}, fmt.Errorf("%w: %w", errFlags, err)
+	}
+	return serveFlags{
+		address: *address, directory: *directory, pprofAddress: *pprofAddress, projectPath: *projectPath, stateURL: *stateURL,
+		options: []session.Option{originOption, geocodingOption},
+	}, nil
+}
+
+// loadStartProject returns the project at path and options with a saver for
+// that path. An empty path gives the default project and options unchanged.
+func loadStartProject(path string, options []session.Option) (project.Config, []session.Option, error) {
+	if path == "" {
+		return project.Default(), options, nil
+	}
+	loaded, err := loadProject(path)
+	if err != nil {
+		return project.Config{}, nil, err
+	}
+	return loaded, append(options, session.WithProjectSaver(func(config project.Config) error {
+		return saveProject(path, config)
+	})), nil
+}
+
+// logStartupStop logs a clean stop because ctx ended during startup.
+func logStartupStop(err error) {
+	slog.Info("Stop during startup", slog.String("cause", "signal"), slog.Any("error", err))
+}
+
+// newServers returns the application server with handler, and the pprof
+// server when flags has its address.
+func newServers(flags serveFlags, handler http.Handler) []namedServer {
 	// A command can wait up to 2 s for a state save before its reply. Keep
 	// WriteTimeout longer than ReadTimeout plus that wait.
 	application := &http.Server{
-		Addr:              *address,
+		Addr:              flags.address,
 		Handler:           handler,
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
@@ -188,9 +238,9 @@ func run(ctx context.Context, input runInput) error {
 		IdleTimeout:       60 * time.Second,
 	}
 	servers := []namedServer{{name: "application", server: application}}
-	if *pprofAddress != "" {
+	if flags.pprofAddress != "" {
 		diagnostics := &http.Server{
-			Addr:              *pprofAddress,
+			Addr:              flags.pprofAddress,
 			Handler:           pprofHandler(),
 			ReadHeaderTimeout: 5 * time.Second,
 			ReadTimeout:       10 * time.Second,
@@ -199,28 +249,33 @@ func run(ctx context.Context, input runInput) error {
 		}
 		servers = append(servers, namedServer{name: "pprof", server: diagnostics})
 	}
-	if err := openListeners(ctx, servers); err != nil {
-		return err
-	}
-	if input.ready != nil {
-		input.ready(servers[0].listener.Addr().String())
-	}
-	slog.Info("Open Podsim in your browser", slog.String("url", "http://"+servers[0].logAddress()), slog.String("build", build))
-	if *pprofAddress != "" {
-		slog.Info("Enabled pprof", slog.String("address", servers[1].logAddress()))
-	}
+	return servers
+}
+
+// serveSessionInput holds the inputs of serveSession. saveState is true when
+// the session has a state store.
+type serveSessionInput struct {
+	shared    *session.Session
+	servers   []namedServer
+	saveState bool
+}
+
+// serveSession runs the clock, the state saver, and the servers until ctx is
+// done or a server fails. Then it stops the servers, the streams, the clock,
+// and the state saver, in this order.
+func serveSession(ctx context.Context, input serveSessionInput) error {
+	shared := input.shared
 	clockContext, stopClock := context.WithCancel(ctx)
 	defer stopClock()
 	var clock sync.WaitGroup
-	clockStarted = true
 	clock.Go(func() { shared.Run(clockContext) })
 	saverContext, stopSaver := context.WithCancel(ctx)
 	defer stopSaver()
 	var saver sync.WaitGroup
-	if *stateURL != "" {
+	if input.saveState {
 		saver.Go(func() { shared.RunStateSaver(saverContext, stateSaveInterval) })
 	}
-	serveErr := runServers(ctx, serveInput{servers: servers, stopping: func() {
+	serveErr := runServers(ctx, serveInput{servers: input.servers, stopping: func() {
 		shared.Close()
 		stopClock()
 	}})
@@ -230,7 +285,7 @@ func run(ctx context.Context, input runInput) error {
 	}
 	stopStreams()
 	clockStopped := waitFor(waitInput{group: &clock, name: "Simulation clock", timeout: 5 * time.Second, logger: slog.Default()})
-	if *stateURL != "" {
+	if input.saveState {
 		stopStateSaving(ctx, stopInput{
 			session: shared, clockStopped: clockStopped, saver: &saver, stopSaver: stopSaver, logger: slog.Default(),
 		})
