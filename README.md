@@ -779,8 +779,8 @@ The network remains usable when tiles are unavailable.
 Projects save the provider, opacity, and geographic reference, not tile pixels.
 They need internet access to load the map on another machine.
 There is no offline tile download, tile proxy, or automatic guideway generation.
-Existing PNG and JPEG backgrounds, including older schematic imports, remain usable in the editor.
-Their image export and calibration behavior do not change.
+The editor also accepts a PNG or JPEG image as a background.
+The live map does not change the export or the calibration of that image.
 
 Keep the visible OpenStreetMap attribution when sharing a map view.
 Network geometry traced from OSM can be subject to the [ODbL](https://www.openstreetmap.org/copyright).
