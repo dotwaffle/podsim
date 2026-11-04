@@ -19,7 +19,7 @@ const MaxExpressServices = 300
 // do not migrate.
 func validateVersion(config Config) error {
 	if config.Version >= 2 && config.Version <= 5 {
-		return fmt.Errorf("project version %d is not supported: use version %d with feature markers", config.Version, CurrentVersion)
+		return fmt.Errorf("project version %d is not supported: use version %d", config.Version, CurrentVersion)
 	}
 	if config.Version != CurrentVersion {
 		return fmt.Errorf("project version must be %d", CurrentVersion)

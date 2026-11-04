@@ -149,7 +149,7 @@ func earlierVersion(draft any) (int, bool) {
 func draftVersionError(draft any) string {
 	version := number(member(draft, "version"))
 	if earlier, found := earlierVersion(draft); found {
-		return fmt.Sprintf("Project version %d is not supported: use version %d with feature markers.", earlier, project.CurrentVersion)
+		return fmt.Sprintf("Project version %d is not supported: use version %d.", earlier, project.CurrentVersion)
 	}
 	if version != project.CurrentVersion {
 		return fmt.Sprintf("The scenario version must be %d.", project.CurrentVersion)

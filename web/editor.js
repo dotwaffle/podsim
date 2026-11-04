@@ -621,7 +621,7 @@
     if (!("network" in document)) throw new Error("The file has no format field and no network field.");
     if (!isObject(document.network)) throw new Error("The network field must be an object.");
     // The earlier project versions 2 to 5 get the native refusal.
-    if ([2, 3, 4, 5].includes(document.version)) throw new Error(`Project version ${document.version} is not supported: use version 1 with feature markers.`);
+    if ([2, 3, 4, 5].includes(document.version)) throw new Error(`Project version ${document.version} is not supported: use version 1.`);
     if (document.version !== 1) throw new Error("The version field must be 1.");
     return { scenario: clone(document), background: null };
   }

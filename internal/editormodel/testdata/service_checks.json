@@ -622,7 +622,7 @@
       "checks": {
         "errors": [
           {
-            "text": "Project version 3 is not supported: use version 1 with feature markers.",
+            "text": "Project version 3 is not supported: use version 1.",
             "target": null
           }
         ],
@@ -642,7 +642,7 @@
       "checks": {
         "errors": [
           {
-            "text": "Project version 2 is not supported: use version 1 with feature markers.",
+            "text": "Project version 2 is not supported: use version 1.",
             "target": null
           }
         ],

@@ -154,7 +154,7 @@ test("projects keep version 1 through import and export", () => {
     assert.equal(editor.serializeDocument(config), JSON.stringify({ format: "podsim", version: 1, scenario: config }), `${name} export`);
   }
   for (const version of [2, 3, 4, 5]) {
-    assert.throws(() => editor.parseDocument(JSON.stringify({ ...connectedScenario(), version })), new RegExp(`Project version ${version} is not supported: use version 1 with feature markers`));
+    assert.throws(() => editor.parseDocument(JSON.stringify({ ...connectedScenario(), version })), new RegExp(`Project version ${version} is not supported: use version 1`));
   }
   assert.throws(() => editor.parseDocument(JSON.stringify({ ...connectedScenario(), version: 6 })), /The version field must be 1\./);
 });
@@ -185,7 +185,7 @@ test("import rejects a repeated member name as the server decoders do, and passe
   const config = JSON.parse(decoderParity()[0].text);
   for (const [change, message] of [
     [(file) => { file.version = 6; }, /The version field must be 1\./],
-    [(file) => { file.version = 5; }, /Project version 5 is not supported: use version 1 with feature markers\./],
+    [(file) => { file.version = 5; }, /Project version 5 is not supported: use version 1\./],
     [(file) => { delete file.version; }, /The version field must be 1\./],
     [(file) => { file.network = null; }, /The network field must be an object/],
     [(file) => { delete file.network; file["vers\u0131on"] = 1; }, /no format field and no network field/],
@@ -812,7 +812,7 @@ test("import names the missing or wrong field", () => {
     { name: "an API reply", file: { revision: 3, project: scenario }, message: "The file has no format field and no network field." },
     { name: "a project with a network list", file: { ...scenario, network: [] }, message: "The network field must be an object." },
     { name: "a project with no version", file: { ...scenario, version: undefined }, message: "The version field must be 1." },
-    { name: "a project of an earlier version", file: { ...scenario, version: 3 }, message: "Project version 3 is not supported: use version 1 with feature markers." },
+    { name: "a project of an earlier version", file: { ...scenario, version: 3 }, message: "Project version 3 is not supported: use version 1." },
   ];
   for (const item of cases) {
     assert.throws(() => editor.parseDocument(JSON.stringify(item.file)), { message: item.message }, item.name);
