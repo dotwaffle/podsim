@@ -172,14 +172,42 @@ func (g geometryDraft) setLayoutDimensions(layout stationDimensions, raw jsontex
 		return fmt.Errorf("decode station dimensions: %w", err)
 	}
 	previous := map[string]*float64{"pitch": layout.pitch, "spacing": &layout.spacing, "setback": layout.setback}
+	changed, err := dimensionsChanged(dimensions, previous)
+	if err != nil {
+		return err
+	}
+	if !changed {
+		return nil
+	}
+	moved, err := g.moveNodes(layoutMoves(layout, dimensions, previous))
+	if err != nil {
+		return err
+	}
+	lanes, err := g.movedLanes(moved, check)
+	if err != nil {
+		return err
+	}
+	if !check {
+		return nil
+	}
+	if conflict := g.laneConflict(lanes, true); conflict != nil {
+		return fmt.Errorf("lane %s would come within %g meters of lane %s", conflict.lane, conflict.minimum, conflict.other)
+	}
+	return nil
+}
+
+// dimensionsChanged checks the new values in dimensions against the keys
+// and the values in previous. It reports whether a value differs from its
+// previous value.
+func dimensionsChanged(dimensions map[string]float64, previous map[string]*float64) (bool, error) {
 	changed := false
 	for key, value := range dimensions {
 		old, found := previous[key]
 		if !found {
-			return fmt.Errorf("unknown station dimension %s", key)
+			return false, fmt.Errorf("unknown station dimension %s", key)
 		}
 		if old == nil {
-			return fmt.Errorf("the station does not support %s changes", key)
+			return false, fmt.Errorf("the station does not support %s changes", key)
 		}
 		minimum := math.SmallestNonzeroFloat64
 		switch key {
@@ -189,13 +217,16 @@ func (g geometryDraft) setLayoutDimensions(layout stationDimensions, raw jsontex
 			minimum = 48
 		}
 		if !finiteRange(value, minimum, math.MaxFloat64) {
-			return fmt.Errorf("station dimension %s must be finite and at least %g meters", key, minimum)
+			return false, fmt.Errorf("station dimension %s must be finite and at least %g meters", key, minimum)
 		}
 		changed = changed || math.Abs(value-*old) > 1e-6
 	}
-	if !changed {
-		return nil
-	}
+	return changed, nil
+}
+
+// layoutMoves returns the offset of each node of layout for the new values
+// in dimensions.
+func layoutMoves(layout stationDimensions, dimensions map[string]float64, previous map[string]*float64) map[string]geometryPoint {
 	moves := make(map[string]geometryPoint)
 	add := func(id string, along, across float64) {
 		old := moves[id]
@@ -227,6 +258,12 @@ func (g geometryDraft) setLayoutDimensions(layout stationDimensions, raw jsontex
 			add(id, 0, layout.side*setback)
 		}
 	}
+	return moves
+}
+
+// moveNodes applies moves to the nodes of the network. It returns the IDs of
+// the nodes that moved.
+func (g geometryDraft) moveNodes(moves map[string]geometryPoint) (map[string]bool, error) {
 	moved := make(map[string]bool)
 	for _, node := range items(g.network["nodes"]) {
 		if object(node) == nil {
@@ -239,15 +276,21 @@ func (g geometryDraft) setLayoutDimensions(layout stationDimensions, raw jsontex
 		}
 		point, err := g.point(id)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		position, err := geometryPosition(geometryPoint{point.X + offset.X, point.Y + offset.Y})
 		if err != nil {
-			return err
+			return nil, err
 		}
 		object(node)["position"] = position
 		moved[id] = true
 	}
+	return moved, nil
+}
+
+// movedLanes returns the IDs of the lanes with an end in moved. When check
+// is true, a moved lane must keep its minimum length.
+func (g geometryDraft) movedLanes(moved map[string]bool, check bool) ([]string, error) {
 	lanes := []string{}
 	clearance := newDraftClearance(g.network)
 	for _, lane := range items(g.network["lanes"]) {
@@ -257,23 +300,17 @@ func (g geometryDraft) setLayoutDimensions(layout stationDimensions, raw jsontex
 		}
 		a, err := g.point(from)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		b, err := g.point(to)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		minimum := clearance.laneMinimum(lane)
 		if length := draftLaneLength(map[string]any{"x": a.X, "y": a.Y}, map[string]any{"x": b.X, "y": b.Y}, member(lane, "control")); check && length < minimum {
-			return fmt.Errorf("lane %s would be shorter than %g meters", text(member(lane, "id")), minimum)
+			return nil, fmt.Errorf("lane %s would be shorter than %g meters", text(member(lane, "id")), minimum)
 		}
 		lanes = append(lanes, text(member(lane, "id")))
 	}
-	if !check {
-		return nil
-	}
-	if conflict := g.laneConflict(lanes, true); conflict != nil {
-		return fmt.Errorf("lane %s would come within %g meters of lane %s", conflict.lane, conflict.minimum, conflict.other)
-	}
-	return nil
+	return lanes, nil
 }
