@@ -3,6 +3,8 @@
 New compare offers are private singletons unless you set `--sharing-consent shared`.
 The same consent applies to every policy arm.
 Pooling limits, join policies, and routing modes do not supply party consent.
+Compare ignores the project member `generatedOrderConsent`.
+A study names its consent in its flags and in its report, so a project file cannot change a study without a trace.
 
 Use explicit shared consent for a sharing study:
 

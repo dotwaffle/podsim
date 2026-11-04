@@ -358,7 +358,7 @@ func (s *Session) startProject(config project.Config) error {
 	s.simulation, s.project, s.epoch = simulation, owned, epoch
 	s.projectRevision, s.projectOrigin, s.generation, s.speed = 1, 1, 1, 1
 	s.simulation.SetIncidentGeneration(s.generation)
-	s.demand = newDemand(demandInput{config: owned.Demand, network: owned.Network, profiles: owned.DemandProfiles, arrivals: owned.RailArrivals, departures: owned.RailDepartures})
+	s.demand = newDemand(demandInput{config: owned.Demand, network: owned.Network, profiles: owned.DemandProfiles, arrivals: owned.RailArrivals, departures: owned.RailDepartures, consent: owned.GeneratedOrderConsent})
 	s.configureRedistribution()
 	return nil
 }
@@ -783,7 +783,7 @@ func (s *Session) apply(command Command) (outcome, error) {
 		}
 		s.simulation.SetPaused(paused)
 		s.speed = 1
-		s.demand = newDemand(demandInput{config: s.project.Demand, network: s.project.Network, profiles: s.project.DemandProfiles, arrivals: s.project.RailArrivals, departures: s.project.RailDepartures})
+		s.demand = newDemand(demandInput{config: s.project.Demand, network: s.project.Network, profiles: s.project.DemandProfiles, arrivals: s.project.RailArrivals, departures: s.project.RailDepartures, consent: s.project.GeneratedOrderConsent})
 		s.configureRedistribution()
 		s.generation++
 		s.simulation.SetIncidentGeneration(s.generation)
@@ -810,7 +810,7 @@ func (s *Session) apply(command Command) (outcome, error) {
 		s.speed = 1
 		disabled := s.project.Demand
 		disabled.Enabled = false
-		s.demand = newDemand(demandInput{config: disabled, network: s.project.Network, profiles: s.project.DemandProfiles, arrivals: s.project.RailArrivals, departures: s.project.RailDepartures})
+		s.demand = newDemand(demandInput{config: disabled, network: s.project.Network, profiles: s.project.DemandProfiles, arrivals: s.project.RailArrivals, departures: s.project.RailDepartures, consent: s.project.GeneratedOrderConsent})
 		s.generation++
 		s.simulation.SetIncidentGeneration(s.generation)
 		s.restore = RestoreInfo{}
@@ -868,7 +868,7 @@ func (s *Session) applyDemand(config DemandConfig, save func(project.Config) err
 			return err
 		}
 	}
-	if err := s.demand.configure(demandInput{config: config, network: s.project.Network, profiles: s.project.DemandProfiles, arrivals: s.project.RailArrivals, departures: s.project.RailDepartures, tick: s.simulation.Tick()}); err != nil {
+	if err := s.demand.configure(demandInput{config: config, network: s.project.Network, profiles: s.project.DemandProfiles, arrivals: s.project.RailArrivals, departures: s.project.RailDepartures, tick: s.simulation.Tick(), consent: s.project.GeneratedOrderConsent}); err != nil {
 		return err
 	}
 	s.project = updated
@@ -929,7 +929,7 @@ func (s *Session) applyProject(command Command) (bool, error) {
 	s.project = config
 	s.simulation = candidate
 	s.speed = 1
-	s.demand = newDemand(demandInput{config: config.Demand, network: config.Network, profiles: config.DemandProfiles, arrivals: config.RailArrivals, departures: config.RailDepartures})
+	s.demand = newDemand(demandInput{config: config.Demand, network: config.Network, profiles: config.DemandProfiles, arrivals: config.RailArrivals, departures: config.RailDepartures, consent: config.GeneratedOrderConsent})
 	s.configureRedistribution()
 	s.projectRevision++
 	s.projectOrigin = s.projectRevision
@@ -974,7 +974,7 @@ func (s *Session) save(config project.Config) error {
 func (s *Session) configureRedistribution() {
 	demand := s.demand
 	if demand.daily == nil || demand.state.Config.Pattern != "profile-daily" {
-		demand = newDemand(demandInput{config: s.project.Demand, network: s.project.Network, profiles: s.project.DemandProfiles, arrivals: s.project.RailArrivals, departures: s.project.RailDepartures, tick: s.simulation.Tick()})
+		demand = newDemand(demandInput{config: s.project.Demand, network: s.project.Network, profiles: s.project.DemandProfiles, arrivals: s.project.RailArrivals, departures: s.project.RailDepartures, tick: s.simulation.Tick(), consent: s.project.GeneratedOrderConsent})
 	}
 	// Project validation guarantees at least two passenger stations and valid settings.
 	if err := s.simulation.SetDemandWeights(demand.pickupWeights); err != nil {

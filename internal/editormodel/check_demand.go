@@ -251,6 +251,7 @@ func checkSettings(value any, errors *checkList) {
 	}{
 		{"sharedRideMode", "The shared ride mode must be destination or drop-offs.", []string{"", "destination", "drop-offs"}},
 		{"sharedRideJoin", "The shared ride join policy must be unassigned or reassign-existing.", []string{"", "unassigned", "reassign-existing"}},
+		{"generatedOrderConsent", "The generated order consent must be private or shared.", []string{"", "private", "shared"}},
 	} {
 		v, ok := member(value, setting.key).(string)
 		if has(value, setting.key) && (!ok || !slices.Contains(setting.accepted, v)) {

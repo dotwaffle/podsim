@@ -852,6 +852,15 @@ test("portable projects preserve the platoon limit", () => {
   }
 });
 
+test("the generated passengers field offers Private and Shared", () => {
+  const html = fs.readFileSync(path.join(__dirname, "editor.html"), "utf8"), source = fs.readFileSync(path.join(__dirname, "editor.js"), "utf8");
+  const select = html.match(/<label>Generated passengers<select id="generatedOrderConsent">(.*?)<\/select><\/label>/);
+  assert.ok(select, "the editor has no generated passengers field");
+  assert.deepEqual([...select[1].matchAll(/<option value="(\w+)">(\w+)</g)].map((match) => [match[1], match[2]]), [["private", "Private"], ["shared", "Shared"]]);
+  assert.match(source, /setScalarValue\("#generatedOrderConsent", config\.generatedOrderConsent \|\| "private"\)/);
+  assert.match(source, /bindScalarInput\("generatedOrderConsent"\)/);
+});
+
 test("the platoon field offers the limits that the server accepts", () => {
   // The server accepts 0 for no platoons, and 2 to 4 pods.
   const html = fs.readFileSync(path.join(__dirname, "editor.html"), "utf8");
@@ -4321,6 +4330,54 @@ function editorFunction(start, name, deps) {
   assert.ok(from >= 0 && body > from && end > body);
   return new Function(...Object.keys(deps), `${source.slice(from, end)}\nreturn ${name};`)(...Object.values(deps));
 }
+
+// scalarEditor gives the queueScalarEdit of the page on a draft that holds
+// config, with the Go model behind it.
+function scalarEditor(config) {
+  const go = goEditorOperations(), page = { config, toasts: [], pending: null };
+  const deps = {
+    state: { background: null, drag: null, history: { replace: async (value) => { page.config = value.scenario; } } },
+    model: { abort() {}, edits: 0, gestureOpen: false }, typingInputs: new Set(), pendingInputs: new Map(),
+    editQueue: { submit: (task) => { page.pending = task(() => true); return page.pending; } }, draft: () => page.config,
+    editorProposal: async (project, edit) => go.handle({ id: 1, op: "edit", keys: Object.keys(project), patch: project, edit: { ...edit, editor: true } }),
+    toast: (text) => page.toasts.push(text), setScalarValue() {}, renderDemand() {}, renderFleet() {}, renderHistoryButtons() {}, renderApply() {}, restorePendingInputs() {},
+  };
+  page.edit = async (value) => {
+    editorFunction("  function cancelPendingEdits() {", "queueScalarEdit", deps)("generatedOrderConsent", { type: "select-one", value });
+    await page.pending.catch(() => {}); await tick();
+  };
+  return page;
+}
+
+test("the generated passengers select writes the member, and Private deletes it from the draft and the export", needsGo, async () => {
+  const absent = connectedScenario(), baseline = editor.serializeDocument(absent);
+  assert.equal(Object.hasOwn(absent, "generatedOrderConsent"), false);
+  const page = scalarEditor(absent);
+  await page.edit("private");
+  assert.equal(Object.hasOwn(page.config, "generatedOrderConsent"), false, "Private on an absent member adds it");
+  await page.edit("shared");
+  assert.equal(page.config.generatedOrderConsent, "shared");
+  assert.equal(editor.parseDocument(editor.serializeDocument(page.config)).scenario.generatedOrderConsent, "shared");
+  await page.edit("private");
+  assert.equal(Object.hasOwn(page.config, "generatedOrderConsent"), false, "Private left the member in the draft");
+  assert.equal(editor.serializeDocument(page.config), baseline, "the export after Private has other bytes");
+  assert.deepEqual(page.toasts, []);
+  await page.edit("pooled");
+  assert.deepEqual(page.toasts, ["the generated order consent must be private or shared"]);
+  assert.equal(editor.serializeDocument(page.config), baseline, "a refused value changed the draft");
+});
+
+test("normalization and import keep the generated passengers member as the file gives it", needsGo, () => {
+  const go = goEditorOperations(), normalize = (project) => go.handle({ id: 1, op: "edit", keys: Object.keys(project), patch: project, edit: { field: "normalize", value: true, editor: true } }).change.patch;
+  const absent = connectedScenario();
+  assert.equal(Object.hasOwn(normalize(absent), "generatedOrderConsent"), false, "normalization added the member");
+  assert.equal(Object.hasOwn(editor.parseDocument(editor.serializeDocument(absent)).scenario, "generatedOrderConsent"), false);
+  const shared = { ...absent, generatedOrderConsent: "shared" };
+  assert.equal(Object.hasOwn(normalize(shared), "generatedOrderConsent"), false, "normalization changed a valid member");
+  assert.equal(editor.parseDocument(editor.serializeDocument(shared)).scenario.generatedOrderConsent, "shared");
+  const pooled = { ...absent, generatedOrderConsent: "pooled" }, refused = go.handle({ id: 1, op: "validate", keys: Object.keys(pooled), patch: pooled });
+  assert.ok(refused.errors.some((row) => row.text === "The generated order consent must be private or shared."), "the checks accepted another value");
+});
 
 test("measurement rendering draws only newer Go replies and discards replies after measurements turn off", async () => {
   const calls = [], drawn = [], summary = { textContent: "" }, layer = { replaceChildren() {} };

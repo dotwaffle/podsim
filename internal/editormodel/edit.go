@@ -132,6 +132,8 @@ func proposeScalarEdit(draft any, command editCommand, value any) (projectChange
 		change.sharingLimit(draft, command.Field, value)
 	case "sharedRideMode", "sharedRideJoin":
 		err = change.sharingPolicy(draft, command.Field, value)
+	case "generatedOrderConsent":
+		err = change.generatedOrderConsent(draft, value)
 	case "platoonLimit":
 		change.platoonLimit(draft, command.Field, value)
 	default:
@@ -238,6 +240,23 @@ func (c *projectChange) sharingPolicy(draft any, field string, value any) error 
 		setting = fallback
 	}
 	c.set(draft, field, setting)
+	return nil
+}
+
+// generatedOrderConsent sets the consent of generated orders. Private
+// removes the member: the browser deletes a member whose patch value is
+// null, so that an exported project keeps the bytes of a private project.
+func (c *projectChange) generatedOrderConsent(draft, value any) error {
+	switch value {
+	case "shared":
+		c.set(draft, "generatedOrderConsent", value)
+	case "private":
+		if has(draft, "generatedOrderConsent") {
+			c.Patch["generatedOrderConsent"] = nil
+		}
+	default:
+		return errors.New("the generated order consent must be private or shared")
+	}
 	return nil
 }
 

@@ -218,6 +218,11 @@ type Config struct {
 	// their pickup state: "unassigned" or "reassign-existing". An empty
 	// policy loads as sim.DefaultSharedRideJoin, which is "unassigned".
 	SharedRideJoin sim.SharedRideJoin `json:"sharedRideJoin,omitempty"`
+	// GeneratedOrderConsent is the sharing consent of each order that the
+	// demand run offers: "private" or "shared". An empty consent gives
+	// private orders. It is an extension field of the command digest, so a
+	// command without it keeps its digest.
+	GeneratedOrderConsent sim.SharingConsent `json:"generatedOrderConsent,omitempty" digest:"ext=15"`
 	// OnboardPickups permits shared parties to join an occupied pod at a passenger berth.
 	OnboardPickups bool `json:"onboardPickups,omitzero"`
 	// PickupReassignment enables experimental empty-pod pickup replacement.
@@ -350,6 +355,9 @@ func validateSharedRideSettings(config Config) error {
 	}
 	if join := config.SharedRideJoin; join != "" && join != sim.SharedRideJoinUnassigned && join != sim.SharedRideJoinReassignExisting {
 		return fmt.Errorf("shared ride join policy must be %q or %q", sim.SharedRideJoinUnassigned, sim.SharedRideJoinReassignExisting)
+	}
+	if consent := config.GeneratedOrderConsent; consent != "" && consent != sim.PrivateConsent && consent != sim.SharedConsent {
+		return fmt.Errorf("generated order consent must be %q or %q", sim.PrivateConsent, sim.SharedConsent)
 	}
 	return nil
 }

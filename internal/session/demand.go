@@ -43,6 +43,9 @@ type demandRun struct {
 	daily         *project.DailyProfile
 	dailyBand     int
 	dailyDay      int64
+	// consent is the generated order consent of the project. The saved
+	// demand state does not carry it, because restore reads the project.
+	consent sim.SharingConsent
 }
 
 type demandInput struct {
@@ -52,6 +55,7 @@ type demandInput struct {
 	arrivals   []project.RailArrival
 	departures []project.RailDeparture
 	tick       int64
+	consent    sim.SharingConsent
 }
 
 type weightedDemandFlow struct {
@@ -81,6 +85,7 @@ func newDemand(input demandInput) demandRun {
 		passenger:     passenger,
 		destination:   destination,
 		pickupWeights: make(map[string]float64, len(passenger)),
+		consent:       input.consent,
 	}
 	if len(input.departures) > 0 {
 		run.connections = rail.NewConnections(input.departures)
@@ -223,12 +228,17 @@ func (d *demandRun) offer(simulation *sim.Simulation, from, to string) {
 		d.state.Skipped++
 		return
 	}
-	if err := simulation.RequestTrip(from, to); err != nil {
+	if _, err := d.submit(simulation, from, to); err != nil {
 		d.state.Skipped++
 		d.state.Error = err.Error()
 		return
 	}
 	d.state.Generated++
+}
+
+// submit requests one generated order with the consent of the project.
+func (d *demandRun) submit(simulation *sim.Simulation, from, to string) (int, error) {
+	return simulation.SubmitTripOptions(sim.TripOptions{From: from, To: to, SharingConsent: d.consent})
 }
 
 // releaseRail consumes this tick once and skips past offers without catch-up.
@@ -310,7 +320,7 @@ func (d *demandRun) releaseServices(simulation *sim.Simulation) {
 			reason = "queue-limit"
 		} else {
 			var err error
-			requestID, err = simulation.SubmitTrip(offer.From, offer.To)
+			requestID, err = d.submit(simulation, offer.From, offer.To)
 			if err != nil {
 				d.state.Skipped++
 				d.state.Error = err.Error()

@@ -3170,6 +3170,7 @@
     setScalarValue("#sharedRideJoin", config.sharedRideJoin);
     setScalarValue("#sharedRideMaxStops", config.sharedRideMaxStops);
     $("#sharedRideMaxStopsLabel").hidden = config.sharedRideMode !== "drop-offs";
+    setScalarValue("#generatedOrderConsent", config.generatedOrderConsent || "private");
     setScalarValue("#platoonLimit", String(config.platoonLimit));
     $("#pickupReassignment").checked = config.pickupReassignment;
   }
@@ -3656,7 +3657,10 @@
       if (result.error) throw new Error(result.error);
       if (!current()) return false;
       if (config !== draft() || generation !== model.edits || state.drag && state.drag.type !== "pan" || model.gestureOpen) throw new Error("The draft changed during the edit. Enter the setting again.");
-      await state.history.replace({ scenario: { ...config, ...result.change.patch }, background: state.background }, true, Boolean(result.change.flag), { current });
+      const scenario = { ...config, ...result.change.patch };
+      // Private removes the member, so that an export has the bytes of a private project.
+      if (result.change.patch.generatedOrderConsent === null) delete scenario.generatedOrderConsent;
+      await state.history.replace({ scenario, background: state.background }, true, Boolean(result.change.flag), { current });
       return true;
     }).catch((error) => toast(error.message, true)).finally(() => {
       if (pendingInputs.get(input) === pending) pendingInputs.delete(input);
@@ -4375,6 +4379,7 @@
       });
     }
     for (const id of ["demandEnabled", "demandRate", "demandPattern", "demandDestination", "demandProfile", "demandBand", "sharedRidePartyLimit", "sharedRideMode", "sharedRideJoin", "sharedRideMaxStops", "platoonLimit", "demandSeed", "redistribution", "pickupReassignment"]) bindScalarInput(id);
+    bindScalarInput("generatedOrderConsent");
     bindScalarInput("scenarioName", "name");
     $("#fleetControls").addEventListener("input", (event) => { if (event.target.dataset.station) markTyping(event.target); });
     $("#fleetControls").addEventListener("change", (event) => { if (event.target.dataset.station) queueScalarEdit("fleetCount", event.target, event.target.dataset.station); });

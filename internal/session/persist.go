@@ -606,7 +606,7 @@ func sameProject(first, second project.Config) (bool, error) {
 // restoreDemand makes the saved demand stream of config again. The stream
 // continues with the same draws.
 func restoreDemand(saved savedDemand, config project.Config, tick int64) (demandRun, error) {
-	run := newDemand(demandInput{config: saved.State.Config, network: config.Network, profiles: config.DemandProfiles, arrivals: config.RailArrivals, departures: config.RailDepartures, tick: tick})
+	run := newDemand(demandInput{config: saved.State.Config, network: config.Network, profiles: config.DemandProfiles, arrivals: config.RailArrivals, departures: config.RailDepartures, tick: tick, consent: config.GeneratedOrderConsent})
 	// run.rng draws from run.pcg, and rand.Rand has no other state.
 	if err := run.pcg.UnmarshalBinary(saved.Random); err != nil {
 		return demandRun{}, fmt.Errorf("restore demand random source: %w", err)
