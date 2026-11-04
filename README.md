@@ -1890,7 +1890,7 @@ mise run check
 | `mise run test:embedded` | The root and `cmd/serve` tests with the `embed_assets` tag. It also runs the session tests that skip under the race detector or check more without it. The `test:race` task runs the other session tests. |
 | `mise run benchmark` | 6,000 simulation steps on the 100-pod ring fixture, not on the current `scale100` mesh. |
 
-`mise.toml` tracks Go 1.27, rumdl 0.2, and major versions for the other development tools.
+`mise.toml` tracks Go 1.27, rumdl 0.3, and major versions for the other development tools.
 `mise.lock` records the resolved tool downloads.
 
 Some editor tests use Go to generate the `scale100` and `london-central` projects.

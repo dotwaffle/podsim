@@ -209,7 +209,7 @@ Shutdown closes upgraded sockets and waits for stream workers before the final s
 
 Stream JSON has a 64 MiB limit; HTTP-state JSON has a separate 128 MiB limit.
 The gzip limit is 64 MiB plus 32,832 bytes of block and wrapper overhead.
-Go 1.27.2 BestSpeed consumes blocks of at most 65,535 bytes and selects stored blocks when compression would cost more.
+Go 1.27.3 BestSpeed consumes blocks of at most 65,535 bytes and selects stored blocks when compression would cost more.
 The allowance reserves 32 bytes per block for headers, pending end codes, and alignment, plus 32 bytes for the gzip wrapper and final empty block.
 `TestStreamGzipExpansionBound` checks an incompressible document at the JSON cap through the production compressor and inflater.
 The browser counts native decompression output before allocating the joined result.
