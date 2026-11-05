@@ -11,8 +11,8 @@ The code of the congestion, queue, and predictive routing policies was removed o
   The Progress row missed on both presets.
   Each failure of the Persistence row was a false alarm of the check, and the rerun of the next section had none.
   The section "Soak of amendment A6" has the numbers.
-- The Performance row for suspension, the Suspension median, is open.
-  It has no quiet-host reading.
+- The Performance row for suspension meets amendment A7 in the section "Readings from a quiet host".
+- The Performance row for emergencies misses its ratio rule on `rail-hub`, by about 0.4 µs.
 - The Choice row is reported and not gated, and no driver reports it, because the sim does not expose the estimate.
 
 ## Method
@@ -258,6 +258,33 @@ No contract row names this combination, and this study did not check whether the
 A pod whose terminal berth choice fails reports no wait when no berth of its station is blocked, as `reportBlockedBerths` states.
 It stops on the running lane with an empty report, so the chain walk does not find a fault.
 `pod-013` held `pod-027` and `pod-028` in this way for 8.5 min.
+
+## Readings from a quiet host
+
+These readings ran at `184d525` on 2026-11-05, after the full gate, with a load average from 2 to 6.
+Each worst-case row ran 4 times, and the table gives the range of each value.
+
+| Row | Median | Reference median | Slowest | Reference slowest |
+| --- | ---: | ---: | ---: | ---: |
+| 64 debris and 300 pod faults, limit 50 µs (A7) | 10.86 to 10.98 µs | 6.59 to 6.71 µs | 31 to 74 µs | 82 to 92 µs |
+| 4 emergencies, `rail-hub` | 2.42 to 2.46 µs | 2.03 to 2.06 µs | 25 to 26 µs | 24 to 25 µs |
+| 4 emergencies, `london-central` | 14.3 to 14.6 µs | 13.4 to 13.9 µs | 1.04 to 1.11 ms | 1.06 to 1.41 ms |
+| 64 debris and 1,000 pod faults, reported | 34.4 to 34.8 µs | 20.2 to 20.3 µs | 95 to 122 µs | 411 to 743 µs |
+
+The suspension row meets A7, and no tick passes twice the slowest reference tick.
+The `rail-hub` emergency row is 18 to 20 percent above its reference median, so it misses the rule of 10 percent, by about 0.4 µs.
+The `london-central` emergency row is 3 to 8 percent above its reference median.
+
+`TestIncidentSoakTimed` ran 3 seeds of 0.1 simulated hours on each preset, with faults and emergencies on.
+
+| Preset | Median | Reference median | Slowest | Reference slowest |
+| --- | ---: | ---: | ---: | ---: |
+| `rail-hub` | 76 to 82 µs | 81 to 93 µs | 2.0 to 4.0 ms | 1.5 to 3.0 ms |
+| `london-central` | 142 to 145 µs | 133 to 143 µs | 13.7 to 19.1 ms | 16.1 to 18.2 ms |
+
+Each median is at most 7.2 percent above its reference.
+The slowest tick of `rail-hub` seed 1 is 3.97 ms against 1.49 ms, which is 2.7 times its reference, so that seed misses the rule of twice.
+The other five seeds meet it.
 
 ## Readings from a busy host
 
