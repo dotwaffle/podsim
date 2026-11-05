@@ -126,6 +126,8 @@ type soakInput struct {
 	// checkFrom is the tick at which the checks start. Only a timing run sets
 	// it, to reach the full queue before it measures the checks.
 	checkFrom int64
+	// everyTick runs the full check at each tick, and not at the stride.
+	everyTick bool
 }
 
 // soakRange is the range of a queue size.
@@ -173,6 +175,16 @@ type soakDriver struct {
 	// transition compares the faulted pods of the current simulation. A
 	// rewind replaces the simulation, and then this check.
 	transition func() error
+	// events holds the incident numbers of the last check. fullChecks counts
+	// the full checks, and lastFull is the simulation tick of the last one.
+	events     sim.IncidentEvents
+	fullChecks int
+	lastFull   int64
+	// fail reports a failed gate. It stops the test, and only a test of the
+	// driver replaces it. breakExport, when set, changes the state that the
+	// full check reads, so such a test can make a violation.
+	fail        func(message string)
+	breakExport func(*sim.SavedState)
 	// nextFault, nextEmergency, nextSave, and nextRewind are the ticks of the
 	// next driver events. clears holds the command faults, by clear tick.
 	nextFault, nextEmergency, nextSave, nextRewind int64
@@ -226,17 +238,27 @@ func (d *soakDriver) startChecks() {
 	d.nextSave = tick + d.rng.Int64N(soakTicksPerHour) + 1
 	d.nextRewind = tick + d.rng.Int64N(soakTicksPerHour) + 1
 	d.transition = d.s.simulation.FaultTransitionForTest()
+	d.events = d.s.simulation.IncidentEventsForTest()
 }
 
 // failf stops the test with the run and the tick.
 func (d *soakDriver) failf(format string, args ...any) {
 	d.t.Helper()
-	d.t.Fatalf("%s %s seed %d tick %d: %s", d.input.preset, d.input.arm.name, d.input.seed, d.s.simulation.Tick(), fmt.Sprintf(format, args...))
+	message := fmt.Sprintf("%s %s seed %d tick %d: %s", d.input.preset, d.input.arm.name, d.input.seed, d.s.simulation.Tick(), fmt.Sprintf(format, args...))
+	if d.fail != nil {
+		d.fail(message)
+		return
+	}
+	d.t.Fatal(message)
 }
 
-// check runs the checks of each boundary: the Safety and Contract gates, with
-// each invariant in CheckContract, the transition rules, and Conservation.
-func (d *soakDriver) check() {
+// check runs the checks of a tick or a command, by the stride of amendment A10.
+// The cheap checks run each time: the fault and emergency records, the
+// transition rules, and the Safety observation. The full check runs at each
+// second and at each event. An event is a command of the driver, or a change of
+// the incident numbers of the simulation, which a sampler can make with no
+// command.
+func (d *soakDriver) check(command bool) {
 	d.t.Helper()
 	if !d.checks {
 		return
@@ -245,15 +267,31 @@ func (d *soakDriver) check() {
 	if err := simulation.CheckIncidentRecordsForTest(); err != nil {
 		d.failf("the contract: %v", err)
 	}
-	state, err := simulation.CheckedExportForTest()
-	if err != nil {
-		d.failf("the contract: %v", err)
-	}
 	if err := d.transition(); err != nil {
 		d.failf("the transition rules: %v", err)
 	}
 	if _, err := simulation.SafetyObservation().Check(); err != nil {
 		d.failf("the safety observation: %v", err)
+	}
+	events := simulation.IncidentEventsForTest()
+	if command || events != d.events || d.input.everyTick || simulation.Tick()%soakViewTicks == 0 {
+		d.fullCheck()
+	}
+	d.events = events
+}
+
+// fullCheck is the check of the saved state and the Conservation row, from one
+// export.
+func (d *soakDriver) fullCheck() {
+	d.t.Helper()
+	d.fullChecks++
+	d.lastFull = d.s.simulation.Tick()
+	state, err := d.s.simulation.CheckedExportForTest()
+	if err != nil {
+		d.failf("the contract: %v", err)
+	}
+	if d.breakExport != nil {
+		d.breakExport(&state)
 	}
 	if err := soakOrderBalance(state); err != nil {
 		d.failf("%v", err)
@@ -287,7 +325,15 @@ func (d *soakDriver) apply(command Command) Reply {
 	if reply.Error != "" {
 		d.result.refused++
 	}
-	d.check()
+	d.check(true)
+	return reply
+}
+
+// mustApply sends a command that must succeed, and runs the checks of a command.
+func (d *soakDriver) mustApply(command Command) Reply {
+	d.t.Helper()
+	reply := d.client.mustApply(d.t, command)
+	d.check(true)
 	return reply
 }
 
@@ -383,7 +429,7 @@ func (d *soakDriver) step() {
 		return
 	}
 	d.s.advance()
-	d.check()
+	d.check(false)
 }
 
 // checkRewind is the Persistence gate for a rewind: a save point, a window with
@@ -391,14 +437,14 @@ func (d *soakDriver) step() {
 func (d *soakDriver) checkRewind() {
 	d.t.Helper()
 	generation, serial := d.s.generation, d.s.simulation.ExportState().IncidentSerial
-	id := d.client.mustApply(d.t, Command{Action: "checkpoint"}).Checkpoint
+	id := d.mustApply(Command{Action: "checkpoint"}).Checkpoint
 	for range soakReplayTicks {
 		d.step()
 	}
 	want := d.s.simulation.ExportState()
 	d.client.mustApply(d.t, Command{Action: "rewind", Checkpoint: id})
-	d.client.mustApply(d.t, Command{Action: "pause", Paused: false})
 	d.transition = d.s.simulation.FaultTransitionForTest()
+	d.mustApply(Command{Action: "pause", Paused: false})
 	for range soakReplayTicks {
 		d.step()
 	}
@@ -636,8 +682,7 @@ func (d *soakDriver) clearAndSettle() {
 	d.nextFault, d.nextEmergency, d.nextSave, d.nextRewind = math.MaxInt64, math.MaxInt64, math.MaxInt64, math.MaxInt64
 	d.clears = nil
 	for _, fault := range d.s.simulation.Snapshot().Faults.Active {
-		d.client.mustApply(d.t, Command{Action: "clearFault", FaultID: fault.ID})
-		d.check()
+		d.mustApply(Command{Action: "clearFault", FaultID: fault.ID})
 	}
 	settled := false
 	var waits []string
@@ -696,10 +741,10 @@ func runSoak(t *testing.T, input soakInput) soakResult {
 	d.checkRail()
 	d.result.state = d.s.simulation.Snapshot()
 	state := d.result.state
-	t.Logf("preset=%s arm=%s seed=%d hours=%g checks=%t ticks=%d wall=%.1fs cpu=%.1fs ticks/s=%.0f commands=%d refused=%d saves=%d demoted=%d rewinds=%d rail=%d completed=%d interrupted=%d queue=%d..%d settle=%ds waitAvg=%.1fs waitMax=%.1fs faults=%+v emergencies=%+v seen=%d late=%d inPlatoon=%d long=%d longestUnblocked=%.1fs rates=%v",
+	t.Logf("preset=%s arm=%s seed=%d hours=%g checks=%t ticks=%d wall=%.1fs cpu=%.1fs ticks/s=%.0f commands=%d refused=%d saves=%d demoted=%d rewinds=%d rail=%d completed=%d interrupted=%d queue=%d..%d settle=%ds waitAvg=%.1fs waitMax=%.1fs faults=%+v emergencies=%+v seen=%d late=%d inPlatoon=%d long=%d longestUnblocked=%.1fs fullChecks=%d rates=%v",
 		input.preset, input.arm.name, input.seed, input.hours, input.checks, d.result.ticks, d.result.wall.Seconds(), d.result.cpu, float64(d.result.ticks)/d.result.wall.Seconds(),
 		d.result.commands, d.result.refused, d.result.saves, d.result.demoted, d.result.rewinds, d.result.railRecords, state.Completed, state.Interrupted, d.result.queue.low, d.result.queue.high,
-		d.result.settleTicks/sim.TicksPerSecond, state.Wait.AverageSeconds, state.Wait.MaxSeconds, state.Faults.Counters, state.Emergencies.Counters, d.result.emergencies, d.result.emergencyLate, d.result.emergencyInPlatoon, d.result.emergencyLong, float64(d.result.emergencyLongest)/sim.TicksPerSecond, d.result.rates)
+		d.result.settleTicks/sim.TicksPerSecond, state.Wait.AverageSeconds, state.Wait.MaxSeconds, state.Faults.Counters, state.Emergencies.Counters, d.result.emergencies, d.result.emergencyLate, d.result.emergencyInPlatoon, d.result.emergencyLong, float64(d.result.emergencyLongest)/sim.TicksPerSecond, d.fullChecks, d.result.rates)
 	if len(d.result.misses) > 0 {
 		t.Errorf("preset %s arm %s seed %d misses a Progress gate:\n%s", input.preset, input.arm.name, input.seed, strings.Join(d.result.misses, "\n"))
 	}
@@ -773,6 +818,7 @@ func TestIncidentSoak(t *testing.T) {
 		t.Fatal(err)
 	}
 	checks := os.Getenv("PODSIM_SOAK_CHECKS") != "0"
+	everyTick := os.Getenv("PODSIM_SOAK_EVERY_TICK") == "1"
 	settleMinutes, err := strconv.ParseInt(soakEnv("PODSIM_SOAK_SETTLE_MINUTES", "30"), 10, 64)
 	if err != nil {
 		t.Fatal(err)
@@ -795,7 +841,7 @@ func TestIncidentSoak(t *testing.T) {
 					}
 					for _, name := range group.arms {
 						if slices.Contains(arms, name) {
-							runSoak(t, soakInput{preset: preset, arm: soakArms[name], seed: seed, hours: hours, checks: checks, queue: queue, settle: settle, checkFrom: checkFrom})
+							runSoak(t, soakInput{preset: preset, arm: soakArms[name], seed: seed, hours: hours, checks: checks, queue: queue, settle: settle, checkFrom: checkFrom, everyTick: everyTick})
 						}
 					}
 				})
@@ -846,6 +892,129 @@ func TestIncidentSoakDriver(t *testing.T) {
 	state := d.s.simulation.Snapshot()
 	if len(state.Faults.Active) != 0 || state.Faults.Counters.Started == 0 {
 		t.Fatalf("the faults are %+v", state.Faults)
+	}
+}
+
+// soakStrideInput is a short run with the sampler and with no driver command.
+func soakStrideInput(everyTick bool) soakInput {
+	return soakInput{preset: "rail-hub", arm: soakArms["ci"], seed: 1, checks: true, everyTick: everyTick}
+}
+
+// TestSoakStrideEvents steps a run through a sampler fault, a sampler
+// emergency, their ends, and driver commands. The full check must run at each
+// tick where the incident numbers change, at each second, and at each command,
+// also one that changes no such number, and at no other tick.
+func TestSoakStrideEvents(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("about 50 simulated minutes")
+	}
+	d := newSoakDriver(t, soakStrideInput(false))
+	limit := 3600 * sim.TicksPerSecond
+	offSecond, want := 0, sim.IncidentEvents{}
+	for range limit {
+		before := d.s.simulation.IncidentEventsForTest()
+		d.step()
+		tick := d.s.simulation.Tick()
+		events := d.s.simulation.IncidentEventsForTest()
+		wantFull := events != before || tick%soakViewTicks == 0
+		if got := d.lastFull == tick; got != wantFull {
+			t.Fatalf("tick %d: a full check %t, want %t, with %+v then %+v", tick, got, wantFull, before, events)
+		}
+		if events != before && tick%soakViewTicks != 0 {
+			offSecond++
+		}
+		want = events
+		if want.FaultSampled > 0 && want.EmergencySampled > 0 && want.FaultCleared > 0 && want.EmergencyEnded > 0 && offSecond > 0 {
+			break
+		}
+	}
+	if want.FaultSampled == 0 || want.EmergencySampled == 0 || want.FaultCleared == 0 || want.EmergencyEnded == 0 || offSecond == 0 {
+		t.Fatalf("the run does not see each kind of event: %+v, %d between seconds", want, offSecond)
+	}
+	// A command between two seconds gets its own full check.
+	for d.s.simulation.Tick()%soakViewTicks != 1 {
+		d.step()
+	}
+	full := d.fullChecks
+	d.apply(Command{Action: "pause", Paused: false})
+	if d.fullChecks != full+1 {
+		t.Fatalf("the command makes %d full checks", d.fullChecks-full)
+	}
+}
+
+// TestSoakCatchesViolation makes a violation of the order balance at a chosen
+// tick. With no event, the next full check at a second finds it. At an event,
+// the check of that event finds it. In the every-tick mode, the same tick does.
+func TestSoakCatchesViolation(t *testing.T) {
+	t.Parallel()
+	const from = 7*soakViewTicks + 1
+	tests := []struct {
+		name      string
+		everyTick bool
+		event     bool
+		want      int64
+	}{
+		{name: "no event", want: 8 * soakViewTicks},
+		{name: "a command", event: true, want: from},
+		{name: "every tick", everyTick: true, want: from},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			d := newSoakDriver(t, soakStrideInput(test.everyTick))
+			var caught int64 = -1
+			d.fail = func(string) {
+				if caught < 0 {
+					caught = d.s.simulation.Tick()
+				}
+			}
+			d.breakExport = func(state *sim.SavedState) {
+				if d.s.simulation.Tick() >= from {
+					state.RequestID++
+				}
+			}
+			for d.s.simulation.Tick() < from-1 {
+				d.step()
+			}
+			if caught >= 0 {
+				t.Fatalf("a check at tick %d sees a violation before tick %d", caught, from)
+			}
+			if test.event {
+				d.step()
+				if caught < 0 {
+					d.apply(Command{Action: "pause", Paused: false})
+				}
+			}
+			for caught < 0 && d.s.simulation.Tick() < 10*soakViewTicks {
+				d.step()
+			}
+			if caught != test.want {
+				t.Fatalf("the check finds the violation at tick %d, want %d", caught, test.want)
+			}
+		})
+	}
+}
+
+// TestSoakStrideKeepsRun checks that the stride changes no state: the every-tick
+// mode gives the same run, with a full check at each tick.
+func TestSoakStrideKeepsRun(t *testing.T) {
+	t.Parallel()
+	run := func(everyTick bool) (sim.SavedState, *soakDriver) {
+		input := soakStrideInput(everyTick)
+		input.arm = soakArms["incidents"]
+		input.hours = 0.02
+		d := newSoakDriver(t, input)
+		d.runHours()
+		return d.s.simulation.ExportState(), d
+	}
+	stride, strideDriver := run(false)
+	every, everyDriver := run(true)
+	if !reflect.DeepEqual(stride, every) {
+		t.Fatal("the stride changes the run")
+	}
+	if ticks := int(0.02 * soakTicksPerHour); everyDriver.fullChecks < ticks || strideDriver.fullChecks >= ticks/2 {
+		t.Fatalf("%d ticks have %d full checks with the stride, and %d in every-tick mode", ticks, strideDriver.fullChecks, everyDriver.fullChecks)
 	}
 }
 

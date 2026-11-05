@@ -101,6 +101,37 @@ func (s *Simulation) CheckedExportForTest() (SavedState, error) {
 	return s.checkedExport()
 }
 
+// IncidentEvents holds the numbers that change at an incident event: a start
+// or an end of a fault or an emergency, a sampler event, an evacuation, or a
+// reroute. It leaves out the counters that move at each tick of a wait or a
+// record. Two equal values mean that no such event came between them.
+type IncidentEvents struct {
+	Serial                                                  uint64
+	Faults, Emergencies                                     int
+	FaultStarted, FaultCleared, Evacuations, Reroutes       int64
+	FaultSampled, FaultSkipped, FaultClearedTicks           int64
+	EmergencyStarted, EmergencyEnded                        int64
+	EmergencySampled, EmergencySkipped, EmergencyEndedTicks int64
+	EmergencyMaxTicks                                       int64
+}
+
+// IncidentEventsForTest returns the numbers that change at an incident event.
+// It does not allocate.
+//
+// It is a test entry for the check stride of amendment A10 of the incident
+// stage 7 contract. No production code calls it.
+func (s *Simulation) IncidentEventsForTest() IncidentEvents {
+	f, e := &s.faultCounters, &s.emergencyCounters
+	return IncidentEvents{
+		Serial: s.incidentSerial, Faults: len(s.faults), Emergencies: len(s.emergencies),
+		FaultStarted: f.started, FaultCleared: f.cleared, Evacuations: f.evacuations, Reroutes: f.reroutes,
+		FaultSampled: f.sampled, FaultSkipped: f.skipped, FaultClearedTicks: f.clearedTicks,
+		EmergencyStarted: e.started, EmergencyEnded: e.ended,
+		EmergencySampled: e.sampled, EmergencySkipped: e.skipped, EmergencyEndedTicks: e.endedTicks,
+		EmergencyMaxTicks: e.maxTicks,
+	}
+}
+
 // BoardingLegBlockedForTest reports whether idle pod podID has a waiting trip
 // whose leg route fails now and succeeds with an empty blocked set. It
 // searches on a clone, so it changes no state, memo, counter, or route cache
