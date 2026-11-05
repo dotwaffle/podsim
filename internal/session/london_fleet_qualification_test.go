@@ -320,7 +320,7 @@ func qualifyLondonFleet(t *testing.T, pods, rate int) {
 		previous, sequence = applied, envelope.Sequence
 		metrics.PublishedGzip += len(compressed)
 		metrics.Publications++
-		for range sim.TicksPerSecond / 20 {
+		for range publicationTicks {
 			shared.step()
 		}
 	}

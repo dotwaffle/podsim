@@ -12,6 +12,13 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
+// The measurement tests step the simulation by one capture interval for each
+// publication, as the publisher does at 1x.
+const (
+	publicationTicks      = int(sim.TicksPerSecond * streamCaptureInterval / time.Second)
+	publicationsPerSecond = int(time.Second / streamCaptureInterval)
+)
+
 func TestStreamLondonWire(t *testing.T) {
 	t.Parallel()
 	if testing.Short() {
@@ -40,7 +47,7 @@ func TestStreamLondonWire(t *testing.T) {
 	var httpTime, deltaTime time.Duration
 	const publications = 100
 	for i := range publications {
-		for range sim.TicksPerSecond / 20 {
+		for range publicationTicks {
 			step()
 		}
 		started := time.Now()
@@ -79,7 +86,7 @@ func TestStreamLondonWire(t *testing.T) {
 	if deltaBytes > httpBytes {
 		t.Fatalf("London bandwidth regression: delta %d > HTTP %d", deltaBytes, httpBytes)
 	}
-	t.Logf("London 20 min warmup, %d publications: HTTP gzip %d B/s, delta gzip %d B/s, HTTP capture+encode %s/publication, delta capture+diff+encode %s/publication", publications, httpBytes*20/publications, deltaBytes*20/publications, httpTime/publications, deltaTime/publications)
+	t.Logf("London 20 min warmup, %d publications: HTTP gzip %d B/s, delta gzip %d B/s, HTTP capture+encode %s/publication, delta capture+diff+encode %s/publication", publications, httpBytes*publicationsPerSecond/publications, deltaBytes*publicationsPerSecond/publications, httpTime/publications, deltaTime/publications)
 }
 
 // TestStreamLargeRouteWire checks that one delta publication is smaller

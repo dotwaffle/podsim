@@ -9,7 +9,8 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-// BenchmarkLondonPublication repeats one representative 20 Hz transition.
+// BenchmarkLondonPublication repeats one representative transition of one
+// capture interval.
 // The fixed frame pair keeps the workload stable across implementations.
 // Stepping, warm-up and the first client baseline are outside the timer.
 func BenchmarkLondonPublication(b *testing.B) {
@@ -32,7 +33,7 @@ func BenchmarkLondonPublication(b *testing.B) {
 			if err != nil {
 				b.Fatal(err)
 			}
-			for range sim.TicksPerSecond / 20 {
+			for range publicationTicks {
 				shared.step()
 			}
 			assembler, err := NewStreamAssembler(shared.Topology())

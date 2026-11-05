@@ -44,8 +44,9 @@ type packedTextWireWorkload struct {
 
 // TestPackedTextWireCost measures the gzip cost of packed order text on
 // typical stream frames. For each workload it warms the simulation for 20
-// simulated minutes, then takes 100 publications at 20 Hz. It encodes a
-// full frame at publication 0 and at every 20th publication, and a delta
+// simulated minutes, then takes 100 publications, one capture interval
+// apart. It encodes a full frame at publication 0 and at every 20th
+// publication, and a delta
 // from each publication to the next. Each sample is encoded with packed
 // and with unpacked order text, from the same frames. The test fails when
 // an aggregate ratio of packed to unpacked gzip bytes is more than
@@ -84,7 +85,7 @@ func TestPackedTextWireCost(t *testing.T) {
 		}{
 			Format:    "podsim-packed-text-wire-v1",
 			Test:      "internal/session TestPackedTextWireCost",
-			Method:    "Demand enabled with the project seed; 20 simulated minutes of warm-up; 100 publications at 20 Hz after publication 0; full frames at publications 0, 20, 40, 60, 80 and 100; one delta from each publication to the next; each sample encoded with packed and with unpacked order text from the same frames; gzip level 1; ratio is packed over unpacked gzip bytes.",
+			Method:    "Demand enabled with the project seed; 20 simulated minutes of warm-up; 100 publications one capture interval apart after publication 0; full frames at publications 0, 20, 40, 60, 80 and 100; one delta from each publication to the next; each sample encoded with packed and with unpacked order text from the same frames; gzip level 1; ratio is packed over unpacked gzip bytes.",
 			Gate:      packedTextWireGate,
 			Workloads: results,
 		}
@@ -126,7 +127,7 @@ func measurePackedTextWire(t *testing.T, name string, config project.Config) pac
 	full(1, previous)
 	const publications = 100
 	for i := 1; i <= publications; i++ {
-		for range sim.TicksPerSecond / 20 {
+		for range publicationTicks {
 			step()
 		}
 		current, err := shared.presentationFrame()
