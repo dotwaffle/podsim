@@ -301,7 +301,7 @@ A frame omits it when it is false.
 The value changes only with a new fleet, and a new fleet starts a new generation.
 A frame with a different value is on a different chain, so a delta cannot change the value.
 With `operationsOff`, a client refuses a frame with a fault or an emergency record or counter, and a delta with a `faults` or an `emergencies` group.
-The view does not show the **Fault** and **Emergency** buttons of the pod inspector with `operationsOff`.
+The view does not show the **Fault** and **Emergency** buttons of the pod inspector, or the **Incidents** tab and panel, with `operationsOff`.
 
 The `simulation` object has these ride metrics:
 
@@ -478,7 +478,7 @@ A pod fault brakes the pod to rest.
 The pod stays there until the fault ends.
 Debris blocks a lane segment.
 Other pods route around the active faults, or wait.
-Only the `fault` command starts debris, and the simulation view does not draw debris.
+The `fault` command and a project [fault rate](operations.md#faults) start debris, and the simulation view draws it.
 
 ### Fault members
 
@@ -518,6 +518,14 @@ Otherwise it is `stopped`.
 | `evacuations` | The evacuations of faulted pods. The `incident` group counts the interrupted orders. |
 | `reroutes` | The new routes around a fault that keep the endpoint of the pod. |
 | `faultWaitTicks` | One for each tick of each pod without a fault that waits with the reason `Blocked by incident` or `No forward route`. |
+| `sampled` | The sampler events that came due. |
+| `skipped` | The sampler events that started no fault. |
+| `clearedTicks` | The sum of the ticks from start to end of the faults that ended. |
+| `delayedRiderTicks` | The sum over the ticks of the active riders aboard healthy pods with an incident wait. |
+
+`sampled` and `skipped` move only in the fault sampler.
+`clearedTicks` and `delayedRiderTicks` move only while the fault sampler is live, so a manual fault at a rate of 0 does not move them.
+A frame has no `random` or `nextTick` member, and a client refuses either one as an unknown member.
 
 A reset, a demo, and a project apply that replaces the fleet end every fault and set the counters to 0.
 A rewind restores the faults and the counters of the save point.
@@ -641,6 +649,14 @@ A deferred pod that cannot leave its route keeps it, and unloads at the berth wh
 | `started` | The emergencies that started. |
 | `ended` | The emergencies that ended. A reset or a restore that ends an emergency does not count. |
 | `emergencyTicks` | The sum over the ticks of the number of emergencies that are active at the end of the tick. |
+| `sampled` | The sampler events that came due. |
+| `skipped` | The sampler events that started no emergency. |
+| `endedTicks` | The sum of the ticks from start to end of the emergencies that ended. |
+| `maxTicks` | The longest emergency that ended, in ticks. |
+
+`sampled` and `skipped` move only in the emergency sampler.
+`endedTicks` and `maxTicks` move only while the emergency sampler is live.
+The mean length of an emergency is `endedTicks` divided by `ended`.
 
 A reset, a demo, and a project apply that replaces the fleet end every emergency and set the counters to 0.
 A rewind restores the emergencies and the counters of the save point.

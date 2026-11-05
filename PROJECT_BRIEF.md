@@ -125,6 +125,7 @@ Faults and emergencies are always on, with no project switch, as the [marker rem
 The exception is the traffic demo: they are off during it and stay off until a reset or a project apply.
 Stages 1 to 3 of the incident work landed, and stages 4 to 6 were dropped with no contracts.
 The maintainer reopened stage 7 on November 4, 2026, for the scenario rates, under [its contract](docs/contracts/incident-stage7-contract-proposal.md).
+Its code landed, its [soak](docs/studies/incident-soak.md) has not run, the soak size is open, and the Suspension median row of its qualification is open.
 
 ### Rider emergency stop
 

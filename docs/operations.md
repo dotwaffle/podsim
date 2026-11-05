@@ -333,11 +333,16 @@ The file can have `simulation.faults`, with these members:
   `pod` is an index into `simulation.pods`, and `lane` is an index into `project.network.lanes`.
   `from` and `to` are the debris segment in meters.
   The file can have one record for each pod and 64 debris records, so at most 1,064 records.
-- `counters`: the fault counters `started`, `cleared`, `evacuations`, `reroutes`, and `faultWaitTicks`, as in the [protocol](protocol.md#fault-members).
+- `counters`: the fault counters `started`, `cleared`, `evacuations`, `reroutes`, `faultWaitTicks`, `sampled`, `skipped`, `clearedTicks`, and `delayedRiderTicks`, as in the [protocol](protocol.md#fault-members).
+- `random` and `nextTick`: the state of the fault sampler.
+  `random` is the base64 text of the 20 bytes of its random source, and `nextTick` is the tick of its next event.
+  A `nextTick` of 2^53-1 means that no more events come.
+  The file has both members exactly when the sampler is live: the project rate is above 0, and the fleet is not the demo fleet.
 
-The file omits `simulation.faults` when no fault is active and each counter is 0.
+The file omits `simulation.faults` when no fault is active, each counter is 0, and the fault sampler is not live.
 It omits an empty `records` and each counter at 0.
 The file must not have a null fault member, or an empty `simulation.faults`.
+A `simulation.faults` with only `random` and `nextTick` is not empty.
 
 The file can have `simulation.emergencies`, with these members:
 
@@ -345,11 +350,12 @@ The file can have `simulation.emergencies`, with these members:
   An emergency is `[generation, serial, start, pod, order]`.
   `start` is a tick, `pod` is an index into `simulation.pods`, and `order` is the order ID of the party.
   The file can have at most 4 records.
-- `counters`: the emergency counters `started`, `ended`, and `emergencyTicks`, as in the [protocol](protocol.md#emergency-members).
+- `counters`: the emergency counters `started`, `ended`, `emergencyTicks`, `sampled`, `skipped`, `endedTicks`, and `maxTicks`, as in the [protocol](protocol.md#emergency-members).
+- `random` and `nextTick`: the state of the emergency sampler, by the rules of the fault sampler.
 
-The file omits `simulation.emergencies` when no emergency is active and each counter is 0.
+The file omits `simulation.emergencies` when no emergency is active, each counter is 0, and the emergency sampler is not live.
 It omits an empty `records`, each counter at 0, and `counters` when each counter is 0.
-The file must not have a null emergency member, or a `simulation.emergencies` with no record and with each counter at 0.
+The file must not have a null emergency member, or a `simulation.emergencies` with no record, with each counter at 0, and with no sampler member.
 Each record must have exactly 5 numbers.
 
 The order text of each queued order and each rider is canonical base64 text, for each project kind.
@@ -394,6 +400,11 @@ A file of the traffic demo with a fault record also gives `invalid_state`, becau
 The server also checks the emergencies before either tier, and an emergency that is not valid gives `invalid_state` for the whole file.
 Examples are records out of serial order, a serial of 0 or above `incidentSerial`, and a serial that a fault record also has.
 Other examples are a `start` out of range, an order ID that is not positive, a negative counter, and more than 4 records.
+The server checks the sampler members of both groups in the same way.
+It refuses one of `random` and `nextTick` without the other, both with a rate of 0, and neither with a rate above 0, except in a demo save.
+It also refuses a `random` that is not valid, and a `nextTick` at or before the saved tick, except 2^53-1.
+A save with more `skipped` than `sampled` events fails after each tier, and it also gets `invalid_state`.
+A logical restore of a demo save gives an ordinary fleet, so it starts new samplers from the restored tick.
 A pod index out of range, a pod with two records, and a pod with hold 2 and no record also give `invalid_state`.
 A pod with purpose 1 must have the owner 2 and a record.
 Then the party of the record must be aboard the pod, and `interrupt` must name only that party.
@@ -522,7 +533,8 @@ Each member of `faults` is optional, and an absent `faults` member gives the sam
 `evacuationSeconds` is the time from the start of a pod fault to the evacuation of its riders.
 The riders leave the pod only when it is at rest, and each evacuated order ends interrupted.
 The other members set the scenario fault rate.
-`perHour` is the mean number of scenario faults in each simulated hour.
+`perHour` is the mean number of attempts to start a scenario fault in each simulated hour.
+An attempt that cannot start a fault is skipped, so the real rate can be lower.
 At a rate of 0, only the `fault` command starts a fault.
 `debrisShare` is the share of scenario faults that are debris on a lane, and `debrisMeters` is the length of that debris.
 The `duration` kind is `fixed` with `seconds`, `uniform` with `minSeconds` and `maxSeconds`, or `exponential` with `minSeconds`, `maxSeconds`, and `meanSeconds`.
@@ -534,21 +546,23 @@ Validation also refuses a null value at any level of `faults`.
 A project with `incidentContract`, `faultContract`, or `emergencyContract` has an unknown member.
 
 The size limit of 32 MiB counts `faults` at its widest value, for each project.
-The editor has no control for `faults`, and it keeps them in a loaded project.
-`cmd/compare` and the car runs of `internal/parkride` refuse a fault rate above 0.
-They accept other `faults` settings, and they run with faults off, because they send no fault command.
+The **Faults and emergencies** section of the editor sets these members, and a field that you do not change stays absent.
+`cmd/compare` runs a project with a fault rate above 0, and it reports the [incident columns](reference.md#report-columns).
+The car runs of `internal/parkride` refuse a fault rate above 0.
+With no rate, both tools accept other `faults` settings, and they run with faults off, because they send no fault command.
 A change to `faults` is a project change.
 A project apply then replaces the fleet, and every fault ends.
 With `-project`, a saved state with other fault settings gets `project_changed`.
 
 The `fault` and `clearFault` commands start and end faults (see [faults](protocol.md#faults)).
 The pod inspector has a **Fault** button for a pod fault.
-Only the `fault` command starts debris, and the view does not draw it.
+The [**Incidents** panel](user-guide.md#incidents-panel) has **Place debris**, which sends the `fault` command, and a **Clear** button for each fault.
+The map draws each active debris fault.
 A reset ends every fault and sets the fault counters to 0, and it keeps faults on.
 A save point keeps the faults and the counters, and a rewind restores them.
 
 The traffic demo runs without faults.
-The frames have `operationsOff`, the inspector does not show the button, and a fault command gets `faults are not enabled`.
+The frames have `operationsOff`, the view does not show the button or the **Incidents** panel, no sampler runs, and a fault command gets `faults are not enabled`.
 Faults stay off after the demo until a reset or a project apply.
 A restore of the demo fleet also keeps faults off.
 
@@ -570,15 +584,17 @@ A project can set the optional `emergencies` member, for example:
 | --- | --- | --- |
 | `perHour` | A number from 0 to 60. | 0 |
 
-`perHour` is the mean number of scenario emergencies in each simulated hour.
+`perHour` is the mean number of attempts to start a scenario emergency in each simulated hour.
+An attempt that cannot start an emergency is skipped, so the real rate can be lower.
 At a rate of 0, only the `emergency` command starts an emergency.
 
 Validation also refuses a null value or an unknown member in `emergencies`.
 
 The size limit of 32 MiB counts `emergencies` at its widest value, for each project.
-The editor has no control for `emergencies`, and it keeps them in a loaded project.
-`cmd/compare` and the car runs of `internal/parkride` refuse an emergency rate above 0.
-They accept `emergencies` with a rate of 0, and they run with emergencies off, because they send no emergency command.
+The **Faults and emergencies** section of the editor sets this member, and a field that you do not change stays absent.
+`cmd/compare` runs a project with an emergency rate above 0, and it reports the [incident columns](reference.md#report-columns).
+The car runs of `internal/parkride` refuse an emergency rate above 0.
+With no rate, both tools accept `emergencies`, and they run with emergencies off, because they send no emergency command.
 A change to `emergencies` is a project change.
 A project apply then replaces the fleet, and every emergency ends.
 With `-project`, a saved state with other emergency settings gets `project_changed`.
@@ -591,7 +607,7 @@ A reset ends every emergency and sets the emergency counters to 0, and it keeps 
 A save point keeps the emergencies and the counters, and a rewind restores them.
 
 The traffic demo runs without emergencies.
-The frames have `operationsOff`, the inspector does not show the button, and the `emergency` command gets `emergencies are not enabled`.
+The frames have `operationsOff`, the view does not show the button or the **Incidents** panel, no sampler runs, and the `emergency` command gets `emergencies are not enabled`.
 Emergencies stay off after the demo until a reset or a project apply.
 A restore of the demo fleet also keeps emergencies off.
 

@@ -26,7 +26,9 @@ Software-renderer screens do not qualify physical GPUs, network delays, or broad
 
 The maintainer stopped the incident redesign after stage 3.
 Stages 1, 2, and 3 landed and are on main.
-Stages 4 to 7 were dropped and have no contracts.
+Stages 4 to 6 were dropped and have no contracts.
+The maintainer reopened stage 7 on November 4, 2026, under [its contract](../contracts/incident-stage7-contract-proposal.md).
+Its code landed, its [soak](../studies/incident-soak.md) has not run, the soak size is open, and the Suspension median row of its qualification is open.
 
 - Stage 1 is the [service transitions contract](../contracts/incident-service-transitions-contract-proposal.md).
   The maintainer approved it on October 5, 2026, in `482d93d`.
@@ -70,7 +72,7 @@ Car runs refuse a project with the Express marker.
 The container build covers the server, not the car CLI.
 
 Browser performance work closed with rejection.
-The incident redesign ended at stage 3.
+The incident redesign has stages 1 to 3 and stage 7, and the stage 7 soak has not run.
 Maximum Express costs limit responsive operating claims within the opt-in qualification.
 Forecast and archived service failures still block experimental adoption and capacity claims.
 No acceptance waiver follows from a successful build or a passing Check.

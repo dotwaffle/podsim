@@ -54,6 +54,45 @@ Neither button shows during the traffic demo, or after the demo until a reset or
 The buttons do not work while the connection is down or while a command waits for its reply.
 The server refuses a pod that it does not support, and the message line shows the error.
 
+### Incidents panel
+
+The **Incidents** tab is in the row with **Orders** and **Demand**, and only one of the three panels is open at a time.
+The tab does not show during the traffic demo, or after the demo until a reset or a project apply.
+While the panel is open, the **Fault** and **Emergency** buttons of the inspector do not show.
+
+The summary lines give these numbers:
+
+- The active faults and emergencies.
+- The sampled and the skipped events of each kind.
+- The interrupted orders.
+- The mean fault length and the rider delay.
+- The mean and the longest emergency length.
+
+A length or a delay shows `-` while it has no value, because these numbers move only when the project has a rate of that kind.
+
+Each active incident has a row, and page arrows show when the rows do not fit:
+
+| Row | Content |
+| --- | --- |
+| Debris | The lane ID, and **Clear**. |
+| Pod fault | The pod, the phase, the end time, and **Clear**. |
+| Emergency | The pod and the phase. No command cancels an emergency, so this row has no button. |
+
+**Clear** sends the fault ID of the row that the last frame showed.
+When that fault has ended, the server refuses the command, and the message line shows the error.
+
+To place debris:
+
+1. Select **Place debris**.
+   The button reads **Click a lane**, and a second press stops.
+2. Click a lane on the map.
+   The nearest lane within reach gets 2 m of debris at the click, and the debris stays until you clear it.
+
+The click selects no pod and no station, and each click ends the arming.
+A click that finds no lane sends nothing, and the message line tells you to press **Place debris** again.
+The thin lanes of a collapsed station and the lanes out of view are not targets.
+The server refuses debris that meets a reserved resource, and the message line shows the error.
+
 ### Pod colors and shapes
 
 Pod colors show what a pod is doing, and the map legend shows each color and shape.
@@ -68,6 +107,7 @@ The colors stay different with protanopia, deuteranopia, and tritanopia.
 | Amber ring around a pod | A waiting pod. |
 | White ring around a pod | The selected pod. |
 | Red ring around a pod | A pod with a fault or an emergency. This ring replaces the amber ring. |
+| Red line and red ring on a lane | Active debris. The ring has a fixed size, so it shows at each zoom level. |
 | White line between pods | Each pod of a [virtual platoon](model.md#virtual-platoons) joined to the pod ahead of it. |
 | Berth ring in a color | The color of a moving or busy pod in the berth. A berth with an idle pod keeps the gray ring. |
 
@@ -513,6 +553,12 @@ Three tools author more complex demand:
   **Rail arrivals and departures** runs both plans, and the demand inspector shows made, missed, unserved, and unresolved connections (see [scheduled train connections](rail-connections.md)).
 
 The editor also has an experimental control for [pickup reassignment](reference.md#pickup-reassignment), and **Pause and apply** activates the draft setting.
+
+The **Faults and emergencies** section sets the scenario rates (see [faults](operations.md#faults) and [emergencies](operations.md#emergencies)).
+Its fields are **Faults per hour**, **Debris share of faults**, **Debris length (m)**, **Time to evacuation (s)**, **Fault duration** with the values of its kind, and **Emergencies per hour**.
+An empty field keeps its default, and a field that you do not change stays out of the project.
+A fault rate above 0 needs a duration.
+An apply of a changed value rebuilds the fleet.
 
 ### Background images
 

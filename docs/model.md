@@ -425,7 +425,10 @@ After the evacuation delay, which is 300 simulated seconds by default, the rider
 Other pods route around a fault, or wait, and they do not reverse.
 
 The **Fault** button of the [pod inspector](user-guide.md#inspect-a-pod) and the `fault` command start a pod fault.
-Only the `fault` command starts debris, and the map does not draw debris.
+**Place debris** in the [**Incidents** panel](user-guide.md#incidents-panel) and the `fault` command start debris, and the map draws debris as a red line and a red ring.
+A project can also set a [fault rate](operations.md#faults), and then a sampler starts faults with a limited duration on random pods and lanes.
+The sampler has its own random stream, from the demand seed, so a run stays deterministic through a save, a restore, and a rewind on one CPU type.
+An event that cannot start is skipped, and the skip uses the same draws, so later events do not depend on it.
 See [faults](operations.md#faults) for the settings and the [fault commands](protocol.md#fault-commands) for the protocol.
 
 ## Emergencies
@@ -433,6 +436,8 @@ See [faults](operations.md#faults) for the settings and the [fault commands](pro
 An emergency gets a party out of a pod as soon as possible.
 It starts for one party aboard a pod, from the **Emergency** button of the [pod inspector](user-guide.md#inspect-a-pod) or the `emergency` command, and no command cancels it.
 Emergencies are on in each session with no project switch, with the same exception for the traffic demo as faults.
+A project can also set an [emergency rate](operations.md#emergencies), and then a sampler with its own random stream picks a random pod and party for each event.
+An event on a pod with no active rider is skipped.
 
 The pod leaves service, and its pending pickups go to other pods.
 A pod at a berth unloads there.

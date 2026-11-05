@@ -176,6 +176,10 @@ At the first skipped arrival, the command turns the policy off for the rest of t
 See [qualification results](studies/qualification.md#guarded-positioning-in-the-london-sweep).
 
 The command uses its own policy flags, and it ignores the experimental settings and `generatedOrderConsent` in the input project.
+It keeps `faults` and `emergencies`.
+An arm of a project with a rate has both operations on and runs the samplers, from the seed of the arm, so arms with one seed get one event schedule.
+An interrupted order is terminal and it is not served, so it does not count as remaining or as completed.
+To measure the delay that incidents cause, run one project with a rate and one with none, on one seed list.
 
 ### Demand patterns
 
@@ -260,6 +264,7 @@ Some columns show only when you ask for what they report.
 | `sharing_join` | You give `-sharing-joins`. Without the flag, each arm uses the `unassigned` policy. |
 | `sharing_mode` | Always. It gives the sharing mode of each arm. |
 | Seat screen columns | Always in JSON. In CSV, only when a `-sharing-limits` value is above 1. |
+| `interrupted`, `fault_started`, `fault_skipped`, `emergency_started`, `emergency_skipped` | The project has a fault rate or an emergency rate above 0. |
 
 The JSON report has `schema_version` 12.
 It is 13 with a pickup reassignment column, 14 with an `onboard_pickups` column, and 15 with energy estimates.
@@ -383,6 +388,7 @@ See [qualification results](studies/qualification.md) for safety checks, perform
 | `busy` | A ring with 35 passenger berths and 10 parking berths. | 32 |
 | `parking-constrained` | A ring with 20 passenger berths and 1 parking berth. | 20 |
 | `rail-hub` | Six passenger stations with six berths each, and 12 parking berths with 12 initial reserve pods. | 30 |
+| `rail-hub-incidents` | `rail-hub`, with 10 faults and 10 emergencies an hour. Each fault lasts 120 s, the debris share is 0.25, and debris is 2 m long. Its project name is the name of `rail-hub`. | 30 |
 | `scale100` | A connected grid of 19 passenger stations and one parking station, with 138 berths. | 100 |
 | `london-central` | The [LondonCentral qualification network](london.md): 96 passenger stations, three depots, and 242 berths. | 114 Compact |
 | `london-full` | [LondonFull](london-full.md): 309 Tube and DLR passenger sites, three depots, and 770 berths. | 327 Compact |
@@ -463,6 +469,20 @@ An unknown station ID, a berth count out of range, more pods than berths, or a n
 The first lane of a ring depot is 12 meters from the through lane, its lanes are 6 meters apart, its slots are 6 meters apart, and the initial parking pods fill the heads of the lanes first.
 Its run lanes and throats run at 2 m/s, so that the lane gap audit accepts the 6-meter spacing.
 The layout check skips the depot lanes, because the lane gap audit of the server checks them.
+
+### Incident flags
+
+These flags write the [`faults`](operations.md#faults) and [`emergencies`](operations.md#emergencies) members.
+A flag that is not on the command line writes nothing, so the output keeps the preset value.
+
+| Flag | Writes |
+| --- | --- |
+| `-fault-rate` | `faults.perHour` |
+| `-debris-share` | `faults.debrisShare`. It needs `-fault-rate`. |
+| `-debris-meters` | `faults.debrisMeters`. It needs `-fault-rate`. |
+| `-fault-duration` | `faults.duration`, as `fixed:S`, `uniform:MIN:MAX`, or `exponential:MIN:MAX:MEAN`. It needs `-fault-rate`. |
+| `-evacuation-seconds` | `faults.evacuationSeconds` |
+| `-emergency-rate` | `emergencies.perHour` |
 
 ### Summary line
 
