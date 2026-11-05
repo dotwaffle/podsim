@@ -112,7 +112,7 @@ func TestSampledTickLatency(t *testing.T) {
 // the fault event. Their sum is the time of the sampled tick.
 func TestSampledTickNoCandidateLatency(t *testing.T) {
 	if os.Getenv("PODSIM_QUALIFY") != "1" {
-		t.Skip("the full-limit timing report runs only in mise run qualify (PODSIM_QUALIFY=1)")
+		t.Skip("the full-limit timing report runs only in mise run qualify:limits (PODSIM_QUALIFY=1)")
 	}
 	skipLong(t)
 	if raceEnabled {
