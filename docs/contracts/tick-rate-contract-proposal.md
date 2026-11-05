@@ -367,7 +367,8 @@ So a lower rate saves about 2 to 3 percent of a core at 1x.
 
 The quota of `shared-cpu-1x` is [6.25 percent of a core](https://fly.io/docs/machines/cpu-performance), with a finite burst balance.
 On these numbers, the server fits with no client at each rate, and it does not fit with one client at any rate.
-A `shared-cpu-2x` machine has twice the quota, as far as I know, and I did not confirm this.
+The Fly page gives a `shared` vCPU a quota of 5 ms in each 80 ms period, and the vCPUs of a machine share their quota.
+So a `shared-cpu-2x` machine has 10 ms in each 80 ms period, which is 12.5 percent of a core.
 These readings come from the development host, and a Fly core or a Raspberry Pi core is a different core.
 
 The ticks in each frame also change at 1x.
@@ -424,6 +425,121 @@ So the soak cost follows the tick count, and it falls further than the compare a
   This arm did not finish in the 5-minute limit under the load.
 - A browser client, a draw of the picture, and the WebAssembly build at another rate.
 - `mise run test:web`, and the race tasks at another rate.
+
+### 4.6 Publication profile, 2026-11-05
+
+This section answers the measurement of decision 10, at `755dd3b`.
+Each reading is from the AMD Ryzen 5 3600, and it is not from a quiet host: the one-minute load average was from 3 to 73.
+Baselines at the same settings differ by 2 percentage points, so a smaller difference between two arms means nothing.
+Scratch builds and a scratch client made these readings, and none of this landed.
+
+Each server ran at 1x with `GOMAXPROCS=2`, at 60 Hz unless a row says otherwise, with demand on: 10 orders a minute on LondonFull and 12 on rail-hub.
+A warm-up of 70 s at a requested 60x came first, so the frames are from a running network.
+A LondonFull delta had 138 to 177 moving pods, 5.8 to 7.2 kB of gzip, and 22 to 28 kB of JSON.
+A rail-hub delta had 29 moving pods, about 1.8 kB of gzip, and 5.4 kB of JSON, with the order queue at its limit of 200.
+Each client inflated, decoded, applied, and assembled each frame as `internal/remote` does, in its own process.
+The default `GOMAXPROCS` of 12 read 11.7 percent on LondonFull in one run, and section 4.3 read 13.0 percent on its tree.
+
+The table gives the share of a core by stage, from CPU profiles scaled to the process CPU.
+LondonFull is the mean of 6 runs at 11.0 percent (9.9 to 12.0), and rail-hub is the mean of 2 runs at 6.9 percent.
+The last two columns give the share of allocated bytes of each stage, which attributes the GC row.
+
+| Stage | LondonFull | Rail-hub | LondonFull allocated bytes | Rail-hub allocated bytes |
+| --- | ---: | ---: | ---: | ---: |
+| Simulation `Step` | 2.30 | 1.25 | 2% | 8% |
+| Snapshot, of which the rebuild of route windows is about 80 percent on LondonFull | 2.77 | 0.14 | 54% | 10% |
+| Delta comparison, of which `reflect.DeepEqual` on routes is about 80 percent on LondonFull | 1.75 | 0.17 | 17% | 2% |
+| JSON of the groups, which `makeDelta` encodes for both frames to compare them | 0.72 | 2.48 | 13% | 77% |
+| JSON of the envelope | 0.73 | 0.20 | 11% | 2% |
+| gzip | 0.58 | 0.28 | 2% | 1% |
+| WebSocket writes, acknowledgments, and their syscalls | 0.36 | 0.29 | 0% | 0% |
+| GC | 1.28 | 1.20 | | |
+| Scheduler and timers | 0.35 | 0.78 | | |
+| Other | 0.14 | 0.11 | | |
+
+All JSON on the server, with its GC share, is 1.76 percent of a core on LondonFull, which is 16 percent of the server CPU.
+On rail-hub it is 3.6 percent of a core, and most of that encodes the order queue only to compare it, because the `pending` group was on the wire in 2 of 400 deltas.
+
+These rows are the process CPU of whole runs, and `memo` is a scratch change with three parts.
+It keeps the lanes of a route window while the route identity and the window stay the same, it compares routes with `slices.Equal`, and it keeps the group bytes of the previous frame.
+One run of 45 s compared the kept lanes with a rebuild and found no difference.
+
+| Project | Ticks | Publications each second | Memo | One client | Three clients |
+| --- | ---: | ---: | --- | ---: | ---: |
+| LondonFull | 60 | 20 | No | 11.0 (9.9 to 12.0) | 13.0 |
+| LondonFull | 60 | 20 | Yes | 7.5 (6.7 to 8.0) | 7.9 |
+| LondonFull | 60 | 10 | No | 7.2 (6.8 to 7.6) | 6.5 |
+| LondonFull | 60 | 10 | Yes | 4.8 | |
+| LondonFull | 60 | 5 | No | 4.5 | |
+| LondonFull | 30 | 20 | No | 10.7 | |
+| LondonFull | 30 | 20 | Yes | 6.3 | 6.8 |
+| LondonFull | 30 | 10 | No | 6.5 | |
+| LondonFull | 30 | 10 | Yes | 3.7 (2.8 to 4.1) | 4.3 |
+| LondonFull | 20 | 20 | No | 9.7 | |
+| LondonFull | 20 | 10 | Yes | 3.4 | |
+| Rail-hub | 60 | 20 | No | 6.9 | 7.3 |
+| Rail-hub | 60 | 20 | Yes | 4.6 | |
+| Rail-hub | 60 | 10 | No | 3.7 | |
+| Rail-hub | 60 | 10 | Yes | 2.9 | |
+| Rail-hub | 30 | 20 | No | 3.9 | |
+| Rail-hub | 30 | 10 | No | 3.3 | |
+| Rail-hub | 30 | 10 | Yes | 2.4 | 2.8 |
+
+With no client, LondonFull read 3.8, 1.8, and 1.2 percent at 60, 30, and 20 Hz, and rail-hub read 1.9 percent at 60 Hz.
+The profile gives each further client about 0.2 percent of a core at 20 publications each second, because all clients share one encoding.
+The one-run differences between one and three clients go from -0.7 to +2.0, so they do not resolve this.
+
+This table ranks the saving on LondonFull at 60 Hz with one client, from the baseline of 11.0.
+The protobuf, hand-written JSON, buffer, and option rows are estimates from scratch benchmarks over 400 captured deltas and the profiles, and the other rows have a live arm.
+
+| Change | Saving, percent of a core | Protocol change | Cost |
+| --- | ---: | --- | --- |
+| 5 publications each second | 6.5 | No | 200 ms is longer than the client motion delay of 150 ms, so the delay must grow. |
+| 10 publications each second | 3.8 | No | Less fresh motion. I did not look at the picture. |
+| Memo | 3.5 | No | Code on the publication path. |
+| 30 Hz, and 20 Hz | 1.2, and 1.4 | Version only | Section 5. These are differences between arms with memo and one client, and the no-client readings give 2.0 and 2.6. |
+| Protobuf, best case | 1.1 | Yes | A second protocol and a new client decoder. 0.55 at 10 publications each second. |
+| `GOGC=400` | 0.9 | No | Peak memory 196 MB to 440 MB. |
+| Hand-written JSON encoder of the delta | 0.7 | No | Code that must match the encoder byte for byte, which 400 captured deltas did after a sort of the group names. |
+| No gzip | 0.6 | No | A valid gzip member with stored blocks, and 3.8 times the bytes: 27.6 kB for each publication. |
+| Huffman-only gzip | 0.4 | No | 2.3 times the bytes. |
+| Reuse of the encoder and output buffers | 0.15 | No | Estimate: about 12 percent of allocated bytes, times the GC cost. |
+| `encoding/json/v2` options | Below 0.1 | No | `EscapeForHTML(false)` is within noise. A reused encoder removes 89 percent of the allocated bytes of the marshal and no marshal CPU. |
+
+The protobuf estimate uses a hand-written encoder of the same shape, with typed vehicles, berths, and statistics, and with other groups as JSON bytes.
+It takes 6.6 µs against 234 µs for a marshal, and 95 µs against 155 µs for gzip at the same level.
+So it removes about 0.7 of marshal, 0.2 of gzip, and 0.15 of GC.
+The frame falls from 7,266 to 5,903 bytes of gzip on LondonFull (19 percent), and from 1,703 to 1,209 on rail-hub (29 percent).
+This does not include any ConnectRPC layer, and I assume that generated code does not beat a hand-written encoder.
+The saving is for each publication and not for each client, because the clients share one encoding.
+The September evaluation read about 0.7 percent of a core and 10.3 percent of the bytes.
+gzip level 2 costs about the same as level 1, levels 3 and 6 cost more, and none of them saves more than 2 percent of the bytes.
+
+JSON is a large part of the client CPU.
+One native client at 20 publications each second used 22 to 28 percent of a core on LondonFull, of which `DecodeStreamJSON` was 14 to 17, its GC about 4, assembly about 2.5, and inflate about 0.2.
+On rail-hub it used about 6.5 percent, and decode was 3.6.
+The WebAssembly build, replayed in Node at a load average of about 10, took 30 to 32 ms for a 21.5 kB delta in decode, 5 ms in assembly, 1.5 ms in apply, and 0.6 ms in a Go inflate.
+That is 60 to 65 percent of a core at 20 publications each second, before any draw.
+On rail-hub it took 7 to 10 ms in decode.
+The native gzip of Node took about 0.2 ms, and the browser uses a native inflate.
+The typed decode takes 0.45 ms of the native 11.3 ms in a benchmark, and the token scans before it take the rest.
+A protobuf-shaped decoder took 0.02 ms, but it skips riders, stops, and metadata.
+From the profile, one scan pass with the same refusal order and error text should remove most of this with no protocol change, and I did not build it.
+
+JSON is 16 percent of the server CPU on LondonFull, and a change to protobuf saves about 1 percent of a core.
+On rail-hub with a full queue it is about half, but most of that is the group comparison, and memo reduces the comparison with no protocol change.
+I do not recommend ConnectRPC for the CPU of the server.
+Against the 12.5 percent of `shared-cpu-2x`, the current code with LondonFull at 60 Hz and 20 publications each second reads 11.0 with one client, and 13.0 in one run with three.
+The profile gives two more clients about 0.4, so I read both as at the quota.
+At 10 publications each second, it reads about 7 percent with either count.
+With memo, 30 Hz, and 10 publications each second, it reads about 4 percent, which also fits the 6.25 percent of `shared-cpu-1x` on these readings.
+Rail-hub fits in each arm.
+All of this assumes that a Fly vCPU is as fast as this host, and a slower core scales each figure up.
+The order of work is the publication rate, then memo, then the tick rate, with the client scan as separate work for the browser.
+
+The [Fly page](https://fly.io/docs/machines/cpu-performance) gives a `shared` vCPU an initial burst balance of 5 s and a maximum of 500 s, and it runs at up to 100 percent while it has a balance.
+With no balance, a machine that reaches its quota does not run for the rest of the 80 ms period.
+A LondonFull GC cycle uses about 30 to 100 ms of CPU, and a publication about 3 ms, so a machine near its quota with no balance can stall for several periods.
 
 ## 5. Effort, risks, and recommendation
 
