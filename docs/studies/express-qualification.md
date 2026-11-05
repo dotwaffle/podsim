@@ -38,6 +38,7 @@ After a change to a count or byte limit, the Express sizes are unchecked.
 The native simulator passed 84 independent ledgers and 985,214 checked ticks.
 A pod class of 20 seats and a 10 m body runs through following, merging, banking, parking fetch, and occupied pickups.
 Mixed parties share the 20 seats whole.
+The qualification ran before the standee profile, and Express now has 12 seats, 8 standee places, and a 6 m body (see the [vehicle classes](../model.md#vehicle-classes)).
 A party never splits.
 Large pairs keep 20 m of separation on the common-plane fixtures.
 Cold restore keeps whole parties, order IDs, options, boarded status, and distance totals.

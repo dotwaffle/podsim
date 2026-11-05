@@ -54,6 +54,7 @@ It requires 12 meters between two paths, or less on a lane that the retention ru
 A pair with a large class needs 20 meters.
 Such a pair skips the audit by plane only when each location that either path can occupy is on a different plane from each location of the other path.
 The locations of a lane are the lane, its incident lanes, and each berth at its From node.
+The audit reports a pair that only these locations refuse after its scan, and a network, a fleet, or a project reports that refusal after its other checks.
 The locations of a berth are the berth and its incident lanes.
 Maneuver groups and depots (`internal/sim/depot.go`) use the same audit.
 With a depot and no bank, the audit checks only the pairs with a depot lane or a slot.

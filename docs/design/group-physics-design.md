@@ -14,13 +14,13 @@ No station, fleet, speed, or default policy changes automatically.
 The route position of a large class is the center of its body envelope.
 Small-class position behavior is unchanged.
 
-| Class | Logical seats | Length | Maximum width | Envelope radius |
-| --- | ---: | ---: | ---: | ---: |
-| Group | 8 | 6 m | 2.5 m | 6 m |
-| Express | 20 | 10 m | 2.5 m | 6 m |
+| Class | Seats | Standee places | Length | Maximum width | Envelope radius |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Group | 8 | 0 | 6 m | 2.5 m | 6 m |
+| Express | 12 | 8 | 6 m | 2.5 m | 6 m |
 
 These dimensions are simulation assumptions, not measured vehicle specifications.
-A centered 10-by-2.5-meter rectangle has a half-diagonal of about 5.154 meters, so the six-meter circle encloses it in every orientation.
+A centered 6-by-2.5-meter rectangle has a half-diagonal of about 3.25 meters, so the six-meter circle encloses it in every orientation.
 Both classes use the same circle to reduce the mixed-class cases to prove.
 A later per-class envelope can use less space after separate qualification.
 The approval does not authorize default adoption, deployment, real vehicle certification, or a detailed axle and steering model.
@@ -70,6 +70,7 @@ Missing arrays, changed pod values, or overlapping incident planes refuse the ex
 Public center-only locations cannot grant this exemption.
 The network audit applies the same rule before a run: a large pair of lanes gets the exemption only when every cross-pair of the lanes, their incident lanes, and the berths at their From nodes is on different planes.
 The audit uses the whole lane, so a pass that is far from the join on a lane that is incident to a shared plane is also refused.
+The audit returns this refusal as a `PlaneReachError`, and a caller reports it after its other checks (the path, length, and cell checks of preparation, the placements of a fleet, and the other checks of a project), so that it does not hide an earlier refusal.
 The route window of a pod can reach further than an incident lane, because the front bound is the largest `6 * projection bound / 20` of the lanes of the route, and each lane stores it beside its tail.
 The audit does not cover that case, so the observer can report a pair that the audit accepted.
 The observation uses the existing tick rate, acceleration, braking, and authored speed limits.
@@ -101,7 +102,7 @@ The focused tests include actual journeys with group, compact, and legacy leader
 They cover straight and curved motion, stopped following, merges, ordinary and bank stations, and parking.
 Every observed tick checks physical separation, speed changes, owned stopping bounds, position continuity, and order conservation.
 Cold checkpoints cover passenger service, empty fetch, origin retention, route trimming, and intermediate shared unloading.
-At qualification, actual consumers exercised save-6 restore and hello-3 full and replacement-delta frames; those versions are now 9 and 7.
+At qualification, actual consumers exercised save-6 restore and hello-3 full and replacement-delta frames; those versions are now 10 and 8.
 
 Independent review found a missing raw origin plane during departure.
 The corrected observer retains that plane until origin release.

@@ -156,8 +156,8 @@ An approved contract in `docs/contracts/` is binding, and each document gives it
 | [Marker removal](docs/contracts/marker-removal-contract-proposal.md) | Faults and emergencies with no project switch. |
 | [Generated-order consent](docs/contracts/generated-order-consent-contract-proposal.md) | The `generatedOrderConsent` setting. |
 | [Tick rate](docs/contracts/tick-rate-contract-proposal.md) | A lower tick rate. A proposal, not approved. |
-| [Express standees](docs/contracts/express-standees-contract-proposal.md) | A 6 m Express with standees, and a curve tail from the lane polyline. A proposal, not approved. |
-| [Incident stage 7](docs/contracts/incident-stage7-contract-proposal.md) | Random faults and emergencies. Implemented. The soak of section 5.1.9 has not run, its size is open, and its Suspension median row is open. |
+| [Express standees](docs/contracts/express-standees-contract-proposal.md) | A 6 m Express with standees, and a curve tail from the lane polyline. The maintainer accepted its decisions. The seat and standee split, the motion envelope, and the polyline tail are built. |
+| [Incident stage 7](docs/contracts/incident-stage7-contract-proposal.md) | Random faults and emergencies. Implemented. The soak of amendment A6 ran, and its Progress row missed. The Suspension median row is open. |
 
 ### Designs
 
@@ -185,7 +185,7 @@ An approved contract in `docs/contracts/` is binding, and each document gives it
 | Party | The passengers of one order. A party never splits. |
 | Journey | The ride of a party from boarding to alighting. |
 | Consent | Whether a party allows other parties in its pod: `private` or `shared`. |
-| Pod | One vehicle. Its class sets its seats and body length. |
+| Pod | One vehicle. Its class sets its seats, its standee places, and its body length. |
 | Large class | The `group` and `express` classes, which keep 20 m of clearance. |
 | Lane | A one-way path between two nodes. The editor controls call it a guideway. |
 | Track cell | An exclusive piece of a lane, up to 30 m long. A pod reserves cells before it moves. |

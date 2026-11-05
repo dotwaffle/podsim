@@ -31,6 +31,7 @@ A station that a depot uses has fixed geometry and berths, so the controls refus
 Lanes that share a node use the existing junction control.
 Distinct nonempty separation groups represent separate planes when the lanes share no node, as in the simulator.
 A lane pair with a large class also needs distinct planes for their incident lanes and for the berths at their From nodes, as in the server bank audit.
+The preview reports a conflict that only this rule gives after its other server checks, as the server does.
 The edit never changes a separation group to avoid a rejected crossing.
 All coordinates must remain within the existing project limit.
 The full project also passes through the editor's asynchronous validation before application.

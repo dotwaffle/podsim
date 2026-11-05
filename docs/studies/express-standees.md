@@ -3,13 +3,14 @@
 This record holds the research and the scratch measurements for the [Express standees contract proposal](../contracts/express-standees-contract-proposal.md).
 All runs used scratch overlays on `b2262f6`, and the overlays did not land.
 The results authorize no change.
+The Express row of the first table gives the profile at `b2262f6`; the profile is now 12 seats, 8 standee places, and a 6 m body.
 
 ## Vehicle sizes
 
 | Vehicle | Length x width (m) | Seats | Total | Seats per m | Total per m |
 | --- | --- | ---: | ---: | ---: | ---: |
 | Group (simulation) | 6 x 2.5 | 8 | 8 | 1.33 | 1.33 |
-| Express (simulation) | 10 x 2.5 | 20 | 20 | 2.00 | 2.00 |
+| Express (simulation, at `b2262f6`) | 10 x 2.5 | 20 | 20 | 2.00 | 2.00 |
 | Morgantown | 4.72 x 2.03 | 8 | 21 | 1.69 | 4.45 |
 | Rivium Gen 2 | 6.0 x 2.1 | 12 | 24 | 2.00 | 4.00 |
 | GRT Gen 3, standard | 6.04 x 2.10 | 8 | 22 | 1.32 | 3.64 |
