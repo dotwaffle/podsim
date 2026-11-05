@@ -77,7 +77,7 @@ A change to an approved gate is an amendment in section 5.1.9, and it needs its 
 | G6 | A very small rate gives an interval above `MaxCounter` or `+Inf`, and a save then fails the integer scan. | Formula of 12.2, `internal/session/state_file.go:587` | The terminal rule of section 5.1.1. |
 | G7 | `duration` is "required when `perHour > 0`", and no refusal exists. | Suspension 12.1, `internal/project/faults.go:99` | New refusal, section 4.3. |
 | G8 | "Skipped and counted" names no counter. | Suspension 12.2 and 12.5, emergency 10.2 and 10.5 | `sampled` and `skipped` in each counter group. |
-| G9 | "The internal start" of an emergency does not exist. | Emergency section 13, `internal/sim/emergencies.go:119` | Split `Emergency` into `startEmergency` and `observe`. The order and text of its refusals stay. |
+| G9 | "The internal start" of an emergency does not exist. | Emergency section 13, `internal/sim/emergencies.go:119` | Split `Emergency` into `startEmergency` and `observe`. The order and text of its refusals stay. So the `Emergency` of the F11 transition row (emergency `:530`) is `startEmergency`. |
 | G10 | `ConfigureExperiments` also runs after a restore, so a sampler that starts there would replace the restored stream. | `internal/session/persist.go:531` | `SetFaults` and `SetEmergencies` never draw. A separate idempotent entry starts the samplers (section 5.1.2). |
 | G11 | The contracts ask for pod ID order, and they do not say how to get it. | Suspension 12.2, emergency 10.2 | `s.vehicles` is already in `Pod.ID` byte order: `newFleet` sorts the placements (`internal/sim/prepared.go:271`), `Reset` builds the vehicles in that order (`internal/sim/simulation.go:593`), and a restore refuses saved pods out of that order (`internal/sim/state_contract.go:317`). The sampler walks `s.vehicles` and sorts nothing. A test pins the order. |
 | G12 | The capability matrices list train, approach, and compact queue rows that have no code. Faults refuse platoon members only. Emergencies accept platoon members and defer them. | `internal/sim/faults.go:363`, `TestEmergencyPlatoonDrain` in `internal/sim/emergency_groups_test.go`, emergency 1.4, `23d9381`, no `coupling` text in non-test `internal/sim` files | The sampler uses the code as it is. Decision 3. |
@@ -190,6 +190,10 @@ So tests pin these explicit-zero cases:
 
 A save that fails any of these moves aside with `invalid_state`, and the server starts a new session.
 
+A file cannot fail the upper bound of fault row 9 or emergency row 6, because the integer scan (`internal/session/state_file.go:587`) first refuses a value above `sim.MaxCounter` with its own error.
+No row refuses `skipped` above `sampled`.
+F13 and E9 refuse such a save after each tier, and `TestSamplerCountersAtRestore` pins this.
+
 Stream and HTTP:
 
 | Check | Text |
@@ -213,13 +217,15 @@ Each counter is `sim.MaxCounter`, which has 16 digits.
 | `"endedTicks":9007199254740991,` | 30 | B, decision 11 |
 | `"maxTicks":9007199254740991,` | 28 | B |
 
-| Format | Marker contract total | Cap | Headroom before stage 7 | Option B growth |
-| --- | ---: | ---: | ---: | ---: |
-| Saved state | 125,979,325 | 134,217,728 | 8,238,403 | 371 |
-| Full stream | 50,735,035 | 67,108,864 | 16,373,829 | 235 |
-| HTTP state | 84,291,213 | 134,217,728 | 49,926,515 | 235 |
+| Format | Marker contract total | Measured before stage 7 | Cap | Option B growth | Measured after stage 7 | Headroom after stage 7 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Saved state | 125,979,325 | 125,979,358 | 134,217,728 | 371 | 125,979,729 | 8,237,999 |
+| Full stream | 50,735,035 | 50,734,862 | 67,108,864 | 235 | 50,735,097 | 16,373,767 |
+| HTTP state | 84,291,213 | 84,291,040 | 134,217,728 | 235 | 84,291,275 | 49,926,453 |
 
-The growth figures are arithmetic, the two proofs must confirm them, and no cap or count limit changes.
+The growth figures are arithmetic, the two proofs confirm them, and no cap or count limit changes.
+The measured totals come from the two proofs, at the commit before `2c0a833` and at `3c61bcb`.
+They differ from the marker contract totals by 33 bytes in a save and by 173 bytes fewer in a stream, from changes outside stage 7 that this document does not trace.
 
 | Proof | Change |
 | --- | --- |
@@ -281,6 +287,11 @@ Terminal rule, one rule for scheduling, invariants, and restore:
 
 ```go
 // internal/sim
+type FaultDurationRule struct {
+	Kind                                         string
+	Seconds, MinSeconds, MaxSeconds, MeanSeconds int
+}
+
 type FaultRate struct {
 	PerHour, DebrisShare, DebrisMeters float64
 	Duration                           FaultDurationRule
@@ -440,7 +451,7 @@ Earlier patches test through `sim` entries.
 
 | Test | Proves | Mutation that it must catch |
 | --- | --- | --- |
-| Golden first 8 raw draws for seed 1, each sampler | The seed rule, the byte orders, and the uniform form. | Swap a byte order. Use `rand.Rand`. |
+| Golden first 8 raw draws for seed 1, each sampler (`TestIncidentSeedsGolden`), and golden first 8 uniform draws for the PCG arguments 1 and 2 (`TestIncidentUniformGolden`) | The seed rule, the byte orders, and the uniform form. | Swap a byte order. Change the uniform form. `rand.Rand.Float64` has the same form today, so a change to `rand.Rand` gives the same draws. |
 | Event trace fixture, each sampler, with 20 events: for each draw its role and value, then the target, segment, end tick, outcome, and next tick | Draw roles and event meaning, which raw draws cannot show. | Draw the next interval before the event draws. Swap position and duration. Count over all pods in the fault sampler. Round a duration down. |
 | Interval table: `u = 0`, the largest `u`, a rate of 60, and a rate of `1e-300` | `max(1, ...)` and the terminal value. | Drop `max(1, ...)`. Remove the saturation. |
 | Terminal run: set the tick to `MaxCounter-1` with `nextTick` at `MaxCounter`, then step, save, restore, and check no event and valid F13 and E9 | One terminal rule in all three places. | Use `tick >= nextTick` alone. Remove the exemption from F13 or from the range check. |
@@ -450,7 +461,7 @@ Earlier patches test through `sim` entries.
 | Demand pair sequence with the samplers on and off | Streams are separate. `nextPair` draws before `offer` looks at the state (`internal/session/demand.go`), so the sequence is comparable. | Draw an event from the demand PCG. |
 | One rate at a time, each way | Each sampler uses its own stream. | Use one stream for both samplers. |
 | Identity: rate absent, `{}`, `0`, and `-0`, on Busy and Rail Hub, with no command | Section 5.1.5. | Add a member at rate 0. |
-| Command-driven parity: the same four forms with a scripted `fault`, `clearFault`, debris, and `emergency`, against bytes pinned from the commit before patch 1 | Manual commands write no new bytes at rate 0. | Remove the counter gate of each of the four counters. |
+| Command-driven parity: the same four forms with a scripted `fault`, `clearFault`, debris, and `emergency`, against bytes pinned from the commit before patch 1 | Manual commands write no new bytes at rate 0. | Remove the counter gate of `clearedTicks` or `delayedRiderTicks`. The gates of `endedTicks` and `maxTicks` need an ended emergency, which the script does not have, so `TestManualEmergencyEndCounters` covers them. |
 | Size boundary: a rate-0 project at the cap, and 44 bytes below it, with decision 15's answer | Exception 2 is exact, and each accepted project encodes within the cap. | Keep `-0` as the widest rate with no measure of the real rate. |
 | Restore trace, physically unchanged fixture: every pod at its berth with no motion, no queue, and a state that the physical tier keeps as it is. Compare the next 20 event traces with the run that did not stop. | The stream and each restored setting. Draws and due ticks alone cannot show a lost setting. | Lose `DebrisShare`, `DebrisMeters`, or `Duration` on restore. Drop `random` from the export. Seed in `SetFaults`. Restart the stream in a tier. |
 | Save at a random tick on a live preset, restore, and compare the next 100 due ticks and draw values | The save carries the whole stream in a real state. The outcomes can differ, so this test does not compare them. | Drop `nextTick` from the export. |
@@ -462,6 +473,9 @@ Earlier patches test through `sim` entries.
 | Refusal tables, with inputs that have more than one error, and the explicit-zero table | Section 4.3. | Remove each new line. Read `nextTick` as absent at 0. |
 | Frame members, and a counter round trip with different values | Section 4.2. | Add `random` to `FaultsView`. Swap `sampled` and `skipped` in the mapping. |
 | One station search for a sampled emergency in its start tick | G15. | Search in each advance call. |
+
+Status 2026-11-05: by the maintainer decision of 2026-11-04, patch 15 removed `internal/session/incident_identity_test.go`, the test of the Identity and Command-driven parity rows.
+The saved-state golden files and the parity tests of `internal/session` stay.
 
 #### 5.1.9 Qualification
 
@@ -509,6 +523,10 @@ Soak size with A2, by arithmetic, with 2 presets and 20 seeds: 40 runs of comman
 This is 200 runs of 24.5 simulated hours, 4,900 simulated hours, or about 1.06e9 ticks, with every-tick checks on 120 of the runs.
 I have no measured tick rate for this, so a timing run of 1 seed for 1 hour on each arm comes first, and its result goes to the maintainer.
 Each run has a memory cap, by the project's rule for test jobs.
+
+Status 2026-11-05: `docs/studies/incident-soak.md` holds the timing run.
+The soak has not run, the maintainer has not chosen its size, and the Performance row for suspension is open.
+This status marks no gate as passed.
 
 Amendments, each for a separate answer in section 8:
 
@@ -641,7 +659,7 @@ Observability: the output of `cmd/compare`, and the project member of `cmd/scena
 | --- | --- |
 | Show | Only with `operationsOff` false, as the other buttons. |
 | Arm | One press arms, and a second press disarms. While armed, a map click selects no pod and no station. |
-| Pick | `pickLane(point, lanes)` is a pure function. The nearest lane within 12 design units wins, and the first lane in network order wins a tie. |
+| Pick | `pickLane(point, lanes, radius)` is a pure function. The radius is 12 design units. The nearest lane within the radius wins, and the first lane in network order wins a tie. |
 | Segment | 2 m, centered on the click and clamped into the lane. `sim.Network.Length` gives the meters. |
 | Command | `fault` with `laneID`, `fromMeters`, `toMeters`, and no duration, so the debris lasts until a clear. |
 | Refusal | The existing message line shows the server error, for example `debris meets a reserved resource`. The view checks nothing itself, as P7 and `internal/view/fault.go:35` say. |
@@ -656,7 +674,7 @@ A third panel beside **Orders** and **Demand** (`internal/view/game.go:472`), in
 | Row | Content |
 | --- | --- |
 | Summary | Active faults, active emergencies, `sampled`, `skipped`, interrupted orders, and the numbers of section 5.5. |
-| Debris | Lane name, and **Clear**. |
+| Debris | Lane ID, and **Clear**. |
 | Pod fault | Pod, phase, end tick, and **Clear**. |
 | Emergency | Pod and phase, with no button: P22 has no cancel. |
 
@@ -678,7 +696,7 @@ Failure modes:
 | --- | --- |
 | A click arms and the demo starts. | The button hides, and the armed state ends with `operationsOff`. |
 | A debris row is gone at the click. | The server replies `unknown fault`, and the message line shows it. |
-| The lane under the click is hidden in a collapsed station. | The pick uses the drawn paths, so a hidden lane is not a target. |
+| The lane under the click is a thin lane of a collapsed station. | The map draws such a lane, thin and dim, under the station marker, and it is not a target. A lane that continues a line through the station stays a target. A lane out of the viewport is not a target. |
 | The form writes `0` for an untouched member. | Test: load, change nothing, and compare the project JSON. |
 
 Test plan, with no `Draw` loop on an offscreen image (`AGENTS.md`):
@@ -753,6 +771,7 @@ Test plan:
 // debrisMark is the map form of one active debris fault.
 type debrisMark struct {
 	from, to, center sim.Point
+	path             []sim.Point
 }
 
 // debrisMarks returns the marks of the active debris, in record order.
@@ -762,8 +781,8 @@ func (g *Game) debrisMarks(faults sim.FaultsView, detailed bool) []debrisMark
 | Item | Rule |
 | --- | --- |
 | Input | `state.Faults.Active` with kind `debris`. A delta already updates this group. |
-| Geometry | `laneGeometry.along(fromMeters / length)` and `along(toMeters / length)`, with the length from `Network.Length`. A record with an unknown lane has no mark. `StreamAssembler` already checks the lanes. |
-| Stroke | A line between the two points on a straight lane. On a curved lane, the polyline points between them. |
+| Geometry | `laneGeometry.atMeters` at `fromMeters` and `toMeters`, over the table of `laneMeters`, which holds the distance of each lane point. A record with an unknown lane or a lane of no length has no mark. `StreamAssembler` already checks the lanes. |
+| Stroke | `path`: a line between the two points on a straight lane. On a curved lane, also the lane points between them. |
 | Mark | A fixed-size ring sprite at the center, because a 2 m segment can be below one pixel at **Fit**. |
 | Color | A new `danger` color, so a mark differs from the amber wait ring. |
 | Order | After the route and before the platoon lines and the pods (`internal/view/draw_network.go:113`). |
