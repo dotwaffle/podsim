@@ -90,3 +90,33 @@ The result gives no memory guarantee for another environment.
 
 - No full-repository race run is claimed for the wire or browser work.
 - The widest-fixture browser resource run was not repeated on the merged formats.
+
+## Throughput on curved station lanes
+
+This trace ran at `4d20d6d`, and it found a permanent deadlock on `rail-hub` when large classes are allowed on the lanes.
+No Express pod and no order contract marker is necessary.
+The test sets `vehicleClasses` to `legacy`, `compact`, `group`, and `express` on each lane, and `projectcheck` accepts the project.
+
+| Run: hotspot, 5-second interval, 30 minutes, seed 1 | Served | Stopped pod-seconds | Peak stopped |
+| --- | ---: | ---: | ---: |
+| Plain `rail-hub` | 102 | 1,337 | 7 |
+| All classes on each lane | 1 | 49,033 | 30 |
+| All classes, control points 25 percent nearer to the chord | 99 | Not recorded | Not recorded |
+
+No pod moves from about minute 10.
+At minute 30, a wait cycle of 14 pods holds all 30 pods, and the denials are on node and track resources.
+
+The cause is the curve tail in `internal/sim/profile_geometry.go`.
+The tail is 20 / (c * (1 - slack)), where c is the smallest projection of a segment tangent on the chord.
+The curved fan lanes have a c of about 0.01, so the tails are 299 to 1,933 m on lanes of 144 to 282 m.
+A pod then claims the station exit on its first grant and releases it only past the next station, so the exits close a ring over the 7 stations.
+A scratch cap on the tail gave 98 served at 20 m, 95 at 100 m, and 74 at 300 m, with no separation check.
+
+This is not a regression: `f3d0980`, the commit that added the rule, gives the same figures.
+The code follows the group physics design and the Express encoding contract, which forbid a shorter bound.
+No preset has these allowlists, but the editor's lane class checkboxes reach this state.
+Allowing the classes on only one straight lane gave 41 served against 102, because each lane that touches its nodes gets a tail.
+
+Results on this traffic are weak evidence of parity.
+All pods stop early, so the traffic covers little release, reassignment, or later pickup.
+The soundness of the bound, and the behavior of other geometries, are not verified.
