@@ -2,6 +2,8 @@
   'use strict';
   const INPUT_BYTES = 10 * 1024 * 1024, REPORT_BYTES = 32 * 1024 * 1024;
   const MAX_NODES = 300000, MAX_DEPTH = 32, PAGE_SIZE = 25;
+  // TICKS_PER_SECOND is sim.TicksPerSecond.
+  const TICKS_PER_SECOND = 60n;
   const CLASSES = ['legacy', 'compact', 'group'];
   const TIMES = ['departureSeconds', 'outwardSeconds', 'returnNotBeforeSeconds', 'activitySeconds', 'retrievalSeconds', 'homeboundSeconds'];
   const LOT_FIELDS = ['id', 'hub', 'capacity'];
@@ -111,9 +113,10 @@
       if (trip.partySize > 8 || trip.partySize > trip.carSeats) fail(`${trip.id}: party must fit car seats and the native limit of eight.`);
       if (Object.hasOwn(trip, 'sharingConsent') && !['private', 'shared'].includes(trip.sharingConsent)) fail('Explicit consent must be private or shared.');
       if (trip.outwardRefusal !== 'drive-home' || trip.returnRefusal !== 'retain-car') fail('Select outward drive-home and return retain-car refusal policies.');
-      const ticks = TIMES.map(key => BigInt(integer(trip[key], key)) * 60n);
+      const ticks = TIMES.map(key => BigInt(integer(trip[key], key)) * TICKS_PER_SECOND);
       const arrival = ticks[0] + ticks[1];
-      const activity = (arrival > 5184000n ? arrival : 5184000n) + ticks[3];
+      const horizon = 86400n * TICKS_PER_SECOND;
+      const activity = (arrival > horizon ? arrival : horizon) + ticks[3];
       const end = (activity > ticks[2] ? activity : ticks[2]) + ticks[4] + ticks[5];
       if (end > 9223372036854775807n) fail(`${trip.id}: simulation tick sum overflows.`);
       trips.add(trip.id); cars.add(trip.carID);
@@ -284,7 +287,7 @@
     if (!imported) return;
     const report = imported.report;
     if (imported.kind === 'cars') {
-      target.append(element('p', `Car report v1. Endpoint ${report.endpointTick} ticks. Horizon ${report.horizonTicks} ticks. 60 ticks = 1 second.`));
+      target.append(element('p', `Car report v1. Endpoint ${report.endpointTick} ticks. Horizon ${report.horizonTicks} ticks. ${TICKS_PER_SECOND} ticks = 1 second.`));
       if (report.error) target.append(element('p', `Run error: ${report.error}`));
       const provenance = element('pre', `Build: ${report.build}\nProject hash: ${report.projectHash}\nPlan hash: ${report.planHash}\nQueue limit: ${report.queueLimit}\nNative policies:\n${JSON.stringify(report.policies, null, 2)}\nNative pod metrics:\n${JSON.stringify(report.pods, null, 2)}`); target.append(provenance);
       const counts = new Map(); for (const value of report.itineraries) counts.set(value.outcome, (counts.get(value.outcome) || 0) + 1);
@@ -305,7 +308,7 @@
         detail.replaceChildren(); const result = report.results[Number(selector.value)], energy = result.energy;
         const totals = element('dl');
         for (const [label, key] of [['Gross traction draw (J)', 'traction_joules'], ['Recovered energy (J)', 'recovered_joules'], ['Auxiliary energy (J)', 'auxiliary_joules'], ['Signed net energy (J)', 'net_joules']]) totals.append(element('dt', label), element('dd', String(energy[key])));
-        detail.append(totals, element('p', `Window: ${energy.window_start_tick} to ${energy.window_end_tick} ticks. 60 ticks = 1 second. ${energy.mass_assumption}.`));
+        detail.append(totals, element('p', `Window: ${energy.window_start_tick} to ${energy.window_end_tick} ticks. ${TICKS_PER_SECOND} ticks = 1 second. ${energy.mass_assumption}.`));
         detail.append(element('pre', `Class counts:\n${JSON.stringify(energy.class_counts, null, 2)}\nAuthored profiles (kg, N, N/(m/s)², fractions, W):\n${JSON.stringify(energy.profiles, null, 2)}\nFull comparison result:\n${JSON.stringify(result, null, 2)}`));
         detail.append(element('p', 'This report does not supply build or project hashes. Preserve the CLI inputs and command with the report.'));
       }
