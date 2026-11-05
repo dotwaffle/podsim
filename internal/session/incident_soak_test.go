@@ -1781,7 +1781,7 @@ func TestSoakCountsReadings(t *testing.T) {
 	for podID == "" {
 		d.step()
 		for _, vehicle := range d.s.simulation.Snapshot().Vehicles {
-			if vehicle.Pod.Occupied && vehicle.Pod.Activity == sim.Traveling && vehicle.Pod.LaneID != "" && vehicle.Pod.Speed > 0 {
+			if vehicle.Pod.Occupied && vehicle.Pod.Activity == sim.Traveling {
 				podID = vehicle.Pod.ID
 				break
 			}
@@ -1803,6 +1803,68 @@ func TestSoakCountsReadings(t *testing.T) {
 	if record := d.open[id]; record == nil || record.blocked == 0 || !strings.Contains(record.end, "with a fault") {
 		t.Fatalf("the record is %+v", record)
 	}
+}
+
+// TestSoakFaultAtDeparture starts a fault in the tick after a pod leaves its
+// berth, when it has no lane and no berth. The transition check runs at each
+// tick, also after a restore, and the pod departs after the clear.
+func TestSoakFaultAtDeparture(t *testing.T) {
+	t.Parallel()
+	d := newSoakDriver(t, soakInput{preset: "rail-hub", arm: soakArms["incidents"], seed: 1, checks: true})
+	d.nextFault, d.nextEmergency, d.nextSave, d.nextRewind = math.MaxInt64, math.MaxInt64, math.MaxInt64, math.MaxInt64
+	d.s.simulation.StopIncidentSamplersForTest()
+	pod := func(d *soakDriver, id string) sim.Pod {
+		for _, vehicle := range d.s.simulation.Snapshot().Vehicles {
+			if vehicle.Pod.ID == id {
+				return vehicle.Pod
+			}
+		}
+		t.Fatalf("no pod %s", id)
+		return sim.Pod{}
+	}
+	id := ""
+	for range soakTicksPerHour {
+		d.step()
+		for _, vehicle := range d.s.simulation.Snapshot().Vehicles {
+			if p := vehicle.Pod; p.Activity == sim.Traveling && p.LaneID == "" && p.BerthID == "" {
+				id = p.ID
+			}
+		}
+		if id != "" {
+			break
+		}
+	}
+	if id == "" {
+		t.Fatal("no pod departs")
+	}
+	before := pod(d, id)
+	fault := d.mustApply(Command{Action: "fault", PodID: id}).FaultID
+	check := func(d *soakDriver) {
+		t.Helper()
+		for range 2 * soakViewTicks {
+			d.step()
+			after := pod(d, id)
+			if after.LaneID != "" || after.BerthID != "" || after.LaneDistance != 0 || after.Speed != 0 || after.Position != before.Position {
+				t.Fatalf("the pod moves: %+v, then %+v", before, after)
+			}
+		}
+	}
+	check(d)
+	file := sessionStateFile(t, d.s)
+	file.RestoreAttempts = 0
+	warm := &soakWarm{data: encodeTestState(t, file), loopTick: d.loopTick, open: map[string]soakOpenRecord{}}
+	restored := newSoakDriver(t, soakInput{preset: "rail-hub", arm: soakArms["incidents"], seed: 1, checks: true, warm: warm})
+	restored.nextFault, restored.nextEmergency, restored.nextSave, restored.nextRewind = math.MaxInt64, math.MaxInt64, math.MaxInt64, math.MaxInt64
+	restored.s.simulation.StopIncidentSamplersForTest()
+	check(restored)
+	restored.mustApply(Command{Action: "clearFault", FaultID: fault})
+	for range 30 * soakViewTicks {
+		restored.step()
+		if after := pod(restored, id); after.LaneID != "" && after.Speed > 0 {
+			return
+		}
+	}
+	t.Fatalf("the pod does not depart after the clear: %+v", pod(restored, id))
 }
 
 // TestSoakCheckSave checks each result of a save. A physical restore can move an

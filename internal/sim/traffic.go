@@ -823,6 +823,12 @@ func (s *Simulation) move(v *vehicle) {
 }
 
 func (s *Simulation) publishVehicleTravel(v *vehicle, distance, speed float64) {
+	// A fault can start in the tick after a pod leaves its berth, before the pod
+	// enters its first lane. The pod has not moved, so it keeps its pose, with
+	// no lane, until the clear (F4 of the incident suspension contract).
+	if v.faulted && v.Pod.LaneID == "" && speed == 0 && distance == v.distance {
+		return
+	}
 	blocks := &v.blocks
 	current := blocks.find(v.blockIndex, &blocks.cursors[podCursor])
 	// A pod with no lane has left its berth, so it enters its current lane
