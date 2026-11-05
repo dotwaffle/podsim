@@ -14,7 +14,7 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-// TestCurrentStateGolden records the complete version 10 member contract.
+// TestCurrentStateGolden records the complete version 11 member contract.
 func TestCurrentStateGolden(t *testing.T) {
 	t.Parallel()
 	file := newTestStateFile(t)
@@ -24,11 +24,11 @@ func TestCurrentStateGolden(t *testing.T) {
 		if err := value.Indent(jsontext.WithIndent("  ")); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile("testdata/state_v10.json", append(value, '\n'), 0o600); err != nil {
+		if err := os.WriteFile("testdata/state_v11.json", append(value, '\n'), 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}
-	golden, err := os.ReadFile("testdata/state_v10.json")
+	golden, err := os.ReadFile("testdata/state_v11.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -37,11 +37,11 @@ func TestCurrentStateGolden(t *testing.T) {
 		t.Fatal(compactErr)
 	}
 	if !bytes.Equal(data, want) {
-		t.Fatal("version 10 golden differs from the current capture")
+		t.Fatal("version 11 golden differs from the current capture")
 	}
 	decoded, err := decodeStateFile(compressTestJSON(t, want))
 	if err != nil || decoded.Version != stateVersion {
-		t.Fatalf("version 10 golden decode: %v", err)
+		t.Fatalf("version 11 golden decode: %v", err)
 	}
 	membersType := withoutMember(reflect.TypeFor[stateFile](), reflect.TypeFor[sim.SavedPod](), "boardings")
 	membersType = withoutMember(membersType, reflect.TypeFor[sim.SavedFaults](), "records")
@@ -62,7 +62,7 @@ func TestCurrentStateGolden(t *testing.T) {
 	// contract, section 11.3).
 	lines = append(lines, stateMembers(t, "simulation.emergencies.records", reflect.TypeFor[[][]float64](), nil)...)
 	members := strings.Join(lines, "\n") + "\n"
-	const path = "testdata/state_v10_members.txt"
+	const path = "testdata/state_v11_members.txt"
 	if *update {
 		if writeErr := os.WriteFile(path, []byte(members), 0o600); writeErr != nil {
 			t.Fatal(writeErr)
@@ -70,7 +70,7 @@ func TestCurrentStateGolden(t *testing.T) {
 	}
 	wantMembers, err := os.ReadFile(path)
 	if err != nil || string(wantMembers) != members {
-		t.Fatalf("version 10 member contract differs: %v", err)
+		t.Fatalf("version 11 member contract differs: %v", err)
 	}
 }
 
@@ -299,7 +299,7 @@ func assertSavedArrayRefusal(t *testing.T, err error) {
 	}
 }
 
-// TestSavedLegacyOrderMembersRejected checks that version 10 rejects the
+// TestSavedLegacyOrderMembersRejected checks that version 11 rejects the
 // removed legacy order members. Earlier executables wrote them only as true.
 func TestSavedLegacyOrderMembersRejected(t *testing.T) {
 	t.Parallel()
@@ -333,7 +333,7 @@ func TestSavedLegacyOrderMembersRejected(t *testing.T) {
 // state and a member of the saved project.
 func TestStateFileRefusesCaseVariantMembers(t *testing.T) {
 	t.Parallel()
-	golden, err := os.ReadFile("testdata/state_v10.json")
+	golden, err := os.ReadFile("testdata/state_v11.json")
 	if err != nil {
 		t.Fatal(err)
 	}

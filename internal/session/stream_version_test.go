@@ -29,7 +29,7 @@ func TestStreamHelloRefusesOtherVersions(t *testing.T) {
 	t.Parallel()
 	express := sim.ExpressOrderContract
 	var hellos []string
-	for _, version := range []int{1, 2, 3, 4, 5, 6, 7, 9} {
+	for _, version := range []int{1, 2, 3, 4, 5, 6, 7, 8, 10} {
 		hellos = append(hellos, fmt.Sprintf(`{"kind":"hello","version":%d,"build":"other-build","serverStart":"source"}`, version))
 	}
 	hellos = append(hellos,
@@ -60,7 +60,7 @@ func TestStreamHelloRefusesOtherVersions(t *testing.T) {
 	}
 }
 
-// The server sends hello 8 with the markers of its project and no other
+// The server sends hello 9 with the markers of its project and no other
 // member.
 func TestStreamHelloBytes(t *testing.T) {
 	t.Parallel()
@@ -89,7 +89,7 @@ func TestStreamHelloBytes(t *testing.T) {
 			if err != nil || kind != websocket.MessageText {
 				t.Fatal("hello publication", err)
 			}
-			want := fmt.Sprintf(`{"kind":"hello","version":8,"build":%q,"serverStart":%q}`, test.shared.build, test.shared.serverStart)
+			want := fmt.Sprintf(`{"kind":"hello","version":9,"build":%q,"serverStart":%q}`, test.shared.build, test.shared.serverStart)
 			if test.order != "" {
 				want = strings.TrimSuffix(want, "}") + fmt.Sprintf(`,"orderContract":%q}`, test.order)
 			}

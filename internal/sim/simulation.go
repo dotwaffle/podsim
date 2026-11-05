@@ -8,7 +8,7 @@ import (
 
 const (
 	// TicksPerSecond fixes simulation time independently of rendering.
-	TicksPerSecond = 60
+	TicksPerSecond = 30
 	boardingTicks  = 3 * TicksPerSecond
 	unloadingTicks = 2 * TicksPerSecond
 	acceleration   = 2.0

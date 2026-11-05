@@ -106,26 +106,26 @@ func TestEmergencySamplerTrace(t *testing.T) {
 	if starts == 0 || skips == 0 || shared == 0 {
 		t.Fatalf("the fixture has %d starts, %d skips, and %d shared pods:\n%s", starts, skips, shared, strings.Join(trace, "\n"))
 	}
-	const want = `tick=1170 aboard=[2 2 2 0 0] pod=0.414406 party=0.910334 interval=0.541557 pod 03 order=6 start=1170 next=3978
-tick=3978 aboard=[4 0 2 4 0] pod=0.165492 party=0.387480 interval=0.302576 pod 01 order=11 start=3978 next=5276
-tick=5276 aboard=[4 0 2 4 3] pod=0.207323 party=0.477128 interval=0.557474 skip next=8211
-tick=8211 aboard=[4 0 4 4 0] pod=0.409488 party=0.696741 interval=0.223999 pod 03 order=32 start=8211 next=9124
-tick=9124 aboard=[4 0 4 4 0] pod=0.889645 party=0.773342 interval=0.399482 skip next=10960
-tick=10960 aboard=[4 0 4 4 4] pod=0.930243 party=0.455586 interval=0.058149 pod 05 order=37 start=10960 next=11176
-tick=11176 aboard=[4 0 4 4 4] pod=0.771602 party=0.474173 interval=0.647292 pod 04 order=25 start=11176 next=14928
-tick=14928 aboard=[4 0 4 4 4] pod=0.947982 party=0.393937 interval=0.967787 skip next=27296
-tick=27296 aboard=[4 4 1 4 0] pod=0.291686 party=0.164778 interval=0.638588 pod 02 order=83 start=27296 next=30960
-tick=30960 aboard=[4 4 1 4 0] pod=0.549365 party=0.226138 interval=0.779091 pod 03 order=95 start=30960 next=36397
-tick=36397 aboard=[4 4 2 4 0] pod=0.452771 party=0.119224 interval=0.987563 pod 03 order=125 start=36397 next=52191
-tick=52191 aboard=[4 1 0 4 4] pod=0.628896 party=0.549990 interval=0.521900 pod 04 order=174 start=52191 next=54848
-tick=54848 aboard=[4 1 0 0 4] pod=0.828857 party=0.556456 interval=0.115502 pod 05 order=185 start=54848 next=55290
-tick=55290 aboard=[4 4 0 0 4] pod=0.357789 party=0.311535 interval=0.994159 pod 02 order=195 start=55290 next=73804
-tick=73804 aboard=[4 4 0 4 0] pod=0.389343 party=0.267405 interval=0.190280 pod 02 order=247 start=73804 next=74564
-tick=74564 aboard=[4 4 0 4 0] pod=0.648463 party=0.962999 interval=0.798308 pod 04 order=243 start=74564 next=80328
-tick=80328 aboard=[4 3 0 4 0] pod=0.198137 party=0.437406 interval=0.273826 pod 01 order=262 start=80328 next=81480
-tick=81480 aboard=[4 3 0 4 0] pod=0.014661 party=0.339359 interval=0.286171 skip next=82694
-tick=82694 aboard=[4 3 0 4 0] pod=0.127582 party=0.215210 interval=0.254637 skip next=83752
-tick=83752 aboard=[4 3 0 4 0] pod=0.222128 party=0.332889 interval=0.262765 pod 02 order=275 start=83752 next=84850`
+	const want = `tick=585 aboard=[2 2 2 0 0] pod=0.414406 party=0.910334 interval=0.541557 pod 03 order=6 start=585 next=1989
+tick=1989 aboard=[4 0 2 4 0] pod=0.165492 party=0.387480 interval=0.302576 pod 01 order=11 start=1989 next=2638
+tick=2638 aboard=[4 0 2 4 3] pod=0.207323 party=0.477128 interval=0.557474 skip next=4106
+tick=4106 aboard=[4 0 4 4 0] pod=0.409488 party=0.696741 interval=0.223999 pod 03 order=32 start=4106 next=4563
+tick=4563 aboard=[4 0 4 4 0] pod=0.889645 party=0.773342 interval=0.399482 skip next=5481
+tick=5481 aboard=[4 0 4 4 4] pod=0.930243 party=0.455586 interval=0.058149 pod 05 order=37 start=5481 next=5589
+tick=5589 aboard=[4 0 4 4 4] pod=0.771602 party=0.474173 interval=0.647292 pod 04 order=25 start=5589 next=7465
+tick=7465 aboard=[4 0 4 4 4] pod=0.947982 party=0.393937 interval=0.967787 skip next=13649
+tick=13649 aboard=[4 2 3 4 3] pod=0.291686 party=0.164778 interval=0.638588 pod 02 order=84 start=13649 next=15481
+tick=15481 aboard=[0 0 3 4 1] pod=0.549365 party=0.226138 interval=0.779091 pod 03 order=96 start=15481 next=18200
+tick=18200 aboard=[0 4 4 4 0] pod=0.452771 party=0.119224 interval=0.987563 pod 03 order=114 start=18200 next=26097
+tick=26097 aboard=[0 2 0 4 4] pod=0.628896 party=0.549990 interval=0.521900 pod 04 order=149 start=26097 next=27426
+tick=27426 aboard=[0 2 0 2 4] pod=0.828857 party=0.556456 interval=0.115502 pod 05 order=158 start=27426 next=27647
+tick=27647 aboard=[0 2 0 2 4] pod=0.357789 party=0.311535 interval=0.994159 pod 02 order=154 start=27647 next=36904
+tick=36904 aboard=[4 0 3 0 4] pod=0.389343 party=0.267405 interval=0.190280 skip next=37284
+tick=37284 aboard=[4 0 3 0 4] pod=0.648463 party=0.962999 interval=0.798308 skip next=40166
+tick=40166 aboard=[3 0 0 0 4] pod=0.198137 party=0.437406 interval=0.273826 pod 01 order=209 start=40166 next=40742
+tick=40742 aboard=[2 0 0 0 4] pod=0.014661 party=0.339359 interval=0.286171 pod 01 order=201 start=40742 next=41349
+tick=41349 aboard=[2 0 0 0 4] pod=0.127582 party=0.215210 interval=0.254637 pod 01 order=206 start=41349 next=41878
+tick=41878 aboard=[2 0 2 0 4] pod=0.222128 party=0.332889 interval=0.262765 skip next=42427`
 	if got := strings.Join(trace, "\n"); got != want {
 		t.Fatalf("the trace differs:\n%s", got)
 	}

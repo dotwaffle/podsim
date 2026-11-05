@@ -26,7 +26,7 @@ const (
 	// a new version.
 	stateFormat = "podsim-session"
 	// stateVersion is the only version that the session writes and reads.
-	stateVersion = 10
+	stateVersion = 11
 	// maxEpochBytes is the largest saved epoch.
 	maxEpochBytes = 100
 	// buildIDLength is the number of lowercase hex digits in a build ID.
@@ -143,7 +143,7 @@ var stateJSONLimits = jsonLimits{
 	},
 }
 
-// stateFile is version 10 of the saved session state. The file on disk is
+// stateFile is version 11 of the saved session state. The file on disk is
 // the JSON form of stateFile, compressed with gzip. The order text of each
 // waiting trip and each rider is packed as canonical base64.
 //
@@ -460,7 +460,7 @@ func (header stateHeader) markers() contractMarkers {
 	return markers
 }
 
-// decodeStateJSON decodes the JSON form of a version 10 state file with the
+// decodeStateJSON decodes the JSON form of a version 11 state file with the
 // rules of markers. Each scan reads the tokens only, so it bounds the file
 // before the typed decode makes values.
 func decodeStateJSON(raw []byte, markers contractMarkers) (stateFile, error) {

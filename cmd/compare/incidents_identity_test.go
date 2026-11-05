@@ -56,21 +56,21 @@ func TestNoRateOutputIsPinned(t *testing.T) {
 	}{
 		{"default", nil, []string{"-duration", "10m", "-arrivals-for", "5m", "-request-every", "20s", "-seeds", "1,2", "-patterns", "balanced,hotspot", "-stop-when-drained"},
 			map[string]string{
-				"json":  "f212a0273b25a8166e8225761bdd6c1372512f6b5537bf850be3e918cd47c33b",
-				"csv":   "77b8bc6030d53f8878cdc64615d339ae86163f7836a4d042893cc939d0b61efb",
-				"table": "0b5139947decd53c6ca494ff4fd5007471b8bc6cb709bd96854bd8802bea5aad",
+				"json":  "d47c99f8a9f65d19be1741d5013e90cf83524a236c5eefe2ba7b2e4969131f5f",
+				"csv":   "197df468c8021469ffd605aaa2628dea317f581e5dd14dce7e22ee1f3f1fa7df",
+				"table": "492e801021abfd4eb857704f3ebadbfc07dedcdf4f6aa5b08eecaf8b773e22af",
 			}},
 		{"busy", new(scenarios.Busy()), []string{"-duration", "5m", "-arrivals-for", "3m", "-request-every", "5s", "-seed", "1", "-pattern", "hotspot"},
 			map[string]string{
-				"json":  "f0d943bdc3ed5d41e337adf2705ffd0ca68c2e87fc215a40a7a1928424d565ee",
-				"csv":   "8ec95e70580cf895f88f2ca08a8ba62092a01c1b4a68571a9b62917cec2d90f9",
-				"table": "d0c3779883537b27f64eec6e86b6b0c9e0854b267a418b481c7234478e10124e",
+				"json":  "0c242bc19509470861781e81b31ce2a7f2c16bb2e10d13a907884659a26cf3f0",
+				"csv":   "605c4759748cd3ee0f78ba9705917ceb97c255fae256ce39aeb5fe4419ae2cb9",
+				"table": "9528b4198bc5ecfe29b62f5b0d95c0ce62249dfc7efcc90fb97f50f559c10e09",
 			}},
 		{"rail hub", new(scenarios.RailHub()), []string{"-duration", "10m", "-arrivals-for", "5m", "-request-every", "5s", "-burst-size", "12", "-seed", "1", "-pattern", "hub-burst"},
 			map[string]string{
-				"json":  "2aeae3e3446b043dadc199f50f7f0dde19eed4bd3ae95789c9e6956c71a2935a",
-				"csv":   "5c5b37be0355466afde8d2fc6d3e522d153ba0f6c25bc8d35d04d33433cc17e0",
-				"table": "18131d83742e6033ff31e9c0b7d2c431fa6213773654d7de0f5a57ee78195b8a",
+				"json":  "3dafa22f865a773e2e6934cc5d3d793fd43a4ab7dbec54c86fd6e216b7f12041",
+				"csv":   "87e37664f334dcabe70c2bd00a8a993383e40eee308b9ab1ffafd073f735bea4",
+				"table": "2e5d6ff5cdc20750b0580d7d78eb994fa288dc578a97785cbd540694fb138e7e",
 			}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -93,7 +93,7 @@ func TestNoRateOutputIsPinned(t *testing.T) {
 func TestNoRateFormsArePinned(t *testing.T) {
 	t.Parallel()
 	skipLong(t)
-	const want = "8ec95e70580cf895f88f2ca08a8ba62092a01c1b4a68571a9b62917cec2d90f9"
+	const want = "605c4759748cd3ee0f78ba9705917ceb97c255fae256ce39aeb5fe4419ae2cb9"
 	args := []string{"-duration", "5m", "-arrivals-for", "3m", "-request-every", "5s", "-seed", "1", "-pattern", "hotspot", "-format", "csv"}
 	negativeZero := math.Copysign(0, -1)
 	for name, test := range map[string]struct {
@@ -133,8 +133,8 @@ func TestNoRatePlanOutputIsPinned(t *testing.T) {
 		args     []string
 		want     string
 	}{
-		{"rail services", rail, []string{"-pattern", "rail-services", "-duration", "10m", "-arrivals-for", "3s", "-stop-when-drained", "-seeds", "7,19", "-redistribution-policies", "off"}, "14d02b01530a85a8b2f0cac2c02399b4a47fe043ad30aac6af6d027a94259ec5"},
-		{"daily", dailyComparisonScenario(t), []string{"-pattern", "profile-daily", "-duration", "4m", "-arrivals-for", "3m", "-seed", "1"}, "d2349bbab5f4a0c2ca2860cfb2aac570c415616385792a309a31266ea612c4e1"},
+		{"rail services", rail, []string{"-pattern", "rail-services", "-duration", "10m", "-arrivals-for", "3s", "-stop-when-drained", "-seeds", "7,19", "-redistribution-policies", "off"}, "e8646151081cad58606a3b2e05e5ab24eaf52fa6e2246bf3e63359accbd31595"},
+		{"daily", dailyComparisonScenario(t), []string{"-pattern", "profile-daily", "-duration", "4m", "-arrivals-for", "3m", "-seed", "1"}, "8e02ddf35a4e9505ef60791d8125bbe6c745320ce3663a71368c561172d4d94c"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()

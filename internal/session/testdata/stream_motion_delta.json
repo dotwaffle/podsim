@@ -30,7 +30,7 @@
           "averageSeconds": 0,
           "maxSeconds": 0
         },
-        "passengerDistanceMeters": 0.15333333333333332,
+        "passengerDistanceMeters": 14.313333333333336,
         "riderDistanceMeters": 0,
         "directDistanceMeters": 0,
         "maxDetourRatio": 0,
@@ -46,11 +46,11 @@
         "motion": {
           "value": {
             "position": {
-              "x": 130.09413756073894,
-              "y": 349.8789659933356
+              "x": 138.78753664811023,
+              "y": 338.7017385952868
             },
-            "laneDistance": 0.15333333333333332,
-            "speed": 0.7666666666666666
+            "laneDistance": 14.313333333333336,
+            "speed": 7.533333333333326
           }
         }
       }

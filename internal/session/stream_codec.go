@@ -20,7 +20,7 @@ import (
 const (
 	// StreamVersion is the hello version of the one stream family. The
 	// contract markers of a connection select its optional sections.
-	StreamVersion = 8
+	StreamVersion = 9
 	// MaxStreamJSON limits the inflated JSON of a stream envelope.
 	MaxStreamJSON = 64 << 20
 	// BestSpeed consumes blocks of at most 65,535 bytes. Reserve 32 bytes

@@ -235,12 +235,12 @@ func TestMergeCorridorHeadway(t *testing.T) {
 	skipLong(t)
 	feedHead := corridorFeedLength - 100
 	cases := []corridorCase{
-		{name: "straight lane", streams: []string{"main"}, queueHead: 1000, onMain: true, want: 6.011},
-		{name: "one stream through a lane boundary", streams: []string{"main"}, queueHead: feedHead, want: 7.217},
-		{name: "one stream through a 30 degree merge", side: true, sideDegrees: 30, streams: []string{"main"}, queueHead: feedHead, want: 7.217},
-		{name: "two streams, 90 degree merge", side: true, sideDegrees: 90, streams: []string{"main", "side"}, queueHead: feedHead, want: 8.650},
-		{name: "two streams, 30 degree merge", side: true, sideDegrees: 30, streams: []string{"main", "side"}, queueHead: feedHead, want: 8.650},
-		{name: "two streams, 15 degree merge", side: true, sideDegrees: 15, streams: []string{"main", "side"}, queueHead: feedHead, want: 10.783},
+		{name: "straight lane", streams: []string{"main"}, queueHead: 1000, onMain: true, want: 6.017},
+		{name: "one stream through a lane boundary", streams: []string{"main"}, queueHead: feedHead, want: 7.233},
+		{name: "one stream through a 30 degree merge", side: true, sideDegrees: 30, streams: []string{"main"}, queueHead: feedHead, want: 7.233},
+		{name: "two streams, 90 degree merge", side: true, sideDegrees: 90, streams: []string{"main", "side"}, queueHead: feedHead, want: 8.633},
+		{name: "two streams, 30 degree merge", side: true, sideDegrees: 30, streams: []string{"main", "side"}, queueHead: feedHead, want: 8.633},
+		{name: "two streams, 15 degree merge", side: true, sideDegrees: 15, streams: []string{"main", "side"}, queueHead: feedHead, want: 10.800},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
@@ -269,11 +269,11 @@ func TestMergeCorridorPlatoonHeadway(t *testing.T) {
 		corridorCase
 		want [2]float64
 	}{
-		{corridorCase{name: "straight lane", streams: []string{"main"}, queueHead: 1000, onMain: true}, [2]float64{3.758, 2.415}},
-		{corridorCase{name: "one stream through a lane boundary", streams: []string{"main"}, queueHead: feedHead}, [2]float64{4.120, 2.517}},
-		{corridorCase{name: "two streams, 90 degree merge", side: true, sideDegrees: 90, streams: []string{"main", "side"}, queueHead: feedHead}, [2]float64{5.014, 3.131}},
-		{corridorCase{name: "two streams, 30 degree merge", side: true, sideDegrees: 30, streams: []string{"main", "side"}, queueHead: feedHead}, [2]float64{4.925, 2.991}},
-		{corridorCase{name: "two streams, 15 degree merge", side: true, sideDegrees: 15, streams: []string{"main", "side"}, queueHead: feedHead}, [2]float64{6.017, 3.511}},
+		{corridorCase{name: "straight lane", streams: []string{"main"}, queueHead: 1000, onMain: true}, [2]float64{3.771, 2.431}},
+		{corridorCase{name: "one stream through a lane boundary", streams: []string{"main"}, queueHead: feedHead}, [2]float64{4.133, 2.531}},
+		{corridorCase{name: "two streams, 90 degree merge", side: true, sideDegrees: 90, streams: []string{"main", "side"}, queueHead: feedHead}, [2]float64{5.023, 3.145}},
+		{corridorCase{name: "two streams, 30 degree merge", side: true, sideDegrees: 30, streams: []string{"main", "side"}, queueHead: feedHead}, [2]float64{4.942, 3.003}},
+		{corridorCase{name: "two streams, 15 degree merge", side: true, sideDegrees: 15, streams: []string{"main", "side"}, queueHead: feedHead}, [2]float64{6.017, 3.523}},
 	}
 	for _, platoonCase := range cases {
 		for index, limit := range []int{2, 4} {

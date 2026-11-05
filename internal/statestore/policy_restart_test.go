@@ -155,7 +155,7 @@ func storedPolicyFixture(t *testing.T, store *Store, config project.Config, simu
 }
 
 // packSavedOrders returns state with the order text of each waiting trip
-// and each rider packed as base64, as a version 10 save stores it.
+// and each rider packed as base64, as a version 11 save stores it.
 func packSavedOrders(state sim.SavedState) sim.SavedState {
 	pack := func(request *sim.SavedRequest) {
 		for _, text := range []*string{&request.From, &request.To, &request.PodID, &request.DispatchReason, &request.ServiceID} {
@@ -256,7 +256,7 @@ func TestCombinedPoliciesFileRestart(t *testing.T) {
 			if err := restarted.SaveState(t.Context(), session.SaveFinal); err != nil {
 				t.Fatal(err)
 			}
-			wantVersion := "10"
+			wantVersion := "11"
 			if got := string(policyStateJSON(t, mustRead(t, store))["version"]); got != wantVersion {
 				t.Fatalf("drained save version=%s, want %s", got, wantVersion)
 			}
@@ -264,8 +264,8 @@ func TestCombinedPoliciesFileRestart(t *testing.T) {
 	}
 }
 
-// A version 2 save comes from a server before version 10. Startup moves it
-// aside as a rejected state and starts a new session that saves version 10.
+// A version 2 save comes from a server before version 11. Startup moves it
+// aside as a rejected state and starts a new session that saves version 11.
 func TestLegacyFileArchivedAtStartup(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
@@ -325,8 +325,8 @@ func TestLegacyFileArchivedAtStartup(t *testing.T) {
 	if data, err := os.ReadFile(filepath.Join(dir, archived[0])); err != nil || !bytes.Equal(data, legacy) {
 		t.Fatal("the rejected file is not the version 2 save", err)
 	}
-	if got := string(policyStateJSON(t, mustRead(t, store))["version"]); got != "10" {
-		t.Fatalf("startup save version=%s, want 9", got)
+	if got := string(policyStateJSON(t, mustRead(t, store))["version"]); got != "11" {
+		t.Fatalf("startup save version=%s, want 11", got)
 	}
 }
 

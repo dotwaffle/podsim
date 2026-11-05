@@ -180,7 +180,7 @@ func TestSavedVersionRefusals(t *testing.T) {
 		"plain": decompressTestJSON(t, encodeTestState(t, newTestStateFile(t))),
 	}
 	for name, raw := range bases {
-		for _, version := range []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 11} {
+		for _, version := range []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12} {
 			t.Run(name+"/"+strconv.Itoa(version), func(t *testing.T) {
 				t.Parallel()
 				data := compressTestJSON(t, setRootMember(t, raw, "version", strconv.Itoa(version)))
@@ -209,10 +209,10 @@ func TestSavedInvalidMovedAside(t *testing.T) {
 			"gzip header cut":  encoded[:5],
 			"gzip trailer cut": encoded[:len(encoded)-4],
 			"gzip checksum":    checksum,
-			"syntax error":     compressTestJSON(t, insertAfter(t, raw, `"version":10,`, `,`)),
+			"syntax error":     compressTestJSON(t, insertAfter(t, raw, `"version":11,`, `,`)),
 			"array limit":      compressTestJSON(t, insertAfter(t, raw, `{`, padding)),
 			"format type":      compressTestJSON(t, setRootMember(t, raw, "format", "1")),
-			"version type":     compressTestJSON(t, setRootMember(t, raw, "version", `"10"`)),
+			"version type":     compressTestJSON(t, setRootMember(t, raw, "version", `"11"`)),
 			"decode error":     compressTestJSON(t, setRootMember(t, raw, "speed", `"fast"`)),
 			"validation error": encodeTestState(t, speed),
 			"missing version": compressTestJSON(t, joinObject(t, slices.DeleteFunc(splitObject(t, raw),
@@ -249,7 +249,7 @@ func TestSavedInvalidMovedAside(t *testing.T) {
 	})
 }
 
-// TestSavedRemovedMembersMovedAside checks a version 10 file with a member
+// TestSavedRemovedMembersMovedAside checks a version 11 file with a member
 // of a removed feature: physical coupling, compact station queues, or
 // station buffers.
 // Before the first release a removed member keeps the version, so the

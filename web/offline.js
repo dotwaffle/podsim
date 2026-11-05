@@ -3,7 +3,7 @@
   const INPUT_BYTES = 10 * 1024 * 1024, REPORT_BYTES = 32 * 1024 * 1024;
   const MAX_NODES = 300000, MAX_DEPTH = 32, PAGE_SIZE = 25;
   // TICKS_PER_SECOND is sim.TicksPerSecond.
-  const TICKS_PER_SECOND = 60n;
+  const TICKS_PER_SECOND = 30n;
   const CLASSES = ['legacy', 'compact', 'group'];
   const TIMES = ['departureSeconds', 'outwardSeconds', 'returnNotBeforeSeconds', 'activitySeconds', 'retrievalSeconds', 'homeboundSeconds'];
   const LOT_FIELDS = ['id', 'hub', 'capacity'];

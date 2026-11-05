@@ -152,26 +152,26 @@ func TestFaultSamplerTrace(t *testing.T) {
 	if starts == 0 || skips == 0 || overlaps == 0 {
 		t.Fatalf("the fixture has %d starts, %d skips, and %d overlaps", starts, skips, overlaps)
 	}
-	const want = `tick=6587 free=5 kind=0.553975 target=0.893192 position=0.537084 duration=0.789673 interval=0.019215 pod 05 end=49987 next=6657
-tick=6657 free=4 kind=0.924038 target=0.195145 position=0.551245 duration=0.464577 interval=0.687805 pod 01 end=33672 next=10848
-tick=10848 free=3 kind=0.080000 target=0.090548 position=0.189359 duration=0.696930 interval=0.022296 debris approach-branch from=18.367843 to=21.367843 end=49574 next=10930
-tick=10930 free=3 kind=0.411985 target=0.916454 position=0.086347 duration=0.894826 interval=0.964040 debris return from=23.918063 to=26.918063 end=59630 next=22902
-tick=22902 free=3 kind=0.855144 target=0.753646 position=0.938026 duration=0.165921 interval=0.977885 pod 04 end=34865 next=36624
-tick=36624 free=4 kind=0.257143 target=0.234172 position=0.534402 duration=0.532883 interval=0.593885 debris garden-out from=62.747324 to=65.747324 end=67082 next=39869
-tick=39869 free=4 kind=0.131899 target=0.566708 position=0.848016 duration=0.168286 interval=0.894391 debris return-to-parking from=234.900366 to=237.900366 end=51951 next=47962
-tick=47962 free=4 kind=0.503362 target=0.307491 position=0.358393 duration=0.691445 interval=0.181130 pod 02 end=86411 next=48682
-tick=48682 free=3 kind=0.128632 target=0.650296 position=0.319114 duration=0.099028 interval=0.404094 debris parking-through from=88.394529 to=91.394529 end=57274 next=50546
-tick=50546 free=4 kind=0.571862 target=0.250865 position=0.831895 duration=0.394908 interval=0.865815 pod 03 end=74050 next=57777
-tick=57777 free=3 kind=0.756820 target=0.265206 position=0.180082 duration=0.491928 interval=0.869852 pod 01 end=86171 next=65118
-tick=65118 free=2 kind=0.737910 target=0.347605 position=0.853577 duration=0.324552 interval=0.903906 pod 04 end=85076 next=73551
-tick=73551 free=1 kind=0.819879 target=0.163806 position=0.683002 duration=0.178643 interval=0.663118 pod 05 end=86155 next=77468
-tick=77468 free=1 kind=0.638251 target=0.300790 position=0.281310 duration=0.310183 interval=0.066742 pod 03 end=96702 next=77717
-tick=77717 free=0 kind=0.329926 target=0.896021 position=0.020651 duration=0.009713 interval=0.021877 debris return from=5.720322 to=8.720322 end=81807 next=77797
-tick=77797 free=0 kind=0.810364 target=0.596337 position=0.004412 duration=0.137870 interval=0.461090 skip next=80023
-tick=80023 free=0 kind=0.391073 target=0.351302 position=0.291167 duration=0.496677 interval=0.573916 debris bypass-merge from=58.513059 to=61.513059 end=108656 next=83095
-tick=83095 free=0 kind=0.887578 target=0.336118 position=0.569863 duration=0.025121 interval=0.338099 skip next=84581
-tick=84581 free=0 kind=0.558665 target=0.895222 position=0.769671 duration=0.113241 interval=0.050356 skip next=84768
-tick=84768 free=0 kind=0.425550 target=0.842589 position=0.490569 duration=0.804680 interval=0.594018 debris parking-out-2 from=81.527288 to=84.527288 end=128924 next=88014`
+	const want = `tick=3294 free=5 kind=0.553975 target=0.893192 position=0.537084 duration=0.789673 interval=0.019215 pod 05 end=24994 next=3329
+tick=3329 free=4 kind=0.924038 target=0.195145 position=0.551245 duration=0.464577 interval=0.687805 pod 01 end=16837 next=5425
+tick=5425 free=3 kind=0.080000 target=0.090548 position=0.189359 duration=0.696930 interval=0.022296 debris approach-branch from=18.367843 to=21.367843 end=24788 next=5466
+tick=5466 free=3 kind=0.411985 target=0.916454 position=0.086347 duration=0.894826 interval=0.964040 debris return from=23.918063 to=26.918063 end=29816 next=11452
+tick=11452 free=3 kind=0.855144 target=0.753646 position=0.938026 duration=0.165921 interval=0.977885 pod 04 end=17434 next=18313
+tick=18313 free=4 kind=0.257143 target=0.234172 position=0.534402 duration=0.532883 interval=0.593885 debris garden-out from=62.747324 to=65.747324 end=33542 next=19936
+tick=19936 free=4 kind=0.131899 target=0.566708 position=0.848016 duration=0.168286 interval=0.894391 debris return-to-parking from=234.900366 to=237.900366 end=25977 next=23983
+tick=23983 free=4 kind=0.503362 target=0.307491 position=0.358393 duration=0.691445 interval=0.181130 pod 02 end=43208 next=24343
+tick=24343 free=3 kind=0.128632 target=0.650296 position=0.319114 duration=0.099028 interval=0.404094 debris parking-through from=88.394529 to=91.394529 end=28639 next=25275
+tick=25275 free=4 kind=0.571862 target=0.250865 position=0.831895 duration=0.394908 interval=0.865815 pod 03 end=37027 next=28891
+tick=28891 free=3 kind=0.756820 target=0.265206 position=0.180082 duration=0.491928 interval=0.869852 pod 01 end=43088 next=32562
+tick=32562 free=2 kind=0.737910 target=0.347605 position=0.853577 duration=0.324552 interval=0.903906 pod 04 end=42541 next=36779
+tick=36779 free=1 kind=0.819879 target=0.163806 position=0.683002 duration=0.178643 interval=0.663118 pod 05 end=43081 next=38738
+tick=38738 free=1 kind=0.638251 target=0.300790 position=0.281310 duration=0.310183 interval=0.066742 pod 03 end=48355 next=38863
+tick=38863 free=0 kind=0.329926 target=0.896021 position=0.020651 duration=0.009713 interval=0.021877 debris return from=5.720322 to=8.720322 end=40908 next=38903
+tick=38903 free=0 kind=0.810364 target=0.596337 position=0.004412 duration=0.137870 interval=0.461090 skip next=40016
+tick=40016 free=0 kind=0.391073 target=0.351302 position=0.291167 duration=0.496677 interval=0.573916 debris bypass-merge from=58.513059 to=61.513059 end=54333 next=41552
+tick=41552 free=0 kind=0.887578 target=0.336118 position=0.569863 duration=0.025121 interval=0.338099 skip next=42295
+tick=42295 free=0 kind=0.558665 target=0.895222 position=0.769671 duration=0.113241 interval=0.050356 skip next=42389
+tick=42389 free=0 kind=0.425550 target=0.842589 position=0.490569 duration=0.804680 interval=0.594018 debris parking-out-2 from=81.527288 to=84.527288 end=64467 next=44012`
 	if got := strings.Join(trace, "\n"); got != want {
 		t.Fatalf("the trace differs:\n%s", got)
 	}
