@@ -74,7 +74,7 @@ test("Express project round trips retain the explicit contract and whole service
   assert.deepEqual(editor.parseDocument(JSON.stringify(config)).scenario, before);
   assert.deepEqual(editor.parseDocument(JSON.stringify(document)).scenario, before);
   assert.deepEqual(config, before);
-  assert.match(editor.fleetClassNotice(config), /qualified express-v1 runtime/);
+  assert.equal(editor.fleetClassNotice(config), "New pods use legacy class. An Express pod has 12 seats, 8 standee places, and a 6 m body. Import a project to set pod classes and express services.");
 });
 
 test("a service project imports bare or wrapped and preserves authored class and registry metadata", () => {
@@ -86,7 +86,7 @@ test("a service project imports bare or wrapped and preserves authored class and
   assert.deepEqual(editor.parseDocument(JSON.stringify(exported)).scenario, config);
   assert.deepEqual(config, before);
   assert.match(editor.fleetClassNotice(config), /New pods use legacy class/);
-  assert.match(editor.fleetClassNotice(config), /Express pods cannot start/);
+  assert.match(editor.fleetClassNotice(config), /Express pods need the express-v1 order contract\./);
   // The lane Selection card sets guideway classes, so only pod classes need an import.
   assert.match(editor.fleetClassNotice(config), /Import a project to set pod classes and express services\./);
   assert.equal(editor.fleetClassNotice({ version: 1 }), "");

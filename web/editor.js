@@ -299,9 +299,9 @@
   // gets the Express notice. A project with express services or a pod class
   // gets the class notice. Another project gets no notice.
   function fleetClassNotice(config) {
-    if (config.orderContract === "express-v1") return "New pods use legacy class. Express operation requires a qualified express-v1 runtime.";
+    if (config.orderContract === "express-v1") return "New pods use legacy class. An Express pod has 12 seats, 8 standee places, and a 6 m body. Import a project to set pod classes and express services.";
     const classed = Object.hasOwn(config, "expressServices") || (Array.isArray(config.fleet) && config.fleet.some((pod) => pod && Object.hasOwn(pod, "class")));
-    return classed ? "New pods use legacy class. Import a project to set pod classes and express services. Express pods cannot start yet." : "";
+    return classed ? "New pods use legacy class. Import a project to set pod classes and express services. Express pods need the express-v1 order contract." : "";
   }
 
   // selectionCard gives the data of the Selection panel for the selected
