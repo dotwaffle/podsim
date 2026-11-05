@@ -162,7 +162,7 @@ description = "Run the Station 19 scale and safety tests, the emergency choice a
 run = '''
 go test ./internal/scenarios -count=1 -v -timeout=30m -run '^TestScale100Station19(Queue|Burst)DrainsSafely$' || exit 1
 PODSIM_QUALIFY=1 go test ./internal/sim -count=1 -v -timeout=30m -run '^(TestEmergencyChoiceLatency|TestEmergencyNoCandidateLatency|TestSampledTickLatency)$' || exit 1
-GOGC=400 PODSIM_QUALIFY=1 go test ./internal/session -count=1 -v -timeout=30m -run '^TestIncidentSoakCI$'
+PODSIM_QUALIFY=1 go test ./internal/session -count=1 -v -timeout=30m -run '^TestIncidentSoakCI$'
 '''
 
 [tasks."qualify:limits"]
@@ -171,10 +171,9 @@ run = "PODSIM_QUALIFY=1 go test ./internal/sim -count=1 -v -timeout=30m -run '^T
 
 [tasks.soak]
 description = "Run the incident soak in the routine branch shape, one soak at a time"
-# GOGC=400 cuts the CPU of a checked run and uses more memory, so the memory
-# cap stays. The lock holds for one host, so each worktree uses the same path.
+# The lock holds for one host, so each worktree uses the same path.
 # A second soak waits for 60 seconds and then fails with code 75.
-env = { GOGC = "400", PODSIM_SOAK = "1" }
+env = { PODSIM_SOAK = "1" }
 run = '''
 ulimit -v 16000000
 lock="${PODSIM_SOAK_LOCK:-/tmp/podsim-soak.lock}"

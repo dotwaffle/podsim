@@ -971,7 +971,7 @@ func soakEnvNumber[N uint64 | int64 | float64](t *testing.T, name string, fallba
 // TestIncidentSoak is the soak of section 5.1.9 of the incident stage 7
 // contract, with the size of amendment A10. It runs only by request, because it
 // takes many CPU hours. Use mise run soak, which sets the memory cap, the time
-// limit, the lock, and GOGC. docs/operations.md has the details.
+// limit, and the lock. docs/operations.md has the details.
 //
 // In the routine shape, each arm has one warm save at 30 simulated minutes, and
 // each branch restores it in a new session and reseeds the driver. A reference

@@ -393,6 +393,7 @@ The rate is the harmonic mean of the windows of 5 simulated minutes with a queue
 A branch has 216,000 ticks, and about 7,500 full checks with the stride.
 The review estimated 6,000 ticks a second.
 This reading is 4,068 at a full queue.
+The gain from `GOGC=400` is 23% in this rate and 25% in CPU, not the factor of 2, so the maintainer kept the default `GOGC=100` on 2026-11-05.
 
 | Branch | Completed | Interrupted | Commands | Records | Late under rule A | Longest unblocked, min | Over 10 min | Settle, s |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |

@@ -968,7 +968,7 @@ The checks run at the stride of amendment A10: the full check runs at each simul
 Use `mise run soak:full` before a release tag, and after a change to dispatch, routing, or the fault and emergency state machines.
 It runs 5 seeds of 6 simulated hours with the full check at each tick.
 
-The tasks set `GOGC=400` and a memory cap of 16 GB of address space.
+The tasks set a memory cap of 16 GB of address space.
 They hold a lock on `/tmp/podsim-soak.lock`, so one host runs one soak at a time.
 A second soak waits for 60 seconds, and then it fails with exit code 75.
 The wall limit is 2 hours, and a run that the limit stops counts only its completed branches.

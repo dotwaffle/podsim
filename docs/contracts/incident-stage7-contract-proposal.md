@@ -586,7 +586,7 @@ Rewinds run each 10 simulated minutes in place of each hour.
 A reference arm has no driver event, so it runs one branch of the same length from its own warm save, and each branch of its group uses that queue range.
 Each branch reports the Progress rows by itself, and a run that the limit stops counts only its completed branches.
 The 5 seeds of 6 simulated hours of A6 stay for the same triggers as the soak with the full check at each tick.
-Soak jobs run with `GOGC=400`, and one soak at a time under a lock.
+Soak jobs run one soak at a time under a lock, with the default `GOGC`, by the maintainer decision of 2026-11-05 after the trial in `docs/studies/incident-soak.md`.
 `TestSampledTickNoCandidateLatency` moves from `mise run qualify` to `mise run qualify:limits`, because it only reports, and no gate changes.
 This amendment changes no other rule and marks no row as passed.
 
