@@ -525,6 +525,7 @@ The native gzip of Node took about 0.2 ms, and the browser uses a native inflate
 The typed decode takes 0.45 ms of the native 11.3 ms in a benchmark, and the token scans before it take the rest.
 A protobuf-shaped decoder took 0.02 ms, but it skips riders, stops, and metadata.
 From the profile, one scan pass with the same refusal order and error text should remove most of this with no protocol change, and I did not build it.
+On 2026-11-05, a one-pass accept went in front of the scans, and the scans still make each refusal: a 23 kB LondonFull delta took 13 to 21 ms before and 0.8 to 1.6 ms after natively, and 49 to 67 ms before and 4.5 to 5.1 ms after in WebAssembly in Node, at a load average of 22 to 38, not from a quiet host.
 
 JSON is 16 percent of the server CPU on LondonFull, and a change to protobuf saves about 1 percent of a core.
 On rail-hub with a full queue it is about half, but most of that is the group comparison, and memo reduces the comparison with no protocol change.
