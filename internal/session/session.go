@@ -390,7 +390,7 @@ func (s *Session) startProject(config project.Config) error {
 
 // Run advances the shared clock until cancellation. Browsers never advance it.
 func (s *Session) Run(ctx context.Context) {
-	ticker := time.NewTicker(time.Second / sim.TicksPerSecond)
+	ticker := time.NewTicker(wakePeriod)
 	defer ticker.Stop()
 	for {
 		select {

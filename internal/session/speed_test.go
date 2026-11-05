@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/dotwaffle/podsim/internal/project"
+	"github.com/dotwaffle/podsim/internal/sim"
 )
 
 func TestPlaybackChoices(t *testing.T) {
@@ -76,6 +77,51 @@ func TestSpeedMonitor(t *testing.T) {
 				t.Fatal("reset included inactive time")
 			}
 		})
+	}
+}
+
+// TestWakeBudgetFollowsPeriod checks the budget at the tick rates of the
+// tick rate contract, at a faster rate, and at the wake period of this build.
+func TestWakeBudgetFollowsPeriod(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name   string
+		period time.Duration
+		want   time.Duration
+	}{
+		{"120 Hz", time.Second / 120, 20 * time.Millisecond},
+		{"60 Hz", time.Second / 60, 20 * time.Millisecond},
+		{"50 Hz", time.Second / 50, 20 * time.Millisecond},
+		{"30 Hz", time.Second / 30, time.Second / 30},
+		{"20 Hz", time.Second / 20, time.Second / 20},
+	} {
+		if got := wakeBudget(tc.period); got != tc.want {
+			t.Errorf("%s: budget %v, want %v", tc.name, got, tc.want)
+		}
+	}
+	if wakePeriod != time.Second/sim.TicksPerSecond {
+		t.Fatalf("wake period %v at %d ticks a second", wakePeriod, sim.TicksPerSecond)
+	}
+}
+
+// TestLiveAdvanceSpendsBudget gives one wake more steps than the budget can
+// run. The wake must use its whole budget before it stops. Load can only
+// make the wake longer, so the test has no upper bound.
+func TestLiveAdvanceSpendsBudget(t *testing.T) {
+	t.Parallel()
+	s := newTestSession(t)
+	const speed = 1_000_000
+	s.speed = speed
+	s.clock.paced = time.Now()
+	s.clock.debt = catchUpLimit.Seconds() * speed * sim.TicksPerSecond
+	started := time.Now()
+	s.liveAdvance(context.Background())
+	elapsed := time.Since(started)
+	if s.clock.debt < 1 {
+		t.Fatal("the wake ran all its steps, so the budget did not stop it")
+	}
+	if want := wakeBudget(wakePeriod); elapsed < want {
+		t.Fatalf("the wake used %v of a budget of %v", elapsed, want)
 	}
 }
 

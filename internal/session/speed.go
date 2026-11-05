@@ -12,8 +12,18 @@ import (
 const (
 	speedWindow  = 5 * time.Second
 	catchUpLimit = 250 * time.Millisecond
-	wakeBudget   = 20 * time.Millisecond
+	// wakePeriod is the time between two clock wakes, one tick at 1x.
+	wakePeriod = time.Second / sim.TicksPerSecond
+	// minWakeBudget is the smallest time for the steps of one wake.
+	minWakeBudget = 20 * time.Millisecond
 )
+
+// wakeBudget returns the time for the steps of one wake with the given
+// period. A shorter budget than the period would limit the highest speed
+// at a lower tick rate, when a core could still do more steps.
+func wakeBudget(period time.Duration) time.Duration {
+	return max(period, minWakeBudget)
+}
 
 // NextSpeed cycles the playback choices.
 func NextSpeed(speed int) int {
@@ -152,7 +162,7 @@ func (s *Session) liveAdvance(ctx context.Context) {
 	if reduction.Sequence != 0 {
 		s.logger.Warn("Reduced playback speed", slog.Int("from", from), slog.Int("to", next), slog.Float64("achieved", achieved))
 	}
-	deadline := time.Now().Add(wakeBudget)
+	deadline := time.Now().Add(wakeBudget(wakePeriod))
 	for remaining > 0 && ctx.Err() == nil {
 		completed := s.liveBatch(version, remaining)
 		if completed == 0 {
