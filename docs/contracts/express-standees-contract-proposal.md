@@ -2,6 +2,8 @@
 
 Status: decisions 1 to 13 accepted by the maintainer on 2026-11-05, as recommended.
 Status 2026-11-05: the tick rate is now 30 Hz, `stateVersion` is 11, `StreamVersion` is 9, and the golden files are `state_v11.json` and `state_v11_members.txt`, so the values of 10, 8, and `state_v10` below are history.
+Status 2026-11-05: the plan cap sits in the ordinary move step, so the fault step does not take it, and the floor at `speed - max × dt` also covers the result of `speedBeforeLane` (section 3.2).
+The restore bound of 180 ticks in section 6 is 3 s, which is 90 ticks at 30 Hz.
 The maintainer also approved the revision of sections 4, 5, and 7.1 after the external review of section 4.10.
 No product code changes with this document.
 It was drafted against `b2262f6`, and each `file:line` reference is for that tree.
@@ -88,6 +90,7 @@ A party of one has the dwell of today.
 The flow comes from [TCRP Report 100](../studies/express-standees.md#door-flow), with about 2 s for each stream and two streams.
 A join into a boarding pod adds its passengers to `phaseTicks`, and it does not restart the phase.
 The phase never exceeds the largest value.
+Status 2026-11-05, by the maintainer: the sentence on the join stands over the table. A party that joins a running phase adds 1 s for each of its passengers, and a party that starts a phase adds 1 s for each passenger after the first.
 Seat-only classes keep `boardingTicks` and `unloadingTicks` for each party size.
 
 These sites use the constants: `internal/sim/dispatch.go:660`, `internal/sim/onboard_pickups.go:46`, `internal/sim/operational.go:221`, `internal/sim/simulation.go:926`, `internal/sim/pickup_estimate.go:257`, `internal/sim/pickup_estimate.go:268`, `internal/sim/pickup_estimate.go:298`, `internal/sim/state_physical.go:417`, `internal/sim/state_physical.go:419`, and the phase rules at `internal/sim/state_contract.go:95` to `internal/sim/state_contract.go:161`.

@@ -5,6 +5,8 @@ The user approved item 8b and the contract below with the 6b/8b batch.
 Deployment, runtime enablement, and default changes require a separate batch.
 The [Express qualification](../studies/express-qualification.md) records the qualification conclusions.
 Status 2026-11-05: by the [standee contract](express-standees-contract-proposal.md), Express has 12 seats and 8 standees and a 6 m body, so the values of 20 seats and a 10 m body below are history.
+Status 2026-11-05: by the same contract, motion uses the rates of the class: 2 m/s² for seat-only classes, and 1.3, 0.8, and 1.15 m/s² for Express acceleration, planned braking, and maximum service braking, so the unchanged rates of the rows below are history.
+`internal/sim/coast.go` excludes a large class from coasting, and `coastRelease` times a releaser of any class at the acceleration of its class.
 
 Station buffers and compact station queues were removed on October 7, 2026, because measurements showed that they lowered station entry throughput.
 Clauses that name buffers, buffer certificates, compact queues, or compact certificates now describe cases that cannot occur.

@@ -1,6 +1,7 @@
 # Incident suspension contract proposal
 
 Status: approved, revision 5, October 5, 2026, by the coordinator under the maintainer delegation of October 5, 2026, after blind Astra review rounds and an adversarial check.
+Status 2026-11-05: by the [standee contract](express-standees-contract-proposal.md), the fault cap and the stop of controlled braking use the maximum service rate of the class of the pod, which is 2 m/s² for seat-only classes and 1.15 m/s² for Express, so a single rate `a` below is history.
 Trimmed on November 4, 2026: review history removed.
 Git history keeps it.
 The approval changes no binding decision and no product choice beyond the maintainer-approved amendment D3 and the stage 2 defaults.

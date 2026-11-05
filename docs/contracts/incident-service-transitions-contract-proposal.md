@@ -1,6 +1,7 @@
 # Incident service transitions contract proposal
 
 Status: approved on 2026-10-05, with the proposed default for each open question in section 18.
+Status 2026-11-05: by the [standee contract](express-standees-contract-proposal.md), `phaseTicks` becomes the unloading phase of the class for the parties aboard, so a fixed unloading phase below holds only for seat-only classes.
 Trimmed on November 4, 2026: review history removed.
 Git history keeps it.
 Revised for item 7: one save family (version 9) and one stream family (hello 6, hello 7 since the motion-only deltas).
