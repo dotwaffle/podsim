@@ -123,15 +123,16 @@ The load average was 30 to 45, because other work ran at the same time, and the 
 | Preset and arm | Runs finished | Rewinds | Late emergencies |
 | --- | ---: | --- | ---: |
 | `london-central` `emergencies` | 5 of 5 | 30 of 30 replay | 0 of 454 |
-| `rail-hub` `emergencies` | 3 of 5 (seeds 1, 4, 5) | 18 of 18 replay | 0 of 275 |
-| `rail-hub` `incidents` | 4 of 5 (seeds 1, 3, 4, 5) | 24 of 24 replay | 50 of 335 |
+| `rail-hub` `emergencies` | 4 of 5 (seeds 1, 2, 4, 5) | 24 of 24 replay | 0 of 374 |
+| `rail-hub` `incidents` | 5 of 5 | 30 of 30 replay | 56 of 427 |
 | `rail-hub` `platoons` | 3 of 5 (seeds 2, 3, 4) | 18 of 18 replay | 32 of 268 |
 
 The longest emergency on `london-central` `emergencies` is 3.4 simulated minutes.
 The log shows no report from the Safety, Contract, Conservation, or Rail rows in any run.
 Each arm and seed that finished in both runs has the same completed count, so `internal/sim` changes between `cbbdb18` and `083a487` did not change these runs.
 Seeds 1 and 5 of `platoons` finished in the first run.
-Seeds 2 and 3 of `emergencies`, and seed 2 of `incidents`, are the rail-hub runs with no reading after the rewind correction: seed 3 of `emergencies` finished only in the first run, and the other two have no finished run.
+Seed 3 of `emergencies` also finished only in the first run.
+Seed 2 of `incidents` and `emergencies` ran by itself after the limit, so each arm of each seed has one finished run.
 
 ## Attribution of the late emergencies
 
