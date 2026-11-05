@@ -740,7 +740,8 @@ When the checks find errors, **Pause and apply** does not send the draft and sho
 The server checks the project again when you apply it, and it also checks the [limits](reference.md#validation-and-limits) that the editor does not check.
 If the server project fails these checks, the editor still loads it as the draft, and the section shows the geometry errors that the server reports.
 
-Two checks give warnings and not errors: a junction with no lanes, and a network section that no lane connects to the other nodes.
+Three checks give warnings and not errors: a junction with no lanes, a network section that no lane connects to the other nodes, and a lane with a [large-class tail](model.md#vehicle-classes) that exceeds its length.
+The last check names at most 5 lanes and counts the others, and it runs only when the network has no error.
 The server accepts a project with these warnings, so a warning does not block an apply or an import.
 
 A passenger station in a separate section is an error, because the other passenger stations cannot reach it.

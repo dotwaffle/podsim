@@ -198,6 +198,7 @@ type draftNetwork struct {
 	stationNodes, brokenBerths        map[string]bool
 	passengerChecks                   []check
 	passengerChecked                  bool
+	tailWarnings                      []check
 }
 
 func checkNetwork(value any, errors *checkList) *draftNetwork {
@@ -219,6 +220,9 @@ func checkNetwork(value any, errors *checkList) *draftNetwork {
 		if err := validateBankDraft(value); err != nil {
 			errors.add(err.Error(), nil)
 		}
+	}
+	if len(errors.items) == previousErrors {
+		g.tailWarnings = draftTailWarnings(value)
 	}
 	return g
 }

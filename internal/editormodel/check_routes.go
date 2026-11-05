@@ -242,4 +242,7 @@ func (g *draftNetwork) warnings(warnings *checkList) {
 			warnings.add("The network has disconnected sections.", nil)
 		}
 	}
+	for _, item := range g.tailWarnings {
+		warnings.add(item.Text, item.Target)
+	}
 }

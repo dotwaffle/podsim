@@ -1,6 +1,9 @@
 package editormodel
 
-import "github.com/dotwaffle/podsim/internal/sim"
+import (
+	"github.com/dotwaffle/podsim/internal/project"
+	"github.com/dotwaffle/podsim/internal/sim"
+)
 
 // draftClearance is the lane clearance index of one draft network, so the
 // editor applies the lane minimums and the pair clearances of the server.
@@ -135,6 +138,20 @@ func (c draftClearance) pairPieces(first, second any, firstLength, secondLength 
 	a, _ := draftSimLane(first)
 	b, _ := draftSimLane(second)
 	return c.index.PairPieces(a, b, firstLength, secondLength)
+}
+
+// draftTailWarnings returns the large-class tail warnings of a draft network
+// that has no network error. An invalid class set gives no warning.
+func draftTailWarnings(network any) []check {
+	typed, ok := draftClearanceNetwork(network)
+	if !ok {
+		return nil
+	}
+	var warnings []check
+	for _, warning := range project.TailWarnings(typed) {
+		warnings = append(warnings, check{Text: warning.Text, Target: target("lane", warning.LaneID)})
+	}
+	return warnings
 }
 
 // draftClassMinimum returns the class bound of the minimum length of a
