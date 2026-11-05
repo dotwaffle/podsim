@@ -906,7 +906,7 @@ The `emergencies` group shows the phase of each record (section 11.4).
 | Deferred, faulted | The clear or the evacuation. |
 | Deferred, in the arrival chain | Arrival at the current berth. |
 | Bound, waiting for a resource | Its owner moves and releases it. |
-| Bound, berth occupied | The phase timer of the pod at the berth ends, and the berth clears, or terminal reevaluation moves the pod to another free berth. |
+| Bound, berth occupied | The phase timer of the pod at the berth ends, and the berth clears, terminal reevaluation moves the pod to another free berth, or `clearBlockedBerths` moves an idle pod whose trip cannot board (suspension contract section 9.4). |
 | Unloading | The phase timer ends. |
 
 ## 10. Settings, commands, and session events

@@ -912,3 +912,149 @@ func TestEmergencyHoldCallers(t *testing.T) {
 		t.Fatalf("callers of withdrawService with the emergency hold %v, want %v", callers, want)
 	}
 }
+
+// yieldFleet returns a line of one-berth stations. Pod 01 at s0 carries a
+// rider to s1, and it stops at s1 for an emergency when emergency is true.
+// Pod 02 is idle at s1. Debris on the only lane from p to s0 keeps a trip from
+// s1 to s0 from boarding, so that trip waits on pod 02 for destination access.
+// The parking station p stays reachable from s1, around the return road.
+func yieldFleet(t *testing.T, emergency bool) (s *Simulation, arrival, idle *vehicle, debris string) {
+	t.Helper()
+	s, err := NewFleet(lineNetwork(lineStations(1, 1, 1, 1)), place("s0-1", "s1-1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetFaults(true, FaultSettings{EvacuationSeconds: 300}); err != nil {
+		t.Fatal(err)
+	}
+	s.emergenciesOn = true
+	checkFaultsEachTick(t, s)
+	debris = startDebris(t, s, "p-link", 40, 44, 0)
+	if err := s.RequestTrip("s1", "s0"); err != nil {
+		t.Fatal(err)
+	}
+	s.Step()
+	arrival, idle = s.findVehicle("01"), s.findVehicle("02")
+	if trip := s.waiting[0].request; trip.PodID != "02" || trip.DispatchReason != "Waiting for destination access" {
+		t.Fatalf("the trip has pod %q and the reason %q", trip.PodID, trip.DispatchReason)
+	}
+	if err := s.board(arrival, newTrip(s, "s0", "s1")); err != nil {
+		t.Fatal(err)
+	}
+	stepUntil(t, s, "pod 01 on the road to s1", func() bool { return arrival.Pod.LaneID == "s0-link" })
+	if emergency {
+		startEmergency(t, s, arrival, 0)
+	}
+	return s, arrival, idle, debris
+}
+
+// TestEmergencyPodMovesBoundIdlePod checks that an emergency pod does not wait
+// for the whole fault on an idle pod whose trip cannot board. The idle pod
+// leaves, and the emergency pod unloads while the fault lasts. The trip keeps
+// its ID, queue place, deferral, and exclusion, and it boards after the clear.
+func TestEmergencyPodMovesBoundIdlePod(t *testing.T) {
+	t.Parallel()
+	s, arrival, idle, debris := yieldFleet(t, true)
+	id := s.waiting[0].request.ID
+	s.waiting = append(s.waiting, newTrip(s, "s2", "s0"))
+	s.waiting[0].excludedPod, s.waiting[0].deferUntil = "03", 1_000_000
+	stepUntil(t, s, "the emergency pod at s1", func() bool {
+		return arrival.Pod.Activity == Unloading && arrival.Pod.StationID == "s1"
+	})
+	trip := s.waiting[0]
+	switch {
+	case trip.request.ID != id || trip.request.PodID == "02":
+		t.Fatalf("the first trip is %+v", trip.request)
+	case trip.excludedPod != "03" || trip.deferUntil != 1_000_000:
+		t.Fatalf("the trip has the exclusion %q and the deferral %d", trip.excludedPod, trip.deferUntil)
+	case !idle.inService() || s.faultCounters.cleared != 0:
+		t.Fatalf("pod 02 has the holds %d, and %d faults cleared", idle.withdrawn, s.faultCounters.cleared)
+	}
+	if err := s.clearFault(debris); err != nil {
+		t.Fatal(err)
+	}
+	stepUntil(t, s, "the trip boards", func() bool {
+		return !slices.ContainsFunc(s.waiting, func(w waitingTrip) bool { return w.request.ID == id })
+	})
+}
+
+// TestYieldedPodLosesTripAtOnce clears the fault in the tick after the idle pod
+// starts to move. The blocked set is then empty, so pickupAccess keeps any
+// binding. The trip excludes pod 01, which is the only other pod. The trip must
+// have no pod, so that dispatch sends pod 02 back. A trip that stays bound waits
+// for a pod that goes to parking, and no path sends that pod back.
+func TestYieldedPodLosesTripAtOnce(t *testing.T) {
+	t.Parallel()
+	s, _, idle, debris := yieldFleet(t, true)
+	id := s.waiting[0].request.ID
+	s.waiting[0].excludedPod = "01"
+	stepUntil(t, s, "pod 02 leaves its berth", func() bool { return idle.Pod.Activity != Idle })
+	if err := s.clearFault(debris); err != nil {
+		t.Fatal(err)
+	}
+	stepUntil(t, s, "the trip boards", func() bool {
+		return !slices.ContainsFunc(s.waiting, func(w waitingTrip) bool { return w.request.ID == id })
+	})
+}
+
+// TestBoardingLegFails checks the trips that let an emergency pod move an idle
+// pod: only a trip at the station of the pod, with a blocked leg route.
+func TestBoardingLegFails(t *testing.T) {
+	t.Parallel()
+	s, err := NewFleet(lineNetwork(lineStations(1, 1, 1, 1)), place("s1-1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetFaults(true, FaultSettings{}); err != nil {
+		t.Fatal(err)
+	}
+	startDebris(t, s, "p-link", 40, 44, 0)
+	v := s.findVehicle("01")
+	tests := []struct {
+		name     string
+		from, to string
+		want     bool
+	}{
+		{name: "blocked leg", from: "s1", to: "s0", want: true},
+		{name: "open leg", from: "s1", to: "s2", want: false},
+		{name: "trip at another station", from: "s2", to: "s0", want: false},
+	}
+	for _, test := range tests {
+		trip := newTrip(s, test.from, test.to)
+		trip.request.PodID = v.Pod.ID
+		s.waiting = []waitingTrip{trip}
+		if got := s.boardingLegFails(v); got != test.want {
+			t.Errorf("%s: got %t", test.name, got)
+		}
+	}
+}
+
+// TestBlockedIdlePodKeepsTrip cuts the only road out of s1 as well. Pod 02 has
+// no place to go, so the emergency pod reports "No parking available", and the
+// trip keeps pod 02.
+func TestBlockedIdlePodKeepsTrip(t *testing.T) {
+	t.Parallel()
+	s, arrival, idle, _ := yieldFleet(t, true)
+	startDebris(t, s, "s1-link", 40, 44, 0)
+	stepUntil(t, s, "the report of no parking", func() bool { return arrival.Pod.WaitReason == ParkingUnavailable })
+	if trip := s.waiting[0].request; idle.Pod.Activity != Idle || trip.PodID != "02" {
+		t.Fatalf("pod 02 is %s, and the trip has pod %q", idle.Pod.Activity, trip.PodID)
+	}
+}
+
+// TestOrdinaryPodKeepsBoundIdlePod checks that the rule is for an emergency
+// pod. An ordinary pod waits at the berth of an idle pod that a trip names, and
+// the trip keeps the pod.
+func TestOrdinaryPodKeepsBoundIdlePod(t *testing.T) {
+	t.Parallel()
+	s, arrival, idle, _ := yieldFleet(t, false)
+	stepUntil(t, s, "pod 01 waits for the berth of pod 02", func() bool {
+		return arrival.Pod.WaitReason == BerthOccupied && arrival.Pod.BlockedBy == "02"
+	})
+	for range 5 * TicksPerSecond {
+		s.Step()
+		if idle.Pod.Activity != Idle || s.waiting[0].request.PodID != "02" {
+			t.Fatalf("tick %d: pod 02 is %s, and the trip has pod %q", s.tick, idle.Pod.Activity, s.waiting[0].request.PodID)
+		}
+	}
+}

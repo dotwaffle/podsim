@@ -886,6 +886,13 @@ Consistent gates, each true when the blocked set is empty:
 These gates keep dispatch from binding the trip again to the same inaccessible pod.
 With an empty blocked set, `pickupAccess` and every gate are true, so the dispatch decisions do not change.
 
+Amendment, November 5, 2026, approved by the maintainer on 2026-11-05: the Boarding row has one exception.
+`clearBlockedBerths` (`internal/sim/parking.go`) moves an idle empty pod that a waiting trip names when all of these hold: an emergency pod reports `Berth occupied` with that pod as its blocker and enters its berth, the blocked set is not empty, the pod is at the leg origin of the trip, and the leg route of `board` fails.
+When the move starts, the trip loses the pod in the same call: `request.PodID`, `trip.route`, and `trip.destination` are cleared.
+The order keeps its ID, queue position, deferral budget, and existing `excludedPod`, and it gets no new exclusion, as in the dispatch unbinding above.
+When the pod has no place to go, it stays and keeps the trip, and the emergency pod reports `No parking available`.
+Each other pod still waits for the idle pod, and each other failed leg keeps the trip as the Boarding row says.
+
 ### 9.5 Claim surrender
 
 Gate.

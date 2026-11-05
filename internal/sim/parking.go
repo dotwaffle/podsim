@@ -13,7 +13,9 @@ var ErrBerthUnavailable = errors.New("destination berth is occupied or reserved"
 // An idle empty pod in service leaves its berth when it blocks a pod that
 // must stop at that berth or pass through it. A withdrawn pod stays, and
 // the blocked pod keeps waiting. In guarded mode, guardedClear chooses the
-// berth first.
+// berth first. A pod that a waiting trip names stays, unless an emergency
+// pod needs the berth and the trip cannot board because of the faults.
+// Then the pod leaves, and the trip keeps its place in the queue with no pod.
 func (s *Simulation) clearBlockedBerths() {
 	for i := range s.vehicles {
 		arrival := &s.vehicles[i]
@@ -21,14 +23,62 @@ func (s *Simulation) clearBlockedBerths() {
 			continue
 		}
 		blocker := s.findVehicle(arrival.Pod.BlockedBy)
-		if blocker == nil || !blocker.inService() || blocker.Pod.Activity != Idle || blocker.Pod.Occupied || s.assigned(blocker.Pod.ID) || !arrival.entersBerth(blocker.Pod.BerthID) {
+		if blocker == nil || !blocker.inService() || blocker.Pod.Activity != Idle || blocker.Pod.Occupied || !arrival.entersBerth(blocker.Pod.BerthID) {
 			continue
 		}
-		if s.positioning == PositioningGuarded && s.guardedClear(blocker) {
+		yields := s.emergencyOf(arrival) >= 0 && s.boardingLegFails(blocker)
+		if s.assigned(blocker.Pod.ID) && !yields {
 			continue
 		}
-		if !s.park(blocker) && !s.clearToPassengerBerth(blocker) {
+		if !s.moveBlocker(blocker) {
 			arrival.Pod.WaitReason = ParkingUnavailable
+			continue
+		}
+		if yields {
+			s.unbindYieldedPod(blocker)
+		}
+	}
+}
+
+// moveBlocker starts the empty move of an idle pod that blocks a berth. It
+// reports false when the pod has no place to go.
+func (s *Simulation) moveBlocker(blocker *vehicle) bool {
+	if s.positioning == PositioningGuarded && s.guardedClear(blocker) {
+		return true
+	}
+	return s.park(blocker) || s.clearToPassengerBerth(blocker)
+}
+
+// boardingLegFails reports whether a fault keeps pod v, idle at the leg
+// origin of the trip that names it, from boarding: board would fail on the
+// leg route. With an empty blocked set, it is false.
+func (s *Simulation) boardingLegFails(v *vehicle) bool {
+	if !s.blockedActive() {
+		return false
+	}
+	for i := range s.waiting {
+		request := &s.waiting[i].request
+		if request.PodID == v.Pod.ID && request.legOrigin() == v.Pod.StationID {
+			node := s.podBerthNode(v)
+			_, err := s.legRoute(v, leg{origin: node, from: node, stops: []string{request.To}})
+			return err != nil
+		}
+	}
+	return false
+}
+
+// unbindYieldedPod takes the trip from pod v after v left its berth for an
+// emergency pod, as dispatch does when a pod has no pickup access (section
+// 9.4 of the incident suspension contract). The trip keeps its order ID,
+// queue position, deferral budget, and exclusion. It gets no new exclusion,
+// so dispatch can bind it again. The pod must not stay bound: an empty move
+// is not a pickup, so after the last clear no path sends a bound pod back
+// from the end of the move.
+func (s *Simulation) unbindYieldedPod(v *vehicle) {
+	for i := range s.waiting {
+		if trip := &s.waiting[i]; trip.request.PodID == v.Pod.ID {
+			trip.request.PodID = ""
+			trip.route, trip.destination = nil, Berth{}
 		}
 	}
 }
