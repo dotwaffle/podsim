@@ -3,6 +3,10 @@ min_version = "2026.11.1"
 [settings]
 lockfile = true
 
+[env]
+# Keep source paths out of the build cache keys, so that worktrees share compiled packages.
+GOFLAGS = "-trimpath"
+
 [tool_alias]
 govulncheck = "go:golang.org/x/vuln/cmd/govulncheck"
 
