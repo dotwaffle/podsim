@@ -815,12 +815,26 @@ func TestSamplerLiveFrames(t *testing.T) {
 	}
 }
 
+// identityForbiddenMembers are the member names of stage 7 that a run at rate
+// 0 never writes in a save or a frame (section 5.1.5 of the incident stage 7
+// contract).
+var identityForbiddenMembers = []string{"random", "nextTick", "sampled", "skipped", "clearedTicks", "delayedRiderTicks", "endedTicks", "maxTicks"}
+
+// checkIdentityGroup fails the test when the JSON of a faults or an
+// emergencies group has a member of stage 7.
+func checkIdentityGroup(t *testing.T, where string, group []byte) {
+	t.Helper()
+	for _, name := range identityForbiddenMembers {
+		if bytes.Contains(group, []byte(`"`+name+`"`)) {
+			t.Fatalf("%s at rate 0 has the member %s: %s", where, name, group)
+		}
+	}
+}
+
 // TestManualEmergencyEndCounters checks the counter gate of section 5.1.5 for
-// the end of an emergency. The script of the identity digests ends no
-// emergency in its ticks, so the digests cannot show this gate. With each form
-// of a rate of 0, a manual emergency writes neither counter. With a live
-// sampler, it counts as a sampled emergency does. The live rate is so low that
-// the sampler has no event.
+// the end of an emergency. With each form of a rate of 0, a manual emergency
+// writes neither counter. With a live sampler, it counts as a sampled
+// emergency does. The live rate is so low that the sampler has no event.
 func TestManualEmergencyEndCounters(t *testing.T) {
 	t.Parallel()
 	for name, test := range map[string]struct {
