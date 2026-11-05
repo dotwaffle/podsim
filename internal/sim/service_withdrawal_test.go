@@ -325,29 +325,6 @@ func withdrawalGateCases() []withdrawalGateCase {
 			},
 		},
 		{
-			// Pod 01 makes a rebalancing move to the target. It is the
-			// supply of the target, so the forecast starts no move.
-			name: "forecast supply",
-			build: func(t *testing.T) (*Simulation, *vehicle) {
-				t.Helper()
-				s := forecastFixture(t, true, 30, 6)
-				v := &s.vehicles[0]
-				target, _ := s.station("target")
-				if err := s.startEmptyMove(v, emptyDestination{station: "target", berth: target.Berths[0], reserveBerth: true, rebalance: true}); err != nil {
-					t.Fatal(err)
-				}
-				return s, v
-			},
-			selects: func(t *testing.T, s *Simulation, _ *vehicle) bool {
-				t.Helper()
-				r, err := s.PositionForForecast([]ForecastTarget{{Station: "target", ReleaseTick: 300 * TicksPerSecond, Passengers: 1}})
-				if err != nil {
-					t.Fatal(err)
-				}
-				return r.Pod == ""
-			},
-		},
-		{
 			// Pod 01 takes a passenger to Market, where pod 02 is idle.
 			name: "berth clearing",
 			build: func(t *testing.T) (*Simulation, *vehicle) {

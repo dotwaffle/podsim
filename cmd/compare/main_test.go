@@ -1292,8 +1292,6 @@ func TestParseOptionsRefusalOrder(t *testing.T) {
 		{"consent_before_seeds", []string{"-sharing-consent", "maybe", "-seeds", "1,1"}, `sharing-consent must be private or shared, got "maybe"`},
 		{"seeds_before_patterns", []string{"-seeds", "1,1", "-pattern", "future"}, "seed 1 appears more than once"},
 		{"patterns_before_daily", []string{"-pattern", "future", "-daily-start-minute", "5"}, `unknown demand pattern "future"`},
-		{"rail_forecast_before_daily", []string{"-rail-forecast", "-pattern", "balanced", "-daily-start-minute", "5"},
-			"rail-forecast requires only rail-arrivals or rail-services patterns"},
 		{"daily_before_rail", []string{"-patterns", "profile-daily,rail-arrivals", "-loads", "30s"},
 			"daily demand does not accept -loads: timing and rates come from the profile"},
 		{"rail_before_loads", []string{"-patterns", "rail-arrivals,balanced", "-loads", "30s,30s"},

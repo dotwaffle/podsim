@@ -232,7 +232,6 @@ The focus station is the `-focus` station, then the `demand.destination` of the 
 | `-platoon-policies off,virtual` | The experimental platoon comparison. `virtual` lets queued pods follow the pod ahead at a short gap. |
 | `-pickup-reassignment off,on` | Compare independent pickup reassignment settings. The default is off. |
 | `-energy-file` | Add energy estimates from an authored energy model file. See [energy model design](design/energy-model-design.md). |
-| `-rail-forecast` | Position empty pods for known rail offers, with rail patterns only. See [scheduled train connections](rail-connections.md). |
 
 With `-adaptive-limit`, arms that differ only in offered rate and seed form a group.
 Each group runs its rates from the lowest offered rate, with all seeds of a rate together.

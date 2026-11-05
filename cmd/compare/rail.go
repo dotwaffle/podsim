@@ -1,7 +1,6 @@
 package main
 
 import (
-	"cmp"
 	"errors"
 	"fmt"
 	"slices"
@@ -139,36 +138,4 @@ func connectionPendingWithin(connections *rail.Connections, plan []project.RailD
 		}
 	}
 	return false
-}
-
-func futureRailTargets(schedule []scheduledRequest, cursor int, connections *rail.Connections, tick int64) []sim.ForecastTarget {
-	byStation := make(map[string]sim.ForecastTarget)
-	for _, offer := range schedule[cursor:] {
-		if offer.tick <= tick {
-			continue
-		}
-		if offer.tick-tick > 300*sim.TicksPerSecond {
-			break
-		}
-		if offer.kind == "departure" && connections != nil && connections.Issued(offer.event, offer.passenger) {
-			continue
-		}
-		target := byStation[offer.origin]
-		if target.Passengers == 0 {
-			target = sim.ForecastTarget{Station: offer.origin, ReleaseTick: offer.tick}
-		}
-		target.Passengers++
-		byStation[offer.origin] = target
-	}
-	targets := make([]sim.ForecastTarget, 0, len(byStation))
-	for _, target := range byStation {
-		targets = append(targets, target)
-	}
-	slices.SortFunc(targets, func(a, b sim.ForecastTarget) int {
-		if c := cmp.Compare(a.ReleaseTick, b.ReleaseTick); c != 0 {
-			return c
-		}
-		return cmp.Compare(a.Station, b.Station)
-	})
-	return targets
 }

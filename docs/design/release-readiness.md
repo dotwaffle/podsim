@@ -40,6 +40,8 @@ Its code landed, its [soak](../studies/incident-soak.md) has not run, the soak s
 
 ## Forecast rejection and service boundaries
 
+The forecast control was removed on November 5, 2026, so the code is gone.
+
 The private parking-only forecast candidate failed its frozen `3d9534e` seed-1 screen.
 The three arms used one identified private executable:
 

@@ -5,6 +5,7 @@ Trimmed on November 4, 2026: review history removed.
 Git history keeps it.
 Revised for item 7: one save family (version 9) and one stream family (hello 6, hello 7 since the motion-only deltas).
 On November 4, 2026, `docs/contracts/marker-removal-contract-proposal.md` removed the markers, so text about the markers describes the earlier design.
+On November 5, 2026, the maintainer removed rail forecast positioning, so `PositionForForecast` and its supply row are gone.
 
 Physical coupling was removed on October 6, 2026.
 Clauses about the couplingContract marker, coupling sites and corridors, coupling approaches, and coupled trains and their members no longer apply.
@@ -269,8 +270,7 @@ Each path below gets the test `v.withdrawn == 0`:
 | Pickup swaps and transfers | `internal/sim/pickup_swaps.go` `(*Simulation).swapEligible` | Returns false. `reassignPickup` (`internal/sim/pickup_reassignment.go` `(*Simulation).reassignPickup`) uses it. |
 | Manual journey | `internal/sim/simulation.go` `(*Simulation).RequestJourneyOptions` | Returns `ErrBusy`. |
 | Guarded supply | `internal/sim/positioning.go` `(*Simulation).guardedSupply` | A withdrawn pod adds no idle count, no relocating supply, and no inbound supply. Its destination berth stays busy. |
-| Guarded candidates | `internal/sim/positioning.go` `(*Simulation).guardedCandidates` | Skips the pod. This covers `positionGuarded` and `PositionForForecast` (`internal/sim/rail_forecast.go` `(*Simulation).PositionForForecast`). |
-| Forecast supply | `internal/sim/rail_forecast.go` `(*Simulation).PositionForForecast` | Skips the pod. |
+| Guarded candidates | `internal/sim/positioning.go` `(*Simulation).guardedCandidates` | Skips the pod. This covers `positionGuarded`. |
 | Berth clearing | `internal/sim/parking.go` `(*Simulation).clearBlockedBerths` | A withdrawn idle pod is never moved as a blocker. The arrival keeps `BerthOccupied`. |
 | Released parking | `internal/sim/released.go` `(*Simulation).parkUnclaimedReleased` | Skips the pod. |
 | Claim yield to passengers | `internal/sim/redistribution.go` `(*Simulation).yieldRelocationClaims` | Skips a withdrawn relocating pod. |
@@ -432,7 +432,7 @@ Pickup release changes no resource owner.
 A pickup assignment never claims a berth ahead of admission.
 `sendPickupMatching` (`internal/sim/diversion.go` `(*Simulation).sendPickupMatching`) and an empty move with `reserveBerth` false (`internal/sim/parking.go` `(*Simulation).installEmptyMove`) write no owner.
 The berth of a pickup becomes owned only through admission grants, which are stopping grants.
-Parking, rebalancing, and forecast moves do claim a berth ahead (`internal/sim/released.go` `(*Simulation).parkReleased`, `internal/sim/parking.go` `(*Simulation).installEmptyMove`, `internal/sim/rail_forecast.go` `(*Simulation).PositionForForecast`), but those moves are not pickups.
+Parking and rebalancing moves do claim a berth ahead (`internal/sim/released.go` `(*Simulation).parkReleased`, `internal/sim/parking.go` `(*Simulation).installEmptyMove`), but those moves are not pickups.
 
 An in-service releasable pod then follows the existing path: `releasePickup`, then `parkUnclaimedReleased`, then `redirect` (`internal/sim/diversion.go` `(*Simulation).redirect`).
 `redirect` already releases the old destination claims in the dispatch stage, before `admit`.

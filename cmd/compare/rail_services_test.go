@@ -11,8 +11,6 @@ import (
 	"time"
 
 	"github.com/dotwaffle/podsim/internal/project"
-	"github.com/dotwaffle/podsim/internal/rail"
-	"github.com/dotwaffle/podsim/internal/sim"
 )
 
 func serviceComparisonDepartures() []project.RailDeparture {
@@ -103,7 +101,7 @@ func TestRailServiceReportsAndOriginalCap(t *testing.T) {
 	}
 }
 
-func TestRailServiceSkipsAndForecastTargets(t *testing.T) {
+func TestRailServiceSkips(t *testing.T) {
 	t.Parallel()
 	opts, err := parseOptions([]string{"-pattern", "rail-services", "-duration", "3s", "-queue-limit", "1", "-redistribution-policies", "off"}, &bytes.Buffer{})
 	if err != nil {
@@ -121,30 +119,6 @@ func TestRailServiceSkipsAndForecastTargets(t *testing.T) {
 	row := rows[0]
 	if row.RailConnections == nil || row.RailConnections.Unserved == 0 || row.RailConnections.Unserved != row.Skipped || len(row.RailSkippedOffers) != row.Skipped {
 		t.Fatalf("skips: %+v", row)
-	}
-	schedule := demandSchedule(scheduleInput{pattern: "rail-services", seed: 7, durationTicks: 200, railDepartures: caseStudy.railDepartures})
-	ledger := rail.NewConnections(caseStudy.railDepartures)
-	if err := ledger.Add(schedule[2].serviceOffer(), 0, "queue-limit"); err != nil {
-		t.Fatal(err)
-	}
-	targets := futureRailTargets(schedule, 0, ledger, 1)
-	total := 0
-	for _, target := range targets {
-		total += target.Passengers
-		if target.ReleaseTick <= 1 {
-			t.Fatal("included past/current offer")
-		}
-	}
-	if total != 2 {
-		t.Fatalf("issued/past forecast identities: %+v", targets)
-	}
-	boundary := []scheduledRequest{{tick: 1, origin: "market"}, {tick: 300 * sim.TicksPerSecond, origin: "garden"}, {tick: 300*sim.TicksPerSecond + 1, origin: "market"}}
-	targets = futureRailTargets(boundary, 0, nil, 0)
-	if len(targets) != 2 || targets[1].Passengers != 1 {
-		t.Fatal("incorrect forecast horizon")
-	}
-	if _, err := parseOptions([]string{"-rail-forecast", "-pattern", "balanced"}, &bytes.Buffer{}); err == nil {
-		t.Fatal("forecast accepted ordinary pattern")
 	}
 	for _, flag := range [][]string{{"-loads", "5s"}, {"-request-every", "5s"}, {"-burst-size", "2"}} {
 		args := append([]string{"-pattern", "rail-services"}, flag...)

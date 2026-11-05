@@ -83,7 +83,7 @@ func compare(opts options, scenario scenario) ([]result, error) {
 							for _, platoonPolicy := range platoonPolicies {
 								for _, policy := range opts.redistributionPolicies {
 									inputs = append(inputs, runInput{
-										energy: energy, railForecast: opts.railForecast, policy: policy, duration: opts.duration, requestEvery: load, seed: seed,
+										energy: energy, policy: policy, duration: opts.duration, requestEvery: load, seed: seed,
 										pattern: arm.pattern, profile: arm.profile, band: arm.band, daily: arm.daily, dailyStartMinute: arm.dailyStartMinute,
 										scheduleID: id, queueLimit: opts.queueLimit, arrivalsFor: opts.arrivalsFor,
 										burstSize: opts.burstSize, sharingConsent: consent, sharingLimit: sharingArm.limit, sharingMode: sharingArm.mode,
@@ -165,7 +165,6 @@ type runInput struct {
 	schedule           []scheduledRequest
 	scenario           scenario
 	stopWhenDrained    bool
-	railForecast       bool
 	daily              *project.DailyProfile
 	dailyStartMinute   int
 }
@@ -416,9 +415,6 @@ func (arm *armRun) step(tick int64) (bool, error) {
 		return false, err
 	}
 	advancedTick := arm.simulation.Tick()
-	if err := arm.forecastRail(advancedTick); err != nil {
-		return false, err
-	}
 	return arm.sample(advancedTick), nil
 }
 
@@ -527,18 +523,6 @@ func (arm *armRun) submit(request scheduledRequest) error {
 		arm.railSkipped = append(arm.railSkipped, arm.next)
 	}
 	return arm.connections.Add(request.serviceOffer(), id, reason)
-}
-
-// forecastRail positions pods for the future rail offers every five
-// seconds when the arm uses the rail forecast.
-func (arm *armRun) forecastRail(advancedTick int64) error {
-	if !arm.input.railForecast || advancedTick%(5*sim.TicksPerSecond) != 0 {
-		return nil
-	}
-	if _, err := arm.simulation.PositionForForecast(futureRailTargets(arm.input.schedule, arm.next, arm.connections, advancedTick)); err != nil {
-		return fmt.Errorf("rail forecast: %w", err)
-	}
-	return nil
 }
 
 // sample observes the metrics each second and at the arrival midpoint and

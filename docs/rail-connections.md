@@ -93,11 +93,10 @@ The ledger is an optional session-save member and does not change physical simul
 Saved demand and recurring state omit connection counts when all four values are zero.
 Existing arrival-only and ordinary demand retain their output.
 
-## Comparison and forecast control
+## Comparison
 
 ```sh
 mise run compare -- -project rail-project.json -pattern rail-services -duration 3h -arrivals-for 1h -format json
-mise run compare -- -project rail-project.json -pattern rail-services -duration 3h -arrivals-for 1h -rail-forecast -format json
 ```
 
 The half-open offer window excludes releases exactly at its end.
@@ -122,26 +121,10 @@ Charges are 1,024 bytes per outcome, eight per skipped index, and 512 per schedu
 The calculation includes full allocated capacities and every arm copy, including shared schedules.
 This bounds charged retained report storage, not total simulation heap or peak JSON memory.
 
-`-rail-forecast` is an explicit comparison control for known rail origins within the next 300 simulated seconds.
-Record the flag in the invocation or measurement manifest.
-The report does not add a separate forecast field.
-The controller checks every five simulated seconds and can start at most one empty move.
-It tries at most three targets, source searches, and complete route starts.
-It reserves neither passengers nor pods.
-
-Targets seek at most four idle or incoming unassigned pods.
-The controller leaves one free target berth and the last idle pod at each passenger source.
-All rebalancing moves count toward two incoming pods per target and `max(1, fleetSize / 10)` globally.
-Unassigned orders or a working fleet share above 40% stop new moves.
-An actual selected route must fit its remaining lead time under free-flow cost.
-That estimate does not guarantee timely arrival.
-Normal route claims, movement priorities, clearance, and physical restore still apply.
-Existing empty moves finish when forecast control stops.
-
-Live/editor exposure requires a useful candidate that passes the selected service and cost gates.
-The comparison flag does not change project defaults or enable live forecasting.
-
 ## Mixed-service forecast screen
+
+The forecast control, `-rail-forecast`, and `PositionForForecast` were removed on November 5, 2026.
+This section records the earlier result, and the code is gone.
 
 A tested two-bank station layout fails physical separation checks under heavy demand and is rejected.
 
@@ -205,5 +188,4 @@ All 11,520 offers and 5,760 connection records reconcile across the eight arms.
 The analysis retains skipped identities, individual limit failures, and censored timing observations.
 These selected workloads are not a full qualification envelope or a sustained capacity study.
 Their failures stop isolated cost studies, broader qualification, and live forecast exposure for this candidate.
-The comparison control remains available.
 Defaults and safety rules stay unchanged.

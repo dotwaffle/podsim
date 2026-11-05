@@ -63,7 +63,6 @@ type options struct {
 	onboardPickups     []string
 	pickupReassignment []string
 	stopWhenDrained    bool
-	railForecast       bool
 	// adaptiveLimit skips the rates of a group more than pastLimit rates
 	// above the first rate at which a seed does not drain.
 	adaptiveLimit bool
@@ -145,7 +144,6 @@ func defineFlags(flags *flag.FlagSet, opts *options) {
 	flags.IntVar(&opts.queueLimit, "queue-limit", 200, "maximum pending requests before arrivals are skipped")
 	flags.IntVar(&opts.burstSize, "burst-size", 3, "requests in each burst for burst patterns")
 	flags.IntVar(&opts.workers, "workers", 1, "independent simulation arms to run concurrently")
-	flags.BoolVar(&opts.railForecast, "rail-forecast", false, "position empty pods for known rail offers (comparison experiment)")
 	flags.BoolVar(&opts.stopWhenDrained, "stop-when-drained", false, "stop after the arrival window when all accepted requests complete")
 	flags.BoolVar(&opts.adaptiveLimit, "adaptive-limit", false, "run each arm group from its lowest offered rate, and skip its rates more than -past-limit rates above the first rate at which a seed does not drain (requires -stop-when-drained)")
 	flags.IntVar(&opts.pastLimit, "past-limit", 1, "with -adaptive-limit, the number of rates to run after the first rate at which a seed does not drain")
@@ -210,20 +208,11 @@ func parseSeedOptions(opts *options, _ map[string]bool) error {
 	return err
 }
 
-// parsePatternOptions parses -patterns, or uses -pattern. Then it checks
-// that -rail-forecast has only rail patterns.
+// parsePatternOptions parses -patterns, or uses -pattern.
 func parsePatternOptions(opts *options, _ map[string]bool) error {
 	patterns, err := parsePatterns(opts.pattern, opts.patternsText)
 	opts.patterns = patterns
-	if err != nil {
-		return err
-	}
-	if opts.railForecast && slices.ContainsFunc(opts.patterns, func(pattern string) bool {
-		return pattern != "rail-arrivals" && pattern != "rail-services"
-	}) {
-		return errors.New("rail-forecast requires only rail-arrivals or rail-services patterns")
-	}
-	return nil
+	return err
 }
 
 // checkDailyOptions checks the options of the profile-daily pattern. See

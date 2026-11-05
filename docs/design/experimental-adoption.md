@@ -114,6 +114,7 @@ The candidate skipped 154 and 178 offers that the baseline completed, and 165 an
 A separate private parking-only screen completed 363 requests with the forecast off, 364 with the current forecast, and 361 with the candidate.
 Both forecast candidates fail the gates, and live integration stays closed.
 Do not repeat the matrix without a new, concrete forecast hypothesis.
+The forecast control was removed on November 5, 2026, so the code is gone.
 
 The Group and mixed-fleet service screen (`5a57e4c`, straight large-motion network, 48 whole parties per timing variation) improved completions.
 Six Group pods completed 48 of 48 parties, against 40 of 48 for two Legacy and four Compact pods.

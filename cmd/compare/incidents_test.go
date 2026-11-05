@@ -455,14 +455,6 @@ func TestIncidentRateWithOtherPolicies(t *testing.T) {
 			}
 		})
 	}
-	t.Run("rail forecast", func(t *testing.T) {
-		t.Parallel()
-		input := railRingInput(caseStudy, 1)
-		input.railForecast = true
-		if _, err := run(input); err != nil {
-			t.Fatal(err)
-		}
-	})
 }
 
 // TestIncidentColumnsOnlyWithRate checks the columns of each format. A row with

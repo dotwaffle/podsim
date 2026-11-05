@@ -133,7 +133,7 @@ func TestNoRatePlanOutputIsPinned(t *testing.T) {
 		args     []string
 		want     string
 	}{
-		{"rail services", rail, []string{"-pattern", "rail-services", "-duration", "10m", "-arrivals-for", "3s", "-stop-when-drained", "-seeds", "7,19", "-redistribution-policies", "off", "-rail-forecast"}, "960bfe91fea46a6849c01f938a26b9c42bd6d2efa42211c506995f0db65de37d"},
+		{"rail services", rail, []string{"-pattern", "rail-services", "-duration", "10m", "-arrivals-for", "3s", "-stop-when-drained", "-seeds", "7,19", "-redistribution-policies", "off"}, "960bfe91fea46a6849c01f938a26b9c42bd6d2efa42211c506995f0db65de37d"},
 		{"daily", dailyComparisonScenario(t), []string{"-pattern", "profile-daily", "-duration", "4m", "-arrivals-for", "3m", "-seed", "1"}, "c3c7f49e319698738444a8065c913a9f02651680c8dd50efe3a592df0ad658af"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
