@@ -335,7 +335,7 @@ func railHubConfig(parameters Parameters) (project.Config, error) {
 }
 
 // RailHubIncidents returns the rail hub with scenario faults and emergencies:
-// 10 of each in a simulated hour, with faults of 600 seconds, of which a
+// 10 of each in a simulated hour, with faults of 120 seconds, of which a
 // quarter are debris of 2 meters.
 func RailHubIncidents() project.Config {
 	config, err := railHubIncidentsConfig(railHubParameters())
@@ -354,7 +354,7 @@ func railHubIncidentsConfig(parameters Parameters) (project.Config, error) {
 	}
 	config.Faults = &project.FaultConfig{
 		PerHour: new(10.0), DebrisShare: new(0.25), DebrisMeters: new(2.0),
-		Duration: &project.FaultDuration{Kind: "fixed", Seconds: new(600)},
+		Duration: &project.FaultDuration{Kind: "fixed", Seconds: new(120)},
 	}
 	config.Emergencies = &project.EmergencyConfig{PerHour: new(10.0)}
 	if err := project.Validate(config); err != nil {

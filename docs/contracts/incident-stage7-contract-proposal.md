@@ -875,6 +875,8 @@ The rest of this section keeps the options, so that a reader can see what each a
    a: add `rail-hub-incidents`; b: no new preset.
    Recommend a, with 10 faults an hour, 10 emergencies an hour, `fixed` 600 s, debris share 0.25, and debris length 2 m.
    The 10 and the 600 come from the contracts, and the 0.25 is a play value with no source.
+   Status 2026-11-04: the maintainer approved `fixed` 120 s for the fault duration of `rail-hub-incidents`, and the rate stays at 10 an hour.
+   The soak of section 5.1.9 keeps 10 an hour and 600 s.
 8. **Debris button.**
    a: a click places 2 m until cleared; b: also ask for a length and a duration.
    Recommend a.

@@ -117,7 +117,7 @@ func TestRunWithoutFlagsKeepsPresets(t *testing.T) {
 		"busy":                "cebfe3bd173bdfbd3d852034b1670a056225ad49d4dde44f9cf52fc5dcddb402",
 		"parking-constrained": "28cc9e22424a39991794f8981a0427db0964c985ac4b8d878da374ee2fa29f67",
 		"rail-hub":            "dddc9926188715eb653f20176dcbfc118a6b8f013ef5b0148d6efd3c5b5d9ff9",
-		"rail-hub-incidents":  "63df0003611da26cc5796ea2e5a977c459f2bab16a19fe80226b6864a486d7ab",
+		"rail-hub-incidents":  "79a07d2b1ec8c7aa10070fa2e4a1c550c7043fc8fcfd20fb9cc2a9788d6d04db",
 		"scale100":            "fc5896f7c9e5efd30e75a5b83937df95848c1e2d3133b5be07bbbcb792727dc1",
 		"london-central":      "788735e3bb5e45989bb447faac82bd6e1ab3d678039d941e55632db4f59f749f",
 		"london-full":         "e218b3ceeb67bd3fb1ecce6f62a5f070e76ba2a2e0deb82a84a3f6714aa8f329",

@@ -40,7 +40,8 @@ func TestPresetWithNoChangeIsPreset(t *testing.T) {
 }
 
 // TestRailHubIncidents checks that the preset is the rail hub with the rates of
-// decision 7 of the incident stage 7 contract, and that the rail hub has none.
+// decision 7 of the incident stage 7 contract and its status line, and that
+// the rail hub has none.
 func TestRailHubIncidents(t *testing.T) {
 	t.Parallel()
 	config := RailHubIncidents()
@@ -49,7 +50,7 @@ func TestRailHubIncidents(t *testing.T) {
 	}
 	wantFaults := &project.FaultConfig{
 		PerHour: new(10.0), DebrisShare: new(0.25), DebrisMeters: new(2.0),
-		Duration: &project.FaultDuration{Kind: "fixed", Seconds: new(600)},
+		Duration: &project.FaultDuration{Kind: "fixed", Seconds: new(120)},
 	}
 	if !reflect.DeepEqual(config.Faults, wantFaults) {
 		t.Errorf("faults = %+v, want %+v", config.Faults, wantFaults)
@@ -58,7 +59,7 @@ func TestRailHubIncidents(t *testing.T) {
 		t.Errorf("emergencies = %+v, want %+v", config.Emergencies, want)
 	}
 	rates := project.EffectiveIncidentRates(config)
-	if rates.Faults.PerHour != 10 || rates.Faults.DebrisShare != 0.25 || rates.Faults.DebrisMeters != 2 || rates.Faults.Duration.Seconds != 600 || rates.EmergenciesPerHour != 10 {
+	if rates.Faults.PerHour != 10 || rates.Faults.DebrisShare != 0.25 || rates.Faults.DebrisMeters != 2 || rates.Faults.Duration.Seconds != 120 || rates.EmergenciesPerHour != 10 {
 		t.Errorf("rates = %+v", rates)
 	}
 	rest, hub := config, RailHub()
