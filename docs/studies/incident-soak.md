@@ -442,6 +442,37 @@ The whole routine soak is then about 30 min at parallel 3 on a free host, and up
 So the limit of 2 hours stays.
 `mise run soak:full` needs about 8 hours of one thread by the same rates, or about 2.7 h at parallel 3, so it needs a longer `PODSIM_SOAK_LIMIT` to complete each seed.
 
+### First soak in the branch shape
+
+`mise run soak` ran at `2cf61db` on 2026-11-05 at 30 Hz, with the default `GOGC`, in 868 s of wall time, at a load average from 10 to 31.
+This is one seed in the shape of amendment A10, so `rail-hub` has 10 branches for each arm, and `london-central` has 3.
+
+| Preset and arm | Branches | Records | Late under rule A | Longest not blocked, s | Over 10 min in all | Completed | Interrupted | Rewinds | Saves | Demoted |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `rail-hub` `incidents` | 10 | 216 | 0 | 230.5 | 29 | 2,524 | 409 | 90 | 16 | 0 |
+| `rail-hub` `platoons` | 10 | 248 | 0 | 230.4 | 27 | 2,819 | 425 | 90 | 16 | 0 |
+| `rail-hub` `emergencies` | 10 | 233 | 0 | 219.6 | 0 | 5,057 | 323 | 90 | 16 | 0 |
+| `london-central` `incidents` | 3 | 50 | 0 | 197.9 | 0 | 3,153 | 116 | 18 | 3 | 0 |
+| `london-central` `emergencies` | 3 | 34 | 0 | 238.7 | 0 | 3,374 | 58 | 18 | 3 | 0 |
+
+Each branch passed, and no run gave a Safety, Contract, Conservation, Rail, or Persistence report.
+Rail has no record on these presets.
+
+| Rule A readings | `rail-hub` `incidents` | `rail-hub` `platoons` | `london-central` `incidents` |
+| --- | ---: | ---: | ---: |
+| Own fault | 3,873 | 2,933 | 0 |
+| `Blocked by incident` | 26,737 | 23,232 | 65 |
+| `No forward route` | 654 | 397 | 0 |
+| Fault at the end of a chain | 0 | 0 | 0 |
+| Idle pod, leg blocked | 7,376 | 1,769 | 0 |
+| Idle pod, leg free | 0 | 0 | 0 |
+| Not blocked | 18,166 | 19,894 | 3,761 |
+| Failed berth choice, and the retry with no faults succeeds | 13,245 of 13,245 | 11,117 of 11,117 | 65 of 65 |
+
+Each arm with faults off has only `Not blocked` readings.
+The retry shows that no failed berth choice in this run had a cause other than the faults.
+The paths `Idle pod, leg free` and `Fault at the end of a chain` did not fire, so only unit tests cover them.
+
 ## Readings from a quiet host
 
 These readings ran at `184d525` on 2026-11-05, after the full gate, with a load average from 2 to 6.
