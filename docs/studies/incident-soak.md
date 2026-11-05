@@ -114,6 +114,131 @@ The `emergencies` arm of a seed runs after `incidents`, so the failure of `incid
 
 `london-central` with faults ran at 219 to 239 ticks a second of wall time, against 2,148 to 2,262 for its reference.
 
+## Attribution of the late emergencies
+
+This section attributes the time of the late records of the section "Soak of amendment A6".
+It tests the explanation that section leaves open, that an emergency behind a fault can use the whole limit before it moves.
+
+### Late records at the moment of the limit
+
+The miss lines of the soak logs give one snapshot of each record, at the moment it passes 10 simulated minutes.
+
+| Phase and wait reason | `rail-hub` `incidents` | `rail-hub` `platoons` | `london-central` `incidents` |
+| --- | ---: | ---: | ---: |
+| `bound`, `Pod ahead` | 24 | 16 | 0 |
+| `bound`, `Blocked by incident` | 7 | 2 | 1 |
+| `bound`, `Berth occupied` | 4 | 3 | 0 |
+| `bound`, no wait | 4 | 4 | 0 |
+| `bound`, `Fault stopped` | 2 | 2 | 0 |
+| `deferred`, `Berth occupied` | 5 | 4 | 0 |
+| `deferred`, `Pod ahead` | 2 | 3 | 0 |
+| `deferred`, `Blocked by incident` | 1 | 2 | 0 |
+| `deferred`, `Fault stopped` | 0 | 3 | 0 |
+| `unloading`, no wait | 1 | 0 | 0 |
+| Total | 50 | 39 | 1 |
+
+The snapshot names a fault as the blocker for 10 of 50, 9 of 39, and 1 of 1 records.
+A blocker that is a pod does not show whether a fault is the cause, so the snapshot does not decide the explanation.
+
+### Method
+
+A temporary change, now removed, ran at `63a4868` with the soak driver.
+It ran `incidents` and `platoons` on `rail-hub` for seeds 1, 3, 4, and 5, and `emergencies` for seeds 1 and 3.
+It ran `london-central` `incidents` seed 3 until record `i5.136` ended.
+Seed 2 is not in the 50 or the 39, because its failed rewind stops the run before the driver reports its misses.
+The change turned off the every-tick checks and the save checks and kept the rewinds, so the driver draws the same random values.
+All 89 `rail-hub` late records came back with the same seed, ID, pod, and start tick as the soak at `cbbdb18`, and so did `i5.136`.
+
+The change reads each active record once a simulated second, and it gives each reading the ticks since the last reading.
+It walks the `BlockedBy` chain of the pod at each reading and puts the reading in one bucket:
+
+- Own fault: the pod itself has an active fault.
+- Direct: the pod reports `Blocked by incident` or `No forward route`.
+- Chain: the walk reaches a fault ID, or a pod that reports `Blocked by incident` or `No forward route`.
+- Idle pod: the walk ends at an idle pod at its berth, with an order that cannot board.
+  The order must fail to board with the active faults and succeed with the blocked set empty, in a probe of the simulation at that reading.
+- Queue: the walk ends at any other pod, with no fault in the chain.
+- Moving or dwelling: the pod has no wait report.
+
+### Attribution
+
+The table gives simulated minutes over the late records, and the share of the total.
+
+| Bucket | `rail-hub` `incidents`, 50 records | `rail-hub` `platoons`, 39 records | `london-central` `incidents`, 1 record |
+| --- | ---: | ---: | ---: |
+| Own fault | 15.0 (2%) | 30.0 (5%) | 0 |
+| Direct | 141.4 (17%) | 66.7 (12%) | 9.2 (82%) |
+| Chain | 400.2 (49%) | 272.0 (48%) | 0 |
+| Idle pod | 153.7 (19%) | 121.5 (21%) | 0 |
+| Queue | 50.6 (6%) | 30.9 (5%) | 0.3 (2%) |
+| Moving or dwelling | 60.4 (7%) | 47.3 (8%) | 1.8 (16%) |
+| Total | 821.0 | 568.0 | 11.2 |
+
+The four fault buckets hold 86% of the `incidents` minutes and 86% of the `platoons` minutes.
+The arm with faults off does not show the delay: 0 of 198 records were late in the two control runs, with a longest record of 3.5 min, against 0 of 275 and 3.6 min in the soak.
+
+### Verdict on the explanation
+
+Faults cause the late records, and the explanation is confirmed in that part.
+The fault buckets alone reach 10 min for 34 of 50 `incidents` records and 25 of 39 `platoons` records.
+The words "before it moves" fit only part of the records: the pod first moves after the limit, or not at all, for 18 of 50 and 11 of 39 records.
+The other records move first and then stop.
+Faults also overlap, so one record can wait longer than the 600 s of one fault.
+Record `i2.27` of seed 5 waited while 2 to 9 faults were active.
+
+### What each measure can meet
+
+The table gives the late records that stay above 10 min under each measure, and the longest value in minutes.
+Each row from the second to the fifth removes one more kind of time from the record.
+
+| Measure | `rail-hub` `incidents`, of 50 | `rail-hub` `platoons`, of 39 | `london-central` `incidents`, of 1 |
+| --- | ---: | ---: | ---: |
+| Total time, the approved rule | 50, 35.7 | 39, 39.5 | 1, 11.2 |
+| Without own fault and direct | 37, 32.4 | 28, 29.5 | 0, 2.0 |
+| Also without chain | 11, 24.1 | 7, 25.0 | 0, 2.0 |
+| Also without idle pod | 1, 11.0 | 0, 4.9 | 0, 2.0 |
+| Also without the stop of `i2.27` | 0, 7.2 | 0, 4.9 | 0, 2.0 |
+| After the last reading blocked by a fault | 0, 3.2 | 0, 4.0 | 0, 1.2 |
+| Moving or dwelling only | 0, 2.9 | 0, 3.0 | 0, 1.8 |
+| With no active fault in the network | 0, 1.4 | 0, 1.3 | 0, 0 |
+
+The last row meets the limit because faults are almost always active in this soak, so it tests little.
+The chain walk alone is not enough: it leaves 11 and 7 late records, because two causes do not appear as a fault in the reports.
+
+### Records that stay late
+
+One record stayed above 10 min after the idle pod bucket: `i2.27` on `pod-027`, seed 5, start tick 182869, 17.1 min long.
+
+| Ticks from the start | Minutes | Phase | Reading |
+| ---: | ---: | --- | --- |
+| 0 | 8.5 | `deferred` | `Pod ahead` `pod-028`, and the walk ends at `pod-013`, stopped with no wait |
+| 30551 | 0.2 | `deferred` | `Pod ahead` and `Junction traffic`, and the queue moves |
+| 31271 | 0.7 | `bound` | Moving |
+| 33911 | 6.1 | `bound` | `Pod ahead`, and the walk reaches `Blocked by incident` |
+| 55751 | 1.6 | `bound` | `Pod ahead` and moving, as the queue drains, then the unload |
+
+A second run of the seed probed `pod-013`.
+It is occupied and in service on `link-05-06`, and it has not chosen a berth at `station-06`.
+Its berth choice fails with `destination is unreachable` while the faults are active, and it succeeds with the blocked set empty.
+So this time also comes from a fault, and the record has 2.5 min that no fault explains.
+The probe covered only this stop.
+Records `i6.168` (4.4 min) and `i4.107` (3.7 min) have similar stops with no probe, and they count as time not blocked in the table.
+
+### Two findings for the maintainer
+
+Neither finding is fixed here, and neither is a contract violation that this study shows.
+
+An idle pod with an order that cannot board keeps its berth, and an emergency pod waits for that berth.
+`clearBlockedBerths` skips a blocker that a waiting trip names, and a failed leg keeps the trip with `Waiting for destination access`, as the suspension contract approves.
+The fault can be anywhere on the route of that order.
+This cost 153.7 and 121.5 min in 11 and 13 late records.
+In record `i6.176` of seed 1, `pod-025` waited 19.7 min for the berth of `pod-020`, which boarded only when the last fault cleared at tick 1299600.
+No contract row names this combination, and this study did not check whether the emergency pod had another free berth.
+
+A pod whose terminal berth choice fails reports no wait when no berth of its station is blocked, as `reportBlockedBerths` states.
+It stops on the running lane with an empty report, so the chain walk does not find a fault.
+`pod-013` held `pod-027` and `pod-028` in this way for 8.5 min.
+
 ## Readings from a busy host
 
 These readings are not results of a gate.

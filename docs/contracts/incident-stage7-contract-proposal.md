@@ -538,6 +538,34 @@ The row at 1,000 pod faults and a row with a full queue, against 278 µs, are re
 The rule for the slowest tick stays.
 A quiet-host run must confirm the margin before the row counts as passed.
 
+Amendment A8: Draft, not approved by the maintainer.
+It changes the Progress row for emergencies, and it changes no other row.
+The soak of A6 has 50 of 335 late records on `rail-hub` `incidents`, 39 of 336 on `rail-hub` `platoons`, and 1 of 470 on `london-central` `incidents`, and 0 of 275 on `rail-hub` `emergencies`.
+`docs/studies/incident-soak.md`, section "Attribution of the late emergencies", holds the attribution: faults take 86 percent of the time of the late records in both `rail-hub` arms.
+
+Rule A, the recommendation: each record of an ordinary pod ends with at most 10 simulated minutes of time not blocked by a fault, and each record ends.
+Time is blocked by a fault when the pod has an active fault, when it reports `Blocked by incident` or `No forward route`, or when its `BlockedBy` chain reaches such a pod or a fault ID.
+Time is also blocked by a fault when the chain ends at an idle pod whose order cannot board only because of the active faults, or at a stopped pod whose berth choice fails only because of the active faults.
+With faults off, this time is the whole record, so the rule of the approved row applies without change.
+Late records under this rule, in the rerun of those records at `63a4868`: 0 of 50, longest 7.2 min, 0 of 39, longest 4.9 min, and 0 of 1, 2.0 min.
+Without the last two causes, 11 of 50 and 7 of 39 stay late.
+
+Rule B, the alternative: the 10 minutes apply only with faults off, and with faults on the row reports the lengths, and each record still ends.
+Late records under this rule: 0 of 275, longest 3.6 min, on `rail-hub`.
+It has no `london-central` reading, because the limit stopped each run of that arm.
+It needs a change of one condition, and it stops gating a long wait with faults on, including one that no fault causes.
+
+Rule A keeps a gate with faults on, and rule B does not, so this draft recommends rule A.
+The cost of rule A is a classifier in the test: if it names a fault in error, it hides a real wait.
+
+Test change for rule A: `watchEmergencies` in `internal/session/incident_soak_test.go` adds the unblocked ticks of each record at each reading, and `noteLateEmergency` runs when that sum passes `soakEmergencyTime`, in place of the test of the record length.
+The miss keeps the phase and the wait reason, and it adds the end of the chain.
+Both the idle pod and the stopped pod need a minimal test entry from `internal/sim` that repeats the route search with the blocked set empty, as the probe of the study did.
+`DispatchReason` is not enough, because `Waiting for destination access` is the same text for each failed leg.
+The study made one probe of the stopped pod, on `i2.27`, so a run of the changed test must confirm these numbers.
+`TestIncidentSoakCI` and `TestIncidentSoakDriver` use the same driver.
+This draft changes no test and marks no row as passed.
+
 Amendments, each for a separate answer in section 8:
 
 | # | Approved text | Change | Reason |
