@@ -140,6 +140,14 @@ func (c draftClearance) pairPieces(first, second any, firstLength, secondLength 
 	return c.index.PairPieces(a, b, firstLength, secondLength)
 }
 
+// planesSeparated reports whether the server can exempt two draft lanes on
+// different planes. A lane with an invalid class set counts as a small lane.
+func (c draftClearance) planesSeparated(first, second any) bool {
+	a, _ := draftSimLane(first)
+	b, _ := draftSimLane(second)
+	return c.index.PlanesSeparated(a, b)
+}
+
 // draftTailWarnings returns the large-class tail warnings of a draft network
 // that has no network error. An invalid class set gives no warning.
 func draftTailWarnings(network any) []check {

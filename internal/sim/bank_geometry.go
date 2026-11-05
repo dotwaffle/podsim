@@ -1,6 +1,7 @@
 package sim
 
 import (
+	"cmp"
 	"fmt"
 	"math"
 	"slices"
@@ -13,7 +14,11 @@ type bankAuditPath struct {
 	min, max  Point
 	large     bool
 	locations []SafetyLocation
-	member    auditMember
+	// reach holds the locations that a pod on the path can occupy (see
+	// laneReachLocations). A large pair is separated by plane only when
+	// every cross-pair of reach is.
+	reach  []SafetyLocation
+	member auditMember
 	// key is the separation key of the lane or the berth.
 	key separationKey
 }
@@ -70,6 +75,10 @@ func (n Network) ValidateBankGeometry() error {
 // each pair with a depot lane or a slot. A lateral pair of the depot
 // lanes (see depotLateral) needs its lateral clearance along its whole
 // length.
+//
+// A pair that only reach denies the plane exemption reports its refusal
+// after the scan, so that the first refusal of a pair without an exemption
+// stays the first refusal of the audit.
 func (n Network) validateBankGeometry(audit bankAudit) error {
 	retention, maneuvers := audit.retention, audit.maneuvers
 	banks, large, groups := n.hasStationBanks(), n.hasLargeGeometry(), maneuvers != nil
@@ -78,8 +87,9 @@ func (n Network) validateBankGeometry(audit bankAudit) error {
 	}
 	positions := indexNodePositions(n.Nodes)
 	var incident map[string][]Lane
+	var origins map[string][]SafetyLocation
 	if large {
-		incident = incidentLanes(n)
+		incident, origins = incidentLanes(n), berthLocationsByNode(n)
 	}
 	paths := make([]bankAuditPath, 0, len(n.Lanes))
 	for index, lane := range n.Lanes {
@@ -91,6 +101,7 @@ func (n Network) validateBankGeometry(audit bankAudit) error {
 		}
 		if large {
 			path.locations = []SafetyLocation{path.location}
+			path.reach = laneReachLocations(lane, incident, origins)
 		}
 		for _, point := range points {
 			path.min.X, path.min.Y = min(path.min.X, point.X), min(path.min.Y, point.Y)
@@ -110,6 +121,7 @@ func (n Network) validateBankGeometry(audit bankAudit) error {
 			path.member = auditMember{spans: retention.nodeSpans(berth.Node), large: path.large}
 			if large {
 				path.locations = berthGeometryLocations(berth, incident[berth.Node])
+				path.reach = path.locations
 			}
 			paths = append(paths, path)
 		}
@@ -127,6 +139,7 @@ func (n Network) validateBankGeometry(audit bankAudit) error {
 	if large {
 		scanClearance = largeClearance
 	}
+	var reachRefusal error
 	for i, first := range paths {
 		for _, second := range paths[i+1:] {
 			if second.min.X-first.max.X >= scanClearance {
@@ -139,8 +152,12 @@ func (n Network) validateBankGeometry(audit bankAudit) error {
 			if first.large || second.large {
 				clearance = largeClearance
 			}
-			if first.min.Y-second.max.Y >= clearance || second.min.Y-first.max.Y >= clearance || safetyLocationsShareNode(first.location, second.location) || first.separated(second) ||
+			if first.min.Y-second.max.Y >= clearance || second.min.Y-first.max.Y >= clearance || safetyLocationsShareNode(first.location, second.location) ||
 				groups && (maneuvers.auditSkips(first, second) || audit.certified.certified(first.key, second.key)) {
+				continue
+			}
+			separated := first.separated(second)
+			if separated && first.reachSeparated(second) {
 				continue
 			}
 			pieces := audit.pieces(first, second)
@@ -150,12 +167,16 @@ func (n Network) validateBankGeometry(audit bankAudit) error {
 					a, b = polylinePiece(a, piece.first[0], piece.first[1]), polylinePiece(b, piece.second[0], piece.second[1])
 				}
 				if bankPathsClose(a, b, piece.clearance) {
-					return fmt.Errorf("nonincident paths %q and %q are less than %g meters apart", first.id, second.id, piece.clearance)
+					err := fmt.Errorf("nonincident paths %q and %q are less than %g meters apart", first.id, second.id, piece.clearance)
+					if !separated {
+						return err
+					}
+					reachRefusal = cmp.Or(reachRefusal, err)
 				}
 			}
 		}
 	}
-	return nil
+	return reachRefusal
 }
 
 // pieces returns the pieces of a pair of paths: one piece at the clearance
@@ -184,6 +205,47 @@ func (path bankAuditPath) separated(other bankAuditPath) bool {
 		return envelopeLocationsSeparated(path.locations, other.locations)
 	}
 	return safetyLocationsSeparated(path.location, other.location)
+}
+
+// reachSeparated reports whether every cross-pair of the reach of a large
+// pair is on different planes. Other pairs have no reach.
+func (path bankAuditPath) reachSeparated(other bankAuditPath) bool {
+	return !path.large && !other.large || envelopeLocationsSeparated(path.reach, other.reach)
+}
+
+// laneReachLocations returns the locations of a lane that the safety
+// observation can give a pod on it: the lane, its incident lanes, which the
+// front and the rear of the body reach, and each berth at its From node,
+// which a departing pod holds until origin release. A berth at its To node
+// is not one of them, because a pod holds a berth only when it stops there.
+func laneReachLocations(lane Lane, incident map[string][]Lane, origins map[string][]SafetyLocation) []SafetyLocation {
+	locations := []SafetyLocation{{SeparationGroup: lane.SeparationGroup, From: lane.From, To: lane.To}}
+	add := func(location SafetyLocation) {
+		if !slices.Contains(locations, location) {
+			locations = append(locations, location)
+		}
+	}
+	for _, node := range []string{lane.From, lane.To} {
+		for _, other := range incident[node] {
+			add(SafetyLocation{SeparationGroup: other.SeparationGroup, From: other.From, To: other.To})
+		}
+	}
+	for _, location := range origins[lane.From] {
+		add(location)
+	}
+	return locations
+}
+
+// berthLocationsByNode returns the location of each berth, by the node of
+// the berth.
+func berthLocationsByNode(n Network) map[string][]SafetyLocation {
+	locations := make(map[string][]SafetyLocation)
+	for _, station := range n.Stations {
+		for _, berth := range station.Berths {
+			locations[berth.Node] = append(locations[berth.Node], SafetyLocation{SeparationGroup: berth.SeparationGroup, From: berth.Node, To: berth.Node})
+		}
+	}
+	return locations
 }
 
 func (n Network) hasLargeGeometry() bool {

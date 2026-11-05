@@ -451,6 +451,8 @@ type LaneClearance struct {
 	// valid.
 	lateral *depotLateral
 	lanes   map[string]int
+	// reach holds laneReachLocations of each lane, by lane ID.
+	reach map[string][]SafetyLocation
 }
 
 // NewLaneClearance returns the index of a network. The network does not
@@ -462,7 +464,13 @@ type LaneClearance struct {
 // each depot pair keeps Clearance.
 func NewLaneClearance(network Network) LaneClearance {
 	tails := indexGeometryTails(network)
-	clearance := LaneClearance{retention: newLaneRetention(network, tails), depots: depotChainLanes(network)}
+	clearance := LaneClearance{retention: newLaneRetention(network, tails), depots: depotChainLanes(network), reach: make(map[string][]SafetyLocation, len(network.Lanes))}
+	incident, origins := incidentLanes(network), berthLocationsByNode(network)
+	for _, lane := range network.Lanes {
+		if _, repeated := clearance.reach[lane.ID]; !repeated {
+			clearance.reach[lane.ID] = laneReachLocations(lane, incident, origins)
+		}
+	}
 	if len(network.Depots) == 0 {
 		return clearance
 	}
@@ -482,6 +490,16 @@ func NewLaneClearance(network Network) LaneClearance {
 		}
 	}
 	return clearance
+}
+
+// PlanesSeparated reports whether the bank audit can exempt a lane pair on
+// different planes: a large pair needs every cross-pair of the reach of the
+// lanes on different planes. The zero value exempts each pair.
+func (c LaneClearance) PlanesSeparated(first, second Lane) bool {
+	if c.reach == nil || !largeClassSet(first.VehicleClasses) && !largeClassSet(second.VehicleClasses) {
+		return true
+	}
+	return envelopeLocationsSeparated(c.reach[first.ID], c.reach[second.ID])
 }
 
 // depotChainLanes returns an index with only the chain lanes of the

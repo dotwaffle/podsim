@@ -1,6 +1,9 @@
 package editormodel
 
-import "math"
+import (
+	"cmp"
+	"math"
+)
 
 type geometryPath struct {
 	lane      map[string]any
@@ -112,6 +115,9 @@ func (c draftClearance) pairConflict(path, other geometryPath) (gap, minimum flo
 	return 0, 0, false
 }
 
+// laneConflict returns the first lane pair that comes closer than its
+// clearance. As in the bank audit of the server, a pair that only the reach
+// of its lanes denies the plane exemption reports its conflict last.
 func (g geometryDraft) laneConflict(ids []string, separationGroups bool) *geometryConflict {
 	clearance := newDraftClearance(g.network)
 	paths, byID := []geometryPath{}, map[string]geometryPath{}
@@ -146,6 +152,7 @@ func (g geometryDraft) laneConflict(ids []string, separationGroups bool) *geomet
 		paths = append(paths, path)
 		byID[text(lane["id"])] = path
 	}
+	var reachConflict *geometryConflict
 	for _, id := range ids {
 		path, found := byID[id]
 		if !found {
@@ -161,7 +168,8 @@ func (g geometryDraft) laneConflict(ids []string, separationGroups bool) *geomet
 				continue
 			}
 			first, second := text(path.lane["separationGroup"]), text(other.lane["separationGroup"])
-			if separationGroups && first != "" && second != "" && first != second {
+			separated := separationGroups && first != "" && second != "" && first != second
+			if separated && clearance.planesSeparated(path.lane, other.lane) {
 				continue
 			}
 			// The lanes of one maneuver group never move at once, and the
@@ -172,9 +180,13 @@ func (g geometryDraft) laneConflict(ids []string, separationGroups bool) *geomet
 				}
 			}
 			if gap, minimum, conflict := clearance.pairConflict(path, other); conflict {
-				return &geometryConflict{id, text(other.lane["id"]), gap, minimum}
+				conflict := &geometryConflict{id, text(other.lane["id"]), gap, minimum}
+				if !separated {
+					return conflict
+				}
+				reachConflict = cmp.Or(reachConflict, conflict)
 			}
 		}
 	}
-	return nil
+	return reachConflict
 }

@@ -389,3 +389,91 @@ func TestDraftClearanceBankEdit(t *testing.T) {
 		t.Fatalf("speed edit: %v", err)
 	}
 }
+
+// planeJoinDraft has a lane "near" on plane A that joins "main", and a lane
+// "cross" on plane Q that passes over "near" offset meters from the join.
+func planeJoinDraft(offset float64, classes []any, control map[string]any, joined string) map[string]any {
+	network := map[string]any{"stations": []any{}}
+	for id, at := range map[string][2]float64{"top": {300, 300}, "mid": {300, 100}, "join": {300, 0}, "east": {700, 0}, "cross-feed": {440, 300}, "cross-east": {440, offset}, "cross-west": {160, offset}, "turn": {160, 300}} {
+		network["nodes"] = append(items(network["nodes"]), map[string]any{"id": id, "position": map[string]any{"x": at[0], "y": at[1]}})
+	}
+	for _, row := range [][4]string{
+		{"far", "top", "mid", "A"}, {"near", "mid", "join", "A"}, {"main", "join", "east", joined},
+		{"in", "cross-feed", "cross-east", "Q"}, {"cross", "cross-east", "cross-west", "Q"}, {"out", "cross-west", "turn", "Q"},
+	} {
+		lane := map[string]any{"id": row[0], "from": row[1], "to": row[2], "speedLimit": float64(14), "separationGroup": row[3], "vehicleClasses": classes}
+		if row[0] == "near" && control != nil {
+			lane["control"] = control
+		}
+		network["lanes"] = append(items(network["lanes"]), lane)
+	}
+	return network
+}
+
+func TestLargeDraftLaneReachConflict(t *testing.T) {
+	t.Parallel()
+	large, small := []any{"legacy", "group"}, []any{"legacy"}
+	curve := map[string]any{"x": float64(340), "y": float64(50)}
+	reversed := func(network map[string]any) map[string]any {
+		for _, lane := range items(network["lanes"]) {
+			object(lane)["from"], object(lane)["to"] = object(lane)["to"], object(lane)["from"]
+		}
+		return network
+	}
+	berth := func(node string, network map[string]any) map[string]any {
+		network["stations"] = []any{map[string]any{"id": "station", "vehicleClasses": large, "berths": []any{map[string]any{"id": "berth", "node": node, "vehicleClasses": large, "separationGroup": "Q"}}}}
+		return network
+	}
+	for _, test := range []struct {
+		name     string
+		network  map[string]any
+		conflict bool
+	}{
+		{"straight 24", planeJoinDraft(24, large, nil, "Q"), true},
+		{"straight 20", planeJoinDraft(20, large, nil, "Q"), true},
+		{"quadratic 24", planeJoinDraft(24, large, curve, "Q"), true},
+		{"quadratic 20", planeJoinDraft(20, large, curve, "Q"), true},
+		{"rear 34", reversed(planeJoinDraft(34, large, nil, "Q")), true},
+		{"flyover two lanes from a join", planeJoinDraft(200, large, nil, "Q"), false},
+		{"flyover with no shared plane", planeJoinDraft(24, large, nil, "B"), false},
+		{"small classes", planeJoinDraft(24, small, nil, "Q"), false},
+		{"berth at the From node", berth("mid", planeJoinDraft(24, large, nil, "A")), true},
+		{"berth at the To node", berth("join", planeJoinDraft(24, large, nil, "A")), false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			conflict := (geometryDraft{network: test.network}).laneConflict([]string{"cross"}, true)
+			if (conflict != nil) != test.conflict {
+				t.Fatalf("conflict = %+v", conflict)
+			}
+			typed, ok := draftClearanceNetwork(test.network)
+			if !ok {
+				t.Fatal("draft has an invalid class set")
+			}
+			if err := typed.ValidateBankGeometry(); (err != nil) != test.conflict {
+				t.Fatalf("the server audit disagrees: %v", err)
+			}
+		})
+	}
+}
+
+// A pair that only the reach refuses comes after a pair without a plane
+// exemption, as in the bank audit of the server.
+func TestLargeDraftLaneReachConflictOrder(t *testing.T) {
+	t.Parallel()
+	network := planeJoinDraft(24, []any{"legacy", "group"}, nil, "Q")
+	for id, at := range map[string][2]float64{"late-a": {2000, 0}, "late-b": {2100, 0}, "late-c": {2000, 10}, "late-d": {2100, 10}} {
+		network["nodes"] = append(items(network["nodes"]), map[string]any{"id": id, "position": map[string]any{"x": at[0], "y": at[1]}})
+	}
+	for _, row := range [][3]string{{"late-first", "late-a", "late-b"}, {"late-second", "late-c", "late-d"}} {
+		network["lanes"] = append(items(network["lanes"]), map[string]any{"id": row[0], "from": row[1], "to": row[2], "speedLimit": float64(14), "vehicleClasses": []any{"group"}})
+	}
+	conflict := (geometryDraft{network: network}).laneConflict([]string{"cross", "late-first"}, true)
+	if conflict == nil || conflict.lane != "late-first" || conflict.other != "late-second" {
+		t.Fatalf("conflict = %+v", conflict)
+	}
+	conflict = (geometryDraft{network: network}).laneConflict([]string{"cross"}, true)
+	if conflict == nil || conflict.lane != "cross" || conflict.other != "near" {
+		t.Fatalf("reach conflict = %+v", conflict)
+	}
+}

@@ -63,6 +63,10 @@ A departing pod retains its raw origin berth plane until origin release.
 A large pair receives a plane exemption only when every cross-pair of occupied locations proves separation.
 Missing arrays, changed pod values, or overlapping incident planes refuse the exemption.
 Public center-only locations cannot grant this exemption.
+The network audit applies the same rule before a run: a large pair of lanes gets the exemption only when every cross-pair of the lanes, their incident lanes, and the berths at their From nodes is on different planes.
+The audit uses the whole lane, so a pass that is far from the join on a lane that is incident to a shared plane is also refused.
+The route window of a pod can reach further than an incident lane, because a long tail on any lane of the route enlarges the front bound for the whole route.
+The audit does not cover that case, so the observer can report a pair that the audit accepted.
 The observation uses the existing tick rate, acceleration, braking, and authored speed limits.
 
 ## Restore and public consumers
