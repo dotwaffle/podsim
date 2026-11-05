@@ -2,6 +2,7 @@ package scenarios_test
 
 import (
 	"math"
+	"math/rand/v2"
 	"slices"
 	"strings"
 	"testing"
@@ -22,6 +23,8 @@ func (a certPoint) along(direction certPoint, distance float64) certPoint {
 }
 
 func (a certPoint) dot(b certPoint) float64 { return a.x*b.x + a.y*b.y }
+
+func (a certPoint) cross(b certPoint) float64 { return a.x*b.y - a.y*b.x }
 
 // certPolyline returns the 65 points of a quadratic lane or the 2 points of a
 // straight lane, with no repeated point.
@@ -64,50 +67,52 @@ func certSegments(points []certPoint) []certSegment {
 
 func certClamp(value, low, high float64) float64 { return max(low, min(high, value)) }
 
-// certFreeMinimum returns the closest pair of two segments, as distances
-// along them.
-func certFreeMinimum(first, second certSegment) (p, q float64) {
-	w := first.from.minus(second.from)
-	b := first.unit.dot(second.unit)
-	d, e := first.unit.dot(w), second.unit.dot(w)
-	if denominator := 1 - b*b; denominator > 1e-12 {
-		p = certClamp((b*e-d)/denominator, 0, first.length)
-	}
-	q = b*p + e
-	if q < 0 {
-		return certClamp(-d, 0, first.length), 0
-	}
-	if q > second.length {
-		return certClamp(b*second.length-d, 0, first.length), second.length
-	}
-	return p, q
-}
-
 // certPairMinimum returns the smallest squared distance of a point at p on
 // the first segment and a point at q on the second, with q-p of at least
 // offset, and false for an empty domain. The domain is a rectangle cut by one
-// line, and the squared distance is convex. So the result is the free minimum
-// when it is in the domain, and otherwise a minimum on the line.
+// line, and the squared distance is convex. So the minimum is on an edge of
+// the domain, or at the one stationary point, where the lines cross. Lines
+// that are parallel have no such point, and their line of minimums meets an
+// edge. Lines that are parallel to within rounding have an edge minimum that
+// is within rounding of the true minimum.
 func certPairMinimum(first, second certSegment, offset float64) (float64, bool) {
-	squared := func(p, q float64) float64 {
-		delta := first.from.along(first.unit, p).minus(second.from.along(second.unit, q))
-		return delta.dot(delta)
-	}
 	if second.length < offset {
 		return 0, false
 	}
-	if p, q := certFreeMinimum(first, second); q-p >= offset {
-		return squared(p, q), true
+	difference := func(p, q float64) certPoint {
+		return first.from.along(first.unit, p).minus(second.from.along(second.unit, q))
 	}
-	low, high := max(0, -offset), min(first.length, second.length-offset)
-	// On the line q = p + offset, the difference is r + p*v.
-	r := first.from.minus(second.from.along(second.unit, offset))
-	v := first.unit.minus(second.unit)
-	p := low
-	if denominator := v.dot(v); denominator > 0 {
-		p = certClamp(-r.dot(v)/denominator, low, high)
+	minimum := math.Inf(1)
+	if cross := first.unit.cross(second.unit); cross != 0 {
+		between := second.from.minus(first.from)
+		p, q := between.cross(second.unit)/cross, between.cross(first.unit)/cross
+		if p >= 0 && p <= first.length && q >= 0 && q <= second.length && q-p >= offset {
+			delta := difference(p, q)
+			minimum = delta.dot(delta)
+		}
 	}
-	return squared(p, p+offset), true
+	cutFrom, cutTo := max(0, -offset), min(first.length, second.length-offset)
+	for _, edge := range [...]struct{ p0, q0, p1, q1 float64 }{
+		{0, max(0, offset), 0, second.length},
+		{first.length, max(0, first.length+offset), first.length, second.length},
+		{0, 0, min(first.length, -offset), 0},
+		{0, second.length, cutTo, second.length},
+		{cutFrom, cutFrom + offset, cutTo, cutTo + offset},
+	} {
+		// The cut removes an edge that is entirely on its other side.
+		if edge.p0 > edge.p1 || edge.q0 > edge.q1 {
+			continue
+		}
+		start := difference(edge.p0, edge.q0)
+		step := difference(edge.p1, edge.q1).minus(start)
+		along := 0.0
+		if squared := step.dot(step); squared > 0 {
+			along = certClamp(-start.dot(step)/squared, 0, 1)
+		}
+		delta := difference(edge.p0+along*(edge.p1-edge.p0), edge.q0+along*(edge.q1-edge.q0))
+		minimum = min(minimum, delta.dot(delta))
+	}
+	return minimum, true
 }
 
 // certMinimum returns the smallest squared distance over each pair of a
@@ -653,5 +658,69 @@ func TestTailRailHubCurves(t *testing.T) {
 	}
 	if got := network.LaneTailOverruns(); len(got) != 0 {
 		t.Errorf("overruns = %+v", got)
+	}
+}
+
+// TestTailCertificateNearParallel holds a lane past the coordinate limit whose
+// legs are almost parallel, so it reaches the minimizer directly. Its closest
+// pair past the candidate tail is on the cut, at 19.898 m.
+func TestTailCertificateNearParallel(t *testing.T) {
+	t.Parallel()
+	points := certPolyline(sim.Point{}, sim.Point{X: 20.00001}, &sim.Point{X: 10.000005, Y: 1e8})
+	segments := certSegments(points)
+	last := segments[len(segments)-1]
+	minimum, pairs := certMinimum(points, 0.99*(last.start+last.length))
+	if pairs > 2080 {
+		t.Errorf("%d segment pairs", pairs)
+	}
+	if minimum >= 400 {
+		t.Errorf("the certificate accepted the candidate tail, with %v m", math.Sqrt(minimum))
+	}
+	if got := math.Sqrt(minimum); math.Abs(got-19.89842) > 1e-3 {
+		t.Errorf("smallest distance %v m, want 19.89842 m", got)
+	}
+}
+
+// TestTailCertificatePairMinimum compares the minimizer with a dense scan of
+// the domain on random segment pairs, of which half are almost parallel.
+func TestTailCertificatePairMinimum(t *testing.T) {
+	t.Parallel()
+	const grid = 200
+	random := rand.New(rand.NewPCG(1, 2))
+	coordinate := func() float64 { return 60*random.Float64() - 30 }
+	segment := func(heading float64) certSegment {
+		return certSegment{from: certPoint{coordinate(), coordinate()}, unit: certPoint{math.Cos(heading), math.Sin(heading)}, length: 0.5 + 19.5*random.Float64()}
+	}
+	for round := range 600 {
+		heading := 2 * math.Pi * random.Float64()
+		first, second := segment(heading), segment(2*math.Pi*random.Float64())
+		if round%2 == 0 {
+			second = segment(heading + float64(random.IntN(2))*math.Pi + math.Ldexp(random.Float64()-0.5, -random.IntN(50)))
+		}
+		offset := 2 * (first.length + second.length) * (random.Float64() - 0.5)
+		got, ok := certPairMinimum(first, second, offset)
+		if ok != (second.length >= offset) {
+			t.Fatalf("round %d: domain %t for offset %v and length %v", round, ok, offset, second.length)
+		}
+		if !ok {
+			continue
+		}
+		dense := math.Inf(1)
+		pEnd := min(first.length, second.length-offset)
+		for pStep := range grid + 1 {
+			p := pEnd * float64(pStep) / grid
+			qStart := max(0, p+offset)
+			for qStep := range grid + 1 {
+				q := qStart + (second.length-qStart)*float64(qStep)/grid
+				delta := first.from.along(first.unit, p).minus(second.from.along(second.unit, q))
+				dense = min(dense, delta.dot(delta))
+			}
+		}
+		// The closest pair is at most 1 step of p from a scanned p, and at most
+		// that step and 1 step of q from a scanned q.
+		slack := (2*first.length + second.length) / grid
+		if got > dense+1e-9 || math.Sqrt(dense)-math.Sqrt(got) > slack {
+			t.Fatalf("round %d: %+v %+v offset %v: minimizer %v m, dense scan %v m", round, first, second, offset, math.Sqrt(got), math.Sqrt(dense))
+		}
 	}
 }
