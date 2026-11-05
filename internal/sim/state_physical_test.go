@@ -241,6 +241,10 @@ func TestRestoreDemotesTravelingPods(t *testing.T) {
 	noBlockLeft.LaneDistance = f.s.laneLength(lastLane) - 1
 	beforeLastLane := f.carrying(t, f.traveling(t, travelInput{id: "01", from: "harbor-1", to: "market-1", lane: "bypass-merge", distance: 100}), 1, 1)
 	beforeLastLane.Route, beforeLastLane.Destination = noBerth.Route, ""
+	// An empty relocation with the same reservation never chooses a berth. With
+	// a waiting trip that names it, it does choose.
+	relocation := noBerth
+	relocation.Occupied, relocation.Riders, relocation.Stops, relocation.RelocatingTo = false, nil, nil, noBerth.DestinationStation
 	for _, tc := range []struct {
 		name  string
 		pods  []SavedPod
@@ -361,6 +365,29 @@ func TestRestoreDemotesTravelingPods(t *testing.T) {
 			},
 		},
 		{
+			name: "empty relocation with no berth", demoted: []string{"01"}, pods: []SavedPod{relocation},
+			check: func(t *testing.T, _ SavedState, s *Simulation, _ RestoreResult) {
+				t.Helper()
+				v := checkAtBerth(t, s, "01", Idle, "harbor-1")
+				for range 2 * TicksPerSecond {
+					s.Step()
+				}
+				if v.Pod.Activity != Idle || v.Pod.BerthID != "harbor-1" {
+					t.Fatalf("pod 01 is %q at %q", v.Pod.Activity, v.Pod.BerthID)
+				}
+			},
+		},
+		{
+			name: "assigned pod with no berth", pods: []SavedPod{relocation},
+			waiting: []SavedTrip{{Request: SavedRequest{SharingConsent: SharedConsent, Service: OnDemandService, ID: 2, From: "market", To: "garden", PartySize: 1, RequestedTick: 10, PodID: "01"}}},
+			check: func(t *testing.T, _ SavedState, s *Simulation, _ RestoreResult) {
+				t.Helper()
+				if v := findVehicle(t, s, "01"); v.Pod.Activity != Traveling || v.destination.ID != "" || len(s.waiting) != 1 {
+					t.Fatalf("pod 01 is %q with berth %q, and the queue has %d trips", v.Pod.Activity, v.destination.ID, len(s.waiting))
+				}
+			},
+		},
+		{
 			name: "no berth and no block left to reserve", demoted: []string{"01"}, pods: []SavedPod{noBlockLeft},
 			check: func(t *testing.T, _ SavedState, s *Simulation, _ RestoreResult) {
 				t.Helper()
@@ -457,6 +484,34 @@ func TestRestoreDemotesTravelingPods(t *testing.T) {
 			monitorContract(t, s)
 			tc.check(t, state, s, result)
 		})
+	}
+}
+
+// TestChoosesBerth pins each reason for a pod with no berth to choose one. Live
+// admission and the restore rule read this one predicate.
+func TestChoosesBerth(t *testing.T) {
+	t.Parallel()
+	never := func(string) bool { return false }
+	boarding := vehicle{Riders: make([]Request, 1)}
+	boarding.Pod.Activity = Boarding
+	occupied, recovery := vehicle{}, vehicle{}
+	occupied.Pod.Occupied = true
+	recovery.op.purpose = opEmptyRecovery
+	for _, tc := range []struct {
+		name     string
+		v        vehicle
+		assigned func(string) bool
+		want     bool
+	}{
+		{name: "empty", assigned: never},
+		{name: "occupied", v: occupied, assigned: never, want: true},
+		{name: "boarding", v: boarding, assigned: never, want: true},
+		{name: "recovery", v: recovery, assigned: never, want: true},
+		{name: "assigned", assigned: func(string) bool { return true }, want: true},
+	} {
+		if got := choosesBerth(&tc.v, tc.assigned); got != tc.want {
+			t.Errorf("%s: got %t", tc.name, got)
+		}
 	}
 }
 

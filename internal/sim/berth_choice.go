@@ -10,10 +10,7 @@ func (s *Simulation) assignTerminalBerth(v *vehicle) bool {
 	if v.destination.ID != "" || len(v.Route) == 0 {
 		return true
 	}
-	// An empty recovery chooses its berth as a passenger route does.
-	passenger := v.Pod.Occupied || v.Pod.Activity == Boarding && len(v.Riders) > 0 || s.assigned(v.Pod.ID) ||
-		v.op.purpose == opEmptyRecovery
-	if !passenger {
+	if !choosesBerth(v, s.assigned) {
 		return true
 	}
 	next := v.reservedThrough + 1
@@ -48,6 +45,15 @@ func (s *Simulation) assignTerminalBerth(v *vehicle) bool {
 	v.destination = berth
 	v.pending = -1
 	return true
+}
+
+// choosesBerth reports whether v has a passenger route, so that it chooses its
+// berth at its terminal lane. An empty recovery chooses as a passenger route
+// does. Any other pod with no berth never chooses one. assigned reports whether
+// a waiting trip names a pod. A restore passes its saved trips, because it
+// places the pods before it restores the queue.
+func choosesBerth(v *vehicle, assigned func(podID string) bool) bool {
+	return v.Pod.Occupied || v.Pod.Activity == Boarding && len(v.Riders) > 0 || v.op.purpose == opEmptyRecovery || assigned(v.Pod.ID)
 }
 
 // earlyBerthChoice reports whether v tries its berth choice before the
@@ -89,10 +95,8 @@ func (s *Simulation) reevaluateTerminalBerth(v *vehicle) {
 	}
 	// An empty recovery leaves a taken berth as a passenger route does.
 	// No other path moves it, because it is withdrawn.
-	passenger := v.Pod.Occupied || v.Pod.Activity == Boarding && len(v.Riders) > 0 || s.assigned(v.Pod.ID) ||
-		v.op.purpose == opEmptyRecovery
 	accept := s.berthFilterForVehicle(v)
-	if !passenger || s.berthAvailableFor(v, v.destination) && (accept == nil || accept(v.destination)) {
+	if !choosesBerth(v, s.assigned) || s.berthAvailableFor(v, v.destination) && (accept == nil || accept(v.destination)) {
 		return
 	}
 	// terminalLane found the station, and the network does not change.
