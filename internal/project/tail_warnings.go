@@ -30,7 +30,7 @@ func OverrunWarnings(overruns []sim.LaneTailOverrun) []TailWarning {
 		}
 		warnings = append(warnings, TailWarning{
 			LaneID: overrun.LaneID,
-			Text:   fmt.Sprintf("Lane %s has a large-class tail of %.1f m on a length of %.1f m, which can stop the network.", overrun.LaneID, overrun.Tail, overrun.Length),
+			Text:   fmt.Sprintf("Lane %s has a large-class tail of %.1f m on a length of %.1f m, so the lane holds one pod.", overrun.LaneID, overrun.Tail, overrun.Length),
 		})
 	}
 	switch rest := len(overruns) - MaxTailWarnings; {

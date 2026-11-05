@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/dotwaffle/podsim/internal/project"
+	"github.com/dotwaffle/podsim/internal/scenarios"
 	"github.com/dotwaffle/podsim/internal/session"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
@@ -231,5 +232,97 @@ func TestRailComparisonMatchesLiveReleaseTimestamps(t *testing.T) {
 		if request.RequestedTick != offer.tick || request.From != offer.origin || request.To != offer.destination {
 			t.Fatalf("offer %d: live %+v, comparison %+v", index, request, offer)
 		}
+	}
+}
+
+// railHubAllClasses returns the scenario of rail-hub with all classes on each
+// lane, station, and berth, and a fleet of Group pods.
+func railHubAllClasses(t *testing.T) scenario {
+	t.Helper()
+	classes, err := sim.NewClassSet("legacy", "compact", "group", "express")
+	if err != nil {
+		t.Fatal(err)
+	}
+	config := scenarios.RailHub()
+	for index := range config.Network.Lanes {
+		config.Network.Lanes[index].VehicleClasses = classes
+	}
+	for index := range config.Network.Stations {
+		station := &config.Network.Stations[index]
+		station.VehicleClasses = classes
+		for berth := range station.Berths {
+			station.Berths[berth].VehicleClasses = classes
+		}
+	}
+	for index := range config.Fleet {
+		config.Fleet[index].Class = sim.GroupClass
+	}
+	return ringScenario(t, config)
+}
+
+// hotspotInput returns the arm of the rail-hub runs of the Express study: one
+// trip each 5 seconds to the focus station for 30 minutes, with no
+// redistribution.
+func hotspotInput(caseStudy scenario, seed int64) runInput {
+	const duration, every = 30 * time.Minute, 5 * time.Second
+	schedule := demandSchedule(scheduleInput{
+		seed: seed, durationTicks: durationTicks(duration), intervalTicks: durationTicks(every),
+		pattern: "hotspot", passengers: caseStudy.passengers, focus: caseStudy.focus,
+	})
+	return runInput{
+		policy: "off", duration: duration, arrivalsFor: duration, requestEvery: every, seed: seed,
+		pattern: "hotspot", queueLimit: 200, sharingLimit: 1, schedule: schedule, scenario: caseStudy,
+	}
+}
+
+// TestRailHubAllClassesProgress is the progress gate of the curve tail. With
+// all classes, rail-hub serves at least 90 percent of the plain preset at the
+// same seed, and at minute 30 no traveling pod has stood still for 5 minutes.
+// The separation oracle runs at each tick. The gate detects a regression, and
+// it is not a capacity claim.
+func TestRailHubAllClassesProgress(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		t.Skip("long test")
+	}
+	for _, seed := range []int64{1, 2, 3} {
+		t.Run(strconv.FormatInt(seed, 10), func(t *testing.T) {
+			t.Parallel()
+			plain, err := run(hotspotInput(ringScenario(t, scenarios.RailHub()), seed))
+			if err != nil {
+				t.Fatal(err)
+			}
+			input := hotspotInput(railHubAllClasses(t), seed)
+			arm, err := startArm(&input)
+			if err != nil {
+				t.Fatal(err)
+			}
+			moved := make(map[string]int64)
+			for tick := range durationTicks(input.duration) {
+				if _, err := arm.step(tick); err != nil {
+					t.Fatal(err)
+				}
+				observation := arm.simulation.SafetyObservation()
+				if _, err := observation.Check(); err != nil {
+					t.Fatalf("tick %d: %v", tick, err)
+				}
+				for _, pod := range observation.Pods {
+					if pod.Activity != sim.Traveling || pod.Speed > 0 {
+						moved[pod.ID] = tick
+					}
+				}
+			}
+			end, limit := durationTicks(input.duration), durationTicks(5*time.Minute)
+			for id, tick := range moved {
+				if end-tick > limit {
+					t.Errorf("pod %s has stood still since tick %d of %d", id, tick, end)
+				}
+			}
+			served := arm.result().Served
+			if 10*served < 9*plain.Served {
+				t.Fatalf("served %d, under 90 percent of the plain %d", served, plain.Served)
+			}
+			t.Logf("served %d, plain %d", served, plain.Served)
+		})
 	}
 }

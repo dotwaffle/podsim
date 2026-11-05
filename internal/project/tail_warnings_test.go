@@ -125,7 +125,7 @@ func TestTailWarningsUTurns(t *testing.T) {
 	if len(warnings) != project.MaxTailWarnings+1 {
 		t.Fatalf("got %d warnings: %+v", len(warnings), warnings)
 	}
-	if want := "Lane u01-bend has a large-class tail of 101.5 m on a length of 101.0 m, which can stop the network."; warnings[0].Text != want || warnings[0].LaneID != "u01-bend" {
+	if want := "Lane u01-bend has a large-class tail of 101.5 m on a length of 101.0 m, so the lane holds one pod."; warnings[0].Text != want || warnings[0].LaneID != "u01-bend" {
 		t.Fatalf("first warning = %+v", warnings[0])
 	}
 	last := warnings[project.MaxTailWarnings]

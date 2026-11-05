@@ -39,9 +39,12 @@ The route position of a large class is the center of its body envelope, which ha
 
 A lane, a station, or a berth can list the classes that can use it.
 A lane with no list allows Legacy and Compact pods, so a Group or Express pod needs lanes that list its class.
-Each lane that touches a node of a lane with a large class, or of a berth where the berth and its station both allow one, gets a large-class tail, and a curve makes this tail longer.
-When the tail exceeds the length of the lane, a pod can hold a station exit past the next station, and this can stop the network.
+Each lane that touches a node of a lane with a large class, or of a berth where the berth and its station both allow one, gets a large-class tail.
+The tail of a straight lane is 20 meters, and the [group physics design](design/group-physics-design.md) gives the longer tail of a curve, which depends on how near the lane comes to itself.
+When the tail exceeds the length of the lane, as on a U-turn bend with a chord under 20 meters, the lane holds one pod.
 `projectcheck` and the editor checks give a warning for such a lane, and they accept the project.
+Inside the budget of the tail, it exceeds the length by at most 0.5 meters on a lane of up to 256 meters and 0.2 percent of a longer lane, so a pod does not hold a station exit past the next station.
+A long lane that passes this budget takes the old projection bound, and that tail can exceed the lane by more.
 
 The Express class has no physical operation unless the project sets the `orderContract` marker `express-v1`, which is opt-in.
 That marker sets the limits of its own format: 600 pods and 17,000 orders (see the [Express qualification](studies/express-qualification.md) and the [approved contract](contracts/express-physical-encoding-contract-proposal.md)).

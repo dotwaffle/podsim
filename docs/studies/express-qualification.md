@@ -117,8 +117,23 @@ The code follows the group physics design and the Express encoding contract, whi
 No preset has these allowlists, but the editor's lane class checkboxes reach this state.
 Allowing the classes on only one straight lane gave 41 served against 102, because each lane that touches its nodes gets a tail.
 
-`projectcheck` and the editor checks now warn when a tail exceeds its lane, and the warning is a proxy for this limit: at 10 percent nearer to the midpoint it warns on 28 lanes and the network serves 80, and at 15 percent it is silent and the network serves 82.
+At this point, `projectcheck` and the editor checks warned when a tail exceeded its lane, and the warning was a proxy for this limit: at 10 percent nearer to the midpoint it warned on 28 lanes and the network served 80, and at 15 percent it was silent and the network served 82.
 
 Results on this traffic are weak evidence of parity.
 All pods stop early, so the traffic covers little release, reassignment, or later pickup.
 The soundness of the bound, and the behavior of other geometries, are not verified.
+
+The polyline tail of the [Express standees proposal](../contracts/express-standees-contract-proposal.md) removes this stop.
+`TestRailHubAllClassesProgress` runs this traffic with all classes and a Group fleet, with the separation oracle at each tick.
+No pod stands still for the last 5 minutes, and no check reported a violation.
+
+| Seed | All classes, polyline tail | Plain `rail-hub` |
+| ---: | ---: | ---: |
+| 1 | 98 | 102 |
+| 2 | 100 | 104 |
+| 3 | 101 | 106 |
+
+The gate is at least 90 percent of the plain preset at the same seed.
+It detects a regression, and it is not a capacity claim.
+No tail of this project now exceeds its lane, so the warning is silent on it.
+The warning now says that the lane holds one pod, because a tail that exceeds its lane no longer holds a station exit past the next station, unless the lane passes the budget of the walk.

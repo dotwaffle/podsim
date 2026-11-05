@@ -387,7 +387,7 @@ func TestProjectCheckTailWarnings(t *testing.T) {
 	if len(lines) != 2+project.MaxTailWarnings+1 {
 		t.Fatalf("got %d lines: %s", len(lines), &output)
 	}
-	if want := "Warning: Lane u01-bend has a large-class tail of 101.5 m on a length of 101.0 m, which can stop the network."; lines[2] != want {
+	if want := "Warning: Lane u01-bend has a large-class tail of 101.5 m on a length of 101.0 m, so the lane holds one pod."; lines[2] != want {
 		t.Fatalf("first warning = %q", lines[2])
 	}
 	if want := "Warning: 2 more lanes have a large-class tail longer than their length."; lines[len(lines)-1] != want {

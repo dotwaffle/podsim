@@ -249,6 +249,45 @@ The plan rate has no effect here, because no pod in this measurement stops at it
 A call on the development host, under a load of about 30, took 197 µs for a 200 m fan lane, 2.3 ms for a 5 km arc, and 16 ms for a 10 km hairpin.
 `indexGeometryTails` has 8 call sites in product code, and it computes each lane again on each call.
 
+## The landed tail
+
+The tail of the code uses the exact rule of section 4.1 of the proposal: the step grows with a lane above 256 m, the grid rounds up, and the walk samples the lane end.
+So its values differ from the scratch scan of [Curve tails](#curve-tails).
+Each row has all classes, and each count of lanes matches the scratch scan.
+
+| Preset | Curved lanes | Old maximum (m) | Tail maximum (m) | Old over length | Tail over length |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `small` | 40 | 1,933.1 | 21.00 | 40 | 0 |
+| `busy` | 90 | 1,933.1 | 21.93 | 80 | 0 |
+| `parking-constrained` | 42 | 1,933.1 | 21.00 | 42 | 0 |
+| `rail-hub` | 96 | 1,933.1 | 22.12 | 70 | 0 |
+| `rail-hub-incidents` | 96 | 1,933.1 | 22.12 | 70 | 0 |
+| `compact-station` | 33 | 1,933.1 | 21.00 | 32 | 26 |
+| `london-central` | 237 | 2,789.0 | 67.25 | 218 | 208 |
+| `london-full` | 291 | 11,636.7 | 66.75 | 271 | 258 |
+
+The `rail-hub` maximum is above the scratch value of 20.75 m because its longer lanes have a step above 0.25 m.
+The lanes of the table of [Curve tails](#curve-tails) have these tails: 21.00 m on `s01-in-01`, 20.75 m on `s01-in-02`, 20.84 m on `s01-in-04`, 21.03 m on `s01-in-06`, 20.50 m on the gentle arc, 94.25 m on the hairpin with a chord of 30 m, 270.81 m on the hairpin with a chord of 22 m, and 101.50 m on the narrow arc.
+
+The budget is 8,192 distance evaluations for each lane.
+The largest walk of a preset lane has 3,879 evaluations, so no preset lane falls back.
+A random search of quadratic lanes found about 3,600 evaluations under 90 m, 5,800 at 270 m, and 6,800 at 3 km.
+Only hairpins of about 100 km passed the budget, at about 8,700 evaluations.
+The block limit of the project format holds 20,000 curved lanes under 90 m.
+
+The worst-case project of `BenchmarkPrepareWorstProject` has 20,000 of the lanes with the longest walk found under 90 m, on 12,000 nodes, inside each count limit of the project format.
+These runs had a host load of about 31 on 12 threads, so they are upper figures, and no run had a quiet host.
+
+| Benchmark | Native, wall (s) | Native, one thread, CPU (s) | `js/wasm` under Node, wall (s) |
+| --- | ---: | ---: | ---: |
+| Tail index of the worst-case project | 0.81 to 1.02 | 0.76 | 2.25 |
+| Preparation of the worst-case project | 4.73 to 5.13 | 4.03 | 18.93 |
+| Preparation with no walk (budget of zero) | 3.91 | Not run | Not run |
+| Tail index with each of 20,000 lanes at the budget | 3.67 to 4.25 | 3.50 | Not run |
+| One lane at the coordinate limit | 0.00001 | Not run | 0.00009 |
+
+The last full-budget row is a ceiling of the work of one index, because the block limit refuses that project.
+
 ## Sources
 
 - [GRT specification](https://web.archive.org/web/20220119215715/https://www.2getthere.eu/technology/vehicle-types/grt-vehicle-automated-minibus/)
