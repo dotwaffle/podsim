@@ -13,6 +13,8 @@ The code of the congestion, queue, and predictive routing policies was removed o
   The section "Soak of amendment A6" has the numbers.
 - The maintainer approved rule A of amendment A8.
   The section "Run of rule A" has its run on `rail-hub`, and the soak at 30 Hz decides the Progress row.
+- Amendment A10 changes the cost and the shape of the soak.
+  The section "Cost and shape of the soak" has the measurements and a wall time that is an estimate, and the new soak has not run.
 - The Performance row for suspension meets amendment A7 in the section "Readings from a quiet host".
 - The Performance row for emergencies misses its ratio rule on `rail-hub`, by about 0.4 µs.
 - The Choice row is reported and not gated, and no driver reports it, because the sim does not expose the estimate.
@@ -81,7 +83,8 @@ R3 is a target and not a measurement, because no such change exists.
 `TestIncidentSoakCI` took 285 seconds at a load average of about 30: a reference run of 51 seconds, and a checked run of 233 seconds.
 The checked run had 9 faults and 9 emergencies, and it passed.
 It uses rail-hub only, because the CI row names no preset and a london-central run takes an estimated 20 to 30 CPU minutes.
-`mise run qualify` also runs `TestSampledTickLatency`, in about 3 seconds, and `TestSampledTickNoCandidateLatency`, in 386 seconds at a load average of about 15.
+`mise run qualify` also runs `TestSampledTickLatency`, in about 3 seconds.
+`mise run qualify:limits` runs `TestSampledTickNoCandidateLatency`, which took 386 seconds at a load average of about 15.
 
 ## Soak of amendment A6
 
@@ -341,6 +344,96 @@ Only the unit tests cover that case.
 A run of `incidents` seed 3 with the entry turned off gave 4 late records, and a longest unblocked time of 17.0 min, against 0 and 4.7 min.
 Its other numbers stayed the same: 88 records, 618 completed orders, and 14 records over 10 minutes.
 Each of the 4 chains ended at an idle pod.
+
+## Cost and shape of the soak
+
+These readings support amendment A10.
+All are at 30 Hz, on `rail-hub`, at a load average of about 4 to 12.
+The rates of the sections above are at 60 Hz, so they do not compare.
+
+### Cost of the checks before the change
+
+The run is `incidents` seed 1, 0.5 simulated hours and the clear, at `c3c647b`, with one CPU profile.
+
+| Reading | Value |
+| --- | ---: |
+| `soakDriver.check`, share of CPU samples | 53% |
+| `ExportState`, share of CPU samples | 39% |
+| `Simulation.Step`, share of CPU samples | 25% |
+| Background garbage collection, share of CPU samples | 11% |
+| Process CPU, `GOGC=100` | 62.6 s |
+| Process CPU, `GOGC=400` | 47.1 s |
+
+The driver called `ExportState` twice for each tick, once in `CheckContract` and once for the order balance.
+The review gave about 80% for the checks and a factor of 2 for `GOGC=400`.
+This run gives 53% in `check`, and about 64% if all the garbage collection belongs to it, and a fall of 25%.
+`soakCPUSeconds` read the whole process, and `startChecks` draws from the driver stream, so a run with the checks off is not the same run as a run with them on.
+A run with the rewinds off also moves each driver event against the simulation tick.
+
+### Order balance
+
+`CheckContract` does not prove the equation of the Conservation row.
+It requires `RequestID - Completed - Interrupted - queued - aboard` to equal `unaccountedOrders`, and a restore that drops orders makes that count above 0.
+So the driver computes the equation from the one export.
+A temporary change that added 1 to both `requestID` and `unaccountedOrders` passed the contract check and failed the order balance.
+
+### Trial of the stride
+
+The trial has `incidents` seed 1, one warm save, and 2 branches, at parallel 2, with the body of the soak task.
+Each column of a row has the same run: the two modes have the same commands, completed orders, interrupted orders, and settle times.
+The queue reads 200 at the warm save.
+The rate is the harmonic mean of the windows of 5 simulated minutes with a queue of at least 190, in ticks for each second of wall time.
+
+| Mode | `GOGC` | Rate, full queue | Slowest and fastest window | Rate, whole branch | Wall time of a branch | Peak resident memory |
+| --- | ---: | ---: | --- | ---: | ---: | ---: |
+| Stride | 400 | 4,068 | 2,227 to 9,690 | 4,650 | 46 s | 231 MB |
+| Each tick | 400 | 2,686 | 1,629 to 4,215 | 2,860 | 75 s | 231 MB |
+| Stride | 100 | 3,313 | 1,492 to 7,973 | 3,845 | 56 s | 208 MB |
+
+A branch has 216,000 ticks, and about 7,500 full checks with the stride.
+The review estimated 6,000 ticks a second.
+This reading is 4,068 at a full queue.
+
+| Branch | Completed | Interrupted | Commands | Records | Late under rule A | Longest unblocked, min | Over 10 min | Settle, s |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 318 | 37 | 34 | 23 | 0 | 2.1 | 0 | 1 |
+| 2 | 243 | 39 | 56 | 16 | 0 | 2.8 | 3 | 228 |
+
+No run gave a Safety, Contract, Conservation, or Rail report, and each branch passed its 9 rewinds.
+One of the 2 saves of branch 2, at tick 80810, restored in the logical tier, and the driver counts it and goes on.
+The physical error reads "the restore would demote pod pod-021, which has emergency i6.16".
+The cause of that demotion is not attributed.
+A warm save that demotes in this way stops its arm, because a branch must start with the physical tier.
+
+### Divergence of the branches
+
+A temporary probe compared 3 branches of each of two arms, by simulated tick.
+The state of a pair first differs 18 to 61 s after the warm save, at the first driver command of one branch.
+
+| Minutes after the warm save | `incidents`, pods at another place | `emergencies`, pods at another place |
+| ---: | ---: | ---: |
+| 5 | 10% to 60% | 17% to 30% |
+| 15 | 57% to 100% | 50% to 57% |
+| 20 | 83% to 100% | 57% to 63% |
+| 60 | 87% to 93% | 77% to 90% |
+
+So the state of the branches diverges in 15 to 20 of their 120 simulated minutes.
+The branches are not independent in their inputs.
+The state holds the sampler streams and the demand stream, and only the driver reseeds.
+So each branch has the same sampler events: 13 to 17 of the 45 to 51 `incidents` records of a pair have the same start tick and kind, and 10 to 15 also have the same pod or lane.
+On `emergencies`, the numbers are 5 to 7 of 15 to 22, all with the same pod.
+All 10 branches also share the warm state.
+
+### Estimate of the wall time
+
+This is an estimate, and the new soak has not run.
+The `rail-hub` routine soak has 3 armed warm saves, 30 branches, and 2 reference runs: 6.6 million ticks at about 4,400 a second, and 0.54 million at about 5,600.
+That is about 1,600 s of one thread, and about 9 min at parallel 3.
+The `london-central` part has no reading at 30 Hz or with the stride.
+With the rates of 60 Hz under load, about 265 ticks a second for `incidents` and 500 for `emergencies`, it is about 3,200 s of one thread.
+The whole routine soak is then about 30 min at parallel 3 on a free host, and up to about 1 h at a high load.
+So the limit of 2 hours stays.
+`mise run soak:full` needs about 8 hours of one thread by the same rates, or about 2.7 h at parallel 3, so it needs a longer `PODSIM_SOAK_LIMIT` to complete each seed.
 
 ## Readings from a quiet host
 

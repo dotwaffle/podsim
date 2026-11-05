@@ -556,7 +556,7 @@ It has no `london-central` reading, because the limit stopped each run of that a
 It needs a change of one condition, and it stops gating a long wait with faults on, including one that no fault causes.
 The maintainer did not choose rule B.
 
-Rule A keeps a gate with faults on, and rule B does not, so this draft recommends rule A.
+Rule A keeps a gate with faults on, and rule B does not, so the draft recommended rule A.
 The cost of rule A is a classifier in the test: if it names a fault in error, it hides a real wait.
 
 Test change for rule A: `watchEmergencies` in `internal/session/incident_soak_test.go` adds the unblocked ticks of each record at each reading, and `noteLateEmergency` runs when that sum passes `soakEmergencyTime`, in place of the test of the record length.
@@ -571,6 +571,24 @@ This amendment marks no row as passed: the soak at 30 Hz decides the Progress ro
 
 Amendment A9, approved by the maintainer on 2026-11-05 as decisions 1 and 4 of [the tick rate proposal](tick-rate-contract-proposal.md): the sampler interval, the duration in ticks, and off parity now use `TicksPerSecond` and seconds in place of 60 Hz literals.
 Each rule has the same meaning at 60 Hz, and the soak size in simulated hours does not change.
+
+Amendment A10, approved by the maintainer on 2026-11-05: the rows Safety, Contract, and Conservation keep their pass rules, and a routine soak checks them at a stride.
+The cheap checks run at each tick: `checkFaults`, `checkEmergencies`, the transition rules, and `SafetyObservation().Check()`.
+The full check is `ExportState`, `checkContract`, and the order balance, from one export, and it runs at each simulated second and at each event.
+An event is a command of the driver, or a tick where a fault or an emergency starts or ends, a sampler event comes due, or an evacuation or a reroute occurs, as the incident counters show.
+The risk accepted is a violation that lasts under 1 s between two full checks.
+A soak with the full check at each tick is required before a release tag and after a change to dispatch, routing, or the fault and emergency state machines.
+The size of A6 becomes the branch shape for routine soaks.
+On `rail-hub`, each arm has one warm save at 30 simulated minutes, and then 10 branches of 1.5 simulated hours and the clear of 30 simulated minutes.
+On `london-central`, the `incidents` and `emergencies` arms have 3 branches of 1 simulated hour and the clear.
+Each branch restores the encoded warm state in a new session through the save path, and it reseeds the driver.
+Rewinds run each 10 simulated minutes in place of each hour.
+A reference arm has no driver event, so it runs one branch of the same length from its own warm save, and each branch of its group uses that queue range.
+Each branch reports the Progress rows by itself, and a run that the limit stops counts only its completed branches.
+The 5 seeds of 6 simulated hours of A6 stay for the same triggers as the soak with the full check at each tick.
+Soak jobs run with `GOGC=400`, and one soak at a time under a lock.
+`TestSampledTickNoCandidateLatency` moves from `mise run qualify` to `mise run qualify:limits`, because it only reports, and no gate changes.
+This amendment changes no other rule and marks no row as passed.
 
 Amendments, each for a separate answer in section 8:
 

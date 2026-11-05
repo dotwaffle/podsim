@@ -944,7 +944,10 @@ mise run check
 | `mise run check:static` | The checks other than the race tests and `qualify`: `test:web`, `lint`, `vulncheck`, `build`, and `test:embedded`. |
 | `mise run test:race` | The `test:race:sim`, `test:race:session`, and `test:race:other` tasks. |
 | `mise run test:web` | Only the editor, loader, and page tests. |
-| `mise run qualify` | The two Station 19 drain tests in `internal/scenarios`, the two emergency choice and two sampled-tick latency tests in `internal/sim`, and the CI incident soak in `internal/session`, without the race detector. These tests skip under the race detector, so in `mise run check` only this task runs them. The `test:race` task runs the other tests of these packages. |
+| `mise run qualify` | The two Station 19 drain tests in `internal/scenarios`, the two emergency choice tests and `TestSampledTickLatency` in `internal/sim`, and the CI incident soak in `internal/session`, without the race detector. These tests skip under the race detector, so in `mise run check` only this task runs them. The `test:race` task runs the other tests of these packages. |
+| `mise run qualify:limits` | `TestSampledTickNoCandidateLatency`, on request. It reports the time at the project limits and gates nothing. |
+| `mise run soak` | The incident soak in the routine branch shape. See "Incident soak". |
+| `mise run soak:full` | The soak of amendment A6 with the full check at each tick. See "Incident soak". |
 | `mise run test:embedded` | The root and `cmd/serve` tests with the `embed_assets` tag. It also runs the session tests that skip under the race detector or check more without it. The `test:race` task runs the other session tests. |
 | `mise run benchmark` | 6,000 simulation steps on the 100-pod ring fixture, not on the current `scale100` mesh. |
 
@@ -954,6 +957,39 @@ mise run check
 Some editor tests use Go to generate the `scale100` and `london-central` projects.
 If Go is not on `PATH`, `node --test web/editor_test.cjs` skips these tests and gives the reason.
 The `test:web` task sets `PODSIM_REQUIRE_GO=1`, so a missing Go makes the task and `mise run check` fail.
+
+### Incident soak
+
+`mise run soak` runs `TestIncidentSoak` on `rail-hub` and `london-central`.
+Each arm has one warm save, and each branch restores it in a new session and reseeds the driver.
+A failure stops only its branch, and the log line of each branch has its Progress and rule A numbers.
+The `incidents` and `emergencies` arms run on both presets, and `platoons` runs on `rail-hub`.
+The checks run at the stride of amendment A10: the full check runs at each simulated second and at each event.
+Use `mise run soak:full` before a release tag, and after a change to dispatch, routing, or the fault and emergency state machines.
+It runs 5 seeds of 6 simulated hours with the full check at each tick.
+
+The tasks set `GOGC=400` and a memory cap of 16 GB of address space.
+They hold a lock on `/tmp/podsim-soak.lock`, so one host runs one soak at a time.
+A second soak waits for 60 seconds, and then it fails with exit code 75.
+The wall limit is 2 hours, and a run that the limit stops counts only its completed branches.
+`docs/studies/incident-soak.md` has the estimate of the wall time.
+
+These variables change a run:
+
+| Variable | Meaning | Default |
+| --- | --- | --- |
+| `PODSIM_SOAK_PRESETS` | The presets, with commas. | `rail-hub,london-central` |
+| `PODSIM_SOAK_ARMS` | The arms, with commas. A branch of an arm reads the queue range of a reference arm only when the list holds it. | The arms of the shape and the preset |
+| `PODSIM_SOAK_SHAPE` | `branches`, or `seeds` for the shape of amendment A6. | `branches` |
+| `PODSIM_SOAK_EVERY_TICK` | `1` runs the full check at each tick. | Off |
+| `PODSIM_SOAK_SEEDS` and `PODSIM_SOAK_FIRST_SEED` | The seeds. Each seed has its own warm save. | 1 seed in `branches`, 5 in `seeds`, from seed 1 |
+| `PODSIM_SOAK_BRANCHES` | The branches of each arm. | 10 on `rail-hub`, 3 on `london-central`, 1 in `seeds` |
+| `PODSIM_SOAK_HOURS` | The length of a branch before the clear. | 1.5 on `rail-hub`, 1 on `london-central`, 6 in `seeds` |
+| `PODSIM_SOAK_PARALLEL` | The number of runs at one time. | 3 |
+| `PODSIM_SOAK_LIMIT` | The wall limit in seconds. | 7200 |
+| `PODSIM_SOAK_LOCK` | The lock file. | `/tmp/podsim-soak.lock` |
+
+`PODSIM_SOAK_CHECKS`, `PODSIM_SOAK_SETTLE_MINUTES`, and `PODSIM_SOAK_CHECK_FROM_HOURS` are for timing runs only.
 
 ### Continuous integration
 
