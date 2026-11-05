@@ -98,14 +98,14 @@ func (s *Simulation) admissionWaits(v *vehicle) bool {
 // after the terminal berth choice. It reports false when v is not ready to
 // move, when its reservation reaches the end of its route, or when its
 // reservation already covers the stopping distance at cruising speed plus
-// the configured lookahead.
+// the lookahead.
 func (s *Simulation) admissionRequest(v *vehicle) (int, bool) {
 	next := v.reservedThrough + 1
 	if next >= v.blocks.len() {
 		return 0, false
 	}
 	speed := math.Max(v.Pod.Speed, v.blocks.currentLane(v.blockIndex).SpeedLimit)
-	horizon := speed*speed/(2*acceleration) + speed*s.reservationLookaheadSeconds
+	horizon := speed*speed/(2*acceleration) + speed*reservationLookaheadSeconds
 	if v.reservedThrough >= 0 && v.blocks.end(v.reservedThrough)-v.distance >= horizon {
 		return 0, false
 	}

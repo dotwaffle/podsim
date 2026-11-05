@@ -31,7 +31,6 @@ type pickupSwapController struct {
 	scans, routes int
 	cooldown      map[string]int64
 	stats         PickupSwapStats
-	records       []PickupReassignment
 }
 
 // SetPickupSwaps enables experimental pickup reassignment. It is off
@@ -163,8 +162,6 @@ func (s *Simulation) tryPickupSwap(i, j int) bool {
 		c.stats.NoBenefitPairs++
 		return false
 	}
-	s.recordPickupReassignment(s.waiting[i].request, b.Pod.ID, oldA, newB)
-	s.recordPickupReassignment(s.waiting[j].request, a.Pod.ID, oldB, newA)
 	// Neither redirect can fail. Both prepared routes keep their pod's
 	// reserved lanes, and unused destination claims are released normally.
 	s.redirectPickupSwap(a, redirection{route: routeA, berth: berthA, station: s.waiting[j].request.legOrigin()})

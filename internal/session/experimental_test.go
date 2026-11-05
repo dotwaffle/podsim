@@ -94,7 +94,7 @@ func TestExperimentalPolicyFileRestore(t *testing.T) {
 			if info.Tier != "physical" || info.Demoted+info.Requeued+info.Dropped != 0 {
 				t.Fatalf("policy override did not preserve physical restore: %+v", info)
 			}
-			if restored.simulation.PickupSwapStats() != (sim.PickupSwapStats{}) || len(restored.simulation.PickupReassignments()) != 0 {
+			if restored.simulation.PickupSwapStats() != (sim.PickupSwapStats{}) {
 				t.Fatal("file restore retained reassignment history")
 			}
 			restored.simulation.Reset()

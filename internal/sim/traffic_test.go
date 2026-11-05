@@ -18,27 +18,6 @@ func newTraffic(t *testing.T) *Simulation {
 	return s
 }
 
-func TestReservationLookaheadConfiguration(t *testing.T) {
-	t.Parallel()
-	s := newTraffic(t)
-	if s.reservationLookaheadSeconds != defaultReservationLookaheadSeconds {
-		t.Fatalf("default lookahead = %v, want %v", s.reservationLookaheadSeconds, defaultReservationLookaheadSeconds)
-	}
-	if err := s.SetReservationLookahead(0.75); err != nil {
-		t.Fatal(err)
-	}
-	s.Reset()
-	if s.reservationLookaheadSeconds != 0.75 {
-		t.Fatalf("lookahead after reset = %v, want 0.75", s.reservationLookaheadSeconds)
-	}
-
-	for _, seconds := range []float64{-1, math.NaN(), math.Inf(1), maxReservationLookaheadSeconds + 1} {
-		if err := s.SetReservationLookahead(seconds); err == nil {
-			t.Fatalf("SetReservationLookahead(%v) accepted", seconds)
-		}
-	}
-}
-
 func TestResourceReleaseDistance(t *testing.T) {
 	t.Parallel()
 	b := block{start: 30, end: 60, lane: Lane{From: "origin"}}

@@ -431,7 +431,7 @@ func checkEntryLinks(t *testing.T, s *Simulation) {
 			continue
 		}
 		station, _ := s.station(v.destinationStation)
-		geometry, _ := s.linkEnds(v, v.link)
+		geometry := runGeometry(&v.blocks, v.link)
 		for r, releaseAt := range v.routeReleases {
 			owner := s.owners[r]
 			if owner.isZero() || owner.isPod(v.Pod.ID) {

@@ -136,7 +136,6 @@ func (s *Simulation) tryPickupTransfer(index int, replacement *vehicle) bool {
 		replacement.released = false
 	}
 	s.releasePickup(old)
-	s.recordPickupReassignment(trip.request, replacement.Pod.ID, before, after)
 	assignPickup(trip, replacement)
 	trip.route, trip.destination = nil, Berth{}
 	trip.deferUntil, trip.deferCheck, trip.deferPodID = 0, 0, ""
@@ -150,31 +149,4 @@ func (s *Simulation) tryPickupTransfer(index int, replacement *vehicle) bool {
 func pickupTransferImproves(before, after float64) bool {
 	return !math.IsNaN(before) && !math.IsNaN(after) && !math.IsInf(before, 0) && !math.IsInf(after, 0) &&
 		before >= 0 && after >= 0 && after < before-1e-9 && before-after >= pickupSwapMinimumGain
-}
-
-// PickupReassignment records one request's predicted pickup change.
-// Future traffic can change the realized pickup time.
-type PickupReassignment struct {
-	Tick                   int64
-	RequestID              int
-	OldPod, NewPod         string
-	OldSeconds, NewSeconds float64
-}
-
-// PickupReassignments returns experiment records since reset or restore.
-// It returns an owned copy, or nil when experiment recording is off.
-func (s *Simulation) PickupReassignments() []PickupReassignment {
-	if !s.recordExperiments || s.pickupSwaps == nil {
-		return nil
-	}
-	return slices.Clone(s.pickupSwaps.records)
-}
-
-func (s *Simulation) recordPickupReassignment(request Request, pod string, before, after float64) {
-	if s.recordExperiments {
-		s.pickupSwaps.records = append(s.pickupSwaps.records, PickupReassignment{
-			Tick: s.tick, RequestID: request.ID, OldPod: request.PodID, NewPod: pod,
-			OldSeconds: before, NewSeconds: after,
-		})
-	}
 }

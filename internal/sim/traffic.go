@@ -2,7 +2,6 @@ package sim
 
 import (
 	"cmp"
-	"fmt"
 	"iter"
 	"math"
 	"slices"
@@ -545,16 +544,6 @@ func (v *vehicle) firstBlockForLane(laneID string) int {
 	return firstBlockForLane(&v.blocks, laneID)
 }
 
-// SetReservationLookahead controls how early pods request track beyond their
-// braking distance. It does not change physical clearance.
-func (s *Simulation) SetReservationLookahead(seconds float64) error {
-	if math.IsNaN(seconds) || math.IsInf(seconds, 0) || seconds < 0 || seconds > maxReservationLookaheadSeconds {
-		return fmt.Errorf("reservation lookahead must be between 0 and %.0f seconds", maxReservationLookaheadSeconds)
-	}
-	s.reservationLookaheadSeconds = seconds
-	return nil
-}
-
 func (s *Simulation) admit() {
 	if s.admissionWork == nil {
 		s.admissionWork = &admissionWork{pickups: make(map[string]bool)}
@@ -583,7 +572,7 @@ func (s *Simulation) admit() {
 		}
 		s.reevaluateTerminalBerth(v)
 		v.Pod.WaitReason, v.Pod.BlockedBy = NoWait, ""
-		// Reserve enough track for cruising speed plus the configured lookahead.
+		// Reserve enough track for cruising speed plus the lookahead.
 		// A denied extension leaves the existing stopping boundary intact.
 		next, ok := s.admissionRequest(v)
 		if !ok {

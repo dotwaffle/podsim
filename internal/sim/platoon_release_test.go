@@ -78,7 +78,7 @@ func TestPlatoonReleaseBoundedEnd(t *testing.T) {
 				t.Fatalf("l1 has tail %v and from tail %v, want %v and 0", cells.tail, cells.fromTail, test.tail)
 			}
 			link := platoonLink{lane: 0, lanes: 2}
-			geometry, end := s.linkEnds(v, link)
+			geometry, end := runGeometry(&v.blocks, link), s.linkEnd(v, link)
 			legacyGeometry, legacy := legacyLinkEnds(&v.blocks, link)
 			if geometry != legacyGeometry || legacy != v.blocks.laneFirst(1)+test.cell || end != v.blocks.laneFirst(test.lane)+test.end {
 				t.Fatalf("end block %d of %v m, old rule %d of %v m, want %d and %d", end, geometry, legacy, legacyGeometry,
@@ -133,7 +133,7 @@ func TestPlatoonReleaseBoundedQueue(t *testing.T) {
 }
 
 // TestPlatoonRestoreOldRuleLink restores a link that the old rule of
-// linkEnds accepted. On the curved l1 of largeNodeNetwork, cell 4 holds
+// linkEnd accepted. On the curved l1 of largeNodeNetwork, cell 4 holds
 // the node at the end of l1 and no junction. The follower is at rest in
 // cell 4, so its reservation is cell 4, and its predecessor in cell 5
 // holds cell 4 until 1.09 m past the end of the run. The old end block is
@@ -186,7 +186,7 @@ func TestPlatoonRestoreOldRuleLink(t *testing.T) {
 	link := platoonLink{lane: 0, lanes: 2}
 	cell4 := blocks.laneFirst(1) + 4
 	_, legacy := legacyLinkEnds(&blocks, link)
-	_, end := s.linkEnds(leader, link)
+	end := s.linkEnd(leader, link)
 	if reservationEnd(&blocks, cell4) != cell4 || legacy != cell4 || end != cell4-1 {
 		t.Fatalf("reservation %d, old end block %d, new end block %d, want %d, %d and %d", reservationEnd(&blocks, cell4), legacy, end, cell4, cell4, cell4-1)
 	}

@@ -313,7 +313,7 @@ func TestPlatoonNoDrainRoom(t *testing.T) {
 			if ok != test.link || link.lanes > 1 {
 				t.Fatalf("link %+v, planned %v, want %v", link, ok, test.link)
 			}
-			if _, end := s.linkEnds(v, platoonLink{lane: 1, lanes: 1}); (end >= first) != test.link {
+			if end := s.linkEnd(v, platoonLink{lane: 1, lanes: 1}); (end >= first) != test.link {
 				t.Fatalf("end block %d, first block of the run %d", end, first)
 			}
 		})

@@ -161,44 +161,6 @@ func TestPickupTransferImprovement(t *testing.T) {
 	}
 }
 
-func TestPickupReassignmentRecords(t *testing.T) {
-	t.Parallel()
-	s := crossedPickupFixture(t)
-	s.SetPickupSwaps(true)
-	s.swapPickups()
-	records := s.PickupReassignments()
-	if len(records) != 2 {
-		t.Fatalf("swap recorded %d affected requests, want2", len(records))
-	}
-	for _, record := range records {
-		if record.Tick != s.tick || record.RequestID < 1 || record.RequestID > 2 ||
-			record.OldPod == record.NewPod || record.NewSeconds >= record.OldSeconds {
-			t.Fatalf("invalid reassignment record: %+v", record)
-		}
-	}
-	records[0].NewPod = "changed"
-	if s.PickupReassignments()[0].NewPod == "changed" {
-		t.Fatal("record read returned shared storage")
-	}
-	clone := s.Clone()
-	clone.pickupSwaps.records[0].NewPod = "changed"
-	if s.PickupReassignments()[0].NewPod == "changed" {
-		t.Fatal("clone shared reassignment records")
-	}
-	s.SetExperimentRecords(false)
-	if s.PickupReassignments() != nil || s.pickupSwaps.records != nil {
-		t.Fatal("disabled experiment recording retained history")
-	}
-	s.SetExperimentRecords(true)
-	if len(s.PickupReassignments()) != 0 {
-		t.Fatal("reenabling recording recovered discarded history")
-	}
-	clone.Reset()
-	if len(clone.PickupReassignments()) != 0 {
-		t.Fatal("reset retained reassignment history")
-	}
-}
-
 // TestSavedDeferralPodIDText checks that a saved waiting trip names a
 // deferral pod with an ID of ID characters, after the order options.
 func TestSavedDeferralPodIDText(t *testing.T) {

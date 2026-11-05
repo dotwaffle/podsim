@@ -13,8 +13,9 @@ const (
 	unloadingTicks = 2 * TicksPerSecond
 	acceleration   = 2.0
 
-	defaultReservationLookaheadSeconds = 2.0 / TicksPerSecond
-	maxReservationLookaheadSeconds     = 10.0
+	// reservationLookaheadSeconds is how early pods request track beyond
+	// their braking distance. It does not change physical clearance.
+	reservationLookaheadSeconds = 2.0 / TicksPerSecond
 	// Clearance combines a four-meter pod length and an eight-meter gap.
 	Clearance = 4.0 + 8.0
 	// MaxSharedRideParties bounds the same-destination sharing experiment.
@@ -416,16 +417,15 @@ type Simulation struct {
 	sharedRideJoin         SharedRideJoin
 	onboardPickups         bool
 	// approachStations and routeStations belong to stationsOnRouteForClass.
-	approachStations            map[string][]string
-	routeStations               map[stopKey][]string
-	seatScreen                  SeatScreen
-	routingPolicy               RoutingPolicy
-	finishingPodWait            FinishingPodWait
-	pickupSwaps                 *pickupSwapController
-	congestionRouteCosts        []float64
-	congestionRoutes            map[routeKey]routeResult
-	nextCongestionRouteRefresh  int64
-	reservationLookaheadSeconds float64
+	approachStations           map[string][]string
+	routeStations              map[stopKey][]string
+	seatScreen                 SeatScreen
+	routingPolicy              RoutingPolicy
+	finishingPodWait           FinishingPodWait
+	pickupSwaps                *pickupSwapController
+	congestionRouteCosts       []float64
+	congestionRoutes           map[routeKey]routeResult
+	nextCongestionRouteRefresh int64
 	// unaccountedOrders counts the orders that the simulation submitted but
 	// that are not complete, not interrupted, not queued and not aboard a
 	// pod. It is 0 until a restore finds such orders in a saved state or

@@ -291,7 +291,7 @@ func (s *Simulation) admitBeforeWork() {
 		// Reserve enough track for cruising speed plus the configured lookahead.
 		// A denied extension leaves the existing stopping boundary intact.
 		speed := math.Max(v.Pod.Speed, v.blocks.currentLane(v.blockIndex).SpeedLimit)
-		horizon := speed*speed/(2*acceleration) + speed*s.reservationLookaheadSeconds
+		horizon := speed*speed/(2*acceleration) + speed*reservationLookaheadSeconds
 		if v.reservedThrough >= 0 && v.blocks.end(v.reservedThrough)-v.distance >= horizon {
 			continue
 		}

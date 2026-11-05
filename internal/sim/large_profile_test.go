@@ -104,9 +104,6 @@ func TestLargeProfileLinkExclusions(t *testing.T) {
 		if v.link.leader != 0 || leader.follower != 0 {
 			t.Fatal("large or mixed link was created")
 		}
-		if _, ok := s.planLink(linkPlan{v: v, leader: leader}); ok {
-			t.Fatal("ordinary planner admitted a large or mixed link")
-		}
 	}
 }
 

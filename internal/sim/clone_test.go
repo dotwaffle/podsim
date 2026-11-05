@@ -47,7 +47,7 @@ var cloneRules = map[reflect.Type]map[string]cloneRule{
 	reflect.TypeFor[waitingTrip]():          {"route": cloneShare},
 	reflect.TypeFor[routeResult]():          {"lanes": cloneShare, "err": cloneShare},
 	reflect.TypeFor[podQueueHistory]():      {"lanes": cloneCopy},
-	reflect.TypeFor[pickupSwapController](): {"cooldown": cloneCopy, "records": cloneCopy},
+	reflect.TypeFor[pickupSwapController](): {"cooldown": cloneCopy},
 	reflect.TypeFor[motionRecorder]():       {"frame": cloneCopy, "pending": cloneCopy},
 	reflect.TypeFor[MotionFrame]():          {"Samples": cloneCopy},
 }
@@ -58,8 +58,7 @@ var clonePlainTypes = []reflect.Type{
 	reflect.TypeFor[RiderBoarding](),
 	reflect.TypeFor[Request](), reflect.TypeFor[Pod](), reflect.TypeFor[Berth](),
 	reflect.TypeFor[resource](), reflect.TypeFor[demoRun](), reflect.TypeFor[routeKey](),
-	reflect.TypeFor[PickupReassignment](), reflect.TypeFor[faultRecord](),
-	reflect.TypeFor[emergencyRecord](),
+	reflect.TypeFor[faultRecord](), reflect.TypeFor[emergencyRecord](),
 }
 
 // holdsReferences reports whether a value copy of t shares storage with the
@@ -240,7 +239,7 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"predictiveQueues": persistUnsupported, "predictivePodQueues": persistUnsupported, "predictiveQueueTick": persistUnsupported,
 		"routingPolicy": persistUnsupported, "congestionRouteCosts": persistUnsupported,
 		"congestionRoutes": persistUnsupported, "nextCongestionRouteRefresh": persistUnsupported,
-		"reservationLookaheadSeconds": persistUnsupported, "finishingPodWait": persistUnsupported,
+		"finishingPodWait": persistUnsupported,
 		"requestBoardings": persistReset, "requestCompletions": persistReset, "stepCompletions": persistReset, "nodePasses": persistReset, "seatScreen": persistReset,
 		"recordExperiments": persistUnsupported, "pass": persistReset,
 		"platooning": persistSession, "platoonLimit": persistSession, "platoonLinks": persistDerive,
@@ -484,7 +483,6 @@ func activeCloneSimulation(t *testing.T) *Simulation {
 	s.expressServices = map[string]ExpressService{"storage": {ID: "storage", From: "harbor", To: "market", Class: ExpressClass, PartyLimit: 20}}
 	s.stepCompletions = []StepCompletion{{RequestID: 1, AlightedTick: s.tick}}
 	s.undelivered = []int{1}
-	s.pickupSwaps.records = []PickupReassignment{{Tick: s.tick, RequestID: 1, OldPod: "01", NewPod: "02", OldSeconds: 30, NewSeconds: 10}}
 	// Storage coverage uses aligned records without enabling occupied pickup.
 	for index := range s.vehicles {
 		v := &s.vehicles[index]

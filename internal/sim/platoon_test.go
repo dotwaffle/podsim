@@ -137,7 +137,7 @@ func (m *platoonMonitor) checkCertificate(t *testing.T, v, leader *vehicle) {
 			t.Fatalf("tick %d: the run of pod %s turns %v from its lane, more than %v", s.tick, v.Pod.ID, turn, link.turn)
 		}
 	}
-	geometry, end := s.linkEnds(v, *link)
+	geometry, end := runGeometry(&v.blocks, *link), s.linkEnd(v, *link)
 	if legacyGeometry, legacy := legacyLinkEnds(&v.blocks, *link); !runHasTails(&v.blocks, *link) && (legacy != end || legacyGeometry != geometry) {
 		t.Fatalf("tick %d: the run of pod %s has no tails and ends at block %d, want %d of the old rule", s.tick, v.Pod.ID, end, legacy)
 	}
@@ -167,9 +167,9 @@ func (m *platoonMonitor) checkCertificate(t *testing.T, v, leader *vehicle) {
 	}
 }
 
-// legacyLinkEnds is linkEnds before the release test: the last block of
+// legacyLinkEnds is linkEnd before the release test: the last block of
 // the run whose end is Clearance and the drain slack before the end of the
-// run. It is the same rule as linkEnds for a run of cells with no larger
+// run. It is the same rule as linkEnd for a run of cells with no larger
 // tail.
 func legacyLinkEnds(blocks *blockList, link platoonLink) (geometry float64, end int) {
 	last := link.lane + link.lanes - 1
