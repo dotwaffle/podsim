@@ -436,24 +436,23 @@ func TestExpressRestoreOccupiedPhaseBound(t *testing.T) {
 	}
 }
 
-// TestExpressPhaseKeepsRefusalOrder checks that a phase above a seat-only bound
-// does not change the refusal of an Express pod with no contract.
+// TestExpressPhaseKeepsRefusalOrder checks that the class refusal of an Express
+// pod with no contract comes before the phase refusal. Phase 661 is above each
+// bound of each class, so a phase check that runs first refuses it with
+// another text.
 func TestExpressPhaseKeepsRefusalOrder(t *testing.T) {
 	t.Parallel()
 	s, network, fleet := expressTestFleet(t)
 	expressBoarding(t, s, PrivateConsent, 20)
-	refusal := func(phase int) string {
+	const want = "restore the saved simulation: physical tier: pod 01: class express: vehicle physical profile is not supported, logical tier: pod 01: class express: vehicle physical profile is not supported"
+	for _, phase := range []int{1, 22*TicksPerSecond + 1} {
 		state := roundTripState(t, s.ExportState())
 		state.OrderContract = ""
 		state.Pods[0].PhaseTicks = phase
 		_, _, err := RestoreState(RestoreStateInput{Network: network, Fleet: fleet, State: state})
-		if err == nil {
-			t.Fatal("restored Express with no contract")
+		if err == nil || err.Error() != want {
+			t.Errorf("phase %d: refusal %v, want %q", phase, err, want)
 		}
-		return err.Error()
-	}
-	if low, high := refusal(1), refusal(10*TicksPerSecond); low != high {
-		t.Fatalf("the refusal moved: %q and %q", low, high)
 	}
 }
 
