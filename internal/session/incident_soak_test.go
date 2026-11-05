@@ -3,12 +3,14 @@ package session
 import (
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"maps"
 	"math"
 	"math/rand/v2"
 	"os"
+	"path/filepath"
 	"reflect"
 	"runtime"
 	"slices"
@@ -1066,6 +1068,10 @@ func soakEnvNumber[N uint64 | int64 | float64](t *testing.T, name string, fallba
 // branch is a subtest, so a failure stops only that branch, and its log line
 // holds its Progress and rule A numbers.
 //
+// A run that the wall limit stops counts only its completed seeds. With
+// PODSIM_SOAK_FINISHED set, the test adds a line to that file for each finished
+// seed, at once, so the file survives the stop.
+//
 // These variables select the run: PODSIM_SOAK=1, PODSIM_SOAK_SHAPE ("branches"
 // or "seeds"), PODSIM_SOAK_EVERY_TICK=1, PODSIM_SOAK_PRESETS, PODSIM_SOAK_ARMS,
 // PODSIM_SOAK_SEEDS, PODSIM_SOAK_FIRST_SEED, PODSIM_SOAK_BRANCHES, and
@@ -1097,14 +1103,55 @@ func TestIncidentSoak(t *testing.T) {
 		for seed := first; seed < first+shape.seeds; seed++ {
 			input := base
 			input.preset, input.seed, input.hours, input.rewindEvery = preset, seed, shape.hours, shape.rewindEvery
+			finished := newSoakSeedRecord(os.Getenv("PODSIM_SOAK_FINISHED"), preset, seed, len(soakGroups))
 			for _, group := range soakGroups {
 				t.Run(fmt.Sprintf("%s/seed-%d/%s", preset, seed, group.reference), func(t *testing.T) {
 					t.Parallel()
+					t.Cleanup(func() {
+						if err := finished.groupDone(t.Failed()); err != nil {
+							t.Error(err)
+						}
+					})
 					runSoakGroup(t, input, shape, group.reference, group.arms)
 				})
 			}
 		}
 	}
+}
+
+// soakSeedRecord adds one line to a file when each group of a seed is done.
+type soakSeedRecord struct {
+	path, preset string
+	seed         uint64
+	mu           sync.Mutex
+	groups       int
+	failed       bool
+}
+
+func newSoakSeedRecord(path, preset string, seed uint64, groups int) *soakSeedRecord {
+	return &soakSeedRecord{path: path, preset: preset, seed: seed, groups: groups}
+}
+
+// groupDone records the end of a group. After the last group of the seed, it adds
+// the line of the seed. A seed with a failed group is finished, and its line says
+// that it failed.
+func (r *soakSeedRecord) groupDone(failed bool) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.failed = r.failed || failed
+	r.groups--
+	if r.groups != 0 || r.path == "" {
+		return nil
+	}
+	file, err := os.OpenFile(r.path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		return fmt.Errorf("record the seed: %w", err)
+	}
+	defer file.Close()
+	if _, err := fmt.Fprintf(file, "preset=%s seed=%d failed=%t\n", r.preset, r.seed, r.failed); err != nil {
+		return fmt.Errorf("record the seed: %w", err)
+	}
+	return nil
 }
 
 // runSoakGroup runs the reference of a group, and then a subtest for each arm.
@@ -1522,6 +1569,38 @@ func TestSoakBranchReseed(t *testing.T) {
 	}
 	if reflect.DeepEqual(first.s.simulation.ExportState(), other.s.simulation.ExportState()) {
 		t.Fatal("two branches give the same run")
+	}
+}
+
+// TestSoakSeedRecord checks that a seed has its line only after its last group,
+// and that the line tells of a failure in any group.
+func TestSoakSeedRecord(t *testing.T) {
+	t.Parallel()
+	path := filepath.Join(t.TempDir(), "finished")
+	read := func() string {
+		data, err := os.ReadFile(path)
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
+			t.Fatal(err)
+		}
+		return string(data)
+	}
+	first, second := newSoakSeedRecord(path, "rail-hub", 2, 2), newSoakSeedRecord(path, "rail-hub", 3, 2)
+	for _, step := range []struct {
+		record *soakSeedRecord
+		failed bool
+		want   string
+	}{
+		{first, true, ""},
+		{second, false, ""},
+		{second, false, "preset=rail-hub seed=3 failed=false\n"},
+		{first, false, "preset=rail-hub seed=3 failed=false\npreset=rail-hub seed=2 failed=true\n"},
+	} {
+		if err := step.record.groupDone(step.failed); err != nil {
+			t.Fatal(err)
+		}
+		if got := read(); got != step.want {
+			t.Fatalf("the file holds %q, want %q", got, step.want)
+		}
 	}
 }
 

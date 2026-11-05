@@ -947,7 +947,7 @@ mise run check
 | `mise run qualify` | The two Station 19 drain tests in `internal/scenarios`, the two emergency choice tests and `TestSampledTickLatency` in `internal/sim`, and the CI incident soak in `internal/session`, with the full check at each tick, without the race detector. These tests skip under the race detector, so in `mise run check` only this task runs them. The `test:race` task runs the other tests of these packages. |
 | `mise run qualify:limits` | `TestSampledTickNoCandidateLatency`, on request. It reports the time at the project limits and gates nothing. |
 | `mise run soak` | The incident soak in the routine branch shape. See "Incident soak". |
-| `mise run soak:full` | The soak of amendment A6 with the full check at each tick. See "Incident soak". |
+| `mise run soak:full` | The soak of amendment A6 with the full check at each tick. The limit of 2 hours can cut it, and it lists the seeds that finished. See "Incident soak". |
 | `mise run test:embedded` | The root and `cmd/serve` tests with the `embed_assets` tag. It also runs the session tests that skip under the race detector or check more without it. The `test:race` task runs the other session tests. |
 | `mise run benchmark` | 6,000 simulation steps on the 100-pod ring fixture, not on the current `scale100` mesh. |
 
@@ -970,6 +970,9 @@ The `incidents` and `emergencies` arms run on both presets, and `platoons` runs 
 The checks run at the stride of amendment A10: the full check runs at each simulated second and at each event.
 Use `mise run soak:full` before a release tag, and after a change to dispatch, routing, or the fault and emergency state machines.
 It runs 5 seeds of 6 simulated hours with the full check at each tick.
+This run keeps the wall limit of 2 hours, so it can end cut, before each seed finishes.
+A run that the limit stops counts only its completed seeds.
+The task writes each finished seed to the file of `PODSIM_SOAK_FINISHED`, with its failure state, and it prints that file at the end, also after a cut.
 
 The tasks set a memory cap of 16 GB of address space.
 They hold a lock on `/tmp/podsim-soak.lock`, so one host runs one soak at a time.
@@ -991,6 +994,7 @@ These variables change a run:
 | `PODSIM_SOAK_PARALLEL` | The number of runs at one time. | 3 |
 | `PODSIM_SOAK_LIMIT` | The wall limit in seconds. | 7200 |
 | `PODSIM_SOAK_LOCK` | The lock file. | `/tmp/podsim-soak.lock` |
+| `PODSIM_SOAK_FINISHED` | The file that gets one line for each finished seed. `mise run soak:full` clears it at its start. | Not set, or `/tmp/podsim-soak-finished.txt` in `mise run soak:full` |
 
 `PODSIM_SOAK_CHECKS`, `PODSIM_SOAK_SETTLE_MINUTES`, and `PODSIM_SOAK_CHECK_FROM_HOURS` are for timing runs only.
 
