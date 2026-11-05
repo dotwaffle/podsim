@@ -527,6 +527,16 @@ Status 2026-11-05: `docs/studies/incident-soak.md` holds the timing run.
 The soak has not run, the maintainer has not chosen its size, and the Performance row for suspension is open.
 This status marks no gate as passed.
 
+Amendment A6, approved by the maintainer on 2026-11-05: the Safety, Contract, Conservation, Rail, Progress, and Persistence rows run for 5 seeds of 6 simulated hours, then the clear of 30 simulated minutes, on both presets, with a limit of 2 hours of wall time.
+This size replaces 24 simulated hours and at least 20 seeds.
+A run that the limit stops counts only its completed seeds.
+
+Draft amendment A7, not approved until the maintainer confirms it: on the Performance row for suspension, the median rule becomes a median of at most 50 µs at 64 debris and 300 pod faults.
+One step at 60x has 278 µs on one core, and the reference step does almost no work, so a ratio does not measure the cost.
+The row at 1,000 pod faults and a row with a full queue, against 278 µs, are reports.
+The rule for the slowest tick stays.
+A quiet-host run must confirm the margin.
+
 Amendments, each for a separate answer in section 8:
 
 | # | Approved text | Change | Reason |
