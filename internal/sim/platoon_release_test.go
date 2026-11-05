@@ -9,27 +9,31 @@ import (
 
 // largeNodeLanes returns the path of largeNodeNetwork. The first lane is
 // 1000 m long and ends at the origin. The second lane, l1, is straight and
-// 36 m long, or the curve from the origin with control (0, 100) to
-// (120, 100). The third lane starts in line with l1 and curves by 20
-// degrees, so a run of l0 and l1 with the turn of those lanes cannot grow
-// onto it, and no junction zone covers the node between them. The fourth
-// lane goes on in line to the station entry.
+// 36 m long, or the curve from the origin with control (24, 40.8) to (48, 0).
+// The curve has a tail longer than a cell, and the first lane comes in along
+// its start, so the turn of the run is under the limit of a platoon link. The
+// third lane starts in line with l1 and curves by 20 degrees, so a run of l0
+// and l1 with the turn of those lanes cannot grow onto it, and no junction
+// zone covers the node between them. The fourth lane goes on in line to the
+// station entry.
 func largeNodeLanes(curve bool) (start Point, lanes []geometryLane) {
-	heading := 20 * math.Pi / 180
-	sign, end := 1.0, Point{X: 36}
+	heading, turn := 0.0, 20*math.Pi/180
+	end := Point{X: 36}
 	start = Point{X: -1000}
 	if curve {
-		sign, end, start = -1, Point{X: 120, Y: 100}, Point{Y: -1000}
+		heading = math.Atan2(-40.8, 24)
+		end, start = Point{X: 48}, Point{X: -507, Y: -862}
 	}
-	control := Point{X: end.X + 50, Y: end.Y}
-	third := Point{X: control.X + 50*math.Cos(heading), Y: control.Y + sign*50*math.Sin(heading)}
+	control := Point{X: end.X + 50*math.Cos(heading), Y: end.Y + 50*math.Sin(heading)}
+	heading += turn
+	third := Point{X: control.X + 50*math.Cos(heading), Y: control.Y + 50*math.Sin(heading)}
 	first := geometryLane{to: end}
 	if curve {
-		first.control = &Point{Y: 100}
+		first.control = &Point{X: 24, Y: 40.8}
 	}
 	return start, []geometryLane{
 		{to: Point{}}, first, {to: third, control: &control},
-		{to: Point{X: third.X + 36*math.Cos(heading), Y: third.Y + sign*36*math.Sin(heading)}},
+		{to: Point{X: third.X + 36*math.Cos(heading), Y: third.Y + 36*math.Sin(heading)}},
 	}
 }
 
@@ -67,7 +71,7 @@ func TestPlatoonReleaseBoundedEnd(t *testing.T) {
 		cell, lane, end int
 	}{
 		{name: "straight", tail: largeClearance, cell: 0, lane: 0, end: 33},
-		{name: "curved", curve: true, tail: 30.89, cell: 4, lane: 1, end: 3},
+		{name: "curved", curve: true, tail: 22, cell: 1, lane: 1, end: 0},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -133,11 +137,11 @@ func TestPlatoonReleaseBoundedQueue(t *testing.T) {
 }
 
 // TestPlatoonRestoreOldRuleLink restores a link that the old rule of
-// linkEnd accepted. On the curved l1 of largeNodeNetwork, cell 4 holds
+// linkEnd accepted. On the curved l1 of largeNodeNetwork, cell 1 holds
 // the node at the end of l1 and no junction. The follower is at rest in
-// cell 4, so its reservation is cell 4, and its predecessor in cell 5
-// holds cell 4 until 1.09 m past the end of the run. The old end block is
-// cell 4, but the new end block is cell 3. linkClaims then refuses the
+// cell 1, so its reservation is cell 1, and its predecessor in cell 2
+// holds cell 1 until just past the end of the run. The old end block is
+// cell 1, but the new end block is cell 0. linkClaims then refuses the
 // claim, and the restore demotes the follower. The predecessor stays in
 // place, and no migration changes the saved link.
 func TestPlatoonRestoreOldRuleLink(t *testing.T) {
@@ -154,7 +158,7 @@ func TestPlatoonRestoreOldRuleLink(t *testing.T) {
 	}
 	var fleet []Placement
 	state := SavedState{SharedRidePartyLimit: 1}
-	for index, distance := range []float64{165, 140} {
+	for index, distance := range []float64{62, 38} {
 		id := fmt.Sprintf("p%02d", index+1)
 		fleet = append(fleet, Placement{ID: id, StationID: "origin", BerthID: fmt.Sprintf("origin-%02d", index+1)})
 		state.RequestID++
@@ -184,14 +188,14 @@ func TestPlatoonRestoreOldRuleLink(t *testing.T) {
 	// route of the leader, which is the same.
 	blocks, _ := s.routeBlocks(leader.Route)
 	link := platoonLink{lane: 0, lanes: 2}
-	cell4 := blocks.laneFirst(1) + 4
+	cell1 := blocks.laneFirst(1) + 1
 	_, legacy := legacyLinkEnds(&blocks, link)
 	end := s.linkEnd(leader, link)
-	if reservationEnd(&blocks, cell4) != cell4 || legacy != cell4 || end != cell4-1 {
-		t.Fatalf("reservation %d, old end block %d, new end block %d, want %d, %d and %d", reservationEnd(&blocks, cell4), legacy, end, cell4, cell4, cell4-1)
+	if reservationEnd(&blocks, cell1) != cell1 || legacy != cell1 || end != cell1-1 {
+		t.Fatalf("reservation %d, old end block %d, new end block %d, want %d, %d and %d", reservationEnd(&blocks, cell1), legacy, end, cell1, cell1, cell1-1)
 	}
-	if _, held := leader.routeReleases[resource{kind: trackResource, id: "l1", cell: 4}]; !held {
-		t.Fatal("the leader does not hold cell 4 of l1")
+	if _, held := leader.routeReleases[resource{kind: trackResource, id: "l1", cell: 1}]; !held {
+		t.Fatal("the leader does not hold cell 1 of l1")
 	}
 }
 

@@ -215,7 +215,7 @@ Lane length divided by a nominal cell count is not a substitute for that check.
 Retain origin, track, cell, junction, crossing, and berth ownership until the applicable release frontier passes the retained tail.
 The common tail is at least 20 m.
 Existing curved-path projection bounds may require larger tails.
-Do not shorten those bounds to 20 m.
+The polyline bound of section 4.1 of the [Express standees proposal](express-standees-contract-proposal.md) replaces those bounds when it is smaller, and a tail on a curve stays above 20 m.
 Reject nonfinite or nonpositive projection proofs and incomplete route geometry.
 Check merges, crossings, plane transitions, banks, parking, and neighboring berths using their actual paths and resource identities.
 

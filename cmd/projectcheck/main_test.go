@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"encoding/json/v2"
 	"errors"
+	"fmt"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"slices"
@@ -326,22 +328,69 @@ func railHubAllClasses(t *testing.T) project.Config {
 	return config
 }
 
+// withUTurns adds a U-turn loop to the middle of the first count links of
+// a rail-hub project. Each loop leaves a link node and comes back to it. The U-turn has a
+// chord of 10 m and a length of 101 m, so its tail exceeds its length.
+func withUTurns(t *testing.T, config project.Config, count int) project.Config {
+	t.Helper()
+	classes, err := sim.NewClassSet("legacy", "compact", "group", "express")
+	if err != nil {
+		t.Fatal(err)
+	}
+	positions := make(map[string]sim.Point, len(config.Network.Nodes))
+	for _, node := range config.Network.Nodes {
+		positions[node.ID] = node.Position
+	}
+	loops := 0
+	for index := range config.Network.Lanes {
+		if loops == count {
+			break
+		}
+		lane := &config.Network.Lanes[index]
+		if !strings.HasPrefix(lane.ID, "link-") {
+			continue
+		}
+		loops++
+		from, to := positions[lane.From], positions[lane.To]
+		middle := sim.Point{X: (from.X + to.X) / 2, Y: (from.Y + to.Y) / 2}
+		radius := math.Hypot(middle.X, middle.Y)
+		out := sim.Point{X: middle.X / radius, Y: middle.Y / radius}
+		across := sim.Point{X: -out.Y, Y: out.X}
+		at := func(outward, sideways float64) sim.Point {
+			return sim.Point{X: middle.X + outward*out.X + sideways*across.X, Y: middle.Y + outward*out.Y + sideways*across.Y}
+		}
+		prefix := fmt.Sprintf("u%02d", loops)
+		hub, in, back := prefix+"-hub", prefix+"-in", prefix+"-back"
+		end := lane.To
+		lane.To = hub
+		speed, control := lane.SpeedLimit, at(200, 0)
+		config.Network.Nodes = append(config.Network.Nodes,
+			sim.Node{ID: hub, Position: middle}, sim.Node{ID: in, Position: at(100, 5)}, sim.Node{ID: back, Position: at(100, -5)})
+		config.Network.Lanes = append(config.Network.Lanes,
+			sim.Lane{ID: prefix + "-link", From: hub, To: end, SpeedLimit: speed, VehicleClasses: classes},
+			sim.Lane{ID: prefix + "-out", From: hub, To: in, SpeedLimit: speed, VehicleClasses: classes},
+			sim.Lane{ID: prefix + "-bend", From: in, To: back, SpeedLimit: speed, VehicleClasses: classes, Control: &control},
+			sim.Lane{ID: prefix + "-return", From: back, To: hub, SpeedLimit: speed, VehicleClasses: classes})
+	}
+	return config
+}
+
 // TestProjectCheckTailWarnings checks that a warning does not change the
 // exit of the command, and that the lines follow the summary.
 func TestProjectCheckTailWarnings(t *testing.T) {
 	t.Parallel()
 	var output bytes.Buffer
-	if err := command([]string{"-project", projectFile(t, projectData(t, railHubAllClasses(t)))}, &output); err != nil {
+	if err := command([]string{"-project", projectFile(t, projectData(t, withUTurns(t, railHubAllClasses(t), project.MaxTailWarnings+2)))}, &output); err != nil {
 		t.Fatal(err)
 	}
 	lines := strings.Split(strings.TrimSuffix(output.String(), "\n"), "\n")
 	if len(lines) != 2+project.MaxTailWarnings+1 {
 		t.Fatalf("got %d lines: %s", len(lines), &output)
 	}
-	if want := "Warning: Lane s01-in-01 has a large-class tail of 299.1 m on a length of 189.3 m, which can stop the network."; lines[2] != want {
+	if want := "Warning: Lane u01-bend has a large-class tail of 101.5 m on a length of 101.0 m, which can stop the network."; lines[2] != want {
 		t.Fatalf("first warning = %q", lines[2])
 	}
-	if want := "Warning: 65 more lanes have a large-class tail longer than their length."; lines[len(lines)-1] != want {
+	if want := "Warning: 2 more lanes have a large-class tail longer than their length."; lines[len(lines)-1] != want {
 		t.Fatalf("count line = %q", lines[len(lines)-1])
 	}
 	output.Reset()
@@ -350,6 +399,13 @@ func TestProjectCheckTailWarnings(t *testing.T) {
 	}
 	if strings.Contains(output.String(), "Warning") {
 		t.Fatalf("plain rail-hub: %s", &output)
+	}
+	output.Reset()
+	if err := command([]string{"-project", projectFile(t, projectData(t, railHubAllClasses(t)))}, &output); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(output.String(), "Warning") {
+		t.Fatalf("all-class rail-hub: %s", &output)
 	}
 }
 
@@ -370,7 +426,7 @@ func (w *countedWriter) Write(data []byte) (int, error) {
 func TestProjectCheckWarningWriteError(t *testing.T) {
 	t.Parallel()
 	failure := errors.New("write failed")
-	err := command([]string{"-project", projectFile(t, projectData(t, railHubAllClasses(t)))}, &countedWriter{writes: 1, err: failure})
+	err := command([]string{"-project", projectFile(t, projectData(t, withUTurns(t, railHubAllClasses(t), 1)))}, &countedWriter{writes: 1, err: failure})
 	if !errors.Is(err, failure) || !strings.Contains(err.Error(), "write project warning") {
 		t.Fatalf("error = %v", err)
 	}

@@ -48,7 +48,8 @@ func largeBerth(station Station, berth Berth) bool {
 
 // geometryTails stores only larger bounds. Zero retains ordinary arithmetic.
 // front is the distance past the center that the observer takes as the front
-// of a body on this lane.
+// of a body on this lane. It comes from the projection bound of the lane and
+// not from the tail, so a shorter tail does not move the front.
 type geometryTails struct {
 	tail, fromTail, front float64
 }
@@ -77,8 +78,9 @@ func indexGeometryTails(network Network) map[string]geometryTails {
 			if positions == nil {
 				positions = indexNodePositions(network.Nodes)
 			}
-			bounds.tail = largePathTail(lanePointsBetween(lane, positions[lane.From], positions[lane.To], make([]Point, 0, 65)))
-			bounds.front = largeEnvelopeRadius * bounds.tail / largeClearance
+			var oldBound float64
+			bounds.tail, oldBound = largePathBounds(lanePointsBetween(lane, positions[lane.From], positions[lane.To], make([]Point, 0, 65)))
+			bounds.front = largeEnvelopeRadius * oldBound / largeClearance
 		}
 		if nodes[lane.From] {
 			bounds.fromTail = bounds.tail
@@ -126,11 +128,12 @@ func laneTailOverruns(n Network, tails map[string]geometryTails) []LaneTailOverr
 	return overruns
 }
 
-// largePathTail bounds physical separation by projection on the lane chord.
-// Each segment must advance on that axis. For a minimum projection ratio c,
-// a path gap of 20/c meters gives at least 20 meters of physical separation.
-// An infinite result means this proof cannot admit the authored path.
-func largePathTail(points []Point) float64 {
+// oldLargePathBound bounds physical separation by projection on the lane
+// chord. Each segment must advance on that axis. For a minimum projection
+// ratio c, a path gap of 20/c meters gives at least 20 meters of physical
+// separation. An infinite result means this proof cannot admit the authored
+// path.
+func oldLargePathBound(points []Point) float64 {
 	if len(points) < 2 {
 		return math.Inf(1)
 	}

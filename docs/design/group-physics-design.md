@@ -36,11 +36,16 @@ It also checks small lanes that meet a large-admitting lane or berth node.
 A 20-meter path gap on a curve can give less than 20 meters of physical separation.
 Preparation derives a larger retention tail from the actual movement polyline.
 Let `c` be the minimum projection of a unit segment tangent onto the unit lane chord.
-For curved paths, the tail is `20 / (c * (1 - conflictSlack))`.
-Straight paths retain a 20-meter tail.
+The projection bound is `20 / (c * (1 - conflictSlack))`.
 Every relevant nonzero segment must advance on the chord axis.
 Preparation rejects folded paths, zero chords, and nonfinite bounds.
-The tail can exceed the lane length and is never reduced to fit that length.
+Straight paths retain a tail of exactly 20 meters.
+For curved paths, the tail is `min(projection bound, max(20, grid(scan + h)))`, where `h` is the larger of 0.25 meters and 1/1024 of the lane length, and `grid` rounds up to a multiple of `h`.
+The value `scan` is the largest path gap of a pair closer than `20 + h/2 + 1 mm`, with the rear position in steps of `h` over the lane and the lane end, and the front position at the last close point.
+A walk finds that point from the lane end, and each step back is the distance over that limit, with a minimum step of 1 mm.
+A lane that passes a fixed budget of distance evaluations in this walk takes the projection bound.
+The tail is above each path gap of a pair closer than 20 meters.
+Inside the budget, it is under the lane length plus `2h`, and a tail that exceeds the lane means that the lane holds one pod.
 
 Each immutable lane-cell index stores its tail and its independent start-node tail.
 Endpoint ownership covers every cell that overlaps the applicable endpoint tail.
@@ -65,7 +70,7 @@ Missing arrays, changed pod values, or overlapping incident planes refuse the ex
 Public center-only locations cannot grant this exemption.
 The network audit applies the same rule before a run: a large pair of lanes gets the exemption only when every cross-pair of the lanes, their incident lanes, and the berths at their From nodes is on different planes.
 The audit uses the whole lane, so a pass that is far from the join on a lane that is incident to a shared plane is also refused.
-The route window of a pod can reach further than an incident lane, because a long tail on any lane of the route enlarges the front bound for the whole route.
+The route window of a pod can reach further than an incident lane, because the front bound is the largest `6 * projection bound / 20` of the lanes of the route, and each lane stores it beside its tail.
 The audit does not cover that case, so the observer can report a pair that the audit accepted.
 The observation uses the existing tick rate, acceleration, braking, and authored speed limits.
 

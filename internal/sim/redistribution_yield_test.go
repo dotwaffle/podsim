@@ -344,10 +344,17 @@ func TestYieldRelocationClaimsReadsPodsAfterPark(t *testing.T) {
 func partialYieldFixture(t *testing.T) (*Simulation, *vehicle) {
 	t.Helper()
 	network := Example()
+	// The hairpin has a tail longer than a cell, so a cell before the last
+	// holds the berth node and not the berth.
+	for i := range network.Nodes {
+		if network.Nodes[i].ID == "market-berth" {
+			network.Nodes[i].Position = Point{X: 770, Y: 290}
+		}
+	}
 	for i := range network.Lanes {
 		if network.Lanes[i].ID == "market-in" {
 			network.Lanes[i].VehicleClasses = classBit(string(LegacyClass)) | classBit(string(GroupClass))
-			network.Lanes[i].Control = &Point{X: 730, Y: 350}
+			network.Lanes[i].Control = &Point{X: 660, Y: 395}
 		}
 	}
 	s, err := NewFleet(network, []Placement{

@@ -7,7 +7,8 @@ import (
 )
 
 // TestLaneTailOverruns uses a large lane from a to b. Other lanes touch its
-// nodes at their From or To node, or touch neither.
+// nodes at their From or To node, or touch neither. The curves are U-turns
+// with a chord under 20 m, so a tail exceeds their length.
 func TestLaneTailOverruns(t *testing.T) {
 	t.Parallel()
 	large := largeGeometryClasses(t, "legacy", "group")
@@ -17,16 +18,16 @@ func TestLaneTailOverruns(t *testing.T) {
 			{ID: "b", Position: Point{X: 100, Y: 0}},
 			{ID: "c", Position: Point{X: 100, Y: 20}},
 			{ID: "d", Position: Point{X: 0, Y: 15}},
-			{ID: "e", Position: Point{X: 300, Y: 0}},
-			{ID: "f", Position: Point{X: 400, Y: 0}},
+			{ID: "e", Position: Point{X: 110, Y: 0}},
+			{ID: "f", Position: Point{X: -10, Y: 0}},
 			{ID: "g", Position: Point{X: 300, Y: 15}},
 		},
 		Lanes: []Lane{
 			{ID: "large-straight", From: "a", To: "b", VehicleClasses: large},
 			{ID: "exact-fit", From: "b", To: "c"},
 			{ID: "to-only-short", From: "d", To: "a"},
-			{ID: "curve-from", From: "b", To: "e", Control: &Point{X: 110, Y: 400}},
-			{ID: "curve-to", From: "f", To: "a", Control: &Point{X: 395, Y: 400}},
+			{ID: "curve-from", From: "b", To: "e", Control: &Point{X: 105, Y: 400}},
+			{ID: "curve-to", From: "f", To: "a", Control: &Point{X: -5, Y: 400}},
 			{ID: "reverses", From: "a", To: "c", Control: &Point{X: -300, Y: -300}},
 			{ID: "far-curve", From: "f", To: "g", Control: &Point{X: 400, Y: 400}},
 		},
