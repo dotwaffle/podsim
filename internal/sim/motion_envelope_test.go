@@ -14,15 +14,21 @@ var seatEnvelope = motionEnvelopeFor(LegacyClass)
 // class.
 var distinctEnvelope = motionEnvelope{acceleration: 3, plannedBraking: 1, maximumBraking: 5}
 
-// TestMotionEnvelopeValues pins each rate of each class to the one rate that
-// the motion constant gives.
+// seatClasses are the classes that keep the one rate of the motion constant.
+var seatClasses = []VehicleClass{"", LegacyClass, CompactClass, GroupClass}
+
+// TestMotionEnvelopeValues pins each rate of each class.
 func TestMotionEnvelopeValues(t *testing.T) {
 	t.Parallel()
-	for _, class := range []VehicleClass{"", LegacyClass, CompactClass, GroupClass, ExpressClass} {
+	for _, class := range seatClasses {
 		want := motionEnvelope{acceleration: 2, plannedBraking: 2, maximumBraking: 2}
 		if got := motionEnvelopeFor(class); got != want {
 			t.Fatalf("class %q: envelope %+v, want %+v", class, got, want)
 		}
+	}
+	want := motionEnvelope{acceleration: 1.3, plannedBraking: 0.8, maximumBraking: 1.15}
+	if got := motionEnvelopeFor(ExpressClass); got != want {
+		t.Fatalf("Express: envelope %+v, want %+v", got, want)
 	}
 }
 
@@ -81,7 +87,8 @@ func TestSpeedBeforeLaneReadsPlannedBraking(t *testing.T) {
 func TestMoveStepPassesEnvelopeToLaneScan(t *testing.T) {
 	t.Parallel()
 	_, v := laneSpeedFixture([]float64{100, 100}, []float64{14, 2})
-	const speed = 8.0
+	// The planned floor does not bind at this speed.
+	const speed = 5.0
 	want := v.blocks.speedBeforeLane(distinctEnvelope, 0, 90, speed+distinctEnvelope.acceleration/TicksPerSecond)
 	got := ordinaryMoveStep(&v.blocks, distinctEnvelope, 0, 90, speed, 200)
 	requireSameBits(t, "command", got.commandedSpeed, want)
@@ -116,7 +123,7 @@ func TestRouteSecondsReadsEnvelope(t *testing.T) {
 func TestSeatEstimateHasFrozenBits(t *testing.T) {
 	t.Parallel()
 	s, v := laneSpeedFixture([]float64{100, 50}, []float64{14, 7})
-	for _, class := range []VehicleClass{"", LegacyClass, CompactClass, GroupClass, ExpressClass} {
+	for _, class := range seatClasses {
 		for _, speed := range []float64{0, 0.1, 3, 13.999, 14, 20} {
 			base := 100.0/14 + 50.0/7
 			missing := math.Max(0, 14-speed)
@@ -133,7 +140,7 @@ func TestSeatKernelHasFrozenBits(t *testing.T) {
 	t.Parallel()
 	_, v := laneSpeedFixture([]float64{100, 100}, []float64{14, 2.5})
 	dt := 1.0 / TicksPerSecond
-	for _, class := range []VehicleClass{"", LegacyClass, CompactClass, GroupClass, ExpressClass} {
+	for _, class := range seatClasses {
 		envelope := motionEnvelopeFor(class)
 		for _, distance := range []float64{0, 1.0 / 3, 50, 90, 99.9} {
 			for _, speed := range []float64{0, 1.0 / 7, 3, 13.99, 14} {

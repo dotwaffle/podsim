@@ -77,8 +77,12 @@ func checkExpressMotionTick(t *testing.T, s *Simulation, before []Pod) float64 {
 			if pod.Class != previous.Class {
 				t.Fatal("class changed")
 			}
-			if math.Abs(pod.Speed-previous.Speed) > 2.0/TicksPerSecond+1e-6 {
-				t.Fatalf("tick %d acceleration: %g -> %g", s.tick, previous.Speed, pod.Speed)
+			rise, drop := 2.0, 2.0
+			if pod.Class == ExpressClass {
+				rise, drop = expressAcceleration, expressMaximumBraking
+			}
+			if pod.Speed-previous.Speed > rise/TicksPerSecond+1e-6 || previous.Speed-pod.Speed > drop/TicksPerSecond+1e-6 {
+				t.Fatalf("tick %d pod %s acceleration or braking: %g -> %g", s.tick, pod.ID, previous.Speed, pod.Speed)
 			}
 			if moved := math.Hypot(pod.Position.X-previous.Position.X, pod.Position.Y-previous.Position.Y); moved > max(previous.Speed, pod.Speed)/TicksPerSecond+1e-6 {
 				t.Fatalf("tick %d position snap %g", s.tick, moved)
@@ -94,7 +98,11 @@ func checkExpressMotionTick(t *testing.T, s *Simulation, before []Pod) float64 {
 		if pod.Speed < 0 || pod.Speed > lane.SpeedLimit+1e-6 {
 			t.Fatalf("tick %d lane %s speed %g exceeds %g", s.tick, lane.ID, pod.Speed, lane.SpeedLimit)
 		}
-		if v.distance+pod.Speed*pod.Speed/4 > v.blocks.end(v.reservedThrough)+1e-6 {
+		stopRate := 2.0
+		if pod.Class == ExpressClass {
+			stopRate = expressMaximumBraking
+		}
+		if v.distance+pod.Speed*pod.Speed/(2*stopRate) > v.blocks.end(v.reservedThrough)+1e-6 {
 			t.Fatalf("tick %d pod %s stopping frontier unowned", s.tick, pod.ID)
 		}
 		for _, b := range v.blocks.span(v.blockIndex, v.reservedThrough+1) {
