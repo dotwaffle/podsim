@@ -50,6 +50,21 @@ The Express class has no physical operation unless the project sets the `orderCo
 That marker sets the limits of its own format: 600 pods and 17,000 orders (see the [Express qualification](studies/express-qualification.md) and the [approved contract](contracts/express-physical-encoding-contract-proposal.md)).
 Express has no byte proof.
 
+Express carries standing passengers, so it has its own motion rates and a dwell that depends on the load.
+The simulator does not track who sits, and seats fill first.
+
+| Value | Express | Other classes |
+| --- | ---: | ---: |
+| Acceleration | 1.3 m/s² | 2 m/s² |
+| Planned braking, toward the route end or a lower limit ahead | 0.8 m/s² | 2 m/s² |
+| Maximum service braking, for a refused grant, a fault, or a route change | 1.15 m/s² | 2 m/s² |
+| Boarding | 3 s, plus 1 s for each passenger after the first, at most 22 s | 3 s |
+| Unloading | 2 s, plus 1 s for each alighting passenger after the first, at most 21 s | 2 s |
+
+A party that joins a boarding Express pod adds 1 s for each of its passengers, and the phase does not start again.
+An emergency unload counts each party aboard.
+A class has one set of rates for each load.
+
 ## Passenger service and dispatch
 
 An order goes through dispatch, which picks a pod, and then the pod collects the party and carries it.
@@ -121,7 +136,7 @@ An idle pod at the pickup station has an estimate of zero, because it boards at 
 ### Wait rules
 
 Dispatch can wait for a busy pod if that pod should reach the pickup more than two seconds earlier.
-The estimate includes travel, acceleration, braking, boarding, and unloading, and it does not predict traffic delays.
+The estimate includes travel, acceleration, braking, boarding, and unloading, each for the [class](#vehicle-classes) of the pod and its load, and it does not predict traffic delays.
 Dispatch waits for at most 30 simulated seconds before it uses an available pod.
 
 | Rule | Behavior |
@@ -166,6 +181,7 @@ The fixed demo can still give journeys directly to specific pods.
 
 Pods reserve track ahead of them, and a pod moves only within what it has reserved.
 A pod accelerates and brakes within its admitted distance, and it extends its reservation to cover the stopping distance at the lane speed plus two simulation ticks of travel.
+The stopping distance uses the maximum service braking of the [class](#vehicle-classes) of the pod.
 On clear track, this allows steady cruising at 14 m/s across cell boundaries.
 
 The local controller divides lanes into exclusive track cells of up to 30 meters.
@@ -408,7 +424,7 @@ A fault stops a pod or blocks a lane, and the rest of the network must work arou
 A session can stop a pod with a pod fault, or block a lane segment with debris.
 Faults are on in each session with no project switch, except that they are off during the traffic demo, and after the demo until a reset or a project apply.
 
-A pod fault brakes the pod to rest, and its pending pickups go to other pods.
+A pod fault brakes the pod to rest at the maximum service braking of its [class](#vehicle-classes), and its pending pickups go to other pods.
 After the evacuation delay, which is 300 simulated seconds by default, the riders leave the pod at rest, and their orders end interrupted.
 Other pods route around a fault, or wait, and they do not reverse.
 

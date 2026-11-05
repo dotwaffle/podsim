@@ -4,6 +4,7 @@ This record holds the research and the scratch measurements for the [Express sta
 All runs used scratch overlays on `b2262f6`, and the overlays did not land.
 The results authorize no change.
 The Express row of the first table gives the profile at `b2262f6`; the profile is now 12 seats, 8 standee places, and a 6 m body.
+The runs with a real Express fleet are in the [Express qualification](express-qualification.md#standee-fleet-runs).
 
 ## Vehicle sizes
 

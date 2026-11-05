@@ -156,7 +156,7 @@ An approved contract in `docs/contracts/` is binding, and each document gives it
 | [Marker removal](docs/contracts/marker-removal-contract-proposal.md) | Faults and emergencies with no project switch. |
 | [Generated-order consent](docs/contracts/generated-order-consent-contract-proposal.md) | The `generatedOrderConsent` setting. |
 | [Tick rate](docs/contracts/tick-rate-contract-proposal.md) | A lower tick rate. A proposal, not approved. |
-| [Express standees](docs/contracts/express-standees-contract-proposal.md) | A 6 m Express with standees, and a curve tail from the lane polyline. The maintainer accepted its decisions. The seat and standee split, the motion envelope, and the polyline tail are built. |
+| [Express standees](docs/contracts/express-standees-contract-proposal.md) | A 6 m Express with standees, and a curve tail from the lane polyline. The maintainer accepted its decisions. The seat and standee split, the motion rates, the load dwell, and the polyline tail are built. |
 | [Incident stage 7](docs/contracts/incident-stage7-contract-proposal.md) | Random faults and emergencies. Implemented. The soak of amendment A6 ran, and its Progress row missed. The Suspension median row is open. |
 
 ### Designs

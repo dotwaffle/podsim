@@ -206,6 +206,7 @@ When no pod of the fleet can take the party, the order waits in the queue with t
 An idle pod at the origin serves the order, and otherwise the nearest available empty pod comes to collect the party.
 Orders wait when no pod is available.
 Boarding takes three simulated seconds, and unloading takes two.
+An Express pod adds one second for each passenger after the first, up to 22 s to board and 21 s to unload (see the [vehicle classes](model.md#vehicle-classes)).
 
 Each accepted order shows its order number and opens **Orders**.
 For 3 s, the **Order [Enter]** button reads **Order accepted** while **From** and **To** show the stations of that order.

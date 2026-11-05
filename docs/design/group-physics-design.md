@@ -73,7 +73,8 @@ The audit uses the whole lane, so a pass that is far from the join on a lane tha
 The audit returns this refusal as a `PlaneReachError`, and a caller reports it after its other checks (the path, length, and cell checks of preparation, the placements of a fleet, and the other checks of a project), so that it does not hide an earlier refusal.
 The route window of a pod can reach further than an incident lane, because the front bound is the largest `6 * projection bound / 20` of the lanes of the route, and each lane stores it beside its tail.
 The audit does not cover that case, so the observer can report a pair that the audit accepted.
-The observation uses the existing tick rate, acceleration, braking, and authored speed limits.
+The observation uses the existing tick rate and authored speed limits.
+Its separation has no braking term, because a pod stops inside the cells that it owns, so the [rates of a class](../model.md#vehicle-classes) do not change it.
 
 ## Restore and public consumers
 
