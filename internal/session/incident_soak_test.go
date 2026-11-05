@@ -222,9 +222,15 @@ type soakDriver struct {
 	// rewind adds its replay to the simulation tick and not to this one. A
 	// branch continues the loop of its warm save.
 	loopTick int64
-	// open holds the reading state of each active record.
-	open   map[string]*soakOpenRecord
-	result soakResult
+	// open holds the reading state of each active record. lastWatch is the tick
+	// of the last watch, and watchedEnded is the count of ended records that it
+	// read. holdWatch is true in the first run of a rewind window, which the
+	// replay repeats, so only the replay counts.
+	open         map[string]*soakOpenRecord
+	lastWatch    int64
+	watchedEnded int64
+	holdWatch    bool
+	result       soakResult
 }
 
 type soakClear struct {
@@ -253,7 +259,7 @@ func newSoakDriver(t *testing.T, input soakInput) *soakDriver {
 	if input.warm != nil {
 		client = fmt.Sprintf("soak-branch-%d", input.branch)
 	}
-	d := &soakDriver{t: t, input: input, config: config, s: s, client: newTestClient(s, client), rng: rng, open: map[string]*soakOpenRecord{},
+	d := &soakDriver{t: t, input: input, config: config, s: s, client: newTestClient(s, client), rng: rng, open: map[string]*soakOpenRecord{}, lastWatch: -1,
 		nextFault: math.MaxInt64, nextEmergency: math.MaxInt64, nextSave: math.MaxInt64, nextRewind: math.MaxInt64}
 	d.result.queue = soakRange{low: math.MaxInt, high: 0}
 	input.warm.resume(d)
@@ -382,6 +388,7 @@ func (d *soakDriver) startChecks() {
 		d.transition = d.s.simulation.RestoredFaultTransitionForTest()
 	}
 	d.events = d.s.simulation.IncidentEventsForTest()
+	d.watchedEnded = d.events.EmergencyEnded
 }
 
 // rewindEvery returns the time between rewinds.
@@ -426,6 +433,10 @@ func (d *soakDriver) check(command bool) {
 		d.fullCheck()
 	}
 	d.events = events
+	if events.EmergencyEnded != d.watchedEnded && !d.holdWatch {
+		d.watchedEnded = events.EmergencyEnded
+		d.watchEmergencies()
+	}
 }
 
 // fullCheck is the check of the saved state and the Conservation row, from one
@@ -639,15 +650,20 @@ func (d *soakDriver) checkRewind() {
 	d.t.Helper()
 	generation, serial := d.s.generation, d.s.simulation.ExportState().IncidentSerial
 	id := d.mustApply(Command{Action: "checkpoint"}).Checkpoint
+	d.holdWatch = true
 	for range soakReplayTicks {
 		d.step()
 	}
 	want := d.s.simulation.ExportState()
 	d.client.mustApply(d.t, Command{Action: "rewind", Checkpoint: id})
 	d.transition = d.s.simulation.FaultTransitionForTest()
+	d.holdWatch = false
 	d.mustApply(Command{Action: "pause", Paused: false})
 	for range soakReplayTicks {
 		d.step()
+		if d.s.simulation.Tick()%soakViewTicks == 0 {
+			d.watchEmergencies()
+		}
 	}
 	soakRenewGeneration(&want, serial, generation, d.s.generation)
 	if got := d.s.simulation.ExportState(); !reflect.DeepEqual(got, want) {
@@ -802,8 +818,9 @@ type soakOpenRecord struct {
 	// last is the tick of the last reading.
 	last int64
 	// unblocked sums the ticks not blocked by a fault. A reading gives its
-	// class to the ticks since the last reading. That is 1 second, or the
-	// length of the replay after a rewind.
+	// class to the ticks since the last reading, at most 1 second. The ticks to
+	// the end of a record count as not blocked: the record has no later status,
+	// and its pod has reached the end of the emergency.
 	unblocked int64
 	noted     bool
 	// blocked sums the other ticks, and end is the chain end of the last blocked
@@ -829,10 +846,15 @@ func (r *soakOpenRecord) read(tick int64, blocked bool) bool {
 }
 
 // watchEmergencies is the Progress gate of the emergency contract, with rule A
-// of amendment A8. It reads the records once a second. A record that a late
-// start of the checks finds counts from that start.
+// of amendment A8. It reads the records once a second, in the replay of a
+// rewind, and at the tick at which a record ends. A record that a late start of
+// the checks finds counts from that start.
 func (d *soakDriver) watchEmergencies() {
 	tick := d.s.simulation.Tick()
+	if tick == d.lastWatch {
+		return
+	}
+	d.lastWatch = tick
 	state := d.s.simulation.Snapshot()
 	reading := newSoakReading(state, d.s.simulation.BoardingLegBlockedForTest)
 	seen := make(map[string]bool, len(state.Emergencies.Active))
@@ -857,13 +879,18 @@ func (d *soakDriver) watchEmergencies() {
 		d.result.emergencyLongest = max(d.result.emergencyLongest, record.unblocked)
 	}
 	for id, record := range d.open {
-		if !seen[id] {
-			if record.last-record.view.StartTick > soakEmergencyTime {
-				d.result.emergencyLong++
-			}
-			d.result.blockedRecords = append(d.result.blockedRecords, *record)
-			delete(d.open, id)
+		if seen[id] {
+			continue
 		}
+		if record.read(tick, false) {
+			d.noteLateEmergency(state, record.view, "the record ended")
+		}
+		d.result.emergencyLongest = max(d.result.emergencyLongest, record.unblocked)
+		if record.last-record.view.StartTick > soakEmergencyTime {
+			d.result.emergencyLong++
+		}
+		d.result.blockedRecords = append(d.result.blockedRecords, *record)
+		delete(d.open, id)
 	}
 }
 
@@ -2162,6 +2189,90 @@ func TestSoakOpenRecordRead(t *testing.T) {
 	if record.read(start+3*soakEmergencyTime+1+soakViewTicks, false) || record.unblocked != soakEmergencyTime+1+soakViewTicks {
 		t.Fatalf("the record passes twice: %+v", record)
 	}
+}
+
+// TestSoakWatchEndOfRecord checks that the ticks to the end of a record count. A
+// record read at the limit that ends after the reading passes the limit.
+func TestSoakWatchEndOfRecord(t *testing.T) {
+	t.Parallel()
+	input := soakInput{preset: "rail-hub", arm: soakArms["ci"], seed: 1, checks: true}
+	t.Run("end after the limit", func(t *testing.T) {
+		t.Parallel()
+		d, id := soakEmergencyOnPod(t, input)
+		podID, tick := d.open[id].view.PodID, d.s.simulation.Tick()
+		d.open["i9.9"] = &soakOpenRecord{view: sim.EmergencyView{ID: "i9.9", PodID: podID, StartTick: tick - soakEmergencyTime}, last: tick, unblocked: soakEmergencyTime}
+		d.s.advance()
+		d.watchEmergencies()
+		if d.result.emergencyLate != 1 || d.result.emergencyLong != 1 || d.result.emergencyLongest != soakEmergencyTime+1 || d.open["i9.9"] != nil {
+			t.Fatalf("late %d, long %d, longest %d, open %v", d.result.emergencyLate, d.result.emergencyLong, d.result.emergencyLongest, d.open["i9.9"] != nil)
+		}
+	})
+	// endTick runs the record to its end, and it returns the tick of the end.
+	endTick := func(t *testing.T, d *soakDriver, id string) int64 {
+		t.Helper()
+		ended := d.s.simulation.IncidentEventsForTest().EmergencyEnded
+		for range soakTicksPerHour {
+			d.step()
+			if d.s.simulation.IncidentEventsForTest().EmergencyEnded != ended {
+				if d.open[id] != nil {
+					t.Fatal("the record stays open after its end")
+				}
+				if got := d.result.blockedRecords[len(d.result.blockedRecords)-1].last; got != d.s.simulation.Tick() {
+					t.Fatalf("the last reading is at tick %d, and the end is at tick %d", got, d.s.simulation.Tick())
+				}
+				return d.s.simulation.Tick()
+			}
+		}
+		t.Fatal("the record does not end")
+		return 0
+	}
+	t.Run("end at the tick of the end", func(t *testing.T) {
+		t.Parallel()
+		d, id := soakEmergencyOnPod(t, input)
+		endTick(t, d, id)
+	})
+	t.Run("end in a rewind", func(t *testing.T) {
+		t.Parallel()
+		d, id := soakEmergencyOnPod(t, input)
+		end := endTick(t, d, id)
+		d, id = soakEmergencyOnPod(t, input)
+		for d.s.simulation.Tick() < end-soakReplayTicks/2 {
+			d.step()
+		}
+		d.checkRewind()
+		if d.open[id] != nil || len(d.result.blockedRecords) != 1 || d.result.blockedRecords[0].last != end || d.result.emergencies != 1 {
+			t.Fatalf("open %v, ended %+v, %d records, want one end at tick %d", d.open[id] != nil, d.result.blockedRecords, d.result.emergencies, end)
+		}
+	})
+	t.Run("replay reads once", func(t *testing.T) {
+		t.Parallel()
+		d, id := soakEmergencyOnPod(t, input)
+		d.client.mustApply(t, Command{Action: "fault", PodID: d.open[id].view.PodID})
+		for d.s.simulation.Tick()%soakViewTicks != 0 {
+			d.step()
+		}
+		d.watchEmergencies()
+		record := d.open[id]
+		count := func() int {
+			total := 0
+			for _, paths := range d.result.paths {
+				total += paths
+			}
+			return total
+		}
+		readings, blocked := count(), record.blocked
+		d.watchEmergencies()
+		if got := count(); got != readings {
+			t.Fatalf("a second watch at one tick gives %d readings", got-readings)
+		}
+		d.checkRewind()
+		if got := count() - readings; got != soakReplayTicks/soakViewTicks {
+			t.Fatalf("the rewind gives %d readings", got)
+		}
+		if record.blocked-blocked != soakReplayTicks || record.last != d.s.simulation.Tick() {
+			t.Fatalf("the rewind gives %d blocked ticks, and the last reading is at %d of %d", record.blocked-blocked, record.last, d.s.simulation.Tick())
+		}
+	})
 }
 
 // soakEmergencyOnPod runs a driver until a pod carries riders, and starts an
