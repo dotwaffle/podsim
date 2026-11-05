@@ -19,6 +19,7 @@ The Express fleet bound and the bound of pending routes are 600.
 The Express pending and outstanding bound is 17,000, from `5,000 + 600 * 20`.
 The byte evidence below keeps its 300-pod and 80 MiB basis, and nobody measured it again.
 The worst-case byte proofs and their fixture constructors were deleted.
+Amendment, November 5, 2026: the maintainer approved the rate text of this contract on November 5, 2026, as decisions 1 and 4 of [the tick rate proposal](tick-rate-contract-proposal.md), so the motion rule of the physical contract no longer names 60 Hz.
 
 The source descriptions below refer to the reviewed baseline, `53321e4c5decc6c661df64a40378ee37614dcffc`.
 The [group physics design](../design/group-physics-design.md) records the approved dimensions and common conservative candidate.
@@ -221,7 +222,7 @@ Check merges, crossings, plane transitions, banks, parking, and neighboring bert
 
 There is no blanket certification for curves or authored junctions.
 
-Motion retains acceleration and braking at 2 m/s², 60 Hz ticks, and authored lane speed limits.
+Motion retains acceleration and braking at 2 m/s², ticks at `sim.TicksPerSecond`, and authored lane speed limits.
 Check current-lane speed on every tick, including entry into lower-speed lanes.
 Lookahead must reach every lower limit that can affect stopping, across multiple cells and lanes.
 No boundary speed clamp, position snap, or reduced authored speed substitutes for controlled braking.

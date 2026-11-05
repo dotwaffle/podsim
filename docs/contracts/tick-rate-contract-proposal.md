@@ -1,8 +1,9 @@
 # Tick rate contract proposal
 
-Status: proposal, awaiting the maintainer.
-Nothing in this document is approved, and no product code changes with it.
-`sim.TicksPerSecond` stays at 60 until the maintainer rules.
+Status: decided on 2026-11-05.
+Decision 1 chose 30 Hz, and patch 6 is pending.
+The maintainer also decided on the same day: the lookahead stays two ticks (decision 3), the amendments of section 3.4 are approved with cadences in seconds (decision 4), the view runs at a fixed 60 Hz (decision 6), the wake budget follows the wake period and stays 20 ms at 60 Hz (decision 7), and new corridor pins are accepted (decision 11).
+`sim.TicksPerSecond` stays at 60 until patch 6.
 It was drafted against `8bbae7a`.
 Each `file:line` reference is for that tree.
 All evidence comes from scratch builds that changed the constant and did not land.
@@ -254,8 +255,8 @@ So the lower rate gives no higher live speed without a change to the budget or t
 
 ### 3.4 Approved contracts
 
-Each row needs maintainer approval.
-This proposal does not change any of them.
+The maintainer approved each row on 2026-11-05 (decision 4).
+Patch 0 made these amendments, and each `:line` below is for the older tree.
 
 | Contract | Text | Lines |
 | --- | --- | --- |

@@ -40,6 +40,10 @@ The rules G1 to G16 of section 3 of that document, and its amendments, apply to 
 Status 2026-11-05: the network indexes are now built once with the prepared network, so no rebuild clears the memo.
 Rule G9 moves the start into `startEmergency`, so the `Emergency` of the F11 transition row is that function.
 
+Amendment, November 5, 2026: the maintainer approved the rate text of this contract on November 5, 2026, as decisions 1 and 4 of [the tick rate proposal](tick-rate-contract-proposal.md).
+The rules now use `TicksPerSecond` and seconds in place of 60 Hz literals.
+Each rule has the same meaning at 60 Hz: the 60-tick cadence is a choice each 1 s, 216000 was `3600 × TicksPerSecond`, and parity each 600 ticks is parity each 10 s.
+
 This contract is stage 3 of the staged incident redesign: the emergency vertical slice on ordinary pods.
 A rider in an ordinary pod starts an emergency.
 The pod goes to the station where it can unload soonest, and every party leaves it there.
@@ -329,7 +333,7 @@ The stage runs before `dispatch`, so a pod released at the record end is supply 
 5. Let `mask = 1 << i`, where `i` is the index of the party in `v.Riders`.
 6. When the pod is at a berth with activity `Boarding`, `Continuing`, or `Unloading`, call `startOperationalUnload(v, emergencyHold, mask)` and return.
    When the call refuses, the pod is a platoon or compact member, and it stays deferred.
-7. When the pod is `Traveling`, `divertStart` accepts it, and either the call comes from the start or `(s.tick - r.start) % 60 == 0`, run the station choice of section 9.1.
+7. When the pod is `Traveling`, `divertStart` accepts it, and either the call comes from the start or `(s.tick - r.start) % TicksPerSecond == 0`, run the station choice of section 9.1.
    When it finds a pair `(S, b)`, call `setOperationalDestination(v, operationalTarget{purpose: opEmergencyUnload, owner: emergencyHold, interrupt: mask, station: S, berth: b})`.
 8. Otherwise the pod stays deferred, and it keeps its route.
 
@@ -340,8 +344,8 @@ A deferred pod that cannot divert keeps its current route.
 In its arrival chain, it arrives at its current berth, and the next emergency stage starts the unload there.
 `startOperationalUnload` keeps a `phaseTicks` of 1 or more, so the pod does not wait a second unloading interval.
 
-The 60-tick cadence of step 7 bounds the cost of the station choice (section 9.1).
-A pod that becomes divertible after its start waits at most 59 ticks for the choice.
+The cadence of 1 s of simulated time in step 7 bounds the cost of the station choice (section 9.1).
+A pod that becomes divertible after its start waits for less than 1 s of simulated time for the choice.
 
 ### 5.5 Record end and hold release
 
@@ -735,7 +739,7 @@ The chosen pair binds the pod, and the station never changes.
 Terminal reevaluation can still change the berth within the station (section 9.2).
 
 Cost.
-A choice runs at the start, and in the emergency stage only on ticks with `(s.tick - start) % 60 == 0` while the record is deferred and the pod is divertible.
+A choice runs at the start, and in the emergency stage only on ticks with `(s.tick - start) % TicksPerSecond == 0` while the record is deferred and the pod is divertible.
 A choice that binds the pod ends the searches of its record, so repeated choices happen only while a deferred, divertible pod finds no candidate.
 The bound counts graph searches:
 
@@ -747,7 +751,7 @@ The bound counts graph searches:
 | Graph searches for the tree | 1 for each choice | Pruning, step 2 |
 | Calls in one choice | One for each tried berth, plus one in `setOperationalDestination` | Steps 2 and 4 of the candidates |
 | Tried berths in one choice | At most the compatible, unblocked berths of the passenger stations that the tree reaches. Each berth is a network node, so at most 5,000. | `internal/project/config.go` `MaxBerths` |
-| Choices in one tick | `MaxEmergencies` = 4. Records that started on ticks with one remainder modulo 60 choose on the same ticks. | Section 4.3 |
+| Choices in one tick | `MaxEmergencies` = 4. Records that started on ticks with one remainder modulo `TicksPerSecond` choose on the same ticks. | Section 4.3 |
 
 The worst tick therefore makes at most `4 · (1 + 5,001 · 12) = 240,052` graph searches, on a network of at most 5,000 nodes and 8,000 lanes (`internal/project/config.go` `MaxNodes`, `MaxLanes`).
 Status 2026-10-07: the project limits are now 12,000 nodes and 20,000 lanes, so the bound is `4 · (1 + 12,001 · 12) = 576,052` graph searches.
@@ -897,7 +901,7 @@ The `emergencies` group shows the phase of each record (section 11.4).
 | Deferred approach member | The abort braking ends. |
 | Deferred platoon member | The follower holds no resource of a pod ahead, and the link ends. |
 | Deferred compact member | The pod leaves the group. |
-| Deferred, divertible, cadence | The next tick with `(s.tick - start) % 60 == 0`. |
+| Deferred, divertible, cadence | The next tick with `(s.tick - start) % TicksPerSecond == 0`. |
 | Deferred, no candidate station | A clear or an owner movement that opens a route; see P11. |
 | Deferred, faulted | The clear or the evacuation. |
 | Deferred, in the arrival chain | Arrival at the current berth. |
@@ -946,7 +950,7 @@ This section fixes the mechanism, so that stage 7 adds the rate without a new fo
   It never draws from the demand PCG or from the fault sampler.
   Its seed is the first 16 bytes of `SHA-256("podsim-emergencies-v1" || bigEndian(demand seed))`, as two `uint64` values, as stage 2, section 12.2, derives the fault seed.
 - Events form a Poisson process at `perHour` for the whole fleet.
-  After each event, and at start, the sampler draws `u` and sets `nextTick = tick + max(1, ceil(-ln(1-u) × 216000 / perHour))`.
+  After each event, and at start, the sampler draws `u` and sets `nextTick = tick + max(1, ceil(-ln(1-u) × (3600 × TicksPerSecond) / perHour))`.
 - Each event uses exactly two more draws: the pod, as an index over the pods in pod ID order, and the party, as an index over the active riders of that pod in `Riders` order.
 - An event whose pod fails a precondition of section 6.1 is skipped and counted.
   It still uses its draws, so later events do not depend on outcomes.
@@ -1239,7 +1243,7 @@ Gates for every patch:
 
 - The format goldens match byte for byte with the emergency marker absent.
 - The digest baseline (`internal/session/testdata/command_digests.txt`) matches with the marker absent.
-- Matched-seed runs on LondonCentral and the rail-hub preset, with the marker absent and present, give identical exported simulation states at every 600th tick, apart from the marker.
+- Matched-seed runs on LondonCentral and the rail-hub preset, with the marker absent and present, give identical exported simulation states at every 10 s of simulated time, apart from the marker.
 - Patch 1 (Q7) also runs the matched-seed check with the fault marker and no fault, which must give identical states.
 
 ## 13. API for later stages
@@ -1291,7 +1295,7 @@ Preconditions that later stages must meet:
 | No-candidate memo | After a no-candidate choice, the next cadence tick with the same `from` and class makes no search. A new `from`, a blocked-set change, a network change, `Reset`, a project replacement, and a restore each make the next choice search again. A choice that finds a candidate removes the entry, and a refused installation writes none. A randomized run with and without the memo gives the same choices on every tick. |
 | Bank searches | A source on the departure path of a bank and a target berth in the same bank, where the local search fails: the counters show 4 graph searches in the route search, the failed local attempt and then the departure, middle, and arrival searches, and at most 12 in one `assignedRoute` call. |
 | Arrival chain | A pod that cannot divert arrives at its current berth and unloads there in the next stage. |
-| Cadence | A pod that becomes divertible chooses at the next tick with `(tick - start) % 60 == 0`, and not before. |
+| Cadence | A pod that becomes divertible chooses at the next tick with `(tick - start) % TicksPerSecond == 0`, and not before. |
 | No candidate | Every station unreachable: the pod keeps its route and stays deferred. With the no-candidate memo, the next cadence ticks make no search until `from` or the class changes or the memo is cleared (section 9.1). |
 | Outcomes | The party is interrupted, also at its own destination. Each other party completes at its destination or is transferred. A transferred party can board the emergency pod again after the end. |
 | End | The record ends in the tick of the unload, the hold is released, and the pod is supply in the same `dispatch`. |
@@ -1402,7 +1406,7 @@ The default rate stays 0 until the maintainer chooses one in stage 7.
 
 | Gate | Measurement | Pass |
 | --- | --- | --- |
-| Off parity | The off-state gates of section 12 on every preset. | Byte identity, digest identity, and identical states at every 600th tick. |
+| Off parity | The off-state gates of section 12 on every preset. | Byte identity, digest identity, and identical states at every 10 s of simulated time. |
 | Marker-only parity | The same runs with the marker and no emergency. | Identical states apart from the marker. |
 | Safety | A soak driver on LondonCentral and the rail-hub preset that starts emergencies on random occupied pods through the command, at about 10 per simulated hour, for 24 simulated hours per seed, over at least 20 seeds, with coupling on and off, and with faults on and off. | `CheckContract` holds after every tick and command. No owner conflict. No coupling fault. |
 | Contract | The same soak, with E1 to E8, F11, and W1 to W5 checked after each tick. | No violation. |

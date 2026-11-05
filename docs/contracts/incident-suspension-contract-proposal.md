@@ -37,6 +37,9 @@ Status note, November 4, 2026: the maintainer reopened stage 7 under `docs/contr
 Stages 4 to 6 stay out of scope.
 The rules G1 to G16 of section 3 of that document, and its amendments, apply to this contract, and the text below stays as written.
 Status 2026-11-05: the network indexes are now built once with the prepared network, and the code pointers follow this.
+Amendment, November 5, 2026: the maintainer approved the rate text of this contract on November 5, 2026, as decisions 1 and 4 of [the tick rate proposal](tick-rate-contract-proposal.md).
+The rules now use `TicksPerSecond` and seconds in place of 60 Hz literals.
+Each rule has the same meaning at 60 Hz: 216000 was `3600 × TicksPerSecond`, a reroute pass each 300 ticks is a pass each 5 s, and parity and replay each 600 ticks are parity and replay each 10 s.
 
 This contract is stage 2 of the staged incident redesign.
 It defines ordinary suspension and obstruction: a pod fault that stops a pod on a lane or at a berth, debris on an empty lane segment, routing around both, and the rules for the healthy pods that they obstruct.
@@ -187,7 +190,7 @@ Stage 1 W3 does not change: the pod releases only its own claims, and it authori
 | Tick order | `internal/sim/simulation.go` `(*Simulation).Step` | `tick++` comes first. The unloading loop follows. `dispatch` comes next, then `swapPickups`, `redistribute`, `formPlatoons`, `admit`, `clearBlockedBerths`, `formCompactQueues`, `platoonCaps`, and `planNativeCouplingTick`. The departure branch follows, then `moveAndMeasure` and `releaseCleared`. |
 | Approach discovery | `internal/sim/coupling_approach_runtime.go` `(*Simulation).discoverCouplingApproaches` | Runs before `tick++` (`internal/sim/simulation.go` `(*Simulation).Step`). `couplingApproachMember` is in `internal/sim/coupling_approach_runtime.go`. |
 | Approach route | `internal/sim/coupling_approach_context.go` `prepareCouplingApproach` | An approach binds a corridor of its route beyond its current grants. |
-| Constants | `internal/sim/simulation.go` `TicksPerSecond`, `acceleration`, `Clearance` | `TicksPerSecond = 60`, `acceleration = 2.0`, `Clearance = 12`. |
+| Constants | `internal/sim/simulation.go` `TicksPerSecond`, `acceleration`, `Clearance` | `TicksPerSecond`, which is 60 until patch 6 of the tick rate proposal sets 30, `acceleration = 2.0`, `Clearance = 12`. |
 | Wait reasons | `internal/sim/simulation.go` `WaitReason`, `NoWait`, `ParkingUnavailable` | Fixed strings. |
 | Vehicle fields | `internal/sim/simulation.go` `vehicle` | `withdrawn`, `nextRelease`, `platoonCap`, `link`, `follower`. |
 | Arrival | `internal/sim/simulation.go` `(*Simulation).arrive` | An empty move (`RelocatingTo != ""`) becomes idle, also when the pod carries riders. |
@@ -298,7 +301,7 @@ type faultRecord struct {
 No field records an obstruction.
 Section 9.6 derives each wait report from the current state, so no state needs a cleanup.
 
-`evacuateTick` is `start + evacuationSeconds × 60`.
+`evacuateTick` is `start + evacuationSeconds × TicksPerSecond`.
 It is derived and not saved.
 The phase of a pod fault is derived:
 
@@ -357,7 +360,7 @@ Preconditions, in this order, with the error of section 12.4:
 
 1. `faultsOn`.
 2. `duration` is 0 or from 1 to 86,400 seconds.
-3. Time and identity arithmetic does not overflow: `s.tick + duration × 60` and `s.tick + evacuationSeconds × 60` fit in `int64`, and `incidentSerial < math.MaxUint64`.
+3. Time and identity arithmetic does not overflow: `s.tick + duration × TicksPerSecond` and `s.tick + evacuationSeconds × TicksPerSecond` fit in `int64`, and `incidentSerial < math.MaxUint64`.
 4. The pod exists.
 5. The pod has no pod fault.
 6. The pod is a supported target (section 1.4): `couplingID == ""`, not `couplingApproachMember`, `follower == 0`, `link.leader == 0`, and not a compact queue member.
@@ -367,7 +370,7 @@ Preconditions, in this order, with the error of section 12.4:
 Effect, in one call:
 
 1. `id := nextIncidentID()`.
-   Append the record with `start = s.tick`, and `end = s.tick + duration × 60` when `duration > 0`.
+   Append the record with `start = s.tick`, and `end = s.tick + duration × TicksPerSecond` when `duration > 0`.
 2. When `v.withdrawn&faultHold == 0`, call `withdrawService(v, faultHold)`.
    The first hold releases the pending pickups of `v` with the exclusion (stage 1, section 5.1).
    When `v` has `faultHold` from its fault recovery, the hold is reused and no second release happens.
@@ -716,10 +719,10 @@ The rules keep no state for each pod, so no later event has to clear one.
 
 ### 9.2 Reroute pass
 
-The fault stage runs the reroute pass when `rerouteDue` is set, and every 300 ticks while the blocked set is not empty (product choice P2).
+The fault stage runs the reroute pass when `rerouteDue` is set, and every 5 s of simulated time while the blocked set is not empty (product choice P2).
 A new epoch and a physical restore set `rerouteDue`.
 The pass clears it.
-300 ticks is the cadence of `refreshCongestionCosts` (`internal/sim/routes.go` `(*Simulation).refreshCongestionCosts`).
+5 s is the cadence of `refreshCongestionCosts` (`internal/sim/routes.go` `(*Simulation).refreshCongestionCosts`).
 The cadence retries the pods that the last pass skipped: a berth departure that admission had already granted, and a pod that was a platoon or compact member.
 After the last clear, the blocked set is empty, no remaining route has a blocked lane, and the pass has no work.
 
@@ -1103,7 +1106,7 @@ The rate unit and the duration distributions are product choice P6.
   Its seed is the first 16 bytes of `SHA-256("podsim-faults-v1" || bigEndian(demand seed))`, as two `uint64` values, as `internal/project/rail_arrivals.go` `RailSchedule` derives per-event values.
   A test runs matched seeds with the sampler on and off and checks that the demand draws are identical.
 - Events form a Poisson process at `perHour`.
-  After each event, and at start, the sampler draws `u` and sets `nextTick = tick + max(1, ceil(-ln(1-u) × 216000 / perHour))`.
+  After each event, and at start, the sampler draws `u` and sets `nextTick = tick + max(1, ceil(-ln(1-u) × (3600 × TicksPerSecond) / perHour))`.
 - Each event uses exactly four more draws, in order: kind (debris when `u < debrisShare`), target (pod index over the pods without a fault in pod ID order, or a lane chosen with probability proportional to its length), position (`u × (length - debrisMeters)`), and duration.
 - Durations: `fixed` gives `seconds`, `uniform` gives `minSeconds + u × (maxSeconds - minSeconds)`, and `exponential` gives `min(maxSeconds, max(minSeconds, -ln(1-u) × meanSeconds))`, each rounded up to whole ticks.
 - An event whose target fails a precondition of section 5.2 or 7.3 is skipped and counted.
@@ -1298,7 +1301,7 @@ With the marker, the save decoder rejects, as `invalid_state` for the whole save
 - more than 64 debris records;
 - records not in strictly increasing serial order, or a serial above `incidentSerial`;
 - a negative `start`, `end`, or counter, a `start` above the saved tick, or `end != 0 && end <= start`;
-- a record whose `start + evacuationSeconds × 60` overflows `int64`.
+- a record whose `start + evacuationSeconds × TicksPerSecond` overflows `int64`.
 
 With the marker, the stream and HTTP decoders apply these rules to a full frame and to a `faults` replacement group alike:
 
@@ -1425,7 +1428,7 @@ Gates for every patch:
 
 - The format goldens match byte for byte with the fault marker absent.
 - The digest baseline (`internal/session/testdata/command_digests.txt`) matches with the fault marker absent.
-- Matched-seed runs on LondonCentral and the rail-hub preset, with the fault marker absent and present, give identical exported simulation states at every 600th tick, apart from the marker.
+- Matched-seed runs on LondonCentral and the rail-hub preset, with the fault marker absent and present, give identical exported simulation states at every 10 s of simulated time, apart from the marker.
 
 ## 15. API for later stages
 
@@ -1521,7 +1524,7 @@ Each type keeps its exported fields.
 - Physical restore that would demote a faulted pod: the physical tier fails; with a logical fallback, every record ends, `faultHold` is released, and the counters stay; without one, the restore fails as today.
 - Physical restore with a fault recovery under `faultHold`, and with a surrendered claim (`claimsDestination` absent), which restores no claim.
 - Logical restore: every record ends, `faultHold` is released, counters stay, and `DroppedFaults` is right.
-- Checkpoint and rewind: an exact replay of 600 ticks with active faults, and a delayed `clearFault` with an ID of the abandoned timeline gets `unknown fault`.
+- Checkpoint and rewind: an exact replay of 10 s of simulated time with active faults, and a delayed `clearFault` with an ID of the abandoned timeline gets `unknown fault`.
 - Each decoder rejection of section 13.5 is `invalid_state` for the whole save, including negative ticks and counters and an overflowing evacuation tick.
 
 ### 16.3 Codec tests
@@ -1615,7 +1618,7 @@ The default rate stays 0 until the maintainer chooses one in stage 7.
 
 | Gate | Measurement | Pass |
 | --- | --- | --- |
-| Off parity | The off-state gates of section 14 on every preset. | Byte identity, digest identity, and identical states at every 600th tick. |
+| Off parity | The off-state gates of section 14 on every preset. | Byte identity, digest identity, and identical states at every 10 s of simulated time. |
 | Marker-only parity | The same runs with the marker and no fault. | Identical states apart from the marker. |
 | Safety | A soak driver on LondonCentral and the rail-hub preset that starts and clears random pod faults and debris through the commands, at about 10 per simulated hour, for 24 simulated hours per seed, over at least 20 seeds. | `CheckContract` holds after every tick and every command. No owner conflict. No pod passes its fault cap or enters a fault footprint. The transition helper of section 10 holds. |
 | Contract | The same soak, with the invariants F1 to F12, W1 to W5, and X1 to X2 checked after each tick. | No violation. No pod is withdrawn without `faultHold` (F11). |
@@ -1682,7 +1685,7 @@ The maintainer accepted the defaults of P1, P2, and P5 to P9 on October 5, 2026.
 | # | Choice | Decision | Alternatives that were not chosen |
 | --- | --- | --- | --- |
 | P1 | Debris limits, and the refusal of claim conflicts | Accepted: at most 64 active debris faults, each at most 50 m long. Debris that meets any claim, also beyond the stopping distance, is refused. | Other limits, which move the byte budget of section 13.6. Accept a claim beyond the stopping distance and wait for its release, which needs a pending-ownership rule. |
-| P2 | Reroute cadence | Accepted: every 300 ticks (5 s) while the blocked set is not empty, and at each new epoch and physical restore. | A shorter cadence, at a higher cost. |
+| P2 | Reroute cadence | Accepted: every 5 s of simulated time while the blocked set is not empty, and at each new epoch and physical restore. | A shorter cadence, at a higher cost. |
 | P3 | Refuge preference | Removed in revision 3. A refuge policy is a stage 3 product choice. | |
 | P4 | Refuge resume | Removed in revision 3. A refuge policy is a stage 3 product choice. | |
 | P5 | A fault on a pod that already has a pod fault | Accepted: refused with `pod already has a fault`. | Extend the duration of the existing record, or start a second, overlapping record. |

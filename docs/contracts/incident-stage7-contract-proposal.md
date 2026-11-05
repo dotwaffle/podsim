@@ -258,13 +258,13 @@ The table adds the rules of section 3.
 | Seed | `SHA-256("podsim-faults-v1" \|\| bigEndian(demand seed))` | `SHA-256("podsim-emergencies-v1" \|\| bigEndian(demand seed))` |
 | PCG arguments | The first 16 bytes, as two little-endian `uint64` values. | The same. |
 | Uniform draw | `float64(pcg.Uint64()<<11>>11) / (1 << 53)`. This text fixes the form, so a change of `rand.Rand` cannot change a run. | The same. |
-| Interval | `tick + max(1, ceil(-ln(1-u) × 216000 / perHour))`, by the terminal rule below. | The same. |
+| Interval | `tick + max(1, ceil(-ln(1-u) × (3600 × TicksPerSecond) / perHour))`, by the terminal rule below. | The same. |
 | Place | The fault stage, before the clears (`internal/sim/faults.go:454`). | The emergency stage, before the records. |
 | Due | `nextTick != sim.MaxCounter && s.tick >= nextTick`. `max(1, ...)` gives at most one event in a tick. | The same. |
 | Draws for each event, in order | Kind, target, position, duration, then the next interval. | Pod, party, then the next interval. |
 | Target | Debris when `kind < debrisShare`, else a pod fault. Pod: the index `floor(u × n)` over the pods without a fault, in `s.vehicles` order (G11). Lane: the first lane in `Network.Lanes` order whose running sum of lengths is above `u × total`. | Pod: the index `floor(u × n)` over all pods, in `s.vehicles` order. Party: the index `floor(u × k)` over the active riders in `Riders` order. |
 | Segment | `from = u × (length - debrisMeters)`, `to = from + debrisMeters`. | None |
-| Duration | As in 12.2, then `ceil(seconds × 60)` ticks. | None |
+| Duration | As in 12.2, then `ceil(seconds × TicksPerSecond)` ticks. | None |
 | Skip | Any refusal of the start, or `n == 0`. All draws still happen. | Any refusal of the start, or `k == 0`. All draws still happen. |
 
 Each event uses all its draws, whatever the kind, the duration rule, or the outcome.
@@ -280,7 +280,7 @@ Terminal rule, one rule for scheduling, invariants, and restore:
 | `nextTick == sim.MaxCounter` | The terminal value. It means no more events, it never comes due, and no draw follows. This holds also when the tick reaches `sim.MaxCounter`. |
 | Invariant | `nextTick == sim.MaxCounter || nextTick > tick`. |
 | Restore | `sim.MaxCounter` is valid at each saved tick. Any other value needs the saved tick + 1 or more (section 4.3). |
-| Very small rate | Any rate above 0 is valid. The largest interval is about 7.93e6 / `perHour` ticks, so the terminal value comes first below a rate of about 8.8e-10. |
+| Very small rate | Any rate above 0 is valid. At 60 Hz, the largest interval is about 7.93e6 / `perHour` ticks, so the terminal value comes first below a rate of about 8.8e-10. The largest interval in simulated time does not depend on the rate. |
 | A fault near the tick limit | `faultTicksFit` refuses it, so the event is a skip, and the record checks at `internal/sim/state_faults.go:124` stay valid. |
 
 #### 5.1.2 API
@@ -487,7 +487,7 @@ A number in the Amendment column shows the one change that needs an answer.
 
 | Gate | Source | Measurement | Pass | Amendment |
 | --- | --- | --- | --- | --- |
-| Off parity | Both | The off-state gates of suspension 14 and emergency 12, on every preset. | Byte identity, digest identity, and identical states at every 600th tick, with the exceptions of section 5.1.5. | |
+| Off parity | Both | The off-state gates of suspension 14 and emergency 12, on every preset. | Byte identity, digest identity, and identical states at every 10 s of simulated time, with the exceptions of section 5.1.5. | |
 | Marker-only parity | Both | The same runs with the marker and no incident. | Identical states apart from the marker. | A1 |
 | Safety | Suspension | Soak on LondonCentral and the rail-hub preset: random pod faults and debris started and cleared through the commands, at about 10 for each simulated hour, for 24 simulated hours for each seed, over at least 20 seeds. | `CheckContract` holds after every tick and every command. No owner conflict. No pod passes its fault cap or enters a fault footprint. The transition helper holds. | A2 |
 | Safety | Emergency | The same presets and size: emergencies on random occupied pods through the command, at about 10 an hour, with faults on and off. The approved header removes the coupling arms. | `CheckContract` holds after every tick and command. No owner conflict. | A2 |
@@ -520,7 +520,7 @@ Gates that stage 7 adds:
 | Fleet-limit report | Step time at 64 debris and 1,000 pod faults. | Reported, not gated. |
 
 Soak size with A2, by arithmetic, with 2 presets and 20 seeds: 40 runs of commands and sampler, 40 with emergencies only and faults off, 40 with platoons on, which decision 3 needs, and 80 reference runs with no incident.
-This is 200 runs of 24.5 simulated hours, 4,900 simulated hours, or about 1.06e9 ticks, with every-tick checks on 120 of the runs.
+This is 200 runs of 24.5 simulated hours, 4,900 simulated hours, or about 1.06e9 ticks at 60 Hz and about 5.3e8 ticks at 30 Hz, with every-tick checks on 120 of the runs.
 I have no measured tick rate for this, so a timing run of 1 seed for 1 hour on each arm comes first, and its result goes to the maintainer.
 Each run has a memory cap, by the project's rule for test jobs.
 
@@ -565,6 +565,9 @@ Both the idle pod and the stopped pod need a minimal test entry from `internal/s
 The study made one probe of the stopped pod, on `i2.27`, so a run of the changed test must confirm these numbers.
 `TestIncidentSoakCI` and `TestIncidentSoakDriver` use the same driver.
 This draft changes no test and marks no row as passed.
+
+Amendment A9, approved by the maintainer on 2026-11-05 as decisions 1 and 4 of [the tick rate proposal](tick-rate-contract-proposal.md): the sampler interval, the duration in ticks, and off parity now use `TicksPerSecond` and seconds in place of 60 Hz literals.
+Each rule has the same meaning at 60 Hz, and the soak size in simulated hours does not change.
 
 Amendments, each for a separate answer in section 8:
 

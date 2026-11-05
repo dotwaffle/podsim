@@ -37,6 +37,8 @@ Status note, November 4, 2026: the maintainer reopened stage 7 under `docs/contr
 Stages 4 to 6 stay out of scope.
 The rules G1 to G16 of section 3 of that document, and its amendments, apply to this contract, and the text below stays as written.
 Status 2026-11-05: the maintainer removed the seat screen and the `reassign-existing` join policy, so the rows for the join census and the departure backlog are gone.
+Amendment, November 5, 2026: the maintainer approved the rate text of this contract on November 5, 2026, as decisions 1 and 4 of [the tick rate proposal](tick-rate-contract-proposal.md).
+Parity each 600 ticks at 60 Hz is now parity each 10 s of simulated time.
 
 This contract is stage 1 of the staged incident redesign.
 It defines the service transitions that vehicle faults and rider emergencies share.
@@ -1558,7 +1560,7 @@ Gates for every patch:
 
 - Format goldens of the single family match byte for byte with the marker absent.
 - The digest baseline matches with the marker absent.
-- Matched-seed runs on LondonCentral and the rail-hub preset, with the marker absent and present, give identical exported simulation states at every 600th tick, apart from the marker.
+- Matched-seed runs on LondonCentral and the rail-hub preset, with the marker absent and present, give identical exported simulation states at every 10 s of simulated time, apart from the marker.
 
 ## 13. API for later stages
 
