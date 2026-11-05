@@ -213,6 +213,11 @@ func checkWindows(t *testing.T, s *Simulation) []RoutePresentation {
 	if !reflect.DeepEqual(routes, rebuilt) {
 		t.Fatalf("cached windows differ from a new build\ncached  %+v\nrebuilt %+v", routes[0], rebuilt[0])
 	}
+	for i := range routes {
+		if len(routes[i].Lanes) > 0 && &routes[i].Lanes[0] == &rebuilt[i].Lanes[0] {
+			t.Fatal("the rebuild returned the cached window")
+		}
+	}
 	return routes
 }
 
