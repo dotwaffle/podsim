@@ -176,7 +176,7 @@ func TestRunConstructorControlsAndPreflight(t *testing.T) {
 	input.Project.Demand.Profile = "daily"
 	input.Project.DemandProfiles = []project.DemandProfile{{ID: "daily", Name: "daily", Bands: []project.DemandBand{{ID: "all", Name: "all", DurationMinutes: 1440}}, Flows: []project.DemandFlow{{From: "harbor", To: "market", Weights: []float64{1}}}}}
 	input.Plan.Itineraries[0].DepartureSeconds = 1
-	input.HorizonTicks = 120
+	input.HorizonTicks = 2 * sim.TicksPerSecond
 	run, err = NewRun(input)
 	if err != nil {
 		t.Fatal(err)
