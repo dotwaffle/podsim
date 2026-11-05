@@ -259,6 +259,30 @@ A pod whose terminal berth choice fails reports no wait when no berth of its sta
 It stops on the running lane with an empty report, so the chain walk does not find a fault.
 `pod-013` held `pod-027` and `pod-028` in this way for 8.5 min.
 
+### Fixes of the two findings
+
+Commits `cafe57b` and `29a3964` fix the two findings, after the maintainer approved the contract rows on 2026-11-05.
+The table compares `f604fab` with the fixes on `rail-hub` `incidents`, 6 simulated hours, every-tick checks on.
+
+| Seed | Late before | Late after | Completed before | Completed after |
+| ---: | ---: | ---: | ---: | ---: |
+| 1 | 11 | 4 | 626 | 691 |
+| 2 | 6 | 4 | 759 | 656 |
+| 3 | 15 | 14 | 589 | 618 |
+| 4 | 13 | 9 | 620 | 635 |
+| 5 | 11 | 15 | 641 | 639 |
+| Total | 56 | 46 | 3235 | 3239 |
+
+The report fix alone changed neither count on seeds 1 and 5, so the change comes from the move of the bound idle pod.
+The run diverges after the first such move, so most late records differ between the two columns.
+Five seeds do not prove the fall of 10 records.
+The rise on seed 5, with a longest record of 34.1 min against 24.0 min, is not attributed.
+No run gave a Safety, Contract, Conservation, or Rail report, and each seed passed its 6 rewinds on the runs that recorded them (seeds 2 to 4).
+
+The fix acts only when the emergency pod itself waits on the idle pod.
+An emergency pod behind an ordinary pod that waits on the idle pod still waits: on seed 1 this wait rose from 191 s to 1630 s, while the direct wait fell from 4043 s to 361 s.
+An idle pod with no route out keeps its berth, and the emergency pod reports `No parking available`.
+
 ## Readings from a quiet host
 
 These readings ran at `184d525` on 2026-11-05, after the full gate, with a load average from 2 to 6.
