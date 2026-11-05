@@ -27,13 +27,13 @@ func TestSavePointButtons(t *testing.T) {
 		wantRewindLabel    string
 	}{
 		{name: "no save points", connected: true, wantRewindDisabled: true, wantRewindLabel: "Rewind"},
-		{name: "one save point", connected: true, checkpoints: []session.Checkpoint{{ID: 1, Tick: 2520}}, wantRewindLabel: "Rewind 42.0 s"},
-		{name: "many save points", connected: true, checkpoints: []session.Checkpoint{{ID: 3, Tick: 600}, {ID: 5, Tick: 3600}, {ID: 4, Tick: 1200}}, wantRewindLabel: "Rewind 60.0 s"},
-		{name: "newest restores project", connected: true, checkpoints: []session.Checkpoint{{ID: 1, Tick: 600}, {ID: 2, Tick: 1200, RestoresProject: true}}, wantRewindLabel: "Rewind + project"},
-		{name: "older restores project", connected: true, checkpoints: []session.Checkpoint{{ID: 1, Tick: 600, RestoresProject: true}, {ID: 2, Tick: 1230}}, wantRewindLabel: "Rewind 20.5 s"},
-		{name: "demo", connected: true, demo: true, checkpoints: []session.Checkpoint{{ID: 1, Tick: 600}}, wantRewindLabel: "Rewind 10.0 s"},
-		{name: "pending", connected: true, pending: true, checkpoints: []session.Checkpoint{{ID: 1, Tick: 600}}, wantSaveDisabled: true, wantRewindDisabled: true, wantRewindLabel: "Rewind 10.0 s"},
-		{name: "disconnected", checkpoints: []session.Checkpoint{{ID: 1, Tick: 600}}, wantSaveDisabled: true, wantRewindDisabled: true, wantRewindLabel: "Rewind 10.0 s"},
+		{name: "one save point", connected: true, checkpoints: []session.Checkpoint{{ID: 1, Tick: 42 * sim.TicksPerSecond}}, wantRewindLabel: "Rewind 42.0 s"},
+		{name: "many save points", connected: true, checkpoints: []session.Checkpoint{{ID: 3, Tick: 10 * sim.TicksPerSecond}, {ID: 5, Tick: 60 * sim.TicksPerSecond}, {ID: 4, Tick: 20 * sim.TicksPerSecond}}, wantRewindLabel: "Rewind 60.0 s"},
+		{name: "newest restores project", connected: true, checkpoints: []session.Checkpoint{{ID: 1, Tick: 10 * sim.TicksPerSecond}, {ID: 2, Tick: 20 * sim.TicksPerSecond, RestoresProject: true}}, wantRewindLabel: "Rewind + project"},
+		{name: "older restores project", connected: true, checkpoints: []session.Checkpoint{{ID: 1, Tick: 10 * sim.TicksPerSecond, RestoresProject: true}, {ID: 2, Tick: 41 * sim.TicksPerSecond / 2}}, wantRewindLabel: "Rewind 20.5 s"},
+		{name: "demo", connected: true, demo: true, checkpoints: []session.Checkpoint{{ID: 1, Tick: 10 * sim.TicksPerSecond}}, wantRewindLabel: "Rewind 10.0 s"},
+		{name: "pending", connected: true, pending: true, checkpoints: []session.Checkpoint{{ID: 1, Tick: 10 * sim.TicksPerSecond}}, wantSaveDisabled: true, wantRewindDisabled: true, wantRewindLabel: "Rewind 10.0 s"},
+		{name: "disconnected", checkpoints: []session.Checkpoint{{ID: 1, Tick: 10 * sim.TicksPerSecond}}, wantSaveDisabled: true, wantRewindDisabled: true, wantRewindLabel: "Rewind 10.0 s"},
 		{name: "disconnected without save points", wantSaveDisabled: true, wantRewindDisabled: true, wantRewindLabel: "Rewind"},
 	}
 	for _, test := range tests {
@@ -60,8 +60,8 @@ func TestSavePointButtons(t *testing.T) {
 // save point while the state does not yet list the one that was just saved.
 func TestRewindWaitsForSavedState(t *testing.T) {
 	t.Parallel()
-	older := []session.Checkpoint{{ID: 1, Tick: 600}}
-	both := []session.Checkpoint{{ID: 1, Tick: 600}, {ID: 2, Tick: 1200}}
+	older := []session.Checkpoint{{ID: 1, Tick: 10 * sim.TicksPerSecond}}
+	both := []session.Checkpoint{{ID: 1, Tick: 10 * sim.TicksPerSecond}, {ID: 2, Tick: 20 * sim.TicksPerSecond}}
 	tests := []struct {
 		name         string
 		state        session.State

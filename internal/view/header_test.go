@@ -18,10 +18,10 @@ func TestRunStatus(t *testing.T) {
 	}{
 		{name: "before the first frame", state: session.State{Speed: 1}},
 		{name: "new run", state: session.State{Epoch: "a", Speed: 1}, want: "1x  0.0 s  0 completed"},
-		{name: "running", state: session.State{Epoch: "a", Speed: 2, Simulation: sim.Snapshot{Tick: 74070, Completed: 57}}, want: "2x  1234.5 s  57 completed"},
-		{name: "paused", state: session.State{Epoch: "a", Speed: 2, Simulation: sim.Snapshot{Tick: 74070, Completed: 57, Paused: true}}, want: "PAUSED  2x  1234.5 s  57 completed"},
+		{name: "running", state: session.State{Epoch: "a", Speed: 2, Simulation: sim.Snapshot{Tick: 12345 * sim.TicksPerSecond / 10, Completed: 57}}, want: "2x  1234.5 s  57 completed"},
+		{name: "paused", state: session.State{Epoch: "a", Speed: 2, Simulation: sim.Snapshot{Tick: 12345 * sim.TicksPerSecond / 10, Completed: 57, Paused: true}}, want: "PAUSED  2x  1234.5 s  57 completed"},
 		{name: "paused new run", state: session.State{Epoch: "a", Speed: 1, Simulation: sim.Snapshot{Paused: true}}, want: "PAUSED  1x  0.0 s  0 completed"},
-		{name: "part of a tenth", state: session.State{Epoch: "a", Speed: 15, Simulation: sim.Snapshot{Tick: 7, Completed: 1}}, want: "15x  0.1 s  1 completed"},
+		{name: "part of a tenth", state: session.State{Epoch: "a", Speed: 15, Simulation: sim.Snapshot{Tick: sim.TicksPerSecond/10 + 1, Completed: 1}}, want: "15x  0.1 s  1 completed"},
 		{name: "London AM peak end", state: session.State{Epoch: "a", Speed: 5, Simulation: sim.Snapshot{Tick: 10800 * sim.TicksPerSecond, Completed: 3120}}, want: "5x  10800.0 s  3120 completed"},
 	}
 	for _, test := range tests {

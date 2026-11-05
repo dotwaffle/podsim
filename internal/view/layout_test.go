@@ -415,7 +415,7 @@ func TestInspectorAndButtonTextFitAvailableWidth(t *testing.T) {
 
 func TestControlsDoNotOverlap(t *testing.T) {
 	t.Parallel()
-	savePoints := []session.Checkpoint{{ID: 1, Tick: 600}, {ID: 2, Tick: 1200, RestoresProject: true}}
+	savePoints := []session.Checkpoint{{ID: 1, Tick: 10 * sim.TicksPerSecond}, {ID: 2, Tick: 20 * sim.TicksPerSecond, RestoresProject: true}}
 	for _, layout := range controlLayouts {
 		for _, panel := range []string{"", "demand", incidentsAction} {
 			for _, checkpoints := range [][]session.Checkpoint{nil, savePoints} {
@@ -528,7 +528,7 @@ func TestHeaderTextClearsControls(t *testing.T) {
 			game := controlTestGame(t, layout.input)
 			// The header counts stations and pods after the first state frame.
 			game.state.Epoch = "test"
-			game.state.Checkpoints = []session.Checkpoint{{ID: 1, Tick: 600}}
+			game.state.Checkpoints = []session.Checkpoint{{ID: 1, Tick: 10 * sim.TicksPerSecond}}
 			controls := game.buttons()
 			findButton(t, controls, "checkpoint")
 			findButton(t, controls, "rewind")

@@ -27,7 +27,7 @@ import (
 func TestSessionChangeNotice(t *testing.T) {
 	t.Parallel()
 	physical := session.RestoreInfo{Tier: string(sim.RestorePhysical)}
-	savePoints := []session.Checkpoint{{ID: 1, Tick: 600}}
+	savePoints := []session.Checkpoint{{ID: 1, Tick: 10 * sim.TicksPerSecond}}
 	tests := []struct {
 		name  string
 		input sessionChangeInput
