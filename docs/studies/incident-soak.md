@@ -7,8 +7,9 @@ The code of the congestion, queue, and predictive routing policies was removed o
 
 ## Open items
 
-- The full soak of section 5.1.9 has not run, so its gates have no result.
-- The matrix size is open, and the maintainer chooses it.
+- The soak of amendment A6 ran and failed.
+  The Persistence row failed on `rail-hub`, and the Progress row missed on both presets.
+  The section "Soak of amendment A6" has the numbers.
 - The Performance row for suspension, the Suspension median, is open.
   It has no quiet-host reading.
 - The Choice row is reported and not gated, and no driver reports it, because the sim does not expose the estimate.
@@ -78,6 +79,34 @@ R3 is a target and not a measurement, because no such change exists.
 The checked run had 9 faults and 9 emergencies, and it passed.
 It uses rail-hub only, because the CI row names no preset and a london-central run takes an estimated 20 to 30 CPU minutes.
 `mise run qualify` also runs `TestSampledTickLatency`, in about 3 seconds, and `TestSampledTickNoCandidateLatency`, in 386 seconds at a load average of about 15.
+
+## Soak of amendment A6
+
+The soak ran at `cbbdb18` on 2026-11-05: 5 seeds of 6 simulated hours and a clear of 30 simulated minutes, with a limit of 2 hours of wall time.
+Rail-hub ran each arm, and `london-central` ran `incidents`, `emergencies`, and `reference`.
+The host load was 15 to 38, because other work ran at the same time.
+Rail-hub finished in about 1 h 15 min, and the limit stopped `london-central` at 1 h 58 min.
+
+| Preset and arm | Runs finished | Rewind | Late emergencies, of those seen | Longest emergency (min) |
+| --- | ---: | --- | --- | ---: |
+| `rail-hub` `reference`, `reference-platoons` | 10 of 10 | None run | None | None |
+| `rail-hub` `emergencies` | 3 of 5; seed 2 did not start | Failed at seed 5, tick 1001450 | 0 of 275 | 3.6 |
+| `rail-hub` `incidents` | 4 of 5 | Failed at seed 2, tick 633325 | 50 of 335 | 35.7 |
+| `rail-hub` `platoons` | 4 of 5 | Failed at seed 2, tick 633325 | 39 of 336 | 39.5 |
+| `london-central` `reference` | 5 of 5 | None run | None | None |
+| `london-central` `incidents` | 5 of 5 | Passed, 6 for each run | 1 of 470 | Not extracted |
+| `london-central` `emergencies` | 0 of 5, cut at 5 to 65 simulated minutes | No reading | No reading | No reading |
+
+A late emergency is one of an ordinary pod that takes more than the 10 simulated minutes of the Progress row.
+Most late records are in the phases `bound` and `deferred`, with the wait reasons `Pod ahead`, `Blocked by incident`, `Berth occupied`, or `Fault stopped`.
+Faults last 600 s in this soak, so an emergency behind a fault can use the whole limit before it moves.
+That explanation is not proved.
+
+The log shows no report from the Safety, Contract, Conservation, or Rail rows in any run.
+A run that fails the rewind check stops there, so those runs have no later reading.
+The `emergencies` arm of a seed runs after `incidents`, so the failure of `incidents` at seed 2 also stopped `emergencies` at seed 2.
+
+`london-central` with faults ran at 219 to 239 ticks a second of wall time, against 2,148 to 2,262 for its reference.
 
 ## Readings from a busy host
 
