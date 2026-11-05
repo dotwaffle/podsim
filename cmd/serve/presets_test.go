@@ -3,15 +3,21 @@ package main
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"fmt"
 	"io"
 	"maps"
 	"net/http"
+	"os"
+	"os/exec"
 	"path/filepath"
+	"regexp"
 	"slices"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/scenarios"
@@ -169,6 +175,105 @@ func TestRunAppliesIndentedLondonFull(t *testing.T) {
 	}
 	if !bytes.Equal(canonicalJSON(t, live.Project), canonicalJSON(t, want)) {
 		t.Fatal("the live project differs from the generated project")
+	}
+}
+
+// editorPresetScript loads a preset with the page code of web/editor.js from
+// the server at the second argument, and applies it as the editor does.
+const editorPresetScript = `
+const editor = require(process.argv[1]);
+const base = process.argv[2];
+(async () => {
+  const connection = { fetch: (url, init) => fetch(base + url, init), clientID: "editor-preset-test", sequence: 0, epoch: "" };
+  const live = await editor.readLive(connection, async (project) => project);
+  connection.epoch = live.epoch;
+  const preset = await editor.readPreset(connection, process.argv[3], new AbortController().signal);
+  const project = editor.parseDocument(preset.text).scenario;
+  const applied = await editor.applyToServer({ connection, project, revision: live.revision, serverStart: live.serverStart });
+  process.stdout.write(JSON.stringify({ bytes: preset.text.length, projectFile: preset.projectFile, revision: applied.revision }));
+})().catch((error) => { process.stderr.write(String(error.stack || error)); process.exit(1); });
+`
+
+// TestEditorAppliesLondonFull runs the requests of the editor against a real
+// server: the preset menu, then Pause and apply with its gzip command.
+func TestEditorAppliesLondonFull(t *testing.T) {
+	if testing.Short() {
+		t.Skip("the test generates and applies the largest preset")
+	}
+	t.Parallel()
+	if raceEnabled {
+		t.Skip("the required embedded tests apply large projects without race instrumentation")
+	}
+	node, err := exec.LookPath("node")
+	if err != nil {
+		t.Skip("node is not installed")
+	}
+	editor, err := filepath.Abs("../../web/editor.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	address, stop := startRun(t, []string{"-addr", "127.0.0.1:0", "-dir", browserDirectory(t)})
+	defer stop()
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Minute)
+	defer cancel()
+	command := exec.CommandContext(ctx, node, "-e", editorPresetScript, editor, "http://"+address, "london-full")
+	command.WaitDelay = 5 * time.Second
+	command.Env = append(os.Environ(), "NODE_NO_WARNINGS=1")
+	var stderr strings.Builder
+	command.Stderr = &stderr
+	output, err := command.Output()
+	if err != nil {
+		t.Fatal(err, stderr.String())
+	}
+	var got struct {
+		Bytes       int  `json:"bytes"`
+		ProjectFile bool `json:"projectFile"`
+		Revision    int  `json:"revision"`
+	}
+	if unmarshalErr := json.Unmarshal(output, &got); unmarshalErr != nil {
+		t.Fatal(unmarshalErr, string(output))
+	}
+	if got.Bytes < 5<<20 || got.ProjectFile || got.Revision != 2 {
+		t.Fatalf("the editor run gave %+v", got)
+	}
+	client := &http.Client{Transport: &http.Transport{}}
+	defer client.CloseIdleConnections()
+	request, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "http://"+address+"/api/project", http.NoBody)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var live struct {
+		Project project.Config `json:"project"`
+	}
+	doJSON(t, client, request, &live)
+	want, err := scenarios.GenerateLondonFull()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(canonicalJSON(t, live.Project), canonicalJSON(t, want)) {
+		t.Fatal("the live project differs from the generated project")
+	}
+}
+
+// TestEditorMenuHasThePresets checks the menu of web/editor.html against the
+// presets of the server.
+func TestEditorMenuHasThePresets(t *testing.T) {
+	t.Parallel()
+	html, err := os.ReadFile("../../web/editor.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	menu := regexp.MustCompile(`(?s)<select id="presetSelect".*?</select>`).Find(html)
+	if menu == nil {
+		t.Fatal("web/editor.html has no preset menu")
+	}
+	var got []string
+	for _, match := range regexp.MustCompile(`<option value="([^"]+)"`).FindAllSubmatch(menu, -1) {
+		got = append(got, string(match[1]))
+	}
+	slices.Sort(got)
+	if want := slices.Sorted(maps.Keys(presetGenerators())); !slices.Equal(got, want) {
+		t.Fatalf("the menu has %v, the server has %v", got, want)
 	}
 }
 

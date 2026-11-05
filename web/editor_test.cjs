@@ -3782,7 +3782,7 @@ test("an already-aborted decoder request preserves the newer waiting request", a
 // each project.
 function pageImports() {
   const source = fs.readFileSync(path.join(__dirname, "editor.js"), "utf8");
-  const names = ["importProject", "importBackground", "importFramedImage", "takeBackgroundBytes", "publishBackground"];
+  const names = ["importProject", "loadPreset", "importDocument", "importBackground", "importFramedImage", "takeBackgroundBytes", "publishBackground"];
   const functions = names.map((name) => {
     const match = new RegExp(`\\n  (?:async )?function ${name}\\(`).exec(source);
     assert.ok(match, `the page has ${name}`);
@@ -3795,9 +3795,14 @@ function pageImports() {
     geoSource: LONDON_FRAME.source, geoLicenseSource: "", geoAttribution: "", geoLicense: "", geoLicenseURL: "", geoCopyrightURL: "", geoNotice: "",
   }).map(([name, value]) => [`#${name}`, { value: String(value) }]));
   controls["#geoFile"] = { files: [] };
+  controls["#presetSelect"] = { value: "", disabled: false };
+  controls["#presetWarning"] = { hidden: true };
+  controls["#serverStatus"] = { textContent: "Live revision 1." };
+  const preset = { reply: null, confirm: () => assert.fail("the page must not ask"), requests: [] };
+  const presetConnection = { fetch: (url, init) => { preset.requests.push({ url, init }); return preset.reply(url, init); } };
   const noop = () => {};
   const deps = {
-    ...editor, model, decoder: fake.deps, root: globalThis, MIB: 1024 * 1024, ownDraft: ownTestDraft,
+    ...editor, model, decoder: fake.deps, root: { crypto: globalThis.crypto, confirm: (text) => preset.confirm(text) }, MIB: 1024 * 1024, ownDraft: ownTestDraft,
     goModel: { call: async () => ({ valid: true, errors: [] }) },
     normalizeWithGo: async (scenario) => scenario,
     metadataWithGo: async (metadata) => {
@@ -3814,14 +3819,14 @@ function pageImports() {
       return { value: { scenario: config, background: { imageKey: command.imageKey, x: 0, y: 0, width: command.width, height: command.height, opacity, frameState: "none" } } };
     },
     slot: { get busy() { return slot.busy; }, run(...args) { queued += 1; return slot.run(...args); } },
-    state: { history: model.history, get background() { return model.history.background; }, draftBase: {}, loadedStart: "test" },
+    state: { history: model.history, get background() { return model.history.background; }, draftBase: {}, loadedStart: "test", connection: presetConnection, live: { scenario: JSON.stringify(model.history.value.scenario) } },
     $: (selector) => { assert.ok(controls[selector], selector); return controls[selector]; },
     draft: () => model.history.value.scenario, referenceChoice: () => null,
-    toast: (message) => messages.push(message), updateStatus: (message) => messages.push(message),
+    toast: (message) => messages.push(message), updateStatus: (message) => { messages.push(message); controls["#serverStatus"].textContent = message; },
     render: noop, fitNetwork: noop, cancelPendingEdits: noop, checks: { run: noop }, reportPublish: noop, keptToast: () => ["saved"],
   };
   const imports = new Function(...Object.keys(deps), `${functions}\nreturn { ${names.join(", ")} };`)(...Object.values(deps));
-  return { ...imports, model, slot, fake, controls, messages, queued: () => queued };
+  return { ...imports, model, slot, fake, controls, messages, preset, queued: () => queued };
 }
 
 test("out-of-order file reads cannot queue an older import behind a blocked decoder", async (t) => {
@@ -3857,6 +3862,169 @@ test("a project import keeps the scenario of the file", async () => {
   await page.importProject({ size: text.length, text: async () => text });
   assert.deepEqual(page.model.history.value.scenario, scenario);
   assert.equal(page.messages.at(-1), "The project was imported into the draft.");
+});
+
+// presetReply gives a reply of the preset endpoint. The fake has the members
+// that readPreset reads.
+function presetReply(status, text, headers = {}) {
+  return { ok: status >= 200 && status < 300, status, text: async () => text, headers: { get: (name) => headers[name] ?? null } };
+}
+
+// presetScenario gives a scenario that differs from the draft of pageImports.
+function presetScenario() {
+  return { ...connectedScenario(), name: "LondonCentral" };
+}
+
+test("the preset menu has the presets of the server and the warning", () => {
+  const html = fs.readFileSync(path.join(__dirname, "editor.html"), "utf8");
+  const menu = /<select id="presetSelect"[^>]*>([\s\S]*?)<\/select>/.exec(html);
+  assert.ok(menu, "the page has the menu");
+  assert.deepEqual([...menu[1].matchAll(/<option value="([^"]*)"/g)].map((match) => match[1]), ["", "london-central", "london-full"]);
+  assert.match(menu[0], /title="[^"]*-project[^"]*overwrites the project file/);
+  assert.match(/<div class="actions"[^>]*data-startup[^>]*>[\s\S]*?<\/div>/.exec(html)[0], /id="presetSelect"/, "the startup gate blocks the menu");
+  assert.match(/<p id="presetWarning"[^>]*\shidden[^>]*>([^<]*)</.exec(html)[1], /-project\. Pause and apply overwrites its project file/);
+  const source = fs.readFileSync(path.join(__dirname, "editor.js"), "utf8");
+  assert.match(source, /\$\("#presetSelect"\)\.addEventListener\("change", \(event\) => \{ const name = event\.target\.value; event\.target\.value = ""; loadPreset\(name\); \}\);/);
+  const apply = source.slice(source.indexOf("async function applyProject("), source.indexOf("// readyToApply runs the checks."));
+  assert.match(apply, /showConflict\(null\); \$\("#presetWarning"\)\.hidden = true;/, "a successful apply ends the warning");
+});
+
+test("readPreset posts no body and reads the project file header", async () => {
+  const calls = []; const signal = new AbortController().signal;
+  const connection = { fetch: async (url, init) => { calls.push({ url, init }); return presetReply(200, "{}", { "X-Podsim-Project-File": "true" }); } };
+  assert.deepEqual(await editor.readPreset(connection, "london-full", signal), { text: "{}", projectFile: true });
+  assert.equal(calls[0].url, "/api/presets/london-full");
+  assert.equal(calls[0].init.method, "POST");
+  assert.equal(calls[0].init.body, undefined);
+  assert.equal(calls[0].init.signal, signal);
+  connection.fetch = async () => presetReply(200, "{}");
+  assert.equal((await editor.readPreset(connection, "a/b", signal)).projectFile, false);
+  connection.fetch = async (url) => { assert.equal(url, "/api/presets/a%2Fb"); return presetReply(404, "unknown preset\n"); };
+  await assert.rejects(editor.readPreset(connection, "a/b", signal), { message: "Unknown preset." });
+});
+
+test("a preset replaces the draft through the import path", async () => {
+  const page = pageImports(); const scenario = presetScenario();
+  await page.model.history.reset(page.model.history.value);
+  page.preset.reply = async () => {
+    assert.equal(page.controls["#presetSelect"].disabled, true, "the menu waits for the reply");
+    assert.match(page.controls["#serverStatus"].textContent, /generating the preset/);
+    return presetReply(200, JSON.stringify(scenario));
+  };
+  await page.loadPreset("london-central");
+  assert.equal(page.preset.requests[0].url, "/api/presets/london-central");
+  assert.deepEqual(page.model.history.value.scenario, scenario);
+  assert.deepEqual(page.model.loaded.scenario, scenario, "Reset draft goes back to the preset");
+  assert.equal(page.model.history.canUndo, true, "Undo brings back the old draft");
+  assert.equal(page.controls["#presetWarning"].hidden, true, "no warning without a project file");
+  assert.equal(page.controls["#presetSelect"].disabled, false);
+  assert.equal(page.controls["#serverStatus"].textContent, "Live revision 1.");
+  assert.ok(page.messages.includes("The preset is in the draft. Pause and apply runs it."), page.messages.join(" | "));
+});
+
+test("a preset from a server with a project file shows the warning", async () => {
+  const page = pageImports();
+  await page.model.history.reset(page.model.history.value);
+  page.preset.reply = async () => presetReply(200, JSON.stringify(presetScenario()), { "X-Podsim-Project-File": "true" });
+  await page.loadPreset("london-full");
+  assert.equal(page.controls["#presetWarning"].hidden, false);
+});
+
+test("a failed preset leaves the draft as it was", async (t) => {
+  const failures = [
+    ["HTTP 500", async () => presetReply(500, "the server could not generate the preset\n"), "The server could not generate the preset. The draft is unchanged."],
+    ["HTTP 503", async () => presetReply(503, "the server is generating another preset, try again\n", { "Retry-After": "2" }), "The server is generating another preset, try again. The draft is unchanged."],
+    ["HTTP 404 with a project file header", async () => presetReply(404, "", { "X-Podsim-Project-File": "true" }), "HTTP 404. The draft is unchanged."],
+    ["no connection", async () => { throw new Error("Network failure."); }, "Network failure. The draft is unchanged."],
+    ["no JSON", async () => presetReply(200, "<html>"), /The draft is unchanged\.$/],
+  ];
+  for (const [name, reply, want] of failures) {
+    await t.test(name, async () => {
+      const page = pageImports(); const before = page.model.history.value;
+      await page.model.history.reset(before);
+      page.preset.reply = reply;
+      await page.loadPreset("london-full");
+      assert.deepEqual(page.model.history.value, before);
+      assert.equal(page.model.history.canUndo, false);
+      const shown = page.messages.at(-2);
+      if (typeof want === "string") assert.equal(shown, want); else assert.match(shown, want);
+      assert.equal(page.controls["#presetWarning"].hidden, true);
+      assert.equal(page.controls["#presetSelect"].disabled, false);
+      assert.equal(page.controls["#serverStatus"].textContent, "Live revision 1.");
+    });
+  }
+});
+
+test("a preset asks before it replaces the changes in the draft", async () => {
+  const page = pageImports(); const asked = [];
+  await page.model.history.reset(page.model.history.value);
+  await page.model.history.replace({ scenario: { ...connectedScenario(), name: "Changed" }, background: null });
+  page.preset.confirm = (text) => { asked.push(text); return false; };
+  page.preset.reply = () => assert.fail("a refused question sends no request");
+  await page.loadPreset("london-central");
+  assert.deepEqual(asked, [editor.PRESET_QUESTION]);
+  assert.equal(page.model.history.value.scenario.name, "Changed");
+  page.preset.confirm = () => true;
+  page.preset.reply = async () => presetReply(200, JSON.stringify(presetScenario()));
+  await page.loadPreset("london-central");
+  assert.equal(page.model.history.value.scenario.name, "LondonCentral");
+});
+
+test("a newer import stops a preset that waits for the server", async () => {
+  const page = pageImports(); const reply = Promise.withResolvers();
+  await page.model.history.reset(page.model.history.value);
+  page.preset.reply = () => reply.promise;
+  const loading = page.loadPreset("london-full"); await tick();
+  assert.equal(page.preset.requests[0].init.signal.aborted, false);
+  const text = editor.serializeDocument({ ...connectedScenario(), name: "Imported" });
+  await page.importProject({ size: text.length, text: async () => text });
+  assert.equal(page.preset.requests[0].init.signal.aborted, true, "the import aborts the request");
+  reply.resolve(presetReply(200, JSON.stringify(presetScenario()), { "X-Podsim-Project-File": "true" }));
+  await loading;
+  assert.equal(page.model.history.value.scenario.name, "Imported");
+  assert.equal(page.controls["#presetWarning"].hidden, true, "a dropped preset gives no warning");
+});
+
+// goWorker runs the Go editor model in this thread with the worker protocol
+// of createClient.
+function goWorker() {
+  const go = goEditorOperations();
+  const worker = {
+    postMessage(data) { setImmediate(() => { let message; try { message = { id: data.id, result: go.handle(structuredClone(data)) }; } catch (error) { message = { id: data.id, error: String(error) }; } worker.onmessage({ data: message }); }); },
+    terminate() {},
+  };
+  return worker;
+}
+
+test("the LondonFull draft passes the Go model and the history", needsGo, async () => {
+  const { createClient, createHistory } = require("./editor-model.js");
+  const text = generatedFile("london-full");
+  assert.ok(text.length > 14 * 1024 * 1024 && text.length < 32 * 1024 * 1024, `the project has ${text.length} bytes`);
+  const client = createClient({ makeWorker: goWorker });
+  const started = Date.now();
+  const scenario = ownTestDraft(editor.parseDocument(text).scenario);
+  const verdict = await client.call(scenario);
+  // The validate operation also runs the checks, and an error stops an apply.
+  assert.deepEqual([verdict.valid, verdict.errors], [true, []]);
+  const validated = Date.now();
+  const normalized = await client.call(scenario, "edit", { field: "normalize", value: true, editor: true });
+  assert.equal(normalized.error, undefined);
+  const normalizedAt = Date.now();
+  const fatal = [];
+  const history = createHistory({ initial: { scenario: ownTestDraft(connectedScenario()), background: null }, own: ownTestDraft, clone: structuredClone,
+    call: (...args) => client.call(...args), accept: (config, token) => client.acceptHistory(config, token), onChange() {}, onAcknowledged() {}, onFatal: (error) => fatal.push(error) });
+  await history.reset(history.value);
+  const before = history.value.scenario.name;
+  await history.replace({ scenario: { ...scenario, ...normalized.change.patch }, background: null }, true);
+  assert.equal(history.value.scenario.name, "LondonFull");
+  await history.flush();
+  await history.undo();
+  assert.equal(history.value.scenario.name, before);
+  await history.redo();
+  assert.equal(history.value.scenario.network.stations.length, 309 + 3);
+  assert.deepEqual(fatal, []);
+  client.close();
+  console.info(`LondonFull: ${text.length} bytes, validate and checks ${validated - started} ms, normalize ${normalizedAt - validated} ms, history ${Date.now() - normalizedAt} ms`);
 });
 
 test("invalid frame or license input cancels an older import without reading the new file", async (t) => {
@@ -3938,7 +4106,7 @@ test("each abort event of the page aborts the open acquisition, and each import 
     return source.slice(match.index, source.indexOf("\n  }\n", match.index));
   };
   for (const name of ["stepHistory", "resetDraft", "restoreDraft", "loadLiveScenario", "closeGeoPanel", "queueBackgroundEdit"]) assert.match(body(name), /model\.abort\(\)/, `${name} aborts`);
-  for (const name of ["importProject", "importBackground", "importFramedImage"]) assert.match(body(name), /model\.start\(\)/, `${name} starts a new acquisition`);
+  for (const name of ["importDocument", "importBackground", "importFramedImage"]) assert.match(body(name), /model\.start\(\)/, `${name} starts a new acquisition`);
   for (const event of ['\\$\\("#resetButton"\\)\\.addEventListener\\("click", resetDraft\\);', 'root\\.addEventListener\\("beforeunload", \\(event\\) => \\{ model\\.abort\\(\\);']) {
     assert.match(source, new RegExp(event));
   }

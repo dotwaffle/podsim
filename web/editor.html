@@ -13,6 +13,7 @@
       <div>
         <h1>Scenario editor</h1>
         <p id="serverStatus">Loading the live scenario…</p>
+        <p id="presetWarning" class="preset-warning" role="status" hidden>This server started with -project. Pause and apply overwrites its project file.</p>
         <p><a href="offline.html">Offline car and energy</a></p>
       </div>
     </div>
@@ -22,6 +23,11 @@
       <button id="resetButton" type="button">Reset draft</button>
       <label class="button" for="projectImport">Import JSON</label>
       <input id="projectImport" class="visually-hidden" type="file" accept="application/json,.json">
+      <select id="presetSelect" class="preset-select" aria-label="Load a London preset into the draft" title="The server generates the preset. On a server that started with -project, Pause and apply overwrites the project file.">
+        <option value="">London preset…</option>
+        <option value="london-central">LondonCentral</option>
+        <option value="london-full">LondonFull</option>
+      </select>
       <button id="exportButton" type="button">Export JSON</button>
       <button id="problemCount" class="problem-count" type="button" title="Show the checks" hidden></button>
       <button id="applyButton" class="primary" type="button">Pause and apply</button>

@@ -765,6 +765,19 @@ When it is on a message, it goes to the first of these that exists after the run
 4. The message at the same place in the list, or the last message.
 5. The **Checks** heading, when no message that selects an item is left.
 
+### London presets
+
+The **London preset** menu loads LondonCentral or LondonFull into the draft.
+The server generates the project when you select it, and this takes a few seconds for LondonFull.
+The draft then works as after **Import JSON**: the preset becomes the base of **Reset draft**, and **Undo** brings back the old draft.
+When the draft has scenario changes, the editor asks first.
+
+The draft stays as it was when the generation fails or when the server is generating another preset, and a message gives the reason.
+The live simulation does not change until you select **Pause and apply**.
+
+When the server started with `-project`, the page shows a warning after the load: **Pause and apply** overwrites the project file of the server.
+The warning stays until a successful apply.
+
 ### Import and export
 
 **Export JSON** saves the scenario and the optional background as compact JSON, and **Import JSON** restores a draft from a file.

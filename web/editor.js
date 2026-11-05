@@ -1248,6 +1248,21 @@
     return /^\d+$/.test(value.trim()) ? Number(value.trim()) : null;
   }
 
+  // PRESET_QUESTION asks the user before a preset replaces the changes in
+  // the draft.
+  const PRESET_QUESTION = "Load the preset? It replaces the changes in your draft. Undo brings them back.";
+
+  // readPreset asks the server for a new project of the named preset. It
+  // gives the text of the project, and projectFile, which is true when an
+  // apply overwrites the project file of the server. A failed request
+  // throws an error with the text of the reply.
+  async function readPreset(connection, name, signal) {
+    const response = await connection.fetch(`/api/presets/${encodeURIComponent(name)}`, { method: "POST", headers: { Accept: "application/json" }, signal });
+    const text = await response.text();
+    if (!response.ok) { const reason = replyText(text, response.status); throw new Error(`${reason.charAt(0).toUpperCase()}${reason.slice(1)}.`); }
+    return { text, projectFile: response.headers.get("X-Podsim-Project-File") === "true" };
+  }
+
   // postCommand sends one command. A rejected command throws an error with
   // status, the HTTP status, and errorCode, the error code of the
   // acknowledgment. The message of the error is the error text of the
@@ -2418,7 +2433,7 @@
     problemCountText, createCheckTimer, validationSummary, checkFocusKey, IMAGE_FILE_BYTES, IMAGE_MAX_SIDE, IMAGE_MAX_PIXELS, imageFacts, imageBytesFacts, dataURLToBytes, bytesToDataURL, checkImageSize,
     metadataURLFacts, IMAGE_KEY_PATTERN, newImageKey, FRAME_STATES, LICENSE_LIMITS, licenseError, assetError, backgroundRecordText, STORED_BACKGROUND_KEPT_TEXT, SERVER_PROJECT_BYTES, PROJECT_FILE_BYTES, SERVER_COMMAND_BYTES, SERVER_COMMAND_JSON_BYTES, GZIP_COMMAND_BYTES, SERVER_TOO_LARGE_TEXT, postCommand, dataURLBytes, serializeDocument, parseDocument, repeatedMember,
     networkBounds, fitView, zoomScale, nodeLabelSize, pairedLaneIDs, showsChevron, laneOffset, laneCurve, lanePathData, SNAPSHOT_ATTEMPTS, snapshotConsistent, draftBeforeRestart, LIVE_STATE_ACCEPT, MAX_STATE_DEPTH, MAX_STATE_ELEMENTS, liveStateFrame, readState, readSnapshot, applyToServer, applyFailureText, applyFailureStatus, applyToast,
-    readLive, readConflict, CONFLICT_UNLOADED_TEXT, conflictView, LOAD_LIVE_QUESTION, applyOverQuestion, loadLive, liveDraft, applyOverBase,
+    readPreset, PRESET_QUESTION, readLive, readConflict, CONFLICT_UNLOADED_TEXT, conflictView, LOAD_LIVE_QUESTION, applyOverQuestion, loadLive, liveDraft, applyOverBase,
     DRAFT_SAVE_DELAY, DRAFT_STORE_TEXT, DRAFT_UNSAVED_TEXT, DRAFT_DISPLACED_TEXT, DRAFT_STORE, BACKGROUND_STORE, openRecordStore, createDraftKeeper, draftChanged, draftRecordFor, draftOffer, backgroundRecordFor, storedBackground, restoreStoredBackground,
     IMAGE_TABLE_BYTES, DEFAULT_OPACITY, freezeImage, createGoBackgroundModel, createDecoderSlot, checkImageBytes, resampleImage, FRAME_WARNING_TEXT, frameView, attributionParts, BACKGROUND_DURABLE_TEXT, backgroundFacts, exportBackground, STARTUP_EVENTS, createStartupGate, blockInput, startupExempt, startEditor, BACKGROUND_STORE_TEXT, DRAFT_RESTART_TEXT, draftOfferText, RESTORED_RESTART_TEXT, restoreStatusText, shellPage,
   };
@@ -3962,7 +3977,7 @@
       const { serverStart } = applied;
       state.loadedRevision = applied.revision; state.loadedStart = serverStart; state.draftBase = { revision: applied.revision, epoch: state.connection.epoch, serverStart };
       model.setLoaded({ scenario: project, background: state.background ? clone(state.background) : null });
-      setLive(model.loaded, applied.revision); renderOffer(); showConflict(null);
+      setLive(model.loaded, applied.revision); renderOffer(); showConflict(null); $("#presetWarning").hidden = true;
       if (!state.offer) keeper.replace();
       updateStatus(`Applied revision ${state.loadedRevision}. The simulation is paused.`); toast(...applyToast(applied));
     } catch (error) {
@@ -4071,25 +4086,50 @@
   async function importProject(file) {
     if (!file) return;
     if (file.size > PROJECT_FILE_BYTES) { toast(`The project file must be ${PROJECT_FILE_BYTES / MIB} MiB or smaller.`, true); return; }
+    await importDocument(() => file.text(), { kind: "project import", done: "The project was imported into the draft." });
+  }
+
+  // loadPreset replaces the draft with a new project of the named preset
+  // from the server, in the same way as an import of that project. It asks
+  // first when the draft has changes. A failure leaves the draft as it was.
+  // The warning stays until an apply when an apply overwrites the project
+  // file of the server.
+  async function loadPreset(name) {
+    if (!name || (draftChanged(state.history.value, state.live) && !root.confirm(PRESET_QUESTION))) return;
+    const control = $("#presetSelect"), status = $("#serverStatus").textContent;
+    let projectFile = false;
+    control.disabled = true; updateStatus("The server is generating the preset…");
+    try {
+      const read = async (signal) => { const reply = await readPreset(state.connection, name, signal); projectFile = reply.projectFile; return reply.text; };
+      const published = await importDocument(read, { kind: "preset load", done: "The preset is in the draft. Pause and apply runs it." });
+      if (published) $("#presetWarning").hidden = !projectFile;
+    } finally { control.disabled = false; updateStatus(status); }
+  }
+
+  // importDocument replaces the draft with the document that read gives,
+  // and it gives true when the draft has the document. read gets the abort
+  // signal of the acquisition. report has the text of the success toast and
+  // the kind for the console.
+  async function importDocument(read, report) {
     cancelPendingEdits(); const ticket = model.start();
     try {
-      let text = await file.text();
-      if (!model.current(ticket)) return;
+      let text = await read(ticket.signal);
+      if (!model.current(ticket)) return false;
       const imported = parseDocument(text); text = "";
       imported.scenario = ownDraft(imported.scenario);
       const metadata = await metadataWithGo(imported.metadata);
-      if (!model.current(ticket)) return;
+      if (!model.current(ticket)) return false;
       imported.asset = metadata.asset;
       if (imported.background) imported.background = { dataURL: imported.background.dataURL, ...metadata.placement };
       delete imported.metadata;
       const verdict = await goModel.call(imported.scenario);
-      if (!model.current(ticket)) return;
+      if (!model.current(ticket)) return false;
       if (verdict.valid !== true || !Array.isArray(verdict.errors) || verdict.errors.length) {
         const errors = verdict.errors || [{ text: "The Go editor model could not validate the project." }];
         throw new Error(`The project has ${errors.length} error${errors.length === 1 ? "" : "s"}. ${errors.slice(0, 3).map((item) => item.text).join(" ")}`);
       }
       imported.scenario = await normalizeWithGo(imported.scenario);
-      if (!model.current(ticket)) return;
+      if (!model.current(ticket)) return false;
       let image = null; let background = null;
       if (imported.background) {
         const { bytes, placement } = takeBackgroundBytes(imported);
@@ -4099,16 +4139,18 @@
         image = freezeImage({ key: newImageKey(root.crypto), bytes, mime: facts.mime, pixelWidth: facts.width, pixelHeight: facts.height, frame: asset.frame, license: asset.license });
         background = { imageKey: image.key, ...placement, frameState: asset.frameState };
       }
-      if (!model.current(ticket)) return;
+      if (!model.current(ticket)) return false;
       const result = await model.publish({ ticket, image, value: { scenario: imported.scenario, background }, baseline: true,
         beforePublish: () => { state.selection = null; state.draftBase = { ...state.draftBase, serverStart: state.loadedStart }; render(); fitNetwork(); },
       });
-      if (result.error) { toast(`${result.error} The draft is unchanged.`, true); return; }
-      checks.run(); toast("The project was imported into the draft.");
-      reportPublish("project import", image, result.dropped);
+      if (result.error) { toast(`${result.error} The draft is unchanged.`, true); return false; }
+      checks.run(); toast(report.done);
+      reportPublish(report.kind, image, result.dropped);
+      return true;
     } catch (error) {
-      if (error.name === "AbortError" || !model.current(ticket)) return;
+      if (error.name === "AbortError" || !model.current(ticket)) return false;
       model.abort(); toast(`${error.message} The draft is unchanged.`, true);
+      return false;
     }
   }
 
@@ -4325,6 +4367,7 @@
     $("#problemCount").addEventListener("click", showChecks);
     $("#validationList").addEventListener("click", (event) => { const button = event.target.closest("button[data-type]"); if (button) selectCheck({ type: button.dataset.type, id: button.dataset.id }); });
     $("#exportButton").addEventListener("click", exportProject); $("#projectImport").addEventListener("change", (event) => { importProject(event.target.files[0]); event.target.value = ""; });
+    $("#presetSelect").addEventListener("change", (event) => { const name = event.target.value; event.target.value = ""; loadPreset(name); });
     $("#backgroundImport").addEventListener("change", (event) => { importBackground(event.target.files[0]); event.target.value = ""; });
     // The opacity gesture of the model runs from pointer down to pointer
     // up, pointercancel or a lost pointer capture. Each of the three ends
