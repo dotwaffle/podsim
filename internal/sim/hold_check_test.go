@@ -388,15 +388,12 @@ func TestDispatchPassResetFindsNewFreePods(t *testing.T) {
 	}
 	busy := s.findVehicle("02")
 	busy.Pod.Activity, busy.Pod.Occupied = Traveling, true
-	pass := dispatchPass{assigned: map[string]bool{"01": true}, pickups: map[string]*vehicle{"market": nil}}
+	pass := dispatchPass{assigned: map[string]bool{"01": true}}
 	if s.localPickup("harbor", &pass) != nil || s.localPickup("garden", &pass) != nil || s.pickupAvailable("market", "", &pass) {
 		t.Fatal("found a pickup pod before pod 02 became idle")
 	}
 	busy.Pod.Activity, busy.Pod.Occupied = Idle, false
 	pass.reset()
-	if _, known := pass.pickups["market"]; known {
-		t.Fatal("reset kept the pickup pod of Market")
-	}
 	if s.localPickup("garden", &pass) != busy || !s.pickupAvailable("market", "", &pass) {
 		t.Fatal("did not find pod 02 after the reset")
 	}

@@ -391,8 +391,6 @@ type dispatchPass struct {
 	// assigned holds the pods of the waiting trips. dispatch changes it
 	// during the pass.
 	assigned map[string]bool
-	// pickups keeps the result of pickupPod for each station.
-	pickups map[string]*vehicle
 	// free holds the free pods in fleet order when freeKnown is true. See
 	// freePods.
 	free      []*vehicle
@@ -443,15 +441,12 @@ type dispatchFitKey struct {
 }
 
 // begin starts a pass for the waiting trips. It reuses the buffers of the
-// last pass. Only map lookups read assigned and pickups, and the slices
+// last pass. Only map lookups read assigned, and the slices
 // are filled again after each reset, so a reused buffer gives the same
 // results as a new one.
 func (pass *dispatchPass) begin(waiting []waitingTrip) {
 	if pass.assigned == nil {
 		pass.assigned = make(map[string]bool, len(waiting))
-	}
-	if pass.pickups == nil {
-		pass.pickups = make(map[string]*vehicle)
 	}
 	clear(pass.assigned)
 	for _, trip := range waiting {
@@ -470,7 +465,6 @@ func (pass *dispatchPass) end() {
 
 // reset removes the results of the pass.
 func (pass *dispatchPass) reset() {
-	clear(pass.pickups)
 	clear(pass.optionPickups)
 	clear(pass.fittingPods)
 	pass.free, pass.freeKnown = pass.free[:0], false
@@ -572,13 +566,10 @@ func (s *Simulation) localPickupForRequest(request Request, excluded string, pas
 	return nil
 }
 
-// pickupPodForRequest chooses the pickup pod for a request as pickupPod
-// does. It skips the pod excluded, which a released trip must not get.
+// pickupPodForRequest chooses the fastest pod that can pick up request.
+// Fleet order breaks ties. It skips the pod excluded, which a released trip
+// must not get.
 func (s *Simulation) pickupPodForRequest(request Request, excluded string, pass *dispatchPass) *vehicle {
-	return s.pickupPodMatching(request.legOrigin(), pass, &request, excluded)
-}
-
-func (s *Simulation) pickupPodMatching(stationID string, pass *dispatchPass, request *Request, excluded string) *vehicle {
 	candidates := s.pickupCandidates(pass)
 	if len(candidates) == 0 {
 		return nil
@@ -587,9 +578,9 @@ func (s *Simulation) pickupPodMatching(stationID string, pass *dispatchPass, req
 	bestTime := math.Inf(1)
 	load := s.berthLoads()
 	var bounds []float64
-	fits := classFits{s: s, request: request}
+	fits := classFits{s: s, request: &request}
 	usable := func(v *vehicle) bool {
-		return (excluded == "" || v.Pod.ID != excluded) && (request == nil || fits.pod(v))
+		return (excluded == "" || v.Pod.ID != excluded) && fits.pod(v)
 	}
 	// In a depot, only the oldest head that serves this pickup is a
 	// candidate, so a head that cannot serve it does not hide a younger
@@ -598,12 +589,7 @@ func (s *Simulation) pickupPodMatching(stationID string, pass *dispatchPass, req
 		if !usable(head) || !s.pickupCandidate(head, pass.assigned) {
 			return false
 		}
-		var ok bool
-		if request == nil {
-			_, _, ok = s.candidateRoute(head, stationID, load)
-		} else {
-			_, _, ok = s.candidateRouteForRequest(head, *request, load)
-		}
+		_, _, ok := s.candidateRouteForRequest(head, request, load)
 		return ok
 	}}
 	for _, v := range candidates {
@@ -612,19 +598,13 @@ func (s *Simulation) pickupPodMatching(stationID string, pass *dispatchPass, req
 		}
 		if best != nil {
 			if bounds == nil {
-				bounds = s.stationPickupBounds(stationID)
+				bounds = s.stationPickupBounds(request.legOrigin())
 			}
 			if pickupCannotImprove(s.pickupBound(v, bounds), bestTime) {
 				continue
 			}
 		}
-		var route []Lane
-		var ok bool
-		if request == nil {
-			route, _, ok = s.candidateRoute(v, stationID, load)
-		} else {
-			route, _, ok = s.candidateRouteForRequest(v, *request, load)
-		}
+		route, _, ok := s.candidateRouteForRequest(v, request, load)
 		if !ok {
 			continue
 		}

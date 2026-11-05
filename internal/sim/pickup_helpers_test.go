@@ -25,7 +25,19 @@ func (s *Simulation) localPickup(stationID string, pass *dispatchPass) *vehicle 
 // bound skips candidates that cannot improve the best pickup time. With
 // no candidate, pickupPod does not compute the berth loads.
 func (s *Simulation) pickupPod(stationID string, pass *dispatchPass) *vehicle {
-	return s.pickupPodMatching(stationID, pass, nil, "")
+	to := ""
+	for _, station := range s.network.Stations {
+		if station.ID != stationID && !station.ParkingOnly {
+			to = station.ID
+			break
+		}
+	}
+	return s.pickupPodForRequest(Request{From: stationID, To: to}, "", pass)
+}
+
+// candidateRoute is candidateRouteMatching with each berth.
+func (s *Simulation) candidateRoute(v *vehicle, stationID string, load func(Berth) int) ([]Lane, Berth, bool) {
+	return s.candidateRouteMatching(v, stationID, load, nil)
 }
 
 // pickupRoute includes the track already committed by a pod moving toward parking.

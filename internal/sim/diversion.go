@@ -54,12 +54,8 @@ func (s *Simulation) pickupCandidate(v *vehicle, assigned map[string]bool) bool 
 	return ok && (destination.ParkingOnly || v.Rebalancing || v.released)
 }
 
-// candidateRoute is pickupRouteWithAssignments for a pod that
+// candidateRouteMatching is pickupRouteWithAssignments for a pod that
 // pickupCandidate accepts. load is as in pickupRouteInput.
-func (s *Simulation) candidateRoute(v *vehicle, stationID string, load func(Berth) int) ([]Lane, Berth, bool) {
-	return s.candidateRouteMatching(v, stationID, load, nil)
-}
-
 func (s *Simulation) candidateRouteMatching(v *vehicle, stationID string, load func(Berth) int, accept func(Berth) bool) ([]Lane, Berth, bool) {
 	prefix, suffix, berth, ok := s.candidateRoutePartsMatching(v, stationID, load, accept)
 	if v.Pod.Activity == Idle {
