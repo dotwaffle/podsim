@@ -9,6 +9,7 @@ import (
 	"math/rand/v2"
 	"os"
 	"reflect"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -150,9 +151,11 @@ func (r *soakRange) add(value int) {
 // soakResult is the result of one run. A gate that fails stops the test, so
 // the result holds only numbers to report.
 type soakResult struct {
-	ticks                                int64
-	wall                                 time.Duration
-	cpu                                  float64
+	ticks int64
+	wall  time.Duration
+	// threadCPU is the CPU of this run alone, and processCPU that of the whole
+	// process in the same time, with each parallel run.
+	threadCPU, processCPU                float64
 	queue                                soakRange
 	state                                sim.Snapshot
 	commands, refused                    int
@@ -167,8 +170,8 @@ type soakResult struct {
 	settleTicks                       int64
 	misses                            []string
 	steps                             []time.Duration
-	// rates holds the ticks for each CPU second in each simulated 5 minutes
-	// of the run before the clear, to see the drift of the rate.
+	// rates holds the ticks for each CPU second of this run's thread in each
+	// simulated 5 minutes before the clear, to see the drift of the rate.
 	rates []int
 }
 
@@ -266,6 +269,8 @@ func soakWarmUp(t *testing.T, input soakInput, ticks int64) *soakWarm {
 	if ticks == 0 {
 		return nil
 	}
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
 	input.hours = float64(ticks) / soakTicksPerHour
 	d := newSoakDriver(t, input)
 	defer d.s.Close()
@@ -712,7 +717,7 @@ func (d *soakDriver) runHours() {
 	d.t.Helper()
 	ticks := int64(d.input.hours * soakTicksPerHour)
 	first := d.loopTick + 1
-	window := soakCPUSeconds()
+	window := soakWindow{cpu: soakThreadCPUSeconds(), wall: time.Now()}
 	for tick := first; tick < first+ticks; tick++ {
 		d.runLoopTick(tick, &window)
 		d.loopTick = tick
@@ -720,15 +725,21 @@ func (d *soakDriver) runHours() {
 	d.result.ticks = ticks
 }
 
+// soakWindow holds the start of a rate window.
+type soakWindow struct {
+	cpu  float64
+	wall time.Time
+}
+
 // runLoopTick runs one tick of the driver loop, with its events and its checks.
-func (d *soakDriver) runLoopTick(tick int64, window *float64) {
+func (d *soakDriver) runLoopTick(tick int64, window *soakWindow) {
 	d.t.Helper()
 	if tick%soakRateWindow == 0 {
-		cpu := soakCPUSeconds()
-		rate := int(float64(soakRateWindow) / max(cpu-*window, 0.01))
+		cpu, wall := soakThreadCPUSeconds(), time.Now()
+		rate := int(float64(soakRateWindow) / max(cpu-window.cpu, 0.01))
 		d.result.rates = append(d.result.rates, rate)
-		d.t.Logf("window %s %s seed=%d branch=%d simulated_minutes=%d checks=%t queue=%d ticks/cpu_s=%d", d.input.preset, d.input.arm.name, d.input.seed, d.input.branch, tick/(60*sim.TicksPerSecond), d.checks, d.s.simulation.PendingCount(), rate)
-		*window = cpu
+		d.t.Logf("window %s %s seed=%d branch=%d simulated_minutes=%d checks=%t queue=%d ticks/thread_cpu_s=%d ticks/wall_s=%.0f", d.input.preset, d.input.arm.name, d.input.seed, d.input.branch, tick/(60*sim.TicksPerSecond), d.checks, d.s.simulation.PendingCount(), rate, float64(soakRateWindow)/max(wall.Sub(window.wall).Seconds(), 0.01))
+		window.cpu, window.wall = cpu, wall
 	}
 	if d.input.checks && !d.checks && tick >= d.input.checkFrom {
 		d.startChecks()
@@ -830,16 +841,18 @@ func (d *soakDriver) checkRail() {
 // stops it at the end of the run, with the list.
 func runSoak(t *testing.T, input soakInput) soakResult {
 	t.Helper()
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
 	d := newSoakDriver(t, input)
-	start, startCPU := time.Now(), soakCPUSeconds()
+	start, startThread, startProcess := time.Now(), soakThreadCPUSeconds(), soakProcessCPUSeconds()
 	d.runHours()
 	d.clearAndSettle()
-	d.result.wall, d.result.cpu = time.Since(start), soakCPUSeconds()-startCPU
+	d.result.wall, d.result.threadCPU, d.result.processCPU = time.Since(start), soakThreadCPUSeconds()-startThread, soakProcessCPUSeconds()-startProcess
 	d.checkRail()
 	d.result.state = d.s.simulation.Snapshot()
 	state := d.result.state
-	t.Logf("preset=%s arm=%s seed=%d branch=%d hours=%g checks=%t ticks=%d wall=%.1fs cpu=%.1fs ticks/s=%.0f commands=%d refused=%d saves=%d demoted=%d rewinds=%d rail=%d completed=%d interrupted=%d queue=%d..%d settle=%ds waitAvg=%.1fs waitMax=%.1fs faults=%+v emergencies=%+v seen=%d late=%d inPlatoon=%d long=%d longestUnblocked=%.1fs fullChecks=%d rates=%v",
-		input.preset, input.arm.name, input.seed, input.branch, input.hours, input.checks, d.result.ticks, d.result.wall.Seconds(), d.result.cpu, float64(d.result.ticks)/d.result.wall.Seconds(),
+	t.Logf("preset=%s arm=%s seed=%d branch=%d hours=%g checks=%t ticks=%d wall=%.1fs threadCPU=%.1fs processCPU=%.1fs ticks/s=%.0f commands=%d refused=%d saves=%d demoted=%d rewinds=%d rail=%d completed=%d interrupted=%d queue=%d..%d settle=%ds waitAvg=%.1fs waitMax=%.1fs faults=%+v emergencies=%+v seen=%d late=%d inPlatoon=%d long=%d longestUnblocked=%.1fs fullChecks=%d rates=%v",
+		input.preset, input.arm.name, input.seed, input.branch, input.hours, input.checks, d.result.ticks, d.result.wall.Seconds(), d.result.threadCPU, d.result.processCPU, float64(d.result.ticks)/d.result.wall.Seconds(),
 		d.result.commands, d.result.refused, d.result.saves, d.result.demoted, d.result.rewinds, d.result.railRecords, state.Completed, state.Interrupted, d.result.queue.low, d.result.queue.high,
 		d.result.settleTicks/sim.TicksPerSecond, state.Wait.AverageSeconds, state.Wait.MaxSeconds, state.Faults.Counters, state.Emergencies.Counters, d.result.emergencies, d.result.emergencyLate, d.result.emergencyInPlatoon, d.result.emergencyLong, float64(d.result.emergencyLongest)/sim.TicksPerSecond, d.fullChecks, d.result.rates)
 	if len(d.result.misses) > 0 {
@@ -851,14 +864,32 @@ func runSoak(t *testing.T, input soakInput) soakResult {
 	return d.result
 }
 
-// soakCPUSeconds returns the CPU time of the process, in seconds, or 0 with no
-// /proc file. A busy host changes it less than it changes the wall time.
-func soakCPUSeconds() float64 {
-	raw, err := os.ReadFile("/proc/self/stat")
+// soakThreadCPUSeconds returns the CPU time of the current thread, in seconds,
+// or 0 with no /proc file. A run locks its goroutine to its thread, so this is
+// the CPU of that run alone, with no garbage collection, which other threads
+// do.
+func soakThreadCPUSeconds() float64 {
+	return soakStatFile("/proc/thread-self/stat")
+}
+
+// soakProcessCPUSeconds returns the CPU time of the process, in seconds, or 0
+// with no /proc file. It includes the garbage collection and each parallel run.
+func soakProcessCPUSeconds() float64 {
+	return soakStatFile("/proc/self/stat")
+}
+
+func soakStatFile(path string) float64 {
+	raw, err := os.ReadFile(path)
 	if err != nil {
 		return 0
 	}
-	_, fields, ok := strings.Cut(string(raw), ") ")
+	return soakStatCPU(string(raw))
+}
+
+// soakStatCPU returns the CPU seconds of the text of a /proc stat file, or 0 for
+// other text.
+func soakStatCPU(raw string) float64 {
+	_, fields, ok := strings.Cut(raw, ") ")
 	if !ok {
 		return 0
 	}
@@ -1319,6 +1350,25 @@ func TestSoakWarmNeedsPhysicalRestore(t *testing.T) {
 	warm := &soakWarm{data: encodeTestState(t, file)}
 	if _, err := warm.session(t, d.config); err == nil || !strings.Contains(err.Error(), "logical") {
 		t.Fatalf("the error is %v", err)
+	}
+}
+
+// TestSoakStatCPU reads the two time fields of a stat file.
+func TestSoakStatCPU(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		raw  string
+		want float64
+	}{
+		{"12 (session.test) R 1 2 3 4 5 6 7 8 9 10 150 250 13 14 15", 4},
+		{"12 (a b) R 1 2 3 4 5 6 7 8 9 10 100 0 13", 1},
+		{"12 (short) R 1 2", 0},
+		{"no name", 0},
+	}
+	for _, test := range tests {
+		if got := soakStatCPU(test.raw); got != test.want {
+			t.Errorf("%q gives %g, want %g", test.raw, got, test.want)
+		}
 	}
 }
 
