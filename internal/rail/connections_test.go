@@ -46,8 +46,8 @@ func TestConnectionDeadlineBoundaries(t *testing.T) {
 		walking int
 		outcome string
 	}{
-		{"early", 539, 1, "made"}, {"exact readiness", 540, 1, "made"},
-		{"late readiness", 541, 1, "missed"}, {"zero walk exact", 600, 0, "made"},
+		{"early", 9*sim.TicksPerSecond - 1, 1, "made"}, {"exact readiness", 9 * sim.TicksPerSecond, 1, "made"},
+		{"late readiness", 9*sim.TicksPerSecond + 1, 1, "missed"}, {"zero walk exact", 10 * sim.TicksPerSecond, 0, "made"},
 		{"not arrived", -1, 1, "missed"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -59,7 +59,7 @@ func TestConnectionDeadlineBoundaries(t *testing.T) {
 			if err := c.Add(offer, 1, ""); err != nil {
 				t.Fatal(err)
 			}
-			c.Advance(599, nil)
+			c.Advance(10*sim.TicksPerSecond-1, nil)
 			if c.Counts() != (Counts{Unresolved: 1}) {
 				t.Fatal("scored before departure")
 			}
@@ -67,8 +67,8 @@ func TestConnectionDeadlineBoundaries(t *testing.T) {
 			if tc.alight >= 0 {
 				completion = []sim.StepCompletion{{RequestID: 1, AlightedTick: tc.alight}}
 			}
-			c.Advance(600, completion)
-			c.Advance(600, completion)
+			c.Advance(10*sim.TicksPerSecond, completion)
+			c.Advance(10*sim.TicksPerSecond, completion)
 			if got := c.Records()[0]; got.Outcome != tc.outcome || got.AlightedTick != tc.alight || c.Counts().Unresolved != 0 {
 				t.Fatalf("outcome: %+v, counts %+v", got, c.Counts())
 			}
@@ -97,13 +97,13 @@ func TestConnectionIssueAndCloneOwnership(t *testing.T) {
 	read := c.Records()
 	read[0].From = "changed"
 	clone := c.Clone()
-	clone.Advance(540, []sim.StepCompletion{{RequestID: 1, AlightedTick: 540}})
-	clone.Advance(600, nil)
+	clone.Advance(9*sim.TicksPerSecond, []sim.StepCompletion{{RequestID: 1, AlightedTick: 9 * sim.TicksPerSecond}})
+	clone.Advance(10*sim.TicksPerSecond, nil)
 	if !slices.Equal(c.Records(), before) || c.Counts() != counts || clone.Counts() != (Counts{Made: 1, Missed: 1, Unserved: 2}) {
 		t.Fatal("clone or read changed source ledger")
 	}
-	clone.Advance(650, []sim.StepCompletion{{RequestID: 2, AlightedTick: 650}})
-	if clone.Records()[1].Outcome != "missed" || clone.Records()[1].AlightedTick != 650 {
+	clone.Advance(10*sim.TicksPerSecond+50, []sim.StepCompletion{{RequestID: 2, AlightedTick: 10*sim.TicksPerSecond + 50}})
+	if clone.Records()[1].Outcome != "missed" || clone.Records()[1].AlightedTick != 10*sim.TicksPerSecond+50 {
 		t.Fatal("late completion erased miss or lost actual time")
 	}
 }
@@ -112,8 +112,8 @@ func TestConnectionRestoreRetainsAlightedAndActive(t *testing.T) {
 	t.Parallel()
 	c := NewConnections(connectionPlan())
 	addAccepted(t, c, 2)
-	c.Advance(540, []sim.StepCompletion{{RequestID: 1, AlightedTick: 540}})
-	state := activeState(c.Records(), 550)
+	c.Advance(9*sim.TicksPerSecond, []sim.StepCompletion{{RequestID: 1, AlightedTick: 9 * sim.TicksPerSecond}})
+	state := activeState(c.Records(), 9*sim.TicksPerSecond+10)
 	restored, err := RestoreConnections(connectionPlan(), c.Records(), state, c.Counts())
 	if err != nil {
 		t.Fatal(err)
@@ -121,8 +121,8 @@ func TestConnectionRestoreRetainsAlightedAndActive(t *testing.T) {
 	if err := restored.ReconcileRestore(state, sim.RestoreResult{Tier: sim.RestorePhysical}); err != nil {
 		t.Fatal(err)
 	}
-	c.Advance(600, nil)
-	restored.Advance(600, nil)
+	c.Advance(10*sim.TicksPerSecond, nil)
+	restored.Advance(10*sim.TicksPerSecond, nil)
 	if !slices.Equal(restored.Records(), c.Records()) || restored.Counts() != c.Counts() || c.Counts() != (Counts{Made: 1, Missed: 1}) {
 		t.Fatal("restart lost actual readiness or accepted pending journey")
 	}
@@ -156,7 +156,7 @@ func TestConnectionRestoreExplicitReceipts(t *testing.T) {
 			if err != nil || c.Records()[0].Outcome != "unserved" || c.Records()[0].Reason != tc.reason || c.Counts() != (Counts{Unserved: 1}) {
 				t.Fatalf("explicit reconciliation: %+v, %v", c.Records(), err)
 			}
-			c.Advance(600, nil)
+			c.Advance(10*sim.TicksPerSecond, nil)
 			if c.Counts() != (Counts{Unserved: 1}) {
 				t.Fatal("departure rescored an unserved connection")
 			}
@@ -164,9 +164,9 @@ func TestConnectionRestoreExplicitReceipts(t *testing.T) {
 	}
 	c := NewConnections(connectionPlan())
 	addAccepted(t, c, 1)
-	c.Advance(600, nil)
+	c.Advance(10*sim.TicksPerSecond, nil)
 	before := c.Records()
-	if err := c.ReconcileRestore(sim.SavedState{Tick: 600, RequestID: 1}, sim.RestoreResult{Dropped: []int{1}}); err != nil || !slices.Equal(before, c.Records()) {
+	if err := c.ReconcileRestore(sim.SavedState{Tick: 10 * sim.TicksPerSecond, RequestID: 1}, sim.RestoreResult{Dropped: []int{1}}); err != nil || !slices.Equal(before, c.Records()) {
 		t.Fatal("later drop changed a terminal miss")
 	}
 }
@@ -222,7 +222,7 @@ func TestConnectionRestoreCompletedBindings(t *testing.T) {
 	if err := restored.ReconcileRestore(state, sim.RestoreResult{Dropped: []int{1}}); err != nil || restored.Counts() != (Counts{Unserved: 1}) {
 		t.Fatalf("completed queue reconciliation: %v, %+v", err, restored.Counts())
 	}
-	state = activeState(c.Records(), 550)
+	state = activeState(c.Records(), 9*sim.TicksPerSecond+10)
 	rider := state.Waiting[0].Request
 	rider.Completed = true
 	state.Waiting = nil
@@ -230,8 +230,8 @@ func TestConnectionRestoreCompletedBindings(t *testing.T) {
 	if _, err := RestoreConnections(connectionPlan(), c.Records(), state, c.Counts()); err == nil {
 		t.Fatal("inferred completion from retained history")
 	}
-	c.Advance(540, []sim.StepCompletion{{RequestID: 1, AlightedTick: 540}})
-	for _, tick := range []int64{550, 600} {
+	c.Advance(9*sim.TicksPerSecond, []sim.StepCompletion{{RequestID: 1, AlightedTick: 9 * sim.TicksPerSecond}})
+	for _, tick := range []int64{9*sim.TicksPerSecond + 10, 10 * sim.TicksPerSecond} {
 		c.Advance(tick, nil)
 		state.Tick = tick
 		if _, err := RestoreConnections(connectionPlan(), c.Records(), state, c.Counts()); err != nil {
@@ -280,12 +280,12 @@ func TestConnectionInterrupt(t *testing.T) {
 		t.Fatal("an interrupted record with an active binding is accepted")
 	}
 	// The departure skips the interrupted record and scores the others.
-	c.Advance(600, nil)
+	c.Advance(10*sim.TicksPerSecond, nil)
 	if c.Counts() != (Counts{Missed: 2, Unserved: 1}) {
 		t.Fatalf("departure counts %+v", c.Counts())
 	}
 	before := c.Records()
-	c.Interrupt(601, []int{2})
+	c.Interrupt(10*sim.TicksPerSecond+1, []int{2})
 	if !slices.Equal(c.Records(), before) || c.Counts() != (Counts{Missed: 2, Unserved: 1}) {
 		t.Fatal("an interruption changed a missed record")
 	}
