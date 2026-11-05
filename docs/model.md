@@ -9,7 +9,7 @@ The tests establish progress for feasible supplied scenarios, not for every satu
 
 ## Time, geometry, and routing
 
-The Go core advances in fixed 60 Hz steps and uses world coordinates in meters.
+The Go core advances in fixed 30 Hz steps and uses world coordinates in meters.
 A lane is straight or a quadratic curve, and the simulator and the browser measure each curve along the same sampled path.
 Each lane has an explicit speed limit, and bends add no other speed limits.
 

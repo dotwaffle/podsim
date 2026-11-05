@@ -253,14 +253,14 @@ Smaller fleets sample the same 1,000 starting placements evenly.
 Each case warms up for 600 simulated seconds, measures 180 seconds of ticks, and checks safety and simulation contracts each second.
 It exercises production full and delta publications, gzip inflation, client validation and assembly, HTTP state, and physical restore.
 It then checks another 60 seconds of operation and requires pods to move after restore.
-Mean and p95 tick times must fit the 16.67 ms native 1x budget.
+Mean and p95 tick times must fit the 33.33 ms native 1x budget.
 The test also records the p50, p99, and largest tick.
 The p99 tick depends on the load of the host, and the client smooths a late tick.
 The task is opt-in because all six traffic cases take several minutes.
 The overloaded cases fill the 200-order session queue; passing them does not establish a sustainable arrival rate.
 The Rate button of the client goes up to 60 requests per minute, so only a project file sets 120.
 
-One run of all six cases on Go 1.27.2, on October 19, 2026, passed without restore demotions.
+One run of all six cases on Go 1.27.2, on October 19, 2026, at 60 Hz, passed without restore demotions.
 The network SHA-256 of the variant is `a860fc626e67326ae3bce3e91b714735a38ed2f2b27d30221148a0b5d97db7c8`.
 
 | Pods | Requests/minute | Mean tick, ms | p50 tick, ms | p95 tick, ms | p99 tick, ms | Pods moving after restore |
@@ -273,7 +273,7 @@ The network SHA-256 of the variant is `a860fc626e67326ae3bce3e91b714735a38ed2f2b
 | 1,000 | 120 | 0.931 | 0.747 | 1.248 | 5.928 | 809 |
 
 Before two dispatch changes of the same day, the overloaded 1,000-pod case had a p99 of 15 to 20 ms on this variant and on the earlier variant with ordinary stations and 32-berth Parking sites.
-Its slowest ticks fall each 30 ticks, when orders arrive.
+At 60 Hz, its slowest ticks fell each 30 ticks, which is each half second, when orders arrive.
 Then dispatch checks again many trips that wait for a busy pod, and each check estimated the finish of each pod of the fleet.
 The Compact bays make each estimate slower, because a class restriction turns off the shortcut to the first berth of the station.
 A Compact fleet on the ordinary layout gave the same tick times and the same service as the default fleet, so the cost came from the restriction and not from the smaller pods.
@@ -435,7 +435,7 @@ The 83 superseded historical inventory entries are not 83 executed attempts.
 All confirmed matrix arms checked separation, speed, berth ownership, and request accounting once per simulated second.
 Selected Interpeak boundary continuations also checked every tick, including physical restores.
 Baseline rates 15 and 20, plus `fleet300-local` rate 15, each used seed 1 at minute 60.
-Each live clone and restore continued for 60 seconds with no new arrivals, with 3,601 observations at 60 Hz.
+Each live clone and restore continued for 60 seconds with no new arrivals, with 3,601 observations, because these runs stepped at 60 Hz.
 These continuations do not prove every-tick safety for the full matrix or identical restored trajectories.
 
 An isolated implementation-limit feasibility probe changed only the 300-pod limit and its editor mirror to 400.

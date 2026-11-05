@@ -75,7 +75,7 @@ Negative net energy remains negative.
 Energy reports do not contain build or project hashes.
 The viewer states that provenance gap.
 
-Report clocks use 60 ticks per second.
+Report clocks use 30 ticks per second.
 A car event tick of -1 means unrecorded.
 A missing door-to-door duration means the itinerary did not complete.
 The viewer does not replace missing values with zero.

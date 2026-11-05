@@ -80,7 +80,7 @@ It selects the next lower value from 1, 2, 5, 15, 30, and 60.
 It never reduces below 1x or increases speed automatically.
 Each measurement window starts fresh after a reduction, pause, speed command, reset, demo, project apply, or rewind.
 Missed timer wakes accumulate at most 250 milliseconds of wall-time debt.
-Each wake spends at most 20 milliseconds on catch-up, apart from an indivisible step.
+Each wake spends at most the longer of one wake period and 20 milliseconds on catch-up, apart from an indivisible step.
 Excess wall-time debt is discarded.
 No simulation steps are skipped.
 
@@ -95,7 +95,7 @@ A restore rejects any other speed, including 4 and 8.
 ## Shared state stream
 
 The server sends a text hello with `version`, `build`, and `serverStart` before any binary state message.
-The version is 8 for every project kind.
+The version is 9 for every project kind.
 The hello also has the `orderContract` marker of the project, when the project has it.
 The marker selects the Express bounds of each message on the connection.
 A client refuses every other version, and it records the `build` of the hello before it refuses the version.
@@ -136,7 +136,7 @@ The fault counters, the emergency counters, the route identity, and the sums of 
 A new fault or emergency fails when its serial or one of its ticks would pass 2^53-1.
 A stream starts a new baseline at sequence 1 after sequence 2^53-1.
 Each other counter grows by a small amount for each tick or command, so the server cannot reach 2^53-1 in practice.
-At 60 times real speed, 2^53 ticks take about 79,000 years.
+At 60 times real speed, 2^53 ticks take about 159,000 years.
 A full message omits base and carries a `full` object with `state` and `routes`.
 A delta carries replacement `groups`, vehicle changes by pod ID, and changed berths by ID.
 A replacement wrapper has a `value` member, so null, zero, and an empty list differ from an absent group.
@@ -665,7 +665,7 @@ The phase tells what the pod does:
 | `unloading` | The pod unloads at that berth. |
 
 A bound or unloading pod has the `operational` value `emergency-unload`.
-A deferred traveling pod chooses its station at the start, and then each 60 ticks after the start, when it can leave its route.
+A deferred traveling pod chooses its station at the start, and then each second (30 ticks) after the start, when it can leave its route.
 A bound pod keeps its station.
 A deferred pod that cannot leave its route keeps it, and unloads at the berth where the route ends.
 

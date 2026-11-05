@@ -62,6 +62,8 @@ The gates cut `go test -short -count=1 ./...` from 129.8 s to 36.0 s of wall tim
 The soak monitors check the state contract with a `contractSampler`: at the first observation, every 60 ticks, and at each event.
 `CheckContract` exports the whole state, so a per-tick check took about a third of the time of the long monitored tests.
 The nine slowest monitored tests fell from 37.9 s to 22.2 s at 60 ticks, and sampling at pod and count changes costs almost nothing.
+These runs were at 60 Hz, so 60 ticks were one second.
+The sampler now checks every 30 ticks, which is again one second at 30 Hz.
 Tests of order accounting or short transitions keep the per-tick check through `monitorContractEachTick`: `TestRestoreReportsUnaccountedOrders`, `TestSharedRidesAccountForEachOrder`, `TestJoinCensusCountsPartyThatBoardsDuringDwell`, `TestLegOriginPickupState`, and `TestRestoreLogicalCompletesOnlyAtAStation`.
 The fault and operational tests that use `checkFaultsEachTick` and `checkEachTick` keep it as well.
 

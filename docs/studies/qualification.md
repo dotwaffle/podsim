@@ -83,7 +83,7 @@ The performance benchmark retains the ring fixture for comparison.
 | Check | Result |
 | --- | --- |
 | Scale progress, 20 seeded local trips | 20 completed, average wait 88.73 s, maximum 131.87 s |
-| Dense traffic, 50 submitted trips | All 100 pods checked every tick for 1,800 ticks |
+| Dense traffic, 50 submitted trips | All 100 pods checked every tick for 1,800 ticks, at 60 Hz |
 | Busy scenario, repeated schedule | Both runs completed 10 trips with identical final snapshots |
 | Full parking, 40 submitted trips | 25 completed and 15 remained after 10 simulated minutes |
 
@@ -564,7 +564,7 @@ mise run compare -- -project /tmp/podsim-london-capacity.json -pattern profile -
 ```
 
 The schedule starts after the first interval and excludes the arrival-window endpoint.
-The compare command also truncates each interval to a whole 1/60-second tick.
+The compare command also truncates each interval to a whole tick, which was 1/60 second then.
 This makes the 8.571429 s, 5.454545 s, 4.615385 s, and 4.285714 s intervals slightly shorter than their nominal values.
 The report therefore gives these offered rates, rounded to three decimal places: 0.967, 1.967, 2.967, 3.967, 4.967, 5.967, 7.000, 7.967, 8.967, 9.967, 11.000, 11.967, 13.033, 14.000, and 14.967 requests per minute.
 The table rounds these values to whole requests per minute.
@@ -1317,7 +1317,7 @@ It measures the merge cases with the node pass records that give `peak_node_thro
 
 A pod reserves the last cell of a lane and the first cell of the next lane in one step.
 Thus one stream through a lane boundary has a longer headway than a straight lane, also without a second stream.
-The test pins these values.
+At 60 Hz, the test pinned these values.
 A platoon or cell change must give its headway against them.
 
 `TestMergeCorridorPlatoonHeadway` pins the same cases with virtual platoons of 2 and of 4 pods.
@@ -1335,6 +1335,17 @@ The test checks the separation, the berths, the owners, the certificate, and the
 The design estimated 2.4 times on a lane and 2.7 times at a 30 degree merge for platoons of 4.
 The measured gains are 4% to 7% larger than these estimates.
 Platoons of 2 give 1.60 to 1.79 times.
+
+Note of November 5, 2026: the values above are from 60 Hz.
+The simulation now steps at 30 Hz, and the two tests pin the values below.
+The off value of one stream through a 30 degree merge is also 7.233 s.
+
+| Case | Off | Platoons of 2 | Platoons of 4 |
+| --- | ---: | ---: | ---: |
+| Straight lane | 6.017 s | 3.771 s | 2.431 s |
+| One stream through a lane boundary | 7.233 s | 4.133 s | 2.531 s |
+| Two streams, 90 or 30 degree merge | 8.633 s | 5.023 s (90), 4.942 s (30) | 3.145 s (90), 3.003 s (30) |
+| Two streams, 15 degree merge | 10.800 s | 6.017 s | 3.523 s |
 
 #### London with 198 pods
 

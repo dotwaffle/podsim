@@ -27,7 +27,7 @@ Recovery fraction must be between zero and one.
 The author includes any assumed payload in fixed mass.
 The model does not infer passenger mass or physical coefficients.
 
-For one advanced tick, `dt = 1/60 second` and `vMean = actualDistance/dt`.
+For one advanced tick, `dt = 1/30 second` and `vMean = actualDistance/dt`.
 Resistance work is `(constantResistance + quadraticResistance*vMean^2)*actualDistance`.
 Wheel work is `mass*(endSpeed^2-startSpeed^2)/2 + resistanceWork`.
 Positive wheel work divided by drive efficiency gives gross traction draw.

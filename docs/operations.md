@@ -169,7 +169,7 @@ This server build has only the `file://` driver.
 Without `-state`, the server does not save or read a session state.
 The saved state holds the last command sequence of each client, but not the save points or the command receipts.
 A restart clears those.
-Clients use stream version 8, including motion-only vehicle deltas, as described in [Client protocol](protocol.md#shared-state-stream).
+Clients use stream version 9, including motion-only vehicle deltas, as described in [Client protocol](protocol.md#shared-state-stream).
 
 A `file://` URL needs an empty host and an absolute path, for example `file:///var/lib/podsim`.
 `file://var/lib/podsim` is not valid, because `var` is then the host.
@@ -296,7 +296,7 @@ It reports them as unaccounted orders at each restore, together with the orders 
 - `empty`: The server does not use the saved state and starts a new session.
   Except after a read failure, it moves `session.json.gz` to a rejected file.
 
-Each session writes saved-state version 10, and this server accepts only version 10.
+Each session writes saved-state version 11, and this server accepts only version 11.
 The root `orderContract` marker `express-v1` selects the Express order bounds.
 The project and the simulation must have the same marker as the root.
 The file can have these incident members, and it omits each one at 0 or when it is absent:
@@ -362,26 +362,26 @@ The order text of each queued order and each rider is canonical base64 text, for
 The file has no `textEncoding` member.
 Each saved version stores a version 1 project.
 A saved project of version 2 through 5 gets reason `invalid_state`, as other bad saves do.
-An intact file of version 1 through 9, or of version 11 or later, gets reason `unsupported_version`.
+An intact file of version 1 through 10, or of version 12 or later, gets reason `unsupported_version`.
 The server moves it aside and starts a new session.
 It does not migrate the file.
 A damaged or invalid file gets `invalid_state`, and the server moves it aside and starts a new session.
 Examples are a gzip error, a JSON syntax error, a file over a scan limit, a header member of the wrong type, a missing, null, zero, or negative version, a value that the decoder refuses, and a restore that fails.
 Until the first release, the removal of a member keeps the version.
-Thus a version 10 file with a member of the removed physical coupling feature, for example `couplingContract` or `simulation.couplingGroups`, has an unknown member and gets `invalid_state`.
-Likewise, a version 10 file with a member of the removed station buffer or compact queue feature has an unknown member and gets `invalid_state`.
-A version 10 file with `incidentContract`, `faultContract`, or `emergencyContract` also has an unknown member and gets `invalid_state`.
+Thus a version 11 file with a member of the removed physical coupling feature, for example `couplingContract` or `simulation.couplingGroups`, has an unknown member and gets `invalid_state`.
+Likewise, a version 11 file with a member of the removed station buffer or compact queue feature has an unknown member and gets `invalid_state`.
+A version 11 file with `incidentContract`, `faultContract`, or `emergencyContract` also has an unknown member and gets `invalid_state`.
 Examples are `stationBuffered` or `compactQueue` on a pod, and `stationBuffers` or `stationQueueSpacing` in the embedded project.
 A project file with `stationBuffers` or `stationQueueSpacing` also fails as an unknown member.
 Until the first release, a narrower set of accepted values also keeps the version.
-Each integer of a version 10 file must be from -9007199254740991 to 9007199254740991, which is 2^53-1, as in the [protocol](protocol.md#shared-state-stream).
+Each integer of a version 11 file must be from -9007199254740991 to 9007199254740991, which is 2^53-1, as in the [protocol](protocol.md#shared-state-stream).
 The demand `seed` is the only exception.
 The scan that checks the integers comes after the version check, so an intact file of another version still gets `unsupported_version`.
 Within the scan, the depth and the size checks of a value come before its integer check.
 A file with a larger integer gets `invalid_state` with the error `JSON integer is out of range`.
 A saved revision, project revision, or generation of 2^53-1 also gets `invalid_state`, because the restore adds 1 to it.
 After that check, a saved last save point of 2^53-1 gets `invalid_state` with the error `last save point ... is at the largest value`, because the next save point adds 1 to it.
-Each ID of a version 10 file has only the characters A-Z, a-z, 0-9, `.`, `+`, and `-`.
+Each ID of a version 11 file has only the characters A-Z, a-z, 0-9, `.`, `+`, and `-`.
 Each name and each dispatch reason is UTF-8 text without a control character, which is a C0 character, DEL, or a C1 character.
 After the length check of the epoch, an epoch with another character gets `invalid_state` with the error `epoch ... has a character other than A-Z, a-z, 0-9, '.', '+' or '-'`.
 After the length check of a client ID, a client ID with another character gets the error `client ... has a character other than A-Z, a-z, 0-9, '.', '+' or '-'`.
@@ -423,7 +423,7 @@ A pod that the tier must move takes a slot only when no pod of that lane moves, 
 Its parked tick is then the saved tick.
 The file does not keep the 1 second stop at a change of the reverse flag.
 Thus a pod that was in this stop stops for the full second again after a restore.
-An older server rejects version 10 with `unsupported_version` and moves the file aside.
+An older server rejects version 11 with `unsupported_version` and moves the file aside.
 Keep a copy before a downgrade.
 
 Portable project version 1 accepts an optional `pickupReassignment` Boolean setting.
@@ -653,7 +653,7 @@ These values are from one server that runs the default project, with 20 MiB of r
 On a quiet session, about 58 MiB of anonymous memory stayed resident for at least 60 s after a `london-full` reply, because no collection ran.
 The source data adds 7.2 MB to the server binary, and it does not change the resident memory at idle.
 `GOMAXPROCS=1` and `GOMEMLIMIT=128MiB` did not change the peak or the time of a generation on the test host.
-With `GOMAXPROCS=1` and the default project, the simulation clock stayed at 60 ticks per second during a generation of `london-full`.
+With `GOMAXPROCS=1` and the default project, the simulation clock stayed at the then 60 ticks per second during a generation of `london-full`.
 This was not measured with a London project running.
 The server does one generation at a time, and one large command or generation at a time, so these peaks do not add.
 An apply of a gzip project with 31 MiB of JSON, 12,000 nodes, 600 stations, and 359,400 flows allocated about 7.1 GiB in total and took about 9.8 s.
