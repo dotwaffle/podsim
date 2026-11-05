@@ -713,13 +713,6 @@ func (s *Simulation) chainSafety(observation *SafetyObservation) {
 		if pod.LaneID == "" {
 			berthNode, speed = s.berthSafety[pod.BerthID].From, 0
 		}
-		// In the tick in which a pod leaves its berth, it has no lane and
-		// no berth, and it is still at the node of its origin berth.
-		if pod.LaneID == "" && pod.BerthID == "" && pod.Activity == Traveling {
-			if v := s.findVehicle(pod.ID); v != nil {
-				berthNode = v.origin.Node
-			}
-		}
 		positions := s.retention.chainPositions(pod, berthNode)
 		if len(positions) == 0 {
 			continue
@@ -887,6 +880,7 @@ func (s *Simulation) Step() {
 			v.Pod.Occupied = v.Pod.Activity == Boarding || v.Pod.Activity == Continuing
 			v.Pod.Activity = Traveling
 			v.Pod.StationID, v.Pod.BerthID = "", ""
+			s.publishDeparture(v)
 			continue
 		}
 		if v.Pod.Activity == Traveling {

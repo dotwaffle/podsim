@@ -36,10 +36,6 @@ func (s *Simulation) separationKey(v *vehicle) (separationKey, bool) {
 	case pod.BerthID != "":
 		index, ok := s.berthKeys[pod.BerthID]
 		return berthKey(index), ok
-	case pod.Activity == Traveling && v.distance == 0 && v.origin.ID != "":
-		node, ok := s.network.Node(v.origin.Node)
-		index, known := s.berthKeys[v.origin.ID]
-		return berthKey(index), ok && known && pod.Position == node.Position
 	}
 	return separationKey{}, false
 }

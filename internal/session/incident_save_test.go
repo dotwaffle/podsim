@@ -511,7 +511,7 @@ func railEvacuationSave(t *testing.T) (incidentSave, railPair) {
 	pair := boardRailPair(t, x.s)
 	for range 600 * sim.TicksPerSecond {
 		vehicle := x.s.simulation.Snapshot().Vehicles[0]
-		if vehicle.Pod.Activity == sim.Traveling && vehicle.Pod.LaneID != "" && vehicle.Pod.Speed == 0 {
+		if vehicle.Pod.Activity == sim.Traveling && vehicle.Pod.LaneDistance > 0 && vehicle.Pod.Speed == 0 {
 			if pair.pod != "01" || vehicle.RidersAboard() != 2 || vehicle.Pod.BlockedBy != "02" {
 				t.Fatalf("pair %+v, pod %+v with %d riders", pair, vehicle.Pod, vehicle.RidersAboard())
 			}

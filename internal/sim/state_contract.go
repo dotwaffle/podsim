@@ -535,8 +535,22 @@ func (s *Simulation) CheckContract() error {
 	if err := s.checkIncidentRecords(); err != nil {
 		return err
 	}
-	_, err := s.checkedExport()
-	return err
+	if _, err := s.checkedExport(); err != nil {
+		return err
+	}
+	return s.checkPodPlaces()
+}
+
+// checkPodPlaces checks that each traveling pod is on a lane. A departure puts
+// the pod on its lane. A restore puts each traveling pod on a lane before this
+// last check of the contract, so no saved state gets this refusal.
+func (s *Simulation) checkPodPlaces() error {
+	for index := range s.vehicles {
+		if pod := &s.vehicles[index].Pod; pod.Activity == Traveling && pod.LaneID == "" {
+			return fmt.Errorf("pod %s is traveling with no lane", pod.ID)
+		}
+	}
+	return nil
 }
 
 // checkIncidentRecords checks the fault records and the emergency records.

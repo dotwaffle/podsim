@@ -353,6 +353,7 @@ func (s *Simulation) stepBeforeAdmissionWork() {
 			v.Pod.Occupied = v.Pod.Activity == Boarding || v.Pod.Activity == Continuing
 			v.Pod.Activity = Traveling
 			v.Pod.StationID, v.Pod.BerthID = "", ""
+			s.publishDeparture(v)
 			continue
 		}
 		if v.Pod.Activity == Traveling {

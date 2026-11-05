@@ -87,10 +87,10 @@ func incidentBaselineCommand(t *testing.T, s *Simulation, digest hash.Hash, test
 
 func TestIncidentBaseline(t *testing.T) {
 	for _, test := range []incidentBaselineCase{
-		{name: "moving-clear", evacuation: 300, clearTick: 660, want: "b5c467389cb05c3b2e22cc4bbbc8d3223960e1095b2c4d37366d65858448565e"},
-		{name: "duration-expiry", duration: 1, evacuation: 300, want: "09d54d5710931f83dd38d05b320590681897891b083cd52d0d6b44e354249f03"},
-		{name: "emergency-while-faulted", evacuation: 300, clearTick: 660, emergency: true, want: "551837e3993f65d7593a312e86f1284876fb808857ac2fe0a5e9f0d2454a505d"},
-		{name: "evacuated-recovery", evacuation: 0, clearTick: 1200, wantEvacuated: true, want: "cbea0bdffdf5b33d4541f2920d1076d28956ef31293c27848c42a48f2516d277"},
+		{name: "moving-clear", evacuation: 300, clearTick: 660, want: "47e6bf7a39e940c47980b67f712414f3bfa2d24a500624a8c8d75b8faae5c007"},
+		{name: "duration-expiry", duration: 1, evacuation: 300, want: "7cdc80ec398533443c580bb0fba5451c1ac20ae5f978c998e99a540f0b80183a"},
+		{name: "emergency-while-faulted", evacuation: 300, clearTick: 660, emergency: true, want: "775e2ac6ed49c78c9b62c2d7fe039bb21de6f02555d288cc63401d35e4ed6846"},
+		{name: "evacuated-recovery", evacuation: 0, clearTick: 1200, wantEvacuated: true, want: "5dac15da744b16345a5805573a05c8a81594182a1ddcd2be7f23a0479457b5a0"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			s, err := NewFleet(Example(), []Placement{{ID: "01", StationID: "harbor"}})

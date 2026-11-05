@@ -104,7 +104,10 @@ func (s *Simulation) ReseedIncidentSamplersForTest(fault, emergency [2]uint64) {
 // It is a test entry for the soak of section 5.1.9 of the incident stage 7
 // contract. No production code calls it.
 func (s *Simulation) CheckIncidentRecordsForTest() error {
-	return s.checkIncidentRecords()
+	if err := s.checkIncidentRecords(); err != nil {
+		return err
+	}
+	return s.checkPodPlaces()
 }
 
 // CheckedExportForTest runs the part of CheckContract that checks the saved

@@ -415,17 +415,13 @@ func TestRestoreDemotesTravelingPods(t *testing.T) {
 			},
 		},
 		{
-			name: "empty lane ID stays empty",
+			name: "empty lane ID gets the lane",
 			pods: []SavedPod{departed, f.idle(t, "05", "market-1")},
 			check: func(t *testing.T, _ SavedState, s *Simulation, _ RestoreResult) {
 				t.Helper()
 				v := findVehicle(t, s, "02")
-				if v.Pod.LaneID != "" || v.Pod.Position != (Point{480, 70}) || berthOwner(s, "garden-1") != "02" {
+				if v.Pod.LaneID != "garden-out" || v.Pod.Position != (Point{480, 70}) || berthOwner(s, "garden-1") != "02" {
 					t.Fatalf("pod 02 is at %+v on lane %q", v.Pod.Position, v.Pod.LaneID)
-				}
-				s.Step()
-				if v.Pod.LaneID != "garden-out" {
-					t.Fatalf("pod 02 moved to lane %q", v.Pod.LaneID)
 				}
 			},
 		},

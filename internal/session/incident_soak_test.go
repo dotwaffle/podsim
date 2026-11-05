@@ -1911,8 +1911,9 @@ func TestSoakCountsReadings(t *testing.T) {
 }
 
 // TestSoakFaultAtDeparture starts a fault in the tick after a pod leaves its
-// berth, when it has no lane and no berth. The transition check runs at each
-// tick, also after a restore, and the pod departs after the clear.
+// berth, when it is at the start of its first lane and has not moved. The
+// transition check runs at each tick, also after a restore, and the pod departs
+// after the clear.
 func TestSoakFaultAtDeparture(t *testing.T) {
 	t.Parallel()
 	d := newSoakDriver(t, soakInput{preset: "rail-hub", arm: soakArms["incidents"], seed: 1, checks: true})
@@ -1927,12 +1928,20 @@ func TestSoakFaultAtDeparture(t *testing.T) {
 		t.Fatalf("no pod %s", id)
 		return sim.Pod{}
 	}
-	id := ""
+	id, at := "", map[string]sim.Point{}
+	var before sim.Pod
 	for range soakTicksPerHour {
 		d.step()
 		for _, vehicle := range d.s.simulation.Snapshot().Vehicles {
-			if p := vehicle.Pod; p.Activity == sim.Traveling && p.LaneID == "" && p.BerthID == "" {
-				id = p.ID
+			p := vehicle.Pod
+			if p.BerthID != "" {
+				at[p.ID] = p.Position
+			}
+			if origin, ok := at[p.ID]; ok && p.Activity == sim.Traveling && p.BerthID == "" && p.LaneDistance == 0 && p.Speed == 0 && id == "" {
+				if p.LaneID == "" || p.Position != origin {
+					t.Fatalf("the departure gives %+v, from %+v", p, origin)
+				}
+				id, before = p.ID, p
 			}
 		}
 		if id != "" {
@@ -1942,14 +1951,13 @@ func TestSoakFaultAtDeparture(t *testing.T) {
 	if id == "" {
 		t.Fatal("no pod departs")
 	}
-	before := pod(d, id)
 	fault := d.mustApply(Command{Action: "fault", PodID: id}).FaultID
 	check := func(d *soakDriver) {
 		t.Helper()
 		for range 2 * soakViewTicks {
 			d.step()
 			after := pod(d, id)
-			if after.LaneID != "" || after.BerthID != "" || after.LaneDistance != 0 || after.Speed != 0 || after.Position != before.Position {
+			if after.LaneID != before.LaneID || after.BerthID != "" || after.LaneDistance != 0 || after.Speed != 0 || after.Position != before.Position {
 				t.Fatalf("the pod moves: %+v, then %+v", before, after)
 			}
 		}
@@ -1965,7 +1973,7 @@ func TestSoakFaultAtDeparture(t *testing.T) {
 	restored.mustApply(Command{Action: "clearFault", FaultID: fault})
 	for range 30 * soakViewTicks {
 		restored.step()
-		if after := pod(restored, id); after.LaneID != "" && after.Speed > 0 {
+		if after := pod(restored, id); after.Speed > 0 {
 			return
 		}
 	}

@@ -541,6 +541,110 @@ func TestRestoreShortFinalLane(t *testing.T) {
 // distance differs from its route distance by a rounding error. The check for a
 // restored simulation accepts the first publish, and the ordinary check does
 // not. A real move fails in the first tick, and in a later tick.
+// TestFaultAtDepartureSeparatePlane starts a fault on a pod that leaves its berth
+// on one plane, while a pod passes within Clearance on another plane. The lane
+// of the faulted pod gives it a location at each tick, so the planes separate
+// the two pods, also after a restore.
+func TestFaultAtDepartureSeparatePlane(t *testing.T) {
+	t.Parallel()
+	network := Example()
+	network.Nodes[slices.IndexFunc(network.Nodes, func(node Node) bool { return node.ID == "bypass" })].Position = Point{480, 372}
+	for index := range network.Lanes {
+		lane := &network.Lanes[index]
+		switch {
+		case lane.From == "bypass" || lane.To == "bypass":
+			lane.SeparationGroup = "lower"
+		case strings.HasPrefix(lane.ID, "parking"):
+			lane.SeparationGroup = "upper"
+		}
+	}
+	f := newRestoreFixture(t, network)
+	passing := f.carrying(t, f.traveling(t, travelInput{id: "05", from: "harbor-1", to: "market-1", lane: "bypass-in", distance: 120}), 1, 1)
+	s, result, err := f.restore(f.state(f.idle(t, "01", "garden-1"), f.idle(t, "02", "market-1"), f.idle(t, "04", "parking-1"), f.idle(t, "03", "parking-2"), passing))
+	if err != nil || len(result.Demoted) != 0 {
+		t.Fatalf("the restore gives %+v, %v", result, err)
+	}
+	s.faultsOn = true
+	v, other := findVehicle(t, s, "03"), findVehicle(t, s, "05")
+	harbor, _ := s.station("harbor")
+	if err = s.startEmptyMove(v, emptyDestination{station: "harbor", berth: harbor.Berths[0], reserveBerth: true}); err != nil {
+		t.Fatal(err)
+	}
+	start := v.Pod.Position
+	for v.Pod.Activity != Traveling {
+		s.Step()
+	}
+	if v.Pod.LaneID == "" || v.Pod.BerthID != "" || v.Pod.Position != start || v.distance != 0 {
+		t.Fatalf("the departure gives %+v, from %+v", v.Pod, start)
+	}
+	startFault(t, s, v, 0)
+	// step steps s, with the checks, and it reports the gap to the other pod.
+	step := func(s *Simulation, v, other *vehicle) float64 {
+		t.Helper()
+		s.Step()
+		if _, checkErr := s.SafetyObservation().Check(); checkErr != nil {
+			t.Fatalf("tick %d: %v", s.tick, checkErr)
+		}
+		if checkErr := s.CheckContract(); checkErr != nil {
+			t.Fatalf("tick %d: %v", s.tick, checkErr)
+		}
+		if v.Pod.Position != start || v.Pod.Speed != 0 {
+			t.Fatalf("tick %d: the pod moves: %+v", s.tick, v.Pod)
+		}
+		return pointDistance(v.Pod.Position, other.Pod.Position)
+	}
+	near := false
+	for range 120 * TicksPerSecond {
+		if near = step(s, v, other) < Clearance; near {
+			break
+		}
+	}
+	if !near {
+		t.Fatal("the pods do not come within the clearance, so they do not need the planes")
+	}
+	// The restore reads the separation at this gap, so it must keep both pods.
+	restored, result, err := RestoreState(faultRestoreInput(s, s.ExportState()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Tier != RestorePhysical || len(result.Demoted) != 0 {
+		t.Fatalf("the result is %+v", result)
+	}
+	got, passed := findVehicle(t, restored, "03"), findVehicle(t, restored, "05")
+	if got.Pod.LaneID != v.Pod.LaneID || got.Pod.Position != start {
+		t.Fatalf("the restored pod is %+v", got.Pod)
+	}
+	for range 2 * TicksPerSecond {
+		step(restored, got, passed)
+	}
+}
+
+// TestCheckPodPlaces checks that the contract refuses a traveling pod with no
+// lane.
+func TestCheckPodPlaces(t *testing.T) {
+	t.Parallel()
+	s := newExample(t)
+	if err := s.RequestJourney("01", "garden"); err != nil {
+		t.Fatal(err)
+	}
+	v := findVehicle(t, s, "01")
+	stepUntil(t, s, "the departure", func() bool { return v.Pod.Activity == Traveling })
+	if err := s.CheckContract(); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.CheckIncidentRecordsForTest(); err != nil {
+		t.Fatal(err)
+	}
+	v.Pod.LaneID = ""
+	const want = "traveling with no lane"
+	if err := s.CheckContract(); err == nil || !strings.Contains(err.Error(), want) {
+		t.Fatalf("the contract gives %v", err)
+	}
+	if err := s.CheckIncidentRecordsForTest(); err == nil || !strings.Contains(err.Error(), want) {
+		t.Fatalf("the test entry gives %v", err)
+	}
+}
+
 // TestCheckFirstPublish checks the limit of each published field by itself, and
 // that the limit reads only a faulted pod at rest.
 func TestCheckFirstPublish(t *testing.T) {

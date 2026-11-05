@@ -616,10 +616,13 @@ func TestDepotLateralDeparture(t *testing.T) {
 	if err := s.startEmptyMove(v, emptyDestination{station: "harbor", berth: harbor.Berths[0], reserveBerth: true}); err != nil {
 		t.Fatal(err)
 	}
-	leaving := 0
+	leaving, start := 0, v.Pod.Position
 	stepDepot(t, s, 60*TicksPerSecond, func() bool {
-		if v.Pod.LaneID == "" && v.Pod.BerthID == "" {
+		if v.Pod.BerthID == "" && v.distance == 0 {
 			leaving++
+			if v.Pod.LaneID == "" || v.Pod.Position != start {
+				t.Fatalf("the pod that leaves is on lane %q at %+v, and it was at %+v", v.Pod.LaneID, v.Pod.Position, start)
+			}
 		}
 		return v.Pod.LaneID == "parking-throat-1"
 	})

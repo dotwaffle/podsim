@@ -881,9 +881,7 @@ func (r *physicalRestore) placeTravelingPod(index, leader int) (bool, error) {
 	v.originReleased = distance >= v.originTail()
 	v.Pod.LaneDistance = laneDistance
 	v.Pod.Position = r.s.position(lane, laneDistance)
-	if saved.LaneID != "" {
-		v.Pod.LaneID = lane.ID
-	}
+	v.Pod.LaneID = lane.ID
 	if saved.Waiting && through+1 < v.blocks.len() {
 		v.pending, v.waitSince = through+1, saved.WaitSince
 	}

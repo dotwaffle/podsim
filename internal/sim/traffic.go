@@ -822,21 +822,21 @@ func (s *Simulation) move(v *vehicle) {
 	s.publishVehicleTravel(v, next.distance, next.speed)
 }
 
+// publishDeparture puts a pod that leaves its berth on its current lane. The pod
+// does not move in this tick, so a pod is on a lane or at a berth at each command
+// boundary.
+func (s *Simulation) publishDeparture(v *vehicle) {
+	blocks := &v.blocks
+	lane := blocks.find(v.blockIndex, &blocks.cursors[podCursor]).lane
+	s.recordLaneEntries(v, lane, lane)
+	v.Pod.LaneID, v.Pod.LaneDistance = blocks.route[lane].ID, v.distance-blocks.lanes[lane].start
+	v.Pod.Position = s.lanePosition(blocks.lanes[lane].geometry, &blocks.route[lane], v.Pod.LaneDistance)
+}
+
 func (s *Simulation) publishVehicleTravel(v *vehicle, distance, speed float64) {
-	// A fault can start in the tick after a pod leaves its berth, before the pod
-	// enters its first lane. The pod has not moved, so it keeps its pose, with
-	// no lane, until the clear (F4 of the incident suspension contract).
-	if v.faulted && v.Pod.LaneID == "" && speed == 0 && distance == v.distance {
-		return
-	}
 	blocks := &v.blocks
 	current := blocks.find(v.blockIndex, &blocks.cursors[podCursor])
-	// A pod with no lane has left its berth, so it enters its current lane
-	// in this tick.
 	entered := current.lane + 1
-	if v.Pod.LaneID == "" {
-		entered = current.lane
-	}
 	v.distance, v.Pod.Speed = distance, speed
 	for v.distance >= current.end {
 		if v.blockIndex+1 == blocks.len() {

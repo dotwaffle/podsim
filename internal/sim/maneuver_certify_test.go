@@ -289,23 +289,15 @@ func TestManeuverSafetyKeys(t *testing.T) {
 	if _, err = bare.Check(); err == nil {
 		t.Fatal("an observation without keys skipped a pair")
 	}
-	// The pod 02 travels with no lane, at a positive distance from its
-	// berth.
+	// Pod 02 travels with no lane. A live pod does not have this state, and it has
+	// no key.
 	v := &s.vehicles[1]
-	v.Pod.Activity, v.Pod.BerthID, v.Pod.StationID, v.origin, v.distance = Traveling, "", "", network.Stations[0].Berths[1], 0.5
+	v.Pod.Activity, v.Pod.BerthID, v.Pod.StationID, v.origin, v.distance = Traveling, "", "", network.Stations[0].Berths[1], 0
 	if _, ok := s.separationKey(v); ok {
-		t.Fatal("a traveling pod with no lane at a positive distance has a key")
+		t.Fatal("a traveling pod with no lane has a key")
 	}
 	if _, err = s.SafetyObservation().Check(); err == nil {
 		t.Fatal("a pod with no key skipped a pair")
-	}
-	v.distance = 0
-	if key, ok := s.separationKey(v); !ok || key != berthKey(1) {
-		t.Fatalf("origin key %+v, %v", key, ok)
-	}
-	v.Pod.Position.X += 0.01
-	if _, ok := s.separationKey(v); ok {
-		t.Fatal("a pod away from its origin berth node has the origin key")
 	}
 	// A lane with the ID "bay-2" is a lane, not the berth.
 	renamed := compactStationNetwork(6, 28.40)
