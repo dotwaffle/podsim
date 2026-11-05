@@ -80,14 +80,37 @@ func TestDispatchSeesReadyTripsOfThePass(t *testing.T) {
 }
 
 // TestPromotionTakesTheFirstLaterTrip checks that a promotion reads only the
-// trips after the trip that it serves, and takes the first of them.
+// trips after the trip that it serves, takes the first eligible one of them,
+// and leaves the later ones as they were.
 func TestPromotionTakesTheFirstLaterTrip(t *testing.T) {
 	t.Parallel()
-	s := readyTripsFixture(t, "01", "", "02")
-	if !s.promoteReadyPickup(1, new(dispatchPass)) {
-		t.Fatal("no promotion")
+	tests := []struct {
+		name     string
+		pods     []string
+		index    int
+		excluded string
+		want     []string
+	}{
+		{name: "an earlier trip gives no pod", pods: []string{"01", "", "02"}, index: 1, want: []string{"01", "02", ""}},
+		{name: "the earlier of two later trips", pods: []string{"", "01", "02"}, want: []string{"01", "", "02"}},
+		{name: "the order of the later trips, not the pod order", pods: []string{"", "02", "01"}, want: []string{"02", "", "01"}},
+		{name: "an excluded first candidate", pods: []string{"", "01", "02"}, excluded: "01", want: []string{"02", "01", ""}},
 	}
-	if got := []string{s.waiting[0].request.PodID, s.waiting[1].request.PodID, s.waiting[2].request.PodID}; !slices.Equal(got, []string{"01", "02", ""}) {
-		t.Errorf("pods = %q", got)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			s := readyTripsFixture(t, test.pods...)
+			s.waiting[test.index].excludedPod = test.excluded
+			if !s.promoteReadyPickup(test.index, new(dispatchPass)) {
+				t.Fatal("no promotion")
+			}
+			got := make([]string, len(s.waiting))
+			for i := range s.waiting {
+				got[i] = s.waiting[i].request.PodID
+			}
+			if !slices.Equal(got, test.want) {
+				t.Errorf("pods = %q, want %q", got, test.want)
+			}
+		})
 	}
 }
