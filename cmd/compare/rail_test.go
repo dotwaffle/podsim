@@ -204,7 +204,7 @@ func TestRailComparisonMatchesLiveReleaseTimestamps(t *testing.T) {
 	defer poll.Stop()
 	deadline := time.NewTimer(10 * time.Second)
 	defer deadline.Stop()
-	for shared.State().Simulation.Tick < 120 {
+	for shared.State().Simulation.Tick < 2*sim.TicksPerSecond {
 		select {
 		case <-poll.C:
 		case <-deadline.C:
