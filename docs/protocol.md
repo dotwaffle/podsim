@@ -4,7 +4,7 @@
 
 Use shared gzip JSON publications over WebSocket for the simulation view.
 
-The server publishes at most 20 state updates per second.
+The server publishes at most 10 state updates per second.
 It computes and compresses each delta once for all clients.
 An unchanged paused state needs no publication.
 The client fetches topology only when the session epoch, the project revision, or the server start ID changes.
@@ -166,7 +166,7 @@ Thus the display also has at most 1,024 lanes.
 It carries an ephemeral route identity, absolute start and current occurrences, truncation flags, and the original origin node index.
 A route replacement changes identity, while a window shift preserves it.
 Motion holds the earlier position when identity changes or neither window contains the connecting path.
-The 150 ms motion buffer is unchanged.
+Route windows do not change the motion buffer.
 Simulator routes keep their existing representation and have no new length limit.
 Saved routes use the separate limits in [Session state](operations.md#session-state).
 The HTTP state carries the stream frame, so it has route windows, not complete routes.

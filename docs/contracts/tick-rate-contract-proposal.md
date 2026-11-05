@@ -541,6 +541,8 @@ The [Fly page](https://fly.io/docs/machines/cpu-performance) gives a `shared` vC
 With no balance, a machine that reaches its quota does not run for the rest of the 80 ms period.
 A LondonFull GC cycle uses about 30 to 100 ms of CPU, and a publication about 3 ms, so a machine near its quota with no balance can stall for several periods.
 
+On 2026-11-05, 10 publications each second landed with a motion delay of 250 ms: from `6253d52`, two runs of LondonFull at 1x with one client, `GOMAXPROCS=2`, and the warm-up above read 12.1 and 11.3 percent of a core before and 7.5 and 7.5 after, at a load average of 26 to 39, so not from a quiet host.
+
 ## 5. Effort, risks, and recommendation
 
 ### 5.1 Patch list

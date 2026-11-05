@@ -453,7 +453,7 @@ The shared simulation receives the network geometry and settings.
 
 ### Motion
 
-The map buffers 150 ms of snapshots and interpolates movement along lanes between updates.
+The map buffers 250 ms of snapshots and interpolates movement along lanes between updates.
 Controls and order status use the latest server state.
 Pauses, speed changes, resets, rewinds, the start and end of the traffic demo, and long connection gaps clear buffered motion.
 Rendering never predicts movement beyond the latest received position.
