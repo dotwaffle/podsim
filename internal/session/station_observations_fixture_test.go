@@ -8,7 +8,6 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"testing"
 
@@ -118,11 +117,8 @@ func TestStationObservationsHTTPFixture(t *testing.T) {
 		t.Fatal(indentErr)
 	}
 	value = append(value, '\n')
-	_, source, _, ok := runtime.Caller(0)
-	if !ok || !filepath.IsAbs(source) {
-		t.Fatal("fixture test needs an absolute source path; run go test without -trimpath")
-	}
-	path := filepath.Join(filepath.Dir(source), "..", "..", "web", "testdata", "station-observations.json")
+	// go test runs in the package directory.
+	path := filepath.Join("..", "..", "web", "testdata", "station-observations.json")
 	if *updateStationObservationsFixture {
 		if writeErr := os.WriteFile(path, value, 0o600); writeErr != nil {
 			t.Fatal(writeErr)
