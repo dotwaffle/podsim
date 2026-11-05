@@ -64,7 +64,8 @@ func editGeometry(draft any, raw jsontext.Value) (projectChange, error) {
 	}
 	change := projectChange{Patch: make(map[string]any)}
 	geometry := geometryDraft{network: object(cloneEditValue(original)), draft: draft, patch: change.Patch}
-	if err := geometry.change(command); err != nil {
+	var held *heldConflictError
+	if err := geometry.change(command); err != nil && !errors.As(err, &held) {
 		return projectChange{}, err
 	}
 	for key, limit := range map[string]int{"nodes": project.MaxNodes, "lanes": project.MaxLanes, "stations": project.MaxStations} {
@@ -72,8 +73,12 @@ func editGeometry(draft any, raw jsontext.Value) (projectChange, error) {
 			return projectChange{}, fmt.Errorf("the edit exceeds the %s count limit", key)
 		}
 	}
-	if err := geometry.serverChecks(original); err != nil {
+	var planeReach *sim.PlaneReachError
+	if err := geometry.serverChecks(original); err != nil && (held == nil || !errors.As(err, &planeReach)) {
 		return projectChange{}, err
+	}
+	if held != nil {
+		return projectChange{}, held
 	}
 	if !reflect.DeepEqual(original, geometry.network) {
 		change.Patch["network"] = geometry.network

@@ -191,10 +191,19 @@ func (g geometryDraft) setLayoutDimensions(layout stationDimensions, raw jsontex
 		return nil
 	}
 	if conflict := g.laneConflict(lanes, true); conflict != nil {
-		return fmt.Errorf("lane %s would come within %g meters of lane %s", conflict.lane, conflict.minimum, conflict.other)
+		err := fmt.Errorf("lane %s would come within %g meters of lane %s", conflict.lane, conflict.minimum, conflict.other)
+		if conflict.reachOnly {
+			return &heldConflictError{err}
+		}
+		return err
 	}
 	return nil
 }
+
+// heldConflictError is a lane conflict that only the plane reach of the lanes
+// gives. editGeometry reports it after the server checks of the edit, as the
+// server reports its plane reach refusal after its other checks.
+type heldConflictError struct{ error }
 
 // dimensionsChanged checks the new values in dimensions against the keys
 // and the values in previous. It reports whether a value differs from its

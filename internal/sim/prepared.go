@@ -82,7 +82,7 @@ func ValidateNetwork(network Network) error {
 // the same network, so that one editor check builds one tail index. The zero
 // index has no tails, and the validation then builds them.
 func ValidateNetworkClearance(network Network, clearance LaneClearance) error {
-	_, err := prepareNetworkTails(network, clearance.tails)
+	_, err := checkNetworkTails(network, clearance.tails)
 	return err
 }
 
@@ -98,6 +98,9 @@ type networkPreparation struct {
 	depots    *depotIndex
 	berthKeys map[string]int
 	lateral   *depotLateral
+	// reach is the refusal of the bank audit that the checks of the network
+	// held until the last of them passed.
+	reach *PlaneReachError
 }
 
 // prepareNetwork validates network and returns an owned copy. It builds the
@@ -105,11 +108,25 @@ type networkPreparation struct {
 // which read it. The index does not refuse a network, so the order of the
 // refusals does not change.
 func prepareNetwork(network Network) (networkPreparation, error) {
-	return prepareNetworkTails(network, nil)
+	return checkNetworkTails(network, nil)
 }
 
-// prepareNetworkTails is prepareNetwork with the tail index of the network,
-// or nil to build it.
+// checkNetworkTails is prepareNetwork with the tail index of the network, or
+// nil to build it.
+func checkNetworkTails(network Network, tails map[string]geometryTails) (networkPreparation, error) {
+	prepared, err := prepareNetworkTails(network, tails)
+	if err != nil {
+		return networkPreparation{}, err
+	}
+	if prepared.reach != nil {
+		return networkPreparation{}, prepared.reach
+	}
+	return prepared, nil
+}
+
+// prepareNetworkTails is checkNetworkTails without the plane reach refusal,
+// which it returns in the preparation. A caller with later checks reports the
+// refusal after them.
 func prepareNetworkTails(network Network, tails map[string]geometryTails) (networkPreparation, error) {
 	if err := network.validate(); err != nil {
 		return networkPreparation{}, err
@@ -131,7 +148,8 @@ func prepareNetworkTails(network Network, tails map[string]geometryTails) (netwo
 	// validate checked the depots, so the index has no error.
 	depots, _ := newDepotIndex(owned, indexNodePositions(owned.Nodes))
 	lateral := newDepotLateral(owned, depots, tails, berthKeys)
-	if err := network.validateBankGeometry(bankAudit{retention: retention, maneuvers: maneuvers, certified: certified, depots: depots, lateral: lateral}); err != nil {
+	var reach *PlaneReachError
+	if err := network.validateBankGeometry(bankAudit{retention: retention, maneuvers: maneuvers, certified: certified, depots: depots, lateral: lateral}); err != nil && !errors.As(err, &reach) {
 		return networkPreparation{}, err
 	}
 	for index, lane := range owned.Lanes {
@@ -153,7 +171,7 @@ func prepareNetworkTails(network Network, tails map[string]geometryTails) (netwo
 			}
 		}
 	}
-	return networkPreparation{network: owned, graph: graph, tails: tails, retention: retention, maneuvers: maneuvers, certified: certified, depots: depots, berthKeys: berthKeys, lateral: lateral}, nil
+	return networkPreparation{network: owned, graph: graph, tails: tails, retention: retention, maneuvers: maneuvers, certified: certified, depots: depots, berthKeys: berthKeys, lateral: lateral, reach: reach}, nil
 }
 
 func validateLargeLaneCells(id string, length float64, count int) error {

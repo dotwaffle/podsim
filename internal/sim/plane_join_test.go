@@ -299,3 +299,92 @@ func TestLargeGeometryJoinRefusalMatchesObserver(t *testing.T) {
 	}
 	t.Logf("control smallest gap %.3f", smallest)
 }
+
+// planeJoinWithDefect returns the network that the reach refuses, with one
+// more lane, far from the others, that adds another defect.
+func planeJoinWithDefect(t *testing.T, lane Lane, end Point) Network {
+	t.Helper()
+	n := planeJoinNetwork(t, planeJoinCase{cross: 24, crossEnd: 160, approach: "A", joined: "Q", crossing: "Q"})
+	start := Point{X: 2000}
+	n.Nodes = append(n.Nodes, Node{ID: "defect-a", Position: start}, Node{ID: "defect-b", Position: Point{X: start.X + end.X, Y: end.Y}})
+	lane.From, lane.To, lane.SpeedLimit = "defect-a", "defect-b", 14
+	if lane.Control != nil {
+		lane.Control = &Point{X: start.X + lane.Control.X, Y: lane.Control.Y}
+	}
+	n.Lanes = append(n.Lanes, lane)
+	return n
+}
+
+// named gives the stations the names that the Express bounds need.
+func named(n Network) Network {
+	for index := range n.Stations {
+		n.Stations[index].Name = n.Stations[index].ID
+	}
+	return n
+}
+
+// A refusal that the network had before the reach rule keeps its place: the
+// reach refusal comes after every other check of preparation and of a fleet.
+// The audit alone has no other check.
+func TestLargeGeometryReachRefusalComesLast(t *testing.T) {
+	t.Parallel()
+	const reach = `nonincident paths "cross" and "near" are less than 20 meters apart`
+	legacy, express := largeGeometryClasses(t, "legacy"), largeGeometryClasses(t, "express")
+	placements := []Placement{{ID: "p", StationID: "one"}}
+	entries := map[string]func(Network, []Placement) error{
+		"PrepareNetwork":           func(n Network, _ []Placement) error { return prepareError(n) },
+		"ValidateNetwork":          func(n Network, _ []Placement) error { return ValidateNetwork(n) },
+		"ValidateNetworkClearance": func(n Network, _ []Placement) error { return ValidateNetworkClearance(n, NewLaneClearance(n)) },
+		"NewFleet": func(n Network, p []Placement) error {
+			_, err := NewFleet(n, p)
+			return err
+		},
+		"ValidateFleet": ValidateFleet,
+		"NewFleetWithOrderContract": func(n Network, p []Placement) error {
+			_, err := NewFleetWithOrderContract(named(n), p, ExpressOrderContract)
+			return err
+		},
+		"ValidateFleetWithOrderContract": func(n Network, p []Placement) error {
+			return ValidateFleetWithOrderContract(named(n), p, ExpressOrderContract)
+		},
+	}
+	for _, test := range []struct {
+		name string
+		lane Lane
+		end  Point
+		want string
+	}{
+		{"lane length", Lane{ID: "short", VehicleClasses: legacy}, Point{X: 10}, `lane "short" must be at least 24 meters long`},
+		{"path shape", Lane{ID: "fold", VehicleClasses: express, Control: &Point{X: 100, Y: 100}}, Point{X: 10}, `lane "fold" has an unsupported large-vehicle path shape`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			n := planeJoinWithDefect(t, test.lane, test.end)
+			for name, entry := range entries {
+				if err := entry(n, placements); err == nil || err.Error() != test.want {
+					t.Errorf("%s: error = %v, want %s", name, err, test.want)
+				}
+			}
+			if err := n.ValidateBankGeometry(); err == nil || err.Error() != reach {
+				t.Errorf("audit error = %v, want %s", err, reach)
+			}
+		})
+	}
+	n := planeJoinNetwork(t, planeJoinCase{cross: 24, crossEnd: 160, approach: "A", joined: "Q", crossing: "Q"})
+	for name, entry := range entries {
+		if err := entry(n, placements); err == nil || err.Error() != reach {
+			t.Errorf("%s: error = %v, want %s", name, err, reach)
+		}
+		var typed *PlaneReachError
+		if err := entry(n, placements); !errors.As(err, &typed) {
+			t.Errorf("%s: error %v has no PlaneReachError", name, err)
+		}
+	}
+	// The checks of a fleet come before the reach refusal.
+	bad := []Placement{{ID: "p", StationID: "nowhere"}}
+	for _, name := range []string{"NewFleet", "ValidateFleet", "NewFleetWithOrderContract", "ValidateFleetWithOrderContract"} {
+		if err := entries[name](n, bad); err == nil || err.Error() != `unknown start station "nowhere"` {
+			t.Errorf("%s: fleet error = %v", name, err)
+		}
+	}
+}

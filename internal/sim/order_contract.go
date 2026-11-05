@@ -142,11 +142,13 @@ func NewFleetWithOrderContract(network Network, placements []Placement, contract
 	if err := validateContractFleetBounds(network, placements, contract); err != nil {
 		return nil, err
 	}
-	p, err := PrepareNetwork(network)
+	prepared, err := prepareContractFleet(network, placements, contract)
 	if err != nil {
 		return nil, err
 	}
-	return p.NewFleetWithOrderContract(placements, contract)
+	s := newPreparedNetwork(prepared).newFleet(placements)
+	s.orderContract = contract
+	return s, nil
 }
 
 // NewFleetWithOrderContract validates placements under the explicit contract.
@@ -170,14 +172,8 @@ func ValidateFleetWithOrderContract(network Network, placements []Placement, con
 	if err := validateContractFleetBounds(network, placements, contract); err != nil {
 		return err
 	}
-	p, err := PrepareNetwork(network)
-	if err != nil {
-		return err
-	}
-	if err := p.check(); err != nil {
-		return err
-	}
-	return validatePlacementsWithOrderContract(p.network, placements, contract)
+	_, err := prepareContractFleet(network, placements, contract)
+	return err
 }
 
 func checkSavedServiceLimits(input RestoreStateInput) error {

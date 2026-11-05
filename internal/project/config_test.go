@@ -1001,3 +1001,52 @@ func TestCloneNetworkDepots(t *testing.T) {
 		t.Fatal("clone made depots for a network with none")
 	}
 }
+
+// TestValidateReachRefusalComesLast pins that the plane reach refusal of a
+// network does not hide a refusal of a project. The island has a lane that
+// passes over a lane on a plane that it joins.
+func TestValidateReachRefusalComesLast(t *testing.T) {
+	t.Parallel()
+	const reach = `invalid project scenario: nonincident paths "island-cross" and "island-near" are less than 20 meters apart`
+	withIsland := func() Config {
+		config := Default()
+		classes, err := sim.NewClassSet("group")
+		if err != nil {
+			t.Fatal(err)
+		}
+		for id, at := range map[string]sim.Point{"island-mid": {X: 5000, Y: 100}, "island-join": {X: 5000}, "island-east": {X: 5400}, "island-cross-east": {X: 5140, Y: 24}, "island-cross-west": {X: 4860, Y: 24}} {
+			config.Network.Nodes = append(config.Network.Nodes, sim.Node{ID: id, Position: at})
+		}
+		for _, row := range [][4]string{{"island-near", "island-mid", "island-join", "A"}, {"island-main", "island-join", "island-east", "Q"}, {"island-cross", "island-cross-east", "island-cross-west", "Q"}} {
+			config.Network.Lanes = append(config.Network.Lanes, sim.Lane{ID: row[0], From: row[1], To: row[2], SpeedLimit: 14, VehicleClasses: classes, SeparationGroup: row[3]})
+		}
+		return config
+	}
+	if err := Validate(withIsland()); err == nil || err.Error() != reach {
+		t.Fatalf("reach refusal = %v, want %s", err, reach)
+	}
+	for _, test := range []struct {
+		name string
+		edit func(*Config)
+		want string
+	}{
+		{"express registry", func(config *Config) {
+			config.ExpressServices = []sim.ExpressService{{ID: "service"}}
+		}, "invalid express registry: "},
+		{"passenger stations", func(config *Config) {
+			for index := range config.Network.Stations {
+				config.Network.Stations[index].ParkingOnly = true
+			}
+		}, "network needs at least two passenger stations"},
+		{"fleet", func(config *Config) { config.Fleet[0].StationID = "nowhere" }, `invalid project scenario: unknown start station "nowhere"`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			config := withIsland()
+			test.edit(&config)
+			if err := Validate(config); err == nil || !strings.HasPrefix(err.Error(), test.want) {
+				t.Fatalf("error = %v, want the prefix %s", err, test.want)
+			}
+		})
+	}
+}

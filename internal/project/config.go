@@ -272,13 +272,28 @@ var projectChecks = [...]func(Config) error{
 // Validate checks format bounds and confirms that the scenario can start. It
 // also checks that the canonical encoding of config has at most MaxFileBytes
 // with any demand settings that ValidateDemand accepts.
+//
+// A plane reach refusal of the network comes after every other check, so
+// that it does not hide a refusal of a project that the audit does not read.
 func Validate(config Config) error {
+	var held error
 	for _, check := range projectChecks {
 		if err := check(config); err != nil {
-			return err
+			if !isPlaneReachRefusal(err) {
+				return err
+			}
+			held = err
 		}
 	}
-	return validateWidestSize(config)
+	if err := validateWidestSize(config); err != nil {
+		return err
+	}
+	return held
+}
+
+func isPlaneReachRefusal(err error) bool {
+	var reach *sim.PlaneReachError
+	return errors.As(err, &reach)
 }
 
 // validateFormatBounds checks the length of the project name, and then the
@@ -396,11 +411,15 @@ func validateProjectDemand(config Config) error {
 // validateScenario checks the fleet, and then the express registry, under
 // the order contract.
 func validateScenario(config Config) error {
-	if err := sim.ValidateFleetWithOrderContract(config.Network, config.Fleet, config.OrderContract); err != nil {
-		return fmt.Errorf("invalid project scenario: %w", err)
+	fleetErr := sim.ValidateFleetWithOrderContract(config.Network, config.Fleet, config.OrderContract)
+	if fleetErr != nil && !isPlaneReachRefusal(fleetErr) {
+		return fmt.Errorf("invalid project scenario: %w", fleetErr)
 	}
 	if err := sim.ValidateExpressServicesWithOrderContract(config.Network, config.ExpressServices, config.OrderContract); err != nil {
 		return fmt.Errorf("invalid express registry: %w", err)
+	}
+	if fleetErr != nil {
+		return fmt.Errorf("invalid project scenario: %w", fleetErr)
 	}
 	return nil
 }

@@ -15,6 +15,9 @@ type geometryPath struct {
 type geometryConflict struct {
 	lane, other  string
 	gap, minimum float64
+	// reachOnly is true when only the reach of the lanes denies the pair the
+	// plane exemption.
+	reachOnly bool
 }
 
 func geometryPolyline(from, to geometryPoint, control *geometryPoint) []geometryPoint {
@@ -180,7 +183,7 @@ func (g geometryDraft) laneConflict(ids []string, separationGroups bool) *geomet
 				}
 			}
 			if gap, minimum, conflict := clearance.pairConflict(path, other); conflict {
-				conflict := &geometryConflict{id, text(other.lane["id"]), gap, minimum}
+				conflict := &geometryConflict{lane: id, other: text(other.lane["id"]), gap: gap, minimum: minimum, reachOnly: separated}
 				if !separated {
 					return conflict
 				}

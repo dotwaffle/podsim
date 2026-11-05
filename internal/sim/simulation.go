@@ -544,12 +544,21 @@ func ValidateFleet(network Network, placements []Placement) error {
 // network with inferred station lane roles, the route graph of that copy and
 // its retention index.
 func prepareFleet(network Network, placements []Placement) (networkPreparation, error) {
-	prepared, err := prepareNetwork(network)
+	return prepareContractFleet(network, placements, "")
+}
+
+// prepareContractFleet is prepareFleet under an order contract. The plane
+// reach refusal of the network comes after the checks of the fleet.
+func prepareContractFleet(network Network, placements []Placement, contract OrderContract) (networkPreparation, error) {
+	prepared, err := prepareNetworkTails(network, nil)
 	if err != nil {
 		return networkPreparation{}, err
 	}
-	if err := validatePlacements(prepared.network, placements); err != nil {
+	if err := validatePlacementsWithOrderContract(prepared.network, placements, contract); err != nil {
 		return networkPreparation{}, err
+	}
+	if prepared.reach != nil {
+		return networkPreparation{}, prepared.reach
 	}
 	return prepared, nil
 }

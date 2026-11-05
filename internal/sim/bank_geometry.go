@@ -2,6 +2,7 @@ package sim
 
 import (
 	"cmp"
+	"errors"
 	"fmt"
 	"math"
 	"slices"
@@ -76,7 +77,8 @@ func (n Network) ValidateBankGeometry() error {
 //
 // A pair that only reach denies the plane exemption reports its refusal
 // after the scan, so that the first refusal of a pair without an exemption
-// stays the first refusal of the audit.
+// stays the first refusal of the audit. The refusal is a PlaneReachError, so
+// that a caller can report it after its own later checks.
 func (n Network) validateBankGeometry(audit bankAudit) error {
 	retention, maneuvers := audit.retention, audit.maneuvers
 	banks, large, groups := n.hasStationBanks(), n.hasLargeGeometry(), maneuvers != nil
@@ -135,7 +137,7 @@ func (n Network) validateBankGeometry(audit bankAudit) error {
 	if large {
 		scanClearance = largeClearance
 	}
-	var reachRefusal error
+	var reachRefusal *PlaneReachError
 	for i, first := range paths {
 		for _, second := range paths[i+1:] {
 			if second.min.X-first.max.X >= scanClearance {
@@ -163,16 +165,36 @@ func (n Network) validateBankGeometry(audit bankAudit) error {
 					a, b = polylinePiece(a, piece.first[0], piece.first[1]), polylinePiece(b, piece.second[0], piece.second[1])
 				}
 				if bankPathsClose(a, b, piece.clearance) {
-					err := fmt.Errorf("nonincident paths %q and %q are less than %g meters apart", first.id, second.id, piece.clearance)
 					if !separated {
-						return err
+						return errors.New(planeGapText(first.id, second.id, piece.clearance))
 					}
-					reachRefusal = cmp.Or(reachRefusal, err)
+					reachRefusal = cmp.Or(reachRefusal, &PlaneReachError{first.id, second.id, piece.clearance})
 				}
 			}
 		}
 	}
-	return reachRefusal
+	if reachRefusal != nil {
+		return reachRefusal
+	}
+	return nil
+}
+
+// PlaneReachError refuses a pair of paths on different planes that are too
+// close, when only the locations that a pod on a path can reach deny the
+// pair the plane exemption. Each other check of a network or a project comes
+// before this refusal: a caller with later checks holds it until they pass.
+type PlaneReachError struct {
+	First, Second string
+	Clearance     float64
+}
+
+// Error returns the text of a refusal of a pair of paths.
+func (e *PlaneReachError) Error() string {
+	return planeGapText(e.First, e.Second, e.Clearance)
+}
+
+func planeGapText(first, second string, clearance float64) string {
+	return fmt.Sprintf("nonincident paths %q and %q are less than %g meters apart", first, second, clearance)
 }
 
 // pieces returns the pieces of a pair of paths: one piece at the clearance

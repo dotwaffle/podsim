@@ -477,3 +477,73 @@ func TestLargeDraftLaneReachConflictOrder(t *testing.T) {
 		t.Fatalf("reach conflict = %+v", conflict)
 	}
 }
+
+// reachLayoutDraft has a station with one berth row. Its lane "link-in" joins
+// "road" on plane Q at the entry, and it crosses "over", which is also on
+// plane Q. So only the reach of the lanes refuses the plane exemption.
+func reachLayoutDraft() map[string]any {
+	classes := []any{"legacy", "group"}
+	network := map[string]any{}
+	for id, at := range map[string][2]float64{
+		"entry": {-100, 0}, "exit": {100, 0}, "arrival": {-100, 60}, "berth": {0, 60}, "departure": {100, 60},
+		"road-start": {-100, -300}, "road-end": {100, -300}, "over-west": {-300, 30}, "over-east": {-50, 30}, "over-north": {-50, 400}, "over-back": {-300, 400},
+	} {
+		network["nodes"] = append(items(network["nodes"]), map[string]any{"id": id, "position": map[string]any{"x": at[0], "y": at[1]}})
+	}
+	for _, row := range [][4]string{
+		{"link-in", "entry", "arrival", "S"}, {"inlet", "arrival", "berth", "S"}, {"outlet", "berth", "departure", "S"}, {"link-out", "departure", "exit", "S"}, {"through", "entry", "exit", "S"},
+		{"road", "road-start", "entry", "Q"}, {"away", "exit", "road-end", "Q"},
+		{"over", "over-west", "over-east", "Q"}, {"over-up", "over-east", "over-north", "Q"}, {"over-across", "over-north", "over-back", "Q"}, {"over-down", "over-back", "over-west", "Q"},
+	} {
+		lane := map[string]any{"id": row[0], "from": row[1], "to": row[2], "speedLimit": float64(14), "separationGroup": row[3], "vehicleClasses": classes}
+		if row[3] == "S" {
+			lane["stationID"], lane["stationRole"] = "station", map[string]string{"link-in": "berth-access", "inlet": "berth-access", "outlet": "departure", "link-out": "departure", "through": "through"}[row[0]]
+		}
+		network["lanes"] = append(items(network["lanes"]), lane)
+	}
+	network["stations"] = []any{map[string]any{"id": "station", "name": "Station", "entry": "entry", "exit": "exit", "parkingOnly": false, "vehicleClasses": classes, "berths": []any{map[string]any{"id": "berth-1", "node": "berth", "vehicleClasses": classes, "separationGroup": "S"}}}}
+	return network
+}
+
+// A layout edit reports a conflict that only the reach gives after the server
+// checks of the edit, so that it does not hide a refusal of the server.
+func TestLargeDraftLayoutReachConflictComesLast(t *testing.T) {
+	t.Parallel()
+	const edit = `{"action":"stationLayout","id":"station","value":{"spacing":260}}`
+	const want = "lane link-in would come within 20 meters of lane over"
+	if _, err := editGeometry(map[string]any{"network": reachLayoutDraft()}, jsontext.Value(edit)); err == nil || err.Error() != want {
+		t.Fatalf("error = %v, want %s", err, want)
+	}
+	withShort := func(network map[string]any) map[string]any {
+		network["nodes"] = append(items(network["nodes"]), map[string]any{"id": "short-a", "position": map[string]any{"x": 3000.0, "y": 0.0}}, map[string]any{"id": "short-b", "position": map[string]any{"x": 3010.0, "y": 0.0}})
+		network["lanes"] = append(items(network["lanes"]), map[string]any{"id": "short", "from": "short-a", "to": "short-b", "speedLimit": float64(14)})
+		return network
+	}
+	const server = `validate large geometry: lane "short" must be at least 24 meters long`
+	if _, err := editGeometry(map[string]any{"network": withShort(reachLayoutDraft())}, jsontext.Value(edit)); err == nil || err.Error() != server {
+		t.Fatalf("error = %v, want %s", err, server)
+	}
+	// A conflict without a plane exemption reports at its old place.
+	network := reachLayoutDraft()
+	object(items(network["lanes"])[0])["separationGroup"] = "Q"
+	if _, err := editGeometry(map[string]any{"network": withShort(network)}, jsontext.Value(edit)); err == nil || err.Error() != want {
+		t.Fatalf("error = %v, want %s", err, want)
+	}
+}
+
+// The server validation of a draft reports the refusal of a short lane before
+// the reach refusal, and the editor checks of a draft with banks read it.
+func TestLargeDraftServerReachRefusalComesLast(t *testing.T) {
+	t.Parallel()
+	network := planeJoinDraft(24, []any{"legacy", "group"}, nil, "Q")
+	const reach = `validate large geometry: nonincident paths "cross" and "near" are less than 20 meters apart`
+	if err := validateBankDraft(network); err == nil || err.Error() != reach {
+		t.Fatalf("error = %v, want %s", err, reach)
+	}
+	network["nodes"] = append(items(network["nodes"]), map[string]any{"id": "short-a", "position": map[string]any{"x": 2000.0, "y": 0.0}}, map[string]any{"id": "short-b", "position": map[string]any{"x": 2010.0, "y": 0.0}})
+	network["lanes"] = append(items(network["lanes"]), map[string]any{"id": "short", "from": "short-a", "to": "short-b", "speedLimit": float64(14)})
+	const short = `validate large geometry: lane "short" must be at least 24 meters long`
+	if err := validateBankDraft(network); err == nil || err.Error() != short {
+		t.Fatalf("error = %v, want %s", err, short)
+	}
+}
