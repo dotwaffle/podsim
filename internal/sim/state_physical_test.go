@@ -233,6 +233,12 @@ func TestRestoreDemotesTravelingPods(t *testing.T) {
 	// In the last block of the lane before, it reserves the last lane.
 	noBerth := f.carrying(t, f.traveling(t, travelInput{id: "01", from: "harbor-1", to: "market-1", lane: "bypass-merge", distance: 200}), 1, 1)
 	noBerth.Route, noBerth.Destination = noBerth.Route[:len(noBerth.Route)-1], ""
+	// In the last block of its last lane, the pod has no block left to reserve.
+	noBlockLeft := noBerth
+	lastLane := f.network.Lanes[noBerth.Route[len(noBerth.Route)-1]]
+	noBlockLeft.RouteIndex, noBlockLeft.LaneID = len(noBerth.Route)-1, lastLane.ID
+	noBlockLeft.Distance += f.s.laneLength(f.network.Lanes[noBerth.Route[noBerth.RouteIndex]]) - noBerth.LaneDistance + f.s.laneLength(lastLane) - 1
+	noBlockLeft.LaneDistance = f.s.laneLength(lastLane) - 1
 	beforeLastLane := f.carrying(t, f.traveling(t, travelInput{id: "01", from: "harbor-1", to: "market-1", lane: "bypass-merge", distance: 100}), 1, 1)
 	beforeLastLane.Route, beforeLastLane.Destination = noBerth.Route, ""
 	for _, tc := range []struct {
@@ -345,7 +351,17 @@ func TestRestoreDemotesTravelingPods(t *testing.T) {
 			},
 		},
 		{
-			name: "no berth but last lane reserved", demoted: []string{"01"}, pods: []SavedPod{noBerth},
+			name: "no berth but last lane reserved", pods: []SavedPod{noBerth},
+			check: func(t *testing.T, _ SavedState, s *Simulation, _ RestoreResult) {
+				t.Helper()
+				v := findVehicle(t, s, "01")
+				if first, _ := routeLaneBlocks(&v.blocks, len(v.Route)-1); v.Pod.Activity != Traveling || v.destination.ID != "" || v.reservedThrough != first {
+					t.Fatalf("pod 01 is %q with berth %q and the reservation through block %d, want block %d", v.Pod.Activity, v.destination.ID, v.reservedThrough, first)
+				}
+			},
+		},
+		{
+			name: "no berth and no block left to reserve", demoted: []string{"01"}, pods: []SavedPod{noBlockLeft},
 			check: func(t *testing.T, _ SavedState, s *Simulation, _ RestoreResult) {
 				t.Helper()
 				checkAtBerth(t, s, "01", Boarding, "harbor-1")

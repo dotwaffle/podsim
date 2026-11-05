@@ -2,6 +2,7 @@ package sim
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"slices"
 	"testing"
@@ -417,5 +418,113 @@ func TestRestoreFaultFootprints(t *testing.T) {
 	startDebris(t, s, "s0-link", 0, 1, 0)
 	if _, result, err := RestoreState(faultRestoreInput(s, s.ExportState())); err != nil || !cleanRestore(result) {
 		t.Fatalf("faulted pod at a berth: %v, %+v", err, result)
+	}
+}
+
+// TestRestoreFailedBerthChoice saves a pod that rests in the first cell of its
+// final lane, because debris makes its berth choice fail. The pod has no berth,
+// and it can hold that cell. Each case keeps the physical tier and the place of
+// the pod, with or without a record on the pod. After the clear, the pod chooses
+// its berth and arrives.
+func TestRestoreFailedBerthChoice(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name          string
+		prepare       func(t *testing.T, s *Simulation, v *vehicle)
+		faults        int
+		emergencyPods int
+	}{
+		{name: "no record", prepare: func(*testing.T, *Simulation, *vehicle) {}, faults: 1},
+		{name: "emergency", prepare: func(t *testing.T, s *Simulation, v *vehicle) {
+			t.Helper()
+			s.emergenciesOn = true
+			startEmergency(t, s, v, 0)
+		}, faults: 1, emergencyPods: 1},
+		{name: "fault", prepare: func(t *testing.T, s *Simulation, v *vehicle) {
+			t.Helper()
+			startFault(t, s, v, 0)
+		}, faults: 2},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			s := faultLegFleet(t)
+			v := boardParties(t, s, "s1")
+			startDebris(t, s, "s1-1-in", 0, 5, 0)
+			stepUntil(t, s, "the rest with a failed berth choice", func() bool {
+				return v.Pod.WaitReason == NoForwardRoute && v.Pod.Speed == 0
+			})
+			if first, _ := routeLaneBlocks(&v.blocks, len(v.Route)-1); v.destination.ID != "" || v.reservedThrough != first || v.blockIndex != first {
+				t.Fatalf("pod 01 has the berth %q, block %d, and a reservation through %d, want block %d", v.destination.ID, v.blockIndex, v.reservedThrough, first)
+			}
+			test.prepare(t, s, v)
+			s.Step()
+			input := emergencyRestoreInput(s, s.ExportState())
+			input.EmergenciesOn = s.emergenciesOn
+			restored, result, err := RestoreState(input)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if result.Tier != RestorePhysical || len(result.Demoted) != 0 || result.PhysicalError != nil {
+				t.Fatalf("the result is %+v", result)
+			}
+			got := restored.findVehicle(v.Pod.ID)
+			if got.Pod.Activity != Traveling || got.Pod.LaneID != v.Pod.LaneID || got.destination.ID != "" || len(restored.faults) != test.faults || len(restored.emergencies) != test.emergencyPods {
+				t.Fatalf("pod 01 is %s on %s with the berth %q, and %d faults and %d emergencies", got.Pod.Activity, got.Pod.LaneID, got.destination.ID, len(restored.faults), len(restored.emergencies))
+			}
+			checkFaultsEachTick(t, restored)
+			for _, fault := range slices.Clone(restored.faults) {
+				if err := restored.clearFault(fault.id()); err != nil {
+					t.Fatal(err)
+				}
+			}
+			stepUntil(t, restored, "the arrival at s1", func() bool { return got.Pod.Activity == Unloading && got.Pod.StationID == "s1" })
+		})
+	}
+}
+
+// TestRestoreShortFinalLane saves a pod with a failed berth choice before a
+// final lane so short that the junction zone of the station entry covers all of
+// it. The next request of the pod reaches the end of the route, so the pod tries
+// its choice one block before that lane, and it rests with blocks left to
+// reserve. The reservation that the restore derives from the current block ends
+// at or before the live one, so the pod keeps its place, and it arrives after
+// the clear. The lane of 30 m is a control with a later request on the final
+// lane.
+func TestRestoreShortFinalLane(t *testing.T) {
+	t.Parallel()
+	for _, length := range []float64{24, 25, 30} {
+		t.Run(fmt.Sprint(length), func(t *testing.T) {
+			t.Parallel()
+			lanes := []geometryLane{{to: Point{}}, {to: Point{X: length}}}
+			network := geometryNetwork(Point{X: -500}, lanes, 1)
+			s := restoreGeometry(t, network, len(lanes), 1, 400, corridorQueueGap)
+			if err := s.SetFaults(true, FaultSettings{EvacuationSeconds: 300}); err != nil {
+				t.Fatal(err)
+			}
+			id := startDebris(t, s, "dest-in", 0, 5, 0)
+			v := &s.vehicles[0]
+			stepUntil(t, s, "the rest with a failed berth choice", func() bool {
+				return v.Pod.WaitReason == NoForwardRoute && v.Pod.Speed == 0
+			})
+			if v.destination.ID != "" || v.reservedThrough >= v.blocks.len()-1 {
+				t.Fatalf("pod p01 has the berth %q and a reservation through %d of %d blocks", v.destination.ID, v.reservedThrough, v.blocks.len())
+			}
+			restored, result, err := RestoreState(RestoreStateInput{Network: network, Fleet: s.initial, State: s.ExportState(), FaultsOn: true, Faults: FaultSettings{EvacuationSeconds: 300}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if result.Tier != RestorePhysical || len(result.Demoted) != 0 {
+				t.Fatalf("the result is %+v", result)
+			}
+			got := &restored.vehicles[0]
+			if got.reservedThrough > v.reservedThrough {
+				t.Fatalf("the restored reservation ends at block %d, after the live block %d", got.reservedThrough, v.reservedThrough)
+			}
+			if err := restored.clearFault(id); err != nil {
+				t.Fatal(err)
+			}
+			stepUntil(t, restored, "the arrival", func() bool { return got.Pod.Activity == Unloading && got.Pod.BerthID == "dest-1" })
+		})
 	}
 }

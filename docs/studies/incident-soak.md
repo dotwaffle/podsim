@@ -403,7 +403,10 @@ The gain from `GOGC=400` is 23% in this rate and 25% in CPU, not the factor of 2
 No run gave a Safety, Contract, Conservation, or Rail report, and each branch passed its 9 rewinds.
 One of the 2 saves of branch 2, at tick 80810, restored in the logical tier, and the driver counts it and goes on.
 The physical error reads "the restore would demote pod pod-021, which has emergency i6.16".
-The cause of that demotion is not attributed.
+Later work found the cause: pod-021 rested in the first cell of its final lane, because debris made its berth choice fail, and the physical tier demoted each pod with no berth in that state.
+The tier now keeps such a pod, and it demotes a pod with no berth only when no block is left to reserve.
+Before that change, a run with a save at each simulated minute had 24 logical fallbacks in 1,281 saves over 14 branches, in 3 episodes, and 4 in 732 saves over 6 runs with no restore.
+At 60 Hz, the same 3 episodes occurred, so the tick rate and the branch path are not the cause.
 A warm save that demotes in this way stops its arm, because a branch must start with the physical tier.
 
 ### Divergence of the branches

@@ -845,12 +845,14 @@ func (r *physicalRestore) placeTravelingPod(index, leader int) (bool, error) {
 	if distance < v.originTail() && (v.origin.ID == "" || v.Route[0].From != v.origin.Node) {
 		return false, nil
 	}
-	// A pod that has no berth yet chooses one before it reserves the last
-	// lane, so such a pod with a reservation into its last lane demotes. A
-	// pod that goes to a depot entry binds its slot when it owns the last
-	// cell of the incoming lane, so it stays, and the next bindDepotArrivals
-	// binds it.
-	if lastLane, _ := routeLaneBlocks(&v.blocks, len(v.Route)-1); v.destination.ID == "" && through >= lastLane && !r.s.depotEntryWait(v) {
+	// A pod that has no berth yet chooses one when its next request starts
+	// on the final lane of its route. Until that choice succeeds, the pod can
+	// hold cells of the final lane, so it keeps its place, and its next
+	// request tries again. A pod with no block left to reserve makes no more
+	// requests, so it never chooses, and it demotes. A pod that goes to a
+	// depot entry binds its slot when it owns the last cell of the incoming
+	// lane, so it stays, and the next bindDepotArrivals binds it.
+	if v.destination.ID == "" && through >= v.blocks.len()-1 && !r.s.depotEntryWait(v) {
 		return false, nil
 	}
 	v.distance, v.blockIndex = distance, current
