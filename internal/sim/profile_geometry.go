@@ -47,8 +47,10 @@ func largeBerth(station Station, berth Berth) bool {
 }
 
 // geometryTails stores only larger bounds. Zero retains ordinary arithmetic.
+// front is the distance past the center that the observer takes as the front
+// of a body on this lane.
 type geometryTails struct {
-	tail, fromTail float64
+	tail, fromTail, front float64
 }
 
 // indexGeometryTails includes small lanes incident to large-admitting nodes.
@@ -76,6 +78,7 @@ func indexGeometryTails(network Network) map[string]geometryTails {
 				positions = indexNodePositions(network.Nodes)
 			}
 			bounds.tail = largePathTail(lanePointsBetween(lane, positions[lane.From], positions[lane.To], make([]Point, 0, 65)))
+			bounds.front = largeEnvelopeRadius * bounds.tail / largeClearance
 		}
 		if nodes[lane.From] {
 			bounds.fromTail = bounds.tail
@@ -96,8 +99,17 @@ type LaneTailOverrun struct {
 // whose tail from indexGeometryTails exceeds their length. A path with an
 // infinite tail is not in the result, because validation refuses it.
 func (n Network) LaneTailOverruns() []LaneTailOverrun {
+	return laneTailOverruns(n, indexGeometryTails(n))
+}
+
+// TailOverruns is LaneTailOverruns with the tails of the index, for the
+// network of the index.
+func (c LaneClearance) TailOverruns(network Network) []LaneTailOverrun {
+	return laneTailOverruns(network, c.tails)
+}
+
+func laneTailOverruns(n Network, tails map[string]geometryTails) []LaneTailOverrun {
 	var overruns []LaneTailOverrun
-	tails := indexGeometryTails(n)
 	var positions map[string]Point
 	for _, lane := range n.Lanes {
 		tail := tails[lane.ID].tail

@@ -36,6 +36,9 @@ type networkIndexes struct {
 	resourceLanes map[resource][]int32
 	laneSafety    map[string]SafetyLocation
 	berthSafety   map[string]SafetyLocation
+	// tails holds the one tail index of the network. The lane cells and the
+	// retention index read it.
+	tails map[string]geometryTails
 	// retention holds the reduced retention of the qualifying lanes and
 	// their windows. The lane cells and the safety observation read it.
 	retention *laneRetention
@@ -75,11 +78,20 @@ func ValidateNetwork(network Network) error {
 	return err
 }
 
+// ValidateNetworkClearance is ValidateNetwork with the tails of an index of
+// the same network, so that one editor check builds one tail index. The zero
+// index has no tails, and the validation then builds them.
+func ValidateNetworkClearance(network Network, clearance LaneClearance) error {
+	_, err := prepareNetworkTails(network, clearance.tails)
+	return err
+}
+
 // networkPreparation holds a validated copy of a network, its route graph
 // and its retention index.
 type networkPreparation struct {
 	network   Network
 	graph     routeGraph
+	tails     map[string]geometryTails
 	retention *laneRetention
 	maneuvers *maneuverIndex
 	certified certifiedPairs
@@ -93,13 +105,21 @@ type networkPreparation struct {
 // which read it. The index does not refuse a network, so the order of the
 // refusals does not change.
 func prepareNetwork(network Network) (networkPreparation, error) {
+	return prepareNetworkTails(network, nil)
+}
+
+// prepareNetworkTails is prepareNetwork with the tail index of the network,
+// or nil to build it.
+func prepareNetworkTails(network Network, tails map[string]geometryTails) (networkPreparation, error) {
 	if err := network.validate(); err != nil {
 		return networkPreparation{}, err
 	}
 	owned := network.clone()
 	inferStationLaneRoles(&owned)
 	graph := newRouteGraph(owned)
-	tails := indexGeometryTails(owned)
+	if tails == nil {
+		tails = indexGeometryTails(owned)
+	}
 	retention := newLaneRetention(owned, tails)
 	// validate checked the groups, so the index has no error.
 	maneuvers, _ := newManeuverIndex(owned, indexNodePositions(owned.Nodes))
@@ -133,7 +153,7 @@ func prepareNetwork(network Network) (networkPreparation, error) {
 			}
 		}
 	}
-	return networkPreparation{network: owned, graph: graph, retention: retention, maneuvers: maneuvers, certified: certified, depots: depots, berthKeys: berthKeys, lateral: lateral}, nil
+	return networkPreparation{network: owned, graph: graph, tails: tails, retention: retention, maneuvers: maneuvers, certified: certified, depots: depots, berthKeys: berthKeys, lateral: lateral}, nil
 }
 
 func validateLargeLaneCells(id string, length float64, count int) error {
@@ -149,7 +169,7 @@ func validateLargeLaneCells(id string, length float64, count int) error {
 func newPreparedNetwork(prepared networkPreparation) *PreparedNetwork {
 	owned := prepared.network
 	p := &PreparedNetwork{
-		network: owned, graph: prepared.graph, retention: prepared.retention, maneuvers: prepared.maneuvers, certified: prepared.certified, depots: prepared.depots,
+		network: owned, graph: prepared.graph, tails: prepared.tails, retention: prepared.retention, maneuvers: prepared.maneuvers, certified: prepared.certified, depots: prepared.depots,
 		berthKeys: prepared.berthKeys, lateral: prepared.lateral,
 		stationIndexes: indexStations(owned), stationForbidden: owned.stationForbidden(),
 		geometry: buildLaneGeometry(owned), junctionConflicts: buildJunctionConflicts(owned),
@@ -165,7 +185,7 @@ func newPreparedNetwork(prepared networkPreparation) *PreparedNetwork {
 			p.berthSafety[berth.ID] = SafetyLocation{SeparationGroup: berth.SeparationGroup, From: berth.Node, To: berth.Node}
 		}
 	}
-	p.laneCells = indexLaneCells(laneCellsIndexInput{network: owned, geometry: p.geometry, conflicts: p.junctionConflicts, berths: p.berthResources, retention: p.retention, maneuvers: p.maneuvers, depots: p.depots})
+	p.laneCells = indexLaneCells(laneCellsIndexInput{network: owned, tails: prepared.tails, geometry: p.geometry, conflicts: p.junctionConflicts, berths: p.berthResources, retention: p.retention, maneuvers: p.maneuvers, depots: p.depots})
 	p.resourceLanes = indexResourceLanes(owned, p.laneCells)
 	p.platoonData = newPlatoonIndexData(owned)
 	return p

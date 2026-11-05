@@ -38,12 +38,15 @@ func decodeDraftNetwork(network any) (sim.Network, error) {
 // serverDraft decodes a draft network one time for the server checks of
 // one edit. The network must not change after the first decode.
 // depotsValid records that the depot validation of the server accepted
-// the decoded network.
+// the decoded network. clearance holds the tails of the check of this draft,
+// so that the validation does not build them again, and its zero value has
+// none.
 type serverDraft struct {
 	network     any
 	typed       sim.Network
 	decoded     bool
 	depotsValid bool
+	clearance   sim.LaneClearance
 }
 
 // decode keeps only a decode that succeeds. A draft that does not decode
@@ -91,19 +94,19 @@ func (d *serverDraft) validate() error {
 		return fmt.Errorf("validate station banks: %w", err)
 	}
 	if hasLargeGeometry(network) {
-		if err := sim.ValidateNetwork(typed); err != nil {
+		if err := sim.ValidateNetworkClearance(typed, d.clearance); err != nil {
 			return fmt.Errorf("validate large geometry: %w", err)
 		}
 		return nil
 	}
 	if hasManeuverGroups(network) {
-		if err := sim.ValidateNetwork(typed); err != nil {
+		if err := sim.ValidateNetworkClearance(typed, d.clearance); err != nil {
 			return fmt.Errorf("validate maneuver groups: %w", err)
 		}
 		return nil
 	}
 	if hasDepots(network) {
-		if err := sim.ValidateNetwork(typed); err != nil {
+		if err := sim.ValidateNetworkClearance(typed, d.clearance); err != nil {
 			return fmt.Errorf("validate depots: %w", err)
 		}
 		return nil

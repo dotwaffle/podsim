@@ -37,8 +37,10 @@ type bankAudit struct {
 // ordinary junction resource control.
 func (n Network) ValidateBankGeometry() error {
 	var audit bankAudit
+	var tails map[string]geometryTails
 	if n.hasStationBanks() || len(n.ManeuverGroups) > 0 || len(n.Depots) > 0 {
-		audit.retention = newLaneRetention(n, indexGeometryTails(n))
+		tails = indexGeometryTails(n)
+		audit.retention = newLaneRetention(n, tails)
 	}
 	if len(n.Depots) > 0 {
 		nodes, err := n.validateNodes()
@@ -48,7 +50,7 @@ func (n Network) ValidateBankGeometry() error {
 		if audit.depots, err = newDepotIndex(n, nodes); err != nil {
 			return err
 		}
-		audit.lateral = newDepotLateral(n, audit.depots, indexGeometryTails(n), indexBerthKeys(n))
+		audit.lateral = newDepotLateral(n, audit.depots, tails, indexBerthKeys(n))
 	}
 	if len(n.ManeuverGroups) > 0 {
 		nodes, err := n.validateNodes()

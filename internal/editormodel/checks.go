@@ -212,17 +212,19 @@ func checkNetwork(value any, errors *checkList) *draftNetwork {
 	}
 	ids := make(draftIDs)
 	g.checkNodes(ids, errors)
-	pairs := g.checkLanes(ids, newDraftClearance(value), errors)
+	// One check builds one index, because it holds the tails of each lane.
+	clearance := newDraftClearance(value)
+	pairs := g.checkLanes(ids, clearance, errors)
 	g.checkStations(ids, pairs, errors)
 	g.checkBerthRoutes(errors)
 	g.checkStationRoles(errors)
 	if hasBanks(value) || (hasLargeGeometry(value) || hasManeuverGroups(value) || hasDepots(value)) && draftGeometryClassesValid(value) && len(errors.items) == previousErrors {
-		if err := validateBankDraft(value); err != nil {
+		if err := (&serverDraft{network: value, clearance: clearance.index}).validate(); err != nil {
 			errors.add(err.Error(), nil)
 		}
 	}
 	if len(errors.items) == previousErrors {
-		g.tailWarnings = draftTailWarnings(value)
+		g.tailWarnings = draftTailWarnings(value, clearance)
 	}
 	return g
 }

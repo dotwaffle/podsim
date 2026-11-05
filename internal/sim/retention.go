@@ -453,6 +453,8 @@ type LaneClearance struct {
 	lanes   map[string]int
 	// reach holds laneReachLocations of each lane, by lane ID.
 	reach map[string][]SafetyLocation
+	// tails holds the one tail index of an editor check.
+	tails map[string]geometryTails
 }
 
 // NewLaneClearance returns the index of a network. The network does not
@@ -464,7 +466,7 @@ type LaneClearance struct {
 // each depot pair keeps Clearance.
 func NewLaneClearance(network Network) LaneClearance {
 	tails := indexGeometryTails(network)
-	clearance := LaneClearance{retention: newLaneRetention(network, tails), depots: depotChainLanes(network), reach: make(map[string][]SafetyLocation, len(network.Lanes))}
+	clearance := LaneClearance{tails: tails, retention: newLaneRetention(network, tails), depots: depotChainLanes(network), reach: make(map[string][]SafetyLocation, len(network.Lanes))}
 	incident, origins := incidentLanes(network), berthLocationsByNode(network)
 	for _, lane := range network.Lanes {
 		if _, repeated := clearance.reach[lane.ID]; !repeated {

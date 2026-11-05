@@ -37,7 +37,7 @@ func (s *Simulation) vehicleSafetyLocations(v *vehicle, distance float64) []Safe
 		front := largeEnvelopeRadius
 		for _, entry := range v.blocks.lanes {
 			if entry.cells != nil {
-				front = max(front, largeEnvelopeRadius*entry.cells.tail/largeClearance)
+				front = max(front, entry.cells.front)
 			}
 		}
 		for index, lane := range v.Route {

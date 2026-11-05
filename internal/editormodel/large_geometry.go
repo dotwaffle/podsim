@@ -150,13 +150,13 @@ func (c draftClearance) planesSeparated(first, second any) bool {
 
 // draftTailWarnings returns the large-class tail warnings of a draft network
 // that has no network error. An invalid class set gives no warning.
-func draftTailWarnings(network any) []check {
+func draftTailWarnings(network any, clearance draftClearance) []check {
 	typed, ok := draftClearanceNetwork(network)
 	if !ok {
 		return nil
 	}
 	var warnings []check
-	for _, warning := range project.TailWarnings(typed) {
+	for _, warning := range project.OverrunWarnings(clearance.index.TailOverruns(typed)) {
 		warnings = append(warnings, check{Text: warning.Text, Target: target("lane", warning.LaneID)})
 	}
 	return warnings

@@ -88,6 +88,9 @@ func indexBerthResources(network Network) map[string][]resource {
 // each network lane, and no code writes to them.
 type laneCells struct {
 	tail, fromTail float64
+	// front is the front bound of the lane for the observer (see
+	// geometryTails).
+	front float64
 	// retention is the reduced retention of a qualifying lane (see
 	// newLaneRetention), or 0 for Clearance.
 	retention float64
@@ -130,6 +133,7 @@ func cellOffset(cell, count int, length float64) float64 {
 // the berth resources at the To node of the lane.
 type laneCellsInput struct {
 	tail, fromTail float64
+	front          float64
 	retention      float64
 	lane           Lane
 	length         float64
@@ -146,7 +150,7 @@ type laneCellsInput struct {
 func newLaneCells(input laneCellsInput) *laneCells {
 	lane, length := input.lane, input.length
 	count := laneBlockCount(length)
-	cells := laneCells{tail: input.tail, fromTail: input.fromTail, retention: input.retention}
+	cells := laneCells{tail: input.tail, fromTail: input.fromTail, front: input.front, retention: input.retention}
 	if largeClassSet(lane.VehicleClasses) {
 		cells.tail, cells.fromTail, cells.retention = max(largeClearance, cells.tail), max(largeClearance, cells.fromTail), 0
 	}
@@ -183,7 +187,7 @@ func newLaneCells(input laneCellsInput) *laneCells {
 		cells.add(append(resources, resource{kind: trackResource, id: lane.ID, cell: cell}))
 	}
 	// The cells keep only the memory that they use.
-	return &laneCells{tail: cells.tail, fromTail: cells.fromTail, retention: cells.retention, geometry: input.geometry, resources: slices.Clone(cells.resources), ends: slices.Clone(cells.ends)}
+	return &laneCells{tail: cells.tail, fromTail: cells.fromTail, front: cells.front, retention: cells.retention, geometry: input.geometry, resources: slices.Clone(cells.resources), ends: slices.Clone(cells.ends)}
 }
 
 // indexLaneCells returns the cells of each network lane. The cells of all
@@ -191,7 +195,7 @@ func newLaneCells(input laneCellsInput) *laneCells {
 // project validation bounds them.
 func indexLaneCells(input laneCellsIndexInput) map[string]*laneCells {
 	network := input.network
-	tails := indexGeometryTails(network)
+	tails := input.tails
 	positions := make(map[string]Point, len(network.Nodes))
 	for _, node := range network.Nodes {
 		if _, ok := positions[node.ID]; !ok {
@@ -205,7 +209,7 @@ func indexLaneCells(input laneCellsIndexInput) map[string]*laneCells {
 		}
 		retention, length := input.retention.of(lane.ID), indexedLaneLength(lane, positions[lane.From], positions[lane.To])
 		cells[lane.ID] = newLaneCells(laneCellsInput{
-			tail: tails[lane.ID].tail, fromTail: tails[lane.ID].fromTail, retention: retention,
+			tail: tails[lane.ID].tail, fromTail: tails[lane.ID].fromTail, front: tails[lane.ID].front, retention: retention,
 			lane: lane, length: length, geometry: input.geometry[lane.ID],
 			berths: input.berths[lane.To], conflicts: input.conflicts[lane.ID],
 			every: append(input.maneuvers.everyCell(lane.ID), input.depots.everyCell(lane, retention, length)...),
@@ -218,6 +222,7 @@ func indexLaneCells(input laneCellsIndexInput) map[string]*laneCells {
 // indexLaneCells uses.
 type laneCellsIndexInput struct {
 	network   Network
+	tails     map[string]geometryTails
 	geometry  map[string]*laneGeometry
 	conflicts map[string][]laneConflict
 	berths    map[string][]resource
@@ -476,7 +481,7 @@ func (s *Simulation) routeBlocks(route []Lane) (blockList, []float64) {
 	blocks := blockList{route: route, lanes: make([]routeLaneCells, len(route)+1)}
 	lengths = make([]float64, 0, len(route))
 	distance := 0.0
-	var fallbackTails map[string]geometryTails
+	fallbackTails := s.tails
 	for index, lane := range route {
 		length := s.laneLength(lane)
 		lengths = append(lengths, length)
@@ -486,7 +491,7 @@ func (s *Simulation) routeBlocks(route []Lane) (blockList, []float64) {
 				fallbackTails = indexGeometryTails(s.network)
 			}
 			cells = newLaneCells(laneCellsInput{
-				tail: fallbackTails[lane.ID].tail, fromTail: fallbackTails[lane.ID].fromTail, retention: s.retention.of(lane.ID),
+				tail: fallbackTails[lane.ID].tail, fromTail: fallbackTails[lane.ID].fromTail, front: fallbackTails[lane.ID].front, retention: s.retention.of(lane.ID),
 				lane: lane, length: length, geometry: s.geometry[lane.ID],
 				berths: s.berthResources[lane.To], conflicts: s.junctionConflicts[lane.ID],
 			})

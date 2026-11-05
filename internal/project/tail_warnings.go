@@ -18,7 +18,11 @@ type TailWarning struct {
 // TailWarnings returns the warnings for the lanes of a validated network
 // whose large-class tail exceeds their length. They do not affect validation.
 func TailWarnings(network sim.Network) []TailWarning {
-	overruns := network.LaneTailOverruns()
+	return OverrunWarnings(network.LaneTailOverruns())
+}
+
+// OverrunWarnings returns the warnings for the given lanes, in their order.
+func OverrunWarnings(overruns []sim.LaneTailOverrun) []TailWarning {
 	var warnings []TailWarning
 	for index, overrun := range overruns {
 		if index == MaxTailWarnings {
