@@ -1,6 +1,7 @@
 # Incident stage 7 contract proposal
 
 Status: approved by the maintainer on November 4, 2026, as option B with amendments A1 to A4, after two review rounds.
+Status 2026-11-05: `stateVersion` is now 11, `StreamVersion` is 9, and the member list is `state_v11_members.txt`, so `state_v10_members.txt` below is history.
 It was drafted against `57902a7`.
 Each `file:line` reference is for that tree, unless it names a commit.
 References to the old `README.md` and `PROJECT_BRIEF.md` name `485f2f5`.

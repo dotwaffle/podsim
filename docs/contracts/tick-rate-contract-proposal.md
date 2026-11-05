@@ -237,6 +237,9 @@ With the recorded flood step of 465 µs, the budget gives 43x at each rate.
 A full core would give 36x, 72x, and 108x.
 So the lower rate gives no higher live speed without a change to the budget or to the wake period.
 
+Status 2026-11-05: patch 4 changed the budget, by decision 7, so one wake now spends at most the longer of the wake period and 20 milliseconds.
+This section describes the code before that change.
+
 ### 3.3 Saved formats and the protocol
 
 | Item | Effect |

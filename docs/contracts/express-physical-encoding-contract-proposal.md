@@ -4,6 +4,7 @@ Status: **approved, implemented, and qualified on October 3, 2026**.
 The user approved item 8b and the contract below with the 6b/8b batch.
 Deployment, runtime enablement, and default changes require a separate batch.
 The [Express qualification](../studies/express-qualification.md) records the qualification conclusions.
+Status 2026-11-05: by the [standee contract](express-standees-contract-proposal.md), Express has 12 seats and 8 standees and a 6 m body, so the values of 20 seats and a 10 m body below are history.
 
 Station buffers and compact station queues were removed on October 7, 2026, because measurements showed that they lowered station entry throughput.
 Clauses that name buffers, buffer certificates, compact queues, or compact certificates now describe cases that cannot occur.

@@ -1,6 +1,7 @@
 # Express standees contract proposal
 
 Status: decisions 1 to 13 accepted by the maintainer on 2026-11-05, as recommended.
+Status 2026-11-05: the tick rate is now 30 Hz, `stateVersion` is 11, `StreamVersion` is 9, and the golden files are `state_v11.json` and `state_v11_members.txt`, so the values of 10, 8, and `state_v10` below are history.
 The maintainer also approved the revision of sections 4, 5, and 7.1 after the external review of section 4.10.
 No product code changes with this document.
 It was drafted against `b2262f6`, and each `file:line` reference is for that tree.

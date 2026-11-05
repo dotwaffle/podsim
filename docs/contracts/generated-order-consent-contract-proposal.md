@@ -1,6 +1,7 @@
 # Generated-order consent contract proposal
 
 Status: approved under the maintainer's grant of November 4, 2026.
+Status 2026-11-05: `stateVersion` is now 11, `StreamVersion` is 9, and the member list is `state_v11_members.txt`, so the values of 10, 8, and `state_v10_members.txt` below are history.
 The maintainer asked for this setting with private as the default, and asked for a second review after the first one found a blocker.
 
 ## Goal
