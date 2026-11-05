@@ -31,6 +31,11 @@ Status note, October 6, 2026: the maintainer stopped the incident redesign after
 Stages 4 to 7 are out of scope.
 Text that names these stages describes refusals that stay in place.
 
+Status note, November 4, 2026: the maintainer reopened stage 7 under `docs/contracts/incident-stage7-contract-proposal.md`, as option B with amendments A1 to A4.
+Stages 4 to 6 stay out of scope.
+The rules G1 to G16 of section 3 of that document, and its amendments, apply to this contract, and the text below stays as written.
+Rule G9 moves the start into `startEmergency`, so the `Emergency` of the F11 transition row is that function.
+
 This contract is stage 3 of the staged incident redesign: the emergency vertical slice on ordinary pods.
 A rider in an ordinary pod starts an emergency.
 The pod goes to the station where it can unload soonest, and every party leaves it there.

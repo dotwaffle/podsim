@@ -32,6 +32,10 @@ Status note, October 6, 2026: the maintainer stopped the incident redesign after
 Stages 4 to 7 are out of scope.
 Text that names these stages describes refusals that stay in place.
 
+Status note, November 4, 2026: the maintainer reopened stage 7 under `docs/contracts/incident-stage7-contract-proposal.md`, as option B with amendments A1 to A4.
+Stages 4 to 6 stay out of scope.
+The rules G1 to G16 of section 3 of that document, and its amendments, apply to this contract, and the text below stays as written.
+
 This contract is stage 1 of the staged incident redesign.
 It defines the service transitions that vehicle faults and rider emergencies share.
 It adds no motion change and no feature policy.
