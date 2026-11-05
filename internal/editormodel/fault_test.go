@@ -14,8 +14,8 @@ import (
 // TestFaultSettingsEditorVerdicts checks that the editor engine, the editor
 // call and the server decoder agree on faults. Each accepts absent settings,
 // an empty object, and explicit values, and each refuses null at any level,
-// a rate above 0, and a removed marker with any value. The engine keeps the
-// settings of an accepted draft.
+// a rate above 0 with no duration, a rate above 60, and a removed marker with
+// any value. The engine keeps the settings of an accepted draft.
 func TestFaultSettingsEditorVerdicts(t *testing.T) {
 	t.Parallel()
 	base, err := jsonv2.Marshal(project.Default(), json.DefaultOptionsV1())

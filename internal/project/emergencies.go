@@ -5,8 +5,8 @@ import "fmt"
 // EmergencyConfig holds the emergencies settings of a project. Each member
 // is optional. A nil member has its default: PerHour 0.
 type EmergencyConfig struct {
-	// PerHour is the scenario emergency rate. It must be 0, because the
-	// scenario sampler is not available.
+	// PerHour is the scenario emergency rate, from 0 to 60 for each simulated
+	// hour. A rate of 0 starts no scenario emergency.
 	PerHour *float64 `json:"perHour,omitzero"`
 }
 
