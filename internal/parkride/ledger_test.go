@@ -98,28 +98,28 @@ func TestLedgerReturnRequiresActualCompletion(t *testing.T) {
 	l := testLedger(t, plan, 1000)
 	p := &fakePods{}
 	advanceLedger(t, l, p, 0)
-	advanceLedger(t, l, p, 180)
+	advanceLedger(t, l, p, 3*sim.TicksPerSecond)
 	if len(p.options) != 1 || l.records[0].Return.OfferedTick != -1 {
 		t.Fatal("clock generated return before outward completion")
 	}
-	advanceLedger(t, l, p, 200, sim.StepCompletion{RequestID: 1, AlightedTick: 200})
-	if l.records[0].ReturnEligibleTick != 260 || l.records[0].Stage != "activity" {
+	advanceLedger(t, l, p, 3*sim.TicksPerSecond+20, sim.StepCompletion{RequestID: 1, AlightedTick: 3*sim.TicksPerSecond + 20})
+	if l.records[0].ReturnEligibleTick != 3*sim.TicksPerSecond+20+sim.TicksPerSecond || l.records[0].Stage != "activity" {
 		t.Fatal("late outward completion lost minimum activity")
 	}
-	advanceLedger(t, l, p, 259)
+	advanceLedger(t, l, p, 3*sim.TicksPerSecond+20+sim.TicksPerSecond-1)
 	if len(p.options) != 1 {
 		t.Fatal("early return")
 	}
-	advanceLedger(t, l, p, 260)
+	advanceLedger(t, l, p, 3*sim.TicksPerSecond+20+sim.TicksPerSecond)
 	if len(p.options) != 2 || p.options[1].From != "market" || p.options[1].To != "harbor" {
 		t.Fatal("return missing or not paired")
 	}
-	advanceLedger(t, l, p, 261, sim.StepCompletion{RequestID: 2, AlightedTick: 261})
-	if l.records[0].Outcome != "completed" || l.records[0].HomeArrivalTick != 261 || l.lots[0].Occupancy != 0 {
+	advanceLedger(t, l, p, 3*sim.TicksPerSecond+20+sim.TicksPerSecond+1, sim.StepCompletion{RequestID: 2, AlightedTick: 3*sim.TicksPerSecond + 20 + sim.TicksPerSecond + 1})
+	if l.records[0].Outcome != "completed" || l.records[0].HomeArrivalTick != 3*sim.TicksPerSecond+20+sim.TicksPerSecond+1 || l.lots[0].Occupancy != 0 {
 		t.Fatal("zero retrieval/home did not close at completion")
 	}
 	before := l.clone()
-	if err := l.advance(261, []sim.StepCompletion{{RequestID: 1, AlightedTick: 200}, {RequestID: 2, AlightedTick: 261}}, p); err != nil {
+	if err := l.advance(3*sim.TicksPerSecond+20+sim.TicksPerSecond+1, []sim.StepCompletion{{RequestID: 1, AlightedTick: 3*sim.TicksPerSecond + 20}, {RequestID: 2, AlightedTick: 3*sim.TicksPerSecond + 20 + sim.TicksPerSecond + 1}}, p); err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(l, before) {
@@ -137,21 +137,21 @@ func TestLedgerNotBeforeAndRetrieval(t *testing.T) {
 	p := &fakePods{}
 	advanceLedger(t, l, p, 0)
 	advanceLedger(t, l, p, 1, sim.StepCompletion{RequestID: 1, AlightedTick: 1})
-	if l.records[0].ReturnEligibleTick != 180 {
+	if l.records[0].ReturnEligibleTick != 3*sim.TicksPerSecond {
 		t.Fatal("return not-before ignored")
 	}
-	advanceLedger(t, l, p, 180)
-	advanceLedger(t, l, p, 181, sim.StepCompletion{RequestID: 2, AlightedTick: 181})
-	advanceLedger(t, l, p, 240)
+	advanceLedger(t, l, p, 3*sim.TicksPerSecond)
+	advanceLedger(t, l, p, 3*sim.TicksPerSecond+1, sim.StepCompletion{RequestID: 2, AlightedTick: 3*sim.TicksPerSecond + 1})
+	advanceLedger(t, l, p, 4*sim.TicksPerSecond)
 	if l.lots[0].Occupancy != 1 {
 		t.Fatal("slot released before retrieval")
 	}
-	advanceLedger(t, l, p, 241)
+	advanceLedger(t, l, p, 4*sim.TicksPerSecond+1)
 	if l.lots[0].Occupancy != 0 || l.records[0].Outcome != "" {
 		t.Fatal("home travel did not follow release")
 	}
-	advanceLedger(t, l, p, 301)
-	if l.records[0].Outcome != "completed" || *l.records[0].DoorToDoorTicks != 301 {
+	advanceLedger(t, l, p, 5*sim.TicksPerSecond+1)
+	if l.records[0].Outcome != "completed" || *l.records[0].DoorToDoorTicks != 5*sim.TicksPerSecond+1 {
 		t.Fatal("door-to-door completion mismatch")
 	}
 }
@@ -167,11 +167,11 @@ func TestLedgerReturnBeforeArrivalAndStranding(t *testing.T) {
 	p := &fakePods{}
 	advanceLedger(t, l, p, 0)
 	p.increasePending = true
-	advanceLedger(t, l, p, 60, sim.StepCompletion{RequestID: 1, AlightedTick: 60})
+	advanceLedger(t, l, p, sim.TicksPerSecond, sim.StepCompletion{RequestID: 1, AlightedTick: sim.TicksPerSecond})
 	if len(p.options) != 2 || p.options[1].From != "market" || l.records[1].Outward.Reason != "queue-limit" || l.records[1].Outcome != "recovered-refusal" {
 		t.Fatal("arrival took queue priority over return")
 	}
-	advanceLedger(t, l, p, 61, sim.StepCompletion{RequestID: 2, AlightedTick: 61})
+	advanceLedger(t, l, p, sim.TicksPerSecond+1, sim.StepCompletion{RequestID: 2, AlightedTick: sim.TicksPerSecond + 1})
 	if l.lots[0].Occupancy != 0 {
 		t.Fatal("completed return retained slot")
 	}
@@ -199,7 +199,7 @@ func TestLedgerReleaseBeforeSimultaneousArrival(t *testing.T) {
 	p := &fakePods{}
 	advanceLedger(t, l, p, 0)
 	advanceLedger(t, l, p, 1, sim.StepCompletion{RequestID: 1, AlightedTick: 1})
-	advanceLedger(t, l, p, 60, sim.StepCompletion{RequestID: 2, AlightedTick: 60})
+	advanceLedger(t, l, p, sim.TicksPerSecond, sim.StepCompletion{RequestID: 2, AlightedTick: sim.TicksPerSecond})
 	if l.records[0].Outcome != "completed" || l.records[1].Outward.RequestID != 3 || l.lots[0].Occupancy != 1 || l.lots[0].Peak != 1 {
 		t.Fatal("release did not precede arrival")
 	}
@@ -220,28 +220,28 @@ func TestLedgerHorizonTransitions(t *testing.T) {
 			plan := testPlan()
 			plan.Lots[0].Capacity = tc.capacity
 			plan.Itineraries[0].DepartureSeconds = 1
-			l := testLedger(t, plan, 60)
+			l := testLedger(t, plan, sim.TicksPerSecond)
 			p := &fakePods{}
-			advanceLedger(t, l, p, 60)
+			advanceLedger(t, l, p, sim.TicksPerSecond)
 			records, _ := l.reports()
-			if len(p.options) != 0 || records[0].Outcome != tc.want || records[0].Held != tc.held || records[0].CarArrivalTick != 60 || records[0].Outward.OfferedTick != -1 {
+			if len(p.options) != 0 || records[0].Outcome != tc.want || records[0].Held != tc.held || records[0].CarArrivalTick != sim.TicksPerSecond || records[0].Outward.OfferedTick != -1 {
 				t.Fatalf("horizon arrival %+v", records[0])
 			}
 		})
 	}
-	returning := testLedger(t, testPlan(), 60)
+	returning := testLedger(t, testPlan(), sim.TicksPerSecond)
 	p := &fakePods{}
 	advanceLedger(t, returning, p, 0)
-	advanceLedger(t, returning, p, 60, sim.StepCompletion{RequestID: 1, AlightedTick: 60})
+	advanceLedger(t, returning, p, sim.TicksPerSecond, sim.StepCompletion{RequestID: 1, AlightedTick: sim.TicksPerSecond})
 	if returning.records[0].Return.OfferedTick != -1 || !returning.records[0].Held {
 		t.Fatal("return offered at cap")
 	}
-	finishing := testLedger(t, testPlan(), 60)
+	finishing := testLedger(t, testPlan(), sim.TicksPerSecond)
 	q := &fakePods{}
 	advanceLedger(t, finishing, q, 0)
 	advanceLedger(t, finishing, q, 1, sim.StepCompletion{RequestID: 1, AlightedTick: 1})
-	advanceLedger(t, finishing, q, 60, sim.StepCompletion{RequestID: 2, AlightedTick: 60})
-	if finishing.records[0].Outcome != "completed" || finishing.records[0].HomeArrivalTick != 60 {
+	advanceLedger(t, finishing, q, sim.TicksPerSecond, sim.StepCompletion{RequestID: 2, AlightedTick: sim.TicksPerSecond})
+	if finishing.records[0].Outcome != "completed" || finishing.records[0].HomeArrivalTick != sim.TicksPerSecond {
 		t.Fatal("completion at horizon was censored")
 	}
 }
@@ -329,7 +329,7 @@ func TestLedgerDueReturnsUseIdentityOrder(t *testing.T) {
 	advanceLedger(t, l, p, 0)
 	p.increasePending = true
 	// Deliver the older receipt first. Due offers still use itinerary ID order.
-	advanceLedger(t, l, p, 60, sim.StepCompletion{RequestID: 2, AlightedTick: 1}, sim.StepCompletion{RequestID: 1, AlightedTick: 60})
+	advanceLedger(t, l, p, sim.TicksPerSecond, sim.StepCompletion{RequestID: 2, AlightedTick: 1}, sim.StepCompletion{RequestID: 1, AlightedTick: sim.TicksPerSecond})
 	if l.records[0].Return.RequestID != 3 || l.records[1].Outcome != "stranded" || p.options[2].From != "market" {
 		t.Fatal("due returns used receipt or deadline order")
 	}
@@ -341,20 +341,20 @@ func TestLedgerAuthoredCarLegs(t *testing.T) {
 	plan.Itineraries[0].DepartureSeconds, plan.Itineraries[0].OutwardSeconds = 1, 2
 	l := testLedger(t, plan, 1000)
 	p := &fakePods{}
-	advanceLedger(t, l, p, 59)
+	advanceLedger(t, l, p, sim.TicksPerSecond-1)
 	if l.records[0].Stage != "planned" {
 		t.Fatal("car departed early")
 	}
-	advanceLedger(t, l, p, 60)
+	advanceLedger(t, l, p, sim.TicksPerSecond)
 	if l.records[0].Stage != "car-out" || len(p.options) != 0 {
 		t.Fatal("car travel omitted")
 	}
-	advanceLedger(t, l, p, 179)
+	advanceLedger(t, l, p, 3*sim.TicksPerSecond-1)
 	if l.records[0].Held {
 		t.Fatal("car parked before authored arrival")
 	}
-	advanceLedger(t, l, p, 180)
-	if !l.records[0].Held || l.records[0].Outward.OfferedTick != 180 || l.records[0].CarArrivalTick != 180 {
+	advanceLedger(t, l, p, 3*sim.TicksPerSecond)
+	if !l.records[0].Held || l.records[0].Outward.OfferedTick != 3*sim.TicksPerSecond || l.records[0].CarArrivalTick != 3*sim.TicksPerSecond {
 		t.Fatal("authored car arrival changed")
 	}
 }
