@@ -15,7 +15,7 @@ All evidence comes from scratch overlays that did not land.
 | Does the lower envelope need a new separation rule? | No. Each pod stops inside the cells that it owns, so the separation does not depend on the braking of another pod. The kernel, the reservation horizon, and the estimates need a value for each class. |
 | Is the shorter curve tail sound? | The same-lane bound of section 4.3 holds, and the external review confirmed it. That review also found a fault at plane transitions in the existing audit, independent of the tail, and the claim of section 4.2 depends on its fix. The proof is a written argument with numeric checks, and it is not machine checked. Section 4.7 lists what it does not cover. |
 | What does the tail do for `rail-hub`? | With all classes, seed 1 to 3 served 98, 99, and 102, against 1, 15, and 3 with the old tail and 102, 104, and 106 for the plain preset. The 2-hour run served 426 against 429. There were no separation violations. |
-| Is the deadlock gone or moved? | It is gone on `rail-hub` in these runs, because the tails of its fans fall to at most 20.75 m. The new tail stays under the lane length plus `2h`, which is 0.5 m on a lane of up to 256 m and at most 0.2 percent of a longer lane, unless the lane passes the budget of section 4.1, so a pod cannot hold a station exit past the next station. Other ring locks stay possible, as `docs/model.md` says of each saturated network. |
+| Is the deadlock gone or moved? | It is gone on `rail-hub` in these runs, because the tails of its fans fall to at most 22.12 m. The new tail stays under the lane length plus `2h`, which is 0.5 m on a lane of up to 256 m and at most 0.2 percent of a longer lane, unless the lane passes the budget of section 4.1, so a pod cannot hold a station exit past the next station. Other ring locks stay possible, as `docs/model.md` says of each saturated network. |
 | Is a separate deadlock rule necessary? | Not on this evidence. Section 4.8 keeps the warning and adds a progress gate. |
 | Recommendation | Land the audit fix of section 4.5, then part 2 by itself. Then land part 1 with a planned braking of 0.8 m/s², a maximum service braking of 1.15 m/s², and an acceleration of 1.3 m/s², after decisions 5 to 10. |
 
@@ -303,7 +303,7 @@ These are gaps, and I do not hide them behind the case split.
 ### 4.8 `rail-hub` and the deadlock
 
 The new bound removes the cause on `rail-hub`.
-The tails of the fan lanes fall from 299 to 1,933 m to at most 20.75 m, and no curved lane overruns.
+The tails of the fan lanes fall from 299 to 1,933 m to at most 22.12 m, and no curved lane overruns.
 A cap of 20 m and the scan give the same result there, so `rail-hub` does not test the difference between them.
 The remaining cost is the larger clearance, with 1,967 to 2,565 stopped pod-seconds against 1,209 to 1,337 for the plain preset.
 
