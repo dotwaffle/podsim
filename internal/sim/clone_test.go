@@ -40,7 +40,7 @@ var cloneRules = map[reflect.Type]map[string]cloneRule{
 		"platoonLanes": cloneDrop, "pickupSwaps": cloneCopy, "coastCheck": cloneShare,
 	},
 	reflect.TypeFor[vehicle](): {
-		"Vehicle": cloneCopy, "blocks": cloneShare, "blockStarts": cloneShare, "routeReleases": cloneCopy,
+		"Vehicle": cloneCopy, "window": cloneShare, "blocks": cloneShare, "blockStarts": cloneShare, "routeReleases": cloneCopy,
 		"routeLengths": cloneShare,
 	},
 	reflect.TypeFor[Vehicle]():              {"Riders": cloneCopy, "Boardings": cloneCopy, "Stops": cloneCopy, "Route": cloneShare, "Presentation": cloneShare},
@@ -248,7 +248,7 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"waitSince":      persistSave,
 		"rebalanceAfter": persistSave, "origin": persistSave, "destination": persistSave,
 		"destinationStation": persistSave, "released": persistSave, "terminal": persistReset,
-		"routeVersion": persistReset, "stationPhase": persistDerive, "routeLengths": persistDerive, "link": persistSave, "follower": persistDerive, "platoonCap": persistReset,
+		"routeVersion": persistReset, "window": persistReset, "stationPhase": persistDerive, "routeLengths": persistDerive, "link": persistSave, "follower": persistDerive, "platoonCap": persistReset,
 		// A coast ceiling applies only in the tick that sets it.
 		"coast": persistReset,
 		// SavedPod has the holds and the operational destination, so
@@ -475,6 +475,10 @@ func activeCloneSimulation(t *testing.T) *Simulation {
 		for range v.Riders {
 			v.Boardings = append(v.Boardings, RiderBoarding{BerthID: v.journeyOrigin.ID})
 		}
+	}
+	// A snapshot fills the route window of each pod that has a route.
+	if _, _, err := s.PresentationSnapshot(); err != nil {
+		t.Fatal(err)
 	}
 	return s
 }

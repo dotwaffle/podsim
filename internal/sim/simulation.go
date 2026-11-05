@@ -259,6 +259,8 @@ type Placement struct {
 
 type vehicle struct {
 	routeVersion uint64
+	// window holds the last route window of PresentationSnapshot.
+	window       routeWindowCache
 	stationPhase stationPhaseCheck
 	Vehicle
 	phaseTicks                  int

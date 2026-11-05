@@ -44,20 +44,25 @@ func TestPresentationRepeatedOccurrences(t *testing.T) {
 		t.Fatal("legacy snapshot lost complete route")
 	}
 }
-func TestPresentationIsolationAndMalformedBlocks(t *testing.T) {
+func TestPresentationSharesWindowAndRefusesMalformedBlocks(t *testing.T) {
 	s := newExample(t)
 	v := &s.vehicles[0]
 	lane := s.network.Lanes[0]
-	s.setVehicleRoute(v, []Lane{lane})
+	s.setVehicleRoute(v, []Lane{lane, lane})
 	v.Pod.LaneID = lane.ID
 	_, routes, err := s.PresentationSnapshot()
 	if err != nil {
 		t.Fatal(err)
 	}
-	routes[0].Lanes[0] = -1
 	_, again, err := s.PresentationSnapshot()
-	if err != nil || again[0].Lanes[0] < 0 {
-		t.Fatal("presentation exposed mutable storage")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if &routes[0].Lanes[0] != &again[0].Lanes[0] || &routes[0].Display[0] != &again[0].Display[0] {
+		t.Fatal("an unchanged window was built again")
+	}
+	if len(routes[0].Lanes) != cap(routes[0].Lanes) || len(routes[0].Display) != cap(routes[0].Display) {
+		t.Fatal("a shared window has spare capacity")
 	}
 	v.blocks = blockList{}
 	if _, _, err = s.PresentationSnapshot(); err == nil {
@@ -145,8 +150,7 @@ func TestPresentationVehicleMarksAreIndependent(t *testing.T) {
 				t.Fatalf("vehicle %d display = %v, want %v", i, routes[i].Display, want)
 			}
 		}
-		routes[0].Display[0] = -1
-		if routes[1].Display[0] != 0 {
+		if &routes[0].Display[0] == &routes[1].Display[0] {
 			t.Fatal("vehicle displays share storage")
 		}
 	}
@@ -181,5 +185,185 @@ func BenchmarkPresentationFleet(b *testing.B) {
 				}
 			}
 		})
+	}
+}
+
+// distinctRoute returns a route of length lanes that changes its lanes along
+// the route, so each move of the window changes the display lanes.
+func distinctRoute(s *Simulation, length int) []Lane {
+	route := make([]Lane, length)
+	for i := range route {
+		route[i] = s.network.Lanes[(i*len(s.network.Lanes)/length)%len(s.network.Lanes)]
+	}
+	return route
+}
+
+// checkWindows compares the cached windows of s with a new build.
+func checkWindows(t *testing.T, s *Simulation) []RoutePresentation {
+	t.Helper()
+	_, routes, err := s.PresentationSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	rebuilt, err := s.RebuiltPresentationRoutesForTest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(routes, rebuilt) {
+		t.Fatalf("cached windows differ from a new build\ncached  %+v\nrebuilt %+v", routes[0], rebuilt[0])
+	}
+	return routes
+}
+
+func TestRouteWindowCacheFollowsWindow(t *testing.T) {
+	t.Parallel()
+	s := newExample(t)
+	v := &s.vehicles[0]
+	route := distinctRoute(s, 3*MotionRouteLimit)
+	s.setVehicleRoute(v, route)
+	v.Pod.LaneID = route[0].ID
+	var shared *int
+	for current := 0; current < len(route); current += 97 {
+		v.blockIndex = v.blocks.laneFirst(current)
+		v.Pod.LaneID = route[current].ID
+		routes := checkWindows(t, s)
+		if routes[0].Current != uint64(current) {
+			t.Fatalf("current = %d, want %d", routes[0].Current, current)
+		}
+		if current < MotionRouteLimit/2 {
+			if shared != nil && shared != &routes[0].Lanes[0] {
+				t.Fatal("a window that did not move was built again")
+			}
+			shared = &routes[0].Lanes[0]
+		}
+	}
+}
+
+func TestRouteWindowCacheFollowsRoute(t *testing.T) {
+	t.Parallel()
+	s := newExample(t)
+	v := &s.vehicles[0]
+	lanes := s.network.Lanes
+	s.setVehicleRoute(v, []Lane{lanes[0], lanes[1]})
+	checkWindows(t, s)
+	// The new route has the same window bounds and a new version.
+	s.setVehicleRoute(v, []Lane{lanes[1], lanes[0]})
+	if routes := checkWindows(t, s); routes[0].Lanes[0] != s.graph.lanes[lanes[1].ID] {
+		t.Fatalf("stale window %v", routes[0].Lanes)
+	}
+	s.setVehicleRoute(v, nil)
+	if routes := checkWindows(t, s); routes[0].Lanes != nil || routes[0].Display != nil {
+		t.Fatalf("empty route has a window %+v", routes[0])
+	}
+}
+
+func TestRouteWindowCacheFirstBuild(t *testing.T) {
+	t.Parallel()
+	s := newExample(t)
+	v := &s.vehicles[0]
+	// Version 0 and start 0 are also the values of the zero cache.
+	v.Route = []Lane{s.network.Lanes[0]}
+	if v.routeVersion != 0 {
+		t.Fatalf("version = %d", v.routeVersion)
+	}
+	if routes := checkWindows(t, s); len(routes[0].Lanes) != 1 {
+		t.Fatalf("no window was built: %+v", routes[0])
+	}
+}
+
+func TestRouteWindowCacheRefusesExhaustedIdentity(t *testing.T) {
+	t.Parallel()
+	s := newExample(t)
+	v := &s.vehicles[0]
+	lanes := s.network.Lanes
+	v.routeVersion = MaxCounter - 2
+	s.setVehicleRoute(v, []Lane{lanes[0], lanes[1]})
+	checkWindows(t, s)
+	// The version reaches the limit, and the next route cannot change it.
+	s.setVehicleRoute(v, []Lane{lanes[1], lanes[0]})
+	s.setVehicleRoute(v, []Lane{lanes[0], lanes[0]})
+	if v.routeVersion != MaxCounter {
+		t.Fatalf("version = %d", v.routeVersion)
+	}
+	if _, _, err := s.PresentationSnapshot(); err == nil {
+		t.Fatal("served a window at the identity limit")
+	}
+}
+
+func TestRouteWindowCacheLivesWithTheVehicle(t *testing.T) {
+	t.Parallel()
+	s := newExample(t)
+	v := &s.vehicles[0]
+	lanes := s.network.Lanes
+	s.setVehicleRoute(v, []Lane{lanes[0], lanes[1]})
+	before := checkWindows(t, s)
+
+	clone := s.Clone()
+	if &clone.vehicles[0].window.lanes[0] != &v.window.lanes[0] {
+		t.Fatal("a clone did not share the window")
+	}
+	// The same version on each side holds another route.
+	s.setVehicleRoute(v, []Lane{lanes[1], lanes[0]})
+	clone.setVehicleRoute(&clone.vehicles[0], []Lane{lanes[1], lanes[1]})
+	checkWindows(t, s)
+	checkWindows(t, clone)
+	rewound := clone.Clone()
+	if routes := checkWindows(t, rewound); len(routes[0].Display) != 1 {
+		t.Fatalf("clone display %v", routes[0].Display)
+	}
+	if !slices.Equal(before[0].Lanes, []int{s.graph.lanes[lanes[0].ID], s.graph.lanes[lanes[1].ID]}) {
+		t.Fatalf("a later route wrote an earlier window: %v", before[0].Lanes)
+	}
+
+	s.Reset()
+	if s.vehicles[0].window.lanes != nil {
+		t.Fatal("reset kept a window")
+	}
+}
+
+func TestRouteWindowCacheIsNotInSave(t *testing.T) {
+	t.Parallel()
+	s := newExample(t)
+	s.setVehicleRoute(&s.vehicles[0], []Lane{s.network.Lanes[0], s.network.Lanes[1]})
+	before := s.ExportState()
+	checkWindows(t, s)
+	if !reflect.DeepEqual(before, s.ExportState()) {
+		t.Fatal("a window changed the saved state")
+	}
+
+	moving := newExample(t)
+	if err := moving.RequestTrip("harbor", "market"); err != nil {
+		t.Fatal(err)
+	}
+	for range 2 * TicksPerSecond {
+		moving.Step()
+	}
+	if routes := checkWindows(t, moving); routes[0].Lanes == nil {
+		t.Fatal("the pod has no route")
+	}
+	restored, _, err := RestoreState(RestoreStateInput{Network: moving.network, Fleet: moving.initial, State: moving.ExportState()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := range restored.vehicles {
+		if restored.vehicles[i].window.lanes != nil {
+			t.Fatal("a restore has a window")
+		}
+	}
+	checkWindows(t, restored)
+}
+
+func TestBuildRouteWindowRefusesUnknownLane(t *testing.T) {
+	t.Parallel()
+	s := newExample(t)
+	v := &s.vehicles[0]
+	s.setVehicleRoute(v, []Lane{s.network.Lanes[0]})
+	v.Route = []Lane{{ID: "unknown", From: s.network.Lanes[0].From}}
+	v.routeVersion++
+	if _, _, err := s.PresentationSnapshot(); err == nil || err.Error() != `unknown route lane "unknown"` {
+		t.Fatalf("error = %v", err)
+	}
+	if v.window.lanes != nil {
+		t.Fatal("a refused build reached the cache")
 	}
 }
