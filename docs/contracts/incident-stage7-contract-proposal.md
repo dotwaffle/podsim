@@ -539,8 +539,7 @@ The row at 1,000 pod faults and a row with a full queue, against 278 µs, are re
 The rule for the slowest tick stays.
 A quiet-host run must confirm the margin before the row counts as passed.
 
-Amendment A8: Draft, not approved by the maintainer.
-It changes the Progress row for emergencies, and it changes no other row.
+Amendment A8, approved by the maintainer on 2026-11-05 for rule A: it changes the Progress row for emergencies, and it changes no other row.
 The soak of A6 has 50 of 335 late records on `rail-hub` `incidents`, 39 of 336 on `rail-hub` `platoons`, and 1 of 470 on `london-central` `incidents`, and 0 of 275 on `rail-hub` `emergencies`.
 `docs/studies/incident-soak.md`, section "Attribution of the late emergencies", holds the attribution: faults take 86 percent of the time of the late records in both `rail-hub` arms.
 
@@ -555,17 +554,20 @@ Rule B, the alternative: the 10 minutes apply only with faults off, and with fau
 Late records under this rule: 0 of 275, longest 3.6 min, on `rail-hub`.
 It has no `london-central` reading, because the limit stopped each run of that arm.
 It needs a change of one condition, and it stops gating a long wait with faults on, including one that no fault causes.
+The maintainer did not choose rule B.
 
 Rule A keeps a gate with faults on, and rule B does not, so this draft recommends rule A.
 The cost of rule A is a classifier in the test: if it names a fault in error, it hides a real wait.
 
 Test change for rule A: `watchEmergencies` in `internal/session/incident_soak_test.go` adds the unblocked ticks of each record at each reading, and `noteLateEmergency` runs when that sum passes `soakEmergencyTime`, in place of the test of the record length.
 The miss keeps the phase and the wait reason, and it adds the end of the chain.
-Both the idle pod and the stopped pod need a minimal test entry from `internal/sim` that repeats the route search with the blocked set empty, as the probe of the study did.
+The idle pod needs a minimal test entry from `internal/sim` that repeats the route search with the blocked set empty, as the probe of the study did.
+The stopped pod needs no entry: since `cafe57b`, a pod whose berth choice fails while the blocked set is not empty reports `No forward route` or `Blocked by incident` at each tick, so the test reads the report.
+The report does not show that the fault caused the failed search, and `docs/studies/incident-soak.md`, section "Run of rule A", measures this.
 `DispatchReason` is not enough, because `Waiting for destination access` is the same text for each failed leg.
 The study made one probe of the stopped pod, on `i2.27`, so a run of the changed test must confirm these numbers.
 `TestIncidentSoakCI` and `TestIncidentSoakDriver` use the same driver.
-This draft changes no test and marks no row as passed.
+This amendment marks no row as passed: the soak at 30 Hz decides the Progress row.
 
 Amendment A9, approved by the maintainer on 2026-11-05 as decisions 1 and 4 of [the tick rate proposal](tick-rate-contract-proposal.md): the sampler interval, the duration in ticks, and off parity now use `TicksPerSecond` and seconds in place of 60 Hz literals.
 Each rule has the same meaning at 60 Hz, and the soak size in simulated hours does not change.

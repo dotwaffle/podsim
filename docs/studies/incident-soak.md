@@ -11,6 +11,8 @@ The code of the congestion, queue, and predictive routing policies was removed o
   The Progress row missed on both presets.
   Each failure of the Persistence row was a false alarm of the check, and the rerun of the next section had none.
   The section "Soak of amendment A6" has the numbers.
+- The maintainer approved rule A of amendment A8.
+  The section "Run of rule A" has its run on `rail-hub`, and the soak at 30 Hz decides the Progress row.
 - The Performance row for suspension meets amendment A7 in the section "Readings from a quiet host".
 - The Performance row for emergencies misses its ratio rule on `rail-hub`, by about 0.4 µs.
 - The Choice row is reported and not gated, and no driver reports it, because the sim does not expose the estimate.
@@ -282,6 +284,63 @@ No run gave a Safety, Contract, Conservation, or Rail report, and each seed pass
 The fix acts only when the emergency pod itself waits on the idle pod.
 An emergency pod behind an ordinary pod that waits on the idle pod still waits: on seed 1 this wait rose from 191 s to 1630 s, while the direct wait fell from 4043 s to 361 s.
 An idle pod with no route out keeps its berth, and the emergency pod reports `No parking available`.
+
+## Run of rule A
+
+This run tests rule A of amendment A8 at `c4a5b65`, on `rail-hub`, with arms `incidents` and `platoons`.
+It has 5 seeds of 6 simulated hours and the clear of 30 simulated minutes, with the every-tick checks on.
+All 10 runs completed, and a temporary read-only probe ran with them.
+`london-central` did not run.
+
+"Over 10 min" counts the records whose total length passes 10 minutes, the rule of the row before A8.
+This column also counts platoon members, which the gate before A8 skipped.
+
+| Seed | Arm | Records | Late under rule A | Longest unblocked, min | Completed orders | Over 10 min |
+| ---: | --- | ---: | ---: | ---: | ---: | ---: |
+| 1 | `incidents` | 74 | 0 | 3.7 | 691 | 4 |
+| 2 | `incidents` | 97 | 0 | 3.3 | 656 | 4 |
+| 3 | `incidents` | 88 | 0 | 4.7 | 618 | 14 |
+| 4 | `incidents` | 85 | 0 | 5.2 | 635 | 9 |
+| 5 | `incidents` | 85 | 0 | 4.6 | 639 | 15 |
+| 1 | `platoons` | 77 | 0 | 3.5 | 689 | 9 |
+| 2 | `platoons` | 87 | 0 | 3.1 | 672 | 8 |
+| 3 | `platoons` | 95 | 0 | 4.5 | 653 | 13 |
+| 4 | `platoons` | 99 | 0 | 4.2 | 717 | 13 |
+| 5 | `platoons` | 90 | 0 | 4.1 | 695 | 7 |
+
+No run gave a Safety, Contract, Conservation, or Rail report.
+Each run passed its 6 saves, with no demotion, and its 6 rewinds, and each record ended.
+The preset has no rail service, so the Rail row has no record.
+No record passed the limit on a platoon member.
+The `incidents` counts of completed orders and of records over 10 minutes equal the section "Fixes of the two findings", so the classifier and the probe did not change the run.
+This run marks no row as passed.
+
+### The report of a failed berth choice
+
+The stopped pod has no test entry, because `admit` writes the report at each tick on which the berth choice fails while the blocked set is not empty.
+That report does not show that a fault caused the failed search, so the probe repeated each search with the blocked set empty.
+An episode is a run of readings of one record whose chain stops at one pod with the report.
+A late candidate is a record over 10 minutes.
+
+| Report on the chain of a late candidate | Episodes | Readings | Episodes that fail with an empty blocked set |
+| --- | ---: | ---: | ---: |
+| `No forward route`, failed berth choice | 2 | 1023 | 0 |
+| `No forward route`, failed next leg | 0 | 0 | 0 |
+| `Blocked by incident`, failed berth choice | 1 | 238 | 0 |
+
+So the classifier hid no real wait through this report in this run, but 3 episodes on one preset are a small sample.
+The probe also saw 74 other `Blocked by incident` episodes on pods with no berth, in which the berth search succeeded, so a fault on the track ahead wrote that report, and the table leaves them out.
+In 42 readings, a chain ended at a traveling pod with no report and no berth, and the search of the probe failed.
+The probe did not check whether `admit` searched for that pod, or whether the pod stood still.
+Each of these readings counts as not blocked.
+
+### The idle pod
+
+The entry named an idle pod in 1160 to 5728 readings of each run, and it found no idle pod at a chain end with an order that can board.
+Only the unit tests cover that case.
+A run of `incidents` seed 3 with the entry turned off gave 4 late records, and a longest unblocked time of 17.0 min, against 0 and 4.7 min.
+Its other numbers stayed the same: 88 records, 618 completed orders, and 14 records over 10 minutes.
+Each of the 4 chains ended at an idle pod.
 
 ## Readings from a quiet host
 
