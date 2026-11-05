@@ -162,12 +162,29 @@ description = "Run the Station 19 scale and safety tests, the emergency choice a
 run = '''
 go test ./internal/scenarios -count=1 -v -timeout=30m -run '^TestScale100Station19(Queue|Burst)DrainsSafely$' || exit 1
 PODSIM_QUALIFY=1 go test ./internal/sim -count=1 -v -timeout=30m -run '^(TestEmergencyChoiceLatency|TestEmergencyNoCandidateLatency|TestSampledTickLatency)$' || exit 1
-PODSIM_QUALIFY=1 go test ./internal/session -count=1 -v -timeout=30m -run '^TestIncidentSoakCI$'
+GOGC=400 PODSIM_QUALIFY=1 go test ./internal/session -count=1 -v -timeout=30m -run '^TestIncidentSoakCI$'
 '''
 
 [tasks."qualify:limits"]
 description = "Report the sampled-tick time at the project limits, on request, with no gate"
 run = "PODSIM_QUALIFY=1 go test ./internal/sim -count=1 -v -timeout=30m -run '^TestSampledTickNoCandidateLatency$'"
+
+[tasks.soak]
+description = "Run the incident soak in the routine branch shape"
+# GOGC=400 cuts the CPU of a checked run and uses more memory, so the memory
+# cap stays.
+env = { GOGC = "400", PODSIM_SOAK = "1" }
+run = '''
+ulimit -v 16000000
+timeout "${PODSIM_SOAK_LIMIT:-7200}" \
+  go test ./internal/session -count=1 -v -timeout=0 -parallel "${PODSIM_SOAK_PARALLEL:-3}" -run '^TestIncidentSoak$'
+'''
+
+[tasks."soak:full"]
+description = "Run the soak of amendment A6 with the full check at each tick"
+# Amendment A10 requires this run before a release tag and after a change to
+# dispatch, routing, or the fault and emergency state machines.
+run = "PODSIM_SOAK_SHAPE=seeds PODSIM_SOAK_EVERY_TICK=1 mise run soak"
 
 [tasks.benchmark]
 description = "Measure 6000 simulation steps on the 100-pod scenario"
