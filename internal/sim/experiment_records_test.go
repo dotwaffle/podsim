@@ -11,7 +11,7 @@ import (
 
 // TestRequestTimingsFollowBoardingAndCompletion checks each timing against
 // the snapshots. Request 1 boards the pod at harbor at tick 0. Request 2
-// joins the boarding pod at tick 60. Both parties leave the pod at the tick
+// joins the boarding pod after 1 s. Both parties leave the pod at the tick
 // at which the completed count becomes 2, and both rode the passenger
 // distance of the one pod journey.
 func TestRequestTimingsFollowBoardingAndCompletion(t *testing.T) {
@@ -36,7 +36,7 @@ func TestRequestTimingsFollowBoardingAndCompletion(t *testing.T) {
 	}
 	wantOpen := []RequestTiming{
 		{RequestID: 1, RequestedTick: 0, BoardedTick: 0, CompletedTick: -1},
-		{RequestID: 2, RequestedTick: 60, BoardedTick: 60, CompletedTick: -1, SharedWith: 1},
+		{RequestID: 2, RequestedTick: TicksPerSecond, BoardedTick: TicksPerSecond, CompletedTick: -1, SharedWith: 1},
 	}
 	if got := s.RequestTimings(); !reflect.DeepEqual(got, wantOpen) {
 		t.Fatalf("timings before completion = %+v, want %+v", got, wantOpen)
@@ -56,7 +56,7 @@ func TestRequestTimingsFollowBoardingAndCompletion(t *testing.T) {
 	ridden := state.PassengerDistanceMeters
 	want := []RequestTiming{
 		{RequestID: 1, RequestedTick: 0, BoardedTick: 0, CompletedTick: completedTick, RiddenMeters: ridden, DirectMeters: ridden},
-		{RequestID: 2, RequestedTick: 60, BoardedTick: 60, CompletedTick: completedTick, RiddenMeters: ridden, DirectMeters: ridden, SharedWith: 1},
+		{RequestID: 2, RequestedTick: TicksPerSecond, BoardedTick: TicksPerSecond, CompletedTick: completedTick, RiddenMeters: ridden, DirectMeters: ridden, SharedWith: 1},
 	}
 	if got := s.RequestTimings(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("timings after completion = %+v, want %+v", got, want)

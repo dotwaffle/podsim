@@ -70,10 +70,10 @@ func checkLargeMotionTick(t *testing.T, s *Simulation, before []Pod) float64 {
 			if pod.Class != previous.Class {
 				t.Fatal("live vehicle class changed")
 			}
-			if math.Abs(pod.Speed-previous.Speed) > 2.0/60+1e-6 {
+			if math.Abs(pod.Speed-previous.Speed) > 2.0/TicksPerSecond+1e-6 {
 				t.Fatalf("tick %d acceleration or braking exceeded 2 m/s2: %g -> %g", s.tick, previous.Speed, pod.Speed)
 			}
-			if movement := math.Hypot(pod.Position.X-previous.Position.X, pod.Position.Y-previous.Position.Y); movement > max(pod.Speed, previous.Speed)/60+1e-6 {
+			if movement := math.Hypot(pod.Position.X-previous.Position.X, pod.Position.Y-previous.Position.Y); movement > max(pod.Speed, previous.Speed)/TicksPerSecond+1e-6 {
 				t.Fatalf("tick %d position snapped by %g meters", s.tick, movement)
 			}
 		}
@@ -154,8 +154,8 @@ func TestLargeMotionFollowingAndMerge(t *testing.T) {
 				gap := math.Inf(1)
 				sawFollowing := false
 				var previous motionPodBuffer
-				for steps := range 600 * 60 {
-					if steps == 2*60 {
+				for steps := range 600 * TicksPerSecond {
+					if steps == 2*TicksPerSecond {
 						largeMotionRequest(t, s, "follow", "b")
 					}
 					before := previous.capture(s)
@@ -165,7 +165,7 @@ func TestLargeMotionFollowingAndMerge(t *testing.T) {
 					if lead.Pod.LaneID == "a-link" && follow.Pod.LaneID == "a-link" && lead.Pod.LaneDistance > follow.Pod.LaneDistance {
 						sawFollowing = true
 					}
-					if s.completed == 2 && s.tick > 2*60 {
+					if s.completed == 2 && s.tick > 2*TicksPerSecond {
 						break
 					}
 				}
@@ -190,7 +190,7 @@ func TestLargeMotionBankAndParking(t *testing.T) {
 	}
 	sawParkingDeparture, sawBankArrival := false, false
 	var previous motionPodBuffer
-	for steps := 0; steps < 600*60 && s.completed == 0; steps++ {
+	for steps := 0; steps < 600*TicksPerSecond && s.completed == 0; steps++ {
 		before := previous.capture(s)
 		s.Step()
 		checkLargeMotionTick(t, s, before)

@@ -112,9 +112,9 @@ func TestExpressFoundationAndObservationParity(t *testing.T) {
 	}
 	pairs := [][2]string{{"harbor", "market"}, {"garden", "harbor"}, {"market", "garden"}}
 	var previous motionPodBuffer
-	for tick := range 12000 {
-		if tick%300 == 0 {
-			pair := pairs[(tick/300)%len(pairs)]
+	for tick := range 200 * TicksPerSecond {
+		if tick%(5*TicksPerSecond) == 0 {
+			pair := pairs[(tick/(5*TicksPerSecond))%len(pairs)]
 			for _, s := range []*Simulation{off, opt} {
 				if _, err := s.SubmitTripOptions(TripOptions{From: pair[0], To: pair[1]}); err != nil {
 					t.Fatal(err)
@@ -135,7 +135,7 @@ func TestExpressFoundationAndObservationParity(t *testing.T) {
 	expressEvidence(t, "opt-in-old-only", opt.ExportState())
 	plain := opt.Clone()
 	observed := opt.Clone()
-	for range 1200 {
+	for range 20 * TicksPerSecond {
 		plain.Step()
 		before := previous.capture(observed)
 		observed.Step()

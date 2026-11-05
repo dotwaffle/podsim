@@ -349,7 +349,7 @@ func TestEmergencyPlatoonRestore(t *testing.T) {
 		if link.leader != 0 && (!link.draining || link.lanes != lanes) {
 			t.Fatalf("tick %d: the restored link does not drain: %+v", restored.tick, *link)
 		}
-		if restored.tick > s.tick+600 {
+		if restored.tick > s.tick+10*TicksPerSecond {
 			t.Fatal("the restored link did not end")
 		}
 	}

@@ -799,8 +799,8 @@ func TestFaultCheckpointBraking(t *testing.T) {
 	id := startFault(t, s, v, 0)
 	checkpoint := s.Clone()
 	run := func(s *Simulation) {
-		for tick := range 600 {
-			if tick == 300 {
+		for tick := range 10 * TicksPerSecond {
+			if tick == 5*TicksPerSecond {
 				if err := s.clearFault(id); err != nil {
 					t.Fatal(err)
 				}

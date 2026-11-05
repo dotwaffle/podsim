@@ -324,13 +324,13 @@ func TestFaultEvacuationPhysicalSave(t *testing.T) {
 	checkpoint := s.Clone()
 	run := func(s *Simulation, save bool) {
 		v := s.findVehicle("01")
-		for tick := range 600 {
+		for tick := range 10 * TicksPerSecond {
 			aboard := v.RidersAboard()
 			s.Step()
 			if save && aboard > 0 && v.RidersAboard() == 0 {
 				physicalSave(t, s, "evacuation on a lane")
 			}
-			if tick == 540 {
+			if tick == 9*TicksPerSecond {
 				if err := s.clearFault(id); err != nil {
 					t.Fatal(err)
 				}

@@ -36,7 +36,7 @@ func checkExpressJourneyColdRestore(t *testing.T, live *Simulation, network Netw
 			t.Fatal(err)
 		}
 		var previous motionPodBuffer
-		for s.completed < saved.RequestID && s.tick < 600*60 {
+		for s.completed < saved.RequestID && s.tick < 600*TicksPerSecond {
 			before := previous.capture(s)
 			s.Step()
 			checkExpressMotionTick(t, s, before)
@@ -261,7 +261,7 @@ func TestExpressMixedPartyWholeCapacity(t *testing.T) {
 		t.Fatal("rejection changed facts")
 	}
 	var previous motionPodBuffer
-	for s.completed < 3 && s.tick < 600*60 {
+	for s.completed < 3 && s.tick < 600*TicksPerSecond {
 		before := previous.capture(s)
 		s.Step()
 		checkExpressMotionTick(t, s, before)

@@ -585,7 +585,7 @@ func TestDebrisSaveAndReplay(t *testing.T) {
 	id := startDebris(t, s, "return", 300, 310, 5)
 	restored := physicalSave(t, s, "debris command")
 	checkpoint := s.Clone()
-	for range 600 {
+	for range 10 * TicksPerSecond {
 		s.Step()
 		checkpoint.Step()
 		restored.Step()

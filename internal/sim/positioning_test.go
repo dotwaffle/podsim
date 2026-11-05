@@ -233,8 +233,8 @@ func TestGuardedGate(t *testing.T) {
 		// These ticks give 5.8 and 5.6 requests per minute. A rate share of
 		// 19 makes the first active, and a share of 21 makes the second
 		// inert.
-		{name: "5.8 per minute", setup: func(s *Simulation) { base(s); newest(s, 62069) }},
-		{name: "5.6 per minute", setup: func(s *Simulation) { base(s); newest(s, 64286) }, active: true, open: true, requested: 64286},
+		{name: "5.8 per minute", setup: func(s *Simulation) { base(s); newest(s, tickOfRequest100(5.8)) }},
+		{name: "5.6 per minute", setup: func(s *Simulation) { base(s); newest(s, tickOfRequest100(5.6)) }, active: true, open: true, requested: tickOfRequest100(5.6)},
 		{name: "5 per minute", setup: base, active: true, open: true},
 		{name: "newest in a waiting trip", active: true, open: true, setup: func(s *Simulation) {
 			base(s)
@@ -298,11 +298,19 @@ func TestGuardedGate(t *testing.T) {
 // TestGuardedGateLoadEdge checks the load edge of a fleet of 20 pods. Two
 // fifths of this fleet is 8 pods, so the gate stays open when 8 pods work
 // and closes when 9 pods work.
+// tickOfRequest100 returns the tick of request 100 at a mean of perMinute
+// requests each minute.
+func tickOfRequest100(perMinute float64) int64 {
+	return int64(math.Ceil(100 * ticksPerMinute / perMinute))
+}
+
 func TestGuardedRateLow(t *testing.T) {
 	t.Parallel()
-	// A fleet of 114 pods has a limit of 5.7 requests per minute. Request 100
-	// at tick 62069 is 5.8 per minute, and at tick 64286 it is 5.6 per
-	// minute.
+	// A fleet of 114 pods has a limit of 5.7 requests per minute.
+	// largeID is the smallest ID whose product with the offered rate of one
+	// request overflows int64: at 60 Hz it is 128102389400761.
+	const largeID = 128102389400761 * 60 / TicksPerSecond
+	aboveLimit, belowLimit := tickOfRequest100(5.8), tickOfRequest100(5.6)
 	tests := []struct {
 		name      string
 		id        int
@@ -310,15 +318,16 @@ func TestGuardedRateLow(t *testing.T) {
 		fleet     int
 		want      bool
 	}{
-		{name: "above the limit", id: 100, requested: 62069, fleet: 114},
-		{name: "below the limit", id: 100, requested: 64286, fleet: 114, want: true},
+		{name: "above the limit", id: 100, requested: aboveLimit, fleet: 114},
+		{name: "below the limit", id: 100, requested: belowLimit, fleet: 114, want: true},
 		{name: "tick 0", id: 100, requested: 0, fleet: 114},
 		{name: "negative tick", id: 100, requested: -1, fleet: 114},
-		{name: "no fleet", id: 100, requested: 64286},
-		// 128102389400761*72000 overflows int64 to a negative number, and
+		{name: "no fleet", id: 100, requested: belowLimit},
+		// largeID*ticksPerMinute*guardedFleetRateShare overflows int64 to a
+		// negative number, and
 		// 114*MaxInt64 does too.
-		{name: "large ID at tick 0", id: 128102389400761, requested: 0, fleet: 114},
-		{name: "large ID", id: 128102389400761, requested: 1, fleet: 114},
+		{name: "large ID at tick 0", id: largeID, requested: 0, fleet: 114},
+		{name: "large ID", id: largeID, requested: 1, fleet: 114},
 		{name: "large tick", id: 1, requested: math.MaxInt64, fleet: 114, want: true},
 		{name: "large ID and tick", id: math.MaxInt, requested: math.MaxInt64, fleet: 114},
 	}
@@ -443,7 +452,8 @@ func TestGuardedDemandSet(t *testing.T) {
 	busy := guardedGate{count: 100, ticks: 100 * 10 * TicksPerSecond}
 	// With these weights, W is 14. Four stations have a weight, so the mean
 	// weight is 3.5. Station s0 expects half a request in 15 minutes from
-	// request 1 at tick 38571 or before.
+	// request 1 at horizonEdge or before, which is tick 38571 at 60 Hz.
+	const horizonEdge = 150 * ticksPerMinute / 14
 	profile := map[string]float64{"s0": 5, "s1": 1, "s2": 5, "s3": 3}
 	tests := []struct {
 		name    string
@@ -458,9 +468,9 @@ func TestGuardedDemandSet(t *testing.T) {
 		{name: "weight 0 keeps the mean", weights: map[string]float64{"s0": 4, "s1": 2, "s3": 3, "s4": 0}, gate: busy, want: []string{"s0", "s3"}},
 		{name: "weight order", weights: map[string]float64{"s0": 2, "s1": 3, "s2": 1, "s3": 3, "s4": 1}, gate: busy, want: []string{"s1", "s3", "s0"}},
 		{name: "one weighted station", weights: map[string]float64{"s4": 1}, gate: busy, want: []string{"s4"}},
-		{name: "horizon", weights: profile, gate: guardedGate{count: 1, ticks: 30000}, want: []string{"s0"}},
-		{name: "horizon edge", weights: profile, gate: guardedGate{count: 1, ticks: 38571}, want: []string{"s0"}},
-		{name: "horizon past", weights: profile, gate: guardedGate{count: 1, ticks: 38572}, want: []string{}},
+		{name: "horizon", weights: profile, gate: guardedGate{count: 1, ticks: 25 * ticksPerMinute / 3}, want: []string{"s0"}},
+		{name: "horizon edge", weights: profile, gate: guardedGate{count: 1, ticks: horizonEdge}, want: []string{"s0"}},
+		{name: "horizon past", weights: profile, gate: guardedGate{count: 1, ticks: horizonEdge + 1}, want: []string{}},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

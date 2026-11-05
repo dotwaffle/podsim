@@ -58,6 +58,14 @@ func TestIncidentUniformGolden(t *testing.T) {
 func TestNextIncidentTick(t *testing.T) {
 	t.Parallel()
 	largest := 1 - 1.0/(1<<53)
+	// interval is the contract formula. At 60 Hz, the median at a rate of 60
+	// is 2496, and the largest u at a rate of 60 is 132253.
+	interval := func(u, perHour float64) int64 {
+		return int64(math.Ceil(-math.Log(1-u) * (3600 * TicksPerSecond) / perHour))
+	}
+	median := interval(0.5, 60)
+	// The terminal rate scales with the tick rate. It is about 8.8e-10 at 60 Hz.
+	aboveTerminal, belowTerminal := 1e-9*TicksPerSecond/60, 8e-10*TicksPerSecond/60
 	for _, test := range []struct {
 		name       string
 		tick       int64
@@ -67,16 +75,16 @@ func TestNextIncidentTick(t *testing.T) {
 		{"u 0 at rate 60", 1000, 0, 60, 1001},
 		{"u 0 at rate 1e-300", 1000, 0, 1e-300, 1001},
 		{"small u is one tick", 0, 1e-9, 60, 1},
-		{"median at rate 60", 0, 0.5, 60, 2496},
-		{"largest u at rate 60", 0, largest, 60, 132253},
-		{"interval starts at the tick", 500, largest, 60, 132753},
+		{"median at rate 60", 0, 0.5, 60, median},
+		{"largest u at rate 60", 0, largest, 60, interval(largest, 60)},
+		{"interval starts at the tick", 500, largest, 60, 500 + interval(largest, 60)},
 		{"largest u at rate 1e-300", 0, largest, 1e-300, MaxCounter},
 		{"median at rate 1e-300", 0, 0.5, 1e-300, MaxCounter},
 		{"+Inf", 0, largest, 5e-324, MaxCounter},
-		{"just above the terminal rate", 0, largest, 1e-9, 7935148923050253},
-		{"just below the terminal rate", 0, largest, 8e-10, MaxCounter},
-		{"result one below the limit", MaxCounter - 2497, 0.5, 60, MaxCounter - 1},
-		{"result at the limit", MaxCounter - 2496, 0.5, 60, MaxCounter},
+		{"just above the terminal rate", 0, largest, aboveTerminal, interval(largest, aboveTerminal)},
+		{"just below the terminal rate", 0, largest, belowTerminal, MaxCounter},
+		{"result one below the limit", MaxCounter - median - 1, 0.5, 60, MaxCounter - 1},
+		{"result at the limit", MaxCounter - median, 0.5, 60, MaxCounter},
 		{"result above the limit", MaxCounter - 1, 0.5, 60, MaxCounter},
 		{"tick at the limit", MaxCounter, 0, 60, MaxCounter},
 	} {

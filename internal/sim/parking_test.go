@@ -256,7 +256,7 @@ func TestCruiseOnClearStraight(t *testing.T) {
 			}
 		}
 	}
-	if samples < 500 {
+	if samples < 25*TicksPerSecond/3 {
 		t.Fatalf("insufficient cruise samples: %d", samples)
 	}
 }

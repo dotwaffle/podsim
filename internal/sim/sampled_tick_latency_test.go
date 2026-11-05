@@ -195,7 +195,7 @@ func TestStopIncidentSamplers(t *testing.T) {
 	if s.faultCounters.delayedRiderTicks != 2 {
 		t.Fatalf("the delayed riders are %d, want 2", s.faultCounters.delayedRiderTicks)
 	}
-	advance(s, 216000/60*2)
+	advance(s, incidentHourTicks/60*2)
 	if s.faultCounters.sampled != 0 || s.emergencyCounters.sampled != 0 {
 		t.Fatalf("the samplers start events: %+v, %+v", s.faultCounters, s.emergencyCounters)
 	}

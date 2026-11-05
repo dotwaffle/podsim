@@ -59,7 +59,7 @@ func (h dwellHarness) run(ticks int) map[int]int {
 }
 
 // TestReversalDwell checks the dwell at each change of the reverse flag: a
-// departure from a bay stops for 60 ticks where it enters the aisle, a
+// departure from a bay stops for 1 s where it enters the aisle, a
 // forward-only route does not stop, and a turn at the inner node of a bay
 // stops at each change.
 func TestReversalDwell(t *testing.T) {
@@ -102,7 +102,7 @@ func TestReversalDwellResets(t *testing.T) {
 	t.Run("route", func(t *testing.T) {
 		t.Parallel()
 		h := newDwellHarness(t, route...)
-		untilDwell(h, 30)
+		untilDwell(h, reversalDwellTicks/2)
 		h.v.replaceRoute(h.v.Route)
 		if h.v.reversal != (reversal{}) {
 			t.Fatalf("latch %+v after a route replacement", h.v.reversal)
@@ -115,7 +115,7 @@ func TestReversalDwellResets(t *testing.T) {
 	t.Run("fault", func(t *testing.T) {
 		t.Parallel()
 		h := newDwellHarness(t, route...)
-		untilDwell(h, 30)
+		untilDwell(h, reversalDwellTicks/2)
 		h.s.faultsOn = true
 		seconds := int64(2)
 		if _, err := h.s.Fault(FaultRequest{PodID: "01", DurationSeconds: &seconds}); err != nil {
@@ -158,7 +158,7 @@ func TestReversalDwellResets(t *testing.T) {
 	t.Run("arrival", func(t *testing.T) {
 		t.Parallel()
 		h := newDwellHarness(t, route...)
-		untilDwell(h, 30)
+		untilDwell(h, reversalDwellTicks/2)
 		h.v.destination, h.v.destinationStation = h.s.network.Stations[1].Berths[0], "stop"
 		h.s.arrive(h.v)
 		if h.v.reversal != (reversal{}) {
@@ -196,7 +196,7 @@ func TestReversalDwellRestore(t *testing.T) {
 			saves = append(saves, s.ExportState())
 		case len(saves) == 1 && atBranch(s):
 			saves = append(saves, s.ExportState())
-		case len(saves) == 2 && s.vehicles[0].reversal.ticks == 30:
+		case len(saves) == 2 && s.vehicles[0].reversal.ticks == reversalDwellTicks/2:
 			saves = append(saves, s.ExportState())
 		}
 	}

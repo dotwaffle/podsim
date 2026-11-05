@@ -62,7 +62,7 @@ func TestEmergencyPlatoonDrain(t *testing.T) {
 			if follower.link.leader != 0 && (!follower.link.draining || follower.link.lanes != lanes) {
 				t.Fatalf("%s: tick %d: the link does not drain: %+v", end, s.tick, follower.link)
 			}
-			if s.tick > start+600 {
+			if s.tick > start+10*TicksPerSecond {
 				t.Fatalf("%s: the link did not end", end)
 			}
 		}
@@ -72,7 +72,7 @@ func TestEmergencyPlatoonDrain(t *testing.T) {
 			}
 			return v.op.purpose == opEmergencyUnload
 		})
-		if (s.tick-start)%60 != 0 || v.destination.ID != "dest-1" {
+		if (s.tick-start)%TicksPerSecond != 0 || v.destination.ID != "dest-1" {
 			t.Fatalf("%s: the pod binds to %q at tick %d, %d ticks after the start", end, v.destination.ID, s.tick, s.tick-start)
 		}
 		// The leader stays at the only berth after it unloads, so only an

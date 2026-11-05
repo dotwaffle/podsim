@@ -30,11 +30,11 @@ func emergencyDue(t *testing.T, s *Simulation, accept func(pod, party float64) b
 // than one party.
 func submitSharedTrips(t *testing.T, s *Simulation) {
 	t.Helper()
-	if s.tick%30 != 0 || len(s.waiting) >= 8 {
+	if s.tick%(TicksPerSecond/2) != 0 || len(s.waiting) >= 8 {
 		return
 	}
 	stations := []string{"harbor", "garden", "market"}
-	from := int(s.tick/30) % len(stations)
+	from := int(s.tick/(TicksPerSecond/2)) % len(stations)
 	if _, err := s.SubmitTripOptions(TripOptions{From: stations[from], To: stations[(from+1)%len(stations)], SharingConsent: SharedConsent}); err != nil {
 		t.Fatal(err)
 	}
@@ -177,7 +177,7 @@ func TestSampledEmergencyPlatoon(t *testing.T) {
 				if follower.link.leader != 0 && (!follower.link.draining || follower.link.lanes != lanes) {
 					t.Fatalf("tick %d: the link does not drain: %+v", s.tick, follower.link)
 				}
-				if s.tick > start+600 {
+				if s.tick > start+10*TicksPerSecond {
 					t.Fatal("the link did not end")
 				}
 			}

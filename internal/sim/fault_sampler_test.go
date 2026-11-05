@@ -3,6 +3,7 @@ package sim
 import (
 	"errors"
 	"fmt"
+	"math"
 	"math/rand/v2"
 	"reflect"
 	"runtime"
@@ -74,11 +75,11 @@ func traceFleet(t *testing.T) *Simulation {
 // fixed rotation of the passenger stations.
 func submitTraceTrips(t *testing.T, s *Simulation) {
 	t.Helper()
-	if s.tick%60 != 0 || len(s.waiting) >= 4 {
+	if s.tick%TicksPerSecond != 0 || len(s.waiting) >= 4 {
 		return
 	}
 	stations := []string{"harbor", "garden", "market"}
-	from := int(s.tick/60) % len(stations)
+	from := int(s.tick/TicksPerSecond) % len(stations)
 	if err := s.RequestTrip(stations[from], stations[(from+1)%len(stations)]); err != nil {
 		t.Fatal(err)
 	}
@@ -278,13 +279,13 @@ func TestFaultDurationTicks(t *testing.T) {
 		u    float64
 		want int64
 	}{
-		{"fixed", FaultDurationRule{Kind: FaultDurationFixed, Seconds: 600}, 0.7, 36000},
+		{"fixed", FaultDurationRule{Kind: FaultDurationFixed, Seconds: 600}, 0.7, 600 * TicksPerSecond},
 		{"fixed at the limit", FaultDurationRule{Kind: FaultDurationFixed, Seconds: maxFaultSeconds}, 0.7, maxFaultSeconds * TicksPerSecond},
-		{"uniform low", uniform, 0, 60},
-		{"uniform rounds up", uniform, 0.123, 68},
-		{"exponential at its minimum", exponential, 0, 600},
-		{"exponential rounds up", exponential, 0.5, 4159},
-		{"exponential at its maximum", exponential, 0.99, 12000},
+		{"uniform low", uniform, 0, TicksPerSecond},
+		{"uniform rounds up", uniform, 0.123, int64(math.Ceil(1.123 * TicksPerSecond))},
+		{"exponential at its minimum", exponential, 0, 10 * TicksPerSecond},
+		{"exponential rounds up", exponential, 0.5, int64(math.Ceil(100 * math.Ln2 * TicksPerSecond))},
+		{"exponential at its maximum", exponential, 0.99, 200 * TicksPerSecond},
 		{"no kind", FaultDurationRule{}, 0.5, 0},
 	} {
 		if got := test.rule.ticks(test.u); got != test.want {
@@ -323,14 +324,15 @@ func TestFaultStartInTicks(t *testing.T) {
 		t.Fatal(err)
 	}
 	v = s.findVehicle("01")
-	s.tick = MaxCounter - 121
-	if _, err := s.startPodFaultTicks(v, 122); !errors.Is(err, errIncidentLimit) {
+	const fits = 2*TicksPerSecond + 1
+	s.tick = MaxCounter - fits
+	if _, err := s.startPodFaultTicks(v, fits+1); !errors.Is(err, errIncidentLimit) {
 		t.Fatalf("a fault past the limit: %v", err)
 	}
 	if _, err := s.startPodFault(v, 3); !errors.Is(err, errIncidentLimit) {
 		t.Fatalf("a fault in seconds past the limit: %v", err)
 	}
-	if _, err := s.startPodFaultTicks(v, 121); err != nil {
+	if _, err := s.startPodFaultTicks(v, fits); err != nil {
 		t.Fatalf("a fault that ends at the limit: %v", err)
 	}
 	// The delay also decides: its evacuation tick must not pass the limit.
