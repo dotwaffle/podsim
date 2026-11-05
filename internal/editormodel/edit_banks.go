@@ -410,7 +410,7 @@ func bankForBerth(station any, berthID string) any {
 }
 
 // validateBankChanges checks the lanes of an edit. server is the draft
-// of g.network.
+// of g.network, and it gets the clearance index that this check builds.
 func (g geometryDraft) validateBankChanges(original map[string]any, server *serverDraft) error {
 	old := geometryDraft{network: original}
 	oldCounts, _ := old.nodeLaneCounts()
@@ -446,6 +446,7 @@ func (g geometryDraft) validateBankChanges(original map[string]any, server *serv
 		return err
 	}
 	clearance, oldClearance := newDraftClearance(g.network), newDraftClearance(original)
+	server.clearance = clearance.index
 	index, oldIndex := newGeometryIndex(g.network), newGeometryIndex(original)
 	for _, lane := range items(g.network["lanes"]) {
 		before, _ := oldIndex.find("lanes", text(member(lane, "id")))
