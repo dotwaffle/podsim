@@ -550,6 +550,44 @@ On rail-hub, the JSON of the groups goes from 2.73 to 1.29, and GC from 1.14 to 
 These readings ran at 20 publications a second, before `addde1b`, and they are not from a quiet host: a soak ran, and the one-minute load average was from 10 to 40.
 In 12,000 captures of each project, no route window moved, and fewer than 3 windows in 10,000 were built again, so the lanes of a route have no second cache.
 
+Update, 2026-11-05 (tip): these readings repeat the method of this section at `130d94f`, with 10 publications each second, a motion delay of 250 ms, the route window cache, the group byte reuse, and the one-pass stream accept.
+Each arm has 3 runs in turn, with one client through `remote.New`, and each server ran at `GOMAXPROCS=2` after the warm-up of 70 s at a requested 60x.
+A scratch build overlay changed only `TicksPerSecond`, so the values of section 3.1 stay as they are at 60 Hz, and this proves nothing about the patch list of section 5.
+Each arm started, and each held 0.998 to 1.001 simulated seconds for each wall second at 1x.
+The host was not quiet: the one-minute load average was from 3 to 19 in round 1, and from 1 to 6 in rounds 2 and 3.
+
+The table gives the process CPU of the server in percent of a core, and the margin is 12.5 minus the mean at 1x.
+The client ran in its own process, and the table does not include it.
+
+| Project | Ticks | 1x, mean (range) | 1x, rounds 2 and 3 | Margin at 1x | Load average at 1x | Requested 60x, mean (range) |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| LondonFull | 60 | 3.18 (2.83 to 3.70) | 2.92 | 9.32 | 1.7 to 9.6 | 54.2 (51.8 to 57.9) |
+| LondonFull | 30 | 2.84 (2.38 to 3.73) | 2.40 | 9.66 | 1.4 to 18.7 | 32.1 (30.8 to 34.3) |
+| LondonFull | 20 | 2.29 (2.17 to 2.48) | 2.20 | 10.21 | 1.4 to 4.0 | 24.3 (23.4 to 25.9) |
+| Rail-hub | 60 | 2.18 (2.02 to 2.52) | 2.02 | 10.32 | 1.3 to 6.3 | 39.0 (31.4 to 43.0) |
+| Rail-hub | 30 | 1.88 (1.62 to 2.38) | 1.64 | 10.62 | 1.3 to 17.9 | 25.1 (22.3 to 30.6) |
+| Rail-hub | 20 | 1.69 (1.42 to 2.23) | 1.42 | 10.81 | 1.5 to 18.5 | 17.4 (15.8 to 20.8) |
+
+The clock held 60x in each window except one: rail-hub at 60 Hz in round 1, at a load average of 13 to 16, fell to 30x and read 31.4.
+In rounds 2 and 3, the ratio to 60 Hz at 1x is 0.79 and 0.86 for LondonFull at 30 Hz, and 0.72 and 0.79 at 20 Hz.
+For rail-hub, the same ratios are 0.80 and 0.82 at 30 Hz, and 0.70 and 0.70 at 20 Hz.
+The ratios of round 1 go from 0.67 to 1.01, so the first round does not resolve a difference at 1x.
+At a requested 60x, the LondonFull ratios are 0.59 at 30 Hz and 0.44 to 0.45 at 20 Hz in each round.
+
+On LondonFull at 1x, `Step` reads 1.46, 1.05, and 0.63 at 60, 30, and 20 Hz.
+Snapshot, delta, JSON, and gzip together read 1.11, 1.21, and 1.15, and GC reads 0.32, 0.36, and 0.36.
+On rail-hub at 1x, `Step` reads 0.86, 0.59, and 0.37, and the same publication stages read 0.82, 0.70, and 0.77.
+Rail-hub has about 100 profile samples in each run at 1x, so its split is coarse.
+The client reads 4.5 to 4.7 percent of a core on LondonFull, of which GC is about 2.4, assembly is 1.0 to 1.3, and decode is 0.5 to 0.7.
+
+These margins apply at 1x, with one client, on this host, and they assume that a Fly vCPU is as fast as this host.
+With an empty burst balance, the quota is 10 ms of CPU in each 80 ms period, and LondonFull at 60 Hz has a mean use of 2.5 ms in each period.
+Each traced run of LondonFull at 1x, at 60 and 30 Hz, had 7 GC cycles in 60 s, with a median of 5 to 6 ms of mark work and 17 to 18 ms of idle workers.
+So one GC cycle can use more than the quota of one period, and the machine can then stall.
+I did not measure this stall, because no run was on a machine with a quota.
+No arm fits the quota at a requested 60x with an empty balance, because the lowest reading is 15.8.
+A warm step on the fixture of `TestSampledTickNoCandidateLatency` read 17.5 s at 60 Hz, and I did not run it at another rate.
+
 ## 5. Effort, risks, and recommendation
 
 ### 5.1 Patch list
