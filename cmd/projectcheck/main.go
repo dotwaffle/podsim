@@ -90,5 +90,10 @@ func command(args []string, stdout io.Writer) error {
 		config.Name, config.Version, len(config.Network.Stations), len(config.Network.Lanes), len(config.Fleet)); err != nil {
 		return fmt.Errorf("write project summary: %w", err)
 	}
+	for _, warning := range project.TailWarnings(config.Network) {
+		if _, err := fmt.Fprintf(stdout, "Warning: %s\n", warning.Text); err != nil {
+			return fmt.Errorf("write project warning: %w", err)
+		}
+	}
 	return nil
 }

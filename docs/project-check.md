@@ -13,6 +13,8 @@ It does not write or convert the input file.
 
 A valid project produces a quoted name, project version, station count, lane count, and pod count.
 The command exits successfully after the native checks pass.
+After the summary, a `Warning:` line names each lane whose [large-class tail](model.md#vehicle-classes) exceeds its length, up to 5 lanes, and one more line counts the others.
+A warning does not change the exit status.
 An argument, read, decode, validation, or summary write error produces a nonzero exit.
 Errors identify the failed stage.
 

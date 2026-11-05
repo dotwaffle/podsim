@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/project"
+	"github.com/dotwaffle/podsim/internal/scenarios"
 	"github.com/dotwaffle/podsim/internal/session"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
@@ -309,5 +310,68 @@ func TestServerDecoderParity(t *testing.T) {
 				t.Fatalf("valid=%v command=%v session=%v", item.Valid, err, sessionErr)
 			}
 		})
+	}
+}
+
+func railHubAllClasses(t *testing.T) project.Config {
+	t.Helper()
+	classes, err := sim.NewClassSet("legacy", "compact", "group", "express")
+	if err != nil {
+		t.Fatal(err)
+	}
+	config := scenarios.RailHub()
+	for index := range config.Network.Lanes {
+		config.Network.Lanes[index].VehicleClasses = classes
+	}
+	return config
+}
+
+// TestProjectCheckTailWarnings checks that a warning does not change the
+// exit of the command, and that the lines follow the summary.
+func TestProjectCheckTailWarnings(t *testing.T) {
+	t.Parallel()
+	var output bytes.Buffer
+	if err := command([]string{"-project", projectFile(t, projectData(t, railHubAllClasses(t)))}, &output); err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimSuffix(output.String(), "\n"), "\n")
+	if len(lines) != 2+project.MaxTailWarnings+1 {
+		t.Fatalf("got %d lines: %s", len(lines), &output)
+	}
+	if want := "Warning: Lane s01-in-01 has a large-class tail of 299.1 m on a length of 189.3 m, which can stop the network."; lines[2] != want {
+		t.Fatalf("first warning = %q", lines[2])
+	}
+	if want := "Warning: 65 more lanes have a large-class tail longer than their length."; lines[len(lines)-1] != want {
+		t.Fatalf("count line = %q", lines[len(lines)-1])
+	}
+	output.Reset()
+	if err := command([]string{"-project", projectFile(t, projectData(t, scenarios.RailHub()))}, &output); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(output.String(), "Warning") {
+		t.Fatalf("plain rail-hub: %s", &output)
+	}
+}
+
+// countedWriter fails on the write after the given count.
+type countedWriter struct {
+	writes int
+	err    error
+}
+
+func (w *countedWriter) Write(data []byte) (int, error) {
+	if w.writes == 0 {
+		return 0, w.err
+	}
+	w.writes--
+	return len(data), nil
+}
+
+func TestProjectCheckWarningWriteError(t *testing.T) {
+	t.Parallel()
+	failure := errors.New("write failed")
+	err := command([]string{"-project", projectFile(t, projectData(t, railHubAllClasses(t)))}, &countedWriter{writes: 1, err: failure})
+	if !errors.Is(err, failure) || !strings.Contains(err.Error(), "write project warning") {
+		t.Fatalf("error = %v", err)
 	}
 }
