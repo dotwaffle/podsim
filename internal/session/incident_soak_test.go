@@ -327,6 +327,10 @@ func (d *soakDriver) startChecks() {
 	d.nextSave = d.loopTick + d.rng.Int64N(soakTicksPerHour) + 1
 	d.nextRewind = d.loopTick + d.rng.Int64N(d.rewindEvery()) + 1
 	d.transition = d.s.simulation.FaultTransitionForTest()
+	if d.input.warm != nil && d.loopTick == d.input.warm.loopTick {
+		// The first publish after the restore rounds the pose of a resting pod.
+		d.transition = d.s.simulation.RestoredFaultTransitionForTest()
+	}
 	d.events = d.s.simulation.IncidentEventsForTest()
 }
 
@@ -1297,6 +1301,52 @@ func TestSoakBranchesRestoreWarmSave(t *testing.T) {
 	}
 	if reflect.DeepEqual(states[0].Pods, states[1].Pods) {
 		t.Fatal("the two branches give the same run")
+	}
+}
+
+// TestSoakBranchRestingPodRounding starts a branch from a warm save in which the
+// saved lane distance of a faulted pod at rest differs from its route distance
+// by a rounding error, as in a save of a pod with a route that the save cuts.
+// The first tick publishes the rounded value, and the branch must pass.
+// TestRestoredFaultTransition checks that a real move still fails.
+func TestSoakBranchRestingPodRounding(t *testing.T) {
+	t.Parallel()
+	input := soakInput{preset: "rail-hub", arm: soakArms["incidents"], seed: 1, hours: 0.01, checks: true, rewindEvery: 3600 * sim.TicksPerSecond}
+	warmRun := input
+	warmRun.hours = float64(120*sim.TicksPerSecond) / soakTicksPerHour
+	source := newSoakDriver(t, warmRun)
+	source.nextFault, source.nextEmergency = math.MaxInt64, math.MaxInt64
+	source.runHours()
+	var podID string
+	for _, vehicle := range source.s.simulation.Snapshot().Vehicles {
+		if vehicle.Pod.Activity == sim.Traveling && vehicle.Pod.LaneID != "" && vehicle.PlatoonID == "" {
+			podID = vehicle.Pod.ID
+			break
+		}
+	}
+	if podID == "" {
+		t.Fatal("no pod travels")
+	}
+	source.mustApply(Command{Action: "fault", PodID: podID})
+	for range 30 * sim.TicksPerSecond {
+		source.step()
+	}
+	file := sessionStateFile(t, source.s)
+	file.RestoreAttempts = 0
+	index := slices.IndexFunc(file.Simulation.Pods, func(pod sim.SavedPod) bool { return pod.ID == podID })
+	file.Simulation.Pods[index].LaneDistance += 2e-9
+	warm := &soakWarm{data: encodeTestState(t, file), loopTick: source.loopTick, clears: source.clears, open: map[string]soakOpenRecord{}}
+	run := input
+	run.warm, run.branch = warm, 1
+	branch := newSoakDriver(t, run)
+	var failures []string
+	branch.fail = func(message string) { failures = append(failures, message) }
+	branch.check(true)
+	for range 3 {
+		branch.step()
+	}
+	if len(failures) != 0 {
+		t.Fatalf("the first ticks fail: %q", failures)
 	}
 }
 

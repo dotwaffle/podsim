@@ -167,9 +167,36 @@ func (s *Simulation) BoardingLegBlockedForTest(podID string) bool {
 // contract, because the session tests cannot read the cap or the grants. No
 // production code calls it.
 func (s *Simulation) FaultTransitionForTest() func() error {
-	previous := faultPoses(s)
+	return s.faultTransitionCheck(func() []faultPose { return faultPoses(s) })
+}
+
+// RestoredFaultTransitionForTest is FaultTransitionForTest for a simulation
+// that a physical restore made and that has not stepped. A restored pod keeps
+// its saved lane distance, and its route distance is rebuilt on a shorter route,
+// so the first publish can change the lane distance and the position by a
+// rounding error. So until the first tick, the check reads the pose that the
+// first publish gives. Each compare stays exact, and a change of the route
+// distance in the first tick still fails.
+//
+// It is a test entry for the soak of section 5.1.9 of the incident stage 7
+// contract. No production code calls it.
+func (s *Simulation) RestoredFaultTransitionForTest() func() error {
+	restored := s.tick
+	return s.faultTransitionCheck(func() []faultPose {
+		poses := faultPoses(s)
+		if s.tick == restored {
+			s.publishedPoses(poses)
+		}
+		return poses
+	})
+}
+
+// faultTransitionCheck returns a check that compares the poses of each call
+// with the poses of the call before it.
+func (s *Simulation) faultTransitionCheck(read func() []faultPose) func() error {
+	previous := read()
 	return func() error {
-		next := faultPoses(s)
+		next := read()
 		for index := range next {
 			if previous[index].faulted && next[index].faulted {
 				if err := faultTransition(previous[index], next[index]); err != nil {
@@ -179,6 +206,24 @@ func (s *Simulation) FaultTransitionForTest() func() error {
 		}
 		previous = next
 		return nil
+	}
+}
+
+// publishedPoses gives each traveling pod with a lane the lane distance and the
+// position that publishVehicleTravel computes from its route distance.
+func (s *Simulation) publishedPoses(poses []faultPose) {
+	for index := range poses {
+		v := &s.vehicles[index]
+		if v.Pod.Activity != Traveling || v.Pod.LaneID == "" {
+			continue
+		}
+		blocks := &v.blocks
+		lane := 0
+		for lane+1 < len(blocks.route) && blocks.laneFirst(lane+1) <= v.blockIndex {
+			lane++
+		}
+		poses[index].laneDistance = v.distance - blocks.lanes[lane].start
+		poses[index].position = s.lanePosition(blocks.lanes[lane].geometry, &blocks.route[lane], poses[index].laneDistance)
 	}
 }
 

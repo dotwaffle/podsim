@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -525,6 +526,86 @@ func TestRestoreShortFinalLane(t *testing.T) {
 				t.Fatal(err)
 			}
 			stepUntil(t, restored, "the arrival", func() bool { return got.Pod.Activity == Unloading && got.Pod.BerthID == "dest-1" })
+		})
+	}
+}
+
+// TestRestoredFaultTransition restores a faulted pod at rest whose saved lane
+// distance differs from its route distance by a rounding error. The check for a
+// restored simulation accepts the first publish, and the ordinary check does
+// not. A real move fails in the first tick, and in a later tick.
+func TestRestoredFaultTransition(t *testing.T) {
+	t.Parallel()
+	restore := func(t *testing.T) (*Simulation, *vehicle) {
+		t.Helper()
+		s := faultLegFleet(t)
+		v := boardParties(t, s, "s1")
+		cruiseOn(t, s, v, "s0-link")
+		startFault(t, s, v, 0)
+		stepUntil(t, s, "the rest", func() bool { return v.Pod.Speed == 0 })
+		state := s.ExportState()
+		state.Pods = slices.Clone(state.Pods)
+		state.Pods[s.vehicleIndex(v)].LaneDistance += 2e-9
+		restored, result, err := RestoreState(faultRestoreInput(s, state))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if result.Tier != RestorePhysical || len(result.Demoted) != 0 {
+			t.Fatalf("the result is %+v", result)
+		}
+		got := restored.findVehicle(v.Pod.ID)
+		return restored, got
+	}
+	const moved = "the pod at rest moves"
+	tests := []struct {
+		name  string
+		check func(*Simulation) func() error
+		// prepare runs after the check starts, and before the first tick.
+		prepare, later func(*vehicle)
+		want           string
+	}{
+		{name: "ordinary check", check: (*Simulation).FaultTransitionForTest, want: moved},
+		{name: "restored check", check: (*Simulation).RestoredFaultTransitionForTest},
+		{name: "command before the first tick", check: (*Simulation).RestoredFaultTransitionForTest, prepare: func(*vehicle) {}},
+		{name: "move in the first tick", check: (*Simulation).RestoredFaultTransitionForTest, later: func(v *vehicle) { v.Pod.LaneDistance += 1e-9 }, want: moved},
+		{name: "route distance before the first tick", check: (*Simulation).RestoredFaultTransitionForTest, prepare: func(v *vehicle) { v.distance -= 1e-9 }, want: moved},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			s, v := restore(t)
+			check := test.check(s)
+			if test.prepare != nil {
+				test.prepare(v)
+				if err := check(); err != nil {
+					if test.want == "" || !strings.Contains(err.Error(), test.want) {
+						t.Fatalf("before the first tick: %v", err)
+					}
+					return
+				}
+			}
+			s.Step()
+			if test.later != nil {
+				test.later(v)
+			}
+			err := check()
+			switch {
+			case test.want == "" && err != nil:
+				t.Fatalf("after the first tick: %v", err)
+			case test.want != "" && (err == nil || !strings.Contains(err.Error(), test.want)):
+				t.Fatalf("after the first tick: %v, want %q", err, test.want)
+			}
+			if test.want != "" {
+				return
+			}
+			s.Step()
+			if err := check(); err != nil {
+				t.Fatalf("after the second tick: %v", err)
+			}
+			v.Pod.LaneDistance += 1e-12
+			if err := check(); err == nil || !strings.Contains(err.Error(), moved) {
+				t.Fatalf("a later move gives %v", err)
+			}
 		})
 	}
 }
