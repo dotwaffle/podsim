@@ -83,6 +83,70 @@ func BenchmarkPrepareWorstProject(b *testing.B) {
 	}
 }
 
+// worstPairsNetwork returns a network with the most lanes and nodes, and more
+// than 2.5 times the junction pairs of worstTailNetwork. Each pair of nodes has
+// 7 or 8 lanes of worstShape. The nodes that no lane uses come first, so a
+// search of the node list passes them.
+func worstPairsNetwork(tb testing.TB) sim.Network {
+	tb.Helper()
+	classes, err := sim.NewClassSet("legacy", "compact", "group", "express")
+	if err != nil {
+		tb.Fatal(err)
+	}
+	var network sim.Network
+	const pairs, columns, spacing = project.MaxLanes / 7, 80, 1000.0
+	unused := project.MaxNodes - 2*pairs
+	for index := range unused {
+		network.Nodes = append(network.Nodes, sim.Node{ID: fmt.Sprintf("u%d", index), Position: sim.Point{X: 500 + float64(index%100)*10, Y: 500 + float64(index/100)*10}})
+	}
+	for pair := range pairs {
+		origin := sim.Point{X: spacing * float64(pair%columns-columns/2), Y: spacing * float64(pair/columns-columns/2)}
+		network.Nodes = append(network.Nodes,
+			sim.Node{ID: fmt.Sprintf("n%d-a", pair), Position: origin},
+			sim.Node{ID: fmt.Sprintf("n%d-b", pair), Position: sim.Point{X: origin.X + worstShape.end.X, Y: origin.Y + worstShape.end.Y}})
+	}
+	for index := range project.MaxLanes {
+		pair := index % pairs
+		from, to := network.Nodes[unused+2*pair], network.Nodes[unused+2*pair+1]
+		variant := float64(index/pairs) * 0.5
+		network.Lanes = append(network.Lanes, sim.Lane{
+			ID: fmt.Sprintf("l%d", index), From: from.ID, To: to.ID, SpeedLimit: 14, VehicleClasses: classes,
+			Control: &sim.Point{X: from.Position.X + worstShape.control.X + variant, Y: from.Position.Y + worstShape.control.Y + variant},
+		})
+	}
+	return network
+}
+
+// TestWorstPairsProjectLimits checks that the network of
+// BenchmarkPrepareWorstPairs is inside the count limits of the project format.
+// It counts and does not prepare, so it runs with -short.
+func TestWorstPairsProjectLimits(t *testing.T) {
+	t.Parallel()
+	network := worstPairsNetwork(t)
+	blocks, junctions := 0, 0
+	for _, count := range network.LaneBlocks() {
+		blocks += count
+	}
+	for _, count := range network.JunctionPairs() {
+		junctions += count
+	}
+	if len(network.Lanes) != project.MaxLanes || len(network.Nodes) != project.MaxNodes || blocks > project.MaxNetworkBlocks || junctions != 240_016 || junctions > project.MaxJunctionPairs {
+		t.Fatalf("%d lanes, %d nodes, %d blocks, %d junction pairs", len(network.Lanes), len(network.Nodes), blocks, junctions)
+	}
+}
+
+// BenchmarkPrepareWorstPairs measures the preparation of a hand-built network
+// near the junction pair limit. The junction conflicts lead this preparation,
+// and BenchmarkPrepareWorstProject has too few pairs to show their worst case.
+func BenchmarkPrepareWorstPairs(b *testing.B) {
+	network := worstPairsNetwork(b)
+	for b.Loop() {
+		if _, err := sim.PrepareNetwork(network); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 // BenchmarkTailIndexBudgetCeiling measures 20,000 lanes that each use the
 // whole budget. The block limit refuses such a project, so this is the ceiling
 // of the work of one index and not a project that validates.
