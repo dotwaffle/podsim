@@ -27,14 +27,53 @@ func TestMotionSmoothsSnapshotsWithoutChangingState(t *testing.T) {
 	for _, tc := range []struct {
 		ms   int
 		want float64
-	}{{150, 0}, {175, .35}, {200, .7}, {225, 1.05}, {250, 1.4}, {1000, 1.4}} {
-		got := motion.Sample(start.Add(time.Duration(tc.ms) * time.Millisecond))
+	}{{0, 0}, {25, .35}, {50, .7}, {75, 1.05}, {100, 1.4}, {850, 1.4}} {
+		got := motion.Sample(start.Add(motionDelay + time.Duration(tc.ms)*time.Millisecond))
 		if math.Abs(got.Vehicles[0].Pod.Position.X-tc.want) > 1e-9 {
 			t.Fatalf("%dms: %v, want%v", tc.ms, got.Vehicles[0].Pod.Position, tc.want)
 		}
 	}
 	if !reflect.DeepEqual(first, motionState(0, 0)) || !reflect.DeepEqual(last, motionState(6, 1.4)) {
 		t.Fatal("interpolation mutated authoritative state")
+	}
+}
+
+// TestMotionLatePublication plays frames that are due each 100 ms, with one
+// gap in the middle, and samples each millisecond. The map must keep moving
+// through a gap of two intervals plus almost all of the 50 ms of jitter. A
+// gap of three intervals is more than the delay allows, so the map holds.
+func TestMotionLatePublication(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name string
+		gap  int
+		hold bool
+	}{{"one interval", 100, false}, {"one late publication", 200, false}, {"one late publication and jitter", 249, false}, {"three intervals", 300, true}} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			arrivals := []int{0, 100, 200, 200 + tc.gap, 300 + tc.gap, 400 + tc.gap}
+			var motion Motion
+			start := time.Unix(100, 0)
+			held, last := false, 0.0
+			next := 0
+			end := arrivals[len(arrivals)-1] + int(motionDelay/time.Millisecond)
+			for ms := 0; ms <= end; ms++ {
+				if next < len(arrivals) && arrivals[next] == ms {
+					// The tick follows the wall time at 60 ticks each second.
+					tick := int64(ms * 60 / 1000)
+					motion.Observe(motionState(tick, float64(tick)*.1), start.Add(time.Duration(ms)*time.Millisecond))
+					next++
+				}
+				x := motion.Sample(start.Add(time.Duration(ms) * time.Millisecond)).Vehicles[0].Pod.Position.X
+				if ms > int(motionDelay/time.Millisecond) && x <= last {
+					held = true
+				}
+				last = x
+			}
+			if held != tc.hold {
+				t.Fatalf("map held = %v, want %v", held, tc.hold)
+			}
+		})
 	}
 }
 
@@ -130,8 +169,10 @@ func TestMotionIgnoresDuplicateAndOldRevisions(t *testing.T) {
 	if len(motion.frames) != maxMotionFrames {
 		t.Fatalf("motion buffer has %d frames, want %d", len(motion.frames), maxMotionFrames)
 	}
-	if got := motion.Sample(start.Add(5 * time.Second)).Vehicles[0].Pod.Position.X; math.Abs(got-9.7) > 1e-9 {
-		t.Fatalf("motion after buffer rollover = %v, want 9.7", got)
+	// The frames are 50 ms apart, and each adds .1 to the position.
+	want := 10 - .1*float64(motionDelay)/float64(50*time.Millisecond)
+	if got := motion.Sample(start.Add(5 * time.Second)).Vehicles[0].Pod.Position.X; math.Abs(got-want) > 1e-9 {
+		t.Fatalf("motion after buffer rollover = %v, want %v", got, want)
 	}
 	motion.Observe(state, start.Add(6*time.Second))
 	if motion.frames[len(motion.frames)-1].state.Simulation.Tick != 100 {
@@ -288,7 +329,7 @@ func TestMotionSampleAllocations(t *testing.T) {
 	var motion Motion
 	motion.Observe(frame(0, 0), start)
 	motion.Observe(frame(6, 1.4), start.Add(100*time.Millisecond))
-	at := start.Add(200 * time.Millisecond)
+	at := start.Add(motionDelay + 50*time.Millisecond)
 	sample := motion.Sample(at)
 	if len(sample.Vehicles) != project.MaxPods || sample.Vehicles[0].Pod.Position.X == 0 || sample.Vehicles[0].Pod.Position.X == 1.4 {
 		t.Fatalf("sample has %d pods at %v, want %d between the frames", len(sample.Vehicles), sample.Vehicles[0].Pod.Position, project.MaxPods)

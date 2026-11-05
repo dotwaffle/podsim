@@ -422,7 +422,9 @@ func TestStreamNonReaderIsBounded(t *testing.T) {
 	defer s.Close()
 	server := httptest.NewServer(s.HandlerFS(fstest.MapFS{}))
 	defer server.Close()
-	ctx, cancel := context.WithTimeout(t.Context(), 8*time.Second)
+	// The credit takes one capture interval for each message, plus load margin.
+	fill := streamCreditCount*streamCaptureInterval + 3*time.Second
+	ctx, cancel := context.WithTimeout(t.Context(), fill+2*time.Second)
 	defer cancel()
 	go s.Run(ctx)
 	conn, response, err := websocket.Dial(ctx, "ws"+strings.TrimPrefix(server.URL, "http")+"/api/state/stream", nil)
@@ -434,7 +436,7 @@ func TestStreamNonReaderIsBounded(t *testing.T) {
 	}
 	defer func() { _ = conn.CloseNow() }()
 	// Do not read hello, state or application heartbeat.
-	deadline := time.Now().Add(6 * time.Second)
+	deadline := time.Now().Add(fill)
 	for s.StreamStats().OutstandingMessages < streamCreditCount && time.Now().Before(deadline) {
 		time.Sleep(20 * time.Millisecond)
 	}

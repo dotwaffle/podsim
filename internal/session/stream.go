@@ -27,7 +27,7 @@ const (
 	streamRetainedBytes   = streamHistoryBytes + 2*MaxStreamMessage
 	streamProgressTimeout = 30 * time.Second
 	streamWriteTimeout    = 30 * time.Second
-	streamCaptureInterval = 50 * time.Millisecond
+	streamCaptureInterval = 100 * time.Millisecond
 )
 
 type streamPayload struct {

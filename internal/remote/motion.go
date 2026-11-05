@@ -9,7 +9,10 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-const motionDelay = 150 * time.Millisecond
+// motionDelay covers two publication intervals of 100 ms and 50 ms of jitter.
+// The map keeps moving while the gap between two received frames is at most
+// motionDelay, so one publication can be a whole interval late.
+const motionDelay = 250 * time.Millisecond
 const motionGap = 500 * time.Millisecond
 const maxMotionFrames = 8
 
@@ -20,7 +23,7 @@ type motionFrame struct {
 }
 
 // Motion buffers authoritative snapshots for display only. Use it on the render thread.
-// It delays the map by 150 ms and never predicts past received movement.
+// It delays the map by motionDelay and never predicts past received movement.
 type Motion struct {
 	frames   []motionFrame
 	geometry *motionGeometry
