@@ -8,9 +8,9 @@ import (
 
 const (
 	// emergencyChoiceTicks is the cadence of the station choice of a
-	// deferred, divertible pod (section 5.4 of the incident emergency
+	// deferred, divertible pod, 1 s (section 5.4 of the incident emergency
 	// contract).
-	emergencyChoiceTicks = 60
+	emergencyChoiceTicks = TicksPerSecond
 	// pruneTermLimit bounds the terms of the float sums of a pruned choice
 	// (section 9.1, pruning step 6). Above it, the choice does not prune.
 	pruneTermLimit = 90_000

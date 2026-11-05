@@ -157,8 +157,8 @@ func TestEmergencyMissKey(t *testing.T) {
 
 // TestEmergencyCadence starts an emergency on a faulted pod, which stays
 // deferred, and clears the fault 10 ticks later. The pod can divert from
-// then on, but it chooses only on the next tick with (tick - start) % 60
-// == 0.
+// then on, but it chooses only on the next tick with
+// (tick - start) % TicksPerSecond == 0.
 func TestEmergencyCadence(t *testing.T) {
 	t.Parallel()
 	network := choiceNetwork([]choiceStation{{id: "sA", x: 1000, y: 300, berths: 1}, {id: "sB", x: 1100, y: -300, berths: 1}}, 1)
@@ -176,7 +176,7 @@ func TestEmergencyCadence(t *testing.T) {
 		t.Fatal(err)
 	}
 	choices := s.searchCounters.choices
-	for s.tick < start+emergencyChoiceTicks-1 {
+	for s.tick < start+TicksPerSecond-1 {
 		s.Step()
 		if v.op.purpose != opService || s.searchCounters.choices != choices {
 			t.Fatalf("tick %d: the pod chose before its cadence tick: %+v", s.tick-start, v.op)

@@ -3,9 +3,9 @@ package sim
 import "slices"
 
 // rerouteIntervalTicks is the cadence of the reroute pass while the
-// blocked set is not empty (product choice P2 of the incident suspension
-// contract).
-const rerouteIntervalTicks = 300
+// blocked set is not empty, 5 s (product choice P2 of the incident
+// suspension contract).
+const rerouteIntervalTicks = 5 * TicksPerSecond
 
 // reroutePass runs the reroute pass of the fault stage (section 9.2 of the
 // incident suspension contract) when a new epoch asked for it, and every

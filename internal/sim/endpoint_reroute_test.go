@@ -392,7 +392,7 @@ func TestEndpointRouteRefusals(t *testing.T) {
 }
 
 // TestReroutePassCadence checks when the reroute pass runs: at a new epoch,
-// and every rerouteIntervalTicks while the blocked set is not empty.
+// and every 5 s while the blocked set is not empty.
 func TestReroutePassCadence(t *testing.T) {
 	t.Parallel()
 	s := altLineFleet(t, -100, "s0-1", "s3-1")
@@ -406,7 +406,7 @@ func TestReroutePassCadence(t *testing.T) {
 	}
 	s.rerouteDue = false
 	route := slices.Clone(v.Route)
-	s.tick = 2*rerouteIntervalTicks - 1
+	s.tick = 5*TicksPerSecond - 1
 	s.reroutePass()
 	if !sameLanes(v.Route, route) {
 		t.Fatal("the pass ran between the cadence ticks")
