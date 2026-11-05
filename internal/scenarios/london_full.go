@@ -33,12 +33,32 @@ func LondonFull() project.Config {
 		if err != nil {
 			panic(err)
 		}
-		londonFullPreset, err = londonFullConfig(source, capacity, true)
+		londonFullPreset, err = londonFullConfig(source, capacity, true, londonFullDemandProfile())
 		if err != nil {
 			panic(err)
 		}
 	})
 	return project.Clone(londonFullPreset)
+}
+
+// GenerateLondonFull builds the LondonFull preset from the embedded source
+// data. It does not read or fill a cache of this package, so the caller owns
+// all the memory of the result, and the garbage collector can release it.
+// The project is the same as the project of LondonFull.
+func GenerateLondonFull() (project.Config, error) {
+	source, err := decodeLondonFullSource()
+	if err != nil {
+		return project.Config{}, err
+	}
+	_, profile, err := readLondonFullDemand(londonFullDemandCSV, source)
+	if err != nil {
+		return project.Config{}, err
+	}
+	capacity, err := londonFullOptions(profile).resolve(source)
+	if err != nil {
+		return project.Config{}, err
+	}
+	return londonFullConfig(source, capacity, true, profile)
 }
 
 // DefaultLondonFullOptions returns owned capacity settings for LondonFull.
@@ -49,8 +69,14 @@ func LondonFull() project.Config {
 // Compact stations.
 func DefaultLondonFullOptions() LondonOptions {
 	londonFullDemandOnce.Do(loadLondonFullDemand)
+	return londonFullOptions(londonFullProfile)
+}
+
+// londonFullOptions gives the default capacity settings for the demand
+// profile.
+func londonFullOptions(profile project.DemandProfile) LondonOptions {
 	options := DefaultLondonCentralOptions()
-	options.Berths = londonFullBerths(londonFullProfile)
+	options.Berths = londonFullBerths(profile)
 	options.CompactStations = slices.Clone(londonCompactStations)
 	return options
 }
@@ -73,7 +99,7 @@ func LondonFullWith(options LondonOptions) (project.Config, error) {
 	if capacity.equal(defaults) {
 		return LondonFull(), nil
 	}
-	return londonFullConfig(source, capacity, false)
+	return londonFullConfig(source, capacity, false, londonFullDemandProfile())
 }
 
 func decodeLondonFullSource() (londonSource, error) {
@@ -84,7 +110,9 @@ func decodeLondonFullSource() (londonSource, error) {
 	return source, nil
 }
 
-func londonFullConfig(source londonSource, capacity londonCapacity, defaultCapacity bool) (project.Config, error) {
+// londonFullConfig builds and validates the LondonFull project. The project
+// keeps profile, so the caller gives an owned copy.
+func londonFullConfig(source londonSource, capacity londonCapacity, defaultCapacity bool, profile project.DemandProfile) (project.Config, error) {
 	// These headings clear guideways at Bank, Mansion House, and Canary Wharf.
 	headings := map[string]float64{"940GZZLUBNK": 234 * math.Pi / 180, "940GZZLUMSH": 56 * math.Pi / 180, "940GZZLUCYF": 330 * math.Pi / 180}
 	network, err := londonNetworkWithHeadings(source, capacity, headings, projectLondonLimits)
@@ -102,7 +130,7 @@ func londonFullConfig(source londonSource, capacity londonCapacity, defaultCapac
 		Version: 1, Name: name, Network: network,
 		Fleet:          londonFleet(network, capacity),
 		Demand:         project.DemandConfig{PerMinute: 10, Pattern: "profile", Seed: 20260929, Profile: londonFullDemandProfileID, Band: "am-peak"},
-		DemandProfiles: []project.DemandProfile{londonFullDemandProfile()},
+		DemandProfiles: []project.DemandProfile{profile},
 		PlatoonLimit:   sim.MaxPlatoonLimit,
 		Geo:            &project.Geo{Latitude: londonReferenceLatitude, Longitude: londonReferenceLongitude, Projection: project.GeoProjection, Radius: project.GeoRadius},
 	}

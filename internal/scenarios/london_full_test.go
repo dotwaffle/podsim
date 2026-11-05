@@ -153,7 +153,7 @@ func TestLondonFullOwnedAndDeterministic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rebuilt, err := londonFullConfig(source, capacity, true)
+	rebuilt, err := londonFullConfig(source, capacity, true, londonFullDemandProfile())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -201,7 +201,7 @@ func TestLondonFullRejectsInvalidProject(t *testing.T) {
 		t.Fatal(err)
 	}
 	source.Stations[0].Name = ""
-	if _, err := londonFullConfig(source, capacity, true); err == nil || !strings.Contains(err.Error(), "validate LondonFull scenario") {
+	if _, err := londonFullConfig(source, capacity, true, londonFullDemandProfile()); err == nil || !strings.Contains(err.Error(), "validate LondonFull scenario") {
 		t.Fatalf("invalid project error = %v", err)
 	}
 }

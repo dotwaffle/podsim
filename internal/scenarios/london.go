@@ -120,6 +120,23 @@ func LondonCentral() project.Config {
 	return project.Clone(londonPreset)
 }
 
+// GenerateLondonCentral builds the LondonCentral preset from the embedded
+// source data. It does not read or fill a cache of this package, so the
+// caller owns all the memory of the result, and the garbage collector can
+// release it. The project is the same as the project of LondonCentral.
+func GenerateLondonCentral() (project.Config, error) {
+	var source londonSource
+	if err := decodeLondonSource(&source); err != nil {
+		return project.Config{}, err
+	}
+	capacity, err := DefaultLondonCentralOptions().resolve(source)
+	if err != nil {
+		return project.Config{}, err
+	}
+	_, profile := mustLondonDemand()
+	return londonConfig(source, capacity, true, profile)
+}
+
 // LondonOptions sets the capacity of the London stations. The Berths and
 // Pods maps override the counts of single stations. A key is a TfL station
 // ID, or parking-west, parking-north, or parking-east.
@@ -184,7 +201,7 @@ func LondonCentralWith(options LondonOptions) (project.Config, error) {
 	if capacity.equal(defaults) {
 		return LondonCentral(), nil
 	}
-	config, err := londonConfig(source, capacity, false)
+	config, err := londonConfig(source, capacity, false, londonDemandProfile())
 	if err != nil {
 		return project.Config{}, err
 	}
@@ -360,7 +377,7 @@ func mustLondonConfig() project.Config {
 	if err != nil {
 		panic(err)
 	}
-	config, err := londonConfig(source, capacity, true)
+	config, err := londonConfig(source, capacity, true, londonDemandProfile())
 	if err != nil {
 		panic(err)
 	}
@@ -369,7 +386,8 @@ func mustLondonConfig() project.Config {
 
 // londonConfig builds and validates the London project with the capacity.
 // Without defaultCapacity, the project name ends with customCapacitySuffix.
-func londonConfig(source londonSource, capacity londonCapacity, defaultCapacity bool) (project.Config, error) {
+// The project keeps profile, so the caller gives an owned copy.
+func londonConfig(source londonSource, capacity londonCapacity, defaultCapacity bool, profile project.DemandProfile) (project.Config, error) {
 	network, err := londonNetwork(source, capacity)
 	if err != nil {
 		return project.Config{}, err
@@ -389,7 +407,7 @@ func londonConfig(source londonSource, capacity londonCapacity, defaultCapacity 
 			Profile:   londonDemandProfileID,
 			Band:      "am-peak",
 		},
-		DemandProfiles: []project.DemandProfile{londonDemandProfile()},
+		DemandProfiles: []project.DemandProfile{profile},
 		// Virtual platoons raise the Early limit, where queues on the
 		// track set the limit. See the London capacity envelope in the
 		// qualification record.
