@@ -33,13 +33,44 @@ func buildJunctionConflicts(network Network) map[string][]laneConflict {
 	for _, lane := range network.Lanes {
 		polylines[lane.ID] = newConflictPolyline(lanePointsBetween(lane, positions[lane.From], positions[lane.To], make([]Point, 0, 65)))
 	}
+	extents := make(map[conflictExtentKey][2]float64)
 	forEachJunctionPair(network, func(node string, lane, other Lane) {
-		start, end := conflictExtentWithClearance(polylines[lane.ID], polylines[other.ID], classSetPairClearance(lane.VehicleClasses, other.VehicleClasses))
+		key := conflictExtentKey{lane: polylines[lane.ID], other: polylines[other.ID], clearance: classSetPairClearance(lane.VehicleClasses, other.VehicleClasses)}
+		start, end := key.measure(extents, sharedEndpoints(lane, other))
 		if !math.IsInf(start, 1) {
 			conflicts[lane.ID] = append(conflicts[lane.ID], laneConflict{junction: node, start: start, end: end})
 		}
 	})
 	return conflicts
+}
+
+// conflictExtentKey holds the arguments of conflictExtentWithClearance, in
+// order, because the extent on a lane differs from the extent on the other
+// lane. The extent does not depend on anything else: the search fields of a
+// conflictPolyline change only the work that it does.
+type conflictExtentKey struct {
+	lane, other *conflictPolyline
+	clearance   float64
+}
+
+// measure returns the extent of the key. With reuse, it keeps the extent in
+// extents, so that the second node of the pair does not measure it again.
+func (key conflictExtentKey) measure(extents map[conflictExtentKey][2]float64, reuse bool) (float64, float64) {
+	if !reuse {
+		return conflictExtentWithClearance(key.lane, key.other, key.clearance)
+	}
+	if extent, found := extents[key]; found {
+		return extent[0], extent[1]
+	}
+	start, end := conflictExtentWithClearance(key.lane, key.other, key.clearance)
+	extents[key] = [2]float64{start, end}
+	return start, end
+}
+
+// sharedEndpoints reports whether two lanes have the same two nodes, in either
+// direction. forEachJunctionPair gives such a pair at each of the nodes.
+func sharedEndpoints(lane, other Lane) bool {
+	return lane.From == other.From && lane.To == other.To || lane.From == other.To && lane.To == other.From
 }
 
 // JunctionPairs returns, for each node in node order, the number of lane

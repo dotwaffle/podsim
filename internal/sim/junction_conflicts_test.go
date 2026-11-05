@@ -3,6 +3,7 @@ package sim
 import (
 	"math"
 	"reflect"
+	"slices"
 	"testing"
 )
 
@@ -265,4 +266,152 @@ func TestJunctionPairsCountsBuildPairs(t *testing.T) {
 
 func conflictExtent(lane, other *conflictPolyline) (float64, float64) {
 	return conflictExtentWithClearance(lane, other, Clearance)
+}
+
+// unmemoizedJunctionConflicts is buildJunctionConflicts with no reuse of an
+// extent: each visit to a pair measures it, on the same polylines.
+func unmemoizedJunctionConflicts(network Network) map[string][]laneConflict {
+	positions := indexNodePositions(network.Nodes)
+	conflicts := make(map[string][]laneConflict)
+	polylines := make(map[string]*conflictPolyline, len(network.Lanes))
+	for _, lane := range network.Lanes {
+		polylines[lane.ID] = newConflictPolyline(lanePointsBetween(lane, positions[lane.From], positions[lane.To], make([]Point, 0, 65)))
+	}
+	forEachJunctionPair(network, func(node string, lane, other Lane) {
+		start, end := conflictExtentWithClearance(polylines[lane.ID], polylines[other.ID], classSetPairClearance(lane.VehicleClasses, other.VehicleClasses))
+		if !math.IsInf(start, 1) {
+			conflicts[lane.ID] = append(conflicts[lane.ID], laneConflict{junction: node, start: start, end: end})
+		}
+	})
+	return conflicts
+}
+
+// sharedEndpointNetwork has lanes between the same two nodes that differ in
+// curve, in class and in direction, and two loop lanes at one node. The extent
+// of such a pair runs along the whole lane, so it changes with the lane and
+// not with the other lane or the clearance. TestConflictExtentKey covers those.
+func sharedEndpointNetwork(t *testing.T) Network {
+	t.Helper()
+	classes := func(names ...string) ClassSet {
+		set, err := NewClassSet(names...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return set
+	}
+	small, large := classes("legacy"), classes("legacy", "group")
+	lane := func(id, from, to string, set ClassSet, control *Point) Lane {
+		return Lane{ID: id, From: from, To: to, SpeedLimit: 14, VehicleClasses: set, Control: control}
+	}
+	return Network{
+		Nodes: []Node{{ID: "a"}, {ID: "b", Position: Point{X: 120}}, {ID: "c", Position: Point{Y: 300}}},
+		Lanes: []Lane{
+			lane("straight", "a", "b", small, nil),
+			lane("near curve", "a", "b", small, &Point{X: 60, Y: 18}),
+			lane("wide curve", "a", "b", small, &Point{X: 60, Y: 90}),
+			lane("large curve", "a", "b", large, &Point{X: 60, Y: 70}),
+			lane("low curve", "a", "b", small, &Point{X: 30, Y: -60}),
+			// The same path as near curve, in reverse.
+			lane("near reverse", "b", "a", small, &Point{X: 60, Y: 18}),
+			lane("wide reverse", "b", "a", large, &Point{X: 90, Y: -110}),
+			lane("loop", "c", "c", small, &Point{X: 80, Y: 380}),
+			lane("large loop", "c", "c", large, &Point{X: -90, Y: 400}),
+		},
+	}
+}
+
+// TestJunctionConflictsReuseExtents checks that the table with reused extents
+// has the bits of the table that measures each visit to a pair.
+func TestJunctionConflictsReuseExtents(t *testing.T) {
+	t.Parallel()
+	shared := sharedEndpointNetwork(t)
+	repeatedNode := shared
+	repeatedNode.Nodes = append(slices.Clone(shared.Nodes), Node{ID: "a", Position: Point{X: -40, Y: 25}})
+	// A network that validates has no repeated lane ID. The lanes with this ID
+	// share a polyline and have different clearances.
+	repeatedLane := shared
+	repeatedLane.Lanes = slices.Clone(shared.Lanes)
+	wide := shared.Lanes[2]
+	wide.VehicleClasses = shared.Lanes[3].VehicleClasses
+	repeatedLane.Lanes = append(repeatedLane.Lanes, wide)
+	for _, tc := range []struct {
+		name    string
+		network Network
+	}{{"shared endpoints", shared}, {"repeated node", repeatedNode}, {"repeated lane", repeatedLane}} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			want := encodeJunctionConflicts(unmemoizedJunctionConflicts(tc.network))
+			if want == "" {
+				t.Fatal("network has no junction conflicts")
+			}
+			if got := encodeJunctionConflicts(buildJunctionConflicts(tc.network)); got != want {
+				t.Fatalf("got:\n%s\nwant:\n%s", got, want)
+			}
+		})
+	}
+}
+
+// TestConflictExtentKey checks that an extent is kept for its lane, its other
+// lane and its clearance, each with the bits that the measurement gives. These
+// lanes cross and share no node, so each change of an argument changes the
+// extent.
+func TestConflictExtentKey(t *testing.T) {
+	t.Parallel()
+	polyline := func(from, to Point) *conflictPolyline { return newConflictPolyline([]Point{from, to}) }
+	lane, longer := polyline(Point{}, Point{X: 100}), polyline(Point{Y: 1}, Point{X: 200, Y: 1})
+	early, late := polyline(Point{X: 30, Y: -50}, Point{X: 30, Y: 50}), polyline(Point{X: 70, Y: -50}, Point{X: 70, Y: 50})
+	keys := []conflictExtentKey{
+		{lane: lane, other: early, clearance: Clearance},
+		{lane: lane, other: late, clearance: Clearance},
+		{lane: lane, other: early, clearance: largeClearance},
+		{lane: longer, other: late, clearance: largeClearance},
+		{lane: early, other: lane, clearance: Clearance},
+	}
+	extents := make(map[conflictExtentKey][2]float64)
+	seen := make(map[[2]uint64]bool)
+	for _, pass := range []string{"first", "second"} {
+		for index, key := range keys {
+			wantStart, wantEnd := conflictExtentWithClearance(key.lane, key.other, key.clearance)
+			start, end := key.measure(extents, true)
+			got, want := [2]uint64{math.Float64bits(start), math.Float64bits(end)}, [2]uint64{math.Float64bits(wantStart), math.Float64bits(wantEnd)}
+			if got != want {
+				t.Fatalf("%s pass, key %d: extent %v to %v, want %v to %v", pass, index, start, end, wantStart, wantEnd)
+			}
+			seen[got] = true
+		}
+	}
+	if len(seen) != len(keys) {
+		t.Fatalf("%d different extents from %d keys", len(seen), len(keys))
+	}
+	if len(extents) != len(keys) {
+		t.Fatalf("%d extents kept, want %d", len(extents), len(keys))
+	}
+	// A value that no measurement gives shows which path gave the extent.
+	extents[keys[0]] = [2]float64{-1, -2}
+	if start, end := keys[0].measure(extents, true); start != -1 || end != -2 {
+		t.Fatalf("reuse gave %v to %v, not the kept extent", start, end)
+	}
+	if start, _ := keys[0].measure(extents, false); start == -1 {
+		t.Fatal("a measurement with no reuse gave the kept extent")
+	}
+}
+
+// TestSharedEndpoints checks which lane pairs reuse an extent.
+func TestSharedEndpoints(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		first, second Lane
+		want          bool
+	}{
+		{Lane{From: "a", To: "b"}, Lane{From: "a", To: "b"}, true},
+		{Lane{From: "a", To: "b"}, Lane{From: "b", To: "a"}, true},
+		{Lane{From: "c", To: "c"}, Lane{From: "c", To: "c"}, true},
+		{Lane{From: "a", To: "b"}, Lane{From: "a", To: "c"}, false},
+		{Lane{From: "a", To: "b"}, Lane{From: "c", To: "a"}, false},
+		{Lane{From: "c", To: "c"}, Lane{From: "c", To: "a"}, false},
+	} {
+		if got := sharedEndpoints(tc.first, tc.second); got != tc.want {
+			t.Errorf("sharedEndpoints(%+v, %+v) = %v, want %v", tc.first, tc.second, got, tc.want)
+		}
+	}
 }
