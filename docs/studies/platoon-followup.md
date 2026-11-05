@@ -153,3 +153,39 @@ The separation check never fired, and the minimum gap was 6.000 m.
 
 For a cap above 120 degrees, no option within the limits adds entries a minute, and the KSX single entries fall by 25 percent.
 A cap of 155 degrees needs a clearance of 33 to 48 m.
+
+## Waterloo entry trace
+
+This trace ran at `8bbae7a` with `cmd/compare` on LondonFull: destination pattern, 3-second interval, 20 minutes of arrivals, 60 minutes in total, seeds 1 to 3, redistribution and pickup reassignment on, virtual platoons, and free-flow routing.
+The host was busy.
+The upper-bound arms ran with no separation check, so they are not fix shapes.
+
+| Measure | King's Cross | Waterloo |
+| --- | ---: | ---: |
+| Entries in 60 minutes | 368 to 390 | 309 to 321 |
+| Entries for each minute with a queue | 7.2 to 7.5 | 5.8 to 6.0 |
+| Median entry headway | 2.5 to 3.2 s | 11.0 s |
+| Exits through `access-out` | 361 to 374 | 283 to 293 |
+| Median time from berth departure to `access-out` | 41 to 46 s | 92 to 115 s |
+| Mean pods on departure lanes with a queue | 7.6 | 17.6 |
+
+| Waterloo arm | Entries | Entries for each minute with a queue | Exits | Median headway |
+| --- | ---: | ---: | ---: | ---: |
+| Baseline | 309 to 321 | 5.8 to 6.0 | 283 to 293 | 11.0 s |
+| Turn cap of 180 degrees | 324 to 337 | 6.0 to 6.2 | 292 to 296 | 8.7 to 10.1 s |
+| Departing pods ignore each other | 337 to 340 | 6.3 to 6.4 | 328 to 332 | 11.0 to 12.0 s |
+| Both | 365 to 379 | 6.9 to 7.4 | 357 to 374 | 10.1 to 10.7 s |
+
+The exit stage is the first limit at Waterloo, and the approach turn is the second.
+The same exit arm changes nothing at King's Cross.
+With both limits removed, Waterloo reaches the King's Cross rate but not its headway.
+The headway gap has no explanation.
+
+The likely place is `road-out-01`, but no direct test shows it.
+This lane takes 51 percent of Waterloo exits, with a mean merge headway of 11.1 s.
+It is 48 m long, and its merge and departure conflicts form one reservation, with a turn of about 173 degrees from `access-out` to `link-100-ba-1`.
+The main King's Cross exit, `road-out-05`, has a mean of 7.3 s and a turn of 26 degrees.
+
+A sim rule alone did not help: longer exit runs and an exit turn taken at formation raised exits to about 302 to 313, and entries stayed at 6.0 to 6.1 a minute.
+A fix probably needs a layout change to this exit in the preset.
+A change to the turn cap goes to the maintainer, because it changes the clearance and its proof, and restore checks saved link turns.
