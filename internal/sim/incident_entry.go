@@ -66,3 +66,108 @@ func (s *Simulation) IncidentForTest(podID string, operation IncidentTestOperati
 	s.observe()
 	return nil
 }
+
+// StopIncidentSamplersForTest sets the next tick of each live sampler to
+// MaxCounter, so no new event starts. The samplers stay live, so their gated
+// counters keep moving.
+//
+// It is a test entry for the soak of section 5.1.9 of the incident stage 7
+// contract. No production code calls it.
+func (s *Simulation) StopIncidentSamplersForTest() {
+	if s.faultSampler.live {
+		s.faultSampler.nextTick = MaxCounter
+	}
+	if s.emergencySampler.live {
+		s.emergencySampler.nextTick = MaxCounter
+	}
+}
+
+// FaultTransitionForTest returns a check of the transition rules of section
+// 10 of the incident suspension contract. Each call compares each pod that is
+// faulted before and after the time since the last call.
+//
+// It is a test entry for the soak of section 5.1.9 of the incident stage 7
+// contract, because the session tests cannot read the cap or the grants. No
+// production code calls it.
+func (s *Simulation) FaultTransitionForTest() func() error {
+	previous := faultPoses(s)
+	return func() error {
+		next := faultPoses(s)
+		for index := range next {
+			if previous[index].faulted && next[index].faulted {
+				if err := faultTransition(previous[index], next[index]); err != nil {
+					return fmt.Errorf("pod %s: %w: %+v, then %+v", s.vehicles[index].Pod.ID, err, previous[index], next[index])
+				}
+			}
+		}
+		previous = next
+		return nil
+	}
+}
+
+// faultPose is the state of a pod that the transition rules of section 10
+// of the incident suspension contract compare.
+type faultPose struct {
+	faulted, traveling     bool
+	faultCap, distance     float64
+	speed                  float64
+	lane, berth            string
+	laneDistance           float64
+	position               Point
+	routeVersion           uint64
+	reservedThrough        int
+	riders, completedRider int
+}
+
+// faultPoses returns the pose of each pod.
+func faultPoses(s *Simulation) []faultPose {
+	poses := make([]faultPose, len(s.vehicles))
+	for index := range s.vehicles {
+		v := &s.vehicles[index]
+		completed := 0
+		for _, rider := range v.Riders {
+			if rider.Completed {
+				completed++
+			}
+		}
+		poses[index] = faultPose{
+			faulted: v.faulted, traveling: v.Pod.Activity == Traveling, faultCap: v.faultCap, distance: v.distance, speed: v.Pod.Speed,
+			lane: v.Pod.LaneID, berth: v.Pod.BerthID, laneDistance: v.Pod.LaneDistance, position: v.Pod.Position,
+			routeVersion: v.routeVersion, reservedThrough: v.reservedThrough, riders: len(v.Riders), completedRider: completed,
+		}
+	}
+	return poses
+}
+
+// faultTransition checks the transition rules of a pod that is faulted
+// before and after one tick or command (F3 and F4). The speed never rises,
+// and the cap does not change. The grants do not grow. While the pod
+// brakes, its distance does not fall and stays at most the cap. A pod at
+// rest keeps its physical pose and speed 0, and its distance while its
+// route stays. No rider completes.
+func faultTransition(before, after faultPose) error {
+	switch {
+	case after.speed > before.speed:
+		return errors.New("the speed rises")
+	case after.faultCap != before.faultCap:
+		return errors.New("the cap changes")
+	case after.reservedThrough > before.reservedThrough:
+		return errors.New("the grants grow")
+	case after.completedRider > before.completedRider:
+		return errors.New("a rider completes")
+	}
+	sameRoute := after.routeVersion == before.routeVersion
+	if before.speed > 0 {
+		if sameRoute && (after.distance < before.distance || after.distance > after.faultCap) {
+			return errors.New("the braking pod leaves its distance range")
+		}
+		return nil
+	}
+	if after.speed != 0 || after.lane != before.lane || after.laneDistance != before.laneDistance || after.berth != before.berth || after.position != before.position {
+		return errors.New("the pod at rest moves")
+	}
+	if sameRoute && after.distance != before.distance {
+		return errors.New("the distance of the pod at rest changes")
+	}
+	return nil
+}

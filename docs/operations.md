@@ -910,7 +910,7 @@ mise run check
 | `mise run check:static` | The checks other than the race tests and `qualify`: `test:web`, `lint`, `vulncheck`, `build`, and `test:embedded`. |
 | `mise run test:race` | The `test:race:sim`, `test:race:session`, and `test:race:other` tasks. |
 | `mise run test:web` | Only the editor, loader, and page tests. |
-| `mise run qualify` | The two Station 19 drain tests in `internal/scenarios` and the two emergency choice latency tests in `internal/sim`, without the race detector. These tests skip under the race detector, so in `mise run check` only this task runs them. The `test:race` task runs the other tests of these packages. |
+| `mise run qualify` | The two Station 19 drain tests in `internal/scenarios`, the two emergency choice and two sampled-tick latency tests in `internal/sim`, and the CI incident soak in `internal/session`, without the race detector. These tests skip under the race detector, so in `mise run check` only this task runs them. The `test:race` task runs the other tests of these packages. |
 | `mise run test:embedded` | The root and `cmd/serve` tests with the `embed_assets` tag. It also runs the session tests that skip under the race detector or check more without it. The `test:race` task runs the other session tests. |
 | `mise run benchmark` | 6,000 simulation steps on the 100-pod ring fixture, not on the current `scale100` mesh. |
 

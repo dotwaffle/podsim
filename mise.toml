@@ -146,17 +146,19 @@ description = "Qualify matched London fleets at normal and overloaded demand wit
 run = "PODSIM_QUALIFY_LONDON=1 go test -p 1 ./internal/session -count=1 -v -timeout=10m -run '^TestLondonFleetQualification$'"
 
 [tasks.qualify]
-description = "Run the Station 19 scale and safety tests and the emergency choice latency tests without the race detector"
+description = "Run the Station 19 scale and safety tests, the emergency choice and sampled-tick latency tests, and the CI incident soak without the race detector"
 # A long test that runs one simulation on one goroutine skips under -race,
 # because the race detector finds nothing there and makes it 10 times
 # slower. A test that measures time also skips under -race. The check
 # task runs this task, so such a test must be in one of these patterns.
 # Add it to a pattern, because a pattern that matches no test passes.
 # test:race runs the other tests.
-# The full-limit no-candidate timing report runs only in this task.
+# The full-limit no-candidate timing reports and the CI incident soak run
+# only in this task.
 run = '''
 go test ./internal/scenarios -count=1 -v -timeout=30m -run '^TestScale100Station19(Queue|Burst)DrainsSafely$' || exit 1
-PODSIM_QUALIFY=1 go test ./internal/sim -count=1 -v -timeout=30m -run '^(TestEmergencyChoiceLatency|TestEmergencyNoCandidateLatency)$'
+PODSIM_QUALIFY=1 go test ./internal/sim -count=1 -v -timeout=30m -run '^(TestEmergencyChoiceLatency|TestEmergencyNoCandidateLatency|TestSampledTickLatency|TestSampledTickNoCandidateLatency)$' || exit 1
+PODSIM_QUALIFY=1 go test ./internal/session -count=1 -v -timeout=30m -run '^TestIncidentSoakCI$'
 '''
 
 [tasks.benchmark]
