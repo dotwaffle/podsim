@@ -177,6 +177,35 @@ func TestExpressAdmissionCountsSeatsAndParties(t *testing.T) {
 	}
 }
 
+// TestExpressAdmissionCountsStandees checks the party sizes above the seats.
+// An active party can stand, and so can a new party. The sum stays at most 20.
+func TestExpressAdmissionCountsStandees(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name    string
+		active  []PartyFacts
+		request int
+		want    error
+	}{
+		{"new party of the seats", nil, 12, nil},
+		{"new party of 13", nil, 13, nil},
+		{"new party of 20", nil, 20, nil},
+		{"active party of 13", facts(expressOrder(13)), 7, nil},
+		{"active party of 13 and a full total", facts(expressOrder(13)), 8, ErrPartyAdmission},
+		{"seats and all standee places", facts(expressOrder(12)), 8, nil},
+		{"one over the standee places", facts(expressOrder(12)), 9, ErrPartyAdmission},
+		{"active parties over the total", facts(expressOrder(12), expressOrder(9)), 1, ErrPartyAdmission},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			input := PartyAdmissionInput{Class: ExpressClass, Request: expressOrder(test.request), Active: test.active, PartyLimit: 20}
+			if err := CheckPartyAdmissionWithOrderContract(input, ExpressOrderContract); !errors.Is(err, test.want) {
+				t.Fatalf("admission = %v, want %v", err, test.want)
+			}
+		})
+	}
+}
+
 func privateOrder(size int) TripOptions {
 	return TripOptions{From: "harbor", To: "market", PartySize: size, SharingConsent: PrivateConsent, Service: OnDemandService}
 }

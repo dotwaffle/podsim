@@ -26,12 +26,12 @@ The [selected service screen](design/experimental-adoption.md#rejected-candidate
 Each pod has a class, which sets how many passengers it carries and how much room it needs.
 A project that names no class gets Legacy pods, and the London presets use Compact pods.
 
-| Class | Seats | Largest new party | Body length | Large class |
-| --- | ---: | ---: | ---: | --- |
-| `legacy` | 8 | 1 | 4 m | No |
-| `compact` | 4 | 4 | 4 m | No |
-| [`group`](design/group-physics-design.md) | 8 | 8 | 6 m | Yes |
-| `express` | 20 | 8, or 20 with `express-v1` | None, or 10 m with `express-v1` | Yes |
+| Class | Seats | Standee places | Largest new party | Body length | Large class |
+| --- | ---: | ---: | ---: | ---: | --- |
+| `legacy` | 8 | 0 | 1 | 4 m | No |
+| `compact` | 4 | 0 | 4 | 4 m | No |
+| [`group`](design/group-physics-design.md) | 8 | 0 | 8 | 6 m | Yes |
+| `express` | 12 | 8 | 8, or 20 with `express-v1` | None, or 6 m with `express-v1` | Yes |
 
 A large class needs more room, and the rest of this document refers to it by that name.
 A pair of pods with a large class keeps 20 meters of clearance, where other pairs keep 12 meters, and a lane that admits a large class must be at least 40 meters long.
@@ -60,7 +60,7 @@ Passengers order travel between stations whatever pod a browser has selected.
 A party is the group of passengers of one order, and it never splits.
 A party has 1 to 8 passengers, or 1 to 20 with the Express contract.
 Generated and demo orders have one passenger.
-A pod takes a party only when the party fits the [class](#vehicle-classes) of the pod and its free seats.
+A pod takes a party only when the party fits the [class](#vehicle-classes) of the pod and its free seats and standee places.
 
 A party rides alone unless it consents to share, and the consent comes from different places:
 

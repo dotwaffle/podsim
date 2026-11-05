@@ -53,7 +53,7 @@ func LookupVehicleClassWithOrderContract(class VehicleClass, contract OrderContr
 	profile, ok := LookupVehicleClass(class)
 	if ok && class == ExpressClass && contract == ExpressOrderContract {
 		profile.MaxNewPartySize = 20
-		profile.BodyLengthMeters = 10
+		profile.BodyLengthMeters = 6
 		profile.PhysicalSupported = true
 	}
 	return profile, ok

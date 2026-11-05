@@ -42,11 +42,11 @@ func TestExpressContractProfilesAndFoundation(t *testing.T) {
 		p, ok := LookupVehicleClassWithOrderContract(ExpressClass, contract)
 		switch contract {
 		case ExpressOrderContract:
-			if !ok || p.Seats != 20 || p.MaxNewPartySize != 20 || p.BodyLengthMeters != 10 || !p.PhysicalSupported {
+			if !ok || p.Seats != 12 || p.Standees != 8 || p.MaxNewPartySize != 20 || p.BodyLengthMeters != 6 || !p.PhysicalSupported {
 				t.Fatal(p)
 			}
 		case "":
-			if !ok || p.PhysicalSupported || p.BodyLengthMeters != 0 || p.MaxNewPartySize != 8 {
+			if !ok || p.PhysicalSupported || p.Seats != 12 || p.Standees != 8 || p.BodyLengthMeters != 0 || p.MaxNewPartySize != 8 {
 				t.Fatal(p)
 			}
 		default:
@@ -85,13 +85,13 @@ func TestExpressContractProfilesAndFoundation(t *testing.T) {
 	if s.OrderContract() != ExpressOrderContract || s.Snapshot().OrderContract != ExpressOrderContract {
 		t.Fatal("reset lost marker")
 	}
-	if math.Hypot(5, 1.25) > 6 {
+	if math.Hypot(3, 1.25) > 6 {
 		t.Fatal("centered body exceeds reviewed envelope")
 	}
 }
 
 func TestExpressWholePartyAdmission(t *testing.T) {
-	for _, size := range []int{-1, 1, 8, 9, 20, 21} {
+	for _, size := range []int{-1, 1, 8, 9, 12, 13, 20, 21} {
 		t.Run(strconv.Itoa(size), func(t *testing.T) {
 			s, _, _ := expressTestFleet(t)
 			before := s.ExportState()
@@ -126,6 +126,28 @@ func TestExpressWholePartyAdmission(t *testing.T) {
 		if !reflect.DeepEqual(before, s.ExportState()) {
 			t.Fatal("small refusal mutated state")
 		}
+	}
+}
+
+// TestExpressRestoreKeepsStandees restores a pod with a party above the
+// seats. A restore that reads only the seats refuses the state.
+func TestExpressRestoreKeepsStandees(t *testing.T) {
+	s, n, f := expressTestFleet(t)
+	if _, err := s.SubmitTripOptions(TripOptions{From: "harbor", To: "market", PartySize: 13}); err != nil {
+		t.Fatal(err)
+	}
+	for s.vehicles[0].PassengersAboard() != 13 {
+		if s.tick > 600*TicksPerSecond {
+			t.Fatal("the party of 13 did not board")
+		}
+		s.Step()
+	}
+	restored, _, err := RestoreState(RestoreStateInput{Network: n, Fleet: f, State: s.ExportState(), OrderContract: ExpressOrderContract})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := restored.vehicles[0].PassengersAboard(); got != 13 {
+		t.Fatalf("restored %d passengers, want 13", got)
 	}
 }
 

@@ -29,6 +29,49 @@ func expressGuardFrame(t *testing.T) (TopologySnapshot, StreamFrame) {
 	return shared.Topology(), frame
 }
 
+// TestExpressStreamAcceptsStandees accepts a full frame with passengers above
+// the seats, on the same path that TestExpressPublicOrderGuards refuses.
+func TestExpressStreamAcceptsStandees(t *testing.T) {
+	topology, frame := expressGuardFrame(t)
+	for _, test := range []struct {
+		name  string
+		sizes []int
+	}{
+		{"one party of 13", []int{13}},
+		{"one party of 20", []int{20}},
+		{"parties of 12 and 8", []int{12, 8}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			assembler, err := NewStreamAssembler(topology)
+			if err != nil {
+				t.Fatal(err)
+			}
+			good := ownStreamBoardings(frame)
+			v := &good.State.Simulation.Vehicles[0]
+			for i, size := range test.sizes {
+				v.Riders[i].Completed = false
+				v.Riders[i].PartySize = size
+			}
+			envelope := StreamEnvelope{OrderContract: sim.ExpressOrderContract, Kind: "full", Stream: "guard", Sequence: 1, Source: sourceOf(good), Full: &good}
+			raw, err := EncodeStreamJSON(envelope)
+			if err != nil {
+				t.Fatal(err)
+			}
+			decoded, err := DecodeStreamJSON(raw)
+			if err != nil {
+				t.Fatal(err)
+			}
+			candidate, err := ApplyStream(StreamFrame{}, "", 0, decoded)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := assembler.State(candidate); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
 func TestExpressPublicOrderGuards(t *testing.T) {
 	topology, frame := expressGuardFrame(t)
 	tests := []struct {

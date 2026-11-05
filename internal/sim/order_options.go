@@ -137,7 +137,7 @@ func CheckPartyAdmissionWithOrderContract(input PartyAdmissionInput, contract Or
 	if input.PartyLimit < 1 || input.PartyLimit > limit {
 		return fmt.Errorf("pooling party limit must be 1 to %d: %w", limit, ErrPartyAdmission)
 	}
-	parties, seats := 0, 0
+	parties, passengers := 0, 0
 	for _, party := range input.Active {
 		if party.Completed {
 			continue
@@ -146,12 +146,12 @@ func CheckPartyAdmissionWithOrderContract(input PartyAdmissionInput, contract Or
 			return err
 		}
 		parties++
-		if parties >= input.PartyLimit || party.PartySize > profile.Seats-seats {
+		if parties >= input.PartyLimit || party.PartySize > profile.Capacity()-passengers {
 			return fmt.Errorf("active parties exceed available capacity: %w", ErrPartyAdmission)
 		}
-		seats += party.PartySize
+		passengers += party.PartySize
 	}
-	if request.PartySize > profile.Seats-seats {
+	if request.PartySize > profile.Capacity()-passengers {
 		return fmt.Errorf("passenger seats are full: %w", ErrPartyAdmission)
 	}
 	return nil

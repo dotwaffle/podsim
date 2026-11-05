@@ -21,6 +21,7 @@ const (
 type VehicleClassSpec struct {
 	Class             VehicleClass
 	Seats             int
+	Standees          int
 	MaxNewPartySize   int
 	BodyLengthMeters  float64
 	PhysicalSupported bool
@@ -38,17 +39,22 @@ var (
 func LookupVehicleClass(class VehicleClass) (VehicleClassSpec, bool) {
 	switch class {
 	case "", LegacyClass:
-		return VehicleClassSpec{LegacyClass, 8, 1, 4, true}, true
+		return VehicleClassSpec{LegacyClass, 8, 0, 1, 4, true}, true
 	case CompactClass:
-		return VehicleClassSpec{CompactClass, 4, 4, 4, true}, true
+		return VehicleClassSpec{CompactClass, 4, 0, 4, 4, true}, true
 	case GroupClass:
-		return VehicleClassSpec{GroupClass, 8, 8, 6, true}, true
+		return VehicleClassSpec{GroupClass, 8, 0, 8, 6, true}, true
 	case ExpressClass:
-		return VehicleClassSpec{ExpressClass, 20, 8, 0, false}, true
+		return VehicleClassSpec{ExpressClass, 12, 8, 8, 0, false}, true
 	default:
 		return VehicleClassSpec{}, false
 	}
 }
+
+// Capacity returns the passengers that a pod of the class can carry. Seats
+// fill first. A consumer derives a standee count from the riders, so no
+// record stores one.
+func (p VehicleClassSpec) Capacity() int { return p.Seats + p.Standees }
 
 // ValidateVehicleClassProfile checks physical approval for placement, startup,
 // and restore. Logical capacity checks do not replace this check.

@@ -213,7 +213,7 @@ func (a *StreamAssembler) serviceOrders(frame StreamFrame) error {
 		if previous, recorded := a.classes[vehicle.Pod.ID]; recorded && previous != profile.Class {
 			return errors.New("stream vehicle class changed within project")
 		}
-		active, seats := 0, 0
+		active, passengers := 0, 0
 		for _, rider := range vehicle.Riders {
 			if !validStreamOrder(rider) {
 				return errors.New("invalid rider service order")
@@ -222,8 +222,8 @@ func (a *StreamAssembler) serviceOrders(frame StreamFrame) error {
 				continue
 			}
 			active++
-			seats += rider.PartySize
-			if rider.PartySize > profile.MaxNewPartySize || seats > profile.Seats || active > 1 && rider.SharingConsent != sim.SharedConsent {
+			passengers += rider.PartySize
+			if rider.PartySize > profile.MaxNewPartySize || passengers > profile.Capacity() || active > 1 && rider.SharingConsent != sim.SharedConsent {
 				return errors.New("stream riders exceed class capacity or consent")
 			}
 		}
