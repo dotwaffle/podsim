@@ -14,11 +14,7 @@ type bankAuditPath struct {
 	min, max  Point
 	large     bool
 	locations []SafetyLocation
-	// reach holds the locations that a pod on the path can occupy (see
-	// laneReachLocations). A large pair is separated by plane only when
-	// every cross-pair of reach is.
-	reach  []SafetyLocation
-	member auditMember
+	member    auditMember
 	// key is the separation key of the lane or the berth.
 	key separationKey
 }
@@ -89,10 +85,10 @@ func (n Network) validateBankGeometry(audit bankAudit) error {
 	}
 	positions := indexNodePositions(n.Nodes)
 	var incident map[string][]Lane
-	var origins map[string][]SafetyLocation
 	if large {
-		incident, origins = incidentLanes(n), berthLocationsByNode(n)
+		incident = incidentLanes(n)
 	}
+	reach := &lazyPlaneReach{network: n}
 	paths := make([]bankAuditPath, 0, len(n.Lanes))
 	for index, lane := range n.Lanes {
 		points := lanePointsBetween(lane, positions[lane.From], positions[lane.To], make([]Point, 0, 65))
@@ -103,7 +99,6 @@ func (n Network) validateBankGeometry(audit bankAudit) error {
 		}
 		if large {
 			path.locations = []SafetyLocation{path.location}
-			path.reach = laneReachLocations(lane, incident, origins)
 		}
 		for _, point := range points {
 			path.min.X, path.min.Y = min(path.min.X, point.X), min(path.min.Y, point.Y)
@@ -123,7 +118,6 @@ func (n Network) validateBankGeometry(audit bankAudit) error {
 			path.member = auditMember{spans: retention.nodeSpans(berth.Node), large: path.large}
 			if large {
 				path.locations = berthGeometryLocations(berth, incident[berth.Node])
-				path.reach = path.locations
 			}
 			paths = append(paths, path)
 		}
@@ -159,7 +153,7 @@ func (n Network) validateBankGeometry(audit bankAudit) error {
 				continue
 			}
 			separated := first.separated(second)
-			if separated && first.reachSeparated(second) {
+			if separated && first.reachSeparated(second, reach) {
 				continue
 			}
 			pieces := audit.pieces(first, second)
@@ -210,44 +204,13 @@ func (path bankAuditPath) separated(other bankAuditPath) bool {
 }
 
 // reachSeparated reports whether every cross-pair of the reach of a large
-// pair is on different planes. Other pairs have no reach.
-func (path bankAuditPath) reachSeparated(other bankAuditPath) bool {
-	return !path.large && !other.large || envelopeLocationsSeparated(path.reach, other.reach)
-}
-
-// laneReachLocations returns the locations of a lane that the safety
-// observation can give a pod on it: the lane, its incident lanes, which the
-// front and the rear of the body reach, and each berth at its From node,
-// which a departing pod holds until origin release. A berth at its To node
-// is not one of them, because a pod holds a berth only when it stops there.
-func laneReachLocations(lane Lane, incident map[string][]Lane, origins map[string][]SafetyLocation) []SafetyLocation {
-	locations := []SafetyLocation{{SeparationGroup: lane.SeparationGroup, From: lane.From, To: lane.To}}
-	add := func(location SafetyLocation) {
-		if !slices.Contains(locations, location) {
-			locations = append(locations, location)
-		}
+// pair is on different planes (see planeReach). Other pairs have no reach.
+func (path bankAuditPath) reachSeparated(other bankAuditPath, reach *lazyPlaneReach) bool {
+	if !path.large && !other.large {
+		return true
 	}
-	for _, node := range []string{lane.From, lane.To} {
-		for _, other := range incident[node] {
-			add(SafetyLocation{SeparationGroup: other.SeparationGroup, From: other.From, To: other.To})
-		}
-	}
-	for _, location := range origins[lane.From] {
-		add(location)
-	}
-	return locations
-}
-
-// berthLocationsByNode returns the location of each berth, by the node of
-// the berth.
-func berthLocationsByNode(n Network) map[string][]SafetyLocation {
-	locations := make(map[string][]SafetyLocation)
-	for _, station := range n.Stations {
-		for _, berth := range station.Berths {
-			locations[berth.Node] = append(locations[berth.Node], SafetyLocation{SeparationGroup: berth.SeparationGroup, From: berth.Node, To: berth.Node})
-		}
-	}
-	return locations
+	index := reach.get()
+	return index.path(path.key).separated(index.path(other.key))
 }
 
 func (n Network) hasLargeGeometry() bool {

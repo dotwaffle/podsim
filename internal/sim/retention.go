@@ -451,8 +451,9 @@ type LaneClearance struct {
 	// valid.
 	lateral *depotLateral
 	lanes   map[string]int
-	// reach holds laneReachLocations of each lane, by lane ID.
-	reach map[string][]SafetyLocation
+	// reach is the plane reach of the network, which only a large pair on
+	// different planes reads.
+	reach *lazyPlaneReach
 	// tails holds the one tail index of an editor check.
 	tails map[string]geometryTails
 }
@@ -466,13 +467,7 @@ type LaneClearance struct {
 // each depot pair keeps Clearance.
 func NewLaneClearance(network Network) LaneClearance {
 	tails := indexGeometryTails(network)
-	clearance := LaneClearance{tails: tails, retention: newLaneRetention(network, tails), depots: depotChainLanes(network), reach: make(map[string][]SafetyLocation, len(network.Lanes))}
-	incident, origins := incidentLanes(network), berthLocationsByNode(network)
-	for _, lane := range network.Lanes {
-		if _, repeated := clearance.reach[lane.ID]; !repeated {
-			clearance.reach[lane.ID] = laneReachLocations(lane, incident, origins)
-		}
-	}
+	clearance := LaneClearance{tails: tails, retention: newLaneRetention(network, tails), depots: depotChainLanes(network), reach: &lazyPlaneReach{network: network}}
 	if len(network.Depots) == 0 {
 		return clearance
 	}
@@ -501,7 +496,10 @@ func (c LaneClearance) PlanesSeparated(first, second Lane) bool {
 	if c.reach == nil || !largeClassSet(first.VehicleClasses) && !largeClassSet(second.VehicleClasses) {
 		return true
 	}
-	return envelopeLocationsSeparated(c.reach[first.ID], c.reach[second.ID])
+	index := c.reach.get()
+	a, foundA := index.laneIDs[first.ID]
+	b, foundB := index.laneIDs[second.ID]
+	return foundA && foundB && index.lanes[a].separated(index.lanes[b])
 }
 
 // depotChainLanes returns an index with only the chain lanes of the
