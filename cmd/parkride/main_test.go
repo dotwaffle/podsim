@@ -20,12 +20,17 @@ import (
 
 func TestDurationAndRequiredOptions(t *testing.T) {
 	t.Parallel()
+	const belowTick = (time.Second - 1) / sim.TicksPerSecond
 	for _, tc := range []struct {
 		text  string
 		ticks int64
 		valid bool
 	}{
-		{"1s", 60, true}, {"1m", 3600, true}, {"24h", parkride.MaxHorizonTicks, true}, {"17ms", 1, true}, {"16.666666ms", 0, false}, {"16.666667ms", 1, true}, {"1.5s", 90, true}, {"24h1ns", 0, false}, {"-1s", 0, false}, {"0s", 0, false},
+		{"1s", sim.TicksPerSecond, true}, {"1m", 60 * sim.TicksPerSecond, true}, {"24h", parkride.MaxHorizonTicks, true},
+		// 17 ms, 16.666666 ms, and 16.666667 ms at 60 Hz.
+		{(time.Second * 102 / 100 / sim.TicksPerSecond).String(), 1, true},
+		{belowTick.String(), 0, false}, {(belowTick + 1).String(), 1, true},
+		{"1.5s", 3 * sim.TicksPerSecond / 2, true}, {"24h1ns", 0, false}, {"-1s", 0, false}, {"0s", 0, false},
 	} {
 		t.Run(tc.text, func(t *testing.T) {
 			t.Parallel()
