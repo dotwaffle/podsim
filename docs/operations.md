@@ -961,7 +961,8 @@ The `test:web` task sets `PODSIM_REQUIRE_GO=1`, so a missing Go makes the task a
 ### Incident soak
 
 `mise run soak` runs `TestIncidentSoak` on `rail-hub` and `london-central`.
-Each arm has one warm save, and each branch restores it in a new session and reseeds the driver.
+Each arm has one warm save, and each branch restores it in a new session and reseeds the driver, the fault and emergency samplers, and demand.
+The new streams derive from the seed and the branch, so the same selection gives the same run.
 A failure stops only its branch, and the log line of each branch has its Progress and rule A numbers.
 In that line, `demoted` counts the saves that fail the `physical` tier because a pod with a fault or an emergency would move to a berth, and `podsDemoted` counts the pods that a `physical` restore moves to a berth.
 Any other failure of the `physical` tier stops the branch.

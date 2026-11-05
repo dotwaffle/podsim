@@ -422,11 +422,14 @@ The state of a pair first differs 18 to 61 s after the warm save, at the first d
 | 60 | 87% to 93% | 77% to 90% |
 
 So the state of the branches diverges in 15 to 20 of their 120 simulated minutes.
-The branches are not independent in their inputs.
-The state holds the sampler streams and the demand stream, and only the driver reseeds.
-So each branch has the same sampler events: 13 to 17 of the 45 to 51 `incidents` records of a pair have the same start tick and kind, and 10 to 15 also have the same pod or lane.
-On `emergencies`, the numbers are 5 to 7 of 15 to 22, all with the same pod.
-All 10 branches also share the warm state.
+These numbers are from the time when only the driver reseeded.
+Then, 13 to 17 of the 45 to 51 `incidents` records of a pair had the same start tick and kind, and 10 to 15 also had the same pod or lane.
+On `emergencies`, the numbers were 5 to 7 of 15 to 22, all with the same pod.
+
+Each branch now also reseeds the fault sampler, the emergency sampler, and demand.
+On seed 1, 2 of the 52 to 59 `incidents` records of each pair have the same start tick and kind, and on `emergencies`, 0 of 16 to 22.
+In the one pair read, the 2 records are faults of the warm time, which each branch inherits.
+All 10 branches still share the warm state.
 
 ### Estimate of the wall time
 

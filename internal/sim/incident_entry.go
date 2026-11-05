@@ -82,6 +82,20 @@ func (s *Simulation) StopIncidentSamplersForTest() {
 	}
 }
 
+// ReseedIncidentSamplersForTest gives each live sampler a new stream with the
+// seed of its kind, and schedules its next event from the current tick.
+//
+// It is a test entry for the branches of the soak of section 5.1.9 of the
+// incident stage 7 contract. No production code calls it.
+func (s *Simulation) ReseedIncidentSamplersForTest(fault, emergency [2]uint64) {
+	if s.faultSampler.live {
+		s.faultSampler.start(fault, s.faultSampler.perHour, s.tick)
+	}
+	if s.emergencySampler.live {
+		s.emergencySampler.start(emergency, s.emergencySampler.perHour, s.tick)
+	}
+}
+
 // CheckIncidentRecordsForTest runs the part of CheckContract that reads no
 // export: the fault records and the emergency records.
 //

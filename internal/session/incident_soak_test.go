@@ -237,6 +237,9 @@ func newSoakDriver(t *testing.T, input soakInput) *soakDriver {
 		t.Fatal(err)
 	}
 	t.Cleanup(s.Close)
+	if input.warm != nil {
+		soakReseed(s, input.seed, input.branch)
+	}
 	rng := rand.New(rand.NewPCG(input.seed, 0x50414b+input.branch))
 	client := "soak"
 	if input.warm != nil {
@@ -259,6 +262,20 @@ func newSoakDriver(t *testing.T, input soakInput) *soakDriver {
 		d.startChecks()
 	}
 	return d
+}
+
+// soakReseed gives a restored session new streams for the fault sampler, the
+// emergency sampler, and demand. Each stream derives from the seed and the branch,
+// so the same selection gives the same run, and branches of one warm save share
+// no future sampler or demand event by the streams. The driver has its own stream.
+func soakReseed(s *Session, seed, branch uint64) {
+	source := rand.New(rand.NewPCG(seed, 0x42524e43+branch))
+	fault := [2]uint64{source.Uint64(), source.Uint64()}
+	emergency := [2]uint64{source.Uint64(), source.Uint64()}
+	s.simulation.ReseedIncidentSamplersForTest(fault, emergency)
+	if s.demand.pcg != nil {
+		s.demand.pcg.Seed(source.Uint64(), source.Uint64())
+	}
 }
 
 // soakWarm is a warm save: the encoded state of a run at the end of its warm
@@ -1039,9 +1056,9 @@ func soakEnvNumber[N uint64 | int64 | float64](t *testing.T, name string, fallba
 // limit, and the lock. docs/operations.md has the details.
 //
 // In the routine shape, each arm has one warm save at 30 simulated minutes, and
-// each branch restores it in a new session and reseeds the driver. A reference
-// arm has no driver event, so its branches would be the same run: it runs one
-// branch, and each branch of the arms of its group reads its queue range. In
+// each branch restores it in a new session and reseeds the driver, the samplers,
+// and demand. A reference arm has no driver event: it runs one branch, and each
+// branch of the arms of its group reads its queue range. In
 // the shape of amendment A6, each arm has one new session for each seed. Each
 // branch is a subtest, so a failure stops only that branch, and its log line
 // holds its Progress and rule A numbers.
@@ -1448,6 +1465,57 @@ func TestSoakGroupBranches(t *testing.T) {
 		t.Parallel()
 		runSoakGroup(t, input, shape, "reference", []string{"incidents", "emergencies"})
 	})
+}
+
+// TestSoakBranchReseed checks the streams of the branches of one warm save. The
+// same selection gives the same run. Another branch has another stream for each
+// sampler and for demand, and no branch continues the streams of the warm run.
+func TestSoakBranchReseed(t *testing.T) {
+	t.Parallel()
+	input := soakInput{preset: "rail-hub", arm: soakArms["incidents"], seed: 1, hours: 0.01, checks: true, rewindEvery: 3600 * sim.TicksPerSecond}
+	warm := soakWarmUp(t, input, 60*sim.TicksPerSecond)
+	source, err := NewFromStore(t.Context(), StoreInput{Store: &fakeStore{data: warm.data}, Options: []Option{WithLogger(slog.New(slog.DiscardHandler))}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(source.Close)
+	streams := func(s *Session) [3]string {
+		state := s.simulation.ExportState()
+		demand, err := s.demand.pcg.MarshalBinary()
+		if err != nil {
+			t.Fatal(err)
+		}
+		return [3]string{string(state.Faults.Random), string(state.Emergencies.Random), string(demand)}
+	}
+	run := func(branch uint64) (*soakDriver, [3]string) {
+		selection := input
+		selection.warm, selection.branch = warm, branch
+		d := newSoakDriver(t, selection)
+		at := streams(d.s)
+		d.runHours()
+		return d, at
+	}
+	first, firstStreams := run(1)
+	again, againStreams := run(1)
+	other, otherStreams := run(2)
+	saved := streams(source)
+	if firstStreams != againStreams {
+		t.Fatal("the same selection has other streams")
+	}
+	for index, name := range []string{"fault", "emergency", "demand"} {
+		if firstStreams[index] == otherStreams[index] {
+			t.Errorf("two branches have the same %s stream", name)
+		}
+		if firstStreams[index] == saved[index] {
+			t.Errorf("a branch continues the %s stream of the warm run", name)
+		}
+	}
+	if !reflect.DeepEqual(first.s.simulation.ExportState(), again.s.simulation.ExportState()) {
+		t.Fatal("the same selection gives another run")
+	}
+	if reflect.DeepEqual(first.s.simulation.ExportState(), other.s.simulation.ExportState()) {
+		t.Fatal("two branches give the same run")
+	}
 }
 
 // TestSoakCheckSave checks each result of a save. A physical restore can move an
