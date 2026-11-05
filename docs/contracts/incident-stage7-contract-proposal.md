@@ -58,7 +58,6 @@ These rules are settled, and this proposal does not reopen them:
 - Demand has the pattern for saved random state: `rand.PCG` in a `[]byte` member, checked at decode and restored with `UnmarshalBinary` (`internal/session/state_file.go:208`, `internal/session/state_file.go:755`, `internal/session/persist.go:611`).
 - `depguard` allows every standard library package in `internal/sim` (`.golangci.yml:130`), so `math/rand/v2` needs no lint change.
 - `Clone` copies `Simulation` by value and then deep-copies the slices (`internal/sim/clone.go:12`).
-- `laneGeometry.along` gives a point on a drawn lane at a fraction of its length, and `Network.Length` gives that length (`internal/view/draw_network.go:498`, `internal/sim/network.go:151`).
 - `faultTicksFit` already refuses a fault too near the tick limit, so such a sampled event is a skip (`internal/sim/faults.go:129`, `internal/sim/debris.go:27`).
 
 ## 3. Gaps and conflicts in the approved text
@@ -317,7 +316,7 @@ func ConfigureIncidentSampling(simulation *sim.Simulation, config Config) error
 
 `ConfigureIncidentSampling` does nothing when both rates are 0, so no PCG exists and no draw happens.
 `incidentSeeds` is private to `project`, because `RailSchedule` also hashes in that package.
-`SetFaults(false)` and `SetEmergencies(false)` stop their sampler, and neither ever draws.
+`SetFaults(false, settings)` and `SetEmergencies(false)` stop their sampler, and neither ever draws.
 `Reset` stops both samplers.
 A test entry, with no build tag, stops both samplers for the soak (section 5.1.9).
 `sim` keeps one check for a direct caller: a rate outside 0 to 60 gives `incident rate %g is outside 0 to 60`.
@@ -675,7 +674,7 @@ A third panel beside **Orders** and **Demand** (`internal/view/game.go:472`), in
 | --- | --- |
 | Summary | Active faults, active emergencies, `sampled`, `skipped`, interrupted orders, and the numbers of section 5.5. |
 | Debris | Lane ID, and **Clear**. |
-| Pod fault | Pod, phase, end tick, and **Clear**. |
+| Pod fault | Pod, phase, the end in simulated seconds or "no end", and **Clear**. |
 | Emergency | Pod and phase, with no button: P22 has no cancel. |
 
 **Clear** sends `clearFault` with the fault ID.
@@ -917,6 +916,7 @@ The rest of this section keeps the options, so that a reader can see what each a
 14. **Service-effect numbers with no rate.**
     a: they count only while a sampler is live, so a manual fault at rate 0 writes no new bytes and shows no such numbers; b: they always count, so that fault writes new bytes, as a named exception.
     Recommend a.
+    Status 2026-11-05: the maintainer confirmed that the OpenTelemetry series always exist and read 0 with no live sampler, as the journey gauges do.
 15. **The 44 reserve bytes.**
     a: widest rate 24 bytes, as the approved text says, so a rate-0 project within 44 bytes of the 32 MiB cap is refused; b: measure a rate above 0 at its own bytes, with one more branch and an amendment to three approved lines.
     Recommend a, because no project that I know of is near the cap, and the rule stays one rule.
@@ -996,15 +996,16 @@ So the patch must search the current text of all these files for each sentence a
 ## 11. Not verified, and what must be measured
 
 Each section above marks its own unverified points.
-These must be measured before or during the work:
+These were to be measured before or during the work.
+`docs/studies/incident-soak.md` holds the readings, which are not from a quiet host:
 
 | Item | Status |
 | --- | --- |
 | The Express headroom | Not known. No proof exists. |
-| The time of the soak | Must be measured before decision 16 is final. |
+| The time of the soak | Timing run done. The maintainer rejected each extrapolated size and set a limit of 2 hours of wall time on 2026-11-05. The new size needs an amendment. |
 | The share of skipped events on each preset | Must be measured. Debris refusal on a busy lane can be high, and I have no figure. |
-| Sampled-tick time against 50 ms | Must be measured. The gate can fail, and no reroute pass cost at this scale is on record. |
-| Step time at 64 debris and 1,000 pod faults | Must be measured. |
+| Sampled-tick time against 50 ms | Measured on a fixture with little traffic: slowest 0.95 ms. Reported at the project limits: 260 to 429 ms cold, and 13.5 to 32.5 s warm. |
+| Step time at 64 debris and 1,000 pod faults | Measured: median 983 µs against 20 µs, slowest 5.0 ms against 0.62 ms. |
 | Evidence that any real system has these rates | None. The preset values are for play and for the soak. |
 
 ## 12. Review result
