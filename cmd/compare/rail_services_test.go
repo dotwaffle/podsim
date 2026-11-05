@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/dotwaffle/podsim/internal/project"
+	"github.com/dotwaffle/podsim/internal/sim"
 )
 
 func serviceComparisonDepartures() []project.RailDeparture {
@@ -24,7 +25,7 @@ func TestRailServiceScheduleAndHash(t *testing.T) {
 	t.Parallel()
 	plan := serviceComparisonDepartures()
 	arrivals := []project.RailArrival{{ID: "early", Station: "garden", Passengers: 1, Destinations: []project.RailDestination{{Station: "market", Weight: 1}}}}
-	for _, end := range []int64{1, 2, 60, 61, 90, 91, 120, 121} {
+	for _, end := range []int64{1, 2, sim.TicksPerSecond, sim.TicksPerSecond + 1, 3 * sim.TicksPerSecond / 2, 3*sim.TicksPerSecond/2 + 1, 2 * sim.TicksPerSecond, 2*sim.TicksPerSecond + 1} {
 		input := scheduleInput{pattern: "rail-services", seed: 7, durationTicks: end, railArrivals: arrivals, railDepartures: plan}
 		got := demandSchedule(input)
 		want := project.RailServicesSchedule(arrivals, plan, 7)
@@ -38,7 +39,7 @@ func TestRailServiceScheduleAndHash(t *testing.T) {
 			}
 		}
 	}
-	base := demandSchedule(scheduleInput{pattern: "rail-services", seed: 7, durationTicks: 180, railArrivals: arrivals, railDepartures: plan})
+	base := demandSchedule(scheduleInput{pattern: "rail-services", seed: 7, durationTicks: 3 * sim.TicksPerSecond, railArrivals: arrivals, railDepartures: plan})
 	for _, edit := range []func(*scheduledRequest){func(r *scheduledRequest) { r.kind = "departure" }, func(r *scheduledRequest) { r.departureTick++ }, func(r *scheduledRequest) { r.walkingTicks++ }} {
 		changed := slices.Clone(base)
 		edit(&changed[0])

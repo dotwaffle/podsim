@@ -55,7 +55,7 @@ func TestRailComparisonOptions(t *testing.T) {
 func TestRailScheduleBoundariesAndSharedIdentity(t *testing.T) {
 	t.Parallel()
 	plan := railComparisonPlan()
-	for _, window := range []int64{1, 2, 60, 61, 120, 121} {
+	for _, window := range []int64{1, 2, sim.TicksPerSecond, sim.TicksPerSecond + 1, 2 * sim.TicksPerSecond, 2*sim.TicksPerSecond + 1} {
 		input := scheduleInput{pattern: "rail-arrivals", seed: -7, durationTicks: window, railArrivals: plan}
 		schedule := demandSchedule(input)
 		seed := uint64(input.seed) // #nosec G115 -- Match the signed comparison seed's bits.
@@ -72,8 +72,8 @@ func TestRailScheduleBoundariesAndSharedIdentity(t *testing.T) {
 		}
 	}
 	plan[0].WalkingSeconds = 3
-	schedule := demandSchedule(scheduleInput{pattern: "rail-arrivals", seed: 7, durationTicks: 181, railArrivals: plan})
-	if schedule[len(schedule)-1].tick != 180 || schedule[len(schedule)-1].event != "train0" {
+	schedule := demandSchedule(scheduleInput{pattern: "rail-arrivals", seed: 7, durationTicks: 3*sim.TicksPerSecond + 1, railArrivals: plan})
+	if schedule[len(schedule)-1].tick != 3*sim.TicksPerSecond || schedule[len(schedule)-1].event != "train0" {
 		t.Fatal("walking delay did not change release order")
 	}
 }

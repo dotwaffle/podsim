@@ -38,7 +38,7 @@ func TestPercentile95(t *testing.T) {
 	}
 }
 
-// TestRequestTimeStats uses these parties, with ticks at 60 each second:
+// TestRequestTimeStats uses these parties, with ticks at sim.TicksPerSecond:
 //
 //	request 1: wait 1 s, journey 10 s.
 //	request 2: wait 2 s, journey 20 s.
@@ -53,12 +53,12 @@ func TestPercentile95(t *testing.T) {
 func TestRequestTimeStats(t *testing.T) {
 	t.Parallel()
 	timings := []sim.RequestTiming{
-		{RequestID: 1, RequestedTick: 0, BoardedTick: 60, CompletedTick: 600, RiddenMeters: 500},
-		{RequestID: 2, RequestedTick: 120, BoardedTick: 240, CompletedTick: 1320, RiddenMeters: 1000},
-		{RequestID: 3, RequestedTick: 180, BoardedTick: 240, CompletedTick: 1320, RiddenMeters: 1000, SharedWith: 2},
-		{RequestID: 4, RequestedTick: 600, BoardedTick: 900, CompletedTick: -1},
+		{RequestID: 1, RequestedTick: 0, BoardedTick: sim.TicksPerSecond, CompletedTick: 10 * sim.TicksPerSecond, RiddenMeters: 500},
+		{RequestID: 2, RequestedTick: 2 * sim.TicksPerSecond, BoardedTick: 4 * sim.TicksPerSecond, CompletedTick: 22 * sim.TicksPerSecond, RiddenMeters: 1000},
+		{RequestID: 3, RequestedTick: 3 * sim.TicksPerSecond, BoardedTick: 4 * sim.TicksPerSecond, CompletedTick: 22 * sim.TicksPerSecond, RiddenMeters: 1000, SharedWith: 2},
+		{RequestID: 4, RequestedTick: 10 * sim.TicksPerSecond, BoardedTick: 15 * sim.TicksPerSecond, CompletedTick: -1},
 	}
-	state := sim.Snapshot{Tick: 1800, Pending: []sim.Request{{ID: 5, RequestedTick: 1200}}}
+	state := sim.Snapshot{Tick: 30 * sim.TicksPerSecond, Pending: []sim.Request{{ID: 5, RequestedTick: 20 * sim.TicksPerSecond}}}
 	got := requestTimeStats(timings, state)
 	want := requestStats{waitP95: 10, journeyAverage: 49.0 / 3, journeyP95: 20, journeyMaximum: 20, occupancy: 2500.0 / 1500}
 	if got != want {

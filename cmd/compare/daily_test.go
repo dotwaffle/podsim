@@ -104,7 +104,7 @@ func TestDailyScheduleMatchesTickBudget(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, end := range []int64{1, 2, 514, 515, 516, 3599, 3600, 3601, 7201, 1440*ticksPerMinute + 1} {
+		for _, end := range []int64{1, 2, ticksPerMinute / 7, ticksPerMinute/7 + 1, ticksPerMinute/7 + 2, ticksPerMinute - 1, ticksPerMinute, ticksPerMinute + 1, 2*ticksPerMinute + 1, 1440*ticksPerMinute + 1} {
 			input := scheduleInput{pattern: "profile-daily", daily: daily, seed: -7, durationTicks: end}
 			got, want := demandSchedule(input), tickBudgetDailySchedule(input)
 			if !slices.Equal(got, want) || len(got) != dailyOfferTicks(daily, end, nil) {
@@ -165,10 +165,10 @@ func TestDailyPositioningBoundary(t *testing.T) {
 		mode    sim.Positioning
 	}{
 		{1, 0, 7, sim.PositioningGuarded},
-		{7201, 0, 0, sim.PositioningOff},
-		{10801, 0, 0, sim.PositioningOff},
-		{14401, 0, 11, sim.PositioningGuarded},
-		{14401, 1, 11, sim.PositioningOff},
+		{2*ticksPerMinute + 1, 0, 0, sim.PositioningOff},
+		{3*ticksPerMinute + 1, 0, 0, sim.PositioningOff},
+		{4*ticksPerMinute + 1, 0, 11, sim.PositioningGuarded},
+		{4*ticksPerMinute + 1, 1, 11, sim.PositioningOff},
 	} {
 		if err := configureDailyPositioning(simulation, arm.daily, row.tick, sim.PositioningGuarded, row.skipped); err != nil {
 			t.Fatal(err)

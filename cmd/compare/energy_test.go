@@ -129,7 +129,7 @@ func TestEnergyAnalyticWork(t *testing.T) {
 		sample         sim.MotionSample
 		draw, recovery float64
 	}{
-		{"constant speed", energyProfile{MassKg: 100, ConstantResistanceN: 5, QuadraticResistance: 2, DriveEfficiency: .5}, sim.MotionSample{DistanceMeters: 1.0 / 60, StartSpeed: 1, EndSpeed: 1}, 7.0 / 30, 0},
+		{"constant speed", energyProfile{MassKg: 100, ConstantResistanceN: 5, QuadraticResistance: 2, DriveEfficiency: .5}, sim.MotionSample{DistanceMeters: 1.0 / sim.TicksPerSecond, StartSpeed: 1, EndSpeed: 1}, 14.0 / sim.TicksPerSecond, 0},
 		{"acceleration", energyProfile{MassKg: 100, DriveEfficiency: .5}, sim.MotionSample{StartSpeed: 0, EndSpeed: 2}, 400, 0},
 		{"braking", energyProfile{MassKg: 100, DriveEfficiency: 1, RecoveryFraction: .5}, sim.MotionSample{StartSpeed: 2, EndSpeed: 0}, 0, 100},
 		{"resistance reduces recovery", energyProfile{MassKg: 100, ConstantResistanceN: 50, DriveEfficiency: 1, RecoveryFraction: .5}, sim.MotionSample{DistanceMeters: 1, StartSpeed: 2, EndSpeed: 0}, 0, 75},
@@ -149,10 +149,10 @@ func TestEnergyClockAuxiliaryAndOwnership(t *testing.T) {
 	t.Parallel()
 	model := energyTestModel()
 	p := model.Profiles[sim.LegacyClass]
-	p.AuxiliaryWatts = 60
+	p.AuxiliaryWatts = sim.TicksPerSecond
 	model.Profiles[sim.LegacyClass] = p
-	model.Profiles[sim.CompactClass] = energyProfile{MassKg: 200, DriveEfficiency: 1, AuxiliaryWatts: 120}
-	model.Profiles[sim.GroupClass] = energyProfile{MassKg: 300, DriveEfficiency: 1, AuxiliaryWatts: 180}
+	model.Profiles[sim.CompactClass] = energyProfile{MassKg: 200, DriveEfficiency: 1, AuxiliaryWatts: 2 * sim.TicksPerSecond}
+	model.Profiles[sim.GroupClass] = energyProfile{MassKg: 300, DriveEfficiency: 1, AuxiliaryWatts: 3 * sim.TicksPerSecond}
 	meter, err := newEnergyMeter(model, []sim.Placement{{ID: "a"}, {ID: "b", Class: sim.LegacyClass}, {ID: "c", Class: sim.CompactClass}, {ID: "d", Class: sim.GroupClass}}, 7)
 	if err != nil {
 		t.Fatal(err)
@@ -336,7 +336,7 @@ func TestEnergyRunAndReportParity(t *testing.T) {
 	p.ConstantResistanceN = 2
 	p.DriveEfficiency = .8
 	p.RecoveryFraction = .5
-	p.AuxiliaryWatts = 60
+	p.AuxiliaryWatts = sim.TicksPerSecond
 	input.energy.Profiles[sim.LegacyClass] = p
 	enabled, err := run(input)
 	if err != nil {
@@ -406,7 +406,7 @@ func TestEnergyCLIAndServiceClock(t *testing.T) {
 	if err := jsonv2.Unmarshal(out.Bytes(), &decoded, json.DefaultOptionsV1()); err != nil {
 		t.Fatal(err)
 	}
-	if len(decoded.Results) != 1 || decoded.Results[0].Energy == nil || decoded.Results[0].Energy.WindowEndTick != 120 {
+	if len(decoded.Results) != 1 || decoded.Results[0].Energy == nil || decoded.Results[0].Energy.WindowEndTick != 2*sim.TicksPerSecond {
 		t.Fatal("CLI lost energy or added arms")
 	}
 	caseStudy, err := loadScenario("", "")
@@ -419,7 +419,7 @@ func TestEnergyCLIAndServiceClock(t *testing.T) {
 		if runErr != nil {
 			t.Fatal(runErr)
 		}
-		if outcome.Energy.WindowEndTick != 60 || outcome.ActualEndSeconds != 1 {
+		if outcome.Energy.WindowEndTick != sim.TicksPerSecond || outcome.ActualEndSeconds != 1 {
 			t.Fatalf("early drain clock %s: %+v", pattern, outcome)
 		}
 	}
@@ -469,7 +469,7 @@ func TestEnergyNativeNonlegacyMotion(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			model := &energyModel{Model: energyModelName, Profiles: map[sim.VehicleClass]energyProfile{class: {MassKg: 200, ConstantResistanceN: 2, DriveEfficiency: 1, RecoveryFraction: 1, AuxiliaryWatts: 60}}}
+			model := &energyModel{Model: energyModelName, Profiles: map[sim.VehicleClass]energyProfile{class: {MassKg: 200, ConstantResistanceN: 2, DriveEfficiency: 1, RecoveryFraction: 1, AuxiliaryWatts: sim.TicksPerSecond}}}
 			meter, err := newEnergyMeter(model, caseStudy.fleet, s.Tick())
 			if err != nil {
 				t.Fatal(err)
