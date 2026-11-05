@@ -996,7 +996,7 @@ These variables change a run:
 | `PODSIM_SOAK_PARALLEL` | The number of runs at one time. | 3 |
 | `PODSIM_SOAK_LIMIT` | The wall limit in seconds. | 7200 |
 | `PODSIM_SOAK_LOCK` | The lock file. | `/tmp/podsim-soak.lock` |
-| `PODSIM_SOAK_FINISHED` | The file that gets one line for each finished seed. `mise run soak:full` clears it at its start. | Not set, or `/tmp/podsim-soak-finished.txt` in `mise run soak:full` |
+| `PODSIM_SOAK_FINISHED` | The file that gets one line for each finished seed. The test adds to it and does not clear it. | Not set, or a new file for each run of `mise run soak:full`, which the task prints |
 
 `PODSIM_SOAK_CHECKS`, `PODSIM_SOAK_SETTLE_MINUTES`, and `PODSIM_SOAK_CHECK_FROM_HOURS` are for timing runs only.
 
