@@ -237,7 +237,7 @@ func (s *Simulation) finishEstimate(v *vehicle) (string, float64, bool) {
 	if v.Pod.Activity == Unloading {
 		station, _ := s.station(v.Pod.StationID)
 		berth, _ := station.berth(v.Pod.BerthID)
-		return s.laterStopsForClass(berth.Node, float64(v.phaseTicks)/TicksPerSecond, v.Stops, v.Pod.Class)
+		return s.laterStops(v, berth.Node, float64(v.phaseTicks)/TicksPerSecond, v.Stops)
 	}
 	envelope := motionEnvelopeFor(v.Pod.Class)
 	seconds := float64(v.phaseTicks)/TicksPerSecond + s.routeSecondsWith(envelope, v.Route, v.routeLengths, motionEstimate{distance: v.distance, speed: v.Pod.Speed})
@@ -255,9 +255,9 @@ func (s *Simulation) finishEstimate(v *vehicle) (string, float64, bool) {
 			seconds += s.routeSeconds(envelope, suffix, motionEstimate{})
 			destination = berth.Node
 		}
-		seconds += float64(unloadingTicks) / TicksPerSecond
+		seconds += float64(v.stopUnloadingPhase(v.destinationStation)) / TicksPerSecond
 		if len(v.Stops) > 1 {
-			return s.laterStopsForClass(destination, seconds, v.Stops[1:], v.Pod.Class)
+			return s.laterStops(v, destination, seconds, v.Stops[1:])
 		}
 		return destination, seconds, true
 	}
@@ -266,7 +266,8 @@ func (s *Simulation) finishEstimate(v *vehicle) (string, float64, bool) {
 			continue
 		}
 		destination, _ := s.station(trip.request.To)
-		seconds += float64(boardingTicks+unloadingTicks)/TicksPerSecond + s.routeSeconds(envelope, trip.route, motionEstimate{})
+		party := trip.request.PartySize
+		seconds += float64(boardingPhase(v.Pod.Class, party)+unloadingPhase(v.Pod.Class, party))/TicksPerSecond + s.routeSeconds(envelope, trip.route, motionEstimate{})
 		if destination.Banks == nil && !s.graph.classRestrictions {
 			return destination.Berths[0].Node, seconds, true
 		}
@@ -284,7 +285,8 @@ func (s *Simulation) finishEstimate(v *vehicle) (string, float64, bool) {
 // berth of the stop and includes the unloading time. laterStops returns the
 // node of the last stop and the total seconds. It reports false when a leg
 // has no route.
-func (s *Simulation) laterStopsForClass(node string, seconds float64, stops []string, class VehicleClass) (string, float64, bool) {
+func (s *Simulation) laterStops(v *vehicle, node string, seconds float64, stops []string) (string, float64, bool) {
+	class := v.Pod.Class
 	envelope := motionEnvelopeFor(class)
 	for index, stop := range stops {
 		route, err := s.stationApproachForStops(node, stops[index:], class)
@@ -297,7 +299,7 @@ func (s *Simulation) laterStopsForClass(node string, seconds float64, stops []st
 			return "", 0, false
 		}
 		seconds += s.routeSeconds(envelope, route, motionEstimate{}) + s.routeSeconds(envelope, suffix, motionEstimate{}) +
-			float64(unloadingTicks)/TicksPerSecond
+			float64(v.stopUnloadingPhase(stop))/TicksPerSecond
 		node = berth.Node
 	}
 	return node, seconds, true

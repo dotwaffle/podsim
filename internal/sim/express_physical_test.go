@@ -136,6 +136,15 @@ func expressAdversarialTick(t *testing.T, s *Simulation, previous *motionPodBuff
 	checkExpressMotionTick(t, s, before)
 }
 
+// expressFixtureBoarding returns the boarding seconds of the party that
+// expressMotionRequest gives a class.
+func expressFixtureBoarding(class VehicleClass) int {
+	if class == ExpressClass {
+		return 22
+	}
+	return 3
+}
+
 func expressMotionRequest(t *testing.T, s *Simulation, id, destination string) {
 	t.Helper()
 	party := 1
@@ -172,12 +181,18 @@ func TestExpressMotionFollowingAndMerge(t *testing.T) {
 				if err := s.SetPlatooning(PlatooningVirtual); err != nil {
 					t.Fatal(err)
 				}
-				expressMotionRequest(t, s, "lead", "b")
+				// The follower leaves its berth 2 s after the leader, whatever
+				// the boarding time of each party.
+				leadAt := max(0, expressFixtureBoarding(classes[1])-expressFixtureBoarding(classes[0])-2) * TicksPerSecond
+				followAt := max(0, expressFixtureBoarding(classes[0])+2-expressFixtureBoarding(classes[1])) * TicksPerSecond
 				gap := math.Inf(1)
 				sawFollowing := false
 				var previous motionPodBuffer
 				for steps := range 600 * TicksPerSecond {
-					if steps == 2*TicksPerSecond {
+					if steps == leadAt {
+						expressMotionRequest(t, s, "lead", "b")
+					}
+					if steps == followAt {
 						expressMotionRequest(t, s, "follow", "b")
 					}
 					before := previous.capture(s)
@@ -187,7 +202,7 @@ func TestExpressMotionFollowingAndMerge(t *testing.T) {
 					if lead.Pod.LaneID == "a-link" && follow.Pod.LaneID == "a-link" && lead.Pod.LaneDistance > follow.Pod.LaneDistance {
 						sawFollowing = true
 					}
-					if s.completed == 2 && s.tick > 2*TicksPerSecond {
+					if s.completed == 2 {
 						break
 					}
 				}

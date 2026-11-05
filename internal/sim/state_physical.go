@@ -391,20 +391,21 @@ func (r *physicalRestore) decodePod(index int, saved SavedPod) error {
 	if !ok || berth.station != saved.StationID {
 		return fmt.Errorf("unknown berth %q at station %q", saved.BerthID, saved.StationID)
 	}
-	if !valid || saved.PhaseTicks < 0 || saved.PhaseTicks > maxPhaseTicks(activity) {
+	if !valid || saved.PhaseTicks < 0 || saved.PhaseTicks > maxPhaseTicks(activity, saved.Class) {
 		return errors.New("a value is out of range")
 	}
 	v.Pod.StationID, v.Pod.BerthID = berth.station, berth.berth.ID
 	return nil
 }
 
-// maxPhaseTicks returns the largest phase count of a pod at a berth.
-func maxPhaseTicks(activity Activity) int {
+// maxPhaseTicks returns the largest phase count of a pod of a class at a
+// berth.
+func maxPhaseTicks(activity Activity, class VehicleClass) int {
 	switch activity {
 	case Boarding:
-		return boardingTicks
+		return maxBoardingPhase(class)
 	case Unloading:
-		return unloadingTicks
+		return maxUnloadingPhase(class)
 	default:
 		return 0
 	}

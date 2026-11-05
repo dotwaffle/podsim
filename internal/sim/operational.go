@@ -218,7 +218,7 @@ func (s *Simulation) startOperationalUnload(v *vehicle, owner serviceHold, inter
 		return fmt.Errorf("pod %s: the interrupt set names a rider that is not active", v.Pod.ID)
 	}
 	if v.Pod.Activity != Unloading || v.phaseTicks < 1 {
-		v.phaseTicks = unloadingTicks
+		v.phaseTicks = unloadingPhase(v.Pod.Class, v.PassengersAboard())
 	}
 	v.Pod.Activity, v.Pod.Occupied, v.Pod.StationPhase, v.Pod.ManeuverStationID = Unloading, true, AtBerth, station.ID
 	v.Pod.WaitReason, v.Pod.BlockedBy = NoWait, ""

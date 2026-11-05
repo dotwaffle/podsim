@@ -158,9 +158,17 @@ func phaseOf(pod SavedPod) (podPhase, error) {
 // destination berth (see depotDeparture).
 func ruleForPod(pod SavedPod, phase podPhase, network Network) phaseRule {
 	if phase == phaseBoarding && pod.Occupied {
-		return phaseRule{active: true, history: true, occupied: true, atBerth: true, maxPhase: boardingTicks, stops: routeStops, startsAtBerth: true}
+		return phaseRule{active: true, history: true, occupied: true, atBerth: true, maxPhase: maxBoardingPhase(pod.Class), stops: routeStops, startsAtBerth: true}
 	}
 	rule := phaseRules[phase]
+	// The table holds the bound of a seat-only class. A restore takes the
+	// largest phase of the class, and it does not derive one from the riders.
+	switch rule.maxPhase {
+	case boardingTicks:
+		rule.maxPhase = maxBoardingPhase(pod.Class)
+	case unloadingTicks:
+		rule.maxPhase = maxUnloadingPhase(pod.Class)
+	}
 	if phase == phaseTravelingOccupied {
 		if purpose := opPurpose(pod.Purpose); purpose == opEmergencyUnload || purpose == opRefuge {
 			rule.stops, rule.hasDestination = serviceStops, true

@@ -320,7 +320,7 @@ func TestExpressEstimatesUseClass(t *testing.T) {
 		t.Fatal("no estimate for the traveling pod")
 	}
 	travel := s.routeSecondsWith(express, v.Route, v.routeLengths, motionEstimate{distance: v.distance, speed: v.Pod.Speed})
-	requireSameBits(t, "finish estimate", got, travel+float64(unloadingTicks)/TicksPerSecond)
+	requireSameBits(t, "finish estimate", got, travel+21)
 }
 
 // TestExpressLaterStopEstimateUsesClass checks the legs to later stops.
@@ -334,7 +334,7 @@ func TestExpressLaterStopEstimateUsesClass(t *testing.T) {
 	v := s.findVehicle("pod")
 	v.Pod.Activity, v.Pod.Occupied = Unloading, true
 	v.Stops = []string{"b"}
-	_, got, ok := s.laterStopsForClass("a-1", 0, v.Stops, ExpressClass)
+	_, got, ok := s.laterStops(v, "a-1", 0, v.Stops)
 	if !ok {
 		t.Fatal("no estimate")
 	}

@@ -924,6 +924,10 @@ func (s *Simulation) arrive(v *vehicle) {
 			v.Stops = nil
 		}
 	}
+	// The stops above decide who alights. A refuge holds with no phase.
+	if v.phaseTicks > 0 {
+		v.phaseTicks = unloadingPhase(v.Pod.Class, v.alightingPassengers())
+	}
 	if v.RelocatingTo != "" {
 		v.Pod.Activity, v.Pod.Occupied = Idle, false
 		v.phaseTicks, v.RelocatingTo, v.released = 0, "", false

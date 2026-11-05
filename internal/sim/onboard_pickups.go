@@ -43,7 +43,9 @@ func (s *Simulation) joinOnboardPickup(trip *waitingTrip) bool {
 		v.destinationStation = candidate.destinationStation
 		s.setVehicleRoute(v, candidate.Route)
 		if v.Pod.Activity == Continuing {
-			v.Pod.Activity, v.phaseTicks = Boarding, boardingTicks
+			v.Pod.Activity, v.phaseTicks = Boarding, boardingPhase(v.Pod.Class, trip.request.PartySize)
+		} else {
+			v.addJoinDwell(trip.request.PartySize)
 		}
 		v.Pod.WaitReason, v.Pod.BlockedBy = NoWait, ""
 		if !trip.boarded {

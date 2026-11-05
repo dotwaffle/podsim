@@ -606,7 +606,7 @@ func (s *Simulation) board(v *vehicle, trip waitingTrip) error {
 	v.journeyOrigin = origin
 	s.setVehicleRoute(v, trip.route)
 	v.Pod.Activity, v.Pod.WaitReason, v.Pod.BlockedBy = Boarding, NoWait, ""
-	v.phaseTicks, v.blockIndex, v.reservedThrough = boardingTicks, 0, -1
+	v.phaseTicks, v.blockIndex, v.reservedThrough = boardingPhase(v.Pod.Class, trip.request.PartySize), 0, -1
 	v.originReleased = false
 	v.distance, v.riddenBase, v.pending = 0, 0, -1
 	return nil
@@ -652,6 +652,7 @@ func (s *Simulation) joinSharedRide(trip *waitingTrip, pass *dispatchPass) bool 
 			s.sharedParties++
 		}
 		v.Riders = append(v.Riders, s.boardingRider(*trip, v, v.Riders[0].ID))
+		v.addJoinDwell(request.PartySize)
 		return true
 	}
 	return false
