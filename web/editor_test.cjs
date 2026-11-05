@@ -4207,7 +4207,7 @@ test("bank views select berth membership", () => {
 
 test("bank import and export preserve the bank metadata", () => {
   const config = independentBankFixture();
-  const sandbox = { structuredClone, TextEncoder, PodsimTiles: require("./tiles.js") };
+  const sandbox = { structuredClone, TextEncoder, PodsimTiles: require("./tiles.js"), PodsimStateCheck: require("./state-check.js") };
   require("node:vm").runInNewContext(fs.readFileSync(path.join(__dirname, "editor.js"), "utf8"), sandbox);
   const browser = sandbox.PodsimEditorModel;
   assert.deepEqual(JSON.parse(JSON.stringify(browser.parseDocument(JSON.stringify(config)).scenario)), config);

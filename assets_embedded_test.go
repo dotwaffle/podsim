@@ -17,7 +17,7 @@ func TestEmbeddedWebAssets(t *testing.T) {
 	if !ok {
 		t.Fatal("embedded assets are unavailable")
 	}
-	for _, name := range []string{"index.html", "shell.js", "game.html", "tiles.js", "simulation-map.js", "loader.js", "editor.html", "editor-model.js", "editor-model.wasm.gz", "podsim.wasm.gz", "wasm_exec.js"} {
+	for _, name := range []string{"index.html", "state-check.js", "shell.js", "game.html", "tiles.js", "simulation-map.js", "loader.js", "editor.html", "editor-model.js", "editor-model.wasm.gz", "podsim.wasm.gz", "wasm_exec.js"} {
 		info, err := fs.Stat(assets, name)
 		if err != nil {
 			t.Fatalf("stat %s: %v", name, err)

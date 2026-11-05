@@ -51,22 +51,20 @@ func TestEditorMirrorsCommandLimits(t *testing.T) {
 func TestBrowserMirrorsStreamLimits(t *testing.T) {
 	t.Parallel()
 	limits := streamLimits(contractMarkers{})
-	for _, name := range []string{"shell.js", "editor.js"} {
-		source, err := os.ReadFile("../../web/" + name)
-		if err != nil {
-			t.Fatal(err)
+	source, err := os.ReadFile("../../web/state-check.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []struct {
+		constant string
+		value    int64
+	}{{"MAX_STATE_DEPTH", int64(limits.depth)}, {"MAX_STATE_ELEMENTS", limits.elements}} {
+		match := regexp.MustCompile(`const ` + want.constant + ` = (\d+);`).FindSubmatch(source)
+		if match == nil {
+			t.Fatalf("web/state-check.js has no %s value", want.constant)
 		}
-		for _, want := range []struct {
-			constant string
-			value    int64
-		}{{"MAX_STATE_DEPTH", int64(limits.depth)}, {"MAX_STATE_ELEMENTS", limits.elements}} {
-			match := regexp.MustCompile(`const ` + want.constant + ` = (\d+);`).FindSubmatch(source)
-			if match == nil {
-				t.Fatalf("web/%s has no %s value", name, want.constant)
-			}
-			if got, err := strconv.ParseInt(string(match[1]), 10, 64); err != nil || got != want.value {
-				t.Errorf("web/%s %s is %s, want %d", name, want.constant, match[1], want.value)
-			}
+		if got, err := strconv.ParseInt(string(match[1]), 10, 64); err != nil || got != want.value {
+			t.Errorf("web/state-check.js %s is %s, want %d", want.constant, match[1], want.value)
 		}
 	}
 }
