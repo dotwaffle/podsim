@@ -62,7 +62,8 @@ The simulator does not track who sits, and seats fill first.
 | Unloading | 2 s, plus 1 s for each alighting passenger after the first, at most 21 s | 2 s |
 
 A party that joins a boarding Express pod adds 1 s for each of its passengers, and the phase does not start again.
-An emergency unload counts each party aboard.
+An emergency unload that starts counts all active passengers.
+An unload that already runs keeps its remaining phase.
 A class has one set of rates for each load.
 
 ## Passenger service and dispatch
