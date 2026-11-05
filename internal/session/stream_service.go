@@ -18,8 +18,16 @@ import (
 // markers of the envelope select its rules. The client checks that they
 // are the markers of the hello, and ApplyStream checks that they are the
 // markers of the frame.
+//
+// A document that streamScansAccept accepts passes each scan of
+// decodeMarkedJSON, so it goes to the typed decode directly. Any other
+// document goes through the scans, which alone make the refusals.
 func DecodeStreamJSON(data []byte) (StreamEnvelope, error) {
 	var envelope StreamEnvelope
+	if len(data) <= MaxStreamJSON && streamScansAccept(data) {
+		err := decodePackedStreamJSON(data, &envelope)
+		return envelope, err
+	}
 	err := decodeMarkedJSON(data, &envelope)
 	return envelope, err
 }
