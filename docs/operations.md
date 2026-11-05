@@ -966,6 +966,8 @@ The new streams derive from the seed and the branch, so the same selection gives
 A failure stops only its branch, and the log line of each branch has its Progress and rule A numbers.
 In that line, `demoted` counts the saves that fail the `physical` tier because a pod with a fault or an emergency would move to a berth, and `podsDemoted` counts the pods that a `physical` restore moves to a berth.
 Any other failure of the `physical` tier stops the branch.
+A second log line of each branch gives the rule A evidence: the count of readings on each path of the classifier, and the 5 records with the most blocked time, with their chain ends.
+It changes no gate.
 The `incidents` and `emergencies` arms run on both presets, and `platoons` runs on `rail-hub`.
 The checks run at the stride of amendment A10: the full check runs at each simulated second and at each event.
 Use `mise run soak:full` before a release tag, and after a change to dispatch, routing, or the fault and emergency state machines.

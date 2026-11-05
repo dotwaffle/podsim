@@ -177,8 +177,12 @@ type soakResult struct {
 	settleTicks                       int64
 	// fullChecks counts the full checks of the run.
 	fullChecks int
-	misses     []string
-	steps      []time.Duration
+	// paths counts the readings of each path of the classifier of rule A, and
+	// blockedRecords holds the records that ended. Only the log reads them.
+	paths          soakPathCounts
+	blockedRecords []soakOpenRecord
+	misses         []string
+	steps          []time.Duration
 	// rates holds the ticks for each CPU second of this run's thread in each
 	// simulated 5 minutes before the clear, to see the drift of the rate.
 	rates []int
@@ -691,29 +695,84 @@ func newSoakReading(state sim.Snapshot, legBlocked func(string) bool) soakReadin
 // reports "No forward route" or "Blocked by incident" at each tick (see
 // reportBlockedBerths), so such a stop needs no search here.
 func (r soakReading) blockedByFault(podID string) (bool, string) {
-	blocked, end := r.walkChain(podID)
-	return blocked && len(r.faultIDs) > 0, end
+	path, end := r.classify(podID)
+	return path.blocked(), end
+}
+
+// classify returns the path of the classifier for the pod, and the end of its
+// chain.
+func (r soakReading) classify(podID string) (soakPath, string) {
+	path, end := r.walkChain(podID)
+	if len(r.faultIDs) == 0 {
+		path = soakPathNotBlocked
+	}
+	return path, end
+}
+
+// soakPath is one path of the classifier of rule A.
+type soakPath int
+
+const (
+	// soakPathOwnFault is a pod with a fault of its own.
+	soakPathOwnFault soakPath = iota
+	// soakPathIncident and soakPathNoRoute are the wait reasons on the chain.
+	soakPathIncident
+	soakPathNoRoute
+	// soakPathFaultEnd is a chain that ends at a fault ID, or at another pod that
+	// has a fault.
+	soakPathFaultEnd
+	// soakPathLegBlocked and soakPathLegFree are a pod at the end of the chain,
+	// with no blocker, that is idle: its leg is blocked, or it is not.
+	soakPathLegBlocked
+	soakPathLegFree
+	// soakPathNotBlocked is each other reading.
+	soakPathNotBlocked
+	soakPathCount
+)
+
+// blocked reports whether the path gives its time to the fault.
+func (p soakPath) blocked() bool {
+	return p != soakPathLegFree && p != soakPathNotBlocked
+}
+
+// soakPathCounts counts the readings of each path. Its text is for the log.
+type soakPathCounts [soakPathCount]int
+
+func (c soakPathCounts) String() string {
+	return fmt.Sprintf("ownFault=%d incident=%d noForwardRoute=%d faultAtChainEnd=%d legBlocked=%d legFree=%d notBlocked=%d",
+		c[soakPathOwnFault], c[soakPathIncident], c[soakPathNoRoute], c[soakPathFaultEnd], c[soakPathLegBlocked], c[soakPathLegFree], c[soakPathNotBlocked])
 }
 
 // walkChain follows the BlockedBy chain from the pod. Each pod enters the walk
 // once, so a cycle ends it.
-func (r soakReading) walkChain(podID string) (bool, string) {
+func (r soakReading) walkChain(podID string) (soakPath, string) {
 	seen := make(map[string]bool, 4)
 	for id := podID; ; {
 		pod, ok := r.pods[id]
 		switch {
 		case !ok:
-			return false, "unknown blocker " + id
+			return soakPathNotBlocked, "unknown blocker " + id
 		case seen[id]:
-			return false, "cycle at pod " + id
+			return soakPathNotBlocked, "cycle at pod " + id
+		case r.faultPods[id] && id == podID:
+			return soakPathOwnFault, fmt.Sprintf("pod %s with a fault", id)
 		case r.faultPods[id]:
-			return true, fmt.Sprintf("pod %s with a fault", id)
-		case pod.WaitReason == sim.BlockedByIncident || pod.WaitReason == sim.NoForwardRoute:
-			return true, fmt.Sprintf("pod %s, wait %q, blocked by %q", id, pod.WaitReason, pod.BlockedBy)
+			return soakPathFaultEnd, fmt.Sprintf("pod %s with a fault", id)
+		case pod.WaitReason == sim.BlockedByIncident:
+			return soakPathIncident, fmt.Sprintf("pod %s, wait %q, blocked by %q", id, pod.WaitReason, pod.BlockedBy)
+		case pod.WaitReason == sim.NoForwardRoute:
+			return soakPathNoRoute, fmt.Sprintf("pod %s, wait %q, blocked by %q", id, pod.WaitReason, pod.BlockedBy)
 		case r.faultIDs[pod.BlockedBy]:
-			return true, "fault " + pod.BlockedBy
+			return soakPathFaultEnd, "fault " + pod.BlockedBy
 		case pod.BlockedBy == "":
-			return r.legBlocked(id), fmt.Sprintf("pod %s, %s, wait %q", id, pod.Activity, pod.WaitReason)
+			end := fmt.Sprintf("pod %s, %s, wait %q", id, pod.Activity, pod.WaitReason)
+			switch {
+			case r.legBlocked(id):
+				return soakPathLegBlocked, end
+			case pod.Activity == sim.Idle:
+				return soakPathLegFree, end
+			}
+			return soakPathNotBlocked, end
 		}
 		seen[id] = true
 		id = pod.BlockedBy
@@ -730,12 +789,18 @@ type soakOpenRecord struct {
 	// length of the replay after a rewind.
 	unblocked int64
 	noted     bool
+	// blocked sums the other ticks, and end is the chain end of the last blocked
+	// reading. Only the log reads them.
+	blocked int64
+	end     string
 }
 
 // read adds the ticks since the last reading. It reports true once, at the
 // first reading at which the sum passes the limit of the gate.
 func (r *soakOpenRecord) read(tick int64, blocked bool) bool {
-	if !blocked {
+	if blocked {
+		r.blocked += tick - r.last
+	} else {
 		r.unblocked += tick - r.last
 	}
 	r.last = tick
@@ -763,7 +828,12 @@ func (d *soakDriver) watchEmergencies() {
 			d.result.emergencies++
 		}
 		record.view = view
-		blocked, end := reading.blockedByFault(view.PodID)
+		path, end := reading.classify(view.PodID)
+		d.result.paths[path]++
+		blocked := path.blocked()
+		if blocked {
+			record.end = end
+		}
 		if record.read(tick, blocked) {
 			d.noteLateEmergency(state, view, end)
 		}
@@ -774,6 +844,7 @@ func (d *soakDriver) watchEmergencies() {
 			if record.last-record.view.StartTick > soakEmergencyTime {
 				d.result.emergencyLong++
 			}
+			d.result.blockedRecords = append(d.result.blockedRecords, *record)
 			delete(d.open, id)
 		}
 	}
@@ -942,6 +1013,7 @@ func runSoak(t *testing.T, input soakInput) soakResult {
 		input.preset, input.arm.name, input.seed, input.branch, input.hours, input.checks, d.result.ticks, d.result.wall.Seconds(), d.result.threadCPU, d.result.processCPU, float64(d.result.ticks)/d.result.wall.Seconds(),
 		d.result.commands, d.result.refused, d.result.saves, d.result.demoted, d.result.podsDemoted, d.result.rewinds, d.result.railRecords, state.Completed, state.Interrupted, d.result.queue.low, d.result.queue.high,
 		d.result.settleTicks/sim.TicksPerSecond, state.Wait.AverageSeconds, state.Wait.MaxSeconds, state.Faults.Counters, state.Emergencies.Counters, d.result.emergencies, d.result.emergencyLate, d.result.emergencyInPlatoon, d.result.emergencyLong, float64(d.result.emergencyLongest)/sim.TicksPerSecond, d.fullChecks, d.result.rates)
+	t.Logf("rule A preset=%s arm=%s seed=%d branch=%d readings %s longest blocked: %s", input.preset, input.arm.name, input.seed, input.branch, d.result.paths, soakLongestBlocked(d.result.blockedRecords, d.open))
 	if len(d.result.misses) > 0 {
 		t.Errorf("preset %s arm %s seed %d branch %d misses a Progress gate:\n%s", input.preset, input.arm.name, input.seed, input.branch, strings.Join(d.result.misses, "\n"))
 	}
@@ -949,6 +1021,30 @@ func runSoak(t *testing.T, input soakInput) soakResult {
 		input.observe(input, d.result)
 	}
 	return d.result
+}
+
+// soakLongestBlockedRecords is the number of records of a branch in the log line
+// of rule A.
+const soakLongestBlockedRecords = 5
+
+// soakLongestBlocked returns the text of the records, ended or still open, with
+// the most blocked time, with their chain ends. The ID breaks a tie, so the same
+// run gives the same text.
+func soakLongestBlocked(ended []soakOpenRecord, open map[string]*soakOpenRecord) string {
+	records := slices.Clone(ended)
+	for _, record := range open {
+		records = append(records, *record)
+	}
+	slices.SortFunc(records, func(a, b soakOpenRecord) int {
+		return cmp.Or(cmp.Compare(b.blocked, a.blocked), cmp.Compare(a.view.ID, b.view.ID))
+	})
+	var parts []string
+	for _, record := range records[:min(len(records), soakLongestBlockedRecords)] {
+		if record.blocked > 0 {
+			parts = append(parts, fmt.Sprintf("%s on %s for %.1fs, end %s", record.view.ID, record.view.PodID, float64(record.blocked)/sim.TicksPerSecond, record.end))
+		}
+	}
+	return strings.Join(parts, "; ")
 }
 
 // soakThreadCPUSeconds returns the CPU time of the current thread, in seconds,
@@ -1601,6 +1697,111 @@ func TestSoakSeedRecord(t *testing.T) {
 		if got := read(); got != step.want {
 			t.Fatalf("the file holds %q, want %q", got, step.want)
 		}
+	}
+}
+
+// TestSoakReadingPaths checks each path of the classifier of rule A: the count
+// of each reading, and the result that the gate reads.
+func TestSoakReadingPaths(t *testing.T) {
+	t.Parallel()
+	pods := map[string]sim.Pod{
+		"own":      {ID: "own"},
+		"incident": {ID: "incident", WaitReason: sim.BlockedByIncident, BlockedBy: "f1"},
+		"noRoute":  {ID: "noRoute", WaitReason: sim.NoForwardRoute},
+		"faultID":  {ID: "faultID", BlockedBy: "f1"},
+		"chain":    {ID: "chain", BlockedBy: "own"},
+		"legOut":   {ID: "legOut", Activity: sim.Idle},
+		"legOK":    {ID: "legOK", Activity: sim.Idle},
+		"moving":   {ID: "moving", Activity: sim.Traveling},
+		"unknown":  {ID: "unknown", BlockedBy: "gone"},
+		"loopA":    {ID: "loopA", BlockedBy: "loopB"},
+		"loopB":    {ID: "loopB", BlockedBy: "loopA"},
+	}
+	reading := soakReading{pods: pods, faultIDs: map[string]bool{"f1": true}, faultPods: map[string]bool{"own": true},
+		legBlocked: func(id string) bool { return id == "legOut" }}
+	tests := []struct {
+		pod     string
+		path    soakPath
+		blocked bool
+	}{
+		{"own", soakPathOwnFault, true},
+		{"incident", soakPathIncident, true},
+		{"noRoute", soakPathNoRoute, true},
+		{"faultID", soakPathFaultEnd, true},
+		{"chain", soakPathFaultEnd, true},
+		{"legOut", soakPathLegBlocked, true},
+		{"legOK", soakPathLegFree, false},
+		{"moving", soakPathNotBlocked, false},
+		{"unknown", soakPathNotBlocked, false},
+		{"loopA", soakPathNotBlocked, false},
+	}
+	var counts soakPathCounts
+	for _, test := range tests {
+		path, _ := reading.classify(test.pod)
+		counts[path]++
+		blocked, _ := reading.blockedByFault(test.pod)
+		if path != test.path || blocked != test.blocked {
+			t.Errorf("pod %s has the path %d, blocked %t, want %d, %t", test.pod, path, blocked, test.path, test.blocked)
+		}
+	}
+	const want = "ownFault=1 incident=1 noForwardRoute=1 faultAtChainEnd=2 legBlocked=1 legFree=1 notBlocked=3"
+	if got := counts.String(); got != want {
+		t.Errorf("the counts are %s, want %s", got, want)
+	}
+	// With no active fault, nothing is blocked, and the path says so.
+	reading.faultIDs = map[string]bool{}
+	if path, _ := reading.classify("noRoute"); path != soakPathNotBlocked {
+		t.Errorf("with no fault, the path is %d", path)
+	}
+}
+
+// TestSoakLongestBlocked checks the text of the records: the most blocked time
+// first, a fixed number of records, and no record with no blocked time.
+func TestSoakLongestBlocked(t *testing.T) {
+	t.Parallel()
+	record := func(id string, seconds int64) soakOpenRecord {
+		return soakOpenRecord{view: sim.EmergencyView{ID: id, PodID: "p" + id}, blocked: seconds * sim.TicksPerSecond, end: "end " + id}
+	}
+	ended := []soakOpenRecord{record("a", 1), record("b", 3), record("c", 0), record("d", 2), record("e", 2), record("f", 5)}
+	open := record("g", 4)
+	got := soakLongestBlocked(ended, map[string]*soakOpenRecord{"g": &open})
+	want := "f on pf for 5.0s, end end f; g on pg for 4.0s, end end g; b on pb for 3.0s, end end b; d on pd for 2.0s, end end d; e on pe for 2.0s, end end e"
+	if got != want {
+		t.Errorf("the text is %q, want %q", got, want)
+	}
+}
+
+// TestSoakCountsReadings runs the readings of a record on a pod with a fault of
+// its own, through the driver. Each reading counts one time, on its path.
+func TestSoakCountsReadings(t *testing.T) {
+	t.Parallel()
+	d := newSoakDriver(t, soakInput{preset: "rail-hub", arm: soakArms["incidents"], seed: 1, checks: true})
+	d.nextFault, d.nextEmergency, d.nextSave, d.nextRewind = math.MaxInt64, math.MaxInt64, math.MaxInt64, math.MaxInt64
+	var podID string
+	for podID == "" {
+		d.step()
+		for _, vehicle := range d.s.simulation.Snapshot().Vehicles {
+			if vehicle.Pod.Occupied && vehicle.Pod.Activity == sim.Traveling && vehicle.Pod.LaneID != "" && vehicle.Pod.Speed > 0 {
+				podID = vehicle.Pod.ID
+				break
+			}
+		}
+	}
+	d.mustApply(Command{Action: "emergency", PodID: podID})
+	d.mustApply(Command{Action: "fault", PodID: podID})
+	before := d.result.paths
+	for range 4 {
+		for range soakViewTicks {
+			d.step()
+		}
+		d.watchEmergencies()
+	}
+	if got := d.result.paths[soakPathOwnFault] - before[soakPathOwnFault]; got < 4 {
+		t.Fatalf("4 readings give %d of the own fault path: %s", got, d.result.paths)
+	}
+	id := d.s.simulation.Snapshot().Emergencies.Active[0].ID
+	if record := d.open[id]; record == nil || record.blocked == 0 || !strings.Contains(record.end, "with a fault") {
+		t.Fatalf("the record is %+v", record)
 	}
 }
 
