@@ -173,8 +173,10 @@ type soakResult struct {
 	emergencyInPlatoon, emergencyLong int
 	emergencyLongest                  int64
 	settleTicks                       int64
-	misses                            []string
-	steps                             []time.Duration
+	// fullChecks counts the full checks of the run.
+	fullChecks int
+	misses     []string
+	steps      []time.Duration
 	// rates holds the ticks for each CPU second of this run's thread in each
 	// simulated 5 minutes before the clear, to see the drift of the rate.
 	rates []int
@@ -931,6 +933,7 @@ func runSoak(t *testing.T, input soakInput) soakResult {
 	d.clearAndSettle()
 	d.result.wall, d.result.threadCPU, d.result.processCPU = time.Since(start), soakThreadCPUSeconds()-startThread, soakProcessCPUSeconds()-startProcess
 	d.checkRail()
+	d.result.fullChecks = d.fullChecks
 	d.result.state = d.s.simulation.Snapshot()
 	state := d.result.state
 	t.Logf("preset=%s arm=%s seed=%d branch=%d hours=%g checks=%t ticks=%d wall=%.1fs threadCPU=%.1fs processCPU=%.1fs ticks/s=%.0f commands=%d refused=%d saves=%d demoted=%d podsDemoted=%d rewinds=%d rail=%d completed=%d interrupted=%d queue=%d..%d settle=%ds waitAvg=%.1fs waitMax=%.1fs faults=%+v emergencies=%+v seen=%d late=%d inPlatoon=%d long=%d longestUnblocked=%.1fs fullChecks=%d rates=%v",
@@ -1142,7 +1145,8 @@ func runSoakGroup(t *testing.T, input soakInput, shape soakShape, reference stri
 }
 
 // TestIncidentSoakCI is the CI soak of section 5.1.9: 1 seed for 1 simulated
-// hour, with the sampler only, on the rail-hub preset. The row names no preset,
+// hour, with the sampler only, on the rail-hub preset, and with the full check at
+// each tick. The row names no preset,
 // and a London run takes an estimated 20 to 30 CPU minutes
 // (docs/studies/incident-soak.md), too long for one job of the qualify task.
 // mise run qualify runs this test.
@@ -1155,7 +1159,10 @@ func TestIncidentSoakCI(t *testing.T) {
 	}
 	const preset = "rail-hub"
 	reference := runSoak(t, soakInput{preset: preset, arm: soakArms["reference"], seed: 1, hours: 1})
-	run := runSoak(t, soakInput{preset: preset, arm: soakArms["ci"], seed: 1, hours: 1, checks: true, queue: &reference.queue})
+	run := runSoak(t, soakInput{preset: preset, arm: soakArms["ci"], seed: 1, hours: 1, checks: true, everyTick: true, queue: &reference.queue})
+	if ticks := int(run.ticks); run.fullChecks < ticks {
+		t.Errorf("%d ticks have %d full checks", ticks, run.fullChecks)
+	}
 	if counters := run.state.Faults.Counters; counters.Sampled == 0 || run.state.Emergencies.Counters.Sampled == 0 {
 		t.Errorf("the soak samples no event: %+v, %+v", counters, run.state.Emergencies.Counters)
 	}
