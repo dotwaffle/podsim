@@ -308,14 +308,31 @@ func soakWarmUp(t *testing.T, input soakInput, ticks int64) *soakWarm {
 	d := newSoakDriver(t, input)
 	defer d.s.Close()
 	d.runHours()
-	file := sessionStateFile(t, d.s)
-	file.RestoreAttempts = 0
-	warm := &soakWarm{data: encodeTestState(t, file), loopTick: d.loopTick, clears: d.clears, open: make(map[string]soakOpenRecord, len(d.open))}
-	for id, record := range d.open {
-		warm.open[id] = *record
+	warm, err := d.warmSave()
+	if err != nil {
+		t.Fatal(err)
 	}
 	t.Logf("warm preset=%s arm=%s seed=%d ticks=%d bytes=%d queue=%d active faults=%d emergencies=%d", input.preset, input.arm.name, input.seed, ticks, len(warm.data), d.s.simulation.PendingCount(), len(d.clears), len(d.open))
 	return warm
+}
+
+// warmSave returns the warm save of the driver. A Progress miss of the warm time
+// stops it, because no branch would report the miss. The branches read each open
+// record again, so a record that passes the limit gets a report in each branch.
+func (d *soakDriver) warmSave() (*soakWarm, error) {
+	d.t.Helper()
+	if len(d.result.misses) > 0 {
+		return nil, fmt.Errorf("preset %s arm %s seed %d misses a Progress gate in the warm time:\n%s", d.input.preset, d.input.arm.name, d.input.seed, strings.Join(d.result.misses, "\n"))
+	}
+	file := sessionStateFile(d.t, d.s)
+	file.RestoreAttempts = 0
+	warm := &soakWarm{data: encodeTestState(d.t, file), loopTick: d.loopTick, clears: d.clears, open: make(map[string]soakOpenRecord, len(d.open))}
+	for id, record := range d.open {
+		copied := *record
+		copied.noted = false
+		warm.open[id] = copied
+	}
+	return warm, nil
 }
 
 // session returns a new session of the config with no warm save. With one, it
@@ -1576,6 +1593,42 @@ func TestSoakBranchRestingPodRounding(t *testing.T) {
 	if len(failures) != 0 {
 		t.Fatalf("the first ticks fail: %q", failures)
 	}
+}
+
+// TestSoakWarmSave checks that a miss of the warm time stops the save, and that
+// a record that passed the limit in the warm time gets a report in a branch.
+func TestSoakWarmSave(t *testing.T) {
+	t.Parallel()
+	input := soakInput{preset: "rail-hub", arm: soakArms["ci"], seed: 1}
+	t.Run("miss", func(t *testing.T) {
+		t.Parallel()
+		d := newSoakDriver(t, input)
+		d.result.misses = []string{"the warm miss"}
+		if warm, err := d.warmSave(); warm != nil || err == nil || !strings.Contains(err.Error(), "the warm miss") {
+			t.Fatalf("the save is %v, with error %v", warm != nil, err)
+		}
+	})
+	t.Run("noted record", func(t *testing.T) {
+		t.Parallel()
+		d, id := soakEmergencyOnPod(t, input)
+		record := d.open[id]
+		record.unblocked, record.noted = soakEmergencyTime+1, true
+		warm, err := d.warmSave()
+		if err != nil {
+			t.Fatal(err)
+		}
+		run := input
+		run.warm, run.branch = warm, 1
+		branch := newSoakDriver(t, run)
+		branch.s.simulation.StopIncidentSamplersForTest()
+		for range soakViewTicks {
+			branch.s.advance()
+		}
+		branch.watchEmergencies()
+		if branch.result.emergencyLate+branch.result.emergencyInPlatoon != 1 {
+			t.Fatalf("late %d, in a platoon %d, want one report", branch.result.emergencyLate, branch.result.emergencyInPlatoon)
+		}
+	})
 }
 
 // TestSoakGroupBranches runs a small group through the test tree. The reference
