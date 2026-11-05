@@ -2,6 +2,7 @@ package sim
 
 import (
 	"fmt"
+	"math/rand/v2"
 	"reflect"
 	"slices"
 	"sync"
@@ -31,6 +32,59 @@ func TestRouteWorkMatchesOriginalSearch(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+// TestRouteWorkMatchesFreshWork compares one reused work value with a new
+// work value for each search, on real and bank networks with blocked lanes:
+// the route, the error, all search arrays, and the search counters. The reused
+// value goes from a large network to smaller ones and back, so a value that a
+// search leaves in the arrays shows in a later search or at a later size.
+func TestRouteWorkMatchesFreshWork(t *testing.T) {
+	t.Parallel()
+	scenarios := scenarioNetworks(t)
+	networks := []Network{scenarios["London"], scenarios["rail hub"], BankExample(), missNetwork(8, 13, 16), scenarios["small"], scenarios["London"]}
+	rng := rand.New(rand.NewPCG(5, 9))
+	var work routeSearchWork
+	reached, failed := 0, 0
+	for _, network := range networks {
+		graph := newRouteGraph(network)
+		for set, blocked := range blockedRouteSets(network, rng) {
+			graph.blocked = blocked
+			for range 40 {
+				input := networkRouteInput{
+					from: network.Nodes[rng.IntN(len(network.Nodes))].ID, to: network.Nodes[rng.IntN(len(network.Nodes))].ID,
+					terminalBerthsOnly: rng.IntN(2) == 0, ownBerthsOnly: rng.IntN(4) == 0,
+				}
+				if rng.IntN(4) == 0 {
+					input.forbidden = network.stationForbidden()
+				}
+				var fresh routeSearchWork
+				want, wantErr := network.routeIndexedWithWork(input, graph, &fresh)
+				searches, localFailed := work.searches, work.localFailed
+				got, gotErr := network.routeIndexedWithWork(input, graph, &work)
+				if !reflect.DeepEqual(got, want) || fmt.Sprint(gotErr) != fmt.Sprint(wantErr) {
+					t.Fatalf("set %d, %+v: got %v, %v, want %v, %v", set, input, got, gotErr, want, wantErr)
+				}
+				if fresh.distance != nil && (!slices.Equal(work.distance, fresh.distance) || !slices.Equal(work.previous, fresh.previous) || !slices.Equal(work.visited, fresh.visited)) {
+					t.Fatalf("set %d, %+v: the search arrays differ", set, input)
+				}
+				if work.searches-searches != fresh.searches || work.localFailed-localFailed != fresh.localFailed {
+					t.Fatalf("set %d, %+v: %d searches, %d failed, want %d, %d", set, input, work.searches-searches, work.localFailed-localFailed, fresh.searches, fresh.localFailed)
+				}
+				if len(work.touched) > len(network.Nodes) {
+					t.Fatalf("set %d, %+v: %d touched nodes in a network of %d", set, input, len(work.touched), len(network.Nodes))
+				}
+				if wantErr == nil {
+					reached++
+				} else {
+					failed++
+				}
+			}
+		}
+	}
+	if reached == 0 || failed == 0 {
+		t.Fatalf("%d searches reach the goal and %d fail, want some of each", reached, failed)
 	}
 }
 

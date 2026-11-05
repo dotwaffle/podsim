@@ -275,6 +275,7 @@ func (n Network) routeIndexedWithWork(input networkRouteInput, graph routeGraph,
 	distance, previous, visited := work.distance, work.previous, work.visited
 	filtered := input.bankExternal || input.allowedLanes != nil || input.forbidden != nil || input.ownBerthsOnly
 	distance[from] = 0
+	work.touched = append(work.touched, from)
 	work.queue = append(work.queue, routeQueueItem{node: from, distance: 0})
 	queue := work.queue
 	for len(queue) > 0 {
@@ -299,6 +300,9 @@ func (n Network) routeIndexedWithWork(input networkRouteInput, graph routeGraph,
 			}
 			candidate := item.distance + edge.seconds
 			if candidate < distance[edge.to] {
+				if previous[edge.to] < 0 {
+					work.touched = append(work.touched, edge.to)
+				}
 				distance[edge.to], previous[edge.to] = candidate, laneIndex
 				queue.push(routeQueueItem{node: edge.to, distance: candidate})
 			}

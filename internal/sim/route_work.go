@@ -9,6 +9,10 @@ type routeSearchWork struct {
 	previous []int
 	visited  []bool
 	queue    routeQueue
+	// touched holds each node that the search wrote since the last reset,
+	// and reset restores only those nodes. routeTargets does not add to it,
+	// because it uses its work value for one search only.
+	touched []int
 	// searches counts the calls of reset, which is one for each
 	// shortest-path search, and localFailed the same-bank local attempts
 	// of bankRoute that found no path. searchRoute reads them for the
@@ -22,14 +26,19 @@ func (w *routeSearchWork) reset(nodes int) {
 		w.distance = make([]float64, nodes)
 		w.previous = make([]int, nodes)
 		w.visited = make([]bool, nodes)
+		for index := range nodes {
+			w.distance[index], w.previous[index], w.visited[index] = math.Inf(1), -1, false
+		}
 	} else {
-		w.distance = w.distance[:nodes]
-		w.previous = w.previous[:nodes]
-		w.visited = w.visited[:nodes]
+		// Each element up to the capacity keeps its start value, so a later
+		// search on more nodes can extend the arrays.
+		distance, previous, visited := w.distance[:cap(w.distance)], w.previous[:cap(w.previous)], w.visited[:cap(w.visited)]
+		for _, node := range w.touched {
+			distance[node], previous[node], visited[node] = math.Inf(1), -1, false
+		}
+		w.distance, w.previous, w.visited = distance[:nodes], previous[:nodes], visited[:nodes]
 	}
-	for index := range nodes {
-		w.distance[index], w.previous[index], w.visited[index] = math.Inf(1), -1, false
-	}
+	w.touched = w.touched[:0]
 	w.queue = w.queue[:0]
 }
 
