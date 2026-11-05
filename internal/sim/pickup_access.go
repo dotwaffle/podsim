@@ -34,12 +34,19 @@ func (s *Simulation) pickupBerthFilter(v *vehicle, request Request) func(Berth) 
 // empty. It asks only whether a complete forward continuation exists. It
 // does not look at resource owners or at the time to arrive, so ordinary
 // traffic, an occupied berth, and a later arrival never unbind a trip. Its
-// searches read the routing view of v, so it writes nothing.
+// searches read the routing view of v, so it writes no simulation state and no
+// route memo. Its free-flow searches keep their results in accessRoutes, which
+// only pickupAccess reads.
 func (s *Simulation) pickupAccess(v *vehicle, request Request) bool {
 	if !s.blockedActive() {
 		return true
 	}
-	defer s.leaveRouteView(s.enterRouteView(v))
+	previous := s.enterRouteView(v)
+	defer s.leaveRouteView(previous)
+	// A nested query keeps the view of the outer query, and its rules.
+	if s.routeView != previous {
+		s.routeView.access = true
+	}
 	origin := request.legOrigin()
 	// A pod idle at the origin boards there. A blocked onward leg stays a
 	// destination access wait at boarding.

@@ -27,7 +27,7 @@ var cloneRules = map[reflect.Type]map[string]cloneRule{
 	reflect.TypeFor[Simulation](): {
 		"motion":         cloneCopy,
 		"networkIndexes": cloneShare, "lengths": cloneDrop, "routes": cloneDrop, "routeOrder": cloneDrop,
-		"pickupBounds": cloneDrop, "routeWork": cloneDrop, "routeView": cloneDrop, "admissionWork": cloneDrop, "depotTaken": cloneDrop, "emergencyMisses": cloneDrop, "pickupMisses": cloneDrop,
+		"pickupBounds": cloneDrop, "routeWork": cloneDrop, "routeView": cloneDrop, "admissionWork": cloneDrop, "depotTaken": cloneDrop, "emergencyMisses": cloneDrop, "pickupMisses": cloneDrop, "accessRoutes": cloneDrop,
 		"initial":  cloneShare,
 		"vehicles": cloneCopy, "expressServices": cloneCopy, "owners": cloneCopy, "demo": cloneCopy, "waiting": cloneCopy, "undelivered": cloneCopy,
 		"demandWeights": cloneShare, "congestionRouteCosts": cloneShare, "congestionRoutes": cloneCopy, "predictiveQueues": cloneCopy, "predictivePodQueues": cloneCopy,
@@ -209,7 +209,7 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"networkIndexes":  persistSession,
 		"expressServices": persistSession, "lengths": persistReset, "routes": persistReset, "routeOrder": persistReset,
 		"pickupBounds": persistReset, "routeWork": persistReset, "routeView": persistReset, "admissionWork": persistReset, "depotTaken": persistReset,
-		"emergencyMisses": persistReset, "pickupMisses": persistReset, "searchCounters": persistReset,
+		"emergencyMisses": persistReset, "pickupMisses": persistReset, "accessRoutes": persistReset, "searchCounters": persistReset,
 		"initial":  persistSession,
 		"vehicles": persistSave, "owners": persistDerive, "tick": persistSave, "paused": persistSave,
 		"completed": persistSave, "requestID": persistSave, "demo": persistSave, "demoError": persistSave,
@@ -525,6 +525,8 @@ func TestCloneFollowsRules(t *testing.T) {
 				"Simulation.emergencyMisses",
 				// The pickup miss tests cover the memo.
 				"Simulation.pickupMisses",
+				// The access route tests cover the memo.
+				"Simulation.accessRoutes",
 				// The release boundary of each tick empties it.
 				"Simulation.faultReleased",
 				// The example has no depot. The depot case covers the
@@ -871,7 +873,7 @@ func stripCaches(s *Simulation) *Simulation {
 	// A clone drops the no-candidate memo, so it makes other searches with
 	// the same trajectory.
 	c.emergencyMisses, c.searchCounters = nil, searchCounters{}
-	c.pickupMisses = nil
+	c.pickupMisses, c.accessRoutes = nil, nil
 	// The dispatch pass holds only buffers of the last dispatch.
 	c.pass = nil
 	// The cursors of a block list depend on the order of the lookups.

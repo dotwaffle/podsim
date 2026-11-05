@@ -804,6 +804,10 @@ A pod waits with "Blocked by incident" only when no reachable, compatible berth 
 func (s *Simulation) pickupAccess(v *vehicle, request Request) bool
 ```
 
+Status 2026-11-05: the maintainer ruled that "writes nothing" in this contract means no simulation state.
+`pickupAccess` keeps its free-flow searches in the derived memo `accessRoutes`, and `endpointRoute` nested in it uses the same memo.
+No save or clone holds this memo, and no other query reads it, so no result changes.
+
 With `origin := request.legOrigin()` (stage 1, section 7.1), the test uses these terms:
 
 - The current route of the pod is executable when its remaining route has no blocked lane, or when `endpointRoute(v)` gives a route.

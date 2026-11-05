@@ -36,6 +36,9 @@ type routeView struct {
 	dischargeSet bool
 	// forecasts holds the predictive forecasts of self.
 	forecasts []laneForecast
+	// access is true for the view of pickupAccess, whose free-flow searches
+	// read and write accessRoutes. See accessRoute.
+	access bool
 }
 
 // enterRouteView sets a routing view for pod v, and returns the previous

@@ -59,6 +59,9 @@ func (s *Simulation) cachedRouteForClass(from, to string, class VehicleClass) ro
 	if cached, ok := s.routes[key]; ok {
 		return cached
 	}
+	if cached, ok := s.accessRoute(key); ok {
+		return cached
+	}
 	lanes, err := s.searchRoute(networkRouteInput{from: from, to: to, class: class, terminalBerthsOnly: true})
 	if errors.Is(err, ErrUnreachable) {
 		lanes, err = s.searchRoute(networkRouteInput{from: from, to: to, class: class})
@@ -159,6 +162,11 @@ func (s *Simulation) cacheStationRoutesForClass(from string, berths []Berth, cla
 	if len(berths) < 2 || s.network.hasStationBanks() {
 		return
 	}
+	// A view stores no batch in the route memo. accessRoutes must hold what a
+	// single search gives, so it takes no batch.
+	if s.routeView != nil && s.routeView.access {
+		return
+	}
 	s.ensureNetworkIndexes()
 	var targets []string
 	for _, berth := range berths {
@@ -180,6 +188,9 @@ func (s *Simulation) stationPathForClass(from, to string, class VehicleClass) ([
 	s.ensureNetworkIndexes()
 	key := routeKey{from: from, to: to, station: true, class: routeClass(class)}
 	if cached, ok := s.routes[key]; ok {
+		return cached.lanes, cached.err
+	}
+	if cached, ok := s.accessRoute(key); ok {
 		return cached.lanes, cached.err
 	}
 	lanes, err := s.searchRoute(networkRouteInput{from: from, to: to, class: class, forbidden: s.stationForbidden})
@@ -221,6 +232,7 @@ func (s *Simulation) ensureNetworkIndexes() {
 	s.blocked = blockedSet{}
 	s.emergencyMisses = nil
 	s.pickupMisses = nil
+	s.accessRoutes = nil
 	s.staticConnected, s.staticRoutes = nil, nil
 }
 
@@ -240,11 +252,40 @@ func (s *Simulation) station(id string) (Station, bool) {
 	return s.network.Stations[index], true
 }
 
+// accessRoute returns a free-flow search of an earlier pickupAccess of this
+// route epoch. pickupAccess repeats the same searches for each bound trip at
+// each dispatch pass, and its view stores nothing in the route memo. Such a
+// search reads only the key, the network and the routing graph, so its result
+// is the result of a new search. No other query reads accessRoutes, so s.routes,
+// s.routeOrder, and each other query stay as they are without it.
+func (s *Simulation) accessRoute(key routeKey) (routeResult, bool) {
+	if s.routeView == nil || !s.routeView.access {
+		return routeResult{}, false
+	}
+	cached, ok := s.accessRoutes[key]
+	return cached, ok
+}
+
+// noteAccessRoute stores a result. It clears a full memo first, which changes
+// no result.
+func (s *Simulation) noteAccessRoute(key routeKey, result routeResult) {
+	if s.accessRoutes == nil {
+		s.accessRoutes = make(map[routeKey]routeResult)
+	} else if len(s.accessRoutes) >= routeCacheLimit {
+		clear(s.accessRoutes)
+	}
+	s.accessRoutes[key] = result
+}
+
 // cacheRoute stores the result with its travel time and returns the stored
-// value. Under a routing view, it returns the value and stores nothing.
+// value. Under a routing view, it returns the value and stores nothing in the
+// route memo.
 func (s *Simulation) cacheRoute(key routeKey, result routeResult) routeResult {
 	result = s.withSeconds(result)
 	if s.routeView != nil {
+		if s.routeView.access {
+			s.noteAccessRoute(key, result)
+		}
 		return result
 	}
 	if s.routes == nil {
