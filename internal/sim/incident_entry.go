@@ -3,6 +3,8 @@ package sim
 import (
 	"errors"
 	"fmt"
+	"math"
+	"slices"
 )
 
 // IncidentTestOperation is one stage 1 operation of IncidentForTest.
@@ -181,46 +183,81 @@ func (s *Simulation) BoardingLegBlockedForTest(podID string) bool {
 // contract, because the session tests cannot read the cap or the grants. No
 // production code calls it.
 func (s *Simulation) FaultTransitionForTest() func() error {
-	return s.faultTransitionCheck(func() []faultPose { return faultPoses(s) })
+	previous := faultPoses(s)
+	return func() error {
+		next := faultPoses(s)
+		err := s.compareFaultPoses(previous, next)
+		previous = next
+		return err
+	}
 }
+
+// restoredPublishLimit is the most, in meters, that the first publish after a
+// physical restore can change a pose. The soak measured at most 5.68e-13 m.
+const restoredPublishLimit = 1e-9
 
 // RestoredFaultTransitionForTest is FaultTransitionForTest for a simulation
 // that a physical restore made and that has not stepped. A restored pod keeps
 // its saved lane distance, and its route distance is rebuilt on a shorter route,
 // so the first publish can change the lane distance and the position by a
-// rounding error. So until the first tick, the check reads the pose that the
-// first publish gives. Each compare stays exact, and a change of the route
-// distance in the first tick still fails.
+// rounding error. Each call before the first tick compares the poses as they
+// are, and it notes the pose that the first publish gives. The first call after
+// the first tick compares with the noted pose, and that pose must be within
+// restoredPublishLimit of the pose as it was. Each compare stays exact.
 //
 // It is a test entry for the soak of section 5.1.9 of the incident stage 7
 // contract. No production code calls it.
 func (s *Simulation) RestoredFaultTransitionForTest() func() error {
 	restored := s.tick
-	return s.faultTransitionCheck(func() []faultPose {
-		poses := faultPoses(s)
+	note := func(poses []faultPose) []faultPose {
+		published := slices.Clone(poses)
+		s.publishedPoses(published)
+		return published
+	}
+	previous := faultPoses(s)
+	published := note(previous)
+	return func() error {
+		next := faultPoses(s)
 		if s.tick == restored {
-			s.publishedPoses(poses)
+			published = note(next)
+		} else if published != nil {
+			if err := checkFirstPublish(s, previous, published); err != nil {
+				return err
+			}
+			previous, published = published, nil
 		}
-		return poses
-	})
+		err := s.compareFaultPoses(previous, next)
+		previous = next
+		return err
+	}
 }
 
-// faultTransitionCheck returns a check that compares the poses of each call
-// with the poses of the call before it.
-func (s *Simulation) faultTransitionCheck(read func() []faultPose) func() error {
-	previous := read()
-	return func() error {
-		next := read()
-		for index := range next {
-			if previous[index].faulted && next[index].faulted {
-				if err := faultTransition(previous[index], next[index]); err != nil {
-					return fmt.Errorf("pod %s: %w: %+v, then %+v", s.vehicles[index].Pod.ID, err, previous[index], next[index])
-				}
+// checkFirstPublish checks that the first publish changes the pose of each
+// faulted pod at rest by at most restoredPublishLimit.
+func checkFirstPublish(s *Simulation, poses, published []faultPose) error {
+	for index := range poses {
+		before, after := poses[index], published[index]
+		if !before.faulted || before.speed > 0 {
+			continue
+		}
+		if math.Abs(after.laneDistance-before.laneDistance) > restoredPublishLimit || math.Hypot(after.position.X-before.position.X, after.position.Y-before.position.Y) > restoredPublishLimit {
+			return fmt.Errorf("pod %s: the first publish moves the pod at rest: %+v, then %+v", s.vehicles[index].Pod.ID, before, after)
+		}
+	}
+	return nil
+}
+
+// compareFaultPoses checks the transition rules of each pod that is faulted in
+// both lists of poses.
+func (s *Simulation) compareFaultPoses(previous, next []faultPose) error {
+	for index := range next {
+		if previous[index].faulted && next[index].faulted {
+			if err := faultTransition(previous[index], next[index]); err != nil {
+				return fmt.Errorf("pod %s: %w: %+v, then %+v", s.vehicles[index].Pod.ID, err, previous[index], next[index])
 			}
 		}
-		previous = next
-		return nil
 	}
+	return nil
 }
 
 // publishedPoses gives each traveling pod with a lane the lane distance and the

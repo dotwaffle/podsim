@@ -1,6 +1,7 @@
 package sim
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"math"
@@ -534,9 +535,34 @@ func TestRestoreShortFinalLane(t *testing.T) {
 // distance differs from its route distance by a rounding error. The check for a
 // restored simulation accepts the first publish, and the ordinary check does
 // not. A real move fails in the first tick, and in a later tick.
+// TestCheckFirstPublish checks the limit of each published field by itself, and
+// that the limit reads only a faulted pod at rest.
+func TestCheckFirstPublish(t *testing.T) {
+	t.Parallel()
+	s := &Simulation{vehicles: make([]vehicle, 1)}
+	rest := faultPose{faulted: true}
+	far := 2 * restoredPublishLimit
+	for _, tc := range []struct {
+		name          string
+		before, after faultPose
+		want          bool
+	}{
+		{name: "same", before: rest, after: rest},
+		{name: "lane distance at the limit", before: rest, after: faultPose{laneDistance: restoredPublishLimit}},
+		{name: "lane distance past the limit", before: rest, after: faultPose{laneDistance: far}, want: true},
+		{name: "position past the limit", before: rest, after: faultPose{position: Point{X: far}}, want: true},
+		{name: "not faulted", after: faultPose{laneDistance: far}},
+		{name: "braking", before: faultPose{faulted: true, speed: 1}, after: faultPose{laneDistance: far}},
+	} {
+		if err := checkFirstPublish(s, []faultPose{tc.before}, []faultPose{tc.after}); (err != nil) != tc.want {
+			t.Errorf("%s: %v", tc.name, err)
+		}
+	}
+}
+
 func TestRestoredFaultTransition(t *testing.T) {
 	t.Parallel()
-	restore := func(t *testing.T) (*Simulation, *vehicle) {
+	restore := func(t *testing.T, offset float64) (*Simulation, *vehicle) {
 		t.Helper()
 		s := faultLegFleet(t)
 		v := boardParties(t, s, "s1")
@@ -545,7 +571,7 @@ func TestRestoredFaultTransition(t *testing.T) {
 		stepUntil(t, s, "the rest", func() bool { return v.Pod.Speed == 0 })
 		state := s.ExportState()
 		state.Pods = slices.Clone(state.Pods)
-		state.Pods[s.vehicleIndex(v)].LaneDistance += 2e-9
+		state.Pods[s.vehicleIndex(v)].LaneDistance += offset
 		restored, result, err := RestoreState(faultRestoreInput(s, state))
 		if err != nil {
 			t.Fatal(err)
@@ -556,10 +582,17 @@ func TestRestoredFaultTransition(t *testing.T) {
 		got := restored.findVehicle(v.Pod.ID)
 		return restored, got
 	}
-	const moved = "the pod at rest moves"
+	const (
+		moved    = "the pod at rest moves"
+		distance = "the distance of the pod at rest changes"
+		publish  = "the first publish moves the pod at rest"
+	)
 	tests := []struct {
-		name  string
-		check func(*Simulation) func() error
+		name string
+		// offset is the error of the saved lane distance. It is within the limit
+		// of the first publish by default.
+		offset float64
+		check  func(*Simulation) func() error
 		// prepare runs after the check starts, and before the first tick.
 		prepare, later func(*vehicle)
 		want           string
@@ -568,12 +601,15 @@ func TestRestoredFaultTransition(t *testing.T) {
 		{name: "restored check", check: (*Simulation).RestoredFaultTransitionForTest},
 		{name: "command before the first tick", check: (*Simulation).RestoredFaultTransitionForTest, prepare: func(*vehicle) {}},
 		{name: "move in the first tick", check: (*Simulation).RestoredFaultTransitionForTest, later: func(v *vehicle) { v.Pod.LaneDistance += 1e-9 }, want: moved},
-		{name: "route distance before the first tick", check: (*Simulation).RestoredFaultTransitionForTest, prepare: func(v *vehicle) { v.distance -= 1e-9 }, want: moved},
+		{name: "route distance before the first tick", check: (*Simulation).RestoredFaultTransitionForTest, prepare: func(v *vehicle) { v.distance -= 1e-9 }, want: distance},
+		{name: "lane distance before the first tick", check: (*Simulation).RestoredFaultTransitionForTest, prepare: func(v *vehicle) { v.Pod.LaneDistance += 1e-12 }, want: moved},
+		{name: "position before the first tick", check: (*Simulation).RestoredFaultTransitionForTest, prepare: func(v *vehicle) { v.Pod.Position.X += 1e-12 }, want: moved},
+		{name: "first publish past the limit", offset: 2 * restoredPublishLimit, check: (*Simulation).RestoredFaultTransitionForTest, want: publish},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			s, v := restore(t)
+			s, v := restore(t, cmp.Or(test.offset, restoredPublishLimit/2))
 			check := test.check(s)
 			if test.prepare != nil {
 				test.prepare(v)

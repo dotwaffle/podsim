@@ -1562,7 +1562,7 @@ func TestSoakBranchRestingPodRounding(t *testing.T) {
 	file := sessionStateFile(t, source.s)
 	file.RestoreAttempts = 0
 	index := slices.IndexFunc(file.Simulation.Pods, func(pod sim.SavedPod) bool { return pod.ID == podID })
-	file.Simulation.Pods[index].LaneDistance += 2e-9
+	file.Simulation.Pods[index].LaneDistance += 5e-10
 	warm := &soakWarm{data: encodeTestState(t, file), loopTick: source.loopTick, clears: source.clears, open: map[string]soakOpenRecord{}}
 	run := input
 	run.warm, run.branch = warm, 1
