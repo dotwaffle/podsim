@@ -641,16 +641,16 @@ An apply of a project with 7.2 MiB of JSON allocated about 190 MB and took about
 
 A [preset generation](protocol.md#presets) also uses memory for a short time.
 The server builds a new project for each request and does not keep it.
-After the reply, the server gives the memory back to the system.
+The Go runtime returns the memory to the system in its own time after the reply.
 These values are from one server that runs the default project, with 20 MiB of resident memory at idle:
 
-| Request | JSON | Time | Peak resident memory | Resident memory after the reply |
-| --- | --- | --- | --- | --- |
-| `london-central` | 1.2 MB | 0.4 to 0.6 s | 35 to 43 MiB | 26 MiB |
-| `london-full` | 5.6 MB | 2.2 to 3.7 s | 89 to 101 MiB | 36 to 42 MiB |
-| `project` apply of `london-full` | 5.6 MB | 1.7 s | 120 MiB | Stays with the project. |
+| Request | JSON | Time | Peak resident memory |
+| --- | --- | --- | --- |
+| `london-central` | 1.2 MB | 0.4 to 0.6 s | 35 to 43 MiB |
+| `london-full` | 5.6 MB | 2.2 to 3.7 s | 89 to 101 MiB |
+| `project` apply of `london-full` | 5.6 MB | 1.7 s | 120 MiB |
 
-The resident memory after the reply includes the pages of the embedded source data, and the system can drop these pages.
+On a quiet session, about 58 MiB of anonymous memory stayed resident for at least 60 s after a `london-full` reply, because no collection ran.
 The source data adds 7.2 MB to the server binary, and it does not change the resident memory at idle.
 `GOMAXPROCS=1` and `GOMEMLIMIT=128MiB` did not change the peak or the time of a generation on the test host.
 With `GOMAXPROCS=1` and the default project, the simulation clock stayed at 60 ticks per second during a generation of `london-full`.

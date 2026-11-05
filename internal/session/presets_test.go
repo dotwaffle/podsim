@@ -301,38 +301,6 @@ func TestPresetSlotCoversTheCompressedReply(t *testing.T) {
 	}
 }
 
-// TestPresetReleasesMemory checks that each generation ends with a release,
-// also a failed generation, and that a refusal does not cause one. The slot
-// stays in use during the release, so a new generation cannot start before
-// the memory is free.
-func TestPresetReleasesMemory(t *testing.T) {
-	t.Parallel()
-	fixture := newPresetFixture(t, map[string]PresetGenerator{
-		"one":   namedProject("One"),
-		"error": func() (project.Config, error) { return project.Config{}, errors.New("failed") },
-	})
-	var mu sync.Mutex
-	releases, slotInUse := 0, 0
-	fixture.session.releaseMemory = func() {
-		mu.Lock()
-		defer mu.Unlock()
-		releases++
-		slotInUse += len(fixture.session.presetSlot)
-	}
-	for _, test := range []struct {
-		name string
-		want int
-	}{{"one", 1}, {"error", 2}, {"two", 2}} {
-		fixture.post(t, http.MethodPost, test.name)
-		mu.Lock()
-		got, inUse := releases, slotInUse
-		mu.Unlock()
-		if got != test.want || inUse != test.want {
-			t.Errorf("after %s: %d releases, %d with the slot in use, want %d", test.name, got, inUse, test.want)
-		}
-	}
-}
-
 func TestPresetFailureSendsNoProject(t *testing.T) {
 	t.Parallel()
 	fixture := newPresetFixture(t, map[string]PresetGenerator{

@@ -41,11 +41,6 @@ func WithPresets(presets map[string]PresetGenerator) Option {
 // name, and a generation in progress. The place in s.presetSlot stays in use
 // until the reply is sent, because the reply bytes use memory until then. A
 // failed generation sends no part of a project.
-//
-// After the reply, s.releaseMemory gives the memory of the generation back to
-// the system. A session that runs allocates little, so without it the next
-// collection comes up to 2 minutes later, and the scavenger then returns the
-// memory slowly.
 func (s *Session) presetHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.ContentLength != 0 {
 		closeUnread(w)
@@ -63,7 +58,6 @@ func (s *Session) presetHTTP(w http.ResponseWriter, r *http.Request) {
 	select {
 	case s.presetSlot <- struct{}{}:
 		defer func() { <-s.presetSlot }()
-		defer s.releaseMemory()
 	default:
 		w.Header().Set("Retry-After", presetRetryAfter)
 		writeError(w, "the server is generating another preset, try again", http.StatusServiceUnavailable)
