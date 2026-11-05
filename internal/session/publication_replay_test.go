@@ -9,8 +9,8 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-// replayCaptureTicks is the tick distance between two captures, 20 captures
-// a second at 60 Hz.
+// replayCaptureTicks is the tick distance between two captures, 10 captures
+// a second at 30 Hz.
 const replayCaptureTicks = 3
 
 // replayPayload is the JSON of one envelope that the publisher retained.

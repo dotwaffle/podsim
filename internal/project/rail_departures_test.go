@@ -67,8 +67,8 @@ func TestRailDepartureValidation(t *testing.T) {
 
 func TestDepartureOfferTickInterpolation(t *testing.T) {
 	t.Parallel()
-	// The floor of i/7 of a second, and tick 1 in place of tick 0: at 60 Hz,
-	// the ticks are 1, 8, 17, 25, 34, 42, 51, and 60.
+	// The floor of i/7 of a second, and tick 1 in place of tick 0: at 30 Hz,
+	// the ticks are 1, 4, 8, 12, 17, 21, 25, and 30.
 	floor := []int64{1}
 	for i := int64(1); i < 8; i++ {
 		floor = append(floor, i*sim.TicksPerSecond/7)

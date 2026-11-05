@@ -27,7 +27,7 @@ func TestDurationAndRequiredOptions(t *testing.T) {
 		valid bool
 	}{
 		{"1s", sim.TicksPerSecond, true}, {"1m", 60 * sim.TicksPerSecond, true}, {"24h", parkride.MaxHorizonTicks, true},
-		// 17 ms, 16.666666 ms, and 16.666667 ms at 60 Hz.
+		// 34 ms, 33.333333 ms, and 33.333334 ms at 30 Hz.
 		{(time.Second * 102 / 100 / sim.TicksPerSecond).String(), 1, true},
 		{belowTick.String(), 0, false}, {(belowTick + 1).String(), 1, true},
 		{"1.5s", 3 * sim.TicksPerSecond / 2, true}, {"24h1ns", 0, false}, {"-1s", 0, false}, {"0s", 0, false},

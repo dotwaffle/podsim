@@ -58,13 +58,13 @@ func TestIncidentUniformGolden(t *testing.T) {
 func TestNextIncidentTick(t *testing.T) {
 	t.Parallel()
 	largest := 1 - 1.0/(1<<53)
-	// interval is the contract formula. At 60 Hz, the median at a rate of 60
-	// is 2496, and the largest u at a rate of 60 is 132253.
+	// interval is the contract formula. At 30 Hz, the median at a rate of 60
+	// is 1248, and the largest u at a rate of 60 is 66127.
 	interval := func(u, perHour float64) int64 {
 		return int64(math.Ceil(-math.Log(1-u) * (3600 * TicksPerSecond) / perHour))
 	}
 	median := interval(0.5, 60)
-	// The terminal rate scales with the tick rate. It is about 8.8e-10 at 60 Hz.
+	// The terminal rate scales with the tick rate. It is about 4.4e-10 at 30 Hz.
 	aboveTerminal, belowTerminal := 1e-9*TicksPerSecond/60, 8e-10*TicksPerSecond/60
 	for _, test := range []struct {
 		name       string

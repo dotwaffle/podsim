@@ -308,7 +308,8 @@ func TestGuardedRateLow(t *testing.T) {
 	t.Parallel()
 	// A fleet of 114 pods has a limit of 5.7 requests per minute.
 	// largeID is the smallest ID whose product with the offered rate of one
-	// request overflows int64: at 60 Hz it is 128102389400761.
+	// request overflows int64: it is 128102389400761 at 60 Hz, and 60 over
+	// TicksPerSecond times that at another rate.
 	const largeID = 128102389400761 * 60 / TicksPerSecond
 	aboveLimit, belowLimit := tickOfRequest100(5.8), tickOfRequest100(5.6)
 	tests := []struct {
@@ -452,7 +453,7 @@ func TestGuardedDemandSet(t *testing.T) {
 	busy := guardedGate{count: 100, ticks: 100 * 10 * TicksPerSecond}
 	// With these weights, W is 14. Four stations have a weight, so the mean
 	// weight is 3.5. Station s0 expects half a request in 15 minutes from
-	// request 1 at horizonEdge or before, which is tick 38571 at 60 Hz.
+	// request 1 at horizonEdge or before, which is tick 19285 at 30 Hz.
 	const horizonEdge = 150 * ticksPerMinute / 14
 	profile := map[string]float64{"s0": 5, "s1": 1, "s2": 5, "s3": 3}
 	tests := []struct {
