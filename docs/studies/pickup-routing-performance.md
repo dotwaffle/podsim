@@ -45,6 +45,7 @@ These short runs do not establish sustained 60x playback or a capacity improveme
 Forward searches independently check the reverse lower bounds, including an unreachable node.
 A moving-traffic fixture checks that each bound does not exclude a candidate with an equal pickup estimate.
 The optimized selector is compared with a full candidate scan for idle and moving pods, with and without congestion routing.
+The code of those routing policies was removed on November 5, 2026.
 That comparison preserves the complete simulation state except route-cache contents.
 Separate cases retain fleet-order ties and candidates inside the rounding margin.
 

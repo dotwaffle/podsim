@@ -19,9 +19,8 @@ type stopKey struct {
 // list ends with the station of the route. It is nil when no route exists.
 //
 // The stop order is a plan that dispatch makes when a party boards, so it
-// uses the free-flow route of route with each routing policy. A leg can
-// then take a costed route. The result does not change during a run, so
-// stationsOnRouteForClass keeps it.
+// uses the free-flow route of route. The result does not change during a
+// run, so stationsOnRouteForClass keeps it.
 func (s *Simulation) stationsOnRouteForClass(from, stationID string, class VehicleClass) []string {
 	key := stopKey{from: from, station: stationID, class: routeClass(class)}
 	if stations, ok := s.routeStations[key]; ok {
@@ -174,21 +173,7 @@ type leg struct {
 // keeps each rider within the cap. See the checks of cappedStops,
 // continueJourney and reevaluateTerminalBerth.
 func (s *Simulation) legRoute(v *vehicle, next leg) ([]Lane, error) {
-	route, err := s.assignedApproachRouteMatching(v, next.from, next.stops[0], s.berthFilterForStops(v.Pod.Class, next.stops[1:]))
-	recordedActive := len(v.Boardings) > 0 && v.RidersAboard() > 0
-	if err != nil || (!s.cappedDetours() && !recordedActive) || !s.costedRouting() {
-		return route, err
-	}
-	station, _ := s.station(next.stops[0])
-	start := detourStart{class: v.Pod.Class, from: next.from, ridden: next.ridden + s.lanesMeters(route), entry: station.routeEntry(route, Berth{})}
-	if len(v.Boardings) == 0 || v.RidersAboard() == 0 {
-		if s.plannedDetour(next.origin, next.stops, start) <= maxSharedRideDetour {
-			return route, nil
-		}
-	} else if s.keepsRiderDetours(v, next.stops, start) {
-		return route, nil
-	}
-	return s.stationApproachForStops(next.from, next.stops, v.Pod.Class)
+	return s.assignedApproachRouteMatching(v, next.from, next.stops[0], s.berthFilterForStops(v.Pod.Class, next.stops[1:]))
 }
 
 // rerouteKeepsDetours reports whether pod v can take a new route to a

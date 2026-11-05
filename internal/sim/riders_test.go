@@ -40,23 +40,17 @@ func TestJourneyAndDetourTotals(t *testing.T) {
 	}
 }
 
-// TestDirectDistanceIgnoresCongestionRouting checks that the direct distance
-// is the free-flow distance with congestion routing on, and that the call
-// does not compute the congestion costs.
-func TestDirectDistanceIgnoresCongestionRouting(t *testing.T) {
+// TestDirectDistance checks the direct distance to a berth of the station,
+// and to a berth of another station.
+func TestDirectDistance(t *testing.T) {
 	t.Parallel()
 	s := newSharingSimulation(t)
 	station, _ := s.station("market")
 	berth := station.Berths[0]
 	harbor, _ := s.station("harbor")
 	from := harbor.Berths[0].Node
-	free := s.directDistance(from, "market", berth)
-	if free <= 0 {
+	if free := s.directDistance(from, "market", berth); free <= 0 {
 		t.Fatalf("free-flow distance %.3f", free)
-	}
-	s.SetCongestionRouting(true)
-	if got := s.directDistance(from, "market", berth); got != free || s.congestionRouteCosts != nil {
-		t.Fatalf("direct distance with congestion routing is %.3f, want %.3f, costs %v", got, free, s.congestionRouteCosts)
 	}
 	if got := s.directDistance(from, "parking", berth); got != -1 {
 		t.Fatalf("direct distance to a berth of another station is %.3f, want -1", got)

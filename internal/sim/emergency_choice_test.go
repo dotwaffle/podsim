@@ -2,7 +2,6 @@ package sim
 
 import (
 	"fmt"
-	"maps"
 	"reflect"
 	"slices"
 	"testing"
@@ -335,16 +334,9 @@ func TestEmergencyChoiceCandidates(t *testing.T) {
 	})
 }
 
-// routingState is a copy of the routing-policy state and of the free-flow
-// route memo of a simulation (section 7 of the incident emergency
-// contract).
+// routingState is a copy of the free-flow route memo of a simulation
+// (section 7 of the incident emergency contract).
 type routingState struct {
-	costs        []float64
-	refresh      int64
-	congestion   map[routeKey]routeResult
-	queues       []float64
-	podQueues    map[string]podQueueHistory
-	queueTick    int64
 	routes       map[routeKey]routeResult
 	routeOrder   []routeKey
 	hasRouteMemo bool
@@ -352,18 +344,7 @@ type routingState struct {
 
 // copyRouting returns a copy of the routing state of s.
 func copyRouting(s *Simulation) routingState {
-	state := routingState{
-		costs: slices.Clone(s.congestionRouteCosts), refresh: s.nextCongestionRouteRefresh, congestion: cloneRoutes(s.congestionRoutes),
-		queues: slices.Clone(s.predictiveQueues), queueTick: s.predictiveQueueTick,
-		routes: cloneRoutes(s.routes), routeOrder: slices.Clone(s.routeOrder), hasRouteMemo: s.routes != nil,
-	}
-	if s.predictivePodQueues != nil {
-		state.podQueues = make(map[string]podQueueHistory, len(s.predictivePodQueues))
-		for id, history := range s.predictivePodQueues {
-			state.podQueues[id] = podQueueHistory{lanes: maps.Clone(history.lanes)}
-		}
-	}
-	return state
+	return routingState{routes: cloneRoutes(s.routes), routeOrder: slices.Clone(s.routeOrder), hasRouteMemo: s.routes != nil}
 }
 
 // viewNetwork is choiceNetwork with the stations sA and sB, and a second
@@ -378,79 +359,28 @@ func viewNetwork() Network {
 	return network
 }
 
-// TestEmergencyChoiceRoutingView runs the choice and the installation
-// under each routing policy in three states: first use, with no
-// congestion costs and no predictive history; an overdue refresh, with
-// stored costs and a history older than the tick; and existing state,
-// with current costs, a current history, and a history of the emergency
-// pod. The routing-policy state and both route memos do not change, and
-// the installed route is the candidate route. The stored costs and the
-// stored history, without the history of the pod, choose the road.
+// TestEmergencyChoiceRoutingView runs the choice and the installation. Both
+// route memos do not change, and the installed route is the candidate route.
 func TestEmergencyChoiceRoutingView(t *testing.T) {
 	t.Parallel()
-	policies := []RoutingPolicy{FreeFlowRouting, CongestionRouting, QueueRouting, PredictiveRouting}
-	for _, policy := range policies {
-		for _, state := range []string{"first use", "overdue refresh", "existing history"} {
-			t.Run(fmt.Sprintf("policy %d, %s", policy, state), func(t *testing.T) {
-				t.Parallel()
-				s, v := choiceFleet(t, viewNetwork(), 2, "sB")
-				travelApproach(t, s, v, 100)
-				if err := s.SetRoutingPolicy(policy); err != nil {
-					t.Fatal(err)
-				}
-				link := laneIndex(t, s, "to-sA")
-				heavy := make([]float64, len(s.network.Lanes))
-				heavy[link] = 1000
-				// wantAlt reports that the stored state sends the pod
-				// through alt.
-				wantAlt := false
-				switch state {
-				case "overdue refresh":
-					s.congestionRouteCosts, s.congestionRoutes, s.nextCongestionRouteRefresh = heavy, map[routeKey]routeResult{}, s.tick-1
-					s.predictiveQueues, s.predictivePodQueues, s.predictiveQueueTick = slices.Clone(heavy), map[string]podQueueHistory{}, 0
-					wantAlt = policy == CongestionRouting || policy == PredictiveRouting
-				case "existing history":
-					s.congestionRouteCosts, s.congestionRoutes, s.nextCongestionRouteRefresh = heavy, map[routeKey]routeResult{}, s.tick+congestionRouteRefreshTicks
-					s.predictiveQueues, s.predictiveQueueTick = slices.Clone(heavy), s.tick
-					s.predictivePodQueues = map[string]podQueueHistory{"01": {lanes: map[int]float64{link: 1000}}}
-					wantAlt = policy == CongestionRouting
-				}
-				checkEmergenciesEachTick(t, s)
-				candidate, ok := viewChoice(t, s.Clone(), v)
-				if !ok || candidate.station.ID != "sA" {
-					t.Fatalf("candidate %s, %t, want sA", candidate.station.ID, ok)
-				}
-				want := choiceRoute(s, v, candidate)
-				before := copyRouting(s)
-				startEmergency(t, s, v, 0)
-				//nolint:govet // deepequalerrors: route errors compare by value on purpose.
-				if after := copyRouting(s); !reflect.DeepEqual(before, after) {
-					t.Fatalf("the choice changed the routing state:\n%+v\n%+v", before, after)
-				}
-				if v.op.purpose != opEmergencyUnload || !sameLanes(v.Route, want) {
-					t.Fatalf("installed route %v, want the candidate route %v", laneIDs(v.Route), laneIDs(want))
-				}
-				if usesLane(v.Route, "alt-in") != wantAlt {
-					t.Fatalf("the route %v goes through alt: %t, want %t", laneIDs(v.Route), !wantAlt, wantAlt)
-				}
-			})
-		}
+	s, v := choiceFleet(t, viewNetwork(), 2, "sB")
+	travelApproach(t, s, v, 100)
+	checkEmergenciesEachTick(t, s)
+	candidate, ok := viewChoice(t, s.Clone(), v)
+	if !ok || candidate.station.ID != "sA" {
+		t.Fatalf("candidate %s, %t, want sA", candidate.station.ID, ok)
 	}
-	t.Run("own queue", func(t *testing.T) {
-		t.Parallel()
-		s, v := choiceFleet(t, viewNetwork(), 2, "sB")
-		travelApproach(t, s, v, 100)
-		if err := s.SetRoutingPolicy(PredictiveRouting); err != nil {
-			t.Fatal(err)
-		}
-		v.Pod.WaitReason, v.Pod.Speed = TrackOccupied, 0
-		prefix, from, _ := s.divertStart(v)
-		defer s.leaveRouteView(s.enterRouteView(v))
-		if _, ok := s.chooseStation(v, prefix, from, true); !ok {
-			t.Fatal("no candidate")
-		}
-		if len(s.routeView.forecasts) == 0 || s.routeView.forecasts[laneIndex(t, s, "approach")].initial != 0 {
-			t.Fatal("the stopped emergency pod delays its own lane")
-		}
-	})
+	want := choiceRoute(s, v, candidate)
+	before := copyRouting(s)
+	startEmergency(t, s, v, 0)
+	//nolint:govet // deepequalerrors: route errors compare by value on purpose.
+	if after := copyRouting(s); !reflect.DeepEqual(before, after) {
+		t.Fatalf("the choice changed the routing state:\n%+v\n%+v", before, after)
+	}
+	if v.op.purpose != opEmergencyUnload || !sameLanes(v.Route, want) {
+		t.Fatalf("installed route %v, want the candidate route %v", laneIDs(v.Route), laneIDs(want))
+	}
+	if usesLane(v.Route, "alt-in") {
+		t.Fatalf("the route %v goes through alt", laneIDs(v.Route))
+	}
 }

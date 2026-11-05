@@ -125,9 +125,8 @@ func (s *Simulation) completeRider(v *vehicle, index int, ridden float64) {
 // stationApproachRouteForClass that stops at that berth rides this
 // distance. It returns -1 when no such route exists.
 //
-// route gives the free-flow route with each routing policy, so the direct
-// distance does not change with the policy or with congestion. It is the
-// baseline of the detour ratios, so it does not change with the blocked
+// route gives the free-flow route, so the direct distance does not change
+// with congestion. It is the baseline of the detour ratios, so it does not change with the blocked
 // set either: while the set is not empty, it searches the static graph.
 func (s *Simulation) directDistanceForClass(from, stationID string, berth Berth, class VehicleClass) float64 {
 	station, ok := s.station(stationID)

@@ -127,17 +127,12 @@ func TestEmergencyBankSearches(t *testing.T) {
 	if static := s.searchCounters; static.static != after.static+4 || static.graph != after.graph || static.routes != after.routes {
 		t.Fatalf("counters %+v, then %+v, want the 4 searches of the bank route as static searches", after, static)
 	}
-	for _, policy := range []RoutingPolicy{FreeFlowRouting, CongestionRouting, QueueRouting, PredictiveRouting} {
-		c := s.Clone()
-		if err := c.SetRoutingPolicy(policy); err != nil {
-			t.Fatal(err)
-		}
-		before := c.searchCounters.graph
-		if _, err := c.assignedRoute(&c.vehicles[0], "bank-a-departure", "bank-a-berth"); err != nil {
-			t.Fatal(err)
-		}
-		if searches := c.searchCounters.graph - before; searches < 4 || searches > 12 {
-			t.Fatalf("policy %d: %d graph searches in one call", policy, searches)
-		}
+	c := s.Clone()
+	graphs := c.searchCounters.graph
+	if _, err := c.assignedRoute(&c.vehicles[0], "bank-a-departure", "bank-a-berth"); err != nil {
+		t.Fatal(err)
+	}
+	if searches := c.searchCounters.graph - graphs; searches < 4 || searches > 12 {
+		t.Fatalf("%d graph searches in one call", searches)
 	}
 }

@@ -150,12 +150,6 @@ func TestOnboardPickupsRejectAtomically(t *testing.T) {
 			}
 		}},
 		{"existing detour", func(s *Simulation, _ *waitingTrip) { s.vehicles[0].riddenBase *= 10 }},
-		{"predictive rejected detour", func(s *Simulation, _ *waitingTrip) {
-			if err := s.SetRoutingPolicy(PredictiveRouting); err != nil {
-				panic(err)
-			}
-			s.vehicles[0].riddenBase *= 10
-		}},
 		{"assigned new stop", func(_ *Simulation, trip *waitingTrip) { trip.request.PodID, trip.request.To = "other", "harbor" }},
 	}
 	for _, test := range tests {
@@ -170,8 +164,7 @@ func TestOnboardPickupsRejectAtomically(t *testing.T) {
 			}
 			if !reflect.DeepEqual(before.ExportState(), s.ExportState()) || !reflect.DeepEqual(before.owners, s.owners) || !reflect.DeepEqual(binding, trip) ||
 				!slices.Equal(before.vehicles[0].Boardings, s.vehicles[0].Boardings) || before.vehicles[0].routeVersion != s.vehicles[0].routeVersion ||
-				!reflect.DeepEqual(before.requestBoardings, s.requestBoardings) ||
-				!reflect.DeepEqual(before.predictiveQueues, s.predictiveQueues) || !reflect.DeepEqual(before.predictivePodQueues, s.predictivePodQueues) || before.predictiveQueueTick != s.predictiveQueueTick {
+				!reflect.DeepEqual(before.requestBoardings, s.requestBoardings) {
 				t.Fatal("denied candidate changed route, riders, records, binding, owners, or boarding events")
 			}
 		})
@@ -309,36 +302,6 @@ func TestOnboardPickupsRepeatedHistoryRetirement(t *testing.T) {
 	advance(s, 600*TicksPerSecond)
 	if s.completed != s.requestID || len(s.requestCompletions) != s.requestID || s.maxDetourRatio > maxSharedRideDetour+1e-9 || len(v.Riders) > MaxSharedRideParties || countUnaccounted(t, s) != 0 {
 		t.Fatalf("repeated pickup completion: %+v", s.Snapshot())
-	}
-}
-
-func TestOnboardPickupsCompletedHistoryAllowsOrdinaryCostedBoarding(t *testing.T) {
-	t.Parallel()
-	s, err := NewFleet(loopNetwork(1260), []Placement{{ID: "01", StationID: "harbor", BerthID: "harbor-1"}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	s.SetCongestionRouting(true)
-	s.ensureNetworkIndexes()
-	costs := make([]float64, len(s.network.Lanes))
-	costs[s.graph.lanes["approach-branch"]] = 1e6
-	s.congestionRouteCosts, s.nextCongestionRouteRefresh = costs, math.MaxInt64
-	s.congestionRoutes = make(map[routeKey]routeResult)
-	v := &s.vehicles[0]
-	// This authored idle history isolates route selection for the next private trip.
-	v.Riders = []Request{{ID: 1, From: "garden", To: "harbor", PartySize: 1, SharingConsent: SharedConsent, Service: OnDemandService, PodID: "01", Completed: true}}
-	v.Boardings, v.riddenBase = []RiderBoarding{{BerthID: "garden-1", MetersAtBoarding: 100}}, 300
-	plain := s.Clone()
-	plain.vehicles[0].Boardings = nil
-	trip := waitingTrip{request: requestFromOptions(TripOptions{From: "harbor", To: "garden", PartySize: 1, SharingConsent: PrivateConsent, Service: OnDemandService}, 2, s.tick)}
-	if err := s.board(v, trip); err != nil {
-		t.Fatal(err)
-	}
-	if err := plain.board(&plain.vehicles[0], trip); err != nil {
-		t.Fatal(err)
-	}
-	if !slices.ContainsFunc(v.Route, func(lane Lane) bool { return lane.ID == "loop-out" }) || !reflect.DeepEqual(s.ExportState(), plain.ExportState()) || len(v.Boardings) != 0 || v.riddenBase != 0 {
-		t.Fatal("completed records changed the next private route or retained old distance")
 	}
 }
 

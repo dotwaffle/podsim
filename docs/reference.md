@@ -227,7 +227,6 @@ The focus station is the `-focus` station, then the `demand.destination` of the 
 | `-sharing-joins unassigned,reassign-existing` | Compare the shared ride join policies. See [parties](model.md#parties). A limit of 1 shows the given policy, but no party joins a pod. |
 | `-sharing-consent shared` | Give every offered party the consent `private` (default) or `shared`. The command ignores `generatedOrderConsent` in the project. See [sharing consent](compare-sharing-consent.md). |
 | `-onboard-pickups off,on` | Compare occupied pickup policies. `on` needs a party limit above 1 and the drop-offs mode. |
-| `-routing-policies free-flow,congestion,queue,predictive` | Compare the experimental routing policies. See [routing](model.md#time-geometry-and-routing). |
 | `-redistribution-policies off,on` | Select the positioning policies. `on` is guarded positioning. |
 | `-wait-rules current,strict,none` | Compare the [wait rules](model.md#wait-rules) of a finishing pod. |
 | `-platoon-policies off,virtual` | The experimental platoon comparison. `virtual` lets queued pods follow the pod ahead at a short gap. |
@@ -266,8 +265,8 @@ Some columns show only when you ask for what they report.
 | Seat screen columns | Always in JSON. In CSV, only when a `-sharing-limits` value is above 1. |
 | `interrupted`, `fault_started`, `fault_skipped`, `emergency_started`, `emergency_skipped` | The project has a fault rate or an emergency rate above 0. |
 
-The JSON report has `schema_version` 12.
-It is 13 with a pickup reassignment column, 14 with an `onboard_pickups` column, and 15 with energy estimates.
+The JSON report has `schema_version` 13.
+It is 14 with a pickup reassignment column, 15 with an `onboard_pickups` column, and 16 with energy estimates.
 
 #### Waits and journeys
 
@@ -309,8 +308,7 @@ The value is 0 when no party alighted.
 It does not include the parts of pod journeys after the last party that alighted before the end of the arm.
 
 The free-flow distance is the length of the shortest route from the berth where the party boarded to the entry of its destination station, and then along the station path to the berth where it alighted.
-The routing policy does not change it.
-A detour ratio of 1 means that the pod took this route, and a route around a full station, a route of the routing policy, or a stop for another party makes the ratio larger than 1.
+A detour ratio of 1 means that the pod took this route, and a route around a full station or a stop for another party makes the ratio larger than 1.
 
 #### Stopped pods
 

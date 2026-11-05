@@ -1,5 +1,5 @@
 {
-  "schema_version": 15,
+  "schema_version": 16,
   "results": [
     {
       "energy": {
@@ -44,7 +44,6 @@
       "join_eligible_existing_stop": 0,
       "join_eligible_added_stop_only": 0,
       "reassigned_parties": 0,
-      "routing_policy": "free-flow",
       "focus_station": "station-2",
       "window_start_seconds": 0,
       "window_end_seconds": 2,

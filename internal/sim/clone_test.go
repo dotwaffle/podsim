@@ -30,7 +30,7 @@ var cloneRules = map[reflect.Type]map[string]cloneRule{
 		"pickupBounds": cloneDrop, "routeWork": cloneDrop, "routeView": cloneDrop, "admissionWork": cloneDrop, "depotTaken": cloneDrop, "emergencyMisses": cloneDrop, "pickupMisses": cloneDrop, "accessRoutes": cloneDrop,
 		"initial":  cloneShare,
 		"vehicles": cloneCopy, "expressServices": cloneCopy, "owners": cloneCopy, "demo": cloneCopy, "waiting": cloneCopy, "undelivered": cloneCopy,
-		"demandWeights": cloneShare, "congestionRouteCosts": cloneShare, "congestionRoutes": cloneCopy, "predictiveQueues": cloneCopy, "predictivePodQueues": cloneCopy,
+		"demandWeights":    cloneShare,
 		"vehicleIndexes":   cloneShare,
 		"approachStations": cloneShare, "routeStations": cloneDrop,
 		"blocked": cloneShare, "staticConnected": cloneDrop, "staticRoutes": cloneDrop,
@@ -45,8 +45,6 @@ var cloneRules = map[reflect.Type]map[string]cloneRule{
 	},
 	reflect.TypeFor[Vehicle]():              {"Riders": cloneCopy, "Boardings": cloneCopy, "Stops": cloneCopy, "Route": cloneShare, "Presentation": cloneShare},
 	reflect.TypeFor[waitingTrip]():          {"route": cloneShare},
-	reflect.TypeFor[routeResult]():          {"lanes": cloneShare, "err": cloneShare},
-	reflect.TypeFor[podQueueHistory]():      {"lanes": cloneCopy},
 	reflect.TypeFor[pickupSwapController](): {"cooldown": cloneCopy},
 	reflect.TypeFor[motionRecorder]():       {"frame": cloneCopy, "pending": cloneCopy},
 	reflect.TypeFor[MotionFrame]():          {"Samples": cloneCopy},
@@ -112,7 +110,7 @@ type fieldRuleCheck struct {
 // fieldGroups are the embedded structs that group the fields of Simulation.
 // The rule tables name their fields as fields of Simulation.
 var fieldGroups = []reflect.Type{
-	reflect.TypeFor[metricCounters](), reflect.TypeFor[predictiveState](),
+	reflect.TypeFor[metricCounters](),
 	reflect.TypeFor[experimentRecords](), reflect.TypeFor[platooningState](),
 }
 
@@ -236,9 +234,6 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		// SavedState has the stream and the next tick of each sampler, and
 		// the session gives the rates again.
 		"faultSampler": persistSave, "faultRate": persistSession, "emergencySampler": persistSave,
-		"predictiveQueues": persistUnsupported, "predictivePodQueues": persistUnsupported, "predictiveQueueTick": persistUnsupported,
-		"routingPolicy": persistUnsupported, "congestionRouteCosts": persistUnsupported,
-		"congestionRoutes": persistUnsupported, "nextCongestionRouteRefresh": persistUnsupported,
 		"finishingPodWait": persistUnsupported,
 		"requestBoardings": persistReset, "requestCompletions": persistReset, "stepCompletions": persistReset, "nodePasses": persistReset, "seatScreen": persistReset,
 		"recordExperiments": persistUnsupported, "pass": persistReset,
@@ -437,15 +432,13 @@ func checkCopiedStorage(t *testing.T, check cloneStorageCheck) {
 }
 
 // activeCloneSimulation returns a demo in progress. It has pods with requests
-// and routes, waiting trips with routes, filled congestion routes, and the
-// platoon work storage.
+// and routes, waiting trips with routes, and the platoon work storage.
 func activeCloneSimulation(t *testing.T) *Simulation {
 	t.Helper()
 	s := newTraffic(t)
 	if err := s.StartDemo(); err != nil {
 		t.Fatal(err)
 	}
-	s.SetCongestionRouting(true)
 	s.SetExperimentRecords(true)
 	if err := s.SetSharedRidePartyLimit(2); err != nil {
 		t.Fatal(err)
@@ -473,12 +466,6 @@ func activeCloneSimulation(t *testing.T) *Simulation {
 	s.stationPickupBounds("market")
 	s.SetPickupSwaps(true)
 	s.pickupSwaps.cooldown["01"] = s.tick + pickupSwapCooldownTicks
-	// Congestion routing does not fill predictive history, so this fixture
-	// supplies one sample for the independent-storage checks.
-	s.predictiveQueues = make([]float64, len(s.network.Lanes))
-	s.predictiveQueues[0] = queueHeadwaySeconds
-	s.predictivePodQueues = map[string]podQueueHistory{"01": {lanes: map[int]float64{0: queueHeadwaySeconds}}}
-	s.predictiveQueueTick = s.tick
 	// This clone-storage fixture also covers the transient completion slice.
 	s.expressServices = map[string]ExpressService{"storage": {ID: "storage", From: "harbor", To: "market", Class: ExpressClass, PartyLimit: 20}}
 	s.stepCompletions = []StepCompletion{{RequestID: 1, AlightedTick: s.tick}}
@@ -506,10 +493,9 @@ func TestCloneFollowsRules(t *testing.T) {
 		{name: "new fleet", build: newTraffic},
 		{
 			name: "active", build: activeCloneSimulation, covered: true,
-			// No congestion route fails in the example network, no
-			// journey ends in the first 35 seconds, and no test monitor
+			// No journey ends in the first 35 seconds, and no test monitor
 			// runs. Presentation exists only in remote snapshots.
-			uncovered: []string{"routeResult.err", "Simulation.requestCompletions", "Simulation.monitor", "Vehicle.Presentation",
+			uncovered: []string{"Simulation.requestCompletions", "Simulation.monitor", "Vehicle.Presentation",
 				// The routing view is nil outside a query, and the coast
 				// check is nil outside the coast tests.
 				"Simulation.routeView", "Simulation.coastCheck",
@@ -672,27 +658,7 @@ func (fixture cloneFixture) build(t *testing.T) *Simulation {
 	return s
 }
 
-// queueFixtureNetwork has a parking station with 8 berths and five passenger
-// stations. Station s1 has one berth.
-func queueFixtureNetwork() Network { return lineNetwork(lineStations(8, 2, 1, 2, 2, 2)) }
-
-// queueTrips returns one trip each second from second first to second
-// last, with most trips to station s1.
-func queueTrips(first, last int) []cloneTrip {
-	var trips []cloneTrip
-	for second := first; second < last; second++ {
-		trips = append(trips, cloneTrip{second: second, from: []string{"s0", "s4", "s3", "s0"}[second%4], to: []string{"s1", "s1", "s1", "s3"}[second%4]})
-	}
-	return trips
-}
-
 func cloneFixtures() []cloneFixture {
-	var queueFleet []Placement
-	for _, station := range queueFixtureNetwork().Stations {
-		for _, berth := range station.Berths {
-			queueFleet = append(queueFleet, Placement{ID: berth.ID, StationID: station.ID, BerthID: berth.ID})
-		}
-	}
 	demoFleet := []Placement{{ID: "01", StationID: "harbor"}, {ID: "02", StationID: "garden"}}
 	fleet := append(slices.Clone(demoFleet), Placement{ID: "03", StationID: "parking", BerthID: "parking-1"})
 	return []cloneFixture{
@@ -792,56 +758,6 @@ func cloneFixtures() []cloneFixture {
 			},
 		},
 		{
-			name: "congestion routing", placements: fleet,
-			setup: func(s *Simulation) error {
-				s.SetCongestionRouting(true)
-				return nil
-			},
-			warmup: cloneInputs{seconds: 20, trips: []cloneTrip{
-				{0, "harbor", "market"}, {2, "garden", "market"}, {4, "market", "harbor"},
-			}},
-			continuation: cloneInputs{seconds: 150, trips: []cloneTrip{
-				{5, "harbor", "garden"}, {15, "garden", "market"}, {30, "market", "harbor"}, {60, "harbor", "market"},
-			}},
-			exercised: func(clonePoint, end *Simulation) error {
-				if len(clonePoint.congestionRoutes) == 0 {
-					return errors.New("the clone point has no congestion routes")
-				}
-				if end.completed <= clonePoint.completed || end.nextCongestionRouteRefresh <= clonePoint.nextCongestionRouteRefresh {
-					return fmt.Errorf("continuation completed %d and did not refresh congestion routes", end.completed-clonePoint.completed)
-				}
-				return nil
-			},
-		},
-		{
-			name: "predictive routing", placements: queueFleet,
-			network:      queueFixtureNetwork,
-			setup:        func(s *Simulation) error { return s.SetRoutingPolicy(PredictiveRouting) },
-			warmup:       cloneInputs{seconds: 20, trips: queueTrips(1, 20)},
-			continuation: cloneInputs{seconds: 150, trips: queueTrips(1, 60)},
-			exercised: func(clonePoint, end *Simulation) error {
-				if len(clonePoint.predictiveQueues) == 0 || end.completed <= clonePoint.completed {
-					return fmt.Errorf("the clone point has no forecast history, or continuation completed %d", end.completed-clonePoint.completed)
-				}
-				return nil
-			},
-		},
-		{
-			// Pods leave parking in a queue at the clone point, so the
-			// assignments after it search with queue delays.
-			name: "queue routing", placements: queueFleet,
-			network:      queueFixtureNetwork,
-			setup:        func(s *Simulation) error { return s.SetRoutingPolicy(QueueRouting) },
-			warmup:       cloneInputs{seconds: 20, trips: queueTrips(0, 20)},
-			continuation: cloneInputs{seconds: 150, trips: queueTrips(0, 60)},
-			exercised: func(clonePoint, end *Simulation) error {
-				if clonePoint.queueDischarge(nil) == nil || end.completed <= clonePoint.completed {
-					return fmt.Errorf("the clone point has no queue, or the continuation completed %d", end.completed-clonePoint.completed)
-				}
-				return nil
-			},
-		},
-		{
 			// Request k comes after 200k s, so the gate is active for the
 			// fleet of 6. The check after each boarding makes a refill.
 			name: "guarded positioning", placements: place("p-1", "p-2", "p-3", "p-4", "p-5", "p-6"),
@@ -925,7 +841,7 @@ func TestCloneIsIndependentAndExact(t *testing.T) {
 }
 
 // TestCloneConcurrentStep finds in-place writes to shared storage with the
-// race detector. The fixtures run with congestion routing off and on.
+// race detector.
 func TestCloneConcurrentStep(t *testing.T) {
 	t.Parallel()
 	for _, fixture := range cloneFixtures() {

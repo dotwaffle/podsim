@@ -6,6 +6,7 @@ Git history keeps it.
 The approval changes no binding decision and no product choice beyond the maintainer-approved amendment D3 and the stage 2 defaults.
 Line references are at `3c77045`.
 On November 4, 2026, `docs/contracts/marker-removal-contract-proposal.md` removed the markers, so text about the markers describes the earlier design.
+On November 5, 2026, the maintainer removed the congestion, queue, and predictive routing policies, so free-flow routing is the only policy, and text about those policies describes the earlier design.
 
 Physical coupling was removed on October 6, 2026.
 Clauses about the couplingContract marker, coupling sites and corridors, coupling approaches, and coupled trains and their members no longer apply.
@@ -624,7 +625,7 @@ With no active fault, it returns `s.graph` unchanged.
 
 | Reader | Anchor | Graph |
 | --- | --- | --- |
-| `searchRoute`, and through it `cachedRouteForClass`, `assignedRoute`, `congestionRouteForClass`, `stationPathForClass`, `legRoute` | `internal/sim/route_work.go` `(*Simulation).searchRoute` | `routingGraph` |
+| `searchRoute`, and through it `cachedRouteForClass`, `assignedRoute`, `stationPathForClass`, `legRoute` | `internal/sim/route_work.go` `(*Simulation).searchRoute` | `routingGraph` |
 | `cacheStationRoutesForClass`, the direct multi-target search | `internal/sim/routes.go` `(*Simulation).cacheStationRoutesForClass` | `routingGraph` |
 | Class route searches | `internal/sim/class_routes.go` `(*Simulation).preferredFleetSource` | `routingGraph` |
 | Positioning searches | `internal/sim/positioning.go` `(*Simulation).guardedBumpToDeficit`, `(*Simulation).guardedBumpToParking` | `routingGraph` |
@@ -650,7 +651,7 @@ No reader can see a cached route of an earlier epoch, also a cached failure, bec
 The rebuild computes the footprint of each record (sections 6.5 and 7.2) and then the blocked lanes and berths.
 When the result differs from the previous blocked set, a new epoch starts:
 
-- Clear `routes`, `routeOrder`, `congestionRoutes`, `congestionRouteCosts`, and `routeStations` (`internal/sim/routes.go` `(*Simulation).ensureNetworkIndexes`, `internal/sim/drop_offs.go` `(*Simulation).stationsOnRouteForClass`).
+- Clear `routes`, `routeOrder`, and `routeStations` (`internal/sim/routes.go` `(*Simulation).ensureNetworkIndexes`, `internal/sim/drop_offs.go` `(*Simulation).stationsOnRouteForClass`).
   These hold successes and failures alike.
 - Set `rerouteDue = true`.
 
@@ -735,7 +736,7 @@ A skipped platoon or compact member waits behind the blocked set, and stage 6 ad
 A skipped coupling or approach member waits behind a faulted pod as it waits behind any stopped pod, and stage 4 adds its reroute.
 Debris never meets its claims or its remaining route, by precondition 9 of section 7.3.
 The cost of a pass is one endpoint evaluation for each visited pod.
-Each evaluation runs a bounded number of searches: the free-flow, policy, bank, and detour searches.
+Each evaluation runs a bounded number of searches: the free-flow, bank, and detour searches.
 Pickup access can also evaluate an endpoint between passes.
 
 ### 9.3 Endpoint reroute

@@ -97,6 +97,7 @@ The budgets bound attempts, not CPU time.
 Route-search cost still depends on the network and cache state.
 Only free-flow routing supports the experiment.
 Congestion and queue routing retain existing dispatch behavior.
+The code of those routing policies was removed on November 5, 2026.
 
 For each candidate:
 

@@ -143,8 +143,6 @@ func TestPickupSwapRejectsIncompatibleAssignments(t *testing.T) {
 		{name: "wrong relocation", edit: func(s *Simulation) { s.vehicles[0].RelocatingTo = "s1" }},
 		{name: "completed request", edit: func(s *Simulation) { s.waiting[0].request.Completed = true }},
 		{name: "duplicate binding", edit: func(s *Simulation) { s.waiting = append(s.waiting, s.waiting[0], s.waiting[0]) }},
-		{name: "congestion policy", edit: func(s *Simulation) { s.routingPolicy = CongestionRouting }},
-		{name: "queue policy", edit: func(s *Simulation) { s.routingPolicy = QueueRouting }},
 		{name: "cooldown", edit: func(s *Simulation) { s.pickupSwaps.cooldown["01"] = s.tick + 1 }},
 	} {
 		t.Run(test.name, func(t *testing.T) {

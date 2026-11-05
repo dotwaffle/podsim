@@ -3,6 +3,7 @@
 This record holds the timing run that decision 16 of the [incident stage 7 contract](../contracts/incident-stage7-contract-proposal.md) asks for.
 The full soak of section 5.1.9 has not run, and this record holds no result for it.
 The maintainer chooses the size from these numbers.
+The code of the congestion, queue, and predictive routing policies was removed on November 5, 2026, so the rows for these policies are history.
 
 ## Open items
 

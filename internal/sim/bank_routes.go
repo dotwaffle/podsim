@@ -20,20 +20,12 @@ func (n Network) bankRoute(input networkRouteInput, graph routeGraph, work *rout
 		return nil, nil
 	}
 	source, destination := graph.banks.nodes[from], graph.banks.nodes[to]
-	offset := input.startCost
 	search := func(from, to int, allowed map[int]bool) ([]Lane, error) {
 		part := input
 		part.from, part.to = n.Nodes[from].ID, n.Nodes[to].ID
-		part.bankRaw, part.allowedLanes, part.startCost = true, allowed, offset
+		part.bankRaw, part.allowedLanes = true, allowed
 		part.bankExternal = allowed == nil
-		if len(input.discharge) == 0 && len(input.forecasts) == 0 {
-			part.startCost = 0
-		}
-		route, err := n.routeIndexedWithWork(part, graph, work)
-		if err == nil {
-			offset = work.distance[to]
-		}
-		return route, err
+		return n.routeIndexedWithWork(part, graph, work)
 	}
 	// Arrival reroutes and berth departures use only their local lane set.
 	if source >= 0 && source == destination {

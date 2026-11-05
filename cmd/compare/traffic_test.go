@@ -45,7 +45,7 @@ func smallBurstInput(t *testing.T) runInput {
 	})
 	return runInput{
 		policy: "off", duration: 10 * time.Minute, arrivalsFor: 2 * time.Minute, requestEvery: 5 * time.Second, seed: 1,
-		pattern: "hub-burst", queueLimit: len(schedule), burstSize: 12, sharingLimit: 1, routingPolicy: "free-flow",
+		pattern: "hub-burst", queueLimit: len(schedule), burstSize: 12, sharingLimit: 1,
 		schedule: schedule, scenario: caseStudy,
 	}
 }

@@ -99,11 +99,7 @@ func referenceRoute(n Network, input networkRouteInput, graph routeGraph) ([]Lan
 				continue
 			}
 			next := graph.nodes[lane.To]
-			extra := 0.0
-			if laneIndex < len(input.extraCost) {
-				extra = input.extraCost[laneIndex]
-			}
-			candidate := item.distance + graph.lengths[laneIndex]/lane.SpeedLimit + extra
+			candidate := item.distance + graph.lengths[laneIndex]/lane.SpeedLimit
 			if candidate < distance[next] {
 				distance[next], previous[next] = candidate, laneIndex
 				queue.push(routeQueueItem{node: next, distance: candidate})
@@ -213,18 +209,16 @@ func TestRouteSearchMatchesNodeIDLookups(t *testing.T) {
 		forbidden := map[string]map[string]bool{"none": nil, "stations": network.stationForbidden(), "grid": {"n-1-1": true, "n-2-3": true, "b": true}}
 		routes := 0
 		for forbiddenName, forbid := range forbidden {
-			for costName, costs := range routeSearchCosts(network) {
-				for _, from := range ids {
-					for _, to := range ids {
-						input := networkRouteInput{from: from, to: to, forbidden: forbid, extraCost: costs}
-						want, wantErr := referenceRoute(network, input, graph)
-						got, gotErr := network.routeIndexed(input, graph)
-						if !reflect.DeepEqual(got, want) || fmt.Sprint(gotErr) != fmt.Sprint(wantErr) {
-							t.Fatalf("%s %s %s: route %s to %s = %v, %v, want %v, %v", name, forbiddenName, costName, from, to, got, gotErr, want, wantErr)
-						}
-						if len(want) > 1 {
-							routes++
-						}
+			for _, from := range ids {
+				for _, to := range ids {
+					input := networkRouteInput{from: from, to: to, forbidden: forbid}
+					want, wantErr := referenceRoute(network, input, graph)
+					got, gotErr := network.routeIndexed(input, graph)
+					if !reflect.DeepEqual(got, want) || fmt.Sprint(gotErr) != fmt.Sprint(wantErr) {
+						t.Fatalf("%s %s: route %s to %s = %v, %v, want %v, %v", name, forbiddenName, from, to, got, gotErr, want, wantErr)
+					}
+					if len(want) > 1 {
+						routes++
 					}
 				}
 			}
@@ -374,7 +368,7 @@ func TestNearestWithinForwardMatchesNearestIndexed(t *testing.T) {
 }
 
 // TestNearestWithinCostsMatchRoutes checks the cost of one goal against the
-// route between the nodes. A forward search adds the lane costs in route
+// free-flow route between the nodes. A forward search adds the lane costs in route
 // order, as the route search does, so the cost is equal. A reverse search
 // adds them in the opposite order, so the cost can differ by a rounding
 // error. The test also checks the limit at the cost and just below it.
@@ -382,11 +376,11 @@ func TestNearestWithinCostsMatchRoutes(t *testing.T) {
 	t.Parallel()
 	for name, network := range routeSearchNetworks() {
 		graph := newRouteGraph(network)
-		for costName, costs := range routeSearchCosts(network) {
+		for costName, costs := range map[string][]float64{"none": nil} {
 			routes := 0
 			for _, from := range network.Nodes {
 				for _, to := range network.Nodes {
-					route, err := network.routeIndexed(networkRouteInput{from: from.ID, to: to.ID, extraCost: costs}, graph)
+					route, err := network.routeIndexed(networkRouteInput{from: from.ID, to: to.ID}, graph)
 					if err != nil || len(route) == 0 {
 						continue
 					}

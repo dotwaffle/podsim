@@ -184,7 +184,7 @@ func TestComparisonConsentRailDepartureOffers(t *testing.T) {
 		t.Run(string(consent), func(t *testing.T) {
 			t.Parallel()
 			outcome, err := run(runInput{policy: "off", pattern: "rail-services", duration: 100 * time.Millisecond, arrivalsFor: 100 * time.Millisecond,
-				sharingConsent: consent, sharingLimit: 8, routingPolicy: "free-flow", queueLimit: 200, scenario: caseStudy, schedule: schedule})
+				sharingConsent: consent, sharingLimit: 8, queueLimit: 200, scenario: caseStudy, schedule: schedule})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -220,7 +220,7 @@ func TestComparisonConsentCLIProvenance(t *testing.T) {
 						want sim.SharingConsent
 					}{{baseline.Bytes(), sim.PrivateConsent}, {output.Bytes(), sim.SharingConsent(consent)}} {
 						var decoded report
-						if err := jsonv2.Unmarshal(source.data, &decoded, json.DefaultOptionsV1()); err != nil || decoded.SchemaVersion != 12 || len(decoded.Results) != 1 || decoded.Results[0].SharingConsent != source.want || !bytes.Contains(source.data, []byte(`"sharing_consent"`)) {
+						if err := jsonv2.Unmarshal(source.data, &decoded, json.DefaultOptionsV1()); err != nil || decoded.SchemaVersion != 13 || len(decoded.Results) != 1 || decoded.Results[0].SharingConsent != source.want || !bytes.Contains(source.data, []byte(`"sharing_consent"`)) {
 							t.Fatalf("missing effective JSON consent: %s", source.data)
 						}
 					}

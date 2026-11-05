@@ -7,6 +7,9 @@ The maintainer approved product choices P1 to P22 of section 18.2 as proposed, o
 The contract authorizes no implementation, default change, or deployment.
 Line references are at `481c145`.
 On November 4, 2026, `docs/contracts/marker-removal-contract-proposal.md` removed the markers, so text about the markers describes the earlier design.
+On November 5, 2026, the maintainer removed the congestion, queue, and predictive routing policies, so free-flow routing is the only policy.
+Text about those policies, their state, and their searches describes the earlier design, and where a rule lists such a case with other cases, only that case is removed.
+`queueDischarge`, `queueDelay`, `queueHeadwaySeconds`, and a reduced routing view remain, and the rules of `E` do not change.
 
 Physical coupling was removed on October 6, 2026.
 Clauses about the couplingContract marker, coupling sites and corridors, coupling approaches, and coupled trains and their members no longer apply.
@@ -512,11 +515,10 @@ The later step of a composite cannot fail after the first succeeds, or its failu
 
 Refusal oracle.
 Each refusal test clones the simulation before the call and compares the clone with the state after it: the exported state, `owners`, every `routeReleases` and `nextRelease`, the waiting trips with their bindings and exclusions, `incidentSerial`, the records, the counters, the holds, and the purposes, as stage 2, section 11, specifies.
-The oracle also compares the routing-policy state: `congestionRouteCosts`, `nextCongestionRouteRefresh`, `congestionRoutes`, `predictiveQueues`, `predictivePodQueues`, and `predictiveQueueTick` (`internal/sim/clone.go` `(*Simulation).Clone`).
-It also compares the free-flow route memo, `routes` and `routeOrder`, with a copy taken before the call, because `Clone` does not copy that memo (`internal/sim/clone.go` `(*Simulation).Clone`).
+The oracle compares the free-flow route memo, `routes` and `routeOrder`, with a copy taken before the call, because `Clone` does not copy that memo (`internal/sim/clone.go` `(*Simulation).Clone`).
 A station choice that finds no candidate passes the oracle, apart from the no-candidate memo of section 9.1.
 A choice that binds the pod can make every change of a successful stage 1 installation (`internal/sim/operational.go` `(*Simulation).setOperationalDestination`): the route, the destination, the purpose, and the derived route indexes of the pod, the release of its revocable claims on the berth of its old destination, the buffer fields, and the pending and wait fields.
-In that case, the routing-policy state and both route memos still stay equal.
+In that case, both route memos still stay equal.
 The search counters of section 15, the search work arrays, and the no-candidate memo are not compared.
 
 ## 8. Invariants
@@ -621,7 +623,7 @@ The order of available berths first selects the candidate within a group.
 It is not a term of `E`: the estimate still has no berth term (product choice P13).
 
 Estimate.
-`E(S, b)` is the cost function of `queueCost` (`internal/sim/routing_policy.go` `(*Simulation).queueCost`), started at the position of the pod on `R`:
+`E(S, b)` is the cost of the lanes of `R`, with queue delays, started at the position of the pod on `R` (`internal/sim/emergency_choice.go` `(*stationChoice).advance`):
 
 - The position is the route distance `v.distance`.
   `R` keeps the prefix from route index 0, so `v.distance` has the same meaning on `R` as on `v.Route`.
@@ -676,7 +678,6 @@ Proof of exactness.
    Every route search applies the class rule and the blocked set, and each other restriction only removes lanes or nodes, so `U` is a path from `from` to `b.Node` in the tree graph, and `Σ σ(l) >= d(b.Node)`.
    `b` is in an entry group of `S`, so `d(b.Node) >= L(S) - P`, and `E(S, b) >= L(S)`.
 2. The bound must use base edge seconds.
-   A distance under congestion costs (`internal/sim/routes.go` `(*Simulation).congestionCosts`) or forecast delays (`internal/sim/predictive_routing.go` `(*laneForecast).delay`) adds terms that `E` does not have, so it can be larger than `E` of the installed route, and it is not a lower bound.
 3. Stop rule.
    `lower` and `ceil` do not decrease, so `lowTick` does not decrease in the visit order.
    At the stop, each later station `S'` has `lowTick(S') > bestTick`, and each of its candidates has `ceil(E · TicksPerSecond) >= lowTick(S')`, so its key is greater than the best key in the first term.
@@ -691,7 +692,7 @@ Proof of exactness.
    The suffix `U` of a route search is at most three shortest paths, the source bank, the middle, and the destination bank (`internal/sim/bank_routes.go` `(Network).bankRoute`), so it has `mU < 3n` lanes.
    - Lower side.
      Let `B` be the base-only accumulation `fl(... fl(fl(P + σ1) + σ2) ... + σmU)` over the lanes of `U`.
-     Each step of `E` adds `fl(σ(l) + δ)` with `δ >= 0` (`internal/sim/routing_policy.go` `(*Simulation).queueCost`), and `fl(σ(l) + δ) >= σ(l)`.
+     Each step of `E` adds `fl(σ(l) + δ)` with `δ >= 0` (`internal/sim/emergency_choice.go` `(*stationChoice).advance`), and `fl(σ(l) + δ) >= σ(l)`.
      The value of `δ` depends on the rounded accumulator, but it is never negative, so by induction on the steps, the computed `E` is at least `B`.
      A recursive sum of `mU + 1` nonnegative floats is at least `(1 - γ(mU)) ·` its exact sum, so `E >= (1 - γ(3n)) · (P + Σ σ(l))` over `U`.
    - Upper side.
@@ -711,37 +712,17 @@ Proof of exactness.
    The implementation checks this, and when it does not hold, that choice evaluates every station without the stop rule.
 
 Routing view.
-`assignedRoute` writes routing-policy state under some policies: congestion routing refreshes its costs, its deadline, and its route memo (`internal/sim/routes.go` `(*Simulation).congestionRouteForClass`), and predictive routing updates its queue history and sampling tick (`internal/sim/predictive_routing.go` `(*Simulation).predictionQueues`).
-`Clone` copies that state (`internal/sim/clone.go` `(*Simulation).Clone`), and later route choices read it.
-`advanceEmergency` therefore builds one immutable routing view for each choice, and the choice and `setOperationalDestination` both read it:
+`advanceEmergency` builds one immutable routing view for each choice, and the choice and `setOperationalDestination` both read it:
 
 - `s.routeView` points to the view while it is set.
   `advanceEmergency` sets it before the choice and clears it after `setOperationalDestination` returns, or after a choice that finds no candidate.
   It is nil outside `advanceEmergency`, so no save or clone holds it.
-- When `s.routeView` is set, `assignedRoute` and its policy routes read the view, and they write no routing-policy state and no route memo.
-- Congestion costs.
-  When `congestionRouteCosts` exists, the view uses it as it is, also when the refresh is due.
-  Otherwise the view holds a lane-sized array from `congestionCosts()` (`internal/sim/routes.go` `(*Simulation).congestionCosts`), and it does not store it.
+- When `s.routeView` is set, `assignedRoute` reads the view, and it writes no route memo.
 - Route memos.
   The view reads the free-flow memo (`s.routes`, `internal/sim/routes.go` `(*Simulation).cachedRouteForClass`).
-  It reads the congestion memo only when it uses the stored costs, because each entry depends only on those costs, the network, the class, and the blocked set, and the blocked set rebuild clears both (`internal/sim/blocked_routes.go` `(*Simulation).startRouteEpoch`).
   A miss runs the search, and the view does not write the result.
 - Queue discharge.
   The view holds `queueDischarge(v)` (`internal/sim/routing_policy.go` `(*Simulation).queueDischarge`), which reads the pods and writes nothing.
-- Predictive state.
-  The view holds a lane-sized raw sample, by the rule of `predictionQueues`, and a lane-sized history array.
-  When `predictiveQueues` has the lane count, the history array is `max(0, predictiveQueues[i] - h[i])`, where `h` is the per-pod history of the emergency pod in `predictivePodQueues`, or zero when it has none.
-  When the history does not exist, the history array is zero, so the forecast uses zero history combined with the current sample.
-  The raw sample excludes the emergency pod by the rule of `routeForecasts` (`internal/sim/predictive_routing.go` `(*Simulation).routeForecasts`).
-  The view builds the forecasts once from the two arrays and the planned arrivals of the other pods.
-  The history is not decayed to the current tick, and `predictiveQueueTick` does not change.
-
-Installation under the view is not an ordinary assignment in the same tick.
-An ordinary assignment later in the tick refreshes overdue congestion costs and advances the predictive history before it searches, so it can give another route to the same pod and berth.
-The difference is deterministic, because the view is a function of the state at the start of the choice.
-Its sums run in lane, pod, or sorted key order, and `congestionCosts` adds 6 s for each owned track lane in map order (`internal/sim/routes.go` `(*Simulation).congestionCosts`), which gives the same sum in any order.
-It is safe, because a route grants no resource, and the traffic tier grants each resource of the installed route by the rules for any route.
-The next ordinary assignment makes the refresh and the history update that the view did not make, so no update is lost.
 
 The choice and the installation read one view, so the installed suffix equals the suffix of the candidate.
 The view can keep the suffix of the chosen pair for the installation, with the same result.
@@ -761,7 +742,6 @@ The bound counts graph searches:
 | --- | ---: | --- |
 | Graph searches in one route search | 4: a same-bank local attempt that fails, then the source bank, the middle, and the destination bank | `internal/sim/bank_routes.go` `(Network).bankRoute` |
 | Route searches in one `assignedRoute` call, free flow | 2: the terminal-berth search and its fallback | `internal/sim/routes.go` `(*Simulation).cachedRouteForClass` |
-| Route searches in one call, congestion, queue, or predictive | 3: the free-flow pair and the policy search | `internal/sim/routes.go` `(*Simulation).congestionRouteForClass`, `internal/sim/routing_policy.go` `(*Simulation).queueRoute`, `internal/sim/predictive_routing.go` `(*Simulation).predictiveRoute` |
 | Graph searches in one `assignedRoute` call | 12 | The rows above |
 | Graph searches for the tree | 1 for each choice | Pruning, step 2 |
 | Calls in one choice | One for each tried berth, plus one in `setOperationalDestination` | Steps 2 and 4 of the candidates |
@@ -839,12 +819,10 @@ A station has a candidate when a berth of one of its entry groups has a route.
 
 1. The groups and their berths depend only on the network (passenger and parking status, berth nodes, banks, and class permissions), the class of the pod, and the blocked berths.
    Berth availability changes the order of the berths in a group, and not the set, because each group also tries the berths that are not available.
-2. Under every policy, `assignedRoute` returns an error exactly when the free-flow route returns an error.
-   Congestion routing falls back to the free-flow route when its search fails (`internal/sim/routes.go` `(*Simulation).congestionRouteForClass`), and its search uses the graph of the free-flow terminal search, so it succeeds only when that search succeeds.
-   Queue and predictive routing return the free-flow error, and otherwise a route (`internal/sim/routing_policy.go` `(*Simulation).queueRoute`, `internal/sim/predictive_routing.go` `(*Simulation).predictiveRoute`).
+2. `assignedRoute` is the free-flow route, so it returns an error exactly when that route returns an error.
 3. The free-flow route depends only on `from`, the berth node, the class, the network, and the blocked set.
    The suffix starts at `from`, so a change of the position with the same `from` changes no route.
-4. Queue samples, congestion costs, predictive history, planned arrivals, and the routing policy change costs and not the existence of a route, so they need no invalidation.
+4. Queue samples change costs and not the existence of a route, so they need no invalidation.
    Each other input is in the key or clears the memo.
 
 #### 9.1.1 Budgeted scan, rejected
@@ -1305,9 +1283,7 @@ Preconditions that later stages must meet:
 | Divertible pod | The pod binds to the station of the lowest `E`, with the installed route equal to the candidate route. `RelocatingTo` stays empty. |
 | Estimate | A queue on the nearest route makes a farther station win. A pod behind the emergency pod on its lane adds no delay. Ties go to the lower station index, then the lower berth index. Two runs from one state give one choice. |
 | Candidates | A station whose first compatible berth has no route but whose second berth has one stays a candidate. A banked station with one unreachable bank and one reachable bank stays a candidate through the reachable bank. An available berth is the candidate of its group before an occupied one. |
-| Routing view, first use | Under each routing policy, free flow, congestion, queue, and predictive, with no congestion costs and no predictive history: the choice and the installation leave the routing-policy state of section 7 and both route memos unchanged, and the installed suffix equals the candidate suffix. Under predictive routing, a stopped emergency pod adds no delay to its own lane. |
-| Routing view, overdue refresh | The same checks, with the congestion refresh due and a predictive history older than the tick: nothing refreshes, and the view uses the stored costs and history. |
-| Routing view, existing history | The same checks, with current costs, a current history, and a per-pod history of the emergency pod, which the view subtracts. |
+| Routing view | The choice and the installation leave both route memos unchanged, and the installed suffix equals the candidate suffix. |
 | Pruning | A randomized test compares the pruned scan with the exhaustive scan in 1,000 cases from fixed seeds. Each case has a random network with banked, unbanked, and `ParkingOnly` stations, a class rule, a blocked set, stopped pods that make queues, a routing policy, and the emergency pod at a random divertible position. Some cases have equal tick keys at several stations. Both scans run from clones of one state and give the same pair and the same installed route. The pruned scan makes fewer route searches in at least half the cases, so the stop rule runs. |
 | Long prefix | A pod route with a prefix of more than 8,000 lane occurrences on a repeated loop: with the term guard holding, the pruned and the exhaustive scans give the same pair, and with a prefix that fails the guard, the choice evaluates every station and gives the same pair. |
 | Warm-memo clone parity | A fixture with a filled no-candidate memo is cloned, and the clone starts with no memo. Both run one continuation. `sameState`, which excludes `emergencyMisses` and the search counters, holds after each step, and the exported trajectories are identical at every tick. |
@@ -1386,11 +1362,9 @@ Paused starts are included.
 | Count the pods behind the emergency pod on its lane | Estimate test. |
 | Search every tick | Cadence test. |
 | Choose one berth for each station before the route test | Candidates test: the station with a reachable second berth is excluded. |
-| Let a choice refresh the congestion costs or sample the predictive history | Routing view tests. |
 | Install with a fresh routing view after the choice | Routing view test: the installed suffix differs. |
 | Let a choice write the free-flow memo | Routing view test: the memo differs from its copy. |
 | Read the stored history on first use | Routing view first-use test. |
-| Build the tree with congestion costs or forecast delays | Pruning test: a case chooses another pair. |
 | Apply the bank or berth rules in the tree | Pruning test: a case chooses another pair. |
 | Stop when `lowTick == bestTick` | Pruning test with equal tick keys: the lower station index loses. |
 | Bound the term count by `MaxLanes` in place of the live prefix | Long prefix test. |
@@ -1437,9 +1411,9 @@ The default rate stays 0 until the maintainer chooses one in stage 7.
 | Ordinary traffic | Admission wait of ordinary intents against a run without emergencies. | Reported, not gated. |
 | Persistence | Saves at random boundaries of the soak, restored in the physical tier, and rewinds to random checkpoints. | Every save restores and passes `CheckContract`, or fails the physical tier only by the demotion rule. Every rewind replays exactly. |
 | Performance | Step time of the soak against a run without emergencies, with `MaxEmergencies` records in the cadence search. | Median step time within 10 percent, and no tick above twice the slowest tick of the run without emergencies. |
-| Worst choice tick, presets | LondonCentral and the rail-hub preset with four emergencies that start on one tick, under each routing policy, cold and warm. | The worst choice tick is at most 50 ms on the CI runner class. |
-| Worst choice tick, no candidate | A fixture at the project limits (5,000 nodes, 8,000 lanes, 300 stations) with four deferred, divertible records that started on one tick and find no candidate, under each routing policy, so all four search on one cadence tick. The tree reaches the berths, and the bank rules refuse each route search, so pruning skips nothing. If `Validate` allows no such network, the fixture uses the largest count of such berths that it allows, and reports it. Cold, with no route memo and no routing-policy state, and warm, after 600 ticks of the traffic of the fixture. | Reported against the 50 ms threshold on the CI runner class, cold and warm, and never gated (product choice P23). It is expected to miss, because pruning cannot lower the worst case. The counts of graph searches by kind are reported and within the bound of section 9.1. The counters show failed route searches and a failed same-bank local attempt. |
-| Worst choice tick, delayed routes | The same network size, with four records on one cadence tick, reachable berths, and stopped pods that delay the free-flow routes, under the congestion, queue, and predictive policies. Cold and warm, as above. | The worst tick is at most 50 ms on the CI runner class, cold and warm. The counters show a congestion search with nonzero view costs, a queue search after a delayed free-flow route, and a forecast build and a predictive search after a free-flow cost above its free-flow time. |
+| Worst choice tick, presets | LondonCentral and the rail-hub preset with four emergencies that start on one tick, cold and warm. | The worst choice tick is at most 50 ms on the CI runner class. |
+| Worst choice tick, no candidate | A fixture at the project limits (5,000 nodes, 8,000 lanes, 300 stations) with four deferred, divertible records that started on one tick and find no candidate, so all four search on one cadence tick. The tree reaches the berths, and the bank rules refuse each route search, so pruning skips nothing. If `Validate` allows no such network, the fixture uses the largest count of such berths that it allows, and reports it. Cold, with no route memo, and warm, after 600 ticks of the traffic of the fixture. | Reported against the 50 ms threshold on the CI runner class, cold and warm, and never gated (product choice P23). It is expected to miss, because pruning cannot lower the worst case. The counts of graph searches by kind are reported and within the bound of section 9.1. The counters show failed route searches and a failed same-bank local attempt. |
+| Worst choice tick, delayed routes | The same network size, with four records on one cadence tick, reachable berths, and stopped pods that delay the free-flow routes. Cold and warm, as above. | The worst tick is at most 50 ms on the CI runner class, cold and warm. |
 | Formats | The composed fixtures of section 14.4. | Every shape under its cap. |
 | Web | The browser shell and editor with a marked project. | `mise run test:web` passes, and the marker checks refuse the cases of section 14.3. |
 | Product | The product choices of section 18.2. | Done: the maintainer approved P1 to P22 on October 5, 2026, and decided P23 on October 5, 2026, at 23:59Z. |

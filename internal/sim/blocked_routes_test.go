@@ -134,19 +134,14 @@ func TestBlockedRouteSearches(t *testing.T) {
 	})
 	t.Run("assigned route", func(t *testing.T) {
 		t.Parallel()
-		for _, policy := range []RoutingPolicy{FreeFlowRouting, CongestionRouting, QueueRouting, PredictiveRouting} {
-			s := newTraffic(t)
-			if err := s.SetRoutingPolicy(policy); err != nil {
-				t.Fatal(err)
-			}
-			v := &s.vehicles[0]
-			if route, err := s.assignedRoute(v, "harbor-exit", "market-entry"); err != nil || !usesLane(route, "bypass-in") {
-				t.Fatalf("policy %v: the free route %v, %v does not use bypass-in", policy, route, err)
-			}
-			blockLanes(t, s, "bypass-in")
-			if route, err := s.assignedRoute(v, "harbor-exit", "market-entry"); err != nil || usesLane(route, "bypass-in") {
-				t.Fatalf("policy %v: the blocked route is %v, %v", policy, route, err)
-			}
+		s := newTraffic(t)
+		v := &s.vehicles[0]
+		if route, err := s.assignedRoute(v, "harbor-exit", "market-entry"); err != nil || !usesLane(route, "bypass-in") {
+			t.Fatalf("the free route %v, %v does not use bypass-in", route, err)
+		}
+		blockLanes(t, s, "bypass-in")
+		if route, err := s.assignedRoute(v, "harbor-exit", "market-entry"); err != nil || usesLane(route, "bypass-in") {
+			t.Fatalf("the blocked route is %v, %v", route, err)
 		}
 	})
 	t.Run("station path", func(t *testing.T) {
@@ -446,21 +441,6 @@ func TestRouteEpochs(t *testing.T) {
 		}
 		s.setBlocked(nil)
 		if route, err := s.route("harbor-exit", "market-entry"); err != nil || !usesLane(route, "bypass-in") {
-			t.Fatalf("the route %v, %v is from the earlier epoch", route, err)
-		}
-	})
-	t.Run("congestion route", func(t *testing.T) {
-		t.Parallel()
-		s := newTraffic(t)
-		if err := s.SetRoutingPolicy(CongestionRouting); err != nil {
-			t.Fatal(err)
-		}
-		v := &s.vehicles[0]
-		if route, err := s.assignedRoute(v, "harbor-exit", "market-entry"); err != nil || !usesLane(route, "bypass-in") {
-			t.Fatalf("the free route %v, %v does not use bypass-in", route, err)
-		}
-		blockLanes(t, s, "bypass-in")
-		if route, err := s.assignedRoute(v, "harbor-exit", "market-entry"); err != nil || usesLane(route, "bypass-in") {
 			t.Fatalf("the route %v, %v is from the earlier epoch", route, err)
 		}
 	})

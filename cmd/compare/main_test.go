@@ -51,8 +51,6 @@ func TestParseOptionsRejectsInvalidBounds(t *testing.T) {
 		{name: "duplicate sharing mode", args: []string{"-sharing-modes", "drop-offs,drop-offs"}, want: "more than once"},
 		{name: "zero sharing stops", args: []string{"-sharing-max-stops", "0"}, want: "sharing-max-stops"},
 		{name: "too many sharing stops", args: []string{"-sharing-max-stops", "8"}, want: "sharing-max-stops"},
-		{name: "unknown routing policy", args: []string{"-routing-policies", "fast"}, want: "unknown routing policy"},
-		{name: "duplicate routing policy", args: []string{"-routing-policies", "free-flow,free-flow"}, want: "more than once"},
 		{name: "unknown redistribution policy", args: []string{"-redistribution-policies", "maybe"}, want: "unknown redistribution policy"},
 		{name: "duplicate redistribution policy", args: []string{"-redistribution-policies", "off,off"}, want: "more than once"},
 		{name: "duplicate on policy", args: []string{"-redistribution-policies", "on, off,on"}, want: "more than once"},
@@ -177,32 +175,6 @@ func TestComparePairsSharingModes(t *testing.T) {
 	}
 }
 
-func TestComparePairsRoutingPolicies(t *testing.T) {
-	t.Parallel()
-	opts, err := parseOptions([]string{
-		"-duration", "2m", "-request-every", "20s", "-routing-policies", "free-flow,congestion,queue,predictive",
-	}, &bytes.Buffer{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	caseStudy, err := loadScenario("", "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	results, err := compare(opts, caseStudy)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(results) != 8 {
-		t.Fatalf("routing comparison has %d arms, want 8", len(results))
-	}
-	for index, want := range []string{"free-flow", "free-flow", "congestion", "congestion", "queue", "queue", "predictive", "predictive"} {
-		if results[index].RoutingPolicy != want {
-			t.Fatalf("routing comparison arm %d has policy %q, want %q", index, results[index].RoutingPolicy, want)
-		}
-	}
-}
-
 func TestCLIOutputIsRepeatable(t *testing.T) {
 	t.Parallel()
 	args := []string{
@@ -319,7 +291,7 @@ func TestReportFormatsAreMachineReadable(t *testing.T) {
 	if err := jsonv2.Unmarshal(jsonOutput.Bytes(), &decoded, json.DefaultOptionsV1()); err != nil {
 		t.Fatal(err)
 	}
-	if decoded.SchemaVersion != 12 || !reflect.DeepEqual(decoded.Results, results) {
+	if decoded.SchemaVersion != 13 || !reflect.DeepEqual(decoded.Results, results) {
 		t.Fatalf("JSON report changed values: %+v", decoded)
 	}
 
@@ -661,7 +633,7 @@ func TestParseWaitRules(t *testing.T) {
 
 func TestWaitRuleColumnOnlyWhenRequested(t *testing.T) {
 	t.Parallel()
-	results := []result{{Pattern: "balanced", Policy: "off", RoutingPolicy: "free-flow", WaitRule: "strict", WaitAverageSeconds: 12.34}}
+	results := []result{{Pattern: "balanced", Policy: "off", WaitRule: "strict", WaitAverageSeconds: 12.34}}
 	for _, tc := range []struct {
 		name       string
 		format     string
@@ -682,9 +654,9 @@ func TestWaitRuleColumnOnlyWhenRequested(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			routing := slices.Index(records[0], "routing_policy")
-			if routing < 0 || records[0][routing+1] != tc.wantHeader || records[1][routing+1] != tc.wantValue {
-				t.Fatalf("column after routing_policy = %q, %q", records[0][routing+1], records[1][routing+1])
+			policyColumn := slices.Index(records[0], "policy")
+			if policyColumn < 0 || records[0][policyColumn+1] != tc.wantHeader || records[1][policyColumn+1] != tc.wantValue {
+				t.Fatalf("column after policy = %q, %q", records[0][policyColumn+1], records[1][policyColumn+1])
 			}
 			if len(records[0]) != len(records[1]) {
 				t.Fatalf("header has %d columns, row has %d", len(records[0]), len(records[1]))
@@ -862,12 +834,12 @@ func TestParsePlatoonPolicies(t *testing.T) {
 }
 
 // TestPlatoonColumnOnlyWhenRequested checks that the platoon policy column
-// follows routing_policy and wait_rule only with -platoon-policies, and that
+// follows policy and wait_rule only with -platoon-policies, and that
 // platoon_time_percent is always the last CSV column.
 func TestPlatoonColumnOnlyWhenRequested(t *testing.T) {
 	t.Parallel()
 	results := []result{{
-		Pattern: "balanced", Policy: "off", RoutingPolicy: "free-flow", WaitRule: "strict", PlatoonPolicy: "virtual",
+		Pattern: "balanced", Policy: "off", WaitRule: "strict", PlatoonPolicy: "virtual",
 		WaitAverageSeconds: 12.34, PlatoonTimePercent: 5.5,
 	}}
 	for _, tc := range []struct {
@@ -891,9 +863,9 @@ func TestPlatoonColumnOnlyWhenRequested(t *testing.T) {
 				t.Fatal(err)
 			}
 			header, row := records[0], records[1]
-			routing := slices.Index(header, "routing_policy")
-			if routing < 0 || header[routing+tc.offset] != tc.wantHeader || row[routing+tc.offset] != tc.wantAt {
-				t.Fatalf("column %d after routing_policy = %q, %q", tc.offset, header[routing+tc.offset], row[routing+tc.offset])
+			policyColumn := slices.Index(header, "policy")
+			if policyColumn < 0 || header[policyColumn+tc.offset] != tc.wantHeader || row[policyColumn+tc.offset] != tc.wantAt {
+				t.Fatalf("column %d after policy = %q, %q", tc.offset, header[policyColumn+tc.offset], row[policyColumn+tc.offset])
 			}
 			if len(header) != len(row) || header[len(header)-1] != "platoon_time_percent" || row[len(row)-1] != "5.5" {
 				t.Fatalf("last column = %q, %q with %d and %d columns", header[len(header)-1], row[len(row)-1], len(header), len(row))
@@ -1089,7 +1061,7 @@ func TestParseSharingJoins(t *testing.T) {
 func TestSharingJoinColumnOnlyWhenRequested(t *testing.T) {
 	t.Parallel()
 	results := []result{{
-		Pattern: "balanced", Policy: "off", RoutingPolicy: "free-flow", SharingMode: "drop-offs", SharingJoin: "reassign-existing",
+		Pattern: "balanced", Policy: "off", SharingMode: "drop-offs", SharingJoin: "reassign-existing",
 		SharedParties: 7, WaitAverageSeconds: 12.34,
 	}}
 	for _, tc := range []struct {
@@ -1271,7 +1243,7 @@ func TestParseOptionsStepOrder(t *testing.T) {
 		"checkRailOptions",
 		"parseLoadOptions",
 		"parseSharingOptions",
-		"parseRoutingOptions",
+		"parseRedistributionOptions",
 		"parseGivenArmOptions",
 		"parseOnboardPickups",
 		"parseExperimentalOptions",
@@ -1330,9 +1302,8 @@ func TestParseOptionsRefusalOrder(t *testing.T) {
 		{"sharing_limits_before_modes", []string{"-sharing-limits", "0", "-sharing-modes", "pickups"},
 			fmt.Sprintf("sharing limits must be integers from 1 to %d", sim.MaxSharedRideParties)},
 		{"sharing_modes_before_stops", []string{"-sharing-modes", "pickups", "-sharing-max-stops", "0"}, `unknown sharing mode "pickups"`},
-		{"sharing_stops_before_routing", []string{"-sharing-max-stops", "0", "-routing-policies", "fast"},
+		{"sharing_stops_before_redistribution", []string{"-sharing-max-stops", "0", "-redistribution-policies", "maybe"},
 			fmt.Sprintf("sharing-max-stops must be between 1 and %d", sim.MaxSharedRideStops)},
-		{"routing_before_redistribution", []string{"-routing-policies", "fast", "-redistribution-policies", "maybe"}, `unknown routing policy "fast"`},
 		{"redistribution_before_wait_rules", []string{"-redistribution-policies", "maybe", "-wait-rules", "lenient"}, `unknown redistribution policy "maybe"`},
 		{"wait_rules_before_platoon", []string{"-wait-rules", "lenient", "-platoon-policies", "linked"}, `unknown wait rule "lenient"`},
 		{"platoon_before_sharing_joins", []string{"-platoon-policies", "linked", "-sharing-joins", "reassign"}, `unknown platoon policy "linked"`},

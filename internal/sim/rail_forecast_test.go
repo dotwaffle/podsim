@@ -176,58 +176,6 @@ func TestForecastBoundedWorkAndRestoredContinuation(t *testing.T) {
 	}
 }
 
-func TestForecastPolicyRouteLeadAndSpareBerth(t *testing.T) {
-	t.Parallel()
-	network := lineNetwork([]lineStation{{id: "source", berths: 4, parking: true}, {id: "target", berths: 3}, {id: "other", berths: 2}})
-	network.Nodes = append(network.Nodes, Node{ID: "detour", Position: Point{X: 225, Y: 100}})
-	network.Lanes = append(network.Lanes, Lane{ID: "detour-in", From: "source-exit", To: "detour", SpeedLimit: 14}, Lane{ID: "detour-out", From: "detour", To: "target-entry", SpeedLimit: 14})
-	fleet := []Placement{{ID: "01", StationID: "source", BerthID: "source-1"}, {ID: "02", StationID: "source", BerthID: "source-2"}}
-	s, err := NewFleet(network, fleet)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if routingErr := s.SetRoutingPolicy(CongestionRouting); routingErr != nil {
-		t.Fatal(routingErr)
-	}
-	for cell := range 10 {
-		s.owners[resource{kind: trackResource, id: "source-link", cell: cell}] = podResourceOwner("external")
-	}
-	from, _ := s.station("source")
-	to, _ := s.station("target")
-	free, err := s.route(from.Berths[0].Node, to.Berths[0].Node)
-	if err != nil {
-		t.Fatal(err)
-	}
-	selected, err := s.assignedRoute(&s.vehicles[0], from.Berths[0].Node, to.Berths[0].Node)
-	if err != nil {
-		t.Fatal(err)
-	}
-	cost := func(route []Lane) float64 {
-		sum := 0.0
-		for _, lane := range route {
-			sum += s.laneLength(lane) / lane.SpeedLimit
-		}
-		return sum
-	}
-	if cost(selected) <= cost(free)+1 {
-		t.Fatal("fixture did not select a longer policy route")
-	}
-	before := s.ExportState()
-	lead := int64((cost(free) + 1) * TicksPerSecond)
-	result, err := s.PositionForForecast([]ForecastTarget{{Station: "target", ReleaseTick: lead, Passengers: 4}})
-	if err != nil || result.Searches != 1 || result.StartAttempts != 1 || result.Pod != "" || !reflect.DeepEqual(before, s.ExportState()) {
-		t.Fatalf("policy lead rejection: %+v %v", result, err)
-	}
-	// A legacy route can pass a spare target berth before its destination.
-	crossing := []Lane{{ID: "cross", From: to.Berths[1].Node, To: to.Berths[0].Node, SpeedLimit: 14}}
-	if s.forecastRouteFits(crossing, to.Berths[:2], 300) {
-		t.Fatal("counted a traversed berth as spare")
-	}
-	if !s.forecastRouteFits(crossing, to.Berths, 300) {
-		t.Fatal("rejected an untouched third spare berth")
-	}
-}
-
 func TestForecastThreeTargetSearchBound(t *testing.T) {
 	t.Parallel()
 	network := lineNetwork([]lineStation{{id: "source", berths: 4, parking: true}, {id: "a", berths: 3}, {id: "b", berths: 3}, {id: "c", berths: 3}, {id: "d", berths: 3}, {id: "e", berths: 3}})

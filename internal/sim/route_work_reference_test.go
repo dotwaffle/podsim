@@ -42,14 +42,7 @@ func (n Network) referenceRouteBeforeWork(input networkRouteInput, graph routeGr
 			if input.ownBerthsOnly && !graph.berthAllowed(edge.to, from, to) {
 				continue
 			}
-			extra := 0.0
-			if laneIndex < len(input.extraCost) {
-				extra = input.extraCost[laneIndex]
-			}
-			if laneIndex < len(input.discharge) {
-				extra += queueDelay(input.discharge[laneIndex], item.distance)
-			}
-			candidate := item.distance + edge.seconds + extra
+			candidate := item.distance + edge.seconds
 			if candidate < distance[edge.to] {
 				distance[edge.to], previous[edge.to] = candidate, laneIndex
 				queue.push(routeQueueItem{node: edge.to, distance: candidate})

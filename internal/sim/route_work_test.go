@@ -17,18 +17,15 @@ func TestRouteWorkMatchesOriginalSearch(t *testing.T) {
 		for _, node := range network.Nodes {
 			ids = append(ids, node.ID)
 		}
-		for _, costs := range routeSearchCosts(network) {
-			for _, guard := range []bool{false, true} {
-				for _, forbidden := range []map[string]bool{nil, network.stationForbidden()} {
-					for _, from := range ids {
-						for _, to := range ids {
-							input := networkRouteInput{from: from, to: to, forbidden: forbidden,
-								extraCost: costs, discharge: costs, ownBerthsOnly: guard}
-							want, wantErr := network.referenceRouteBeforeWork(input, graph)
-							got, gotErr := network.routeIndexedWithWork(input, graph, &work)
-							if !reflect.DeepEqual(got, want) || fmt.Sprint(gotErr) != fmt.Sprint(wantErr) {
-								t.Fatalf("from%s to%s guard%v: got%v,%v want%v,%v", from, to, guard, got, gotErr, want, wantErr)
-							}
+		for _, guard := range []bool{false, true} {
+			for _, forbidden := range []map[string]bool{nil, network.stationForbidden()} {
+				for _, from := range ids {
+					for _, to := range ids {
+						input := networkRouteInput{from: from, to: to, forbidden: forbidden, ownBerthsOnly: guard}
+						want, wantErr := network.referenceRouteBeforeWork(input, graph)
+						got, gotErr := network.routeIndexedWithWork(input, graph, &work)
+						if !reflect.DeepEqual(got, want) || fmt.Sprint(gotErr) != fmt.Sprint(wantErr) {
+							t.Fatalf("from%s to%s guard%v: got%v,%v want%v,%v", from, to, guard, got, gotErr, want, wantErr)
 						}
 					}
 				}

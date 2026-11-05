@@ -15,11 +15,11 @@ const (
 // PickupSwapStats reports work and decisions of the experimental controller.
 // Estimates exclude future traffic and do not promise a realized wait saving.
 type PickupSwapStats struct {
-	ScannedPairs, RoutePairs, Swaps                        int
-	Transfers, AssignmentChecks                            int
-	IneligiblePairs, CooldownPairs, SameOriginPairs        int
-	RouteFailures, NoBenefitPairs, UnsupportedPolicyChecks int
-	PredictedSecondsSaved                                  float64
+	ScannedPairs, RoutePairs, Swaps                 int
+	Transfers, AssignmentChecks                     int
+	IneligiblePairs, CooldownPairs, SameOriginPairs int
+	RouteFailures, NoBenefitPairs                   int
+	PredictedSecondsSaved                           float64
 }
 
 type pickupSwapController struct {
@@ -34,7 +34,7 @@ type pickupSwapController struct {
 }
 
 // SetPickupSwaps enables experimental pickup reassignment. It is off
-// by default and runs only with free-flow routing. Reset keeps enablement but
+// by default. Reset keeps enablement but
 // clears its history. Saved states do not retain the policy or its history.
 func (s *Simulation) SetPickupSwaps(enabled bool) {
 	if s.pickupSwaps == nil {
@@ -66,10 +66,6 @@ func (s *Simulation) swapPickups() {
 		return
 	}
 	c.nextTick = s.tick + TicksPerSecond
-	if s.routingPolicy != FreeFlowRouting {
-		c.stats.UnsupportedPolicyChecks++
-		return
-	}
 	n := len(s.vehicles)
 	if n < 2 || len(s.waiting) == 0 {
 		return

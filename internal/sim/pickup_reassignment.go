@@ -21,7 +21,7 @@ func (c *pickupSwapController) hasBudget() bool {
 // The alternative cursor rotates independently of the periodic pair cursor.
 func (s *Simulation) reassignPickup(index int) bool {
 	c := s.pickupSwaps
-	if c == nil || !c.enabled || s.routingPolicy != FreeFlowRouting || len(s.vehicles) < 2 {
+	if c == nil || !c.enabled || len(s.vehicles) < 2 {
 		return false
 	}
 	c.resetBudget(s.tick)

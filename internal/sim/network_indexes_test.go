@@ -31,8 +31,6 @@ func (s *Simulation) ensureNetworkIndexes() {
 	s.routeOrder = nil
 	s.pickupBounds = nil
 	s.routeWork = nil
-	s.congestionRouteCosts = nil
-	s.congestionRoutes = nil
 	// The blocked set holds lane indexes of the old network, and the
 	// no-candidate memo node indexes.
 	s.blocked = blockedSet{}

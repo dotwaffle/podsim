@@ -91,17 +91,15 @@ func TestSampledTickLatency(t *testing.T) {
 	}
 	networks := scenarioNetworks(t)
 	for _, name := range []string{"London", "rail hub"} {
-		for policy := range RoutingPolicy(4) {
-			for _, warm := range []bool{false, true} {
-				t.Run(fmt.Sprintf("%s, %s, warm %t", name, policyName(policy), warm), func(t *testing.T) {
-					fixture := newChoiceTickFixture(t, choiceTickInput{network: networks[name], policy: policy, warm: warm})
-					tick := measureSampledTick(t, fixture)
-					t.Logf("slowest %v, fastest %v; searches %+v", tick.slowest, tick.fastest, tick.counts)
-					if tick.slowest > choiceTickLimit {
-						t.Errorf("the slowest sampled tick takes %v, more than %v", tick.slowest, choiceTickLimit)
-					}
-				})
-			}
+		for _, warm := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s, warm %t", name, warm), func(t *testing.T) {
+				fixture := newChoiceTickFixture(t, choiceTickInput{network: networks[name], warm: warm})
+				tick := measureSampledTick(t, fixture)
+				t.Logf("slowest %v, fastest %v; searches %+v", tick.slowest, tick.fastest, tick.counts)
+				if tick.slowest > choiceTickLimit {
+					t.Errorf("the slowest sampled tick takes %v, more than %v", tick.slowest, choiceTickLimit)
+				}
+			})
 		}
 	}
 }
@@ -125,15 +123,13 @@ func TestSampledTickNoCandidateLatency(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for policy := range RoutingPolicy(4) {
-		for _, warm := range []bool{false, true} {
-			t.Run(fmt.Sprintf("%s, warm %t", policyName(policy), warm), func(t *testing.T) {
-				fixture := missFixture(t, choiceTickInput{network: network, prepared: prepared, policy: policy, warm: warm})
-				emergency := timeSampledPart(t, fixture, func(s *Simulation) { s.faultSampler.nextTick = MaxCounter })
-				fault := timeSampledPart(t, fixture, func(s *Simulation) { s.emergencySampler.nextTick = MaxCounter })
-				t.Logf("reported, not gated: emergency %v and fault %v, sum %v, against %v", emergency, fault, emergency+fault, choiceTickLimit)
-			})
-		}
+	for _, warm := range []bool{false, true} {
+		t.Run(fmt.Sprintf("warm %t", warm), func(t *testing.T) {
+			fixture := missFixture(t, choiceTickInput{network: network, prepared: prepared, warm: warm})
+			emergency := timeSampledPart(t, fixture, func(s *Simulation) { s.faultSampler.nextTick = MaxCounter })
+			fault := timeSampledPart(t, fixture, func(s *Simulation) { s.emergencySampler.nextTick = MaxCounter })
+			t.Logf("reported, not gated: emergency %v and fault %v, sum %v, against %v", emergency, fault, emergency+fault, choiceTickLimit)
+		})
 	}
 }
 

@@ -4,6 +4,7 @@ Status: approved by the maintainer on November 4, 2026, as option B with amendme
 It was drafted against `57902a7`.
 Each `file:line` reference is for that tree, unless it names a commit.
 References to the old `README.md` and `PROJECT_BRIEF.md` name `485f2f5`.
+On November 5, 2026, the maintainer removed the congestion, queue, and predictive routing policies, so the latency gates run only free-flow routing.
 
 ## 1. Goal
 
@@ -512,7 +513,7 @@ Gates that stage 7 adds:
 
 | Gate | Measurement | Pass |
 | --- | --- | --- |
-| Sampled-tick latency | A whole `Step`, because a step holds the session lock. A fault event and an emergency event come due in one tick, so it includes the fault start, the reroute pass, the emergency start, and the station search. LondonCentral and the rail-hub preset, under each routing policy, cold and warm. | At most 50 ms on the CI runner class, the limit of `internal/sim/emergency_latency_test.go:17`. |
+| Sampled-tick latency | A whole `Step`, because a step holds the session lock. A fault event and an emergency event come due in one tick, so it includes the fault start, the reroute pass, the emergency start, and the station search. LondonCentral and the rail-hub preset, cold and warm. | At most 50 ms on the CI runner class, the limit of `internal/sim/emergency_latency_test.go:17`. |
 | Sampled-tick latency, project limits | The same at the fixture of the no-candidate gate. | Reported, as P23 does. |
 | Sampler soak | The sampler at 10 faults and 10 emergencies an hour. With A2, it runs in the approved soak. | The same pass rules as the soak. |
 | CI soak | 1 seed for 1 simulated hour, with the sampler only. | The same pass rules, in `mise run qualify`. |

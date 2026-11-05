@@ -40,7 +40,6 @@ type result struct {
 	JoinEligibleExistingStop       int                `json:"join_eligible_existing_stop"`
 	JoinEligibleAddedStopOnly      int                `json:"join_eligible_added_stop_only"`
 	ReassignedParties              int                `json:"reassigned_parties"`
-	RoutingPolicy                  string             `json:"routing_policy"`
 	WaitRule                       string             `json:"wait_rule,omitempty"`
 	PlatoonPolicy                  string             `json:"platoon_policy,omitempty"`
 	PickupReassignment             string             `json:"pickup_reassignment,omitempty"`
@@ -140,17 +139,17 @@ func writeReport(input writeReportInput) error {
 	}
 	switch input.format {
 	case "json":
-		version := 12
+		version := 13
 		if slices.ContainsFunc(input.results, func(outcome result) bool {
 			return outcome.PickupReassignment != ""
 		}) {
-			version = 13
-		}
-		if slices.ContainsFunc(input.results, func(outcome result) bool { return outcome.OnboardPickups != "" }) {
 			version = 14
 		}
-		if slices.ContainsFunc(input.results, func(outcome result) bool { return outcome.Energy != nil }) {
+		if slices.ContainsFunc(input.results, func(outcome result) bool { return outcome.OnboardPickups != "" }) {
 			version = 15
+		}
+		if slices.ContainsFunc(input.results, func(outcome result) bool { return outcome.Energy != nil }) {
+			version = 16
 		}
 		data, err := jsonv2.Marshal(report{SchemaVersion: version, Results: input.results}, json.DefaultOptionsV1(), jsontext.WithIndent("  "))
 		if err == nil {
@@ -250,7 +249,7 @@ func writeTable(input writeReportInput) error {
 }
 
 // writeCSV writes a header and one row for each result. When
-// input.waitRuleColumn is set, a wait_rule column follows routing_policy.
+// input.waitRuleColumn is set, a wait_rule column follows policy.
 // When input.platoonColumn is set, a platoon_policy column follows them.
 // When input.sharingJoinColumn is set, a sharing_join column follows
 // sharing_mode. When input.seatColumns is set, the seat screen columns
@@ -298,7 +297,7 @@ func newCSVColumns(input writeReportInput) csvColumns {
 // header returns the header row of the report.
 func (columns csvColumns) header() []string {
 	header := []string{
-		"pattern", "demand_profile", "demand_band", "request_every_seconds", "offered_per_minute", "burst_size", "seed", "policy", "routing_policy",
+		"pattern", "demand_profile", "demand_band", "request_every_seconds", "offered_per_minute", "burst_size", "seed", "policy",
 	}
 	if columns.input.sharingConsentColumn {
 		header = append(header, "sharing_consent")
@@ -352,7 +351,7 @@ func (columns csvColumns) header() []string {
 // row returns the row of the report for outcome.
 func (columns csvColumns) row(outcome result) ([]string, error) {
 	row := []string{
-		outcome.Pattern, outcome.DemandProfile, outcome.DemandBand, floatText(outcome.RequestEverySeconds), floatText(outcome.OfferedPerMinute), strconv.Itoa(outcome.BurstSize), strconv.FormatInt(outcome.Seed, 10), outcome.Policy, outcome.RoutingPolicy,
+		outcome.Pattern, outcome.DemandProfile, outcome.DemandBand, floatText(outcome.RequestEverySeconds), floatText(outcome.OfferedPerMinute), strconv.Itoa(outcome.BurstSize), strconv.FormatInt(outcome.Seed, 10), outcome.Policy,
 	}
 	if columns.input.sharingConsentColumn {
 		row = append(row, string(outcome.SharingConsent))

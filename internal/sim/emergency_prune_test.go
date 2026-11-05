@@ -187,7 +187,7 @@ func newPruneNetwork(seed uint64) (Network, int) {
 // pruneCase builds the simulation of one case of the pruning test. Pod 01
 // rides between two random passenger stations, and the case steps until
 // the pod can divert at a random tick. It then adds a class rule, a
-// blocked set, a routing policy, and stopped pods. It returns nil when the
+// blocked set and stopped pods. It returns nil when the
 // seed gives no usable case.
 func pruneCase(t *testing.T, seed uint64) *Simulation {
 	t.Helper()
@@ -240,9 +240,6 @@ func pruneCase(t *testing.T, seed uint64) *Simulation {
 	if rng.IntN(3) == 0 {
 		lanes := []string{s.network.Lanes[rng.IntN(len(s.network.Lanes))].ID}
 		blockLanes(t, s, lanes...)
-	}
-	if err := s.SetRoutingPolicy(RoutingPolicy(rng.IntN(4))); err != nil {
-		t.Fatal(err)
 	}
 	for index := 1; index < len(s.vehicles); index++ {
 		if rng.IntN(2) == 0 {

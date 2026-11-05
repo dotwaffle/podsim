@@ -119,7 +119,6 @@ func (s *Simulation) blockedFrom(footprints []faultFootprint) blockedSet {
 func (s *Simulation) startRouteEpoch() {
 	s.routes, s.routeOrder = nil, nil
 	s.emergencyMisses = nil
-	s.congestionRoutes, s.congestionRouteCosts = nil, nil
 	s.routeStations = nil
 	s.pickupMisses = nil
 	s.accessRoutes = nil

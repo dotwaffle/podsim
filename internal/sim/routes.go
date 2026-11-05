@@ -5,12 +5,7 @@ import (
 	"slices"
 )
 
-const (
-	routeCacheLimit                 = 8192
-	ownedTrackCongestionSeconds     = 6.0
-	stoppedVehicleCongestionSeconds = 20.0
-	congestionRouteRefreshTicks     = 5 * TicksPerSecond
-)
+const routeCacheLimit = 8192
 
 type routeKey struct {
 	from, to string
@@ -40,8 +35,8 @@ func (s *Simulation) withSeconds(result routeResult) routeResult {
 // Code replaces a whole route and never writes into it in place.
 //
 // Estimates, candidate searches and the choices of dispatch, positioning
-// and parking use route with each routing policy. Only a pod that starts
-// a new route gets it from assignedRoute.
+// and parking use route. A pod that starts a new route gets it from
+// assignedRoute.
 func (s *Simulation) route(from, to string) ([]Lane, error) {
 	return s.routeForClass(from, to, LegacyClass)
 }
@@ -68,88 +63,10 @@ func (s *Simulation) cachedRouteForClass(from, to string, class VehicleClass) ro
 	return s.cacheRoute(key, routeResult{lanes: lanes, err: err})
 }
 
-// costedRouting reports whether assignedRoute can give a route that is not
-// the free-flow route.
-func (s *Simulation) costedRouting() bool {
-	return s.routingPolicy != FreeFlowRouting
-}
-
 // assignedRoute returns the route for pod v when it starts a new route from
-// node from to node to. It is the free-flow route of route, or the route of
-// the routing policy. The callers are board, startEmptyMove, sendPickup
-// and parkReleased. Under a routing view, it reads the view and writes no
-// routing-policy state and no route memo. See route_view.go.
+// node from to node to. Pod v can be nil.
 func (s *Simulation) assignedRoute(v *vehicle, from, to string) ([]Lane, error) {
-	switch s.routingPolicy {
-	case CongestionRouting:
-		result := s.congestionRouteForClass(from, to, podClass(v))
-		return result.lanes, result.err
-	case QueueRouting:
-		return s.queueRoute(v, from, to)
-	case PredictiveRouting:
-		return s.predictiveRoute(v, from, to)
-	default:
-		return s.routeForClass(from, to, podClass(v))
-	}
-}
-
-// congestionRoute minimizes travel time plus congestion cost without
-// intermediate berths. If no such path exists, it returns the route
-// selected by the free-flow preference and legacy fallback.
-func (s *Simulation) congestionRouteForClass(from, to string, class VehicleClass) routeResult {
-	if s.routeView != nil {
-		return s.viewCongestionRoute(from, to, class)
-	}
-	s.refreshCongestionCosts()
-	key := routeKey{from: from, to: to, class: routeClass(class)}
-	if cached, ok := s.congestionRoutes[key]; ok {
-		return cached
-	}
-	lanes, err := s.searchRoute(networkRouteInput{from: from, to: to, class: class, extraCost: s.congestionRouteCosts, terminalBerthsOnly: true})
-	if err != nil {
-		lanes, err = s.routeForClass(from, to, class)
-	}
-	result := s.withSeconds(routeResult{lanes: lanes, err: err})
-	s.congestionRoutes[key] = result
-	return result
-}
-
-// refreshCongestionCosts computes the congestion costs again when they are
-// older than congestionRouteRefreshTicks. It then clears the congestion
-// routes.
-func (s *Simulation) refreshCongestionCosts() {
-	if s.congestionRouteCosts == nil || s.tick >= s.nextCongestionRouteRefresh {
-		s.congestionRouteCosts = s.congestionCosts()
-		s.congestionRoutes = make(map[routeKey]routeResult)
-		s.nextCongestionRouteRefresh = s.tick + congestionRouteRefreshTicks
-	}
-}
-
-// congestionCosts returns the congestion cost of each lane: each owned
-// track cell and each waiting pod adds seconds. A fault owner adds none.
-// The blocked set keeps the searches off an active footprint, and a timed
-// clear opens the lane before the end of the tick releases the footprint.
-// A cost of debris would stay in the cached costs after the clear.
-func (s *Simulation) congestionCosts() []float64 {
-	costs := make([]float64, len(s.network.Lanes))
-	for claimed, owner := range s.owners {
-		if owner.isZero() || owner.kind == faultOwnerKind || claimed.kind != trackResource {
-			continue
-		}
-		if index, ok := s.graph.lanes[claimed.id]; ok {
-			costs[index] += ownedTrackCongestionSeconds
-		}
-	}
-	for index := range s.vehicles {
-		pod := s.vehicles[index].Pod
-		if pod.Activity != Traveling || pod.LaneID == "" || pod.WaitReason == NoWait {
-			continue
-		}
-		if laneIndex, ok := s.graph.lanes[pod.LaneID]; ok {
-			costs[laneIndex] += stoppedVehicleCongestionSeconds
-		}
-	}
-	return costs
+	return s.routeForClass(from, to, podClass(v))
 }
 
 // cacheStationRoutesForClass puts the routes from a node to each berth of

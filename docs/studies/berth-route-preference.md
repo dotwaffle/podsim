@@ -18,6 +18,7 @@ A batched search stops at every intermediate berth, including another target's b
 Fallback targets retain a separate unrestricted search tree.
 One target's fallback never replaces another target's preferred route.
 Congestion and queue routing use the same berth restriction and free-flow fallback.
+The code of those routing policies was removed on November 5, 2026.
 Station-local arrival and departure searches keep their existing constraints.
 
 Free-berth selection ranks each destination by its own preferred or fallback free-flow cost.

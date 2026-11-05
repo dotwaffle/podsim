@@ -66,8 +66,7 @@ func (s *Simulation) waitForFinishingPodFull(trip *waitingTrip, idle *vehicle, a
 // with a full check. Six pods on the example network with a second Market
 // berth serve a trip every 5 s for 240 s.
 type holdScenario struct {
-	rule       FinishingPodWait
-	congestion bool
+	rule FinishingPodWait
 }
 
 // run calls check four times each simulated second, before the step.
@@ -84,7 +83,6 @@ func (scenario holdScenario) run(t *testing.T, check func(s *Simulation)) {
 	if err := s.SetFinishingPodWait(scenario.rule); err != nil {
 		t.Fatal(err)
 	}
-	s.SetCongestionRouting(scenario.congestion)
 	stations := []string{"harbor", "garden", "market"}
 	moves := 0
 	for tick := range 400 * TicksPerSecond {
@@ -113,13 +111,8 @@ func (scenario holdScenario) run(t *testing.T, check func(s *Simulation)) {
 // route caches. A cached route is equal to a new route, so the content of a
 // route cache does not change a result.
 func sameHoldState(a, b *Simulation) bool {
-	strip := func(s *Simulation) *Simulation {
-		c := stripCaches(s)
-		c.congestionRoutes = nil
-		return c
-	}
 	// DeepEqual compares route errors by value on purpose. See sameState.
-	return reflect.DeepEqual(strip(a), strip(b)) //nolint:govet // deepequalerrors: route errors compare by value on purpose.
+	return reflect.DeepEqual(stripCaches(a), stripCaches(b)) //nolint:govet // deepequalerrors: route errors compare by value on purpose.
 }
 
 // waitingAssignments returns the pods of the waiting trips, as dispatch
@@ -143,7 +136,6 @@ func TestFinishingPodWaitMatchesFullLoop(t *testing.T) {
 	skipLong(t)
 	for _, scenario := range []holdScenario{
 		{rule: FinishingPodWaitCurrent}, {rule: FinishingPodWaitStrict},
-		{rule: FinishingPodWaitCurrent, congestion: true}, {rule: FinishingPodWaitStrict, congestion: true},
 	} {
 		t.Run(fmt.Sprintf("%+v", scenario), func(t *testing.T) {
 			t.Parallel()
@@ -273,46 +265,41 @@ func podID(v *vehicle) string {
 // included, because the two make the same route queries in the same order.
 func TestHoldChecksMatchFullScan(t *testing.T) {
 	t.Parallel()
-	for _, congestion := range []bool{false, true} {
-		t.Run(fmt.Sprintf("congestion %v", congestion), func(t *testing.T) {
-			t.Parallel()
-			var locals, idle, moving, none int
-			holdScenario{rule: FinishingPodWaitCurrent, congestion: congestion}.run(t, func(s *Simulation) {
-				assigned := waitingAssignments(s)
-				fast, full := s.Clone(), s.Clone()
-				pass := dispatchPass{assigned: assigned}
-				for _, station := range s.network.Stations {
-					local, wantLocal := fast.localPickup(station.ID, &pass), full.localPickupFull(station.ID, assigned)
-					if podID(local) != podID(wantLocal) {
-						t.Fatalf("tick %d, %s: local pickup %q, want %q", s.tick, station.ID, podID(local), podID(wantLocal))
-					}
-					if local != nil {
-						locals++
-					}
-					if station.ParkingOnly {
-						continue
-					}
-					available, first := fast.pickupAvailable(station.ID, "", &pass), full.pickupAvailableFull(station.ID, assigned)
-					if available != (first != nil) {
-						t.Fatalf("tick %d, %s: pickup available %v, want pod %q", s.tick, station.ID, available, podID(first))
-					}
-					switch {
-					case first == nil:
-						none++
-					case first.Pod.Activity == Idle:
-						idle++
-					default:
-						moving++
-					}
-				}
-				if !reflect.DeepEqual(fast, full) { //nolint:govet // deepequalerrors: route errors compare by value on purpose.
-					t.Fatalf("tick %d: the states differ", s.tick)
-				}
-			})
-			if locals == 0 || idle == 0 || moving == 0 || none == 0 {
-				t.Fatalf("the scenario found %d local pickups, and %d idle, %d moving and %d missing first pickups, want each", locals, idle, moving, none)
+	var locals, idle, moving, none int
+	holdScenario{rule: FinishingPodWaitCurrent}.run(t, func(s *Simulation) {
+		assigned := waitingAssignments(s)
+		fast, full := s.Clone(), s.Clone()
+		pass := dispatchPass{assigned: assigned}
+		for _, station := range s.network.Stations {
+			local, wantLocal := fast.localPickup(station.ID, &pass), full.localPickupFull(station.ID, assigned)
+			if podID(local) != podID(wantLocal) {
+				t.Fatalf("tick %d, %s: local pickup %q, want %q", s.tick, station.ID, podID(local), podID(wantLocal))
 			}
-		})
+			if local != nil {
+				locals++
+			}
+			if station.ParkingOnly {
+				continue
+			}
+			available, first := fast.pickupAvailable(station.ID, "", &pass), full.pickupAvailableFull(station.ID, assigned)
+			if available != (first != nil) {
+				t.Fatalf("tick %d, %s: pickup available %v, want pod %q", s.tick, station.ID, available, podID(first))
+			}
+			switch {
+			case first == nil:
+				none++
+			case first.Pod.Activity == Idle:
+				idle++
+			default:
+				moving++
+			}
+		}
+		if !reflect.DeepEqual(fast, full) { //nolint:govet // deepequalerrors: route errors compare by value on purpose.
+			t.Fatalf("tick %d: the states differ", s.tick)
+		}
+	})
+	if locals == 0 || idle == 0 || moving == 0 || none == 0 {
+		t.Fatalf("the scenario found %d local pickups, and %d idle, %d moving and %d missing first pickups, want each", locals, idle, moving, none)
 	}
 }
 
@@ -340,39 +327,34 @@ func (s *Simulation) pickupPodFull(stationID string, assigned map[string]bool) *
 // caches can differ because the optimized search can skip candidates.
 func TestPickupPodMatchesFullScan(t *testing.T) {
 	t.Parallel()
-	for _, congestion := range []bool{false, true} {
-		t.Run(fmt.Sprintf("congestion %v", congestion), func(t *testing.T) {
-			t.Parallel()
-			var idle, moving, none int
-			holdScenario{rule: FinishingPodWaitCurrent, congestion: congestion}.run(t, func(s *Simulation) {
-				assigned := waitingAssignments(s)
-				fast, full := s.Clone(), s.Clone()
-				pass := dispatchPass{assigned: assigned}
-				for _, station := range s.network.Stations {
-					if station.ParkingOnly {
-						continue
-					}
-					got, want := fast.pickupPod(station.ID, &pass), full.pickupPodFull(station.ID, assigned)
-					if podID(got) != podID(want) {
-						t.Fatalf("tick %d, %s: pickup pod %q, want %q", s.tick, station.ID, podID(got), podID(want))
-					}
-					switch {
-					case want == nil:
-						none++
-					case want.Pod.Activity == Idle:
-						idle++
-					default:
-						moving++
-					}
-				}
-				if !sameHoldState(fast, full) {
-					t.Fatalf("tick %d: the states differ", s.tick)
-				}
-			})
-			if idle == 0 || moving == 0 || none == 0 {
-				t.Fatalf("the scenario found %d idle, %d moving and %d missing pickup pods, want each", idle, moving, none)
+	var idle, moving, none int
+	holdScenario{rule: FinishingPodWaitCurrent}.run(t, func(s *Simulation) {
+		assigned := waitingAssignments(s)
+		fast, full := s.Clone(), s.Clone()
+		pass := dispatchPass{assigned: assigned}
+		for _, station := range s.network.Stations {
+			if station.ParkingOnly {
+				continue
 			}
-		})
+			got, want := fast.pickupPod(station.ID, &pass), full.pickupPodFull(station.ID, assigned)
+			if podID(got) != podID(want) {
+				t.Fatalf("tick %d, %s: pickup pod %q, want %q", s.tick, station.ID, podID(got), podID(want))
+			}
+			switch {
+			case want == nil:
+				none++
+			case want.Pod.Activity == Idle:
+				idle++
+			default:
+				moving++
+			}
+		}
+		if !sameHoldState(fast, full) {
+			t.Fatalf("tick %d: the states differ", s.tick)
+		}
+	})
+	if idle == 0 || moving == 0 || none == 0 {
+		t.Fatalf("the scenario found %d idle, %d moving and %d missing pickup pods, want each", idle, moving, none)
 	}
 }
 

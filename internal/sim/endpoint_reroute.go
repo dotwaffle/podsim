@@ -4,7 +4,7 @@ import "slices"
 
 // rerouteIntervalTicks is the cadence of the reroute pass while the
 // blocked set is not empty (product choice P2 of the incident suspension
-// contract). It is the cadence of refreshCongestionCosts.
+// contract).
 const rerouteIntervalTicks = 300
 
 // reroutePass runs the reroute pass of the fault stage (section 9.2 of the
@@ -54,7 +54,7 @@ func (s *Simulation) rerouteCandidate(v *vehicle) bool {
 // reports false when the pod cannot divert, when a kept lane is blocked,
 // when no route avoids the blocked set, or when the route takes a rider
 // over the detour limit. It searches under the routing view of v, so it
-// writes nothing, also no routing-policy state and no route memo.
+// writes nothing, also no route memo.
 func (s *Simulation) endpointRoute(v *vehicle) ([]Lane, bool) {
 	if len(v.Route) == 0 {
 		return nil, false

@@ -47,42 +47,37 @@ func checkCandidateRouteOriginal(t *testing.T, s *Simulation, podID, station str
 func TestCandidateRoutePartsMatchOriginal(t *testing.T) {
 	t.Parallel()
 	skipLong(t)
-	for _, congestion := range []bool{false, true} {
-		t.Run(map[bool]string{false: "free-flow", true: "congestion"}[congestion], func(t *testing.T) {
-			t.Parallel()
-			idle, moving, rejected := 0, 0, 0
-			holdScenario{rule: FinishingPodWaitCurrent, congestion: congestion}.run(t, func(s *Simulation) {
-				if s.tick%(5*TicksPerSecond) != 0 {
-					return
+	idle, moving, rejected := 0, 0, 0
+	holdScenario{rule: FinishingPodWaitCurrent}.run(t, func(s *Simulation) {
+		if s.tick%(5*TicksPerSecond) != 0 {
+			return
+		}
+		for i := range s.vehicles {
+			v := &s.vehicles[i]
+			switch v.Pod.Activity {
+			case Idle:
+				idle++
+			default:
+				if _, _, ok := s.divertStart(v); ok {
+					moving++
+				} else {
+					rejected++
 				}
-				for i := range s.vehicles {
-					v := &s.vehicles[i]
-					switch v.Pod.Activity {
-					case Idle:
-						idle++
-					default:
-						if _, _, ok := s.divertStart(v); ok {
-							moving++
-						} else {
-							rejected++
-						}
-					}
-					for _, station := range []string{"harbor", "garden", "market", "parking", "unknown"} {
-						for _, load := range []func(Berth) int{nil, noBerthLoad, func(b Berth) int {
-							if b.ID == "market-1" {
-								return 10
-							}
-							return 0
-						}} {
-							checkCandidateRouteOriginal(t, s, v.Pod.ID, station, load)
-						}
-					}
-				}
-			})
-			if idle == 0 || moving == 0 || rejected == 0 {
-				t.Fatalf("coverage idle%d moving%d rejected%d", idle, moving, rejected)
 			}
-		})
+			for _, station := range []string{"harbor", "garden", "market", "parking", "unknown"} {
+				for _, load := range []func(Berth) int{nil, noBerthLoad, func(b Berth) int {
+					if b.ID == "market-1" {
+						return 10
+					}
+					return 0
+				}} {
+					checkCandidateRouteOriginal(t, s, v.Pod.ID, station, load)
+				}
+			}
+		}
+	})
+	if idle == 0 || moving == 0 || rejected == 0 {
+		t.Fatalf("coverage idle%d moving%d rejected%d", idle, moving, rejected)
 	}
 }
 

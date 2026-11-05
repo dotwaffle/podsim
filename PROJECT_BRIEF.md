@@ -110,7 +110,7 @@ The pickup and busy-station service problems stay unresolved.
 
 | Area | Status | Record |
 | --- | --- | --- |
-| Congestion-aware routing | `congestion`, `queue`, and `predictive` are comparison policies, and none is adopted. Rerouting at junctions is not built. | [Queue routing screen](docs/studies/qualification.md#queue-routing-screen), [predictive routing](docs/studies/predictive-routing.md) |
+| Congestion-aware routing | Free-flow routing is the only policy. `congestion`, `queue`, and `predictive` had no service gain and were removed. Rerouting at junctions is not built. | [Queue routing screen](docs/studies/qualification.md#queue-routing-screen), [predictive routing](docs/studies/predictive-routing.md) |
 | Shared rides | `destination` and `drop-offs` are opt-in, and `drop-offs` is the default mode when sharing is on. `reassign-existing` fails the adoption rules. Waiting for more passengers against leaving at once is not studied. | [Drop-offs sharing](docs/studies/qualification.md#drop-offs-sharing-in-london), [policy failures](docs/studies/policy-failures.md) |
 | Mixed vehicle classes | Legacy, Compact, Group, and opt-in Express pods exist, and no default changes. | [Group physics](docs/design/group-physics-design.md), [Express qualification](docs/studies/express-qualification.md) |
 | Pickup reassignment | Opt-in, off by default. It lowers mean waits in tested pairs and has individual tail regressions. | [Sustained swaps](docs/studies/pickup-swap-sustained.md) |

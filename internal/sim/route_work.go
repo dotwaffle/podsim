@@ -40,6 +40,6 @@ func (s *Simulation) searchRoute(input networkRouteInput) ([]Lane, error) {
 	work := s.routeWork
 	searches, localFailed := work.searches, work.localFailed
 	lanes, err := s.network.routeIndexedWithWork(input, s.routingGraph(), work)
-	s.searchCounters.countRoute(input, err, work.searches-searches, work.localFailed-localFailed)
+	s.searchCounters.countRoute(err, work.searches-searches, work.localFailed-localFailed)
 	return lanes, err
 }

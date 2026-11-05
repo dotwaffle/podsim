@@ -56,18 +56,17 @@ func configureExperimentalPolicies(simulation *sim.Simulation, input runInput) e
 }
 
 type pickupPolicyStats struct {
-	ScannedPairs            int     `json:"scanned_pairs"`
-	RoutePairs              int     `json:"route_pairs"`
-	Swaps                   int     `json:"swaps"`
-	Transfers               int     `json:"transfers"`
-	AssignmentChecks        int     `json:"assignment_checks"`
-	IneligiblePairs         int     `json:"ineligible_pairs"`
-	CooldownPairs           int     `json:"cooldown_pairs"`
-	SameOriginPairs         int     `json:"same_origin_pairs"`
-	RouteFailures           int     `json:"route_failures"`
-	NoBenefitPairs          int     `json:"no_benefit_pairs"`
-	UnsupportedPolicyChecks int     `json:"unsupported_policy_checks"`
-	PredictedSecondsSaved   float64 `json:"predicted_seconds_saved"`
+	ScannedPairs          int     `json:"scanned_pairs"`
+	RoutePairs            int     `json:"route_pairs"`
+	Swaps                 int     `json:"swaps"`
+	Transfers             int     `json:"transfers"`
+	AssignmentChecks      int     `json:"assignment_checks"`
+	IneligiblePairs       int     `json:"ineligible_pairs"`
+	CooldownPairs         int     `json:"cooldown_pairs"`
+	SameOriginPairs       int     `json:"same_origin_pairs"`
+	RouteFailures         int     `json:"route_failures"`
+	NoBenefitPairs        int     `json:"no_benefit_pairs"`
+	PredictedSecondsSaved float64 `json:"predicted_seconds_saved"`
 }
 
 func pickupStatsForReport(simulation *sim.Simulation, policy string) *pickupPolicyStats {
@@ -80,7 +79,7 @@ func pickupStatsForReport(simulation *sim.Simulation, policy string) *pickupPoli
 		Swaps: stats.Swaps, Transfers: stats.Transfers, AssignmentChecks: stats.AssignmentChecks,
 		IneligiblePairs: stats.IneligiblePairs, CooldownPairs: stats.CooldownPairs,
 		SameOriginPairs: stats.SameOriginPairs, RouteFailures: stats.RouteFailures,
-		NoBenefitPairs: stats.NoBenefitPairs, UnsupportedPolicyChecks: stats.UnsupportedPolicyChecks,
+		NoBenefitPairs:        stats.NoBenefitPairs,
 		PredictedSecondsSaved: stats.PredictedSecondsSaved,
 	}
 }

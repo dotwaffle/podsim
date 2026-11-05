@@ -4,6 +4,7 @@ Status: qualification limits approved October 1, 2026.
 These thresholds do not authorize a default change.
 Pickup reassignment and sharing remain opt-in.
 Free-flow routing remains the default.
+The code of the `congestion`, `queue`, and `predictive` routing policies was removed on November 5, 2026, so the records for these policies are history.
 Existing qualification rules and documented exceptions remain in force.
 Station buffers and compact station queues were removed on October 7, 2026, because measurements showed that they lowered station entry throughput.
 Gates and rows that name them are history.

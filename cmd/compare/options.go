@@ -29,7 +29,6 @@ type options struct {
 	sharingConsentColumn   bool
 	sharingLimitsText      string
 	sharingModesText       string
-	routingPoliciesText    string
 	redistributionText     string
 	waitRulesText          string
 	platoonPoliciesText    string
@@ -49,7 +48,6 @@ type options struct {
 	sharingLimits          []int
 	sharingModes           []sim.SharedRideMode
 	sharingMaxStops        int
-	routingPolicies        []string
 	redistributionPolicies []string
 	// waitRules is nil when -wait-rules is not given. Then each arm uses the
 	// default rule and the report has no wait rule column.
@@ -109,7 +107,7 @@ var optionSteps = [...]func(*options, map[string]bool) error{
 	checkRailOptions,
 	parseLoadOptions,
 	parseSharingOptions,
-	parseRoutingOptions,
+	parseRedistributionOptions,
 	parseGivenArmOptions,
 	parseOnboardPickups,
 	parseExperimentalOptions,
@@ -135,7 +133,6 @@ func defineFlags(flags *flag.FlagSet, opts *options) {
 	flags.IntVar(&opts.sharingMaxStops, "sharing-max-stops", sim.DefaultSharedRideMaxStops, "intermediate stops of a pod in drop-offs mode")
 	flags.StringVar(&opts.sharingJoinsText, "sharing-joins", string(sim.DefaultSharedRideJoin), "comma-separated shared ride join policies: unassigned, reassign-existing (adds a sharing_join column)")
 	flags.StringVar(&opts.onboardPickupsText, "onboard-pickups", "off", "comma-separated occupied pickup policies: off, on (on requires sharing above one party and drop-offs mode; adds an onboard_pickups column)")
-	flags.StringVar(&opts.routingPoliciesText, "routing-policies", "free-flow", "comma-separated routing policies: free-flow, congestion, queue, predictive")
 	flags.StringVar(&opts.redistributionText, "redistribution-policies", "off,on", "comma-separated redistribution policies: off, on")
 	flags.StringVar(&opts.waitRulesText, "wait-rules", "current", "comma-separated finishing-pod wait rules: current, strict, none (adds a wait_rule column)")
 	flags.StringVar(&opts.platoonPoliciesText, "platoon-policies", "off", "comma-separated platoon policies: off, virtual (adds a platoon_policy column)")
@@ -269,13 +266,9 @@ func parseSharingOptions(opts *options, _ map[string]bool) error {
 	return nil
 }
 
-// parseRoutingOptions parses the routing policies, and then the
-// redistribution policies.
-func parseRoutingOptions(opts *options, _ map[string]bool) error {
+// parseRedistributionOptions parses the redistribution policies.
+func parseRedistributionOptions(opts *options, _ map[string]bool) error {
 	var err error
-	if opts.routingPolicies, err = parseRoutingPolicies(opts.routingPoliciesText); err != nil {
-		return err
-	}
 	opts.redistributionPolicies, err = parseRedistributionPolicies(opts.redistributionText)
 	return err
 }
@@ -310,7 +303,7 @@ func parseOnboardPickups(opts *options, given map[string]bool) error {
 
 // checkMatrixSize checks the number of comparisons in the matrix.
 func checkMatrixSize(opts *options, _ map[string]bool) error {
-	if len(opts.seeds)*len(opts.patterns)*len(opts.loads)*len(sharingArms(*opts))*max(1, len(opts.sharingJoins))*len(opts.routingPolicies)*
+	if len(opts.seeds)*len(opts.patterns)*len(opts.loads)*len(sharingArms(*opts))*max(1, len(opts.sharingJoins))*
 		max(1, len(opts.waitRules))*max(1, len(opts.platoonPolicies))*experimentalArmCount(*opts)*onboardArmCount(*opts) > maxComparisons {
 		return fmt.Errorf("the matrix must contain at most %d comparisons", maxComparisons)
 	}
@@ -409,24 +402,6 @@ func parsePlatoonPolicies(value string) ([]string, error) {
 		}
 		if seen[policy] {
 			return nil, fmt.Errorf("platoon policy %q appears more than once", policy)
-		}
-		seen[policy] = true
-		policies = append(policies, policy)
-	}
-	return policies, nil
-}
-
-func parseRoutingPolicies(value string) ([]string, error) {
-	parts := strings.Split(value, ",")
-	policies := make([]string, 0, len(parts))
-	seen := make(map[string]bool, len(parts))
-	for _, part := range parts {
-		policy := strings.TrimSpace(part)
-		if _, ok := routingPolicyValues[policy]; !ok {
-			return nil, fmt.Errorf("unknown routing policy %q", policy)
-		}
-		if seen[policy] {
-			return nil, fmt.Errorf("routing policy %q appears more than once", policy)
 		}
 		seen[policy] = true
 		policies = append(policies, policy)

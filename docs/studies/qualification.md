@@ -2,6 +2,7 @@
 
 The historical London results below refer to LondonCentral (`london-central`).
 The recorded measurements and source data have not changed.
+The code of the `congestion`, `queue`, and `predictive` routing policies was removed on November 5, 2026, so the results for these policies are history.
 
 These measurements use Go 1.27.1 on a Ryzen 5 3600 with 12 logical CPUs and Debian 13.
 They compare the accepted `0f8f10f` baseline with the changes documented here.

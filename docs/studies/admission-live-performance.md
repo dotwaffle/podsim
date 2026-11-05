@@ -95,6 +95,8 @@ The host load average rose from 3 to 12, so these numbers are not from a quiet h
 
 ## Predictive routing cost
 
+The code of this policy was removed on November 5, 2026, so these results are history.
+
 An isolated comparison on LondonFull AM12 seed 4 and Morning14 seed 1 (free-flow against predictive routing, baseline `b4cfefe`, candidate `a54281e`) measured CPU and allocation in fresh single-core processes.
 With the predictive code disabled, median CPU changed by -0.20% and +0.19%, within the repetition range.
 With GC 100, enabling prediction added 1.9% to 2.7% median CPU and 4.1% to 5.2% allocated bytes, with identical result fields.

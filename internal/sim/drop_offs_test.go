@@ -195,60 +195,6 @@ func loopNetwork(y float64) Network {
 	return network
 }
 
-// TestDropOffsCostedRouteKeepsCap gives the lane approach-branch a large
-// congestion cost, so the congestion route from harbor goes through the
-// long loop. The free-flow plan accepts the party for garden, but the
-// congestion route to garden takes the rider for market over
-// maxSharedRideDetour. The pod must take the free-flow route.
-func TestDropOffsCostedRouteKeepsCap(t *testing.T) {
-	t.Parallel()
-	s, err := NewFleet(loopNetwork(1260), []Placement{
-		{ID: "01", StationID: "harbor", BerthID: "harbor-1"},
-		{ID: "02", StationID: "garden", BerthID: "garden-1"},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	monitorContract(t, s)
-	if err = s.SetSharedRidePartyLimit(4); err != nil {
-		t.Fatal(err)
-	}
-	if err = s.SetSharedRideMode(SharedRideDropOffs, DefaultSharedRideMaxStops); err != nil {
-		t.Fatal(err)
-	}
-	s.SetCongestionRouting(true)
-	s.ensureNetworkIndexes()
-	costs := make([]float64, len(s.network.Lanes))
-	costs[s.graph.lanes["approach-branch"]] = 1e6
-	s.congestionRouteCosts, s.nextCongestionRouteRefresh = costs, math.MaxInt64
-	s.congestionRoutes = make(map[routeKey]routeResult)
-
-	v := s.findVehicle("01")
-	costed, err := s.assignedApproachRouteMatching(v, "harbor-berth", "garden", nil)
-	if err != nil || !slices.ContainsFunc(costed, func(lane Lane) bool { return lane.ID == "loop-out" }) {
-		t.Fatalf("congestion route %v, %v", routeIDs(costed), err)
-	}
-	if planned := s.plannedDetour("harbor-berth", []string{"garden", "market"}, detourStart{ridden: s.lanesMeters(costed)}); planned <= maxSharedRideDetour {
-		t.Fatalf("planned detour ratio on the congestion route %.6f", planned)
-	}
-	for _, destination := range []string{"market", "garden"} {
-		if err := submitSharedTrip(s, "harbor", destination); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if !slices.Equal(v.Stops, []string{"garden", "market"}) {
-		t.Fatalf("stops %v", v.Stops)
-	}
-	if slices.ContainsFunc(v.Route, func(lane Lane) bool { return lane.ID == "loop-out" }) {
-		t.Fatalf("route %v goes through the loop", routeIDs(v.Route))
-	}
-	advance(s, 600*TicksPerSecond)
-	state := s.Snapshot()
-	if state.Completed != 2 || state.SharedParties != 1 || state.MaxDetourRatio > maxSharedRideDetour+1e-9 {
-		t.Fatalf("completed %d, shared %d, detour ratio %.6f", state.Completed, state.SharedParties, state.MaxDetourRatio)
-	}
-}
-
 // directBerthNetwork returns ladderNetwork with the second market arrival
 // node far from the station, and a direct lane from the market entry to
 // the second market berth. The station path from the entry to that berth
@@ -313,13 +259,11 @@ func TestDropOffsBerthRerouteKeepsCap(t *testing.T) {
 	}
 }
 
-// TestDropOffsDetourCapWithRoutingPolicies runs trips in drop-offs mode on
-// a network with a short loop beside the lane approach-branch, and the
-// garden berth a small distance from the guideway. With each routing
-// policy, no rider may go over maxSharedRideDetour. Without the check of
-// legRoute, the congestion routes through the loop take riders for market
-// over the cap.
-func TestDropOffsDetourCapWithRoutingPolicies(t *testing.T) {
+// TestDropOffsDetourCapUnderLoad runs trips in drop-offs mode on a network
+// with a short loop beside the lane approach-branch, and the garden berth a
+// small distance from the guideway. No rider may go over
+// maxSharedRideDetour.
+func TestDropOffsDetourCapUnderLoad(t *testing.T) {
 	t.Parallel()
 	skipLong(t)
 	network := loopNetwork(400)
@@ -328,43 +272,35 @@ func TestDropOffsDetourCapWithRoutingPolicies(t *testing.T) {
 			network.Nodes[index].Position.Y = 10
 		}
 	}
-	for name, policy := range map[string]RoutingPolicy{"free flow": FreeFlowRouting, "congestion": CongestionRouting, "queue": QueueRouting, "predictive": PredictiveRouting} {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-			s, err := NewFleet(network, []Placement{
-				{ID: "01", StationID: "harbor", BerthID: "harbor-1"},
-				{ID: "02", StationID: "garden", BerthID: "garden-1"},
-				{ID: "03", StationID: "parking", BerthID: "parking-1"},
-				{ID: "04", StationID: "parking", BerthID: "parking-2"},
-			})
-			if err != nil {
+	s, err := NewFleet(network, []Placement{
+		{ID: "01", StationID: "harbor", BerthID: "harbor-1"},
+		{ID: "02", StationID: "garden", BerthID: "garden-1"},
+		{ID: "03", StationID: "parking", BerthID: "parking-1"},
+		{ID: "04", StationID: "parking", BerthID: "parking-2"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	monitorContract(t, s)
+	if err := s.SetSharedRidePartyLimit(4); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetSharedRideMode(SharedRideDropOffs, DefaultSharedRideMaxStops); err != nil {
+		t.Fatal(err)
+	}
+	trips := [][2]string{{"harbor", "market"}, {"harbor", "garden"}, {"harbor", "market"}, {"garden", "market"}, {"market", "harbor"}, {"market", "garden"}}
+	for tick := range 600 * TicksPerSecond {
+		if tick%(3*TicksPerSecond) == 0 {
+			trip := trips[tick/(3*TicksPerSecond)%len(trips)]
+			if err := submitSharedTrip(s, trip[0], trip[1]); err != nil {
 				t.Fatal(err)
 			}
-			monitorContract(t, s)
-			if err := s.SetSharedRidePartyLimit(4); err != nil {
-				t.Fatal(err)
-			}
-			if err := s.SetSharedRideMode(SharedRideDropOffs, DefaultSharedRideMaxStops); err != nil {
-				t.Fatal(err)
-			}
-			if err := s.SetRoutingPolicy(policy); err != nil {
-				t.Fatal(err)
-			}
-			trips := [][2]string{{"harbor", "market"}, {"harbor", "garden"}, {"harbor", "market"}, {"garden", "market"}, {"market", "harbor"}, {"market", "garden"}}
-			for tick := range 600 * TicksPerSecond {
-				if tick%(3*TicksPerSecond) == 0 {
-					trip := trips[tick/(3*TicksPerSecond)%len(trips)]
-					if err := submitSharedTrip(s, trip[0], trip[1]); err != nil {
-						t.Fatal(err)
-					}
-				}
-				s.Step()
-			}
-			state := s.Snapshot()
-			if state.Completed < 30 || state.SharedParties == 0 || state.MaxDetourRatio > maxSharedRideDetour+1e-9 {
-				t.Fatalf("completed %d, shared %d, detour ratio %.6f", state.Completed, state.SharedParties, state.MaxDetourRatio)
-			}
-		})
+		}
+		s.Step()
+	}
+	state := s.Snapshot()
+	if state.Completed < 30 || state.SharedParties == 0 || state.MaxDetourRatio > maxSharedRideDetour+1e-9 {
+		t.Fatalf("completed %d, shared %d, detour ratio %.6f", state.Completed, state.SharedParties, state.MaxDetourRatio)
 	}
 }
 

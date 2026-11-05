@@ -232,14 +232,6 @@ type networkRouteInput struct {
 	class     VehicleClass
 	from, to  string
 	forbidden map[string]bool
-	extraCost []float64
-	// discharge holds, by lane index, the time from the route start at
-	// which the queue on the lane clears. A lane adds queueDelay of this
-	// time and the route cost at its start. See queueRoute.
-	discharge []float64
-	// forecasts hold a frozen FIFO model of planned lane entries.
-	forecasts     []laneForecast
-	forecastStart float64
 	// ownBerthsOnly stops the search at each berth node of a station that
 	// has no berth at from or at to. Thus the route cannot go through the
 	// berths of a third station.
@@ -248,7 +240,6 @@ type networkRouteInput struct {
 	terminalBerthsOnly bool
 	allowedLanes       map[int]bool
 	bankRaw            bool
-	startCost          float64
 	bankExternal       bool
 }
 
@@ -283,8 +274,8 @@ func (n Network) routeIndexedWithWork(input networkRouteInput, graph routeGraph,
 	work.reset(len(n.Nodes))
 	distance, previous, visited := work.distance, work.previous, work.visited
 	filtered := input.bankExternal || input.allowedLanes != nil || input.forbidden != nil || input.ownBerthsOnly
-	distance[from] = input.startCost
-	work.queue = append(work.queue, routeQueueItem{node: from, distance: input.startCost})
+	distance[from] = 0
+	work.queue = append(work.queue, routeQueueItem{node: from, distance: 0})
 	queue := work.queue
 	for len(queue) > 0 {
 		item := queue.pop()
@@ -306,7 +297,7 @@ func (n Network) routeIndexedWithWork(input networkRouteInput, graph routeGraph,
 			if filtered && routeLaneFiltered(&input, &graph, n.Lanes, laneIndex, from, to) {
 				continue
 			}
-			candidate := item.distance + edge.seconds + routeLaneExtra(&input, laneIndex, item.distance)
+			candidate := item.distance + edge.seconds
 			if candidate < distance[edge.to] {
 				distance[edge.to], previous[edge.to] = candidate, laneIndex
 				queue.push(routeQueueItem{node: edge.to, distance: candidate})
@@ -332,22 +323,6 @@ func routeLaneFiltered(input *networkRouteInput, graph *routeGraph, lanes []Lane
 		return true
 	}
 	return input.ownBerthsOnly && !graph.berthAllowed(next, from, to)
-}
-
-// routeLaneExtra returns the cost that input adds to a lane that the
-// route search enters at start seconds.
-func routeLaneExtra(input *networkRouteInput, laneIndex int, start float64) float64 {
-	extra := 0.0
-	if laneIndex < len(input.extraCost) {
-		extra = input.extraCost[laneIndex]
-	}
-	if laneIndex < len(input.discharge) {
-		extra += queueDelay(input.discharge[laneIndex], start)
-	}
-	if laneIndex < len(input.forecasts) {
-		extra += input.forecasts[laneIndex].delay(input.forecastStart + start)
-	}
-	return extra
 }
 
 // routeLanes returns the route from node from to node to that a route

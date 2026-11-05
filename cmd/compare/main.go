@@ -57,15 +57,6 @@ var redistributionPolicyValues = map[string]sim.Positioning{
 	"on":  sim.PositioningGuarded,
 }
 
-// routingPolicyValues maps each -routing-policies name to its simulation
-// policy.
-var routingPolicyValues = map[string]sim.RoutingPolicy{
-	"free-flow":  sim.FreeFlowRouting,
-	"congestion": sim.CongestionRouting,
-	"queue":      sim.QueueRouting,
-	"predictive": sim.PredictiveRouting,
-}
-
 type report struct {
 	SchemaVersion int      `json:"schema_version"`
 	Results       []result `json:"results"`

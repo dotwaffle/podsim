@@ -188,8 +188,6 @@ type releasedFallbackCase struct {
 	lane string
 	// busy holds the berths that pod 02 and pod 03 hold.
 	busy []string
-	// congestion turns on congestion routing.
-	congestion bool
 	// setup changes s just before the fallback choice. The returned
 	// function undoes the change.
 	setup func(s *Simulation) (undo func())
@@ -225,17 +223,6 @@ func TestReleasedPodFallbackBerth(t *testing.T) {
 				return func() { s.waiting = nil }
 			},
 		},
-		{
-			// The berth choice uses free-flow costs with each routing policy.
-			name: "congestion keeps the free-flow nearest berth", start: "harbor-1", destination: "parking-1", lane: "bypass-merge",
-			busy: []string{"garden-1", "parking-2"}, congestion: true, want: "market-1",
-			setup: func(s *Simulation) func() {
-				// Pod 02 seems to hold the inlet of Market 1.
-				track := resource{kind: trackResource, id: "market-in"}
-				s.owners[track], s.congestionRouteCosts = podResourceOwner("02"), nil
-				return func() { delete(s.owners, track) }
-			},
-		},
 	}
 	// Guarded mode keeps the fallback rule of a released pod while the
 	// gate is open.
@@ -265,7 +252,6 @@ func checkReleasedFallback(t *testing.T, tc releasedFallbackCase, mode Positioni
 	if err := s.SetPositioning(mode); err != nil {
 		t.Fatal(err)
 	}
-	s.SetCongestionRouting(tc.congestion)
 	v := s.findVehicle("01")
 	berth := Berth{ID: tc.destination}
 	for _, station := range network.Stations {

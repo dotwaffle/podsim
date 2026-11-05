@@ -1,7 +1,6 @@
 package sim
 
 import (
-	"fmt"
 	"reflect"
 	"slices"
 	"strings"
@@ -189,42 +188,37 @@ func TestBankJourneyPhysicalRestoreSafety(t *testing.T) {
 }
 
 func TestBankIndependentGatesAndSharedMerge(t *testing.T) {
-	for _, policy := range []RoutingPolicy{FreeFlowRouting, CongestionRouting, QueueRouting, PredictiveRouting} {
-		t.Run(fmt.Sprint(policy), func(t *testing.T) {
-			n := BankExample()
-			fleet := []Placement{{ID: "a", StationID: "hub", BerthID: "bank-a-1"}, {ID: "b", StationID: "hub", BerthID: "bank-b-1"}}
-			s, err := NewFleet(n, fleet)
-			if err != nil {
-				t.Fatal(err)
+	n := BankExample()
+	fleet := []Placement{{ID: "a", StationID: "hub", BerthID: "bank-a-1"}, {ID: "b", StationID: "hub", BerthID: "bank-b-1"}}
+	s, err := NewFleet(n, fleet)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{"a", "b"} {
+		if err := s.RequestJourney(id, "origin"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	overlap, mergeWait := false, false
+	for range 2500 {
+		s.Step()
+		if _, err := s.SafetyObservation().Check(); err != nil {
+			t.Fatal(err)
+		}
+		if !s.owners[resource{kind: nodeResource, id: "bank-a-exit"}].isZero() && !s.owners[resource{kind: nodeResource, id: "bank-b-exit"}].isZero() {
+			overlap = true
+		}
+		for _, v := range s.vehicles {
+			if v.Pod.WaitReason == JunctionOccupied {
+				mergeWait = true
 			}
-			s.SetRoutingPolicy(policy)
-			for _, id := range []string{"a", "b"} {
-				if err := s.RequestJourney(id, "origin"); err != nil {
-					t.Fatal(err)
-				}
-			}
-			overlap, mergeWait := false, false
-			for range 2500 {
-				s.Step()
-				if _, err := s.SafetyObservation().Check(); err != nil {
-					t.Fatal(err)
-				}
-				if !s.owners[resource{kind: nodeResource, id: "bank-a-exit"}].isZero() && !s.owners[resource{kind: nodeResource, id: "bank-b-exit"}].isZero() {
-					overlap = true
-				}
-				for _, v := range s.vehicles {
-					if v.Pod.WaitReason == JunctionOccupied {
-						mergeWait = true
-					}
-				}
-			}
-			if !overlap {
-				t.Fatal("independent gates never overlap")
-			}
-			if !mergeWait {
-				t.Fatal("shared merge never applies ordinary resource wait")
-			}
-		})
+		}
+	}
+	if !overlap {
+		t.Fatal("independent gates never overlap")
+	}
+	if !mergeWait {
+		t.Fatal("shared merge never applies ordinary resource wait")
 	}
 }
 

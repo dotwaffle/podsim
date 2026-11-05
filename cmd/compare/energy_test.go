@@ -378,7 +378,7 @@ func TestEnergyRunAndReportParity(t *testing.T) {
 			if err := jsonv2.Unmarshal(on.Bytes(), &decoded, json.DefaultOptionsV1()); err != nil {
 				t.Fatal(err)
 			}
-			if decoded.SchemaVersion != 15 || len(decoded.Results) != 1 || !reflect.DeepEqual(decoded.Results[0].Energy, energy) {
+			if decoded.SchemaVersion != 16 || len(decoded.Results) != 1 || !reflect.DeepEqual(decoded.Results[0].Energy, energy) {
 				t.Fatal("energy report round trip")
 			}
 		}
@@ -414,7 +414,7 @@ func TestEnergyCLIAndServiceClock(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, pattern := range []string{"balanced", "rail-services"} {
-		input := runInput{energy: energyTestModel(), scenario: caseStudy, duration: 3 * time.Second, arrivalsFor: time.Second, requestEvery: time.Second, pattern: pattern, policy: "off", routingPolicy: "free-flow", sharingLimit: 1, queueLimit: 10, stopWhenDrained: true}
+		input := runInput{energy: energyTestModel(), scenario: caseStudy, duration: 3 * time.Second, arrivalsFor: time.Second, requestEvery: time.Second, pattern: pattern, policy: "off", sharingLimit: 1, queueLimit: 10, stopWhenDrained: true}
 		outcome, runErr := run(input)
 		if runErr != nil {
 			t.Fatal(runErr)

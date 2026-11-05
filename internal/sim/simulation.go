@@ -345,7 +345,7 @@ type vehicle struct {
 // Clone shares some fields with its source. They are the network, the route
 // graph, and the station, berth, pod, geometry, junction, and safety
 // indexes. They also include the initial fleet, the demand weights, the
-// congestion costs, the routes of pods and waiting trips, the lane cells,
+// routes of pods and waiting trips, the lane cells,
 // and the block tables and route lengths of pods. Code must replace a
 // shared field whole. It must not write into a shared field in place,
 // because that change also changes the clones.
@@ -356,7 +356,6 @@ type vehicle struct {
 type Simulation struct {
 	*networkIndexes
 	platooningState
-	predictiveState
 	experimentRecords
 	metricCounters
 	orderContract OrderContract
@@ -417,15 +416,11 @@ type Simulation struct {
 	sharedRideJoin         SharedRideJoin
 	onboardPickups         bool
 	// approachStations and routeStations belong to stationsOnRouteForClass.
-	approachStations           map[string][]string
-	routeStations              map[stopKey][]string
-	seatScreen                 SeatScreen
-	routingPolicy              RoutingPolicy
-	finishingPodWait           FinishingPodWait
-	pickupSwaps                *pickupSwapController
-	congestionRouteCosts       []float64
-	congestionRoutes           map[routeKey]routeResult
-	nextCongestionRouteRefresh int64
+	approachStations map[string][]string
+	routeStations    map[stopKey][]string
+	seatScreen       SeatScreen
+	finishingPodWait FinishingPodWait
+	pickupSwaps      *pickupSwapController
 	// unaccountedOrders counts the orders that the simulation submitted but
 	// that are not complete, not interrupted, not queued and not aboard a
 	// pod. It is 0 until a restore finds such orders in a saved state or
@@ -496,13 +491,6 @@ type metricCounters struct {
 	// interrupted counts the orders that ended interrupted, and
 	// interruptedPassengers is the sum of their party sizes.
 	interrupted, interruptedPassengers int
-}
-
-// predictiveState holds the queue history of predictive routing.
-type predictiveState struct {
-	predictiveQueues    []float64
-	predictivePodQueues map[string]podQueueHistory
-	predictiveQueueTick int64
 }
 
 // experimentRecords holds the experiment records.
@@ -593,8 +581,6 @@ func (s *Simulation) Reset() {
 	s.riderDistanceMeters, s.directDistanceMeters, s.maxDetourRatio = 0, 0, 0
 	s.positioning, s.demandRate, s.demandWeights = PositioningOff, 0, nil
 	s.nextRedistributionTick = 0
-	s.nextCongestionRouteRefresh, s.congestionRouteCosts, s.congestionRoutes = 0, nil, nil
-	s.predictiveQueues, s.predictiveQueueTick, s.predictivePodQueues = nil, 0, nil
 	s.passengerDistanceMeters, s.emptyDistanceMeters, s.rebalanceMoves, s.sharedParties = 0, 0, 0, 0
 	s.seatScreen = SeatScreen{}
 	s.requestBoardings, s.requestCompletions, s.nodePasses = nil, nil, nil

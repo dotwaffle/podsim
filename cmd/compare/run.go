@@ -54,7 +54,7 @@ func compare(opts options, scenario scenario) ([]result, error) {
 	if platoonPolicies == nil {
 		platoonPolicies = []string{""}
 	}
-	armsPerSchedule := len(sharing) * len(sharingJoins) * len(opts.routingPolicies) * len(waitRules) * len(platoonPolicies) * experimentalArmCount(opts) * onboardArmCount(opts)
+	armsPerSchedule := len(sharing) * len(sharingJoins) * len(waitRules) * len(platoonPolicies) * experimentalArmCount(opts) * onboardArmCount(opts)
 	if len(opts.seeds)*len(arms)*len(opts.loads)*armsPerSchedule > maxComparisons {
 		return nil, fmt.Errorf("the expanded matrix must contain at most %d comparisons", maxComparisons)
 	}
@@ -79,20 +79,18 @@ func compare(opts options, scenario scenario) ([]result, error) {
 				id := scheduleID(schedule)
 				for _, sharingArm := range sharing {
 					for _, sharingJoin := range sharingJoins {
-						for _, routingPolicy := range opts.routingPolicies {
-							for _, waitRule := range waitRules {
-								for _, platoonPolicy := range platoonPolicies {
-									for _, policy := range opts.redistributionPolicies {
-										inputs = append(inputs, runInput{
-											energy: energy, railForecast: opts.railForecast, policy: policy, duration: opts.duration, requestEvery: load, seed: seed,
-											pattern: arm.pattern, profile: arm.profile, band: arm.band, daily: arm.daily, dailyStartMinute: arm.dailyStartMinute,
-											scheduleID: id, queueLimit: opts.queueLimit, arrivalsFor: opts.arrivalsFor,
-											burstSize: opts.burstSize, sharingConsent: consent, sharingLimit: sharingArm.limit, sharingMode: sharingArm.mode,
-											sharingMaxStops: opts.sharingMaxStops, sharingJoin: sharingJoin, routingPolicy: routingPolicy,
-											waitRule: waitRule, platoonPolicy: platoonPolicy, schedule: schedule, scenario: scenario,
-											stopWhenDrained: opts.stopWhenDrained,
-										})
-									}
+						for _, waitRule := range waitRules {
+							for _, platoonPolicy := range platoonPolicies {
+								for _, policy := range opts.redistributionPolicies {
+									inputs = append(inputs, runInput{
+										energy: energy, railForecast: opts.railForecast, policy: policy, duration: opts.duration, requestEvery: load, seed: seed,
+										pattern: arm.pattern, profile: arm.profile, band: arm.band, daily: arm.daily, dailyStartMinute: arm.dailyStartMinute,
+										scheduleID: id, queueLimit: opts.queueLimit, arrivalsFor: opts.arrivalsFor,
+										burstSize: opts.burstSize, sharingConsent: consent, sharingLimit: sharingArm.limit, sharingMode: sharingArm.mode,
+										sharingMaxStops: opts.sharingMaxStops, sharingJoin: sharingJoin,
+										waitRule: waitRule, platoonPolicy: platoonPolicy, schedule: schedule, scenario: scenario,
+										stopWhenDrained: opts.stopWhenDrained,
+									})
 								}
 							}
 						}
@@ -158,7 +156,6 @@ type runInput struct {
 	// join policy.
 	sharingJoin    string
 	onboardPickups string
-	routingPolicy  string
 	// waitRule names a waitRuleValues key. Empty selects the default rule.
 	waitRule string
 	// platoonPolicy names a platoonPolicyValues key. Empty runs without
@@ -239,9 +236,6 @@ func configureRun(simulation *sim.Simulation, input *runInput, motion bool) (sim
 	}
 	if err := configureOnboardPickups(simulation, input.onboardPickups); err != nil {
 		return 0, err
-	}
-	if err := simulation.SetRoutingPolicy(routingPolicyValues[input.routingPolicy]); err != nil {
-		return 0, fmt.Errorf("set routing policy: %w", err)
 	}
 	simulation.SetExperimentRecords(true)
 	if motion {
@@ -628,7 +622,7 @@ func (arm *armRun) result() result {
 		DepartureBacklog: seats.DepartureBacklog, DeparturesDemandOverFour: seats.demandOverFour, DeparturesOverFourAboard: seats.overFourAboard,
 		JoinEligibleAssigned: seats.JoinEligibleAssigned, JoinEligibleExistingStop: seats.JoinEligibleExistingStop, JoinEligibleAddedStopOnly: seats.addedStopOnly,
 		ReassignedParties: seats.ReassignedParties,
-		RoutingPolicy:     input.routingPolicy, WaitRule: input.waitRule, PlatoonPolicy: input.platoonPolicy,
+		WaitRule:          input.waitRule, PlatoonPolicy: input.platoonPolicy,
 		PickupReassignment:      input.pickupReassignment,
 		PickupReassignmentStats: pickupStatsForReport(simulation, input.pickupReassignment),
 		FocusStation:            input.scenario.focus,

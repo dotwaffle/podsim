@@ -90,7 +90,7 @@ func TestComparisonOnboardRunRejectsUnsupported(t *testing.T) {
 	}{
 		{1, sim.SharedRideDropOffs, "on"}, {2, sim.SharedRideDestination, "on"}, {2, sim.SharedRideDropOffs, "unknown"},
 	} {
-		input := runInput{scenario: caseStudy, policy: "off", duration: time.Second, arrivalsFor: time.Second, requestEvery: time.Second, pattern: "balanced", queueLimit: 200, routingPolicy: "free-flow", sharingLimit: test.limit, sharingMode: test.mode, onboardPickups: test.policy}
+		input := runInput{scenario: caseStudy, policy: "off", duration: time.Second, arrivalsFor: time.Second, requestEvery: time.Second, pattern: "balanced", queueLimit: 200, sharingLimit: test.limit, sharingMode: test.mode, onboardPickups: test.policy}
 		if _, runErr := run(input); runErr == nil {
 			t.Fatal("unsupported onboard runtime policy accepted")
 		}
@@ -117,7 +117,7 @@ func TestComparisonOnboardReportProvenance(t *testing.T) {
 			if err := jsonv2.Unmarshal(out.Bytes(), &decoded, json.DefaultOptionsV1()); err != nil {
 				t.Fatal(err)
 			}
-			if baseline.SchemaVersion != 12 || bytes.Contains(base.Bytes(), []byte("onboard_pickups")) || decoded.SchemaVersion != 14 || len(decoded.Results) != 2 || decoded.Results[0].OnboardPickups != "off" || decoded.Results[1].OnboardPickups != "on" {
+			if baseline.SchemaVersion != 13 || bytes.Contains(base.Bytes(), []byte("onboard_pickups")) || decoded.SchemaVersion != 15 || len(decoded.Results) != 2 || decoded.Results[0].OnboardPickups != "off" || decoded.Results[1].OnboardPickups != "on" {
 				t.Fatal("conditional JSON provenance changed")
 			}
 		case "csv":

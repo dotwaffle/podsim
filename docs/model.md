@@ -17,19 +17,9 @@ A pod takes the route with the shortest free-flow travel time on the directed la
 Equal-cost routes use scenario order, so the result is deterministic.
 New routes avoid the berths of other stations when a compatible path exists (see [berth route preference](studies/berth-route-preference.md)).
 
-The compare command has three experimental routing policies, and free-flow routing stays the default.
-They change only the route that a pod gets when it starts a journey, a pickup, or an empty move.
-Estimates and the choices of dispatch, positioning, and parking still use free-flow times.
-A route from these policies does not go through the berths of a third station, and when each other route does, the pod gets the free-flow route.
-
-| Policy | Added cost | Guards |
-| --- | --- | --- |
-| `congestion` | 6 s for each owned track cell of a lane and 20 s for each waiting pod on a lane, kept for 5 s. | None beyond the rule above. |
-| `queue` | 3 s of queue time for each stopped pod on a lane, counting only the time that remains when the pod gets to the lane. | Changes the free-flow route only when the saving is at least 15 s and at least 5%, and the new route takes at most 1.2 times the free-flow time of the free-flow route. |
-| [`predictive`](studies/predictive-routing.md) | Smoothed observed queues and planned lane arrivals over a 90-second horizon. | The same saving and detour guards as `queue`. |
-
-None of these has a service gain on record.
-The [selected service screen](design/experimental-adoption.md#rejected-candidates) returns no alternative routes across six matched pairs, and the [route-selection diagnosis](design/experimental-adoption.md#rejected-candidates) explains the guard outcomes and records a congested trial with worse service.
+The code once had three other routing policies: `congestion`, `queue`, and `predictive`.
+They were removed on November 5, 2026, because none had a service gain on record.
+The [selected service screen](design/experimental-adoption.md#rejected-candidates) returned no alternative routes across six matched pairs, and the [route-selection diagnosis](design/experimental-adoption.md#rejected-candidates) explained the guard outcomes and recorded a congested trial with worse service.
 
 ## Vehicle classes
 
@@ -99,10 +89,10 @@ A detour cap protects the parties aboard, because a new stop can take them out o
 The pod adds a stop only when the planned detour ratio of each party, new or aboard, is at most 1.5.
 The ratio of a party is the planned distance from the boarding berth to the berth where the party alights, over the free-flow distance to that berth, and the compare column `detour_ratio_max` measures the same ratio.
 The pod does not know its berth at each stop before it arrives, so the plan uses the berth that gives the largest ratio.
-The conditions and the plan use the free-flow routes with each routing policy.
+The conditions and the plan use the free-flow routes.
 
 The pod keeps to this cap while it travels.
-Each leg takes the route of the routing policy when that route keeps each party aboard within 1.5, and otherwise it takes the free-flow route that the plan used.
+Each leg takes the free-flow route that the plan used.
 The pod changes to another berth at its next stop only when the new route keeps each party aboard within 1.5.
 Thus the measured ratio of each party that boards with a limit of two or more in the `drop-offs` mode is at most 1.5, while these settings do not change.
 

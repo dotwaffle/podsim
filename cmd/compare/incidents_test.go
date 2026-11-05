@@ -50,7 +50,7 @@ func balancedInput(caseStudy scenario, seed int64) runInput {
 	})
 	return runInput{
 		policy: "off", duration: time.Hour, arrivalsFor: arrivalsFor, requestEvery: every, seed: seed,
-		pattern: "balanced", queueLimit: len(schedule) + 1, sharingLimit: 1, routingPolicy: "free-flow",
+		pattern: "balanced", queueLimit: len(schedule) + 1, sharingLimit: 1,
 		schedule: schedule, scenario: caseStudy, stopWhenDrained: true,
 	}
 }
@@ -277,7 +277,7 @@ func railRingInput(caseStudy scenario, seed int64) runInput {
 	schedule := demandSchedule(scheduleInput{seed: seed, durationTicks: durationTicks(arrivalsFor), pattern: "rail-services", railDepartures: caseStudy.railDepartures})
 	return runInput{
 		policy: "off", duration: time.Hour, arrivalsFor: arrivalsFor, seed: seed, pattern: "rail-services",
-		queueLimit: len(schedule) + 1, sharingLimit: 1, routingPolicy: "free-flow",
+		queueLimit: len(schedule) + 1, sharingLimit: 1,
 		schedule: schedule, scenario: caseStudy, stopWhenDrained: true,
 	}
 }
@@ -303,7 +303,7 @@ func dailyRingInput(t *testing.T, caseStudy scenario, seed int64) runInput {
 	schedule := demandSchedule(scheduleInput{seed: seed, durationTicks: durationTicks(arrivalsFor), pattern: arm.pattern, daily: arm.daily})
 	return runInput{
 		policy: "off", duration: time.Hour, arrivalsFor: arrivalsFor, seed: seed, pattern: arm.pattern, profile: arm.profile,
-		daily: arm.daily, dailyStartMinute: arm.dailyStartMinute, queueLimit: len(schedule) + 1, sharingLimit: 1, routingPolicy: "free-flow",
+		daily: arm.daily, dailyStartMinute: arm.dailyStartMinute, queueLimit: len(schedule) + 1, sharingLimit: 1,
 		schedule: schedule, scenario: caseStudy, stopWhenDrained: true,
 	}
 }
@@ -363,7 +363,7 @@ func TestRailInterruptionOnDepartureTick(t *testing.T) {
 	schedule := demandSchedule(scheduleInput{seed: 1, durationTicks: durationTicks(time.Minute), pattern: "rail-services", railDepartures: caseStudy.railDepartures})
 	arm, err := startArm(&runInput{
 		policy: "off", duration: 5 * time.Minute, arrivalsFor: time.Minute, seed: 1, pattern: "rail-services",
-		queueLimit: 10, sharingLimit: 1, routingPolicy: "free-flow", schedule: schedule, scenario: caseStudy,
+		queueLimit: 10, sharingLimit: 1, schedule: schedule, scenario: caseStudy,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -415,7 +415,7 @@ func TestRailInterruptionOnDepartureTick(t *testing.T) {
 func TestIncidentRunsAreRepeatable(t *testing.T) {
 	t.Parallel()
 	path := writeProjectFile(t, incidentRing(60, 60))
-	args := []string{"-project", path, "-duration", "6m", "-arrivals-for", "4m", "-request-every", "10s", "-seeds", "1,2", "-routing-policies", "free-flow,queue"}
+	args := []string{"-project", path, "-duration", "6m", "-arrivals-for", "4m", "-request-every", "10s", "-seeds", "1,2"}
 	first := runComparison(t, args)
 	second := runComparison(t, slices.Concat(args, []string{"-workers", "4"}))
 	if !reflect.DeepEqual(first, second) {
@@ -519,7 +519,7 @@ func TestIncidentColumnsOnlyWithRate(t *testing.T) {
 			if err := jsonv2.Unmarshal([]byte(write(t, "json", test.row)), &decoded, json.DefaultOptionsV1()); err != nil {
 				t.Fatal(err)
 			}
-			if decoded.SchemaVersion != 12 {
+			if decoded.SchemaVersion != 13 {
 				t.Errorf("schema version %d", decoded.SchemaVersion)
 			}
 			for _, name := range names {

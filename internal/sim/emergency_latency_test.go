@@ -1,7 +1,6 @@
 package sim
 
 import (
-	"errors"
 	"fmt"
 	"maps"
 	"math/rand/v2"
@@ -197,7 +196,7 @@ func missNetwork(stations, berths, returnLanes int) Network {
 
 // choiceTickFixture is a simulation with four occupied pods that travel
 // and can divert, ready for four emergencies on one tick. cold reports
-// that the simulation must have no route memo and no routing-policy state.
+// that the simulation must have no route memo.
 type choiceTickFixture struct {
 	s    *Simulation
 	pods []string
@@ -207,7 +206,6 @@ type choiceTickFixture struct {
 type choiceTickInput struct {
 	network  Network
 	prepared *PreparedNetwork
-	policy   RoutingPolicy
 	warm     bool
 	ready    func(*Simulation, *vehicle) bool
 }
@@ -218,12 +216,12 @@ type choiceTickInput struct {
 // trip between random passenger stations every 20 ticks. It then makes
 // four idle pods board for another passenger station, and steps until the
 // four pods travel and can divert. When warm is false, it returns a clone
-// with no route memo and no routing-policy state. ready can refuse a
+// with no route memo. ready can refuse a
 // tick at which the pods can divert. A prepared network shares only the
 // immutable indexes; fleet state and all warm-up steps are still fresh.
 func newChoiceTickFixture(t *testing.T, input choiceTickInput) choiceTickFixture {
 	t.Helper()
-	network, policy, warm := input.network, input.policy, input.warm
+	network, warm := input.network, input.warm
 	var fleet []Placement
 	var passenger []string
 	for _, station := range network.Stations {
@@ -248,10 +246,7 @@ func newChoiceTickFixture(t *testing.T, input choiceTickInput) choiceTickFixture
 		t.Fatal(err)
 	}
 	s.emergenciesOn = true
-	if err := s.SetRoutingPolicy(policy); err != nil {
-		t.Fatal(err)
-	}
-	rng := rand.New(rand.NewPCG(uint64(len(network.Nodes)), uint64(policy)))
+	rng := rand.New(rand.NewPCG(uint64(len(network.Nodes)), 0))
 	if warm {
 		for tick := range 600 {
 			if tick%20 == 0 {
@@ -295,9 +290,6 @@ func newChoiceTickFixture(t *testing.T, input choiceTickInput) choiceTickFixture
 	}
 	if !warm {
 		fixture.s = s.Clone()
-		if err := fixture.s.SetRoutingPolicy(policy); err != nil {
-			t.Fatal(err)
-		}
 	}
 	return fixture
 }
@@ -354,15 +346,10 @@ func measureChoiceTick(t *testing.T, fixture choiceTickFixture, check func(*Simu
 	return result
 }
 
-// coldState reports an error when s has a route memo, a static cache, or
-// routing-policy state.
+// coldState reports an error when s has a route memo or a static cache.
 func coldState(s *Simulation) error {
 	if len(s.routes) != 0 || len(s.routeOrder) != 0 || len(s.staticConnected) != 0 || len(s.staticRoutes) != 0 {
 		return fmt.Errorf("the cold fixture has %d memo routes, %d static connections, and %d static routes", len(s.routes), len(s.staticConnected), len(s.staticRoutes))
-	}
-	if s.congestionRouteCosts != nil || len(s.congestionRoutes) != 0 || s.nextCongestionRouteRefresh != 0 ||
-		s.predictiveQueues != nil || s.predictivePodQueues != nil || s.predictiveQueueTick != 0 {
-		return errors.New("the cold fixture has routing-policy state")
 	}
 	return nil
 }
@@ -371,8 +358,7 @@ func coldState(s *Simulation) error {
 func subtractCounters(a, b searchCounters) searchCounters {
 	return searchCounters{
 		graph: a.graph - b.graph, static: a.static - b.static, localFailed: a.localFailed - b.localFailed,
-		routes: a.routes - b.routes, failed: a.failed - b.failed, congestion: a.congestion - b.congestion,
-		queue: a.queue - b.queue, predictive: a.predictive - b.predictive, forecasts: a.forecasts - b.forecasts,
+		routes: a.routes - b.routes, failed: a.failed - b.failed,
 		trees: a.trees - b.trees, choices: a.choices - b.choices, memoHits: a.memoHits - b.memoHits,
 	}
 }
@@ -389,14 +375,9 @@ func allBound(fixture choiceTickFixture) func(*Simulation) error {
 	}
 }
 
-// policyName returns the name of a routing policy for a test name.
-func policyName(policy RoutingPolicy) string {
-	return [...]string{"free flow", "congestion", "queue", "predictive"}[policy]
-}
-
 // TestEmergencyChoiceLatency measures the worst choice tick of section 15
 // of the incident emergency contract: four emergencies that start on one
-// tick, under each routing policy, cold and warm. The slowest tick of
+// tick, cold and warm. The slowest tick of
 // LondonCentral and of the rail-hub preset, and of the delayed-routes
 // fixture at the project limits, is at most choiceTickLimit (product
 // choice P23). The median is only a diagnostic. The test runs alone,
@@ -416,34 +397,25 @@ func TestEmergencyChoiceLatency(t *testing.T) {
 		}
 	}
 	for _, name := range []string{"London", "rail hub"} {
-		for policy := range RoutingPolicy(4) {
-			for _, warm := range []bool{false, true} {
-				t.Run(fmt.Sprintf("%s, %s, warm %t", name, policyName(policy), warm), func(t *testing.T) {
-					fixture := newChoiceTickFixture(t, choiceTickInput{network: networks[name], policy: policy, warm: warm})
-					gate(t, measureChoiceTick(t, fixture, allBound(fixture)))
-				})
-			}
-		}
-	}
-	for _, policy := range []RoutingPolicy{CongestionRouting, QueueRouting, PredictiveRouting} {
 		for _, warm := range []bool{false, true} {
-			t.Run(fmt.Sprintf("delayed routes, %s, warm %t", policyName(policy), warm), func(t *testing.T) {
-				fixture := newChoiceTickFixture(t, choiceTickInput{network: delayedNetwork(), policy: policy, warm: warm})
-				delayRoutes(t, fixture)
-				tick := measureChoiceTick(t, fixture, allBound(fixture))
-				gate(t, tick)
-				if counts := tick.counts; policy == CongestionRouting && counts.congestion == 0 || policy == QueueRouting && counts.queue == 0 ||
-					policy == PredictiveRouting && (counts.forecasts == 0 || counts.predictive == 0) {
-					t.Errorf("the stopped pods delay no route search: %+v", counts)
-				}
+			t.Run(fmt.Sprintf("%s, warm %t", name, warm), func(t *testing.T) {
+				fixture := newChoiceTickFixture(t, choiceTickInput{network: networks[name], warm: warm})
+				gate(t, measureChoiceTick(t, fixture, allBound(fixture)))
 			})
 		}
+	}
+	for _, warm := range []bool{false, true} {
+		t.Run(fmt.Sprintf("delayed routes, warm %t", warm), func(t *testing.T) {
+			fixture := newChoiceTickFixture(t, choiceTickInput{network: delayedNetwork(), warm: warm})
+			delayRoutes(t, fixture)
+			gate(t, measureChoiceTick(t, fixture, allBound(fixture)))
+		})
 	}
 }
 
 // TestEmergencyNoCandidateLatency reports the choice tick of the
 // no-candidate fixture of section 15 of the incident emergency contract
-// at the project limits, under each routing policy, cold and warm. It is
+// at the project limits, cold and warm. It is
 // reported against choiceTickLimit and not gated (product choice P23).
 // The search counts are within the bound of section 9.1. The qualify
 // task runs it, so that the report has the times of the CI runner class.
@@ -460,49 +432,45 @@ func TestEmergencyNoCandidateLatency(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for policy := range RoutingPolicy(4) {
-		for _, warm := range []bool{false, true} {
-			t.Run(fmt.Sprintf("%s, warm %t", policyName(policy), warm), func(t *testing.T) {
-				fixture := missFixture(t, choiceTickInput{network: network, prepared: prepared, policy: policy, warm: warm})
-				tick := measureChoiceTick(t, fixture, func(s *Simulation) error {
-					if len(s.emergencyMisses) != len(fixture.pods) {
-						return fmt.Errorf("memo %+v", s.emergencyMisses)
-					}
-					return nil
-				})
-				t.Logf("reported, not gated: slowest %v, median %v, fastest %v, against %v; searches %+v", tick.slowest, tick.median, tick.fastest, choiceTickLimit, tick.counts)
-				checkNoCandidateSearches(t, tick.counts, len(fixture.s.network.Nodes))
+	for _, warm := range []bool{false, true} {
+		t.Run(fmt.Sprintf("warm %t", warm), func(t *testing.T) {
+			fixture := missFixture(t, choiceTickInput{network: network, prepared: prepared, warm: warm})
+			tick := measureChoiceTick(t, fixture, func(s *Simulation) error {
+				if len(s.emergencyMisses) != len(fixture.pods) {
+					return fmt.Errorf("memo %+v", s.emergencyMisses)
+				}
+				return nil
 			})
-		}
+			t.Logf("reported, not gated: slowest %v, median %v, fastest %v, against %v; searches %+v", tick.slowest, tick.median, tick.fastest, choiceTickLimit, tick.counts)
+			checkNoCandidateSearches(t, tick.counts, len(fixture.s.network.Nodes))
+		})
 	}
 }
 
 // TestEmergencyNoCandidateSearchCounts checks one choice tick on a small
-// no-candidate fixture under each routing policy, cold and warm.
+// no-candidate fixture, cold and warm.
 func TestEmergencyNoCandidateSearchCounts(t *testing.T) {
 	network := missNetwork(8, 13, 16)
-	for policy := range RoutingPolicy(4) {
-		for _, warm := range []bool{false, true} {
-			t.Run(fmt.Sprintf("%s, warm %t", policyName(policy), warm), func(t *testing.T) {
-				fixture := missFixture(t, choiceTickInput{network: network, policy: policy, warm: warm})
-				s := fixture.s
-				if fixture.cold {
-					if err := coldState(s); err != nil {
-						t.Fatal(err)
-					}
+	for _, warm := range []bool{false, true} {
+		t.Run(fmt.Sprintf("warm %t", warm), func(t *testing.T) {
+			fixture := missFixture(t, choiceTickInput{network: network, warm: warm})
+			s := fixture.s
+			if fixture.cold {
+				if err := coldState(s); err != nil {
+					t.Fatal(err)
 				}
-				before := s.searchCounters
-				for _, id := range fixture.pods {
-					if _, err := s.Emergency(id, 0); err != nil {
-						t.Fatal(err)
-					}
+			}
+			before := s.searchCounters
+			for _, id := range fixture.pods {
+				if _, err := s.Emergency(id, 0); err != nil {
+					t.Fatal(err)
 				}
-				if len(s.emergencyMisses) != len(fixture.pods) {
-					t.Fatalf("memo %+v", s.emergencyMisses)
-				}
-				checkNoCandidateSearches(t, subtractCounters(s.searchCounters, before), len(network.Nodes))
-			})
-		}
+			}
+			if len(s.emergencyMisses) != len(fixture.pods) {
+				t.Fatalf("memo %+v", s.emergencyMisses)
+			}
+			checkNoCandidateSearches(t, subtractCounters(s.searchCounters, before), len(network.Nodes))
+		})
 	}
 }
 
@@ -559,8 +527,7 @@ func delayRoutes(t *testing.T, fixture choiceTickFixture) {
 	}
 }
 
-// missFixture returns the no-candidate fixture on network with the
-// routing policy. Four pods ride from a passenger station to the next one
+// missFixture returns the no-candidate fixture on network. Four pods ride from a passenger station to the next one
 // and are on the departure path of their bank. The through lanes of the
 // parking stations are then blocked, so no station has a candidate for
 // them, and the pruning tree reaches each berth.

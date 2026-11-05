@@ -2,7 +2,6 @@ package sim
 
 import (
 	"math"
-	"slices"
 	"testing"
 )
 
@@ -280,38 +279,5 @@ func TestPlannedRiderDetourBankBoardingOrigin(t *testing.T) {
 	start := detourStart{ridden: baseline, berth: berth}
 	if got := s.plannedRiderDetour(rider, []string{"hub", "origin"}, start); math.Abs(got-1) > 1e-12 {
 		t.Fatalf("new bank origin ratio %g", got)
-	}
-}
-
-func TestLegRouteIgnoresReplacedRiderHistory(t *testing.T) {
-	t.Parallel()
-	s, err := NewFleet(loopNetwork(1260), []Placement{{ID: "01", StationID: "harbor"}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = s.SetSharedRidePartyLimit(4); err != nil {
-		t.Fatal(err)
-	}
-	if err = s.SetSharedRideMode(SharedRideDropOffs, DefaultSharedRideMaxStops); err != nil {
-		t.Fatal(err)
-	}
-	s.SetCongestionRouting(true)
-	s.ensureNetworkIndexes()
-	costs := make([]float64, len(s.network.Lanes))
-	costs[s.graph.lanes["approach-branch"]] = 1e6
-	s.congestionRouteCosts, s.nextCongestionRouteRefresh = costs, math.MaxInt64
-	s.congestionRoutes = make(map[routeKey]routeResult)
-	v := s.findVehicle("01")
-	next := leg{origin: "harbor-berth", from: "harbor-berth", stops: []string{"garden", "market"}}
-	route, err := s.legRoute(v, next)
-	if err != nil || slices.ContainsFunc(route, func(lane Lane) bool { return lane.ID == "loop-out" }) {
-		t.Fatalf("replacement route %v, error %v", routeIDs(route), err)
-	}
-	v.Riders = []Request{{From: "market", To: "harbor", Completed: true}}
-	v.journeyOrigin = Berth{Node: "market-berth"}
-	v.riddenBase = 1e6
-	after, err := s.legRoute(v, next)
-	if err != nil || !slices.Equal(routeIDs(after), routeIDs(route)) {
-		t.Fatalf("old history changed replacement route: %v, error %v", routeIDs(after), err)
 	}
 }

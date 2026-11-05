@@ -1,5 +1,7 @@
 # Predictive route-assignment experiment
 
+The code of this policy was removed on November 5, 2026, so these results are history.
+
 The `predictive` comparison policy adds observed queues and near-term planned lane arrivals to route costs.
 It remains experimental, with free-flow routing retained by default.
 The project editor and live controls do not select this policy.

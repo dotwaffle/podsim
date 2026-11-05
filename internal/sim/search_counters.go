@@ -15,38 +15,20 @@ type searchCounters struct {
 	// routes counts the calls of searchRoute, and failed the calls that
 	// returned an error.
 	routes, failed int64
-	// congestion counts the route searches with a congestion cost above
-	// zero, queue the route searches with queue delays, and predictive the
-	// route searches with forecasts.
-	congestion, queue, predictive int64
-	// forecasts counts the forecast builds of predictive routing.
-	forecasts int64
 	// trees counts the pruning trees of the station choice. choices counts
 	// the station choices that searched, and memoHits the choices that the
 	// no-candidate memo answered with no search.
 	trees, choices, memoHits int64
 }
 
-// countRoute counts one call of searchRoute with its input and its error.
+// countRoute counts one call of searchRoute with its error.
 // graphs and localFailed are the searches and the failed local attempts
 // that the call made.
-func (c *searchCounters) countRoute(input networkRouteInput, err error, graphs, localFailed int64) {
+func (c *searchCounters) countRoute(err error, graphs, localFailed int64) {
 	c.routes++
 	c.graph += graphs
 	c.localFailed += localFailed
 	if err != nil {
 		c.failed++
-	}
-	for _, cost := range input.extraCost {
-		if cost > 0 {
-			c.congestion++
-			break
-		}
-	}
-	if input.discharge != nil {
-		c.queue++
-	}
-	if input.forecasts != nil {
-		c.predictive++
 	}
 }

@@ -84,33 +84,29 @@ func TestRouteCacheEvictsOldestEntry(t *testing.T) {
 
 func TestStationRoutesFillRouteCache(t *testing.T) {
 	t.Parallel()
-	for _, congestion := range []bool{false, true} {
-		simulation, err := NewFleet(ladderNetwork(), []Placement{{ID: "01", StationID: "harbor"}})
-		if err != nil {
-			t.Fatal(err)
-		}
-		simulation.SetCongestionRouting(congestion)
-		filled := 0
-		for _, node := range simulation.network.Nodes {
-			for _, station := range simulation.network.Stations {
-				simulation.cacheStationRoutes(node.ID, station.Berths)
-				for _, berth := range station.Berths {
-					cached, ok := simulation.routes[routeKey{from: node.ID, to: berth.Node}]
-					if !ok {
-						continue
-					}
-					want, wantErr := simulation.network.Route(node.ID, berth.Node)
-					if !reflect.DeepEqual(cached.lanes, want) || fmt.Sprint(cached.err) != fmt.Sprint(wantErr) {
-						t.Fatalf("cached route %s to %s = %v, %v, want %v, %v", node.ID, berth.Node, cached.lanes, cached.err, want, wantErr)
-					}
-					filled++
+	simulation, err := NewFleet(ladderNetwork(), []Placement{{ID: "01", StationID: "harbor"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	filled := 0
+	for _, node := range simulation.network.Nodes {
+		for _, station := range simulation.network.Stations {
+			simulation.cacheStationRoutes(node.ID, station.Berths)
+			for _, berth := range station.Berths {
+				cached, ok := simulation.routes[routeKey{from: node.ID, to: berth.Node}]
+				if !ok {
+					continue
 				}
+				want, wantErr := simulation.network.Route(node.ID, berth.Node)
+				if !reflect.DeepEqual(cached.lanes, want) || fmt.Sprint(cached.err) != fmt.Sprint(wantErr) {
+					t.Fatalf("cached route %s to %s = %v, %v, want %v, %v", node.ID, berth.Node, cached.lanes, cached.err, want, wantErr)
+				}
+				filled++
 			}
 		}
-		// The route cache holds free-flow routes with each routing policy.
-		if filled == 0 || simulation.congestionRouteCosts != nil {
-			t.Fatalf("congestion routing %v filled %d routes, costs %v", congestion, filled, simulation.congestionRouteCosts)
-		}
+	}
+	if filled == 0 {
+		t.Fatal("the route cache has no routes")
 	}
 }
 
@@ -224,41 +220,36 @@ func TestRouteSecondsWithLengths(t *testing.T) {
 // that time.
 func TestRouteCacheKeepsTravelTime(t *testing.T) {
 	t.Parallel()
-	for _, congestion := range []bool{false, true} {
-		s, err := NewFleet(curvedExample(), []Placement{{ID: "01", StationID: "harbor"}, {ID: "02", StationID: "garden"}})
-		if err != nil {
-			t.Fatal(err)
-		}
-		s.SetCongestionRouting(congestion)
-		if err := s.RequestJourney("01", "market"); err != nil {
-			t.Fatal(err)
-		}
-		for step := range 3 {
-			advance(s, 30*TicksPerSecond*step)
-			for _, from := range s.network.Nodes {
-				for _, to := range s.network.Nodes {
-					want := math.Inf(1)
-					if route, err := s.route(from.ID, to.ID); err == nil {
-						want = s.routeSeconds(route, motionEstimate{})
-					}
-					if got := s.emptySeconds(from.ID, to.ID); math.Float64bits(got) != math.Float64bits(want) {
-						t.Fatalf("congestion %v: emptySeconds %s to %s = %v, want %v", congestion, from.ID, to.ID, got, want)
-					}
+	s, err := NewFleet(curvedExample(), []Placement{{ID: "01", StationID: "harbor"}, {ID: "02", StationID: "garden"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RequestJourney("01", "market"); err != nil {
+		t.Fatal(err)
+	}
+	for step := range 3 {
+		advance(s, 30*TicksPerSecond*step)
+		for _, from := range s.network.Nodes {
+			for _, to := range s.network.Nodes {
+				want := math.Inf(1)
+				if route, err := s.route(from.ID, to.ID); err == nil {
+					want = s.routeSeconds(route, motionEstimate{})
+				}
+				if got := s.emptySeconds(from.ID, to.ID); math.Float64bits(got) != math.Float64bits(want) {
+					t.Fatalf("emptySeconds %s to %s = %v, want %v", from.ID, to.ID, got, want)
 				}
 			}
-			cached := 0
-			for _, routes := range []map[routeKey]routeResult{s.routes, s.congestionRoutes} {
-				for key, result := range routes {
-					want := s.routeSeconds(result.lanes, motionEstimate{})
-					if !result.timed || math.Float64bits(result.seconds) != math.Float64bits(want) {
-						t.Fatalf("congestion %v: route %+v has time %v (%v), want %v", congestion, key, result.seconds, result.timed, want)
-					}
-					cached++
-				}
+		}
+		cached := 0
+		for key, result := range s.routes {
+			want := s.routeSeconds(result.lanes, motionEstimate{})
+			if !result.timed || math.Float64bits(result.seconds) != math.Float64bits(want) {
+				t.Fatalf("route %+v has time %v (%v), want %v", key, result.seconds, result.timed, want)
 			}
-			if cached == 0 {
-				t.Fatalf("congestion %v: no cached route", congestion)
-			}
+			cached++
+		}
+		if cached == 0 {
+			t.Fatal("no cached route")
 		}
 	}
 }
