@@ -836,8 +836,9 @@ type soakOpenRecord struct {
 	last int64
 	// unblocked sums the ticks not blocked by a fault. A reading gives its
 	// class to the ticks since the last reading, at most 1 second. The ticks to
-	// the end of a record count as not blocked: the record has no later status,
-	// and its pod has reached the end of the emergency.
+	// the end of a record count as blocked only when the pod has a fault at the
+	// end, as after a fault evacuation. In each other case the record has no later
+	// status, and its pod has reached the end of the emergency.
 	unblocked int64
 	noted     bool
 	// blocked sums the other ticks, and end is the chain end of the last blocked
@@ -907,7 +908,7 @@ func (d *soakDriver) watchEmergencies() {
 		if seen[id] {
 			continue
 		}
-		if record.read(tick, false) {
+		if record.read(tick, reading.faultPods[record.view.PodID]) {
 			d.noteLateEmergency(state, record.view, "the record ended")
 		}
 		d.result.emergencyLongest = max(d.result.emergencyLongest, record.unblocked)
@@ -2256,6 +2257,22 @@ func TestSoakWatchEndOfRecord(t *testing.T) {
 		d.watchEmergencies()
 		if d.result.emergencyLate != 1 || d.result.emergencyLong != 1 || d.result.emergencyLongest != soakEmergencyTime+1 || d.open["i9.9"] != nil {
 			t.Fatalf("late %d, long %d, longest %d, open %v", d.result.emergencyLate, d.result.emergencyLong, d.result.emergencyLongest, d.open["i9.9"] != nil)
+		}
+	})
+	t.Run("end by a fault evacuation", func(t *testing.T) {
+		t.Parallel()
+		d, id := soakEmergencyOnPod(t, input)
+		podID, tick := d.open[id].view.PodID, d.s.simulation.Tick()
+		d.client.mustApply(t, Command{Action: "fault", PodID: podID})
+		const lastGap = 4 * sim.TicksPerSecond / 5
+		// The record has 0.5 s to the limit, and it ends 0.8 s after its last reading.
+		record := &soakOpenRecord{view: sim.EmergencyView{ID: "i9.9", PodID: podID, StartTick: tick - soakEmergencyTime}, last: tick + 1 - lastGap, unblocked: soakEmergencyTime - sim.TicksPerSecond/2}
+		d.open["i9.9"] = record
+		want := record.unblocked
+		d.s.advance()
+		d.watchEmergencies()
+		if d.result.emergencyLate != 0 || record.unblocked != want || record.blocked != lastGap {
+			t.Fatalf("late %d, %d ticks not blocked, want %d, and %d ticks blocked", d.result.emergencyLate, record.unblocked, want, record.blocked)
 		}
 	})
 	// endTick runs the record to its end, and it returns the tick of the end.
