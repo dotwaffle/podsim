@@ -323,7 +323,7 @@ func (r *physicalRestore) restoreFaultedPods() error {
 			continue
 		}
 		v := &s.vehicles[record.pod]
-		v.faulted, v.pending = true, -1
+		v.faulted, v.faultID, v.pending = true, record.id(), -1
 		if v.Pod.Activity == Traveling {
 			v.faultCap = v.distance
 		}

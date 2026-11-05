@@ -323,6 +323,10 @@ type vehicle struct {
 	// sets it, and the clear sets it to 0. No other code writes it.
 	faulted  bool
 	faultCap float64
+	// faultID is the ID of the fault record that names the pod, and empty
+	// when no record names it. Fault start and a physical restore set it, and
+	// the clear empties it. A save does not hold it.
+	faultID string
 	// reversal is the dwell latch at a change of the reverse flag. See
 	// reversal_dwell.go.
 	reversal reversal

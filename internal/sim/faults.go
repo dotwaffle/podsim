@@ -185,7 +185,7 @@ func (s *Simulation) startPodFaultTicks(v *vehicle, ticks int64) (string, error)
 		_ = s.withdrawService(v, faultHold)
 	}
 	s.surrenderServiceClaims(v)
-	v.faulted = true
+	v.faulted, v.faultID = true, id
 	if v.Pod.Activity == Traveling {
 		v.faultCap = math.Min(v.distance+stoppingDistance(v.Pod.Speed), v.blocks.end(v.reservedThrough))
 	}
@@ -231,24 +231,10 @@ const (
 // reportFault writes the wait report of the faulted pod v: "Fault
 // braking" while it moves, and "Fault stopped" at rest, with its fault ID.
 func (s *Simulation) reportFault(v *vehicle) {
-	v.Pod.WaitReason, v.Pod.BlockedBy = FaultStopped, s.podFaultID(v)
+	v.Pod.WaitReason, v.Pod.BlockedBy = FaultStopped, v.faultID
 	if v.Pod.Speed > 0 {
 		v.Pod.WaitReason = FaultBraking
 	}
-}
-
-// podFaultID returns the ID of the pod fault on v, or an empty string when
-// v has no pod fault.
-func (s *Simulation) podFaultID(v *vehicle) string {
-	if !v.faulted {
-		return ""
-	}
-	for _, record := range s.faults {
-		if record.kind == podFault && &s.vehicles[record.pod] == v {
-			return record.id()
-		}
-	}
-	return ""
 }
 
 // incidentBlocker returns the fault ID when the owner is a fault, or a pod
@@ -262,7 +248,7 @@ func (s *Simulation) incidentBlocker(owner resourceOwner) (string, bool) {
 		return owner.id, true
 	}
 	if other := s.ownerVehicle(owner); other != nil && other.faulted {
-		return s.podFaultID(other), true
+		return other.faultID, true
 	}
 	return "", false
 }
@@ -448,7 +434,7 @@ func (s *Simulation) removeFault(index int, inStage bool) {
 	}
 	if record.kind == podFault {
 		v := &s.vehicles[record.pod]
-		v.faulted, v.faultCap = false, 0
+		v.faulted, v.faultID, v.faultCap = false, "", 0
 		// The pod has the hold (F1), so the call cannot fail.
 		if v.op.owner != faultHold {
 			_ = s.restoreService(v, faultHold)
@@ -542,7 +528,8 @@ func (s *Simulation) releaseFaultHolds() {
 // serials of the records increase, so no two records have one ID. Each
 // start is from 0 to the current tick, and each end is 0 or after its
 // start. Each pod record names a pod of the fleet with the fault hold, and
-// a pod is faulted exactly when one record names it. A faulted pod is in
+// a pod is faulted exactly when one record names it, and it then keeps the
+// ID of that record. A faulted pod is in
 // no group, and a faulted traveling pod has a finite cap between its
 // distance and its grant end. At most maxDebrisFaults records are debris,
 // each on a segment that a debris start accepts.
@@ -598,12 +585,17 @@ func (s *Simulation) checkFaults() error {
 			return fmt.Errorf("fault %s names pod %s, which is not faulted", id, s.vehicles[record.pod].Pod.ID)
 		case s.vehicles[record.pod].withdrawn&faultHold == 0:
 			return fmt.Errorf("fault %s names pod %s, which has no fault hold", id, s.vehicles[record.pod].Pod.ID)
+		case s.vehicles[record.pod].faultID != id:
+			return fmt.Errorf("fault %s names pod %s, which keeps the fault ID %q", id, s.vehicles[record.pod].Pod.ID, s.vehicles[record.pod].faultID)
 		}
 		recorded[record.pod] = true
 	}
 	for index := range s.vehicles {
 		v := &s.vehicles[index]
 		if !v.faulted {
+			if v.faultID != "" {
+				return fmt.Errorf("pod %s is not faulted and keeps the fault ID %q", v.Pod.ID, v.faultID)
+			}
 			continue
 		}
 		if len(recorded) == 0 || !recorded[index] {

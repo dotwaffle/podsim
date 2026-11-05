@@ -514,6 +514,15 @@ func TestCheckFaults(t *testing.T) {
 		{"record of a pod that is not faulted", func(s *Simulation) { s.vehicles[s.faults[1].pod].faulted = false }, "not faulted"},
 		{"faulted pod without a record", func(s *Simulation) { s.faults = s.faults[:1] }, "no fault record"},
 		{"faulted pod with no records", func(s *Simulation) { s.faults = nil; s.vehicles[0].faulted = true }, "no fault record"},
+		{"faulted pod with no fault ID", func(s *Simulation) { s.vehicles[s.faults[1].pod].faultID = "" }, "keeps the fault ID"},
+		{"faulted pod with the ID of an ended fault", func(s *Simulation) { s.vehicles[s.faults[1].pod].faultID = "i1.99" }, "keeps the fault ID"},
+		{"healthy pod with a fault ID", func(s *Simulation) {
+			record := s.faults[1]
+			if err := s.clearFault(record.id()); err != nil {
+				panic(err)
+			}
+			s.vehicles[record.pod].faultID = record.id()
+		}, "not faulted"},
 		{"record of a pod without the fault hold", func(s *Simulation) { s.vehicles[s.faults[1].pod].withdrawn = 0 }, "no fault hold"},
 		{"faulted platoon follower", func(s *Simulation) { s.vehicles[s.faults[0].pod].link.leader = 2 }, "is a member of a platoon"},
 		{"cap behind the pod", func(s *Simulation) {

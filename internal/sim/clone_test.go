@@ -260,9 +260,10 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		// SavedPod has the holds and the operational destination, so
 		// ExportState, RestoreState, and the session save keep them.
 		"withdrawn": persistSave, "op": persistSave,
-		// A physical restore derives faulted from the fault records, and
-		// sets faultCap to the distance of a faulted traveling pod.
-		"faulted": persistDerive, "faultCap": persistDerive,
+		// A physical restore derives faulted and faultID from the fault
+		// records, and sets faultCap to the distance of a faulted traveling
+		// pod.
+		"faulted": persistDerive, "faultCap": persistDerive, "faultID": persistDerive,
 		// A restore leaves the dwell latch empty, and the latch finds the
 		// boundary again.
 		"reversal": persistReset,
