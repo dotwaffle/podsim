@@ -265,18 +265,22 @@ func (s *Simulation) reportIncident(v *vehicle, owner resourceOwner) bool {
 }
 
 // reportBlockedBerths writes the report of a pod whose terminal berth
-// choice failed while the blocked set is not empty. When a berth of the
-// destination station is blocked, the pod is blocked by the incident with
-// the lowest serial that blocks a berth of the station. Otherwise the
-// report of the previous tick ends: the failure has no incident cause that
-// one fault ID can name. With an empty blocked set, it writes nothing.
+// choice failed. While the blocked set is not empty, a blocked berth of the
+// destination station gives "Blocked by incident" with the fault of the
+// lowest serial that blocks a berth of the station. With no blocked berth,
+// the search failed on a blocked lane or on the onward stops of a rider, and
+// the report is "No forward route", because a failed search names no single
+// fault. With an empty blocked set, only a report of "No forward route" ends.
 func (s *Simulation) reportBlockedBerths(v *vehicle) {
 	if !s.blockedActive() {
+		if v.Pod.WaitReason == NoForwardRoute {
+			v.Pod.WaitReason = NoWait
+		}
 		return
 	}
-	v.Pod.WaitReason, v.Pod.BlockedBy = NoWait, ""
 	station, ok := s.station(v.destinationStation)
 	if !ok {
+		v.Pod.WaitReason, v.Pod.BlockedBy = NoWait, ""
 		return
 	}
 	// The records are in serial order, so the first record that blocks a
@@ -291,6 +295,7 @@ func (s *Simulation) reportBlockedBerths(v *vehicle) {
 			}
 		}
 	}
+	v.Pod.WaitReason, v.Pod.BlockedBy = NoForwardRoute, ""
 }
 
 // incidentWait reports whether the wait report of v is one that an

@@ -950,11 +950,13 @@ Each report is derived from the current attempt of the pod, at the place where t
 | "Blocked by incident" | The buffer head paths (`internal/sim/station_buffer.go` `(*Simulation).bufferHead`, `(*Simulation).grantBufferedHead`) | The blocking owner is a fault owner or a faulted pod. | The fault ID of that owner |
 | "Blocked by incident" | Admission, at a failed terminal berth choice (`internal/sim/traffic.go` `(*Simulation).admit`) | A berth of the destination station is blocked. | The fault ID of the blocked berth with the lowest serial |
 | "No forward route" | `continueJourney` (`internal/sim/riders.go` `(*Simulation).continueJourney`) | The next-leg search fails while the blocked set is not empty. | Empty, because a failed search names no single fault |
+| "No forward route" | Admission, at a failed terminal berth choice | No berth of the destination station is blocked and the blocked set is not empty. | Empty |
 | The existing reasons | The existing code | Every other case | The existing value |
 
 A pod behind a healthy pod that waits reports "Pod ahead" with that pod, which is its immediate blocker.
 When the terminal berth choice fails while the blocked set is not empty, admission writes the report before it returns, so the failed attempt replaces the report of the previous tick.
 With an empty blocked set, admission writes what it writes today.
+Amendment, November 5, 2026, approved by the maintainer on 2026-11-05: the table has the row of "No forward route" at admission.
 
 Each tick writes each report again, so no report outlives its cause, and arrival, idle settlement, and a clear need no cleanup step.
 A clear also resets each `BlockedBy` that names the cleared fault (section 5.4), so a paused command boundary does not show a removed record.

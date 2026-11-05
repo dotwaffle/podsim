@@ -582,7 +582,7 @@ Faults add these values of the `waitReason` of a pod:
 | `Fault braking` | A faulted pod that moves. | Its fault ID. |
 | `Fault stopped` | A faulted pod at rest. | Its fault ID. |
 | `Blocked by incident` | A pod that needs a resource that a fault or a faulted pod holds, or a pod that finds no berth at a station where a fault blocks a berth. | The fault ID. |
-| `No forward route` | A pod that finds no route for its next leg while a fault blocks a lane or a berth. | Empty. |
+| `No forward route` | A pod that finds no route for its next leg, or no berth at a station where no fault blocks a berth, while a fault blocks a lane or a berth. | Empty. |
 
 A client accepts a `blockedBy` that names a pod or an active fault of the frame.
 

@@ -117,8 +117,8 @@ func TestIncidentReportAtTerminalBerthChoice(t *testing.T) {
 
 // TestReportBlockedBerths checks the report of a failed terminal berth
 // choice. With an empty blocked set, it writes nothing. With a blocked
-// lane and no blocked berth of the station, it ends the report of the
-// previous tick. With blocked berths, it names the fault with the lowest
+// lane and no blocked berth of the station, the report is "No forward
+// route" with no fault ID. With blocked berths, it names the fault with the lowest
 // serial that blocks a berth of the station.
 func TestReportBlockedBerths(t *testing.T) {
 	t.Parallel()
@@ -132,9 +132,14 @@ func TestReportBlockedBerths(t *testing.T) {
 	if v.Pod.WaitReason != TrackOccupied || v.Pod.BlockedBy != "02" {
 		t.Fatalf("with no blocked set, the report is %q by %q", v.Pod.WaitReason, v.Pod.BlockedBy)
 	}
+	v.Pod.WaitReason, v.Pod.BlockedBy = NoForwardRoute, ""
+	s.reportBlockedBerths(v)
+	if v.Pod.WaitReason != NoWait {
+		t.Fatalf("with no blocked set, the report of no forward route stays %q", v.Pod.WaitReason)
+	}
 	blockLanes(t, s, "s0-link")
 	s.reportBlockedBerths(v)
-	if v.Pod.WaitReason != NoWait || v.Pod.BlockedBy != "" {
+	if v.Pod.WaitReason != NoForwardRoute || v.Pod.BlockedBy != "" {
 		t.Fatalf("with no blocked berth, the report is %q by %q", v.Pod.WaitReason, v.Pod.BlockedBy)
 	}
 	// Records of serials 3 and 5 block s1-2 and s1-1. A record of serial 2
@@ -150,6 +155,38 @@ func TestReportBlockedBerths(t *testing.T) {
 	if v.Pod.WaitReason != BlockedByIncident || v.Pod.BlockedBy != "i1.3" {
 		t.Fatalf("with blocked berths, the report is %q by %q, want i1.3", v.Pod.WaitReason, v.Pod.BlockedBy)
 	}
+}
+
+// TestFailedBerthChoiceReport places debris at the start of an inlet of s1.
+// The debris holds the junction cell that both inlets share, so the berth
+// choice of pod 01 fails while no berth of s1 is blocked. The pod stops on
+// the road with "No forward route" and no fault ID, and each tick counts one
+// fault wait tick. After the clear, the report ends and the pod arrives.
+func TestFailedBerthChoiceReport(t *testing.T) {
+	t.Parallel()
+	s := faultLegFleet(t)
+	v := boardParties(t, s, "s1")
+	checkFaultsEachTick(t, s)
+	id := startDebris(t, s, "s1-1-in", 0, 5, 0)
+	stepUntil(t, s, "the failed berth choice", func() bool { return v.Pod.WaitReason == NoForwardRoute })
+	if station, _ := s.station("s1"); v.Pod.BlockedBy != "" || v.destination.ID != "" || s.berthBlocked(station.Berths[0]) || s.berthBlocked(station.Berths[1]) {
+		t.Fatalf("pod 01 reports %q by %q, with the berth %q", v.Pod.WaitReason, v.Pod.BlockedBy, v.destination.ID)
+	}
+	waits := s.faultCounters.faultWaitTicks
+	for range 5 {
+		s.Step()
+	}
+	if got := s.faultCounters.faultWaitTicks - waits; got != 5 {
+		t.Fatalf("5 ticks count %d fault wait ticks", got)
+	}
+	if err := s.clearFault(id); err != nil {
+		t.Fatal(err)
+	}
+	s.Step()
+	if v.Pod.WaitReason == NoForwardRoute {
+		t.Fatalf("after the clear, pod 01 reports %q", v.Pod.WaitReason)
+	}
+	stepUntil(t, s, "the arrival at s1", func() bool { return v.Pod.Activity == Unloading && v.Pod.StationID == "s1" })
 }
 
 // TestNoForwardRouteReport places debris on the only lane from s1 to s2
