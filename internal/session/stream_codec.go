@@ -224,22 +224,32 @@ func frameGroups(f StreamFrame) (map[string]jsontext.Value, error) {
 	return groups, nil
 }
 func makeDelta(a, b StreamFrame) (StreamDelta, error) {
+	d, _, err := makeDeltaFrom(a, nil, b)
+	return d, err
+}
+
+// makeDeltaFrom returns the delta from a to b and the group bytes of b. old
+// holds the group bytes of a, or it is nil, and then a is encoded. The delta
+// shares the returned bytes, so no code may write them.
+func makeDeltaFrom(a StreamFrame, old map[string]jsontext.Value, b StreamFrame) (StreamDelta, map[string]jsontext.Value, error) {
 	if err := checkIncidentFrame(b.State.Simulation); err != nil {
-		return StreamDelta{}, err
+		return StreamDelta{}, nil, err
 	}
 	if err := checkFaultFrame(b.State.Simulation); err != nil {
-		return StreamDelta{}, err
+		return StreamDelta{}, nil, err
 	}
 	if err := checkEmergencyFrame(b.State.Simulation); err != nil {
-		return StreamDelta{}, err
+		return StreamDelta{}, nil, err
 	}
-	old, err := frameGroups(a)
-	if err != nil {
-		return StreamDelta{}, err
+	if old == nil {
+		var err error
+		if old, err = frameGroups(a); err != nil {
+			return StreamDelta{}, nil, err
+		}
 	}
 	now, err := frameGroups(b)
 	if err != nil {
-		return StreamDelta{}, err
+		return StreamDelta{}, nil, err
 	}
 	d := StreamDelta{Groups: map[string]jsontext.Value{}}
 	for k, v := range now {
@@ -270,7 +280,7 @@ func makeDelta(a, b StreamFrame) (StreamDelta, error) {
 			d.Berths = append(d.Berths, v)
 		}
 	}
-	return d, nil
+	return d, now, nil
 }
 
 func applyGroups(f *StreamFrame, groups map[string]jsontext.Value) error {

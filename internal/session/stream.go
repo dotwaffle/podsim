@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/json"
+	"encoding/json/jsontext"
 	jsonv2 "encoding/json/v2"
 	"errors"
 	"net/http"
@@ -81,14 +82,16 @@ type StreamMetrics struct {
 }
 
 type statePublisher struct {
-	mu           sync.Mutex
-	session      *Session
-	cancel       context.CancelFunc
-	done         chan struct{}
-	workers      sync.WaitGroup
-	clients      map[*streamSubscriber]bool
-	wake         chan struct{}
-	frame        StreamFrame
+	mu      sync.Mutex
+	session *Session
+	cancel  context.CancelFunc
+	done    chan struct{}
+	workers sync.WaitGroup
+	clients map[*streamSubscriber]bool
+	wake    chan struct{}
+	frame   StreamFrame
+	// groups is nil or the group bytes of frame.
+	groups       map[string]jsontext.Value
 	stream       string
 	sequence     uint64
 	history      []*streamPayload
@@ -312,7 +315,7 @@ func (p *statePublisher) run(ctx context.Context) {
 				}
 				p.release(p.full)
 				p.full = nil
-				p.frame = StreamFrame{}
+				p.frame, p.groups = StreamFrame{}, nil
 				p.stream = ""
 				p.sequence = 0
 				p.needFull = false
@@ -365,6 +368,7 @@ func (p *statePublisher) publish(ctx context.Context, need, capture bool) error 
 	changed := p.sequence == 0 || p.sequence == sim.MaxCounter || !reflect.DeepEqual(p.frame, frame)
 	reset := p.sequence == 0 || p.sequence == sim.MaxCounter || !sameChain(p.frame, frame)
 	if changed {
+		var groups map[string]jsontext.Value
 		stream, seq := p.stream, p.sequence+1
 		if reset {
 			stream = rand.Text()
@@ -376,11 +380,11 @@ func (p *statePublisher) publish(ctx context.Context, need, capture bool) error 
 			e.Base = 0
 			e.Full = &frame
 		} else {
-			d, err := makeDelta(p.frame, frame)
+			d, now, err := makeDeltaFrom(p.frame, p.groups, frame)
 			if err != nil {
 				return err
 			}
-			e.Delta = &d
+			e.Delta, groups = &d, now
 		}
 		b, err := p.retain(ctx, e)
 		if err != nil {
@@ -406,7 +410,7 @@ func (p *statePublisher) publish(ctx context.Context, need, capture bool) error 
 		}
 		p.release(p.full)
 		p.full = nil
-		p.frame, p.stream, p.sequence = frame, stream, seq
+		p.frame, p.groups, p.stream, p.sequence = frame, groups, stream, seq
 		if full {
 			p.full = b
 			p.needFull = false
