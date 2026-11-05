@@ -170,14 +170,22 @@ description = "Report the sampled-tick time at the project limits, on request, w
 run = "PODSIM_QUALIFY=1 go test ./internal/sim -count=1 -v -timeout=30m -run '^TestSampledTickNoCandidateLatency$'"
 
 [tasks.soak]
-description = "Run the incident soak in the routine branch shape"
+description = "Run the incident soak in the routine branch shape, one soak at a time"
 # GOGC=400 cuts the CPU of a checked run and uses more memory, so the memory
-# cap stays.
+# cap stays. The lock holds for one host, so each worktree uses the same path.
+# A second soak waits for 60 seconds and then fails with code 75.
 env = { GOGC = "400", PODSIM_SOAK = "1" }
 run = '''
 ulimit -v 16000000
-timeout "${PODSIM_SOAK_LIMIT:-7200}" \
-  go test ./internal/session -count=1 -v -timeout=0 -parallel "${PODSIM_SOAK_PARALLEL:-3}" -run '^TestIncidentSoak$'
+lock="${PODSIM_SOAK_LOCK:-/tmp/podsim-soak.lock}"
+status=0
+flock --wait 60 --conflict-exit-code 75 "$lock" \
+  timeout "${PODSIM_SOAK_LIMIT:-7200}" \
+  go test ./internal/session -count=1 -v -timeout=0 -parallel "${PODSIM_SOAK_PARALLEL:-3}" -run '^TestIncidentSoak$' || status=$?
+if [ "$status" -eq 75 ]; then
+  echo "another soak holds $lock" >&2
+fi
+exit "$status"
 '''
 
 [tasks."soak:full"]
