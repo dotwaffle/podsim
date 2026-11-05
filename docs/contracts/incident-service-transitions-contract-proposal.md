@@ -36,6 +36,7 @@ Text that names these stages describes refusals that stay in place.
 Status note, November 4, 2026: the maintainer reopened stage 7 under `docs/contracts/incident-stage7-contract-proposal.md`, as option B with amendments A1 to A4.
 Stages 4 to 6 stay out of scope.
 The rules G1 to G16 of section 3 of that document, and its amendments, apply to this contract, and the text below stays as written.
+Status 2026-11-05: the maintainer removed the seat screen and the `reassign-existing` join policy, so the rows for the join census and the departure backlog are gone.
 
 This contract is stage 1 of the staged incident redesign.
 It defines the service transitions that vehicle faults and rider emergencies share.
@@ -261,8 +262,7 @@ Each path below gets the test `v.withdrawn == 0`:
 | --- | --- | --- |
 | Pickup candidates | `internal/sim/diversion.go` `(*Simulation).pickupCandidate` | Returns false. This covers `pickupCandidates` (`internal/sim/dispatch.go` `(*Simulation).pickupCandidates`), `pickupPodMatching`, `pickupAvailable` (`internal/sim/pickup_estimate.go` `(*Simulation).pickupAvailable`), `pickupRouteWithAssignments` (`internal/sim/diversion.go` `(*Simulation).pickupRouteWithAssignments`), `sendPickupMatching` (`internal/sim/diversion.go` `(*Simulation).sendPickupMatching`), and `freePickupAlternative` (`internal/sim/pickup_reassignment.go` `(*Simulation).freePickupAlternative`). |
 | Local pickups | `internal/sim/dispatch.go` `(*Simulation).freePods` | Skips the pod. This covers `localPickup` and `localPickupForRequest`. |
-| Shared-ride joins | `internal/sim/dispatch.go` `(*Simulation).boardingPods` | Skips the pod. This covers `joinSharedRide` and the join census (`internal/sim/seat_screen.go` `(*Simulation).recordJoinEligible`). |
-| Departure backlog | `internal/sim/seat_screen.go` `(*Simulation).recordDeparture` | A withdrawn pod counts no waiting party as backlog. The departure and the parties aboard count as before. |
+| Shared-ride joins | `internal/sim/dispatch.go` `(*Simulation).boardingPods` | Skips the pod. This covers `joinSharedRide`. |
 | Onboard pickups | `internal/sim/onboard_pickups.go` `(*Simulation).onboardPickupReady` | Returns false. |
 | Promotion | `internal/sim/dispatch.go` `(*Simulation).promoteReadyPickup` | The ready pod must be in service. Invariant W2 makes this hold already. The test is defensive. |
 | Finishing-pod holds | `internal/sim/pickup_estimate.go` `(*Simulation).waitForFinishingPod` | A withdrawn pod is not a candidate. A hold that names a withdrawn pod ends. |
@@ -339,7 +339,7 @@ For each trip in queue order, in one call:
 The route and berth clearing extends the dispatch unbinding in `internal/sim/dispatch.go` `(*Simulation).dispatch` to both order contracts.
 `deferUntil` stays in every case, so a trip does not get a new hold budget.
 
-A released trip keeps its queue position, `ID`, `From`, `To`, `LegFrom`, `RequestedTick`, `BoardedTick`, `boarded`, `deferUntil`, order options, and census flags.
+A released trip keeps its queue position, `ID`, `From`, `To`, `LegFrom`, `RequestedTick`, `BoardedTick`, `boarded`, `deferUntil`, and order options.
 
 When a trip was bound, call `releasePickup(v)` (`internal/sim/released.go` `(*Simulation).releasePickup`) once after the loop.
 That keeps the existing `released` semantics for an empty pod on its way.
@@ -700,8 +700,6 @@ Class "Both" checks `From` and `LegFrom`.
 | `internal/sim/boarding_records.go` `(*Simulation).riderOrigin` | `riderOrigin` | Physical |
 | `internal/sim/onboard_pickups.go` `(*Simulation).onboardPickupReady` | `onboardPickupReady` | Physical |
 | `internal/sim/onboard_pickups.go` `(*Simulation).pickupBoardingRecords` | Boarding record creation | Physical |
-| `internal/sim/seat_screen.go` `(*Simulation).recordDeparture` | Departure backlog census | Physical |
-| `internal/sim/seat_screen.go` `(*Simulation).recordJoinEligible` | Join census | Physical |
 | `internal/sim/positioning.go` `(*Simulation).guardedSupply` | Guarded supply by waiting trip | Physical |
 | `internal/sim/pickup_estimate.go` `(*Simulation).waitForFinishingPod` | `waitForFinishingPod` | Physical |
 | `internal/sim/pickup_estimate.go` `(*Simulation).keepHold` | `keepHold` | Physical |

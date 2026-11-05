@@ -36,6 +36,7 @@ Text that names these stages describes refusals that stay in place.
 Status note, November 4, 2026: the maintainer reopened stage 7 under `docs/contracts/incident-stage7-contract-proposal.md`, as option B with amendments A1 to A4.
 Stages 4 to 6 stay out of scope.
 The rules G1 to G16 of section 3 of that document, and its amendments, apply to this contract, and the text below stays as written.
+Status 2026-11-05: the network indexes are now built once with the prepared network, and the code pointers follow this.
 
 This contract is stage 2 of the staged incident redesign.
 It defines ordinary suspension and obstruction: a pod fault that stops a pod on a lane or at a berth, debris on an empty lane segment, routing around both, and the rules for the healthy pods that they obstruct.
@@ -606,7 +607,7 @@ A berth with a faulted pod is therefore blocked, and a lane that shares a juncti
 A lateral neighbor with a cell in a debris footprint (section 7.2) is blocked too.
 
 The simulation keeps a static index from each resource to the lanes whose cells hold it.
-It is built once from the lane cells, with the network indexes (`internal/sim/routes.go` `(*Simulation).ensureNetworkIndexes`), and it is a cache of the network.
+It is built once from the lane cells, with the network indexes (`internal/sim/prepared.go` `newPreparedNetwork`), and it is a cache of the network.
 
 `blocked.by` maps each footprint resource to the fault ID.
 The wait reports of section 9.6 use it.
@@ -651,7 +652,7 @@ No reader can see a cached route of an earlier epoch, also a cached failure, bec
 The rebuild computes the footprint of each record (sections 6.5 and 7.2) and then the blocked lanes and berths.
 When the result differs from the previous blocked set, a new epoch starts:
 
-- Clear `routes`, `routeOrder`, and `routeStations` (`internal/sim/routes.go` `(*Simulation).ensureNetworkIndexes`, `internal/sim/drop_offs.go` `(*Simulation).stationsOnRouteForClass`).
+- Clear `routes`, `routeOrder`, and `routeStations` (`internal/sim/blocked_routes.go` `(*Simulation).startRouteEpoch`, `internal/sim/drop_offs.go` `(*Simulation).stationsOnRouteForClass`).
   These hold successes and failures alike.
 - Set `rerouteDue = true`.
 

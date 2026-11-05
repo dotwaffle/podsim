@@ -37,6 +37,7 @@ Text that names these stages describes refusals that stay in place.
 Status note, November 4, 2026: the maintainer reopened stage 7 under `docs/contracts/incident-stage7-contract-proposal.md`, as option B with amendments A1 to A4.
 Stages 4 to 6 stay out of scope.
 The rules G1 to G16 of section 3 of that document, and its amendments, apply to this contract, and the text below stays as written.
+Status 2026-11-05: the network indexes are now built once with the prepared network, so no rebuild clears the memo.
 Rule G9 moves the start into `startEmergency`, so the `Emergency` of the F11 transition row is that function.
 
 This contract is stage 3 of the staged incident redesign: the emergency vertical slice on ordinary pods.
@@ -812,7 +813,7 @@ It reduces the work of the retries only, and the latency of the first choice doe
 - Read: on a cadence tick, after the ordinary checks of section 5.4, step 7, a choice whose record has an entry with the same `from` and class returns no candidate and makes no search.
   Retries stay on the cadence.
 - Clear: `startRouteEpoch` (`internal/sim/blocked_routes.go` `(*Simulation).startRouteEpoch`), which a change of the blocked lanes or berths calls, clears the memo with the route caches.
-  A rebuild of the network indexes (`ensureNetworkIndexes`, `internal/sim/routes.go` `(*Simulation).ensureNetworkIndexes`), `Reset`, a project replacement, and a restore also clear it, and a record end removes the entry of its record.
+  `Reset`, a project replacement, and a restore also clear it, and a record end removes the entry of its record.
 
 Proof that the memo changes no result.
 A station has a candidate when a berth of one of its entry groups has a route.
