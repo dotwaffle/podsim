@@ -8,7 +8,8 @@ The code of the congestion, queue, and predictive routing policies was removed o
 ## Open items
 
 - The soak of amendment A6 ran and failed.
-  The Persistence row failed on `rail-hub`, and the Progress row missed on both presets.
+  The Progress row missed on both presets.
+  Each failure of the Persistence row was a false alarm of the check, and a rerun is open.
   The section "Soak of amendment A6" has the numbers.
 - The Performance row for suspension, the Suspension median, is open.
   It has no quiet-host reading.
@@ -104,6 +105,11 @@ That explanation is not proved.
 
 The log shows no report from the Safety, Contract, Conservation, or Rail rows in any run.
 A run that fails the rewind check stops there, so those runs have no later reading.
+Each rewind failure was a false alarm of the check, and `083a487` corrects it.
+When a sampler makes a record in the replay window, the replay gives the record the new generation, as the contract permits, and the check compared that field too.
+Across 24 instrumented rewinds, only `Generation` differed, on 5 windows.
+Two same-seed runs gave identical state hashes.
+With the correction, `platoons` seed 2 and `emergencies` seed 5 pass all 6 rewinds, and `platoons` seed 2 has 7 late emergencies.
 The `emergencies` arm of a seed runs after `incidents`, so the failure of `incidents` at seed 2 also stopped `emergencies` at seed 2.
 
 `london-central` with faults ran at 219 to 239 ticks a second of wall time, against 2,148 to 2,262 for its reference.
