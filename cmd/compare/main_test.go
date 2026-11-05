@@ -288,7 +288,7 @@ func TestReportFormatsAreMachineReadable(t *testing.T) {
 	if err := jsonv2.Unmarshal(jsonOutput.Bytes(), &decoded, json.DefaultOptionsV1()); err != nil {
 		t.Fatal(err)
 	}
-	if decoded.SchemaVersion != 14 || !reflect.DeepEqual(decoded.Results, results) {
+	if decoded.SchemaVersion != 15 || !reflect.DeepEqual(decoded.Results, results) {
 		t.Fatalf("JSON report changed values: %+v", decoded)
 	}
 
@@ -959,71 +959,6 @@ func TestPlatoonPoliciesCountInMatrixLimit(t *testing.T) {
 				t.Fatalf("parseOptions() error = %v, want text %q", err, tc.want)
 			}
 		})
-	}
-}
-
-// TestSeatColumnsOnlyWithSharing runs hub bursts on the example network.
-// The seat screen columns follow shared_parties only when a sharing limit
-// is above 1. The limit 1 row has zeros, and the limit 2 row counts the
-// parties that full pods refuse.
-func TestSeatColumnsOnlyWithSharing(t *testing.T) {
-	t.Parallel()
-	skipLong(t)
-	for _, tc := range []struct {
-		name    string
-		limits  string
-		columns bool
-	}{
-		{"sharing off", "1", false},
-		{"sharing on", "1,2", true},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			args := []string{
-				"-duration", "10m", "-arrivals-for", "2m", "-request-every", "5s", "-burst-size", "6", "-pattern", "hub-burst",
-				"-focus", "market", "-redistribution-policies", "off", "-sharing-consent", "shared", "-sharing-limits", tc.limits, "-format", "csv",
-			}
-			var output, stderr bytes.Buffer
-			if code := runCLI(cliInput{args: args, stdout: &output, stderr: &stderr}); code != 0 {
-				t.Fatalf("runCLI() = %d: %s", code, stderr.String())
-			}
-			records, err := csv.NewReader(&output).ReadAll()
-			if err != nil {
-				t.Fatal(err)
-			}
-			header := records[0]
-			refusals := slices.Index(header, "full_pod_refusals")
-			if (refusals >= 0) != tc.columns {
-				t.Fatalf("full_pod_refusals at %d in %v", refusals, header)
-			}
-			if !tc.columns {
-				return
-			}
-			if header[refusals-1] != "shared_parties" || header[refusals+4] != "departures_over_four_aboard" ||
-				header[refusals+7] != "join_eligible_added_stop_only" {
-				t.Fatalf("seat columns are not after shared_parties: %v", header)
-			}
-			for _, row := range records[1:] {
-				limit, departures := row[slices.Index(header, "shared_ride_party_limit")], row[slices.Index(header, "full_departures")]
-				if limit == "1" && (row[refusals] != "0" || departures != "0" || row[refusals+5] != "0") {
-					t.Fatalf("limit 1 row has seat counts: %v", row)
-				}
-				if limit == "2" && (row[refusals] == "0" || departures == "0") {
-					t.Fatalf("limit 2 row has no seat counts: %v", row)
-				}
-			}
-		})
-	}
-}
-
-func TestSeatScreenStats(t *testing.T) {
-	t.Parallel()
-	screen := sim.SeatScreen{FullPodRefusals: 3, JoinEligibleAssigned: 9, JoinEligibleExistingStop: 7}
-	screen.Aboard[4], screen.Aboard[5], screen.Aboard[sim.MaxSharedRideParties] = 7, 1, 2
-	screen.Demand[4], screen.Demand[5], screen.Demand[sim.MaxSharedRideParties] = 5, 2, 3
-	stats := seatScreenStats(screen)
-	if stats.FullPodRefusals != 3 || stats.overFourAboard != 3 || stats.demandOverFour != 5 || stats.addedStopOnly != 2 {
-		t.Fatalf("seat screen stats = %+v", stats)
 	}
 }
 

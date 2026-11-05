@@ -22,13 +22,6 @@ type waitingTrip struct {
 	// restore queues again. The wait of such a trip is already recorded,
 	// and its request keeps its BoardedTick.
 	boarded bool
-	// fullPodRefused is true after the seat screen counted a refusal of
-	// the trip. See refusedByFullPod.
-	fullPodRefused bool
-	// joinEligibleAssigned and joinEligibleExistingStop are true after the
-	// join census counted the trip in the member of the same name. See
-	// recordJoinEligible.
-	joinEligibleAssigned, joinEligibleExistingStop bool
 }
 
 // RequestTrip queues a passenger journey between stations and assigns an available pod when possible.
@@ -89,11 +82,6 @@ func (s *Simulation) SubmitTripOptions(options TripOptions) (int, error) {
 // pod that holds no claim on its destination berth goes to the nearest free
 // berth. This includes a pod that a restore released. See
 // parkUnclaimedReleased.
-//
-// While the seat screen is on, the pass also counts the trips with a pod on
-// its way that a boarding pod at the origin could take. The count reads the
-// pods and changes no decision. It runs before the join, so it also counts
-// the trips that join. See recordJoinEligible.
 func (s *Simulation) dispatch() {
 	if s.pass == nil {
 		s.pass = new(dispatchPass)
@@ -120,9 +108,6 @@ func (s *Simulation) dispatchTrip(i int, pass *dispatchPass) int {
 	previousReason := trip.request.DispatchReason
 	trip.request.DispatchReason = ""
 	v := s.keepTripPod(trip, pass)
-	if v != nil && s.screensSeats() {
-		s.recordJoinEligible(trip, v, pass)
-	}
 	if s.joinTrip(trip, pass) {
 		s.waiting = slices.Delete(s.waiting, i, i+1)
 		return i
@@ -646,22 +631,14 @@ func (s *Simulation) boardingRider(trip waitingTrip, v *vehicle, sharedWith int)
 // destination mode, the pod must go to the destination of the trip. In
 // drop-offs mode, the pod must stop at the destination or be able to add
 // it as a stop. See dropOffStops.
-//
-// When a full pod could take the party and no pod takes it, the seat
-// screen counts a refusal. See refusedByFullPod. The trip does not join the
-// pod that it excludes.
+// The trip does not join the pod that it excludes.
 func (s *Simulation) joinSharedRide(trip *waitingTrip, pass *dispatchPass) bool {
 	if s.partyLimit(trip.request) <= 1 {
 		return false
 	}
 	request := trip.request
-	refused := false
 	for _, v := range s.boardingPods(pass)[request.legOrigin()] {
-		if v.Pod.Occupied || len(v.Boardings) > 0 || trip.excludes(v.Pod.ID) {
-			continue
-		}
-		if !s.canJoin(v, request) {
-			refused = refused || s.refusedByFullPod(trip, v)
+		if v.Pod.Occupied || len(v.Boardings) > 0 || trip.excludes(v.Pod.ID) || !s.canJoin(v, request) {
 			continue
 		}
 		if s.sharedRideMode != SharedRideDropOffs {
@@ -676,10 +653,6 @@ func (s *Simulation) joinSharedRide(trip *waitingTrip, pass *dispatchPass) bool 
 		}
 		v.Riders = append(v.Riders, s.boardingRider(*trip, v, v.Riders[0].ID))
 		return true
-	}
-	if refused {
-		trip.fullPodRefused = true
-		s.seatScreen.FullPodRefusals++
 	}
 	return false
 }

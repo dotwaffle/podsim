@@ -197,7 +197,7 @@ func monitorOnboard(t *testing.T, s *Simulation) {
 func TestOnboardAdversarialAssignedPickup(t *testing.T) {
 	t.Parallel()
 	fleet := []Placement{{ID: "01", StationID: "harbor", BerthID: "harbor-1"}, {ID: "02", StationID: "parking", BerthID: "parking-1"}}
-	s := newScreenSimulation(t, Example(), fleet, 4, SharedRideDropOffs)
+	s := newRecordsSimulation(t, Example(), fleet, 4)
 	if err := s.SetOnboardPickups(true); err != nil {
 		t.Fatal(err)
 	}

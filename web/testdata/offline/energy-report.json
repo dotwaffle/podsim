@@ -1,5 +1,5 @@
 {
-  "schema_version": 17,
+  "schema_version": 18,
   "results": [
     {
       "energy": {
@@ -35,14 +35,6 @@
       "shared_ride_party_limit": 1,
       "sharing_mode": "destination",
       "shared_parties": 0,
-      "full_pod_refusals": 0,
-      "full_departures": 0,
-      "departure_backlog": 0,
-      "departures_demand_over_four": 0,
-      "departures_over_four_aboard": 0,
-      "join_eligible_assigned": 0,
-      "join_eligible_existing_stop": 0,
-      "join_eligible_added_stop_only": 0,
       "focus_station": "station-2",
       "window_start_seconds": 0,
       "window_end_seconds": 2,

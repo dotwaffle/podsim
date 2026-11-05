@@ -8,7 +8,6 @@ import (
 	"io"
 	"os"
 	"runtime/debug"
-	"slices"
 	"time"
 
 	"github.com/dotwaffle/podsim/internal/sim"
@@ -107,7 +106,6 @@ func runCLI(input cliInput) int {
 	if err := writeReport(writeReportInput{
 		output: output, format: opts.format, results: results, sharingConsentColumn: opts.sharingConsentColumn,
 		waitRuleColumn: opts.waitRules != nil, platoonColumn: opts.platoonPolicies != nil,
-		seatColumns:              slices.ContainsFunc(opts.sharingLimits, func(limit int) bool { return limit > 1 }),
 		pickupReassignmentColumn: opts.pickupReassignment != nil, onboardPickupsColumn: opts.onboardPickups != nil,
 	}); err != nil {
 		_ = closeOutput()

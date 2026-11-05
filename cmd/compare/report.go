@@ -30,14 +30,6 @@ type result struct {
 	SharingMode                    string             `json:"sharing_mode"`
 	OnboardPickups                 string             `json:"onboard_pickups,omitempty"`
 	SharedParties                  int                `json:"shared_parties"`
-	FullPodRefusals                int                `json:"full_pod_refusals"`
-	FullDepartures                 int                `json:"full_departures"`
-	DepartureBacklog               int                `json:"departure_backlog"`
-	DeparturesDemandOverFour       int                `json:"departures_demand_over_four"`
-	DeparturesOverFourAboard       int                `json:"departures_over_four_aboard"`
-	JoinEligibleAssigned           int                `json:"join_eligible_assigned"`
-	JoinEligibleExistingStop       int                `json:"join_eligible_existing_stop"`
-	JoinEligibleAddedStopOnly      int                `json:"join_eligible_added_stop_only"`
 	WaitRule                       string             `json:"wait_rule,omitempty"`
 	PlatoonPolicy                  string             `json:"platoon_policy,omitempty"`
 	PickupReassignment             string             `json:"pickup_reassignment,omitempty"`
@@ -114,11 +106,8 @@ type writeReportInput struct {
 	// platoonColumn adds the platoon policy to table and CSV output. JSON
 	// output has the platoon_policy field only when a result has a platoon
 	// policy.
-	platoonColumn        bool
-	onboardPickupsColumn bool
-	// seatColumns adds the seat screen columns to CSV output. JSON output
-	// always has them.
-	seatColumns              bool
+	platoonColumn            bool
+	onboardPickupsColumn     bool
 	pickupReassignmentColumn bool
 }
 
@@ -133,17 +122,17 @@ func writeReport(input writeReportInput) error {
 	}
 	switch input.format {
 	case "json":
-		version := 14
+		version := 15
 		if slices.ContainsFunc(input.results, func(outcome result) bool {
 			return outcome.PickupReassignment != ""
 		}) {
-			version = 15
-		}
-		if slices.ContainsFunc(input.results, func(outcome result) bool { return outcome.OnboardPickups != "" }) {
 			version = 16
 		}
-		if slices.ContainsFunc(input.results, func(outcome result) bool { return outcome.Energy != nil }) {
+		if slices.ContainsFunc(input.results, func(outcome result) bool { return outcome.OnboardPickups != "" }) {
 			version = 17
+		}
+		if slices.ContainsFunc(input.results, func(outcome result) bool { return outcome.Energy != nil }) {
+			version = 18
 		}
 		data, err := jsonv2.Marshal(report{SchemaVersion: version, Results: input.results}, json.DefaultOptionsV1(), jsontext.WithIndent("  "))
 		if err == nil {
@@ -238,8 +227,7 @@ func writeTable(input writeReportInput) error {
 // writeCSV writes a header and one row for each result. When
 // input.waitRuleColumn is set, a wait_rule column follows policy.
 // When input.platoonColumn is set, a platoon_policy column follows them.
-// When input.seatColumns is set, the seat screen columns
-// follow shared_parties. Without these options, the columns are the same
+// Without these options, the columns are the same
 // as before them.
 func writeCSV(input writeReportInput) error {
 	w := csv.NewWriter(input.output)
@@ -301,12 +289,8 @@ func (columns csvColumns) header() []string {
 	if columns.input.onboardPickupsColumn {
 		header = append(header, "onboard_pickups")
 	}
-	header = append(header, "shared_parties")
-	if columns.input.seatColumns {
-		header = append(header, "full_pod_refusals", "full_departures", "departure_backlog", "departures_demand_over_four", "departures_over_four_aboard",
-			"join_eligible_assigned", "join_eligible_existing_stop", "join_eligible_added_stop_only")
-	}
 	header = append(header,
+		"shared_parties",
 		"focus_station", "window_start_seconds", "window_end_seconds", "actual_end_seconds", "arrival_window_seconds", "arrival_end_seconds", "schedule_id",
 		"scheduled", "served", "remaining", "skipped", "completed_at_arrival_end", "backlog_at_arrival_end", "arrival_throughput_per_minute",
 		"completed_at_arrival_midpoint", "backlog_at_arrival_midpoint", "late_arrival_throughput_per_minute", "late_backlog_change", "drained", "drain_seconds",
@@ -352,13 +336,8 @@ func (columns csvColumns) row(outcome result) ([]string, error) {
 	if columns.input.onboardPickupsColumn {
 		row = append(row, outcome.OnboardPickups)
 	}
-	row = append(row, strconv.Itoa(outcome.SharedParties))
-	if columns.input.seatColumns {
-		row = append(row, strconv.Itoa(outcome.FullPodRefusals), strconv.Itoa(outcome.FullDepartures), strconv.Itoa(outcome.DepartureBacklog),
-			strconv.Itoa(outcome.DeparturesDemandOverFour), strconv.Itoa(outcome.DeparturesOverFourAboard),
-			strconv.Itoa(outcome.JoinEligibleAssigned), strconv.Itoa(outcome.JoinEligibleExistingStop), strconv.Itoa(outcome.JoinEligibleAddedStopOnly))
-	}
 	row = append(row,
+		strconv.Itoa(outcome.SharedParties),
 		outcome.FocusStation,
 		floatText(outcome.WindowStartSeconds), floatText(outcome.WindowEndSeconds), floatText(outcome.ActualEndSeconds), floatText(outcome.ArrivalWindowSeconds), floatText(outcome.ArrivalEndSeconds), outcome.ScheduleID,
 		strconv.Itoa(outcome.Scheduled), strconv.Itoa(outcome.Served), strconv.Itoa(outcome.Remaining), strconv.Itoa(outcome.Skipped),

@@ -258,11 +258,10 @@ Some columns show only when you ask for what they report.
 | `wait_rule` | You give `-wait-rules`. |
 | `platoon_policy` | You give `-platoon-policies`. |
 | `sharing_mode` | Always. It gives the sharing mode of each arm. |
-| Seat screen columns | Always in JSON. In CSV, only when a `-sharing-limits` value is above 1. |
 | `interrupted`, `fault_started`, `fault_skipped`, `emergency_started`, `emergency_skipped` | The project has a fault rate or an emergency rate above 0. |
 
-The JSON report has `schema_version` 14.
-It is 15 with a pickup reassignment column, 16 with an `onboard_pickups` column, and 17 with energy estimates.
+The JSON report has `schema_version` 15.
+It is 16 with a pickup reassignment column, 17 with an `onboard_pickups` column, and 18 with energy estimates.
 
 #### Waits and journeys
 
@@ -339,26 +338,6 @@ The command examines the pods at each whole simulated second.
 Each traveling pod adds 1 second to the travel time, and each traveling pod that has a pod ahead or a pod behind in its platoon also adds 1 second to the platoon time.
 The value is the platoon time divided by the travel time, as a percentage.
 It is 0 when no pod travels, and always 0 without the `virtual` platoon policy.
-
-#### Seat screen and join census
-
-The seat screen columns follow `shared_parties`, and they show whether the parties that a boarding pod could take are more than its seats.
-A party can take a pod when the pod could add it with the rules of the sharing mode: the destination, the stop limit, and the detour cap.
-The join census columns count the parties that have a pod on its way to their origin.
-A party counts when a boarding pod at its origin could take it with a free seat at one or more dispatch passes.
-The census does not check that a new first stop has a route, so it can count a party that a pod could not take.
-These columns are 0 when the party limit is 1.
-
-| Column | Definition |
-| --- | --- |
-| `full_pod_refusals` | The parties that found a full boarding pod at their origin that could take them, and that joined no pod. Each party counts one time. |
-| `full_departures` | The boarding pods that departed with as many parties as the limit. |
-| `departure_backlog` | For each departure of a boarding pod, the waiting parties at its origin that the pod could take with a free seat. The column gives the sum over all departures. It also counts a party that has another pod on its way. |
-| `departures_demand_over_four` | The departures with more than four parties aboard plus backlog. |
-| `departures_over_four_aboard` | The departures with more than four parties aboard. It is 0 at a limit of 4 or less. |
-| `join_eligible_assigned` | The parties with a pod on its way that a boarding pod at their origin could take. Each party counts one time. |
-| `join_eligible_existing_stop` | The parties of `join_eligible_assigned` that a boarding pod could take with no new stop, because the pod already stops at their destination. In destination mode, it is equal to `join_eligible_assigned`. |
-| `join_eligible_added_stop_only` | `join_eligible_assigned` minus `join_eligible_existing_stop`. A boarding pod could take each of these parties only with a new stop. |
 
 ## Generated scenarios
 

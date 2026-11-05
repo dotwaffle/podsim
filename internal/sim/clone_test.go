@@ -235,7 +235,7 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		// the session gives the rates again.
 		"faultSampler": persistSave, "faultRate": persistSession, "emergencySampler": persistSave,
 		"finishingPodWait": persistUnsupported,
-		"requestBoardings": persistReset, "requestCompletions": persistReset, "stepCompletions": persistReset, "nodePasses": persistReset, "seatScreen": persistReset,
+		"requestBoardings": persistReset, "requestCompletions": persistReset, "stepCompletions": persistReset, "nodePasses": persistReset,
 		"recordExperiments": persistUnsupported, "pass": persistReset,
 		"platooning": persistSession, "platoonLimit": persistSession, "platoonLinks": persistDerive,
 		"platoonOrder": persistReset, "platoonAhead": persistReset,
@@ -288,8 +288,7 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 	reflect.TypeFor[RiderBoarding](): {"BerthID": persistSave, "MetersAtBoarding": persistSave},
 	reflect.TypeFor[waitingTrip](): {
 		"request": persistSave, "route": persistSave, "destination": persistReset, "deferUntil": persistSave,
-		"deferCheck": persistSave, "deferPodID": persistSave, "boarded": persistSave, "fullPodRefused": persistReset,
-		"joinEligibleAssigned": persistReset, "joinEligibleExistingStop": persistReset,
+		"deferCheck": persistSave, "deferPodID": persistSave, "boarded": persistSave,
 		// No save writes excludedPod yet. Section 11 of the incident
 		// contract adds its saved member.
 		"excludedPod": persistReset,

@@ -545,7 +545,6 @@ func (arm *armRun) result() result {
 	}
 	metrics.observe(state)
 	requests := requestTimeStats(simulation.RequestTimings(), state)
-	seats := seatScreenStats(simulation.SeatScreen())
 	peakNodePasses, peakNode := peakNodeFlow(simulation.NodePasses())
 	burstSize := 1
 	if isBurstPattern(input.pattern) {
@@ -579,10 +578,8 @@ func (arm *armRun) result() result {
 		Pattern: input.pattern, DemandProfile: input.profile, DemandBand: input.band,
 		RequestEverySeconds: requestEvery, OfferedPerMinute: float64(len(input.schedule)) / arrivalMinutes, Seed: input.seed,
 		BurstSize: burstSize, Policy: input.policy, SharedRidePartyLimit: input.sharingLimit, SharingMode: string(sharingMode),
-		SharedParties: state.SharedParties, FullPodRefusals: seats.FullPodRefusals, FullDepartures: seats.FullDepartures,
-		DepartureBacklog: seats.DepartureBacklog, DeparturesDemandOverFour: seats.demandOverFour, DeparturesOverFourAboard: seats.overFourAboard,
-		JoinEligibleAssigned: seats.JoinEligibleAssigned, JoinEligibleExistingStop: seats.JoinEligibleExistingStop, JoinEligibleAddedStopOnly: seats.addedStopOnly,
-		WaitRule: input.waitRule, PlatoonPolicy: input.platoonPolicy,
+		SharedParties: state.SharedParties,
+		WaitRule:      input.waitRule, PlatoonPolicy: input.platoonPolicy,
 		PickupReassignment:      input.pickupReassignment,
 		PickupReassignmentStats: pickupStatsForReport(simulation, input.pickupReassignment),
 		FocusStation:            input.scenario.focus,
@@ -614,35 +611,6 @@ func (arm *armRun) result() result {
 		PositioningMoveCount: state.RebalanceMoves,
 		PlatoonTimePercent:   metrics.platoon.percent(),
 	}
-}
-
-// screenSeats is the seat count that the seat screen columns compare with.
-// The screen asks whether demand exceeds the four seats of the London
-// sharing measurements.
-const screenSeats = 4
-
-// seatStats holds the seat screen counters of one arm, the departures
-// above screenSeats, and the join census parties that need a new stop.
-type seatStats struct {
-	sim.SeatScreen
-	// demandOverFour counts the departures with more than screenSeats
-	// parties aboard plus backlog, and overFourAboard the departures with
-	// more than screenSeats parties aboard.
-	demandOverFour, overFourAboard int
-	// addedStopOnly counts the parties of JoinEligibleAssigned that are
-	// not in JoinEligibleExistingStop. A boarding pod could take each of
-	// them only with a new stop.
-	addedStopOnly int
-}
-
-// seatScreenStats gives the seat screen columns of an arm.
-func seatScreenStats(screen sim.SeatScreen) seatStats {
-	stats := seatStats{SeatScreen: screen, addedStopOnly: screen.JoinEligibleAssigned - screen.JoinEligibleExistingStop}
-	for parties := screenSeats + 1; parties < len(screen.Demand); parties++ {
-		stats.demandOverFour += screen.Demand[parties]
-		stats.overFourAboard += screen.Aboard[parties]
-	}
-	return stats
 }
 
 func loadedDistancePercent(passenger, empty float64) float64 {

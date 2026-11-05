@@ -378,7 +378,7 @@ func TestEnergyRunAndReportParity(t *testing.T) {
 			if err := jsonv2.Unmarshal(on.Bytes(), &decoded, json.DefaultOptionsV1()); err != nil {
 				t.Fatal(err)
 			}
-			if decoded.SchemaVersion != 17 || len(decoded.Results) != 1 || !reflect.DeepEqual(decoded.Results[0].Energy, energy) {
+			if decoded.SchemaVersion != 18 || len(decoded.Results) != 1 || !reflect.DeepEqual(decoded.Results[0].Energy, energy) {
 				t.Fatal("energy report round trip")
 			}
 		}

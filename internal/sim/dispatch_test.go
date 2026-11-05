@@ -796,10 +796,10 @@ func TestDispatchTripStepOrder(t *testing.T) {
 // join pod 01 as an onboard pickup or pod 02 as a shared ride.
 func onboardOrSharedRide(t *testing.T) *Simulation {
 	t.Helper()
-	s := newScreenSimulation(t, gardenTwoBerths(), []Placement{
+	s := newRecordsSimulation(t, gardenTwoBerths(), []Placement{
 		{ID: "01", StationID: "harbor", BerthID: "harbor-1"},
 		{ID: "02", StationID: "garden", BerthID: "garden-2"},
-	}, 4, SharedRideDropOffs)
+	}, 4)
 	if err := s.SetOnboardPickups(true); err != nil {
 		t.Fatal(err)
 	}

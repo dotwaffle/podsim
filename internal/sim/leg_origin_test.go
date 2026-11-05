@@ -34,7 +34,7 @@ func TestLegOriginDispatch(t *testing.T) {
 			}
 			return s.SetFinishingPodWait(FinishingPodWaitNone)
 		}},
-		{name: "onboard pickups, swaps, and the seat screen", setup: func(s *Simulation) error {
+		{name: "onboard pickups and swaps", setup: func(s *Simulation) error {
 			s.SetExperimentRecords(true)
 			s.SetPickupSwaps(true)
 			if err := s.SetSharedRidePartyLimit(4); err != nil {
@@ -526,50 +526,6 @@ func TestLegOriginHoldsAndCensus(t *testing.T) {
 		s.waiting = []waitingTrip{trip}
 		if !s.keepHold(&s.waiting[0], newPass(s)) || s.waiting[0].request.DispatchReason != "Waiting for pod 01 to finish" {
 			t.Fatalf("the hold has the reason %q", s.waiting[0].request.DispatchReason)
-		}
-	})
-	t.Run("recordDeparture", func(t *testing.T) {
-		t.Parallel()
-		s := newLegFleet(t, "s0-1", "s1-1")
-		s.SetExperimentRecords(true)
-		if err := s.SetSharedRidePartyLimit(4); err != nil {
-			t.Fatal(err)
-		}
-		host := s.findVehicle("02")
-		if err := s.board(host, newTrip(s, "s1", "s2")); err != nil {
-			t.Fatal(err)
-		}
-		s.waiting = []waitingTrip{legTrip(s, "s0", "s1", "s2")}
-		s.recordDeparture(host)
-		if s.seatScreen.DepartureBacklog != 1 {
-			t.Fatalf("departure backlog %d, want the transferred party", s.seatScreen.DepartureBacklog)
-		}
-	})
-	t.Run("recordJoinEligible", func(t *testing.T) {
-		t.Parallel()
-		// The census skips a boarded trip, so this trip has a leg origin
-		// and never boarded. Pod 01 leaves p for its leg origin s1, where
-		// pod 02 boards for its destination.
-		s := newLegFleet(t, "p-1", "s1-1")
-		s.SetExperimentRecords(true)
-		if err := s.SetSharedRidePartyLimit(4); err != nil {
-			t.Fatal(err)
-		}
-		host := s.findVehicle("02")
-		if err := s.board(host, newTrip(s, "s1", "s2")); err != nil {
-			t.Fatal(err)
-		}
-		trip := legTrip(s, "s0", "s1", "s2")
-		trip.boarded = false
-		v := s.findVehicle("01")
-		if err := s.sendPickupForRequest(v, trip.request); err != nil || !releasable(v) {
-			t.Fatalf("pod 01 is not on its way: %v", err)
-		}
-		trip.request.PodID = "01"
-		s.waiting = []waitingTrip{trip}
-		s.recordJoinEligible(&s.waiting[0], v, newPass(s))
-		if s.seatScreen.JoinEligibleExistingStop != 1 {
-			t.Fatalf("join census %+v, want the trip", s.seatScreen)
 		}
 	})
 	t.Run("guardedSupply", func(t *testing.T) {

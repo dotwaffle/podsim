@@ -1,6 +1,9 @@
 package sim
 
 import (
+	"bytes"
+	"encoding/json"
+	jsonv2 "encoding/json/v2"
 	"reflect"
 	"slices"
 	"testing"
@@ -175,5 +178,89 @@ func TestNodePassesFollowRoute(t *testing.T) {
 		if pass.Node != route[index].From || pass.Node == route[len(route)-1].To {
 			t.Fatalf("pass %d = %+v, route lane %+v", index, pass, route[index])
 		}
+	}
+}
+
+// newRecordsSimulation returns a simulation of network with the pods of
+// placements, the party limit, the drop-offs mode, and the experiment
+// records on.
+func newRecordsSimulation(t *testing.T, network Network, placements []Placement, limit int) *Simulation {
+	t.Helper()
+	s, err := NewFleet(network, placements)
+	if err != nil {
+		t.Fatal(err)
+	}
+	monitorContract(t, s)
+	if err := s.SetSharedRidePartyLimit(limit); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetSharedRideMode(SharedRideDropOffs, DefaultSharedRideMaxStops); err != nil {
+		t.Fatal(err)
+	}
+	s.SetExperimentRecords(true)
+	return s
+}
+
+// TestExperimentRecordsChangeNoDecision runs the same shared demand with the
+// experiment records on and off. The snapshots must be equal at each
+// simulated second, as in the A/B check of compare.
+func TestExperimentRecordsChangeNoDecision(t *testing.T) {
+	t.Parallel()
+	skipLong(t)
+	placements := []Placement{
+		{ID: "01", StationID: "harbor", BerthID: "harbor-1"},
+		{ID: "02", StationID: "garden", BerthID: "garden-1"},
+		{ID: "03", StationID: "parking", BerthID: "parking-1"},
+	}
+	// Each burst fills a pod at harbor for market, and then a party for
+	// garden finds the pod full. The pod could add garden as a stop.
+	burst := [][2]string{
+		{"harbor", "market"}, {"harbor", "market"}, {"harbor", "market"}, {"harbor", "garden"},
+		{"garden", "market"}, {"market", "harbor"},
+	}
+	runRecordsOnAndOff(t, placements, 3, burst)
+}
+
+// runRecordsOnAndOff runs a burst of trips every 30 s for 300 s in the
+// example network in drop-offs mode, with the experiment records on and
+// off, and steps to 450 s. It fails the test when the snapshots differ at a
+// simulated second, ownership differs from the independent retention scan
+// at any tick, or the run with the records has no timing.
+func runRecordsOnAndOff(t *testing.T, placements []Placement, limit int, burst [][2]string) {
+	t.Helper()
+	on := newRecordsSimulation(t, Example(), placements, limit)
+	off := newRecordsSimulation(t, Example(), placements, limit)
+	off.SetExperimentRecords(false)
+	for tick := range 450 * TicksPerSecond {
+		if tick%(30*TicksPerSecond) == 0 && tick < 300*TicksPerSecond {
+			for _, trip := range burst {
+				for _, s := range []*Simulation{on, off} {
+					if err := submitSharedTrip(s, trip[0], trip[1]); err != nil {
+						t.Fatal(err)
+					}
+				}
+			}
+		}
+		on.Step()
+		off.Step()
+		checkIncrementalOwners(t, on)
+		checkIncrementalOwners(t, off)
+		if (tick+1)%TicksPerSecond != 0 {
+			continue
+		}
+		onState, err := jsonv2.Marshal(on.Snapshot(), json.DefaultOptionsV1())
+		if err != nil {
+			t.Fatal(err)
+		}
+		offState, err := jsonv2.Marshal(off.Snapshot(), json.DefaultOptionsV1())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(onState, offState) {
+			t.Fatalf("tick %d: the snapshots differ", tick+1)
+		}
+	}
+	if len(on.RequestTimings()) == 0 {
+		t.Fatal("the run has no request timing")
 	}
 }

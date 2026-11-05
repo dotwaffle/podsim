@@ -285,18 +285,6 @@ func (s *Simulation) canJoin(v *vehicle, request Request) bool {
 	return CheckPartyAdmissionWithOrderContract(PartyAdmissionInput{Class: v.Pod.Class, Request: request.options(), Active: active, PartyLimit: s.partyLimit(request)}, s.orderContract) == nil
 }
 
-func (s *Simulation) consentCompatible(v *vehicle, request Request) bool {
-	if request.SharingConsent != SharedConsent {
-		return false
-	}
-	for _, rider := range v.Riders {
-		if !rider.Completed && (rider.SharingConsent != SharedConsent || rider.Service != request.Service || rider.ServiceID != request.ServiceID) {
-			return false
-		}
-	}
-	return s.podFitsRequest(v, request)
-}
-
 func (s *Simulation) hasFittingPod(request Request) bool {
 	for i := range s.vehicles {
 		if s.podFitsRequest(&s.vehicles[i], request) {

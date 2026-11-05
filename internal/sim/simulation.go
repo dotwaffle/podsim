@@ -417,7 +417,6 @@ type Simulation struct {
 	// approachStations and routeStations belong to stationsOnRouteForClass.
 	approachStations map[string][]string
 	routeStations    map[stopKey][]string
-	seatScreen       SeatScreen
 	finishingPodWait FinishingPodWait
 	pickupSwaps      *pickupSwapController
 	// unaccountedOrders counts the orders that the simulation submitted but
@@ -581,7 +580,6 @@ func (s *Simulation) Reset() {
 	s.positioning, s.demandRate, s.demandWeights = PositioningOff, 0, nil
 	s.nextRedistributionTick = 0
 	s.passengerDistanceMeters, s.emptyDistanceMeters, s.rebalanceMoves, s.sharedParties = 0, 0, 0, 0
-	s.seatScreen = SeatScreen{}
 	s.requestBoardings, s.requestCompletions, s.nodePasses = nil, nil, nil
 	s.stepCompletions = nil
 	if s.pickupSwaps != nil {
@@ -875,9 +873,6 @@ func (s *Simulation) Step() {
 	for i := range s.vehicles {
 		v := &s.vehicles[i]
 		if departs(v.Pod.Activity) && v.phaseTicks == 0 && v.reservedThrough >= 0 && !v.faulted {
-			if v.Pod.Activity == Boarding && s.screensSeats() {
-				s.recordDeparture(v)
-			}
 			v.Pod.Occupied = v.Pod.Activity == Boarding || v.Pod.Activity == Continuing
 			v.Pod.Activity = Traveling
 			v.Pod.StationID, v.Pod.BerthID = "", ""

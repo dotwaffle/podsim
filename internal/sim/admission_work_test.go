@@ -350,9 +350,6 @@ func (s *Simulation) stepBeforeAdmissionWork() {
 	for i := range s.vehicles {
 		v := &s.vehicles[i]
 		if departs(v.Pod.Activity) && v.phaseTicks == 0 && v.reservedThrough >= 0 {
-			if v.Pod.Activity == Boarding && s.screensSeats() {
-				s.recordDeparture(v)
-			}
 			v.Pod.Occupied = v.Pod.Activity == Boarding || v.Pod.Activity == Continuing
 			v.Pod.Activity = Traveling
 			v.Pod.StationID, v.Pod.BerthID = "", ""

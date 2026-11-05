@@ -610,6 +610,7 @@ Thus the older files do not have the columns that version 6 adds, such as `wait_
 The platoon A/B file has the columns of version 6, and the `platoon_policy` and `coupled_time_percent` columns that version 9 adds.
 The platoon capacity file comes from version 9, so it also has the rider columns of version 8.
 The seat screen files come from version 10, so they also have the seat screen columns.
+The seat screen columns were removed on November 5, 2026.
 See [report columns](../reference.md#report-columns) for the definitions.
 
 At the limit rate, every seed has all 114 pods with work at the same time in AM peak, Interpeak, PM peak, Evening, and Late.
@@ -1511,7 +1512,7 @@ It has no physical model of a larger pod.
 Each pod keeps its 4 m body, its acceleration, and its dwell, so the 8-seat arms give an optimistic gain.
 Both arms use the drop-offs mode with the stop limit of 3 and the detour cap of 1.5.
 The arms are Early, Night, and AM peak in London, and the rail-hub schedule.
-See [report columns](../reference.md#report-columns) for the seat screen columns.
+The seat screen code and its report columns were removed on November 5, 2026.
 
 The 4-seat and 8-seat arms have equal 60-minute limits: 15/min in Early, which is the highest tested rate, 11/min in Night, and 14/min in AM peak.
 The 4-seat arms refuse a fifth party for 3.70% of the served requests in Early and 2.82% in rail-hub.

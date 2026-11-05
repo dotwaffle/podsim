@@ -219,7 +219,7 @@ func TestComparisonConsentCLIProvenance(t *testing.T) {
 						want sim.SharingConsent
 					}{{baseline.Bytes(), sim.PrivateConsent}, {output.Bytes(), sim.SharingConsent(consent)}} {
 						var decoded report
-						if err := jsonv2.Unmarshal(source.data, &decoded, json.DefaultOptionsV1()); err != nil || decoded.SchemaVersion != 14 || len(decoded.Results) != 1 || decoded.Results[0].SharingConsent != source.want || !bytes.Contains(source.data, []byte(`"sharing_consent"`)) {
+						if err := jsonv2.Unmarshal(source.data, &decoded, json.DefaultOptionsV1()); err != nil || decoded.SchemaVersion != 15 || len(decoded.Results) != 1 || decoded.Results[0].SharingConsent != source.want || !bytes.Contains(source.data, []byte(`"sharing_consent"`)) {
 							t.Fatalf("missing effective JSON consent: %s", source.data)
 						}
 					}

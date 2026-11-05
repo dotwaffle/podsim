@@ -38,7 +38,7 @@ type NodePass struct {
 	Node string `json:"node"`
 }
 
-// SetExperimentRecords controls RequestTimings, NodePasses, and SeatScreen.
+// SetExperimentRecords controls RequestTimings and NodePasses.
 // They are off by default, so a long server session
 // does not keep a record for each request and each lane. The records do not
 // change the simulation. Turning them off clears them.
@@ -46,13 +46,6 @@ func (s *Simulation) SetExperimentRecords(enabled bool) {
 	s.recordExperiments = enabled
 	if !enabled {
 		s.requestBoardings, s.requestCompletions, s.nodePasses = nil, nil, nil
-		s.seatScreen = SeatScreen{}
-		// The census flags of the waiting trips go with the counters, so
-		// each set flag is a count in SeatScreen.
-		for index := range s.waiting {
-			trip := &s.waiting[index]
-			trip.fullPodRefused, trip.joinEligibleAssigned, trip.joinEligibleExistingStop = false, false, false
-		}
 	}
 }
 
