@@ -543,6 +543,12 @@ With no balance, a machine that reaches its quota does not run for the rest of t
 A LondonFull GC cycle uses about 30 to 100 ms of CPU, and a publication about 3 ms, so a machine near its quota with no balance can stall for several periods.
 
 On 2026-11-05, 10 publications each second landed with a motion delay of 250 ms: from `6253d52`, two runs of LondonFull at 1x with one client, `GOMAXPROCS=2`, and the warm-up above read 12.1 and 11.3 percent of a core before and 7.5 and 7.5 after, at a load average of 26 to 39, so not from a quiet host.
+Update, 2026-11-05: the three parts of `memo` are now commits `ed8a244`, `3259505`, and `f833226`, and these readings repeat the method of this section with 3 runs of each arm in turn.
+LondonFull reads 8.0 percent of a core (7.5 to 8.3) against 11.3 (9.6 to 12.2) at `db019c6`, and rail-hub reads 5.0 (4.9 to 5.1) against 6.7 (6.5 to 6.8).
+On LondonFull, the snapshot goes from 2.83 to 1.02, the delta comparison from 1.72 to 0.40, the JSON of the groups from 0.86 to 0.42, and GC from 1.12 to 0.84.
+On rail-hub, the JSON of the groups goes from 2.73 to 1.29, and GC from 1.14 to 0.72.
+These readings ran at 20 publications a second, before `addde1b`, and they are not from a quiet host: a soak ran, and the one-minute load average was from 10 to 40.
+In 12,000 captures of each project, no route window moved, and fewer than 3 windows in 10,000 were built again, so the lanes of a route have no second cache.
 
 ## 5. Effort, risks, and recommendation
 
