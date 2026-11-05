@@ -9,7 +9,7 @@ The code of the congestion, queue, and predictive routing policies was removed o
 
 - The soak of amendment A6 ran and failed.
   The Progress row missed on both presets.
-  Each failure of the Persistence row was a false alarm of the check, and a rerun is open.
+  Each failure of the Persistence row was a false alarm of the check, and the rerun of the next section had none.
   The section "Soak of amendment A6" has the numbers.
 - The Performance row for suspension, the Suspension median, is open.
   It has no quiet-host reading.
@@ -113,6 +113,25 @@ With the correction, `platoons` seed 2 and `emergencies` seed 5 pass all 6 rewin
 The `emergencies` arm of a seed runs after `incidents`, so the failure of `incidents` at seed 2 also stopped `emergencies` at seed 2.
 
 `london-central` with faults ran at 219 to 239 ticks a second of wall time, against 2,148 to 2,262 for its reference.
+
+## Rerun of the soak at `083a487`
+
+The rerun used the corrected check, on the code of `083a487`, with the same size and limit.
+Rail-hub ran each arm, and `london-central` ran `emergencies` with its reference.
+The load average was 30 to 45, because other work ran at the same time, and the limit of 2 hours stopped rail-hub.
+
+| Preset and arm | Runs finished | Rewinds | Late emergencies |
+| --- | ---: | --- | ---: |
+| `london-central` `emergencies` | 5 of 5 | 30 of 30 replay | 0 of 454 |
+| `rail-hub` `emergencies` | 3 of 5 (seeds 1, 4, 5) | 18 of 18 replay | 0 of 275 |
+| `rail-hub` `incidents` | 4 of 5 (seeds 1, 3, 4, 5) | 24 of 24 replay | 50 of 335 |
+| `rail-hub` `platoons` | 3 of 5 (seeds 2, 3, 4) | 18 of 18 replay | 32 of 268 |
+
+The longest emergency on `london-central` `emergencies` is 3.4 simulated minutes.
+The log shows no report from the Safety, Contract, Conservation, or Rail rows in any run.
+Each arm and seed that finished in both runs has the same completed count, so `internal/sim` changes between `cbbdb18` and `083a487` did not change these runs.
+Seeds 1 and 5 of `platoons` finished in the first run.
+Seeds 2 and 3 of `emergencies`, and seed 2 of `incidents`, are the rail-hub runs with no reading after the rewind correction: seed 3 of `emergencies` finished only in the first run, and the other two have no finished run.
 
 ## Attribution of the late emergencies
 
