@@ -532,24 +532,38 @@ func checkPodStops(pod SavedPod, rule phaseRule, active, history []SavedRequest)
 // call CheckContract to check a run. It also checks the fault records and
 // the emergency records, which the saved form does not have yet.
 func (s *Simulation) CheckContract() error {
+	if err := s.checkIncidentRecords(); err != nil {
+		return err
+	}
+	_, err := s.checkedExport()
+	return err
+}
+
+// checkIncidentRecords checks the fault records and the emergency records.
+func (s *Simulation) checkIncidentRecords() error {
 	if err := s.checkFaults(); err != nil {
 		return err
 	}
-	if err := s.checkEmergencies(); err != nil {
-		return err
-	}
+	return s.checkEmergencies()
+}
+
+// checkedExport returns the saved state of s after it checks that state. It
+// also compares the unaccounted orders of the state with those of s. So it
+// proves RequestID = Completed + Interrupted + queued + aboard only when s has
+// no unaccounted order.
+func (s *Simulation) checkedExport() (SavedState, error) {
 	state := s.ExportState()
 	unaccounted, err := state.checkContract(s.network)
 	if err != nil {
-		return err
+		return state, err
 	}
 	if err := checkOperationalStations(s.network, state.Pods); err != nil {
-		return err
+		return state, err
 	}
 	if unaccounted != s.unaccountedOrders {
-		return fmt.Errorf("the state has %d unaccounted orders, want %d", unaccounted, s.unaccountedOrders)
+		return state, fmt.Errorf("the state has %d unaccounted orders, want %d", unaccounted, s.unaccountedOrders)
 	}
-	return nil
+	return state, nil
 }
 
 // observe runs the monitor of a simulation.

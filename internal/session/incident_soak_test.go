@@ -242,7 +242,11 @@ func (d *soakDriver) check() {
 		return
 	}
 	simulation := d.s.simulation
-	if err := simulation.CheckContract(); err != nil {
+	if err := simulation.CheckIncidentRecordsForTest(); err != nil {
+		d.failf("the contract: %v", err)
+	}
+	state, err := simulation.CheckedExportForTest()
+	if err != nil {
 		d.failf("the contract: %v", err)
 	}
 	if err := d.transition(); err != nil {
@@ -251,7 +255,15 @@ func (d *soakDriver) check() {
 	if _, err := simulation.SafetyObservation().Check(); err != nil {
 		d.failf("the safety observation: %v", err)
 	}
-	state := simulation.ExportState()
+	if err := soakOrderBalance(state); err != nil {
+		d.failf("%v", err)
+	}
+}
+
+// soakOrderBalance is the Conservation row. CheckedExportForTest does not prove
+// it: that check compares the unaccounted orders of the state with the count
+// of the simulation, and a restore that drops orders makes that count above 0.
+func soakOrderBalance(state sim.SavedState) error {
 	queued, aboard := len(state.Waiting), 0
 	for index := range state.Pods {
 		for rider := range state.Pods[index].Riders {
@@ -261,8 +273,9 @@ func (d *soakDriver) check() {
 		}
 	}
 	if state.RequestID != state.Completed+state.Interrupted+queued+aboard {
-		d.failf("the order balance: %d orders, %d completed, %d interrupted, %d queued, %d aboard", state.RequestID, state.Completed, state.Interrupted, queued, aboard)
+		return fmt.Errorf("the order balance: %d orders, %d completed, %d interrupted, %d queued, %d aboard", state.RequestID, state.Completed, state.Interrupted, queued, aboard)
 	}
+	return nil
 }
 
 // apply sends a command that the driver chose at random. A refusal changes
@@ -833,6 +846,41 @@ func TestIncidentSoakDriver(t *testing.T) {
 	state := d.s.simulation.Snapshot()
 	if len(state.Faults.Active) != 0 || state.Faults.Counters.Started == 0 {
 		t.Fatalf("the faults are %+v", state.Faults)
+	}
+}
+
+// TestSoakOrderBalance checks each term of the Conservation row on a state that
+// balances, and on states that do not.
+func TestSoakOrderBalance(t *testing.T) {
+	t.Parallel()
+	balanced := func() sim.SavedState {
+		return sim.SavedState{RequestID: 7, Completed: 2, Interrupted: 1, Waiting: make([]sim.SavedTrip, 1), Pods: []sim.SavedPod{
+			{Riders: []sim.SavedRequest{{Completed: true}, {}, {}}},
+			{Riders: []sim.SavedRequest{{}}},
+		}}
+	}
+	tests := []struct {
+		name string
+		edit func(*sim.SavedState)
+		ok   bool
+	}{
+		{name: "balanced", edit: func(*sim.SavedState) {}, ok: true},
+		{name: "an order too many", edit: func(s *sim.SavedState) { s.RequestID++ }},
+		{name: "a completed order lost", edit: func(s *sim.SavedState) { s.Completed-- }},
+		{name: "an interrupted order lost", edit: func(s *sim.SavedState) { s.Interrupted-- }},
+		{name: "a queued order lost", edit: func(s *sim.SavedState) { s.Waiting = nil }},
+		{name: "a rider lost", edit: func(s *sim.SavedState) { s.Pods[1].Riders = nil }},
+		{name: "a completed rider counts as aboard", edit: func(s *sim.SavedState) { s.Pods[0].Riders[0].Completed = false }},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			state := balanced()
+			test.edit(&state)
+			if err := soakOrderBalance(state); (err == nil) != test.ok {
+				t.Fatalf("the check gives %v, want ok %t", err, test.ok)
+			}
+		})
 	}
 }
 

@@ -82,6 +82,25 @@ func (s *Simulation) StopIncidentSamplersForTest() {
 	}
 }
 
+// CheckIncidentRecordsForTest runs the part of CheckContract that reads no
+// export: the fault records and the emergency records.
+//
+// It is a test entry for the soak of section 5.1.9 of the incident stage 7
+// contract. No production code calls it.
+func (s *Simulation) CheckIncidentRecordsForTest() error {
+	return s.checkIncidentRecords()
+}
+
+// CheckedExportForTest runs the part of CheckContract that checks the saved
+// state, and it returns that state, so the soak can read it with no second
+// export.
+//
+// It is a test entry for the soak of section 5.1.9 of the incident stage 7
+// contract. No production code calls it.
+func (s *Simulation) CheckedExportForTest() (SavedState, error) {
+	return s.checkedExport()
+}
+
 // BoardingLegBlockedForTest reports whether idle pod podID has a waiting trip
 // whose leg route fails now and succeeds with an empty blocked set. It
 // searches on a clone, so it changes no state, memo, counter, or route cache
