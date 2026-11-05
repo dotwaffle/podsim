@@ -90,6 +90,7 @@ type Metrics struct {
 	AverageWaitSeconds      float64
 	MaximumWaitSeconds      float64
 	Checkpoints             int
+	Incidents               IncidentMetrics
 
 	// StateConfigured is true when the session has a state store. The other
 	// state fields are zero without a state store.
@@ -107,6 +108,22 @@ type Metrics struct {
 	// revision. Otherwise it is the time since the last good save, or since
 	// the start when no save succeeded.
 	StateUnsavedSeconds float64
+}
+
+// IncidentMetrics contains the incident numbers of one session. FaultStarted
+// and EmergencyStarted count manual and sampled records. The other counters
+// stay 0 with no live sampler of their kind.
+type IncidentMetrics struct {
+	FaultActive       int
+	FaultStarted      int64
+	FaultSampled      int64
+	FaultSkipped      int64
+	DelayedRiderTicks int64
+
+	EmergencyActive  int
+	EmergencyStarted int64
+	EmergencySampled int64
+	EmergencySkipped int64
 }
 
 // Command describes an explicit mutation with a per-client sequence for safe retries.
@@ -483,6 +500,17 @@ func (s *Session) Metrics() Metrics {
 		AverageWaitSeconds:      state.Wait.AverageSeconds,
 		MaximumWaitSeconds:      state.Wait.MaxSeconds,
 		Checkpoints:             len(observation.Checkpoints),
+		Incidents: IncidentMetrics{
+			FaultActive:       len(state.Faults.Active),
+			FaultStarted:      state.Faults.Counters.Started,
+			FaultSampled:      state.Faults.Counters.Sampled,
+			FaultSkipped:      state.Faults.Counters.Skipped,
+			DelayedRiderTicks: state.Faults.Counters.DelayedRiderTicks,
+			EmergencyActive:   len(state.Emergencies.Active),
+			EmergencyStarted:  state.Emergencies.Counters.Started,
+			EmergencySampled:  state.Emergencies.Counters.Sampled,
+			EmergencySkipped:  state.Emergencies.Counters.Skipped,
+		},
 	}
 	metrics.ActiveVehicles = state.WorkingVehicles()
 	for _, vehicle := range state.Vehicles {

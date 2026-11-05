@@ -108,6 +108,51 @@ func TestSessionMetricsReportInterruptedOrders(t *testing.T) {
 	}
 }
 
+// TestSessionMetricsReportIncidents checks that each incident gauge of the
+// incident stage 7 contract reports its own value.
+func TestSessionMetricsReportIncidents(t *testing.T) {
+	t.Parallel()
+	reader := sdkmetric.NewManualReader()
+	meter := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader)).Meter(instrumentationName)
+	snapshot := func() session.Metrics {
+		return session.Metrics{Incidents: session.IncidentMetrics{
+			FaultActive: 1, FaultStarted: 2, FaultSampled: 3, FaultSkipped: 4, DelayedRiderTicks: 5,
+			EmergencyActive: 6, EmergencyStarted: 7, EmergencySampled: 8, EmergencySkipped: 9,
+		}}
+	}
+	if _, err := registerSessionMetrics(meter, snapshot); err != nil {
+		t.Fatal(err)
+	}
+	var collected metricdata.ResourceMetrics
+	if err := reader.Collect(t.Context(), &collected); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []struct {
+		name, unit string
+		value      int64
+	}{
+		{"podsim.incident.fault.active", "{fault}", 1},
+		{"podsim.incident.fault.started", "{fault}", 2},
+		{"podsim.incident.fault.sampled", "{event}", 3},
+		{"podsim.incident.fault.skipped", "{event}", 4},
+		{"podsim.incident.fault.delayed_rider_ticks", "{tick}", 5},
+		{"podsim.incident.emergency.active", "{emergency}", 6},
+		{"podsim.incident.emergency.started", "{emergency}", 7},
+		{"podsim.incident.emergency.sampled", "{event}", 8},
+		{"podsim.incident.emergency.skipped", "{event}", 9},
+	} {
+		got, ok := findMetric(collected, want.name)
+		if !ok {
+			t.Errorf("%s is missing", want.name)
+			continue
+		}
+		gauge, ok := got.Data.(metricdata.Gauge[int64])
+		if !ok || got.Unit != want.unit || len(gauge.DataPoints) != 1 || gauge.DataPoints[0].Value != want.value {
+			t.Errorf("%s = %+v, want one %d %s gauge point", want.name, got, want.value, want.unit)
+		}
+	}
+}
+
 func TestSessionMetricsReportStateSaves(t *testing.T) {
 	t.Parallel()
 	// saving returns the metrics of a session that saves its state.

@@ -152,6 +152,7 @@ type sessionInstruments struct {
 	tick, submitted, completed, pending, interrupted           metric.Int64ObservableGauge
 	vehicles, activeVehicles, passengerVehicles, stoppedPods   metric.Int64ObservableGauge
 	checkpoints                                                metric.Int64ObservableGauge
+	incidents                                                  map[string]metric.Int64ObservableGauge
 	passengerDistance, emptyDistance, averageWait, maximumWait metric.Float64ObservableGauge
 	state                                                      stateInstruments
 }
@@ -187,6 +188,9 @@ func registerSessionMetrics(meter metric.Meter, snapshot func() session.Metrics)
 		observer.ObserveFloat64(instruments.averageWait, state.AverageWaitSeconds)
 		observer.ObserveFloat64(instruments.maximumWait, state.MaximumWaitSeconds)
 		observer.ObserveInt64(instruments.checkpoints, int64(state.Checkpoints))
+		for _, series := range incidentSeries(state.Incidents) {
+			observer.ObserveInt64(instruments.incidents[series.name], series.value)
+		}
 		// The state series exist only when the session has a state store.
 		if state.StateConfigured {
 			instruments.state.observe(observer, state)
@@ -273,6 +277,12 @@ func newSessionInstruments(meter metric.Meter) (sessionInstruments, error) {
 		metric.WithDescription("Save points that the session keeps in memory.")); err != nil {
 		return instruments, fmt.Errorf("create retained checkpoint metric: %w", err)
 	}
+	instruments.incidents = map[string]metric.Int64ObservableGauge{}
+	for _, series := range incidentSeries(session.IncidentMetrics{}) {
+		if instruments.incidents[series.name], err = meter.Int64ObservableGauge(series.name, metric.WithUnit(series.unit)); err != nil {
+			return instruments, fmt.Errorf("create incident metric: %w", err)
+		}
+	}
 	if instruments.state, err = newStateInstruments(meter); err != nil {
 		return instruments, err
 	}
@@ -312,7 +322,32 @@ func (i sessionInstruments) observables() []metric.Observable {
 	for _, instrument := range i.stream {
 		all = append(all, instrument)
 	}
+	for _, instrument := range i.incidents {
+		all = append(all, instrument)
+	}
 	return all
+}
+
+// incidentGauge is one incident series and its value.
+type incidentGauge struct {
+	name, unit string
+	value      int64
+}
+
+// incidentSeries returns the incident series of m (incident stage 7 contract,
+// section 5.5).
+func incidentSeries(m session.IncidentMetrics) []incidentGauge {
+	return []incidentGauge{
+		{"podsim.incident.fault.active", "{fault}", int64(m.FaultActive)},
+		{"podsim.incident.fault.started", "{fault}", m.FaultStarted},
+		{"podsim.incident.fault.sampled", "{event}", m.FaultSampled},
+		{"podsim.incident.fault.skipped", "{event}", m.FaultSkipped},
+		{"podsim.incident.fault.delayed_rider_ticks", "{tick}", m.DelayedRiderTicks},
+		{"podsim.incident.emergency.active", "{emergency}", int64(m.EmergencyActive)},
+		{"podsim.incident.emergency.started", "{emergency}", m.EmergencyStarted},
+		{"podsim.incident.emergency.sampled", "{event}", m.EmergencySampled},
+		{"podsim.incident.emergency.skipped", "{event}", m.EmergencySkipped},
+	}
 }
 
 func streamMetricValues(s session.StreamMetrics) map[string]int64 {

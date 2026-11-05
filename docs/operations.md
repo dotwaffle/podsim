@@ -553,7 +553,7 @@ Faults stay off after the demo until a reset or a project apply.
 A restore of the demo fleet also keeps faults off.
 
 The fault counters are in the `faults` member of the frames and the saved state.
-They are not OpenTelemetry metrics.
+The [incident gauges](#opentelemetry) report some of them.
 
 ## Emergencies
 
@@ -596,7 +596,7 @@ Emergencies stay off after the demo until a reset or a project apply.
 A restore of the demo fleet also keeps emergencies off.
 
 The emergency counters are in the `emergencies` member of the frames and the saved state.
-They are not OpenTelemetry metrics.
+The [incident gauges](#opentelemetry) report some of them.
 An order that an emergency unload interrupts counts in `podsim.orders.interrupted`.
 
 ## Memory limit
@@ -687,8 +687,14 @@ The second reports the single compressed encoding waiting for admission.
 
 `podsim.checkpoint.retained` is the number of save points in memory.
 Compare it with the runtime memory metrics to see the memory that save points use.
-A reset, a demo, a project apply, or a rewind can decrease `podsim.simulation.tick`, `podsim.journey.submitted`, `podsim.journey.completed`, `podsim.orders.interrupted`, `podsim.travel.passenger.distance`, and `podsim.travel.empty.distance`.
+A reset, a demo, a project apply, or a rewind can decrease `podsim.simulation.tick`, `podsim.journey.submitted`, `podsim.journey.completed`, `podsim.orders.interrupted`, `podsim.travel.passenger.distance`, `podsim.travel.empty.distance`, and the `podsim.incident.*` gauges.
 These metrics are gauges, not counters, so do not use `rate()` on them.
+
+The `podsim.incident.fault.*` and `podsim.incident.emergency.*` gauges report incidents.
+`active` is the number of active records, and `started` counts the sampled and manual records.
+`sampled` counts the sampler events that came due, and `skipped` counts those with no start.
+`podsim.incident.fault.delayed_rider_ticks` is the sum over ticks of the active riders aboard healthy pods with an incident wait.
+`sampled`, `skipped`, and `delayed_rider_ticks` stay 0 while no sampler of their kind is live, so a manual fault at a rate of 0 moves only `active` and `started`.
 
 With `-state`, the server also reports the saves of the session state.
 Without `-state`, these metrics do not exist.

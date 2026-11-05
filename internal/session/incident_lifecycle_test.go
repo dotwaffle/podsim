@@ -476,6 +476,52 @@ func TestSamplerDemoPhysical(t *testing.T) {
 	checkFirstMembers(t, again, config, 0)
 }
 
+// TestMetricsReportIncidents checks that each incident metric reads its own
+// saved counter, and the active records.
+func TestMetricsReportIncidents(t *testing.T) {
+	t.Parallel()
+	s := rateSession(t, rateProject(60, 60))
+	client := newTestClient(s, "metrics")
+	client.mustApply(t, Command{Action: "fault", PodID: "01", DurationSeconds: new(int64(600))})
+	file := sessionStateFile(t, s)
+	file.Simulation.Faults.Counters = sim.FaultCounters{Started: 11, Cleared: 10, Sampled: 12, Skipped: 3, ClearedTicks: 600, DelayedRiderTicks: 13}
+	file.Simulation.Emergencies.Counters = sim.EmergencyCounters{Started: 21, Ended: 21, Sampled: 22, Skipped: 1, EndedTicks: 600, MaxTicks: 60}
+	restored := restoredRateSession(t, file, 0, sim.RestorePhysical)
+	want := IncidentMetrics{
+		FaultActive: 1, FaultStarted: 11, FaultSampled: 12, FaultSkipped: 3, DelayedRiderTicks: 13,
+		EmergencyStarted: 21, EmergencySampled: 22, EmergencySkipped: 1,
+	}
+	if got := restored.Metrics().Incidents; got != want {
+		t.Errorf("incident metrics = %+v, want %+v", got, want)
+	}
+}
+
+// TestMetricsOfManualIncidentsWithNoSampler checks decision 14 of the incident
+// stage 7 contract: with no live sampler, a manual fault and a manual
+// emergency move only the active and the started numbers.
+func TestMetricsOfManualIncidentsWithNoSampler(t *testing.T) {
+	t.Parallel()
+	s := rateSession(t, rateProject(0, 0))
+	client := newTestClient(s, "metrics")
+	client.mustApply(t, Command{Action: "trip", Origin: "harbor", Destination: "market"})
+	for !s.State().Simulation.Vehicles[0].Pod.Occupied {
+		s.advance()
+	}
+	client.mustApply(t, Command{Action: "emergency", PodID: s.State().Simulation.Vehicles[0].Pod.ID})
+	client.mustApply(t, debrisCommand())
+	if got := s.Metrics().Incidents; got.FaultActive != 1 || got.EmergencyActive != 1 {
+		t.Fatalf("incident metrics = %+v, want one active of each kind", got)
+	}
+	advanceTicks(s, 600)
+	got := s.Metrics().Incidents
+	if got.FaultStarted != 1 || got.EmergencyStarted != 1 {
+		t.Fatalf("incident metrics = %+v, want one started of each kind", got)
+	}
+	if got.FaultSampled != 0 || got.FaultSkipped != 0 || got.DelayedRiderTicks != 0 || got.EmergencySampled != 0 || got.EmergencySkipped != 0 {
+		t.Errorf("incident metrics = %+v, want no sampler numbers", got)
+	}
+}
+
 // TestSamplerExpressSmoke runs both rates on the Express order contract, which
 // has no byte proof, then saves and restores.
 func TestSamplerExpressSmoke(t *testing.T) {
