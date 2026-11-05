@@ -371,6 +371,7 @@ func (d *soakDriver) step() {
 // no command, and a rewind must replay the window exactly.
 func (d *soakDriver) checkRewind() {
 	d.t.Helper()
+	generation, serial := d.s.generation, d.s.simulation.ExportState().IncidentSerial
 	id := d.client.mustApply(d.t, Command{Action: "checkpoint"}).Checkpoint
 	for range soakReplayTicks {
 		d.step()
@@ -382,10 +383,32 @@ func (d *soakDriver) checkRewind() {
 	for range soakReplayTicks {
 		d.step()
 	}
+	soakRenewGeneration(&want, serial, generation, d.s.generation)
 	if got := d.s.simulation.ExportState(); !reflect.DeepEqual(got, want) {
 		d.failf("the rewind does not replay")
 	}
 	d.result.rewinds++
+}
+
+// soakRenewGeneration gives a record of the window, with a serial above serial,
+// the generation of the replay. A rewind starts a new generation, and that
+// changes only the IDs of the records that the replay makes. A record from
+// before the save point keeps its generation, and the comparison checks it.
+func soakRenewGeneration(state *sim.SavedState, serial, from, to uint64) {
+	if state.Faults != nil {
+		for index := range state.Faults.Records {
+			if record := &state.Faults.Records[index]; record.Serial > serial && record.Generation == from {
+				record.Generation = to
+			}
+		}
+	}
+	if state.Emergencies != nil {
+		for index := range state.Emergencies.Records {
+			if record := &state.Emergencies.Records[index]; record.Serial > serial && record.Generation == from {
+				record.Generation = to
+			}
+		}
+	}
 }
 
 // watchEmergencies is the Progress gate of the emergency contract. It reads
@@ -701,6 +724,48 @@ func TestIncidentSoakDriver(t *testing.T) {
 	state := d.s.simulation.Snapshot()
 	if len(state.Faults.Active) != 0 || state.Faults.Counters.Started == 0 {
 		t.Fatalf("the faults are %+v", state.Faults)
+	}
+}
+
+// TestIncidentSoakRewindOverRecord runs the rewind check over a window in which
+// a sampler makes a record. The replay gives the record a new generation, and
+// the check must accept only that difference. A command fault from before the
+// save point must keep its generation.
+func TestIncidentSoakRewindOverRecord(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+		seed uint64
+		next func(sim.SavedState) int64
+		// records returns the number of records of the sampler of the case.
+		records func(sim.SavedState) int
+	}{
+		{"fault", 2, func(state sim.SavedState) int64 { return *state.Faults.NextTick }, func(state sim.SavedState) int { return len(state.Faults.Records) }},
+		{"emergency", 6, func(state sim.SavedState) int64 { return *state.Emergencies.NextTick }, func(state sim.SavedState) int { return len(state.Emergencies.Records) }},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			d := newSoakDriver(t, soakInput{preset: "rail-hub", arm: soakArms["ci"], seed: test.seed})
+			next := test.next(d.s.simulation.ExportState())
+			for d.s.simulation.Tick() < next-soakReplayTicks/2 {
+				d.s.advance()
+			}
+			d.client.mustApply(t, Command{Action: "fault", PodID: d.config.Fleet[0].ID})
+			start := d.s.simulation.ExportState()
+			faults, generation := len(start.Faults.Records), d.s.generation
+			d.checkRewind()
+			state := d.s.simulation.ExportState()
+			if before, after := test.records(start), test.records(state); after <= before {
+				t.Fatalf("the window has no new record: %d records, then %d", before, after)
+			}
+			if got := state.Faults.Records[faults-1].Generation; got != generation {
+				t.Fatalf("the command fault has generation %d, want %d", got, generation)
+			}
+			if d.s.generation != generation+1 {
+				t.Fatalf("the generation is %d, want %d", d.s.generation, generation+1)
+			}
+		})
 	}
 }
 
