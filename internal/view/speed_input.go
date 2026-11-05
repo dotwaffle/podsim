@@ -19,7 +19,7 @@ func (g *Game) rightClick(point sim.Point) {
 
 // previousSpeed steps backward through the playback choices and wraps.
 func previousSpeed(speed int) int {
-	for _, previous := range [...]int{60, 15, 5, 2, 1} {
+	for _, previous := range [...]int{60, 30, 15, 5, 2, 1} {
 		if previous < speed {
 			return previous
 		}

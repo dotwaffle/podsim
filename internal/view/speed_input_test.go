@@ -9,7 +9,7 @@ import (
 
 func TestPreviousSpeed(t *testing.T) {
 	t.Parallel()
-	for _, test := range []struct{ speed, want int }{{1, 60}, {2, 1}, {4, 2}, {5, 2}, {8, 5}, {15, 5}, {60, 15}} {
+	for _, test := range []struct{ speed, want int }{{1, 60}, {2, 1}, {4, 2}, {5, 2}, {8, 5}, {15, 5}, {30, 15}, {60, 30}} {
 		t.Run(strconv.Itoa(test.speed), func(t *testing.T) {
 			t.Parallel()
 			if got := previousSpeed(test.speed); got != test.want {
@@ -17,7 +17,7 @@ func TestPreviousSpeed(t *testing.T) {
 			}
 		})
 	}
-	for _, speed := range []int{1, 2, 5, 15, 60} {
+	for _, speed := range []int{1, 2, 5, 15, 30, 60} {
 		if previousSpeed(session.NextSpeed(speed)) != speed {
 			t.Fatalf("forward/backward choices differ at %d", speed)
 		}

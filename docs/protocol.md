@@ -75,7 +75,7 @@ The live clock releases its session lock after eight steps or four milliseconds,
 A single simulation step is indivisible and can exceed that time budget.
 The server measures completed steps in five rolling one-second buckets.
 After five complete buckets, it reduces speed if at least two achieved less than 90% of the selected speed.
-It selects the next lower value from 1, 2, 5, 15, and 60.
+It selects the next lower value from 1, 2, 5, 15, 30, and 60.
 It never reduces below 1x or increases speed automatically.
 Each measurement window starts fresh after a reduction, pause, speed command, reset, demo, project apply, or rewind.
 Missed timer wakes accumulate at most 250 milliseconds of wall-time debt.
@@ -88,7 +88,7 @@ The sequence increases for each automatic reduction in one server process.
 The stream controls group includes the same value as `speedReduction`.
 Clients show a notice for a new sequence from the same server process and epoch.
 The reduction record and wall-clock measurements are not saved or restored.
-A saved playback speed must be 1, 2, 5, 15, or 60.
+A saved playback speed must be 1, 2, 5, 15, 30, or 60.
 A restore rejects any other speed, including 4 and 8.
 
 ## Shared state stream
@@ -327,7 +327,7 @@ The other members depend on the action:
 | --- | --- | --- |
 | `trip` | `origin`, `destination`: station IDs. Optional `partySize`: 1 to 8, or 1 to 20 with Express. Optional `sharingConsent`: `private` or `shared`. Optional `service`: `on-demand`, or `express` with shared consent and a `serviceID`. `orderContract`: must equal the order marker of the project, so it is required with Express, absent otherwise, and refused on other actions | Adds an order. The stations must be different, connected passenger stations. The server rejects the order during the demo or when the queue holds 200 orders. |
 | `pause` | `paused`: boolean | `true` pauses the session. `false` or an absent member resumes it. |
-| `speed` | `speed`: 1, 2, 5, 15, or 60. Other values, including 4 and 8, get an error. | Sets the playback speed and starts a new overload measurement window. |
+| `speed` | `speed`: 1, 2, 5, 15, 30, or 60. Other values, including 4 and 8, get an error. | Sets the playback speed and starts a new overload measurement window. |
 | `reset` | None | Restores the project fleet and demand settings, and clears the orders. It sets the speed to 1 and keeps the pause state. |
 | `demo` | None | Resets the run, starts the traffic demo, disables automatic demand, and sets the speed to 1. It needs the unchanged example network and fleet. |
 | `demand` | `demand`: the `demand` object of a project | Replaces the demand settings of the project and increases the project revision. The server rejects it during the demo. |

@@ -579,8 +579,8 @@ func TestNewFromStoreRejects(t *testing.T) {
 		}), reason: reasonRestoreLoop},
 		{name: "speed 3", data: run.edited(t, invalidSpeed), reason: reasonInvalidState},
 		// The server no longer accepts speeds 4 and 8.
-		{name: "speed 4", data: run.edited(t, func(file *stateFile) { file.Speed = 4 }), reason: reasonInvalidState, errText: "speed 4 is not 1, 2, 5, 15 or 60"},
-		{name: "speed 8", data: run.edited(t, func(file *stateFile) { file.Speed = 8 }), reason: reasonInvalidState, errText: "speed 8 is not 1, 2, 5, 15 or 60"},
+		{name: "speed 4", data: run.edited(t, func(file *stateFile) { file.Speed = 4 }), reason: reasonInvalidState, errText: "speed 4 is not 1, 2, 5, 15, 30 or 60"},
+		{name: "speed 8", data: run.edited(t, func(file *stateFile) { file.Speed = 8 }), reason: reasonInvalidState, errText: "speed 8 is not 1, 2, 5, 15, 30 or 60"},
 		{name: "budget 3600", data: run.edited(t, invalidBudget), reason: reasonInvalidState},
 		{name: "both tiers fail", data: run.edited(t, bothTiersFail), reason: reasonInvalidState},
 		{

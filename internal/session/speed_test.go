@@ -13,7 +13,7 @@ import (
 
 func TestPlaybackChoices(t *testing.T) {
 	t.Parallel()
-	for _, tc := range []struct{ speed, next, lower int }{{1, 2, 1}, {2, 5, 1}, {5, 15, 2}, {15, 60, 5}, {60, 1, 15}} {
+	for _, tc := range []struct{ speed, next, lower int }{{1, 2, 1}, {2, 5, 1}, {5, 15, 2}, {15, 30, 5}, {30, 60, 15}, {60, 1, 30}} {
 		if !validSpeed(tc.speed) || NextSpeed(tc.speed) != tc.next || lowerSpeed(tc.speed) != tc.lower {
 			t.Errorf("invalid choices for %d", tc.speed)
 		}
@@ -36,7 +36,7 @@ func TestPlaybackChoices(t *testing.T) {
 		s := newTestSession(t)
 		c := commandFor(s, "speed")
 		c.Speed = speed
-		want := fmt.Sprintf("speed %d is not supported; use 1, 2, 5, 15, or 60", speed)
+		want := fmt.Sprintf("speed %d is not supported; use 1, 2, 5, 15, 30, or 60", speed)
 		if reply := s.Apply(c); reply.Error != want || s.State().Speed != 1 {
 			t.Errorf("speed %d: reply %q, speed %d", speed, reply.Error, s.State().Speed)
 		}
@@ -53,10 +53,10 @@ func TestSpeedMonitor(t *testing.T) {
 	}{
 		{"too soon", []int{0, 0, 0, 0}, 60},
 		{"one stalled second", []int{3600, 0, 3600, 3600, 3600}, 60},
-		{"two slow seconds", []int{3600, 3000, 3600, 3000, 3600}, 15},
+		{"two slow seconds", []int{3600, 3000, 3600, 3000, 3600}, 30},
 		{"threshold", []int{3240, 3240, 3240, 3240, 3240}, 60},
 		{"boundary stall recovered", []int{3600, 3200, 3600, 4000, 3600}, 60},
-		{"boundary stall unrecovered", []int{3600, 3200, 3200, 3600, 3600}, 15},
+		{"boundary stall unrecovered", []int{3600, 3200, 3200, 3600, 3600}, 30},
 		{"old stall expired", []int{0, 3600, 3600, 3600, 3600, 0}, 60},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -116,7 +116,7 @@ func TestLiveBatchesPreserveSimulation(t *testing.T) {
 		baseline.advance()
 	}
 	want := baseline.State()
-	for _, speed := range []int{1, 2, 5, 15, 60} {
+	for _, speed := range []int{1, 2, 5, 15, 30, 60} {
 		s := newActive()
 		s.speed = speed
 		for range 600 / speed {
@@ -175,7 +175,7 @@ func TestAutomaticSpeedReduction(t *testing.T) {
 	s.clock.start = time.Now().Add(-speedWindow)
 	s.liveAdvance(context.Background())
 	state := s.State()
-	if state.Speed != 15 || state.SpeedReduction != (SpeedReduction{Sequence: 1, From: 60, To: 15}) {
+	if state.Speed != 30 || state.SpeedReduction != (SpeedReduction{Sequence: 1, From: 60, To: 30}) {
 		t.Fatalf("no reduction: %+v", state.SpeedReduction)
 	}
 	if s.Frame().SpeedReduction != state.SpeedReduction {
@@ -196,7 +196,7 @@ func TestAutomaticSpeedReduction(t *testing.T) {
 	s.clock.reset()
 	s.clock.start = time.Now().Add(-speedWindow)
 	s.liveAdvance(context.Background())
-	if s.speed != 5 || s.speedReduction.Sequence != 2 {
+	if s.speed != 15 || s.speedReduction.Sequence != 2 {
 		t.Fatal("second reduction failed")
 	}
 	c := commandFor(s, "pause")
@@ -204,14 +204,14 @@ func TestAutomaticSpeedReduction(t *testing.T) {
 	s.Apply(c)
 	s.clock.start = time.Now().Add(-time.Hour)
 	s.liveAdvance(context.Background())
-	if s.speed != 5 || !s.clock.start.IsZero() {
+	if s.speed != 15 || !s.clock.start.IsZero() {
 		t.Fatal("pause counted as overload")
 	}
 }
 
 func TestSavedPlaybackSpeeds(t *testing.T) {
 	t.Parallel()
-	for _, speed := range []int{1, 2, 5, 15, 60} {
+	for _, speed := range []int{1, 2, 5, 15, 30, 60} {
 		file := newTestStateFile(t)
 		file.Speed = speed
 		got, err := decodeCheckedState(encodeTestState(t, file))
@@ -226,7 +226,7 @@ func TestSavedPlaybackSpeeds(t *testing.T) {
 		file := newTestStateFile(t)
 		file.Speed = speed
 		_, err := decodeCheckedState(encodeTestState(t, file))
-		if want := fmt.Sprintf("speed %d is not 1, 2, 5, 15 or 60", speed); err == nil || !strings.Contains(err.Error(), want) {
+		if want := fmt.Sprintf("speed %d is not 1, 2, 5, 15, 30 or 60", speed); err == nil || !strings.Contains(err.Error(), want) {
 			t.Fatalf("speed %d restored: %v", speed, err)
 		}
 	}
@@ -247,7 +247,7 @@ func TestStateFramesRejectUnsupportedSpeed(t *testing.T) {
 		t.Fatal("control", err)
 	}
 	for _, speed := range []int{0, 4, 8, 61} {
-		want := fmt.Sprintf("state frame speed %d is not 1, 2, 5, 15 or 60", speed)
+		want := fmt.Sprintf("state frame speed %d is not 1, 2, 5, 15, 30 or 60", speed)
 		next := frame
 		next.State.Revision++
 		next.State.Speed = speed

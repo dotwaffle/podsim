@@ -17,7 +17,7 @@ const (
 
 // NextSpeed cycles the playback choices.
 func NextSpeed(speed int) int {
-	for _, next := range [...]int{1, 2, 5, 15, 60} {
+	for _, next := range [...]int{1, 2, 5, 15, 30, 60} {
 		if next > speed {
 			return next
 		}
@@ -26,7 +26,7 @@ func NextSpeed(speed int) int {
 }
 
 func lowerSpeed(speed int) int {
-	for _, next := range [...]int{60, 15, 5, 2, 1} {
+	for _, next := range [...]int{60, 30, 15, 5, 2, 1} {
 		if next < speed {
 			return next
 		}
@@ -36,7 +36,7 @@ func lowerSpeed(speed int) int {
 
 func validSpeed(speed int) bool {
 	switch speed {
-	case 1, 2, 5, 15, 60:
+	case 1, 2, 5, 15, 30, 60:
 		return true
 	}
 	return false

@@ -190,7 +190,7 @@ The number of passenger stations and pods shows below it.
 **Pause**, **Resume**, **Reset**, and **Speed** control playback.
 A paused simulation accepts and assigns orders, but it does not advance until you resume it.
 
-Left-click **Speed** or press **S** to cycle through 1x, 2x, 5x, 15x, and 60x, and right-click **Speed** to step backward.
+Left-click **Speed** or press **S** to cycle through 1x, 2x, 5x, 15x, 30x, and 60x, and right-click **Speed** to step backward.
 The server lowers the speed when it cannot keep up, and it never raises the speed by itself.
 It tracks five rolling one-second buckets.
 If at least two complete buckets reach less than 90% of the selected speed, it selects the next lower speed and shows a notice.
