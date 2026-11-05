@@ -98,7 +98,7 @@ func run(ctx context.Context, input runInput) error {
 		return err
 	}
 	build := buildIDOrRandom(slog.Default(), files)
-	flags.options = append(flags.options, session.WithLogger(slog.Default()), session.WithBuildID(build))
+	flags.options = append(flags.options, session.WithLogger(slog.Default()), session.WithBuildID(build), session.WithPresets(presetGenerators()))
 	config, options, err := loadStartProject(flags.projectPath, flags.options)
 	if err != nil {
 		return err

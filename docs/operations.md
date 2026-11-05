@@ -638,6 +638,23 @@ A project near the 32 MiB file limit needs more memory.
 Each project apply also allocates memory for a short time.
 The server decompresses, checks, and decodes the command, then validates and starts the project.
 An apply of a project with 7.2 MiB of JSON allocated about 190 MB and took about 0.55 s.
+
+A [preset generation](protocol.md#presets) also uses memory for a short time.
+The server builds a new project for each request and does not keep it.
+After the reply, the server gives the memory back to the system.
+These values are from one server that runs the default project, with 20 MiB of resident memory at idle:
+
+| Request | JSON | Time | Peak resident memory | Resident memory after the reply |
+| --- | --- | --- | --- | --- |
+| `london-central` | 1.2 MB | 0.4 to 0.6 s | 35 to 43 MiB | 26 MiB |
+| `london-full` | 5.6 MB | 2.2 to 3.7 s | 89 to 101 MiB | 36 to 42 MiB |
+| `project` apply of `london-full` | 5.6 MB | 1.7 s | 120 MiB | Stays with the project. |
+
+The resident memory after the reply includes the pages of the embedded source data, and the system can drop these pages.
+The source data adds 7.2 MB to the server binary, and it does not change the resident memory at idle.
+`GOMAXPROCS=1` and `GOMEMLIMIT=128MiB` did not change the peak or the time of a generation on the test host.
+A generation uses one CPU for its full time, so on a host with one CPU it competes with the simulation clock.
+The server does one generation at a time, and one large command or generation at a time, so these peaks do not add.
 An apply of a gzip project with 31 MiB of JSON, 12,000 nodes, 600 stations, and 359,400 flows allocated about 7.1 GiB in total and took about 9.8 s.
 At its peak, the heap was about 310 MiB larger.
 The server applies one gzip command or one plain command of more than 1 MiB at a time, and other such commands wait.
@@ -894,7 +911,7 @@ See [server restarts](protocol.md#server-restarts).
 | `internal/jsonerr`, `internal/wirename` | Fixed wording for JSON errors, and the JSON member names of the wire and file formats. |
 | `internal/project` | Versioned scenario settings, validation, and detached copies. |
 | `internal/editormodel` | Go editor worker state, checks, edits, normalization, undo history, daily profile construction, place navigation, and the observation and measurement panels. |
-| `internal/scenarios` | Deterministic scenario presets, including `scale100`, `london-central`, and `london-full`, and qualification tests. |
+| `internal/scenarios` | Deterministic scenario presets, including `scale100`, `london-central`, and `london-full`, and qualification tests. `cmd/serve` links it for the editor presets, and the WASM build must not link it. |
 | `internal/session` | Shared clock, command validation, save points, saved session state, HTTP API, and repeatable demand. |
 | `internal/statestore` | Saved session state in a `file://` blob bucket, for the server only. |
 | `internal/remote` | Shared state streaming, motion buffering, command retries, and connection state. |
@@ -957,7 +974,7 @@ It also checks these package boundaries:
 - `internal/sim` can import only the standard library.
 - `internal/session`, `internal/project`, and `cmd/serve` cannot import the renderer or browser APIs.
 - Packages in the browser build cannot import cloud storage packages or `internal/statestore`.
-  Lint also lists every package that the WASM build links, and fails if the list has one of these packages.
+  Lint also lists every package that the WASM build links, and fails if the list has one of these packages or `internal/scenarios`.
 
 rumdl checks the Markdown files with the settings in `.rumdl.toml`.
 Each sentence has its own source line, so a prose change does not reflow the lines around it.
