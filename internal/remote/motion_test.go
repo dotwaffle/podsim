@@ -59,8 +59,8 @@ func TestMotionLatePublication(t *testing.T) {
 			end := arrivals[len(arrivals)-1] + int(motionDelay/time.Millisecond)
 			for ms := 0; ms <= end; ms++ {
 				if next < len(arrivals) && arrivals[next] == ms {
-					// The tick follows the wall time at 60 ticks each second.
-					tick := int64(ms * 60 / 1000)
+					// The tick follows the wall time.
+					tick := int64(ms * sim.TicksPerSecond / 1000)
 					motion.Observe(motionState(tick, float64(tick)*.1), start.Add(time.Duration(ms)*time.Millisecond))
 					next++
 				}
