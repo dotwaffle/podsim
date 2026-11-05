@@ -159,6 +159,29 @@ func TestPlatoonLaneShape(t *testing.T) {
 	}
 }
 
+// TestPlatoonIndexShapes checks that the shape of each lane in the index
+// comes from the path of the lane, with the first node of a repeated ID, as
+// in Network.Node. Each lane has a different turn, so that a path between the
+// wrong nodes gives a different shape.
+func TestPlatoonIndexShapes(t *testing.T) {
+	t.Parallel()
+	network := Network{
+		Nodes: []Node{{ID: "a"}, {ID: "b", Position: Point{X: 100}}, {ID: "c", Position: Point{X: 100, Y: 70}}, {ID: "a", Position: Point{X: -500, Y: 900}}},
+		Lanes: []Lane{
+			{ID: "straight", From: "a", To: "b"},
+			{ID: "back", From: "b", To: "a"},
+			{ID: "curve", From: "b", To: "c", Control: &Point{X: 160, Y: 20}},
+			{ID: "other curve", From: "c", To: "a", Control: &Point{X: 10, Y: 90}},
+		},
+	}
+	shapes := newPlatoonIndexData(network).shapes
+	for _, lane := range network.Lanes {
+		if got, want := shapes[lane.ID], newLaneShape(network.Polyline(lane)); got != want {
+			t.Errorf("lane %q: shape %+v, want %+v", lane.ID, got, want)
+		}
+	}
+}
+
 // TestPlatoonGeometry runs a queue of pods in platoons of 4 through paths
 // that turn. The queue backs up from the berth at the end of the path, so
 // pods stop close together on the turns. checkTraffic checks the distance

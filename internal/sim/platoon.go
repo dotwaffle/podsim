@@ -766,9 +766,10 @@ type platoonIndexData struct {
 // newPlatoonIndexData builds the network data that links read.
 func newPlatoonIndexData(network Network) platoonIndexData {
 	data := platoonIndexData{shapes: make(map[string]laneShape, len(network.Lanes)), stationLimits: make(map[string][2]float64), diverges: make(map[string]bool)}
+	positions := indexNodePositions(network.Nodes)
 	points := make([]Point, 0, 65)
 	for _, lane := range network.Lanes {
-		data.shapes[lane.ID] = newLaneShape(network.lanePoints(lane, points[:0]))
+		data.shapes[lane.ID] = newLaneShape(lanePointsBetween(lane, positions[lane.From], positions[lane.To], points[:0]))
 		if lane.StationRole == StationEntryRole {
 			data.diverges[lane.From] = true
 		}
