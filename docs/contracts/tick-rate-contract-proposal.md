@@ -466,6 +466,9 @@ I do not recommend it.
 
 ### 5.3 The incident soak
 
+Status 2026-11-05: the maintainer limited the soak to 2 hours of wall time, as 5 seeds of 6 simulated hours, at 60 Hz.
+The projections below use the earlier size, and a soak at 60 Hz still does not qualify another rate.
+
 The approved soak is 200 runs, about 640 CPU hours, and 54 wall hours on 12 threads, all at 60 Hz.
 
 | Question | Answer |
