@@ -84,14 +84,14 @@ func TestRailDemandTimingAndQueueLoss(t *testing.T) {
 
 func TestRailDemandEnableResetPauseAndSpeed(t *testing.T) {
 	t.Parallel()
-	for _, speed := range []int{1, 15, 60} {
+	for _, speed := range []int{1, 15, sim.TicksPerSecond} {
 		t.Run(strconv.Itoa(speed), func(t *testing.T) {
 			t.Parallel()
 			config := railDemandProject()
 			config.Demand.Enabled = false
 			s := newRailSession(t, config)
 			s.speed = speed
-			for s.simulation.Tick() < 60 {
+			for s.simulation.Tick() < sim.TicksPerSecond {
 				s.advance()
 			}
 			config.Demand.Enabled = true
@@ -105,11 +105,11 @@ func TestRailDemandEnableResetPauseAndSpeed(t *testing.T) {
 			for range 10 {
 				s.advance()
 			}
-			if s.simulation.Tick() != 60 || s.demand.state.Generated != 0 {
+			if s.simulation.Tick() != sim.TicksPerSecond || s.demand.state.Generated != 0 {
 				t.Fatal("pause advanced rail time")
 			}
 			s.simulation.SetPaused(false)
-			for s.simulation.Tick() < 120 {
+			for s.simulation.Tick() < 2*sim.TicksPerSecond {
 				s.advance()
 			}
 			if s.demand.state.Generated != 7 {
@@ -138,7 +138,7 @@ func TestRailDemandEnableResetPauseAndSpeed(t *testing.T) {
 
 func TestRailDemandCloneAndPhysicalRestart(t *testing.T) {
 	t.Parallel()
-	for _, savedTick := range []int{0, 1, 59, 60, 61, 120} {
+	for _, savedTick := range []int{0, 1, sim.TicksPerSecond - 1, sim.TicksPerSecond, sim.TicksPerSecond + 1, 2 * sim.TicksPerSecond} {
 		t.Run(strconv.Itoa(savedTick), func(t *testing.T) {
 			t.Parallel()
 			s := newRailSession(t, railDemandProject())
@@ -166,7 +166,7 @@ func TestRailDemandCloneAndPhysicalRestart(t *testing.T) {
 			if &clonedDemand.railOffers[0] != &s.demand.railOffers[0] {
 				t.Fatal("clone does not share immutable offers")
 			}
-			for tick := savedTick; tick < 600; tick++ {
+			for tick := savedTick; tick < 10*sim.TicksPerSecond; tick++ {
 				s.step()
 				restored.step()
 				clonedSimulation.Step()
@@ -212,7 +212,7 @@ func TestRailDemandSeedAndFixedVolume(t *testing.T) {
 	one := newRailSession(t, config)
 	config.Demand.PerMinute = 120
 	many := newRailSession(t, config)
-	for range 180 {
+	for range 3 * sim.TicksPerSecond {
 		one.step()
 		many.step()
 		if !reflect.DeepEqual(one.simulation.Snapshot(), many.simulation.Snapshot()) || one.demand.state.Generated != many.demand.state.Generated {
@@ -228,18 +228,18 @@ func TestRailDemandCheckpointReplay(t *testing.T) {
 	t.Parallel()
 	s := newRailSession(t, railDemandProject())
 	client := newTestClient(s, "rail")
-	for range 60 {
+	for range sim.TicksPerSecond {
 		s.step()
 	}
 	checkpoint := client.mustApply(t, Command{Action: "checkpoint"}).Checkpoint
-	for range 180 {
+	for range 3 * sim.TicksPerSecond {
 		s.step()
 	}
 	wantSimulation, wantDemand := s.simulation.Snapshot(), s.demand.state
 	for range 2 {
 		client.mustApply(t, Command{Action: "rewind", Checkpoint: checkpoint})
 		client.mustApply(t, Command{Action: "pause", Paused: false})
-		for range 180 {
+		for range 3 * sim.TicksPerSecond {
 			s.step()
 		}
 		if !reflect.DeepEqual(wantSimulation, s.simulation.Snapshot()) || s.demand.state != wantDemand {

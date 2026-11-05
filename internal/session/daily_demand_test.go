@@ -34,7 +34,7 @@ func TestDailyDemandBoundariesAndQuietRedistribution(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(s.Close)
-	for range 3600 {
+	for range 60 * sim.TicksPerSecond {
 		s.step()
 	}
 	if s.demand.state.Generated != 1 || s.demand.dailyBand != 0 || s.simulation.DemandRate() != 1 {
@@ -44,13 +44,13 @@ func TestDailyDemandBoundariesAndQuietRedistribution(t *testing.T) {
 	if s.demand.dailyBand != -1 || s.simulation.Positioning() != sim.PositioningOff || s.demand.budget != 0 {
 		t.Fatal("gap did not disable proactive moves")
 	}
-	for s.simulation.Tick() < 7201 {
+	for s.simulation.Tick() < 2*60*sim.TicksPerSecond+1 {
 		s.step()
 	}
 	if s.demand.dailyBand != 1 || s.simulation.Positioning() != sim.PositioningGuarded || s.simulation.DemandRate() != 2 || !reflect.DeepEqual(s.demand.pickupWeights, map[string]float64{"garden": 1}) {
 		t.Fatal("evening band did not replace demand/positioning")
 	}
-	for s.simulation.Tick() < 10800 {
+	for s.simulation.Tick() < 3*60*sim.TicksPerSecond {
 		s.step()
 	}
 	if s.demand.state.Generated != 3 {
@@ -64,7 +64,7 @@ func TestDailyDemandBoundariesAndQuietRedistribution(t *testing.T) {
 
 func TestDailyDemandFractionalRestoreAndClone(t *testing.T) {
 	t.Parallel()
-	for _, tick := range []int64{0, 3599, 3600, 3601, 7199, 7200, 7201, 86400 * sim.TicksPerSecond} {
+	for _, tick := range []int64{0, 60*sim.TicksPerSecond - 1, 60 * sim.TicksPerSecond, 60*sim.TicksPerSecond + 1, 2*60*sim.TicksPerSecond - 1, 2 * 60 * sim.TicksPerSecond, 2*60*sim.TicksPerSecond + 1, 86400 * sim.TicksPerSecond} {
 		t.Run(strconv.FormatInt(tick, 10), func(t *testing.T) {
 			t.Parallel()
 			config := dailyDemandProject()
@@ -80,19 +80,19 @@ func TestDailyDemandFractionalRestoreAndClone(t *testing.T) {
 				t.Fatal(err)
 			}
 			s.demand = newDemand(demandInput{config: config.Demand, network: config.Network, profiles: config.DemandProfiles, tick: tick})
-			s.demand.budget = 3599
+			s.demand.budget = demandBudgetLimit - 1
 			stored := sessionStateFile(t, s)
 			stored.RestoreAttempts = 0
 			restored := startFromStore(t, StoreInput{Store: &fakeStore{data: encodeTestState(t, stored)}})
 			t.Cleanup(restored.Close)
-			if restored.restore.Tier != "physical" || restored.demand.budget != 3599 || restored.demand.dailyBand != s.demand.dailyBand {
+			if restored.restore.Tier != "physical" || restored.demand.budget != demandBudgetLimit-1 || restored.demand.dailyBand != s.demand.dailyBand {
 				t.Fatal("restore lost active band or fractional budget")
 			}
 			clone := s.demand.clone()
 			if clone.daily != s.demand.daily {
 				t.Fatal("clone copied immutable samplers")
 			}
-			for range 180 {
+			for range 3 * sim.TicksPerSecond {
 				s.step()
 				restored.step()
 				if s.demand.state != restored.demand.state || s.demand.budget != restored.demand.budget || s.demand.dailyBand != restored.demand.dailyBand {
@@ -104,7 +104,7 @@ func TestDailyDemandFractionalRestoreAndClone(t *testing.T) {
 					t.Fatal("restored random stream diverged")
 				}
 			}
-			if clone.budget != 3599 {
+			if clone.budget != demandBudgetLimit-1 {
 				t.Fatal("live boundary changed clone budget")
 			}
 		})
@@ -174,7 +174,7 @@ func TestDailyDemandFullDayOccurrence(t *testing.T) {
 		t.Fatal(err)
 	}
 	s.demand = newDemand(demandInput{config: config.Demand, network: config.Network, profiles: config.DemandProfiles, tick: 1})
-	s.demand.budget = 3599
+	s.demand.budget = demandBudgetLimit - 1
 	s.step()
 	if s.demand.budget != 1 || s.demand.state.Generated != 0 || s.demand.dailyDay != 1 {
 		t.Fatalf("day boundary retained budget: budget=%d generated=%d occurrence=%d", s.demand.budget, s.demand.state.Generated, s.demand.dailyDay)
@@ -192,11 +192,11 @@ func TestDailyDemandWrappingOccurrence(t *testing.T) {
 	config.DemandProfiles[0].Bands = []project.DemandBand{{ID: "night", Name: "Night", StartMinute: 1380, DurationMinutes: 120, PerMinute: new(1)}}
 	config.DemandProfiles[0].Flows = []project.DemandFlow{{From: "harbor", To: "garden", Weights: []float64{1}}}
 	run := newDemand(demandInput{config: config.Demand, network: config.Network, profiles: config.DemandProfiles})
-	run.budget = 3599
-	if run.activateDaily(3601) || run.budget != 3599 {
+	run.budget = demandBudgetLimit - 1
+	if run.activateDaily(60*sim.TicksPerSecond+1) || run.budget != demandBudgetLimit-1 {
 		t.Fatal("midnight reset the wrapping band's budget")
 	}
-	if !run.activateDaily(1381*3600+1) || run.budget != 0 || run.dailyDay != 1 {
+	if !run.activateDaily(1381*60*sim.TicksPerSecond+1) || run.budget != 0 || run.dailyDay != 1 {
 		t.Fatal("next band occurrence did not reset the budget")
 	}
 }

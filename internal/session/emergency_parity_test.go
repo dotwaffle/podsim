@@ -6,6 +6,7 @@ import (
 
 	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/scenarios"
+	"github.com/dotwaffle/podsim/internal/sim"
 )
 
 // TestEmergenciesOnWithoutEmergenciesOnPresets runs LondonCentral and the
@@ -36,10 +37,10 @@ func TestEmergenciesOnWithoutEmergenciesOnPresets(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			for tick := 1; tick <= 36_000; tick++ {
+			for tick := 1; tick <= 600*sim.TicksPerSecond; tick++ {
 				off.step()
 				on.step()
-				if tick%600 == 0 && !bytes.Equal(paritySnapshot(t, off), paritySnapshot(t, on)) {
+				if tick%(10*sim.TicksPerSecond) == 0 && !bytes.Equal(paritySnapshot(t, off), paritySnapshot(t, on)) {
 					t.Fatalf("tick %d: the sessions differ", tick)
 				}
 			}

@@ -72,7 +72,7 @@ func firstMembers(t *testing.T, seed [2]uint64, perHour float64, tick int64) sam
 	if err != nil {
 		t.Fatal(err)
 	}
-	return samplerMembers{random, tick + max(1, int64(math.Ceil(-math.Log(1-u)*216000/perHour)))}
+	return samplerMembers{random, tick + max(1, int64(math.Ceil(-math.Log(1-u)*(3600*sim.TicksPerSecond)/perHour)))}
 }
 
 // checkFirstMembers checks that s has a sampler of each rate of config that

@@ -13,6 +13,8 @@ import (
 	"testing"
 	"testing/synctest"
 	"time"
+
+	"github.com/dotwaffle/podsim/internal/sim"
 )
 
 const stoppingMessage = "The server is stopping. Try again after it restarts."
@@ -133,12 +135,12 @@ func TestRunStopsTickingAfterClose(t *testing.T) {
 			close(done)
 		}()
 		time.Sleep(time.Second + time.Millisecond)
-		if got := s.State().Revision; got != 60 {
-			t.Fatalf("revision after one second = %d, want 60", got)
+		if got := s.State().Revision; got != sim.TicksPerSecond {
+			t.Fatalf("revision after one second = %d, want %d", got, sim.TicksPerSecond)
 		}
 		s.Close()
 		time.Sleep(time.Second)
-		if got := s.State().Revision; got != 60 {
+		if got := s.State().Revision; got != sim.TicksPerSecond {
 			t.Fatalf("closed clock advanced to revision %d", got)
 		}
 		cancel()

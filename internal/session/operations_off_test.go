@@ -501,7 +501,7 @@ func TestReplacementGroupsNeedOperations(t *testing.T) {
 }
 
 // operationsIdentityTicks is the length of each matched-seed run.
-const operationsIdentityTicks = 12000
+const operationsIdentityTicks = 200 * sim.TicksPerSecond
 
 // TestOperationsOffIdentity checks the off-state gate of the marker removal:
 // London Central and the rail hub with the same demand seed and no command
@@ -534,7 +534,7 @@ func TestOperationsOffIdentity(t *testing.T) {
 				for _, s := range runs {
 					s.advance()
 				}
-				if tick%600 != 0 {
+				if tick%(10*sim.TicksPerSecond) != 0 {
 					continue
 				}
 				on, off := runs[0].simulation.ExportState(), runs[1].simulation.ExportState()

@@ -41,7 +41,7 @@ func TestRailServicesLifecycle(t *testing.T) {
 	if s.demand.state.Generated != 0 || !slices.Equal(records, s.demand.connectionRecords()) {
 		t.Fatal("reseed erased ledger")
 	}
-	for s.simulation.Tick() < 120 {
+	for s.simulation.Tick() < 2*sim.TicksPerSecond {
 		s.step()
 	}
 	if len(s.demand.connectionRecords()) != 5 || s.demand.state.Generated != 3 {
@@ -102,7 +102,7 @@ func TestRailServicesQueueRejections(t *testing.T) {
 func TestRailServicesCheckpointAndRestart(t *testing.T) {
 	t.Parallel()
 	s := newRailSession(t, railServicesProject())
-	for range 120 {
+	for range 2 * sim.TicksPerSecond {
 		s.step()
 	}
 	cloneSim, cloneDemand := s.simulation.Clone(), s.demand.clone()
@@ -118,7 +118,7 @@ func TestRailServicesCheckpointAndRestart(t *testing.T) {
 	if restarted.restore.Tier != "physical" {
 		t.Fatal(restarted.restore)
 	}
-	for range 600 {
+	for range 10 * sim.TicksPerSecond {
 		s.step()
 		restarted.step()
 		cloneSim.Step()
@@ -130,7 +130,7 @@ func TestRailServicesCheckpointAndRestart(t *testing.T) {
 	}
 	client.mustApply(t, Command{Action: "rewind", Checkpoint: checkpoint})
 	client.mustApply(t, Command{Action: "pause", Paused: false})
-	for range 600 {
+	for range 10 * sim.TicksPerSecond {
 		s.step()
 	}
 	if !slices.Equal(want, s.demand.connectionRecords()) {

@@ -146,10 +146,10 @@ func TestDemandDeterminismAndSpeed(t *testing.T) {
 		}
 	}
 	fast.speed = 8
-	for range 3600 {
+	for range 60 * sim.TicksPerSecond {
 		slow.advance()
 	}
-	for range 450 {
+	for range 60 * sim.TicksPerSecond / 8 {
 		fast.advance()
 	}
 	a, b := slow.State(), fast.State()
@@ -203,7 +203,7 @@ func TestProfileDemandIsDeterministicAndLive(t *testing.T) {
 	if !reflect.DeepEqual(first.demand.pickupWeights, map[string]float64{"harbor": 3, "garden": 1}) {
 		t.Fatalf("pickup weights = %#v", first.demand.pickupWeights)
 	}
-	for range 300 {
+	for range 5 * sim.TicksPerSecond {
 		first.advance()
 		second.advance()
 	}
@@ -249,7 +249,7 @@ func TestDemandQueueLimitConsumesArrivals(t *testing.T) {
 		}
 	}
 	// Keep the fleet still while exercising arrivals at a saturated station.
-	for range 3600 {
+	for range 60 * sim.TicksPerSecond {
 		s.demand.step(s.simulation)
 	}
 	if s.demand.state.Skipped != 12 || s.demand.state.Generated != 0 {
@@ -265,7 +265,7 @@ func TestDemandQueueLimitConsumesArrivals(t *testing.T) {
 	if s.demand.state.Generated != 0 {
 		t.Fatal("skipped arrivals burst after queue cleared")
 	}
-	for range 299 {
+	for range 5*sim.TicksPerSecond - 1 {
 		s.demand.step(s.simulation)
 	}
 	if s.demand.state.Generated != 1 {

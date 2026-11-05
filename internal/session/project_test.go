@@ -260,7 +260,7 @@ func TestCustomDemandAndResetUseActiveProject(t *testing.T) {
 	if reply := applyCustomProject(t, session, config); reply.Error != "" {
 		t.Fatal(reply.Error)
 	}
-	for range 60 {
+	for range sim.TicksPerSecond {
 		session.demand.step(session.simulation)
 	}
 	snapshot := session.simulation.Snapshot()

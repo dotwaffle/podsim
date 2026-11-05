@@ -33,7 +33,7 @@ const (
 	soakTicksPerHour  = 3600 * sim.TicksPerSecond
 	soakClearTicks    = 30 * 60 * sim.TicksPerSecond
 	soakEmergencyTime = 10 * 60 * sim.TicksPerSecond
-	soakReplayTicks   = 600
+	soakReplayTicks   = 10 * sim.TicksPerSecond
 	soakViewTicks     = sim.TicksPerSecond
 	soakRateWindow    = 5 * 60 * sim.TicksPerSecond
 )
@@ -712,9 +712,9 @@ func TestIncidentSoakDriver(t *testing.T) {
 	}
 	input := soakInput{preset: "rail-hub", arm: soakArms["incidents"], seed: 1, hours: 0.02, checks: true, settle: 60 * sim.TicksPerSecond}
 	d := newSoakDriver(t, input)
-	d.nextFault, d.nextEmergency, d.nextSave, d.nextRewind = 100, 2000, 2500, 3000
+	d.nextFault, d.nextEmergency, d.nextSave, d.nextRewind = 5*sim.TicksPerSecond/3, 100*sim.TicksPerSecond/3, 125*sim.TicksPerSecond/3, 50*sim.TicksPerSecond
 	reply := d.client.mustApply(t, Command{Action: "fault", PodID: d.config.Fleet[0].ID})
-	d.clears = append(d.clears, soakClear{reply.FaultID, 1000})
+	d.clears = append(d.clears, soakClear{reply.FaultID, 50 * sim.TicksPerSecond / 3})
 	d.runHours()
 	d.clearAndSettle()
 	d.checkRail()
@@ -868,7 +868,7 @@ func TestIncidentWorstCaseStepTime(t *testing.T) {
 	if os.Getenv("PODSIM_SOAK_WORST") != "1" {
 		t.Skip("the worst-case times run only with PODSIM_SOAK_WORST=1, on a quiet machine")
 	}
-	const warmTicks, measuredTicks = 3600, 600
+	const warmTicks, measuredTicks = 60 * sim.TicksPerSecond, 10 * sim.TicksPerSecond
 	rows := []struct {
 		name                      string
 		preset                    string

@@ -52,7 +52,7 @@ func newTestStateFile(t *testing.T) stateFile {
 	client.mustApply(t, Command{Action: "checkpoint"})
 	client.mustApply(t, Command{Action: "speed", Speed: 2})
 	// Two orders at 2 orders each minute, and part of a third.
-	for range 4000 {
+	for range 200 * sim.TicksPerSecond / 3 {
 		shared.demand.step(shared.simulation)
 	}
 	file := sessionStateFile(t, shared)
@@ -304,7 +304,7 @@ func TestDecodeStateFileRejects(t *testing.T) {
 		{"skipped -1", edit(func(file *stateFile) { file.Demand.State.Skipped = -1 }), reasonInvalidState, nil},
 		{"random source", edit(func(file *stateFile) { file.Demand.Random = []byte("pcg:") }), reasonInvalidState, nil},
 		{"budget -1", edit(func(file *stateFile) { file.Demand.Budget = -1 }), reasonInvalidState, nil},
-		{"budget 3600", edit(func(file *stateFile) { file.Demand.Budget = 3600 }), reasonInvalidState, nil},
+		{"budget at the limit", edit(func(file *stateFile) { file.Demand.Budget = demandBudgetLimit }), reasonInvalidState, nil},
 		{"1,025 client sequences", edit(func(file *stateFile) {
 			file.Sequences = testSequences(clientLimit + 1)
 		}), reasonInvalidState, errJSONArrayTooLong},
@@ -446,7 +446,7 @@ func TestDecodeStateFileAcceptsLimits(t *testing.T) {
 		{"speed 60", func(file *stateFile) { file.Speed = 60 }},
 		{"demand error of 1 KiB", func(file *stateFile) { file.Demand.State.Error = strings.Repeat("x", 1<<10) }},
 		{"budget 0", func(file *stateFile) { file.Demand.Budget = 0 }},
-		{"budget 3599", func(file *stateFile) { file.Demand.Budget = 3599 }},
+		{"budget below the limit", func(file *stateFile) { file.Demand.Budget = demandBudgetLimit - 1 }},
 		{"revision 0", func(file *stateFile) { file.Revision = 0 }},
 		{"maximum pods", func(file *stateFile) { file.Simulation.Pods = make([]sim.SavedPod, maxSavedPods) }},
 		{"1,024 client sequences", func(file *stateFile) { file.Sequences = testSequences(clientLimit) }},

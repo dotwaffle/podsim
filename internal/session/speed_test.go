@@ -53,12 +53,12 @@ func TestSpeedMonitor(t *testing.T) {
 		want    int
 	}{
 		{"too soon", []int{0, 0, 0, 0}, 60},
-		{"one stalled second", []int{3600, 0, 3600, 3600, 3600}, 60},
-		{"two slow seconds", []int{3600, 3000, 3600, 3000, 3600}, 30},
-		{"threshold", []int{3240, 3240, 3240, 3240, 3240}, 60},
-		{"boundary stall recovered", []int{3600, 3200, 3600, 4000, 3600}, 60},
-		{"boundary stall unrecovered", []int{3600, 3200, 3200, 3600, 3600}, 30},
-		{"old stall expired", []int{0, 3600, 3600, 3600, 3600, 0}, 60},
+		{"one stalled second", []int{60 * sim.TicksPerSecond, 0, 60 * sim.TicksPerSecond, 60 * sim.TicksPerSecond, 60 * sim.TicksPerSecond}, 60},
+		{"two slow seconds", []int{60 * sim.TicksPerSecond, 50 * sim.TicksPerSecond, 60 * sim.TicksPerSecond, 50 * sim.TicksPerSecond, 60 * sim.TicksPerSecond}, 30},
+		{"threshold", []int{54 * sim.TicksPerSecond, 54 * sim.TicksPerSecond, 54 * sim.TicksPerSecond, 54 * sim.TicksPerSecond, 54 * sim.TicksPerSecond}, 60},
+		{"boundary stall recovered", []int{60 * sim.TicksPerSecond, 160 * sim.TicksPerSecond / 3, 60 * sim.TicksPerSecond, 200 * sim.TicksPerSecond / 3, 60 * sim.TicksPerSecond}, 60},
+		{"boundary stall unrecovered", []int{60 * sim.TicksPerSecond, 160 * sim.TicksPerSecond / 3, 160 * sim.TicksPerSecond / 3, 60 * sim.TicksPerSecond, 60 * sim.TicksPerSecond}, 30},
+		{"old stall expired", []int{0, 60 * sim.TicksPerSecond, 60 * sim.TicksPerSecond, 60 * sim.TicksPerSecond, 60 * sim.TicksPerSecond, 0}, 60},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -129,14 +129,14 @@ func TestClockCatchUp(t *testing.T) {
 	t.Parallel()
 	start := time.Unix(100, 0)
 	c := playbackClock{paced: start}
-	if n := c.due(start.Add(100*time.Millisecond), 60); n != 360 {
+	if n := c.due(start.Add(100*time.Millisecond), 60); n != 6*sim.TicksPerSecond {
 		t.Fatalf("missed wakes: %d", n)
 	}
-	c.debt -= 300
-	if n := c.due(start.Add(150*time.Millisecond), 60); n != 240 {
+	c.debt -= 5 * sim.TicksPerSecond
+	if n := c.due(start.Add(150*time.Millisecond), 60); n != 4*sim.TicksPerSecond {
 		t.Fatalf("remaining debt: %d", n)
 	}
-	if n := c.due(start.Add(time.Hour), 60); n != 900 {
+	if n := c.due(start.Add(time.Hour), 60); n != 15*sim.TicksPerSecond {
 		t.Fatalf("unbounded catch-up: %d", n)
 	}
 	c.reset()
