@@ -156,6 +156,7 @@ An approved contract in `docs/contracts/` is binding, and each document gives it
 | [Marker removal](docs/contracts/marker-removal-contract-proposal.md) | Faults and emergencies with no project switch. |
 | [Generated-order consent](docs/contracts/generated-order-consent-contract-proposal.md) | The `generatedOrderConsent` setting. |
 | [Tick rate](docs/contracts/tick-rate-contract-proposal.md) | A lower tick rate. A proposal, not approved. |
+| [Express standees](docs/contracts/express-standees-contract-proposal.md) | A 6 m Express with standees, and a curve tail from the lane polyline. A proposal, not approved. |
 | [Incident stage 7](docs/contracts/incident-stage7-contract-proposal.md) | Random faults and emergencies. Implemented. The soak of section 5.1.9 has not run, its size is open, and its Suspension median row is open. |
 
 ### Designs
@@ -171,7 +172,7 @@ An approved contract in `docs/contracts/` is binding, and each document gives it
 | LondonFull | [Post-fix capacity](docs/studies/london-full-postfix.md), [pickup supply](docs/studies/pickup-supply.md), [mirrored layout](docs/studies/station-mirror-load.md) |
 | Dispatch and routing | [Pickup reassignment](docs/studies/pickup-reassignment.md), [sustained pickup swaps](docs/studies/pickup-swap-sustained.md), [predictive routing](docs/studies/predictive-routing.md), [berth routes](docs/studies/berth-route-preference.md), [policy failures](docs/studies/policy-failures.md) |
 | Platoons and following | [Platoon follow-up](docs/studies/platoon-followup.md), [coupled trains](docs/studies/platoon-coupling-comparison.md), [close-up following](docs/studies/close-up-measurement.md), [station buffers](docs/studies/buffer-late-claim.md) |
-| Express | [Express qualification](docs/studies/express-qualification.md) |
+| Express | [Express qualification](docs/studies/express-qualification.md), [standees evidence](docs/studies/express-standees.md) |
 | Performance | [Live admission](docs/studies/admission-live-performance.md), [pickup route search](docs/studies/pickup-routing-performance.md), [study replays](docs/studies/study-performance.md), [test timing](docs/studies/test-speed.md), [policy restarts](docs/studies/experimental-policy-restarts.md), [incident soak timing](docs/studies/incident-soak.md) |
 
 `docs/measurements/` holds the JSON and CSV data of these records, for example [the performance samples](docs/measurements/performance.json).
