@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"log/slog"
 	"reflect"
+	"runtime/debug"
 	"slices"
 	"strings"
 	"sync"
@@ -309,6 +310,14 @@ type Session struct {
 	// it reads a body that needs a place, and removes the value after it
 	// applies the command.
 	largeBodies chan struct{}
+	// presets holds the generators of POST /api/presets/{name}. presetSlot
+	// has space for one value, and a request puts a value in it for the time
+	// of a generation and its reply.
+	presets    map[string]PresetGenerator
+	presetSlot chan struct{}
+	// releaseMemory runs after each generation. It is debug.FreeOSMemory
+	// except in tests.
+	releaseMemory func()
 	// places owns the native server geocoding limiter and cache.
 	places *placeSearch
 	// persist saves the session state. It is nil without a state store.
@@ -336,7 +345,7 @@ func newSession(persist *persistence, options []Option) *Session {
 	session := &Session{
 		receipts: make(map[string]receipt), logger: slog.Default(), persist: persist,
 		serverStart: newServerStart(), largeCommands: make(chan struct{}, 1),
-		largeBodies: make(chan struct{}, maxLargeBodies),
+		largeBodies: make(chan struct{}, maxLargeBodies), presetSlot: make(chan struct{}, 1), releaseMemory: debug.FreeOSMemory,
 	}
 	for _, option := range options {
 		option(session)

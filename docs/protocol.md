@@ -24,6 +24,7 @@ The client uses these message boundaries:
 | State | `GET /api/state` | Controls, demand, queues, berths, metrics, save points, the build, the server start ID, the restore result, and dynamic vehicle fields. |
 | Project | `GET /api/project` | Complete editable scenario data. |
 | Command | `POST /api/command` | Retry-safe mutation and compact acknowledgment. |
+| Preset | `POST /api/presets/{name}` | A new project from a named preset. It does not change the session. See [Presets](#presets). |
 
 Every project has version 1, and the server refuses project versions 2 through 5.
 The `orderContract` marker of the project selects its kind.
@@ -418,6 +419,32 @@ A lane counts at its start node and at its end node.
 The total of the lane pairs at the nodes, the node coordinates, and the total of the track cells of the lanes also have limits.
 Two lanes with the same start node, end node, and path also give `command_rejected`.
 See [validation and limits](reference.md#validation-and-limits) for all limits.
+
+## Presets
+
+`cmd/serve` generates `london-central` and `london-full` for `POST /api/presets/{name}`.
+The other presets of `mise run scenario` do not have this endpoint, and a server without presets gives HTTP 404.
+The request has no body, and the server does not read a body.
+The endpoint does not change the session, and the project reaches the session only in a later `project` command.
+
+A successful reply has HTTP 200, `Content-Type: application/json`, and `Cache-Control: no-store`.
+The body is the `project` object, with the same encoding as in `GET /api/project`.
+The server uses gzip when the client accepts it.
+When the server started with `-project`, the reply has `X-Podsim-Project-File: true`, because a `project` command then overwrites that file.
+
+A refused request gets a plain text body, and the server checks in this order:
+
+| Status | Reason |
+| --- | --- |
+| 405 | The method is not `POST`. The reply has `Allow: POST`. |
+| 403 | The request breaks the Origin policy of commands. |
+| 404 | The name is not a preset. |
+| 503 | Another generation is in progress, until its reply ends. The reply has `Retry-After: 2`. |
+| 500 | The generation failed. The server logs the cause, and the reply has no part of a project. |
+
+A generation and a large command use one guard, so a generation waits for a large command, and a large command waits for a generation.
+If the client ends the request during this wait, the server gives HTTP 503 with no `Retry-After` and does not generate.
+See [Memory limit](operations.md#memory-limit) for the memory of a generation.
 
 ## Save points
 

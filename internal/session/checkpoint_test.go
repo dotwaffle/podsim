@@ -990,7 +990,7 @@ const (
 
 // sessionRewindRules gives a rule for each Session field.
 var sessionRewindRules = map[string]rewindRule{
-	"closed": rewindInfrastructure, "mu": rewindInfrastructure, "largeCommands": rewindInfrastructure,
+	"closed": rewindInfrastructure, "mu": rewindInfrastructure, "largeCommands": rewindInfrastructure, "presets": rewindInfrastructure, "presetSlot": rewindInfrastructure, "releaseMemory": rewindInfrastructure,
 	"largeBodies": rewindInfrastructure, "streamMu": rewindInfrastructure, "stream": rewindInfrastructure, "publicOrigin": rewindInfrastructure, "places": rewindInfrastructure,
 	"saveProject": rewindInfrastructure, "logger": rewindInfrastructure,
 	"build": rewindInfrastructure, "persist": rewindInfrastructure, "serverStart": rewindInfrastructure,
