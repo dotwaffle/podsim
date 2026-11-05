@@ -136,3 +136,20 @@ They also do not show that empty-pod platoon links have no effect on dispatch.
 
 The adoption criteria remain unmet.
 This targeted replay does not qualify the full matrix or justify a new operating default.
+
+## KSX entry turn
+
+Commit `36bb5d2` lets a new link take the turn onto the entry lane of its destination at any distance.
+Each run is LondonFull, with 20 orders a minute to one station for 20 minutes, over 60 minutes and three seeds.
+
+| Station | Entries before | Entries after | Single entries before | Single entries after | Median entry headway before | Median entry headway after |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| KSX | 312 to 320 | 380 to 390 | 207 to 230 | 89 to 93 | 9.8 to 10.4 s | 2.9 to 3.3 s |
+| WLO | 319 to 325 | 319 to 337 | 214 to 230 | 172 to 184 | Not recorded | Not recorded |
+
+The WLO gain is within the seed spread, and its cause is not known.
+Of 24 hotspot and profile arms, all but one are unchanged.
+The separation check never fired, and the minimum gap was 6.000 m.
+
+For a cap above 120 degrees, no option within the limits adds entries a minute, and the KSX single entries fall by 25 percent.
+A cap of 155 degrees needs a clearance of 33 to 48 m.

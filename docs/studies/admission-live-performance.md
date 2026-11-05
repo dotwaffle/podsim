@@ -79,6 +79,20 @@ Ambient host contention and active profiling can affect timing.
 
 The raw measurement data is in git history.
 
+## Live profile, November 5, 2026
+
+This profile used source `ec984a9`, a requested speed of 60x, and one client.
+The host load average rose from 3 to 12, so these numbers are not from a quiet host.
+
+| Reading | Flood | Preset |
+| --- | --- | --- |
+| Demand | 20 orders a minute to KSX, with redistribution and pickup reassignment on | 10 orders a minute, by profile |
+| Speed | Capacity of 34x to 40x, with pending orders at the limit of 200 | Holds 60x, with brief drops at 54x to 56x |
+| CPU in `Step` | 84 percent: dispatch 23, admit 18, `formPlatoons` 12, `swapPickups` 12 | 84 percent: dispatch 41 |
+| Time for each tick | About 465 µs | About 207 µs |
+| Publisher CPU | Not recorded | 8 percent |
+| Peak memory | 254 MB | 199 MB |
+
 ## Predictive routing cost
 
 An isolated comparison on LondonFull AM12 seed 4 and Morning14 seed 1 (free-flow against predictive routing, baseline `b4cfefe`, candidate `a54281e`) measured CPU and allocation in fresh single-core processes.

@@ -4,6 +4,14 @@ This record holds the timing run that decision 16 of the [incident stage 7 contr
 The full soak of section 5.1.9 has not run, and this record holds no result for it.
 The maintainer chooses the size from these numbers.
 
+## Open items
+
+- The full soak of section 5.1.9 has not run, so its gates have no result.
+- The matrix size is open, and the maintainer chooses it.
+- The Performance row for suspension, the Suspension median, is open.
+  It has no quiet-host reading.
+- The Choice row is reported and not gated, and no driver reports it, because the sim does not expose the estimate.
+
 ## Method
 
 `TestIncidentSoak` in `internal/session` drives each run.
@@ -68,7 +76,7 @@ R3 is a target and not a measurement, because no such change exists.
 `TestIncidentSoakCI` took 285 seconds at a load average of about 30: a reference run of 51 seconds, and a checked run of 233 seconds.
 The checked run had 9 faults and 9 emergencies, and it passed.
 It uses rail-hub only, because the CI row names no preset and a london-central run takes an estimated 20 to 30 CPU minutes.
-`mise run qualify` also runs `TestSampledTickLatency`, in about 3 seconds, and `TestSampledTickNoCandidateLatency`, in more than 275 seconds.
+`mise run qualify` also runs `TestSampledTickLatency`, in about 3 seconds, and `TestSampledTickNoCandidateLatency`, in 386 seconds at a load average of about 15.
 
 ## Readings from a busy host
 
@@ -78,8 +86,8 @@ The Performance rows need a quiet machine (A3).
 | Reading | Value | Load average |
 | --- | --- | ---: |
 | Sampled tick, each policy, cold and warm, both networks | Slowest 0.95 ms, limit 50 ms | 18 |
-| Sampled tick at the project limits, cold | 260 to 390 ms | 5 |
-| Sampled tick at the project limits, warm, 3 of 4 policies | 14 to 31 s | 5 |
+| Sampled tick at the project limits, cold | 260 to 429 ms, reported against 50 ms | 15 |
+| Sampled tick at the project limits, warm | 22.2 s free flow, 15.6 s congestion, 32.5 s queue, 13.5 s predictive, reported against 50 ms | 15 |
 | Timed run, rail-hub, 3 seeds, 0.1 simulated hours | Median 81 to 87 µs against 88 to 98 µs | 16 |
 | Timed run, london-central, seed 1, 0.1 simulated hours | Median 154 µs against 145 µs | 16 |
 | 64 debris and 300 pod faults | Median 121 µs against 6.6 µs, slowest 1.25 ms against 1.71 ms | 7 |
@@ -88,5 +96,5 @@ The Performance rows need a quiet machine (A3).
 | 64 debris and 1,000 pod faults | Median 983 µs against 20 µs, slowest 5.0 ms against 0.62 ms | 7 |
 
 The sampled-tick fixture has little traffic, so its step is cheap.
-`TestSampledTickNoCandidateLatency` did not finish in the 275 seconds of its scratch run, so the predictive warm row has no reading.
+The two rows at the project limits come from `TestSampledTickNoCandidateLatency` at `3c61bcb`, are reported, and are not gated (P23).
 The row of 300 pod faults misses the rule of 10 percent, against a reference step that does almost no work.
