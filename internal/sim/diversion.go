@@ -152,7 +152,7 @@ func (s *Simulation) pickupSeconds(v *vehicle, route []Lane) float64 {
 	if v.Pod.Activity != Idle {
 		motion = motionEstimate{distance: v.distance, speed: v.Pod.Speed}
 	}
-	return s.routeSeconds(route, motion)
+	return s.routeSeconds(motionEnvelopeFor(v.Pod.Class), route, motion)
 }
 
 func (s *Simulation) sendPickupForRequest(v *vehicle, request Request) error {

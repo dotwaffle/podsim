@@ -28,7 +28,7 @@ func (s *Simulation) frozenMove(v *vehicle) {
 		entered = current.lane
 	}
 	speed := math.Min(v.Pod.Speed+acceleration*dt, math.Min(blocks.route[current.lane].SpeedLimit, math.Max(0, safe)))
-	v.Pod.Speed = blocks.speedBeforeLane(current.lane, v.distance, speed)
+	v.Pod.Speed = frozenLaneScan(blocks, current.lane, v.distance, speed)
 	travel := math.Min(available, v.Pod.Speed*dt)
 	v.distance += travel
 	if limit-v.distance < 1e-5 {

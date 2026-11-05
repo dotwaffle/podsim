@@ -118,7 +118,7 @@ func (s *Simulation) waitForFinishingPod(trip *waitingTrip, idle *vehicle, assig
 		if err != nil {
 			continue
 		}
-		eta := remaining + s.routeSeconds(route, motionEstimate{})
+		eta := remaining + s.routeSeconds(motionEnvelopeFor(v.Pod.Class), route, motionEstimate{})
 		if eta < bestETA && eta <= holdSeconds {
 			best, bestETA = v, eta
 		}
@@ -239,7 +239,8 @@ func (s *Simulation) finishEstimate(v *vehicle) (string, float64, bool) {
 		berth, _ := station.berth(v.Pod.BerthID)
 		return s.laterStopsForClass(berth.Node, float64(v.phaseTicks)/TicksPerSecond, v.Stops, v.Pod.Class)
 	}
-	seconds := float64(v.phaseTicks)/TicksPerSecond + s.routeSecondsWith(v.Route, v.routeLengths, motionEstimate{distance: v.distance, speed: v.Pod.Speed})
+	envelope := motionEnvelopeFor(v.Pod.Class)
+	seconds := float64(v.phaseTicks)/TicksPerSecond + s.routeSecondsWith(envelope, v.Route, v.routeLengths, motionEstimate{distance: v.distance, speed: v.Pod.Speed})
 	if v.RelocatingTo == "" {
 		destination := v.destination.Node
 		if destination == "" {
@@ -251,7 +252,7 @@ func (s *Simulation) finishEstimate(v *vehicle) (string, float64, bool) {
 			if err != nil {
 				return "", 0, false
 			}
-			seconds += s.routeSeconds(suffix, motionEstimate{})
+			seconds += s.routeSeconds(envelope, suffix, motionEstimate{})
 			destination = berth.Node
 		}
 		seconds += float64(unloadingTicks) / TicksPerSecond
@@ -265,7 +266,7 @@ func (s *Simulation) finishEstimate(v *vehicle) (string, float64, bool) {
 			continue
 		}
 		destination, _ := s.station(trip.request.To)
-		seconds += float64(boardingTicks+unloadingTicks)/TicksPerSecond + s.routeSeconds(trip.route, motionEstimate{})
+		seconds += float64(boardingTicks+unloadingTicks)/TicksPerSecond + s.routeSeconds(envelope, trip.route, motionEstimate{})
 		if destination.Banks == nil && !s.graph.classRestrictions {
 			return destination.Berths[0].Node, seconds, true
 		}
@@ -273,7 +274,7 @@ func (s *Simulation) finishEstimate(v *vehicle) (string, float64, bool) {
 		if err != nil {
 			return "", 0, false
 		}
-		return berth.Node, seconds + s.routeSeconds(suffix, motionEstimate{}), true
+		return berth.Node, seconds + s.routeSeconds(envelope, suffix, motionEstimate{}), true
 	}
 	return v.destination.Node, seconds, true
 }
@@ -284,6 +285,7 @@ func (s *Simulation) finishEstimate(v *vehicle) (string, float64, bool) {
 // node of the last stop and the total seconds. It reports false when a leg
 // has no route.
 func (s *Simulation) laterStopsForClass(node string, seconds float64, stops []string, class VehicleClass) (string, float64, bool) {
+	envelope := motionEnvelopeFor(class)
 	for index, stop := range stops {
 		route, err := s.stationApproachForStops(node, stops[index:], class)
 		if err != nil {
@@ -294,7 +296,7 @@ func (s *Simulation) laterStopsForClass(node string, seconds float64, stops []st
 		if err != nil {
 			return "", 0, false
 		}
-		seconds += s.routeSeconds(route, motionEstimate{}) + s.routeSeconds(suffix, motionEstimate{}) +
+		seconds += s.routeSeconds(envelope, route, motionEstimate{}) + s.routeSeconds(envelope, suffix, motionEstimate{}) +
 			float64(unloadingTicks)/TicksPerSecond
 		node = berth.Node
 	}
@@ -303,16 +305,16 @@ func (s *Simulation) laterStopsForClass(node string, seconds float64, stops []st
 
 type motionEstimate struct{ distance, speed float64 }
 
-// routeSeconds estimates free-flow travel with acceleration and final braking allowances.
-// Traffic delays are unknown; the dispatch deferral limit bounds forecast error.
-func (s *Simulation) routeSeconds(route []Lane, motion motionEstimate) float64 {
-	return s.routeSecondsWith(route, nil, motion)
+// routeSeconds estimates free-flow travel with acceleration and final braking allowances
+// of the envelope. Traffic delays are unknown; the dispatch deferral limit bounds forecast error.
+func (s *Simulation) routeSeconds(envelope motionEnvelope, route []Lane, motion motionEstimate) float64 {
+	return s.routeSecondsWith(envelope, route, nil, motion)
 }
 
 // routeSecondsWith returns the same value as routeSeconds. When lengths has
 // one entry for each lane of route, it must hold the value of laneLength for
 // each lane. Then the function does not look up the lane lengths.
-func (s *Simulation) routeSecondsWith(route []Lane, lengths []float64, motion motionEstimate) float64 {
+func (s *Simulation) routeSecondsWith(envelope motionEnvelope, route []Lane, lengths []float64, motion motionEstimate) float64 {
 	seconds, firstSpeed, lastSpeed := 0.0, 0.0, 0.0
 	for i := range route {
 		lane := &route[i]
@@ -337,5 +339,5 @@ func (s *Simulation) routeSecondsWith(route []Lane, lengths []float64, motion mo
 		return 0
 	}
 	missingSpeed := math.Max(0, firstSpeed-motion.speed)
-	return seconds + missingSpeed*missingSpeed/(2*acceleration*firstSpeed) + lastSpeed/(2*acceleration)
+	return seconds + missingSpeed*missingSpeed/(2*envelope.acceleration*firstSpeed) + lastSpeed/(2*envelope.plannedBraking)
 }

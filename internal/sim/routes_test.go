@@ -205,8 +205,8 @@ func TestRouteSecondsWithLengths(t *testing.T) {
 			for _, distance := range distances {
 				for _, speed := range []float64{0, 3, 14, 20} {
 					motion := motionEstimate{distance: distance, speed: speed}
-					want := s.routeSeconds(route, motion)
-					if got := s.routeSecondsWith(route, lengths, motion); math.Float64bits(got) != math.Float64bits(want) {
+					want := s.routeSeconds(seatEnvelope, route, motion)
+					if got := s.routeSecondsWith(seatEnvelope, route, lengths, motion); math.Float64bits(got) != math.Float64bits(want) {
 						t.Fatalf("route %s to %s motion %+v: got %v, want %v", from.ID, to.ID, motion, got, want)
 					}
 				}
@@ -233,7 +233,7 @@ func TestRouteCacheKeepsTravelTime(t *testing.T) {
 			for _, to := range s.network.Nodes {
 				want := math.Inf(1)
 				if route, err := s.route(from.ID, to.ID); err == nil {
-					want = s.routeSeconds(route, motionEstimate{})
+					want = s.routeSeconds(seatEnvelope, route, motionEstimate{})
 				}
 				if got := s.emptySeconds(from.ID, to.ID); math.Float64bits(got) != math.Float64bits(want) {
 					t.Fatalf("emptySeconds %s to %s = %v, want %v", from.ID, to.ID, got, want)
@@ -242,7 +242,7 @@ func TestRouteCacheKeepsTravelTime(t *testing.T) {
 		}
 		cached := 0
 		for key, result := range s.routes {
-			want := s.routeSeconds(result.lanes, motionEstimate{})
+			want := s.routeSeconds(motionEnvelopeFor(key.class), result.lanes, motionEstimate{})
 			if !result.timed || math.Float64bits(result.seconds) != math.Float64bits(want) {
 				t.Fatalf("route %+v has time %v (%v), want %v", key, result.seconds, result.timed, want)
 			}

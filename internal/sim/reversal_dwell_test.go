@@ -239,10 +239,10 @@ func TestReversalDwellEstimates(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	with := s.routeSeconds(route, motionEstimate{})
+	with := s.routeSeconds(seatEnvelope, route, motionEstimate{})
 	detachIndexes(s)
 	s.maneuvers = nil
-	if without := s.routeSeconds(route, motionEstimate{}); with != without {
+	if without := s.routeSeconds(seatEnvelope, route, motionEstimate{}); with != without {
 		t.Fatalf("estimate %g with groups, %g without", with, without)
 	}
 }

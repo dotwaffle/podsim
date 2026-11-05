@@ -24,12 +24,12 @@ func TestCoastMoveStep(t *testing.T) {
 	} {
 		t.Run(fmt.Sprint(test), func(t *testing.T) {
 			t.Parallel()
-			if got, want := coastMoveStep(blocks, 0, test.distance, test.speed, test.limit, math.Inf(1)), ordinaryMoveStep(blocks, 0, test.distance, test.speed, test.limit); got != want {
+			if got, want := coastMoveStep(blocks, seatEnvelope, 0, test.distance, test.speed, test.limit, math.Inf(1)), ordinaryMoveStep(blocks, seatEnvelope, 0, test.distance, test.speed, test.limit); got != want {
 				t.Fatalf("infinite ceiling: %+v, want %+v", got, want)
 			}
 			stop := test.distance + stoppingDistance(test.speed)
 			if stop+1 < test.limit {
-				got := coastMoveStep(blocks, 0, test.distance, test.speed, test.limit, keepSpeed(test.speed))
+				got := coastMoveStep(blocks, seatEnvelope, 0, test.distance, test.speed, test.limit, keepSpeed(test.speed))
 				if after := got.distance + stoppingDistance(got.speed); math.Abs(after-stop) > 1e-9 || test.speed-got.speed > maxSpeedStep {
 					t.Fatalf("keep: stop point %v at %v m/s, want %v", after, got.speed, stop)
 				}
@@ -37,7 +37,7 @@ func TestCoastMoveStep(t *testing.T) {
 			// The ceiling binds when it is less than speed + acceleration ×
 			// dt, as for a pod that holds back to a hold point.
 			if gap := stoppingDistance(test.speed) + 0.05; stopSpeed(gap) < test.speed+maxSpeedStep && test.distance+gap+1 < test.limit {
-				got := coastMoveStep(blocks, 0, test.distance, test.speed, test.limit, stopSpeed(gap))
+				got := coastMoveStep(blocks, seatEnvelope, 0, test.distance, test.speed, test.limit, stopSpeed(gap))
 				if after := got.distance + stoppingDistance(got.speed); math.Abs(after-(test.distance+gap)) > 1e-9 {
 					t.Fatalf("stop: stop point %v, want %v", after, test.distance+gap)
 				}

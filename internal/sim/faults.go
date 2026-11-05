@@ -187,7 +187,7 @@ func (s *Simulation) startPodFaultTicks(v *vehicle, ticks int64) (string, error)
 	s.surrenderServiceClaims(v)
 	v.faulted, v.faultID = true, id
 	if v.Pod.Activity == Traveling {
-		v.faultCap = math.Min(v.distance+stoppingDistance(v.Pod.Speed), v.blocks.end(v.reservedThrough))
+		v.faultCap = math.Min(v.distance+motionEnvelopeFor(v.Pod.Class).stoppingDistance(v.Pod.Speed), v.blocks.end(v.reservedThrough))
 	}
 	// A dwell at a reverse flag change starts again after the clear.
 	v.reversal.ticks = 0

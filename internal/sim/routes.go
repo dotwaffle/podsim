@@ -15,16 +15,17 @@ type routeKey struct {
 type routeResult struct {
 	lanes []Lane
 	err   error
-	// seconds is the value of routeSeconds for lanes and a pod at rest. It
-	// is valid only when timed is true. withSeconds sets both.
+	// seconds is the value of routeSeconds for lanes and a pod of the key
+	// class at rest. It is valid only when timed is true. withSeconds sets
+	// both.
 	seconds float64
 	timed   bool
 }
 
 // withSeconds returns the result with the value of routeSeconds for its
-// lanes and a pod at rest.
-func (s *Simulation) withSeconds(result routeResult) routeResult {
-	result.seconds, result.timed = s.routeSeconds(result.lanes, motionEstimate{}), true
+// lanes and a pod of the class at rest.
+func (s *Simulation) withSeconds(result routeResult, class VehicleClass) routeResult {
+	result.seconds, result.timed = s.routeSeconds(motionEnvelopeFor(class), result.lanes, motionEstimate{}), true
 	return result
 }
 
@@ -156,7 +157,7 @@ func (s *Simulation) noteAccessRoute(key routeKey, result routeResult) {
 // value. Under a routing view, it returns the value and stores nothing in the
 // route memo.
 func (s *Simulation) cacheRoute(key routeKey, result routeResult) routeResult {
-	result = s.withSeconds(result)
+	result = s.withSeconds(result, key.class)
 	if s.routeView != nil {
 		if s.routeView.access {
 			s.noteAccessRoute(key, result)

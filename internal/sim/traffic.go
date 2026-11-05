@@ -808,15 +808,16 @@ func (s *Simulation) move(v *vehicle) {
 	blocks := &v.blocks
 	current := blocks.find(v.blockIndex, &blocks.cursors[podCursor])
 	limit = s.reversalLimit(v, current.lane, limit)
+	envelope := motionEnvelopeFor(v.Pod.Class)
 	var next ordinaryMoveResult
 	ceiling, coasting := v.coast.at(s.tick)
 	switch {
 	case v.faulted:
-		next = faultMoveStep(blocks, current.lane, v.distance, v.Pod.Speed, limit, v.faultCap)
+		next = faultMoveStep(blocks, envelope, current.lane, v.distance, v.Pod.Speed, limit, v.faultCap)
 	case coasting:
-		next = coastMoveStep(blocks, current.lane, v.distance, v.Pod.Speed, limit, ceiling)
+		next = coastMoveStep(blocks, envelope, current.lane, v.distance, v.Pod.Speed, limit, ceiling)
 	default:
-		next = ordinaryMoveStep(blocks, current.lane, v.distance, v.Pod.Speed, limit)
+		next = ordinaryMoveStep(blocks, envelope, current.lane, v.distance, v.Pod.Speed, limit)
 	}
 	s.publishVehicleTravel(v, next.distance, next.speed)
 }
@@ -864,9 +865,9 @@ func (s *Simulation) publishVehicleTravel(v *vehicle, distance, speed float64) {
 // speedBeforeLane limits the next speed so a pod can brake before each
 // lower-speed lane. It checks lane starts, including lanes that one tick
 // can cross. Reservation cells do not bound this scan.
-func (l *blockList) speedBeforeLane(current int, distance, speed float64) float64 {
+func (l *blockList) speedBeforeLane(envelope motionEnvelope, current int, distance, speed float64) float64 {
 	dt := 1.0 / TicksPerSecond
-	reach := speed*speed/(2*acceleration) + speed*dt
+	reach := speed*speed/(2*envelope.plannedBraking) + speed*dt
 	for lane := current + 1; lane < len(l.route); lane++ {
 		remaining := l.lanes[lane].start - distance
 		if remaining > reach {
@@ -878,8 +879,8 @@ func (l *blockList) speedBeforeLane(current int, distance, speed float64) float6
 		}
 		// Above limit, the next stop point must stay before the lane start
 		// plus the stopping distance at limit. At limit, entry is allowed.
-		step := acceleration * dt
-		safe := math.Sqrt(step*step+limit*limit+2*acceleration*math.Max(0, remaining)) - step
+		step := envelope.plannedBraking * dt
+		safe := math.Sqrt(step*step+limit*limit+2*envelope.plannedBraking*math.Max(0, remaining)) - step
 		speed = math.Min(speed, math.Max(limit, safe))
 	}
 	return speed

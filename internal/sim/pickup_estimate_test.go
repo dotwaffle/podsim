@@ -86,7 +86,7 @@ func TestPickupForecastIncludesCommittedPassengerTrip(t *testing.T) {
 	if !ok || node != "market-berth" {
 		t.Fatalf("forecast ignored committed passenger trip: node=%s ok=%v", node, ok)
 	}
-	emptyRemaining := s.routeSeconds(v.Route, motionEstimate{})
+	emptyRemaining := s.routeSeconds(seatEnvelope, v.Route, motionEstimate{})
 	if seconds <= emptyRemaining+float64(boardingTicks+unloadingTicks)/TicksPerSecond {
 		t.Fatal("forecast omitted passenger travel")
 	}
@@ -109,7 +109,7 @@ func TestPickupForecastUsesStationBeforeBerthAssignment(t *testing.T) {
 	if !ok || node != "market-berth" {
 		t.Fatalf("forecast destination = %q, ok=%t", node, ok)
 	}
-	approach := s.routeSeconds(v.Route, motionEstimate{}) + float64(unloadingTicks)/TicksPerSecond
+	approach := s.routeSeconds(seatEnvelope, v.Route, motionEstimate{}) + float64(unloadingTicks)/TicksPerSecond
 	if seconds <= approach {
 		t.Fatalf("forecast omitted station access: got %.2fs, approach %.2fs", seconds, approach)
 	}
@@ -360,7 +360,7 @@ func (s *Simulation) emptySeconds(from, to string) float64 {
 		return math.Inf(1)
 	}
 	if !result.timed {
-		return s.routeSeconds(result.lanes, motionEstimate{})
+		return s.routeSeconds(seatEnvelope, result.lanes, motionEstimate{})
 	}
 	return result.seconds
 }

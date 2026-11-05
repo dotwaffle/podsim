@@ -105,7 +105,7 @@ func (s *Simulation) admissionRequest(v *vehicle) (int, bool) {
 		return 0, false
 	}
 	speed := math.Max(v.Pod.Speed, v.blocks.currentLane(v.blockIndex).SpeedLimit)
-	horizon := speed*speed/(2*acceleration) + speed*reservationLookaheadSeconds
+	horizon := motionEnvelopeFor(v.Pod.Class).reservationHorizon(speed)
 	if v.reservedThrough >= 0 && v.blocks.end(v.reservedThrough)-v.distance >= horizon {
 		return 0, false
 	}

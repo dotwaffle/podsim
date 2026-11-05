@@ -334,7 +334,7 @@ func (m *entryMonitor) attach(s *Simulation) {
 				limit = min(limit, v.platoonCap)
 			}
 			lane := v.blocks.find(v.blockIndex, &v.blocks.cursors[podCursor]).lane
-			m.motion[index] = coastMoveStep(&v.blocks, lane, v.distance, v.Pod.Speed, limit, ceiling)
+			m.motion[index] = coastMoveStep(&v.blocks, motionEnvelopeFor(v.Pod.Class), lane, v.distance, v.Pod.Speed, limit, ceiling)
 			for r, releaseAt := range v.routeReleases {
 				if (r.kind == nodeResource || r.kind == junctionResource) && releaseAt > v.distance && releaseAt <= frontier {
 					panic(fmt.Sprintf("tick %d: pod %s coasts and retains %v until %v, before its reservation end %v", s.tick, v.Pod.ID, r, releaseAt, frontier))

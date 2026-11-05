@@ -161,7 +161,7 @@ func TestLaneSpeedKeepsUnrestrictedTargets(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			_, v := laneSpeedFixture([]float64{1, 1, 1}, test.limits)
-			if got := v.blocks.speedBeforeLane(0, 0, test.speed); got != test.speed {
+			if got := v.blocks.speedBeforeLane(seatEnvelope, 0, 0, test.speed); got != test.speed {
 				t.Fatalf("speed %.17g, want unchanged target %.17g", got, test.speed)
 			}
 		})

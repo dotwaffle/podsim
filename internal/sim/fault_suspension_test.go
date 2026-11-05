@@ -70,14 +70,14 @@ func TestFaultMoveStep(t *testing.T) {
 	lane := 0
 	far := blocks.end(blocks.len() - 1)
 	for _, speed := range []float64{0, 0.5, 7, 13.9} {
-		ordinary := ordinaryMoveStep(blocks, lane, 10, speed, far)
-		braking := faultMoveStep(blocks, lane, 10, speed, far, far)
+		ordinary := ordinaryMoveStep(blocks, seatEnvelope, lane, 10, speed, far)
+		braking := faultMoveStep(blocks, seatEnvelope, lane, 10, speed, far, far)
 		if ordinary.speed <= speed || braking.speed > speed || braking.commandedSpeed > speed {
 			t.Fatalf("speed %g: ordinary %+v, braking %+v", speed, ordinary, braking)
 		}
 	}
 	// The cap lowers a far grant end, and a near grant end lowers the cap.
-	if a, b := faultMoveStep(blocks, lane, 10, 14, far, 20), faultMoveStep(blocks, lane, 10, 14, 20, far); a != b {
+	if a, b := faultMoveStep(blocks, seatEnvelope, lane, 10, 14, far, 20), faultMoveStep(blocks, seatEnvelope, lane, 10, 14, 20, far); a != b {
 		t.Fatalf("the cap and the grant end differ: %+v and %+v", a, b)
 	}
 	distance, speed := 50.0, 14.0
@@ -87,7 +87,7 @@ func TestFaultMoveStep(t *testing.T) {
 		if tick > 10*TicksPerSecond {
 			t.Fatal("the pod does not come to rest")
 		}
-		next := faultMoveStep(blocks, lane, distance, speed, far, stop)
+		next := faultMoveStep(blocks, seatEnvelope, lane, distance, speed, far, stop)
 		if next.speed > speed || speed-next.speed > acceleration*dt+1e-9 || next.distance < distance || next.distance > stop {
 			t.Fatalf("tick %d: %g m at %g m/s, then %+v", tick, distance, speed, next)
 		}
