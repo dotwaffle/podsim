@@ -175,6 +175,29 @@ func (s *Simulation) BoardingLegBlockedForTest(podID string) bool {
 	return err == nil
 }
 
+// FailedBerthChoiceForTest reports whether pod podID is traveling with no berth
+// and an incident wait, which is the report of a failed berth choice. It also
+// reports whether the same search succeeds with an empty blocked set. It searches
+// on a clone, so it changes no state, memo, counter, or route cache of s.
+//
+// It is a test entry for the log of rule A of amendment A8 of the incident stage 7
+// contract. The classifier does not read it. No production code calls it.
+func (s *Simulation) FailedBerthChoiceForTest(podID string) (failed, retry bool) {
+	v := s.findVehicle(podID)
+	if v == nil || v.Pod.Activity != Traveling || v.destination.ID != "" || !incidentWait(v) {
+		return false, false
+	}
+	c := s.Clone()
+	v = c.findVehicle(podID)
+	c.setBlocked(nil)
+	station, ok := c.station(v.destinationStation)
+	if !ok {
+		return true, false
+	}
+	_, _, err := c.stationRouteByLoad(stationRouteInput{from: station.routeEntry(v.Route, v.destination), station: station.ID, class: v.Pod.Class, accept: c.berthFilterForVehicle(v)})
+	return true, err == nil
+}
+
 // FaultTransitionForTest returns a check of the transition rules of section
 // 10 of the incident suspension contract. Each call compares each pod that is
 // faulted before and after the time since the last call.

@@ -459,6 +459,9 @@ func TestRestoreFailedBerthChoice(t *testing.T) {
 			if first, _ := routeLaneBlocks(&v.blocks, len(v.Route)-1); v.destination.ID != "" || v.reservedThrough != first || v.blockIndex != first {
 				t.Fatalf("pod 01 has the berth %q, block %d, and a reservation through %d, want block %d", v.destination.ID, v.blockIndex, v.reservedThrough, first)
 			}
+			if failed, retry := s.FailedBerthChoiceForTest(v.Pod.ID); !failed || !retry {
+				t.Fatalf("the failed choice reads %t, and the retry %t", failed, retry)
+			}
 			test.prepare(t, s, v)
 			s.Step()
 			input := emergencyRestoreInput(s, s.ExportState())
@@ -481,6 +484,9 @@ func TestRestoreFailedBerthChoice(t *testing.T) {
 				}
 			}
 			stepUntil(t, restored, "the arrival at s1", func() bool { return got.Pod.Activity == Unloading && got.Pod.StationID == "s1" })
+			if failed, _ := restored.FailedBerthChoiceForTest(v.Pod.ID); failed {
+				t.Fatal("the arrived pod reads as a failed choice")
+			}
 		})
 	}
 }

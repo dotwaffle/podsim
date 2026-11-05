@@ -181,8 +181,12 @@ type soakResult struct {
 	// blockedRecords holds the records that ended. Only the log reads them.
 	paths          soakPathCounts
 	blockedRecords []soakOpenRecord
-	misses         []string
-	steps          []time.Duration
+	// failedBerths counts the readings on an incident wait that a failed berth
+	// choice reports, and failedBerthRetries those whose search succeeds with no
+	// fault. Only the log reads them.
+	failedBerths, failedBerthRetries int
+	misses                           []string
+	steps                            []time.Duration
 	// rates holds the ticks for each CPU second of this run's thread in each
 	// simulated 5 minutes before the clear, to see the drift of the rate.
 	rates []int
@@ -812,6 +816,19 @@ func (r soakReading) walkChain(podID string) (soakPath, string) {
 	}
 }
 
+// waitingPod returns the pod on the chain that reports the incident wait. The
+// classifier stops its walk at that pod.
+func (r soakReading) waitingPod(podID string) string {
+	seen := make(map[string]bool, 4)
+	for id := podID; !seen[id]; id = r.pods[id].BlockedBy {
+		seen[id] = true
+		if wait := r.pods[id].WaitReason; wait == sim.BlockedByIncident || wait == sim.NoForwardRoute {
+			return id
+		}
+	}
+	return podID
+}
+
 // soakOpenRecord is the reading state of one active record.
 type soakOpenRecord struct {
 	view sim.EmergencyView
@@ -869,6 +886,14 @@ func (d *soakDriver) watchEmergencies() {
 		record.view = view
 		path, end := reading.classify(view.PodID)
 		d.result.paths[path]++
+		if path == soakPathIncident || path == soakPathNoRoute {
+			if failed, retry := d.s.simulation.FailedBerthChoiceForTest(reading.waitingPod(view.PodID)); failed {
+				d.result.failedBerths++
+				if retry {
+					d.result.failedBerthRetries++
+				}
+			}
+		}
 		blocked := path.blocked()
 		if blocked {
 			record.end = end
@@ -1057,7 +1082,7 @@ func runSoak(t *testing.T, input soakInput) soakResult {
 		input.preset, input.arm.name, input.seed, input.branch, input.hours, input.checks, d.result.ticks, d.result.wall.Seconds(), d.result.threadCPU, d.result.processCPU, float64(d.result.ticks)/d.result.wall.Seconds(),
 		d.result.commands, d.result.refused, d.result.saves, d.result.demoted, d.result.podsDemoted, d.result.rewinds, d.result.railRecords, state.Completed, state.Interrupted, d.result.queue.low, d.result.queue.high,
 		d.result.settleTicks/sim.TicksPerSecond, state.Wait.AverageSeconds, state.Wait.MaxSeconds, state.Faults.Counters, state.Emergencies.Counters, d.result.emergencies, d.result.emergencyLate, d.result.emergencyInPlatoon, d.result.emergencyLong, float64(d.result.emergencyLongest)/sim.TicksPerSecond, d.fullChecks, d.result.rates)
-	t.Logf("rule A preset=%s arm=%s seed=%d branch=%d readings %s longest blocked: %s", input.preset, input.arm.name, input.seed, input.branch, d.result.paths, soakLongestBlocked(d.result.blockedRecords, d.open))
+	t.Logf("rule A preset=%s arm=%s seed=%d branch=%d readings %s failedBerths=%d failedBerthRetries=%d longest blocked: %s", input.preset, input.arm.name, input.seed, input.branch, d.result.paths, d.result.failedBerths, d.result.failedBerthRetries, soakLongestBlocked(d.result.blockedRecords, d.open))
 	if len(d.result.misses) > 0 {
 		t.Errorf("preset %s arm %s seed %d branch %d misses a Progress gate:\n%s", input.preset, input.arm.name, input.seed, input.branch, strings.Join(d.result.misses, "\n"))
 	}
@@ -1945,6 +1970,24 @@ func TestSoakFaultAtDeparture(t *testing.T) {
 		}
 	}
 	t.Fatalf("the pod does not depart after the clear: %+v", pod(restored, id))
+}
+
+// TestSoakWaitingPod checks that the count of failed berth choices reads the pod
+// at which the classifier stops.
+func TestSoakWaitingPod(t *testing.T) {
+	t.Parallel()
+	reading := soakReading{pods: map[string]sim.Pod{
+		"a": {ID: "a", BlockedBy: "b"},
+		"b": {ID: "b", WaitReason: sim.NoForwardRoute, BlockedBy: "c"},
+		"c": {ID: "c", WaitReason: sim.BlockedByIncident},
+		"d": {ID: "d", BlockedBy: "e"},
+		"e": {ID: "e", BlockedBy: "d"},
+	}}
+	for pod, want := range map[string]string{"a": "b", "b": "b", "c": "c", "d": "d"} {
+		if got := reading.waitingPod(pod); got != want {
+			t.Errorf("pod %s: got %s, want %s", pod, got, want)
+		}
+	}
 }
 
 // TestSoakCheckSave checks each result of a save. A physical restore can move an
