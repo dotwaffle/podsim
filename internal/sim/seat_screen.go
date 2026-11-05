@@ -40,11 +40,6 @@ type SeatScreen struct {
 	// of JoinEligibleAssigned is in this member. Each party counts one time,
 	// so the member is at most JoinEligibleAssigned.
 	JoinEligibleExistingStop int
-	// ReassignedParties counts the parties that joined a boarding pod while
-	// they had a pod on its way. Dispatch released that pod. See
-	// SharedRideJoinReassignExisting. A rider that a restore queues again
-	// does not count.
-	ReassignedParties int
 }
 
 // SeatScreen returns the counters of the seat screen. It does not change

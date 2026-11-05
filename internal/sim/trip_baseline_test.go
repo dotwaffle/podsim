@@ -87,8 +87,8 @@ func TestTripBaseline(t *testing.T) {
 		ticks       int
 		want        string
 	}{
-		{name: "harbor-garden", destination: "garden", ticks: 18000, want: "1caed93c2d151abaadcbce30074c2f7d89b59ed3d18320d487251337a76a0347"},
-		{name: "harbor-market", destination: "market", ticks: 18000, want: "0d7669a472abd494b57e06b18ea2cbea7d9884167c9f9e52935803cfcc54b0cf"},
+		{name: "harbor-garden", destination: "garden", ticks: 18000, want: "f3480bdc546e3a03edaa2cf1e092a1b6d42b68e2a1e97486cc7ce793d46f155e"},
+		{name: "harbor-market", destination: "market", ticks: 18000, want: "7341538682be6eb0dd9065743ad9db5e2fade2d73a87c908489653d41052f992"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			s := newExample(t)

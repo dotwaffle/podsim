@@ -150,7 +150,6 @@ func TestOnboardPickupsRejectAtomically(t *testing.T) {
 			}
 		}},
 		{"existing detour", func(s *Simulation, _ *waitingTrip) { s.vehicles[0].riddenBase *= 10 }},
-		{"assigned new stop", func(_ *Simulation, trip *waitingTrip) { trip.request.PodID, trip.request.To = "other", "harbor" }},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

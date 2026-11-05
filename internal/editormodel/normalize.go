@@ -72,9 +72,6 @@ func normalizeProject(draft any) (projectChange, error) {
 	if !slices.Contains([]string{"drop-offs", "destination"}, text(out["sharedRideMode"])) {
 		out["sharedRideMode"] = "drop-offs"
 	}
-	if !slices.Contains([]string{"unassigned", "reassign-existing"}, text(out["sharedRideJoin"])) {
-		out["sharedRideJoin"] = "unassigned"
-	}
 	if !draftPlatoonLimit(out["platoonLimit"]) {
 		out["platoonLimit"] = float64(0)
 	}

@@ -214,10 +214,6 @@ type Config struct {
 	// mode, from 1 to sim.MaxSharedRideStops. Zero loads as
 	// sim.DefaultSharedRideMaxStops.
 	SharedRideMaxStops int `json:"sharedRideMaxStops,omitempty"`
-	// SharedRideJoin selects the parties that can join a boarding pod by
-	// their pickup state: "unassigned" or "reassign-existing". An empty
-	// policy loads as sim.DefaultSharedRideJoin, which is "unassigned".
-	SharedRideJoin sim.SharedRideJoin `json:"sharedRideJoin,omitempty"`
 	// GeneratedOrderConsent is the sharing consent of each order that the
 	// demand run offers: "private" or "shared". An empty consent gives
 	// private orders. It is an extension field of the command digest, so a
@@ -341,8 +337,8 @@ func validateDepotCounts(depots []sim.Depot) error {
 	return nil
 }
 
-// validateSharedRideSettings checks the shared ride party limit, mode, stop
-// limit and join policy, in that order.
+// validateSharedRideSettings checks the shared ride party limit, mode, and
+// stop limit, in that order.
 func validateSharedRideSettings(config Config) error {
 	if config.SharedRidePartyLimit < 0 || config.SharedRidePartyLimit > sim.MaxSharedRideParties {
 		return fmt.Errorf("shared ride party limit must be 1 to %d", sim.MaxSharedRideParties)
@@ -352,9 +348,6 @@ func validateSharedRideSettings(config Config) error {
 	}
 	if config.SharedRideMaxStops < 0 || config.SharedRideMaxStops > sim.MaxSharedRideStops {
 		return fmt.Errorf("shared ride stop limit must be 1 to %d", sim.MaxSharedRideStops)
-	}
-	if join := config.SharedRideJoin; join != "" && join != sim.SharedRideJoinUnassigned && join != sim.SharedRideJoinReassignExisting {
-		return fmt.Errorf("shared ride join policy must be %q or %q", sim.SharedRideJoinUnassigned, sim.SharedRideJoinReassignExisting)
 	}
 	if consent := config.GeneratedOrderConsent; consent != "" && consent != sim.PrivateConsent && consent != sim.SharedConsent {
 		return fmt.Errorf("generated order consent must be %q or %q", sim.PrivateConsent, sim.SharedConsent)
@@ -465,15 +458,6 @@ func EffectiveSharedRideMaxStops(config Config) int {
 	return config.SharedRideMaxStops
 }
 
-// EffectiveSharedRideJoin returns the join policy, with
-// sim.DefaultSharedRideJoin for an empty policy.
-func EffectiveSharedRideJoin(config Config) sim.SharedRideJoin {
-	if config.SharedRideJoin == "" {
-		return sim.DefaultSharedRideJoin
-	}
-	return config.SharedRideJoin
-}
-
 // ConfigureSharedRides applies the shared ride settings of a project to a
 // simulation.
 func ConfigureSharedRides(simulation *sim.Simulation, config Config) error {
@@ -484,9 +468,6 @@ func ConfigureSharedRides(simulation *sim.Simulation, config Config) error {
 		return err
 	}
 	if err := simulation.SetSharedRideMode(EffectiveSharedRideMode(config), EffectiveSharedRideMaxStops(config)); err != nil {
-		return err
-	}
-	if err := simulation.SetSharedRideJoin(EffectiveSharedRideJoin(config)); err != nil {
 		return err
 	}
 	return simulation.SetOnboardPickups(config.OnboardPickups)

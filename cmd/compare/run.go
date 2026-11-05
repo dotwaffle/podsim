@@ -41,20 +41,13 @@ func compare(opts options, scenario scenario) ([]result, error) {
 		waitRules = []string{""}
 	}
 	sharing := sharingArms(opts)
-	// An empty join policy selects the default policy and leaves the
-	// result without a join policy. With a limit of 1, the arm keeps the
-	// given policy, which has no effect.
-	sharingJoins := opts.sharingJoins
-	if sharingJoins == nil {
-		sharingJoins = []string{""}
-	}
 	// An empty platoon policy runs without platoons and leaves the result
 	// without a platoon policy.
 	platoonPolicies := opts.platoonPolicies
 	if platoonPolicies == nil {
 		platoonPolicies = []string{""}
 	}
-	armsPerSchedule := len(sharing) * len(sharingJoins) * len(waitRules) * len(platoonPolicies) * experimentalArmCount(opts) * onboardArmCount(opts)
+	armsPerSchedule := len(sharing) * len(waitRules) * len(platoonPolicies) * experimentalArmCount(opts) * onboardArmCount(opts)
 	if len(opts.seeds)*len(arms)*len(opts.loads)*armsPerSchedule > maxComparisons {
 		return nil, fmt.Errorf("the expanded matrix must contain at most %d comparisons", maxComparisons)
 	}
@@ -78,20 +71,18 @@ func compare(opts options, scenario scenario) ([]result, error) {
 				})
 				id := scheduleID(schedule)
 				for _, sharingArm := range sharing {
-					for _, sharingJoin := range sharingJoins {
-						for _, waitRule := range waitRules {
-							for _, platoonPolicy := range platoonPolicies {
-								for _, policy := range opts.redistributionPolicies {
-									inputs = append(inputs, runInput{
-										energy: energy, policy: policy, duration: opts.duration, requestEvery: load, seed: seed,
-										pattern: arm.pattern, profile: arm.profile, band: arm.band, daily: arm.daily, dailyStartMinute: arm.dailyStartMinute,
-										scheduleID: id, queueLimit: opts.queueLimit, arrivalsFor: opts.arrivalsFor,
-										burstSize: opts.burstSize, sharingConsent: consent, sharingLimit: sharingArm.limit, sharingMode: sharingArm.mode,
-										sharingMaxStops: opts.sharingMaxStops, sharingJoin: sharingJoin,
-										waitRule: waitRule, platoonPolicy: platoonPolicy, schedule: schedule, scenario: scenario,
-										stopWhenDrained: opts.stopWhenDrained,
-									})
-								}
+					for _, waitRule := range waitRules {
+						for _, platoonPolicy := range platoonPolicies {
+							for _, policy := range opts.redistributionPolicies {
+								inputs = append(inputs, runInput{
+									energy: energy, policy: policy, duration: opts.duration, requestEvery: load, seed: seed,
+									pattern: arm.pattern, profile: arm.profile, band: arm.band, daily: arm.daily, dailyStartMinute: arm.dailyStartMinute,
+									scheduleID: id, queueLimit: opts.queueLimit, arrivalsFor: opts.arrivalsFor,
+									burstSize: opts.burstSize, sharingConsent: consent, sharingLimit: sharingArm.limit, sharingMode: sharingArm.mode,
+									sharingMaxStops: opts.sharingMaxStops,
+									waitRule:        waitRule, platoonPolicy: platoonPolicy, schedule: schedule, scenario: scenario,
+									stopWhenDrained: opts.stopWhenDrained,
+								})
 							}
 						}
 					}
@@ -152,10 +143,7 @@ type runInput struct {
 	// selects the default limit.
 	sharingMode     sim.SharedRideMode
 	sharingMaxStops int
-	// sharingJoin names a sharingJoinValues key. Empty selects the default
-	// join policy.
-	sharingJoin    string
-	onboardPickups string
+	onboardPickups  string
 	// waitRule names a waitRuleValues key. Empty selects the default rule.
 	waitRule string
 	// platoonPolicy names a platoonPolicyValues key. Empty runs without
@@ -278,8 +266,8 @@ func configureDemandWeights(simulation *sim.Simulation, input *runInput) error {
 	return nil
 }
 
-// configureSharing sets the party limit, the sharing mode, and the join
-// policy, in this order.
+// configureSharing sets the party limit and the sharing mode, in this
+// order.
 func configureSharing(simulation *sim.Simulation, input *runInput) error {
 	if err := simulation.SetSharedRidePartyLimit(input.sharingLimit); err != nil {
 		return fmt.Errorf("set sharing limit: %w", err)
@@ -287,16 +275,6 @@ func configureSharing(simulation *sim.Simulation, input *runInput) error {
 	sharingMode, sharingStops := input.sharingSettings()
 	if err := simulation.SetSharedRideMode(sharingMode, sharingStops); err != nil {
 		return fmt.Errorf("set sharing mode: %w", err)
-	}
-	if input.sharingJoin == "" {
-		return nil
-	}
-	join, ok := sharingJoinValues[input.sharingJoin]
-	if !ok {
-		return fmt.Errorf("unknown sharing join policy %q", input.sharingJoin)
-	}
-	if err := simulation.SetSharedRideJoin(join); err != nil {
-		return fmt.Errorf("set sharing join policy: %w", err)
 	}
 	return nil
 }
@@ -601,12 +579,10 @@ func (arm *armRun) result() result {
 		Pattern: input.pattern, DemandProfile: input.profile, DemandBand: input.band,
 		RequestEverySeconds: requestEvery, OfferedPerMinute: float64(len(input.schedule)) / arrivalMinutes, Seed: input.seed,
 		BurstSize: burstSize, Policy: input.policy, SharedRidePartyLimit: input.sharingLimit, SharingMode: string(sharingMode),
-		SharingJoin:   input.sharingJoin,
 		SharedParties: state.SharedParties, FullPodRefusals: seats.FullPodRefusals, FullDepartures: seats.FullDepartures,
 		DepartureBacklog: seats.DepartureBacklog, DeparturesDemandOverFour: seats.demandOverFour, DeparturesOverFourAboard: seats.overFourAboard,
 		JoinEligibleAssigned: seats.JoinEligibleAssigned, JoinEligibleExistingStop: seats.JoinEligibleExistingStop, JoinEligibleAddedStopOnly: seats.addedStopOnly,
-		ReassignedParties: seats.ReassignedParties,
-		WaitRule:          input.waitRule, PlatoonPolicy: input.platoonPolicy,
+		WaitRule: input.waitRule, PlatoonPolicy: input.platoonPolicy,
 		PickupReassignment:      input.pickupReassignment,
 		PickupReassignmentStats: pickupStatsForReport(simulation, input.pickupReassignment),
 		FocusStation:            input.scenario.focus,

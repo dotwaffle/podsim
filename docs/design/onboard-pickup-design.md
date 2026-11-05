@@ -23,9 +23,7 @@ Each active party and the new party must have explicit shared consent.
 Private parties cannot admit another party.
 Use whole parties and the actual vehicle's class, seats, berth, and onward route.
 
-Keep the existing join policy's assignment restriction.
-The default accepts only unassigned requests.
-Reassign-existing mode can release another pickup only when its current release rules permit it.
+Onboard pickup accepts only unassigned requests.
 An express service cannot add a different origin or destination pair.
 Current express physical profiles remain unsupported.
 

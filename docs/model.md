@@ -104,15 +104,7 @@ At each stop, the parties for that stop alight and the pod continues with the ot
 A pod with passengers picks up parties on its way only with the project setting `onboardPickups`, which needs a limit above one and the `drop-offs` mode.
 The pod then takes a party at a passenger berth while it stands there (see [onboard pickup design](design/onboard-pickup-design.md)).
 
-The project setting `sharedRideJoin` selects the waiting parties that can join by their pickup state:
-
-| Policy | Parties that can join |
-| --- | --- |
-| `unassigned` | The default. Parties that have no pod. |
-| `reassign-existing` | Also parties that have an empty pod on its way, when the boarding pod already stops at their destination. |
-
-With `reassign-existing`, dispatch releases the pod of a party that joins, as it does when an idle local pod takes a trip.
-The stops of the boarding pod do not change, so the parties aboard get no new stop.
+Only a waiting party with no pod can join a boarding pod.
 A party whose pod is idle at the origin boards that pod.
 
 ### Dispatch order

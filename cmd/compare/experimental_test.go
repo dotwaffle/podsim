@@ -145,7 +145,7 @@ func TestExperimentalReportMetadata(t *testing.T) {
 		t.Fatal(err)
 	}
 	var decoded report
-	if err := jsonv2.Unmarshal(output.Bytes(), &decoded, json.DefaultOptionsV1()); err != nil || decoded.SchemaVersion != 14 || !reflect.DeepEqual(decoded.Results, results) {
+	if err := jsonv2.Unmarshal(output.Bytes(), &decoded, json.DefaultOptionsV1()); err != nil || decoded.SchemaVersion != 15 || !reflect.DeepEqual(decoded.Results, results) {
 		t.Fatalf("experimental JSON metadata lost: %v, %+v", err, decoded)
 	}
 	output.Reset()

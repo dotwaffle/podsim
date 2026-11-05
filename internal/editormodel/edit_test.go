@@ -107,8 +107,6 @@ func TestScalarEdits(t *testing.T) {
 		{"stop cap", "sharedRideMaxStops", `"10"`, "sharedRideMaxStops", float64(7)},
 		{"mode", "sharedRideMode", `"destination"`, "sharedRideMode", "destination"},
 		{"mode fallback", "sharedRideMode", `"unknown"`, "sharedRideMode", "drop-offs"},
-		{"join", "sharedRideJoin", `"reassign-existing"`, "sharedRideJoin", "reassign-existing"},
-		{"join fallback", "sharedRideJoin", `"unknown"`, "sharedRideJoin", "unassigned"},
 		{"platoon", "platoonLimit", `"4"`, "platoonLimit", float64(4)},
 		{"invalid platoon", "platoonLimit", `"5"`, "platoonLimit", float64(0)},
 	} {
@@ -216,7 +214,7 @@ func TestRejectedEditCommands(t *testing.T) {
 		`{"field":"demandEnabled","value":1}`, `{"field":"demandRate","value":"NaN"}`,
 		`{"field":"demandSeed","value":"Infinity"}`, `{"field":"demandRate","value":false}`,
 		`{"field":"demandPattern","value":"unknown"}`, `{"field":"demandProfile","value":1}`,
-		`{"field":"sharedRideJoin","value":1}`,
+		`{"field":"sharedRideMode","value":1}`,
 	} {
 		if _, err := editProject(editFixture(), jsontext.Value(raw)); err == nil {
 			t.Errorf("invalid edit accepted: %s", raw)

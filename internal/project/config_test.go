@@ -131,7 +131,6 @@ func TestValidateRejectsMalformedProjects(t *testing.T) {
 		{"sharing mode", func(config *Config) { config.SharedRideMode = "pickups" }},
 		{"sharing stops", func(config *Config) { config.SharedRideMaxStops = sim.MaxSharedRideStops + 1 }},
 		{"negative sharing stops", func(config *Config) { config.SharedRideMaxStops = -1 }},
-		{"sharing join", func(config *Config) { config.SharedRideJoin = "reassign" }},
 		{"platoon limit of one pod", func(config *Config) { config.PlatoonLimit = 1 }},
 		{"platoon limit", func(config *Config) { config.PlatoonLimit = sim.MaxPlatoonLimit + 1 }},
 		{"negative platoon limit", func(config *Config) { config.PlatoonLimit = -1 }},
@@ -313,38 +312,6 @@ func TestSharedRideModeDefaults(t *testing.T) {
 	}
 	if mode, stops := EffectiveSharedRideMode(config), EffectiveSharedRideMaxStops(config); mode != sim.SharedRideDestination || stops != sim.MaxSharedRideStops {
 		t.Fatalf("effective mode %q with %d stops", mode, stops)
-	}
-}
-
-// TestSharedRideJoin checks that an empty join policy loads as the
-// default, and that ConfigureSharedRides applies each policy.
-func TestSharedRideJoin(t *testing.T) {
-	t.Parallel()
-	for _, test := range []struct {
-		join, want sim.SharedRideJoin
-	}{
-		{"", sim.SharedRideJoinUnassigned},
-		{sim.SharedRideJoinUnassigned, sim.SharedRideJoinUnassigned},
-		{sim.SharedRideJoinReassignExisting, sim.SharedRideJoinReassignExisting},
-	} {
-		config := Default()
-		config.SharedRideJoin = test.join
-		if err := Validate(config); err != nil {
-			t.Fatalf("policy %q: %v", test.join, err)
-		}
-		if got := EffectiveSharedRideJoin(config); got != test.want {
-			t.Fatalf("policy %q loads as %q, want %q", test.join, got, test.want)
-		}
-		simulation, err := sim.NewFleet(config.Network, config.Fleet)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := ConfigureSharedRides(simulation, config); err != nil {
-			t.Fatal(err)
-		}
-		if got := simulation.ExportState().SharedRideJoin; got != test.want {
-			t.Fatalf("policy %q applies as %q, want %q", test.join, got, test.want)
-		}
 	}
 }
 
@@ -904,10 +871,8 @@ func TestValidateRefusalOrder(t *testing.T) {
 			fmt.Sprintf("shared ride party limit must be 1 to %d", sim.MaxSharedRideParties)},
 		{"mode_before_stops", func(config *Config) { config.SharedRideMode, config.SharedRideMaxStops = "pickups", -1 },
 			fmt.Sprintf("shared ride mode must be %q or %q", sim.SharedRideDestination, sim.SharedRideDropOffs)},
-		{"stops_before_join", func(config *Config) { config.SharedRideMaxStops, config.SharedRideJoin = -1, "reassign" },
+		{"stops_before_onboard", func(config *Config) { config.SharedRideMaxStops, config.OnboardPickups = -1, true },
 			fmt.Sprintf("shared ride stop limit must be 1 to %d", sim.MaxSharedRideStops)},
-		{"join_before_onboard", func(config *Config) { config.SharedRideJoin, config.OnboardPickups = "reassign", true },
-			fmt.Sprintf("shared ride join policy must be %q or %q", sim.SharedRideJoinUnassigned, sim.SharedRideJoinReassignExisting)},
 		{"geo_before_map", func(config *Config) {
 			config.Geo, config.Map = testGeo(0, 0), &MapBackground{Provider: "tiles"}
 			config.Geo.Radius = 1

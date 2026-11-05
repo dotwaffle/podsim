@@ -64,7 +64,6 @@ simulation.sharedParties number
 simulation.sharedRidePartyLimit number
 simulation.sharedRideMode string
 simulation.sharedRideMaxStops number
-simulation.sharedRideJoin string
 simulation.journeys number
 simulation.totalJourneyTicks number
 simulation.maxJourneyTicks number
@@ -318,7 +317,6 @@ project.expressServices[].partyLimit number
 project.sharedRidePartyLimit number
 project.sharedRideMode string
 project.sharedRideMaxStops number
-project.sharedRideJoin string
 project.generatedOrderConsent string
 project.onboardPickups boolean
 project.pickupReassignment boolean

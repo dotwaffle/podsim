@@ -759,17 +759,14 @@ func TestPodReasonKeepsEqualReason(t *testing.T) {
 // TestDispatchTripStepOrder pins two step orders of dispatchTrip. In each
 // case, two steps can take the last waiting trip, and they give it
 // different pods. The trip must join pod want, and pod other must keep its
-// riders. reassigned is 1 when the trip had a pod on its way.
+// riders.
 func TestDispatchTripStepOrder(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {
 		name        string
 		setup       func(t *testing.T) *Simulation
 		want, other string
-		reassigned  int
 	}{
-		// joinTrip runs before takeLocalPickup.
-		{name: "join before local pickup", setup: joinOrLocalPickup, want: "01", other: "02", reassigned: 1},
 		// joinOnboardPickup runs before joinSharedRide.
 		{name: "onboard pickup before shared ride", setup: onboardOrSharedRide, want: "01", other: "02"},
 	} {
@@ -789,22 +786,8 @@ func TestDispatchTripStepOrder(t *testing.T) {
 			if len(other.Riders) != otherRiders {
 				t.Fatalf("pod %s has %d riders, want %d: %+v", test.other, len(other.Riders), otherRiders, other.Riders)
 			}
-			if screen := s.SeatScreen(); screen.ReassignedParties != test.reassigned {
-				t.Fatalf("reassigned %d, want %d", screen.ReassignedParties, test.reassigned)
-			}
 		})
 	}
-}
-
-// joinOrLocalPickup restores pod 01 as it boards a party for market at
-// harbor-1, pod 02 idle at harbor-2, and pod 03 on its way to harbor-2 for
-// a waiting party for market. The party can join pod 01 and release pod
-// 03. It can also take pod 02 in place of pod 03, and then board pod 02.
-func joinOrLocalPickup(t *testing.T) *Simulation {
-	t.Helper()
-	f := newRestoreFleetFixture(t, harborTwoBerths(), harborFleet)
-	trips := []SavedTrip{{Request: SavedRequest{SharingConsent: SharedConsent, Service: OnDemandService, ID: 2, From: "harbor", To: "market", PartySize: 1, PodID: "03", RequestedTick: restoreTick - 10}}}
-	return reassignRestoreFixture(t, f, trips, relocating(f.traveling(t, travelInput{id: "03", from: "parking-1", to: "harbor-2", lane: "return", distance: 20})))
 }
 
 // onboardOrSharedRide returns a simulation where pod 01 picks up a party

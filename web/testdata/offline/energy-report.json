@@ -1,5 +1,5 @@
 {
-  "schema_version": 16,
+  "schema_version": 17,
   "results": [
     {
       "energy": {
@@ -43,7 +43,6 @@
       "join_eligible_assigned": 0,
       "join_eligible_existing_stop": 0,
       "join_eligible_added_stop_only": 0,
-      "reassigned_parties": 0,
       "focus_station": "station-2",
       "window_start_seconds": 0,
       "window_end_seconds": 2,

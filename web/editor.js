@@ -97,7 +97,6 @@
       demandProfiles: [],
       sharedRidePartyLimit: 1,
       sharedRideMode: "drop-offs",
-      sharedRideJoin: "unassigned",
       sharedRideMaxStops: 3,
       platoonLimit: 0,
       pickupReassignment: false,
@@ -3131,7 +3130,6 @@
     $("#demandRate").disabled = ["rail-arrivals", "rail-services"].includes(demand.pattern);
     setScalarValue("#sharedRidePartyLimit", config.sharedRidePartyLimit);
     setScalarValue("#sharedRideMode", config.sharedRideMode);
-    setScalarValue("#sharedRideJoin", config.sharedRideJoin);
     setScalarValue("#sharedRideMaxStops", config.sharedRideMaxStops);
     $("#sharedRideMaxStopsLabel").hidden = config.sharedRideMode !== "drop-offs";
     setScalarValue("#generatedOrderConsent", config.generatedOrderConsent || "private");
@@ -4391,7 +4389,7 @@
         queueRailEdit(kind, command, control);
       });
     }
-    for (const id of ["demandEnabled", "demandRate", "demandPattern", "demandDestination", "demandProfile", "demandBand", "sharedRidePartyLimit", "sharedRideMode", "sharedRideJoin", "sharedRideMaxStops", "platoonLimit", "demandSeed", "redistribution", "pickupReassignment"]) bindScalarInput(id);
+    for (const id of ["demandEnabled", "demandRate", "demandPattern", "demandDestination", "demandProfile", "demandBand", "sharedRidePartyLimit", "sharedRideMode", "sharedRideMaxStops", "platoonLimit", "demandSeed", "redistribution", "pickupReassignment"]) bindScalarInput(id);
     bindScalarInput("generatedOrderConsent");
     for (const id of ["faultPerHour", "faultDebrisShare", "faultDebrisMeters", "faultEvacuationSeconds", "faultDurationKind", "faultDurationSeconds", "faultDurationMinSeconds", "faultDurationMaxSeconds", "faultDurationMeanSeconds", "emergencyPerHour"]) bindScalarInput(id);
     bindScalarInput("scenarioName", "name");

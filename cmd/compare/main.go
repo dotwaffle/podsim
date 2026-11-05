@@ -34,13 +34,6 @@ var waitRuleValues = map[string]sim.FinishingPodWait{
 	"none":    sim.FinishingPodWaitNone,
 }
 
-// sharingJoinValues maps each -sharing-joins name to its shared ride join
-// policy.
-var sharingJoinValues = map[string]sim.SharedRideJoin{
-	string(sim.SharedRideJoinUnassigned):       sim.SharedRideJoinUnassigned,
-	string(sim.SharedRideJoinReassignExisting): sim.SharedRideJoinReassignExisting,
-}
-
 // platoonPolicyValues maps each -platoon-policies name to its platooning
 // mode. The virtual policy links pods in queues with the simulation
 // default platoon limit.
@@ -113,7 +106,7 @@ func runCLI(input cliInput) int {
 	}
 	if err := writeReport(writeReportInput{
 		output: output, format: opts.format, results: results, sharingConsentColumn: opts.sharingConsentColumn,
-		waitRuleColumn: opts.waitRules != nil, platoonColumn: opts.platoonPolicies != nil, sharingJoinColumn: opts.sharingJoins != nil,
+		waitRuleColumn: opts.waitRules != nil, platoonColumn: opts.platoonPolicies != nil,
 		seatColumns:              slices.ContainsFunc(opts.sharingLimits, func(limit int) bool { return limit > 1 }),
 		pickupReassignmentColumn: opts.pickupReassignment != nil, onboardPickupsColumn: opts.onboardPickups != nil,
 	}); err != nil {

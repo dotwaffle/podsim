@@ -511,7 +511,7 @@ func TestIncidentColumnsOnlyWithRate(t *testing.T) {
 			if err := jsonv2.Unmarshal([]byte(write(t, "json", test.row)), &decoded, json.DefaultOptionsV1()); err != nil {
 				t.Fatal(err)
 			}
-			if decoded.SchemaVersion != 13 {
+			if decoded.SchemaVersion != 14 {
 				t.Errorf("schema version %d", decoded.SchemaVersion)
 			}
 			for _, name := range names {

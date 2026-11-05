@@ -93,9 +93,6 @@ func (s *Simulation) onboardPickupCandidate(v *vehicle, request Request) (vehicl
 	candidate.Riders = append(candidate.Riders, request)
 	candidate.Boardings = append(candidate.Boardings, RiderBoarding{BerthID: v.origin.ID, MetersAtBoarding: v.riddenMeters()})
 	if !slices.Contains(candidate.Stops, request.To) {
-		if request.PodID != "" {
-			return vehicle{}, false
-		}
 		candidate.Stops, ok = s.addedStops(&candidate, request.To)
 		if !ok {
 			return vehicle{}, false

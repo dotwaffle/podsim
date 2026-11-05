@@ -49,7 +49,7 @@ func TestOnboardAdversarialOwnOriginDetour(t *testing.T) {
 func TestOnboardAdversarialIntermediateRestore(t *testing.T) {
 	t.Parallel()
 	live := newOccupiedPickupRide(t)
-	monitorReassign(t, live)
+	monitorOnboard(t, live)
 	if err := submitSharedTrip(live, "garden", "harbor"); err != nil {
 		t.Fatal(err)
 	}
@@ -71,7 +71,7 @@ func TestOnboardAdversarialIntermediateRestore(t *testing.T) {
 	if err != nil || !cleanRestore(result) {
 		t.Fatalf("intermediate restore: %+v %v", result, err)
 	}
-	monitorReassign(t, restored)
+	monitorOnboard(t, restored)
 	restored.SetExperimentRecords(true)
 	checkRestoredMatches(t, live, restored)
 	baselines := slices.Clone(v.Boardings)
@@ -180,66 +180,53 @@ func TestOnboardAdversarialPrivateHistoryRetirement(t *testing.T) {
 	}
 }
 
+// monitorOnboard makes s check the berth and track owners after each tick
+// and each command, and the contract at the observations that a
+// contractSampler selects. The test fails at the first break.
+func monitorOnboard(t *testing.T, s *Simulation) {
+	t.Helper()
+	sampler := &contractSampler{every: contractCheckTicks}
+	s.monitor = func(s *Simulation) {
+		t.Helper()
+		sampler.check(t, s)
+		checkIncrementalOwners(t, s)
+	}
+	s.observe()
+}
+
 func TestOnboardAdversarialAssignedPickup(t *testing.T) {
 	t.Parallel()
-	for _, test := range []struct {
-		name   string
-		join   SharedRideJoin
-		to     string
-		accept bool
-	}{
-		{"default keeps assignment", DefaultSharedRideJoin, "market", false},
-		{"reassign existing stop", SharedRideJoinReassignExisting, "market", true},
-		{"reassign rejects new stop", SharedRideJoinReassignExisting, "harbor", false},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-			fleet := []Placement{{ID: "01", StationID: "harbor", BerthID: "harbor-1"}, {ID: "02", StationID: "parking", BerthID: "parking-1"}}
-			s := newScreenSimulation(t, Example(), fleet, 4, SharedRideDropOffs)
-			if test.join != DefaultSharedRideJoin {
-				if err := s.SetSharedRideJoin(test.join); err != nil {
-					t.Fatal(err)
-				}
-			}
-			if err := s.SetOnboardPickups(true); err != nil {
-				t.Fatal(err)
-			}
-			for _, to := range []string{"market", "garden"} {
-				if err := submitSharedTrip(s, "harbor", to); err != nil {
-					t.Fatal(err)
-				}
-			}
-			host, own := s.findVehicle("01"), s.findVehicle("02")
-			stepUntil(t, s, "host unloads at garden", func() bool { return host.Pod.Activity == Unloading && host.Pod.StationID == "garden" })
-			if err := submitSharedTrip(s, "garden", test.to); err != nil {
-				t.Fatal(err)
-			}
-			if len(s.waiting) != 1 || s.waiting[0].request.ID != 3 || s.waiting[0].request.PodID != "02" || !releasable(own) {
-				t.Fatalf("real order has no releasable assigned pod: %+v", s.waiting)
-			}
-			beforeDenied := s.Clone()
-			s.dispatch()
-			if own.released || !reflect.DeepEqual(beforeDenied.ExportState(), s.ExportState()) || !reflect.DeepEqual(beforeDenied.owners, s.owners) || !reflect.DeepEqual(beforeDenied.requestBoardings, s.requestBoardings) {
-				t.Fatal("dispatch released or changed an assigned pickup while the occupied host still unloaded")
-			}
-			stepUntil(t, s, "last garden unloading tick", func() bool { return host.Pod.Activity == Unloading && host.phaseTicks == 1 })
-			route, destination, version := slices.Clone(own.Route), own.destination, own.routeVersion
-			s.Step()
-			if test.accept {
-				if len(s.waiting) != 0 || host.Pod.Activity != Boarding || !host.Pod.Occupied || host.phaseTicks != boardingTicks || len(host.Boardings) != 3 || host.Riders[2].ID != 3 || host.Riders[2].PodID != "01" || host.Boardings[2].MetersAtBoarding != host.riddenMeters() || !own.released || s.assigned("02") || s.pass.assigned["02"] {
-					t.Fatalf("assigned occupied admission did not release only its pickup: host %+v own %+v waiting %+v", host.Vehicle, own.Vehicle, s.waiting)
-				}
-				timing := s.requestBoardings[len(s.requestBoardings)-1]
-				if timing.RequestID != 3 || !timing.Reassigned || timing.SharedWith != 1 || timing.BoardedTick != s.tick {
-					t.Fatalf("reassignment timing: %+v", timing)
-				}
-			} else if len(s.waiting) != 1 || s.waiting[0].request.PodID != "02" || len(host.Riders) != 2 || len(host.Boardings) != 0 || own.released || !slices.Equal(own.Route, route) || own.destination != destination || own.routeVersion != version || len(s.requestBoardings) != 2 {
-				t.Fatalf("rejected assigned pickup changed binding, release, or route: host %+v own %+v waiting %+v", host.Vehicle, own.Vehicle, s.waiting)
-			}
-			stepUntil(t, s, "all three real orders complete", func() bool { return s.completed == 3 })
-			if countUnaccounted(t, s) != 0 || len(s.requestCompletions) != 3 || s.maxDetourRatio > maxSharedRideDetour+1e-9 {
-				t.Fatalf("assigned run lost conservation or detour cap: %+v", s.Snapshot())
-			}
-		})
+	fleet := []Placement{{ID: "01", StationID: "harbor", BerthID: "harbor-1"}, {ID: "02", StationID: "parking", BerthID: "parking-1"}}
+	s := newScreenSimulation(t, Example(), fleet, 4, SharedRideDropOffs)
+	if err := s.SetOnboardPickups(true); err != nil {
+		t.Fatal(err)
+	}
+	for _, to := range []string{"market", "garden"} {
+		if err := submitSharedTrip(s, "harbor", to); err != nil {
+			t.Fatal(err)
+		}
+	}
+	host, own := s.findVehicle("01"), s.findVehicle("02")
+	stepUntil(t, s, "host unloads at garden", func() bool { return host.Pod.Activity == Unloading && host.Pod.StationID == "garden" })
+	if err := submitSharedTrip(s, "garden", "market"); err != nil {
+		t.Fatal(err)
+	}
+	if len(s.waiting) != 1 || s.waiting[0].request.ID != 3 || s.waiting[0].request.PodID != "02" || !releasable(own) {
+		t.Fatalf("real order has no releasable assigned pod: %+v", s.waiting)
+	}
+	beforeDenied := s.Clone()
+	s.dispatch()
+	if own.released || !reflect.DeepEqual(beforeDenied.ExportState(), s.ExportState()) || !reflect.DeepEqual(beforeDenied.owners, s.owners) || !reflect.DeepEqual(beforeDenied.requestBoardings, s.requestBoardings) {
+		t.Fatal("dispatch released or changed an assigned pickup while the occupied host still unloaded")
+	}
+	stepUntil(t, s, "last garden unloading tick", func() bool { return host.Pod.Activity == Unloading && host.phaseTicks == 1 })
+	route, destination, version := slices.Clone(own.Route), own.destination, own.routeVersion
+	s.Step()
+	if len(s.waiting) != 1 || s.waiting[0].request.PodID != "02" || len(host.Riders) != 2 || len(host.Boardings) != 0 || own.released || !slices.Equal(own.Route, route) || own.destination != destination || own.routeVersion != version || len(s.requestBoardings) != 2 {
+		t.Fatalf("rejected assigned pickup changed binding, release, or route: host %+v own %+v waiting %+v", host.Vehicle, own.Vehicle, s.waiting)
+	}
+	stepUntil(t, s, "all three real orders complete", func() bool { return s.completed == 3 })
+	if countUnaccounted(t, s) != 0 || len(s.requestCompletions) != 3 || s.maxDetourRatio > maxSharedRideDetour+1e-9 {
+		t.Fatalf("assigned run lost conservation or detour cap: %+v", s.Snapshot())
 	}
 }

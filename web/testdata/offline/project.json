@@ -156,7 +156,6 @@
   "demandProfiles": [],
   "sharedRidePartyLimit": 1,
   "sharedRideMode": "drop-offs",
-  "sharedRideJoin": "unassigned",
   "sharedRideMaxStops": 3,
   "platoonLimit": 0,
   "pickupReassignment": false,

@@ -117,7 +117,7 @@ func TestComparisonOnboardReportProvenance(t *testing.T) {
 			if err := jsonv2.Unmarshal(out.Bytes(), &decoded, json.DefaultOptionsV1()); err != nil {
 				t.Fatal(err)
 			}
-			if baseline.SchemaVersion != 13 || bytes.Contains(base.Bytes(), []byte("onboard_pickups")) || decoded.SchemaVersion != 15 || len(decoded.Results) != 2 || decoded.Results[0].OnboardPickups != "off" || decoded.Results[1].OnboardPickups != "on" {
+			if baseline.SchemaVersion != 14 || bytes.Contains(base.Bytes(), []byte("onboard_pickups")) || decoded.SchemaVersion != 16 || len(decoded.Results) != 2 || decoded.Results[0].OnboardPickups != "off" || decoded.Results[1].OnboardPickups != "on" {
 				t.Fatal("conditional JSON provenance changed")
 			}
 		case "csv":

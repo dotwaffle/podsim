@@ -35,8 +35,8 @@ The live session was not changed.
 `internal/sim/dispatch.go` considers requests in submission order.
 It chooses an available pod using estimated pickup travel time.
 An idle pod at the origin can replace a pod that is still traveling to that pickup.
-The opt-in `reassign-existing` sharing policy can transfer a waiting party into a compatible boarding pod at its origin.
-That policy is distinct from swapping two empty pickup pods.
+The opt-in `reassign-existing` sharing policy could transfer a waiting party into a compatible boarding pod at its origin.
+That policy is distinct from swapping two empty pickup pods, and its code was removed on November 5, 2026.
 
 `pickupCandidate` in `internal/sim/diversion.go` excludes a pod assigned to another waiting order.
 The experimental controller below can reassign en-route pickups.

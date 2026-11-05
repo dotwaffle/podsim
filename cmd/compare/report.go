@@ -28,7 +28,6 @@ type result struct {
 	Policy                         string             `json:"policy"`
 	SharedRidePartyLimit           int                `json:"shared_ride_party_limit"`
 	SharingMode                    string             `json:"sharing_mode"`
-	SharingJoin                    string             `json:"sharing_join,omitempty"`
 	OnboardPickups                 string             `json:"onboard_pickups,omitempty"`
 	SharedParties                  int                `json:"shared_parties"`
 	FullPodRefusals                int                `json:"full_pod_refusals"`
@@ -39,7 +38,6 @@ type result struct {
 	JoinEligibleAssigned           int                `json:"join_eligible_assigned"`
 	JoinEligibleExistingStop       int                `json:"join_eligible_existing_stop"`
 	JoinEligibleAddedStopOnly      int                `json:"join_eligible_added_stop_only"`
-	ReassignedParties              int                `json:"reassigned_parties"`
 	WaitRule                       string             `json:"wait_rule,omitempty"`
 	PlatoonPolicy                  string             `json:"platoon_policy,omitempty"`
 	PickupReassignment             string             `json:"pickup_reassignment,omitempty"`
@@ -116,11 +114,7 @@ type writeReportInput struct {
 	// platoonColumn adds the platoon policy to table and CSV output. JSON
 	// output has the platoon_policy field only when a result has a platoon
 	// policy.
-	platoonColumn bool
-	// sharingJoinColumn adds the join policy to table and CSV output. JSON
-	// output has the sharing_join field only when a result has a join
-	// policy.
-	sharingJoinColumn    bool
+	platoonColumn        bool
 	onboardPickupsColumn bool
 	// seatColumns adds the seat screen columns to CSV output. JSON output
 	// always has them.
@@ -139,17 +133,17 @@ func writeReport(input writeReportInput) error {
 	}
 	switch input.format {
 	case "json":
-		version := 13
+		version := 14
 		if slices.ContainsFunc(input.results, func(outcome result) bool {
 			return outcome.PickupReassignment != ""
 		}) {
-			version = 14
-		}
-		if slices.ContainsFunc(input.results, func(outcome result) bool { return outcome.OnboardPickups != "" }) {
 			version = 15
 		}
-		if slices.ContainsFunc(input.results, func(outcome result) bool { return outcome.Energy != nil }) {
+		if slices.ContainsFunc(input.results, func(outcome result) bool { return outcome.OnboardPickups != "" }) {
 			version = 16
+		}
+		if slices.ContainsFunc(input.results, func(outcome result) bool { return outcome.Energy != nil }) {
+			version = 17
 		}
 		data, err := jsonv2.Marshal(report{SchemaVersion: version, Results: input.results}, json.DefaultOptionsV1(), jsontext.WithIndent("  "))
 		if err == nil {
@@ -168,8 +162,7 @@ func writeReport(input writeReportInput) error {
 
 // writeTable writes one aligned row for each result. When
 // input.waitRuleColumn is set, a WAIT RULE column follows POLICY. When
-// input.platoonColumn is set, a PLATOON column follows them. When
-// input.sharingJoinColumn is set, a JOIN column follows them.
+// input.platoonColumn is set, a PLATOON column follows them.
 func writeTable(input writeReportInput) error {
 	output, results := input.output, input.results
 	if len(results) == 0 {
@@ -196,9 +189,6 @@ func writeTable(input writeReportInput) error {
 	if input.platoonColumn {
 		policyHeader += "\tPLATOON"
 	}
-	if input.sharingJoinColumn {
-		policyHeader += "\tJOIN"
-	}
 	if input.onboardPickupsColumn {
 		policyHeader += "\tONBOARD PICKUPS"
 	}
@@ -218,9 +208,6 @@ func writeTable(input writeReportInput) error {
 		}
 		if input.platoonColumn {
 			policy += "\t" + outcome.PlatoonPolicy
-		}
-		if input.sharingJoinColumn {
-			policy += "\t" + outcome.SharingJoin
 		}
 		if input.onboardPickupsColumn {
 			policy += "\t" + outcome.OnboardPickups
@@ -251,8 +238,7 @@ func writeTable(input writeReportInput) error {
 // writeCSV writes a header and one row for each result. When
 // input.waitRuleColumn is set, a wait_rule column follows policy.
 // When input.platoonColumn is set, a platoon_policy column follows them.
-// When input.sharingJoinColumn is set, a sharing_join column follows
-// sharing_mode. When input.seatColumns is set, the seat screen columns
+// When input.seatColumns is set, the seat screen columns
 // follow shared_parties. Without these options, the columns are the same
 // as before them.
 func writeCSV(input writeReportInput) error {
@@ -312,16 +298,13 @@ func (columns csvColumns) header() []string {
 		header = append(header, "pickup_reassignment")
 	}
 	header = append(header, "shared_ride_party_limit", "sharing_mode")
-	if columns.input.sharingJoinColumn {
-		header = append(header, "sharing_join")
-	}
 	if columns.input.onboardPickupsColumn {
 		header = append(header, "onboard_pickups")
 	}
 	header = append(header, "shared_parties")
 	if columns.input.seatColumns {
 		header = append(header, "full_pod_refusals", "full_departures", "departure_backlog", "departures_demand_over_four", "departures_over_four_aboard",
-			"join_eligible_assigned", "join_eligible_existing_stop", "join_eligible_added_stop_only", "reassigned_parties")
+			"join_eligible_assigned", "join_eligible_existing_stop", "join_eligible_added_stop_only")
 	}
 	header = append(header,
 		"focus_station", "window_start_seconds", "window_end_seconds", "actual_end_seconds", "arrival_window_seconds", "arrival_end_seconds", "schedule_id",
@@ -366,9 +349,6 @@ func (columns csvColumns) row(outcome result) ([]string, error) {
 		row = append(row, outcome.PickupReassignment)
 	}
 	row = append(row, strconv.Itoa(outcome.SharedRidePartyLimit), outcome.SharingMode)
-	if columns.input.sharingJoinColumn {
-		row = append(row, outcome.SharingJoin)
-	}
 	if columns.input.onboardPickupsColumn {
 		row = append(row, outcome.OnboardPickups)
 	}
@@ -376,8 +356,7 @@ func (columns csvColumns) row(outcome result) ([]string, error) {
 	if columns.input.seatColumns {
 		row = append(row, strconv.Itoa(outcome.FullPodRefusals), strconv.Itoa(outcome.FullDepartures), strconv.Itoa(outcome.DepartureBacklog),
 			strconv.Itoa(outcome.DeparturesDemandOverFour), strconv.Itoa(outcome.DeparturesOverFourAboard),
-			strconv.Itoa(outcome.JoinEligibleAssigned), strconv.Itoa(outcome.JoinEligibleExistingStop), strconv.Itoa(outcome.JoinEligibleAddedStopOnly),
-			strconv.Itoa(outcome.ReassignedParties))
+			strconv.Itoa(outcome.JoinEligibleAssigned), strconv.Itoa(outcome.JoinEligibleExistingStop), strconv.Itoa(outcome.JoinEligibleAddedStopOnly))
 	}
 	row = append(row,
 		outcome.FocusStation,

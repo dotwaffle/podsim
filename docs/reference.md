@@ -41,7 +41,6 @@ Validation limits each project to 32 MiB in this compact form, also after a dema
 | `sharedRidePartyLimit` | The most [parties](model.md#parties) in one pod, from 1 to 8. | 1 |
 | `sharedRideMode` | `drop-offs` or `destination`. | `drop-offs` |
 | `sharedRideMaxStops` | The stops before the last stop in `drop-offs` mode, from 1 to 7. | 3 |
-| `sharedRideJoin` | `unassigned` or `reassign-existing`. | `unassigned` |
 | `generatedOrderConsent` | `private` or `shared`, the consent of each generated order. | `private` |
 | `onboardPickups` | A Boolean that lets an occupied pod pick up parties. It needs a party limit above 1 and `drop-offs` mode. | Off |
 | `pickupReassignment` | A Boolean for the experimental [pickup reassignment](#pickup-reassignment). | Off |
@@ -224,7 +223,6 @@ The focus station is the `-focus` station, then the `demand.destination` of the 
 | `-sharing-limits 1,4` | Compare shared ride party limits. |
 | `-sharing-modes drop-offs,destination` | Compare the shared ride modes. Default `drop-offs`. A limit of 1 runs one time and shows the destination mode, because no party joins a pod. |
 | `-sharing-max-stops` | The stop limit of the drop-offs mode, from 1 to 7. Default 3. |
-| `-sharing-joins unassigned,reassign-existing` | Compare the shared ride join policies. See [parties](model.md#parties). A limit of 1 shows the given policy, but no party joins a pod. |
 | `-sharing-consent shared` | Give every offered party the consent `private` (default) or `shared`. The command ignores `generatedOrderConsent` in the project. See [sharing consent](compare-sharing-consent.md). |
 | `-onboard-pickups off,on` | Compare occupied pickup policies. `on` needs a party limit above 1 and the drop-offs mode. |
 | `-redistribution-policies off,on` | Select the positioning policies. `on` is guarded positioning. |
@@ -259,13 +257,12 @@ Some columns show only when you ask for what they report.
 | --- | --- |
 | `wait_rule` | You give `-wait-rules`. |
 | `platoon_policy` | You give `-platoon-policies`. |
-| `sharing_join` | You give `-sharing-joins`. Without the flag, each arm uses the `unassigned` policy. |
 | `sharing_mode` | Always. It gives the sharing mode of each arm. |
 | Seat screen columns | Always in JSON. In CSV, only when a `-sharing-limits` value is above 1. |
 | `interrupted`, `fault_started`, `fault_skipped`, `emergency_started`, `emergency_skipped` | The project has a fault rate or an emergency rate above 0. |
 
-The JSON report has `schema_version` 13.
-It is 14 with a pickup reassignment column, 15 with an `onboard_pickups` column, and 16 with energy estimates.
+The JSON report has `schema_version` 14.
+It is 15 with a pickup reassignment column, 16 with an `onboard_pickups` column, and 17 with energy estimates.
 
 #### Waits and journeys
 
@@ -362,7 +359,6 @@ These columns are 0 when the party limit is 1.
 | `join_eligible_assigned` | The parties with a pod on its way that a boarding pod at their origin could take. Each party counts one time. |
 | `join_eligible_existing_stop` | The parties of `join_eligible_assigned` that a boarding pod could take with no new stop, because the pod already stops at their destination. In destination mode, it is equal to `join_eligible_assigned`. |
 | `join_eligible_added_stop_only` | `join_eligible_assigned` minus `join_eligible_existing_stop`. A boarding pod could take each of these parties only with a new stop. |
-| `reassigned_parties` | The parties that joined a boarding pod while they had a pod on its way. Dispatch released that pod. It is 0 with the `unassigned` policy. The census also counts each of these parties in `join_eligible_existing_stop`. |
 
 ## Generated scenarios
 

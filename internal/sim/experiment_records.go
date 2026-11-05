@@ -23,10 +23,6 @@ type RequestTiming struct {
 	// SharedWith is 0 for a party that boarded its own pod. For a party that
 	// joined a shared ride, it is the ID of the first request of the pod.
 	SharedWith int `json:"sharedWith"`
-	// Reassigned is true for a party that joined a shared ride while it
-	// had a pod on its way. Dispatch released that pod. See
-	// SharedRideJoinReassignExisting.
-	Reassigned bool `json:"reassigned"`
 }
 
 // requestCompletion records that one party left a pod at its destination.

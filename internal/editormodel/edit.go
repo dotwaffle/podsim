@@ -130,8 +130,8 @@ func proposeScalarEdit(draft any, command editCommand, value any) (projectChange
 		err = change.demandSelection(draft, command.Field, value)
 	case "sharedRidePartyLimit", "sharedRideMaxStops":
 		change.sharingLimit(draft, command.Field, value)
-	case "sharedRideMode", "sharedRideJoin":
-		err = change.sharingPolicy(draft, command.Field, value)
+	case "sharedRideMode":
+		err = change.sharingMode(draft, value)
 	case "generatedOrderConsent":
 		err = change.generatedOrderConsent(draft, value)
 	case "platoonLimit":
@@ -231,21 +231,17 @@ func (c *projectChange) sharingLimit(draft any, field string, value any) {
 	c.set(draft, field, max(1, min(limit, math.Floor(x))))
 }
 
-// sharingPolicy sets the sharing mode or the join policy. A name that is
-// not known sets the default.
-func (c *projectChange) sharingPolicy(draft any, field string, value any) error {
-	accepted, fallback := []string{"drop-offs", "destination"}, "drop-offs"
-	if field == "sharedRideJoin" {
-		accepted, fallback = []string{"unassigned", "reassign-existing"}, "unassigned"
-	}
+// sharingMode sets the sharing mode. A name that is not known sets the
+// default.
+func (c *projectChange) sharingMode(draft, value any) error {
 	setting, ok := value.(string)
 	if !ok {
 		return errors.New("a sharing policy must be text")
 	}
-	if !slices.Contains(accepted, setting) {
-		setting = fallback
+	if !slices.Contains([]string{"drop-offs", "destination"}, setting) {
+		setting = "drop-offs"
 	}
-	c.set(draft, field, setting)
+	c.set(draft, "sharedRideMode", setting)
 	return nil
 }
 

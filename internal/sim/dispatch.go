@@ -90,14 +90,6 @@ func (s *Simulation) SubmitTripOptions(options TripOptions) (int, error) {
 // berth. This includes a pod that a restore released. See
 // parkUnclaimedReleased.
 //
-// With the join policy SharedRideJoinReassignExisting, a trip with an
-// empty pod on its way can also join a boarding pod at its origin. The pod
-// must already stop at the destination of the trip. Dispatch then releases
-// the pod of the trip, as for a local pickup. Promotion runs first, so a
-// trip that promotion gives an idle pod at the origin boards that pod. A
-// trip whose pod is idle at the origin cannot join, because that pod is not
-// releasable.
-//
 // While the seat screen is on, the pass also counts the trips with a pod on
 // its way that a boarding pod at the origin could take. The count reads the
 // pods and changes no decision. It runs before the join, so it also counts
@@ -131,7 +123,7 @@ func (s *Simulation) dispatchTrip(i int, pass *dispatchPass) int {
 	if v != nil && s.screensSeats() {
 		s.recordJoinEligible(trip, v, pass)
 	}
-	if s.joinTrip(trip, v, pass) {
+	if s.joinTrip(trip, pass) {
 		s.waiting = slices.Delete(s.waiting, i, i+1)
 		return i
 	}
@@ -173,21 +165,13 @@ func (s *Simulation) keepTripPod(trip *waitingTrip, pass *dispatchPass) *vehicle
 	return nil
 }
 
-// joinTrip joins the trip to an onboard pickup or to a shared ride, and
-// releases the pod v of the trip. Only a trip with no pod, or with a pod
-// that the join policy can release, can join.
-func (s *Simulation) joinTrip(trip *waitingTrip, v *vehicle, pass *dispatchPass) bool {
-	if trip.request.PodID != "" && !s.reassigns(v) {
-		return false
-	}
-	if !s.joinOnboardPickup(trip) && !s.joinSharedRide(trip, pass) {
+// joinTrip joins a trip with no pod to an onboard pickup or to a shared
+// ride.
+func (s *Simulation) joinTrip(trip *waitingTrip, pass *dispatchPass) bool {
+	if trip.request.PodID != "" || !s.joinOnboardPickup(trip) && !s.joinSharedRide(trip, pass) {
 		return false
 	}
 	pass.reset()
-	if v != nil {
-		delete(pass.assigned, v.Pod.ID)
-		s.releasePickup(v)
-	}
 	return true
 }
 
@@ -661,9 +645,7 @@ func (s *Simulation) boardingRider(trip waitingTrip, v *vehicle, sharedWith int)
 // that boards at the origin of the trip and has room for one more party. In
 // destination mode, the pod must go to the destination of the trip. In
 // drop-offs mode, the pod must stop at the destination or be able to add
-// it as a stop. See dropOffStops. A trip with a pod on its way can join
-// only a pod that already stops at its destination, so the stops of the
-// pod do not change. See reassigns.
+// it as a stop. See dropOffStops.
 //
 // When a full pod could take the party and no pod takes it, the seat
 // screen counts a refusal. See refusedByFullPod. The trip does not join the
@@ -673,7 +655,6 @@ func (s *Simulation) joinSharedRide(trip *waitingTrip, pass *dispatchPass) bool 
 		return false
 	}
 	request := trip.request
-	existingStop := request.PodID != ""
 	refused := false
 	for _, v := range s.boardingPods(pass)[request.legOrigin()] {
 		if v.Pod.Occupied || len(v.Boardings) > 0 || trip.excludes(v.Pod.ID) {
@@ -685,10 +666,6 @@ func (s *Simulation) joinSharedRide(trip *waitingTrip, pass *dispatchPass) bool 
 		}
 		if s.sharedRideMode != SharedRideDropOffs {
 			if v.destinationStation != request.To {
-				continue
-			}
-		} else if existingStop {
-			if !slices.Contains(v.Stops, request.To) {
 				continue
 			}
 		} else if stops, ok := s.dropOffStops(v, request.To); !ok || !s.setBoardingStops(v, stops) {
@@ -705,13 +682,6 @@ func (s *Simulation) joinSharedRide(trip *waitingTrip, pass *dispatchPass) bool 
 		s.seatScreen.FullPodRefusals++
 	}
 	return false
-}
-
-// reassigns reports whether a trip with the pod v on its way can join a
-// boarding pod. This is so with the join policy
-// SharedRideJoinReassignExisting when dispatch can release v.
-func (s *Simulation) reassigns(v *vehicle) bool {
-	return s.sharedRideJoin == SharedRideJoinReassignExisting && v != nil && releasable(v)
 }
 
 // boardingPods returns the pods in service that board a party, by station,
@@ -735,9 +705,7 @@ func (s *Simulation) boardingPods(pass *dispatchPass) map[string][]*vehicle {
 }
 
 // recordBoarding counts the wait of a request that boards now. sharedWith is
-// 0, or the ID of the first request of the shared ride that it joins. A
-// request with a pod ID that joins a shared ride had a pod on its way, so
-// the seat screen counts a reassigned party.
+// 0, or the ID of the first request of the shared ride that it joins.
 func (s *Simulation) recordBoarding(request Request, sharedWith int) {
 	wait := s.tick - request.RequestedTick
 	s.boarded++
@@ -747,13 +715,8 @@ func (s *Simulation) recordBoarding(request Request, sharedWith int) {
 	if !s.recordExperiments {
 		return
 	}
-	reassigned := sharedWith != 0 && request.PodID != ""
-	if reassigned {
-		s.seatScreen.ReassignedParties++
-	}
 	s.requestBoardings = append(s.requestBoardings, RequestTiming{
 		RequestID: request.ID, RequestedTick: request.RequestedTick, BoardedTick: s.tick, SharedWith: sharedWith,
-		Reassigned: reassigned,
 	})
 }
 

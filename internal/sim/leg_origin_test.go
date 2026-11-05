@@ -34,13 +34,10 @@ func TestLegOriginDispatch(t *testing.T) {
 			}
 			return s.SetFinishingPodWait(FinishingPodWaitNone)
 		}},
-		{name: "reassignment, onboard pickups, swaps, and the seat screen", setup: func(s *Simulation) error {
+		{name: "onboard pickups, swaps, and the seat screen", setup: func(s *Simulation) error {
 			s.SetExperimentRecords(true)
 			s.SetPickupSwaps(true)
 			if err := s.SetSharedRidePartyLimit(4); err != nil {
-				return err
-			}
-			if err := s.SetSharedRideJoin(SharedRideJoinReassignExisting); err != nil {
 				return err
 			}
 			return s.SetOnboardPickups(true)

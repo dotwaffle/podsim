@@ -76,7 +76,6 @@ type rateGroupKey struct {
 	sharingLimit           int
 	sharingMode            sim.SharedRideMode
 	sharingMaxStops        int
-	sharingJoin            string
 	onboardPickups         string
 	waitRule               string
 	platoonPolicy          string
@@ -93,8 +92,8 @@ func rateGroupKeyOf(input *runInput) rateGroupKey {
 		pattern: input.pattern, profile: input.profile, band: input.band,
 		sharingConsent: consent,
 		sharingLimit:   input.sharingLimit, sharingMode: input.sharingMode, sharingMaxStops: input.sharingMaxStops,
-		sharingJoin: input.sharingJoin, onboardPickups: input.onboardPickups,
-		waitRule: input.waitRule, platoonPolicy: input.platoonPolicy, policy: input.policy,
+		onboardPickups: input.onboardPickups,
+		waitRule:       input.waitRule, platoonPolicy: input.platoonPolicy, policy: input.policy,
 		pickupReassignment: input.pickupReassignment,
 	}
 }

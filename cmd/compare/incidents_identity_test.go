@@ -56,19 +56,19 @@ func TestNoRateOutputIsPinned(t *testing.T) {
 	}{
 		{"default", nil, []string{"-duration", "10m", "-arrivals-for", "5m", "-request-every", "20s", "-seeds", "1,2", "-patterns", "balanced,hotspot", "-stop-when-drained"},
 			map[string]string{
-				"json":  "0bd6365f6e89ebd16885347c18df1ff43fc3096807042ffc3577d2749523ab70",
+				"json":  "99201e1e926a7dae433f23cd3a3342dc1d0998044c49f628a2888dbe1999b628",
 				"csv":   "77b8bc6030d53f8878cdc64615d339ae86163f7836a4d042893cc939d0b61efb",
 				"table": "0b5139947decd53c6ca494ff4fd5007471b8bc6cb709bd96854bd8802bea5aad",
 			}},
 		{"busy", new(scenarios.Busy()), []string{"-duration", "5m", "-arrivals-for", "3m", "-request-every", "5s", "-seed", "1", "-pattern", "hotspot"},
 			map[string]string{
-				"json":  "bd4a29a257d534992cd2c94fb2aef3d68343161ce4cf149b96bd41d981f0af76",
+				"json":  "18ceb98a70a5e4afe5dcc437f6c954b6470a856f36f6fa3f95ad6474dc8390d4",
 				"csv":   "8ec95e70580cf895f88f2ca08a8ba62092a01c1b4a68571a9b62917cec2d90f9",
 				"table": "d0c3779883537b27f64eec6e86b6b0c9e0854b267a418b481c7234478e10124e",
 			}},
 		{"rail hub", new(scenarios.RailHub()), []string{"-duration", "10m", "-arrivals-for", "5m", "-request-every", "5s", "-burst-size", "12", "-seed", "1", "-pattern", "hub-burst"},
 			map[string]string{
-				"json":  "7d144d28011682c5081c7dd0a2f9c2dc664217a1da6730fce5dd7f00d63b7364",
+				"json":  "ae0acd74d4e93c55ae3183f3e3734478e884e62235c61953be5bd174b4511eb0",
 				"csv":   "5c5b37be0355466afde8d2fc6d3e522d153ba0f6c25bc8d35d04d33433cc17e0",
 				"table": "18131d83742e6033ff31e9c0b7d2c431fa6213773654d7de0f5a57ee78195b8a",
 			}},
@@ -133,8 +133,8 @@ func TestNoRatePlanOutputIsPinned(t *testing.T) {
 		args     []string
 		want     string
 	}{
-		{"rail services", rail, []string{"-pattern", "rail-services", "-duration", "10m", "-arrivals-for", "3s", "-stop-when-drained", "-seeds", "7,19", "-redistribution-policies", "off"}, "960bfe91fea46a6849c01f938a26b9c42bd6d2efa42211c506995f0db65de37d"},
-		{"daily", dailyComparisonScenario(t), []string{"-pattern", "profile-daily", "-duration", "4m", "-arrivals-for", "3m", "-seed", "1"}, "c3c7f49e319698738444a8065c913a9f02651680c8dd50efe3a592df0ad658af"},
+		{"rail services", rail, []string{"-pattern", "rail-services", "-duration", "10m", "-arrivals-for", "3s", "-stop-when-drained", "-seeds", "7,19", "-redistribution-policies", "off"}, "0b717a7e61f0b18b8034f40a5ec3caba9e6145c0edb18a98f862c78ded2b724e"},
+		{"daily", dailyComparisonScenario(t), []string{"-pattern", "profile-daily", "-duration", "4m", "-arrivals-for", "3m", "-seed", "1"}, "f12e561b114890f25516628fd8cfab8ca3d8fc5d8e81c4b2642e20278230203e"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()

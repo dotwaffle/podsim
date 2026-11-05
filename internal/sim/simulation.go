@@ -413,7 +413,6 @@ type Simulation struct {
 	sharedRidePartyLimit   int
 	sharedRideMode         SharedRideMode
 	sharedRideMaxStops     int
-	sharedRideJoin         SharedRideJoin
 	onboardPickups         bool
 	// approachStations and routeStations belong to stationsOnRouteForClass.
 	approachStations map[string][]string

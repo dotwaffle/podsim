@@ -69,7 +69,7 @@ Select an itinerary to inspect its authored inputs, pod requests, and event tick
 The car report identifies its build, project hash, plan hash, queue limit, native policies, and pod metrics.
 A run error appears above the outcomes.
 
-Energy schema 16 reports show gross traction draw, recovery, auxiliary energy, and signed net energy in joules.
+Energy schema 17 reports show gross traction draw, recovery, auxiliary energy, and signed net energy in joules.
 Select a comparison result to inspect class counts, profiles, mass assumptions, policy settings, and its full result.
 Negative net energy remains negative.
 Energy reports do not contain build or project hashes.

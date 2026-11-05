@@ -66,7 +66,6 @@ func TestComparisonConsentPrivateCannotPool(t *testing.T) {
 	input := smallBurstInput(t)
 	input.sharingLimit = 8
 	input.sharingMode = sim.SharedRideDropOffs
-	input.sharingJoin = "reassign-existing"
 	before := slices.Clone(input.schedule)
 	private, err := run(input)
 	if err != nil {
@@ -106,7 +105,7 @@ func TestComparisonConsentCommonAcrossArms(t *testing.T) {
 			t.Parallel()
 			opts, err := parseOptions([]string{"-duration", "2m", "-request-every", "5s", "-pattern", "hub-burst", "-burst-size", "6",
 				"-sharing-consent", consent, "-sharing-limits", "1,8", "-sharing-modes", "destination,drop-offs",
-				"-sharing-joins", "unassigned,reassign-existing", "-redistribution-policies", "off"}, &bytes.Buffer{})
+				"-redistribution-policies", "off"}, &bytes.Buffer{})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -118,7 +117,7 @@ func TestComparisonConsentCommonAcrossArms(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if len(rows) != 6 {
+			if len(rows) != 3 {
 				t.Fatal("consent unexpectedly added comparison arms", len(rows))
 			}
 			pooled := false
@@ -220,7 +219,7 @@ func TestComparisonConsentCLIProvenance(t *testing.T) {
 						want sim.SharingConsent
 					}{{baseline.Bytes(), sim.PrivateConsent}, {output.Bytes(), sim.SharingConsent(consent)}} {
 						var decoded report
-						if err := jsonv2.Unmarshal(source.data, &decoded, json.DefaultOptionsV1()); err != nil || decoded.SchemaVersion != 13 || len(decoded.Results) != 1 || decoded.Results[0].SharingConsent != source.want || !bytes.Contains(source.data, []byte(`"sharing_consent"`)) {
+						if err := jsonv2.Unmarshal(source.data, &decoded, json.DefaultOptionsV1()); err != nil || decoded.SchemaVersion != 14 || len(decoded.Results) != 1 || decoded.Results[0].SharingConsent != source.want || !bytes.Contains(source.data, []byte(`"sharing_consent"`)) {
 							t.Fatalf("missing effective JSON consent: %s", source.data)
 						}
 					}

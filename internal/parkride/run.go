@@ -22,7 +22,6 @@ type Policies struct {
 	PartyLimit         int                `json:"partyLimit"`
 	SharingMode        sim.SharedRideMode `json:"sharingMode"`
 	MaxStops           int                `json:"maxStops"`
-	SharingJoin        sim.SharedRideJoin `json:"sharingJoin"`
 	OnboardPickups     bool               `json:"onboardPickups"`
 	PlatoonLimit       int                `json:"platoonLimit"`
 	PickupReassignment bool               `json:"pickupReassignment"`
@@ -137,7 +136,7 @@ func NewRun(input RunInput) (*Run, error) {
 	run := &Run{pods: pods, ledger: newLedger(plan, input.QueueLimit, input.HorizonTicks), provenance: Report{Version: 1,
 		ProjectHash: projectHash, PlanHash: planHash, Build: input.Build, HorizonTicks: input.HorizonTicks, QueueLimit: input.QueueLimit,
 		Policies: Policies{PartyLimit: project.EffectiveSharedRidePartyLimit(config), SharingMode: project.EffectiveSharedRideMode(config),
-			MaxStops: project.EffectiveSharedRideMaxStops(config), SharingJoin: project.EffectiveSharedRideJoin(config), OnboardPickups: config.OnboardPickups,
+			MaxStops: project.EffectiveSharedRideMaxStops(config), OnboardPickups: config.OnboardPickups,
 			PlatoonLimit: config.PlatoonLimit, PickupReassignment: bool(config.PickupReassignment), Positioning: mode, PositioningWeights: "one outward and one return origin per itinerary"}}}
 	if err := run.ledger.advance(0, nil, run.pods); err != nil {
 		run.fault = err.Error()

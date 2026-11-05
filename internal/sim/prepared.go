@@ -275,8 +275,8 @@ func (p *PreparedNetwork) newFleet(placements []Placement) *Simulation {
 	s := &Simulation{
 		networkIndexes: &p.networkIndexes, initial: initial,
 		sharedRidePartyLimit: 1, sharedRideMode: DefaultSharedRideMode,
-		sharedRideMaxStops: DefaultSharedRideMaxStops, sharedRideJoin: DefaultSharedRideJoin,
-		platoonLimit: MaxPlatoonLimit,
+		sharedRideMaxStops: DefaultSharedRideMaxStops,
+		platoonLimit:       MaxPlatoonLimit,
 	}
 	s.Reset()
 	return s

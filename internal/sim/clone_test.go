@@ -214,7 +214,7 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"positioning": persistSession, "demandRate": persistSession, "demandWeights": persistSession, "nextRedistributionTick": persistSave,
 		"passengerDistanceMeters": persistSave, "emptyDistanceMeters": persistSave, "rebalanceMoves": persistSave,
 		"sharedRidePartyLimit": persistSave, "sharedParties": persistSave, "unaccountedOrders": persistDerive, "monitor": persistReset,
-		"sharedRideMode": persistSave, "sharedRideMaxStops": persistSave, "sharedRideJoin": persistSave, "onboardPickups": persistSession,
+		"sharedRideMode": persistSave, "sharedRideMaxStops": persistSave, "onboardPickups": persistSession,
 		"approachStations": persistDerive, "routeStations": persistReset,
 		"journeys": persistSave, "totalJourneyTicks": persistSave, "maxJourneyTicks": persistSave,
 		"riderDistanceMeters": persistSave, "directDistanceMeters": persistSave, "maxDetourRatio": persistSave,
@@ -732,27 +732,6 @@ func cloneFixtures() []cloneFixture {
 					return fmt.Errorf("continuation completed %d, boarded %d, and shared %d",
 						end.completed-clonePoint.completed, end.boarded-clonePoint.boarded,
 						end.sharedParties-clonePoint.sharedParties)
-				}
-				return nil
-			},
-		},
-		{
-			// The second party for harbor has a pod on its way when the
-			// first pod boards at market, so it joins that pod.
-			name: "reassigned shared ride", placements: fleet,
-			setup: func(s *Simulation) error {
-				s.SetExperimentRecords(true)
-				if err := s.SetSharedRideJoin(SharedRideJoinReassignExisting); err != nil {
-					return err
-				}
-				return s.SetSharedRidePartyLimit(4)
-			},
-			warmup:       cloneInputs{seconds: 20},
-			continuation: cloneInputs{seconds: 200, trips: []cloneTrip{{0, "market", "harbor"}, {0, "market", "harbor"}}},
-			exercised: func(clonePoint, end *Simulation) error {
-				if end.seatScreen.ReassignedParties <= clonePoint.seatScreen.ReassignedParties || end.completed-clonePoint.completed != 2 {
-					return fmt.Errorf("continuation reassigned %d parties and completed %d",
-						end.seatScreen.ReassignedParties-clonePoint.seatScreen.ReassignedParties, end.completed-clonePoint.completed)
 				}
 				return nil
 			},

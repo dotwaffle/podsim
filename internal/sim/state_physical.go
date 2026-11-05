@@ -214,8 +214,6 @@ func (state SavedState) validateCounters() error {
 		return fmt.Errorf("shared ride party limit %d is out of range", state.SharedRidePartyLimit)
 	case validateSharedRideMode(savedSharedRideMode(state)) != nil:
 		return errors.New("the saved shared ride mode or stop limit is not valid")
-	case validateSharedRideJoin(savedSharedRideJoin(state)) != nil:
-		return errors.New("the saved shared ride join policy is not valid")
 	case len(state.DemoError) > maxSavedText:
 		return errors.New("the saved demo error is too long")
 	default:
@@ -315,15 +313,6 @@ func savedSharedRideMode(state SavedState) (SharedRideMode, int) {
 	return mode, maxStops
 }
 
-// savedSharedRideJoin returns the join policy of a saved state, with the
-// default for an empty policy.
-func savedSharedRideJoin(state SavedState) SharedRideJoin {
-	if state.SharedRideJoin == "" {
-		return DefaultSharedRideJoin
-	}
-	return state.SharedRideJoin
-}
-
 // setSavedCounters sets the clock, the paused flag, the counters and the
 // shared ride settings of a saved state. Both restore tiers keep them.
 func (s *Simulation) setSavedCounters(state SavedState) {
@@ -338,7 +327,6 @@ func (s *Simulation) setSavedCounters(state SavedState) {
 	s.interrupted, s.interruptedPassengers = state.Interrupted, state.InterruptedPassengers
 	s.sharedRidePartyLimit = state.SharedRidePartyLimit
 	s.sharedRideMode, s.sharedRideMaxStops = savedSharedRideMode(state)
-	s.sharedRideJoin = savedSharedRideJoin(state)
 	s.incidentSerial = state.IncidentSerial
 }
 

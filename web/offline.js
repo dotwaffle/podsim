@@ -163,7 +163,7 @@
       }
       return {kind: 'cars', report};
     }
-    if (report.schema_version === 16) {
+    if (report.schema_version === 17) {
       const results = array(report.results, 'Comparison results');
       if (!results.length) fail('Comparison report has no results.');
       for (const result of results) {
@@ -181,7 +181,7 @@
       }
       return {kind: 'energy', report};
     }
-    fail('Unsupported report. Import a car report version 1 or an energy comparison schema 16.');
+    fail('Unsupported report. Import a car report version 1 or an energy comparison schema 17.');
   }
   function encode(value) { const text = JSON.stringify(value, null, 2) + '\n'; if (bytes(text) > INPUT_BYTES) fail('Export exceeds the 10 MiB native input limit.'); parseJSON(text); return text; }
   function blank(fields) { return Object.fromEntries(fields.map(key => [key, ''])); }
@@ -297,7 +297,7 @@
       selector.addEventListener('change', update); target.append(selector, detail); update();
       target.append(element('p', 'Each itinerary includes authored durations, seats, consent, policies, request IDs, and event ticks. Tick -1 means unrecorded.'));
     } else {
-      target.append(element('p', `Energy comparison schema 16. ${report.results.length} results. Estimates use authored flat-v1 profiles.`));
+      target.append(element('p', `Energy comparison schema 17. ${report.results.length} results. Estimates use authored flat-v1 profiles.`));
       const selector = element('select'); selector.setAttribute('aria-label', 'Energy comparison result');
       report.results.forEach((value, index) => { const option = element('option', `${index + 1}. ${value.pattern ?? 'Pattern unavailable'} / ${value.policy ?? 'Policy unavailable'} / seed ${value.seed ?? 'unavailable'}`); option.value = String(index); selector.append(option); });
       const detail = element('div');

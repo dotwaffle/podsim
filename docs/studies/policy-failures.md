@@ -54,6 +54,7 @@ Current passing controls do not erase the remaining recovery failure.
 These eight pairs repeat the six P95 failures and two deadline failures in the [all-band record](qualification.md#all-band-result).
 Both arms use four parties, drop-offs mode, three intermediate stops, a 1.5 detour cap, and virtual platoons.
 Only the join policy changes from `unassigned` to `reassign-existing`.
+The `reassign-existing` code was removed on November 5, 2026.
 Pickup reassignment, buffers, and positioning remain off.
 The historical service guard permits at most a 2% increase in each paired mean journey and journey P95.
 

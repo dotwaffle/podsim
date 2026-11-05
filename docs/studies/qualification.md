@@ -1524,8 +1524,8 @@ The gain and guard rules of the screen are not met, so the screen does not justi
 
 ## Assigned-party sharing
 
-The `reassign-existing` join policy remains opt-in.
-It improves average journeys, but fails the all-band adoption rules.
+The `reassign-existing` join policy improved average journeys, but failed the all-band adoption rules.
+Its code was removed on November 5, 2026.
 Late and Morning each lose one capacity step, from 13/min to 12/min.
 The default remains `unassigned`, and sharing remains off unless the party limit exceeds one.
 See [parties](../model.md#parties) for the policy semantics.

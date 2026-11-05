@@ -37,7 +37,6 @@ func TestGeneratedOrderConsentValidate(t *testing.T) {
 		{"after the party limit", bad(func(config *Config) { config.SharedRidePartyLimit = sim.MaxSharedRideParties + 1 }), "shared ride party limit must be 1 to 8"},
 		{"after the mode", bad(func(config *Config) { config.SharedRideMode = "other" }), `shared ride mode must be "destination" or "drop-offs"`},
 		{"after the stop limit", bad(func(config *Config) { config.SharedRideMaxStops = sim.MaxSharedRideStops + 1 }), "shared ride stop limit must be 1 to 7"},
-		{"after the join policy", bad(func(config *Config) { config.SharedRideJoin = "other" }), `shared ride join policy must be "unassigned" or "reassign-existing"`},
 		{"before the platoon limit", bad(func(config *Config) { config.PlatoonLimit = sim.MaxPlatoonLimit + 1 }), refused},
 	} {
 		t.Run(test.name, func(t *testing.T) {

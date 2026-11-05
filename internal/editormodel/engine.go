@@ -351,8 +351,6 @@ func copyBranch(dst *project.Config, key string, src project.Config) bool {
 		dst.SharedRideMode = src.SharedRideMode
 	case "sharedRideMaxStops":
 		dst.SharedRideMaxStops = src.SharedRideMaxStops
-	case "sharedRideJoin":
-		dst.SharedRideJoin = src.SharedRideJoin
 	case "generatedOrderConsent":
 		dst.GeneratedOrderConsent = src.GeneratedOrderConsent
 	case "onboardPickups":

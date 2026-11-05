@@ -32,7 +32,6 @@ type options struct {
 	redistributionText     string
 	waitRulesText          string
 	platoonPoliciesText    string
-	sharingJoinsText       string
 	onboardPickupsText     string
 	pickupReassignmentText string
 	focus                  string
@@ -55,11 +54,7 @@ type options struct {
 	// platoonPolicies is nil when -platoon-policies is not given. Then
 	// each arm runs without platoons and the report has no platoon policy
 	// column.
-	platoonPolicies []string
-	// sharingJoins is nil when -sharing-joins is not given. Then each arm
-	// uses the default join policy and the report has no join policy
-	// column.
-	sharingJoins       []string
+	platoonPolicies    []string
 	onboardPickups     []string
 	pickupReassignment []string
 	stopWhenDrained    bool
@@ -130,7 +125,6 @@ func defineFlags(flags *flag.FlagSet, opts *options) {
 	flags.StringVar(&opts.sharingLimitsText, "sharing-limits", "1", "comma-separated shared ride party limits")
 	flags.StringVar(&opts.sharingModesText, "sharing-modes", string(sim.DefaultSharedRideMode), "comma-separated shared ride modes: drop-offs, destination")
 	flags.IntVar(&opts.sharingMaxStops, "sharing-max-stops", sim.DefaultSharedRideMaxStops, "intermediate stops of a pod in drop-offs mode")
-	flags.StringVar(&opts.sharingJoinsText, "sharing-joins", string(sim.DefaultSharedRideJoin), "comma-separated shared ride join policies: unassigned, reassign-existing (adds a sharing_join column)")
 	flags.StringVar(&opts.onboardPickupsText, "onboard-pickups", "off", "comma-separated occupied pickup policies: off, on (on requires sharing above one party and drop-offs mode; adds an onboard_pickups column)")
 	flags.StringVar(&opts.redistributionText, "redistribution-policies", "off,on", "comma-separated redistribution policies: off, on")
 	flags.StringVar(&opts.waitRulesText, "wait-rules", "current", "comma-separated finishing-pod wait rules: current, strict, none (adds a wait_rule column)")
@@ -262,9 +256,9 @@ func parseRedistributionOptions(opts *options, _ map[string]bool) error {
 	return err
 }
 
-// parseGivenArmOptions parses the wait rules, the platoon policies, and then
-// the sharing joins. It parses only the lists that the command line sets,
-// because each list adds a report column.
+// parseGivenArmOptions parses the wait rules and then the platoon policies.
+// It parses only the lists that the command line sets, because each list
+// adds a report column.
 func parseGivenArmOptions(opts *options, given map[string]bool) error {
 	var err error
 	if given["wait-rules"] {
@@ -274,11 +268,6 @@ func parseGivenArmOptions(opts *options, given map[string]bool) error {
 	}
 	if given["platoon-policies"] {
 		if opts.platoonPolicies, err = parsePlatoonPolicies(opts.platoonPoliciesText); err != nil {
-			return err
-		}
-	}
-	if given["sharing-joins"] {
-		if opts.sharingJoins, err = parseSharingJoins(opts.sharingJoinsText); err != nil {
 			return err
 		}
 	}
@@ -292,7 +281,7 @@ func parseOnboardPickups(opts *options, given map[string]bool) error {
 
 // checkMatrixSize checks the number of comparisons in the matrix.
 func checkMatrixSize(opts *options, _ map[string]bool) error {
-	if len(opts.seeds)*len(opts.patterns)*len(opts.loads)*len(sharingArms(*opts))*max(1, len(opts.sharingJoins))*
+	if len(opts.seeds)*len(opts.patterns)*len(opts.loads)*len(sharingArms(*opts))*
 		max(1, len(opts.waitRules))*max(1, len(opts.platoonPolicies))*experimentalArmCount(*opts)*onboardArmCount(*opts) > maxComparisons {
 		return fmt.Errorf("the matrix must contain at most %d comparisons", maxComparisons)
 	}
@@ -354,27 +343,6 @@ func parseWaitRules(value string) ([]string, error) {
 		rules = append(rules, rule)
 	}
 	return rules, nil
-}
-
-// parseSharingJoins reads the -sharing-joins list. Each name must be a key
-// of sharingJoinValues and can occur only once. The order of the list is
-// the order of the arms in the report.
-func parseSharingJoins(value string) ([]string, error) {
-	parts := strings.Split(value, ",")
-	joins := make([]string, 0, len(parts))
-	seen := make(map[string]bool, len(parts))
-	for _, part := range parts {
-		join := strings.TrimSpace(part)
-		if _, ok := sharingJoinValues[join]; !ok {
-			return nil, fmt.Errorf("unknown sharing join policy %q", join)
-		}
-		if seen[join] {
-			return nil, fmt.Errorf("sharing join policy %q appears more than once", join)
-		}
-		seen[join] = true
-		joins = append(joins, join)
-	}
-	return joins, nil
 }
 
 // parsePlatoonPolicies reads the -platoon-policies list. Each name must be
