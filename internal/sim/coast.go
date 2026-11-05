@@ -187,7 +187,8 @@ func (s *Simulation) coastRelease(v *vehicle, d deniedRequest) (float64, bool) {
 				return 0, false
 			}
 			lane := p.blocks.currentLane(p.blockIndex)
-			if t := coastTravelTime(p.routeReleases[r]-p.distance, p.Pod.Speed, lane.SpeedLimit); !found || t > release {
+			rate := motionEnvelopeFor(p.Pod.Class).acceleration
+			if t := coastTravelTime(p.routeReleases[r]-p.distance, p.Pod.Speed, lane.SpeedLimit, rate); !found || t > release {
 				release, found = t, true
 			}
 		}
@@ -218,9 +219,11 @@ func (s *Simulation) coastReleaser(owner resourceOwner, r resource) *vehicle {
 	return p
 }
 
-// coastTravelTime returns the time to travel distance from speed, at full
-// acceleration up to top and then at top.
-func coastTravelTime(distance, speed, top float64) float64 {
+// coastTravelTime returns the time to travel distance from speed, at the
+// acceleration rate up to top and then at top. rate is the acceleration of
+// the pod that travels, which can be of another class than the pod that
+// coasts.
+func coastTravelTime(distance, speed, top, rate float64) float64 {
 	if distance <= 0 {
 		return 0
 	}
@@ -228,11 +231,11 @@ func coastTravelTime(distance, speed, top float64) float64 {
 	if top <= 0 {
 		return math.Inf(1)
 	}
-	ramp := (top*top - speed*speed) / (2 * acceleration)
+	ramp := (top*top - speed*speed) / (2 * rate)
 	if distance <= ramp {
-		return (math.Sqrt(speed*speed+2*acceleration*distance) - speed) / acceleration
+		return (math.Sqrt(speed*speed+2*rate*distance) - speed) / rate
 	}
-	return (top-speed)/acceleration + (distance-ramp)/top
+	return (top-speed)/rate + (distance-ramp)/top
 }
 
 // stopSpeed returns the commanded speed after which a pod stops in

@@ -105,6 +105,103 @@ func hasCeiling(results []coastResult, index int) bool {
 	return false
 }
 
+// TestCoastTravelTimeRate checks the travel time at the rate of the pod that
+// travels. The seat rate keeps the exact bits of the expression with the
+// acceleration constant.
+func TestCoastTravelTimeRate(t *testing.T) {
+	t.Parallel()
+	express := motionEnvelopeFor(ExpressClass).acceleration
+	for _, test := range []struct{ distance, speed, top, rate, want float64 }{
+		{10, 1, 14, acceleration, 2.7015621187},
+		{10, 1, 14, express, 3.2278096},
+		{100, 1, 14, acceleration, 6.5 + 51.25/14},
+		{100, 1, 14, express, 10 + 25/14.0},
+	} {
+		if got := coastTravelTime(test.distance, test.speed, test.top, test.rate); math.Abs(got-test.want) > 1e-6 {
+			t.Errorf("%+v: got %v", test, got)
+		}
+	}
+	for _, test := range []struct{ distance, speed, top float64 }{{10, 1, 14}, {3.7, 2.9, 14}, {100, 1, 14}, {431.3, 6.1, 13.7}} {
+		ramp := (test.top*test.top - test.speed*test.speed) / (2 * acceleration)
+		want := (test.top-test.speed)/acceleration + (test.distance-ramp)/test.top
+		if test.distance <= ramp {
+			want = (math.Sqrt(test.speed*test.speed+2*acceleration*test.distance) - test.speed) / acceleration
+		}
+		if got := coastTravelTime(test.distance, test.speed, test.top, seatEnvelope.acceleration); got != want {
+			t.Errorf("%+v: seat rate gives %v, want the bits of %v", test, got, want)
+		}
+	}
+}
+
+// TestCoastExpressReleaser checks that an Express releaser reaches its
+// release distance later than a seat pod from the same position and speed,
+// so a small first pod that does not wait for the seat pod coasts for the
+// Express pod. The test changes the releasers on the frozen state of each
+// coasting pod and restores them. Only the class differs between the two
+// readings.
+func TestCoastExpressReleaser(t *testing.T) {
+	t.Parallel()
+	s := twoApproaches(t)
+	monitor := newEntryMonitor(s)
+	reversals := 0
+	monitor.extra = func(s *Simulation, denied []deniedRequest, results []coastResult) {
+		for _, result := range results {
+			if reversals == 0 && expressReleaserReverses(s, denied, result.index) {
+				reversals++
+			}
+		}
+	}
+	runEntry(t, s, monitor)
+	if reversals == 0 {
+		t.Fatal("the class of the releaser changed no coast decision")
+	}
+}
+
+// expressReleaserReverses reports whether a remaining distance exists where
+// the pod at index does not coast for seat releasers at 1 m/s and coasts for
+// Express releasers at 1 m/s. It restores each releaser.
+func expressReleaserReverses(s *Simulation, denied []deniedRequest, index int) bool {
+	type held struct {
+		pod     *vehicle
+		r       resource
+		class   VehicleClass
+		speed   float64
+		release float64
+	}
+	var releasers []held
+	v := &s.vehicles[index]
+	for _, d := range denied {
+		if d.in.index != index {
+			continue
+		}
+		for resources := range v.blocks.spanResources(d.in.block, d.through+1) {
+			for _, r := range resources {
+				if owner := s.owners[r]; !owner.isZero() && !owner.isPod(v.Pod.ID) {
+					p := s.coastReleaser(owner, r)
+					releasers = append(releasers, held{p, r, p.Pod.Class, p.Pod.Speed, p.routeReleases[r]})
+				}
+			}
+		}
+	}
+	defer func() {
+		for _, h := range releasers {
+			h.pod.Pod.Class, h.pod.Pod.Speed, h.pod.routeReleases[h.r] = h.class, h.speed, h.release
+		}
+	}()
+	coasts := func(class VehicleClass, remaining float64) bool {
+		for _, h := range releasers {
+			h.pod.Pod.Class, h.pod.Pod.Speed, h.pod.routeReleases[h.r] = class, 1, h.pod.distance+remaining
+		}
+		return hasCeiling(s.coastCeilings(denied), index)
+	}
+	for remaining := 0.5; remaining <= 100; remaining += 0.5 {
+		if !coasts(LegacyClass, remaining) && coasts(ExpressClass, remaining) {
+			return true
+		}
+	}
+	return false
+}
+
 // TestCoastExemptions checks the pods and the settings with no coast. With
 // platoons off or with one approach, no pod coasts. A pod of a large class
 // and a pod with an emergency record do not coast, also when the same pod
