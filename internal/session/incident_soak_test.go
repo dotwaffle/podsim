@@ -2,6 +2,7 @@ package session
 
 import (
 	"cmp"
+	"context"
 	"fmt"
 	"log/slog"
 	"maps"
@@ -155,12 +156,16 @@ type soakResult struct {
 	wall  time.Duration
 	// threadCPU is the CPU of this run alone, and processCPU that of the whole
 	// process in the same time, with each parallel run.
-	threadCPU, processCPU                float64
-	queue                                soakRange
-	state                                sim.Snapshot
-	commands, refused                    int
-	saves, demoted, rewinds, railRecords int
-	emergencies, emergencyLate           int
+	threadCPU, processCPU       float64
+	queue                       soakRange
+	state                       sim.Snapshot
+	commands, refused           int
+	saves, rewinds, railRecords int
+	// demoted counts the saves that fail the physical tier by the demotion
+	// rule, and podsDemoted the pods that a physical restore of a save moves to
+	// a berth.
+	demoted, podsDemoted       int
+	emergencies, emergencyLate int
 	// emergencyInPlatoon counts the records that pass the limit on a platoon
 	// member, and emergencyLong the records that end longer than the limit in
 	// total time. emergencyLongest is the longest time not blocked by a fault
@@ -198,6 +203,9 @@ type soakDriver struct {
 	// full check reads, so such a test can make a violation.
 	fail        func(message string)
 	breakExport func(*sim.SavedState)
+	// breakSave, when set, changes the file of each save, so a test of the driver
+	// can make each restore result.
+	breakSave func(*stateFile)
 	// nextFault, nextEmergency, nextSave, and nextRewind are the ticks of the
 	// next driver events. clears holds the command faults, by clear tick.
 	nextFault, nextEmergency, nextSave, nextRewind int64
@@ -495,26 +503,79 @@ func (d *soakDriver) checkSave() {
 	d.t.Helper()
 	file := sessionStateFile(d.t, d.s)
 	file.RestoreAttempts = 0
+	if d.breakSave != nil {
+		d.breakSave(&file)
+	}
+	var log soakRestoreLog
 	restored, err := NewFromStore(d.t.Context(), StoreInput{Store: &fakeStore{data: encodeTestState(d.t, file)},
-		Options: []Option{WithLogger(slog.New(slog.DiscardHandler))}})
+		Options: []Option{WithLogger(slog.New(&log))}})
 	if err != nil {
 		d.failf("the restore: %v", err)
+		return
 	}
 	defer restored.Close()
 	d.result.saves++
 	switch restored.restore.Tier {
 	case string(sim.RestorePhysical):
+		d.result.podsDemoted += restored.restore.Demoted
 	case string(sim.RestoreLogical):
-		d.result.demoted++
-		if restored.restore.Reason == "" {
-			d.failf("the save demotes with no reason")
+		physicalError := log.physicalError()
+		if restored.restore.Reason != reasonPhysicalFailed || !soakDemotionRule(physicalError) {
+			d.failf("the save fails the physical tier by another rule: reason %q, error %q", restored.restore.Reason, physicalError)
+			return
 		}
+		d.result.demoted++
+		d.t.Logf("%s %s seed %d branch %d tick %d: the save demotes: %s", d.input.preset, d.input.arm.name, d.input.seed, d.input.branch, d.s.simulation.Tick(), physicalError)
 	default:
 		d.failf("the save starts a new session: %+v", restored.restore)
 	}
 	if err := restored.simulation.CheckContract(); err != nil {
 		d.failf("the restored contract: %v", err)
 	}
+}
+
+// soakDemotionRule reports whether the error of a physical restore is the
+// demotion rule of a record: section 10.7 of the incident emergency contract, and
+// section 12.7 of the incident suspension contract. The Persistence row allows
+// only this failure of the tier.
+func soakDemotionRule(physicalError string) bool {
+	rest, ok := strings.CutPrefix(physicalError, "the restore would demote pod ")
+	return ok && (strings.Contains(rest, ", which has emergency ") || strings.Contains(rest, ", which has fault "))
+}
+
+// soakRestoreLog keeps the physical error of the "Restored session" log record.
+// The session does not keep the error, and only the log gives it.
+type soakRestoreLog struct {
+	mu    sync.Mutex
+	error string
+}
+
+func (l *soakRestoreLog) Enabled(context.Context, slog.Level) bool { return true }
+
+func (l *soakRestoreLog) Handle(_ context.Context, record slog.Record) error {
+	if record.Message != "Restored session" {
+		return nil
+	}
+	record.Attrs(func(attr slog.Attr) bool {
+		if attr.Key != "physicalError" {
+			return true
+		}
+		l.mu.Lock()
+		defer l.mu.Unlock()
+		l.error = attr.Value.String()
+		return false
+	})
+	return nil
+}
+
+func (l *soakRestoreLog) WithAttrs([]slog.Attr) slog.Handler { return l }
+
+func (l *soakRestoreLog) WithGroup(string) slog.Handler { return l }
+
+func (l *soakRestoreLog) physicalError() string {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.error
 }
 
 // step advances the session one tick, and runs the checks.
@@ -855,9 +916,9 @@ func runSoak(t *testing.T, input soakInput) soakResult {
 	d.checkRail()
 	d.result.state = d.s.simulation.Snapshot()
 	state := d.result.state
-	t.Logf("preset=%s arm=%s seed=%d branch=%d hours=%g checks=%t ticks=%d wall=%.1fs threadCPU=%.1fs processCPU=%.1fs ticks/s=%.0f commands=%d refused=%d saves=%d demoted=%d rewinds=%d rail=%d completed=%d interrupted=%d queue=%d..%d settle=%ds waitAvg=%.1fs waitMax=%.1fs faults=%+v emergencies=%+v seen=%d late=%d inPlatoon=%d long=%d longestUnblocked=%.1fs fullChecks=%d rates=%v",
+	t.Logf("preset=%s arm=%s seed=%d branch=%d hours=%g checks=%t ticks=%d wall=%.1fs threadCPU=%.1fs processCPU=%.1fs ticks/s=%.0f commands=%d refused=%d saves=%d demoted=%d podsDemoted=%d rewinds=%d rail=%d completed=%d interrupted=%d queue=%d..%d settle=%ds waitAvg=%.1fs waitMax=%.1fs faults=%+v emergencies=%+v seen=%d late=%d inPlatoon=%d long=%d longestUnblocked=%.1fs fullChecks=%d rates=%v",
 		input.preset, input.arm.name, input.seed, input.branch, input.hours, input.checks, d.result.ticks, d.result.wall.Seconds(), d.result.threadCPU, d.result.processCPU, float64(d.result.ticks)/d.result.wall.Seconds(),
-		d.result.commands, d.result.refused, d.result.saves, d.result.demoted, d.result.rewinds, d.result.railRecords, state.Completed, state.Interrupted, d.result.queue.low, d.result.queue.high,
+		d.result.commands, d.result.refused, d.result.saves, d.result.demoted, d.result.podsDemoted, d.result.rewinds, d.result.railRecords, state.Completed, state.Interrupted, d.result.queue.low, d.result.queue.high,
 		d.result.settleTicks/sim.TicksPerSecond, state.Wait.AverageSeconds, state.Wait.MaxSeconds, state.Faults.Counters, state.Emergencies.Counters, d.result.emergencies, d.result.emergencyLate, d.result.emergencyInPlatoon, d.result.emergencyLong, float64(d.result.emergencyLongest)/sim.TicksPerSecond, d.fullChecks, d.result.rates)
 	if len(d.result.misses) > 0 {
 		t.Errorf("preset %s arm %s seed %d branch %d misses a Progress gate:\n%s", input.preset, input.arm.name, input.seed, input.branch, strings.Join(d.result.misses, "\n"))
@@ -1387,6 +1448,79 @@ func TestSoakGroupBranches(t *testing.T) {
 		t.Parallel()
 		runSoakGroup(t, input, shape, "reference", []string{"incidents", "emergencies"})
 	})
+}
+
+// TestSoakCheckSave checks each result of a save. A physical restore can move an
+// ordinary pod, and the driver counts the pods. A pod with a record that would
+// move fails the tier by the demotion rule, and the driver counts the save and
+// goes on. Each other failure of the physical tier is a miss.
+func TestSoakCheckSave(t *testing.T) {
+	t.Parallel()
+	// loseRoute takes the route of the first traveling pod that matches.
+	loseRoute := func(match func(pod *sim.SavedPod, file *stateFile) bool) func(*stateFile) {
+		return func(file *stateFile) {
+			pods := slices.Clone(file.Simulation.Pods)
+			for index := range pods {
+				if pods[index].Activity == "traveling" && match(&pods[index], file) {
+					pods[index].Route = nil
+					file.Simulation.Pods = pods
+					return
+				}
+			}
+			t.Fatal("no traveling pod matches")
+		}
+	}
+	hasEmergency := func(pod *sim.SavedPod, file *stateFile) bool { return pod.Withdrawn&2 != 0 }
+	ordinary := func(pod *sim.SavedPod, file *stateFile) bool { return pod.Withdrawn == 0 }
+	tests := []struct {
+		name                 string
+		breakSave            func(*stateFile)
+		demoted, podsDemoted int
+		want                 string
+	}{
+		{name: "physical"},
+		{name: "ordinary pod moves", breakSave: loseRoute(ordinary), podsDemoted: 1},
+		{name: "record pod moves", breakSave: loseRoute(hasEmergency), demoted: 1},
+		{name: "another physical failure", breakSave: func(file *stateFile) {
+			pods := slices.Clone(file.Simulation.Pods)
+			index := slices.IndexFunc(pods, func(pod sim.SavedPod) bool { return pod.Activity != "traveling" && pod.BerthID != "" })
+			other := slices.IndexFunc(pods, func(pod sim.SavedPod) bool { return pod.Activity == "traveling" && pod.Withdrawn == 0 })
+			pods[index].Platoon = &sim.SavedPlatoonLink{Leader: pods[other].ID, Lanes: 1}
+			file.Simulation.Pods = pods
+		}, want: "another rule"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			input := soakInput{preset: "rail-hub", arm: soakArms["incidents"], seed: 1, checks: true}
+			d := newSoakDriver(t, input)
+			d.nextFault, d.nextEmergency, d.nextSave, d.nextRewind = math.MaxInt64, math.MaxInt64, math.MaxInt64, math.MaxInt64
+			var podID string
+			for tick := int64(1); podID == "" || tick < 90*sim.TicksPerSecond; tick++ {
+				d.step()
+				if podID != "" {
+					continue
+				}
+				for _, vehicle := range d.s.simulation.Snapshot().Vehicles {
+					if vehicle.Pod.Occupied && vehicle.Pod.Activity == sim.Traveling {
+						podID = vehicle.Pod.ID
+						break
+					}
+				}
+			}
+			d.mustApply(Command{Action: "emergency", PodID: podID})
+			var failure string
+			d.fail = func(message string) { failure = message }
+			d.breakSave = test.breakSave
+			d.checkSave()
+			if test.want == "" && failure != "" || test.want != "" && !strings.Contains(failure, test.want) {
+				t.Fatalf("the failure is %q, want %q", failure, test.want)
+			}
+			if d.result.saves != 1 || d.result.demoted != test.demoted || d.result.podsDemoted != test.podsDemoted {
+				t.Fatalf("the result is %+v", d.result)
+			}
+		})
+	}
 }
 
 // TestSoakWarmNeedsPhysicalRestore refuses a warm save that demotes: a branch of
