@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"reflect"
 	"slices"
 	"strconv"
 
@@ -178,11 +177,11 @@ func (m vehicleMetadata) replace(v *VehicleFrame) {
 	v.Withdrawn, v.Operational = m.Withdrawn, m.Operational
 }
 
-func changed[T any](a, b T) *Replacement[T] {
-	if reflect.DeepEqual(a, b) {
+func changedRoute(a, b sim.RoutePresentation) *Replacement[sim.RoutePresentation] {
+	if sim.SameRoutePresentation(a, b) {
 		return nil
 	}
-	return &Replacement[T]{b}
+	return &Replacement[sim.RoutePresentation]{b}
 }
 
 func changedValue[T comparable](a, b T) *Replacement[T] {
@@ -250,7 +249,7 @@ func makeDelta(a, b StreamFrame) (StreamDelta, error) {
 	}
 	for i, v := range b.State.Simulation.Vehicles {
 		p := a.State.Simulation.Vehicles[i]
-		item := VehicleDelta{ID: v.Pod.ID, Pod: changedValue(p.Pod, v.Pod), Route: changed(a.Routes[i], b.Routes[i]), Riders: changedSlice(p.Riders, v.Riders), Boardings: changedSlice(p.Boardings, v.Boardings), Stops: changedSlice(p.Stops, v.Stops), Metadata: changedValue(meta(p), meta(v))}
+		item := VehicleDelta{ID: v.Pod.ID, Pod: changedValue(p.Pod, v.Pod), Route: changedRoute(a.Routes[i], b.Routes[i]), Riders: changedSlice(p.Riders, v.Riders), Boardings: changedSlice(p.Boardings, v.Boardings), Stops: changedSlice(p.Stops, v.Stops), Metadata: changedValue(meta(p), meta(v))}
 		if item.Pod != nil && sameStationaryPod(p.Pod, v.Pod) {
 			item.Motion, item.Pod = &Replacement[podMotion]{Value: motionOf(v.Pod)}, nil
 		}

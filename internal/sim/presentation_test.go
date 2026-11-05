@@ -2,6 +2,7 @@ package sim
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 	"slices"
 	"testing"
@@ -365,5 +366,119 @@ func TestBuildRouteWindowRefusesUnknownLane(t *testing.T) {
 	}
 	if v.window.lanes != nil {
 		t.Fatal("a refused build reached the cache")
+	}
+}
+
+// routeFixture returns a route presentation with data in each member. Each
+// call returns new storage.
+func routeFixture() RoutePresentation {
+	return RoutePresentation{Identity: 1, Display: []int{1, 2}, Origin: 3, Lanes: []int{1, 2, 1}, Start: 4, Current: 5, Before: true, After: true, OriginNode: "node",
+		Motion: []Lane{{VehicleClasses: 1, ID: "lane", From: "a", To: "b", SpeedLimit: 6, SeparationGroup: "g", StationID: "s", StationRole: "r", Control: &Point{X: 7, Y: 8}}}}
+}
+
+// walkScalars calls visit for each scalar that value reaches, with its path.
+// A slice or a pointer with no data, or a kind that the walk does not know,
+// fails the test, so a new member cannot pass without a change to the fixture.
+func walkScalars(t *testing.T, value reflect.Value, path string, visit func(path string, scalar reflect.Value)) {
+	t.Helper()
+	switch value.Kind() {
+	case reflect.Struct:
+		for i := range value.NumField() {
+			walkScalars(t, value.Field(i), path+"."+value.Type().Field(i).Name, visit)
+		}
+	case reflect.Slice:
+		if value.Len() == 0 {
+			t.Fatalf("%s: the fixture has no data", path)
+		}
+		for i := range value.Len() {
+			walkScalars(t, value.Index(i), fmt.Sprintf("%s[%d]", path, i), visit)
+		}
+	case reflect.Pointer:
+		if value.IsNil() {
+			t.Fatalf("%s: the fixture has no data", path)
+		}
+		walkScalars(t, value.Elem(), path+".*", visit)
+	case reflect.Bool, reflect.String, reflect.Float64,
+		reflect.Int, reflect.Uint8, reflect.Uint64:
+		visit(path, value)
+	default:
+		t.Fatalf("%s: the walk does not know kind %s", path, value.Kind())
+	}
+}
+
+// changeScalar sets scalar to a value that differs.
+func changeScalar(scalar reflect.Value) {
+	switch scalar.Kind() {
+	case reflect.Bool:
+		scalar.SetBool(!scalar.Bool())
+	case reflect.String:
+		scalar.SetString(scalar.String() + "x")
+	case reflect.Float64:
+		scalar.SetFloat(scalar.Float() + 1)
+	case reflect.Int:
+		scalar.SetInt(scalar.Int() + 1)
+	default:
+		scalar.SetUint(scalar.Uint() + 1)
+	}
+}
+
+func TestSameRoutePresentationCoversEachMember(t *testing.T) {
+	t.Parallel()
+	base := routeFixture()
+	if !SameRoutePresentation(base, routeFixture()) || !reflect.DeepEqual(base, routeFixture()) {
+		t.Fatal("equal values differ")
+	}
+	var paths []string
+	walkScalars(t, reflect.ValueOf(&base).Elem(), "route", func(path string, _ reflect.Value) {
+		paths = append(paths, path)
+	})
+	for _, target := range paths {
+		changed := routeFixture()
+		walkScalars(t, reflect.ValueOf(&changed).Elem(), "route", func(path string, scalar reflect.Value) {
+			if path == target {
+				changeScalar(scalar)
+			}
+		})
+		if SameRoutePresentation(base, changed) || SameRoutePresentation(changed, base) {
+			t.Errorf("%s: the compare did not see a change", target)
+		}
+		if !reflect.DeepEqual(base, routeFixture()) || reflect.DeepEqual(base, changed) {
+			t.Errorf("%s: reflect.DeepEqual disagrees", target)
+		}
+	}
+}
+
+func TestSameRoutePresentationMatchesDeepEqual(t *testing.T) {
+	t.Parallel()
+	with := func(change func(*RoutePresentation)) RoutePresentation {
+		route := routeFixture()
+		change(&route)
+		return route
+	}
+	shared := []int{1, 2, 3}
+	nan := math.NaN()
+	sharedMotion := []Lane{{ID: "a", SpeedLimit: nan}}
+	sharedControl := &Point{X: nan}
+	for name, pair := range map[string][2]RoutePresentation{
+		"nil display against empty": {{Display: nil}, {Display: []int{}}},
+		"both empty":                {{Display: []int{}, Lanes: []int{}, Motion: []Lane{}}, {Display: []int{}, Lanes: []int{}, Motion: []Lane{}}},
+		"nil lanes against empty":   {{Lanes: nil}, {Lanes: []int{}}},
+		"nil motion against empty":  {{Motion: nil}, {Motion: []Lane{}}},
+		"one array":                 {{Lanes: shared}, {Lanes: shared}},
+		"one array, shorter":        {{Lanes: shared}, {Lanes: shared[:2]}},
+		"one array, other start":    {{Lanes: shared[:2]}, {Lanes: shared[1:]}},
+		"equal arrays":              {{Lanes: []int{1, 2}}, {Lanes: []int{1, 2}}},
+		"one motion, not a number":  {{Motion: sharedMotion}, {Motion: sharedMotion}},
+		"two motions, not a number": {{Motion: []Lane{{SpeedLimit: nan}}}, {Motion: []Lane{{SpeedLimit: nan}}}},
+		"one control, not a number": {{Motion: []Lane{{Control: sharedControl}}}, {Motion: []Lane{{Control: sharedControl}}}},
+		"two controls, equal":       {{Motion: []Lane{{Control: &Point{X: 1}}}}, {Motion: []Lane{{Control: &Point{X: 1}}}}},
+		"two controls, differ":      {{Motion: []Lane{{Control: &Point{X: 1}}}}, {Motion: []Lane{{Control: &Point{X: 2}}}}},
+		"nil control":               {{Motion: []Lane{{}}}, {Motion: []Lane{{Control: &Point{}}}}},
+		"fixture and lanes":         {routeFixture(), with(func(r *RoutePresentation) { r.Lanes = r.Lanes[:2] })},
+	} {
+		want := reflect.DeepEqual(pair[0], pair[1])
+		if got := SameRoutePresentation(pair[0], pair[1]); got != want {
+			t.Errorf("%s: got %v, reflect.DeepEqual has %v", name, got, want)
+		}
 	}
 }

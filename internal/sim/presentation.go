@@ -132,3 +132,37 @@ func buildRouteWindow(route []Lane, lanes map[string]int, seen []bool) (display,
 	slices.Sort(display)
 	return slices.Clip(display), indexes, nil
 }
+
+// SameRoutePresentation reports what reflect.DeepEqual reports for a and b.
+// A nil slice differs from an empty slice.
+func SameRoutePresentation(a, b RoutePresentation) bool {
+	return a.Identity == b.Identity && a.Origin == b.Origin && a.Start == b.Start && a.Current == b.Current &&
+		a.Before == b.Before && a.After == b.After && a.OriginNode == b.OriginNode &&
+		sameIndexes(a.Display, b.Display) && sameIndexes(a.Lanes, b.Lanes) && sameMotion(a.Motion, b.Motion)
+}
+
+// sameIndexes does not read the elements of two slices of one array. Route
+// windows make that the common case.
+func sameIndexes(a, b []int) bool {
+	if (a == nil) != (b == nil) || len(a) != len(b) {
+		return false
+	}
+	return len(a) == 0 || &a[0] == &b[0] || slices.Equal(a, b)
+}
+
+func sameMotion(a, b []Lane) bool {
+	if (a == nil) != (b == nil) || len(a) != len(b) {
+		return false
+	}
+	return len(a) == 0 || &a[0] == &b[0] || slices.EqualFunc(a, b, sameLane)
+}
+
+// sameLane compares the curve control point by value.
+func sameLane(a, b Lane) bool {
+	first, second := a.Control, b.Control
+	a.Control, b.Control = nil, nil
+	if a != b {
+		return false
+	}
+	return first == second || first != nil && second != nil && *first == *second
+}

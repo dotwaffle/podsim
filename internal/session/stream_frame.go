@@ -3,7 +3,6 @@ package session
 import (
 	"errors"
 	"fmt"
-	"reflect"
 	"slices"
 
 	"github.com/dotwaffle/podsim/internal/project"
@@ -179,7 +178,7 @@ func (a *StreamAssembler) presentVehicles(routes []sim.RoutePresentation, vehicl
 		if err := a.motionPod(r, v.Pod); err != nil {
 			return err
 		}
-		if i < len(a.previous.Routes) && reflect.DeepEqual(r, a.previous.Routes[i]) {
+		if i < len(a.previous.Routes) && sim.SameRoutePresentation(r, a.previous.Routes[i]) {
 			v.Route = a.state.Simulation.Vehicles[i].Route
 			v.Presentation = a.state.Simulation.Vehicles[i].Presentation
 			continue
