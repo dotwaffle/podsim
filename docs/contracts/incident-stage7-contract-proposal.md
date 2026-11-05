@@ -581,7 +581,7 @@ A soak with the full check at each tick is required before a release tag and aft
 The size of A6 becomes the branch shape for routine soaks.
 On `rail-hub`, each arm has one warm save at 30 simulated minutes, and then 10 branches of 1.5 simulated hours and the clear of 30 simulated minutes.
 On `london-central`, the `incidents` and `emergencies` arms have 3 branches of 1 simulated hour and the clear.
-Each branch restores the encoded warm state in a new session through the save path, and it reseeds the driver.
+Each branch restores the encoded warm state in a new session through the save path, and it reseeds the driver, the fault and emergency samplers, and the demand, by the maintainer decision of 2026-11-05.
 Rewinds run each 10 simulated minutes in place of each hour.
 A reference arm has no driver event, so it runs one branch of the same length from its own warm save, and each branch of its group uses that queue range.
 Each branch reports the Progress rows by itself, and a run that the limit stops counts only its completed branches.
