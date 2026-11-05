@@ -62,6 +62,7 @@ Ebitengine draws the simulation view and handles its controls, in the browser th
 The view gets shared gzip JSON baselines and deltas over WebSocket, and it needs native browser gzip, with no HTTP polling fallback.
 Commands, topology, and editor data use HTTP, and the server keeps retry-safe command identity.
 The September 22 evaluation found that Protocol Buffers would reduce a London gzip frame by another 10.3% and save about 0.7% of one CPU core per client at 20 Hz, so the project removed the experimental service.
+A November 5 profile found about 1.1 percent of a core as the best server saving, and a 19 percent smaller London frame, so the choice stays ([tick rate proposal](docs/contracts/tick-rate-contract-proposal.md), section 4.6).
 Review this choice if remote traffic, multiple viewers, or external clients make a typed RPC protocol useful.
 
 ### Editor

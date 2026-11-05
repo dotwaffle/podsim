@@ -644,7 +644,8 @@ That needs separate work, which decision 10 asks about.
    A Fly machine is a billable resource and needs a grant.
    Recommendation: yes, at least on one Pi and on the quiet host, because the aim of this work rests on these numbers.
 10. Publication: Open separate work on publication cost at 1x, for example the capture interval or the gzip level.
-    Recommendation: measure it first, because it is about four times the simulation cost at 1x with one client at 60 Hz.
+    Recommendation: lower the publication rate to 10 a second first, then keep route windows in a memo, as section 4.6 measures.
+    Publication is about four times the simulation cost at 1x with one client at 60 Hz.
 11. Corridor pins: Accept new pins for `TestMergeCorridorHeadway` and `TestMergeCorridorPlatoonHeadway`, with the change of section 1.8 in the study text.
     Recommendation: yes.
 
