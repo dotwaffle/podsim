@@ -85,6 +85,35 @@ func indexGeometryTails(network Network) map[string]geometryTails {
 	return tails
 }
 
+// LaneTailOverrun is a lane whose large-class tail is longer than the lane.
+// A pod that enters such a lane keeps its resources past the end of the lane.
+type LaneTailOverrun struct {
+	LaneID       string
+	Tail, Length float64
+}
+
+// LaneTailOverruns returns the lanes of a validated network, in lane order,
+// whose tail from indexGeometryTails exceeds their length. A path with an
+// infinite tail is not in the result, because validation refuses it.
+func (n Network) LaneTailOverruns() []LaneTailOverrun {
+	var overruns []LaneTailOverrun
+	tails := indexGeometryTails(n)
+	var positions map[string]Point
+	for _, lane := range n.Lanes {
+		tail := tails[lane.ID].tail
+		if tail == 0 || !finite(tail) {
+			continue
+		}
+		if positions == nil {
+			positions = indexNodePositions(n.Nodes)
+		}
+		if length := indexedLaneLength(lane, positions[lane.From], positions[lane.To]); tail > length {
+			overruns = append(overruns, LaneTailOverrun{LaneID: lane.ID, Tail: tail, Length: length})
+		}
+	}
+	return overruns
+}
+
 // largePathTail bounds physical separation by projection on the lane chord.
 // Each segment must advance on that axis. For a minimum projection ratio c,
 // a path gap of 20/c meters gives at least 20 meters of physical separation.
