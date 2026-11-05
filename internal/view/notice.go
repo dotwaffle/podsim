@@ -1,15 +1,15 @@
 package view
 
-import (
-	"time"
+import "time"
 
-	"github.com/dotwaffle/podsim/internal/sim"
-)
+// UpdatesPerSecond is the update rate of the game. Input and the view use
+// this rate at each simulation tick rate.
+const UpdatesPerSecond = 60
 
 // noticeDuration is the time in game ticks that a notice shows. The game
-// runs sim.TicksPerSecond ticks each second, so a notice shows for 3 s. The
+// runs UpdatesPerSecond ticks each second, so a notice shows for 3 s. The
 // text of each confirmation gives this time.
-const noticeDuration = 3 * sim.TicksPerSecond
+const noticeDuration = 3 * UpdatesPerSecond
 
 // noticeState is the notice in the hint line. A notice can also be a
 // confirmation. See confirmSubmit.

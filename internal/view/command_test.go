@@ -9,7 +9,6 @@ import (
 	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/remote"
 	"github.com/dotwaffle/podsim/internal/session"
-	"github.com/dotwaffle/podsim/internal/sim"
 )
 
 // TestOrderAcceptedLabel checks that the request button reads Order
@@ -28,7 +27,7 @@ func TestOrderAcceptedLabel(t *testing.T) {
 		wantNotice string
 	}{
 		{name: "at once", wantLabel: "Order accepted", wantNotice: notice},
-		{name: "after 0.5 s", ticks: sim.TicksPerSecond / 2, wantLabel: "Order accepted", wantNotice: notice},
+		{name: "after 0.5 s", ticks: UpdatesPerSecond / 2, wantLabel: "Order accepted", wantNotice: notice},
 		{name: "last notice tick", ticks: noticeDuration - 1, wantLabel: "Order accepted", wantNotice: notice},
 		{name: "after the notice", ticks: noticeDuration, wantLabel: "Order [Enter]"},
 		{name: "other destination", ticks: 1, clicks: []string{"to/station-03"}, wantLabel: "Order [Enter]", wantNotice: notice},

@@ -17,7 +17,7 @@ import (
 func TestResetAsksAgain(t *testing.T) {
 	t.Parallel()
 	const (
-		window       = 3 * sim.TicksPerSecond
+		window       = 3 * UpdatesPerSecond
 		staleMessage = "save point #1 is no longer available"
 	)
 	type press struct {
@@ -170,7 +170,7 @@ func TestHintLine(t *testing.T) {
 // shows the confirmation again for a full window and sends nothing.
 func TestConfirmUsesWallClock(t *testing.T) {
 	t.Parallel()
-	if want := time.Duration(noticeDuration) * time.Second / sim.TicksPerSecond; confirmWindow != want {
+	if want := time.Duration(noticeDuration) * time.Second / UpdatesPerSecond; confirmWindow != want {
 		t.Fatalf("confirmWindow = %v, want the notice time %v", confirmWindow, want)
 	}
 	start := time.Date(2026, 9, 26, 12, 0, 0, 0, time.UTC)

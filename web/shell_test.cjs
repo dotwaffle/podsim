@@ -169,7 +169,7 @@ test("noticeMessage gives the notice shape that the game accepts", () => {
 
 test("debugResult keeps a failure and gives other text the notice time of the game", () => {
   const source = fs.readFileSync(path.join(__dirname, "..", "internal", "view", "notice.go"), "utf8");
-  const match = source.match(/^const noticeDuration = (\d+) \* sim\.TicksPerSecond$/m);
+  const match = source.match(/^const noticeDuration = (\d+) \* UpdatesPerSecond$/m);
   assert.ok(match, "internal/view/notice.go has no noticeDuration in seconds");
   assert.equal(shell.NOTICE_MS, Number(match[1]) * 1000);
   for (const [name, text, error, want] of [

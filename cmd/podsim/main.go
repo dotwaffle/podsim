@@ -8,7 +8,6 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 
-	"github.com/dotwaffle/podsim/internal/sim"
 	"github.com/dotwaffle/podsim/internal/view"
 )
 
@@ -30,7 +29,7 @@ func run() error {
 	ebiten.SetWindowSize(1100, 728)
 	ebiten.SetWindowTitle("Podsim")
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
-	ebiten.SetTPS(sim.TicksPerSecond)
+	ebiten.SetTPS(view.UpdatesPerSecond)
 	// Draw fills the full screen in each frame. While the shell page hides
 	// the game, Draw does not draw, and the screen keeps the last frame.
 	// Thus the game shows no empty frame when it shows again.

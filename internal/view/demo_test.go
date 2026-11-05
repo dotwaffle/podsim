@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/project"
-	"github.com/dotwaffle/podsim/internal/sim"
 )
 
 // TestDemoButtonState checks when Start traffic demo accepts a press. The
@@ -62,7 +61,7 @@ func TestDemoButtonState(t *testing.T) {
 // ticks, not wall time.
 func TestDemoAsksAgain(t *testing.T) {
 	t.Parallel()
-	const window = 3 * sim.TicksPerSecond
+	const window = 3 * UpdatesPerSecond
 	type press struct {
 		// ticks is the number of game ticks before the press.
 		ticks int
