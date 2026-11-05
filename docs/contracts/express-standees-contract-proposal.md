@@ -1,7 +1,8 @@
 # Express standees contract proposal
 
-Status: proposal, awaiting the maintainer.
-Nothing in this document is approved, and no product code changes with it.
+Status: decisions 1 to 13 accepted by the maintainer on 2026-11-05, as recommended.
+The maintainer also approved the revision of sections 4, 5, and 7.1 after the external review of section 4.10.
+No product code changes with this document.
 It was drafted against `b2262f6`, and each `file:line` reference is for that tree.
 The [evidence record](../studies/express-standees.md) holds the research, the sources, and the measurements.
 All evidence comes from scratch overlays that did not land.
@@ -12,11 +13,11 @@ All evidence comes from scratch overlays that did not land.
 | --- | --- |
 | Can Express become a 6 m vehicle with standees? | Yes. A body of 6 m, 12 seats, and 8 standee places keep the total of 20, so no count limit, byte limit, or format member changes. |
 | Does the lower envelope need a new separation rule? | No. Each pod stops inside the cells that it owns, so the separation does not depend on the braking of another pod. The kernel, the reservation horizon, and the estimates need a value for each class. |
-| Is the shorter curve tail sound? | The proof of section 4 holds, under its stated dependencies, and I found no counterexample. It is a written argument with numeric checks, and it is not machine checked. Section 4.7 lists what it does not cover. |
+| Is the shorter curve tail sound? | The same-lane bound of section 4.3 holds, and the external review confirmed it. That review also found a fault at plane transitions in the existing audit, independent of the tail, and the claim of section 4.2 depends on its fix. The proof is a written argument with numeric checks, and it is not machine checked. Section 4.7 lists what it does not cover. |
 | What does the tail do for `rail-hub`? | With all classes, seed 1 to 3 served 98, 99, and 102, against 1, 15, and 3 with the old tail and 102, 104, and 106 for the plain preset. The 2-hour run served 426 against 429. There were no separation violations. |
-| Is the deadlock gone or moved? | It is gone on `rail-hub` in these runs, because the tails of its fans fall to at most 20.75 m. The new tail always stays under the lane length plus 0.5 m, so a pod cannot hold a station exit past the next station. Other ring locks stay possible, as `docs/model.md` says of each saturated network. |
+| Is the deadlock gone or moved? | It is gone on `rail-hub` in these runs, because the tails of its fans fall to at most 20.75 m. The new tail stays under the lane length plus `2h`, which is 0.5 m on a lane of up to 256 m and at most 0.2 percent of a longer lane, unless the lane passes the budget of section 4.1, so a pod cannot hold a station exit past the next station. Other ring locks stay possible, as `docs/model.md` says of each saturated network. |
 | Is a separate deadlock rule necessary? | Not on this evidence. Section 4.8 keeps the warning and adds a progress gate. |
-| Recommendation | Land part 2 first, by itself, after decisions 1 to 4. Then land part 1 with a planned braking of 0.8 m/s², a maximum service braking of 1.15 m/s², and an acceleration of 1.3 m/s², after decisions 5 to 10. |
+| Recommendation | Land the audit fix of section 4.5, then part 2 by itself. Then land part 1 with a planned braking of 0.8 m/s², a maximum service braking of 1.15 m/s², and an acceleration of 1.3 m/s², after decisions 5 to 10. |
 
 This proposal also reads "per-class envelope" in two ways.
 The motion envelope is the acceleration and braking of a class, and section 3 changes it.
@@ -176,7 +177,7 @@ For a curved lane, the tail is `min(oldBound, max(20, grid(scan + h)))`, with th
 | `oldBound` | `20 / (c × (1 - conflictSlack))`, the formula of today, which is itself an upper bound of `G`. |
 | `scan` | The largest `t - s` with a distance under `20 + h/2 + f`, for `s` in steps of `h` over the lane, with the lane end included, and for the last such `t`. |
 | `grid` | Rounds up to a multiple of `h`. |
-| `h` | 0.25 m. |
+| `h` | The larger of 0.25 m and `ℓ / 1024`, so a lane has at most 1,025 samples. A lane of up to 256 m uses 0.25 m. |
 | `f` | 1 mm, the smallest step of the walk over `t`. |
 
 The walk starts at the lane end and moves `t` back by `max(d - limit, f)`, where `d` is the distance and `limit` is `20 + h/2 + f`.
@@ -187,10 +188,17 @@ The distance from `s` to `t*` is under `limit - f`, so the walk does not pass `t
 Then `G ≤ scan + h/2`, so the tail is strictly above `G`.
 A tail must be above `G`, because a tail equal to `G` failed on the narrow arc of `TestLargeGeometryPathProjection` with a gap of 10 m.
 The scan does not use convexity or a projection axis.
+The argument holds for each positive `h`, so the step can grow with the lane.
+
+The walk counts its distance evaluations.
+A lane that passes a fixed budget of evaluations takes `oldBound` for its tail, which is a valid bound.
+The budget applies to each lane, so the tail of a lane does not depend on another lane.
+Patch 2 fixes the budget from a benchmark, so that the worst-case project prepares in less than 5 s on the native build.
+The review gave the reason: the project limits permit about 7.68 million samples at a fixed step of 0.25 m, and one lane can have 918,213 of them.
 
 The refusal of a folded path stays with its text, so the same set of lanes is accepted.
 A lane with a chord under 20 m has `G = ℓ`.
-The scan is at most `ℓ`, so `grid(scan + h)` is under `ℓ + 2h` on each lane, and the old tail had no such limit.
+The scan is at most `ℓ`, so `grid(scan + h)` is under `ℓ + 2h` on each lane inside the budget, and the old tail had no such limit.
 
 A closed form is also possible: 20 / cos(range / 2), with `range` as the range of the tangent angle.
 It is scale free and needs no scan, and it gives at most 71 m on `rail-hub`.
@@ -199,7 +207,10 @@ I recommend the scan, and decision 3 records the choice.
 
 ### 4.2 Claim
 
-For pods `x` and `y` on one physical plane, with at least one of a large class, the centers are at least 20 m apart at each tick.
+Each lane has a set of locations: the lane, its incident lanes, and the berths at its `From` node.
+Take pods `x` and `y`, with at least one of a large class, and suppose that some pair from their two sets is on one plane.
+Then the centers are at least 20 m apart at each tick, less the tolerance of 1 µm that the audit (`internal/sim/bank_geometry.go:174`) and the observer (`internal/sim/safety.go:206`) both permit.
+The rule is on centers, as in the group physics design, and two envelopes of radius 6 m then have 8 m between them.
 The proof has three cases, by the lanes of the two pods.
 The tail carries only the first case.
 The old bound also addressed only the first case, so its proof did not cover the part of a tail on a later lane either.
@@ -235,8 +246,14 @@ The independent check found 0 close samples outside a held junction section, in 
 
 ### 4.5 Case C: two lanes that share no node
 
-`validateBankGeometry` (`internal/sim/bank_geometry.go:128`) refuses a network when a large-admitting path comes within 20 m of a nonincident path on the same plane.
+`validateBankGeometry` (`internal/sim/bank_geometry.go:128`) refuses a network when a large-admitting path comes within 20 m of a nonincident path, unless each pair of their locations is on two planes.
+A location set holds the lane, its incident lanes, and the berths at its `From` node, so a pod near a plane join counts on both planes.
 Both pods are inside their polylines, so the distance is at least 20 m.
+
+The audit first gave each lane only its own plane.
+That was a fault in the code of today, and section 4.10 gives its numbers.
+A separate patch lands the location sets before patch 2, and it has no dependency on the tail.
+It reads whole lanes, so it refuses a pass that is far from the join on a lane incident to the shared plane.
 A berth is a zero-length path in this audit, so it is in this case too.
 This case holds for a leader 2 or more lanes ahead on the route, and for a pod on an unrelated lane, at each path gap.
 The independent check found 0 such samples under 20 m, and 0 route pairs under 20 m past the next lane.
@@ -253,7 +270,7 @@ The independent check found 0 such samples under 20 m, and 0 route pairs under 2
 | Projection axis | The candidate uses no projection. `oldBound` stays only as an upper limit. |
 | Adjacent lanes | Case B for a shared node, and Case C for no shared node. |
 | Reverse motion | A large class cannot enter a maneuver group (`internal/sim/maneuver_groups.go:213`), and a pod moves only forward on directed lanes. |
-| Body front in the plane window | `internal/sim/envelope_safety.go:40` scales the front as `6 × tail / 20`. That is valid for a projection bound and not for a scan bound. Section 5 changes it to `max(6, tail)`, which is at least the true 6 m bound, because each pair under 6 m is also under 20 m. |
+| Body front in the plane window | `internal/sim/envelope_safety.go:40` scales the front as `6 × tail / 20`. That is valid for a projection bound and not for a scan bound. Section 5 keeps the front on `oldBound`, so the front does not change. `max(6, tail)` was the first candidate, and a check in the simulation rejected it: its window reached past the body, and the observer reported gaps down to 0.15 m and 35 of 61 runs on a control network. |
 | Zero-width junction interval at a cell boundary | The pad of 0.5 m makes the interval of a real close point wider than one sample. |
 | Restore | A restore reconstructs the footprint with the same tails, and the new tail is at most the old tail, so a footprint that passed before still passes. The restore tests of the `-short` suite pass, except one that pins a long tail. |
 | Floating point | See section 5, on explicit conversions and the rounding grid. |
@@ -269,10 +286,16 @@ These are gaps, and I do not hide them behind the case split.
    I checked its result at a 0.5 m sample on 5 presets, and not on arbitrary networks.
 3. The motion oracle has limited power.
    A tail of 0.7 × scan produced no violation in 35 hairpin networks, so only a static scan can gate the bound.
-4. Plane exemptions were not exercised, because no random network and no run here uses separation groups.
+4. No random network and no run here uses separation groups.
+   Directed networks with plane joins ran in the check of section 4.10, and the tests of the audit patch pin them.
+   A shorter tail narrows the rear window of the observer and the front does not change, so the tail cannot add an observer report.
+   The front is a maximum over the route, so one long-tail curve can make the window reach two lanes ahead, and the audit does not cover that case.
+   One scratch probe reported 19.996 m there, with the body far from that lane.
+   It looks like a false alarm, this is not proved, and the maintainer chose to record it and not change the observer.
 5. `scale100` did not finish the pair check inside the 5-minute limit.
    It has no curved lanes.
-6. Cross-architecture equality of the scan is not tested.
+6. Cross-architecture equality of the scan is not tested, and the maintainer decided that it needs no work now.
+   Section 5 gives the limit.
 7. The runs use the Group class as a proxy, and no run has a real Express fleet with `express-v1`.
 8. The scratch scan had no `grid` and no `f`, and it did not sample the lane end.
    So a final tail can be up to 0.25 m longer than the measured values, and the numbers in this document do not come from the exact rule of section 4.1.
@@ -299,6 +322,33 @@ A pod at 14 m/s holds 85 m ahead at 1.15 m/s², where it holds 49 m at 2.0 m/s²
 On `rail-hub` the served counts stayed inside the seed noise, with 0 violations and a long-run count of 201 against 213.
 A network of short lanes can behave otherwise, and I did not test one.
 
+### 4.9 Static certificate
+
+Motion tests cannot gate the tail, because a tail of 0.7 × scan produced no violation in 35 hairpin networks.
+The gate of section 7.1 is a static certificate in a test, and it uses none of the production bound.
+
+A lane has at most 64 segments, so it has at most 2,080 pairs of segments, at each lane length.
+For each pair, the test finds the smallest squared distance between a point at `s` on the first segment and a point at `t` on the second, with `t - s ≥ tail`.
+That domain is a rectangle cut by one line, and the distance is a convex quadratic.
+So the minimum is the free minimum of the two segments, if that point is in the domain, or else a minimum on the cut line, which has a closed form.
+The test requires a result of at least 400 m².
+The production code does not run this certificate.
+
+### 4.10 External review
+
+One blind Codex review of section 4 ran on 2026-11-05, as decision 2 asked, and a check in the simulation followed it.
+The [evidence record](../studies/express-standees.md) has the numbers.
+
+| Finding | Rating | Result |
+| --- | --- | --- |
+| The audit does not cover the planes that a pod occupies near a join. | BLOCKER, in the code of today | Real, and independent of the tail. A real simulation reports `SeparationError` down to 14.1 m between centers, at the old tail and at 20 m. No preset reaches it. Section 4.5. |
+| A float rounding difference can change the tail at a grid boundary. | MAJOR by the review, MINOR here | The code of today has larger steps on the same inputs. Section 5. |
+| Static qualification and worst-case cost are not established. | MAJOR | Accepted. Sections 4.1 and 4.9. |
+| The audit and the observer permit a shortfall of 1 µm. | MINOR | Stated in section 4.2. |
+| "Between bodies" differs from the requirement. | MINOR | The requirement is on centers, and this document states that. |
+
+The review found the same-lane bound sound in exact arithmetic, and it found no counterexample on a fixed plane at a shared node.
+
 ## 5. Rules changed and unchanged
 
 | Rule | Change |
@@ -308,9 +358,9 @@ A network of short lanes can behave otherwise, and I did not test one.
 | Express contract: 20 seats, new party 1 to 20, 10 m body | 12 seats, 8 standee places, party 1 to 20, 6 m body. |
 | Express contract: "Motion retains acceleration and braking at 2 m/s²" | The Express values of section 3, and each seat-only class stays. |
 | Suspension contract, section 5.2 step 4 and section 6.1 | `faultCap` and "controlled braking at `acceleration`" use the maximum service rate of the class. Decision 5. |
-| Envelope front | `max(6, tail)`, in place of `6 × tail / 20`. |
-| Tail arithmetic | Comparisons on squared distances with explicit `float64` conversions, as at `internal/sim/retention.go:26`. The grid of section 4.1 keeps a rounding difference from changing an ownership bound. |
-| Tail cost | Keep one tail index for each prepared network and each editor check, because `indexGeometryTails` has 8 call sites and it computes each lane on each call. |
+| Envelope front | `6 × oldBound / 20`, the value of today, in place of `6 × tail / 20`. Each lane stores the front beside its tail. |
+| Tail arithmetic | Comparisons on squared distances with explicit `float64` conversions, as at `internal/sim/retention.go:26`. A rounding difference can move a tail near a grid line by one step. The determinism claim stays on one CPU type (`docs/model.md:415`), as for `laneBlockCount` and the test of a 40 m lane, which have larger steps on the same inputs. A save moved between architectures is not covered. |
+| Tail cost | Keep one tail index for each prepared network and each editor check, because `indexGeometryTails` has 8 call sites and it computes each lane on each call. The step and the budget of section 4.1 bound the work on each lane. |
 
 These stay:
 
@@ -363,8 +413,9 @@ Decision 9 records this.
 
 | Gate | Check |
 | --- | --- |
-| Static tail scan | A new test scans each pair on each curved lane of each preset and on a hairpin table, with its own polyline code, at a step finer than `h`. It does not call the production bound. Each pair at or past the tail has at least 20 m. |
-| Tail limits | The tail is at most the old bound, under `ℓ + 2h`, and exactly 20 m on a straight lane. |
+| Static certificate | The test of section 4.9 runs on each curved lane of each preset, a hairpin table, and a table at the coordinate limit, with its own polyline code. Each pair at or past the tail has at least 20 m. |
+| Tail limits | The tail is at most the old bound and exactly 20 m on a straight lane. It is under `ℓ + 2h` inside the budget, and a lane past the budget takes the old bound. |
+| Tail cost | A benchmark of the worst-case project, native and wasm, and a lane at the coordinate limit. |
 | Pair coverage | For each preset that prepares with all classes, each close sample on two lanes with a shared node is in a held junction section, and two lanes with no shared node have no close sample. |
 | Hairpin motion | A deterministic stopped follower on a hairpin at the last legal cell, with a chord above 20 m. The independent center check runs on each tick. |
 | Random curved networks | The scratch generator of the record, as a long test with a fixed seed list. |
@@ -375,13 +426,14 @@ Decision 9 records this.
 | Mutation of part 2 | Expected kill |
 | --- | --- |
 | `max(20, scan)`, with no `h` | `TestLargeGeometryPathProjection/narrow_monotone_arc`. Observed: gap 10 m. |
-| Tail of 20 m on each curve | Static scan, and hairpin motion. Observed in random networks: 18 of 49 fail. |
-| Tail of 0.7 × scan | Static scan. Random motion does not kill it, as observed. |
+| Tail of 20 m on each curve | Static certificate, and hairpin motion. Observed in random networks: 18 of 49 fail. |
+| Tail of 0.7 × scan | Static certificate. Random motion does not kill it, as observed. |
 | Remove the `To` node from a cell inside the tail | Stationary endpoint test, as today. |
 | Remove the junction resource of a lane pair | Sharp apex random network, and pair coverage. |
 | Clearance of 12 m in `buildJunctionConflicts` | Pair coverage. |
 | Skip the nonincident audit for large lanes | `TestLargeGeometryNonincidentLaneAudit`. |
-| Envelope front of `6 × tail / 20` | A new fixture with a separation group at a hairpin. |
+| Envelope front from the new tail | A new fixture with a separation group at a hairpin. |
+| Budget test removed | The test of the lane at the coordinate limit. |
 
 ### 7.2 Part 1
 
@@ -415,7 +467,7 @@ Each patch also runs `mise run lint`, `go fix -diff` on the changed packages, `g
 | # | Subject | Content | Estimate |
 | ---: | --- | --- | ---: |
 | 1 | `contracts: Amend the tail and Express profile rules` | The changes of section 5, in the documents of decision 1, when the maintainer approves them. | 0.25 day |
-| 2 | `sim: Bound the curve tail by the lane polyline` | The scan, the grid, the limits, the single index, the front, and the static, pair, and hairpin gates. The changed tests. | 1 day |
+| 2 | `sim: Bound the curve tail by the lane polyline` | The scan, the step, the budget, the grid, the limits, the single index, the stored front, and the certificate, pair, and hairpin gates. The changed tests. | 1 day |
 | 3 | `studies: Record the curve tail result on rail-hub` | The progress gate, and the qualification text. The model text on the warning. | 0.25 day |
 | 4 | `sim: Give each vehicle a motion envelope` | One envelope for each class, with the same values for each class. No behavior change, and each digest stays. | 0.75 day |
 | 5 | `sim: Split Express capacity into seats and standees` | Section 2.1, with the 6 m body. | 0.5 day |
@@ -432,9 +484,9 @@ Patches 2 and 3 can land by themselves, and they help each project with a curve 
 
 | Risk | Response |
 | --- | --- |
-| The proof has an error in a case that nothing exercised. | Decision 2 asks for an external review before patch 2. The static gate and the independent oracle stay as tests. |
-| Random motion cannot detect a short tail. | The static scan is the gate, and the mutation table shows it. |
-| The scan cost shows in the editor worker or at preparation. | One index for each network. A curved lane takes 0.2 to 16 ms in the scan at 200 m to 10 km, measured under load. The worst-case project of 20,000 long curved lanes is not measured. Patch 2 includes a benchmark and a limit on `h` scaled to the lane length if it is necessary. |
+| The proof has an error in a case that nothing exercised. | The review of section 4.10 found one such fault, outside the tail. The certificate and the independent oracle stay as tests. |
+| Random motion cannot detect a short tail. | The certificate is the gate, and the mutation table shows it. |
+| The scan cost shows in the editor worker or at preparation. | One index for each network. A curved lane took 0.2 to 16 ms in the scan at 200 m to 10 km with a fixed step, measured under load. The step of section 4.1 limits the samples, and the budget limits the walk. Patch 2 includes a benchmark, and the worst-case project is not yet measured. |
 | A longer reservation at 1.15 m/s² fills short lanes and locks a network. | Measured on `rail-hub` only. The progress gate runs with the envelope too. |
 | Express headway rises by a third, so Express gives less capacity than the seats suggest. | This is the purpose of the values, and the study reports it. Decision 6 can raise the acceleration. |
 | Dwell values come from rail door flow, not from a minibus. | Morgantown gives one cross-check at 20 s. Decision 7 can change the rate, and only one constant changes. |
@@ -467,16 +519,17 @@ The incident soak of stage 7 uses presets with no Express pod, so this proposal 
 - Class-aware estimates.
   The scratch overlay left `routeSeconds` at the old rates.
 - The plan cap on a diversion, as a directed test.
-- Separation groups, plane exemptions, and the new envelope front in motion.
+- Separation groups and plane exemptions in motion, other than the directed networks of section 4.10.
 - Physical restore in mid-journey on hairpin lanes.
 - Any network with short curved lanes and the standee envelope, other than the random generator.
 - Any effect on `london-central` or `london-full`, which do not prepare with large classes because of their compact bays.
-- Worst-case scan cost, and any browser or WASM timing.
+- Worst-case scan cost, the budget value, the scaled step in motion, and any browser or WASM timing.
 - Equality of the scan between `amd64` and `arm64`.
 - Service measurements on a quiet host.
   Load was 20 to 48 during these runs, which affects time and not simulated results.
 - The research sources that the earlier note could not open, and any 1996 stock figure in a primary source.
-- No external review of this proof took place, because the maintainer was away and the batch did not ask for one.
+- A second external review of the revised section 4.
+  The maintainer did not ask for one.
 
 ## 12. Decisions for the maintainer
 

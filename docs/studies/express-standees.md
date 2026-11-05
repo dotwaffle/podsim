@@ -191,6 +191,33 @@ The sharp apex is the case in which the same-lane tail is exactly 20 m in both b
 The scan with no margin failed `TestLargeGeometryPathProjection/narrow_monotone_arc` with a gap of 10 m at arc 0.
 The bound must be above the supremum, because a pair at the supremum is itself under 20 m.
 
+## Plane transitions
+
+A blind Codex review of section 4 of the proposal found that the bank audit gives each lane only its own plane, while a pod near a join occupies two planes.
+A check at `9b13e19` reproduced this in the real simulation, and `Check` reported `SeparationError`.
+Lane `A` is on the upper plane and joins a lane on the lower plane, and lane `Q` is on the lower plane at the given offset.
+
+| Network | Smallest center gap (m) |
+| --- | ---: |
+| Quadratic `A`, `Q` at 24 m | 19.256 |
+| Straight `A`, `Q` at 24 m | 18.147 |
+| Quadratic `A`, `Q` at 20 m | 15.257 |
+| Straight `A`, `Q` at 20 m | 14.147 |
+| Mirror, `Q` behind the join | 14.188 |
+| Control, `Q` at 30 m, one plane | 24.147, no reports |
+
+These gaps are within the body window of 6 m, and the result is the same at the old tail and at a tail of exactly 20 m.
+The envelopes of radius 6 m do not touch at these gaps, so a run breaks the 20 m rule and not the bodies.
+
+No preset ships a large class on these planes, and no project JSON in the repository has `separationGroup`.
+The editor cannot author a separation group, and a JSON import can.
+London has separated lanes that join other planes, but a forced large class stops at an earlier refusal.
+Small classes have the same hole, unobserved, with a body gap of 6.15 m at `Q` of 12 m and no reports.
+The shipped London project had 0 hits at a window of 6 m.
+
+The first candidate front of `max(6, tail)` made the observer report far more: gaps of 5.85 m and 0.15 m, and 35 of 61 control runs.
+The proposal keeps the front on the old bound for that reason.
+
 ## Tests that pin the old tail
 
 With the scan tail, `go test -short` of `internal/sim`, `internal/session`, `internal/scenarios`, and `cmd/compare`, and of `internal/project`, `internal/editormodel`, and `cmd/projectcheck`, failed only these tests:
