@@ -56,15 +56,25 @@ func (s *Simulation) boardingLegFails(v *vehicle) bool {
 	if !s.blockedActive() {
 		return false
 	}
+	next, ok := s.boardingLeg(v)
+	if !ok {
+		return false
+	}
+	_, err := s.legRoute(v, next)
+	return err != nil
+}
+
+// boardingLeg returns the leg that board would route for pod v, from the trip
+// that names v at the station of v. It reports false when no such trip exists.
+func (s *Simulation) boardingLeg(v *vehicle) (leg, bool) {
 	for i := range s.waiting {
 		request := &s.waiting[i].request
 		if request.PodID == v.Pod.ID && request.legOrigin() == v.Pod.StationID {
 			node := s.podBerthNode(v)
-			_, err := s.legRoute(v, leg{origin: node, from: node, stops: []string{request.To}})
-			return err != nil
+			return leg{origin: node, from: node, stops: []string{request.To}}, true
 		}
 	}
-	return false
+	return leg{}, false
 }
 
 // unbindYieldedPod takes the trip from pod v after v left its berth for an

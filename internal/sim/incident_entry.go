@@ -82,6 +82,33 @@ func (s *Simulation) StopIncidentSamplersForTest() {
 	}
 }
 
+// BoardingLegBlockedForTest reports whether idle pod podID has a waiting trip
+// whose leg route fails now and succeeds with an empty blocked set. It
+// searches on a clone, so it changes no state, memo, counter, or route cache
+// of s, and the clone starts with no cached route.
+//
+// It is a test entry for the Progress row of amendment A8 of the incident
+// stage 7 contract, because the dispatch reason of a failed leg does not name
+// the cause. No production code calls it.
+func (s *Simulation) BoardingLegBlockedForTest(podID string) bool {
+	v := s.findVehicle(podID)
+	if v == nil || v.Pod.Activity != Idle {
+		return false
+	}
+	next, ok := s.boardingLeg(v)
+	if !ok {
+		return false
+	}
+	c := s.Clone()
+	v = c.findVehicle(podID)
+	if _, err := c.legRoute(v, next); err == nil {
+		return false
+	}
+	c.setBlocked(nil)
+	_, err := c.legRoute(v, next)
+	return err == nil
+}
+
 // FaultTransitionForTest returns a check of the transition rules of section
 // 10 of the incident suspension contract. Each call compares each pod that is
 // faulted before and after the time since the last call.
