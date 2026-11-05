@@ -76,7 +76,64 @@ func (s *Simulation) berthFilterForVehicle(v *vehicle) func(Berth) bool {
 }
 
 func (s *Simulation) candidateRouteForRequest(v *vehicle, request Request, load func(Berth) int) ([]Lane, Berth, bool) {
-	return s.candidateRouteMatching(v, request.legOrigin(), load, s.pickupBerthFilter(v, request))
+	key, memoized := s.pickupMissFor(v, request)
+	if memoized && s.pickupMisses[key] {
+		return nil, Berth{}, false
+	}
+	route, berth, ok := s.candidateRouteMatching(v, request.legOrigin(), load, s.pickupBerthFilter(v, request))
+	if !ok && memoized {
+		s.notePickupMiss(key)
+	}
+	return route, berth, ok
+}
+
+// pickupMiss selects a memoized failure of candidateRouteForRequest. A pod
+// that is idle at another station starts at the node of its berth. Berth IDs
+// are unique in a network, so the berth gives the station and the node. The
+// search then reads only this key, the network and the routing graph. It reads
+// the raw class, because a station allows a class by its name.
+type pickupMiss struct {
+	berth, origin, to string
+	class             VehicleClass
+}
+
+// pickupMissFor returns the key of the failure, and false when the memo does
+// not apply. While a fault cuts the ring, each dispatch pass repeats the same
+// failed searches for each pickup key, idle candidate, and berth.
+//
+// The memo applies only while the blocked set is not empty, only to a pod that
+// is idle at another station, and only to a leg origin with no banks:
+//
+//   - A moving pod starts from a node that depends on its route, and
+//     keptLaneBlocked reads its own lanes. A pod idle at the origin gets
+//     another berth filter. See pickupBerthFilter.
+//   - At a station with banks, the load selects a bank, and a berth of that
+//     bank must then have a route. Without banks, the load chooses only among
+//     the berths that have a route, so a failure does not depend on the load.
+func (s *Simulation) pickupMissFor(v *vehicle, request Request) (pickupMiss, bool) {
+	s.ensureNetworkIndexes()
+	origin := request.legOrigin()
+	if !s.blockedActive() || v.Pod.Activity != Idle || v.Pod.StationID == origin {
+		return pickupMiss{}, false
+	}
+	if station, ok := s.station(origin); !ok || station.Banks != nil {
+		return pickupMiss{}, false
+	}
+	return pickupMiss{berth: v.Pod.BerthID, origin: origin, to: request.To, class: v.Pod.Class}, true
+}
+
+// notePickupMiss stores a failure. It clears a full memo first, which changes
+// no result. Under a routing view, it stores nothing. See cacheRoute.
+func (s *Simulation) notePickupMiss(key pickupMiss) {
+	if s.routeView != nil {
+		return
+	}
+	if s.pickupMisses == nil {
+		s.pickupMisses = make(map[pickupMiss]bool)
+	} else if len(s.pickupMisses) >= routeCacheLimit {
+		clear(s.pickupMisses)
+	}
+	s.pickupMisses[key] = true
 }
 
 func (s *Simulation) stationApproachForStops(from string, stops []string, class VehicleClass) ([]Lane, error) {

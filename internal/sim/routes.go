@@ -220,6 +220,7 @@ func (s *Simulation) ensureNetworkIndexes() {
 	// no-candidate memo node indexes.
 	s.blocked = blockedSet{}
 	s.emergencyMisses = nil
+	s.pickupMisses = nil
 	s.staticConnected, s.staticRoutes = nil, nil
 }
 

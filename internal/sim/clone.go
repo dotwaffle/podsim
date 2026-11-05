@@ -21,6 +21,7 @@ func (s *Simulation) Clone() *Simulation {
 	// The no-candidate memo changes no result, so a clone starts with no
 	// memo.
 	c.emergencyMisses = nil
+	c.pickupMisses = nil
 	c.admissionWork = nil
 	c.depotTaken = nil
 	c.vehicles = slices.Clone(s.vehicles)

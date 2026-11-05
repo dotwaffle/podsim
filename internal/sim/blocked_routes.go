@@ -113,14 +113,15 @@ func (s *Simulation) blockedFrom(footprints []faultFootprint) blockedSet {
 }
 
 // startRouteEpoch clears the caches that hold results of routingGraph,
-// successes and failures alike, and the no-candidate memo of the station
-// choice, and asks for a reroute pass. The static caches and pickupBounds
+// successes and failures alike, the no-candidate memo of the station choice,
+// and the failed pickup searches, and asks for a reroute pass. The static caches and pickupBounds
 // stay, because they depend only on the network.
 func (s *Simulation) startRouteEpoch() {
 	s.routes, s.routeOrder = nil, nil
 	s.emergencyMisses = nil
 	s.congestionRoutes, s.congestionRouteCosts = nil, nil
 	s.routeStations = nil
+	s.pickupMisses = nil
 	s.rerouteDue = true
 }
 

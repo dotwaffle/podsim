@@ -450,6 +450,10 @@ type Simulation struct {
 	// one entry at most for each emergency record. It is not saved, and
 	// Clone drops it. See emergency_choice.go.
 	emergencyMisses []emergencyMiss
+	// pickupMisses holds the failed pickup searches of the current blocked
+	// set. It is empty while the blocked set is empty. It is not saved, and
+	// Clone drops it. See pickupMissFor.
+	pickupMisses map[pickupMiss]bool
 	// searchCounters counts the graph searches by kind. It is not saved,
 	// and Reset keeps it. See search_counters.go.
 	searchCounters searchCounters
