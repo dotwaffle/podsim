@@ -147,6 +147,7 @@ func queueNetwork(detourY float64) Network {
 // pods on the lane, and one moving pod.
 func queueSimulation(network Network, lane string, count int) *Simulation {
 	s := &Simulation{networkIndexes: &networkIndexes{network: network}}
+	s.ensureNetworkIndexes()
 	if err := s.SetRoutingPolicy(QueueRouting); err != nil {
 		panic(err)
 	}

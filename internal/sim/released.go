@@ -143,7 +143,6 @@ func (s *Simulation) parkUnclaimedReleased() {
 // takes part with its entry and no berth when depotGoal accepts the pod,
 // and never with its slots.
 func (s *Simulation) nearestFreeBerth(v *vehicle, from string) (Berth, string, bool) {
-	s.ensureNetworkIndexes()
 	busy := make(map[string]bool)
 	for i := range s.vehicles {
 		other := &s.vehicles[i]
@@ -226,7 +225,6 @@ func (s *Simulation) nearestFreeBerth(v *vehicle, from string) (Berth, string, b
 // berthAvailableTo reports whether no pod other than v holds the berth or
 // its node.
 func (s *Simulation) berthAvailableTo(v *vehicle, berth Berth) bool {
-	s.ensureNetworkIndexes()
 	if node, ok := s.graph.nodes[berth.Node]; !ok || !s.graph.nodeAllows(node, v.Pod.Class) {
 		return false
 	}

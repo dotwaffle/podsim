@@ -9,7 +9,6 @@ func (s *Simulation) berthFilterForStops(class VehicleClass, stops []string) fun
 // berthFilterForStopsOn is berthFilterForStops, with its searches on the
 // static graph when static is true. See routeOn.
 func (s *Simulation) berthFilterForStopsOn(static bool, class VehicleClass, stops []string) func(Berth) bool {
-	s.ensureNetworkIndexes()
 	if len(stops) == 0 || !s.graph.classRestrictions {
 		return nil
 	}
@@ -53,7 +52,6 @@ func (s *Simulation) berthFilterForStopsOn(static bool, class VehicleClass, stop
 // its filter tests only the class of the pod (section 9.2 of the incident
 // emergency contract).
 func (s *Simulation) berthFilterForVehicle(v *vehicle) func(Berth) bool {
-	s.ensureNetworkIndexes()
 	if v.op.purpose == opEmergencyUnload {
 		if !s.graph.classRestrictions {
 			return nil
@@ -111,7 +109,6 @@ type pickupMiss struct {
 //     bank must then have a route. Without banks, the load chooses only among
 //     the berths that have a route, so a failure does not depend on the load.
 func (s *Simulation) pickupMissFor(v *vehicle, request Request) (pickupMiss, bool) {
-	s.ensureNetworkIndexes()
 	origin := request.legOrigin()
 	if !s.blockedActive() || v.Pod.Activity != Idle || v.Pod.StationID == origin {
 		return pickupMiss{}, false

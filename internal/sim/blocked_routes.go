@@ -51,7 +51,6 @@ func (s *Simulation) routingGraph() routeGraph {
 // starts in the same call. Thus no reader sees a cached route, or a cached
 // failure, of an earlier epoch.
 func (s *Simulation) setBlocked(footprints []faultFootprint) {
-	s.ensureNetworkIndexes()
 	next := s.blockedFrom(footprints)
 	changed := !slices.Equal(next.lanes, s.blocked.lanes) || !maps.Equal(next.berths, s.blocked.berths)
 	s.blocked = next
@@ -178,7 +177,6 @@ func (s *Simulation) staticSearch(from, to string, station bool, class VehicleCl
 // staticRoute returns the route that routeForClass, or stationPathForClass
 // when station is true, gives on the static graph. staticRoutes caches it.
 func (s *Simulation) staticRoute(from, to string, station bool, class VehicleClass) ([]Lane, error) {
-	s.ensureNetworkIndexes()
 	key := routeKey{from: from, to: to, station: station, class: routeClass(class)}
 	if cached, ok := s.staticRoutes[key]; ok {
 		return cached.lanes, cached.err
@@ -191,7 +189,6 @@ func (s *Simulation) staticRoute(from, to string, station bool, class VehicleCla
 // staticConnection reports whether staticRoute gives a route.
 // staticConnected caches the answer.
 func (s *Simulation) staticConnection(from, to string, station bool, class VehicleClass) bool {
-	s.ensureNetworkIndexes()
 	key := routeKey{from: from, to: to, station: station, class: routeClass(class)}
 	if connected, ok := s.staticConnected[key]; ok {
 		return connected

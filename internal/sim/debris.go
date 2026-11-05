@@ -72,7 +72,6 @@ func (s *Simulation) startDebrisTicks(lane int, from, to float64, ticks int64) (
 // holds the berth node, so the node test alone refuses each such segment.
 // The berth test keeps the rule of the contract explicit.
 func (s *Simulation) debrisSegment(lane int, from, to float64) ([]resource, error) {
-	s.ensureNetworkIndexes()
 	if lane < 0 || lane >= len(s.network.Lanes) {
 		return nil, errUnknownLane
 	}

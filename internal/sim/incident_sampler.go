@@ -268,7 +268,6 @@ func (s *Simulation) sampledPod(u float64) *vehicle {
 // sampledLane returns the index of the first lane in network order whose
 // running sum of lengths is above u x the total length, or -1 with no lane.
 func (s *Simulation) sampledLane(u float64) int {
-	s.ensureNetworkIndexes()
 	var total float64
 	for _, length := range s.graph.lengths {
 		total += length

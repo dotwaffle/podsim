@@ -36,7 +36,7 @@ var cloneRules = map[reflect.Type]map[string]cloneRule{
 		"blocked": cloneShare, "staticConnected": cloneDrop, "staticRoutes": cloneDrop,
 		"faults": cloneCopy, "faultReleased": cloneCopy, "emergencies": cloneCopy,
 		"requestBoardings": cloneCopy, "requestCompletions": cloneCopy, "stepCompletions": cloneCopy, "nodePasses": cloneCopy, "monitor": cloneShare,
-		"pass": cloneDrop, "platoonData": cloneShare, "platoonOrder": cloneDrop, "platoonAhead": cloneDrop,
+		"pass": cloneDrop, "platoonOrder": cloneDrop, "platoonAhead": cloneDrop,
 		"platoonLanes": cloneDrop, "pickupSwaps": cloneCopy, "coastCheck": cloneShare,
 	},
 	reflect.TypeFor[vehicle](): {
@@ -244,7 +244,7 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"requestBoardings": persistReset, "requestCompletions": persistReset, "stepCompletions": persistReset, "nodePasses": persistReset, "seatScreen": persistReset,
 		"recordExperiments": persistUnsupported, "pass": persistReset,
 		"platooning": persistSession, "platoonLimit": persistSession, "platoonLinks": persistDerive,
-		"platoonData": persistDerive, "platoonOrder": persistReset, "platoonAhead": persistReset,
+		"platoonOrder": persistReset, "platoonAhead": persistReset,
 		"platoonLanes": persistReset, "pickupSwaps": persistUnsupported, "coastCheck": persistReset,
 	},
 	reflect.TypeFor[vehicle](): {

@@ -34,7 +34,6 @@ func (s *Simulation) PositionForForecast(targets []ForecastTarget) (ForecastPosi
 	if s.forecastBlocked(targets) {
 		return result, nil
 	}
-	s.ensureNetworkIndexes()
 	view := s.forecastView()
 	supply := s.forecastSupply(&view)
 	if supply.global >= max(1, len(s.vehicles)/10) {

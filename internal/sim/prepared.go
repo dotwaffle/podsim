@@ -16,9 +16,8 @@ type PreparedNetwork struct {
 }
 
 // networkIndexes holds a network and its indexes. PreparedNetwork and each
-// simulation from it share one value. No code writes to the fields in
-// place. PrepareNetwork builds them, and ensureNetworkIndexes builds a new
-// value when the network changes.
+// simulation from it share one value. PrepareNetwork builds it, and no code
+// writes to it after that.
 type networkIndexes struct {
 	network           Network
 	graph             routeGraph
@@ -54,6 +53,8 @@ type networkIndexes struct {
 	// lateral holds the lateral pairs of the depot lanes. The bank audit,
 	// the safety observation, and the debris footprint read it.
 	lateral *depotLateral
+	// platoonData holds the network data that links read.
+	platoonData platoonIndexData
 }
 
 // PrepareNetwork validates and copies network, then builds its immutable indexes.
@@ -166,6 +167,7 @@ func newPreparedNetwork(prepared networkPreparation) *PreparedNetwork {
 	}
 	p.laneCells = indexLaneCells(laneCellsIndexInput{network: owned, geometry: p.geometry, conflicts: p.junctionConflicts, berths: p.berthResources, retention: p.retention, maneuvers: p.maneuvers, depots: p.depots})
 	p.resourceLanes = indexResourceLanes(owned, p.laneCells)
+	p.platoonData = newPlatoonIndexData(owned)
 	return p
 }
 

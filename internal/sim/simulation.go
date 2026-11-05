@@ -350,9 +350,8 @@ type vehicle struct {
 // because that change also changes the clones.
 //
 // The embedded networkIndexes holds the network and its indexes. The
-// prepared network, other simulations and clones share it, so code that
-// changes the network or an index installs a new value. See
-// ensureNetworkIndexes.
+// prepared network, other simulations and clones share it, and no code
+// changes it.
 type Simulation struct {
 	*networkIndexes
 	platooningState
@@ -528,9 +527,6 @@ type platooningState struct {
 	platooning   Platooning
 	platoonLimit int
 	platoonLinks int
-	// platoonData holds the network data that links read. platoonIndexes
-	// builds it, and no code writes to it in place.
-	platoonData *platoonIndexData
 	// platoonOrder, platoonAhead and platoonLanes are work storage of
 	// formPlatoons. Clone does not share them.
 	platoonOrder, platoonAhead []int

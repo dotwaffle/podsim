@@ -427,7 +427,6 @@ func (s *Simulation) positionGuarded() {
 	if !gate.open {
 		return
 	}
-	s.ensureNetworkIndexes()
 	view := s.guardedView(gate)
 	if len(view.deficits) == 0 {
 		return
@@ -511,7 +510,6 @@ func (s *Simulation) guardedClear(blocker *vehicle) bool {
 	if !gate.active {
 		return false
 	}
-	s.ensureNetworkIndexes()
 	from, _ := s.station(blocker.Pod.StationID)
 	origin, _ := from.berth(blocker.Pod.BerthID)
 	if gate.open && s.guardedBumpToDeficit(guardedBump{blocker: blocker, from: origin.Node, gate: gate}) {

@@ -72,6 +72,7 @@ func TestSimulationAvoidsIntermediateSiblingBerths(t *testing.T) {
 				}
 			}
 			s := &Simulation{networkIndexes: &networkIndexes{network: network}}
+			s.ensureNetworkIndexes()
 			route, err := s.route("a", "c")
 			if err != nil || len(route) != 1 || route[0].ID != "ac" {
 				t.Fatalf("preferred route = %v, %v, want ac", route, err)
@@ -101,6 +102,7 @@ func TestPreferredDirectAndBatchedRoutesAgree(t *testing.T) {
 			for _, from := range append(slices.Clone(network.Nodes), Node{ID: "missing"}) {
 				for _, batched := range []bool{false, true} {
 					s := &Simulation{networkIndexes: &networkIndexes{network: network}}
+					s.ensureNetworkIndexes()
 					if batched {
 						s.cacheStationRoutes(from.ID, targets)
 					}
@@ -125,6 +127,7 @@ func TestNearestFreeBerthUsesPerDestinationRouteCost(t *testing.T) {
 		networkIndexes: &networkIndexes{network: intermediateBerthNetwork()},
 		owners:         map[resource]resourceOwner{{kind: berthResource, id: "b"}: podResourceOwner("other")},
 	}
+	s.ensureNetworkIndexes()
 	v := &vehicle{Pod: Pod{ID: "moving", Activity: Traveling}}
 	berth, station, ok := s.nearestFreeBerth(v, "a")
 	// c has a preferred cost of ten seconds. d has no preferred path, so

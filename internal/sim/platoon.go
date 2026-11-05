@@ -121,7 +121,7 @@ func (t turnSum) add(shape laneShape) turnSum {
 // runTurn returns the total turn in radians of the path along the lanes of
 // route from index from through index to.
 func (s *Simulation) runTurn(route []Lane, from, to int) float64 {
-	shapes := s.platoonIndexes().shapes
+	shapes := s.platoonData.shapes
 	var sum turnSum
 	for _, lane := range route[from : to+1] {
 		sum = sum.add(shapes[lane.ID])
@@ -188,9 +188,6 @@ func (s *Simulation) SetPlatooning(mode Platooning) error {
 		return fmt.Errorf("unknown platooning mode %d", mode)
 	}
 	s.platooning = mode
-	if mode == PlatooningVirtual {
-		s.platoonIndexes()
-	}
 	return nil
 }
 
@@ -631,7 +628,7 @@ func (s *Simulation) oneSpeedLimit(v *vehicle, from int, limit float64) bool {
 			return false
 		}
 	}
-	limits, ok := s.platoonIndexes().stationLimits[v.destinationStation]
+	limits, ok := s.platoonData.stationLimits[v.destinationStation]
 	return !ok || limits == [2]float64{limit, limit}
 }
 
@@ -686,7 +683,7 @@ func (s *Simulation) planLink(plan linkPlan) (platoonLink, bool) {
 	if v.Route[plan.lane].StationRole == StationEntryRole {
 		return platoonLink{}, false
 	}
-	shapes := s.platoonIndexes().shapes
+	shapes := s.platoonData.shapes
 	link := platoonLink{lane: plan.lane, leaderLane: plan.leaderLane}
 	var sum turnSum
 	for s.sharedLane(v, leader, plan.lane+link.lanes, plan.leaderLane+link.lanes) {
@@ -761,8 +758,7 @@ func (s *Simulation) platoonCaps() {
 	}
 }
 
-// platoonIndexData holds the network data that links read. No code writes
-// to it in place, so clones share it.
+// platoonIndexData holds the network data that links read.
 type platoonIndexData struct {
 	// shapes holds the shape of each lane by lane ID.
 	shapes map[string]laneShape
@@ -773,16 +769,12 @@ type platoonIndexData struct {
 	diverges map[string]bool
 }
 
-// platoonIndexes returns the network data that links read. It builds the
-// data when the network has no data yet.
-func (s *Simulation) platoonIndexes() *platoonIndexData {
-	if s.platoonData != nil && len(s.platoonData.shapes) == len(s.network.Lanes) {
-		return s.platoonData
-	}
-	data := &platoonIndexData{shapes: make(map[string]laneShape, len(s.network.Lanes)), stationLimits: make(map[string][2]float64), diverges: make(map[string]bool)}
+// newPlatoonIndexData builds the network data that links read.
+func newPlatoonIndexData(network Network) platoonIndexData {
+	data := platoonIndexData{shapes: make(map[string]laneShape, len(network.Lanes)), stationLimits: make(map[string][2]float64), diverges: make(map[string]bool)}
 	points := make([]Point, 0, 65)
-	for _, lane := range s.network.Lanes {
-		data.shapes[lane.ID] = newLaneShape(s.network.lanePoints(lane, points[:0]))
+	for _, lane := range network.Lanes {
+		data.shapes[lane.ID] = newLaneShape(network.lanePoints(lane, points[:0]))
 		if lane.StationRole == StationEntryRole {
 			data.diverges[lane.From] = true
 		}
@@ -795,7 +787,6 @@ func (s *Simulation) platoonIndexes() *platoonIndexData {
 		}
 		data.stationLimits[lane.StationID] = [2]float64{min(limits[0], lane.SpeedLimit), max(limits[1], lane.SpeedLimit)}
 	}
-	s.platoonData = data
 	return data
 }
 

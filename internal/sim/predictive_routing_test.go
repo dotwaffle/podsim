@@ -92,6 +92,7 @@ func TestPredictiveCountsCurrentLaneOnce(t *testing.T) {
 func TestPredictiveUsesSameTickPlannedRoutes(t *testing.T) {
 	t.Parallel()
 	s := &Simulation{networkIndexes: &networkIndexes{network: queueNetwork(30)}}
+	s.ensureNetworkIndexes()
 	if err := s.SetRoutingPolicy(PredictiveRouting); err != nil {
 		t.Fatal(err)
 	}

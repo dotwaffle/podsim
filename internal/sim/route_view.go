@@ -99,7 +99,6 @@ func (s *Simulation) viewForecasts(v *vehicle) []laneForecast {
 	if view.self == v && view.forecasts != nil {
 		return view.forecasts
 	}
-	s.ensureNetworkIndexes()
 	raw := make([]float64, len(s.network.Lanes))
 	s.searchCounters.forecasts++
 	for index := range s.vehicles {

@@ -24,7 +24,6 @@ func (s *Simulation) SetExpressServices(services []ExpressService) error {
 	if len(services) > MaxExpressServices {
 		return errors.New("too many express services")
 	}
-	s.ensureNetworkIndexes()
 	next, err := validatedExpressServices(s.network, s.graph, services)
 	if err != nil {
 		return err

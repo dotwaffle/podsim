@@ -101,7 +101,6 @@ func (s *Simulation) chooseEmergencyStation(record emergencyRecord, mask uint32)
 	if !ok {
 		return
 	}
-	s.ensureNetworkIndexes()
 	miss := emergencyMiss{serial: record.serial, from: s.graph.nodes[from], class: v.Pod.Class}
 	if slices.Contains(s.emergencyMisses, miss) {
 		s.searchCounters.memoHits++

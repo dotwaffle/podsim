@@ -6,7 +6,6 @@ import "math"
 // depend only on the owned network, so Reset can retain them. Clone drops
 // the cache, and a graph rebuild clears it. Callers must not change the slice.
 func (s *Simulation) stationPickupBounds(stationID string) []float64 {
-	s.ensureNetworkIndexes()
 	if bounds, ok := s.pickupBounds[stationID]; ok {
 		return bounds
 	}

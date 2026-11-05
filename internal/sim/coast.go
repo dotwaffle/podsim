@@ -63,7 +63,7 @@ func (s *Simulation) coastCeilings(denied []deniedRequest) []coastResult {
 	if s.platooning == PlatooningOff || len(denied) == 0 {
 		return nil
 	}
-	diverges := s.platoonIndexes().diverges
+	diverges := s.platoonData.diverges
 	// rivals holds the indexes in denied of the requests whose span holds
 	// each diverge junction.
 	rivals := make(map[resource][]int)

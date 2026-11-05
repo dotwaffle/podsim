@@ -85,8 +85,8 @@ func indexBerthResources(network Network) map[string][]resource {
 }
 
 // laneCells holds the resources of the blocks of one lane in the form that
-// each route through the lane shares. NewFleet and ensureNetworkIndexes
-// build the cells of each network lane, and no code writes to them.
+// each route through the lane shares. A prepared network builds the cells of
+// each network lane, and no code writes to them.
 type laneCells struct {
 	tail, fromTail float64
 	// retention is the reduced retention of a qualifying lane (see

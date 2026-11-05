@@ -119,7 +119,6 @@ func (s *Simulation) queueRoute(v *vehicle, from, to string) ([]Lane, error) {
 // wait reason and a speed below queueStoppedSpeed. Pod v does not count. It
 // returns nil when no lane has a queue.
 func (s *Simulation) queueDischarge(v *vehicle) []float64 {
-	s.ensureNetworkIndexes()
 	var discharge []float64
 	for index := range s.vehicles {
 		other := &s.vehicles[index]

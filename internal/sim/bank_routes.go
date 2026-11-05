@@ -111,7 +111,6 @@ func (s *Simulation) stationBankEntryOn(static bool, from string, station Statio
 	if !station.VehicleClasses.Allows(string(class)) {
 		return "", ErrUnreachable
 	}
-	s.ensureNetworkIndexes()
 	if station.Banks == nil {
 		if (s.graph.classRestrictions || accept != nil) && !s.entryHasMatchingBerthOn(static, station, station.Entry, class, accept) {
 			return "", ErrUnreachable

@@ -43,7 +43,6 @@ func (s *Simulation) Fault(request FaultRequest) (string, error) {
 	if pod {
 		id, err = s.startPodFault(s.findVehicle(request.PodID), duration)
 	} else {
-		s.ensureNetworkIndexes()
 		index, known := s.graph.lanes[request.LaneID]
 		if !known {
 			index = -1
