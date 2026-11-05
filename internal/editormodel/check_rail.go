@@ -5,6 +5,7 @@ import (
 	"math"
 
 	"github.com/dotwaffle/podsim/internal/project"
+	"github.com/dotwaffle/podsim/internal/sim"
 )
 
 func checkRailPlans(value any, passenger map[string]bool, errors *checkList) {
@@ -26,7 +27,7 @@ func checkRailPlans(value any, passenger map[string]bool, errors *checkList) {
 		if count := member(arrival, "passengers"); integer(count) {
 			total += number(count)
 			if at, walking := member(arrival, "atSeconds"), member(arrival, "walkingSeconds"); finite(at) && finite(walking) {
-				releases[max(1, (number(at)+number(walking))*60)] += number(count)
+				releases[max(1, (number(at)+number(walking))*sim.TicksPerSecond)] += number(count)
 			}
 		}
 	}
@@ -52,9 +53,9 @@ func checkRailPlans(value any, passenger map[string]bool, errors *checkList) {
 			total += number(count)
 			if timeValid {
 				for i := 0.0; i < number(count); i++ {
-					tick := number(from) * 60
+					tick := number(from) * sim.TicksPerSecond
 					if number(count) > 1 {
-						tick += math.Floor(i * (number(until) - number(from)) * 60 / (number(count) - 1))
+						tick += math.Floor(i * (number(until) - number(from)) * sim.TicksPerSecond / (number(count) - 1))
 					}
 					releases[max(1, tick)]++
 				}
@@ -103,7 +104,7 @@ func checkRailArrivals(value any, passenger map[string]bool, errors *checkList) 
 		} else {
 			total += number(count)
 			if timeValid {
-				releases[max(1, (number(at)+number(walking))*60)] += number(count)
+				releases[max(1, (number(at)+number(walking))*sim.TicksPerSecond)] += number(count)
 			}
 		}
 		checkRailEndpoints(arrival, prefix, "destinations", "destination", passenger, errors)
