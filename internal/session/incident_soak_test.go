@@ -2434,19 +2434,95 @@ func summarizeSteps(steps []time.Duration) soakTimes {
 	return soakTimes{sorted[len(sorted)/2], sorted[len(sorted)-1]}
 }
 
-// checkSoakTimes reports the pass rule of the Performance gates, and enforces
-// it with PODSIM_SOAK_GATE=1. Use that only on a quiet machine (A3).
-func checkSoakTimes(t *testing.T, name string, incident, reference soakTimes) {
+// soakTimeGate is the approved pass rule of one Performance row.
+type soakTimeGate int
+
+const (
+	// soakGateRatio is the rule of section 5.1.9: a median within 10 percent, and
+	// no tick above twice the slowest reference tick.
+	soakGateRatio soakTimeGate = iota
+	// soakGateSuspension is the suspension row with amendment A7: a median of at
+	// most soakSuspensionMedian, and the same rule for the slowest tick.
+	soakGateSuspension
+	// soakGateReport is a report with no gate, as the fleet-limit row is.
+	soakGateReport
+)
+
+// soakSuspensionMedian is the median limit of amendment A7.
+const soakSuspensionMedian = 50 * time.Microsecond
+
+// soakTimeFailures returns each failure of the rule of the gate.
+func soakTimeFailures(gate soakTimeGate, incident, reference soakTimes) []string {
+	var failures []string
+	switch gate {
+	case soakGateReport:
+		return nil
+	case soakGateSuspension:
+		if incident.median > soakSuspensionMedian {
+			failures = append(failures, fmt.Sprintf("the median step %v is more than %v", incident.median, soakSuspensionMedian))
+		}
+	case soakGateRatio:
+		if float64(incident.median) > 1.1*float64(reference.median) {
+			failures = append(failures, fmt.Sprintf("the median step %v is more than 10 percent above %v", incident.median, reference.median))
+		}
+	}
+	if incident.slowest > 2*reference.slowest {
+		failures = append(failures, fmt.Sprintf("the slowest step %v is more than twice %v", incident.slowest, reference.slowest))
+	}
+	return failures
+}
+
+// checkSoakTimes reports the times of a Performance row, and it enforces the
+// rule of its gate with PODSIM_SOAK_GATE=1. Use that only on a quiet machine (A3).
+func checkSoakTimes(t *testing.T, name string, gate soakTimeGate, incident, reference soakTimes) {
 	t.Helper()
 	t.Logf("%s: median %v against %v, slowest %v against %v", name, incident.median, reference.median, incident.slowest, reference.slowest)
 	if os.Getenv("PODSIM_SOAK_GATE") != "1" {
 		return
 	}
-	if float64(incident.median) > 1.1*float64(reference.median) {
-		t.Errorf("%s: the median step %v is more than 10 percent above %v", name, incident.median, reference.median)
+	for _, failure := range soakTimeFailures(gate, incident, reference) {
+		t.Errorf("%s: %s", name, failure)
 	}
-	if incident.slowest > 2*reference.slowest {
-		t.Errorf("%s: the slowest step %v is more than twice %v", name, incident.slowest, reference.slowest)
+}
+
+// TestSoakTimeFailures checks the rule of each gate, on each side of its limit.
+func TestSoakTimeFailures(t *testing.T) {
+	t.Parallel()
+	reference := soakTimes{median: 10 * time.Microsecond, slowest: 100 * time.Microsecond}
+	for _, tc := range []struct {
+		name     string
+		gate     soakTimeGate
+		incident soakTimes
+		want     string
+	}{
+		{name: "ratio at the limit", gate: soakGateRatio, incident: soakTimes{median: 11 * time.Microsecond, slowest: 200 * time.Microsecond}},
+		{name: "ratio median", gate: soakGateRatio, incident: soakTimes{median: 12 * time.Microsecond}, want: "10 percent"},
+		{name: "ratio slowest", gate: soakGateRatio, incident: soakTimes{slowest: 201 * time.Microsecond}, want: "twice"},
+		{name: "suspension at the limit", gate: soakGateSuspension, incident: soakTimes{median: 50 * time.Microsecond, slowest: 200 * time.Microsecond}},
+		{name: "suspension median", gate: soakGateSuspension, incident: soakTimes{median: 51 * time.Microsecond}, want: "more than 50"},
+		{name: "suspension slowest", gate: soakGateSuspension, incident: soakTimes{slowest: 201 * time.Microsecond}, want: "twice"},
+		{name: "report", gate: soakGateReport, incident: soakTimes{median: time.Second, slowest: time.Second}},
+	} {
+		failures := soakTimeFailures(tc.gate, tc.incident, reference)
+		if tc.want == "" && len(failures) != 0 || tc.want != "" && (len(failures) != 1 || !strings.Contains(failures[0], tc.want)) {
+			t.Errorf("%s: %q, want %q", tc.name, failures, tc.want)
+		}
+	}
+}
+
+// TestSoakWorstRowGates pins the rule of each worst-case row: the median limit of
+// amendment A7 for suspension, the ratio for emergencies, and a report for the
+// fleet limit.
+func TestSoakWorstRowGates(t *testing.T) {
+	t.Parallel()
+	want := map[string]soakTimeGate{"fleet-300": soakGateSuspension, "rail-hub": soakGateRatio, "london-central": soakGateRatio, "fleet-1000": soakGateReport}
+	if len(soakWorstRows) != len(want) {
+		t.Fatalf("%d rows, want %d", len(soakWorstRows), len(want))
+	}
+	for _, row := range soakWorstRows {
+		if row.gate != want[row.preset] {
+			t.Errorf("%s: gate %d, want %d", row.preset, row.gate, want[row.preset])
+		}
 	}
 }
 
@@ -2471,7 +2547,7 @@ func TestIncidentSoakTimed(t *testing.T) {
 		for seed := uint64(1); seed <= seeds; seed++ {
 			reference := runSoak(t, soakInput{preset: preset, arm: soakArms["reference"], seed: seed, hours: hours, timed: true})
 			run := runSoak(t, soakInput{preset: preset, arm: soakArms["incidents"], seed: seed, hours: hours, timed: true})
-			checkSoakTimes(t, fmt.Sprintf("%s seed %d", preset, seed), summarizeSteps(run.steps), summarizeSteps(reference.steps))
+			checkSoakTimes(t, fmt.Sprintf("%s seed %d", preset, seed), soakGateRatio, summarizeSteps(run.steps), summarizeSteps(reference.steps))
 		}
 	}
 }
@@ -2514,6 +2590,20 @@ func soakWorstCase(t *testing.T, d *soakDriver, debris, pods, emergencies int) (
 	return placedDebris, placedPods, placedEmergencies
 }
 
+// soakWorstRows holds the worst-case rows of the Performance gates. Each row has
+// its approved rule. The row names are the names in the report, so they stay.
+var soakWorstRows = []struct {
+	name                      string
+	preset                    string
+	debris, pods, emergencies int
+	gate                      soakTimeGate
+}{
+	{name: "suspension: 64 debris and 300 pod faults", preset: "fleet-300", debris: 64, pods: 300, gate: soakGateSuspension},
+	{name: "emergency: MaxEmergencies records", preset: "rail-hub", emergencies: sim.MaxEmergencies, gate: soakGateRatio},
+	{name: "emergency: MaxEmergencies records", preset: "london-central", emergencies: sim.MaxEmergencies, gate: soakGateRatio},
+	{name: "fleet limit: 64 debris and 1,000 pod faults", preset: "fleet-1000", debris: 64, pods: 1000, gate: soakGateReport},
+}
+
 // TestIncidentWorstCaseStepTime gives the worst-case rows of the Performance
 // gates and the fleet-limit report of section 5.1.9. Each row compares 600
 // steps with the records and 600 steps of the same state with none.
@@ -2523,17 +2613,7 @@ func TestIncidentWorstCaseStepTime(t *testing.T) {
 		t.Skip("the worst-case times run only with PODSIM_SOAK_WORST=1, on a quiet machine")
 	}
 	const warmTicks, measuredTicks = 60 * sim.TicksPerSecond, 10 * sim.TicksPerSecond
-	rows := []struct {
-		name                      string
-		preset                    string
-		debris, pods, emergencies int
-	}{
-		{name: "suspension: 64 debris and 300 pod faults", preset: "fleet-300", debris: 64, pods: 300},
-		{name: "emergency: MaxEmergencies records", preset: "rail-hub", emergencies: sim.MaxEmergencies},
-		{name: "emergency: MaxEmergencies records", preset: "london-central", emergencies: sim.MaxEmergencies},
-		{name: "fleet limit: 64 debris and 1,000 pod faults", preset: "fleet-1000", debris: 64, pods: 1000},
-	}
-	for _, row := range rows {
+	for _, row := range soakWorstRows {
 		t.Run(row.preset+"/"+row.name, func(t *testing.T) {
 			measure := func(apply bool) soakTimes {
 				d := newSoakDriver(t, soakInput{preset: row.preset, arm: soakArm{name: "worst", faults: true, emergencies: true}, seed: 1, timed: true})
@@ -2550,7 +2630,7 @@ func TestIncidentWorstCaseStepTime(t *testing.T) {
 				return summarizeSteps(d.result.steps)
 			}
 			reference := measure(false)
-			checkSoakTimes(t, row.name, measure(true), reference)
+			checkSoakTimes(t, row.name, row.gate, measure(true), reference)
 		})
 	}
 }
