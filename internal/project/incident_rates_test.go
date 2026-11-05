@@ -115,6 +115,12 @@ func TestConfigureIncidentSampling(t *testing.T) {
 		return simulation
 	}
 	duration := &FaultDuration{Kind: "fixed", Seconds: new(600)}
+	// These are -ln(1-u) for the first draw of each stream with seed 1. The
+	// next tick at the contract rate is ceil(draw * 3600 * ticks / perHour).
+	const faultDraw, emergencyDraw = 0.3789219639958471, 0.86802459970647572
+	next := func(draw, perHour float64) int64 {
+		return int64(math.Ceil(draw * 3600 * sim.TicksPerSecond / perHour))
+	}
 	for _, test := range []struct {
 		name        string
 		faults      *FaultConfig
@@ -126,10 +132,10 @@ func TestConfigureIncidentSampling(t *testing.T) {
 		{"empty", &FaultConfig{}, &EmergencyConfig{}, 0, 0},
 		{"zero", &FaultConfig{PerHour: new(0.0)}, &EmergencyConfig{PerHour: new(0.0)}, 0, 0},
 		{"negative zero", &FaultConfig{PerHour: &negativeZero}, &EmergencyConfig{PerHour: &negativeZero}, 0, 0},
-		{"faults only", &FaultConfig{PerHour: new(60.0), Duration: duration}, nil, 1365, 0},
-		{"faults at another rate", &FaultConfig{PerHour: new(1.0), Duration: duration}, nil, 81848, 0},
-		{"emergencies only", nil, &EmergencyConfig{PerHour: new(30.0)}, 0, 6250},
-		{"both", &FaultConfig{PerHour: new(60.0), Duration: duration}, &EmergencyConfig{PerHour: new(30.0)}, 1365, 6250},
+		{"faults only", &FaultConfig{PerHour: new(60.0), Duration: duration}, nil, next(faultDraw, 60), 0},
+		{"faults at another rate", &FaultConfig{PerHour: new(1.0), Duration: duration}, nil, next(faultDraw, 1), 0},
+		{"emergencies only", nil, &EmergencyConfig{PerHour: new(30.0)}, 0, next(emergencyDraw, 30)},
+		{"both", &FaultConfig{PerHour: new(60.0), Duration: duration}, &EmergencyConfig{PerHour: new(30.0)}, next(faultDraw, 60), next(emergencyDraw, 30)},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()

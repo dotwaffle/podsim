@@ -369,7 +369,7 @@ func TestConfigureFaults(t *testing.T) {
 				t.Fatal(err)
 			}
 			for simulation.Snapshot().Vehicles[0].Pod.Activity != sim.Boarding {
-				if simulation.Tick() > 600 {
+				if simulation.Tick() > 10*sim.TicksPerSecond {
 					t.Fatal("pod 01 does not board")
 				}
 				simulation.Step()

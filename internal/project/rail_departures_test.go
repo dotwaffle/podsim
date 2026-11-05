@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/dotwaffle/podsim/internal/sim"
 )
 
 func testRailDeparture() RailDeparture {
@@ -65,14 +67,20 @@ func TestRailDepartureValidation(t *testing.T) {
 
 func TestDepartureOfferTickInterpolation(t *testing.T) {
 	t.Parallel()
+	// The floor of i/7 of a second, and tick 1 in place of tick 0: at 60 Hz,
+	// the ticks are 1, 8, 17, 25, 34, 42, 51, and 60.
+	floor := []int64{1}
+	for i := int64(1); i < 8; i++ {
+		floor = append(floor, i*sim.TicksPerSecond/7)
+	}
 	for _, tc := range []struct {
 		name               string
 		from, until, count int
 		want               []int64
 	}{
-		{"floor", 0, 1, 8, []int64{1, 8, 17, 25, 34, 42, 51, 60}},
-		{"single", 3, 9, 1, []int64{180}},
-		{"burst", 3, 3, 3, []int64{180, 180, 180}},
+		{"floor", 0, 1, 8, floor},
+		{"single", 3, 9, 1, []int64{3 * sim.TicksPerSecond}},
+		{"burst", 3, 3, 3, []int64{3 * sim.TicksPerSecond, 3 * sim.TicksPerSecond, 3 * sim.TicksPerSecond}},
 		{"zero burst", 0, 0, 3, []int64{1, 1, 1}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -84,7 +92,7 @@ func TestDepartureOfferTickInterpolation(t *testing.T) {
 			for i, offer := range offers {
 				got[i] = offer.Tick
 				if offer.Kind != "departure" || offer.Passenger != i+1 || offer.To != d.Station ||
-					offer.DepartureTick != 36000 || offer.WalkingTicks != 1800 {
+					offer.DepartureTick != 600*sim.TicksPerSecond || offer.WalkingTicks != 30*sim.TicksPerSecond {
 					t.Fatalf("bad outbound offer: %+v", offer)
 				}
 			}
