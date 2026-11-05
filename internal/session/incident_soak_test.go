@@ -146,9 +146,15 @@ type soakResult struct {
 	commands, refused                    int
 	saves, demoted, rewinds, railRecords int
 	emergencies, emergencyLate           int
-	settleTicks                          int64
-	misses                               []string
-	steps                                []time.Duration
+	// emergencyInPlatoon counts the records that pass the limit on a platoon
+	// member, and emergencyLong the records that end longer than the limit in
+	// total time. emergencyLongest is the longest time not blocked by a fault
+	// of any record, in ticks.
+	emergencyInPlatoon, emergencyLong int
+	emergencyLongest                  int64
+	settleTicks                       int64
+	misses                            []string
+	steps                             []time.Duration
 	// rates holds the ticks for each CPU second in each simulated 5 minutes
 	// of the run before the clear, to see the drift of the rate.
 	rates []int
@@ -171,8 +177,8 @@ type soakDriver struct {
 	// next driver events. clears holds the command faults, by clear tick.
 	nextFault, nextEmergency, nextSave, nextRewind int64
 	clears                                         []soakClear
-	// open holds the first tick at which the driver saw each record.
-	open   map[string]sim.EmergencyView
+	// open holds the reading state of each active record.
+	open   map[string]*soakOpenRecord
 	result soakResult
 }
 
@@ -195,7 +201,7 @@ func newSoakDriver(t *testing.T, input soakInput) *soakDriver {
 	}
 	t.Cleanup(s.Close)
 	rng := rand.New(rand.NewPCG(input.seed, 0x50414b))
-	d := &soakDriver{t: t, input: input, config: config, s: s, client: newTestClient(s, "soak"), rng: rng, open: map[string]sim.EmergencyView{},
+	d := &soakDriver{t: t, input: input, config: config, s: s, client: newTestClient(s, "soak"), rng: rng, open: map[string]*soakOpenRecord{},
 		nextFault: math.MaxInt64, nextEmergency: math.MaxInt64, nextSave: math.MaxInt64, nextRewind: math.MaxInt64}
 	d.result.queue = soakRange{low: math.MaxInt, high: 0}
 	if input.arm.commands {
@@ -411,42 +417,145 @@ func soakRenewGeneration(state *sim.SavedState, serial, from, to uint64) {
 	}
 }
 
-// watchEmergencies is the Progress gate of the emergency contract. It reads
-// the records once a second, so a length has an error of at most 1 second.
-func (d *soakDriver) watchEmergencies() {
-	tick := d.s.simulation.Tick()
-	active := d.s.simulation.Snapshot().Emergencies.Active
-	seen := make(map[string]bool, len(active))
-	for _, record := range active {
-		seen[record.ID] = true
-		if _, ok := d.open[record.ID]; !ok {
-			d.open[record.ID] = record
-			d.result.emergencies++
-		}
-		if tick-record.StartTick > soakEmergencyTime && tick-record.StartTick <= soakEmergencyTime+soakViewTicks {
-			d.noteLateEmergency(record)
+// soakReading holds one reading of the state, for the classifier of amendment
+// A8 of the incident stage 7 contract.
+type soakReading struct {
+	pods                map[string]sim.Pod
+	faultIDs, faultPods map[string]bool
+	// legBlocked reports whether an idle pod has an order that cannot board
+	// only because of the active faults.
+	legBlocked func(podID string) bool
+}
+
+func newSoakReading(state sim.Snapshot, legBlocked func(string) bool) soakReading {
+	reading := soakReading{pods: make(map[string]sim.Pod, len(state.Vehicles)), faultIDs: map[string]bool{}, faultPods: map[string]bool{}, legBlocked: legBlocked}
+	for index := range state.Vehicles {
+		pod := state.Vehicles[index].Pod
+		reading.pods[pod.ID] = pod
+	}
+	for _, fault := range state.Faults.Active {
+		reading.faultIDs[fault.ID] = true
+		if fault.PodID != "" {
+			reading.faultPods[fault.PodID] = true
 		}
 	}
-	for id := range d.open {
+	return reading
+}
+
+// blockedByFault reports whether the time of the pod is blocked by a fault
+// under rule A of amendment A8, and it names the end of the BlockedBy chain.
+// Each case that the rule does not name stays not blocked, because a fault
+// named in error hides a real wait. With no active fault, nothing is blocked,
+// so with faults off the whole record counts.
+//
+// A pod whose terminal berth choice fails while the blocked set is not empty
+// reports "No forward route" or "Blocked by incident" at each tick (see
+// reportBlockedBerths), so such a stop needs no search here.
+func (r soakReading) blockedByFault(podID string) (bool, string) {
+	blocked, end := r.walkChain(podID)
+	return blocked && len(r.faultIDs) > 0, end
+}
+
+// walkChain follows the BlockedBy chain from the pod. Each pod enters the walk
+// once, so a cycle ends it.
+func (r soakReading) walkChain(podID string) (bool, string) {
+	seen := make(map[string]bool, 4)
+	for id := podID; ; {
+		pod, ok := r.pods[id]
+		switch {
+		case !ok:
+			return false, "unknown blocker " + id
+		case seen[id]:
+			return false, "cycle at pod " + id
+		case r.faultPods[id]:
+			return true, fmt.Sprintf("pod %s with a fault", id)
+		case pod.WaitReason == sim.BlockedByIncident || pod.WaitReason == sim.NoForwardRoute:
+			return true, fmt.Sprintf("pod %s, wait %q, blocked by %q", id, pod.WaitReason, pod.BlockedBy)
+		case r.faultIDs[pod.BlockedBy]:
+			return true, "fault " + pod.BlockedBy
+		case pod.BlockedBy == "":
+			return r.legBlocked(id), fmt.Sprintf("pod %s, %s, wait %q", id, pod.Activity, pod.WaitReason)
+		}
+		seen[id] = true
+		id = pod.BlockedBy
+	}
+}
+
+// soakOpenRecord is the reading state of one active record.
+type soakOpenRecord struct {
+	view sim.EmergencyView
+	// last is the tick of the last reading.
+	last int64
+	// unblocked sums the ticks not blocked by a fault. A reading gives its
+	// class to the ticks since the last reading. That is 1 second, or the
+	// length of the replay after a rewind.
+	unblocked int64
+	noted     bool
+}
+
+// read adds the ticks since the last reading. It reports true once, at the
+// first reading at which the sum passes the limit of the gate.
+func (r *soakOpenRecord) read(tick int64, blocked bool) bool {
+	if !blocked {
+		r.unblocked += tick - r.last
+	}
+	r.last = tick
+	if r.noted || r.unblocked <= soakEmergencyTime {
+		return false
+	}
+	r.noted = true
+	return true
+}
+
+// watchEmergencies is the Progress gate of the emergency contract, with rule A
+// of amendment A8. It reads the records once a second. A record that a late
+// start of the checks finds counts from that start.
+func (d *soakDriver) watchEmergencies() {
+	tick := d.s.simulation.Tick()
+	state := d.s.simulation.Snapshot()
+	reading := newSoakReading(state, d.s.simulation.BoardingLegBlockedForTest)
+	seen := make(map[string]bool, len(state.Emergencies.Active))
+	for _, view := range state.Emergencies.Active {
+		seen[view.ID] = true
+		record, ok := d.open[view.ID]
+		if !ok {
+			record = &soakOpenRecord{last: max(view.StartTick, d.input.checkFrom)}
+			d.open[view.ID] = record
+			d.result.emergencies++
+		}
+		record.view = view
+		blocked, end := reading.blockedByFault(view.PodID)
+		if record.read(tick, blocked) {
+			d.noteLateEmergency(state, view, end)
+		}
+		d.result.emergencyLongest = max(d.result.emergencyLongest, record.unblocked)
+	}
+	for id, record := range d.open {
 		if !seen[id] {
+			if record.last-record.view.StartTick > soakEmergencyTime {
+				d.result.emergencyLong++
+			}
 			delete(d.open, id)
 		}
 	}
 }
 
 // noteLateEmergency records a record of an ordinary pod that passes the limit
-// of the gate, with its phase and wait reason. A platoon member waits for its
-// link to drain, so it is not an ordinary pod.
-func (d *soakDriver) noteLateEmergency(record sim.EmergencyView) {
-	for _, vehicle := range d.s.simulation.Snapshot().Vehicles {
+// of the gate, with its phase, wait reason, and the end of its chain. A platoon
+// member waits for its link to drain, so it is not an ordinary pod, and the
+// driver only counts it.
+func (d *soakDriver) noteLateEmergency(state sim.Snapshot, record sim.EmergencyView, end string) {
+	for index := range state.Vehicles {
+		vehicle := &state.Vehicles[index]
 		if vehicle.Pod.ID != record.PodID {
 			continue
 		}
 		if vehicle.PlatoonID != "" {
+			d.result.emergencyInPlatoon++
 			return
 		}
 		d.result.emergencyLate++
-		d.result.misses = append(d.result.misses, fmt.Sprintf("emergency %s on %s: phase %s, wait %q, blocked by %q, start %d", record.ID, record.PodID, record.Phase, vehicle.Pod.WaitReason, vehicle.Pod.BlockedBy, record.StartTick))
+		d.result.misses = append(d.result.misses, fmt.Sprintf("emergency %s on %s: phase %s, wait %q, blocked by %q, chain end %s, start %d", record.ID, record.PodID, record.Phase, vehicle.Pod.WaitReason, vehicle.Pod.BlockedBy, end, record.StartTick))
 	}
 }
 
@@ -544,7 +653,7 @@ func (d *soakDriver) clearAndSettle() {
 		d.result.misses = append(d.result.misses, "progress after the clear: the gate holds at no time in 30 minutes")
 	}
 	for _, record := range d.open {
-		d.result.misses = append(d.result.misses, fmt.Sprintf("emergency %s on %s does not end: phase %s, start %d", record.ID, record.PodID, record.Phase, record.StartTick))
+		d.result.misses = append(d.result.misses, fmt.Sprintf("emergency %s on %s does not end: phase %s, start %d", record.view.ID, record.view.PodID, record.view.Phase, record.view.StartTick))
 	}
 }
 
@@ -574,10 +683,10 @@ func runSoak(t *testing.T, input soakInput) soakResult {
 	d.checkRail()
 	d.result.state = d.s.simulation.Snapshot()
 	state := d.result.state
-	t.Logf("preset=%s arm=%s seed=%d hours=%g checks=%t ticks=%d wall=%.1fs cpu=%.1fs ticks/s=%.0f commands=%d refused=%d saves=%d demoted=%d rewinds=%d rail=%d completed=%d interrupted=%d queue=%d..%d settle=%ds waitAvg=%.1fs waitMax=%.1fs faults=%+v emergencies=%+v seen=%d late=%d rates=%v",
+	t.Logf("preset=%s arm=%s seed=%d hours=%g checks=%t ticks=%d wall=%.1fs cpu=%.1fs ticks/s=%.0f commands=%d refused=%d saves=%d demoted=%d rewinds=%d rail=%d completed=%d interrupted=%d queue=%d..%d settle=%ds waitAvg=%.1fs waitMax=%.1fs faults=%+v emergencies=%+v seen=%d late=%d inPlatoon=%d long=%d longestUnblocked=%.1fs rates=%v",
 		input.preset, input.arm.name, input.seed, input.hours, input.checks, d.result.ticks, d.result.wall.Seconds(), d.result.cpu, float64(d.result.ticks)/d.result.wall.Seconds(),
 		d.result.commands, d.result.refused, d.result.saves, d.result.demoted, d.result.rewinds, d.result.railRecords, state.Completed, state.Interrupted, d.result.queue.low, d.result.queue.high,
-		d.result.settleTicks/sim.TicksPerSecond, state.Wait.AverageSeconds, state.Wait.MaxSeconds, state.Faults.Counters, state.Emergencies.Counters, d.result.emergencies, d.result.emergencyLate, d.result.rates)
+		d.result.settleTicks/sim.TicksPerSecond, state.Wait.AverageSeconds, state.Wait.MaxSeconds, state.Faults.Counters, state.Emergencies.Counters, d.result.emergencies, d.result.emergencyLate, d.result.emergencyInPlatoon, d.result.emergencyLong, float64(d.result.emergencyLongest)/sim.TicksPerSecond, d.result.rates)
 	if len(d.result.misses) > 0 {
 		t.Errorf("preset %s arm %s seed %d misses a Progress gate:\n%s", input.preset, input.arm.name, input.seed, strings.Join(d.result.misses, "\n"))
 	}
@@ -725,6 +834,189 @@ func TestIncidentSoakDriver(t *testing.T) {
 	if len(state.Faults.Active) != 0 || state.Faults.Counters.Started == 0 {
 		t.Fatalf("the faults are %+v", state.Faults)
 	}
+}
+
+// TestSoakBlockedByFault checks the classifier of rule A of amendment A8. The
+// cases that must stay not blocked guard against a fault named in error, which
+// hides a real wait.
+func TestSoakBlockedByFault(t *testing.T) {
+	t.Parallel()
+	pod := func(id string, reason sim.WaitReason, by string) sim.Vehicle {
+		return sim.Vehicle{Pod: sim.Pod{ID: id, Activity: sim.Traveling, WaitReason: reason, BlockedBy: by}}
+	}
+	idle := func(id string) sim.Vehicle {
+		return sim.Vehicle{Pod: sim.Pod{ID: id, Activity: sim.Idle}}
+	}
+	debris := []sim.FaultView{{ID: "i1.1", Kind: "debris"}}
+	tests := []struct {
+		name       string
+		pods       []sim.Vehicle
+		faults     []sim.FaultView
+		legBlocked []string
+		want       bool
+		end        string
+	}{
+		{name: "own fault", pods: []sim.Vehicle{pod("a", sim.TrackOccupied, "b"), pod("b", sim.NoWait, "")},
+			faults: []sim.FaultView{{ID: "i1.1", PodID: "a"}}, want: true, end: "pod a with a fault"},
+		{name: "reports blocked by incident", pods: []sim.Vehicle{pod("a", sim.BlockedByIncident, "i1.1")}, faults: debris, want: true, end: `pod a, wait "Blocked by incident"`},
+		{name: "reports blocked by incident with no active fault ID", pods: []sim.Vehicle{pod("a", sim.BlockedByIncident, "")}, faults: debris, want: true, end: `pod a, wait "Blocked by incident"`},
+		{name: "reports no forward route", pods: []sim.Vehicle{pod("a", sim.NoForwardRoute, "")}, faults: debris, want: true, end: `pod a, wait "No forward route"`},
+		{name: "chain to a pod with a fault", pods: []sim.Vehicle{pod("a", sim.TrackOccupied, "b"), pod("b", sim.TrackOccupied, "c"), pod("c", sim.FaultStopped, "")},
+			faults: []sim.FaultView{{ID: "i1.1", PodID: "c"}}, want: true, end: "pod c with a fault"},
+		{name: "chain to blocked by incident", pods: []sim.Vehicle{pod("a", sim.TrackOccupied, "b"), pod("b", sim.BlockedByIncident, "i1.1")}, faults: debris, want: true, end: "pod b"},
+		{name: "chain to no forward route", pods: []sim.Vehicle{pod("a", sim.BerthOccupied, "b"), pod("b", sim.NoForwardRoute, "")}, faults: debris, want: true, end: "pod b"},
+		{name: "chain to a fault ID", pods: []sim.Vehicle{pod("a", sim.TrackOccupied, "b"), pod("b", sim.TrackOccupied, "i1.1")}, faults: debris, want: true, end: "fault i1.1"},
+		{name: "chain to an idle pod that cannot board", pods: []sim.Vehicle{pod("a", sim.BerthOccupied, "b"), idle("b")}, faults: debris, legBlocked: []string{"b"}, want: true, end: "pod b, Ready"},
+		{name: "chain to a healthy pod with an ordinary wait", pods: []sim.Vehicle{pod("a", sim.TrackOccupied, "b"), pod("b", sim.BerthOccupied, "c"), pod("c", sim.NoWait, "")}, faults: debris, end: "pod c, Traveling"},
+		{name: "moving pod", pods: []sim.Vehicle{pod("a", sim.NoWait, "")}, faults: debris, end: "pod a, Traveling"},
+		{name: "cycle", pods: []sim.Vehicle{pod("a", sim.TrackOccupied, "b"), pod("b", sim.TrackOccupied, "c"), pod("c", sim.TrackOccupied, "b")}, faults: debris, end: "cycle at pod b"},
+		{name: "cycle on itself", pods: []sim.Vehicle{pod("a", sim.TrackOccupied, "a")}, faults: debris, end: "cycle at pod a"},
+		{name: "idle pod whose leg also fails with an empty blocked set", pods: []sim.Vehicle{pod("a", sim.BerthOccupied, "b"), idle("b")}, faults: debris, end: "pod b, Ready"},
+		{name: "a blocker that is no pod and no active fault", pods: []sim.Vehicle{pod("a", sim.TrackOccupied, "i9.9")}, faults: debris, end: "unknown blocker i9.9"},
+		{name: "faults off, ordinary wait", pods: []sim.Vehicle{pod("a", sim.TrackOccupied, "b"), idle("b")}, end: "pod b, Ready"},
+		{name: "faults off, stale reports", pods: []sim.Vehicle{pod("a", sim.NoForwardRoute, "")}, end: `pod a, wait "No forward route"`},
+		{name: "faults off, idle leg", pods: []sim.Vehicle{pod("a", sim.BerthOccupied, "b"), idle("b")}, legBlocked: []string{"b"}, end: "pod b, Ready"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			state := sim.Snapshot{Vehicles: test.pods, Faults: sim.FaultsView{Active: test.faults}}
+			reading := newSoakReading(state, func(id string) bool { return slices.Contains(test.legBlocked, id) })
+			blocked, end := reading.blockedByFault("a")
+			if blocked != test.want || !strings.Contains(end, test.end) {
+				t.Fatalf("got %t, end %q, want %t, end %q", blocked, end, test.want, test.end)
+			}
+		})
+	}
+}
+
+// TestSoakOpenRecordRead checks the sum of the gate: only ticks not blocked
+// count, the sum must pass the limit, and a record passes once.
+func TestSoakOpenRecordRead(t *testing.T) {
+	t.Parallel()
+	const start = 100
+	record := soakOpenRecord{last: start}
+	if record.read(start+soakEmergencyTime, true) || record.unblocked != 0 {
+		t.Fatalf("blocked time counts: %+v", record)
+	}
+	if record.read(start+2*soakEmergencyTime, false) || record.unblocked != soakEmergencyTime {
+		t.Fatalf("a sum at the limit passes: %+v", record)
+	}
+	if record.read(start+3*soakEmergencyTime, true) || record.unblocked != soakEmergencyTime {
+		t.Fatalf("blocked time after the limit counts: %+v", record)
+	}
+	if !record.read(start+3*soakEmergencyTime+1, false) || record.unblocked != soakEmergencyTime+1 {
+		t.Fatalf("a sum past the limit does not pass: %+v", record)
+	}
+	if record.read(start+3*soakEmergencyTime+1+soakViewTicks, false) || record.unblocked != soakEmergencyTime+1+soakViewTicks {
+		t.Fatalf("the record passes twice: %+v", record)
+	}
+}
+
+// soakEmergencyOnPod runs a driver until a pod carries riders, and starts an
+// emergency on it. It returns the driver and the ID of the record, after the
+// first reading. The samplers do not run, so the only incidents are those of
+// the test.
+func soakEmergencyOnPod(t *testing.T, input soakInput) (*soakDriver, string) {
+	t.Helper()
+	d := newSoakDriver(t, input)
+	d.s.simulation.StopIncidentSamplersForTest()
+	for range soakTicksPerHour {
+		d.s.advance()
+		state := d.s.simulation.Snapshot()
+		for index := range state.Vehicles {
+			if vehicle := &state.Vehicles[index]; vehicle.Pod.Occupied && vehicle.Pod.Activity == sim.Traveling {
+				id := d.client.mustApply(t, Command{Action: "emergency", PodID: vehicle.Pod.ID}).EmergencyID
+				d.watchEmergencies()
+				if d.open[id] == nil {
+					t.Fatalf("the driver does not read the record %q: %+v", id, d.open)
+				}
+				return d, id
+			}
+		}
+	}
+	t.Fatal("no pod carries riders")
+	return nil, ""
+}
+
+// TestSoakWatchSumsUnblockedTime checks that the watch gives the classifier's
+// answer to the sum, and that it notes a late record once with its chain end.
+func TestSoakWatchSumsUnblockedTime(t *testing.T) {
+	t.Parallel()
+	input := soakInput{preset: "rail-hub", arm: soakArms["ci"], seed: 1}
+	advance := func(d *soakDriver) {
+		for range soakViewTicks {
+			d.s.advance()
+		}
+		d.watchEmergencies()
+	}
+	t.Run("not blocked", func(t *testing.T) {
+		t.Parallel()
+		d, id := soakEmergencyOnPod(t, input)
+		d.open[id].unblocked = soakEmergencyTime
+		advance(d)
+		advance(d)
+		if d.result.emergencyLate != 1 || len(d.result.misses) != 1 {
+			t.Fatalf("late %d, misses %q, want one", d.result.emergencyLate, d.result.misses)
+		}
+		for _, part := range []string{"phase ", "wait ", "chain end pod "} {
+			if !strings.Contains(d.result.misses[0], part) {
+				t.Fatalf("the miss %q has no %q", d.result.misses[0], part)
+			}
+		}
+		if d.result.emergencyLongest != d.open[id].unblocked {
+			t.Fatalf("the longest is %d, want %d", d.result.emergencyLongest, d.open[id].unblocked)
+		}
+	})
+	t.Run("blocked by a fault", func(t *testing.T) {
+		t.Parallel()
+		d, id := soakEmergencyOnPod(t, input)
+		d.client.mustApply(t, Command{Action: "fault", PodID: d.open[id].view.PodID})
+		d.open[id].unblocked = soakEmergencyTime
+		advance(d)
+		advance(d)
+		if d.result.emergencyLate != 0 || d.open[id].unblocked != soakEmergencyTime {
+			t.Fatalf("late %d, sum %d, misses %q", d.result.emergencyLate, d.open[id].unblocked, d.result.misses)
+		}
+	})
+	t.Run("platoon member", func(t *testing.T) {
+		t.Parallel()
+		d := soakDriver{}
+		state := sim.Snapshot{Vehicles: []sim.Vehicle{{Pod: sim.Pod{ID: "a"}, PlatoonID: "a"}}}
+		d.noteLateEmergency(state, sim.EmergencyView{ID: "i1.1", PodID: "a"}, "pod a")
+		if d.result.emergencyLate != 0 || d.result.emergencyInPlatoon != 1 {
+			t.Fatalf("late %d, in a platoon %d", d.result.emergencyLate, d.result.emergencyInPlatoon)
+		}
+	})
+	t.Run("late start of the checks", func(t *testing.T) {
+		t.Parallel()
+		d, id := soakEmergencyOnPod(t, input)
+		start := d.open[id].view.StartTick
+		delete(d.open, id)
+		for range soakViewTicks {
+			d.s.advance()
+		}
+		d.input.checkFrom = d.s.simulation.Tick()
+		d.watchEmergencies()
+		if got := d.open[id]; got == nil || got.unblocked != 0 {
+			t.Fatalf("a record of tick %d read at tick %d is %+v", start, d.input.checkFrom, got)
+		}
+	})
+	t.Run("record does not end", func(t *testing.T) {
+		t.Parallel()
+		// One view interval after the clear is too short for the unload.
+		input := input
+		input.settle = soakViewTicks
+		d, id := soakEmergencyOnPod(t, input)
+		d.checks = true
+		d.startChecks()
+		d.clearAndSettle()
+		if !slices.ContainsFunc(d.result.misses, func(miss string) bool {
+			return strings.Contains(miss, id+" on ") && strings.Contains(miss, "does not end")
+		}) {
+			t.Fatalf("the misses are %q", d.result.misses)
+		}
+	})
 }
 
 // TestIncidentSoakRewindOverRecord runs the rewind check over a window in which
