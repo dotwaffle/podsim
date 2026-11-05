@@ -86,9 +86,10 @@ func checkNormalizedRun(t *testing.T, base project.Config) {
 	a, b := start(base), start(normal)
 	stations := project.PassengerStations(base.Network)
 	phases := make(map[sim.StationPhase]bool)
-	for tick := range 12000 {
-		if tick%120 == 0 {
-			from, to := stations[(tick/120)%len(stations)].ID, stations[(tick/120+1)%len(stations)].ID
+	for tick := range 200 * sim.TicksPerSecond {
+		if tick%(2*sim.TicksPerSecond) == 0 {
+			round := tick / (2 * sim.TicksPerSecond)
+			from, to := stations[round%len(stations)].ID, stations[(round+1)%len(stations)].ID
 			if errA, errB := a.RequestTrip(from, to), b.RequestTrip(from, to); (errA == nil) != (errB == nil) {
 				t.Fatalf("tick %d trip %s to %s: %v and %v", tick, from, to, errA, errB)
 			}
