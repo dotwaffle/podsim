@@ -71,6 +71,12 @@ func (w *compressedResponse) Write(body []byte) (int, error) {
 	return w.writer.Write(body)
 }
 
+// finishBody sends the end of the compressed body. The later close by
+// compressResponse then writes nothing.
+func (w *compressedResponse) finishBody() error {
+	return w.writer.Close()
+}
+
 func acceptsGzip(header string) bool {
 	wildcard := false
 	for entry := range strings.SplitSeq(header, ",") {

@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"testing/fstest"
 	"time"
@@ -256,6 +257,47 @@ func TestPresetOneAtATime(t *testing.T) {
 	// The first request gave back the slot.
 	if response, body := fixture.post(t, http.MethodPost, "other"); response.StatusCode != http.StatusOK {
 		t.Errorf("request after the generation: status %d: %s", response.StatusCode, body)
+	}
+}
+
+// stallingResponse blocks its second body write until release closes. A gzip
+// writer sends its header at the first write and the rest at its close.
+type stallingResponse struct {
+	http.ResponseWriter
+	writes  atomic.Int32
+	stalled chan struct{}
+	release chan struct{}
+}
+
+func (w *stallingResponse) Write(body []byte) (int, error) {
+	if w.writes.Add(1) == 2 {
+		close(w.stalled)
+		<-w.release
+	}
+	return w.ResponseWriter.Write(body)
+}
+
+// TestPresetSlotCoversTheCompressedReply checks that a second request gets the
+// refusal while the end of the first compressed reply waits for the client.
+func TestPresetSlotCoversTheCompressedReply(t *testing.T) {
+	t.Parallel()
+	fixture := newPresetFixture(t, map[string]PresetGenerator{"one": namedProject("One")})
+	handler := compressResponse(http.HandlerFunc(fixture.session.presetHTTP))
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/presets/one", nil)
+	request.SetPathValue("name", "one")
+	request.Header.Set("Accept-Encoding", "gzip")
+	writer := &stallingResponse{ResponseWriter: httptest.NewRecorder(), stalled: make(chan struct{}), release: make(chan struct{})}
+	first := make(chan struct{})
+	go func() {
+		defer close(first)
+		handler.ServeHTTP(writer, request)
+	}()
+	<-writer.stalled
+	response, body := fixture.post(t, http.MethodPost, "one")
+	close(writer.release)
+	<-first
+	if response.StatusCode != http.StatusServiceUnavailable {
+		t.Errorf("request during the reply: status %d: %s", response.StatusCode, body)
 	}
 }
 

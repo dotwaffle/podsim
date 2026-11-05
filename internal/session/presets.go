@@ -82,6 +82,14 @@ func (s *Session) presetHTTP(w http.ResponseWriter, r *http.Request) {
 	// #nosec G705 -- The reply is JSON with a JSON content type.
 	if _, err := w.Write(data); err != nil {
 		s.logger.Warn("Send preset", slog.String("name", name), slog.Any("error", err))
+		return
+	}
+	// The slot covers the whole reply, and compressResponse closes its writer
+	// only after this function returns.
+	if compressed, ok := w.(*compressedResponse); ok {
+		if err := compressed.finishBody(); err != nil {
+			s.logger.Warn("Send preset", slog.String("name", name), slog.Any("error", err))
+		}
 	}
 }
 
