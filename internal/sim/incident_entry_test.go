@@ -39,7 +39,7 @@ type routeCopy struct {
 func copyRoutes(routes map[routeKey]routeResult) map[routeKey]routeCopy {
 	copies := make(map[routeKey]routeCopy, len(routes))
 	for key, result := range routes {
-		copies[key] = routeCopy{lanes: result.lanes, err: fmt.Sprint(result.err)}
+		copies[key] = routeCopy{lanes: slices.Clone(result.lanes), err: fmt.Sprint(result.err)}
 	}
 	return copies
 }
@@ -54,6 +54,9 @@ func memosOf(s *Simulation) routeMemos {
 	}
 	if s.routeWork != nil {
 		memos.workCopy = *s.routeWork
+		work := &memos.workCopy
+		work.distance, work.previous, work.visited = slices.Clone(work.distance), slices.Clone(work.previous), slices.Clone(work.visited)
+		work.queue = slices.Clone(work.queue)
 	}
 	return memos
 }

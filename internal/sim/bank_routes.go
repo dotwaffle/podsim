@@ -193,6 +193,9 @@ func bankArrivalNode(bank bankTopology, graph routeGraph, node int) bool {
 
 func (n Network) bankNearest(input preferredNearestInput, graph routeGraph) (int, bool) {
 	best, seconds := -1, math.Inf(1)
+	// A search reads none of the work of the search before it, and the
+	// counters of this work reach no simulation.
+	var work routeSearchWork
 	for node, rank := range input.rank {
 		if rank < 0 {
 			continue
@@ -201,9 +204,9 @@ func (n Network) bankNearest(input preferredNearestInput, graph routeGraph) (int
 		if input.reverse {
 			from, to = to, from
 		}
-		route, err := n.routeIndexed(networkRouteInput{from: from, to: to, terminalBerthsOnly: true, class: input.class}, graph)
+		route, err := n.routeIndexedWithWork(networkRouteInput{from: from, to: to, terminalBerthsOnly: true, class: input.class}, graph, &work)
 		if errors.Is(err, ErrUnreachable) {
-			route, err = n.routeIndexed(networkRouteInput{from: from, to: to, class: input.class}, graph)
+			route, err = n.routeIndexedWithWork(networkRouteInput{from: from, to: to, class: input.class}, graph, &work)
 		}
 		if err != nil {
 			continue
