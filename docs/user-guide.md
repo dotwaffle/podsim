@@ -769,6 +769,7 @@ When it is on a message, it goes to the first of these that exists after the run
 
 The **London preset** menu loads LondonCentral or LondonFull into the draft.
 The server generates the project when you select it, and this takes a few seconds for LondonFull.
+The editor then needs several more seconds to check the LondonFull draft and add it to the undo history.
 The draft then works as after **Import JSON**: the preset becomes the base of **Reset draft**, and **Undo** brings back the old draft.
 When the draft has scenario changes, the editor asks first.
 

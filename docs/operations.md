@@ -653,7 +653,8 @@ These values are from one server that runs the default project, with 20 MiB of r
 The resident memory after the reply includes the pages of the embedded source data, and the system can drop these pages.
 The source data adds 7.2 MB to the server binary, and it does not change the resident memory at idle.
 `GOMAXPROCS=1` and `GOMEMLIMIT=128MiB` did not change the peak or the time of a generation on the test host.
-A generation uses one CPU for its full time, so on a host with one CPU it competes with the simulation clock.
+With `GOMAXPROCS=1` and the default project, the simulation clock stayed at 60 ticks per second during a generation of `london-full`.
+This was not measured with a London project running.
 The server does one generation at a time, and one large command or generation at a time, so these peaks do not add.
 An apply of a gzip project with 31 MiB of JSON, 12,000 nodes, 600 stations, and 359,400 flows allocated about 7.1 GiB in total and took about 9.8 s.
 At its peak, the heap was about 310 MiB larger.
