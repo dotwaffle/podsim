@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"fmt"
 	"log/slog"
+	"maps"
 	"math"
 	"math/rand/v2"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -128,6 +130,14 @@ type soakInput struct {
 	checkFrom int64
 	// everyTick runs the full check at each tick, and not at the stride.
 	everyTick bool
+	// rewindEvery is the time between rewinds, or 0 for 1 simulated hour.
+	rewindEvery int64
+	// warm is the warm save of the run, or nil for a new session. branch
+	// selects the stream of the driver, and 0 is the stream of a new session.
+	warm   *soakWarm
+	branch uint64
+	// observe, when set, receives the result of the run. Only a test sets it.
+	observe func(soakInput, soakResult)
 }
 
 // soakRange is the range of a queue size.
@@ -189,6 +199,10 @@ type soakDriver struct {
 	// next driver events. clears holds the command faults, by clear tick.
 	nextFault, nextEmergency, nextSave, nextRewind int64
 	clears                                         []soakClear
+	// loopTick is the tick of the driver loop, and the driver events use it. Each
+	// rewind adds its replay to the simulation tick and not to this one. A
+	// branch continues the loop of its warm save.
+	loopTick int64
 	// open holds the reading state of each active record.
 	open   map[string]*soakOpenRecord
 	result soakResult
@@ -207,21 +221,26 @@ func soakInterval(rng *rand.Rand) int64 {
 func newSoakDriver(t *testing.T, input soakInput) *soakDriver {
 	t.Helper()
 	config := soakProject(t, input.preset, input.arm, input.seed)
-	s, err := NewWithProject(config, WithLogger(slog.New(slog.DiscardHandler)))
+	s, err := input.warm.session(t, config)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(s.Close)
-	rng := rand.New(rand.NewPCG(input.seed, 0x50414b))
-	d := &soakDriver{t: t, input: input, config: config, s: s, client: newTestClient(s, "soak"), rng: rng, open: map[string]*soakOpenRecord{},
+	rng := rand.New(rand.NewPCG(input.seed, 0x50414b+input.branch))
+	client := "soak"
+	if input.warm != nil {
+		client = fmt.Sprintf("soak-branch-%d", input.branch)
+	}
+	d := &soakDriver{t: t, input: input, config: config, s: s, client: newTestClient(s, client), rng: rng, open: map[string]*soakOpenRecord{},
 		nextFault: math.MaxInt64, nextEmergency: math.MaxInt64, nextSave: math.MaxInt64, nextRewind: math.MaxInt64}
 	d.result.queue = soakRange{low: math.MaxInt, high: 0}
+	input.warm.resume(d)
 	if input.arm.commands {
 		if input.arm.faults {
-			d.nextFault = soakInterval(rng)
+			d.nextFault = d.loopTick + soakInterval(rng)
 		}
 		if input.arm.emergencies {
-			d.nextEmergency = soakInterval(rng)
+			d.nextEmergency = d.loopTick + soakInterval(rng)
 		}
 	}
 	d.checks = input.checks && input.checkFrom == 0
@@ -231,20 +250,90 @@ func newSoakDriver(t *testing.T, input soakInput) *soakDriver {
 	return d
 }
 
+// soakWarm is a warm save: the encoded state of a run at the end of its warm
+// time, and the part of the driver that the state does not hold.
+type soakWarm struct {
+	data     []byte
+	loopTick int64
+	clears   []soakClear
+	open     map[string]soakOpenRecord
+}
+
+// soakWarmUp runs a new session for the ticks, and saves it through the save
+// path. With no ticks, it returns nil, and the run starts with a new session.
+func soakWarmUp(t *testing.T, input soakInput, ticks int64) *soakWarm {
+	t.Helper()
+	if ticks == 0 {
+		return nil
+	}
+	input.hours = float64(ticks) / soakTicksPerHour
+	d := newSoakDriver(t, input)
+	defer d.s.Close()
+	d.runHours()
+	file := sessionStateFile(t, d.s)
+	file.RestoreAttempts = 0
+	warm := &soakWarm{data: encodeTestState(t, file), loopTick: d.loopTick, clears: d.clears, open: make(map[string]soakOpenRecord, len(d.open))}
+	for id, record := range d.open {
+		warm.open[id] = *record
+	}
+	t.Logf("warm preset=%s arm=%s seed=%d ticks=%d bytes=%d queue=%d active faults=%d emergencies=%d", input.preset, input.arm.name, input.seed, ticks, len(warm.data), d.s.simulation.PendingCount(), len(d.clears), len(d.open))
+	return warm
+}
+
+// session returns a new session of the config with no warm save. With one, it
+// restores the save through the restore path in a new session, and it must get
+// the physical tier, or the branch does not continue the state of the warm run.
+// The branch needs no later save, so it turns off the persistence, as a new
+// session has it.
+func (w *soakWarm) session(t *testing.T, config project.Config) (*Session, error) {
+	t.Helper()
+	options := []Option{WithLogger(slog.New(slog.DiscardHandler))}
+	if w == nil {
+		return NewWithProject(config, options...)
+	}
+	s, err := NewFromStore(t.Context(), StoreInput{Store: &fakeStore{data: w.data}, Options: options})
+	if err != nil {
+		return nil, err
+	}
+	s.persist.enabled.Store(false)
+	if s.restore.Tier != string(sim.RestorePhysical) {
+		s.Close()
+		return nil, fmt.Errorf("the warm save restores in tier %q: %s", s.restore.Tier, s.restore.Reason)
+	}
+	return s, nil
+}
+
+// resume gives the driver the loop tick, the command faults to clear, and the
+// open records of the warm save.
+func (w *soakWarm) resume(d *soakDriver) {
+	if w == nil {
+		return
+	}
+	d.loopTick, d.clears = w.loopTick, slices.Clone(w.clears)
+	for id, record := range w.open {
+		d.open[id] = new(record)
+	}
+	d.result.emergencies = len(d.open)
+}
+
 // startChecks starts the checks at the current tick.
 func (d *soakDriver) startChecks() {
-	tick := d.s.simulation.Tick()
 	d.checks = true
-	d.nextSave = tick + d.rng.Int64N(soakTicksPerHour) + 1
-	d.nextRewind = tick + d.rng.Int64N(soakTicksPerHour) + 1
+	d.nextSave = d.loopTick + d.rng.Int64N(soakTicksPerHour) + 1
+	d.nextRewind = d.loopTick + d.rng.Int64N(d.rewindEvery()) + 1
 	d.transition = d.s.simulation.FaultTransitionForTest()
 	d.events = d.s.simulation.IncidentEventsForTest()
+}
+
+// rewindEvery returns the time between rewinds.
+func (d *soakDriver) rewindEvery() int64 {
+	return cmp.Or(d.input.rewindEvery, soakTicksPerHour)
 }
 
 // failf stops the test with the run and the tick.
 func (d *soakDriver) failf(format string, args ...any) {
 	d.t.Helper()
-	message := fmt.Sprintf("%s %s seed %d tick %d: %s", d.input.preset, d.input.arm.name, d.input.seed, d.s.simulation.Tick(), fmt.Sprintf(format, args...))
+	message := fmt.Sprintf("%s %s seed %d branch %d tick %d: %s", d.input.preset, d.input.arm.name, d.input.seed, d.input.branch, d.s.simulation.Tick(), fmt.Sprintf(format, args...))
 	if d.fail != nil {
 		d.fail(message)
 		return
@@ -621,38 +710,46 @@ func (d *soakDriver) noteLateEmergency(state sim.Snapshot, record sim.EmergencyV
 // runHours runs the soak until its last tick.
 func (d *soakDriver) runHours() {
 	d.t.Helper()
-	last := int64(d.input.hours * soakTicksPerHour)
+	ticks := int64(d.input.hours * soakTicksPerHour)
+	first := d.loopTick + 1
 	window := soakCPUSeconds()
-	for tick := int64(1); tick <= last; tick++ {
-		if tick%soakRateWindow == 0 {
-			cpu := soakCPUSeconds()
-			rate := int(float64(soakRateWindow) / max(cpu-window, 0.01))
-			d.result.rates = append(d.result.rates, rate)
-			d.t.Logf("window %s %s seed=%d simulated_minutes=%d checks=%t queue=%d ticks/cpu_s=%d", d.input.preset, d.input.arm.name, d.input.seed, tick/(60*sim.TicksPerSecond), d.checks, d.s.simulation.PendingCount(), rate)
-			window = cpu
-		}
-		if d.input.checks && !d.checks && tick >= d.input.checkFrom {
-			d.startChecks()
-		}
-		d.runEvents(tick)
-		d.step()
-		d.result.queue.add(d.s.simulation.PendingCount())
-		if !d.checks {
-			continue
-		}
-		if tick%soakViewTicks == 0 {
-			d.watchEmergencies()
-		}
-		if tick >= d.nextSave {
-			d.nextSave += soakTicksPerHour
-			d.checkSave()
-		}
-		if tick >= d.nextRewind {
-			d.nextRewind += soakTicksPerHour
-			d.checkRewind()
-		}
+	for tick := first; tick < first+ticks; tick++ {
+		d.runLoopTick(tick, &window)
+		d.loopTick = tick
 	}
-	d.result.ticks = last
+	d.result.ticks = ticks
+}
+
+// runLoopTick runs one tick of the driver loop, with its events and its checks.
+func (d *soakDriver) runLoopTick(tick int64, window *float64) {
+	d.t.Helper()
+	if tick%soakRateWindow == 0 {
+		cpu := soakCPUSeconds()
+		rate := int(float64(soakRateWindow) / max(cpu-*window, 0.01))
+		d.result.rates = append(d.result.rates, rate)
+		d.t.Logf("window %s %s seed=%d branch=%d simulated_minutes=%d checks=%t queue=%d ticks/cpu_s=%d", d.input.preset, d.input.arm.name, d.input.seed, d.input.branch, tick/(60*sim.TicksPerSecond), d.checks, d.s.simulation.PendingCount(), rate)
+		*window = cpu
+	}
+	if d.input.checks && !d.checks && tick >= d.input.checkFrom {
+		d.startChecks()
+	}
+	d.runEvents(tick)
+	d.step()
+	d.result.queue.add(d.s.simulation.PendingCount())
+	if !d.checks {
+		return
+	}
+	if tick%soakViewTicks == 0 {
+		d.watchEmergencies()
+	}
+	if tick >= d.nextSave {
+		d.nextSave += soakTicksPerHour
+		d.checkSave()
+	}
+	if tick >= d.nextRewind {
+		d.nextRewind += d.rewindEvery()
+		d.checkRewind()
+	}
 }
 
 // soakHoldsClear reports whether the state meets the Progress gate after the
@@ -741,12 +838,15 @@ func runSoak(t *testing.T, input soakInput) soakResult {
 	d.checkRail()
 	d.result.state = d.s.simulation.Snapshot()
 	state := d.result.state
-	t.Logf("preset=%s arm=%s seed=%d hours=%g checks=%t ticks=%d wall=%.1fs cpu=%.1fs ticks/s=%.0f commands=%d refused=%d saves=%d demoted=%d rewinds=%d rail=%d completed=%d interrupted=%d queue=%d..%d settle=%ds waitAvg=%.1fs waitMax=%.1fs faults=%+v emergencies=%+v seen=%d late=%d inPlatoon=%d long=%d longestUnblocked=%.1fs fullChecks=%d rates=%v",
-		input.preset, input.arm.name, input.seed, input.hours, input.checks, d.result.ticks, d.result.wall.Seconds(), d.result.cpu, float64(d.result.ticks)/d.result.wall.Seconds(),
+	t.Logf("preset=%s arm=%s seed=%d branch=%d hours=%g checks=%t ticks=%d wall=%.1fs cpu=%.1fs ticks/s=%.0f commands=%d refused=%d saves=%d demoted=%d rewinds=%d rail=%d completed=%d interrupted=%d queue=%d..%d settle=%ds waitAvg=%.1fs waitMax=%.1fs faults=%+v emergencies=%+v seen=%d late=%d inPlatoon=%d long=%d longestUnblocked=%.1fs fullChecks=%d rates=%v",
+		input.preset, input.arm.name, input.seed, input.branch, input.hours, input.checks, d.result.ticks, d.result.wall.Seconds(), d.result.cpu, float64(d.result.ticks)/d.result.wall.Seconds(),
 		d.result.commands, d.result.refused, d.result.saves, d.result.demoted, d.result.rewinds, d.result.railRecords, state.Completed, state.Interrupted, d.result.queue.low, d.result.queue.high,
 		d.result.settleTicks/sim.TicksPerSecond, state.Wait.AverageSeconds, state.Wait.MaxSeconds, state.Faults.Counters, state.Emergencies.Counters, d.result.emergencies, d.result.emergencyLate, d.result.emergencyInPlatoon, d.result.emergencyLong, float64(d.result.emergencyLongest)/sim.TicksPerSecond, d.fullChecks, d.result.rates)
 	if len(d.result.misses) > 0 {
-		t.Errorf("preset %s arm %s seed %d misses a Progress gate:\n%s", input.preset, input.arm.name, input.seed, strings.Join(d.result.misses, "\n"))
+		t.Errorf("preset %s arm %s seed %d branch %d misses a Progress gate:\n%s", input.preset, input.arm.name, input.seed, input.branch, strings.Join(d.result.misses, "\n"))
+	}
+	if input.observe != nil {
+		input.observe(input, d.result)
 	}
 	return d.result
 }
@@ -788,65 +888,143 @@ var soakGroups = []struct {
 	{"reference-platoons", []string{"platoons"}},
 }
 
+// soakShape is the size of a soak on one preset.
+type soakShape struct {
+	// seeds is the number of seeds. warmTicks is the warm time of a seed, and
+	// each of its branches restores the one warm save. With no warm time, a
+	// run starts with a new session.
+	seeds     uint64
+	warmTicks int64
+	branches  int
+	// hours is the length of a branch, before the clear.
+	hours       float64
+	rewindEvery int64
+	arms        []string
+}
+
+// soakAllArms lists each arm of soakGroups.
+var soakAllArms = []string{"incidents", "emergencies", "platoons", "reference", "reference-platoons"}
+
+// soakShapeOf returns the shape of the name for a preset. "branches" is the
+// routine shape of amendment A10. "seeds" is the shape of amendment A6, which
+// A10 keeps for the same triggers as the every-tick mode.
+func soakShapeOf(name, preset string) (soakShape, error) {
+	switch name {
+	case "branches":
+		const warm, rewind = 30 * 60 * sim.TicksPerSecond, 10 * 60 * sim.TicksPerSecond
+		if preset == "london-central" {
+			return soakShape{seeds: 1, warmTicks: warm, branches: 3, hours: 1, rewindEvery: rewind, arms: []string{"incidents", "emergencies", "reference"}}, nil
+		}
+		return soakShape{seeds: 1, warmTicks: warm, branches: 10, hours: 1.5, rewindEvery: rewind, arms: soakAllArms}, nil
+	case "seeds":
+		return soakShape{seeds: 5, branches: 1, hours: 6, rewindEvery: soakTicksPerHour, arms: soakAllArms}, nil
+	}
+	return soakShape{}, fmt.Errorf("unknown soak shape %q", name)
+}
+
+// soakEnvNumber returns the value of an environment number, or fallback when
+// the name is not set.
+func soakEnvNumber[N uint64 | int64 | float64](t *testing.T, name string, fallback N) N {
+	t.Helper()
+	text := os.Getenv(name)
+	if text == "" {
+		return fallback
+	}
+	value, err := strconv.ParseFloat(text, 64)
+	if err != nil {
+		t.Fatalf("%s: %v", name, err)
+	}
+	return N(value)
+}
+
 // TestIncidentSoak is the soak of section 5.1.9 of the incident stage 7
-// contract. It runs only by request, because the full matrix takes many CPU
-// hours. Decision 16 asks for a timing run first, and the maintainer chooses
-// the size. These variables select the run, and their defaults give the
-// matrix of the contract: PODSIM_SOAK=1, PODSIM_SOAK_PRESETS, PODSIM_SOAK_ARMS,
-// PODSIM_SOAK_SEEDS, PODSIM_SOAK_FIRST_SEED, and PODSIM_SOAK_HOURS. Use -parallel
-// to set the number of runs at one time. For a timing run only,
-// PODSIM_SOAK_CHECKS=0 turns the every-tick checks off, and
-// PODSIM_SOAK_SETTLE_MINUTES shortens the window after the clear, and
-// PODSIM_SOAK_CHECK_FROM_HOURS starts the checks late, at the full queue.
+// contract, with the size of amendment A10. It runs only by request, because it
+// takes many CPU hours. Use mise run soak, which sets the memory cap, the time
+// limit, the lock, and GOGC. docs/operations.md has the details.
+//
+// In the routine shape, each arm has one warm save at 30 simulated minutes, and
+// each branch restores it in a new session and reseeds the driver. A reference
+// arm has no driver event, so its branches would be the same run: it runs one
+// branch, and each branch of the arms of its group reads its queue range. In
+// the shape of amendment A6, each arm has one new session for each seed. Each
+// branch is a subtest, so a failure stops only that branch, and its log line
+// holds its Progress and rule A numbers.
+//
+// These variables select the run: PODSIM_SOAK=1, PODSIM_SOAK_SHAPE ("branches"
+// or "seeds"), PODSIM_SOAK_EVERY_TICK=1, PODSIM_SOAK_PRESETS, PODSIM_SOAK_ARMS,
+// PODSIM_SOAK_SEEDS, PODSIM_SOAK_FIRST_SEED, PODSIM_SOAK_BRANCHES, and
+// PODSIM_SOAK_HOURS, which is the length of a branch before the clear. Use
+// -parallel to set the number of runs at one time. For a timing run only,
+// PODSIM_SOAK_CHECKS=0 turns the checks off, and PODSIM_SOAK_SETTLE_MINUTES
+// shortens the window after the clear, and PODSIM_SOAK_CHECK_FROM_HOURS starts
+// the checks late, at the full queue.
 func TestIncidentSoak(t *testing.T) {
 	t.Parallel()
 	if os.Getenv("PODSIM_SOAK") != "1" {
 		t.Skip("the soak runs only with PODSIM_SOAK=1")
 	}
-	presets := strings.Split(soakEnv("PODSIM_SOAK_PRESETS", "rail-hub,london-central"), ",")
-	arms := strings.Split(soakEnv("PODSIM_SOAK_ARMS", "incidents,emergencies,platoons,reference,reference-platoons"), ",")
-	seeds, err := strconv.ParseUint(soakEnv("PODSIM_SOAK_SEEDS", "20"), 10, 64)
-	if err != nil {
-		t.Fatal(err)
-	}
-	first, err := strconv.ParseUint(soakEnv("PODSIM_SOAK_FIRST_SEED", "1"), 10, 64)
-	if err != nil {
-		t.Fatal(err)
-	}
-	hours, err := strconv.ParseFloat(soakEnv("PODSIM_SOAK_HOURS", "24"), 64)
-	if err != nil {
-		t.Fatal(err)
-	}
-	checks := os.Getenv("PODSIM_SOAK_CHECKS") != "0"
-	everyTick := os.Getenv("PODSIM_SOAK_EVERY_TICK") == "1"
-	settleMinutes, err := strconv.ParseInt(soakEnv("PODSIM_SOAK_SETTLE_MINUTES", "30"), 10, 64)
-	if err != nil {
-		t.Fatal(err)
-	}
-	settle := settleMinutes * 60 * sim.TicksPerSecond
-	checkFromHours, err := strconv.ParseFloat(soakEnv("PODSIM_SOAK_CHECK_FROM_HOURS", "0"), 64)
-	if err != nil {
-		t.Fatal(err)
-	}
-	checkFrom := int64(checkFromHours * soakTicksPerHour)
-	for _, preset := range presets {
-		for seed := first; seed < first+seeds; seed++ {
+	first := soakEnvNumber(t, "PODSIM_SOAK_FIRST_SEED", uint64(1))
+	base := soakInput{checks: os.Getenv("PODSIM_SOAK_CHECKS") != "0", everyTick: os.Getenv("PODSIM_SOAK_EVERY_TICK") == "1",
+		settle:    soakEnvNumber(t, "PODSIM_SOAK_SETTLE_MINUTES", int64(30)) * 60 * sim.TicksPerSecond,
+		checkFrom: int64(soakEnvNumber(t, "PODSIM_SOAK_CHECK_FROM_HOURS", 0.0) * soakTicksPerHour)}
+	for preset := range strings.SplitSeq(soakEnv("PODSIM_SOAK_PRESETS", "rail-hub,london-central"), ",") {
+		shape, err := soakShapeOf(soakEnv("PODSIM_SOAK_SHAPE", "branches"), preset)
+		if err != nil {
+			t.Fatal(err)
+		}
+		shape.seeds = soakEnvNumber(t, "PODSIM_SOAK_SEEDS", shape.seeds)
+		shape.branches = int(soakEnvNumber(t, "PODSIM_SOAK_BRANCHES", int64(shape.branches)))
+		shape.hours = soakEnvNumber(t, "PODSIM_SOAK_HOURS", shape.hours)
+		if text := os.Getenv("PODSIM_SOAK_ARMS"); text != "" {
+			shape.arms = strings.Split(text, ",")
+		}
+		for seed := first; seed < first+shape.seeds; seed++ {
+			input := base
+			input.preset, input.seed, input.hours, input.rewindEvery = preset, seed, shape.hours, shape.rewindEvery
 			for _, group := range soakGroups {
 				t.Run(fmt.Sprintf("%s/seed-%d/%s", preset, seed, group.reference), func(t *testing.T) {
 					t.Parallel()
-					var queue *soakRange
-					if slices.Contains(arms, group.reference) {
-						result := runSoak(t, soakInput{preset: preset, arm: soakArms[group.reference], seed: seed, hours: hours, settle: settle})
-						queue = &result.queue
-					}
-					for _, name := range group.arms {
-						if slices.Contains(arms, name) {
-							runSoak(t, soakInput{preset: preset, arm: soakArms[name], seed: seed, hours: hours, checks: checks, queue: queue, settle: settle, checkFrom: checkFrom, everyTick: everyTick})
-						}
-					}
+					runSoakGroup(t, input, shape, group.reference, group.arms)
 				})
 			}
 		}
+	}
+}
+
+// runSoakGroup runs the reference of a group, and then a subtest for each arm.
+func runSoakGroup(t *testing.T, input soakInput, shape soakShape, reference string, arms []string) {
+	t.Helper()
+	if slices.Contains(shape.arms, reference) {
+		run := input
+		run.arm, run.checks, run.everyTick, run.checkFrom = soakArms[reference], false, false, 0
+		run.warm = soakWarmUp(t, run, shape.warmTicks)
+		if run.warm != nil {
+			run.branch = 1
+		}
+		result := runSoak(t, run)
+		input.queue = &result.queue
+	}
+	for _, name := range arms {
+		if !slices.Contains(shape.arms, name) {
+			continue
+		}
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			run := input
+			run.arm = soakArms[name]
+			run.warm = soakWarmUp(t, run, shape.warmTicks)
+			for index := range shape.branches {
+				branch := run
+				branch.branch = uint64(index)
+				if branch.warm != nil {
+					branch.branch++
+				}
+				t.Run(fmt.Sprintf("branch-%d", branch.branch), func(t *testing.T) {
+					t.Parallel()
+					runSoak(t, branch)
+				})
+			}
+		})
 	}
 }
 
@@ -1015,6 +1193,158 @@ func TestSoakStrideKeepsRun(t *testing.T) {
 	}
 	if ticks := int(0.02 * soakTicksPerHour); everyDriver.fullChecks < ticks || strideDriver.fullChecks >= ticks/2 {
 		t.Fatalf("%d ticks have %d full checks with the stride, and %d in every-tick mode", ticks, strideDriver.fullChecks, everyDriver.fullChecks)
+	}
+}
+
+// TestSoakBranchesRestoreWarmSave runs a warm save with a command fault and an
+// open record, and two branches. A branch starts from the state of the warm
+// save, through the physical restore, with the driver state of the save. The
+// reseed makes the branches differ.
+func TestSoakBranchesRestoreWarmSave(t *testing.T) {
+	t.Parallel()
+	const warmTicks = 300 * sim.TicksPerSecond
+	input := soakInput{preset: "rail-hub", arm: soakArms["incidents"], seed: 1, hours: 0.02, checks: true, rewindEvery: 60 * sim.TicksPerSecond, settle: 60 * sim.TicksPerSecond}
+	warmRun := input
+	warmRun.hours = float64(warmTicks) / soakTicksPerHour
+	source := newSoakDriver(t, warmRun)
+	source.nextFault = math.MaxInt64
+	source.runHours()
+	reply := source.mustApply(Command{Action: "fault", PodID: source.config.Fleet[0].ID})
+	clearTick := source.loopTick + 30*sim.TicksPerSecond
+	source.clears = append(source.clears, soakClear{reply.FaultID, clearTick})
+	file := sessionStateFile(t, source.s)
+	file.RestoreAttempts = 0
+	warm := &soakWarm{data: encodeTestState(t, file), loopTick: source.loopTick, clears: source.clears, open: map[string]soakOpenRecord{"i9.9": {unblocked: 5, view: sim.EmergencyView{ID: "i9.9"}}}}
+	want := source.s.simulation.ExportState()
+
+	var states []sim.SavedState
+	for branch := uint64(1); branch <= 2; branch++ {
+		run := input
+		run.warm, run.branch = warm, branch
+		d := newSoakDriver(t, run)
+		got := d.s.simulation.ExportState()
+		if got.Tick != want.Tick || got.RequestID != want.RequestID || got.Completed != want.Completed || !reflect.DeepEqual(got.Waiting, want.Waiting) {
+			t.Fatalf("branch %d does not start from the warm save: tick %d, want %d", branch, got.Tick, want.Tick)
+		}
+		// A restore rebuilds the route distance from the lane distance, so that
+		// field can differ by a rounding error.
+		for index := range got.Pods {
+			pod, wantPod := got.Pods[index], want.Pods[index]
+			if math.Abs(pod.Distance-wantPod.Distance) > 1e-9 {
+				t.Fatalf("branch %d: pod %s has the distance %g, want %g", branch, pod.ID, pod.Distance, wantPod.Distance)
+			}
+			pod.Distance = wantPod.Distance
+			if !reflect.DeepEqual(pod, wantPod) {
+				t.Fatalf("branch %d: pod %s is %+v, want %+v", branch, pod.ID, pod, wantPod)
+			}
+		}
+		if d.s.restore.Tier != string(sim.RestorePhysical) || d.s.persist.enabled.Load() {
+			t.Fatalf("branch %d has the tier %q and persistence %t", branch, d.s.restore.Tier, d.s.persist.enabled.Load())
+		}
+		if d.loopTick != warm.loopTick || d.open["i9.9"] == nil || d.open["i9.9"].unblocked != 5 || d.result.emergencies != 1 {
+			t.Fatalf("branch %d does not resume the driver: loop %d, open %+v, seen %d", branch, d.loopTick, d.open, d.result.emergencies)
+		}
+		if d.nextRewind > d.loopTick+run.rewindEvery || d.nextFault <= d.loopTick || d.nextEmergency <= d.loopTick {
+			t.Fatalf("branch %d has the next events %d, %d, and %d from %d", branch, d.nextRewind, d.nextFault, d.nextEmergency, d.loopTick)
+		}
+		d.nextFault = d.loopTick + 10*sim.TicksPerSecond
+		d.runHours()
+		if d.result.rewinds == 0 {
+			t.Fatalf("branch %d has no rewind", branch)
+		}
+		for _, fault := range d.s.simulation.Snapshot().Faults.Active {
+			if fault.ID == reply.FaultID {
+				t.Fatalf("branch %d keeps the command fault %s of the warm save past its clear", branch, fault.ID)
+			}
+		}
+		delete(d.open, "i9.9")
+		d.clearAndSettle()
+		if len(d.result.misses) != 0 {
+			t.Fatalf("branch %d misses: %q", branch, d.result.misses)
+		}
+		states = append(states, d.s.simulation.ExportState())
+	}
+	if reflect.DeepEqual(states[0].Pods, states[1].Pods) {
+		t.Fatal("the two branches give the same run")
+	}
+}
+
+// TestSoakGroupBranches runs a small group through the test tree. The reference
+// runs one branch, and each branch of the arm reads its queue range. A warm save
+// that restores in another tier stops with an error.
+func TestSoakGroupBranches(t *testing.T) {
+	t.Parallel()
+	var mu sync.Mutex
+	runs := map[string]soakResult{}
+	queues := map[string]*soakRange{}
+	input := soakInput{preset: "rail-hub", seed: 1, hours: 0.01, checks: true, rewindEvery: 10 * sim.TicksPerSecond, settle: 120 * sim.TicksPerSecond, observe: func(run soakInput, result soakResult) {
+		mu.Lock()
+		defer mu.Unlock()
+		key := fmt.Sprintf("%s-%d", run.arm.name, run.branch)
+		runs[key], queues[key] = result, run.queue
+	}}
+	shape := soakShape{warmTicks: 20 * sim.TicksPerSecond, branches: 2, hours: input.hours, rewindEvery: input.rewindEvery, arms: []string{"reference", "incidents"}}
+	t.Cleanup(func() {
+		if len(runs) != 3 {
+			t.Errorf("the runs are %v", slices.Collect(maps.Keys(runs)))
+			return
+		}
+		reference := runs["reference-1"]
+		for _, key := range []string{"incidents-1", "incidents-2"} {
+			if queues[key] == nil || *queues[key] != reference.queue {
+				t.Errorf("%s has the queue range %v, want %v", key, queues[key], reference.queue)
+			}
+			if runs[key].rewinds == 0 {
+				t.Errorf("%s has no rewind", key)
+			}
+		}
+		if queues["reference-1"] != nil {
+			t.Errorf("the reference has the queue range %v", queues["reference-1"])
+		}
+	})
+	t.Run("group", func(t *testing.T) {
+		t.Parallel()
+		runSoakGroup(t, input, shape, "reference", []string{"incidents", "emergencies"})
+	})
+}
+
+// TestSoakWarmNeedsPhysicalRestore refuses a warm save that demotes: a branch of
+// it does not continue the state of the warm run.
+func TestSoakWarmNeedsPhysicalRestore(t *testing.T) {
+	t.Parallel()
+	input := soakInput{preset: "rail-hub", arm: soakArms["ci"], seed: 1}
+	d := newSoakDriver(t, input)
+	file := sessionStateFile(t, d.s)
+	logicalOnly(&file)
+	warm := &soakWarm{data: encodeTestState(t, file)}
+	if _, err := warm.session(t, d.config); err == nil || !strings.Contains(err.Error(), "logical") {
+		t.Fatalf("the error is %v", err)
+	}
+}
+
+// TestSoakShape checks the sizes of amendment A10, and the size of A6 for the
+// same triggers as the every-tick mode. A branch of 1.5 h and the clear of 30
+// minutes is 216,000 ticks at 30 Hz.
+func TestSoakShape(t *testing.T) {
+	t.Parallel()
+	const minute = 60 * sim.TicksPerSecond
+	tests := []struct {
+		name, preset string
+		want         soakShape
+	}{
+		{"branches", "rail-hub", soakShape{seeds: 1, warmTicks: 30 * minute, branches: 10, hours: 1.5, rewindEvery: 10 * minute, arms: soakAllArms}},
+		{"branches", "london-central", soakShape{seeds: 1, warmTicks: 30 * minute, branches: 3, hours: 1, rewindEvery: 10 * minute, arms: []string{"incidents", "emergencies", "reference"}}},
+		{"seeds", "rail-hub", soakShape{seeds: 5, branches: 1, hours: 6, rewindEvery: 60 * minute, arms: soakAllArms}},
+		{"seeds", "london-central", soakShape{seeds: 5, branches: 1, hours: 6, rewindEvery: 60 * minute, arms: soakAllArms}},
+	}
+	for _, test := range tests {
+		got, err := soakShapeOf(test.name, test.preset)
+		if err != nil || !reflect.DeepEqual(got, test.want) {
+			t.Errorf("%s %s: got %+v, %v", test.name, test.preset, got, err)
+		}
+	}
+	if _, err := soakShapeOf("other", "rail-hub"); err == nil {
+		t.Error("an unknown shape gives no error")
 	}
 }
 
