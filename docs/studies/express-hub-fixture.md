@@ -544,3 +544,49 @@ Every other matched wait equals or improves on the baseline.
 
 The commands are on branch `study/express-fixture`, with the options `-drain` and `-trace-party-240`.
 Not checked: a parking run at another seed, unlogged internal state, and an unmatched censored wait.
+
+## Banks on the fixture
+
+The maintainer asked for banks at Waterloo or Bank before qualification.
+All validators stay on, and the 20 m rule does not change.
+Project A does not change in this section, and the fleet placements do not change.
+
+| Attempt | Change | Reach-only pairs | Result |
+|---|---|---|---|
+| B6 | The first Waterloo banks | 6 | Refused |
+| C6 | The first Bank banks | 9 | Refused |
+| B7, B8 | Shared trunks and a connection from parking to Bank | 0 | Pass, with no route from Bank to parking |
+| C7 | Shared trunks | 3 | Refused |
+| C8, C9 | A northward entry bend of 240 m at Bank | 0 | Pass |
+| D8 | Both bank layouts | 0 | Pass, with no route from Bank to parking |
+| B9, D9 | A return connection to parking | 0 | Pass |
+
+| Project | Banks | Nodes added, removed | Lanes added, removed | Blocks of 64,000 | Bytes |
+|---|---|---|---|---|---|
+| A | None | 0, 0 | 0, 0 | 56,697 | 5,690,382 |
+| B | Waterloo | 34, 6 | 39, 8 | 56,815 | 5,699,630 |
+| C | Bank | 27, 0 | 30, 0 | 56,816 | 5,699,962 |
+| D | Both | 61, 6 | 69, 8 | 56,934 | 5,709,210 |
+
+These pilots use AM demand, policies on, seed 1, 60 simulated minutes, and the oracle at each tick.
+The offers match the 909 records of A.
+Hub rates cover minutes 20 to 60, and the other counts cover all 60 minutes.
+
+| Project | Waterloo to Bank passengers/min | Background completed | Express pods started | Express parties completed | Oracle failures |
+|---|---|---|---|---|---|
+| A | 38.1 | 455 | 16 | 187 | 0 |
+| B | 42.0 | 451 | 16 | 206 | 0 |
+| C | 38.1 | 455 | 16 | 188 | 0 |
+| D | 42.0 | 454 | 16 | 203 | 0 |
+
+These flood runs use 20 orders/min to one station, seed 1, a queue cap of 200, 30 simulated minutes, and the oracle at each tick.
+The rates cover minutes 20 to 30 only, which is a shorter window than `docs/studies/banks-busiest.md` uses.
+
+| Station | Project A entries/min | With banks | Earlier study, minutes 20 to 60 |
+|---|---|---|---|
+| Waterloo | 6.80 | 8.50 in B and D | 6.53 to 8.32 |
+| Bank | 5.70 | 9.50 in C | 5.50 to 8.47 |
+
+The Bank gain includes a change from 2 berths to 4.
+Banks at Waterloo add about 10 percent to the AM hub rate at one seed, and banks at Bank add none.
+Not checked: other seeds, the individual gates, conservation, reproducibility, and the parking drain on the new layouts, save and restore, and whether the land and the flyovers are feasible.
