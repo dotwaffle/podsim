@@ -338,6 +338,7 @@ The probe also saw 74 other `Blocked by incident` episodes on pods with no berth
 In 42 readings, a chain ended at a traveling pod with no report and no berth, and the search of the probe failed.
 The probe did not check whether `admit` searched for that pod, or whether the pod stood still.
 Each of these readings counts as not blocked.
+The section "Chains that end at a traveling pod with no berth" answers both questions: `admit` did not search for these pods, and they did not stand still.
 
 ### The idle pod
 
@@ -346,6 +347,94 @@ Only the unit tests cover that case.
 A run of `incidents` seed 3 with the entry turned off gave 4 late records, and a longest unblocked time of 17.0 min, against 0 and 4.7 min.
 Its other numbers stayed the same: 88 records, 618 completed orders, and 14 records over 10 minutes.
 Each of the 4 chains ended at an idle pod.
+
+The section "Coverage of the rare paths" replaces the second sentence of this part.
+
+### Chains that end at a traveling pod with no berth
+
+A temporary read-only probe, now removed, repeated the case of the 42 readings at `08c3b538`, at 30 Hz, with the check stride of A10.
+The probe did not change the run: each count of the branch shape equals the table of the section "First soak in the branch shape".
+The earlier run was at `c4a5b65`, at 60 Hz, so its 42 readings are not comparable one to one.
+A reading counts here when the chain has at least one blocker and ends at a traveling pod with no report and no berth, and when the search of the probe fails with the active faults.
+
+| Shape | Arm | Readings | Records | Readings on a record over 10 min | Longest not blocked of these records, s |
+| --- | --- | ---: | ---: | ---: | ---: |
+| 5 seeds, 6 h | `rail-hub` `incidents` | 92 | 5 | 66 | 226.8 |
+| 5 seeds, 6 h | `rail-hub` `platoons` | 56 | 3 | 22 | 108.7 |
+| Branches, 1 seed | `rail-hub` `incidents` | 11 | 1 | 0 | 128.6 |
+| Branches, 1 seed | `rail-hub` `platoons` | 23 | 3 | 12 | 162.7 |
+| Branches, 1 seed | `london-central` `incidents` | 0 | 0 | 0 | none |
+
+The count at this tip is 148 readings in 13 episodes for the shape of the 42 readings, and 88 of them are on a record over 10 minutes.
+An episode is a run of readings of one record whose chain ends at one pod.
+
+- `admit` did not search for any of these pods.
+  In each of the 182 `rail-hub` readings, `assignTerminalBerth` returned at the test of `internal/sim/berth_choice.go:27-29`, because the next reservation does not reach the end of the route, and `earlyBerthChoice` is false.
+  The search of the probe predicts a later choice, and it is not a failure that the pod has met.
+- No pod stood still.
+  Each pod moved between the reading and the previous reading, and its speed was from 0.07 to 14 m/s.
+- The search succeeds with an empty blocked set in all 182 readings, so only the faults make it fail.
+  A pod that reaches its terminal lane while they last reports `No forward route` or `Blocked by incident`, and the classifier reads that report.
+- A queue that drains holds the emergency pod.
+  Each pod between it and the chain end reports `Pod ahead` or `Junction traffic`, and the speeds rise from one reading to the next.
+  In 10 of the 13 episodes, the last blocked reading of the record was `Blocked by incident`, from 1 to 30 s earlier.
+  The other 3 episodes have no blocked reading before them.
+
+A typical chain, at tick 430890 of `platoons` seed 3: `pod-030` reports `Pod ahead` `pod-014` at speed 0, and `pod-014` moves at 0.4 m/s with no report and no berth.
+One second earlier, `pod-030` reported `Blocked by incident` `i5.122`.
+
+Amendment A8 names a stopped pod whose berth choice fails.
+These pods do not stop, and they make no choice, so each reading is correctly not blocked.
+This is not a gap of the classifier and not a defect of the simulation.
+This time has little effect: one record has at most 26 of these readings, and the longest not-blocked time of these records is 226.8 s, against the limit of 600 s.
+If all of the readings counted as blocked, no late count would change, because each count is already 0.
+
+### Coverage of the rare paths
+
+`internal/session/incident_soak_paths_test.go` reaches these paths on the example network, with scripted commands, through the session, the simulation, and `watchEmergencies`.
+Pod 02 is idle at the only berth of `market`, debris on `market-out` keeps it there, and pod 01 has an emergency and needs that berth.
+
+| Path | Fixture | A run of the soak can reach it |
+| --- | --- | --- |
+| `Idle pod, leg free`, no order | `TestSoakPathLegFreeNoOrder`, in the driver loop | Yes, see below |
+| `Idle pod, leg free`, order with a free leg | `TestSoakPathLegFreeWithOrder`, read at a command boundary | No |
+| `Fault at the end of a chain`, pod with a fault | `TestSoakPathFaultAtChainEnd`, read at a command boundary | No |
+| `Fault at the end of a chain`, fault ID | None | No, dead |
+| Entry false, leg also fails with an empty blocked set | None, only `TestBoardingLegBlocked` | No, with no class restrictions |
+
+The driver reads only state that `admit` has written.
+`watchEmergencies` runs after the step, or from `check` when the count of ended records changes, and a command does not change that count.
+The sampler starts a fault in `faultStage`, before `admit` in the same step.
+
+- An order with a free leg: `boardOrWait` boards the order in the dispatch of that tick, before the reading.
+  After a clear at a command boundary, the entry returns false for one read, and the next tick boards the order.
+- A pod with a fault: `refuseGrant` writes `Blocked by incident` when the owner has a fault, so the walk stops at the waiting pod.
+  The two other writers of a pod ID in `BlockedBy` are the platoon cases of `grant`, and `podFaultTarget` and `canLink` keep a fault out of a platoon.
+  The fixture also shows that the same fault in the order of the driver gives the incident path.
+- A fault ID: `reportFault` writes it on a pod with a fault, which the walk finds first, and `reportIncident` and `reportBlockedBerths` write it with `Blocked by incident`, which the walk also finds first.
+  The writes of `WaitReason` alone in `publishVehicleTravel` and `clearBlockedBerths` do not meet a fault ID, because the first needs a pod that `admit` cleared at `internal/sim/traffic.go:579`, and the second needs `Berth occupied`.
+- The empty blocked set: `validatePassengerRoutes` checks each pair of passenger berths, and `keepTripPod` takes the trip from a pod for which `podFitsRequest` is false.
+  A network with class restrictions can have a berth with no route for the class of its pod, and this study did not build that case.
+
+The part "The idle pod" says that the entry found no idle pod at a chain end with an order that can board, and that stays true.
+The path also has a case with no order, which that part did not measure.
+That case fired at this tip in the shape of amendment A6, on `platoons` seed 5, in 348 readings of one record, and in none of the 32 other runs of this section.
+Record `i6.154` on `pod-018` has 469.9 s not blocked and no blocked time, so 348 s of it are this path, and no run has a closer approach to the limit of 600 s.
+
+The chain at tick 554430: `pod-018` reports `Pod ahead` `pod-021`, `pod-021` reports `No parking available` `pod-023`, and `pod-023` is idle at `parking-01` with no order.
+At each of the 348 readings, `moveBlocker` failed on a clone with the active faults and succeeded with an empty blocked set, and pod faults were the only active faults.
+So the faults hold this record, but amendment A8 names only an idle pod with an order, so this time counts as not blocked.
+`TestSoakPathLegFreeNoOrder` shows the result of a longer wait: the gate fires at 10 minutes on a wait that a fault causes.
+
+This is a gap in the words of the rule, in the direction of a false alarm, and it does not hide a real wait.
+It is not a defect of the simulation, because the section "Fixes of the two findings" records that such a pod keeps its berth.
+The recommendation for the maintainer is to add this case to the rule: an idle pod with no order whose empty move fails only because of the active faults.
+With that change, the 348 readings count as blocked, and `i6.154` falls from 469.9 s to about 122 s.
+The branch shape has 0 readings of this path, so its numbers do not change, and the late count stays 0 in all runs.
+The change needs a new test entry from `internal/sim`, and this study did not make it.
+
+The late count was 0 in all 10 runs of the shape of A6 at this tip, and the longest not-blocked time was 293.9 s on `incidents` and 469.9 s on `platoons`.
+These runs used the check stride of A10, so they are not the soak with the full check at each tick that A12 requires before a release tag.
 
 ## Cost and shape of the soak
 
@@ -474,6 +563,7 @@ Rail has no record on these presets.
 Each arm with faults off has only `Not blocked` readings.
 The retry shows that no failed berth choice in this run had a cause other than the faults.
 The paths `Idle pod, leg free` and `Fault at the end of a chain` did not fire, so only unit tests cover them.
+The section "Coverage of the rare paths" now has fixtures for these paths.
 
 `mise run soak` ran again at `44030345` on 2026-11-06, after the warm tick work, in 795 s of wall time, at a load average from 9 to 21.
 Every count in the two tables above is the same in this run, and each branch passed with no report.
