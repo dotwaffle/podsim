@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"slices"
 )
 
 // bankRouteParts holds the searches that the routes from one origin share in
@@ -16,10 +17,9 @@ type bankRouteParts struct {
 	middle []bankRoutePart
 }
 
-// bankRoutePart is the result of one search. bankRoute copies the lanes into
-// the route that it returns.
+// bankRoutePart is the result of one search, as lane indexes.
 type bankRoutePart struct {
-	lanes []Lane
+	lanes []int
 	err   error
 	done  bool
 }
@@ -43,24 +43,50 @@ func (n Network) bankRouteNodes(input networkRouteInput, from, to int, graph rou
 	if from == to {
 		return nil, nil
 	}
+	path, err := n.bankPathNodes(input, from, to, graph, work)
+	if err != nil {
+		return nil, err
+	}
+	route := make([]Lane, len(path))
+	for index, lane := range path {
+		route[index] = n.Lanes[lane]
+	}
+	return route, nil
+}
+
+// bankPathNodes returns the lane indexes of the route of bankRouteNodes. The
+// result stays valid only until the next search with work. The parts of a route
+// go in one buffer, so the route needs one allocation.
+func (n Network) bankPathNodes(input networkRouteInput, from, to int, graph routeGraph, work *routeSearchWork) ([]int, error) {
+	work.path = work.path[:0]
+	if from == to {
+		return work.path, nil
+	}
 	source, destination := graph.banks.nodes[from], graph.banks.nodes[to]
-	search := func(from, to int, allowed map[int]bool) ([]Lane, error) {
+	search := func(from, to int, allowed map[int]bool) error {
 		part := input
 		part.bankRaw, part.allowedLanes = true, allowed
 		part.bankExternal = allowed == nil
-		return n.routeNodes(part, from, to, graph, work)
+		if err := n.searchNodes(part, from, to, graph, work); err != nil {
+			return err
+		}
+		return work.appendPath(graph, from, to)
 	}
-	// once returns the result in slot, and searches only for the first call.
-	// A call with no slot always searches.
-	once := func(slot *bankRoutePart, from, to int, allowed map[int]bool) ([]Lane, error) {
+	// once adds the part in slot, and searches only for the first call. A
+	// call with no slot always searches.
+	once := func(slot *bankRoutePart, from, to int, allowed map[int]bool) error {
 		if slot == nil {
 			return search(from, to, allowed)
 		}
 		if !slot.done {
-			slot.lanes, slot.err = search(from, to, allowed)
+			start := len(work.path)
+			slot.err = search(from, to, allowed)
+			slot.lanes = slices.Clone(work.path[start:])
 			slot.done = true
+			return slot.err
 		}
-		return slot.lanes, slot.err
+		work.path = append(work.path, slot.lanes...)
+		return slot.err
 	}
 	// Arrival reroutes and berth departures use only their local lane set.
 	if source >= 0 && source == destination {
@@ -78,8 +104,8 @@ func (n Network) bankRouteNodes(input networkRouteInput, from, to int, graph rou
 					}
 				}
 			}
-			if route, err := search(from, to, allowed); err == nil {
-				return route, nil
+			if err := search(from, to, allowed); err == nil {
+				return work.path, nil
 			}
 			work.localFailed++
 			// A local arrival must not escape and enter another gate.
@@ -88,8 +114,6 @@ func (n Network) bankRouteNodes(input networkRouteInput, from, to int, graph rou
 			}
 		}
 	}
-	var prefix, suffix []Lane
-	var err error
 	if source >= 0 {
 		bank := graph.banks.banks[source]
 		if from != bank.entry && from != bank.exit {
@@ -97,8 +121,7 @@ func (n Network) bankRouteNodes(input networkRouteInput, from, to int, graph rou
 			if input.parts != nil {
 				slot = &input.parts.prefix
 			}
-			prefix, err = once(slot, from, bank.exit, bank.departure)
-			if err != nil {
+			if err := once(slot, from, bank.exit, bank.departure); err != nil {
 				return nil, err
 			}
 			from = bank.exit
@@ -111,27 +134,22 @@ func (n Network) bankRouteNodes(input networkRouteInput, from, to int, graph rou
 			suffixFrom, to = bank.entry, bank.entry
 		}
 	}
-	if input.forbidden != nil && (len(prefix) > 0 || suffixFrom >= 0) {
+	if input.forbidden != nil && (len(work.path) > 0 || suffixFrom >= 0) {
 		return nil, ErrUnreachable
 	}
 	var slot *bankRoutePart
 	if input.parts != nil && suffixFrom >= 0 {
 		slot = &input.parts.middle[destination]
 	}
-	middle, err := once(slot, from, to, nil)
-	if err != nil {
+	if err := once(slot, from, to, nil); err != nil {
 		return nil, err
 	}
 	if suffixFrom >= 0 {
-		suffix, err = search(suffixFrom, suffixTo, graph.banks.banks[destination].arrival)
-		if err != nil {
+		if err := search(suffixFrom, suffixTo, graph.banks.banks[destination].arrival); err != nil {
 			return nil, err
 		}
 	}
-	route := make([]Lane, 0, len(prefix)+len(middle)+len(suffix))
-	route = append(route, prefix...)
-	route = append(route, middle...)
-	return append(route, suffix...), nil
+	return work.path, nil
 }
 
 // stationBankEntryMatching selects free-flow approach cost, then minimum
@@ -258,16 +276,16 @@ func (n Network) bankNearest(input preferredNearestInput, graph routeGraph) (int
 		if input.reverse {
 			from, to = to, from
 		}
-		route, err := n.bankRouteNodes(networkRouteInput{terminalBerthsOnly: true, class: input.class, parts: terminal}, from, to, graph, &work)
+		path, err := n.bankPathNodes(networkRouteInput{terminalBerthsOnly: true, class: input.class, parts: terminal}, from, to, graph, &work)
 		if errors.Is(err, ErrUnreachable) {
-			route, err = n.bankRouteNodes(networkRouteInput{class: input.class, parts: open}, from, to, graph, &work)
+			path, err = n.bankPathNodes(networkRouteInput{class: input.class, parts: open}, from, to, graph, &work)
 		}
 		if err != nil {
 			continue
 		}
 		cost := 0.0
-		for _, lane := range route {
-			cost += graph.edges[graph.lanes[lane.ID]].seconds
+		for _, lane := range path {
+			cost += graph.edges[lane].seconds
 		}
 		if input.limit > 0 && cost > input.limit {
 			continue

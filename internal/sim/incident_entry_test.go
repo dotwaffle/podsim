@@ -56,7 +56,7 @@ func memosOf(s *Simulation) routeMemos {
 		memos.workCopy = *s.routeWork
 		work := &memos.workCopy
 		work.distance, work.previous, work.visited = slices.Clone(work.distance), slices.Clone(work.previous), slices.Clone(work.visited)
-		work.queue, work.touched = slices.Clone(work.queue), slices.Clone(work.touched)
+		work.queue, work.touched, work.path = slices.Clone(work.queue), slices.Clone(work.touched), slices.Clone(work.path)
 	}
 	return memos
 }

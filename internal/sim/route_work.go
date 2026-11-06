@@ -1,6 +1,9 @@
 package sim
 
-import "math"
+import (
+	"math"
+	"slices"
+)
 
 // routeSearchWork belongs to one simulation. Search results have separate
 // storage, so another search can reuse these arrays and the heap.
@@ -13,6 +16,9 @@ type routeSearchWork struct {
 	// and reset restores only those nodes. routeTargets does not add to it,
 	// because it uses its work value for one search only.
 	touched []int
+	// path holds the lane indexes of the bank route of the last call of
+	// bankPathNodes.
+	path []int
 	// searches counts the calls of reset, which is one for each
 	// shortest-path search, and localFailed the same-bank local attempts
 	// of bankRoute that found no path. searchRoute reads them for the
@@ -40,6 +46,26 @@ func (w *routeSearchWork) reset(nodes int) {
 	}
 	w.touched = w.touched[:0]
 	w.queue = w.queue[:0]
+}
+
+// appendPath adds the lane indexes of the route that the last search found, in
+// route order, to path. On an error, it adds nothing.
+func (w *routeSearchWork) appendPath(graph routeGraph, from, to int) error {
+	if math.IsInf(w.distance[to], 1) {
+		return ErrUnreachable
+	}
+	start := len(w.path)
+	for current := to; current != from; {
+		lane := w.previous[current]
+		if lane < 0 {
+			w.path = w.path[:start]
+			return ErrUnreachable
+		}
+		w.path = append(w.path, lane)
+		current = graph.edges[lane].from
+	}
+	slices.Reverse(w.path[start:])
+	return nil
 }
 
 func (s *Simulation) searchRoute(input networkRouteInput) ([]Lane, error) {
