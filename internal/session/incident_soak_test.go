@@ -73,6 +73,8 @@ func soakPreset(t *testing.T, name string) project.Config {
 		config = scenarios.RailHub()
 	case "london-central":
 		config = scenarios.LondonCentral()
+	case soakExpressPreset:
+		config = soakExpressProject(t)
 	case "fleet-300", "fleet-1000":
 		// No preset has the fleet of the worst-case rows of section 5.1.9.
 		pods, err := strconv.Atoi(strings.TrimPrefix(name, "fleet-"))
@@ -1179,6 +1181,9 @@ var soakGroups = []struct {
 	{"reference-platoons", []string{"platoons"}},
 }
 
+// soakDefaultPresets lists the presets of a soak that selects none.
+const soakDefaultPresets = "rail-hub,london-central"
+
 // soakShape is the size of a soak on one preset.
 type soakShape struct {
 	// seeds is the number of seeds. warmTicks is the warm time of a seed, and
@@ -1205,6 +1210,9 @@ func soakShapeOf(name, preset string) (soakShape, error) {
 		const warm, rewind = 30 * 60 * sim.TicksPerSecond, 10 * 60 * sim.TicksPerSecond
 		if preset == "london-central" {
 			return soakShape{seeds: 1, warmTicks: warm, branches: 3, hours: 1, rewindEvery: rewind, arms: []string{"incidents", "emergencies", "reference"}}, nil
+		}
+		if preset == soakExpressPreset {
+			return soakShape{seeds: 1, warmTicks: warm, branches: 10, hours: 1.5, rewindEvery: rewind, arms: soakExpressArms}, nil
 		}
 		return soakShape{seeds: 1, warmTicks: warm, branches: 10, hours: 1.5, rewindEvery: rewind, arms: soakAllArms}, nil
 	case "seeds":
@@ -1262,7 +1270,7 @@ func TestIncidentSoak(t *testing.T) {
 	base := soakInput{checks: os.Getenv("PODSIM_SOAK_CHECKS") != "0", everyTick: os.Getenv("PODSIM_SOAK_EVERY_TICK") == "1",
 		settle:    soakEnvNumber(t, "PODSIM_SOAK_SETTLE_MINUTES", int64(30)) * 60 * sim.TicksPerSecond,
 		checkFrom: int64(soakEnvNumber(t, "PODSIM_SOAK_CHECK_FROM_HOURS", 0.0) * soakTicksPerHour)}
-	for preset := range strings.SplitSeq(soakEnv("PODSIM_SOAK_PRESETS", "rail-hub,london-central"), ",") {
+	for preset := range strings.SplitSeq(soakEnv("PODSIM_SOAK_PRESETS", soakDefaultPresets), ",") {
 		shape, err := soakShapeOf(soakEnv("PODSIM_SOAK_SHAPE", "branches"), preset)
 		if err != nil {
 			t.Fatal(err)
@@ -2126,6 +2134,7 @@ func TestSoakShape(t *testing.T) {
 	}{
 		{"branches", "rail-hub", soakShape{seeds: 1, warmTicks: 30 * minute, branches: 10, hours: 1.5, rewindEvery: 10 * minute, arms: soakAllArms}},
 		{"branches", "london-central", soakShape{seeds: 1, warmTicks: 30 * minute, branches: 3, hours: 1, rewindEvery: 10 * minute, arms: []string{"incidents", "emergencies", "reference"}}},
+		{"branches", soakExpressPreset, soakShape{seeds: 1, warmTicks: 30 * minute, branches: 10, hours: 1.5, rewindEvery: 10 * minute, arms: []string{"incidents", "emergencies", "reference"}}},
 		{"seeds", "rail-hub", soakShape{seeds: 5, branches: 1, hours: 6, rewindEvery: 60 * minute, arms: soakAllArms}},
 		{"seeds", "london-central", soakShape{seeds: 5, branches: 1, hours: 6, rewindEvery: 60 * minute, arms: soakAllArms}},
 	}
