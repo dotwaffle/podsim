@@ -21,13 +21,13 @@ func TestPresetOutputIsPinned(t *testing.T) {
 		config func() project.Config
 		sha256 string
 	}{
-		{name: "small", config: Small, sha256: "057249ff213fd252742e1ba0f17a0ed66f848855b174994799b172596b90c997"},
-		{name: "busy", config: Busy, sha256: "6343f7eaefd21c87b94fa3d0a116e97b64db314d1d496a0f89175cf2210f5842"},
-		{name: "parking constrained", config: ParkingConstrained, sha256: "7862b9a782a1a0873298bf464e6937ab2e70f53d9bcb8192618fb4ed336273a4"},
-		{name: "rail hub", config: RailHub, sha256: "860b79896728fed03c01d1aa422503c0aa0f965d5e0d59bc987addd8d4fea56c"},
-		{name: "rail hub incidents", config: RailHubIncidents, sha256: "13a406742e455aaec937f207ec4cc85f5144c8bcf6d949c9217a325ca081481b"},
-		{name: "scale 100", config: Scale100, sha256: "303e2ac868d415ddc67db4c10cc31dce50faf8ebc12edfea38c69a27c7e175d3"},
-		{name: "LondonCentral", config: LondonCentral, sha256: "4ea0ac3bd9ef4a8623f4e26789c517295a6fdb3be61be95b719fb6d5e19ad464"},
+		{name: "small", config: Small, sha256: "5fa9f29ffb06c3c6b3b3ab44d300dbee369062a960676c16b3a6e419a7ea196a"},
+		{name: "busy", config: Busy, sha256: "36d3215166d3a023a8644222dcfc01e796bf3267e9f5a362ad8732e90c945a5a"},
+		{name: "parking constrained", config: ParkingConstrained, sha256: "81ad8e19615e4bc4a2f878cc4bb72c7834cffa356a20d7da13fcc5dedb526841"},
+		{name: "rail hub", config: RailHub, sha256: "3a6b4edf19c1cd81f8f1c287a6ae475b1e7f3e210261a1b962029ae7c38f0a9b"},
+		{name: "rail hub incidents", config: RailHubIncidents, sha256: "75955523c01411ebba73597a1b1577fe9213bb2c7a648512bb6d9f2bfde9343f"},
+		{name: "scale 100", config: Scale100, sha256: "cc2dc4cd73cb260e42242c79b19ca7accb8330a1088a203929133226fa8e82d2"},
+		{name: "LondonCentral", config: LondonCentral, sha256: "6ab9d424578fc4d23f304a56bf53a1909141a357db1a2573d72adbe2f1e633ea"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

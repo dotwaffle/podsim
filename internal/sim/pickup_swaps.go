@@ -33,8 +33,8 @@ type pickupSwapController struct {
 	stats         PickupSwapStats
 }
 
-// SetPickupSwaps enables experimental pickup reassignment. It is off
-// by default. Reset keeps enablement but
+// SetPickupSwaps enables pickup reassignment. It is off until a caller
+// enables it, and a project sets it. Reset keeps enablement but
 // clears its history. Saved states do not retain the policy or its history.
 func (s *Simulation) SetPickupSwaps(enabled bool) {
 	if s.pickupSwaps == nil {

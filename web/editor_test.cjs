@@ -3084,6 +3084,7 @@ test("an empty scenario and the fallback draft have the default settings", () =>
     assert.equal(config.sharedRidePartyLimit, 1, tc.name);
     assert.deepEqual([config.sharedRideMode, config.sharedRideMaxStops], ["drop-offs", 3], tc.name);
     assert.equal(config.platoonLimit, 0, tc.name);
+    assert.deepEqual([config.pickupReassignment, config.redistribution], [true, true], tc.name);
   }
 });
 

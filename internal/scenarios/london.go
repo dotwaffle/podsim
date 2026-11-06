@@ -411,7 +411,9 @@ func londonConfig(source londonSource, capacity londonCapacity, defaultCapacity 
 		// Virtual platoons raise the Early limit, where queues on the
 		// track set the limit. See the London capacity envelope in the
 		// qualification record.
-		PlatoonLimit: sim.MaxPlatoonLimit,
+		PlatoonLimit:       sim.MaxPlatoonLimit,
+		Redistribution:     true,
+		PickupReassignment: true,
 		// The editor places a map image with this reference, which is the
 		// reference of londonPoint.
 		Geo: &project.Geo{Latitude: londonReferenceLatitude, Longitude: londonReferenceLongitude, Projection: project.GeoProjection, Radius: project.GeoRadius},

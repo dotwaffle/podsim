@@ -36,7 +36,10 @@ func londonQualificationBuild(compact bool) (project.Config, error) {
 			options.Berths[id] = 3
 		}
 	}
-	return scenarios.LondonFullWith(options)
+	config, err := scenarios.LondonFullWith(options)
+	// The service-byte contract qualifies the fleets with these policies off.
+	config.Redistribution, config.PickupReassignment = false, false
+	return config, err
 }
 
 var (

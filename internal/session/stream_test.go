@@ -24,7 +24,7 @@ import (
 
 func streamFixture(t *testing.T) (*Session, StreamFrame) {
 	t.Helper()
-	s, err := New()
+	s, err := NewWithProject(policiesOffProject())
 	if err != nil {
 		t.Fatal(err)
 	}

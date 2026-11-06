@@ -65,6 +65,9 @@ func policyRestartFixture(t *testing.T) (project.Config, sim.SavedState) {
 	t.Helper()
 	config := project.Default()
 	config.PickupReassignment = true
+	// The fixture state comes from a simulation with no positioning, and a
+	// restore with positioning on moves its next check.
+	config.Redistribution = false
 	config.Fleet = append(config.Fleet, sim.Placement{ID: "03", StationID: "parking", BerthID: "parking-1"})
 	for index := range config.Network.Nodes {
 		config.Network.Nodes[index].Position.X *= 4

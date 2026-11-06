@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
@@ -28,7 +27,7 @@ import (
 func TestCommandDigestBaseline(t *testing.T) {
 	t.Parallel()
 	const path = "testdata/command_digests.txt"
-	plain := project.Default()
+	plain := policiesOffProject()
 	express := expressConsumerProject(t)
 	commands := []struct {
 		name    string

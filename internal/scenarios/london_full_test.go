@@ -176,8 +176,8 @@ func TestLondonCentralMirroredBytesPinned(t *testing.T) {
 		config project.Config
 		want   string
 	}{
-		{"default", config, "7d9259b02d1f067419ac1dd4dcda4ff811f2950c27332c8844cc57c4c1175c4e"},
-		{"opt-out", londonVariantPresets[0].ordinary(t), "4cda23d6a93502a77ee8f696841aed92919c607dc07bc4e59abbd10ad26bb783"},
+		{"default", config, "344889ab4fa28e853b956e063d0ebdc39b5a262028d2d48029799a84aadd1ea2"},
+		{"opt-out", londonVariantPresets[0].ordinary(t), "63ed02aceb380056d75073efc01cbb5d57fc2ee2f6deb08e4358c12c47c68c3d"},
 	} {
 		test.config.Name = "Central London Underground-derived PRT"
 		raw, err := jsonv2.Marshal(test.config, json.DefaultOptionsV1())

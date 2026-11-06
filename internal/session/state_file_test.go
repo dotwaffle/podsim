@@ -35,13 +35,22 @@ const (
 	testBuildID = "b9a50fb31ed44c66"
 )
 
+// policiesOffProject returns the example project with redistribution and
+// pickup reassignment off. The goldens pin the formats with this project, so
+// a change of the example defaults does not change their bytes.
+func policiesOffProject() project.Config {
+	config := project.Default()
+	config.Redistribution, config.PickupReassignment = false, false
+	return config
+}
+
 // newTestStateFile returns the state file of the example project with
 // demand, an active journey, a save point and generated orders. The clock
 // does not run, so the pods do not move and no value depends on the
 // floating-point behavior of a machine.
 func newTestStateFile(t *testing.T) stateFile {
 	t.Helper()
-	config := project.Default()
+	config := policiesOffProject()
 	config.Demand.Enabled = true
 	shared, err := NewWithProject(config, WithBuildID(testBuildID))
 	if err != nil {

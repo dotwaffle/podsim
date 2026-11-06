@@ -132,7 +132,8 @@ func londonFullConfig(source londonSource, capacity londonCapacity, defaultCapac
 		Demand:         project.DemandConfig{PerMinute: 10, Pattern: "profile", Seed: 20260929, Profile: londonFullDemandProfileID, Band: "am-peak"},
 		DemandProfiles: []project.DemandProfile{profile},
 		PlatoonLimit:   sim.MaxPlatoonLimit,
-		Geo:            &project.Geo{Latitude: londonReferenceLatitude, Longitude: londonReferenceLongitude, Projection: project.GeoProjection, Radius: project.GeoRadius},
+		Redistribution: true, PickupReassignment: true,
+		Geo: &project.Geo{Latitude: londonReferenceLatitude, Longitude: londonReferenceLongitude, Projection: project.GeoProjection, Radius: project.GeoRadius},
 	}
 	if err := project.Validate(config); err != nil {
 		return project.Config{}, fmt.Errorf("validate LondonFull scenario: %w", err)

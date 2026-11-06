@@ -113,14 +113,14 @@ func TestRunWritesRailHubPreset(t *testing.T) {
 func TestRunWithoutFlagsKeepsPresets(t *testing.T) {
 	t.Parallel()
 	tests := map[string]string{
-		"small":               "61ee38c3cf6688a946e8f4dd433c6ae03e3fcbc2541efc41a00a00896318611c",
-		"busy":                "cebfe3bd173bdfbd3d852034b1670a056225ad49d4dde44f9cf52fc5dcddb402",
-		"parking-constrained": "28cc9e22424a39991794f8981a0427db0964c985ac4b8d878da374ee2fa29f67",
-		"rail-hub":            "dddc9926188715eb653f20176dcbfc118a6b8f013ef5b0148d6efd3c5b5d9ff9",
-		"rail-hub-incidents":  "79a07d2b1ec8c7aa10070fa2e4a1c550c7043fc8fcfd20fb9cc2a9788d6d04db",
-		"scale100":            "fc5896f7c9e5efd30e75a5b83937df95848c1e2d3133b5be07bbbcb792727dc1",
-		"london-central":      "788735e3bb5e45989bb447faac82bd6e1ab3d678039d941e55632db4f59f749f",
-		"london-full":         "e218b3ceeb67bd3fb1ecce6f62a5f070e76ba2a2e0deb82a84a3f6714aa8f329",
+		"small":               "c6cef78005b07bc1a58f277bb30655ffee1b6a0424c00cb2598b50a270b7a172",
+		"busy":                "a3b8cc1b9397fdead60159bb2f36d83e191ef4a23aace9446279fdb9f137a921",
+		"parking-constrained": "006dffebdd023cad179272c051dbe7f4f24fb0dbd89931f829e86c25d7aa5adc",
+		"rail-hub":            "622c7d2a904691008a9d0309c46bdd62f1e7058b3a8f48cf0189ea3e9ab2a796",
+		"rail-hub-incidents":  "7d3d1c4309452899e666eee478b96923f39b03c32ac7903aaf16591d90167ca3",
+		"scale100":            "b8e952d7a1ae2f0fa1cc9f2022742b54cb101ffff78771d1a96cbec4552eac0f",
+		"london-central":      "140d6cc1ccfbad1521673b5e88a264259f56ff63a2abe4ee778bdd818240b655",
+		"london-full":         "9a3578978f6e0c3fd449a70d2c99bb091a41dcb84359b2cdab72a8ff95d0f781",
 	}
 	// networks holds the network SHA-256 of the summary line of the London
 	// presets.
@@ -155,6 +155,21 @@ func TestRunWithoutFlagsKeepsPresets(t *testing.T) {
 // give the networks of the presets without depots and Compact stations.
 // Without -parking-berths, -parking-lanes 0 gives the ordinary facilities
 // their own berth count.
+// TestRunPresetsTurnOnPolicies pins redistribution and pickup reassignment in
+// the output of each preset name, also the fixtures of this command.
+func TestRunPresetsTurnOnPolicies(t *testing.T) {
+	t.Parallel()
+	for _, preset := range presets {
+		t.Run(preset, func(t *testing.T) {
+			t.Parallel()
+			config, _ := generate(t, "-preset", preset)
+			if !config.Redistribution || !bool(config.PickupReassignment) {
+				t.Fatalf("redistribution %t, pickup reassignment %t, want on", config.Redistribution, config.PickupReassignment)
+			}
+		})
+	}
+}
+
 func TestRunLondonOptOut(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -197,7 +212,7 @@ func TestRunKeepsDepotRing(t *testing.T) {
 		t.Fatal(err)
 	}
 	sum := sha256.Sum256(output.Bytes())
-	if got, want := hex.EncodeToString(sum[:]), "638def202c4e350fb55fdedfab1f0d58929b0d41f8a966e1bda5f3b80497ac7b"; got != want {
+	if got, want := hex.EncodeToString(sum[:]), "ea1067554d432759306bd5601fe267fbccdfccdce99439e504422a7cdcbb0c5f"; got != want {
 		t.Fatalf("output SHA-256 = %s, want %s", got, want)
 	}
 }

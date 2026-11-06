@@ -24,7 +24,7 @@ func (flag *PolicyFlag) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// ConfigureExperiments applies the project's experimental controllers.
+// ConfigureExperiments applies the pickup reassignment setting of the project.
 // It also turns the fault and emergency operations on or off, as operations
 // says, with the faults settings. It cannot turn faults off while a fault is
 // active, or emergencies while an emergency is active, so a caller that

@@ -99,8 +99,8 @@
       sharedRideMode: "drop-offs",
       sharedRideMaxStops: 3,
       platoonLimit: 0,
-      pickupReassignment: false,
-      redistribution: false,
+      pickupReassignment: true,
+      redistribution: true,
     };
   }
 

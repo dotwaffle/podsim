@@ -11,7 +11,6 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
@@ -38,7 +37,7 @@ type stationObservationHTTPCase struct {
 // hand-written approximation of the packed request fields. Run with
 // -update-station-observations after an approved wire change alters the fixture.
 func TestStationObservationsHTTPFixture(t *testing.T) {
-	config := project.Default()
+	config := policiesOffProject()
 	shared, err := NewWithProject(config)
 	if err != nil {
 		t.Fatal(err)

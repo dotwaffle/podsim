@@ -3,6 +3,7 @@ package project
 import (
 	"bytes"
 	"encoding/json"
+	"encoding/json/jsontext"
 	jsonv2 "encoding/json/v2"
 	"fmt"
 	"testing"
@@ -76,5 +77,44 @@ func TestConfigureExperiments(t *testing.T) {
 	}
 	if simulation.PickupSwapStats() != (sim.PickupSwapStats{}) {
 		t.Fatal("disabled reassignment checked a new pickup")
+	}
+}
+
+// TestDefaultPolicies pins the example project: redistribution and pickup
+// reassignment on, and sharing, platoons, and onboard pickups off. A project
+// file that omits the two members has both off.
+func TestDefaultPolicies(t *testing.T) {
+	t.Parallel()
+	config := Default()
+	if !config.Redistribution || !bool(config.PickupReassignment) {
+		t.Fatalf("redistribution %t, pickup reassignment %t, want on", config.Redistribution, config.PickupReassignment)
+	}
+	if config.SharedRidePartyLimit != 1 || config.PlatoonLimit != 0 || config.OnboardPickups || config.GeneratedOrderConsent != "" {
+		t.Fatalf("party limit %d, platoon limit %d, onboard %t, consent %q", config.SharedRidePartyLimit, config.PlatoonLimit, config.OnboardPickups, config.GeneratedOrderConsent)
+	}
+	raw, err := jsonv2.Marshal(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var members map[string]jsontext.Value
+	if err = jsonv2.Unmarshal(raw, &members); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"redistribution", "pickupReassignment"} {
+		if _, ok := members[name]; !ok {
+			t.Fatalf("the encoded project has no %s member", name)
+		}
+		delete(members, name)
+	}
+	raw, err = jsonv2.Marshal(members)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var omitted Config
+	if err = jsonv2.Unmarshal(raw, &omitted); err != nil {
+		t.Fatal(err)
+	}
+	if omitted.Redistribution || bool(omitted.PickupReassignment) {
+		t.Fatalf("omitted members give redistribution %t, pickup reassignment %t, want off", omitted.Redistribution, omitted.PickupReassignment)
 	}
 }

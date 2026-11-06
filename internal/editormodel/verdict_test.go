@@ -135,8 +135,10 @@ func TestImportMatchesServerDecoder(t *testing.T) {
 	if err := json.Unmarshal(raw, &fixture); err != nil {
 		t.Fatal(err)
 	}
-	bases := map[string]any{"plain": project.Default(), "banks": bankEditorConfig(), "express": expressEditorConfig(t)}
+	bases := map[string]project.Config{"plain": project.Default(), "banks": bankEditorConfig(), "express": expressEditorConfig(t)}
 	for name, config := range bases {
+		// The fixture pins the decoders with these policies off.
+		config.Redistribution, config.PickupReassignment = false, false
 		if fixture.Bases[name] != string(encodeDraft(t, config)) {
 			t.Fatal("decoder fixture base differs from the native writer", name)
 		}

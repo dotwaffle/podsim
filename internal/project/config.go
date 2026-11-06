@@ -221,12 +221,15 @@ type Config struct {
 	GeneratedOrderConsent sim.SharingConsent `json:"generatedOrderConsent,omitempty" digest:"ext=15"`
 	// OnboardPickups permits shared parties to join an occupied pod at a passenger berth.
 	OnboardPickups bool `json:"onboardPickups,omitzero"`
-	// PickupReassignment enables experimental empty-pod pickup replacement.
+	// PickupReassignment enables empty-pod pickup replacement. An absent
+	// member is off, and the presets and Default turn it on.
 	PickupReassignment PolicyFlag `json:"pickupReassignment,omitzero"`
 	// PlatoonLimit is the largest number of pods in one virtual platoon,
 	// from sim.MinPlatoonLimit to sim.MaxPlatoonLimit. Zero turns platoons
 	// off.
-	PlatoonLimit   int  `json:"platoonLimit,omitzero"`
+	PlatoonLimit int `json:"platoonLimit,omitzero"`
+	// Redistribution selects guarded positioning. An absent member is off,
+	// and the presets and Default turn it on.
 	Redistribution bool `json:"redistribution"`
 	// Geo is the geographic reference, or nil for a project with no
 	// reference. A reference at latitude 0 and longitude 0 is valid.
@@ -247,6 +250,8 @@ func Default() Config {
 		},
 		Demand:               DemandConfig{PerMinute: 2, Pattern: "balanced", Seed: 1},
 		SharedRidePartyLimit: 1,
+		Redistribution:       true,
+		PickupReassignment:   true,
 	}
 }
 

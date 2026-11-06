@@ -40,6 +40,7 @@ type Parameters struct {
 	DemandPerMinute    int
 	DemandSeed         uint64
 	Redistribution     bool
+	PickupReassignment bool
 	// StationBerths holds the berth count of single stations by station ID:
 	// station-01 and on, or parking.
 	StationBerths map[string]int
@@ -179,7 +180,8 @@ func Config(parameters Parameters) (project.Config, error) {
 			Pattern:   "balanced",
 			Seed:      parameters.DemandSeed,
 		},
-		Redistribution: parameters.Redistribution,
+		Redistribution:     parameters.Redistribution,
+		PickupReassignment: project.PolicyFlag(parameters.PickupReassignment),
 	}
 	config.Fleet = placements(parameters)
 	if err := project.Validate(config); err != nil {
@@ -260,6 +262,7 @@ func smallParameters() Parameters {
 	return Parameters{
 		Name: "Small qualification ring", Stations: 5, Pods: 12,
 		PassengerBerths: 4, ParkingBerths: 4, DemandPerMinute: 8, DemandSeed: 11,
+		Redistribution: true, PickupReassignment: true,
 	}
 }
 
@@ -273,6 +276,7 @@ func busyParameters() Parameters {
 		Name: "Busy qualification ring", Stations: 8, Pods: 32,
 		PassengerBerths: 5, ParkingBerths: 10, InitialParkingPods: 4,
 		DemandPerMinute: 30, DemandSeed: 23,
+		Redistribution: true, PickupReassignment: true,
 	}
 }
 
@@ -286,6 +290,7 @@ func parkingConstrainedParameters() Parameters {
 		Name: "Parking-constrained qualification ring", Stations: 6, Pods: 20,
 		PassengerBerths: 4, ParkingBerths: 1, InitialParkingPods: 1,
 		DemandPerMinute: 30, DemandSeed: 37,
+		Redistribution: true, PickupReassignment: true,
 	}
 }
 
@@ -299,6 +304,7 @@ func railHubParameters() Parameters {
 		Name: "Rail-hub burst experiment", Stations: 7, Pods: 30,
 		PassengerBerths: 6, ParkingBerths: 12, InitialParkingPods: 12,
 		DemandPerMinute: 12, DemandSeed: 41,
+		Redistribution: true, PickupReassignment: true,
 	}
 }
 
@@ -392,6 +398,8 @@ func scale100Config(parameters Parameters) (project.Config, error) {
 			Pattern:   "balanced",
 			Seed:      parameters.DemandSeed,
 		},
+		Redistribution:     parameters.Redistribution,
+		PickupReassignment: project.PolicyFlag(parameters.PickupReassignment),
 	}
 	if nodes, lanes := len(config.Network.Nodes), len(config.Network.Lanes); nodes > maximumNodes || lanes > maximumLanes {
 		return project.Config{}, fmt.Errorf("generated network needs %d nodes and %d lanes, more than the limits of %d and %d", nodes, lanes, maximumNodes, maximumLanes)
@@ -408,6 +416,7 @@ func scale100Parameters() Parameters {
 		Name: "Scale qualification: 20 stations and 100 pods", Stations: meshStations, Pods: 100,
 		PassengerBerths: 6, ParkingBerths: 24, InitialParkingPods: 5,
 		DemandPerMinute: 20, DemandSeed: 100,
+		Redistribution: true, PickupReassignment: true,
 	}
 }
 
