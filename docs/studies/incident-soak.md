@@ -649,10 +649,13 @@ Its reference queue reaches 6, and 4 of the 10 branches miss the queue check, wi
 So this check can fail once demand is below the fleet supply, and the pass of the Express party project does not show that Express drains better than Legacy, because the two projects differ in pooling and in party size.
 I read these misses as a backlog that drains at the rate of the fleet, but I did not measure the drain.
 
-The path `Idle pod, leg free` fired for the first time in any soak.
+These runs were before amendment A13.
+The path `Idle pod, leg free` fired here, as it did on `platoons` seed 5 in the section "Coverage of the rare paths".
 A logging copy of seed 1 branch 3 and of seed 2 branch 9 gives one record for each: 90 s and 237 s.
 In each, an occupied pod with an emergency reports `No parking available` and names as its blocker an empty pod that is ready at a berth.
 Rule A counts this time as not blocked, so it counts against the limit, and the longest of those records stayed under the limit.
+A rerun of seed 2 branch 9 at `58014d25`, with A13, gives `moveBlocked=237` and `legFree=0`, so that branch is the case of A13.
+The longest not-blocked time of that branch is 203.7 s.
 The other 96 readings of seed 2 have no logging run.
 The same control has this path too, with 3 readings of the same form on a Legacy pod, so it is not special to Express.
 The runs at the preset demand have no such reading, and I did not test why.
