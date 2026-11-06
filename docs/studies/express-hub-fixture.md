@@ -590,3 +590,214 @@ The rates cover minutes 20 to 30 only, which is a shorter window than `docs/stud
 The Bank gain includes a change from 2 berths to 4.
 Banks at Waterloo add about 10 percent to the AM hub rate at one seed, and banks at Bank add none.
 Not checked: other seeds, the individual gates, conservation, reproducibility, and the parking drain on the new layouts, save and restore, and whether the land and the flyovers are feasible.
+
+## Screen of project D
+
+Project D has banks at Waterloo and Bank, using `D-attempt-9.json` from "Banks on the fixture."
+This screen uses policies on, seeds 1 to 3, 60 minutes of arrivals, and the same 327 Compact placements.
+Express adds 16 Express pods, and control removes them while retaining D's layout.
+Baseline uses the earlier `baseline-true-1.log` through `baseline-true-3.log` runs.
+The schedules contain 909, 939, and 910 offered parties.
+Their identities, ticks, endpoints, and sizes match across baseline, D control, D Express, and A Express.
+Each schedule includes 599 background riders.
+All eight D runs exit with 0.
+The run logs were scratch and are deleted, and branch `study/express-fixture` keeps the code that makes them.
+Control wall seconds are 135 / 133 / 132, and Express wall seconds are 1138 / 1137 / 1129.
+The repeat takes 1137 seconds, and the drain takes 3686 seconds.
+
+Rates below cover minutes 20 to 60, including the final tick.
+Passenger rates include completed parts of split Compact parties.
+A whole party completes only when every part completes.
+Completions can belong to parties offered before minute 20.
+
+| Seed | Arm | Waterloo to Bank passengers/min | Waterloo to Bank whole parties/min | Bank to Waterloo passengers/min | Background completed |
+| --- | --- | --- | --- | --- | --- |
+| 1 | baseline | 11.550 | 0.800 | 0.225 | 160 |
+| 1 | control | 11.125 | 0.775 | 0.225 | 164 |
+| 1 | express | 41.950 | 3.975 | 0.275 | 376 |
+| 2 | baseline | 9.925 | 1.100 | 0.000 | 161 |
+| 2 | control | 11.450 | 1.000 | 0.000 | 159 |
+| 2 | express | 41.575 | 4.350 | 0.000 | 375 |
+| 3 | baseline | 8.000 | 0.850 | 0.000 | 153 |
+| 3 | control | 8.850 | 0.950 | 0.000 | 148 |
+| 3 | express | 42.675 | 4.425 | 0.000 | 350 |
+
+Express improves Waterloo to Bank passenger and whole-party throughput against baseline and control in every seed.
+Reverse-direction service remains sparse, with no late completion in seeds 2 and 3.
+This does not establish a reverse-direction gain.
+
+The individual pickup gate permits additional wait of at most `max(30 seconds, 5% of baseline wait)`.
+The individual journey gate permits additional time of at most `max(60 seconds, 5% of baseline journey)`.
+Both times start at the offered tick.
+The following comparisons use all matched background events through minute 60, including cross-window matches.
+Using only matches inside minutes 20 to 60 would omit some exceedances.
+
+| Seed | Against baseline | Matched waits | Wait exceedances | Matched journeys | Journey exceedances |
+| --- | --- | --- | --- | --- | --- |
+| 1 | control | 249 | 57 | 213 | 41 |
+| 1 | express | 258 | 0 | 218 | 0 |
+| 2 | control | 234 | 51 | 197 | 35 |
+| 2 | express | 246 | 0 | 208 | 0 |
+| 3 | control | 231 | 44 | 197 | 32 |
+| 3 | express | 240 | 0 | 210 | 0 |
+
+No D Express rider exceeds either individual limit in the matched background cohort.
+Seed 2 party 240, request 241, boards immediately in D, against 3.53 seconds in baseline and 88.57 seconds in A.
+Its D journey takes 516.80 seconds against 1168.00 seconds in baseline.
+The A screen's pickup exception is therefore not needed for D.
+The logs do not trace this rider's D dispatch path, so they do not establish which layout change removes the delay.
+
+The table below names every control rider who exceeds a gate, using the schedule's party ID.
+Each background party has one rider.
+For every listed pickup exceedance, the log establishes later boarding.
+It does not record the dispatch or vehicle history needed to explain the delay.
+For every listed journey exceedance, the log establishes later completion but does not identify its cause.
+Some riders exceed both gates.
+These control logs contain no per-rider trace, so no individual mechanism can be assigned to any listed rider.
+
+| Seed | Control gate | Party IDs |
+| --- | --- | --- |
+| 1 | Pickup | 93, 126, 143, 151, 153, 172, 176, 178, 190, 199, 202, 205, 211, 213, 215, 217, 228, 239, 243, 245, 253, 266, 271, 276, 278, 281, 282, 287, 288, 294, 295, 300, 305, 310, 311, 315, 316, 319, 323, 324, 331, 333, 335, 336, 338, 339, 342, 343, 344, 351, 353, 357, 365, 370, 374, 385, 399 |
+| 1 | Journey | 25, 59, 93, 95, 109, 149, 172, 176, 190, 194, 199, 202, 205, 211, 213, 215, 217, 228, 241, 243, 245, 253, 266, 276, 278, 281, 282, 287, 288, 300, 305, 311, 315, 324, 333, 335, 336, 338, 339, 342, 370 |
+| 2 | Pickup | 33, 97, 141, 157, 159, 168, 170, 173, 177, 183, 187, 188, 197, 218, 233, 237, 239, 242, 246, 247, 250, 259, 261, 265, 267, 275, 276, 278, 280, 285, 297, 298, 303, 311, 314, 326, 327, 332, 334, 335, 337, 339, 343, 346, 347, 351, 355, 359, 371, 376, 382 |
+| 2 | Journey | 96, 97, 133, 141, 150, 159, 168, 170, 177, 183, 187, 197, 218, 233, 237, 239, 240, 242, 250, 259, 261, 275, 280, 285, 298, 304, 334, 335, 339, 343, 346, 355, 371, 376, 382 |
+| 3 | Pickup | 39, 41, 120, 134, 136, 138, 155, 162, 167, 183, 186, 200, 221, 223, 234, 238, 243, 247, 249, 251, 255, 261, 263, 264, 266, 268, 275, 289, 292, 301, 302, 313, 323, 326, 328, 332, 333, 337, 338, 343, 351, 353, 366, 371 |
+| 3 | Journey | 6, 31, 39, 41, 43, 99, 108, 120, 136, 138, 144, 155, 162, 167, 186, 200, 223, 234, 238, 243, 247, 249, 251, 255, 261, 264, 266, 268, 301, 333, 338, 351 |
+
+The wait percentiles below use the matched pickup cohort for each baseline comparison, with the nearest-rank method.
+Times are simulated seconds.
+The baseline cohort can differ between the control and Express comparisons.
+
+| Seed | Comparison arm | Matched | Baseline p95 | Baseline p99 | Arm p95 | Arm p99 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | control | 249 | 1710.53 | 2120.60 | 1862.70 | 2133.77 |
+| 1 | express | 258 | 1785.07 | 2120.60 | 303.07 | 473.30 |
+| 2 | control | 234 | 1773.27 | 2098.73 | 1787.37 | 2091.10 |
+| 2 | express | 246 | 1898.33 | 2142.53 | 450.67 | 820.80 |
+| 3 | control | 231 | 1839.57 | 2200.37 | 1898.70 | 2085.27 |
+| 3 | express | 240 | 1921.73 | 2200.37 | 278.60 | 476.53 |
+
+Censored riders remain outside these percentile and exceedance calculations.
+The following counts give baseline-only events, candidate-only events, and events absent in both arms, respectively.
+They cover all 599 background riders at minute 60.
+An absent event cannot pass an individual gate by omission.
+
+| Seed | Arm | Pickup: baseline only / arm only / neither | Completion: baseline only / arm only / neither |
+| --- | --- | --- | --- |
+| 1 | control | 9 / 3 / 338 | 5 / 8 / 373 |
+| 1 | express | 0 / 296 / 45 | 0 / 236 / 145 |
+| 2 | control | 12 / 8 / 345 | 11 / 10 / 381 |
+| 2 | express | 0 / 322 / 31 | 0 / 239 / 152 |
+| 3 | control | 9 / 8 / 351 | 13 / 9 / 380 |
+| 3 | express | 0 / 322 / 37 | 0 / 226 / 163 |
+
+Every background rider completed by baseline also completes in D Express by the same 60-minute cap.
+This checks background finite recovery at these seeds, but does not qualify the full workload or the censored riders.
+
+All eight D runs report zero oracle failures.
+The seven 60-minute runs cover 108,000 ticks each, and the drain covers 270,000 ticks.
+No separation, speed, or ownership failure is reported.
+The reused baseline and A logs also report zero oracle failures.
+
+`compare.py` finds all 909 Express seed 1 order records identical to the repeat, byte for byte.
+All 61 state and metric records match by value.
+All 61 differ in JSON bytes because map keys have different orders.
+The 62 configuration and progress records match after removal of elapsed timers.
+This establishes reproducibility of the logged records for this binary and seed.
+
+The drain stops arrivals at minute 60 and ends at the fixed minute-150 cap.
+Using `summarize.py`'s record reader, all 901 conservation records have consistent request and hub-passenger balances.
+These records include 900 checks at 300-tick intervals and the final check.
+The final order records have 909 unique request IDs and 909 unique party IDs.
+All 909 orders complete, with no interrupted, lost, or duplicate order found.
+
+| Checkpoint | Accepted requests = completed + interrupted + queued + aboard | Hub passengers = completed + waiting + aboard |
+| --- | --- | --- |
+| Minute 60 | 909 = 657 + 0 + 136 + 116 | 3241 = 1992 + 1091 + 158 |
+| Minute 150 | 909 = 909 + 0 + 0 + 0 | 3241 = 3241 + 0 + 0 |
+
+The final hub party completes at tick 163116, minute 90.620.
+The final request completes at tick 199032, minute 110.573.
+The minute-60 hub backlog is 1249 passengers, including 158 aboard.
+The drain's first 60 minute-state samples match the Express seed 1 samples by value.
+Its next state sample is tick 108001, whereas the 60-minute run ends at tick 108000.
+Those boundary samples are not the same observation.
+
+Parking occupancy starts at 16 and reaches zero at minute 3.028.
+It stays at zero until the first return at minute 95.518.
+The following values show the later minute samples.
+
+| Minute | Express pods in parking |
+| --- | --- |
+| 60 | 0 |
+| 90 | 0 |
+| 95 | 0 |
+| 96 | 2 |
+| 97 | 3 |
+| 98 | 5 |
+| 99 | 7 |
+| 100 | 9 |
+| 101 | 12 |
+| 102 | 14 |
+| 110 | 14 |
+| 150 | 14 |
+
+The fourteenth return occurs at minute 101.833, and occupancy stays at 14 through minute 150.
+Express 09 and Express 11 remain idle at Bank berths 02 and 01.
+Their last state changes occur at minutes 90.620 and 90.208, respectively.
+Every minute sample from minute 91 through minute 150 shows both ready, empty, with no destination, wait reason, or blocker.
+The final per-pod records confirm both at Bank, with `Returned=0`.
+Shorter idle samples also show Express 10 at minute 84, Express 14 at minutes 86 and 87, and Express 07 at minute 90.
+No sampled idle Express pod stands at Waterloo during the drain.
+All requests complete, so these idle Bank pods do not cause an unresolved deadlock in this run.
+
+Compact blocking by Express remains visible in the cumulative counters.
+The three Express runs record 922 / 559 / 665 sampled blocked pod-seconds over minutes 0 to 60.
+The minutes-20-to-60 increments are 798 / 237 / 490 pod-seconds.
+These counters name pod pairs but do not record the blocker's activity or station.
+They cannot establish how much blocking occurs at Bank or involves an idle Express pod.
+In the drain, no Compact-by-blocker counter increases during the minute intervals after any sampled idle Express pod at Bank.
+The counters for Compact pods blocked by Express 09 and Express 11 also stay unchanged from minute 91 through minute 150.
+This finds no logged Compact blockage by the two pods that remain idle at Bank.
+It cannot exclude shorter idle blocks between samples or idle blocks before minute 60.
+The D logs lack the Compact positions and per-tick blocker states needed for that check.
+
+The following comparison uses the same policies-on windows and schedules for A and D.
+Each A / D cell keeps the two projects separate.
+
+| Seed | Waterloo to Bank passengers/min, A / D | Whole parties/min, A / D | Background completed, A / D | Full-cap pickup exceedances, A / D |
+| --- | --- | --- | --- | --- |
+| 1 | 38.125 / 41.950 | 3.575 / 3.975 | 376 / 376 | 0 / 0 |
+| 2 | 38.375 / 41.575 | 4.025 / 4.350 | 373 / 375 | 1 / 0 |
+| 3 | 37.775 / 42.675 | 3.875 / 4.425 | 351 / 350 | 0 / 0 |
+
+Neither A nor D has a matched background journey exceedance against baseline in these seeds.
+D raises Waterloo to Bank passenger throughput by 10.0%, 8.3%, and 13.0% over A.
+D changes background completions by 0, +2, and -1 in the late window.
+
+Design rule result: observed safety passes in all D runs.
+Conservation passes in the seed 1 drain, and logged reproducibility passes at seed 1.
+No unresolved deadlock occurs in that drain, and hub throughput improves against baseline and control in every seed.
+D Express passes both individual gates for observed matched background riders, with censored riders unresolved.
+D control fails both individual gates in every seed.
+These results support further bounded qualification of D Express, not adoption or a default change.
+
+Not checked: reproducibility or parking drains at seeds 2 and 3, and unlogged internal state.
+Full per-tick Compact blockage by idle Express pods at Bank is also unchecked.
+Also not checked: restore fidelity, all demand bands and seeds 1 to 10, mixed Acton traffic, and the default live queue.
+Independent policy combinations are unchecked.
+The six-hour backlog, qualified capacity, aggregate-service limits, shared-detour limit, CPU limits, memory, GC, and network gates are not assessed here.
+The screen does not check land or flyover feasibility.
+
+Comparison cautions: baseline and A are reused historical runs.
+The logs lack independent execution-time source, runner, binary, and project hashes.
+Matching offers does not establish a current-source reproducibility bridge.
+D changes geometry and berth count together, so this screen cannot isolate their effects.
+Control splits hub parties into Compact orders, while Express carries whole parties without a Compact fallback.
+The direct submission path does not enforce the default live queue cap.
+Neither the sparse reverse flow nor censored riders supports a full service-gate pass.
+
+Verdict: D Express improves hub throughput in all three seeds and has no matched background individual exceedance.
+Safety, seed 1 drain conservation, and seed 1 logged reproducibility pass the observed checks.
+Two Express pods remain idle at Bank, with no unresolved drain deadlock or observed Compact counter increase during sampled idle intervals.
+Proceed only to further qualification, with censored riders, historical provenance, and unsampled idle blocking unresolved.
