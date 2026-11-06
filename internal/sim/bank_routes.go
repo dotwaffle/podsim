@@ -34,16 +34,21 @@ func (n Network) bankRoute(input networkRouteInput, graph routeGraph, work *rout
 	if !fromOK || !toOK {
 		return nil, fmt.Errorf("unknown route endpoint %q or %q", input.from, input.to)
 	}
+	return n.bankRouteNodes(input, from, to, graph, work)
+}
+
+// bankRouteNodes is bankRoute between node indexes, on a graph with no bank
+// error. It does not read input.from or input.to.
+func (n Network) bankRouteNodes(input networkRouteInput, from, to int, graph routeGraph, work *routeSearchWork) ([]Lane, error) {
 	if from == to {
 		return nil, nil
 	}
 	source, destination := graph.banks.nodes[from], graph.banks.nodes[to]
 	search := func(from, to int, allowed map[int]bool) ([]Lane, error) {
 		part := input
-		part.from, part.to = n.Nodes[from].ID, n.Nodes[to].ID
 		part.bankRaw, part.allowedLanes = true, allowed
 		part.bankExternal = allowed == nil
-		return n.routeIndexedWithWork(part, graph, work)
+		return n.routeNodes(part, from, to, graph, work)
 	}
 	// once returns the result in slot, and searches only for the first call.
 	// A call with no slot always searches.
@@ -230,6 +235,10 @@ func bankArrivalNode(bank bankTopology, graph routeGraph, node int) bool {
 }
 
 func (n Network) bankNearest(input preferredNearestInput, graph routeGraph) (int, bool) {
+	origin, ok := graph.nodes[input.from]
+	if !ok || graph.banks.err != nil {
+		return -1, false
+	}
 	best, seconds := -1, math.Inf(1)
 	// A search reads none of the work of the search before it, and the
 	// counters of this work reach no simulation.
@@ -245,13 +254,13 @@ func (n Network) bankNearest(input preferredNearestInput, graph routeGraph) (int
 		if rank < 0 {
 			continue
 		}
-		from, to := input.from, n.Nodes[node].ID
+		from, to := origin, node
 		if input.reverse {
 			from, to = to, from
 		}
-		route, err := n.routeIndexedWithWork(networkRouteInput{from: from, to: to, terminalBerthsOnly: true, class: input.class, parts: terminal}, graph, &work)
+		route, err := n.bankRouteNodes(networkRouteInput{terminalBerthsOnly: true, class: input.class, parts: terminal}, from, to, graph, &work)
 		if errors.Is(err, ErrUnreachable) {
-			route, err = n.routeIndexedWithWork(networkRouteInput{from: from, to: to, class: input.class, parts: open}, graph, &work)
+			route, err = n.bankRouteNodes(networkRouteInput{class: input.class, parts: open}, from, to, graph, &work)
 		}
 		if err != nil {
 			continue

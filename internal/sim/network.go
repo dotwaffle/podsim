@@ -270,6 +270,12 @@ func (n Network) routeIndexedWithWork(input networkRouteInput, graph routeGraph,
 	if !ok {
 		return nil, fmt.Errorf("unknown destination %q", input.to)
 	}
+	return n.routeNodes(input, from, to, graph, work)
+}
+
+// routeNodes is the search of routeIndexedWithWork, between node indexes. It
+// does not read input.from or input.to.
+func (n Network) routeNodes(input networkRouteInput, from, to int, graph routeGraph, work *routeSearchWork) ([]Lane, error) {
 	if !graph.nodeAllows(from, input.class) || !graph.nodeAllows(to, input.class) {
 		return nil, ErrUnreachable
 	}
