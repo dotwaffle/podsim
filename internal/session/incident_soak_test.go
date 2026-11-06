@@ -2512,8 +2512,19 @@ const (
 	// soakGateSuspension is the suspension row with amendment A7: a median of at
 	// most soakSuspensionMedian, and the same rule for the slowest tick.
 	soakGateSuspension
+	// soakGateEmergency is the emergency row with amendment A11: the median of
+	// soakEmergencyRuns runs is judged by soakEmergencyMedianFailure, and each run
+	// has the same rule for the slowest tick.
+	soakGateEmergency
 	// soakGateReport is a report with no gate, as the fleet-limit row is.
 	soakGateReport
+)
+
+// soakEmergencyRuns and soakEmergencyMedianFloor are the number of runs and the
+// smallest median limit of amendment A11.
+const (
+	soakEmergencyRuns        = 4
+	soakEmergencyMedianFloor = time.Microsecond
 )
 
 // soakSuspensionMedian is the median limit of amendment A7.
@@ -2529,6 +2540,8 @@ func soakTimeFailures(gate soakTimeGate, incident, reference soakTimes) []string
 		if incident.median > soakSuspensionMedian {
 			failures = append(failures, fmt.Sprintf("the median step %v is more than %v", incident.median, soakSuspensionMedian))
 		}
+	case soakGateEmergency:
+		// soakEmergencyMedianFailure reads the median over all the runs.
 	case soakGateRatio:
 		if float64(incident.median) > 1.1*float64(reference.median) {
 			failures = append(failures, fmt.Sprintf("the median step %v is more than 10 percent above %v", incident.median, reference.median))
@@ -2538,6 +2551,37 @@ func soakTimeFailures(gate soakTimeGate, incident, reference soakTimes) []string
 		failures = append(failures, fmt.Sprintf("the slowest step %v is more than twice %v", incident.slowest, reference.slowest))
 	}
 	return failures
+}
+
+// soakEmergencyMedianFailure gives the failure of the median rule of amendment
+// A11, or an empty string. The median of the differences between the runs must
+// be at most 10 percent of the median reference, or soakEmergencyMedianFloor if
+// that is larger. It compares each run with the reference of the same run.
+func soakEmergencyMedianFailure(incident, reference []soakTimes) string {
+	differences := make([]time.Duration, len(incident))
+	medians := make([]time.Duration, len(reference))
+	for index := range incident {
+		differences[index] = incident[index].median - reference[index].median
+		medians[index] = reference[index].median
+	}
+	difference, median := soakMiddle(differences), soakMiddle(medians)
+	limit := max(median/10, soakEmergencyMedianFloor)
+	if difference > limit {
+		return fmt.Sprintf("the median difference %v is more than %v, against the median %v", difference, limit, median)
+	}
+	return ""
+}
+
+// soakMiddle gives the median of values, and the mean of the two middle values
+// for an even count.
+func soakMiddle(values []time.Duration) time.Duration {
+	sorted := slices.Clone(values)
+	slices.Sort(sorted)
+	middle := len(sorted) / 2
+	if len(sorted)%2 == 1 {
+		return sorted[middle]
+	}
+	return (sorted[middle-1] + sorted[middle]) / 2
 }
 
 // checkSoakTimes reports the times of a Performance row, and it enforces the
@@ -2569,6 +2613,8 @@ func TestSoakTimeFailures(t *testing.T) {
 		{name: "suspension at the limit", gate: soakGateSuspension, incident: soakTimes{median: 50 * time.Microsecond, slowest: 200 * time.Microsecond}},
 		{name: "suspension median", gate: soakGateSuspension, incident: soakTimes{median: 51 * time.Microsecond}, want: "more than 50"},
 		{name: "suspension slowest", gate: soakGateSuspension, incident: soakTimes{slowest: 201 * time.Microsecond}, want: "twice"},
+		{name: "emergency median, over the runs", gate: soakGateEmergency, incident: soakTimes{median: time.Second}},
+		{name: "emergency slowest", gate: soakGateEmergency, incident: soakTimes{slowest: 201 * time.Microsecond}, want: "twice"},
 		{name: "report", gate: soakGateReport, incident: soakTimes{median: time.Second, slowest: time.Second}},
 	} {
 		failures := soakTimeFailures(tc.gate, tc.incident, reference)
@@ -2578,12 +2624,52 @@ func TestSoakTimeFailures(t *testing.T) {
 	}
 }
 
+// TestSoakEmergencyMedianFailure checks the rule of amendment A11 on each side of
+// its two limits, and that it passes the readings of 2026-11-06.
+func TestSoakEmergencyMedianFailure(t *testing.T) {
+	t.Parallel()
+	runs := func(medians ...time.Duration) []soakTimes {
+		times := make([]soakTimes, len(medians))
+		for index, median := range medians {
+			times[index].median = median
+		}
+		return times
+	}
+	const us = time.Microsecond
+	const ns = time.Nanosecond
+	for _, tc := range []struct {
+		name               string
+		incident, baseline []soakTimes
+		fails              bool
+	}{
+		{name: "the floor, at the limit", incident: runs(3*us, 3*us, 3*us, 3*us), baseline: runs(2*us, 2*us, 2*us, 2*us)},
+		{name: "the floor, above the limit", incident: runs(3*us+ns, 3*us+ns, 3*us+ns, 3*us+ns), baseline: runs(2*us, 2*us, 2*us, 2*us), fails: true},
+		{name: "the percentage, at the limit", incident: runs(22*us, 22*us, 22*us, 22*us), baseline: runs(20*us, 20*us, 20*us, 20*us)},
+		{name: "the percentage, above the limit", incident: runs(22*us+ns, 22*us+ns, 22*us+ns, 22*us+ns), baseline: runs(20*us, 20*us, 20*us, 20*us), fails: true},
+		{name: "one slow run passes", incident: runs(2*us, 2*us, 2*us, 50*us), baseline: runs(2*us, 2*us, 2*us, 2*us)},
+		{name: "two slow runs of four fail", incident: runs(2*us, 2*us, 50*us, 50*us), baseline: runs(2*us, 2*us, 2*us, 2*us), fails: true},
+		{name: "each run has its own reference", incident: runs(10*us, 2*us, 2*us, 10*us), baseline: runs(10*us, 2*us, 2*us, 10*us)},
+		{
+			name:     "rail-hub of 2026-11-06",
+			incident: runs(2955*ns, 2765*ns, 3807*ns, 2795*ns), baseline: runs(2966*ns, 2395*ns, 2415*ns, 2404*ns),
+		},
+		{
+			name:     "london-central of 2026-11-06",
+			incident: runs(15108*ns, 14778*ns, 16421*ns, 15008*ns), baseline: runs(14157*ns, 14217*ns, 14317*ns, 14067*ns),
+		},
+	} {
+		if got := soakEmergencyMedianFailure(tc.incident, tc.baseline); (got != "") != tc.fails {
+			t.Errorf("%s: %q, want failure %v", tc.name, got, tc.fails)
+		}
+	}
+}
+
 // TestSoakWorstRowGates pins the rule of each worst-case row: the median limit of
-// amendment A7 for suspension, the ratio for emergencies, and a report for the
-// fleet limit.
+// amendment A7 for suspension, the rule of amendment A11 for emergencies, and a
+// report for the fleet limit.
 func TestSoakWorstRowGates(t *testing.T) {
 	t.Parallel()
-	want := map[string]soakTimeGate{"fleet-300": soakGateSuspension, "rail-hub": soakGateRatio, "london-central": soakGateRatio, "fleet-1000": soakGateReport}
+	want := map[string]soakTimeGate{"fleet-300": soakGateSuspension, "rail-hub": soakGateEmergency, "london-central": soakGateEmergency, "fleet-1000": soakGateReport}
 	if len(soakWorstRows) != len(want) {
 		t.Fatalf("%d rows, want %d", len(soakWorstRows), len(want))
 	}
@@ -2667,14 +2753,15 @@ var soakWorstRows = []struct {
 	gate                      soakTimeGate
 }{
 	{name: "suspension: 64 debris and 300 pod faults", preset: "fleet-300", debris: 64, pods: 300, gate: soakGateSuspension},
-	{name: "emergency: MaxEmergencies records", preset: "rail-hub", emergencies: sim.MaxEmergencies, gate: soakGateRatio},
-	{name: "emergency: MaxEmergencies records", preset: "london-central", emergencies: sim.MaxEmergencies, gate: soakGateRatio},
+	{name: "emergency: MaxEmergencies records", preset: "rail-hub", emergencies: sim.MaxEmergencies, gate: soakGateEmergency},
+	{name: "emergency: MaxEmergencies records", preset: "london-central", emergencies: sim.MaxEmergencies, gate: soakGateEmergency},
 	{name: "fleet limit: 64 debris and 1,000 pod faults", preset: "fleet-1000", debris: 64, pods: 1000, gate: soakGateReport},
 }
 
 // TestIncidentWorstCaseStepTime gives the worst-case rows of the Performance
-// gates and the fleet-limit report of section 5.1.9. Each row compares 600
-// steps with the records and 600 steps of the same state with none.
+// gates and the fleet-limit report of section 5.1.9. Each run compares 10
+// simulated seconds with the records and the same seconds of the same state with
+// none. An emergency row has soakEmergencyRuns runs, and other rows have one.
 // PODSIM_SOAK_WORST=1 runs it.
 func TestIncidentWorstCaseStepTime(t *testing.T) {
 	if os.Getenv("PODSIM_SOAK_WORST") != "1" {
@@ -2697,8 +2784,25 @@ func TestIncidentWorstCaseStepTime(t *testing.T) {
 				}
 				return summarizeSteps(d.result.steps)
 			}
-			reference := measure(false)
-			checkSoakTimes(t, row.name, row.gate, measure(true), reference)
+			runs := 1
+			if row.gate == soakGateEmergency {
+				runs = soakEmergencyRuns
+			}
+			var incidents, references []soakTimes
+			for range runs {
+				reference := measure(false)
+				incident := measure(true)
+				checkSoakTimes(t, row.name, row.gate, incident, reference)
+				incidents, references = append(incidents, incident), append(references, reference)
+			}
+			if row.gate != soakGateEmergency {
+				return
+			}
+			failure := soakEmergencyMedianFailure(incidents, references)
+			t.Logf("%s: median rule of A11: %q", row.name, failure)
+			if failure != "" && os.Getenv("PODSIM_SOAK_GATE") == "1" {
+				t.Errorf("%s: %s", row.name, failure)
+			}
 		})
 	}
 }

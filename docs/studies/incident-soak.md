@@ -16,7 +16,8 @@ The code of the congestion, queue, and predictive routing policies was removed o
 - Amendment A10 changes the cost and the shape of the soak.
   The section "First soak in the branch shape" has its first run.
 - The Performance row for suspension meets amendment A7 at 30 Hz in the section "Readings from a quiet host".
-- The Performance row for emergencies misses its ratio rule at 30 Hz, on `rail-hub` in 3 of 4 runs and on `london-central` in 1 of 4 runs.
+- The Performance row for emergencies has the rule of amendment A11, and a quiet-host run must confirm it.
+  The readings at 30 Hz missed the earlier rule, on `rail-hub` in 3 of 4 runs and on `london-central` in 1 of 4 runs.
 - The Choice row is reported and not gated, and no driver reports it, because the sim does not expose the estimate.
 
 ## Method
@@ -517,7 +518,8 @@ No tick passes twice the slowest reference tick of its own run.
 The `rail-hub` emergency medians are -0.4, +15, +58, and +16 percent against the reference of the same run, so 3 of 4 runs miss the rule of 10 percent.
 The `london-central` emergency medians are +7, +4, +15, and +7 percent, so 1 of 4 runs misses it.
 The third run has the highest ratio on both presets, and the load average rose from 2.2 to 3.0 during it.
-The row stays unpassed, and A7 and the rule of 10 percent have no change.
+These readings miss the rule of 10 percent.
+Amendment A11 replaced that rule on 2026-11-06 with a rule on 4 runs, after these readings, so the median differences of +0.38 µs and +0.95 µs do not confirm it.
 
 `TestIncidentSoakTimed` ran 3 seeds of 0.1 simulated hours and the 30 minutes of clear on each preset, with faults and emergencies on.
 

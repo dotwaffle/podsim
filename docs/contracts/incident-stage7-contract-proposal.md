@@ -590,6 +590,13 @@ Soak jobs run one soak at a time under a lock, with the default `GOGC`, by the m
 `TestSampledTickNoCandidateLatency` moves from `mise run qualify` to `mise run qualify:limits`, because it only reports, and no gate changes.
 This amendment changes no other rule and marks no row as passed.
 
+Amendment A11, approved by the maintainer on 2026-11-06: on the Performance row for emergencies, in `TestIncidentWorstCaseStepTime`, each preset has 4 runs, and each run compares its medians with its own reference.
+The median of the 4 differences must be at most 10 percent of the median reference, or 1 µs if that is larger.
+The medians are about 2.5 µs on `rail-hub`, so a ratio of one run of 300 ticks measures noise.
+The rule was chosen after the readings of 2026-11-06, which missed the rule of 10 percent, so those readings do not confirm it.
+A later quiet-host run with `PODSIM_SOAK_GATE=1` must confirm it before the row counts as passed.
+The rule for the slowest tick stays in each run, and the timed runs of A3 keep the rule of 10 percent.
+
 Amendments, each for a separate answer in section 8:
 
 | # | Approved text | Change | Reason |
