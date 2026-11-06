@@ -254,6 +254,7 @@ Stage 1 W3 does not change: the pod releases only its own claims, and it authori
 
 Status 2026-10-07: `MaxLanes` is now 20,000, and `MaxCommandBytes` is now 16 MiB.
 Status 2026-10-15: `MaxStateBytes` is now 128 MiB.
+Status 2026-11-06: patch 6 of the tick rate proposal landed, so `TicksPerSecond` in the Constants row is now 30.
 
 ## 4. State
 

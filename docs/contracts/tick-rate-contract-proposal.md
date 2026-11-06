@@ -256,6 +256,8 @@ This section describes the code before that change.
 | Demand budget | The limit falls from 3,599 to 1,799 or 1,199, with the same width of 4 digits. |
 | Protocol text | `docs/protocol.md:138`, `docs/protocol.md:641`, and the version text change. No message changes its shape. |
 
+Status 2026-11-06: patch 6 made these changes at 30 Hz, so `stateVersion` is now 11, `StreamVersion` is 9, the golden files are `state_v11.json` and `state_v11_members.txt`, and the demand budget limit is 1,799.
+
 ### 3.4 Approved contracts
 
 The maintainer approved each row on 2026-11-05 (decision 4).

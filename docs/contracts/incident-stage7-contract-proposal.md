@@ -284,6 +284,8 @@ Terminal rule, one rule for scheduling, invariants, and restore:
 | Very small rate | Any rate above 0 is valid. At 60 Hz, the largest interval is about 7.93e6 / `perHour` ticks, so the terminal value comes first below a rate of about 8.8e-10. The largest interval in simulated time does not depend on the rate. |
 | A fault near the tick limit | `faultTicksFit` refuses it, so the event is a skip, and the record checks at `internal/sim/state_faults.go:124` stay valid. |
 
+Status 2026-11-06: at 30 Hz, the largest interval is about 3.97e6 / `perHour` ticks, so the terminal value comes first below a rate of about 4.4e-10.
+
 #### 5.1.2 API
 
 ```go
@@ -1077,6 +1079,9 @@ These were to be measured before or during the work.
 | Sampled-tick time against 50 ms | Measured on a fixture with little traffic: slowest 0.95 ms. Reported at the project limits: 260 to 429 ms cold, and 13.5 to 32.5 s warm. |
 | Step time at 64 debris and 1,000 pod faults | Measured: median 983 µs against 20 µs, slowest 5.0 ms against 0.62 ms. |
 | Evidence that any real system has these rates | None. The preset values are for play and for the soak. |
+
+Status 2026-11-06, by the maintainer: after `458f14a` at 30 Hz, the accepted warm reading at the project limits is about 150 ms for the plain first step and 57 ms for the next step, so 13.5 to 32.5 s above is history, and the row stays a report against 50 ms and not a gate.
+The same busy-host reading has 160 ms for the emergency part and 122 ms for the fault part (`docs/studies/incident-soak.md`).
 
 ## 12. Review result
 
