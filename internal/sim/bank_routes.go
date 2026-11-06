@@ -6,6 +6,24 @@ import (
 	"math"
 )
 
+// bankRouteParts holds the searches that the routes from one origin share in
+// one bankNearest call, with one value for each terminalBerthsOnly setting.
+// The graph, the blocked lanes, and the class do not change during the call.
+// Only the origin bank sets the prefix, and only the destination bank sets the
+// middle part of a route to a node inside that bank.
+type bankRouteParts struct {
+	prefix bankRoutePart
+	middle []bankRoutePart
+}
+
+// bankRoutePart is the result of one search. bankRoute copies the lanes into
+// the route that it returns.
+type bankRoutePart struct {
+	lanes []Lane
+	err   error
+	done  bool
+}
+
 // bankRoute keeps local paths inside their bank and joins them at the gates.
 func (n Network) bankRoute(input networkRouteInput, graph routeGraph, work *routeSearchWork) ([]Lane, error) {
 	if graph.banks.err != nil {
@@ -26,6 +44,18 @@ func (n Network) bankRoute(input networkRouteInput, graph routeGraph, work *rout
 		part.bankRaw, part.allowedLanes = true, allowed
 		part.bankExternal = allowed == nil
 		return n.routeIndexedWithWork(part, graph, work)
+	}
+	// once returns the result in slot, and searches only for the first call.
+	// A call with no slot always searches.
+	once := func(slot *bankRoutePart, from, to int, allowed map[int]bool) ([]Lane, error) {
+		if slot == nil {
+			return search(from, to, allowed)
+		}
+		if !slot.done {
+			slot.lanes, slot.err = search(from, to, allowed)
+			slot.done = true
+		}
+		return slot.lanes, slot.err
 	}
 	// Arrival reroutes and berth departures use only their local lane set.
 	if source >= 0 && source == destination {
@@ -58,7 +88,11 @@ func (n Network) bankRoute(input networkRouteInput, graph routeGraph, work *rout
 	if source >= 0 {
 		bank := graph.banks.banks[source]
 		if from != bank.entry && from != bank.exit {
-			prefix, err = search(from, bank.exit, bank.departure)
+			var slot *bankRoutePart
+			if input.parts != nil {
+				slot = &input.parts.prefix
+			}
+			prefix, err = once(slot, from, bank.exit, bank.departure)
 			if err != nil {
 				return nil, err
 			}
@@ -75,7 +109,11 @@ func (n Network) bankRoute(input networkRouteInput, graph routeGraph, work *rout
 	if input.forbidden != nil && (len(prefix) > 0 || suffixFrom >= 0) {
 		return nil, ErrUnreachable
 	}
-	middle, err := search(from, to, nil)
+	var slot *bankRoutePart
+	if input.parts != nil && suffixFrom >= 0 {
+		slot = &input.parts.middle[destination]
+	}
+	middle, err := once(slot, from, to, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -196,6 +234,13 @@ func (n Network) bankNearest(input preferredNearestInput, graph routeGraph) (int
 	// A search reads none of the work of the search before it, and the
 	// counters of this work reach no simulation.
 	var work routeSearchWork
+	// A reverse call has a different origin for each candidate, so its routes
+	// share no prefix.
+	var terminal, open *bankRouteParts
+	if !input.reverse {
+		terminal = &bankRouteParts{middle: make([]bankRoutePart, len(graph.banks.banks))}
+		open = &bankRouteParts{middle: make([]bankRoutePart, len(graph.banks.banks))}
+	}
 	for node, rank := range input.rank {
 		if rank < 0 {
 			continue
@@ -204,9 +249,9 @@ func (n Network) bankNearest(input preferredNearestInput, graph routeGraph) (int
 		if input.reverse {
 			from, to = to, from
 		}
-		route, err := n.routeIndexedWithWork(networkRouteInput{from: from, to: to, terminalBerthsOnly: true, class: input.class}, graph, &work)
+		route, err := n.routeIndexedWithWork(networkRouteInput{from: from, to: to, terminalBerthsOnly: true, class: input.class, parts: terminal}, graph, &work)
 		if errors.Is(err, ErrUnreachable) {
-			route, err = n.routeIndexedWithWork(networkRouteInput{from: from, to: to, class: input.class}, graph, &work)
+			route, err = n.routeIndexedWithWork(networkRouteInput{from: from, to: to, class: input.class, parts: open}, graph, &work)
 		}
 		if err != nil {
 			continue

@@ -241,6 +241,8 @@ type networkRouteInput struct {
 	allowedLanes       map[int]bool
 	bankRaw            bool
 	bankExternal       bool
+	// parts holds the shared searches of one bankNearest call, or is nil.
+	parts *bankRouteParts
 }
 
 func (n Network) route(input networkRouteInput) ([]Lane, error) {
