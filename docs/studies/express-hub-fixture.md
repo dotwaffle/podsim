@@ -2,7 +2,9 @@
 
 ## Decision
 
-Do not advance this fixture to the remaining qualification on these results.
+The first reading was not to advance this fixture to the remaining qualification.
+On 2026-11-06 the maintainer waived the single rider who missed the pickup limit, for this screen only, and asked for the gaps to be closed.
+The section "Follow-up" has the results.
 Express improves hub throughput in every seed with current policies on, but background seed 2 exceeds the individual pickup limit.
 The oracle reports no failure in any arm.
 The logs do not establish reproducibility, full request conservation, or return-to-parking behavior.
@@ -502,3 +504,43 @@ They do not isolate redistribution from pickup reassignment or test the default 
 No new fault, emergency, save, restore, stream, browser, shared-detour, or byte-proof qualification ran.
 No controlled CPU, resident-memory, GC-pause, or network-rate qualification ran.
 This document change did not run the Go, race, or web suites.
+
+## Follow-up
+
+These runs use project A at seed 1 with policies on, unless a line says otherwise.
+
+**Reproducibility.**
+A rerun with the same binary matches all 909 order records byte for byte.
+A run at `GOMAXPROCS=1` matches them too.
+The 61 state and metric records match in value, and 59 differ in the JSON key order of a map in the scratch logger.
+
+**Conservation.**
+All 630 checkpoints, at a stride of 300 ticks, pass, and so does the final check.
+At minute 60 the balance is `909 = 642 completed + 0 interrupted + 150 queued + 117 aboard`.
+At minute 105 it is `909 = 908 completed + 0 interrupted + 0 queued + 1 aboard`, and all 3,241 hub passengers have completed.
+
+**Return to parking.**
+Arrivals stop at minute 60, and the run goes on to minute 150.
+The hub backlog is 1,244 passengers at minute 60, and it drains by minute 105.
+Parking occupancy is 1 at minute 104, 8 at minute 108, and 14 at minute 112, and it stays at 14 until minute 150.
+The oracle has no failure in 270,000 ticks, and no deadlock occurs.
+At minute 105, 2 pods stand idle at Bank berths with no wait reason and no blocker.
+The 45-minute run shows these 2 pods, and the 90-minute run was not traced per pod, so it is an inference that the same 2 stay out at minute 150.
+No general rule sends an idle Express pod home.
+`clearBlockedBerths` moves an idle pod only when another pod needs its berth.
+
+**Party 240.**
+At seed 2 this party, Bank to Piccadilly Circus, waits 88.57 s against 3.53 s in the baseline and 5.47 s in the control.
+Dispatch sends an empty Compact pod from Mansion House, and Express 12 and Express 14 block it at the entrance of Bank.
+Another Compact pod then finishes unloading at Bank and takes the order.
+This is an interaction with Express traffic, and it is the only such exceedance in these seeds.
+Every other matched wait equals or improves on the baseline.
+
+| Seed | Matched | Baseline p95 and p99 (s) | Express p95 and p99 (s) | Exceedances |
+|---|---|---|---|---|
+| 1 | 258 | 1,785, 2,121 | 303, 473 | 0 |
+| 2 | 246 | 1,898, 2,143 | 445, 821 | 1 |
+| 3 | 240 | 1,922, 2,200 | 274, 477 | 0 |
+
+The commands are on branch `study/express-fixture`, with the options `-drain` and `-trace-party-240`.
+Not checked: a parking run at another seed, unlogged internal state, and an unmatched censored wait.
