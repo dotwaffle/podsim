@@ -155,9 +155,9 @@ An approved contract in `docs/contracts/` is binding, and each document gives it
 | [Service transitions](docs/contracts/incident-service-transitions-contract-proposal.md), [suspension](docs/contracts/incident-suspension-contract-proposal.md), [emergency](docs/contracts/incident-emergency-contract-proposal.md) | The incident stages. |
 | [Marker removal](docs/contracts/marker-removal-contract-proposal.md) | Faults and emergencies with no project switch. |
 | [Generated-order consent](docs/contracts/generated-order-consent-contract-proposal.md) | The `generatedOrderConsent` setting. |
-| [Tick rate](docs/contracts/tick-rate-contract-proposal.md) | A lower tick rate. A proposal, not approved. |
+| [Tick rate](docs/contracts/tick-rate-contract-proposal.md) | A lower tick rate. Implemented at 30 Hz. |
 | [Express standees](docs/contracts/express-standees-contract-proposal.md) | A 6 m Express with standees, and a curve tail from the lane polyline. The maintainer accepted its decisions. The seat and standee split, the motion rates, the load dwell, and the polyline tail are built. |
-| [Incident stage 7](docs/contracts/incident-stage7-contract-proposal.md) | Random faults and emergencies. Implemented. The soak of amendment A6 ran, and its Progress row missed. The Suspension median row is open. |
+| [Incident stage 7](docs/contracts/incident-stage7-contract-proposal.md) | Random faults and emergencies. Implemented. The soak of amendment A6 ran, and its Progress row missed. The Suspension median row passes amendment A7. |
 
 ### Designs
 

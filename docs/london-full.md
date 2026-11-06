@@ -122,7 +122,7 @@ In each band, the shares of all stations add to 2, but the largest shares of all
 
 The default Compact stations have shares from 0.0025 to 0.0041.
 At 120 requests per minute, they have 0.29 to 0.49 trip ends per minute.
-With the opt-out flags, LondonFull has 5,658 nodes, 8,844 lanes, and 4 soft conflicts, and its indented export has 14,823,567 bytes.
+With the opt-out flags, LondonFull has 5,658 nodes, 8,844 lanes, and 4 soft conflicts, and its indented export has 14,823,596 bytes.
 
 ### Measurements, October 19, 2026
 
@@ -232,8 +232,8 @@ These checks do not establish a sustainable demand rate.
 
 The project limits admit 12,000 nodes, 20,000 lanes, 600 stations, 1,000 pods, 400,000 flows, and 32 MiB of project JSON.
 Express projects retain their separate 600-pod limit.
-The default compact project JSON has 5,612,313 bytes.
-The default indented export has 14,912,453 bytes.
+The default compact project JSON has 5,612,338 bytes.
+The default indented export has 14,912,482 bytes.
 The saved-state cap is 128 MiB.
 The plain saved-state and full-stream byte proofs include completed history and the independent project and topology caps.
 Express has no byte proof.
@@ -248,6 +248,7 @@ Passenger sites have at least three berths except Bank, which keeps two.
 The eight Compact stations of the default have four bays each, and each pod is Compact.
 Each parking site is a depot of 4 lanes of 8 slots, and the berth pitch is 37.5 m.
 The default project does not change.
+These qualification cases turn redistribution and pickup reassignment off.
 Smaller fleets sample the same 1,000 starting placements evenly.
 
 Each case warms up for 600 simulated seconds, measures 180 seconds of ticks, and checks safety and simulation contracts each second.

@@ -131,7 +131,7 @@ Stages 1 to 3 of the incident work landed, and stages 4 to 6 were dropped with n
 The maintainer reopened stage 7 on November 4, 2026, for the scenario rates, under [its contract](docs/contracts/incident-stage7-contract-proposal.md).
 Its code landed.
 The [soak](docs/studies/incident-soak.md) of amendment A6 ran, and its Progress row missed on both presets, because faults delay the emergencies.
-The Suspension median row of its qualification is open.
+The Suspension median row of its qualification passes amendment A7.
 
 ### Rider emergency stop
 
@@ -144,7 +144,7 @@ The `emergency` command and the **Emergency** button start an emergency (see [em
 - The pod gets free junctions, track cells, and berths first.
   It never takes an owned resource, and it never forces another pod to reverse or to leave a committed path.
 - The pod drops all of its later work, and its pending pickups go back to dispatch as ordinary orders with their original request times.
-- There is no scenario emergency rate yet.
+- A project can set `emergencies.perHour` from 0 to 60.
 
 ### Vehicle fault or accident
 
@@ -156,9 +156,9 @@ The `fault` command and the **Fault** button start a fault (see [faults](docs/op
 - Riders leave the stopped pod after 300 simulated seconds by default, a project can set another delay, and their orders end interrupted.
 - A fault can also block a lane segment with no pod in it, as debris.
 - Pods do not reverse, because the simulator moves pods only forward on directed lanes, and reverse movement has no contract.
-- There is no scenario fault rate yet.
+- A project can set `faults.perHour` from 0 to 60, with a duration above 0.
 
-Open question: how the metrics show the effect of an incident on service.
+The Incidents panel and OpenTelemetry report interrupted orders, incident durations, and rider delay.
 
 ## 7. Research and reference tools
 

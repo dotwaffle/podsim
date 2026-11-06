@@ -111,7 +111,7 @@ Physical restore retains position tolerances, resets speed, and rebuilds ordinar
 
 Sessions send stream hello version 9 for every project kind.
 Clients reject every other hello version.
-Geometry changes start a new stream chain and send the full network.
+Geometry changes start a new stream chain, and clients fetch the new network from `GET /api/topology`.
 
 This fixture does not change any default layout or controller setting.
 Independent gates do not establish a service improvement.

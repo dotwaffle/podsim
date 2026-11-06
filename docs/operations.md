@@ -940,7 +940,7 @@ mise run check
 | --- | --- |
 | `mise run check` | Workflow validation, Markdown checks, race tests, the tests that skip under the race detector, the `test:web` tests, vet, lint, vulnerability checks, the native and browser builds, and the embedded server tests. It runs `check:static`, `qualify`, and the three race tasks one after another, and stops at the first failure. |
 | `mise run format` | Formats the Go sources and the Markdown files. |
-| `mise run test:quick` | `go test -short ./...`. It skips the long tests. The race tasks and `test:embedded` run them. |
+| `mise run test:quick` | `go test -short ./...`. It skips the long tests. The race tasks, `qualify`, and `test:embedded` run them. |
 | `mise run lint` | actionlint, rumdl, `go vet`, golangci-lint, and the check that `podsim.wasm` does not link cloud storage. |
 | `mise run check:static` | The checks other than the race tests and `qualify`: `test:web`, `lint`, `vulncheck`, `build`, and `test:embedded`. |
 | `mise run test:race` | The `test:race:sim`, `test:race:session`, and `test:race:other` tasks. |
@@ -973,7 +973,8 @@ The `incidents` and `emergencies` arms run on both presets, and `platoons` runs 
 The checks run at the stride of amendment A10: the full check runs at each simulated second and at each event.
 Use `mise run soak:full` before a release tag.
 After a change to dispatch, routing, or the fault and emergency state machines, use `mise run soak` and `mise run qualify`, which runs `TestIncidentSoakCI`.
-It runs 5 seeds of 6 simulated hours with the full check at each tick.
+The CI soak runs one seed for one simulated hour on `rail-hub`, with the full check at each tick.
+The `soak:full` task runs 5 seeds of 6 simulated hours with the full check at each tick.
 This run keeps the wall limit of 2 hours, so it can end cut, before each seed finishes.
 A run that the limit stops counts only its completed seeds.
 The task writes each finished seed to the file of `PODSIM_SOAK_FINISHED`, with its failure state, and it prints that file at the end, also after a cut.

@@ -156,7 +156,7 @@ This example runs the London preset at 3 orders per minute with redistribution o
 
 ```sh
 mise run scenario -- -preset london-central -output /tmp/podsim-london.json
-mise run compare -- -project /tmp/podsim-london.json -pattern profile -bands am-peak -focus 940GZZLUEUS -loads 20s -duration 30m
+mise run compare -- -project /tmp/podsim-london.json -pattern profile -bands am-peak -focus 940GZZLUEUS -loads 20s -duration 30m -redistribution-policies off,on
 ```
 
 The report gives:
@@ -248,8 +248,9 @@ The reports do not change, and you can set `GOGC` to use another value.
 Pickup reassignment is on in the presets and the example project, and off in a project file that omits the member.
 The editor has a control for it.
 **Pause and apply** activates the draft setting in the server, and the compare command uses only `-pickup-reassignment`.
-Without the flag, the policy stays off and the report format stays unchanged.
-With it, table and CSV output include its policy column, and JSON output includes its off or on value and records controller work, swaps, transfers, and predicted seconds saved.
+Without the flag, pickup reassignment is on, and JSON output includes its policy value and statistics.
+The flag adds a policy column to table and CSV output.
+JSON output records controller work, swaps, transfers, and predicted seconds saved.
 These predictions exclude future traffic, so they do not establish a realized service improvement.
 
 ### Express against plain
