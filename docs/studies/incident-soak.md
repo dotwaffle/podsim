@@ -16,7 +16,8 @@ The code of the congestion, queue, and predictive routing policies was removed o
 - Amendment A10 changes the cost and the shape of the soak.
   The section "First soak in the branch shape" has its first run.
 - The Performance row for suspension meets amendment A7 at 30 Hz in the section "Readings from a quiet host".
-- The Performance row for emergencies meets the median rule of amendment A11 at `8ffb20b6`, and missed the rule for the slowest tick on `rail-hub` in 2 of 24 runs, so A11 now has a floor of 1 ms for that rule, and a quiet-host run must confirm it.
+- The Performance row for emergencies meets the median rule of amendment A11 at `8ffb20b6`, and missed the rule for the slowest tick on `rail-hub` in 2 of 24 runs, so A11 now has a floor of 1 ms for that rule.
+  The row passes at `5979debb` by the ruling in the section "Readings from a quiet host", with one miss in 56 runs of `london-central` on record.
   The readings at 30 Hz missed the earlier rule, on `rail-hub` in 3 of 4 runs and on `london-central` in 1 of 4 runs.
 - The Choice row is reported and not gated, and no driver reports it, because the sim does not expose the estimate.
 
@@ -567,7 +568,14 @@ The other 22 runs have a slowest tick from 21 to 59 µs.
 Each run has the same seed and the same simulated work, so a slow tick that does not repeat is not a cost of the sim work in that tick.
 That leaves the host or the collector, and these readings do not separate them.
 The maintainer then added a floor of 1 ms to the rule for the slowest tick of this row, in A11, after these readings, so a later quiet-host run must confirm it.
-The row stays unpassed until that run.
+
+The gated run at `5979debb`, with the floor, ran 3 times at a load average of 2.4 to 3.
+All rows passed in 2 of the 3, and `rail-hub` passed in all 3.
+The other run failed on `london-central`, with a slowest tick of 4.2 ms over its limit of 2.06 ms for that run.
+That row then ran 40 more times with no gate, at a load average of 4 to 4.7, and 40 more with `GOGC=off`, and no run passed twice its reference.
+With the collector, the slowest tick was 1.57 ms and the reference reached 2.37 ms, and without it these are 1.71 ms and 1.78 ms, so the arms do not differ.
+So the rate of this miss is 1 in 56 runs of `london-central`, and these runs do not name its cause.
+The maintainer ruled on 2026-11-06 that the row passes at `5979debb`, by the rule of `AGENTS.md` that a latency failure runs again by itself before it counts, with this miss on record.
 
 ## Readings from a busy host
 

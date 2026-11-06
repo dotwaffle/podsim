@@ -601,6 +601,7 @@ The rule for the slowest tick stays in each run, and the timed runs of A3 keep t
 Status 2026-11-06, by the maintainer: on this row, no tick may pass twice the slowest reference tick, or 1 ms if that is larger.
 This floor is 3 percent of a tick at 30 Hz.
 A gated run at `8ffb20b6` passed the median rule and missed the earlier rule for the slowest tick on `rail-hub` in 2 of 24 runs, so a later quiet-host run must confirm the floor, and a real rare tick under 1 ms now passes.
+Status 2026-11-06, by the maintainer: the row passes at `5979debb`, with one miss on record, on `london-central` in 1 of 56 runs, with no named cause.
 
 Amendment A12, approved by the maintainer on 2026-11-06: the soak with the full check at each tick, and the 5 seeds of 6 simulated hours of A6, are required only before a release tag.
 This replaces the triggers of A10.
