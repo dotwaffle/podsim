@@ -553,7 +553,8 @@ Three tools author more complex demand:
 - **Rail departures** sets request windows, outbound train times, transfer times, and weighted origins.
   **Rail arrivals and departures** runs both plans, and the demand inspector shows made, missed, unserved, and unresolved connections (see [scheduled train connections](rail-connections.md)).
 
-The editor also has an experimental control for [pickup reassignment](reference.md#pickup-reassignment), and **Pause and apply** activates the draft setting.
+The editor also has a control for [pickup reassignment](reference.md#pickup-reassignment), and **Pause and apply** activates the draft setting.
+The presets and the local draft of the editor turn on pickup reassignment and redistribution.
 
 The **Faults and emergencies** section sets the scenario rates (see [faults](operations.md#faults) and [emergencies](operations.md#emergencies)).
 Its fields are **Faults per hour**, **Debris share of faults**, **Debris length (m)**, **Time to evacuation (s)**, **Fault duration** with the values of its kind, and **Emergencies per hour**.

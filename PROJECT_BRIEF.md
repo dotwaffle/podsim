@@ -31,6 +31,7 @@ Software-rendering measurements do not establish physical GPU performance.
 - **Simple defaults**: routing uses the shortest free-flow travel time, and dispatch uses the nearest available pod.
   One party per pod and no intermediate stops are the default service, and they are policies and not limits of the model.
 - **Evidence before a default**: an experimental policy stays opt-in until it passes the [adoption gates](docs/design/experimental-adoption.md), and a study records its limits.
+  The maintainer made one exception on November 6, 2026, for redistribution and pickup reassignment.
 
 ## 3. Architecture
 
@@ -106,7 +107,8 @@ JavaScript or TypeScript presentation code, 3D track geometry, pod models, camer
 ## 5. Current experiments
 
 Each study records what it establishes, and no study authorizes a default change until it passes the gates.
-The defaults stay: free-flow routing, one party per pod, no platoons on a project that does not set them, and no redistribution.
+The defaults stay: free-flow routing, one party per pod, and no platoons on a project that does not set them.
+The maintainer turned on redistribution and pickup reassignment by default on November 6, 2026, without the full passes of the [adoption gates](docs/design/experimental-adoption.md).
 The pickup and busy-station service problems stay unresolved.
 
 | Area | Status | Record |
@@ -114,7 +116,8 @@ The pickup and busy-station service problems stay unresolved.
 | Congestion-aware routing | Free-flow routing is the only policy. `congestion`, `queue`, and `predictive` had no service gain and were removed. Rerouting at junctions is not built. | [Queue routing screen](docs/studies/qualification.md#queue-routing-screen), [predictive routing](docs/studies/predictive-routing.md) |
 | Shared rides | `destination` and `drop-offs` are opt-in, and `drop-offs` is the default mode when sharing is on. `reassign-existing` failed the adoption rules and was removed. Waiting for more passengers against leaving at once is not studied. | [Drop-offs sharing](docs/studies/qualification.md#drop-offs-sharing-in-london), [policy failures](docs/studies/policy-failures.md) |
 | Mixed vehicle classes | Legacy, Compact, Group, and opt-in Express pods exist, and no default changes. | [Group physics](docs/design/group-physics-design.md), [Express qualification](docs/studies/express-qualification.md) |
-| Pickup reassignment | Opt-in, off by default. It lowers mean waits in tested pairs and has individual tail regressions. | [Sustained swaps](docs/studies/pickup-swap-sustained.md) |
+| Pickup reassignment | On by default, by maintainer decision and with no gate qualification. A project file that omits the setting has it off. It lowers mean waits in tested pairs and has individual tail regressions. | [Sustained swaps](docs/studies/pickup-swap-sustained.md), [default flips](docs/studies/default-flips.md) |
+| Redistribution | On by default, by maintainer decision and with no gate qualification. A project file that omits the setting has it off. | [Default flips](docs/studies/default-flips.md) |
 | Rail and park-and-ride hubs | Rail arrivals, train connections, and daily park-and-ride profiles are in the live simulation. Car journeys and parking capacity are offline in `cmd/parkride`. | [Rail arrivals](docs/rail-arrivals.md), [train connections](docs/rail-connections.md), [car journeys](docs/design/car-journey-design.md) |
 | Virtual platoons | A project option, and LondonCentral and LondonFull turn it on. The expanded study fails the recovery and no-harm rules. | [Platoon follow-up](docs/studies/platoon-followup.md) |
 | Stations | Compact bays and depots are on the London presets, and independent banks are available. Station buffers were removed on October 7, 2026, because they lowered entry throughput. | [Compact bays](docs/model.md#compact-bays), [depots](docs/model.md#parking-depots), [buffers](docs/studies/buffer-late-claim.md#station-entry-throughput) |

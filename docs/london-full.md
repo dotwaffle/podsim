@@ -223,7 +223,7 @@ These runs do not establish a sustainable demand rate.
 ## Validation boundary
 
 The initial demand setting is 10 requests per minute, with AM peak weights and seed 20260929.
-Automatic demand and redistribution start disabled.
+Automatic demand starts disabled, and redistribution and pickup reassignment start on.
 A ten-minute AM peak smoke run on October 7, 2026, with ordinary Parking facilities and stations, generated 100 requests and completed 15, with no skipped requests.
 Safety checks passed each simulated second.
 The physical restore test preserved active requests and passed safety checks during its 30-second continuation.

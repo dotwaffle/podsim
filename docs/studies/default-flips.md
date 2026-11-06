@@ -3,6 +3,8 @@
 This study asks whether default-off features can be flipped to default on: redistribution, pickup reassignment, and sharing.
 It also applies the old platoon recovery and no-harm rules to virtual platoons at this tip.
 It changes no default, preset, contract, or simulation code.
+Status 2026-11-06: the maintainer later turned on redistribution and pickup reassignment by default, as the status of the [adoption gates](../design/experimental-adoption.md) records.
+The settings and the recommendation below describe the source of this study.
 
 ## Result
 

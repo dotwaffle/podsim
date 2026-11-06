@@ -427,15 +427,16 @@ An older server rejects version 11 with `unsupported_version` and moves the file
 Keep a copy before a downgrade.
 
 Portable project version 1 accepts an optional `pickupReassignment` Boolean setting.
-It defaults to false and is omitted from canonical exports when false.
+A file that omits it has the setting off, and a canonical export omits it when false.
+The presets and the example project turn it on.
 The server rejects a non-Boolean value, including `null`.
-This setting enables an experimental controller, not a qualified capacity improvement.
+This setting is not a qualified capacity improvement.
 Project load, reset, apply, demo, and checkpoint rewind preserve the selected setting.
 After file restore, the effective project controls reassignment.
 A startup project can change this setting without replacing valid saved physical state.
 Other project identity checks remain in force.
 Reassignment cursors, cooldowns, counters, and experiment records reset after file restore.
-The saved routes and request bindings remain valid, but future experimental decisions can differ after restart.
+The saved routes and request bindings remain valid, but future reassignment decisions can differ after restart.
 The [file restart checks](studies/experimental-policy-restarts.md) cover pickup reassignment, the rejection of a version 2 file, and canceled or failed-sync saves.
 They do not simulate power loss.
 The optional project setting does not change command or WebSocket envelope formats.
@@ -448,7 +449,7 @@ The file leaves out the member when its value is zero.
 Each other change to the members of the file gets a new format version.
 The server matches member names exactly.
 With `-project`, the project file has priority, and a saved state with a different project gets `project_changed`.
-When only demand or experimental policy settings differ, the server restores the saved state.
+When only demand, pickup reassignment, or onboard pickup settings differ, the server restores the saved state.
 A demand change writes the project file at once and the session state about 1 second later.
 Thus a crash between the two writes can leave this difference.
 A project apply or a rewind that restores a project also writes the project file at once.

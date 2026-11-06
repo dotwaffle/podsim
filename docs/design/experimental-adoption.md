@@ -2,7 +2,10 @@
 
 Status: qualification limits approved October 1, 2026.
 These thresholds do not authorize a default change.
-Pickup reassignment and sharing remain opt-in.
+Sharing remains opt-in.
+Status 2026-11-06, by the maintainer: redistribution and pickup reassignment are on by default, without the full passes of these gates.
+This is a maintainer decision and not a qualification, and the screen in [default flips](../studies/default-flips.md) is the only evidence.
+That screen failed individual limits, and on a shared host its arm 3, pickup reassignment, used 86 to 107 s of user time and about 590 MiB, against 60 to 74 s and about 450 MiB.
 Free-flow routing remains the default.
 The code of the `congestion`, `queue`, and `predictive` routing policies was removed on November 5, 2026, so the records for these policies are history.
 Existing qualification rules and documented exceptions remain in force.

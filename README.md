@@ -97,7 +97,7 @@ The `physical` tier keeps the pod positions, the `logical` tier starts the pods 
 
 With `-project`, the project file has priority.
 If the saved project differs, the server starts a new session with the file.
-If only demand or experimental policy settings differ, the server restores the session and applies the settings of the file, unless the saved traffic demo is running, which starts a new session.
+If only demand, pickup reassignment, or onboard pickup settings differ, the server restores the session and applies the settings of the file, unless the saved traffic demo is running, which starts a new session.
 Without `-project`, the server restores the saved project.
 
 See [session state](docs/operations.md#session-state) for the file names, the restore rules, and the recovery steps, and [session state logs](docs/operations.md#session-state-logs) for the logs.
@@ -117,7 +117,7 @@ The browser application covers the whole loop from drawing a network to reading 
 - **Network editor**: stations, junctions, curved lanes, berths, and a fleet, with undo, live checks, map backgrounds, and JSON import and export.
 - **Simulation**: finite fleets, local traffic control, separate station berths, and a wait reason for each stopped pod.
 - **Demand**: manual orders, rate-based and profile traffic, daily profiles, and rail arrivals and departures.
-- **Service policies**: shared rides, virtual platoons, and redistribution of empty pods, all opt-in.
+- **Service policies**: redistribution of empty pods and pickup reassignment are on by default, virtual platoons are a project option, and shared rides are opt-in.
 - **Incidents**: pod faults, debris, and rider emergencies, on in each session outside the traffic demo.
 - **Shared sessions**: one server for all browsers, exact save points, rewind, and restart with `-state`.
 - **Experiments**: generated [scenarios](docs/reference.md#generated-scenarios) up to the 309-site LondonFull network, and seeded [policy comparisons](docs/reference.md#compare-command) with reports.

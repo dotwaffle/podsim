@@ -35,7 +35,7 @@ Validation limits each project to 32 MiB in this compact form, also after a dema
 | `network` | `nodes`, `lanes`, and `stations`, with optional `maneuverGroups` and `depots`. | Required |
 | `fleet` | One placement for each pod: `id`, `stationID`, `berthID`, and an optional `class`. | Required |
 | `demand` | The demand settings: `enabled`, `perMinute`, `pattern`, `seed`, and the optional `destination`, `profile`, `band`, and `dailyStartMinute`. | Required |
-| `redistribution` | A Boolean that turns on [guarded positioning](model.md#redistribution). | Off |
+| `redistribution` | A Boolean that turns on [guarded positioning](model.md#redistribution). The presets and the example project set it to true. | Off |
 | `demandProfiles` | Origin-destination [demand profiles](#demand-profiles). | None |
 | `railArrivals`, `railDepartures` | Fixed train plans. See [scheduled rail arrivals](rail-arrivals.md) and [scheduled train connections](rail-connections.md). | None |
 | `sharedRidePartyLimit` | The most [parties](model.md#parties) in one pod, from 1 to 8. | 1 |
@@ -43,7 +43,7 @@ Validation limits each project to 32 MiB in this compact form, also after a dema
 | `sharedRideMaxStops` | The stops before the last stop in `drop-offs` mode, from 1 to 7. | 3 |
 | `generatedOrderConsent` | `private` or `shared`, the consent of each generated order. | `private` |
 | `onboardPickups` | A Boolean that lets an occupied pod pick up parties. It needs a party limit above 1 and `drop-offs` mode. | Off |
-| `pickupReassignment` | A Boolean for the experimental [pickup reassignment](#pickup-reassignment). | Off |
+| `pickupReassignment` | A Boolean for [pickup reassignment](#pickup-reassignment). The presets and the example project set it to true. | Off |
 | `platoonLimit` | The most pods in one [virtual platoon](model.md#virtual-platoons), from 2 to 4. A value of 0 turns platoons off. | Off |
 | `geo` | The [geographic reference](#geographic-reference). | No reference |
 | `map` | The [live backdrop](#live-backdrop). | No backdrop |
@@ -174,7 +174,8 @@ The command gives the policy no configured rate, so the rate gate reads the mean
 At the first skipped arrival, the command turns the policy off for the rest of the arm.
 See [qualification results](studies/qualification.md#guarded-positioning-in-the-london-sweep).
 
-The command uses its own policy flags, and it ignores the experimental settings and `generatedOrderConsent` in the input project.
+The command uses its own policy flags, and it ignores `redistribution`, `pickupReassignment`, the other experimental settings, and `generatedOrderConsent` in the input project.
+Thus it does not follow the defaults of the presets: with no flag, it runs redistribution off and on, and pickup reassignment off.
 It keeps `faults` and `emergencies`.
 An arm of a project with a rate has both operations on and runs the samplers, from the seed of the arm, so arms with one seed get one event schedule.
 An interrupted order is terminal and it is not served, so it does not count as remaining or as completed.
@@ -244,7 +245,8 @@ The reports do not change, and you can set `GOGC` to use another value.
 
 ### Pickup reassignment
 
-Pickup reassignment is an experimental policy, off by default, and the editor has a control for it.
+Pickup reassignment is on in the presets and the example project, and off in a project file that omits the member.
+The editor has a control for it.
 **Pause and apply** activates the draft setting in the server, and the compare command uses only `-pickup-reassignment`.
 Without the flag, the policy stays off and the report format stays unchanged.
 With it, table and CSV output include its policy column, and JSON output includes its off or on value and records controller work, swaps, transfers, and predicted seconds saved.

@@ -397,7 +397,8 @@ Parking serves no passengers, and a parked pod returns to service by itself when
 
 ## Redistribution
 
-Redistribution moves idle empty pods toward busy stations before anyone orders them, and it is off by default.
+Redistribution moves idle empty pods toward busy stations before anyone orders them.
+It is on in the presets and the example project, and off in a project file that does not set it.
 When it is on, the simulation runs guarded positioning, which moves an idle empty pod to a busy station that has no pod.
 The demand weights of the stations select the busy stations.
 
