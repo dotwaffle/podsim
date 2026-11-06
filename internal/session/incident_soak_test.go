@@ -705,10 +705,13 @@ type soakReading struct {
 	// legBlocked reports whether an idle pod has an order that cannot board
 	// only because of the active faults.
 	legBlocked func(podID string) bool
+	// moveBlocked reports whether an idle pod with no order has no empty move
+	// only because of the active faults, as amendment A13 names.
+	moveBlocked func(podID string) bool
 }
 
-func newSoakReading(state sim.Snapshot, legBlocked func(string) bool) soakReading {
-	reading := soakReading{pods: make(map[string]sim.Pod, len(state.Vehicles)), faultIDs: map[string]bool{}, faultPods: map[string]bool{}, legBlocked: legBlocked}
+func newSoakReading(state sim.Snapshot, legBlocked, moveBlocked func(string) bool) soakReading {
+	reading := soakReading{pods: make(map[string]sim.Pod, len(state.Vehicles)), faultIDs: map[string]bool{}, faultPods: map[string]bool{}, legBlocked: legBlocked, moveBlocked: moveBlocked}
 	for index := range state.Vehicles {
 		pod := state.Vehicles[index].Pod
 		reading.pods[pod.ID] = pod
@@ -758,9 +761,11 @@ const (
 	// soakPathFaultEnd is a chain that ends at a fault ID, or at another pod that
 	// has a fault.
 	soakPathFaultEnd
-	// soakPathLegBlocked and soakPathLegFree are a pod at the end of the chain,
-	// with no blocker, that is idle: its leg is blocked, or it is not.
+	// soakPathLegBlocked, soakPathMoveBlocked, and soakPathLegFree are a pod at
+	// the end of the chain, with no blocker, that is idle: the faults block its
+	// leg, or they block the empty move of a pod with no order, or neither.
 	soakPathLegBlocked
+	soakPathMoveBlocked
 	soakPathLegFree
 	// soakPathNotBlocked is each other reading.
 	soakPathNotBlocked
@@ -776,8 +781,8 @@ func (p soakPath) blocked() bool {
 type soakPathCounts [soakPathCount]int
 
 func (c soakPathCounts) String() string {
-	return fmt.Sprintf("ownFault=%d incident=%d noForwardRoute=%d faultAtChainEnd=%d legBlocked=%d legFree=%d notBlocked=%d",
-		c[soakPathOwnFault], c[soakPathIncident], c[soakPathNoRoute], c[soakPathFaultEnd], c[soakPathLegBlocked], c[soakPathLegFree], c[soakPathNotBlocked])
+	return fmt.Sprintf("ownFault=%d incident=%d noForwardRoute=%d faultAtChainEnd=%d legBlocked=%d moveBlocked=%d legFree=%d notBlocked=%d",
+		c[soakPathOwnFault], c[soakPathIncident], c[soakPathNoRoute], c[soakPathFaultEnd], c[soakPathLegBlocked], c[soakPathMoveBlocked], c[soakPathLegFree], c[soakPathNotBlocked])
 }
 
 // walkChain follows the BlockedBy chain from the pod. Each pod enters the walk
@@ -806,6 +811,8 @@ func (r soakReading) walkChain(podID string) (soakPath, string) {
 			switch {
 			case r.legBlocked(id):
 				return soakPathLegBlocked, end
+			case r.moveBlocked(id):
+				return soakPathMoveBlocked, end
 			case pod.Activity == sim.Idle:
 				return soakPathLegFree, end
 			}
@@ -874,7 +881,7 @@ func (d *soakDriver) watchEmergencies() {
 	}
 	d.lastWatch = tick
 	state := d.s.simulation.Snapshot()
-	reading := newSoakReading(state, d.s.simulation.BoardingLegBlockedForTest)
+	reading := newSoakReading(state, d.s.simulation.BoardingLegBlockedForTest, d.s.simulation.EmptyMoveBlockedForTest)
 	seen := make(map[string]bool, len(state.Emergencies.Active))
 	for _, view := range state.Emergencies.Active {
 		seen[view.ID] = true
@@ -1818,13 +1825,14 @@ func TestSoakReadingPaths(t *testing.T) {
 		"chain":    {ID: "chain", BlockedBy: "own"},
 		"legOut":   {ID: "legOut", Activity: sim.Idle},
 		"legOK":    {ID: "legOK", Activity: sim.Idle},
+		"moveOut":  {ID: "moveOut", Activity: sim.Idle},
 		"moving":   {ID: "moving", Activity: sim.Traveling},
 		"unknown":  {ID: "unknown", BlockedBy: "gone"},
 		"loopA":    {ID: "loopA", BlockedBy: "loopB"},
 		"loopB":    {ID: "loopB", BlockedBy: "loopA"},
 	}
 	reading := soakReading{pods: pods, faultIDs: map[string]bool{"f1": true}, faultPods: map[string]bool{"own": true},
-		legBlocked: func(id string) bool { return id == "legOut" }}
+		legBlocked: func(id string) bool { return id == "legOut" }, moveBlocked: func(id string) bool { return id == "moveOut" }}
 	tests := []struct {
 		pod     string
 		path    soakPath
@@ -1836,6 +1844,7 @@ func TestSoakReadingPaths(t *testing.T) {
 		{"faultID", soakPathFaultEnd, true},
 		{"chain", soakPathFaultEnd, true},
 		{"legOut", soakPathLegBlocked, true},
+		{"moveOut", soakPathMoveBlocked, true},
 		{"legOK", soakPathLegFree, false},
 		{"moving", soakPathNotBlocked, false},
 		{"unknown", soakPathNotBlocked, false},
@@ -1850,7 +1859,7 @@ func TestSoakReadingPaths(t *testing.T) {
 			t.Errorf("pod %s has the path %d, blocked %t, want %d, %t", test.pod, path, blocked, test.path, test.blocked)
 		}
 	}
-	const want = "ownFault=1 incident=1 noForwardRoute=1 faultAtChainEnd=2 legBlocked=1 legFree=1 notBlocked=3"
+	const want = "ownFault=1 incident=1 noForwardRoute=1 faultAtChainEnd=2 legBlocked=1 moveBlocked=1 legFree=1 notBlocked=3"
 	if got := counts.String(); got != want {
 		t.Errorf("the counts are %s, want %s", got, want)
 	}
@@ -2179,12 +2188,13 @@ func TestSoakBlockedByFault(t *testing.T) {
 	}
 	debris := []sim.FaultView{{ID: "i1.1", Kind: "debris"}}
 	tests := []struct {
-		name       string
-		pods       []sim.Vehicle
-		faults     []sim.FaultView
-		legBlocked []string
-		want       bool
-		end        string
+		name        string
+		pods        []sim.Vehicle
+		faults      []sim.FaultView
+		legBlocked  []string
+		moveBlocked []string
+		want        bool
+		end         string
 	}{
 		{name: "own fault", pods: []sim.Vehicle{pod("a", sim.TrackOccupied, "b"), pod("b", sim.NoWait, "")},
 			faults: []sim.FaultView{{ID: "i1.1", PodID: "a"}}, want: true, end: "pod a with a fault"},
@@ -2197,6 +2207,7 @@ func TestSoakBlockedByFault(t *testing.T) {
 		{name: "chain to no forward route", pods: []sim.Vehicle{pod("a", sim.BerthOccupied, "b"), pod("b", sim.NoForwardRoute, "")}, faults: debris, want: true, end: "pod b"},
 		{name: "chain to a fault ID", pods: []sim.Vehicle{pod("a", sim.TrackOccupied, "b"), pod("b", sim.TrackOccupied, "i1.1")}, faults: debris, want: true, end: "fault i1.1"},
 		{name: "chain to an idle pod that cannot board", pods: []sim.Vehicle{pod("a", sim.BerthOccupied, "b"), idle("b")}, faults: debris, legBlocked: []string{"b"}, want: true, end: "pod b, Ready"},
+		{name: "chain to an idle pod with no empty move", pods: []sim.Vehicle{pod("a", sim.ParkingUnavailable, "b"), idle("b")}, faults: debris, moveBlocked: []string{"b"}, want: true, end: "pod b, Ready"},
 		{name: "chain to a healthy pod with an ordinary wait", pods: []sim.Vehicle{pod("a", sim.TrackOccupied, "b"), pod("b", sim.BerthOccupied, "c"), pod("c", sim.NoWait, "")}, faults: debris, end: "pod c, Traveling"},
 		{name: "moving pod", pods: []sim.Vehicle{pod("a", sim.NoWait, "")}, faults: debris, end: "pod a, Traveling"},
 		{name: "cycle", pods: []sim.Vehicle{pod("a", sim.TrackOccupied, "b"), pod("b", sim.TrackOccupied, "c"), pod("c", sim.TrackOccupied, "b")}, faults: debris, end: "cycle at pod b"},
@@ -2205,13 +2216,14 @@ func TestSoakBlockedByFault(t *testing.T) {
 		{name: "a blocker that is no pod and no active fault", pods: []sim.Vehicle{pod("a", sim.TrackOccupied, "i9.9")}, faults: debris, end: "unknown blocker i9.9"},
 		{name: "faults off, ordinary wait", pods: []sim.Vehicle{pod("a", sim.TrackOccupied, "b"), idle("b")}, end: "pod b, Ready"},
 		{name: "faults off, stale reports", pods: []sim.Vehicle{pod("a", sim.NoForwardRoute, "")}, end: `pod a, wait "No forward route"`},
+		{name: "faults off, idle move", pods: []sim.Vehicle{pod("a", sim.ParkingUnavailable, "b"), idle("b")}, moveBlocked: []string{"b"}, end: "pod b, Ready"},
 		{name: "faults off, idle leg", pods: []sim.Vehicle{pod("a", sim.BerthOccupied, "b"), idle("b")}, legBlocked: []string{"b"}, end: "pod b, Ready"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			state := sim.Snapshot{Vehicles: test.pods, Faults: sim.FaultsView{Active: test.faults}}
-			reading := newSoakReading(state, func(id string) bool { return slices.Contains(test.legBlocked, id) })
+			reading := newSoakReading(state, func(id string) bool { return slices.Contains(test.legBlocked, id) }, func(id string) bool { return slices.Contains(test.moveBlocked, id) })
 			blocked, end := reading.blockedByFault("a")
 			if blocked != test.want || !strings.Contains(end, test.end) {
 				t.Fatalf("got %t, end %q, want %t, end %q", blocked, end, test.want, test.end)

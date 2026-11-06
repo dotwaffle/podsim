@@ -146,3 +146,67 @@ func TestBoardingLegBlocked(t *testing.T) {
 		})
 	}
 }
+
+// TestEmptyMoveBlocked checks each case of the entry. Only an idle pod that no
+// trip names, whose empty move fails now and succeeds with an empty blocked set,
+// counts.
+func TestEmptyMoveBlocked(t *testing.T) {
+	t.Parallel()
+	const free, full = "free", "full"
+	tests := []struct {
+		name  string
+		fleet string
+		lane  string
+		edit  func(s *Simulation)
+		pod   string
+		want  bool
+	}{
+		{name: "the fault keeps the pod in", fleet: free, lane: "s1-1-out", pod: "01", want: true},
+		{name: "no such pod", fleet: free, lane: "s1-1-out", pod: "missing"},
+		{name: "pod not idle", fleet: free, lane: "s1-1-out", pod: "01", edit: func(s *Simulation) { s.findVehicle("01").Pod.Activity = Unloading }},
+		{name: "pod occupied", fleet: free, lane: "s1-1-out", pod: "01", edit: func(s *Simulation) { s.findVehicle("01").Pod.Occupied = true }},
+		{name: "a trip names the pod", fleet: free, lane: "s1-1-out", pod: "01", edit: func(s *Simulation) {
+			trip := newTrip(s, "s1", "s0")
+			trip.request.PodID = "01"
+			s.waiting = append(s.waiting, trip)
+		}},
+		{name: "the pod has a move past the fault", fleet: free, lane: "s0-link", pod: "01"},
+		{name: "no move with an empty blocked set too", fleet: full, lane: "s1-1-out", pod: "02"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			berths := []string{"s1-1"}
+			pod := test.pod
+			if test.fleet == full {
+				berths = []string{"p-1", "s1-1", "s0-1", "s2-1"}
+			}
+			s, err := NewFleet(lineNetwork(lineStations(1, 1, 1, 1)), place(berths...))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := s.SetFaults(true, FaultSettings{EvacuationSeconds: 300}); err != nil {
+				t.Fatal(err)
+			}
+			debris := startDebris(t, s, test.lane, 40, 44, 0)
+			if test.edit != nil {
+				test.edit(s)
+			}
+			before := memosOf(s)
+			if got := s.EmptyMoveBlockedForTest(pod); got != test.want {
+				t.Fatalf("got %t, want %t", got, test.want)
+			}
+			if after := memosOf(s); !reflect.DeepEqual(after, before) {
+				t.Fatalf("the call changes the simulation:\n%+v\nthen\n%+v", before, after)
+			}
+			if test.want {
+				if err := s.clearFault(debris); err != nil {
+					t.Fatal(err)
+				}
+				if s.EmptyMoveBlockedForTest(pod) {
+					t.Fatal("the pod counts as blocked with no active fault")
+				}
+			}
+		})
+	}
+}

@@ -178,6 +178,26 @@ func (s *Simulation) BoardingLegBlockedForTest(podID string) bool {
 	return err == nil
 }
 
+// EmptyMoveBlockedForTest reports whether idle pod podID, which no trip names,
+// has no empty move now and has one with an empty blocked set. It tries the
+// moves on clones, so it changes no state, memo, counter, or route cache of s.
+//
+// It is a test entry for the Progress row of amendment A13 of the incident
+// stage 7 contract. No production code calls it.
+func (s *Simulation) EmptyMoveBlockedForTest(podID string) bool {
+	v := s.findVehicle(podID)
+	if v == nil || !v.inService() || v.Pod.Activity != Idle || v.Pod.Occupied || s.assigned(podID) {
+		return false
+	}
+	c := s.Clone()
+	if c.moveBlocker(c.findVehicle(podID)) {
+		return false
+	}
+	c = s.Clone()
+	c.setBlocked(nil)
+	return c.moveBlocker(c.findVehicle(podID))
+}
+
 // FailedBerthChoiceForTest reports whether pod podID is traveling with no berth
 // and an incident wait, which is the report of a failed berth choice. It also
 // reports whether the same search succeeds with an empty blocked set. It searches

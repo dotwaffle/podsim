@@ -3,7 +3,6 @@ package session
 import (
 	"math"
 	"math/rand/v2"
-	"strings"
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/project"
@@ -104,12 +103,11 @@ func (d *soakDriver) pathEmergency() string {
 	return id
 }
 
-// TestSoakPathLegFreeNoOrder reaches the path of an idle pod with no order in
-// the driver loop: the entry returns false because no trip names the pod. The
-// debris keeps the pod at its berth, but the rule of amendment A8 names only an
-// idle pod with an order, so the time counts as not blocked, and the gate fires
-// at the limit. A clear ends the wait.
-func TestSoakPathLegFreeNoOrder(t *testing.T) {
+// TestSoakPathMoveBlocked reaches the case of amendment A13 in the driver loop:
+// no trip names the idle pod, and the debris alone keeps it at its berth. The
+// time counts as blocked, so the gate does not fire past the limit, and a clear
+// ends the wait.
+func TestSoakPathMoveBlocked(t *testing.T) {
 	t.Parallel()
 	d := soakPathDriver(t)
 	debris := d.pathDebris("market-out")
@@ -119,20 +117,18 @@ func TestSoakPathLegFreeNoOrder(t *testing.T) {
 	}
 	before, record := d.result.paths, d.open[id]
 	blocked, unblocked := record.blocked, record.unblocked
-	const seconds = 5
-	for range seconds * soakViewTicks {
+	for range soakEmergencyTime + soakViewTicks {
 		d.pathTick()
 	}
 	want := before
-	want[soakPathLegFree] += seconds
+	want[soakPathMoveBlocked] += (soakEmergencyTime + soakViewTicks) / soakViewTicks
 	if d.result.paths != want {
-		t.Fatalf("5 seconds of readings give %s, want %s", d.result.paths, want)
+		t.Fatalf("the readings give %s, want %s", d.result.paths, want)
 	}
-	if got := d.open[id]; got.blocked != blocked || got.unblocked != unblocked+seconds*soakViewTicks {
+	if got := d.open[id]; got.unblocked != unblocked || got.blocked <= blocked {
 		t.Fatalf("the record has %d blocked and %d unblocked ticks, from %d and %d", got.blocked, got.unblocked, blocked, unblocked)
 	}
-	d.pathUntil("late record", func() bool { return len(d.result.misses) > 0 })
-	if miss := d.result.misses[0]; d.result.emergencyLate != 1 || !strings.Contains(miss, `chain end pod 02, Ready, wait ""`) {
+	if d.result.emergencyLate != 0 {
 		t.Fatalf("the gate has %d late records: %q", d.result.emergencyLate, d.result.misses)
 	}
 	d.mustApply(Command{Action: "clearFault", FaultID: debris})

@@ -608,6 +608,11 @@ This replaces the triggers of A10.
 After a change to dispatch, routing, or the fault and emergency state machines, the routine soak in the branch shape and `TestIncidentSoakCI`, which runs the full check at each tick, are required.
 No finding in `docs/studies/incident-soak.md` needed a long run, but that study did not record the simulated time of each first miss, so this is a judgment and not a measurement.
 
+Amendment A13, approved by the maintainer on 2026-11-06 for rule A: time is also blocked by a fault when the chain ends at an idle pod that no trip names, and whose empty move fails only because of the active faults.
+A8 named only an idle pod with an order, so this wait counted as not blocked, and a wait past 10 minutes would fail the row falsely.
+`docs/studies/incident-soak.md`, section "Coverage of the rare paths", holds the case.
+The test reads the entry `EmptyMoveBlockedForTest` from `internal/sim`, and it counts these readings as `moveBlocked`.
+
 Amendments, each for a separate answer in section 8:
 
 | # | Approved text | Change | Reason |
