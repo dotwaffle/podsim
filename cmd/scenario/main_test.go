@@ -119,14 +119,14 @@ func TestRunWithoutFlagsKeepsPresets(t *testing.T) {
 		"rail-hub":            "622c7d2a904691008a9d0309c46bdd62f1e7058b3a8f48cf0189ea3e9ab2a796",
 		"rail-hub-incidents":  "7d3d1c4309452899e666eee478b96923f39b03c32ac7903aaf16591d90167ca3",
 		"scale100":            "b8e952d7a1ae2f0fa1cc9f2022742b54cb101ffff78771d1a96cbec4552eac0f",
-		"london-central":      "140d6cc1ccfbad1521673b5e88a264259f56ff63a2abe4ee778bdd818240b655",
-		"london-full":         "9a3578978f6e0c3fd449a70d2c99bb091a41dcb84359b2cdab72a8ff95d0f781",
+		"london-central":      "ee6e663927d20d78b55b648141be18c1eacec8580e869e9dd03eb3b9c0da2b2e",
+		"london-full":         "95dd5f6d466a9fc0721a9e3d1338bf94dde147f787240abf7e8b8e72f4ab579c",
 	}
 	// networks holds the network SHA-256 of the summary line of the London
 	// presets.
 	networks := map[string]string{
-		"london-central": "dc91937b90b5a22eb64f7012fb6656bfe5abeae2cfa98fc05a5b5e6fdf00c4a1",
-		"london-full":    "83d4a83f4f9931a1382e143ef645bd0a31fcb22f0314998087512ad01581ea39",
+		"london-central": "d1fa6044728d60392e26001c48892e8abf5e0ebf6bdf690153e6be8e3d2c4ad6",
+		"london-full":    "4a7efa573c6af08d96de0ceeb60287176422f2bf93bc4ea2e5e2a19a21f83374",
 	}
 	for preset, want := range tests {
 		t.Run(preset, func(t *testing.T) {
@@ -177,17 +177,17 @@ func TestRunLondonOptOut(t *testing.T) {
 		flags                 []string
 		groups, depots        int
 	}{
-		{name: "LondonCentral", preset: "london-central", network: "2d11daaf9e6dc8c13b05c25529af55014db103bdc0985991c7704546534666d7",
+		{name: "LondonCentral", preset: "london-central", network: "b5ffdaec92145c98d487cdb31a8c9b286d7ebc3052cd186c1364438c4c7a272c",
 			flags: []string{"-parking-lanes", "0", "-compact-stations", "none"}},
-		{name: "LondonCentral without depots", preset: "london-central", network: "9bd69c7051a9bb4fb823a2e3452bab2f6a8af198a841b5af813991967d93deab",
+		{name: "LondonCentral without depots", preset: "london-central", network: "dfe2594ffd97f4cff417513f459498db63a1f69002ce1fc21ce2691c8b6e5163",
 			flags: []string{"-parking-lanes", "0"}, groups: 7},
-		{name: "LondonCentral without Compact stations", preset: "london-central", network: "a6d9340fd425a7bca7fafe79189b38a306aff82a440f14be76192339e7c6a185",
+		{name: "LondonCentral without Compact stations", preset: "london-central", network: "1e9031e223a8166fd889a876313e0d5d983cb4f36820add35bbea19b773d6833",
 			flags: []string{"-compact-stations", "none"}, depots: 3},
-		{name: "LondonFull", preset: "london-full", network: "61761e3b5281228dac678ade72be718b5406ea4a150dcc400ffe5f52e26976db",
+		{name: "LondonFull", preset: "london-full", network: "4c65870bff2d41c1b849d6b11b2c6bfb3b0a6cb4c8e686136221f137c2bab8f6",
 			flags: []string{"-parking-lanes", "0", "-compact-stations", "none"}},
-		{name: "LondonFull without depots", preset: "london-full", network: "9275645171f4c9e5cf34a36727bc11895e5026a0457424d70ee397d3a6d31807",
+		{name: "LondonFull without depots", preset: "london-full", network: "f287ee6a0bdddc0431a7c6b55de268469f28506e851403890e3ab1c88204fc93",
 			flags: []string{"-parking-lanes", "0"}, groups: 8},
-		{name: "LondonFull without Compact stations", preset: "london-full", network: "4630e4984fd828ed4d04c7e3fbb03235e8407fbd63db7493608a68d7bb08548e",
+		{name: "LondonFull without Compact stations", preset: "london-full", network: "e44e6d07c57daea8e7f15d7f8829e792f95b3ce73167cd92ff270b92e3806ba6",
 			flags: []string{"-compact-stations", "none"}, depots: 3},
 	}
 	for _, test := range tests {

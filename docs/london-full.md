@@ -133,10 +133,10 @@ The flags in the table give the same networks with the current defaults.
 
 | Arm | Flags | Network SHA-256 |
 | --- | --- | --- |
-| Ordinary | `-parking-lanes 0 -compact-stations none` | `61761e3b5281228dac678ade72be718b5406ea4a150dcc400ffe5f52e26976db` |
-| Depots | `-compact-stations none` | `4630e4984fd828ed4d04c7e3fbb03235e8407fbd63db7493608a68d7bb08548e` |
-| Compact stations | `-parking-lanes 0` | `9275645171f4c9e5cf34a36727bc11895e5026a0457424d70ee397d3a6d31807` |
-| Both | none, the default | `83d4a83f4f9931a1382e143ef645bd0a31fcb22f0314998087512ad01581ea39` |
+| Ordinary | `-parking-lanes 0 -compact-stations none` | `4c65870bff2d41c1b849d6b11b2c6bfb3b0a6cb4c8e686136221f137c2bab8f6` |
+| Depots | `-compact-stations none` | `e44e6d07c57daea8e7f15d7f8829e792f95b3ce73167cd92ff270b92e3806ba6` |
+| Compact stations | `-parking-lanes 0` | `f287ee6a0bdddc0431a7c6b55de268469f28506e851403890e3ab1c88204fc93` |
+| Both | none, the default | `4a7efa573c6af08d96de0ceeb60287176422f2bf93bc4ea2e5e2a19a21f83374` |
 
 Two more arms set `"class": "compact"` on each fleet placement of the Ordinary and Depots projects, with no other change.
 They give the same results as Ordinary and Depots in every run below, so the tables leave them out.
@@ -262,7 +262,7 @@ The overloaded cases fill the 200-order session queue; passing them does not est
 The Rate button of the client goes up to 60 requests per minute, so only a project file sets 120.
 
 One run of all six cases on Go 1.27.2, on October 19, 2026, at 60 Hz, passed without restore demotions.
-The network SHA-256 of the variant is `a860fc626e67326ae3bce3e91b714735a38ed2f2b27d30221148a0b5d97db7c8`.
+The network SHA-256 of the variant is `d17ae5c5a2c7743e07a572b8402190c8caab33ed2653dad7d8cd30276514edeb`.
 
 | Pods | Requests/minute | Mean tick, ms | p50 tick, ms | p95 tick, ms | p99 tick, ms | Pods moving after restore |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: |

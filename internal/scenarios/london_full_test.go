@@ -8,10 +8,12 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/project"
+	"github.com/dotwaffle/podsim/internal/sim"
 )
 
 func TestLondonFullPreset(t *testing.T) {
@@ -176,8 +178,8 @@ func TestLondonCentralMirroredBytesPinned(t *testing.T) {
 		config project.Config
 		want   string
 	}{
-		{"default", config, "344889ab4fa28e853b956e063d0ebdc39b5a262028d2d48029799a84aadd1ea2"},
-		{"opt-out", londonVariantPresets[0].ordinary(t), "63ed02aceb380056d75073efc01cbb5d57fc2ee2f6deb08e4358c12c47c68c3d"},
+		{"default", config, "8019b7a6e988b3e31d31b0c0bc18a6798ae4d7969564fc5a8bd39f95e9c93516"},
+		{"opt-out", londonVariantPresets[0].ordinary(t), "b3b8f3a1695804fcd398d71bedc4f4718e84e8b9448ce422109edfb8d7f12807"},
 	} {
 		test.config.Name = "Central London Underground-derived PRT"
 		raw, err := jsonv2.Marshal(test.config, json.DefaultOptionsV1())
@@ -203,5 +205,132 @@ func TestLondonFullRejectsInvalidProject(t *testing.T) {
 	source.Stations[0].Name = ""
 	if _, err := londonFullConfig(source, capacity, true, londonFullDemandProfile()); err == nil || !strings.Contains(err.Error(), "validate LondonFull scenario") {
 		t.Fatalf("invalid project error = %v", err)
+	}
+}
+
+func TestLondonBankMovementPathShape(t *testing.T) {
+	t.Parallel()
+	network := LondonFull().Network
+	for _, lane := range network.Lanes {
+		if lane.ID != "940GZZLUBNK-move-08-02" {
+			continue
+		}
+		from, _ := network.Node(lane.From)
+		to, _ := network.Node(lane.To)
+		points := network.Polyline(lane)
+		dx, dy := to.Position.X-from.Position.X, to.Position.Y-from.Position.Y
+		for i := 1; i < len(points); i++ {
+			if (points[i].X-points[i-1].X)*dx+(points[i].Y-points[i-1].Y)*dy <= 0 {
+				t.Fatal("Bank movement folds")
+			}
+		}
+		classes, err := sim.NewClassSet(string(sim.GroupClass))
+		if err != nil {
+			t.Fatal(err)
+		}
+		// A large incident lane makes preparation check the small movement too.
+		incident := sim.Node{ID: "incident", Position: sim.Point{X: from.Position.X - 100, Y: from.Position.Y}}
+		isolated := sim.Network{Nodes: []sim.Node{from, to, incident}, Lanes: []sim.Lane{lane, {ID: "large", From: incident.ID, To: from.ID, SpeedLimit: speedLimit, VehicleClasses: classes}}}
+		if _, err := sim.PrepareNetwork(isolated); err != nil {
+			t.Fatal(err)
+		}
+		return
+	}
+	t.Fatal("Bank movement missing")
+}
+
+func TestLondonBankMovementConnectivity(t *testing.T) {
+	t.Parallel()
+	network := LondonFull().Network
+	arrivals, departures := map[string]bool{}, map[string]bool{}
+	movements := map[string]sim.Lane{}
+	for _, lane := range network.Lanes {
+		if strings.HasPrefix(lane.ID, "940GZZLUBNK-move-") {
+			arrivals[lane.From], departures[lane.To] = true, true
+			movements[lane.ID] = lane
+		}
+	}
+	if len(movements) != 64 || len(arrivals) != 8 || len(departures) != 8 {
+		t.Fatalf("Bank connectivity: %d movements, %d arrivals, %d departures", len(movements), len(arrivals), len(departures))
+	}
+	lane := movements["940GZZLUBNK-move-08-02"]
+	if lane.From != "london-link-100-a-arrival" || lane.To != "london-link-094-a-departure" {
+		t.Fatalf("Bank movement endpoints: %+v", lane)
+	}
+	for a := range 8 {
+		for d := range 8 {
+			id := fmt.Sprintf("940GZZLUBNK-move-%02d-%02d", a+1, d+1)
+			if _, ok := movements[id]; !ok {
+				t.Fatalf("missing %s", id)
+			}
+		}
+	}
+	bank, _ := network.Station("940GZZLUBNK")
+	for _, station := range network.Stations {
+		if station.ID == "940GZZLUBNK" {
+			continue
+		}
+		for _, pair := range [][2]string{{station.Exit, bank.Entry}, {bank.Exit, station.Entry}} {
+			if _, err := network.Route(pair[0], pair[1]); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+}
+
+func TestLondonMovementProjection(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name   string
+		center sim.Point
+		want   sim.Point
+	}{
+		{"positive", sim.Point{X: 3, Y: 30}, sim.Point{X: 3, Y: 30}},
+		{"before arrival", sim.Point{X: -5, Y: 30}, sim.Point{X: 5, Y: 30}},
+		{"past departure", sim.Point{X: 15, Y: 30}, sim.Point{X: 5, Y: 30}},
+		{"zero start projection", sim.Point{Y: 30}, sim.Point{X: 5, Y: 30}},
+		{"zero end projection", sim.Point{X: 10, Y: 30}, sim.Point{X: 5, Y: 30}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			portals := londonStationPortals{arrivals: []londonPortal{{node: "a"}}, departures: []londonPortal{{node: "b", position: sim.Point{X: 10}}}}
+			var network sim.Network
+			addLondonMovements(&network, "test", test.center, portals)
+			lane := network.Lanes[0]
+			want := lane
+			want.Control = &test.want
+			gotBytes, err := jsonv2.Marshal(lane)
+			if err != nil {
+				t.Fatal(err)
+			}
+			wantBytes, err := jsonv2.Marshal(want)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !bytes.Equal(gotBytes, wantBytes) {
+				t.Fatalf("generated lane=%s want %s", gotBytes, wantBytes)
+			}
+			segments := londonMovementSegments(test.center, portals)
+			expected := []londonSegment{{from: sim.Point{}, to: test.want}, {from: test.want, to: sim.Point{X: 10}}}
+			if !reflect.DeepEqual(segments, expected) {
+				t.Fatalf("search segments=%+v want %+v", segments, expected)
+			}
+		})
+	}
+}
+
+func TestLondonBankLayoutRefusal(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct{ berths, conflicts int }{{3, 14}, {4, 38}} {
+		t.Run(strconv.Itoa(test.berths), func(t *testing.T) {
+			t.Parallel()
+			options := DefaultLondonFullOptions()
+			options.Berths["940GZZLUBNK"] = test.berths
+			_, err := LondonFullWith(options)
+			want := fmt.Sprintf("layout conflict at station Bank and Monument (940GZZLUBNK): lane %q is nearer than 36 meters to St. Paul's lane %q (%d hard conflicts)", "940GZZLUBNK-03-arrival-link", "940GZZLUSPU-access-in", test.conflicts)
+			if err == nil || err.Error() != want {
+				t.Fatalf("layout refusal=%v want %s", err, want)
+			}
+		})
 	}
 }

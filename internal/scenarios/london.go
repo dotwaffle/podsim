@@ -656,10 +656,20 @@ func addLondonMovements(network *sim.Network, stationID string, center sim.Point
 
 // londonMovementControl returns the control point of a movement lane
 // between two portals. When the portals are nearer than 2*sim.Clearance, the
-// lane curves through the station position. Otherwise it is straight and the
-// control point is nil.
+// lane uses the station position as its control point. If either control leg
+// does not advance along the chord, the control moves to its perpendicular
+// bisector. For portals at least 2*sim.Clearance apart, the lane is straight
+// and the control point is nil.
 func londonMovementControl(arrival, departure, center sim.Point) *sim.Point {
 	if math.Hypot(departure.X-arrival.X, departure.Y-arrival.Y) < 2*sim.Clearance {
+		dx, dy := departure.X-arrival.X, departure.Y-arrival.Y
+		projection := (center.X-arrival.X)*dx + (center.Y-arrival.Y)*dy
+		chordSquared := dx*dx + dy*dy
+		if chordSquared > 0 && (projection <= 0 || projection >= chordSquared) {
+			shift := 0.5 - projection/chordSquared
+			center.X += shift * dx
+			center.Y += shift * dy
+		}
 		return new(center)
 	}
 	return nil
