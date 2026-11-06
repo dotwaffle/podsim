@@ -475,6 +475,10 @@ Each arm with faults off has only `Not blocked` readings.
 The retry shows that no failed berth choice in this run had a cause other than the faults.
 The paths `Idle pod, leg free` and `Fault at the end of a chain` did not fire, so only unit tests cover them.
 
+`mise run soak` ran again at `44030345` on 2026-11-06, after the warm tick work, in 795 s of wall time, at a load average from 9 to 21.
+Every count in the two tables above is the same in this run, and each branch passed with no report.
+That is the expected result for the same seed, because the warm tick work claims no change of result, and these presets have no banks.
+
 ## What the soaks found
 
 The maintainer asked on 2026-11-06 whether long runs find more.
