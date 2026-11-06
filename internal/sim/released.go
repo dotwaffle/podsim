@@ -144,16 +144,18 @@ func (s *Simulation) parkUnclaimedReleased() {
 // and never with its slots.
 func (s *Simulation) nearestFreeBerth(v *vehicle, from string) (Berth, string, bool) {
 	closed := s.closedBerthNodes(v)
+	// A candidate holds a pointer, so the list of each choice stays small on
+	// a network of many berths. A depot goal has no berth.
 	type candidate struct {
-		berth   Berth
+		berth   *Berth
 		station string
 	}
 	rank := make([]int, len(s.network.Nodes))
 	for i := range rank {
 		rank[i] = -1
 	}
-	var candidates []candidate
-	add := func(berth Berth, node int, station string) {
+	candidates := make([]candidate, 0, len(s.graph.berthNodes)+len(s.network.Stations))
+	add := func(berth *Berth, node int, station string) {
 		if node < 0 || rank[node] >= 0 || closed[node] || !s.graph.nodeAllows(node, v.Pod.Class) {
 			return
 		}
@@ -185,16 +187,16 @@ func (s *Simulation) nearestFreeBerth(v *vehicle, from string) (Berth, string, b
 	current, hasCurrent := s.station(v.destinationStation)
 	if hasCurrent && !addDepot(current) {
 		// addCurrent is add, for the berth of a station with no known index.
-		addCurrent := func(berth Berth) {
+		addCurrent := func(berth *Berth) {
 			if node, ok := s.graph.nodes[berth.Node]; ok {
 				add(berth, node, current.ID)
 			}
 		}
 		if berth, ok := current.berth(v.destination.ID); ok {
-			addCurrent(berth)
+			addCurrent(&berth)
 		}
-		for _, berth := range current.Berths {
-			addCurrent(berth)
+		for position := range current.Berths {
+			addCurrent(&current.Berths[position])
 		}
 	}
 	for index, station := range s.network.Stations {
@@ -202,8 +204,8 @@ func (s *Simulation) nearestFreeBerth(v *vehicle, from string) (Berth, string, b
 			continue
 		}
 		nodes := s.graph.stationBerthNodes[index]
-		for position, berth := range station.Berths {
-			add(berth, nodes[position], station.ID)
+		for position := range station.Berths {
+			add(&station.Berths[position], nodes[position], station.ID)
 		}
 	}
 	if len(candidates) == 0 {
@@ -214,7 +216,10 @@ func (s *Simulation) nearestFreeBerth(v *vehicle, from string) (Berth, string, b
 		return Berth{}, "", false
 	}
 	chosen := candidates[rank[node]]
-	return chosen.berth, chosen.station, true
+	if chosen.berth == nil {
+		return Berth{}, chosen.station, true
+	}
+	return *chosen.berth, chosen.station, true
 }
 
 // closedBerthNodes returns, by node index, the berth nodes that v cannot choose:
