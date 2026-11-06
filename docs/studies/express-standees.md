@@ -1,7 +1,7 @@
 # Express standees evidence
 
 This record holds the research and the scratch measurements for the [Express standees contract proposal](../contracts/express-standees-contract-proposal.md).
-All runs used scratch overlays on `b2262f6`, and the overlays did not land.
+All runs except those of [Express against plain](#express-against-plain) used scratch overlays on `b2262f6`, and the overlays did not land.
 The results authorize no change.
 The Express row of the first table gives the profile at `b2262f6`; the profile is now 12 seats, 8 standee places, and a 6 m body.
 The runs with a real Express fleet are in the [Express qualification](express-qualification.md#standee-fleet-runs).
@@ -289,6 +289,60 @@ These runs had a host load of about 31 on 12 threads, so they are upper figures,
 | One lane at the coordinate limit | 0.00001 | Not run | 0.00009 |
 
 The last full-budget row is a ceiling of the work of one index, because the block limit refuses that project.
+
+## Express against plain
+
+This section gives the first runs of the Express class with the landed `cmd/compare`, from the `-fleet-classes` flag on top of `08c3b538`.
+The flag changes no simulation code.
+The arms ran at 30 Hz with `-fleet-classes plain,express`, `-pattern hotspot`, `-request-every 5s`, `-duration 30m`, `-redistribution-policies off`, `-seeds 1,2,3`, and `-workers 3`.
+The host load average was 18 to 21 on 12 threads, and the seven projects took 83 s of wall time.
+The counts do not depend on the load, because a run is deterministic: a second `rail-hub` run gave the same CSV bytes.
+
+The table has seeds 1, 2, and 3 in each cell, and the percent is the `served_percent_of_plain` of the Express row.
+Each schedule offers 359 orders, and the two arms of a pair have the same schedule ID.
+
+| Project | Plain served | Express served | Percent of plain | Plain stopped pod-seconds | Express stopped pod-seconds | Plain skipped | Express skipped |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `rail-hub` | 103, 104, 106 | 94, 97, 101 | 91.3, 93.3, 95.3 | 1,275, 1,311, 1,206 | 2,812, 2,024, 1,975 | 39, 43, 30 | 45, 49, 39 |
+| `rail-hub-incidents` | 95, 101, 99 | 85, 91, 84 | 89.5, 90.1, 84.8 | 3,287, 2,710, 2,165 | 3,700, 3,622, 3,358 | 39, 37, 32 | 48, 45, 47 |
+| `small` | 52, 59, 57 | 54, 60, 57 | 103.8, 101.7, 100.0 | 49, 43, 60 | 9, 19, 33 | 99, 90, 94 | 96, 91, 98 |
+| `busy` | 99, 80, 93 | 91, 79, 88 | 91.9, 98.8, 94.6 | 219, 175, 368 | 755, 335, 485 | 38, 54, 46 | 47, 58, 46 |
+| `parking-constrained` | 78, 86, 79 | 73, 81, 75 | 93.6, 94.2, 94.9 | 154, 88, 73 | 145, 62, 101 | 67, 58, 70 | 70, 63, 71 |
+| `independent-banks` | 28, 25, 25 | 26, 24, 23 | 92.9, 96.0, 92.0 | 0, 0, 0 | 0, 0, 0 | 129, 132, 132 | 131, 133, 133 |
+| `scale100` | 216, 207, 206 | 216, 199, 197 | 100.0, 96.1, 95.6 | 477, 658, 717 | 507, 816, 1,308 | 0, 0, 0 | 0, 0, 0 |
+
+`compact-station` refuses the arm on its Compact bays, and `london-central` and `london-full` refuse it on their depots.
+
+The figure of the [standee fleet runs](express-qualification.md#standee-fleet-runs) reproduces.
+That record gives 91, 93, and 95 percent on `rail-hub` at `234d8b4`, and the tool gives 91.3, 93.3, and 95.3 percent.
+The served counts, the stopped pod-seconds, and the peak stopped pods of both arms are the same as in that record, and `rail-hub-incidents` at seed 1 also serves 85 again.
+
+The figure holds for `rail-hub` only.
+Across the seven projects, the percent is 84.8 to 103.8.
+`rail-hub-incidents` is under 90 percent at seeds 1 and 3, and the arms of that project have different counts of interrupted orders.
+The 90 percent gate of the contract applies to `rail-hub` with all classes, and `TestRailHubAllClassesProgress` runs it with a Group fleet, so this result does not change it.
+
+These percents are not a capacity claim:
+
+- Each order has one passenger, so no arm uses the larger load of an Express pod.
+- Demand is above the supply of the fleet, as the skipped orders and the remaining orders show.
+  On `rail-hub` at one order each 60 s, Express serves 24, 25, and 21 orders against 24, 25, and 22 for plain, and 4 to 8 of the 29 orders remain at minute 30.
+- The Express arm changes the lane classes as well as the class of the pods.
+  So the percent includes the effect of the large-class tails, which the [rail-hub runs](#rail-hub-runs) give as 98, 99, and 102 served for a Legacy fleet on all lanes at `b2262f6`.
+  This flag has no arm that separates the two effects.
+
+The method differs from the scratch test of that record in three ways:
+
+- The arms are one command line, with one report and a percent paired on the schedule ID.
+  The scratch test did not land, so the record gives no command that runs the percent again.
+- `cmd/compare` makes the Express project in memory from the project file.
+  The scratch test made the same change in test code.
+  In both cases the project passes the project validation with the marker.
+- A compare arm does not call `SafetyObservation().Check()`.
+  `TestExpressArmSeparation` calls it at each tick on `rail-hub` at seeds 1 to 3, and a scratch test called it on the other six projects in the table.
+  No run reported an error, and each served count is the same with the check.
+
+The runs do not cover parties above one passenger, `profile-daily`, or a project with a separation group.
 
 ## Sources
 

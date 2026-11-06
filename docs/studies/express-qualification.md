@@ -157,6 +157,7 @@ The arm of each row is the arm of `TestRailHubAllClassesProgress`: hotspot deman
 | All classes, one Express, one Legacy, and one Group pod in turn | 99, 91, 98 | 2,805, 1,978, 2,213 | 11, 7, 10 | 21.252 |
 
 Express served 91, 93, and 95 percent of the plain preset.
+`cmd/compare -fleet-classes plain,express` gives these rows again, see [Express against plain](express-standees.md#express-against-plain).
 The 90 percent gate of `TestRailHubAllClassesProgress` stays on Group, it detects a regression only, and these figures are not a capacity claim.
 Served orders do not measure the capacity of the class, because this demand is above the supply of the fleet.
 In each Express run the largest speed rise was 1.300 m/s² and the largest speed drop was 1.148 m/s², apart from the endpoint snap.

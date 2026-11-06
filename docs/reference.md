@@ -280,6 +280,7 @@ The percent is not a capacity measure.
 Each order has one passenger, so an arm does not use the standee places, and the difference also includes the effect of the large-class tails on each lane.
 An arm does not run the separation oracle, and `TestExpressArmSeparation` runs it on `rail-hub`.
 The command does not apply `expressServices`.
+See [Express against plain](studies/express-standees.md#express-against-plain) for the recorded results.
 
 ### Report columns
 
