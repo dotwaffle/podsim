@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/dotwaffle/podsim/internal/project"
+	"github.com/dotwaffle/podsim/internal/scenarios"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
@@ -78,10 +79,9 @@ func TestExperimentalArmsPairSchedulesAndPreserveDefault(t *testing.T) {
 	if len(seen) != 2 {
 		t.Fatalf("missing policy arms: %+v", seen)
 	}
-	unchanged := arms[0]
-	unchanged.PickupReassignment, unchanged.PickupReassignmentStats = "", nil
+	unchanged := arms[1]
 	if !reflect.DeepEqual(unchanged, base[0]) {
-		t.Fatalf("explicit off changed baseline outcome: %+v != %+v", unchanged, base[0])
+		t.Fatalf("explicit on changed default outcome: %+v != %+v", unchanged, base[0])
 	}
 	opts.workers = 4
 	parallel, err := compare(opts, caseStudy)
@@ -183,5 +183,119 @@ func TestExperimentalArmConfiguration(t *testing.T) {
 	}
 	if err := configureExperimentalPolicies(simulation, runInput{pickupReassignment: "invalid"}); err == nil {
 		t.Fatal("invalid direct arm accepted")
+	}
+}
+
+func TestComparePolicyDefaults(t *testing.T) {
+	t.Parallel()
+	caseStudy, err := loadScenario("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		name   string
+		flags  []string
+		policy string
+		column bool
+	}{
+		{"omitted", nil, "on", false},
+		{"explicit on", []string{"-redistribution-policies", "on", "-pickup-reassignment", "on"}, "on", true},
+		{"explicit off", []string{"-redistribution-policies", "off", "-pickup-reassignment", "off"}, "off", true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			args := append([]string{"-duration", "2m", "-loads", "10s,20s", "-seeds", "7,19"}, test.flags...)
+			opts, err := parseOptions(args, &bytes.Buffer{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !slices.Equal(opts.redistributionPolicies, []string{test.policy}) || !slices.Equal(opts.pickupReassignment, []string{test.policy}) || opts.pickupReassignmentColumn != test.column {
+				t.Fatalf("policy options: %+v", opts)
+			}
+			rows, err := compare(opts, caseStudy)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(rows) != 4 {
+				t.Fatalf("got %d arms, want 4", len(rows))
+			}
+			for _, row := range rows {
+				if row.Policy != test.policy || row.PickupReassignment != test.policy || row.PickupReassignmentStats == nil {
+					t.Fatalf("effective policies: %+v", row)
+				}
+				stats := *row.PickupReassignmentStats
+				if test.policy == "on" && stats.AssignmentChecks == 0 || test.policy == "off" && stats != (pickupPolicyStats{}) {
+					t.Fatalf("pickup configuration: %+v", stats)
+				}
+			}
+			opts.workers = 4
+			parallel, err := compare(opts, caseStudy)
+			if err != nil || !reflect.DeepEqual(rows, parallel) {
+				t.Fatalf("worker count changed outcomes: %v", err)
+			}
+			for _, format := range []string{"json", "csv", "table"} {
+				var output, stderr bytes.Buffer
+				if code := runCLI(cliInput{args: append(slices.Clone(args), "-format", format), stdout: &output, stderr: &stderr}); code != 0 {
+					t.Fatalf("%s report: %s", format, &stderr)
+				}
+				switch format {
+				case "json":
+					var decoded report
+					if err := jsonv2.Unmarshal(output.Bytes(), &decoded, json.DefaultOptionsV1()); err != nil || decoded.SchemaVersion != 16 || !reflect.DeepEqual(decoded.Results, rows) {
+						t.Fatalf("JSON lost effective policies: %v", err)
+					}
+				case "csv":
+					header, err := csv.NewReader(&output).Read()
+					if err != nil || slices.Contains(header, "pickup_reassignment") != test.column {
+						t.Fatalf("CSV column: %v, %v", header, err)
+					}
+				case "table":
+					if strings.Contains(output.String(), "REASSIGN") != test.column {
+						t.Fatalf("table column: %s", &output)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestComparePolicyDefaultsWithOtherOptions(t *testing.T) {
+	t.Parallel()
+	base, err := loadScenario("", "harbor")
+	if err != nil {
+		t.Fatal(err)
+	}
+	base.railArrivals = railComparisonPlan()
+	base.railDepartures = serviceComparisonDepartures()
+	path := writeProjectFile(t, scenarios.Small())
+	for _, test := range []struct {
+		name     string
+		flags    []string
+		scenario scenario
+	}{
+		{"rail arrivals", []string{"-pattern", "rail-arrivals"}, base},
+		{"rail services", []string{"-pattern", "rail-services"}, base},
+		{"daily", []string{"-pattern", "profile-daily"}, dailyComparisonScenario(t)},
+		{"fleet classes", []string{"-project", path, "-fleet-classes", "plain,express"}, ringScenario(t, scenarios.Small())},
+		{"consent", []string{"-sharing-consent", "shared", "-sharing-limits", "2"}, base},
+		{"onboard", []string{"-sharing-consent", "shared", "-sharing-limits", "2", "-onboard-pickups", "on"}, base},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			args := append([]string{"-duration", "1m"}, test.flags...)
+			opts, err := parseOptions(args, &bytes.Buffer{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			rows, err := compare(opts, test.scenario)
+			if err != nil || len(rows) == 0 {
+				t.Fatalf("default policies refused: %v", err)
+			}
+			for _, row := range rows {
+				if row.Policy != "on" || row.PickupReassignment != "on" {
+					t.Fatalf("supported policy disabled: %+v", row)
+				}
+			}
+		})
 	}
 }

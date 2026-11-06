@@ -55,9 +55,10 @@ type options struct {
 	// platoonPolicies is nil when -platoon-policies is not given. Then
 	// each arm runs without platoons and the report has no platoon policy
 	// column.
-	platoonPolicies    []string
-	onboardPickups     []string
-	pickupReassignment []string
+	platoonPolicies          []string
+	onboardPickups           []string
+	pickupReassignment       []string
+	pickupReassignmentColumn bool
 	// fleetClasses is nil when -fleet-classes is not given. Then each arm
 	// runs the fleet of the project and the report has no fleet columns.
 	fleetClasses    []string
@@ -82,6 +83,7 @@ func parseOptions(args []string, stderr io.Writer) (options, error) {
 	given := make(map[string]bool)
 	flags.Visit(func(set *flag.Flag) { given[set.Name] = true })
 	opts.sharingConsentColumn = given["sharing-consent"]
+	opts.pickupReassignmentColumn = given["pickup-reassignment"]
 	for _, step := range optionSteps {
 		if err := step(&opts, given); err != nil {
 			return options{}, err
@@ -131,10 +133,10 @@ func defineFlags(flags *flag.FlagSet, opts *options) {
 	flags.StringVar(&opts.sharingModesText, "sharing-modes", string(sim.DefaultSharedRideMode), "comma-separated shared ride modes: drop-offs, destination")
 	flags.IntVar(&opts.sharingMaxStops, "sharing-max-stops", sim.DefaultSharedRideMaxStops, "intermediate stops of a pod in drop-offs mode")
 	flags.StringVar(&opts.onboardPickupsText, "onboard-pickups", "off", "comma-separated occupied pickup policies: off, on (on requires sharing above one party and drop-offs mode; adds an onboard_pickups column)")
-	flags.StringVar(&opts.redistributionText, "redistribution-policies", "off,on", "comma-separated redistribution policies: off, on")
+	flags.StringVar(&opts.redistributionText, "redistribution-policies", "on", "comma-separated redistribution policies: off, on")
 	flags.StringVar(&opts.waitRulesText, "wait-rules", "current", "comma-separated finishing-pod wait rules: current, strict, none (adds a wait_rule column)")
 	flags.StringVar(&opts.platoonPoliciesText, "platoon-policies", "off", "comma-separated platoon policies: off, virtual (adds a platoon_policy column)")
-	flags.StringVar(&opts.pickupReassignmentText, "pickup-reassignment", "off", "comma-separated experimental pickup reassignment policies: off, on")
+	flags.StringVar(&opts.pickupReassignmentText, "pickup-reassignment", "on", "comma-separated experimental pickup reassignment policies: off, on")
 	flags.StringVar(&opts.fleetClassesText, "fleet-classes", "plain", "comma-separated fleets: plain, express (adds fleet_class and served_percent_of_plain columns)")
 	flags.StringVar(&opts.focus, "focus", "", "passenger station used by focused patterns")
 	flags.StringVar(&opts.format, "format", "table", "output format: table, json, or csv")

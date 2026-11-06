@@ -79,7 +79,7 @@ func TestParseOptionsRejectsInvalidBounds(t *testing.T) {
 func TestCompareIsRepeatableAndPairsSchedules(t *testing.T) {
 	t.Parallel()
 	opts, err := parseOptions([]string{
-		"-duration", "2m", "-loads", "20s,30s", "-seeds", "7,19", "-patterns", "balanced,bursty-hotspot",
+		"-redistribution-policies", "off,on", "-duration", "2m", "-loads", "20s,30s", "-seeds", "7,19", "-patterns", "balanced,bursty-hotspot",
 	}, &bytes.Buffer{})
 	if err != nil {
 		t.Fatal(err)
@@ -114,7 +114,7 @@ func TestCompareIsRepeatableAndPairsSchedules(t *testing.T) {
 func TestComparePairsSharedRideLimits(t *testing.T) {
 	t.Parallel()
 	opts, err := parseOptions([]string{
-		"-duration", "2m", "-request-every", "10s", "-pattern", "hub-burst", "-burst-size", "3", "-sharing-consent", "shared", "-sharing-limits", "1,3",
+		"-redistribution-policies", "off,on", "-duration", "2m", "-request-every", "10s", "-pattern", "hub-burst", "-burst-size", "3", "-sharing-consent", "shared", "-sharing-limits", "1,3",
 	}, &bytes.Buffer{})
 	if err != nil {
 		t.Fatal(err)
@@ -308,7 +308,7 @@ func TestReportFormatsAreMachineReadable(t *testing.T) {
 func TestArrivalWindowLeavesDrainTime(t *testing.T) {
 	t.Parallel()
 	opts, err := parseOptions([]string{
-		"-duration", "4m", "-arrivals-for", "1m", "-request-every", "5s", "-burst-size", "6", "-pattern", "hub-burst",
+		"-redistribution-policies", "off,on", "-duration", "4m", "-arrivals-for", "1m", "-request-every", "5s", "-burst-size", "6", "-pattern", "hub-burst",
 	}, &bytes.Buffer{})
 	if err != nil {
 		t.Fatal(err)
@@ -435,7 +435,7 @@ func TestParseRedistributionPolicies(t *testing.T) {
 		args []string
 		want []string
 	}{
-		{"flag not given", nil, []string{"off", "on"}},
+		{"flag not given", nil, []string{"on"}},
 		{"on only", []string{"-redistribution-policies", "on"}, []string{"on"}},
 		{"all policies in order", []string{"-redistribution-policies", "on, off"}, []string{"on", "off"}},
 	} {

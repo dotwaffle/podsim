@@ -8,10 +8,7 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-func parseExperimentalOptions(opts *options, given map[string]bool) error {
-	if !given["pickup-reassignment"] {
-		return nil
-	}
+func parseExperimentalOptions(opts *options, _ map[string]bool) error {
 	for part := range strings.SplitSeq(opts.pickupReassignmentText, ",") {
 		policy := strings.TrimSpace(part)
 		if policy != "off" && policy != "on" {
@@ -30,8 +27,7 @@ func experimentalArmCount(opts options) int {
 }
 
 // experimentalInputs expands each schedule across the pickup reassignment
-// policies. An omitted option disables the policy, and its report field
-// stays absent.
+// policies. The default policy runs without a table or CSV column.
 func experimentalInputs(inputs []runInput, opts options) []runInput {
 	if opts.pickupReassignment == nil {
 		return inputs

@@ -175,7 +175,7 @@ At the first skipped arrival, the command turns the policy off for the rest of t
 See [qualification results](studies/qualification.md#guarded-positioning-in-the-london-sweep).
 
 The command uses its own policy flags, and it ignores `redistribution`, `pickupReassignment`, the other experimental settings, and `generatedOrderConsent` in the input project.
-Thus it does not follow the defaults of the presets: with no flag, it runs redistribution off and on, and pickup reassignment off.
+With no policy flags, it runs redistribution and pickup reassignment on, as the presets do.
 It keeps `faults` and `emergencies`.
 An arm of a project with a rate has both operations on and runs the samplers, from the seed of the arm, so arms with one seed get one event schedule.
 An interrupted order is terminal and it is not served, so it does not count as remaining or as completed.
@@ -226,10 +226,10 @@ The focus station is the `-focus` station, then the `demand.destination` of the 
 | `-sharing-max-stops` | The stop limit of the drop-offs mode, from 1 to 7. Default 3. |
 | `-sharing-consent shared` | Give every offered party the consent `private` (default) or `shared`. The command ignores `generatedOrderConsent` in the project. See [sharing consent](compare-sharing-consent.md). |
 | `-onboard-pickups off,on` | Compare occupied pickup policies. `on` needs a party limit above 1 and the drop-offs mode. |
-| `-redistribution-policies off,on` | Select the positioning policies. `on` is guarded positioning. |
+| `-redistribution-policies off,on` | Select the positioning policies. The default is `on`, which is guarded positioning. |
 | `-wait-rules current,strict,none` | Compare the [wait rules](model.md#wait-rules) of a finishing pod. |
 | `-platoon-policies off,virtual` | The experimental platoon comparison. `virtual` lets queued pods follow the pod ahead at a short gap. |
-| `-pickup-reassignment off,on` | Compare independent pickup reassignment settings. The default is off. |
+| `-pickup-reassignment off,on` | Compare independent pickup reassignment settings. The default is on. A table or CSV column appears only when the flag is given. |
 | `-energy-file` | Add energy estimates from an authored energy model file. See [energy model design](design/energy-model-design.md). |
 | `-fleet-classes plain,express` | Compare the project with an Express form of it. See [Express against plain](#express-against-plain). |
 
@@ -293,11 +293,12 @@ Some columns show only when you ask for what they report.
 | `wait_rule` | You give `-wait-rules`. |
 | `platoon_policy` | You give `-platoon-policies`. |
 | `sharing_mode` | Always. It gives the sharing mode of each arm. |
+| `pickup_reassignment`, `pickup_reassignment_stats` | Always in JSON. The table and CSV add a policy column only when you give `-pickup-reassignment`. |
 | `fleet_class`, `served_percent_of_plain` | You give `-fleet-classes`. The table names them `FLEET` and `SERVED % PLAIN`. |
 | `interrupted`, `fault_started`, `fault_skipped`, `emergency_started`, `emergency_skipped` | The project has a fault rate or an emergency rate above 0. |
 
-The JSON report has `schema_version` 15.
-It is 16 with a pickup reassignment column, 17 with an `onboard_pickups` column, 18 with energy estimates, and 19 with `fleet_class`.
+The JSON report has `schema_version` 16.
+It is 17 with an `onboard_pickups` column, 18 with energy estimates, and 19 with `fleet_class`.
 
 #### Waits and journeys
 

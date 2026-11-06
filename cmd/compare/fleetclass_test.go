@@ -241,7 +241,7 @@ func TestFleetClassesPairArms(t *testing.T) {
 	}
 	paired := decodeReport(t, data)
 	baseline := decodeReport(t, cliReport(t, base...))
-	if paired.SchemaVersion != 19 || baseline.SchemaVersion != 15 || len(paired.Results) != 4 || len(baseline.Results) != 2 {
+	if paired.SchemaVersion != 19 || baseline.SchemaVersion != 16 || len(paired.Results) != 4 || len(baseline.Results) != 2 {
 		t.Fatalf("schema %d and %d, %d and %d rows", paired.SchemaVersion, baseline.SchemaVersion, len(paired.Results), len(baseline.Results))
 	}
 	if bytes.Contains(cliReport(t, base...), []byte("fleet_class")) {

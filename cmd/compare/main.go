@@ -106,7 +106,7 @@ func runCLI(input cliInput) int {
 	if err := writeReport(writeReportInput{
 		output: output, format: opts.format, results: results, sharingConsentColumn: opts.sharingConsentColumn,
 		waitRuleColumn: opts.waitRules != nil, platoonColumn: opts.platoonPolicies != nil,
-		pickupReassignmentColumn: opts.pickupReassignment != nil, onboardPickupsColumn: opts.onboardPickups != nil,
+		pickupReassignmentColumn: opts.pickupReassignmentColumn, onboardPickupsColumn: opts.onboardPickups != nil,
 		fleetClassColumn: opts.fleetClasses != nil,
 	}); err != nil {
 		_ = closeOutput()

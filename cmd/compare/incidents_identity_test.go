@@ -42,9 +42,10 @@ func compareOutput(t *testing.T, args []string) string {
 }
 
 // TestNoRateOutputIsPinned checks section 5.1.5 of the incident stage 7
-// contract. The output of each format has the SHA-256 of the commit before
-// compare ran incident rates. A run is deterministic on one architecture
-// (section 5.1.4), so the digests hold on amd64.
+// contract. The policy flags preserve the settings from before compare ran
+// incident rates. The digests include the explicit pickup policy metadata.
+// A run is deterministic on one architecture (section 5.1.4), so the digests
+// hold on amd64.
 func TestNoRateOutputIsPinned(t *testing.T) {
 	t.Parallel()
 	skipLong(t)
@@ -56,26 +57,26 @@ func TestNoRateOutputIsPinned(t *testing.T) {
 	}{
 		{"default", nil, []string{"-duration", "10m", "-arrivals-for", "5m", "-request-every", "20s", "-seeds", "1,2", "-patterns", "balanced,hotspot", "-stop-when-drained"},
 			map[string]string{
-				"json":  "d47c99f8a9f65d19be1741d5013e90cf83524a236c5eefe2ba7b2e4969131f5f",
-				"csv":   "197df468c8021469ffd605aaa2628dea317f581e5dd14dce7e22ee1f3f1fa7df",
-				"table": "492e801021abfd4eb857704f3ebadbfc07dedcdf4f6aa5b08eecaf8b773e22af",
+				"json":  "fbdedff808a6af36c82ad752158abc77669156eb045cc366784b6c0e7730cec1",
+				"csv":   "f399d161357d7111316c0184262e8741d7b133ffd52fbd2d828b3ebe16b789fd",
+				"table": "37f80d1b034f6c0716213a5a07430ec5c1fbab51465177ddfb32df1adf2458c7",
 			}},
 		{"busy", new(scenarios.Busy()), []string{"-duration", "5m", "-arrivals-for", "3m", "-request-every", "5s", "-seed", "1", "-pattern", "hotspot"},
 			map[string]string{
-				"json":  "0c242bc19509470861781e81b31ce2a7f2c16bb2e10d13a907884659a26cf3f0",
-				"csv":   "605c4759748cd3ee0f78ba9705917ceb97c255fae256ce39aeb5fe4419ae2cb9",
-				"table": "9528b4198bc5ecfe29b62f5b0d95c0ce62249dfc7efcc90fb97f50f559c10e09",
+				"json":  "be1c6972e30bca083ab0fe538cff7222cb467290512254c6d4f15b908758b8b5",
+				"csv":   "400de19fdff448ffaf963f663bd956f370b18edae4fbbcb4d885391dffcbcae4",
+				"table": "10c1bf353d094dd818ba2d2a62037bf76da46c7dc8479e8d5c6f0d20f60a72f6",
 			}},
 		{"rail hub", new(scenarios.RailHub()), []string{"-duration", "10m", "-arrivals-for", "5m", "-request-every", "5s", "-burst-size", "12", "-seed", "1", "-pattern", "hub-burst"},
 			map[string]string{
-				"json":  "3dafa22f865a773e2e6934cc5d3d793fd43a4ab7dbec54c86fd6e216b7f12041",
-				"csv":   "87e37664f334dcabe70c2bd00a8a993383e40eee308b9ab1ffafd073f735bea4",
-				"table": "2e5d6ff5cdc20750b0580d7d78eb994fa288dc578a97785cbd540694fb138e7e",
+				"json":  "c7c56dc763ecf3f1cb555d8b10f8355c79e82f2c41cd613f5e525789f6d12fa1",
+				"csv":   "026c50984a86c00401ca3bbc91f72cb8c42b4e7d5734a2478fd784e68b432da5",
+				"table": "95866d50239924532b994808887f84bafd5d06daa421492748dbfb33994dc5f0",
 			}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			args := test.args
+			args := slices.Concat(test.args, []string{"-redistribution-policies", "off,on", "-pickup-reassignment", "off"})
 			if test.config != nil {
 				args = slices.Concat(args, []string{"-project", writeProjectFile(t, *test.config)})
 			}
@@ -93,8 +94,8 @@ func TestNoRateOutputIsPinned(t *testing.T) {
 func TestNoRateFormsArePinned(t *testing.T) {
 	t.Parallel()
 	skipLong(t)
-	const want = "605c4759748cd3ee0f78ba9705917ceb97c255fae256ce39aeb5fe4419ae2cb9"
-	args := []string{"-duration", "5m", "-arrivals-for", "3m", "-request-every", "5s", "-seed", "1", "-pattern", "hotspot", "-format", "csv"}
+	const want = "400de19fdff448ffaf963f663bd956f370b18edae4fbbcb4d885391dffcbcae4"
+	args := []string{"-redistribution-policies", "off,on", "-pickup-reassignment", "off", "-duration", "5m", "-arrivals-for", "3m", "-request-every", "5s", "-seed", "1", "-pattern", "hotspot", "-format", "csv"}
 	negativeZero := math.Copysign(0, -1)
 	for name, test := range map[string]struct {
 		faults      *project.FaultConfig
@@ -133,12 +134,16 @@ func TestNoRatePlanOutputIsPinned(t *testing.T) {
 		args     []string
 		want     string
 	}{
-		{"rail services", rail, []string{"-pattern", "rail-services", "-duration", "10m", "-arrivals-for", "3s", "-stop-when-drained", "-seeds", "7,19", "-redistribution-policies", "off"}, "e8646151081cad58606a3b2e05e5ab24eaf52fa6e2246bf3e63359accbd31595"},
-		{"daily", dailyComparisonScenario(t), []string{"-pattern", "profile-daily", "-duration", "4m", "-arrivals-for", "3m", "-seed", "1"}, "8e02ddf35a4e9505ef60791d8125bbe6c745320ce3663a71368c561172d4d94c"},
+		{"rail services", rail, []string{"-pattern", "rail-services", "-duration", "10m", "-arrivals-for", "3s", "-stop-when-drained", "-seeds", "7,19", "-redistribution-policies", "off"}, "a1f4f4fcfedc7d32dde231a9a2548e78af8bcdcc22708fa2e3bbda2e85052b93"},
+		{"daily", dailyComparisonScenario(t), []string{"-pattern", "profile-daily", "-duration", "4m", "-arrivals-for", "3m", "-seed", "1"}, "9fd4dea4f6cef295665203cb9a5f486a30af156d31affece2059c5075f1bb97e"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			opts, err := parseOptions(test.args, &bytes.Buffer{})
+			args := slices.Concat(test.args, []string{"-pickup-reassignment", "off"})
+			if !slices.Contains(args, "-redistribution-policies") {
+				args = append(args, "-redistribution-policies", "off,on")
+			}
+			opts, err := parseOptions(args, &bytes.Buffer{})
 			if err != nil {
 				t.Fatal(err)
 			}
