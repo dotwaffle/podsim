@@ -196,7 +196,7 @@ func (s *Simulation) stationBankEntryOn(static bool, from string, station Statio
 		cost := 0.0
 		for _, lane := range route {
 			// Departure within the origin bank does not change approach order.
-			if owner := s.graph.banks.lanes[s.graph.lanes[lane.ID]]; owner >= 0 && lane.StationRole == StationDepartureRole {
+			if lane.StationRole == StationDepartureRole && s.graph.banks.lanes[s.graph.lanes[lane.ID]] >= 0 {
 				continue
 			}
 			cost += s.laneLength(lane) / lane.SpeedLimit
