@@ -1,6 +1,7 @@
 package session
 
 import (
+	"math/rand/v2"
 	"slices"
 	"strings"
 	"testing"
@@ -14,6 +15,11 @@ import (
 // can run an Express pod, so the test builds this project. It is not a product
 // preset, and only an explicit PODSIM_SOAK_PRESETS selects it.
 const soakExpressPreset = "rail-hub-express"
+
+// soakExpressPartiesPreset is the Express project with the party orders of the
+// driver. Generated demand submits parties of one, so it never loads a pod past
+// its seats, and the load dwell and the standees stay out of the run.
+const soakExpressPartiesPreset = "rail-hub-express-parties"
 
 // soakExpressArms lists the arms of the Express project. A large class forms no
 // platoon link, so the platoon arms would test nothing on an all-Express fleet.
@@ -46,6 +52,152 @@ func soakExpressProject(t *testing.T) project.Config {
 	return config
 }
 
+// soakExpressParties returns the project of the party orders: pods can pool 4
+// parties, as in the mixed fleet test, and two service pairs join the hub to one
+// district. Demand falls to one order a minute, because at the 12 of the preset
+// the queue is full after 25 minutes, and a party waits most of a branch to board.
+func soakExpressParties(t *testing.T) project.Config {
+	t.Helper()
+	config := soakExpressProject(t)
+	config.SharedRidePartyLimit = 4
+	config.Demand.PerMinute = 1
+	const hub = "station-01"
+	var district string
+	for index := range config.Network.Stations {
+		if station := &config.Network.Stations[index]; !station.ParkingOnly && station.ID != hub {
+			district = station.ID
+			break
+		}
+	}
+	config.ExpressServices = []sim.ExpressService{
+		{ID: "hub-out", From: hub, To: district, Class: sim.ExpressClass, PartyLimit: sim.MaxExpressParties},
+		{ID: "hub-in", From: district, To: hub, Class: sim.ExpressClass, PartyLimit: sim.MaxExpressParties},
+	}
+	return config
+}
+
+const (
+	// soakPartyInterval is the mean time between two party orders.
+	soakPartyInterval = 60 * sim.TicksPerSecond
+	// soakPartySeats is the seats of an Express pod. A load above it has standees.
+	soakPartySeats = 12
+)
+
+// soakParties sends shared party orders of 1 to 20 passengers, and one in four
+// uses a service pair. It has its own stream, so the driver draws the same
+// incident events with it or without it. An order waits for a place in the queue,
+// because the session refuses an order at the queue limit and generated demand
+// can fill the queue. The orders are demand and not an incident event, so a
+// reference arm has them too. It reads each second what the orders reach.
+type soakParties struct {
+	rng      *rand.Rand
+	stations []string
+	services []sim.ExpressService
+	next     int64
+	// accepted and refused count the orders. passengers counts the passengers of
+	// the accepted orders.
+	accepted, refused, passengers int
+	// peak is the largest load of a pod, and peakParties the most parties
+	// aboard a pod. standeeSeconds counts the pod readings above the seats.
+	peak, peakParties, standeeSeconds int
+	// faults and emergencies hold the records that a reading found on a pod above
+	// the seats. A replay of a rewind can add the same record with a new ID.
+	faults, emergencies map[string]bool
+}
+
+// newSoakParties returns nil for each project that has no party order.
+func newSoakParties(input soakInput, config project.Config, tick int64) *soakParties {
+	if input.preset != soakExpressPartiesPreset {
+		return nil
+	}
+	p := &soakParties{rng: rand.New(rand.NewPCG(input.seed, 0x50415254+input.branch)), services: config.ExpressServices, faults: map[string]bool{}, emergencies: map[string]bool{}}
+	for index := range config.Network.Stations {
+		if station := &config.Network.Stations[index]; !station.ParkingOnly {
+			p.stations = append(p.stations, station.ID)
+		}
+	}
+	p.next = tick + p.interval()
+	return p
+}
+
+func (p *soakParties) interval() int64 {
+	return max(1, int64(p.rng.ExpFloat64()*soakPartyInterval))
+}
+
+// order returns the next party order.
+func (p *soakParties) order() Command {
+	command := Command{Action: "trip", PartySize: 1 + p.rng.IntN(sim.MaxExpressParties), SharingConsent: sim.SharedConsent, OrderContract: sim.ExpressOrderContract}
+	if p.rng.IntN(4) == 0 {
+		service := p.services[p.rng.IntN(len(p.services))]
+		command.Origin, command.Destination, command.Service, command.ServiceID = service.From, service.To, sim.ExpressServiceChoice, service.ID
+		return command
+	}
+	origin := p.rng.IntN(len(p.stations))
+	destination := (origin + 1 + p.rng.IntN(len(p.stations)-1)) % len(p.stations)
+	command.Origin, command.Destination = p.stations[origin], p.stations[destination]
+	return command
+}
+
+// run sends the order that is due, and reads the state at each second. A nil p
+// does nothing.
+func (p *soakParties) run(d *soakDriver, tick int64) {
+	if p == nil {
+		return
+	}
+	if tick >= p.next && d.s.simulation.PendingCount() < QueueLimit {
+		p.next = tick + p.interval()
+		command := p.order()
+		if reply := d.apply(command); reply.Error != "" {
+			p.refused++
+			d.t.Logf("the party order %+v is refused: %s", command, reply.Error)
+		} else {
+			p.accepted++
+			p.passengers += command.PartySize
+		}
+	}
+	if tick%soakViewTicks == 0 {
+		p.read(d.s.simulation.Snapshot())
+	}
+}
+
+// read adds one reading of the state.
+func (p *soakParties) read(state sim.Snapshot) {
+	standing := map[string]bool{}
+	for index := range state.Vehicles {
+		vehicle := &state.Vehicles[index]
+		load, parties := vehicle.PassengersAboard(), 0
+		for _, rider := range vehicle.Riders {
+			if !rider.Completed {
+				parties++
+			}
+		}
+		p.peak, p.peakParties = max(p.peak, load), max(p.peakParties, parties)
+		if load > soakPartySeats {
+			p.standeeSeconds++
+			standing[vehicle.Pod.ID] = true
+		}
+	}
+	for _, fault := range state.Faults.Active {
+		if standing[fault.PodID] {
+			p.faults[fault.ID] = true
+		}
+	}
+	for _, emergency := range state.Emergencies.Active {
+		if standing[emergency.PodID] {
+			p.emergencies[emergency.ID] = true
+		}
+	}
+}
+
+// log reports what the orders reached. A nil p does nothing.
+func (p *soakParties) log(t *testing.T, input soakInput) {
+	t.Helper()
+	if p == nil {
+		return
+	}
+	t.Logf("parties preset=%s arm=%s seed=%d branch=%d accepted=%d refused=%d passengers=%d peakLoad=%d peakParties=%d standeeSeconds=%d standeeFaults=%d standeeEmergencies=%d", input.preset, input.arm.name, input.seed, input.branch, p.accepted, p.refused, p.passengers, p.peak, p.peakParties, p.standeeSeconds, len(p.faults), len(p.emergencies))
+}
+
 // TestSoakExpressProject checks that the project of the Express soak has only
 // Express pods, and that the soak presets of the other arms have none.
 func TestSoakExpressProject(t *testing.T) {
@@ -68,8 +220,10 @@ func TestSoakExpressProject(t *testing.T) {
 			t.Errorf("rail-hub has the Express pod %s", pod.ID)
 		}
 	}
-	if slices.Contains(strings.Split(soakDefaultPresets, ","), soakExpressPreset) {
-		t.Errorf("the default presets %q hold the Express project", soakDefaultPresets)
+	for _, name := range []string{soakExpressPreset, soakExpressPartiesPreset} {
+		if slices.Contains(strings.Split(soakDefaultPresets, ","), name) {
+			t.Errorf("the default presets %q hold the Express project %s", soakDefaultPresets, name)
+		}
 	}
 }
 
@@ -98,6 +252,63 @@ func TestSoakExpressDriver(t *testing.T) {
 	for _, vehicle := range state.Vehicles {
 		if vehicle.Pod.Class != sim.ExpressClass {
 			t.Fatalf("pod %s has class %q", vehicle.Pod.ID, vehicle.Pod.Class)
+		}
+	}
+}
+
+// TestSoakExpressParties gives the queue a party of 20 first, so a pod has
+// standees soon, and then the driver sends its own orders. The other projects
+// get no party order.
+func TestSoakExpressParties(t *testing.T) {
+	t.Parallel()
+	if raceEnabled {
+		t.Skip("one simulation on one goroutine, so the race detector finds nothing")
+	}
+	input := soakInput{preset: soakExpressPartiesPreset, arm: soakArms["incidents"], seed: 1, hours: 0.05, checks: true, settle: 60 * sim.TicksPerSecond}
+	d := newSoakDriver(t, input)
+	p := d.parties
+	if p == nil {
+		t.Fatal("the Express parties project has no party order")
+	}
+	service := d.config.ExpressServices[0]
+	d.mustApply(Command{Action: "trip", Origin: service.From, Destination: service.To, PartySize: sim.MaxExpressParties, SharingConsent: sim.SharedConsent, OrderContract: sim.ExpressOrderContract})
+	p.next = 1
+	d.runHours()
+	d.clearAndSettle()
+	if p.accepted == 0 || p.refused != 0 || p.passengers < p.accepted || p.peak <= soakPartySeats || p.standeeSeconds == 0 {
+		t.Fatalf("the parties reach %+v", p)
+	}
+	for _, off := range []soakInput{
+		{preset: soakExpressPreset, arm: soakArms["incidents"]},
+		{preset: "rail-hub", arm: soakArms["incidents"]},
+	} {
+		if newSoakParties(off, d.config, 0) != nil {
+			t.Errorf("preset %s arm %s has party orders", off.preset, off.arm.name)
+		}
+	}
+}
+
+// TestSoakExpressWarmBranch checks that a branch of the warm save still has the
+// project of the warm run: the order contract and an Express class for each pod.
+func TestSoakExpressWarmBranch(t *testing.T) {
+	t.Parallel()
+	if raceEnabled {
+		t.Skip("one simulation on one goroutine, so the race detector finds nothing")
+	}
+	input := soakInput{preset: soakExpressPreset, arm: soakArms["incidents"], seed: 1, hours: 0.02, checks: true, settle: 60 * sim.TicksPerSecond}
+	input.warm = soakWarmUp(t, input, 30*sim.TicksPerSecond)
+	input.branch = 1
+	d := newSoakDriver(t, input)
+	if d.s.project.OrderContract != sim.ExpressOrderContract {
+		t.Errorf("the branch has the order contract %q", d.s.project.OrderContract)
+	}
+	state := d.s.simulation.Snapshot()
+	if len(state.Vehicles) != len(d.config.Fleet) {
+		t.Errorf("the branch has %d pods, and the fleet has %d", len(state.Vehicles), len(d.config.Fleet))
+	}
+	for index := range state.Vehicles {
+		if pod := state.Vehicles[index].Pod; pod.Class != sim.ExpressClass {
+			t.Errorf("pod %s has class %q in the branch", pod.ID, pod.Class)
 		}
 	}
 }

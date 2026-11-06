@@ -75,6 +75,8 @@ func soakPreset(t *testing.T, name string) project.Config {
 		config = scenarios.LondonCentral()
 	case soakExpressPreset:
 		config = soakExpressProject(t)
+	case soakExpressPartiesPreset:
+		config = soakExpressParties(t)
 	case "fleet-300", "fleet-1000":
 		// No preset has the fleet of the worst-case rows of section 5.1.9.
 		pods, err := strconv.Atoi(strings.TrimPrefix(name, "fleet-"))
@@ -236,7 +238,9 @@ type soakDriver struct {
 	lastWatch    int64
 	watchedEnded int64
 	holdWatch    bool
-	result       soakResult
+	// parties sends the party orders of the Express project, or it is nil.
+	parties *soakParties
+	result  soakResult
 }
 
 type soakClear struct {
@@ -269,6 +273,7 @@ func newSoakDriver(t *testing.T, input soakInput) *soakDriver {
 		nextFault: math.MaxInt64, nextEmergency: math.MaxInt64, nextSave: math.MaxInt64, nextRewind: math.MaxInt64}
 	d.result.queue = soakRange{low: math.MaxInt, high: 0}
 	input.warm.resume(d)
+	d.parties = newSoakParties(input, config, d.loopTick)
 	if input.arm.commands {
 		if input.arm.faults {
 			d.nextFault = d.loopTick + soakInterval(rng)
@@ -541,6 +546,7 @@ func (d *soakDriver) startEmergency() {
 // runEvents sends the commands that are due.
 func (d *soakDriver) runEvents(tick int64) {
 	d.t.Helper()
+	d.parties.run(d, tick)
 	for tick >= d.nextFault {
 		d.nextFault += soakInterval(d.rng)
 		d.startFault(tick)
@@ -1093,6 +1099,7 @@ func runSoak(t *testing.T, input soakInput) soakResult {
 		d.result.commands, d.result.refused, d.result.saves, d.result.demoted, d.result.podsDemoted, d.result.rewinds, d.result.railRecords, state.Completed, state.Interrupted, d.result.queue.low, d.result.queue.high,
 		d.result.settleTicks/sim.TicksPerSecond, state.Wait.AverageSeconds, state.Wait.MaxSeconds, state.Faults.Counters, state.Emergencies.Counters, d.result.emergencies, d.result.emergencyLate, d.result.emergencyInPlatoon, d.result.emergencyLong, float64(d.result.emergencyLongest)/sim.TicksPerSecond, d.fullChecks, d.result.rates)
 	t.Logf("rule A preset=%s arm=%s seed=%d branch=%d readings %s failedBerths=%d failedBerthRetries=%d longest blocked: %s", input.preset, input.arm.name, input.seed, input.branch, d.result.paths, d.result.failedBerths, d.result.failedBerthRetries, soakLongestBlocked(d.result.blockedRecords, d.open))
+	d.parties.log(t, input)
 	if len(d.result.misses) > 0 {
 		t.Errorf("preset %s arm %s seed %d branch %d misses a Progress gate:\n%s", input.preset, input.arm.name, input.seed, input.branch, strings.Join(d.result.misses, "\n"))
 	}
@@ -1211,7 +1218,7 @@ func soakShapeOf(name, preset string) (soakShape, error) {
 		if preset == "london-central" {
 			return soakShape{seeds: 1, warmTicks: warm, branches: 3, hours: 1, rewindEvery: rewind, arms: []string{"incidents", "emergencies", "reference"}}, nil
 		}
-		if preset == soakExpressPreset {
+		if preset == soakExpressPreset || preset == soakExpressPartiesPreset {
 			return soakShape{seeds: 1, warmTicks: warm, branches: 10, hours: 1.5, rewindEvery: rewind, arms: soakExpressArms}, nil
 		}
 		return soakShape{seeds: 1, warmTicks: warm, branches: 10, hours: 1.5, rewindEvery: rewind, arms: soakAllArms}, nil
@@ -2135,6 +2142,7 @@ func TestSoakShape(t *testing.T) {
 		{"branches", "rail-hub", soakShape{seeds: 1, warmTicks: 30 * minute, branches: 10, hours: 1.5, rewindEvery: 10 * minute, arms: soakAllArms}},
 		{"branches", "london-central", soakShape{seeds: 1, warmTicks: 30 * minute, branches: 3, hours: 1, rewindEvery: 10 * minute, arms: []string{"incidents", "emergencies", "reference"}}},
 		{"branches", soakExpressPreset, soakShape{seeds: 1, warmTicks: 30 * minute, branches: 10, hours: 1.5, rewindEvery: 10 * minute, arms: []string{"incidents", "emergencies", "reference"}}},
+		{"branches", soakExpressPartiesPreset, soakShape{seeds: 1, warmTicks: 30 * minute, branches: 10, hours: 1.5, rewindEvery: 10 * minute, arms: []string{"incidents", "emergencies", "reference"}}},
 		{"seeds", "rail-hub", soakShape{seeds: 5, branches: 1, hours: 6, rewindEvery: 60 * minute, arms: soakAllArms}},
 		{"seeds", "london-central", soakShape{seeds: 5, branches: 1, hours: 6, rewindEvery: 60 * minute, arms: soakAllArms}},
 	}
