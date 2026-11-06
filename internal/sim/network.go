@@ -379,8 +379,11 @@ type routeGraph struct {
 	edges []routeEdge
 	// berthStations holds, for each node, the index of the station that has
 	// a berth at the node, or -1.
-	berthStations     []int
-	berthNodes        map[string]int
+	berthStations []int
+	berthNodes    map[string]int
+	// stationBerthNodes holds, by station index and berth position, the node
+	// index of each berth, or -1 for an unknown node.
+	stationBerthNodes [][]int
 	nodeClasses       []uint8
 	classRestrictions bool
 	laneClasses       []uint8
@@ -421,11 +424,15 @@ func newRouteGraph(network Network) routeGraph {
 		graph.nodes[node.ID] = index
 		graph.berthStations[index] = -1
 	}
+	graph.stationBerthNodes = make([][]int, len(network.Stations))
 	for stationIndex, station := range network.Stations {
-		for _, berth := range station.Berths {
+		graph.stationBerthNodes[stationIndex] = make([]int, len(station.Berths))
+		for position, berth := range station.Berths {
+			graph.stationBerthNodes[stationIndex][position] = -1
 			if node, ok := graph.nodes[berth.Node]; ok {
 				graph.berthStations[node] = stationIndex
 				graph.berthNodes[berth.ID] = node
+				graph.stationBerthNodes[stationIndex][position] = node
 			}
 		}
 	}

@@ -143,18 +143,7 @@ func (s *Simulation) parkUnclaimedReleased() {
 // takes part with its entry and no berth when depotGoal accepts the pod,
 // and never with its slots.
 func (s *Simulation) nearestFreeBerth(v *vehicle, from string) (Berth, string, bool) {
-	busy := make(map[string]bool)
-	for i := range s.vehicles {
-		other := &s.vehicles[i]
-		if other != v && other.Pod.Activity != Idle && other.destination.ID != "" {
-			busy[other.destination.ID] = true
-		}
-	}
-	for _, trip := range s.waiting {
-		if trip.destination.ID != "" {
-			busy[trip.destination.ID] = true
-		}
-	}
+	closed := s.closedBerthNodes(v)
 	type candidate struct {
 		berth   Berth
 		station string
@@ -164,9 +153,8 @@ func (s *Simulation) nearestFreeBerth(v *vehicle, from string) (Berth, string, b
 		rank[i] = -1
 	}
 	var candidates []candidate
-	add := func(berth Berth, station string) {
-		node, ok := s.graph.nodes[berth.Node]
-		if !ok || rank[node] >= 0 || busy[berth.ID] || s.berthBlocked(berth) || !s.berthAvailableTo(v, berth) {
+	add := func(berth Berth, node int, station string) {
+		if node < 0 || rank[node] >= 0 || closed[node] || !s.graph.nodeAllows(node, v.Pod.Class) {
 			return
 		}
 		// A moving pod cannot stop at the node where its new route starts.
@@ -196,19 +184,26 @@ func (s *Simulation) nearestFreeBerth(v *vehicle, from string) (Berth, string, b
 	}
 	current, hasCurrent := s.station(v.destinationStation)
 	if hasCurrent && !addDepot(current) {
+		// addCurrent is add, for the berth of a station with no known index.
+		addCurrent := func(berth Berth) {
+			if node, ok := s.graph.nodes[berth.Node]; ok {
+				add(berth, node, current.ID)
+			}
+		}
 		if berth, ok := current.berth(v.destination.ID); ok {
-			add(berth, current.ID)
+			addCurrent(berth)
 		}
 		for _, berth := range current.Berths {
-			add(berth, current.ID)
+			addCurrent(berth)
 		}
 	}
-	for _, station := range s.network.Stations {
+	for index, station := range s.network.Stations {
 		if hasCurrent && station.ID == current.ID || addDepot(station) {
 			continue
 		}
-		for _, berth := range station.Berths {
-			add(berth, station.ID)
+		nodes := s.graph.stationBerthNodes[index]
+		for position, berth := range station.Berths {
+			add(berth, nodes[position], station.ID)
 		}
 	}
 	if len(candidates) == 0 {
@@ -220,6 +215,47 @@ func (s *Simulation) nearestFreeBerth(v *vehicle, from string) (Berth, string, b
 	}
 	chosen := candidates[rank[node]]
 	return chosen.berth, chosen.station, true
+}
+
+// closedBerthNodes returns, by node index, the berth nodes that v cannot choose:
+// another pod that is not idle or a waiting trip goes to the berth, a fault
+// blocks the berth, or an owner other than v holds the berth or its node. The
+// view holds for one choice, so nothing needs to invalidate it. The order of the
+// map entries does not change the result.
+func (s *Simulation) closedBerthNodes(v *vehicle) []bool {
+	closed := make([]bool, len(s.network.Nodes))
+	closeBerth := func(id string) {
+		if node, ok := s.graph.berthNodes[id]; ok {
+			closed[node] = true
+		}
+	}
+	for i := range s.vehicles {
+		other := &s.vehicles[i]
+		if other != v && other.Pod.Activity != Idle && other.destination.ID != "" {
+			closeBerth(other.destination.ID)
+		}
+	}
+	for _, trip := range s.waiting {
+		if trip.destination.ID != "" {
+			closeBerth(trip.destination.ID)
+		}
+	}
+	for r, blocked := range s.blocked.berths {
+		if blocked {
+			closeBerth(r.id)
+		}
+	}
+	for r, owner := range s.owners {
+		if r.cell != 0 || r.kind != berthResource && r.kind != nodeResource || owner.isZero() || owner.isPod(v.Pod.ID) {
+			continue
+		}
+		if r.kind == berthResource {
+			closeBerth(r.id)
+		} else if node, ok := s.graph.nodes[r.id]; ok {
+			closed[node] = true
+		}
+	}
+	return closed
 }
 
 // berthAvailableTo reports whether no pod other than v holds the berth or
