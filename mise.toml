@@ -189,8 +189,7 @@ exit "$status"
 
 [tasks."soak:full"]
 description = "Run the soak of amendment A6 with the full check at each tick, which the 2 h limit can cut, and list the seeds that finished"
-# Amendment A10 requires this run before a release tag and after a change to
-# dispatch, routing, or the fault and emergency state machines. The wall limit
+# Amendment A12 requires this run before a release tag. The wall limit
 # of the soak task stays at 2 hours, so this run can end cut. Amendment A6 counts
 # only the completed seeds, and the file lists them. Each run has its own file,
 # so a run that does not get the lock leaves the record of the run that holds it.

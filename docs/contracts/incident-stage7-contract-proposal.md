@@ -599,6 +599,11 @@ The rule was chosen after the readings of 2026-11-06, which missed the rule of 1
 A later quiet-host run with `PODSIM_SOAK_GATE=1` must confirm it before the row counts as passed.
 The rule for the slowest tick stays in each run, and the timed runs of A3 keep the rule of 10 percent.
 
+Amendment A12, approved by the maintainer on 2026-11-06: the soak with the full check at each tick, and the 5 seeds of 6 simulated hours of A6, are required only before a release tag.
+This replaces the triggers of A10.
+After a change to dispatch, routing, or the fault and emergency state machines, the routine soak in the branch shape and `TestIncidentSoakCI`, which runs the full check at each tick, are required.
+No finding in `docs/studies/incident-soak.md` needed a long run, but that study did not record the simulated time of each first miss, so this is a judgment and not a measurement.
+
 Amendments, each for a separate answer in section 8:
 
 | # | Approved text | Change | Reason |

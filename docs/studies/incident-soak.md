@@ -474,6 +474,22 @@ Each arm with faults off has only `Not blocked` readings.
 The retry shows that no failed berth choice in this run had a cause other than the faults.
 The paths `Idle pod, leg free` and `Fault at the end of a chain` did not fire, so only unit tests cover them.
 
+## What the soaks found
+
+The maintainer asked on 2026-11-06 whether long runs find more.
+No finding needed a long run, but the study did not record the simulated time of each first miss, so the earliest time of the late emergencies is not known.
+
+| Finding | Kind | When or how |
+| --- | --- | --- |
+| Rewind failures | False alarm of the check | 2.9 and 4.6 simulated hours, at 60 Hz |
+| Late emergencies, and two defects behind them | Defects | First soak, with 50 of 335 records late in the `rail-hub` `incidents` arm |
+| Restore demotion | Defect | About 1.9 percent of saves, in a run that saves often |
+| Idle pod entry wiring | Test coverage | A soak of 13 minutes of wall time shows it |
+
+The Safety, Contract, Conservation, and Rail rows have no report in any soak.
+Amendment A12 keeps `soak:full` only for a release tag.
+A run of it at `4512864` stopped on 2026-11-06 by that decision, after 31 minutes of wall time, with no finished seed and no report, so it did not pass.
+
 ## Readings from a quiet host
 
 These readings ran at `184d525` on 2026-11-05, after the full gate, with a load average from 2 to 6.

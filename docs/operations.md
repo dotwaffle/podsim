@@ -970,7 +970,8 @@ A second log line of each branch gives the rule A evidence: the count of reading
 It changes no gate.
 The `incidents` and `emergencies` arms run on both presets, and `platoons` runs on `rail-hub`.
 The checks run at the stride of amendment A10: the full check runs at each simulated second and at each event.
-Use `mise run soak:full` before a release tag, and after a change to dispatch, routing, or the fault and emergency state machines.
+Use `mise run soak:full` before a release tag.
+After a change to dispatch, routing, or the fault and emergency state machines, use `mise run soak` and `mise run qualify`, which runs `TestIncidentSoakCI`.
 It runs 5 seeds of 6 simulated hours with the full check at each tick.
 This run keeps the wall limit of 2 hours, so it can end cut, before each seed finishes.
 A run that the limit stops counts only its completed seeds.
