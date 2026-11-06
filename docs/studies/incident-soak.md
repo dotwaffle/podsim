@@ -802,3 +802,28 @@ The cold and first warm rows at the project limits come from `TestSampledTickNoC
 That test reports the sum of its emergency and fault parts: 24.4 s before the route work fixes and 0.6 s after, in one run of each at a load average of 3 to 19.
 At `8ffb20b6`, 3 runs at a load average of 2 to 3.3 report a cold sum of 5.9 to 6.0 ms and a warm sum of 86.4 to 87.7 ms, with 33.6 to 33.8 ms for emergency and 52.8 to 53.9 ms for fault, against 50 ms as a report and not a gate.
 The row of 300 pod faults misses the rule of 10 percent, against a reference step that does almost no work.
+
+## Queue check at low demand
+
+The queue half of the Progress gate cannot fail on `rail-hub` at its preset demand, because the reference run queues at 197 to 200 orders, the cap of the queue.
+This run measures what the gate reads at lower demand.
+It uses `rail-hub` seed 1, the routine branch shape, 10 `incidents` branches, and a scratch patch at 3b35d93f that sets the demand and logs the queue each minute.
+The window after the clear is 60 minutes, so that each branch shows its time to settle.
+
+| Orders/min | Reference queue | Queue at the clear | Highest queue | Settle time | Over 30 minutes |
+|---|---|---|---|---|---|
+| 2 | 0 to 8 | 11 to 55 | 37 to 70 | 302 to 2,082 s | 3 of 10 |
+| 1 | 0 to 5 | 0 to 12 | 8 to 19 | 1 to 332 s | 0 of 10 |
+
+The misses at 2 orders/min are branches 2, 3, and 4, at 1,926 to 2,082 s.
+Branch 10 settles at 1,765 s, 35 s inside the window.
+
+The drain at 2 orders/min follows from the fleet limit.
+The 30-pod preset completes 631 orders in 180 simulated minutes at its demand of 12 orders/min, which is about 3.5 orders/min.
+The branches serve 2.7 to 4.0 orders/min while they drain, so the net drain is about 1.4 orders/min, and a queue of 52 needs about 31 minutes to reach 8.
+A miss at 2 orders/min therefore comes from the size of the queue at the clear and the small margin of the fleet, with no fault hold or incident wait left.
+At 1 order/min the net drain is about 2.5 orders/min, and the queue stays in reach of the window.
+
+A low-demand arm at 1 order/min keeps the 30-minute window and can fail, because each branch queues above the reference range before the clear.
+Each branch takes 17 to 32 s on a shared host.
+The arm is not in the soak, because a new arm changes the contract.
