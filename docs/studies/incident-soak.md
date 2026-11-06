@@ -577,6 +577,10 @@ With the collector, the slowest tick was 1.57 ms and the reference reached 2.37 
 So the rate of this miss is 1 in 56 runs of `london-central`, and these runs do not name its cause.
 The maintainer ruled on 2026-11-06 that the row passes at `5979debb`, by the rule of `AGENTS.md` that a latency failure runs again by itself before it counts, with this miss on record.
 
+`TestIncidentSoakTimed` ran again at `d7f36582` with `PODSIM_SOAK_GATE=1`, at a load average of 4.5 to 5.6, and all 6 seeds passed.
+Each median is at most 6.5 percent above its reference, and each slowest tick is at most 1.34 times its reference.
+The slowest ticks on `rail-hub` are 8 to 20 ms in both arms, against 2 to 4 ms in the earlier run at a lower load, so this run does not measure them closely.
+
 ## Readings from a busy host
 
 These readings are not results of a gate.
