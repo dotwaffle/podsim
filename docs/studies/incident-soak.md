@@ -827,3 +827,51 @@ At 1 order/min the net drain is about 2.5 orders/min, and the queue stays in rea
 A low-demand arm at 1 order/min keeps the 30-minute window and can fail, because each branch queues above the reference range before the clear.
 Each branch takes 17 to 32 s on a shared host.
 The arm is not in the soak, because a new arm changes the contract.
+
+## Redistribution and reassignment on by default
+
+Commit 3a40a5bd turns on redistribution and pickup reassignment in each preset.
+Each soak arm on a preset follows the preset, so a soak reading from before that commit is not comparable with a later one.
+`fleet-300`, `fleet-1000`, and `TestLondonFleetQualification` keep both off.
+
+The routine soak at 7c0b3a10 passes: 39 runs, 0 failures, 0 late emergencies, 0 pods demoted, and a longest time not blocked of 251.8 s.
+It took 798 s at nice 10.
+
+A count on 10 `rail-hub` `incidents` branches at seed 1 shows 180 swaps at the end of the branches, and 56 before the clear.
+Each branch swaps, and the save, rewind, and order checks pass in each branch.
+The count reads the live simulation, and it does not separate a swap that overlaps a fault from one that does not.
+
+These readings are one report-only run of each arm, on a host at a load of 2 to 4.
+The tick budget is 33.3 ms at 30 Hz.
+The first table times each step of a new session for 40 simulated minutes, with both policies on or off.
+
+| Project | Orders/min | Both | p50 | p99 | p99.9 | Largest step | Reassignment ticks | p99 of these | Largest of these |
+|---|---|---|---|---|---|---|---|---|---|
+| LondonFull | 10 | Off | 81 µs | 0.42 ms | 3.3 ms | 8.0 ms | 0 | | |
+| LondonFull | 10 | On | 82 µs | 2.6 ms | 5.1 ms | 10.9 ms | 2,305 | 6.1 ms | 10.9 ms |
+| LondonFull | 120 | Off, 2 runs | 222 to 223 µs | 1.5 ms | 7.4 to 7.5 ms | 71.9 to 72.9 ms | 0 | | |
+| LondonFull | 120 | On, 2 runs | 223 to 226 µs | 4.6 to 4.7 ms | 8.7 to 9.0 ms | 82.3 to 83.0 ms | 2,409 | 9.2 to 9.6 ms | 28.3 to 31.8 ms |
+| `fleet-1000` | 120 | Off | 520 µs | 1.2 ms | 5.9 ms | 36.7 ms | 0 | | |
+| `fleet-1000` | 120 | On | 532 µs | 2.2 ms | 8.0 ms | 65.8 ms | 2,139 | 8.9 ms | 14.1 ms |
+
+A reassignment tick stays inside the budget in these runs, and scans at most 256 pairs.
+LondonFull at 120 orders/min reaches 31.8 ms, which is 1.5 ms inside the budget.
+The step above the budget is not a reassignment tick.
+It exists with both off on LondonFull at 72 ms, and it grows by about 10 ms with both on.
+`fleet-1000` is over the budget only with both on, in one run of each arm.
+No gate reads these steps.
+
+The second table is `TestLondonFleetQualification` for its fleets, with both off and with both on in a scratch build.
+Each row is off, then on.
+
+| Pods | Orders/min | Saved gzip bytes | HTTP bytes | Published gzip bytes | Allocations per tick | Mean step (ms) | Completed |
+|---|---|---|---|---|---|---|---|
+| 327 | 10 | 1,716,240, 1,716,456 | 2,849,893, 2,849,909 | 481,650, 484,615 | 6,247, 39,359 | 0.076, 0.137 | 30, 30 |
+| 327 | 120 | 1,747,608, 1,746,406 | 3,022,781, 3,020,311 | 1,407,046, 1,424,392 | 95,042, 127,345 | 0.343, 0.427 | 121, 121 |
+| 600 | 10 | 1,719,198, 1,719,861 | 3,002,588, 3,003,738 | 490,236, 502,018 | 5,800, 18,612 | 0.099, 0.122 | 32, 33 |
+| 600 | 120 | 1,779,140, 1,778,282 | 3,273,950, 3,273,485 | 2,377,510, 2,339,198 | 48,706, 103,866 | 0.608, 0.687 | 203, 205 |
+| 1,000 | 10 | 1,728,033, 1,727,887 | 3,226,983, 3,226,051 | 564,015, 559,646 | 8,582, 12,758 | 0.181, 0.141 | 33, 33 |
+| 1,000 | 120 | 1,807,788, 1,807,442 | 3,616,922, 3,618,196 | 3,304,963, 3,276,737 | 76,341, 114,919 | 1.11, 1.14 | 283, 283 |
+
+The service bytes do not move by more than 2.4 percent, in either direction.
+Allocations rise by 1.3 to 6.3 times.
