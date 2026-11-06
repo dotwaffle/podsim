@@ -1423,6 +1423,8 @@ The default rate stays 0 until the maintainer chooses one in stage 7.
 | Web | The browser shell and editor with a marked project. | `mise run test:web` passes, and the marker checks refuse the cases of section 14.3. |
 | Product | The product choices of section 18.2. | Done: the maintainer approved P1 to P22 on October 5, 2026, and decided P23 on October 5, 2026, at 23:59Z. |
 
+Status 2026-11-06, by the maintainer: the warm-up of the row "Worst choice tick, no candidate" stays 600 ticks, which is 20 s at 30 Hz, and a trip each 20 ticks, so the count of trips does not change.
+
 Status 2026-10-07: the full-limit "Worst choice tick, no candidate" report runs only in `mise run qualify`.
 A small fixture checks the search counts in every test run.
 

@@ -6,6 +6,7 @@ The maintainer also decided on the same day: the lookahead stays two ticks (deci
 `sim.TicksPerSecond` stays at 60 until patch 6.
 It was drafted against `8bbae7a`.
 Each `file:line` reference is for that tree.
+Status 2026-11-06: patch 6 landed in `f60f6af`, so `sim.TicksPerSecond` is now 30.
 All evidence comes from scratch builds that changed the constant and did not land.
 
 ## Summary

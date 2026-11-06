@@ -1080,8 +1080,9 @@ These were to be measured before or during the work.
 | Step time at 64 debris and 1,000 pod faults | Measured: median 983 µs against 20 µs, slowest 5.0 ms against 0.62 ms. |
 | Evidence that any real system has these rates | None. The preset values are for play and for the soak. |
 
-Status 2026-11-06, by the maintainer: after `458f14a` at 30 Hz, the accepted warm reading at the project limits is about 150 ms for the plain first step and 57 ms for the next step, so 13.5 to 32.5 s above is history, and the row stays a report against 50 ms and not a gate.
-The same busy-host reading has 160 ms for the emergency part and 122 ms for the fault part (`docs/studies/incident-soak.md`).
+Status 2026-11-06: after `458f14a` at 30 Hz, the warm reading at the project limits is about 160 ms for the emergency part and 122 ms for the fault part, and the test reports their sum (`docs/studies/incident-soak.md`).
+So 13.5 to 32.5 s above is history, and the row stays a report against 50 ms and not a gate.
+The maintainer asked on 2026-11-06 for more work on this time.
 
 ## 12. Review result
 
