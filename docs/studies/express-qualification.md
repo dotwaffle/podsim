@@ -143,7 +143,7 @@ The warning now says that the lane holds one pod, because a tail that exceeds it
 ## Standee fleet runs
 
 These runs have a real Express fleet with the `express-v1` marker, at `234d8b4`, at 30 Hz.
-A scratch test in `cmd/compare` built each arm with `NewFleetWithOrderContract`, because `cmd/compare` builds its runs with `NewFleet` and it cannot start an Express pod.
+A scratch test in `cmd/compare` built each arm with `NewFleetWithOrderContract`, because `cmd/compare` could not start an Express pod at that commit.
 The test did not land.
 Each project is `rail-hub` with all classes on each lane, station, and berth, and it passed the project validation with the marker.
 The arm of each row is the arm of `TestRailHubAllClassesProgress`: hotspot demand, one trip each 5 s for 30 minutes, no redistribution, and one passenger for each order.

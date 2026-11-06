@@ -12,9 +12,10 @@ import (
 // one Legacy, and one Group pod in turn, under the express-v1 contract. Parties
 // of 1 to 20 passengers arrive for 10 minutes. Each order completes, no traveling
 // pod stands still for 5 minutes, and the separation oracle runs at each tick.
-// The test detects a lock, and it is not a capacity claim. cmd/compare builds
-// its runs with NewFleet, so this test is the retained run of a real Express
-// fleet. A short run has one seed.
+// The test detects a lock, and it is not a capacity claim. The Express arm of
+// cmd/compare has one class and one passenger for each order, so this test is
+// the retained run of a mixed fleet with large parties. A short run has one
+// seed.
 func TestExpressMixedFleetProgress(t *testing.T) {
 	t.Parallel()
 	seeds := []uint64{1, 2, 3}

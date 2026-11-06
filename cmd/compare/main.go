@@ -107,6 +107,7 @@ func runCLI(input cliInput) int {
 		output: output, format: opts.format, results: results, sharingConsentColumn: opts.sharingConsentColumn,
 		waitRuleColumn: opts.waitRules != nil, platoonColumn: opts.platoonPolicies != nil,
 		pickupReassignmentColumn: opts.pickupReassignment != nil, onboardPickupsColumn: opts.onboardPickups != nil,
+		fleetClassColumn: opts.fleetClasses != nil,
 	}); err != nil {
 		_ = closeOutput()
 		_, _ = fmt.Fprintln(input.stderr, err)

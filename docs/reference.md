@@ -230,6 +230,7 @@ The focus station is the `-focus` station, then the `demand.destination` of the 
 | `-platoon-policies off,virtual` | The experimental platoon comparison. `virtual` lets queued pods follow the pod ahead at a short gap. |
 | `-pickup-reassignment off,on` | Compare independent pickup reassignment settings. The default is off. |
 | `-energy-file` | Add energy estimates from an authored energy model file. See [energy model design](design/energy-model-design.md). |
+| `-fleet-classes plain,express` | Compare the project with an Express form of it. See [Express against plain](#express-against-plain). |
 
 With `-adaptive-limit`, arms that differ only in offered rate and seed form a group.
 Each group runs its rates from the lowest offered rate, with all seeds of a rate together.
@@ -249,6 +250,37 @@ Without the flag, the policy stays off and the report format stays unchanged.
 With it, table and CSV output include its policy column, and JSON output includes its off or on value and records controller work, swaps, transfers, and predicted seconds saved.
 These predictions exclude future traffic, so they do not establish a realized service improvement.
 
+### Express against plain
+
+`-fleet-classes` selects the fleets to run, in list order, and each fleet runs on each schedule.
+Without the flag, the arms and the report format stay unchanged.
+
+| Name | Arm |
+| --- | --- |
+| `plain` | The project as the file gives it. The arm ignores an `orderContract` marker, as a run with no flag does. |
+| `express` | The same project with all classes on each lane, station, and berth, an Express pod in each placement, and the marker `express-v1`. |
+
+The command makes the `express` form in memory and checks it with the project validation.
+A project that fails this check stops the command with the validation error.
+`compact-station` fails on its Compact bays, and `london-central` and `london-full` fail on their depots.
+
+| Refused combination | Reason |
+| --- | --- |
+| `express` with no `-project` | The built-in network is not a project, so the validation cannot run. |
+| `express` with `-energy-file` | An energy file cannot hold an Express profile. |
+| `express` with `-platoon-policies virtual` | An Express pod does not link, so the arm would repeat the `off` arm. |
+| `plain` with a project that has an Express pod | A plain arm cannot start the pod. |
+
+The Express arm of a pair has `served_percent_of_plain`: 100 times its served orders divided by the served orders of the plain arm.
+A pair has the same schedule ID and differs only in the fleet.
+The value is absent when the plain arm did not run, as after `-adaptive-limit` skips it, and when the plain arm served no order.
+The table shows `-` in these cases.
+
+The percent is not a capacity measure.
+Each order has one passenger, so an arm does not use the standee places, and the difference also includes the effect of the large-class tails on each lane.
+An arm does not run the separation oracle, and `TestExpressArmSeparation` runs it on `rail-hub`.
+The command does not apply `expressServices`.
+
 ### Report columns
 
 Some columns show only when you ask for what they report.
@@ -258,10 +290,11 @@ Some columns show only when you ask for what they report.
 | `wait_rule` | You give `-wait-rules`. |
 | `platoon_policy` | You give `-platoon-policies`. |
 | `sharing_mode` | Always. It gives the sharing mode of each arm. |
+| `fleet_class`, `served_percent_of_plain` | You give `-fleet-classes`. The table names them `FLEET` and `SERVED % PLAIN`. |
 | `interrupted`, `fault_started`, `fault_skipped`, `emergency_started`, `emergency_skipped` | The project has a fault rate or an emergency rate above 0. |
 
 The JSON report has `schema_version` 15.
-It is 16 with a pickup reassignment column, 17 with an `onboard_pickups` column, and 18 with energy estimates.
+It is 16 with a pickup reassignment column, 17 with an `onboard_pickups` column, 18 with energy estimates, and 19 with `fleet_class`.
 
 #### Waits and journeys
 

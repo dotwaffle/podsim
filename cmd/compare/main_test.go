@@ -1023,6 +1023,7 @@ func TestParseOptionsStepOrder(t *testing.T) {
 		"parseGivenArmOptions",
 		"parseOnboardPickups",
 		"parseExperimentalOptions",
+		"parseFleetClassOptions",
 		"checkMatrixSize",
 	}
 	var got []string
@@ -1083,6 +1084,10 @@ func TestParseOptionsRefusalOrder(t *testing.T) {
 		{"platoon_before_onboard", []string{"-platoon-policies", "linked", "-onboard-pickups", "maybe"}, `unknown platoon policy "linked"`},
 		{"onboard_before_experimental", []string{"-onboard-pickups", "maybe", "-pickup-reassignment", "maybe"},
 			`onboard-pickups must contain only off or on, got "maybe"`},
+		{"experimental_before_fleet_classes", []string{"-pickup-reassignment", "maybe", "-fleet-classes", "group"},
+			`pickup-reassignment must contain only off or on, got "maybe"`},
+		{"fleet_classes_before_matrix", []string{"-fleet-classes", "group", "-seeds", strings.Join(seeds, ","), "-loads", strings.Join(loads, ",")},
+			`unknown fleet class "group"`},
 		{"experimental_before_matrix", []string{"-pickup-reassignment", "maybe", "-seeds", strings.Join(seeds, ","), "-loads", strings.Join(loads, ",")},
 			`pickup-reassignment must contain only off or on, got "maybe"`},
 		{"matrix", []string{"-seeds", strings.Join(seeds, ","), "-loads", strings.Join(loads, ",")},

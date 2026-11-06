@@ -34,6 +34,7 @@ type options struct {
 	platoonPoliciesText    string
 	onboardPickupsText     string
 	pickupReassignmentText string
+	fleetClassesText       string
 	focus                  string
 	format                 string
 	projectPath            string
@@ -57,7 +58,10 @@ type options struct {
 	platoonPolicies    []string
 	onboardPickups     []string
 	pickupReassignment []string
-	stopWhenDrained    bool
+	// fleetClasses is nil when -fleet-classes is not given. Then each arm
+	// runs the fleet of the project and the report has no fleet columns.
+	fleetClasses    []string
+	stopWhenDrained bool
 	// adaptiveLimit skips the rates of a group more than pastLimit rates
 	// above the first rate at which a seed does not drain.
 	adaptiveLimit bool
@@ -105,6 +109,7 @@ var optionSteps = [...]func(*options, map[string]bool) error{
 	parseGivenArmOptions,
 	parseOnboardPickups,
 	parseExperimentalOptions,
+	parseFleetClassOptions,
 	checkMatrixSize,
 }
 
@@ -130,6 +135,7 @@ func defineFlags(flags *flag.FlagSet, opts *options) {
 	flags.StringVar(&opts.waitRulesText, "wait-rules", "current", "comma-separated finishing-pod wait rules: current, strict, none (adds a wait_rule column)")
 	flags.StringVar(&opts.platoonPoliciesText, "platoon-policies", "off", "comma-separated platoon policies: off, virtual (adds a platoon_policy column)")
 	flags.StringVar(&opts.pickupReassignmentText, "pickup-reassignment", "off", "comma-separated experimental pickup reassignment policies: off, on")
+	flags.StringVar(&opts.fleetClassesText, "fleet-classes", "plain", "comma-separated fleets: plain, express (adds fleet_class and served_percent_of_plain columns)")
 	flags.StringVar(&opts.focus, "focus", "", "passenger station used by focused patterns")
 	flags.StringVar(&opts.format, "format", "table", "output format: table, json, or csv")
 	flags.StringVar(&opts.energyPath, "energy-file", "", "authored flat-v1 energy model file (adds energy estimates)")
@@ -282,7 +288,7 @@ func parseOnboardPickups(opts *options, given map[string]bool) error {
 // checkMatrixSize checks the number of comparisons in the matrix.
 func checkMatrixSize(opts *options, _ map[string]bool) error {
 	if len(opts.seeds)*len(opts.patterns)*len(opts.loads)*len(sharingArms(*opts))*
-		max(1, len(opts.waitRules))*max(1, len(opts.platoonPolicies))*experimentalArmCount(*opts)*onboardArmCount(*opts) > maxComparisons {
+		max(1, len(opts.waitRules))*max(1, len(opts.platoonPolicies))*experimentalArmCount(*opts)*onboardArmCount(*opts)*fleetClassArmCount(*opts) > maxComparisons {
 		return fmt.Errorf("the matrix must contain at most %d comparisons", maxComparisons)
 	}
 	return nil

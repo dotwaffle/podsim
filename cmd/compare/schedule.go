@@ -42,6 +42,11 @@ type scenario struct {
 	// faults and emergencies are the incident settings of the project.
 	faults      *project.FaultConfig
 	emergencies *project.EmergencyConfig
+	// source is the project of the scenario. An Express arm starts from it.
+	source project.Config
+	// orderContract is the order contract of an Express arm. Only that arm
+	// sets it, so an arm of any other run ignores a marker in the project.
+	orderContract sim.OrderContract
 }
 
 func loadScenario(path, focus string) (scenario, error) {
@@ -59,6 +64,12 @@ func loadScenario(path, focus string) (scenario, error) {
 			return scenario{}, err
 		}
 	}
+	return newScenario(config, focus)
+}
+
+// newScenario returns the scenario of config. An empty focus selects the
+// default focus station.
+func newScenario(config project.Config, focus string) (scenario, error) {
 	stations := project.PassengerStations(config.Network)
 	passengers := make([]string, len(stations))
 	for i, station := range stations {
@@ -88,7 +99,7 @@ func loadScenario(path, focus string) (scenario, error) {
 	return scenario{
 		network: config.Network, fleet: config.Fleet, passengers: passengers, focus: focus,
 		demand: config.Demand, demandProfiles: config.DemandProfiles, railArrivals: config.RailArrivals, railDepartures: config.RailDepartures,
-		faults: config.Faults, emergencies: config.Emergencies,
+		faults: config.Faults, emergencies: config.Emergencies, source: config,
 	}, nil
 }
 

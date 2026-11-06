@@ -30,6 +30,10 @@ func compare(opts options, scenario scenario) ([]result, error) {
 	if err != nil {
 		return nil, err
 	}
+	fleets, err := fleetArms(opts, scenario)
+	if err != nil {
+		return nil, err
+	}
 	arms, err := demandArms(opts, scenario)
 	if err != nil {
 		return nil, err
@@ -47,7 +51,7 @@ func compare(opts options, scenario scenario) ([]result, error) {
 	if platoonPolicies == nil {
 		platoonPolicies = []string{""}
 	}
-	armsPerSchedule := len(sharing) * len(waitRules) * len(platoonPolicies) * experimentalArmCount(opts) * onboardArmCount(opts)
+	armsPerSchedule := len(sharing) * len(waitRules) * len(platoonPolicies) * experimentalArmCount(opts) * onboardArmCount(opts) * fleetClassArmCount(opts)
 	if len(opts.seeds)*len(arms)*len(opts.loads)*armsPerSchedule > maxComparisons {
 		return nil, fmt.Errorf("the expanded matrix must contain at most %d comparisons", maxComparisons)
 	}
@@ -90,11 +94,25 @@ func compare(opts options, scenario scenario) ([]result, error) {
 			}
 		}
 	}
-	inputs = onboardInputs(experimentalInputs(inputs, opts), opts)
+	inputs = fleetInputs(onboardInputs(experimentalInputs(inputs, opts), opts), fleets)
+	return runInputs(inputs, opts)
+}
+
+// runInputs runs the arms that the options select, and adds the values that
+// compare two arms.
+func runInputs(inputs []runInput, opts options) ([]result, error) {
+	var results []result
+	var err error
 	if opts.adaptiveLimit {
-		return runAdaptive(adaptiveRun{inputs: inputs, workers: opts.workers, pastLimit: opts.pastLimit, run: run})
+		results, err = runAdaptive(adaptiveRun{inputs: inputs, workers: opts.workers, pastLimit: opts.pastLimit, run: run})
+	} else {
+		results, err = runComparisons(inputs, opts.workers)
 	}
-	return runComparisons(inputs, opts.workers)
+	if err != nil {
+		return nil, err
+	}
+	addServedPercents(results)
+	return results, nil
 }
 
 type comparisonJob struct {
@@ -150,11 +168,14 @@ type runInput struct {
 	// platoons.
 	platoonPolicy      string
 	pickupReassignment string
-	schedule           []scheduledRequest
-	scenario           scenario
-	stopWhenDrained    bool
-	daily              *project.DailyProfile
-	dailyStartMinute   int
+	// fleetClass names the fleet of the arm. Empty leaves the result without
+	// a fleet class. See fleetInputs.
+	fleetClass       string
+	schedule         []scheduledRequest
+	scenario         scenario
+	stopWhenDrained  bool
+	daily            *project.DailyProfile
+	dailyStartMinute int
 }
 
 // sharingSettings returns the sharing mode and the stop limit of an arm,
@@ -196,7 +217,7 @@ func startArm(input *runInput) (*armRun, error) {
 	if err != nil {
 		return nil, err
 	}
-	simulation, err := sim.NewFleet(input.scenario.network, input.scenario.fleet)
+	simulation, err := sim.NewFleetWithOrderContract(input.scenario.network, input.scenario.fleet, input.scenario.orderContract)
 	if err != nil {
 		return nil, fmt.Errorf("create comparison: %w", err)
 	}
@@ -582,6 +603,7 @@ func (arm *armRun) result() result {
 		WaitRule:      input.waitRule, PlatoonPolicy: input.platoonPolicy,
 		PickupReassignment:      input.pickupReassignment,
 		PickupReassignmentStats: pickupStatsForReport(simulation, input.pickupReassignment),
+		FleetClass:              input.fleetClass,
 		FocusStation:            input.scenario.focus,
 		WindowStartSeconds:      0, WindowEndSeconds: input.duration.Seconds(), ActualEndSeconds: float64(state.Tick) / sim.TicksPerSecond,
 		ArrivalWindowSeconds: input.arrivalsFor.Seconds(), ArrivalEndSeconds: arrivalEnd, ScheduleID: input.scheduleID,

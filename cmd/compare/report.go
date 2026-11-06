@@ -34,6 +34,8 @@ type result struct {
 	PlatoonPolicy                  string             `json:"platoon_policy,omitempty"`
 	PickupReassignment             string             `json:"pickup_reassignment,omitempty"`
 	PickupReassignmentStats        *pickupPolicyStats `json:"pickup_reassignment_stats,omitempty"`
+	FleetClass                     string             `json:"fleet_class,omitempty"`
+	ServedPercentOfPlain           *float64           `json:"served_percent_of_plain,omitempty"`
 	FocusStation                   string             `json:"focus_station"`
 	WindowStartSeconds             float64            `json:"window_start_seconds"`
 	WindowEndSeconds               float64            `json:"window_end_seconds"`
@@ -109,6 +111,10 @@ type writeReportInput struct {
 	platoonColumn            bool
 	onboardPickupsColumn     bool
 	pickupReassignmentColumn bool
+	// fleetClassColumn adds the fleet class and the served percent of plain
+	// to table and CSV output. JSON output has these fields only when a
+	// result has a value.
+	fleetClassColumn bool
 }
 
 func writeReport(input writeReportInput) error {
@@ -133,6 +139,9 @@ func writeReport(input writeReportInput) error {
 		}
 		if slices.ContainsFunc(input.results, func(outcome result) bool { return outcome.Energy != nil }) {
 			version = 18
+		}
+		if slices.ContainsFunc(input.results, func(outcome result) bool { return outcome.FleetClass != "" }) {
+			version = 19
 		}
 		data, err := jsonv2.Marshal(report{SchemaVersion: version, Results: input.results}, json.DefaultOptionsV1(), jsontext.WithIndent("  "))
 		if err == nil {
@@ -184,6 +193,9 @@ func writeTable(input writeReportInput) error {
 	if input.pickupReassignmentColumn {
 		policyHeader += "\tREASSIGN"
 	}
+	if input.fleetClassColumn {
+		policyHeader += "\tFLEET\tSERVED % PLAIN"
+	}
 	if _, err := fmt.Fprintln(w, "PATTERN\tBAND\tLOAD (S)\tOFFERED/M\tARRIVAL/M\tLATE/M\tBACKLOG\tLATE DELTA\tDRAIN (S)\tSEED\t"+policyHeader+"\tWAIT AVG\tWAIT MAX\tWAIT P95\tJOURNEY AVG\tJOURNEY P95\tSERVED\tLEFT\tSKIPPED\tPEAK OUT\tPEAK ACTIVE\tPEAK PAX\tPEAK STOPPED\tHUB IN\tHUB OUT\tHUB OCC\tHUB RSV\tPASSENGER (M)\tEMPTY (M)\tLOADED %\tMOVES"+incidentTableHeader(results)); err != nil {
 		return fmt.Errorf("write table header: %w", err)
 	}
@@ -203,6 +215,9 @@ func writeTable(input writeReportInput) error {
 		}
 		if input.pickupReassignmentColumn {
 			policy += "\t" + outcome.PickupReassignment
+		}
+		if input.fleetClassColumn {
+			policy += "\t" + outcome.FleetClass + "\t" + servedPercentTableText(outcome)
 		}
 		if _, err := fmt.Fprintf(w, "%s\t%s\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%d\t%s\t%d\t%s\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.1f\t%.1f\t%.2f\t%d%s\n",
 			outcome.Pattern, outcome.DemandBand, outcome.RequestEverySeconds, outcome.OfferedPerMinute,
@@ -285,6 +300,9 @@ func (columns csvColumns) header() []string {
 	if columns.input.pickupReassignmentColumn {
 		header = append(header, "pickup_reassignment")
 	}
+	if columns.input.fleetClassColumn {
+		header = append(header, "fleet_class", "served_percent_of_plain")
+	}
 	header = append(header, "shared_ride_party_limit", "sharing_mode")
 	if columns.input.onboardPickupsColumn {
 		header = append(header, "onboard_pickups")
@@ -331,6 +349,9 @@ func (columns csvColumns) row(outcome result) ([]string, error) {
 	}
 	if columns.input.pickupReassignmentColumn {
 		row = append(row, outcome.PickupReassignment)
+	}
+	if columns.input.fleetClassColumn {
+		row = append(row, outcome.FleetClass, servedPercentCSVText(outcome))
 	}
 	row = append(row, strconv.Itoa(outcome.SharedRidePartyLimit), outcome.SharingMode)
 	if columns.input.onboardPickupsColumn {
