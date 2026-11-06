@@ -1,12 +1,13 @@
 # Routing on the LondonFull flood
 
 This study asks whether a congestion-aware route choice changes the tail of pods that wait to enter King's Cross (`940GZZLUKSX`) in the flood of the [station limits study](station-limits.md).
-In this screen, no arm raises entries, shortens the queue, or improves service.
+In this screen, no arm raises entries or completed orders.
 `congestion` changes 44 to 54% of assigned routes and spreads the use of the approaches.
 The number of slow pods bound for the station stays the same, the queue moves to other links, and entries fall from a range of 7.10 to 7.47 a minute to a range of 6.47 to 6.88.
 `queue` installs no changed route, with or without a reroute at junctions and with 327 or 636 pods.
 Those arms have the same state hash as their baseline at each simulated minute.
-So the junction reroute itself had no test of its effect on motion.
+A junction reroute on the `congestion` signal does change routes, 10,450 to 11,883 times in a run.
+It moves the queue as `congestion` does, and its entries stay below the baseline in each seed.
 
 This is a three-seed screen.
 It does not meet the adoption gates of [experimental-adoption.md](../design/experimental-adoption.md), which require seeds 1 through 10 and all supported demand bands.
@@ -39,6 +40,7 @@ The environment selects the arm.
 | Junction | 327 pods | `STUDY_ROUTING=queue STUDY_JUNCTION=1` |
 | Baseline 636 | 636 pods | None. Free flow. |
 | Queue 636 | 636 pods | `STUDY_ROUTING=queue` |
+| Junction congestion | 327 pods | `STUDY_ROUTING=congestion STUDY_JUNCTION=1` |
 
 Queue is the better of the two policies on entries and completed orders in each seed, so queue is the arm with 636 pods.
 Each cell gives seeds 1 / 2 / 3.
@@ -94,7 +96,7 @@ Baseline 636 also gives its row: 384 / 378 / 380 completed, 7.10 / 7.20 / 7.20 e
 The probe hashes the lane, berth, activity, distance, speed, and route length of each pod at each simulated minute.
 For determinism, a run of `congestion` seed 1 that stopped at 15 minutes, with the oracle off, has the same 15 hashes as the full run.
 The queue and junction arms repeat the hashes of the baseline runs in each seed.
-That run and the three reruns are the only runs outside the grid of 6 arms and 3 seeds.
+That run and the three reruns are the only runs outside the grid of 6 arms and 3 seeds, apart from the later junction arm on the congestion signal.
 
 ## Results
 
@@ -271,6 +273,72 @@ The queue and junction arms hurt no origin, because they change nothing.
 | [Predictive screen](../design/experimental-adoption.md#rejected-candidates) | 40,794 evaluations changed no request | Not run | `predictive` is not an arm. | Not tested. `queue` shows the same outcome here, but it is another policy. |
 | [Model text](../model.md) | None of the policies has a service gain on record | No gain in this flood | One flood and three seeds here. `predictive` did not run. | Holds for `congestion` and `queue` in this flood. |
 
+## Junction reroute on the congestion signal
+
+This arm ran after the rest of the study, from `study/routing-flood` at `9fd0e318`, because the arm on the queue signal installed no route.
+It has the same schedule IDs as the baseline, and `SafetyObservation.Check` found no failure in 108,000 ticks on each seed, with a smallest gap of 6.000 m.
+The pass refreshes the congestion costs before its searches, because a search under the routing view does not refresh them.
+The policy has no saving or detour guard, so a pod can change its route at each pass.
+
+| Measure | Baseline | Congestion | Junction congestion |
+| --- | ---: | ---: | ---: |
+| Offered | 1,199 each | 1,199 each | 1,199 each |
+| Skipped | 430 / 425 / 416 | 439 / 442 / 437 | 436 / 427 / 435 |
+| Accepted | 769 / 774 / 783 | 760 / 757 / 762 | 763 / 772 / 764 |
+| Boarded | 569 / 574 / 584 | 560 / 559 / 563 | 563 / 572 / 565 |
+| Completed | 378 / 370 / 386 | 352 / 349 / 360 | 357 / 364 / 361 |
+| Entries a minute | 7.12 / 7.10 / 7.47 | 6.55 / 6.47 / 6.88 | 6.70 / 6.78 / 6.88 |
+| Exits a minute | 6.70 / 6.50 / 6.67 | 6.12 / 6.03 / 6.28 | 6.25 / 6.22 / 6.20 |
+| Entry headway p50, s | 2.7 / 3.3 / 2.4 | 2.4 / 2.2 / 2.2 | 2.2 / 2.2 / 2.2 |
+| Linked entries, % | 91 / 91 / 93 | 94 / 95 / 96 | 94 / 96 / 93 |
+| Wait mean, s | 641 / 645 / 650 | 650 / 659 / 666 | 647 / 648 / 665 |
+| Wait p95, s | 1,815 / 1,893 / 1,790 | 1,875 / 1,911 / 1,904 | 1,881 / 1,890 / 1,887 |
+| Journey mean, s | 1,329 / 1,351 / 1,350 | 1,320 / 1,351 / 1,332 | 1,316 / 1,351 / 1,365 |
+| Journey p95, s | 2,515 / 2,626 / 2,580 | 2,503 / 2,666 / 2,603 | 2,484 / 2,579 / 2,615 |
+| Tail mean, m | 521 / 442 / 360 | 613 / 690 / 531 | 539 / 582 / 455 |
+| Tail p95, m | 1,029 / 1,150 / 762 | 926 / 1,023 / 812 | 745 / 812 / 678 |
+| Tail mean, pods | 50 / 39 / 31 | 69 / 80 / 55 | 70 / 74 / 51 |
+| Longest approach tail, mean, m | 620 / 651 / 474 | 596 / 659 / 530 | 545 / 625 / 499 |
+| Sum of approach tails, mean, m | 1,233 / 1,224 / 981 | 1,542 / 1,672 / 1,372 | 1,546 / 1,702 / 1,362 |
+| Slow pods bound for the station, mean | 82 / 87 / 58 | 79 / 90 / 61 | 77 / 85 / 61 |
+| Within 250 m of the access lane | 18.9 / 19.0 / 18.3 | 30.9 / 33.3 / 29.1 | 33.4 / 33.9 / 30.8 |
+| 250 m to 1 km | 61.2 / 59.5 / 38.7 | 47.8 / 55.6 / 31.5 | 43.5 / 50.1 / 30.0 |
+| Slow pods bound elsewhere, mean | 17.8 / 21.6 / 16.2 | 25.1 / 21.5 / 22.4 | 22.4 / 19.6 / 19.9 |
+| Slow on `london-link-199-ab-2` | 31.8 / 26.9 / 28.4 | 5.4 / 6.5 / 3.5 | 7.7 / 7.4 / 3.7 |
+| Slow on `london-link-273-ba-2` | 0.0 / 0.0 / 0.0 | 14.2 / 13.7 / 8.8 | 12.7 / 14.1 / 10.0 |
+| Slow on `london-link-056-ab-2` | 0.1 / 0.0 / 0.1 | 7.7 / 9.5 / 5.2 | 9.2 / 9.1 / 5.7 |
+| Effective count of approaches | 4.12 / 4.21 / 4.12 | 5.94 / 6.02 / 5.64 | 5.94 / 6.03 / 5.55 |
+| Stopped, 1000 pod-seconds | 219 / 243 / 163 | 241 / 257 / 189 | 225 / 232 / 183 |
+| Passenger distance, km | 5,760 / 5,564 / 5,937 | 5,810 / 5,654 / 5,916 | 5,853 / 5,762 / 5,934 |
+| Empty distance, km | 4,150 / 3,972 / 4,900 | 3,860 / 3,804 / 4,539 | 4,018 / 4,016 / 4,668 |
+| Swaps | 13 / 14 / 12 | 22 / 18 / 36 | 30 / 33 / 24 |
+| Largest detour ratio | 1.00 / 1.00 / 1.00 | 1.59 / 2.89 / 1.54 | 1.58 / 1.46 / 1.54 |
+
+| Pass counter | Seed 1 | Seed 2 | Seed 3 |
+| --- | ---: | ---: | ---: |
+| Pod visits | 200,993 | 200,362 | 200,459 |
+| Visits with a link | 58,432 | 59,612 | 48,107 |
+| Visits that `divertStart` refuses | 6,276 | 5,745 | 5,668 |
+| Visits at a node with one way out | 75,662 | 74,589 | 80,960 |
+| Junction searches | 60,623 | 60,416 | 65,724 |
+| Routes installed | 10,726 | 10,450 | 11,883 |
+| Routes installed for pods bound for the station | 9,092 | 8,975 | 9,940 |
+| Assignments | 1,205 | 1,231 | 1,226 |
+| Assignments that differ from free flow | 549 | 560 | 567 |
+
+This arm is the test of a reroute in motion, because 17 to 18% of the junction searches install a new route.
+Against the baseline, it moves the queue from link 199 to links 273 and 056, as `congestion` does, and the count of slow pods bound for the station stays within 5 pods.
+Entries fall by 0.42 / 0.32 / 0.59 a minute, and completed orders fall by 21 / 6 / 25.
+The tail is not clearly shorter: the mean rises in each seed, the p95 falls in each seed, and the sum of the approach tails rises by 25 to 39%.
+
+Against `congestion`, entries are 0.15 / 0.31 / 0.00 a minute higher and completed orders are 5 / 15 / 1 higher, and the tail mean is 74 / 108 / 76 m shorter.
+Three seeds do not separate these differences from run variation, and the approach shares and the links with the queue are about the same.
+This study did not measure why entries fall, or how many route changes reverse an earlier change.
+
+The request records of the baseline and `congestion` runs were deleted with the scratch directory before this arm ran, and no baseline ran again.
+So this arm has no matched comparison on requests and no table by origin, and the means above include different sets of requests.
+It has no determinism run.
+
 ## Recommendation
 
 This screen gives no reason to bring back `congestion` or `queue` for the flood tail.
@@ -279,14 +347,14 @@ The [station limits study](station-limits.md) puts the limit in the junction zon
 This screen is consistent with that account, because a wider spread of approaches gave no more entries, but it did not measure the cause of the fall.
 The change that the station study gives for more entries, a second bank, remains the candidate for that purpose.
 
-The junction reroute remains untested, because it installed no route on the queue signal.
-This screen says nothing about what a reroute would do if it fired.
+A junction reroute gives no reason either.
+On the queue signal it installs no route, and on the congestion signal it moves the queue and keeps entries below the baseline in each seed.
+This covers one unguarded reroute on one signal, so it does not cover a reroute with a limit on route changes or another signal.
 
 ## Proposed arms
 
-These arms did not run, because the study had a limit of 6 arms.
+These arms did not run.
 
-- A junction reroute on the congestion signal, on 327 pods, with the oracle, which is the one arm that would test a reroute with motion.
 - `congestion` with 636 pods against the baseline with 636 pods, because Queue 636 changed no route.
 - `congestion` with the removed reassignment gates, to show whether reassignment changes the result.
 - A flood with background orders to other stations, to read harm to those orders directly.
@@ -296,6 +364,7 @@ These arms did not run, because the study had a limit of 6 arms.
 
 - The screen has three seeds, one flood pattern, and one queue limit, with no demand band, mixed arrivals, or rail-hub arm.
 - The screen has no 120-minute run, so no sustained rate.
+- The junction arm on the congestion signal has no matched comparison, no table by origin, and no determinism run.
 - Orders to other stations do not exist in this flood, so the origin table is the only reading of harm.
 - Delay to traffic on links 273 and 056 that does not go to the station was not measured.
 - The cause of the fall in entries with `congestion` was not measured.
