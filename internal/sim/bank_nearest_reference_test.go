@@ -98,6 +98,23 @@ func berthRanks(network Network, graph routeGraph) [][]int {
 	return ranks
 }
 
+// gateRanks returns a rank for each node, a rank for each exit of a bank, and a
+// rank for each exit and berth with no entry, so that a candidate can be a gate
+// and share no search with a berth.
+func gateRanks(network Network, graph routeGraph) [][]int {
+	all, exits, mixed := make([]int, len(network.Nodes)), make([]int, len(network.Nodes)), make([]int, len(network.Nodes))
+	for node := range all {
+		all[node], exits[node], mixed[node] = node, -1, -1
+		if graph.berthStations[node] >= 0 {
+			mixed[node] = node
+		}
+	}
+	for _, bank := range graph.banks.banks {
+		exits[bank.exit], mixed[bank.exit] = bank.exit, bank.exit
+	}
+	return [][]int{all, exits, mixed}
+}
+
 // TestBankNearestMatchesReference compares the node and the result of
 // bankNearest with the reference, on networks with banks and with blocked
 // lanes. The candidates of one call share one work value, so a value that a
@@ -117,7 +134,7 @@ func TestBankNearestMatchesReference(t *testing.T) {
 					froms = froms[:12]
 				}
 				for _, from := range froms {
-					for rankIndex, rank := range berthRanks(network, graph) {
+					for rankIndex, rank := range append(berthRanks(network, graph), gateRanks(network, graph)...) {
 						for _, reverse := range []bool{false, true} {
 							for _, limit := range []float64{0, 40} {
 								input := preferredNearestInput{from: network.Nodes[from].ID, rank: rank, limit: limit, reverse: reverse}
