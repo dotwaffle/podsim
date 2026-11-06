@@ -14,9 +14,9 @@ The code of the congestion, queue, and predictive routing policies was removed o
 - The maintainer approved rule A of amendment A8.
   The section "Run of rule A" has its run on `rail-hub`, and the soak at 30 Hz decides the Progress row.
 - Amendment A10 changes the cost and the shape of the soak.
-  The section "Cost and shape of the soak" has the measurements and a wall time that is an estimate, and the new soak has not run.
-- The Performance row for suspension meets amendment A7 in the section "Readings from a quiet host".
-- The Performance row for emergencies misses its ratio rule on `rail-hub`, by about 0.4 µs.
+  The section "First soak in the branch shape" has its first run.
+- The Performance row for suspension meets amendment A7 at 30 Hz in the section "Readings from a quiet host".
+- The Performance row for emergencies misses its ratio rule at 30 Hz, on `rail-hub` in 3 of 4 runs and on `london-central` in 1 of 4 runs.
 - The Choice row is reported and not gated, and no driver reports it, because the sim does not expose the estimate.
 
 ## Method
@@ -499,6 +499,38 @@ The `london-central` emergency row is 3 to 8 percent above its reference median.
 Each median is at most 7.2 percent above its reference.
 The slowest tick of `rail-hub` seed 1 is 3.97 ms against 1.49 ms, which is 2.7 times its reference, so that seed misses the rule of twice.
 The other five seeds meet it.
+
+### Readings at 30 Hz
+
+These readings ran at `b9730fb` on 2026-11-06, with a load average from 2 to 3.
+Each worst-case row ran 4 times, and each run has 300 measured ticks with the records and 300 without.
+
+| Row | Median | Reference median | Slowest | Reference slowest |
+| --- | ---: | ---: | ---: | ---: |
+| 64 debris and 300 pod faults, limit 50 µs (A7) | 10.72 to 10.99 µs | 6.70 to 6.87 µs | 32 to 41 µs | 87 to 98 µs |
+| 4 emergencies, `rail-hub` | 2.77 to 3.81 µs | 2.40 to 2.97 µs | 26 to 30 µs | 25 to 77 µs |
+| 4 emergencies, `london-central` | 14.8 to 16.4 µs | 14.1 to 14.3 µs | 1.02 to 1.46 ms | 1.06 to 1.33 ms |
+| 64 debris and 1,000 pod faults, reported | 34.1 to 34.7 µs | 20.4 to 20.5 µs | 87 to 104 µs | 560 to 572 µs |
+
+The suspension row meets A7.
+No tick passes twice the slowest reference tick of its own run.
+The `rail-hub` emergency medians are -0.4, +15, +58, and +16 percent against the reference of the same run, so 3 of 4 runs miss the rule of 10 percent.
+The `london-central` emergency medians are +7, +4, +15, and +7 percent, so 1 of 4 runs misses it.
+The third run has the highest ratio on both presets, and the load average rose from 2.2 to 3.0 during it.
+The row stays unpassed, and A7 and the rule of 10 percent have no change.
+
+`TestIncidentSoakTimed` ran 3 seeds of 0.1 simulated hours and the 30 minutes of clear on each preset, with faults and emergencies on.
+
+| Preset | Median | Reference median | Slowest | Reference slowest |
+| --- | ---: | ---: | ---: | ---: |
+| `rail-hub` | 76 to 82 µs | 82 to 93 µs | 2.0 to 4.1 ms | 2.4 to 2.8 ms |
+| `london-central` | 147 to 149 µs | 140 to 149 µs | 16.3 to 23.2 ms | 12.3 to 17.5 ms |
+
+Each median is at most 7.0 percent above its reference.
+Each slowest tick is at most 1.7 times its reference, on `rail-hub` seed 1.
+So all 6 seeds meet both rules.
+The miss of `rail-hub` seed 1 at 60 Hz, 2.7 times its reference, does not occur in this run.
+This is one run of each seed, so it does not show that the rate removed the miss.
 
 ## Readings from a busy host
 
