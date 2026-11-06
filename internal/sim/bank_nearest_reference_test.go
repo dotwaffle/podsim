@@ -9,8 +9,9 @@ import (
 	"testing"
 )
 
-// referenceBankNearest keeps bankNearest from before it reused one work
-// value, with a separate search for each candidate.
+// referenceBankNearest keeps bankNearest from before it reused one work value,
+// with separate searches for each candidate. It uses the frozen route, so it
+// shares no route assembly with bankNearest.
 func (n Network) referenceBankNearest(input preferredNearestInput, graph routeGraph) (int, bool) {
 	best, seconds := -1, math.Inf(1)
 	for node, rank := range input.rank {
@@ -21,17 +22,15 @@ func (n Network) referenceBankNearest(input preferredNearestInput, graph routeGr
 		if input.reverse {
 			from, to = to, from
 		}
-		route, err := n.routeIndexed(networkRouteInput{from: from, to: to, terminalBerthsOnly: true, class: input.class}, graph)
+		var counts frozenCounts
+		route, err := n.frozenRoute(networkRouteInput{from: from, to: to, terminalBerthsOnly: true, class: input.class}, graph, &counts)
 		if errors.Is(err, ErrUnreachable) {
-			route, err = n.routeIndexed(networkRouteInput{from: from, to: to, class: input.class}, graph)
+			route, err = n.frozenRoute(networkRouteInput{from: from, to: to, class: input.class}, graph, &counts)
 		}
 		if err != nil {
 			continue
 		}
-		cost := 0.0
-		for _, lane := range route {
-			cost += graph.edges[graph.lanes[lane.ID]].seconds
-		}
+		cost := frozenCost(route, graph)
 		if input.limit > 0 && cost > input.limit {
 			continue
 		}
@@ -121,7 +120,7 @@ func gateRanks(network Network, graph routeGraph) [][]int {
 // search leaves in the work would move a later result.
 func TestBankNearestMatchesReference(t *testing.T) {
 	t.Parallel()
-	for name, network := range map[string]Network{"bank example": BankExample(), "no candidate": missNetwork(8, 5, 16)} {
+	for name, network := range routeReferenceNetworks(t) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			rng := rand.New(rand.NewPCG(uint64(len(network.Nodes)), 3))
@@ -137,16 +136,18 @@ func TestBankNearestMatchesReference(t *testing.T) {
 					for rankIndex, rank := range append(berthRanks(network, graph), gateRanks(network, graph)...) {
 						for _, reverse := range []bool{false, true} {
 							for _, limit := range []float64{0, 40} {
-								input := preferredNearestInput{from: network.Nodes[from].ID, rank: rank, limit: limit, reverse: reverse}
-								want, wantOK := network.referenceBankNearest(input, graph)
-								got, gotOK := network.bankNearest(input, graph)
-								if got != want || gotOK != wantOK {
-									t.Fatalf("set %d, from %s, rank %d, reverse %t, limit %g: got %d, %t, want %d, %t", set, input.from, rankIndex, reverse, limit, got, gotOK, want, wantOK)
-								}
-								if wantOK {
-									found++
-								} else {
-									missed++
+								for _, class := range []VehicleClass{"", GroupClass, ExpressClass} {
+									input := preferredNearestInput{from: network.Nodes[from].ID, rank: rank, limit: limit, reverse: reverse, class: class}
+									want, wantOK := network.referenceBankNearest(input, graph)
+									got, gotOK := network.bankNearest(input, graph)
+									if got != want || gotOK != wantOK {
+										t.Fatalf("set %d, from %s, rank %d, reverse %t, limit %g, class %q: got %d, %t, want %d, %t", set, input.from, rankIndex, reverse, limit, class, got, gotOK, want, wantOK)
+									}
+									if wantOK {
+										found++
+									} else {
+										missed++
+									}
 								}
 							}
 						}
