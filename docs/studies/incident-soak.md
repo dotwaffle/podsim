@@ -553,5 +553,6 @@ The Performance rows need a quiet machine (A3).
 | 64 debris and 1,000 pod faults | Median 983 µs against 20 µs, slowest 5.0 ms against 0.62 ms | 7 |
 
 The sampled-tick fixture has little traffic, so its step is cheap.
-The two rows at the project limits come from `TestSampledTickNoCandidateLatency` at `3c61bcb`, are reported, and are not gated (P23).
+The cold and first warm rows at the project limits come from `TestSampledTickNoCandidateLatency` at `3c61bcb`, are reported, and are not gated (P23).
+That test reports the sum of its emergency and fault parts: 24.4 s before the route work fixes and 0.6 s after, in one run of each at a load average of 3 to 19, so a run on a quiet host must give the current sum.
 The row of 300 pod faults misses the rule of 10 percent, against a reference step that does almost no work.
