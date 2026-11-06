@@ -396,7 +396,7 @@ Pod 02 is idle at the only berth of `market`, debris on `market-out` keeps it th
 
 | Path | Fixture | A run of the soak can reach it |
 | --- | --- | --- |
-| `Idle pod, leg free`, no order | `TestSoakPathLegFreeNoOrder`, in the driver loop | Yes, see below |
+| `Idle pod, leg free`, no order | Only `TestSoakReadingPaths`, since A13 | Before A13, yes, see below. Since A13, only when the pod has no move with no faults too, which no run showed |
 | `Idle pod, leg free`, order with a free leg | `TestSoakPathLegFreeWithOrder`, read at a command boundary | No |
 | `Fault at the end of a chain`, pod with a fault | `TestSoakPathFaultAtChainEnd`, read at a command boundary | No |
 | `Fault at the end of a chain`, fault ID | None | No, dead |
@@ -424,16 +424,19 @@ Record `i6.154` on `pod-018` has 469.9 s not blocked and no blocked time, so 348
 The chain at tick 554430: `pod-018` reports `Pod ahead` `pod-021`, `pod-021` reports `No parking available` `pod-023`, and `pod-023` is idle at `parking-01` with no order.
 At each of the 348 readings, `moveBlocker` failed on a clone with the active faults and succeeded with an empty blocked set, and pod faults were the only active faults.
 So the faults hold this record, but amendment A8 names only an idle pod with an order, so this time counts as not blocked.
-`TestSoakPathLegFreeNoOrder` shows the result of a longer wait: the gate fires at 10 minutes on a wait that a fault causes.
+Before amendment A13, a fixture on this path showed the result of a longer wait: the gate fired at 10 minutes on a wait that a fault causes.
 
 This is a gap in the words of the rule, in the direction of a false alarm, and it does not hide a real wait.
 It is not a defect of the simulation, because the section "Fixes of the two findings" records that such a pod keeps its berth.
-The recommendation for the maintainer is to add this case to the rule: an idle pod with no order whose empty move fails only because of the active faults.
-With that change, the 348 readings count as blocked, and `i6.154` falls from 469.9 s to about 122 s.
+The maintainer added this case to the rule as amendment A13: an idle pod with no order whose empty move fails only because of the active faults.
+`TestSoakPathMoveBlocked` now shows such a wait as blocked in the driver loop, with no late record past the limit.
+A run of `platoons` seed 5 at `fda1374f` gives `moveBlocked=348` and `legFree=0`, so the same 348 readings now count as blocked.
+The longest not-blocked time of that run falls from 469.9 s to 247.0 s, with 0 late records.
+The log does not list `i6.154` alone, so the arithmetic of about 122 s for that record is not measured.
 The branch shape has 0 readings of this path, so its numbers do not change, and the late count stays 0 in all runs.
-The change needs a new test entry from `internal/sim`, and this study did not make it.
+The entry is `EmptyMoveBlockedForTest` in `internal/sim`.
 
-The late count was 0 in all 10 runs of the shape of A6 at this tip, and the longest not-blocked time was 293.9 s on `incidents` and 469.9 s on `platoons`.
+Before A13, the late count was 0 in all 10 runs of the shape of A6 at `08c3b538`, and the longest not-blocked time was 293.9 s on `incidents` and 469.9 s on `platoons`.
 These runs used the check stride of A10, so they are not the soak with the full check at each tick that A12 requires before a release tag.
 
 ## Cost and shape of the soak
