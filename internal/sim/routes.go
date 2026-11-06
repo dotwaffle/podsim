@@ -195,7 +195,13 @@ func (s *Simulation) laneLength(lane Lane) float64 {
 	if length, ok := s.lengths[lane.ID]; ok {
 		return length
 	}
-	length := s.network.Length(lane)
+	// The graph holds the same length, and needs no scan of the nodes.
+	var length float64
+	if index, ok := s.graph.lanes[lane.ID]; ok {
+		length = s.graph.lengths[index]
+	} else {
+		length = s.network.Length(lane)
+	}
 	if s.lengths == nil {
 		s.lengths = make(map[string]float64)
 	}
