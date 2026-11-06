@@ -90,7 +90,8 @@ A party of one has the dwell of today.
 The flow comes from [TCRP Report 100](../studies/express-standees.md#door-flow), with about 2 s for each stream and two streams.
 A join into a boarding pod adds its passengers to `phaseTicks`, and it does not restart the phase.
 The phase never exceeds the largest value.
-Status 2026-11-05, by the maintainer: the sentence on the join stands over the table. A party that joins a running phase adds 1 s for each of its passengers, and a party that starts a phase adds 1 s for each passenger after the first.
+Status 2026-11-05, by the maintainer: the sentence on the join stands over the table.
+A party that joins a running phase adds 1 s for each of its passengers, and a party that starts a phase adds 1 s for each passenger after the first.
 Seat-only classes keep `boardingTicks` and `unloadingTicks` for each party size.
 
 These sites use the constants: `internal/sim/dispatch.go:660`, `internal/sim/onboard_pickups.go:46`, `internal/sim/operational.go:221`, `internal/sim/simulation.go:926`, `internal/sim/pickup_estimate.go:257`, `internal/sim/pickup_estimate.go:268`, `internal/sim/pickup_estimate.go:298`, `internal/sim/state_physical.go:417`, `internal/sim/state_physical.go:419`, and the phase rules at `internal/sim/state_contract.go:95` to `internal/sim/state_contract.go:161`.
