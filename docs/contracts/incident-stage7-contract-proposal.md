@@ -598,6 +598,9 @@ The medians are about 2.5 µs on `rail-hub`, so a ratio of one run of 300 ticks 
 The rule was chosen after the readings of 2026-11-06, which missed the rule of 10 percent, so those readings do not confirm it.
 A later quiet-host run with `PODSIM_SOAK_GATE=1` must confirm it before the row counts as passed.
 The rule for the slowest tick stays in each run, and the timed runs of A3 keep the rule of 10 percent.
+Status 2026-11-06, by the maintainer: on this row, no tick may pass twice the slowest reference tick, or 1 ms if that is larger.
+This floor is 3 percent of a tick at 30 Hz.
+A gated run at `8ffb20b6` passed the median rule and missed the earlier rule for the slowest tick on `rail-hub` in 2 of 24 runs, so a later quiet-host run must confirm the floor, and a real rare tick under 1 ms now passes.
 
 Amendment A12, approved by the maintainer on 2026-11-06: the soak with the full check at each tick, and the 5 seeds of 6 simulated hours of A6, are required only before a release tag.
 This replaces the triggers of A10.
@@ -1087,7 +1090,7 @@ These were to be measured before or during the work.
 
 Status 2026-11-06: after `458f14a` at 30 Hz, the warm reading at the project limits is about 160 ms for the emergency part and 122 ms for the fault part, and the test reports their sum (`docs/studies/incident-soak.md`).
 So 13.5 to 32.5 s above is history, and the row stays a report against 50 ms and not a gate.
-The maintainer asked on 2026-11-06 for more work on this time.
+The maintainer asked on 2026-11-06 for more work on this time, and at `8ffb20b6` the warm sum is 86.4 to 87.7 ms.
 
 ## 12. Review result
 

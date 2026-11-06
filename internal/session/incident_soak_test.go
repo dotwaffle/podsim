@@ -2513,18 +2513,20 @@ const (
 	// most soakSuspensionMedian, and the same rule for the slowest tick.
 	soakGateSuspension
 	// soakGateEmergency is the emergency row with amendment A11: the median of
-	// soakEmergencyRuns runs is judged by soakEmergencyMedianFailure, and each run
-	// has the same rule for the slowest tick.
+	// soakEmergencyRuns runs is judged by soakEmergencyMedianFailure, and in each
+	// run no tick passes twice the slowest reference tick, or
+	// soakEmergencySlowestFloor if that is larger.
 	soakGateEmergency
 	// soakGateReport is a report with no gate, as the fleet-limit row is.
 	soakGateReport
 )
 
-// soakEmergencyRuns and soakEmergencyMedianFloor are the number of runs and the
-// smallest median limit of amendment A11.
+// soakEmergencyRuns, soakEmergencyMedianFloor, and soakEmergencySlowestFloor are
+// the number of runs and the smallest limits of amendment A11.
 const (
-	soakEmergencyRuns        = 4
-	soakEmergencyMedianFloor = time.Microsecond
+	soakEmergencyRuns         = 4
+	soakEmergencyMedianFloor  = time.Microsecond
+	soakEmergencySlowestFloor = time.Millisecond
 )
 
 // soakSuspensionMedian is the median limit of amendment A7.
@@ -2542,6 +2544,10 @@ func soakTimeFailures(gate soakTimeGate, incident, reference soakTimes) []string
 		}
 	case soakGateEmergency:
 		// soakEmergencyMedianFailure reads the median over all the runs.
+		if limit := max(2*reference.slowest, soakEmergencySlowestFloor); incident.slowest > limit {
+			failures = append(failures, fmt.Sprintf("the slowest step %v is more than %v", incident.slowest, limit))
+		}
+		return failures
 	case soakGateRatio:
 		if float64(incident.median) > 1.1*float64(reference.median) {
 			failures = append(failures, fmt.Sprintf("the median step %v is more than 10 percent above %v", incident.median, reference.median))
@@ -2600,12 +2606,13 @@ func checkSoakTimes(t *testing.T, name string, gate soakTimeGate, incident, refe
 // TestSoakTimeFailures checks the rule of each gate, on each side of its limit.
 func TestSoakTimeFailures(t *testing.T) {
 	t.Parallel()
-	reference := soakTimes{median: 10 * time.Microsecond, slowest: 100 * time.Microsecond}
+	standard := soakTimes{median: 10 * time.Microsecond, slowest: 100 * time.Microsecond}
 	for _, tc := range []struct {
-		name     string
-		gate     soakTimeGate
-		incident soakTimes
-		want     string
+		name      string
+		gate      soakTimeGate
+		incident  soakTimes
+		reference soakTimes
+		want      string
 	}{
 		{name: "ratio at the limit", gate: soakGateRatio, incident: soakTimes{median: 11 * time.Microsecond, slowest: 200 * time.Microsecond}},
 		{name: "ratio median", gate: soakGateRatio, incident: soakTimes{median: 12 * time.Microsecond}, want: "10 percent"},
@@ -2614,9 +2621,16 @@ func TestSoakTimeFailures(t *testing.T) {
 		{name: "suspension median", gate: soakGateSuspension, incident: soakTimes{median: 51 * time.Microsecond}, want: "more than 50"},
 		{name: "suspension slowest", gate: soakGateSuspension, incident: soakTimes{slowest: 201 * time.Microsecond}, want: "twice"},
 		{name: "emergency median, over the runs", gate: soakGateEmergency, incident: soakTimes{median: time.Second}},
-		{name: "emergency slowest", gate: soakGateEmergency, incident: soakTimes{slowest: 201 * time.Microsecond}, want: "twice"},
+		{name: "emergency slowest, under the floor", gate: soakGateEmergency, incident: soakTimes{slowest: time.Millisecond}},
+		{name: "emergency slowest, above the floor", gate: soakGateEmergency, incident: soakTimes{slowest: time.Millisecond + 1}, want: "more than 1ms"},
+		{name: "emergency slowest, at twice", gate: soakGateEmergency, incident: soakTimes{slowest: 4 * time.Millisecond}, reference: soakTimes{slowest: 2 * time.Millisecond}},
+		{name: "emergency slowest, above twice", gate: soakGateEmergency, incident: soakTimes{slowest: 4*time.Millisecond + 1}, reference: soakTimes{slowest: 2 * time.Millisecond}, want: "more than 4ms"},
 		{name: "report", gate: soakGateReport, incident: soakTimes{median: time.Second, slowest: time.Second}},
 	} {
+		reference := tc.reference
+		if reference == (soakTimes{}) {
+			reference = standard
+		}
 		failures := soakTimeFailures(tc.gate, tc.incident, reference)
 		if tc.want == "" && len(failures) != 0 || tc.want != "" && (len(failures) != 1 || !strings.Contains(failures[0], tc.want)) {
 			t.Errorf("%s: %q, want %q", tc.name, failures, tc.want)

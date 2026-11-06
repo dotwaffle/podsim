@@ -16,7 +16,7 @@ The code of the congestion, queue, and predictive routing policies was removed o
 - Amendment A10 changes the cost and the shape of the soak.
   The section "First soak in the branch shape" has its first run.
 - The Performance row for suspension meets amendment A7 at 30 Hz in the section "Readings from a quiet host".
-- The Performance row for emergencies has the rule of amendment A11, and a quiet-host run must confirm it.
+- The Performance row for emergencies meets the median rule of amendment A11 at `8ffb20b6`, and missed the rule for the slowest tick on `rail-hub` in 2 of 24 runs, so A11 now has a floor of 1 ms for that rule, and a quiet-host run must confirm it.
   The readings at 30 Hz missed the earlier rule, on `rail-hub` in 3 of 4 runs and on `london-central` in 1 of 4 runs.
 - The Choice row is reported and not gated, and no driver reports it, because the sim does not expose the estimate.
 
@@ -550,6 +550,25 @@ So all 6 seeds meet both rules.
 The miss of `rail-hub` seed 1 at 60 Hz, 2.7 times its reference, does not occur in this run.
 This is one run of each seed, so it does not show that the rate removed the miss.
 
+### Readings of amendment A11 at `8ffb20b6`
+
+These readings ran on 2026-11-06 with `PODSIM_SOAK_GATE=1`, with a load average from 2 to 3.3.
+The first run covered each row, and then the `rail-hub` row ran 5 more times by itself.
+
+| Row | Runs | Median difference of A11 | Limit | Slowest rule |
+| --- | ---: | --- | --- | --- |
+| 4 emergencies, `rail-hub` | 24 | 0.34 to 0.42 µs in 6 gates | 1 µs | Misses in 2 of 24 runs |
+| 4 emergencies, `london-central` | 4 | About 0.74 µs | 1.44 µs | Meets |
+| 64 debris and 300 pod faults, limit 50 µs (A7) | 1 | Median 11.13 µs | 50 µs | Meets |
+
+The median rule of A11 passes on both presets.
+The `rail-hub` row fails the gate because of the rule for the slowest tick: 209.9 µs against 66.6 µs, and 241.3 µs against 20.2 µs.
+The other 22 runs have a slowest tick from 21 to 59 µs.
+Each run has the same seed and the same simulated work, so a slow tick that does not repeat is not a cost of the sim work in that tick.
+That leaves the host or the collector, and these readings do not separate them.
+The maintainer then added a floor of 1 ms to the rule for the slowest tick of this row, in A11, after these readings, so a later quiet-host run must confirm it.
+The row stays unpassed until that run.
+
 ## Readings from a busy host
 
 These readings are not results of a gate.
@@ -570,5 +589,6 @@ The Performance rows need a quiet machine (A3).
 
 The sampled-tick fixture has little traffic, so its step is cheap.
 The cold and first warm rows at the project limits come from `TestSampledTickNoCandidateLatency` at `3c61bcb`, are reported, and are not gated (P23).
-That test reports the sum of its emergency and fault parts: 24.4 s before the route work fixes and 0.6 s after, in one run of each at a load average of 3 to 19, so a run on a quiet host must give the current sum.
+That test reports the sum of its emergency and fault parts: 24.4 s before the route work fixes and 0.6 s after, in one run of each at a load average of 3 to 19.
+At `8ffb20b6`, 3 runs at a load average of 2 to 3.3 report a cold sum of 5.9 to 6.0 ms and a warm sum of 86.4 to 87.7 ms, with 33.6 to 33.8 ms for emergency and 52.8 to 53.9 ms for fault, against 50 ms as a report and not a gate.
 The row of 300 pod faults misses the rule of 10 percent, against a reference step that does almost no work.
