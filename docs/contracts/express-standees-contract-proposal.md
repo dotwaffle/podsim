@@ -3,6 +3,8 @@
 Status: decisions 1 to 13 accepted by the maintainer on 2026-11-05, as recommended.
 Status 2026-11-05: the tick rate is now 30 Hz, `stateVersion` is 11, `StreamVersion` is 9, and the golden files are `state_v11.json` and `state_v11_members.txt`, so the values of 10, 8, and `state_v10` below are history.
 Status 2026-11-05: the plan cap sits in the ordinary move step, so the fault step does not take it, and the floor at `speed - max × dt` also covers the result of `speedBeforeLane` (section 3.2).
+Status 2026-11-06, by the maintainer: `express-v1` permits a mixed fleet on a network with small-only depot slots.
+Large classes remain refused in depot slots, and Express pods cannot select a small-only depot lane.
 The restore bound of 180 ticks in section 6 is 3 s, which is 90 ticks at 30 Hz.
 The maintainer also approved the revision of sections 4, 5, and 7.1 after the external review of section 4.10.
 No product code changes with this document.

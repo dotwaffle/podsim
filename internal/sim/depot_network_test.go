@@ -258,17 +258,33 @@ func TestDepotNetworkClone(t *testing.T) {
 	}
 }
 
-// TestDepotExpressRefusal checks that the Express order contract refuses a
-// network with a depot, after the station records.
+// TestDepotExpressRefusal keeps large depot slots refused after station records.
 func TestDepotExpressRefusal(t *testing.T) {
 	t.Parallel()
-	network := testDepotNetwork()
-	if err := validateContractNetworkRecords(network); err == nil || err.Error() != "the Express order contract does not allow depots" {
-		t.Fatalf("depot: %v", err)
-	}
-	network.Stations[0].Name = ""
-	if err := validateContractNetworkRecords(network); err == nil || err.Error() != "invalid Express station record" {
-		t.Fatalf("station before depot: %v", err)
+	for _, class := range []VehicleClass{GroupClass, ExpressClass} {
+		t.Run(string(class), func(t *testing.T) {
+			t.Parallel()
+			network := testDepotNetwork()
+			if err := validateContractNetworkRecords(network); err != nil {
+				t.Fatalf("small depot: %v", err)
+			}
+			station := &network.Stations[len(network.Stations)-1]
+			station.VehicleClasses = classBit(string(class))
+			for i := range station.Berths {
+				station.Berths[i].VehicleClasses = classBit(string(class))
+			}
+			want := "the Express order contract does not allow depots"
+			if err := validateContractNetworkRecords(network); err == nil || err.Error() != want {
+				t.Fatalf("large depot: %v", err)
+			}
+			if _, err := NewFleetWithOrderContract(network, depotPlacements(network, 0), ExpressOrderContract); err == nil || err.Error() != want {
+				t.Fatalf("fleet refusal: %v", err)
+			}
+			network.Stations[0].Name = ""
+			if err := validateContractNetworkRecords(network); err == nil || err.Error() != "invalid Express station record" {
+				t.Fatalf("station before depot: %v", err)
+			}
+		})
 	}
 }
 
