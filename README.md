@@ -169,7 +169,7 @@ An approved contract in `docs/contracts/` is binding, and each document gives it
 
 | Area | Studies |
 | --- | --- |
-| LondonFull | [Post-fix capacity](docs/studies/london-full-postfix.md), [pickup supply](docs/studies/pickup-supply.md), [mirrored layout](docs/studies/station-mirror-load.md), [station limits](docs/studies/station-limits.md), [onboard pickups with sharing](docs/studies/sharing-onboard.md), [routing on the flood](docs/studies/routing-flood.md) |
+| LondonFull | [Post-fix capacity](docs/studies/london-full-postfix.md), [pickup supply](docs/studies/pickup-supply.md), [mirrored layout](docs/studies/station-mirror-load.md), [station limits](docs/studies/station-limits.md), [onboard pickups with sharing](docs/studies/sharing-onboard.md), [routing on the flood](docs/studies/routing-flood.md), [default flips](docs/studies/default-flips.md) |
 | Dispatch and routing | [Pickup reassignment](docs/studies/pickup-reassignment.md), [sustained pickup swaps](docs/studies/pickup-swap-sustained.md), [predictive routing](docs/studies/predictive-routing.md), [berth routes](docs/studies/berth-route-preference.md), [policy failures](docs/studies/policy-failures.md) |
 | Platoons and following | [Platoon follow-up](docs/studies/platoon-followup.md), [coupled trains](docs/studies/platoon-coupling-comparison.md), [close-up following](docs/studies/close-up-measurement.md), [station buffers](docs/studies/buffer-late-claim.md) |
 | Express | [Express qualification](docs/studies/express-qualification.md), [standees evidence](docs/studies/express-standees.md) |
