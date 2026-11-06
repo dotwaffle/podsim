@@ -13,6 +13,7 @@ The [adoption gates](../design/experimental-adoption.md#evidence-required) need 
 At the preset demand of AM peak 10/min, no arm changes service by more than 3% in any mean.
 All arms complete the same requests, or one more.
 Each arm has from 37 to 241 matched requests over an individual limit in each seed, and about as many that improve by the same limit.
+A [null one-tick change](#null-perturbation) at the first offer gives 0, but it is not a noise floor for these counts.
 
 On the King's Cross flood, the arms split in this way:
 
@@ -59,6 +60,7 @@ No test, lint, or race task ran on them.
 | `ccb44e46` | `c45f5c93` of `study/sharing-onboard`: `-request-ledger` writes one row per offer. |
 | `9b4d258e` | A counter of pod entries and exits at the focus station, with the definitions of the station limits probe. |
 | `c7159235` | The run and table scripts, in `tools/study-default-flips`. |
+| `ebf890af` | The [null perturbation](#null-perturbation) hook and its script. |
 
 A flood of 10 simulated minutes with the two code commits gives the same report bytes as the binary at `545b95b6`.
 The study did not repeat this check on the AM workload or on the full flood.
@@ -189,7 +191,7 @@ The last column counts offers whose boarding and completion ticks do not change.
 
 Small changes move many requests.
 Arm 2 makes 12 to 24 moves, and arm 5 changes a platoon time of 0.05 to 0.14%, and in each pair more than half of the offers change their ticks.
-The study has no null arm, so it does not give the count that any small change produces, and it does not trace this movement to a mechanism.
+The [null perturbation](#null-perturbation) does not spread in this way, and the study does not trace this movement to a mechanism.
 
 ## King's Cross flood, seed 1
 
@@ -247,6 +249,51 @@ Sharing has 57 joined parties and no intermediate stop, because all orders have 
 | 4 Sharing | 1 | -7.67% | -1.74% | -0.19% | 558 | -8.46% | 368 | -0.42% | 31 / 81 | 31 / 39 | 1,177 | 446 | 15 / 29 | 108 / 167 | +1.27 | -0.38% | 747 |
 | 6 Sharing and reassignment | 1 | -7.69% | +0.30% | +0.58% | 559 | -10.77% | 374 | +0.38% | 36 / 83 | 47 / 37 | 793 | 827 | 9 / 30 | 110 / 169 | +1.03 | -2.82% | 742 |
 | Virtual against off | 1 | -7.70% | -8.19% | -13.94% | 513 | -20.04% | 240 | -36.91% | 17 / 122 | 6 / 174 | 962 | 129 | 0 / 143 | 95 / 153 | -1.17 | +43.53% | 660 |
+
+## Null perturbation
+
+This arm asks how many requests move past the individual limits from a change that means nothing.
+It has the flags of arm 1, and offer 0 arrives one tick later, at tick 181 and not 180.
+Offer 0 was the chosen offer before any run, and each seed ran once.
+Arm 1 ran again beside it, because the first ledgers were not kept.
+The new arm 1 gives the schedule IDs and the same values as the arm 1 rows above, for each value compared: wait, journey, late growth, distance, and last completion.
+
+```sh
+STUDY_PERTURB_OFFER=0 compare -project base.json -pattern profile -bands am-peak -loads 6s -duration 4h -arrivals-for 3h -seeds 1 -redistribution-policies off -platoon-policies virtual -pickup-reassignment off -workers 1 -format json -request-ledger ledger -output arm.json
+```
+
+The arm is against arm 1 in the first row, and each flip arm is against arm 1 in the others.
+Cells give seeds 1 / 2 / 3, and the last column is the absolute time.
+
+| Arm | Wait over | Wait better | Journey over | Journey better | Arm wait | Arm journey | Arm journey p95 | Last completion after arrivals (s) |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Null | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | +0.00 / +0.00 / +0.00% | +0.00 / -0.00 / +0.00% | +0.00 / +0.00 / +0.00% | 3,202 / 3,158 / 3,060 |
+| 2 Redistribution | 199 / 241 / 168 | 176 / 201 / 148 | 113 / 153 / 88 | 108 / 133 / 86 | +1.07 / +2.93 / +0.24% | +0.26 / +0.66 / +0.05% | -1.93 / +0.97 / -0.10% | 3,201 / 3,158 / 3,042 |
+| 3 Reassignment | 137 / 129 / 130 | 162 / 175 / 114 | 89 / 86 / 81 | 105 / 104 / 74 | -0.71 / -0.47 / +0.81% | +0.08 / -0.19 / +0.21% | -0.97 / -0.35 / +0.15% | 3,363 / 3,239 / 2,971 |
+| 4 Sharing | 136 / 67 / 98 | 141 / 91 / 99 | 89 / 37 / 67 | 83 / 56 / 60 | -0.13 / -0.49 / -0.75% | +0.28 / -0.13 / -0.15% | -0.26 / -0.12 / +0.97% | 3,363 / 3,158 / 3,043 |
+| 5 Platoons off | 131 / 101 / 109 | 129 / 127 / 120 | 74 / 64 / 61 | 78 / 78 / 67 | +0.23 / +0.31 / -0.05% | +0.04 / -0.05 / -0.03% | -2.13 / -1.15 / +0.21% | 3,204 / 3,158 / 3,052 |
+| 6 Sharing and reassignment | 175 / 131 / 153 | 192 / 178 / 146 | 104 / 81 / 113 | 116 / 112 / 100 | -0.59 / -1.65 / +0.15% | -0.14 / -0.41 / +0.11% | -3.34 / -1.62 / -0.07% | 3,243 / 3,075 / 3,144 |
+
+The change does not spread in the ledgers.
+In each seed, only the row of offer 0 differs: its offer and boarding ticks move by one tick.
+Its completion tick moves by one tick in seeds 1 and 3, and it does not move in seed 2.
+All other 1,798 rows are equal.
+The report fields differ only in platoon time, from the seventh significant figure, and in seed 2 mean journey, from the eighth.
+Offer 0 boards at its offer tick in each arm, so a pod is ready at its origin.
+
+### Reading the individual gates
+
+These readings hold for this perturbation and do not change a gate or a limit.
+
+- A repeat of arm 1 gives the same aggregates, so the flip counts do not come from a difference between repeated runs of one setting.
+- The arm does not give a noise floor for the flip counts.
+  No other request changes its ticks here, and each flip arm changes the ticks of at least 649 offers.
+  It says nothing about how many requests one changed assignment moves.
+- So the counts of the flip arms stay failures under the limits, and this study cannot subtract a floor from them.
+- The study still does not show which part of each count comes from the flip itself and which part follows from later changes in the fleet.
+
+Offer 0 is the first order of the run, and a pod is ready at its origin, so this arm does not test a change under load.
+A change at a busy time is the open test, in [proposed arms](#proposed-arms).
 
 ## Adoption gates
 
@@ -353,7 +400,8 @@ These did not run, because the study had a limit of 24 runs.
 - The flood command itself, redistribution on with reassignment on, seed 1, to confirm the reading of the first row of [earlier records](#earlier-records).
 - Flood seeds 2 and 3 for arms 1, 3, 4, and 6, to read the differences of under 1 entry a minute.
 - AM 15 and 20/min for arms 1, 3, and 6, because sharing and reassignment show their gains above supply in the earlier records.
-- A null arm with one small change, such as one offer moved by one tick, to measure how many requests any change moves past the individual limits.
+- The null perturbation at an offer in a busy part of the run, because the arm at offer 0 did not spread.
+  The hook takes any offer index, and each offer needs 3 seeds and a new arm 1 ledger.
 - The Waterloo flood, and a flood with time after its arrivals for a recovery reading.
 
 ## Not verified
@@ -365,3 +413,4 @@ These did not run, because the study had a limit of 24 runs.
 - The report byte check covers a 10-minute flood only.
 - The cause of each change between arms, and of the late unfinished request.
 - Compare gives the positioning gate no configured rate, so the server may differ.
+- The null perturbation at any offer other than offer 0, or for any change to one assignment.
