@@ -287,6 +287,13 @@ func (n Network) searchNodes(input networkRouteInput, from, to int, graph routeG
 	if !graph.nodeAllows(from, input.class) || !graph.nodeAllows(to, input.class) {
 		return ErrUnreachable
 	}
+	n.searchFrom(input, from, to, graph, work)
+	return nil
+}
+
+// searchFrom runs the search from node from until it settles node to. With a
+// negative to, it settles each node that it can reach.
+func (n Network) searchFrom(input networkRouteInput, from, to int, graph routeGraph, work *routeSearchWork) {
 	work.reset(len(n.Nodes))
 	distance, previous, visited := work.distance, work.previous, work.visited
 	filtered := input.bankExternal || input.allowedLanes != nil || input.forbidden != nil || input.ownBerthsOnly
@@ -325,7 +332,6 @@ func (n Network) searchNodes(input networkRouteInput, from, to int, graph routeG
 		}
 	}
 	work.queue = queue[:0]
-	return nil
 }
 
 // routeLaneFiltered reports whether an optional filter of input removes a

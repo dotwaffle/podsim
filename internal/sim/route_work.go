@@ -5,8 +5,9 @@ import (
 	"slices"
 )
 
-// routeSearchWork belongs to one simulation. Search results have separate
-// storage, so another search can reuse these arrays and the heap.
+// routeSearchWork belongs to one simulation or to one call of bankNearest.
+// Search results have separate storage, so another search can reuse these arrays
+// and the heap.
 type routeSearchWork struct {
 	distance []float64
 	previous []int

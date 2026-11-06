@@ -6,6 +6,7 @@ import (
 	"math"
 	"math/rand/v2"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -44,7 +45,7 @@ func (n Network) frozenRoute(input networkRouteInput, graph routeGraph, counts *
 	}
 	filtered := input.bankExternal || input.allowedLanes != nil || input.forbidden != nil || input.ownBerthsOnly
 	distance[from] = 0
-	queue := routeQueue{{node: from}}
+	queue := frozenQueue{{node: from}}
 	for len(queue) > 0 {
 		item := queue.pop()
 		if visited[item.node] || item.distance != distance[item.node] {
@@ -94,6 +95,56 @@ func (n Network) frozenRoute(input networkRouteInput, graph routeGraph, counts *
 		current = graph.edges[laneIndex].from
 	}
 	return route, nil
+}
+
+// frozenQueue keeps the route queue, so that a change of the pop order of the
+// simulation does not change the reference.
+type frozenQueue []routeQueueItem
+
+func (q *frozenQueue) push(item routeQueueItem) {
+	*q = append(*q, item)
+	for child := len(*q) - 1; child > 0; {
+		parent := (child - 1) / 2
+		if !frozenQueueLess((*q)[child], (*q)[parent]) {
+			break
+		}
+		(*q)[parent], (*q)[child] = (*q)[child], (*q)[parent]
+		child = parent
+	}
+}
+
+func (q *frozenQueue) pop() routeQueueItem {
+	root := (*q)[0]
+	last := (*q)[len(*q)-1]
+	*q = (*q)[:len(*q)-1]
+	if len(*q) == 0 {
+		return root
+	}
+	(*q)[0] = last
+	for parent := 0; ; {
+		left := parent*2 + 1
+		if left >= len(*q) {
+			break
+		}
+		child := left
+		right := left + 1
+		if right < len(*q) && frozenQueueLess((*q)[right], (*q)[left]) {
+			child = right
+		}
+		if !frozenQueueLess((*q)[child], (*q)[parent]) {
+			break
+		}
+		(*q)[parent], (*q)[child] = (*q)[child], (*q)[parent]
+		parent = child
+	}
+	return root
+}
+
+func frozenQueueLess(a, b routeQueueItem) bool {
+	if a.distance == b.distance {
+		return a.node < b.node
+	}
+	return a.distance < b.distance
 }
 
 // frozenBankRoute keeps bankRoute from before bank routes used lane indexes.
@@ -229,10 +280,84 @@ func classBankNetwork(t *testing.T) Network {
 	return network
 }
 
+// tieBankNetwork returns a ring of stations with banks, with ties between the
+// stations. A diamond has two ways of one cost, and the one with the lower node
+// index comes last in the lanes, so that a change of the pop or lane order
+// changes the winner. One way has a lane of no length. A slow lane has a cost that
+// hides the small cost of the next lanes, so that a relaxation gives a distance
+// equal to the distance of a settled node. A valid network has no lane of no
+// length, and the proof of the tree allows it, so this graph is not validated.
+func tieBankNetwork() Network {
+	network := missNetwork(6, 3, 12)
+	node := func(id string, x, y float64) {
+		network.Nodes = append(network.Nodes, Node{ID: id, Position: Point{X: x, Y: y}})
+	}
+	lane := func(id, from, to string, speed float64) {
+		network.Lanes = append(network.Lanes, Lane{ID: id, From: from, To: to, SpeedLimit: speed})
+	}
+	for index := range 5 {
+		id := fmt.Sprintf("m%d", index)
+		from, join := id+"-after", id+"-join"
+		x := float64(index)*1000 + 800
+		node(join, x+100, 0)
+		// The upper way has the higher node index and the lower lane index.
+		node(id+"-low", x+50, -40)
+		node(id+"-high", x+50, 40)
+		lane(id+"-up-1", from, id+"-high", 14)
+		lane(id+"-up-2", id+"-high", join, 14)
+		lane(id+"-down-1", from, id+"-low", 14)
+		lane(id+"-down-2", id+"-low", join, 14)
+		for lanes := range network.Lanes {
+			if network.Lanes[lanes].ID == fmt.Sprintf("m%d-in", index+1) {
+				network.Lanes[lanes].From = join
+			}
+		}
+	}
+	// A third way of the same cost after m1, with a lane of no length.
+	node("zero-a", 1850, 40)
+	node("zero-b", 1850, 40)
+	lane("zero-1", "m1-after", "zero-a", 14)
+	lane("zero-0", "zero-a", "zero-b", 14)
+	lane("zero-2", "zero-b", "m1-join", 14)
+	// A slow lane, and two lanes whose costs it hides, back to its end.
+	node("slow", 1900, 400)
+	node("hidden", 1900.000001, 400)
+	lane("slow-lane", "m1-after", "slow", 1e-15)
+	lane("slow-hidden", "slow", "hidden", 1e6)
+	lane("hidden-slow", "hidden", "slow", 1e6)
+	// A station with no banks after m2. The way through its berth is the cheapest
+	// way, and the search with the terminal-berth rule must not take it.
+	node("plain-entry", 2810, 0)
+	node("plain-1", 2850, 0)
+	node("plain-exit", 2890, 0)
+	lane("plain-in", "m2-after", "plain-entry", 14)
+	lane("plain-through", "plain-entry", "plain-exit", 1)
+	lane("plain-1-in", "plain-entry", "plain-1", 14)
+	lane("plain-1-out", "plain-1", "plain-exit", 14)
+	lane("plain-out", "plain-exit", "m2-join", 14)
+	network.Stations = append(network.Stations, Station{
+		ID: "plain", Name: "plain", Entry: "plain-entry", Exit: "plain-exit",
+		Berths: []Berth{{ID: "plain-1", Node: "plain-1"}},
+	})
+	return network
+}
+
+// tieBlockedSets returns blocked sets that change which way wins: each upper way,
+// each lower way, and the first way of each second diamond.
+func tieBlockedSets(network Network) [][]bool {
+	up, down, mixed := make([]bool, len(network.Lanes)), make([]bool, len(network.Lanes)), make([]bool, len(network.Lanes))
+	for index, lane := range network.Lanes {
+		up[index] = strings.Contains(lane.ID, "-up-")
+		down[index] = strings.Contains(lane.ID, "-down-")
+		mixed[index] = strings.HasPrefix(lane.ID, "m1-up-") || strings.HasPrefix(lane.ID, "m3-down-")
+	}
+	return [][]bool{up, down, mixed}
+}
+
 // routeReferenceNetworks returns the networks of the route differential.
 func routeReferenceNetworks(t *testing.T) map[string]Network {
 	t.Helper()
-	return map[string]Network{"bank example": BankExample(), "no candidate": missNetwork(8, 5, 16), "classes": classBankNetwork(t)}
+	return map[string]Network{"bank example": BankExample(), "no candidate": missNetwork(8, 5, 16), "classes": classBankNetwork(t), "ties": tieBankNetwork()}
 }
 
 // retainedRoute is a route that a test holds across later searches.
@@ -260,7 +385,7 @@ func TestBankRouteMatchesFrozen(t *testing.T) {
 			routes, multiple, failed := 0, 0, 0
 			forbidden := map[string]bool{network.Nodes[len(network.Nodes)/2].ID: true}
 			inputs := []networkRouteInput{{}, {terminalBerthsOnly: true}, {ownBerthsOnly: true}, {forbidden: forbidden}}
-			for set, blocked := range blockedRouteSets(network, rng) {
+			for set, blocked := range append(blockedRouteSets(network, rng), tieBlockedSets(network)...) {
 				graph.blocked = blocked
 				for _, class := range []VehicleClass{"", GroupClass, ExpressClass} {
 					for shape, base := range inputs {
@@ -324,7 +449,7 @@ func TestBankPathsMatchFrozen(t *testing.T) {
 			rng := rand.New(rand.NewPCG(uint64(len(network.Nodes)), 9))
 			graph := newRouteGraph(network)
 			found, missed, shared := 0, 0, 0
-			for set, blocked := range blockedRouteSets(network, rng) {
+			for set, blocked := range append(blockedRouteSets(network, rng), tieBlockedSets(network)...) {
 				graph.blocked = blocked
 				for _, class := range []VehicleClass{"", GroupClass, ExpressClass} {
 					for range 6 {
@@ -486,5 +611,39 @@ func TestNearestFreeBerthUsesClassOnBanks(t *testing.T) {
 	}
 	if different == 0 {
 		t.Fatal("the classes always choose the same berth")
+	}
+}
+
+// TestBankTreeHoldsTies checks that the tie network has what its comparisons
+// need. The two ways of a diamond have the same cost bits, and a blocked way
+// changes the route. A relaxation of a settled node has a cost equal to its
+// distance, in the slow chain.
+func TestBankTreeHoldsTies(t *testing.T) {
+	t.Parallel()
+	network := tieBankNetwork()
+	graph := newRouteGraph(network)
+	if graph.banks.err != nil {
+		t.Fatal(graph.banks.err)
+	}
+	route := func(blocked []bool) string {
+		var counts frozenCounts
+		graph.blocked = blocked
+		lanes, err := network.frozenRoute(networkRouteInput{from: "m0-after", to: "m1-entry", class: ""}, graph, &counts)
+		return fmt.Sprint(laneIDs(lanes), err)
+	}
+	seconds := func(id string) float64 { return graph.edges[graph.lanes[id]].seconds }
+	if a, b := seconds("m0-up-1")+seconds("m0-up-2"), seconds("m0-down-1")+seconds("m0-down-2"); a != b {
+		t.Fatalf("the ways of a diamond cost %x and %x", a, b)
+	}
+	sets := tieBlockedSets(network)
+	open, up, down := route(nil), route(sets[0]), route(sets[1])
+	if up == down {
+		t.Fatalf("a blocked way does not change the route: %s, %s, %s", open, up, down)
+	}
+	if slow := seconds("slow-lane"); slow+seconds("slow-hidden") != slow {
+		t.Fatalf("the slow lane costs %g and does not hide the next lane", slow)
+	}
+	if seconds("zero-0") != 0 || seconds("zero-1")+seconds("zero-0")+seconds("zero-2") != seconds("m1-up-1")+seconds("m1-up-2") {
+		t.Fatal("the way with a lane of no length has another cost")
 	}
 }

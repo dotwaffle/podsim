@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"slices"
+	"sync"
 )
 
 // bankRouteParts holds the searches that the routes from one origin share in
@@ -12,9 +13,58 @@ import (
 // The graph, the blocked lanes, and the class do not change during the call.
 // Only the origin bank sets the prefix, and only the destination bank sets the
 // middle part of a route to a node inside that bank.
+//
+// tree is one search with no target for all middle parts, which all start at
+// one node. It gives each target the lanes of a search that stops at the target,
+// for these reasons. The filters of a middle part do not read the target, so
+// that search is the first part of the tree search, with the same pops and the
+// same writes. A pop is never below the pop before it, because a lane adds a
+// cost that is not negative. So after the first valid pop of a node, no later
+// relaxation is below its distance. The relaxation is strict, so an equal cost
+// does not write it, and its previous lane stays. The costs come from the lanes
+// of the path, in route order, and not from the distances of the tree.
 type bankRouteParts struct {
 	prefix bankRoutePart
 	middle []bankRoutePart
+	tree   *routeSearchWork
+}
+
+// bankSearchWork keeps the arrays of the searches of bankNearest for the next
+// call, because the arrays of a network at the project limits take about 200 KB
+// each and most of their elements do not change. A search resets the nodes that
+// the last search wrote, so no result depends on the earlier use of the work.
+var bankSearchWork sync.Pool
+
+// takeBankSearchWork returns a work value from bankSearchWork, or a new one.
+func takeBankSearchWork() *routeSearchWork {
+	if work, ok := bankSearchWork.Get().(*routeSearchWork); ok {
+		return work
+	}
+	return new(routeSearchWork)
+}
+
+// release returns the tree of p, if it has one, to bankSearchWork.
+func (p *bankRouteParts) release() {
+	if p.tree != nil {
+		bankSearchWork.Put(p.tree)
+	}
+}
+
+// treePath adds the lanes from node from to node to, from the tree, to the path
+// of work. A disallowed end gives the error of a search that stops at the target.
+func (p *bankRouteParts) treePath(n Network, input networkRouteInput, from, to int, graph routeGraph, work *routeSearchWork) error {
+	if !graph.nodeAllows(from, input.class) || !graph.nodeAllows(to, input.class) {
+		return ErrUnreachable
+	}
+	if p.tree == nil {
+		p.tree = takeBankSearchWork()
+		n.searchFrom(input, from, -1, graph, p.tree)
+	}
+	p.tree.path = work.path
+	err := p.tree.appendPath(graph, from, to)
+	// The tree goes back to bankSearchWork, so it must not keep the buffer of work.
+	work.path, p.tree.path = p.tree.path, nil
+	return err
 }
 
 // bankRoutePart is the result of one search, as lane indexes.
@@ -67,6 +117,9 @@ func (n Network) bankPathNodes(input networkRouteInput, from, to int, graph rout
 		part := input
 		part.bankRaw, part.allowedLanes = true, allowed
 		part.bankExternal = allowed == nil
+		if part.bankExternal && input.parts != nil {
+			return input.parts.treePath(n, part, from, to, graph, work)
+		}
 		if err := n.searchNodes(part, from, to, graph, work); err != nil {
 			return err
 		}
@@ -260,13 +313,16 @@ func (n Network) bankNearest(input preferredNearestInput, graph routeGraph) (int
 	best, seconds := -1, math.Inf(1)
 	// A search reads none of the work of the search before it, and the
 	// counters of this work reach no simulation.
-	var work routeSearchWork
+	work := takeBankSearchWork()
+	defer bankSearchWork.Put(work)
 	// A reverse call has a different origin for each candidate, so its routes
 	// share no prefix.
 	var terminal, open *bankRouteParts
 	if !input.reverse {
 		terminal = &bankRouteParts{middle: make([]bankRoutePart, len(graph.banks.banks))}
 		open = &bankRouteParts{middle: make([]bankRoutePart, len(graph.banks.banks))}
+		defer terminal.release()
+		defer open.release()
 	}
 	for node, rank := range input.rank {
 		if rank < 0 {
@@ -276,9 +332,9 @@ func (n Network) bankNearest(input preferredNearestInput, graph routeGraph) (int
 		if input.reverse {
 			from, to = to, from
 		}
-		path, err := n.bankPathNodes(networkRouteInput{terminalBerthsOnly: true, class: input.class, parts: terminal}, from, to, graph, &work)
+		path, err := n.bankPathNodes(networkRouteInput{terminalBerthsOnly: true, class: input.class, parts: terminal}, from, to, graph, work)
 		if errors.Is(err, ErrUnreachable) {
-			path, err = n.bankPathNodes(networkRouteInput{class: input.class, parts: open}, from, to, graph, &work)
+			path, err = n.bankPathNodes(networkRouteInput{class: input.class, parts: open}, from, to, graph, work)
 		}
 		if err != nil {
 			continue

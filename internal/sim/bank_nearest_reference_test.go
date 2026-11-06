@@ -6,6 +6,7 @@ import (
 	"math"
 	"math/rand/v2"
 	"reflect"
+	"sync"
 	"testing"
 )
 
@@ -126,7 +127,7 @@ func TestBankNearestMatchesReference(t *testing.T) {
 			rng := rand.New(rand.NewPCG(uint64(len(network.Nodes)), 3))
 			graph := newRouteGraph(network)
 			found, missed := 0, 0
-			for set, blocked := range blockedRouteSets(network, rng) {
+			for set, blocked := range append(blockedRouteSets(network, rng), tieBlockedSets(network)...) {
 				graph.blocked = blocked
 				froms := rng.Perm(len(network.Nodes))
 				if len(froms) > 40 {
@@ -191,5 +192,88 @@ func TestNearestFreeBerthChangesNoMemo(t *testing.T) {
 	}
 	if got := fmt.Sprint(berth.ID, " ", station, " ", ok); got != "m1-1 m1 true" {
 		t.Fatalf("the choice is %s", got)
+	}
+}
+
+// TestBankNearestSharesNoWork makes calls on networks of different sizes at the
+// same time. The calls share bankSearchWork, and each result must stay the
+// result of the frozen reference.
+func TestBankNearestSharesNoWork(t *testing.T) {
+	t.Parallel()
+	type nearestCase struct {
+		network Network
+		graph   routeGraph
+		input   preferredNearestInput
+		node    int
+		found   bool
+	}
+	var cases []nearestCase
+	for _, network := range []Network{tieBankNetwork(), missNetwork(8, 5, 16), BankExample()} {
+		graph := newRouteGraph(network)
+		for _, rank := range berthRanks(network, graph) {
+			for _, station := range network.Stations {
+				input := preferredNearestInput{from: station.Entry, rank: rank}
+				node, found := network.referenceBankNearest(input, graph)
+				cases = append(cases, nearestCase{network, graph, input, node, found})
+			}
+		}
+	}
+	var group sync.WaitGroup
+	for range 8 {
+		group.Go(func() {
+			for range 5 {
+				for _, c := range cases {
+					node, found := c.network.bankNearest(c.input, c.graph)
+					if node != c.node || found != c.found {
+						t.Errorf("bankNearest from %s = %d, %v, want %d, %v", c.input.from, node, found, c.node, c.found)
+						return
+					}
+				}
+			}
+		})
+	}
+	group.Wait()
+}
+
+// TestBankTreeKeepsNoPath checks that a tree that goes back to bankSearchWork
+// holds no buffer of the work of the call, which another call can then use.
+func TestBankTreeKeepsNoPath(t *testing.T) {
+	t.Parallel()
+	network := tieBankNetwork()
+	graph := newRouteGraph(network)
+	from, to := graph.nodes["m0-low"], graph.nodes["m0-join"]
+	var parts bankRouteParts
+	var work routeSearchWork
+	work.path = make([]int, 0, 8)
+	if err := parts.treePath(network, networkRouteInput{bankRaw: true, bankExternal: true}, from, to, graph, &work); err != nil {
+		t.Fatal(err)
+	}
+	if len(work.path) == 0 || parts.tree.path != nil {
+		t.Fatalf("work has %d lanes, tree keeps %v", len(work.path), parts.tree.path)
+	}
+}
+
+// TestBankTreeRefusesDisallowedEnds compares treePath with a search that stops
+// at the target, for an end that the class does not allow. A search from a node
+// to the same node finds no lane, so only the class check gives the error.
+func TestBankTreeRefusesDisallowedEnds(t *testing.T) {
+	t.Parallel()
+	network := classBankNetwork(t)
+	graph := newRouteGraph(network)
+	input := networkRouteInput{bankRaw: true, bankExternal: true, class: GroupClass}
+	refused := 0
+	for node := range network.Nodes {
+		if graph.nodeAllows(node, GroupClass) {
+			continue
+		}
+		refused++
+		var parts bankRouteParts
+		var work, plain routeSearchWork
+		if err, want := parts.treePath(network, input, node, node, graph, &work), network.searchNodes(input, node, node, graph, &plain); err == nil || !errors.Is(err, want) {
+			t.Fatalf("%s: treePath gives %v, search gives %v", network.Nodes[node].ID, err, want)
+		}
+	}
+	if refused == 0 {
+		t.Fatal("the network has no node that the class refuses")
 	}
 }
