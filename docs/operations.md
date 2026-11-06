@@ -970,6 +970,10 @@ Any other failure of the `physical` tier stops the branch.
 A second log line of each branch gives the rule A evidence: the count of readings on each path of the classifier, and the 5 records with the most blocked time, with their chain ends.
 It changes no gate.
 The `incidents` and `emergencies` arms run on both presets, and `platoons` runs on `rail-hub`.
+Amendment A14 adds `reference-low-demand` and `incidents-low-demand` to the routine soak on `rail-hub` only.
+Both use 1 order/min, including the 30-minute warm time.
+The 10 incident branches each run for 1.5 simulated hours, then keep the 30-minute Progress window against their own reference range.
+Select both names through `PODSIM_SOAK_ARMS` to run only this group with its queue check.
 The checks run at the stride of amendment A10: the full check runs at each simulated second and at each event.
 Use `mise run soak:full` before a release tag.
 After a change to dispatch, routing, or the fault and emergency state machines, use `mise run soak` and `mise run qualify`, which runs `TestIncidentSoakCI`.

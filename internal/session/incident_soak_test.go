@@ -51,17 +51,20 @@ type soakArm struct {
 	// command driver at the same rates for each kind with a rate (A2).
 	faults, emergencies, commands bool
 	platoons                      bool
+	perMinute                     int
 }
 
 // soakArms holds the arms of section 5.1.9. "ci" is the CI soak, with the
 // sampler only.
 var soakArms = map[string]soakArm{
-	"incidents":          {name: "incidents", faults: true, emergencies: true, commands: true},
-	"emergencies":        {name: "emergencies", emergencies: true, commands: true},
-	"platoons":           {name: "platoons", faults: true, emergencies: true, commands: true, platoons: true},
-	"reference":          {name: "reference"},
-	"reference-platoons": {name: "reference-platoons", platoons: true},
-	"ci":                 {name: "ci", faults: true, emergencies: true},
+	"incidents":            {name: "incidents", faults: true, emergencies: true, commands: true},
+	"emergencies":          {name: "emergencies", emergencies: true, commands: true},
+	"platoons":             {name: "platoons", faults: true, emergencies: true, commands: true, platoons: true},
+	"reference":            {name: "reference"},
+	"reference-platoons":   {name: "reference-platoons", platoons: true},
+	"ci":                   {name: "ci", faults: true, emergencies: true},
+	"reference-low-demand": {name: "reference-low-demand", perMinute: 1},
+	"incidents-low-demand": {name: "incidents-low-demand", faults: true, emergencies: true, commands: true, perMinute: 1},
 }
 
 // soakPreset returns the preset of the name, with demand on.
@@ -100,6 +103,9 @@ func soakPreset(t *testing.T, name string) project.Config {
 func soakProject(t *testing.T, preset string, arm soakArm, seed uint64) project.Config {
 	t.Helper()
 	config := soakPreset(t, preset)
+	if arm.perMinute != 0 {
+		config.Demand.PerMinute = arm.perMinute
+	}
 	config.Demand.Seed += seed
 	if arm.faults {
 		config.Faults = &project.FaultConfig{PerHour: new(soakPerHour), DebrisShare: new(soakDebrisShare), DebrisMeters: new(soakDebrisMeters),
@@ -1183,9 +1189,11 @@ func soakEnv(name, fallback string) string {
 var soakGroups = []struct {
 	reference string
 	arms      []string
+	preset    string
 }{
-	{"reference", []string{"incidents", "emergencies"}},
-	{"reference-platoons", []string{"platoons"}},
+	{"reference", []string{"incidents", "emergencies"}, ""},
+	{"reference-platoons", []string{"platoons"}, ""},
+	{"reference-low-demand", []string{"incidents-low-demand"}, "rail-hub"},
 }
 
 // soakDefaultPresets lists the presets of a soak that selects none.
@@ -1205,7 +1213,7 @@ type soakShape struct {
 	arms        []string
 }
 
-// soakAllArms lists each arm of soakGroups.
+// soakAllArms lists the arms at preset demand.
 var soakAllArms = []string{"incidents", "emergencies", "platoons", "reference", "reference-platoons"}
 
 // soakShapeOf returns the shape of the name for a preset. "branches" is the
@@ -1221,7 +1229,11 @@ func soakShapeOf(name, preset string) (soakShape, error) {
 		if preset == soakExpressPreset || preset == soakExpressPartiesPreset {
 			return soakShape{seeds: 1, warmTicks: warm, branches: 10, hours: 1.5, rewindEvery: rewind, arms: soakExpressArms}, nil
 		}
-		return soakShape{seeds: 1, warmTicks: warm, branches: 10, hours: 1.5, rewindEvery: rewind, arms: soakAllArms}, nil
+		arms := soakAllArms
+		if preset == "rail-hub" {
+			arms = append(slices.Clone(arms), "reference-low-demand", "incidents-low-demand")
+		}
+		return soakShape{seeds: 1, warmTicks: warm, branches: 10, hours: 1.5, rewindEvery: rewind, arms: arms}, nil
 	case "seeds":
 		return soakShape{seeds: 5, branches: 1, hours: 6, rewindEvery: soakTicksPerHour, arms: soakAllArms}, nil
 	}
@@ -1254,7 +1266,9 @@ func soakEnvNumber[N uint64 | int64 | float64](t *testing.T, name string, fallba
 // branch of the arms of its group reads its queue range. In
 // the shape of amendment A6, each arm has one new session for each seed. Each
 // branch is a subtest, so a failure stops only that branch, and its log line
-// holds its Progress and rule A numbers.
+// holds its Progress and rule A numbers. Amendment A14 adds a rail-hub group:
+// reference-low-demand and 10 incidents-low-demand branches use 1 order/min,
+// including the warm time, with the same 30-minute Progress window.
 //
 // A run that the wall limit stops counts only its completed seeds. With
 // PODSIM_SOAK_FINISHED set, the test adds a line to that file for each finished
@@ -1300,7 +1314,9 @@ func TestIncidentSoak(t *testing.T) {
 							t.Error(err)
 						}
 					})
-					runSoakGroup(t, input, shape, group.reference, group.arms)
+					if group.preset == "" || group.preset == preset {
+						runSoakGroup(t, input, shape, group.reference, group.arms)
+					}
 				})
 			}
 		}
@@ -1706,11 +1722,63 @@ func TestSoakWarmSave(t *testing.T) {
 	})
 }
 
+// TestSoakLowDemand pins demand before and after the warm save for both arms.
+func TestSoakLowDemand(t *testing.T) {
+	t.Parallel()
+	for _, name := range []string{"reference-low-demand", "incidents-low-demand"} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			input := soakInput{preset: "rail-hub", arm: soakArms[name], seed: 1}
+			d := newSoakDriver(t, input)
+			if got := d.s.demand.state.Config; !got.Enabled || got.PerMinute != 1 {
+				t.Fatalf("cold demand is %+v, want enabled at 1 order/min", got)
+			}
+			input.warm = soakWarmUp(t, input, 60*sim.TicksPerSecond)
+			branch := newSoakDriver(t, input)
+			if got := branch.s.demand.state.Config; !got.Enabled || got.PerMinute != 1 {
+				t.Fatalf("warm demand is %+v, want enabled at 1 order/min", got)
+			}
+		})
+	}
+}
+
+// TestSoakLowDemandQueueMiss freezes a queue above the reference range.
+// With no incident hold, only the queue can fail the Progress gate.
+func TestSoakLowDemandQueueMiss(t *testing.T) {
+	t.Parallel()
+	d := newSoakDriver(t, soakInput{preset: "rail-hub", arm: soakArms["incidents-low-demand"], seed: 1, checks: true, queue: &soakRange{}})
+	d.s.simulation.StopIncidentSamplersForTest()
+	for range soakTicksPerHour {
+		d.step()
+		if d.s.simulation.PendingCount() > 0 {
+			break
+		}
+	}
+	if d.s.simulation.PendingCount() == 0 {
+		t.Fatal("no queue to freeze")
+	}
+	d.mustApply(Command{Action: "pause", Paused: true})
+	d.clearAndSettle()
+	if d.result.settleTicks != 0 || len(d.result.misses) != 2 || !strings.Contains(d.result.misses[0], "the queue has") || !strings.Contains(d.result.misses[1], "no time in 30 minutes") {
+		t.Fatalf("settle=%d misses=%q, want a queue-only Progress miss", d.result.settleTicks, d.result.misses)
+	}
+}
+
 // TestSoakGroupBranches runs a small group through the test tree. The reference
 // runs one branch, and each branch of the arm reads its queue range. A warm save
 // that restores in another tier stops with an error.
 func TestSoakGroupBranches(t *testing.T) {
 	t.Parallel()
+	for _, group := range soakGroups {
+		t.Run(group.reference, func(t *testing.T) {
+			t.Parallel()
+			testSoakGroupBranches(t, group.reference, group.arms[0])
+		})
+	}
+}
+
+func testSoakGroupBranches(t *testing.T, referenceName, incidentName string) {
+	t.Helper()
 	var mu sync.Mutex
 	runs := map[string]soakResult{}
 	queues := map[string]*soakRange{}
@@ -1720,14 +1788,14 @@ func TestSoakGroupBranches(t *testing.T) {
 		key := fmt.Sprintf("%s-%d", run.arm.name, run.branch)
 		runs[key], queues[key] = result, run.queue
 	}}
-	shape := soakShape{warmTicks: 20 * sim.TicksPerSecond, branches: 2, hours: input.hours, rewindEvery: input.rewindEvery, arms: []string{"reference", "incidents"}}
+	shape := soakShape{warmTicks: 20 * sim.TicksPerSecond, branches: 2, hours: input.hours, rewindEvery: input.rewindEvery, arms: []string{referenceName, incidentName}}
 	t.Cleanup(func() {
 		if len(runs) != 3 {
 			t.Errorf("the runs are %v", slices.Collect(maps.Keys(runs)))
 			return
 		}
-		reference := runs["reference-1"]
-		for _, key := range []string{"incidents-1", "incidents-2"} {
+		reference := runs[referenceName+"-1"]
+		for _, key := range []string{incidentName + "-1", incidentName + "-2"} {
 			if queues[key] == nil || *queues[key] != reference.queue {
 				t.Errorf("%s has the queue range %v, want %v", key, queues[key], reference.queue)
 			}
@@ -1735,13 +1803,13 @@ func TestSoakGroupBranches(t *testing.T) {
 				t.Errorf("%s has no rewind", key)
 			}
 		}
-		if queues["reference-1"] != nil {
-			t.Errorf("the reference has the queue range %v", queues["reference-1"])
+		if queues[referenceName+"-1"] != nil {
+			t.Errorf("the reference has the queue range %v", queues[referenceName+"-1"])
 		}
 	})
 	t.Run("group", func(t *testing.T) {
 		t.Parallel()
-		runSoakGroup(t, input, shape, "reference", []string{"incidents", "emergencies"})
+		runSoakGroup(t, input, shape, referenceName, []string{incidentName})
 	})
 }
 
@@ -2139,7 +2207,7 @@ func TestSoakShape(t *testing.T) {
 		name, preset string
 		want         soakShape
 	}{
-		{"branches", "rail-hub", soakShape{seeds: 1, warmTicks: 30 * minute, branches: 10, hours: 1.5, rewindEvery: 10 * minute, arms: soakAllArms}},
+		{"branches", "rail-hub", soakShape{seeds: 1, warmTicks: 30 * minute, branches: 10, hours: 1.5, rewindEvery: 10 * minute, arms: []string{"incidents", "emergencies", "platoons", "reference", "reference-platoons", "reference-low-demand", "incidents-low-demand"}}},
 		{"branches", "london-central", soakShape{seeds: 1, warmTicks: 30 * minute, branches: 3, hours: 1, rewindEvery: 10 * minute, arms: []string{"incidents", "emergencies", "reference"}}},
 		{"branches", soakExpressPreset, soakShape{seeds: 1, warmTicks: 30 * minute, branches: 10, hours: 1.5, rewindEvery: 10 * minute, arms: []string{"incidents", "emergencies", "reference"}}},
 		{"branches", soakExpressPartiesPreset, soakShape{seeds: 1, warmTicks: 30 * minute, branches: 10, hours: 1.5, rewindEvery: 10 * minute, arms: []string{"incidents", "emergencies", "reference"}}},

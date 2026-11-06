@@ -613,6 +613,14 @@ A8 named only an idle pod with an order, so this wait counted as not blocked, an
 `docs/studies/incident-soak.md`, section "Coverage of the rare paths", holds the case.
 The test reads the entry `EmptyMoveBlockedForTest` from `internal/sim`, and it counts these readings as `moveBlocked`.
 
+Amendment A14, approved by the maintainer on 2026-11-06: the routine soak adds a low-demand group on `rail-hub` only.
+The `reference-low-demand` and `incidents-low-demand` arms use 1 order/min, including the 30-minute warm time.
+The reference runs one branch, and each of the 10 incident branches reads its queue range.
+Each incident branch runs for 1.5 simulated hours before the clear and keeps the 30-minute Progress window.
+Both arm names are selectable through `PODSIM_SOAK_ARMS`.
+The queue half cannot fail at preset demand because the reference queue reaches the cap of 200.
+`docs/studies/incident-soak.md`, section "Queue check at low demand", records all 10 branches inside the window at 1 order/min.
+
 Amendments, each for a separate answer in section 8:
 
 | # | Approved text | Change | Reason |

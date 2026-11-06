@@ -826,7 +826,8 @@ At 1 order/min the net drain is about 2.5 orders/min, and the queue stays in rea
 
 A low-demand arm at 1 order/min keeps the 30-minute window and can fail, because each branch queues above the reference range before the clear.
 Each branch takes 17 to 32 s on a shared host.
-The arm is not in the soak, because a new arm changes the contract.
+Amendment A14 adds `incidents-low-demand` and its own `reference-low-demand` to the routine soak on `rail-hub` only.
+Both use 1 order/min during warm-up and branches, with 10 incident branches and the 30-minute Progress window.
 
 ## Redistribution and reassignment on by default
 
