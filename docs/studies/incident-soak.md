@@ -542,6 +542,7 @@ The Performance rows need a quiet machine (A3).
 | Sampled tick, each policy, cold and warm, both networks | Slowest 0.95 ms, limit 50 ms | 18 |
 | Sampled tick at the project limits, cold | 260 to 429 ms, reported against 50 ms | 15 |
 | Sampled tick at the project limits, warm | 22.2 s free flow, 15.6 s congestion, 32.5 s queue, 13.5 s predictive, reported against 50 ms | 15 |
+| Sampled tick at the project limits, warm, after `458f14a` at 30 Hz | 160 ms emergency part, 122 ms fault part, 150 ms plain first step, 57 ms next step, reported against 50 ms | 7 to 10 |
 | Timed run, rail-hub, 3 seeds, 0.1 simulated hours | Median 81 to 87 µs against 88 to 98 µs | 16 |
 | Timed run, london-central, seed 1, 0.1 simulated hours | Median 154 µs against 145 µs | 16 |
 | 64 debris and 300 pod faults | Median 121 µs against 6.6 µs, slowest 1.25 ms against 1.71 ms | 7 |
