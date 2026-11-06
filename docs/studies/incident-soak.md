@@ -15,6 +15,8 @@ The code of the congestion, queue, and predictive routing policies was removed o
   The section "Run of rule A" has its run on `rail-hub`, and the soak at 30 Hz decides the Progress row.
 - Amendment A10 changes the cost and the shape of the soak.
   The section "First soak in the branch shape" has its first run.
+- Express has a soak, with no report, and with no row of the contract as its gate.
+  The section "First soak of Express" has its numbers.
 - The Performance row for suspension meets amendment A7 at 30 Hz in the section "Readings from a quiet host".
 - The Performance row for emergencies meets the median rule of amendment A11 at `8ffb20b6`, and missed the rule for the slowest tick on `rail-hub` in 2 of 24 runs, so A11 now has a floor of 1 ms for that rule.
   The row passes at `5979debb` by the ruling in the section "Readings from a quiet host", with one miss in 56 runs of `london-central` on record.
@@ -572,6 +574,101 @@ The section "Coverage of the rare paths" now has fixtures for these paths.
 Every count in the two tables above is the same in this run, and each branch passed with no report.
 That is the expected result for the same seed, because the warm tick work claims no change of result, and these presets have no banks.
 
+### First soak of Express
+
+Express had no soak before this one, by the choice of the maintainer on 2026-11-06.
+No preset can run an Express pod, so a test builds each project.
+`NewFleet` and a project with no marker refuse the class with "vehicle physical profile is not supported" on each network.
+With the marker, each ring and mesh preset refuses the pods at their berths, `compact-station` refuses at its maneuver group, and both London presets refuse because the Express contract allows no depot.
+So this soak has no London row.
+No contract rule refuses an Express pod from a fault or an emergency.
+
+| Project | Built from `rail-hub` with |
+| --- | --- |
+| `rail-hub-express` | The `express-v1` marker, each class on each lane, station, and berth, and 30 Express pods. Each other setting stays, so demand is 12 orders a minute. |
+| `rail-hub-express-parties` | The same, with demand at 1 order a minute, a pooling limit of 4 parties, two service pairs, and a shared party order of 1 to 20 passengers each minute from the driver, also in the reference arm. |
+
+Generated demand submits parties of one, so the first project never has a standee or a load dwell above the base value.
+The second project exists for that reason.
+`PODSIM_SOAK_PRESETS` selects each project, and the default of `mise run soak` holds neither, so its wall time does not change.
+
+The shape is the `rail-hub` shape of amendment A10, with the same checks, rule A as it stands, and the same seed policy.
+A large class forms no platoon link, so neither project has the `platoons` arm.
+Seed 1 is the run of that policy, and seed 2 is a second reading.
+The projects are at `a10d8561` for `rail-hub-express` seed 1, and at `0debd796` for the other rows.
+The maintainer asked during this work that the later jobs run under `nice -n 10`, so the wall times of seed 2 are not comparable with seed 1.
+A wall time is the time of the whole run, and the load is the load average at its start and its end.
+
+| Project, arm, and seed | Branches | Records | Late under rule A | Longest not blocked, s | Over 10 min in all | Completed | Interrupted | Rewinds | Saves | Demoted | Wall, s | Load |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| `rail-hub-express` `incidents` 1 | 10 | 217 | 0 | 307.4 | 32 | 2,500 | 417 | 90 | 16 | 0 | 735 | 15 to 22 |
+| `rail-hub-express` `emergencies` 1 | 10 | 243 | 0 | 208.8 | 0 | 5,094 | 323 | 90 | 16 | 0 | 735 | 15 to 22 |
+| `rail-hub-express` `incidents` 2 | 10 | 241 | 0 | 380.0 | 24 | 2,951 | 436 | 90 | 15 | 0 | 1,315 | 39 to 40 |
+| `rail-hub-express` `emergencies` 2 | 10 | 266 | 0 | 216.1 | 0 | 4,903 | 367 | 90 | 14 | 0 | Under 900 | 29 to 37 |
+| `rail-hub-express-parties` `incidents` 1 | 10 | 223 | 0 | 306.8 | 20 | 2,195 | 371 | 90 | 16 | 0 | 586 | 37 to 34 |
+| `rail-hub-express-parties` `emergencies` 1 | 10 | 188 | 0 | 217.0 | 0 | 2,301 | 268 | 90 | 16 | 0 | 586 | 37 to 34 |
+| `rail-hub-express-parties` `incidents` 2 | 10 | 203 | 0 | 297.4 | 20 | 2,208 | 369 | 90 | 15 | 0 | 573 | 29 |
+| `rail-hub-express-parties` `emergencies` 2 | 10 | 204 | 0 | 199.6 | 0 | 2,348 | 234 | 90 | 14 | 0 | 573 | 29 |
+
+Each branch passed, and no run gave a Safety, Contract, Conservation, Rail, or Persistence report.
+Rail has no record on these projects.
+The driver had 27 to 42 commands refused in each `incidents` arm, and 1 to 4 in each `emergencies` arm.
+It keeps no reason for a refusal of an incident command, so these reasons are not known, and no party order was refused.
+The scratch control below has 33 refusals, so the count is not special to Express.
+Each warm save restored in the physical tier, and a test shows that a branch keeps the marker and the class.
+The first attempt at `rail-hub-express` seed 2 stopped at the 900 s limit of my job, with its `emergencies` arm complete, so that arm is from that run and its `incidents` arm is from a later run with a limit of 2,200 s.
+
+| Rule A readings, `incidents` | `rail-hub-express` 1 | `rail-hub-express` 2 | `rail-hub-express-parties` 1 | `rail-hub-express-parties` 2 |
+| --- | ---: | ---: | ---: | ---: |
+| Own fault | 3,161 | 6,104 | 2,943 | 1,984 |
+| `Blocked by incident` | 33,553 | 27,994 | 18,609 | 18,799 |
+| `No forward route` | 768 | 441 | 1,179 | 606 |
+| Fault at the end of a chain | 0 | 0 | 0 | 0 |
+| Idle pod, leg blocked | 4,523 | 4,195 | 5,791 | 3,608 |
+| Idle pod, leg free | 0 | 0 | 90 | 333 |
+| Not blocked | 19,089 | 20,927 | 20,579 | 19,451 |
+| Failed berth choice, and the retry with no faults succeeds | 18,777 of 18,777 | 13,507 of 13,507 | 10,033 of 10,033 | 10,187 of 10,187 |
+
+| Reach of the party orders | Seed 1 `incidents` | Seed 1 `emergencies` | Seed 2 `incidents` | Seed 2 `emergencies` |
+| --- | ---: | ---: | ---: | ---: |
+| Orders accepted, none refused | 913 | 913 | 907 | 907 |
+| Largest load of a pod | 20 | 20 | 20 | 20 |
+| Most parties aboard a pod | 3 | 2 | 3 | 2 |
+| Pod readings with standees, each second | 170,483 | 127,313 | 180,086 | 131,766 |
+| Fault records on a pod with standees | 20 | 0 | 16 | 0 |
+| Emergency records on a pod with standees | 45 | 41 | 46 | 39 |
+
+A replay of a rewind can count a record of the last two rows again with a new ID, so they are upper bounds.
+
+On `rail-hub-express`, the reference queue reaches the limit of 200 orders, so the queue check after the clear cannot fail there.
+The same holds for the existing arms: a short run of `rail-hub` and `london-central` has a reference queue that reaches 200 in each arm.
+On `rail-hub-express-parties`, the reference queue reaches 8 and 7, and each `incidents` branch passes that check, with a longest time of 1,036 s and 1,134 s of the 30 minutes.
+
+A scratch control, which did not land, ran plain `rail-hub` at 2 orders a minute with seed 1 and 10 branches of `incidents`.
+Its reference queue reaches 6, and 4 of the 10 branches miss the queue check, with 9 to 15 orders left after 30 minutes and a queue of 65 to 70 in the branch.
+So this check can fail once demand is below the fleet supply, and the pass of the Express party project does not show that Express drains better than Legacy, because the two projects differ in pooling and in party size.
+I read these misses as a backlog that drains at the rate of the fleet, but I did not measure the drain.
+
+The path `Idle pod, leg free` fired for the first time in any soak.
+A logging copy of seed 1 branch 3 and of seed 2 branch 9 gives one record for each: 90 s and 237 s.
+In each, an occupied pod with an emergency reports `No parking available` and names as its blocker an empty pod that is ready at a berth.
+Rule A counts this time as not blocked, so it counts against the limit, and the longest of those records stayed under the limit.
+The other 96 readings of seed 2 have no logging run.
+The same control has this path too, with 3 readings of the same form on a Legacy pod, so it is not special to Express.
+The runs at the preset demand have no such reading, and I did not test why.
+
+This soak does not show the following:
+
+- It is no gate.
+  No row of the stage 7 contract names an Express project, so it marks no row as passed.
+- It has no London row, no bank, no mixed fleet, and no platoon.
+- The party orders are one rate and one size range, chosen for this soak, and they stop at the clear.
+  A pod carried at most 3 parties, so the pooling limit of 4 was not reached.
+- The fleet is all Express, so the run does not reach a stranded service order of the kind in `TestIncidentSaveStranded`.
+- The full check runs at the stride of amendment A10, and not at each tick.
+- Express still has no byte proof, and these warm saves of 8 to 12 KB are not a worst case.
+- The wall times come from a busy host, so they are no Performance reading.
+
 ## What the soaks found
 
 The maintainer asked on 2026-11-06 whether long runs find more.
@@ -583,6 +680,7 @@ No finding needed a long run, but the study did not record the simulated time of
 | Late emergencies, and two defects behind them | Defects | First soak, with 50 of 335 records late in the `rail-hub` `incidents` arm |
 | Restore demotion | Defect | About 1.9 percent of saves, in a run that saves often |
 | Idle pod entry wiring | Test coverage | A soak of 13 minutes of wall time shows it |
+| A queue check after the clear that cannot fail at a full queue | Limit of the check | The first soak of Express, whose reference queue reaches 200, as the existing arms do |
 
 The Safety, Contract, Conservation, and Rail rows have no report in any soak.
 Amendment A12 keeps `soak:full` only for a release tag.
