@@ -23,8 +23,11 @@ const (
 // MaxExpressPods is the fleet bound of express-v1.
 const MaxExpressPods int = expressMaxPods
 
+// expressMaxIDBytes is the largest ID under the Express order contract.
+const expressMaxIDBytes = 64
+
 func boundedContractID(id string) bool {
-	return id != "" && len(id) <= 64 && utf8.ValidString(id)
+	return id != "" && len(id) <= expressMaxIDBytes && utf8.ValidString(id)
 }
 func contractPointFits(p Point) bool {
 	return math.Abs(p.X) <= expressMaxCoordinate && math.Abs(p.Y) <= expressMaxCoordinate

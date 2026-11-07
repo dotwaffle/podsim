@@ -335,6 +335,7 @@ var restoreInputChecks = [...]func(RestoreStateInput) error{
 	checkSavedServices,
 	checkSavedBankRoutes,
 	checkSavedDepotFields,
+	checkContractDispatchReasons,
 }
 
 func restoreState(input RestoreStateInput, newFleet func() (*Simulation, error)) (*Simulation, RestoreResult, error) {

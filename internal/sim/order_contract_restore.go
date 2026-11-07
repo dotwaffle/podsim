@@ -100,6 +100,30 @@ func checkContractRestoreSemantics(input RestoreStateInput) error {
 	return nil
 }
 
+// checkContractDispatchReasons refuses an Express saved dispatch reason
+// that is longer than any reason the simulation writes. It is the last
+// restore input check, so it changes no earlier refusal. The Express stream
+// byte bound depends on it.
+func checkContractDispatchReasons(input RestoreStateInput) error {
+	if input.OrderContract != ExpressOrderContract {
+		return nil
+	}
+	state := input.State
+	for _, trip := range state.Waiting {
+		if len(trip.Request.DispatchReason) > maxExpressDispatchReasonBytes {
+			return errors.New("saved Express dispatch reason is too long")
+		}
+	}
+	for _, pod := range state.Pods {
+		for _, rider := range pod.Riders {
+			if len(rider.DispatchReason) > maxExpressDispatchReasonBytes {
+				return errors.New("saved Express dispatch reason is too long")
+			}
+		}
+	}
+	return nil
+}
+
 // strandedTrip reports whether a saved trip that no admitting class can
 // serve has the shape of a stranded transferred order (incident contract,
 // section 7.6). S1: the trip boarded before, and its leg origin and

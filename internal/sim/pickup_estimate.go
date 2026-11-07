@@ -70,7 +70,7 @@ func (s *Simulation) waitForFinishingPod(trip *waitingTrip, idle *vehicle, assig
 		if v := s.findVehicle(trip.deferPodID); v == nil || !v.inService() || trip.excludes(v.Pod.ID) || !s.podFitsRequest(v, trip.request) || !s.pickupAccess(v, trip.request) {
 			return false
 		}
-		trip.request.DispatchReason = "Waiting for pod " + trip.deferPodID + " to finish"
+		trip.request.DispatchReason = finishingPodReason(trip.deferPodID)
 		return true
 	}
 	station, _ := s.station(trip.request.legOrigin())
@@ -131,7 +131,7 @@ func (s *Simulation) waitForFinishingPod(trip *waitingTrip, idle *vehicle, assig
 	}
 	trip.deferCheck = s.tick + TicksPerSecond
 	trip.deferPodID = best.Pod.ID
-	trip.request.DispatchReason = "Waiting for pod " + best.Pod.ID + " to finish"
+	trip.request.DispatchReason = finishingPodReason(best.Pod.ID)
 	return true
 }
 
@@ -155,9 +155,9 @@ func (s *Simulation) keepHold(trip *waitingTrip, pass *dispatchPass) bool {
 	if s.localPickupForRequest(trip.request, trip.excludedPod, pass) != nil {
 		return false
 	}
-	trip.request.DispatchReason = "Waiting for an available pod"
+	trip.request.DispatchReason = reasonAvailablePod
 	if s.pickupAvailable(trip.request.legOrigin(), trip.excludedPod, pass) {
-		trip.request.DispatchReason = "Waiting for pod " + trip.deferPodID + " to finish"
+		trip.request.DispatchReason = finishingPodReason(trip.deferPodID)
 	}
 	return true
 }

@@ -417,6 +417,8 @@ A file writes `parkedSince` only for a pod that is idle at a depot slot or moves
 After the earlier checks, the restore refuses a negative parked tick, and then a parked tick after the saved tick.
 Then it refuses a parked tick on a pod that is not parked in a depot lane.
 Last, it refuses a depot lane whose pods are not in slot order from the head to the tail.
+After all of these checks, an Express save with a dispatch reason of more than 90 bytes gets `invalid_state` with the error `saved Express dispatch reason is too long`.
+The simulation writes no longer reason, and the Express stream byte bound depends on this limit.
 In the physical tier, a pod that left a slot keeps the lanes of its route that its origin still holds.
 A pod bound at the entry keeps its reservation up to the end of the incoming lane, or through its slot when it held that grant.
 A pod that the tier must move takes a slot only when no pod of that lane moves, and only the slot behind the rearmost taken slot.

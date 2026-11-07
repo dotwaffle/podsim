@@ -187,9 +187,9 @@ func (s *Simulation) takeLocalPickup(trip *waitingTrip, v *vehicle, pass *dispat
 func (s *Simulation) assignPickupPod(i int, trip *waitingTrip, pass *dispatchPass) (*vehicle, bool) {
 	v := s.cachedPickupPod(trip, pass)
 	if v == nil {
-		trip.request.DispatchReason = "Waiting for an available pod"
+		trip.request.DispatchReason = reasonAvailablePod
 		if !s.cachedHasFittingPod(trip.request, pass) {
-			trip.request.DispatchReason = "Waiting for a certified vehicle that fits this party and route"
+			trip.request.DispatchReason = reasonCertifiedVehicle
 		}
 		return nil, false
 	}
@@ -247,7 +247,7 @@ func (s *Simulation) cachedHasFittingPod(request Request, pass *dispatchPass) bo
 // access to the pickup.
 func (s *Simulation) sendTripPickup(trip *waitingTrip, v *vehicle) bool {
 	if err := s.sendPickupForRequest(v, trip.request); err != nil {
-		trip.request.DispatchReason = "Waiting for pickup access"
+		trip.request.DispatchReason = reasonPickupAccess
 		return false
 	}
 	trip.route = nil
@@ -268,7 +268,7 @@ func (s *Simulation) boardOrWait(i int, trip *waitingTrip, v *vehicle, previousR
 	}
 	pass.reset()
 	if err := s.board(v, *trip); err != nil {
-		trip.request.DispatchReason = "Waiting for destination access"
+		trip.request.DispatchReason = reasonDestinationAccess
 		return i + 1
 	}
 	s.waiting = slices.Delete(s.waiting, i, i+1)
@@ -279,11 +279,11 @@ func (s *Simulation) boardOrWait(i int, trip *waitingTrip, v *vehicle, previousR
 // ready at the pickup. previous is the last reason of the trip.
 func pickupReason(v *vehicle, previous string) string {
 	if v.RelocatingTo == "" {
-		return "Waiting for destination access"
+		return reasonDestinationAccess
 	}
-	suffix := " traveling to pickup"
+	suffix := reasonTravelingSuffix
 	if v.Pod.WaitReason != NoWait && v.Pod.Speed < 0.1 {
-		suffix = " waiting in traffic"
+		suffix = reasonTrafficSuffix
 	}
 	return podReason(previous, v.Pod.ID, suffix)
 }
@@ -292,14 +292,14 @@ func pickupReason(v *vehicle, previous string) string {
 // bytes, it returns previous and makes no new string. Most trips keep their
 // reason from one pass to the next.
 func podReason(previous, podID, suffix string) string {
-	rest, ok := strings.CutPrefix(previous, "Pod ")
+	rest, ok := strings.CutPrefix(previous, reasonPodPrefix)
 	if ok {
 		rest, ok = strings.CutPrefix(rest, podID)
 	}
 	if ok && rest == suffix {
 		return previous
 	}
-	return "Pod " + podID + suffix
+	return reasonPodPrefix + podID + suffix
 }
 
 // stationFilterBits is the number of bits in a stationFilter.
