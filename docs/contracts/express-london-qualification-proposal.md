@@ -1,7 +1,9 @@
 # Express London qualification proposal
 
-Status: proposed on November 7, 2026, and not approved.
-The text of the approved contracts does not change until the maintainer approves the amendments below.
+Status: proposed on November 7, 2026.
+On November 7, 2026, the maintainer approved rows E1 to E6, E8, S1, A15 to A18, and B1.
+Row E7 is held until the cause of the extra server CPU of D is known.
+D is not qualified until row E7 is approved and the open checks of rows E6 and E7 pass.
 
 ## Scope
 
