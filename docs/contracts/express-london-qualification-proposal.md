@@ -60,6 +60,23 @@ These results come from the risk checks of November 7, 2026, on project D (`expr
   A trace shows that `express-08` stopped on the last lane of the Express trunk to the first bank at Bank, after the branch to the second bank, with `express-14` behind it.
   The wait ends at the tick at which the fault on `express-10` ends, which agrees with rule A.
   The trace did not record the position of `express-10`.
+- A first server measurement for row E7 ran on November 7, 2026, at commit `4d5fb5c9`.
+  Each run started `serve` with background demand on (10 orders/min, seed 20260929), GOMAXPROCS 4, and one Go client through a byte-counting proxy, and measured 60 s of wall time at speed 60.
+  It ran each case twice, with the order reversed.
+  A Plex transcoder used about one core on the host.
+
+  | Case | Achieved speed | Server CPU | GC cycles | Peak RSS | Stream rate |
+  | --- | ---: | ---: | ---: | ---: | ---: |
+  | Ordinary LondonFull | 59.9, 59.9 | 25.3 s, 24.5 s | 57, 57 | 225 MiB, 226 MiB | 128 kB/s |
+  | D without Express pods | 59.9, 59.9 | 38.9 s, 39.0 s | 19, 20 | 225 MiB, 225 MiB | 130 kB/s |
+  | D | 59.9, 59.9 | 40.2 s, 40.5 s | 20, 20 | 223 MiB, 224 MiB | 129 kB/s |
+  | D with hub parties | 45.2, 59.9 | 36.6 s, 47.7 s | 35, 43 | 234 MiB, 232 MiB | 138 kB/s, 162 kB/s |
+
+  The hub parties were 240 orders of 12 to 20 riders, one each 15 simulated seconds, and none was refused.
+  The D geometry without Express pods costs about 55 percent more server CPU than ordinary LondonFull, and the cause is not known.
+  In one of the two runs with hub parties, the server did not keep speed 60.
+  Peak RSS includes the project load.
+  Retained frames, decoded client memory, and browser responsiveness are not measured yet.
 - `TestLondonExpressRemoteLoads` runs the Go client against a live D session over HTTP and WebSocket.
   The client reads the D topology, and its stream shows Express pods with parties of 12, 13, and 20 aboard.
   `TestLondonExpressRemoteRecovery` runs the sequence recovery, the topology replacement of a new epoch, and the atomic rejection of the Go client on D frames.
