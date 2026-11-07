@@ -14,11 +14,11 @@ const (
 	reasonFinishingSuffix   = " to finish"
 )
 
-// maxExpressDispatchReasonBytes is the length of the longest dispatch
+// MaxExpressDispatchReasonBytes is the length of the longest dispatch
 // reason under the Express order contract, in which a pod ID has at most
 // expressMaxIDBytes bytes. A restore of an Express state refuses a longer
 // saved reason, so that the stream of the state stays inside its byte cap.
-const maxExpressDispatchReasonBytes = max(
+const MaxExpressDispatchReasonBytes = max(
 	len(reasonAvailablePod), len(reasonCertifiedVehicle), len(reasonPickupAccess), len(reasonDestinationAccess),
 	len(reasonPodPrefix)+expressMaxIDBytes+max(len(reasonTravelingSuffix), len(reasonTrafficSuffix)),
 	len(reasonFinishingPrefix)+expressMaxIDBytes+len(reasonFinishingSuffix),

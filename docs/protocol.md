@@ -172,7 +172,8 @@ Saved routes use the separate limits in [Session state](operations.md#session-st
 The HTTP state carries the stream frame, so it has route windows, not complete routes.
 Display decoder caps stay at the project lane limit, with the same refusal order and error text.
 `TestPlainStreamMaximumEncoding` bounds plain full-stream JSON below 64 MiB and HTTP-state JSON below 128 MiB, including the topology cap for HTTP state.
-Express has no byte proof.
+`TestExpressStreamMaximumEncoding` bounds Express full-stream and replacement-delta JSON below 64 MiB and HTTP-state JSON below 128 MiB.
+The Express bound depends on the restore refusal of a saved dispatch reason of more than 90 bytes.
 
 The connection allows 64 outstanding state messages or 8 MiB, whichever limit it reaches first.
 A larger legal message uses that window alone.

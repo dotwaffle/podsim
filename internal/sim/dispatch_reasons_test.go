@@ -13,7 +13,7 @@ import (
 
 // TestDispatchReasonTextIsNamed checks that no file other than
 // dispatch_reasons.go holds the text of a dispatch reason, so that
-// maxExpressDispatchReasonBytes covers each reason the simulation writes.
+// MaxExpressDispatchReasonBytes covers each reason the simulation writes.
 func TestDispatchReasonTextIsNamed(t *testing.T) {
 	t.Parallel()
 	files, err := filepath.Glob("*.go")
@@ -53,14 +53,14 @@ func TestDispatchReasonTextIsNamed(t *testing.T) {
 func TestExpressDispatchReasonBound(t *testing.T) {
 	t.Parallel()
 	id := strings.Repeat("p", expressMaxIDBytes)
-	if got := len(finishingPodReason(id)); got != maxExpressDispatchReasonBytes {
-		t.Fatalf("finishing reason %d bytes, bound %d", got, maxExpressDispatchReasonBytes)
+	if got := len(finishingPodReason(id)); got != MaxExpressDispatchReasonBytes {
+		t.Fatalf("finishing reason %d bytes, bound %d", got, MaxExpressDispatchReasonBytes)
 	}
-	if maxExpressDispatchReasonBytes != 90 {
-		t.Fatalf("bound %d bytes, want 90", maxExpressDispatchReasonBytes)
+	if MaxExpressDispatchReasonBytes != 90 {
+		t.Fatalf("bound %d bytes, want 90", MaxExpressDispatchReasonBytes)
 	}
 	for _, suffix := range []string{reasonTravelingSuffix, reasonTrafficSuffix} {
-		if got := len(podReason("", id, suffix)); got > maxExpressDispatchReasonBytes {
+		if got := len(podReason("", id, suffix)); got > MaxExpressDispatchReasonBytes {
 			t.Fatalf("pod reason %d bytes exceeds the bound", got)
 		}
 	}
@@ -107,12 +107,12 @@ func TestExpressDispatchReasonRefusal(t *testing.T) {
 			for _, logical := range []bool{false, true} {
 				input := RestoreStateInput{OrderContract: ExpressOrderContract, Network: network, Fleet: fleet, ExpressServices: services, LogicalOnly: logical}
 				input.State = s.ExportState()
-				test.set(&input.State, strings.Repeat("r", maxExpressDispatchReasonBytes))
+				test.set(&input.State, strings.Repeat("r", MaxExpressDispatchReasonBytes))
 				if _, _, err := RestoreState(input); err != nil {
 					t.Fatalf("logical %t: a reason of the bound is refused: %v", logical, err)
 				}
 				input.State = s.ExportState()
-				test.set(&input.State, strings.Repeat("r", maxExpressDispatchReasonBytes+1))
+				test.set(&input.State, strings.Repeat("r", MaxExpressDispatchReasonBytes+1))
 				if _, _, err := RestoreState(input); err == nil || err.Error() != "saved Express dispatch reason is too long" {
 					t.Fatalf("logical %t: %v", logical, err)
 				}

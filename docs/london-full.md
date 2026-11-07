@@ -235,8 +235,7 @@ Express projects retain their separate 600-pod limit.
 The default compact project JSON has 5,612,338 bytes.
 The default indented export has 14,912,482 bytes.
 The saved-state cap is 128 MiB.
-The plain saved-state and full-stream byte proofs include completed history and the independent project and topology caps.
-Express has no byte proof.
+The plain and Express saved-state and full-stream byte proofs include completed history and the independent project and topology caps.
 Stream JSON is capped at 64 MiB, with 32,832 bytes of gzip overhead; HTTP state has a separate 128 MiB cap.
 The junction-pair limit is 250,000, and the track-cell limit remains 64,000.
 

@@ -220,7 +220,7 @@ Physical restore moves a pod with an omitted or over-limit route to a free berth
 An over-limit trip loses its route and pod bindings.
 The decoder keeps larger route-array caps so long routes do not change the header refusal order.
 `TestPlainStateFileWorstCaseSize` bounds plain saved JSON, including a project at its byte cap, below 128 MiB.
-Express has no byte proof.
+`TestExpressStateFileWorstCaseSize` bounds Express saved JSON below 128 MiB, with about 29 MB of headroom.
 Each startup or periodic save gets 30 seconds.
 A command save gets 2 seconds.
 This time includes the wait for an earlier save.

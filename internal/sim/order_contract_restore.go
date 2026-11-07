@@ -110,13 +110,13 @@ func checkContractDispatchReasons(input RestoreStateInput) error {
 	}
 	state := input.State
 	for _, trip := range state.Waiting {
-		if len(trip.Request.DispatchReason) > maxExpressDispatchReasonBytes {
+		if len(trip.Request.DispatchReason) > MaxExpressDispatchReasonBytes {
 			return errors.New("saved Express dispatch reason is too long")
 		}
 	}
 	for _, pod := range state.Pods {
 		for _, rider := range pod.Riders {
-			if len(rider.DispatchReason) > maxExpressDispatchReasonBytes {
+			if len(rider.DispatchReason) > MaxExpressDispatchReasonBytes {
 				return errors.New("saved Express dispatch reason is too long")
 			}
 		}

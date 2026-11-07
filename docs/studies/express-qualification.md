@@ -32,6 +32,7 @@ The widest-shape byte proofs were deleted (`TestExpressWidestSaveAdapters`, `Tes
 `TestPlainStateFileWorstCaseSize` and `TestPlainStreamMaximumEncoding` prove the plain formats only.
 Express has no byte proof for the current limits.
 After a change to a count or byte limit, the Express sizes are unchecked.
+Status 2026-11-07: `TestExpressStateFileWorstCaseSize` and `TestExpressStreamMaximumEncoding` now prove the Express formats at the current limits, so the two sentences above are history.
 
 ## Native behavior
 

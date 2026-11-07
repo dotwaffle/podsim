@@ -48,7 +48,7 @@ A long lane that passes this budget takes the old projection bound, and that tai
 
 The Express class has no physical operation unless the project sets the `orderContract` marker `express-v1`, which is opt-in.
 That marker sets the limits of its own format: 600 pods and 17,000 orders (see the [Express qualification](studies/express-qualification.md) and the [approved contract](contracts/express-physical-encoding-contract-proposal.md)).
-Express has no byte proof.
+Byte proofs bound the Express saved state, stream, and HTTP state at these limits.
 
 Express carries standing passengers, so it has its own motion rates and a dwell that depends on the load.
 The simulator does not track who sits, and seats fill first.

@@ -59,7 +59,7 @@ CI runs `test:race:*`, `qualify`, and `check:static`.
   A file of more than 128 MiB is the only file that the server keeps.
 - Do not change an approved contract, or its document, without maintainer approval.
 - `TestPlainStateFileWorstCaseSize` and `TestPlainStreamMaximumEncoding` prove the plain saved-state, full-stream, and HTTP-state byte bounds.
-  Express has no byte proof.
+  `TestExpressStateFileWorstCaseSize` and `TestExpressStreamMaximumEncoding` prove the Express saved-state, full-stream, delta, and HTTP-state bounds.
   After a change to a count or byte limit in `internal/project/config.go`, check the effect on these sizes.
 - A change to the saved-state version (`stateVersion`) or the stream version (`StreamVersion`) also changes the golden files in `internal/session/testdata` and the version text in `docs/operations.md` and `docs/protocol.md`.
 - Use the standard library first.
