@@ -148,7 +148,7 @@ func widestPlainSavedState(t *testing.T) stateFile {
 	// A restore can keep a cached route on a waiting trip that no pod is
 	// bound to, so every waiting trip can have a route.
 	state.Waiting = slices.Repeat([]sim.SavedTrip{trip}, maxSavedTrips)
-	config := widestPlainProofProject(t)
+	config := widestProofProject(t, "")
 	demand := savedDemand{Budget: demandBudgetLimit - 1}
 	fillPlainProofScalars(reflect.ValueOf(&demand.State).Elem())
 	demand.State.Config.Seed = math.MaxUint64
@@ -171,9 +171,12 @@ func widestPlainSavedState(t *testing.T) stateFile {
 	return file
 }
 
-func widestPlainProofProject(t *testing.T) project.Config {
+// widestProofProject returns a project of exactly project.MaxFileBytes
+// bytes with the order contract.
+func widestProofProject(t *testing.T, contract sim.OrderContract) project.Config {
 	t.Helper()
 	c := project.Default()
+	c.OrderContract = contract
 	c.Network.Nodes = make([]sim.Node, project.MaxNodes)
 	for i := range c.Network.Nodes {
 		c.Network.Nodes[i] = sim.Node{ID: widestID('n', i)}
@@ -211,7 +214,7 @@ func TestPlainStreamMaximumEncoding(t *testing.T) {
 	apart := widestPlainStreamRecordBytes(t)
 	t.Logf("full stream: %d encoded bytes, %d bytes of records measured apart", len(data), apart)
 	assertPlainByteCap(t, "full stream", len(data)+apart, MaxStreamJSON)
-	assertPlainHTTPByteCap(t, f, apart)
+	assertHTTPByteCap(t, f, apart, "")
 }
 
 // widestPlainStreamRecordBytes measures the widest faults and emergencies
@@ -307,16 +310,17 @@ func assertPlainOrderTradeoff(t *testing.T, queued, history, active, stop []byte
 	}
 }
 
-// assertPlainHTTPByteCap bounds the HTTP state of frame. apart is the number
-// of bytes of the records that frame does not hold.
-func assertPlainHTTPByteCap(t *testing.T, frame StreamFrame, apart int) {
+// assertHTTPByteCap bounds the HTTP state of frame under the order
+// contract. apart is the number of bytes of the records that frame does not
+// hold.
+func assertHTTPByteCap(t *testing.T, frame StreamFrame, apart int, contract sim.OrderContract) {
 	t.Helper()
-	topology := TopologySnapshot{ProjectVersion: project.CurrentVersion, ServerStart: frame.State.ServerStart, Epoch: frame.State.Epoch}
+	topology := TopologySnapshot{ProjectVersion: project.CurrentVersion, OrderContract: contract, ServerStart: frame.State.ServerStart, Epoch: frame.State.Epoch}
 	topologyBytes, err := jsonv2.Marshal(topology, json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
 	}
-	data, err := jsonv2.Marshal(StateEnvelope{Topology: topology, Frame: frame}, json.DefaultOptionsV1(), packedRequestOptions())
+	data, err := jsonv2.Marshal(StateEnvelope{OrderContract: contract, Topology: topology, Frame: frame}, json.DefaultOptionsV1(), packedRequestOptions())
 	if err != nil {
 		t.Fatal(err)
 	}
