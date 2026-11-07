@@ -43,6 +43,10 @@ These results come from the risk checks of November 7, 2026, on project D (`expr
   `restoredDistance` moves a pod to a block end of the rebuilt route on purpose, so that it releases the same resources as the live pod.
   The probe did not reach the second bank at Bank or an Express return to parking.
 - With the index, D runs at about 170 s of wall time per simulated hour, with the oracle at each tick and without saves.
+- The Express byte proofs pass under the current caps.
+  `TestExpressStateFileWorstCaseSize` measures a saved state of 105,174,023 bytes against the 128 MiB cap.
+  `TestExpressStreamMaximumEncoding` measures a full stream of 37,270,755 bytes and a replacement delta of 37,316,293 bytes against the 64 MiB cap, and an HTTP state of 70,826,933 bytes against the 128 MiB cap.
+  The stream bound holds because an Express restore refuses a dispatch reason longer than the longest reason that the simulation writes (`sim.MaxExpressDispatchReasonBytes`, 90 bytes).
 
 ## Amendments
 
