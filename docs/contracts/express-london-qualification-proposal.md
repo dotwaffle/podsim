@@ -42,6 +42,11 @@ These results come from the risk checks of November 7, 2026, on project D (`expr
 - The restored route distance can differ from the saved value by less than `restoreTolerance` (1e-6 m).
   `restoredDistance` moves a pod to a block end of the rebuilt route on purpose, so that it releases the same resources as the live pod.
   The probe did not reach the second bank at Bank or an Express return to parking.
+- A pod chooses the bank with the lower free-flow approach cost, and berth load only breaks a tie.
+  From Waterloo the first bank at Bank always costs less, so in 30 simulated minutes of hub parties no Express pod used the second bank.
+  `TestLondonExpressPhysicalCheckpoints` puts debris on the Express approach to the first bank, which sends Express pods to the second bank.
+  It saves and restores D at the first Express pod at a second-bank berth, the first Express pod on its way to parking, and the first Express pod in a parking maneuver.
+  Each save restores at the physical tier with equal pods, and each restored copy passes the oracle for 10 s.
 - With the index, D runs at about 170 s of wall time per simulated hour, with the oracle at each tick and without saves.
 - The Express byte proofs pass under the current caps.
   `TestExpressStateFileWorstCaseSize` measures a saved state of 105,174,023 bytes against the 128 MiB cap.
