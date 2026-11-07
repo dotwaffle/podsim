@@ -47,6 +47,11 @@ These results come from the risk checks of November 7, 2026, on project D (`expr
   `TestLondonExpressPhysicalCheckpoints` puts debris on the Express approach to the first bank, which sends Express pods to the second bank.
   It saves and restores D at the first Express pod at a second-bank berth, the first Express pod on its way to parking, and the first Express pod in a parking maneuver.
   Each save restores at the physical tier with equal pods, and each restored copy passes the oracle for 10 s.
+- `TestLondonExpressIncidentFixtures` supplies the directed fixtures of the London soak row on D, with background demand.
+  When more Express pods are free, dispatch gives each singleton its own pod, so faults hold 15 Express pods in parking while 20 singletons pool in the last one.
+  A fault on that pod at 10.1 m/s with 20 riders gives a largest speed drop of 0.03826 m/s per tick, inside 1.15 m/s² at 30 Hz, and a stop after 44.3 m.
+  An emergency on a pod with standees runs to its emergency unload.
+  The test saves and restores at boarding with standees, at speed with 20 parties, at rest after the fault, on the emergency journey, and at the emergency unload, and checks the oracle at each tick of each incident.
 - With the index, D runs at about 170 s of wall time per simulated hour, with the oracle at each tick and without saves.
 - The Express byte proofs pass under the current caps.
   `TestExpressStateFileWorstCaseSize` measures a saved state of 105,174,023 bytes against the 128 MiB cap.
