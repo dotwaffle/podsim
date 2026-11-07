@@ -121,12 +121,14 @@ func TestRunWithoutFlagsKeepsPresets(t *testing.T) {
 		"scale100":            "b8e952d7a1ae2f0fa1cc9f2022742b54cb101ffff78771d1a96cbec4552eac0f",
 		"london-central":      "ee6e663927d20d78b55b648141be18c1eacec8580e869e9dd03eb3b9c0da2b2e",
 		"london-full":         "95dd5f6d466a9fc0721a9e3d1338bf94dde147f787240abf7e8b8e72f4ab579c",
+		"london-full-express": "a11fb0c12bf153efa867fb3b2c1f3e4228427250a04909b2214e977ae988e03d",
 	}
 	// networks holds the network SHA-256 of the summary line of the London
 	// presets.
 	networks := map[string]string{
-		"london-central": "d1fa6044728d60392e26001c48892e8abf5e0ebf6bdf690153e6be8e3d2c4ad6",
-		"london-full":    "4a7efa573c6af08d96de0ceeb60287176422f2bf93bc4ea2e5e2a19a21f83374",
+		"london-central":      "d1fa6044728d60392e26001c48892e8abf5e0ebf6bdf690153e6be8e3d2c4ad6",
+		"london-full":         "4a7efa573c6af08d96de0ceeb60287176422f2bf93bc4ea2e5e2a19a21f83374",
+		"london-full-express": "3b4cc5b5f019af9618bb0c696b9ec4ff222534961ff17b7ad7411b3161df1f1c",
 	}
 	for preset, want := range tests {
 		t.Run(preset, func(t *testing.T) {
@@ -352,6 +354,7 @@ func TestRunRejectsBadCapacityFlags(t *testing.T) {
 		{name: "London depot too long", arguments: []string{"-preset", "london-full", "-parking-lanes", "6", "-parking-berths", "12"}, err: "West London Parking (parking-west): the depot of 6 lanes of 12 slots is 202.03 meters long, more than 200 meters"},
 		{name: "Parking lanes for the mesh", arguments: []string{"-preset", "scale100", "-parking-lanes", "2"}, err: "parking lanes apply only to a ring"},
 		{name: "Parking lanes for a fixture", arguments: []string{"-preset", "compact-station", "-parking-lanes", "2"}, err: "-parking-lanes does not apply to the compact station fixture"},
+		{name: "pods for the Express preset", arguments: []string{"-preset", "london-full-express", "-station-pods", "2"}, err: "-station-pods does not apply to the LondonFull Express preset"},
 		{name: "Compact stations for a ring", arguments: []string{"-preset", "busy", "-compact-stations", "s01"}, err: "-compact-stations applies only to the London presets"},
 		{name: "Compact stations for a fixture", arguments: []string{"-preset", "compact-station", "-compact-stations", "compact"}, err: "-compact-stations does not apply to the compact station fixture"},
 		{name: "empty Compact station", arguments: []string{"-preset", "london-central", "-compact-stations", "940GZZLURGP,,940GZZLUBOR"}, err: `-compact-stations item "" has no station ID`},

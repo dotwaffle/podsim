@@ -29,6 +29,7 @@ func TestPresetOutputIsPinned(t *testing.T) {
 		{name: "scale 100", config: Scale100, sha256: "cc2dc4cd73cb260e42242c79b19ca7accb8330a1088a203929133226fa8e82d2"},
 		{name: "LondonCentral", config: LondonCentral, sha256: "549d3b7e4758340fa1fb59ec9a050fc38675accbc60414ae01a1518e35c7f0ee"},
 		{name: "LondonFull", config: LondonFull, sha256: "b44a7e71565ea850679565d58a919d9913f0bc26b45322f520865a79f789adae"},
+		{name: "LondonFull Express", config: LondonFullExpress, sha256: "7dd59176183fbed15b955f3ff9eff2966f28da237353a81cf91e1a18673e0012"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

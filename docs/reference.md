@@ -402,6 +402,7 @@ See [qualification results](studies/qualification.md) for safety checks, perform
 | `scale100` | A connected grid of 19 passenger stations and one parking station, with 138 berths. | 100 |
 | `london-central` | The [LondonCentral qualification network](london.md): 96 passenger stations, three depots, and 242 berths. | 114 Compact |
 | `london-full` | [LondonFull](london-full.md): 309 Tube and DLR passenger sites, three depots, and 770 berths. | 327 Compact |
+| `london-full-express` | LondonFull with Waterloo and Bank in two banks each, dedicated Express lanes, Express parking, and an Express service in each direction between the two stations. The capacity flags do not apply. | 327 Compact, 16 Express |
 | `independent-banks` | A planar station with two independent gates and a separate parking station. | 3 |
 | `compact-station` | A station with four Compact bays, in a loop with an ordinary station of three berths. | 6 Compact |
 
@@ -427,6 +428,12 @@ West India Quay is left out for layout clearance, and Canary Wharf DLR and Jubil
 A short DLR smoke run does not establish sustainable capacity, and the earlier finite-arrival studies used the Tube-only preset.
 Its three parking stations are depots, and eight of its stations are Compact stations (see [depots and Compact stations](london-full.md#depots-and-compact-stations), which gives the depot length limit, the capacity rule, and the measurements).
 On either London preset, `-parking-lanes 0 -compact-stations none` gives ordinary parking stations and ordinary stations.
+
+The `london-full-express` preset is project D of the [Express hub fixture](studies/express-hub-fixture.md), under the `express-v1` order contract.
+Waterloo keeps 3 berths in its first bank and Bank keeps 2, and each has a second bank of 2 berths.
+The 16 Express pods start at `express-parking`, a parking station east of North London Parking that only Express pods use and that is not a depot.
+Generated demand does not choose an Express service, so the services carry only the trip orders that choose them.
+The preset is opt-in, and the [qualification proposal](contracts/express-london-qualification-proposal.md) gives its status.
 
 The `compact-station` preset shows the bays at work.
 Its bays are at 25 degrees with a 6 m pitch.
