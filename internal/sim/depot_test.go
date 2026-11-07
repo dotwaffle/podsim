@@ -16,6 +16,7 @@ func stepDepot(t *testing.T, s *Simulation, ticks int, done func() bool) {
 		if _, err := s.SafetyObservation().Check(); err != nil {
 			t.Fatalf("tick %d: %v", s.tick, err)
 		}
+		checkSafetyLocationParity(t, s)
 		if err := checkOwners(s); err != nil {
 			t.Fatalf("tick %d: %v", s.tick, err)
 		}

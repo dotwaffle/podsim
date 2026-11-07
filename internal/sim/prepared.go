@@ -36,6 +36,12 @@ type networkIndexes struct {
 	resourceLanes map[resource][]int32
 	laneSafety    map[string]SafetyLocation
 	berthSafety   map[string]SafetyLocation
+	// berthNodes holds the node of each station berth. nodeSafety holds
+	// the safety locations of the lanes that start or end at each node, in
+	// network lane order, one entry for each lane. The safety envelopes
+	// read both.
+	berthNodes map[string]string
+	nodeSafety map[string][]SafetyLocation
 	// tails holds the one tail index of the network. The lane cells and the
 	// retention index read it.
 	tails map[string]geometryTails
@@ -192,21 +198,35 @@ func newPreparedNetwork(prepared networkPreparation) *PreparedNetwork {
 		stationIndexes: indexStations(owned), stationForbidden: owned.stationForbidden(),
 		geometry: buildLaneGeometry(owned), junctionConflicts: buildJunctionConflicts(owned),
 		berthResources: indexBerthResources(owned),
-		laneSafety:     make(map[string]SafetyLocation, len(owned.Lanes)),
-		berthSafety:    make(map[string]SafetyLocation),
 	}
-	for _, lane := range owned.Lanes {
-		p.laneSafety[lane.ID] = SafetyLocation{SeparationGroup: lane.SeparationGroup, From: lane.From, To: lane.To}
-	}
-	for _, station := range owned.Stations {
-		for _, berth := range station.Berths {
-			p.berthSafety[berth.ID] = SafetyLocation{SeparationGroup: berth.SeparationGroup, From: berth.Node, To: berth.Node}
-		}
-	}
+	p.indexSafety()
 	p.laneCells = indexLaneCells(laneCellsIndexInput{network: owned, tails: prepared.tails, geometry: p.geometry, conflicts: p.junctionConflicts, berths: p.berthResources, retention: p.retention, maneuvers: p.maneuvers, depots: p.depots})
 	p.resourceLanes = indexResourceLanes(owned, p.laneCells)
 	p.platoonData = newPlatoonIndexData(owned)
 	return p
+}
+
+// indexSafety builds the safety locations of the lanes and the berths of
+// the network, and the berth and node indexes of the safety envelopes.
+func (n *networkIndexes) indexSafety() {
+	n.laneSafety = make(map[string]SafetyLocation, len(n.network.Lanes))
+	n.berthSafety = make(map[string]SafetyLocation)
+	n.berthNodes = make(map[string]string)
+	n.nodeSafety = make(map[string][]SafetyLocation)
+	for _, lane := range n.network.Lanes {
+		location := SafetyLocation{SeparationGroup: lane.SeparationGroup, From: lane.From, To: lane.To}
+		n.laneSafety[lane.ID] = location
+		n.nodeSafety[lane.From] = append(n.nodeSafety[lane.From], location)
+		if lane.To != lane.From {
+			n.nodeSafety[lane.To] = append(n.nodeSafety[lane.To], location)
+		}
+	}
+	for _, station := range n.network.Stations {
+		for _, berth := range station.Berths {
+			n.berthSafety[berth.ID] = SafetyLocation{SeparationGroup: berth.SeparationGroup, From: berth.Node, To: berth.Node}
+			n.berthNodes[berth.ID] = berth.Node
+		}
+	}
 }
 
 func (p *PreparedNetwork) check() error {

@@ -63,19 +63,11 @@ func (s *Simulation) vehicleSafetyLocations(v *vehicle, distance float64) []Safe
 	// A body at a berth occupies its incident planes, including an incoming
 	// plane after arrival. Center-only locations cannot prove that it has left.
 	node := v.origin.Node
-	if v.Pod.BerthID != "" {
-		for _, station := range s.network.Stations {
-			for _, berth := range station.Berths {
-				if berth.ID == v.Pod.BerthID {
-					node = berth.Node
-				}
-			}
-		}
+	if berthNode, ok := s.berthNodes[v.Pod.BerthID]; ok && v.Pod.BerthID != "" {
+		node = berthNode
 	}
-	for _, lane := range s.network.Lanes {
-		if lane.From == node || lane.To == node {
-			add(s.laneSafety[lane.ID])
-		}
+	for _, location := range s.nodeSafety[node] {
+		add(location)
 	}
 	return locations
 }
