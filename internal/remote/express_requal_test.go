@@ -16,15 +16,16 @@ import (
 
 	"github.com/coder/websocket"
 
+	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/session"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
 // expressRequalFrame returns the topology and the current frame of an
-// Express session, as a stream full frame.
-func expressRequalFrame(t *testing.T) (session.TopologySnapshot, session.StreamFrame) {
+// Express session of config, as a stream full frame.
+func expressRequalFrame(t *testing.T, config project.Config) (session.TopologySnapshot, session.StreamFrame) {
 	t.Helper()
-	shared, err := session.NewWithProject(remoteExpressProject(t))
+	shared, err := session.NewWithProject(config)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +75,14 @@ func expressRequalMessage(t *testing.T, e session.StreamEnvelope) []byte {
 // on a new stream replaces the state after the client reads the topology
 // of that epoch.
 func TestExpressRequalRemoteRecovery(t *testing.T) {
-	topology, frame := expressRequalFrame(t)
+	checkExpressRemoteRecovery(t, remoteExpressProject(t))
+}
+
+// checkExpressRemoteRecovery runs TestExpressRequalRemoteRecovery on the
+// frames of an Express session of config.
+func checkExpressRemoteRecovery(t *testing.T, config project.Config) {
+	t.Helper()
+	topology, frame := expressRequalFrame(t, config)
 	recovered := frame
 	recovered.State.Epoch, recovered.State.Revision = "requal-recovered", 1
 	recoveredTopology := topology

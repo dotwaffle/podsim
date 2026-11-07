@@ -15,6 +15,7 @@ import (
 
 	"github.com/coder/websocket"
 
+	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/session"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
@@ -60,7 +61,16 @@ func TestExpressRemoteStream(t *testing.T) {
 }
 
 func TestExpressRemoteInvalidStateHasNoACK(t *testing.T) {
-	shared, err := session.NewWithProject(remoteExpressProject(t))
+	checkExpressInvalidStateHasNoACK(t, remoteExpressProject(t), "harbor", "market")
+}
+
+// checkExpressInvalidStateHasNoACK publishes a full frame of an Express
+// session of config with a pending order from from to to that names no
+// service of the registry. The Go client must refuse the frame, keep its
+// accepted state, and send no acknowledgement.
+func checkExpressInvalidStateHasNoACK(t *testing.T, config project.Config, from, to string) {
+	t.Helper()
+	shared, err := session.NewWithProject(config)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,7 +92,7 @@ func TestExpressRemoteInvalidStateHasNoACK(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	decoded.Full.State.Simulation.Pending = []sim.Request{{ID: 1, From: "harbor", To: "market", PartySize: 20, SharingConsent: sim.SharedConsent, Service: sim.ExpressServiceChoice, ServiceID: "absent-registry-entry"}}
+	decoded.Full.State.Simulation.Pending = []sim.Request{{ID: 1, From: from, To: to, PartySize: 20, SharingConsent: sim.SharedConsent, Service: sim.ExpressServiceChoice, ServiceID: "absent-registry-entry"}}
 	raw, err := session.EncodeStreamJSON(decoded)
 	if err != nil {
 		t.Fatal(err)

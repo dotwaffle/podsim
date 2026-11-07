@@ -52,6 +52,10 @@ These results come from the risk checks of November 7, 2026, on project D (`expr
   A fault on that pod at 10.1 m/s with 20 riders gives a largest speed drop of 0.03826 m/s per tick, inside 1.15 m/s² at 30 Hz, and a stop after 44.3 m.
   An emergency on a pod with standees runs to its emergency unload.
   The test saves and restores at boarding with standees, at speed with 20 parties, at rest after the fault, on the emergency journey, and at the emergency unload, and checks the oracle at each tick of each incident.
+- `TestLondonExpressRemoteLoads` runs the Go client against a live D session over HTTP and WebSocket.
+  The client reads the D topology, and its stream shows Express pods with parties of 12, 13, and 20 aboard.
+  `TestLondonExpressRemoteRecovery` runs the sequence recovery, the topology replacement of a new epoch, and the atomic rejection of the Go client on D frames.
+  The WASM client and desktop Chrome are not checked yet.
 - With the index, D runs at about 170 s of wall time per simulated hour, with the oracle at each tick and without saves.
 - The Express byte proofs pass under the current caps.
   `TestExpressStateFileWorstCaseSize` measures a saved state of 105,174,023 bytes against the 128 MiB cap.
