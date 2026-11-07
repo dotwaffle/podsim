@@ -52,6 +52,14 @@ These results come from the risk checks of November 7, 2026, on project D (`expr
   A fault on that pod at 10.1 m/s with 20 riders gives a largest speed drop of 0.03826 m/s per tick, inside 1.15 m/s² at 30 Hz, and a stop after 44.3 m.
   An emergency on a pod with standees runs to its emergency unload.
   The test saves and restores at boarding with standees, at speed with 20 parties, at rest after the fault, on the emergency journey, and at the emergency unload, and checks the oracle at each tick of each incident.
+- The soak row ran on November 7, 2026, at commit `bf965c54`, with the platoon arms, and passed in 1,471 s of wall time.
+  No branch had a demoted pod, a late record, or a refused hub party.
+  Each branch logged a peak load of 20 riders, and the incident branches had faults and emergencies on pods with standees.
+  The refused incident commands were invalid debris segments, debris on a reserved resource, an unsupported fault target, and an emergency on a pod that already had one.
+  The longest record was emergency `i6.20` on `express-14` in branch 3 of `incidents`, with 532 s that rule A gives to a fault.
+  A trace shows that `express-08` stopped on the last lane of the Express trunk to the first bank at Bank, after the branch to the second bank, with `express-14` behind it.
+  The wait ends at the tick at which the fault on `express-10` ends, which agrees with rule A.
+  The trace did not record the position of `express-10`.
 - `TestLondonExpressRemoteLoads` runs the Go client against a live D session over HTTP and WebSocket.
   The client reads the D topology, and its stream shows Express pods with parties of 12, 13, and 20 aboard.
   `TestLondonExpressRemoteRecovery` runs the sequence recovery, the topology replacement of a new epoch, and the atomic rejection of the Go client on D frames.
@@ -89,17 +97,19 @@ The row uses the London branch length and keeps redistribution and pickup reassi
 
 | Arm | Branches | Configuration |
 | --- | ---: | --- |
-| `incidents` | 3 | Commands and sampler, faults and emergencies, platoons off |
-| `emergencies` | 3 | Emergencies, faults off, platoons off |
-| `platoons` | 3 | Faults and emergencies, Compact platoons on |
+| `incidents` | 3 | Commands and sampler, faults and emergencies |
+| `emergencies` | 3 | Emergencies, faults off |
 | `incidents-low-demand` | 3 | Faults and emergencies, low demand |
-| References | 1 each | Ordinary, platoon, and low-demand references |
+| References | 1 each | Ordinary and low-demand references |
+
+LondonFull sets a platoon limit of 4, so platoons are on in each arm.
+The `platoons` and `reference-platoons` arms set the same limit, and in the first run they gave the same results as `incidents` and `reference`.
+So the row has no separate platoon arm.
 
 Each arm has a 30-minute warm save.
 Each branch restores through the encoded save path, reseeds its streams, runs one simulated hour, clears its incidents, and runs 30 more minutes.
 A rewind runs every 10 simulated minutes.
-The row has 12 incident branches, 3 reference branches, and 7 warm runs, about 26 simulated hours.
-At the pilot rate above, that is about 75 minutes of wall time before saves and rewinds.
+The row has 9 incident branches, 2 reference branches, and 5 warm runs, about 19 simulated hours.
 
 Demand is the London background demand and a fixed hub-party schedule in both directions.
 The low-demand arm starts at 1 background order/min and 1 hub-party offer/min, split between the directions.

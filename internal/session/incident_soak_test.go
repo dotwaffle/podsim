@@ -2233,7 +2233,7 @@ func TestSoakShape(t *testing.T) {
 		{"branches", "london-central", soakShape{seeds: 1, warmTicks: 30 * minute, branches: 3, hours: 1, rewindEvery: 10 * minute, arms: []string{"incidents", "emergencies", "reference"}}},
 		{"branches", soakExpressPreset, soakShape{seeds: 1, warmTicks: 30 * minute, branches: 10, hours: 1.5, rewindEvery: 10 * minute, arms: []string{"incidents", "emergencies", "reference"}}},
 		{"branches", soakExpressPartiesPreset, soakShape{seeds: 1, warmTicks: 30 * minute, branches: 10, hours: 1.5, rewindEvery: 10 * minute, arms: []string{"incidents", "emergencies", "reference"}}},
-		{"branches", soakLondonExpressPreset, soakShape{seeds: 1, warmTicks: 30 * minute, branches: 3, hours: 1, rewindEvery: 10 * minute, arms: []string{"incidents", "emergencies", "platoons", "incidents-low-demand", "reference", "reference-platoons", "reference-low-demand"}}},
+		{"branches", soakLondonExpressPreset, soakShape{seeds: 1, warmTicks: 30 * minute, branches: 3, hours: 1, rewindEvery: 10 * minute, arms: []string{"incidents", "emergencies", "incidents-low-demand", "reference", "reference-low-demand"}}},
 		{"seeds", "rail-hub", soakShape{seeds: 5, branches: 1, hours: 6, rewindEvery: 60 * minute, arms: soakAllArms}},
 		{"seeds", "london-central", soakShape{seeds: 5, branches: 1, hours: 6, rewindEvery: 60 * minute, arms: soakAllArms}},
 	}

@@ -27,9 +27,10 @@ const soakExpressPartiesPreset = "rail-hub-express-parties"
 const soakLondonExpressPreset = "london-full-express"
 
 // soakLondonExpressArms lists the arms of the London Express row of the
-// qualification proposal. Its Compact pods form platoons, so the platoon arms
-// apply, and it has the low-demand group.
-var soakLondonExpressArms = []string{"incidents", "emergencies", "platoons", "incidents-low-demand", "reference", "reference-platoons", "reference-low-demand"}
+// qualification proposal, with the low-demand group. LondonFull sets the
+// platoon limit that the platoon arms set, so those arms would repeat the
+// incidents and reference arms.
+var soakLondonExpressArms = []string{"incidents", "emergencies", "incidents-low-demand", "reference", "reference-low-demand"}
 
 // soakExpressArms lists the arms of the Express project. A large class forms no
 // platoon link, so the platoon arms would test nothing on an all-Express fleet.
