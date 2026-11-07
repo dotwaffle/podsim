@@ -21,6 +21,16 @@ const soakExpressPreset = "rail-hub-express"
 // its seats, and the load dwell and the standees stay out of the run.
 const soakExpressPartiesPreset = "rail-hub-express-parties"
 
+// soakLondonExpressPreset is the opt-in LondonFull Express preset, project D
+// of the Express qualification proposal. Only an explicit PODSIM_SOAK_PRESETS
+// selects it.
+const soakLondonExpressPreset = "london-full-express"
+
+// soakLondonExpressArms lists the arms of the London Express row of the
+// qualification proposal. Its Compact pods form platoons, so the platoon arms
+// apply, and it has the low-demand group.
+var soakLondonExpressArms = []string{"incidents", "emergencies", "platoons", "incidents-low-demand", "reference", "reference-platoons", "reference-low-demand"}
+
 // soakExpressArms lists the arms of the Express project. A large class forms no
 // platoon link, so the platoon arms would test nothing on an all-Express fleet.
 var soakExpressArms = []string{"incidents", "emergencies", "reference"}
@@ -79,6 +89,10 @@ func soakExpressParties(t *testing.T) project.Config {
 const (
 	// soakPartyInterval is the mean time between two party orders.
 	soakPartyInterval = 60 * sim.TicksPerSecond
+	// soakHubPartyInterval is the mean time between two hub party orders on
+	// the London Express preset. With a mean party of 10.5, it gives about
+	// 42 passengers a minute, the hub rate of the screen of project D.
+	soakHubPartyInterval = 15 * sim.TicksPerSecond
 	// soakPartySeats is the seats of an Express pod. A load above it has standees.
 	soakPartySeats = 12
 )
@@ -94,6 +108,12 @@ type soakParties struct {
 	stations []string
 	services []sim.ExpressService
 	next     int64
+	// mean is the mean time between two orders. On the London Express preset,
+	// hub is true: each order uses a service, and outbound is the share of
+	// the first service.
+	mean     int64
+	hub      bool
+	outbound float64
 	// accepted and refused count the orders. passengers counts the passengers of
 	// the accepted orders.
 	accepted, refused, passengers int
@@ -105,12 +125,22 @@ type soakParties struct {
 	faults, emergencies map[string]bool
 }
 
-// newSoakParties returns nil for each project that has no party order.
+// newSoakParties returns nil for each project that has no party order. On the
+// London Express preset, the orders go between the hubs, three in four from
+// the first service, and the low-demand arms send one order a minute, half in
+// each direction.
 func newSoakParties(input soakInput, config project.Config, tick int64) *soakParties {
-	if input.preset != soakExpressPartiesPreset {
+	if input.preset != soakExpressPartiesPreset && input.preset != soakLondonExpressPreset {
 		return nil
 	}
-	p := &soakParties{rng: rand.New(rand.NewPCG(input.seed, 0x50415254+input.branch)), services: config.ExpressServices, faults: map[string]bool{}, emergencies: map[string]bool{}}
+	p := &soakParties{rng: rand.New(rand.NewPCG(input.seed, 0x50415254+input.branch)), services: config.ExpressServices, faults: map[string]bool{}, emergencies: map[string]bool{},
+		mean: soakPartyInterval}
+	if input.preset == soakLondonExpressPreset {
+		p.hub, p.mean, p.outbound = true, soakHubPartyInterval, 0.75
+		if input.arm.perMinute != 0 {
+			p.mean, p.outbound = soakPartyInterval, 0.5
+		}
+	}
 	for index := range config.Network.Stations {
 		if station := &config.Network.Stations[index]; !station.ParkingOnly {
 			p.stations = append(p.stations, station.ID)
@@ -121,12 +151,20 @@ func newSoakParties(input soakInput, config project.Config, tick int64) *soakPar
 }
 
 func (p *soakParties) interval() int64 {
-	return max(1, int64(p.rng.ExpFloat64()*soakPartyInterval))
+	return max(1, int64(p.rng.ExpFloat64()*float64(p.mean)))
 }
 
 // order returns the next party order.
 func (p *soakParties) order() Command {
 	command := Command{Action: "trip", PartySize: 1 + p.rng.IntN(sim.MaxExpressParties), SharingConsent: sim.SharedConsent, OrderContract: sim.ExpressOrderContract}
+	if p.hub {
+		service := p.services[0]
+		if p.rng.Float64() >= p.outbound {
+			service = p.services[1]
+		}
+		command.Origin, command.Destination, command.Service, command.ServiceID = service.From, service.To, sim.ExpressServiceChoice, service.ID
+		return command
+	}
 	if p.rng.IntN(4) == 0 {
 		service := p.services[p.rng.IntN(len(p.services))]
 		command.Origin, command.Destination, command.Service, command.ServiceID = service.From, service.To, sim.ExpressServiceChoice, service.ID
@@ -220,7 +258,7 @@ func TestSoakExpressProject(t *testing.T) {
 			t.Errorf("rail-hub has the Express pod %s", pod.ID)
 		}
 	}
-	for _, name := range []string{soakExpressPreset, soakExpressPartiesPreset} {
+	for _, name := range []string{soakExpressPreset, soakExpressPartiesPreset, soakLondonExpressPreset} {
 		if slices.Contains(strings.Split(soakDefaultPresets, ","), name) {
 			t.Errorf("the default presets %q hold the Express project %s", soakDefaultPresets, name)
 		}
@@ -310,5 +348,63 @@ func TestSoakExpressWarmBranch(t *testing.T) {
 		if pod := state.Vehicles[index].Pod; pod.Class != sim.ExpressClass {
 			t.Errorf("pod %s has class %q in the branch", pod.ID, pod.Class)
 		}
+	}
+}
+
+// TestSoakLondonExpressParties checks the hub orders of the London Express
+// preset: every order uses a service between the hubs, three in four go
+// out at preset demand, and the low-demand arms send one a minute, half in
+// each direction.
+func TestSoakLondonExpressParties(t *testing.T) {
+	t.Parallel()
+	config := scenarios.LondonFullExpress()
+	for _, test := range []struct {
+		arm      string
+		mean     int64
+		outbound float64
+	}{
+		{"incidents", soakHubPartyInterval, 0.75},
+		{"reference-low-demand", soakPartyInterval, 0.5},
+	} {
+		p := newSoakParties(soakInput{preset: soakLondonExpressPreset, arm: soakArms[test.arm], seed: 1}, config, 0)
+		if p == nil || !p.hub || p.mean != test.mean || p.outbound != test.outbound {
+			t.Fatalf("%s: parties %+v", test.arm, p)
+		}
+		out := 0
+		const orders = 4000
+		for range orders {
+			command := p.order()
+			service := slices.IndexFunc(config.ExpressServices, func(s sim.ExpressService) bool { return s.ID == command.ServiceID })
+			if service < 0 || command.Service != sim.ExpressServiceChoice || command.Origin != config.ExpressServices[service].From || command.PartySize < 1 || command.PartySize > sim.MaxExpressParties {
+				t.Fatalf("%s: order %+v", test.arm, command)
+			}
+			if service == 0 {
+				out++
+			}
+		}
+		if share := float64(out) / orders; share < test.outbound-0.03 || share > test.outbound+0.03 {
+			t.Errorf("%s: outbound share %.3f, want about %.2f", test.arm, share, test.outbound)
+		}
+	}
+}
+
+// TestSoakLondonExpressDriver runs a short soak of the London Express preset
+// with the checks: hub orders, a save that restores in the physical tier, and
+// the clear. It uses the reference arm, because an incident on a London
+// journey does not end in the short settle window. The soak runs the
+// incident arms.
+func TestSoakLondonExpressDriver(t *testing.T) {
+	t.Parallel()
+	if testing.Short() || raceEnabled {
+		t.Skip("a LondonFull session, and one simulation on one goroutine")
+	}
+	input := soakInput{preset: soakLondonExpressPreset, arm: soakArms["reference"], seed: 1, hours: 0.02, checks: true, settle: 60 * sim.TicksPerSecond}
+	d := newSoakDriver(t, input)
+	d.nextSave = 40 * sim.TicksPerSecond
+	d.parties.next = 1
+	d.runHours()
+	d.clearAndSettle()
+	if r := d.result; d.parties.accepted == 0 || r.refused != 0 || r.saves != 1 || r.demoted != 0 || len(r.misses) != 0 {
+		t.Fatalf("the driver result is %+v, parties %+v", r, d.parties)
 	}
 }

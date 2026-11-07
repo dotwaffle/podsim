@@ -80,6 +80,8 @@ func soakPreset(t *testing.T, name string) project.Config {
 		config = soakExpressProject(t)
 	case soakExpressPartiesPreset:
 		config = soakExpressParties(t)
+	case soakLondonExpressPreset:
+		config = scenarios.LondonFullExpress()
 	case "fleet-300", "fleet-1000":
 		// No preset has the fleet of the worst-case rows of section 5.1.9.
 		pods, err := strconv.Atoi(strings.TrimPrefix(name, "fleet-"))
@@ -168,10 +170,12 @@ type soakResult struct {
 	wall  time.Duration
 	// threadCPU is the CPU of this run alone, and processCPU that of the whole
 	// process in the same time, with each parallel run.
-	threadCPU, processCPU       float64
-	queue                       soakRange
-	state                       sim.Snapshot
-	commands, refused           int
+	threadCPU, processCPU float64
+	queue                 soakRange
+	state                 sim.Snapshot
+	commands, refused     int
+	// refusals counts the refused commands by action and error text.
+	refusals                    map[string]int
 	saves, rewinds, railRecords int
 	// demoted counts the saves that fail the physical tier by the demotion
 	// rule, and podsDemoted the pods that a physical restore of a save moves to
@@ -278,6 +282,7 @@ func newSoakDriver(t *testing.T, input soakInput) *soakDriver {
 	d := &soakDriver{t: t, input: input, config: config, s: s, client: newTestClient(s, client), rng: rng, open: map[string]*soakOpenRecord{}, lastWatch: -1,
 		nextFault: math.MaxInt64, nextEmergency: math.MaxInt64, nextSave: math.MaxInt64, nextRewind: math.MaxInt64}
 	d.result.queue = soakRange{low: math.MaxInt, high: 0}
+	d.result.refusals = map[string]int{}
 	input.warm.resume(d)
 	d.parties = newSoakParties(input, config, d.loopTick)
 	if input.arm.commands {
@@ -500,6 +505,7 @@ func (d *soakDriver) apply(command Command) Reply {
 	d.result.commands++
 	if reply.Error != "" {
 		d.result.refused++
+		d.result.refusals[command.Action+": "+reply.Error]++
 	}
 	d.check(true)
 	return reply
@@ -1106,6 +1112,9 @@ func runSoak(t *testing.T, input soakInput) soakResult {
 		d.result.settleTicks/sim.TicksPerSecond, state.Wait.AverageSeconds, state.Wait.MaxSeconds, state.Faults.Counters, state.Emergencies.Counters, d.result.emergencies, d.result.emergencyLate, d.result.emergencyInPlatoon, d.result.emergencyLong, float64(d.result.emergencyLongest)/sim.TicksPerSecond, d.fullChecks, d.result.rates)
 	t.Logf("rule A preset=%s arm=%s seed=%d branch=%d readings %s failedBerths=%d failedBerthRetries=%d longest blocked: %s", input.preset, input.arm.name, input.seed, input.branch, d.result.paths, d.result.failedBerths, d.result.failedBerthRetries, soakLongestBlocked(d.result.blockedRecords, d.open))
 	d.parties.log(t, input)
+	if len(d.result.refusals) > 0 {
+		t.Logf("refusals preset=%s arm=%s seed=%d branch=%d %s", input.preset, input.arm.name, input.seed, input.branch, soakRefusalText(d.result.refusals))
+	}
 	if len(d.result.misses) > 0 {
 		t.Errorf("preset %s arm %s seed %d branch %d misses a Progress gate:\n%s", input.preset, input.arm.name, input.seed, input.branch, strings.Join(d.result.misses, "\n"))
 	}
@@ -1113,6 +1122,15 @@ func runSoak(t *testing.T, input soakInput) soakResult {
 		input.observe(input, d.result)
 	}
 	return d.result
+}
+
+// soakRefusalText returns the refusal counts in the order of their text.
+func soakRefusalText(refusals map[string]int) string {
+	var parts []string
+	for _, reason := range slices.Sorted(maps.Keys(refusals)) {
+		parts = append(parts, fmt.Sprintf("%q=%d", reason, refusals[reason]))
+	}
+	return strings.Join(parts, " ")
 }
 
 // soakLongestBlockedRecords is the number of records of a branch in the log line
@@ -1189,11 +1207,12 @@ func soakEnv(name, fallback string) string {
 var soakGroups = []struct {
 	reference string
 	arms      []string
-	preset    string
+	// presets holds the presets of the group, or nil for each preset.
+	presets []string
 }{
-	{"reference", []string{"incidents", "emergencies"}, ""},
-	{"reference-platoons", []string{"platoons"}, ""},
-	{"reference-low-demand", []string{"incidents-low-demand"}, "rail-hub"},
+	{"reference", []string{"incidents", "emergencies"}, nil},
+	{"reference-platoons", []string{"platoons"}, nil},
+	{"reference-low-demand", []string{"incidents-low-demand"}, []string{"rail-hub", soakLondonExpressPreset}},
 }
 
 // soakDefaultPresets lists the presets of a soak that selects none.
@@ -1228,6 +1247,9 @@ func soakShapeOf(name, preset string) (soakShape, error) {
 		}
 		if preset == soakExpressPreset || preset == soakExpressPartiesPreset {
 			return soakShape{seeds: 1, warmTicks: warm, branches: 10, hours: 1.5, rewindEvery: rewind, arms: soakExpressArms}, nil
+		}
+		if preset == soakLondonExpressPreset {
+			return soakShape{seeds: 1, warmTicks: warm, branches: 3, hours: 1, rewindEvery: rewind, arms: soakLondonExpressArms}, nil
 		}
 		arms := soakAllArms
 		if preset == "rail-hub" {
@@ -1314,7 +1336,7 @@ func TestIncidentSoak(t *testing.T) {
 							t.Error(err)
 						}
 					})
-					if group.preset == "" || group.preset == preset {
+					if group.presets == nil || slices.Contains(group.presets, preset) {
 						runSoakGroup(t, input, shape, group.reference, group.arms)
 					}
 				})
@@ -2211,6 +2233,7 @@ func TestSoakShape(t *testing.T) {
 		{"branches", "london-central", soakShape{seeds: 1, warmTicks: 30 * minute, branches: 3, hours: 1, rewindEvery: 10 * minute, arms: []string{"incidents", "emergencies", "reference"}}},
 		{"branches", soakExpressPreset, soakShape{seeds: 1, warmTicks: 30 * minute, branches: 10, hours: 1.5, rewindEvery: 10 * minute, arms: []string{"incidents", "emergencies", "reference"}}},
 		{"branches", soakExpressPartiesPreset, soakShape{seeds: 1, warmTicks: 30 * minute, branches: 10, hours: 1.5, rewindEvery: 10 * minute, arms: []string{"incidents", "emergencies", "reference"}}},
+		{"branches", soakLondonExpressPreset, soakShape{seeds: 1, warmTicks: 30 * minute, branches: 3, hours: 1, rewindEvery: 10 * minute, arms: []string{"incidents", "emergencies", "platoons", "incidents-low-demand", "reference", "reference-platoons", "reference-low-demand"}}},
 		{"seeds", "rail-hub", soakShape{seeds: 5, branches: 1, hours: 6, rewindEvery: 60 * minute, arms: soakAllArms}},
 		{"seeds", "london-central", soakShape{seeds: 5, branches: 1, hours: 6, rewindEvery: 60 * minute, arms: soakAllArms}},
 	}

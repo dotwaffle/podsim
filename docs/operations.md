@@ -995,7 +995,7 @@ These variables change a run:
 
 | Variable | Meaning | Default |
 | --- | --- | --- |
-| `PODSIM_SOAK_PRESETS` | The presets, with commas. `rail-hub-express` and `rail-hub-express-parties` select the Express projects that the test builds. | `rail-hub,london-central` |
+| `PODSIM_SOAK_PRESETS` | The presets, with commas. `rail-hub-express` and `rail-hub-express-parties` select the Express projects that the test builds. `london-full-express` selects the LondonFull Express row of the [qualification proposal](contracts/express-london-qualification-proposal.md), with hub party orders from the driver. | `rail-hub,london-central` |
 | `PODSIM_SOAK_ARMS` | The arms, with commas. A branch of an arm reads the queue range of a reference arm only when the list holds it. | The arms of the shape and the preset |
 | `PODSIM_SOAK_SHAPE` | `branches`, or `seeds` for the shape of amendment A6. | `branches` |
 | `PODSIM_SOAK_EVERY_TICK` | `1` runs the full check at each tick. | Off |
