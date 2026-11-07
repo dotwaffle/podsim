@@ -158,6 +158,7 @@ An approved contract in `docs/contracts/` is binding, and each document gives it
 | [Tick rate](docs/contracts/tick-rate-contract-proposal.md) | A lower tick rate. Implemented at 30 Hz. |
 | [Express standees](docs/contracts/express-standees-contract-proposal.md) | A 6 m Express with standees, and a curve tail from the lane polyline. The maintainer accepted its decisions. The seat and standee split, the motion rates, the load dwell, and the polyline tail are built. |
 | [Incident stage 7](docs/contracts/incident-stage7-contract-proposal.md) | Random faults and emergencies. Implemented. The soak of amendment A6 ran, and its Progress row missed. The Suspension median row passes amendment A7. |
+| [Express London qualification](docs/contracts/express-london-qualification-proposal.md) | Qualification of the banked LondonFull Express project D as an opt-in preset. Proposed, not approved. |
 
 ### Designs
 
