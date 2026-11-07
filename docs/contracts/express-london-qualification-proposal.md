@@ -75,7 +75,11 @@ These results come from the risk checks of November 7, 2026, on project D (`expr
   | D with hub parties | 45.2, 59.9 | 36.6 s, 47.7 s | 35, 43 | 234 MiB, 232 MiB | 138 kB/s, 162 kB/s |
 
   The hub parties were 240 orders of 12 to 20 riders, one each 15 simulated seconds, and none was refused.
-  The D geometry without Express pods costs about 55 percent more server CPU than ordinary LondonFull, and the cause is not known.
+  The D geometry without Express pods costs about 55 percent more server CPU than ordinary LondonFull.
+  A CPU profile of 20 simulated minutes without the server gives 4.8 s for LondonFull and 9.0 s for D without Express pods.
+  When a network has a station bank, each route search goes through `(Network).bankRoute`, which runs its graph searches in `(Network).bankPathNodes` with no cache.
+  A network with no bank uses the indexed and cached targets of `(Network).routeTargets`.
+  On D, `bankPathNodes` takes 54 percent of the profile, so the extra cost comes from the banks at Waterloo and Bank, not from Express.
   In one of the two runs with hub parties, the server did not keep speed 60.
   Peak RSS includes the project load.
   Retained frames, decoded client memory, and browser responsiveness are not measured yet.
