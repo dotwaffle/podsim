@@ -981,6 +981,7 @@ Use `mise run soak:full` before a release tag.
 After a change to dispatch, routing, or the fault and emergency state machines, use `mise run soak` and `mise run qualify`, which runs `TestIncidentSoakCI`.
 The CI soak runs one seed for one simulated hour on `rail-hub`, with the full check at each tick.
 The `soak:full` task runs 5 seeds of 6 simulated hours with the full check at each tick.
+On `london-central` and `london-full-express`, it runs no platoon arm, because these presets already set the platoon limit of those arms.
 This run keeps the wall limit of 2 hours, so it can end cut, before each seed finishes.
 A run that the limit stops counts only its completed seeds.
 The task writes each finished seed to the file of `PODSIM_SOAK_FINISHED`, with its failure state, and it prints that file at the end, also after a cut.

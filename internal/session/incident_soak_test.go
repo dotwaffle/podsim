@@ -1235,6 +1235,11 @@ type soakShape struct {
 // soakAllArms lists the arms at preset demand.
 var soakAllArms = []string{"incidents", "emergencies", "platoons", "reference", "reference-platoons"}
 
+// soakPlatoonPresetArms lists the arms at preset demand on a preset that
+// already sets the platoon limit of the platoon arms. There, the platoon arms
+// run the same projects as the incidents and reference arms.
+var soakPlatoonPresetArms = []string{"incidents", "emergencies", "reference"}
+
 // soakShapeOf returns the shape of the name for a preset. "branches" is the
 // routine shape of amendment A10. "seeds" is the shape of amendment A6, which
 // A10 keeps for the same triggers as the every-tick mode.
@@ -1243,7 +1248,7 @@ func soakShapeOf(name, preset string) (soakShape, error) {
 	case "branches":
 		const warm, rewind = 30 * 60 * sim.TicksPerSecond, 10 * 60 * sim.TicksPerSecond
 		if preset == "london-central" {
-			return soakShape{seeds: 1, warmTicks: warm, branches: 3, hours: 1, rewindEvery: rewind, arms: []string{"incidents", "emergencies", "reference"}}, nil
+			return soakShape{seeds: 1, warmTicks: warm, branches: 3, hours: 1, rewindEvery: rewind, arms: soakPlatoonPresetArms}, nil
 		}
 		if preset == soakExpressPreset || preset == soakExpressPartiesPreset {
 			return soakShape{seeds: 1, warmTicks: warm, branches: 10, hours: 1.5, rewindEvery: rewind, arms: soakExpressArms}, nil
@@ -1257,7 +1262,11 @@ func soakShapeOf(name, preset string) (soakShape, error) {
 		}
 		return soakShape{seeds: 1, warmTicks: warm, branches: 10, hours: 1.5, rewindEvery: rewind, arms: arms}, nil
 	case "seeds":
-		return soakShape{seeds: 5, branches: 1, hours: 6, rewindEvery: soakTicksPerHour, arms: soakAllArms}, nil
+		arms := soakAllArms
+		if preset == "london-central" || preset == soakLondonExpressPreset {
+			arms = soakPlatoonPresetArms
+		}
+		return soakShape{seeds: 5, branches: 1, hours: 6, rewindEvery: soakTicksPerHour, arms: arms}, nil
 	}
 	return soakShape{}, fmt.Errorf("unknown soak shape %q", name)
 }
@@ -2235,7 +2244,8 @@ func TestSoakShape(t *testing.T) {
 		{"branches", soakExpressPartiesPreset, soakShape{seeds: 1, warmTicks: 30 * minute, branches: 10, hours: 1.5, rewindEvery: 10 * minute, arms: []string{"incidents", "emergencies", "reference"}}},
 		{"branches", soakLondonExpressPreset, soakShape{seeds: 1, warmTicks: 30 * minute, branches: 3, hours: 1, rewindEvery: 10 * minute, arms: []string{"incidents", "emergencies", "incidents-low-demand", "reference", "reference-low-demand"}}},
 		{"seeds", "rail-hub", soakShape{seeds: 5, branches: 1, hours: 6, rewindEvery: 60 * minute, arms: soakAllArms}},
-		{"seeds", "london-central", soakShape{seeds: 5, branches: 1, hours: 6, rewindEvery: 60 * minute, arms: soakAllArms}},
+		{"seeds", "london-central", soakShape{seeds: 5, branches: 1, hours: 6, rewindEvery: 60 * minute, arms: []string{"incidents", "emergencies", "reference"}}},
+		{"seeds", soakLondonExpressPreset, soakShape{seeds: 5, branches: 1, hours: 6, rewindEvery: 60 * minute, arms: []string{"incidents", "emergencies", "reference"}}},
 	}
 	for _, test := range tests {
 		got, err := soakShapeOf(test.name, test.preset)
@@ -2245,6 +2255,15 @@ func TestSoakShape(t *testing.T) {
 	}
 	if _, err := soakShapeOf("other", "rail-hub"); err == nil {
 		t.Error("an unknown shape gives no error")
+	}
+	// The shapes drop the platoon arms only where they repeat other arms.
+	for _, preset := range []string{"london-central", soakLondonExpressPreset} {
+		if limit := soakPreset(t, preset).PlatoonLimit; limit != soakPlatoonLimit {
+			t.Errorf("%s: platoon limit %d, the platoon arms set %d", preset, limit, soakPlatoonLimit)
+		}
+	}
+	if limit := soakPreset(t, "rail-hub").PlatoonLimit; limit == soakPlatoonLimit {
+		t.Errorf("rail-hub: platoon limit %d, so its platoon arms repeat other arms", limit)
 	}
 }
 
