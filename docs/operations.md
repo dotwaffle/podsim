@@ -945,7 +945,8 @@ mise run check
 | `mise run test:quick` | `go test -short ./...`. It skips the long tests. The race tasks, `qualify`, and `test:embedded` run them. |
 | `mise run lint` | actionlint, rumdl, `go vet`, golangci-lint, and the check that `podsim.wasm` does not link cloud storage. |
 | `mise run check:static` | The checks other than the race tests and `qualify`: `test:web`, `lint`, `vulncheck`, `build`, and `test:embedded`. |
-| `mise run test:race` | The `test:race:sim`, `test:race:session`, and `test:race:other` tasks. |
+| `mise run test:race` | The `test:race:sim`, `test:race:session`, and `test:race:other` tasks. `test:race:other` runs the packages of `PODSIM_SINGLE_GOROUTINE_PACKAGES` with `-short`. |
+| `mise run test:long` | The tests of `PODSIM_SINGLE_GOROUTINE_PACKAGES` in full, without the race detector. Their long tests run on one goroutine, where the race detector finds nothing. |
 | `mise run test:web` | Only the editor, loader, and page tests. |
 | `mise run qualify` | The two Station 19 drain tests in `internal/scenarios`, the two emergency choice tests and `TestSampledTickLatency` in `internal/sim`, and the CI incident soak in `internal/session`, with the full check at each tick, without the race detector. These tests skip under the race detector, so in `mise run check` only this task runs them. The `test:race` task runs the other tests of these packages. |
 | `mise run qualify:limits` | `TestSampledTickNoCandidateLatency`, on request. It reports the time at the project limits and gates nothing. |
@@ -1014,7 +1015,7 @@ These variables change a run:
 
 GitHub Actions runs the same check on pull requests, pushes to `main`, and version tags.
 The workflow also supports a manual trigger.
-It splits the check into five parallel jobs: `test:race:sim`, `test:race:session`, `test:race:other`, `qualify`, and `check:static`.
+It splits the check into six parallel jobs: `test:race:sim`, `test:race:session`, `test:race:other`, `test:long`, `qualify`, and `check:static`.
 After all five pass, a version tag or a manual run publishes the container image.
 A push to `main` runs the checks and publishes no image.
 New pull-request updates cancel older runs.
