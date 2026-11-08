@@ -277,3 +277,32 @@ func TestBankTreeRefusesDisallowedEnds(t *testing.T) {
 		t.Fatal("the network has no node that the class refuses")
 	}
 }
+
+// TestBankNearestReverseOverflow gives two lanes of BankExample costs of
+// about 1e308 seconds each. Each part of the route from bank-a-berth to
+// bank-b-berth stays finite, but the lower bound of the reverse search
+// overflows to +Inf, so the bound orders no candidate. The call must still
+// find the one candidate, as the reference does.
+func TestBankNearestReverseOverflow(t *testing.T) {
+	t.Parallel()
+	network := BankExample()
+	for index := range network.Lanes {
+		if id := network.Lanes[index].ID; id == "bank-a-out" || id == "bank-b-in" {
+			network.Lanes[index].SpeedLimit = 1e-306
+		}
+	}
+	graph := newRouteGraph(network)
+	rank := make([]int, len(network.Nodes))
+	for node := range rank {
+		rank[node] = -1
+	}
+	rank[graph.nodes["bank-a-berth"]] = 0
+	input := preferredNearestInput{from: "bank-b-berth", rank: rank, reverse: true}
+	want, wantOK := network.referenceBankNearest(input, graph)
+	if !wantOK || network.Nodes[want].ID != "bank-a-berth" {
+		t.Fatalf("the reference gives %d, %t, want bank-a-berth", want, wantOK)
+	}
+	if got, gotOK := network.bankNearest(input, graph); got != want || gotOK != wantOK {
+		t.Fatalf("got %d, %t, want %d, %t", got, gotOK, want, wantOK)
+	}
+}

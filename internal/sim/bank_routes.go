@@ -442,7 +442,8 @@ const boundSlack = 1e-9
 // lanes. It settles the candidates in the order of their bounds, and each
 // settled candidate gets its route search. A candidate whose bound passes the
 // best cost or the limit cannot win, and nor can the candidates after it, so
-// the search stops there.
+// the search stops there. A bound that overflows to +Inf can order no
+// candidate, so then the call scans each candidate as bankNearest does.
 func (n Network) bankNearestReverse(input preferredNearestInput, to int, graph routeGraph, work *routeSearchWork) (int, bool) {
 	bounds := takeBankSearchWork()
 	defer bankSearchWork.Put(bounds)
@@ -453,6 +454,7 @@ func (n Network) bankNearestReverse(input preferredNearestInput, to int, graph r
 	bounds.queue = append(bounds.queue, routeQueueItem{node: to})
 	queue := bounds.queue
 	best, bestRank, seconds := -1, 0, math.Inf(1)
+	overflow := false
 	for len(queue) > 0 {
 		item := queue.pop()
 		if visited[item.node] || item.distance != distance[item.node] {
@@ -474,7 +476,12 @@ func (n Network) bankNearestReverse(input preferredNearestInput, to int, graph r
 			if !graph.laneAllows(laneIndex, input.class) || !graph.laneOpen(laneIndex) {
 				continue
 			}
-			if candidate := item.distance + edge.seconds; candidate < distance[edge.from] {
+			candidate := item.distance + edge.seconds
+			if math.IsInf(candidate, 1) {
+				overflow = true
+				continue
+			}
+			if candidate < distance[edge.from] {
 				if previous[edge.from] < 0 {
 					bounds.touched = append(bounds.touched, edge.from)
 				}
@@ -484,5 +491,17 @@ func (n Network) bankNearestReverse(input preferredNearestInput, to int, graph r
 		}
 	}
 	bounds.queue = queue[:0]
+	if overflow {
+		best, bestRank, seconds = -1, 0, math.Inf(1)
+		for node, rank := range input.rank {
+			if rank < 0 {
+				continue
+			}
+			cost, ok := n.bankNearestCost(bankNearestSearch{input: input, from: node, to: to}, graph, work)
+			if ok && nearer(cost, rank, node, seconds, bestRank, best) {
+				best, bestRank, seconds = node, rank, cost
+			}
+		}
+	}
 	return best, best >= 0
 }
