@@ -161,6 +161,7 @@ An approved contract in `docs/contracts/` is binding, and each document gives it
 | [Express London qualification](docs/contracts/express-london-qualification-proposal.md) | Qualification of the banked LondonFull Express project D as an opt-in preset. Rows approved; the browser checks are open. |
 | [Express London adoption screen](docs/contracts/express-london-adoption-screen-proposal.md) | A capped screen of D against LondonFull, before any full adoption matrix. Approved; the runner and the pilot come first. |
 | [Berth claim deadlock](docs/contracts/berth-claim-deadlock-proposal.md) | An empty move that claims a berth behind unclaimed pickups on one access lane stalls for good. Option A approved. |
+| [Bank load choice](docs/contracts/bank-load-choice-proposal.md) | Bank choice by approach cost leaves bank `b` of Bank idle while bank `a` queues. Draft. |
 
 ### Designs
 
