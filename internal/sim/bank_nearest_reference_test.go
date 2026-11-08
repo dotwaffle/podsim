@@ -6,6 +6,7 @@ import (
 	"math"
 	"math/rand/v2"
 	"reflect"
+	"slices"
 	"sync"
 	"testing"
 )
@@ -14,6 +15,13 @@ import (
 // with separate searches for each candidate. It uses the frozen route, so it
 // shares no route assembly with bankNearest.
 func (n Network) referenceBankNearest(input preferredNearestInput, graph routeGraph) (int, bool) {
+	best, _, ok := n.referenceBankNearestCost(input, graph)
+	return best, ok
+}
+
+// referenceBankNearestCost is referenceBankNearest, and it also returns the
+// cost of the route of the result.
+func (n Network) referenceBankNearestCost(input preferredNearestInput, graph routeGraph) (int, float64, bool) {
 	best, seconds := -1, math.Inf(1)
 	for node, rank := range input.rank {
 		if rank < 0 {
@@ -39,7 +47,7 @@ func (n Network) referenceBankNearest(input preferredNearestInput, graph routeGr
 			best, seconds = node, cost
 		}
 	}
-	return best, best >= 0
+	return best, seconds, best >= 0
 }
 
 // blockedRouteSets returns the blocked sets of the route differential: none,
@@ -115,6 +123,31 @@ func gateRanks(network Network, graph routeGraph) [][]int {
 	return [][]int{all, exits, mixed}
 }
 
+// equalRanks returns the berth nodes and all nodes with one rank each, so
+// that a tie of cost and rank goes to the lower node index, also when a
+// reverse search settles the candidates in another order.
+func equalRanks(network Network, graph routeGraph) [][]int {
+	berths, all := make([]int, len(network.Nodes)), make([]int, len(network.Nodes))
+	for node := range berths {
+		berths[node] = -1
+		if graph.berthStations[node] >= 0 {
+			berths[node] = 0
+		}
+	}
+	return [][]int{berths, all}
+}
+
+// nearestLimits returns the limits of a call: none, 40 s, and the cost of
+// the result with no limit and the floats next to it, because the limit is
+// inclusive.
+func nearestLimits(cost float64, ok bool) []float64 {
+	limits := []float64{0, 40}
+	if ok && cost > 0 {
+		limits = append(limits, cost, math.Nextafter(cost, 0), math.Nextafter(cost, math.Inf(1)))
+	}
+	return limits
+}
+
 // TestBankNearestMatchesReference compares the node and the result of
 // bankNearest with the reference, on networks with banks and with blocked
 // lanes. The candidates of one call share one work value, so a value that a
@@ -134,10 +167,11 @@ func TestBankNearestMatchesReference(t *testing.T) {
 					froms = froms[:12]
 				}
 				for _, from := range froms {
-					for rankIndex, rank := range append(berthRanks(network, graph), gateRanks(network, graph)...) {
+					for rankIndex, rank := range slices.Concat(berthRanks(network, graph), gateRanks(network, graph), equalRanks(network, graph)) {
 						for _, reverse := range []bool{false, true} {
-							for _, limit := range []float64{0, 40} {
-								for _, class := range []VehicleClass{"", GroupClass, ExpressClass} {
+							for _, class := range []VehicleClass{"", GroupClass, ExpressClass} {
+								_, cost, costOK := network.referenceBankNearestCost(preferredNearestInput{from: network.Nodes[from].ID, rank: rank, reverse: reverse, class: class}, graph)
+								for _, limit := range nearestLimits(cost, costOK) {
 									input := preferredNearestInput{from: network.Nodes[from].ID, rank: rank, limit: limit, reverse: reverse, class: class}
 									want, wantOK := network.referenceBankNearest(input, graph)
 									got, gotOK := network.bankNearest(input, graph)
