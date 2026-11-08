@@ -7,7 +7,9 @@ lockfile = true
 # Keep source paths out of the build cache keys, so that worktrees share compiled packages.
 GOFLAGS = "-trimpath"
 # The packages of test:long. See test:race:other.
-PODSIM_SINGLE_GOROUTINE_PACKAGES = "./cmd/compare ./cmd/scenario ./internal/editormodel ./internal/project ./internal/scenarios"
+PODSIM_LONG_PACKAGES = "./cmd/compare ./cmd/scenario ./internal/editormodel ./internal/project ./internal/scenarios"
+# The long tests of cmd/compare that run worker goroutines.
+PODSIM_RACE_LONG_TESTS = "^(TestDailyComparisonMatchesLiveOffers|TestAdaptiveLimitMatchesFullGrid|TestScreenRun)$"
 
 [tool_alias]
 govulncheck = "go:golang.org/x/vuln/cmd/govulncheck"
@@ -75,26 +77,28 @@ run = "go test -race ./internal/sim -timeout=30m"
 description = "Run the session tests with the race detector"
 run = "go test -race ./internal/session -timeout=30m"
 
-# The long tests of the packages in PODSIM_SINGLE_GOROUTINE_PACKAGES run on
-# one goroutine, and the race detector makes them several times slower but
+# Most long tests of the packages in PODSIM_LONG_PACKAGES run on one
+# goroutine, and the race detector makes them several times slower but
 # finds nothing in them. So test:race:other runs these packages with -short,
-# and test:long runs them in full without the race detector. Their short
-# tests keep the race checks of the worker pools of cmd/compare.
+# and test:long runs them in full without the race detector. The long tests
+# in PODSIM_RACE_LONG_TESTS run more than one goroutine, so test:race:other
+# also runs them in full with the race detector.
 [tasks."test:race:other"]
 description = "Run the tests of the other packages with the race detector"
 run = '''
-single="$PODSIM_SINGLE_GOROUTINE_PACKAGES"
+single="$PODSIM_LONG_PACKAGES"
 packages=$(go list ./... | grep -v -x -e github.com/dotwaffle/podsim/internal/sim -e github.com/dotwaffle/podsim/internal/session) || exit 1
 for package in $single; do
   packages=$(printf '%s\n' $packages | grep -v -x -e "github.com/dotwaffle/podsim/${package#./}") || exit 1
 done
 go test -race -timeout=30m $packages || exit 1
-go test -race -short -timeout=30m $single
+go test -race -short -timeout=30m $single || exit 1
+go test -race -timeout=30m -run "$PODSIM_RACE_LONG_TESTS" ./cmd/compare
 '''
 
 [tasks."test:long"]
-description = "Run the long single-goroutine tests in full without the race detector"
-run = 'go test -timeout=30m $PODSIM_SINGLE_GOROUTINE_PACKAGES'
+description = "Run the long tests of PODSIM_LONG_PACKAGES in full without the race detector"
+run = 'go test -timeout=30m $PODSIM_LONG_PACKAGES'
 
 [tasks.vulncheck]
 description = "Check dependencies for known vulnerabilities"

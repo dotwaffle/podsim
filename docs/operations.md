@@ -945,8 +945,8 @@ mise run check
 | `mise run test:quick` | `go test -short ./...`. It skips the long tests. The race tasks, `qualify`, and `test:embedded` run them. |
 | `mise run lint` | actionlint, rumdl, `go vet`, golangci-lint, and the check that `podsim.wasm` does not link cloud storage. |
 | `mise run check:static` | The checks other than the race tests and `qualify`: `test:web`, `lint`, `vulncheck`, `build`, and `test:embedded`. |
-| `mise run test:race` | The `test:race:sim`, `test:race:session`, and `test:race:other` tasks. `test:race:other` runs the packages of `PODSIM_SINGLE_GOROUTINE_PACKAGES` with `-short`. |
-| `mise run test:long` | The tests of `PODSIM_SINGLE_GOROUTINE_PACKAGES` in full, without the race detector. Their long tests run on one goroutine, where the race detector finds nothing. |
+| `mise run test:race` | The `test:race:sim`, `test:race:session`, and `test:race:other` tasks. `test:race:other` runs the packages of `PODSIM_LONG_PACKAGES` with `-short`, and then the long tests of `PODSIM_RACE_LONG_TESTS` in full. |
+| `mise run test:long` | The tests of `PODSIM_LONG_PACKAGES` in full, without the race detector. Most of their long tests run on one goroutine, where the race detector finds nothing. |
 | `mise run test:web` | Only the editor, loader, and page tests. |
 | `mise run qualify` | The two Station 19 drain tests in `internal/scenarios`, the two emergency choice tests and `TestSampledTickLatency` in `internal/sim`, and the CI incident soak in `internal/session`, with the full check at each tick, without the race detector. These tests skip under the race detector, so in `mise run check` only this task runs them. The `test:race` task runs the other tests of these packages. |
 | `mise run qualify:limits` | `TestSampledTickNoCandidateLatency`, on request. It reports the time at the project limits and gates nothing. |
