@@ -672,6 +672,14 @@ This soak does not show the following:
 - Express still has no byte proof, and these warm saves of 8 to 12 KB are not a worst case.
 - The wall times come from a busy host, so they are no Performance reading.
 
+### First full soak with Express
+
+`mise run soak:full` ran at `bc7db26a` on 2026-11-08, with `PODSIM_SOAK_LIMIT` at 5 hours for this run only, under nice, at a load average of about 17 to 23.
+It covered `rail-hub`, `london-central`, and `london-full-express`, each with seeds 1 to 5.
+All 15 seeds finished, in 16,127 s of wall time, and the longest run took 3,846 s.
+Each of the 55 runs had 0 late records under rule A and 0 demoted orders, and no run gave a Safety, Contract, Conservation, Rail, or Persistence report.
+The routing fix of `1c71bb7d` came after this run.
+
 ## What the soaks found
 
 The maintainer asked on 2026-11-06 whether long runs find more.
