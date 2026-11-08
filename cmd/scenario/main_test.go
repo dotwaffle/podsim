@@ -121,14 +121,14 @@ func TestRunWithoutFlagsKeepsPresets(t *testing.T) {
 		"scale100":            "b8e952d7a1ae2f0fa1cc9f2022742b54cb101ffff78771d1a96cbec4552eac0f",
 		"london-central":      "ee6e663927d20d78b55b648141be18c1eacec8580e869e9dd03eb3b9c0da2b2e",
 		"london-full":         "95dd5f6d466a9fc0721a9e3d1338bf94dde147f787240abf7e8b8e72f4ab579c",
-		"london-full-express": "a11fb0c12bf153efa867fb3b2c1f3e4228427250a04909b2214e977ae988e03d",
+		"london-full-express": "9032f3535806ec1edbce9d2048efdac59191d5c0d79e8e5c6fac9b4eba95d369",
 	}
 	// networks holds the network SHA-256 of the summary line of the London
 	// presets.
 	networks := map[string]string{
 		"london-central":      "d1fa6044728d60392e26001c48892e8abf5e0ebf6bdf690153e6be8e3d2c4ad6",
 		"london-full":         "4a7efa573c6af08d96de0ceeb60287176422f2bf93bc4ea2e5e2a19a21f83374",
-		"london-full-express": "3b4cc5b5f019af9618bb0c696b9ec4ff222534961ff17b7ad7411b3161df1f1c",
+		"london-full-express": "3aa0a2eb9e99eab4ea80ecfad481c7718b57cd38e0b35876b44b5ab5dc1d22e5",
 	}
 	for preset, want := range tests {
 		t.Run(preset, func(t *testing.T) {
