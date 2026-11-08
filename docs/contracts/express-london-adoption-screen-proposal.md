@@ -189,3 +189,25 @@ All 18 runs finished each accepted order, and no run stalled.
 At 20 and 30 requests a minute, `D` refuses 115 to 826 events that `LF` accepts, so the live queue gate also fails there.
 The queue limit of 200 caps the waiting orders, so at 30 requests a minute most of the added load becomes refusals.
 The probe does not show that `D` cannot get the block.
+
+### Study of the slow requests
+
+The maintainer asked which requests fail the wait and journey gates, and why, with no change to the gates or the simulation.
+A scratch probe ran the 6 pairs of `LF` and `D` again at `f5dbaca6` and recorded each background request.
+It gives the same 150 requests over the wait limit as the screen, out of 6,494 that both runs accepted and boarded.
+
+- The journey failures are wait failures.
+  117 of the 119 requests over the journey limit are also over the wait limit, the median ride time is the same in both runs, and no ride is shared in either run.
+- Bank is the main place.
+  20.6 percent of the requests from Bank are over the wait limit, against 1.9 percent from the other stations, although the median wait from Bank is 171 s in `D` and 393 s in `LF`.
+- The start of the run is the main time.
+  6.0 percent of the requests offered in minutes 15 to 30 are over the limit, while the queue of `LF` fills up, against 0.9 to 2.6 percent in the other 15-minute periods.
+  The median excess wait of a failed request is 148 s, and the largest is 951 s.
+
+A sample of the berths of Bank every 10 s in `pm-peak` seed 2 of `D` shows why Bank is slow for Compact pods.
+Express pods hold berth `01` of bank `a` 39 percent of the time and berth `02` 38 percent, mostly to unload large hub parties.
+Compact pods hold those berths 3.5 and 0.4 percent of the time, and the 2 berths of bank `b` are in use less than 1 percent of the time.
+Bank choice uses the approach cost first, and bank `a` costs less, so Compact pods wait behind Express pods at bank `a` while bank `b` stays empty.
+
+The study does not show the cause of the failures outside Bank.
+A change that could move the result, such as a bank choice that counts the pods at each bank, or Express service only at bank `b` of Bank, is a simulation or geometry change for a separate decision.
