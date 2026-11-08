@@ -268,3 +268,31 @@ Its totals are the same as the screen.
 Bank gives 21 of the 152 requests over the wait limit and 20 of the 120 over the journey limit.
 The rate at Bank is high, but most failures come from the other stations, at about 2 percent of their requests, in each pair.
 So a rule for the hub stations alone does not change the result of any pair, and the cause of the failures at the other stations is still open.
+
+### Study of the failures at the other stations
+
+The maintainer asked for a study of the failures away from the hub stations, with no change to the gates or the simulation.
+A scratch probe ran the 6 pairs at `f0218305` and compared the matched background requests from the stations other than Bank and Waterloo.
+
+| Pair | Matched | `D` faster | Mean wait, `LF` and `D` (s) | p95 wait (s) | Over the limit | Excess p50 and max (s) | Refused, `LF` |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `pm-peak` seed 1 | 1,065 | 974 | 703, 182 | 1,350, 446 | 22 | 86, 364 | 217 |
+| `pm-peak` seed 2 | 1,055 | 969 | 738, 168 | 1,510, 416 | 21 | 121, 310 | 223 |
+| `pm-peak` seed 3 | 1,031 | 950 | 742, 193 | 1,405, 461 | 28 | 128, 260 | 287 |
+| `morning` seed 1 | 1,037 | 900 | 1,005, 423 | 2,077, 1,194 | 23 | 250, 951 | 350 |
+| `morning` seed 2 | 1,026 | 873 | 1,012, 437 | 2,092, 1,187 | 21 | 114, 833 | 383 |
+| `morning` seed 3 | 1,024 | 866 | 1,002, 429 | 2,139, 1,208 | 16 | 250, 1,151 | 387 |
+
+The guess about the queue was wrong in direction.
+`LF` carries more load, not less: in `pm-peak` seed 2, from minute 30 to minute 120, `LF` has no idle Compact pod and 100 to 133 background requests pending, and its queue is at the limit.
+`D` has 171 to 186 idle Compact pods, almost all at passenger stations, and 19 to 42 background requests pending.
+
+A trace of the 21 failures of `pm-peak` seed 2 gives the difference.
+When dispatch first assigned a pod, the median distance of the pod to the station was 3.7 km in `D` and 1.0 km in `LF`, and the median travel time to the pickup was 325 s and 95 s.
+In 6 of the 21, a pod of `LF` was already at the station.
+13 of the 21 requests came in minutes 15 to 30, while the queue of `LF` filled and its last idle pods went into service.
+The probe does not show why dispatch in `D` sent a pod from so far away while other pods were idle.
+
+So `D` serves 85 to 92 percent of the matched requests faster, but about 2 percent of the requests wait longer than the limit, with a median excess of 86 to 250 s in each pair and up to 1,151 s.
+The [numerical limits](../design/experimental-adoption.md#numerical-limits) keep the individual limits to reject exactly such regressions of hundreds of seconds, and the design does not allow a change of a limit after a failed result.
+So the screen result stands.
