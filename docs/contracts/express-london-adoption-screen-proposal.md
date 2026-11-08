@@ -3,7 +3,7 @@
 Status: drafted and approved on November 8, 2026.
 The maintainer approved decisions 1 to 6 as recommended, with runner option A.
 The maintainer also approved the build of the runner and the timed pilot.
-The full screen waits for the maintainer after the pilot.
+The maintainer approved the full screen after the pilot, and it failed, so the work on D adoption stops (see [Results](#results)).
 Status 2026-11-08: the approved mapping said orders of at most 8, from `sim.MaxNewPartySize`, but the LondonFull fleet is Compact, which takes a party of at most 4, so an order of 8 had no pod.
 The runner splits to the largest party that the fleet takes, and the maintainer confirmed this correction on November 8, 2026.
 
@@ -121,3 +121,44 @@ The runs use nice, a memory cap, and one study at a time.
 4. Approve the screen gates, with no inherited waiver.
 5. Choose the runner: option A (recommended) or option B.
 6. Approve the pilot rule and the 6-hour budget.
+
+## Results
+
+The full screen ran on November 8, 2026, at `e41c6610`, with the default flags, 3 workers, and nice 10.
+It took 29 minutes of wall time.
+The busy band is `pm-peak`, and the quiet band is `morning`.
+
+The screen fails.
+Each pair of `D` against `LF` fails at least two gates, so by decision 1 the work on D adoption stops, with no full matrix.
+
+| Band | Seed | Recovery | Wait over the limit | Journey over the limit | Hub passengers, `D` and `LF` |
+| --- | ---: | --- | ---: | ---: | --- |
+| `pm-peak` | 1 | 1 order not finished | 31 | 22, and 1 not finished | 4,393 and 2,638 |
+| `pm-peak` | 2 | pass | 34 | 27 | 4,788 and 2,658 |
+| `pm-peak` | 3 | pass | 31 | 24 | 4,898 and 2,531 |
+| `morning` | 1 | pass | 24 | 22 | 4,393 and 1,971 |
+| `morning` | 2 | pass | 21 | 17 | 4,788 and 2,046 |
+| `morning` | 3 | 1 order not finished | 14 | 13, and 1 not finished | 4,898 and 2,086 |
+
+All 6 pairs pass the safety and accounting gate, the live queue gate, and the hub gate.
+`LF` refuses 217 to 387 events at the queue limit in each run, and `D` refuses none.
+
+The gates compare each matched request, and most requests are faster in `D`.
+In `pm-peak` seed 1, `LF` has a mean background wait of 696 s.
+On the 1,122 background requests that finish in both runs, `D` is faster by a mean of 510 s and a median of 473 s, but the 99th percentile is 111 s slower and the slowest is 448 s slower.
+The 31 requests over the wait limit start at 21 stations, and 8 of them start at Bank.
+The screen has no waiver, so these requests fail the gate.
+
+`D0` does not recover in any run: 65 to 371 orders do not finish in the 2-hour clear, and it finishes fewer hub passengers than `LF`.
+The pilot found the cause, a mutual block between Bank and Cannon Street.
+
+### Two stalls in `D`
+
+The 2 orders that do not finish in `D` are stalls, and neither is the block of `D0`.
+No safety or contract check reports them.
+
+- `pm-peak` seed 1: a Compact pod with a rider to Bank stops on the access lane of bank `b`.
+  In front of it, 4 Express pods queue for berth `b01`.
+  The first of them waits for the berth, and it names as the holder of the berth a pod that is behind it in the same queue.
+- `morning` seed 3: a Compact pod with a rider to Waterloo waits at the end of the access lane of berth `b01` of Waterloo, with the reason "No parking available".
+  An Express pod with the state Ready holds that berth and does not leave it.
