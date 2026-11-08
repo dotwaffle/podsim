@@ -163,6 +163,15 @@ No safety or contract check reports them.
 - `morning` seed 3: a Compact pod with a rider to Waterloo waits at the end of the access lane of berth `b01` of Waterloo, with the reason "No parking available".
   An Express pod with the state Ready holds that berth and does not leave it.
 
+Both stalls have one cause in the geometry of project `D`.
+For the Express class, berths `b01` and `b02` of Waterloo have no route to Express parking and no route from it.
+Each other berth of Waterloo and Bank has both routes.
+An Express hub trip can end at Waterloo bank `b`, and then the empty Express pod cannot park.
+When a Compact pod needs the berth, the only place that the Express pod can go is a berth of Bank.
+An empty move reserves its berth when it starts, so 4 such moves can reach the access lane of Bank bank `b` in an order that is not the order of their reservations, which gives the first stall.
+When the berths of Bank are full, the Express pod stays at Waterloo, which gives the second stall.
+A change to the geometry, the berth classes, or the release of a blocker is a change to the approved qualification, so it waits for the maintainer.
+
 ### Probe of `D` at a higher load
 
 The maintainer asked whether `D` can get the block of `D0` at a higher Compact load.
