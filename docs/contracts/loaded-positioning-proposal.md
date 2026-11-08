@@ -1,7 +1,8 @@
 # Positioning under load proposal
 
-Status: draft of November 9, 2026, for the maintainer.
-No simulation change is made until the maintainer approves it.
+Status: drafted on November 9, 2026.
+The maintainer approved the pilot of A and B on November 9, 2026.
+No simulation change on `main` comes from the pilot.
 
 ## Problem
 
