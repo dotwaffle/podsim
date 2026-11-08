@@ -285,6 +285,35 @@ An arm does not run the separation oracle, and `TestExpressArmSeparation` runs i
 The command does not apply `expressServices`.
 See [Express against plain](studies/express-standees.md#express-against-plain) for the recorded results.
 
+### Express London screen
+
+`go run ./cmd/compare screen` runs the screen of the [Express London adoption screen proposal](contracts/express-london-adoption-screen-proposal.md).
+It ignores the other flags of the command.
+It runs `LF` (`london-full`), `D0` (`london-full-express` without its Express pods, its Express services, and its order contract), and `D` (`london-full-express`) on the same offered events.
+
+| Flag | Default | Meaning |
+| --- | --- | --- |
+| `-seeds` | `1,2,3` | The seeds. |
+| `-bands` | `busy,quiet` | The LondonFull bands. `busy` and `quiet` select the bands with the most and the fewest observed journeys a minute. |
+| `-configs` | `LF,D0,D` | The configurations. |
+| `-arrivals` | `2h` | The simulated time with offered events. |
+| `-clear` | `2h` | The longest simulated time after the arrivals. A run stops when every accepted order is terminal. |
+| `-background-per-minute` | 0 | The background requests a minute. 0 uses the rate of the LondonFull preset. |
+| `-queue-limit` | 200 | The live queue limit. It admits or refuses a whole event. |
+| `-workers` | 3 | The arms that run at the same time. |
+| `-check-every` | 1 | The simulated seconds between two checks of the safety oracle, the state contract, and the order accounting. |
+| `-output` | none | The file of the JSON report. |
+
+A seed gives the background requests of the band, as the `profile` pattern does, and a separate hub stream.
+The hub stream offers a shared party of 1 to 20 passengers between Waterloo and Bank each 15 s on average, three in four from Waterloo.
+In `D`, a hub party is one Express order.
+In an arm without Express, it splits before admission into orders of at most the largest new party of a pod in the fleet, 4 for Compact.
+The wait of an event ends when its last order boards, and its journey when its last order finishes.
+
+The command prints a line for each arm and a line for each gate of each pair against `LF`.
+Only the pairs of `D` decide the screen.
+The command exits with status 3 when a deciding gate fails.
+
 ### Report columns
 
 Some columns show only when you ask for what they report.

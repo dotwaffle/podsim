@@ -4,6 +4,8 @@ Status: drafted and approved on November 8, 2026.
 The maintainer approved decisions 1 to 6 as recommended, with runner option A.
 The maintainer also approved the build of the runner and the timed pilot.
 The full screen waits for the maintainer after the pilot.
+Status 2026-11-08: the approved mapping said orders of at most 8, from `sim.MaxNewPartySize`, but the LondonFull fleet is Compact, which takes a party of at most 4, so an order of 8 had no pod.
+The runner splits to the largest party that the fleet takes, and this correction needs the confirmation of the maintainer.
 
 ## Scope
 
@@ -46,6 +48,8 @@ The screen does not isolate the policies.
 Each arm runs seeds 1, 2, and 3, for 18 runs.
 The busy band and the quiet band are the bands of `LondonFullDemand` with the most and the fewest observed journeys.
 The runner prints both names before the pilot, and they do not change after it.
+Status 2026-11-08: the runner picks the bands by observed journeys a minute, so the busy band is `pm-peak`.
+Both bands use the background rate of the LondonFull preset, 10 requests a minute, so the band changes only the flows.
 
 Each workload adds the hub stream of the D soak: shared hub parties of 1 to 20 passengers between Waterloo and Bank, one each 15 s on average, three in four from Waterloo.
 That gives about 42 hub passengers a minute.
@@ -57,12 +61,12 @@ The study limit of 10,000 is out of scope.
 
 ## Split-event mapping
 
-`LF` and `D0` have no Express pod, so they cannot accept a hub party of more than 8 passengers (`sim.MaxNewPartySize`) as one order.
+`LF` and `D0` have no Express pod, so they cannot accept a hub party of more than 4 passengers as one order: the Compact class takes a new party of at most 4.
 The qualification proposal deferred this mapping to this proposal.
 
 The recommended mapping:
 
-- Before admission, the runner splits a hub event into orders of at most 8 passengers.
+- Before admission, the runner splits a hub event into orders of at most the largest new party of a pod in the fleet, 4 for Compact.
   Each order keeps the identity of its event.
 - The runner never splits an order that a session accepted.
 - The wait of an event ends when its last passenger boards.

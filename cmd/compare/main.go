@@ -74,6 +74,9 @@ func main() {
 }
 
 func runCLI(input cliInput) int {
+	if len(input.args) > 0 && input.args[0] == "screen" {
+		return runScreen(input.args[1:], input.stdout, input.stderr)
+	}
 	opts, err := parseOptions(input.args, input.stderr)
 	if errors.Is(err, flag.ErrHelp) {
 		return 0
