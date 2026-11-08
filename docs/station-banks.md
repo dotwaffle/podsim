@@ -113,6 +113,10 @@ Sessions send stream hello version 9 for every project kind.
 Clients reject every other hello version.
 Geometry changes start a new stream chain, and clients fetch the new network from `GET /api/topology`.
 
+Amendment B1, approved by the maintainer on November 7, 2026: project D of the [Express London qualification proposal](contracts/express-london-qualification-proposal.md) is an opt-in qualification preset.
+Its bank members and routes survive the project, save, and stream round trips.
+It adds no saved bank member and no format version change.
+
 This fixture does not change any default layout or controller setting.
 Independent gates do not establish a service improvement.
 A diagnosis of the earlier Rail Hub workload (24 passengers for each event, 288 offers) shows that 77% to 79% of sampled pending request time has no eligible pod selected.

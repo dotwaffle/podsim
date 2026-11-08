@@ -496,6 +496,36 @@ Report assertion failures separately from parser rejection, byte overflow, watch
 Do not claim a completed full-repository race from scoped checks.
 Keep source pins and the mutation table with the resulting qualification evidence.
 
+### London Express amendments
+
+The maintainer approved amendments E1 to E6 and E8 on November 7, 2026, and amendment E7 on November 8, 2026.
+The [Express London qualification proposal](express-london-qualification-proposal.md) records the evidence.
+
+- E1, Foundation parity: qualification includes the opt-in preset `london-full-express`.
+  Ordinary LondonFull, its fleet, and its defaults do not change.
+  Idle Express pods keep their current behavior.
+- E2, Route and station eligibility, and Physical geometry: D has banks at Waterloo and Bank, dedicated Express lanes, and separate Express-only parking that is not a depot.
+  Qualification covers every bank berth and both parking directions.
+  The current geometry and class rules stay.
+- E3, Motion and ownership, and Independent safety oracle: the oracle checks the mixed fleet of D at each tick, including fault stops and emergency journeys.
+  The indexed envelope construction must give the same locations, in the same order, as the reference construction in the tests.
+- E4, Physical restore, and Rejection and disabled policies: each planned D checkpoint restores at the physical tier with no demotion, requeue, drop, or interruption.
+  A restored route distance may differ from the saved value by at most `restoreTolerance`, and all other saved pod members are equal.
+  Speed resets and rebuilt forward grants are reported apart.
+  After a restore with the policies off, the current members finish and no new member forms.
+- E5, Save bytes and shape: use the current formats and Express limits.
+  Prove the bounds of the save, the full stream, the replacement delta, the HTTP state, the topology, and the gzip expansion with the current adapters.
+  Include mixed-fleet, bank, incident, and emergency members.
+  A bound over a cap needs a new decision.
+- E6, Stream and public consumers: qualify D through the Go remote client, HTTP, WebSocket, WASM, and desktop Chrome.
+  Cover loads of 12, 13, and 20 riders, topology replacement, sequence recovery, and atomic rejection.
+  The maintainer does the Chrome check.
+- E7, Resource and consumer cost: measure D, ordinary LondonFull, and D without its Express pods.
+  Report CPU, peak resident memory, GC, retained frames, network rate, and browser responsiveness.
+  Wire size does not bound decoded memory.
+- E8, Orders and registry, and Storage and recovery: use the current limits: 600 pods under `express-v1`, 17,000 pending and outstanding orders, and 20 stored Express riders for each pod.
+  Keep whole-party admission, immutable service identity, history rollover, and conservation over repeated recovery.
+
 ## Browser and offline authoring
 
 Keep the browser file wrapper `format: "podsim", version: 1`.

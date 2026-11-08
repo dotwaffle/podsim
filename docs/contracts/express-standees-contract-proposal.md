@@ -456,6 +456,10 @@ Decision 9 records this.
 | Fault | A fault on Express at speed brakes at most 1.15 × dt and stops by `faultCap`. |
 | Restore and stream | Express restore at each activity, full frames and deltas, and the browser game page. |
 
+Amendment S1, approved by the maintainer on November 7, 2026: run the Fault, Dwell, and Restore and stream rows again on project D of the [Express London qualification proposal](express-london-qualification-proposal.md), with standees, mixed traffic, both hub banks, and emergencies.
+The current class motion and dwell bounds apply.
+The `rail-hub` evidence does not qualify London.
+
 | Mutation of part 1 | Expected kill |
 | --- | --- |
 | A check stays on `Seats` at `internal/session/stream_service.go:218` | Stream with 13 aboard. |

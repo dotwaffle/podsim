@@ -2,8 +2,9 @@
 
 Status: proposed on November 7, 2026.
 On November 7, 2026, the maintainer approved rows E1 to E6, E8, S1, A15 to A18, and B1.
-Row E7 is held until the cause of the extra server CPU of D is known.
-D is not qualified until row E7 is approved and the open checks of rows E6 and E7 pass.
+On November 8, 2026, the maintainer approved row E7, after the bank routing work below.
+The approved rows are in the physical contract, the standee contract, the stage 7 contract, and the station banks document.
+D is not qualified until the Chrome check of row E6 and the browser readings of row E7 pass.
 
 ## Scope
 

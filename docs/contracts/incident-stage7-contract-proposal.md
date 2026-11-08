@@ -236,6 +236,14 @@ They differ from the marker contract totals by 33 bytes in a save and by 173 byt
 The project member is unchanged in these proofs, because the fixture pads the project to its independent cap.
 A delta still has no byte proof, and Express still has no byte proof.
 Stage 7 adds the same few bytes to an Express file, and its headroom is not known.
+Status 2026-11-08, by amendment A18: the Express proofs in `internal/session/express_byte_proof_test.go` pass, from commits `c0b272a6` and `20971dd2`.
+
+| Express proof | Format | Measured | Cap | Headroom |
+| --- | --- | ---: | ---: | ---: |
+| `TestExpressStateFileWorstCaseSize` | Saved state | 105,174,023 | 134,217,728 | 29,043,705 |
+| `TestExpressStreamMaximumEncoding` | Full stream | 37,270,755 | 67,108,864 | 29,838,109 |
+| `TestExpressStreamMaximumEncoding` | Replacement delta | 37,316,293 | 67,108,864 | 29,792,571 |
+| `TestExpressStreamMaximumEncoding` | HTTP state | 70,826,933 | 134,217,728 | 63,390,795 |
 
 ### 4.5 Command digests
 
@@ -620,6 +628,19 @@ Each incident branch runs for 1.5 simulated hours before the clear and keeps the
 Both arm names are selectable through `PODSIM_SOAK_ARMS`.
 The queue half cannot fail at preset demand because the reference queue reaches the cap of 200.
 `docs/studies/incident-soak.md`, section "Queue check at low demand", records all 10 branches inside the window at 1 order/min.
+
+Amendment A15, approved by the maintainer on 2026-11-07: the Safety, Contract, Conservation, Progress, Persistence, and Sampler soak rows add project D of the [Express London qualification proposal](express-london-qualification-proposal.md) as a named project, with the branch shape in its section "London soak row".
+The A10 checks and rule A with A13 apply.
+The Rail row does not apply to D.
+
+Amendment A16, approved by the maintainer on 2026-11-07: the CI soak adds a case of one simulated hour on D with the full check at each tick.
+Before a release tag, A12 also runs D for 5 seeds of 6 simulated hours and a clear of 30 minutes, with the full check at each tick.
+
+Amendment A17, approved by the maintainer on 2026-11-07: the Performance, Sampled-tick latency, Worst choice tick, and Web rows add D to the measurements that apply.
+A7, A11, and the current latency limits stay.
+
+Amendment A18, approved by the maintainer on 2026-11-07: for the Formats row and A4, Express stays unproved until the Express byte proof of amendment E5 of the physical contract passes.
+When it passes, its source and its margins are recorded next to the plain proofs.
 
 Amendments, each for a separate answer in section 8:
 
