@@ -124,7 +124,11 @@ func checkExpressRemoteRecovery(t *testing.T, config project.Config) {
 			if err = conn.Write(r.Context(), websocket.MessageBinary, message); err != nil {
 				return
 			}
-			ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+			// The timeouts guard against a hang. The client closes the
+			// connection when it refuses a message, so a passing run does not
+			// wait for them, and a full frame of the London Express preset
+			// takes more than 2 s to decode under the race detector.
+			ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 			_, body, readErr := conn.Read(ctx)
 			cancel()
 			if readErr != nil {
@@ -146,7 +150,7 @@ func checkExpressRemoteRecovery(t *testing.T, config project.Config) {
 	t.Cleanup(server.Close)
 	client := &Client{url: server.URL, http: server.Client(), build: frame.State.Build}
 	receive := func() error {
-		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(t.Context(), 60*time.Second)
 		defer cancel()
 		return client.receiveStream(ctx)
 	}
