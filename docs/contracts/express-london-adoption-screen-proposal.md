@@ -296,3 +296,31 @@ The probe does not show why dispatch in `D` sent a pod from so far away while ot
 So `D` serves 85 to 92 percent of the matched requests faster, but about 2 percent of the requests wait longer than the limit, with a median excess of 86 to 250 s in each pair and up to 1,151 s.
 The [numerical limits](../design/experimental-adoption.md#numerical-limits) keep the individual limits to reject exactly such regressions of hundreds of seconds, and the design does not allow a change of a limit after a failed result.
 So the screen result stands.
+
+### Study of the dispatch choice in `D`
+
+The maintainer asked why dispatch in `D` sends a pod from far away while other pods are idle, with no change to the gates or the simulation.
+A scratch probe ran `pm-peak` seed 2 at `82e030fa` and recorded, at each tick, the dispatch reason of each pending background request and the idle Compact pods when dispatch first assigned a pod.
+
+Two causes add up.
+
+- No idle pod is near.
+  When dispatch assigned a pod to one of the 21 failing requests, the nearest free idle Compact pod was 2.1 to 5.7 km away for 16 of them, and 0.4 to 1.9 km away for the other 5.
+  For all the matched requests of `D`, the median distance to the nearest free idle Compact pod is 2.8 km.
+  The idle pods are on the edge of the network, far from the demand:
+
+  | Distance from Charing Cross | Passenger stations | Background requests from minute 15 | Mean idle Compact pods |
+  | --- | --- | --- | --- |
+  | Less than 3 km | 46 | 424 | 1.1 |
+  | 3 to 6 km | 56 | 223 | 6.8 |
+  | 6 to 10 km | 74 | 209 | 45.5 |
+  | More than 10 km | 133 | 126 | 133.0 |
+
+- Dispatch first waits for a busy pod.
+  18 of the 21 failing requests waited 30 s, and 1 waited 10 s, for a busy pod that should finish first, with the `current` [wait rule](../model.md#wait-rules), and then the idle pod went.
+  With the same events, `D` has 21 failures at the other stations with the `current` rule, 13 with the `strict` rule, and 11 with the `none` rule.
+  `LF` used the `current` rule in each run, and the probe did not run `LF` with the other rules.
+
+`D` carries less load than `LF`, so the pods become idle where the trips end, mostly far from the center, and redistribution does not bring enough of them back.
+`LF` has no idle pods, so a pod that finishes a trip in the center takes the next request there.
+The wait rule and redistribution are shared policies of all projects, so a change to either is a separate decision for each configuration, with its own evidence.
