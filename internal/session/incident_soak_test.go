@@ -1427,26 +1427,32 @@ func runSoakGroup(t *testing.T, input soakInput, shape soakShape, reference stri
 }
 
 // TestIncidentSoakCI is the CI soak of section 5.1.9: 1 seed for 1 simulated
-// hour, with the sampler only, on the rail-hub preset, and with the full check at
-// each tick. The row names no preset,
-// and a London run takes an estimated 20 to 30 CPU minutes
+// hour, with the sampler only, and with the full check at each tick. It runs
+// on the rail-hub preset, and amendment A16 adds the London Express preset,
+// with its hub party orders. The row names no preset, and a london-central
+// run takes an estimated 20 to 30 CPU minutes
 // (docs/studies/incident-soak.md), too long for one job of the qualify task.
 // mise run qualify runs this test.
 func TestIncidentSoakCI(t *testing.T) {
+	t.Parallel()
 	if os.Getenv("PODSIM_QUALIFY") != "1" {
 		t.Skip("the CI soak runs only in mise run qualify (PODSIM_QUALIFY=1)")
 	}
 	if testing.Short() || raceEnabled {
 		t.Skip("one simulation on one goroutine, so the race detector finds nothing, and a long test")
 	}
-	const preset = "rail-hub"
-	reference := runSoak(t, soakInput{preset: preset, arm: soakArms["reference"], seed: 1, hours: 1})
-	run := runSoak(t, soakInput{preset: preset, arm: soakArms["ci"], seed: 1, hours: 1, checks: true, everyTick: true, queue: &reference.queue})
-	if ticks := int(run.ticks); run.fullChecks < ticks {
-		t.Errorf("%d ticks have %d full checks", ticks, run.fullChecks)
-	}
-	if counters := run.state.Faults.Counters; counters.Sampled == 0 || run.state.Emergencies.Counters.Sampled == 0 {
-		t.Errorf("the soak samples no event: %+v, %+v", counters, run.state.Emergencies.Counters)
+	for _, preset := range []string{"rail-hub", soakLondonExpressPreset} {
+		t.Run(preset, func(t *testing.T) {
+			t.Parallel()
+			reference := runSoak(t, soakInput{preset: preset, arm: soakArms["reference"], seed: 1, hours: 1})
+			run := runSoak(t, soakInput{preset: preset, arm: soakArms["ci"], seed: 1, hours: 1, checks: true, everyTick: true, queue: &reference.queue})
+			if ticks := int(run.ticks); run.fullChecks < ticks {
+				t.Errorf("%d ticks have %d full checks", ticks, run.fullChecks)
+			}
+			if counters := run.state.Faults.Counters; counters.Sampled == 0 || run.state.Emergencies.Counters.Sampled == 0 {
+				t.Errorf("the soak samples no event: %+v, %+v", counters, run.state.Emergencies.Counters)
+			}
+		})
 	}
 }
 

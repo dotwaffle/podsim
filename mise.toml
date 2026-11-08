@@ -193,10 +193,12 @@ description = "Run the soak of amendment A6 with the full check at each tick, wh
 # of the soak task stays at 2 hours, so this run can end cut. Amendment A6 counts
 # only the completed seeds, and the file lists them. Each run has its own file,
 # so a run that does not get the lock leaves the record of the run that holds it.
+# Amendment A16 adds the London Express preset to the default presets.
 run = '''
 finished="${PODSIM_SOAK_FINISHED:-$(mktemp /tmp/podsim-soak-finished.XXXXXX)}"
 status=0
-PODSIM_SOAK_FINISHED="$finished" PODSIM_SOAK_SHAPE=seeds PODSIM_SOAK_EVERY_TICK=1 mise run soak || status=$?
+PODSIM_SOAK_FINISHED="$finished" PODSIM_SOAK_SHAPE=seeds PODSIM_SOAK_EVERY_TICK=1 \
+  PODSIM_SOAK_PRESETS="${PODSIM_SOAK_PRESETS:-rail-hub,london-central,london-full-express}" mise run soak || status=$?
 echo "seeds that finished, the only seeds that count, from $finished (exit status $status):"
 cat "$finished"
 exit "$status"

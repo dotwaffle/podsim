@@ -979,8 +979,8 @@ Select both names through `PODSIM_SOAK_ARMS` to run only this group with its que
 The checks run at the stride of amendment A10: the full check runs at each simulated second and at each event.
 Use `mise run soak:full` before a release tag.
 After a change to dispatch, routing, or the fault and emergency state machines, use `mise run soak` and `mise run qualify`, which runs `TestIncidentSoakCI`.
-The CI soak runs one seed for one simulated hour on `rail-hub`, with the full check at each tick.
-The `soak:full` task runs 5 seeds of 6 simulated hours with the full check at each tick.
+The CI soak runs one seed for one simulated hour on `rail-hub` and on `london-full-express`, with the full check at each tick.
+The `soak:full` task runs 5 seeds of 6 simulated hours with the full check at each tick, on `rail-hub`, `london-central`, and `london-full-express` unless `PODSIM_SOAK_PRESETS` names others.
 On `london-central` and `london-full-express`, it runs no platoon arm, because these presets already set the platoon limit of those arms.
 This run keeps the wall limit of 2 hours, so it can end cut, before each seed finishes.
 A run that the limit stops counts only its completed seeds.
