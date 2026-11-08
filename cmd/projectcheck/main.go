@@ -86,6 +86,17 @@ func command(args []string, stdout io.Writer) error {
 	if err := project.Validate(config); err != nil {
 		return fmt.Errorf("validate project: %w", err)
 	}
+	if gaps := project.ParkingGaps(config); len(gaps) > 0 {
+		gap := gaps[0]
+		direction := "to and from parking"
+		switch {
+		case gap.ToParking:
+			direction = "from parking"
+		case gap.FromParking:
+			direction = "to parking"
+		}
+		return fmt.Errorf("parking routes: %d berths have a gap, the first is berth %s of station %s, with no %s route %s", len(gaps), gap.BerthID, gap.StationID, gap.Class, direction)
+	}
 	if _, err := fmt.Fprintf(stdout, "Valid project %q: version %d, %d stations, %d lanes, %d pods.\nStatic project checks only. Simulation not advanced.\n",
 		config.Name, config.Version, len(config.Network.Stations), len(config.Network.Lanes), len(config.Fleet)); err != nil {
 		return fmt.Errorf("write project summary: %w", err)

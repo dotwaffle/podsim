@@ -48,3 +48,32 @@ func TestPassengerRoutesMatchReferenceOnPresets(t *testing.T) {
 		})
 	}
 }
+
+// TestPresetsHaveNoParkingGaps checks that a pod of each class of the
+// fleet of each preset has a route to and from parking from each berth
+// that accepts the class.
+func TestPresetsHaveNoParkingGaps(t *testing.T) {
+	t.Parallel()
+	for _, preset := range []struct {
+		name   string
+		config func() project.Config
+	}{
+		{name: "default", config: project.Default},
+		{name: "small", config: scenarios.Small},
+		{name: "busy", config: scenarios.Busy},
+		{name: "parking-constrained", config: scenarios.ParkingConstrained},
+		{name: "rail-hub", config: scenarios.RailHub},
+		{name: "rail-hub-incidents", config: scenarios.RailHubIncidents},
+		{name: "scale100", config: scenarios.Scale100},
+		{name: "london", config: scenarios.LondonCentral},
+		{name: "london-full", config: scenarios.LondonFull},
+		{name: "london-full-express", config: scenarios.LondonFullExpress},
+	} {
+		t.Run(preset.name, func(t *testing.T) {
+			t.Parallel()
+			if gaps := project.ParkingGaps(preset.config()); len(gaps) != 0 {
+				t.Fatalf("%d gaps, the first %+v", len(gaps), gaps[0])
+			}
+		})
+	}
+}
