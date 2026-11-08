@@ -250,3 +250,21 @@ So the requests from Bank over the limit come from the hub stream of `LF`, not f
 `LF` uses the hub parties to bring Compact pods to Bank, and the per-request gates compare each request from Bank against that supply.
 `D` takes the hub parties off the Compact fleet by design, so the bank choice and the parking cannot give this supply.
 A rule that holds Compact pods at Bank could, but that is a separate simulation decision.
+
+### Over-limit requests by origin
+
+To size a gate amendment for the hub stations, a scratch probe ran the 6 pairs again at `785b3968` and counted the requests over the limits by origin.
+Its totals are the same as the screen.
+
+| Pair | Bank: matched, wait over, journey over | Waterloo | Other stations |
+| --- | --- | --- | --- |
+| `pm-peak` seed 1 | 36, 5, 3 | 22, 0, 0 | 1,065, 22, 12 |
+| `pm-peak` seed 2 | 44, 12, 12 | 34, 0, 0 | 1,055, 21, 15 |
+| `pm-peak` seed 3 | 38, 4, 5 | 35, 0, 0 | 1,031, 28, 21 |
+| `morning` seed 1 | 2, 0, 0 | 10, 0, 0 | 1,037, 23, 22 |
+| `morning` seed 2 | 1, 0, 0 | 10, 0, 0 | 1,026, 21, 15 |
+| `morning` seed 3 | 5, 0, 0 | 19, 0, 0 | 1,024, 16, 15 |
+
+Bank gives 21 of the 152 requests over the wait limit and 20 of the 120 over the journey limit.
+The rate at Bank is high, but most failures come from the other stations, at about 2 percent of their requests, in each pair.
+So a rule for the hub stations alone does not change the result of any pair, and the cause of the failures at the other stations is still open.
