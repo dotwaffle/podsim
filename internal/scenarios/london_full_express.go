@@ -295,7 +295,8 @@ func connectExpress(n *sim.Network, id, from, to string, classes sim.ClassSet) {
 
 // branchExpressBank joins the second bank of station id to the Express
 // trunks. At Waterloo it also joins the parking trunks to the trunks between
-// the hubs, in both directions.
+// the hubs, in both directions, and the second bank to the parking trunks,
+// so that an Express pod can park from each berth of Waterloo.
 func branchExpressBank(n *sim.Network, id string, classes sim.ClassSet) {
 	incoming, outgoing := "xp-route-0", "xp-route-1"
 	if id == expressWaterloo {
@@ -316,6 +317,8 @@ func branchExpressBank(n *sim.Network, id string, classes sim.ClassSet) {
 	if id == expressWaterloo {
 		connectExpress(n, id+"-parking-link", nearestTrunkNode(n, "xp-route-2", entry.Position), nearestTrunkNode(n, "xp-route-0", entry.Position), classes)
 		connectExpress(n, id+"-parking-return", nearestTrunkNode(n, "xp-route-1", entry.Position), nearestTrunkNode(n, "xp-route-3", entry.Position), classes)
+		connectExpress(n, id+"-b-parking-out", exit.ID, nearestTrunkNode(n, "xp-route-3", exit.Position), classes)
+		connectExpress(n, id+"-b-parking-in", nearestTrunkNode(n, "xp-route-2", entry.Position), entry.ID, classes)
 	}
 }
 

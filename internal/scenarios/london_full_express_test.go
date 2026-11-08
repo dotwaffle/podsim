@@ -50,7 +50,7 @@ func TestLondonFullExpress(t *testing.T) {
 }
 
 // TestLondonFullExpressRoutes checks that an Express pod has a route from
-// parking to Waterloo and back, from Bank back to parking, and from each hub
+// parking to each bank of each hub and back, and from each bank of each hub
 // to each bank of the other hub.
 func TestLondonFullExpressRoutes(t *testing.T) {
 	t.Parallel()
@@ -63,7 +63,12 @@ func TestLondonFullExpressRoutes(t *testing.T) {
 		return s
 	}
 	parking, waterloo, bank := station(expressParking), station(expressWaterloo), station(expressBank)
-	pairs := [][2]string{{parking.Exit, waterloo.Entry}, {waterloo.Exit, parking.Entry}, {bank.Exit, parking.Entry}}
+	var pairs [][2]string
+	for _, hub := range []sim.Station{waterloo, bank} {
+		for _, b := range hub.Banks {
+			pairs = append(pairs, [2]string{parking.Exit, b.Entry}, [2]string{b.Exit, parking.Entry})
+		}
+	}
 	for _, hubs := range [][2]sim.Station{{waterloo, bank}, {bank, waterloo}} {
 		if len(hubs[1].Banks) != 2 {
 			t.Fatalf("%s has %d banks", hubs[1].ID, len(hubs[1].Banks))

@@ -461,6 +461,7 @@ On either London preset, `-parking-lanes 0 -compact-stations none` gives ordinar
 The `london-full-express` preset is project D of the [Express hub fixture](studies/express-hub-fixture.md), under the `express-v1` order contract.
 Waterloo keeps 3 berths in its first bank and Bank keeps 2, and each has a second bank of 2 berths.
 The 16 Express pods start at `express-parking`, a parking station east of North London Parking that only Express pods use and that is not a depot.
+Each bank of Waterloo and Bank has Express routes to and from `express-parking`.
 Generated demand does not choose an Express service, so the services carry only the trip orders that choose them.
 The preset is opt-in, and the [qualification proposal](contracts/express-london-qualification-proposal.md) gives its status.
 
