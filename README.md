@@ -160,6 +160,7 @@ An approved contract in `docs/contracts/` is binding, and each document gives it
 | [Incident stage 7](docs/contracts/incident-stage7-contract-proposal.md) | Random faults and emergencies. Implemented. The soak of amendment A6 ran, and its Progress row missed. The Suspension median row passes amendment A7. |
 | [Express London qualification](docs/contracts/express-london-qualification-proposal.md) | Qualification of the banked LondonFull Express project D as an opt-in preset. Rows approved; the browser checks are open. |
 | [Express London adoption screen](docs/contracts/express-london-adoption-screen-proposal.md) | A capped screen of D against LondonFull, before any full adoption matrix. Approved; the runner and the pilot come first. |
+| [Berth claim deadlock](docs/contracts/berth-claim-deadlock-proposal.md) | An empty move that claims a berth behind unclaimed pickups on one access lane stalls for good. A draft with options for the maintainer. |
 
 ### Designs
 
