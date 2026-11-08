@@ -230,3 +230,23 @@ Compact pods do not wait behind Express pods at Bank.
 The failures come from requests that `LF` serves with an idle pod at Bank, while `D` has almost no idle Compact pod there: Compact pods use the berths of Bank less than 2 percent of the time.
 The per-request gates count these requests, although `D` serves Bank faster on average.
 The study does not show why `D` keeps no idle Compact pod at Bank.
+
+### Study of the Compact pods at Bank
+
+The maintainer asked why `D` has no idle Compact pod at Bank, with no change to the gates or the simulation.
+A scratch probe ran `LF` and `D` on `pm-peak` seed 1 at `530065df` and sampled each Compact pod at a berth of Bank each 5 s of the arrivals.
+
+| Arm | Compact unloads at Bank | Mean idle Compact pods at Bank | Idle periods |
+| --- | --- | --- | --- |
+| `LF` | 164 | 0.01 | 5 |
+| `D` | 4 | 0.00 | 1 |
+
+Neither arm keeps idle pods at Bank.
+In `LF`, the runner splits the hub parties to Bank into Compact orders, so Compact pods unload at Bank 164 times in 2 hours.
+Such a pod is at Bank when a background request from Bank comes in, so it serves the request with no travel, and it is idle for 10 s or less, if at all.
+In `D`, Express pods carry the hub parties, so Compact pods unload at Bank only 4 times, and each request from Bank needs a pod from another place.
+
+So the requests from Bank over the limit come from the hub stream of `LF`, not from a fault of `D`.
+`LF` uses the hub parties to bring Compact pods to Bank, and the per-request gates compare each request from Bank against that supply.
+`D` takes the hub parties off the Compact fleet by design, so the bank choice and the parking cannot give this supply.
+A rule that holds Compact pods at Bank could, but that is a separate simulation decision.
