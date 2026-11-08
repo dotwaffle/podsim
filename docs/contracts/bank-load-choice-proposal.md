@@ -1,7 +1,7 @@
 # Bank load choice proposal
 
-Status: draft of November 8, 2026, for the maintainer.
-No simulation change is made until the maintainer approves it.
+Status: drafted on November 8, 2026.
+The maintainer chose option A with a margin of 60 s on November 8, 2026, to confirm after the pilot.
 
 ## Problem
 
