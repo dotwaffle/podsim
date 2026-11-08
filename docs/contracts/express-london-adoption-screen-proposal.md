@@ -170,7 +170,16 @@ An Express hub trip can end at Waterloo bank `b`, and then the empty Express pod
 When a Compact pod needs the berth, the only place that the Express pod can go is a berth of Bank.
 An empty move reserves its berth when it starts, so 4 such moves can reach the access lane of Bank bank `b` in an order that is not the order of their reservations, which gives the first stall.
 When the berths of Bank are full, the Express pod stays at Waterloo, which gives the second stall.
-A change to the geometry, the berth classes, or the release of a blocker is a change to the approved qualification, so it waits for the maintainer.
+The maintainer chose to add Express links between Waterloo bank `b` and Express parking, and `1f721a5c` adds them.
+The [berth claim deadlock proposal](berth-claim-deadlock-proposal.md) gives the rule that made the first stall permanent.
+
+### Rerun on the fixed geometry
+
+The full screen ran again on November 8, 2026, at `1f721a5c`, in 32 minutes.
+`D` finishes each accepted order in all 6 runs, so it passes the recovery gate.
+It still fails the background wait gate, with 14 to 34 requests over the limit, and the background journey gate, with 13 to 25, in each pair.
+The other gates and the hub results do not change, and `D0` does not change, because it has no Express pods.
+So the screen still fails, and the work on D adoption stays stopped.
 
 ### Probe of `D` at a higher load
 
