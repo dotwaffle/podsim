@@ -67,3 +67,27 @@ A margin of 90 s covers each origin of both hubs, but then a load difference of 
 1. Choose an option: A (recommended), B, C, or no change.
 2. For option A, approve a margin of 60 s, to confirm after the pilot.
 3. Approve the change of the bank rule in `docs/station-banks.md` that the option needs.
+
+## Result
+
+Commit `4b151fbd` adds the rule with a margin of 60 s.
+`TestBankEntryLoadMargin` fails on the earlier rule, and on mutations that remove the margin, the load, or the cost order.
+At `4b151fbd`, `test:race:sim`, the routine soak (0 late and 0 demoted runs), and `TestIncidentSoakCI` pass.
+
+The full adoption screen gives almost the same counts as before.
+`D` passes the recovery gate in all 6 pairs, and fails the background wait gate with 16 to 33 requests over the limit, 152 in total against 150 before.
+It fails the background journey gate with 15 to 27, 120 in total against 119 before.
+So the screen still fails.
+
+A scratch probe sampled the berths of Bank and Waterloo each 10 s of the arrivals in `D`, `pm-peak` seed 1, with the margin at 60 s and at 0 s, which is the earlier rule.
+
+| Berths | Express, earlier rule | Express, new rule | Compact, both rules |
+| --- | --- | --- | --- |
+| Bank `01`, `02` | 34 and 36 percent | 25 and 21 percent | at most 0.7 percent |
+| Bank `b01`, `b02` | 0 percent | 23 and 21 percent | at most 1.1 percent |
+| Waterloo `01` to `03` | 3 percent each | 8 to 15 percent | 1.5 to 6.4 percent |
+| Waterloo `b01`, `b02` | 31 and 25 percent | 18 and 15 percent | 0.4 to 3.5 percent |
+
+The rule spreads the Express pods over both banks of each hub, as intended.
+But Compact pods use the berths of Bank less than 2 percent of the time with either rule, so the berths of Bank are not what delays the Compact requests from Bank.
+The cause of the slow requests from Bank is still open.
