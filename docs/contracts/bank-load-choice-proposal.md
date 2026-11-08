@@ -20,7 +20,8 @@ Each route that the rule gives still uses the bank routing and the checks that i
 
 ## Options
 
-The load of a bank is the minimum `berthLoad` of its berths that the class and the filter accept, as in the tie break now: the number of moving pods that go to that berth.
+The load of a bank is the minimum `berthLoad` of its berths that the class and the filter accept, as in the tie break now.
+`berthLoad` counts the moving pods that go to the berth, the waiting trips for it, and the owners of the berth and its node.
 
 | Option | Rule | For | Against |
 | --- | --- | --- | --- |
@@ -31,8 +32,7 @@ The load of a bank is the minimum `berthLoad` of its berths that the class and t
 The recommendation is option A, with a margin of 60 s of free-flow time, the journey floor of the adoption limits.
 The pilot below measures the cost difference between the banks of Bank and Waterloo, and the margin comes back for approval if 60 s does not cover it.
 
-The load counts moving pods only.
-An idle pod at a berth does not count, because the blocker clear moves it when another pod needs the berth.
+An idle pod at a berth with no claim does not count, because the blocker clear moves it when another pod needs the berth.
 A pod that unloads or boards at a berth counts, because it is not idle.
 
 ## Evidence
@@ -45,6 +45,22 @@ A pod that unloads or boards at a berth counts, because it is not idle.
 
 The screen result is for information.
 It does not change the stop on D adoption by itself, and a new adoption step needs its own decision.
+
+## Pilot
+
+The pilot measured the free-flow approach cost of each bank on the `D` network at `0dafa9a9`, from the exit of each passenger station, with the cost rule of `stationBankEntryOn`.
+The gap is the cost of the dearer bank less the cost of the cheaper bank.
+
+| Hub | Class | Origins | Wins of `a` and `b` | Gap p25, p50, p75, max (s) | Gaps of at most 60 s |
+| --- | --- | --- | --- | --- | --- |
+| Bank | Compact | 308 | 175 and 133 | 18.6, 47.9, 77.8, 80.5 | 195 |
+| Bank | Express | 1 (Waterloo) | 1 and 0 | 26.1 | 1 |
+| Waterloo | Compact | 308 | 190 and 118 | 76.3, 76.3, 79.6, 87.8 | 3 |
+| Waterloo | Express | 1 (Bank) | 0 and 1 | 16.0 | 1 |
+
+A margin of 60 s covers the Express approach to Bank, where Express pods hold bank `a`.
+It does not cover the 3 nearest Compact origins of Bank (Cannon Street, Mansion House, and St. Paul's), with gaps of 74.5 s to 80.5 s, or almost any Compact origin of Waterloo.
+A margin of 90 s covers each origin of both hubs, but then a load difference of 1 can add up to 88 s of travel.
 
 ## Decisions for the maintainer
 
