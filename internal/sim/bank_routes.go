@@ -362,45 +362,127 @@ func (n Network) bankNearest(input preferredNearestInput, graph routeGraph) (int
 	if !ok || graph.banks.err != nil {
 		return -1, false
 	}
-	best, seconds := -1, math.Inf(1)
 	// A search reads none of the work of the search before it, and the
 	// counters of this work reach no simulation.
 	work := takeBankSearchWork()
 	defer bankSearchWork.Put(work)
-	// A reverse call has a different origin for each candidate, so its routes
-	// share no prefix.
-	var terminal, open *bankRouteParts
-	if !input.reverse {
-		terminal = &bankRouteParts{middle: make([]bankRoutePart, len(graph.banks.banks))}
-		open = &bankRouteParts{middle: make([]bankRoutePart, len(graph.banks.banks))}
-		defer terminal.release()
-		defer open.release()
+	if input.reverse {
+		return n.bankNearestReverse(input, origin, graph, work)
 	}
+	best, bestRank, seconds := -1, 0, math.Inf(1)
+	terminal := &bankRouteParts{middle: make([]bankRoutePart, len(graph.banks.banks))}
+	open := &bankRouteParts{middle: make([]bankRoutePart, len(graph.banks.banks))}
+	defer terminal.release()
+	defer open.release()
 	for node, rank := range input.rank {
 		if rank < 0 {
 			continue
 		}
-		from, to := origin, node
-		if input.reverse {
-			from, to = to, from
-		}
-		path, err := n.bankPathNodes(networkRouteInput{terminalBerthsOnly: true, class: input.class, parts: terminal}, from, to, graph, work)
-		if errors.Is(err, ErrUnreachable) {
-			path, err = n.bankPathNodes(networkRouteInput{class: input.class, parts: open}, from, to, graph, work)
-		}
-		if err != nil {
-			continue
-		}
-		cost := 0.0
-		for _, lane := range path {
-			cost += graph.edges[lane].seconds
-		}
-		if input.limit > 0 && cost > input.limit {
-			continue
-		}
-		if best < 0 || cost < seconds || cost == seconds && rank < input.rank[best] {
-			best, seconds = node, cost
+		cost, ok := n.bankNearestCost(bankNearestSearch{input: input, from: origin, to: node, terminal: terminal, open: open}, graph, work)
+		if ok && nearer(cost, rank, node, seconds, bestRank, best) {
+			best, bestRank, seconds = node, rank, cost
 		}
 	}
+	return best, best >= 0
+}
+
+// bankNearestSearch is one candidate route of bankNearest, from node from to
+// node to. terminal and open are the shared parts of the searches with and
+// without the terminal-berth rule, or nil.
+type bankNearestSearch struct {
+	input          preferredNearestInput
+	from, to       int
+	terminal, open *bankRouteParts
+}
+
+// bankNearestCost returns the free-flow cost of the route of search, the
+// search with the terminal-berth rule first and the search without it when
+// that one finds no route. It reports false when no route exists or the
+// cost passes the limit of the input.
+func (n Network) bankNearestCost(search bankNearestSearch, graph routeGraph, work *routeSearchWork) (float64, bool) {
+	class := search.input.class
+	path, err := n.bankPathNodes(networkRouteInput{terminalBerthsOnly: true, class: class, parts: search.terminal}, search.from, search.to, graph, work)
+	if errors.Is(err, ErrUnreachable) {
+		path, err = n.bankPathNodes(networkRouteInput{class: class, parts: search.open}, search.from, search.to, graph, work)
+	}
+	if err != nil {
+		return 0, false
+	}
+	cost := 0.0
+	for _, lane := range path {
+		cost += graph.edges[lane].seconds
+	}
+	if search.input.limit > 0 && cost > search.input.limit {
+		return 0, false
+	}
+	return cost, true
+}
+
+// nearer reports whether a candidate at node with cost and rank goes before
+// the best candidate so far. A lower cost goes first, then a lower rank, and
+// then a lower node index, which is the order of the candidates of a scan in
+// node order. A negative best has no candidate.
+func nearer(cost float64, rank, node int, bestCost float64, bestRank, best int) bool {
+	if best < 0 || cost != bestCost {
+		return best < 0 || cost < bestCost
+	}
+	return rank < bestRank || rank == bestRank && node < best
+}
+
+// boundSlack is the relative margin of the lower bounds of
+// bankNearestReverse. A bound and a route cost add the same lane costs in a
+// different order, so their rounding can differ by much less than this.
+const boundSlack = 1e-9
+
+// bankNearestReverse is bankNearest for a reverse call, whose candidates are
+// the origins of routes to node to. The routes share no prefix, so each
+// candidate needs its own search. A search from to along the lanes in reverse,
+// with the class and the blocked lanes but no bank rule, gives each node a
+// lower bound of the cost of its route, because each route uses only such
+// lanes. It settles the candidates in the order of their bounds, and each
+// settled candidate gets its route search. A candidate whose bound passes the
+// best cost or the limit cannot win, and nor can the candidates after it, so
+// the search stops there.
+func (n Network) bankNearestReverse(input preferredNearestInput, to int, graph routeGraph, work *routeSearchWork) (int, bool) {
+	bounds := takeBankSearchWork()
+	defer bankSearchWork.Put(bounds)
+	bounds.reset(len(n.Nodes))
+	distance, previous, visited := bounds.distance, bounds.previous, bounds.visited
+	distance[to] = 0
+	bounds.touched = append(bounds.touched, to)
+	bounds.queue = append(bounds.queue, routeQueueItem{node: to})
+	queue := bounds.queue
+	best, bestRank, seconds := -1, 0, math.Inf(1)
+	for len(queue) > 0 {
+		item := queue.pop()
+		if visited[item.node] || item.distance != distance[item.node] {
+			continue
+		}
+		bound := item.distance * (1 - boundSlack)
+		if best >= 0 && bound > seconds || input.limit > 0 && bound > input.limit {
+			break
+		}
+		visited[item.node] = true
+		if rank := input.rank[item.node]; rank >= 0 {
+			cost, ok := n.bankNearestCost(bankNearestSearch{input: input, from: item.node, to: to}, graph, work)
+			if ok && nearer(cost, rank, item.node, seconds, bestRank, best) {
+				best, bestRank, seconds = item.node, rank, cost
+			}
+		}
+		for _, laneIndex := range graph.incoming[item.node] {
+			edge := graph.edges[laneIndex]
+			if !graph.laneAllows(laneIndex, input.class) || !graph.laneOpen(laneIndex) {
+				continue
+			}
+			if candidate := item.distance + edge.seconds; candidate < distance[edge.from] {
+				if previous[edge.from] < 0 {
+					bounds.touched = append(bounds.touched, edge.from)
+				}
+				distance[edge.from], previous[edge.from] = candidate, laneIndex
+				queue.push(routeQueueItem{node: edge.from, distance: candidate})
+			}
+		}
+	}
+	bounds.queue = queue[:0]
 	return best, best >= 0
 }
