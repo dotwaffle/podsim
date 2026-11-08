@@ -162,3 +162,12 @@ No safety or contract check reports them.
   The first of them waits for the berth, and it names as the holder of the berth a pod that is behind it in the same queue.
 - `morning` seed 3: a Compact pod with a rider to Waterloo waits at the end of the access lane of berth `b01` of Waterloo, with the reason "No parking available".
   An Express pod with the state Ready holds that berth and does not leave it.
+
+### Probe of `D` at a higher load
+
+The maintainer asked whether `D` can get the block of `D0` at a higher Compact load.
+A probe ran `LF` and `D` on the busy band with seeds 1 to 3, at 15, 20, and 30 background requests a minute, with the oracle at each simulated minute.
+All 18 runs finished each accepted order, and no run stalled.
+At 20 and 30 requests a minute, `D` refuses 115 to 826 events that `LF` accepts, so the live queue gate also fails there.
+The queue limit of 200 caps the waiting orders, so at 30 requests a minute most of the added load becomes refusals.
+The probe does not show that `D` cannot get the block.
