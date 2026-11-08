@@ -294,6 +294,15 @@ func (n Network) searchNodes(input networkRouteInput, from, to int, graph routeG
 // searchFrom runs the search from node from until it settles node to. With a
 // negative to, it settles each node that it can reach.
 func (n Network) searchFrom(input networkRouteInput, from, to int, graph routeGraph, work *routeSearchWork) {
+	n.searchFromStops(input, from, to, nil, graph, work)
+}
+
+// searchFromStops is searchFrom with a negative to that also stops when it has
+// settled each node of stops. The search settles the nodes in the order of the
+// search with no stop, so each node of stops gets the same distance and the
+// same previous lane as in that search.
+func (n Network) searchFromStops(input networkRouteInput, from, to int, stops []int, graph routeGraph, work *routeSearchWork) {
+	remaining := len(stops)
 	work.reset(len(n.Nodes))
 	distance, previous, visited := work.distance, work.previous, work.visited
 	filtered := input.bankExternal || input.allowedLanes != nil || input.forbidden != nil || input.ownBerthsOnly
@@ -308,6 +317,12 @@ func (n Network) searchFrom(input networkRouteInput, from, to int, graph routeGr
 		}
 		if item.node == to {
 			break
+		}
+		if remaining > 0 && slices.Contains(stops, item.node) {
+			remaining--
+			if remaining == 0 {
+				break
+			}
 		}
 		visited[item.node] = true
 		if input.terminalBerthsOnly && item.node != from && graph.berthStations[item.node] >= 0 {

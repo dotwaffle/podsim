@@ -23,10 +23,15 @@ import (
 // relaxation is below its distance. The relaxation is strict, so an equal cost
 // does not write it, and its previous lane stays. The costs come from the lanes
 // of the path, in route order, and not from the distances of the tree.
+//
+// When stops is not nil, the tree search stops when it has settled each node
+// of stops, which keeps the result of each node of stops. A middle part to
+// another node then has its own search.
 type bankRouteParts struct {
 	prefix bankRoutePart
 	middle []bankRoutePart
 	tree   *routeSearchWork
+	stops  []int
 }
 
 // bankSearchWork keeps the arrays of the searches of bankNearest for the next
@@ -56,9 +61,15 @@ func (p *bankRouteParts) treePath(n Network, input networkRouteInput, from, to i
 	if !graph.nodeAllows(from, input.class) || !graph.nodeAllows(to, input.class) {
 		return ErrUnreachable
 	}
+	if p.stops != nil && !slices.Contains(p.stops, to) {
+		if err := n.searchNodes(input, from, to, graph, work); err != nil {
+			return err
+		}
+		return work.appendPath(graph, from, to)
+	}
 	if p.tree == nil {
 		p.tree = takeBankSearchWork()
-		n.searchFrom(input, from, -1, graph, p.tree)
+		n.searchFromStops(input, from, -1, p.stops, graph, p.tree)
 	}
 	p.tree.path = work.path
 	err := p.tree.appendPath(graph, from, to)
@@ -303,6 +314,47 @@ func bankArrivalNode(bank bankTopology, graph routeGraph, node int) bool {
 		}
 	}
 	return false
+}
+
+// bankRoutesFrom returns the route from node from to each node of targets on
+// a network with station banks, with the result that routeIndexedWithWork
+// gives for each target: the search with terminalBerthsOnly first, and the
+// search without it when that one finds no route. The routes share their
+// prefix and middle searches, as the routes of bankNearest do. input gives
+// the class. The graph must have no bank error.
+func (n Network) bankRoutesFrom(input networkRouteInput, from int, targets []int, graph routeGraph) []routeResult {
+	work := takeBankSearchWork()
+	defer bankSearchWork.Put(work)
+	// The middle part of a route to a node inside a bank ends at the entry of
+	// the bank. The middle part of each other route ends at its target.
+	stops := make([]int, 0, len(targets))
+	for _, to := range targets {
+		end := to
+		if destination := graph.banks.nodes[to]; destination >= 0 {
+			if bank := graph.banks.banks[destination]; to != bank.entry && to != bank.exit {
+				end = bank.entry
+			}
+		}
+		if !slices.Contains(stops, end) {
+			stops = append(stops, end)
+		}
+	}
+	terminal := &bankRouteParts{middle: make([]bankRoutePart, len(graph.banks.banks)), stops: stops}
+	open := &bankRouteParts{middle: make([]bankRoutePart, len(graph.banks.banks)), stops: stops}
+	defer terminal.release()
+	defer open.release()
+	results := make([]routeResult, len(targets))
+	for index, to := range targets {
+		preferred, fallback := input, input
+		preferred.terminalBerthsOnly, preferred.parts = true, terminal
+		fallback.terminalBerthsOnly, fallback.parts = false, open
+		lanes, err := n.bankRouteNodes(preferred, from, to, graph, work)
+		if errors.Is(err, ErrUnreachable) {
+			lanes, err = n.bankRouteNodes(fallback, from, to, graph, work)
+		}
+		results[index] = routeResult{lanes: lanes, err: err}
+	}
+	return results
 }
 
 func (n Network) bankNearest(input preferredNearestInput, graph routeGraph) (int, bool) {

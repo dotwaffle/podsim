@@ -75,7 +75,7 @@ func (s *Simulation) assignedRoute(v *vehicle, from, to string) ([]Lane, error) 
 // fallback give the routes. Later route calls do not search again. The
 // cache holds only routes that route returns, so this changes no result.
 func (s *Simulation) cacheStationRoutesForClass(from string, berths []Berth, class VehicleClass) {
-	if len(berths) < 2 || s.network.hasStationBanks() {
+	if len(berths) < 2 {
 		return
 	}
 	// A view stores no batch in the route memo. accessRoutes must hold what a
@@ -93,10 +93,33 @@ func (s *Simulation) cacheStationRoutesForClass(from string, berths []Berth, cla
 		return
 	}
 	graph := s.routingGraph()
-	preferred := s.network.preferredTargets(routeTargetsInput{from: from, to: targets, class: class}, graph)
-	for index, result := range s.network.routesFromTargets(preferred, graph) {
+	var results []routeResult
+	if s.network.hasStationBanks() {
+		results = s.bankStationRoutes(from, targets, class, graph)
+	} else {
+		results = s.network.routesFromTargets(s.network.preferredTargets(routeTargetsInput{from: from, to: targets, class: class}, graph), graph)
+	}
+	for index, result := range results {
 		s.cacheRoute(routeKey{from: from, to: targets[index], class: routeClass(class)}, result)
 	}
+}
+
+// bankStationRoutes returns the routes of cacheStationRoutesForClass on a
+// network with station banks, or nil when an end is not a node of the graph
+// or the graph has a bank error. Then each route keeps its own search, which
+// gives the error.
+func (s *Simulation) bankStationRoutes(from string, targets []string, class VehicleClass, graph routeGraph) []routeResult {
+	origin, ok := graph.nodes[from]
+	if !ok || graph.banks.err != nil {
+		return nil
+	}
+	nodes := make([]int, len(targets))
+	for index, target := range targets {
+		if nodes[index], ok = graph.nodes[target]; !ok {
+			return nil
+		}
+	}
+	return s.network.bankRoutesFrom(networkRouteInput{class: class}, origin, nodes, graph)
 }
 
 func (s *Simulation) stationPathForClass(from, to string, class VehicleClass) ([]Lane, error) {
