@@ -94,6 +94,19 @@ These results come from the risk checks of November 7, 2026, on project D (`expr
 
   D costs about 28 percent more server CPU than ordinary LondonFull, and the hub parties add about 35 percent more.
   Most of the rest of the bank cost is in `(Network).bankNearest` of the redistribution, which this change does not touch.
+- Commit `9a9fa843` bounds the reverse calls of `(Network).bankNearest`, which choose the nearest idle pod for a station, with a reverse search that gives a lower bound of each route cost.
+  The same measurement at that commit, on November 8, 2026, gave these readings.
+  The host load average was 4 to 8 during the runs.
+
+  | Case | Achieved speed | Server CPU | GC cycles | Peak RSS | Stream rate |
+  | --- | ---: | ---: | ---: | ---: | ---: |
+  | Ordinary LondonFull | 59.9, 60.0 | 25.6 s, 24.0 s | 57, 57 | 225 MiB, 225 MiB | 128 kB/s |
+  | D without Express pods | 59.9, 59.9 | 26.0 s, 23.6 s | 19, 20 | 224 MiB, 224 MiB | 130 kB/s |
+  | D | 59.9, 59.9 | 24.4 s, 24.2 s | 22, 20 | 223 MiB, 223 MiB | 130 kB/s |
+  | D with hub parties | 59.9, 59.6 | 39.0 s, 39.2 s | 45, 45 | 232 MiB, 235 MiB | 162 kB/s, 161 kB/s |
+
+  D now costs the same server CPU as ordinary LondonFull, within the spread of the runs.
+  The hub parties, 4 orders a second of wall time, add about 60 percent.
   Peak RSS includes the project load.
   Retained frames, decoded client memory, and browser responsiveness are not measured yet.
 - `TestLondonExpressRemoteLoads` runs the Go client against a live D session over HTTP and WebSocket.
