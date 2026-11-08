@@ -5,7 +5,7 @@ The maintainer approved decisions 1 to 6 as recommended, with runner option A.
 The maintainer also approved the build of the runner and the timed pilot.
 The full screen waits for the maintainer after the pilot.
 Status 2026-11-08: the approved mapping said orders of at most 8, from `sim.MaxNewPartySize`, but the LondonFull fleet is Compact, which takes a party of at most 4, so an order of 8 had no pod.
-The runner splits to the largest party that the fleet takes, and this correction needs the confirmation of the maintainer.
+The runner splits to the largest party that the fleet takes, and the maintainer confirmed this correction on November 8, 2026.
 
 ## Scope
 
