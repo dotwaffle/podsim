@@ -211,3 +211,22 @@ Bank choice uses the approach cost first, and bank `a` costs less, so Compact po
 
 The study does not show the cause of the failures outside Bank.
 A change that could move the result, such as a bank choice that counts the pods at each bank, or Express service only at bank `b` of Bank, is a simulation or geometry change for a separate decision.
+
+### Study of the Bank pickups
+
+The [bank load choice](bank-load-choice-proposal.md#result) spreads the Express pods over both banks of Bank, but it does not change the screen counts.
+So the maintainer asked for a study of the pickups at Bank, with no change to the gates or the simulation.
+A scratch probe ran `LF` and `D` on `pm-peak` seed 1 at `7bbd2987`.
+Each 5 s, it recorded each pending background request and the state of its assigned pod.
+
+- `D` is faster at Bank on average.
+  Of the 36 background requests from Bank that both runs boarded, the mean wait is 195 s in `D` and 342 s in `LF`, and the median is 160 s and 413 s.
+- Each of the 5 requests over the wait limit had an idle Compact pod at Bank in `LF`, so in `LF` the pod did not move before the boarding.
+  In `D`, a pod came to Bank from 0.8 to 6.6 km away, and the wait was 164 to 565 s, against 39 to 78 s in `LF` for 4 of them.
+- In `D`, an assigned pod is stopped for only 3 percent of the wait, mostly at the access lanes and berths of Bank.
+
+So the earlier study gave the wrong cause.
+Compact pods do not wait behind Express pods at Bank.
+The failures come from requests that `LF` serves with an idle pod at Bank, while `D` has almost no idle Compact pod there: Compact pods use the berths of Bank less than 2 percent of the time.
+The per-request gates count these requests, although `D` serves Bank faster on average.
+The study does not show why `D` keeps no idle Compact pod at Bank.
