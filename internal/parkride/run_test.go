@@ -225,6 +225,13 @@ func TestPreflightChecksReturnDirection(t *testing.T) {
 			input.Project.Network.Lanes[index].VehicleClasses = legacy
 		}
 	}
+	// A Compact pod cannot reach harbor, which is a parking gap unless
+	// Compact has no parking goal. So parking takes only Legacy pods.
+	for index := range input.Project.Network.Stations {
+		if input.Project.Network.Stations[index].ParkingOnly {
+			input.Project.Network.Stations[index].VehicleClasses = legacy
+		}
+	}
 	if err = project.Validate(input.Project); err != nil {
 		t.Fatal(err)
 	}

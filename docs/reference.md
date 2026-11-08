@@ -133,6 +133,10 @@ A route between passenger stations goes from each berth of one station to each b
 A berth route goes from the station entry to the berth, or from the berth to the station exit.
 It can use a chain of lanes, as in the London stations, and it cannot pass through the entry, exit, or berth node of a station.
 A route to a depot slot can pass through the other slots of its depot lane.
+For each class of the fleet that has a parking goal, each passenger berth that accepts the class also needs a route to a parking goal and a route from one, for a pod of that class.
+A parking goal is a berth of a parking station that accepts the class, or the entry of a depot that accepts it.
+Without such a route, an idle pod of the class cannot leave the berth for parking when another pod needs the berth.
+The error gives the count of the berths with such a gap and names the first.
 Validation further checks pod placement and resource IDs.
 
 Some limits apply to the project in transit:

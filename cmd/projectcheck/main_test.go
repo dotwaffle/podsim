@@ -434,7 +434,7 @@ func TestProjectCheckWarningWriteError(t *testing.T) {
 
 // TestProjectCheckParkingGaps limits the lanes into the parking station of
 // the small preset to Compact, so that its Legacy pods have no route to
-// parking. The check names the first berth and counts the others.
+// parking. Validation names the first berth and counts the others.
 func TestProjectCheckParkingGaps(t *testing.T) {
 	t.Parallel()
 	config := scenarios.Small()
@@ -452,12 +452,9 @@ func TestProjectCheckParkingGaps(t *testing.T) {
 			}
 		}
 	}
-	if err = project.Validate(config); err != nil {
-		t.Fatal(err)
-	}
 	var output bytes.Buffer
 	err = command([]string{"-project", projectFile(t, projectData(t, config))}, &output)
-	want := "parking routes: 16 berths have a gap, the first is berth station-01-01 of station station-01, with no legacy route to parking"
+	want := "validate project: parking routes: 16 berths have a gap, the first is berth station-01-01 of station station-01, with no legacy route to parking"
 	if err == nil || err.Error() != want || output.Len() != 0 {
 		t.Fatalf("err %v, output %q, want %q", err, &output, want)
 	}

@@ -272,6 +272,7 @@ var projectChecks = [...]func(Config) error{
 	validateProjectDemand,
 	validateScenario,
 	validatePassengerStations,
+	validateParkingRoutes,
 }
 
 // Validate checks format bounds and confirms that the scenario can start. It

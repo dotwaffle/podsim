@@ -803,6 +803,7 @@ func TestValidateCheckOrder(t *testing.T) {
 		"validateProjectDemand",
 		"validateScenario",
 		"validatePassengerStations",
+		"validateParkingRoutes",
 	}
 	var got []string
 	for _, check := range projectChecks {

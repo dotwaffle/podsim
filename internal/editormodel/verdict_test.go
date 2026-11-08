@@ -318,8 +318,10 @@ func TestLaneClassesEdit(t *testing.T) {
 		}
 		return nil
 	}
-	edited := applyEdit(t, draft, `{"field":"geometry","value":{"action":"laneClasses","id":"approach-branch","value":["compact"]}}`)
-	if !reflect.DeepEqual(classes(edited, "approach-branch"), []any{"compact"}) {
+	// The fleet of the default project is Legacy, so the lane keeps Legacy:
+	// without it, the Legacy pods have no route to parking.
+	edited := applyEdit(t, draft, `{"field":"geometry","value":{"action":"laneClasses","id":"approach-branch","value":["legacy","compact"]}}`)
+	if !reflect.DeepEqual(classes(edited, "approach-branch"), []any{"legacy", "compact"}) {
 		t.Fatal("lane classes", classes(edited, "approach-branch"))
 	}
 	if err := nativeVerdict(t, encodeDraft(t, edited)); err != nil {
