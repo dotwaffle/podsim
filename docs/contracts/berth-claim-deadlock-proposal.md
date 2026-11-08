@@ -57,3 +57,6 @@ If option A gives longer waits in those runs, option B is the next candidate.
 On the geometry before `1f721a5c`, the `pm-peak` seed 1 run no longer gets the cycle at Bank.
 It stalls at Waterloo instead, where an idle Express pod has no parking and no free berth to go to, which is the second stall of the screen.
 So the two fixes are both necessary: `1f721a5c` gives the pod a way to parking, and option A keeps a clear from making a cycle.
+
+At `ead9846c`, `test:race:sim`, the routine soak (50 runs, 0 late, 0 demoted), and `TestIncidentSoakCI` pass.
+The full adoption screen gives the same counts in each arm and each gate as at `1f721a5c`, so option A changes no result of those runs.
