@@ -1,7 +1,9 @@
 # Express London adoption screen proposal
 
-Status: draft of November 8, 2026, for the maintainer.
-Nothing in this document is approved, and nothing ran.
+Status: drafted and approved on November 8, 2026.
+The maintainer approved decisions 1 to 6 as recommended, with runner option A.
+The maintainer also approved the build of the runner and the timed pilot.
+The full screen waits for the maintainer after the pilot.
 
 ## Scope
 
