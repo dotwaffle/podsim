@@ -1,7 +1,7 @@
 # Bank load choice proposal
 
 Status: drafted on November 8, 2026.
-The maintainer chose option A with a margin of 60 s on November 8, 2026, to confirm after the pilot.
+The maintainer chose option A with a margin of 60 s on November 8, 2026, and confirmed the margin after the pilot.
 
 ## Problem
 

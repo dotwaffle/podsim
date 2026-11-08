@@ -77,3 +77,54 @@ func TestBankEntryCostCountsThroughLanes(t *testing.T) {
 		t.Fatalf("the entry is %s, want b-entry", entry)
 	}
 }
+
+// TestBankEntryLoadMargin checks that a bank with a lower berth load wins
+// when its approach cost is at most bankLoadMargin more than the lowest
+// cost, and that equal loads keep the lowest cost. In
+// bankEntryCostNetwork, the way to bank a costs 18 seconds plus the time
+// on the through lane of station x, and the way to bank b costs 20
+// seconds.
+func TestBankEntryLoadMargin(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name         string
+		through      float64
+		loadA, loadB int
+		want         string
+	}{
+		{name: "lower load inside the margin", through: 30, loadB: 1, want: "a-entry"},
+		{name: "lower load just inside the margin", through: 61.9, loadB: 1, want: "a-entry"},
+		{name: "lower load just outside the margin", through: 62.1, loadB: 1, want: "b-entry"},
+		{name: "lower load on a later and dearer bank", through: 1, loadA: 1, want: "b-entry"},
+		{name: "equal loads keep the lowest cost", through: 30, loadA: 1, loadB: 1, want: "b-entry"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			network := bankEntryCostNetwork()
+			for i := range network.Lanes {
+				if network.Lanes[i].ID == "x-through" {
+					network.Lanes[i].SpeedLimit = 300 / test.through
+				}
+			}
+			s, err := NewFleet(network, []Placement{{ID: "01", StationID: "x", BerthID: "x-1"}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			load := func(berth Berth) int {
+				if berth.ID == "a-1" {
+					return test.loadA
+				}
+				return test.loadB
+			}
+			station, _ := s.station("t")
+			entry, err := s.stationBankEntryMatching("from", station, load, "", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if entry != test.want {
+				t.Fatalf("the entry is %s, want %s", entry, test.want)
+			}
+		})
+	}
+}

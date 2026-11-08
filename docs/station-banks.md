@@ -12,8 +12,8 @@ It rejects shared local lanes, shared interior nodes, cross-bank paths, and unus
 External roads can share a merge.
 Gates, track cells, berths, and merges retain ordinary resource control.
 
-An approach selects the reachable bank with the shortest free-flow external travel time.
-Exact ties use the minimum berth load, then bank order.
+An approach considers each reachable bank with a free-flow external travel time of at most 60 s more than the shortest one.
+Of those banks, it selects the minimum berth load, then the shortest travel time, then bank order.
 A fixed destination berth uses its owning bank.
 Terminal berth choice retains the entry already installed in the route.
 An eligible empty pickup can change banks at its existing safe diversion anchor.

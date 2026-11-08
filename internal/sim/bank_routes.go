@@ -216,8 +216,13 @@ func (n Network) bankPathNodes(input networkRouteInput, from, to int, graph rout
 	return work.path, nil
 }
 
-// stationBankEntryMatching selects free-flow approach cost, then minimum
-// berth load.
+// bankLoadMargin is the free-flow approach cost in seconds by which a bank
+// can be dearer than the cheapest bank and still win on berth load.
+const bankLoadMargin = 60.0
+
+// stationBankEntryMatching selects, among the banks with a free-flow
+// approach cost of at most the lowest cost plus bankLoadMargin, the minimum
+// berth load, then the lowest cost, then bank order.
 func (s *Simulation) stationBankEntryMatching(from string, station Station, load func(Berth) int, class VehicleClass, accept func(Berth) bool) (string, error) {
 	return s.stationBankEntryOn(false, from, station, load, class, accept)
 }
@@ -251,7 +256,13 @@ func (s *Simulation) stationBankEntryOn(static bool, from string, station Statio
 			from = s.network.Nodes[s.graph.banks.banks[owner].exit].ID
 		}
 	}
-	bestEntry, bestCost, bestLoad := "", 0.0, 0
+	type candidate struct {
+		entry string
+		cost  float64
+		load  int
+	}
+	var buffer [MaxStationBanks]candidate
+	candidates := buffer[:0]
 	for _, bank := range station.Banks {
 		route, err := s.routeOn(static, from, bank.Entry, class)
 		if err != nil {
@@ -279,14 +290,25 @@ func (s *Simulation) stationBankEntryOn(static bool, from string, station Statio
 		if minimum == int(^uint(0)>>1) {
 			continue
 		}
-		if bestEntry == "" || cost < bestCost || cost == bestCost && minimum < bestLoad {
-			bestEntry, bestCost, bestLoad = bank.Entry, cost, minimum
-		}
+		candidates = append(candidates, candidate{bank.Entry, cost, minimum})
 	}
-	if bestEntry == "" {
+	if len(candidates) == 0 {
 		return "", ErrUnreachable
 	}
-	return bestEntry, nil
+	lowest := candidates[0].cost
+	for _, c := range candidates[1:] {
+		lowest = min(lowest, c.cost)
+	}
+	var best candidate
+	for _, c := range candidates {
+		if c.cost > lowest+bankLoadMargin {
+			continue
+		}
+		if best.entry == "" || c.load < best.load || c.load == best.load && c.cost < best.cost {
+			best = c
+		}
+	}
+	return best.entry, nil
 }
 
 func (s *Simulation) entryHasMatchingBerth(station Station, entry string, class VehicleClass, accept func(Berth) bool) bool {
