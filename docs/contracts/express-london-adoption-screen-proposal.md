@@ -324,3 +324,37 @@ Two causes add up.
 `D` carries less load than `LF`, so the pods become idle where the trips end, mostly far from the center, and redistribution does not bring enough of them back.
 `LF` has no idle pods, so a pod that finishes a trip in the center takes the next request there.
 The wait rule and redistribution are shared policies of all projects, so a change to either is a separate decision for each configuration, with its own evidence.
+
+### Study of redistribution in `D`
+
+The maintainer asked why redistribution leaves the idle Compact pods of `D` at the edge, with no change to the gates or the simulation.
+Redistribution in the screen is guarded positioning.
+It moves an idle pod only while its gate is open, and the gate is open only when all of these are true:
+
+- The request rate is less than 1 a minute for each 20 pods: 16.4 a minute for `LF` and 17.1 for `D`.
+- The newest request is at most 180 s old.
+- The positioning moves are fewer than the boardings.
+- Each waiting trip has a pod.
+- At most 40 percent of the fleet works.
+
+A scratch probe with a temporary accessor for the gate ran `pm-peak` seed 2 at `e404cc2d` and sampled the gate each 30 s of the arrivals.
+
+| Condition | `LF`, share of samples | `D`, share of samples |
+| --- | --- | --- |
+| Rate low | 27 percent | 100 percent |
+| Newest request at most 180 s old | 100 percent | 100 percent |
+| Fewer moves than boardings | 100 percent | 100 percent |
+| Each waiting trip has a pod | 2 percent | 4 percent |
+| At most 40 percent of the fleet works | 5 percent | 22 percent |
+| Gate open | 0 percent | 2 percent |
+
+Guarded positioning made no move in either run.
+In `D`, the gate stays closed because a waiting trip has no pod at almost each sample, and because more than 40 percent of the fleet works.
+A trip that dispatch holds for a finishing pod has no pod during the hold, so the wait rule also keeps the gate closed.
+
+The code has two more limits that the probe did not measure.
+A lone idle pod at a passenger station is never a candidate for a move, and a move has a route cost of at most 180 s.
+The idle pods of `D` are mostly more than 10 km from the center, so even with an open gate these limits can keep them there.
+
+Guarded positioning is a design for low load, and the screen load is not low by its rules.
+Positioning that moves idle pods toward demand at this load is a new shared policy, so it needs its own proposal and its own evidence on each project.
