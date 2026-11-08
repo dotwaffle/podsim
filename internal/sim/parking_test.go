@@ -1,6 +1,7 @@
 package sim
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"reflect"
@@ -101,7 +102,10 @@ func TestUnavailableParking(t *testing.T) {
 	}
 }
 
-func TestPassengerBerthClearingPrefersUntargetedBerth(t *testing.T) {
+// TestPassengerBerthClearingSkipsTargetedBerths checks that a clear never
+// claims a berth that another moving pod goes to. With each free berth
+// targeted, the blocker stays (berth claim deadlock proposal, option A).
+func TestPassengerBerthClearingSkipsTargetedBerths(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
 		name        string
@@ -109,7 +113,7 @@ func TestPassengerBerthClearingPrefersUntargetedBerth(t *testing.T) {
 		want        string
 	}{
 		{name: "free berth first", want: "garden-1"},
-		{name: "targeted berth as fallback", allTargeted: true, want: "harbor-1"},
+		{name: "no untargeted berth", allTargeted: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -130,10 +134,39 @@ func TestPassengerBerthClearingPrefersUntargetedBerth(t *testing.T) {
 				arrival.destination = Berth{ID: "garden-1", Node: "garden-berth"}
 			}
 			blocker := s.findVehicle("01")
-			if !s.clearToPassengerBerth(blocker) || blocker.destination.ID != tc.want {
-				t.Fatalf("clearing destination %q, want %q", blocker.destination.ID, tc.want)
+			if cleared := s.clearToPassengerBerth(blocker); cleared != (tc.want != "") || blocker.destination.ID != tc.want {
+				t.Fatalf("cleared %t to %q, want %q", cleared, blocker.destination.ID, tc.want)
 			}
 		})
+	}
+}
+
+// TestClaimingMoveRefusesTargetedBerth checks that an empty move that claims
+// its berth refuses a berth that another moving pod goes to with no claim,
+// and that a move with no claim, such as a pickup, does not.
+func TestClaimingMoveRefusesTargetedBerth(t *testing.T) {
+	t.Parallel()
+	s, err := NewFleet(Example(), []Placement{
+		{ID: "01", StationID: "market"},
+		{ID: "02", StationID: "parking", BerthID: "parking-1"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	harbor := Berth{ID: "harbor-1", Node: "harbor-berth"}
+	arrival := s.findVehicle("02")
+	arrival.Pod.Activity = Traveling
+	arrival.destination = harbor
+	mover := s.findVehicle("01")
+	if _, err := s.prepareEmptyMove(mover, emptyDestination{station: "harbor", berth: harbor, reserveBerth: true}); !errors.Is(err, ErrBerthUnavailable) {
+		t.Fatalf("claiming move: %v", err)
+	}
+	if _, err := s.prepareEmptyMove(mover, emptyDestination{station: "harbor", berth: harbor}); err != nil {
+		t.Fatalf("move with no claim: %v", err)
+	}
+	arrival.Pod.Activity = Idle
+	if _, err := s.prepareEmptyMove(mover, emptyDestination{station: "harbor", berth: harbor, reserveBerth: true}); err != nil {
+		t.Fatalf("claiming move after the other pod stops: %v", err)
 	}
 }
 

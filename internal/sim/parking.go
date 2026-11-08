@@ -109,29 +109,39 @@ func (v *vehicle) entersBerth(berthID string) bool {
 	return false
 }
 
-// clearToPassengerBerth reserves a free passenger berth when dedicated parking is full.
+// clearToPassengerBerth reserves a free passenger berth when dedicated
+// parking is full. A berth of the station of v goes first.
 func (s *Simulation) clearToPassengerBerth(v *vehicle) bool {
 	from, _ := s.station(v.Pod.StationID)
 	origin, _ := from.berth(v.Pod.BerthID)
-	for _, requireAvailable := range []bool{true, false} {
-		for _, local := range []bool{true, false} {
-			for _, station := range s.network.Stations {
-				if station.ParkingOnly || (station.ID == from.ID) != local {
+	for _, local := range []bool{true, false} {
+		for _, station := range s.network.Stations {
+			if station.ParkingOnly || (station.ID == from.ID) != local {
+				continue
+			}
+			for _, berth := range station.Berths {
+				if berth.ID == origin.ID || !s.berthAvailable(berth) {
 					continue
 				}
-				for _, berth := range station.Berths {
-					if berth.ID == origin.ID || (requireAvailable && !s.berthAvailable(berth)) {
-						continue
-					}
-					route, err := s.routeForClass(origin.Node, berth.Node, v.Pod.Class)
-					if err != nil || len(route) == 0 {
-						continue
-					}
-					if s.startEmptyMove(v, emptyDestination{station: station.ID, berth: berth, reserveBerth: true}) == nil {
-						return true
-					}
+				route, err := s.routeForClass(origin.Node, berth.Node, v.Pod.Class)
+				if err != nil || len(route) == 0 {
+					continue
+				}
+				if s.startEmptyMove(v, emptyDestination{station: station.ID, berth: berth, reserveBerth: true}) == nil {
+					return true
 				}
 			}
+		}
+	}
+	return false
+}
+
+// berthTargeted reports whether a moving pod other than v goes to berth.
+func (s *Simulation) berthTargeted(v *vehicle, berth Berth) bool {
+	for i := range s.vehicles {
+		other := &s.vehicles[i]
+		if other != v && other.Pod.Activity != Idle && other.destination.ID == berth.ID {
+			return true
 		}
 	}
 	return false
@@ -180,11 +190,14 @@ func (s *Simulation) startEmptyMove(v *vehicle, to emptyDestination) error {
 }
 
 // prepareEmptyMove returns the route of an empty move. No move can reserve
-// a depot slot.
+// a depot slot. A move that reserves its berth also refuses a berth that
+// another moving pod goes to: that pod can be ahead of v on the access lane
+// of the berth, and it could then wait for the claim of v, while v waits
+// behind it.
 func (s *Simulation) prepareEmptyMove(v *vehicle, to emptyDestination) ([]Lane, error) {
 	space := resource{kind: berthResource, id: to.berth.ID}
 	node := resource{kind: nodeResource, id: to.berth.Node}
-	if _, slot := s.depots.slot(to.berth.ID); to.reserveBerth && (slot || !s.owners[space].isZero() || !s.owners[node].isZero()) {
+	if _, slot := s.depots.slot(to.berth.ID); to.reserveBerth && (slot || !s.owners[space].isZero() || !s.owners[node].isZero() || s.berthTargeted(v, to.berth)) {
 		return nil, ErrBerthUnavailable
 	}
 	from, _ := s.station(v.Pod.StationID)

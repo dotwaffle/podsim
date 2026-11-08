@@ -1,7 +1,7 @@
 # Berth claim deadlock proposal
 
-Status: draft of November 8, 2026, for the maintainer.
-No simulation change is made until the maintainer chooses an option.
+Status: drafted on November 8, 2026.
+The maintainer chose option A on November 8, 2026.
 
 ## Failure
 
@@ -49,3 +49,11 @@ If option A gives longer waits in those runs, option B is the next candidate.
 
 1. Choose an option: A (recommended), B, C, D, or no change.
 2. Approve the test and the evidence runs above.
+
+## Result of option A
+
+`prepareEmptyMove` now refuses a claim on a berth that another moving pod goes to, and `clearToPassengerBerth` has one pass.
+`TestClaimingMoveRefusesTargetedBerth` fails without the new refusal.
+On the geometry before `1f721a5c`, the `pm-peak` seed 1 run no longer gets the cycle at Bank.
+It stalls at Waterloo instead, where an idle Express pod has no parking and no free berth to go to, which is the second stall of the screen.
+So the two fixes are both necessary: `1f721a5c` gives the pod a way to parking, and option A keeps a clear from making a cycle.
