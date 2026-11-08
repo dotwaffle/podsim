@@ -81,6 +81,19 @@ These results come from the risk checks of November 7, 2026, on project D (`expr
   A network with no bank uses the indexed and cached targets of `(Network).routeTargets`.
   On D, `bankPathNodes` takes 54 percent of the profile, so the extra cost comes from the banks at Waterloo and Bank, not from Express.
   In one of the two runs with hub parties, the server did not keep speed 60.
+- Commit `86684aec` gives a network with banks the multi-target batch of station routes, with exact parity against the reference routes.
+  The same measurement at that commit, on November 8, 2026, gave these readings.
+  A test process of another project used about one core on the host.
+
+  | Case | Achieved speed | Server CPU | GC cycles | Peak RSS | Stream rate |
+  | --- | ---: | ---: | ---: | ---: | ---: |
+  | Ordinary LondonFull | 60.0, 59.9 | 22.8 s, 21.6 s | 57, 57 | 229 MiB, 229 MiB | 128 kB/s |
+  | D without Express pods | 60.0, 60.0 | 27.5 s, 26.5 s | 19, 20 | 224 MiB, 227 MiB | 130 kB/s |
+  | D | 59.9, 59.9 | 28.4 s, 28.5 s | 21, 21 | 223 MiB, 225 MiB | 130 kB/s |
+  | D with hub parties | 59.9, 59.9 | 39.4 s, 37.5 s | 44, 43 | 233 MiB, 238 MiB | 162 kB/s, 161 kB/s |
+
+  D costs about 28 percent more server CPU than ordinary LondonFull, and the hub parties add about 35 percent more.
+  Most of the rest of the bank cost is in `(Network).bankNearest` of the redistribution, which this change does not touch.
   Peak RSS includes the project load.
   Retained frames, decoded client memory, and browser responsiveness are not measured yet.
 - `TestLondonExpressRemoteLoads` runs the Go client against a live D session over HTTP and WebSocket.
