@@ -465,6 +465,24 @@ In `LF` seed 2, one change of pod moves the next three requests to other pods at
 The probe does not show how one change grows to about 1,000 changed waits, and it does not give the dispatch scores or ties.
 In `D` seed 2, only the moved pod differs up to 1,800 s, although the first request with a changed wait was offered at 1,542 s.
 
+#### Move with no hold for a finishing pod
+
+A fourth probe on the branch `study/gate-noise-4` at `a58d293c` repeated the second probe at a queue limit of 200, with the hold for a finishing pod off (`FinishingPodWaitNone`) in both arms of each pair.
+The move was the same in each run.
+
+| Pair | Wait over, hold on and off | Journey over, hold on and off | Live queue loss, hold off |
+| --- | --- | --- | --- |
+| `LF` seed 1 | 438 and 371 | 378 and 331 | 98 |
+| `LF` seed 2 | 437 and 339 | 381 and 282 | 139 |
+| `LF` seed 3 | 364 and 405 | 324 and 358 | 153 |
+| `D` seed 1 | 0 and 0 | 0 and 0 | 0 |
+| `D` seed 2 | 113 and 245 | 84 and 163 | 0 |
+| `D` seed 3 | 286 and 239 | 209 and 175 | 0 |
+
+No request was censored.
+With the hold off, the move still puts 339 to 405 requests of `LF` over the wait limit, so the hold is not the source of the sensitivity.
+The probe did not change the tie breaks of dispatch.
+
 #### Conclusion
 
 In this saturated workload, the individual limits are sensitive to one physical change to one pod: in `LF`, one move of 200 s puts 151 to 438 requests over the wait limit, or 153 to 438 with the censored requests.
