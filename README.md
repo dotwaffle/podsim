@@ -162,7 +162,7 @@ An approved contract in `docs/contracts/` is binding, and each document gives it
 | [Express London adoption screen](docs/contracts/express-london-adoption-screen-proposal.md) | A capped screen of D against LondonFull, before any full adoption matrix. Approved; the runner and the pilot come first. |
 | [Berth claim deadlock](docs/contracts/berth-claim-deadlock-proposal.md) | An empty move that claims a berth behind unclaimed pickups on one access lane stalls for good. Option A approved. |
 | [Bank load choice](docs/contracts/bank-load-choice-proposal.md) | Bank choice by approach cost leaves bank `b` of Bank idle while bank `a` queues. Option A landed; the screen still fails. |
-| [Positioning under load](docs/contracts/loaded-positioning-proposal.md) | No policy moves spare idle pods toward demand above the low-load gate of guarded positioning. Pilot: B helps D but harms LF; no candidate yet. |
+| [Positioning under load](docs/contracts/loaded-positioning-proposal.md) | No policy moves spare idle pods toward demand above the low-load gate of guarded positioning. Pilots: B helps D but harms LF; B after an 18-minute surplus spares LF but leaves D failing. No candidate yet. |
 | [Individual limits amendment](docs/contracts/individual-limits-amendment-proposal.md) | One physical move of one pod puts hundreds of requests over the individual limits in a saturated fleet. D keeps the current limits; draft shapes for later candidates. |
 
 ### Designs

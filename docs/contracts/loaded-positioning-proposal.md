@@ -1,7 +1,7 @@
 # Positioning under load proposal
 
 Status: drafted on November 9, 2026.
-The maintainer approved the pilot of A and B on November 9, 2026.
+The maintainer approved the pilot of A and B on November 9, 2026, and a second pilot of B on a sustained surplus.
 No simulation change on `main` comes from the pilot.
 
 ## Problem
@@ -144,3 +144,32 @@ In `D`, B starts at about minute 18, not at the start, and 13 of the 21 failures
 The arms are `LF`, `LF` with B, `D`, and `D` with B, with W of 18 minutes, on the screen workload of `pm-peak` seeds 1 to 3.
 Each other setting of B is as in the first pilot.
 The readings are those of the first pilot, against `LF` with the current policy.
+
+### Result
+
+The pilot ran on November 9, 2026, with the scratch code at `3d98d7d1`.
+No arm had a safety or accounting failure or an unfinished order.
+The counts over the limits compare each arm with `LF` on the matched background requests, as in the first pilot.
+
+| Arm | Seed | Wait over | Journey over | Mean wait (s) | p95 wait (s) | Empty distance (km) | Moves | Idle pods within 3 km |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `LF` + B | 1 | 0 | 0 | 696 | 1,327 | 11,051 | 27 | 0.0 |
+| `D` | 1 | 27 | 15 | 182 | 440 | 4,733 | 1 | 1.3 |
+| `D` + B | 1 | 17 | 11 | 150 | 377 | 4,871 | 217 | 2.6 |
+| `LF` + B | 2 | 0 | 0 | 723 | 1,498 | 11,495 | 29 | 0.0 |
+| `D` | 2 | 33 | 27 | 172 | 426 | 4,181 | 4 | 1.1 |
+| `D` + B | 2 | 23 | 22 | 130 | 356 | 4,328 | 231 | 3.7 |
+| `LF` + B | 3 | 0 | 0 | 734 | 1,401 | 11,266 | 31 | 0.0 |
+| `D` | 3 | 32 | 26 | 194 | 468 | 4,587 | 0 | 0.6 |
+| `D` + B | 3 | 29 | 21 | 170 | 425 | 4,896 | 220 | 2.1 |
+
+- With the window, B does not harm `LF` in this workload.
+  No background request of `LF` with B is over a limit, and the mean wait, the p95 wait, and the refusals are the same as in `LF`.
+  B moves 27 to 31 pods, which can only be in the late surplus, and the empty distance grows by 0.7 to 0.9 percent.
+- B with the window helps `D` less than B with no window.
+  It leaves 17 to 29 requests over the wait limit in each seed, against 9 to 17 with no window and 27 to 33 with no B.
+  It lowers the mean wait of `D` by 12 to 24 percent, with 2.9 to 6.7 percent more empty distance.
+- So `D` with B still fails the screen.
+  The window delays B to about minute 18, and in seed 2, 13 of the 21 failures away from the hubs came in minutes 15 to 30.
+
+The window of 18 minutes is long enough to skip the early surplus of `LF` in this workload, but the record does not show that it is long enough in other bands, loads, or projects.
