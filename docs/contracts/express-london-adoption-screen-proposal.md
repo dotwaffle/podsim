@@ -423,7 +423,8 @@ It held the reservation of berth `02` during the move, and the probe did not cou
 The over-limit counts at minute 1 are the same as in the first probe, so the first probe made this same move.
 
 In this table, the changed waits are those of all background requests, refused requests included.
-The over-limit counts include the censored requests.
+The changed waits give the count, and the offer time of the first request with a changed wait.
+`screenCompare` counts a censored request apart from the requests over the limit, and both fail the gate.
 
 | Arm | Seed | Refused, no move and move | Admission differences, first at | Changed waits, first offer | Wait over | Journey over | Live queue loss |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -439,16 +440,16 @@ The over-limit counts include the censored requests.
 
 - The arms of `LF` with no queue limit end with 84, 335, and 384 open orders with no move, and 68, 283, and 393 with the move, so both fail the finite recovery gate.
   These arms are a diagnostic, not a screen configuration.
-- With no refusals, `LF` still has 151 to 294 requests over the wait limit.
+- With no refusals, `LF` still has 151 to 294 requests over the wait limit, and 0 to 16 more that did not board, 153 to 310 in total.
   So refusal cascades add to the count at a queue limit of 200, but they are not its source.
-- In `LF` seeds 2 and 3 and `D` seed 3, the first changed wait is during the 200 s of the move.
-  In `LF` seed 1 it is at 432 s, and in `D` seed 2 at 1,542 s, long after the pod was idle again.
-  So a part of the effect comes after the move, perhaps from the new berth of the pod.
-  This is an observation of time, not a mechanism, and the trace of the first divergence is still open.
+- In `LF` seeds 2 and 3 and `D` seed 3, the first request with a changed wait was offered during the 200 s of the move.
+  In `LF` seed 1 it was offered at 432 s, and in `D` seed 2 at 1,542 s, after the pod was idle again.
+  The probe does not show when the state of the fleet first differs, so it does not show if the cause is the absence of the pod or its new berth.
+  The trace of the first divergence is still open.
 
 #### Conclusion
 
-In this saturated workload, the individual limits are sensitive to one physical change to one pod: in `LF`, one move of 200 s puts 151 to 438 requests over the wait limit.
+In this saturated workload, the individual limits are sensitive to one physical change to one pod: in `LF`, one move of 200 s puts 151 to 438 requests over the wait limit, or 153 to 438 with the censored requests.
 This does not give a noise floor, and it is not a null for a comparison of `D` with `LF`.
 The counts of `D` with the move are a perturbation of `D` too, so they are not a null either.
 The gates do not change, and the screen result for `D` stands: it fails the background wait and journey gates.
