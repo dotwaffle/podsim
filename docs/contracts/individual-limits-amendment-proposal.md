@@ -73,3 +73,36 @@ Each study is a scratch probe of at most 6 arms and 3 seeds.
 1. Keep the current individual limits for `D` (recommended), or open an amendment for later candidates.
 2. If an amendment opens, choose a shape (2 recommended), and approve the studies above before any tolerance is set.
 3. Confirm that the result of `D` under the current limits stands, and that any later decision on `D` needs new runs.
+
+## External review
+
+A blind review by Codex `gpt-6.1-sol` on November 9, 2026, found the recommendation to keep the failure of `D` supported, and shape 2 defensible but not shown better than the others.
+Each finding was checked against the draft, the records, and the code, and each was accepted.
+None is in the draft above yet: each waits for the maintainer.
+
+1. Blocker: the constraints permit a new decision on `D` under amended limits, with new runs.
+   New runs of an unchanged candidate are not prospective.
+   The proposed change is that an amendment cannot reassess `D` as it is, also with new runs.
+2. Major: shape 2 does not define its denominator.
+   `screenCompare` counts each offered background event that the candidate admits, and it skips hub events and the events that the candidate refuses.
+   Admission depends on the queue, so a denominator with events that only the candidate admits can dilute the fraction.
+   The rule must define the eligible sets, numerators, and denominators for wait and journey by event identity, with censored and refused events.
+3. Major: the other parameters of shape 2 are not complete.
+   The rule must say if an excess is the added time or the time over the current allowance, how a station and a time window are defined, what happens below the minimum sample, the values for wait and journey, and the case of a zero baseline.
+   The check stays for each pair, and small groups must not pool away a failure of a pair.
+4. Major: the evidence plan needs a cause, not only a time.
+   The second probe gives the offer time of the first request with a changed wait, not the first change of a dispatch choice, and it stops the trace of the pod at its first return to idle.
+   The study of the hold changed only `D`.
+   Each policy variant needs arms with and without the move in both configurations, with the dispatch scores, ties, holds, berth claims, and later assignments up to the first changed outcome.
+5. Major: the problem omits the size of the harm.
+   The failures of `D` away from the hubs have a median excess of 86 to 250 s in each pair and up to 1,151 s, and `LF` with option B has up to +3.2 percent mean wait, over the aggregate limit of 2 percent.
+   The draft must give these sizes beside the counts of requests that improve.
+6. Minor: two numbers need a qualification.
+   With no queue limit, the wait gate of `LF` counts 151 to 294 requests over the limit and 0 to 16 that did not board, 153 to 310 in total.
+   The 85 to 92 percent of faster requests of `D` is the pickup wait of the matched requests from the stations other than Bank and Waterloo.
+7. Minor: the shapes omit a rule that counts the requests that improve beside those that are worse, as the default flips study reported.
+   Such a rule permits individual losses by compensation, so it needs limits on size and by subgroup.
+   Each shape must also separate the measure for each request from the evidence for each run.
+8. Minor: the order of the studies is not consistent.
+   One sequence is needed: diagnosis, then the choice of policy and fixed values, then an independent validation.
+   Probes of 6 arms and 3 seeds do not replace the full adoption coverage.
