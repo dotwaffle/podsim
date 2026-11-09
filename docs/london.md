@@ -237,7 +237,7 @@ The direction arrows on these lanes are also dimmer.
 A station lane that connects two lanes outside stations keeps the normal style.
 Because of this, the rings of the `busy` and `rail-hub` presets stay continuous at each station.
 Node dots show only when you zoom in far enough for the berths of a station to separate.
-The slots of a depot and the bays of a Compact station are 6 meters apart, so these stations show one marker at all zoom levels.
+The slots of a depot and the bays of a Compact station are 6 meters apart, so these stations show one marker up to near the largest zoom, and their berths at the largest zoom.
 Networks with 100 lanes or fewer, such as the example, keep each marker at the center of its berths.
 They keep fixed marker and lane sizes and show node dots at all zoom levels.
 A lane of any length can have a direction arrow.
