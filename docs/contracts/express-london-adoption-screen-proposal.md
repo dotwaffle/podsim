@@ -445,7 +445,25 @@ The changed waits give the count, and the offer time of the first request with a
 - In `LF` seeds 2 and 3 and `D` seed 3, the first request with a changed wait was offered during the 200 s of the move.
   In `LF` seed 1 it was offered at 432 s, and in `D` seed 2 at 1,542 s, after the pod was idle again.
   The probe does not show when the state of the fleet first differs, so it does not show if the cause is the absence of the pod or its new berth.
-  The trace of the first divergence is still open.
+  The trace below gives the first change of state.
+
+#### Trace of the first divergence
+
+A third probe on the branch `study/gate-noise-3` at `afc82195` ran each pair with the move at 60 s and with no move.
+At each tick after the move, it compared the state of each pod other than `london-pod-001`, and each pending request.
+It ran `LF` seeds 1 to 3 to 900 s, and `D` seed 2 to 1,800 s.
+
+| Pair | First difference | What differs |
+| --- | --- | --- |
+| `LF` seed 1 | 277.2 s | A request from Waterloo goes to `london-pod-116`, not to `london-pod-001`, which is idle again but at berth `02`. |
+| `LF` seed 2 | 259.5 s | `london-pod-001` is still on its move, so four requests from Waterloo each get a different pod in the same tick. |
+| `LF` seed 3 | 210.0 s | A request from Battersea Power Station waits for `london-pod-001` to finish its move, under the 30 s hold for a finishing pod. With no move, the request is not pending at that tick. |
+| `D` seed 2 | none to 1,800 s | No other pod and no pending request differs. |
+
+In each seed of `LF`, the first change is a choice of dispatch: the new berth of the pod, its absence, or the hold for a finishing pod.
+In `LF` seed 2, one change of pod moves the next three requests to other pods at once.
+The probe does not show how one change grows to about 1,000 changed waits, and it does not give the dispatch scores or ties.
+In `D` seed 2, only the moved pod differs up to 1,800 s, although the first request with a changed wait was offered at 1,542 s.
 
 #### Conclusion
 
