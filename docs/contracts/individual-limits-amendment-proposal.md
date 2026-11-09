@@ -104,8 +104,9 @@ The diagnosis has these parts:
   In each seed of `LF`, the first change is a choice of dispatch.
 - Done: the [move with no hold for a finishing pod](express-london-adoption-screen-proposal.md#move-with-no-hold-for-a-finishing-pod).
   The hold is not the source of the sensitivity.
-- Open: arms with and without the move, under each variant of the dispatch tie breaks, in both configurations.
-  The trace records the dispatch scores, the ties, the holds, the berth claims, and the later assignments up to the first changed outcome.
+- Done: the [tie break of dispatch](express-london-adoption-screen-proposal.md#tie-break-of-dispatch), with the last pod in fleet order as the winner, with and without the move, in both configurations.
+  The tie rule is not the source, and a change of the tie rule alone has an effect of the same size as the move.
+- Open: a trace of the dispatch scores, the holds, the berth claims, and the later assignments up to the first changed outcome.
 - Open: how one changed choice grows to about 1,000 changed waits.
 - Open: the same move at other loads, bands, and queue limits, to show where the sensitivity starts.
 
