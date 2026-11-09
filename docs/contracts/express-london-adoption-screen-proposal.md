@@ -359,12 +359,14 @@ The idle pods of `D` are mostly more than 10 km from the center, so even with an
 Guarded positioning is a design for low load, and the screen load is not low by its rules.
 Positioning that moves idle pods toward demand at this load is a new shared policy, so it needs its own proposal and its own evidence on each project.
 
-### Noise floor of the individual limits
+### Sensitivity of the individual limits to one pod move
 
 The [positioning pilot](loaded-positioning-proposal.md#pilot-result) found that about 60 early moves in `LF` put hundreds of requests over the limits.
 So the maintainer asked for the effect of a change with no service purpose.
 A scratch probe on the branch `study/gate-noise` at `473b20bf` ran the screen workload of `pm-peak`, seeds 1 to 3, with the oracle at each simulated second.
-The change moves one idle pod to another free berth of its own station, once, and each arm is compared with the same configuration with no change.
+The change moves the first idle Compact pod with no trip, in fleet order, to another free berth of its own station, once.
+Each arm is compared with the same configuration with no change.
+In this table, the changed waits are those of the matched requests.
 
 | Arm | Seed | Matched | Changed waits | Wait over | Journey over | Mean wait (s) |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -380,11 +382,73 @@ The change moves one idle pod to another free berth of its own station, once, an
 | `D`, move at minute 1 | 3 | 1,199 | 763 | 286 | 209 | 194 to 195 |
 
 The runs are deterministic: the same run twice gives the same result for each request.
-But one move to another berth of the same station changes the wait of 73 to 91 percent of the matched requests in `LF`, and puts 319 to 438 of them over the wait limit.
-The mean wait changes by -1.6 to +4.6 percent, so the aggregate limit of 2 percent also fails in some seeds.
-In `D`, the same move gives 0 to 286 requests over the wait limit.
+The rows of minute 30 are not at minute 30.
+The probe tried the move at each tick from minute 30 until a move started, at 1,868 s, 1,899 s, and 1,844 s.
 
-So in this workload, the individual limits flag hundreds of requests for a change that has no effect on service by design.
-`D` against `LF` has 16 to 33 requests over the wait limit in each pair, far below this noise floor.
-The individual limits of the [numerical limits](../design/experimental-adoption.md#numerical-limits) cannot separate a regression from this sensitivity in a saturated fleet.
-A change to those limits is a change to a design rule for all candidates, so it is a decision for the maintainer.
+#### External review
+
+An external review by Codex `gpt-6-astra` on November 9, 2026, found that the record above did not support the claim of a noise floor.
+Each finding was checked against the code, and each was accepted.
+
+1. Blocker: the move is not neutral.
+   It reserves a berth, and its route has no bound, so it is a physical change to the fleet.
+   The record must give its route, its time out of service, its claims, and the pods that it blocks.
+2. Major: the time of the move was not fixed, because the probe retried after the target tick.
+   The time must be fixed before the run, and "no move" is an outcome.
+3. Major: refusals depend on the queue state (`screenOffer` refuses an offer when the pending count passes the queue limit), so one change can cascade into other refusals, and the matched set depends on the arm.
+   The record must give the admission differences by event, and a diagnostic with no effective queue limit.
+4. Major: the probe ignored censoring.
+   `screenCompare` counts a request that did not board against the wait limit.
+   The screen has no aggregate gate, and the aggregate limit of 2 percent is only in the [numerical limits](../design/experimental-adoption.md#numerical-limits) of the full gates.
+5. Major: a deterministic run that repeats does not show chaos.
+   The record can say only that the limits are sensitive to this physical change, and it must trace the first divergence.
+6. Blocker: counts from a change to `LF` are not a calibrated null for `D` against `LF`.
+   `D` is a different fleet, at a different load, with a different matched set.
+   So the claim that the 16 to 33 requests of `D` are below a noise floor is withdrawn, and so is the claim that the counts of `LF` with option B are within it.
+7. Major: before any change to the limits, the cause of the sensitivity needs study, for example the tie breaks of dispatch and the 30 s hold, and other loads, bands, and queue limits.
+
+The [earlier null perturbation](../studies/default-flips.md#null-perturbation) of one tick did not spread, and that study also said it was not a noise floor for its counts.
+
+#### Follow-up probe
+
+A second probe on the branch `study/gate-noise-2` at `7d93e47b` answers findings 1 to 4.
+The move is at 60 s exactly, with no retry.
+Each arm is compared with `screenCompare`, which counts censored requests.
+A diagnostic arm of `LF` has a queue limit of 1,000,000, so it refuses nothing.
+
+In each seed and arm, the move took `london-pod-001` from berth `01` to berth `02` of Battersea Power Station, at the edge of the network.
+Its route was 2,702 m, and it was idle again after 200 s.
+No pod had it as its blocker.
+It held the reservation of berth `02` during the move, and the probe did not count the effect of the reservation on the berth choices of other pods.
+The over-limit counts at minute 1 are the same as in the first probe, so the first probe made this same move.
+
+In this table, the changed waits are those of all background requests, refused requests included.
+The over-limit counts include the censored requests.
+
+| Arm | Seed | Refused, no move and move | Admission differences, first at | Changed waits, first offer | Wait over | Journey over | Live queue loss |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `LF`, queue 200 | 1 | 217 and 228 | 251, 1,506 s | 1,036, 432 s | 438 | 378 | 131 |
+| `LF`, queue 200 | 2 | 223 and 224 | 243, 1,290 s | 1,089, 246 s | 437 | 381 | 122 |
+| `LF`, queue 200 | 3 | 287 and 275 | 286, 1,631 s | 1,092, 198 s | 364 | 324 | 137 |
+| `LF`, no queue limit | 1 | 0 and 0 | 0 | 1,044, 432 s | 193 | 176, 2 not finished | 0 |
+| `LF`, no queue limit | 2 | 0 and 0 | 0 | 1,066, 246 s | 151, 2 not boarded | 137, 4 not finished | 0 |
+| `LF`, no queue limit | 3 | 0 and 0 | 0 | 1,049, 198 s | 294, 16 not boarded | 271, 15 not finished | 0 |
+| `D`, queue 200 | 1 | 0 and 0 | 0 | 0 | 0 | 0 | 0 |
+| `D`, queue 200 | 2 | 0 and 0 | 0 | 390, 1,542 s | 113 | 84 | 0 |
+| `D`, queue 200 | 3 | 0 and 0 | 0 | 763, 210 s | 286 | 209 | 0 |
+
+- The arms of `LF` with no queue limit end with 84, 335, and 384 open orders with no move, and 68, 283, and 393 with the move, so both fail the finite recovery gate.
+  These arms are a diagnostic, not a screen configuration.
+- With no refusals, `LF` still has 151 to 294 requests over the wait limit.
+  So refusal cascades add to the count at a queue limit of 200, but they are not its source.
+- In `LF` seeds 2 and 3 and `D` seed 3, the first changed wait is during the 200 s of the move.
+  In `LF` seed 1 it is at 432 s, and in `D` seed 2 at 1,542 s, long after the pod was idle again.
+  So a part of the effect comes after the move, perhaps from the new berth of the pod.
+  This is an observation of time, not a mechanism, and the trace of the first divergence is still open.
+
+#### Conclusion
+
+In this saturated workload, the individual limits are sensitive to one physical change to one pod: in `LF`, one move of 200 s puts 151 to 438 requests over the wait limit.
+This does not give a noise floor, and it is not a null for a comparison of `D` with `LF`.
+The counts of `D` with the move are a perturbation of `D` too, so they are not a null either.
+The gates do not change, and the screen result for `D` stands: it fails the background wait and journey gates.
