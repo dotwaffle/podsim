@@ -359,8 +359,8 @@ func TestPickupPodMatchesFullScan(t *testing.T) {
 }
 
 // TestDispatchPassResetFindsNewFreePods checks that a reset of the pass
-// finds the free pods again. Pod 01 is idle at Harbor, but a trip holds it.
-// Pod 02 travels with a passenger, so it is not free. It then becomes idle
+// finds the idle pods again. Pod 01 is idle at Harbor, but a trip holds it.
+// Pod 02 travels with a passenger, so it is not idle. It then becomes idle
 // at Garden.
 func TestDispatchPassResetFindsNewFreePods(t *testing.T) {
 	t.Parallel()

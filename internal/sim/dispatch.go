@@ -52,12 +52,13 @@ func (s *Simulation) SubmitTripOptions(options TripOptions) (int, error) {
 //
 // Many waiting trips can start at the same station. The pass keeps the
 // result of pickupPod for each station, so these trips do not repeat the
-// same work. The pass also keeps the free pods and the pickup candidates,
-// so localPickup, pickupAvailable and pickupPod do not read the full fleet
-// for each trip. pickupPod reads the pods, the berth owners, the waiting
-// trips, and assigned. The free pods depend only on the pods, and the
-// pickup candidates depend only on the pods and assigned. After a change to
-// one of them, the loop resets the pass before it reads the pass again.
+// same work. The pass also keeps the idle pods by station and the pickup
+// candidates, so localPickup, pickupAvailable and pickupPod do not read the
+// full fleet for each trip. pickupPod reads the pods, the berth owners, the
+// waiting trips, and assigned. The idle pods depend only on the pods, and
+// the pickup candidates depend only on the pods and assigned. After a
+// change to one of them, the loop resets the pass before it reads the pass
+// again.
 // Thus each result is equal to the result of a new call. A dispatch reason
 // and a deferral do not change what pickupPod reads. pickupPod also fills
 // the route caches, but a cached route is equal to a new route. A trip that waitForFinishingPod holds until its
@@ -67,10 +68,8 @@ func (s *Simulation) SubmitTripOptions(options TripOptions) (int, error) {
 // trip, promoteReadyPickup looks for a later trip with a pod that is idle at
 // the pickup station, and localPickup looks for an idle pod at the pickup
 // station. At a station with no idle pod, both scans find nothing and
-// change nothing. The pass keeps a filter over the stations with an idle
-// pod, and the loop does not do the scans at a station that the filter
-// excludes. mayBeIdle computes the filter again at the first use after a
-// reset of the pass. Thus the filter includes each station with an idle pod.
+// change nothing, so the loop does not do them there. idlePods finds the
+// idle pods again at the first use after a reset of the pass.
 //
 // A station with an idle pod can have many waiting trips, and few of the
 // later trips hold an idle pod at their pickup. promoteReadyPickup needs only
@@ -101,7 +100,7 @@ func (s *Simulation) dispatch() {
 // of the next trip: i when the trip leaves the queue, and i+1 when the trip
 // stays.
 func (s *Simulation) dispatchTrip(i int, pass *dispatchPass) int {
-	if s.mayBeIdle(pass, s.waiting[i].request.legOrigin()) && s.promoteReadyPickup(i, pass) {
+	if s.hasIdlePod(pass, s.waiting[i].request.legOrigin()) && s.promoteReadyPickup(i, pass) {
 		pass.reset()
 	}
 	trip := &s.waiting[i]
@@ -165,7 +164,7 @@ func (s *Simulation) joinTrip(trip *waitingTrip, pass *dispatchPass) bool {
 // of the trip.
 func (s *Simulation) takeLocalPickup(trip *waitingTrip, v *vehicle, pass *dispatchPass) *vehicle {
 	origin := trip.request.legOrigin()
-	if v == nil || v.Pod.Activity == Idle && v.Pod.StationID == origin || !s.mayBeIdle(pass, origin) {
+	if v == nil || v.Pod.Activity == Idle && v.Pod.StationID == origin || !s.hasIdlePod(pass, origin) {
 		return v
 	}
 	local := s.localPickupForRequest(trip.request, trip.excludedPod, pass)
@@ -302,45 +301,6 @@ func podReason(previous, podID, suffix string) string {
 	return reasonPodPrefix + podID + suffix
 }
 
-// stationFilterBits is the number of bits in a stationFilter.
-const stationFilterBits = 256
-
-// stationFilter is a Bloom filter with one hash over a set of stations.
-// mayHave reports true for each station in the set. It can also report true
-// for a station that is not in the set.
-type stationFilter [stationFilterBits / 64]uint64
-
-func (f *stationFilter) add(stationID string) {
-	bit := stationBit(stationID)
-	f[bit/64] |= 1 << (bit % 64)
-}
-
-func (f *stationFilter) mayHave(stationID string) bool {
-	bit := stationBit(stationID)
-	return f[bit/64]&(1<<(bit%64)) != 0
-}
-
-// stationBit folds the 32-bit FNV-1a hash of a station ID to a bit of
-// stationFilter.
-func stationBit(stationID string) uint {
-	hash := uint32(2166136261)
-	for i := range len(stationID) {
-		hash = (hash ^ uint32(stationID[i])) * 16777619
-	}
-	return uint(hash^hash>>8^hash>>16^hash>>24) % stationFilterBits
-}
-
-// idleStations returns a filter over the stations with an idle pod.
-func (s *Simulation) idleStations() stationFilter {
-	var idle stationFilter
-	for i := range s.vehicles {
-		if pod := &s.vehicles[i].Pod; pod.Activity == Idle {
-			idle.add(pod.StationID)
-		}
-	}
-	return idle
-}
-
 func (s *Simulation) assigned(podID string) bool {
 	return slices.ContainsFunc(s.waiting, func(trip waitingTrip) bool { return trip.request.PodID == podID })
 }
@@ -360,17 +320,13 @@ type dispatchPass struct {
 	// assigned holds the pods of the waiting trips. dispatch changes it
 	// during the pass.
 	assigned map[string]bool
-	// free holds the free pods in fleet order when freeKnown is true. See
-	// freePods.
-	free      []*vehicle
-	freeKnown bool
 	// candidates holds the pods that pickupCandidate accepts, in fleet
 	// order, when candidatesKnown is true. See pickupCandidates.
 	candidates      []*vehicle
 	candidatesKnown bool
-	// idle is a filter over the stations with an idle pod when idleKnown is
-	// true. See mayBeIdle.
-	idle      stationFilter
+	// idle holds the idle pods by station, in fleet order, when idleKnown
+	// is true. See idlePods.
+	idle      map[string][]*vehicle
 	idleKnown bool
 	// boarding holds the boarding pods by station when boardingKnown is
 	// true. See boardingPods.
@@ -436,7 +392,6 @@ func (pass *dispatchPass) end() {
 func (pass *dispatchPass) reset() {
 	clear(pass.optionPickups)
 	clear(pass.fittingPods)
-	pass.free, pass.freeKnown = pass.free[:0], false
 	pass.candidates, pass.candidatesKnown = pass.candidates[:0], false
 	pass.idleKnown = false
 	pass.boardingKnown = false
@@ -444,13 +399,31 @@ func (pass *dispatchPass) reset() {
 	clear(pass.finish)
 }
 
-// mayBeIdle reports false only when no pod is idle at the station. It
-// computes the filter at the first call after a reset of the pass.
-func (s *Simulation) mayBeIdle(pass *dispatchPass, stationID string) bool {
+// idlePods returns the idle pods at the station in fleet order, and
+// includes the pods out of service. It finds the pods at the first call
+// after a reset of the pass. A station keeps its empty list after a reset,
+// so the pass reuses the lists.
+func (s *Simulation) idlePods(pass *dispatchPass, stationID string) []*vehicle {
 	if !pass.idleKnown {
-		pass.idle, pass.idleKnown = s.idleStations(), true
+		if pass.idle == nil {
+			pass.idle = make(map[string][]*vehicle)
+		}
+		for id, pods := range pass.idle {
+			pass.idle[id] = pods[:0]
+		}
+		for i := range s.vehicles {
+			if v := &s.vehicles[i]; v.Pod.Activity == Idle {
+				pass.idle[v.Pod.StationID] = append(pass.idle[v.Pod.StationID], v)
+			}
+		}
+		pass.idleKnown = true
 	}
-	return pass.idle.mayHave(stationID)
+	return pass.idle[stationID]
+}
+
+// hasIdlePod reports whether a pod is idle at the station.
+func (s *Simulation) hasIdlePod(pass *dispatchPass, stationID string) bool {
+	return len(s.idlePods(pass, stationID)) > 0
 }
 
 // readyPickupPod returns the pod of the trip when the pod is in service and
@@ -481,24 +454,6 @@ func (s *Simulation) readyTrips(pass *dispatchPass) []int {
 	return pass.ready
 }
 
-// freePods returns each pod in service that is idle or not occupied, in
-// fleet order.
-// Each other pod is not a local pickup, and pickupRouteWithAssignments
-// rejects it. The free pods do not depend on assigned, so the callers read
-// assigned for each pod. freePods finds the pods at the first call after a
-// reset of the pass.
-func (s *Simulation) freePods(pass *dispatchPass) []*vehicle {
-	if !pass.freeKnown {
-		for i := range s.vehicles {
-			if v := &s.vehicles[i]; v.inService() && (v.Pod.Activity == Idle || !v.Pod.Occupied) {
-				pass.free = append(pass.free, v)
-			}
-		}
-		pass.freeKnown = true
-	}
-	return pass.free
-}
-
 // pickupCandidates returns each pod that pickupCandidate accepts with the
 // assigned pods of the pass, in fleet order. Only these pods can be a
 // pickup pod for a station. pickupCandidate reads only the pods, assigned
@@ -522,8 +477,8 @@ func (s *Simulation) pickupCandidates(pass *dispatchPass) []*vehicle {
 // destination. It skips the pod excluded, which a released trip must not
 // get.
 func (s *Simulation) localPickupForRequest(request Request, excluded string, pass *dispatchPass) *vehicle {
-	for _, v := range s.freePods(pass) {
-		if v.Pod.Activity == Idle && v.Pod.StationID == request.legOrigin() && (excluded == "" || v.Pod.ID != excluded) && !pass.assigned[v.Pod.ID] && s.podFitsRequest(v, request) {
+	for _, v := range s.idlePods(pass, request.legOrigin()) {
+		if v.inService() && (excluded == "" || v.Pod.ID != excluded) && !pass.assigned[v.Pod.ID] && s.podFitsRequest(v, request) {
 			station, _ := s.station(v.Pod.StationID)
 			berth, _ := station.berth(v.Pod.BerthID)
 			if _, err := s.stationApproachRouteForClass(berth.Node, request.To, v.Pod.Class); err != nil {

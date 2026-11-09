@@ -2,7 +2,6 @@ package sim
 
 import (
 	"errors"
-	"fmt"
 	"reflect"
 	"strconv"
 	"testing"
@@ -641,39 +640,10 @@ func TestLocalIdlePodPricedAtItsBerth(t *testing.T) {
 	}
 }
 
-// TestStationFilterKeepsEachStation checks that stationFilter reports each
-// station that it holds, and that it can exclude other stations. The IDs
-// have the same length and a long common prefix, as the London IDs do.
-func TestStationFilterKeepsEachStation(t *testing.T) {
-	t.Parallel()
-	var filter stationFilter
-	for i := range 300 {
-		if id := fmt.Sprintf("940GZZLU%03d", i); filter.mayHave(id) {
-			t.Fatalf("an empty filter has %s", id)
-		}
-	}
-	for i := 0; i < 300; i += 7 {
-		filter.add(fmt.Sprintf("940GZZLU%03d", i))
-	}
-	excluded := 0
-	for i := range 300 {
-		id := fmt.Sprintf("940GZZLU%03d", i)
-		switch {
-		case i%7 == 0 && !filter.mayHave(id):
-			t.Fatalf("the filter lost %s", id)
-		case i%7 != 0 && !filter.mayHave(id):
-			excluded++
-		}
-	}
-	if excluded == 0 {
-		t.Fatal("the filter excludes no station")
-	}
-}
-
 // TestIdlePodScansAfterAChangeInThePass checks that dispatch finds an idle
 // pod at the pickup station after an earlier trip in the same pass changed
-// the pods. Trip 1 boards pod 01 at Harbor first, so the pass must compute
-// its filter of idle stations again. Pod 02 is idle at Market, and pod 03 is
+// the pods. Trip 1 boards pod 01 at Harbor first, so the pass must find
+// the idle pods again. Pod 02 is idle at Market, and pod 03 is
 // on its way to Market for trip 2. Pod 02 must board trip 2 in the same
 // pass.
 func TestIdlePodScansAfterAChangeInThePass(t *testing.T) {

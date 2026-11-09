@@ -129,7 +129,7 @@ func withdrawalGateCases() []withdrawalGateCase {
 		{
 			name: "local pickup", build: harborPod,
 			selects: func(_ *testing.T, s *Simulation, v *vehicle) bool {
-				return s.localPickup("harbor", &dispatchPass{}) == v
+				return s.localPickupForRequest(Request{From: "harbor", To: "garden", PartySize: 1}, "", &dispatchPass{}) == v
 			},
 		},
 		{

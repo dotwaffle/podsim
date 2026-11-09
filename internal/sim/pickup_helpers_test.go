@@ -3,8 +3,8 @@ package sim
 // localPickup returns the first idle pod at the station that is not in
 // assigned.
 func (s *Simulation) localPickup(stationID string, pass *dispatchPass) *vehicle {
-	for _, v := range s.freePods(pass) {
-		if v.Pod.Activity == Idle && v.Pod.StationID == stationID && !pass.assigned[v.Pod.ID] {
+	for _, v := range s.idlePods(pass, stationID) {
+		if v.inService() && !pass.assigned[v.Pod.ID] {
 			return v
 		}
 	}
