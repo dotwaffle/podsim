@@ -75,7 +75,7 @@ Each option must skip a withdrawn pod as `guardedSupply` and `guardedCandidates`
 
 ## Pilot result
 
-The pilot ran on November 9, 2026, from `main` at `8c77fc2b` with the scratch code on the branch `study/loaded-positioning` at `4937a13a`.
+The pilot ran on November 9, 2026, from `main` at `8c77fc2b` with scratch code that does not land.
 Option A is as above, with a minimum of a tenth of the fleet idle.
 Option B checks each 30 s, acts while at least a fifth of the fleet is idle, keeps more than a tenth idle, and moves no Express pod.
 Each arm ran the screen workload of `pm-peak` with the oracle at each simulated second, and no arm had a safety or accounting failure or an unfinished order.
@@ -128,7 +128,7 @@ On November 9, 2026, the maintainer approved a pilot of option B that acts only 
 The surplus is the condition of B: at least a fifth of the fleet idle, at each check of 30 s.
 The maintainer chose to set W from the early surplus of `LF`, measured before the pilot arms run.
 
-A probe on the branch `study/surplus-positioning` at `3d98d7d1` ran `LF` and `D` with no pilot mode, `pm-peak` seeds 1 to 3, and listed the times with a surplus.
+A scratch probe ran `LF` and `D` with no pilot mode, `pm-peak` seeds 1 to 3, and listed the times with a surplus.
 
 | Seed | `LF` surplus (minutes) | `D` surplus (minutes) |
 | --- | --- | --- |
@@ -148,7 +148,7 @@ The readings are those of the first pilot, against `LF` with the current policy.
 
 ### Result
 
-The pilot ran on November 9, 2026, with the scratch code at `3d98d7d1`.
+The pilot ran on November 9, 2026, with scratch code that does not land.
 No arm had a safety or accounting failure or an unfinished order.
 The counts over the limits compare each arm with `LF` on the matched background requests, as in the first pilot.
 

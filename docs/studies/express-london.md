@@ -27,8 +27,8 @@ No default, preset, contract, simulation rule, or layout changes with this study
 
 ## Method
 
-The source is `be7cff2e` plus the scratch branch `study/express-london`, which does not land.
-The run scripts are in `tools/study-express-london` on that branch.
+The source is `be7cff2e` plus scratch commits, which do not land.
+The run scripts were in `tools/study-express-london` in those commits.
 Each arm is LondonFull with AM peak background demand at 10 orders a minute, the preset rate, for 60 simulated minutes.
 Virtual platoons are on, and redistribution and pickup reassignment are off, as in the preset.
 The queue limit is 200.
@@ -101,7 +101,7 @@ The `few` run is the timed pilot, and its binary predates the reading of the sma
 
 | Order | Check | Text | Resolution |
 | --- | --- | --- | ---  |
-| 1 | `validateContractNetworkRecords` | `the Express order contract does not allow depots` | Removed on the branch. |
+| 1 | `validateContractNetworkRecords` | `the Express order contract does not allow depots` | Removed in the scratch commits. |
 | 2 | `prepareNetwork` | `lane "940GZZLUBNK-move-08-02" has an unsupported large-vehicle path shape` | The lane removed in all arms. |
 | 3 | `validateBankGeometry`, `PlaneReachError` | `nonincident paths ... are less than 20 meters apart` | Bypassed by `STUDY_NO_REACH`. Not resolved. |
 

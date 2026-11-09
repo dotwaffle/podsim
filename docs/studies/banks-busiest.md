@@ -18,10 +18,10 @@ No default, preset, contract, simulation rule, or layout changes with this study
 ## Method
 
 The source is `545b95b6` plus the probe of the station study.
-The local branch `study/banks-busiest` holds the probe, its additions, and the scripts, and it does not land.
+The probe, its additions, and the scripts are scratch code, and they do not land.
 The additions are a list of stations, a window end, and the origin and destination of each offer.
 The non-document difference between the station study's `1932147` and `545b95b6` is the incident soak tests and one test entry that no production code calls.
-The hooks in the branch are the station study's, and no arm sets them.
+The hooks in the probe are the station study's, and no arm sets them.
 
 The project comes from `scenario -preset london-full -output base.json`.
 It has 327 pods and 734 passenger berths.
@@ -268,7 +268,7 @@ This study did not separate these changes from the fleet histories that differ b
 
 ## Bank searches
 
-The all-banked project is a larger bank network, so the local branch `warm-bank-tree` could use it.
+The all-banked project is a larger bank network, so the shared search tree of `9a27c19a` could use it.
 With any bank in the network, each preferred nearest search goes through `bankNearest`.
 
 | Measure | Seed 1 | Seed 2 | Seed 3 |

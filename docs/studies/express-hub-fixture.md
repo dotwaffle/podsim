@@ -414,7 +414,7 @@ These checks cannot rule out every lost or duplicate order.
 
 ## Comparison with the earlier London screen
 
-The [earlier screen](express-london.md) used `be7cff2e` plus a scratch branch, removed the folded Bank movement, and bypassed reach refusal.
+The [earlier screen](express-london.md) used `be7cff2e` plus scratch commits, removed the folded Bank movement, and bypassed reach refusal.
 Its 16-pod `more` arm reported 10 to 15 failing ticks per seed, with gaps down to 17.73 m.
 A6 passes static validation without that bypass and has zero observed oracle failures in these runs.
 This does not prove safety beyond the tested motion.
@@ -542,7 +542,7 @@ Every other matched wait equals or improves on the baseline.
 | 2 | 246 | 1,898, 2,143 | 445, 821 | 1 |
 | 3 | 240 | 1,922, 2,200 | 274, 477 | 0 |
 
-The commands are on branch `study/express-fixture`, with the options `-drain` and `-trace-party-240`.
+The commands were scratch code that did not land, with the options `-drain` and `-trace-party-240`.
 Not checked: a parking run at another seed, unlogged internal state, and an unmatched censored wait.
 
 ## Banks on the fixture
@@ -601,7 +601,7 @@ The schedules contain 909, 939, and 910 offered parties.
 Their identities, ticks, endpoints, and sizes match across baseline, D control, D Express, and A Express.
 Each schedule includes 599 background riders.
 All eight D runs exit with 0.
-The run logs were scratch and are deleted, and branch `study/express-fixture` keeps the code that makes them.
+The run logs and the code that makes them were scratch and are deleted.
 Control wall seconds are 135 / 133 / 132, and Express wall seconds are 1138 / 1137 / 1129.
 The repeat takes 1137 seconds, and the drain takes 3686 seconds.
 

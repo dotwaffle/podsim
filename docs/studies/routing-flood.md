@@ -16,9 +16,9 @@ No default, preset, contract, or simulation rule changes with this study.
 
 ## Method
 
-The source is `aaedb7eb` plus scratch commits on the local branch `study/routing-flood`.
+The source is `aaedb7eb` plus scratch commits.
 These commits do not land, and no test, lint, or race task ran on them.
-The branch takes the probe of `study/station-limits` and adds the restore, the junction pass, and more counters.
+They take the probe of the [station limits study](station-limits.md) and add the restore, the junction pass, and more counters.
 
 The projects come from `scenario -preset london-full`, with 327 pods, and the same command with `-station-pods 2`, with 636 pods.
 The flood and its schedule IDs are those of the station limits study, with one process for each seed:
@@ -275,7 +275,7 @@ The queue and junction arms hurt no origin, because they change nothing.
 
 ## Junction reroute on the congestion signal
 
-This arm ran after the rest of the study, from `study/routing-flood` at `9fd0e318`, because the arm on the queue signal installed no route.
+This arm ran after the rest of the study, from a later scratch commit, because the arm on the queue signal installed no route.
 It has the same schedule IDs as the baseline, and `SafetyObservation.Check` found no failure in 108,000 ticks on each seed, with a smallest gap of 6.000 m.
 The pass refreshes the congestion costs before its searches, because a search under the routing view does not refresh them.
 The policy has no saving or detour guard, so a pod can change its route at each pass.

@@ -20,7 +20,6 @@ No default, preset, contract, simulation rule, or layout changes with this study
 
 The source is `1932147` plus scratch hooks and a probe in `cmd/compare`.
 The hooks and the probe do not land.
-The local branch `study/station-limits` holds them.
 A control arm of the same tree without the probe gives identical result rows (378 / 370 / 386 completed at King's Cross).
 
 The project comes from `scenario -preset london-full -output base.json`.

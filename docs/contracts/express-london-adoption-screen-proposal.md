@@ -98,7 +98,7 @@ The maintainer waived that failure for that screen only, and this screen gets no
 
 ## Runner
 
-The study runner of the hub fixture is on the unmerged branch `study/express-fixture`, at `fa587966`, so its source does not match `main`.
+The study runner of the hub fixture was scratch code on `fa587966` that did not land, so its source does not match `main`.
 
 | Option | For | Against |
 | --- | --- | --- |
@@ -364,7 +364,7 @@ Positioning that moves idle pods toward demand at this load is a new shared poli
 
 The [positioning pilot](loaded-positioning-proposal.md#pilot-result) found that about 60 early moves in `LF` put hundreds of requests over the limits.
 So the maintainer asked for the effect of a change with no service purpose.
-A scratch probe on the branch `study/gate-noise` at `473b20bf` ran the screen workload of `pm-peak`, seeds 1 to 3, with the oracle at each simulated second.
+A scratch probe ran the screen workload of `pm-peak`, seeds 1 to 3, with the oracle at each simulated second.
 The change moves the first idle Compact pod with no trip, in fleet order, to another free berth of its own station, once.
 Each arm is compared with the same configuration with no change.
 In this table, the changed waits are those of the matched requests.
@@ -412,7 +412,7 @@ The [earlier null perturbation](../studies/default-flips.md#null-perturbation) o
 
 #### Follow-up probe
 
-A second probe on the branch `study/gate-noise-2` at `7d93e47b` answers findings 1 to 4.
+A second scratch probe answers findings 1 to 4.
 The move is at 60 s exactly, with no retry.
 Each arm is compared with `screenCompare`, which counts censored requests.
 A diagnostic arm of `LF` has a queue limit of 1,000,000, so it refuses nothing.
@@ -450,7 +450,7 @@ The changed waits give the count, and the offer time of the first request with a
 
 #### Trace of the first divergence
 
-A third probe on the branch `study/gate-noise-3` at `afc82195` ran each pair with the move at 60 s and with no move.
+A third scratch probe ran each pair with the move at 60 s and with no move.
 At each tick after the move, it compared the state of each pod other than `london-pod-001`, and each pending request.
 It ran `LF` seeds 1 to 3 to 900 s, and `D` seed 2 to 1,800 s.
 
@@ -468,7 +468,7 @@ In `D` seed 2, only the moved pod differs up to 1,800 s, although the first requ
 
 #### Move with no hold for a finishing pod
 
-A fourth probe on the branch `study/gate-noise-4` at `a58d293c` repeated the second probe at a queue limit of 200, with the hold for a finishing pod off (`FinishingPodWaitNone`) in both arms of each pair.
+A fourth scratch probe repeated the second probe at a queue limit of 200, with the hold for a finishing pod off (`FinishingPodWaitNone`) in both arms of each pair.
 The move was the same in each run.
 
 | Pair | Wait over, hold on and off | Journey over, hold on and off | Live queue loss, hold off |
@@ -488,7 +488,7 @@ The probe did not change the tie breaks of dispatch.
 
 Dispatch gives a request the pod with the shortest pickup time, and the first pod in fleet order wins a tie.
 The local pickup also takes the first idle pod at the origin in fleet order.
-A fifth probe on the branch `study/tie-break` at `6f99bae6` let the last pod in fleet order win in both places, counted the exact ties of pickup time, and repeated the move under that rule, at a queue limit of 200.
+A fifth scratch probe let the last pod in fleet order win in both places, counted the exact ties of pickup time, and repeated the move under that rule, at a queue limit of 200.
 
 | Pair | Ties, first and last rule | Last rule against first rule: wait over, journey over | Move under the last rule: wait over, journey over |
 | --- | --- | --- | --- |

@@ -64,15 +64,13 @@ Late growth covers the second half of the arrival window: hours 3 to 6 of a 6 h 
 ### Matched requests
 
 The compare report has only arm aggregates, so it cannot give a per-request match.
-The local branch `study/sharing-onboard` has three scratch commits for this study, and they do not land:
+Three scratch commits for this study made these changes, in this order, and they do not land:
 
-| Commit | Change |
-| --- | --- |
-| `c45f5c93` | `-request-ledger` writes one row per offer: status, boarding tick, and completion tick. |
-| `afc05e32` | `cmd/onboardbridge` repeats the old Example-network screens. |
-| `341b7a89` | Counters at the occupied pickup gates. |
+1. `-request-ledger` writes one row per offer: status, boarding tick, and completion tick.
+2. `cmd/onboardbridge` repeats the old Example-network screens.
+3. Counters at the occupied pickup gates.
 
-The 6 h arms use `c45f5c93`, and the 3 h arms use `341b7a89`.
+The 6 h arms use change 1, and the 3 h arms use all three.
 The patches do not change the reports.
 A 30-minute run of each patched binary gives the same CSV bytes as the binary at `4bffb6f7`.
 Two 7 h arms with the counters give the same CSV bytes as the same arms without them.
@@ -338,7 +336,7 @@ The [rejected candidates](../design/experimental-adoption.md#rejected-candidates
 
 ### Example-network screens
 
-These reproduce closely at the current source, with `go run ./cmd/onboardbridge` on the study branch.
+These reproduce closely at the current source, with the scratch `cmd/onboardbridge`.
 The one-pod record came with `4f65b5bd`, the multi-pod screen names `5a57e4c`, and the records are `docs/onboard-pickup-service-screen.md` and `docs/occupied-pickup-multipod-screen.md` in git history.
 The settings differ in the tick rate, 60 Hz then and 30 Hz now, and in the source.
 The study does not measure how much of each difference the tick rate causes.

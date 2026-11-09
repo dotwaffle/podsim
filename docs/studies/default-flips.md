@@ -54,17 +54,16 @@ A sharing flip would also need the consent member, because private orders do not
 
 ## Method
 
-The source is `545b95b6` plus scratch commits on the local branch `study/default-flips`, which does not land.
+The source is `545b95b6` plus four scratch commits, which do not land.
 No test, lint, or race task ran on them.
+The commits made these changes:
 
-| Commit | Change |
-| --- | --- |
-| `ccb44e46` | `c45f5c93` of `study/sharing-onboard`: `-request-ledger` writes one row per offer. |
-| `9b4d258e` | A counter of pod entries and exits at the focus station, with the definitions of the station limits probe. |
-| `c7159235` | The run and table scripts, in `tools/study-default-flips`. |
-| `ebf890af` | The [null perturbation](#null-perturbation) hook and its script. |
+1. `-request-ledger` writes one row per offer, as in the [sharing onboard study](sharing-onboard.md).
+2. A counter of pod entries and exits at the focus station, with the definitions of the station limits probe.
+3. The run and table scripts, in `tools/study-default-flips`.
+4. The [null perturbation](#null-perturbation) hook and its script.
 
-A flood of 10 simulated minutes with the two code commits gives the same report bytes as the binary at `545b95b6`.
+A flood of 10 simulated minutes with changes 1 and 2 gives the same report bytes as the binary at `545b95b6`.
 The study did not repeat this check on the AM workload or on the full flood.
 
 The project comes from `scenario -preset london-full`: 327 pods, 734 passenger berths, and 36 parking berths.
