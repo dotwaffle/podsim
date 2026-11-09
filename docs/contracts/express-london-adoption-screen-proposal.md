@@ -452,3 +452,4 @@ In this saturated workload, the individual limits are sensitive to one physical 
 This does not give a noise floor, and it is not a null for a comparison of `D` with `LF`.
 The counts of `D` with the move are a perturbation of `D` too, so they are not a null either.
 The gates do not change, and the screen result for `D` stands: it fails the background wait and journey gates.
+The [individual limits amendment](individual-limits-amendment-proposal.md) gives the shapes of a change to the limits for later candidates, and the evidence that it needs.
