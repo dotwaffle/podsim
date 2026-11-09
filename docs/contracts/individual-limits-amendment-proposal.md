@@ -1,8 +1,10 @@
 # Individual limits amendment proposal
 
-Status: draft of November 9, 2026.
+Status: closed on November 9, 2026, with no amendment.
 On November 9, 2026, the maintainer decided to keep the current individual limits for `D`, and to fold the findings of the external review into this draft.
+After the work on `D` adoption stopped, the maintainer closed the draft, with no amendment and no more probes.
 The draft changes no limit, and no run uses the shapes below.
+The shapes and the diagnosis stay as a reference for a later candidate, which needs a new proposal.
 
 ## Problem
 
@@ -115,8 +117,8 @@ Each diagnosis probe is a scratch probe of at most 6 arms and 3 seeds.
 ## Decisions for the maintainer
 
 1. Decided on November 9, 2026: keep the current individual limits for `D`.
-2. Open an amendment for later candidates, or close this draft.
-3. If an amendment opens, choose a shape (2 recommended), and approve the open diagnosis probes before any value is set.
+2. Decided on November 9, 2026: close this draft, with no amendment.
+3. Not applicable: no shape is chosen, and the open diagnosis probes do not run.
 
 ## External review
 
