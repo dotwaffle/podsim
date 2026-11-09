@@ -1943,6 +1943,7 @@ func TestSoakReadingPaths(t *testing.T) {
 		"noRoute":  {ID: "noRoute", WaitReason: sim.NoForwardRoute},
 		"faultID":  {ID: "faultID", BlockedBy: "f1"},
 		"chain":    {ID: "chain", BlockedBy: "own"},
+		"behind":   {ID: "behind", BlockedBy: "faultID"},
 		"legOut":   {ID: "legOut", Activity: sim.Idle},
 		"legOK":    {ID: "legOK", Activity: sim.Idle},
 		"moveOut":  {ID: "moveOut", Activity: sim.Idle},
@@ -1963,6 +1964,8 @@ func TestSoakReadingPaths(t *testing.T) {
 		{"noRoute", soakPathNoRoute, true},
 		{"faultID", soakPathFaultEnd, true},
 		{"chain", soakPathFaultEnd, true},
+		// The chain reaches a fault ID through another pod.
+		{"behind", soakPathFaultEnd, true},
 		{"legOut", soakPathLegBlocked, true},
 		{"moveOut", soakPathMoveBlocked, true},
 		{"legOK", soakPathLegFree, false},
@@ -1979,7 +1982,7 @@ func TestSoakReadingPaths(t *testing.T) {
 			t.Errorf("pod %s has the path %d, blocked %t, want %d, %t", test.pod, path, blocked, test.path, test.blocked)
 		}
 	}
-	const want = "ownFault=1 incident=1 noForwardRoute=1 faultAtChainEnd=2 legBlocked=1 moveBlocked=1 legFree=1 notBlocked=3"
+	const want = "ownFault=1 incident=1 noForwardRoute=1 faultAtChainEnd=3 legBlocked=1 moveBlocked=1 legFree=1 notBlocked=3"
 	if got := counts.String(); got != want {
 		t.Errorf("the counts are %s, want %s", got, want)
 	}
