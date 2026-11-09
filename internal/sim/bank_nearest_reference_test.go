@@ -340,3 +340,44 @@ func TestBankNearestReverseOverflow(t *testing.T) {
 		t.Fatalf("got %d, %t, want %d, %t", got, gotOK, want, wantOK)
 	}
 }
+
+// TestBankNearestReverseBoundSlack sets the lane costs of the route from
+// a-approach to bank-a-berth to 0.3, 0.2, and 0.1 seconds. The route cost
+// adds them forward, and the reverse search adds them backward, so its bound
+// is a few ulps above the route cost. The limit is the route cost, which is
+// inclusive, so the call must find a-approach. Only boundSlack lets the
+// bound pass the limit.
+func TestBankNearestReverseBoundSlack(t *testing.T) {
+	t.Parallel()
+	network := BankExample()
+	route := []string{"a-entry", "bank-a-arrival", "bank-a-in"}
+	seconds := []float64{0.3, 0.2, 0.1}
+	graph := newRouteGraph(network)
+	for position, id := range route {
+		index := graph.lanes[id]
+		network.Lanes[index].SpeedLimit = graph.lengths[index] / seconds[position]
+	}
+	graph = newRouteGraph(network)
+	forward, reverse := 0.0, 0.0
+	for position := range route {
+		forward += graph.edges[graph.lanes[route[position]]].seconds
+		reverse += graph.edges[graph.lanes[route[len(route)-1-position]]].seconds
+	}
+	if reverse <= forward {
+		t.Fatalf("the reverse sum %v is not above the forward sum %v, so the fixture does not test boundSlack", reverse, forward)
+	}
+	rank := make([]int, len(network.Nodes))
+	for node := range rank {
+		rank[node] = -1
+	}
+	rank[graph.nodes["a-approach"]] = 0
+	input := preferredNearestInput{from: "bank-a-berth", rank: rank, reverse: true}
+	want, cost, wantOK := network.referenceBankNearestCost(input, graph)
+	if !wantOK || network.Nodes[want].ID != "a-approach" || cost != forward {
+		t.Fatalf("the reference gives %d, %v, %t, want a-approach, %v", want, cost, wantOK, forward)
+	}
+	input.limit = cost
+	if got, gotOK := network.bankNearest(input, graph); got != want || !gotOK {
+		t.Fatalf("got %d, %t, want %d, true", got, gotOK, want)
+	}
+}
