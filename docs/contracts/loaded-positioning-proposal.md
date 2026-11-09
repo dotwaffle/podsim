@@ -120,3 +120,27 @@ A later probe found that one move of one idle pod in `LF` puts 319 to 438 reques
 An external review found that such a move is a physical change, not a null, so these counts do not show that the result of `LF` with B is within a noise floor.
 The [sensitivity of the individual limits](express-london-adoption-screen-proposal.md#sensitivity-of-the-individual-limits-to-one-pod-move) records the review and a second probe.
 The result of `LF` with B above stands.
+
+## Pilot of B on a sustained surplus
+
+On November 9, 2026, the maintainer approved a pilot of option B that acts only after the surplus holds for a window W.
+The surplus is the condition of B: at least a fifth of the fleet idle, at each check of 30 s.
+The maintainer chose to set W from the early surplus of `LF`, measured before the pilot arms run.
+
+A probe on the branch `study/surplus-positioning` at `3d98d7d1` ran `LF` and `D` with no pilot mode, `pm-peak` seeds 1 to 3, and listed the times with a surplus.
+
+| Seed | `LF` surplus (minutes) | `D` surplus (minutes) |
+| --- | --- | --- |
+| 1 | 0.5 to 16.5, 134.5 to 179.5 | 0.5 to 154.0, all of the run |
+| 2 | 0.5 to 18.0, 135.0 to 184.5 | 0.5 to 170.0, all of the run |
+| 3 | 0.5 to 17.0, 135.0 to 195.0 | 0.5 to 161.5, all of the run |
+
+The arrivals end at minute 120.
+The longest early surplus of `LF` ends at 18.0 minutes, so W is 18 minutes.
+With this W, B makes no move in the early surplus of `LF`.
+It can move pods in the late surplus of `LF`, from about minute 153, while the last orders finish.
+In `D`, B starts at about minute 18, not at the start, and 13 of the 21 failures of seed 2 came in minutes 15 to 30.
+
+The arms are `LF`, `LF` with B, `D`, and `D` with B, with W of 18 minutes, on the screen workload of `pm-peak` seeds 1 to 3.
+Each other setting of B is as in the first pilot.
+The readings are those of the first pilot, against `LF` with the current policy.
