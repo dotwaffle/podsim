@@ -6,6 +6,7 @@ The maintainer also approved the build of the runner and the timed pilot.
 The maintainer approved the full screen after the pilot, and it failed, so the work on D adoption stops (see [Results](#results)).
 Status 2026-11-08: the approved mapping said orders of at most 8, from `sim.MaxNewPartySize`, but the LondonFull fleet is Compact, which takes a party of at most 4, so an order of 8 had no pod.
 The runner splits to the largest party that the fleet takes, and the maintainer confirmed this correction on November 8, 2026.
+On November 9, 2026, after the studies and pilots below, the maintainer stopped the work on D adoption under the current gates, so `D` is not adopted (see [Final decision](#final-decision)).
 
 ## Scope
 
@@ -518,3 +519,16 @@ This does not give a noise floor, and it is not a null for a comparison of `D` w
 The counts of `D` with the move are a perturbation of `D` too, so they are not a null either.
 The gates do not change, and the screen result for `D` stands: it fails the background wait and journey gates.
 The [individual limits amendment](individual-limits-amendment-proposal.md) gives the shapes of a change to the limits for later candidates, and the evidence that it needs.
+
+## Final decision
+
+On November 9, 2026, the maintainer kept the current individual limits for `D` and stopped the work on D adoption.
+`D` is not adopted, and no further pilot of `D` runs under this proposal.
+Each variant of `D` failed the background wait and journey gates against `LF`:
+
+- `D` with the bank load choice: 16 to 33 requests over the wait limit in each pair.
+- `D` with option B of [positioning under load](loaded-positioning-proposal.md): 9 to 17 in each seed, and B harms `LF`.
+- `D` with B after a sustained surplus of 18 minutes: 17 to 29 in each seed.
+
+The studies above remain the record of the causes, and the [individual limits amendment](individual-limits-amendment-proposal.md) remains a draft for later candidates.
+A later adoption of `D` needs a changed candidate and a new proposal.

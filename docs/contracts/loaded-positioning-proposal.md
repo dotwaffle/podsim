@@ -2,7 +2,8 @@
 
 Status: drafted on November 9, 2026.
 The maintainer approved the pilot of A and B on November 9, 2026, and a second pilot of B on a sustained surplus.
-No simulation change on `main` comes from the pilot.
+No simulation change on `main` comes from the pilots.
+The work stopped on November 9, 2026, when the maintainer stopped the work on D adoption.
 
 ## Problem
 
