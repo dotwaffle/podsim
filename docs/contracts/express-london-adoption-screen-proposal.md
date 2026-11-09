@@ -483,6 +483,34 @@ No request was censored.
 With the hold off, the move still puts 339 to 405 requests of `LF` over the wait limit, so the hold is not the source of the sensitivity.
 The probe did not change the tie breaks of dispatch.
 
+#### Tie break of dispatch
+
+Dispatch gives a request the pod with the shortest pickup time, and the first pod in fleet order wins a tie.
+The local pickup also takes the first idle pod at the origin in fleet order.
+A fifth probe on the branch `study/tie-break` at `6f99bae6` let the last pod in fleet order win in both places, counted the exact ties of pickup time, and repeated the move under that rule, at a queue limit of 200.
+
+| Pair | Ties, first and last rule | Last rule against first rule: wait over, journey over | Move under the last rule: wait over, journey over |
+| --- | --- | --- | --- |
+| `LF` seed 1 | 1 and 1 | 374, 299 | 402, 345 |
+| `LF` seed 2 | 2 and 2 | 380, 333 | 411, 363 |
+| `LF` seed 3 | 0 and 0 | 0, 0 | 364, 324 |
+| `D` seed 1 | 107 and 111 | 218, 159 | 0, 0 |
+| `D` seed 2 | 114 and 108 | 165, 114 | 179, 127 |
+| `D` seed 3 | 87 and 82 | 290, 220 | 286, 225 |
+
+No request was censored.
+In `LF`, the last rule also fails the live queue loss gate in seeds 1 and 2, with 106 and 151 events.
+
+- Exact ties are rare in `LF`, with 0 to 2 in each run, and they are frequent in `D`, with 81 to 114.
+- A change of the tie rule alone puts 374 and 380 requests of `LF` over the wait limit in seeds 1 and 2, and 165 to 290 requests of `D` in each seed.
+  In `LF` seed 3, with no tie, the change has no effect.
+- Under the last rule, the move puts 364 to 411 requests of `LF` over the wait limit, and 0 to 286 of `D`, about as under the first rule.
+
+So the tie rule is not the source of the sensitivity.
+In `LF`, the tie rule changes the result only in the seeds with a tie of pickup time, and there, with 1 or 2 ties, it has about the same effect as the move.
+The probe did not count the choices of the local pickup.
+In this saturated workload, each change to a dispatch choice that the probes made had an effect of this size.
+
 #### Conclusion
 
 In this saturated workload, the individual limits are sensitive to one physical change to one pod: in `LF`, one move of 200 s puts 151 to 438 requests over the wait limit, or 153 to 438 with the censored requests.
