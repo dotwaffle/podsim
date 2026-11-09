@@ -71,3 +71,47 @@ Each option must skip a withdrawn pod as `guardedSupply` and `guardedCandidates`
 1. Approve the pilot of A and B, or choose other arms.
 2. Confirm that the pilot is a scratch study with no change to `internal/sim` on `main`.
 3. Confirm that any adoption then needs the full gates, and does not use the screen alone.
+
+## Pilot result
+
+The pilot ran on November 9, 2026, from `main` at `8c77fc2b` with the scratch code on the branch `study/loaded-positioning` at `4937a13a`.
+Option A is as above, with a minimum of a tenth of the fleet idle.
+Option B checks each 30 s, acts while at least a fifth of the fleet is idle, keeps more than a tenth idle, and moves no Express pod.
+Each arm ran the screen workload of `pm-peak` with the oracle at each simulated second, and no arm had a safety or accounting failure or an unfinished order.
+The `D` arm gives the same counts as the screen, so the scratch code changes nothing with the pilot off.
+
+The counts over the limits compare each arm with `LF` on the matched background requests.
+
+| Arm | Seed | Wait over | Journey over | Mean wait (s) | p95 wait (s) | Empty distance (km) | Moves | Idle pods within 3 km |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `D` | 1 | 27 | 15 | 182 | 440 | 4,733 | 1 | 1.3 |
+| `D` + A | 1 | 19 | 15 | 179 | 459 | 4,684 | 26 | 1.4 |
+| `D` + B | 1 | 9 | 7 | 146 | 378 | 4,867 | 254 | 2.8 |
+| `D` | 2 | 33 | 27 | 172 | 426 | 4,181 | 4 | 1.1 |
+| `D` + A | 2 | 32 | 24 | 167 | 429 | 4,109 | 26 | 1.0 |
+| `D` + B | 2 | 16 | 11 | 122 | 311 | 4,167 | 262 | 4.1 |
+| `D` | 3 | 32 | 26 | 194 | 468 | 4,587 | 0 | 0.6 |
+| `D` + A | 3 | 36 | 27 | 190 | 468 | 4,527 | 12 | 0.6 |
+| `D` + B | 3 | 17 | 10 | 159 | 390 | 4,866 | 265 | 1.6 |
+
+`LF` with B against `LF`:
+
+| Seed | Matched | Wait over | Journey over | Mean wait (s), `LF` and `LF` + B | Refused, `LF` and `LF` + B | Moves |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | 1,057 | 433 | 359 | 696, 718 | 217, 220 | 68 |
+| 2 | 1,068 | 441 | 370 | 723, 739 | 223, 238 | 59 |
+| 3 | 1,031 | 355 | 308 | 734, 714 | 287, 268 | 61 |
+
+- Option A changes little.
+  It makes 12 to 26 moves, and the failures change by -8 to +4 in each seed.
+  The 180 s reach limits it, as expected.
+- Option B halves the failures of `D` and lowers its mean wait by 18 to 29 percent, with -0.3 to +6.1 percent of empty distance.
+  It still leaves 9 to 17 requests over the wait limit in each seed, so `D` with B still fails the screen.
+  Most idle pods stay more than 10 km from the center, because they are more than 600 s from a deficit station.
+- Option B harms `LF`.
+  `LF` has spare pods only in the first minutes, and B makes about 60 moves then.
+  These change the later service of the saturated fleet, so 355 to 441 requests go over the wait limit, and the mean wait changes by -2.7 to +3.2 percent.
+
+So neither option is a candidate for adoption as it is.
+B helps a fleet with spare pods and harms a saturated one, and the adoption gates apply it to each project.
+A next step can be a B that acts only on a sustained surplus, for example after the idle share stays above the limit for some minutes, with a new pilot.

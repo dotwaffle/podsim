@@ -162,7 +162,7 @@ An approved contract in `docs/contracts/` is binding, and each document gives it
 | [Express London adoption screen](docs/contracts/express-london-adoption-screen-proposal.md) | A capped screen of D against LondonFull, before any full adoption matrix. Approved; the runner and the pilot come first. |
 | [Berth claim deadlock](docs/contracts/berth-claim-deadlock-proposal.md) | An empty move that claims a berth behind unclaimed pickups on one access lane stalls for good. Option A approved. |
 | [Bank load choice](docs/contracts/bank-load-choice-proposal.md) | Bank choice by approach cost leaves bank `b` of Bank idle while bank `a` queues. Option A landed; the screen still fails. |
-| [Positioning under load](docs/contracts/loaded-positioning-proposal.md) | No policy moves spare idle pods toward demand above the low-load gate of guarded positioning. Pilot of two options approved. |
+| [Positioning under load](docs/contracts/loaded-positioning-proposal.md) | No policy moves spare idle pods toward demand above the low-load gate of guarded positioning. Pilot: B helps D but harms LF; no candidate yet. |
 
 ### Designs
 
