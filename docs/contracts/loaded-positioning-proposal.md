@@ -115,3 +115,5 @@ The counts over the limits compare each arm with `LF` on the matched background 
 So neither option is a candidate for adoption as it is.
 B helps a fleet with spare pods and harms a saturated one, and the adoption gates apply it to each project.
 A next step can be a B that acts only on a sustained surplus, for example after the idle share stays above the limit for some minutes, with a new pilot.
+
+A later probe found that one move of one idle pod in `LF` puts 319 to 438 requests over the wait limit, so the counts for `LF` with B are within the [noise floor of the individual limits](express-london-adoption-screen-proposal.md#noise-floor-of-the-individual-limits).

@@ -358,3 +358,33 @@ The idle pods of `D` are mostly more than 10 km from the center, so even with an
 
 Guarded positioning is a design for low load, and the screen load is not low by its rules.
 Positioning that moves idle pods toward demand at this load is a new shared policy, so it needs its own proposal and its own evidence on each project.
+
+### Noise floor of the individual limits
+
+The [positioning pilot](loaded-positioning-proposal.md#pilot-result) found that about 60 early moves in `LF` put hundreds of requests over the limits.
+So the maintainer asked for the effect of a change with no service purpose.
+A scratch probe on the branch `study/gate-noise` at `473b20bf` ran the screen workload of `pm-peak`, seeds 1 to 3, with the oracle at each simulated second.
+The change moves one idle pod to another free berth of its own station, once, and each arm is compared with the same configuration with no change.
+
+| Arm | Seed | Matched | Changed waits | Wait over | Journey over | Mean wait (s) |
+| --- | --- | --- | --- | --- | --- | --- |
+| `LF`, run again | 1 to 3 | 1,104 to 1,133 | 0 | 0 | 0 | same |
+| `LF`, move at minute 1 | 1 | 1,054 | 903 | 438 | 378 | 689 to 721 |
+| `LF`, move at minute 1 | 2 | 1,071 | 963 | 437 | 381 | 720 to 736 |
+| `LF`, move at minute 1 | 3 | 1,028 | 934 | 364 | 324 | 728 to 716 |
+| `LF`, move at minute 30 | 1 | 1,072 | 795 | 319 | 271 | 690 to 698 |
+| `LF`, move at minute 30 | 2 | 1,075 | 806 | 331 | 294 | 717 to 707 |
+| `LF`, move at minute 30 | 3 | 1,028 | 750 | 334 | 282 | 726 to 731 |
+| `D`, move at minute 1 | 1 | 1,199 | 0 | 0 | 0 | 182 to 182 |
+| `D`, move at minute 1 | 2 | 1,199 | 390 | 113 | 84 | 172 to 169 |
+| `D`, move at minute 1 | 3 | 1,199 | 763 | 286 | 209 | 194 to 195 |
+
+The runs are deterministic: the same run twice gives the same result for each request.
+But one move to another berth of the same station changes the wait of 73 to 91 percent of the matched requests in `LF`, and puts 319 to 438 of them over the wait limit.
+The mean wait changes by -1.6 to +4.6 percent, so the aggregate limit of 2 percent also fails in some seeds.
+In `D`, the same move gives 0 to 286 requests over the wait limit.
+
+So in this workload, the individual limits flag hundreds of requests for a change that has no effect on service by design.
+`D` against `LF` has 16 to 33 requests over the wait limit in each pair, far below this noise floor.
+The individual limits of the [numerical limits](../design/experimental-adoption.md#numerical-limits) cannot separate a regression from this sensitivity in a saturated fleet.
+A change to those limits is a change to a design rule for all candidates, so it is a decision for the maintainer.
