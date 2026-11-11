@@ -631,20 +631,21 @@ func (s *Simulation) groupSavedStart(v *vehicle, start int, offset float64, curr
 // pod needs, the route distance at the start of that lane, and the route
 // index of the current block. A pod releases each resource of a lane at most
 // the retention tail past the lane end, so an earlier lane holds no resource.
+//
+// Only the end of a lane can end the search, so the walk reads the last cell
+// of each lane before the current lane. The current lane is the start when no
+// earlier lane is.
 func (v *vehicle) savedRouteStart() (start int, offset float64, current int) {
-	start = -1
-	for index, b := range v.blocks.span(0, v.blockIndex+1) {
-		if index > 0 && b.cell == 0 {
-			current++
-		}
-		if start < 0 && b.last && b.end+blockTail(b) > v.distance {
-			start, offset = current, b.laneStart
+	l := &v.blocks
+	current = l.locate(v.blockIndex, l.scan)
+	for lane := range current {
+		cells := l.lanes[lane].cells
+		last := l.lanes[lane+1].first - l.lanes[lane].first - 1
+		if l.cellEnd(lane, last)+max(retainedClearance(cells.retention), cells.tail) > v.distance {
+			return lane, l.lanes[lane].start, current
 		}
 	}
-	if start < 0 {
-		start, offset = current, v.blocks.at(v.blockIndex).laneStart
-	}
-	return start, offset, current
+	return current, l.lanes[current].start, current
 }
 
 // MaxSavedRouteLanes bounds each pod or waiting trip route in a saved state.

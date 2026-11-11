@@ -47,6 +47,7 @@ func checkLargeMotionTick(t *testing.T, s *Simulation, before []Pod) float64 {
 		t.Fatal(err)
 	}
 	checkSafetyLocationParity(t, s)
+	checkSavedRouteStart(t, s, &savedRouteStartCounts{})
 	if err := s.CheckContract(); err != nil {
 		t.Fatal(err)
 	}

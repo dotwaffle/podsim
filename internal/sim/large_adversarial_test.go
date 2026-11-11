@@ -45,6 +45,7 @@ func largeAdversarialTick(t *testing.T, s *Simulation) {
 		t.Fatal(err)
 	}
 	checkSafetyLocationParity(t, s)
+	checkSavedRouteStart(t, s, &savedRouteStartCounts{})
 	checkIncrementalOwners(t, s)
 	for i := range s.vehicles {
 		v := &s.vehicles[i]

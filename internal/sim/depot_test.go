@@ -17,6 +17,7 @@ func stepDepot(t *testing.T, s *Simulation, ticks int, done func() bool) {
 			t.Fatalf("tick %d: %v", s.tick, err)
 		}
 		checkSafetyLocationParity(t, s)
+		checkSavedRouteStart(t, s, &savedRouteStartCounts{})
 		if err := checkOwners(s); err != nil {
 			t.Fatalf("tick %d: %v", s.tick, err)
 		}
