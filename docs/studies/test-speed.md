@@ -31,8 +31,8 @@ The audit added no general fixture cache and shares no mutable simulation state.
 
 ## CI test selection
 
-The `test:race` task runs every test.
-The `qualify` task runs only the two Station 19 drain tests and the two emergency choice latency tests of `internal/sim`, which skip under the race detector.
+The race tasks skip most long tests in the packages listed in `PODSIM_LONG_PACKAGES`.
+The `qualify` task runs the Station 19 drain tests in `internal/scenarios`, the emergency choice and sampled-tick latency tests in `internal/sim`, and the CI incident soak in `internal/session`.
 `TestEmergencyNoCandidateLatency` runs only when `PODSIM_QUALIFY=1`, which the `qualify` task sets for its sim command.
 The `test:embedded` task runs the full root and `cmd/serve` suites with the `embed_assets` tag.
 In the session package, it runs only the tests of its `-run` pattern, which skip under the race detector and under `-short`.
@@ -43,10 +43,11 @@ A pattern that matches no test passes.
 ## CI jobs
 
 One early Check run took 25 to 34 minutes on a 4-CPU runner, because all eight tasks ran at the same time.
-The workflow now runs five jobs on separate runners.
+The workflow now runs six check jobs on separate runners.
 `test:race` depends on `test:race:sim`, `test:race:session`, and `test:race:other`.
 `test:race:other` runs every package except `internal/sim` and `internal/session`, so a new package needs no task change.
-`check:static` runs the remaining tasks of `check`.
+`test:long` and `qualify` run separately.
+`check:static` runs browser tests, lint, vulnerability checks, builds, and embedded tests.
 `mise run check` still runs all of them on one machine, one after another.
 `TestStreamLargeRouteWire` checks five publications, at the first sequence, the digit-width changes, and the largest sequence.
 
@@ -56,7 +57,8 @@ The workflow now runs five jobs on separate runners.
 Under `-short`, each sim test that calls `skipLong` skips.
 These are the long scenarios, the parity tests that compare with a full scan or a reference, and the soak tests.
 The session tests of `test:embedded`, `TestStreamLondonWire`, `TestMaximalRequeueRoundTrip`, and nine `cmd/compare` experiment tests skip too.
-No CI task passes `-short`, so the race tasks and `test:embedded` still run all of these tests.
+`test:race:other` passes `-short` for the packages in `PODSIM_LONG_PACKAGES`, and `test:long` runs those packages in full without the race detector.
+`test:race:sim`, `test:race:session`, and `test:embedded` pass no `-short`.
 The gates cut `go test -short -count=1 ./...` from 129.8 s to 36.0 s of wall time, with the load changing the times more than the CPU times.
 
 The soak monitors check the state contract with a `contractSampler`: at the first observation, every 60 ticks, and at each event.

@@ -68,7 +68,8 @@ The rounding regression fails when forward checks are removed.
 Legacy fallback paths and existing committed routes can still cross occupied berths.
 The fix does not establish complete cycle prevention or sustainable passenger capacity.
 Selected matched-request and sustained LondonFull comparisons will assess the changed histories.
-Buffers and reassignment remain off by default.
+Buffers and reassignment were off by default at the time of this study.
+Station buffers were removed on October 7, 2026, and the presets now enable pickup reassignment by default.
 
 ## Stratford request 1324
 

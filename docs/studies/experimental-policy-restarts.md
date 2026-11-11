@@ -1,7 +1,7 @@
 # Experimental policy file restarts
 
 The file-store integration tests preserve physical assignments with pickup reassignment enabled.
-The option remains off by default.
+The presets and example project enable pickup reassignment by default.
 These tests extend the in-memory store tests in `internal/session/experimental_test.go`.
 
 ## Fixture and checks
@@ -10,7 +10,7 @@ These tests extend the in-memory store tests in `internal/session/experimental_t
 The simulation must swap those assignments before the test exports its state.
 The fixture checks safety before export.
 
-The test packs the order text as base64 and inserts that physical state into a session-generated version 10 file.
+The test packs the order text as base64 and inserts that physical state into a session-generated version 11 file.
 It keeps the session wrapper, demand state, and project fields from the production encoder.
 Each case owns a real `file://` store in a temporary directory.
 
