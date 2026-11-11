@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"slices"
 	"strconv"
 
@@ -283,8 +284,12 @@ func makeDeltaFrom(a StreamFrame, old map[string]jsontext.Value, b StreamFrame) 
 	return d, now, nil
 }
 
+// applyGroups applies the replacement groups of a delta in the order of
+// their names, so a delta with two bad groups always gets the refusal of
+// the first name.
 func applyGroups(f *StreamFrame, groups map[string]jsontext.Value) error {
-	for key, raw := range groups {
+	for _, key := range slices.Sorted(maps.Keys(groups)) {
+		raw := groups[key]
 		var target any
 		switch key {
 		case "controls":

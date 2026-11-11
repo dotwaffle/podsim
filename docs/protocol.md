@@ -146,6 +146,7 @@ The `incident` group has the interrupted counters.
 The `faults` group has the active faults and the fault counters (see [Faults](#faults)).
 The `emergencies` group has the active emergencies and the emergency counters (see [Emergencies](#emergencies)).
 A delta sends only a changed group.
+A client applies the groups in the order of their names, so a delta with two bad groups gets the refusal of the first name.
 Vehicle groups are pod fields, motion, presentation route, riders, stops, and relocation, platoon, or incident metadata.
 A motion replacement has `position` with `x` and `y`, `laneDistance`, and `speed` inside its `value` object.
 Every motion field is present, including zero values, and every number is finite.

@@ -1,6 +1,7 @@
 package session
 
 import (
+	"encoding/json/jsontext"
 	"fmt"
 	"reflect"
 	"slices"
@@ -138,6 +139,30 @@ func TestHTTPStateRouteCounterRange(t *testing.T) {
 		}
 		if _, err := DecodeStateJSON([]byte(edited)); err == nil || err.Error() != "stream route counter is out of range" {
 			t.Errorf("%s: got %v, want the route counter refusal", member, err)
+		}
+	}
+}
+
+// TestDeltaGroupRefusalOrder checks that a delta with two bad groups gets
+// the refusal of the group with the first name each time. Map iteration
+// order is random, so the test applies the delta many times.
+func TestDeltaGroupRefusalOrder(t *testing.T) {
+	t.Parallel()
+	_, base := streamFixture(t)
+	groups := map[string]jsontext.Value{"global": jsontext.Value(`{"tick":"bad"}`), "controls": jsontext.Value(`{"speed":"bad"}`)}
+	apply := func(groups map[string]jsontext.Value) error {
+		e := StreamEnvelope{Kind: "delta", Stream: "test", Sequence: 2, Base: 1, Source: sourceOf(base), Build: base.State.Build, Delta: &StreamDelta{Groups: groups}}
+		_, err := ApplyStream(base, "test", 1, e)
+		return err
+	}
+	want := apply(map[string]jsontext.Value{"controls": groups["controls"]})
+	other := apply(map[string]jsontext.Value{"global": groups["global"]})
+	if want == nil || other == nil || want.Error() == other.Error() {
+		t.Fatalf("each bad group alone must give its own refusal: controls %v, global %v", want, other)
+	}
+	for range 64 {
+		if err := apply(groups); err == nil || err.Error() != want.Error() {
+			t.Fatalf("got %v, want the controls refusal %v", err, want)
 		}
 	}
 }
