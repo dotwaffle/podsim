@@ -86,8 +86,6 @@ type Game struct {
 	selected             int
 	followSelected       bool
 	stationPage, podPage int
-	mapScale             float64
-	mapOrigin            sim.Point
 	camera               mapCamera
 	mapBackground        mapPublisher
 	touch                touchGestures
@@ -301,9 +299,7 @@ func (g *Game) updateMapInput(pointer pointerTransform) bool {
 	}
 	if _, wheelY := ebiten.Wheel(); wheelY != 0 && g.camera.contains(point) {
 		factor := wheelZoomFactor(wheelY, runtime.GOOS == "js")
-		if g.camera.zoomAt(point, factor) {
-			g.syncCamera()
-		}
+		g.camera.zoomAt(point, factor)
 	}
 	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
 		if g.camera.contains(point) {
@@ -315,9 +311,7 @@ func (g *Game) updateMapInput(pointer pointerTransform) bool {
 		return g.click(point)
 	}
 	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) && g.camera.dragging {
-		if g.camera.drag(point) {
-			g.syncCamera()
-		}
+		g.camera.drag(point)
 	}
 	if inpututil.IsMouseButtonJustReleased(ebiten.MouseButtonLeft) && g.camera.dragging {
 		if g.camera.endDrag() {
@@ -614,7 +608,6 @@ func (g *Game) pressMapControl(action string) bool {
 	case "map-fit":
 		g.followSelected = false
 		g.fitCamera(g.camera.world)
-		g.syncCamera()
 	case "map-follow":
 		g.toggleFollow()
 	default:
@@ -787,15 +780,7 @@ func (g *Game) mapPoint(p sim.Point) sim.Point {
 func (g *Game) zoomMap(factor float64) {
 	viewport := g.layout.mapViewport
 	center := sim.Point{X: float64(viewport.Min.X+viewport.Max.X) / 2, Y: float64(viewport.Min.Y+viewport.Max.Y) / 2}
-	if g.camera.zoomAt(center, factor) {
-		g.syncCamera()
-	}
-}
-
-// syncCamera copies the camera scale and origin to the map. The cached base
-// layer stays. drawCachedNetworkBase draws it again when it cannot move it.
-func (g *Game) syncCamera() {
-	g.mapScale, g.mapOrigin = g.camera.scale, g.camera.origin
+	g.camera.zoomAt(center, factor)
 }
 
 func (g *Game) toggleFollow() {
@@ -811,9 +796,7 @@ func (g *Game) followSelectedPod() {
 		g.followSelected = false
 		return
 	}
-	if g.camera.centerOn(state.Vehicles[g.selected].Pod.Position) {
-		g.syncCamera()
-	}
+	g.camera.centerOn(state.Vehicles[g.selected].Pod.Position)
 }
 
 func (g *Game) mapSnapshot() sim.Snapshot {
@@ -869,19 +852,15 @@ func (g *Game) fitNetwork() {
 	bounds := index.bounds
 	if !index.hasBounds {
 		g.camera = mapCamera{scale: 1, minScale: 1, maxScale: mapMaxZoom, initialized: true, viewport: g.layout.mapViewport, panMargin: mapPanMargin * g.layout.unit, dragThreshold: mapDragThreshold * g.layout.unit}
-		g.syncCamera()
 		return
 	}
 	key := cameraFitKey{epoch: g.state.Epoch, bounds: bounds}
 	if g.camera.initialized && g.cameraKey == key {
-		if g.camera.limitZoom(index.smallestBerthSpacing) {
-			g.syncCamera()
-		}
+		g.camera.limitZoom(index.smallestBerthSpacing)
 		return
 	}
 	g.fitCamera(bounds)
 	g.cameraKey = key
-	g.syncCamera()
 }
 
 // fitCamera fits the camera to bounds in the map viewport. The smallest

@@ -69,7 +69,6 @@ func TestNetworkCacheKeyCoversNetworkChanges(t *testing.T) {
 			game.state = test.state
 			if test.pan {
 				game.camera.origin.X += 5
-				game.syncCamera()
 			}
 			if test.zoom {
 				game.zoomMap(mapZoomStep)
@@ -218,7 +217,6 @@ func TestPlanBaseLayer(t *testing.T) {
 	pan := func(dx float64) func() {
 		return func() {
 			game.camera.origin.X += dx
-			game.syncCamera()
 		}
 	}
 	steps := []struct {
@@ -250,7 +248,7 @@ func TestPlanBaseLayer(t *testing.T) {
 			t.Fatalf("%s: image offset %v, want %v", step.name, plan.imageOffset(), want)
 		}
 		if step.redraw {
-			drawnOrigin = game.mapOrigin
+			drawnOrigin = game.camera.origin
 		}
 		if game.networkBase.origin != drawnOrigin || !game.networkBase.valid || game.networkBase.key != game.currentNetworkCacheKey() {
 			t.Fatalf("%s: cache origin %v valid %t, want origin %v valid with the current key", step.name, game.networkBase.origin, game.networkBase.valid, drawnOrigin)
@@ -278,7 +276,6 @@ func TestMovedBaseLanesMatchPan(t *testing.T) {
 	cached := paths(first.area)
 	game.camera.origin.X += 7
 	game.camera.origin.Y -= 5
-	game.syncCamera()
 	plan := game.planBaseLayer(headlessImageLimit)
 	if plan.redraw {
 		t.Fatal("small pan draws the layer again")

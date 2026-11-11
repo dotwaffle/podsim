@@ -469,7 +469,6 @@ func TestStationTextFormFollowsZoom(t *testing.T) {
 				game.layoutFor(input)
 				game.fitNetwork()
 				game.camera.zoomAt(game.mapPoint(game.stationAnchors()["parking"]), zoom.factor)
-				game.syncCamera()
 				_, placed, _ := placedTestText(game)
 				lines := 0
 				for _, text := range placed {
@@ -510,7 +509,6 @@ func TestStationTextFormOnLondon(t *testing.T) {
 						zoom = game.camera.maxScale / game.camera.scale
 					}
 					game.camera.zoomAt(game.mapPoint(game.stationAnchors()[stationID]), zoom)
-					game.syncCamera()
 					_, placed, _ := placedTestText(game)
 					for _, text := range placed {
 						// The station text has three or four lines in the
@@ -644,7 +642,7 @@ func TestStationTextDirection(t *testing.T) {
 // testLanePaths returns the screen paths of the lanes in the map viewport,
 // as drawBaseNetwork returns them.
 func testLanePaths(game *Game) []lanePath {
-	style := newNetworkStyle(networkStyleInput{network: game.network, markers: game.collapsedStationMarkers(), lineLanes: game.currentLineLanes(), scale: game.mapScale, unit: game.layout.unit})
+	style := newNetworkStyle(networkStyleInput{network: game.network, markers: game.collapsedStationMarkers(), lineLanes: game.currentLineLanes(), scale: game.camera.scale, unit: game.layout.unit})
 	var paths []lanePath
 	for _, lane := range game.network.Lanes {
 		if path, ok := game.laneGeometry(lane, style.detailed).pathIn(game.layout.mapViewport); ok {
@@ -788,7 +786,6 @@ func TestStationTextOnLondon(t *testing.T) {
 				t.Fatalf("station %s has no anchor", stationID)
 			}
 			game.camera.zoomAt(game.mapPoint(anchor), 20)
-			game.syncCamera()
 			expanded, placed, _ := placedTestText(game)
 			found := false
 			for _, station := range expanded {

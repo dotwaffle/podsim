@@ -137,7 +137,7 @@ func (g *Game) drawNetwork(screen *ebiten.Image, state sim.Snapshot) {
 		}
 	}
 	// Without a network, the map has no scale.
-	if bar, ok := newScaleBar(g.mapScale, g.layout.unit); ok && len(g.network.Nodes) > 0 {
+	if bar, ok := newScaleBar(g.camera.scale, g.layout.unit); ok && len(g.network.Nodes) > 0 {
 		vector.StrokeLine(screen, float32(g.layout.x(48)), float32(g.layout.bottom(508)), float32(g.layout.x(48+bar.length)), float32(g.layout.bottom(508)), float32(2*g.layout.unit), rgb(muted), style.antialias)
 		g.label(screen, label{x: 64 + bar.length, y: 499, size: 12, value: bar.label, color: muted})
 	}
@@ -163,7 +163,7 @@ const berthSeparation = 34
 // shows its berths.
 func (g *Game) showStationBerths(station sim.Station) bool {
 	spacing, ok := g.displayIndex().berthSpacing[station.ID]
-	return !ok || spacing*g.mapScale >= berthSeparation*g.layout.unit
+	return !ok || spacing*g.camera.scale >= berthSeparation*g.layout.unit
 }
 
 // overviewNameRunes is the largest number of runes of a station name in an
@@ -418,7 +418,7 @@ func (g *Game) podMapLabels(vehicles []sim.Vehicle, collapsedStations, incidents
 }
 
 func (g *Game) showPodMapLabel(index int) bool {
-	return index == g.selected || len(g.network.Stations) <= 30 || g.mapScale >= 4*g.camera.minScale
+	return index == g.selected || len(g.network.Stations) <= 30 || g.camera.scale >= 4*g.camera.minScale
 }
 
 // podCollapsed reports whether the map hides a pod under the marker of a
@@ -486,7 +486,7 @@ func (g *Game) laneGeometry(lane sim.Lane, detailed bool) laneGeometry {
 		segments = 32
 		if !detailed {
 			extent := math.Hypot(lane.Control.X-from.X, lane.Control.Y-from.Y) + math.Hypot(to.X-lane.Control.X, to.Y-lane.Control.Y)
-			segments = min(32, max(4, int(math.Ceil(extent*g.mapScale/8))))
+			segments = min(32, max(4, int(math.Ceil(extent*g.camera.scale/8))))
 		}
 	}
 	length := 0.0

@@ -426,7 +426,6 @@ func TestPodMapLabels(t *testing.T) {
 			game.layoutFor(layoutInput{outsideWidth: 1100, outsideHeight: 728, deviceScale: 1.5})
 			game.selected = 2
 			game.camera = mapCamera{scale: 0.5 * test.zoom, minScale: 0.5, origin: sim.Point{X: 100, Y: 200}}
-			game.syncCamera()
 			labels := game.podMapLabels(vehicles, collapsed, nil)
 			for index, podLabel := range labels {
 				if podLabel.value != test.want[index] {
@@ -453,7 +452,6 @@ func TestPodLabelClearsSelectionRing(t *testing.T) {
 			game := journeyTestGame(t, 3)
 			game.layoutFor(layoutInput{outsideWidth: size.width, outsideHeight: size.height, deviceScale: deviceScale})
 			game.camera = mapCamera{scale: 1, minScale: 0.5}
-			game.syncCamera()
 			vehicles := []sim.Vehicle{{Pod: sim.Pod{ID: "traveling", Activity: sim.Traveling, Position: sim.Point{X: 70, Y: 80}}, Stops: []string{"940GZZLUACT"}}}
 			podLabel := game.podMapLabels(vehicles, map[string]bool{}, nil)[0]
 			bounds := game.labelBounds(podLabel)
@@ -486,12 +484,11 @@ func TestOverviewLabelsOnLondon(t *testing.T) {
 			viewport := game.layout.mapViewport
 			center := sim.Point{X: float64(viewport.Min.X+viewport.Max.X) / 2, Y: float64(viewport.Min.Y+viewport.Max.Y) / 2}
 			game.camera.zoomAt(center, zoom)
-			game.syncCamera()
 			markers := game.collapsedStationMarkers()
 			if len(markers) != len(network.Stations) {
 				t.Fatalf("%d collapsed stations, want %d", len(markers), len(network.Stations))
 			}
-			style := newNetworkStyle(networkStyleInput{network: network, markers: markers, lineLanes: game.currentLineLanes(), scale: game.mapScale, unit: game.layout.unit})
+			style := newNetworkStyle(networkStyleInput{network: network, markers: markers, lineLanes: game.currentLineLanes(), scale: game.camera.scale, unit: game.layout.unit})
 			ranks := game.currentStationLabelRanks()
 			var labels []collapsedStationLabel
 			for _, station := range network.Stations {

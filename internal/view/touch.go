@@ -202,12 +202,9 @@ func (g *Game) applyTouch(actions touchActions, shift bool) {
 	if actions.mapPressed {
 		g.followSelected = false
 	}
-	changed := g.camera.pan(actions.pan)
+	g.camera.pan(actions.pan)
 	if actions.zoom > 0 {
-		changed = g.camera.zoomAt(actions.zoomCenter, actions.zoom) || changed
-	}
-	if changed {
-		g.syncCamera()
+		g.camera.zoomAt(actions.zoomCenter, actions.zoom)
 	}
 	if !actions.tap {
 		return

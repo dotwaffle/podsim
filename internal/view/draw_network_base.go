@@ -197,12 +197,12 @@ func (g *Game) planBaseLayer(limit int) baseLayerPlan {
 	key := g.currentNetworkCacheKey()
 	shift, ok := baseLayerShift(baseLayerInput{
 		valid: g.networkBase.valid, cached: g.networkBase.key, current: key,
-		drawnOrigin: g.networkBase.origin, origin: g.mapOrigin, margin: float64(baseLayerMargin(viewport, limit)),
+		drawnOrigin: g.networkBase.origin, origin: g.camera.origin, margin: float64(baseLayerMargin(viewport, limit)),
 	})
 	plan := baseLayerPlan{area: baseLayerArea(viewport, limit), shift: shift, redraw: !ok}
 	if plan.redraw {
 		g.networkBase.key = key
-		g.networkBase.origin = g.mapOrigin
+		g.networkBase.origin = g.camera.origin
 		g.networkBase.valid = true
 	}
 	return plan
@@ -235,7 +235,7 @@ func (g *Game) drawCachedNetworkBase(screen *ebiten.Image, style networkStyle) (
 }
 
 func (g *Game) currentNetworkCacheKey() networkCacheKey {
-	return networkCacheKey{network: g.currentNetworkIndexKey(), scale: g.mapScale, unit: g.layout.unit, viewport: g.layout.mapViewport}
+	return networkCacheKey{network: g.currentNetworkIndexKey(), scale: g.camera.scale, unit: g.layout.unit, viewport: g.layout.mapViewport}
 }
 
 func (g *Game) releaseNetworkBase() {

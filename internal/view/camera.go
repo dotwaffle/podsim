@@ -128,15 +128,13 @@ func (c *mapCamera) zoomAt(screen sim.Point, factor float64) bool {
 	return true
 }
 
-func (c *mapCamera) pan(delta sim.Point) bool {
+func (c *mapCamera) pan(delta sim.Point) {
 	if !c.initialized || (delta.X == 0 && delta.Y == 0) {
-		return false
+		return
 	}
-	before := c.origin
 	c.origin.X += delta.X
 	c.origin.Y += delta.Y
 	c.clamp()
-	return c.origin != before
 }
 
 func (c *mapCamera) centerOn(world sim.Point) bool {
@@ -174,19 +172,17 @@ func (c *mapCamera) beginDrag(point sim.Point) {
 	c.dragging, c.dragged = true, false
 }
 
-func (c *mapCamera) drag(point sim.Point) bool {
+func (c *mapCamera) drag(point sim.Point) {
 	if !c.dragging {
-		return false
+		return
 	}
 	if !c.dragged && math.Hypot(point.X-c.dragStart.X, point.Y-c.dragStart.Y) >= c.dragThreshold {
 		c.dragged = true
 	}
-	changed := false
 	if c.dragged {
-		changed = c.pan(sim.Point{X: point.X - c.dragLast.X, Y: point.Y - c.dragLast.Y})
+		c.pan(sim.Point{X: point.X - c.dragLast.X, Y: point.Y - c.dragLast.Y})
 	}
 	c.dragLast = point
-	return changed
 }
 
 func (c *mapCamera) endDrag() (click bool) {

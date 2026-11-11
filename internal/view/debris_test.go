@@ -421,7 +421,7 @@ func TestFaultedParkedPodStaysOnMap(t *testing.T) {
 func TestFaultedParkedPodCanBeClicked(t *testing.T) {
 	t.Parallel()
 	game := zoomedGame(denseStyleNetwork(), layoutInput{outsideWidth: minimumWidth, outsideHeight: minimumHeight, deviceScale: 1}, 1)
-	game.mapScale = 0.1
+	game.camera.scale = 0.1
 	station, _ := game.network.Station("a")
 	if game.showStationBerths(station) {
 		t.Fatal("the berths of the station separate")
@@ -539,7 +539,6 @@ func TestLaneTargetsSkipHiddenLanes(t *testing.T) {
 	}
 	game.camera.centerOn(sim.Point{})
 	game.camera.zoomAt(game.mapPoint(sim.Point{}), mapMaxZoom)
-	game.syncCamera()
 	if slices.Contains(ids(), "away") {
 		t.Error("a lane out of the viewport is a target")
 	}

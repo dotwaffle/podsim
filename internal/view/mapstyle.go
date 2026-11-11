@@ -207,7 +207,7 @@ func (g *Game) currentLineLanes() map[string]bool {
 // the map viewport.
 func (g *Game) currentNetworkStyle(markers map[string]sim.Point) networkStyle {
 	return newNetworkStyle(networkStyleInput{
-		network: g.network, markers: markers, lineLanes: g.currentLineLanes(), scale: g.mapScale, unit: g.layout.unit,
+		network: g.network, markers: markers, lineLanes: g.currentLineLanes(), scale: g.camera.scale, unit: g.layout.unit,
 		screen: image.Pt(g.layout.width, g.layout.height), imageLimit: g.imageLimit,
 	})
 }

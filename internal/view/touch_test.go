@@ -201,25 +201,23 @@ func TestTouchInput(t *testing.T) {
 		{name: "one finger pans the map", run: func(t *testing.T, game *Game) {
 			t.Helper()
 			game.camera.zoomAt(sim.Point{X: 400, Y: 300}, 4)
-			game.syncCamera()
-			before := game.mapOrigin
+			before := game.camera.origin
 			touchGame(game, [][]touchPoint{
 				{touchAt(1, 400, 300)}, {touchAt(1, 405, 300)}, {touchAt(1, 430, 300)}, {touchAt(1, 450, 300)}, nil,
 			}, false)
-			if want := (sim.Point{X: before.X + 45, Y: before.Y}); !closePoint(game.mapOrigin, want) {
-				t.Errorf("map origin = %+v, want %+v", game.mapOrigin, want)
+			if want := (sim.Point{X: before.X + 45, Y: before.Y}); !closePoint(game.camera.origin, want) {
+				t.Errorf("map origin = %+v, want %+v", game.camera.origin, want)
 			}
 		}},
 		{name: "drag from the panel keeps the map", run: func(t *testing.T, game *Game) {
 			t.Helper()
 			game.camera.zoomAt(sim.Point{X: 400, Y: 300}, 4)
-			game.syncCamera()
-			before, x := game.mapOrigin, float64(game.camera.viewport.Max.X+40)
+			before, x := game.camera.origin, float64(game.camera.viewport.Max.X+40)
 			touchGame(game, [][]touchPoint{
 				{touchAt(1, x, 300)}, {touchAt(1, x-200, 300)}, {touchAt(1, x-300, 320)}, nil,
 			}, false)
-			if game.mapOrigin != before {
-				t.Errorf("map origin = %+v, want %+v", game.mapOrigin, before)
+			if game.camera.origin != before {
+				t.Errorf("map origin = %+v, want %+v", game.camera.origin, before)
 			}
 		}},
 		{name: "pinch zooms around the midpoint", run: func(t *testing.T, game *Game) {

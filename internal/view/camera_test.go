@@ -33,18 +33,17 @@ func TestDenseOverviewHidesUnselectedPodLabels(t *testing.T) {
 	game := Game{
 		network:  sim.Network{Stations: make([]sim.Station, 31)},
 		selected: 2,
-		mapScale: 1,
-		camera:   mapCamera{minScale: 1},
+		camera:   mapCamera{scale: 1, minScale: 1},
 	}
 	if game.showPodMapLabel(1) || !game.showPodMapLabel(2) {
 		t.Fatal("dense overview did not keep only the selected pod label")
 	}
-	game.mapScale = 4
+	game.camera.scale = 4
 	if !game.showPodMapLabel(1) {
 		t.Fatal("dense zoom did not restore pod labels")
 	}
 	game.network.Stations = game.network.Stations[:3]
-	game.mapScale = 1
+	game.camera.scale = 1
 	if !game.showPodMapLabel(1) {
 		t.Fatal("small network hid a pod label")
 	}
@@ -151,7 +150,6 @@ func TestGameCameraWiring(t *testing.T) {
 			game := cameraTestGame()
 			target := game.state.Simulation.Vehicles[1].Pod.Position
 			game.camera.origin = sim.Point{X: 10 - target.X*game.camera.scale, Y: 10 - target.Y*game.camera.scale}
-			game.syncCamera()
 			game.click(sim.Point{X: 10, Y: 10})
 			if game.selected != 0 {
 				t.Fatalf("selected pod %d outside map", game.selected)
@@ -162,7 +160,6 @@ func TestGameCameraWiring(t *testing.T) {
 			game := cameraTestGame()
 			game.camera.zoomAt(sim.Point{X: 300, Y: 300}, 3)
 			game.camera.pan(sim.Point{X: -80, Y: 30})
-			game.syncCamera()
 			game.click(game.mapPoint(game.state.Simulation.Vehicles[1].Pod.Position))
 			if game.selected != 1 {
 				t.Fatalf("selected pod %d, want 1", game.selected)
@@ -172,11 +169,11 @@ func TestGameCameraWiring(t *testing.T) {
 			t.Helper()
 			game := cameraTestGame()
 			station := game.network.Stations[0]
-			game.mapScale = 1
+			game.camera.scale = 1
 			if game.showStationBerths(station) {
 				t.Fatal("showed overlapping berth details")
 			}
-			game.mapScale = 4
+			game.camera.scale = 4
 			if !game.showStationBerths(station) {
 				t.Fatal("kept spaced berth details collapsed")
 			}
@@ -187,7 +184,6 @@ func TestGameCameraWiring(t *testing.T) {
 			game.selected = 1
 			center := sim.Point{X: float64(game.camera.viewport.Min.X+game.camera.viewport.Max.X) / 2, Y: float64(game.camera.viewport.Min.Y+game.camera.viewport.Max.Y) / 2}
 			game.camera.zoomAt(center, 3)
-			game.syncCamera()
 			game.toggleFollow()
 			if got := game.mapPoint(game.state.Simulation.Vehicles[1].Pod.Position); !closePoint(got, center) {
 				t.Fatalf("followed pod screen point = %+v, want %+v", got, center)
@@ -280,7 +276,6 @@ func TestGameCameraAcrossStateChanges(t *testing.T) {
 			center := sim.Point{X: float64(game.camera.viewport.Min.X+game.camera.viewport.Max.X) / 2, Y: float64(game.camera.viewport.Min.Y+game.camera.viewport.Max.Y) / 2}
 			game.camera.zoomAt(center, 3)
 			game.camera.pan(sim.Point{X: -80, Y: 30})
-			game.syncCamera()
 			game.followSelected = true
 			before := game.camera
 
@@ -288,7 +283,7 @@ func TestGameCameraAcrossStateChanges(t *testing.T) {
 			game.fitNetwork()
 
 			if test.keep {
-				if game.camera != before || game.mapScale != before.scale || game.mapOrigin != before.origin || !game.followSelected {
+				if game.camera != before || !game.followSelected {
 					t.Fatalf("camera = %+v, follow %t, want kept camera %+v and follow", game.camera, game.followSelected, before)
 				}
 				return
@@ -298,9 +293,6 @@ func TestGameCameraAcrossStateChanges(t *testing.T) {
 			got := game.camera
 			if got.world != want.world || got.viewport != want.viewport || got.scale != want.scale || got.origin != want.origin {
 				t.Fatalf("camera world %+v, viewport %v, scale %g, origin %+v, want refit to %+v, %v, %g, %+v", got.world, got.viewport, got.scale, got.origin, want.world, want.viewport, want.scale, want.origin)
-			}
-			if game.mapScale != want.scale || game.mapOrigin != want.origin {
-				t.Fatalf("map scale %g and origin %+v not synced with refit camera", game.mapScale, game.mapOrigin)
 			}
 		})
 	}
@@ -324,7 +316,6 @@ func cameraTestGame() *Game {
 	}
 	game.ensureLayout()
 	game.camera.fit(cameraFit{bounds: worldBounds{left: 100, top: 100, right: 800, bottom: 500}, viewport: game.layout.mapViewport, unit: game.layout.unit})
-	game.syncCamera()
 	return game
 }
 
@@ -459,9 +450,6 @@ func TestEditChangesLargestZoom(t *testing.T) {
 		if got, want := game.camera.maxScale, largest(spacing); got != want {
 			t.Fatalf("%g m berths: largest scale %g, want %g", spacing, got, want)
 		}
-		if game.mapScale != game.camera.scale || game.mapOrigin != game.camera.origin {
-			t.Fatalf("map scale %g and origin %+v not synced with the camera", game.mapScale, game.mapOrigin)
-		}
 	}
 
 	// A smaller spacing raises the largest zoom. The zoom and the pan stay.
@@ -554,7 +542,7 @@ func TestMaxZoomExpandsEveryStation(t *testing.T) {
 						game.zoomMap(1e6)
 					}
 					if !game.camera.atMaxZoom() {
-						t.Fatalf("%dx%d: scale %g, want the largest zoom %g", input.outsideWidth, input.outsideHeight, game.mapScale, game.camera.maxScale)
+						t.Fatalf("%dx%d: scale %g, want the largest zoom %g", input.outsideWidth, input.outsideHeight, game.camera.scale, game.camera.maxScale)
 					}
 					for _, station := range config.Network.Stations {
 						if !game.showStationBerths(station) {

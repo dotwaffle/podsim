@@ -415,7 +415,7 @@ func TestNetworkStyleKeepsExampleLook(t *testing.T) {
 				t.Parallel()
 				game := zoomedGame(sim.Example(), input, zoom)
 				unit := game.layout.unit
-				style := newNetworkStyle(networkStyleInput{network: game.network, markers: game.collapsedStationMarkers(), lineLanes: game.currentLineLanes(), scale: game.mapScale, unit: unit})
+				style := newNetworkStyle(networkStyleInput{network: game.network, markers: game.collapsedStationMarkers(), lineLanes: game.currentLineLanes(), scale: game.camera.scale, unit: unit})
 				if !style.detailed || style.markerRadius != 10*unit || style.laneWidth != 5*unit || !style.nodeDots {
 					t.Fatalf("style = %+v, want detailed with a 10-unit marker, 5-unit lanes and node dots", style)
 				}
@@ -454,7 +454,7 @@ func TestNetworkStyleOnLondon(t *testing.T) {
 	fit := zoomedGame(network, input, 1)
 	markers := fit.collapsedStationMarkers()
 	lineLanes := fit.currentLineLanes()
-	style := newNetworkStyle(networkStyleInput{network: network, markers: markers, lineLanes: lineLanes, scale: fit.mapScale, unit: fit.layout.unit})
+	style := newNetworkStyle(networkStyleInput{network: network, markers: markers, lineLanes: lineLanes, scale: fit.camera.scale, unit: fit.layout.unit})
 	if len(markers) != len(network.Stations) {
 		t.Fatalf("%d of %d stations are collapsed at Fit, want all", len(markers), len(network.Stations))
 	}
@@ -465,7 +465,7 @@ func TestNetworkStyleOnLondon(t *testing.T) {
 	if style.detailed || style.nodeDots {
 		t.Fatalf("detailed, node dots = %t, %t at Fit, want false, false", style.detailed, style.nodeDots)
 	}
-	if want := 150 * fit.mapScale; want < 3 || want > 10 || !closeTo(style.markerRadius, want) {
+	if want := 150 * fit.camera.scale; want < 3 || want > 10 || !closeTo(style.markerRadius, want) {
 		t.Fatalf("marker radius = %v, want 150 m on the screen (%v) between 3 and 10 units", style.markerRadius, want)
 	}
 	if style.laneWidth != 2 || style.collapsedLaneWidth != 1 {
@@ -484,7 +484,7 @@ func TestNetworkStyleOnLondon(t *testing.T) {
 	}
 	zoomed := zoomedGame(network, input, mapMaxZoom)
 	markers = zoomed.collapsedStationMarkers()
-	style = newNetworkStyle(networkStyleInput{network: network, markers: markers, lineLanes: zoomed.currentLineLanes(), scale: zoomed.mapScale, unit: zoomed.layout.unit})
+	style = newNetworkStyle(networkStyleInput{network: network, markers: markers, lineLanes: zoomed.currentLineLanes(), scale: zoomed.camera.scale, unit: zoomed.layout.unit})
 	collapsed := slices.Sorted(maps.Keys(markers))
 	slices.Sort(dense)
 	if len(dense) != 10 || !slices.Equal(collapsed, dense) || !style.nodeDots {
@@ -634,7 +634,7 @@ func TestLaneArrowsStayOnLanes(t *testing.T) {
 				t.Parallel()
 				game := zoomedGame(network, input, zoom)
 				unit := game.layout.unit
-				style := newNetworkStyle(networkStyleInput{network: network, markers: game.collapsedStationMarkers(), lineLanes: game.currentLineLanes(), scale: game.mapScale, unit: unit})
+				style := newNetworkStyle(networkStyleInput{network: network, markers: game.collapsedStationMarkers(), lineLanes: game.currentLineLanes(), scale: game.camera.scale, unit: unit})
 				for _, lane := range network.Lanes {
 					geometry := game.laneGeometry(lane, style.detailed)
 					a, ok := style.laneArrow(lane, geometry)
@@ -766,7 +766,7 @@ func TestSpacedArrowsOnPresets(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			game := zoomedGame(test.network, input, 1)
-			style := newNetworkStyle(networkStyleInput{network: test.network, markers: game.collapsedStationMarkers(), lineLanes: game.currentLineLanes(), scale: game.mapScale, unit: game.layout.unit})
+			style := newNetworkStyle(networkStyleInput{network: test.network, markers: game.collapsedStationMarkers(), lineLanes: game.currentLineLanes(), scale: game.camera.scale, unit: game.layout.unit})
 			arrows := baseLaneArrows(game, style)
 			spaced := style.spacedArrows(arrows)
 			if len(spaced) == len(arrows) {
