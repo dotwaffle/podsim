@@ -116,3 +116,26 @@ The misses are pairs that the run has not used before.
    This bounds the step.
    It changes the tick at which a trip gets a hold or a pod, so it changes dispatch choices and timing, and the soak and qualification readings.
    It needs maintainer approval.
+
+## Result of option 1
+
+The commit "sim: Scan finishing pods by lower bound" lands option 1.
+`finishingPod` sorts the busy pods by their bound and stops at the first pod whose bound cannot improve on the best time.
+An equal time goes to the earlier pod in fleet order, so the scan holds each trip for the same pod as the scan in fleet order.
+`TestFinishingPodMatchesFleetOrder` compares the two scans on a busy London network, with constructed ties.
+In each of the six arms, the saved state after 40 minutes has the same SHA-256 digest before and after the change.
+
+The probe ran each arm 5 times with each build, interleaved, at a host load of 3.2 to 10.4, except for one pair at 20.
+The table gives the median of the 5 runs.
+
+| Both | Seed | Largest step before | Largest step after | Steps over 33.3 ms before | Steps over 33.3 ms after |
+|---|---|---|---|---|---|
+| Off | 20260929 | 81.6 ms | 49.2 ms | 5 | 2 |
+| On | 20260929 | 91.2 ms | 58.7 ms | 6 | 4 |
+| Off | 1 | 44.2 ms | 40.5 ms | 3 | 2 |
+| On | 1 | 73.4 ms | 57.7 ms | 6 | 6 |
+| Off | 2 | 112.3 ms | 50.3 ms | 6 | 3 |
+| On | 2 | 137.5 ms | 62.4 ms | 9 | 7 |
+
+Tick 18235 with both off takes 80.7 ms before and 49.2 ms after.
+The work of `pickupPodForRequest` and the station bounds stays, so each arm still has steps over the budget.
