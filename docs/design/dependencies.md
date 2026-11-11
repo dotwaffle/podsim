@@ -22,7 +22,7 @@ Recheck the advisory and source before changing this dependency again; a clean s
 ## Toolchain and module versions
 
 The tool-version selectors keep their existing pin styles.
-Go is at 1.27.3, Ebitengine at 2.10.5, Go Cloud at 0.47.0, and x/image at 0.47.0.
+Go is at 1.27.4, Ebitengine at 2.10.5, Go Cloud at 0.47.0, and x/image at 0.47.0.
 The graphics dependencies require x/sync 0.24.0, x/sys 0.49.0, and x/text 0.43.0.
 Node stays on its 24.x line at 24.22.2; govulncheck is at 1.9.0, rumdl at 0.3.2, and golangci-lint at 2.15.0.
 
@@ -30,6 +30,8 @@ The update sweep of November 4, 2026 found the other direct modules, govulncheck
 It raised Go, Node, rumdl, automemlimit to 1.0.1, and eight indirect modules: purego 0.11.3, gax-go 2.27.0, grpc-gateway 2.33.0, x/net 0.62.0, google.golang.org/api 0.310.0, the two genproto modules, and gRPC 1.85.0.
 Node 26 is a new major line outside the current selector, and Node stays on 24.
 
+Go 1.27.4 fixes GO-2026-6859, a race of `MaxBytesReader` and the request headers that can crash an HTTP/1 server in net/http.
+`govulncheck` reports call paths from the server and the clients.
 Go 1.27.3 fixes GO-2026-6809 (CVE-2026-111943), a denylist of distrusted intermediate certificates in crypto/x509.
 `govulncheck` reports a call path to the affected function.
 Go 1.27.2 fixes CVE-2026-78667 in the asset-serving ServeContent path.
