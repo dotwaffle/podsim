@@ -23,7 +23,7 @@ Completed rider history stays outside the outstanding-order budget and remains p
 Motion-only deltas use stream version 7 without changing full-frame or saved-state members.
 Express retains its own 600-pod fleet and 17,000-order bound.
 Increasing plain limits must not increase either Express limit implicitly.
-Express still has no independent worst-case byte proof.
+`TestExpressStateFileWorstCaseSize` and `TestExpressStreamMaximumEncoding` bound the Express format in the same way.
 
 The approved fleet promotion requires matched London qualification at 327, 600, and 1,000 pods before the production plain limit changes.
 That qualification passed, including an isolated baseline/current comparison of the overloaded cases after an unexplained timing miss.
