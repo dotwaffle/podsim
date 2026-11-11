@@ -7,13 +7,13 @@ import (
 
 // Clone returns an independent simulation that evolves exactly like s for the
 // same inputs. It shares network data that is replaced whole, copies mutable
-// state, and drops pure route and length caches.
+// state, and drops pure route caches.
 func (s *Simulation) Clone() *Simulation {
 	c := *s
 	s.cloneMotion(&c)
 	// Lookups refill these caches with identical results, and dispatch
 	// makes a new pass.
-	c.lengths, c.routes, c.routeOrder, c.routeStations, c.pass = nil, nil, nil, nil, nil
+	c.routes, c.routeOrder, c.routeStations, c.pass = nil, nil, nil, nil
 	c.pickupBounds = nil
 	c.staticConnected, c.staticRoutes = nil, nil
 	c.routeWork = nil

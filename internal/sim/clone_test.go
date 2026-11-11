@@ -26,7 +26,7 @@ const (
 var cloneRules = map[reflect.Type]map[string]cloneRule{
 	reflect.TypeFor[Simulation](): {
 		"motion":         cloneCopy,
-		"networkIndexes": cloneShare, "lengths": cloneDrop, "routes": cloneDrop, "routeOrder": cloneDrop,
+		"networkIndexes": cloneShare, "routes": cloneDrop, "routeOrder": cloneDrop,
 		"pickupBounds": cloneDrop, "routeWork": cloneDrop, "routeView": cloneDrop, "admissionWork": cloneDrop, "depotTaken": cloneDrop, "emergencyMisses": cloneDrop, "pickupMisses": cloneDrop, "accessRoutes": cloneDrop,
 		"initial":  cloneShare,
 		"vehicles": cloneCopy, "expressServices": cloneCopy, "owners": cloneCopy, "demo": cloneCopy, "waiting": cloneCopy, "undelivered": cloneCopy,
@@ -204,7 +204,7 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		// The session gives the network again, and RestoreState builds the
 		// prepared network from it.
 		"networkIndexes":  persistSession,
-		"expressServices": persistSession, "lengths": persistReset, "routes": persistReset, "routeOrder": persistReset,
+		"expressServices": persistSession, "routes": persistReset, "routeOrder": persistReset,
 		"pickupBounds": persistReset, "routeWork": persistReset, "routeView": persistReset, "admissionWork": persistReset, "depotTaken": persistReset,
 		"emergencyMisses": persistReset, "pickupMisses": persistReset, "accessRoutes": persistReset, "searchCounters": persistReset,
 		"initial":  persistSession,
@@ -762,7 +762,7 @@ func cloneFixtures() []cloneFixture {
 // drops.
 func stripCaches(s *Simulation) *Simulation {
 	c := *s
-	c.lengths, c.routes, c.routeOrder = nil, nil, nil
+	c.routes, c.routeOrder = nil, nil
 	c.pickupBounds = nil
 	c.staticConnected, c.staticRoutes = nil, nil
 	c.routeWork = nil

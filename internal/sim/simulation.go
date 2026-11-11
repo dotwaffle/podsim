@@ -393,7 +393,6 @@ type Simulation struct {
 	emergencySampler       incidentSampler
 	motion                 *motionRecorder
 	expressServices        map[string]ExpressService
-	lengths                map[string]float64
 	routes                 map[routeKey]routeResult
 	routeOrder             []routeKey
 	pickupBounds           map[string][]float64

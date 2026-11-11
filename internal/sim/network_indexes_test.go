@@ -33,7 +33,6 @@ func (s *Simulation) ensureNetworkIndexes() {
 	p.resourceLanes = indexResourceLanes(p.network, p.laneCells)
 	p.platoonData = newPlatoonIndexData(p.network)
 	s.networkIndexes = &p
-	s.lengths = nil
 	s.routes = nil
 	s.routeOrder = nil
 	s.pickupBounds = nil

@@ -213,21 +213,12 @@ func (s *Simulation) cacheRoute(key routeKey, result routeResult) routeResult {
 	return result
 }
 
-// laneLength reuses geometry measurements for the fixed network.
+// laneLength reads the length of a lane of the network from the route
+// graph, which holds the bits of Network.Length and needs no scan of the
+// nodes. It measures a lane outside the graph.
 func (s *Simulation) laneLength(lane Lane) float64 {
-	if length, ok := s.lengths[lane.ID]; ok {
-		return length
-	}
-	// The graph holds the same length, and needs no scan of the nodes.
-	var length float64
 	if index, ok := s.graph.lanes[lane.ID]; ok {
-		length = s.graph.lengths[index]
-	} else {
-		length = s.network.Length(lane)
+		return s.graph.lengths[index]
 	}
-	if s.lengths == nil {
-		s.lengths = make(map[string]float64)
-	}
-	s.lengths[lane.ID] = length
-	return length
+	return s.network.Length(lane)
 }
