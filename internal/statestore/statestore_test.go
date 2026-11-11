@@ -311,9 +311,12 @@ var copyOperations = []struct {
 	run        func(*Store, context.Context) error
 	target     string
 	keepSource bool
+	// syncs is the number of directory syncs. Reject syncs again after it
+	// deletes the source.
+	syncs int
 }{
-	{name: "reject", run: (*Store).Reject, target: rejectedKeyAt(0)},
-	{name: "backup", run: (*Store).Backup, target: PreviousKey, keepSource: true},
+	{name: "reject", run: (*Store).Reject, target: rejectedKeyAt(0), syncs: 2},
+	{name: "backup", run: (*Store).Backup, target: PreviousKey, keepSource: true, syncs: 1},
 }
 
 func TestCopyIsDurableBeforeSourceChanges(t *testing.T) {
@@ -333,7 +336,8 @@ func TestCopyIsDurableBeforeSourceChanges(t *testing.T) {
 			syncs := 0
 			store.syncDir = func(synced string) error {
 				// The target is complete and the source is in place when
-				// the directory sync makes the target durable.
+				// the first directory sync makes the target durable. The
+				// second sync of Reject comes after the delete.
 				syncs++
 				if synced != dir {
 					t.Errorf("synced directory %s, want %s", synced, dir)
@@ -344,7 +348,11 @@ func TestCopyIsDurableBeforeSourceChanges(t *testing.T) {
 				if got := permissions(t, target); got != 0o600 {
 					t.Errorf("target mode at the directory sync = %#o, want 0600", got)
 				}
-				if got := readFile(t, source); !bytes.Equal(got, data) {
+				if syncs == 2 {
+					if _, err := os.Stat(source); !errors.Is(err, fs.ErrNotExist) {
+						t.Errorf("source at the second directory sync: %v, want fs.ErrNotExist", err)
+					}
+				} else if got := readFile(t, source); !bytes.Equal(got, data) {
 					t.Errorf("source at the directory sync = %q, want %q", got, data)
 				}
 				return syncDirectory(synced)
@@ -352,8 +360,8 @@ func TestCopyIsDurableBeforeSourceChanges(t *testing.T) {
 			if err := operation.run(store, t.Context()); err != nil {
 				t.Fatal(err)
 			}
-			if syncs != 1 {
-				t.Fatalf("directory syncs = %d, want 1", syncs)
+			if syncs != operation.syncs {
+				t.Fatalf("directory syncs = %d, want %d", syncs, operation.syncs)
 			}
 			_, err := os.Stat(source)
 			if operation.keepSource && err != nil {

@@ -284,7 +284,9 @@ func (s *Store) Write(ctx context.Context, data []byte) error {
 
 // Reject moves the saved state to a key with the UTC time in its name, for
 // example session.rejected.20260923T090000.000000000Z.json.gz. It deletes
-// the saved state only after the copy is durable. Then it deletes the
+// the saved state only after the copy is durable, and syncs the directory
+// again so that a power loss cannot bring the saved state back. Then it
+// deletes the
 // oldest rejected keys until 3 stay. It always keeps the new key, also when
 // the clock is behind the times of the older keys. Reject logs a failure of
 // this last step to the default slog logger and does not return it,
@@ -296,6 +298,9 @@ func (s *Store) Reject(ctx context.Context) error {
 	}
 	if err := s.bucket.Delete(ctx, StateKey); err != nil {
 		return fmt.Errorf("reject saved state: delete %s: %w", StateKey, err)
+	}
+	if err := s.syncDirs(StateKey); err != nil {
+		return fmt.Errorf("reject saved state: %w", err)
 	}
 	if err := s.pruneRejected(ctx, key); err != nil {
 		s.logger.Warn("Prune rejected session state", slog.Any("error", err))
