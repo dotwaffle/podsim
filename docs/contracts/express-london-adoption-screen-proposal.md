@@ -321,6 +321,7 @@ Two causes add up.
   18 of the 21 failing requests waited 30 s, and 1 waited 10 s, for a busy pod that should finish first, with the `current` [wait rule](../model.md#wait-rules), and then the idle pod went.
   With the same events, `D` has 21 failures at the other stations with the `current` rule, 13 with the `strict` rule, and 11 with the `none` rule.
   `LF` used the `current` rule in each run, and the probe did not run `LF` with the other rules.
+  A later [study of the wait rules](../studies/express-wait-rules.md) ran both configurations with each rule.
 
 `D` carries less load than `LF`, so the pods become idle where the trips end, mostly far from the center, and redistribution does not bring enough of them back.
 `LF` has no idle pods, so a pod that finishes a trip in the center takes the next request there.
