@@ -466,6 +466,33 @@ This run gives 53% in `check`, and about 64% if all the garbage collection belon
 `soakCPUSeconds` read the whole process, and `startChecks` draws from the driver stream, so a run with the checks off is not the same run as a run with them on.
 A run with the rewinds off also moves each driver event against the simulation tick.
 
+### Cost of the full check in November 2026
+
+A CPU profile at `32e6fee1` ran the checked arm of `TestIncidentSoakCI` for one simulated hour on each preset.
+On `london-full-express`, the step took 77 s and the full check took 272 s, with 57 s of background garbage collection, most of it from the check.
+On `rail-hub`, the step and the check each took about 22 s.
+
+| Part of the check | london-full-express | rail-hub |
+| --- | ---: | ---: |
+| `savedRouteStart` in `ExportState` | 36% | 32% |
+| Rest of `ExportState` and `CheckContract` | 24% | 49% |
+| Build of the `SafetyObservation` | 21% | 6% |
+| `SafetyObservation.Check` | 15% | 4% |
+| Incident records and the transition check | 4% | 9% |
+
+`savedRouteStart` walked each block of the route up to the current block, but only the end of a lane can set the start.
+The commit "sim: Find the saved route start by lane" reads the end of each lane, with the same result.
+The table gives `TestIncidentSoakCI` before and after that commit, at a load average of about 7 to 24.
+
+| Reading | Before | After |
+| --- | ---: | ---: |
+| Checked run, `london-full-express`, thread CPU | 516 s | 336 s |
+| Checked run, `rail-hub`, thread CPU | 51.5 s | 44.5 s |
+| Whole test, wall time | 693 s | 409 s |
+
+The profile found no other single change that removes half of the check time.
+The largest remaining parts on `london-full-express` are the safety locations of each pod (24 s), the lane indexes of `ExportState` (22 s), and the maps by pod ID in the separation check (about 20 s).
+
 ### Order balance
 
 `CheckContract` does not prove the equation of the Conservation row.
