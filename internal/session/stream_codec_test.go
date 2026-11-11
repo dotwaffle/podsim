@@ -141,6 +141,18 @@ func TestHTTPStateRouteCounterRange(t *testing.T) {
 			t.Errorf("%s: got %v, want the route counter refusal", member, err)
 		}
 	}
+	// An HTTP state checks the identity and lane of a vehicle before its
+	// counters. The first laneID member is that of the first vehicle.
+	lane := fmt.Sprintf(`"laneID":%q`, f.State.Simulation.Vehicles[0].Pod.LaneID)
+	unknown := strings.Replace(string(data), lane, `"laneID":"no-such-lane"`, 1)
+	identity := fmt.Sprintf(`%q:"%d"`, "identity", route.Identity)
+	both := strings.Replace(unknown, identity, fmt.Sprintf(`%q:"%d"`, "identity", sim.MaxCounter+1), 1)
+	if unknown == string(data) || both == unknown {
+		t.Fatal("no laneID or identity member in the HTTP state")
+	}
+	if _, err := DecodeStateJSON([]byte(both)); err == nil || err.Error() != "invalid vehicle identity or lane" {
+		t.Errorf("unknown lane and counter: got %v, want the identity refusal", err)
+	}
 }
 
 // TestDeltaGroupRefusalOrder checks that a delta with two bad groups gets
@@ -157,7 +169,9 @@ func TestDeltaGroupRefusalOrder(t *testing.T) {
 	}
 	want := apply(map[string]jsontext.Value{"controls": groups["controls"]})
 	other := apply(map[string]jsontext.Value{"global": groups["global"]})
-	if want == nil || other == nil || want.Error() == other.Error() {
+	// The decoder gives the text, so the test checks only the field that it
+	// names.
+	if want == nil || other == nil || !strings.Contains(want.Error(), "controlsGroup.speed") || !strings.Contains(other.Error(), "globalGroup.tick") {
 		t.Fatalf("each bad group alone must give its own refusal: controls %v, global %v", want, other)
 	}
 	for range 64 {

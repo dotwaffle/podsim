@@ -131,6 +131,7 @@ Project validation and the editor refuse a lane speed limit or a demand weight a
 The decimal strings have the same limit.
 A client refuses an envelope with a larger `sequence` as an invalid stream identity.
 It refuses a route with a larger `identity`, `start`, or `current`.
+A stream frame gets this refusal after the boarding and route length checks of the vehicle, and an HTTP state gets it after the identity and lane check of the vehicle, with the error `stream route counter is out of range`.
 It refuses a fault ID or an emergency ID with a larger generation or serial.
 The fault counters, the emergency counters, the route identity, and the sums of wait and journey ticks stop at 2^53-1.
 A new fault or emergency fails when its serial or one of its ticks would pass 2^53-1.
