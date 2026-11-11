@@ -1,8 +1,10 @@
 package sim
 
 import (
+	"cmp"
 	"fmt"
 	"math"
+	"slices"
 )
 
 const (
@@ -50,15 +52,8 @@ func (s *Simulation) SetFinishingPodWait(rule FinishingPodWait) error {
 // waitForFinishingPod is advisory. It never assigns a busy pod or reserves a berth.
 // s.finishingPodWait selects when it holds the trip.
 //
-// Network validation keeps each lane speed positive, so routeSeconds is not
-// negative. Thus the ETA of a busy pod is not less than the time before the
-// pod is available. When that time cannot win, the loop does not compute
-// the empty route. Immutable travel bounds can also exclude a candidate.
-// The bound can end at any berth and omits acceleration and braking.
-// Ties retain the exact route estimate and fleet order.
-//
-// A hold never names the pod that the trip excludes. The loop skips that
-// pod, and a hold that names it ends.
+// A hold never names the pod that the trip excludes. finishingPod skips
+// that pod, and a hold that names it ends.
 func (s *Simulation) waitForFinishingPod(trip *waitingTrip, idle *vehicle, assigned map[string]bool) bool {
 	if s.finishingPodWait == FinishingPodWaitNone {
 		return false
@@ -79,7 +74,6 @@ func (s *Simulation) waitForFinishingPod(trip *waitingTrip, idle *vehicle, assig
 		return false
 	}
 	idleETA := s.pickupSeconds(idle, route)
-	bestETA := idleETA - pickupAdvantageSeconds
 	holdSeconds := math.Inf(1)
 	if s.finishingPodWait == FinishingPodWaitStrict {
 		holdUntil := trip.deferUntil
@@ -88,41 +82,7 @@ func (s *Simulation) waitForFinishingPod(trip *waitingTrip, idle *vehicle, assig
 		}
 		holdSeconds = float64(holdUntil-s.tick) / TicksPerSecond
 	}
-	var best *vehicle
-	var bounds []float64
-	fits := classFits{s: s, request: &trip.request}
-	for i := range s.vehicles {
-		v := &s.vehicles[i]
-		if v == idle || !v.inService() || trip.excludes(v.Pod.ID) || !fits.pod(v) {
-			continue
-		}
-		node, remaining, ok := s.passAvailableAfter(i)
-		if !ok {
-			continue
-		}
-		if canWin := remaining < bestETA && remaining <= holdSeconds; !canWin {
-			continue
-		}
-		if bounds == nil {
-			bounds = s.stationPickupBounds(station.ID)
-		}
-		if index, found := s.graph.nodes[node]; found && index < len(bounds) &&
-			pickupCannotImprove(remaining+bounds[index], min(bestETA, holdSeconds)) {
-			continue
-		}
-		// The held pod must have access to the pickup.
-		if !s.pickupAccess(v, trip.request) {
-			continue
-		}
-		route, _, err := s.stationRouteByLoad(stationRouteInput{class: v.Pod.Class, from: node, station: station.ID, load: noBerthLoad, accept: s.pickupBerthFilter(v, trip.request)})
-		if err != nil {
-			continue
-		}
-		eta := remaining + s.routeSeconds(motionEnvelopeFor(v.Pod.Class), route, motionEstimate{})
-		if eta < bestETA && eta <= holdSeconds {
-			best, bestETA = v, eta
-		}
-	}
+	best := s.finishingPod(trip, idle, station.ID, idleETA-pickupAdvantageSeconds, holdSeconds)
 	if best == nil {
 		return false
 	}
@@ -133,6 +93,82 @@ func (s *Simulation) waitForFinishingPod(trip *waitingTrip, idle *vehicle, assig
 	trip.deferPodID = best.Pod.ID
 	trip.request.DispatchReason = finishingPodReason(best.Pod.ID)
 	return true
+}
+
+// finishingCandidate is a busy pod that finishingPod can hold for. bound
+// is a lower bound of its ETA.
+type finishingCandidate struct {
+	index            int
+	node             string
+	remaining, bound float64
+}
+
+// finishingPod returns the busy pod with the least ETA to the station when
+// that ETA is less than limit and not more than holdSeconds. Of pods with
+// an equal ETA, it returns the first in fleet order. It returns nil when no
+// pod qualifies.
+//
+// Network validation keeps each lane speed positive, so routeSeconds is not
+// negative. Thus the ETA of a busy pod is not less than the time before the
+// pod is available, and a pod that cannot win on that time gets no route.
+// The bound of a pod adds the immutable travel bound from its finish node.
+// That bound can end at any berth and omits acceleration and braking, so it
+// does not exceed the ETA. finishingPod computes the routes in order of the
+// bound, so an early pod with a small ETA lets it skip more routes. It stops
+// at the first pod whose bound cannot improve on the best ETA, because each
+// later pod has a bound that is not less. pickupCannotImprove keeps a pod
+// whose bound can equal the best ETA, so each pod with the least ETA gets a
+// route, and the fleet index decides between them.
+func (s *Simulation) finishingPod(trip *waitingTrip, idle *vehicle, stationID string, limit, holdSeconds float64) *vehicle {
+	var candidates []finishingCandidate
+	fits := classFits{s: s, request: &trip.request}
+	for i := range s.vehicles {
+		v := &s.vehicles[i]
+		if v == idle || !v.inService() || trip.excludes(v.Pod.ID) || !fits.pod(v) {
+			continue
+		}
+		node, remaining, ok := s.passAvailableAfter(i)
+		if ok && remaining < limit && remaining <= holdSeconds {
+			candidates = append(candidates, finishingCandidate{index: i, node: node, remaining: remaining, bound: remaining})
+		}
+	}
+	if len(candidates) == 0 {
+		return nil
+	}
+	bounds := s.stationPickupBounds(stationID)
+	for k := range candidates {
+		c := &candidates[k]
+		if index, found := s.graph.nodes[c.node]; found && index < len(bounds) {
+			c.bound += bounds[index]
+		}
+	}
+	slices.SortFunc(candidates, func(a, b finishingCandidate) int {
+		return cmp.Or(cmp.Compare(a.bound, b.bound), cmp.Compare(a.index, b.index))
+	})
+	var best *vehicle
+	bestIndex, bestETA := 0, limit
+	for _, c := range candidates {
+		if pickupCannotImprove(c.bound, min(bestETA, holdSeconds)) {
+			break
+		}
+		v := &s.vehicles[c.index]
+		// The held pod must have access to the pickup.
+		if !s.pickupAccess(v, trip.request) {
+			continue
+		}
+		route, _, err := s.stationRouteByLoad(stationRouteInput{class: v.Pod.Class, from: c.node, station: stationID, load: noBerthLoad, accept: s.pickupBerthFilter(v, trip.request)})
+		if err != nil {
+			continue
+		}
+		eta := c.remaining + s.routeSeconds(motionEnvelopeFor(v.Pod.Class), route, motionEstimate{})
+		if eta > holdSeconds {
+			continue
+		}
+		if eta < bestETA || best != nil && eta == bestETA && c.index < bestIndex {
+			best, bestIndex, bestETA = v, c.index, eta
+		}
+	}
+	return best
 }
 
 // keepHold keeps a trip on hold for a finishing pod until the next check of
