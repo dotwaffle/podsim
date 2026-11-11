@@ -24,8 +24,48 @@ func TestOutstandingOrderCountIncludesSharedParties(t *testing.T) {
 	for _, row := range rows {
 		ids = append(ids, row.request.ID)
 	}
-	if !slices.Equal(ids, []int{1, 2, 3, 4}) || !rows[0].active || rows[2].active {
+	if !slices.Equal(ids, []int{1, 2, 3, 4}) {
 		t.Fatalf("outstanding rows = %+v", rows)
+	}
+}
+
+// TestOrderLabelsCountQueuedAndActive checks the count line of the Orders
+// panel. Each pending request is queued. Each rider aboard a pod who has not
+// finished is active.
+func TestOrderLabelsCountQueuedAndActive(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name  string
+		state sim.Snapshot
+		want  string
+	}{
+		{name: "empty", want: "Queued 0 / active 0"},
+		{name: "queued only", state: sim.Snapshot{Pending: []sim.Request{{ID: 1}, {ID: 2}}}, want: "Queued 2 / active 0"},
+		{name: "completed riders only", state: sim.Snapshot{Vehicles: []sim.Vehicle{
+			{Pod: sim.Pod{ID: "01"}, Riders: []sim.Request{{ID: 1, Completed: true}}},
+		}}, want: "Queued 0 / active 0"},
+		{name: "mixed parties on two pods", state: sim.Snapshot{
+			Pending: []sim.Request{{ID: 3}, {ID: 8}},
+			Vehicles: []sim.Vehicle{
+				{Pod: sim.Pod{ID: "01"}, Riders: []sim.Request{{ID: 1}, {ID: 2}, {ID: 5, Completed: true}}},
+				{Pod: sim.Pod{ID: "02"}},
+				{Pod: sim.Pod{ID: "03"}, Riders: []sim.Request{{ID: 4}, {ID: 6, Completed: true}, {ID: 7}}},
+			},
+		}, want: "Queued 2 / active 4"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			game := ordersTestGame(t, layoutInput{outsideWidth: 1100, outsideHeight: 728, deviceScale: 1}, 0)
+			labels := game.orderLabels(test.state)
+			if got := labels[1].value; got != test.want {
+				t.Fatalf("count line = %q, want %q", got, test.want)
+			}
+			empty := len(labels) == 3 && labels[2].value == "No outstanding orders."
+			if wantEmpty := test.want == "Queued 0 / active 0"; empty != wantEmpty {
+				t.Fatalf("empty panel = %t, want %t", empty, wantEmpty)
+			}
+		})
 	}
 }
 

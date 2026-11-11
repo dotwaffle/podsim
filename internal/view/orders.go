@@ -16,7 +16,6 @@ import (
 type orderRow struct {
 	request sim.Request
 	status  string
-	active  bool
 }
 
 // outstandingOrders returns the queued and active orders of state in order
@@ -37,7 +36,7 @@ func outstandingOrders(state sim.Snapshot) []orderRow {
 		}
 		for _, rider := range v.Riders {
 			if !rider.Completed {
-				rows = append(rows, orderRow{request: rider, status: status, active: true})
+				rows = append(rows, orderRow{request: rider, status: status})
 			}
 		}
 	}
@@ -204,12 +203,9 @@ func (g *Game) orderLabels(state sim.Snapshot) []label {
 		return label{x: g.layout.right(orderTextLeft), y: g.layout.y(y), size: size, value: value, color: shade, physical: true}
 	}
 	rows := outstandingOrders(state)
-	active := 0
-	for _, row := range rows {
-		if row.active {
-			active++
-		}
-	}
+	// outstandingOrders has one row for each pending request and one row
+	// for each rider who has not finished.
+	active := len(rows) - len(state.Pending)
 	labels := []label{
 		panelLabel(83, 12, "OUTSTANDING ORDERS", muted),
 		panelLabel(108, 14, fmt.Sprintf("Queued %d / active %d", len(state.Pending), active), foreground),
