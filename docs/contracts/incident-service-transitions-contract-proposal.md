@@ -658,7 +658,7 @@ Class "Both" checks `From` and `LegFrom`.
 
 | Reader | Use | Class |
 | --- | --- | --- |
-| `internal/sim/dispatch.go` `(*Simulation).dispatch` | Idle-station filter before promotion | Physical |
+| `internal/sim/dispatch.go` `(*Simulation).dispatch` | Idle-pod check before promotion | Physical |
 | `internal/sim/dispatch.go` `(*Simulation).dispatch` | Local pickup test | Physical |
 | `internal/sim/dispatch.go` `(*Simulation).dispatch` | `optionPickups` cache key | Physical: `dispatchOptions()` plus the exclusion (section 5.3) |
 | `internal/sim/dispatch.go` `(*Simulation).dispatch` | Pod away from pickup | Physical |
