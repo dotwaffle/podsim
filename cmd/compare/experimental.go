@@ -9,17 +9,26 @@ import (
 )
 
 func parseExperimentalOptions(opts *options, _ map[string]bool) error {
-	for part := range strings.SplitSeq(opts.pickupReassignmentText, ",") {
+	var err error
+	opts.pickupReassignment, err = parseOffOn("pickup-reassignment", opts.pickupReassignmentText)
+	return err
+}
+
+// parseOffOn parses the comma-separated off and on policies of the flag
+// name, in order. It refuses another word and a repeated policy.
+func parseOffOn(name, text string) ([]string, error) {
+	var policies []string
+	for part := range strings.SplitSeq(text, ",") {
 		policy := strings.TrimSpace(part)
 		if policy != "off" && policy != "on" {
-			return fmt.Errorf("pickup-reassignment must contain only off or on, got %q", policy)
+			return nil, fmt.Errorf("%s must contain only off or on, got %q", name, policy)
 		}
-		if slices.Contains(opts.pickupReassignment, policy) {
-			return fmt.Errorf("pickup-reassignment policy %q appears more than once", policy)
+		if slices.Contains(policies, policy) {
+			return nil, fmt.Errorf("%s policy %q appears more than once", name, policy)
 		}
-		opts.pickupReassignment = append(opts.pickupReassignment, policy)
+		policies = append(policies, policy)
 	}
-	return nil
+	return policies, nil
 }
 
 func experimentalArmCount(opts options) int {

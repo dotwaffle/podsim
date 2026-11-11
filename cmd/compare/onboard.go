@@ -3,8 +3,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"slices"
-	"strings"
 
 	"github.com/dotwaffle/podsim/internal/sim"
 )
@@ -13,15 +11,9 @@ func parseOnboardOptions(opts *options, given bool) error {
 	if !given {
 		return nil
 	}
-	for part := range strings.SplitSeq(opts.onboardPickupsText, ",") {
-		policy := strings.TrimSpace(part)
-		if policy != "off" && policy != "on" {
-			return fmt.Errorf("onboard-pickups must contain only off or on, got %q", policy)
-		}
-		if slices.Contains(opts.onboardPickups, policy) {
-			return fmt.Errorf("onboard-pickups policy %q appears more than once", policy)
-		}
-		opts.onboardPickups = append(opts.onboardPickups, policy)
+	var err error
+	if opts.onboardPickups, err = parseOffOn("onboard-pickups", opts.onboardPickupsText); err != nil {
+		return err
 	}
 	return validateOnboardOptions(*opts)
 }
