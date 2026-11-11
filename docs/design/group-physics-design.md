@@ -103,7 +103,7 @@ The focused tests include actual journeys with group, compact, and legacy leader
 They cover straight and curved motion, stopped following, merges, ordinary and bank stations, and parking.
 Every observed tick checks physical separation, speed changes, owned stopping bounds, position continuity, and order conservation.
 Cold checkpoints cover passenger service, empty fetch, origin retention, route trimming, and intermediate shared unloading.
-At qualification, actual consumers exercised save-6 restore and hello-3 full and replacement-delta frames; those versions are now 10 and 8.
+At qualification, actual consumers exercised save-6 restore and hello-3 full and replacement-delta frames; the current versions are 11 and 9.
 
 Independent review found a missing raw origin plane during departure.
 The corrected observer retains that plane until origin release.

@@ -28,7 +28,9 @@ The maintainer stopped the incident redesign after stage 3.
 Stages 1, 2, and 3 landed and are on main.
 Stages 4 to 6 were dropped and have no contracts.
 The maintainer reopened stage 7 on November 4, 2026, under [its contract](../contracts/incident-stage7-contract-proposal.md).
-Its code landed, its [soak](../studies/incident-soak.md) has not run, the soak size is open, and the Suspension median row of its qualification is open.
+Its code landed, and routine [soaks](../studies/incident-soak.md) have run.
+Amendments A6, A10, and A12 set the soak sizes and triggers.
+The Suspension performance row meets amendment A7.
 
 - Stage 1 is the [service transitions contract](../contracts/incident-service-transitions-contract-proposal.md).
   The maintainer approved it on October 5, 2026, in `482d93d`.

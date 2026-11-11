@@ -25,7 +25,7 @@ Use whole parties and the actual vehicle's class, seats, berth, and onward route
 
 Onboard pickup accepts only unassigned requests.
 An express service cannot add a different origin or destination pair.
-Current express physical profiles remain unsupported.
+Express physical operation requires the opt-in `express-v1` order contract.
 
 An admitted pickup must preserve every existing rider's destination and detour cap.
 Evaluate each rider from its own boarding berth and distance baseline.
@@ -75,7 +75,7 @@ Reject a source-project mismatch before decoding these references.
 Reordering a caller's target network cannot reinterpret a boarding berth.
 
 When `boardings` is present, omit the redundant pod-level `journeyOrigin` reference.
-Require exactly one tuple for each stored rider, with at most eight tuples.
+Require exactly one tuple for each stored rider, with at most eight tuples, or 20 for an Express pod under `express-v1`.
 Each tuple has exactly two nonnull numbers.
 Its first number is an integer from zero through the referenced station's berth count minus one.
 Its second number is finite, nonnegative, and no greater than the restored chain's cumulative distance.
@@ -111,7 +111,7 @@ Canonical encoding does not remove authoritative native records.
 A logical requeue retains the original order's consent and whole party.
 It clears physical boarding metadata before a future boarding records a new baseline.
 
-The combined rider and history array remains bounded at eight.
+The combined rider and history array is bounded at eight, or 20 for an Express pod under `express-v1`.
 Before a new admission needs space, retire only completed display history, oldest first.
 Remove each retired rider's aligned boarding record with it.
 Retain completion counters, timings, and request conservation.
@@ -148,7 +148,7 @@ It does not qualify the native state or its phase rules.
 It does not replace permanent format and byte tests.
 Before implementation lands, compare historical and modern maxima with the actual encoded types.
 Include compact certificates and retained rider history in that test.
-Keep the 2,600 saved-queue and eight stored-rider operating bounds.
+The saved-queue bound is 8,200 for plain projects and 17,000 under `express-v1`.
 Add optional stream vehicle fields `boardings` and `riddenMeters`.
 `boardings` contains aligned native records with `berthID` and `metersAtBoarding`.
 These records use berth IDs, so stream decoding does not interpret positional indexes.
@@ -158,7 +158,7 @@ A boarding record proves the zero baseline when the cumulative value is omitted.
 Publish these fields together only when the canonical old same-origin representation cannot preserve the records.
 Without boarding records, retain the existing vehicle representation.
 
-Require one boarding record per stored rider, with at most eight records.
+Require one boarding record per stored rider, with at most eight records, or 20 for an Express pod under `express-v1`.
 Resolve each `berthID` against that frame's bound topology and the rider's `from` station.
 Reject unknown, missing, duplicate, or null object members and invalid numeric values.
 Require finite, nonnegative baselines no greater than the cumulative distance.

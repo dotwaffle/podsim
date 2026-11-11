@@ -112,7 +112,7 @@ Restore starts with recording disabled.
 Enable recording after creating a demo.
 Duplicate frame reads still validate samples before they add no energy.
 
-Enabled JSON reports use schema version 15 and an `energy` object in each result.
+Enabled JSON reports use schema version 18, or version 19 with fleet-class output, and an `energy` object in each result.
 Disabled JSON reports keep their existing schema version and members.
 CSV adds energy columns only when a result contains energy.
 Table output adds an energy record for each enabled result.
