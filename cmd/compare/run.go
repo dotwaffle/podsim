@@ -115,34 +115,36 @@ func runInputs(inputs []runInput, opts options) ([]result, error) {
 	return results, nil
 }
 
-type comparisonJob struct {
-	index int
-	input runInput
-}
-
 func runComparisons(inputs []runInput, workers int) ([]result, error) {
-	results := make([]result, len(inputs))
-	errorsByIndex := make([]error, len(inputs))
-	jobs := make(chan comparisonJob)
-	var group sync.WaitGroup
-	for range min(workers, len(inputs)) {
-		group.Go(func() {
-			for job := range jobs {
-				results[job.index], errorsByIndex[job.index] = run(job.input)
-			}
-		})
-	}
-	for index, input := range inputs {
-		jobs <- comparisonJob{index: index, input: input}
-	}
-	close(jobs)
-	group.Wait()
-	for _, err := range errorsByIndex {
+	results, errs := runIndexed(inputs, workers, run)
+	for _, err := range errs {
 		if err != nil {
 			return nil, err
 		}
 	}
 	return results, nil
+}
+
+// runIndexed calls call for each input, with at most workers calls at a
+// time. It returns the results and the errors in the order of inputs.
+func runIndexed[In, Out any](inputs []In, workers int, call func(In) (Out, error)) ([]Out, []error) {
+	results := make([]Out, len(inputs))
+	errs := make([]error, len(inputs))
+	jobs := make(chan int)
+	var group sync.WaitGroup
+	for range min(workers, len(inputs)) {
+		group.Go(func() {
+			for index := range jobs {
+				results[index], errs[index] = call(inputs[index])
+			}
+		})
+	}
+	for index := range inputs {
+		jobs <- index
+	}
+	close(jobs)
+	group.Wait()
+	return results, errs
 }
 
 type runInput struct {

@@ -11,7 +11,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/dotwaffle/podsim/internal/project"
@@ -481,22 +480,7 @@ func screenTimes(outcomes []screenOutcome, events []screenEvent, timings []sim.R
 // runScreenArms runs the arms with at most workers at a time, and returns
 // the results in the order of inputs.
 func runScreenArms(inputs []screenArmInput, workers int) ([]screenArm, error) {
-	results := make([]screenArm, len(inputs))
-	errs := make([]error, len(inputs))
-	jobs := make(chan int)
-	var group sync.WaitGroup
-	for range min(workers, len(inputs)) {
-		group.Go(func() {
-			for index := range jobs {
-				results[index], errs[index] = runScreenArm(inputs[index])
-			}
-		})
-	}
-	for index := range inputs {
-		jobs <- index
-	}
-	close(jobs)
-	group.Wait()
+	results, errs := runIndexed(inputs, workers, runScreenArm)
 	return results, errors.Join(errs...)
 }
 
