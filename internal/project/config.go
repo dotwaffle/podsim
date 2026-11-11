@@ -28,7 +28,7 @@ const (
 )
 
 // These are the largest counts that Validate accepts. The saved session
-// decoder uses the same limits, and web/editor.js has a copy of MaxLanes.
+// decoder and browser editor use the same limits.
 const (
 	// MaxPods is the largest fleet.
 	MaxPods = 1000
@@ -122,11 +122,13 @@ const MaxFileBytes = 32 << 20
 // widest demand settings, has more than MaxFileBytes.
 var errTooLarge = fmt.Errorf("encoded project must have at most %d bytes with any demand settings", MaxFileBytes)
 
-// widestDemand has the longest canonical encoding of all demand settings
-// that ValidateDemand accepts. Enabled is false, because false is longer
-// than true. Rail-arrivals is the longest pattern name. Each reference has
-// the largest length. JSON writes each ID character as 1 byte. Keep this
-// value in step with ValidateDemand.
+// widestDemand bounds the canonical encoding of all demand settings that
+// ValidateDemand accepts. The bound is conservative: it combines the longest
+// value of each field, and ValidateDemand refuses some of these
+// combinations, such as rail-arrivals with a daily start minute. Enabled is
+// false, because false is longer than true. Rail-arrivals is the longest
+// pattern name. Each reference has the largest length. JSON writes each ID
+// character as 1 byte. Keep this value in step with ValidateDemand.
 var widestDemand = DemandConfig{
 	PerMinute:        120,
 	Pattern:          "rail-arrivals",

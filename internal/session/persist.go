@@ -71,7 +71,9 @@ type StateStore interface {
 	// Read returns the saved state. The error wraps fs.ErrNotExist when
 	// there is none, and ErrStateTooLarge above MaxStateBytes.
 	Read(ctx context.Context) ([]byte, error)
-	// Write replaces the saved state. A failed write keeps the old state.
+	// Write replaces the saved state. A failed write keeps the old state,
+	// except that a file store can fail to sync its directory after it
+	// replaces the state.
 	// Write must not keep data after it returns.
 	Write(ctx context.Context, data []byte) error
 	// Reject moves the saved state aside. A later Read gets fs.ErrNotExist.

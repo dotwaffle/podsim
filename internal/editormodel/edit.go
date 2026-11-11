@@ -106,7 +106,7 @@ func scalarEditValue(command editCommand) (any, error) {
 }
 
 // proposeScalarEdit proposes the edit of a field with a scalar value.
-// Normalization and the conversion to trains propose their own change.
+// Normalization proposes its own change.
 func proposeScalarEdit(draft any, command editCommand, value any) (projectChange, error) {
 	change := projectChange{Patch: make(map[string]any)}
 	var err error

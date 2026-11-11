@@ -402,8 +402,8 @@ func decodeStateFile(data []byte) (stateFile, error) {
 	return file, nil
 }
 
-// unsupportedState returns the error for a file of another format or of
-// a version other than 10. Such a file moves aside.
+// unsupportedState returns the error for a file of another format or
+// version. Such a file moves aside.
 func unsupportedState(header stateHeader) error {
 	err := &stateError{reason: reasonUnsupportedVersion}
 	switch {
