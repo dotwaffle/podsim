@@ -264,7 +264,7 @@ Each path below gets the test `v.withdrawn == 0`:
 | Path | Anchor | Gate |
 | --- | --- | --- |
 | Pickup candidates | `internal/sim/diversion.go` `(*Simulation).pickupCandidate` | Returns false. This covers `pickupCandidates` (`internal/sim/dispatch.go` `(*Simulation).pickupCandidates`), `pickupPodMatching`, `pickupAvailable` (`internal/sim/pickup_estimate.go` `(*Simulation).pickupAvailable`), `pickupRouteWithAssignments` (`internal/sim/diversion.go` `(*Simulation).pickupRouteWithAssignments`), `sendPickupMatching` (`internal/sim/diversion.go` `(*Simulation).sendPickupMatching`), and `freePickupAlternative` (`internal/sim/pickup_reassignment.go` `(*Simulation).freePickupAlternative`). |
-| Local pickups | `internal/sim/dispatch.go` `(*Simulation).freePods` | Skips the pod. This covers `localPickup` and `localPickupForRequest`. |
+| Local pickups | `internal/sim/dispatch.go` `(*Simulation).localPickupForRequest` | Skips the pod. This covers `localPickup` and `localPickupForRequest`. |
 | Shared-ride joins | `internal/sim/dispatch.go` `(*Simulation).boardingPods` | Skips the pod. This covers `joinSharedRide`. |
 | Onboard pickups | `internal/sim/onboard_pickups.go` `(*Simulation).onboardPickupReady` | Returns false. |
 | Promotion | `internal/sim/dispatch.go` `(*Simulation).promoteReadyPickup` | The ready pod must be in service. Invariant W2 makes this hold already. The test is defensive. |
@@ -1689,7 +1689,7 @@ Each mutation needs a passing control, a compiled mutant, and a failing test.
 | Mutation | Call site |
 | --- | --- |
 | Drop the withdrawal test | `pickupCandidate`, `internal/sim/diversion.go` `(*Simulation).pickupCandidate` |
-| Drop the withdrawal test | `freePods`, `internal/sim/dispatch.go` `(*Simulation).freePods` |
+| Drop the withdrawal test | `localPickupForRequest`, `internal/sim/dispatch.go` `(*Simulation).localPickupForRequest` |
 | Drop the withdrawal test | `boardingPods`, `internal/sim/dispatch.go` `(*Simulation).boardingPods` |
 | Drop the withdrawal test | `waitForFinishingPod` loop, `internal/sim/pickup_estimate.go` `(*Simulation).waitForFinishingPod` |
 | Drop the withdrawal test | `guardedSupply`, `internal/sim/positioning.go` `(*Simulation).guardedSupply` |
