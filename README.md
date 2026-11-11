@@ -179,7 +179,7 @@ An approved contract in `docs/contracts/` is binding, and each document gives it
 | Dispatch and routing | [Pickup reassignment](docs/studies/pickup-reassignment.md), [sustained pickup swaps](docs/studies/pickup-swap-sustained.md), [predictive routing](docs/studies/predictive-routing.md), [berth routes](docs/studies/berth-route-preference.md), [policy failures](docs/studies/policy-failures.md) |
 | Platoons and following | [Platoon follow-up](docs/studies/platoon-followup.md), [coupled trains](docs/studies/platoon-coupling-comparison.md), [close-up following](docs/studies/close-up-measurement.md), [station buffers](docs/studies/buffer-late-claim.md) |
 | Express | [Express qualification](docs/studies/express-qualification.md), [standees evidence](docs/studies/express-standees.md) |
-| Performance | [Live admission](docs/studies/admission-live-performance.md), [pickup route search](docs/studies/pickup-routing-performance.md), [study replays](docs/studies/study-performance.md), [test timing](docs/studies/test-speed.md), [policy restarts](docs/studies/experimental-policy-restarts.md), [incident soak timing](docs/studies/incident-soak.md) |
+| Performance | [Live admission](docs/studies/admission-live-performance.md), [pickup route search](docs/studies/pickup-routing-performance.md), [study replays](docs/studies/study-performance.md), [test timing](docs/studies/test-speed.md), [policy restarts](docs/studies/experimental-policy-restarts.md), [incident soak timing](docs/studies/incident-soak.md), [step overrun](docs/studies/step-overrun.md) |
 
 `docs/measurements/` holds the JSON and CSV data of these records, for example [the performance samples](docs/measurements/performance.json).
 
