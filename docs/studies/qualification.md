@@ -532,6 +532,7 @@ Commit `80c47dc` skips two dispatch scans at a station with no idle pod.
 Each dispatch pass makes a 256-bit Bloom filter of the stations of the idle pods, and the filter has no false negatives.
 The two scans fell from 10 percent to less than 1 percent of the CPU profile of the heavy arm.
 The filter uses about 1 percent.
+Commit `cbe484f1` later replaced the filter with a list of the idle pods at each station, which is exact.
 In three alternate runs of the heavy arm, the mean user CPU time fell from 13.3 to 11.4 seconds.
 
 The last A/B check compared commit `80c47dc` with commit `40fc98f`, so it includes the four commits between them.

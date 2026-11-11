@@ -940,9 +940,9 @@ mise run check
 
 | Task | What it runs |
 | --- | --- |
-| `mise run check` | Workflow validation, Markdown checks, race tests, the tests that skip under the race detector, the `test:web` tests, vet, lint, vulnerability checks, the native and browser builds, and the embedded server tests. It runs `check:static`, `qualify`, and the three race tasks one after another, and stops at the first failure. |
+| `mise run check` | Workflow validation, Markdown checks, race tests, the tests that skip under the race detector, the `test:web` tests, vet, lint, vulnerability checks, the native and browser builds, and the embedded server tests. It runs `check:static`, `qualify`, the three race tasks, and `test:long` one after another, and stops at the first failure. |
 | `mise run format` | Formats the Go sources and the Markdown files. |
-| `mise run test:quick` | `go test -short ./...`. It skips the long tests. The race tasks, `qualify`, and `test:embedded` run them. |
+| `mise run test:quick` | `go test -short ./...`. It skips the long tests. The race tasks, `test:long`, `qualify`, and `test:embedded` run them. |
 | `mise run lint` | actionlint, rumdl, `go vet`, golangci-lint, and the check that `podsim.wasm` does not link cloud storage. |
 | `mise run check:static` | The checks other than the race tests and `qualify`: `test:web`, `lint`, `vulncheck`, `build`, and `test:embedded`. |
 | `mise run test:race` | The `test:race:sim`, `test:race:session`, and `test:race:other` tasks. `test:race:other` runs the packages of `PODSIM_LONG_PACKAGES` with `-short`, and then the long tests of `PODSIM_RACE_LONG_TESTS` in full. |
@@ -1016,7 +1016,7 @@ These variables change a run:
 GitHub Actions runs the same check on pull requests, pushes to `main`, and version tags.
 The workflow also supports a manual trigger.
 It splits the check into six parallel jobs: `test:race:sim`, `test:race:session`, `test:race:other`, `test:long`, `qualify`, and `check:static`.
-After all five pass, a version tag or a manual run publishes the container image.
+After all six pass, a version tag or a manual run publishes the container image.
 A push to `main` runs the checks and publishes no image.
 New pull-request updates cancel older runs.
 Each `main` push keeps its own run.
