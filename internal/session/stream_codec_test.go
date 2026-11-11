@@ -1,8 +1,10 @@
 package session
 
 import (
+	"fmt"
 	"reflect"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/sim"
@@ -107,6 +109,35 @@ func TestApplyStreamRefusalOrder(t *testing.T) {
 		}
 		if !reflect.DeepEqual(f, StreamFrame{}) {
 			t.Errorf("%s: refused envelope gave a frame", c.name)
+		}
+	}
+}
+
+// TestHTTPStateRouteCounterRange checks that an HTTP state with a route
+// counter above sim.MaxCounter gets the refusal of a stream frame. The
+// encoder refuses such a counter, so the test edits the JSON.
+func TestHTTPStateRouteCounterRange(t *testing.T) {
+	t.Parallel()
+	s, base := streamFixture(t)
+	f := base
+	f.Routes = slices.Clone(base.Routes)
+	f.Routes[0].Identity = sim.MaxCounter
+	data, err := EncodeStateJSON(s.Topology(), f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := DecodeStateJSON(data); err != nil {
+		t.Fatalf("the HTTP state with an identity at the limit: %v", err)
+	}
+	route := f.Routes[0]
+	for member, value := range map[string]uint64{"identity": route.Identity, "start": route.Start, "current": route.Current} {
+		old := fmt.Sprintf(`%q:"%d"`, member, value)
+		edited := strings.Replace(string(data), old, fmt.Sprintf(`%q:"%d"`, member, sim.MaxCounter+1), 1)
+		if edited == string(data) {
+			t.Fatalf("no %s member in the HTTP state", member)
+		}
+		if _, err := DecodeStateJSON([]byte(edited)); err == nil || err.Error() != "stream route counter is out of range" {
+			t.Errorf("%s: got %v, want the route counter refusal", member, err)
 		}
 	}
 }

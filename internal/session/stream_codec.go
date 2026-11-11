@@ -566,13 +566,21 @@ func checkStreamFrame(f StreamFrame) error {
 		if len(v.RouteLaneIDs) != 0 || len(f.Routes[i].Display) > project.MaxLanes || len(f.Routes[i].Lanes) > sim.MotionRouteLimit {
 			return errors.New("unbounded stream route")
 		}
-		// These numbers are JSON strings, so the integer scan does not
-		// bound them.
-		if route := f.Routes[i]; route.Identity > sim.MaxCounter || route.Start > sim.MaxCounter || route.Current > sim.MaxCounter {
-			return errors.New("stream route counter is out of range")
+		if err := checkRouteCounters(f.Routes[i]); err != nil {
+			return err
 		}
 	}
 	return checkFrameIDs(f.State)
+}
+
+// checkRouteCounters refuses a route presentation with a counter above
+// sim.MaxCounter. These numbers are JSON strings, so the integer scan does
+// not bound them.
+func checkRouteCounters(route sim.RoutePresentation) error {
+	if route.Identity > sim.MaxCounter || route.Start > sim.MaxCounter || route.Current > sim.MaxCounter {
+		return errors.New("stream route counter is out of range")
+	}
+	return nil
 }
 
 // errFrameIDText means that a frame has an ID with a character other than

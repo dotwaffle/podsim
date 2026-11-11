@@ -175,6 +175,10 @@ func (a *StreamAssembler) presentVehicles(routes []sim.RoutePresentation, vehicl
 			return errors.New("invalid vehicle identity or lane")
 		}
 		seen[v.Pod.ID] = true
+		// A stream frame passed this check before, but an HTTP state did not.
+		if err := checkRouteCounters(r); err != nil {
+			return err
+		}
 		if err := a.motionPod(r, v.Pod); err != nil {
 			return err
 		}
