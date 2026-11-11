@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"maps"
 	"os"
 	"path/filepath"
@@ -371,6 +372,42 @@ func TestCopyIsDurableBeforeSourceChanges(t *testing.T) {
 				t.Fatalf("source after %s: %v, want fs.ErrNotExist", operation.name, err)
 			}
 		})
+	}
+}
+
+// TestRejectLogsLastSyncFailure checks that a failure of the directory
+// sync after the delete keeps the move: Reject returns nil, the rejected
+// copy stays, the saved state is gone, and the store logs the cause.
+func TestRejectLogsLastSyncFailure(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	store := openStore(t, "file://"+dir)
+	var logged bytes.Buffer
+	store.logger = slog.New(slog.NewTextHandler(&logged, nil))
+	data := []byte("saved state")
+	mustWrite(t, store, data)
+	syncs := 0
+	store.syncDir = func(synced string) error {
+		syncs++
+		if syncs == 2 {
+			return errSync
+		}
+		return syncDirectory(synced)
+	}
+	if err := store.Reject(t.Context()); err != nil {
+		t.Fatalf("Reject: %v, want nil", err)
+	}
+	if syncs != 2 {
+		t.Fatalf("directory syncs = %d, want 2", syncs)
+	}
+	if got := readFile(t, filepath.Join(dir, rejectedKeyAt(0))); !bytes.Equal(got, data) {
+		t.Errorf("rejected copy = %q, want %q", got, data)
+	}
+	if _, err := os.Stat(filepath.Join(dir, StateKey)); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("saved state after Reject: %v, want fs.ErrNotExist", err)
+	}
+	if text := logged.String(); !strings.Contains(text, "level=WARN") || !strings.Contains(text, `msg="Sync rejected session state"`) || !strings.Contains(text, errSync.Error()) {
+		t.Errorf("log = %q, want the WARN record with the sync error", text)
 	}
 }
 

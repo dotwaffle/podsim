@@ -823,6 +823,9 @@ With `-state`, the server writes these log records at startup:
   It gives the `error` and `saving=false`.
 - `Prune rejected session state` (WARN) gives the `error` when the server cannot delete an old rejected file.
   The next rejection tries again.
+- `Sync rejected session state` (WARN) gives the `error` when the directory sync after the move fails.
+  The move worked, so saving stays on.
+  If a power loss brings the file back, the next start rejects it again.
 - `Backed up saved session state` (INFO) and `Back up saved session state` (WARN, with the `error`) tell the result of the copy to `session.previous.json.gz`.
   A failed copy does not stop the restore.
 - `Stop during startup` (INFO) means that a signal came while the server read or restored the saved state, or made the startup save.

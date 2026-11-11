@@ -286,11 +286,13 @@ func (s *Store) Write(ctx context.Context, data []byte) error {
 // example session.rejected.20260923T090000.000000000Z.json.gz. It deletes
 // the saved state only after the copy is durable, and syncs the directory
 // again so that a power loss cannot bring the saved state back. Then it
-// deletes the
-// oldest rejected keys until 3 stay. It always keeps the new key, also when
-// the clock is behind the times of the older keys. Reject logs a failure of
-// this last step to the default slog logger and does not return it,
-// because the move worked. The next Reject tries again.
+// deletes the oldest rejected keys until 3 stay. It always keeps the new
+// key, also when the clock is behind the times of the older keys.
+//
+// Reject logs a failure of the last directory sync or of the deletion of
+// old keys to the store logger and does not return it, because the move
+// worked. If a power loss brings the saved state back, the next start
+// rejects it again, and the next Reject deletes the old keys.
 func (s *Store) Reject(ctx context.Context) error {
 	key := rejectedPrefix + s.now().UTC().Format(rejectedLayout) + rejectedSuffix
 	if err := s.copyKey(ctx, key, StateKey); err != nil {
@@ -300,7 +302,7 @@ func (s *Store) Reject(ctx context.Context) error {
 		return fmt.Errorf("reject saved state: delete %s: %w", StateKey, err)
 	}
 	if err := s.syncDirs(StateKey); err != nil {
-		return fmt.Errorf("reject saved state: %w", err)
+		s.logger.Warn("Sync rejected session state", slog.Any("error", err))
 	}
 	if err := s.pruneRejected(ctx, key); err != nil {
 		s.logger.Warn("Prune rejected session state", slog.Any("error", err))
