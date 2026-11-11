@@ -24,10 +24,10 @@ type requestStats struct {
 // wait and journey.
 //
 // The occupancy is the rider distance of the completed parties divided by
-// the occupied distance of their pod journeys. Each pod journey has one
-// party that boarded the pod, and the other parties joined it at the same
-// berth. Thus the party that rode the farthest rode the occupied distance
-// of the journey up to its last completed stop.
+// the sum of the longest completed rider distance in each sharing group.
+// This equals the distance-weighted party occupancy when each group boards
+// at one berth. With occupied pickups at different berths, it is an
+// approximation.
 //
 // The mean detour ratio is the mean, over the completed parties with a
 // free-flow route, of the rider distance divided by the free-flow distance.

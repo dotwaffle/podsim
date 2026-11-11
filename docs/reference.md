@@ -360,16 +360,18 @@ These columns give the distances of the parties that alighted.
 
 | Column | Definition |
 | --- | --- |
-| `occupancy` | The rider distance of the parties that alighted, divided by the occupied distance of their pod journeys. |
+| `occupancy` | The rider distance of the parties that alighted, divided by the sum of the longest rider distance in each sharing group. |
 | `rider_distance_meters` | The sum of the distances that the parties that alighted rode, from the berth where they boarded to the berth where they alighted. |
 | `direct_distance_meters` | The sum of the free-flow distances of the same parties between the same two berths. |
 | `detour_ratio_mean` | The mean, over the same parties, of the ratio of the rider distance to the free-flow distance. |
 | `detour_ratio_max` | The largest ratio for one party. |
 | `intermediate_stops` | The number of stops where parties alighted and the pod continued with other parties. |
 
-A pod journey starts when the first party boards the pod, and all parties of a pod journey board at the same berth.
-The occupied distance of a pod journey is the longest rider distance of its parties.
-Without sharing, the occupancy is 1, and with sharing, it is the mean number of parties aboard, weighted by distance.
+A sharing group is the party that boarded the pod first and the parties that joined it.
+The occupancy is the rider distance of the completed parties divided by the sum of the longest completed rider distance in each sharing group.
+Without sharing, the occupancy is 1.
+It equals the mean number of parties aboard, weighted by distance, when each group boards at one berth.
+With occupied pickups at different berths, it is an approximation.
 The value is 0 when no party alighted.
 It does not include the parts of pod journeys after the last party that alighted before the end of the arm.
 
@@ -388,7 +390,7 @@ The command examines the pods at each whole simulated second, and each stopped p
 | `junction_wait_seconds` | The time of the stopped pods with the wait reason "Junction traffic". |
 | `track_wait_seconds` | The time of the stopped pods with the wait reason "Pod ahead". |
 
-The other stopped pods wait for a berth or for parking, so `stopped_pod_seconds` is at least the sum of the other two columns.
+The other stopped pods wait for a berth or for parking, brake or stop for a fault, wait because of an incident, or have no forward route, so `stopped_pod_seconds` is at least the sum of the other two columns.
 The `peak_stopped_vehicles` column counts only the pods with a speed of less than 0.01 m/s, so it can count fewer pods.
 
 #### Busiest node

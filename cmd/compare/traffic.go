@@ -12,7 +12,8 @@ type trafficWaits struct {
 	stopped int
 	// junction and track count the stopped pods that wait for junction
 	// traffic and for a pod ahead. The other stopped pods wait for a
-	// berth or for parking.
+	// berth or for parking, brake or stop for a fault, wait because of an
+	// incident, or have no forward route.
 	junction, track int
 }
 
