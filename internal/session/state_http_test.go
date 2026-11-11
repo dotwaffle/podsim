@@ -61,6 +61,28 @@ func TestStateHTTPNegotiation(t *testing.T) {
 	}
 }
 
+// TestDecodeStateJSONRefusesUnknownMembers checks that the HTTP state
+// decoder refuses a valid state with a root member that the envelope does
+// not declare. TestPackedDocumentsRefuseCaseVariants covers the member
+// names that differ from a declared name only in case.
+func TestDecodeStateJSONRefusesUnknownMembers(t *testing.T) {
+	t.Parallel()
+	shared, _ := streamFixture(t)
+	t.Cleanup(shared.Close)
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/state", http.NoBody)
+	request.Header.Set("Accept", StateMediaType)
+	response := httptest.NewRecorder()
+	shared.Handler("missing").ServeHTTP(response, request)
+	raw := response.Body.Bytes()
+	if _, err := DecodeStateJSON(raw); err != nil {
+		t.Fatal(err)
+	}
+	edited := append([]byte(`{"epoch":"changed",`), raw[1:]...)
+	if _, err := DecodeStateJSON(edited); err == nil {
+		t.Fatal("state with an unknown root member accepted")
+	}
+}
+
 // TestAcceptsStateMedia parses each media range of the Accept headers. A
 // range that names StateMediaType with a quality above zero accepts it.
 func TestAcceptsStateMedia(t *testing.T) {

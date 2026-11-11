@@ -41,14 +41,10 @@ func padded(prefix, suffix string, size int) []byte {
 // boundsTarget returns a nonempty target for path, so that a test can see a
 // change.
 func boundsTarget(path string) any {
-	switch path {
-	case "/api/topology":
+	if path == "/api/topology" {
 		return &session.TopologySnapshot{Epoch: "accepted"}
-	case "/api/command":
-		return &session.Reply{Epoch: "accepted"}
-	default:
-		return &session.State{Epoch: "accepted"}
 	}
+	return &session.Reply{Epoch: "accepted"}
 }
 
 func TestExchangeBoundsResponseBodies(t *testing.T) {
@@ -62,8 +58,6 @@ func TestExchangeBoundsResponseBodies(t *testing.T) {
 		body  []byte
 		ok    bool
 	}{
-		{"state at the limit", "/api/state", session.StateMediaType, padded(`{"epoch":"`, `"}`, session.MaxHTTPStateJSON), true},
-		{"state past the limit", "/api/state", session.StateMediaType, padded(`{"epoch":"`, `"}`, session.MaxHTTPStateJSON+1), false},
 		{"topology at the limit", "/api/topology", "application/json", append(topology(session.MaxTopologyJSON), '\n'), true},
 		{"topology past the limit", "/api/topology", "application/json", topology(session.MaxTopologyJSON + 2), false},
 		{"command reply past the limit", "/api/command", "application/json", padded(`{"epoch":"`, `"}`, session.MaxCommandBytes+1), false},
@@ -75,9 +69,7 @@ func TestExchangeBoundsResponseBodies(t *testing.T) {
 			before := reflect.ValueOf(target).Elem().Interface()
 			err := client.exchange(t.Context(), http.MethodGet, test.path, nil, target)
 			if test.ok {
-				// The state at the limit is not a valid state, so only the
-				// size must pass.
-				if errors.Is(err, errResponseTooLarge) || err != nil && test.path != "/api/state" {
+				if err != nil {
 					t.Fatal("rejected a response at the limit", err)
 				}
 				return
@@ -108,29 +100,21 @@ func TestExchangeBoundsBeforeParsing(t *testing.T) {
 	deep := strings.Repeat("[", 20000) + strings.Repeat("]", 20000)
 	const tooDeep, tooLong, tooMany = "JSON nesting is too deep", "JSON array has too many elements", "JSON object has too many members"
 	tests := []struct {
-		path string
 		name string
 		raw  string
 		want string
 	}{
-		{"/api/state", "deeper than the decoder cap", `{"epoch":"x","x":` + deep + `}`, tooDeep},
-		{"/api/state", "vehicles past the fleet bound", `{"frame":{"state":{"simulation":{"vehicles":` + zeros(project.MaxPods+1) + `}}}}`, tooLong},
-		{"/api/state", "object past the member limit", `{"x":0` + members(256) + `}`, tooMany},
-		{"/api/topology", "deeper than the decoder cap", `{"epoch":"x","x":` + deep + `}`, tooDeep},
-		{"/api/topology", "nodes past the network bound", `{"network":{"nodes":` + zeros(project.MaxNodes+1) + `}}`, tooLong},
-		{"/api/topology", "object past the member limit", `{"x":0` + members(256) + `}`, tooMany},
+		{"deeper than the decoder cap", `{"epoch":"x","x":` + deep + `}`, tooDeep},
+		{"nodes past the network bound", `{"network":{"nodes":` + zeros(project.MaxNodes+1) + `}}`, tooLong},
+		{"object past the member limit", `{"x":0` + members(256) + `}`, tooMany},
 	}
 	for _, test := range tests {
-		t.Run(test.path+"/"+test.name, func(t *testing.T) {
+		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			media := "application/json"
-			if test.path == "/api/state" {
-				media = session.StateMediaType
-			}
-			client := boundsClient(t, media, []byte(test.raw+"\n"))
-			target := boundsTarget(test.path)
+			client := boundsClient(t, "application/json", []byte(test.raw+"\n"))
+			target := boundsTarget("/api/topology")
 			before := reflect.ValueOf(target).Elem().Interface()
-			err := client.exchange(t.Context(), http.MethodGet, test.path, nil, target)
+			err := client.exchange(t.Context(), http.MethodGet, "/api/topology", nil, target)
 			if err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("got %v, want %s", err, test.want)
 			}
@@ -141,19 +125,36 @@ func TestExchangeBoundsBeforeParsing(t *testing.T) {
 	}
 }
 
-// The state decoder refuses invalid UTF-8. The plain state of earlier
-// servers replaced it.
-func TestExchangeStateRefusesInvalidUTF8(t *testing.T) {
-	t.Parallel()
-	client := boundsClient(t, session.StateMediaType, []byte("{\"frame\":{\"state\":{\"epoch\":\"\xff\"}}}"))
-	state := session.State{Epoch: "kept"}
-	if err := client.exchange(t.Context(), http.MethodGet, "/api/state", nil, &state); err == nil || state.Epoch != "kept" {
-		t.Fatal("state with invalid UTF-8 accepted", err, state.Epoch)
+// httpState returns the state of the server at url. It reads the state
+// endpoint with the state media type and decodes the reply with
+// session.DecodeStateJSON.
+func httpState(t *testing.T, client *http.Client, url string) session.State {
+	t.Helper()
+	request, err := http.NewRequestWithContext(t.Context(), http.MethodGet, url+"/api/state", http.NoBody)
+	if err != nil {
+		t.Fatal(err)
 	}
+	request.Header.Set("Accept", session.StateMediaType)
+	response, err := client.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = response.Body.Close() }()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("state status %d", response.StatusCode)
+	}
+	raw, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	state, err := session.DecodeStateJSON(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return state
 }
 
-// A real server's responses decode to the values of the reference
-// decoders: the state decoder for the state, plain JSON for the others.
+// A real server's responses decode to the values of plain JSON.
 func TestExchangeServerResponsesMatchPlainDecode(t *testing.T) {
 	t.Parallel()
 	shared, err := session.New()
@@ -164,43 +165,27 @@ func TestExchangeServerResponsesMatchPlainDecode(t *testing.T) {
 	server := httptest.NewServer(shared.Handler("missing"))
 	t.Cleanup(server.Close)
 	client := &Client{url: server.URL, http: server.Client()}
-	reference := func(path string, target any) {
-		t.Helper()
-		request, requestErr := http.NewRequestWithContext(t.Context(), http.MethodGet, server.URL+path, http.NoBody)
-		if requestErr != nil {
-			t.Fatal(requestErr)
-		}
-		request.Header.Set("Accept", session.StateMediaType)
-		response, getErr := server.Client().Do(request)
-		if getErr != nil {
-			t.Fatal(getErr)
-		}
-		defer func() { _ = response.Body.Close() }()
-		raw, readErr := io.ReadAll(response.Body)
-		if readErr != nil {
-			t.Fatal(readErr)
-		}
-		if state, ok := target.(*session.State); ok {
-			var decodeErr error
-			if *state, decodeErr = session.DecodeStateJSON(raw); decodeErr != nil {
-				t.Fatal(decodeErr)
-			}
-			return
-		}
-		if decodeErr := jsonv2.Unmarshal(raw, target, json.DefaultOptionsV1()); decodeErr != nil {
-			t.Fatal(decodeErr)
-		}
+	request, err := http.NewRequestWithContext(t.Context(), http.MethodGet, server.URL+"/api/topology", http.NoBody)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response, err := server.Client().Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := io.ReadAll(response.Body)
+	_ = response.Body.Close()
+	if err != nil {
+		t.Fatal(err)
 	}
 	var topology, wantTopology session.TopologySnapshot
-	reference("/api/topology", &wantTopology)
+	if err = jsonv2.Unmarshal(raw, &wantTopology, json.DefaultOptionsV1()); err != nil {
+		t.Fatal(err)
+	}
 	if err = client.exchange(t.Context(), http.MethodGet, "/api/topology", nil, &topology); err != nil || !reflect.DeepEqual(topology, wantTopology) {
 		t.Fatal("topology response changed", err)
 	}
-	var state, wantState session.State
-	reference("/api/state", &wantState)
-	if err = client.exchange(t.Context(), http.MethodGet, "/api/state", nil, &state); err != nil || !reflect.DeepEqual(state, wantState) {
-		t.Fatal("state response changed", err)
-	}
+	state := httpState(t, server.Client(), server.URL)
 	command, err := jsonv2.Marshal(session.Command{Client: "bounds", Sequence: 1, Epoch: state.Epoch, Action: "trip", Origin: "harbor", Destination: "market"}, json.DefaultOptionsV1())
 	if err != nil {
 		t.Fatal(err)
@@ -241,48 +226,33 @@ func TestReadResponseStopsAtLimit(t *testing.T) {
 	}
 }
 
-// TestExchangeFailedDecodeKeepsTarget checks that a body that passes the
-// bounds but fails to decode, or has data after its document, leaves the
-// target unchanged.
+// TestExchangeFailedDecodeKeepsTarget checks that a command reply that
+// passes the bounds but fails to decode, or has data after its document,
+// leaves the target unchanged.
 func TestExchangeFailedDecodeKeepsTarget(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {
-		name, path, body string
+		name, body string
 	}{
-		{"state with a bad field", "/api/state", `{"epoch":"changed","revision":"bad"}`},
-		{"command reply with trailing data", "/api/command", `{"epoch":"changed"} {}`},
+		{"bad field", `{"epoch":"changed","revision":"bad"}`},
+		{"trailing data", `{"epoch":"changed"} {}`},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			media := "application/json"
-			if test.path == "/api/state" {
-				media = session.StateMediaType
-			}
-			client := boundsClient(t, media, []byte(test.body))
-			var err error
-			var epoch string
-			if test.path == "/api/state" {
-				state := session.State{Epoch: "kept"}
-				err = client.exchange(t.Context(), http.MethodGet, test.path, nil, &state)
-				epoch = state.Epoch
-			} else {
-				reply := session.Reply{Epoch: "kept"}
-				err = client.exchange(t.Context(), http.MethodPost, test.path, []byte("{}"), &reply)
-				epoch = reply.Epoch
-			}
-			if err == nil {
+			client := boundsClient(t, "application/json", []byte(test.body))
+			reply := session.Reply{Epoch: "kept"}
+			if err := client.exchange(t.Context(), http.MethodPost, "/api/command", []byte("{}"), &reply); err == nil {
 				t.Fatal("invalid body was accepted")
 			}
-			if epoch != "kept" {
-				t.Fatalf("target epoch is %q after a failed decode, want kept", epoch)
+			if reply.Epoch != "kept" {
+				t.Fatalf("target epoch is %q after a failed decode, want kept", reply.Epoch)
 			}
 		})
 	}
 }
 
 // A command reply member whose case differs from the declared name is
-// unknown, so the client ignores it. The state decoder refuses unknown
-// members.
+// unknown, so the client ignores it.
 func TestExchangeIgnoresCaseVariantMembers(t *testing.T) {
 	t.Parallel()
 	client := boundsClient(t, "application/json", []byte(`{"Epoch":"folded","epoch":"exact","Revision":9}`))
@@ -292,10 +262,5 @@ func TestExchangeIgnoresCaseVariantMembers(t *testing.T) {
 	}
 	if reply.Epoch != "exact" || reply.Revision != 0 {
 		t.Fatalf("case variant members decoded: epoch %q, revision %d", reply.Epoch, reply.Revision)
-	}
-	state := session.State{Epoch: "kept"}
-	client = boundsClient(t, session.StateMediaType, []byte(`{"FRAME":{}}`))
-	if err := client.exchange(t.Context(), http.MethodGet, "/api/state", nil, &state); err == nil || state.Epoch != "kept" {
-		t.Fatal("state with a case variant member accepted", err)
 	}
 }

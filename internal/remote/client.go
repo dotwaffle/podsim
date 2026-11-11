@@ -11,9 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"mime"
 	"net/http"
-	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -214,19 +212,14 @@ func (c *Client) send(ctx context.Context, command session.Command) Result {
 var errResponseTooLarge = errors.New("server response exceeds supported limit")
 
 // responseLimit returns the largest response body for path. The server
-// writes a plain JSON body with an encoder that adds a newline, so a plain
-// limit is one byte more than the largest document. The state reply has
-// no newline.
+// writes a JSON body with an encoder that adds a newline, so a limit is one
+// byte more than the largest document.
 func responseLimit(path string) int64 {
-	switch path {
-	case "/api/state":
-		return session.MaxHTTPStateJSON
-	case "/api/topology":
+	if path == "/api/topology" {
 		return session.MaxTopologyJSON + 1
-	default:
-		// A command reply has a short error text and a few numbers.
-		return session.MaxCommandBytes
 	}
+	// A command reply has a short error text and a few numbers.
+	return session.MaxCommandBytes
 }
 
 // readResponse reads body, but not more than limit bytes.
@@ -241,21 +234,6 @@ func readResponse(body io.Reader, limit int64) ([]byte, error) {
 	return raw, nil
 }
 
-// decodeState decodes an HTTP state into target. It changes target only
-// when the state is valid.
-func decodeState(raw []byte, target any) error {
-	destination, ok := target.(*session.State)
-	if !ok {
-		return errors.New("HTTP state needs a native state target")
-	}
-	state, err := session.DecodeStateJSON(raw)
-	if err != nil {
-		return err
-	}
-	*destination = state
-	return nil
-}
-
 type statusError struct{ code int }
 
 func (e *statusError) Error() string { return fmt.Sprintf("server returned HTTP %d", e.code) }
@@ -268,9 +246,6 @@ func (c *Client) exchange(ctx context.Context, method, path string, body []byte,
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
-	if path == "/api/state" {
-		req.Header.Set("Accept", session.StateMediaType)
-	}
 	response, err := c.http.Do(req)
 	if err != nil {
 		return err
@@ -279,45 +254,37 @@ func (c *Client) exchange(ctx context.Context, method, path string, body []byte,
 	if response.StatusCode != http.StatusOK && response.StatusCode != http.StatusConflict {
 		return &statusError{code: response.StatusCode}
 	}
-	if path == "/api/state" {
-		// A server of another version replies with another media type.
-		if media, _, mediaErr := mime.ParseMediaType(response.Header.Get("Content-Type")); mediaErr != nil || media != session.StateMediaType {
-			return errors.New("server state reply has an unsupported media type")
-		}
-	}
 	raw, err := readResponse(response.Body, responseLimit(path))
 	if err != nil {
 		return err
 	}
-	if path == "/api/state" {
-		return decodeState(raw, target)
-	}
-	if topology, ok := target.(*session.TopologySnapshot); ok {
+	switch target := target.(type) {
+	case *session.TopologySnapshot:
 		// The topology decoder bounds the document before it parses it. A
 		// JSON decoder would walk the whole document first.
-		return topology.UnmarshalJSON(bytes.TrimSpace(raw))
+		return target.UnmarshalJSON(bytes.TrimSpace(raw))
+	case *session.Reply:
+		if target != nil {
+			return decodeReply(raw, target)
+		}
 	}
-	return decodeResponse(raw, target)
+	return errors.New("server response needs a non-nil pointer target")
 }
 
-// decodeResponse decodes one JSON document in raw into target, which must be
-// a non-nil pointer. It decodes into new storage first, so that a body that
-// fails to decode, or has data after the document, leaves target unchanged.
-func decodeResponse(raw []byte, target any) error {
-	destination := reflect.ValueOf(target)
-	if destination.Kind() != reflect.Pointer || destination.IsNil() {
-		return errors.New("server response needs a non-nil pointer target")
-	}
-	value := reflect.New(destination.Elem().Type())
+// decodeReply decodes one JSON document in raw into target. It decodes into
+// a new reply first, so that a body that fails to decode, or has data after
+// the document, leaves target unchanged.
+func decodeReply(raw []byte, target *session.Reply) error {
+	var reply session.Reply
 	// Member names match exactly. A client ignores a member that it does
 	// not know, and the other encoding/json rules stay.
 	decoder := jsontext.NewDecoder(bytes.NewReader(raw), json.DefaultOptionsV1(), jsonv2.MatchCaseInsensitiveNames(false))
-	if err := jsonv2.UnmarshalDecode(decoder, value.Interface()); err != nil {
+	if err := jsonv2.UnmarshalDecode(decoder, &reply); err != nil {
 		return fmt.Errorf("read server state: %w", err)
 	}
 	if _, err := decoder.ReadToken(); !errors.Is(err, io.EOF) {
 		return errors.New("invalid server response ending")
 	}
-	destination.Elem().Set(value.Elem())
+	*target = reply
 	return nil
 }
