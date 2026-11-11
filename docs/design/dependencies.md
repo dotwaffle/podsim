@@ -22,13 +22,20 @@ Recheck the advisory and source before changing this dependency again; a clean s
 ## Toolchain and module versions
 
 The tool-version selectors keep their existing pin styles.
-Go is at 1.27.4, Ebitengine at 2.10.5, Go Cloud at 0.47.0, and x/image at 0.47.0.
-The graphics dependencies require x/sync 0.24.0, x/sys 0.49.0, and x/text 0.43.0.
+Go is at 1.27.4, Ebitengine at 2.10.6, Go Cloud at 0.47.0, and x/image at 0.48.0.
+The graphics dependencies require x/sync 0.25.0, x/sys 0.50.0, and x/text 0.44.0.
 Node stays on its 24.x line at 24.22.2; govulncheck is at 1.9.0, rumdl at 0.3.2, and golangci-lint at 2.15.0.
 
 The update sweep of November 4, 2026 found the other direct modules, govulncheck, golangci-lint, actionlint, and the workflow actions at their latest versions.
 It raised Go, Node, rumdl, automemlimit to 1.0.1, and eight indirect modules: purego 0.11.3, gax-go 2.27.0, grpc-gateway 2.33.0, x/net 0.62.0, google.golang.org/api 0.310.0, the two genproto modules, and gRPC 1.85.0.
 Node 26 is a new major line outside the current selector, and Node stays on 24.
+
+The update sweep of November 11, 2026 raised Ebitengine and x/image, which also raised x/sync, x/sys, and x/text.
+It also raised google.golang.org/api to 0.311.0 and the two genproto modules; gRPC stays at 1.85.0.
+Node 24.22.3 and rumdl 0.3.3 were less than 24 hours old, so they wait for the next sweep.
+
+Ebitengine 2.10.6 fixes the tick clock: when the frame rate was near the TPS or an integer ratio of it, some frames ran zero or two updates instead of one.
+The browser client runs at a TPS of 60, which is in the affected case.
 
 Go 1.27.4 fixes GO-2026-6859, a race of `MaxBytesReader` and the request headers that can crash an HTTP/1 server in net/http.
 `govulncheck` reports call paths from the server and the clients.
