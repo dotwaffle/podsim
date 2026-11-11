@@ -71,6 +71,56 @@ Selected matched-request and sustained LondonFull comparisons will assess the ch
 Buffers and reassignment were off by default at the time of this study.
 Station buffers were removed on October 7, 2026, and the presets now enable pickup reassignment by default.
 
+## Use of the unrestricted fallback, November 2026
+
+A probe on November 11, 2026, counted the calls of the unrestricted fallback at its seven sites.
+The sites are `cachedRouteForClass`, `staticSearch`, `preferredTargets`, `preferredSource`, trip admission, `bankRoutesFrom`, and `bankNearestCost`.
+The question was whether the shipped presets need the fallback.
+They do, but only while a fault is active.
+
+Static pairs where the preferred search fails and the unrestricted search succeeds:
+
+- small, busy, parking-constrained, rail-hub, rail-hub-incidents, rail-hub-express, compact-station, and independent-banks: 0 for each class.
+- scale100: 23,865 of 96,832 pairs, each from an in-station node ahead of a berth.
+- london-central: 133,999 of 838,640 legacy pairs.
+  Each endpoint pair has a depot slot behind the lane head.
+- london-full: 1,148,644 of 8,000,166 legacy pairs, with the same depot pattern.
+- london-full-express: 214,594 legacy pairs and 28 Express pairs.
+
+No preset has a pair from a passenger berth, or from a station entry or exit, to a passenger berth that needs the fallback.
+Thus a removal adds no order refusal on these presets.
+
+Fallback calls and successes in the routine soaks:
+
+| Soak | `cachedRouteForClass` | `preferredTargets`, per target | `bankRoutesFrom` | `bankNearestCost` |
+| --- | --- | --- | --- | --- |
+| rail-hub | 123,607 / 3,636 | 27,374,353 / 378,954 | 0 | 0 |
+| london-central | 3,464 / 330 | 12,260,408 / 0 | 0 | 0 |
+| rail-hub-express | 160,246 / 2,318 | 15,272,055 / 1,276,238 | 0 | 0 |
+| london-full-express | 32,360 / 17,188 | 0 | 3,772 / 15 | 921,794 / 0 |
+
+`staticSearch`, `preferredSource`, and trip admission had no success in any run.
+On the ring presets, each success came after a fault closed the preferred path.
+The callers were parking, station approach, reroute, boarding, pickup checks, guarded positioning, and the emergency station choice.
+`assignedRoute` used the fallback 5 times after `chooseEmergencyStation` in the rail-hub-express soak.
+On the London presets, each success started at a depot slot behind the lane head.
+`pickupAccess` searches only while a fault is active, and `tryPickupTransfer` then refuses an idle pod at `depotReleasable`.
+
+A removal A/B compared final snapshot hashes on rail-hub, london-central, and london-full-express, with seed 1 and checks off.
+Only the 1 h rail-hub incidents run changed.
+Its interrupted count went from 25 to 24, the average wait from 2171.2 to 2176.0 seconds, and the maximum wait from 4265 to 4290 seconds.
+Its completed count stayed at 189.
+
+Without the fallback, six `go test -short ./internal/sim` tests fail directly, and two more fail because their reference copies keep it.
+The emergency contract names the fallback as the second free-flow search of `assignedRoute`.
+Thus a removal changes ring presets under faults and needs a contract change.
+The fallback stays.
+
+The probe has limits.
+london-full and scale100 had no dynamic run, although each has static fallback pairs.
+london-full-express, with the same depots, stood in for london-full.
+The A/B ran with checks off, so it does not show whether the soak gates pass without the fallback.
+
 ## Stratford request 1324
 
 Source `89e1e1d` includes the route preference and the passenger arrival-chain commitment fix.
