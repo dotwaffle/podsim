@@ -57,146 +57,164 @@ func largeAdversarialTick(t *testing.T, s *Simulation) {
 	}
 }
 
-func TestLargeAdversarialCurvedFollowing(t *testing.T) {
-	t.Parallel()
-	skipLong(t)
-	for _, classes := range [][2]VehicleClass{{GroupClass, LegacyClass}, {LegacyClass, GroupClass}, {GroupClass, CompactClass}, {CompactClass, GroupClass}, {GroupClass, GroupClass}} {
-		t.Run(string(classes[0])+"-"+string(classes[1]), func(t *testing.T) {
-			t.Parallel()
-			n := largeAdversarialNetwork(t, true)
-			for i := range n.Lanes {
-				if n.Lanes[i].ID == "return" {
-					n.Lanes[i].Control = &Point{X: 800, Y: 2400}
-				}
-			}
-			s, err := NewFleet(n, []Placement{{ID: "one", Class: classes[0], StationID: "parking", BerthID: "parking-1"}, {ID: "two", Class: classes[1], StationID: "parking", BerthID: "parking-2"}})
-			if err != nil {
-				t.Fatal(err)
-			}
-			if err := s.SetPlatooning(PlatooningVirtual); err != nil {
-				t.Fatal(err)
-			}
-			for _, id := range []string{"one", "two"} {
-				if err := s.RequestJourney(id, "market"); err != nil {
-					t.Fatal(err)
-				}
-			}
-			overlap, moved := false, false
-			minimum := math.Inf(1)
-			for range 1000 * TicksPerSecond {
-				largeAdversarialTick(t, s)
-				a, b := &s.vehicles[0], &s.vehicles[1]
-				if a.Pod.LaneID == "return" && b.Pod.LaneID == "return" {
-					overlap = true
-					moved = moved || a.Pod.Speed > 0 && b.Pod.Speed > 0
-					minimum = min(minimum, pointDistance(a.Pod.Position, b.Pod.Position))
-				}
-				if s.completed == 2 {
-					break
-				}
-			}
-			if !overlap || !moved || s.completed != 2 {
-				t.Fatalf("real curved following missing overlap=%v moved=%v completed=%d state=%+v", overlap, moved, s.completed, s.Snapshot())
-			}
-			t.Logf("same curve moving pair minimum=%.9g tick=%d", minimum, s.tick)
-		})
+// largeAdversary runs the shared adversarial scenarios for one large class.
+// The Group and Express tests differ only in these fields.
+type largeAdversary struct {
+	// large is the class of the stationary or moving large pod.
+	large VehicleClass
+	// newFleet makes the simulation from the scenario network.
+	newFleet func(Network, []Placement) (*Simulation, error)
+	// newTick returns a checked step with new state for one run.
+	newTick func() func(*testing.T, *Simulation)
+	// evidence writes the Express evidence files of the scenario.
+	evidence bool
+}
+
+var groupAdversary = largeAdversary{
+	large:    GroupClass,
+	newFleet: NewFleet,
+	newTick:  func() func(*testing.T, *Simulation) { return largeAdversarialTick },
+}
+
+func (adv largeAdversary) writeEvidence(t *testing.T, name string, s *Simulation) {
+	t.Helper()
+	if adv.evidence {
+		expressEvidence(t, name, s.ExportState())
 	}
 }
 
-func TestLargeAdversarialStationaryEndpoint(t *testing.T) {
-	t.Parallel()
-	for _, curved := range []bool{false, true} {
-		t.Run(map[bool]string{false: "old-24m", true: "curved-60m"}[curved], func(t *testing.T) {
-			t.Parallel()
-			n := largeAdversarialNetwork(t, false)
-			entry, _ := n.Node("market-entry")
-			for i := range n.Nodes {
-				if n.Nodes[i].ID == "market-berth" {
-					n.Nodes[i].Position = Point{X: entry.Position.X, Y: entry.Position.Y + 24}
-					if curved {
-						n.Nodes[i].Position.Y = entry.Position.Y + 58
-					}
-				}
-			}
-			var incoming Lane
-			for i := range n.Lanes {
-				if n.Lanes[i].ID != "market-in" {
-					continue
-				}
-				if curved {
-					low, high := 0.0, 100.0
-					for range 60 {
-						mid := (low + high) / 2
-						n.Lanes[i].Control = &Point{X: entry.Position.X + mid, Y: entry.Position.Y + 29}
-						if n.Length(n.Lanes[i]) < 60.001 {
-							low = mid
-						} else {
-							high = mid
-						}
-					}
-					n.Lanes[i].Control = &Point{X: entry.Position.X + high, Y: entry.Position.Y + 29}
-				}
-				incoming = n.Lanes[i]
-			}
-			s, err := NewFleet(n, []Placement{{ID: "group", Class: GroupClass, StationID: "market"}, {ID: "small", Class: CompactClass, StationID: "harbor"}})
-			if err != nil {
-				t.Fatal(err)
-			}
-			cells := s.laneCells[incoming.ID]
+func (adv largeAdversary) curvedFollowing(t *testing.T, classes [2]VehicleClass) {
+	t.Helper()
+	n := largeAdversarialNetwork(t, true)
+	for i := range n.Lanes {
+		if n.Lanes[i].ID == "return" {
+			n.Lanes[i].Control = &Point{X: 800, Y: 2400}
+		}
+	}
+	s, err := adv.newFleet(n, []Placement{{ID: "one", Class: classes[0], StationID: "parking", BerthID: "parking-1"}, {ID: "two", Class: classes[1], StationID: "parking", BerthID: "parking-2"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetPlatooning(PlatooningVirtual); err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{"one", "two"} {
+		if err := s.RequestJourney(id, "market"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	overlap, moved := false, false
+	minimum := math.Inf(1)
+	tick := adv.newTick()
+	for range 1000 * TicksPerSecond {
+		tick(t, s)
+		a, b := &s.vehicles[0], &s.vehicles[1]
+		if a.Pod.LaneID == "return" && b.Pod.LaneID == "return" {
+			overlap = true
+			moved = moved || a.Pod.Speed > 0 && b.Pod.Speed > 0
+			minimum = min(minimum, pointDistance(a.Pod.Position, b.Pod.Position))
+		}
+		if s.completed == 2 {
+			break
+		}
+	}
+	if !overlap || !moved || s.completed != 2 {
+		t.Fatalf("real curved following missing overlap=%v moved=%v completed=%d state=%+v", overlap, moved, s.completed, s.Snapshot())
+	}
+	adv.writeEvidence(t, "final-state", s)
+	t.Logf("same curve moving pair minimum=%.9g tick=%d", minimum, s.tick)
+}
+
+func (adv largeAdversary) stationaryEndpoint(t *testing.T, curved bool) {
+	t.Helper()
+	n := largeAdversarialNetwork(t, false)
+	entry, _ := n.Node("market-entry")
+	for i := range n.Nodes {
+		if n.Nodes[i].ID == "market-berth" {
+			n.Nodes[i].Position = Point{X: entry.Position.X, Y: entry.Position.Y + 24}
 			if curved {
-				if cells.count() != 3 {
-					t.Fatalf("curve needs three real cells, got %d", cells.count())
-				}
-				pitch := n.Length(incoming) / float64(cells.count())
-				end, _ := n.Node(incoming.To)
-				if gap := pointDistance(n.Position(incoming, n.Length(incoming)-pitch), end.Position); gap >= 20 {
-					t.Fatalf("curve lacks unsafe unextended endpoint boundary: %g", gap)
-				}
-			} else if cells.count() != 2 {
-				t.Fatal("old24m lane lost its two12m cells")
+				n.Nodes[i].Position.Y = entry.Position.Y + 58
 			}
-			if err := s.RequestJourney("small", "market"); err != nil {
-				t.Fatal(err)
-			}
-			stopped := false
-			for range 600 * TicksPerSecond {
-				largeAdversarialTick(t, s)
-				group, small := s.findVehicle("group"), s.findVehicle("small")
-				if group.Pod.BerthID != "market-1" {
-					t.Fatal("endpoint occupant ceased being stationary")
-				}
-				if small.Pod.Activity == Traveling && small.Pod.Speed == 0 && small.Pod.BlockedBy == "group" {
-					stopped = true
-					break
+		}
+	}
+	var incoming Lane
+	for i := range n.Lanes {
+		if n.Lanes[i].ID != "market-in" {
+			continue
+		}
+		if curved {
+			low, high := 0.0, 100.0
+			for range 60 {
+				mid := (low + high) / 2
+				n.Lanes[i].Control = &Point{X: entry.Position.X + mid, Y: entry.Position.Y + 29}
+				if n.Length(n.Lanes[i]) < 60.001 {
+					low = mid
+				} else {
+					high = mid
 				}
 			}
-			if curved && s.findVehicle("small").Pod.LaneID != "market-in" {
-				t.Fatalf("curved endpoint test did not enter actual incoming lane: %+v", s.findVehicle("small").Pod)
+			n.Lanes[i].Control = &Point{X: entry.Position.X + high, Y: entry.Position.Y + 29}
+		}
+		incoming = n.Lanes[i]
+	}
+	s, err := adv.newFleet(n, []Placement{{ID: "group", Class: adv.large, StationID: "market"}, {ID: "small", Class: CompactClass, StationID: "harbor"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cells := s.laneCells[incoming.ID]
+	if curved {
+		if cells.count() != 3 {
+			t.Fatalf("curve needs three real cells, got %d", cells.count())
+		}
+		pitch := n.Length(incoming) / float64(cells.count())
+		end, _ := n.Node(incoming.To)
+		if gap := pointDistance(n.Position(incoming, n.Length(incoming)-pitch), end.Position); gap >= 20 {
+			t.Fatalf("curve lacks unsafe unextended endpoint boundary: %g", gap)
+		}
+	} else if cells.count() != 2 {
+		t.Fatal("old24m lane lost its two12m cells")
+	}
+	if err := s.RequestJourney("small", "market"); err != nil {
+		t.Fatal(err)
+	}
+	stopped := false
+	tick := adv.newTick()
+	for range 600 * TicksPerSecond {
+		tick(t, s)
+		group, small := s.findVehicle("group"), s.findVehicle("small")
+		if group.Pod.BerthID != "market-1" {
+			t.Fatal("endpoint occupant ceased being stationary")
+		}
+		if small.Pod.Activity == Traveling && small.Pod.Speed == 0 && small.Pod.BlockedBy == "group" {
+			stopped = true
+			break
+		}
+	}
+	if curved && s.findVehicle("small").Pod.LaneID != "market-in" {
+		t.Fatalf("curved endpoint test did not enter actual incoming lane: %+v", s.findVehicle("small").Pod)
+	}
+	if !stopped || s.completed != 0 {
+		t.Fatalf("real stationary endpoint was not reached completed=%d state=%+v", s.completed, s.Snapshot())
+	}
+	for range 2 * TicksPerSecond {
+		tick(t, s)
+	}
+	endpoint, _ := n.Node(incoming.To)
+	for cell := range cells.count() {
+		boundary := cellOffset(cell+1, cells.count(), n.Length(incoming))
+		if math.Hypot(n.Position(incoming, boundary).X-endpoint.Position.X, n.Position(incoming, boundary).Y-endpoint.Position.Y) < 20 {
+			if !slices.Contains(cells.cell(cell), resource{kind: nodeResource, id: incoming.To}) {
+				t.Fatal("actual endpoint cell lacks occupied node")
 			}
-			if !stopped || s.completed != 0 {
-				t.Fatalf("real stationary endpoint was not reached completed=%d state=%+v", s.completed, s.Snapshot())
-			}
-			for range 2 * TicksPerSecond {
-				largeAdversarialTick(t, s)
-			}
-			endpoint, _ := n.Node(incoming.To)
-			for cell := range cells.count() {
-				boundary := cellOffset(cell+1, cells.count(), n.Length(incoming))
-				if math.Hypot(n.Position(incoming, boundary).X-endpoint.Position.X, n.Position(incoming, boundary).Y-endpoint.Position.Y) < 20 {
-					if !slices.Contains(cells.cell(cell), resource{kind: nodeResource, id: incoming.To}) {
-						t.Fatal("actual endpoint cell lacks occupied node")
-					}
-				}
-			}
-			if s.owners[resource{kind: nodeResource, id: "market-berth"}] != podResourceOwner("group") {
-				t.Fatal("stationary Group lost endpoint node ownership")
-			}
-		})
+		}
+	}
+	if s.owners[resource{kind: nodeResource, id: "market-berth"}] != podResourceOwner("group") {
+		t.Fatal("stationary Group lost endpoint node ownership")
 	}
 }
 
-func TestLargeAdversarialLivePlaneTransitions(t *testing.T) {
-	t.Parallel()
+func (adv largeAdversary) livePlaneTransitions(t *testing.T) {
+	t.Helper()
 	n := largeAdversarialNetwork(t, true)
 	for i := range n.Lanes {
 		n.Lanes[i].SeparationGroup = "incoming"
@@ -210,7 +228,7 @@ func TestLargeAdversarialLivePlaneTransitions(t *testing.T) {
 			n.Stations[i].Berths[j].SeparationGroup = "berth"
 		}
 	}
-	s, err := NewFleet(n, []Placement{{ID: "group", Class: GroupClass, StationID: "parking", BerthID: "parking-1"}})
+	s, err := adv.newFleet(n, []Placement{{ID: "group", Class: adv.large, StationID: "parking", BerthID: "parking-1"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -218,8 +236,9 @@ func TestLargeAdversarialLivePlaneTransitions(t *testing.T) {
 		t.Fatal(err)
 	}
 	origin, front, rear, arrival := false, false, false, false
+	tick := adv.newTick()
 	for range 1000 * TicksPerSecond {
-		largeAdversarialTick(t, s)
+		tick(t, s)
 		v := &s.vehicles[0]
 		o := s.SafetyObservation()
 		envelope, ok := o.envelopes[v.Pod.ID]
@@ -278,54 +297,87 @@ func TestLargeAdversarialLivePlaneTransitions(t *testing.T) {
 	}
 }
 
+func (adv largeAdversary) curvedStoppedFollowing(t *testing.T, classes [2]VehicleClass) {
+	t.Helper()
+	n := largeAdversarialNetwork(t, true)
+	for i := range n.Lanes {
+		if n.Lanes[i].ID == "market-in" {
+			n.Lanes[i].Control = &Point{X: 3080, Y: 1205}
+		}
+		if n.Lanes[i].ID == "market-out" {
+			n.Lanes[i].VehicleClasses = largeGeometryClasses(t, "legacy", "compact")
+		}
+	}
+	s, err := adv.newFleet(n, []Placement{{ID: "leader", Class: classes[0], StationID: "garden"}, {ID: "follower", Class: classes[1], StationID: "harbor"}, {ID: "occupant", Class: adv.large, StationID: "market"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetPlatooning(PlatooningVirtual); err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{"leader", "follower"} {
+		if err := s.RequestJourney(id, "market"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	stable := 0
+	gap := math.Inf(1)
+	tick := adv.newTick()
+	for range 600 * TicksPerSecond {
+		tick(t, s)
+		leader, follower := s.findVehicle("leader"), s.findVehicle("follower")
+		if leader.Pod.LaneID == "market-in" && follower.Pod.LaneID == "market-in" && leader.Pod.Speed == 0 && follower.Pod.Speed == 0 {
+			stable++
+			gap = pointDistance(leader.Pod.Position, follower.Pod.Position)
+		} else {
+			stable = 0
+		}
+		if stable >= TicksPerSecond {
+			break
+		}
+	}
+	if stable < TicksPerSecond || gap >= 40 || s.completed != 0 {
+		t.Fatalf("close actual curved stop absent stable=%d gap=%g completed=%d state=%+v", stable, gap, s.completed, s.Snapshot())
+	}
+	if s.findVehicle("leader").Pod.LaneDistance <= s.findVehicle("follower").Pod.LaneDistance {
+		t.Fatal("authored Group/Small queue order did not occur")
+	}
+	adv.writeEvidence(t, "stopped-state", s)
+	t.Logf("independent stopped curve gap %.12g", gap)
+}
+
+func TestLargeAdversarialCurvedFollowing(t *testing.T) {
+	t.Parallel()
+	skipLong(t)
+	for _, classes := range [][2]VehicleClass{{GroupClass, LegacyClass}, {LegacyClass, GroupClass}, {GroupClass, CompactClass}, {CompactClass, GroupClass}, {GroupClass, GroupClass}} {
+		t.Run(string(classes[0])+"-"+string(classes[1]), func(t *testing.T) {
+			t.Parallel()
+			groupAdversary.curvedFollowing(t, classes)
+		})
+	}
+}
+
+func TestLargeAdversarialStationaryEndpoint(t *testing.T) {
+	t.Parallel()
+	for _, curved := range []bool{false, true} {
+		t.Run(map[bool]string{false: "old-24m", true: "curved-60m"}[curved], func(t *testing.T) {
+			t.Parallel()
+			groupAdversary.stationaryEndpoint(t, curved)
+		})
+	}
+}
+
+func TestLargeAdversarialLivePlaneTransitions(t *testing.T) {
+	t.Parallel()
+	groupAdversary.livePlaneTransitions(t)
+}
+
 func TestLargeAdversarialCurvedStoppedFollowing(t *testing.T) {
 	t.Parallel()
 	for _, classes := range [][2]VehicleClass{{GroupClass, LegacyClass}, {LegacyClass, GroupClass}, {GroupClass, CompactClass}, {CompactClass, GroupClass}, {GroupClass, GroupClass}} {
 		t.Run(string(classes[0])+"-"+string(classes[1]), func(t *testing.T) {
 			t.Parallel()
-			n := largeAdversarialNetwork(t, true)
-			for i := range n.Lanes {
-				if n.Lanes[i].ID == "market-in" {
-					n.Lanes[i].Control = &Point{X: 3080, Y: 1205}
-				}
-				if n.Lanes[i].ID == "market-out" {
-					n.Lanes[i].VehicleClasses = largeGeometryClasses(t, "legacy", "compact")
-				}
-			}
-			s, err := NewFleet(n, []Placement{{ID: "leader", Class: classes[0], StationID: "garden"}, {ID: "follower", Class: classes[1], StationID: "harbor"}, {ID: "occupant", Class: GroupClass, StationID: "market"}})
-			if err != nil {
-				t.Fatal(err)
-			}
-			if err := s.SetPlatooning(PlatooningVirtual); err != nil {
-				t.Fatal(err)
-			}
-			for _, id := range []string{"leader", "follower"} {
-				if err := s.RequestJourney(id, "market"); err != nil {
-					t.Fatal(err)
-				}
-			}
-			stable := 0
-			gap := math.Inf(1)
-			for range 600 * TicksPerSecond {
-				largeAdversarialTick(t, s)
-				leader, follower := s.findVehicle("leader"), s.findVehicle("follower")
-				if leader.Pod.LaneID == "market-in" && follower.Pod.LaneID == "market-in" && leader.Pod.Speed == 0 && follower.Pod.Speed == 0 {
-					stable++
-					gap = pointDistance(leader.Pod.Position, follower.Pod.Position)
-				} else {
-					stable = 0
-				}
-				if stable >= TicksPerSecond {
-					break
-				}
-			}
-			if stable < TicksPerSecond || gap >= 40 || s.completed != 0 {
-				t.Fatalf("close actual curved stop absent stable=%d gap=%g completed=%d state=%+v", stable, gap, s.completed, s.Snapshot())
-			}
-			if s.findVehicle("leader").Pod.LaneDistance <= s.findVehicle("follower").Pod.LaneDistance {
-				t.Fatal("authored Group/Small queue order did not occur")
-			}
-			t.Logf("independent stopped curve gap %.12g", gap)
+			groupAdversary.curvedStoppedFollowing(t, classes)
 		})
 	}
 }
