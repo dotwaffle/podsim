@@ -940,6 +940,21 @@ function movedItems(before, after) {
   };
 }
 
+test("a drag changes a copy of the network and no other part of the draft", () => {
+  const source = fixtureDraft("drag"); const before = structuredClone(source);
+  const working = editor.dragWorkingCopy(source);
+  assert.deepEqual(working, before);
+  // The writes of a node drag, a station drag and a curve drag.
+  working.network.nodes[0].position = { x: -1, y: -2 };
+  working.network.lanes[0].control = { x: -3, y: -4 };
+  assert.deepEqual(source, before);
+  assert.notDeepEqual(working.network, before.network);
+  // Only the network is a copy. A copy of the whole draft on each drag
+  // start is slow on a large project.
+  for (const key of Object.keys(source)) if (key !== "network") assert.equal(working[key], source[key], key);
+  assert.ok(Object.keys(source).some((key) => key !== "network" && source[key] !== null && typeof source[key] === "object"), "the fixture has an object member besides the network");
+});
+
 test("a drag redraws only the items that it moves", () => {
   // The draft is the berth chain draft with a junction at (220, 260) and a
   // lane pair from the exit of Alpha to the junction.

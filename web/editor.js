@@ -243,6 +243,13 @@
     }
   }
 
+  // dragWorkingCopy gives the copy of the draft that a drag changes. A drag
+  // writes only nodes and lanes, so only the network is a copy. The other
+  // members are those of the draft.
+  function dragWorkingCopy(source) {
+    return { ...source, network: clone(source.network) };
+  }
+
   // dragTargets gives the items that a drag moves. A station drag moves the
   // station nodes, and a node drag moves one node, also a station node. The
   // targets are these nodes, the lanes that touch them, and the stations
@@ -2376,7 +2383,7 @@
 
     drawMeasurementReport, drawObservationLines, readStationObservations, createManualReader, MIN_ZOOM, MAX_ZOOM, NODE_LABEL_SCALE, NODE_LABEL_SIZE, LANE_PAIR_OFFSET, CHEVRON_LANE_LENGTH, STATION_PADDING, CHECK_DELAY, emptyConfig, fallbackConfig,
     stationBearing, stationShape, stationGeometryCommand, stationFlowCount, stationRailReferences, fleetRows, fleetClassNotice, selectionCard, berthFocusID, laneClassState, undoFocus,
-    laneLength, curveLength, stationNodeOwners, dragTargets, checkSelector, checkSelection, selectionPoint, focusView,
+    laneLength, curveLength, stationNodeOwners, dragTargets, dragWorkingCopy, checkSelector, checkSelection, selectionPoint, focusView,
     FRAME_SOURCES, ALIGN_TOLERANCE, RESAMPLE_MAX_SIDE, projectPoint, frameError, framePlacement, frameAligned, resampleSize, mercatorY, resampleRows,
     problemCountText, createCheckTimer, validationSummary, checkFocusKey, IMAGE_FILE_BYTES, IMAGE_MAX_SIDE, IMAGE_MAX_PIXELS, imageFacts, imageBytesFacts, dataURLToBytes, bytesToDataURL, checkImageSize,
     metadataURLFacts, IMAGE_KEY_PATTERN, newImageKey, FRAME_STATES, LICENSE_LIMITS, licenseError, assetError, backgroundRecordText, STORED_BACKGROUND_KEPT_TEXT, SERVER_PROJECT_BYTES, PROJECT_FILE_BYTES, SERVER_COMMAND_BYTES, SERVER_COMMAND_JSON_BYTES, GZIP_COMMAND_BYTES, SERVER_TOO_LARGE_TEXT, postCommand, dataURLBytes, serializeDocument, parseDocument, repeatedMember,
@@ -3499,9 +3506,8 @@
       const field = document.activeElement;
       if (field && field.matches("input, select, textarea")) field.blur();
       // The drag changes a working copy of the draft and redraws only its
-      // targets. Go computes the committed edit after the pointer up. A
-      // drag writes only nodes and lanes, so the copy holds only the network.
-      drag.source = draft(); drag.working = { ...drag.source, network: clone(drag.source.network) }; drag.targets = dragTargets(drag.working, { type, id }); drag.moved = new Set(drag.targets.nodeIDs); drag.last = worldPoint(event); drag.delta = { x: 0, y: 0 };
+      // targets. Go computes the committed edit after the pointer up.
+      drag.source = draft(); drag.working = dragWorkingCopy(drag.source); drag.targets = dragTargets(drag.working, { type, id }); drag.moved = new Set(drag.targets.nodeIDs); drag.last = worldPoint(event); drag.delta = { x: 0, y: 0 };
     }
     state.drag = drag;
     $("#networkMap").setPointerCapture(event.pointerId);
