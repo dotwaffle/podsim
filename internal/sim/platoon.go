@@ -135,13 +135,13 @@ func linkClearance(turn float64) float64 {
 	return Clearance/math.Cos(turn/2) + platoonMargin
 }
 
-// linkEnds returns the route distance at the end of the run of link, the
-// link of the follower v, and the last block that v can reserve as a
-// platoon member, or -1. From the first block of the run, a block can be
-// shared while each of its resources has a release distance at least
-// platoonDrainSlack before the end of the run, and none of them is an
-// entry node of the destination station of v. The end block is the last
-// block before the first block that cannot be shared. A larger tail of a
+// linkEnd returns the last block that the follower v can reserve as a
+// member of the platoon of its link, or -1. From the first block of the
+// run of link, a block can be shared while each of its resources has a
+// release distance at least platoonDrainSlack before the end of the run,
+// and none of them is an entry node of the destination station of v. The
+// end block is the last block before the first block that cannot be
+// shared. A larger tail of a
 // cell (see indexGeometryTails) moves a release distance past the cell
 // end plus its retention, so the test reads each release distance. With no
 // such tail, each block releases its last resource at its end plus its
