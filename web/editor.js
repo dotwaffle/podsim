@@ -2906,7 +2906,8 @@
     panel.querySelector('[data-action="station-layout"]').disabled = true;
     panel.querySelector('[data-field="layout-hint"]').textContent = "Inspecting station layout.";
     const current = () => panel.isConnected && draft().network === config.network && state.selection?.id === stationID && (selectedBank(station, state.selection)?.id || "") === bankID && panel.layoutNetwork === config.network && panel.layoutBank === bankID;
-    goModel.call(config, "stationLayout", { stationID, ...(bankID ? { bankID } : {}) }).then((result) => {
+    // The layout inspection reads only the network.
+    goModel.call({ network: config.network }, "stationLayout", { stationID, ...(bankID ? { bankID } : {}) }).then((result) => {
       if (!current()) return;
       if (result.error) throw new Error(result.error);
       const reasons = new Set();
@@ -3498,8 +3499,9 @@
       const field = document.activeElement;
       if (field && field.matches("input, select, textarea")) field.blur();
       // The drag changes a working copy of the draft and redraws only its
-      // targets. Go computes the committed edit after the pointer up.
-      drag.source = draft(); drag.working = clone(drag.source); drag.targets = dragTargets(drag.working, { type, id }); drag.moved = new Set(drag.targets.nodeIDs); drag.last = worldPoint(event); drag.delta = { x: 0, y: 0 };
+      // targets. Go computes the committed edit after the pointer up. A
+      // drag writes only nodes and lanes, so the copy holds only the network.
+      drag.source = draft(); drag.working = { ...drag.source, network: clone(drag.source.network) }; drag.targets = dragTargets(drag.working, { type, id }); drag.moved = new Set(drag.targets.nodeIDs); drag.last = worldPoint(event); drag.delta = { x: 0, y: 0 };
     }
     state.drag = drag;
     $("#networkMap").setPointerCapture(event.pointerId);

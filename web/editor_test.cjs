@@ -4273,7 +4273,7 @@ test("station layout rendering rejects older selection and geometry replies", as
       if (!controls.has(selector)) controls.set(selector, { value: "", textContent: "", replaceChildren() {} });
       return controls.get(selector);
     }, querySelectorAll() { return Object.values(inputs); } };
-    let config = { network: { stations: [{ id: "alpha" }, { id: "beta" }] } };
+    let config = { name: "draft", demandProfiles: {}, network: { stations: [{ id: "alpha" }, { id: "beta" }] } };
     const state = { selection: { id: "alpha" } }, calls = [];
     const deps = { state, draft: () => config, selectedBank: () => undefined, setControlValue: (control, value) => { control.value = value; },
       goModel: { call(project, op, layout) { const pending = Promise.withResolvers(); calls.push({ project, op, layout, pending }); return pending.promise; } },
@@ -4289,6 +4289,8 @@ test("station layout rendering rejects older selection and geometry replies", as
     calls[1].pending.resolve(summary(40)); await tick();
     assert.equal(inputs.pitch.disabled, false); assert.equal(inputs.pitch.value, "40");
     assert.equal(calls[1].op, "stationLayout");assert.equal(calls[1].layout.stationID, state.selection.id);
+    assert.deepEqual(Object.keys(calls[0].project), ["network"], "the layout inspection sends only the network");
+    assert.equal(calls[1].project.network, config.network);
   });
 });
 
