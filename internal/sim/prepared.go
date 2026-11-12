@@ -42,6 +42,10 @@ type networkIndexes struct {
 	// read both.
 	berthNodes map[string]string
 	nodeSafety map[string][]SafetyLocation
+	// berthEnvelopes holds the safety envelope of a pod that is at each
+	// station berth and does not travel: the location of the berth, then
+	// the locations of its node that differ. No code changes an entry.
+	berthEnvelopes map[string][]SafetyLocation
 	// tails holds the one tail index of the network. The lane cells and the
 	// retention index read it.
 	tails map[string]geometryTails
@@ -226,6 +230,16 @@ func (n *networkIndexes) indexSafety() {
 			n.berthSafety[berth.ID] = SafetyLocation{SeparationGroup: berth.SeparationGroup, From: berth.Node, To: berth.Node}
 			n.berthNodes[berth.ID] = berth.Node
 		}
+	}
+	n.berthEnvelopes = make(map[string][]SafetyLocation, len(n.berthNodes))
+	for id, node := range n.berthNodes {
+		envelope := []SafetyLocation{n.berthSafety[id]}
+		for _, location := range n.nodeSafety[node] {
+			if !slices.Contains(envelope, location) {
+				envelope = append(envelope, location)
+			}
+		}
+		n.berthEnvelopes[id] = envelope
 	}
 }
 

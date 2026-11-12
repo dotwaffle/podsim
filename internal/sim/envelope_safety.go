@@ -21,6 +21,13 @@ func (s *Simulation) largeSafety(observation *SafetyObservation) {
 }
 
 func (s *Simulation) vehicleSafetyLocations(v *vehicle, distance float64) []SafetyLocation {
+	if v.Pod.Activity != Traveling && v.Pod.LaneID == "" && v.Pod.BerthID != "" {
+		// The envelope of a pod at a berth depends only on the berth. The
+		// copy keeps the shared entry out of the observation.
+		if envelope, ok := s.berthEnvelopes[v.Pod.BerthID]; ok {
+			return slices.Clone(envelope)
+		}
+	}
 	var locations []SafetyLocation
 	add := func(location SafetyLocation) {
 		if !slices.Contains(locations, location) {

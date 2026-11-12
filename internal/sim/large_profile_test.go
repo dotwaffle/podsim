@@ -3,6 +3,7 @@ package sim
 import (
 	"math"
 	"reflect"
+	"slices"
 	"testing"
 )
 
@@ -181,6 +182,12 @@ func TestLargeProfileEnvelopeRouteAndBerth(t *testing.T) {
 	v.Pod.Activity, v.Pod.LaneID, v.Pod.BerthID = Idle, "", "end-1"
 	if got := s.vehicleSafetyLocations(&v, 0); len(got) != 2 {
 		t.Fatalf("stationary berth lost its incoming plane: %+v", got)
+	}
+	parked := s.vehicleSafetyLocations(&v, 0)
+	want := slices.Clone(parked)
+	parked[0].SeparationGroup, parked[1].SeparationGroup = "changed", "changed"
+	if got := s.vehicleSafetyLocations(&v, 0); !slices.Equal(got, want) {
+		t.Fatalf("berth envelope shares mutable simulation storage: %+v", got)
 	}
 	v = before
 	_ = s.vehicleSafetyLocations(&v, 116)

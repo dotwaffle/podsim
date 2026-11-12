@@ -78,3 +78,37 @@ func checkSafetyLocationParity(t *testing.T, s *Simulation) {
 		}
 	}
 }
+
+// TestBerthEnvelopeMatchesReference compares vehicleSafetyLocations with
+// the reference on the pods that the berth envelopes can serve wrongly.
+// Two lanes into the berth node have one location. A traveling pod that is
+// still at its berth, and a stopped pod that has a lane, do not take the
+// berth envelope.
+func TestBerthEnvelopeMatchesReference(t *testing.T) {
+	t.Parallel()
+	n := Network{Nodes: []Node{{ID: "a"}, {ID: "b", Position: Point{X: 200}}, {ID: "c", Position: Point{X: 100}}},
+		Lanes: []Lane{
+			{ID: "in-1", From: "a", To: "c", SeparationGroup: "g"},
+			{ID: "in-2", From: "a", To: "c", SeparationGroup: "g"},
+			{ID: "out", From: "c", To: "b", SeparationGroup: "h"},
+		},
+		Stations: []Station{{ID: "s", Berths: []Berth{{ID: "x", Node: "c", SeparationGroup: "g"}, {ID: "y", Node: "b", SeparationGroup: "h"}}}}}
+	indexes := &networkIndexes{network: n}
+	indexes.indexSafety()
+	s := &Simulation{networkIndexes: indexes}
+	parked := vehicle{
+		Pod: Pod{ID: "parked", Class: GroupClass, Activity: Idle, BerthID: "x"}}
+	leaving := vehicle{origin: n.Stations[0].Berths[0], blocks: blockList{lanes: []routeLaneCells{{start: 0}, {start: 100}}}}
+	leaving.Pod, leaving.Route = Pod{ID: "leaving", Class: GroupClass, Activity: Traveling, BerthID: "x"}, n.Lanes[2:]
+	stopped := vehicle{
+		Pod: Pod{ID: "stopped", Class: GroupClass, Activity: Idle, LaneID: "out", BerthID: "y"}}
+	for _, v := range []*vehicle{&parked, &leaving, &stopped} {
+		got, want := s.vehicleSafetyLocations(v, 0), referenceVehicleSafetyLocations(s, v, 0)
+		if !slices.Equal(got, want) {
+			t.Errorf("pod %s: safety locations %v, reference %v", v.Pod.ID, got, want)
+		}
+	}
+	if got := s.vehicleSafetyLocations(&parked, 0); len(got) != 3 {
+		t.Errorf("parked pod: %d locations, want 3: %v", len(got), got)
+	}
+}
