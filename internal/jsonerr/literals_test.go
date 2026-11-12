@@ -14,14 +14,14 @@ func TestNoLibraryWordingInTests(t *testing.T) {
 	t.Parallel()
 	root := filepath.Join("..", "..")
 	// The strings are built in parts so that this file does not match.
-	banned := []string{"unable to " + "unmarshal", "cannot " + "unmarshal"}
+	banned := []string{"unable to " + "unmarshal", "cannot " + "unmarshal", "unable to " + "marshal", "cannot " + "marshal"}
 	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		if entry.IsDir() {
 			switch entry.Name() {
-			case ".git", "node_modules":
+			case ".git", ".claude", "node_modules":
 				return filepath.SkipDir
 			}
 			return nil

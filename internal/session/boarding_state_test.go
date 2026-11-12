@@ -7,6 +7,7 @@ import (
 	"math"
 	"reflect"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/project"
@@ -182,10 +183,7 @@ func TestBoardingStateNativeGuards(t *testing.T) {
 			if err == nil {
 				t.Fatal("invalid native records reached save publication")
 			}
-			want := `encode session state: json: cannot marshal from Go sim.SavedPod within "/simulation/pods/0": ` + tc.want
-			if err.Error() != want {
-				t.Fatalf("error %q, want %q", err, want)
-			}
+			requireSavedPodError(t, err, tc.want)
 		})
 	}
 }
@@ -314,9 +312,8 @@ func TestBoardingStateConsent(t *testing.T) {
 			if (encodeErr == nil) != tc.valid {
 				t.Fatalf("native save consent: valid=%t error=%v", tc.valid, encodeErr)
 			}
-			const native = `encode session state: json: cannot marshal from Go sim.SavedPod within "/simulation/pods/0": invalid native boarding baseline or consent`
-			if !tc.valid && encodeErr.Error() != native {
-				t.Fatalf("native save consent error %q, want %q", encodeErr, native)
+			if !tc.valid {
+				requireSavedPodError(t, encodeErr, "invalid native boarding baseline or consent")
 			}
 			if tc.valid {
 				decoded, decodeErr := decodeStateFile(data)
@@ -350,5 +347,22 @@ func TestBoardingStateConsent(t *testing.T) {
 				t.Fatal("decoded consent or saved source records changed")
 			}
 		})
+	}
+}
+
+// requireSavedPodError requires an encode error of the first saved pod with
+// the cause want. The json/v2 package chooses its own wording at random
+// once per process (see internal/jsonerr), so the test reads the fields.
+func requireSavedPodError(t *testing.T, err error, want string) {
+	t.Helper()
+	semantic, ok := errors.AsType[*json.SemanticError](err)
+	if !ok || !strings.HasPrefix(err.Error(), "encode session state: json: ") {
+		t.Fatalf("error %q, want a json error of the session state encoding", err)
+	}
+	if semantic.JSONPointer != "/simulation/pods/0" || semantic.GoType != reflect.TypeFor[sim.SavedPod]() {
+		t.Fatalf("error %q, want pointer /simulation/pods/0 and Go type sim.SavedPod", err)
+	}
+	if semantic.Err == nil || semantic.Err.Error() != want {
+		t.Fatalf("error %q, want cause %q", err, want)
 	}
 }
