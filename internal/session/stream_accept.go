@@ -117,11 +117,9 @@ func newAcceptRoot() *acceptNode {
 	}
 	for _, path := range []string{"full/state/simulation/vehicles/*", "frame/state/simulation/vehicles/*"} {
 		vehicle := root.at(path)
-		vehicle.at("riddenMeters").needNumber(acceptFiniteNonnegative)
 		vehicle.at("boardings").needBoardingRecords(true)
 	}
 	delta := root.at("delta/vehicles/*")
-	delta.at("metadata/value/riddenMeters").needNumber(acceptFiniteNonnegative)
 	delta.at("boardings").needObject()
 	delta.at("boardings/value").needBoardingRecords(false)
 	delta.at("motion").needObject()

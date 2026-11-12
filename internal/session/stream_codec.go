@@ -21,7 +21,7 @@ import (
 const (
 	// StreamVersion is the hello version of the one stream family. The
 	// contract markers of a connection select its optional sections.
-	StreamVersion = 9
+	StreamVersion = 10
 	// MaxStreamJSON limits the inflated JSON of a stream envelope.
 	MaxStreamJSON = 64 << 20
 	// BestSpeed consumes blocks of at most 65,535 bytes. Reserve 32 bytes
@@ -64,13 +64,12 @@ type VehicleDelta struct {
 	Metadata  *Replacement[vehicleMetadata]       `json:"metadata,omitempty"`
 }
 type vehicleMetadata struct {
-	RiddenMeters float64 `json:"riddenMeters,omitzero"`
-	RelocatingTo string  `json:"relocatingTo"`
-	Rebalancing  bool    `json:"rebalancing"`
-	PlatoonID    string  `json:"platoonID"`
-	PlatoonIndex int     `json:"platoonIndex"`
-	Withdrawn    uint8   `json:"withdrawn,omitzero"`
-	Operational  string  `json:"operational,omitzero"`
+	RelocatingTo string `json:"relocatingTo"`
+	Rebalancing  bool   `json:"rebalancing"`
+	PlatoonID    string `json:"platoonID"`
+	PlatoonIndex int    `json:"platoonIndex"`
+	Withdrawn    uint8  `json:"withdrawn,omitzero"`
+	Operational  string `json:"operational,omitzero"`
 }
 
 type streamStatistics struct {
@@ -168,12 +167,11 @@ func sameChain(a, b StreamFrame) bool {
 	return true
 }
 func meta(v VehicleFrame) vehicleMetadata {
-	return vehicleMetadata{RiddenMeters: v.RiddenMeters, RelocatingTo: v.RelocatingTo, Rebalancing: v.Rebalancing, PlatoonID: v.PlatoonID, PlatoonIndex: v.PlatoonIndex, Withdrawn: v.Withdrawn, Operational: v.Operational}
+	return vehicleMetadata{RelocatingTo: v.RelocatingTo, Rebalancing: v.Rebalancing, PlatoonID: v.PlatoonID, PlatoonIndex: v.PlatoonIndex, Withdrawn: v.Withdrawn, Operational: v.Operational}
 }
 
 // replace sets the metadata fields of v.
 func (m vehicleMetadata) replace(v *VehicleFrame) {
-	v.RiddenMeters = m.RiddenMeters
 	v.RelocatingTo, v.Rebalancing, v.PlatoonID, v.PlatoonIndex = m.RelocatingTo, m.Rebalancing, m.PlatoonID, m.PlatoonIndex
 	v.Withdrawn, v.Operational = m.Withdrawn, m.Operational
 }

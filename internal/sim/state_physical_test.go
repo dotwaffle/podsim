@@ -109,8 +109,9 @@ func (f restoreFixture) boarding(t *testing.T, id, berthID string) SavedPod {
 	}
 	return SavedPod{
 		ID: id, Activity: activityCode(Boarding), StationID: berth.station, BerthID: berthID,
-		Riders: []SavedRequest{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: berth.station, To: "market", PartySize: 1, PodID: id, RequestedTick: 10, BoardedTick: 20}},
-		Stops:  []string{"market"}, PhaseTicks: boardingTicks / 2, Origin: berthID, DestinationStation: "market",
+		Riders:    []SavedRequest{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: berth.station, To: "market", PartySize: 1, PodID: id, RequestedTick: 10, BoardedTick: 20}},
+		Boardings: []RiderBoarding{{BerthID: berthID}},
+		Stops:     []string{"market"}, PhaseTicks: boardingTicks / 2, Origin: berthID, DestinationStation: "market",
 		Route: f.s.laneIndexes(route, len(route)),
 	}
 }
@@ -160,6 +161,7 @@ func (f restoreFixture) carrying(t *testing.T, pod SavedPod, requestID, parties 
 			SharingConsent: SharedConsent, Service: OnDemandService, ID: requestID + index, From: f.berth(t, pod.Origin).station, To: pod.DestinationStation, PartySize: 1,
 			PodID: pod.ID, RequestedTick: 10, BoardedTick: 20,
 		})
+		pod.Boardings = append(pod.Boardings, RiderBoarding{BerthID: pod.Origin})
 	}
 	return pod
 }
@@ -244,7 +246,7 @@ func TestRestoreDemotesTravelingPods(t *testing.T) {
 	// An empty relocation with the same reservation never chooses a berth. With
 	// a waiting trip that names it, it does choose.
 	relocation := noBerth
-	relocation.Occupied, relocation.Riders, relocation.Stops, relocation.RelocatingTo = false, nil, nil, noBerth.DestinationStation
+	relocation.Occupied, relocation.Riders, relocation.Boardings, relocation.Stops, relocation.RelocatingTo = false, nil, nil, nil, noBerth.DestinationStation
 	for _, tc := range []struct {
 		name  string
 		pods  []SavedPod
@@ -506,6 +508,36 @@ func TestChoosesBerth(t *testing.T) {
 		{name: "assigned", assigned: func(string) bool { return true }, want: true},
 	} {
 		if got := choosesBerth(&tc.v, tc.assigned); got != tc.want {
+			t.Errorf("%s: got %t", tc.name, got)
+		}
+	}
+}
+
+// TestRidersAtOrigin pins each clause of ridersAtOrigin. A demoted pod
+// boards its riders again only when they all boarded at one berth before
+// the pod moved.
+func TestRidersAtOrigin(t *testing.T) {
+	t.Parallel()
+	at := func(berth string, meters float64) RiderBoarding {
+		return RiderBoarding{BerthID: berth, MetersAtBoarding: meters}
+	}
+	for _, tc := range []struct {
+		name      string
+		activity  Activity
+		occupied  bool
+		boardings []RiderBoarding
+		want      bool
+	}{
+		{name: "one berth before the move", activity: Traveling, occupied: true, boardings: []RiderBoarding{at("a-1", 0), at("a-1", 0)}, want: true},
+		{name: "boarding at the origin", activity: Boarding, boardings: []RiderBoarding{at("a-1", 0), at("a-1", 0)}, want: true},
+		{name: "a missing record", activity: Traveling, occupied: true, boardings: []RiderBoarding{at("a-1", 0)}},
+		{name: "an onboard pickup in progress", activity: Boarding, occupied: true, boardings: []RiderBoarding{at("a-1", 0), at("a-1", 0)}},
+		{name: "two berths", activity: Traveling, occupied: true, boardings: []RiderBoarding{at("a-1", 0), at("a-2", 0)}},
+		{name: "a boarding after the move", activity: Traveling, occupied: true, boardings: []RiderBoarding{at("a-1", 0), at("a-1", 5)}},
+	} {
+		v := vehicle{Riders: make([]Request, 2), Boardings: tc.boardings}
+		v.Pod.Activity, v.Pod.Occupied = tc.activity, tc.occupied
+		if got := v.ridersAtOrigin(); got != tc.want {
 			t.Errorf("%s: got %t", tc.name, got)
 		}
 	}
@@ -861,6 +893,9 @@ func TestRestoreFailsForInvalidState(t *testing.T) {
 		want string
 		// logical tells whether the logical tier restores the state.
 		logical bool
+		// preTier tells that the boarding record checks refuse the state
+		// before either tier, so want is that error.
+		preTier bool
 	}{
 		{
 			name: "two pods at one berth", fixture: example, want: "are at berth", logical: true,
@@ -878,7 +913,7 @@ func TestRestoreFailsForInvalidState(t *testing.T) {
 		{
 			// Pod 05 unloads at Market. Rider 2 goes to Garden, but the pod has
 			// no stop at Garden, so neither tier can complete its journey.
-			name: "unloading rider with no stop", fixture: example, want: "pod 05: rider 2 does not leave the pod at its station",
+			name: "unloading rider with no stop", fixture: example, want: "pod 05 boarding records: rider 2 does not leave the pod at its station", preTier: true,
 			edit: func(state *SavedState) {
 				state.Pods[4] = SavedPod{
 					ID: "05", Activity: activityCode(Unloading), StationID: "market", BerthID: "market-1", Occupied: true,
@@ -886,6 +921,7 @@ func TestRestoreFailsForInvalidState(t *testing.T) {
 						{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "harbor", To: "market", PartySize: 1, PodID: "05", RequestedTick: 10, BoardedTick: 20},
 						{SharingConsent: SharedConsent, Service: OnDemandService, ID: 2, From: "harbor", To: "garden", PartySize: 1, PodID: "05", RequestedTick: 12, BoardedTick: 20},
 					},
+					Boardings:  []RiderBoarding{{BerthID: "harbor-1"}, {BerthID: "harbor-1"}},
 					PhaseTicks: unloadingTicks / 2, Origin: "harbor-1", Destination: "market-1", DestinationStation: "market",
 				}
 				state.RequestID, state.Boarded = 2, 2
@@ -907,11 +943,11 @@ func TestRestoreFailsForInvalidState(t *testing.T) {
 			},
 		},
 		{
-			name: "negative phase", fixture: example, want: "out of range",
+			name: "negative phase", fixture: example, want: "pod 02 boarding records: phase -1 is out of range", preTier: true,
 			edit: withBoarding(func(pod *SavedPod) { pod.PhaseTicks = -1 }),
 		},
 		{
-			name: "phase longer than boarding", fixture: example, want: "out of range",
+			name: "phase longer than boarding", fixture: example, want: "pod 02 boarding records: phase 91 is out of range", preTier: true,
 			edit: withBoarding(func(pod *SavedPod) { pod.PhaseTicks = boardingTicks + 1 }),
 		},
 		{
@@ -922,7 +958,10 @@ func TestRestoreFailsForInvalidState(t *testing.T) {
 			name: "boarding route to another station", fixture: example, want: "does not connect", logical: true,
 			edit: withBoarding(func(pod *SavedPod) { pod.Route = pod.Route[:len(pod.Route)-1] }),
 		},
-		{name: "request with no party", fixture: example, edit: withBoarding(func(pod *SavedPod) { pod.Riders[0].PartySize = 0 }), want: "not valid"},
+		{name: "request with no party", fixture: example, edit: withBoarding(func(pod *SavedPod) { pod.Riders[0].PartySize = 0 }), want: "pod 02 boarding records: rider 1 is not valid", preTier: true},
+		{name: "rider without a boarding record", fixture: example, edit: withBoarding(func(pod *SavedPod) { pod.Boardings = nil }), want: "pod 02 boarding records: boarding records do not match the stored riders", preTier: true},
+		// A pod without records gets the record check, not the phase check.
+		{name: "rider without a record and a bad phase", fixture: example, edit: withBoarding(func(pod *SavedPod) { pod.Boardings, pod.PhaseTicks = nil, -1 }), want: "pod 02 boarding records: boarding records do not match the stored riders", preTier: true},
 		{
 			name: "two pods carry one request", fixture: example, want: "order 1 is in pod 01 and in pod 02",
 			edit: func(state *SavedState) {
@@ -969,6 +1008,12 @@ func TestRestoreFailsForInvalidState(t *testing.T) {
 			state := tc.fixture.state()
 			tc.edit(&state)
 			s, result, err := tc.fixture.restore(state)
+			if tc.preTier {
+				if err == nil || err.Error() != tc.want || s != nil || result.Tier != "" || result.PhysicalError != nil {
+					t.Fatalf("error %v with %+v, want a refusal before the tiers with %q", err, result, tc.want)
+				}
+				return
+			}
 			if result.PhysicalError == nil || !strings.Contains(result.PhysicalError.Error(), tc.want) {
 				t.Fatalf("physical tier error %v, want %q", result.PhysicalError, tc.want)
 			}

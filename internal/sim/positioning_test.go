@@ -165,6 +165,7 @@ func openGate(s *Simulation) {
 	requested := int64(id)*ticksPerMinute*guardedFleetRateShare/int64(len(s.vehicles)) + 1
 	v := &s.vehicles[0]
 	v.Riders = []Request{{SharingConsent: SharedConsent, Service: OnDemandService, ID: id, From: "s0", To: "s1", PartySize: 1, PodID: v.Pod.ID, Completed: true, RequestedTick: requested}}
+	v.Boardings = []RiderBoarding{{BerthID: "s0-1"}}
 	s.requestID, s.boarded = id, id
 	s.tick = requested + TicksPerSecond
 	s.nextRedistributionTick = s.tick
@@ -398,6 +399,7 @@ func TestGuardedNewestRequest(t *testing.T) {
 		s := newLineSimulation(t, stations, place("s0-1", "s1-1"))
 		s.tick, s.requestID = 2000, 2
 		s.vehicles[0].Riders = []Request{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 2, From: "s1", To: "s0", PartySize: 1, PodID: "01", Completed: true, RequestedTick: 1500}}
+		s.vehicles[0].Boardings = []RiderBoarding{{BerthID: "s1-1"}}
 		s.waiting = []waitingTrip{{request: Request{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "s0", To: "s1", PartySize: 1, RequestedTick: 1000}}}
 		s.dispatch()
 		if v := s.findVehicle("01"); v.Pod.Activity != Boarding || v.Riders[0].ID != 1 {
@@ -516,6 +518,7 @@ func TestGuardedSupply(t *testing.T) {
 	unloading := s.findVehicle("01")
 	unloading.Pod.Activity, unloading.Pod.Occupied, unloading.phaseTicks = Unloading, true, unloadingTicks
 	unloading.Riders = []Request{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "s5", To: "s0", PartySize: 1, PodID: "01", RequestedTick: 1}}
+	unloading.Boardings = []RiderBoarding{{BerthID: "s5-1"}}
 	s1, _ := s.station("s1")
 	if err := s.startEmptyMove(s.findVehicle("02"), emptyDestination{station: "s1", berth: s1.Berths[0], reserveBerth: true}); err != nil {
 		t.Fatal(err)

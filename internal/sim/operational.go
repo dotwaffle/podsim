@@ -322,7 +322,7 @@ func (s *Simulation) evacuate(v *vehicle) error {
 	default:
 		return fmt.Errorf("pod %s cannot be evacuated while %s", v.Pod.ID, v.Pod.Activity)
 	}
-	if len(v.Boardings) > 0 && len(v.Boardings) != len(v.Riders) {
+	if len(v.Boardings) != len(v.Riders) {
 		return fmt.Errorf("pod %s: the boarding records do not align with the riders", v.Pod.ID)
 	}
 	ridden := v.riddenMeters()

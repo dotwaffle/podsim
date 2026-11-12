@@ -113,27 +113,18 @@ func (s *Simulation) onboardPickupCandidate(v *vehicle, request Request) (vehicl
 	return candidate, true
 }
 
+// pickupBoardingRecords returns a copy of the boarding records of pod v for
+// an onboard pickup. It reports false when the records do not align with
+// the riders, or when a rider cannot share the pod: an active rider needs
+// shared consent, and a completed rider needs shared or private consent.
 func (s *Simulation) pickupBoardingRecords(v *vehicle) ([]RiderBoarding, bool) {
-	if len(v.Boardings) > 0 {
-		return slices.Clone(v.Boardings), len(v.Boardings) == len(v.Riders)
-	}
-	if v.journeyOrigin.ID == "" || v.RidersAboard() == 0 {
+	if len(v.Boardings) != len(v.Riders) {
 		return nil, false
 	}
-	records := make([]RiderBoarding, len(v.Riders))
-	for index, rider := range v.Riders {
+	for _, rider := range v.Riders {
 		if rider.SharingConsent != SharedConsent && (!rider.Completed || rider.SharingConsent != PrivateConsent) {
 			return nil, false
 		}
-		station, ok := s.station(rider.legOrigin())
-		if !ok || station.ParkingOnly {
-			return nil, false
-		}
-		berth, ok := station.berth(v.journeyOrigin.ID)
-		if !ok || berth != v.journeyOrigin || !berthAllows(station, berth, v.Pod.Class) {
-			return nil, false
-		}
-		records[index] = RiderBoarding{BerthID: berth.ID}
 	}
-	return records, true
+	return slices.Clone(v.Boardings), true
 }

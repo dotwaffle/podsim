@@ -87,7 +87,14 @@ func otherStation(station string) string {
 // of its phase: one for each field that the rule needs or forbids.
 func contractMutations(rule phaseRule, pod SavedPod) []podMutation {
 	mutations := []podMutation{
-		{"occupied flag flipped", func(_ *SavedState, pod *SavedPod) { pod.Occupied = !pod.Occupied }},
+		// An occupied boarding pod with records boards in an onboard
+		// pickup, so the flip also drops the records of a boarding pod.
+		{"occupied flag flipped", func(_ *SavedState, pod *SavedPod) {
+			pod.Occupied = !pod.Occupied
+			if pod.Activity == activityCode(Boarding) && pod.Occupied {
+				pod.Boardings = nil
+			}
+		}},
 		{"phase above its range", func(_ *SavedState, pod *SavedPod) { pod.PhaseTicks = rule.maxPhase + 1 }},
 		{"phase below its range", func(_ *SavedState, pod *SavedPod) { pod.PhaseTicks = rule.minPhase - 1 }},
 		{"ridden distance not finite", func(_ *SavedState, pod *SavedPod) { pod.RiddenMeters = math.NaN() }},
@@ -163,13 +170,7 @@ func contractMutations(rule phaseRule, pod SavedPod) []podMutation {
 		add("origin at another berth", func(_ *SavedState, pod *SavedPod) { pod.Origin = "parking-1" })
 	}
 	if rule.hasOrigin {
-		add("no origin", func(_ *SavedState, pod *SavedPod) { pod.Origin, pod.JourneyOrigin = "", "" })
-	}
-	if rule.boardsHere {
-		add("journey from another berth", func(_ *SavedState, pod *SavedPod) { pod.JourneyOrigin = "parking-1" })
-	}
-	if rule.active {
-		add("no journey origin", func(_ *SavedState, pod *SavedPod) { pod.Origin, pod.JourneyOrigin = "", "" })
+		add("no origin", func(_ *SavedState, pod *SavedPod) { pod.Origin = "" })
 	}
 	if rule.atDestination {
 		add("no destination berth", func(_ *SavedState, pod *SavedPod) { pod.Destination = "" })
@@ -225,6 +226,26 @@ func TestPhaseContractMutations(t *testing.T) {
 	}
 }
 
+// TestBoardingOriginRefusal pins the refusal of a boarding pod whose route
+// starts at another berth. The startsAtBerth check gives it, because each
+// phase with boardsHere also has startsAtBerth.
+func TestBoardingOriginRefusal(t *testing.T) {
+	t.Parallel()
+	for phase, rule := range phaseRules {
+		if rule.boardsHere && !rule.startsAtBerth {
+			t.Fatalf("phase %d boards riders but does not need the route to start at its berth", phase)
+		}
+	}
+	sample := livePhaseSamples(t)[phaseBoarding]
+	state := sample.state
+	state.Pods = slices.Clone(state.Pods)
+	state.Pods[sample.pod].Origin = "parking-1"
+	want := "pod " + state.Pods[sample.pod].ID + ": the route does not start at the berth of the pod"
+	if _, err := state.checkContract(Example()); err == nil || err.Error() != want {
+		t.Fatalf("error %v, want %q", err, want)
+	}
+}
+
 // finishedRide returns the saved state after the two stop ride. Pod 01 is
 // idle at market and keeps riders 1 and 2 as completed history.
 func finishedRide(t *testing.T) SavedState {
@@ -267,7 +288,7 @@ func TestRestoreRejectsBrokenOrders(t *testing.T) {
 				pod.Activity, pod.Occupied, pod.PhaseTicks, pod.Route = activityCode(Idle), false, 0, nil
 				return state
 			},
-			want: "pod 01: the pod has active rider 1",
+			want: "pod 01 boarding records: the pod has active rider 1",
 		},
 		{
 			// arrive makes a relocating pod idle without alight.
@@ -278,7 +299,7 @@ func TestRestoreRejectsBrokenOrders(t *testing.T) {
 				state.Pods[0].RelocatingTo = "market"
 				return state
 			},
-			want: "pod 01: the pod has an empty move",
+			want: "pod 01 boarding records: the pod has an empty move",
 		},
 		{
 			name: "traveling pod with riders and no occupied flag",
@@ -288,7 +309,7 @@ func TestRestoreRejectsBrokenOrders(t *testing.T) {
 				state.Pods[0].Occupied = false
 				return state
 			},
-			want: "pod 01: the pod has active rider 1",
+			want: "pod 01 boarding records: the pod has active rider 1",
 		},
 		{
 			name: "unloading pod without the occupied flag",
@@ -320,6 +341,7 @@ func TestRestoreRejectsBrokenOrders(t *testing.T) {
 				t.Helper()
 				state := boardingState(t)
 				state.Pods[1].Riders = []SavedRequest{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "garden", To: "market", PartySize: 1, PodID: "02", Completed: true}}
+				state.Pods[1].Boardings = []RiderBoarding{{BerthID: "garden-1"}}
 				return state
 			},
 			want: "order 1 is in pod 01 and in pod 02",

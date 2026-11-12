@@ -167,73 +167,64 @@ func TestGroupStreamActualFullAndDelta(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, recorded := range []bool{false, true} {
-		t.Run(map[bool]string{false: "ordinary", true: "recorded"}[recorded], func(t *testing.T) {
-			candidate := ownStreamBoardings(frame)
-			vehicle := &candidate.State.Simulation.Vehicles[0]
-			vehicle.Riders = []sim.Request{{ID: 1, From: "harbor", To: "market", PodID: vehicle.Pod.ID, PartySize: 8, SharingConsent: sim.SharedConsent, Service: sim.OnDemandService}}
-			if recorded {
-				vehicle.Boardings = []sim.RiderBoarding{{BerthID: "harbor-1", MetersAtBoarding: 0}}
-				vehicle.RiddenMeters = 10
-			}
-			assembler, err := NewStreamAssembler(topology)
-			if err != nil {
-				t.Fatal(err)
-			}
-			full := StreamEnvelope{Kind: "full", Stream: "group", Sequence: 1, Source: sourceOf(candidate), Full: &candidate}
-			encoded, err := encodeStream(full)
-			if err != nil {
-				t.Fatal(err)
-			}
-			inflated, err := InflateStream(encoded)
-			if err != nil {
-				t.Fatal(err)
-			}
-			decoded, err := DecodeStreamJSON(inflated)
-			if err != nil {
-				t.Fatal(err)
-			}
-			accepted, err := ApplyStream(StreamFrame{}, "", 0, decoded)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if _, stateErr := assembler.State(accepted); stateErr != nil {
-				t.Fatal("group full rejected", stateErr)
-			}
-			bad := ownStreamBoardings(candidate)
-			bad.State.Revision++
-			bad.State.Simulation.Vehicles[0].Pod.BerthID = "garden-1"
-			delta, err := makeDelta(candidate, bad)
-			if err != nil {
-				t.Fatal(err)
-			}
-			envelope := StreamEnvelope{Kind: "delta", Stream: "group", Sequence: 2, Base: 1, Source: sourceOf(bad), Delta: &delta}
-			reconstructed, err := ApplyStream(candidate, "group", 1, envelope)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if _, stateErr := assembler.State(reconstructed); stateErr == nil {
-				t.Fatal("foreign group berth delta accepted")
-			}
-			repaired := ownStreamBoardings(candidate)
-			repaired.State.Revision++
-			repaired.State.Simulation.Vehicles[0].Riders[0].PartySize = 9
-			if _, stateErr := assembler.State(repaired); stateErr == nil {
-				t.Fatal("group party limit widened")
-			}
-			repaired.State.Simulation.Vehicles[0].Riders[0].PartySize = 8
-			pooled := ownStreamBoardings(repaired)
-			pooled.State.Simulation.Vehicles[0].Riders[0].PartySize = 5
-			pooled.State.Simulation.Vehicles[0].Riders = append(pooled.State.Simulation.Vehicles[0].Riders, sim.Request{ID: 2, From: "harbor", To: "market", PartySize: 4, SharingConsent: sim.SharedConsent, Service: sim.OnDemandService})
-			if recorded {
-				pooled.State.Simulation.Vehicles[0].Boardings = append(pooled.State.Simulation.Vehicles[0].Boardings, sim.RiderBoarding{BerthID: "harbor-1"})
-			}
-			if _, stateErr := assembler.State(pooled); stateErr == nil {
-				t.Fatal("group aggregate seat limit widened")
-			}
-			if _, stateErr := assembler.State(repaired); stateErr != nil {
-				t.Fatal("rejected delta poisoned class or predecessor", stateErr)
-			}
-		})
+	candidate := ownStreamBoardings(frame)
+	vehicle := &candidate.State.Simulation.Vehicles[0]
+	vehicle.Riders = []sim.Request{{ID: 1, From: "harbor", To: "market", PodID: vehicle.Pod.ID, PartySize: 8, SharingConsent: sim.SharedConsent, Service: sim.OnDemandService}}
+	vehicle.Boardings = []sim.RiderBoarding{{BerthID: "harbor-1", MetersAtBoarding: 0}}
+	assembler, err := NewStreamAssembler(topology)
+	if err != nil {
+		t.Fatal(err)
+	}
+	full := StreamEnvelope{Kind: "full", Stream: "group", Sequence: 1, Source: sourceOf(candidate), Full: &candidate}
+	encoded, err := encodeStream(full)
+	if err != nil {
+		t.Fatal(err)
+	}
+	inflated, err := InflateStream(encoded)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoded, err := DecodeStreamJSON(inflated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	accepted, err := ApplyStream(StreamFrame{}, "", 0, decoded)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, stateErr := assembler.State(accepted); stateErr != nil {
+		t.Fatal("group full rejected", stateErr)
+	}
+	bad := ownStreamBoardings(candidate)
+	bad.State.Revision++
+	bad.State.Simulation.Vehicles[0].Pod.BerthID = "garden-1"
+	delta, err := makeDelta(candidate, bad)
+	if err != nil {
+		t.Fatal(err)
+	}
+	envelope := StreamEnvelope{Kind: "delta", Stream: "group", Sequence: 2, Base: 1, Source: sourceOf(bad), Delta: &delta}
+	reconstructed, err := ApplyStream(candidate, "group", 1, envelope)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, stateErr := assembler.State(reconstructed); stateErr == nil {
+		t.Fatal("foreign group berth delta accepted")
+	}
+	repaired := ownStreamBoardings(candidate)
+	repaired.State.Revision++
+	repaired.State.Simulation.Vehicles[0].Riders[0].PartySize = 9
+	if _, stateErr := assembler.State(repaired); stateErr == nil {
+		t.Fatal("group party limit widened")
+	}
+	repaired.State.Simulation.Vehicles[0].Riders[0].PartySize = 8
+	pooled := ownStreamBoardings(repaired)
+	pooled.State.Simulation.Vehicles[0].Riders[0].PartySize = 5
+	pooled.State.Simulation.Vehicles[0].Riders = append(pooled.State.Simulation.Vehicles[0].Riders, sim.Request{ID: 2, From: "harbor", To: "market", PartySize: 4, SharingConsent: sim.SharedConsent, Service: sim.OnDemandService})
+	pooled.State.Simulation.Vehicles[0].Boardings = append(pooled.State.Simulation.Vehicles[0].Boardings, sim.RiderBoarding{BerthID: "harbor-1"})
+	if _, stateErr := assembler.State(pooled); stateErr == nil {
+		t.Fatal("group aggregate seat limit widened")
+	}
+	if _, stateErr := assembler.State(repaired); stateErr != nil {
+		t.Fatal("rejected delta poisoned class or predecessor", stateErr)
 	}
 }

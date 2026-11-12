@@ -386,19 +386,6 @@ func TestLegOriginRiderReaders(t *testing.T) {
 			t.Fatalf("records %+v, %t", records, ok)
 		}
 	})
-	t.Run("legacyBoardingRecords", func(t *testing.T) {
-		t.Parallel()
-		// Two parties boarded at s1: the transferred party and a plain
-		// party from s1.
-		s, v := boardLeg(t)
-		plain := newTrip(s, "s1", "s2").request
-		plain.PodID = v.Pod.ID
-		v.Riders = append(v.Riders, plain)
-		v.Boardings = []RiderBoarding{{BerthID: "s1-1"}, {BerthID: "s1-1"}}
-		if !v.legacyBoardingRecords() {
-			t.Fatal("the records of two parties from one leg origin are not legacy records")
-		}
-	})
 	t.Run("checkBoardingBerths", func(t *testing.T) {
 		t.Parallel()
 		s, v := boardLeg(t)

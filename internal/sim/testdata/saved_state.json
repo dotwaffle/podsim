@@ -16,6 +16,12 @@
   "demo": {},
   "pods": [
     {
+      "boardings": [
+        {
+          "berthID": "harbor-1",
+          "metersAtBoarding": 0
+        }
+      ],
       "id": "01",
       "activity": "traveling",
       "occupied": true,

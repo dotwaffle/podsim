@@ -122,6 +122,11 @@ func TestStateFrameRoundTrip(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			// A frame does not carry the passenger distance of a vehicle.
+			want.Simulation.Vehicles = slices.Clone(want.Simulation.Vehicles)
+			for i := range want.Simulation.Vehicles {
+				want.Simulation.Vehicles[i].RiddenMeters = 0
+			}
 			if !reflect.DeepEqual(got, want) {
 				t.Fatalf("round trip changed state\n got: %#v\nwant: %#v", got, want)
 			}

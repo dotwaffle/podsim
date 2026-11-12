@@ -75,8 +75,7 @@ type phaseRule struct {
 	startsAtBerth bool
 	// hasOrigin needs Origin.
 	hasOrigin bool
-	// boardsHere needs each rider to board at the station of the pod, with
-	// the journey origin at the berth of the pod.
+	// boardsHere needs each rider to board at the station of the pod.
 	boardsHere bool
 	// atDestination needs Destination equal to BerthID, and
 	// DestinationStation equal to StationID.
@@ -400,11 +399,11 @@ func (state SavedState) checkPod(pod SavedPod, network Network) error {
 	if err := checkPodPlace(pod, rule); err != nil {
 		return err
 	}
-	return checkPodStops(pod, rule, active, history)
+	return checkPodStops(pod, rule, active)
 }
 
-// checkPodRiders checks the riders of a pod. The riders of a pod boarded at
-// one station unless boarding records prove their leg origins. Each names the pod.
+// checkPodRiders checks the riders of a pod. Each names the pod. The
+// boarding records give the leg origin of each rider.
 func (state SavedState) checkPodRiders(pod SavedPod, rule phaseRule, active, history []SavedRequest) error {
 	switch {
 	case len(pod.Riders) > MaxStoredRidersForOrderContract(pod.Class, state.OrderContract) || len(pod.Stops) > MaxSharedRideParties:
@@ -420,7 +419,7 @@ func (state SavedState) checkPodRiders(pod SavedPod, rule phaseRule, active, his
 		if !state.validRequest(rider) || rider.From == rider.To || rider.LegFrom == rider.To || rider.BoardedTick < rider.RequestedTick {
 			return fmt.Errorf("rider %d is not valid", rider.ID)
 		}
-		if rider.PodID != pod.ID || len(pod.Boardings) == 0 && rider.legOrigin() != pod.Riders[0].legOrigin() {
+		if rider.PodID != pod.ID {
 			return fmt.Errorf("rider %d is not a rider of this journey", rider.ID)
 		}
 		if rule.boardsHere && rider.legOrigin() != pod.StationID {
@@ -457,7 +456,6 @@ func checkPodFlags(pod SavedPod, rule phaseRule) error {
 // checkPodPlace checks the station, the berth, the origin and the
 // destination of a pod. checkPodRiders checks the station of the riders.
 func checkPodPlace(pod SavedPod, rule phaseRule) error {
-	journeyOrigin := cmp.Or(pod.JourneyOrigin, pod.Origin)
 	switch {
 	case rule.atBerth && (pod.StationID == "" || pod.BerthID == ""):
 		return errors.New("the pod is not at a berth")
@@ -467,10 +465,6 @@ func checkPodPlace(pod SavedPod, rule phaseRule) error {
 		return errors.New("the route does not start at the berth of the pod")
 	case rule.hasOrigin && pod.Origin == "":
 		return errors.New("the pod has no origin")
-	case rule.boardsHere && journeyOrigin != pod.BerthID:
-		return errors.New("the journey does not start at the berth of the pod")
-	case rule.active && len(pod.Boardings) == 0 && journeyOrigin == "":
-		return errors.New("the journey has no origin")
 	case rule.atDestination && (pod.Destination != pod.BerthID || pod.DestinationStation != pod.StationID):
 		return errors.New("the unloading pod is not at its destination")
 	case rule.hasDestination && pod.Destination == "":
@@ -481,16 +475,11 @@ func checkPodPlace(pod SavedPod, rule phaseRule) error {
 }
 
 // checkPodStops checks the stops of a pod against the destinations of its
-// active riders. Without boarding records, completed riders cannot have later stops.
-func checkPodStops(pod SavedPod, rule phaseRule, active, history []SavedRequest) error {
+// active riders.
+func checkPodStops(pod SavedPod, rule phaseRule, active []SavedRequest) error {
 	for index, stop := range pod.Stops {
 		if stop == "" || slices.Contains(pod.Stops[:index], stop) {
 			return fmt.Errorf("stop %q is not valid", stop)
-		}
-	}
-	for _, rider := range history {
-		if len(pod.Boardings) == 0 && slices.Contains(pod.Stops, rider.To) {
-			return fmt.Errorf("completed rider %d has a stop", rider.ID)
 		}
 	}
 	// wanted holds the stops that the active riders need.

@@ -68,6 +68,7 @@ func TestStreamServiceOrdersDelta(t *testing.T) {
 	}
 	rider := sim.Request{ID: 1, From: "harbor", To: "market", PartySize: 1, SharingConsent: sim.SharedConsent, Service: sim.OnDemandService}
 	frame.State.Simulation.Vehicles[0].Riders = []sim.Request{rider}
+	frame.State.Simulation.Vehicles[0].Boardings = []sim.RiderBoarding{{BerthID: "harbor-1"}}
 	if _, err = assembler.State(frame); err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +78,7 @@ func TestStreamServiceOrdersDelta(t *testing.T) {
 	}
 	next := frame
 	next.State.Simulation.Vehicles = append([]VehicleFrame(nil), frame.State.Simulation.Vehicles...)
-	next.State.Simulation.Vehicles[0].Riders = nil
+	next.State.Simulation.Vehicles[0].Riders, next.State.Simulation.Vehicles[0].Boardings = nil, nil
 	next.State.Revision++
 	delta, err := makeDelta(frame, next)
 	if err != nil {
@@ -110,6 +111,7 @@ func TestStreamServiceOrdersDelta(t *testing.T) {
 	bad := next
 	bad.State.Simulation.Vehicles = append([]VehicleFrame(nil), next.State.Simulation.Vehicles...)
 	bad.State.Simulation.Vehicles[0].Riders = []sim.Request{private, private}
+	bad.State.Simulation.Vehicles[0].Boardings = []sim.RiderBoarding{{BerthID: "harbor-1"}, {BerthID: "harbor-1"}}
 	if _, err := assembler.State(bad); err == nil {
 		t.Fatal("accepted pooled private parties")
 	}

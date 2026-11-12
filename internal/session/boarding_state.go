@@ -81,8 +81,11 @@ func savedPassengerMeters(pod sim.SavedPod) (float64, error) {
 	return meters, nil
 }
 
-func validBoardingConsent(rider sim.SavedRequest) bool {
-	return rider.SharingConsent == sim.SharedConsent || rider.Completed && rider.SharingConsent == sim.PrivateConsent
+// validBoardingConsent reports whether the rider at index can share pod
+// with its other riders. A pod with one rider needs no shared consent.
+func validBoardingConsent(pod sim.SavedPod, index int) bool {
+	rider := pod.Riders[index]
+	return len(pod.Riders) == 1 || rider.SharingConsent == sim.SharedConsent || rider.Completed && rider.SharingConsent == sim.PrivateConsent
 }
 
 type savedPodFields sim.SavedPod
@@ -104,10 +107,10 @@ func (source boardingSource) encodePodContract(encoder *jsontext.Encoder, pod si
 	if pod.Purpose != 0 || pod.Owner != 0 || pod.Interrupt != 0 {
 		wire.Operational = &operationalTuple{Purpose: pod.Purpose, Owner: pod.Owner, Interrupt: pod.Interrupt}
 	}
-	if len(pod.Boardings) == 0 {
+	if len(pod.Boardings) == 0 && len(pod.Riders) == 0 {
 		return json.MarshalEncode(encoder, wire)
 	}
-	if len(pod.Boardings) != len(pod.Riders) || len(pod.Boardings) > sim.MaxStoredRidersForOrderContract(pod.Class, contract) {
+	if len(pod.Boardings) == 0 || len(pod.Boardings) != len(pod.Riders) || len(pod.Boardings) > sim.MaxStoredRidersForOrderContract(pod.Class, contract) {
 		return errors.New("invalid native boarding record alignment")
 	}
 	meters, err := savedPassengerMeters(pod)
@@ -115,9 +118,8 @@ func (source boardingSource) encodePodContract(encoder *jsontext.Encoder, pod si
 		return err
 	}
 	wire.Boardings = make([]boardingTuple, len(pod.Boardings))
-	wire.JourneyOrigin = ""
 	for index, record := range pod.Boardings {
-		if !finiteNumber(record.MetersAtBoarding) || record.MetersAtBoarding < 0 || record.MetersAtBoarding > meters || !validBoardingConsent(pod.Riders[index]) {
+		if !finiteNumber(record.MetersAtBoarding) || record.MetersAtBoarding < 0 || record.MetersAtBoarding > meters || !validBoardingConsent(pod, index) {
 			return errors.New("invalid native boarding baseline or consent")
 		}
 		berths := source[cmp.Or(pod.Riders[index].LegFrom, pod.Riders[index].From)]
@@ -154,9 +156,6 @@ func decodeBoardingPodContract(decoder *jsontext.Decoder, pod *sim.SavedPod, con
 	if present {
 		if field.Kind() != jsontext.KindBeginArray {
 			return savedPodRefs{}, errors.New("saved boardings must be an array")
-		}
-		if _, contradictory := members["journeyOrigin"]; contradictory {
-			return savedPodRefs{}, errors.New("saved boardings contradict journeyOrigin")
 		}
 	}
 	var refs savedPodRefs
@@ -220,7 +219,7 @@ func (file *stateFile) resolveBoardings() error {
 		records := make([]sim.RiderBoarding, len(tuples))
 		for index, tuple := range tuples {
 			berths := source[cmp.Or(pod.Riders[index].LegFrom, pod.Riders[index].From)]
-			if tuple.Index < 0 || tuple.Index >= len(berths) || !finiteNumber(tuple.Meters) || tuple.Meters < 0 || tuple.Meters > meters || !validBoardingConsent(pod.Riders[index]) {
+			if tuple.Index < 0 || tuple.Index >= len(berths) || !finiteNumber(tuple.Meters) || tuple.Meters < 0 || tuple.Meters > meters || !validBoardingConsent(*pod, index) {
 				return errors.New("invalid saved source boarding reference or baseline")
 			}
 			records[index] = sim.RiderBoarding{BerthID: berths[tuple.Index].ID, MetersAtBoarding: tuple.Meters}

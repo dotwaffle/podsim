@@ -2,10 +2,6 @@ package sim
 
 import "math"
 
-func (s *Simulation) plannedBankDetour(origin string, stops []string, start detourStart) float64 {
-	return s.plannedRiderBankDetour(riderDetour{origin: origin}, stops, start)
-}
-
 func (s *Simulation) plannedRiderBankDetour(rider riderDetour, stops []string, start detourStart) float64 {
 	if len(stops) == 0 {
 		return 1
@@ -35,7 +31,7 @@ func (s *Simulation) plannedRiderBankDetour(rider riderDetour, stops []string, s
 		accept := s.berthFilterForStops(start.class, stops[index+1:])
 		for gate, ridden := range states {
 			for _, berth := range station.Berths {
-				if rider.destination != "" && !berthAllows(station, berth, start.class) {
+				if !berthAllows(station, berth, start.class) {
 					continue
 				}
 				if accept != nil && !accept(berth) {
@@ -52,14 +48,7 @@ func (s *Simulation) plannedRiderBankDetour(rider riderDetour, stops []string, s
 				if index != 0 || start.berth.ID == "" {
 					arrival += s.lanesMeters(path)
 				}
-				direct := 0.0
-				if rider.destination == "" {
-					direct = s.directDistanceForClass(rider.origin, station.ID, berth, start.class)
-					if direct <= 0 {
-						return math.Inf(1)
-					}
-				}
-				ratio := s.plannedArrivalDetour(rider, stop, berth, start.class, arrival, direct)
+				ratio := s.plannedArrivalDetour(rider, stop, berth, start.class, arrival)
 				largest, found = max(largest, ratio), true
 				if index+1 < len(stops) {
 					route, err := s.stationApproachForStops(berth.Node, stops[index+1:], start.class)

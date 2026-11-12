@@ -6,7 +6,7 @@ import (
 )
 
 // riderDetour supplies one active rider's boarding node, cumulative baseline,
-// and destination. An empty destination selects the legacy all-stop calculation.
+// and destination.
 type riderDetour struct {
 	origin, destination string
 	baseline            float64
@@ -30,10 +30,10 @@ func (s *Simulation) plannedRiderDetour(rider riderDetour, stops []string, start
 	return s.plannedBerthDetour(rider, stops, start)
 }
 
-func (s *Simulation) plannedArrivalDetour(rider riderDetour, stop string, berth Berth, class VehicleClass, arrival, legacyDirect float64) float64 {
-	if rider.destination == "" {
-		return arrival / legacyDirect
-	}
+// plannedArrivalDetour returns the planned detour ratio of rider when the
+// pod arrives at berth of stop after arrival meters. It returns 1 at a stop
+// that is not the destination of the rider.
+func (s *Simulation) plannedArrivalDetour(rider riderDetour, stop string, berth Berth, class VehicleClass, arrival float64) float64 {
 	if stop != rider.destination {
 		return 1
 	}

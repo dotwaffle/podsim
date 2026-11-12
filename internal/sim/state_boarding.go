@@ -24,19 +24,21 @@ func checkBoardingFields(input RestoreStateInput) error {
 	return nil
 }
 
-// checkSavedBoardings checks the aligned records and their passenger distance.
+// checkSavedBoardingsWithOrderContract checks the aligned records and their
+// passenger distance. A pod with riders needs one record for each rider.
 func checkSavedBoardingsWithOrderContract(pod SavedPod, contract OrderContract) error {
+	errMismatch := errors.New("boarding records do not match the stored riders")
 	if pod.Boardings == nil {
 		if pod.Activity == activityCode(Boarding) && pod.Occupied {
 			return errors.New("occupied boarding needs boarding records")
 		}
+		if len(pod.Riders) > 0 {
+			return errMismatch
+		}
 		return nil
 	}
 	if len(pod.Boardings) == 0 || len(pod.Boardings) > MaxStoredRidersForOrderContract(pod.Class, contract) || len(pod.Boardings) != len(pod.Riders) {
-		return errors.New("boarding records do not match the stored riders")
-	}
-	if pod.JourneyOrigin != "" {
-		return errors.New("boarding records cannot declare a journey origin")
+		return errMismatch
 	}
 	cumulative := pod.RiddenMeters
 	if !finite(cumulative) || cumulative < 0 {
@@ -44,7 +46,7 @@ func checkSavedBoardingsWithOrderContract(pod SavedPod, contract OrderContract) 
 	}
 	active, _ := savedRiders(pod)
 	for _, rider := range active {
-		if rider.SharingConsent != SharedConsent {
+		if len(pod.Riders) > 1 && rider.SharingConsent != SharedConsent {
 			return errors.New("an active recorded rider needs shared consent")
 		}
 	}
@@ -91,10 +93,16 @@ func checkBoardingBerths(network Network, pod SavedPod) error {
 		return errors.New("the recorded pod has no station")
 	}
 	berth, ok := station.berth(pod.BerthID)
-	// A refuge can be a parking station. Each recorded rider still boarded
-	// at a passenger station.
-	if !ok || !berthAllows(station, berth, pod.Class) || rule.active && station.ParkingOnly && phase != phaseRefugeHolding {
+	if !ok || !berthAllows(station, berth, pod.Class) || rule.active && station.ParkingOnly && !refugePhase(phase) {
 		return errors.New("the recorded pod is not at a compatible berth")
 	}
 	return nil
+}
+
+// refugePhase reports whether a pod with riders can be in phase at a berth
+// of a parking station. A refuge can be a parking station: the pod holds
+// there, and after a resume it continues from there. Each recorded rider
+// still boarded at a passenger station.
+func refugePhase(phase podPhase) bool {
+	return phase == phaseRefugeHolding || phase == phaseContinuing
 }

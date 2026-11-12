@@ -326,6 +326,7 @@ func TestExpressMaximumRecoveryAndAggregate(t *testing.T) {
 			s.requestID++
 			request = requestFromOptions(options, s.requestID, s.tick)
 			v.Riders = append(v.Riders, s.boardingRider(waitingTrip{request: request}, v, lead))
+			v.Boardings = append(v.Boardings, RiderBoarding{BerthID: v.origin.ID})
 			s.sharedParties++
 		}
 	}

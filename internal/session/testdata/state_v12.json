@@ -1,6 +1,6 @@
 {
   "format": "podsim-session",
-  "version": 11,
+  "version": 12,
   "final": true,
   "savedAt": "2026-09-23T09:00:00.123456789Z",
   "build": "b9a50fb31ed44c66",
@@ -76,6 +76,12 @@
           9,
           10,
           11
+        ],
+        "boardings": [
+          [
+            0,
+            0
+          ]
         ]
       },
       {
@@ -105,6 +111,12 @@
           7,
           8,
           11
+        ],
+        "boardings": [
+          [
+            0,
+            0
+          ]
         ]
       }
     ],

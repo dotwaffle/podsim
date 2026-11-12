@@ -20,7 +20,7 @@ func TestOnboardAdversarialOwnOriginDetour(t *testing.T) {
 		t.Fatalf("fixture lacks completed old host and active later origin: %+v", v.Vehicle)
 	}
 	own := s.directDistanceForClass(s.riderOrigin(v, index), market.ID, berth, v.Pod.Class)
-	old := s.directDistanceForClass(v.journeyOrigin.Node, market.ID, berth, v.Pod.Class)
+	old := s.directDistanceForClass(s.riderOrigin(v, 0), market.ID, berth, v.Pod.Class)
 	if !finite(own) || own <= 0 || old <= own {
 		t.Fatalf("fixture lacks distinct direct distances: own %g old %g", own, old)
 	}
@@ -63,7 +63,7 @@ func TestOnboardAdversarialIntermediateRestore(t *testing.T) {
 	cumulative := v.riddenMeters()
 	saved := roundTripState(t, live.ExportState())
 	pod := saved.Pods[0]
-	if pod.Activity != "unloading" || pod.RiddenMeters != cumulative || pod.Distance != 0 || len(pod.Boardings) != 4 || pod.JourneyOrigin != "" {
+	if pod.Activity != "unloading" || pod.RiddenMeters != cumulative || pod.Distance != 0 || len(pod.Boardings) != 4 {
 		t.Fatalf("intermediate export lost full passenger distance: %+v, C %g", pod, cumulative)
 	}
 	fleet := []Placement{{ID: "01", StationID: "harbor", BerthID: "harbor-1"}}
@@ -222,7 +222,7 @@ func TestOnboardAdversarialAssignedPickup(t *testing.T) {
 	stepUntil(t, s, "last garden unloading tick", func() bool { return host.Pod.Activity == Unloading && host.phaseTicks == 1 })
 	route, destination, version := slices.Clone(own.Route), own.destination, own.routeVersion
 	s.Step()
-	if len(s.waiting) != 1 || s.waiting[0].request.PodID != "02" || len(host.Riders) != 2 || len(host.Boardings) != 0 || own.released || !slices.Equal(own.Route, route) || own.destination != destination || own.routeVersion != version || len(s.requestBoardings) != 2 {
+	if len(s.waiting) != 1 || s.waiting[0].request.PodID != "02" || len(host.Riders) != 2 || len(host.Boardings) != 2 || own.released || !slices.Equal(own.Route, route) || own.destination != destination || own.routeVersion != version || len(s.requestBoardings) != 2 {
 		t.Fatalf("rejected assigned pickup changed binding, release, or route: host %+v own %+v waiting %+v", host.Vehicle, own.Vehicle, s.waiting)
 	}
 	stepUntil(t, s, "all three real orders complete", func() bool { return s.completed == 3 })

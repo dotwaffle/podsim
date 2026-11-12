@@ -191,6 +191,12 @@ func emergencyE8Save(t *testing.T) (*Simulation, SavedState) {
 	return s, state
 }
 
+// removeRiders removes the riders of a saved pod with their boarding
+// records, their passenger distance, and the interrupt set.
+func removeRiders(pod *SavedPod) {
+	pod.Riders, pod.Boardings, pod.RiddenMeters, pod.Interrupt = nil, nil, 0, 0
+}
+
 // TestEmergencyRestorePreTier checks the checks of section 11.5 of the
 // incident emergency contract that run before either restore tier. Each
 // save is invalid as a whole, with no logical fallback, also when the
@@ -206,7 +212,10 @@ func TestEmergencyRestorePreTier(t *testing.T) {
 		s      *Simulation
 		state  SavedState
 		change func(state *SavedState, input *RestoreStateInput)
-		want   string
+		// want is a part of the error. The pod check of the boarding
+		// records runs before the emergency checks, and a want with its
+		// prefix is the complete error of that check.
+		want string
 	}{
 		{"wrong party, demoted pod", bound, boundState, func(state *SavedState, _ *RestoreStateInput) {
 			state.Emergencies.Records[0].Order = 2
@@ -269,17 +278,25 @@ func TestEmergencyRestorePreTier(t *testing.T) {
 		{"emergency unload and no record", bound, boundState, func(state *SavedState, _ *RestoreStateInput) {
 			state.Emergencies.Records[0].Pod = 1 - pod
 			state.Pods[pod].Withdrawn = 0
+			removeRiders(&state.Pods[pod])
 		}, "E4: pod 01"},
+		{"emergency unload with riders and no record", bound, boundState, func(state *SavedState, _ *RestoreStateInput) {
+			state.Emergencies.Records[0].Pod = 1 - pod
+			state.Pods[pod].Withdrawn = 0
+		}, "pod 01 boarding records: operational owner 0x2 is not one held hold"},
 		{"emergency unload and no passenger", bound, boundState, func(state *SavedState, _ *RestoreStateInput) {
+			removeRiders(&state.Pods[pod])
+		}, "E5: pod 01"},
+		{"emergency unload and completed riders", bound, boundState, func(state *SavedState, _ *RestoreStateInput) {
 			for index := range state.Pods[pod].Riders {
 				state.Pods[pod].Riders[index].Completed = true
 			}
-		}, "E5: pod 01"},
+		}, "pod 01 boarding records: the interrupt set names completed rider 1"},
 		{"refuge with riders", e8, e8State, func(*SavedState, *RestoreStateInput) {}, "E8: pod 01"},
 		{"recovery with riders", bound, boundState, func(state *SavedState, _ *RestoreStateInput) {
 			state.Pods[pod].Withdrawn, state.Pods[pod].Owner = uint8(faultHold|emergencyHold), uint8(faultHold)
 			state.Pods[pod].Purpose, state.Pods[pod].Interrupt = uint8(opEmptyRecovery), 0
-		}, "E8: pod 01"},
+		}, "pod 01 boarding records: operational purpose 3 does not agree with activity traveling"},
 	}
 	for _, test := range tests {
 		state := test.state
@@ -293,6 +310,12 @@ func TestEmergencyRestorePreTier(t *testing.T) {
 		input := emergencyRestoreInput(test.s, state)
 		test.change(&input.State, &input)
 		restored, result, err := RestoreState(input)
+		if strings.HasPrefix(test.want, "pod 01 boarding records: ") {
+			if err == nil || errors.Is(err, errInvalidEmergencies) || err.Error() != test.want || restored != nil {
+				t.Errorf("%s: error %v, result %+v, want %q", test.name, err, result, test.want)
+			}
+			continue
+		}
 		if !errors.Is(err, errInvalidEmergencies) || !strings.Contains(err.Error(), test.want) || restored != nil {
 			t.Errorf("%s: error %v, result %+v, want %q", test.name, err, result, test.want)
 		}

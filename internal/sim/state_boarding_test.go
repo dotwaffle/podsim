@@ -37,6 +37,11 @@ func TestBoardingRecordsRejectBeforeFallback(t *testing.T) {
 	}{
 		{"empty array", func(i *RestoreStateInput) { i.State.Pods[0].Boardings = []RiderBoarding{} }},
 		{"short array", func(i *RestoreStateInput) { i.State.Pods[0].Boardings = i.State.Pods[0].Boardings[:1] }},
+		// The record count comes before the consent check.
+		{"short array before consent", func(i *RestoreStateInput) {
+			i.State.Pods[0].Boardings = i.State.Pods[0].Boardings[:1]
+			i.State.Pods[0].Riders[0].SharingConsent = PrivateConsent
+		}},
 		{"long array", func(i *RestoreStateInput) {
 			i.State.Pods[0].Boardings = append(i.State.Pods[0].Boardings, make([]RiderBoarding, 7)...)
 		}},
@@ -59,7 +64,6 @@ func TestBoardingRecordsRejectBeforeFallback(t *testing.T) {
 		{"future baseline", func(i *RestoreStateInput) { i.State.Pods[0].Boardings[0].MetersAtBoarding = 101 }},
 		{"infinite cumulative", func(i *RestoreStateInput) { i.State.Pods[0].RiddenMeters = math.Inf(1) }},
 		{"negative cumulative", func(i *RestoreStateInput) { i.State.Pods[0].RiddenMeters = -1 }},
-		{"journey origin", func(i *RestoreStateInput) { i.State.Pods[0].JourneyOrigin = "harbor-1" }},
 		{"unknown consent", func(i *RestoreStateInput) { i.State.Pods[0].Riders[0].SharingConsent = "legacy-unknown" }},
 		{"private active party", func(i *RestoreStateInput) { i.State.Pods[0].Riders[0].SharingConsent = PrivateConsent }},
 		{"single private active party", func(i *RestoreStateInput) {
@@ -74,6 +78,30 @@ func TestBoardingRecordsRejectBeforeFallback(t *testing.T) {
 		{"missing occupied records", func(i *RestoreStateInput) { i.State.Pods[0].Boardings = nil }},
 		{"unknown placement", func(i *RestoreStateInput) { i.State.Pods[0].BerthID = "missing"; i.State.Pods[0].Origin = "missing" }},
 	}
+	// wants holds the error of each case, before either tier.
+	wants := map[string]string{
+		"boarding dwell":              "pod 01 boarding records: phase 91 is out of range",
+		"class restriction":           "pod 01 boarding records: rider 1 has no compatible boarding berth at its origin",
+		"empty array":                 "pod 01 boarding records: boarding records do not match the stored riders",
+		"future baseline":             "pod 01 boarding records: a boarding origin or distance is not valid",
+		"infinite baseline":           "pod 01 boarding records: a boarding origin or distance is not valid",
+		"infinite cumulative":         "pod 01 boarding records: passenger distance is negative or not finite",
+		"long array":                  "pod 01 boarding records: boarding records do not match the stored riders",
+		"missing occupied records":    "pod 01 boarding records: occupied boarding needs boarding records",
+		"NaN baseline":                "pod 01 boarding records: a boarding origin or distance is not valid",
+		"negative baseline":           "pod 01 boarding records: a boarding origin or distance is not valid",
+		"negative cumulative":         "pod 01 boarding records: passenger distance is negative or not finite",
+		"parking origin":              "pod 01 boarding records: rider 1 has no passenger boarding station",
+		"private active party":        "pod 01 boarding records: an active recorded rider needs shared consent",
+		"short array":                 "pod 01 boarding records: boarding records do not match the stored riders",
+		"single private active party": "pod 01 boarding records: an active recorded rider needs shared consent",
+		"unknown berth":               "pod 01 boarding records: rider 1 has no compatible boarding berth at its origin",
+		"unknown completed consent":   "pod 01 boarding records: rider 1 is not valid",
+		"unknown consent":             "pod 01 boarding records: an active recorded rider needs shared consent",
+		"unknown placement":           "pod 01 boarding records: the recorded pod is not at a compatible berth",
+		"wrong source station":        "pod 01 boarding records: rider 1 has no compatible boarding berth at its origin",
+		"short array before consent":  "pod 01 boarding records: boarding records do not match the stored riders",
+	}
 	for _, test := range tests {
 		for _, logical := range []bool{false, true} {
 			t.Run(test.name+map[bool]string{false: "/physical", true: "/logical"}[logical], func(t *testing.T) {
@@ -87,6 +115,8 @@ func TestBoardingRecordsRejectBeforeFallback(t *testing.T) {
 					return nil, nil
 				}); err == nil || s != nil {
 					t.Fatalf("invalid records restored: %+v, %v", s, err)
+				} else if err.Error() != wants[test.name] {
+					t.Fatalf("error %q, want %q", err, wants[test.name])
 				}
 			})
 		}

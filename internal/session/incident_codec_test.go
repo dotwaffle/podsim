@@ -115,7 +115,10 @@ func TestIncidentSaveRejections(t *testing.T) {
 		"interrupt of a completed rider": func(file *stateFile) { file.Simulation.Pods[0].Riders[0].Completed = true },
 		"leg origin is the destination":  func(file *stateFile) { file.Simulation.Waiting[0].Request.LegFrom = "harbor" },
 		"leg origin at parking":          func(file *stateFile) { file.Simulation.Waiting[0].Request.LegFrom = "parking" },
-		"rider leg origin at parking":    func(file *stateFile) { file.Simulation.Pods[0].Riders[0].LegFrom = "parking" },
+		"rider leg origin at parking": func(file *stateFile) {
+			file.Simulation.Pods[0].Riders[0].LegFrom = "parking"
+			file.Simulation.Pods[0].Boardings[0].BerthID = "parking-1"
+		},
 		"exclusion of a boarded trip": func(file *stateFile) {
 			file.Simulation.Waiting[0].Boarded = true
 		},

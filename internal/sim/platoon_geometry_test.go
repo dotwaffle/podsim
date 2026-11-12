@@ -89,9 +89,10 @@ func restoreGeometry(tb testing.TB, network Network, lanes, pods int, head, gap 
 		distance := head - gap*float64(index)
 		state.Pods = append(state.Pods, SavedPod{
 			ID: id, Activity: "traveling", Occupied: true, Origin: fleet[index].BerthID, DestinationStation: "dest",
-			Riders: []SavedRequest{{SharingConsent: SharedConsent, Service: OnDemandService, ID: state.RequestID, From: "origin", To: "dest", PartySize: 1, PodID: id}},
-			Stops:  []string{"dest"},
-			Route:  route, LaneID: "l0", LaneDistance: distance, Distance: distance,
+			Riders:    []SavedRequest{{SharingConsent: SharedConsent, Service: OnDemandService, ID: state.RequestID, From: "origin", To: "dest", PartySize: 1, PodID: id}},
+			Boardings: []RiderBoarding{{BerthID: fleet[index].BerthID}},
+			Stops:     []string{"dest"},
+			Route:     route, LaneID: "l0", LaneDistance: distance, Distance: distance,
 		})
 	}
 	s, result, err := RestoreState(RestoreStateInput{Network: network, Fleet: fleet, State: state})

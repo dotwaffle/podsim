@@ -39,7 +39,7 @@ func withIncidentMembers(frame StreamFrame) StreamFrame {
 	simulation.Vehicles = slices.Clone(simulation.Vehicles)
 	vehicle := &simulation.Vehicles[0]
 	vehicle.Withdrawn, vehicle.Operational = 2, sim.OperationalEmergencyUnload
-	vehicle.Riders = []sim.Request{order(1)}
+	vehicle.Riders, vehicle.Boardings = []sim.Request{order(1)}, []sim.RiderBoarding{{BerthID: "garden-1"}}
 	simulation.Pending = []sim.Request{order(2)}
 	return frame
 }
@@ -208,6 +208,7 @@ func incidentEditFrames(t *testing.T) (StreamFrame, StreamFrame) {
 	vehicle := &simulation.Vehicles[0]
 	vehicle.Withdrawn, vehicle.Operational, vehicle.Rebalancing = 0, "", !vehicle.Rebalancing
 	vehicle.Riders = []sim.Request{{ID: 1, From: "harbor", To: "market", PartySize: 1, SharingConsent: sim.SharedConsent, Service: sim.OnDemandService}}
+	vehicle.Boardings = []sim.RiderBoarding{{BerthID: "harbor-1"}}
 	simulation.Pending = []sim.Request{{ID: 2, From: "harbor", To: "market", PartySize: 1, SharingConsent: sim.SharedConsent, Service: sim.OnDemandService}}
 	return frames[1], next
 }

@@ -20,9 +20,7 @@ import (
 func (s *Simulation) interruptRider(v *vehicle, index int) {
 	rider := v.Riders[index]
 	v.Riders = slices.Delete(slices.Clone(v.Riders), index, index+1)
-	if len(v.Boardings) > 0 {
-		v.Boardings = slices.Delete(slices.Clone(v.Boardings), index, index+1)
-	}
+	v.Boardings = slices.Delete(slices.Clone(v.Boardings), index, index+1)
 	s.interrupted++
 	s.interruptedPassengers += rider.PartySize
 	s.undelivered = append(s.undelivered, rider.ID)
@@ -67,7 +65,7 @@ func (s *Simulation) InterruptRider(podID string, orderID int) error {
 	if v.op.purpose != opService {
 		return fmt.Errorf("pod %s: interruption of a pod with an operational destination", podID)
 	}
-	if len(v.Boardings) > 0 && len(v.Boardings) != len(v.Riders) {
+	if len(v.Boardings) != len(v.Riders) {
 		return fmt.Errorf("pod %s: the boarding records do not align with the riders", podID)
 	}
 	index := slices.IndexFunc(v.Riders, func(rider Request) bool { return rider.ID == orderID && !rider.Completed })

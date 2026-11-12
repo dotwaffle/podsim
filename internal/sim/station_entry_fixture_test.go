@@ -197,6 +197,7 @@ func savedEntry(network Network, tick int64, pods []entryPod) (SavedState, []Pla
 			state.Boarded++
 			saved.Occupied, saved.DestinationStation, saved.Stops = true, "dest", []string{"dest"}
 			saved.Riders = []SavedRequest{{SharingConsent: SharedConsent, Service: OnDemandService, ID: state.RequestID, From: "origin", To: "dest", PartySize: 1, PodID: id}}
+			saved.Boardings = []RiderBoarding{{BerthID: saved.Origin}}
 			path = append([]string{fmt.Sprintf("u%d", pod.approach), road, "dest-access-in"}, pod.path...)
 			for k := 1; pod.path == nil && k <= pod.berth; k++ {
 				path = append(path, fmt.Sprintf("dest-%02d-arrival-link", k))

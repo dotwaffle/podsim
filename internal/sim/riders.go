@@ -93,11 +93,7 @@ func (s *Simulation) alight(v *vehicle) {
 // the totals. The rider stays in Riders as completed history.
 func (s *Simulation) completeRider(v *vehicle, index int, ridden float64) {
 	rider := &v.Riders[index]
-	partyRidden := ridden
-	if len(v.Boardings) > 0 {
-		partyRidden -= v.Boardings[index].MetersAtBoarding
-	}
-	// riderOrigin is the journey origin of a pod without boarding records.
+	partyRidden := ridden - v.Boardings[index].MetersAtBoarding
 	partyDirect := s.directDistanceForClass(s.riderOrigin(v, index), rider.To, v.destination, v.Pod.Class)
 	rider.Completed = true
 	s.stepCompletions = append(s.stepCompletions, StepCompletion{RequestID: rider.ID, AlightedTick: s.tick})
@@ -179,7 +175,7 @@ func (v *vehicle) lastStop() string {
 // when a route exists or when the blocked set is empty.
 func (s *Simulation) continueJourney(v *vehicle) {
 	berth := v.destination
-	route, err := s.legRoute(v, leg{origin: v.journeyOrigin.Node, from: berth.Node, stops: v.Stops, ridden: v.riddenMeters()})
+	route, err := s.legRoute(v, leg{from: berth.Node, stops: v.Stops, ridden: v.riddenMeters()})
 	if err != nil {
 		switch {
 		case s.blockedActive():

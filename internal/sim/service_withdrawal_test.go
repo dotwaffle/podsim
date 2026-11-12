@@ -50,6 +50,7 @@ func passengerAt(s *Simulation, v *vehicle, to Berth) {
 	s.requestID++
 	v.Pod.Activity, v.Pod.Occupied, v.destination = Boarding, true, to
 	v.Riders = []Request{{SharingConsent: SharedConsent, Service: OnDemandService, ID: s.requestID, From: v.Pod.StationID, To: "market", PartySize: 1, PodID: v.Pod.ID}}
+	v.Boardings = []RiderBoarding{{BerthID: v.Pod.BerthID}}
 }
 
 // withdrawalGateCase is one row of the supply path table of the incident

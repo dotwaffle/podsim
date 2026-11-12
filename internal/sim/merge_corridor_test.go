@@ -143,9 +143,10 @@ func runMergeCorridor(t *testing.T, test corridorCase) corridorResult {
 			}
 			state.Pods = append(state.Pods, SavedPod{
 				ID: id, Activity: "traveling", Occupied: true, Origin: "origin-1", DestinationStation: "dest",
-				Riders: []SavedRequest{{SharingConsent: SharedConsent, Service: OnDemandService, ID: state.RequestID, From: "origin", To: "dest", PartySize: 1, PodID: id}},
-				Stops:  []string{"dest"},
-				Route:  []int{laneIndex[feed], laneIndex["exit"], laneIndex["approach"]}, LaneID: feed, LaneDistance: distance, Distance: distance,
+				Riders:    []SavedRequest{{SharingConsent: SharedConsent, Service: OnDemandService, ID: state.RequestID, From: "origin", To: "dest", PartySize: 1, PodID: id}},
+				Boardings: []RiderBoarding{{BerthID: "origin-1"}},
+				Stops:     []string{"dest"},
+				Route:     []int{laneIndex[feed], laneIndex["exit"], laneIndex["approach"]}, LaneID: feed, LaneDistance: distance, Distance: distance,
 			})
 			if leader != "" {
 				route := []string{feed, "exit", "approach"}

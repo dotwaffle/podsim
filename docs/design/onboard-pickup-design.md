@@ -7,6 +7,9 @@ The omitted policy remains false.
 The [matched service screen](experimental-adoption.md#rejected-candidates) records the bounded result and qualification scope.
 The user approved this feature and permits reviewed, noncontroversial contract details.
 The foundation requires each rider's boarding berth and distance baseline before multiple origins become valid.
+Status 2026-11-12: by maintainer decision, every pod with riders has one boarding record for each rider, and saved pods no longer have `journeyOrigin`.
+The stream and the HTTP state no longer carry `riddenMeters`, so the text below about that stream member and its baseline bound describes the earlier design.
+Only the saved state keeps `riddenMeters`, and the save validator checks the baseline bound.
 
 ## Behavior
 

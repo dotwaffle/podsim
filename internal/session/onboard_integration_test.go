@@ -56,11 +56,12 @@ func newOnboardConsumerRide(t *testing.T) (*Session, StreamFrame) {
 		s.advance()
 		current := onboardConsumerFrame(t, s)
 		v := current.State.Simulation.Vehicles[0]
+		ridden := s.simulation.Snapshot().Vehicles[0].RiddenMeters
 		if v.Pod.Activity == sim.Boarding && v.Pod.Occupied {
 			if len(v.Riders) != 3 || len(v.Boardings) != 3 || !v.Riders[1].Completed ||
-				v.Riders[2].ID != 3 || v.Riders[2].From != "garden" || len(previous.State.Simulation.Vehicles[0].Boardings) != 0 ||
+				v.Riders[2].ID != 3 || v.Riders[2].From != "garden" || len(previous.State.Simulation.Vehicles[0].Boardings) != 2 ||
 				v.Boardings[0].BerthID != "harbor-1" || v.Boardings[0].MetersAtBoarding != 0 ||
-				v.Boardings[2].BerthID != "garden-1" || v.Boardings[2].MetersAtBoarding != v.RiddenMeters || v.RiddenMeters <= 0 {
+				v.Boardings[2].BerthID != "garden-1" || v.Boardings[2].MetersAtBoarding != ridden || ridden <= 0 {
 				t.Fatalf("occupied pickup fixture: %+v", v)
 			}
 			for _, rider := range v.Riders {
@@ -376,8 +377,7 @@ func TestOnboardConsumerStreamLifecycle(t *testing.T) {
 			t.Fatal(codecErr)
 		}
 		if !reflect.DeepEqual(state.Simulation.Vehicles[0].Riders, s.simulation.Snapshot().Vehicles[0].Riders) ||
-			!slices.Equal(state.Simulation.Vehicles[0].Boardings, next.State.Simulation.Vehicles[0].Boardings) ||
-			state.Simulation.Vehicles[0].RiddenMeters != next.State.Simulation.Vehicles[0].RiddenMeters {
+			!slices.Equal(state.Simulation.Vehicles[0].Boardings, next.State.Simulation.Vehicles[0].Boardings) {
 			t.Fatal("stream reconstruction changed authoritative passenger state")
 		}
 		after, codecErr := json.Marshal(current)
@@ -387,7 +387,7 @@ func TestOnboardConsumerStreamLifecycle(t *testing.T) {
 		if len(state.Simulation.Vehicles[0].Boardings) > 0 {
 			state.Simulation.Vehicles[0].Boardings[0].BerthID = "observer-change"
 			owned, codecErr := assembler.State(candidate)
-			if codecErr != nil || owned.Simulation.Vehicles[0].Boardings[0].BerthID != "harbor-1" {
+			if codecErr != nil || owned.Simulation.Vehicles[0].Boardings[0].BerthID != next.State.Simulation.Vehicles[0].Boardings[0].BerthID {
 				t.Fatal("assembler output borrowed records")
 			}
 		}
@@ -413,23 +413,26 @@ func TestOnboardConsumerStreamLifecycle(t *testing.T) {
 	onboardConsumerStreamGuards(t, assembler, current)
 	// The occupied full frame decodes under hello 3.
 	onboardConsumerEnvelope(t, StreamEnvelope{Kind: "full", Stream: "occupied", Sequence: 1, Source: sourceOf(current), Build: current.State.Build, Full: &current})
+	start := s.simulation.Snapshot().Vehicles[0].RiddenMeters
 	for range 300 * sim.TicksPerSecond {
 		s.advance()
 		v := s.simulation.Snapshot().Vehicles[0]
-		if v.Pod.Activity == sim.Traveling && v.RiddenMeters > current.State.Simulation.Vehicles[0].RiddenMeters {
+		if v.Pod.Activity == sim.Traveling && v.RiddenMeters > start {
 			break
 		}
 	}
 	travel := onboardConsumerFrame(t, s)
-	if travel.State.Simulation.Vehicles[0].Pod.Activity != sim.Traveling || travel.State.Simulation.Vehicles[0].RiddenMeters <= current.State.Simulation.Vehicles[0].RiddenMeters {
+	if travel.State.Simulation.Vehicles[0].Pod.Activity != sim.Traveling || s.simulation.Snapshot().Vehicles[0].RiddenMeters <= start {
 		t.Fatal("record-bearing passenger travel did not occur")
 	}
 	publish(travel)
 	advanceTicks(s, 1)
+	// The stream does not carry the passenger distance, so passenger
+	// travel changes only the motion of the pod.
 	update := publish(onboardConsumerFrame(t, s))
-	if len(update.Vehicles) != 1 || update.Vehicles[0].Metadata == nil || update.Vehicles[0].Riders != nil || update.Vehicles[0].Boardings != nil ||
-		update.Vehicles[0].Metadata.Value.RiddenMeters <= travel.State.Simulation.Vehicles[0].RiddenMeters {
-		t.Fatal("passenger travel did not emit a metadata-only C update")
+	if len(update.Vehicles) != 1 || update.Vehicles[0].Metadata != nil || update.Vehicles[0].Riders != nil || update.Vehicles[0].Boardings != nil ||
+		update.Vehicles[0].Motion == nil && update.Vehicles[0].Pod == nil {
+		t.Fatalf("passenger travel did not emit a motion-only update: %+v", update.Vehicles)
 	}
 	for range 300 * sim.TicksPerSecond {
 		s.advance()
@@ -452,13 +455,14 @@ func TestOnboardConsumerStreamLifecycle(t *testing.T) {
 	}
 	ordinary := onboardConsumerFrame(t, s)
 	v := ordinary.State.Simulation.Vehicles[0]
-	if v.Pod.Activity != sim.Boarding || len(v.Riders) != 1 || v.Riders[0].ID != 4 || v.Riders[0].SharingConsent != sim.PrivateConsent || len(v.Boardings) != 0 || v.RiddenMeters != 0 {
-		t.Fatalf("ordinary new boarding did not clear history: %+v", v)
+	if v.Pod.Activity != sim.Boarding || len(v.Riders) != 1 || v.Riders[0].ID != 4 || v.Riders[0].SharingConsent != sim.PrivateConsent ||
+		!slices.Equal(v.Boardings, []sim.RiderBoarding{{BerthID: "market-1"}}) {
+		t.Fatalf("ordinary new boarding did not replace history: %+v", v)
 	}
 	cleared := publish(ordinary)
 	if len(cleared.Vehicles) != 1 || cleared.Vehicles[0].Riders == nil || cleared.Vehicles[0].Boardings == nil ||
-		cleared.Vehicles[0].Boardings.Value == nil || len(cleared.Vehicles[0].Boardings.Value) != 0 || cleared.Vehicles[0].Metadata == nil || cleared.Vehicles[0].Metadata.Value.RiddenMeters != 0 {
-		t.Fatal("ordinary boarding did not emit paired arrays and C clearing")
+		!slices.Equal(cleared.Vehicles[0].Boardings.Value, v.Boardings) {
+		t.Fatal("ordinary boarding did not emit paired arrays")
 	}
 }
 
@@ -527,7 +531,7 @@ func TestOnboardConsumerHello(t *testing.T) {
 		t.Fatal(err)
 	}
 	state, err := assembler.State(frame)
-	if err != nil || len(state.Simulation.Vehicles[0].Boardings) != 3 || state.Simulation.Vehicles[0].RiddenMeters <= 0 {
+	if err != nil || len(state.Simulation.Vehicles[0].Boardings) != 3 {
 		t.Fatalf("hello3 occupied reconstruction: %v", err)
 	}
 }
@@ -555,7 +559,7 @@ func TestOnboardConsumerGeneratedRailConsent(t *testing.T) {
 		s.advance()
 		state = s.simulation.Snapshot()
 		v := state.Vehicles[0]
-		if v.Pod.Activity == sim.Boarding && v.Pod.Occupied || len(v.Boardings) != 0 {
+		if v.Pod.Activity == sim.Boarding && v.Pod.Occupied || slices.ContainsFunc(v.Riders, func(rider sim.Request) bool { return rider.ID == 3 }) {
 			t.Fatal("generated private request joined an occupied host")
 		}
 		if v.Pod.StationID == "garden" && v.Pod.Occupied {

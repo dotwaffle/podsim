@@ -20,10 +20,16 @@ func TestRailPlanStateRoundTrip(t *testing.T) {
 		}
 		encoded := encodeTestState(t, file)
 		restored, err := decodeCheckedState(encoded)
+		if err == nil {
+			err = restored.resolveBoardings()
+		}
 		if err != nil || !reflect.DeepEqual(restored, file) {
 			t.Fatalf("plan %t: %v", withPlan, err)
 		}
-		err = json.Unmarshal(decompressTestJSON(t, encoded), reflect.New(older).Interface(), strictStateOptions)
+		// The older reader has the plain JSON form of the pods, so the
+		// file that it reads has no boarding tuples.
+		plain := decompressTestJSON(t, encodeTestState(t, withoutRiders(file)))
+		err = json.Unmarshal(plain, reflect.New(older).Interface(), strictStateOptions)
 		if withPlan && !errors.Is(err, json.ErrUnknownName) || !withPlan && err != nil {
 			t.Fatalf("older reader with plan %t: %v", withPlan, err)
 		}

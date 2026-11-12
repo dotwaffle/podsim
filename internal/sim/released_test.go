@@ -58,8 +58,9 @@ func newReleaseFixture(t *testing.T) releaseFixture {
 	market, _ := s.station("market")
 	garden, _ := s.station("garden")
 	f.local.destination, _ = market.berth(f.local.Pod.BerthID)
-	f.local.origin, f.local.journeyOrigin = garden.Berths[0], garden.Berths[0]
+	f.local.origin = garden.Berths[0]
 	f.local.Riders = []Request{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "garden", To: "market", PartySize: 1, PodID: f.local.Pod.ID}}
+	f.local.Boardings = []RiderBoarding{{BerthID: garden.Berths[0].ID}}
 	f.local.phaseTicks = 180 * TicksPerSecond
 	s.requestID, s.boarded = 1, 1
 	if err := s.RequestTrip("market", "garden"); err != nil {
@@ -301,6 +302,7 @@ func openReleasedGate(t *testing.T, s *Simulation) {
 		t.Fatalf("tick %d is not before request tick %d", s.tick, requested)
 	}
 	s.findVehicle("02").Riders = []Request{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "market", To: "garden", PartySize: 1, PodID: "02", Completed: true, RequestedTick: requested}}
+	s.findVehicle("02").Boardings = []RiderBoarding{{BerthID: "market-1"}}
 	s.requestID, s.boarded = 1, 1
 	s.tick = requested + TicksPerSecond
 	s.nextRedistributionTick = s.tick
@@ -744,6 +746,7 @@ func TestReleasedPodRetainsCommittedArrivalChain(t *testing.T) {
 	for index, v := range []*vehicle{local, blocker} {
 		v.Pod.Activity, v.Pod.Occupied = Unloading, true
 		v.Riders = []Request{{SharingConsent: SharedConsent, Service: OnDemandService, ID: index + 1, From: "harbor", To: "market", PartySize: 1, PodID: v.Pod.ID}}
+		v.Boardings = []RiderBoarding{{BerthID: "harbor-1"}}
 		v.phaseTicks = 600 * TicksPerSecond
 	}
 	s.requestID, s.boarded = 2, 2

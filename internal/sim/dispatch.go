@@ -549,16 +549,15 @@ func (s *Simulation) board(v *vehicle, trip waitingTrip) error {
 	}
 	from, _ := s.station(trip.request.legOrigin())
 	origin, _ := from.berth(v.Pod.BerthID)
-	route, err := s.legRoute(v, leg{origin: origin.Node, from: origin.Node, stops: []string{trip.request.To}})
+	route, err := s.legRoute(v, leg{from: origin.Node, stops: []string{trip.request.To}})
 	if err != nil {
 		return err
 	}
 	trip.route, trip.destination = route, Berth{}
-	v.Boardings, v.RiddenMeters = nil, 0
+	v.Boardings, v.RiddenMeters = []RiderBoarding{{BerthID: origin.ID}}, 0
 	v.Riders = []Request{s.boardingRider(trip, v, 0)}
 	v.Stops = []string{trip.request.To}
 	v.origin, v.destination, v.destinationStation = origin, trip.destination, trip.request.To
-	v.journeyOrigin = origin
 	s.setVehicleRoute(v, trip.route)
 	v.Pod.Activity, v.Pod.WaitReason, v.Pod.BlockedBy = Boarding, NoWait, ""
 	v.phaseTicks, v.blockIndex, v.reservedThrough = boardingPhase(v.Pod.Class, trip.request.PartySize), 0, -1
@@ -593,20 +592,28 @@ func (s *Simulation) joinSharedRide(trip *waitingTrip, pass *dispatchPass) bool 
 	}
 	request := trip.request
 	for _, v := range s.boardingPods(pass)[request.legOrigin()] {
-		if v.Pod.Occupied || len(v.Boardings) > 0 || trip.excludes(v.Pod.ID) || !s.canJoin(v, request) {
+		if v.Pod.Occupied || trip.excludes(v.Pod.ID) || !s.canJoin(v, request) {
 			continue
 		}
 		if s.sharedRideMode != SharedRideDropOffs {
 			if v.destinationStation != request.To {
 				continue
 			}
-		} else if stops, ok := s.dropOffStops(v, request.To); !ok || !s.setBoardingStops(v, stops) {
-			continue
+		} else {
+			// The candidate holds the new party, so the detour cap also
+			// checks the party that joins.
+			candidate := *v
+			candidate.Riders = append(slices.Clone(v.Riders), request)
+			candidate.Boardings = append(slices.Clone(v.Boardings), RiderBoarding{BerthID: v.origin.ID})
+			if stops, ok := s.dropOffStops(&candidate, request.To); !ok || !s.setBoardingStops(v, stops) {
+				continue
+			}
 		}
 		if !trip.boarded {
 			s.sharedParties++
 		}
 		v.Riders = append(v.Riders, s.boardingRider(*trip, v, v.Riders[0].ID))
+		v.Boardings = append(v.Boardings, RiderBoarding{BerthID: v.origin.ID})
 		v.addJoinDwell(request.PartySize)
 		return true
 	}

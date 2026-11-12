@@ -185,10 +185,11 @@ func TestExpressRestoreContinuingAuthored(t *testing.T) {
 	f := newRestoreFleetFixture(t, largeRestoreNetwork(), []Placement{{ID: "01", Class: GroupClass, StationID: "harbor", BerthID: "harbor-1"}})
 	pod := f.carrying(t, f.traveling(t, travelInput{id: "01", from: "garden-1", to: "market-1", lane: "garden-1-out", distance: 0}), 2, 1)
 	pod.Class, pod.Activity = ExpressClass, "continuing"
-	pod.StationID, pod.BerthID, pod.JourneyOrigin = "garden", "garden-1", "harbor-1"
+	pod.StationID, pod.BerthID = "garden", "garden-1"
 	pod.LaneID, pod.LaneDistance, pod.Distance, pod.RiddenMeters = "", 0, 0, 700
 	pod.Riders[0].From, pod.Riders[0].PartySize = "harbor", 10
 	pod.Riders = append([]SavedRequest{{ID: 1, From: "harbor", To: "garden", PartySize: 10, PodID: "01", RequestedTick: 10, BoardedTick: 20, Completed: true, SharingConsent: SharedConsent, Service: OnDemandService}}, pod.Riders...)
+	pod.Boardings = []RiderBoarding{{BerthID: "harbor-1"}, {BerthID: "harbor-1"}}
 	state := f.state(pod)
 	state.RequestID, state.Boarded, state.Completed = 2, 2, 1
 	state.OrderContract = ExpressOrderContract

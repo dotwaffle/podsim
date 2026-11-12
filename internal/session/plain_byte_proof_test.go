@@ -123,13 +123,12 @@ func widestPlainSavedState(t *testing.T) stateFile {
 		Occupied: true, RelocatingTo: id, Rebalancing: true, RebalanceAfter: widest,
 		PhaseTicks: widest, Origin: id, Destination: id, DestinationStation: id,
 		Riders:       slices.Repeat([]sim.SavedRequest{request}, sim.MaxSharedRideParties),
-		RiddenMeters: plainProofFloat, JourneyOrigin: id, ClaimsDestination: true, Released: true, ParkedSince: widest,
+		RiddenMeters: plainProofFloat, ClaimsDestination: true, Released: true, ParkedSince: widest,
 		Route: indexes, RouteIndex: widest, LaneID: id, LaneDistance: plainProofFloat,
 		Distance: plainProofFloat, Waiting: true, WaitSince: widest,
 		Platoon: &sim.SavedPlatoonLink{Leader: id, Lane: widest, LeaderLane: widest, Lanes: widest, Turn: plainProofFloat, Draining: true},
 	}
 	// Native boarding IDs exceed the saved index tuples in byte width.
-	// Keeping JourneyOrigin also overestimates the encoder with boardings.
 	pod.Boardings = slices.Repeat([]sim.RiderBoarding{{BerthID: id, MetersAtBoarding: plainProofFloat}}, sim.MaxSharedRideParties)
 	trip := sim.SavedTrip{Request: request, Route: indexes, Boarded: true, DeferUntil: widest, DeferCheck: widest, DeferPodID: id}
 	// Completed history does not consume the outstanding-order budget.
@@ -258,7 +257,6 @@ func widestPlainStreamFrame(t *testing.T) StreamFrame {
 	vehicle := widestVehicle()
 	vehicle.Pod.Position = sim.Point{X: plainProofFloat, Y: plainProofFloat}
 	vehicle.Pod.LaneDistance, vehicle.Pod.Speed = plainProofFloat, plainProofFloat
-	vehicle.RiddenMeters = plainProofFloat
 	vehicle.Boardings = slices.Repeat([]sim.RiderBoarding{{BerthID: id, MetersAtBoarding: plainProofFloat}}, sim.MaxSharedRideParties)
 	pending := vehicle.Riders[0]
 	for i := range vehicle.Riders {

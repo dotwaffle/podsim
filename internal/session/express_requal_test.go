@@ -35,9 +35,8 @@ func requalID(size int) string {
 // expressRequalSave returns the save of an Express session with one
 // waiting party of 20 and three Express pods. The first pod has 20 rider
 // records with boarding tuples: 19 completed history records and one
-// active party. The second pod has completed riders and the
-// journeyOrigin form, without boarding tuples. The third pod has no
-// riders. The floats sit on both sides of the exponent boundaries of the
+// active party. The second pod has two completed riders that boarded at
+// its origin. The third pod has no riders. The floats sit on both sides of the exponent boundaries of the
 // JSON encoder that the integer scan accepts, and the integers at the
 // largest counter, sim.MaxCounter.
 func expressRequalSave(t *testing.T) stateFile {
@@ -77,9 +76,10 @@ func expressRequalSave(t *testing.T) stateFile {
 		tuplePod.Boardings = append(tuplePod.Boardings, sim.RiderBoarding{BerthID: "harbor-1", MetersAtBoarding: meters[i%len(meters)]})
 	}
 	originPod := file.Simulation.Pods[0]
-	originPod.ID, originPod.JourneyOrigin = "requal-origin", "harbor-1"
+	originPod.ID = "requal-origin"
 	originPod.Riders = []sim.SavedRequest{rider, rider}
 	originPod.Riders[1].ID = 100
+	originPod.Boardings = []sim.RiderBoarding{{BerthID: "harbor-1"}, {BerthID: "harbor-1"}}
 	emptyPod := file.Simulation.Pods[0]
 	emptyPod.ID, emptyPod.Riders, emptyPod.Boardings = "requal-empty", nil, nil
 	file.Simulation.Pods = []sim.SavedPod{tuplePod, originPod, emptyPod}
@@ -89,7 +89,7 @@ func expressRequalSave(t *testing.T) stateFile {
 }
 
 // TestExpressRequalSaveShapes saves escaped and multibyte text at each
-// decoded limit, both boarding forms, optional history, integers at
+// decoded limit, boarding tuples, optional history, integers at
 // sim.MaxCounter, and floats on both sides of each exponent boundary. The decode
 // gives the same values, and the second encode gives the same bytes.
 func TestExpressRequalSaveShapes(t *testing.T) {
@@ -99,7 +99,7 @@ func TestExpressRequalSaveShapes(t *testing.T) {
 	raw := decompressTestJSON(t, data)
 	for _, want := range []string{
 		`"boardings":[[0,0],[0,0.000001],[0,1e-7],[0,0.0000010000000000000002],[0,5e-324],[0,1000000000000000],[0,1e+21],`,
-		`"journeyOrigin":"harbor-1"`, `"riddenMeters":1.7976931348623157e+308`, `"id":9007199254740991`, `"requestedTick":9007199254740991`,
+		`"boardings":[[0,0],[0,0]]`, `"riddenMeters":1.7976931348623157e+308`, `"id":9007199254740991`, `"requestedTick":9007199254740991`,
 		`"dispatchReason":"` + base64.StdEncoding.EncodeToString([]byte(requalText(1024))) + `"`,
 		`"podID":"` + base64.StdEncoding.EncodeToString([]byte(requalID(64))) + `"`,
 	} {
@@ -226,6 +226,7 @@ func TestExpressRequalSavePrescanBounds(t *testing.T) {
 		file.Simulation.Pods = slices.Clone(file.Simulation.Pods)
 		pod := &file.Simulation.Pods[1]
 		pod.Riders = slices.Repeat(pod.Riders[:1], count)
+		pod.Boardings = slices.Repeat(pod.Boardings[:1], count)
 		return file
 	}
 	for _, test := range []struct {
@@ -236,11 +237,11 @@ func TestExpressRequalSavePrescanBounds(t *testing.T) {
 		{"Express waiting trips at the bound", trips(express, sim.MaxExpressWaitingTrips), false},
 		{"Express waiting trips past the bound", trips(express, sim.MaxExpressWaitingTrips+1), true},
 		{"Express 20 riders", riders(express, sim.MaxExpressParties), false},
-		{"Express 21 riders", riders(express, sim.MaxExpressParties+1), true},
+		{"Express 21 riders", riders(express, sim.MaxExpressParties), true},
 		{"plain waiting trips at the bound", trips(plain, maxSavedTrips), false},
 		{"plain waiting trips past the bound", trips(plain, maxSavedTrips+1), true},
 		{"plain 8 riders", riders(plain, sim.MaxSharedRideParties), false},
-		{"plain 9 riders", riders(plain, sim.MaxSharedRideParties+1), true},
+		{"plain 9 riders", riders(plain, sim.MaxSharedRideParties), true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -254,6 +255,11 @@ func TestExpressRequalSavePrescanBounds(t *testing.T) {
 				test.file.Simulation.Pods[0].Riders, test.file.Simulation.Pods[0].Boardings = nil, nil
 			}
 			raw := decompressTestJSON(t, encodeTestState(t, test.file))
+			if strings.HasSuffix(test.name, " riders") && test.refused {
+				// The encoder refuses the extra rider, so add it to the
+				// JSON.
+				raw = appendPodRiderCopy(t, raw, 1)
+			}
 			err := prescanJSON(raw, savedLimits(contractMarkers{order: test.file.OrderContract}))
 			_, decodeErr := decodeStateFile(compressTestJSON(t, raw))
 			if test.refused {
@@ -297,7 +303,7 @@ func TestExpressRequalSaveRejectedAtomically(t *testing.T) {
 	}{
 		"raw origin": {compressTestJSON(t, bytes.Replace(raw, token, []byte(`"from":"harbor"`), 1)), reasonInvalidState},
 	}
-	for _, version := range []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12} {
+	for _, version := range []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13} {
 		cases["version "+strconv.Itoa(version)] = struct {
 			data   []byte
 			reason string

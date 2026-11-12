@@ -1,7 +1,6 @@
 package sim
 
 import (
-	"math"
 	"reflect"
 	"testing"
 )
@@ -15,7 +14,7 @@ func recordedMetricFixture(t *testing.T) *Simulation {
 	harbor, _ := s.station("harbor")
 	market, _ := s.station("market")
 	v := &s.vehicles[0]
-	v.origin, v.journeyOrigin, v.destination = harbor.Berths[0], harbor.Berths[0], market.Berths[0]
+	v.origin, v.destination = harbor.Berths[0], market.Berths[0]
 	v.Pod.Activity, v.Pod.Occupied = Unloading, true
 	v.Pod.StationID, v.Pod.BerthID = market.ID, market.Berths[0].ID
 	v.destinationStation = market.ID
@@ -116,26 +115,24 @@ func TestBoardingRecordsOwnership(t *testing.T) {
 	}
 }
 
-func TestBoardingRecordsLegacyCanonicalExport(t *testing.T) {
+// TestBoardingRecordsAlwaysExported checks that the saved state and the
+// snapshot keep the zero-baseline records of riders that boarded together.
+func TestBoardingRecordsAlwaysExported(t *testing.T) {
 	t.Parallel()
 	s := newTwoStopRide(t)
 	v := s.findVehicle("01")
-	wantState, wantSnapshot := s.ExportState(), s.Snapshot()
-	for range v.Riders {
-		v.Boardings = append(v.Boardings, RiderBoarding{BerthID: v.journeyOrigin.ID})
+	if len(v.Riders) < 2 || len(v.Boardings) != len(v.Riders) {
+		t.Fatalf("fixture riders %d, records %d", len(v.Riders), len(v.Boardings))
 	}
-	if len(v.Boardings) == 0 {
-		t.Fatal("fixture has no real modern riders to promote")
+	for index, record := range v.Boardings {
+		if record != (RiderBoarding{BerthID: v.origin.ID}) {
+			t.Fatalf("record %d is %+v, want the boarding berth %s and no distance", index, record, v.origin.ID)
+		}
 	}
-	if !reflect.DeepEqual(wantState, s.ExportState()) || !reflect.DeepEqual(wantSnapshot, s.Snapshot()) {
-		t.Fatal("proven zero-baseline records changed the ordinary representation")
+	if got := s.ExportState().Pods[0].Boardings; !reflect.DeepEqual(got, v.Boardings) {
+		t.Fatalf("saved records %+v, want %+v", got, v.Boardings)
 	}
-	if len(v.Boardings) != len(v.Riders) {
-		t.Fatal("canonical export removed authoritative records")
-	}
-	v.riddenBase = 1
-	v.Boardings[0].MetersAtBoarding = math.SmallestNonzeroFloat64
-	if got := s.ExportState().Pods[0]; len(got.Boardings) != len(v.Riders) || got.JourneyOrigin != "" {
-		t.Fatal("positive baseline was omitted or rebased")
+	if got := s.Snapshot().Vehicles[0].Boardings; !reflect.DeepEqual(got, v.Boardings) {
+		t.Fatalf("snapshot records %+v, want %+v", got, v.Boardings)
 	}
 }

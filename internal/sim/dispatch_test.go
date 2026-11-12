@@ -101,6 +101,7 @@ func TestRemotePickupYieldsToNewLocalPod(t *testing.T) {
 	local := s.findVehicle("02")
 	local.Pod.Activity, local.Pod.Occupied = Unloading, true
 	local.Riders = []Request{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 99, From: "garden", To: "market", PodID: local.Pod.ID}}
+	local.Boardings = []RiderBoarding{{BerthID: "garden-1"}}
 	local.phaseTicks = 180 * TicksPerSecond
 	if err := submitSharedTrip(s, "market", "garden"); err != nil {
 		t.Fatal(err)
@@ -204,6 +205,7 @@ func TestLocalDemandPrecedesParking(t *testing.T) {
 	local.Pod.Activity, local.Pod.Occupied = Unloading, true
 	local.phaseTicks = 180 * TicksPerSecond
 	local.Riders = []Request{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "garden", To: "market", PartySize: 1, PodID: "02"}}
+	local.Boardings = []RiderBoarding{{BerthID: "garden-1"}}
 	s.requestID = 1
 	if err := requestSharedJourney(s, "01", "market"); err != nil {
 		t.Fatal(err)
@@ -318,6 +320,7 @@ func TestPassengerAndPickupShareBerthAdmission(t *testing.T) {
 	local.Pod.Activity, local.Pod.Occupied = Unloading, true
 	local.phaseTicks = 120 * TicksPerSecond
 	local.Riders = []Request{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "garden", To: "harbor", PartySize: 1, PodID: "01"}}
+	local.Boardings = []RiderBoarding{{BerthID: "garden-1"}}
 	s.requestID = 1
 	if err := submitSharedTrip(s, "market", "garden"); err != nil {
 		t.Fatal(err)

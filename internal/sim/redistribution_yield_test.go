@@ -229,6 +229,7 @@ func TestPassengerArrivalsMatchScan(t *testing.T) {
 				other.destination = relocating.destination
 				other.Pod.Activity = Traveling
 				other.Riders = []Request{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "garden", To: "market"}}
+				other.Boardings = []RiderBoarding{{BerthID: "garden-1"}}
 			},
 		},
 		{
@@ -237,6 +238,7 @@ func TestPassengerArrivalsMatchScan(t *testing.T) {
 				other.destination = relocating.destination
 				other.Pod.Activity = Boarding
 				other.Riders = []Request{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "garden", To: "market"}}
+				other.Boardings = []RiderBoarding{{BerthID: "garden-1"}}
 			},
 		},
 		{
@@ -245,6 +247,7 @@ func TestPassengerArrivalsMatchScan(t *testing.T) {
 				other.destination = relocating.destination
 				other.Pod.Activity = Traveling
 				other.Riders = []Request{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "garden", To: "market", Completed: true}}
+				other.Boardings = []RiderBoarding{{BerthID: "garden-1"}}
 			},
 		},
 		{
@@ -252,6 +255,7 @@ func TestPassengerArrivalsMatchScan(t *testing.T) {
 			setup: func(_ *Simulation, relocating, other *vehicle) {
 				other.destination = relocating.destination
 				other.Riders = []Request{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "garden", To: "market"}}
+				other.Boardings = []RiderBoarding{{BerthID: "garden-1"}}
 			},
 		},
 		{
@@ -260,6 +264,7 @@ func TestPassengerArrivalsMatchScan(t *testing.T) {
 				other.destination = relocating.destination
 				other.Pod.Activity = Traveling
 				other.Riders = []Request{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "garden", To: "market"}}
+				other.Boardings = []RiderBoarding{{BerthID: "garden-1"}}
 				assign(s, other)
 			},
 		},

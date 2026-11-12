@@ -95,7 +95,7 @@ A restore rejects any other speed, including 4 and 8.
 ## Shared state stream
 
 The server sends a text hello with `version`, `build`, and `serverStart` before any binary state message.
-The version is 9 for every project kind.
+The version is 10 for every project kind.
 The hello also has the `orderContract` marker of the project, when the project has it.
 The marker selects the Express bounds of each message on the connection.
 A client refuses every other version, and it records the `build` of the hello before it refuses the version.
@@ -275,6 +275,13 @@ An order stays in `riders` with `completed` set to `true` after the party leaves
 `stops` has the IDs of the stations where the pod must stop and that it did not reach, in the sequence of the stops.
 With a party limit above 1 in the default `drop-offs` mode, `stops` can have more than one station.
 A pod omits each key when its array is empty.
+A vehicle with `riders` also has `boardings`, with one record for each order, in the same sequence.
+Each record has `berthID`, the berth where the party boarded the pod, and `metersAtBoarding`, the distance that the pod had moved with parties aboard when the party boarded.
+The stream does not send the current value of that distance, so a pod that moves with parties aboard changes only its motion.
+A delta that changes `riders` or `boardings` of a vehicle with boarding records replaces both.
+A client refuses a vehicle whose `riders` and `boardings` differ in length with the error `invalid boarding record alignment`, unless an earlier check refuses it first.
+For example, the boarding scan refuses an empty `boardings` array of a full vehicle with the error `boarding records need 1 to 8 entries`.
+It also refuses a record with a bad member or value.
 
 A pod in a [virtual platoon](model.md#virtual-platoons) also has `platoonID` and `platoonIndex`.
 `platoonID` is the ID of the first pod of the platoon.

@@ -117,7 +117,7 @@ type Pod struct {
 
 // Vehicle is an independent display copy of a pod and its assigned journey.
 type Vehicle struct {
-	// Boardings aligns with Riders when the original journey fields are insufficient.
+	// Boardings has one record for each rider, in the order of Riders.
 	Boardings []RiderBoarding `json:"boardings,omitempty"`
 	// RiddenMeters is cumulative passenger distance when Boardings is present.
 	RiddenMeters float64 `json:"riddenMeters,omitzero"`
@@ -272,13 +272,11 @@ type vehicle struct {
 	// riddenBase is the distance that the riders rode before the start of
 	// distance: the earlier legs of the journey, and the start of the route
 	// that a restore cut.
-	riddenBase float64
-	// journeyOrigin is the common boarding berth of an old-form journey.
-	// Recorded parties use Boardings. origin starts the current leg.
-	journeyOrigin       Berth
-	pending             int
-	waitSince           int64
-	rebalanceAfter      int64
+	riddenBase     float64
+	pending        int
+	waitSince      int64
+	rebalanceAfter int64
+	// origin starts the current leg.
 	origin, destination Berth
 	destinationStation  string
 	// released is true for an empty pod that dispatch sent to a pickup and
@@ -656,7 +654,7 @@ func (s *Simulation) snapshot(routes bool) Snapshot {
 		cloned.Riders, cloned.Stops = slices.Clone(cloned.Riders), slices.Clone(cloned.Stops)
 		cloned.Withdrawn, cloned.Operational = uint8(v.withdrawn), v.op.purpose.name()
 		cloned.Boardings, cloned.RiddenMeters = nil, 0
-		if !v.legacyBoardingRecords() {
+		if len(v.Boardings) > 0 {
 			cloned.Boardings, cloned.RiddenMeters = slices.Clone(v.Boardings), v.riddenMeters()
 		}
 		state.Vehicles = append(state.Vehicles, cloned)

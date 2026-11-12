@@ -72,6 +72,53 @@ func newTestStateFile(t *testing.T) stateFile {
 	return file
 }
 
+// withoutRiders returns file with no riders and no boarding records in its
+// pods. A test that writes the plain JSON of sim.SavedPod, as a reader with
+// another type sees it, needs no boarding tuples.
+func withoutRiders(file stateFile) stateFile {
+	file.Simulation.Pods = slices.Clone(file.Simulation.Pods)
+	for index := range file.Simulation.Pods {
+		pod := &file.Simulation.Pods[index]
+		pod.Riders, pod.Boardings, pod.RiddenMeters = nil, nil, 0
+	}
+	return file
+}
+
+// appendPodRiderCopy returns the JSON state raw with a copy of the last
+// rider and of the last boarding tuple at the end of the arrays of pod
+// index. The encoder refuses more riders than the order contract allows,
+// so a test of a longer array edits the JSON. The members of each edited
+// object are in sorted order.
+func appendPodRiderCopy(t *testing.T, raw []byte, index int) []byte {
+	t.Helper()
+	decode := func(data jsontext.Value, value any) {
+		if err := json.Unmarshal(data, value); err != nil {
+			t.Fatal(err)
+		}
+	}
+	encode := func(value any) jsontext.Value {
+		data, err := json.Marshal(value, json.Deterministic(true))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return data
+	}
+	var root, simulation, pod map[string]jsontext.Value
+	var pods, riders, boardings []jsontext.Value
+	decode(raw, &root)
+	decode(root["simulation"], &simulation)
+	decode(simulation["pods"], &pods)
+	decode(pods[index], &pod)
+	decode(pod["riders"], &riders)
+	decode(pod["boardings"], &boardings)
+	pod["riders"] = encode(append(riders, riders[len(riders)-1]))
+	pod["boardings"] = encode(append(boardings, boardings[len(boardings)-1]))
+	pods[index] = encode(pod)
+	simulation["pods"] = encode(pods)
+	root["simulation"] = encode(simulation)
+	return encode(root)
+}
+
 // platoonStateFile returns the test state with a platoon limit in the
 // project and a saved link on the second pod. The session decode does not
 // check the link against the network. The restore does that.
@@ -205,6 +252,9 @@ func TestStateFileRoundTrip(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			if err := got.resolveBoardings(); err != nil {
+				t.Fatal(err)
+			}
 			if !reflect.DeepEqual(got, tc.file) {
 				t.Fatalf("decoded state file differs:\ngot  %+v\nwant %+v", got, tc.file)
 			}
@@ -259,7 +309,8 @@ func TestDecodeStateFileRejects(t *testing.T) {
 		{"version 2 with old orders", compressTestJSON(t, []byte(`{"format":"podsim-session","version":2,"simulation":{"pods":[{"riders":[{"partySize":12}]}]}}`)), reasonUnsupportedVersion, nil},
 		{"version 9", edit(func(file *stateFile) { file.Version = 9 }), reasonUnsupportedVersion, nil},
 		{"version 10", edit(func(file *stateFile) { file.Version = 10 }), reasonUnsupportedVersion, nil},
-		{"version 12", edit(func(file *stateFile) { file.Version = 12 }), reasonUnsupportedVersion, nil},
+		{"version 11", edit(func(file *stateFile) { file.Version = 11 }), reasonUnsupportedVersion, nil},
+		{"version 13", edit(func(file *stateFile) { file.Version = 13 }), reasonUnsupportedVersion, nil},
 		{"unsupported version with long pod route", compressTestJSON(t, []byte(`{"format":"podsim-session","version":8,"simulation":{"pods":[{"route":`+zeros(sim.MaxSavedRouteLanes+1)+`}]}}`)), reasonUnsupportedVersion, nil},
 		{"unsupported version with long trip route", compressTestJSON(t, []byte(`{"format":"podsim-session","version":8,"simulation":{"waiting":[{"route":`+zeros(sim.MaxSavedRouteLanes+1)+`}]}}`)), reasonUnsupportedVersion, nil},
 		// The header scan does not check the integers, so a file of another
@@ -490,6 +541,9 @@ func TestDecodeStateFileAcceptsLimits(t *testing.T) {
 			tc.change(&want)
 			got, err := decodeCheckedState(encodeTestState(t, want))
 			if err != nil {
+				t.Fatal(err)
+			}
+			if err := got.resolveBoardings(); err != nil {
 				t.Fatal(err)
 			}
 			if !reflect.DeepEqual(got, want) {

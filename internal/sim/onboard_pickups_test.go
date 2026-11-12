@@ -7,6 +7,22 @@ import (
 	"testing"
 )
 
+// TestPickupBoardingRecordsNeedAlignment checks that an onboard pickup
+// copies the boarding records only when each rider has one.
+func TestPickupBoardingRecordsNeedAlignment(t *testing.T) {
+	t.Parallel()
+	v := &vehicle{Riders: []Request{{ID: 1, SharingConsent: SharedConsent}, {ID: 2, SharingConsent: SharedConsent}}}
+	v.Boardings = []RiderBoarding{{BerthID: "a-1"}}
+	if records, ok := new(Simulation).pickupBoardingRecords(v); ok {
+		t.Fatalf("misaligned records give %v", records)
+	}
+	v.Boardings = append(v.Boardings, RiderBoarding{BerthID: "a-1", MetersAtBoarding: 5})
+	records, ok := new(Simulation).pickupBoardingRecords(v)
+	if !ok || !reflect.DeepEqual(records, v.Boardings) || &records[0] == &v.Boardings[0] {
+		t.Fatalf("aligned records give %v, %t", records, ok)
+	}
+}
+
 func TestOnboardPickupsPolicy(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {

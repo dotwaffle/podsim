@@ -71,7 +71,7 @@ func (s *Simulation) boardingLeg(v *vehicle) (leg, bool) {
 		request := &s.waiting[i].request
 		if request.PodID == v.Pod.ID && request.legOrigin() == v.Pod.StationID {
 			node := s.podBerthNode(v)
-			return leg{origin: node, from: node, stops: []string{request.To}}, true
+			return leg{from: node, stops: []string{request.To}}, true
 		}
 	}
 	return leg{}, false

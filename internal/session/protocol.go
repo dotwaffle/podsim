@@ -90,7 +90,6 @@ type SimulationFrame struct {
 // VehicleFrame contains dynamic vehicle data and its ordered route IDs.
 type VehicleFrame struct {
 	Boardings    []sim.RiderBoarding `json:"boardings,omitempty"`
-	RiddenMeters float64             `json:"riddenMeters,omitzero"`
 	Pod          sim.Pod             `json:"pod"`
 	Riders       []sim.Request       `json:"riders,omitempty"`
 	Stops        []string            `json:"stops,omitempty"`
@@ -145,8 +144,8 @@ func frameState(topology TopologySnapshot, frame StateFrame, immutable bool) (St
 			route[routeIndex] = lane
 		}
 		vehicles[index] = sim.Vehicle{
-			Boardings: slices.Clone(vehicle.Boardings), RiddenMeters: vehicle.RiddenMeters,
-			Pod: vehicle.Pod, Riders: slices.Clone(vehicle.Riders), Stops: slices.Clone(vehicle.Stops), Route: route,
+			Boardings: slices.Clone(vehicle.Boardings),
+			Pod:       vehicle.Pod, Riders: slices.Clone(vehicle.Riders), Stops: slices.Clone(vehicle.Stops), Route: route,
 			RelocatingTo: vehicle.RelocatingTo, Rebalancing: vehicle.Rebalancing,
 			PlatoonID: vehicle.PlatoonID, PlatoonIndex: vehicle.PlatoonIndex,
 			Withdrawn: vehicle.Withdrawn, Operational: vehicle.Operational,
@@ -215,8 +214,8 @@ func makeStateFrame(state State, owned bool) StateFrame {
 			boardings, riders, stops = slices.Clone(boardings), slices.Clone(riders), slices.Clone(stops)
 		}
 		vehicles[index] = VehicleFrame{
-			Boardings: boardings, RiddenMeters: vehicle.RiddenMeters,
-			Pod: vehicle.Pod, Riders: riders, Stops: stops, RouteLaneIDs: routeIDs,
+			Boardings: boardings,
+			Pod:       vehicle.Pod, Riders: riders, Stops: stops, RouteLaneIDs: routeIDs,
 			RelocatingTo: vehicle.RelocatingTo, Rebalancing: vehicle.Rebalancing,
 			PlatoonID: vehicle.PlatoonID, PlatoonIndex: vehicle.PlatoonIndex,
 			Withdrawn: vehicle.Withdrawn, Operational: vehicle.Operational,

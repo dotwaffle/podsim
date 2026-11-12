@@ -347,7 +347,7 @@ func TestStationFeatureOffSwitchBaseline(t *testing.T) {
 			stationSwitchEncode(t, digest, struct{ Name, Digest string }{switches.name, got})
 		})
 	}
-	const want = "2a1024d43c19c647f43ba3e6e40e650130c45182a7f0408a4d7a2696d3cabdf6"
+	const want = "468c89da45c4c5b757a27f9471e3344c92da21bb47c43188a3aeeec1efebf526"
 	if got := hex.EncodeToString(digest.Sum(nil)); got != want {
 		t.Fatalf("native switch boundary digest = %s, want %s", got, want)
 	}

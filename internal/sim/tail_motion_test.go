@@ -41,9 +41,10 @@ func hairpinMotion(t *testing.T, leader float64, group string) *Simulation {
 		state.Boarded++
 		state.Pods = append(state.Pods, SavedPod{
 			ID: place.id, Class: GroupClass, Activity: "traveling", Occupied: true, Origin: fleet[index].BerthID, DestinationStation: "dest",
-			Riders: []SavedRequest{{SharingConsent: SharedConsent, Service: OnDemandService, ID: state.RequestID, From: "origin", To: "dest", PartySize: 1, PodID: place.id}},
-			Stops:  []string{"dest"},
-			Route:  route, RouteIndex: place.route, LaneID: place.lane, LaneDistance: place.on, Distance: place.past,
+			Riders:    []SavedRequest{{SharingConsent: SharedConsent, Service: OnDemandService, ID: state.RequestID, From: "origin", To: "dest", PartySize: 1, PodID: place.id}},
+			Boardings: []RiderBoarding{{BerthID: fleet[index].BerthID}},
+			Stops:     []string{"dest"},
+			Route:     route, RouteIndex: place.route, LaneID: place.lane, LaneDistance: place.on, Distance: place.past,
 		})
 	}
 	s, result, err := RestoreState(RestoreStateInput{FaultsOn: true, Faults: FaultSettings{EvacuationSeconds: 300}, Network: network, Fleet: fleet, State: state})

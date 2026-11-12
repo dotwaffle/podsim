@@ -24,7 +24,7 @@ func boardingTestFile(t *testing.T) stateFile {
 	station.Berths = append(slices.Clone(station.Berths), sim.Berth{ID: "second-source-berth", Node: station.Berths[0].Node})
 	other := file.Project.Network.Stations[1]
 	file.Simulation.Pods = []sim.SavedPod{{
-		ID: "recorded", Activity: "boarding", RiddenMeters: 100, JourneyOrigin: station.Berths[0].ID,
+		ID: "recorded", Activity: "boarding", RiddenMeters: 100,
 		Riders: []sim.SavedRequest{
 			{ID: 1, From: station.ID, To: other.ID, PartySize: 2, SharingConsent: sim.SharedConsent, Completed: true},
 			{ID: 2, From: other.ID, To: station.ID, PartySize: 3, SharingConsent: sim.SharedConsent},
@@ -63,9 +63,11 @@ func TestBoardingStateRoundTrip(t *testing.T) {
 	}
 }
 
+// TestBoardingStateOrdinaryBytes checks that the adapter writes a file
+// whose pods have no riders as the plain JSON of the saved state.
 func TestBoardingStateOrdinaryBytes(t *testing.T) {
 	t.Parallel()
-	file := newTestStateFile(t)
+	file := withoutRiders(newTestStateFile(t))
 	want := marshalSavedJSON(t, file)
 	if got := decompressTestJSON(t, encodeTestState(t, file)); !bytes.Equal(got, want) {
 		t.Fatal("ordinary save encoding changed")
@@ -104,6 +106,32 @@ func TestBoardingStateMalformed(t *testing.T) {
 	}
 }
 
+// TestBoardingStateSavedReferenceRefusals pins the restore refusal of a
+// tuple that decodes but names no source berth or exceeds the passenger
+// distance of the pod.
+func TestBoardingStateSavedReferenceRefusals(t *testing.T) {
+	t.Parallel()
+	file := boardingTestFile(t)
+	raw := decompressTestJSON(t, encodeTestState(t, file))
+	for name, replacement := range map[string]string{
+		"index past the source berths":  `[[5,0],[0,60]]`,
+		"baseline above the pod meters": `[[1,101],[0,60]]`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			changed := bytes.Replace(raw, []byte(`[[1,0],[0,60]]`), []byte(replacement), 1)
+			decoded, err := decodeStateFile(compressTestJSON(t, changed))
+			if err != nil {
+				t.Fatal(err)
+			}
+			const want = "invalid saved source boarding reference or baseline"
+			if err := decoded.resolveBoardings(); err == nil || err.Error() != want {
+				t.Fatalf("error %v, want %q", err, want)
+			}
+		})
+	}
+}
+
 func TestBoardingStateLimits(t *testing.T) {
 	t.Parallel()
 	limits := boardingStateLimits(stateJSONLimits)
@@ -122,25 +150,41 @@ func TestBoardingStateLimits(t *testing.T) {
 
 func TestBoardingStateNativeGuards(t *testing.T) {
 	t.Parallel()
+	const (
+		alignment = "invalid native boarding record alignment"
+		baseline  = "invalid native boarding baseline or consent"
+		source    = "boarding berth is outside the rider source station"
+	)
 	tests := []struct {
-		name   string
-		change func(*sim.SavedPod)
+		name, want string
+		change     func(*sim.SavedPod)
 	}{
-		{"alignment", func(p *sim.SavedPod) { p.Riders = p.Riders[:1] }},
-		{"source ownership", func(p *sim.SavedPod) { p.Boardings[0].BerthID = p.Boardings[1].BerthID }},
-		{"unknown source", func(p *sim.SavedPod) { p.Riders[0].From = "unknown" }},
-		{"baseline above C", func(p *sim.SavedPod) { p.Boardings[1].MetersAtBoarding = 101 }},
-		{"negative baseline", func(p *sim.SavedPod) { p.Boardings[1].MetersAtBoarding = -1 }},
-		{"nonfinite baseline", func(p *sim.SavedPod) { p.Boardings[1].MetersAtBoarding = math.Inf(1) }},
-		{"private", func(p *sim.SavedPod) { p.Riders[1].SharingConsent = sim.PrivateConsent }},
+		{"alignment", alignment, func(p *sim.SavedPod) { p.Riders = p.Riders[:1] }},
+		{"riders without records", alignment, func(p *sim.SavedPod) { p.Boardings = nil }},
+		{"source ownership", source, func(p *sim.SavedPod) { p.Boardings[0].BerthID = p.Boardings[1].BerthID }},
+		{"unknown source", source, func(p *sim.SavedPod) { p.Riders[0].From = "unknown" }},
+		{"baseline above C", baseline, func(p *sim.SavedPod) { p.Boardings[1].MetersAtBoarding = 101 }},
+		{"negative baseline", baseline, func(p *sim.SavedPod) { p.Boardings[1].MetersAtBoarding = -1 }},
+		{"nonfinite baseline", baseline, func(p *sim.SavedPod) { p.Boardings[1].MetersAtBoarding = math.Inf(1) }},
+		{"private", baseline, func(p *sim.SavedPod) { p.Riders[1].SharingConsent = sim.PrivateConsent }},
+		// In one record, the baseline check comes before the source check.
+		{"baseline before source", baseline, func(p *sim.SavedPod) {
+			p.Boardings[0].BerthID = p.Boardings[1].BerthID
+			p.Boardings[0].MetersAtBoarding = 101
+		}},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			file := boardingTestFile(t)
 			tc.change(&file.Simulation.Pods[0])
-			if _, err := new(stateEncoder).encode(file); err == nil {
+			_, err := new(stateEncoder).encode(file)
+			if err == nil {
 				t.Fatal("invalid native records reached save publication")
+			}
+			want := `encode session state: json: cannot marshal from Go sim.SavedPod within "/simulation/pods/0": ` + tc.want
+			if err.Error() != want {
+				t.Fatalf("error %q, want %q", err, want)
 			}
 		})
 	}
@@ -248,14 +292,17 @@ func TestBoardingStateConsent(t *testing.T) {
 		completed bool
 		consent   sim.SharingConsent
 		valid     bool
+		// savedErr is the refusal of the saved file, from decode or from
+		// resolveBoardings.
+		savedErr string
 	}{
-		{"active private", false, sim.PrivateConsent, false},
-		{"active shared", false, sim.SharedConsent, true},
-		{"completed private", true, sim.PrivateConsent, true},
-		{"completed shared", true, sim.SharedConsent, true},
-		{"completed unknown", true, sim.SharingConsent("legacy-unknown"), false},
-		{"active unknown", false, sim.SharingConsent("legacy-unknown"), false},
-		{"completed missing", true, "", false},
+		{"active private", false, sim.PrivateConsent, false, "invalid saved source boarding reference or baseline"},
+		{"active shared", false, sim.SharedConsent, true, ""},
+		{"completed private", true, sim.PrivateConsent, true, ""},
+		{"completed shared", true, sim.SharedConsent, true, ""},
+		{"completed unknown", true, sim.SharingConsent("legacy-unknown"), false, "invalid_state: invalid saved sharing consent"},
+		{"active unknown", false, sim.SharingConsent("legacy-unknown"), false, "invalid_state: invalid saved sharing consent"},
+		{"completed missing", true, "", false, "invalid_state: saved order field sharingConsent needs nonempty text"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -266,6 +313,10 @@ func TestBoardingStateConsent(t *testing.T) {
 			data, encodeErr := new(stateEncoder).encode(file)
 			if (encodeErr == nil) != tc.valid {
 				t.Fatalf("native save consent: valid=%t error=%v", tc.valid, encodeErr)
+			}
+			const native = `encode session state: json: cannot marshal from Go sim.SavedPod within "/simulation/pods/0": invalid native boarding baseline or consent`
+			if !tc.valid && encodeErr.Error() != native {
+				t.Fatalf("native save consent error %q, want %q", encodeErr, native)
 			}
 			if tc.valid {
 				decoded, decodeErr := decodeStateFile(data)
@@ -289,14 +340,11 @@ func TestBoardingStateConsent(t *testing.T) {
 			}
 			raw = bytes.Replace(raw, []byte(`"sharingConsent":"shared"`), append([]byte(`"sharingConsent":`), consent...), 1)
 			decoded, err := decodeStateFile(compressTestJSON(t, raw))
-			if err != nil {
-				if tc.valid {
-					t.Fatal(err)
-				}
-				return
+			if err == nil {
+				err = decoded.resolveBoardings()
 			}
-			if err := decoded.resolveBoardings(); (err == nil) != tc.valid {
-				t.Fatalf("saved consent: valid=%t error=%v", tc.valid, err)
+			if tc.valid && err != nil || !tc.valid && (err == nil || err.Error() != tc.savedErr) {
+				t.Fatalf("saved consent error %v, want %q", err, tc.savedErr)
 			}
 			if tc.valid && (decoded.Simulation.Pods[0].Riders[0] != *rider || !slices.Equal(decoded.Simulation.Pods[0].Boardings, file.Simulation.Pods[0].Boardings)) {
 				t.Fatal("decoded consent or saved source records changed")

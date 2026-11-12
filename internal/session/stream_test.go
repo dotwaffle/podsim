@@ -523,7 +523,7 @@ func TestStreamFieldOwnership(t *testing.T) {
 			"contract identity": {"OrderContract", "OperationsOff"}, "global": {"Submitted", "Tick", "Paused", "Completed", "Demo", "DemoError"}, "incident": {"Interrupted", "InterruptedPassengers"}, "faults": {"Faults"}, "emergencies": {"Emergencies"}, "vehicles": {"Vehicles"}, "berths": {"Berths"}, "pending": {"Pending"},
 			"statistics": {"Wait", "Journey", "PassengerDistanceMeters", "RiderDistanceMeters", "DirectDistanceMeters", "MaxDetourRatio", "SharedParties", "SharedRidePartyLimit", "EmptyDistanceMeters", "RebalanceMoves"},
 		}},
-		{reflect.TypeFor[VehicleFrame](), map[string][]string{"pod": {"Pod"}, "riders": {"Riders"}, "boardings": {"Boardings"}, "stops": {"Stops"}, "presentation replaces route": {"RouteLaneIDs"}, "metadata": {"RiddenMeters", "RelocatingTo", "Rebalancing", "PlatoonID", "PlatoonIndex", "Withdrawn", "Operational"}}},
+		{reflect.TypeFor[VehicleFrame](), map[string][]string{"pod": {"Pod"}, "riders": {"Riders"}, "boardings": {"Boardings"}, "stops": {"Stops"}, "presentation replaces route": {"RouteLaneIDs"}, "metadata": {"RelocatingTo", "Rebalancing", "PlatoonID", "PlatoonIndex", "Withdrawn", "Operational"}}},
 	}
 	for _, check := range checks {
 		seen := map[string]string{}

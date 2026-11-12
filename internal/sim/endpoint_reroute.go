@@ -118,7 +118,7 @@ func (s *Simulation) endpointKeepsDetours(v *vehicle, route []Lane, berthEnd boo
 	if berthEnd {
 		return s.rerouteKeepsDetours(v, route, v.destination)
 	}
-	if (!s.cappedDetours() && len(v.Boardings) == 0) || v.RidersAboard() == 0 {
+	if !s.cappedDetours() || v.RidersAboard() == 0 {
 		return true
 	}
 	station, _ := s.station(v.destinationStation)

@@ -5,19 +5,23 @@ import (
 	"testing"
 )
 
-func TestPlannedRiderDetourLegacyEquivalence(t *testing.T) {
+// TestPlannedRiderDetourMaximum pins the largest ratio of the riders of a
+// pod that boarded at one berth. The pins are the values of the removed
+// all-stop plan, which took each stop as the destination of a rider.
+func TestPlannedRiderDetourMaximum(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {
 		name, origin string
 		network      Network
 		stops        []string
 		berthID      string
+		want         float64
 	}{
-		{"ordinary", "harbor-berth", Example(), []string{"garden", "market"}, ""},
-		{"multiple berths", "harbor-berth", ladderNetwork(), []string{"garden", "market"}, ""},
-		{"chosen berth", "harbor-berth", ladderNetwork(), []string{"market"}, "market-2"},
-		{"bank entry", "origin-berth", BankExample(), []string{"hub", "origin"}, ""},
-		{"chosen bank berth", "origin-berth", BankExample(), []string{"hub", "origin"}, "bank-b-1"},
+		{"ordinary", "harbor-berth", Example(), []string{"garden", "market"}, "", 1.1986218556888293},
+		{"multiple berths", "harbor-berth", ladderNetwork(), []string{"garden", "market"}, "", 1.1978392041556665},
+		{"chosen berth", "harbor-berth", ladderNetwork(), []string{"market"}, "market-2", 1},
+		{"bank entry", "origin-berth", BankExample(), []string{"hub", "origin"}, "", 1.0393082896036741},
+		{"chosen bank berth", "origin-berth", BankExample(), []string{"hub", "origin"}, "bank-b-1", 1.0393082896036741},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -41,9 +45,8 @@ func TestPlannedRiderDetourLegacyEquivalence(t *testing.T) {
 					rider := riderDetour{origin: test.origin, destination: destination}
 					largest = max(largest, s.plannedRiderDetour(rider, test.stops, start))
 				}
-				legacy := s.plannedDetour(test.origin, test.stops, start)
-				if !finite(legacy) || math.Abs(largest-legacy) > 1e-12 {
-					t.Fatalf("class %s: rider maximum %g, legacy %g", class, largest, legacy)
+				if math.Abs(largest-test.want) > 1e-12 {
+					t.Fatalf("class %s: rider maximum %.17g, want %.17g", class, largest, test.want)
 				}
 			}
 		})
@@ -108,9 +111,9 @@ func TestPlannedRiderDetourChecksOnlyDestination(t *testing.T) {
 	start := detourStart{ridden: s.lanesMeters(route) + 1000}
 	rider := riderDetour{origin: "harbor-berth", destination: "market"}
 	got := s.plannedRiderDetour(rider, []string{"garden", "market"}, start)
-	legacy := s.plannedDetour(rider.origin, []string{"garden", "market"}, start)
-	if !finite(got) || got <= 1 || got >= legacy {
-		t.Fatalf("destination ratio %g, all-stop ratio %g", got, legacy)
+	earlier := s.plannedRiderDetour(riderDetour{origin: rider.origin, destination: "garden"}, []string{"garden", "market"}, start)
+	if !finite(got) || got <= 1 || got >= earlier {
+		t.Fatalf("destination ratio %g, ratio at the earlier stop %g", got, earlier)
 	}
 }
 

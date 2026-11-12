@@ -2,7 +2,6 @@ package sim
 
 import (
 	"math"
-	"strings"
 	"testing"
 )
 
@@ -75,6 +74,7 @@ func newTwoStopRide(t *testing.T) *Simulation {
 	v.Riders = append(v.Riders, Request{
 		SharingConsent: SharedConsent, Service: OnDemandService, ID: s.requestID, From: "harbor", To: "market", PartySize: 1, PodID: "01", RequestedTick: s.tick, BoardedTick: s.tick,
 	})
+	v.Boardings = append(v.Boardings, RiderBoarding{BerthID: v.origin.ID})
 	v.Stops = []string{"garden", "market"}
 	return s
 }
@@ -200,9 +200,10 @@ func TestIntermediateStopSurvivesRestore(t *testing.T) {
 	}
 }
 
-// TestRestoreRejectsUnloadingPodAwayFromDestination checks that both
-// restore tiers reject a pod that unloads at the intermediate stop when its
-// saved destination is not its berth. The next leg of the pod starts at the
+// TestRestoreRejectsUnloadingPodAwayFromDestination checks that the restore
+// rejects a pod that unloads at the intermediate stop when its saved
+// destination is not its berth. The pod has riders, so the pod check of the
+// boarding records rejects it before either tier. The next leg of the pod starts at the
 // destination berth, so without the check the pod could not continue, and
 // the party for market would never arrive.
 func TestRestoreRejectsUnloadingPodAwayFromDestination(t *testing.T) {
@@ -233,10 +234,9 @@ func TestRestoreRejectsUnloadingPodAwayFromDestination(t *testing.T) {
 			state := roundTripState(t, s.ExportState())
 			test.edit(&state.Pods[0])
 			restored, result, err := RestoreState(RestoreStateInput{Network: Example(), Fleet: fleet, State: state})
-			const want = "pod 01: the unloading pod is not at its destination"
-			if err == nil || restored != nil || result.PhysicalError == nil || !strings.Contains(result.PhysicalError.Error(), want) ||
-				strings.Count(err.Error(), want) != 2 {
-				t.Fatalf("restore: %v, %+v, want both tiers to fail with %q", err, result, want)
+			const want = "pod 01 boarding records: the unloading pod is not at its destination"
+			if err == nil || restored != nil || result.Tier != "" || result.PhysicalError != nil || err.Error() != want {
+				t.Fatalf("restore: %v, %+v, want the refusal %q before the tiers", err, result, want)
 			}
 		})
 	}

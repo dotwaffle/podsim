@@ -154,7 +154,10 @@ func TestDropOffsDetourCap(t *testing.T) {
 			if !ok {
 				t.Fatal("no route to garden")
 			}
-			planned := s.plannedDetour("harbor-berth", []string{"garden", "market"}, detourStart{ridden: ridden})
+			planned := 1.0
+			for _, stop := range []string{"garden", "market"} {
+				planned = max(planned, s.plannedRiderDetour(riderDetour{origin: "harbor-berth", destination: stop}, []string{"garden", "market"}, detourStart{ridden: ridden}))
+			}
 			if over := planned > maxSharedRideDetour; over != (len(test.wantStops) == 1) {
 				t.Fatalf("planned detour ratio %.6f", planned)
 			}
@@ -346,16 +349,21 @@ func TestDropOffsRestoreBoardsWithinCap(t *testing.T) {
 	stops := []string{"garden", "market"}
 	for node, over := range map[string]bool{"harbor-berth": false, "harbor-berth-2": true} {
 		ridden, ok := f.s.routeMeters(node, "garden")
-		if planned := f.s.plannedDetour(node, stops, detourStart{ridden: ridden}); !ok || (planned > maxSharedRideDetour) != over {
+		planned := 0.0
+		for _, stop := range stops {
+			planned = max(planned, f.s.plannedRiderDetour(riderDetour{origin: node, destination: stop}, stops, detourStart{ridden: ridden}))
+		}
+		if !ok || (planned > maxSharedRideDetour) != over {
 			t.Fatalf("planned detour ratio from %s %.6f", node, planned)
 		}
 	}
 	pod := f.traveling(t, travelInput{id: "01", from: "harbor-1", to: "garden-1", lane: "approach-branch", distance: 20})
-	pod.Occupied, pod.Stops, pod.JourneyOrigin, pod.LaneID = true, stops, "harbor-1", "market-in"
+	pod.Occupied, pod.Stops, pod.LaneID = true, stops, "market-in"
 	for index, stop := range stops {
 		pod.Riders = append(pod.Riders, SavedRequest{
 			SharingConsent: SharedConsent, Service: OnDemandService, ID: index + 1, From: "harbor", To: stop, PartySize: 1, PodID: "01", RequestedTick: 10, BoardedTick: 20,
 		})
+		pod.Boardings = append(pod.Boardings, RiderBoarding{BerthID: "harbor-1"})
 	}
 	for _, test := range []struct {
 		name       string
@@ -393,7 +401,13 @@ func (s *Simulation) stationsOnRoute(from, stationID string) []string {
 	return s.stationsOnRouteForClass(from, stationID, LegacyClass)
 }
 
-// routeMeters is routeMetersForClass for LegacyClass.
+// routeMeters returns the length of the free-flow LegacyClass route from a
+// node to the entry of a station, on the static graph while the blocked
+// set is not empty. It reports false when the route does not exist.
 func (s *Simulation) routeMeters(from, stationID string) (float64, bool) {
-	return s.routeMetersForClass(from, stationID, LegacyClass)
+	route, err := s.stationApproachRouteOn(s.blockedActive(), from, stationID, LegacyClass, nil)
+	if err != nil {
+		return 0, false
+	}
+	return s.lanesMeters(route), true
 }

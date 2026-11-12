@@ -24,13 +24,14 @@ func withBankMetadata(config project.Config) project.Config {
 	return config
 }
 
-// Versions 2 through 10 came before version 11. The decoder rejects them by
+// Versions 2 through 11 came before version 12. The decoder rejects them by
 // version before it reads the other members, also with a valid project.
-// A saved project with an earlier project version is also refused.
+// A saved project with an earlier project version is also refused. The
+// test writes the plain JSON of the pods, so the file has no riders.
 func TestSavedBankVersionPairs(t *testing.T) {
 	t.Parallel()
-	base := newTestStateFile(t)
-	for _, savedVersion := range []int{2, 5, 6, 8, 9, 10, 11} {
+	base := withoutRiders(newTestStateFile(t))
+	for _, savedVersion := range []int{2, 5, 6, 8, 9, 10, 11, 12} {
 		for _, projectCase := range []string{"plain", "banks", "project3"} {
 			t.Run(fmt.Sprintf("saved%d/%s", savedVersion, projectCase), func(t *testing.T) {
 				t.Parallel()
@@ -56,7 +57,7 @@ func TestSavedBankVersionPairs(t *testing.T) {
 				if !valid && savedVersion == stateVersion && stateReason(err) != reasonInvalidState {
 					t.Fatalf("saved project version reason %s: %v", stateReason(err), err)
 				}
-				if !valid && savedVersion != stateVersion && (stateReason(err) != reasonUnsupportedVersion || !strings.Contains(err.Error(), fmt.Sprintf("version %d is older than version 11", savedVersion))) {
+				if !valid && savedVersion != stateVersion && (stateReason(err) != reasonUnsupportedVersion || !strings.Contains(err.Error(), fmt.Sprintf("version %d is older than version 12", savedVersion))) {
 					t.Fatalf("reason %s: %v", stateReason(err), err)
 				}
 			})

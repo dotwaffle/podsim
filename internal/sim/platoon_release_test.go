@@ -165,9 +165,10 @@ func TestPlatoonRestoreOldRuleLink(t *testing.T) {
 		state.Boarded++
 		state.Pods = append(state.Pods, SavedPod{
 			ID: id, Activity: "traveling", Occupied: true, Origin: fleet[index].BerthID, DestinationStation: "dest",
-			Riders: []SavedRequest{{SharingConsent: SharedConsent, Service: OnDemandService, ID: state.RequestID, From: "origin", To: "dest", PartySize: 1, PodID: id}},
-			Stops:  []string{"dest"},
-			Route:  route, RouteIndex: 1, LaneID: "l1", LaneDistance: distance, Distance: 1000 + distance,
+			Riders:    []SavedRequest{{SharingConsent: SharedConsent, Service: OnDemandService, ID: state.RequestID, From: "origin", To: "dest", PartySize: 1, PodID: id}},
+			Boardings: []RiderBoarding{{BerthID: fleet[index].BerthID}},
+			Stops:     []string{"dest"},
+			Route:     route, RouteIndex: 1, LaneID: "l1", LaneDistance: distance, Distance: 1000 + distance,
 		})
 	}
 	state.Pods[1].Platoon = savedRunLink(network, ids, ids, "p01", 2)

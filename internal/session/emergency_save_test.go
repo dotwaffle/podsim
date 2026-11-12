@@ -435,9 +435,11 @@ func TestEmergencySaveRejections(t *testing.T) {
 			state.Emergencies.Records[0].Order = state.Pods[pod].Riders[other].ID
 		}, "E3"},
 		"interrupt of two riders (E3)": {func(state *sim.SavedState) { state.Pods[pod].Interrupt = 3 }, "E3"},
-		"recovery with an active rider (E8)": {func(state *sim.SavedState) {
+		// The pod check of the boarding records runs before E8, so a
+		// traveling recovery with riders gets its refusal.
+		"recovery with an active rider": {func(state *sim.SavedState) {
 			state.Pods[pod].Purpose, state.Pods[pod].Interrupt, state.Pods[pod].Owner, state.Pods[pod].Withdrawn = 3, 0, 1, 3
-		}, "E8"},
+		}, "pod 01 boarding records: operational purpose 3 does not agree with activity traveling"},
 		"recovery with the emergency owner before E8": {func(state *sim.SavedState) {
 			state.Pods[pod].Purpose, state.Pods[pod].Interrupt = 3, 0
 		}, "saved pod 01 has an empty recovery with the emergency owner"},

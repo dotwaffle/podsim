@@ -169,7 +169,7 @@ This server build has only the `file://` driver.
 Without `-state`, the server does not save or read a session state.
 The saved state holds the last command sequence of each client, but not the save points or the command receipts.
 A restart clears those.
-Clients use stream version 9, including motion-only vehicle deltas, as described in [Client protocol](protocol.md#shared-state-stream).
+Clients use stream version 10, including motion-only vehicle deltas, as described in [Client protocol](protocol.md#shared-state-stream).
 
 A `file://` URL needs an empty host and an absolute path, for example `file:///var/lib/podsim`.
 `file://var/lib/podsim` is not valid, because `var` is then the host.
@@ -247,6 +247,10 @@ At startup, the server reads `session.json.gz` and restores the session with one
 Before each tier, the server checks each saved pod against the rule of its phase.
 The rule tells which fields the phase needs and which fields it forbids.
 For example, only a boarding, traveling, unloading, or continuing pod can have a party aboard, and its stops must be the stations ahead where its parties leave the pod.
+Each party in a pod needs one boarding record, with the berth where the party boarded the pod.
+The server checks the boarding records, the phase, and the berth of each pod with a party before either tier.
+When such a pod is at a berth, its class must be able to use the berth.
+A pod with a party aboard can be at a berth of a parking station only when it holds at a refuge there, or when it continues from there.
 Each order ID must be in one place only: in the queue, or with one pod.
 A file that fails these checks gets `invalid_state`.
 A queued order that is not valid does not stop the restore.
@@ -284,7 +288,7 @@ It reports them as unaccounted orders at each restore, together with the orders 
 - `logical`: The server uses this tier with reason `physical_failed` when the `physical` tier fails.
   It also uses it with reason `restore_loop`, as described below.
   The pods start again at their initial berths.
-  Parties that were unloading at their stop count as completed, if the pod is at a berth of a passenger station in the network.
+  Parties that were unloading at their stop count as completed.
   The party of an emergency unload ends interrupted.
   Each other party in a pod goes back to the queue as one order.
   So the server refuses a file whose waiting orders and outstanding parties together exceed the queue bound of its contract: 8,200, or 17,000 with Express.
@@ -296,7 +300,7 @@ It reports them as unaccounted orders at each restore, together with the orders 
 - `empty`: The server does not use the saved state and starts a new session.
   Except after a read failure, it moves `session.json.gz` to a rejected file.
 
-Each session writes saved-state version 11, and this server accepts only version 11.
+Each session writes saved-state version 12, and this server accepts only version 12.
 The root `orderContract` marker `express-v1` selects the Express order bounds.
 The project and the simulation must have the same marker as the root.
 The file can have these incident members, and it omits each one at 0 or when it is absent:
@@ -362,26 +366,28 @@ The order text of each queued order and each rider is canonical base64 text, for
 The file has no `textEncoding` member.
 Each saved version stores a version 1 project.
 A saved project of version 2 through 5 gets reason `invalid_state`, as other bad saves do.
-An intact file of version 1 through 10, or of version 12 or later, gets reason `unsupported_version`.
+An intact file of version 1 through 11, or of version 13 or later, gets reason `unsupported_version`.
 The server moves it aside and starts a new session.
 It does not migrate the file.
 A damaged or invalid file gets `invalid_state`, and the server moves it aside and starts a new session.
 Examples are a gzip error, a JSON syntax error, a file over a scan limit, a header member of the wrong type, a missing, null, zero, or negative version, a value that the decoder refuses, and a restore that fails.
 Until the first release, the removal of a member keeps the version.
-Thus a version 11 file with a member of the removed physical coupling feature, for example `couplingContract` or `simulation.couplingGroups`, has an unknown member and gets `invalid_state`.
-Likewise, a version 11 file with a member of the removed station buffer or compact queue feature has an unknown member and gets `invalid_state`.
-A version 11 file with `incidentContract`, `faultContract`, or `emergencyContract` also has an unknown member and gets `invalid_state`.
+Thus a version 12 file with a member of the removed physical coupling feature, for example `couplingContract` or `simulation.couplingGroups`, has an unknown member and gets `invalid_state`.
+Likewise, a version 12 file with a member of the removed station buffer or compact queue feature has an unknown member and gets `invalid_state`.
+A version 12 file with `incidentContract`, `faultContract`, or `emergencyContract` also has an unknown member and gets `invalid_state`.
 Examples are `stationBuffered` or `compactQueue` on a pod, and `stationBuffers` or `stationQueueSpacing` in the embedded project.
 A project file with `stationBuffers` or `stationQueueSpacing` also fails as an unknown member.
 Until the first release, a narrower set of accepted values also keeps the version.
-Each integer of a version 11 file must be from -9007199254740991 to 9007199254740991, which is 2^53-1, as in the [protocol](protocol.md#shared-state-stream).
+By maintainer decision, version 12 is an exception to both rules, because it removes `journeyOrigin` of a pod and needs a boarding record for each party in a pod.
+Thus a version 11 file gets `unsupported_version`, and a version 12 file with `journeyOrigin` on a pod has an unknown member and gets `invalid_state`.
+Each integer of a version 12 file must be from -9007199254740991 to 9007199254740991, which is 2^53-1, as in the [protocol](protocol.md#shared-state-stream).
 The demand `seed` is the only exception.
 The scan that checks the integers comes after the version check, so an intact file of another version still gets `unsupported_version`.
 Within the scan, the depth and the size checks of a value come before its integer check.
 A file with a larger integer gets `invalid_state` with the error `JSON integer is out of range`.
 A saved revision, project revision, or generation of 2^53-1 also gets `invalid_state`, because the restore adds 1 to it.
 After that check, a saved last save point of 2^53-1 gets `invalid_state` with the error `last save point ... is at the largest value`, because the next save point adds 1 to it.
-Each ID of a version 11 file has only the characters A-Z, a-z, 0-9, `.`, `+`, and `-`.
+Each ID of a version 12 file has only the characters A-Z, a-z, 0-9, `.`, `+`, and `-`.
 Each name and each dispatch reason is UTF-8 text without a control character, which is a C0 character, DEL, or a C1 character.
 After the length check of the epoch, an epoch with another character gets `invalid_state` with the error `epoch ... has a character other than A-Z, a-z, 0-9, '.', '+' or '-'`.
 After the length check of a client ID, a client ID with another character gets the error `client ... has a character other than A-Z, a-z, 0-9, '.', '+' or '-'`.
@@ -425,7 +431,7 @@ A pod that the tier must move takes a slot only when no pod of that lane moves, 
 Its parked tick is then the saved tick.
 The file does not keep the 1 second stop at a change of the reverse flag.
 Thus a pod that was in this stop stops for the full second again after a restore.
-An older server rejects version 11 with `unsupported_version` and moves the file aside.
+An older server rejects version 12 with `unsupported_version` and moves the file aside.
 Keep a copy before a downgrade.
 
 Portable project version 1 accepts an optional `pickupReassignment` Boolean setting.

@@ -244,7 +244,7 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 	reflect.TypeFor[vehicle](): {
 		"Vehicle": persistSave, "phaseTicks": persistSave, "blocks": persistDerive, "blockStarts": persistDerive,
 		"routeReleases": persistDerive, "nextRelease": persistReset, "blockIndex": persistDerive, "reservedThrough": persistDerive,
-		"originReleased": persistDerive, "distance": persistSave, "riddenBase": persistSave, "journeyOrigin": persistSave, "pending": persistDerive,
+		"originReleased": persistDerive, "distance": persistSave, "riddenBase": persistSave, "pending": persistDerive,
 		"waitSince":      persistSave,
 		"rebalanceAfter": persistSave, "origin": persistSave, "destination": persistSave,
 		"destinationStation": persistSave, "released": persistSave, "terminal": persistReset,
@@ -473,7 +473,7 @@ func activeCloneSimulation(t *testing.T) *Simulation {
 	for index := range s.vehicles {
 		v := &s.vehicles[index]
 		for range v.Riders {
-			v.Boardings = append(v.Boardings, RiderBoarding{BerthID: v.journeyOrigin.ID})
+			v.Boardings = append(v.Boardings, RiderBoarding{BerthID: v.origin.ID})
 		}
 	}
 	// A snapshot fills the route window of each pod that has a route.

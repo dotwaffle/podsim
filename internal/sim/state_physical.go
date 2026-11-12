@@ -370,16 +370,8 @@ func (r *physicalRestore) decodePod(index int, saved SavedPod) error {
 	}
 	origin, originOK := r.berths[saved.Origin]
 	destination, destinationOK := r.berths[saved.Destination]
-	v.origin, v.destination, v.journeyOrigin = origin.berth, destination.berth, origin.berth
-	journeyOrigin, journeyOriginOK := r.berths[saved.JourneyOrigin]
-	if journeyOriginOK {
-		v.journeyOrigin = journeyOrigin.berth
-	}
-	if boarded := v.boardingStation(); len(v.Boardings) == 0 && boarded != "" && (v.journeyOrigin.ID == "" || r.berths[v.journeyOrigin.ID].station != boarded) {
-		return errors.New("the journey origin is not at the station where the riders boarded")
-	}
+	v.origin, v.destination = origin.berth, destination.berth
 	valid := (originOK || saved.Origin == "") && (destinationOK || saved.Destination == "") &&
-		(journeyOriginOK || saved.JourneyOrigin == "") &&
 		saved.WaitSince >= 0 && saved.WaitSince <= r.state.Tick
 	if activity == Traveling {
 		if !valid || saved.PhaseTicks != 0 || !finite(saved.LaneDistance) || !finite(saved.Distance) || saved.Distance < 0 {
@@ -1091,9 +1083,10 @@ func (r *physicalRestore) separate() error {
 // placeDemoted moves a demoted pod to a free berth. A berth that the pod
 // holds counts as free. A demoted pod loses its operational purpose. The
 // marked riders of an emergency unload end interrupted, and its other
-// riders return to the queue: they never board again. Recorded passengers return to the request queue.
-// Other passengers board again at an origin berth with a route as in board.
-// When no such berth is free, when
+// riders return to the queue: they never board again. Passengers who all
+// boarded at one berth before the pod moved (ridersAtOrigin) board again at
+// an origin berth with a route as in board. Other passengers return to the
+// request queue. When no such berth is free, when
 // the route does not fit in the block budget, or when the stops from that
 // berth take a rider over maxSharedRideDetour, the request goes back to the
 // queue with its party count and the pod waits empty. An empty pod goes to
@@ -1112,7 +1105,7 @@ func (r *physicalRestore) placeDemoted(index int) error {
 	}
 	if v.RidersAboard() > 0 {
 		from, _ := r.s.station(v.boardingStation())
-		if berth, ok := r.freeBerth(v, from.Berths); len(v.Boardings) == 0 && ok && r.boardAgain(v, berth) {
+		if berth, ok := r.freeBerth(v, from.Berths); v.ridersAtOrigin() && ok && r.boardAgain(v, berth) {
 			return nil
 		}
 		r.requeue(v)
@@ -1161,19 +1154,47 @@ func (r *physicalRestore) freeBerth(v *vehicle, candidates []Berth) (Berth, bool
 	return Berth{}, false
 }
 
+// ridersAtOrigin reports whether each rider of pod v boarded at one berth
+// before the pod moved, so that the riders can board again at their origin.
+// A pod that boards a party in an onboard pickup does not board again.
+func (v *vehicle) ridersAtOrigin() bool {
+	if len(v.Boardings) != len(v.Riders) || v.Pod.Activity == Boarding && v.Pod.Occupied {
+		return false
+	}
+	for _, record := range v.Boardings {
+		if record.BerthID != v.Boardings[0].BerthID || record.MetersAtBoarding != 0 {
+			return false
+		}
+	}
+	return true
+}
+
 // boardAgain puts a pod with passengers at a berth of their origin, ready to
 // depart. It returns false when the route does not exist or does not fit in
-// the block budget. The berth becomes the journey origin of the riders, so
+// the block budget. The berth becomes the boarding berth of the riders, so
 // their direct distances change. Thus, when cappedDetours is true, it also
 // returns false when the plan of the stops from the berth takes a rider
-// over maxSharedRideDetour.
+// over maxSharedRideDetour. The completed riders and their records leave
+// the pod.
 func (r *physicalRestore) boardAgain(v *vehicle, berth Berth) bool {
 	route, err := r.s.stationApproachRouteForClass(berth.Node, v.Stops[0], v.Pod.Class)
 	if err != nil {
 		return false
 	}
+	riders := make([]Request, 0, len(v.Riders))
+	boardings := make([]RiderBoarding, 0, len(v.Riders))
+	for _, rider := range v.Riders {
+		if !rider.Completed {
+			rider.PodID, rider.DispatchReason = v.Pod.ID, ""
+			riders = append(riders, rider)
+			boardings = append(boardings, RiderBoarding{BerthID: berth.ID})
+		}
+	}
 	station, _ := r.s.station(v.Stops[0])
-	if r.s.cappedDetours() && r.s.plannedDetour(berth.Node, v.Stops, detourStart{class: v.Pod.Class, ridden: r.s.lanesMeters(route), entry: station.routeEntry(route, Berth{})}) > maxSharedRideDetour {
+	candidate := *v
+	candidate.Riders, candidate.Boardings = riders, boardings
+	start := detourStart{class: v.Pod.Class, from: berth.Node, ridden: r.s.lanesMeters(route), entry: station.routeEntry(route, Berth{})}
+	if r.s.cappedDetours() && !r.s.keepsRiderDetours(&candidate, v.Stops, start) {
 		return false
 	}
 	cost := 0
@@ -1186,18 +1207,10 @@ func (r *physicalRestore) boardAgain(v *vehicle, berth Berth) bool {
 	}
 	r.cost += cost
 	r.moveTo(v, berth)
-	riders := make([]Request, 0, len(v.Riders))
-	for _, rider := range v.Riders {
-		if !rider.Completed {
-			rider.PodID, rider.DispatchReason = v.Pod.ID, ""
-			riders = append(riders, rider)
-		}
-	}
-	v.Riders, v.riddenBase = riders, 0
+	v.Riders, v.Boardings, v.riddenBase = riders, boardings, 0
 	v.Pod.Activity, v.Pod.StationID = Boarding, r.berths[berth.ID].station
 	v.RelocatingTo, v.Rebalancing, v.released = "", false, false
 	v.origin, v.destination, v.destinationStation = berth, Berth{}, v.Stops[0]
-	v.journeyOrigin = berth
 	r.s.setVehicleRoute(v, route)
 	return true
 }
@@ -1224,9 +1237,7 @@ func (s *Simulation) interruptMarkedRiders(v *vehicle) []int {
 			continue
 		}
 		riders = append(riders, rider)
-		if len(v.Boardings) > 0 {
-			boardings = append(boardings, v.Boardings[index])
-		}
+		boardings = append(boardings, v.Boardings[index])
 	}
 	v.Riders, v.Boardings = riders, boardings
 	return interrupted

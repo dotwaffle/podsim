@@ -189,7 +189,6 @@ var acceptRefusals = []struct {
 	{"motion negative lane distance", acceptMotion(`{"position":{"x":0,"y":0},"laneDistance":-1,"speed":0}`), true},
 	{"motion x above the range", acceptMotion(`{"position":{"x":1e999,"y":0},"laneDistance":0,"speed":0}`), true},
 	{"motion x below the range", acceptMotion(`{"position":{"x":-1e999,"y":0},"laneDistance":0,"speed":0}`), true},
-	{"distance above the range", acceptFullVehicle(`"riddenMeters":1e999`), true},
 
 	{"full boardings null", acceptFullVehicle(`"boardings":null`), true},
 	{"full boardings empty", acceptFullVehicle(`"boardings":[]`), true},
@@ -211,11 +210,6 @@ var acceptRefusals = []struct {
 	{"record meters null", acceptFullVehicle(`"boardings":[{"berthID":"b","metersAtBoarding":null}]`), true},
 	{"record meters negative", acceptFullVehicle(`"boardings":[{"berthID":"b","metersAtBoarding":-1}]`), true},
 	{"record meters text", acceptFullVehicle(`"boardings":[{"berthID":"b","metersAtBoarding":"0"}]`), true},
-	{"distance null", acceptFullVehicle(`"riddenMeters":null`), true},
-	{"distance negative", acceptFullVehicle(`"riddenMeters":-1`), true},
-	{"distance text", acceptFullVehicle(`"riddenMeters":"1"`), true},
-	{"metadata distance negative", acceptDeltaVehicle(`"metadata":{"value":{"riddenMeters":-1}}`), true},
-	{"metadata distance null", acceptDeltaVehicle(`"metadata":{"value":{"riddenMeters":null}}`), true},
 
 	{"version text", `{"projectVersion":"` + strconv.Itoa(project.CurrentVersion) + `"}`, true},
 	{"version null", `{"projectVersion":null}`, true},
@@ -334,10 +328,10 @@ func TestStreamAcceptDocuments(t *testing.T) {
 		{"Express riders", acceptMarked(`"delta":{"vehicles":[{"riders":{"value":[` + jsonRepeat(`{}`, 20) + `]}}]}`)},
 		{"motion", acceptMotion(acceptMotionOK)},
 		{"motion in another order", acceptMotion(`{"speed":0,"laneDistance":0,"position":{"y":-0,"x":1e300}}`)},
-		{"full boardings", acceptFullVehicle(`"boardings":[` + jsonRepeat(acceptRecordOK, 8) + `],"riddenMeters":1.5`)},
+		{"full boardings", acceptFullVehicle(`"boardings":[` + jsonRepeat(acceptRecordOK, 8) + `]`)},
 		{"Express boardings", acceptMarked(`"full":{"state":{"simulation":{"vehicles":[{"boardings":[` + jsonRepeat(acceptRecordOK, 20) + `]}]}}}`)},
 		{"delta boardings empty", acceptDeltaVehicle(`"boardings":{"value":[]}`)},
-		{"delta boardings", acceptDeltaVehicle(`"boardings":{"value":[` + acceptRecordOK + `]},"metadata":{"value":{"riddenMeters":0}}`)},
+		{"delta boardings", acceptDeltaVehicle(`"boardings":{"value":[` + acceptRecordOK + `]}`)},
 		{"longest berth", acceptFullVehicle(`"boardings":[{"berthID":"` + strings.Repeat("b", 64) + `","metersAtBoarding":0}]`)},
 		{"service members", `{"projectVersion":` + strconv.Itoa(project.CurrentVersion) + `,"class":"compact","sharingConsent":"shared","service":"express","serviceID":"s"}`},
 		{"other consent and service", `{"sharingConsent":"private","service":"on-demand"}`},
@@ -521,7 +515,7 @@ var acceptMutations = func() []acceptMutation {
 		"orderContract", "textEncoding", "from", "to", "podID", "dispatchReason", "serviceID", "legFrom",
 		"projectVersion", "class", "sharingConsent", "service", "incident", "interrupted", "interruptedPassengers",
 		"withdrawn", "operational", "faults", "emergencies", "riders", "pending", "waiting", "request", "boardings",
-		"riddenMeters", "motion", "value", "vehicles", "metadata", "seed", "berthID", "metersAtBoarding", "*", "0",
+		"motion", "value", "vehicles", "metadata", "seed", "berthID", "metersAtBoarding", "*", "0",
 		"bOaRdInGs", "other",
 	}
 	strs, nums := jsontext.KindString, jsontext.KindNumber
@@ -653,7 +647,6 @@ func streamAcceptCorpus(t *testing.T) []acceptDocument {
 	boardingNext.State.Revision++
 	boardingNext.State.Simulation.Vehicles[0].Boardings = nil
 	boardingNext.State.Simulation.Vehicles[0].Riders = nil
-	boardingNext.State.Simulation.Vehicles[0].RiddenMeters = 0
 	full, delta = acceptEnvelopeJSON(t, boardingNext, boarding)
 	add("boarding", full, delta)
 	_, expressBase, expressNext := expressRequalChain(t)
@@ -695,7 +688,7 @@ func TestStreamAcceptDifferential(t *testing.T) {
 	for _, document := range corpus {
 		all = append(all, document.raw...)
 	}
-	for _, name := range []string{"motion", "boardings", "riddenMeters", "riders", "pending", "faults", "emergencies", "legFrom", "withdrawn", "operational", "orderContract", "class", "sharingConsent", "service", "serviceID", "dispatchReason"} {
+	for _, name := range []string{"motion", "boardings", "riders", "pending", "faults", "emergencies", "legFrom", "withdrawn", "operational", "orderContract", "class", "sharingConsent", "service", "serviceID", "dispatchReason"} {
 		if !bytes.Contains(all, []byte(`"`+name+`"`)) {
 			t.Errorf("no document of the corpus has the member %s", name)
 		}
@@ -764,8 +757,8 @@ func FuzzStreamScansAccept(f *testing.F) {
 	_, delta := streamDecodeEnvelopes(f, scenarios.RailHub(), 120*sim.TicksPerSecond)
 	f.Add(delta, uint16(3), uint16(5))
 	for _, seed := range []string{
-		acceptMotion(acceptMotionOK), acceptFullVehicle(`"boardings":[` + acceptRecordOK + `],"riddenMeters":1`),
-		acceptDeltaVehicle(`"boardings":{"value":[` + acceptRecordOK + `]},"metadata":{"value":{"riddenMeters":0,"operational":"a"}}`),
+		acceptMotion(acceptMotionOK), acceptFullVehicle(`"boardings":[` + acceptRecordOK + `]`),
+		acceptDeltaVehicle(`"boardings":{"value":[` + acceptRecordOK + `]},"metadata":{"value":{"operational":"a"}}`),
 		acceptOrder(`"from":"QQ==","to":"","podID":"","dispatchReason":"ICA=","serviceID":"QQ==","legFrom":"QQ=="`),
 		acceptMarked(`"delta":{"groups":{"faults":{"active":[{"id":"i1.1"}]},"emergencies":{"active":[]}}}`),
 		`{"projectVersion":` + strconv.Itoa(project.CurrentVersion) + `,"class":"compact","sharingConsent":"shared","service":"express"}`,

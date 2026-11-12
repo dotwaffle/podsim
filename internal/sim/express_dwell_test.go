@@ -444,7 +444,7 @@ func TestExpressPhaseKeepsRefusalOrder(t *testing.T) {
 	t.Parallel()
 	s, network, fleet := expressTestFleet(t)
 	expressBoarding(t, s, PrivateConsent, 20)
-	const want = "restore the saved simulation: physical tier: pod 01: class express: vehicle physical profile is not supported, logical tier: pod 01: class express: vehicle physical profile is not supported"
+	const want = "pod 01 boarding records: class express: vehicle physical profile is not supported"
 	for _, phase := range []int{1, 22*TicksPerSecond + 1} {
 		state := roundTripState(t, s.ExportState())
 		state.OrderContract = ""

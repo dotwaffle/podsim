@@ -95,7 +95,8 @@ type SavedRequest struct {
 
 // SavedPod is a saved pod. A route holds indexes into Network.Lanes.
 type SavedPod struct {
-	// Boardings contains native berth IDs. The session adapter encodes source indexes.
+	// Boardings has one record for each rider, in the order of Riders. It
+	// contains native berth IDs. The session adapter encodes source indexes.
 	Boardings []RiderBoarding `json:"boardings,omitempty"`
 	Class     VehicleClass    `json:"class,omitempty"`
 	ID        string          `json:"id"`
@@ -118,9 +119,6 @@ type SavedPod struct {
 	Stops  []string       `json:"stops,omitempty"`
 	// RiddenMeters is the distance that the riders rode before Distance.
 	RiddenMeters float64 `json:"riddenMeters,omitzero"`
-	// JourneyOrigin is the berth where the riders boarded. It is empty when
-	// the riders boarded at Origin.
-	JourneyOrigin string `json:"journeyOrigin,omitempty"`
 	// ClaimsDestination records a relocation claim or a committed pair
 	// member's individual receiving claim.
 	ClaimsDestination bool `json:"claimsDestination,omitzero"`
@@ -499,15 +497,8 @@ func (s *Simulation) exportPod(v *vehicle, limits routeLimits) SavedPod {
 		pod.Riders = append(pod.Riders, SavedRequest(rider))
 	}
 	pod.Stops = slices.Clone(v.Stops)
-	if v.carriesPassengers() {
-		pod.RiddenMeters = v.riddenMeters()
-		if v.journeyOrigin.ID != v.origin.ID {
-			pod.JourneyOrigin = v.journeyOrigin.ID
-		}
-	}
-	if !v.legacyBoardingRecords() {
-		pod.Boardings = slices.Clone(v.Boardings)
-		pod.RiddenMeters, pod.JourneyOrigin = v.riddenMeters(), ""
+	if len(v.Boardings) > 0 {
+		pod.Boardings, pod.RiddenMeters = slices.Clone(v.Boardings), v.riddenMeters()
 	}
 	if pod.Waiting {
 		pod.WaitSince = v.waitSince

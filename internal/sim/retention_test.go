@@ -392,9 +392,10 @@ func corridorRestore(t *testing.T, network Network, pods []corridorPod) RestoreR
 		}
 		state.Pods = append(state.Pods, SavedPod{
 			ID: id, Activity: "traveling", Occupied: true, Origin: "origin-1", DestinationStation: pod.station,
-			Riders: []SavedRequest{{SharingConsent: SharedConsent, Service: OnDemandService, ID: state.RequestID, From: "origin", To: pod.station, PartySize: 1, PodID: id}},
-			Stops:  []string{pod.station},
-			Route:  route, LaneID: pod.route[0], LaneDistance: pod.distance, Distance: pod.distance,
+			Riders:    []SavedRequest{{SharingConsent: SharedConsent, Service: OnDemandService, ID: state.RequestID, From: "origin", To: pod.station, PartySize: 1, PodID: id}},
+			Boardings: []RiderBoarding{{BerthID: "origin-1"}},
+			Stops:     []string{pod.station},
+			Route:     route, LaneID: pod.route[0], LaneDistance: pod.distance, Distance: pod.distance,
 		})
 	}
 	s, result, err := RestoreState(RestoreStateInput{Network: network, Fleet: fleet, State: state})
@@ -535,9 +536,10 @@ func TestSavedRouteOriginTail(t *testing.T) {
 	}
 	state := SavedState{SharedRidePartyLimit: 1, RequestID: 1, Boarded: 1, Pods: []SavedPod{{
 		ID: "p01", Activity: "traveling", Occupied: true, Origin: "origin-1", Destination: "dest-01", DestinationStation: "dest",
-		Riders: []SavedRequest{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "origin", To: "dest", PartySize: 1, PodID: "p01"}},
-		Stops:  []string{"dest"},
-		Route:  indexes, RouteIndex: 1, LaneID: "approach", LaneDistance: 9, Distance: corridorExitLength + 9,
+		Riders:    []SavedRequest{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "origin", To: "dest", PartySize: 1, PodID: "p01"}},
+		Boardings: []RiderBoarding{{BerthID: "origin-1"}},
+		Stops:     []string{"dest"},
+		Route:     indexes, RouteIndex: 1, LaneID: "approach", LaneDistance: 9, Distance: corridorExitLength + 9,
 	}}}
 	fleet := []Placement{{ID: "p01", StationID: "dest", BerthID: "dest-02"}}
 	for round := range 2 {

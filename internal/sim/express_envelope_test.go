@@ -364,6 +364,7 @@ func TestExpressHoldUsesClass(t *testing.T) {
 	idle, busy := s.findVehicle("idle"), s.findVehicle("busy")
 	busy.Pod.Activity, busy.Pod.Occupied = Unloading, true
 	busy.Riders = []Request{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "c", To: "a", PartySize: 1, PodID: "busy"}}
+	busy.Boardings = []RiderBoarding{{BerthID: "c-1"}}
 	s.requestID = 1
 	route, _, ok := s.pickupRouteWithAssignments(pickupRouteInput{pod: idle, station: "b", assigned: map[string]bool{}, accept: s.pickupBerthFilter(idle, Request{To: "c", From: "b", PartySize: 1})})
 	if !ok {

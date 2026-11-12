@@ -36,6 +36,7 @@ func boardParties(t *testing.T, s *Simulation, to ...string) *vehicle {
 	}
 	for _, destination := range to[1:] {
 		v.Riders = append(v.Riders, s.boardingRider(newTrip(s, "s0", destination), v, v.Riders[0].ID))
+		v.Boardings = append(v.Boardings, RiderBoarding{BerthID: v.origin.ID})
 		if !slices.Contains(v.Stops, destination) {
 			v.Stops = append(v.Stops, destination)
 		}
@@ -327,6 +328,7 @@ func TestFinishOperationalUnloadOutcomes(t *testing.T) {
 	between := newTrip(s, "s2", "s0")
 	for range 2 {
 		v.Riders = append(v.Riders, s.boardingRider(newTrip(s, "s0", "s2"), v, v.Riders[0].ID))
+		v.Boardings = append(v.Boardings, RiderBoarding{BerthID: v.origin.ID})
 	}
 	v.Stops = []string{"s1", "s2"}
 	last := newTrip(s, "s2", "s0")
@@ -717,8 +719,9 @@ func TestParkingRefuge(t *testing.T) {
 }
 
 // TestResumeFromRefuge checks both outcomes of resumeFromRefuge. With a
-// route the pod continues in service. Without a route it keeps its purpose
-// and holds, and the call returns an error.
+// route the pod continues in service, and the physical tier restores it at
+// the parking berth with its recorded riders. Without a route it keeps its
+// purpose and holds, and the call returns an error.
 func TestResumeFromRefuge(t *testing.T) {
 	t.Parallel()
 	s, v := parkingRefuge(t, false)
@@ -728,6 +731,11 @@ func TestResumeFromRefuge(t *testing.T) {
 	checkNow(t, s)
 	if v.Pod.Activity != Continuing || v.op != (operationalDestination{}) || v.Pod.WaitReason != NoWait {
 		t.Fatalf("resumed pod: %+v", v)
+	}
+	state := s.ExportState()
+	restored, result, err := RestoreState(RestoreStateInput{Network: s.network, Fleet: s.initial, State: state})
+	if err != nil || !cleanRestore(result) || !reflect.DeepEqual(restored.ExportState(), state) {
+		t.Fatalf("physical restore of the resumed pod: %v, %+v", err, result)
 	}
 	s, v = parkingRefuge(t, true)
 	before := s.ExportState()

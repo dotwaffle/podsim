@@ -26,6 +26,7 @@ func TestWaitForFinishingPod(t *testing.T) {
 			busy.Pod.Activity, busy.Pod.Occupied = Unloading, true
 			busy.phaseTicks = tc.unloadSeconds * TicksPerSecond
 			busy.Riders = []Request{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "harbor", To: "garden", PartySize: 1, PodID: "02"}}
+			busy.Boardings = []RiderBoarding{{BerthID: "harbor-1"}}
 			s.requestID = 1
 			if err := s.RequestTrip("market", "harbor"); err != nil {
 				t.Fatal(err)
@@ -56,6 +57,7 @@ func TestForecastWaitIsBounded(t *testing.T) {
 	busy.Pod.Activity, busy.Pod.Occupied = Unloading, true
 	busy.phaseTicks = 5 * TicksPerSecond
 	busy.Riders = []Request{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "harbor", To: "garden", PartySize: 1, PodID: "02"}}
+	busy.Boardings = []RiderBoarding{{BerthID: "harbor-1"}}
 	s.requestID = 1
 	if err := s.RequestTrip("market", "harbor"); err != nil {
 		t.Fatal(err)
@@ -82,6 +84,7 @@ func TestPickupForecastIncludesCommittedPassengerTrip(t *testing.T) {
 	v := s.findVehicle("01")
 	// A previous trip must not replace the committed pickup's destination.
 	v.Riders = []Request{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 99, From: "market", To: "garden", Completed: true}}
+	v.Boardings = []RiderBoarding{{BerthID: "market-1"}}
 	node, seconds, ok := s.availableAfter(v)
 	if !ok || node != "market-berth" {
 		t.Fatalf("forecast ignored committed passenger trip: node=%s ok=%v", node, ok)
@@ -201,6 +204,7 @@ func newFinishingPodTrip(t *testing.T, setup finishingPodSetup) (*Simulation, *v
 	busy.Pod.Activity, busy.Pod.Occupied = Unloading, true
 	busy.phaseTicks = setup.unloadSeconds * TicksPerSecond
 	busy.Riders = []Request{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "harbor", To: setup.busyStation, PartySize: 1, PodID: "02"}}
+	busy.Boardings = []RiderBoarding{{BerthID: "harbor-1"}}
 	s.requestID = 1
 	if err := s.RequestTrip("market", "harbor"); err != nil {
 		t.Fatal(err)

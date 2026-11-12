@@ -343,9 +343,10 @@ func restoreCorridor(t *testing.T, network Network, pods []corridorPod) *Simulat
 		}
 		state.Pods = append(state.Pods, SavedPod{
 			ID: id, Activity: "traveling", Occupied: true, Origin: "origin-1", DestinationStation: pod.station,
-			Riders: []SavedRequest{{SharingConsent: SharedConsent, Service: OnDemandService, ID: state.RequestID, From: "origin", To: pod.station, PartySize: 1, PodID: id}},
-			Stops:  []string{pod.station},
-			Route:  route, LaneID: pod.route[0], LaneDistance: pod.distance, Distance: pod.distance,
+			Riders:    []SavedRequest{{SharingConsent: SharedConsent, Service: OnDemandService, ID: state.RequestID, From: "origin", To: pod.station, PartySize: 1, PodID: id}},
+			Boardings: []RiderBoarding{{BerthID: "origin-1"}},
+			Stops:     []string{pod.station},
+			Route:     route, LaneID: pod.route[0], LaneDistance: pod.distance, Distance: pod.distance,
 		})
 		if pod.leader != "" {
 			state.Pods[index].Platoon = savedRunLink(network, pod.route, routes[pod.leader], pod.leader, pod.lanes)

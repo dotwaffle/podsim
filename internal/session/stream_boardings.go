@@ -28,15 +28,12 @@ func finiteNonnegative(value float64) bool {
 func validateVehicleBoardings(v VehicleFrame) error { return validateVehicleBoardingsContract(v, "") }
 
 func validateVehicleBoardingsContract(v VehicleFrame, contract sim.OrderContract) error {
-	if !finiteNonnegative(v.RiddenMeters) {
-		return errors.New("invalid passenger chain distance")
-	}
 	if len(v.Boardings) == 0 {
 		if v.Boardings != nil {
 			return errors.New("full boarding records cannot be empty")
 		}
-		if v.RiddenMeters != 0 {
-			return errors.New("passenger chain distance needs boarding records")
+		if len(v.Riders) > 0 {
+			return errors.New("invalid boarding record alignment")
 		}
 		return nil
 	}
@@ -44,14 +41,14 @@ func validateVehicleBoardingsContract(v VehicleFrame, contract sim.OrderContract
 		return errors.New("invalid boarding record alignment")
 	}
 	for i, record := range v.Boardings {
-		if record.BerthID == "" || len(record.BerthID) > 64 || !finiteNonnegative(record.MetersAtBoarding) || record.MetersAtBoarding > v.RiddenMeters {
+		if record.BerthID == "" || len(record.BerthID) > 64 || !finiteNonnegative(record.MetersAtBoarding) {
 			return errors.New("invalid boarding record")
 		}
 		rider := v.Riders[i]
 		if !validStreamOrderContract(rider, contract) {
 			return errors.New("boarding record needs a known service order")
 		}
-		if !rider.Completed && rider.SharingConsent != sim.SharedConsent {
+		if len(v.Riders) > 1 && !rider.Completed && rider.SharingConsent != sim.SharedConsent {
 			return errors.New("active recorded rider needs shared consent")
 		}
 	}
@@ -123,28 +120,26 @@ func scanStreamBoardingMembers(data []byte, markers contractMarkers) error {
 // boardingScanTarget is a vehicle member that the boarding scan checks.
 // Delta is true for a boarding replacement in a delta vehicle.
 type boardingScanTarget struct {
-	distance bool
-	delta    bool
-	motion   bool
+	delta  bool
+	motion bool
 }
 
 // boardingScanTargetOf reports whether token names the boarding records or
-// the passenger chain distance of a vehicle.
+// the motion replacement of a vehicle.
 func boardingScanTargetOf(decoder *jsontext.Decoder, token jsontext.Token) (boardingScanTarget, bool) {
 	kind, length := decoder.StackIndex(decoder.StackDepth())
 	if token.Kind() != jsontext.KindString || kind != jsontext.KindBeginObject || length%2 != 1 {
 		return boardingScanTarget{}, false
 	}
 	name := token.String()
-	if name != "boardings" && name != "riddenMeters" && name != "motion" {
+	if name != "boardings" && name != "motion" {
 		return boardingScanTarget{}, false
 	}
 	path := strings.Split(string(decoder.StackPointer()), "/")
 	full, delta := fullVehiclePath(path), deltaVehiclePath(path)
 	records := name == "boardings" && (full || delta)
-	distance := name == "riddenMeters" && (full || deltaMetadataPath(path))
 	motion := name == "motion" && delta
-	return boardingScanTarget{distance: distance, delta: delta, motion: motion}, records || distance || motion
+	return boardingScanTarget{delta: delta, motion: motion}, records || motion
 }
 
 // fullVehiclePath matches a member of a vehicle in a full or frame state.
@@ -158,25 +153,11 @@ func deltaVehiclePath(path []string) bool {
 	return len(path) == 5 && path[1] == "delta" && path[2] == "vehicles" && streamArrayIndex(path[3])
 }
 
-// deltaMetadataPath matches a member of the metadata replacement of a delta
-// vehicle.
-func deltaMetadataPath(path []string) bool {
-	return len(path) == 7 && path[1] == "delta" && path[2] == "vehicles" && streamArrayIndex(path[3]) &&
-		path[4] == "metadata" && path[5] == "value"
-}
-
-// checkBoardingScanTarget checks a distance, or the replacement shape and
-// then the records of a boarding member.
+// checkBoardingScanTarget checks a motion replacement, or the replacement
+// shape and then the records of a boarding member.
 func checkBoardingScanTarget(raw []byte, target boardingScanTarget, markers contractMarkers) error {
 	if target.motion {
 		return scanMotionReplacement(raw)
-	}
-	if target.distance {
-		var meters float64
-		if bytes.Equal(raw, []byte("null")) || decodeStreamJSON(raw, &meters) != nil || !finiteNonnegative(meters) {
-			return errors.New("invalid passenger chain distance")
-		}
-		return nil
 	}
 	if target.delta {
 		members, err := boardingMembers(raw)

@@ -574,28 +574,19 @@ func TestDetourBaselinesStayStatic(t *testing.T) {
 		"entry end": {class: LegacyClass, from: "a-berth", ridden: toEntry, entry: "b-entry"},
 	}
 	for name, start := range ends {
-		if got := s.plannedDetour("a-berth", []string{"b"}, start); math.Abs(got-want) > 1e-9 {
-			t.Errorf("legacy rider, %s: ratio %g, want %g", name, got, want)
-		}
 		if got := s.plannedRiderDetour(riderDetour{origin: "a-berth", destination: "b"}, []string{"b"}, start); math.Abs(got-want) > 1e-9 {
 			t.Errorf("recorded rider, %s: ratio %g, want %g", name, got, want)
 		}
 		v := &s.vehicles[0]
-		v.journeyOrigin, _ = s.network.Stations[0].berth("a-1")
 		v.Riders = []Request{{ID: 1, From: "a", To: "b", PartySize: 1}}
-		v.Boardings = nil
-		if s.keepsRiderDetours(v, []string{"b"}, start) {
-			t.Errorf("legacy rider, %s: the plan keeps the detour limit", name)
-		}
 		v.Boardings = []RiderBoarding{{BerthID: "a-1"}}
 		if s.keepsRiderDetours(v, []string{"b"}, start) {
 			t.Errorf("recorded rider, %s: the plan keeps the detour limit", name)
 		}
 	}
 	v := &s.vehicles[0]
-	v.journeyOrigin, _ = s.network.Stations[0].berth("a-1")
 	v.Riders = []Request{{ID: 1, From: "a", To: "b", PartySize: 1}}
-	v.Boardings = nil
+	v.Boardings = []RiderBoarding{{BerthID: "a-1"}}
 	v.destination = berth
 	s.completeRider(v, 0, ridden)
 	if s.directDistanceMeters != direct || math.Abs(s.maxDetourRatio-want) > 1e-9 {
@@ -651,20 +642,12 @@ func TestBankDetourBaselinesStayStatic(t *testing.T) {
 	}
 	origin, _ := s.network.Stations[0].berth("origin-1")
 	for name, start := range ends {
-		if got := s.plannedDetour("origin-berth", []string{"hub"}, start); math.Abs(got-want) > 1e-9 {
-			t.Errorf("legacy rider, %s: ratio %g, want %g", name, got, want)
-		}
 		if got := s.plannedRiderDetour(riderDetour{origin: "origin-berth", destination: "hub"}, []string{"hub"}, start); math.Abs(got-want) > 1e-9 {
 			t.Errorf("recorded rider, %s: ratio %g, want %g", name, got, want)
 		}
 		v := &s.vehicles[0]
-		v.journeyOrigin = origin
 		v.Riders = []Request{{ID: 1, From: "origin", To: "hub", PartySize: 1}}
-		v.Boardings = nil
-		if s.keepsRiderDetours(v, []string{"hub"}, start) {
-			t.Errorf("legacy rider, %s: the plan keeps the detour limit", name)
-		}
-		v.Boardings = []RiderBoarding{{BerthID: "origin-1"}}
+		v.Boardings = []RiderBoarding{{BerthID: origin.ID}}
 		if s.keepsRiderDetours(v, []string{"hub"}, start) {
 			t.Errorf("recorded rider, %s: the plan keeps the detour limit", name)
 		}

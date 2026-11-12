@@ -30,10 +30,12 @@ func logicalState(t *testing.T, f restoreFixture) SavedState {
 			{SharingConsent: SharedConsent, Service: OnDemandService, ID: 2, From: "harbor", To: "market", PartySize: 1, PodID: "03", RequestedTick: 100, BoardedTick: 150},
 			{SharingConsent: SharedConsent, Service: OnDemandService, ID: 3, From: "harbor", To: "market", PartySize: 1, PodID: "03", RequestedTick: 110, BoardedTick: 150},
 		},
+		Boardings:  []RiderBoarding{{BerthID: "harbor-1"}, {BerthID: "harbor-1"}},
 		PhaseTicks: unloadingTicks / 2, Origin: "harbor-1", Destination: "market-1", DestinationStation: "market",
 	}
 	pickup := relocating(f.traveling(t, travelInput{id: "04", from: "garden-1", to: "harbor-1", lane: "return-to-parking", distance: 100}))
 	pickup.Riders = []SavedRequest{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "harbor", To: "garden", PartySize: 1, PodID: "04", Completed: true, RequestedTick: 10, BoardedTick: 30}}
+	pickup.Boardings = []RiderBoarding{{BerthID: "harbor-1"}}
 	route, err := f.s.stationApproachRoute("harbor-berth", "market")
 	if err != nil {
 		t.Fatal(err)
@@ -100,17 +102,6 @@ func TestRestoreLogical(t *testing.T) {
 				}
 			},
 			completed: 2, requeued: []int{4, 5, 6, 8}, dropped: []int{10}, droppedParties: 1,
-		},
-		{
-			// The riders of the shared ride are not valid. The restore drops
-			// each of them.
-			name: "shared ride from a parking station", physical: "not at a passenger station",
-			edit: func(state *SavedState) {
-				for index := range state.Pods[1].Riders {
-					state.Pods[1].Riders[index].From = "parking"
-				}
-			},
-			completed: 2, requeued: []int{8}, dropped: []int{4, 5, 6, 10}, droppedParties: 4,
 		},
 		{
 			name: "demo stopped with an error", logicalOnly: true,
@@ -290,56 +281,48 @@ func TestRestoreStateReportsEachFailedTier(t *testing.T) {
 	}
 }
 
-// TestRestoreLogicalCompletesOnlyAtAStation moves the unloading pod 03 of
-// logicalState to a place where its riders cannot leave the pod. The
-// logical tier must not count the riders as complete. It queues them again,
-// or it drops them with a report when their trip is not valid.
-func TestRestoreLogicalCompletesOnlyAtAStation(t *testing.T) {
+// TestRestoreRefusesRidersAwayFromAPassengerBerth moves the riders of
+// logicalState to a place where they cannot leave the pod, or where they
+// cannot have boarded. Each pod with riders has boarding records, so the
+// pod check of the records refuses the save before either tier.
+func TestRestoreRefusesRidersAwayFromAPassengerBerth(t *testing.T) {
 	t.Parallel()
 	f := newRestoreFleetFixture(t, Example(), demoFleet())
 	base := logicalState(t, f)
+	unloadAt := func(station, berth string) func(*SavedState) {
+		return func(state *SavedState) {
+			pod := &state.Pods[2]
+			pod.StationID, pod.BerthID, pod.DestinationStation, pod.Destination = station, berth, station, berth
+			for index := range pod.Riders {
+				pod.Riders[index].To = station
+			}
+		}
+	}
+	const unloading = "pod 03 boarding records: the recorded pod is not at a compatible berth"
 	for _, tc := range []struct {
-		name             string
-		station, berth   string
-		requeued         []int
-		dropped          []int
-		unaccountedAfter int
+		name string
+		edit func(*SavedState)
+		want string
 	}{
-		{
-			name: "parking station", station: "parking", berth: "parking-1",
-			requeued: []int{4, 5, 6, 8}, dropped: []int{2, 3, 10}, unaccountedAfter: 3,
-		},
-		{
-			name: "berth not in the network", station: "market", berth: "market-9",
-			requeued: []int{2, 3, 4, 5, 6, 8}, dropped: []int{10}, unaccountedAfter: 1,
-		},
-		{
-			name: "berth of another station", station: "market", berth: "harbor-1",
-			requeued: []int{2, 3, 4, 5, 6, 8}, dropped: []int{10}, unaccountedAfter: 1,
-		},
+		{"unloading at a parking station", unloadAt("parking", "parking-1"), unloading},
+		{"unloading at a berth not in the network", unloadAt("market", "market-9"), unloading},
+		{"unloading at a berth of another station", unloadAt("market", "harbor-1"), unloading},
+		{"shared ride from a parking station", func(state *SavedState) {
+			for index := range state.Pods[1].Riders {
+				state.Pods[1].Riders[index].From = "parking"
+			}
+		}, "pod 02 boarding records: rider 4 has no passenger boarding station"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			state := roundTripState(t, base)
-			pod := &state.Pods[2]
-			pod.StationID, pod.BerthID, pod.DestinationStation, pod.Destination = tc.station, tc.berth, tc.station, tc.berth
-			for index := range pod.Riders {
-				pod.Riders[index].To = tc.station
+			tc.edit(&state)
+			for _, logicalOnly := range []bool{false, true} {
+				s, result, err := RestoreState(RestoreStateInput{Network: f.network, Fleet: f.fleet, State: state, LogicalOnly: logicalOnly})
+				if err == nil || err.Error() != tc.want || s != nil || result.Tier != "" || result.PhysicalError != nil {
+					t.Fatalf("logical only %t: restore %v, %+v, want the refusal %q", logicalOnly, err, result, tc.want)
+				}
 			}
-			s, result, err := RestoreState(RestoreStateInput{Network: f.network, Fleet: f.fleet, State: state})
-			if err != nil {
-				t.Fatal(err)
-			}
-			if result.Tier != RestoreLogical || !slices.Equal(result.Requeued, tc.requeued) ||
-				!slices.Equal(result.Dropped, tc.dropped) {
-				t.Fatalf("result %+v", result)
-			}
-			if s.completed != state.Completed || s.unaccountedOrders != tc.unaccountedAfter ||
-				countUnaccounted(t, s) != tc.unaccountedAfter {
-				t.Fatalf("completed %d, want %d, %d unaccounted orders", s.completed, state.Completed, s.unaccountedOrders)
-			}
-			monitorContractEachTick(t, s)
-			advance(s, 60*TicksPerSecond)
 		})
 	}
 }

@@ -63,7 +63,7 @@ func (s *Simulation) checkSavedClasses(state SavedState) error {
 		if v := s.findVehicle(pod.ID); v != nil && effectiveClass(v.Pod.Class) != effectiveClass(pod.Class) {
 			return errors.New("saved pod class differs from fleet class")
 		}
-		for _, id := range []string{pod.BerthID, pod.Origin, pod.Destination, pod.JourneyOrigin} {
+		for _, id := range []string{pod.BerthID, pod.Origin, pod.Destination} {
 			if id == "" {
 				continue
 			}

@@ -81,6 +81,15 @@ func TestDecodeStateJSONRefusesUnknownMembers(t *testing.T) {
 	if _, err := DecodeStateJSON(edited); err == nil {
 		t.Fatal("state with an unknown root member accepted")
 	}
+	// The HTTP state has no riddenMeters member. The saved state keeps it.
+	ridden := bytes.Replace(raw, []byte(`"vehicles":[{`), []byte(`"vehicles":[{"riddenMeters":1,`), 1)
+	if bytes.Equal(ridden, raw) {
+		t.Fatal("state has no vehicle")
+	}
+	const removed = `json: unknown field "riddenMeters"`
+	if _, err := DecodeStateJSON(ridden); err == nil || err.Error() != removed {
+		t.Fatalf("got %v, want %q", err, removed)
+	}
 }
 
 // TestAcceptsStateMedia parses each media range of the Accept headers. A

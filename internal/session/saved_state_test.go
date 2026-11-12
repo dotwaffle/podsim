@@ -180,7 +180,7 @@ func TestSavedVersionRefusals(t *testing.T) {
 		"plain": decompressTestJSON(t, encodeTestState(t, newTestStateFile(t))),
 	}
 	for name, raw := range bases {
-		for _, version := range []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12} {
+		for _, version := range []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13} {
 			t.Run(name+"/"+strconv.Itoa(version), func(t *testing.T) {
 				t.Parallel()
 				data := compressTestJSON(t, setRootMember(t, raw, "version", strconv.Itoa(version)))
@@ -209,10 +209,10 @@ func TestSavedInvalidMovedAside(t *testing.T) {
 			"gzip header cut":  encoded[:5],
 			"gzip trailer cut": encoded[:len(encoded)-4],
 			"gzip checksum":    checksum,
-			"syntax error":     compressTestJSON(t, insertAfter(t, raw, `"version":11,`, `,`)),
+			"syntax error":     compressTestJSON(t, insertAfter(t, raw, `"version":12,`, `,`)),
 			"array limit":      compressTestJSON(t, insertAfter(t, raw, `{`, padding)),
 			"format type":      compressTestJSON(t, setRootMember(t, raw, "format", "1")),
-			"version type":     compressTestJSON(t, setRootMember(t, raw, "version", `"11"`)),
+			"version type":     compressTestJSON(t, setRootMember(t, raw, "version", `"12"`)),
 			"decode error":     compressTestJSON(t, setRootMember(t, raw, "speed", `"fast"`)),
 			"validation error": encodeTestState(t, speed),
 			"missing version": compressTestJSON(t, joinObject(t, slices.DeleteFunc(splitObject(t, raw),
@@ -249,11 +249,13 @@ func TestSavedInvalidMovedAside(t *testing.T) {
 	})
 }
 
-// TestSavedRemovedMembersMovedAside checks a version 11 file with a member
-// of a removed feature: physical coupling, compact station queues, or
-// station buffers.
+// TestSavedRemovedMembersMovedAside checks a version 12 file with a member
+// of a removed feature: physical coupling, compact station queues, station
+// buffers, or the journey origin of a pod.
 // Before the first release a removed member keeps the version, so the
-// file is not of another version.
+// file is not of another version. By maintainer decision, version 12
+// removed the journey origin with a new version, so a version 12 file
+// with it has an unknown member.
 // The strict decode refuses the member as unknown, and startup moves the
 // file aside as invalid_state and starts a new session.
 func TestSavedRemovedMembersMovedAside(t *testing.T) {
@@ -270,6 +272,7 @@ func TestSavedRemovedMembersMovedAside(t *testing.T) {
 		"simulation/pods/platoon/kind":         insertAfter(t, raw, `"pods":[{`, `"platoon":{"kind":"buffer","leader":"01"},`),
 		"simulation/pods/platoon/terminalCell": insertAfter(t, raw, `"pods":[{`, `"platoon":{"terminalCell":0,"leader":"01"},`),
 		"project/stationBuffers":               addMember(t, raw, "project", "stationBuffers", `false`),
+		"simulation/pods/journeyOrigin":        insertAfter(t, raw, `"pods":[{`, `"journeyOrigin":"harbor-1",`),
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()

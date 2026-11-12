@@ -144,12 +144,16 @@ func (f *fakeStore) lastWrite(t *testing.T) stateFile {
 	return decodeTestState(t, writes[len(writes)-1])
 }
 
-// decodeTestState decodes a saved state, checks its session members, and
-// stops the test on an error.
+// decodeTestState decodes a saved state, checks its session members,
+// binds its boarding records, and stops the test on an error. A test can
+// then edit the state and encode it again.
 func decodeTestState(t *testing.T, data []byte) stateFile {
 	t.Helper()
 	file, err := decodeCheckedState(data)
 	if err != nil {
+		t.Fatal(err)
+	}
+	if err := file.resolveBoardings(); err != nil {
 		t.Fatal(err)
 	}
 	return file
@@ -591,13 +595,14 @@ func TestNewFromStoreRejects(t *testing.T) {
 			}}},
 		},
 		{name: "newer version", data: run.edited(t, newerVersion), reason: reasonUnsupportedVersion},
-		// The decoder rejects versions 2 through 10 before a restore step.
-		{name: "version 2", data: run.edited(t, func(file *stateFile) { file.Version = 2 }), reason: reasonUnsupportedVersion, errText: "version 2 is older than version 11"},
-		{name: "version 6", data: run.edited(t, func(file *stateFile) { file.Version = 6 }), reason: reasonUnsupportedVersion, errText: "version 6 is older than version 11"},
-		{name: "version 7", data: run.edited(t, func(file *stateFile) { file.Version = 7 }), reason: reasonUnsupportedVersion, errText: "version 7 is older than version 11"},
-		{name: "version 8", data: run.edited(t, func(file *stateFile) { file.Version = 8 }), reason: reasonUnsupportedVersion, errText: "version 8 is older than version 11"},
-		{name: "version 9", data: run.edited(t, func(file *stateFile) { file.Version = 9 }), reason: reasonUnsupportedVersion, errText: "version 9 is older than version 11"},
-		{name: "version 10", data: run.edited(t, func(file *stateFile) { file.Version = 10 }), reason: reasonUnsupportedVersion, errText: "version 10 is older than version 11"},
+		// The decoder rejects versions 2 through 11 before a restore step.
+		{name: "version 2", data: run.edited(t, func(file *stateFile) { file.Version = 2 }), reason: reasonUnsupportedVersion, errText: "version 2 is older than version 12"},
+		{name: "version 6", data: run.edited(t, func(file *stateFile) { file.Version = 6 }), reason: reasonUnsupportedVersion, errText: "version 6 is older than version 12"},
+		{name: "version 7", data: run.edited(t, func(file *stateFile) { file.Version = 7 }), reason: reasonUnsupportedVersion, errText: "version 7 is older than version 12"},
+		{name: "version 8", data: run.edited(t, func(file *stateFile) { file.Version = 8 }), reason: reasonUnsupportedVersion, errText: "version 8 is older than version 12"},
+		{name: "version 9", data: run.edited(t, func(file *stateFile) { file.Version = 9 }), reason: reasonUnsupportedVersion, errText: "version 9 is older than version 12"},
+		{name: "version 10", data: run.edited(t, func(file *stateFile) { file.Version = 10 }), reason: reasonUnsupportedVersion, errText: "version 10 is older than version 12"},
+		{name: "version 11", data: run.edited(t, func(file *stateFile) { file.Version = 11 }), reason: reasonUnsupportedVersion, errText: "version 11 is older than version 12"},
 		{name: "truncated file", data: run.data[:len(run.data)/2], reason: reasonInvalidState},
 		{name: "too large to read", data: run.data, readErr: tooLarge, reason: reasonTooLarge, preserve: true},
 	}
@@ -2838,9 +2843,11 @@ func buildMaximalRequeueState(t *testing.T) (project.Config, []byte) {
 		t.Fatalf("the fleet has %d pods, want %d", len(config.Fleet), maxSavedPods)
 	}
 	var passenger []string
+	berths := make(map[string]string)
 	for _, station := range config.Network.Stations {
 		if !station.ParkingOnly {
 			passenger = append(passenger, station.ID)
+			berths[station.ID] = station.Berths[0].ID
 		}
 	}
 	store := &fakeStore{}
@@ -2853,17 +2860,19 @@ func buildMaximalRequeueState(t *testing.T) (project.Config, []byte) {
 	}
 	for index := range state.Pods {
 		pod := &state.Pods[index]
-		// The logical tier does not check that a boarding pod is at a berth
-		// of its station, so a pod at a parking berth boards at a
-		// passenger station.
+		// The checks before the tiers do not check that each pod has its
+		// own berth, so many pods board at the first berth of a passenger
+		// station. The logical tier queues their riders again.
 		from := passenger[index%len(passenger)]
 		to := passenger[(index+1)%len(passenger)]
+		berth := berths[from]
 		*pod = sim.SavedPod{
-			ID: pod.ID, Activity: "boarding", StationID: from, BerthID: pod.BerthID, Origin: pod.BerthID,
+			ID: pod.ID, Activity: "boarding", StationID: from, BerthID: berth, Origin: berth,
 			Stops: []string{to}, DestinationStation: to,
 		}
 		for range sim.MaxSharedRideParties {
 			pod.Riders = append(pod.Riders, order(from, to, pod.ID))
+			pod.Boardings = append(pod.Boardings, sim.RiderBoarding{BerthID: berth})
 		}
 		state.Boarded += sim.MaxSharedRideParties
 	}

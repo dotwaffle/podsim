@@ -86,6 +86,7 @@ func TestClaimKind(t *testing.T) {
 		{"boarding passenger", func(_ *Simulation, relocating, _ *vehicle) (*vehicle, resource) {
 			relocating.Pod.Activity = Boarding
 			relocating.Riders = []Request{{ID: 1, From: "parking", To: "market", PartySize: 1}}
+			relocating.Boardings = []RiderBoarding{{BerthID: "parking-1"}}
 			return relocating, market
 		}, claimOther},
 		{"no relocation", func(_ *Simulation, relocating, _ *vehicle) (*vehicle, resource) {

@@ -273,7 +273,7 @@ func TestBankBoundsAndCommittedDetour(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if ratio := s.plannedDetour("origin-berth", []string{"hub"}, detourStart{ridden: s.lanesMeters(route), berth: berth}); ratio != 1 {
+	if ratio := s.plannedRiderDetour(riderDetour{origin: "origin-berth", destination: "hub"}, []string{"hub"}, detourStart{ridden: s.lanesMeters(route), berth: berth}); ratio != 1 {
 		t.Fatalf("own-bank direct detour %g", ratio)
 	}
 	bounds := s.stationPickupBounds("hub")

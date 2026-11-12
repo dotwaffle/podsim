@@ -194,6 +194,7 @@ func TestFinishingPodWaitAtBoundary(t *testing.T) {
 	busy.Pod.Activity, busy.Pod.Occupied = Unloading, true
 	busy.phaseTicks = int(math.Ceil(bestETA*TicksPerSecond)) - 1
 	busy.Riders = []Request{{SharingConsent: SharedConsent, Service: OnDemandService, ID: 1, From: "harbor", To: "market", PartySize: 1, PodID: "02"}}
+	busy.Boardings = []RiderBoarding{{BerthID: "harbor-1"}}
 	s.requestID = 1
 	if remaining := float64(busy.phaseTicks) / TicksPerSecond; remaining >= bestETA || remaining < bestETA-1.0/TicksPerSecond {
 		t.Fatalf("pod 02 is available after %v s, want just less than %v s", remaining, bestETA)
