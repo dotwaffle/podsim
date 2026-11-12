@@ -617,7 +617,6 @@
   // -project file or the scenario command output, is a bare scenario. The
   // server matches member names exactly.
   function unwrapDocument(document) {
-    const isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
     if (!isObject(document)) throw new Error("The file must contain a JSON object.");
     if ("format" in document) {
       if (document.format !== "podsim") throw new Error('The format field must be "podsim".');
@@ -1801,7 +1800,6 @@
   // A draft that the page saved while the live scenario did not load has an
   // empty serverStart. A record without a serverStart string gets no offer.
   function draftOffer(record, live) {
-    const isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
     if (!isObject(record) || !isObject(record.scenario) || typeof record.serverStart !== "string") return null;
     const draft = { scenario: record.scenario };
     if (!draftChanged(draft, live)) return null;
