@@ -503,6 +503,13 @@ func TestRemoveBerthRefusalsNameTheBlockingItem(t *testing.T) {
 		}, "b-berth-0", "station harbor must retain one berth"},
 		{"road lane to the berth node", 2, spur("a-road-in", "a-berth-0", ""), "a-berth-0", "delete nonstation lane spur at berth node a-berth-0 of station harbor first"},
 		{"lane of another station from the berth node", 2, spur("b-berth-1", "b-road-out", "other"), "b-berth-1", "delete nonstation lane spur at berth node b-berth-1 of station harbor first"},
+		{"berth node with no position", 2, func(network map[string]any) {
+			for _, node := range items(network["nodes"]) {
+				if member(node, "id") == "a-berth-0" {
+					delete(object(node), "position")
+				}
+			}
+		}, "a-berth-0", "berth node a-berth-0 of station harbor needs finite coordinates"},
 		{"berth in no bank", 2, func(network map[string]any) {
 			bank := object(items(member(items(network["stations"])[0], "banks"))[0])
 			bank["berthIDs"] = items(bank["berthIDs"])[:1]

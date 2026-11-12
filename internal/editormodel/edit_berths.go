@@ -318,11 +318,15 @@ type berthRemoval struct {
 	nodes, lanes map[string]bool
 }
 
-// checkBerthNode refuses a berth node that does not exist, or that has a
-// lane of a different station.
+// checkBerthNode refuses a berth node that does not exist, that has no
+// finite coordinates, or that has a lane of a different station.
 func (g geometryDraft) checkBerthNode(stationID, node string) error {
-	if _, err := g.point(node); err != nil {
+	item, err := g.find("nodes", node)
+	if err != nil {
 		return err
+	}
+	if _, err := nodePoint(item); err != nil {
+		return fmt.Errorf("berth node %s of station %s needs finite coordinates", node, stationID)
 	}
 	for _, lane := range items(g.network["lanes"]) {
 		if (member(lane, "from") == node || member(lane, "to") == node) && member(lane, "stationID") != stationID {
