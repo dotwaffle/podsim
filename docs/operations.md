@@ -737,7 +737,8 @@ The `podsim.incident.fault.*` and `podsim.incident.emergency.*` gauges report in
 `active` is the number of active records, and `started` counts the sampled and manual records.
 `sampled` counts the sampler events that came due, and `skipped` counts those with no start.
 `podsim.incident.fault.delayed_rider_ticks` is the sum over ticks of the active riders aboard healthy pods with an incident wait.
-`sampled`, `skipped`, and `delayed_rider_ticks` stay 0 while no sampler of their kind is live, so a manual fault at a rate of 0 moves only `active` and `started`.
+`sampled`, `skipped`, and `delayed_rider_ticks` do not change while no sampler of their kind is live, so a manual fault at a rate of 0 moves only `active` and `started`.
+A restored session keeps their saved values.
 
 With `-state`, the server also reports the saves of the session state.
 Without `-state`, these metrics do not exist.
