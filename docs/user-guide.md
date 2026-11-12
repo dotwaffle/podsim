@@ -505,14 +505,14 @@ The distance and direction from the last row to the new row are the same as from
 With one row, the distance is from the middle of the entry-exit line to the berth node.
 The new items get the IDs that the scenario generator gives to one more berth, and the four new lanes are station lanes of that station, also when the lanes of the other rows are not.
 
-The editor refuses a change that would break the network, and a message names what stands in the way.
+The editor refuses a change that would break the network, and a message gives the reason.
 
 | Action | Refused when | The message gives |
 | --- | --- | --- |
-| **Add physical berth** on any station | A node would get more than 64 lanes | The station and the node |
-| **Add physical berth** on a berth chain | A new lane crosses another lane or comes nearer than 12 m to it. The check also compares the new lanes with each other, except two lanes that share a node. | The station and the two lanes |
-| **Remove** on a berth row | A road lane or a lane of a different station uses the berth node. Each lane of the berth node must be a station lane of that station. | The station, the lanes, and the node. Delete these lanes first. |
-| **Remove** on the last row of a chain | Another lane uses the arrival or departure node of that row | The station, the lane, and the node |
+| **Add physical berth** on any station | A node would get more than 64 lanes | The node and the lane limit |
+| **Add physical berth** on a berth chain | A new lane crosses another lane or comes nearer than the clearance of the two lanes to it, which is 12 m for small classes and 20 m for large classes. The check also compares the new lanes with each other, except two lanes that share a node. | The new lane, the clearance, and the other lane |
+| **Remove** on a berth row | A road lane or a lane of a different station uses the berth node. Each lane of the berth node must be a station lane of that station. | That you must delete the lanes of the berth node first. The message does not name them. |
+| **Remove** on the last row of a chain | Another lane uses the arrival or departure node of that row | That you must delete the shared lanes first. The message does not name them. |
 
 **Remove** removes the berth, its node, and the lanes of its node, and on the last row of a chain it removes all of the row.
 
@@ -529,7 +529,7 @@ A delete with the pointer does not move the focus, and undo and redo do not move
 | --- | --- |
 | **Remove** on a berth row | **Remove** on the next row, or on the previous row after the last row. With one berth left, its **Remove** is disabled, so **Add physical berth**. |
 | **Delete station and connections**, **Delete guideway**, or **Delete junction and connections** | The map |
-| The Delete key on a button of the section | The same place as that button |
+| The Delete key on a button of the section | The map, when the key deletes the selected item |
 | Undo or redo, with the selected item still in the draft | The same button. If the button is **Remove** and the berth is gone or the station has one berth left, the place given for **Remove**. |
 | Undo or redo, with the selected item gone | The map |
 
