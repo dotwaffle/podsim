@@ -203,10 +203,10 @@ The server saves the session state at these times:
 - At startup, after the restore.
 - Every 60 seconds, when the session changed after the last save.
   The first periodic or command save after the start always writes.
-- Before the reply to a project apply, or to a rewind that restores a project.
+- Before the reply to a project apply that changes the project, or to a rewind that restores a project.
   This is the command save.
   It counts as a periodic save, but it gets less time.
-- About 1 second after a demand change, a project apply, or a rewind that restores a project.
+- About 1 second after a demand change, a project apply that changes the project, or a rewind that restores a project.
   This save counts as a periodic save.
 - At a graceful shutdown, and when startup fails after the startup save.
   This is the final save.
@@ -820,7 +820,7 @@ With `-state`, the server writes these log records at startup:
 - `Rejected saved session state` (WARN) gives the `reason` and the `error`.
 - `Restore failed with a panic` (ERROR) gives the `panic` and the `stack`.
   The server then rejects the file with reason `invalid_state`.
-- `Preserved saved session state` (ERROR) means that the decompressed saved state has more than 128 MiB.
+- `Preserved saved session state` (ERROR) means that the saved state has more than 128 MiB, compressed or decompressed.
   It gives the `error` and `saving=false`.
   The server keeps the file and fails to start.
 - `Read saved session state` (ERROR) means that the read failed or timed out.
@@ -873,7 +873,8 @@ The server ignores a second `SIGINT` or `SIGTERM` during the shutdown.
 
 Then the server closes its listeners and does not accept new requests.
 Requests that are already in progress, including reads, get up to 5 seconds to complete.
-Next, the server waits up to 5 seconds for the clock goroutine to return.
+Next, the server waits up to 5 seconds for the stream connections and the stream publisher to stop.
+Then it waits up to 5 seconds for the clock goroutine to return.
 If it does not return, the server logs `Simulation clock did not stop` as a warning.
 
 With `-state`, the server then stops the state saver and waits up to 1 second for it.
@@ -889,8 +890,8 @@ Without a final save, the next start restores the last saved state with a new ep
 
 Last, the server flushes telemetry for up to 5 seconds.
 
-With `-state`, a shutdown can take up to about 22 seconds.
-This is 5 seconds for the requests, 5 for the clock, 1 for the saver, 6 for the final save, and 5 for telemetry.
+With `-state`, a shutdown can take up to about 27 seconds.
+This is 5 seconds for the requests, 5 for the streams, 5 for the clock, 1 for the saver, 6 for the final save, and 5 for telemetry.
 `docker stop` waits only 10 seconds by default, then it kills the process.
 Use `docker stop -t 30`, or `--stop-timeout 30` with `docker run`.
 On Kubernetes, keep `terminationGracePeriodSeconds` at 30 or more.
