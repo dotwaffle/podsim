@@ -474,3 +474,68 @@ func TestBankMinimumSpacingInRotatedFrames(t *testing.T) {
 		})
 	}
 }
+
+// TestRemoveBerthRefusalsNameTheBlockingItem pins the text of each Remove
+// berth refusal. Each text names the station, and the lane and the node
+// that block the removal.
+func TestRemoveBerthRefusalsNameTheBlockingItem(t *testing.T) {
+	t.Parallel()
+	spur := func(from, to, stationID string) func(map[string]any) {
+		return func(network map[string]any) {
+			lane := map[string]any{"id": "spur", "from": from, "to": to, "speedLimit": float64(14)}
+			if stationID != "" {
+				lane["stationID"], lane["stationRole"] = stationID, "berth-access"
+			}
+			network["lanes"] = append(items(network["lanes"]), lane)
+		}
+	}
+	tests := []struct {
+		name    string
+		rows    int
+		prepare func(network map[string]any)
+		berth   string
+		want    string
+	}{
+		{"last berth of a bank station", 1, func(network map[string]any) {
+			station := object(items(network["stations"])[0])
+			station["berths"] = items(station["berths"])[1:]
+			station["banks"] = items(station["banks"])[1:]
+		}, "b-berth-0", "station harbor must retain one berth"},
+		{"road lane to the berth node", 2, spur("a-road-in", "a-berth-0", ""), "a-berth-0", "delete nonstation lane spur at berth node a-berth-0 of station harbor first"},
+		{"lane of another station from the berth node", 2, spur("b-berth-1", "b-road-out", "other"), "b-berth-1", "delete nonstation lane spur at berth node b-berth-1 of station harbor first"},
+		{"berth in no bank", 2, func(network map[string]any) {
+			bank := object(items(member(items(network["stations"])[0], "banks"))[0])
+			bank["berthIDs"] = items(bank["berthIDs"])[:1]
+		}, "a-berth-1", "berth a-berth-1 of station harbor has no owning bank"},
+		{"shared lane to the arrival node", 2, spur("a-road-in", "a-arrival-1", "harbor"), "a-berth-1", "delete shared lane spur at berth row node a-arrival-1 of station harbor first"},
+		{"shared lane from the departure node", 2, spur("b-departure-1", "b-road-out", "harbor"), "b-berth-1", "delete shared lane spur at berth row node b-departure-1 of station harbor first"},
+		{"road lane to the bank entry", 1, spur("a-road-in", "a-entry", ""), "a-berth-0", "delete nonstation lane spur at node a-entry of bank a of station harbor first"},
+		{"road lane from the bank exit", 1, spur("b-exit", "b-road-out", ""), "b-berth-0", "delete nonstation lane spur at node b-exit of bank b of station harbor first"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			draft := bankEditorFixture(test.rows)
+			network := object(draft["network"])
+			object(items(network["stations"])[0])["id"] = "harbor"
+			for _, lane := range items(network["lanes"]) {
+				if has(lane, "stationID") {
+					object(lane)["stationID"] = "harbor"
+				}
+			}
+			test.prepare(network)
+			before := cloneEditValue(draft)
+			command, err := json.Marshal(map[string]any{"action": "removeBerth", "id": "harbor", "value": test.berth})
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = editGeometry(draft, jsontext.Value(command))
+			if err == nil || err.Error() != test.want {
+				t.Fatalf("refusal = %v, want %q", err, test.want)
+			}
+			if !reflect.DeepEqual(draft, before) {
+				t.Fatal("the refused removal changed its source")
+			}
+		})
+	}
+}

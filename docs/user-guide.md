@@ -511,8 +511,8 @@ The editor refuses a change that would break the network, and a message gives th
 | --- | --- | --- |
 | **Add physical berth** on any station | A node would get more than 64 lanes | The node and the lane limit |
 | **Add physical berth** on a berth chain | A new lane crosses another lane or comes nearer than the clearance of the two lanes to it, which is 12 m for small classes and 20 m for large classes. The check also compares the new lanes with each other, except two lanes that share a node. | The new lane, the clearance, and the other lane |
-| **Remove** on a berth row | A road lane or a lane of a different station uses the berth node. Each lane of the berth node must be a station lane of that station. | That you must delete the lanes of the berth node first. The message does not name them. |
-| **Remove** on the last row of a chain | Another lane uses the arrival or departure node of that row | That you must delete the shared lanes first. The message does not name them. |
+| **Remove** on a berth row | A road lane or a lane of a different station uses the berth node. Each lane of the berth node must be a station lane of that station. | The first such lane, the berth node, and the station. Delete that lane first. |
+| **Remove** on the last row of a chain | Another lane uses the arrival or departure node of that row | The first such lane, the arrival or departure node that it uses, and the station. Delete that lane first. |
 
 **Remove** removes the berth, its node, and the lanes of its node, and on the last row of a chain it removes all of the row.
 

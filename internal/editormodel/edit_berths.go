@@ -282,7 +282,7 @@ func (g geometryDraft) removeBerth(stationID, berthID string) error {
 	}
 	if len(berths) <= 1 {
 		if has(station, "banks") {
-			return errors.New("the station must retain one berth")
+			return fmt.Errorf("station %s must retain one berth", stationID)
 		}
 		return nil
 	}
@@ -326,7 +326,7 @@ func (g geometryDraft) checkBerthNode(stationID, node string) error {
 	}
 	for _, lane := range items(g.network["lanes"]) {
 		if (member(lane, "from") == node || member(lane, "to") == node) && member(lane, "stationID") != stationID {
-			return errors.New("delete nonstation lanes at the berth node first")
+			return fmt.Errorf("delete nonstation lane %s at berth node %s of station %s first", text(member(lane, "id")), node, stationID)
 		}
 	}
 	return nil
@@ -344,12 +344,12 @@ func berthOwner(station map[string]any, berthID string) (map[string]any, map[str
 			return bankStation(station, object(bank)), object(bank), nil
 		}
 	}
-	return nil, nil, errors.New("the berth has no owning bank")
+	return nil, nil, fmt.Errorf("berth %s of station %s has no owning bank", berthID, text(station["id"]))
 }
 
 // markLastBerthRow adds the nodes and the lanes of the last row of the
 // berth chain to gone when that row holds berthID. It refuses a row whose
-// nodes have other lanes.
+// nodes have other lanes, and names the first such lane and its row node.
 func (g geometryDraft) markLastBerthRow(chainStation map[string]any, berthID string, gone berthRemoval) error {
 	rows := g.berthChain(chainStation)
 	if len(rows) == 0 {
@@ -365,7 +365,11 @@ func (g geometryDraft) markLastBerthRow(chainStation map[string]any, berthID str
 	}
 	for _, lane := range items(g.network["lanes"]) {
 		if !gone.lanes[text(member(lane, "id"))] && (member(lane, "from") == last.arrival || member(lane, "to") == last.arrival || member(lane, "from") == last.departure || member(lane, "to") == last.departure) {
-			return errors.New("delete shared lanes at the berth row nodes first")
+			node := last.departure
+			if member(lane, "from") == last.arrival || member(lane, "to") == last.arrival {
+				node = last.arrival
+			}
+			return fmt.Errorf("delete shared lane %s at berth row node %s of station %s first", text(member(lane, "id")), node, text(chainStation["id"]))
 		}
 	}
 	return nil
@@ -383,9 +387,14 @@ func (g geometryDraft) removeBankBerth(station, bank map[string]any, berthID str
 		gone.nodes[text(bank[key])] = true
 	}
 	for _, lane := range items(g.network["lanes"]) {
-		if gone.nodes[text(member(lane, "from"))] || gone.nodes[text(member(lane, "to"))] {
+		from, to := text(member(lane, "from")), text(member(lane, "to"))
+		if gone.nodes[from] || gone.nodes[to] {
 			if member(lane, "stationID") != member(station, "id") {
-				return errors.New("delete nonstation lanes at the bank gates first")
+				node := to
+				if gone.nodes[from] {
+					node = from
+				}
+				return fmt.Errorf("delete nonstation lane %s at node %s of bank %s of station %s first", text(member(lane, "id")), node, text(bank["id"]), text(station["id"]))
 			}
 			gone.lanes[text(member(lane, "id"))] = true
 		}
