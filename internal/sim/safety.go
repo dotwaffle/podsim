@@ -83,6 +83,15 @@ func (o SafetyObservation) Check() (float64, error) {
 //   - (a-b)*(a-b) and (b-a)*(b-a) are equal, so the order of the
 //     subtraction does not change the gap.
 func (o SafetyObservation) checkSeparation() (float64, error) {
+	result := o.sweepSeparation()
+	if result.first >= 0 {
+		return 0, &SeparationError{Tick: o.Tick, First: o.Pods[result.first].ID, Second: o.Pods[result.second].ID, Gap: math.Sqrt(result.violationSquared)}
+	}
+	return math.Sqrt(result.smallestSquared), nil
+}
+
+// sweepSeparation returns the result of the sweeps of checkSeparation.
+func (o SafetyObservation) sweepSeparation() sweepResult {
 	index := o.separationIndex()
 	order := make([]int, len(o.Pods))
 	for i := range order {
@@ -91,12 +100,11 @@ func (o SafetyObservation) checkSeparation() (float64, error) {
 	slices.SortFunc(order, func(a, b int) int { return cmp.Compare(o.Pods[a].Position.X, o.Pods[b].Position.X) })
 	result := index.sweep(o.Pods, order, index.reach)
 	if math.IsInf(result.smallestSquared, 1) {
+		tested := result.tested
 		result = index.sweep(o.Pods, order, math.Inf(1))
+		result.tested += tested
 	}
-	if result.first >= 0 {
-		return 0, &SeparationError{Tick: o.Tick, First: o.Pods[result.first].ID, Second: o.Pods[result.second].ID, Gap: math.Sqrt(result.violationSquared)}
-	}
-	return math.Sqrt(result.smallestSquared), nil
+	return result
 }
 
 // separationIndex holds the per-pod data of checkSeparation by the index of
@@ -163,6 +171,8 @@ type sweepResult struct {
 	// pair violates.
 	first, second    int
 	violationSquared float64
+	// tested is the number of pairs that the sweep gave to pair.
+	tested int
 }
 
 // sweep compares each pod with the pods that follow it in order, which holds
@@ -184,6 +194,7 @@ func (index *separationIndex) sweep(pods []Pod, order []int, ceiling float64) sw
 			if index.skip(gapSquared, ceiling, result.smallestSquared) {
 				continue
 			}
+			result.tested++
 			counted, violates := index.pair(pods, i, j, gapSquared)
 			if !counted {
 				continue

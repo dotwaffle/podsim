@@ -358,3 +358,69 @@ func TestCheckSeparationAllocations(t *testing.T) {
 		t.Fatalf("Check makes %v allocations, want at most %v", got, want+2)
 	}
 }
+
+// TestCheckSeparationTestsNearPairsOnly checks that checkSeparation does not
+// test the far pairs when a pair below reach exists. The pods are 100 m
+// apart on a line, each on its own plane, and one more pod is 15 m from the
+// last of them on the same plane. An Express pod raises reach above 15 m. A
+// sweep with no ceiling tests each pair of the line.
+func TestCheckSeparationTestsNearPairsOnly(t *testing.T) {
+	t.Parallel()
+	const count = 200
+	o := SafetyObservation{Locations: make(map[string]SafetyLocation)}
+	add := func(id string, class VehicleClass, x float64, group string) {
+		o.Pods = append(o.Pods, Pod{ID: id, Class: class, Position: Point{X: x}})
+		o.Locations[id] = SafetyLocation{SeparationGroup: group}
+	}
+	for i := range count {
+		add(fmt.Sprintf("pod-%03d", i), CompactClass, float64(100*i), fmt.Sprintf("plane-%03d", i))
+	}
+	last := float64(100 * (count - 1))
+	add("near", CompactClass, last+15, fmt.Sprintf("plane-%03d", count-1))
+	add("express", ExpressClass, last+1000, "")
+	result := o.sweepSeparation()
+	if result.first >= 0 || result.smallestSquared != 15*15 {
+		t.Fatalf("got violation %d and squared gap %v, want none and 225", result.first, result.smallestSquared)
+	}
+	if result.tested != 1 {
+		t.Errorf("tested %d pairs, want 1", result.tested)
+	}
+	gap, err := o.checkSeparation()
+	wantGap, wantErr := o.checkSeparationReference()
+	if math.Float64bits(gap) != math.Float64bits(wantGap) || !sameSeparationError(err, wantErr) {
+		t.Fatalf("got (%v, %v), want (%v, %v)", gap, err, wantGap, wantErr)
+	}
+}
+
+// TestSeparationThresholdsWithinReach checks the assumption of the first
+// sweep of checkSeparation: no pair needs more than the reach of its
+// observation. A pair of two small pods needs Clearance, the certified
+// clearance of a window, or the lateral clearance of a depot pair. The
+// lateral clearance grows with the speed, and only lateralSlow limits it.
+func TestSeparationThresholdsWithinReach(t *testing.T) {
+	t.Parallel()
+	classes := []VehicleClass{"", LegacyClass, CompactClass, GroupClass, ExpressClass}
+	for _, first := range classes {
+		for _, second := range classes {
+			o := SafetyObservation{Pods: []Pod{{ID: "a", Class: first}, {ID: "b", Class: second}}}
+			index := o.separationIndex()
+			if threshold := separationThresholdSquared(classPairClearance(first, second)); threshold > index.reach {
+				t.Errorf("classes %q and %q: squared threshold %v is more than reach %v", first, second, threshold, index.reach)
+			}
+		}
+	}
+	// The speeds are the two sides of the gate, the largest lane speed
+	// limit, and steps of 1 mm/s to 100 m/s.
+	speeds := []float64{math.Nextafter(reducedClearanceSpeed, 0), reducedClearanceSpeed, 1e3, 1e6, MaxCounter}
+	for step := range 100001 {
+		speeds = append(speeds, float64(step)/1000)
+	}
+	for _, speed := range speeds {
+		if got := compactClearance(speed); got > Clearance {
+			t.Fatalf("compactClearance(%v) = %v, more than Clearance", speed, got)
+		}
+		if got := lateralClearance(speed); lateralSlow(speed) && got > Clearance {
+			t.Fatalf("lateralClearance(%v) = %v for a slow member, more than Clearance", speed, got)
+		}
+	}
+}
