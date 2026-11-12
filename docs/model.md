@@ -168,7 +168,8 @@ A moving pod cannot choose its origin berth until it is at clearance distance fr
 
 Two other events release a pod.
 A restore that removes the pod binding of a waiting trip releases the pod on its way to that pickup, and the next dispatch pass sends that pod to the nearest free berth if no trip takes it.
-A released pod that gives its berth claim to a passenger pod goes to the nearest free berth at once.
+With guarded positioning, a rebalancing pod that gives its berth claim to a passenger pod is released, and it goes to the nearest free berth at once.
+A pod that is already released does the same when it gives its berth claim to a passenger pod.
 
 ### Empty travel
 
