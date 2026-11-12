@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"errors"
 	"reflect"
 	"slices"
 	"strings"
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/project"
+	"github.com/dotwaffle/podsim/internal/sim"
 )
 
 func synchronize(t *testing.T, model *engine, config project.Config) []string {
@@ -230,5 +232,38 @@ func TestSyncRefusalOrder(t *testing.T) {
 				t.Fatalf("synchronized is %v, want %v", model.ready, test.synced)
 			}
 		})
+	}
+}
+
+// TestSyncKeepsMetadataVerdict checks that a sync of a branch that the
+// metadata check does not read takes the kept verdict, and that a sync of
+// a metadata branch runs the check again. A sentinel in the kept verdict
+// shows which of the two happened.
+func TestSyncKeepsMetadataVerdict(t *testing.T) {
+	t.Parallel()
+	config := project.Default()
+	config.Network = sim.BankExample()
+	config.Fleet = []sim.Placement{{ID: "pod", StationID: "origin", BerthID: "origin-1"}}
+	config.Demand.Enabled = false
+	model := new(engine)
+	keys := synchronize(t, model, config)
+	if model.metadata.raw == nil || model.metadata.err != nil {
+		t.Fatalf("first sync kept no clean verdict: %v", model.metadata.err)
+	}
+	sentinel := errors.New("kept verdict")
+	model.metadata.err = sentinel
+	if _, err := model.sync(request{Keys: keys, Patch: jsontext.Value(`{"name":"renamed"}`)}); !errors.Is(err, sentinel) {
+		t.Fatalf("sync of the name gave %v, want the kept verdict", err)
+	}
+	if _, err := model.sync(request{Keys: keys, Patch: jsontext.Value(`{"fleet":[{"id":"other","stationID":"origin","berthID":"origin-1"}]}`)}); err != nil {
+		t.Fatalf("sync of the fleet gave %v, want a new clean verdict", err)
+	}
+	if model.metadata.err != nil || !bytes.Contains(model.metadata.raw["fleet"], []byte("other")) {
+		t.Fatalf("sync of the fleet kept the old verdict: %v", model.metadata.err)
+	}
+	withoutFleet := slices.DeleteFunc(slices.Clone(keys), func(key string) bool { return key == "fleet" })
+	model.metadata.err = sentinel
+	if _, err := model.sync(request{Keys: withoutFleet, Patch: jsontext.Value(`{}`)}); errors.Is(err, sentinel) {
+		t.Fatal("sync without the fleet branch took the verdict of a project with a fleet")
 	}
 }

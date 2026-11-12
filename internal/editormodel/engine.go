@@ -30,6 +30,8 @@ type engine struct {
 	profiles any
 	size     int
 	timeline *historyTimeline
+	// metadata holds the last result of checkMetadataBranches.
+	metadata metadataVerdict
 }
 
 // NewCall returns a private editor-worker handler with owned project state.
@@ -121,11 +123,16 @@ func (e *engine) sync(command request) (response, error) {
 	if err != nil {
 		return response{}, err
 	}
+	verdict := e.metadata
 	if firstError == nil && metadataCheckNeeded(next, config) {
-		if firstError, err = checkMetadataBranches(next); err != nil {
-			return response{}, err
+		if !verdict.covers(next) {
+			if verdict, err = newMetadataVerdict(next); err != nil {
+				return response{}, err
+			}
 		}
+		firstError = verdict.err
 	}
+	e.metadata = verdict
 	e.invalidateCaches(next)
 	e.branches, e.config, e.err, e.ready, e.size = next, config, firstError, true, size
 	if firstError != nil {
@@ -295,6 +302,47 @@ func checkMetadataBranches(next map[string]projectBranch) (checkErr, err error) 
 	}
 	var checked project.Config
 	return json.Unmarshal(raw, &checked, json.RejectUnknownMembers(true)), nil
+}
+
+// metadataVerdict is the result of checkMetadataBranches for the raw bytes
+// of the metadata branches. The check reads only these bytes, so the
+// result holds for each project that has the same bytes. A sync of other
+// branches then does not decode the network again.
+type metadataVerdict struct {
+	// raw holds the bytes of each metadata branch that was present. It is
+	// nil when no check ran.
+	raw map[string]jsontext.Value
+	err error
+}
+
+// newMetadataVerdict runs checkMetadataBranches on next.
+func newMetadataVerdict(next map[string]projectBranch) (metadataVerdict, error) {
+	checkErr, err := checkMetadataBranches(next)
+	if err != nil {
+		return metadataVerdict{}, err
+	}
+	verdict := metadataVerdict{raw: make(map[string]jsontext.Value, len(metadataKeys)), err: checkErr}
+	for _, key := range metadataKeys {
+		if branch, present := next[key]; present {
+			verdict.raw[key] = branch.raw
+		}
+	}
+	return verdict, nil
+}
+
+// covers reports whether the verdict is for the metadata branches of next.
+func (v metadataVerdict) covers(next map[string]projectBranch) bool {
+	if v.raw == nil {
+		return false
+	}
+	for _, key := range metadataKeys {
+		branch, present := next[key]
+		raw, checked := v.raw[key]
+		if present != checked || !bytes.Equal(raw, branch.raw) {
+			return false
+		}
+	}
+	return true
 }
 
 // invalidateCaches clears the cached profiles and checks that read a
