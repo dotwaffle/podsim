@@ -131,7 +131,7 @@ A party whose pod is idle at the origin boards that pod.
 Dispatch considers orders in submission order.
 An idle pod at the origin serves the oldest waiting party.
 Otherwise, dispatch compares idle pods and empty pods that can divert, which are pods going to parking, pods moving for redistribution, and pods that dispatch released from a pickup.
-It chooses by the estimated pickup time, then by pod ID.
+It chooses by the estimated pickup time, then by fleet order.
 An idle pod at the pickup station has an estimate of zero, because it boards at its own berth.
 
 ### Wait rules
@@ -258,7 +258,8 @@ A link forms only when the two pods and their stop points are at least the clear
 
 A linked pod can reserve the track cells and junction sections that the pods ahead of it in its platoon hold.
 It shares only the cells whose resources each pod releases at least 1 m before the end of the run, so each pod that holds a shared resource is on the run.
-It stops at least the clearance behind the stop point of the pod ahead, less the distance of 0.5 s of travel at its speed.
+It stops at least the clearance behind the stop point of the pod ahead.
+While it has room, it keeps the distance of 0.5 s of travel at its speed in addition.
 When a pod ahead releases a shared resource, the next pod in the platoon owns it.
 While a linked pod holds a cell of a pod ahead, it reserves only the cells that its predecessor reserved, and a pod ahead does not reserve a resource again while a pod behind it holds that resource.
 Berths are not shared, and a linked empty pod cannot divert.
