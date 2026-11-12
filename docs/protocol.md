@@ -213,7 +213,7 @@ There is no HTTP polling fallback.
 Commands and editor or diagnostic reads keep HTTP.
 
 Each state frame also has a `revision` and a `generation`.
-The revision increases by one at each clock tick while the session runs, and with each accepted command.
+The revision increases by one after each batch of at most eight clock steps while the session runs, with each automatic speed reduction, and with each accepted command.
 The generation increases by one with a reset, a demo, a project apply that replaces the fleet, a rewind, and a restore of the saved state at a restart.
 A new generation makes the Go client clear its buffered motion.
 
@@ -416,7 +416,7 @@ See [TLS-terminating reverse proxies](operations.md#tls-terminating-reverse-prox
 A request that breaks these rules gets HTTP 400, 403, 413, 415, or 503 and a plain text body, not an acknowledgment.
 A body that is larger than a size limit, before or after decompression, gets HTTP 413, and the text gives the limit in bytes.
 These responses also have `Cache-Control: no-store`.
-A 403, 415, or 503 reply comes before the server reads the body, and a 413 reply for a body over the 16 MiB limit comes before the end of the body.
+A 403, 415, or busy 503 reply (all places in use) comes before the server reads the body, and a 413 reply for a body over the 16 MiB limit comes before the end of the body.
 The server closes the connection after these replies, so it does not wait for the rest of the body.
 
 A `project` command with more than 600 stations, 12,000 nodes, 20,000 lanes, or 1,000 pods gets HTTP 400, because these arrays are larger than the limits above.
