@@ -66,7 +66,7 @@ The soak monitors check the state contract with a `contractSampler`: at the firs
 The nine slowest monitored tests fell from 37.9 s to 22.2 s at 60 ticks, and sampling at pod and count changes costs almost nothing.
 These runs were at 60 Hz, so 60 ticks were one second.
 The sampler now checks every 30 ticks, which is again one second at 30 Hz.
-Tests of order accounting or short transitions keep the per-tick check through `monitorContractEachTick`: `TestRestoreReportsUnaccountedOrders`, `TestSharedRidesAccountForEachOrder`, `TestJoinCensusCountsPartyThatBoardsDuringDwell`, `TestLegOriginPickupState`, and `TestRestoreLogicalCompletesOnlyAtAStation`.
+Tests of order accounting or short transitions keep the per-tick check through `monitorContractEachTick`: `TestRestoreReportsUnaccountedOrders`, `TestSharedRidesAccountForEachOrder`, and `TestLegOriginPickupState`.
 The fault and operational tests that use `checkFaultsEachTick` and `checkEachTick` keep it as well.
 
 The `internal/sim` race tests run as one task, `test:race:sim`.
