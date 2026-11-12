@@ -228,6 +228,8 @@ Each counter is `sim.MaxCounter`, which has 16 digits.
 The growth figures are arithmetic, the two proofs confirm them, and no cap or count limit changes.
 The measured totals come from the two proofs, at the commit before `2c0a833` and at `3c61bcb`.
 They differ from the marker contract totals by 33 bytes in a save and by 173 bytes fewer in a stream, from changes outside stage 7 that this document does not trace.
+Status 2026-11-12: the table gives the totals at `3c61bcb`.
+After the boarding record decision, the two proofs give 125,890,565 bytes for a save, 50,694,097 bytes for a full stream, and 84,250,275 bytes for the HTTP state, with headroom of 8,327,163, 16,414,767, and 49,967,453 bytes.
 
 | Proof | Change |
 | --- | --- |
