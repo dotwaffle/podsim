@@ -255,6 +255,7 @@ Stage 1 W3 does not change: the pod releases only its own claims, and it authori
 Status 2026-10-07: `MaxLanes` is now 20,000, and `MaxCommandBytes` is now 16 MiB.
 Status 2026-10-15: `MaxStateBytes` is now 128 MiB.
 Status 2026-11-06: patch 6 of the tick rate proposal landed, so `TicksPerSecond` in the Constants row is now 30.
+Status 2026-11-11: by maintainer decision, each rider has a boarding record, so the legacy detour denominator and `routeMetersForClass` of the Detour baselines row are gone, and `directDistanceForClass` is the only direct distance.
 
 ## 4. State
 
@@ -645,6 +646,8 @@ With no active fault, it returns `s.graph` unchanged.
 | Station maneuver certification | `internal/sim/station_maneuvers.go` `inferStationLaneRoles` | Static |
 | Network bounds, pickup lower bounds, and validation | Unchanged | `s.graph`, static |
 
+Status 2026-11-11: by maintainer decision, each rider has a boarding record, so the row of the legacy detour denominator is gone.
+
 The blocked set is per simulation.
 It is not written into the shared prepared network.
 
@@ -699,6 +702,7 @@ Three checks decide structure or a baseline, not travel, and they read the stati
   A bypass must not raise the denominator: otherwise a 250 m bypass of a 100 m direct route scores near 1 and passes the 1.5 limit.
   This covers each caller: the planned detours (`internal/sim/rider_detours.go` `(*Simulation).plannedArrivalDetour`, `internal/sim/bank_detours.go` `(*Simulation).plannedRiderBankDetour`, `internal/sim/drop_offs.go` `(*Simulation).plannedBerthDetour`) and the realized detour at alighting (`internal/sim/riders.go` `(*Simulation).alight`, `(*Simulation).completeRider`).
   The arrival distance, the candidate travel, and the onward feasibility stay operational.
+  Status 2026-11-11: by maintainer decision, each rider has a boarding record, so the legacy denominator of `plannedBerthDetour` is gone, and `directDistanceForClass` is the only baseline.
 
 Every other search is an operational search and uses `routingGraph`, as section 8.2 lists.
 With an empty blocked set, each static form and its cached form give the same answer, so the change has no off-state effect.
@@ -1510,6 +1514,7 @@ Each type keeps its exported fields.
 - Terminal reevaluation in a full `Step`: an uncommitted occupied pod targets berth B1, a pod fault blocks B1, and B2 of the same station is free; the pod takes B2 and keeps its station, riders, and `Stops`.
   With every berth of the station blocked, the pod waits with "Blocked by incident".
 - Detour baselines: a fault replaces a 100 m direct route with a 250 m bypass; a rider whose ratio is 2.5 against the static baseline is refused by the 1.5 limit, for a legacy rider and a recorded rider, each with a berth end and an entry end; the realized detour at alighting uses the static baseline.
+  Status 2026-11-11: by maintainer decision, each rider has a boarding record, so the fixture checks only the recorded rider, with a berth end and an entry end.
 - Pickup access, under both order contracts, with replacement supply that can reach the origin: a buffered pickup with an open route to the entry of bank A, where every compatible berth of bank A is blocked, loses the trip, and a pod that reaches bank B takes it; a busy pod whose end berth cannot reach the origin loses the trip also when another berth of its end station could reach it; an occupied compatible berth does not unbind a trip.
 - Repeated dispatch, under both order contracts, on a network without class restrictions and with replacement supply that can reach the origin: a pickup inlet whose onward exit is blocked fails rule 3; the trip goes to the replacement pod; over many ticks the first pod never wins the trip again, and the binding changes once.
 - Rule 4 continuation check: a busy pod whose cached `trip.route` crosses a blocked lane fails the check; a busy pod whose passenger leg ends at a station where `Berths[0]` is blocked and another berth is usable passes it; with an empty blocked set, the result equals `finishEstimate`.

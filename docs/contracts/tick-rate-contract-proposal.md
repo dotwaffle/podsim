@@ -258,6 +258,7 @@ This section describes the code before that change.
 | Protocol text | `docs/protocol.md:138`, `docs/protocol.md:641`, and the version text change. No message changes its shape. |
 
 Status 2026-11-06: patch 6 made these changes at 30 Hz, so `stateVersion` is now 11, `StreamVersion` is 9, the golden files are `state_v11.json` and `state_v11_members.txt`, and the demand budget limit is 1,799.
+On November 12, 2026, the boarding record decision raised the saved-state version to 12 and the stream version to 10, and the golden files are now `state_v12.json` and `state_v12_members.txt`, so text about `stateVersion` 11, `StreamVersion` 9, and `state_v11` describes the earlier design.
 
 ### 3.4 Approved contracts
 

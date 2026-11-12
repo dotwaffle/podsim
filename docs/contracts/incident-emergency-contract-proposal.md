@@ -1329,6 +1329,9 @@ Preconditions that later stages must meet:
 | Save with a record and no marker, a pod with `emergencyHold` and no record, two records for one pod, or a serial above `incidentSerial` | `invalid_state`. |
 | Rewind after a start | The same record, and a new generation for new IDs. |
 
+Status 2026-11-11: by maintainer decision, the restore checks the boarding records, the phase, and the berth of each pod with riders before the emergency checks, so for such a pod that check comes first in E4, E5, and E8.
+The save still gets `invalid_state` before either tier, with the error of that check, for example `pod 01 boarding records: operational purpose 3 does not agree with activity traveling` for E8.
+
 ### 14.3 Codec tests
 
 Each rule of section 11.5 has a rejecting test, for the save, a full frame, an HTTP state, and a delta.

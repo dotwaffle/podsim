@@ -598,6 +598,7 @@ The alternatives were rejected:
 - Dropping `LegFrom` at completion breaks two readers.
   The origin rule for a pod without boarding records compares every rider, completed or not, with the first rider (`internal/sim/state_contract.go` `(SavedState).checkPodRiders`).
   The boarding tuple decoder resolves each berth index against the origin station of that rider, completed or not (`internal/session/boarding_state.go` `(boardingSource).encodePodContract`, `(*stateFile).resolveBoardings`).
+  Status 2026-11-11: by maintainer decision, each rider has a boarding record, so the origin rule for a pod without boarding records is gone, and the boarding tuple decoder is the only reader of this item.
 - Inferring the leg origin from the journey origin is lossy.
   `JourneyOrigin` is saved only while passengers remain (`internal/sim/state.go` `(*Simulation).exportPod`), so an idle pod can keep completed riders from one station and a journey origin at another station.
   Emergency review round 2, finding K, reported this.
@@ -735,6 +736,9 @@ Class "Both" checks `From` and `LegFrom`.
 | `internal/view/game.go` `(*Game).visibleCollapsedStationLabels` (at 482d93d) | Label preference for rider stations | Physical |
 | `internal/view/game.go` `journeyStations` (at 482d93d) | `journeyStations` | Physical |
 
+Status 2026-11-11: by maintainer decision, each rider has a boarding record, so the `checkPodRiders` row "Same origin without boarding records" is gone.
+Status 2026-11-11: by maintainer decision, `legacyBoardingRecords` is gone, because each rider has a boarding record, and `checkBoardingBerths` runs before either tier for each pod with riders.
+
 Identity keys:
 
 - `pass.optionPickups` (`internal/sim/dispatch.go` `(*Simulation).dispatch`): physical, with the exclusion.
@@ -869,9 +873,13 @@ This applies to every active rider, also a rider whose destination is the statio
 Distance freeze.
 Each composite that ends riders captures `ridden` once, before its first outcome, as `alight` does (`internal/sim/riders.go` `(*Simulation).alight`).
 After the last outcome, when `Boardings` is not empty, it sets `v.riddenBase = ridden`.
+Status 2026-11-11: by maintainer decision, each pod with riders has boarding records.
+When the outcomes interrupt or transfer every rider and no completed history is aboard, no record remains, and the composite does not set `riddenBase` (`internal/sim/operational.go` `finishOperationalUnload` and `evacuate`); then no retained baseline needs the bound.
+When completed rider history and its records remain after the last outcome, `Boardings` is not empty, and the composite sets `riddenBase`.
 This applies whatever the outcome of the last rider is: completion, interruption, or transfer.
 Once no rider is aboard, `riddenMeters` returns `riddenBase` alone (`(*vehicle).riddenMeters`), so `settleIdleAtBerth` can zero `distance` and each retained boarding baseline stays at or below `RiddenMeters`.
 Both validators need that bound: the save in `internal/sim/state_boarding.go` `checkSavedBoardingsWithOrderContract` and the stream in `internal/session/stream_boardings.go` `validateVehicleBoardingsContract`.
+Status 2026-11-12: by maintainer decision, the stream does not send `riddenMeters`, so the stream validator does not check this bound; the save validator still checks it.
 `completeRider(v, index, ridden)` takes the captured value, so completions use the same distance as `alight`.
 
 `settleIdleAtBerth(v)` gives the complete idle state at the current berth.
