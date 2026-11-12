@@ -1,12 +1,12 @@
 # Tick rate contract proposal
 
 Status: decided on 2026-11-05.
-Decision 1 chose 30 Hz, and patch 6 is pending.
+Decision 1 chose 30 Hz, and patch 6 landed in `f60f6af`, so `sim.TicksPerSecond` is 30.
 The maintainer also decided on the same day: the lookahead stays two ticks (decision 3), the amendments of section 3.4 are approved with cadences in seconds (decision 4), the view runs at a fixed 60 Hz (decision 6), the wake budget follows the wake period and stays 20 ms at 60 Hz (decision 7), and new corridor pins are accepted (decision 11).
-`sim.TicksPerSecond` stays at 60 until patch 6.
-It was drafted against `8bbae7a`.
+Amended through November 12, 2026.
+Git history holds the dated amendment notes and the earlier text.
+It was drafted against `8bbae7a`, where `sim.TicksPerSecond` was 60.
 Each `file:line` reference is for that tree.
-Status 2026-11-06: patch 6 landed in `f60f6af`, so `sim.TicksPerSecond` is now 30.
 All evidence comes from scratch builds that changed the constant and did not land.
 
 ## Summary
@@ -228,6 +228,9 @@ The test helper `soakReplayTicks = 600` (`internal/session/incident_soak_test.go
 
 ### 3.2 Clock wake budget
 
+By decision 7, patch 4 changed the budget, so one wake spends at most the longer of the wake period and 20 milliseconds.
+The finding below is the reason for that decision, and it describes the code at `8bbae7a`.
+
 This finding is arithmetic, and I did not measure it on a quiet host.
 `Session.Run` wakes at the tick rate (`internal/session/session.go:388`), and one wake spends at most 20 milliseconds.
 At speed `n`, a wake owes `n` steps at each rate, so the highest speed is 20 ms over the step time.
@@ -238,27 +241,21 @@ With the recorded flood step of 465 µs, the budget gives 43x at each rate.
 A full core would give 36x, 72x, and 108x.
 So the lower rate gives no higher live speed without a change to the budget or to the wake period.
 
-Status 2026-11-05: patch 4 changed the budget, by decision 7, so one wake now spends at most the longer of the wake period and 20 milliseconds.
-This section describes the code before that change.
-
 ### 3.3 Saved formats and the protocol
 
 | Item | Effect |
 | --- | --- |
-| `stateVersion` 10 (`internal/session/state_file.go:29`) | Must change to 11. These members hold ticks: `simulation.tick`, `totalWaitTicks`, `maxWaitTicks`, `totalJourneyTicks`, `maxJourneyTicks`, `nextRedistributionTick`, `phaseTicks`, `requestedTick`, `boardedTick`, `deferUntil`, `deferCheck`, each fault and emergency `start`, `end`, `nextTick`, and counter, the rail `alightedTick`, `demand.budget`, and the checkpoint ticks. |
+| `stateVersion` (`internal/session/state_file.go:29`) | Changes with the rate. Patch 6 moved it from 10 to 11, and the boarding record decision later moved it to 12. These members hold ticks: `simulation.tick`, `totalWaitTicks`, `maxWaitTicks`, `totalJourneyTicks`, `maxJourneyTicks`, `nextRedistributionTick`, `phaseTicks`, `requestedTick`, `boardedTick`, `deferUntil`, `deferCheck`, each fault and emergency `start`, `end`, `nextTick`, and counter, the rail `alightedTick`, `demand.budget`, and the checkpoint ticks. |
 | Why the version must change | A 60 Hz save has valid numbers at a lower rate, with a different meaning. The restore refuses only a value above a scaled bound, for example `phase 73 is out of range` at 20 Hz. Otherwise it accepts the save with a wrong clock. |
-| `StreamVersion` 8 (`internal/session/stream_codec.go:24`) | Must change to 9. The client converts ticks to seconds and to the travel bound (`internal/remote/motion.go:102`) with its own constant. |
+| `StreamVersion` (`internal/session/stream_codec.go:24`) | Changes with the rate. Patch 6 moved it from 8 to 9, and the boarding record decision later moved it to 10. The client converts ticks to seconds and to the travel bound (`internal/remote/motion.go:102`) with its own constant. |
 | No rate member | The save and the stream stay without a `ticksPerSecond` member, because the rate is a build constant. See decision 5. |
 | Project format | No change. No project member holds ticks. Rail times, fault durations, and evacuation times are seconds. |
 | `MaxRailRelease` of 200 at one tick (`internal/project/rail_arrivals.go:19`) | Validation can change. Departure windows put more offers on one tick at a lower rate, so a project near the limit can fail at the new rate. Arrivals at whole seconds do not change. All presets validate. |
-| Goldens | `internal/session/testdata/state_v10.json` and `state_v10_members.txt` take the new version name. `stream_motion_delta.json` changes. The plain stream goldens pass at both rates, and they change only by the version. |
+| Goldens | The saved-state golden files in `internal/session/testdata` take the name of the version, and they are now `state_v12.json` and `state_v12_members.txt`. `stream_motion_delta.json` changes. The plain stream goldens pass at both rates, and they change only by the version. |
 | Plain byte bounds | `TestPlainStateFileWorstCaseSize` and `TestPlainStreamMaximumEncoding` pass at 30 and at 20 Hz. No bound grows, because a lower rate only lowers tick values, and the proofs use `MaxCounter` widths. |
-| Express byte sizes | Express has no byte proof, and this does not change that. |
-| Demand budget | The limit falls from 3,599 to 1,799 or 1,199, with the same width of 4 digits. |
+| Express byte sizes | This contract added no Express byte proof. The later proofs of amendments E5 and A18 cover the saved state, the full stream, the replacement delta, and the HTTP state. |
+| Demand budget | The limit falls from 3,599 to 1,799 at 30 Hz, with the same width of 4 digits. At 20 Hz it would be 1,199. |
 | Protocol text | `docs/protocol.md:138`, `docs/protocol.md:641`, and the version text change. No message changes its shape. |
-
-Status 2026-11-06: patch 6 made these changes at 30 Hz, so `stateVersion` is now 11, `StreamVersion` is 9, the golden files are `state_v11.json` and `state_v11_members.txt`, and the demand budget limit is 1,799.
-On November 12, 2026, the boarding record decision raised the saved-state version to 12 and the stream version to 10, and the golden files are now `state_v12.json` and `state_v12_members.txt`, so text about `stateVersion` 11, `StreamVersion` 9, and `state_v11` describes the earlier design.
 
 ### 3.4 Approved contracts
 
@@ -637,10 +634,10 @@ I do not recommend it.
 
 ### 5.3 The incident soak
 
-Status 2026-11-05: the maintainer limited the soak to 2 hours of wall time, as 5 seeds of 6 simulated hours, at 60 Hz.
+After this section was written, the maintainer limited the soak to 2 hours of wall time, as 5 seeds of 6 simulated hours, at 60 Hz.
 The projections below use the earlier size, and a soak at 60 Hz still does not qualify another rate.
 
-The approved soak is 200 runs, about 640 CPU hours, and 54 wall hours on 12 threads, all at 60 Hz.
+The soak that was approved at the time of the draft is 200 runs, about 640 CPU hours, and 54 wall hours on 12 threads, all at 60 Hz.
 
 | Question | Answer |
 | --- | --- |

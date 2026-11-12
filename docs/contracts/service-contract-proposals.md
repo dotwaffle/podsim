@@ -1,14 +1,14 @@
 # Service contract proposals
 
 Status: approved October 2, 2026.
+Amended through November 4, 2026.
+Git history holds the dated amendment notes and the earlier text.
+The compact station queue section went with station buffers and compact station queues on October 7, 2026.
+The opt-in Compact station added in October 2026 (maneuver groups, `internal/sim/maneuver_*.go` and `internal/sim/station_maneuvers.go`) is a different feature, and this removal does not cover it.
 Implementation landed: order consent, vehicle classes, Express, and the Go editor helpers are in the code.
 The user approved roadmap items 1 through 10 and continued local work on October 2, 2026.
-Station buffers and compact station queues were removed on October 7, 2026, because measurements showed that they lowered station entry throughput.
-The compact station queue section was deleted with them.
-The opt-in Compact station added in October 2026 (maneuver groups, `internal/sim/maneuver_*.go` and `internal/sim/station_maneuvers.go`) is a different feature, and this removal does not cover it.
 The standing grant requires approval of concrete contract changes before implementation.
 Browser-facing JavaScript, existing defaults, and ordinary safety limits stay in force.
-On November 4, 2026, [the marker removal contract](marker-removal-contract-proposal.md) removed the incident, fault, and emergency markers and raised the saved-state version to 10 and the stream version to 8, so text about these markers or the earlier versions describes the earlier design.
 
 ## Order consent and vehicle compatibility
 
@@ -25,12 +25,13 @@ Approve these data and compatibility rules as one foundation:
   Preserve exact-command retry behavior.
 - A party remains together.
   A private active party excludes every other active party from its pod.
-  Shared admission requires explicit consent from every active party and enough passenger seats.
+  Shared admission requires explicit consent from every active party and enough passenger capacity.
   Retain the existing on-demand party limit, stop limits, and 1.5 detour limit.
 - Separate immutable vehicle class from the current service.
   Use `legacy`, `compact`, `group`, and `express` class IDs.
   Omitted class means legacy.
-  Proposed logical seats are 8, 4, 8, and 20 respectively.
+  Legacy, Compact, and Group have 8, 4, and 8 seats.
+  Express has 12 seats and 8 standee places.
   Legacy preserves the current four-meter point/body model.
   Its logical seats are not a physical capacity certification.
   Legacy keeps size-one party admission, including the existing explicitly consented singleton sharing experiment.
@@ -59,19 +60,18 @@ Approve these data and compatibility rules as one foundation:
   Do not wait to fill seats or invent a departure interval.
   A large pod can separately serve one private on-demand group when all compatibility checks pass.
   Fare calculation and a fixed timetable require later contracts.
-- Use project version 1, saved-state version 9, and stream hello version 7.
+- Use project version 1, saved-state version 12, and stream hello version 10.
   A project permits banks and service metadata independently, by their presence.
   Browser file wrapper version 1 stays unchanged.
   The decoder refuses project versions 2 through 5 and does not migrate them.
   The saved state can contain a project with new effective request state.
-- Raise only the new express rider array bound to 20 and save-6 restore queue bound to 6,200.
-  Item 7 superseded this queue bound with 2,600 orders, or 8,600 with Express.
-  Keep on-demand at 8 parties, stops at 8, manual admission at 200, fleet at 300, and current byte and history caps.
+- The express rider array bound is 20.
+  The restore queue bound is 8,200 orders for a plain state and 17,000 orders for an Express state.
+  The fleet limit is 1,000 pods for a plain project and 600 pods for an Express project.
+  Keep on-demand at 8 parties, stops at 8, manual admission at 200, and the current history caps.
   Bound the express registry at 300 services.
-  Prove worst-case saves and frames fit existing byte limits before landing.
-  Status 2026-10-07: the maintainer dropped this proof, raised the fleet to 600 pods, the plain queue bound to 5,000 orders, and the Express queue bound to 17,000 orders, and raised the save cap to 100 MiB.
-  Status 2026-10-15: the byte-budget amendment raised the plain fleet to 1,000 pods, the plain queue bound to 8,200 orders, and the save cap to 128 MiB.
-  Express keeps 600 pods and 17,000 orders.
+  The [service byte limits](service-byte-contract-proposal.md) set the byte caps, with a save cap of 128 MiB.
+  `TestPlainStateFileWorstCaseSize`, `TestPlainStreamMaximumEncoding`, `TestExpressStateFileWorstCaseSize`, and `TestExpressStreamMaximumEncoding` prove that worst-case saves and frames fit those caps.
 - Each saved and streamed order has explicit `private` or `shared` consent.
   Restore and new trip commands reject all other consent values.
   The server does not migrate saves of an earlier version.

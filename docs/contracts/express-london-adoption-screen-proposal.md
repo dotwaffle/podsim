@@ -4,9 +4,9 @@ Status: drafted and approved on November 8, 2026.
 The maintainer approved decisions 1 to 6 as recommended, with runner option A.
 The maintainer also approved the build of the runner and the timed pilot.
 The maintainer approved the full screen after the pilot, and it failed, so the work on D adoption stops (see [Results](#results)).
-Status 2026-11-08: the approved mapping said orders of at most 8, from `sim.MaxNewPartySize`, but the LondonFull fleet is Compact, which takes a party of at most 4, so an order of 8 had no pod.
-The runner splits to the largest party that the fleet takes, and the maintainer confirmed this correction on November 8, 2026.
 On November 9, 2026, after the studies and pilots below, the maintainer stopped the work on D adoption under the current gates, so `D` is not adopted (see [Final decision](#final-decision)).
+Amended through November 9, 2026.
+Git history holds the dated amendment notes and the earlier text.
 
 ## Scope
 
@@ -47,9 +47,8 @@ The screen does not isolate the policies.
 | 6 | `D` | Quiet band |
 
 Each arm runs seeds 1, 2, and 3, for 18 runs.
-The busy band and the quiet band are the bands of `LondonFullDemand` with the most and the fewest observed journeys.
+The busy band and the quiet band are the bands of `LondonFullDemand` with the most and the fewest observed journeys a minute.
 The runner prints both names before the pilot, and they do not change after it.
-Status 2026-11-08: the runner picks the bands by observed journeys a minute, so the busy band is `pm-peak`.
 Both bands use the background rate of the LondonFull preset, 10 requests a minute, so the band changes only the flows.
 
 Each workload adds the hub stream of the D soak: shared hub parties of 1 to 20 passengers between Waterloo and Bank, one each 15 s on average, three in four from Waterloo.

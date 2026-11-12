@@ -1,11 +1,10 @@
 # Service byte limits
 
 Status: approved October 2, 2026.
+Amended through November 4, 2026.
+Git history holds the dated amendment notes and the earlier text.
 The byte caps at approval remained unchanged.
-Since 64b4f3f, the stream JSON cap is 65 MiB, and the gzip message cap is 66 MiB.
-Status 2026-10-07: by maintainer decision, the saved-state and stream byte proofs that this contract requires were deleted.
-At that decision, the fleet limit was 600 pods, the plain queue bound was 5,000 records, and the saved-state cap was 100 MiB.
-On November 4, 2026, [the marker removal contract](marker-removal-contract-proposal.md) removed the incident, fault, and emergency markers and raised the saved-state version to 10 and the stream version to 8, so text about these markers or the earlier versions describes the earlier design.
+The October 15 amendment below sets the current caps and limits.
 
 ## October 15, 2026 amendment
 
@@ -20,7 +19,7 @@ The saved-state cap also limits compressed files to 128 MiB.
 
 `TestPlainStateFileWorstCaseSize` and `TestPlainStreamMaximumEncoding` bound the plain format through its production encoding rules.
 Completed rider history stays outside the outstanding-order budget and remains present in the proofs and the running simulation.
-Motion-only deltas use stream version 7 without changing full-frame or saved-state members.
+Motion-only deltas change no full-frame or saved-state member.
 Express retains its own 600-pod fleet and 17,000-order bound.
 Increasing plain limits must not increase either Express limit implicitly.
 `TestExpressStateFileWorstCaseSize` and `TestExpressStreamMaximumEncoding` bound the Express format in the same way.
@@ -35,6 +34,9 @@ The qualification uses one geometry, normal and overloaded traffic, safety and p
 `mise run qualify:london` repeats those cases explicitly.
 
 ## Recommended staged contract
+
+This section is the scope that the approval of October 2, 2026 covers.
+The amendment above replaces its queue bound of 2,600 records and its 80 MiB save cap.
 
 Approve this qualification scope:
 

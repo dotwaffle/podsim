@@ -1,53 +1,16 @@
 # Incident emergency contract proposal
 
 Status: Approved revision 7, October 6, 2026.
-Trimmed on November 4, 2026: review history removed.
-Git history keeps it.
+Amended through 2026-11-11.
+Git history holds the dated amendment notes and the earlier text.
+
 The maintainer approved product choices P1 to P22 of section 18.2 as proposed, on October 5, 2026, at 22:08Z, and decided P23 on October 5, 2026, at 23:59Z.
 The contract authorizes no implementation, default change, or deployment.
 Line references are at `481c145`.
-On November 4, 2026, `docs/contracts/marker-removal-contract-proposal.md` removed the markers, so text about the markers describes the earlier design.
-On November 5, 2026, the maintainer removed the congestion, queue, and predictive routing policies, so free-flow routing is the only policy.
-Text about those policies, their state, and their searches describes the earlier design, and where a rule lists such a case with other cases, only that case is removed.
-`queueDischarge`, `queueDelay`, `queueHeadwaySeconds`, and a reduced routing view remain, and the rules of `E` do not change.
-
-Physical coupling was removed on October 6, 2026.
-Clauses about the couplingContract marker, coupling sites and corridors, coupling approaches, and coupled trains and their members no longer apply.
-Where a rule lists a coupling case with other cases, only the coupling case is removed.
-Platoon, compact queue, and station group rules are unchanged.
-
-Station buffers and compact station queues were removed on October 7, 2026, because measurements showed that they lowered station entry throughput.
-Clauses about buffered pods, buffer heads, buffer claims, compact queue members, and compact certificates no longer apply.
-The opt-in Compact station added in October 2026 (maneuver groups, `internal/sim/maneuver_*.go` and `internal/sim/station_maneuvers.go`) is a different feature, and this removal does not cover it.
-Where a rule lists a buffer or compact case with other cases, only that case is removed.
-The sentence above that keeps compact queue rules unchanged no longer covers them.
-The function `checkCompactFields`, which the restore order below names, no longer exists.
-
-Station entry runs, an early berth choice, and coast-in were added on October 7, 2026.
-The sentence above that keeps platoon rules unchanged no longer covers them.
-A platoon run can end on the entry lane of the destination station of both pods, and it never continues past the entry node of that station.
-With platoons on, a pod that is not of a large class can try its berth choice before the usual point, and an early try that finds no berth does not refuse the pod.
-With platoons on, a pod that waits for a contested station diverge can coast: a speed ceiling lowers only its commanded speed.
-The incident refusal of platoon members and the emergency drain rule are unchanged.
-
-Status note, October 6, 2026: the maintainer stopped the incident redesign after stage 3.
-Stages 4 to 7 are out of scope.
-Text that names these stages describes refusals that stay in place.
-
-Status note, November 4, 2026: the maintainer reopened stage 7 under `docs/contracts/incident-stage7-contract-proposal.md`, as option B with amendments A1 to A4.
-Stages 4 to 6 stay out of scope.
-The rules G1 to G16 of section 3 of that document, and its amendments, apply to this contract, and the text below stays as written.
-Status 2026-11-05: the network indexes are now built once with the prepared network, so no rebuild clears the memo.
-Rule G9 moves the start into `startEmergency`, so the `Emergency` of the F11 transition row is that function.
-
-Amendment, November 5, 2026: the maintainer approved the rate text of this contract on November 5, 2026, as decisions 1 and 4 of [the tick rate proposal](tick-rate-contract-proposal.md).
-The rules now use `TicksPerSecond` and seconds in place of 60 Hz literals.
-Each rule has the same meaning at 60 Hz: the 60-tick cadence is a choice each 1 s, 216000 was `3600 × TicksPerSecond`, and parity each 600 ticks is parity each 10 s.
 
 This contract is stage 3 of the staged incident redesign: the emergency vertical slice on ordinary pods.
 A rider in an ordinary pod starts an emergency.
 The pod goes to the station where it can unload soonest, and every party leaves it there.
-A pod in a train stays in the train until its committed split site, and the emergency acts on it after the split.
 
 It builds on the API of the approved stage 1 contract, [incident-service-transitions-contract-proposal.md](incident-service-transitions-contract-proposal.md), section 13, and on the approved stage 2 contract, [incident-suspension-contract-proposal.md](incident-suspension-contract-proposal.md), section 15.
 It changes neither contract.
@@ -64,23 +27,29 @@ Stage 3 starts after stage 2 patch 9, except patch 1 of section 16, which can la
 
 1. Emergency records: one record for each pod in an emergency, with a party, a start tick, and a phase that each tick derives again (section 4).
 2. The emergency start at a command boundary, and an emergency stage in `Step` that withdraws the pod, starts the unload at a berth, or binds the pod to an emergency station (section 5).
-3. Deferral of coupling, approach, platoon, and compact members until they leave their group, with the train split at its committed split site (section 5.6).
+3. Deferral of platoon members until their link ends (section 5.6).
 4. The station choice: the soonest estimated arrival over the reachable passenger stations, chosen once (section 9.1).
 5. An emergency tier in admission that wins free resources and never revokes a grant (section 9.3).
-6. The fix of review finding Q7: coupling discovery and adoption skip a withdrawn pod and a pod with an operational purpose, and discovery also skips a pod that a record names (section 5.8).
-7. The emergency marker, the settings, the command, and the emergency members of each format (sections 10 and 11).
+6. The fix of review finding Q7 (section 5.8).
+   It went with physical coupling on October 6, 2026.
+7. The settings, the command, and the emergency members of each format (sections 10 and 11).
+   The emergency marker was removed on November 4, 2026 (section 11.1).
 
 ### 1.2 Out of scope
 
 | Item | Stage |
 | --- | --- |
-| An interruption of a physical train before its split site | Stage 4 |
-| A group exit for a platoon or compact member before the end of its link or group | Stage 6 |
+| A group exit for a platoon member before the end of its link | Stage 6 |
 | Reverse motion of an emergency pod | Stage 5 |
 | Refuge travel (purpose 2), and P3, P4, and P11 beyond their stage 3 defaults | A later stage, if the maintainer chooses it (section 18.2) |
 | The scenario rate `perHour` above 0 | Stage 7 |
 | The full metric set | Stage 7 |
-| The revocation of a grant, a claim, or a buffer position of another pod | Never (decision 1) |
+| The revocation of a grant or a claim of another pod | Never (decision 1) |
+
+The maintainer stopped the incident redesign after stage 3 on October 6, 2026, so stages 4 to 6 are out of scope, and the deferrals and refusals that this contract leaves to them stay in place.
+The maintainer reopened stage 7 on November 4, 2026, under [the stage 7 contract](incident-stage7-contract-proposal.md), as option B with amendments A1 to A4.
+The rules G1 to G16 of section 3 of that document, and its amendments, apply to this contract.
+Text below that limits `perHour` to 0 describes stage 3, and the stage 7 contract defines the rate.
 
 ### 1.3 Binding user decisions
 
@@ -102,6 +71,9 @@ They are not open to change in this contract.
 8. No build tags.
    Exported test entries are allowed, and section 13 lists each one.
 
+Physical coupling was removed on October 6, 2026, so decisions 2 and 7 have no subject now.
+On November 4, 2026, [the marker removal contract](marker-removal-contract-proposal.md) replaced the switch of decision 6: emergencies are on in every fleet but the demo fleet, with no project switch (section 10.1).
+
 The product brief records the earlier user decisions of October 4, 2026 (`6227cf7:PROJECT_BRIEF.md:687-711`).
 Decisions 1 and 3 above narrow two of them: "moves ahead of entry queues" becomes decision 1, and "a new pod" becomes decision 3.
 
@@ -110,18 +82,15 @@ Decisions 1 and 3 above narrow two of them: "moves ahead of entry queues" become
 | Target | Stage 3 | Later |
 | --- | --- | --- |
 | Ordinary occupied pod, `Traveling`, that `divertStart` accepts | Accepted. The pod binds to an emergency station (section 5.4). | |
-| Ordinary occupied pod, `Traveling`, in its arrival chain or in a station buffer | Accepted. The pod stays deferred until it arrives, and then unloads at that berth. | |
+| Ordinary occupied pod, `Traveling`, in its arrival chain | Accepted. The pod stays deferred until it arrives, and then unloads at that berth. | |
 | Ordinary occupied pod at a berth: `Boarding`, `Unloading`, or `Continuing` | Accepted. The unload starts at once at that berth. | |
 | Platoon leader or follower | Accepted, deferred. The link drains, and the pod acts after the link ends (section 5.6). | Stage 6 adds a group exit. |
-| Compact queue member | Accepted, deferred until the pod leaves the group. | Stage 6 |
-| Coupling member (`couplingID != ""`) | Accepted, deferred until the split at its committed split site. | Stage 4 |
-| Approach member (`couplingApproachMember`) | Accepted. The approach aborts, and the pod then acts as an ordinary pod (section 5.6, product choice P15). | Stage 4 |
 | Faulted pod that carries passengers | Accepted, deferred while the fault lasts (section 5.7, product choice P16). | |
 | Pod that carries no passenger, also an evacuated faulted pod | Refused with `pod carries no passenger`. | |
 | Pod that already has an emergency | Refused with `pod already has an emergency`. | |
 | `perHour` above 0 | Refused | Stage 7 |
 
-Every accepted target gets its record and `emergencyHold` at once, except a coupling or approach member, which gets the hold after it leaves the group (section 5.6).
+Every accepted target gets its record and `emergencyHold` at once.
 
 ### 1.5 Stage 1 and stage 2 parts used
 
@@ -134,7 +103,7 @@ Every accepted target gets its record and `emergencyHold` at once, except a coup
 | `finishOperationalUnload`, `transferRider`, the interrupted outcome | Stage 1, sections 7.3, 8, and 9.5 | The outcomes of the unload. The party is interrupted, and every other party completes or is transferred (decision 3). |
 | `continuationFeasible` | Stage 1, section 13 | Not used by the default station rule. Product choice P13 can use it. |
 | `nextIncidentID` | Stage 1, section 11.4 | Emergency IDs |
-| The incident marker and the digest registry | Stage 1, sections 11.2 and 11.3 | The emergency marker requires the incident marker. New extension numbers. |
+| The digest registry | Stage 1, section 11.3 | New extension numbers. |
 | Restore tiers | Stage 1, section 9.6 | Section 10.7 |
 | The joint save allocation, with 65,536 bytes for emergency records | Stage 1, section 11.7 | Section 11.6 |
 | `routingGraph`, `berthBlocked` | Stage 2, section 8, landed (`internal/sim/blocked_routes.go` `(*Simulation).berthBlocked`, `(*Simulation).routingGraph`) | Candidate berths and routes |
@@ -158,7 +127,7 @@ Stage 3 does not call `resumeFromRefuge`, `rebindOperationalOwner`, or `evacuate
 | Bound | The record pod has purpose 1 and is not yet at the berth of that purpose. |
 | Unloading | The record pod has purpose 1 and unloads at the berth. |
 | Divertible | `divertStart` (`internal/sim/diversion.go` `(*Simulation).divertStart`) accepts the pod. |
-| Group member | A coupling member, an approach member, a platoon leader or follower (`coupled`, `internal/sim/platoon.go` `(*vehicle).coupled`), or a compact queue member. |
+| Group member | A platoon leader or follower (`coupled`, `internal/sim/platoon.go` `(*vehicle).coupled`). |
 | Emergency stage | The step of section 5.3, at the policy place of `Step`. |
 | Estimate | `E` of section 9.1, in seconds. |
 
@@ -196,6 +165,16 @@ Stage 3 does not call `resumeFromRefuge`, `rebindOperationalOwner`, or `evacuate
 | `internal/session/receipt.go` `digestExtensions` | Only `N = 1` has landed. Stage 2 reserves `N = 2` to `N = 9` (stage 2, section 13.2). | Stage 3 takes `N = 10` to `N = 12` and reuses `N = 4`. |
 | `internal/session/stream_codec.go` `MaxStreamJSON`, `MaxStreamMessage` | `MaxStreamJSON` is 65 MiB, and `MaxStreamMessage` is 66 MiB. | The stream budget of section 11.6. |
 
+This table records the audit at `481c145`.
+Physical coupling was removed on October 6, 2026, station buffers and compact station queues on October 7, 2026, and the markers on November 4, 2026.
+The opt-in Compact station added in October 2026 (maneuver groups, `internal/sim/maneuver_*.go` and `internal/sim/station_maneuvers.go`) is a different feature, and this removal does not cover it.
+Station entry runs, an early berth choice, and coast-in were added on October 7, 2026.
+A platoon run can end on the entry lane of the destination station of both pods, and it never continues past the entry node of that station.
+With platoons on, a pod that is not of a large class can try its berth choice before the usual point, and an early try that finds no berth does not refuse the pod.
+With platoons on, a pod that waits for a contested station diverge can coast: a speed ceiling lowers only its commanded speed.
+The incident refusal of platoon members and the emergency drain rule are unchanged.
+The `coupling_*.go` rows and the `bufferClaimCanYield` row name code that went with them, and the coupling, approach, and compact refusals that other rows name are gone.
+
 ## 4. State
 
 ### 4.1 Records
@@ -218,7 +197,7 @@ type emergencyRecord struct {
 
 | Member | Meaning | Reset | Clone |
 | --- | --- | --- | --- |
-| `emergenciesOn bool` | The emergency marker is set. It enables the start and the emergency stage. | Kept, as `faultsOn` (`internal/sim/simulation.go` `Simulation`) | Copied |
+| `emergenciesOn bool` | The switch of the start and the emergency stage. The session sets it for every fleet but the demo fleet (section 10.1). | Kept, as `faultsOn` (`internal/sim/simulation.go` `Simulation`) | Copied |
 | `emergencies []emergencyRecord` | The active records, in serial order. | Cleared | Deep copy |
 | `emergencyCounters` | The counters of section 10.5. | Cleared | Copied |
 | `emergencyMisses []emergencyMiss` | The no-candidate memo of section 9.1, one entry for each record with a proven no-candidate result. Not saved. | Cleared | Not copied: a clone starts with no memo, which changes no result |
@@ -258,7 +237,7 @@ A save holds the purpose in the pod tuple (stage 1, section 11.5), so a restore 
 | Active records, `MaxEmergencies` | 4 | Product choice P19 |
 | Decoder limit for records | `MaxEmergencies` | Section 11.5 |
 | Byte budget basis | 300 records | Section 11.6. The budget holds for any cap up to the pod limit. |
-| Station choices for one record | One commit. One choice at the start when the pod is divertible then, and one on each 60th tick while the pod is deferred and divertible. | Section 9.1 |
+| Station choices for one record | One commit. One choice at the start when the pod is divertible then, and one each 1 s of simulated time while the pod is deferred and divertible. | Section 9.1 |
 
 ## 5. Lifecycle and operations
 
@@ -282,7 +261,7 @@ Then it runs these steps:
    The arithmetic preflight of precondition 8 makes this step safe.
 2. Append the record with `start = s.tick` and the order ID of the party.
    Add 1 to `started`.
-3. When the pod is not a coupling or approach member, call `withdrawService(v, emergencyHold)`.
+3. Call `withdrawService(v, emergencyHold)`.
    This is the first hold, unless the pod is faulted, so `releasePickups` releases every pending pickup of the pod with the exclusion that holds until boarding (decision 4).
 4. Call `advanceEmergency` for the record once (section 5.4).
 5. Call `observe` (`internal/sim/state_contract.go` `(*Simulation).observe`) once.
@@ -325,14 +304,14 @@ The stage runs before `dispatch`, so a pod released at the record end is supply 
 
 1. When `v.faulted` (`internal/sim/simulation.go` `vehicle`), return.
    The pod is deferred while the fault lasts (section 5.7).
-2. When `v.couplingID != ""` or `couplingApproachMember(v.Pod.ID)`, return.
-   The pod is deferred until its split or the end of the approach (section 5.6).
+2. This step deferred a coupling or approach member.
+   It went with physical coupling on October 6, 2026.
 3. When `v.withdrawn&emergencyHold == 0`, call `withdrawService(v, emergencyHold)`.
 4. When `v.op.purpose != opService`, return.
    The pod is bound or unloading, and `arrive` and the unloading loop do the rest.
 5. Let `mask = 1 << i`, where `i` is the index of the party in `v.Riders`.
 6. When the pod is at a berth with activity `Boarding`, `Continuing`, or `Unloading`, call `startOperationalUnload(v, emergencyHold, mask)` and return.
-   When the call refuses, the pod is a platoon or compact member, and it stays deferred.
+   When the call refuses, the pod is a platoon member, and it stays deferred.
 7. When the pod is `Traveling`, `divertStart` accepts it, and either the call comes from the start or `(s.tick - r.start) % TicksPerSecond == 0`, run the station choice of section 9.1.
    When it finds a pair `(S, b)`, call `setOperationalDestination(v, operationalTarget{purpose: opEmergencyUnload, owner: emergencyHold, interrupt: mask, station: S, berth: b})`.
 8. Otherwise the pod stays deferred, and it keeps its route.
@@ -356,7 +335,7 @@ The record ends in these cases, and in no other:
 | Case | Cause |
 | --- | --- |
 | The pod carries no passenger. | `finishOperationalUnload` ended the unload, a fault evacuation interrupted every rider, or every rider left at its stops while the pod was deferred. |
-| The record is deferred, and the party is not an active rider. | The party left the pod while the pod was deferred, for example at an ordinary alight of a compact member at its berth, or by an interruption (product choice P17). |
+| The record is deferred, and the party is not an active rider. | The party left the pod while the pod was deferred, at an ordinary alight or by an interruption (product choice P17). |
 | A logical restore, or a reset. | Section 10.7. |
 
 `restoreService` cannot fail at a record end:
@@ -364,7 +343,6 @@ The record ends in these cases, and in no other:
 - The purpose is not owned by `emergencyHold`.
   Purpose 1 needs an active rider (stage 1, section 9.3), and both transitions that remove the last rider clear purpose 1: `settleIdleAtBerth` and `evacuateLane`.
   In the deferred case, the purpose is 0.
-- The pod is not a coupling member: a pod with `emergencyHold` never becomes one (invariant E6), and a deferred coupling member has no hold.
 - The emergency stage runs outside a dispatch pass.
 
 A faulted pod keeps `faultHold` after the end, so it stays withdrawn.
@@ -376,24 +354,13 @@ The pod finishes its group motion first, and the emergency acts after the pod le
 
 | Group | Rule | End of the wait |
 | --- | --- | --- |
-| Coupling member | No change to the train. The pod is not withdrawn, because `withdrawService` refuses it (`internal/sim/service_withdrawal.go` `(*Simulation).withdrawService`). | The split at the committed split site clears `couplingID` (`internal/sim/coupling_step.go` `(*Simulation).finishNativeCoupling`) at the end of a tick. Coupling discovery at the start of the next tick skips the pod, because a record names it (section 5.8). The emergency stage of that tick withdraws the pod before `dispatch` and `formPlatoons`. |
-| Approach member | `couplingApproachContext.changed` returns the reason "approach member has an emergency" when either member has a record. `planCouplingApproach` then brakes and aborts the approach through `brakeApproach` (`internal/sim/coupling_approach.go` `(*couplingApproachContext).brakeApproach`). | The approach ends. Coupling discovery skips the pod (section 5.8), and the next emergency stage withdraws it. A rear member that is still a platoon follower then follows the platoon rule. |
 | Platoon leader or follower | `maintainLink` sets `draining` on each tick when either end has a record, and it does not call `extendLink`. `tryLink` refuses a pair with a record at either end. | The link ends when the follower holds no resource of a pod ahead (`internal/sim/platoon.go` `(*Simulation).maintainLink`). The pod is then divertible. |
-| Compact queue member | No change to the group. `divertStart` and `startOperationalUnload` refuse the pod. | The pod leaves the group. Stage 6 adds an exit. |
 
 Only `extendLink` clears `draining`, and the link rule sets it again on each tick, so the rule keeps no state of its own.
 A restore needs no new member for it.
 
-A deferred coupling member keeps `withdrawn == 0` until its retirement.
-No rider alights in the train: a coupling plan ends its handoff before the receiving boundary of each member (`internal/sim/coupling_motion_context.go` `(*couplingMotionContext).bindExits`).
-The sequence is retirement, then arrival:
-
-1. `finishNativeCoupling` retires the members at the split site, clears `couplingID`, and keeps the retained resources (`internal/sim/coupling_step.go` `(*Simulation).finishNativeCoupling`).
-2. Coupling discovery of the next tick skips the pod, because a record names it (section 5.8).
-   The emergency stage of that tick withdraws the pod, and the first hold releases each pending pickup of the pod with the exclusion (decision 4).
-3. The pod continues on its ordinary route.
-   When `divertStart` accepts it, the station choice runs on its cadence.
-   Otherwise the pod arrives through `arrive` (`internal/sim/traffic.go` `(*Simulation).publishVehicleTravel`), and the next emergency stage starts the unload at that berth.
+The rules of this section for coupling members and approach members went with physical coupling on October 6, 2026.
+The rule for compact queue members went with the compact station queues on October 7, 2026.
 
 ### 5.7 Faults and emergencies
 
@@ -417,45 +384,10 @@ The endpoint reroute (stage 2, section 9.3) keeps its emergency berth, without t
 
 ### 5.8 Q7 fix
 
-The fix lands in patch 1 of section 16.
-The maintainer chose to fix the bug in stage 3, so the fix is not gated on the emergency marker.
-It changes only runs in which a withdrawn pod or a pod with a purpose would have been discovered or adopted for coupling, and such a pod exists only with the incident or fault marker (section 12).
-The record term of revision 7 changes only runs in which a pod that a record names would have been discovered, and a record exists only with the emergency marker.
-
-| Site | Change |
-| --- | --- |
-| `discoverCouplingApproaches` (`internal/sim/coupling_approach_runtime.go` `(*Simulation).discoverCouplingApproaches`) | Skip a front or rear pod with `withdrawn != 0` or `op.purpose != opService`, or that a record names (`emergencyOf`). |
-| `prepareCouplingAdoption` (`internal/sim/coupling_approach_runtime.go` `(*Simulation).prepareCouplingAdoption`) | Return `couplingDenied("member is out of service")` when either member has `withdrawn != 0` or `op.purpose != opService`, before `planCouplingReservation`. The denial continues the adoption loop (`internal/sim/coupling_step.go` `(*Simulation).planNativeCouplingTick`). |
-| `couplingApproachContext.changed` (`internal/sim/coupling_approach_context.go` `(*couplingApproachContext).changed`) | Return a reason when either member is withdrawn, has a purpose, or has a record. |
-| `CheckContract` | Invariant E6. |
-
-Stage 2 skips a faulted pod at discovery (`internal/sim/coupling_approach_runtime.go` `(*Simulation).discoverCouplingApproaches`).
-The Q7 skip is wider: it also covers a pod in its fault recovery (purpose 3), which is withdrawn and not faulted, and a pod with `emergencyHold`.
-
-The discovery skip also covers a pod that a record names (revision 7).
-Discovery runs at the start of `Step`, before the emergency stage.
-A group member with a record has no hold until it leaves its group (section 5.6), so it has no hold at that discovery.
-Without the record term, discovery could recruit such a pod when it is the front or the rear of a platoon pair at that discovery.
-Then `changed` aborts that approach at the approach plan of the same tick, and the pod gets its hold after the approach ends.
-After a split, the members have no platoon link (`internal/sim/coupling_step.go` `(*Simulation).finishNativeCoupling`), and a new link forms only after the emergency stage, so no observed run reached this case.
-The term is a guard for a pod that has a platoon link at that discovery.
-With the term, the emergency stage of the same tick withdraws the pod.
-Adoption needs no record term: `changed` aborts each approach whose member has a record before the pair is ready for adoption.
-A record exists only with the emergency marker, so the term changes nothing without the marker (section 12).
-
-The reason is recruitment and adoption alone.
-A train member is outside every incident transition: `withdrawService` and `restoreService` refuse it (`internal/sim/service_withdrawal.go` `(*Simulation).withdrawService`, `(*Simulation).restoreService`), the operational operations refuse it (`internal/sim/operational.go` `(*Simulation).operationalMember`), and the hold release rule skips it (`internal/sim/faults.go` `(*Simulation).faultStage`).
-A pod that is withdrawn or has a purpose is already inside an incident transition, so a train that recruits it holds that transition until the retirement.
-After the retirement, the pod arrives through `arrive` (`internal/sim/traffic.go` `(*Simulation).publishVehicleTravel`), which clears purpose 3 (`internal/sim/simulation.go` `(*Simulation).arrive`), so the purpose ends then.
-The fix removes that delay and keeps each out-of-service pod out of a train.
-
-Saves.
-E6 holds at every boundary, and the pre-tier checks of section 11.5 apply it to each save.
-A save that holds a withdrawn pod or a pod with a purpose in a coupling group is invalid, also without the emergency marker.
-Such a save moves aside, and the server starts a new session; there is no compatibility before v1 (`AGENTS.md`).
-
-The adoption guard does not go in `couplingMemberEligibility` (`internal/sim/coupling_reservation.go` `couplingMemberEligibility`), because `prepareRemainingCouplingMotion` (`internal/sim/coupling_remaining.go` `prepareRemainingCouplingMotion`) also calls it for a train that already exists.
-A deferred coupling member with a record has no hold and no purpose, so the train continues.
+This section defined the fix of review finding Q7.
+Coupling discovery and adoption skipped a withdrawn pod and a pod with an operational purpose, discovery also skipped a pod that a record names, and invariant E6 kept each such pod out of a coupling group.
+The fix landed as patch 1 of section 16, and it was not gated on the emergency marker.
+Physical coupling was removed on October 6, 2026, and the discovery skip, the adoption guard, the approach reason, and E6 went with it.
 
 ## 6. Preconditions
 
@@ -484,8 +416,8 @@ It calls each one only in the state that section 5.4 names:
 
 | Call | State in which it is called | Preconditions that the state already meets |
 | --- | --- | --- |
-| `withdrawService(v, emergencyHold)` | Not faulted, not a coupling or approach member, `emergencyHold` not set, in the emergency stage or at a command boundary | Every precondition. It cannot refuse. |
-| `startOperationalUnload(v, emergencyHold, mask)` | Purpose 0, at a berth, `Boarding`, `Continuing`, or `Unloading`, with the hold, and `mask` names the active party | All but the platoon and compact tests. A refusal leaves the pod deferred. |
+| `withdrawService(v, emergencyHold)` | Not faulted, `emergencyHold` not set, in the emergency stage or at a command boundary | Every precondition. It cannot refuse. |
+| `startOperationalUnload(v, emergencyHold, mask)` | Purpose 0, at a berth, `Boarding`, `Continuing`, or `Unloading`, with the hold, and `mask` names the active party | All but the platoon test. A refusal leaves the pod deferred. |
 | `setOperationalDestination(v, target)` | Purpose 0, `Traveling`, divertible, with the hold, and the pair of section 9.1 | All. The pair has a route by the same `assignedRoute` call that the operation makes, from the same state, under the same routing view (section 9.1). |
 
 An occupied pod at a berth is at a passenger station, because only refuge holds riders at a parking berth (stage 1, section 9.4), and stage 3 sets no refuge.
@@ -507,7 +439,7 @@ Composite steps:
 
 | Composite | Internal steps |
 | --- | --- |
-| Start | Preflight, ID, record and counter, `withdrawService` when the pod is not a coupling or approach member, `advanceEmergency`. |
+| Start | Preflight, ID, record and counter, `withdrawService`, `advanceEmergency`. |
 | Advance | `withdrawService` when the hold is missing, then one of `startOperationalUnload` or the station choice and `setOperationalDestination`, both under one routing view (section 9.1). The choice and the view write no simulation state other than the no-candidate memo of section 9.1. |
 | Record end | Record removal and counter, then `restoreService` when the hold is set. |
 
@@ -522,7 +454,7 @@ Refusal oracle.
 Each refusal test clones the simulation before the call and compares the clone with the state after it: the exported state, `owners`, every `routeReleases` and `nextRelease`, the waiting trips with their bindings and exclusions, `incidentSerial`, the records, the counters, the holds, and the purposes, as stage 2, section 11, specifies.
 The oracle compares the free-flow route memo, `routes` and `routeOrder`, with a copy taken before the call, because `Clone` does not copy that memo (`internal/sim/clone.go` `(*Simulation).Clone`).
 A station choice that finds no candidate passes the oracle, apart from the no-candidate memo of section 9.1.
-A choice that binds the pod can make every change of a successful stage 1 installation (`internal/sim/operational.go` `(*Simulation).setOperationalDestination`): the route, the destination, the purpose, and the derived route indexes of the pod, the release of its revocable claims on the berth of its old destination, the buffer fields, and the pending and wait fields.
+A choice that binds the pod can make every change of a successful stage 1 installation (`internal/sim/operational.go` `(*Simulation).setOperationalDestination`): the route, the destination, the purpose, and the derived route indexes of the pod, the release of its revocable claims on the berth of its old destination, and the pending and wait fields.
 In that case, both route memos still stay equal.
 The search counters of section 15, the search work arrays, and the no-candidate memo are not compared.
 
@@ -535,14 +467,14 @@ The search counters of section 15, the search work arrays, and the no-candidate 
 | E3 | The party of a bound or unloading record is an active rider of its pod, and `v.op.interrupt` is exactly the bit of that rider. |
 | E4 | With `emergenciesOn`, a pod with purpose 1 has `op.owner == emergencyHold` and a record. |
 | E5 | The pod of a bound or unloading record carries passengers. |
-| E6 | No coupling member and no approach member has `withdrawn != 0` or `op.purpose != opService`. |
-| E7 | Without the emergency marker, no record exists. |
+| E6 | Removed with physical coupling on October 6, 2026. It kept each coupling member and each approach member free of a hold and of a purpose. |
+| E7 | With emergencies off, no record exists. |
 | E8 | The pod of a record has no active rider when its purpose is not 0 or 1. |
 | F11, state | With `faultsOn` and `emergenciesOn`, `withdrawn` is a subset of `faultHold | emergencyHold` for every pod. With `faultsOn` alone, the landed check stays: `faultHold` is the only hold (`internal/sim/faults.go` `(*Simulation).checkFaults`). |
-| F11, transition | With `emergenciesOn`, a pod gains `emergencyHold` only in `Emergency` or in `advanceEmergency`, and only while a record names it. A pod keeps `emergencyHold` until its record ends. |
+| F11, transition | With `emergenciesOn`, a pod gains `emergencyHold` only in `startEmergency`, which is the start of `Emergency` and of the sampler (stage 7 contract, rule G9), or in `advanceEmergency`, and only while a record names it. A pod keeps `emergencyHold` until its record ends. |
 
-E2 and E4 hold only with the marker, as F11 holds only with `faultsOn`: without the marker, the stage 1 test entry `IncidentForTest` (`internal/sim/incident_entry.go` `(*Simulation).IncidentForTest`) can set `emergencyHold` and purpose 1 with another owner, and the stage 1 rules W1 to W5 govern them.
-`CheckContract` (`internal/sim/state_contract.go` `(*Simulation).CheckContract`) checks E1 to E8 and the state part of F11 after each tick and each command.
+E2 and E4 hold only with `emergenciesOn`, as F11 holds only with `faultsOn`: with emergencies off, the stage 1 test entry `IncidentForTest` (`internal/sim/incident_entry.go` `(*Simulation).IncidentForTest`) can set `emergencyHold` and purpose 1 with another owner, and the stage 1 rules W1 to W5 govern them.
+`CheckContract` (`internal/sim/state_contract.go` `(*Simulation).CheckContract`) checks E1 to E5, E7, E8, and the state part of F11 after each tick and each command.
 `CheckContract` reads one state, so it cannot check where a hold came from.
 A transition helper checks the transition part of F11: it compares each pod before and after each tick and each command.
 It fails when a pod gains `emergencyHold` and no record names it after the change, and when a pod loses `emergencyHold` while its record stays.
@@ -550,23 +482,34 @@ The rule that only the two operations set the hold is a code property: they are 
 The record end tests check the end conditions of section 5.5.
 
 Production policy.
-E2 and E4 hold only with the marker, so an incident save without the emergency marker that has `emergencyHold` or purpose 1 passes them and W1 to W5.
 `CheckIncidentPolicy(input RestoreStateInput) error` is the production policy validator.
 It reads only the saved state.
-With the incident marker and without the emergency marker, it rejects:
-
-- a saved pod with hold 2 (`emergencyHold`) in its withdrawn set or as its owner;
-- a saved pod with purpose 1, because no record exists without the marker (E7).
-
-With the marker, `checkSavedEmergencies` rejects the same states by E2 and E4 (section 11.5).
-No production path makes these states without the marker: the `Emergency` command needs the marker, and `IncidentForTest` has no production caller.
 The session restore runs the validator before either tier, as a step of `restoreSteps` (`internal/session/persist.go` `restoreSteps`) that `NewFromStore` sets.
 A failure is `invalid_state` with no logical fallback, and the save moves aside.
 
+Each production restore runs with emergencies on, and the session turns them off after the restore for a demo fleet.
+With emergencies on, `checkSavedEmergencies` rejects a saved pod with hold 2 (`emergencyHold`) and no record, and a saved pod with purpose 1 and no record, by E2 and E4 (section 11.5).
+By [the marker removal contract](marker-removal-contract-proposal.md), the validator refuses the states that no owner can release.
+For each pod, in this order:
+
+- `saved pod %s has a refuge`;
+- `saved pod %s has an empty recovery with the emergency owner`.
+
+Then, for a save of the traffic demo:
+
+- `saved demo pod %s has a service hold or an operational purpose`;
+- `saved demo fleet has fault or emergency state`.
+
+The marker design had two other refusals, for hold 2 and for purpose 1 without the emergency marker.
+They went with the markers on November 4, 2026.
+
 The stage 1 primitive validator (`checkPodOperational`, `internal/sim/state_contract.go` `checkPodOperational`), `sim.RestoreState`, `CheckContract`, and `IncidentForTest` do not change.
-The stage 1 fixtures therefore still make these states and restore them through `sim.RestoreState`.
+The stage 1 fixtures therefore still make these states and restore them through `sim.RestoreState`, with emergencies off.
 The fixture exception is in one place: the session restores of `internal/session/incident_save_test.go` that load such a save call `newFromStore` with no policy step, and a session test checks that `NewFromStore` rejects the same saves.
-The stream and HTTP decoders keep the stage 1 rules, because the stage 1 stream tests of that file send frames with hold 2 and purpose 1 without the marker, and only a fixture makes such a frame.
+The stream and HTTP decoders keep the stage 1 rules, because the stage 1 stream tests of that file send frames with hold 2 and purpose 1 and no record, and only a fixture makes such a frame.
+
+The table below records the mutations at landing.
+The E6 row went with physical coupling, and the E7 and Policy rows name the marker design.
 
 | Invariant | Mutation | Check that must fail |
 | --- | --- | --- |
@@ -593,7 +536,7 @@ The stream and HTTP decoders keep the stage 1 rules, because the stage 1 stream 
 | F11, transition | Add a caller of `withdrawService(v, emergencyHold)` outside the two operations. | Caller source test. |
 
 A deferred record can name a party that is no longer an active rider, between an alight or an interruption and the next emergency stage, so E3 and E5 do not cover the deferred phase.
-A record pod that is not a coupling or approach member can lack `emergencyHold` only between the end of its group, at the end of a tick, and the next emergency stage.
+Each record pod gets `emergencyHold` at its start (section 5.2).
 A test helper checks after each tick that each record pod with no group membership in the previous tick has the hold.
 
 W5 of stage 1 does not change: each purpose has a held owner.
@@ -704,10 +647,8 @@ Proof of exactness.
      The tree relaxes each lane of a shortest path `π` of fewer than `n` lanes, so its computed `d(b.Node)` is at most the recursive float sum along `π`, which is at most `(1 + γn) · Σ σ(l)` over `π`, and `Σ σ(l)` over `π` is at most `Σ σ(l)` over `U`.
      `L(S) = fl(P + min d)`, so `L(S) <= (1 + u)(1 + γn) · (P + Σ σ(l)) <= (1 + γ(n+1)) · (P + Σ σ(l))` over `U`.
    - Together, `L(S) <= E · (1 + γ(n+1)) / (1 - γ(3n))`.
-     With `n <= 5,000`, this factor is less than `1 + 3e-12`.
-     Status 2026-10-07: the node limit is now 12,000.
-     With `n <= 12,000`, the factor is less than `1 + 6e-12`, and `(1 + 6e-12)(1 - 1e-9)(1 + u) < 1`, so the conclusion holds.
-     `lower(L(S))` is at most `L(S) · (1 - 1e-9) · (1 + u)`, and `(1 + 3e-12)(1 - 1e-9)(1 + u) < 1`, so `lower(L(S))` is at most the computed `E` of each candidate of `S`, and the stop rule never removes a station that the exhaustive scan could choose.
+     With `n <= 12,000`, the node limit, this factor is less than `1 + 6e-12`.
+     `lower(L(S))` is at most `L(S) · (1 - 1e-9) · (1 + u)`, and `(1 + 6e-12)(1 - 1e-9)(1 + u) < 1`, so `lower(L(S))` is at most the computed `E` of each candidate of `S`, and the stop rule never removes a station that the exhaustive scan could choose.
    - This proof does not use the prefix length, because `P` is shared.
      The term guard of pruning step 6 still holds, and its constant does not change: it keeps `4p + 7n + 2k <= 90,000` (with `p` the prefix length and `k` the pod count), which bounds every accumulation of the choice, and `γ(90,000) < 1.0e-11` is still more than 100 times below the margin.
      It also covers an implementation that sums `E` in one pass from the position.
@@ -750,21 +691,18 @@ The bound counts graph searches:
 | Graph searches in one `assignedRoute` call | 12 | The rows above |
 | Graph searches for the tree | 1 for each choice | Pruning, step 2 |
 | Calls in one choice | One for each tried berth, plus one in `setOperationalDestination` | Steps 2 and 4 of the candidates |
-| Tried berths in one choice | At most the compatible, unblocked berths of the passenger stations that the tree reaches. Each berth is a network node, so at most 5,000. | `internal/project/config.go` `MaxBerths` |
+| Tried berths in one choice | At most the compatible, unblocked berths of the passenger stations that the tree reaches. Each berth is a network node, so at most 12,000. | `internal/project/config.go` `MaxBerths` |
 | Choices in one tick | `MaxEmergencies` = 4. Records that started on ticks with one remainder modulo `TicksPerSecond` choose on the same ticks. | Section 4.3 |
 
-The worst tick therefore makes at most `4 · (1 + 5,001 · 12) = 240,052` graph searches, on a network of at most 5,000 nodes and 8,000 lanes (`internal/project/config.go` `MaxNodes`, `MaxLanes`).
-Status 2026-10-07: the project limits are now 12,000 nodes and 20,000 lanes, so the bound is `4 · (1 + 12,001 · 12) = 576,052` graph searches.
-The term guard constant does not change.
-At 12,000 nodes and 600 pods, `7n + 2k = 85,200`, so on such a network a choice prunes only with a prefix of at most 1,200 lanes.
-Status 2026-10-19: at 1,000 pods the guard term is 86,000, so the prefix is at most 1,000 lanes.
-The preset networks are much smaller, so their choices do not change.
-The search measurement below and `BenchmarkEmergencyLimitSearch` keep the 5,000-node grid.
+The worst tick therefore makes at most `4 · (1 + 12,001 · 12) = 576,052` graph searches, on a network of at most 12,000 nodes and 20,000 lanes (`internal/project/config.go` `MaxNodes`, `MaxLanes`).
+At 12,000 nodes and 1,000 pods, the guard term `7n + 2k` is 86,000, so on such a network a choice prunes only with a prefix of at most 1,000 lanes.
+The preset networks are much smaller.
+The search measurement below and `BenchmarkEmergencyLimitSearch` keep the grid of 5,000 nodes, which was the node limit at the time of the measurement, when the bound was `4 · (1 + 5,001 · 12) = 240,052` graph searches.
 Pruning does not lower this bound, because in a network where the tree reaches every berth and the restricted searches refuse each one, no station is pruned.
 The view does not write the free-flow memo, so the installation repeats the searches of the chosen pair unless the view keeps its suffix.
 
 Latency.
-One search on a network at the project limits was measured with the existing search code:
+One search on a network at the project limits of that time was measured with the existing search code:
 
 - Network: a one-way street grid of 50 by 100 nodes, so 5,000 nodes and 7,375 lanes.
   Rows alternate direction, a vertical street runs on each even column with alternating direction, and the speeds are 14, 14, and 10 m/s in turn.
@@ -818,6 +756,7 @@ It reduces the work of the retries only, and the latency of the first choice doe
   Retries stay on the cadence.
 - Clear: `startRouteEpoch` (`internal/sim/blocked_routes.go` `(*Simulation).startRouteEpoch`), which a change of the blocked lanes or berths calls, clears the memo with the route caches.
   `Reset`, a project replacement, and a restore also clear it, and a record end removes the entry of its record.
+  Since November 5, 2026, the network indexes are built once with the prepared network, so no rebuild clears the memo.
 
 Proof that the memo changes no result.
 A station has a candidate when a berth of one of its entry groups has a route.
@@ -868,8 +807,6 @@ When another pod owns a requested resource, `grant` returns before any write (`i
 A deferred record pod also gets the tier, because it moves toward the berth where it unloads.
 
 "Alternate entries" in decision 1 is the station choice: the estimate compares the stations and the entries of their routes, and terminal reevaluation compares the free berths of one station.
-No new mechanism changes a buffer position or a compact queue order.
-`bufferClaimCanYield` (`internal/sim/station_buffer_claim.go` `(*Simulation).bufferClaimCanYield`) does not change, so a buffered emergency pod waits for its turn as the buffer head.
 
 ### 9.4 Claim surrender gate
 
@@ -897,10 +834,7 @@ The `emergencies` group shows the phase of each record (section 11.4).
 
 | Wait of an emergency pod | Event that ends it |
 | --- | --- |
-| Deferred coupling member | The split at the committed split site. |
-| Deferred approach member | The abort braking ends. |
 | Deferred platoon member | The follower holds no resource of a pod ahead, and the link ends. |
-| Deferred compact member | The pod leaves the group. |
 | Deferred, divertible, cadence | The next tick with `(s.tick - start) % TicksPerSecond == 0`. |
 | Deferred, no candidate station | A clear or an owner movement that opens a route; see P11. |
 | Deferred, faulted | The clear or the evacuation. |
@@ -914,8 +848,6 @@ The `emergencies` group shows the phase of each record (section 11.4).
 ### 10.1 Project settings
 
 ```json
-"incidentContract": "incident-v1",
-"emergencyContract": "emergency-v1",
 "emergencies": {"perHour": 0}
 ```
 
@@ -925,21 +857,19 @@ The `emergencies` group shows the phase of each record (section 11.4).
 
 Rules:
 
-- `emergencyContract` requires `incidentContract`.
-  `Validate` (`internal/project/config.go` `Validate`) refuses the emergency marker without it.
-  It does not require the fault marker.
-- With the marker, `emergencies` is required.
-  Without the marker, `emergencies` is refused, also as null or an empty object.
+- `emergencies` is optional.
+  An absent member and `"emergencies": {}` both give the rate 0.
+- The markers `incidentContract` and `emergencyContract` were removed on November 4, 2026 (section 11.1), and a project with one has an unknown member.
 - Unknown members and null values are refused.
 - `perHour` above 0 is refused in stage 3.
 - `Validate` adds the widest `emergencies` object to its size estimate, as for `faults` (stage 2, section 12.1).
-- The marker scan (`internal/project/service.go` `scanProjectFields`) records `emergencyContract` and `emergencies`, as it does for the incident marker.
-- `web/editor.js` keeps both members of a loaded project and writes them back unchanged.
-  The editor gets no control for them in stage 3.
-- `internal/parkride` and `cmd/compare` keep refusing a project with the incident marker, so they also refuse the emergency marker.
+- The field scan (`internal/project/service.go` `scanProjectFields`) records `emergencies`.
+- `web/editor.js` keeps the member of a loaded project and writes it back unchanged.
+  The editor gets no control for it in stage 3.
 
 The simulation gets `SetEmergencies(enabled bool) error`, beside `SetFaults` (`internal/sim/faults.go` `(*Simulation).SetFaults`).
 It refuses to turn emergencies off while a record exists.
+The session turns emergencies on for every fleet but the demo fleet (`project.ConfigureExperiments`).
 
 ### 10.2 Sampler mechanism, for stage 7
 
@@ -964,7 +894,6 @@ This section fixes the mechanism, so that stage 7 adds the rate without a new fo
 | `emergency` | `podID`, optional `orderID` | Starts an emergency (section 5.2). | `emergencyID` |
 
 A paused session accepts the action.
-While a coupling fault is retained, the action is refused, as other actions are (`internal/session/session.go` `(*Session).apply`).
 An exact retry returns the stored reply, as for every command.
 
 `Command` (`internal/session/session.go` `Command`) gets `OrderID int` with `json:"orderID,omitzero"` and a digest tag (section 11.2).
@@ -980,7 +909,7 @@ Every error is `command_rejected` with one of these messages:
 
 | Message | Cause |
 | --- | --- |
-| `emergencies are not enabled` | The project has no emergency marker. |
+| `emergencies are not enabled` | Emergencies are off, as in the demo fleet. |
 | `unknown pod` | No pod has `podID`, or the command has no `podID`. |
 | `pod carries no passenger` | Precondition 4. |
 | `pod already has an emergency` | Precondition 5. |
@@ -1007,7 +936,7 @@ The full metric set is product choice P20 and lands in stage 7.
 
 ### 10.6 Game control
 
-The pod inspector (`internal/view/game.go` `(*Game).inspectionRows` (at 6227cf7)) gets one button when the topology has the emergency marker: "Emergency" on a pod that carries passengers and has no record.
+The pod inspector (`internal/view/game.go` `(*Game).inspectionRows` (at 6227cf7)) gets one button when the frame does not have `operationsOff`: "Emergency" on a pod that carries passengers and has no record.
 It sends `emergency` with the pod ID and no `orderID`, so the party is the first active rider.
 The view refuses nothing on its own: a refused command shows the existing command error.
 The control is product choice P21.
@@ -1018,38 +947,30 @@ The control is product choice P21.
 | --- | --- |
 | Pause | Ticks stop, so the stage and the cadence stop. Commands still run. |
 | Reset | `Reset` (`internal/sim/simulation.go` `(*Simulation).Reset`) clears the records, `emergencyHold`, and the counters. `incidentSerial` stays. |
-| Demo | The demo project has no emergency marker. Records end as on reset. |
-| Project apply | Any change to the emergency marker or to `emergencies` fails `sameExceptCouplingEnabled` (`internal/session/session.go` `sameExceptCouplingEnabled`), so the fleet is rebuilt and every record ends. An identical project keeps the records. |
+| Demo | The demo fleet has emergencies off. Records end as on reset. |
+| Project apply | Any change to `emergencies` fails `sameProject` (`internal/session/persist.go` `sameProject`), so the fleet is rebuilt and every record ends. An identical project keeps the records. |
 | Checkpoint and rewind | `Clone` (`internal/sim/clone.go` `(*Simulation).Clone`) deep-copies the records and the counters. A rewind restores them exactly. The new generation gives new records a new ID prefix. |
 | Physical restore, every record pod keeps its place | Records and counters are restored, after the pre-tier checks of section 11.5. The phase comes from the restored purpose. A deferred record runs its advance in the next emergency stage. |
 | Physical restore that would demote a record pod (`internal/sim/state_physical.go` `(*physicalRestore).placeDemoted`) | The physical tier fails. The restore then follows the fallback rules of stage 1, section 9.6, as stage 2, section 12.7, does for a faulted pod. No single record is cancelled to keep the physical tier. |
-| Logical restore | Every record ends. The stage 1 logical tier does not change: it builds a fleet with no purposes, handles a saved purpose 1 (stage 1, section 9.6), and copies each saved hold (`internal/sim/state_logical.go` `restoreLogical`). With the emergency marker, the tier then calls `restoreService(v, emergencyHold)` for each pod with the hold, after the purposes are cleared, so no withdrawn pod is left without a record (E2). Without the marker, `sim.RestoreState` keeps the holds as stage 1 restores them, but the session policy validator rejects such a save before either tier (section 8), so only the stage 1 fixture tests reach that path. Counters are kept. `RestoreResult` (`internal/sim/state.go` `RestoreResult`) gets `DroppedEmergencies`, the number of records that ended. |
-| Invalid emergency data, a save that breaks E6, or a save that the policy validator rejects | The pre-tier checks reject the whole save as `invalid_state`, with no logical fallback, and it moves aside (section 11.5). |
+| Logical restore | Every record ends. The stage 1 logical tier does not change: it builds a fleet with no purposes, handles a saved purpose 1 (stage 1, section 9.6), and copies each saved hold (`internal/sim/state_logical.go` `restoreLogical`). With emergencies on, the tier then calls `restoreService(v, emergencyHold)` for each pod with the hold, after the purposes are cleared, so no withdrawn pod is left without a record (E2). With emergencies off, `sim.RestoreState` keeps the holds as stage 1 restores them, and only the stage 1 fixture tests reach that path. Counters are kept. `RestoreResult` (`internal/sim/state.go` `RestoreResult`) gets `DroppedEmergencies`, the number of records that ended. |
+| Invalid emergency data, or a save that the policy validator rejects | The pre-tier checks reject the whole save as `invalid_state`, with no logical fallback, and it moves aside (section 11.5). |
 
 ## 11. Formats
 
 ### 11.1 Marker and its propagation
 
-The project gets one top-level feature marker, `emergencyContract: "emergency-v1"`.
-It requires the incident marker (stage 1, section 11.2).
-It gates every stage 3 member.
-
-| Carrier | Member | Rule |
-| --- | --- | --- |
-| Save | `/project/emergencyContract` | Source of truth. `RestoreState` gets it with the other contract inputs. |
-| Topology, stream hello, and `GET /api/topology` | `TopologySnapshot.emergencyContract` (`internal/session/protocol.go` `TopologySnapshot`) | Copied from the project. |
-| Full frame and `GET /api/state` | `SimulationFrame.emergencyContract` (`internal/session/protocol.go` `SimulationFrame`) | Copied from the simulation. |
-| Agreement | A new `emergencyFrameBinding`, beside `incidentFrameBinding` (`internal/session/protocol.go` `incidentFrameBinding`) | Rejects a frame whose emergency marker differs from the topology marker. |
-| Raw presence | `scanIncidentMembers` (`internal/session/incident_stream.go` `scanIncidentMembers`) | Also records the `emergencies` member name and group key, with any value. A delta or a full envelope with one and no emergency marker is rejected. |
-| Assembler | `StreamAssembler.State` | Rejects an emergency marker change inside one stream. |
-| Web | `markersAgree` in `web/editor.js` and `web/shell.js` | Also needs the topology and the simulation to have the same emergency marker, absent or `emergency-v1`. |
+This section defined the feature marker `emergencyContract: "emergency-v1"`, which required the incident marker and gated every stage 3 member.
+It also defined the copies of the marker in the topology and in the full frame, the agreement check, the raw presence scan, and the web marker check.
+On November 4, 2026, [the marker removal contract](marker-removal-contract-proposal.md) removed the marker and each presence rule.
+A project, a saved state, a stream envelope, or an HTTP state with an `emergencyContract` member now has an unknown member.
+A frame of a fleet with emergencies off has `operationsOff`, and such a frame with an emergency record or counter is refused with `stream state with operations off contains an emergency member`.
 
 ### 11.2 Digest registry entries
 
 | N | Field path |
 | ---: | --- |
 | 4 | `Command.PodID`, from stage 2, section 13.2 |
-| 10 | `Command.Project.EmergencyContract` |
+| 10 | Retired with the marker. It was `Command.Project.EmergencyContract`. |
 | 11 | `Command.Project.Emergencies` |
 | 12 | `Command.OrderID` |
 
@@ -1062,9 +983,8 @@ A command with no set extension field keeps its digest.
 
 | Path | Shape | Presence |
 | --- | --- | --- |
-| `/project/emergencyContract` | `emergency-v1` | With the marker only. |
-| `/project/emergencies` | Object, section 10.1 | Required with the marker. Refused without it. |
-| `/simulation/emergencies` | `{"records": [...], "counters": {...}}` | With the marker only. Omitted when there is no record and every counter is 0. |
+| `/project/emergencies` | Object, section 10.1 | Optional. |
+| `/simulation/emergencies` | `{"records": [...], "counters": {...}}` | Omitted only when there is no record, every counter is 0, and the sampler is not live. A live sampler saves `random` and `nextTick` (stage 7 section 4.2). |
 | `/simulation/emergencies/records/*` | `[generation, serial, start, pod, order]` | `records` is omitted when empty. |
 | `/simulation/emergencies/counters` | Object of the counters of section 10.5 | Each counter is omitted at 0. `counters` is omitted when every counter is 0. |
 
@@ -1077,8 +997,7 @@ The phase, the mask, and the commitment are in the pod tuple of stage 1 (`withdr
 
 | Path | Shape | Delta group |
 | --- | --- | --- |
-| `.../simulation/emergencyContract` | `emergency-v1` | None. Full frames only. |
-| `.../simulation/emergencies` | `{"active": [...], "counters": {...}}` | New group `emergencies`, present only with the emergency marker. |
+| `.../simulation/emergencies` | `{"active": [...], "counters": {...}}` | New group `emergencies`. |
 
 Each element of `active`, in serial order:
 
@@ -1090,7 +1009,7 @@ Each element of `active`, in serial order:
 - `phase` is `deferred`, `bound`, or `unloading` (section 4.2).
 - The group changes only at a start, at a phase change, at an end, and at a counter change.
   `emergencyTicks` changes on each tick while a record exists, as a counter of the group.
-- `active` and `counters` are omitted when empty, so the group with the marker and no emergency is `{}`.
+- `active` and `counters` are omitted when empty, so the group with no emergency is `{}`.
 
 Vehicles get no new member.
 `withdrawn` and `operational` already show the hold and `emergency-unload` (`internal/sim/simulation.go` `Vehicle`).
@@ -1098,14 +1017,15 @@ Vehicles get no new member.
 ### 11.5 Strict decoding and prescan
 
 Every decoder rejects unknown members.
-Without the emergency marker, each stage 3 member is rejected, also as an explicit null, an empty object, or an empty array.
+Every decoder rejects a stage 3 member that is an explicit null, and the save decoder rejects an empty `emergencies` member.
 
 Pre-tier checks.
-`checkSavedEmergencies(input)` runs before either restore tier, beside `checkSavedBankRoutes` and `checkCompactFields` (`internal/sim/state.go` `restoreState`).
-It reads only the saved records, the saved pod tuples, and the saved coupling groups, so the logical tier cannot remove the evidence that it needs.
+`checkSavedEmergencies(input)` runs before either restore tier, beside `checkSavedBankRoutes` (`internal/sim/state.go` `restoreState`).
+It reads only the saved records and the saved pod tuples, so the logical tier cannot remove the evidence that it needs.
 A failure rejects the whole save as `invalid_state`, with no logical fallback, and the save moves aside.
 
-With the marker, it rejects:
+With emergencies off, it rejects a save that has an `emergencies` member, with `saved emergencies need emergencies on`.
+With emergencies on, it rejects:
 
 - a tuple that does not have 5 numbers;
 - a pod index out of range, or two records for one pod;
@@ -1120,13 +1040,15 @@ With the marker, it rejects:
 - a record whose pod has purpose 1 and no active rider (E5);
 - a record whose pod has a purpose other than 0 or 1 and an active rider (E8).
 
-With or without the marker, it rejects a save in which a member of a saved coupling group has a hold or a purpose (E6).
-Such a save was valid before stage 3 (`internal/sim/coupling_restore.go` `checkCouplingRestoreInput`), and there is no compatibility before v1 (section 5.8).
-Approaches are not saved, so E6 needs no approach check in a save.
+`checkBoardingFields` runs before `checkSavedEmergencies`, and it checks the boarding records, the phase, and the berth of each pod with riders.
+For such a pod, its error therefore comes first in the cases of E4, E5, and E8, for example `pod 01 boarding records: operational purpose 3 does not agree with activity traveling` for E8.
+The save still gets `invalid_state` before either tier.
 
-Without the emergency marker, the session runs `CheckIncidentPolicy` before either tier (section 8).
+The session runs `CheckIncidentPolicy` before either tier (section 8).
 
-With the marker, the stream and HTTP decoders apply these rules to a full frame and to an `emergencies` replacement group alike:
+When the base frame has `operationsOff`, the stream decoder rejects each replacement `emergencies` group, and this includes `{}`, with `stream state with operations off contains an emergency member`.
+
+The stream and HTTP decoders apply these rules to a full frame and to an `emergencies` replacement group alike:
 
 - every member of section 11.4 present and not null;
 - `id` of the form `i<uint64>.<uint64>`, with a positive serial, unique, and with serials strictly increasing in order;
@@ -1155,13 +1077,13 @@ Each limit has a test at the limit, at the limit plus one before typed decoding,
 
 ### 11.6 Byte budget
 
-Status 2026-10-07: by maintainer decision, the fleet limit is 600 pods and the save cap is 100 MiB.
-Status 2026-10-19: the plain fleet limit is now 1,000 pods and the save cap is 128 MiB.
-Express keeps 600 pods.
-The budget below keeps its 300-record basis, and nobody measured it again.
-The composed fixtures and the allocation test of section 14.4 were deleted, so the Formats gate of section 15 no longer applies.
+This section is a record.
+The budget keeps its 300-record basis, and nobody measured it again.
+The plain fleet limit is now 1,000 pods, Express keeps 600 pods, and the save cap is 128 MiB.
+The composed fixtures and the allocation test of section 14.4 were deleted on October 7, 2026, so the Formats gate of section 15 has no composed fixture.
+The coupling shapes of the tables went with physical coupling on October 6, 2026, and the marker bytes with the markers on November 4, 2026.
 
-The budget uses 300 records, the pod limit (`internal/project/config.go` `MaxPods`), so it holds for any cap that product choice P19 selects.
+The budget uses 300 records, the pod limit at that time (`internal/project/config.go` `MaxPods`), so it holds for any cap that product choice P19 selects.
 Widest encodings, with `uint64` generation and serial (20 digits), `int64` ticks and order IDs (19 digits), and pod index 299:
 
 | Item | Widest encoding | Bytes | Count | Total |
@@ -1212,34 +1134,28 @@ The stage 3 format patch measures the composed shapes with every stage 1, stage 
 
 ## 12. Off-state identity
 
-With the emergency marker absent, trajectories, save bytes, stream bytes, command digests, and the RNG sequence stay identical to the build before stage 3, except in runs in which a withdrawn pod or a pod with an operational purpose would have been discovered or adopted for coupling.
-Such a pod exists only with the incident or fault marker, so those runs need one of them.
-In those runs, the Q7 fix of section 5.8 keeps the pod out of the train, as the maintainer chose.
-A save that holds such a pod in a coupling group breaks E6, so it is invalid and moves aside (section 11.5); there is no compatibility before v1.
-`internal/sim` has no random source in stage 3.
-
-With the emergency marker present and no emergency started, trajectories and the RNG sequence stay identical.
-Bytes and digests differ only by:
-
-- The project members `emergencyContract` and `emergencies`, the topology and full-frame markers, and the `emergencies` delta group as `{}`.
-- The digest of a command whose supplied project has the marker, by the extension pairs of `N = 10` and `N = 11`.
+The emergency marker that this section gated on was removed on November 4, 2026, by [the marker removal contract](marker-removal-contract-proposal.md).
+Emergencies are now on in every fleet but the demo fleet.
+The off state is a run with no emergency record and an emergency rate of 0.
+In that run the emergency code changes no trajectory and no saved-state byte.
+The marker removal contract requires saved-byte identity for a plain run with no incident command, and its measurements report identical `cmd/compare` output.
+The Q7 exception of this section went with physical coupling on October 6, 2026.
+Stage 3 adds no random source.
 
 | Change | Off-state effect | Treatment |
 | --- | --- | --- |
-| Emergency stage | Runs only with `emergenciesOn`. | Gated by marker. |
+| Emergency stage | Runs only with `emergenciesOn`, and it changes nothing with no record and a rate of 0. | Gated by state. |
 | `intent.emergency` and the tier in `compareAdmission` | 0 for every intent without a record, so the sort is unchanged. | Gated by state. |
 | `maintainLink` and `tryLink` record tests | No record. | Gated by state. |
-| `changed` approach reason | No record, no hold, and no purpose on an approach member. | Gated by state. |
-| Q7 skip in discovery and adoption, and E6 | No pod has a hold or a purpose without an incident. With the incident or fault marker, it changes only runs in which a withdrawn or purpose pod would have been discovered or adopted, which is the bug that it fixes, and it makes a save with such a pod in a coupling group invalid. | Not gated, by the maintainer decision. Own patch, with its own matched-seed check. |
-| Record term of the Q7 discovery skip | No record. | Gated by state. |
 | Routing view | Built only inside `advanceEmergency`. With `s.routeView` nil, the routing code is unchanged. | Gated by state. |
 | No-candidate memo | Written only by a station choice. | Gated by state. |
 | Purpose 1 amendments of section 9.2 | Purpose 1 needs a record. | Gated by state. |
 | Claim surrender gate | No record and no `emergencyHold`. | Gated by state. |
-| Save, stream, and HTTP members | Written only with the marker. | Gated by marker. |
+| Save, stream, and HTTP members | With no record and every counter at 0, the save member is omitted and the stream group is `{}`. | Gated by state. |
 | Digest tags | No tagged field set, so no new pair. | Gated by value. |
 
-Gates for every patch:
+Gates for every patch, as defined at approval, when the marker and physical coupling existed.
+The Off parity requirement stays in force under sections 5.1.5 and 5.1.9 of the stage 7 contract, and amendment A1 of that contract removes only Marker-only parity:
 
 - The format goldens match byte for byte with the emergency marker absent.
 - The digest baseline (`internal/session/testdata/command_digests.txt`) matches with the marker absent.
@@ -1250,11 +1166,10 @@ Gates for every patch:
 
 | Function or state | Caller | Preconditions |
 | --- | --- | --- |
-| `Emergency(podID, orderID)` | The session command; stage 7 sampler through the internal start | Section 6.1. |
-| `advanceEmergency(r)` | Stage 4 replaces step 2 of section 5.4 for a train member with a certified train interruption. Stage 6 replaces the platoon and compact waits with a group exit. | Section 5.4. A later stage removes a deferral only with its own certified transition and tests. |
-| The station choice of section 9.1 | Stage 4, for a member that leaves a train early. Stage 5, if a reverse target needs an unload station. | Runs under one routing view, and writes no simulation state other than the no-candidate memo. |
-| `intent.emergency` and the tier | Stage 4 may give a train with an emergency member the tier. | Section 9.3. |
-| The Q7 guard and E6 | Every later stage. A stage that adopts a withdrawn pod into a train defines that transition first and amends E6. | Section 5.8. |
+| `Emergency(podID, orderID)` | The session command; the stage 7 sampler through `startEmergency` (stage 7 contract, rule G9) | Section 6.1. |
+| `advanceEmergency(r)` | Stage 6 would replace the platoon wait with a group exit. Stages 4 to 6 are out of scope (section 1.2). | Section 5.4. A later stage removes a deferral only with its own certified transition and tests. |
+| The station choice of section 9.1 | Stage 5, if a reverse target needs an unload station. Stage 5 is out of scope (section 1.2). | Runs under one routing view, and writes no simulation state other than the no-candidate memo. |
+| `intent.emergency` and the tier | None. The stage 4 use for a train went with physical coupling. | Section 9.3. |
 | `emergencyHold` in F11 and in `incidentOutstanding` | Every later stage. | Section 8, section 9.4. |
 
 Exported entries:
@@ -1262,7 +1177,7 @@ Exported entries:
 | Entry | Kind | Use |
 | --- | --- | --- |
 | `Simulation.Emergency(podID string, orderID int) (string, error)` | Public | The session command. |
-| `Simulation.SetEmergencies(enabled bool) error` | Public | The session, from the project marker. |
+| `Simulation.SetEmergencies(enabled bool) error` | Public | The session, for every fleet but the demo fleet. |
 | `SavedState` and frame members of section 11 | Public | The session codecs. |
 | `RestoreResult.DroppedEmergencies int` | Public | The session restore report. |
 | `CheckIncidentPolicy(input RestoreStateInput) error` | Public | The policy step of the session restore (section 8). |
@@ -1273,7 +1188,6 @@ Its session tests start emergencies through the `emergency` command, and its `in
 Preconditions that later stages must meet:
 
 - A stage that withdraws a pod for a new cause amends F11 first.
-- A stage that lets a withdrawn pod or a pod with a purpose join a train amends E6 first, with the arrival or split rule that clears the purpose.
 - Stage 7 adds the sampler members and their bytes before it accepts `perHour > 0`.
 
 ## 14. Test plan
@@ -1289,8 +1203,8 @@ Preconditions that later stages must meet:
 | Estimate | A queue on the nearest route makes a farther station win. A pod behind the emergency pod on its lane adds no delay. Ties go to the lower station index, then the lower berth index. Two runs from one state give one choice. |
 | Candidates | A station whose first compatible berth has no route but whose second berth has one stays a candidate. A banked station with one unreachable bank and one reachable bank stays a candidate through the reachable bank. An available berth is the candidate of its group before an occupied one. |
 | Routing view | The choice and the installation leave both route memos unchanged, and the installed suffix equals the candidate suffix. |
-| Pruning | A randomized test compares the pruned scan with the exhaustive scan in 1,000 cases from fixed seeds. Each case has a random network with banked, unbanked, and `ParkingOnly` stations, a class rule, a blocked set, stopped pods that make queues, a routing policy, and the emergency pod at a random divertible position. Some cases have equal tick keys at several stations. Both scans run from clones of one state and give the same pair and the same installed route. The pruned scan makes fewer route searches in at least half the cases, so the stop rule runs. |
-| Long prefix | A pod route with a prefix of more than 8,000 lane occurrences on a repeated loop: with the term guard holding, the pruned and the exhaustive scans give the same pair, and with a prefix that fails the guard, the choice evaluates every station and gives the same pair. |
+| Pruning | A randomized test compares the pruned scan with the exhaustive scan in 1,000 cases from fixed seeds. Each case has a random network with banked, unbanked, and `ParkingOnly` stations, a class rule, a blocked set, stopped pods that make queues, and the emergency pod at a random divertible position. Some cases have equal tick keys at several stations. Both scans run from clones of one state and give the same pair and the same installed route. The pruned scan makes fewer route searches in at least half the cases, so the stop rule runs. |
+| Long prefix | A pod route with a prefix of more than 20,000 lane occurrences on a repeated loop: with the term guard holding, the pruned and the exhaustive scans give the same pair, and with a prefix that fails the guard, the choice evaluates every station and gives the same pair. |
 | Warm-memo clone parity | A fixture with a filled no-candidate memo is cloned, and the clone starts with no memo. Both run one continuation. `sameState`, which excludes `emergencyMisses` and the search counters, holds after each step, and the exported trajectories are identical at every tick. |
 | No-candidate memo | After a no-candidate choice, the next cadence tick with the same `from` and class makes no search. A new `from`, a blocked-set change, a network change, `Reset`, a project replacement, and a restore each make the next choice search again. A choice that finds a candidate removes the entry, and a refused installation writes none. A randomized run with and without the memo gives the same choices on every tick. |
 | Bank searches | A source on the departure path of a bank and a target berth in the same bank, where the local search fails: the counters show 4 graph searches in the route search, the failed local attempt and then the departure, middle, and arrival searches, and at most 12 in one `assignedRoute` call. |
@@ -1300,14 +1214,8 @@ Preconditions that later stages must meet:
 | Outcomes | The party is interrupted, also at its own destination. Each other party completes at its destination or is transferred. A transferred party can board the emergency pod again after the end. |
 | End | The record ends in the tick of the unload, the hold is released, and the pod is supply in the same `dispatch`. |
 | Party leaves | A faulted pod with a deferred record: `InterruptRider` interrupts the party, and the next emergency stage ends the record before the faulted skip. |
-| Coupling member | The train keeps its plan, retires at its committed split site, and no rider alights in the train. The pod is withdrawn in the next stage, before `dispatch`, and its pending pickups go to other pods with the exclusion. In its arrival chain, it arrives through `arrive` and unloads at that berth in the next stage. Otherwise it binds on its cadence. |
-| Approach member | An emergency on the front, and one on the rear, each abort the approach. The pod then binds as an ordinary pod. |
 | Platoon | A link with a record at either end drains and is never extended. A new link with a record pod is refused. The pod binds after the link ends. A restore during the drain keeps draining. |
-| Compact member | The pod waits while in the group and acts after it leaves. |
 | Faults | Each cell of the tables of section 5.7. A clear before evacuation continues the emergency. An evacuation ends the record in the same tick. |
-| Q7 recruitment | Direct tests of recruitment: a pod in its fault recovery (purpose 3), a pod with `faultHold` and no purpose, and a pod with `emergencyHold`, each as the front and as the rear of a platoon pair on a coupling corridor, are not discovered. A coupling member with a record, in the tick after its split, is not discovered, and the emergency stage of that tick withdraws it. Each test fails without the skip. |
-| Q7 adoption | An approach whose member gains a hold, a purpose, or a record aborts through `changed`, and `prepareCouplingAdoption` denies a pair with an out-of-service member, so the pair never forms a group. |
-| Q7 restore | A save with a coupling member that has a hold or a purpose is `invalid_state` before either tier. |
 | Priority | Two pods request one free junction in one tick: the emergency pod gets it, also against an aged intent. An owned resource is never taken. Two emergencies: the lower serial first. |
 | Amendments | A bound pod whose berth is taken moves to another free berth of the station, and the detour check does not refuse it. The stage 2 endpoint reroute keeps the emergency berth for an obstructed bound pod. |
 | Claim surrender | A waiting empty relocation gives up its unused claim on the berth of a bound pod. |
@@ -1318,36 +1226,30 @@ Preconditions that later stages must meet:
 
 | Case | Expected |
 | --- | --- |
-| Physical restore of each phase, and of a deferred coupling, platoon, and faulted member | Records, purposes, and holds restored. The next stage continues the emergency. |
+| Physical restore of each phase, and of a deferred platoon member and a deferred faulted pod | Records, purposes, and holds restored. The next stage continues the emergency. |
 | Physical restore that would demote a record pod | The physical tier fails. The fallback follows stage 1, section 9.6. |
 | Logical restore with each phase | Every record ends. `DroppedEmergencies` counts them. Counters are kept. Stage 1 rules handle the purposes. No pod keeps `emergencyHold`. |
-| Logical restore without the marker, through `sim.RestoreState`, of a save with `emergencyHold` from the stage 1 test entry | The hold stays, as the stage 1 test (`internal/sim/operational_test.go` `TestOperationalRestoreTiers`) requires. |
-| The same save, and a save with purpose 1 and no marker, through `NewFromStore` | `invalid_state` from the policy validator before either tier. The save moves aside. |
+| Logical restore with emergencies off, through `sim.RestoreState`, of a save with `emergencyHold` from the stage 1 test entry | The hold stays, as the stage 1 test (`internal/sim/operational_test.go` `TestOperationalRestoreTiers`) requires. |
+| The same save, and a save with purpose 1 and no record, through `NewFromStore` | `invalid_state` before either tier, by E2 and E4 with emergencies on. The save moves aside. |
 | Save with a record whose pod has purpose 2 or 3 and an active rider | `invalid_state` from the pre-tier checks (E8). No logical fallback. |
 | Save whose record names a party that is not the marked rider of a purpose 1 pod, with a physical error that would fall back to the logical tier | `invalid_state` from the pre-tier checks. No logical fallback. |
 | Save with a serial of 0, or a serial that a fault record also has | `invalid_state`. |
-| Save with a record and no marker, a pod with `emergencyHold` and no record, two records for one pod, or a serial above `incidentSerial` | `invalid_state`. |
+| Save with a record and emergencies off, a pod with `emergencyHold` and no record, two records for one pod, or a serial above `incidentSerial` | `invalid_state`. |
 | Rewind after a start | The same record, and a new generation for new IDs. |
 
-Status 2026-11-11: by maintainer decision, the restore checks the boarding records, the phase, and the berth of each pod with riders before the emergency checks, so for such a pod that check comes first in E4, E5, and E8.
-The save still gets `invalid_state` before either tier, with the error of that check, for example `pod 01 boarding records: operational purpose 3 does not agree with activity traveling` for E8.
+For a pod with riders, the error of the E4, E5, and E8 cases can come from the boarding check that runs first (section 11.5).
 
 ### 14.3 Codec tests
 
 Each rule of section 11.5 has a rejecting test, for the save, a full frame, an HTTP state, and a delta.
-The marker checks of section 11.1 each have a rejecting test.
 The digest registry test covers `N = 10` to `N = 12`, with `N = 4` shared with the `fault` command.
 
 ### 14.4 Composed byte tests
 
-Status 2026-10-07: `TestComposedWorstCaseFormats` and the allocation test `TestEmergencyByteAllocation` were deleted.
+`TestComposedWorstCaseFormats` prescanned and decoded each composed fixture, with the stage 3 members at their widest and `MaxEmergencies` records.
+The allocation test `TestEmergencyByteAllocation` encoded 300 widest records and 300 widest stream rows, with no prescan and no decode, and checked the totals of section 11.6 against the allocations.
+Both tests were deleted on October 7, 2026.
 `TestFormatArraysHaveLimits` and `TestEmergencyStreamArrayLimits` keep the checks of the array limits.
-
-`TestComposedWorstCaseFormats` (`internal/session/composed_bytes_test.go` `TestComposedWorstCaseFormats`) prescans and decodes each fixture.
-Its fixtures add the stage 3 members at their widest with `MaxEmergencies` records, so every decoder accepts them, and every shape stays under its cap.
-
-A separate encoding-only allocation test encodes 300 widest records and 300 widest stream rows, with no prescan and no decode, and checks the totals of section 11.6 against the allocations.
-This keeps the budget valid for any cap up to the pod limit.
 
 ### 14.5 Command-boundary and end-of-tick saves
 
@@ -1355,6 +1257,9 @@ A save after each start, at each phase change, and at each end restores in the p
 Paused starts are included.
 
 ### 14.6 Mutation targets
+
+The table records the targets at landing.
+The rows for coupling members, the approach, the Q7 skip, `couplingMemberEligibility`, `bufferClaimCanYield`, the stored history of the routing view, and the marker name code that was removed later.
 
 | Mutation | Test that must fail |
 | --- | --- |
@@ -1410,8 +1315,8 @@ The default rate stays 0 until the maintainer chooses one in stage 7.
 | Gate | Measurement | Pass |
 | --- | --- | --- |
 | Off parity | The off-state gates of section 12 on every preset. | Byte identity, digest identity, and identical states at every 10 s of simulated time. |
-| Marker-only parity | The same runs with the marker and no emergency. | Identical states apart from the marker. |
-| Safety | A soak driver on LondonCentral and the rail-hub preset that starts emergencies on random occupied pods through the command, at about 10 per simulated hour, for 24 simulated hours per seed, over at least 20 seeds, with coupling on and off, and with faults on and off. | `CheckContract` holds after every tick and command. No owner conflict. No coupling fault. |
+| Marker-only parity | Removed by amendment A1 of the stage 7 contract, because the markers no longer exist. | |
+| Safety | A soak driver on LondonCentral and the rail-hub preset that starts emergencies on random occupied pods through the command, at about 10 per simulated hour, for 24 simulated hours per seed, over at least 20 seeds, with faults on and off. | `CheckContract` holds after every tick and command. No owner conflict. |
 | Contract | The same soak, with E1 to E8, F11, and W1 to W5 checked after each tick. | No violation. |
 | Conservation | The same soak. | `RequestID = Completed + Interrupted + queued + aboard` at every tick. |
 | Progress | The same soak. | Each record ends, and each record of an ordinary pod ends within 10 simulated minutes. A run that misses the gate lists each remaining record with its phase and wait reason. |
@@ -1420,23 +1325,23 @@ The default rate stays 0 until the maintainer chooses one in stage 7.
 | Persistence | Saves at random boundaries of the soak, restored in the physical tier, and rewinds to random checkpoints. | Every save restores and passes `CheckContract`, or fails the physical tier only by the demotion rule. Every rewind replays exactly. |
 | Performance | Step time of the soak against a run without emergencies, with `MaxEmergencies` records in the cadence search. | Median step time within 10 percent, and no tick above twice the slowest tick of the run without emergencies. |
 | Worst choice tick, presets | LondonCentral and the rail-hub preset with four emergencies that start on one tick, cold and warm. | The worst choice tick is at most 50 ms on the CI runner class. |
-| Worst choice tick, no candidate | A fixture at the project limits (5,000 nodes, 8,000 lanes, 300 stations) with four deferred, divertible records that started on one tick and find no candidate, so all four search on one cadence tick. The tree reaches the berths, and the bank rules refuse each route search, so pruning skips nothing. If `Validate` allows no such network, the fixture uses the largest count of such berths that it allows, and reports it. Cold, with no route memo, and warm, after 600 ticks of the traffic of the fixture. | Reported against the 50 ms threshold on the CI runner class, cold and warm, and never gated (product choice P23). It is expected to miss, because pruning cannot lower the worst case. The counts of graph searches by kind are reported and within the bound of section 9.1. The counters show failed route searches and a failed same-bank local attempt. |
+| Worst choice tick, no candidate | A fixture at the project limits (12,000 nodes, 20,000 lanes, 600 stations) with four deferred, divertible records that started on one tick and find no candidate, so all four search on one cadence tick. The tree reaches the berths, and the bank rules refuse each route search, so pruning skips nothing. If `Validate` allows no such network, the fixture uses the largest count of such berths that it allows, and reports it. Cold, with no route memo, and warm, after 600 ticks of the traffic of the fixture. | Reported against the 50 ms threshold on the CI runner class, cold and warm, and never gated (product choice P23). It is expected to miss, because pruning cannot lower the worst case. The counts of graph searches by kind are reported and within the bound of section 9.1. The counters show failed route searches and a failed same-bank local attempt. |
 | Worst choice tick, delayed routes | The same network size, with four records on one cadence tick, reachable berths, and stopped pods that delay the free-flow routes. Cold and warm, as above. | The worst tick is at most 50 ms on the CI runner class, cold and warm. |
-| Formats | The composed fixtures of section 14.4. | Every shape under its cap. |
-| Web | The browser shell and editor with a marked project. | `mise run test:web` passes, and the marker checks refuse the cases of section 14.3. |
+| Formats | The composed fixtures of section 14.4 were deleted. By amendment A4 of the stage 7 contract, `TestPlainStateFileWorstCaseSize` and `TestPlainStreamMaximumEncoding` take their place. | Every shape under its cap. |
+| Web | The browser shell and editor. | `mise run test:web` passes. |
 | Product | The product choices of section 18.2. | Done: the maintainer approved P1 to P22 on October 5, 2026, and decided P23 on October 5, 2026, at 23:59Z. |
 
-Status 2026-11-06, by the maintainer: the warm-up of the row "Worst choice tick, no candidate" stays 600 ticks, which is 20 s at 30 Hz, and a trip each 20 ticks, so the count of trips does not change.
+Amendments A1 to A4 of the stage 7 contract change these gates: A1 removed the marker-only parity gate and the marker checks of the Web row, and A4 replaced the composed fixtures.
 
-Status 2026-10-07: the full-limit "Worst choice tick, no candidate" report runs only in `mise run qualify`.
+The warm-up of the row "Worst choice tick, no candidate" stays 600 ticks, which is 20 s at 30 Hz, with a trip each 20 ticks, so the count of trips does not change.
+The full-limit report of that row runs only in `mise run qualify`.
 A small fixture checks the search counts in every test run.
 
-Status 2026-10-07: the project limits are now 600 stations, 12,000 nodes, and 20,000 lanes, and the latency fixtures have a fleet of 600 pods.
+The latency fixtures were measured on October 7, 2026, at the project limits of 600 stations, 12,000 nodes, and 20,000 lanes, with a fleet of 600 pods.
 The no-candidate fixture has 600 stations of 13 berths, 12,000 nodes, and 19,800 lanes.
 The delayed-routes fixture has 600 stations of one berth, 12,000 nodes, and 19,931 lanes.
 On an AMD Ryzen 5 3600 at `nice -n 19` under load, the slowest delayed-routes tick took 10.3 ms, within the 50 ms gate.
 The slowest no-candidate tick took 1.0 to 1.6 s, with at most 93,760 graph searches.
-The long-prefix test uses a prefix of more than 20,000 lane occurrences.
 
 The search counters are an unexported member of `Simulation`, written by the search code and read by the tests and benchmarks of `internal/sim`.
 No rule reads them, and they are not saved.
@@ -1451,6 +1356,8 @@ A pathological first choice on an adversarial network can stall one tick, and th
 
 Each patch compiles and passes the full suite on its own.
 The off-state gates of section 12 run after each patch.
+The list records the order at landing.
+Patch 1 went with physical coupling, the approach abort of patch 4 with it, and the marker parts of patches 6 and 7 with the markers.
 
 1. `sim`: Skip out-of-service pods in coupling discovery and adoption (Q7), with E6 in `CheckContract`.
    This patch can land before stage 2 patch 3.
@@ -1478,12 +1385,12 @@ A binding decision, an approved contract, or a safety rule settles each row.
 | # | Requirement | Source |
 | --- | --- | --- |
 | R1 | The emergency pod gets free resources first and never takes an owned one. | Decision 1. |
-| R2 | A coupling member stays in its train until the split at its committed split site. | Decision 2; stage 1, section 13. |
+| R2 | A coupling member stays in its train until the split at its committed split site. | Decision 2; stage 1, section 13. Physical coupling was removed on October 6, 2026. |
 | R3 | Every party leaves the pod at the emergency station. The party is interrupted. Each other party completes or is transferred, and can ride any pod. | `6227cf7:PROJECT_BRIEF.md:700-701`; decision 3; stage 1, section 9.5. |
 | R4 | Pending pickups of the pod go to other pods, with the exclusion until boarding. | Decision 4. |
 | R5 | An emergency never evacuates. A fault evacuation, at rest only, interrupts every rider. | Decision 5; stage 2, section 5.5. |
 | R6 | The stage is off by default, with off-state parity, and refuses each unsupported target before any change. | Decision 6. |
-| R7 | Coupling discovery and adoption skip a withdrawn pod and a pod with a purpose. Discovery also skips a pod that a record names. | Decision 7, revision 7. |
+| R7 | Coupling discovery and adoption skip a withdrawn pod and a pod with a purpose. Discovery also skips a pod that a record names. | Decision 7, revision 7. Physical coupling was removed on October 6, 2026. |
 | R8 | No build tags. | Decision 8. |
 | R9 | A damaged or invalid save moves aside, with no partial recovery. | `AGENTS.md`. |
 | R10 | No compatibility code for old saves or protocols. | `AGENTS.md`. |
@@ -1502,7 +1409,7 @@ The maintainer approved choices P1 to P22 as proposed on October 5, 2026, at 22:
 | P12 | Trigger and issuer | Approved by the maintainer, 2026-10-05. The `emergency` command and the inspector button in stage 3. The scenario rate in stage 7, with the mechanism of section 10.2. | The user listed all three sources. The rate needs the sampler. | The rate in stage 3. |
 | P13 | Station choice rule | Approved by the maintainer, 2026-10-05. The lowest `E` of section 9.1, chosen once, with no berth term and no continuation term. | It follows the brief: soonest unload, with queues and not only distance. One commit needs no saved window. | The parked berth term and switching window, nearest by distance, or a preference for stations where `continuationFeasible` holds for each transferred party. |
 | P14 | What riders see | Approved by the maintainer, 2026-10-05. The party's order ends `interrupted`. Other orders complete at their destination or show "Transfer at" (`internal/view/orders.go` `(*Game).orderLabels`) and continue. The default party is the first active rider. | It uses the stage 1 outcomes with no new state. The game control has no rider to pick. | No party, so no order is interrupted. A new outcome kind for the party. |
-| P15 | Approach member | Approved by the maintainer, 2026-10-05. Abort the approach. | The pod is not yet in a train, so decision 2 does not hold it, and the abort reuses the existing path. | Let the pair couple, and defer to the split. |
+| P15 | Approach member | Approved by the maintainer, 2026-10-05. Abort the approach. Moot since physical coupling was removed on October 6, 2026. | The pod is not yet in a train, so decision 2 does not hold it, and the abort reuses the existing path. | Let the pair couple, and defer to the split. |
 | P16 | Emergency on a faulted pod | Approved by the maintainer, 2026-10-05. Accept it as deferred. | The rider need is real, and the fault rules stay in charge until the clear or the evacuation. | Refuse with a new error. |
 | P17 | The party leaves before the unload | Approved by the maintainer, 2026-10-05. End the record. | The cause has left the pod. | Keep the record, and unload the other parties with no interruption. |
 | P18 | Priority among emergencies | Approved by the maintainer, 2026-10-05. The earlier start (lower serial) first. | Deterministic and simple. | The lower `E` first, or the more riders first. |

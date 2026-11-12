@@ -1,13 +1,9 @@
 # Express standees contract proposal
 
 Status: decisions 1 to 13 accepted by the maintainer on 2026-11-05, as recommended.
-Status 2026-11-05: the tick rate is now 30 Hz, `stateVersion` is 11, `StreamVersion` is 9, and the golden files are `state_v11.json` and `state_v11_members.txt`, so the values of 10, 8, and `state_v10` below are history.
-On November 12, 2026, the boarding record decision raised the saved-state version to 12 and the stream version to 10, and the golden files are now `state_v12.json` and `state_v12_members.txt`, so text about `stateVersion` 11, `StreamVersion` 9, and `state_v11` describes the earlier design.
-Status 2026-11-05: the plan cap sits in the ordinary move step, so the fault step does not take it, and the floor at `speed - max × dt` also covers the result of `speedBeforeLane` (section 3.2).
-Status 2026-11-06, by the maintainer: `express-v1` permits a mixed fleet on a network with small-only depot slots.
-Large classes remain refused in depot slots, and Express pods cannot select a small-only depot lane.
-The restore bound of 180 ticks in section 6 is 3 s, which is 90 ticks at 30 Hz.
 The maintainer also approved the revision of sections 4, 5, and 7.1 after the external review of section 4.10.
+Amended through November 12, 2026.
+Git history holds the dated amendment notes and the earlier text.
 No product code changes with this document.
 It was drafted against `b2262f6`, and each `file:line` reference is for that tree.
 The [evidence record](../studies/express-standees.md) holds the research, the sources, and the measurements.
@@ -85,16 +81,14 @@ Dwell for Express depends on the number of passengers at the door.
 
 | Phase | At `b2262f6` | Proposed for Express |
 | --- | --- | --- |
-| Boarding | 3 s | 3 s plus 1 s for each passenger after the first of a party or join |
+| Boarding | 3 s | 3 s plus 1 s for each passenger after the first of a party that starts a phase |
 | Unloading | 2 s | 2 s plus 1 s for each alighting passenger after the first |
 
 The largest values are 22 s and 21 s for 20 passengers.
 A party of one has the dwell of today.
 The flow comes from [TCRP Report 100](../studies/express-standees.md#door-flow), with about 2 s for each stream and two streams.
-A join into a boarding pod adds its passengers to `phaseTicks`, and it does not restart the phase.
+A join into a boarding pod adds 1 s for each of its passengers to `phaseTicks`, and it does not restart the phase.
 The phase never exceeds the largest value.
-Status 2026-11-05, by the maintainer: the sentence on the join stands over the table.
-A party that joins a running phase adds 1 s for each of its passengers, and a party that starts a phase adds 1 s for each passenger after the first.
 Seat-only classes keep `boardingTicks` and `unloadingTicks` for each party size.
 
 These sites use the constants: `internal/sim/dispatch.go:660`, `internal/sim/onboard_pickups.go:46`, `internal/sim/operational.go:221`, `internal/sim/simulation.go:926`, `internal/sim/pickup_estimate.go:257`, `internal/sim/pickup_estimate.go:268`, `internal/sim/pickup_estimate.go:298`, `internal/sim/state_physical.go:417`, `internal/sim/state_physical.go:419`, and the phase rules at `internal/sim/state_contract.go:95` to `internal/sim/state_contract.go:161`.
@@ -131,8 +125,8 @@ At 14 m/s, these values give:
 | --- | --- | --- |
 | Ceiling in `ordinaryMoveStep` (`internal/sim/move_step.go:36`) | Acceleration | The value that the class can apply while passengers stand. |
 | Safe root in `moveStep` for the reservation limit (`internal/sim/move_step.go:18`) | Maximum service | A refused grant is the unplanned stop. |
-| New plan cap in `moveStep`, toward the route end | Planned, floored at `speed - maximum × dt` | The planned stop at a berth. The floor keeps a diverted pod within the maximum. |
-| `speedBeforeLane` (`internal/sim/traffic.go:873`) | Planned | A lower limit ahead is known. |
+| Plan cap in `ordinaryMoveStep`, toward the route end | Planned, floored at `speed - maximum × dt` | The planned stop at a berth. The floor keeps a diverted pod within the maximum. The fault step does not take the cap. |
+| `speedBeforeLane` (`internal/sim/traffic.go:873`) | Planned, with its result floored at `speed - maximum × dt` in `moveStep` | A lower limit ahead is known. |
 | `admissionRequest` horizon (`internal/sim/claim_surrender.go:108`) | Maximum service | Reservations do not grow past what the kernel needs. |
 | `faultCap` (`internal/sim/faults.go:190`) | Maximum service | Decision 5. |
 | `routeSecondsWith` (`internal/sim/pickup_estimate.go:340`) | Acceleration, then planned | An estimate must describe the class. It takes the envelope as an argument. |
@@ -368,6 +362,7 @@ The review found the same-lane bound sound in exact arithmetic, and it found no 
 | Suspension contract, section 5.2 step 4 and section 6.1 | `faultCap` and "controlled braking at `acceleration`" use the maximum service rate of the class. Decision 5. |
 | Envelope front | `6 × oldBound / 20`, the value of today, in place of `6 × tail / 20`. Each lane stores the front beside its tail. |
 | Tail arithmetic | Comparisons on squared distances with explicit `float64` conversions, as at `internal/sim/retention.go:26`. A rounding difference can move a tail near a grid line by one step. The determinism claim stays on one CPU type (`docs/model.md:415`), as for `laneBlockCount` and the test of a 40 m lane, which have larger steps on the same inputs. A save moved between architectures is not covered. |
+| Express contract and depots | `express-v1` permits a mixed fleet on a network with small-only depot slots. Large classes remain refused in depot slots, and Express pods cannot select a small-only depot lane. |
 | Tail cost | Keep one tail index for each prepared network and each editor check, because `indexGeometryTails` has 8 call sites and it computes each lane on each call. The step and the budget of section 4.1 bound the work on each lane. |
 
 These stay:
@@ -402,14 +397,14 @@ These stay:
 | Item | Effect |
 | --- | --- |
 | Project format | No new member. `orderContract: "express-v1"` keeps its name, and its meaning changes. There is no migration. |
-| `stateVersion` 10 | No change. `internal/session/state_file.go:23` asks for a new version only when the members of the file change, and they do not. |
-| `StreamVersion` 8 | No change. No message changes shape, and each client derives the standee count from the riders. |
-| Goldens | `state_v10.json`, `state_v10_members.txt`, and the `stream_*` files have no profile or envelope value, so they stay. A scratch run with the new tail kept `internal/session` passing. |
+| `stateVersion` | No change by this contract. `internal/session/state_file.go:23` asks for a new version only when the members of the file change, and they do not. The current value is 12. |
+| `StreamVersion` | No change by this contract. No message changes shape, and each client derives the standee count from the riders. The current value is 10. |
+| Goldens | The saved-state golden files, now `state_v12.json` and `state_v12_members.txt`, and the `stream_*` files have no profile or envelope value, so this contract does not change them. A scratch run with the new tail kept `internal/session` passing. |
 | `family_limit_tables.json` | No change, because the counts stay. |
-| Saved state from before | A version 10 file stays valid. Its phases are under the new bound, and each restore resets speed to zero. An older build refuses a newer file whose phase is above 180 ticks, and the file moves aside, as the rules allow until v1. |
+| Saved state from before | This contract makes no earlier file invalid. The phases of such a file are under the new bound, and each restore resets speed to zero. A build from before this contract refuses a file whose phase is above 3 s, and the file moves aside, as the rules allow until v1. |
 | Tail | Not saved, so part 2 needs no version change at all. |
 | Plain byte proofs | `TestPlainStateFileWorstCaseSize` and `TestPlainStreamMaximumEncoding` do not change, because no count or byte limit in `internal/project/config.go` changes. |
-| Express byte sizes | Express has no byte proof, and this does not change that. |
+| Express byte sizes | This contract added no Express byte proof. The later proofs of amendments E5 and A18 cover the saved state, the full stream, the replacement delta, and the HTTP state. |
 | Refusals | Order and text stay. Only the value of the Express phase bound changes. |
 
 A version bump would refuse earlier saves with no need, so I do not recommend it.
@@ -507,7 +502,9 @@ Patches 2 and 3 can land by themselves, and they help each project with a curve 
 
 ## 10. The tick rate proposal
 
-The [tick rate proposal](tick-rate-contract-proposal.md) is open, and the two can land in either order.
+The [tick rate proposal](tick-rate-contract-proposal.md) was open when this proposal was written.
+It is now decided, and the tick rate is 30 Hz.
+The table records the interaction as drafted.
 
 | Item | Interaction |
 | --- | --- |

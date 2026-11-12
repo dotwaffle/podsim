@@ -1,45 +1,10 @@
 # Incident service transitions contract proposal
 
 Status: approved on 2026-10-05, with the proposed default for each open question in section 18.
-Status 2026-11-05: by the [standee contract](express-standees-contract-proposal.md), `phaseTicks` becomes the unloading phase of the class for the parties aboard, so a fixed unloading phase below holds only for seat-only classes.
-Trimmed on November 4, 2026: review history removed.
-Git history keeps it.
+Amended through 2026-11-12.
+Git history holds the dated amendment notes and the earlier text.
+
 Revised for item 7: one save family (version 9) and one stream family (hello 6, hello 7 since the motion-only deltas).
-On November 4, 2026, `docs/contracts/marker-removal-contract-proposal.md` removed the markers, so text about the markers describes the earlier design.
-On November 5, 2026, the maintainer removed rail forecast positioning, so `PositionForForecast` and its supply row are gone.
-
-Physical coupling was removed on October 6, 2026.
-Clauses about the couplingContract marker, coupling sites and corridors, coupling approaches, and coupled trains and their members no longer apply.
-Where a rule lists a coupling case with other cases, only the coupling case is removed.
-Platoon, compact queue, and station group rules are unchanged.
-
-Station buffers and compact station queues were removed on October 7, 2026, because measurements showed that they lowered station entry throughput.
-Clauses about buffered pods, buffer heads, buffer claims, compact queue members, and compact certificates no longer apply.
-The opt-in Compact station added in October 2026 (maneuver groups, `internal/sim/maneuver_*.go` and `internal/sim/station_maneuvers.go`) is a different feature, and this removal does not cover it.
-Where a rule lists a buffer or compact case with other cases, only that case is removed.
-The sentence above that keeps compact queue rules unchanged no longer covers them.
-The step-fault seam was removed with them: `compactFault`, `CompactQueueError`, `FailStepForTest`, and the Compact pause return in `Session.step`.
-Rows, clauses, and landing gates that name these no longer apply.
-Citations of removed controller files and functions no longer apply.
-`compact_state_bytes_test.go` remains, and its compact-class byte fixture and native-ID overflow guard keep their requirements.
-
-Station entry runs, an early berth choice, and coast-in were added on October 7, 2026.
-The sentence above that keeps platoon rules unchanged no longer covers them.
-A platoon run can end on the entry lane of the destination station of both pods, and it never continues past the entry node of that station.
-With platoons on, a pod that is not of a large class can try its berth choice before the usual point, and an early try that finds no berth does not refuse the pod.
-With platoons on, a pod that waits for a contested station diverge can coast: a speed ceiling lowers only its commanded speed.
-The incident refusal of platoon members and the emergency drain rule are unchanged.
-
-Status note, October 6, 2026: the maintainer stopped the incident redesign after stage 3.
-Stages 4 to 7 are out of scope.
-Text that names these stages describes refusals that stay in place.
-
-Status note, November 4, 2026: the maintainer reopened stage 7 under `docs/contracts/incident-stage7-contract-proposal.md`, as option B with amendments A1 to A4.
-Stages 4 to 6 stay out of scope.
-The rules G1 to G16 of section 3 of that document, and its amendments, apply to this contract, and the text below stays as written.
-Status 2026-11-05: the maintainer removed the seat screen and the `reassign-existing` join policy, so the rows for the join census and the departure backlog are gone.
-Amendment, November 5, 2026: the maintainer approved the rate text of this contract on November 5, 2026, as decisions 1 and 4 of [the tick rate proposal](tick-rate-contract-proposal.md).
-Parity each 600 ticks at 60 Hz is now parity each 10 s of simulated time.
 
 This contract is stage 1 of the staged incident redesign.
 It defines the service transitions that vehicle faults and rider emergencies share.
@@ -70,10 +35,15 @@ Section 14 is the test plan.
 
 ### 1.2 Out of scope
 
-- Motion suspension, braking holds, reverse travel, and train interruption.
-  Stages 2, 4, 5, and 6 own them.
+- Motion suspension and braking holds.
+  Stage 2 owns them.
+- Reverse travel, train interruption, and group exits.
+  They were the work of stages 4 to 6.
+  The maintainer stopped the incident redesign after stage 3 on October 6, 2026, so stages 4 to 6 are out of scope, and the refusals that this contract leaves to them stay in place.
 - The policies that decide when to call these operations.
   Stages 2, 3, and 7 own them.
+  The maintainer reopened stage 7 on November 4, 2026, under [the stage 7 contract](incident-stage7-contract-proposal.md), as option B with amendments A1 to A4.
+  The rules G1 to G16 of section 3 of that document, and its amendments, apply to this contract.
 - Commands, game controls, scenario rates, and metrics panels.
 
 Stage 1 is exercised through native tests.
@@ -103,6 +73,7 @@ From the user, through the coordinator, October 4, 2026:
    The claim classification is still needed for pickup release and for existing yield paths.
 3. A coupled train with an emergency splits at its already committed split site.
    Stage 1 operations refuse coupling members, and the stage 3 policy waits for the split.
+   Physical coupling was removed on October 6, 2026, so this decision has no subject now.
 
 From the approved stage plan:
 
@@ -121,6 +92,8 @@ Member names below are the post-item-5 names.
 Implementation of section 11 starts after those items land.
 If one of them changes shape, section 11 must be revised first.
 Sections 4 to 10 do not depend on the formats.
+On November 4, 2026, [the marker removal contract](marker-removal-contract-proposal.md) removed the incident, fault, and emergency markers, so no marker gates a member of this contract.
+The saved state is now version 12, and the stream is version 10.
 
 ## 2. Terms
 
@@ -169,8 +142,16 @@ Sections 4 to 10 do not depend on the formats.
 | `internal/rail/connections.go` `(*Connections).Advance` | Consumes completions. A pending record without an active request is invalid (`validateRecord`). | Interruption needs its own rail outcome, delivered before any save (section 8.5). |
 | `internal/session/persist.go` `MaxStateBytes` | 80 MiB for raw and compressed saves. | Section 11.7 budgets against it. |
 
-Status 2026-10-07: by maintainer decision, `MaxStateBytes` is now 100 MiB.
-Status 2026-10-15: it is now 128 MiB.
+This table records the audit at `069bafb`.
+`MaxStateBytes` is now 128 MiB.
+Physical coupling was removed on October 6, 2026, and station buffers and compact station queues on October 7, 2026.
+The opt-in Compact station added in October 2026 (maneuver groups, `internal/sim/maneuver_*.go` and `internal/sim/station_maneuvers.go`) is a different feature, and this removal does not cover it.
+Station entry runs, an early berth choice, and coast-in were added on October 7, 2026.
+A platoon run can end on the entry lane of the destination station of both pods, and it never continues past the entry node of that station.
+With platoons on, a pod that is not of a large class can try its berth choice before the usual point, and an early try that finds no berth does not refuse the pod.
+With platoons on, a pod that waits for a contested station diverge can coast: a speed ceiling lowers only its commanded speed.
+The incident refusal of platoon members and the emergency drain rule are unchanged.
+The `coupling_reservation.go`, `coupling_motion_owners.go`, and `station_buffer_claim.go` rows name code that went with them, and `divertStart` now refuses platoon members, pods of a depot lane, and pods inside the arrival chain.
 
 ## 4. Service withdrawal
 
@@ -258,7 +239,6 @@ Two order-side effects of the first hold are not reverted:
 It also decides order admission (`internal/sim/trip_admission.go` `(*Simulation).validateTripOptions`) and the dispatch reason through `hasFittingPod` (`(*Simulation).hasFittingPod`; `internal/sim/dispatch.go` `(*Simulation).dispatch`).
 Admission stays static, as it is today, so a withdrawal never refuses a new order.
 
-The maintainer approved the departure backlog row after the review of the gates.
 Each path below gets the test `v.withdrawn == 0`:
 
 | Path | Anchor | Gate |
@@ -278,7 +258,6 @@ Each path below gets the test `v.withdrawn == 0`:
 | Released parking | `internal/sim/released.go` `(*Simulation).parkUnclaimedReleased` | Skips the pod. |
 | Claim yield to passengers | `internal/sim/redistribution.go` `(*Simulation).yieldRelocationClaims` | Skips a withdrawn relocating pod. |
 | Passenger arrivals | `internal/sim/redistribution.go` `(*Simulation).passengerArrivals` | A withdrawn pod with riders is not a passenger arrival, so it cannot make a relocation claim yield (`(*Simulation).yieldRelocationClaims`). |
-| Buffer claim yield | `internal/sim/station_buffer_claim.go` `(*Simulation).bufferClaimCanYield` | A withdrawn head cannot make a claim yield. A withdrawn remote does not yield. |
 
 Berth accounting does not change.
 A withdrawn pod keeps its grants and owners, and admission treats its requests as today.
@@ -476,22 +455,20 @@ It keeps its route, its physical destination, and its claims until a later stage
 
 ### 6.1 Classification
 
-A new file, `internal/sim/claim_kinds.go`, sits beside `internal/sim/station_buffer_claim.go`.
-It holds the only answer to the question "can this claim be revoked".
+A new file, `internal/sim/claim_kinds.go`, holds the only answer to the question "can this claim be revoked".
 
 ```go
 // claimKind classifies one resource that a pod owns or retains.
 type claimKind uint8
 
 const (
-	claimNotHeld   claimKind = iota // v neither owns nor retains r
-	claimCommitted                  // coupling or approach commitment
-	claimOccupied                   // under the body of v
-	claimStopping                   // granted track that v needs to stop
-	claimRetained                   // tail retention of v
-	claimLent                       // a follower of v retains r
-	claimService                    // unused destination claim of an empty move
-	claimOther                      // any other owned resource
+	claimNotHeld  claimKind = iota // v neither owns nor retains r
+	claimOccupied                  // under the body of v
+	claimStopping                  // granted track that v needs to stop
+	claimRetained                  // tail retention of v
+	claimLent                      // a follower of v retains r
+	claimService                   // unused destination claim of an empty move
+	claimOther                     // any other owned resource
 )
 
 func (s *Simulation) claimKind(v *vehicle, r resource) claimKind
@@ -508,7 +485,6 @@ The tests run in this order, and the first match wins:
 | Kind | Test | Source of the rule |
 | --- | --- | --- |
 | `claimNotHeld` | The owner is not `v`, and `v.routeReleases` has no entry for `r`. | `internal/sim/resource_owner.go` `(resourceOwner).isPod` |
-| `claimCommitted` | `v.couplingID != ""`, or `couplingApproachMember(v.Pod.ID)`, or the owner kind is a group, or a coupling group lists `r` as a claim or a preserved claim. | `internal/sim/coupling_approach_runtime.go` `(*Simulation).couplingApproachMember`, `internal/sim/coupling_reservation.go` `(*couplingReservationPlan).preserveReceivingClaims`, `internal/sim/coupling_motion_owners.go` `sealCouplingMotionOwners` |
 | `claimOccupied` | `r` is in `v.footprint` at the current distance, or is a resource of the berth where `v` is, or of its origin berth before `originReleased`. | `internal/sim/state_physical.go` `(*vehicle).footprint`, `internal/sim/traffic.go` `(*Simulation).releaseVehicleResources` |
 | `claimStopping` | `r` is in the reserved span `[0, reservedThrough]`. | `internal/sim/redistribution.go` `(*Simulation).relocationDestinationAdmitted` (at 482d93d), `internal/sim/station_buffer_claim.go` `(*Simulation).bufferClaimCanYield` |
 | `claimRetained` | `v.routeReleases[r] > v.distance`. | `internal/sim/station_buffer_claim.go` `(*Simulation).bufferClaimCanYield` |
@@ -516,26 +492,26 @@ The tests run in this order, and the first match wins:
 | `claimService` | `r` is a resource of `v.destination`, `v.RelocatingTo != ""`, `v` is empty and does not carry passengers, and `v` is not at that berth. | `internal/sim/station_buffer_claim.go` `(*Simulation).bufferClaimCanYield` |
 | `claimOther` | Anything else. | |
 
-Occupied berths, stopping grants, borrowed track, and train receiving commitments are never revocable.
+The rule sources that name `bufferClaimCanYield` are for `069bafb`; that function went with the station buffers on October 7, 2026.
+The kind `claimCommitted`, for coupling and approach commitments, went with physical coupling on October 6, 2026.
+
+Occupied berths, stopping grants, and borrowed track are never revocable.
 Borrowed track is owned by a pod ahead, so the borrower never holds it as its own claim, and its owner sees it as `claimLent`.
 
 ### 6.2 Callers
 
 | Caller | Today | With the classification |
 | --- | --- | --- |
-| `bufferClaimCanYield` (`internal/sim/station_buffer_claim.go` `(*Simulation).bufferClaimCanYield`) | Inline predicate without coupling guards. | Keeps the head test and adds `head.withdrawn == 0` to it. Keeps the policy tests: same berth, remote not assigned. Adds `remote.withdrawn == 0`. The physical test becomes `revocable(remote, r)`. |
 | `yieldRelocationClaims` (`internal/sim/redistribution.go` `(*Simulation).yieldRelocationClaims`) | Releases both destination claims when a passenger arrival conflicts, one claim is held, and the destination is not admitted. | Skips a withdrawn relocating pod. The conflict test uses `passengerArrivals`, which no longer counts withdrawn pods (`(*Simulation).passengerArrivals`). Releases each destination claim for which `revocable` is true. |
 | `setOperationalDestination` (section 9.3) | New. | Releases each old destination claim of `v` itself for which `revocable` is true, as `redirect` does today. |
 
 Pickup release (section 5) releases no claim, so it is not a caller.
 
 Decision 2 means that emergency demand never authorizes a yield of another pod's claim.
-Two existing paths give that authority to passenger demand, and both now exclude withdrawn pods:
+One existing path gives that authority to passenger demand, and it excludes withdrawn pods:
 
 - A withdrawn pod with riders is not a passenger arrival (`internal/sim/redistribution.go` `(*Simulation).passengerArrivals`), so it cannot make a relocating pod release its destination claims in `(*Simulation).yieldRelocationClaims`.
   The waiting-trip arrivals in `(*Simulation).passengerArrivals` cannot name a withdrawn pod, by W2.
-- A withdrawn buffer head fails the head test (`internal/sim/station_buffer_claim.go` `(*Simulation).bufferClaimCanYield`), so `bufferBerthClaims` accepts only free resources for it.
-  The callers are `internal/sim/station_buffer.go` `(*Simulation).grantBufferedHead` and `internal/sim/compact_queue_discharge.go` `(*Simulation).probeCompactDischarge`.
 
 Physical berth accounting does not change.
 A withdrawn pod keeps its grants and owners, and admission treats its requests as today.
@@ -543,16 +519,10 @@ It wins a berth only when the berth is free.
 
 ### 6.3 Baseline fix
 
-The `claimCommitted` test closes the gap that emergency review round 1, finding 4, reported.
-`bufferClaimCanYield` does not check `couplingID` or preserved receiving claims, so an empty coupled member can satisfy it.
-`yieldRelocationClaims` has the same gap.
-
-This change can alter off-state behavior.
-It lands as its own patch before the stage 1 baseline is set, not behind an incident switch.
-The patch adds a regression test for each caller with an empty coupled member and with an approach member.
-If the tests show that no reachable state meets the old predicate with a committed claim, the patch is a pure refactor, and the baseline does not change.
-Otherwise the trajectory change of that patch is the fix, and the patch message says so.
-Commit 66b0c65 added the coupling ID test to both callers, and commit 16eab09 landed the rest of the baseline fix, including the approach-member case.
+This section defined a baseline fix.
+The `claimCommitted` test closed the gap of emergency review round 1, finding 4: an empty coupled member or an approach member could pass the yield predicates of `bufferClaimCanYield` and `yieldRelocationClaims`.
+Commit 66b0c65 added the coupling ID test to both callers, and commit 16eab09 landed the rest of the fix, including the approach-member case.
+Physical coupling was removed on October 6, 2026, and station buffers on October 7, 2026, so the test and its first caller are gone.
 
 ## 7. Order continuation
 
@@ -595,10 +565,9 @@ No reader infers a leg origin.
 
 The alternatives were rejected:
 
-- Dropping `LegFrom` at completion breaks two readers.
-  The origin rule for a pod without boarding records compares every rider, completed or not, with the first rider (`internal/sim/state_contract.go` `(SavedState).checkPodRiders`).
+- Dropping `LegFrom` at completion breaks a reader.
   The boarding tuple decoder resolves each berth index against the origin station of that rider, completed or not (`internal/session/boarding_state.go` `(boardingSource).encodePodContract`, `(*stateFile).resolveBoardings`).
-  Status 2026-11-11: by maintainer decision, each rider has a boarding record, so the origin rule for a pod without boarding records is gone, and the boarding tuple decoder is the only reader of this item.
+  Each rider has a boarding record, so no origin rule exists for a pod without boarding records.
 - Inferring the leg origin from the journey origin is lossy.
   `JourneyOrigin` is saved only while passengers remain (`internal/sim/state.go` `(*Simulation).exportPod`), so an idle pod can keep completed riders from one station and a journey origin at another station.
   Emergency review round 2, finding K, reported this.
@@ -691,16 +660,13 @@ Class "Both" checks `From` and `LegFrom`.
 | `internal/sim/state.go` `restoreState`, `(*Simulation).exportPod` | Request and saved request conversion | Both: field sets stay equal |
 | `internal/sim/state_contract.go` `(SavedState).validTrip` | `validTrip`: `From != To` | Both: also `LegFrom != To` |
 | `internal/sim/state_contract.go` `(SavedState).checkPodRiders` | Rider validity: `From != To` | Both: also `LegFrom != To` |
-| `internal/sim/state_contract.go` `(SavedState).checkPodRiders` | Same origin without boarding records | Physical |
 | `internal/sim/state_contract.go` `(SavedState).checkPodRiders` | `boardsHere` | Physical |
 | `internal/sim/state_logical.go` `(*Simulation).queueTrips` | Passenger stations of a queued trip | Both |
 | `internal/sim/state_physical.go` `(*physicalRestore).decodePod` | Journey origin against `boardingStation` | Physical |
 | `internal/sim/state_physical.go` `(*physicalRestore).passengerRiders` | Passenger stations of a rider | Both |
-| `internal/sim/state_physical.go` `(*physicalRestore).buildRoutes` | Buffered pickup test | Physical |
 | `internal/sim/state_physical.go` `(*physicalRestore).restoreWaiting` | Passenger stations of a queued trip | Both |
 | `internal/sim/state_boarding.go` `checkBoardingBerths` | `checkBoardingBerths` | Physical |
 | `internal/sim/riders.go` `(*vehicle).boardingStation` | `boardingStation` | Physical |
-| `internal/sim/boarding_records.go` `(*vehicle).legacyBoardingRecords` | `legacyBoardingRecords` | Physical |
 | `internal/sim/boarding_records.go` `(*Simulation).riderOrigin` | `riderOrigin` | Physical |
 | `internal/sim/onboard_pickups.go` `(*Simulation).onboardPickupReady` | `onboardPickupReady` | Physical |
 | `internal/sim/onboard_pickups.go` `(*Simulation).pickupBoardingRecords` | Boarding record creation | Physical |
@@ -714,7 +680,6 @@ Class "Both" checks `From` and `LegFrom`.
 | `internal/sim/diversion.go` `(*Simulation).sendPickupForRequest` | `sendPickupForRequest` | Physical |
 | `internal/sim/berth_continuation.go` `(*Simulation).berthFilterForVehicle` | Pickup berth filter | Physical |
 | `internal/sim/berth_continuation.go` `(*Simulation).candidateRouteForRequest` | `candidateRouteForRequest` | Physical |
-| `internal/sim/coupling_reservation.go` `couplingCabinFacts` | Cabin rider validity | Both: also bound `LegFrom` as an ID |
 | `internal/sim/simulation.go` `(*Simulation).RequestJourneyOptions` | `RequestJourneyOptions` new order at the pod station | Identity |
 | `internal/session/express_orders.go` `orderOptions` | `orderOptions` | Identity |
 | `internal/session/express_orders.go` `(*StreamAssembler).expressService` | Express service pair | Identity |
@@ -736,8 +701,8 @@ Class "Both" checks `From` and `LegFrom`.
 | `internal/view/game.go` `(*Game).visibleCollapsedStationLabels` (at 482d93d) | Label preference for rider stations | Physical |
 | `internal/view/game.go` `journeyStations` (at 482d93d) | `journeyStations` | Physical |
 
-Status 2026-11-11: by maintainer decision, each rider has a boarding record, so the `checkPodRiders` row "Same origin without boarding records" is gone.
-Status 2026-11-11: by maintainer decision, `legacyBoardingRecords` is gone, because each rider has a boarding record, and `checkBoardingBerths` runs before either tier for each pod with riders.
+Each rider has a boarding record, so the inventory has no row for an origin rule without boarding records or for `legacyBoardingRecords`, and `checkBoardingBerths` runs before either tier for each pod with riders.
+The rows for the coupling cabin facts and the buffered pickup test went with physical coupling and the station buffers.
 
 Identity keys:
 
@@ -856,8 +821,7 @@ This applies to every active rider, also a rider whose destination is the statio
 `evacuate` preconditions:
 
 - `v.withdrawn&faultHold != 0` and `v.Pod.Speed == 0`.
-- `v.couplingID == ""`, and `v` is not a compact member or a platoon member.
-  Stages 4 and 6 extend this.
+- `v` is not a platoon member.
 - At a berth: activity `Idle`, `Boarding`, `Continuing`, or `Unloading`.
 - On a lane: activity `Traveling`, and `v` carries passengers.
   An empty withdrawn pod uses `setOperationalDestination` with purpose 3 instead.
@@ -873,13 +837,13 @@ This applies to every active rider, also a rider whose destination is the statio
 Distance freeze.
 Each composite that ends riders captures `ridden` once, before its first outcome, as `alight` does (`internal/sim/riders.go` `(*Simulation).alight`).
 After the last outcome, when `Boardings` is not empty, it sets `v.riddenBase = ridden`.
-Status 2026-11-11: by maintainer decision, each pod with riders has boarding records.
+Each pod with riders has boarding records.
 When the outcomes interrupt or transfer every rider and no completed history is aboard, no record remains, and the composite does not set `riddenBase` (`internal/sim/operational.go` `finishOperationalUnload` and `evacuate`); then no retained baseline needs the bound.
 When completed rider history and its records remain after the last outcome, `Boardings` is not empty, and the composite sets `riddenBase`.
 This applies whatever the outcome of the last rider is: completion, interruption, or transfer.
 Once no rider is aboard, `riddenMeters` returns `riddenBase` alone (`(*vehicle).riddenMeters`), so `settleIdleAtBerth` can zero `distance` and each retained boarding baseline stays at or below `RiddenMeters`.
-Both validators need that bound: the save in `internal/sim/state_boarding.go` `checkSavedBoardingsWithOrderContract` and the stream in `internal/session/stream_boardings.go` `validateVehicleBoardingsContract`.
-Status 2026-11-12: by maintainer decision, the stream does not send `riddenMeters`, so the stream validator does not check this bound; the save validator still checks it.
+The save validator needs that bound (`internal/sim/state_boarding.go` `checkSavedBoardingsWithOrderContract`).
+The stream does not send `riddenMeters`, so the stream validator (`internal/session/stream_boardings.go` `validateVehicleBoardingsContract`) does not check it.
 `completeRider(v, index, ridden)` takes the captured value, so completions use the same distance as `alight`.
 
 `settleIdleAtBerth(v)` gives the complete idle state at the current berth.
@@ -892,7 +856,6 @@ It uses the field set of `placeDemoted` (`internal/sim/state_physical.go` `(*phy
 | `reservedThrough`, `pending` | -1. |
 | `Stops` | nil. |
 | `op` | Cleared, also when `v` held at a refuge or unloaded for an emergency. The holds stay, and W5 holds trivially. |
-| `buffered`, `bufferBerth` | false and empty. |
 | `RelocatingTo`, `Rebalancing`, `released` | Empty, false, false. |
 | `origin`, `destination`, `destinationStation` | Empty, the current berth, and the current station. |
 | Route | `replaceRoute(nil)` and empty blocks, as `placeDemoted` does (`(*physicalRestore).placeDemoted`). |
@@ -917,7 +880,6 @@ RequestID = Completed + Interrupted + queued + aboard + unaccounted
 | `reconcileOrders` (`internal/sim/state_contract.go` `(*Simulation).reconcileOrders`) | New place "interrupted" for `RestoreResult.Interrupted`. The count check adds `s.interrupted == state.Interrupted + len(interrupted)`. |
 | `verifyRestore` (`internal/sim/state_physical.go` `(*Simulation).verifyRestore`) | Same counts. |
 | `setSavedCounters` and `restoreCounters` (`internal/sim/state_physical.go` `(*physicalRestore).restoreCounters`) | Copy both counters. |
-| `checkCouplingRestoreResult` (`internal/sim/coupling_restore.go` `checkCouplingRestoreResult`) | Rejects a nonempty `Interrupted`, as it rejects requeues. |
 
 `RestoreResult` (`internal/sim/state.go` `RestoreResult`) gets `Interrupted []int`.
 
@@ -940,7 +902,6 @@ The session drains `undelivered` at two places, before it releases the lock:
 
 1. In `Session.step` (`internal/session/speed.go` `(*Session).step`), immediately after `Simulation.Step` and before any other statement.
    Delivery thus runs before `demand.step` and its `Connections.Advance` (`internal/session/demand.go` `(*demandRun).step`).
-   It also runs before the coupling error return and the Compact pause return (`internal/session/speed.go` `(*Session).step`), so every return path is covered by its position.
    The order matters: `Advance` marks an unresolved record `missed` when its departure deadline passes (`internal/rail/connections.go` `(*Connections).Advance`), and `Interrupt` leaves a `missed` record unchanged.
    An interruption on the departure tick must reach rail first, so the record ends `unserved` with reason `interrupted`.
 2. At the end of `Session.apply` (`internal/session/session.go` `(*Session).apply`), for every command, before `applyCommand` returns.
@@ -953,8 +914,6 @@ func (s *Session) deliverInterruptions()
 ```
 
 `deliverInterruptions` calls `Connections.Interrupt`, then refreshes `demand.state.Connections` from `Counts()`, as `demand.step` does (`internal/session/demand.go` `(*demandRun).step`).
-The coupling error path can restore an earlier `demandRun` value (`internal/session/speed.go` `(*Session).step`).
-That value shares the `Connections` pointer but holds older counts, so the path refreshes `demand.state.Connections` again after the restore.
 
 Invariant D1: when `s.mu` is released, `undelivered` is empty, and rail has seen each interruption.
 As a second guard, the save path (`internal/session/persist.go` `(*Session).SaveState`) and the state read for publication (`internal/session/session.go` `(*Session).advance`) call `deliverInterruptions` before they read the simulation.
@@ -989,8 +948,8 @@ The ledger outcome `interrupted` is defined now and lands with the first policy 
 - The car stays held, with the rule of `stranded` (`(*ledger).offer`; `internal/parkride/checkpoint_restore.go` `validateConservation`).
 - `validateConservation` accepts the outcome (`internal/parkride/checkpoint_restore.go` `validateConservation`).
 
-In stage 1, `internal/parkride` and `cmd/compare` reject a project with the incident marker (section 11.2).
 Stage 1 has no policy, so no park-and-ride party can be interrupted.
+A car run refuses a project with a fault rate or an emergency rate, with `car runs do not support a fault or emergency rate`, so no later stage interrupts one either.
 
 ### 8.7 Restore
 
@@ -1061,8 +1020,7 @@ func (s *Simulation) resumeFromRefuge(v *vehicle) error
 
 - `v.Pod.Activity` is `Traveling` or `DepartingEmpty`.
 - `divertStart(v)` (`internal/sim/diversion.go` `(*Simulation).divertStart`) reports a prefix.
-  This refuses coupling members, platoon members, compact members, and pods inside the arrival chain.
-  By decision 3, a coupled pod waits for its committed split site, and the stage 3 policy calls again after `couplingID` clears.
+  This refuses platoon members and pods inside the arrival chain.
 - `owner` is a single bit held by `v`, for every purpose.
 - Purpose 1 or 2: `v` carries passengers.
   Purpose 3: `v` is empty.
@@ -1078,7 +1036,6 @@ func (s *Simulation) resumeFromRefuge(v *vehicle) error
 2. Install `v.Route[:prefix]` plus the new suffix with `setVehicleRoute` (`internal/sim/traffic.go` `(*Simulation).setVehicleRoute`).
    The prefix starts at route index 0, so distance, block indexes, and the reserved span keep their meaning.
 3. Set `destination`, `destinationStation`, and `op`.
-   Clear `buffered` and `bufferBerth`, because the new route ends at a berth.
 4. Purpose 3: set `RelocatingTo` to the station, and clear `Rebalancing` and `released`.
    Purposes 1 and 2: `RelocatingTo` stays empty, so `arrive` does not take the empty-move branch (`internal/sim/simulation.go` `(*Simulation).arrive`).
 5. Set `pending = -1` and clear the wait reason, as `redirect` does (`internal/sim/diversion.go` `(*Simulation).redirect`).
@@ -1089,16 +1046,16 @@ Each rider keeps its `To`.
 `startOperationalUnload` preconditions:
 
 - `v` is at a berth with activity `Boarding`, `Continuing`, or `Unloading`.
-- `v` carries passengers, `v.couplingID == ""`, and `v` is not a compact or platoon member.
+- `v` carries passengers, and `v` is not a platoon member.
 - The berth is at a passenger station.
 - `owner` is a held bit, and `interrupt` names only active riders.
 
 Its effect is the arrival of section 9.5 at the current berth, in one call.
-The call sets activity `Unloading`, `Occupied` true, `StationPhase` `AtBerth`, `destination` the current berth, `destinationStation` the current station, `buffered` false, `bufferBerth` empty, and `reservedThrough = -1`.
+The call sets activity `Unloading`, `Occupied` true, `StationPhase` `AtBerth`, `destination` the current berth, `destinationStation` the current station, and `reservedThrough = -1`.
 It removes the current station from `Stops` wherever it is.
-`phaseTicks` becomes `unloadingTicks`, or stays when the pod already unloads with `phaseTicks >= 1`.
+`phaseTicks` becomes the unloading phase of the class for the passengers aboard (`unloadingPhase`), which is `unloadingTicks` for a seat-only class, or stays when the pod already unloads with `phaseTicks >= 1`.
 Unused grants go at the release boundary (`internal/sim/traffic.go` `(*Simulation).releaseVehicleResources`).
-For a pod that starts at a berth, this addresses finding A of emergency review round 2: the stops, the buffer metadata, and the zero interval each have a rule.
+For a pod that starts at a berth, this addresses finding A of emergency review round 2: the stops and the zero interval each have a rule.
 
 `resumeFromRefuge` preconditions: purpose 2, at the refuge berth.
 Effect: clear `op`, then run `continueJourney` (`internal/sim/riders.go` `(*Simulation).continueJourney`).
@@ -1116,9 +1073,9 @@ A new stop rule, `serviceStops`, requires `Stops` to hold one stop for each dest
 | --- | --- | --- |
 | Traveling, occupied, purpose 1 | `phaseTravelingOccupied` | `serviceStops`. `hasDestination`. `DestinationStation` is a passenger station. |
 | Traveling, occupied, purpose 2 | `phaseTravelingOccupied` | `serviceStops`. `hasDestination`. `DestinationStation` is not in `Stops`. |
-| Unloading, purpose 1 | New `phaseUnloadingOperational` | Active riders, history, occupied, at berth, `atDestination`. `PhaseTicks` from 1 to `unloadingTicks`. `laterStops`: the station of the pod is not in `Stops`. Passenger station. |
+| Unloading, purpose 1 | New `phaseUnloadingOperational` | Active riders, history, occupied, at berth, `atDestination`. `PhaseTicks` from 1 to the largest unloading phase of the class (`maxUnloadingPhase`), which is `unloadingTicks` for a seat-only class. `laterStops`: the station of the pod is not in `Stops`. Passenger station. |
 | Unloading, purpose 2 | New `phaseRefugeHolding` | Active riders, history, occupied, at berth, `atDestination`. `PhaseTicks` is 0. `laterStops`. Passenger or parking station. |
-| Traveling or departing, empty, purpose 3 | `phaseTravelingEmpty` or `phaseDepartingEmpty` | The existing relocation rule. `Rebalancing` and `Released` are false. The route ends at the destination berth or at an entry of `DestinationStation`. `StationBuffered` is allowed under the existing flag rule (`checkPodFlags`). |
+| Traveling or departing, empty, purpose 3 | `phaseTravelingEmpty` or `phaseDepartingEmpty` | The existing relocation rule. `Rebalancing` and `Released` are false. The route ends at the destination berth or at an entry of `DestinationStation`. |
 | Idle, boarding, or continuing, any purpose | | Invalid. Arrival and `settleIdleAtBerth` clear the purpose. |
 | Purpose 0 | Existing phases | Unchanged. |
 
@@ -1153,7 +1110,7 @@ A faulted pod therefore stays out of service after its recovery arrives, until t
 
 | Place | Transition |
 | --- | --- |
-| `arrive` (`internal/sim/simulation.go` `(*Simulation).arrive`), purpose 1 | Activity `Unloading`, `phaseTicks = unloadingTicks`. Remove the station from `Stops` wherever it is. |
+| `arrive` (`internal/sim/simulation.go` `(*Simulation).arrive`), purpose 1 | Activity `Unloading`, `phaseTicks` the unloading phase of the class for the passengers aboard. Remove the station from `Stops` wherever it is. |
 | `arrive`, purpose 2 | Activity `Unloading`, `phaseTicks = 0`, wait reason "Holding at refuge". `Stops` unchanged. |
 | `arrive`, purpose 3 | The existing empty-move branch (`(*Simulation).arrive`), then clear `op`. |
 | Unloading loop (`internal/sim/simulation.go` `(*Simulation).Step`), purpose 1 at phase 0 | `finishOperationalUnload(v)`, in place of `alight` and `continueJourney`. |
@@ -1178,27 +1135,22 @@ The indexes refer to the rider order before the loop; the implementation removes
 
 Lane evacuation sets `Occupied` false, `Stops` nil, `RelocatingTo = destinationStation`, `Rebalancing` and `released` false, and `op = {purpose: opEmptyRecovery, owner: faultHold}`.
 It replaces any earlier purpose.
-It keeps the route, distance, block state, owners, and buffer membership.
-The pod then continues on one of three route shapes:
+It keeps the route, distance, block state, and owners.
+The pod then continues on one of two route shapes:
 
 | Route shape | Continuation |
 | --- | --- |
 | Ends at the destination berth | Unchanged. `arrive` takes the empty-move branch. |
-| Ends at a station entry, not buffered | `assignTerminalBerth` (`internal/sim/berth_choice.go` `(*Simulation).assignTerminalBerth`) treats purpose 3 as a passenger route. The `passenger` test adds `v.op.purpose == opEmptyRecovery`. The berth choice then runs as for a passenger pod. |
-| Ends at a station entry, buffered | The pod keeps its buffer membership. `bufferApproach` (`internal/sim/station_buffer.go` `(*Simulation).bufferApproach`) keeps it while `bufferPlan` holds. The buffer head path (`(*Simulation).grantBufferedHead`) chooses a berth. The head test of `bufferBerthClaims` fails for an unassigned empty pod (`internal/sim/station_buffer_claim.go` `(*Simulation).bufferClaimCanYield`), so the pod takes only a free berth. |
+| Ends at a station entry | `assignTerminalBerth` (`internal/sim/berth_choice.go` `(*Simulation).assignTerminalBerth`) treats purpose 3 as a passenger route. The `passenger` test adds `v.op.purpose == opEmptyRecovery`. The berth choice then runs as for a passenger pod. |
 
 ### 9.6 Restore tiers
-
-Whole-save certificate rules apply before this table.
-A save with coupling groups has no logical fallback and rejects any demotion, requeue, or interruption (`internal/sim/state.go` `restoreState`; `internal/sim/coupling_restore.go` `checkCouplingRestoreResult`).
-Buffer and compact certificates keep their no-fallback rules (`internal/sim/state.go` `restoreState`).
 
 | Purpose | Physical, pod keeps its place | Physical, pod demoted (`internal/sim/state_physical.go` `(*physicalRestore).demote`, `(*physicalRestore).placeDemoted`) | Logical (`internal/sim/state_logical.go` `restoreLogical`) |
 | --- | --- | --- | --- |
 | 1, traveling | Keep `op`. Route must end at the destination berth (`internal/sim/state_physical.go` `(*physicalRestore).routeEndsMatch`). | Interrupt the riders in `interrupt`. Requeue the others (`(*physicalRestore).requeue`). Never `boardAgain`. Clear `op`. | Interrupt the riders in `interrupt`. Requeue the others. Clear `op`. |
 | 1, unloading | Keep. | As the traveling row, if a demotion reaches the pod. | A marked rider is interrupted, also when its `To` is the station. Each unmarked rider follows the existing rule (`restoreLogical`). |
 | 2, traveling or holding | Keep. A holding pod can be at a parking berth (section 9.4). | Existing demotion. Clear `op`. | Existing rule. A parking berth is not a passenger berth (`internal/sim/state_logical.go` `restoreLogical`), so every active rider is requeued. Clear `op`. |
-| 3 | Keep. `routeEndsMatch` (`internal/sim/state_physical.go` `(*physicalRestore).routeEndsMatch`) accepts a berth end and an entry end with `RelocatingTo == DestinationStation`. Buffer membership (`(*physicalRestore).buildRoutes`) adds `v.op.purpose == opEmptyRecovery` to the allowed cases. | Existing demotion. Clear `op`. | Clear `op`. |
+| 3 | Keep. `routeEndsMatch` (`internal/sim/state_physical.go` `(*physicalRestore).routeEndsMatch`) accepts a berth end and an entry end with `RelocatingTo == DestinationStation`. | Existing demotion. Clear `op`. | Clear `op`. |
 
 In both tiers:
 
@@ -1251,34 +1203,16 @@ The HTTP state has one envelope and one media type.
 
 ### 11.2 Marker and its propagation
 
-The project gets one top-level marker, `incidentContract: "incident-v1"`.
-It gates every stage 1 member.
-Later feature markers require it.
-
-- Without the marker, no encoder writes a stage 1 member, and every decoder rejects each stage 1 member, including an explicit null, an empty array, and a zero value.
-- With the marker and no feature, trajectories equal a run without the marker.
-  Section 12 states the byte and digest differences.
-- `internal/parkride` and `cmd/compare` reject a project with the marker in stage 1.
-
-A stream or HTTP decoder does not see `project.Config`.
-The topology and the frames carry contract markers on their own, as they do for the order and coupling contracts (`internal/session/protocol.go` `TopologySnapshot`, `SimulationFrame`).
-The incident marker follows the same pattern:
-
-| Carrier | Member | Rule |
-| --- | --- | --- |
-| Save | `/project/incidentContract` | Source of truth. `RestoreState` gets it with the other contract inputs. |
-| Topology, stream hello and `GET /api/topology` (`internal/session/http.go` `(*Session).HandlerFS`) | `TopologySnapshot.incidentContract` (`internal/session/protocol.go` `TopologySnapshot`) | Copied from the project. |
-| Full frame and `GET /api/state` (`internal/session/http.go` `(*Session).HandlerFS`) | `SimulationFrame.incidentContract` (`internal/session/protocol.go` `SimulationFrame`) | Copied from the simulation. |
-| Agreement | `frameState` (`internal/session/protocol.go` `frameState`) | A new `incidentFrameBinding`, beside `couplingFrameBinding`, rejects a frame whose marker differs from the topology marker. |
-| Raw presence | `DecodeStreamJSON` and the HTTP decoder `DecodeStateJSON`, which share `decodeMarkedJSON` (`internal/session/stream_service.go` `decodeMarkedJSON`), and `ApplyStream` (`internal/session/stream_codec.go` `ApplyStream`) | Typed decoding loses the difference between an absent member and `withdrawn: 0` or `legFrom: null`. So a raw token scan, `scanIncidentMembers`, runs beside the other scans of `decodeMarkedJSON`, before the typed decode. It records in a field of `StreamEnvelope` that is not serialized whether any stage 1 member name or the `incident` group key appears, with any value. `ApplyStream` checks that record before it applies a delta: it rejects a delta with a stage 1 member when the accepted base frame has no marker. A full envelope with a stage 1 member and no marker is rejected the same way. |
-| Assembler | `StreamAssembler.State` (`internal/session/stream_frame.go` `(*StreamAssembler).State`) | Rejects a marker change inside one stream. |
-| Delta | none | A delta carries no marker. A marker change is a project change, and a project change starts a new full baseline (`docs/protocol.md:94`). |
+This section defined the project marker `incidentContract: "incident-v1"`, its copies in the topology and in the full frame, the agreement check, and the raw presence scan.
+On November 4, 2026, [the marker removal contract](marker-removal-contract-proposal.md) removed the marker and each presence rule.
+A project, a saved state, a stream envelope, or an HTTP state with an `incidentContract` member now has an unknown member.
+`scanIncidentMembers` keeps its refusals of null and empty values, and the rules on the values of the stage 1 members stay (section 11.6).
 
 Delta groups for the stage 1 stream members (`internal/session/stream_codec.go` `frameGroups`):
 
 | Member | Delta group |
 | --- | --- |
-| `interrupted`, `interruptedPassengers` | New group `incident`, present only with the marker, as the `coupling` group is present only with the coupling contract (`frameGroups`). The `global` group does not change, so off-state bytes do not change. |
+| `interrupted`, `interruptedPassengers` | New group `incident`. The `global` group does not change, so off-state bytes do not change. |
 | Vehicle `withdrawn`, `operational` | The vehicle `metadata` group: `vehicleMetadata` gets both members, omitted at zero. |
 | Order `legFrom` | The `pending` group for waiting orders, and the vehicle `riders` group (`VehicleDelta`) for riders. |
 
@@ -1294,6 +1228,7 @@ Rule:
 - One table in `receipt.go` lists every `N` with its field path.
   Stage 1 takes `N = 1` for `project.Config.IncidentContract`.
   Each later field takes the next free number.
+  The marker removal retired the numbers 1, 2, and 10 with the markers, and they stay retired.
 - An extension field may sit only at a fixed path: not inside a slice or a map element.
   A test walks the `Command` type tree and fails on a duplicate `N`, a missing table entry, or a tagged field under a slice or map.
 - The main walk skips each extension field and writes nothing for it, not even a nil mark.
@@ -1327,7 +1262,7 @@ Nil and empty stay distinct, which agrees with `reflect.DeepEqual` and with the 
 
 Tests:
 
-- A baseline file pins the digest of one command per action, including `project` commands with the plain, Express, and coupling example projects.
+- A baseline file pins the digest of one command per action, including `project` commands with the plain and Express example projects.
   Item 7 patch 0 created it (`internal/session/testdata/command_digests.txt`).
   Stage 1 reuses it.
 - Each extension field set alone changes the digest.
@@ -1383,7 +1318,6 @@ Stream and HTTP state members:
 
 | Path | Shape | Delta group |
 | --- | --- | --- |
-| `.../simulation/incidentContract` | `incident-v1` | None. Full frames only. |
 | `.../simulation/pending/*/legFrom` | Station ID, packed | `pending` |
 | `.../simulation/vehicles/*/riders/*/legFrom` | Same | Vehicle `riders` |
 | `.../simulation/vehicles/*/withdrawn` | Integer | Vehicle `metadata` |
@@ -1398,8 +1332,8 @@ It is dispatch state, as `deferPodID` is.
 ### 11.6 Strict decoding and prescan
 
 - Every decoder rejects unknown members, as today.
-- Without the marker, every stage 1 member is rejected (section 11.2).
-- With the marker, the save decoder rejects:
+- Every decoder rejects a stage 1 member that is `null` or an empty string.
+- The save decoder rejects:
   - an unknown hold bit (W1);
   - an `operational` tuple of the wrong length, with an unknown purpose, or with an owner that is not one held bit (W5);
   - an `interrupt` bit that names no active rider;
@@ -1412,18 +1346,18 @@ It is dispatch state, as `deferPodID` is.
   Without it, the array would get the fallback limit of 65,536 elements (`internal/session/state_file.go` `stateJSONLimits`, `(jsonLimits).arrayLimit`).
   The stream adds no array.
 - Prescan paths are derived from real envelopes.
-  A test encodes the composed worst-case save and one full frame, one delta frame, and one HTTP state reply, walks every array in them, and fails when an array path has no explicit limit.
+  `TestFormatArraysHaveLimits` encodes small save, full, delta, and HTTP fixtures, walks every array in them, and fails when an array path has no explicit limit.
   The array audit exists from item 7 patch 4 (`516b797`), and stage 1 extends it.
   This also checks the post-item-5 renames of existing paths.
 - Each new limit has a test at the limit, at the limit plus one before typed decoding, at a deeper nesting, and with a gzip body that expands past the byte cap.
 
 ### 11.7 Joint byte budget
 
-Status 2026-10-07: by maintainer decision, the fleet limit is 600 pods and the save cap is 100 MiB.
-Status 2026-10-19: the plain fleet limit is now 1,000 pods and the save cap is 128 MiB.
-The composed worst-case fixtures, their record, and the landing gate of this section were deleted.
-The measurements below keep their 300-pod and 80 MiB basis, and nobody measured them again.
-`TestFormatArraysHaveLimits` now does the array audit of section 11.6 on small save, full, delta, and HTTP fixtures.
+This section is a record.
+The measurements keep their basis of 300 pods and a save cap of 80 MiB, and nobody measured them again.
+The plain fleet limit is now 1,000 pods, and the save cap is 128 MiB.
+The composed worst-case fixtures, their record, and the landing gate of this section were deleted on October 7, 2026.
+The coupling shapes of the tables went with physical coupling on October 6, 2026.
 
 Measured headroom at item 7 patch 8 (`ee5851f`), on October 5, 2026.
 The record was `docs/measurements/composed-worst-case-formats.json`, made by `TestComposedWorstCaseFormats` with `PODSIM_COMPOSED_FORMATS_RECORD` set.
@@ -1461,11 +1395,11 @@ Stage 1 growth per shape, with the widest encodings:
 Notes on the counts:
 
 - Plain: 300 pods with 8 riders each, and 2,600 waiting trips (`internal/session/state_file.go` `maxSavedTrips`).
-  Status 2026-10-19: `maxSavedTrips` is now `200 + 8 * 1,000 = 8,200`.
+  `maxSavedTrips` is now `200 + 8 * 1,000 = 8,200`.
   Express: 20 stored riders per pod and 8,600 waiting trips (`orderBounds`, `internal/session/format_limits.go` `(contractMarkers).orderBounds` at `475cc85`).
 - The station index has at most 3 digits, because a project has at most 300 stations (`internal/project/config.go` `MaxPods`).
   The pod index has at most 3 digits for 300 pods (`MaxPods`).
-  Status 2026-10-07: a project has at most 600 stations and 600 pods, so both indexes still have at most 3 digits.
+  A project now has at most 600 stations and 1,000 pods, so both indexes still have at most 3 digits.
 - The exclusion holds until the trip boards (maintainer decision of October 5, 2026), so a trip can carry both `podID` and `excludedPod`.
   The table counts the exclusion on every waiting trip.
 - Rider counts include completed history, because history keeps `legFrom` (section 7.2).
@@ -1518,54 +1452,43 @@ The narrowest save shape, Express with coupling, keeps 6,836,569 bytes before st
 | Fault records and recovery state, stages 2, 4, 5, 6 | 4,194,304 |
 | Reserve | 2,203,613 |
 
-The save keeps 80 MiB.
-A raise must also update the guard that proves the direct native-ID form is over the cap (`internal/session/compact_state_bytes_test.go`).
-
-Status 2026-10-07: the save cap is now 100 MiB (128 MiB since 2026-10-15), and `internal/session/compact_state_bytes_test.go` was deleted with the other worst-case byte proofs.
+At this measurement the save kept 80 MiB.
+The save cap is now 128 MiB.
+`internal/session/compact_state_bytes_test.go`, the guard that proved the direct native-ID form over the cap, was deleted with the other worst-case byte proofs on October 7, 2026.
 
 Landing gate:
 
-- One composed worst-case fixture per save shape of the single family, with the stage 1 members and each landed feature at their widest at the same time.
-- Each fixture is checked for raw size, gzip size, and the JSON scan limits of both limit sets.
-- The full, delta, and HTTP stream envelopes get the same composed check.
-- A feature does not land its members until the composed fixtures pass.
-- A feature over its allocation changes its encoding first.
+The gate was one composed worst-case fixture for each save shape and each stream envelope, with the stage 1 members and each landed feature at their widest at the same time.
+Each fixture was checked for raw size, gzip size, and the JSON scan limits of both limit sets.
+The gate was deleted with the composed fixtures.
+The byte proofs that `AGENTS.md` names now bound the saved state and the stream.
 
 ## 12. Off-state identity
 
-With the incident marker absent, trajectories, save bytes, stream bytes, command digests, and the RNG sequence stay identical.
-`internal/sim` has no random source, and stage 1 adds none.
+The incident marker that this section gated on was removed on November 4, 2026, by [the marker removal contract](marker-removal-contract-proposal.md).
+The off state is now a run in which no operation of this contract runs.
+In that run each stage 1 member is zero or absent, so trajectories, save bytes, stream bytes, command digests, and the RNG sequence stay identical.
+Stage 1 adds no random source.
 The demand PCG (`internal/session/demand.go` `newDemand`) is unchanged.
-
-With the marker present and no feature in use, trajectories and the RNG sequence stay identical.
-Bytes and digests differ only by the marker:
-
-- The project member `incidentContract`, the topology and full-frame markers, and the `incident` delta group with zero counters.
-- The digest of any command whose supplied project contains the marker, by the extension trailer of the marker (section 11.3).
-  `Apply` computes the digest before it drops the project of a non-project action (`internal/session/session.go` `(*Session).Apply`).
-  A non-project command sent with a marked project therefore also gets the trailer.
-  This keeps the existing order of digest and normalization.
-  A command sent with no project, or with a project without the marker, keeps its digest.
 
 | Change | Off-state effect | Treatment |
 | --- | --- | --- |
-| Claim classification with the coupling guard (section 6.3) | Can change `bufferClaimCanYield` and `yieldRelocationClaims` results for committed claims. | Own baseline fix before the stage 1 baseline. Not gated. |
 | `claimKind` for the other existing conditions | Same results as the inline predicates. | Refactor in the same patch, with equality tests. |
 | `completeRider` split from `alight` | None. | Refactor. |
-| Withdrawal gates, including `passengerArrivals` and the buffer head test | `withdrawn == 0` for every pod, so every test passes as today. | Gated by state. |
+| Withdrawal gates, including `passengerArrivals` | `withdrawn == 0` for every pod, so every test passes as today. | Gated by state. |
 | Exclusion gates, the excluded-pod hold gate, and `assignPickup` | `excludedPod == ""` for every trip. `assignPickup` writes the same fields as the five writes it replaces. | Gated by state. |
 | Stale deferral clearing | Runs only inside `releasePickups`. | Gated by state. |
 | `dispatchOptions` cache key | Equals `options()` when `LegFrom` is absent; the exclusion part is empty. | Gated by state. |
 | `legOrigin` readers | Equal `From` when `LegFrom` is absent. | Gated by state. |
 | Stranded-order validator exception | Needs `LegFrom`. | Gated by state. |
-| Purpose branches in `arrive`, the unloading loop, `assignTerminalBerth`, buffer membership, and the phase rules | Purpose 0 takes the existing branches. | Gated by state. |
+| Purpose branches in `arrive`, the unloading loop, `assignTerminalBerth`, and the phase rules | Purpose 0 takes the existing branches. | Gated by state. |
 | Conservation term `Interrupted` | 0. | Gated by state. |
 | `deliverInterruptions` and `Connections.Interrupt` | Nothing to drain. `Advance` does not change. | Gated by state. |
-| Save and stream members | Omitted at zero or absent. The `incident` group needs the marker. | Gated by marker and state. |
+| Save and stream members | Omitted at zero or absent. | Gated by state. |
 | Digest extension | No tagged field set, so no trailer. | Gated by value. |
 | Cap raise, if decided | Accepts larger files. Changes no bytes. | Own format patch at stage 0. |
 
-Gates for every patch:
+Gates for every patch, as defined at approval, when the marker existed:
 
 - Format goldens of the single family match byte for byte with the marker absent.
 - The digest baseline matches with the marker absent.
@@ -1581,24 +1504,24 @@ Gates for every patch:
 | `releasePickups(v)` | Only through `withdrawService` | Section 5.1. |
 | `claimKind(v, r)`, `revocable(v, r)` | Yield paths and section 9.3 | None. Read only. |
 | `continuationFeasible(request, station)` | Station choice for an emergency unload (stage 3) | None. Read only. |
-| `evacuate(v)` | Fault evacuation (stage 2; trains in stage 4) | Section 8.2. |
+| `evacuate(v)` | Fault evacuation (stage 2) | Section 8.2. |
 | `setOperationalDestination(v, to)` | Refuge (stage 2), emergency station (stage 3), recovery (stages 2 and 3) | Section 9.3. |
 | `startOperationalUnload(v, owner, interrupt)` | Emergency at a berth (stage 3) | Section 9.3. |
 | `resumeFromRefuge(v)` | Refuge recheck (stage 2) | Section 9.3. |
 | `DrainInterruptions()`, `Connections.Interrupt` | The session and `cmd/compare` | Section 8.5. |
 | `nextIncidentID()`, `SetIncidentGeneration(g)` | Every record of stages 2 and later; the session | Section 11.4. |
-| `InterruptRider(podID, orderID)` | Test entry: the session tests | The incident marker. An active rider whose destination another active rider of its pod shares. No coupling, platoon, or Compact queue member, and no dispatch pass. |
-| `FailStepForTest(tick, cause, before)` | Test entry: the session tests of the fault returns of a step | None. At the end of the step that reaches `tick`, it runs `before` and sets the Compact queue fault. |
-| `IncidentForTest(podID, operation)` | Test entry: the session save and stream tests of each incident state | The incident marker, and no dispatch pass. `operation.Kind` names one stage 1 operation: withdraw, restore, destination, unload, resume, or evacuate. |
+| `InterruptRider(podID, orderID)` | Test entry: the session tests | An active rider whose destination another active rider of its pod shares. No platoon member, and no dispatch pass. |
+| `IncidentForTest(podID, operation)` | Test entry: the session save and stream tests of each incident state | No dispatch pass. `operation.Kind` names one stage 1 operation: withdraw, restore, destination, unload, resume, or evacuate. |
 
-Stage 1 exports only `DrainInterruptions`, `Connections.Interrupt`, and `SetIncidentGeneration`, and the test entries `InterruptRider`, `FailStepForTest`, and `IncidentForTest`.
+Stage 1 exports only `DrainInterruptions`, `Connections.Interrupt`, and `SetIncidentGeneration`, and the test entries `InterruptRider` and `IncidentForTest`.
+The test entry `FailStepForTest` went with the step-fault seam of the compact station queues on October 7, 2026.
 The maintainer approved the test entries on 2026-10-05.
 Later stages call the other functions from inside `internal/sim`.
 
 Preconditions that later stages must meet before they call:
 
-- A coupling member waits until `couplingID` clears at its committed split site (decision 3), or until stage 4 provides a train interruption.
-- A platoon or compact member waits until stage 6 separates it.
+- The operations refuse a platoon member.
+  Stage 6, which would separate it, is out of scope.
 - A moving pod is not evacuated until it is at rest; stage 2 brings it to rest.
 - A policy that prefers a station where each party can continue may test `continuationFeasible` before it selects the station.
   The foundation transfers each party in any case (section 7.3).
@@ -1618,22 +1541,22 @@ Preconditions that later stages must meet before they call:
 | Pickup release | Section 5.5 | Section 5.5. |
 | Exclusion gates | Section 5.3, one fixture per row | The excluded pod never receives the trip. |
 | Cache key | Two trips with equal options and different exclusions in one pass | Different pods or one waits. |
-| No yield for emergency demand | An empty relocating pod holds an ordinary revocable destination claim. A withdrawn pod with riders goes to that berth, once as a traveling arrival and once as a buffer head. | The claim stays. The withdrawn pod takes a free berth or waits. Control: the same fixture with an in-service passenger pod releases the claim. |
-| Claim kinds | One resource per kind, including an empty coupled member, an approach member, a preserved receiving claim, a follower retention, and an admitted destination | `claimKind` returns the kind. Only `claimService` is revocable. |
-| Claim refactor equality | The existing buffer and yield suites | Same results, apart from committed claims. |
+| No yield for emergency demand | An empty relocating pod holds an ordinary revocable destination claim. A withdrawn pod with riders goes to that berth, as a traveling arrival. | The claim stays. The withdrawn pod takes a free berth or waits. Control: the same fixture with an in-service passenger pod releases the claim. |
+| Claim kinds | One resource per kind, including a follower retention and an admitted destination | `claimKind` returns the kind. Only `claimService` is revocable. |
+| Claim refactor equality | The existing yield suites | Same results. |
 | Leg origin readers | One test per "Physical" or "Both" row of section 7.4 | The reader uses `LegFrom`. |
 | Leg origin at index 0 | Transfer to the station with index 0, also when it equals `From` | Saved with `legFrom: 0`. Restores present. |
 | Emergency unload outcomes | Four riders: one marked, one unmarked at its destination, two others | One interruption, one completion, two transferred trips in order ID position, `boarded` true, no exclusion. |
 | Distance freeze, mixed unload | Recorded riders with nonzero boarding baselines: an onboard pickup at 50 m completes at the station, a marked rider is interrupted, and the last rider by index, with the largest baseline, transfers | After `settleIdleAtBerth`, `RiddenMeters` equals the cumulative distance captured before the first outcome. Every retained baseline is at or below it. The save validator (`internal/sim/state_boarding.go` `checkSavedBoardingsWithOrderContract`) and the stream validator (`internal/session/stream_boardings.go` `validateVehicleBoardingsContract`) accept the pod. Evacuation variants at a berth and on a lane add an already completed rider with a retained boarding record, because `evacuate` interrupts every active rider; the same assertion applies to them. |
 | Stranded transfer | Express party unloaded at a station with no Express path to `To` | Transferred, not interrupted. Waits with the certified-vehicle reason. Save, both restore tiers, and a stream frame accept it. The same trip with a `podID`, a route, a `deferPodID`, or an `excludedPod` is rejected in `internal/sim/order_contract_restore.go` `checkContractRestoreSemantics` and `internal/session/express_orders.go` `(*StreamAssembler).expressOrders`. |
 | Interruption | Rider with a rail binding | No `StepCompletion`. Rail `unserved`, reason `interrupted`. Counters and conservation. |
-| Departure-tick delivery | A session with a rail-bound order whose departure deadline is the next tick. A `Step` interrupts the rider on that tick. | The record is `unserved` with reason `interrupted`, not `missed`. `demand.state.Connections` equals `Connections.Counts()` after the tick, also on the coupling error path. |
+| Departure-tick delivery | A session with a rail-bound order whose departure deadline is the next tick. A `Step` interrupts the rider on that tick. | The record is `unserved` with reason `interrupted`, not `missed`. `demand.state.Connections` equals `Connections.Counts()` after the tick. |
 | Berth evacuation | Pods at a berth in `Boarding` with phase above 0 and a grant ahead, `Continuing`, `Unloading` with phase above 0, purpose 1 unloading, and refuge holding. Each has a rider whose destination is the station. | Every active rider is interrupted. No completion. Every field of the `settleIdleAtBerth` table. The idle rule passes. Each grant ahead is free after the release boundary. |
-| Lane evacuation | One pod per route shape of section 9.5: berth end, entry end, buffered entry end | Every active rider is interrupted. The pod reaches a berth and becomes idle. The purpose clears at arrival, and the fault hold stays. |
+| Lane evacuation | One pod per route shape of section 9.5: berth end and entry end | Every active rider is interrupted. The pod reaches a berth and becomes idle. The purpose clears at arrival, and the fault hold stays. |
 | Purposes | Each purpose: install, travel, arrive, act | Section 9.5. Phase rules hold each tick. |
 | Parking refuge | Riders with boarding records hold at a parking berth | Live check passes. Physical restore keeps the pod. Logical restore requeues every active rider. |
 | Refuge resume | Route exists, and route missing | `Continuing`, or purpose 2 kept with an error. |
-| Start at berth | Boarding, continuing, and unloading pods with buffer flags and granted track | Section 9.3. Grants free at the release boundary. |
+| Start at berth | Boarding, continuing, and unloading pods with granted track | Section 9.3. Grants free at the release boundary. |
 | Atomicity | Each precondition failure of each operation | No change to pods, queue, owners, or counters. |
 | Digest | Section 11.3 | Section 11.3. |
 | Incident IDs | Create a record ID, rewind, create another | New generation prefix. No reuse. |
@@ -1641,29 +1564,24 @@ Preconditions that later stages must meet before they call:
 ### 14.2 Restore tier tests
 
 - Each row and column of section 9.6, with order IDs and counters checked, not only the balance.
-- A coupled save with an operational pod elsewhere that would be demoted: the restore fails, with no fallback.
 - A logical restore of an emergency unload at the destination of the marked party: interrupted, not completed.
-- Purpose 3 with each route shape of section 9.5, through the physical tier, including buffer membership.
-- A multi-stop journey with the marker present and no incident: physical and logical round trips equal the off-state result.
+- Purpose 3 with each route shape of section 9.5, through the physical tier.
+- A multi-stop journey with no incident: physical and logical round trips equal the off-state result.
 - History: a transferred party completes, then the pod saves idle; `legFrom` survives on the completed rider, and the boarding tuple resolves.
 
 ### 14.3 Codec tests
 
-- Golden bytes and the digest baseline with the marker absent.
-- Each stage 1 member without the marker: rejected, also as null, empty array, and zero.
+- Golden bytes and the digest baseline with no incident.
+- Each stage 1 member as `null` or as an empty string: rejected.
 - Each rejection rule of section 11.6.
 - Express packed `legFrom` in full and delta frames; `scanPackedOrders` rejects non-canonical text in it.
-- Raw presence: under a topology without the marker, a delta with `withdrawn: 0`, with `legFrom: null`, and with an empty `incident` group is each rejected before delta application.
-- Marker propagation: topology, full frame, delta, `GET /api/state`, and the assembler agree.
-  A frame with a different marker than its topology is rejected.
-  A stage 1 member in a delta under a topology without the marker is rejected.
 - Each delta group of section 11.2 carries its member, and the `global` group bytes are unchanged.
 - The prescan tests of section 11.6.
 
 ### 14.4 Composed byte tests
 
-- The landing gate of section 11.7 for each save shape and each stream envelope, raw, gzip, and scan.
-- The table values of section 11.7 are asserted as allocations: each feature's members alone stay within their row.
+The composed byte tests ran the landing gate of section 11.7 and asserted its table values as allocations.
+They were deleted with the composed fixtures on October 7, 2026.
 
 ### 14.5 Command-boundary and end-of-tick saves
 
@@ -1687,12 +1605,13 @@ Full session saves, not only `Simulation.CheckContract`:
   A session test helper runs `evacuate` under `s.mu` and then the same epilogue as `Session.apply`.
   Then `SaveState` writes the complete save.
   The save restores, the rail record is `unserved` with reason `interrupted`, and `validateRecord` (`internal/rail/connections.go` `validateRecord`) accepts it.
-- The same with a tick that ends on the Compact pause return (`internal/session/speed.go` `(*Session).step`).
 - A publication right after the command shows the same rail counts as the save.
 
 ### 14.6 Mutation targets
 
 Each mutation needs a passing control, a compiled mutant, and a failing test.
+The table records the targets at landing.
+The rows for `bufferClaimCanYield`, the coupling test of `claimKind`, buffer membership, the Compact pause return, the marker, and the marker agreement check name code that was removed later.
 
 | Mutation | Call site |
 | --- | --- |
@@ -1756,6 +1675,7 @@ Each mutation needs a passing control, a compiled mutant, and a failing test.
 ## 15. Patch order
 
 Each patch compiles and passes the full suite on its own.
+The list records the order at landing, and sections 6.3, 11.2, and 11.7 name what was removed later.
 
 1. Claim classification and the coupling guard (section 6.3).
    Baseline fix.
@@ -1775,7 +1695,7 @@ The off-state gates of section 12 run after each patch from patch 2.
 
 | # | Question | Approved default |
 | --- | --- | --- |
-| 1 | Does stage 1 add its own project marker, `incidentContract`? | Yes. Feature markers require it. |
+| 1 | Does stage 1 add its own project marker, `incidentContract`? | Yes. Feature markers require it. The marker removal contract removed the marker on November 4, 2026. |
 | 2 | Do active finishing-pod holds on an affected pod count as pending pickups that get the exclusion? | Yes. The hold waits for that pod. |
 | 3 | Can an excluded trip hold for a finishing pod? | Yes, for any pod except the excluded pod. The exclusion holds until the trip boards (maintainer decision of October 5, 2026). |
 | 4 | What happens when the excluded pod is the only pod that fits? | The trip waits until another pod fits. The binding decision allows no exception. |
@@ -1784,9 +1704,9 @@ The off-state gates of section 12 run after each patch from patch 2.
 | 7 | Does refuge holding get its own activity code? | No. It reuses `unloading` with purpose 2 and phase 0. |
 | 8 | Does an emergency unload or an empty recovery release its owner hold on arrival? | No. Arrival clears the purpose. The policy calls `restoreService`, so a faulted pod stays withdrawn until the fault clears. |
 | 9 | Do completed riders keep `legFrom`? | Yes. It is saved and never inferred. |
-| 10 | Do park-and-ride runs and `cmd/compare` accept the incident marker in stage 1? | No. The ledger outcome `interrupted` lands with the first policy that can interrupt a park-and-ride party. |
-| 11 | Is the save cap raised, and when? | Item 7 keeps 80 MiB (128 MiB since 2026-10-15). The item 7 patch 8 fixtures leave at least 6,463,453 save bytes after stage 1. Stage 0 decides the stream and HTTP allocation on the same fixtures. A composed shape over its cap raises that cap just enough (maintainer, October 5, 2026). |
+| 10 | Do park-and-ride runs and `cmd/compare` accept the incident marker in stage 1? | No. The ledger outcome `interrupted` lands with the first policy that can interrupt a park-and-ride party. The marker was removed on November 4, 2026 (section 11.2). |
+| 11 | Is the save cap raised, and when? | Item 7 kept 80 MiB, and the cap is now 128 MiB. The item 7 patch 8 fixtures leave at least 6,463,453 save bytes after stage 1. Stage 0 decides the stream and HTTP allocation on the same fixtures. A composed shape over its cap raises that cap just enough (maintainer, October 5, 2026). |
 | 12 | Does a restore keep holds? | Yes. Each later stage releases its own hold when its records do not survive. |
 | 13 | Is the exclusion visible to clients? | No. The dispatch reason covers it. |
 | 14 | Can a refuge be a parking station? | Yes, when the berth allows the class. Emergency unloading needs a passenger station. |
-| 15 | Does the session deliver interruptions on the coupling error return of `Session.step`? | Yes. Delivery runs right after `Simulation.Step`, before every return path and before `demand.step`. |
+| 15 | Does the session deliver interruptions on the coupling error return of `Session.step`? | Yes. Delivery runs right after `Simulation.Step`, before every return path and before `demand.step`. The coupling error return went with physical coupling on October 6, 2026. |

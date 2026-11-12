@@ -1,12 +1,11 @@
 # Incident stage 7 contract proposal
 
 Status: approved by the maintainer on November 4, 2026, as option B with amendments A1 to A4, after two review rounds.
-Status 2026-11-05: `stateVersion` is now 11, `StreamVersion` is 9, and the member list is `state_v11_members.txt`, so `state_v10_members.txt` below is history.
-On November 12, 2026, the boarding record decision raised the saved-state version to 12 and the stream version to 10, and the member list is now `state_v12_members.txt`, so text about `stateVersion` 11, `StreamVersion` 9, and `state_v11_members.txt` describes the earlier design.
+Amended through November 12, 2026.
+Git history holds the dated amendment notes and the earlier text.
 It was drafted against `57902a7`.
 Each `file:line` reference is for that tree, unless it names a commit.
 References to the old `README.md` and `PROJECT_BRIEF.md` name `485f2f5`.
-On November 5, 2026, the maintainer removed the congestion, queue, and predictive routing policies, so the latency gates run only free-flow routing.
 
 ## 1. Goal
 
@@ -39,13 +38,13 @@ These rules are settled, and this proposal does not reopen them:
 | Fault start | `startPodFault`, `startDebris`, and the `Fault` command. Each refusal changes nothing. | A start in ticks. Both starts take whole seconds. | `internal/sim/faults.go:122`, `internal/sim/debris.go:20`, `internal/sim/fault_commands.go:26` |
 | Emergency start | `Emergency`, public, with its checks and a final `observe`. | An internal start with no `observe`, which emergency contract section 13 names. | `internal/sim/emergencies.go:82`, `internal/sim/emergencies.go:119` |
 | Stages | `faultStage` and `emergencyStage` run in `Step` behind their switches. | No sampler call. | `internal/sim/simulation.go:853`, `internal/sim/simulation.go:859`, `internal/sim/faults.go:453`, `internal/sim/emergencies.go:146` |
-| Policy | Withdrawal, evacuation, endpoint reroute, the emergency tier and the station choice. | No document defines "the full policy" (section 3, G2). Refuge code exists, and only a test entry reaches it. | `docs/contracts/incident-suspension-contract-proposal.md:68`, `internal/sim/operational.go:246`, `internal/sim/incident_entry.go:34` |
+| Policy | Withdrawal, evacuation, endpoint reroute, the emergency tier and the station choice. | No document defines "the full policy" (section 3, G2). Refuge code exists, and only a test entry reaches it. | `docs/contracts/incident-suspension-contract-proposal.md` section 1.2, `internal/sim/operational.go:246`, `internal/sim/incident_entry.go:34` |
 | Scenarios | Nine presets and capacity flags. | No preset or flag sets `faults` or `emergencies`. | `cmd/scenario/main.go:25`, no `Faults` in `internal/scenarios` or `cmd/scenario` |
 | Tools | `cmd/compare` and `internal/parkride` accept a project with `faults` and run with the operations off. | A rule for a rate above 0. `loadScenario` drops both settings (`cmd/compare/schedule.go:85`). | `internal/parkride/run.go:100`, `cmd/compare/schedule.go:113`, `docs/operations.md:542` |
 | Controls | Inspector buttons **Fault**, **Clear fault**, and **Emergency**. Both hide with `operationsOff`. | A debris control, a lane pick, and a debris clear. The editor has no form for these settings. | `internal/view/fault.go:40`, `internal/view/emergency.go:41`, `internal/view/mappick.go:66`, `docs/operations.md:541` |
 | Metrics | Five fault counters and three emergency counters in frames and saves. | Skip counts, effect on service, and any OpenTelemetry series for incidents. | `internal/sim/fault_view.go:32`, `internal/sim/state_emergencies.go:31`, `internal/session/session.go:77`, `internal/telemetry/telemetry.go:166`, `docs/operations.md:559` |
 | Debris drawing | `simulation.faults.active` sends the lane and the segment to the client. | The map draws nothing. | `internal/view/draw_network.go:24` has no read of `state.Faults`, `docs/operations.md:549` |
-| Qualification | The suspension and emergency contracts list soak gates. | I found no fault or emergency soak driver, and no record that the gates ran. The composed fixtures of the Formats gates do not exist. | `docs/contracts/incident-suspension-contract-proposal.md:1601`, `docs/contracts/incident-emergency-contract-proposal.md:1427`, no such test in `internal` or `cmd`, no incident file in `docs/measurements` |
+| Qualification | The suspension and emergency contracts list soak gates. | I found no fault or emergency soak driver, and no record that the gates ran. The composed fixtures of the Formats gates do not exist. | `docs/contracts/incident-suspension-contract-proposal.md` section 17, `docs/contracts/incident-emergency-contract-proposal.md` section 15, no such test in `internal` or `cmd`, no incident file in `docs/measurements` |
 
 ### 2.2 Settings accepted and unused
 
@@ -104,11 +103,12 @@ This section is shared by all elements.
 | New command action or digest extension | None | None | Yes, for a new setting. Extension 15 is taken, so 16 or later. |
 | Command digest baseline | Same | Same | Changes for a project with the new setting |
 
-Version rule: the consent contract keeps a version that is not yet pushed (`docs/contracts/generated-order-consent-contract-proposal.md:64`).
+Version rule, as written at the draft tree `57902a7`: the consent contract keeps a version that is not yet pushed (`docs/contracts/generated-order-consent-contract-proposal.md:64`).
 `origin/main` at `f8bedf3` has state 9 and stream 7, and `57902a7` has state 10, stream 8, and `state-7`, so these three are not pushed today.
 When the format patch lands, each version that has been pushed moves up by one, once, and a version that has not been pushed stays.
 With a move, `internal/session/state_http.go:17`, `web/shell.js:127`, `web/editor.js:1030`, the golden files, and the version text of `docs/operations.md` and `docs/protocol.md` change, as `AGENTS.md` says.
-In both cases `internal/session/testdata/state_v10_members.txt`, or its next version, gains the new paths.
+In both cases the member list in `internal/session/testdata` gains the new paths.
+That list is now `state_v12_members.txt`, and the current values are `stateVersion` 12, `StreamVersion` 10, and `state-7`.
 The plain stream golden files have no version member, so they must not change.
 
 ### 4.2 Saved-state members
@@ -228,7 +228,7 @@ Each counter is `sim.MaxCounter`, which has 16 digits.
 The growth figures are arithmetic, the two proofs confirm them, and no cap or count limit changes.
 The measured totals come from the two proofs, at the commit before `2c0a833` and at `3c61bcb`.
 They differ from the marker contract totals by 33 bytes in a save and by 173 bytes fewer in a stream, from changes outside stage 7 that this document does not trace.
-Status 2026-11-12: the table gives the totals at `3c61bcb`.
+The table gives the totals at `3c61bcb`.
 After the boarding record decision, the two proofs give 125,890,565 bytes for a save, 50,694,097 bytes for a full stream, and 84,250,275 bytes for the HTTP state, with headroom of 8,327,163, 16,414,767, and 49,967,453 bytes.
 
 | Proof | Change |
@@ -237,9 +237,9 @@ After the boarding record decision, the two proofs give 125,890,565 bytes for a 
 | `TestPlainStreamMaximumEncoding` | `widestPlainStreamRecordBytes` (`internal/session/plain_byte_proof_test.go:204`) sets the new counters. |
 
 The project member is unchanged in these proofs, because the fixture pads the project to its independent cap.
-A delta still has no byte proof, and Express still has no byte proof.
-Stage 7 adds the same few bytes to an Express file, and its headroom is not known.
-Status 2026-11-08, by amendment A18: the Express proofs in `internal/session/express_byte_proof_test.go` pass, from commits `c0b272a6` and `20971dd2`.
+A plain delta has no byte proof.
+Stage 7 adds the same few bytes to an Express file.
+By amendment A18, the Express proofs in `internal/session/express_byte_proof_test.go` pass, from commits `c0b272a6` and `20971dd2`.
 
 | Express proof | Format | Measured | Cap | Headroom |
 | --- | --- | ---: | ---: | ---: |
@@ -292,10 +292,8 @@ Terminal rule, one rule for scheduling, invariants, and restore:
 | `nextTick == sim.MaxCounter` | The terminal value. It means no more events, it never comes due, and no draw follows. This holds also when the tick reaches `sim.MaxCounter`. |
 | Invariant | `nextTick == sim.MaxCounter || nextTick > tick`. |
 | Restore | `sim.MaxCounter` is valid at each saved tick. Any other value needs the saved tick + 1 or more (section 4.3). |
-| Very small rate | Any rate above 0 is valid. At 60 Hz, the largest interval is about 7.93e6 / `perHour` ticks, so the terminal value comes first below a rate of about 8.8e-10. The largest interval in simulated time does not depend on the rate. |
+| Very small rate | Any rate above 0 is valid. At 30 Hz, the largest interval is about 3.97e6 / `perHour` ticks, so the terminal value comes first below a rate of about 4.4e-10. The largest interval in simulated time does not depend on the rate. |
 | A fault near the tick limit | `faultTicksFit` refuses it, so the event is a skip, and the record checks at `internal/sim/state_faults.go:124` stay valid. |
-
-Status 2026-11-06: at 30 Hz, the largest interval is about 3.97e6 / `perHour` ticks, so the terminal value comes first below a rate of about 4.4e-10.
 
 #### 5.1.2 API
 
@@ -429,7 +427,7 @@ Named exceptions:
 | ---: | --- | --- |
 | 1 | The version member of a save, the version of the stream hello, and the media type of HTTP state. | Only for a version that the rule of section 4.1 moves. |
 | 2 | A rate-0 project within 44 bytes of `project.MaxFileBytes` (32 MiB) is refused with the existing size error. | Decision 15, answer a. Answer b removes this exception. |
-| 3 | `state_v10_members.txt` lists the new paths. No save of a rate-0 run writes them. | Always. |
+| 3 | The member list, `state_v12_members.txt`, lists the new paths. No save of a rate-0 run writes them. | Always. |
 
 The 44 bytes: `Validate` measures each project with `widestFaults` and `widestEmergencies` (`internal/project/config.go:430`).
 With rates to 60, the widest rate is `1.0000000000000002e-06`, 24 bytes in place of 2 for `-0` (`internal/project/faults.go:61`), in two groups.
@@ -481,14 +479,14 @@ Earlier patches test through `sim` entries.
 | Save at a random tick on a live preset, restore, and compare the next 100 due ticks and draw values | The save carries the whole stream in a real state. The outcomes can differ, so this test does not compare them. | Drop `nextTick` from the export. |
 | Demo lifecycle: the sequence of section 5.1.3, with `logicalOnly` forced by the restore attempts count, two restores of one file, and each rate alone | G16. | Remove the start call. Use the live demand seed. Schedule from tick 0. |
 | Demo, physical tier, with a rate | No sampler, no member, the next save restores, and a reset starts one. | Start a sampler with the switch off. |
-| Express project with both rates: run, save, and restore | The sampler works with the Express order contract, which has no byte proof. | None. It is a smoke test. |
+| Express project with both rates: run, save, and restore | The sampler works with the Express order contract. | None. It is a smoke test. |
 | Rewind and reset replay | Section 5.1.4. | Hold the PCG behind a pointer in `Clone`. |
 | Logical tier with a sampler | Stream kept, records dropped, counters kept. | Reset the stream in the logical tier. |
 | Refusal tables, with inputs that have more than one error, and the explicit-zero table | Section 4.3. | Remove each new line. Read `nextTick` as absent at 0. |
 | Frame members, and a counter round trip with different values | Section 4.2. | Add `random` to `FaultsView`. Swap `sampled` and `skipped` in the mapping. |
 | One station search for a sampled emergency in its start tick | G15. | Search in each advance call. |
 
-Status 2026-11-05: by the maintainer decision of 2026-11-04, patch 15 removed `internal/session/incident_identity_test.go`, the test of the Identity and Command-driven parity rows.
+By maintainer decision, patch 15 removed `internal/session/incident_identity_test.go`, the test of the Identity and Command-driven parity rows.
 The saved-state golden files and the parity tests of `internal/session` stay.
 
 #### 5.1.9 Qualification
@@ -523,6 +521,8 @@ A number in the Amendment column shows the one change that needs an answer.
 | Web | Both | `mise run test:web`, and the marker checks of suspension 16.3 and emergency 14.3. | Passes. | A1 |
 | Product | Both | The choices of suspension 20.2 and emergency 18.2. | Decided. The new choices are in section 8. | |
 
+The congestion, queue, and predictive routing policies were removed on November 5, 2026, by maintainer decision, so the latency gates run only free-flow routing.
+
 Gates that stage 7 adds:
 
 | Gate | Measurement | Pass |
@@ -538,9 +538,8 @@ This is 200 runs of 24.5 simulated hours, 4,900 simulated hours, or about 1.06e9
 I have no measured tick rate for this, so a timing run of 1 seed for 1 hour on each arm comes first, and its result goes to the maintainer.
 Each run has a memory cap, by the project's rule for test jobs.
 
-Status 2026-11-05: `docs/studies/incident-soak.md` holds the timing run.
-The soak has not run, the maintainer has not chosen its size, and the Performance row for suspension is open.
-This status marks no gate as passed.
+`docs/studies/incident-soak.md` holds the timing run.
+The amendments below set the size of the soak and the rules of the Performance rows.
 
 Amendment A6, approved by the maintainer on 2026-11-05: the Safety, Contract, Conservation, Rail, Progress, and Persistence rows run for 5 seeds of 6 simulated hours, then the clear of 30 simulated minutes, on both presets, with a limit of 2 hours of wall time.
 This size replaces 24 simulated hours and at least 20 seeds.
@@ -608,11 +607,11 @@ The median of the 4 differences must be at most 10 percent of the median referen
 The medians are about 2.5 µs on `rail-hub`, so a ratio of one run of 300 ticks measures noise.
 The rule was chosen after the readings of 2026-11-06, which missed the rule of 10 percent, so those readings do not confirm it.
 A later quiet-host run with `PODSIM_SOAK_GATE=1` must confirm it before the row counts as passed.
-The rule for the slowest tick stays in each run, and the timed runs of A3 keep the rule of 10 percent.
-Status 2026-11-06, by the maintainer: on this row, no tick may pass twice the slowest reference tick, or 1 ms if that is larger.
+The rule for the slowest tick applies in each run, with a floor that the maintainer added on 2026-11-06: no tick may pass twice the slowest reference tick, or 1 ms if that is larger.
+The timed runs of A3 keep the rule of 10 percent.
 This floor is 3 percent of a tick at 30 Hz.
-A gated run at `8ffb20b6` passed the median rule and missed the earlier rule for the slowest tick on `rail-hub` in 2 of 24 runs, so a later quiet-host run must confirm the floor, and a real rare tick under 1 ms now passes.
-Status 2026-11-06, by the maintainer: the row passes at `5979debb`, with one miss on record, on `london-central` in 1 of 56 runs, with no named cause.
+A gated run at `8ffb20b6` passed the median rule and missed the rule for the slowest tick without the floor on `rail-hub` in 2 of 24 runs, so a later quiet-host run must confirm the floor, and a real rare tick under 1 ms now passes.
+By the maintainer, the row passes at `5979debb`, with one miss on record, on `london-central` in 1 of 56 runs, with no named cause.
 
 Amendment A12, approved by the maintainer on 2026-11-06: the soak with the full check at each tick, and the 5 seeds of 6 simulated hours of A6, are required only before a release tag.
 This replaces the triggers of A10.
@@ -664,7 +663,7 @@ The simulation has no logger, so a sampled event has no log line.
 ### 5.2 Policy
 
 No document defines the full policy (G2).
-The transitions contract only says that stages 2, 3, and 7 own "the policies that decide when to call these operations" (`docs/contracts/incident-service-transitions-contract-proposal.md:66`).
+The transitions contract only says that stages 2, 3, and 7 own "the policies that decide when to call these operations" (`docs/contracts/incident-service-transitions-contract-proposal.md` section 1.2).
 These are the candidates that the approved contracts leave open:
 
 | # | Candidate | Source | What it needs | Recommendation |
@@ -1011,7 +1010,7 @@ The rest of this section keeps the options, so that a reader can see what each a
    a: add `rail-hub-incidents`; b: no new preset.
    Recommend a, with 10 faults an hour, 10 emergencies an hour, `fixed` 600 s, debris share 0.25, and debris length 2 m.
    The 10 and the 600 come from the contracts, and the 0.25 is a play value with no source.
-   Status 2026-11-04: the maintainer approved `fixed` 120 s for the fault duration of `rail-hub-incidents`, and the rate stays at 10 an hour.
+   The maintainer approved `fixed` 120 s in place of 600 s for the fault duration of `rail-hub-incidents`, and the rate stays at 10 an hour.
    The soak of section 5.1.9 keeps 10 an hour and 600 s.
 8. **Debris button.**
    a: a click places 2 m until cleared; b: also ask for a length and a duration.
@@ -1034,7 +1033,9 @@ The rest of this section keeps the options, so that a reader can see what each a
 14. **Service-effect numbers with no rate.**
     a: they count only while a sampler is live, so a manual fault at rate 0 writes no new bytes and shows no such numbers; b: they always count, so that fault writes new bytes, as a named exception.
     Recommend a.
-    Status 2026-11-05: the maintainer confirmed that the OpenTelemetry series always exist and read 0 with no live sampler, as the journey gauges do.
+    Status 2026-11-05: the maintainer confirmed that the OpenTelemetry series always exist, as the journey gauges do.
+    Amended 2026-11-12, by maintainer decision: the series that only a sampler moves (`sampled`, `skipped`, and `delayed_rider_ticks`) do not change while no sampler is live, and a manual incident still updates `active` and `started`.
+    A restored session keeps the saved values of these series.
 15. **The 44 reserve bytes.**
     a: widest rate 24 bytes, as the approved text says, so a rate-0 project within 44 bytes of the 32 MiB cap is refused; b: measure a rate above 0 at its own bytes, with one more branch and an amendment to three approved lines.
     Recommend a, because no project that I know of is near the cap, and the rule stays one rule.
@@ -1119,15 +1120,15 @@ These were to be measured before or during the work.
 
 | Item | Status |
 | --- | --- |
-| The Express headroom | Not known. No proof exists. |
-| The time of the soak | Timing run done. The maintainer rejected each extrapolated size and set a limit of 2 hours of wall time on 2026-11-05. The new size needs an amendment. |
+| The Express headroom | Proved by the Express byte proofs of section 4.4, by amendment A18. |
+| The time of the soak | Timing run done. The maintainer rejected each extrapolated size and set a limit of 2 hours of wall time on 2026-11-05. Amendment A6 gives the new size. |
 | The share of skipped events on each preset | Must be measured. Debris refusal on a busy lane can be high, and I have no figure. |
 | Sampled-tick time against 50 ms | Measured on a fixture with little traffic: slowest 0.95 ms. Reported at the project limits: 260 to 429 ms cold, and 13.5 to 32.5 s warm. |
 | Step time at 64 debris and 1,000 pod faults | Measured: median 983 µs against 20 µs, slowest 5.0 ms against 0.62 ms. |
 | Evidence that any real system has these rates | None. The preset values are for play and for the soak. |
 
-Status 2026-11-06: after `458f14a` at 30 Hz, the warm reading at the project limits is about 160 ms for the emergency part and 122 ms for the fault part, and the test reports their sum (`docs/studies/incident-soak.md`).
-So 13.5 to 32.5 s above is history, and the row stays a report against 50 ms and not a gate.
+After `458f14a` at 30 Hz, the warm reading at the project limits is about 160 ms for the emergency part and 122 ms for the fault part, and the test reports their sum (`docs/studies/incident-soak.md`).
+So 13.5 to 32.5 s above is the earlier reading, and the row stays a report against 50 ms and not a gate.
 The maintainer asked on 2026-11-06 for more work on this time, and at `8ffb20b6` the warm sum is 86.4 to 87.7 ms.
 
 ## 12. Review result

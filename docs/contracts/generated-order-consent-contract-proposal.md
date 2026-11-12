@@ -1,8 +1,8 @@
 # Generated-order consent contract proposal
 
 Status: approved under the maintainer's grant of November 4, 2026.
-Status 2026-11-05: `stateVersion` is now 11, `StreamVersion` is 9, and the member list is `state_v11_members.txt`, so the values of 10, 8, and `state_v10_members.txt` below are history.
-On November 12, 2026, the boarding record decision raised the saved-state version to 12 and the stream version to 10, and the member list is now `state_v12_members.txt`, so text about `stateVersion` 11, `StreamVersion` 9, and `state_v11_members.txt` describes the earlier design.
+Amended through November 12, 2026.
+Git history holds the dated amendment notes and the earlier text.
 The maintainer asked for this setting with private as the default, and asked for a second review after the first one found a blocker.
 
 ## Goal
@@ -63,8 +63,8 @@ The native client gets no new control.
 
 | Item | Effect |
 |---|---|
-| `stateVersion`, `StreamVersion`, `StateMediaType` | No change. Versions 10, 8, and `state-7` are not yet pushed, and they land in the same push. |
-| `internal/session/testdata/state_v10_members.txt` | Gains `project.generatedOrderConsent`. |
+| `stateVersion`, `StreamVersion`, `StateMediaType` | No change by this contract. At its landing, versions 10, 8, and `state-7` were not yet pushed, and they landed in the same push. The current values are 12, 10, and `state-7`. |
+| `internal/session/testdata/state_v12_members.txt` | Lists `project.generatedOrderConsent`. |
 | Other goldens, `command_digests.txt` | No change, because an unset extension field writes nothing. A test run proves this. |
 | Digest extension table | Gains N 15 at `Project.GeneratedOrderConsent`. |
 | `widestDemand`, `validateWidestSize` | No change. A project with the member is larger by the bytes that it writes. |

@@ -4,25 +4,18 @@ Status: **approved, implemented, and qualified on October 3, 2026**.
 The user approved item 8b and the contract below with the 6b/8b batch.
 Deployment, runtime enablement, and default changes require a separate batch.
 The [Express qualification](../studies/express-qualification.md) records the qualification conclusions.
-Status 2026-11-05: by the [standee contract](express-standees-contract-proposal.md), Express has 12 seats and 8 standees and a 6 m body, so the values of 20 seats and a 10 m body below are history.
-Status 2026-11-05: by the same contract, motion uses the rates of the class: 2 m/s² for seat-only classes, and 1.3, 0.8, and 1.15 m/s² for Express acceleration, planned braking, and maximum service braking, so the unchanged rates of the rows below are history.
-`internal/sim/coast.go` excludes a large class from coasting, and `coastRelease` times a releaser of any class at the acceleration of its class.
+Amended through November 12, 2026.
+Git history holds the dated amendment notes and the earlier text.
 
 Station buffers and compact station queues were removed on October 7, 2026, because measurements showed that they lowered station entry throughput.
 Clauses that name buffers, buffer certificates, compact queues, or compact certificates now describe cases that cannot occur.
 Their prohibitions and bounds stay as written and are vacuous.
-On November 4, 2026, [the marker removal contract](marker-removal-contract-proposal.md) removed the incident, fault, and emergency markers and raised the saved-state version to 10 and the stream version to 8, so text about these markers or the earlier versions describes the earlier design.
 The opt-in Compact station added in October 2026 (maneuver groups, `internal/sim/maneuver_*.go` and `internal/sim/station_maneuvers.go`) is a different feature, and this removal does not cover it.
 
-Status 2026-10-07: by maintainer decision, the fleet limit is 600 pods and the saved-state cap is 100 MiB.
-Status 2026-10-15: the [byte-budget amendment](service-byte-contract-proposal.md#october-15-2026-amendment) sets save and HTTP-state caps to 128 MiB, stream JSON to 64 MiB, and a source-derived gzip allowance.
-Status 2026-10-19: the plain fleet limit is now 1,000 pods.
-Express keeps its own 600-pod fleet and 17,000-order bound (`internal/sim/order_contract_bounds.go`), independent of the plain fleet.
+Express keeps its own 600-pod fleet and 17,000-order bound (`internal/sim/order_contract_bounds.go`, `internal/sim/order_contract.go`), independent of the plain fleet limit of 1,000 pods.
 The Express fleet bound and the bound of pending routes are 600.
 The Express pending and outstanding bound is 17,000, from `5,000 + 600 * 20`.
-The byte evidence below keeps its 300-pod and 80 MiB basis, and nobody measured it again.
-The worst-case byte proofs and their fixture constructors were deleted.
-Amendment, November 5, 2026: the maintainer approved the rate text of this contract on November 5, 2026, as decisions 1 and 4 of [the tick rate proposal](tick-rate-contract-proposal.md), so the motion rule of the physical contract no longer names 60 Hz.
+The [byte-budget amendment](service-byte-contract-proposal.md#october-15-2026-amendment) sets the save and HTTP-state caps to 128 MiB, the stream JSON cap to 64 MiB, and a source-derived gzip allowance.
 
 The source descriptions below refer to the reviewed baseline, `53321e4c5decc6c661df64a40378ee37614dcffc`.
 The [group physics design](../design/group-physics-design.md) records the approved dimensions and common conservative candidate.
@@ -37,39 +30,43 @@ The approved batch covers implementation and qualification of the following cont
 
 | Decision | Proposed bound or rule |
 | --- | --- |
-| Opt-in contract | `express-v1` in a version 1 project. It selects the Express bounds in saved-state version 9 and stream hello version 7 |
+| Opt-in contract | `express-v1` in a version 1 project. It selects the Express bounds in saved-state version 12 and stream hello version 10 |
 | Express profile under that contract | 12 seats, 8 standee places, new whole-party size 1 through 20, centered 6 m body, maximum width 2.5 m |
 | Large interaction candidate | Existing 6 m envelope radius, 20 m separation and retention, lanes at least 40 m, actual cells at least 20 m |
 | Stored Express records | At most 20 rider records, including completed history, with at most 20 aligned boarding records |
 | Express service pooling | At most 20 active parties, subject to the authored service limit and total of 20 passengers |
 | On-demand pooling | Existing maximum of eight active parties and eight stops, also for an Express pod |
-| Express-contract storage | At most 8,600 pending records and 8,600 outstanding records in aggregate |
+| Express-contract storage | At most 17,000 pending records and 17,000 outstanding records in aggregate |
 | Wire encoding | Canonical padded base64 for five bounded order-text fields, for every project kind, with no discriminator |
-| Byte caps | At approval, existing save 80 MiB, raw stream 64 MiB, binary stream 65 MiB, and topology 10 MiB plus 4 KiB; since 64b4f3f, stream JSON 65 MiB and gzip message 66 MiB |
-| Other caps | Existing fleet 300, service registry 300, and manual admission 200 |
+| Byte caps | Save and HTTP state 128 MiB, stream JSON 64 MiB with a source-derived gzip allowance, and topology 32 MiB plus 4 KiB |
+| Other caps | Express fleet 600, service registry 300, and manual admission 200 |
 
 Outstanding records mean pending orders plus noncompleted onboard orders.
 Completed onboard history counts toward the per-pod storage bound, but not the outstanding aggregate.
 The aggregate is a new Express-contract admission and restore rule.
 It prevents repeated recovery from increasing the number of accepted outstanding records beyond the reviewed bound.
 
-The foundation contract retains eight new passengers per party, 2,600 pending records, and eight stored riders per pod.
+The foundation contract retains eight new passengers per party, 8,200 pending records, and eight stored riders per pod.
 Legacy and compact capacities remain unchanged.
 Group remains eight seats with its qualified 6 m profile.
 No common small-class arithmetic, authored speed, or protected compact rule changes.
 
 ## Existing recognition is not operating approval
 
-[`vehicle_class.go`](../../internal/sim/vehicle_class.go) currently reports Express as 20 seats, maximum new party size eight, body length zero, and physically unsupported.
+[`vehicle_class.go`](../../internal/sim/vehicle_class.go) reports the foundation Express entry as 12 seats and 8 standee places, maximum new party size eight, body length zero, and physically unsupported.
 Placement, startup, and both restore tiers reject that unsupported profile.
 At the reviewed baseline, `order_state.go` recognized 6,200 waiting records and 20 rider records in save 6.
 Those parser limits do not authorize such native operating states.
-[`state.go`](../../internal/sim/state.go) and [`state_contract.go`](../../internal/sim/state_contract.go) still enforce 2,600 pending records and eight stored riders.
+Without the Express contract, [`state.go`](../../internal/sim/state.go) and [`state_contract.go`](../../internal/sim/state_contract.go) enforce 8,200 pending records and eight stored riders.
 Stream publication also retains those operating bounds.
-Saved-state version 9 and stream hello version 7 now take their array bounds from the contract markers.
-The bounds are 2,600 waiting records and eight riders per pod, or 8,600 and 20 with `express-v1`.
+Saved-state version 12 and stream hello version 10 take their array bounds from the contract markers.
+The bounds are 8,200 waiting records and eight riders per pod, or 17,000 and 20 with `express-v1`.
 
-The current session derives its recovery bound from `200 + 300 * 8 = 2,600` total orders.
+The plain bound is `200 + 1,000 * 8 = 8,200`, from the plain fleet limit of 1,000 pods.
+The Express bound is `5,000 + 600 * 20 = 17,000`, where 5,000 is `200 + 600 * 8`, from the Express fleet limit of 600 pods.
+The rest of this section records the derivation at approval, when the fleet limit was 300 pods and the result was 8,600.
+
+The session at approval derived its recovery bound from `200 + 300 * 8 = 2,600` total orders.
 The independent native maxima, 2,600 waiting plus 2,400 onboard records, total 5,000.
 That shape fits parser recognition of 6,200, but does not prove a reachable session state or lossless repeated native recovery.
 This proposal does not change the foundation contract to resolve that distinction.
@@ -79,10 +76,6 @@ An accepted native seed with 2,600 pending records and 6,000 active singleton pa
 Keeping parser recognition at 6,200 would reject that recovered state.
 The proposed 8,600 storage and aggregate bounds cover that native case explicitly.
 They are new limits requiring approval, not consequences of the existing parser limit.
-
-Status 2026-10-07: the same derivation at 600 pods gives the plain bound `200 + 600 * 8 = 5,000` and the Express bound `5,000 + 600 * 20 = 17,000`.
-The code uses 17,000 for the Express pending and outstanding bounds, and 8,600 elsewhere in this document is the earlier value.
-Status 2026-10-15: the plain bound is now `200 + 1,000 * 8 = 8,200`.
 
 ## Immutable orders and admission
 
@@ -112,7 +105,7 @@ An Express-service order needs shared consent and an existing directed registry 
 Its origin and destination must match that entry exactly.
 The registry entry requires normalized Express class and an authored party limit from one through 20.
 All pooled parties must name the same service ID and directed pair.
-Their passenger sum must fit 20 seats.
+Their passenger sum must fit the capacity of 20, which is 12 seats and 8 standee places.
 An Express service has one passenger destination, not 20 independent stops.
 
 No timetable, fill-before-departure delay, intermediate service stop, or fare policy enters this contract.
@@ -129,11 +122,11 @@ Atomic registry replacement must still reject changes that invalidate accepted p
 ## Recovery and native API boundaries
 
 Use one pending queue, not a separate recovery store.
-Reject an Express-contract seed when pending exceeds 8,600, outstanding exceeds 8,600, or class-specific stored history exceeds its bound.
+Reject an Express-contract seed when pending exceeds 17,000, outstanding exceeds 17,000, or class-specific stored history exceeds its bound.
 Do not truncate, deduplicate, or silently remove records to fit.
 Duplicate request identities still fail the state contract.
 A nonempty waiting route requires a unique existing target pod under `express-v1`.
-At most one waiting route can bind each pod, so at most 300 pending routes can exist.
+At most one waiting route can bind each pod, so at most 600 pending routes can exist.
 
 Reject duplicate route bindings and routes on unbound orders before native restore or save acceptance.
 This is a new explicit opt-in check, not a claim that every current native route cache satisfies it.
@@ -146,7 +139,7 @@ Foundation native restore retains its current treatment of route bindings.
 The session keeps its existing refusal when the pending queue reaches 200.
 That refusal also applies while a restored backlog exceeds 200.
 Native submission retains its current queue policy outside the opt-in contract.
-Within `express-v1`, a submission that would exceed 8,600 outstanding records must refuse before creating an accepted request.
+Within `express-v1`, a submission that would exceed 17,000 outstanding records must refuse before creating an accepted request.
 
 Logical recovery uses the existing stable request-ID ordering in [`state_logical.go`](../../internal/sim/state_logical.go).
 It preserves immutable options and original request timing.
@@ -156,7 +149,7 @@ Completed history does not requeue.
 Existing valid destination arrivals retain the existing accounted logical-completion behavior.
 
 Repeated recovery must conserve the same identities, effective options, aggregate, and accounting.
-The pending bound therefore remains 8,600 after any number of requeues.
+The pending bound therefore remains 17,000 after any number of requeues.
 
 Retain the current ordinary physical reconstruction in [`state_physical.go`](../../internal/sim/state_physical.go).
 Ordinary `ExportState` does not save speed or the exact future reservation frontier.
@@ -166,7 +159,7 @@ Classify the speed reset and forward-grant differences in restore evidence.
 Do not claim identical speed or trajectory across that boundary.
 
 The restored zero-speed stopping frontier must be owned continuously.
-Every subsequent tick must satisfy the unchanged acceleration, braking, speed-limit, and large-separation rules.
+Every subsequent tick must satisfy the acceleration and braking rates of the class, the speed limits, and the large-separation rules.
 Existing compact speed certificates keep their separate approved behavior.
 No new ordinary speed or stopping-ownership certificate enters the saved state.
 
@@ -191,7 +184,7 @@ The proposed constructor accepts the existing network and fleet arguments plus `
 The contract remains immutable for that simulation and its reset lifecycle.
 Opt-in native constructors and restore must enforce the same bounded fleet, IDs, network, and registry as project validation.
 Do not globally flip the foundation Express registry entry to physically supported.
-After qualification, the opt-in lookup can return 20 seats, party bound 20, body length 10 m, and physical support.
+After qualification, the opt-in lookup can return 12 seats, 8 standee places, party bound 20, body length 6 m, and physical support.
 The original lookup continues to describe the unsupported foundation Express profile.
 
 Existing submission method signatures need not change because the simulation owns its explicit contract.
@@ -204,7 +197,7 @@ Restore cannot create a shared Express party or infer consent.
 ## Physical contract and limits of the proof
 
 The Express position denotes the body center under the opt-in contract.
-A centered 10-by-2.5-meter rectangle has a half-diagonal of about 5.154 m.
+A centered 6-by-2.5-meter rectangle has a half-diagonal of 3.25 m.
 The existing 6 m circle contains that rectangle at every orientation.
 This is a simulation envelope, not an axle, steering, seating, or manufactured-vehicle certification.
 No new physical number is proposed.
@@ -225,7 +218,10 @@ Check merges, crossings, plane transitions, banks, parking, and neighboring bert
 
 There is no blanket certification for curves or authored junctions.
 
-Motion retains acceleration and braking at 2 m/s², ticks at `sim.TicksPerSecond`, and authored lane speed limits.
+Motion uses the rates of the class, ticks at `sim.TicksPerSecond`, and authored lane speed limits.
+Seat-only classes accelerate and brake at 2 m/s².
+By the [standee contract](express-standees-contract-proposal.md), Express uses 1.3 m/s² for acceleration, 0.8 m/s² for planned braking, and 1.15 m/s² for maximum service braking.
+`internal/sim/coast.go` excludes a large class from coasting, and `coastRelease` times a releaser of any class at the acceleration of its class.
 Check current-lane speed on every tick, including entry into lower-speed lanes.
 Lookahead must reach every lower limit that can affect stopping, across multiple cells and lanes.
 No boundary speed clamp, position snap, or reduced authored speed substitutes for controlled braking.
@@ -243,12 +239,11 @@ Test the retained 20 m influence of a large neighbor without changing those comp
 
 The project marker is `orderContract: "express-v1"` in a version 1 project.
 The decoder refuses project versions 2 through 5 and does not migrate them.
-Saved-state version 9 carries that marker at its root.
-Stream hello version 7 carries the marker and binds it to its source epoch and topology.
+Saved-state version 12 carries that marker at its root.
+Stream hello version 10 carries the marker and binds it to its source epoch and topology.
 Express topology carries `orderContract` and a bounded `expressServices` array, copied from the project registry.
 It retains project version, epoch, and revision binding.
-The entire topology, including the registry, must fit the existing 10 MiB plus 4 KiB cap.
-Status 2026-10-07: the project limit is now 32 MiB, so the topology cap is 32 MiB plus 4 KiB (33,558,528 bytes).
+The project limit is 32 MiB, so the entire topology, including the registry, must fit the cap of 32 MiB plus 4 KiB (33,558,528 bytes).
 
 The producer must encode and preflight it before activating an Express session.
 A failure rejects activation without dropping registry entries or raising the cap.
@@ -292,7 +287,7 @@ It does not alter consent or permit a previously invalid ID.
 
 The packed wire representation is separate from semantic native snapshots.
 Native callers still observe original UTF-8 strings and integer or floating-point values.
-The 80 MiB file cap applies to the session persistence envelope, not arbitrary external marshaling of native `SavedState`.
+The 128 MiB file cap applies to the session persistence envelope, not arbitrary external marshaling of native `SavedState`.
 Persisted Express state must use the reviewed adapter rather than a raw native JSON dump.
 The adapter must decode pending groups, full vehicle records, and replacement rider groups before semantic validation.
 Each replacement is self-contained and needs no dictionary or prior text references.
@@ -303,7 +298,7 @@ The current on-demand-only check in [`stream_service.go`](../../internal/session
 Extend those consumers explicitly rather than treating their current acceptance as qualification.
 Request identities, ticks, sequence strings, exponents, and boarding distances must roundtrip without conversion through JavaScript numbers.
 
-For HTTP state of every project kind, require `Accept: application/vnd.podsim.state-6+json`.
+For HTTP state of every project kind, require `Accept: application/vnd.podsim.state-7+json`.
 Return an envelope with the root contract markers, `topology`, and `frame`.
 The topology and frame must identify the same source epoch and project revision.
 The frame uses compact indexed-route `StreamFrame`, whose current members are state and routes.
@@ -312,7 +307,7 @@ WebSocket consumers continue to fetch the separate topology and verify its sourc
 
 The HTTP envelope carries both topology and frame, not raw repeated `StateFrame.RouteLaneIDs`.
 Its packed orders use the same full-stream adapter and decoded semantic validation.
-Apply the raw stream bound to this HTTP envelope, which was 64 MiB at approval and is 65 MiB since 64b4f3f.
+Apply the HTTP-state cap of 128 MiB to this HTTP envelope.
 This avoids multiplying escaped lane IDs across a large recurring route payload.
 A request without the media type gets 406 instead of a partial response.
 Foundation HTTP state uses the same envelope.
@@ -323,6 +318,10 @@ Existing clients must reject their unsupported version rather than operate an in
 These endpoint, constructor, and version changes require explicit approval before implementation.
 
 ## Byte evidence and alternatives
+
+This section keeps its basis at approval: 300 pods, 8,600 records, an 80 MiB save cap, a 64 MiB stream cap, and a 10 MiB project cap.
+Nobody measured it again at the later limits, and the worst-case byte proofs of this evidence and their fixture constructors were deleted.
+At the current limits, `TestExpressStateFileWorstCaseSize` and `TestExpressStreamMaximumEncoding` prove the Express saved-state, full-stream, delta, and HTTP-state bounds (amendment E5).
 
 The source baseline uses committed Group measurements in [`group-physics-qualification.json`](../measurements/group-physics-qualification.json).
 The exact fixture constructors are `testGroupWorstCaseSize` in [`group_state_test.go`](../../internal/session/group_state_test.go) and `maximumStreamFrame` in [`stream_test.go`](../../internal/session/stream_test.go).
@@ -378,7 +377,7 @@ The save projection does not add the registry twice.
 Each bound also includes an 8,192-byte analysis reserve for marker fields, class-name growth, and numeric-width differences.
 That reserve is a conservative sizing allowance, not a new semantic header limit or approval for unspecified fields.
 The stream caps and margins in the tables below use the 64 MiB cap at approval, 67,108,864 bytes.
-Since 64b4f3f, the stream JSON cap is 65 MiB, 68,157,440 bytes.
+From 64b4f3f until the byte-budget amendment of October 15, 2026, the stream JSON cap was 65 MiB, 68,157,440 bytes.
 
 | Proposed independent shape: 8,600 pending plus 6,000 stored riders | Raw JSON upper bound | Packed upper bound | Existing cap |
 | --- | ---: | ---: | ---: |
@@ -426,7 +425,7 @@ The resulting independent topology projection exceeds the existing topology cap.
 It therefore does not qualify every project that fits its own file cap.
 Producer preflight and real widest-shape topology assets must establish the accepted set.
 Do not assume a 10 MiB project proves canonical topology fit.
-Status 2026-10-07: the table above keeps its 10 MiB basis, and nobody measured it again at the 32 MiB project limit.
+The table above keeps its 10 MiB basis, and nobody measured it again at the 32 MiB project limit.
 
 The combined HTTP bound uses the qualified whole-topology cap and the larger full-stream envelope bound.
 It adds the 97-byte wrapper and removes its two four-byte null placeholders.
@@ -436,8 +435,8 @@ WebSocket full and delta frames do not duplicate the registry.
 Their registry bytes belong to the separately fetched, source-bound topology.
 
 Compression ratios do not establish either margin.
-The save must fit both its uncompressed and compressed 80 MiB bounds.
-The stream must fit its raw and binary bounds, which were 64 MiB and 65 MiB at approval and are 65 MiB and 66 MiB since 64b4f3f.
+The save must fit its 128 MiB bound, both uncompressed and compressed.
+The stream must fit its JSON bound of 64 MiB and its message bound, which adds the gzip allowance.
 Later qualification must measure actual gzip output, including incompressible payloads.
 
 A 1,024-byte control-character string occupies 6,146 JSON bytes including quotes, versus 1,370 with base64.
@@ -470,6 +469,9 @@ Return the exact failure, encoded size, and proposed revised contract for review
 Implement qualification before enabling the Express-specific registry entry.
 Use native simulation, save adapters, public stream consumers, and the browser decoder.
 Parser acceptance alone cannot pass a physical or operating gate.
+
+The table records the gates as qualified on October 3, 2026, with the limits and the Express profile of that date.
+Amendments E1 to E8 below and section 7.2 of the [standee contract](express-standees-contract-proposal.md) apply the current limits, profile, and class rates.
 
 | Gate | Required cases and evidence |
 | --- | --- |
