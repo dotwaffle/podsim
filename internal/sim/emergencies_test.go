@@ -105,11 +105,12 @@ func emergencyIDs(s *Simulation) []string {
 // refusalOracle checks that call refuses with want and changes nothing:
 // the state after the call equals a clone from before it, and so do the
 // free-flow route memo, which Clone drops (section 7 of the incident
-// emergency contract).
+// emergency contract), and the tree memo of the batches, which Clone also
+// drops.
 func refusalOracle(t *testing.T, s *Simulation, want error, call func() error) {
 	t.Helper()
 	before := s.Clone()
-	routes, order := cloneRoutes(s.routes), slices.Clone(s.routeOrder)
+	routes, order, trees := cloneRoutes(s.routes), slices.Clone(s.routeOrder), cloneRouteTrees(s.routeTrees)
 	if err := call(); !errors.Is(err, want) {
 		t.Fatalf("error %v, want %v", err, want)
 	}
@@ -120,6 +121,9 @@ func refusalOracle(t *testing.T, s *Simulation, want error, call func() error) {
 	// so a comparison by value is correct.
 	if !reflect.DeepEqual(routes, s.routes) || !slices.Equal(order, s.routeOrder) { //nolint:govet // deepequalerrors: route errors compare by value on purpose.
 		t.Fatal("the refused call changed the route memo")
+	}
+	if !reflect.DeepEqual(trees, s.routeTrees) {
+		t.Fatal("the refused call changed the tree memo")
 	}
 }
 

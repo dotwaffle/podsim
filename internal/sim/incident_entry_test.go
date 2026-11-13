@@ -14,6 +14,7 @@ type routeMemos struct {
 	routes, staticRoutes, accessRoutes map[routeKey]routeCopy
 	staticConnected                    map[routeKey]bool
 	routeOrder                         []routeKey
+	routeTrees                         *routeTrees
 	routeStations                      map[stopKey][]string
 	approachStations                   map[string][]string
 	pickupBounds                       map[string][]float64
@@ -46,7 +47,7 @@ func copyRoutes(routes map[routeKey]routeResult) map[routeKey]routeCopy {
 func memosOf(s *Simulation) routeMemos {
 	memos := routeMemos{
 		routes: copyRoutes(s.routes), staticRoutes: copyRoutes(s.staticRoutes), accessRoutes: copyRoutes(s.accessRoutes),
-		staticConnected: maps.Clone(s.staticConnected), routeOrder: slices.Clone(s.routeOrder), routeStations: maps.Clone(s.routeStations),
+		staticConnected: maps.Clone(s.staticConnected), routeOrder: slices.Clone(s.routeOrder), routeTrees: cloneRouteTrees(s.routeTrees), routeStations: maps.Clone(s.routeStations),
 		approachStations: maps.Clone(s.approachStations), pickupBounds: maps.Clone(s.pickupBounds),
 		pickupMisses: maps.Clone(s.pickupMisses), emergencyMisses: slices.Clone(s.emergencyMisses), searches: s.searchCounters,
 		faults: s.faultCounters, work: s.routeWork, view: s.routeView, blocked: s.blocked, rerouteDue: s.rerouteDue, state: s.ExportState(),

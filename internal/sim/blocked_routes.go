@@ -118,6 +118,7 @@ func (s *Simulation) blockedFrom(footprints []faultFootprint) blockedSet {
 // only on the network.
 func (s *Simulation) startRouteEpoch() {
 	s.routes, s.routeOrder = nil, nil
+	s.routeTrees = nil
 	s.emergencyMisses = nil
 	s.routeStations = nil
 	s.pickupMisses = nil

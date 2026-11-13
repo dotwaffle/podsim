@@ -294,11 +294,12 @@ func newChoiceTickFixture(t *testing.T, input choiceTickInput) choiceTickFixture
 	return fixture
 }
 
-// copyWarm returns a clone of s with copies of the route memo and the
-// static caches, which Clone drops.
+// copyWarm returns a clone of s with copies of the route memo, the tree
+// memo, and the static caches, which Clone drops.
 func copyWarm(s *Simulation) *Simulation {
 	c := s.Clone()
 	c.routes, c.routeOrder = cloneRoutes(s.routes), slices.Clone(s.routeOrder)
+	c.routeTrees = cloneRouteTrees(s.routeTrees)
 	c.staticConnected, c.staticRoutes = maps.Clone(s.staticConnected), cloneRoutes(s.staticRoutes)
 	return c
 }
@@ -346,10 +347,11 @@ func measureChoiceTick(t *testing.T, fixture choiceTickFixture, check func(*Simu
 	return result
 }
 
-// coldState reports an error when s has a route memo or a static cache.
+// coldState reports an error when s has a route memo, a tree memo, or a
+// static cache.
 func coldState(s *Simulation) error {
-	if len(s.routes) != 0 || len(s.routeOrder) != 0 || len(s.staticConnected) != 0 || len(s.staticRoutes) != 0 {
-		return fmt.Errorf("the cold fixture has %d memo routes, %d static connections, and %d static routes", len(s.routes), len(s.staticConnected), len(s.staticRoutes))
+	if len(s.routes) != 0 || len(s.routeOrder) != 0 || s.routeTrees != nil || len(s.staticConnected) != 0 || len(s.staticRoutes) != 0 {
+		return fmt.Errorf("the cold fixture has %d memo routes, a tree memo %t, %d static connections, and %d static routes", len(s.routes), s.routeTrees != nil, len(s.staticConnected), len(s.staticRoutes))
 	}
 	return nil
 }

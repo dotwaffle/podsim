@@ -38,7 +38,7 @@ func TestBankRoutesFromMatchesReference(t *testing.T) {
 							targets = append(targets, graph.nodes[berth.Node])
 						}
 						for _, class := range []VehicleClass{"", GroupClass, ExpressClass} {
-							got := network.bankRoutesFrom(networkRouteInput{class: class}, from, targets, graph)
+							got := network.bankRoutesFrom(networkRouteInput{class: class}, from, targets, graph, nil)
 							for index, to := range targets {
 								input := networkRouteInput{from: network.Nodes[from].ID, to: network.Nodes[to].ID, class: class, terminalBerthsOnly: true}
 								var counts frozenCounts

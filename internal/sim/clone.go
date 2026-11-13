@@ -14,6 +14,7 @@ func (s *Simulation) Clone() *Simulation {
 	// Lookups refill these caches with identical results, and dispatch
 	// makes a new pass.
 	c.routes, c.routeOrder, c.routeStations, c.pass = nil, nil, nil, nil
+	c.routeTrees = nil
 	c.pickupBounds = nil
 	c.staticConnected, c.staticRoutes = nil, nil
 	c.routeWork = nil

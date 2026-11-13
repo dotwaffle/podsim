@@ -35,6 +35,7 @@ func (s *Simulation) ensureNetworkIndexes() {
 	s.networkIndexes = &p
 	s.routes = nil
 	s.routeOrder = nil
+	s.routeTrees = nil
 	s.pickupBounds = nil
 	s.routeWork = nil
 	// The blocked set holds lane indexes of the old network, and the

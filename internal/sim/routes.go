@@ -93,11 +93,12 @@ func (s *Simulation) cacheStationRoutesForClass(from string, berths []Berth, cla
 		return
 	}
 	graph := s.routingGraph()
+	trees := s.batchTrees()
 	var results []routeResult
 	if s.network.hasStationBanks() {
-		results = s.bankStationRoutes(from, targets, class, graph)
+		results = s.bankStationRoutes(from, targets, class, graph, trees)
 	} else {
-		results = s.network.routesFromTargets(s.network.preferredTargets(routeTargetsInput{from: from, to: targets, class: class}, graph), graph)
+		results = s.network.treeTargets(routeTargetsInput{from: from, to: targets, class: class}, graph, trees)
 	}
 	for index, result := range results {
 		s.cacheRoute(routeKey{from: from, to: targets[index], class: routeClass(class)}, result)
@@ -107,8 +108,8 @@ func (s *Simulation) cacheStationRoutesForClass(from string, berths []Berth, cla
 // bankStationRoutes returns the routes of cacheStationRoutesForClass on a
 // network with station banks, or nil when an end is not a node of the graph
 // or the graph has a bank error. Then each route keeps its own search, which
-// gives the error.
-func (s *Simulation) bankStationRoutes(from string, targets []string, class VehicleClass, graph routeGraph) []routeResult {
+// gives the error. trees is the tree memo of bankRoutesFrom, or nil.
+func (s *Simulation) bankStationRoutes(from string, targets []string, class VehicleClass, graph routeGraph, trees *routeTrees) []routeResult {
 	origin, ok := graph.nodes[from]
 	if !ok || graph.banks.err != nil {
 		return nil
@@ -119,7 +120,7 @@ func (s *Simulation) bankStationRoutes(from string, targets []string, class Vehi
 			return nil
 		}
 	}
-	return s.network.bankRoutesFrom(networkRouteInput{class: class}, origin, nodes, graph)
+	return s.network.bankRoutesFrom(networkRouteInput{class: class}, origin, nodes, graph, trees)
 }
 
 func (s *Simulation) stationPathForClass(from, to string, class VehicleClass) ([]Lane, error) {

@@ -335,16 +335,18 @@ func TestEmergencyChoiceCandidates(t *testing.T) {
 }
 
 // routingState is a copy of the free-flow route memo of a simulation
-// (section 7 of the incident emergency contract).
+// (section 7 of the incident emergency contract), and of the tree memo of
+// its batches.
 type routingState struct {
 	routes       map[routeKey]routeResult
 	routeOrder   []routeKey
 	hasRouteMemo bool
+	trees        *routeTrees
 }
 
 // copyRouting returns a copy of the routing state of s.
 func copyRouting(s *Simulation) routingState {
-	return routingState{routes: cloneRoutes(s.routes), routeOrder: slices.Clone(s.routeOrder), hasRouteMemo: s.routes != nil}
+	return routingState{routes: cloneRoutes(s.routes), routeOrder: slices.Clone(s.routeOrder), hasRouteMemo: s.routes != nil, trees: cloneRouteTrees(s.routeTrees)}
 }
 
 // viewNetwork is choiceNetwork with the stations sA and sB, and a second

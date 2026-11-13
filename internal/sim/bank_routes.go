@@ -27,11 +27,17 @@ import (
 // When stops is not nil, the tree search stops when it has settled each node
 // of stops, which keeps the result of each node of stops. A middle part to
 // another node then has its own search.
+//
+// When trees is not nil, the tree comes from that memo, and memo holds it
+// for the root memoRoot. stops then has no effect.
 type bankRouteParts struct {
-	prefix bankRoutePart
-	middle []bankRoutePart
-	tree   *routeSearchWork
-	stops  []int
+	prefix   bankRoutePart
+	middle   []bankRoutePart
+	tree     *routeSearchWork
+	stops    []int
+	trees    *routeTrees
+	memo     []int32
+	memoRoot int
 }
 
 // bankSearchWork keeps the arrays of the searches of bankNearest for the next
@@ -60,6 +66,14 @@ func (p *bankRouteParts) release() {
 func (p *bankRouteParts) treePath(n Network, input networkRouteInput, from, to int, graph routeGraph, work *routeSearchWork) error {
 	if !graph.nodeAllows(from, input.class) || !graph.nodeAllows(to, input.class) {
 		return ErrUnreachable
+	}
+	if p.trees != nil {
+		if p.memo == nil || p.memoRoot != from {
+			p.memo, p.memoRoot = p.trees.tree(n, graph, routeTreeInput{root: from, class: input.class, terminal: input.terminalBerthsOnly}), from
+		}
+		var err error
+		work.path, err = appendTreePath(work.path, graph, p.memo, from, to)
+		return err
 	}
 	if p.stops != nil && !slices.Contains(p.stops, to) {
 		if err := n.searchNodes(input, from, to, graph, work); err != nil {
@@ -343,8 +357,9 @@ func bankArrivalNode(bank bankTopology, graph routeGraph, node int) bool {
 // gives for each target: the search with terminalBerthsOnly first, and the
 // search without it when that one finds no route. The routes share their
 // prefix and middle searches, as the routes of bankNearest do. input gives
-// the class. The graph must have no bank error.
-func (n Network) bankRoutesFrom(input networkRouteInput, from int, targets []int, graph routeGraph) []routeResult {
+// the class. The graph must have no bank error. With trees, the middle
+// searches come from that memo.
+func (n Network) bankRoutesFrom(input networkRouteInput, from int, targets []int, graph routeGraph, trees *routeTrees) []routeResult {
 	work := takeBankSearchWork()
 	defer bankSearchWork.Put(work)
 	// The middle part of a route to a node inside a bank ends at the entry of
@@ -361,8 +376,8 @@ func (n Network) bankRoutesFrom(input networkRouteInput, from int, targets []int
 			stops = append(stops, end)
 		}
 	}
-	terminal := &bankRouteParts{middle: make([]bankRoutePart, len(graph.banks.banks)), stops: stops}
-	open := &bankRouteParts{middle: make([]bankRoutePart, len(graph.banks.banks)), stops: stops}
+	terminal := &bankRouteParts{middle: make([]bankRoutePart, len(graph.banks.banks)), stops: stops, trees: trees}
+	open := &bankRouteParts{middle: make([]bankRoutePart, len(graph.banks.banks)), stops: stops, trees: trees}
 	defer terminal.release()
 	defer open.release()
 	results := make([]routeResult, len(targets))

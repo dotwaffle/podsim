@@ -403,13 +403,17 @@ type Simulation struct {
 	// its own stream. faultRate holds the settings of the fault events. A
 	// switch that turns off stops its sampler, and Reset stops both. See
 	// incident_sampler.go.
-	faultSampler           incidentSampler
-	faultRate              FaultRate
-	emergencySampler       incidentSampler
-	motion                 *motionRecorder
-	expressServices        map[string]ExpressService
-	routes                 map[routeKey]routeResult
-	routeOrder             []routeKey
+	faultSampler     incidentSampler
+	faultRate        FaultRate
+	emergencySampler incidentSampler
+	motion           *motionRecorder
+	expressServices  map[string]ExpressService
+	routes           map[routeKey]routeResult
+	routeOrder       []routeKey
+	// routeTrees holds the search trees of the batches of
+	// cacheStationRoutesForClass. startRouteEpoch clears it, Clone drops it,
+	// and no save holds it. See route_trees.go.
+	routeTrees             *routeTrees
 	pickupBounds           map[string][]float64
 	routeWork              *routeSearchWork
 	admissionWork          *admissionWork
