@@ -44,6 +44,9 @@ func TestKeptNetworkShared(t *testing.T) {
 				if k.model.network != kept || !checkRan(kept.check) {
 					t.Fatalf("%s built new server checks for the same network", order[1])
 				}
+				if reflect.ValueOf(k.model.parking).IsZero() {
+					t.Fatal("the validation did not keep the result of the parking route check")
+				}
 				// The network of the project decoder is the network that
 				// the checks decode from the draft.
 				typed, err := decodeDraftNetwork(k.model.branches["network"].value)

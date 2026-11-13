@@ -1,9 +1,59 @@
 package sim
 
 import (
+	"math"
 	"reflect"
+	"slices"
 	"testing"
 )
+
+// TestRouteCostsBounded pins the bound of RouteCostsBounded against the
+// costs of the route graph: each edge cost is finite and not negative, and
+// their sum is at most a quarter of the largest float64.
+func TestRouteCostsBounded(t *testing.T) {
+	t.Parallel()
+	// speeds returns Example with the speed limit of each lane of ids.
+	speeds := func(limit float64, ids ...string) Network {
+		network := Example()
+		network.Lanes = slices.Clone(network.Lanes)
+		for index, lane := range network.Lanes {
+			if slices.Contains(ids, lane.ID) {
+				network.Lanes[index].SpeedLimit = limit
+			}
+		}
+		return network
+	}
+	// return-to-parking is 280 m long, and return-start 201 m.
+	for _, test := range []struct {
+		name    string
+		network Network
+		want    bool
+	}{
+		{"example", Example(), true},
+		{"bank example", BankExample(), true},
+		{"infinite lane", speeds(1e-307, "return-to-parking"), false},
+		{"no speed", speeds(0, "return-to-parking"), false},
+		{"negative speed", speeds(-14, "return-to-parking"), false},
+		{"sum over the bound", speeds(280/5e307, "return-to-parking", "return-start"), false},
+		{"sum in the bound", speeds(280/4e307, "return-to-parking"), true},
+	} {
+		graph := newRouteGraph(test.network)
+		finite, total := true, 0.0
+		for _, lanes := range graph.outgoing {
+			for _, lane := range lanes {
+				seconds := graph.edges[lane].seconds
+				finite = finite && seconds >= 0 && !math.IsInf(seconds, 1)
+				total += seconds
+			}
+		}
+		if want := finite && total <= math.MaxFloat64/4; want != test.want {
+			t.Fatalf("%s: the route graph gives %t, the case wants %t", test.name, want, test.want)
+		}
+		if got := test.network.RouteCostsBounded(); got != test.want {
+			t.Errorf("%s: RouteCostsBounded = %t, want %t", test.name, got, test.want)
+		}
+	}
+}
 
 // TestParkingGaps limits one lane of BankExample to Compact and checks the
 // gaps for Legacy pods. The lane into parking takes each route to parking,

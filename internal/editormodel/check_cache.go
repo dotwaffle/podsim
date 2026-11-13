@@ -92,7 +92,7 @@ func (e *engine) validateProject(config project.Config) error {
 	if _, present := e.branches["network"]; !present || e.ensureNetworkValue() != nil {
 		return project.Validate(config)
 	}
-	return project.ValidateWith(config, project.Checked{Network: e.keptNetwork().check})
+	return project.ValidateWith(config, project.Checked{Network: e.keptNetwork().check, Parking: &e.parking})
 }
 
 // profileVerdict is the result of checkProfiles for the raw bytes of the

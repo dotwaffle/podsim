@@ -44,6 +44,9 @@ type engine struct {
 	handed *keptNetwork
 	// reply holds the encoded patch of the last edit until call encodes it.
 	reply editReply
+	// parking keeps the last result of the parking route check. It has its
+	// own key (see project.ParkingRoutes).
+	parking project.ParkingRoutes
 }
 
 // NewCall returns a private editor-worker handler with owned project state.

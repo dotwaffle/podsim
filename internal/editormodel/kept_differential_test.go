@@ -327,3 +327,56 @@ func TestKeptVerdictsMatchNewEngine(t *testing.T) {
 		})
 	}
 }
+
+// TestKeptParkingCostBound is the differential test of the cost bound of the
+// kept parking route result. In the default project, the lanes return-start
+// and return-to-parking are the only route from the market to parking. With
+// very low speed limits, a move of the node return-east between them makes
+// the cost of one lane, or the sum of the costs of the two, infinite, which
+// removes the route. The engine must give the replies of a new engine and of
+// the stateless handler after each move, in each direction.
+func TestKeptParkingCostBound(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name             string
+		start, toParking float64
+		far              string
+	}{
+		// return-to-parking is 280 m long, then 380 m long.
+		{"lane cost", 14, 2e-306, `{"x":1000,"y":460}`},
+		// Each lane costs about 8e307 s, then 1.2e308 s and 8.5e307 s.
+		{"route cost", 201 / 8e307, 280 / 8e307, `{"x":900,"y":560}`},
+		// return-to-parking costs 4e307 s, in the bound of the kept
+		// result, then 1280 m gives no finite cost. The engine keeps the
+		// first result and must not keep the second.
+		{"bound crossed", 14, 7e-306, `{"x":1900,"y":460}`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			config := project.Default()
+			network := config.Network
+			network.Lanes = slices.Clone(network.Lanes)
+			for index, lane := range network.Lanes {
+				switch lane.ID {
+				case "return-start":
+					network.Lanes[index].SpeedLimit = test.start
+				case "return-to-parking":
+					network.Lanes[index].SpeedLimit = test.toParking
+				}
+			}
+			k := newKeptEngine(t, config)
+			k.history(`"kind":"reset","background":null`)
+			k.patch(map[string]any{"network": network})
+			want := []bool{false, true, false, true}
+			for index, point := range []string{`{"x":900,"y":460}`, test.far, `{"x":900,"y":460}`, test.far} {
+				if index > 0 && !k.edit(`{"action":"moveNode","id":"return-east","point":`+point+`}`) {
+					t.Fatalf("step %d: the engine refused the move", index)
+				}
+				replies := k.compare(fmt.Sprintf("step %d", index), "validate", "checks")
+				if gap := strings.Contains(replies[0], "parking routes:"); gap != want[index] {
+					t.Fatalf("step %d: parking refusal %t, want %t: %.300s", index, gap, want[index], replies[0])
+				}
+			}
+		})
+	}
+}

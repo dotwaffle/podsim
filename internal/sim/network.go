@@ -475,11 +475,17 @@ func newRouteGraph(network Network) routeGraph {
 		graph.outgoing[from] = append(graph.outgoing[from], index)
 		graph.incoming[to] = append(graph.incoming[to], index)
 		graph.lengths[index] = indexedLaneLength(lane, network.Nodes[from].Position, network.Nodes[to].Position)
-		graph.edges[index] = routeEdge{from: from, to: to, seconds: graph.lengths[index] / lane.SpeedLimit}
+		graph.edges[index] = routeEdge{from: from, to: to, seconds: laneSeconds(graph.lengths[index], lane)}
 	}
 	indexRouteClasses(&graph, network)
 	graph.banks = indexStationBanks(network, graph)
 	return graph
+}
+
+// laneSeconds returns the free-flow cost of lane in a route search, from
+// its length.
+func laneSeconds(length float64, lane Lane) float64 {
+	return length / lane.SpeedLimit
 }
 
 func indexedLaneLength(lane Lane, from, to Point) float64 {

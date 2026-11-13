@@ -1,5 +1,7 @@
 package sim
 
+import "math"
+
 // ParkingGap is a passenger berth that accepts a class, from which a pod
 // of the class has no route to parking, or to which it has no route from
 // parking. Such a pod cannot leave the berth for parking when another pod
@@ -9,6 +11,38 @@ type ParkingGap struct {
 	Class              VehicleClass
 	// ToParking and FromParking report which of the two routes exist.
 	ToParking, FromParking bool
+}
+
+// RouteCostsBounded reports whether no route cost of n can overflow. The
+// free-flow cost of each lane of the route graph must be finite and not
+// negative, and the sum of these costs must be at most a quarter of the
+// largest float64. A route has at most three parts with no lane twice in
+// a part (the parts of a bank route), so its cost is then less than the
+// largest float64, also with rounding. With such costs, a route search
+// finds a route when the lanes and their rules allow one, whatever the
+// costs are. The result of ParkingGaps then depends on the costs only
+// through such searches, so the node positions and the lane control points
+// do not change it.
+func (n Network) RouteCostsBounded() bool {
+	positions := make(map[string]Point, len(n.Nodes))
+	for _, node := range n.Nodes {
+		positions[node.ID] = node.Position
+	}
+	total := 0.0
+	for _, lane := range n.Lanes {
+		from, fromOK := positions[lane.From]
+		to, toOK := positions[lane.To]
+		if !fromOK || !toOK {
+			// newRouteGraph gives such a lane no edge.
+			continue
+		}
+		seconds := laneSeconds(indexedLaneLength(lane, from, to), lane)
+		if !(seconds >= 0) || math.IsInf(seconds, 1) {
+			return false
+		}
+		total += seconds
+	}
+	return total <= math.MaxFloat64/4
 }
 
 // ParkingGaps returns the parking gaps of n for each class of classes, in

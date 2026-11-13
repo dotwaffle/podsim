@@ -293,10 +293,17 @@ type Checked struct {
 	// Network holds the checks of config.Network, or nil. The caller makes
 	// sure that they are for that network.
 	Network *sim.NetworkCheck
+	// Parking keeps the result of the parking route check, or is nil.
+	// ValidateWith reads and replaces the result.
+	Parking *ParkingRoutes
 }
 
-// scenarioCheck is the index of validateScenario in projectChecks.
-const scenarioCheck = 12
+// scenarioCheck and parkingCheck are the indexes of validateScenario and
+// validateParkingRoutes in projectChecks.
+const (
+	scenarioCheck = 12
+	parkingCheck  = 14
+)
 
 // ValidateWith is Validate for a caller that keeps results between
 // validations, such as the editor. It reads each result of checked and does
@@ -306,9 +313,12 @@ func ValidateWith(config Config, checked Checked) error {
 	var held error
 	for index, check := range projectChecks {
 		var err error
-		if index == scenarioCheck {
+		switch {
+		case index == scenarioCheck:
 			err = validateScenarioWith(config, checked.Network)
-		} else {
+		case index == parkingCheck && checked.Parking != nil:
+			err = parkingRefusal(checked.Parking.Gaps(config))
+		default:
 			err = check(config)
 		}
 		if err != nil {
