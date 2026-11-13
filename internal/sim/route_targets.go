@@ -64,6 +64,7 @@ func (n Network) routeTargets(input routeTargetsInput, graph routeGraph) []route
 	if input.reverse {
 		adjacent = graph.incoming
 	}
+	classes := graph.classTestFor(input.class)
 	for remaining > 0 && len(queue) > 0 {
 		item := queue.pop()
 		if visited[item.node] || item.distance != distance[item.node] {
@@ -80,7 +81,7 @@ func (n Network) routeTargets(input routeTargetsInput, graph routeGraph) []route
 			continue
 		}
 		for _, laneIndex := range adjacent[item.node] {
-			if !graph.laneAllows(laneIndex, input.class) || !graph.laneOpen(laneIndex) {
+			if !classes.lane(&graph, laneIndex) || !graph.laneOpen(laneIndex) {
 				continue
 			}
 			edge := graph.edges[laneIndex]

@@ -306,6 +306,7 @@ func (n Network) searchFromStops(input networkRouteInput, from, to int, stops []
 	work.reset(len(n.Nodes))
 	distance, previous, visited := work.distance, work.previous, work.visited
 	filtered := input.bankExternal || input.allowedLanes != nil || input.forbidden != nil || input.ownBerthsOnly
+	classes := graph.classTestFor(input.class)
 	distance[from] = 0
 	work.touched = append(work.touched, from)
 	work.queue = append(work.queue, routeQueueItem{node: from, distance: 0})
@@ -330,7 +331,7 @@ func (n Network) searchFromStops(input networkRouteInput, from, to int, stops []
 		}
 		for _, laneIndex := range graph.outgoing[item.node] {
 			edge := graph.edges[laneIndex]
-			if !graph.laneAllows(laneIndex, input.class) || !graph.laneOpen(laneIndex) {
+			if !classes.lane(&graph, laneIndex) || !graph.laneOpen(laneIndex) {
 				continue
 			}
 			if filtered && routeLaneFiltered(&input, &graph, n.Lanes, laneIndex, from, to) {

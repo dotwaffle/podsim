@@ -477,6 +477,7 @@ func (n Network) bankNearestReverse(input preferredNearestInput, to int, graph r
 	queue := bounds.queue
 	best, bestRank, seconds := -1, 0, math.Inf(1)
 	overflow := false
+	classes := graph.classTestFor(input.class)
 	for len(queue) > 0 {
 		item := queue.pop()
 		if visited[item.node] || item.distance != distance[item.node] {
@@ -495,7 +496,7 @@ func (n Network) bankNearestReverse(input preferredNearestInput, to int, graph r
 		}
 		for _, laneIndex := range graph.incoming[item.node] {
 			edge := graph.edges[laneIndex]
-			if !graph.laneAllows(laneIndex, input.class) || !graph.laneOpen(laneIndex) {
+			if !classes.lane(&graph, laneIndex) || !graph.laneOpen(laneIndex) {
 				continue
 			}
 			candidate := item.distance + edge.seconds

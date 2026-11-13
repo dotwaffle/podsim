@@ -71,18 +71,35 @@ func indexRouteClasses(g *routeGraph, network Network) {
 	}
 }
 
-func (g routeGraph) nodeAllows(node int, class VehicleClass) bool {
+// classTest is the class test of nodeAllows and laneAllows for one class.
+// all admits each node and lane. Otherwise a node or lane is admitted when
+// its class mask has bit. An unknown class has bit 0 and is never admitted.
+type classTest struct {
+	all bool
+	bit uint8
+}
+
+// classTestFor returns the test of class. A search gets it once, and not for
+// each lane.
+func (g routeGraph) classTestFor(class VehicleClass) classTest {
 	if class == topologyClass || !g.classRestrictions && (class == "" || class == LegacyClass || class == CompactClass) {
-		return true
+		return classTest{all: true}
 	}
-	return g.nodeClasses[node]&uint8(classBit(string(effectiveClass(class)))) != 0
+	return classTest{bit: uint8(classBit(string(effectiveClass(class))))}
+}
+
+// lane reports whether the test admits the lane of graph g.
+func (t classTest) lane(g *routeGraph, lane int) bool {
+	return t.all || g.laneClasses[lane]&t.bit != 0
+}
+
+func (g routeGraph) nodeAllows(node int, class VehicleClass) bool {
+	test := g.classTestFor(class)
+	return test.all || g.nodeClasses[node]&test.bit != 0
 }
 
 func (g routeGraph) laneAllows(lane int, class VehicleClass) bool {
-	if class == topologyClass || !g.classRestrictions && (class == "" || class == LegacyClass || class == CompactClass) {
-		return true
-	}
-	return g.laneClasses[lane]&uint8(classBit(string(effectiveClass(class)))) != 0
+	return g.classTestFor(class).lane(&g, lane)
 }
 
 func berthAllows(station Station, berth Berth, class VehicleClass) bool {
