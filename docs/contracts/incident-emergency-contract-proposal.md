@@ -201,7 +201,7 @@ type emergencyRecord struct {
 | `emergencies []emergencyRecord` | The active records, in serial order. | Cleared | Deep copy |
 | `emergencyCounters` | The counters of section 10.5. | Cleared | Copied |
 | `emergencyMisses []emergencyMiss` | The no-candidate memo of section 9.1, one entry for each record with a proven no-candidate result. Not saved. | Cleared | Not copied: a clone starts with no memo, which changes no result |
-| `routeView *routeView` | The routing view of one station choice (section 9.1). Not saved. | Nil outside `advanceEmergency` | Nil outside `advanceEmergency` |
+| `routeView *routeView` | The routing view of one query, such as a station choice (section 9.1). Not saved. | Nil outside a query | Nil outside a query |
 | Search counters | The graph searches by kind, for the tests and the gates of section 15. Not saved, and no rule reads them. | Not cleared | Copied |
 
 `emergencyMisses` and the search counters are excluded from the internal-state equality of the clone tests, because a clone drops the memo and so makes other searches with the same trajectory.
@@ -660,12 +660,14 @@ Proof of exactness.
    The implementation checks this, and when it does not hold, that choice evaluates every station without the stop rule.
 
 Routing view.
-`advanceEmergency` builds one immutable routing view for each choice, and the choice and `setOperationalDestination` both read it:
+In `advanceEmergency`, the station choice (`internal/sim/emergency_choice.go` `(*Simulation).chooseEmergencyStation`) sets one immutable routing view for each choice, and the choice and `setOperationalDestination` both run under it:
 
 - `s.routeView` points to the view while it is set.
-  `advanceEmergency` sets it before the choice and clears it after `setOperationalDestination` returns, or after a choice that finds no candidate.
-  It is nil outside `advanceEmergency`, so no save or clone holds it.
-- When `s.routeView` is set, `assignedRoute` reads the view.
+  The station choice sets it before the choice and clears it after `setOperationalDestination` returns, or after a choice that finds no candidate.
+  The endpoint reroute and the pickup access of the incident suspension contract (sections 9.3 and 9.4) set a view for each query in the same way.
+  Outside these queries the view is nil, so no save or clone holds it.
+- A route search does not read the view, and `assignedRoute` gives the same route with and without it.
+  Amended 2026-11-13, by maintainer decision: the view is not only an emergency view, and `assignedRoute` does not read it.
 - Route memos.
   The view reads and writes the free-flow memo (`s.routes`, `internal/sim/routes.go` `(*Simulation).cachedRouteForClass`) and the tree memo (`s.routeTrees`, `internal/sim/route_trees.go` `(*Simulation).batchTrees`), as a search outside a view does.
   The route memos are not simulation state.
@@ -675,9 +677,9 @@ Routing view.
 - Queue discharge.
   The view holds `queueDischarge(v)` (`internal/sim/routing_policy.go` `(*Simulation).queueDischarge`), which reads the pods and writes nothing.
 
-The choice and the installation read one view, so the installed suffix equals the suffix of the candidate.
-The view can keep the suffix of the chosen pair for the installation, with the same result.
-With `s.routeView` nil, the routing code is unchanged, so the view changes nothing without an emergency.
+The choice and the installation run under one view, and the inputs of their route searches (the network, the routing graph of the route epoch, and the pod) do not change between them, so the installed suffix equals the suffix of the candidate.
+The free-flow memo can keep the suffix of the chosen pair for the installation, with the same result.
+Without an emergency, this contract sets no view, so its view changes nothing.
 
 Commitment.
 The chosen pair binds the pod, and the station never changes.
@@ -1155,7 +1157,7 @@ Stage 3 adds no random source.
 | Emergency stage | Runs only with `emergenciesOn`, and it changes nothing with no record and a rate of 0. | Gated by state. |
 | `intent.emergency` and the tier in `compareAdmission` | 0 for every intent without a record, so the sort is unchanged. | Gated by state. |
 | `maintainLink` and `tryLink` record tests | No record. | Gated by state. |
-| Routing view | Built only inside `advanceEmergency`. With `s.routeView` nil, the routing code is unchanged. | Gated by state. |
+| Routing view | This contract builds a view only inside `advanceEmergency`. The views of the incident suspension contract (sections 9.3 and 9.4) are outside this contract. | Gated by state. |
 | No-candidate memo | Written only by a station choice. | Gated by state. |
 | Purpose 1 amendments of section 9.2 | Purpose 1 needs a record. | Gated by state. |
 | Claim surrender gate | No record and no `emergencyHold`. | Gated by state. |
