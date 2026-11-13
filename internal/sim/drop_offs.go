@@ -160,12 +160,10 @@ type leg struct {
 }
 
 // legRoute returns the route of a pod with riders from leg.from to the
-// entry of its next stop. It is the route of assignedApproachRouteMatching. When
-// cappedDetours is true and that route takes a rider over
-// maxSharedRideDetour, legRoute returns the free-flow route. Each earlier
-// check planned the free-flow route from leg.from, so the free-flow route
-// keeps each rider within the cap. See the checks of cappedStops,
-// continueJourney and reevaluateTerminalBerth.
+// entry of its next stop. It is the route of assignedApproachRouteMatching.
+// legRoute does not check the rider detours of that route. The checks of
+// cappedStops, continueJourney and reevaluateTerminalBerth plan with
+// free-flow routes.
 func (s *Simulation) legRoute(v *vehicle, next leg) ([]Lane, error) {
 	return s.assignedApproachRouteMatching(v, next.from, next.stops[0], s.berthFilterForStops(v.Pod.Class, next.stops[1:]))
 }
