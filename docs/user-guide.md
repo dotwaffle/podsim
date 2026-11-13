@@ -867,7 +867,7 @@ Export the draft to keep it.
 When the draft has changes that are not saved in the browser, the browser asks before you leave or reload the page.
 
 All editor tabs of one server share the saved draft.
-When a different tab saves its draft or applies, this tab shows a notice, and the browser asks before you leave or reload the page.
+When a different tab saves its draft or applies, and the draft of this tab has changes, this tab shows a notice, and the browser asks before you leave or reload the page.
 Your next change in this tab saves its draft again, and the other tab then shows the notice.
 
 ### Editor keyboard shortcuts
