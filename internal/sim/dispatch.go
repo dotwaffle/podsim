@@ -490,9 +490,43 @@ func (s *Simulation) localPickupForRequest(request Request, excluded string, pas
 	return nil
 }
 
+// closedOrigin keeps, for one request and by vehicle class, whether the
+// leg origin is closed: the blocked set is not empty, and no berth of the
+// origin passes pickupBerthFilter. For a pod that is not idle at the
+// origin, the filter reads the pod only through its class, and
+// candidateRouteForRequest accepts only an origin berth that passes it. So
+// a closed origin makes the try of such a pod fail. A pod idle at the
+// origin gets the static filter and keeps its try. Use a closedOrigin only
+// while the network and the blocked set stay the same.
+type closedOrigin struct {
+	s       *Simulation
+	request *Request
+	classes []VehicleClass
+	closed  []bool
+}
+
+// skips reports whether the try of v fails because the origin is closed
+// to its class.
+func (o *closedOrigin) skips(v *vehicle) bool {
+	origin := o.request.legOrigin()
+	if !o.s.blockedActive() || v.Pod.Activity == Idle && v.Pod.StationID == origin {
+		return false
+	}
+	for i, class := range o.classes {
+		if class == v.Pod.Class {
+			return o.closed[i]
+		}
+	}
+	station, _ := o.s.station(origin)
+	closed := !slices.ContainsFunc(station.Berths, o.s.pickupBerthFilter(v, *o.request))
+	o.classes, o.closed = append(o.classes, v.Pod.Class), append(o.closed, closed)
+	return closed
+}
+
 // pickupPodForRequest chooses the fastest pod that can pick up request.
 // Fleet order breaks ties. It skips the pod excluded, which a released trip
-// must not get.
+// must not get. It makes no try that a closed origin makes fail. See
+// closedOrigin.
 func (s *Simulation) pickupPodForRequest(request Request, excluded string, pass *dispatchPass) *vehicle {
 	candidates := s.pickupCandidates(pass)
 	if len(candidates) == 0 {
@@ -516,8 +550,9 @@ func (s *Simulation) pickupPodForRequest(request Request, excluded string, pass 
 		_, _, ok := s.candidateRouteForRequest(head, request, load)
 		return ok
 	}}
+	origin := closedOrigin{s: s, request: &request}
 	for _, v := range candidates {
-		if !usable(v) || !gate.releasable(v) {
+		if !usable(v) || origin.skips(v) || !gate.releasable(v) {
 			continue
 		}
 		if best != nil {
