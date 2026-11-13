@@ -858,7 +858,8 @@ The bar has two buttons, and until you select one, the browser does not save new
   The restored draft is not applied, and it keeps its revision and server start ID.
   **Pause and apply** then replaces the live scenario, also when the draft is based on an older revision, and the status line tells you when it replaces newer live changes.
   If the server restarted after the draft started, the apply fails with a [conflict](#apply-a-draft), and the status line says so.
-- **Discard draft** deletes the saved draft and keeps the live scenario.
+- **Discard draft** deletes the saved draft, and the open editor state stays.
+  If you made changes while the bar showed, the browser saves them as the new draft in the same step.
 
 If you apply while the bar shows, the browser keeps the saved draft, and the bar stays.
 
