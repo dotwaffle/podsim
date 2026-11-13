@@ -565,6 +565,13 @@ func prepareFleet(network Network, placements []Placement) (networkPreparation, 
 // reach refusal of the network comes after the checks of the fleet.
 func prepareContractFleet(network Network, placements []Placement, contract OrderContract) (networkPreparation, error) {
 	prepared, err := prepareNetworkTails(network, nil)
+	return checkPreparedFleet(prepared, err, placements, contract)
+}
+
+// checkPreparedFleet checks a fleet against the result of
+// prepareNetworkTails for its network. The error of the network comes
+// first, then the checks of the fleet, and then the plane reach refusal.
+func checkPreparedFleet(prepared networkPreparation, err error, placements []Placement, contract OrderContract) (networkPreparation, error) {
 	if err != nil {
 		return networkPreparation{}, err
 	}

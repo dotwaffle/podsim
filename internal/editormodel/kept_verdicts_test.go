@@ -17,6 +17,9 @@ type keptEngine struct {
 	t     *testing.T
 	model *engine
 	keys  []string
+	// large skips the new engine when the stateless handler gives the
+	// reference, because a new engine decodes the project one more time.
+	large bool
 }
 
 func newKeptEngine(t *testing.T, config project.Config) *keptEngine {
@@ -68,16 +71,42 @@ func (k *keptEngine) fresh() *engine {
 	return model
 }
 
-// compare sends each operation to the engine, in order, and to a new
-// engine, and fails when a reply differs. It returns the replies.
+// project returns the project of the engine as one JSON object.
+func (k *keptEngine) project() string {
+	k.t.Helper()
+	branches := make(map[string]jsontext.Value, len(k.model.branches))
+	for key, branch := range k.model.branches {
+		branches[key] = branch.raw
+	}
+	raw, err := json.Marshal(branches)
+	if err != nil {
+		k.t.Fatal(err)
+	}
+	return string(raw)
+}
+
+// compare sends each operation to the engine, in order, and fails when a
+// reply differs from its references. The first reference is a new engine.
+// The second is the stateless handler, which keeps no result at all: for
+// the checks always, and for the validation when the project synchronized
+// with no error. A large project skips the new engine when it has the
+// second reference. It returns the replies.
 func (k *keptEngine) compare(step string, operations ...string) []string {
 	k.t.Helper()
 	replies := make([]string, 0, len(operations))
 	for _, operation := range operations {
 		request := `{"op":"` + operation + `"}`
-		got, want := ask(k.model, request), ask(k.fresh(), request)
-		if got != want {
-			k.t.Fatalf("%s: %s differs from a new engine:\n got %.400s\nwant %.400s", step, operation, got, want)
+		got := ask(k.model, request)
+		stateless := operation == "checks" || k.model.err == nil
+		if !stateless || !k.large {
+			if want := ask(k.fresh(), request); got != want {
+				k.t.Fatalf("%s: %s differs from a new engine:\n got %.400s\nwant %.400s", step, operation, got, want)
+			}
+		}
+		if stateless {
+			if want := Call(`{"op":"` + operation + `","project":` + k.project() + `}`); got != want {
+				k.t.Fatalf("%s: %s differs from the stateless handler:\n got %.400s\nwant %.400s", step, operation, got, want)
+			}
 		}
 		replies = append(replies, got)
 	}

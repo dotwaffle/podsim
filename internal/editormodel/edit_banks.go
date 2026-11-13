@@ -40,13 +40,15 @@ func decodeDraftNetwork(network any) (sim.Network, error) {
 // depotsValid records that the depot validation of the server accepted
 // the decoded network. clearance holds the tails of the check of this draft,
 // so that the validation does not build them again, and its zero value has
-// none.
+// none. check holds the server checks of the decoded network. A caller that
+// keeps the checks of this network sets typed, decoded and check.
 type serverDraft struct {
 	network     any
 	typed       sim.Network
 	decoded     bool
 	depotsValid bool
 	clearance   sim.LaneClearance
+	check       *sim.NetworkCheck
 }
 
 // decode keeps only a decode that succeeds. A draft that does not decode
@@ -90,23 +92,26 @@ func (d *serverDraft) validate() error {
 			}
 		}
 	}
-	if err := typed.ValidateStationBanks(); err != nil {
+	if d.check == nil {
+		d.check = sim.NewNetworkCheck(typed, d.clearance)
+	}
+	if err := d.check.StationBanksErr(); err != nil {
 		return fmt.Errorf("validate station banks: %w", err)
 	}
 	if hasLargeGeometry(network) {
-		if err := sim.ValidateNetworkClearance(typed, d.clearance); err != nil {
+		if err := d.check.Err(); err != nil {
 			return fmt.Errorf("validate large geometry: %w", err)
 		}
 		return nil
 	}
 	if hasManeuverGroups(network) {
-		if err := sim.ValidateNetworkClearance(typed, d.clearance); err != nil {
+		if err := d.check.Err(); err != nil {
 			return fmt.Errorf("validate maneuver groups: %w", err)
 		}
 		return nil
 	}
 	if hasDepots(network) {
-		if err := sim.ValidateNetworkClearance(typed, d.clearance); err != nil {
+		if err := d.check.Err(); err != nil {
 			return fmt.Errorf("validate depots: %w", err)
 		}
 		return nil

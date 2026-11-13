@@ -35,6 +35,9 @@ type engine struct {
 	// profileVerdict holds the last result of checkProfiles, or nil. It
 	// has its own key, so no change of a branch clears it.
 	profileVerdict *profileVerdict
+	// network holds the server checks of one network, or nil. It has its
+	// own key (see keptNetwork).
+	network *keptNetwork
 }
 
 // NewCall returns a private editor-worker handler with owned project state.
@@ -101,7 +104,7 @@ func (e *engine) handle(input string) (response, error) {
 	if e.err != nil {
 		return response{}, e.err
 	}
-	return operate(e.config, command)
+	return operate(e.config, command, e.validateProject)
 }
 
 // sync replaces the changed branches of the owned project. It decodes the

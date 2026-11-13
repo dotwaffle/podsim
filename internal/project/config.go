@@ -284,9 +284,34 @@ var projectChecks = [...]func(Config) error{
 // A plane reach refusal of the network comes after every other check, so
 // that it does not hide a refusal of a project that the audit does not read.
 func Validate(config Config) error {
+	return ValidateWith(config, Checked{})
+}
+
+// Checked holds results that a caller keeps for the project that it gives to
+// ValidateWith. The zero value holds none.
+type Checked struct {
+	// Network holds the checks of config.Network, or nil. The caller makes
+	// sure that they are for that network.
+	Network *sim.NetworkCheck
+}
+
+// scenarioCheck is the index of validateScenario in projectChecks.
+const scenarioCheck = 12
+
+// ValidateWith is Validate for a caller that keeps results between
+// validations, such as the editor. It reads each result of checked and does
+// not run that check again. The refusals and their order are those of
+// Validate.
+func ValidateWith(config Config, checked Checked) error {
 	var held error
-	for _, check := range projectChecks {
-		if err := check(config); err != nil {
+	for index, check := range projectChecks {
+		var err error
+		if index == scenarioCheck {
+			err = validateScenarioWith(config, checked.Network)
+		} else {
+			err = check(config)
+		}
+		if err != nil {
 			if !isPlaneReachRefusal(err) {
 				return err
 			}
@@ -419,7 +444,18 @@ func validateProjectDemand(config Config) error {
 // validateScenario checks the fleet, and then the express registry, under
 // the order contract.
 func validateScenario(config Config) error {
-	fleetErr := sim.ValidateFleetWithOrderContract(config.Network, config.Fleet, config.OrderContract)
+	return validateScenarioWith(config, nil)
+}
+
+// validateScenarioWith is validateScenario with the checks of the network
+// of config, or nil to run them.
+func validateScenarioWith(config Config, network *sim.NetworkCheck) error {
+	var fleetErr error
+	if network != nil {
+		fleetErr = network.ValidateFleet(config.Fleet, config.OrderContract)
+	} else {
+		fleetErr = sim.ValidateFleetWithOrderContract(config.Network, config.Fleet, config.OrderContract)
+	}
 	if fleetErr != nil && !isPlaneReachRefusal(fleetErr) {
 		return fmt.Errorf("invalid project scenario: %w", fleetErr)
 	}

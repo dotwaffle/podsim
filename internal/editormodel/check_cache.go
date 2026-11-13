@@ -6,6 +6,9 @@ import (
 	"encoding/json/v2"
 	"fmt"
 	"maps"
+
+	"github.com/dotwaffle/podsim/internal/project"
+	"github.com/dotwaffle/podsim/internal/sim"
 )
 
 func (e *engine) draftChecks() (checkReport, error) {
@@ -22,7 +25,7 @@ func (e *engine) draftChecks() (checkReport, error) {
 	}
 	if e.checks == nil {
 		var errors checkList
-		e.checks = &preparedChecks{network: checkNetwork(network, &errors), networkErrors: errors.items}
+		e.checks = &preparedChecks{network: e.keptNetwork().checkNetwork(network, &errors), networkErrors: errors.items}
 	}
 	if !e.checks.profilesReady {
 		raw := e.branches["demandProfiles"].raw
@@ -46,6 +49,44 @@ func (e *engine) draftChecks() (checkReport, error) {
 	}
 	draft["demandProfiles"] = e.profiles
 	return preparedDraftChecks(draft, e.checks), nil
+}
+
+// keptNetwork holds the server checks of the network branch with the bytes
+// raw, so that the validation and the checks of one network share them.
+// typed is the network of the project decoder, and check holds its checks.
+// check is nil when the branch does not decode: the checks then decode the
+// draft again, and name the decode error.
+type keptNetwork struct {
+	raw       jsontext.Value
+	clearance draftClearance
+	typed     sim.Network
+	check     *sim.NetworkCheck
+}
+
+// keptNetwork returns the server checks of the network branch. It builds
+// them when the bytes of the branch are not the bytes of the kept checks.
+// The branch must have its generic value (see ensureNetworkValue).
+func (e *engine) keptNetwork() *keptNetwork {
+	branch := e.branches["network"]
+	if e.network != nil && bytes.Equal(e.network.raw, branch.raw) {
+		return e.network
+	}
+	kept := &keptNetwork{raw: branch.raw, clearance: newDraftClearance(branch.value)}
+	if branch.err == nil {
+		kept.typed = branch.decoded.Network
+		kept.check = sim.NewNetworkCheck(kept.typed, kept.clearance.index)
+	}
+	e.network = kept
+	return kept
+}
+
+// validateProject is project.Validate for the project of the engine, with
+// the server checks that the engine keeps for its network.
+func (e *engine) validateProject(config project.Config) error {
+	if _, present := e.branches["network"]; !present || e.ensureNetworkValue() != nil {
+		return project.Validate(config)
+	}
+	return project.ValidateWith(config, project.Checked{Network: e.keptNetwork().check})
 }
 
 // profileVerdict is the result of checkProfiles for the raw bytes of the

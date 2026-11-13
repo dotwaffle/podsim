@@ -142,7 +142,7 @@ func execute(input string) (response, error) {
 	if err := json.Unmarshal(command.Project, &config, json.RejectUnknownMembers(true)); err != nil {
 		return response{}, fmt.Errorf("decode editor project: %w", err)
 	}
-	return operate(config, command)
+	return operate(config, command, project.Validate)
 }
 
 func decodeRequest(input string) (request, error) {
@@ -185,7 +185,9 @@ func decodeRequest(input string) (request, error) {
 	return command, nil
 }
 
-func operate(config project.Config, command request) (response, error) {
+// operate runs a project operation on config. validate is project.Validate,
+// or a form of it that reads kept results for config.
+func operate(config project.Config, command request, validate func(project.Config) error) (response, error) {
 	if len(command.Edit) != 0 || len(command.History) != 0 || command.Op != "place-view" && len(command.View) != 0 || command.Op != "park-ride" && len(command.ParkRide) != 0 {
 		return response{}, errors.New("editor operation has unrelated parameters")
 	}
@@ -194,7 +196,7 @@ func operate(config project.Config, command request) (response, error) {
 		if len(command.ParkRide) != 0 {
 			return response{}, errors.New("validation does not accept a park-and-ride plan")
 		}
-		if err := project.Validate(config); err != nil {
+		if err := validate(config); err != nil {
 			return response{}, err
 		}
 		return response{Valid: true}, nil

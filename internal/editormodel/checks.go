@@ -201,7 +201,14 @@ type draftNetwork struct {
 	tailWarnings                      []check
 }
 
+// checkNetwork checks a draft network.
 func checkNetwork(value any, errors *checkList) *draftNetwork {
+	return (*keptNetwork)(nil).checkNetwork(value, errors)
+}
+
+// checkNetwork checks the draft network whose server checks kept holds. A
+// nil kept holds none, and the check then builds them.
+func (kept *keptNetwork) checkNetwork(value any, errors *checkList) *draftNetwork {
 	previousErrors := len(errors.items)
 	g := &draftNetwork{
 		nodes: items(member(value, "nodes")), lanes: items(member(value, "lanes")), stations: items(member(value, "stations")),
@@ -213,13 +220,22 @@ func checkNetwork(value any, errors *checkList) *draftNetwork {
 	ids := make(draftIDs)
 	g.checkNodes(ids, errors)
 	// One check builds one index, because it holds the tails of each lane.
-	clearance := newDraftClearance(value)
+	var clearance draftClearance
+	if kept != nil {
+		clearance = kept.clearance
+	} else {
+		clearance = newDraftClearance(value)
+	}
 	pairs := g.checkLanes(ids, clearance, errors)
 	g.checkStations(ids, pairs, errors)
 	g.checkBerthRoutes(errors)
 	g.checkStationRoles(errors)
 	if hasBanks(value) || (hasLargeGeometry(value) || hasManeuverGroups(value) || hasDepots(value)) && draftGeometryClassesValid(value) && len(errors.items) == previousErrors {
-		if err := (&serverDraft{network: value, clearance: clearance.index}).validate(); err != nil {
+		server := &serverDraft{network: value, clearance: clearance.index}
+		if kept != nil && kept.check != nil {
+			server.typed, server.decoded, server.check = kept.typed, true, kept.check
+		}
+		if err := server.validate(); err != nil {
 			errors.add(err.Error(), nil)
 		}
 	}
