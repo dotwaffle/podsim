@@ -2,35 +2,41 @@ package sim
 
 import "slices"
 
-// safetyEnvelope binds the occupied planes to an unchanged observation pod.
-// The rear bound includes retained resources; the front bound encloses the body.
-type safetyEnvelope struct {
-	pod       Pod
-	locations []SafetyLocation
-}
+// envelopeLocationsPerPod is the capacity for envelope locations that
+// largeSafety starts with, for each pod.
+const envelopeLocationsPerPod = 4
 
+// largeSafety adds the envelope of each pod when the fleet has a large pod.
+// The envelopes share one backing array, and each envelope has no spare
+// capacity, so an append to one envelope does not write into the next.
 func (s *Simulation) largeSafety(observation *SafetyObservation) {
 	if !slices.ContainsFunc(s.vehicles, func(v vehicle) bool { return largeVehicleClass(v.Pod.Class) }) {
 		return
 	}
-	observation.envelopes = make(map[string]safetyEnvelope, len(s.vehicles))
+	observation.envelopes = make([][]SafetyLocation, len(s.vehicles))
+	locations := make([]SafetyLocation, 0, envelopeLocationsPerPod*len(s.vehicles))
 	for index := range s.vehicles {
 		v := &s.vehicles[index]
-		observation.envelopes[v.Pod.ID] = safetyEnvelope{pod: v.Pod, locations: s.vehicleSafetyLocations(v, v.distance)}
+		start := len(locations)
+		locations = s.appendVehicleSafetyLocations(locations, v, v.distance)
+		observation.envelopes[index] = locations[start:len(locations):len(locations)]
 	}
 }
 
-func (s *Simulation) vehicleSafetyLocations(v *vehicle, distance float64) []SafetyLocation {
+// appendVehicleSafetyLocations appends the planes that the body of a pod
+// occupies at a route distance to locations, each plane one time. The rear
+// bound includes retained resources, and the front bound encloses the body.
+func (s *Simulation) appendVehicleSafetyLocations(locations []SafetyLocation, v *vehicle, distance float64) []SafetyLocation {
 	if v.Pod.Activity != Traveling && v.Pod.LaneID == "" && v.Pod.BerthID != "" {
 		// The envelope of a pod at a berth depends only on the berth. The
 		// copy keeps the shared entry out of the observation.
 		if envelope, ok := s.berthEnvelopes[v.Pod.BerthID]; ok {
-			return slices.Clone(envelope)
+			return append(locations, envelope...)
 		}
 	}
-	var locations []SafetyLocation
+	start := len(locations)
 	add := func(location SafetyLocation) {
-		if !slices.Contains(locations, location) {
+		if !slices.Contains(locations[start:], location) {
 			locations = append(locations, location)
 		}
 	}

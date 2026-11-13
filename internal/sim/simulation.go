@@ -228,16 +228,33 @@ type SafetyObservation struct {
 	Pending       int
 	Pods          []Pod
 	Berths        []BerthState
-	Locations     map[string]SafetyLocation
-	envelopes     map[string]safetyEnvelope
+	// Locations holds the location of each pod of a live observation, in
+	// the order of the fleet. A caller may remove or reorder the pods of
+	// Pods, and only those. Locations and the other per-pod slices keep
+	// their slots, and Check finds the slot of each pod by its ID. Only an
+	// observation with no bound pods reads Locations in the current order
+	// of Pods. A pod with no entry has no location.
+	Locations []SafetyLocation
+	// bound holds the pods at the time of the observation, in the order of
+	// the fleet. Entry i of Locations, envelopes, chains, and keys belongs
+	// to bound[i]. Check gives a pod of Pods the entries of the bound pod
+	// with its ID (see podSlots), so a caller can remove pods from Pods.
+	// The envelope, the chain, and the key apply only to a pod that is
+	// equal to its bound pod. An observation without bound pods has only
+	// Locations, in the order of Pods.
+	bound []Pod
+	// envelopes holds the planes that the body of each pod occupies. The
+	// rear bound includes retained resources, and the front bound encloses
+	// the body. It is nil when the fleet has no large pod.
+	envelopes [][]SafetyLocation
 	// chains holds the window positions of each small pod in a window of a
 	// qualifying lane. An observation without them certifies no pair.
-	chains map[string]safetyChain
+	chains []safetyChain
 	// keys holds the separation key of each pod, and certified the pairs
 	// of keys that the maneuver certification clears. An observation
 	// without them skips no pair. lateral holds the lateral pairs of the
 	// depot lanes. An observation without it reduces no minimum.
-	keys      map[string]podKey
+	keys      []separationKey
 	certified certifiedPairs
 	lateral   *depotLateral
 }
@@ -679,15 +696,16 @@ func (s *Simulation) SafetyObservation() SafetyObservation {
 		OrderContract: s.orderContract,
 		Tick:          s.tick, Completed: s.completed, Pending: len(s.waiting),
 		Pods: make([]Pod, len(s.vehicles)), Berths: s.berthStates(),
-		Locations: make(map[string]SafetyLocation, len(s.vehicles)),
+		Locations: make([]SafetyLocation, len(s.vehicles)),
+		bound:     make([]Pod, len(s.vehicles)),
 	}
 	for index := range s.vehicles {
 		pod := s.vehicles[index].Pod
-		state.Pods[index] = pod
+		state.Pods[index], state.bound[index] = pod, pod
 		if pod.LaneID != "" {
-			state.Locations[pod.ID] = s.laneSafety[pod.LaneID]
+			state.Locations[index] = s.laneSafety[pod.LaneID]
 		} else if pod.BerthID != "" {
-			state.Locations[pod.ID] = s.berthSafety[pod.BerthID]
+			state.Locations[index] = s.berthSafety[pod.BerthID]
 		}
 	}
 	s.largeSafety(&state)
@@ -702,7 +720,7 @@ func (s *Simulation) chainSafety(observation *SafetyObservation) {
 	if s.retention == nil || len(s.retention.windows) == 0 {
 		return
 	}
-	for _, pod := range observation.Pods {
+	for index, pod := range observation.Pods {
 		if largeVehicleClass(pod.Class) {
 			continue
 		}
@@ -715,9 +733,9 @@ func (s *Simulation) chainSafety(observation *SafetyObservation) {
 			continue
 		}
 		if observation.chains == nil {
-			observation.chains = make(map[string]safetyChain)
+			observation.chains = make([]safetyChain, len(observation.Pods))
 		}
-		observation.chains[pod.ID] = safetyChain{pod: pod, positions: positions, speed: speed}
+		observation.chains[index] = safetyChain{positions: positions, speed: speed}
 	}
 }
 

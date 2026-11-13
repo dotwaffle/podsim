@@ -67,14 +67,62 @@ func referenceVehicleSafetyLocations(s *Simulation, v *vehicle, distance float64
 }
 
 // checkSafetyLocationParity requires the indexed envelope locations of
-// each pod to equal the reference construction, in the same order.
+// each pod to equal the reference construction, in the same order. It also
+// requires each per-pod entry of the observation to belong to the pod at
+// its index.
 func checkSafetyLocationParity(t *testing.T, s *Simulation) {
 	t.Helper()
+	o := s.SafetyObservation()
+	if len(o.Locations) != len(s.vehicles) || len(o.bound) != len(s.vehicles) {
+		t.Fatalf("tick %d: %d locations and %d bound pods for %d pods", s.tick, len(o.Locations), len(o.bound), len(s.vehicles))
+	}
 	for index := range s.vehicles {
 		v := &s.vehicles[index]
-		got, want := s.vehicleSafetyLocations(v, v.distance), referenceVehicleSafetyLocations(s, v, v.distance)
+		got, want := s.appendVehicleSafetyLocations(nil, v, v.distance), referenceVehicleSafetyLocations(s, v, v.distance)
 		if !slices.Equal(got, want) {
 			t.Fatalf("tick %d pod %s safety locations %v, reference %v", s.tick, v.Pod.ID, got, want)
+		}
+		if o.Pods[index] != v.Pod || o.bound[index] != v.Pod {
+			t.Fatalf("tick %d pod %s: the observation has %+v bound to %+v", s.tick, v.Pod.ID, o.Pods[index], o.bound[index])
+		}
+		var location SafetyLocation
+		if v.Pod.LaneID != "" {
+			location = s.laneSafety[v.Pod.LaneID]
+		} else if v.Pod.BerthID != "" {
+			location = s.berthSafety[v.Pod.BerthID]
+		}
+		if o.Locations[index] != location {
+			t.Fatalf("tick %d pod %s: location %+v, want %+v", s.tick, v.Pod.ID, o.Locations[index], location)
+		}
+		if &o.Pods[index] == &o.bound[index] {
+			t.Fatalf("tick %d: the pods and the bound pods share storage", s.tick)
+		}
+		if len(o.envelopes) > 0 {
+			if envelope := o.envelopes[index]; !slices.Equal(envelope, want) {
+				t.Fatalf("tick %d pod %s: observation envelope %v, reference %v", s.tick, v.Pod.ID, envelope, want)
+			} else if cap(envelope) != len(envelope) {
+				t.Fatalf("tick %d pod %s: the envelope has spare capacity in the shared array", s.tick, v.Pod.ID)
+			}
+		}
+		if len(o.keys) > 0 {
+			if key, _ := s.separationKey(v); o.keys[index] != key {
+				t.Fatalf("tick %d pod %s: key %+v, want %+v", s.tick, v.Pod.ID, o.keys[index], key)
+			}
+		}
+		if len(o.chains) > 0 {
+			var chain safetyChain
+			if !largeVehicleClass(v.Pod.Class) {
+				node, speed := "", v.Pod.Speed
+				if v.Pod.LaneID == "" {
+					node, speed = s.berthSafety[v.Pod.BerthID].From, 0
+				}
+				if positions := s.retention.chainPositions(v.Pod, node); len(positions) > 0 {
+					chain = safetyChain{positions: positions, speed: speed}
+				}
+			}
+			if got := o.chains[index]; got.speed != chain.speed || !slices.Equal(got.positions, chain.positions) {
+				t.Fatalf("tick %d pod %s: chain %+v, want %+v", s.tick, v.Pod.ID, got, chain)
+			}
 		}
 	}
 }
@@ -103,12 +151,12 @@ func TestBerthEnvelopeMatchesReference(t *testing.T) {
 	stopped := vehicle{
 		Pod: Pod{ID: "stopped", Class: GroupClass, Activity: Idle, LaneID: "out", BerthID: "y"}}
 	for _, v := range []*vehicle{&parked, &leaving, &stopped} {
-		got, want := s.vehicleSafetyLocations(v, 0), referenceVehicleSafetyLocations(s, v, 0)
+		got, want := s.appendVehicleSafetyLocations(nil, v, 0), referenceVehicleSafetyLocations(s, v, 0)
 		if !slices.Equal(got, want) {
 			t.Errorf("pod %s: safety locations %v, reference %v", v.Pod.ID, got, want)
 		}
 	}
-	if got := s.vehicleSafetyLocations(&parked, 0); len(got) != 3 {
+	if got := s.appendVehicleSafetyLocations(nil, &parked, 0); len(got) != 3 {
 		t.Errorf("parked pod: %d locations, want 3: %v", len(got), got)
 	}
 }

@@ -557,7 +557,7 @@ func TestLateralAuditMatchesObserver(t *testing.T) {
 	}
 	observe := func(a, b separationKey, gap float64) error {
 		first, second := Pod{ID: "a", Class: CompactClass}, Pod{ID: "b", Class: CompactClass, Position: Point{X: gap}}
-		o := SafetyObservation{Pods: []Pod{first, second}, keys: map[string]podKey{"a": {pod: first, key: a}, "b": {pod: second, key: b}}, lateral: p.lateral}
+		o := SafetyObservation{Pods: []Pod{first, second}, bound: []Pod{first, second}, keys: []separationKey{a, b}, lateral: p.lateral}
 		_, err := o.Check()
 		return err
 	}
@@ -655,10 +655,9 @@ func TestDepotLateralSpeeds(t *testing.T) {
 			}
 		}
 		for i, a := range o.Pods {
-			for _, b := range o.Pods[i+1:] {
-				first, firstOK := o.keys[a.ID]
-				second, secondOK := o.keys[b.ID]
-				if _, ok := s.lateral.clearance(first.key, second.key); ok && firstOK && secondOK && pointDistance(a.Position, b.Position) < Clearance {
+			for j, b := range o.Pods[i+1:] {
+				first, second := o.keys[i], o.keys[i+1+j]
+				if _, ok := s.lateral.clearance(first, second); ok && pointDistance(a.Position, b.Position) < Clearance {
 					near++
 				}
 			}
@@ -684,8 +683,8 @@ func TestCheckSeparationDepotAllocations(t *testing.T) {
 			t.Fatal(err)
 		}
 		o := s.SafetyObservation()
-		if len(o.keys) != len(o.Pods) || o.lateral == nil {
-			t.Fatalf("the observation has %d keys", len(o.keys))
+		if len(o.keys) != len(o.Pods) || slices.Contains(o.keys, separationKey{}) || o.lateral == nil {
+			t.Fatalf("the observation has the keys %v", o.keys)
 		}
 		if _, err := o.Check(); err != nil {
 			t.Fatal(err)

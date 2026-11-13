@@ -380,9 +380,8 @@ type chainPosition struct {
 	end, limit float64
 }
 
-// safetyChain binds the window positions to an unchanged observation pod.
+// safetyChain holds the window positions and the speed of a pod.
 type safetyChain struct {
-	pod       Pod
 	positions []chainPosition
 	speed     float64
 }

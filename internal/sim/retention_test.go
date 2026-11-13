@@ -471,11 +471,12 @@ func TestRetentionSafetyCertification(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		observation := SafetyObservation{Pods: pods, Locations: make(map[string]SafetyLocation)}
+		observation := SafetyObservation{Pods: pods, Locations: make([]SafetyLocation, len(pods))}
 		for index, pod := range pods {
 			pods[index].Position = network.Position(laneByID(network, pod.LaneID), pod.LaneDistance)
-			observation.Locations[pod.ID] = s.laneSafety[pod.LaneID]
+			observation.Locations[index] = s.laneSafety[pod.LaneID]
 		}
+		observation.bound = slices.Clone(pods)
 		s.chainSafety(&observation)
 		_, err = observation.Check()
 		return err
@@ -554,6 +555,83 @@ func TestSavedRouteOriginTail(t *testing.T) {
 		state = s.ExportState()
 		if saved := state.Pods[0]; len(saved.Route) != len(route) || saved.RouteIndex != 1 || saved.Distance != corridorExitLength+9 {
 			t.Fatalf("restore %d: saved route %v at index %d, distance %g", round, saved.Route, saved.RouteIndex, saved.Distance)
+		}
+	}
+}
+
+// TestRetentionSafetyChainSlots checks that the window positions of a pod
+// certify a pair only for that pod, unchanged. The pods a and b are 5.1 m
+// apart in one window, with the follower b at rest, so the window
+// certifies them. The pod c is 7 m ahead of a, with positions in a
+// different window, so no window certifies it with a or b.
+func TestRetentionSafetyChainSlots(t *testing.T) {
+	t.Parallel()
+	network := setSpeed(mergeCorridor(false, 0), 2.5, "exit")
+	p, err := PrepareNetwork(network)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, err := p.NewFleet([]Placement{{ID: "x", StationID: "dest", BerthID: "dest-01"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fleet := []Pod{
+		{ID: "a", LaneID: "exit", LaneDistance: 105.1, Speed: 2.5},
+		{ID: "b", LaneID: "exit", LaneDistance: 100},
+		{ID: "c", LaneID: "exit", LaneDistance: 112.1},
+	}
+	live := SafetyObservation{Pods: slices.Clone(fleet), Locations: make([]SafetyLocation, len(fleet))}
+	for index, pod := range fleet {
+		fleet[index].Position = network.Position(laneByID(network, pod.LaneID), pod.LaneDistance)
+		live.Pods[index], live.Locations[index] = fleet[index], s.laneSafety[pod.LaneID]
+	}
+	live.bound = slices.Clone(fleet)
+	s.chainSafety(&live)
+	if len(live.chains) != len(fleet) || len(live.chains[0].positions) == 0 || len(live.chains[1].positions) == 0 {
+		t.Fatalf("chains %+v", live.chains)
+	}
+	// Move the positions of c to a window that the other pods are not in.
+	other := slices.Clone(live.chains[0].positions)
+	for index := range other {
+		other[index].window += 1000
+		other[index].offset += 7
+	}
+	live.chains[2] = safetyChain{positions: other}
+	a, b, c := fleet[0], fleet[1], fleet[2]
+	moving := b
+	moving.Speed = 2.5
+	observe := func(pods ...Pod) SafetyObservation {
+		o := live
+		o.Pods = pods
+		return o
+	}
+	missing := observe(a, b)
+	missing.chains = slices.Clone(live.chains)
+	missing.chains[1] = safetyChain{}
+	truncated := observe(a, b)
+	truncated.chains = live.chains[:1]
+	for _, test := range []struct {
+		name          string
+		observation   SafetyObservation
+		first, second string
+	}{
+		{name: "certified pair", observation: observe(a, b)},
+		{name: "certified pair reversed", observation: observe(b, a)},
+		{name: "fleet order", observation: observe(a, b, c), first: "a", second: "c"},
+		{name: "b removed", observation: observe(a, c), first: "a", second: "c"},
+		{name: "reversed", observation: observe(c, b, a), first: "c", second: "a"},
+		{name: "a removed", observation: observe(b, c)},
+		{name: "follower with a changed speed", observation: observe(a, moving), first: "a", second: "b"},
+		{name: "missing chain", observation: missing, first: "a", second: "b"},
+		{name: "truncated chains", observation: truncated, first: "a", second: "b"},
+	} {
+		_, err := test.observation.Check()
+		separation, ok := errors.AsType[*SeparationError](err)
+		switch {
+		case test.first == "" && err != nil:
+			t.Errorf("%s: %v", test.name, err)
+		case test.first != "" && (!ok || separation.First != test.first || separation.Second != test.second):
+			t.Errorf("%s: error %v, want the pods %s and %s", test.name, err, test.first, test.second)
 		}
 	}
 }

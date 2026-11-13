@@ -1,28 +1,20 @@
 package sim
 
-// podKey binds the separation key of a pod to the pod value of the
-// observation, as safetyEnvelope does. A changed pod has no key.
-type podKey struct {
-	pod Pod
-	key separationKey
-}
-
 // maneuverSafety adds the separation key of each pod, the certified
 // pairs, and the lateral pairs to an observation, when the network has
 // certified or lateral pairs. A pod on a lane has the key of the lane, and
 // a pod at a berth the key of the berth. A traveling pod with no lane at
 // route distance 0 has the key of its origin berth when it is at the
-// berth node. Every other pod has no key.
+// berth node. Every other pod has the zero key, which names nothing.
 func (s *Simulation) maneuverSafety(observation *SafetyObservation) {
 	if len(s.certified) == 0 && !s.lateral.any() {
 		return
 	}
-	observation.keys = make(map[string]podKey, len(observation.Pods))
+	observation.keys = make([]separationKey, len(s.vehicles))
 	observation.certified, observation.lateral = s.certified, s.lateral
-	for index, pod := range observation.Pods {
-		key, ok := s.separationKey(&s.vehicles[index])
-		if ok {
-			observation.keys[pod.ID] = podKey{pod: pod, key: key}
+	for index := range s.vehicles {
+		if key, ok := s.separationKey(&s.vehicles[index]); ok {
+			observation.keys[index] = key
 		}
 	}
 }

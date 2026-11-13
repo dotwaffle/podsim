@@ -310,9 +310,10 @@ func TestSafetyObservationMatchesSnapshotAndIsIsolated(t *testing.T) {
 	observation := s.SafetyObservation()
 	observation.Pods[0].ID = "changed"
 	observation.Berths[0].Occupant = "changed"
-	observation.Locations[observation.Pods[0].ID] = SafetyLocation{SeparationGroup: "changed"}
+	observation.Locations[0] = SafetyLocation{SeparationGroup: "changed"}
+	observation.bound[0].ID = "changed"
 	got := s.SafetyObservation()
-	if got.Pods[0].ID == "changed" || got.Berths[0].Occupant == "changed" || got.Locations["changed"].SeparationGroup == "changed" {
+	if got.Pods[0].ID == "changed" || got.Berths[0].Occupant == "changed" || got.Locations[0].SeparationGroup == "changed" || got.bound[0].ID == "changed" {
 		t.Fatalf("safety observation exposes simulation storage: %+v", got)
 	}
 }
@@ -345,12 +346,12 @@ func assertSafetyObservation(t *testing.T, input safetyObservationInput) {
 		pods[index] = snapshot.Vehicles[index].Pod
 	}
 	var berths []BerthState
-	locations := make(map[string]SafetyLocation, len(s.vehicles))
-	for _, vehicle := range s.vehicles {
+	locations := make([]SafetyLocation, len(s.vehicles))
+	for index, vehicle := range s.vehicles {
 		if vehicle.Pod.LaneID != "" {
-			locations[vehicle.Pod.ID] = s.laneSafety[vehicle.Pod.LaneID]
+			locations[index] = s.laneSafety[vehicle.Pod.LaneID]
 		} else if vehicle.Pod.BerthID != "" {
-			locations[vehicle.Pod.ID] = s.berthSafety[vehicle.Pod.BerthID]
+			locations[index] = s.berthSafety[vehicle.Pod.BerthID]
 		}
 	}
 	for _, station := range s.network.Stations {
@@ -366,7 +367,7 @@ func assertSafetyObservation(t *testing.T, input safetyObservationInput) {
 	}
 	if observation.Tick != snapshot.Tick || observation.Completed != snapshot.Completed || observation.Pending != len(snapshot.Pending) ||
 		!reflect.DeepEqual(observation.Pods, pods) || !reflect.DeepEqual(observation.Berths, berths) ||
-		!reflect.DeepEqual(observation.Locations, locations) || !reflect.DeepEqual(snapshot.Berths, berths) {
+		!reflect.DeepEqual(observation.Locations, locations) || !reflect.DeepEqual(observation.bound, pods) || !reflect.DeepEqual(snapshot.Berths, berths) {
 		t.Fatalf("%s safety observation differs: observation=%+v snapshot=%+v independent_berths=%+v", input.name, observation, snapshot, berths)
 	}
 }

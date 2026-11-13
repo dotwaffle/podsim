@@ -242,12 +242,12 @@ func (adv largeAdversary) livePlaneTransitions(t *testing.T) {
 		tick(t, s)
 		v := &s.vehicles[0]
 		o := s.SafetyObservation()
-		envelope, ok := o.envelopes[v.Pod.ID]
-		if !ok || envelope.pod != v.Pod {
+		if len(o.envelopes) != 1 || len(o.bound) != 1 || o.bound[0] != v.Pod {
 			t.Fatal("live body envelope is not bound to its unchanged pod")
 		}
+		envelope := o.envelopes[0]
 		has := func(plane string) bool {
-			return slices.ContainsFunc(envelope.locations, func(l SafetyLocation) bool { return l.SeparationGroup == plane })
+			return slices.ContainsFunc(envelope, func(l SafetyLocation) bool { return l.SeparationGroup == plane })
 		}
 		if v.Pod.Activity == Traveling && !v.originReleased {
 			if !origin {
@@ -255,9 +255,9 @@ func (adv largeAdversary) livePlaneTransitions(t *testing.T) {
 				// separation exemption from the actual departing body proof.
 				probe := Pod{ID: "probe", Class: LegacyClass, Position: Point{X: v.Pod.Position.X + 1, Y: v.Pod.Position.Y}}
 				location := SafetyLocation{SeparationGroup: "berth", From: "probe-node", To: "probe-node"}
-				o.Pods = append(o.Pods, probe)
-				o.Locations[probe.ID] = location
-				o.envelopes[probe.ID] = safetyEnvelope{pod: probe, locations: []SafetyLocation{location}}
+				o.Pods, o.bound = append(o.Pods, probe), append(o.bound, probe)
+				o.Locations = append(o.Locations, location)
+				o.envelopes = append(o.envelopes, []SafetyLocation{location})
 				if _, err := o.checkSeparation(); err == nil {
 					t.Fatal("live origin body plane granted a false exemption")
 				}

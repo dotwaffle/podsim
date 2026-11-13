@@ -111,16 +111,16 @@ func (o SafetyObservation) sweepSeparation() sweepResult {
 // the pod in o.Pods, so a pair test compares integers and not string keys.
 type separationIndex struct {
 	locations []SafetyLocation
-	// envelopes holds the envelope locations of each pod whose envelope is
-	// bound to its value. It is nil when the observation has no envelopes.
+	// envelopes holds the envelope locations of each pod that is equal to
+	// its bound pod. It is nil when the observation has no envelopes.
 	// Empty locations never prove a separation, so a pod without an
 	// envelope has none.
 	envelopes [][]SafetyLocation
 	// chains holds the window positions of each small pod in a window. It
 	// is nil when the observation has no positions.
 	chains []safetyChain
-	// keys holds the separation key of each pod whose key is bound to its
-	// value, certified the certified pairs, and lateral the lateral pairs.
+	// keys holds the separation key of each pod that is equal to its bound
+	// pod, certified the certified pairs, and lateral the lateral pairs.
 	// keys is nil when the observation has no keys.
 	keys      []separationKey
 	certified certifiedPairs
@@ -143,22 +143,57 @@ func (o SafetyObservation) separationIndex() separationIndex {
 	if len(o.keys) > 0 {
 		index.keys, index.certified, index.lateral = make([]separationKey, len(o.Pods)), o.certified, o.lateral
 	}
+	slots := podSlots{bound: o.bound}
 	for i, pod := range o.Pods {
-		index.locations[i] = o.Locations[pod.ID]
-		if envelope, ok := o.envelopes[pod.ID]; ok && envelope.pod == pod {
-			index.envelopes[i] = envelope.locations
+		slot := slots.slot(i, pod.ID)
+		if slot >= 0 && slot < len(o.Locations) {
+			index.locations[i] = o.Locations[slot]
 		}
-		if chain, ok := o.chains[pod.ID]; ok && chain.pod == pod {
-			index.chains[i] = chain
+		bound := slot >= 0 && slot < len(o.bound) && o.bound[slot] == pod
+		if bound && slot < len(o.envelopes) {
+			index.envelopes[i] = o.envelopes[slot]
 		}
-		if key, ok := o.keys[pod.ID]; ok && key.pod == pod {
-			index.keys[i] = key.key
+		if bound && slot < len(o.chains) {
+			index.chains[i] = o.chains[slot]
+		}
+		if bound && slot < len(o.keys) {
+			index.keys[i] = o.keys[slot]
 		}
 		if largeVehicleClass(pod.Class) {
 			index.reach = max(index.reach, separationThresholdSquared(largeClearance))
 		}
 	}
 	return index
+}
+
+// podSlots finds the entry of each pod of an observation in its per-pod
+// slices. A live observation has each pod at its own index, so the search
+// by ID runs only after a caller changed the pods.
+type podSlots struct {
+	bound []Pod
+	// byID holds the index of the last bound pod with each ID. slot makes
+	// it at the first pod that is not at its own index.
+	byID map[string]int
+}
+
+// slot returns the index of the entries of pod i of the observation, which
+// has the given ID, or -1 when the pod has no entries. That is i when the
+// observation has no bound pods, or when bound pod i has the ID. If not, it
+// is the index of the last bound pod with the ID.
+func (p *podSlots) slot(i int, id string) int {
+	if len(p.bound) == 0 || i < len(p.bound) && p.bound[i].ID == id {
+		return i
+	}
+	if p.byID == nil {
+		p.byID = make(map[string]int, len(p.bound))
+		for slot, pod := range p.bound {
+			p.byID[pod.ID] = slot
+		}
+	}
+	if slot, ok := p.byID[id]; ok {
+		return slot
+	}
+	return -1
 }
 
 // sweepResult is the result of one sweep of checkSeparation.

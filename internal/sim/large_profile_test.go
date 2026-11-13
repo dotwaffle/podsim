@@ -132,25 +132,26 @@ func TestLargeProfileOraclePlaneProof(t *testing.T) {
 	t.Parallel()
 	upper := SafetyLocation{SeparationGroup: "upper", From: "a", To: "b"}
 	lower := SafetyLocation{SeparationGroup: "lower", From: "c", To: "d"}
-	o := SafetyObservation{Pods: []Pod{{ID: "group", Class: GroupClass}, {ID: "small", Position: Point{X: 1}}}, Locations: map[string]SafetyLocation{"group": lower, "small": upper}}
+	o := SafetyObservation{Pods: []Pod{{ID: "group", Class: GroupClass}, {ID: "small", Position: Point{X: 1}}}, Locations: []SafetyLocation{lower, upper}}
 	if _, err := o.checkSeparation(); err == nil {
 		t.Fatal("center-only locations granted a large plane exemption")
 	}
-	o.envelopes = map[string]safetyEnvelope{
-		"group": {pod: o.Pods[0], locations: []SafetyLocation{lower}},
-		"small": {pod: o.Pods[1], locations: []SafetyLocation{upper}},
+	o.envelopes = [][]SafetyLocation{{lower}, {upper}}
+	if _, err := o.checkSeparation(); err == nil {
+		t.Fatal("an envelope with no bound pod granted a plane exemption")
 	}
+	o.bound = slices.Clone(o.Pods)
 	if _, err := o.checkSeparation(); err != nil {
 		t.Fatal(err)
 	}
-	envelope := o.envelopes["group"]
-	envelope.locations = append(envelope.locations, upper)
-	o.envelopes["group"] = envelope
+	o.envelopes[0] = append(o.envelopes[0], upper)
 	if _, err := o.checkSeparation(); err == nil {
 		t.Fatal("retained incoming plane was ignored")
 	}
-	envelope.locations = []SafetyLocation{lower}
-	o.envelopes["group"] = envelope
+	o.envelopes[0] = []SafetyLocation{lower}
+	if _, err := o.checkSeparation(); err != nil {
+		t.Fatal(err)
+	}
 	o.Pods[0].Position.Y = 1
 	if _, err := o.checkSeparation(); err == nil {
 		t.Fatal("changed pod reused a stale plane proof")
@@ -168,40 +169,40 @@ func TestLargeProfileEnvelopeRouteAndBerth(t *testing.T) {
 	v := vehicle{originReleased: true, blocks: blockList{lanes: []routeLaneCells{{start: 0}, {start: 100}, {start: 200}}}}
 	v.Pod, v.Route = Pod{ID: "group", Class: GroupClass, Activity: Traveling, LaneID: "lower"}, n.Lanes
 	before := v
-	if got := s.vehicleSafetyLocations(&v, 116); len(got) != 2 {
+	if got := s.appendVehicleSafetyLocations(nil, &v, 116); len(got) != 2 {
 		t.Fatalf("retained plane missing: %+v", got)
 	}
-	if got := s.vehicleSafetyLocations(&v, 120.001); len(got) != 1 || got[0].SeparationGroup != "lower" {
+	if got := s.appendVehicleSafetyLocations(nil, &v, 120.001); len(got) != 1 || got[0].SeparationGroup != "lower" {
 		t.Fatalf("passed incoming plane retained indefinitely: %+v", got)
 	}
 	v.Pod.LaneID = "upper"
-	if got := s.vehicleSafetyLocations(&v, 94); len(got) != 2 {
+	if got := s.appendVehicleSafetyLocations(nil, &v, 94); len(got) != 2 {
 		t.Fatalf("front envelope failed to reach next plane: %+v", got)
 	}
 	v = before
 	v.Pod.Activity, v.Pod.LaneID, v.Pod.BerthID = Idle, "", "end-1"
-	if got := s.vehicleSafetyLocations(&v, 0); len(got) != 2 {
+	if got := s.appendVehicleSafetyLocations(nil, &v, 0); len(got) != 2 {
 		t.Fatalf("stationary berth lost its incoming plane: %+v", got)
 	}
-	parked := s.vehicleSafetyLocations(&v, 0)
+	parked := s.appendVehicleSafetyLocations(nil, &v, 0)
 	want := slices.Clone(parked)
 	parked[0].SeparationGroup, parked[1].SeparationGroup = "changed", "changed"
-	if got := s.vehicleSafetyLocations(&v, 0); !slices.Equal(got, want) {
+	if got := s.appendVehicleSafetyLocations(nil, &v, 0); !slices.Equal(got, want) {
 		t.Fatalf("berth envelope shares mutable simulation storage: %+v", got)
 	}
 	v = before
-	_ = s.vehicleSafetyLocations(&v, 116)
+	_ = s.appendVehicleSafetyLocations(nil, &v, 116)
 	if !reflect.DeepEqual(v, before) {
 		t.Fatal("oracle changed live vehicle state")
 	}
 	v.distance = 116
 	s.vehicles = []vehicle{v}
 	observation := s.SafetyObservation()
-	if envelope := observation.envelopes[v.Pod.ID]; envelope.pod != v.Pod || len(envelope.locations) != 2 {
+	if len(observation.envelopes) != 1 || observation.bound[0] != v.Pod || len(observation.envelopes[0]) != 2 {
 		t.Fatal("native observation omitted its body-plane proof")
 	}
-	observation.envelopes[v.Pod.ID].locations[0].SeparationGroup = "changed"
-	if s.SafetyObservation().envelopes[v.Pod.ID].locations[0].SeparationGroup == "changed" {
+	observation.envelopes[0][0].SeparationGroup = "changed"
+	if s.SafetyObservation().envelopes[0][0].SeparationGroup == "changed" {
 		t.Fatal("body-plane evidence shares mutable simulation storage")
 	}
 }
@@ -216,7 +217,7 @@ func TestLargeEnvelopeReachesLastRouteLane(t *testing.T) {
 	s := &Simulation{networkIndexes: &networkIndexes{network: n, laneSafety: map[string]SafetyLocation{"upper": {SeparationGroup: "upper", From: "a", To: "b"}, "lower": {SeparationGroup: "lower", From: "b", To: "c"}}}}
 	v := vehicle{originReleased: true, Pod: Pod{ID: "express", Class: ExpressClass, Activity: Traveling, LaneID: "upper"}}
 	s.setVehicleRoute(&v, n.Lanes)
-	if got := s.vehicleSafetyLocations(&v, 94); len(got) != 2 || got[1].SeparationGroup != "lower" {
+	if got := s.appendVehicleSafetyLocations(nil, &v, 94); len(got) != 2 || got[1].SeparationGroup != "lower" {
 		t.Fatalf("front envelope failed to reach the last route lane: %+v", got)
 	}
 }

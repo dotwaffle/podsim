@@ -121,7 +121,7 @@ func TestTailFrontWindowAtHairpin(t *testing.T) {
 	s := hairpinMotion(t, 154, "upper")
 	v := s.findVehicle("p01")
 	if !v.locationsHave(s, "l2") {
-		t.Fatalf("the plane of the next lane left the window: %+v", s.vehicleSafetyLocations(v, v.distance))
+		t.Fatalf("the plane of the next lane left the window: %+v", s.appendVehicleSafetyLocations(nil, v, v.distance))
 	}
 	if want := largeEnvelopeRadius * oldLargePathBound(s.network.Polyline(s.network.Lanes[s.graph.lanes["l1"]])) / largeClearance; s.laneCells["l1"].front != want {
 		t.Fatalf("front %v, want %v", s.laneCells["l1"].front, want)
@@ -134,5 +134,5 @@ func TestTailFrontWindowAtHairpin(t *testing.T) {
 
 func (v *vehicle) locationsHave(s *Simulation, lane string) bool {
 	want := s.laneSafety[lane]
-	return slices.Contains(s.vehicleSafetyLocations(v, v.distance), want)
+	return slices.Contains(s.appendVehicleSafetyLocations(nil, v, v.distance), want)
 }
