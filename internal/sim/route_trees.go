@@ -38,8 +38,8 @@ type routeTreeKey struct {
 // result.
 //
 // The trees depend on the blocked lanes, so startRouteEpoch clears the memo.
-// Clone drops it, and no save holds it. A routing view does not read or write
-// it.
+// Clone drops it, and no save holds it. A batch under a routing view reads and
+// writes it, as a batch outside a view does.
 type routeTrees struct {
 	// nodes is the node count of the network, and limit is the most trees.
 	nodes, limit int
@@ -204,12 +204,9 @@ func (n Network) treeTargets(input routeTargetsInput, graph routeGraph, trees *r
 }
 
 // batchTrees returns the tree memo of the batches of
-// cacheStationRoutesForClass, or nil under a routing view, which must not
-// write it.
+// cacheStationRoutesForClass. A batch under a routing view reads and writes it
+// too.
 func (s *Simulation) batchTrees() *routeTrees {
-	if s.routeView != nil {
-		return nil
-	}
 	if s.routeTrees == nil {
 		s.routeTrees = newRouteTrees(len(s.network.Nodes))
 	}

@@ -23,7 +23,6 @@ func (s *Simulation) Clone() *Simulation {
 	// memo.
 	c.emergencyMisses = nil
 	c.pickupMisses = nil
-	c.accessRoutes = nil
 	c.admissionWork = nil
 	c.depotTaken = nil
 	c.vehicles = slices.Clone(s.vehicles)

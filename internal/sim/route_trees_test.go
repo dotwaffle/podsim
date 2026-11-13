@@ -179,6 +179,51 @@ func freshRoute(s *Simulation, from, to string, class VehicleClass) ([]Lane, err
 	return lanes, err
 }
 
+// checkRouteMemo compares each entry of the route memo, with its travel
+// time, and each tree of the tree memo with a new search of its key on the
+// routing graph. It also checks that routeOrder holds each key of the route
+// memo once, and no other key.
+func checkRouteMemo(t *testing.T, s *Simulation) {
+	t.Helper()
+	graph := s.routingGraph()
+	for key, got := range s.routes {
+		want, wantErr := freshRoute(s, key.from, key.to, key.class)
+		if key.station {
+			want, wantErr = s.network.routeIndexed(networkRouteInput{from: key.from, to: key.to, class: key.class, forbidden: s.stationForbidden}, graph)
+		}
+		if !sameLanes(got.lanes, want) || fmt.Sprint(got.err) != fmt.Sprint(wantErr) {
+			t.Fatalf("memo entry %+v: got %v, %v, want %v, %v", key, laneIDs(got.lanes), got.err, laneIDs(want), wantErr)
+		}
+		if seconds := s.routeSeconds(motionEnvelopeFor(key.class), want, motionEstimate{}); !got.timed || got.seconds != seconds {
+			t.Fatalf("memo entry %+v: got time %v (timed %v), want %v", key, got.seconds, got.timed, seconds)
+		}
+	}
+	order := make(map[routeKey]bool, len(s.routeOrder))
+	for _, key := range s.routeOrder {
+		if _, ok := s.routes[key]; !ok || order[key] {
+			t.Fatalf("routeOrder holds %+v, which is not in the memo or is a repeat", key)
+		}
+		order[key] = true
+	}
+	if len(order) != len(s.routes) {
+		t.Fatalf("routeOrder holds %d keys, the memo %d", len(order), len(s.routes))
+	}
+	if s.routeTrees == nil {
+		return
+	}
+	for key, slot := range s.routeTrees.slots {
+		classes := []VehicleClass{topologyClass, LegacyClass, CompactClass, GroupClass, ExpressClass}
+		index := slices.IndexFunc(classes, func(class VehicleClass) bool { return graph.classTestFor(class) == key.classes })
+		if index < 0 {
+			t.Fatalf("tree memo key %+v has no class", key)
+		}
+		input := routeTreeInput{root: int(key.root), class: classes[index], terminal: key.terminal}
+		if !slices.Equal(s.routeTrees.slot(int(slot)), freshTree(s.network, graph, input)) {
+			t.Fatalf("the held tree of %+v differs from a new search", key)
+		}
+	}
+}
+
 // treeFrom is the origin of the batches of checkStationBatch.
 const treeFrom = "s1-exit"
 
@@ -315,26 +360,50 @@ func TestRouteTreesFollowEpoch(t *testing.T) {
 	})
 }
 
-// TestRouteTreesStayOutOfViews checks that a batch under a routing view
-// neither writes nor needs the tree memo, with a cold memo and with a warm
-// one.
-func TestRouteTreesStayOutOfViews(t *testing.T) {
+// TestRouteTreesServeViews checks that a batch under a routing view reads
+// and writes the route memos as a batch outside a view does (section 9.1 of
+// the incident emergency contract). Each stored route equals a new search,
+// and the tree memo holds the tree of the batch. On a network where Compact
+// pods take a faster lane that legacy pods cannot use, the tree of one class
+// does not serve the batch of the other.
+func TestRouteTreesServeViews(t *testing.T) {
 	t.Parallel()
-	s := altLineFleet(t, -100, "s1-1")
+	compact, err := NewClassSet("compact")
+	if err != nil {
+		t.Fatal(err)
+	}
+	network := lineNetwork(lineStations(1, 1, 2, 2, 1))
+	for index := range network.Lanes {
+		if network.Lanes[index].ID == "s1-link" {
+			network.Lanes[index].SpeedLimit = 2
+		}
+	}
+	network.Nodes = append(network.Nodes, Node{ID: "alt", Position: Point{X: 825, Y: -100}})
+	network.Lanes = append(network.Lanes,
+		Lane{ID: "alt-out", From: treeFrom, To: "alt", SpeedLimit: 14, VehicleClasses: compact},
+		Lane{ID: "alt-in", From: "alt", To: "s2-entry", SpeedLimit: 14})
+	s, err := NewFleet(network, place("s1-1"))
+	if err != nil {
+		t.Fatal(err)
+	}
 	station, _ := s.station("s2")
-	batch := func(from string) {
-		previous := s.enterRouteView(&s.vehicles[0])
-		s.cacheStationRoutesForClass(from, station.Berths, "")
-		s.leaveRouteView(previous)
-	}
-	batch(treeFrom)
-	if s.routeTrees != nil {
-		t.Fatal("a batch under a view made the tree memo")
-	}
+	defer s.leaveRouteView(s.enterRouteView(&s.vehicles[0]))
 	checkStationBatch(t, s)
-	before := cloneRouteTrees(s.routeTrees)
-	batch("s0-exit")
-	if !reflect.DeepEqual(before, s.routeTrees) {
-		t.Fatal("a batch under a view wrote the tree memo")
+	if !usesLane(s.routes[routeKey{from: treeFrom, to: "s2-1"}].lanes, "s1-link") {
+		t.Fatal("the legacy route does not take s1-link")
+	}
+	s.cacheStationRoutesForClass(treeFrom, station.Berths, CompactClass)
+	compactRoute, ok := s.routes[routeKey{from: treeFrom, to: "s2-1", class: routeClass(CompactClass)}]
+	if !ok || !usesLane(compactRoute.lanes, "alt-out") {
+		t.Fatalf("the Compact batch stored %v, want a route through alt-out", laneIDs(compactRoute.lanes))
+	}
+	// The Compact tree is now in the memo. A new legacy batch from the same
+	// root must not take it.
+	s.startRouteEpoch()
+	s.cacheStationRoutesForClass(treeFrom, station.Berths, CompactClass)
+	s.cacheStationRoutesForClass(treeFrom, station.Berths, "")
+	checkRouteMemo(t, s)
+	if len(s.routes) != 2*len(station.Berths) {
+		t.Fatalf("the batches stored %d routes, want %d", len(s.routes), 2*len(station.Berths))
 	}
 }

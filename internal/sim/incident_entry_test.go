@@ -11,23 +11,23 @@ import (
 // routeMemos holds copies of each cache and counter that a route search can
 // write, and the saved state.
 type routeMemos struct {
-	routes, staticRoutes, accessRoutes map[routeKey]routeCopy
-	staticConnected                    map[routeKey]bool
-	routeOrder                         []routeKey
-	routeTrees                         *routeTrees
-	routeStations                      map[stopKey][]string
-	approachStations                   map[string][]string
-	pickupBounds                       map[string][]float64
-	pickupMisses                       map[pickupMiss]bool
-	emergencyMisses                    []emergencyMiss
-	searches                           searchCounters
-	faults                             faultCounters
-	work                               *routeSearchWork
-	workCopy                           routeSearchWork
-	view                               *routeView
-	blocked                            blockedSet
-	rerouteDue                         bool
-	state                              SavedState
+	routes, staticRoutes map[routeKey]routeCopy
+	staticConnected      map[routeKey]bool
+	routeOrder           []routeKey
+	routeTrees           *routeTrees
+	routeStations        map[stopKey][]string
+	approachStations     map[string][]string
+	pickupBounds         map[string][]float64
+	pickupMisses         map[pickupMiss]bool
+	emergencyMisses      []emergencyMiss
+	searches             searchCounters
+	faults               faultCounters
+	work                 *routeSearchWork
+	workCopy             routeSearchWork
+	view                 *routeView
+	blocked              blockedSet
+	rerouteDue           bool
+	state                SavedState
 }
 
 // routeCopy is a route result, with the text of its error.
@@ -46,7 +46,7 @@ func copyRoutes(routes map[routeKey]routeResult) map[routeKey]routeCopy {
 
 func memosOf(s *Simulation) routeMemos {
 	memos := routeMemos{
-		routes: copyRoutes(s.routes), staticRoutes: copyRoutes(s.staticRoutes), accessRoutes: copyRoutes(s.accessRoutes),
+		routes: copyRoutes(s.routes), staticRoutes: copyRoutes(s.staticRoutes),
 		staticConnected: maps.Clone(s.staticConnected), routeOrder: slices.Clone(s.routeOrder), routeTrees: cloneRouteTrees(s.routeTrees), routeStations: maps.Clone(s.routeStations),
 		approachStations: maps.Clone(s.approachStations), pickupBounds: maps.Clone(s.pickupBounds),
 		pickupMisses: maps.Clone(s.pickupMisses), emergencyMisses: slices.Clone(s.emergencyMisses), searches: s.searchCounters,

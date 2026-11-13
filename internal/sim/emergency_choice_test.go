@@ -2,7 +2,6 @@ package sim
 
 import (
 	"fmt"
-	"reflect"
 	"slices"
 	"testing"
 )
@@ -334,21 +333,6 @@ func TestEmergencyChoiceCandidates(t *testing.T) {
 	})
 }
 
-// routingState is a copy of the free-flow route memo of a simulation
-// (section 7 of the incident emergency contract), and of the tree memo of
-// its batches.
-type routingState struct {
-	routes       map[routeKey]routeResult
-	routeOrder   []routeKey
-	hasRouteMemo bool
-	trees        *routeTrees
-}
-
-// copyRouting returns a copy of the routing state of s.
-func copyRouting(s *Simulation) routingState {
-	return routingState{routes: cloneRoutes(s.routes), routeOrder: slices.Clone(s.routeOrder), hasRouteMemo: s.routes != nil, trees: cloneRouteTrees(s.routeTrees)}
-}
-
 // viewNetwork is choiceNetwork with the stations sA and sB, and a second
 // road from fork to sA through the node alt. The road through alt is 16
 // percent slower than the lane to-sA.
@@ -361,8 +345,9 @@ func viewNetwork() Network {
 	return network
 }
 
-// TestEmergencyChoiceRoutingView runs the choice and the installation. Both
-// route memos do not change, and the installed route is the candidate route.
+// TestEmergencyChoiceRoutingView runs the choice and the installation. The
+// installed route is the candidate route, and each entry that they write in
+// the route memo equals a new search of its key.
 func TestEmergencyChoiceRoutingView(t *testing.T) {
 	t.Parallel()
 	s, v := choiceFleet(t, viewNetwork(), 2, "sB")
@@ -373,12 +358,8 @@ func TestEmergencyChoiceRoutingView(t *testing.T) {
 		t.Fatalf("candidate %s, %t, want sA", candidate.station.ID, ok)
 	}
 	want := choiceRoute(s, v, candidate)
-	before := copyRouting(s)
 	startEmergency(t, s, v, 0)
-	//nolint:govet // deepequalerrors: route errors compare by value on purpose.
-	if after := copyRouting(s); !reflect.DeepEqual(before, after) {
-		t.Fatalf("the choice changed the routing state:\n%+v\n%+v", before, after)
-	}
+	checkRouteMemo(t, s)
 	if v.op.purpose != opEmergencyUnload || !sameLanes(v.Route, want) {
 		t.Fatalf("installed route %v, want the candidate route %v", laneIDs(v.Route), laneIDs(want))
 	}

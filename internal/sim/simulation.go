@@ -470,9 +470,6 @@ type Simulation struct {
 	// set. It is empty while the blocked set is empty. It is not saved, and
 	// Clone drops it. See pickupMissFor.
 	pickupMisses map[pickupMiss]bool
-	// accessRoutes holds the free-flow searches of pickupAccess of the current
-	// route epoch. See accessRoute. No save or clone holds it.
-	accessRoutes map[routeKey]routeResult
 	// searchCounters counts the graph searches by kind. It is not saved,
 	// and Reset keeps it. See search_counters.go.
 	searchCounters searchCounters

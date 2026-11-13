@@ -43,7 +43,6 @@ func (s *Simulation) ensureNetworkIndexes() {
 	s.blocked = blockedSet{}
 	s.emergencyMisses = nil
 	s.pickupMisses = nil
-	s.accessRoutes = nil
 	s.staticConnected, s.staticRoutes = nil, nil
 }
 

@@ -1,7 +1,6 @@
 package sim
 
 import (
-	"maps"
 	"slices"
 	"testing"
 )
@@ -554,23 +553,23 @@ func TestPickupBerthFilter(t *testing.T) {
 }
 
 // TestIncidentQueriesWriteNothing checks that endpointRoute and
-// pickupAccess write nothing (section 11 of the incident suspension
-// contract), when they succeed and when they fail. They write no route
-// memo, also when a search comes before a detour refusal.
+// pickupAccess write nothing (sections 9.4 and 11 of the incident
+// suspension contract), when they succeed and when they fail, also when a
+// search comes before a detour refusal. "Writes nothing" means no
+// simulation state. The route memos that the queries write are not
+// simulation state, and each entry equals a new search of its key.
 func TestIncidentQueriesWriteNothing(t *testing.T) {
 	t.Parallel()
 	unchanged := func(t *testing.T, s *Simulation, query func() bool, want bool) {
 		t.Helper()
-		before, memo := s.Clone(), slices.Collect(maps.Keys(s.routes))
+		before := s.Clone()
 		if got := query(); got != want {
 			t.Fatalf("the query reports %v, want %v", got, want)
 		}
 		if !sameState(before, s) {
 			t.Fatal("the query wrote state")
 		}
-		if len(s.routes) != len(memo) || slices.ContainsFunc(memo, func(key routeKey) bool { _, ok := s.routes[key]; return !ok }) {
-			t.Fatalf("the query wrote the route memo: %d entries, want %d", len(s.routes), len(memo))
-		}
+		checkRouteMemo(t, s)
 	}
 	t.Run("endpoint route", func(t *testing.T) {
 		t.Parallel()

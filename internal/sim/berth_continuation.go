@@ -120,7 +120,7 @@ func (s *Simulation) pickupMissFor(v *vehicle, request Request) (pickupMiss, boo
 }
 
 // notePickupMiss stores a failure. It clears a full memo first, which changes
-// no result. Under a routing view, it stores nothing. See cacheRoute.
+// no result. Under a routing view, it stores nothing.
 func (s *Simulation) notePickupMiss(key pickupMiss) {
 	if s.routeView != nil {
 		return

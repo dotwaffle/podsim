@@ -54,7 +54,8 @@ func (s *Simulation) rerouteCandidate(v *vehicle) bool {
 // reports false when the pod cannot divert, when a kept lane is blocked,
 // when no route avoids the blocked set, or when the route takes a rider
 // over the detour limit. It searches under the routing view of v, so it
-// writes nothing, also no route memo.
+// writes no simulation state. Its searches write the route memos, which are
+// not simulation state.
 func (s *Simulation) endpointRoute(v *vehicle) ([]Lane, bool) {
 	if len(v.Route) == 0 {
 		return nil, false
