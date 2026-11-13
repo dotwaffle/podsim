@@ -469,6 +469,8 @@ Waterloo keeps 3 berths in its first bank and Bank keeps 2, and each has a secon
 The 16 Express pods start at `express-parking`, a parking station east of North London Parking that only Express pods use and that is not a depot.
 Each bank of Waterloo and Bank has Express routes to and from `express-parking`.
 Generated demand does not choose an Express service, so the services carry only the trip orders that choose them.
+Dispatch chooses by the estimated pickup time (see [dispatch order](model.md#dispatch-order)), and an Express pod at `express-parking` is about 9 minutes from Waterloo, against at most about 3.5 minutes for a Compact pod.
+In a study of three seeds of 12 simulated hours each at the preset demand, with generated demand alone, the Express pods stayed at `express-parking` for the whole run.
 The preset is opt-in, and the [qualification proposal](contracts/express-london-qualification-proposal.md) gives its status.
 
 The `compact-station` preset shows the bays at work.
