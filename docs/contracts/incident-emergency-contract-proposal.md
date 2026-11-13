@@ -1,7 +1,7 @@
 # Incident emergency contract proposal
 
 Status: Approved revision 7, October 6, 2026.
-Amended through 2026-11-11.
+Amended through 2026-11-13.
 Git history holds the dated amendment notes and the earlier text.
 
 The maintainer approved product choices P1 to P22 of section 18.2 as proposed, on October 5, 2026, at 22:08Z, and decided P23 on October 5, 2026, at 23:59Z.
@@ -440,8 +440,10 @@ Composite steps:
 | Composite | Internal steps |
 | --- | --- |
 | Start | Preflight, ID, record and counter, `withdrawService`, `advanceEmergency`. |
-| Advance | `withdrawService` when the hold is missing, then one of `startOperationalUnload` or the station choice and `setOperationalDestination`, both under one routing view (section 9.1). The choice and the view write no simulation state other than the no-candidate memo of section 9.1. |
+| Advance | `withdrawService` when the hold is missing, then one of `startOperationalUnload` or the station choice and `setOperationalDestination`, both under one routing view (section 9.1). The choice and the view write no simulation state other than the no-candidate memo of section 9.1. They can write the route memos, which are not simulation state (section 9.1). |
 | Record end | Record removal and counter, then `restoreService` when the hold is set. |
+
+Amended 2026-11-13, by maintainer decision: the row "Advance" lets the choice and the view write the route memos.
 
 The later step of a composite cannot fail after the first succeeds, or its failure leaves a valid deferred state:
 
@@ -452,11 +454,11 @@ The later step of a composite cannot fail after the first succeeds, or its failu
 
 Refusal oracle.
 Each refusal test clones the simulation before the call and compares the clone with the state after it: the exported state, `owners`, every `routeReleases` and `nextRelease`, the waiting trips with their bindings and exclusions, `incidentSerial`, the records, the counters, the holds, and the purposes, as stage 2, section 11, specifies.
-The oracle compares the free-flow route memo, `routes` and `routeOrder`, with a copy taken before the call, because `Clone` does not copy that memo (`internal/sim/clone.go` `(*Simulation).Clone`).
+The oracle does not compare the route memos `routes`, `routeOrder`, and `routeTrees`, because they are not simulation state (section 9.1).
 A station choice that finds no candidate passes the oracle, apart from the no-candidate memo of section 9.1.
 A choice that binds the pod can make every change of a successful stage 1 installation (`internal/sim/operational.go` `(*Simulation).setOperationalDestination`): the route, the destination, the purpose, and the derived route indexes of the pod, the release of its revocable claims on the berth of its old destination, and the pending and wait fields.
-In that case, both route memos still stay equal.
 The search counters of section 15, the search work arrays, and the no-candidate memo are not compared.
+Amended 2026-11-13, by maintainer decision: the oracle no longer compares the route memos with a copy from before the call, and the sentence that kept both route memos equal after a choice that binds the pod is removed.
 
 ## 8. Invariants
 
@@ -663,10 +665,13 @@ Routing view.
 - `s.routeView` points to the view while it is set.
   `advanceEmergency` sets it before the choice and clears it after `setOperationalDestination` returns, or after a choice that finds no candidate.
   It is nil outside `advanceEmergency`, so no save or clone holds it.
-- When `s.routeView` is set, `assignedRoute` reads the view, and it writes no route memo.
+- When `s.routeView` is set, `assignedRoute` reads the view.
 - Route memos.
-  The view reads the free-flow memo (`s.routes`, `internal/sim/routes.go` `(*Simulation).cachedRouteForClass`).
-  A miss runs the search, and the view does not write the result.
+  The view reads and writes the free-flow memo (`s.routes`, `internal/sim/routes.go` `(*Simulation).cachedRouteForClass`) and the tree memo (`s.routeTrees`, `internal/sim/route_trees.go` `(*Simulation).batchTrees`), as a search outside a view does.
+  The route memos are not simulation state.
+  Each entry is the result of a new search of its key on the routing graph of the route epoch, and `startRouteEpoch` clears the memos, so a write changes no result.
+  `TestPreferredDirectAndBatchedRoutesAgree`, `TestBankRoutesFromMatchesReference`, and `TestRouteTreesMatchSearch` pin that a batch route and a tree route equal the single search of their key.
+  Amended 2026-11-13, by maintainer decision: the rule that the view writes no route memo is removed.
 - Queue discharge.
   The view holds `queueDischarge(v)` (`internal/sim/routing_policy.go` `(*Simulation).queueDischarge`), which reads the pods and writes nothing.
 
@@ -699,7 +704,8 @@ At 12,000 nodes and 1,000 pods, the guard term `7n + 2k` is 86,000, so on such a
 The preset networks are much smaller.
 The search measurement below and `BenchmarkEmergencyLimitSearch` keep the grid of 5,000 nodes, which was the node limit at the time of the measurement, when the bound was `4 · (1 + 5,001 · 12) = 240,052` graph searches.
 Pruning does not lower this bound, because in a network where the tree reaches every berth and the restricted searches refuse each one, no station is pruned.
-The view does not write the free-flow memo, so the installation repeats the searches of the chosen pair unless the view keeps its suffix.
+The choice writes its searches into the free-flow memo, so the installation finds the suffix of the chosen pair there, unless an eviction removed it.
+Amended 2026-11-13, by maintainer decision: the installation no longer repeats the searches of the chosen pair, unless an eviction removed them.
 
 Latency.
 One search on a network at the project limits of that time was measured with the existing search code:
@@ -727,10 +733,12 @@ At the slowest measured search, 0.95 ms, 50 ms is about 52 graph searches, and a
 
 | Tick | Graph searches | Time at 0.51 to 0.95 ms | Within 50 ms |
 | --- | ---: | ---: | --- |
-| One record, unbanked, free flow, one station tried, cold memo | 1 + 1 + 1 = 3 | 1.5 to 2.9 ms | Yes |
+| One record, unbanked, free flow, one station tried, cold memo | 1 + 1 = 2 | 1.0 to 1.9 ms | Yes |
 | Four records, no station reachable in the tree | 4 | 2.0 to 3.8 ms | Yes |
 | Four records, four stations each, 12 searches for each call | 4 · (1 + 4 · 12 + 12) = 244 | 124 to 232 ms | No |
 | The bound | 240,052 | 122 to 228 s | No |
+
+Amended 2026-11-13, by maintainer decision: the first row counts 2 searches, because the free-flow memo serves the installation.
 
 Pruning makes most ticks small, but the exhaustive worst case cannot meet the threshold.
 The maintainer chose to keep P13 exact and to gate the realistic cases (product choice P23).
@@ -1168,9 +1176,11 @@ The Off parity requirement stays in force under sections 5.1.5 and 5.1.9 of the 
 | --- | --- | --- |
 | `Emergency(podID, orderID)` | The session command; the stage 7 sampler through `startEmergency` (stage 7 contract, rule G9) | Section 6.1. |
 | `advanceEmergency(r)` | Stage 6 would replace the platoon wait with a group exit. Stages 4 to 6 are out of scope (section 1.2). | Section 5.4. A later stage removes a deferral only with its own certified transition and tests. |
-| The station choice of section 9.1 | Stage 5, if a reverse target needs an unload station. Stage 5 is out of scope (section 1.2). | Runs under one routing view, and writes no simulation state other than the no-candidate memo. |
+| The station choice of section 9.1 | Stage 5, if a reverse target needs an unload station. Stage 5 is out of scope (section 1.2). | Runs under one routing view, and writes no simulation state other than the no-candidate memo. It can write the route memos (section 9.1). |
 | `intent.emergency` and the tier | None. The stage 4 use for a train went with physical coupling. | Section 9.3. |
 | `emergencyHold` in F11 and in `incidentOutstanding` | Every later stage. | Section 8, section 9.4. |
+
+Amended 2026-11-13, by maintainer decision: the station choice can write the route memos.
 
 Exported entries:
 
@@ -1202,7 +1212,7 @@ Preconditions that later stages must meet:
 | Divertible pod | The pod binds to the station of the lowest `E`, with the installed route equal to the candidate route. `RelocatingTo` stays empty. |
 | Estimate | A queue on the nearest route makes a farther station win. A pod behind the emergency pod on its lane adds no delay. Ties go to the lower station index, then the lower berth index. Two runs from one state give one choice. |
 | Candidates | A station whose first compatible berth has no route but whose second berth has one stays a candidate. A banked station with one unreachable bank and one reachable bank stays a candidate through the reachable bank. An available berth is the candidate of its group before an occupied one. |
-| Routing view | The choice and the installation leave both route memos unchanged, and the installed suffix equals the candidate suffix. |
+| Routing view | The installed suffix equals the candidate suffix. |
 | Pruning | A randomized test compares the pruned scan with the exhaustive scan in 1,000 cases from fixed seeds. Each case has a random network with banked, unbanked, and `ParkingOnly` stations, a class rule, a blocked set, stopped pods that make queues, and the emergency pod at a random divertible position. Some cases have equal tick keys at several stations. Both scans run from clones of one state and give the same pair and the same installed route. The pruned scan makes fewer route searches in at least half the cases, so the stop rule runs. |
 | Long prefix | A pod route with a prefix of more than 20,000 lane occurrences on a repeated loop: with the term guard holding, the pruned and the exhaustive scans give the same pair, and with a prefix that fails the guard, the choice evaluates every station and gives the same pair. |
 | Warm-memo clone parity | A fixture with a filled no-candidate memo is cloned, and the clone starts with no memo. Both run one continuation. `sameState`, which excludes `emergencyMisses` and the search counters, holds after each step, and the exported trajectories are identical at every tick. |
@@ -1221,6 +1231,8 @@ Preconditions that later stages must meet:
 | Claim surrender | A waiting empty relocation gives up its unused claim on the berth of a bound pod. |
 | Counters | Each counter at its maximum saturates. |
 | Invariants | E1 to E8 and F11 after every tick and command in each test above. |
+
+Amended 2026-11-13, by maintainer decision: the row "Routing view" no longer checks the route memos.
 
 ### 14.2 Restore tests
 
@@ -1276,7 +1288,6 @@ The rows for coupling members, the approach, the Q7 skip, `couplingMemberEligibi
 | Search every tick | Cadence test. |
 | Choose one berth for each station before the route test | Candidates test: the station with a reachable second berth is excluded. |
 | Install with a fresh routing view after the choice | Routing view test: the installed suffix differs. |
-| Let a choice write the free-flow memo | Routing view test: the memo differs from its copy. |
 | Read the stored history on first use | Routing view first-use test. |
 | Apply the bank or berth rules in the tree | Pruning test: a case chooses another pair. |
 | Stop when `lowTick == bestTick` | Pruning test with equal tick keys: the lower station index loses. |
@@ -1306,6 +1317,8 @@ The rows for coupling members, the approach, the Q7 skip, `couplingMemberEligibi
 | Tag `OrderID` with `N = 4` | Digest registry test. |
 | Wrap a counter at the maximum | Counter test. |
 | Use the delta path `/groups/emergencies/value/active` | Prescan audit. |
+
+Amended 2026-11-13, by maintainer decision: the row "Let a choice write the free-flow memo" is removed, because a choice can write that memo.
 
 ## 15. Qualification gates
 

@@ -1,7 +1,7 @@
 # Incident suspension contract proposal
 
 Status: approved, revision 5, October 5, 2026, by the coordinator under the maintainer delegation of October 5, 2026, after blind Astra review rounds and an adversarial check.
-Amended through November 11, 2026.
+Amended through November 13, 2026.
 Git history holds the dated amendment notes and the earlier text.
 It also holds the review history.
 The approval changes no binding decision and no product choice beyond the maintainer-approved amendment D3 and the stage 2 defaults.
@@ -761,8 +761,10 @@ func (s *Simulation) pickupAccess(v *vehicle, request Request) bool
 ```
 
 "Writes nothing" in this contract means that a function writes no simulation state.
-`pickupAccess` keeps its free-flow searches in the derived memo `accessRoutes`, and `endpointRoute` nested in it uses the same memo.
-No save or clone holds this memo, and no other query reads it, so no result changes.
+The route memos `routes`, `routeOrder`, and `routeTrees` are not simulation state.
+Each entry is the result of a new search of its key on the routing graph of the route epoch, `startRouteEpoch` clears the memos, and no save or clone holds them, so a write changes no result (incident emergency contract, section 9.1).
+`pickupAccess` and `endpointRoute` read and write these memos, as a query outside a routing view does.
+Amended 2026-11-13, by maintainer decision: this replaces the ruling of November 5, 2026, that kept the searches of `pickupAccess` in the separate memo `accessRoutes`.
 
 With `origin := request.legOrigin()` (stage 1, section 7.1), the test uses these terms:
 
