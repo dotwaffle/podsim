@@ -32,6 +32,9 @@ type engine struct {
 	timeline *historyTimeline
 	// metadata holds the last result of checkMetadataBranches.
 	metadata metadataVerdict
+	// profileVerdict holds the last result of checkProfiles, or nil. It
+	// has its own key, so no change of a branch clears it.
+	profileVerdict *profileVerdict
 }
 
 // NewCall returns a private editor-worker handler with owned project state.
