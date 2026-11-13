@@ -20,6 +20,7 @@ func TestSafetyObservationCheck(t *testing.T) {
 		pods      []Pod
 		locations []SafetyLocation
 		berths    []BerthState
+		contract  OrderContract
 		wantGap   float64
 		// wantErr is a part of the error text. An empty value expects no error.
 		wantErr        string
@@ -173,11 +174,22 @@ func TestSafetyObservationCheck(t *testing.T) {
 			berths:  []BerthState{{ID: "berth-one", Occupant: "one", ReservedBy: "other"}},
 			wantErr: "invalid berth state",
 		},
+		{
+			name:    "express pod outside the Express contract",
+			pods:    []Pod{{ID: "one", Class: ExpressClass}},
+			wantErr: "profile is not supported",
+		},
+		{
+			name:     "express pod in the Express contract",
+			pods:     []Pod{{ID: "one", Class: ExpressClass}},
+			contract: ExpressOrderContract,
+			wantGap:  math.Inf(1),
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			observation := SafetyObservation{Tick: tick, Pods: test.pods, Locations: test.locations, Berths: test.berths}
+			observation := SafetyObservation{OrderContract: test.contract, Tick: tick, Pods: test.pods, Locations: test.locations, Berths: test.berths}
 			gap, err := observation.Check()
 			if test.wantErr == "" {
 				if err != nil {

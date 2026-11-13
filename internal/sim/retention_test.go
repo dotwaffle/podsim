@@ -635,3 +635,57 @@ func TestRetentionSafetyChainSlots(t *testing.T) {
 		}
 	}
 }
+
+// TestRetentionSafetyChainRules checks the window rules of the safety check
+// with window positions made by hand. The pod b follows the pod a on one
+// plane, at a gap between compactClearance at rest and at 2.5 m/s. The
+// window ends at 36 m, and its limit is 2*Clearance past the end, as the
+// builder sets it. A window certifies only a small pair with the follower
+// at or before the end and the leader at or before the limit. At equal
+// offsets, the higher speed sets the clearance. The check reads the gap
+// from the positions and the window rules from the offsets, so each row
+// sets the offsets by hand, also where the builder would not make them.
+func TestRetentionSafetyChainRules(t *testing.T) {
+	t.Parallel()
+	const end, limit = 36.0, 36.0 + 2*Clearance
+	rest, moving := compactClearance(0), compactClearance(2.5)
+	if rest >= moving || moving >= Clearance {
+		t.Fatalf("compact clearances %g at rest and %g moving, Clearance %g", rest, moving, Clearance)
+	}
+	gap := (rest + moving) / 2
+	chain := func(offset, speed float64) safetyChain {
+		return safetyChain{positions: []chainPosition{{offset: offset, end: end, limit: limit}}, speed: speed}
+	}
+	for _, test := range []struct {
+		name string
+		// class is the class of the leader a.
+		class                      VehicleClass
+		leaderOffset, followOffset float64
+		leaderSpeed, followSpeed   float64
+		fails                      bool
+	}{
+		{name: "certified pair", class: CompactClass, leaderOffset: 30 + gap, followOffset: 30},
+		{name: "leader at the limit", class: CompactClass, leaderOffset: limit, followOffset: end},
+		{name: "leader past the limit", class: CompactClass, leaderOffset: limit + 0.5, followOffset: end, fails: true},
+		{name: "equal offsets with a moving follower", class: CompactClass, leaderOffset: 30, followOffset: 30, followSpeed: 2.5, fails: true},
+		{name: "equal offsets with a moving leader", class: CompactClass, leaderOffset: 30, followOffset: 30, leaderSpeed: 2.5, fails: true},
+		{name: "large leader", class: GroupClass, leaderOffset: 30 + gap, followOffset: 30, fails: true},
+	} {
+		pods := []Pod{
+			{ID: "a", Class: test.class, Position: Point{X: gap}, Speed: test.leaderSpeed},
+			{ID: "b", Class: CompactClass, Speed: test.followSpeed},
+		}
+		observation := SafetyObservation{
+			Pods: pods, Locations: make([]SafetyLocation, len(pods)), bound: slices.Clone(pods),
+			chains: []safetyChain{chain(test.leaderOffset, test.leaderSpeed), chain(test.followOffset, test.followSpeed)},
+		}
+		_, err := observation.Check()
+		separation, ok := errors.AsType[*SeparationError](err)
+		switch {
+		case !test.fails && err != nil:
+			t.Errorf("%s: %v", test.name, err)
+		case test.fails && (!ok || separation.First != "a" || separation.Second != "b"):
+			t.Errorf("%s: error %v, want the pods a and b", test.name, err)
+		}
+	}
+}
