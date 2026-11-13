@@ -38,6 +38,12 @@ type engine struct {
 	// network holds the server checks of one network, or nil. It has its
 	// own key (see keptNetwork).
 	network *keptNetwork
+	// handed holds the server checks of the network of the last edit
+	// reply, or nil. keptNetwork takes them when the engine gets the bytes
+	// of that reply.
+	handed *keptNetwork
+	// reply holds the encoded patch of the last edit until call encodes it.
+	reply editReply
 }
 
 // NewCall returns a private editor-worker handler with owned project state.
@@ -45,10 +51,7 @@ type engine struct {
 // Explicit project requests remain stateless and do not replace this state.
 func NewCall() func(string) string {
 	model := new(engine)
-	return func(input string) string {
-		result, err := model.handle(input)
-		return encodeResponse(result, err)
-	}
+	return model.call
 }
 
 func (e *engine) handle(input string) (response, error) {

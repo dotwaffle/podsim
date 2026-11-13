@@ -450,7 +450,7 @@ func (g geometryDraft) validateBankChanges(original map[string]any, server *serv
 	if err := server.validateDepots(); err != nil {
 		return err
 	}
-	clearance, oldClearance := newDraftClearance(g.network), newDraftClearance(original)
+	clearance, oldClearance := newDraftClearance(g.network), g.originalClearance(original)
 	server.clearance = clearance.index
 	index, oldIndex := newGeometryIndex(g.network), newGeometryIndex(original)
 	for _, lane := range items(g.network["lanes"]) {

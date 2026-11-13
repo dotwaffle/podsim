@@ -78,9 +78,10 @@ func selectorText(expression ast.Expr) string {
 
 // TestOneDraftTailIndex pins that one editor check builds one clearance index,
 // because the index walks each curved lane, and that it gives the index to the
-// server validation and to the warnings. An edit builds one index for the
-// edited network and one for the original, and the server validation reads the
-// first.
+// server validation and to the warnings. An edit builds one index, for the
+// edited network, and the server validation reads it. The index of the
+// original network comes from originalClearance, which reads the index that
+// the engine keeps.
 func TestOneDraftTailIndex(t *testing.T) {
 	t.Parallel()
 	check := newDraftTailCalls(t, "checks.go", "checkNetwork")
@@ -91,7 +92,7 @@ func TestOneDraftTailIndex(t *testing.T) {
 		t.Fatalf("the server draft of checkNetwork has only %v", check.draftKeys)
 	}
 	edit := newDraftTailCalls(t, "edit_banks.go", "validateBankChanges")
-	if edit.calls["newDraftClearance"] != 2 || edit.calls["validateBankDraft"] != 0 {
+	if edit.calls["newDraftClearance"] != 1 || edit.calls["validateBankDraft"] != 0 {
 		t.Fatalf("validateBankChanges calls = %v", edit.calls)
 	}
 	if !edit.serverIndex {

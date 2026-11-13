@@ -5,6 +5,7 @@ import (
 	"encoding/json/v2"
 	"fmt"
 	"maps"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -23,11 +24,25 @@ func (k *keptEngine) edit(geometry string) bool {
 	return k.change(`{"field":"geometry","value":` + geometry + `}`)
 }
 
-// change is edit for any project edit.
+// change is edit for any project edit. The reply of the engine must be the
+// reply of the stateless handler, which keeps no result, for the project of
+// the engine.
 func (k *keptEngine) change(edit string) bool {
 	k.t.Helper()
+	stateless := Call(`{"op":"edit","project":` + k.project() + `,"edit":` + edit + `}`)
+	text := ask(k.model, `{"op":"edit","edit":`+edit+`}`)
+	var got, want any
+	if err := json.Unmarshal([]byte(text), &got); err != nil {
+		k.t.Fatal(err)
+	}
+	if err := json.Unmarshal([]byte(stateless), &want); err != nil {
+		k.t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, want) {
+		k.t.Fatalf("the edit %s differs from the stateless handler:\n got %.400s\nwant %.400s", edit, text, stateless)
+	}
 	var reply cycleReply
-	if err := json.Unmarshal([]byte(ask(k.model, `{"op":"edit","edit":`+edit+`}`)), &reply); err != nil {
+	if err := json.Unmarshal([]byte(text), &reply); err != nil {
 		k.t.Fatal(err)
 	}
 	if reply.Error != "" || len(reply.Change.Patch) == 0 {

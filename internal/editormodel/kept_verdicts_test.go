@@ -31,8 +31,7 @@ func newKeptEngine(t *testing.T, config project.Config) *keptEngine {
 
 // ask sends one request to model and returns the encoded reply.
 func ask(model *engine, request string) string {
-	result, err := model.handle(request)
-	return encodeResponse(result, err)
+	return model.call(request)
 }
 
 // patch synchronizes new values of some branches. The project can then be

@@ -48,9 +48,17 @@ type geometryDraft struct {
 	network map[string]any
 	draft   any
 	patch   map[string]any
+	// kept carries the kept server checks of the engine, or nil.
+	kept *editKept
 }
 
 func editGeometry(draft any, raw jsontext.Value) (projectChange, error) {
+	return editGeometryKept(draft, raw, nil)
+}
+
+// editGeometryKept is editGeometry with the kept server checks of the
+// engine, or nil.
+func editGeometryKept(draft any, raw jsontext.Value, kept *editKept) (projectChange, error) {
 	command, err := decodeGeometryEdit(raw)
 	if err != nil {
 		return projectChange{}, err
@@ -63,7 +71,7 @@ func editGeometry(draft any, raw jsontext.Value) (projectChange, error) {
 		return projectChange{}, err
 	}
 	change := projectChange{Patch: make(map[string]any)}
-	geometry := geometryDraft{network: object(cloneEditValue(original)), draft: draft, patch: change.Patch}
+	geometry := geometryDraft{network: object(cloneEditValue(original)), draft: draft, patch: change.Patch, kept: kept}
 	var held *heldConflictError
 	if err := geometry.change(command); err != nil && !errors.As(err, &held) {
 		return projectChange{}, err
@@ -97,9 +105,22 @@ func (g geometryDraft) serverChecks(original map[string]any) error {
 		}
 	}
 	if hasBanks(g.network) || hasLargeGeometry(g.network) || hasManeuverGroups(g.network) || hasDepots(g.network) {
-		return server.validate()
+		err := server.validate()
+		if g.kept != nil && server.check != nil {
+			g.kept.edited = &keptNetwork{clearance: draftClearance{index: server.clearance, grouped: draftManeuverLanes(g.network)}, typed: server.typed, check: server.check}
+		}
+		return err
 	}
 	return nil
+}
+
+// originalClearance returns the clearance index of the network before the
+// edit. The engine keeps it with the server checks of that network.
+func (g geometryDraft) originalClearance(original map[string]any) draftClearance {
+	if g.kept != nil {
+		return g.kept.original().clearance
+	}
+	return newDraftClearance(original)
 }
 
 func decodeGeometryEdit(raw jsontext.Value) (geometryEdit, error) {

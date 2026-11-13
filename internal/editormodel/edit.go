@@ -31,10 +31,25 @@ type projectChange struct {
 	Note       string            `json:"note,omitempty"`
 }
 
+// editKept carries the server checks that the engine keeps through one
+// edit. original returns the checks of the network before the edit. A
+// geometry edit sets edited to the checks of the network after the edit,
+// when the server validation ran on it.
+type editKept struct {
+	original func() *keptNetwork
+	edited   *keptNetwork
+}
+
 // editProject proposes owned replacement branches. The caller commits them
 // only after its draft and gesture guards pass. This operation does not
 // change the synchronized worker state or the existing undo history.
 func editProject(draft any, raw jsontext.Value) (projectChange, error) {
+	return editProjectKept(draft, raw, nil)
+}
+
+// editProjectKept is editProject with the kept server checks of the
+// engine, or nil.
+func editProjectKept(draft any, raw jsontext.Value, kept *editKept) (projectChange, error) {
 	if raw.Kind() != '{' {
 		return projectChange{}, errors.New("a project edit needs a command object")
 	}
@@ -45,17 +60,19 @@ func editProject(draft any, raw jsontext.Value) (projectChange, error) {
 	if len(command.Editor) != 0 && command.Editor.Kind() != 't' && command.Editor.Kind() != 'f' {
 		return projectChange{}, errors.New("the editor defaults flag must be boolean")
 	}
-	change, err := proposeProjectEdit(draft, command)
+	change, err := proposeProjectEdit(draft, command, kept)
 	if err == nil && command.Editor.Kind() == 't' {
 		repairDemandDestination(draft, &change)
 	}
 	return change, err
 }
 
-func proposeProjectEdit(draft any, command editCommand) (projectChange, error) {
+func proposeProjectEdit(draft any, command editCommand, kept *editKept) (projectChange, error) {
 	switch command.Field {
 	case "geometry":
-		return proposeDocumentEdit(draft, command, "a geometry edit does not accept a target", editGeometry)
+		return proposeDocumentEdit(draft, command, "a geometry edit does not accept a target", func(draft any, raw jsontext.Value) (projectChange, error) {
+			return editGeometryKept(draft, raw, kept)
+		})
 	case "map":
 		return proposeDocumentEdit(draft, command, "a map edit does not accept a target", editMap)
 	case "background":
@@ -431,15 +448,48 @@ func (e *engine) edit(raw jsontext.Value) (response, error) {
 	if !needsFlows {
 		draft["demandProfiles"] = e.profiles
 	}
-	change, err := editProject(draft, raw)
+	// An edit hands over the server checks of its own network only.
+	e.handed = nil
+	kept := &editKept{original: e.keptNetwork}
+	change, err := editProjectKept(draft, raw, kept)
+	var encoded map[string]jsontext.Value
 	if err == nil {
 		branches := make(map[string]jsontext.Value, len(e.branches))
 		for key, branch := range e.branches {
 			branches[key] = branch.raw
 		}
-		err = checkEditSize(e.size, branches, change.Patch)
+		encoded, err = encodeEditPatch(e.size, branches, change.Patch)
 	}
-	return response{Change: &change}, err
+	if network := encoded["network"]; err == nil && kept.edited != nil && len(network) != 0 {
+		kept.edited.raw = network
+		e.handed = kept.edited
+	}
+	e.reply = editReply{change: &change, patch: encoded}
+	return response{Change: e.reply.change}, err
+}
+
+// editReply holds the encoded patch values of the change of the last edit,
+// so that the reply does not encode them again.
+type editReply struct {
+	change *projectChange
+	patch  map[string]jsontext.Value
+}
+
+// call handles one request and encodes the reply. The reply of an edit has
+// the patch bytes that the size check encoded.
+func (e *engine) call(input string) string {
+	result, err := e.handle(input)
+	reply := e.reply
+	e.reply = editReply{}
+	if err == nil && result.Change != nil && result.Change == reply.change && reply.patch != nil {
+		change := *result.Change
+		change.Patch = make(map[string]any, len(reply.patch))
+		for key, value := range reply.patch {
+			change.Patch[key] = value
+		}
+		result.Change = &change
+	}
+	return encodeResponse(result, err)
 }
 
 func editNeedsFullProfiles(raw jsontext.Value) bool {
@@ -458,16 +508,25 @@ func editNeedsFullProfiles(raw jsontext.Value) bool {
 }
 
 func checkEditSize(size int, branches map[string]jsontext.Value, patch map[string]any) error {
+	_, err := encodeEditPatch(size, branches, patch)
+	return err
+}
+
+// encodeEditPatch is checkEditSize. It also returns the encoded value of
+// each key of the patch.
+func encodeEditPatch(size int, branches map[string]jsontext.Value, patch map[string]any) (map[string]jsontext.Value, error) {
+	values := make(map[string]jsontext.Value, len(patch))
 	for key, value := range patch {
 		encoded, err := json.Marshal(value)
 		if err != nil {
-			return fmt.Errorf("encode editor change: %w", err)
+			return nil, fmt.Errorf("encode editor change: %w", err)
 		}
+		values[key] = encoded
 		size += len(encoded) - len(branches[key])
 		if _, exists := branches[key]; !exists {
 			encodedKey, err := json.Marshal(key)
 			if err != nil {
-				return fmt.Errorf("encode editor change key: %w", err)
+				return nil, fmt.Errorf("encode editor change key: %w", err)
 			}
 			size += len(encodedKey) + 1
 			if len(branches) != 0 {
@@ -476,9 +535,9 @@ func checkEditSize(size int, branches map[string]jsontext.Value, patch map[strin
 		}
 	}
 	if size > project.MaxFileBytes {
-		return errors.New("the edit makes the project too large")
+		return nil, errors.New("the edit makes the project too large")
 	}
-	return nil
+	return values, nil
 }
 
 func firstBand(profile any) string {

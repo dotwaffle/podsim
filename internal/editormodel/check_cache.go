@@ -71,6 +71,12 @@ func (e *engine) keptNetwork() *keptNetwork {
 	if e.network != nil && bytes.Equal(e.network.raw, branch.raw) {
 		return e.network
 	}
+	// The last edit built the checks of its network. The bytes of its
+	// reply are the key.
+	if handed := e.handed; handed != nil && branch.err == nil && bytes.Equal(handed.raw, branch.raw) {
+		e.network, e.handed = handed, nil
+		return handed
+	}
 	kept := &keptNetwork{raw: branch.raw, clearance: newDraftClearance(branch.value)}
 	if branch.err == nil {
 		kept.typed = branch.decoded.Network
