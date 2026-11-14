@@ -5,7 +5,7 @@ Milestone M1 is built, and the maintainer accepted it in Chrome on 2026-11-14: t
 Milestone M2 is built, and the maintainer accepted it in Chrome on 2026-11-14, with a note that the look needs more work.
 Milestone M3a is built, and the maintainer accepted it in Chrome on 2026-11-14, after the fixes for the map flicker, the black sky, and the map sharpness.
 Milestone M3b is built, and the maintainer accepted it in Chrome on 2026-11-14, after a north-up mini-map, damped turns, a route progress bar, a nearest stop, sharper shadows, and station labels.
-M4 is not built.
+Milestone M4 is built and waits for the maintainer's check in Chrome.
 
 ## Goal
 
@@ -65,13 +65,15 @@ The bridge copies data into typed arrays, so JavaScript does not get one object 
 
 | Function | Call rate | Returns |
 | --- | --- | --- |
-| `ride.start(serverURL)` | Once | Nothing. It starts the client. |
-| `ride.topology()` | When `generation` changes | JSON: lanes with end points, control point, and speed limit, stations with berth positions, `geo`, and `map`. |
+| `ride.topology()` | When `generation` changes | JSON: lanes with end points, control point, and speed limit, stations with berth positions, the largest party size of a new order, `geo`, and `map`. The module starts the client for the page origin when it loads. |
 | `ride.frame(out)` | Each animation frame | It fills a `Float64Array` with 5 numbers for each pod: x, y, heading, speed, and class index. It returns the pod count, the generation, a pod list version, the connection state, and the connection error. |
 | `ride.ids()` | When the pod list version changes | The pod IDs in the order of `frame`. |
 | `ride.pods()` | When the pod list version changes, and when the user opens the pod list | The ID, class, activity, and first trip of each pod, in the order of the latest state. |
 | `ride.hud(podID)` | 4 times a second | JSON: class, activity, speed, lane speed limit, wait reason, `blockedBy`, riders aboard, next stop, route progress, session speed and pause, connection, and the outcome of the last command. |
 | `ride.nextPod(podID)` | In auto mode, when the page moves to another pod | The pod that auto mode rides after `podID`, or an empty string. |
+| `ride.requestTrip(origin, destination, party, shared)` | On user action | It sends a `trip` order with on-demand service and starts the passenger flow. It returns the error text when the client cannot send the order, or when the page follows a trip already. |
+| `ride.passenger()` | 4 times a second | JSON: the phase of the passenger flow, the order ID, the origin, the destination, the station of the platform camera, the pod, and the stop message. |
+| `ride.endTrip()` | On user action, and 10 seconds after the arrival | Nothing. The page stops following the order, and the order stays in the session. |
 | `ride.setSpeed(speed)` | On user action | It sends a `speed` command for the session that the page shows, through the retry-safe command path of `remote.Client`. It returns the error text when the client cannot send the command. The HUD shows the reply. |
 
 `frame` uses `remote.Motion.Sample`, so the 3D view has the same 250 ms delay as the 2D view.
@@ -148,6 +150,8 @@ A test pins the axis mapping with a station pair of known compass direction.
   The `C` key switches between the seat camera and the chase camera.
   The chase view draws the ridden pod, and the seat view draws the cabin frame.
 - Platform camera: at a station, used by the passenger flow.
+  It stands 22 m to the side of the line through the first and the last berth, 10 m back, and 4 m above the guideway, and it looks at the center of the berths.
+  Mouse look works in this view too.
 
 ## Pod choice
 
@@ -192,7 +196,8 @@ If the ridden pod leaves the fleet, for example after a project apply, the page 
 The flow uses the existing `trip` command and the `pending` and `riders` data of the stream.
 It needs no server change.
 
-1. Menu: the user chooses an origin station, a destination station, a party size, and the consent.
+1. Menu: the **Trip** button opens the menu, where the user chooses an origin station, a destination station, a party size, and the consent.
+   The origin starts at the nearest stop to the view.
    On an `express-v1` project, the page sends an on-demand trip with the `orderContract` marker.
 2. Requested: the page sends `trip` and keeps the `orderID` from the acknowledgment.
 3. Waiting: the platform camera shows the origin station.
@@ -211,6 +216,13 @@ The flow stops and shows a message in these cases:
 - The epoch or the generation changes.
 
 The page logs each state change of the flow to the browser console.
+
+The page finds the order in `pending` first, then aboard a pod, and then in the completed riders, because a party that changes pods keeps a completed record on its first pod.
+A party that is in the `riders` of a pod without `boardedTick` waits for that pod at its station.
+Until the state reaches the revision of the reply that accepted the order, a missing order does not stop the flow.
+A change between the platform camera and the seat camera fades to black and back.
+During a trip, the pod list and auto mode are off.
+The **Leave trip** button stops the flow, and the order stays in the session, because the protocol has no command to cancel an order.
 
 ## Failure modes
 

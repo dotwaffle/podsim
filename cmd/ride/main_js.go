@@ -14,6 +14,7 @@ import (
 	"github.com/dotwaffle/podsim/internal/remote"
 	"github.com/dotwaffle/podsim/internal/ride"
 	"github.com/dotwaffle/podsim/internal/session"
+	"github.com/dotwaffle/podsim/internal/sim"
 )
 
 func main() {
@@ -30,6 +31,9 @@ func main() {
 	api.Set("hud", js.FuncOf(page.hud))
 	api.Set("setSpeed", js.FuncOf(page.setSpeed))
 	api.Set("nextPod", js.FuncOf(page.nextPod))
+	api.Set("requestTrip", js.FuncOf(page.requestTrip))
+	api.Set("passenger", js.FuncOf(page.passengerState))
+	api.Set("endTrip", js.FuncOf(page.endTrip))
 	js.Global().Set("podsimRide", api)
 	select {}
 }
@@ -45,6 +49,8 @@ type ridePage struct {
 	bytes     []byte
 	// message is the outcome of the last command, for the HUD.
 	message string
+	// passenger is the passenger flow of the page.
+	passenger ride.Passenger
 }
 
 // update reads the latest state of the client and the result of a command.
@@ -52,6 +58,9 @@ type ridePage struct {
 func (p *ridePage) update() {
 	select {
 	case result := <-p.client.Results():
+		if result.Command.Action == "trip" {
+			p.passenger = p.passenger.Reply(result.Reply, result.Err)
+		}
 		switch {
 		case result.Err != nil:
 			p.message = result.Err.Error()
@@ -68,6 +77,7 @@ func (p *ridePage) update() {
 		p.state = state
 		p.bridge.Observe(state, time.Now())
 	}
+	p.passenger = p.passenger.Step(p.state)
 }
 
 // topology returns the geometry of the current generation as JSON text, or
@@ -138,6 +148,49 @@ func (p *ridePage) nextPod(_ js.Value, args []js.Value) any {
 		return ""
 	}
 	return ride.NextPod(p.state, args[0].String())
+}
+
+// requestTrip sends a trip order from the station args[0] to the station
+// args[1] for a party of args[2], with shared consent when args[3] is true,
+// and starts the passenger flow. It returns the error text when the page
+// cannot send the order, or an empty string. passenger shows the reply.
+func (p *ridePage) requestTrip(_ js.Value, args []js.Value) any {
+	p.update()
+	if len(args) < 4 || args[0].Type() != js.TypeString || args[1].Type() != js.TypeString || args[2].Type() != js.TypeNumber || args[3].Type() != js.TypeBoolean {
+		return "the trip needs an origin, a destination, a party size, and the consent"
+	}
+	switch p.passenger.Phase {
+	case ride.Requested, ride.Waiting, ride.Riding:
+		return "the page follows a trip already"
+	}
+	consent := sim.PrivateConsent
+	if args[3].Bool() {
+		consent = sim.SharedConsent
+	}
+	origin, destination := args[0].String(), args[1].String()
+	command := session.Command{Action: "trip", Origin: origin, Destination: destination, PartySize: args[2].Int(), SharingConsent: consent, Service: sim.OnDemandService}
+	if err := p.client.SubmitIn(remote.SessionOf(p.state), command); err != nil {
+		return err.Error()
+	}
+	p.passenger = ride.Request(p.state, origin, destination)
+	p.message = "Sending the trip"
+	return ""
+}
+
+// passengerState returns the passenger flow as JSON text.
+func (p *ridePage) passengerState(js.Value, []js.Value) any {
+	p.update()
+	data, err := json.Marshal(p.passenger)
+	if err != nil {
+		return nil
+	}
+	return string(data)
+}
+
+// endTrip stops the passenger flow. The order stays in the session.
+func (p *ridePage) endTrip(js.Value, []js.Value) any {
+	p.passenger = ride.Passenger{}
+	return nil
 }
 
 // setSpeed sends a speed command with the speed args[0] for the session

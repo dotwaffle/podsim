@@ -931,7 +931,7 @@ See [server restarts](protocol.md#server-restarts).
 | `internal/statestore` | Saved session state in a `file://` blob bucket, for the server only. |
 | `internal/remote` | Shared state streaming, motion buffering, command retries, and connection state. |
 | `internal/view` | Ebitengine rendering and input against copied snapshots. |
-| `internal/ride` | Pod poses, headings, network geometry, the pod list, the HUD data, and the auto mode choice for the first-person ride page. |
+| `internal/ride` | Pod poses, headings, network geometry, the pod list, the HUD data, the auto mode choice, and the passenger flow for the first-person ride page. |
 | `internal/telemetry` | Optional OTLP traces, HTTP metrics, runtime metrics, session gauges, and session state metrics. |
 | `internal/cmd/buildweb` | Generated browser files and gzip WASM file. |
 | `cmd/podsim` | Desktop and WASM entry point. |

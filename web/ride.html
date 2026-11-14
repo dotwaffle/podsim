@@ -33,6 +33,13 @@
     #credit { position: absolute; left: 50%; top: 6px; transform: translateX(-50%); padding: 2px 7px; border-radius: 3px; background: #101d28b3; font-size: 11px; }
     #minimap { position: absolute; right: 8px; bottom: 44px; width: 240px; height: 240px; border-radius: 50%; pointer-events: none; }
     #fade { position: absolute; inset: 0; background: #000; opacity: 0; pointer-events: none; transition: opacity 0.4s; }
+    #tripMenu { display: grid; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px solid #496174; }
+    #tripMenu[hidden] { display: none; }
+    #tripMenu select { max-width: min(300px, calc(100vw - 120px)); }
+    #tripParty { width: 4em; }
+    #tripMessage { color: #f3c479; }
+    #tripMessage:empty, #hudPassenger:empty { display: none; }
+    #hudPassenger { margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid #496174; color: #b7e0ff; font-weight: 600; }
     #credit[hidden] { display: none; }
     #credit a { color: #b7d7f5; }
   </style>
@@ -47,8 +54,21 @@
 </head>
 <body>
   <canvas id="scene"></canvas>
-  <div id="panel"><label>Pod <select id="pod"></select></label> <label title="Move to another pod after each drop-off"><input type="checkbox" id="auto"> Auto</label></div>
+  <div id="panel">
+    <label>Pod <select id="pod"></select></label>
+    <label title="Move to another pod after each drop-off"><input type="checkbox" id="auto"> Auto</label>
+    <button id="tripButton" type="button">Trip…</button>
+    <form id="tripMenu" hidden>
+      <label>From <select id="tripOrigin"></select></label>
+      <label>To <select id="tripDestination"></select></label>
+      <label>Party <input id="tripParty" type="number" min="1" max="8" value="1"></label>
+      <label title="Other parties can share the pod"><input id="tripShared" type="checkbox"> Share</label>
+      <div class="tripActions"><button type="submit">Order the trip</button> <button id="tripClose" type="button">Close</button></div>
+      <div id="tripMessage" role="status"></div>
+    </form>
+  </div>
   <div id="hud" aria-live="off">
+    <div id="hudPassenger"></div>
     <div id="hudSpeed"></div>
     <div id="hudState"></div>
     <div id="hudWait"></div>

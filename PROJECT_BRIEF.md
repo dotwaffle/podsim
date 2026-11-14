@@ -97,7 +97,7 @@ These stay out of the project until someone decides otherwise.
 | Multiplayer beyond one shared session, realistic scenery, legacy simulator file import, and advanced fleet optimization | Not planned. |
 | Editable geographic objects, automatic guideway generation, editable OSM vectors, and aerial imagery | Shelved at the maintainer's request. |
 | Opposing traffic on shared single track | Not built. It needs reservations, fairness, and deadlock handling. |
-| A 3D client | In progress: a first-person ride page, in the [ride design](docs/design/first-person-ride.md). Milestones M1 to M3 are built. Other 3D clients are not planned. |
+| A 3D client | In progress: a first-person ride page, in the [ride design](docs/design/first-person-ride.md). Milestones M1 to M4 are built. Other 3D clients are not planned. |
 | Stored tunnel depth, elevation, and terrain | Not in the model. Adding them can change geometry and saved projects. |
 
 The ride page uses Babylon.js and reads the same stream through `internal/remote` in its own WASM module.

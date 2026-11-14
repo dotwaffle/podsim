@@ -298,15 +298,17 @@ func (t laneTable) tangent(id string, distance float64) (float64, bool) {
 
 // Topology is the geometry that the ride page draws.
 type Topology struct {
-	ServerStart string                 `json:"serverStart"`
-	Epoch       string                 `json:"epoch"`
-	Generation  uint64                 `json:"generation"`
-	Nodes       []sim.Node             `json:"nodes"`
-	Lanes       []TopologyLane         `json:"lanes"`
-	Stations    []TopologyStation      `json:"stations"`
-	Classes     []TopologyClass        `json:"classes"`
-	Geo         *project.Geo           `json:"geo,omitzero"`
-	Map         *project.MapBackground `json:"map,omitzero"`
+	ServerStart string            `json:"serverStart"`
+	Epoch       string            `json:"epoch"`
+	Generation  uint64            `json:"generation"`
+	Nodes       []sim.Node        `json:"nodes"`
+	Lanes       []TopologyLane    `json:"lanes"`
+	Stations    []TopologyStation `json:"stations"`
+	Classes     []TopologyClass   `json:"classes"`
+	// PartyLimit is the largest party size of a new order.
+	PartyLimit int                    `json:"partyLimit"`
+	Geo        *project.Geo           `json:"geo,omitzero"`
+	Map        *project.MapBackground `json:"map,omitzero"`
 }
 
 // TopologyLane is one lane. Control is present on a curved lane.
@@ -345,7 +347,7 @@ func NewTopology(state session.State) Topology {
 		nodes[node.ID] = node.Position
 	}
 	topology := Topology{
-		ServerStart: state.ServerStart, Epoch: state.Epoch, Generation: state.Generation,
+		ServerStart: state.ServerStart, Epoch: state.Epoch, Generation: state.Generation, PartyLimit: sim.MaxNewPartySize,
 		Nodes: slices.Clone(network.Nodes), Geo: state.Geo, Map: state.Map,
 		Lanes:    make([]TopologyLane, 0, len(network.Lanes)),
 		Stations: make([]TopologyStation, 0, len(network.Stations)),
@@ -359,6 +361,10 @@ func NewTopology(state session.State) Topology {
 			berths = append(berths, nodes[berth.Node])
 		}
 		topology.Stations = append(topology.Stations, TopologyStation{ID: station.ID, Name: station.Name, ParkingOnly: station.ParkingOnly, Berths: berths})
+	}
+	if state.Simulation.OrderContract == sim.ExpressOrderContract {
+		profile, _ := sim.LookupVehicleClassWithOrderContract(sim.ExpressClass, sim.ExpressOrderContract)
+		topology.PartyLimit = profile.MaxNewPartySize
 	}
 	for _, class := range Classes {
 		spec, _ := sim.LookupVehicleClass(class)

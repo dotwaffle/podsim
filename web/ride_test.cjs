@@ -336,9 +336,9 @@ test("nearestStop finds the nearest passenger station", () => {
     { id: "empty", name: "Empty", berths: [] },
   ];
   const stops = ride.stopPoints(stations);
-  assert.deepEqual(stops, [{ name: "Alpha", x: 10, y: 0 }, { name: "b", x: 100, y: 0 }]);
-  assert.deepEqual(ride.nearestStop(stops, 90, 0), { name: "b", distance: 10 });
-  assert.deepEqual(ride.nearestStop(stops, 10, 30), { name: "Alpha", distance: 30 });
+  assert.deepEqual(stops, [{ id: "a", name: "Alpha", x: 10, y: 0 }, { id: "b", name: "b", x: 100, y: 0 }]);
+  assert.deepEqual(ride.nearestStop(stops, 90, 0), { id: "b", name: "b", distance: 10 });
+  assert.deepEqual(ride.nearestStop(stops, 10, 30), { id: "a", name: "Alpha", distance: 30 });
   // A tie goes to the first stop.
   assert.equal(ride.nearestStop(stops, 55, 0).name, "Alpha");
   assert.equal(ride.nearestStop([], 0, 0), null);
@@ -382,4 +382,41 @@ test("placeLabels keeps the nearest labels that do not overlap", () => {
   assert.deepEqual(ride.placeLabels(labels, blocked, 1).map((label) => label.text), ["near"]);
   // Boxes that only touch do not overlap.
   assert.equal(ride.placeLabels([box("a", 0, 0, 1), box("b", 40, 0, 2)], [], 10).length, 2);
+});
+
+test("platformView stands beside the berths and looks at their center", () => {
+  // Berths along world x: the eye is 22 m to the south (world +y) and 10 m back.
+  const along = ride.platformView([{ x: 0, y: 0 }, { x: 40, y: 0 }]);
+  assert.deepEqual(along.center, { x: 20, y: 0 });
+  near(along.eye[0], 10, "eye x");
+  near(along.eye[2], -22, "eye scene z");
+  near(along.target[0], 20, "target x");
+  near(along.target[2], 0, "target scene z");
+  assert.ok(along.eye[1] > along.target[1], "the eye is above the target");
+  // Berths along world y: the side turns with them.
+  const across = ride.platformView([{ x: 0, y: 0 }, { x: 0, y: 40 }]);
+  near(across.eye[0], -22, "turned eye x");
+  near(across.eye[2], -10, "turned eye scene z");
+  // One berth uses world x as the line.
+  const one = ride.platformView([{ x: 5, y: 5 }]);
+  near(one.eye[0], -5, "single eye x");
+  near(one.eye[2], -27, "single eye scene z");
+});
+
+test("tripView shows each phase of the passenger flow", () => {
+  const names = new Map([["s", "Bank"], ["t", "Oval"], ["x", "Kennington"]]);
+  const base = { origin: "s", destination: "t", station: "s" };
+  const cases = [
+    { p: { ...base, phase: "requested" }, text: "Sending the trip: Bank to Oval", camera: "platform", station: "s", podID: "", active: true },
+    { p: { ...base, phase: "requested", orderID: 7 }, text: "Order #7: Bank to Oval", camera: "platform", station: "s", podID: "", active: true },
+    { p: { ...base, phase: "waiting", orderID: 7 }, text: "Order #7: waiting at Bank for a pod", camera: "platform", station: "s", podID: "", active: true },
+    { p: { ...base, phase: "waiting", orderID: 7, station: "x", podID: "p2" }, text: "Order #7: waiting at Kennington for pod p2", camera: "platform", station: "x", podID: "p2", active: true },
+    { p: { ...base, phase: "riding", orderID: 7, podID: "p2" }, text: "Order #7: riding pod p2 to Oval", camera: "seat", station: "", podID: "p2", active: true },
+    { p: { ...base, phase: "arrived", orderID: 7, station: "t", podID: "p2" }, text: "Order #7: arrived at Oval", camera: "platform", station: "t", podID: "", active: false },
+    { p: { ...base, phase: "stopped", message: "the queue is full" }, text: "Trip stopped: the queue is full", camera: "", station: "", podID: "", active: false },
+  ];
+  for (const { p, ...want } of cases) assert.deepEqual(ride.tripView(p, names), want, p.phase);
+  assert.equal(ride.tripView({ phase: "" }, names), null);
+  assert.equal(ride.tripView(null, names), null);
+  assert.equal(ride.tripView({ ...base, phase: "waiting", station: "zz" }, names).text, "Trip: waiting at zz for a pod");
 });

@@ -61,6 +61,14 @@
   const MINIMAP_LABELS = 16;
   // Auto mode fades to black, moves to the next pod, and fades back.
   const FADE_MS = 400;
+  // The platform camera stands beside the berths of a station, above the
+  // platform, and looks at their center.
+  const PLATFORM_SIDE = 22;
+  const PLATFORM_BACK = 10;
+  const PLATFORM_EYE = 4;
+  // After the party arrives, the platform camera shows the destination for
+  // this time before the trip menu opens.
+  const ARRIVAL_MS = 10000;
   // Ground layers draw first, in this order, and write no depth. Nothing in
   // the scene is below the ground, so the layers cannot fight in the depth
   // buffer, and every other mesh draws over them.
@@ -403,6 +411,7 @@
   // center of its berths.
   function stopPoints(stations) {
     return stations.filter((station) => !station.parkingOnly && station.berths.length > 0).map((station) => ({
+      id: station.id,
       name: station.name || station.id,
       x: station.berths.reduce((sum, berth) => sum + berth.x, 0) / station.berths.length,
       y: station.berths.reduce((sum, berth) => sum + berth.y, 0) / station.berths.length,
@@ -439,7 +448,7 @@
     let best = null;
     for (const stop of stops) {
       const distance = Math.hypot(stop.x - x, stop.y - y);
-      if (!best || distance < best.distance) best = { name: stop.name, distance };
+      if (!best || distance < best.distance) best = { id: stop.id, name: stop.name, distance };
     }
     return best;
   }
@@ -459,6 +468,45 @@
     const yAxis = cross(d, xAxis);
     const x = Math.round(dot(p, xAxis) / texel) * texel, y = Math.round(dot(p, yAxis) / texel) * texel, z = dot(p, d);
     return [0, 1, 2].map((i) => x * xAxis[i] + y * yAxis[i] + z * d[i]);
+  }
+
+  // platformView returns the scene positions of the eye and the target of
+  // the platform camera at a station with the world berth positions berths.
+  // The eye is to the side of the line through the first and the last berth.
+  function platformView(berths) {
+    const count = berths.length || 1;
+    const center = { x: berths.reduce((sum, berth) => sum + berth.x, 0) / count, y: berths.reduce((sum, berth) => sum + berth.y, 0) / count };
+    let ax = 1, ay = 0;
+    if (berths.length >= 2) {
+      const first = berths[0], last = berths[berths.length - 1], length = Math.hypot(last.x - first.x, last.y - first.y);
+      if (length > 1) { ax = (last.x - first.x) / length; ay = (last.y - first.y) / length; }
+    }
+    const [ex, ez] = toScene(center.x - ay * PLATFORM_SIDE - ax * PLATFORM_BACK, center.y + ax * PLATFORM_SIDE - ay * PLATFORM_BACK);
+    const [tx, tz] = toScene(center.x, center.y);
+    return { center, eye: [ex, BEAM_TOP + PLATFORM_EYE, ez], target: [tx, BEAM_TOP + 1, tz] };
+  }
+
+  // tripView returns how the page shows the passenger flow p of
+  // ride.passenger(), or null when there is no trip. names maps a station ID
+  // to its name. camera is "platform" at station, "seat" in pod podID, or ""
+  // to keep the camera.
+  function tripView(p, names) {
+    if (!p || !p.phase) return null;
+    const name = (id) => names.get(id) || id;
+    const order = p.orderID ? `Order #${p.orderID}` : "Trip";
+    const pod = p.podID ? `pod ${p.podID}` : "a pod";
+    switch (p.phase) {
+      case "requested":
+        return { text: p.orderID ? `${order}: ${name(p.origin)} to ${name(p.destination)}` : `Sending the trip: ${name(p.origin)} to ${name(p.destination)}`, camera: "platform", station: p.station, podID: "", active: true };
+      case "waiting":
+        return { text: `${order}: waiting at ${name(p.station)} for ${pod}`, camera: "platform", station: p.station, podID: p.podID || "", active: true };
+      case "riding":
+        return { text: `${order}: riding ${pod} to ${name(p.destination)}`, camera: "seat", station: "", podID: p.podID, active: true };
+      case "arrived":
+        return { text: `${order}: arrived at ${name(p.station)}`, camera: "platform", station: p.station, podID: "", active: false };
+      default:
+        return { text: `Trip stopped: ${p.message || "unknown reason"}`, camera: "", station: "", podID: "", active: false };
+    }
   }
 
   // autoHop reports whether auto mode moves to another pod. It moves when
@@ -798,13 +846,14 @@
     const classColors = CLASS_COLORS.map((rgb) => `rgb(${rgb.map((value) => Math.round(value * 255)).join(",")})`);
     const context = canvas.getContext("2d");
 
-    // draw shows the map around the pod with the pose index ridden, with
-    // north up. heading turns the arrow of the pod.
-    function draw(poses, count, ridden, heading) {
+    // draw shows the map around world (x, y), with north up. With a finite
+    // heading, an arrow at the center shows the ridden pod, and the pose
+    // index ridden draws no dot. The pose index marked draws as a large
+    // white dot. An index of -1 is no pod.
+    function draw(x, y, heading, poses, count, ridden, marked) {
       const ratio = root.devicePixelRatio || 1, size = Math.round(MINIMAP_SIZE * ratio);
       if (canvas.width !== size) canvas.width = canvas.height = size;
       const half = size / 2, scale = half / MINIMAP_RADIUS;
-      const x = poses[ridden * POSE_FIELDS], y = poses[ridden * POSE_FIELDS + 1];
       context.setTransform(1, 0, 0, 1, 0, 0);
       context.clearRect(0, 0, size, size);
       context.save();
@@ -858,14 +907,15 @@
       for (let i = 0; i < count; i++) {
         const at = i * POSE_FIELDS, dx = poses[at] - x, dy = poses[at + 1] - y;
         if (i === ridden || Math.abs(dx) > MINIMAP_RADIUS || Math.abs(dy) > MINIMAP_RADIUS) continue;
-        dot(dx, dy, 2, classColors[poses[at + 4] | 0] || classColors[0]);
+        if (i === marked) dot(dx, dy, 4.5, "#ffffff"); else dot(dx, dy, 2, classColors[poses[at + 4] | 0] || classColors[0]);
       }
-      // The ridden pod is an arrow at the center.
-      context.beginPath();
-      for (const [px, py] of miniMapArrow(heading, half, 8 * ratio)) context.lineTo(px, py);
-      context.closePath();
-      context.fillStyle = "#ffffff";
-      context.fill();
+      if (Number.isFinite(heading)) {
+        context.beginPath();
+        for (const [px, py] of miniMapArrow(heading, half, 8 * ratio)) context.lineTo(px, py);
+        context.closePath();
+        context.fillStyle = "#ffffff";
+        context.fill();
+      }
       // N marks the north edge of the map.
       const nx = half, ny = 14 * ratio;
       context.font = `bold ${Math.round(12 * ratio)}px system-ui, sans-serif`;
@@ -956,11 +1006,18 @@
     const resetTurns = () => { for (const turn of [seatTurn, chaseTurn, mapTurn]) turn.angle = NaN; };
     const autoBox = document.getElementById("auto"), fade = document.getElementById("fade");
     const miniMapCanvas = document.getElementById("minimap");
-    let miniMap = null, lastMap = 0, stops = [], riddenIndex = -1;
+    // focus is the world point that the view shows: the ridden pod, or the
+    // station of the platform camera.
+    let miniMap = null, lastMap = 0, stops = [], focus = { x: 0, y: 0, known: false };
     // armed is true from the moment the user turns on auto mode until the
     // page reads the riders of the pod. lastRiders is -1 when not known.
     autoBox.checked = params.get("auto") === "1";
     let armed = autoBox.checked, lastRiders = -1, hopping = false;
+    // The passenger flow. trip is the tripView of the last HUD update, and
+    // platform is the station of the platform camera, or null.
+    const tripButton = document.getElementById("tripButton"), tripMenu = document.getElementById("tripMenu");
+    const tripElements = Object.fromEntries(["tripOrigin", "tripDestination", "tripParty", "tripShared", "tripMessage", "hudPassenger"].map((id) => [id, document.getElementById(id)]));
+    let trip = null, tripPhase = "", arrivedAt = 0, platform = null, stationNames = new Map(), stationBerths = new Map(), partyLimit = 8;
     const hudElements = Object.fromEntries(["hudSpeed", "hudState", "hudWait", "hudTrip", "hudNext", "hudRoute", "hudProgress", "hudProgressBar", "hudNear", "stripSession", "stripMessage", "rideAt1x"].map((id) => [id, document.getElementById(id)]));
 
     // Mouse look: drag to turn the view. On release, the view returns to forward.
@@ -976,7 +1033,7 @@
       if (event.key === "c" || event.key === "C") {
         chase = !chase;
         chaseTurn.angle = NaN;
-        for (const part of cabin) part.setEnabled(!chase);
+        showCabin();
       }
     });
     hudElements.rideAt1x.addEventListener("click", () => {
@@ -998,15 +1055,91 @@
       lastRiders = -1;
     }
 
-    // hop fades to black, rides the pod id, and fades back.
-    function hop(id) {
+    // The seat view draws the cabin frame. The chase and the platform views
+    // do not.
+    function showCabin() {
+      for (const part of cabin) part.setEnabled(!chase && !platform);
+    }
+
+    // fadeTo fades to black, calls change, and fades back.
+    function fadeTo(change) {
       hopping = true;
       fade.style.opacity = "1";
       root.setTimeout(() => {
-        selectPod(id);
+        change();
         fade.style.opacity = "0";
         hopping = false;
       }, FADE_MS);
+    }
+
+    // hop fades to black, rides the pod id, and fades back.
+    function hop(id) { fadeTo(() => selectPod(id)); }
+
+    // openTripMenu fills the trip menu and shows it. The origin is the
+    // nearest stop to the view.
+    function openTripMenu() {
+      const sorted = [...stops].sort((a, b) => a.name.localeCompare(b.name));
+      const near = nearestStop(stops, focus.x, focus.y);
+      const origin = near ? near.id : (sorted[0] ? sorted[0].id : "");
+      const destination = (sorted.find((stop) => stop.id !== origin) || { id: "" }).id;
+      tripElements.tripOrigin.replaceChildren(...sorted.map((stop) => new Option(stop.name, stop.id, false, stop.id === origin)));
+      tripElements.tripDestination.replaceChildren(...sorted.map((stop) => new Option(stop.name, stop.id, false, stop.id === destination)));
+      tripElements.tripParty.max = String(partyLimit);
+      tripElements.tripParty.value = String(Math.min(Math.max(1, Number(tripElements.tripParty.value) || 1), partyLimit));
+      tripElements.tripMessage.textContent = "";
+      tripMenu.hidden = false;
+    }
+
+    tripMenu.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const party = Math.min(Math.max(1, Math.round(Number(tripElements.tripParty.value) || 1)), partyLimit);
+      const error = ride.requestTrip(tripElements.tripOrigin.value, tripElements.tripDestination.value, party, tripElements.tripShared.checked);
+      if (error) { tripElements.tripMessage.textContent = error; return; }
+      tripMenu.hidden = true;
+      showTrip();
+    });
+    document.getElementById("tripClose").addEventListener("click", () => { tripMenu.hidden = true; });
+    tripButton.addEventListener("click", () => {
+      if (trip) {
+        // The order stays in the session. The page stops following it.
+        ride.endTrip();
+        showTrip();
+        return;
+      }
+      if (tripMenu.hidden) openTripMenu(); else tripMenu.hidden = true;
+    });
+
+    // showTrip reads the passenger flow and moves the camera to follow it.
+    function showTrip() {
+      const passenger = JSON.parse(ride.passenger() || "{}");
+      if ((passenger.phase || "") !== tripPhase) {
+        console.log("ride trip", passenger.phase || "none", passenger);
+        tripPhase = passenger.phase || "";
+        if (tripPhase === "arrived") arrivedAt = performance.now();
+      }
+      trip = tripView(passenger, stationNames);
+      if (trip && tripPhase === "arrived" && performance.now() - arrivedAt >= ARRIVAL_MS) {
+        ride.endTrip();
+        trip = null;
+        tripPhase = "";
+        openTripMenu();
+      }
+      const station = trip && trip.camera === "platform" ? trip.station : (trip && trip.camera === "" ? (platform && platform.id) : null);
+      const nextPlatform = station && stationBerths.has(station) ? station : null;
+      const nextPod = trip && trip.podID ? trip.podID : requested;
+      // A fade takes longer than one HUD update, so the next change waits.
+      if (!hopping && ((platform && platform.id) !== nextPlatform || nextPod !== requested)) {
+        const change = () => {
+          platform = nextPlatform ? { id: nextPlatform, ...platformView(stationBerths.get(nextPlatform)) } : null;
+          if (nextPod !== requested) selectPod(nextPod);
+          showCabin();
+        };
+        // A move of the camera fades. A new pod for the platform view does not.
+        if ((platform && platform.id) !== nextPlatform || !platform) fadeTo(change); else change();
+      }
+      tripButton.textContent = trip ? (trip.active ? "Leave trip" : "Close trip") : "Trip…";
+      picker.disabled = autoBox.disabled = Boolean(trip);
+      tripElements.hudPassenger.textContent = trip ? trip.text : "";
     }
 
     picker.addEventListener("change", () => selectPod(picker.value));
@@ -1036,6 +1169,10 @@
       tileLayer = createTileLayer(B, scene, topology, credit);
       miniMap = createMiniMap(miniMapCanvas, topology);
       stops = stopPoints(topology.stations);
+      stationNames = new Map(topology.stations.map((station) => [station.id, station.name || station.id]));
+      stationBerths = new Map(topology.stations.filter((station) => station.berths.length > 0).map((station) => [station.id, station.berths]));
+      partyLimit = topology.partyLimit || 8;
+      platform = null;
       lastTiles = 0;
       session = `${topology.serverStart}/${topology.epoch}/${topology.generation}`;
       version = -1;
@@ -1046,8 +1183,8 @@
     function updatePods(count, seconds) {
       smoothPodYaws(podYaws, ids, poses, count, seconds, POD_YAW_SECONDS);
       // The seat camera is inside the ridden pod, so the seat view does not
-      // draw it. The chase view does.
-      const hidden = chase ? "" : requested;
+      // draw it. The chase and the platform views do.
+      const hidden = chase || platform ? "" : requested;
       const counts = world.pods.map(() => 0);
       for (let i = 0; i < count; i++) {
         if (ids[i] === hidden) continue;
@@ -1084,6 +1221,13 @@
         lookYaw = springBack(lookYaw, seconds, LOOK_RETURN_SECONDS);
         lookPitch = springBack(lookPitch, seconds, LOOK_RETURN_SECONDS);
       }
+      if (platform) {
+        camera.position.fromArray(platform.eye);
+        camera.setTarget(B.Vector3.FromArray(platform.target));
+        camera.rotation.x += lookPitch;
+        camera.rotation.y += lookYaw;
+        return;
+      }
       if (index < 0) return;
       const at = index * POSE_FIELDS;
       const length = world.pods[poses[at + 4] | 0].length;
@@ -1105,15 +1249,18 @@
 
     function showHUD() {
       if (session === "") return;
-      const hud = JSON.parse(ride.hud(requested) || "{}");
+      showTrip();
+      // While the party waits for an assignment, the HUD shows no pod.
+      const hud = JSON.parse(ride.hud(trip && !trip.podID && trip.active ? "" : requested) || "{}");
       const riders = hud.found ? hud.riders.length : -1;
-      if (!hopping && autoHop(autoBox.checked, armed, lastRiders, riders)) {
+      if (!trip && !hopping && autoHop(autoBox.checked, armed, lastRiders, riders)) {
         // With no pod to move to, the page stays on the pod.
         const next = ride.nextPod(requested);
         if (next) hop(next);
       }
       if (riders >= 0) { armed = false; lastRiders = riders; }
       const view = hudView(hud);
+      if (!hud.found && trip) view.state = "No pod is assigned yet";
       hudElements.hudSpeed.textContent = view.speed;
       hudElements.hudState.textContent = view.state;
       hudElements.hudWait.textContent = view.wait;
@@ -1123,8 +1270,7 @@
       hudElements.hudProgress.hidden = view.progress < 0;
       hudElements.hudProgressBar.style.width = `${(Math.max(0, view.progress) * 100).toFixed(1)}%`;
       hudElements.hudProgress.setAttribute("aria-valuenow", String(Math.round(Math.max(0, view.progress) * 100)));
-      const near = riddenIndex >= 0 && riddenIndex < ids.length && ids[riddenIndex] === requested
-        ? nearestStop(stops, poses[riddenIndex * POSE_FIELDS], poses[riddenIndex * POSE_FIELDS + 1]) : null;
+      const near = focus.known ? nearestStop(stops, focus.x, focus.y) : null;
       hudElements.hudNear.textContent = near ? `Near ${near.name}, ${formatDistance(near.distance)}` : "";
       hudElements.stripSession.textContent = view.session;
       hudElements.stripMessage.textContent = view.message;
@@ -1155,23 +1301,27 @@
         refreshPods();
       }
       const ridden = updatePods(info.count, seconds);
-      riddenIndex = ridden;
       moveCamera(ridden, seconds);
-      if (ridden >= 0) {
-        const mapHeading = dampAngle(mapTurn, poses[ridden * POSE_FIELDS + 2], seconds, SEAT_YAW_SECONDS);
-        if (now - lastMap >= MINIMAP_INTERVAL_MS) {
-          lastMap = now;
-          miniMap.draw(poses, info.count, ridden, mapHeading);
-        }
+      if (platform) {
+        focus = { x: platform.center.x, y: platform.center.y, known: true };
+      } else if (ridden >= 0) {
+        focus = { x: poses[ridden * POSE_FIELDS], y: poses[ridden * POSE_FIELDS + 1], known: true };
+      } else {
+        focus.known = false;
+      }
+      const mapHeading = ridden >= 0 && !platform ? dampAngle(mapTurn, poses[ridden * POSE_FIELDS + 2], seconds, SEAT_YAW_SECONDS) : NaN;
+      if (focus.known && now - lastMap >= MINIMAP_INTERVAL_MS) {
+        lastMap = now;
+        // The platform view marks the pod of the trip.
+        miniMap.draw(focus.x, focus.y, mapHeading, poses, info.count, platform ? -1 : ridden, platform && trip && trip.podID ? ridden : -1);
       }
       // The light sits back along the sun direction from the camera, so the
       // shadow map covers the ground around the camera.
       const light = camera.position.subtract(sunDirection.scale(400));
       sun.position.fromArray(snapShadowCenter(light.asArray(), sunDirection.asArray(), SHADOW_FRUSTUM / SHADOW_MAP_SIZE));
-      if (ridden >= 0 && now - lastTiles >= TILE_UPDATE_MS) {
+      if (focus.known && now - lastTiles >= TILE_UPDATE_MS) {
         lastTiles = now;
-        const at = ridden * POSE_FIELDS;
-        tileLayer.update(poses[at], poses[at + 1]);
+        tileLayer.update(focus.x, focus.y);
         signs.update(world.slabs, camera.position.x, camera.position.z);
       }
       scene.render();
@@ -1185,7 +1335,7 @@
     root.addEventListener("resize", () => engine.resize());
   }
 
-  const api = { POSE_FIELDS, segmentIndex, segmentsNear, miniMapArrow, snapShadowCenter, stopPoints, shortLabel, placeLabels, nearestStop, autoHop, BEAM_TOP, GROUND_LAYERS, groundLayerOrder, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, newTurn, dampAngle, laneSamples, beamGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, choosePod, podLabel, springBack, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, start };
+  const api = { POSE_FIELDS, segmentIndex, segmentsNear, miniMapArrow, snapShadowCenter, stopPoints, shortLabel, placeLabels, platformView, tripView, nearestStop, autoHop, BEAM_TOP, GROUND_LAYERS, groundLayerOrder, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, newTurn, dampAngle, laneSamples, beamGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, choosePod, podLabel, springBack, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, start };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.PodsimRide = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

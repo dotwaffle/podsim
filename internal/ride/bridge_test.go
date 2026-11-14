@@ -188,6 +188,15 @@ func TestNewTopology(t *testing.T) {
 			t.Fatalf("classes = %+v", topology.Classes)
 		}
 	}
+	if topology.PartyLimit != sim.MaxNewPartySize {
+		t.Fatalf("party limit = %d", topology.PartyLimit)
+	}
+	express := pausedState(1)
+	express.Simulation.OrderContract = sim.ExpressOrderContract
+	profile, _ := sim.LookupVehicleClassWithOrderContract(sim.ExpressClass, sim.ExpressOrderContract)
+	if got := NewTopology(express).PartyLimit; got != profile.MaxNewPartySize || got == sim.MaxNewPartySize {
+		t.Fatalf("Express party limit = %d, want %d", got, profile.MaxNewPartySize)
+	}
 }
 
 func TestPods(t *testing.T) {
