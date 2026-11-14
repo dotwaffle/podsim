@@ -18,6 +18,10 @@ func serverURL() string {
 // the game shows a message when the server build changes.
 func pageReloader(view.Shell) func() { return nil }
 
+// rideOpener returns nil. The desktop client has no ride page, so the pod
+// inspector does not show Ride.
+func rideOpener() func(string) error { return nil }
+
 // shellLink returns nil. The desktop client has no shell page, so the header
 // does not show Edit scenario and Download debug state.
 func shellLink() view.Shell { return nil }

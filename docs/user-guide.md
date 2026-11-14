@@ -54,6 +54,11 @@ Neither button shows during the traffic demo, or after the demo until a reset or
 The buttons do not work while the connection is down or while a command waits for its reply.
 The server refuses a pod that it does not support, and the message line shows the error.
 
+**Ride** opens the [ride page](design/first-person-ride.md) in a new tab, in the selected pod.
+The button sends no command, so it works without a connection, also during the traffic demo.
+It does not show in the desktop client, or while the **Orders**, **Demand**, or **Incidents** panel is open.
+When the browser blocks the new tab, the message line asks you to allow pop-ups for the site.
+
 ### Incidents panel
 
 The **Incidents** tab is in the row with **Orders** and **Demand**, and only one of the three panels is open at a time.

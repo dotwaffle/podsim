@@ -3,6 +3,8 @@
 package main
 
 import (
+	"errors"
+	"net/url"
 	"syscall/js"
 
 	"github.com/dotwaffle/podsim/internal/view"
@@ -33,6 +35,21 @@ func pageReloader(shell view.Shell) func() {
 		}()
 		top := window.Get("top").Get("location")
 		readProperty(top, "reload").Call("call", top)
+	}
+}
+
+// rideOpener returns a func that opens the ride page on a pod in a new tab.
+// The game handles a click in its next update, not in the click event. The
+// browser still allows the new tab, because the click gives the page user
+// activation for a few seconds. window.open returns null when the browser
+// blocks the tab.
+func rideOpener() func(string) error {
+	return func(podID string) error {
+		page := js.Global().Call("open", serverURL()+"/ride.html?pod="+url.QueryEscape(podID), "_blank")
+		if page.IsNull() || page.IsUndefined() {
+			return errors.New("The browser blocked the ride page. Allow pop-ups for this site.")
+		}
+		return nil
 	}
 }
 

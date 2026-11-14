@@ -22,7 +22,7 @@ func run() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	shell := shellLink()
-	game, err := view.New(ctx, serverURL(), view.WithReload(pageReloader(shell)), view.WithShell(shell))
+	game, err := view.New(ctx, serverURL(), view.WithReload(pageReloader(shell)), view.WithShell(shell), view.WithRide(rideOpener()))
 	if err != nil {
 		return err
 	}

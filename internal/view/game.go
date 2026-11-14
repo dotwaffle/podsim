@@ -145,6 +145,9 @@ type Game struct {
 	// the game reloads the page only once.
 	reload        func()
 	serverUpdated bool
+	// openRide opens the ride page on a pod. It is nil in the desktop
+	// client. See WithRide.
+	openRide func(podID string) error
 	// lastFrame is the time of the last state frame that the client read.
 	// While the connection is lost, the map banner gives its age.
 	lastFrame time.Time
@@ -499,6 +502,9 @@ func (g *Game) buttons() []button {
 	if control, ok := g.emergencyButton(state); ok {
 		buttons = append(buttons, control)
 	}
+	if control, ok := g.rideButton(state); ok {
+		buttons = append(buttons, control)
+	}
 	if pages := podPageCount(len(state.Vehicles)); pages > 1 {
 		buttons = append(buttons,
 			button{x: podPagerLeft, y: podSelectorTop, w: podPagerArrowWidth, h: 34, label: "‹", disabled: g.podPage == 0, action: "pods-prev"},
@@ -635,6 +641,9 @@ func (g *Game) pressPodControl(action string) bool {
 	}
 	if command, ok := emergencyCommand(action); ok {
 		g.submitShown(command)
+		return true
+	}
+	if g.pressRide(action) {
 		return true
 	}
 	id, ok := strings.CutPrefix(action, "pod/")

@@ -25,7 +25,7 @@ The maintainer made these decisions on 2026-11-14.
 | Purpose | A showcase. Visual quality has priority over analysis features. |
 | Rendering | Babylon.js draws the scene. A small Go WASM module reuses `internal/remote` for the stream, the decode checks, and the motion buffer. |
 | Babylon source | A pinned CDN script tag with a subresource-integrity hash. |
-| Placement | A separate page, `/ride.html`, with its own WASM module. The 2D viewer does not change. |
+| Placement | A separate page, `/ride.html`, with its own WASM module. The 2D viewer changes only by the **Ride** button. |
 | Speed | The page shows the session speed. A "Ride at 1x" button sends the existing `speed` command, which changes the speed for all viewers. |
 | Height | All guideway is at one height. At a crossing, pods and beams of the two lanes intersect. |
 | Ground | Map tiles on a flat ground plane when the project has a geographic reference, and plain ground otherwise. |
@@ -35,7 +35,7 @@ The maintainer made these decisions on 2026-11-14.
 | HUD | An HTML overlay with speed and state, a trip panel, a mini-map, and a session strip. |
 | Passenger | A lite flow: choose stations, send `trip`, wait, ride, and arrive. No walking. |
 | Scale | LondonFull is the target from the first milestone. |
-| 2D viewer link | Not in the prototype. |
+| 2D viewer link | Not in the prototype. After M4, the maintainer chose (2026-11-14) a **Ride** button in the browser pod inspector, which opens `/ride.html?pod=<id>` in a new tab. The desktop client has no button. |
 
 ## Architecture
 
@@ -308,7 +308,6 @@ The page derives each height from the network, and the model stores no elevation
 
 - Grade separation of the crossings that are not in a hub: about 210 between mainline lanes, and the crossings of station lanes near a diverge.
   The station layout study can remove most of them.
-- A "Ride" button in the 2D pod inspector.
 - A glTF pod model.
 - Walking between a start location and a station.
 - Stored elevation stays out of scope, as the [brief](../../PROJECT_BRIEF.md#4-scope-limits) says.

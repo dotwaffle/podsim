@@ -47,6 +47,7 @@ func controlTestGame(t *testing.T, input layoutInput) *Game {
 	t.Helper()
 	game := journeyTestGame(t, 20)
 	game.shell = newFakeShell()
+	game.openRide = func(string) error { return nil }
 	// The layout tests check every control, so the game shows Start
 	// traffic demo.
 	game.state.DemoAvailable = true
@@ -437,6 +438,7 @@ func TestControlsDoNotOverlap(t *testing.T) {
 					findButton(t, controls, "rewind")
 					if panel == "" {
 						findButton(t, controls, emergencyActionPrefix+fleetPodLabel(game.selected, len(game.state.Simulation.Vehicles)))
+						findButton(t, controls, rideActionPrefix+fleetPodLabel(game.selected, len(game.state.Simulation.Vehicles)))
 					}
 					bounds := area{right: float64(game.layout.width), bottom: float64(game.layout.height)}
 					for i, control := range controls {
