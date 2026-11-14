@@ -442,6 +442,72 @@
     out.set([c, 0, -s, 0, 0, 1, 0, 0, s, 0, c, 0, x, top + POD_HEIGHT / 2, z, 1], offset);
   }
 
+  // parsePodModel reads web/pod.glb, which internal/cmd/podmodel writes. It
+  // returns the geometry and the base color of each part by node name, the
+  // seat eye, and the model length. The scene is left-handed and glTF is
+  // right-handed, so x changes sign. With the same index order, the
+  // triangles then wind as Babylon's own meshes do.
+  function parsePodModel(buffer) {
+    const view = new DataView(buffer);
+    const word = (at) => view.getUint32(at, true);
+    if (buffer.byteLength < 28 || word(0) !== 0x46546c67 || word(4) !== 2 || word(8) !== buffer.byteLength) throw new Error("The pod model is not a GLB file.");
+    const jsonLength = word(12);
+    if (word(16) !== 0x4e4f534a || 28 + jsonLength > buffer.byteLength || word(24 + jsonLength) !== 0x004e4942) throw new Error("The pod model chunks are not valid.");
+    const doc = JSON.parse(new TextDecoder().decode(new Uint8Array(buffer, 20, jsonLength)));
+    const bin = 28 + jsonLength;
+    const accessor = (index, Type, size) => {
+      const a = doc.accessors[index], v = doc.bufferViews[a.bufferView];
+      const bytes = a.count * size * Type.BYTES_PER_ELEMENT, start = bin + v.byteOffset;
+      if (bytes > v.byteLength || start + v.byteLength > buffer.byteLength) throw new Error("The pod model accessors are not valid.");
+      return new Type(buffer.slice(start, start + bytes));
+    };
+    const parts = {};
+    let eye = null, half = 0;
+    for (const node of doc.nodes) {
+      if (node.mesh === undefined) {
+        if (node.name === "eye") eye = [-node.translation[0], node.translation[1], node.translation[2]];
+        continue;
+      }
+      const primitive = doc.meshes[node.mesh].primitives[0];
+      const positions = accessor(primitive.attributes.POSITION, Float32Array, 3);
+      const normals = accessor(primitive.attributes.NORMAL, Float32Array, 3);
+      const indices = accessor(primitive.indices, Uint16Array, 1);
+      for (let i = 0; i < positions.length; i += 3) {
+        positions[i] = -positions[i];
+        normals[i] = -normals[i];
+        half = Math.max(half, Math.abs(positions[i + 2]));
+      }
+      for (const index of indices) if (index >= positions.length / 3) throw new Error("The pod model indices are not valid.");
+      const factor = doc.materials[primitive.material].pbrMetallicRoughness.baseColorFactor;
+      parts[node.name] = { positions, normals, indices, color: factor.slice(0, 3) };
+    }
+    for (const name of ["shell", "glass", "gear", "cabin"]) if (!parts[name]) throw new Error(`The pod model has no ${name} part.`);
+    if (!eye) throw new Error("The pod model has no eye.");
+    return { parts, eye, length: 2 * half };
+  }
+
+  // stretchPart returns the positions and the normals of part with z scaled
+  // by scale. A normal scales by the inverse, so it stays at right angles to
+  // the surface.
+  function stretchPart(part, scale) {
+    const positions = Float32Array.from(part.positions), normals = Float32Array.from(part.normals);
+    for (let i = 0; i < positions.length; i += 3) {
+      positions[i + 2] *= scale;
+      normals[i + 2] /= scale;
+      const length = Math.hypot(normals[i], normals[i + 1], normals[i + 2]);
+      normals[i] /= length; normals[i + 1] /= length; normals[i + 2] /= length;
+    }
+    return { positions, normals };
+  }
+
+  // seatEye returns the scene position of the eye for a pod at scene (x, z)
+  // with yaw, as writePodMatrix places the pod. eye is the model eye and
+  // scale is the class length over the model length.
+  function seatEye(x, top, z, yaw, eye, scale) {
+    const c = Math.cos(yaw), s = Math.sin(yaw), ex = eye[0], ez = eye[2] * scale;
+    return [x + c * ex + s * ez, top + POD_HEIGHT / 2 + eye[1], z - s * ex + c * ez];
+  }
+
   // choosePod returns the requested pod ID when the list has it, else the
   // first pod with riders, else the first pod.
   function choosePod(pods, requested) {
@@ -771,38 +837,72 @@
     return root.podsimRide;
   }
 
+  // loadPodModel fetches and reads web/pod.glb. It returns null when it
+  // cannot, and the page then draws procedural pods.
+  async function loadPodModel() {
+    try {
+      const response = await fetch("pod.glb");
+      if (!response.ok) throw new Error(`HTTP status ${response.status}`);
+      return parsePodModel(await response.arrayBuffer());
+    } catch (error) {
+      console.warn("The pod model did not load, so the pods are procedural.", error);
+      return null;
+    }
+  }
+
   function color(B, rgb) { return new B.Color3(rgb[0], rgb[1], rgb[2]); }
 
-  // buildPodMesh makes one pod body for a class: a rounded shell in the
-  // class color, a band of dark glass, and a running gear on the beam. The
-  // parts merge into one mesh with one submesh for each material, so thin
-  // instances draw a class in a few calls.
-  function buildPodMesh(B, scene, cls, rgb) {
+  // modelMesh makes a mesh from a part of the pod model, with z scaled by
+  // scale.
+  function modelMesh(B, scene, name, part, scale) {
+    const mesh = new B.Mesh(name, scene);
+    const data = new B.VertexData();
+    const { positions, normals } = stretchPart(part, scale);
+    data.positions = positions; data.normals = normals; data.indices = part.indices;
+    data.applyToMesh(mesh);
+    return mesh;
+  }
+
+  // proceduralPodParts makes the shell, the glass, and the gear of a class
+  // when the page has no pod model.
+  function proceduralPodParts(B, scene, cls) {
     const length = cls.lengthMeters, radius = POD_WIDTH / 2;
     const shell = B.MeshBuilder.CreateCapsule(`shell-${cls.name}`, { orientation: new B.Vector3(0, 0, 1), height: length, radius, tessellation: 20, subdivisions: 4, capSubdivisions: 6 }, scene);
     shell.scaling.y = (POD_HEIGHT - 0.25) / POD_WIDTH;
     shell.position.y = 0.12;
     shell.bakeCurrentTransformIntoVertices();
+    const glass = B.MeshBuilder.CreateBox(`glass-${cls.name}`, { width: POD_WIDTH + 0.06, height: 0.62, depth: Math.max(1, length - 0.9) }, scene);
+    glass.position.y = 0.32;
+    glass.bakeCurrentTransformIntoVertices();
+    const gear = B.MeshBuilder.CreateBox(`gear-${cls.name}`, { width: BEAM_WIDTH * 0.8, height: 0.3, depth: length * 0.7 }, scene);
+    gear.position.y = -POD_HEIGHT / 2 + 0.15;
+    gear.bakeCurrentTransformIntoVertices();
+    return [shell, glass, gear];
+  }
+
+  // buildPodMesh makes one pod body for a class: a shell in the class
+  // color, dark glass, and a running gear on the beam. With a pod model, the
+  // parts come from the model, stretched to the class length. The parts
+  // merge into one mesh with one submesh for each material, so thin
+  // instances draw a class in a few calls.
+  function buildPodMesh(B, scene, cls, rgb, model) {
+    const [shell, glass, gear] = model
+      ? ["shell", "glass", "gear"].map((name) => modelMesh(B, scene, `${name}-${cls.name}`, model.parts[name], cls.lengthMeters / model.length))
+      : proceduralPodParts(B, scene, cls);
     const shellMaterial = new B.StandardMaterial(`shell-${cls.name}`, scene);
     shellMaterial.diffuseColor = color(B, rgb);
     shellMaterial.specularColor = new B.Color3(0.55, 0.55, 0.55);
     shellMaterial.specularPower = 48;
     shell.material = shellMaterial;
 
-    const glass = B.MeshBuilder.CreateBox(`glass-${cls.name}`, { width: POD_WIDTH + 0.06, height: 0.62, depth: Math.max(1, length - 0.9) }, scene);
-    glass.position.y = 0.32;
-    glass.bakeCurrentTransformIntoVertices();
     const glassMaterial = new B.StandardMaterial(`glass-${cls.name}`, scene);
-    glassMaterial.diffuseColor = new B.Color3(0.05, 0.08, 0.12);
+    glassMaterial.diffuseColor = color(B, model ? model.parts.glass.color : [0.05, 0.08, 0.12]);
     glassMaterial.specularColor = new B.Color3(0.9, 0.95, 1);
     glassMaterial.specularPower = 96;
     glass.material = glassMaterial;
 
-    const gear = B.MeshBuilder.CreateBox(`gear-${cls.name}`, { width: BEAM_WIDTH * 0.8, height: 0.3, depth: length * 0.7 }, scene);
-    gear.position.y = -POD_HEIGHT / 2 + 0.15;
-    gear.bakeCurrentTransformIntoVertices();
     const gearMaterial = new B.StandardMaterial(`gear-${cls.name}`, scene);
-    gearMaterial.diffuseColor = new B.Color3(0.16, 0.17, 0.19);
+    gearMaterial.diffuseColor = color(B, model ? model.parts.gear.color : [0.16, 0.17, 0.19]);
     gearMaterial.specularColor = new B.Color3(0.1, 0.1, 0.1);
     gear.material = gearMaterial;
 
@@ -814,9 +914,26 @@
     return mesh;
   }
 
+  // buildModelCabin makes the inside of a pod of a class from the pod
+  // model. The seat view places it at the ridden pod.
+  function buildModelCabin(B, scene, cls, model) {
+    const mesh = modelMesh(B, scene, `cabin-${cls.name}`, model.parts.cabin, cls.lengthMeters / model.length);
+    const material = new B.StandardMaterial(`cabin-${cls.name}`, scene);
+    material.diffuseColor = color(B, model.parts.cabin.color);
+    // The windows light the cabin. The emissive color stands in for that
+    // light, because the sun does not light the cabin.
+    material.emissiveColor = color(B, model.parts.cabin.color.map((value) => value * 0.8));
+    material.specularColor = new B.Color3(0.1, 0.1, 0.1);
+    mesh.material = material;
+    mesh.isPickable = false;
+    mesh.setEnabled(false);
+    return mesh;
+  }
+
   // buildWorld makes the static meshes of a topology and the pod meshes.
-  // casters cast shadows, and receivers show them.
-  function buildWorld(B, scene, topology) {
+  // casters cast shadows, and receivers show them. With a pod model, each
+  // class also gets a cabin.
+  function buildWorld(B, scene, topology, model) {
     const meshes = [], casters = [], receivers = [];
     const nodes = new Map(topology.nodes.map((node) => [node.id, node.position]));
     const beamMaterial = new B.StandardMaterial("beam", scene);
@@ -906,15 +1023,17 @@
     meshes.push(ground); receivers.push(ground);
 
     const pods = topology.classes.map((cls, index) => {
-      const mesh = buildPodMesh(B, scene, cls, CLASS_COLORS[index % CLASS_COLORS.length]);
+      const mesh = buildPodMesh(B, scene, cls, CLASS_COLORS[index % CLASS_COLORS.length], model);
       meshes.push(mesh); casters.push(mesh);
-      return { mesh, length: cls.lengthMeters, matrices: new Float32Array(0), count: 0 };
+      const cabin = model ? buildModelCabin(B, scene, cls, model) : null;
+      if (cabin) meshes.push(cabin);
+      return { mesh, cabin, length: cls.lengthMeters, matrices: new Float32Array(0), count: 0 };
     });
     return { meshes, casters, receivers, pods, slabs };
   }
 
-  // buildCabin makes the window frame and the dashboard of the seat. They
-  // move with the camera.
+  // buildCabin makes the window frame and the dashboard of the seat when
+  // the page has no pod model. They move with the camera.
   function buildCabin(B, scene, camera) {
     const material = new B.StandardMaterial("cabin", scene);
     material.diffuseColor = new B.Color3(0.12, 0.13, 0.15);
@@ -1148,6 +1267,7 @@
     const B = root.BABYLON;
     if (!B) { show("Babylon.js did not load from https://cdn.babylonjs.com. The 2D viewer still works."); return; }
     if (!B.Engine.isSupported()) { show("This browser has no WebGL, so the ride page cannot draw."); return; }
+    const modelLoad = loadPodModel();
     let ride;
     try { ride = await loadModule(() => show("The ride module stopped. Reload the page.")); } catch (error) { show(error.message); return; }
 
@@ -1188,7 +1308,10 @@
     shadows.bias = 0.0008;
     camera.fov = 1.1;
     camera.rotation.x = SEAT_PITCH;
-    const cabin = buildCabin(B, scene, camera);
+    // Without the pod model, the seat view draws a frame that moves with
+    // the camera.
+    const podModel = await modelLoad;
+    const cabin = podModel ? [] : buildCabin(B, scene, camera);
     const pipeline = new B.DefaultRenderingPipeline("look", true, scene, [camera]);
     pipeline.samples = 4;
     pipeline.fxaaEnabled = true;
@@ -1269,8 +1392,8 @@
       lastRiders = -1;
     }
 
-    // The seat view draws the cabin frame. The chase and the platform views
-    // do not.
+    // The seat view draws the cabin frame of the procedural pods. The chase
+    // and the platform views do not.
     function showCabin() {
       for (const part of cabin) part.setEnabled(!chase && !platform);
     }
@@ -1377,7 +1500,9 @@
       const topology = JSON.parse(text);
       if (world) for (const mesh of world.meshes) mesh.dispose(false, true);
       if (tileLayer) tileLayer.dispose();
-      world = buildWorld(B, scene, topology);
+      world = buildWorld(B, scene, topology, podModel);
+      // The sun does not light a cabin, because no roof shadows the floor.
+      sun.excludedMeshes = world.pods.flatMap((pod) => (pod.cabin ? [pod.cabin] : []));
       shadows.getShadowMap().renderList = world.casters;
       for (const mesh of world.receivers) mesh.receiveShadows = true;
       tileLayer = createTileLayer(B, scene, topology, credit);
@@ -1431,6 +1556,9 @@
     }
 
     function moveCamera(index, seconds) {
+      // The seat view draws the cabin of the ridden pod.
+      const seatClass = !platform && !chase && index >= 0 ? poses[index * POSE_FIELDS + 4] | 0 : -1;
+      world.pods.forEach((pod, i) => { if (pod.cabin) pod.cabin.setEnabled(i === seatClass); });
       if (!looking) {
         lookYaw = springBack(lookYaw, seconds, LOOK_RETURN_SECONDS);
         lookPitch = springBack(lookPitch, seconds, LOOK_RETURN_SECONDS);
@@ -1443,8 +1571,7 @@
         return;
       }
       if (index < 0) return;
-      const at = index * POSE_FIELDS;
-      const length = world.pods[poses[at + 4] | 0].length;
+      const at = index * POSE_FIELDS, pod = world.pods[poses[at + 4] | 0];
       const heading = poses[at + 2];
       const yaw = dampAngle(seatTurn, yawOf(heading), seconds, SEAT_YAW_SECONDS);
       if (chase) {
@@ -1454,11 +1581,20 @@
         camera.rotation.set(CHASE_PITCH + lookPitch, chaseYaw + lookYaw, 0);
         return;
       }
+      camera.rotation.set(SEAT_PITCH + lookPitch, yaw + lookYaw, 0);
+      if (pod.cabin) {
+        // The cabin and the eye turn with the seat yaw, so the cabin does
+        // not move in the view.
+        const [x, z] = toScene(poses[at], poses[at + 1]);
+        pod.cabin.position.set(x, poses[at + 5] + POD_HEIGHT / 2, z);
+        pod.cabin.rotation.y = yaw;
+        camera.position.fromArray(seatEye(x, poses[at + 5], z, yaw, podModel.eye, pod.length / podModel.length));
+        return;
+      }
       // The eye is near the front of the pod.
-      const forward = length / 2 - 0.6;
+      const forward = pod.length / 2 - 0.6;
       const [x, z] = toScene(poses[at] + Math.cos(heading) * forward, poses[at + 1] + Math.sin(heading) * forward);
       camera.position.set(x, poses[at + 5] + EYE_HEIGHT, z);
-      camera.rotation.set(SEAT_PITCH + lookPitch, yaw + lookYaw, 0);
     }
 
     function showHUD() {
@@ -1550,7 +1686,7 @@
     root.addEventListener("resize", () => engine.resize());
   }
 
-  const api = { POSE_FIELDS, segmentIndex, segmentsNear, segmentsCross, convexHull, findHubs, deckGeometry, levelHeight, laneProfile, uniqueLanes, miniMapArrow, snapShadowCenter, shadowFocus, stopPoints, shortLabel, placeLabels, platformView, tripView, nearestStop, autoHop, BEAM_TOP, GROUND_LAYERS, groundLayerOrder, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, newTurn, dampAngle, laneSamples, beamGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, choosePod, podLabel, springBack, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, start };
+  const api = { POSE_FIELDS, segmentIndex, segmentsNear, segmentsCross, convexHull, findHubs, deckGeometry, levelHeight, laneProfile, uniqueLanes, miniMapArrow, snapShadowCenter, shadowFocus, stopPoints, shortLabel, placeLabels, platformView, tripView, nearestStop, autoHop, BEAM_TOP, GROUND_LAYERS, groundLayerOrder, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, newTurn, dampAngle, laneSamples, beamGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, parsePodModel, stretchPart, seatEye, choosePod, podLabel, springBack, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, start };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.PodsimRide = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

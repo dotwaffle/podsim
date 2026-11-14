@@ -13,7 +13,7 @@ import (
 	"strings"
 )
 
-var staticFiles = []string{"index.html", "state-check.js", "shell.js", "game.html", "tiles.js", "simulation-map.js", "loader.js", "stream.js", "editor.html", "editor.css", "editor-model.js", "place-search.js", "editor.js", "offline.html", "offline.js", "ride.html", "ride.js"}
+var staticFiles = []string{"index.html", "state-check.js", "shell.js", "game.html", "tiles.js", "simulation-map.js", "loader.js", "stream.js", "editor.html", "editor.css", "editor-model.js", "place-search.js", "editor.js", "offline.html", "offline.js", "ride.html", "ride.js", "pod.glb"}
 
 func main() {
 	if err := run(context.Background()); err != nil {

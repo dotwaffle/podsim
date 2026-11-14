@@ -105,7 +105,7 @@ Babylon stores vertex positions as float32.
 At 20 km from the origin, float32 resolution is about 2 mm, and the seat camera is less than 1 m from the cabin, so the cabin can jitter.
 LondonFull extends about 34 km west of its origin.
 The page creates the Babylon engine with `useLargeWorldRendering`, which draws the scene relative to the camera.
-The cabin moves with the camera, so float32 resolution does not move it.
+The cabin is one mesh at the ridden pod, and the large-world option draws it relative to the camera, so float32 resolution does not move it.
 The beams, the ground, and the pod instances keep absolute positions, and the large-world option can miss some of them.
 The M1 acceptance includes a ride near x = -33 km with no shimmer at the edge of the beam ahead of the pod.
 If the beam edge shimmers, the page builds each mesh around a local origin, and the bridge subtracts an origin near the camera in float64 before it fills the array.
@@ -116,8 +116,16 @@ A test pins the axis mapping with a station pair of known compass direction.
 - Guideway: one box-section beam for each lane, extruded along the line or curve, at a fixed height of 5 m on tapered pillars about every 60 m.
   The page merges the beams into a few meshes, so LondonFull does not have 20,000 draw calls.
   Vertex colors make the running surface on top darker than the concrete sides.
-- Pods: for each class, a rounded shell in the class color, a band of dark glass, and a running gear, sized from the class profiles.
-  The parts merge into one mesh with one submesh for each material, and thin instances draw all pods of a class in a few calls.
+- Pods: the page loads `web/pod.glb`, a glTF model that `internal/cmd/podmodel` writes.
+  The model is 4 m long, 1.5 m wide, and 2.1 m tall, with the parts `shell`, `glass`, `gear`, and `cabin`, and an `eye` node at the seat.
+  The body is a loft of rounded sections, with side windows above a belt line, a glass dome at each end, and a pillar ring at the middle and near each end.
+  The cabin is the inside of the shell, 4 cm in, and a dashboard.
+  For each class, the page stretches the parts to the class length and gives the shell the class color.
+  The shell, the glass, and the gear merge into one mesh with one submesh for each material, and thin instances draw all pods of a class in a few calls.
+  The page reads the GLB file itself, because it needs only a few accessors of one buffer, so it does not load the Babylon glTF loader.
+  glTF is right-handed and Babylon is left-handed, so the page changes the sign of x.
+  With the same index order, the triangles then wind as the Babylon meshes do, and a Node test checks each triangle of the file.
+  If the file does not load, the page draws procedural pods and a cabin frame that moves with the camera.
 - Stations: a platform slab under the berths of each station.
   A pool of 12 name signs goes to the stations within 900 m of the camera, because a texture for each of 600 stations uses too much memory.
 - Ground: map tiles when `geo` is present, from the tile source of `web/tiles.js`, with the OpenStreetMap credit on the page.
@@ -155,12 +163,14 @@ A test pins the axis mapping with a station pair of known compass direction.
 
 ## Cameras and input
 
-- Seat camera: at the front of the ridden pod, facing forward.
+- Seat camera: at the eye of the pod model, a little behind the front dome, facing forward.
   While the user holds the mouse button, mouse movement turns the view.
   On release, the view returns to forward with a 300 ms time constant.
 - Chase camera: 14 m behind the pod and 5 m above its roof.
   The `C` key switches between the seat camera and the chase camera.
-  The chase view draws the ridden pod, and the seat view draws the cabin frame.
+  The chase view draws the ridden pod, and the seat view draws the cabin of the ridden pod.
+  The cabin and the eye turn with the seat yaw, so the cabin does not move in the view.
+  The sun does not light the cabin, and an emissive color stands in for the light from the windows.
 - Platform camera: at a station, used by the passenger flow.
   It stands 22 m to the side of the line through the first and the last berth, 10 m back, and 4 m above the guideway, and it looks at the center of the berths.
   Mouse look works in this view too.
@@ -254,11 +264,14 @@ The passenger flow logs its state changes.
 
 ## Build and checks
 
-- `internal/cmd/buildweb` builds `ride.wasm.gz` from `./cmd/ride` and copies `ride.html` and `ride.js`.
+- `internal/cmd/buildweb` builds `ride.wasm.gz` from `./cmd/ride` and copies `ride.html`, `ride.js`, and `pod.glb`.
+- `go run ./internal/cmd/podmodel` writes `web/pod.glb`.
+  `TestModelFile` fails when the file is not the output of the generator, and `go test ./internal/cmd/podmodel -run TestModelFile -update-model` writes it again.
 - The wasm dependency check in `mise.toml` adds `./cmd/ride`, so that `ride.wasm` does not link cloud storage or the preset data.
 - `govulncheck` for `js/wasm` adds `./cmd/ride`.
 - Go tests in `internal/ride`: the heading on lines and curves, the frame packing, the HUD data, the ETA, the auto mode choice, and each step and stop case of the passenger flow.
-- Node tests (`mise run test:web`): the beam path points, the coordinate mapping, the camera smoothing, and the HUD formatting.
+- Go tests in `internal/cmd/podmodel`: the GLB structure, the node names, the bounds of the model, the winding of each triangle, and what the rider sees from the eye in each direction.
+- Node tests (`mise run test:web`): the beam path points, the coordinate mapping, the camera smoothing, the HUD formatting, and the read of the pod model.
 - CI has no GPU, so no test draws the scene.
 - The maintainer checks each milestone in desktop Chrome.
   The performance target is 60 frames per second on LondonFull at 1x on the maintainer's GPU.
@@ -308,6 +321,5 @@ The page derives each height from the network, and the model stores no elevation
 
 - Grade separation of the crossings that are not in a hub: about 210 between mainline lanes, and the crossings of station lanes near a diverge.
   The station layout study can remove most of them.
-- A glTF pod model.
 - Walking between a start location and a station.
 - Stored elevation stays out of scope, as the [brief](../../PROJECT_BRIEF.md#4-scope-limits) says.

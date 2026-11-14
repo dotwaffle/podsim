@@ -579,3 +579,74 @@ test("findHubs leaves lanes that share a node at grade", () => {
   }
   assert.deepEqual(ride.findHubs(lanes, nodes), []);
 });
+
+// podModelBuffer reads web/pod.glb into its own ArrayBuffer.
+function podModelBuffer() {
+  const bytes = require("node:fs").readFileSync(require("node:path").join(__dirname, "pod.glb"));
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+}
+
+// windings counts the triangles of a part whose edge cross product points
+// along and against the vertex normal of the first corner.
+function windings(positions, normals, indices) {
+  let along = 0, against = 0;
+  for (let t = 0; t < indices.length; t += 3) {
+    const [a, b, c] = [indices[t], indices[t + 1], indices[t + 2]].map((i) => [positions[3 * i], positions[3 * i + 1], positions[3 * i + 2]]);
+    const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], v = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+    const cross = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+    const i = indices[t];
+    if (cross[0] * normals[3 * i] + cross[1] * normals[3 * i + 1] + cross[2] * normals[3 * i + 2] > 0) along++; else against++;
+  }
+  return { along, against };
+}
+
+test("parsePodModel reads the parts and the eye of web/pod.glb", () => {
+  const model = ride.parsePodModel(podModelBuffer());
+  assert.deepEqual(Object.keys(model.parts).sort(), ["cabin", "gear", "glass", "shell"]);
+  near(model.length, 4, "model length");
+  assert.deepEqual(model.eye.map((value) => Math.round(value * 100) / 100 + 0), [0, 0.3, 0.5], "eye");
+  near(model.parts.glass.color[0], 0.05, "glass color");
+  for (const [name, part] of Object.entries(model.parts)) {
+    // In Babylon's left-handed scene, the edge cross product of a front
+    // face points against its normal. A headless check of MeshBuilder boxes
+    // and spheres in Babylon 9.36 gave this sign for every triangle. The
+    // model is symmetric in x, so this check also fails when x does not
+    // change sign in both the positions and the normals.
+    const { along, against } = windings(part.positions, part.normals, part.indices);
+    assert.equal(along, 0, `${name}: ${along} of ${along + against} triangles wind as back faces`);
+  }
+});
+
+test("parsePodModel refuses a damaged file", () => {
+  const buffer = podModelBuffer();
+  assert.throws(() => ride.parsePodModel(buffer.slice(0, buffer.byteLength - 4)), /not a GLB file/);
+  const wrongMagic = buffer.slice(0);
+  new DataView(wrongMagic).setUint32(0, 0, true);
+  assert.throws(() => ride.parsePodModel(wrongMagic), /not a GLB file/);
+});
+
+test("stretchPart keeps the normals at right angles to the surface", () => {
+  // The triangle slopes along z, so a stretch in z turns its normal.
+  const a = [0, 0, 0], b = [1, 0, 1], c = [0, 1, 0];
+  const normal = [-1, 0, 1].map((value) => value / Math.sqrt(2));
+  const part = { positions: Float32Array.from([...a, ...b, ...c]), normals: Float32Array.from([...normal, ...normal, ...normal]) };
+  const { positions, normals } = ride.stretchPart(part, 1.5);
+  near(positions[5], 1.5, "stretched z");
+  assert.equal(part.positions[5], 1, "the part does not change");
+  for (const corner of [1, 2]) {
+    const edge = [0, 1, 2].map((k) => positions[3 * corner + k] - positions[k]);
+    const dot = edge[0] * normals[0] + edge[1] * normals[1] + edge[2] * normals[2];
+    assert.ok(Math.abs(dot) < 1e-6, `normal and edge ${corner}: dot ${dot}`);
+  }
+  assert.ok(Math.abs(Math.hypot(normals[0], normals[1], normals[2]) - 1) < 1e-6, "unit normal");
+});
+
+test("seatEye places the eye as writePodMatrix places the pod", () => {
+  const eye = [0.2, 0.3, 0.5], scale = 1.5, yaw = 0.7, x = 10, top = 5, z = -4;
+  const matrix = new Float32Array(16);
+  ride.writePodMatrix(matrix, 0, x, top, z, yaw);
+  const local = [eye[0], eye[1], eye[2] * scale];
+  const want = [0, 1, 2].map((k) => local[0] * matrix[k] + local[1] * matrix[4 + k] + local[2] * matrix[8 + k] + matrix[12 + k]);
+  const got = ride.seatEye(x, top, z, yaw, eye, scale);
+  for (let k = 0; k < 3; k++) assert.ok(Math.abs(got[k] - want[k]) < 1e-5, `axis ${k}: ${got[k]} != ${want[k]}`);
+});
