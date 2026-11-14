@@ -54,6 +54,17 @@ An arm that does not drain has one unfinished request at minute 120.
 At scale 1, this rate drained 8 of 10 seeds in the [post-fix study](london-full-postfix.md#baseline-confirmation-results).
 The track wait varies most between seeds: seed 2 has 296 s at scale 1 and 518 to 631 s at scales 0.6 to 0.4.
 
+## Bank berths
+
+At scale 0.5, a third and a fourth berth row at Bank and Monument cause no layout conflict.
+With its share of the extra berths, Bank has 4 berths, and Harrow-on-the-Hill and Heathrow Terminals 2 & 3 have 2 in place of 3.
+This layout builds at scales 0.4 to 0.6, 0.8, and 0.85, and has a hard conflict at Bank at 0.9.
+On November 14, 2026, a paired run at scale 0.5 with the method below compared it with the measured network.
+With 4 berths at Bank, one seed of three drains, against all three.
+The other two seeds each have one unfinished request at minute 120.
+The mean wait is 0.9% to 1.7% longer, the empty distance 0.6% to 1.1% longer, and the mean journey changes by at most 0.2%.
+The presets keep 2 berths at Bank.
+
 ## Method
 
 The measured source is `d8089c89`.
