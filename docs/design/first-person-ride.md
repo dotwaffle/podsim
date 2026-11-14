@@ -178,6 +178,9 @@ If the ridden pod leaves the fleet, for example after a project apply, the page 
   The maintainer asked for the bar and the nearest stop in the M3b check.
 - Mini-map: a round 2D canvas that shows 1.5 km around the ridden pod, with north up.
   The first version showed 600 m, and in the M3b check the maintainer asked for a wider view.
+  Up to 16 station labels show the station name without a part in brackets, cut at a word boundary to at most 14 characters.
+  The project has no short station codes, and the LondonFull station IDs are NaPTAN codes such as `940GZZDLCAN`.
+  Nearer stations get their labels first, and a label that overlaps another label or the pod arrow is not drawn.
   It shows the lanes, the stations, the other pods in their class colors, and a north mark, and it draws 10 times a second.
   A grid of 500 m cells holds the lane segments, so a draw reads only the segments near the pod.
   On LondonFull, the grid takes 16 ms to build, and a draw reads about 460 of the 11,509 segments in less than 1 ms.

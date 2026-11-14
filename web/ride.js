@@ -57,6 +57,8 @@
   const MINIMAP_RADIUS = 1500;
   const MINIMAP_CELL = 500;
   const MINIMAP_INTERVAL_MS = 100;
+  const MINIMAP_LABEL_LENGTH = 14;
+  const MINIMAP_LABELS = 16;
   // Auto mode fades to black, moves to the next pod, and fades back.
   const FADE_MS = 400;
   // Ground layers draw first, in this order, and write no depth. Nothing in
@@ -405,6 +407,30 @@
       x: station.berths.reduce((sum, berth) => sum + berth.x, 0) / station.berths.length,
       y: station.berths.reduce((sum, berth) => sum + berth.y, 0) / station.berths.length,
     }));
+  }
+
+  // shortLabel returns a station name for the mini-map: the name without a
+  // part in brackets, cut at a word boundary to at most limit characters.
+  function shortLabel(name, limit) {
+    const plain = name.replace(/\s*\(.*?\)\s*/g, " ").trim() || name;
+    if (plain.length <= limit) return plain;
+    const cut = plain.slice(0, limit), space = cut.lastIndexOf(" ");
+    return `${(space > 0 ? cut.slice(0, space) : cut).trim()}…`;
+  }
+
+  // placeLabels returns the labels that fit with no overlap, at most max.
+  // Each label has a box (x, y, width, height). A nearer label, with a lower
+  // distance, comes first. A label that overlaps an earlier label or a box
+  // of blocked is not in the result.
+  function placeLabels(labels, blocked, max) {
+    const overlaps = (a, b) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+    const placed = [];
+    for (const label of [...labels].sort((a, b) => a.distance - b.distance)) {
+      if (placed.length >= max) break;
+      if (blocked.some((box) => overlaps(label, box)) || placed.some((box) => overlaps(label, box))) continue;
+      placed.push(label);
+    }
+    return placed;
   }
 
   // nearestStop returns the stop of stops nearest to world (x, y), with its
@@ -765,7 +791,10 @@
   function createMiniMap(canvas, topology) {
     const nodes = new Map(topology.nodes.map((node) => [node.id, node.position]));
     const index = segmentIndex(topology.lanes, nodes, MINIMAP_CELL);
-    const stations = stopPoints(topology.stations);
+    const stations = stopPoints(topology.stations).map((station) => ({ ...station, label: shortLabel(station.name, MINIMAP_LABEL_LENGTH) }));
+    // widths holds the width of each label text at the font of fontRatio.
+    const widths = new Map();
+    let fontRatio = 0;
     const classColors = CLASS_COLORS.map((rgb) => `rgb(${rgb.map((value) => Math.round(value * 255)).join(",")})`);
     const context = canvas.getContext("2d");
 
@@ -802,8 +831,29 @@
         context.fillStyle = style;
         context.fill();
       };
+      context.font = `${Math.round(10 * ratio)}px system-ui, sans-serif`;
+      if (fontRatio !== ratio) { widths.clear(); fontRatio = ratio; }
+      const labels = [], lineHeight = 12 * ratio, gap = 5 * ratio;
       for (const station of stations) {
-        if (Math.abs(station.x - x) <= MINIMAP_RADIUS && Math.abs(station.y - y) <= MINIMAP_RADIUS) dot(station.x - x, station.y - y, 3, "#f3c479");
+        const dx = station.x - x, dy = station.y - y;
+        if (Math.abs(dx) > MINIMAP_RADIUS || Math.abs(dy) > MINIMAP_RADIUS) continue;
+        dot(dx, dy, 3, "#f3c479");
+        if (!widths.has(station.label)) widths.set(station.label, context.measureText(station.label).width);
+        const width = widths.get(station.label), px = half + scale * dx, py = half + scale * dy;
+        // A label must be inside the round map.
+        if (Math.hypot(px + gap + width - half, py - half) > half - 2 * ratio) continue;
+        labels.push({ text: station.label, x: px + gap, y: py - lineHeight / 2, width, height: lineHeight, distance: Math.hypot(dx, dy) });
+      }
+      // The labels do not cover the arrow of the ridden pod.
+      const arrowBox = { x: half - 10 * ratio, y: half - 10 * ratio, width: 20 * ratio, height: 20 * ratio };
+      context.textAlign = "left";
+      context.textBaseline = "middle";
+      context.lineWidth = 3 * ratio;
+      context.strokeStyle = "#101d28";
+      context.fillStyle = "#f5e2b8";
+      for (const label of placeLabels(labels, [arrowBox], MINIMAP_LABELS)) {
+        context.strokeText(label.text, label.x, label.y + lineHeight / 2);
+        context.fillText(label.text, label.x, label.y + lineHeight / 2);
       }
       for (let i = 0; i < count; i++) {
         const at = i * POSE_FIELDS, dx = poses[at] - x, dy = poses[at + 1] - y;
@@ -1135,7 +1185,7 @@
     root.addEventListener("resize", () => engine.resize());
   }
 
-  const api = { POSE_FIELDS, segmentIndex, segmentsNear, miniMapArrow, snapShadowCenter, stopPoints, nearestStop, autoHop, BEAM_TOP, GROUND_LAYERS, groundLayerOrder, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, newTurn, dampAngle, laneSamples, beamGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, choosePod, podLabel, springBack, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, start };
+  const api = { POSE_FIELDS, segmentIndex, segmentsNear, miniMapArrow, snapShadowCenter, stopPoints, shortLabel, placeLabels, nearestStop, autoHop, BEAM_TOP, GROUND_LAYERS, groundLayerOrder, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, newTurn, dampAngle, laneSamples, beamGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, choosePod, podLabel, springBack, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, start };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.PodsimRide = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

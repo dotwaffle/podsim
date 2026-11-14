@@ -361,3 +361,25 @@ test("snapShadowCenter moves the light to whole texels across its view", () => {
     near(dot(snapped, unit), dot(p, unit), "depth along the light");
   }
 });
+
+test("shortLabel shortens station names for the mini-map", () => {
+  const cases = [
+    ["Bank", "Bank"],
+    ["Custom House (for ExCel)", "Custom House"],
+    ["Cutty Sark (for Maritime Greenwich)", "Cutty Sark"],
+    ["Battersea Power Station", "Battersea…"],
+    ["Walthamstowcentralstation", "Walthamstowcen…"],
+    ["(brackets)", "(brackets)"],
+  ];
+  for (const [name, want] of cases) assert.equal(ride.shortLabel(name, 14), want, name);
+});
+
+test("placeLabels keeps the nearest labels that do not overlap", () => {
+  const box = (text, x, y, distance) => ({ text, x, y, width: 40, height: 10, distance });
+  const labels = [box("far", 0, 0, 300), box("near", 20, 5, 100), box("apart", 100, 100, 500), box("blocked", 200, 200, 50)];
+  const blocked = [{ x: 210, y: 198, width: 5, height: 10 }];
+  assert.deepEqual(ride.placeLabels(labels, blocked, 10).map((label) => label.text), ["near", "apart"]);
+  assert.deepEqual(ride.placeLabels(labels, blocked, 1).map((label) => label.text), ["near"]);
+  // Boxes that only touch do not overlap.
+  assert.equal(ride.placeLabels([box("a", 0, 0, 1), box("b", 40, 0, 2)], [], 10).length, 2);
+});
