@@ -258,7 +258,8 @@ func Default() Config {
 }
 
 // projectChecks are the checks of Validate before the size check. The first
-// error is the refusal, so the order is part of the result.
+// error is the refusal, except a plane reach error, which is the refusal
+// only when no later check fails. The order is part of the result.
 var projectChecks = [...]func(Config) error{
 	validateVersion,
 	validateFaults,
