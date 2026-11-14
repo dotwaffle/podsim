@@ -32,11 +32,11 @@ func (s *Simulation) ensureNetworkIndexes() {
 	p.laneCells = indexLaneCells(laneCellsIndexInput{network: p.network, tails: tails, geometry: p.geometry, conflicts: p.junctionConflicts, berths: p.berthResources, retention: p.retention, maneuvers: p.maneuvers, depots: p.depots})
 	p.resourceLanes = indexResourceLanes(p.network, p.laneCells)
 	p.platoonData = newPlatoonIndexData(p.network)
+	p.pickupBounds = p.indexPickupBounds()
 	s.networkIndexes = &p
 	s.routes = nil
 	s.routeOrder = nil
 	s.routeTrees = nil
-	s.pickupBounds = nil
 	s.routeWork = nil
 	// The blocked set holds lane indexes of the old network, and the
 	// no-candidate memo node indexes.

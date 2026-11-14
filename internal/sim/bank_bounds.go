@@ -3,9 +3,9 @@ package sim
 import "math"
 
 // bankTravelBounds joins arrival, external, and departure lower bounds at gates.
-func (s *Simulation) bankTravelBounds(station Station) []float64 {
-	graph := s.graph
-	arrival := make([]float64, len(s.network.Nodes))
+func (n *networkIndexes) bankTravelBounds(station Station) []float64 {
+	graph := n.graph
+	arrival := make([]float64, len(n.network.Nodes))
 	for i := range arrival {
 		arrival[i] = math.Inf(1)
 	}
@@ -14,7 +14,7 @@ func (s *Simulation) bankTravelBounds(station Station) []float64 {
 	}
 	bankReverseBounds(arrival, graph, func(lane int) bool {
 		owner := graph.banks.lanes[lane]
-		return owner >= 0 && s.network.Stations[graph.banks.banks[owner].station].ID == station.ID && graph.banks.banks[owner].arrival[lane]
+		return owner >= 0 && n.network.Stations[graph.banks.banks[owner].station].ID == station.ID && graph.banks.banks[owner].arrival[lane]
 	})
 	external := make([]float64, len(arrival))
 	for i := range external {
@@ -29,7 +29,7 @@ func (s *Simulation) bankTravelBounds(station Station) []float64 {
 		external[node] = arrival[node]
 	}
 	bankReverseBounds(external, graph, func(lane int) bool {
-		return graph.banks.lanes[lane] < 0 || s.network.Lanes[lane].StationRole == StationThroughRole
+		return graph.banks.lanes[lane] < 0 || n.network.Lanes[lane].StationRole == StationThroughRole
 	})
 	departure := make([]float64, len(arrival))
 	for i := range departure {
@@ -39,7 +39,7 @@ func (s *Simulation) bankTravelBounds(station Station) []float64 {
 		departure[bank.exit] = external[bank.exit]
 	}
 	bankReverseBounds(departure, graph, func(lane int) bool {
-		return s.network.Lanes[lane].StationRole == StationDepartureRole && graph.banks.lanes[lane] >= 0
+		return n.network.Lanes[lane].StationRole == StationDepartureRole && graph.banks.lanes[lane] >= 0
 	})
 	for i := range external {
 		external[i] = min(external[i], arrival[i], departure[i])

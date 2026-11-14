@@ -2,25 +2,26 @@ package sim
 
 import "math"
 
-// stationPickupBounds caches each station's free-flow bounds. These bounds
-// depend only on the owned network, so Reset can retain them. Clone drops
-// the cache, and a graph rebuild clears it. Callers must not change the slice.
+// stationPickupBounds returns the free-flow bounds of a station, or nil for
+// an unknown station. The network indexes hold the bounds, so the
+// simulations and clones of one prepared network share them. Callers must
+// not change the slice.
 func (s *Simulation) stationPickupBounds(stationID string) []float64 {
-	if bounds, ok := s.pickupBounds[stationID]; ok {
-		return bounds
+	return s.pickupBounds[stationID]
+}
+
+// indexPickupBounds builds the bounds of each station. The bounds depend
+// only on the network, so the prepared network builds them one time, and
+// no step or clone pays for them.
+func (n *networkIndexes) indexPickupBounds() map[string][]float64 {
+	bounds := make(map[string][]float64, len(n.network.Stations))
+	for _, station := range n.network.Stations {
+		if len(n.graph.banks.banks) > 0 {
+			bounds[station.ID] = n.bankTravelBounds(station)
+		} else {
+			bounds[station.ID] = n.graph.berthTravelBounds(station.Berths)
+		}
 	}
-	station, ok := s.station(stationID)
-	if !ok {
-		return nil
-	}
-	bounds := s.graph.berthTravelBounds(station.Berths)
-	if len(s.graph.banks.banks) > 0 {
-		bounds = s.bankTravelBounds(station)
-	}
-	if s.pickupBounds == nil {
-		s.pickupBounds = make(map[string][]float64)
-	}
-	s.pickupBounds[stationID] = bounds
 	return bounds
 }
 

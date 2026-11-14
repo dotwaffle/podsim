@@ -1,6 +1,10 @@
 package sim
 
-import "testing"
+import (
+	"maps"
+	"slices"
+	"testing"
+)
 
 func TestFinishingPodTravelBound(t *testing.T) {
 	t.Parallel()
@@ -33,12 +37,20 @@ func TestFinishingPodTravelBound(t *testing.T) {
 			fast, full := s.Clone(), s.Clone()
 			station, _ := s.station(test.station)
 			market, _ := s.station("market")
+			shared := fast.networkIndexes
 			if test.rounding {
 				// A small reverse-sum error must not exclude a cutoff tie.
-				bounds := fast.stationPickupBounds("market")
+				// The clones share the bounds, so fast gets its own copy.
+				detachIndexes(fast)
+				bounds := slices.Clone(fast.stationPickupBounds("market"))
 				bounds[fast.graph.nodes[station.Berths[0].Node]] = 1e-7
+				fast.pickupBounds = maps.Clone(fast.pickupBounds)
+				fast.pickupBounds["market"] = bounds
 			}
 			got := fast.waitForFinishingPod(&fast.waiting[0], &fast.vehicles[0], nil)
+			// The state comparison reads the indexes, so fast gets the
+			// shared indexes again.
+			fast.networkIndexes = shared
 			want := full.waitForFinishingPodFull(&full.waiting[0], &full.vehicles[0], nil)
 			if got != want || got != test.wantHold || !sameHoldState(fast, full) {
 				t.Fatalf("hold=%v, full=%v, want=%v, state equality=%v", got, want, test.wantHold, sameHoldState(fast, full))

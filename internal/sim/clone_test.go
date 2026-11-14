@@ -27,7 +27,7 @@ var cloneRules = map[reflect.Type]map[string]cloneRule{
 	reflect.TypeFor[Simulation](): {
 		"motion":         cloneCopy,
 		"networkIndexes": cloneShare, "routes": cloneDrop, "routeOrder": cloneDrop, "routeTrees": cloneDrop,
-		"pickupBounds": cloneDrop, "routeWork": cloneDrop, "routeView": cloneDrop, "admissionWork": cloneDrop, "depotTaken": cloneDrop, "emergencyMisses": cloneDrop, "pickupMisses": cloneDrop,
+		"routeWork": cloneDrop, "routeView": cloneDrop, "admissionWork": cloneDrop, "depotTaken": cloneDrop, "emergencyMisses": cloneDrop, "pickupMisses": cloneDrop,
 		"initial":  cloneShare,
 		"vehicles": cloneCopy, "expressServices": cloneCopy, "owners": cloneCopy, "demo": cloneCopy, "waiting": cloneCopy, "undelivered": cloneCopy,
 		"demandWeights":    cloneShare,
@@ -205,7 +205,7 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		// prepared network from it.
 		"networkIndexes":  persistSession,
 		"expressServices": persistSession, "routes": persistReset, "routeOrder": persistReset, "routeTrees": persistReset,
-		"pickupBounds": persistReset, "routeWork": persistReset, "routeView": persistReset, "admissionWork": persistReset, "depotTaken": persistReset,
+		"routeWork": persistReset, "routeView": persistReset, "admissionWork": persistReset, "depotTaken": persistReset,
 		"emergencyMisses": persistReset, "pickupMisses": persistReset, "searchCounters": persistReset,
 		"initial":  persistSession,
 		"vehicles": persistSave, "owners": persistDerive, "tick": persistSave, "paused": persistSave,
@@ -462,7 +462,6 @@ func activeCloneSimulation(t *testing.T) *Simulation {
 	// The demo does not use drop-offs, so the fixture fills the station
 	// caches of drop-offs.
 	s.stationsOnRoute("harbor-berth", "market")
-	s.stationPickupBounds("market")
 	// Each passenger station of the example has one berth, so no batch
 	// fills the tree memo, and the fixture adds a tree.
 	s.batchTrees().tree(s.network, s.routingGraph(), routeTreeInput{root: s.graph.nodes["harbor-berth"], terminal: true})
@@ -764,7 +763,6 @@ func cloneFixtures() []cloneFixture {
 func stripCaches(s *Simulation) *Simulation {
 	c := *s
 	c.routes, c.routeOrder, c.routeTrees = nil, nil, nil
-	c.pickupBounds = nil
 	c.staticConnected, c.staticRoutes = nil, nil
 	c.routeWork = nil
 	c.admissionWork = nil

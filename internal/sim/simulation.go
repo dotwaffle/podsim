@@ -414,7 +414,6 @@ type Simulation struct {
 	// cacheStationRoutesForClass. startRouteEpoch clears it, Clone drops it,
 	// and no save holds it. See route_trees.go.
 	routeTrees             *routeTrees
-	pickupBounds           map[string][]float64
 	routeWork              *routeSearchWork
 	admissionWork          *admissionWork
 	initial                []Placement

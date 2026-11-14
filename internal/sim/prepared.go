@@ -68,6 +68,9 @@ type networkIndexes struct {
 	lateral *depotLateral
 	// platoonData holds the network data that links read.
 	platoonData platoonIndexData
+	// pickupBounds holds the free-flow bounds of each station, by station
+	// ID (see stationPickupBounds).
+	pickupBounds map[string][]float64
 }
 
 // PrepareNetwork validates and copies network, then builds its immutable indexes.
@@ -207,6 +210,7 @@ func newPreparedNetwork(prepared networkPreparation) *PreparedNetwork {
 	p.laneCells = indexLaneCells(laneCellsIndexInput{network: owned, tails: prepared.tails, geometry: p.geometry, conflicts: p.junctionConflicts, berths: p.berthResources, retention: p.retention, maneuvers: p.maneuvers, depots: p.depots})
 	p.resourceLanes = indexResourceLanes(owned, p.laneCells)
 	p.platoonData = newPlatoonIndexData(owned)
+	p.pickupBounds = p.indexPickupBounds()
 	return p
 }
 
