@@ -4,12 +4,16 @@
 // The pure functions at the top have node tests in ride_test.cjs. start()
 // needs a browser, Babylon.js, and the ride WebAssembly module.
 (function (root) {
-  const POSE_FIELDS = 5;
+  const POSE_FIELDS = 6;
   // The top of the guideway beam, in meters above the ground.
   const BEAM_TOP = 5;
   const BEAM_WIDTH = 1.4;
   const BEAM_DEPTH = 0.7;
   const PILLAR_SPACING = 60;
+  // A beam with its bottom lower than this has no pillars.
+  const PILLAR_MIN_HEIGHT = 1;
+  // A straight ramp has a point at least every LEVEL_STEP meters.
+  const LEVEL_STEP = 8;
   const MAX_PILLARS = 60000;
   // A curved lane gets one sample at most every CURVE_STEP meters.
   const CURVE_STEP = 4;
@@ -156,15 +160,56 @@
     return points;
   }
 
+  // levelHeight returns the beam top at distance meters from the mainline,
+  // with the levels of the topology. It is Levels.height of internal/ride.
+  function levelHeight(distance, levels) {
+    if (!levels) return BEAM_TOP;
+    const f = Math.min(Math.max(distance / levels.rampMeters, 0), 1);
+    return levels.mainTop - (levels.mainTop - levels.stationTop) * f * f * (3 - 2 * f);
+  }
+
+  // laneProfile returns the world points along a lane, each with the beam
+  // top h, or null when a node is missing. The height of a point uses the
+  // fraction of the lane length before it, as the pod heights of
+  // ride.frame do. A straight lane with two node heights gets more points,
+  // so the beam follows the ramp curve.
+  function laneProfile(lane, nodes, levels) {
+    const from = nodes.get(lane.from), to = nodes.get(lane.to);
+    if (!from || !to) return null;
+    const a = lane.fromDistance || 0, b = lane.toDistance || 0;
+    let points = laneSamples(from, to, lane.control);
+    if (!lane.control && levelHeight(a, levels) !== levelHeight(b, levels)) {
+      const count = Math.max(2, Math.ceil(Math.hypot(to.x - from.x, to.y - from.y) / LEVEL_STEP) + 1);
+      points = Array.from({ length: count }, (_, i) => ({ x: from.x + (to.x - from.x) * i / (count - 1), y: from.y + (to.y - from.y) * i / (count - 1) }));
+    }
+    const lengths = [0];
+    for (let i = 1; i < points.length; i++) lengths.push(lengths[i - 1] + Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y));
+    const total = lengths[lengths.length - 1];
+    return points.map((point, i) => ({ x: point.x, y: point.y, h: levelHeight(a + (b - a) * (total > 0 ? lengths[i] / total : 0), levels) }));
+  }
+
+  // uniqueLanes returns the lanes without a reverse twin of an earlier lane:
+  // a lane on the same two nodes with the same control point.
+  function uniqueLanes(lanes) {
+    const seen = new Set();
+    return lanes.filter((lane) => {
+      const ends = lane.from < lane.to ? `${lane.from}\u0000${lane.to}` : `${lane.to}\u0000${lane.from}`;
+      const key = lane.control ? `${ends}\u0000${lane.control.x}\u0000${lane.control.y}` : ends;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
   // beamGeometry returns the vertex data of a box beam along each lane. Each
   // face has its own vertices and normals, so the faces have flat shading.
-  function beamGeometry(lanes, nodes) {
+  function beamGeometry(lanes, nodes, levels) {
     const positions = [], normals = [], colors = [], indices = [];
-    const half = BEAM_WIDTH / 2, top = BEAM_TOP, bottom = BEAM_TOP - BEAM_DEPTH;
+    const half = BEAM_WIDTH / 2;
     for (const lane of lanes) {
-      const from = nodes.get(lane.from), to = nodes.get(lane.to);
-      if (!from || !to) continue;
-      const points = laneSamples(from, to, lane.control).map((point) => toScene(point.x, point.y));
+      const profile = laneProfile(lane, nodes, levels);
+      if (!profile) continue;
+      const points = profile.map((point) => toScene(point.x, point.y));
       const sides = [];
       for (let i = 0; i < points.length; i++) {
         const previous = points[Math.max(0, i - 1)], next = points[Math.min(points.length - 1, i + 1)];
@@ -174,8 +219,10 @@
         // left is the horizontal unit vector to the left of travel.
         sides.push([-dz, dx]);
       }
-      // Each face: two edges, given as [side sign, height], and a normal.
-      // The running surface on top is darker than the concrete sides.
+      // Each face: two edges, given as [side sign, depth below the top],
+      // and a normal. The running surface on top is darker than the
+      // concrete sides.
+      const top = 0, bottom = BEAM_DEPTH;
       const faces = [
         { edges: [[1, top], [-1, top]], normal: () => [0, 1, 0], shade: 0.42 },
         { edges: [[-1, top], [-1, bottom]], normal: (left) => [-left[0], 0, -left[1]], shade: 0.82 },
@@ -186,8 +233,8 @@
         const base = positions.length / 3;
         for (let i = 0; i < points.length; i++) {
           const left = sides[i], normal = face.normal(left);
-          for (const [sign, height] of face.edges) {
-            positions.push(points[i][0] + left[0] * half * sign, height, points[i][1] + left[1] * half * sign);
+          for (const [sign, depth] of face.edges) {
+            positions.push(points[i][0] + left[0] * half * sign, profile[i].h - depth, points[i][1] + left[1] * half * sign);
             normals.push(normal[0], normal[1], normal[2]);
             colors.push(face.shade, face.shade, face.shade * 0.97, 1);
           }
@@ -201,14 +248,15 @@
     return { positions: new Float32Array(positions), normals: new Float32Array(normals), colors: new Float32Array(colors), indices: new Uint32Array(indices) };
   }
 
-  // pillarPoints returns scene points under the lanes, about one for each
-  // PILLAR_SPACING meters of lane, at most MAX_PILLARS.
-  function pillarPoints(lanes, nodes) {
+  // pillarPoints returns scene points [x, z, top] under the lanes, about
+  // one for each PILLAR_SPACING meters of lane, at most MAX_PILLARS. top is
+  // the beam top. A point where the beam bottom is lower than
+  // PILLAR_MIN_HEIGHT has no pillar.
+  function pillarPoints(lanes, nodes, levels) {
     const result = [];
     for (const lane of lanes) {
-      const from = nodes.get(lane.from), to = nodes.get(lane.to);
-      if (!from || !to) continue;
-      const points = laneSamples(from, to, lane.control);
+      const points = laneProfile(lane, nodes, levels);
+      if (!points) continue;
       let carried = PILLAR_SPACING / 2;
       for (let i = 0; i + 1 < points.length; i++) {
         const a = points[i], b = points[i + 1];
@@ -216,7 +264,8 @@
         let at = carried;
         while (at < length) {
           if (result.length >= MAX_PILLARS) return result;
-          result.push(toScene(a.x + (b.x - a.x) * at / length, a.y + (b.y - a.y) * at / length));
+          const f = at / length, top = a.h + (b.h - a.h) * f;
+          if (top - BEAM_DEPTH >= PILLAR_MIN_HEIGHT) result.push([...toScene(a.x + (b.x - a.x) * f, a.y + (b.y - a.y) * f), top]);
           at += PILLAR_SPACING;
         }
         carried = at - length;
@@ -236,7 +285,7 @@
         const [x, z] = toScene(berth.x, berth.y);
         minX = Math.min(minX, x); maxX = Math.max(maxX, x); minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z);
       }
-      slabs.push({ id: station.id, name: station.name, x: (minX + maxX) / 2, z: (minZ + maxZ) / 2, width: maxX - minX + 2 * margin, depth: maxZ - minZ + 2 * margin });
+      slabs.push({ id: station.id, name: station.name, height: station.height ?? BEAM_TOP, x: (minX + maxX) / 2, z: (minZ + maxZ) / 2, width: maxX - minX + 2 * margin, depth: maxZ - minZ + 2 * margin });
     }
     return slabs;
   }
@@ -255,9 +304,9 @@
   // writePodMatrix writes the Babylon world matrix of a pod at scene (x, z)
   // with yaw into out at offset. Babylon matrices put the translation in
   // elements 12 to 14.
-  function writePodMatrix(out, offset, x, z, yaw) {
+  function writePodMatrix(out, offset, x, top, z, yaw) {
     const c = Math.cos(yaw), s = Math.sin(yaw);
-    out.set([c, 0, -s, 0, 0, 1, 0, 0, s, 0, c, 0, x, BEAM_TOP + POD_HEIGHT / 2, z, 1], offset);
+    out.set([c, 0, -s, 0, 0, 1, 0, 0, s, 0, c, 0, x, top + POD_HEIGHT / 2, z, 1], offset);
   }
 
   // choosePod returns the requested pod ID when the list has it, else the
@@ -340,9 +389,9 @@
 
   // chaseEye returns the scene position of the chase camera behind a pod at
   // world (x, y). yaw is the Babylon yaw of the camera.
-  function chaseEye(x, y, yaw) {
+  function chaseEye(x, y, yaw, top = BEAM_TOP) {
     const [sx, sz] = toScene(x, y);
-    return [sx - Math.sin(yaw) * CHASE_DISTANCE, BEAM_TOP + POD_HEIGHT + CHASE_HEIGHT, sz - Math.cos(yaw) * CHASE_DISTANCE];
+    return [sx - Math.sin(yaw) * CHASE_DISTANCE, top + POD_HEIGHT + CHASE_HEIGHT, sz - Math.cos(yaw) * CHASE_DISTANCE];
   }
 
   // smoothPodYaws updates yaws, a map from pod ID to the turn of the drawn
@@ -473,7 +522,7 @@
   // platformView returns the scene positions of the eye and the target of
   // the platform camera at a station with the world berth positions berths.
   // The eye is to the side of the line through the first and the last berth.
-  function platformView(berths) {
+  function platformView(berths, top = BEAM_TOP) {
     const count = berths.length || 1;
     const center = { x: berths.reduce((sum, berth) => sum + berth.x, 0) / count, y: berths.reduce((sum, berth) => sum + berth.y, 0) / count };
     let ax = 1, ay = 0;
@@ -483,7 +532,7 @@
     }
     const [ex, ez] = toScene(center.x - ay * PLATFORM_SIDE - ax * PLATFORM_BACK, center.y + ax * PLATFORM_SIDE - ay * PLATFORM_BACK);
     const [tx, tz] = toScene(center.x, center.y);
-    return { center, eye: [ex, BEAM_TOP + PLATFORM_EYE, ez], target: [tx, BEAM_TOP + 1, tz] };
+    return { center, eye: [ex, top + PLATFORM_EYE, ez], target: [tx, top + 1, tz] };
   }
 
   // tripView returns how the page shows the passenger flow p of
@@ -631,8 +680,10 @@
     beamMaterial.diffuseColor = new B.Color3(1, 1, 1);
     beamMaterial.specularColor = new B.Color3(0.08, 0.08, 0.08);
     beamMaterial.backFaceCulling = false;
-    for (let start = 0; start < topology.lanes.length; start += LANES_PER_CHUNK) {
-      const geometry = beamGeometry(topology.lanes.slice(start, start + LANES_PER_CHUNK), nodes);
+    // A reverse twin draws in the same place, so it draws once.
+    const lanes = uniqueLanes(topology.lanes), levels = topology.levels;
+    for (let start = 0; start < lanes.length; start += LANES_PER_CHUNK) {
+      const geometry = beamGeometry(lanes.slice(start, start + LANES_PER_CHUNK), nodes, levels);
       if (geometry.indices.length === 0) continue;
       const mesh = new B.Mesh(`beams${start}`, scene);
       const data = new B.VertexData();
@@ -650,9 +701,13 @@
     const pillar = B.MeshBuilder.CreateCylinder("pillar", { height: BEAM_TOP - BEAM_DEPTH, diameterTop: 0.55, diameterBottom: 0.75, tessellation: 12 }, scene);
     pillar.material = concrete;
     pillar.isPickable = false;
-    const points = pillarPoints(topology.lanes, nodes);
+    const points = pillarPoints(lanes, nodes, levels);
     const pillarMatrices = new Float32Array(points.length * 16);
-    points.forEach(([x, z], i) => pillarMatrices.set([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, x, (BEAM_TOP - BEAM_DEPTH) / 2, z, 1], i * 16));
+    // The cylinder is as tall as a mainline pillar, so a lower beam scales it.
+    points.forEach(([x, z, top], i) => {
+      const height = top - BEAM_DEPTH;
+      pillarMatrices.set([1, 0, 0, 0, 0, height / (BEAM_TOP - BEAM_DEPTH), 0, 0, 0, 0, 1, 0, x, height / 2, z, 1], i * 16);
+    });
     if (points.length > 0) pillar.thinInstanceSetBuffer("matrix", pillarMatrices, 16, true);
     else pillar.setEnabled(false);
     meshes.push(pillar); casters.push(pillar);
@@ -663,7 +718,7 @@
     const slabs = stationSlabs(topology.stations);
     for (const slab of slabs) {
       const mesh = B.MeshBuilder.CreateBox(`station-${slab.id}`, { width: slab.width, depth: slab.depth, height: 0.4 }, scene);
-      mesh.position.set(slab.x, BEAM_TOP - BEAM_DEPTH - 0.25, slab.z);
+      mesh.position.set(slab.x, slab.height - BEAM_DEPTH - 0.25, slab.z);
       mesh.material = slabMaterial;
       mesh.isPickable = false;
       mesh.freezeWorldMatrix();
@@ -820,7 +875,7 @@
         const slab = nearest[i];
         sign.mesh.setEnabled(!!slab);
         if (!slab) { sign.station = ""; return; }
-        sign.mesh.position.set(slab.x, BEAM_TOP + 4.2, slab.z);
+        sign.mesh.position.set(slab.x, slab.height + 4.2, slab.z);
         if (sign.station === slab.id) return;
         sign.station = slab.id;
         const context = sign.texture.getContext();
@@ -1130,7 +1185,7 @@
       // A fade takes longer than one HUD update, so the next change waits.
       if (!hopping && ((platform && platform.id) !== nextPlatform || nextPod !== requested)) {
         const change = () => {
-          platform = nextPlatform ? { id: nextPlatform, ...platformView(stationBerths.get(nextPlatform)) } : null;
+          platform = nextPlatform ? { id: nextPlatform, ...platformView(stationBerths.get(nextPlatform).berths, stationBerths.get(nextPlatform).height) } : null;
           if (nextPod !== requested) selectPod(nextPod);
           showCabin();
         };
@@ -1170,7 +1225,7 @@
       miniMap = createMiniMap(miniMapCanvas, topology);
       stops = stopPoints(topology.stations);
       stationNames = new Map(topology.stations.map((station) => [station.id, station.name || station.id]));
-      stationBerths = new Map(topology.stations.filter((station) => station.berths.length > 0).map((station) => [station.id, station.berths]));
+      stationBerths = new Map(topology.stations.filter((station) => station.berths.length > 0).map((station) => [station.id, station]));
       partyLimit = topology.partyLimit || 8;
       platform = null;
       lastTiles = 0;
@@ -1205,7 +1260,7 @@
         if (ids[i] === hidden) continue;
         const at = i * POSE_FIELDS, pod = world.pods[poses[at + 4] | 0];
         const [x, z] = toScene(poses[at], poses[at + 1]);
-        writePodMatrix(pod.matrices, pod.count * 16, x, z, podYaws.get(ids[i]).angle);
+        writePodMatrix(pod.matrices, pod.count * 16, x, poses[at + 5], z, podYaws.get(ids[i]).angle);
         pod.count++;
       }
       for (const pod of world.pods) {
@@ -1235,7 +1290,7 @@
       const yaw = dampAngle(seatTurn, yawOf(heading), seconds, SEAT_YAW_SECONDS);
       if (chase) {
         const chaseYaw = dampAngle(chaseTurn, yawOf(heading), seconds, CHASE_YAW_SECONDS);
-        const [x, y, z] = chaseEye(poses[at], poses[at + 1], chaseYaw + lookYaw);
+        const [x, y, z] = chaseEye(poses[at], poses[at + 1], chaseYaw + lookYaw, poses[at + 5]);
         camera.position.set(x, y, z);
         camera.rotation.set(CHASE_PITCH + lookPitch, chaseYaw + lookYaw, 0);
         return;
@@ -1243,7 +1298,7 @@
       // The eye is near the front of the pod.
       const forward = length / 2 - 0.6;
       const [x, z] = toScene(poses[at] + Math.cos(heading) * forward, poses[at + 1] + Math.sin(heading) * forward);
-      camera.position.set(x, BEAM_TOP + EYE_HEIGHT, z);
+      camera.position.set(x, poses[at + 5] + EYE_HEIGHT, z);
       camera.rotation.set(SEAT_PITCH + lookPitch, yaw + lookYaw, 0);
     }
 
@@ -1335,7 +1390,7 @@
     root.addEventListener("resize", () => engine.resize());
   }
 
-  const api = { POSE_FIELDS, segmentIndex, segmentsNear, miniMapArrow, snapShadowCenter, stopPoints, shortLabel, placeLabels, platformView, tripView, nearestStop, autoHop, BEAM_TOP, GROUND_LAYERS, groundLayerOrder, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, newTurn, dampAngle, laneSamples, beamGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, choosePod, podLabel, springBack, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, start };
+  const api = { POSE_FIELDS, segmentIndex, segmentsNear, levelHeight, laneProfile, uniqueLanes, miniMapArrow, snapShadowCenter, stopPoints, shortLabel, placeLabels, platformView, tripView, nearestStop, autoHop, BEAM_TOP, GROUND_LAYERS, groundLayerOrder, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, newTurn, dampAngle, laneSamples, beamGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, choosePod, podLabel, springBack, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, start };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.PodsimRide = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

@@ -15,8 +15,8 @@ import (
 )
 
 // PoseFields is the count of numbers for each pod in a frame: x, y,
-// heading, speed, and class index.
-const PoseFields = 5
+// heading, speed, class index, and the beam top under the pod.
+const PoseFields = 6
 
 // headingStep is the movement in meters from the anchor of a pod that sets
 // a new heading. A pod that moved less keeps its heading, so a stopped or a
@@ -38,6 +38,10 @@ type Bridge struct {
 	lanes    laneTable
 	// berths holds the direction of a pod at each berth.
 	berths map[string]float64
+	// distances holds the distance of each node from the mainline, and
+	// berthNodes holds the node of each berth.
+	distances  map[string]float64
+	berthNodes map[string]string
 	// headings holds the pose of each pod in the last frame. spare is the
 	// map of the frame before it, which Frame clears and uses again.
 	headings, spare map[string]heading
@@ -82,7 +86,14 @@ func (b *Bridge) Observe(state session.State, at time.Time) {
 	}
 	if key.serverStart != b.revision.serverStart || key.epoch != b.revision.epoch || key.generation != b.revision.generation {
 		b.lanes = newLaneTable(state.Network)
+		b.distances = b.lanes.addDistances(state.Network)
 		b.berths = b.lanes.berthHeadings(state.Network)
+		b.berthNodes = make(map[string]string)
+		for _, station := range state.Network.Stations {
+			for _, berth := range station.Berths {
+				b.berthNodes[berth.ID] = berth.Node
+			}
+		}
 		b.headings, b.spare = nil, nil
 		b.session = fmt.Sprintf("%s/%s/%d", state.ServerStart, state.Epoch, state.Generation)
 	}
@@ -109,7 +120,7 @@ func (b *Bridge) Frame(at time.Time, out []float64) ([]float64, FrameInfo) {
 		}
 		next := b.heading(pod, previous)
 		b.headings[pod.ID] = next
-		out = append(out, pod.Position.X, pod.Position.Y, next.angle, pod.Speed, float64(classIndex(pod.Class)))
+		out = append(out, pod.Position.X, pod.Position.Y, next.angle, pod.Speed, float64(classIndex(pod.Class)), b.podHeight(pod))
 	}
 	if changed {
 		b.ids = b.ids[:0]
@@ -183,6 +194,9 @@ type laneShape struct {
 	lengths []float64
 	// reverse is true for a reverse lane of a maneuver group.
 	reverse bool
+	// fromDistance and toDistance are the distances of the two lane nodes
+	// from the mainline. See nodeDistances.
+	fromDistance, toDistance float64
 }
 
 type laneTable map[string]laneShape
@@ -305,6 +319,7 @@ type Topology struct {
 	Lanes       []TopologyLane    `json:"lanes"`
 	Stations    []TopologyStation `json:"stations"`
 	Classes     []TopologyClass   `json:"classes"`
+	Levels      Levels            `json:"levels"`
 	// PartyLimit is the largest party size of a new order.
 	PartyLimit int                    `json:"partyLimit"`
 	Geo        *project.Geo           `json:"geo,omitzero"`
@@ -312,13 +327,17 @@ type Topology struct {
 }
 
 // TopologyLane is one lane. Control is present on a curved lane.
+// FromDistance and ToDistance are the distances of the two lane nodes from
+// the mainline, for Levels.
 type TopologyLane struct {
-	ID         string     `json:"id"`
-	From       string     `json:"from"`
-	To         string     `json:"to"`
-	Control    *sim.Point `json:"control,omitempty"`
-	SpeedLimit float64    `json:"speedLimit"`
-	StationID  string     `json:"stationID,omitempty"`
+	ID           string     `json:"id"`
+	From         string     `json:"from"`
+	To           string     `json:"to"`
+	Control      *sim.Point `json:"control,omitempty"`
+	SpeedLimit   float64    `json:"speedLimit"`
+	StationID    string     `json:"stationID,omitempty"`
+	FromDistance float64    `json:"fromDistance"`
+	ToDistance   float64    `json:"toDistance"`
 }
 
 // TopologyStation is one station with the positions of its berths.
@@ -327,6 +346,8 @@ type TopologyStation struct {
 	Name        string      `json:"name"`
 	ParkingOnly bool        `json:"parkingOnly"`
 	Berths      []sim.Point `json:"berths"`
+	// Height is the mean beam top at the berths.
+	Height float64 `json:"height"`
 }
 
 // TopologyClass gives the body length of a class index.
@@ -346,21 +367,24 @@ func NewTopology(state session.State) Topology {
 	for _, node := range network.Nodes {
 		nodes[node.ID] = node.Position
 	}
+	lanes := newLaneTable(network)
+	distances := lanes.addDistances(network)
 	topology := Topology{
-		ServerStart: state.ServerStart, Epoch: state.Epoch, Generation: state.Generation, PartyLimit: sim.MaxNewPartySize,
+		ServerStart: state.ServerStart, Epoch: state.Epoch, Generation: state.Generation, PartyLimit: sim.MaxNewPartySize, Levels: levels,
 		Nodes: slices.Clone(network.Nodes), Geo: state.Geo, Map: state.Map,
 		Lanes:    make([]TopologyLane, 0, len(network.Lanes)),
 		Stations: make([]TopologyStation, 0, len(network.Stations)),
 	}
 	for _, lane := range network.Lanes {
-		topology.Lanes = append(topology.Lanes, TopologyLane{ID: lane.ID, From: lane.From, To: lane.To, Control: lane.Control, SpeedLimit: lane.SpeedLimit, StationID: lane.StationID})
+		shape := lanes[lane.ID]
+		topology.Lanes = append(topology.Lanes, TopologyLane{ID: lane.ID, From: lane.From, To: lane.To, Control: lane.Control, SpeedLimit: lane.SpeedLimit, StationID: lane.StationID, FromDistance: shape.fromDistance, ToDistance: shape.toDistance})
 	}
 	for _, station := range network.Stations {
 		berths := make([]sim.Point, 0, len(station.Berths))
 		for _, berth := range station.Berths {
 			berths = append(berths, nodes[berth.Node])
 		}
-		topology.Stations = append(topology.Stations, TopologyStation{ID: station.ID, Name: station.Name, ParkingOnly: station.ParkingOnly, Berths: berths})
+		topology.Stations = append(topology.Stations, TopologyStation{ID: station.ID, Name: station.Name, ParkingOnly: station.ParkingOnly, Berths: berths, Height: stationHeight(station, distances)})
 	}
 	if state.Simulation.OrderContract == sim.ExpressOrderContract {
 		profile, _ := sim.LookupVehicleClassWithOrderContract(sim.ExpressClass, sim.ExpressOrderContract)

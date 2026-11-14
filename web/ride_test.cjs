@@ -9,7 +9,7 @@ const near = (actual, expected, message) => assert.ok(Math.abs(actual - expected
 // matrix as writePodMatrix.
 function forwardOf(yaw) {
   const matrix = new Float32Array(16);
-  ride.writePodMatrix(matrix, 0, 0, 0, yaw);
+  ride.writePodMatrix(matrix, 0, 0, 0, 0, yaw);
   // A row vector (0, 0, 1) times the matrix gives row 2.
   return [matrix[8], matrix[10]];
 }
@@ -133,7 +133,8 @@ test("stationSlabs covers the berths", () => {
     { id: "s", name: "Stop", berths: [{ x: 0, y: 0 }, { x: 20, y: 10 }] },
     { id: "empty", name: "Empty", berths: [] },
   ], 5);
-  assert.deepEqual(slabs, [{ id: "s", name: "Stop", x: 10, z: -5, width: 30, depth: 20 }]);
+  assert.deepEqual(slabs, [{ id: "s", name: "Stop", height: ride.BEAM_TOP, x: 10, z: -5, width: 30, depth: 20 }]);
+  assert.equal(ride.stationSlabs([{ id: "low", berths: [{ x: 0, y: 0 }], height: 1 }])[0].height, 1);
 });
 
 test("choosePod keeps the request, then prefers a pod with riders", () => {
@@ -156,10 +157,20 @@ test("chaseEye is behind and above the pod", () => {
   const [x, y, z] = ride.chaseEye(0, 0, ride.yawOf(0));
   assert.ok(x < -10 && Math.abs(z) < 1e-9, `eye ${[x, y, z]} is not west of the pod`);
   assert.ok(y > ride.BEAM_TOP + 2, `eye height ${y}`);
+  // On a lower beam, the eye is lower by the same amount.
+  near(ride.chaseEye(0, 0, ride.yawOf(0), ride.BEAM_TOP - 4)[1], y - 4, "eye over a station beam");
+});
+
+test("writePodMatrix puts the pod on its beam", () => {
+  const matrix = new Float32Array(16);
+  ride.writePodMatrix(matrix, 0, 7, 3, -2, 0);
+  near(matrix[12], 7, "x");
+  near(matrix[14], -2, "z");
+  assert.ok(Math.abs(matrix[13] - (3 + 1.05)) < 1e-6, `pod center ${matrix[13]}`);
 });
 
 test("smoothPodYaws starts at the heading and then follows it", () => {
-  const poses = new Float64Array([0, 0, 0, 0, 0, 5, 5, Math.PI / 2, 0, 0]);
+  const poses = new Float64Array([0, 0, 0, 0, 0, 5, 5, 5, Math.PI / 2, 0, 0, 5]);
   const yaws = ride.smoothPodYaws(new Map(), ["a", "b"], poses, 2, 0.016, 0.2);
   near(yaws.get("a").angle, ride.yawOf(0), "first pod");
   near(yaws.get("b").angle, ride.yawOf(Math.PI / 2), "second pod");
@@ -398,6 +409,9 @@ test("platformView stands beside the berths and looks at their center", () => {
   near(across.eye[0], -22, "turned eye x");
   near(across.eye[2], -10, "turned eye scene z");
   // One berth uses world x as the line.
+  const low = ride.platformView([{ x: 0, y: 0 }, { x: 40, y: 0 }], 1);
+  near(along.eye[1] - low.eye[1], ride.BEAM_TOP - 1, "eye over a station platform");
+  near(along.target[1] - low.target[1], ride.BEAM_TOP - 1, "target on a station platform");
   const one = ride.platformView([{ x: 5, y: 5 }]);
   near(one.eye[0], -5, "single eye x");
   near(one.eye[2], -27, "single eye scene z");
@@ -419,4 +433,75 @@ test("tripView shows each phase of the passenger flow", () => {
   assert.equal(ride.tripView({ phase: "" }, names), null);
   assert.equal(ride.tripView(null, names), null);
   assert.equal(ride.tripView({ ...base, phase: "waiting", station: "zz" }, names).text, "Trip: waiting at zz for a pod");
+});
+
+test("levelHeight matches the height curve of internal/ride", () => {
+  const fixture = JSON.parse(require("node:fs").readFileSync(require("node:path").join(__dirname, "../internal/ride/testdata/levels.json"), "utf8"));
+  assert.equal(fixture.levels.mainTop, ride.BEAM_TOP, "the mainline is at BEAM_TOP");
+  for (const { distance, height } of fixture.cases) near(ride.levelHeight(distance, fixture.levels), height, `height at ${distance} m`);
+  assert.equal(ride.levelHeight(60, undefined), ride.BEAM_TOP, "no levels");
+});
+
+const LEVELS = { mainTop: 5, stationTop: 1, rampMeters: 120 };
+
+test("laneProfile follows a ramp and keeps flat lanes short", () => {
+  const nodes = new Map([["m", { x: 0, y: 0 }], ["s", { x: 120, y: 0 }], ["t", { x: 240, y: 0 }]]);
+  const ramp = ride.laneProfile({ from: "m", to: "s", fromDistance: 0, toDistance: 120 }, nodes, LEVELS);
+  // 120 m at one point each 8 m: 16 steps.
+  assert.equal(ramp.length, 16);
+  near(ramp[0].h, 5, "top of the ramp");
+  near(ramp.at(-1).h, 1, "bottom of the ramp");
+  near(ramp[8].x, 64, "point 8 x");
+  near(ramp[8].h, ride.levelHeight(64, LEVELS), "point 8 height");
+  for (let i = 1; i < ramp.length; i++) assert.ok(ramp[i].h <= ramp[i - 1].h, `point ${i} goes up`);
+  // An up ramp is the same ramp the other way.
+  const up = ride.laneProfile({ from: "s", to: "m", fromDistance: 120, toDistance: 0 }, nodes, LEVELS);
+  near(up[3].h, ramp[ramp.length - 4].h, "up ramp");
+  const flat = ride.laneProfile({ from: "s", to: "t", fromDistance: 120, toDistance: 120 }, nodes, LEVELS);
+  assert.deepEqual(flat, [{ x: 120, y: 0, h: 1 }, { x: 240, y: 0, h: 1 }]);
+  const main = ride.laneProfile({ from: "m", to: "t" }, nodes, LEVELS);
+  assert.deepEqual(main.map((point) => point.h), [5, 5]);
+  assert.equal(ride.laneProfile({ from: "m", to: "missing" }, nodes, LEVELS), null);
+  // A curve keeps its samples and gets the height by the length before each.
+  const curve = ride.laneProfile({ from: "m", to: "t", control: { x: 120, y: 200 }, fromDistance: 0, toDistance: 120 }, nodes, LEVELS);
+  near(curve[0].h, 5, "curve start");
+  near(curve.at(-1).h, 1, "curve end");
+  const middle = curve[(curve.length - 1) / 2];
+  near(middle.x, 120, "the middle sample is on the axis of symmetry");
+  near(middle.h, 3, "the middle of a symmetric curve is half way down");
+  // On a lopsided curve, the samples are not evenly spaced, and the height
+  // follows the length before each sample, as a pod height does.
+  const lopsided = ride.laneProfile({ from: "m", to: "t", control: { x: 230, y: 150 }, fromDistance: 0, toDistance: 120 }, nodes, LEVELS);
+  let before = 0;
+  const total = lopsided.slice(1).reduce((sum, point, i) => sum + Math.hypot(point.x - lopsided[i].x, point.y - lopsided[i].y), 0);
+  lopsided.forEach((point, i) => {
+    if (i > 0) before += Math.hypot(point.x - lopsided[i - 1].x, point.y - lopsided[i - 1].y);
+    near(point.h, ride.levelHeight(120 * before / total, LEVELS), `lopsided point ${i}`);
+  });
+});
+
+test("uniqueLanes draws a reverse twin once", () => {
+  const lanes = [
+    { id: "ab", from: "a", to: "b" }, { id: "ba", from: "b", to: "a" },
+    { id: "curve", from: "a", to: "b", control: { x: 1, y: 2 } }, { id: "back", from: "b", to: "a", control: { x: 1, y: 2 } },
+    { id: "other", from: "b", to: "a", control: { x: 1, y: 3 } }, { id: "bc", from: "b", to: "c" },
+  ];
+  assert.deepEqual(ride.uniqueLanes(lanes).map((lane) => lane.id), ["ab", "curve", "other", "bc"]);
+});
+
+test("beamGeometry and pillarPoints follow the levels", () => {
+  const nodes = new Map([["m", { x: 0, y: 0 }], ["s", { x: 120, y: 0 }], ["t", { x: 600, y: 0 }]]);
+  const lanes = [{ from: "m", to: "s", fromDistance: 0, toDistance: 120 }, { from: "s", to: "t", fromDistance: 120, toDistance: 120 }];
+  const geometry = ride.beamGeometry(lanes.slice(0, 1), nodes, LEVELS);
+  // The top face of the first point is at 5 m, and of the last point at 1 m.
+  const tops = [];
+  for (let i = 0; i < geometry.positions.length / 3; i++) if (geometry.normals[i * 3 + 1] === 1) tops.push(geometry.positions[i * 3 + 1]);
+  assert.ok(Math.abs(Math.max(...tops) - 5) < 1e-6 && Math.abs(Math.min(...tops) - 1) < 1e-6, `tops ${Math.min(...tops)} to ${Math.max(...tops)}`);
+  const pillars = ride.pillarPoints(lanes, nodes, LEVELS);
+  // On the ramp, the pillar at 30 m holds the beam, and the one at 90 m is
+  // too low. The station lane has none. The beam is straight between the
+  // ramp points at 24 m and 32 m, so the pillar meets it there.
+  assert.equal(pillars.length, 1);
+  near(pillars[0][0], 30, "pillar x");
+  near(pillars[0][2], ride.levelHeight(24, LEVELS) + (ride.levelHeight(32, LEVELS) - ride.levelHeight(24, LEVELS)) * 0.75, "pillar top");
 });

@@ -65,8 +65,8 @@ The bridge copies data into typed arrays, so JavaScript does not get one object 
 
 | Function | Call rate | Returns |
 | --- | --- | --- |
-| `ride.topology()` | When `generation` changes | JSON: lanes with end points, control point, and speed limit, stations with berth positions, the largest party size of a new order, `geo`, and `map`. The module starts the client for the page origin when it loads. |
-| `ride.frame(out)` | Each animation frame | It fills a `Float64Array` with 5 numbers for each pod: x, y, heading, speed, and class index. It returns the pod count, the generation, a pod list version, the connection state, and the connection error. |
+| `ride.topology()` | When `generation` changes | JSON: lanes with end points, control point, speed limit, and the distances of the two nodes from the mainline, the levels, stations with berth positions, the largest party size of a new order, `geo`, and `map`. The module starts the client for the page origin when it loads. |
+| `ride.frame(out)` | Each animation frame | It fills a `Float64Array` with 6 numbers for each pod: x, y, heading, speed, class index, and the beam top under the pod. It returns the pod count, the generation, a pod list version, the connection state, and the connection error. |
 | `ride.ids()` | When the pod list version changes | The pod IDs in the order of `frame`. |
 | `ride.pods()` | When the pod list version changes, and when the user opens the pod list | The ID, class, activity, and first trip of each pod, in the order of the latest state. |
 | `ride.hud(podID)` | 4 times a second | JSON: class, activity, speed, lane speed limit, wait reason, `blockedBy`, riders aboard, next stop, route progress, session speed and pause, connection, and the outcome of the last command. |
@@ -262,14 +262,38 @@ The passenger flow logs its state changes.
 4. M3b: the mini-map and auto mode.
 5. M4: the passenger flow.
 
+## Station levels
+
+The maintainer chose on 2026-11-14 to lower the stations after M4, because the station lanes at the guideway height looked messy.
+On LondonFull, 5,216 of the 9,024 lanes are station lanes, a median of 15 for each station, and 272 lanes have a reverse twin on the same nodes.
+The page derives each height from the network, and the model stores no elevation.
+
+- A mainline node is a node of a lane with no station.
+  The distance of a node is the shortest path to a mainline node over station lanes, in either direction, at most the ramp length.
+  A node that no mainline node reaches has the ramp length.
+- The beam top is 5 m at distance 0 and 1 m at the ramp length of 120 m.
+  Between them, the height follows a smoothstep curve, so a ramp starts and ends level, and its steepest grade is 5%.
+- A point on a lane has the distance of its two nodes, interpolated by the fraction of the lane length.
+  A pod at a berth has the distance of the berth node.
+- On LondonFull, the berth nodes are 354 m to 546 m from the mainline, so each berth is at the station level.
+  68 berths are on mainline nodes, and they stay at the guideway height.
+  The 3 station lanes between two mainline nodes are through lanes of banks, and they stay at the guideway height too.
+- Go computes the heights in `internal/ride`.
+  The topology gives the two node distances of each lane and the level values, and `ride.frame` gives the height of each pod.
+  The page draws the beams with the same curve, and a test fixture that both test suites read pins the two versions of the curve.
+- A lane with a reverse twin on the same nodes, with the same control point, draws once.
+- A beam with its bottom less than 1 m above the ground has no pillars.
+  Each other pillar reaches the bottom of its beam.
+- The platform slabs, the station signs, and the platform camera use the height of their station: the mean height of its berths.
+- The pods stay level on a ramp.
+  At a grade of at most 5%, a pitch of less than 3 degrees does not show.
+- On LondonFull, 301 of the 312 stations are at the station level, and 136 pairs of twin lanes draw once.
+  A pod on a ramp is within 1 cm of the beam that the page draws under it.
+  The beams and the pillars take about 240 ms to build in Node.
+
 ## Later items
 
-- Station levels, after M4, as the maintainer chose on 2026-11-14.
-  The page derives a height for each lane, and the model stores no elevation.
-  Station lanes sit on a platform level below the mainline, and the entry and exit lanes are ramps.
-  A deck slab is under the station lanes, and a lane with a reverse twin on the same nodes draws once.
-  The same derived heights give visual grade separation at crossings.
-  On LondonFull, 5,216 of the 9,024 lanes are station lanes, a median of 15 for each station, and 272 lanes have a reverse twin.
+- Visual grade separation at crossings, with the derived heights of the station levels.
 - A "Ride" button in the 2D pod inspector.
 - A glTF pod model.
 - Walking between a start location and a station.

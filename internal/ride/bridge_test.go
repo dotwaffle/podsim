@@ -143,7 +143,7 @@ func TestFramePacksPoses(t *testing.T) {
 	second := sim.Pod{ID: "02", Position: sim.Point{X: 7, Y: 8}, LaneID: "east"}
 	bridge.Observe(pausedState(1, first, second), now)
 	poses, info := bridge.Frame(now, nil)
-	want := []float64{3, 4, math.Pi / 2, 2, 2, 7, 8, 0, 0, 0}
+	want := []float64{3, 4, math.Pi / 2, 2, 2, 5, 7, 8, 0, 0, 0, 5}
 	if info.Count != 2 || info.Generation != 1 || info.Session != "s/e/1" || len(poses) != len(want) {
 		t.Fatalf("frame = %v, %+v", poses, info)
 	}
