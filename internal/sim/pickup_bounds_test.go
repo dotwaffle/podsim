@@ -18,6 +18,13 @@ func TestStationPickupBoundsIndex(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			// The prepared network holds each bound before any read, so no
+			// step or concurrent simulation writes the shared table.
+			for _, station := range p.network.Stations {
+				if p.pickupBounds[station.ID] == nil {
+					t.Fatalf("%s: the prepared network has no bounds", station.ID)
+				}
+			}
 			s := &Simulation{networkIndexes: &p.networkIndexes}
 			banks, differ := len(s.graph.banks.banks) > 0, false
 			if banks != (name != "example") {
