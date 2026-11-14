@@ -9,7 +9,8 @@ import (
 )
 
 // bankRouteParts holds the searches that the routes from one origin share in
-// one bankNearest call, with one value for each terminalBerthsOnly setting.
+// one bankNearest or bankRoutesFrom call, with one value for each
+// terminalBerthsOnly setting.
 // The graph, the blocked lanes, and the class do not change during the call.
 // Only the origin bank sets the prefix, and only the destination bank sets the
 // middle part of a route to a node inside that bank.
@@ -28,16 +29,16 @@ import (
 // of stops, which keeps the result of each node of stops. A middle part to
 // another node then has its own search.
 //
-// When trees is not nil, the tree comes from that memo, and memo holds it
-// for the root memoRoot. stops then has no effect.
+// When trees is not nil, each middle part reads its tree from that memo, and
+// stops then has no effect. A part does not keep the tree, because the next
+// call of tree, by this value or by the other value of the call, can replace
+// it in the memo.
 type bankRouteParts struct {
-	prefix   bankRoutePart
-	middle   []bankRoutePart
-	tree     *routeSearchWork
-	stops    []int
-	trees    *routeTrees
-	memo     []int32
-	memoRoot int
+	prefix bankRoutePart
+	middle []bankRoutePart
+	tree   *routeSearchWork
+	stops  []int
+	trees  *routeTrees
 }
 
 // bankSearchWork keeps the arrays of the searches of bankNearest for the next
@@ -68,11 +69,9 @@ func (p *bankRouteParts) treePath(n Network, input networkRouteInput, from, to i
 		return ErrUnreachable
 	}
 	if p.trees != nil {
-		if p.memo == nil || p.memoRoot != from {
-			p.memo, p.memoRoot = p.trees.tree(n, graph, routeTreeInput{root: from, class: input.class, terminal: input.terminalBerthsOnly}), from
-		}
+		tree := p.trees.tree(n, graph, routeTreeInput{root: from, class: input.class, terminal: input.terminalBerthsOnly})
 		var err error
-		work.path, err = appendTreePath(work.path, graph, p.memo, from, to)
+		work.path, err = appendTreePath(work.path, graph, tree, from, to)
 		return err
 	}
 	if p.stops != nil && !slices.Contains(p.stops, to) {

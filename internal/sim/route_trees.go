@@ -73,8 +73,10 @@ type routeTreeInput struct {
 }
 
 // tree returns the tree of input, and makes the search on a miss. graph must
-// be the routing graph of the simulation of t. The result stays valid until
-// limit more trees enter the memo.
+// be the routing graph of the simulation of t. The result is a part of the
+// memo, and it stays valid only until the next call of tree. A hit does not
+// move next, so a hit on the oldest tree returns the slot that the next miss
+// writes.
 func (t *routeTrees) tree(n Network, graph routeGraph, input routeTreeInput) []int32 {
 	key := routeTreeKey{root: int32(input.root), classes: graph.classTestFor(input.class), terminal: input.terminal} // #nosec G115 -- A node index is below MaxNodes.
 	if slot, ok := t.slots[key]; ok {

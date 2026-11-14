@@ -7,6 +7,7 @@ import (
 	"math/rand/v2"
 	"reflect"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -406,4 +407,101 @@ func TestRouteTreesServeViews(t *testing.T) {
 	if len(s.routes) != 2*len(station.Berths) {
 		t.Fatalf("the batches stored %d routes, want %d", len(s.routes), 2*len(station.Berths))
 	}
+}
+
+// TestRouteTreesKeepHeldTree checks that a batch of bankRoutesFrom reads the
+// tree of its own key after a later tree enters the memo. On tieBankNetwork,
+// the way through the berth plain-1 is the cheapest way past m2, so the tree
+// with the terminal-berth rule and the tree without it differ after m2. The
+// station far, after m3, has no banks, so each of its berths reads the tree
+// of the batch. A blocked lane makes far-1 unreachable. The batch from
+// m0-after to far thus reads the terminal tree for far-1, adds the open tree
+// for the fallback of far-1, and reads the terminal tree again for far-2.
+// Before the batch, the memo is full, and the next new tree replaces the
+// terminal tree.
+func TestRouteTreesKeepHeldTree(t *testing.T) {
+	t.Parallel()
+	network := tieBankNetwork()
+	// A fleet does not accept the lane of no length or the slow lanes.
+	extra := func(id string) bool {
+		return strings.HasPrefix(id, "zero") || strings.HasPrefix(id, "slow") || strings.HasPrefix(id, "hidden")
+	}
+	network.Nodes = slices.DeleteFunc(network.Nodes, func(node Node) bool { return extra(node.ID) })
+	network.Lanes = slices.DeleteFunc(network.Lanes, func(lane Lane) bool { return extra(lane.ID) })
+	// The station plain moves away from the diamond of m2, which becomes
+	// slow, so the way through plain-1 stays the cheapest way.
+	for index, node := range network.Nodes {
+		if position, ok := map[string]Point{"plain-entry": {X: 2820, Y: 150}, "plain-1": {X: 2850, Y: 190}, "plain-exit": {X: 2880, Y: 150}}[node.ID]; ok {
+			network.Nodes[index].Position = position
+		}
+	}
+	for index, lane := range network.Lanes {
+		if strings.HasPrefix(lane.ID, "m2-up-") || strings.HasPrefix(lane.ID, "m2-down-") {
+			network.Lanes[index].SpeedLimit = 2
+		}
+	}
+	network.Nodes = append(network.Nodes,
+		Node{ID: "far-entry", Position: Point{X: 3810, Y: -200}}, Node{ID: "far-1", Position: Point{X: 3850, Y: -240}},
+		Node{ID: "far-2", Position: Point{X: 3850, Y: -160}}, Node{ID: "far-exit", Position: Point{X: 3890, Y: -200}})
+	for _, lane := range [][2]string{{"m3-after", "far-entry"}, {"far-entry", "far-1"}, {"far-entry", "far-2"}, {"far-1", "far-exit"}, {"far-2", "far-exit"}, {"far-exit", "m3-join"}} {
+		network.Lanes = append(network.Lanes, Lane{ID: lane[0] + "-" + lane[1], From: lane[0], To: lane[1], SpeedLimit: 14})
+	}
+	network.Lanes = append(network.Lanes, Lane{ID: "far-through", From: "far-entry", To: "far-exit", SpeedLimit: 14})
+	network.Stations = append(network.Stations, Station{
+		ID: "far", Name: "far", Entry: "far-entry", Exit: "far-exit",
+		Berths: []Berth{{ID: "far-1", Node: "far-1"}, {ID: "far-2", Node: "far-2"}},
+	})
+	s, err := NewFleet(network, place("m0-1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	blockLanes(t, s, "far-entry-far-1")
+	const from = "m0-after"
+	trees := s.batchTrees()
+	trees.limit = 2
+	m4, _ := s.station("m4")
+	far, _ := s.station("far")
+	// The first batch adds the terminal tree of from, and the second batch
+	// the tree of another root.
+	s.cacheStationRoutesForClass(from, m4.Berths, "")
+	s.cacheStationRoutesForClass("m1-after", m4.Berths, "")
+	key := routeTreeKey{root: int32(s.graph.nodes[from]), classes: s.graph.classTestFor(""), terminal: true} // #nosec G115 -- A test node index is small.
+	open := key
+	open.terminal = false
+	if slot, ok := trees.slots[key]; len(trees.keys) != trees.limit || !ok || int(slot) != trees.next {
+		t.Fatalf("the memo holds %d of %d trees, and the terminal tree of %s is in slot %d (held %v), want the next slot %d", len(trees.keys), trees.limit, from, slot, ok, trees.next)
+	}
+	if _, ok := trees.slots[open]; ok {
+		t.Fatalf("the memo already holds the open tree of %s", from)
+	}
+	s.cacheStationRoutesForClass(from, far.Berths, "")
+	if _, ok := trees.slots[open]; !ok {
+		t.Fatalf("the batch did not add the open tree of %s", from)
+	}
+	for _, berth := range far.Berths {
+		got, ok := s.routes[routeKey{from: from, to: berth.Node}]
+		if !ok {
+			t.Fatalf("the batch did not store the route to %s", berth.Node)
+		}
+		want, wantErr := freshRoute(s, from, berth.Node, "")
+		if !sameLanes(got.lanes, want) || fmt.Sprint(got.err) != fmt.Sprint(wantErr) {
+			t.Errorf("from %s to %s: got %v, %v, want %v, %v", from, berth.Node, laneIDs(got.lanes), got.err, laneIDs(want), wantErr)
+		}
+	}
+	// The open tree of from reaches far-2 through plain-1, and the terminal
+	// tree does not.
+	graph := s.routingGraph()
+	node := func(id string) int { return s.graph.nodes[id] }
+	terminalPath, err := appendTreePath(nil, graph, freshTree(s.network, graph, routeTreeInput{root: node(from), terminal: true}), node(from), node("far-2"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	openPath, err := appendTreePath(nil, graph, freshTree(s.network, graph, routeTreeInput{root: node(from)}), node(from), node("far-2"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if slices.Equal(terminalPath, openPath) {
+		t.Error("the two trees of the fixture give the same path to far-2")
+	}
+	checkRouteMemo(t, s)
 }
