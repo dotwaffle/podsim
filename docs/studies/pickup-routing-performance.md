@@ -13,9 +13,9 @@ For a moving pod, the bound also includes its remaining committed route prefix.
 A candidate whose bound exceeds the current best pickup time cannot win and needs no full route search.
 The comparison leaves a relative rounding margin.
 Ties and potentially better candidates still use the original berth selection, route search, and pickup estimate in fleet order.
-The simulation caches these bounds by station while its network stays fixed.
-Reset retains the cache, Clone starts a new cache, and a graph rebuild clears it.
-The bound cache measurements below cover the cache change.
+The prepared network builds these bounds for each station one time, and its simulations and clones share them.
+A graph rebuild builds them again.
+The bound cache measurements below are of an earlier form, in which each simulation cached the bounds by station and Clone started a new cache.
 No asynchronous worker, dispatch-policy change, or saved-state field is required.
 
 ## Controlled measurement
