@@ -2,7 +2,7 @@
 
 Status: the maintainer approved this design on 2026-11-14.
 Milestone M1 is built, and the maintainer accepted it in Chrome on 2026-11-14: the frame rate on LondonFull was good, and the only console error was the missing favicon.
-Milestone M2 is built and waits for the maintainer's check in Chrome.
+Milestone M2 is built, and the maintainer accepted it in Chrome on 2026-11-14, with a note that the look needs more work.
 M3 and M4 are not built.
 
 ## Goal
