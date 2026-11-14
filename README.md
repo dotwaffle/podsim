@@ -33,6 +33,8 @@ The build creates static files in `dist/`, including the matching Go WebAssembly
 
 From there, order a journey under **ORDER A JOURNEY**, or open **Demand** and select **Start traffic demo** to see merge and station queues.
 Select **Edit scenario** to change the network.
+Open `/ride.html`, for example <http://127.0.0.1:8080/ride.html>, to ride in a pod in 3D.
+That page loads Babylon.js from its CDN, and the [ride design](docs/design/first-person-ride.md) tells what it shows.
 The [user guide](docs/user-guide.md) explains each control.
 
 ## Clients

@@ -931,10 +931,12 @@ See [server restarts](protocol.md#server-restarts).
 | `internal/statestore` | Saved session state in a `file://` blob bucket, for the server only. |
 | `internal/remote` | Shared state streaming, motion buffering, command retries, and connection state. |
 | `internal/view` | Ebitengine rendering and input against copied snapshots. |
+| `internal/ride` | Pod poses, headings, network geometry, and the pod list for the first-person ride page. |
 | `internal/telemetry` | Optional OTLP traces, HTTP metrics, runtime metrics, session gauges, and session state metrics. |
 | `internal/cmd/buildweb` | Generated browser files and gzip WASM file. |
 | `cmd/podsim` | Desktop and WASM entry point. |
 | `cmd/editormodel` | Separate WASM entry point for the editor worker. |
+| `cmd/ride` | Separate WASM entry point for the first-person ride page. |
 | `cmd/serve` | Shared session, saved session state, browser assets, health checks, and diagnostics. |
 | `cmd/compare` | Reproducible policy comparisons. |
 | `cmd/scenario` | Generated scenario files. |

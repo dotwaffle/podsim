@@ -24,8 +24,9 @@ Keep this file short, and point to other documents instead of copying them.
   `podsim.wasm` must not link it.
 - `internal/project`: the project format and its limits.
 - `internal/remote` and `internal/view`: the presentation client.
+- `internal/ride`, `cmd/ride`, and `web/ride.*`: the first-person ride page.
 - `internal/editormodel` and `web/`: the browser editor and shell.
-  `cmd/podsim` and `cmd/editormodel` also build for `js/wasm`.
+  `cmd/podsim` and `cmd/editormodel` also build for `js/wasm`, and `cmd/ride` builds only for `js/wasm`.
 - `cmd/serve`: the server.
   `cmd/compare`, `cmd/scenario`, and `cmd/projectcheck` are tools for experiments and checks.
 
