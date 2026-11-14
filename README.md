@@ -167,7 +167,7 @@ An approved contract in `docs/contracts/` is binding, and each document gives it
 
 ### Designs
 
-`docs/design/` holds [adoption gates](docs/design/experimental-adoption.md), [release readiness](docs/design/release-readiness.md), [dependency notes](docs/design/dependencies.md), and the designs for [car journeys](docs/design/car-journey-design.md), the [energy estimate](docs/design/energy-model-design.md), [Group pods](docs/design/group-physics-design.md), and [onboard pickups](docs/design/onboard-pickup-design.md).
+`docs/design/` holds [adoption gates](docs/design/experimental-adoption.md), [release readiness](docs/design/release-readiness.md), [dependency notes](docs/design/dependencies.md), and the designs for [car journeys](docs/design/car-journey-design.md), the [energy estimate](docs/design/energy-model-design.md), [Group pods](docs/design/group-physics-design.md), [onboard pickups](docs/design/onboard-pickup-design.md), and the [first-person ride](docs/design/first-person-ride.md).
 
 ### Studies
 

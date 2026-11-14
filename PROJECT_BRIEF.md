@@ -97,12 +97,12 @@ These stay out of the project until someone decides otherwise.
 | Multiplayer beyond one shared session, realistic scenery, legacy simulator file import, and advanced fleet optimization | Not planned. |
 | Editable geographic objects, automatic guideway generation, editable OSM vectors, and aerial imagery | Shelved at the maintainer's request. |
 | Opposing traffic on shared single track | Not built. It needs reservations, fairness, and deadlock handling. |
-| A 3D client | Not built. Do not build speculative 3D infrastructure now. |
+| A 3D client | Approved and not built: a first-person ride page, in the [ride design](docs/design/first-person-ride.md). Other 3D clients are not planned. |
 | Stored tunnel depth, elevation, and terrain | Not in the model. Adding them can change geometry and saved projects. |
 
-A later Three.js renderer could read snapshots from the same Go server.
+The approved ride page would use Babylon.js and read the same stream through `internal/remote` in its own WASM module.
 The network data, routing, demand, dispatch, movement rules, statistics, and most tests would stay.
-JavaScript or TypeScript presentation code, 3D track geometry, pod models, cameras, selection, and scenery would be new, and Ebitengine drawing code would not carry over.
+The 3D track geometry, pod meshes, cameras, and HUD would be new JavaScript, and Ebitengine drawing code would not carry over.
 
 ## 5. Current experiments
 
