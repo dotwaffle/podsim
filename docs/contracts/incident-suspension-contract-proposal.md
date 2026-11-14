@@ -189,8 +189,8 @@ The rules give times in seconds and in `TicksPerSecond`, as decisions 1 and 4 of
 | Physical restore | `internal/sim/state_physical.go` `(*physicalRestore).placeTravelingPod`, `(*vehicle).footprint`, `(*physicalRestore).separate`, `(*physicalRestore).placeDemoted` | A traveling pod restores at speed 0 with `through = reservationEnd(&v.blocks, current)` and `v.footprint(through, distance)`. The tier can demote a pod to a berth and requeue its riders. |
 | Diversion | `internal/sim/diversion.go` `(*Simulation).divertStart`; `(*Simulation).sendPickupMatching`; `(*Simulation).redirect` | `divertStart` refuses platoon members and arrival-chain prefixes. Its arrival-chain test calls `stationPathForClass`. `redirect` releases destination claims and sets `RelocatingTo`. |
 | Pickup candidates | `internal/sim/diversion.go` `(*Simulation).pickupRouteWithAssignments`; `(*Simulation).pickupCandidate`; `(*Simulation).candidateRoutePartsMatching` | A candidate route is the `divertStart` prefix plus a searched suffix. The candidate test refuses a pod that is already assigned. |
-| Leg routes | `internal/sim/drop_offs.go` `(*Simulation).legRoute`; `(*Simulation).rerouteKeepsDetours`; `internal/sim/bank_detours.go` `(*Simulation).plannedRiderBankDetour`; `internal/sim/dispatch.go` `(*Simulation).board`; `internal/sim/riders.go` `(*Simulation).continueJourney` | `rerouteKeepsDetours` assumes a berth end. `legRoute` checks an entry end with `detourStart.entry`. `continueJourney` returns with no change and no wait reason when no route exists. |
-| Route search | `internal/sim/network.go` `networkRouteInput`, `(Network).routeIndexedWithWork`; `internal/sim/route_targets.go` `(Network).routeTargets`; `internal/sim/route_work.go` `(*Simulation).searchRoute`; `internal/sim/bank_routes.go` `(Network).bankRoute`, `(Network).bankNearest` | `routeIndexedWithWork` tests `laneAllows`. `routeTargets` tests it. Bank searches take the graph from their caller. |
+| Leg routes | `internal/sim/drop_offs.go` `(*Simulation).legRoute`; `(*Simulation).cappedStops`; `(*Simulation).rerouteKeepsDetours`; `internal/sim/bank_detours.go` `(*Simulation).plannedRiderBankDetour`; `internal/sim/dispatch.go` `(*Simulation).board`; `internal/sim/riders.go` `(*Simulation).continueJourney` | `rerouteKeepsDetours` assumes a berth end. `cappedStops` checks an entry end with `detourStart.entry`. `legRoute` does not check the rider detours. `continueJourney` returns with no change and no wait reason when no route exists. |
+| Route search | `internal/sim/network.go` `networkRouteInput`, `(Network).routeIndexedWithWork`; `internal/sim/route_targets.go` `(Network).routeTargets`; `internal/sim/route_work.go` `(*Simulation).searchRoute`; `internal/sim/bank_routes.go` `(Network).bankRoute`, `(Network).bankNearest`; `internal/sim/class_routes.go` `(routeGraph).classTestFor` | Each search of `routeIndexedWithWork`, `routeTargets`, and the bank searches gets one `classTest` from `classTestFor` and tests each lane with it. Bank searches take the graph from their caller. |
 | Route graph | `internal/sim/network.go` `routeGraph` | `routeGraph` holds the class masks. |
 | Route caches | `internal/sim/routes.go` `(*Simulation).cachedRouteForClass`, `(*Simulation).cacheStationRoutesForClass`, `(*Simulation).stationPathForClass`, `(*Simulation).cacheRoute` | `cachedRouteForClass` returns a cached success or failure before any search. `stationPathForClass` also reads a cache. `cacheStationRoutesForClass` searches several targets at once. |
 | Other graph users | `internal/sim/class_routes.go` `(*Simulation).preferredFleetSource`; `internal/sim/positioning.go` `(*Simulation).guardedBumpToDeficit`, `(*Simulation).guardedBumpToParking`; `internal/sim/released.go` `(*Simulation).nearestFreeBerth` | Pass `s.graph` directly. |
@@ -223,6 +223,7 @@ The rules give times in seconds and in `TicksPerSecond`, as decisions 1 and 4 of
 | Pod inspector | `internal/view/game.go` `(*Game).inspectionRows` (at 17ab489) | Rows of the selected pod. |
 
 The rows for coupling approaches, the foreign motion proof, buffer admission, compact queues, and the marker readers went with those features (section 1.2).
+Amended 2026-11-14, by maintainer decision: the leg routes row names `cappedStops` as the function that checks an entry end, and the route search row names the one `classTest` of each search, to match the code.
 
 ## 4. State
 
@@ -735,9 +736,11 @@ func (s *Simulation) rerouteToEndpoint(v *vehicle) bool
    No lane of `route` from the current lane on is blocked.
    For a pod with riders, the rider detour limits hold for the actual endpoint.
    A berth end uses the test of `rerouteKeepsDetours` (`internal/sim/drop_offs.go` `(*Simulation).rerouteKeepsDetours`) with the destination berth.
-   An entry end uses the same test with `detourStart.entry = station.routeEntry(route, Berth{})` and no berth, as `legRoute` builds it (`(*Simulation).legRoute`), so a banked station checks the entry of the new route (`internal/sim/bank_detours.go` `(*Simulation).plannedRiderBankDetour`).
+   An entry end uses the same test with `detourStart.entry = station.routeEntry(route, Berth{})` and no berth, as `cappedStops` builds it (`internal/sim/drop_offs.go` `(*Simulation).cappedStops`), so a banked station checks the entry of the new route (`internal/sim/bank_detours.go` `(*Simulation).plannedRiderBankDetour`).
    The detour baselines of the test are static (section 8.5).
    When a check fails, the result is false.
+
+Amended 2026-11-14, by maintainer decision: step 6 names `cappedStops`, which builds the entry test, in place of `legRoute`, which does not check the rider detours.
 
 `rerouteToEndpoint(v)` calls `setVehicleRoute(v, route)` (`internal/sim/traffic.go` `(*Simulation).setVehicleRoute`), sets `v.pending = -1`, and adds 1 to `reroutes`.
 It writes nothing else.
