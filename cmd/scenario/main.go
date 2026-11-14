@@ -40,6 +40,7 @@ type capacity struct {
 	stationPods, parkingPods     int
 	berths                       map[string]int
 	berthPitch                   float64
+	stationScale                 float64
 	compactStations              []string
 }
 
@@ -56,6 +57,7 @@ func run(arguments []string, stdout, stderr io.Writer) error {
 	flags.IntVar(&options.stationPods, "station-pods", 0, "London presets only: initial pods at each passenger station")
 	flags.IntVar(&options.parkingPods, "parking-pods", 0, "London presets only: initial pods at each Parking facility")
 	flags.Float64Var(&options.berthPitch, "berth-pitch", 0, "Distance in meters between two berths of a station, at least 25")
+	flags.Float64Var(&options.stationScale, "station-scale", 0, "London presets only: scale of each passenger station past its throat, greater than 0 and at most 1; omit to keep 1")
 	compactStations := flags.String("compact-stations", "", "London presets only: comma-separated IDs of at most 8 passenger stations with Compact bays, or none; each pod is then Compact")
 	var incidents incidentFlags
 	incidents.register(flags)
@@ -149,7 +151,7 @@ func presetConfig(name string, options capacity) (project.Config, error) {
 	}
 	fixtures := map[string]string{"independent-banks": "independent bank fixture", "compact-station": "compact station fixture", "london-full-express": "LondonFull Express preset"}
 	if fixture, ok := fixtures[name]; ok {
-		for _, key := range []string{"station-berths", "parking-berths", "parking-lanes", "station-pods", "parking-pods", "berths", "berth-pitch", "compact-stations"} {
+		for _, key := range []string{"station-berths", "parking-berths", "parking-lanes", "station-pods", "parking-pods", "berths", "berth-pitch", "station-scale", "compact-stations"} {
 			if options.set[key] {
 				return project.Config{}, fmt.Errorf("-%s does not apply to the %s", key, fixture)
 			}
@@ -170,7 +172,7 @@ func presetConfig(name string, options capacity) (project.Config, error) {
 	if name == "london-central" || name == "london-full" {
 		return londonPresetConfig(name, options)
 	}
-	for _, flag := range []string{"station-pods", "parking-pods", "compact-stations"} {
+	for _, flag := range []string{"station-pods", "parking-pods", "station-scale", "compact-stations"} {
 		if options.set[flag] {
 			return project.Config{}, fmt.Errorf("-%s applies only to the London presets", flag)
 		}
@@ -218,6 +220,9 @@ func londonPresetConfig(name string, options capacity) (project.Config, error) {
 	}
 	if options.set["berth-pitch"] {
 		london.BerthPitch = options.berthPitch
+	}
+	if options.set["station-scale"] {
+		london.StationScale = options.stationScale
 	}
 	// The preset gives each LondonFull station a berth count, so only the
 	// -berths flag tells an explicit count of a Compact station.

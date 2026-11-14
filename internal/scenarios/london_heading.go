@@ -132,8 +132,34 @@ type londonStationShape struct {
 	direction float64
 	mirrored  bool
 	berths    int
-	// pitch is the distance between two berth rows.
+	// pitch is the distance between two berth rows at scale 1.
 	pitch float64
+	// scale multiplies the distances out from the throat and the pitch.
+	// side is the distance of the arrival and departure lanes from the
+	// station axis. Zero scale is scale 1, and zero side is
+	// londonStationSide times the scale.
+	scale, side float64
+}
+
+// depth returns the distance from the center of a point that is distance
+// meters out at scale 1. The throat stays at londonStationThroatDepth,
+// outside the junction, and the station past it scales.
+func (shape londonStationShape) depth(distance float64) float64 {
+	scale, _ := shape.sized()
+	return londonStationThroatDepth + scale*(distance-londonStationThroatDepth)
+}
+
+// sized returns the scale and the side of the shape, with the zero values
+// replaced.
+func (shape londonStationShape) sized() (scale, side float64) {
+	scale, side = shape.scale, shape.side
+	if scale == 0 {
+		scale = 1
+	}
+	if side == 0 {
+		side = scale * londonStationSide
+	}
+	return scale, side
 }
 
 // londonStationNodes holds the node positions of one station.
@@ -160,28 +186,37 @@ func (shape londonStationShape) frame() stationFrame {
 
 // lastBerthDepth returns the distance from the center to the last berth row.
 func (shape londonStationShape) lastBerthDepth() float64 {
-	return 290 + shape.pitch*float64(shape.berths-1)
+	return shape.depth(290 + shape.pitch*float64(shape.berths-1))
+}
+
+// entryDepth returns the distance from the center to the entry and exit
+// nodes. A depot or Compact bays have their entry and exit at this
+// distance.
+func (shape londonStationShape) entryDepth() float64 {
+	return shape.depth(200)
 }
 
 // nodes returns the node positions of the station. The diverge and merge
-// nodes are 80 meters out from the center, londonStationThroatOffset to each
-// side of the station axis. The entry and exit nodes are 200 meters out and
-// 100 meters to each side. The berth rows start 290 meters out, with the
-// pitch of the shape.
+// nodes are londonStationThroatDepth out from the center,
+// londonStationThroatOffset to each side of the station axis. At scale 1,
+// the entry and exit nodes are 200 meters out and the side distance to each
+// side, and the berth rows start 290 meters out, with the pitch of the
+// shape.
 func (shape londonStationShape) nodes() londonStationNodes {
 	frame := shape.frame()
+	_, side := shape.sized()
 	nodes := londonStationNodes{
-		diverge: frame.position(-londonStationThroatOffset, 80),
-		merge:   frame.position(londonStationThroatOffset, 80),
-		entry:   frame.position(-100, 200),
-		exit:    frame.position(100, 200),
+		diverge: frame.position(-londonStationThroatOffset, londonStationThroatDepth),
+		merge:   frame.position(londonStationThroatOffset, londonStationThroatDepth),
+		entry:   frame.position(-side, shape.entryDepth()),
+		exit:    frame.position(side, shape.entryDepth()),
 	}
 	for index := range shape.berths {
-		depth := 290 + shape.pitch*float64(index)
+		depth := shape.depth(290 + shape.pitch*float64(index))
 		nodes.berths = append(nodes.berths, londonBerthNodes{
-			arrival:   frame.position(-100, depth),
+			arrival:   frame.position(-side, depth),
 			berth:     frame.position(0, depth),
-			departure: frame.position(100, depth),
+			departure: frame.position(side, depth),
 		})
 	}
 	return nodes
@@ -192,13 +227,16 @@ func (shape londonStationShape) nodes() londonStationNodes {
 func (shape londonStationShape) area() [4]sim.Point {
 	frame := shape.frame()
 	far := shape.lastBerthDepth() + 20
-	return [4]sim.Point{frame.position(-100, 80), frame.position(100, 80), frame.position(100, far), frame.position(-100, far)}
+	_, side := shape.sized()
+	near := londonStationThroatDepth
+	return [4]sim.Point{frame.position(-side, near), frame.position(side, near), frame.position(side, far), frame.position(-side, far)}
 }
 
 // reach returns the distance from the center to the farthest point of the
 // station area. The portals are nearer than this distance.
 func (shape londonStationShape) reach() float64 {
-	return math.Hypot(shape.lastBerthDepth()+20, 100)
+	_, side := shape.sized()
+	return math.Hypot(shape.lastBerthDepth()+20, side)
 }
 
 // inArea reports whether the point is inside the rectangle or on its edge.
@@ -252,6 +290,9 @@ type londonSite struct {
 	center sim.Point
 	berths int
 	pitch  float64
+	// scale and side are those of the station shape, with the same zero
+	// values. See londonStationShape.
+	scale, side float64
 	// own is the index of the passenger station at center. For a Parking
 	// facility, it is the gateway station.
 	own                  int
@@ -261,7 +302,7 @@ type londonSite struct {
 
 // shape returns the station shape of the site with the heading.
 func (site londonSite) shape(direction float64) londonStationShape {
-	return londonStationShape{center: site.center, direction: direction, berths: site.berths, pitch: site.pitch}
+	return londonStationShape{center: site.center, direction: direction, berths: site.berths, pitch: site.pitch, scale: site.scale, side: site.side}
 }
 
 // footprint returns the lanes and the area of the station with the heading.

@@ -498,6 +498,7 @@ They do not apply to `independent-banks` or `compact-station`.
 | `-station-pods N` | London presets only. Set the initial pods of each passenger station. |
 | `-parking-pods N` | London presets only. Set the initial pods of each parking station. |
 | `-berth-pitch M` | Set the distance in meters between two berths of a station. The minimum is 25. |
+| `-station-scale S` | London presets only. Multiply the size of each passenger station past its throat by S, which is greater than 0 and at most 1. The diverge and the merge stay 80 meters from the junction, and the entry, the berth rows, the berth pitch, and the distance of the arrival and departure lanes from the station axis scale. The scaled pitch must be at least 25 meters. Parking stations do not change, and the arrival and departure lanes of a Compact station stay outside its bays. Some scales give a layout conflict, such as 0.7 and 0.75 for `london-full`. |
 | `-compact-stations ID,ID` | London presets only. Give at most 8 passenger stations the four bays of the [compact station](model.md#compact-bays), in place of the default list. `none` gives no Compact stations. With a Compact station, each pod is Compact. `-berths` must not name a Compact station. |
 
 ```sh

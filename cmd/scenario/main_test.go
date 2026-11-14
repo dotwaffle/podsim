@@ -323,6 +323,15 @@ func TestRunCapacityFlags(t *testing.T) {
 			t.Fatalf("berth pitch = %v meters, want 40", distance)
 		}
 	})
+	t.Run("station scale", func(t *testing.T) {
+		t.Parallel()
+		config, _ := generate(t, "-preset", "london-central", "-station-scale", "0.5")
+		diverge, _ := config.Network.Node("940GZZLUBST-diverge")
+		entry, _ := config.Network.Node("940GZZLUBST-entry")
+		if distance := math.Hypot(entry.Position.X-diverge.Position.X, entry.Position.Y-diverge.Position.Y); math.Abs(distance-math.Hypot(20, 60)) > 1e-6 {
+			t.Fatalf("diverge to entry = %v meters, want %v", distance, math.Hypot(20, 60))
+		}
+	})
 	t.Run("London", func(t *testing.T) {
 		t.Parallel()
 		config, summary := generate(t, "-preset", "london-central", "-berths", "940GZZLUKSX=3", "-station-pods", "0", "-parking-pods", "12", "-parking-berths", "12")
@@ -362,6 +371,9 @@ func TestRunRejectsBadCapacityFlags(t *testing.T) {
 		{name: "berths of a default Compact station", arguments: []string{"-preset", "london-central", "-berths", "940GZZLUBOR=3"}, err: `-berths names Compact station "940GZZLUBOR", which has the 4 bays of the compact station; use -compact-stations none or a list without it`},
 		{name: "Parking as a Compact station", arguments: []string{"-preset", "london-central", "-compact-stations", "parking-west"}, err: "West London Parking (parking-west) is a Parking facility, not a passenger station for Compact bays"},
 		{name: "pitch below the floor", arguments: []string{"-preset", "london-central", "-berth-pitch", "20"}, err: "berth pitch"},
+		{name: "station scale for a ring", arguments: []string{"-preset", "busy", "-station-scale", "0.5"}, err: "-station-scale applies only to the London presets"},
+		{name: "station scale for the Express preset", arguments: []string{"-preset", "london-full-express", "-station-scale", "0.5"}, err: "-station-scale does not apply to the LondonFull Express preset"},
+		{name: "station scale above 1", arguments: []string{"-preset", "london-central", "-station-scale", "2"}, err: "station scale must be greater than 0 and at most 1"},
 		{name: "layout conflict", arguments: []string{"-preset", "london-central", "-berths", "940GZZLUEMB=3"}, err: "Embankment (940GZZLUEMB)"},
 	}
 	for _, test := range tests {

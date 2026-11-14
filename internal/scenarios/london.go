@@ -23,6 +23,16 @@ const (
 	// nodes from the station axis. It is less than londonPortalInset, so pods
 	// do not make a hairpin turn between a guideway and the station.
 	londonStationThroatOffset = 30.0
+	// londonStationThroatDepth is the distance of the diverge and merge
+	// nodes from the center of the junction. Nearer nodes put station lanes
+	// across the guideways of the junction.
+	londonStationThroatDepth = 80.0
+	// londonStationSide is the distance of the arrival and departure lanes
+	// of a station from its axis at scale 1.
+	londonStationSide = 100.0
+	// londonCompactSide is the distance of the entry and exit of the
+	// Compact bays from their middle.
+	londonCompactSide = (compactReceiveX + compactRoad - (compactHoldX - compactRoad)) / 2
 	// londonStationBerths and londonStationPods are the default berth and
 	// pod counts of a passenger station.
 	londonStationBerths = 2
@@ -167,6 +177,12 @@ type LondonOptions struct {
 	// The berth count of such a station sets only its shape in the heading
 	// search. With a Compact station, each pod is Compact.
 	CompactStations []string
+	// StationScale multiplies the distances of a passenger station past
+	// its throat, the berth pitch, and the distance of its arrival and
+	// departure lanes from the station axis. It is greater than 0 and at
+	// most 1. Parking facilities keep scale 1, and the arrival and
+	// departure lanes of a Compact station stay outside its bays.
+	StationScale float64
 }
 
 // DefaultLondonCentralOptions returns owned options of the London preset.
@@ -177,7 +193,7 @@ func DefaultLondonCentralOptions() LondonOptions {
 		StationBerths: londonStationBerths, ParkingBerths: londonDepotSlots,
 		StationPods: londonStationPods, ParkingPods: londonParkingPods,
 		BerthPitch: londonBerthPitch, ParkingLanes: londonDepotLanes,
-		CompactStations: slices.Clone(londonCompactStations[:7]),
+		CompactStations: slices.Clone(londonCompactStations[:7]), StationScale: 1,
 	}
 }
 
@@ -218,6 +234,8 @@ func LondonCentralWith(options LondonOptions) (project.Config, error) {
 type londonCapacity struct {
 	berths, pods []int
 	pitch        float64
+	// scale is the station scale of the passenger stations.
+	scale float64
 	// lanes is the depot lane count of each Parking facility, or 0 for
 	// the ordinary facilities.
 	lanes int
@@ -237,6 +255,17 @@ func (capacity londonCapacity) depot(index int) (depotLayout, bool) {
 		return depotLayout{}, false
 	}
 	return depotLayout{lanes: capacity.lanes, slots: capacity.berths[index]}, true
+}
+
+// side returns the distance of the arrival and departure lanes of the
+// passenger station at index from its station axis. The lanes of a
+// Compact station stay outside its bays.
+func (capacity londonCapacity) side(index int) float64 {
+	side := capacity.scale * londonStationSide
+	if capacity.compact[index] {
+		side = max(side, londonCompactSide)
+	}
+	return side
 }
 
 // search returns the berth count of the site at index for the heading
@@ -264,10 +293,10 @@ func (capacity londonCapacity) sameLayout(other londonCapacity) bool {
 	return capacity.lanes == other.lanes && slices.Equal(compact(capacity), compact(other))
 }
 
-// equal reports whether the capacity has the pitch, the berth and pod
+// equal reports whether the capacity has the pitch, the scale, the berth and pod
 // counts, and the station layouts of the other capacity.
 func (capacity londonCapacity) equal(other londonCapacity) bool {
-	return capacity.pitch == other.pitch && slices.Equal(capacity.berths, other.berths) && slices.Equal(capacity.pods, other.pods) && capacity.sameLayout(other)
+	return capacity.pitch == other.pitch && capacity.scale == other.scale && slices.Equal(capacity.berths, other.berths) && slices.Equal(capacity.pods, other.pods) && capacity.sameLayout(other)
 }
 
 // resolve returns the berth and pod counts of each site. It checks the
@@ -275,6 +304,12 @@ func (capacity londonCapacity) equal(other londonCapacity) bool {
 func (options LondonOptions) resolve(source londonSource) (londonCapacity, error) {
 	if err := checkBerthPitch(options.BerthPitch); err != nil {
 		return londonCapacity{}, err
+	}
+	if !(options.StationScale > 0 && options.StationScale <= 1) {
+		return londonCapacity{}, errors.New("station scale must be greater than 0 and at most 1")
+	}
+	if err := checkBerthPitch(options.BerthPitch * options.StationScale); err != nil {
+		return londonCapacity{}, fmt.Errorf("with the station scale, the %w", err)
 	}
 	ids := make([]string, 0, len(source.Stations)+len(londonParkingFacilities))
 	names := make([]string, 0, cap(ids))
@@ -295,7 +330,7 @@ func (options LondonOptions) resolve(source londonSource) (londonCapacity, error
 		return londonCapacity{}, errors.New("parking lanes must not be negative")
 	}
 	capacity := londonCapacity{
-		berths: make([]int, len(ids)), pods: make([]int, len(ids)), pitch: options.BerthPitch, lanes: options.ParkingLanes,
+		berths: make([]int, len(ids)), pods: make([]int, len(ids)), pitch: options.BerthPitch, scale: options.StationScale, lanes: options.ParkingLanes,
 		compact: make([]bool, len(ids)),
 	}
 	for _, id := range options.CompactStations {
@@ -484,6 +519,7 @@ func londonNetworkWithHeadings(source londonSource, capacity londonCapacity, ove
 		input.centers = append(input.centers, center)
 		input.sites = append(input.sites, londonSite{
 			center: center, berths: capacity.berths[index], pitch: capacity.pitch, own: index,
+			scale: capacity.scale, side: capacity.side(index),
 			arrivals:   londonPortalPositions(portals[station.ID].arrivals),
 			departures: londonPortalPositions(portals[station.ID].departures),
 			preferred:  londonStationPreferences(center, neighbors[station.ID]),
@@ -496,6 +532,7 @@ func londonNetworkWithHeadings(source londonSource, capacity londonCapacity, ove
 		}
 		input.sites = append(input.sites, londonSite{
 			center: positions[parking.Gateway], berths: capacity.search(len(source.Stations) + index), pitch: capacity.pitch, own: gateway,
+			scale: 1, side: londonStationSide,
 			arrivals:   londonPortalPositions(portals[parking.Gateway].arrivals),
 			departures: londonPortalPositions(portals[parking.Gateway].departures),
 			preferred:  []londonPreference{{direction: parking.Direction}},
@@ -709,24 +746,27 @@ type londonStationInput struct {
 // addLondonStation adds a station with its roads. A station has berth
 // rows, or a depot or Compact bays in place of them. The depot lies
 // outward from its through lane, and its entry and exit are half its length
-// to each side of the station axis, 200 meters out. The compact station
-// replaces the through lane as a rigid body: its aisle is 200 meters out,
-// its entry and exit are equally far to each side of the station axis, its
-// bays lie outward of the aisle, and its bypass curves toward the throat.
+// to each side of the station axis, at the entry depth of the shape. The
+// compact station replaces the through lane as a rigid body: its aisle is
+// at the entry depth, its entry and exit are equally far to each side of
+// the station axis, its bays lie outward of the aisle, and its bypass
+// curves toward the throat.
 func addLondonStation(network *sim.Network, input londonStationInput) {
 	id := input.id
 	positions := input.shape.nodes()
 	var at func(along, across float64) sim.Point
 	if input.depot.lanes != 0 {
 		frame, half := input.shape.frame(), input.depot.length()/2
-		at = func(along, across float64) sim.Point { return frame.position(along-half, 200+across) }
+		at = func(along, across float64) sim.Point {
+			return frame.position(along-half, input.shape.entryDepth()+across)
+		}
 		positions.entry, positions.exit, positions.berths = at(0, 0), at(input.depot.length(), 0), nil
 	}
 	var compact compactLayout
 	if input.compact {
 		frame, middle := input.shape.frame(), (compactHoldX+compactReceiveX)/2
 		compact = compactStation(func(point sim.Point) sim.Point {
-			return frame.position(point.X-middle, 200+point.Y-compactAisleY)
+			return frame.position(point.X-middle, input.shape.entryDepth()+point.Y-compactAisleY)
 		}, id+"-", id)
 		// The first four nodes are the entry, holding, receiving, and
 		// exit nodes.
