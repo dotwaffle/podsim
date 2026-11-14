@@ -62,8 +62,17 @@
   // Station signs: a fixed pool, given to the nearest stations.
   const SIGN_COUNT = 12;
   const SIGN_RADIUS = 900;
+  // Cascaded shadow maps: four 2,048-pixel maps split the view up to
+  // SHADOW_DISTANCE meters from the camera. The near cascades are small, so
+  // the near shadows are sharp, and the far cascades reach farther.
+  const SHADOW_DISTANCE = 260;
+  const SHADOW_CASCADES = 4;
+  const SHADOW_CASCADE_SIZE = 2048;
+  // SHADOW_LAMBDA mixes logarithmic (1) and even (0) cascade splits.
+  const SHADOW_LAMBDA = 0.8;
+  // Without cascades (no WebGL2), one 4,096-pixel map covers a square of
+  // SHADOW_FRUSTUM meters around the camera, with texels of about 6 cm.
   const SHADOW_FRUSTUM = 260;
-  // A 4,096-pixel shadow map over the frustum gives texels of about 6 cm.
   const SHADOW_MAP_SIZE = 4096;
   // The mini-map shows the network 1.5 km around the ridden pod, with north
   // up.
@@ -1154,25 +1163,36 @@
     const sun = new B.DirectionalLight("sun", sunDirection, scene);
     sun.intensity = 1.1;
     sun.diffuse = new B.Color3(1, 0.96, 0.88);
-    // The shadow map covers a square that follows the camera.
-    sun.autoUpdateExtends = false;
-    sun.shadowFrustumSize = SHADOW_FRUSTUM;
-    sun.shadowMinZ = 1;
-    sun.shadowMaxZ = 800;
     const fill = new B.HemisphericLight("fill", new B.Vector3(0, 1, 0), scene);
     fill.intensity = 0.5;
     fill.diffuse = color(B, SKY);
     fill.groundColor = new B.Color3(0.32, 0.34, 0.3);
     buildSky(B, scene);
-    const shadows = new B.ShadowGenerator(SHADOW_MAP_SIZE, sun);
-    shadows.usePercentageCloserFiltering = true;
-    shadows.filteringQuality = B.ShadowGenerator.QUALITY_HIGH;
-    shadows.bias = 0.0008;
     const camera = new B.FreeCamera("seat", new B.Vector3(0, BEAM_TOP + EYE_HEIGHT, 0), scene);
     // The nearest cabin part is about 0.5 m from the eye. A larger near plane keeps
     // more depth precision for the far ground.
     camera.minZ = 0.3;
     camera.maxZ = FOG_END + 200;
+    const cascaded = Boolean(B.CascadedShadowGenerator && B.CascadedShadowGenerator.IsSupported);
+    let shadows;
+    if (cascaded) {
+      shadows = new B.CascadedShadowGenerator(SHADOW_CASCADE_SIZE, sun, undefined, camera);
+      shadows.numCascades = SHADOW_CASCADES;
+      shadows.shadowMaxZ = SHADOW_DISTANCE;
+      shadows.lambda = SHADOW_LAMBDA;
+      // Stable cascades move in whole texels, so the edges do not crawl.
+      shadows.stabilizeCascades = true;
+    } else {
+      // The shadow map covers a square that follows the camera.
+      sun.autoUpdateExtends = false;
+      sun.shadowFrustumSize = SHADOW_FRUSTUM;
+      sun.shadowMinZ = 1;
+      sun.shadowMaxZ = 800;
+      shadows = new B.ShadowGenerator(SHADOW_MAP_SIZE, sun);
+    }
+    shadows.usePercentageCloserFiltering = true;
+    shadows.filteringQuality = B.ShadowGenerator.QUALITY_HIGH;
+    shadows.bias = 0.0008;
     camera.fov = 1.1;
     camera.rotation.x = SEAT_PITCH;
     const cabin = buildCabin(B, scene, camera);
@@ -1516,10 +1536,12 @@
         // The platform view marks the pod of the trip.
         miniMap.draw(focus.x, focus.y, mapHeading, poses, info.count, platform ? -1 : ridden, platform && trip && trip.podID ? ridden : -1);
       }
-      // The light sits back along the sun direction from the camera, so the
-      // shadow map covers the ground around the camera.
-      const light = camera.position.subtract(sunDirection.scale(400));
-      sun.position.fromArray(snapShadowCenter(light.asArray(), sunDirection.asArray(), SHADOW_FRUSTUM / SHADOW_MAP_SIZE));
+      if (!cascaded) {
+        // The light sits back along the sun direction from the camera, so the
+        // shadow map covers the ground around the camera.
+        const light = camera.position.subtract(sunDirection.scale(400));
+        sun.position.fromArray(snapShadowCenter(light.asArray(), sunDirection.asArray(), SHADOW_FRUSTUM / SHADOW_MAP_SIZE));
+      }
       if (focus.known && now - lastTiles >= TILE_UPDATE_MS) {
         lastTiles = now;
         tileLayer.update(focus.x, focus.y);

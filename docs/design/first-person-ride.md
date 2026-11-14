@@ -132,10 +132,12 @@ A test pins the axis mapping with a station pair of known compass direction.
   Without `geo`, the ground is a plain textured plane.
 - Light and sky: a warm sun as a directional light, a hemispheric fill light, a sky dome with a vertical gradient, and distance fog in the horizon color.
   Fog hides the far guideway, so the draw distance can stay at about 3 km.
-- Shadows: one 4,096-pixel shadow map covers a 260 m square that follows the camera, with texels of about 6 cm and high-quality PCF filtering.
-  The light moves in whole texels across its view, so the shadow edges do not crawl when the camera moves.
-  In the M3b check, a 2,048-pixel map with medium filtering gave jagged edges.
-  If the edges are still too coarse, cascaded shadow maps are the next step.
+- Shadows: four cascaded 2,048-pixel shadow maps cover the view up to 260 m from the camera, with high-quality PCF filtering.
+  The splits are mostly logarithmic, so the near cascades are small and the near shadows are sharp.
+  The cascades move in whole texels, so the shadow edges do not crawl when the camera moves.
+  In the M3b check, one 2,048-pixel map with medium filtering gave jagged edges.
+  A 4,096-pixel map over a 260 m square around the camera fixed the edges, but the shadows stopped about 130 m ahead, and the maintainer asked for twice the distance.
+  Without WebGL2, the page uses that single map.
   The pods, the beams, and the pillars cast shadows, and the ground, the tiles, the beams, and the platforms receive them.
 - Image: Babylon's default rendering pipeline with 4x multisampling, FXAA, ACES tone mapping, and a weak bloom.
 - Crossings: the simulation does not control a crossing of two lanes with no shared node, so a pod passes through a pod on the other lane.
