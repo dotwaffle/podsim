@@ -197,6 +197,15 @@ func (n Network) preferredNearestIndexed(input preferredNearestInput, graph rout
 	return best, best >= 0
 }
 
+// reverseCostTolerance returns the allowance between a reverse cost and
+// the forward cost of one route. A shortest path has fewer edges than nodes,
+// so the allowance covers accumulated rounding in both directions without
+// changing route costs. The node count is scaled first, so a large minimum
+// does not overflow to an infinite allowance.
+func reverseCostTolerance(minimum float64, nodes int) float64 {
+	return max(1, minimum) * (float64(nodes) * 4 * (math.Nextafter(1, 2) - 1))
+}
+
 // preferredSource checks near-minimum reverse costs in the forward
 // direction. Addition order can change floating-point ties or a reach
 // boundary. Only the short list needs a forward search.
@@ -210,9 +219,7 @@ func (n Network) preferredSource(input preferredNearestInput, targets []routeTar
 	if math.IsInf(minimum, 1) {
 		return -1, false
 	}
-	// A shortest path has fewer edges than nodes. This allowance covers
-	// accumulated rounding in both directions without changing route costs.
-	tolerance := max(1, minimum) * float64(len(n.Nodes)) * 4 * (math.Nextafter(1, 2) - 1)
+	tolerance := reverseCostTolerance(minimum, len(n.Nodes))
 	if input.limit > 0 && minimum > input.limit+tolerance {
 		return -1, false
 	}

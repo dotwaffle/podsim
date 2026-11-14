@@ -496,3 +496,32 @@ func TestPreferredSourcePreservesForwardRounding(t *testing.T) {
 		}
 	}
 }
+
+// TestReverseCostTolerance checks that the allowance stays finite for a
+// large minimum, and that it equals the earlier formula for the other
+// minimums.
+func TestReverseCostTolerance(t *testing.T) {
+	t.Parallel()
+	epsilon := math.Nextafter(1, 2) - 1
+	for _, tc := range []struct {
+		name    string
+		minimum float64
+		nodes   int
+	}{
+		{name: "below one", minimum: 0.25, nodes: 7},
+		{name: "london", minimum: 1234.5678, nodes: 20000},
+		{name: "odd", minimum: 1e-3 + 1.0/3, nodes: 12345},
+		{name: "large", minimum: math.MaxFloat64 / 2, nodes: 1000},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			got := reverseCostTolerance(tc.minimum, tc.nodes)
+			if math.IsInf(got, 0) || math.IsNaN(got) || got <= 0 || got >= tc.minimum && tc.minimum >= 1 {
+				t.Fatalf("tolerance=%g for minimum %g", got, tc.minimum)
+			}
+			if earlier := max(1, tc.minimum) * float64(tc.nodes) * 4 * epsilon; !math.IsInf(earlier, 0) && got != earlier {
+				t.Fatalf("tolerance=%g, earlier formula=%g", got, earlier)
+			}
+		})
+	}
+}
