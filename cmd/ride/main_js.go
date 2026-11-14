@@ -27,6 +27,8 @@ func main() {
 	api.Set("frame", js.FuncOf(page.frame))
 	api.Set("pods", js.FuncOf(page.pods))
 	api.Set("ids", js.FuncOf(page.ids))
+	api.Set("hud", js.FuncOf(page.hud))
+	api.Set("setSpeed", js.FuncOf(page.setSpeed))
 	js.Global().Set("podsimRide", api)
 	select {}
 }
@@ -40,10 +42,25 @@ type ridePage struct {
 	connected bool
 	poses     []float64
 	bytes     []byte
+	// message is the outcome of the last command, for the HUD.
+	message string
 }
 
-// update reads the latest state of the client.
+// update reads the latest state of the client and the result of a command.
+// The client keeps a command pending until its result is read.
 func (p *ridePage) update() {
+	select {
+	case result := <-p.client.Results():
+		switch {
+		case result.Err != nil:
+			p.message = result.Err.Error()
+		case result.Reply.Error != "":
+			p.message = result.Reply.Error
+		default:
+			p.message = ""
+		}
+	default:
+	}
 	state, connected, _ := p.client.View()
 	p.connected = connected
 	if state.Epoch != "" {
@@ -95,6 +112,38 @@ func (p *ridePage) ids(js.Value, []js.Value) any {
 		return nil
 	}
 	return string(data)
+}
+
+// hud returns the HUD data of the pod with the ID args[0] as JSON text.
+func (p *ridePage) hud(_ js.Value, args []js.Value) any {
+	p.update()
+	podID := ""
+	if len(args) > 0 && args[0].Type() == js.TypeString {
+		podID = args[0].String()
+	}
+	connection := ride.HUDSession{Connected: p.connected, Error: p.client.ConnectionError(), Message: p.message}
+	data, err := json.Marshal(p.bridge.HUD(p.state, podID, connection))
+	if err != nil {
+		return nil
+	}
+	return string(data)
+}
+
+// setSpeed sends a speed command with the speed args[0] for the session
+// that the page shows. It returns the error text when the client cannot
+// send the command, or an empty string. The HUD shows the reply.
+func (p *ridePage) setSpeed(_ js.Value, args []js.Value) any {
+	p.update()
+	if len(args) == 0 || args[0].Type() != js.TypeNumber {
+		return "the speed is not a number"
+	}
+	err := p.client.SubmitIn(remote.SessionOf(p.state), session.Command{Action: "speed", Speed: args[0].Int()})
+	if err != nil {
+		p.message = err.Error()
+		return p.message
+	}
+	p.message = "Changing the session speed"
+	return ""
 }
 
 // pods returns the pod list as JSON text.

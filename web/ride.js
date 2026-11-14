@@ -20,7 +20,21 @@
   const POD_WIDTH = 1.5;
   // The eye of the seat camera, above the top of the beam.
   const EYE_HEIGHT = 1.35;
-  const SEAT_YAW_SECONDS = 0.15;
+  // Time constants of the camera turns, in seconds. A longer value makes a
+  // sharp lane join turn the view more slowly.
+  const SEAT_YAW_SECONDS = 0.35;
+  const CHASE_YAW_SECONDS = 0.6;
+  // The other pods turn at a lane join with this time constant.
+  const POD_YAW_SECONDS = 0.2;
+  // Mouse look returns to forward with this time constant after release.
+  const LOOK_RETURN_SECONDS = 0.3;
+  const LOOK_RADIANS_PER_PIXEL = 0.004;
+  const LOOK_PITCH_LIMIT = 0.9;
+  const SEAT_PITCH = 0.06;
+  const CHASE_PITCH = 0.3;
+  const CHASE_DISTANCE = 14;
+  const CHASE_HEIGHT = 5;
+  const HUD_INTERVAL_MS = 250;
   const FOG_START = 600;
   const FOG_END = 3000;
   const SKY = [0.62, 0.74, 0.86];
@@ -182,6 +196,65 @@
     return `${pod.id} (${pod.class}) ${pod.activity}${trip}`;
   }
 
+  // springBack moves a look offset toward zero with time constant tau.
+  function springBack(offset, seconds, tau) {
+    return tau > 0 ? offset * Math.exp(-Math.max(0, seconds) / tau) : 0;
+  }
+
+  // chaseEye returns the scene position of the chase camera behind a pod at
+  // world (x, y). yaw is the Babylon yaw of the camera.
+  function chaseEye(x, y, yaw) {
+    const [sx, sz] = toScene(x, y);
+    return [sx - Math.sin(yaw) * CHASE_DISTANCE, BEAM_TOP + POD_HEIGHT + CHASE_HEIGHT, sz - Math.cos(yaw) * CHASE_DISTANCE];
+  }
+
+  // smoothPodYaws updates yaws, a map from pod ID to the drawn yaw, toward
+  // the heading of each pod in poses.
+  function smoothPodYaws(yaws, ids, poses, count, seconds, tau) {
+    for (let i = 0; i < count && i < ids.length; i++) {
+      const target = yawOf(poses[i * POSE_FIELDS + 2]);
+      yaws.set(ids[i], smoothAngle(yaws.has(ids[i]) ? yaws.get(ids[i]) : NaN, target, seconds, tau));
+    }
+    return yaws;
+  }
+
+  function formatSpeed(metersPerSecond) { return `${Math.round(metersPerSecond * 3.6)} km/h`; }
+
+  function formatDistance(meters) {
+    return meters < 1000 ? `${Math.round(meters)} m` : `${(meters / 1000).toFixed(1)} km`;
+  }
+
+  function formatDuration(seconds) {
+    const total = Math.max(0, Math.round(seconds));
+    const hours = Math.floor(total / 3600), minutes = Math.floor(total % 3600 / 60), rest = total % 60;
+    const pad = (value) => String(value).padStart(2, "0");
+    return hours > 0 ? `${hours}:${pad(minutes)}:${pad(rest)}` : `${minutes}:${pad(rest)}`;
+  }
+
+  // hudView returns the texts of the HUD for the data of ride.hud().
+  function hudView(hud) {
+    const session = hud.session || {};
+    const view = {
+      speed: "", state: "Pod not in the session", wait: "", trip: [], next: "", route: "",
+      session: `Session ${session.speed}x${session.paused ? ", paused" : ""}${session.connected ? "" : `, disconnected${session.error ? `: ${session.error}` : ""}`}`,
+      message: session.message || "",
+      rideAt1x: session.connected === true && session.speed !== 1,
+    };
+    if (!hud.found) return view;
+    view.speed = formatSpeed(hud.speed) + (hud.speedLimit > 0 ? `, limit ${formatSpeed(hud.speedLimit)}` : "");
+    view.state = `${hud.podID} (${hud.class}): ${hud.activity}`;
+    if (hud.waitReason) view.wait = `Waiting: ${hud.waitReason}${hud.blockedBy ? ` (${hud.blockedBy})` : ""}`;
+    view.trip = hud.riders.map((rider) => `${rider.partySize} ${rider.partySize === 1 ? "passenger" : "passengers"}: ${rider.from} to ${rider.to}`);
+    view.next = hud.nextStop ? `Next stop: ${hud.nextStop}` : (hud.riders.length === 0 ? "No passengers" : "");
+    if (hud.route) {
+      // The time is at the speed limits with no waits. A partial route is
+      // the part of the route that the stream sends.
+      const distance = formatDistance(hud.route.remainingMeters), time = formatDuration(hud.route.seconds);
+      view.route = hud.route.partial ? `Route: over ${distance}, over ${time}` : `Route: ${distance}, about ${time}`;
+    }
+    return view;
+  }
+
   // bounded fails the stream when it has more than limit bytes.
   function bounded(stream, limit, message) {
     let count = 0;
@@ -334,8 +407,8 @@
     camera.minZ = 0.1;
     camera.maxZ = FOG_END + 200;
     camera.fov = 1.1;
-    camera.rotation.x = 0.06;
-    buildCabin(B, scene, camera);
+    camera.rotation.x = SEAT_PITCH;
+    const cabin = buildCabin(B, scene, camera);
     const instrumentation = new B.SceneInstrumentation(scene);
     instrumentation.captureFrameTime = true;
 
@@ -345,6 +418,30 @@
     let requested = params.get("pod") || "", podList = [], ids = [], version = -1;
     let session = "", world = null, poses = new Float64Array(0), yaw = NaN, lastTime = performance.now();
     let bridgeTime = 0, connected = false, connectionError = "";
+    let chase = false, chaseYaw = NaN, lookYaw = 0, lookPitch = 0, looking = false;
+    const podYaws = new Map();
+    const hudElements = Object.fromEntries(["hudSpeed", "hudState", "hudWait", "hudTrip", "hudNext", "hudRoute", "stripSession", "stripMessage", "rideAt1x"].map((id) => [id, document.getElementById(id)]));
+
+    // Mouse look: drag to turn the view. On release, the view returns to forward.
+    canvas.addEventListener("pointerdown", (event) => { looking = true; canvas.setPointerCapture(event.pointerId); });
+    canvas.addEventListener("pointermove", (event) => {
+      if (!looking) return;
+      lookYaw = wrapAngle(lookYaw + event.movementX * LOOK_RADIANS_PER_PIXEL);
+      lookPitch = Math.max(-LOOK_PITCH_LIMIT, Math.min(LOOK_PITCH_LIMIT, lookPitch + event.movementY * LOOK_RADIANS_PER_PIXEL));
+    });
+    for (const name of ["pointerup", "pointercancel", "lostpointercapture"]) canvas.addEventListener(name, () => { looking = false; });
+    root.addEventListener("keydown", (event) => {
+      if (event.target instanceof root.HTMLSelectElement || event.target instanceof root.HTMLButtonElement) return;
+      if (event.key === "c" || event.key === "C") {
+        chase = !chase;
+        chaseYaw = NaN;
+        for (const part of cabin) part.setEnabled(!chase);
+      }
+    });
+    hudElements.rideAt1x.addEventListener("click", () => {
+      const error = ride.setSpeed(1);
+      if (error) hudElements.stripMessage.textContent = error;
+    });
 
     picker.addEventListener("change", () => {
       requested = picker.value;
@@ -352,13 +449,14 @@
       url.searchParams.set("pod", requested);
       root.history.replaceState(null, "", url);
       yaw = NaN;
+      chaseYaw = NaN;
     });
     picker.addEventListener("focus", () => refreshPods());
 
     function refreshPods() {
       podList = JSON.parse(ride.pods() || "[]");
       const chosen = choosePod(podList, requested);
-      if (chosen !== requested) yaw = NaN;
+      if (chosen !== requested) yaw = chaseYaw = NaN;
       requested = chosen;
       picker.replaceChildren(...podList.map((pod) => new Option(podLabel(pod), pod.id, false, pod.id === requested)));
     }
@@ -375,10 +473,14 @@
       return true;
     }
 
-    function updatePods(count) {
+    function updatePods(count, seconds) {
+      smoothPodYaws(podYaws, ids, poses, count, seconds, POD_YAW_SECONDS);
+      // The seat camera is inside the ridden pod, so the seat view does not
+      // draw it. The chase view does.
+      const hidden = chase ? "" : requested;
       const counts = world.pods.map(() => 0);
       for (let i = 0; i < count; i++) {
-        if (ids[i] === requested) continue;
+        if (ids[i] === hidden) continue;
         counts[poses[i * POSE_FIELDS + 4] | 0]++;
       }
       world.pods.forEach((pod, index) => {
@@ -392,10 +494,11 @@
       });
       let ridden = -1;
       for (let i = 0; i < count; i++) {
-        if (ids[i] === requested) { ridden = i; continue; }
+        if (ids[i] === requested) ridden = i;
+        if (ids[i] === hidden) continue;
         const at = i * POSE_FIELDS, pod = world.pods[poses[at + 4] | 0];
         const [x, z] = toScene(poses[at], poses[at + 1]);
-        writePodMatrix(pod.matrices, pod.count * 16, x, z, yawOf(poses[at + 2]));
+        writePodMatrix(pod.matrices, pod.count * 16, x, z, podYaws.get(ids[i]));
         pod.count++;
       }
       for (const pod of world.pods) {
@@ -407,16 +510,41 @@
     }
 
     function moveCamera(index, seconds) {
+      if (!looking) {
+        lookYaw = springBack(lookYaw, seconds, LOOK_RETURN_SECONDS);
+        lookPitch = springBack(lookPitch, seconds, LOOK_RETURN_SECONDS);
+      }
       if (index < 0) return;
       const at = index * POSE_FIELDS;
       const length = world.pods[poses[at + 4] | 0].length;
       const heading = poses[at + 2];
       yaw = smoothAngle(yaw, yawOf(heading), seconds, SEAT_YAW_SECONDS);
+      if (chase) {
+        chaseYaw = smoothAngle(chaseYaw, yawOf(heading), seconds, CHASE_YAW_SECONDS);
+        const [x, y, z] = chaseEye(poses[at], poses[at + 1], chaseYaw + lookYaw);
+        camera.position.set(x, y, z);
+        camera.rotation.set(CHASE_PITCH + lookPitch, chaseYaw + lookYaw, 0);
+        return;
+      }
       // The eye is near the front of the pod.
       const forward = length / 2 - 0.6;
       const [x, z] = toScene(poses[at] + Math.cos(heading) * forward, poses[at + 1] + Math.sin(heading) * forward);
       camera.position.set(x, BEAM_TOP + EYE_HEIGHT, z);
-      camera.rotation.y = yaw;
+      camera.rotation.set(SEAT_PITCH + lookPitch, yaw + lookYaw, 0);
+    }
+
+    function showHUD() {
+      if (session === "") return;
+      const view = hudView(JSON.parse(ride.hud(requested) || "{}"));
+      hudElements.hudSpeed.textContent = view.speed;
+      hudElements.hudState.textContent = view.state;
+      hudElements.hudWait.textContent = view.wait;
+      hudElements.hudTrip.replaceChildren(...view.trip.map((line) => Object.assign(document.createElement("div"), { textContent: line })));
+      hudElements.hudNext.textContent = view.next;
+      hudElements.hudRoute.textContent = view.route;
+      hudElements.stripSession.textContent = view.session;
+      hudElements.stripMessage.textContent = view.message;
+      hudElements.rideAt1x.disabled = !view.rideAt1x;
     }
 
     engine.runRenderLoop(() => {
@@ -439,9 +567,10 @@
         // ids has the order of the poses. The pod list has the order of the
         // latest state, which can be newer.
         ids = JSON.parse(ride.ids() || "null") || [];
+        for (const id of podYaws.keys()) if (!ids.includes(id)) podYaws.delete(id);
         refreshPods();
       }
-      moveCamera(updatePods(info.count), seconds);
+      moveCamera(updatePods(info.count, seconds), seconds);
       scene.render();
     });
 
@@ -449,10 +578,11 @@
       const draws = instrumentation.drawCallsCounter.lastSecAverage;
       diagnostics.textContent = `${engine.getFps().toFixed(0)} fps · bridge ${bridgeTime.toFixed(2)} ms · ${draws.toFixed(0)} draws · ${ids.length} pods · ${connected ? "connected" : `disconnected ${connectionError}`}`;
     }, 500);
+    root.setInterval(showHUD, HUD_INTERVAL_MS);
     root.addEventListener("resize", () => engine.resize());
   }
 
-  const api = { POSE_FIELDS, BEAM_TOP, toScene, yawOf, wrapAngle, smoothAngle, laneSamples, beamGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, choosePod, podLabel, start };
+  const api = { POSE_FIELDS, BEAM_TOP, toScene, yawOf, wrapAngle, smoothAngle, laneSamples, beamGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, choosePod, podLabel, springBack, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, start };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.PodsimRide = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

@@ -2,7 +2,8 @@
 
 Status: the maintainer approved this design on 2026-11-14.
 Milestone M1 is built, and the maintainer accepted it in Chrome on 2026-11-14: the frame rate on LondonFull was good, and the only console error was the missing favicon.
-M2, M3, and M4 are not built.
+Milestone M2 is built and waits for the maintainer's check in Chrome.
+M3 and M4 are not built.
 
 ## Goal
 
@@ -67,8 +68,8 @@ The bridge copies data into typed arrays, so JavaScript does not get one object 
 | `ride.frame(out)` | Each animation frame | It fills a `Float64Array` with 5 numbers for each pod: x, y, heading, speed, and class index. It returns the pod count, the generation, a pod list version, the connection state, and the connection error. |
 | `ride.ids()` | When the pod list version changes | The pod IDs in the order of `frame`. |
 | `ride.pods()` | When the pod list version changes, and when the user opens the pod list | The ID, class, activity, and first trip of each pod, in the order of the latest state. |
-| `ride.hud(podID)` | About 4 times a second | JSON: activity, wait reason, `blockedBy`, lane speed limit, riders, stops, remaining distance, ETA, and session data. |
-| `ride.submit(command)` | On user action | A promise of the acknowledgment. It uses the retry-safe command path of `remote.Client`. |
+| `ride.hud(podID)` | 4 times a second | JSON: class, activity, speed, lane speed limit, wait reason, `blockedBy`, riders aboard, next stop, remaining route, session speed and pause, connection, and the outcome of the last command. |
+| `ride.setSpeed(speed)` | On user action | It sends a `speed` command for the session that the page shows, through the retry-safe command path of `remote.Client`. It returns the error text when the client cannot send the command. The HUD shows the reply. |
 
 `frame` uses `remote.Motion.Sample`, so the 3D view has the same 250 ms delay as the 2D view.
 
@@ -84,10 +85,9 @@ A new pod, or a pod that moved more than 50 m in one frame, gets the tangent of 
 A pod at a berth has no lane, so it gets the end direction of a lane that arrives at the berth node and is not a reverse lane.
 A lane is a line or a quadratic Bezier curve with one control point, so the tangent has an exact formula.
 LondonFull has about 2,650 joins of two mainline lanes that turn by more than 0.5 rad, and pods pass them at full speed.
-The seat camera smooths yaw with a 150 ms time constant.
-The pod meshes turn at once at such a join, and M2 can smooth them as the camera does.
-In the M1 check, the maintainer found the turns smooth but a bit quick, so M2 uses a longer time constant.
-The chase camera uses a longer time constant.
+The time constant of the yaw is 350 ms for the seat camera and 600 ms for the chase camera.
+The other pod meshes use the same smoothing, with 200 ms as the time constant.
+In the M1 check, the seat camera used 150 ms, and the maintainer found the turns smooth but a bit quick.
 
 ### Coordinates
 
@@ -126,9 +126,10 @@ A test pins the axis mapping with a station pair of known compass direction.
 
 - Seat camera: at the front of the ridden pod, facing forward.
   While the user holds the mouse button, mouse movement turns the view.
-  On release, the view returns to forward.
-- Chase camera: behind and above the pod.
+  On release, the view returns to forward with a 300 ms time constant.
+- Chase camera: 14 m behind the pod and 5 m above its roof.
   The `C` key switches between the seat camera and the chase camera.
+  The chase view draws the ridden pod, and the seat view draws the cabin frame.
 - Platform camera: at a station, used by the passenger flow.
 
 ## Pod choice
@@ -147,11 +148,13 @@ If the ridden pod leaves the fleet, for example after a project apply, the page 
 ## HUD
 
 - Speed and state: the speed, the speed limit of the lane, the activity, and the wait reason with `blockedBy` when the pod is stopped.
-- Trip panel: the origin and destination names, the party size and the riders, the next stop for a shared ride, the remaining distance, and an ETA.
-  The client gets the lanes of the route window as `Vehicle.Route`, and the ETA uses their lengths and speed limits.
-  If the route window does not reach the destination, the panel shows "more than" the window distance.
+- Trip panel: the party size, origin, and destination of each party aboard, the next stop, the remaining distance, and an ETA.
+  The next stop is the first stop of the pod, or else the destination of the first party aboard.
+  The client gets the route window as `Vehicle.Presentation`, and the ETA uses the lengths and speed limits of its lanes from the pod lane on, with no waits.
+  If the route continues past the window, the panel shows "over" the window distance and time.
 - Mini-map: a 2D canvas with the network, the ridden pod, and the pods near it.
-- Session strip: the session speed, the "Ride at 1x" button, the pause state, the connection state, and the frame rate.
+- Session strip: the session speed, the pause state, the connection state, the "Ride at 1x" button, and the outcome of the last command.
+  The diagnostics line shows the frame rate.
 
 ## Passenger flow
 

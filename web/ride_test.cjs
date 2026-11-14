@@ -95,3 +95,73 @@ test("choosePod keeps the request, then prefers a pod with riders", () => {
   assert.equal(ride.choosePod([{ id: "01", riders: 0 }], ""), "01");
   assert.equal(ride.choosePod([], "01"), "");
 });
+
+test("springBack returns a look offset toward zero", () => {
+  near(ride.springBack(1, 0, 0.3), 1, "no time");
+  near(ride.springBack(1, 0.3, 0.3), Math.exp(-1), "one time constant");
+  near(ride.springBack(1, -1, 0.3), 1, "negative time");
+  near(ride.springBack(1, 0.1, 0), 0, "no time constant");
+});
+
+test("chaseEye is behind and above the pod", () => {
+  // A pod at world (0, 0) heading east has the yaw of east.
+  const [x, y, z] = ride.chaseEye(0, 0, ride.yawOf(0));
+  assert.ok(x < -10 && Math.abs(z) < 1e-9, `eye ${[x, y, z]} is not west of the pod`);
+  assert.ok(y > ride.BEAM_TOP + 2, `eye height ${y}`);
+});
+
+test("smoothPodYaws starts at the heading and then follows it", () => {
+  const poses = new Float64Array([0, 0, 0, 0, 0, 5, 5, Math.PI / 2, 0, 0]);
+  const yaws = ride.smoothPodYaws(new Map(), ["a", "b"], poses, 2, 0.016, 0.2);
+  near(yaws.get("a"), ride.yawOf(0), "first pod");
+  near(yaws.get("b"), ride.yawOf(Math.PI / 2), "second pod");
+  poses[2] = Math.PI / 2;
+  ride.smoothPodYaws(yaws, ["a", "b"], poses, 2, 0.2, 0.2);
+  const expected = ride.smoothAngle(ride.yawOf(0), ride.yawOf(Math.PI / 2), 0.2, 0.2);
+  near(yaws.get("a"), expected, "turning pod");
+  // A count larger than the ID list does not add an undefined key.
+  ride.smoothPodYaws(yaws, ["a"], poses, 2, 0.1, 0.2);
+  assert.ok(!yaws.has(undefined));
+});
+
+test("formats speed, distance, and duration", () => {
+  assert.equal(ride.formatSpeed(14), "50 km/h");
+  assert.equal(ride.formatDistance(999.4), "999 m");
+  assert.equal(ride.formatDistance(1250), "1.3 km");
+  assert.equal(ride.formatDuration(65.4), "1:05");
+  assert.equal(ride.formatDuration(3725), "1:02:05");
+  assert.equal(ride.formatDuration(-3), "0:00");
+});
+
+test("hudView shows the pod, the trip, and the session", () => {
+  const hud = {
+    found: true, podID: "01", class: "compact", activity: "Traveling", speed: 10, speedLimit: 14,
+    waitReason: "Pod ahead", blockedBy: "02",
+    riders: [{ partySize: 1, from: "Bank", to: "Oval" }, { partySize: 3, from: "Bank", to: "Kennington" }],
+    nextStop: "Oval", route: { remainingMeters: 1500, seconds: 125, partial: true },
+    session: { speed: 15, paused: false, connected: true, message: "" },
+  };
+  const view = ride.hudView(hud);
+  assert.equal(view.speed, "36 km/h, limit 50 km/h");
+  assert.equal(view.state, "01 (compact): Traveling");
+  assert.equal(view.wait, "Waiting: Pod ahead (02)");
+  assert.deepEqual(view.trip, ["1 passenger: Bank to Oval", "3 passengers: Bank to Kennington"]);
+  assert.equal(view.next, "Next stop: Oval");
+  assert.equal(view.route, "Route: over 1.5 km, over 2:05");
+  assert.equal(ride.hudView({ ...hud, route: { remainingMeters: 400, seconds: 30, partial: false } }).route, "Route: 400 m, about 0:30");
+  assert.equal(view.session, "Session 15x");
+  assert.equal(view.rideAt1x, true);
+
+  const empty = ride.hudView({ ...hud, riders: [], nextStop: "", waitReason: "", route: null, speedLimit: 0, session: { speed: 1, paused: true, connected: false, error: "lost" } });
+  assert.equal(empty.next, "No passengers");
+  assert.equal(empty.wait, "");
+  assert.equal(empty.route, "");
+  assert.equal(empty.speed, "36 km/h");
+  assert.equal(empty.session, "Session 1x, paused, disconnected: lost");
+  assert.equal(empty.rideAt1x, false);
+
+  const missing = ride.hudView({ found: false, riders: [], session: { speed: 2, connected: true, message: "the session changed" } });
+  assert.equal(missing.state, "Pod not in the session");
+  assert.equal(missing.message, "the session changed");
+  assert.equal(missing.rideAt1x, true);
+});
