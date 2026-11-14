@@ -234,7 +234,7 @@ func checkSavedFaultFootprints(input RestoreStateInput, newFleet func() (*Simula
 	}
 	s, err := newFleet()
 	if err != nil {
-		return nil //nolint:nilerr // Each tier creates the fleet again and reports the error.
+		return nil //nolint:nilerr // Each tier calls the fleet factory and reports its error.
 	}
 	r := newPhysicalRestore(s, input.State)
 	r.restoreCounters()
