@@ -17,7 +17,7 @@ func TestEmbeddedWebAssets(t *testing.T) {
 	if !ok {
 		t.Fatal("embedded assets are unavailable")
 	}
-	for _, name := range []string{"index.html", "state-check.js", "shell.js", "game.html", "tiles.js", "simulation-map.js", "loader.js", "editor.html", "editor-model.js", "editor-model.wasm.gz", "podsim.wasm.gz", "wasm_exec.js"} {
+	for _, name := range []string{"index.html", "state-check.js", "shell.js", "game.html", "tiles.js", "simulation-map.js", "loader.js", "editor.html", "editor-model.js", "editor-model.wasm.gz", "podsim.wasm.gz", "ride.html", "ride.js", "ride.wasm.gz", "wasm_exec.js"} {
 		info, err := fs.Stat(assets, name)
 		if err != nil {
 			t.Fatalf("stat %s: %v", name, err)
@@ -26,12 +26,12 @@ func TestEmbeddedWebAssets(t *testing.T) {
 			t.Fatalf("invalid embedded asset %s", name)
 		}
 	}
-	for _, name := range []string{"podsim.wasm", "editor-model.wasm"} {
+	for _, name := range []string{"podsim.wasm", "editor-model.wasm", "ride.wasm"} {
 		if _, err := fs.Stat(assets, name); !errors.Is(err, fs.ErrNotExist) {
 			t.Fatalf("stat %s: %v, want only the compressed module", name, err)
 		}
 	}
-	for _, name := range []string{"podsim.wasm.gz", "editor-model.wasm.gz"} {
+	for _, name := range []string{"podsim.wasm.gz", "editor-model.wasm.gz", "ride.wasm.gz"} {
 		compressed, err := assets.Open(name)
 		if err != nil {
 			t.Fatal(err)

@@ -13,7 +13,7 @@ import (
 	"strings"
 )
 
-var staticFiles = []string{"index.html", "state-check.js", "shell.js", "game.html", "tiles.js", "simulation-map.js", "loader.js", "stream.js", "editor.html", "editor.css", "editor-model.js", "place-search.js", "editor.js", "offline.html", "offline.js"}
+var staticFiles = []string{"index.html", "state-check.js", "shell.js", "game.html", "tiles.js", "simulation-map.js", "loader.js", "stream.js", "editor.html", "editor.css", "editor-model.js", "place-search.js", "editor.js", "offline.html", "offline.js", "ride.html", "ride.js"}
 
 func main() {
 	if err := run(context.Background()); err != nil {
@@ -30,6 +30,9 @@ func run(ctx context.Context) error {
 		return err
 	}
 	if err := buildWASM(ctx, "./cmd/editormodel", filepath.Join("dist", "editor-model.wasm.gz")); err != nil {
+		return err
+	}
+	if err := buildWASM(ctx, "./cmd/ride", filepath.Join("dist", "ride.wasm.gz")); err != nil {
 		return err
 	}
 	output, err := exec.CommandContext(ctx, "go", "env", "GOROOT").Output() // #nosec G204 -- The command and arguments are fixed build inputs.

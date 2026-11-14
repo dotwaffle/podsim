@@ -21,7 +21,7 @@ The maintainer made these decisions on 2026-11-14.
 | Purpose | A showcase. Visual quality has priority over analysis features. |
 | Rendering | Babylon.js draws the scene. A small Go WASM module reuses `internal/remote` for the stream, the decode checks, and the motion buffer. |
 | Babylon source | A pinned CDN script tag with a subresource-integrity hash. |
-| Placement | A separate page, `/ride`, with its own WASM module. The 2D viewer does not change. |
+| Placement | A separate page, `/ride.html`, with its own WASM module. The 2D viewer does not change. |
 | Speed | The page shows the session speed. A "Ride at 1x" button sends the existing `speed` command, which changes the speed for all viewers. |
 | Height | All guideway is at one height. At a crossing, pods and beams of the two lanes intersect. |
 | Ground | Map tiles on a flat ground plane when the project has a geographic reference, and plain ground otherwise. |
@@ -47,7 +47,7 @@ The maintainer made these decisions on 2026-11-14.
 `ride.html` loads `wasm_exec.js` and `stream.js`, because the `js` build of `internal/remote` calls `PodsimStream.inflate`.
 It also loads `tiles.js` for the ground tiles and Babylon.js 9.36.0 (Apache-2.0) from `https://cdn.babylonjs.com/v9.36.0/babylon.js`.
 That file is 8.9 MB before compression.
-M1 adds Babylon.js to [dependency notes](dependencies.md).
+The [dependency notes](dependencies.md#babylonjs) record the version and the integrity hash.
 
 `internal/remote` does not link Ebitengine, so `ride.wasm` is smaller than `podsim.wasm`.
 The `_js.go` and `_native.go` file split follows the pattern of `internal/view`.
@@ -63,8 +63,9 @@ The bridge copies data into typed arrays, so JavaScript does not get one object 
 | --- | --- | --- |
 | `ride.start(serverURL)` | Once | Nothing. It starts the client. |
 | `ride.topology()` | When `generation` changes | JSON: lanes with end points, control point, and speed limit, stations with berth positions, `geo`, and `map`. |
-| `ride.frame(nowMs, out)` | Each animation frame | It fills a `Float64Array` with 5 numbers for each pod: x, y, heading, speed, and class index. It returns the generation and a pod list version. |
-| `ride.pods()` | When the pod list version changes | The pod IDs in the order of `frame`. |
+| `ride.frame(out)` | Each animation frame | It fills a `Float64Array` with 5 numbers for each pod: x, y, heading, speed, and class index. It returns the pod count, the generation, a pod list version, the connection state, and the connection error. |
+| `ride.ids()` | When the pod list version changes | The pod IDs in the order of `frame`. |
+| `ride.pods()` | When the pod list version changes, and when the user opens the pod list | The ID, class, activity, and first trip of each pod, in the order of the latest state. |
 | `ride.hud(podID)` | About 4 times a second | JSON: activity, wait reason, `blockedBy`, lane speed limit, riders, stops, remaining distance, ETA, and session data. |
 | `ride.submit(command)` | On user action | A promise of the acknowledgment. It uses the retry-safe command path of `remote.Client`. |
 
@@ -88,6 +89,8 @@ Babylon uses a left-handed system with y up.
 The page maps world (x, y) to Babylon (x, h, -y), so +x is east and +z is north.
 Babylon stores vertex positions as float32.
 At 20 km from the origin, float32 resolution is about 2 mm, and the seat camera is less than 1 m from the cabin, so the cabin can jitter.
+LondonFull extends about 34 km west of its origin.
+The page creates the Babylon engine with `useLargeWorldRendering`, which draws the scene relative to the camera.
 The M1 acceptance includes a ride at the far edge of LondonFull with no visible cabin jitter.
 If the cabin jitters, the bridge subtracts an origin near the camera in float64 before it fills the array, and the page moves the scene by the same origin.
 A test pins the axis mapping with a station pair of known compass direction.
@@ -98,12 +101,15 @@ A test pins the axis mapping with a station pair of known compass direction.
   The page merges the beams into a few meshes, so LondonFull does not have 20,000 draw calls.
 - Pods: one rounded box for each class, sized from the class profiles, with glass and a class color.
   Thin instances draw all pods of a class in one draw call.
-- Stations: a platform slab under the berths of each station, with a name sign.
+- Stations: a platform slab under the berths of each station.
+  Name signs come in M3, near the camera only, because a texture for each of 600 stations uses too much memory.
 - Ground: map tiles when `geo` is present, with the same tile source and attribution as `web/tiles.js`.
   Otherwise, a plain textured plane.
-- Light and sky: a sun as a directional light, a hemispheric fill light, a gradient sky, and distance fog.
+- Light and sky: a sun as a directional light, a hemispheric fill light, a sky color, and distance fog.
+  A gradient sky comes in M3.
   Fog hides the far guideway, so the draw distance can stay at about 3 km.
 - Shadows: only the pods and beams near the camera cast shadows.
+  Shadows come in M3, because one shadow map over the whole network has too little resolution.
 - Crossings: the beams and pods of two crossing lanes intersect.
   Visual grade separation is a later item.
 
@@ -193,10 +199,10 @@ The passenger flow logs its state changes.
 
 ## Milestones
 
-1. M1: the bridge, `/ride` with Babylon, the guideway, the pods, the stations, plain ground, and the seat camera on a chosen pod.
+1. M1: the bridge, `/ride.html` with Babylon, the guideway, the pods, the stations, plain ground, and the seat camera on a chosen pod.
    Acceptance: LondonFull at 60 frames per second, no camera yaw jump at lane joins, and no cabin jitter at the far edge of the network.
 2. M2: the HUD speed and state, the trip panel, the session strip, mouse look, and the chase camera.
-3. M3: map tiles, the mini-map, and auto mode.
+3. M3: map tiles, the mini-map, auto mode, station signs, shadows, and a gradient sky.
 4. M4: the passenger flow.
 
 ## Later items

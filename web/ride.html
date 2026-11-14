@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Podsim ride</title>
+  <style>
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #0b121a; color: #e5edf5; font: 14px system-ui, sans-serif; }
+    #scene { width: 100%; height: 100%; display: block; touch-action: none; outline: none; }
+    #status { position: absolute; inset: 40% 10% auto; text-align: center; font-size: 16px; }
+    #status[hidden] { display: none; }
+    #panel { position: absolute; left: 8px; top: 8px; padding: 6px 9px; border-radius: 5px; background: #101d28d9; }
+    #panel select { max-width: min(420px, calc(100vw - 80px)); }
+    #diagnostics { position: absolute; right: 8px; bottom: 8px; padding: 4px 8px; border-radius: 4px; background: #101d28d9; font: 12px system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+  </style>
+  <script src="wasm_exec.js"></script>
+  <!-- internal/remote calls PodsimStream.inflate to read the state stream. -->
+  <script src="stream.js"></script>
+  <script src="https://cdn.babylonjs.com/v9.36.0/babylon.js" integrity="sha384-QWFG07sio34fL3sNY9wd1SSoDvD7YVMX3067rJICw3vO2LQQY5m53yB70YlKXnRX" crossorigin="anonymous"></script>
+  <script src="ride.js"></script>
+</head>
+<body>
+  <canvas id="scene"></canvas>
+  <div id="panel"><label>Pod <select id="pod"></select></label></div>
+  <div id="diagnostics" aria-live="off"></div>
+  <div id="status" role="status">Loading the ride…</div>
+  <script>
+    if (typeof PodsimRide === "undefined") {
+      document.getElementById("status").textContent = "The ride script did not load.";
+    } else {
+      PodsimRide.start();
+    }
+  </script>
+</body>
+</html>

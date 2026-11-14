@@ -39,7 +39,7 @@ actionlint
 rumdl check .
 go vet ./...
 golangci-lint run
-deps=$(GOOS=js GOARCH=wasm go list -deps ./cmd/podsim ./cmd/editormodel) || exit 1
+deps=$(GOOS=js GOARCH=wasm go list -deps ./cmd/podsim ./cmd/editormodel ./cmd/ride) || exit 1
 if printf '%s\n' "$deps" | grep -E '^(gocloud\.dev|github\.com/aws|cloud\.google\.com|google\.golang\.org/api|github\.com/dotwaffle/podsim/internal/statestore)(/|$)'; then
   echo "podsim.wasm must not link cloud storage" >&2
   exit 1
@@ -104,7 +104,7 @@ run = 'go test -timeout=30m $PODSIM_LONG_PACKAGES'
 description = "Check dependencies for known vulnerabilities"
 run = """
 govulncheck ./...
-GOOS=js GOARCH=wasm govulncheck ./cmd/podsim ./cmd/editormodel
+GOOS=js GOARCH=wasm govulncheck ./cmd/podsim ./cmd/editormodel ./cmd/ride
 """
 
 [tasks.build]
@@ -138,7 +138,7 @@ description = "Test editor page, Go model client, game loader, and page shell"
 # fixture. PODSIM_REQUIRE_GO makes a missing Go a failure, so the check
 # task and CI stay strict.
 env = { PODSIM_REQUIRE_GO = "1" }
-run = "node --test web/editor-model_test.cjs web/place-search_test.cjs web/tiles_test.cjs web/simulation-map_test.cjs web/editor_test.cjs web/loader_test.cjs web/shell_test.cjs web/stream_test.cjs web/offline_test.cjs web/editor-history_test.cjs"
+run = "node --test web/editor-model_test.cjs web/place-search_test.cjs web/tiles_test.cjs web/simulation-map_test.cjs web/editor_test.cjs web/loader_test.cjs web/shell_test.cjs web/stream_test.cjs web/offline_test.cjs web/editor-history_test.cjs web/ride_test.cjs"
 
 # check runs its parts one after another. In parallel they overload one
 # machine, and the latency tests of qualify then fail. CI runs each part

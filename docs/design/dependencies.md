@@ -73,3 +73,12 @@ They preserve newly created directories after a power loss.
 Two line-specific G703 annotations document this trust boundary.
 They do not disable G703 elsewhere or change storage behavior.
 Do not pass a browser-controlled URL to `statestore.Open`.
+
+## Babylon.js
+
+The ride page loads Babylon.js 9.36.0 (Apache-2.0) from `https://cdn.babylonjs.com/v9.36.0/babylon.js`, by maintainer decision.
+The script tag in `web/ride.html` has the SHA-384 integrity hash of that file, so a changed file does not run.
+The file is 8.9 MB before compression.
+The CDN sends `Access-Control-Allow-Origin: *`, which the integrity check needs.
+To change the version, change the URL and the hash together.
+No Go module and no other page uses Babylon.js.
