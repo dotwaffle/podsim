@@ -3,7 +3,8 @@
 Status: the maintainer approved this design on 2026-11-14.
 Milestone M1 is built, and the maintainer accepted it in Chrome on 2026-11-14: the frame rate on LondonFull was good, and the only console error was the missing favicon.
 Milestone M2 is built, and the maintainer accepted it in Chrome on 2026-11-14, with a note that the look needs more work.
-M3 and M4 are not built.
+Milestone M3a is built and waits for the maintainer's check in Chrome.
+M3b and M4 are not built.
 
 ## Goal
 
@@ -106,19 +107,23 @@ A test pins the axis mapping with a station pair of known compass direction.
 
 ## Scene
 
-- Guideway: one box-section beam for each lane, extruded along the line or curve, at a fixed height of 5 m on simple pillars.
+- Guideway: one box-section beam for each lane, extruded along the line or curve, at a fixed height of 5 m on tapered pillars about every 60 m.
   The page merges the beams into a few meshes, so LondonFull does not have 20,000 draw calls.
-- Pods: one rounded box for each class, sized from the class profiles, with glass and a class color.
-  Thin instances draw all pods of a class in one draw call.
+  Vertex colors make the running surface on top darker than the concrete sides.
+- Pods: for each class, a rounded shell in the class color, a band of dark glass, and a running gear, sized from the class profiles.
+  The parts merge into one mesh with one submesh for each material, and thin instances draw all pods of a class in a few calls.
 - Stations: a platform slab under the berths of each station.
-  Name signs come in M3, near the camera only, because a texture for each of 600 stations uses too much memory.
-- Ground: map tiles when `geo` is present, with the same tile source and attribution as `web/tiles.js`.
-  Otherwise, a plain textured plane.
-- Light and sky: a sun as a directional light, a hemispheric fill light, a sky color, and distance fog.
-  A gradient sky comes in M3.
+  A pool of 12 name signs goes to the stations within 900 m of the camera, because a texture for each of 600 stations uses too much memory.
+- Ground: map tiles when `geo` is present, from the tile source of `web/tiles.js`, with the OpenStreetMap credit on the page.
+  The ride page does not need the `map` setting that the 2D view needs, but it refuses a `map` setting that is not valid.
+  A ring of zoom 17 tiles covers 700 m around the ridden pod, over a ring of zoom 14 tiles that covers the fog distance.
+  The page asks for at most 8 new tiles each second.
+  Without `geo`, the ground is a plain textured plane.
+- Light and sky: a warm sun as a directional light, a hemispheric fill light, a sky dome with a vertical gradient, and distance fog in the horizon color.
   Fog hides the far guideway, so the draw distance can stay at about 3 km.
-- Shadows: only the pods and beams near the camera cast shadows.
-  Shadows come in M3, because one shadow map over the whole network has too little resolution.
+- Shadows: one 2,048-pixel shadow map covers a 260 m square that follows the camera.
+  The pods, the beams, and the pillars cast shadows, and the ground, the tiles, the beams, and the platforms receive them.
+- Image: Babylon's default rendering pipeline with 4x multisampling, FXAA, ACES tone mapping, and a weak bloom.
 - Crossings: the beams and pods of two crossing lanes intersect.
   Visual grade separation is a later item.
 
@@ -214,8 +219,10 @@ The passenger flow logs its state changes.
 1. M1: the bridge, `/ride.html` with Babylon, the guideway, the pods, the stations, plain ground, and the seat camera on a chosen pod.
    Acceptance: LondonFull at 60 frames per second, no camera yaw jump at lane joins, and no beam shimmer at the far edge of the network.
 2. M2: the HUD speed and state, the trip panel, the session strip, mouse look, and the chase camera.
-3. M3: map tiles, the mini-map, auto mode, station signs, shadows, and a gradient sky.
-4. M4: the passenger flow.
+3. M3a: the look: map tiles, the sky, shadows, station signs, the pod and beam detail, and the image pipeline.
+   The maintainer chose on 2026-11-14 to do the look before the rest of M3.
+4. M3b: the mini-map and auto mode.
+5. M4: the passenger flow.
 
 ## Later items
 

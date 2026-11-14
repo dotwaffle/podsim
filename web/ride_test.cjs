@@ -63,6 +63,9 @@ test("beamGeometry gives four faces with outward normals", () => {
   // One straight lane: 4 faces, 2 samples, 2 edges each, and 2 triangles per face.
   assert.equal(geometry.positions.length, 4 * 2 * 2 * 3);
   assert.equal(geometry.normals.length, geometry.positions.length);
+  assert.equal(geometry.colors.length, geometry.positions.length / 3 * 4);
+  // The top face comes first, and it is darker than a side.
+  assert.ok(geometry.colors[0] < geometry.colors[4 * 4], "top face is darker");
   assert.equal(geometry.indices.length, 4 * 6);
   for (let i = 0; i < geometry.positions.length; i += 3) {
     const [x, y, z] = geometry.positions.subarray(i, i + 3);
@@ -164,4 +167,58 @@ test("hudView shows the pod, the trip, and the session", () => {
   assert.equal(missing.state, "Pod not in the session");
   assert.equal(missing.message, "the session changed");
   assert.equal(missing.rideAt1x, true);
+});
+
+const london = { latitude: 51.5074, longitude: -0.1278, radius: 6371000, projection: "equirectangular" };
+
+test("worldToGeo and geoToWorld are inverse, with world y to the south", () => {
+  const point = ride.worldToGeo(london, 1000, 2000);
+  assert.ok(point.lat < london.latitude && point.lon > london.longitude, "south-east of the origin");
+  const back = ride.geoToWorld(london, point.lat, point.lon);
+  assert.ok(Math.abs(back.x - 1000) < 1e-6 && Math.abs(back.y - 2000) < 1e-6, `${back.x}, ${back.y}`);
+});
+
+test("groundTiles covers the point, nearest first, with touching rectangles", () => {
+  const tiles = ride.groundTiles(london, 0, 0, 17, 700, 64);
+  assert.ok(tiles.length > 9 && tiles.length <= 64, `${tiles.length} tiles`);
+  const first = tiles[0];
+  assert.equal(first.distance, 0);
+  assert.ok(first.rect.minX <= 0 && first.rect.maxX >= 0 && first.rect.minY <= 0 && first.rect.maxY >= 0, "first tile holds the origin");
+  // A zoom-17 tile at London is about 190 m wide.
+  const width = first.rect.maxX - first.rect.minX;
+  assert.ok(width > 150 && width < 230, `width ${width}`);
+  for (let i = 1; i < tiles.length; i++) assert.ok(tiles[i].distance >= tiles[i - 1].distance);
+  const east = tiles.find((tile) => tile.x === first.x + 1 && tile.y === first.y);
+  assert.ok(Math.abs(east.rect.minX - first.rect.maxX) < 1e-6, "east neighbor touches");
+  const south = tiles.find((tile) => tile.x === first.x && tile.y === first.y + 1);
+  assert.ok(Math.abs(south.rect.minY - first.rect.maxY) < 1e-6, "south neighbor touches");
+  assert.equal(new Set(tiles.map((tile) => tile.key)).size, tiles.length);
+  assert.equal(ride.groundTiles(london, 0, 0, 17, 700, 5).length, 5);
+  // Tile x wraps across the date line.
+  const dateLine = { ...london, longitude: 179.999 };
+  assert.ok(ride.groundTiles(dateLine, 0, 0, 10, 2000, 64).every((tile) => tile.x >= 0 && tile.x < 1024));
+});
+
+test("tileQuad puts the north edge of the tile at v = 1", () => {
+  const quad = ride.tileQuad({ minX: 0, maxX: 10, minY: 0, maxY: 20 }, 0.5);
+  for (let i = 0; i < 4; i++) {
+    const [x, y, z] = quad.positions.subarray(i * 3, i * 3 + 3), [u, v] = quad.uvs.subarray(i * 2, i * 2 + 2);
+    assert.equal(y, 0.5);
+    // World y 0 is the north edge, which is scene z 0. World y 20 is z -20.
+    assert.equal(v, z === 0 ? 1 : 0, `v at z ${z}`);
+    assert.equal(u, x === 0 ? 0 : 1, `u at x ${x}`);
+  }
+  // The material draws both sides, so only the two triangles must agree.
+  const winding = (t) => {
+    const [a, b, c] = [...quad.indices.subarray(t * 3, t * 3 + 3)].map((index) => [quad.positions[index * 3], quad.positions[index * 3 + 2]]);
+    return Math.sign((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]));
+  };
+  assert.ok(winding(0) !== 0 && winding(0) === winding(1));
+});
+
+test("nearestSlabs keeps the nearest stations within the radius", () => {
+  const slabs = [{ id: "far", x: 1000, z: 0 }, { id: "b", x: 10, z: 0 }, { id: "a", x: 0, z: 10 }, { id: "near", x: 1, z: 1 }];
+  assert.deepEqual(ride.nearestSlabs(slabs, 0, 0, 3, 500).map((slab) => slab.id), ["near", "a", "b"]);
+  assert.deepEqual(ride.nearestSlabs(slabs, 0, 0, 2, 500).map((slab) => slab.id), ["near", "a"]);
+  assert.deepEqual(ride.nearestSlabs([], 0, 0, 3, 500), []);
 });

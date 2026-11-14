@@ -35,9 +35,25 @@
   const CHASE_DISTANCE = 14;
   const CHASE_HEIGHT = 5;
   const HUD_INTERVAL_MS = 250;
+  const RADIUS = 6371000;
+  const DEGREE = Math.PI / 180;
+  // Map tiles: a detailed ring near the camera over a coarse ring to the fog.
+  const NEAR_TILE_ZOOM = 17;
+  const NEAR_TILE_RADIUS = 700;
+  const FAR_TILE_ZOOM = 14;
+  const MAX_TILES_PER_RING = 64;
+  // New tiles to request in each update, so a jump does not start a burst.
+  const TILE_REQUESTS_PER_UPDATE = 8;
+  const TILE_UPDATE_MS = 1000;
+  // Station signs: a fixed pool, given to the nearest stations.
+  const SIGN_COUNT = 12;
+  const SIGN_RADIUS = 900;
+  const SHADOW_FRUSTUM = 260;
   const FOG_START = 600;
   const FOG_END = 3000;
-  const SKY = [0.62, 0.74, 0.86];
+  // The sky color at the horizon, which the fog also uses, and at the top.
+  const SKY = [0.74, 0.82, 0.9];
+  const SKY_TOP = [0.25, 0.45, 0.78];
   const CLASS_COLORS = [[0.86, 0.88, 0.9], [0.32, 0.62, 0.9], [0.95, 0.66, 0.22], [0.72, 0.36, 0.86]];
   const MODULE_GZIP_LIMIT = 16 * 1024 * 1024;
   const MODULE_LIMIT = 64 * 1024 * 1024;
@@ -84,7 +100,7 @@
   // beamGeometry returns the vertex data of a box beam along each lane. Each
   // face has its own vertices and normals, so the faces have flat shading.
   function beamGeometry(lanes, nodes) {
-    const positions = [], normals = [], indices = [];
+    const positions = [], normals = [], colors = [], indices = [];
     const half = BEAM_WIDTH / 2, top = BEAM_TOP, bottom = BEAM_TOP - BEAM_DEPTH;
     for (const lane of lanes) {
       const from = nodes.get(lane.from), to = nodes.get(lane.to);
@@ -100,11 +116,12 @@
         sides.push([-dz, dx]);
       }
       // Each face: two edges, given as [side sign, height], and a normal.
+      // The running surface on top is darker than the concrete sides.
       const faces = [
-        { edges: [[1, top], [-1, top]], normal: () => [0, 1, 0] },
-        { edges: [[-1, top], [-1, bottom]], normal: (left) => [-left[0], 0, -left[1]] },
-        { edges: [[-1, bottom], [1, bottom]], normal: () => [0, -1, 0] },
-        { edges: [[1, bottom], [1, top]], normal: (left) => [left[0], 0, left[1]] },
+        { edges: [[1, top], [-1, top]], normal: () => [0, 1, 0], shade: 0.42 },
+        { edges: [[-1, top], [-1, bottom]], normal: (left) => [-left[0], 0, -left[1]], shade: 0.82 },
+        { edges: [[-1, bottom], [1, bottom]], normal: () => [0, -1, 0], shade: 0.6 },
+        { edges: [[1, bottom], [1, top]], normal: (left) => [left[0], 0, left[1]], shade: 0.82 },
       ];
       for (const face of faces) {
         const base = positions.length / 3;
@@ -113,6 +130,7 @@
           for (const [sign, height] of face.edges) {
             positions.push(points[i][0] + left[0] * half * sign, height, points[i][1] + left[1] * half * sign);
             normals.push(normal[0], normal[1], normal[2]);
+            colors.push(face.shade, face.shade, face.shade * 0.97, 1);
           }
         }
         for (let i = 0; i + 1 < points.length; i++) {
@@ -121,7 +139,7 @@
         }
       }
     }
-    return { positions: new Float32Array(positions), normals: new Float32Array(normals), indices: new Uint32Array(indices) };
+    return { positions: new Float32Array(positions), normals: new Float32Array(normals), colors: new Float32Array(colors), indices: new Uint32Array(indices) };
   }
 
   // pillarPoints returns scene points under the lanes, about one for each
@@ -194,6 +212,66 @@
   function podLabel(pod) {
     const trip = pod.riders > 0 ? ` ${pod.from} to ${pod.to}` : "";
     return `${pod.id} (${pod.class}) ${pod.activity}${trip}`;
+  }
+
+  // worldToGeo returns the latitude and longitude in degrees of world point
+  // (x, y) in meters. It is the inverse of the equirectangular projection of
+  // the project geography. World y points south.
+  function worldToGeo(geo, x, y) {
+    return { lat: geo.latitude - y / RADIUS / DEGREE, lon: geo.longitude + x / (RADIUS * Math.cos(geo.latitude * DEGREE)) / DEGREE };
+  }
+
+  function geoToWorld(geo, lat, lon) {
+    return { x: (lon - geo.longitude) * DEGREE * RADIUS * Math.cos(geo.latitude * DEGREE), y: (geo.latitude - lat) * DEGREE * RADIUS };
+  }
+
+  const tileXOf = (lon, count) => (lon + 180) / 360 * count;
+  const tileYOf = (lat, count) => (1 - Math.asinh(Math.tan(Math.max(-80, Math.min(80, lat)) * DEGREE)) / Math.PI) / 2 * count;
+  const tileLon = (x, count) => x / count * 360 - 180;
+  const tileLat = (y, count) => Math.atan(Math.sinh(Math.PI * (1 - 2 * y / count))) / DEGREE;
+
+  // groundTiles returns the map tiles at zoom within radius meters of world
+  // point (x, y), nearest first, at most max. Each tile has its world
+  // rectangle. The URL key wraps tile x across the date line.
+  function groundTiles(geo, x, y, zoom, radius, max) {
+    const count = 2 ** zoom;
+    const northWest = worldToGeo(geo, x - radius, y - radius), southEast = worldToGeo(geo, x + radius, y + radius);
+    const minX = Math.floor(tileXOf(northWest.lon, count)), maxX = Math.floor(tileXOf(southEast.lon, count));
+    const minY = Math.max(0, Math.floor(tileYOf(northWest.lat, count))), maxY = Math.min(count - 1, Math.floor(tileYOf(southEast.lat, count)));
+    const tiles = [];
+    for (let ty = minY; ty <= maxY; ty++) {
+      for (let tx = minX; tx <= maxX; tx++) {
+        const west = geoToWorld(geo, tileLat(ty, count), tileLon(tx, count)), east = geoToWorld(geo, tileLat(ty + 1, count), tileLon(tx + 1, count));
+        const rect = { minX: west.x, maxX: east.x, minY: west.y, maxY: east.y };
+        const wrapped = ((tx % count) + count) % count;
+        const distance = Math.hypot(Math.max(rect.minX - x, 0, x - rect.maxX), Math.max(rect.minY - y, 0, y - rect.maxY));
+        if (distance <= radius) tiles.push({ key: `${zoom}/${wrapped}/${ty}`, z: zoom, x: wrapped, y: ty, rect, distance });
+      }
+    }
+    tiles.sort((a, b) => a.distance - b.distance || a.key.localeCompare(b.key));
+    return tiles.slice(0, max);
+  }
+
+  // tileQuad returns the vertex data of a flat map tile at height. The north
+  // edge of the tile has v = 1, which is the top row of the image when the
+  // texture inverts y, as Babylon does by default.
+  function tileQuad(rect, height) {
+    const [west, north] = toScene(rect.minX, rect.minY), [east, south] = toScene(rect.maxX, rect.maxY);
+    return {
+      positions: new Float32Array([west, height, south, east, height, south, east, height, north, west, height, north]),
+      normals: new Float32Array([0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0]),
+      uvs: new Float32Array([0, 0, 1, 0, 1, 1, 0, 1]),
+      indices: new Uint32Array([0, 2, 1, 0, 3, 2]),
+    };
+  }
+
+  // nearestSlabs returns the station slabs within radius of scene point
+  // (x, z), nearest first, at most count.
+  function nearestSlabs(slabs, x, z, count, radius) {
+    return slabs.map((slab) => ({ slab, distance: Math.hypot(slab.x - x, slab.z - z) }))
+      .filter((entry) => entry.distance <= radius)
+      .sort((a, b) => a.distance - b.distance || a.slab.id.localeCompare(b.slab.id))
+      .slice(0, count).map((entry) => entry.slab);
   }
 
   // springBack moves a look offset toward zero with time constant tau.
@@ -279,46 +357,93 @@
 
   function color(B, rgb) { return new B.Color3(rgb[0], rgb[1], rgb[2]); }
 
+  // buildPodMesh makes one pod body for a class: a rounded shell in the
+  // class color, a band of dark glass, and a running gear on the beam. The
+  // parts merge into one mesh with one submesh for each material, so thin
+  // instances draw a class in a few calls.
+  function buildPodMesh(B, scene, cls, rgb) {
+    const length = cls.lengthMeters, radius = POD_WIDTH / 2;
+    const shell = B.MeshBuilder.CreateCapsule(`shell-${cls.name}`, { orientation: new B.Vector3(0, 0, 1), height: length, radius, tessellation: 20, subdivisions: 4, capSubdivisions: 6 }, scene);
+    shell.scaling.y = (POD_HEIGHT - 0.25) / POD_WIDTH;
+    shell.position.y = 0.12;
+    shell.bakeCurrentTransformIntoVertices();
+    const shellMaterial = new B.StandardMaterial(`shell-${cls.name}`, scene);
+    shellMaterial.diffuseColor = color(B, rgb);
+    shellMaterial.specularColor = new B.Color3(0.55, 0.55, 0.55);
+    shellMaterial.specularPower = 48;
+    shell.material = shellMaterial;
+
+    const glass = B.MeshBuilder.CreateBox(`glass-${cls.name}`, { width: POD_WIDTH + 0.06, height: 0.62, depth: Math.max(1, length - 0.9) }, scene);
+    glass.position.y = 0.32;
+    glass.bakeCurrentTransformIntoVertices();
+    const glassMaterial = new B.StandardMaterial(`glass-${cls.name}`, scene);
+    glassMaterial.diffuseColor = new B.Color3(0.05, 0.08, 0.12);
+    glassMaterial.specularColor = new B.Color3(0.9, 0.95, 1);
+    glassMaterial.specularPower = 96;
+    glass.material = glassMaterial;
+
+    const gear = B.MeshBuilder.CreateBox(`gear-${cls.name}`, { width: BEAM_WIDTH * 0.8, height: 0.3, depth: length * 0.7 }, scene);
+    gear.position.y = -POD_HEIGHT / 2 + 0.15;
+    gear.bakeCurrentTransformIntoVertices();
+    const gearMaterial = new B.StandardMaterial(`gear-${cls.name}`, scene);
+    gearMaterial.diffuseColor = new B.Color3(0.16, 0.17, 0.19);
+    gearMaterial.specularColor = new B.Color3(0.1, 0.1, 0.1);
+    gear.material = gearMaterial;
+
+    const mesh = B.Mesh.MergeMeshes([shell, glass, gear], true, true, undefined, false, true);
+    mesh.name = `pod-${cls.name}`;
+    mesh.isPickable = false;
+    // The instances move every frame and cover the whole network.
+    mesh.alwaysSelectAsActiveMesh = true;
+    return mesh;
+  }
+
   // buildWorld makes the static meshes of a topology and the pod meshes.
+  // casters cast shadows, and receivers show them.
   function buildWorld(B, scene, topology) {
-    const meshes = [];
+    const meshes = [], casters = [], receivers = [];
     const nodes = new Map(topology.nodes.map((node) => [node.id, node.position]));
     const beamMaterial = new B.StandardMaterial("beam", scene);
-    beamMaterial.diffuseColor = new B.Color3(0.78, 0.78, 0.76);
-    beamMaterial.specularColor = new B.Color3(0.1, 0.1, 0.1);
+    beamMaterial.diffuseColor = new B.Color3(1, 1, 1);
+    beamMaterial.specularColor = new B.Color3(0.08, 0.08, 0.08);
     beamMaterial.backFaceCulling = false;
     for (let start = 0; start < topology.lanes.length; start += LANES_PER_CHUNK) {
       const geometry = beamGeometry(topology.lanes.slice(start, start + LANES_PER_CHUNK), nodes);
       if (geometry.indices.length === 0) continue;
       const mesh = new B.Mesh(`beams${start}`, scene);
       const data = new B.VertexData();
-      data.positions = geometry.positions; data.normals = geometry.normals; data.indices = geometry.indices;
+      data.positions = geometry.positions; data.normals = geometry.normals; data.colors = geometry.colors; data.indices = geometry.indices;
       data.applyToMesh(mesh);
       mesh.material = beamMaterial;
       mesh.isPickable = false;
       mesh.freezeWorldMatrix();
-      meshes.push(mesh);
+      meshes.push(mesh); casters.push(mesh); receivers.push(mesh);
     }
 
-    const pillar = B.MeshBuilder.CreateCylinder("pillar", { height: BEAM_TOP - BEAM_DEPTH, diameter: 0.6, tessellation: 8 }, scene);
-    pillar.material = beamMaterial;
+    const concrete = new B.StandardMaterial("pillar", scene);
+    concrete.diffuseColor = new B.Color3(0.72, 0.72, 0.7);
+    concrete.specularColor = new B.Color3(0.05, 0.05, 0.05);
+    const pillar = B.MeshBuilder.CreateCylinder("pillar", { height: BEAM_TOP - BEAM_DEPTH, diameterTop: 0.55, diameterBottom: 0.75, tessellation: 12 }, scene);
+    pillar.material = concrete;
     pillar.isPickable = false;
     const points = pillarPoints(topology.lanes, nodes);
     const pillarMatrices = new Float32Array(points.length * 16);
     points.forEach(([x, z], i) => pillarMatrices.set([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, x, (BEAM_TOP - BEAM_DEPTH) / 2, z, 1], i * 16));
     if (points.length > 0) pillar.thinInstanceSetBuffer("matrix", pillarMatrices, 16, true);
     else pillar.setEnabled(false);
-    meshes.push(pillar);
+    meshes.push(pillar); casters.push(pillar);
 
     const slabMaterial = new B.StandardMaterial("platform", scene);
-    slabMaterial.diffuseColor = new B.Color3(0.55, 0.57, 0.6);
-    for (const slab of stationSlabs(topology.stations)) {
+    slabMaterial.diffuseColor = new B.Color3(0.6, 0.62, 0.66);
+    slabMaterial.specularColor = new B.Color3(0.1, 0.1, 0.1);
+    const slabs = stationSlabs(topology.stations);
+    for (const slab of slabs) {
       const mesh = B.MeshBuilder.CreateBox(`station-${slab.id}`, { width: slab.width, depth: slab.depth, height: 0.4 }, scene);
       mesh.position.set(slab.x, BEAM_TOP - BEAM_DEPTH - 0.25, slab.z);
       mesh.material = slabMaterial;
       mesh.isPickable = false;
       mesh.freezeWorldMatrix();
-      meshes.push(mesh);
+      meshes.push(mesh); receivers.push(mesh);
     }
 
     const bounds = sceneBounds(topology.nodes);
@@ -339,21 +464,14 @@
     ground.material = groundMaterial;
     ground.isPickable = false;
     ground.freezeWorldMatrix();
-    meshes.push(ground);
+    meshes.push(ground); receivers.push(ground);
 
     const pods = topology.classes.map((cls, index) => {
-      const mesh = B.MeshBuilder.CreateBox(`pod-${cls.name}`, { width: POD_WIDTH, height: POD_HEIGHT, depth: cls.lengthMeters }, scene);
-      const material = new B.StandardMaterial(`pod-${cls.name}`, scene);
-      material.diffuseColor = color(B, CLASS_COLORS[index % CLASS_COLORS.length]);
-      material.specularColor = new B.Color3(0.4, 0.4, 0.4);
-      mesh.material = material;
-      mesh.isPickable = false;
-      // The instances move every frame and cover the whole network.
-      mesh.alwaysSelectAsActiveMesh = true;
-      meshes.push(mesh);
+      const mesh = buildPodMesh(B, scene, cls, CLASS_COLORS[index % CLASS_COLORS.length]);
+      meshes.push(mesh); casters.push(mesh);
       return { mesh, length: cls.lengthMeters, matrices: new Float32Array(0), count: 0 };
     });
-    return { meshes, pods };
+    return { meshes, casters, receivers, pods, slabs };
   }
 
   // buildCabin makes the window frame and the dashboard of the seat. They
@@ -378,6 +496,117 @@
     return parts;
   }
 
+  // buildSky makes a sky dome with a vertical gradient in vertex colors.
+  function buildSky(B, scene) {
+    const sky = B.MeshBuilder.CreateSphere("sky", { diameter: 2 * FOG_END, segments: 24, sideOrientation: B.Mesh.BACKSIDE }, scene);
+    const positions = sky.getVerticesData(B.VertexBuffer.PositionKind);
+    const colors = new Float32Array(positions.length / 3 * 4);
+    for (let i = 0; i < positions.length / 3; i++) {
+      // 0 at the horizon and below, 1 at the top.
+      const up = Math.max(0, positions[i * 3 + 1] / FOG_END), t = Math.sqrt(up);
+      for (let c = 0; c < 3; c++) colors[i * 4 + c] = SKY[c] + (SKY_TOP[c] - SKY[c]) * t;
+      colors[i * 4 + 3] = 1;
+    }
+    sky.setVerticesData(B.VertexBuffer.ColorKind, colors);
+    const material = new B.StandardMaterial("sky", scene);
+    material.disableLighting = true;
+    material.emissiveColor = new B.Color3(0, 0, 0);
+    material.diffuseColor = new B.Color3(1, 1, 1);
+    material.fogEnabled = false;
+    sky.material = material;
+    sky.infiniteDistance = true;
+    sky.isPickable = false;
+    return sky;
+  }
+
+  // createTileLayer drapes map tiles on the ground around the camera when the
+  // project has a geographic reference. Unlike the 2D view, it does not need
+  // a map background setting, but it refuses a map setting that is not valid.
+  function createTileLayer(B, scene, topology, credit) {
+    const tiles = root.PodsimTiles;
+    const enabled = !!(tiles && tiles.validGeo(topology.geo) && (!topology.map || tiles.validMap(topology.map, topology.geo)));
+    credit.hidden = !enabled;
+    const meshes = new Map();
+    function update(x, y) {
+      if (!enabled) return;
+      const wanted = new Map();
+      // The far ring lies under the near ring.
+      // The depth buffer cannot separate surfaces a few centimeters apart at
+      // a distance, so each ring also has a depth offset toward the camera.
+      for (const [zoom, radius, height, offset] of [[FAR_TILE_ZOOM, FOG_END, 0.03, -2], [NEAR_TILE_ZOOM, NEAR_TILE_RADIUS, 0.06, -4]]) {
+        for (const tile of groundTiles(topology.geo, x, y, zoom, radius, MAX_TILES_PER_RING)) wanted.set(tile.key, { tile, height, offset });
+      }
+      for (const [key, mesh] of meshes) {
+        if (!wanted.has(key)) { mesh.dispose(false, true); meshes.delete(key); }
+      }
+      let requests = 0;
+      for (const [key, { tile, height, offset }] of wanted) {
+        if (meshes.has(key) || requests >= TILE_REQUESTS_PER_UPDATE) continue;
+        requests++;
+        const mesh = new B.Mesh(`tile-${key}`, scene);
+        const data = new B.VertexData();
+        Object.assign(data, tileQuad(tile.rect, height));
+        data.applyToMesh(mesh);
+        const material = new B.StandardMaterial(`tile-${key}`, scene);
+        const url = tiles.URL_TEMPLATE.replace("{z}", tile.z).replace("{x}", tile.x).replace("{y}", tile.y);
+        material.diffuseTexture = new B.Texture(url, scene, false, true);
+        material.diffuseTexture.wrapU = material.diffuseTexture.wrapV = B.Texture.CLAMP_ADDRESSMODE;
+        material.specularColor = new B.Color3(0, 0, 0);
+        material.backFaceCulling = false;
+        material.zOffset = offset;
+        material.zOffsetUnits = 2 * offset;
+        mesh.material = material;
+        mesh.receiveShadows = true;
+        mesh.isPickable = false;
+        mesh.freezeWorldMatrix();
+        meshes.set(key, mesh);
+      }
+    }
+    function dispose() {
+      for (const mesh of meshes.values()) mesh.dispose(false, true);
+      meshes.clear();
+    }
+    return { update, dispose, enabled };
+  }
+
+  // createSigns makes a pool of station name signs. update gives them to the
+  // stations nearest the camera.
+  function createSigns(B, scene) {
+    const signs = [];
+    for (let i = 0; i < SIGN_COUNT; i++) {
+      const mesh = B.MeshBuilder.CreatePlane(`sign${i}`, { width: 9, height: 1.5 }, scene);
+      const texture = new B.DynamicTexture(`sign${i}`, { width: 768, height: 128 }, scene, true);
+      const material = new B.StandardMaterial(`sign${i}`, scene);
+      material.diffuseTexture = texture;
+      material.emissiveColor = new B.Color3(0.85, 0.85, 0.85);
+      material.specularColor = new B.Color3(0, 0, 0);
+      material.backFaceCulling = false;
+      mesh.material = material;
+      mesh.billboardMode = B.Mesh.BILLBOARDMODE_Y;
+      mesh.isPickable = false;
+      mesh.setEnabled(false);
+      signs.push({ mesh, texture, station: "" });
+    }
+    function update(slabs, x, z) {
+      const nearest = nearestSlabs(slabs, x, z, SIGN_COUNT, SIGN_RADIUS);
+      signs.forEach((sign, i) => {
+        const slab = nearest[i];
+        sign.mesh.setEnabled(!!slab);
+        if (!slab) { sign.station = ""; return; }
+        sign.mesh.position.set(slab.x, BEAM_TOP + 4.2, slab.z);
+        if (sign.station === slab.id) return;
+        sign.station = slab.id;
+        const context = sign.texture.getContext();
+        context.fillStyle = "#123a5e"; context.fillRect(0, 0, 768, 128);
+        context.fillStyle = "#ffffff"; context.font = "bold 64px system-ui, sans-serif";
+        context.textAlign = "center"; context.textBaseline = "middle";
+        context.fillText(slab.name || slab.id, 384, 66, 740);
+        sign.texture.update();
+      });
+    }
+    return { update };
+  }
+
   async function start() {
     const status = document.getElementById("status");
     const show = (text) => { status.hidden = false; status.textContent = text; };
@@ -398,17 +627,46 @@
     scene.fogStart = FOG_START;
     scene.fogEnd = FOG_END;
     scene.skipPointerMovePicking = true;
-    const sun = new B.DirectionalLight("sun", new B.Vector3(-0.4, -1, -0.3), scene);
-    sun.intensity = 0.8;
-    const sky = new B.HemisphericLight("sky", new B.Vector3(0, 1, 0), scene);
-    sky.intensity = 0.55;
-    sky.groundColor = new B.Color3(0.35, 0.38, 0.32);
+    const sunDirection = new B.Vector3(-0.5, -0.75, -0.35).normalize();
+    const sun = new B.DirectionalLight("sun", sunDirection, scene);
+    sun.intensity = 1.1;
+    sun.diffuse = new B.Color3(1, 0.96, 0.88);
+    // The shadow map covers a square that follows the camera.
+    sun.autoUpdateExtends = false;
+    sun.shadowFrustumSize = SHADOW_FRUSTUM;
+    sun.shadowMinZ = 1;
+    sun.shadowMaxZ = 800;
+    const fill = new B.HemisphericLight("fill", new B.Vector3(0, 1, 0), scene);
+    fill.intensity = 0.5;
+    fill.diffuse = color(B, SKY);
+    fill.groundColor = new B.Color3(0.32, 0.34, 0.3);
+    buildSky(B, scene);
+    const shadows = new B.ShadowGenerator(2048, sun);
+    shadows.usePercentageCloserFiltering = true;
+    shadows.filteringQuality = B.ShadowGenerator.QUALITY_MEDIUM;
+    shadows.bias = 0.0008;
     const camera = new B.FreeCamera("seat", new B.Vector3(0, BEAM_TOP + EYE_HEIGHT, 0), scene);
-    camera.minZ = 0.1;
+    // The nearest cabin part is about 0.5 m from the eye. A larger near plane keeps
+    // more depth precision for the far ground.
+    camera.minZ = 0.3;
     camera.maxZ = FOG_END + 200;
     camera.fov = 1.1;
     camera.rotation.x = SEAT_PITCH;
     const cabin = buildCabin(B, scene, camera);
+    const pipeline = new B.DefaultRenderingPipeline("look", true, scene, [camera]);
+    pipeline.samples = 4;
+    pipeline.fxaaEnabled = true;
+    pipeline.imageProcessingEnabled = true;
+    pipeline.imageProcessing.toneMappingEnabled = true;
+    pipeline.imageProcessing.toneMappingType = B.ImageProcessingConfiguration.TONEMAPPING_ACES;
+    pipeline.imageProcessing.exposure = 1.1;
+    pipeline.imageProcessing.contrast = 1.15;
+    pipeline.bloomEnabled = true;
+    pipeline.bloomThreshold = 0.85;
+    pipeline.bloomWeight = 0.2;
+    const signs = createSigns(B, scene);
+    const credit = document.getElementById("credit");
+    let tileLayer = null, lastTiles = 0;
     const instrumentation = new B.SceneInstrumentation(scene);
     instrumentation.captureFrameTime = true;
 
@@ -466,7 +724,12 @@
       if (!text) return false;
       const topology = JSON.parse(text);
       if (world) for (const mesh of world.meshes) mesh.dispose(false, true);
+      if (tileLayer) tileLayer.dispose();
       world = buildWorld(B, scene, topology);
+      shadows.getShadowMap().renderList = world.casters;
+      for (const mesh of world.receivers) mesh.receiveShadows = true;
+      tileLayer = createTileLayer(B, scene, topology, credit);
+      lastTiles = 0;
       session = `${topology.serverStart}/${topology.epoch}/${topology.generation}`;
       version = -1;
       status.hidden = true;
@@ -570,7 +833,17 @@
         for (const id of podYaws.keys()) if (!ids.includes(id)) podYaws.delete(id);
         refreshPods();
       }
-      moveCamera(updatePods(info.count, seconds), seconds);
+      const ridden = updatePods(info.count, seconds);
+      moveCamera(ridden, seconds);
+      // The light sits back along the sun direction from the camera, so the
+      // shadow map covers the ground around the camera.
+      sun.position.copyFrom(camera.position.subtract(sunDirection.scale(400)));
+      if (ridden >= 0 && now - lastTiles >= TILE_UPDATE_MS) {
+        lastTiles = now;
+        const at = ridden * POSE_FIELDS;
+        tileLayer.update(poses[at], poses[at + 1]);
+        signs.update(world.slabs, camera.position.x, camera.position.z);
+      }
       scene.render();
     });
 
@@ -582,7 +855,7 @@
     root.addEventListener("resize", () => engine.resize());
   }
 
-  const api = { POSE_FIELDS, BEAM_TOP, toScene, yawOf, wrapAngle, smoothAngle, laneSamples, beamGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, choosePod, podLabel, springBack, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, start };
+  const api = { POSE_FIELDS, BEAM_TOP, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, smoothAngle, laneSamples, beamGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, choosePod, podLabel, springBack, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, start };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.PodsimRide = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

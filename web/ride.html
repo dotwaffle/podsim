@@ -26,12 +26,17 @@
     #stripMessage { color: #f3c479; }
     #stripMessage:empty { display: none; }
     .hint { color: #b7c8d6; font-size: 12px; }
+    #credit { position: absolute; left: 50%; top: 6px; transform: translateX(-50%); padding: 2px 7px; border-radius: 3px; background: #101d28b3; font-size: 11px; }
+    #credit[hidden] { display: none; }
+    #credit a { color: #b7d7f5; }
   </style>
   <script src="wasm_exec.js"></script>
   <!-- internal/remote calls PodsimStream.inflate to read the state stream.
        stream.js also adds its connection diagnostics panel. -->
   <script src="stream.js"></script>
   <script src="https://cdn.babylonjs.com/v9.36.0/babylon.js" integrity="sha384-QWFG07sio34fL3sNY9wd1SSoDvD7YVMX3067rJICw3vO2LQQY5m53yB70YlKXnRX" crossorigin="anonymous"></script>
+  <!-- tiles.js gives the map tile source and checks the map settings. -->
+  <script src="tiles.js"></script>
   <script src="ride.js"></script>
 </head>
 <body>
@@ -52,6 +57,7 @@
     <span class="hint">Drag to look. C: chase camera.</span>
   </div>
   <div id="diagnostics" aria-live="off"></div>
+  <div id="credit" hidden>Map data &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors</div>
   <div id="status" role="status">Loading the ride…</div>
   <script>
     if (typeof PodsimRide === "undefined") {
