@@ -76,7 +76,12 @@ func (s *Simulation) stationRouteByLoad(input stationRouteInput) ([]Lane, Berth,
 	if err != nil {
 		return nil, Berth{}, err
 	}
-	s.cacheStationRoutesForClass(input.from, station.Berths, input.class)
+	// From an entry, each candidate route is a station path, so a batch
+	// of routeForClass routes would go unused.
+	fromEntry := station.isEntry(input.from)
+	if !fromEntry {
+		s.cacheStationRoutesForClass(input.from, station.Berths, input.class)
+	}
 	var bestRoute []Lane
 	var bestBerth Berth
 	bestLoad, found := 0, false
@@ -90,9 +95,12 @@ func (s *Simulation) stationRouteByLoad(input stationRouteInput) ([]Lane, Berth,
 		if s.berthBlocked(berth) {
 			continue
 		}
-		route, err := s.routeForClass(input.from, berth.Node, input.class)
-		if station.isEntry(input.from) {
+		var route []Lane
+		var err error
+		if fromEntry {
 			route, err = s.stationPathForClass(input.from, berth.Node, input.class)
+		} else {
+			route, err = s.routeForClass(input.from, berth.Node, input.class)
 		}
 		if err != nil {
 			continue

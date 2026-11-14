@@ -93,3 +93,46 @@ func (s *Simulation) stationApproachRoute(fromNode, stationID string) ([]Lane, e
 func (s *Simulation) stationRoute(fromNode, stationID string) ([]Lane, Berth, error) {
 	return s.stationRouteByLoad(stationRouteInput{from: fromNode, station: stationID})
 }
+
+// TestStationRouteFromEntryCachesNoPlainRoutes checks that a station route
+// from an entry of the station caches only station paths. The plain routes
+// of the berth batch are never the result there, so their search is wasted
+// work.
+func TestStationRouteFromEntryCachesNoPlainRoutes(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		from  string
+		plain bool
+	}{
+		{from: "market-entry", plain: false},
+		{from: "harbor-berth", plain: true},
+	} {
+		t.Run(tc.from, func(t *testing.T) {
+			t.Parallel()
+			s, err := NewFleet(Example(), []Placement{{ID: "01", StationID: "harbor"}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			addMarketBerth(s)
+			route, berth, err := s.stationRoute(tc.from, "market")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tc.from == "market-entry" {
+				want, err := s.stationPathForClass(tc.from, berth.Node, LegacyClass)
+				if err != nil || !reflect.DeepEqual(route, want) {
+					t.Fatalf("route = %v, want station path %v (%v)", route, want, err)
+				}
+			}
+			plain := false
+			for key := range s.routes {
+				if key.from == tc.from && !key.station {
+					plain = true
+				}
+			}
+			if plain != tc.plain {
+				t.Fatalf("plain routes cached from %s = %t, want %t", tc.from, plain, tc.plain)
+			}
+		})
+	}
+}
