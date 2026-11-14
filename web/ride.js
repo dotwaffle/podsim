@@ -49,8 +49,8 @@
   const SIGN_COUNT = 12;
   const SIGN_RADIUS = 900;
   const SHADOW_FRUSTUM = 260;
-  // The mini-map shows the network 600 m around the ridden pod, with the
-  // direction of the pod up.
+  // The mini-map shows the network 600 m around the ridden pod, with north
+  // up.
   const MINIMAP_SIZE = 240;
   const MINIMAP_RADIUS = 600;
   const MINIMAP_CELL = 250;
@@ -371,19 +371,15 @@
     return found;
   }
 
-  // miniMapPoint returns the canvas position of a world offset (dx, dy) from
-  // the ridden pod, on a map of half size half pixels and scale pixels for
-  // each meter. The heading of the pod points up.
-  function miniMapPoint(dx, dy, heading, scale, half) {
-    const angle = -Math.PI / 2 - heading, cos = Math.cos(angle), sin = Math.sin(angle);
-    return [half + scale * (dx * cos - dy * sin), half + scale * (dx * sin + dy * cos)];
-  }
-
-  // miniMapTransform returns the canvas transform (a, b, c, d, e, f) that
-  // draws world points as miniMapPoint places them, for a pod at world (x, y).
-  function miniMapTransform(x, y, heading, scale, half) {
-    const angle = -Math.PI / 2 - heading, cos = Math.cos(angle) * scale, sin = Math.sin(angle) * scale;
-    return [cos, sin, -sin, cos, half - cos * x + sin * y, half - sin * x - cos * y];
+  // miniMapArrow returns the corners of the arrow of the ridden pod at the
+  // center of the map, which has a half size of half pixels. The arrow points
+  // along heading, and its tip is size pixels from the center. The map has
+  // north up, so canvas y points south, as world y does.
+  function miniMapArrow(heading, half, size) {
+    const cos = Math.cos(heading), sin = Math.sin(heading);
+    // Each corner is (forward, right) in units of size.
+    return [[1, 0], [-0.7, 0.7], [-0.3, 0], [-0.7, -0.7]].map(([forward, right]) =>
+      [half + size * (forward * cos - right * sin), half + size * (forward * sin + right * cos)]);
   }
 
   // autoHop reports whether auto mode moves to another pod. It moves when
@@ -719,8 +715,8 @@
     const classColors = CLASS_COLORS.map((rgb) => `rgb(${rgb.map((value) => Math.round(value * 255)).join(",")})`);
     const context = canvas.getContext("2d");
 
-    // draw shows the map around the pod with the pose index ridden, with the
-    // heading of the pod up.
+    // draw shows the map around the pod with the pose index ridden, with
+    // north up. heading turns the arrow of the pod.
     function draw(poses, count, ridden, heading) {
       const ratio = root.devicePixelRatio || 1, size = Math.round(MINIMAP_SIZE * ratio);
       if (canvas.width !== size) canvas.width = canvas.height = size;
@@ -735,7 +731,7 @@
       context.fillStyle = "#101d28d9";
       context.fill();
       // The lanes draw in world coordinates through the map transform.
-      context.setTransform(...miniMapTransform(x, y, heading, scale, half));
+      context.setTransform(scale, 0, 0, scale, half - scale * x, half - scale * y);
       context.beginPath();
       for (const segment of segmentsNear(index, x, y, MINIMAP_RADIUS)) {
         const at = segment * 4;
@@ -747,9 +743,8 @@
       context.strokeStyle = "#8195a6";
       context.stroke();
       const dot = (dx, dy, radius, style) => {
-        const [px, py] = miniMapPoint(dx, dy, heading, scale, half);
         context.beginPath();
-        context.arc(px, py, radius * ratio, 0, 2 * Math.PI);
+        context.arc(half + scale * dx, half + scale * dy, radius * ratio, 0, 2 * Math.PI);
         context.fillStyle = style;
         context.fill();
       };
@@ -761,18 +756,14 @@
         if (i === ridden || Math.abs(dx) > MINIMAP_RADIUS || Math.abs(dy) > MINIMAP_RADIUS) continue;
         dot(dx, dy, 2.5, classColors[poses[at + 4] | 0] || classColors[0]);
       }
-      // The ridden pod is an arrow at the center that points up.
-      const arrow = 7 * ratio;
+      // The ridden pod is an arrow at the center.
       context.beginPath();
-      context.moveTo(half, half - arrow);
-      context.lineTo(half + arrow * 0.7, half + arrow * 0.7);
-      context.lineTo(half, half + arrow * 0.3);
-      context.lineTo(half - arrow * 0.7, half + arrow * 0.7);
+      for (const [px, py] of miniMapArrow(heading, half, 8 * ratio)) context.lineTo(px, py);
       context.closePath();
       context.fillStyle = "#ffffff";
       context.fill();
       // N marks the north edge of the map.
-      const [nx, ny] = miniMapPoint(0, -(MINIMAP_RADIUS - 40), heading, scale, half);
+      const nx = half, ny = 14 * ratio;
       context.font = `bold ${Math.round(12 * ratio)}px system-ui, sans-serif`;
       context.textAlign = "center";
       context.textBaseline = "middle";
@@ -1077,7 +1068,7 @@
     root.addEventListener("resize", () => engine.resize());
   }
 
-  const api = { POSE_FIELDS, segmentIndex, segmentsNear, miniMapPoint, miniMapTransform, autoHop, BEAM_TOP, GROUND_LAYERS, groundLayerOrder, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, smoothAngle, laneSamples, beamGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, choosePod, podLabel, springBack, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, start };
+  const api = { POSE_FIELDS, segmentIndex, segmentsNear, miniMapArrow, autoHop, BEAM_TOP, GROUND_LAYERS, groundLayerOrder, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, smoothAngle, laneSamples, beamGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, choosePod, podLabel, springBack, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, start };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.PodsimRide = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

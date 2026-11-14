@@ -166,7 +166,7 @@ If the ridden pod leaves the fleet, for example after a project apply, the page 
   The next stop is the first stop of the pod, or else the destination of the first party aboard.
   The client gets the route window as `Vehicle.Presentation`, and the ETA uses the lengths and speed limits of its lanes from the pod lane on, with no waits.
   If the route continues past the window, the panel shows "over" the window distance and time.
-- Mini-map: a round 2D canvas that shows 600 m around the ridden pod, with the direction of the pod up.
+- Mini-map: a round 2D canvas that shows 600 m around the ridden pod, with north up.
   It shows the lanes, the stations, the other pods in their class colors, and a north mark, and it draws 10 times a second.
   A grid of 250 m cells holds the lane segments, so a draw reads only the segments near the pod.
   On LondonFull, the grid takes 18 ms to build, and a draw reads about 110 segments.

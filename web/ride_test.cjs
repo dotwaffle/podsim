@@ -248,23 +248,18 @@ test("segmentsNear returns the segments near a point once", () => {
   assert.equal(ride.segmentsNear(curved, 500, 250, 1000).length, curved.coords.length / 4);
 });
 
-test("miniMapPoint puts the heading of the pod up", () => {
+test("miniMapArrow points along the heading on a north-up map", () => {
   const cases = [
-    { name: "ahead of an east pod", dx: 10, dy: 0, heading: 0, want: [100, 90] },
-    { name: "right of an east pod", dx: 0, dy: 10, heading: 0, want: [110, 100] },
-    { name: "ahead of a south pod", dx: 0, dy: 10, heading: Math.PI / 2, want: [100, 90] },
-    { name: "north of a north pod", dx: 0, dy: -10, heading: -Math.PI / 2, want: [100, 90] },
-    { name: "scale", dx: 10, dy: 0, heading: 0, scale: 2, want: [100, 80] },
+    { name: "east", heading: 0, tip: [110, 100], backRight: [93, 107] },
+    { name: "south", heading: Math.PI / 2, tip: [100, 110], backRight: [93, 93] },
+    { name: "north", heading: -Math.PI / 2, tip: [100, 90], backRight: [107, 107] },
   ];
-  for (const { name, dx, dy, heading, scale = 1, want } of cases) {
-    const [x, y] = ride.miniMapPoint(dx, dy, heading, scale, 100);
-    near(x, want[0], `${name} x`);
-    near(y, want[1], `${name} y`);
-    // The lane transform agrees with miniMapPoint for a pod away from the origin.
-    const [ta, tb, tc, td, te, tf] = ride.miniMapTransform(300, -40, heading, scale, 100);
-    const wx = 300 + dx, wy = -40 + dy;
-    near(ta * wx + tc * wy + te, want[0], `${name} transform x`);
-    near(tb * wx + td * wy + tf, want[1], `${name} transform y`);
+  for (const { name, heading, tip, backRight } of cases) {
+    const corners = ride.miniMapArrow(heading, 100, 10);
+    near(corners[0][0], tip[0], `${name} tip x`);
+    near(corners[0][1], tip[1], `${name} tip y`);
+    near(corners[1][0], backRight[0], `${name} back right x`);
+    near(corners[1][1], backRight[1], `${name} back right y`);
   }
 });
 
