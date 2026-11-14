@@ -222,3 +222,12 @@ test("nearestSlabs keeps the nearest stations within the radius", () => {
   assert.deepEqual(ride.nearestSlabs(slabs, 0, 0, 2, 500).map((slab) => slab.id), ["near", "a"]);
   assert.deepEqual(ride.nearestSlabs([], 0, 0, 3, 500), []);
 });
+
+test("groundLayerOrder draws the ground layers first, in their order", () => {
+  const sub = (name, layer) => ({ name, getMesh: () => ({ metadata: layer === undefined ? null : { groundLayer: layer } }) });
+  const L = ride.GROUND_LAYERS;
+  const list = [sub("pod"), sub("near", L.nearTiles), sub("beam"), sub("ground", L.ground), sub("far", L.farTiles), sub("sky", L.sky)];
+  const sorted = [...list].sort(ride.groundLayerOrder).map((entry) => entry.name);
+  assert.deepEqual(sorted, ["sky", "ground", "far", "near", "pod", "beam"]);
+  assert.equal(ride.groundLayerOrder(sub("pod"), sub("beam")), 0);
+});

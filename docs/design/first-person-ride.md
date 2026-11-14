@@ -118,6 +118,9 @@ A test pins the axis mapping with a station pair of known compass direction.
   The ride page does not need the `map` setting that the 2D view needs, but it refuses a `map` setting that is not valid.
   A ring of zoom 17 tiles covers 700 m around the ridden pod, over a ring of zoom 14 tiles that covers the fog distance.
   The page asks for at most 8 new tiles each second.
+  The sky, the plain ground, the far ring, and the near ring draw first, in that order, and write no depth.
+  Nothing is below the ground, so the other meshes draw over them, and the layers cannot fight in the depth buffer.
+  In the first M3a check, layers a few centimeters apart with a depth offset flickered.
   Without `geo`, the ground is a plain textured plane.
 - Light and sky: a warm sun as a directional light, a hemispheric fill light, a sky dome with a vertical gradient, and distance fog in the horizon color.
   Fog hides the far guideway, so the draw distance can stay at about 3 km.

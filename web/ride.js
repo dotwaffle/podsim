@@ -49,6 +49,25 @@
   const SIGN_COUNT = 12;
   const SIGN_RADIUS = 900;
   const SHADOW_FRUSTUM = 260;
+  // Ground layers draw first, in this order, and write no depth. Nothing in
+  // the scene is below the ground, so the layers cannot fight in the depth
+  // buffer, and every other mesh draws over them.
+  const GROUND_LAYERS = { sky: 1, ground: 2, farTiles: 3, nearTiles: 4 };
+
+  // groundLayerOrder sorts the opaque submeshes of a rendering group: the
+  // ground layers in their order, then the other meshes in Babylon's order.
+  function groundLayerOrder(a, b) {
+    const layer = (subMesh) => subMesh.getMesh().metadata?.groundLayer ?? Infinity;
+    // Two meshes that are not ground layers give Infinity - Infinity.
+    const difference = layer(a) - layer(b);
+    return Number.isNaN(difference) ? 0 : difference;
+  }
+
+  // asGroundLayer sets the ground layer of a mesh and its material.
+  function asGroundLayer(mesh, layer) {
+    mesh.metadata = { ...mesh.metadata, groundLayer: layer };
+    mesh.material.disableDepthWrite = true;
+  }
   const FOG_START = 600;
   const FOG_END = 3000;
   // The sky color at the horizon, which the fog also uses, and at the top.
@@ -462,6 +481,7 @@
     groundMaterial.diffuseTexture = groundTexture;
     groundMaterial.specularColor = new B.Color3(0, 0, 0);
     ground.material = groundMaterial;
+    asGroundLayer(ground, GROUND_LAYERS.ground);
     ground.isPickable = false;
     ground.freezeWorldMatrix();
     meshes.push(ground); receivers.push(ground);
@@ -509,11 +529,14 @@
     }
     sky.setVerticesData(B.VertexBuffer.ColorKind, colors);
     const material = new B.StandardMaterial("sky", scene);
+    // With lighting off, the output is the emissive color times the vertex
+    // color, so the emissive color is white.
     material.disableLighting = true;
-    material.emissiveColor = new B.Color3(0, 0, 0);
+    material.emissiveColor = new B.Color3(1, 1, 1);
     material.diffuseColor = new B.Color3(1, 1, 1);
     material.fogEnabled = false;
     sky.material = material;
+    asGroundLayer(sky, GROUND_LAYERS.sky);
     sky.infiniteDistance = true;
     sky.isPickable = false;
     return sky;
@@ -531,21 +554,20 @@
       if (!enabled) return;
       const wanted = new Map();
       // The far ring lies under the near ring.
-      // The depth buffer cannot separate surfaces a few centimeters apart at
-      // a distance, so each ring also has a depth offset toward the camera.
-      for (const [zoom, radius, height, offset] of [[FAR_TILE_ZOOM, FOG_END, 0.03, -2], [NEAR_TILE_ZOOM, NEAR_TILE_RADIUS, 0.06, -4]]) {
-        for (const tile of groundTiles(topology.geo, x, y, zoom, radius, MAX_TILES_PER_RING)) wanted.set(tile.key, { tile, height, offset });
+      // The near ring draws after the far ring, so it covers it.
+      for (const [zoom, radius, layer] of [[FAR_TILE_ZOOM, FOG_END, GROUND_LAYERS.farTiles], [NEAR_TILE_ZOOM, NEAR_TILE_RADIUS, GROUND_LAYERS.nearTiles]]) {
+        for (const tile of groundTiles(topology.geo, x, y, zoom, radius, MAX_TILES_PER_RING)) wanted.set(tile.key, { tile, layer });
       }
       for (const [key, mesh] of meshes) {
         if (!wanted.has(key)) { mesh.dispose(false, true); meshes.delete(key); }
       }
       let requests = 0;
-      for (const [key, { tile, height, offset }] of wanted) {
+      for (const [key, { tile, layer }] of wanted) {
         if (meshes.has(key) || requests >= TILE_REQUESTS_PER_UPDATE) continue;
         requests++;
         const mesh = new B.Mesh(`tile-${key}`, scene);
         const data = new B.VertexData();
-        Object.assign(data, tileQuad(tile.rect, height));
+        Object.assign(data, tileQuad(tile.rect, 0));
         data.applyToMesh(mesh);
         const material = new B.StandardMaterial(`tile-${key}`, scene);
         const url = tiles.URL_TEMPLATE.replace("{z}", tile.z).replace("{x}", tile.x).replace("{y}", tile.y);
@@ -553,9 +575,8 @@
         material.diffuseTexture.wrapU = material.diffuseTexture.wrapV = B.Texture.CLAMP_ADDRESSMODE;
         material.specularColor = new B.Color3(0, 0, 0);
         material.backFaceCulling = false;
-        material.zOffset = offset;
-        material.zOffsetUnits = 2 * offset;
         mesh.material = material;
+        asGroundLayer(mesh, layer);
         mesh.receiveShadows = true;
         mesh.isPickable = false;
         mesh.freezeWorldMatrix();
@@ -621,6 +642,7 @@
     // does not make the cabin jitter.
     const engine = new B.Engine(canvas, true, { useLargeWorldRendering: true });
     const scene = new B.Scene(engine);
+    scene.setRenderingOrder(0, groundLayerOrder);
     scene.clearColor = new B.Color4(SKY[0], SKY[1], SKY[2], 1);
     scene.fogMode = B.Scene.FOGMODE_LINEAR;
     scene.fogColor = color(B, SKY);
@@ -855,7 +877,7 @@
     root.addEventListener("resize", () => engine.resize());
   }
 
-  const api = { POSE_FIELDS, BEAM_TOP, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, smoothAngle, laneSamples, beamGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, choosePod, podLabel, springBack, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, start };
+  const api = { POSE_FIELDS, BEAM_TOP, GROUND_LAYERS, groundLayerOrder, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, smoothAngle, laneSamples, beamGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, choosePod, podLabel, springBack, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, start };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.PodsimRide = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);
