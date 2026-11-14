@@ -62,17 +62,11 @@
   // Station signs: a fixed pool, given to the nearest stations.
   const SIGN_COUNT = 12;
   const SIGN_RADIUS = 900;
-  // Cascaded shadow maps: four 2,048-pixel maps split the view up to
-  // SHADOW_DISTANCE meters from the camera. The near cascades are small, so
-  // the near shadows are sharp, and the far cascades reach farther.
-  const SHADOW_DISTANCE = 260;
-  const SHADOW_CASCADES = 4;
-  const SHADOW_CASCADE_SIZE = 2048;
-  // SHADOW_LAMBDA mixes logarithmic (1) and even (0) cascade splits.
-  const SHADOW_LAMBDA = 0.8;
-  // Without cascades (no WebGL2), one 4,096-pixel map covers a square of
-  // SHADOW_FRUSTUM meters around the camera, with texels of about 6 cm.
-  const SHADOW_FRUSTUM = 260;
+  // One 4,096-pixel shadow map covers a square of SHADOW_FRUSTUM meters,
+  // with texels of about 8 cm. The square is centered SHADOW_AHEAD meters in
+  // front of the camera, so shadows reach about 280 m ahead and 40 m behind.
+  const SHADOW_FRUSTUM = 320;
+  const SHADOW_AHEAD = 120;
   const SHADOW_MAP_SIZE = 4096;
   // The mini-map shows the network 1.5 km around the ridden pod, with north
   // up.
@@ -641,6 +635,16 @@
     return best;
   }
 
+  // shadowFocus returns the point ahead meters from position along the
+  // horizontal part of the view direction forward. A view straight up or
+  // down has no horizontal part, so the point is position. Vectors are
+  // [x, y, z] arrays.
+  function shadowFocus(position, forward, ahead) {
+    const length = Math.hypot(forward[0], forward[2]);
+    if (length < 1e-6) return [...position];
+    return [position[0] + forward[0] / length * ahead, position[1], position[2] + forward[2] / length * ahead];
+  }
+
   // snapShadowCenter returns the position p of a directional light with the
   // unit direction d, moved to whole shadow texels of size texel. Babylon
   // looks from the light position along d with up +y, so the snap uses the
@@ -1173,23 +1177,12 @@
     // more depth precision for the far ground.
     camera.minZ = 0.3;
     camera.maxZ = FOG_END + 200;
-    const cascaded = Boolean(B.CascadedShadowGenerator && B.CascadedShadowGenerator.IsSupported);
-    let shadows;
-    if (cascaded) {
-      shadows = new B.CascadedShadowGenerator(SHADOW_CASCADE_SIZE, sun, undefined, camera);
-      shadows.numCascades = SHADOW_CASCADES;
-      shadows.shadowMaxZ = SHADOW_DISTANCE;
-      shadows.lambda = SHADOW_LAMBDA;
-      // Stable cascades move in whole texels, so the edges do not crawl.
-      shadows.stabilizeCascades = true;
-    } else {
-      // The shadow map covers a square that follows the camera.
-      sun.autoUpdateExtends = false;
-      sun.shadowFrustumSize = SHADOW_FRUSTUM;
-      sun.shadowMinZ = 1;
-      sun.shadowMaxZ = 800;
-      shadows = new B.ShadowGenerator(SHADOW_MAP_SIZE, sun);
-    }
+    // The shadow map covers a square that follows the camera.
+    sun.autoUpdateExtends = false;
+    sun.shadowFrustumSize = SHADOW_FRUSTUM;
+    sun.shadowMinZ = 1;
+    sun.shadowMaxZ = 800;
+    const shadows = new B.ShadowGenerator(SHADOW_MAP_SIZE, sun);
     shadows.usePercentageCloserFiltering = true;
     shadows.filteringQuality = B.ShadowGenerator.QUALITY_HIGH;
     shadows.bias = 0.0008;
@@ -1536,12 +1529,11 @@
         // The platform view marks the pod of the trip.
         miniMap.draw(focus.x, focus.y, mapHeading, poses, info.count, platform ? -1 : ridden, platform && trip && trip.podID ? ridden : -1);
       }
-      if (!cascaded) {
-        // The light sits back along the sun direction from the camera, so the
-        // shadow map covers the ground around the camera.
-        const light = camera.position.subtract(sunDirection.scale(400));
-        sun.position.fromArray(snapShadowCenter(light.asArray(), sunDirection.asArray(), SHADOW_FRUSTUM / SHADOW_MAP_SIZE));
-      }
+      // The light sits back along the sun direction from a point ahead of
+      // the camera, so the shadow map covers the ground that the camera sees.
+      const shadowCenter = B.Vector3.FromArray(shadowFocus(camera.position.asArray(), camera.getDirection(B.Axis.Z).asArray(), SHADOW_AHEAD));
+      const light = shadowCenter.subtract(sunDirection.scale(400));
+      sun.position.fromArray(snapShadowCenter(light.asArray(), sunDirection.asArray(), SHADOW_FRUSTUM / SHADOW_MAP_SIZE));
       if (focus.known && now - lastTiles >= TILE_UPDATE_MS) {
         lastTiles = now;
         tileLayer.update(focus.x, focus.y);
@@ -1558,7 +1550,7 @@
     root.addEventListener("resize", () => engine.resize());
   }
 
-  const api = { POSE_FIELDS, segmentIndex, segmentsNear, segmentsCross, convexHull, findHubs, deckGeometry, levelHeight, laneProfile, uniqueLanes, miniMapArrow, snapShadowCenter, stopPoints, shortLabel, placeLabels, platformView, tripView, nearestStop, autoHop, BEAM_TOP, GROUND_LAYERS, groundLayerOrder, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, newTurn, dampAngle, laneSamples, beamGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, choosePod, podLabel, springBack, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, start };
+  const api = { POSE_FIELDS, segmentIndex, segmentsNear, segmentsCross, convexHull, findHubs, deckGeometry, levelHeight, laneProfile, uniqueLanes, miniMapArrow, snapShadowCenter, shadowFocus, stopPoints, shortLabel, placeLabels, platformView, tripView, nearestStop, autoHop, BEAM_TOP, GROUND_LAYERS, groundLayerOrder, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, newTurn, dampAngle, laneSamples, beamGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, choosePod, podLabel, springBack, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, start };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.PodsimRide = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

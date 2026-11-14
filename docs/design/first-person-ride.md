@@ -132,12 +132,13 @@ A test pins the axis mapping with a station pair of known compass direction.
   Without `geo`, the ground is a plain textured plane.
 - Light and sky: a warm sun as a directional light, a hemispheric fill light, a sky dome with a vertical gradient, and distance fog in the horizon color.
   Fog hides the far guideway, so the draw distance can stay at about 3 km.
-- Shadows: four cascaded 2,048-pixel shadow maps cover the view up to 260 m from the camera, with high-quality PCF filtering.
-  The splits are mostly logarithmic, so the near cascades are small and the near shadows are sharp.
-  The cascades move in whole texels, so the shadow edges do not crawl when the camera moves.
-  In the M3b check, one 2,048-pixel map with medium filtering gave jagged edges.
+- Shadows: one 4,096-pixel shadow map covers a 320 m square, with texels of about 8 cm and high-quality PCF filtering.
+  The square is centered 120 m ahead of the camera, along the horizontal view direction, so the shadows reach about 280 m ahead and 40 m behind.
+  The light moves in whole texels across its view, so the shadow edges do not crawl when the camera moves.
+  In the M3b check, a 2,048-pixel map with medium filtering gave jagged edges.
   A 4,096-pixel map over a 260 m square around the camera fixed the edges, but the shadows stopped about 130 m ahead, and the maintainer asked for twice the distance.
-  Without WebGL2, the page uses that single map.
+  Four cascaded shadow maps reached 260 m, but on the maintainer's GPU each cascade boundary drew a thin line across the ground.
+  The line stayed with no cascade blend, with no stabilization, with no depth clamp, and with no PCF, so the page does not use cascades.
   The pods, the beams, and the pillars cast shadows, and the ground, the tiles, the beams, and the platforms receive them.
 - Image: Babylon's default rendering pipeline with 4x multisampling, FXAA, and ACES tone mapping.
   In the check of the cascaded shadows, a weak bloom (threshold 0.85, weight 0.2) spread the bright map tiles into soft blotches on the edges of the dark cabin pillars, so the page has no bloom.

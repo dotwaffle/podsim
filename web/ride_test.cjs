@@ -355,6 +355,11 @@ test("nearestStop finds the nearest passenger station", () => {
   assert.equal(ride.nearestStop([], 0, 0), null);
 });
 
+test("shadowFocus moves ahead along the horizontal view direction", () => {
+  assert.deepEqual(ride.shadowFocus([10, 6, -5], [0.3, -0.9, 0.4], 100), [70, 6, 75]);
+  assert.deepEqual(ride.shadowFocus([10, 6, -5], [0, -1, 0], 100), [10, 6, -5]);
+});
+
 test("snapShadowCenter moves the light to whole texels across its view", () => {
   const d = [-0.5, -0.75, -0.35], length = Math.hypot(...d), unit = d.map((value) => value / length);
   const texel = 260 / 4096;
