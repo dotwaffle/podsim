@@ -155,8 +155,9 @@ func selectedVehicle(state sim.Snapshot, index int) (sim.Vehicle, bool) {
 }
 
 // berthSeparation is the smallest screen distance in layout units between
-// two berths of a station that shows its berths.
-const berthSeparation = 34
+// two berths of a station that shows its berths. It is the width of a berth
+// ring with its stroke, so that the rings do not overlap.
+const berthSeparation = 2 * (berthRingRadius + 1)
 
 // showStationBerths reports whether the berths of a station separate on the
 // screen. A station with fewer than two berth nodes in the network always

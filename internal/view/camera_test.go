@@ -394,10 +394,10 @@ func TestMaxMapScale(t *testing.T) {
 	}{
 		{name: "no berth spacing", fit: 0.025, unit: 1, want: 1},
 		{name: "berths separate at mapMaxZoom", fit: 0.025, spacing: 75, unit: 1, want: 1},
-		{name: "berths separate exactly at mapMaxZoom", fit: 0.025, spacing: 34, unit: 1, want: 1},
-		{name: "6 m berths", fit: 0.025, spacing: 6, unit: 1, want: 34.0 / 6 * mapZoomStep},
-		{name: "6 m berths at a layout unit of 2", fit: 0.05, spacing: 6, unit: 2, want: 68.0 / 6 * mapZoomStep},
-		{name: "spacing below the minimum", fit: 0.025, spacing: 0.001, unit: 1, want: 34 * mapZoomStep},
+		{name: "berths separate exactly at mapMaxZoom", fit: 0.025, spacing: 28, unit: 1, want: 1},
+		{name: "6 m berths", fit: 0.025, spacing: 6, unit: 1, want: 28.0 / 6 * mapZoomStep},
+		{name: "6 m berths at a layout unit of 2", fit: 0.05, spacing: 6, unit: 2, want: 56.0 / 6 * mapZoomStep},
+		{name: "spacing below the minimum", fit: 0.025, spacing: 0.001, unit: 1, want: 28 * mapZoomStep},
 		{name: "spacing below the minimum at a large Fit scale", fit: 2, spacing: 0.1, unit: 1, want: 80},
 	}
 	for _, test := range tests {

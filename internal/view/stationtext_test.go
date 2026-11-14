@@ -785,7 +785,7 @@ func TestStationTextOnLondon(t *testing.T) {
 			if !ok {
 				t.Fatalf("station %s has no anchor", stationID)
 			}
-			// The berths of the half-size stations separate at about 36
+			// The berths of the half-size stations separate at about 29
 			// times the Fit scale.
 			game.camera.zoomAt(game.mapPoint(anchor), 40)
 			expanded, placed, _ := placedTestText(game)
