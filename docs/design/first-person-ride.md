@@ -88,9 +88,11 @@ A new pod, or a pod that moved more than 50 m in one frame, gets the tangent of 
 A pod at a berth has no lane, so it gets the end direction of a lane that arrives at the berth node and is not a reverse lane.
 A lane is a line or a quadratic Bezier curve with one control point, so the tangent has an exact formula.
 LondonFull has about 2,650 joins of two mainline lanes that turn by more than 0.5 rad, and pods pass them at full speed.
-The time constant of the yaw is 350 ms for the seat camera and 600 ms for the chase camera.
-The other pod meshes use the same smoothing, with 200 ms as the time constant.
+The yaw of the seat camera, the chase camera, the other pod meshes, and the mini-map arrow follows the heading as a critically damped spring.
+A turn starts and ends with a low rate, and the peak rate is about 74% of the start rate of a first-order filter with the same lag.
+On a steady turn, the yaw lags by 350 ms for the seat camera and the mini-map arrow, 600 ms for the chase camera, and 200 ms for the other pods.
 In the M1 check, the seat camera used 150 ms, and the maintainer found the turns smooth but a bit quick.
+In the M3b check, a first-order filter started each turn at its full rate, and the maintainer asked for damping at the start of the turn as well.
 
 ### Coordinates
 

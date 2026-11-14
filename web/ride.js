@@ -109,12 +109,25 @@
     return wrapped;
   }
 
-  // smoothAngle moves current toward target along the shorter way, with an
-  // exponential time constant of tau seconds.
-  function smoothAngle(current, target, seconds, tau) {
-    if (!Number.isFinite(current)) return target;
-    const fraction = tau > 0 ? 1 - Math.exp(-Math.max(0, seconds) / tau) : 1;
-    return wrapAngle(current + wrapAngle(target - current) * fraction);
+  // newTurn returns the state of a smoothed angle with no value yet.
+  function newTurn() { return { angle: NaN, rate: 0 }; }
+
+  // dampAngle moves turn.angle toward target along the shorter way, as a
+  // critically damped spring, and returns the new angle. A turn starts and
+  // ends with a low rate. On a steady turn of the target, the angle lags by
+  // tau seconds. The step is exact for a constant target, so the result does
+  // not depend on the frame rate. A turn with no angle takes the target.
+  function dampAngle(turn, target, seconds, tau) {
+    if (!Number.isFinite(turn.angle) || !(tau > 0)) {
+      turn.angle = target;
+      turn.rate = 0;
+      return target;
+    }
+    const omega = 2 / tau, t = Math.max(0, seconds), decay = Math.exp(-omega * t);
+    const offset = wrapAngle(turn.angle - target), push = turn.rate + omega * offset;
+    turn.angle = wrapAngle(target + (offset + push * t) * decay);
+    turn.rate = (turn.rate - omega * push * t) * decay;
+    return turn.angle;
   }
 
   // laneSamples returns the world points along a lane: the two end points of
@@ -320,12 +333,12 @@
     return [sx - Math.sin(yaw) * CHASE_DISTANCE, BEAM_TOP + POD_HEIGHT + CHASE_HEIGHT, sz - Math.cos(yaw) * CHASE_DISTANCE];
   }
 
-  // smoothPodYaws updates yaws, a map from pod ID to the drawn yaw, toward
-  // the heading of each pod in poses.
+  // smoothPodYaws updates yaws, a map from pod ID to the turn of the drawn
+  // yaw, toward the heading of each pod in poses.
   function smoothPodYaws(yaws, ids, poses, count, seconds, tau) {
     for (let i = 0; i < count && i < ids.length; i++) {
-      const target = yawOf(poses[i * POSE_FIELDS + 2]);
-      yaws.set(ids[i], smoothAngle(yaws.has(ids[i]) ? yaws.get(ids[i]) : NaN, target, seconds, tau));
+      if (!yaws.has(ids[i])) yaws.set(ids[i], newTurn());
+      dampAngle(yaws.get(ids[i]), yawOf(poses[i * POSE_FIELDS + 2]), seconds, tau);
     }
     return yaws;
   }
@@ -842,13 +855,17 @@
     const diagnostics = document.getElementById("diagnostics");
     const params = new URLSearchParams(root.location.search);
     let requested = params.get("pod") || "", podList = [], ids = [], version = -1;
-    let session = "", world = null, poses = new Float64Array(0), yaw = NaN, lastTime = performance.now();
+    let session = "", world = null, poses = new Float64Array(0), lastTime = performance.now();
     let bridgeTime = 0, connected = false, connectionError = "";
-    let chase = false, chaseYaw = NaN, lookYaw = 0, lookPitch = 0, looking = false;
+    let chase = false, lookYaw = 0, lookPitch = 0, looking = false;
     const podYaws = new Map();
+    // The seat camera, the chase camera, and the mini-map arrow turn with
+    // their own damping.
+    const seatTurn = newTurn(), chaseTurn = newTurn(), mapTurn = newTurn();
+    const resetTurns = () => { for (const turn of [seatTurn, chaseTurn, mapTurn]) turn.angle = NaN; };
     const autoBox = document.getElementById("auto"), fade = document.getElementById("fade");
     const miniMapCanvas = document.getElementById("minimap");
-    let miniMap = null, mapHeading = NaN, lastMap = 0;
+    let miniMap = null, lastMap = 0;
     // armed is true from the moment the user turns on auto mode until the
     // page reads the riders of the pod. lastRiders is -1 when not known.
     autoBox.checked = params.get("auto") === "1";
@@ -867,7 +884,7 @@
       if (event.target instanceof root.HTMLSelectElement || event.target instanceof root.HTMLButtonElement || event.target instanceof root.HTMLInputElement) return;
       if (event.key === "c" || event.key === "C") {
         chase = !chase;
-        chaseYaw = NaN;
+        chaseTurn.angle = NaN;
         for (const part of cabin) part.setEnabled(!chase);
       }
     });
@@ -886,7 +903,7 @@
       requested = id;
       picker.value = id;
       setParam("pod", id);
-      yaw = chaseYaw = mapHeading = NaN;
+      resetTurns();
       lastRiders = -1;
     }
 
@@ -911,7 +928,7 @@
     function refreshPods() {
       podList = JSON.parse(ride.pods() || "[]");
       const chosen = choosePod(podList, requested);
-      if (chosen !== requested) { yaw = chaseYaw = mapHeading = NaN; lastRiders = -1; }
+      if (chosen !== requested) { resetTurns(); lastRiders = -1; }
       requested = chosen;
       picker.replaceChildren(...podList.map((pod) => new Option(podLabel(pod), pod.id, false, pod.id === requested)));
     }
@@ -959,7 +976,7 @@
         if (ids[i] === hidden) continue;
         const at = i * POSE_FIELDS, pod = world.pods[poses[at + 4] | 0];
         const [x, z] = toScene(poses[at], poses[at + 1]);
-        writePodMatrix(pod.matrices, pod.count * 16, x, z, podYaws.get(ids[i]));
+        writePodMatrix(pod.matrices, pod.count * 16, x, z, podYaws.get(ids[i]).angle);
         pod.count++;
       }
       for (const pod of world.pods) {
@@ -979,9 +996,9 @@
       const at = index * POSE_FIELDS;
       const length = world.pods[poses[at + 4] | 0].length;
       const heading = poses[at + 2];
-      yaw = smoothAngle(yaw, yawOf(heading), seconds, SEAT_YAW_SECONDS);
+      const yaw = dampAngle(seatTurn, yawOf(heading), seconds, SEAT_YAW_SECONDS);
       if (chase) {
-        chaseYaw = smoothAngle(chaseYaw, yawOf(heading), seconds, CHASE_YAW_SECONDS);
+        const chaseYaw = dampAngle(chaseTurn, yawOf(heading), seconds, CHASE_YAW_SECONDS);
         const [x, y, z] = chaseEye(poses[at], poses[at + 1], chaseYaw + lookYaw);
         camera.position.set(x, y, z);
         camera.rotation.set(CHASE_PITCH + lookPitch, chaseYaw + lookYaw, 0);
@@ -1042,7 +1059,7 @@
       const ridden = updatePods(info.count, seconds);
       moveCamera(ridden, seconds);
       if (ridden >= 0) {
-        mapHeading = smoothAngle(mapHeading, poses[ridden * POSE_FIELDS + 2], seconds, SEAT_YAW_SECONDS);
+        const mapHeading = dampAngle(mapTurn, poses[ridden * POSE_FIELDS + 2], seconds, SEAT_YAW_SECONDS);
         if (now - lastMap >= MINIMAP_INTERVAL_MS) {
           lastMap = now;
           miniMap.draw(poses, info.count, ridden, mapHeading);
@@ -1068,7 +1085,7 @@
     root.addEventListener("resize", () => engine.resize());
   }
 
-  const api = { POSE_FIELDS, segmentIndex, segmentsNear, miniMapArrow, autoHop, BEAM_TOP, GROUND_LAYERS, groundLayerOrder, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, smoothAngle, laneSamples, beamGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, choosePod, podLabel, springBack, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, start };
+  const api = { POSE_FIELDS, segmentIndex, segmentsNear, miniMapArrow, autoHop, BEAM_TOP, GROUND_LAYERS, groundLayerOrder, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, newTurn, dampAngle, laneSamples, beamGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, choosePod, podLabel, springBack, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, start };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.PodsimRide = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

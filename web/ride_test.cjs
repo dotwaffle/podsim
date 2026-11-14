@@ -36,15 +36,60 @@ test("yaw turns the pod and the camera to the world heading", () => {
   }
 });
 
-test("smoothAngle takes the shorter way and converges", () => {
+test("dampAngle takes the shorter way and converges", () => {
   near(ride.wrapAngle(3 * Math.PI), Math.PI, "wrap");
   near(ride.wrapAngle(-Math.PI), Math.PI, "wrap lower bound");
   // From just below pi to just above -pi is a short step across the seam.
-  const step = ride.smoothAngle(Math.PI - 0.1, -Math.PI + 0.1, 0.15, 0.15);
+  const seam = { angle: Math.PI - 0.1, rate: 0 };
+  const step = ride.dampAngle(seam, -Math.PI + 0.1, 0.15, 0.15);
   assert.ok(Math.abs(ride.wrapAngle(step - Math.PI)) < 0.1, `step ${step} went the long way`);
-  near(ride.smoothAngle(NaN, 1, 0.016, 0.15), 1, "first value");
-  near(ride.smoothAngle(0, 1, 10, 0.15), 1, "long time");
-  near(ride.smoothAngle(0, 1, 0, 0.15), 0, "no time");
+  // A reset turn keeps its old rate until the next step.
+  const first = { angle: NaN, rate: 5 };
+  near(ride.dampAngle(first, 1, 0.016, 0.15), 1, "first value");
+  near(first.rate, 0, "first rate");
+  near(ride.dampAngle({ angle: 0, rate: 2 }, 1, -0.5, 0.15), 0, "negative time");
+  const long = { angle: 0, rate: 0 };
+  near(ride.dampAngle(long, 1, 30, 0.15), 1, "long time");
+  near(long.rate, 0, "rate after a long time");
+  near(ride.dampAngle({ angle: 0, rate: 0 }, 1, 0, 0.15), 0, "no time");
+  near(ride.dampAngle({ angle: 0, rate: 3 }, 1, 0.1, 0), 1, "no damping");
+});
+
+test("dampAngle starts and ends a turn slowly", () => {
+  // The target turns by 1 rad at once. The turn speeds up, then slows down.
+  const turn = { angle: 0, rate: 0 }, steps = [];
+  let last = 0;
+  for (let i = 0; i < 60; i++) {
+    const angle = ride.dampAngle(turn, 1, 1 / 60, 0.35);
+    steps.push(angle - last);
+    last = angle;
+  }
+  const peak = steps.indexOf(Math.max(...steps));
+  assert.ok(peak >= 5 && peak <= 15, `the fastest step is ${peak}`);
+  for (let i = 1; i <= peak; i++) assert.ok(steps[i] > steps[i - 1], `step ${i} speeds up`);
+  for (let i = peak + 1; i < steps.length; i++) assert.ok(steps[i] < steps[i - 1], `step ${i} slows down`);
+  // A first-order filter would move 4.6% in the first frame.
+  assert.ok(steps[0] < 0.005, `first step ${steps[0]}`);
+});
+
+test("dampAngle does not depend on the frame rate", () => {
+  const once = { angle: 0, rate: 0.5 }, often = { angle: 0, rate: 0.5 };
+  ride.dampAngle(once, 1, 0.3, 0.35);
+  for (let i = 0; i < 30; i++) ride.dampAngle(often, 1, 0.01, 0.35);
+  near(once.angle, often.angle, "angle");
+  near(once.rate, often.rate, "rate");
+});
+
+test("dampAngle lags a steady turn by tau", () => {
+  const turn = { angle: 0, rate: 0 };
+  let target = 0;
+  for (let i = 0; i < 500; i++) {
+    target += 0.005;
+    ride.dampAngle(turn, target, 0.01, 0.35);
+  }
+  // The target moves in steps, so it is half a step ahead of a smooth turn.
+  const rate = 0.5, lag = rate * 0.35 - rate * 0.01 / 2;
+  assert.ok(Math.abs(target - turn.angle - lag) < 1e-6, `lag ${target - turn.angle}`);
 });
 
 test("laneSamples keeps straight lanes and samples curves", () => {
@@ -116,12 +161,13 @@ test("chaseEye is behind and above the pod", () => {
 test("smoothPodYaws starts at the heading and then follows it", () => {
   const poses = new Float64Array([0, 0, 0, 0, 0, 5, 5, Math.PI / 2, 0, 0]);
   const yaws = ride.smoothPodYaws(new Map(), ["a", "b"], poses, 2, 0.016, 0.2);
-  near(yaws.get("a"), ride.yawOf(0), "first pod");
-  near(yaws.get("b"), ride.yawOf(Math.PI / 2), "second pod");
+  near(yaws.get("a").angle, ride.yawOf(0), "first pod");
+  near(yaws.get("b").angle, ride.yawOf(Math.PI / 2), "second pod");
   poses[2] = Math.PI / 2;
   ride.smoothPodYaws(yaws, ["a", "b"], poses, 2, 0.2, 0.2);
-  const expected = ride.smoothAngle(ride.yawOf(0), ride.yawOf(Math.PI / 2), 0.2, 0.2);
-  near(yaws.get("a"), expected, "turning pod");
+  const expected = ride.dampAngle({ angle: ride.yawOf(0), rate: 0 }, ride.yawOf(Math.PI / 2), 0.2, 0.2);
+  near(yaws.get("a").angle, expected, "turning pod");
+  near(yaws.get("b").angle, ride.yawOf(Math.PI / 2), "steady pod");
   // A count larger than the ID list does not add an undefined key.
   ride.smoothPodYaws(yaws, ["a"], poses, 2, 0.1, 0.2);
   assert.ok(!yaws.has(undefined));
