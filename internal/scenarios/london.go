@@ -43,8 +43,12 @@ const (
 	// a Parking facility and the slots of each lane.
 	londonDepotLanes = 2
 	londonDepotSlots = 6
-	// londonBerthPitch is the default distance between two berth rows.
+	// londonBerthPitch is the default distance between two berth rows at
+	// station scale 1. A passenger station scales it.
 	londonBerthPitch = 75.0
+	// londonStationScale is the default station scale. See
+	// docs/studies/station-scale.md.
+	londonStationScale = 0.5
 	// customCapacitySuffix ends the name of a generated project with other
 	// than the default capacity.
 	customCapacitySuffix = " (custom capacity)"
@@ -164,8 +168,8 @@ type LondonOptions struct {
 	Berths map[string]int
 	// Pods holds the initial pod count of single stations.
 	Pods map[string]int
-	// BerthPitch is the distance in meters between two berth rows. It must
-	// be at least minimumBerthPitch.
+	// BerthPitch is the distance in meters between two berth rows at
+	// station scale 1. It must be at least minimumBerthPitch.
 	BerthPitch float64
 	// ParkingLanes is the number of depot lanes of each Parking facility.
 	// Zero gives the ordinary facilities. With depots, the berth count of
@@ -178,22 +182,23 @@ type LondonOptions struct {
 	// search. With a Compact station, each pod is Compact.
 	CompactStations []string
 	// StationScale multiplies the distances of a passenger station past
-	// its throat, the berth pitch, and the distance of its arrival and
-	// departure lanes from the station axis. It is greater than 0 and at
+	// its throat, its berth pitch, and the distance of its arrival and
+	// departure lanes from the station axis. The scaled pitch must be at
+	// least minimumBerthPitch. It is greater than 0 and at
 	// most 1. Parking facilities keep scale 1, and the arrival and
 	// departure lanes of a Compact station stay outside its bays.
 	StationScale float64
 }
 
 // DefaultLondonCentralOptions returns owned options of the London preset.
-// Each Parking facility is a depot, and seven passenger stations are
-// Compact stations.
+// Each Parking facility is a depot, seven passenger stations are Compact
+// stations, and the passenger stations have half their size at scale 1.
 func DefaultLondonCentralOptions() LondonOptions {
 	return LondonOptions{
 		StationBerths: londonStationBerths, ParkingBerths: londonDepotSlots,
 		StationPods: londonStationPods, ParkingPods: londonParkingPods,
 		BerthPitch: londonBerthPitch, ParkingLanes: londonDepotLanes,
-		CompactStations: slices.Clone(londonCompactStations[:7]), StationScale: 1,
+		CompactStations: slices.Clone(londonCompactStations[:7]), StationScale: londonStationScale,
 	}
 }
 

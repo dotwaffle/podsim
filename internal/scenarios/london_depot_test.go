@@ -73,9 +73,12 @@ func londonLayoutLanes(network sim.Network) map[string]bool {
 
 // replacedLondonID reports whether a node or lane ID belongs to the inside
 // of a replaced station: an ID of the station other than its diverge and
-// merge nodes, its road lanes, and its movement lanes.
-func replacedLondonID(id string, replaced []string) bool {
-	return slices.ContainsFunc(replaced, func(station string) bool {
+// merge nodes, its road lanes, and its movement lanes. For a station in
+// moved, each ID of the station belongs to it.
+func replacedLondonID(id string, replaced, moved []string) bool {
+	return slices.ContainsFunc(moved, func(station string) bool {
+		return strings.HasPrefix(id, station+"-")
+	}) || slices.ContainsFunc(replaced, func(station string) bool {
 		rest, ok := strings.CutPrefix(id, station+"-")
 		return ok && rest != "diverge" && rest != "merge" && !strings.HasPrefix(rest, "road-") && !strings.HasPrefix(rest, "move-")
 	})
@@ -86,21 +89,23 @@ func replacedLondonID(id string, replaced []string) bool {
 // same position or ends and control, and the same metadata, and each other
 // station is the same. Each new node and lane belongs to a replaced
 // station. The demand and the settings are the same, and the pods outside
-// the replaced stations are the same but for their class.
-func checkLondonParity(t *testing.T, reference, variant project.Config, replaced ...string) {
+// the replaced stations are the same but for their class. The stations in
+// moved are also replaced, and their throats can move too.
+func checkLondonParity(t *testing.T, reference, variant project.Config, moved []string, replaced ...string) {
 	t.Helper()
+	replaced = append(slices.Clone(replaced), moved...)
 	nodes := make(map[string]sim.Node, len(variant.Network.Nodes))
 	for _, node := range variant.Network.Nodes {
 		nodes[node.ID] = node
 	}
 	for _, node := range reference.Network.Nodes {
-		if !replacedLondonID(node.ID, replaced) && nodes[node.ID] != node {
+		if !replacedLondonID(node.ID, replaced, moved) && nodes[node.ID] != node {
 			t.Fatalf("node %+v is %+v", node, nodes[node.ID])
 		}
 		delete(nodes, node.ID)
 	}
 	for id := range nodes {
-		if !replacedLondonID(id, replaced) {
+		if !replacedLondonID(id, replaced, moved) {
 			t.Fatalf("new node %q outside the replaced stations", id)
 		}
 	}
@@ -109,13 +114,13 @@ func checkLondonParity(t *testing.T, reference, variant project.Config, replaced
 		lanes[lane.ID] = lane
 	}
 	for _, lane := range reference.Network.Lanes {
-		if got, ok := lanes[lane.ID]; !replacedLondonID(lane.ID, replaced) && (!ok || !reflect.DeepEqual(got, lane)) {
+		if got, ok := lanes[lane.ID]; !replacedLondonID(lane.ID, replaced, moved) && (!ok || !reflect.DeepEqual(got, lane)) {
 			t.Fatalf("lane %+v is %+v", lane, got)
 		}
 		delete(lanes, lane.ID)
 	}
 	for id := range lanes {
-		if !replacedLondonID(id, replaced) {
+		if !replacedLondonID(id, replaced, moved) {
 			t.Fatalf("new lane %q outside the replaced stations", id)
 		}
 	}
@@ -209,7 +214,7 @@ func TestLondonDepots(t *testing.T) {
 						t.Fatal(err)
 					}
 					checkLondonDepots(t, config, lanes, slots, options.ParkingPods)
-					checkLondonParity(t, reference, config, londonFacilityIDs()...)
+					checkLondonParity(t, reference, config, nil, londonFacilityIDs()...)
 					if !strings.HasSuffix(config.Name, customCapacitySuffix) {
 						t.Fatalf("name %q", config.Name)
 					}

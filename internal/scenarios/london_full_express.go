@@ -5,6 +5,7 @@ import (
 	"math"
 	"slices"
 	"strings"
+	"sync"
 
 	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/sim"
@@ -32,19 +33,32 @@ const expressGatePitch = 41
 // preset. It is LondonFull with Waterloo and Bank in two banks each,
 // dedicated Express lanes between them, an Express-only parking station that
 // is not a depot, 16 Express pods, and an Express service in each direction.
-// It is project D of docs/studies/express-hub-fixture.md.
+// It is project D of docs/studies/express-hub-fixture.md. Its approved
+// geometry is that of LondonFull before the smaller stations, so it starts
+// from LondonFull at station scale 1.
 func LondonFullExpress() project.Config {
-	config, err := londonFullExpress(LondonFull())
+	expressBaseOnce.Do(func() {
+		var err error
+		if expressBase, err = generateLondonFull(1); err != nil {
+			panic(err)
+		}
+	})
+	config, err := londonFullExpress(project.Clone(expressBase))
 	if err != nil {
 		panic(err)
 	}
 	return config
 }
 
+var (
+	expressBaseOnce sync.Once
+	expressBase     project.Config
+)
+
 // GenerateLondonFullExpress returns the LondonFull Express preset without
-// the cache of LondonFull.
+// a cache.
 func GenerateLondonFullExpress() (project.Config, error) {
-	config, err := GenerateLondonFull()
+	config, err := generateLondonFull(1)
 	if err != nil {
 		return project.Config{}, err
 	}

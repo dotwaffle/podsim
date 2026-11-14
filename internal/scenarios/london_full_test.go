@@ -96,7 +96,7 @@ func TestLondonFullWith(t *testing.T) {
 		{name: "unknown site", change: func(o *LondonOptions) { o.Berths["unknown"] = 2 }, wantError: "unknown London station"},
 		{name: "too many pods", change: func(o *LondonOptions) { o.Berths = nil; o.StationBerths, o.StationPods = 4, 4 }, wantError: "fleet has"},
 		{name: "too many nodes", change: func(o *LondonOptions) { o.Berths = nil; o.StationBerths = 12 }, wantError: "nodes"},
-		{name: "Bank geometry", change: func(o *LondonOptions) { o.Berths["940GZZLUBNK"] = 4 }, wantError: "layout conflict"},
+		{name: "Bank geometry at station scale 1", change: func(o *LondonOptions) { o.Berths["940GZZLUBNK"], o.StationScale = 4, 1 }, wantError: "layout conflict"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -165,21 +165,27 @@ func TestLondonFullOwnedAndDeterministic(t *testing.T) {
 }
 
 // TestLondonCentralMirroredBytesPinned pins LondonCentral, and the
-// opt-out layout at the hash of the preset before depots and Compact
-// stations became the default.
+// opt-out layout at station scale 1 at the hash of the preset before
+// depots, Compact stations, and the smaller stations became the default.
 func TestLondonCentralMirroredBytesPinned(t *testing.T) {
 	t.Parallel()
 	config := LondonCentral()
 	if config.Name != "LondonCentral" {
 		t.Fatal("central display name changed")
 	}
+	options := ordinaryLondonOptions(DefaultLondonCentralOptions())
+	options.StationScale = 1
+	optOut, err := LondonCentralWith(options)
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, test := range []struct {
 		name   string
 		config project.Config
 		want   string
 	}{
-		{"default", config, "8019b7a6e988b3e31d31b0c0bc18a6798ae4d7969564fc5a8bd39f95e9c93516"},
-		{"opt-out", londonVariantPresets[0].ordinary(t), "b3b8f3a1695804fcd398d71bedc4f4718e84e8b9448ce422109edfb8d7f12807"},
+		{"default", config, "91a01f42b84322d71c7372100ca688eb72a92732c8f5dbfa9a1a893ff4d1856c"},
+		{"opt-out", optOut, "b3b8f3a1695804fcd398d71bedc4f4718e84e8b9448ce422109edfb8d7f12807"},
 	} {
 		test.config.Name = "Central London Underground-derived PRT"
 		raw, err := jsonv2.Marshal(test.config, json.DefaultOptionsV1())
@@ -324,8 +330,10 @@ func TestLondonBankLayoutRefusal(t *testing.T) {
 	for _, test := range []struct{ berths, conflicts int }{{3, 14}, {4, 38}} {
 		t.Run(strconv.Itoa(test.berths), func(t *testing.T) {
 			t.Parallel()
+			// At station scale 1, a third berth row at Bank comes near St.
+			// Paul's.
 			options := DefaultLondonFullOptions()
-			options.Berths["940GZZLUBNK"] = test.berths
+			options.Berths["940GZZLUBNK"], options.StationScale = test.berths, 1
 			_, err := LondonFullWith(options)
 			want := fmt.Sprintf("layout conflict at station Bank and Monument (940GZZLUBNK): lane %q is nearer than 36 meters to St. Paul's lane %q (%d hard conflicts)", "940GZZLUBNK-03-arrival-link", "940GZZLUSPU-access-in", test.conflicts)
 			if err == nil || err.Error() != want {

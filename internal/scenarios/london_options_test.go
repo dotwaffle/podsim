@@ -15,12 +15,14 @@ import (
 
 // largestLondonOptions returns the London options of the largest project in
 // the tests: 3 berths at each passenger station, 200 berths at each ordinary
-// Parking facility, no Compact stations, and a 40 meter pitch. It has 3,822
+// Parking facility, no Compact stations, station scale 1, and a 40 meter
+// pitch. It has 3,822
 // of the 4,000 nodes that the project limits allow. 4 berths at each
 // passenger station would need 4,110 nodes.
 func largestLondonOptions() LondonOptions {
 	options := ordinaryLondonOptions(DefaultLondonCentralOptions())
 	options.StationBerths, options.ParkingBerths, options.BerthPitch = 3, 200, 40
+	options.StationScale = 1
 	return options
 }
 
@@ -71,13 +73,15 @@ func TestLondonWithCapacity(t *testing.T) {
 			},
 		},
 		{
-			name:   "third berth at Embankment",
-			change: func(options *LondonOptions) { options.Berths = map[string]int{"940GZZLUEMB": 3} },
-			err:    "layout conflict at station Embankment (940GZZLUEMB)",
+			name: "third berth at Embankment at station scale 1",
+			change: func(options *LondonOptions) {
+				options.Berths, options.StationScale = map[string]int{"940GZZLUEMB": 3}, 1
+			},
+			err: "layout conflict at station Embankment (940GZZLUEMB)",
 		},
 		{
-			name:   "three berths at each station",
-			change: func(options *LondonOptions) { options.StationBerths = 3 },
+			name:   "three berths at each station at station scale 1",
+			change: func(options *LondonOptions) { options.StationBerths, options.StationScale = 3, 1 },
 			err:    "layout conflict at station Embankment (940GZZLUEMB)",
 		},
 		{
@@ -128,7 +132,7 @@ func TestLondonWithCapacity(t *testing.T) {
 		},
 		{
 			name:   "shorter pitch",
-			change: func(options *LondonOptions) { options.StationBerths, options.BerthPitch = 3, 40 },
+			change: func(options *LondonOptions) { options.StationBerths, options.BerthPitch = 3, 50 },
 			nodes:  2174,
 		},
 		{

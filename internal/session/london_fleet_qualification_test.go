@@ -23,10 +23,11 @@ import (
 // passenger berths without the hard layout conflicts of a 75 m pitch. Bank
 // retains two berths. The three parking sites are depots of 4 lanes of 8
 // slots each. With compact, the eight Compact stations of the preset stay;
-// without it, the stations are ordinary.
+// without it, the stations are ordinary. The network keeps station scale 1,
+// the scale at which the fleets and the byte bounds were qualified.
 func londonQualificationBuild(compact bool) (project.Config, error) {
 	options := scenarios.DefaultLondonFullOptions()
-	options.StationPods, options.ParkingPods = 1, 1
+	options.StationPods, options.ParkingPods, options.StationScale = 1, 1, 1
 	options.ParkingLanes, options.ParkingBerths, options.BerthPitch = 4, 8, 37.5
 	if !compact {
 		options.CompactStations = nil

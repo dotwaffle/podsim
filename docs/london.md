@@ -51,12 +51,17 @@ Unconnected movement crossings represent grade-separated paths.
 
 Station access branches from every arrival portal and rejoins every departure portal.
 Each station has distinct diverge, entry, exit, and merge nodes.
-Berths use separate arrival and departure spines with a 75-meter pitch by default.
+Berths use separate arrival and departure spines.
 This layout keeps access lanes away from occupied berths.
 A road lane goes from each arrival portal to the diverge node, and from the merge node to each departure portal.
 The core lanes of a station go from the diverge node, through the berths, to the merge node.
 The station axis goes from the TfL station position through the middle of the berth rows.
 The diverge and merge nodes are 80 meters out on this axis and 30 meters to each side of it.
+The [station scale](reference.md#capacity-flags) sets the rest of the station, and the preset uses 0.5.
+At this scale, the entry and exit nodes are 140 meters out, the first berth row is 185 meters out, and the berth pitch is 37.5 meters.
+The arrival and departure lanes are 50 meters to each side of the axis, or about 54 meters at a Compact station, so that they stay outside the bays.
+At station scale 1, these values are 200 meters, 290 meters, 75 meters, and 100 meters.
+The [station scale study](studies/station-scale.md) measures the smaller stations.
 The portals are 60 meters along the link from the station position, or nearer on a short link.
 Thus pods do not make a hairpin turn between a guideway and the station.
 
@@ -98,15 +103,16 @@ LondonCentral Early demand has higher waits with mirroring.
 
 The following crossing counts describe the layout before the mirror pass.
 In the generated network, no core lane crosses a guideway or a movement lane.
-Near the junction, road lanes cross guideways at 25 stations and movement lanes at 80 stations.
+Near the junction, road lanes cross guideways at 22 stations and movement lanes at 80 stations.
 Each road lane has its own separation group, so the separation oracle treats such a crossing as grade-separated.
 The road lanes of each Parking facility and its gateway station cross once, because they connect to the same portals.
 No other lanes of two different stations cross.
 The core lanes of two different stations are at least 42 meters apart.
-For the 48 through stations, the median angle between the berth rows and the line is 2.6 degrees.
-Two are more than 30 degrees off.
+For the 48 through stations, the median angle between the berth rows and the line is 2.5 degrees.
+One is more than 30 degrees off.
 Mansion House lies between three stations: Bank and Monument, Cannon Street, and St. Paul's.
-Each of its headings crosses a guideway or puts its berths nearer to one of these stations, so its berths are nearer to St. Paul's.
+At station scale 1, each of its headings crosses a guideway or puts its berths nearer to one of these stations, so its berths are nearer to St. Paul's.
+The smaller stations of the preset do not have this conflict.
 The two links of Willesden Green go in almost the same direction.
 No road lane turns more than 135 degrees from its guideway.
 
@@ -285,15 +291,14 @@ Each of these conflicts stops the command.
 The error names the station and the lanes.
 The check also counts soft conflicts.
 A soft conflict is a station whose berths are nearer to the TfL position of another station, or a TfL position inside the area of a station.
-The preset has one soft conflict, at Mansion House.
+The preset has no soft conflicts.
 
-With 3 berths at each passenger station, a core lane at Embankment crosses a guideway.
-All other passenger stations take a third berth.
-With a 40-meter pitch, all 96 passenger stations take 3 berths.
+All 96 passenger stations take 3 berths.
+At station scale 1, a core lane at Embankment then crosses a guideway, and a 40-meter pitch lets all 96 stations take 3 berths.
 The next two projects use `-parking-lanes 0 -compact-stations none`.
-A third berth at 95 stations and 24 berths at each Parking facility give 2,235 nodes and 3,625 lanes, with 4 soft conflicts.
-The generated file has 2,868,237 bytes.
-With a 40-meter pitch, 3 berths at each passenger station and 200 berths at each Parking facility give 3,822 nodes and 5,741 lanes, with 1 soft conflict.
+3 berths at each passenger station and 24 berths at each Parking facility give 2,238 nodes and 3,629 lanes, with no soft conflicts.
+The generated file has 2,870,053 bytes.
+At station scale 1 with a 40-meter pitch, 3 berths at each passenger station and 200 berths at each Parking facility give 3,822 nodes and 5,741 lanes, with 1 soft conflict.
 This generated file has 3,835,570 bytes.
 When the editor applies this project, the command has about 1.9 MiB of JSON, and the editor sends about 0.3 MiB with gzip.
 Capacity options must also pass the layout audit.

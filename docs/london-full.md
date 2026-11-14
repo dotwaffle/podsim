@@ -50,7 +50,7 @@ See [Depots and Compact stations](#depots-and-compact-stations).
 
 The generator assigns 100 extra passenger berths from the largest boarding-plus-alighting share of each site across the six observed bands.
 It uses the largest-remainder method, with station ID as the tie-breaker.
-Bank keeps two berths because more rows cause a hard layout conflict.
+Bank keeps two berths, because more rows cause a hard layout conflict at station scale 1.
 Its two extra berths are reassigned by the same allocation rule.
 Bank, Mansion House, and Canary Wharf Jubilee use full-network headings of 234, 56, and 330 degrees.
 The Canary Wharf heading clears the North Greenwich guideway.
@@ -59,7 +59,7 @@ Its guideways connect through Canary Wharf DLR, and its demand endpoints are exc
 Poplar uses the shared heading search without an override.
 LondonCentral's headings and capacity remain unchanged.
 
-The layout audit reports no hard conflicts and four soft conflicts.
+The layout audit reports no hard conflicts and one soft conflict.
 Soft conflicts describe overlap or proximity to source station positions.
 They do not establish that a running simulation is safe or that a demand rate is sustainable.
 
@@ -122,7 +122,7 @@ In each band, the shares of all stations add to 2, but the largest shares of all
 
 The default Compact stations have shares from 0.0025 to 0.0041.
 At 120 requests per minute, they have 0.29 to 0.49 trip ends per minute.
-With the opt-out flags, LondonFull has 5,658 nodes, 8,844 lanes, and 4 soft conflicts, and its indented export has 14,823,596 bytes.
+With the opt-out flags, LondonFull has 5,658 nodes, 8,844 lanes, and 1 soft conflict, and its indented export has 14,823,638 bytes.
 
 ### Measurements, October 19, 2026
 
@@ -245,7 +245,7 @@ The junction-pair limit is 250,000, and the track-cell limit remains 64,000.
 The variant has 6,463 nodes, 9,968 lanes, 312 stations, and 1,045 berths.
 Passenger sites have at least three berths except Bank, which keeps two.
 The eight Compact stations of the default have four bays each, and each pod is Compact.
-Each parking site is a depot of 4 lanes of 8 slots, and the berth pitch is 37.5 m.
+Each parking site is a depot of 4 lanes of 8 slots, and the berth pitch is 37.5 m at station scale 1.
 The default project does not change.
 These qualification cases turn redistribution and pickup reassignment off.
 Smaller fleets sample the same 1,000 starting placements evenly.

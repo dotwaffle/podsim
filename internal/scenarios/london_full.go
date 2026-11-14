@@ -46,6 +46,12 @@ func LondonFull() project.Config {
 // all the memory of the result, and the garbage collector can release it.
 // The project is the same as the project of LondonFull.
 func GenerateLondonFull() (project.Config, error) {
+	return generateLondonFull(londonStationScale)
+}
+
+// generateLondonFull builds LondonFull with the default options and the
+// station scale. It has the preset name at each scale.
+func generateLondonFull(scale float64) (project.Config, error) {
 	source, err := decodeLondonFullSource()
 	if err != nil {
 		return project.Config{}, err
@@ -54,7 +60,9 @@ func GenerateLondonFull() (project.Config, error) {
 	if err != nil {
 		return project.Config{}, err
 	}
-	capacity, err := londonFullOptions(profile).resolve(source)
+	options := londonFullOptions(profile)
+	options.StationScale = scale
+	capacity, err := options.resolve(source)
 	if err != nil {
 		return project.Config{}, err
 	}

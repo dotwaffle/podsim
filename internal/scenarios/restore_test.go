@@ -11,14 +11,14 @@ import (
 
 const (
 	// The London restore test requests AM peak journeys at 20 per minute.
-	// After a 70 s warmup, it restores the simulation every 5 s for 20 s.
+	// After a 50 s warmup, it restores the simulation every 5 s for 20 s.
 	// Then it runs the last restored copy for 30 s, which includes the first
-	// completion at about 100 s. The cost of Step grows with the active pods,
+	// completion at about 77 s. The cost of Step grows with the active pods,
 	// and each second of London after 90 s costs more than 0.1 s with the
 	// race detector. A 2-minute restore window and a 1-minute continuation
 	// take about 40 s, so the test uses shorter ones.
 	londonRestoreInterval          = 3 * sim.TicksPerSecond
-	londonRestoreWarmupTicks       = 70 * sim.TicksPerSecond
+	londonRestoreWarmupTicks       = 50 * sim.TicksPerSecond
 	londonRestorePeriodTicks       = 5 * sim.TicksPerSecond
 	londonRestoreCount             = 5
 	londonRestoreContinuationTicks = 30 * sim.TicksPerSecond

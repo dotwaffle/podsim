@@ -141,7 +141,9 @@ func checkLondonCompact(t *testing.T, config project.Config, ids []string, pods 
 // its default Compact stations, with and without the default depots. Each
 // project is the opt-out project outside the replaced stations, so the
 // heading search and the mirror pass keep every other station. With the
-// depots, the project is the preset.
+// depots, the project is the preset. Below station scale 0.54, the area of
+// a Compact station is wider than that of an ordinary station, so its
+// heading, and so its throat, can change.
 func TestLondonCompactStations(t *testing.T) {
 	t.Parallel()
 	for _, preset := range londonVariantPresets {
@@ -168,7 +170,7 @@ func TestLondonCompactStations(t *testing.T) {
 				} else if !strings.HasSuffix(config.Name, customCapacitySuffix) {
 					t.Fatalf("name %q", config.Name)
 				}
-				checkLondonParity(t, preset.ordinary(t), config, replaced...)
+				checkLondonParity(t, preset.ordinary(t), config, options.CompactStations, replaced...)
 			})
 		}
 	}
@@ -195,7 +197,7 @@ func TestLondonCompactEachStation(t *testing.T) {
 				t.Fatal(err)
 			}
 			checkLondonCompact(t, config, []string{id}, londonStationPods)
-			checkLondonParity(t, reference, config, id)
+			checkLondonParity(t, reference, config, []string{id})
 			if !strings.HasSuffix(config.Name, customCapacitySuffix) {
 				t.Fatalf("name %q", config.Name)
 			}

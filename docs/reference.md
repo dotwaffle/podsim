@@ -497,8 +497,8 @@ They do not apply to `independent-banks` or `compact-station`.
 | `-berths ID=N,ID=N` | Set the berths of single stations by station ID, such as `station-19` or the ID of a TfL station. |
 | `-station-pods N` | London presets only. Set the initial pods of each passenger station. |
 | `-parking-pods N` | London presets only. Set the initial pods of each parking station. |
-| `-berth-pitch M` | Set the distance in meters between two berths of a station. The minimum is 25. |
-| `-station-scale S` | London presets only. Multiply the size of each passenger station past its throat by S, which is greater than 0 and at most 1. The diverge and the merge stay 80 meters from the junction, and the entry, the berth rows, the berth pitch, and the distance of the arrival and departure lanes from the station axis scale. The scaled pitch must be at least 25 meters. Parking stations do not change, and the arrival and departure lanes of a Compact station stay outside its bays. Some scales give a layout conflict, such as 0.7 and 0.75 for `london-full`. |
+| `-berth-pitch M` | Set the distance in meters between two berths of a station. The minimum is 25. On a London preset, M is the pitch at station scale 1, and the station scale multiplies it. |
+| `-station-scale S` | London presets only. Multiply the size of each passenger station past its throat by S, which is greater than 0 and at most 1. The diverge and the merge stay 80 meters from the junction, and the entry, the berth rows, the berth pitch, and the distance of the arrival and departure lanes from the station axis scale. The scaled pitch must be at least 25 meters. Parking stations do not change, and the arrival and departure lanes of a Compact station stay outside its bays. The default is 0.5. `london-full-express` is built from `london-full` at scale 1, so its approved geometry does not change. Some scales give a layout conflict, such as 0.7 and 0.75 for `london-full`. |
 | `-compact-stations ID,ID` | London presets only. Give at most 8 passenger stations the four bays of the [compact station](model.md#compact-bays), in place of the default list. `none` gives no Compact stations. With a Compact station, each pod is Compact. `-berths` must not name a Compact station. |
 
 ```sh
@@ -506,7 +506,8 @@ mise run scenario -- -preset scale100 -berths station-19=8 -berth-pitch 68 -outp
 mise run scenario -- -preset london-central -station-berths 3 -berths 940GZZLUEMB=2 -parking-lanes 0 -parking-berths 24 -output /tmp/podsim-london-3.json
 ```
 
-A ring station has a 30-meter pitch, and a `scale100`, `london-central`, or `london-full` station has a 75-meter pitch.
+A ring station has a 30-meter pitch, and a `scale100` station has a 75-meter pitch.
+A `london-central` or `london-full` station has a 75-meter pitch at station scale 1, which is 37.5 meters at the default scale 0.5.
 The ring and `scale100` presets put the initial pods round robin on the passenger stations, and a full station gets no more pods.
 With changed capacity, the project name ends with "(custom capacity)".
 

@@ -121,10 +121,10 @@ func TestLondonStationScaleOptions(t *testing.T) {
 			}
 		})
 	}
-	t.Run("half scale", func(t *testing.T) {
+	t.Run("scale 1 is a custom capacity", func(t *testing.T) {
 		t.Parallel()
 		options := DefaultLondonCentralOptions()
-		options.StationScale = 0.5
+		options.StationScale = 1
 		config, err := LondonCentralWith(options)
 		if err != nil {
 			t.Fatal(err)
@@ -132,6 +132,13 @@ func TestLondonStationScaleOptions(t *testing.T) {
 		if !strings.HasSuffix(config.Name, customCapacitySuffix) {
 			t.Fatalf("project name %q has no custom capacity suffix", config.Name)
 		}
+	})
+	t.Run("default half scale", func(t *testing.T) {
+		t.Parallel()
+		if scale := DefaultLondonCentralOptions().StationScale; scale != 0.5 {
+			t.Fatalf("default station scale = %v, want 0.5", scale)
+		}
+		config := LondonCentral()
 		// Baker Street has berth rows. Its entry is 60 m past the throat
 		// and 20 m farther from the axis, and its first berth is 45 m past
 		// the entry and 50 m beside it.

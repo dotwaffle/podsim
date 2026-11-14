@@ -119,15 +119,15 @@ func TestRunWithoutFlagsKeepsPresets(t *testing.T) {
 		"rail-hub":            "622c7d2a904691008a9d0309c46bdd62f1e7058b3a8f48cf0189ea3e9ab2a796",
 		"rail-hub-incidents":  "7d3d1c4309452899e666eee478b96923f39b03c32ac7903aaf16591d90167ca3",
 		"scale100":            "b8e952d7a1ae2f0fa1cc9f2022742b54cb101ffff78771d1a96cbec4552eac0f",
-		"london-central":      "ee6e663927d20d78b55b648141be18c1eacec8580e869e9dd03eb3b9c0da2b2e",
-		"london-full":         "95dd5f6d466a9fc0721a9e3d1338bf94dde147f787240abf7e8b8e72f4ab579c",
+		"london-central":      "b4aa49e25988029e608eefebe42526da5debb21c8f03a8ad7eca725532687edc",
+		"london-full":         "ebee7fd21f841af1a2e27949b086a1018654ad6ef4c2e5e47dd3498ea1f8e865",
 		"london-full-express": "9032f3535806ec1edbce9d2048efdac59191d5c0d79e8e5c6fac9b4eba95d369",
 	}
 	// networks holds the network SHA-256 of the summary line of the London
 	// presets.
 	networks := map[string]string{
-		"london-central":      "d1fa6044728d60392e26001c48892e8abf5e0ebf6bdf690153e6be8e3d2c4ad6",
-		"london-full":         "4a7efa573c6af08d96de0ceeb60287176422f2bf93bc4ea2e5e2a19a21f83374",
+		"london-central":      "98872d902a7109289d750d53664a87ff0d81eedd7753075b5e6db42140e51c0c",
+		"london-full":         "c8a1cbb11fd6880c1da86f3a4b365370693660bb13e23566e81890cff4174726",
 		"london-full-express": "3aa0a2eb9e99eab4ea80ecfad481c7718b57cd38e0b35876b44b5ab5dc1d22e5",
 	}
 	for preset, want := range tests {
@@ -179,17 +179,17 @@ func TestRunLondonOptOut(t *testing.T) {
 		flags                 []string
 		groups, depots        int
 	}{
-		{name: "LondonCentral", preset: "london-central", network: "b5ffdaec92145c98d487cdb31a8c9b286d7ebc3052cd186c1364438c4c7a272c",
+		{name: "LondonCentral", preset: "london-central", network: "b3f314699b701cac8457802f07573caac6540c36c0181e8255174464e8ade1c3",
 			flags: []string{"-parking-lanes", "0", "-compact-stations", "none"}},
-		{name: "LondonCentral without depots", preset: "london-central", network: "dfe2594ffd97f4cff417513f459498db63a1f69002ce1fc21ce2691c8b6e5163",
+		{name: "LondonCentral without depots", preset: "london-central", network: "c74c1274a0ff4fcb72f2df0f0a17921c408b88fd8d67461fa731a93d30e1103c",
 			flags: []string{"-parking-lanes", "0"}, groups: 7},
-		{name: "LondonCentral without Compact stations", preset: "london-central", network: "1e9031e223a8166fd889a876313e0d5d983cb4f36820add35bbea19b773d6833",
+		{name: "LondonCentral without Compact stations", preset: "london-central", network: "3bd49459fcef5f7486203eacaa1760c18fd9aa03da6f6cfe049c4b81448a88ad",
 			flags: []string{"-compact-stations", "none"}, depots: 3},
-		{name: "LondonFull", preset: "london-full", network: "4c65870bff2d41c1b849d6b11b2c6bfb3b0a6cb4c8e686136221f137c2bab8f6",
+		{name: "LondonFull", preset: "london-full", network: "c8a78a199a5075f8c8e207493f858718b24dae83843f68669c0797980bcffe7e",
 			flags: []string{"-parking-lanes", "0", "-compact-stations", "none"}},
-		{name: "LondonFull without depots", preset: "london-full", network: "f287ee6a0bdddc0431a7c6b55de268469f28506e851403890e3ab1c88204fc93",
+		{name: "LondonFull without depots", preset: "london-full", network: "505f382fbfdf60d1c9f17cbf72b3b3e64a982b8c4d12cdaf4454c52f44f994e8",
 			flags: []string{"-parking-lanes", "0"}, groups: 8},
-		{name: "LondonFull without Compact stations", preset: "london-full", network: "e44e6d07c57daea8e7f15d7f8829e792f95b3ce73167cd92ff270b92e3806ba6",
+		{name: "LondonFull without Compact stations", preset: "london-full", network: "9c44751dbc4d3cdefb69f58c9a7667f36a2f69975d2166f930132c2bfb55dba2",
 			flags: []string{"-compact-stations", "none"}, depots: 3},
 	}
 	for _, test := range tests {
@@ -338,7 +338,7 @@ func TestRunCapacityFlags(t *testing.T) {
 		if berthCount(t, config, "940GZZLUKSX") != 3 || len(config.Fleet) != 36 {
 			t.Fatalf("got %d King's Cross berths and %d pods", berthCount(t, config, "940GZZLUKSX"), len(config.Fleet))
 		}
-		if !strings.Contains(summary, "pods=36 nodes=1946/") || !strings.Contains(summary, " soft_conflicts=1\n") {
+		if !strings.Contains(summary, "pods=36 nodes=1946/") || !strings.Contains(summary, " soft_conflicts=0\n") {
 			t.Fatalf("summary = %q", summary)
 		}
 	})
@@ -374,7 +374,7 @@ func TestRunRejectsBadCapacityFlags(t *testing.T) {
 		{name: "station scale for a ring", arguments: []string{"-preset", "busy", "-station-scale", "0.5"}, err: "-station-scale applies only to the London presets"},
 		{name: "station scale for the Express preset", arguments: []string{"-preset", "london-full-express", "-station-scale", "0.5"}, err: "-station-scale does not apply to the LondonFull Express preset"},
 		{name: "station scale above 1", arguments: []string{"-preset", "london-central", "-station-scale", "2"}, err: "station scale must be greater than 0 and at most 1"},
-		{name: "layout conflict", arguments: []string{"-preset", "london-central", "-berths", "940GZZLUEMB=3"}, err: "Embankment (940GZZLUEMB)"},
+		{name: "layout conflict", arguments: []string{"-preset", "london-central", "-station-scale", "1", "-berths", "940GZZLUEMB=3"}, err: "Embankment (940GZZLUEMB)"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -570,7 +570,7 @@ func TestRunWritesImportableLondonFull(t *testing.T) {
 		len(config.DemandProfiles) != 1 || len(config.DemandProfiles[0].Flows) != 76567 || len(config.DemandProfiles[0].Bands) != 6 {
 		t.Fatal("full export lost its preset identity, network, fleet, or demand")
 	}
-	if !strings.Contains(summary.String(), "soft_conflicts=4") {
+	if !strings.Contains(summary.String(), "soft_conflicts=1") {
 		t.Fatalf("full summary = %s", summary.String())
 	}
 }

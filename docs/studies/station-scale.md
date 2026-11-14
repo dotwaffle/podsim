@@ -3,7 +3,9 @@
 The ride page showed that a London station is large.
 The maintainer asked (November 14, 2026) for station paths at least 50% shorter.
 This study measures LondonFull with smaller stations, made by the `-station-scale` flag of `cmd/scenario`.
-The presets do not change.
+LondonCentral and LondonFull use scale 0.5 since this study.
+The LondonFull network at that scale is the network that this study measures.
+`london-full-express` keeps scale 1, because its approved contract fixes its geometry.
 
 ## Result
 
