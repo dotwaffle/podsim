@@ -1,7 +1,7 @@
 # Incident service transitions contract proposal
 
 Status: approved on 2026-10-05, with the proposed default for each open question in section 18.
-Amended through 2026-11-12.
+Amended through 2026-11-14.
 Git history holds the dated amendment notes and the earlier text.
 
 Revised for item 7: one save family (version 9) and one stream family (hello 6, hello 7 since the motion-only deltas).
@@ -267,7 +267,7 @@ Section 6.2 gives the reason: decision 2 allows no yield for emergency demand.
 
 - The dispatch pass caches (`internal/sim/dispatch.go` `(*dispatchPass).begin`) are rebuilt by `begin` at each `dispatch` call (`(*Simulation).dispatch`).
   The operations do not run during a pass, so no pass cache can hold a withdrawn pod.
-- `stationPickupBounds` (`internal/sim/pickup_bounds.go` `(*Simulation).stationPickupBounds`) caches free-flow travel bounds.
+- `stationPickupBounds` (`internal/sim/pickup_bounds.go` `(*Simulation).stationPickupBounds`) returns free-flow travel bounds, which the prepared network builds one time (`internal/sim/prepared.go` `newPreparedNetwork`).
   They do not depend on supply, so they stay.
 - Route caches depend only on the network and the class.
   They stay.
@@ -275,6 +275,8 @@ Section 6.2 gives the reason: decision 2 allows no yield for emergency demand.
   It stays.
 - The admission pickup flag (`internal/sim/traffic.go` `(*Simulation).admit`) is computed from the waiting trips at each `admit`.
   A released pickup loses its pickup priority at the next admission.
+
+Amended 2026-11-14, by maintainer decision: the prepared network builds the pickup bounds, and its simulations share them; `stationPickupBounds` no longer fills a cache.
 
 ### 4.5 Invariants
 
