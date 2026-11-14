@@ -7,8 +7,9 @@ import "slices"
 const envelopeLocationsPerPod = 4
 
 // largeSafety adds the envelope of each pod when the fleet has a large pod.
-// The envelopes share one backing array, and each envelope has no spare
-// capacity, so an append to one envelope does not write into the next.
+// The envelopes share one backing array while it has capacity. Each
+// envelope has no spare capacity, so an append to one envelope does not
+// write into the next.
 func (s *Simulation) largeSafety(observation *SafetyObservation) {
 	if !slices.ContainsFunc(s.vehicles, func(v vehicle) bool { return largeVehicleClass(v.Pod.Class) }) {
 		return

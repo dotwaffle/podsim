@@ -127,7 +127,7 @@ func checkSafetyLocationParity(t *testing.T, s *Simulation) {
 	}
 }
 
-// TestBerthEnvelopeMatchesReference compares vehicleSafetyLocations with
+// TestBerthEnvelopeMatchesReference compares appendVehicleSafetyLocations with
 // the reference on the pods that the berth envelopes can serve wrongly.
 // Two lanes into the berth node have one location. A traveling pod that is
 // still at its berth, and a stopped pod that has a lane, do not take the

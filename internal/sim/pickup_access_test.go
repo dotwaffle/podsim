@@ -586,8 +586,8 @@ func TestIncidentQueriesWriteNothing(t *testing.T) {
 		}
 		startDebris(t, s, "s1-link", 70, 80, 0)
 		unchanged(t, s, query, true)
-		// The installation reads the same view, so it installs
-		// the route of the query.
+		// The installation uses the route of its own search,
+		// which is the route of the query.
 		if !s.rerouteToEndpoint(v) || !sameLanes(v.Route, route) {
 			t.Fatalf("the installed route %v differs from %v", v.Route, route)
 		}

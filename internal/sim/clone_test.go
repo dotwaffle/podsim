@@ -196,8 +196,8 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"orderContract":  persistSave,
 		"incidentSerial": persistSave, "incidentGeneration": persistSession,
 		// SavedState has the interrupted counters, so ExportState and
-		// RestoreState keep them. No session save writes them yet. Section
-		// 11 of the incident contract adds their members. undelivered is
+		// RestoreState keep them, and the session save writes them.
+		// undelivered is
 		// never saved: the session drains it before it saves.
 		"interrupted": persistSave, "interruptedPassengers": persistSave, "undelivered": persistReset,
 		"motion": persistReset,
@@ -281,16 +281,16 @@ var persistRules = map[reflect.Type]map[string]persistRule{
 		"SharingConsent": persistSave, "Service": persistSave, "ServiceID": persistSave, "ID": persistSave, "From": persistSave, "To": persistSave, "PartySize": persistSave, "PodID": persistSave,
 		"Completed": persistSave, "RequestedTick": persistSave, "BoardedTick": persistSave, "DispatchReason": persistSave,
 		// SavedRequest has LegFrom, so ExportState and RestoreState keep it.
-		// No session save or stream writes it yet. Section 11 of the
-		// incident contract adds its members.
+		// The session save writes it as a station index, and the streams
+		// carry it.
 		"LegFrom": persistSave,
 	},
 	reflect.TypeFor[RiderBoarding](): {"BerthID": persistSave, "MetersAtBoarding": persistSave},
 	reflect.TypeFor[waitingTrip](): {
 		"request": persistSave, "route": persistSave, "destination": persistReset, "deferUntil": persistSave,
 		"deferCheck": persistSave, "deferPodID": persistSave, "boarded": persistSave,
-		// No save writes excludedPod yet. Section 11 of the incident
-		// contract adds its saved member.
+		// SavedState has no excludedPod. The session save writes it as a
+		// pod index, outside SavedState.
 		"excludedPod": persistReset,
 	},
 	reflect.TypeFor[demoRun](): {"secondSent": persistSave, "followupsSent": persistSave},
@@ -463,8 +463,8 @@ func activeCloneSimulation(t *testing.T) *Simulation {
 	// caches of drop-offs.
 	s.stationsOnRoute("harbor-berth", "market")
 	s.stationPickupBounds("market")
-	// Each station of the example has one berth, so no batch fills the tree
-	// memo, and the fixture adds a tree.
+	// Each passenger station of the example has one berth, so no batch
+	// fills the tree memo, and the fixture adds a tree.
 	s.batchTrees().tree(s.network, s.routingGraph(), routeTreeInput{root: s.graph.nodes["harbor-berth"], terminal: true})
 	s.SetPickupSwaps(true)
 	s.pickupSwaps.cooldown["01"] = s.tick + pickupSwapCooldownTicks

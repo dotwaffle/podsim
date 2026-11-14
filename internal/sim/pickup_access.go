@@ -33,9 +33,9 @@ func (s *Simulation) pickupBerthFilter(v *vehicle, request Request) func(Berth) 
 // the incident suspension contract). It is true when the blocked set is
 // empty. It asks only whether a complete forward continuation exists. It
 // does not look at resource owners or at the time to arrive, so ordinary
-// traffic, an occupied berth, and a later arrival never unbind a trip. Its
-// searches read the routing view of v, so it writes no simulation state. They
-// write the route memos, which are not simulation state.
+// traffic, an occupied berth, and a later arrival never unbind a trip. It
+// runs under the routing view of v and writes no simulation state. Its
+// searches write the route memos, which are not simulation state.
 func (s *Simulation) pickupAccess(v *vehicle, request Request) bool {
 	if !s.blockedActive() {
 		return true

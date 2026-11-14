@@ -2,10 +2,12 @@ package sim
 
 // routeView is the routing view of one query. The endpoint route and the
 // pickup access of the incident suspension contract (sections 9.3, 9.4 and
-// 11) read it, and so does the station choice of the incident emergency
-// contract (section 9.1). While s.routeView is set, a route search reads and
-// writes the route memos as it does outside a view. They are not simulation
-// state.
+// 11) set it, and so does the station choice of the incident emergency
+// contract (section 9.1). A route search does not read it: under a view, a
+// search reads and writes the route memos as it does outside a view, and the
+// memos are not simulation state. The station choice reads the queue
+// discharge that the view keeps, and notePickupMiss stores nothing under a
+// view.
 //
 // The view is a function of the state at the start of the query. It
 // builds each part on its first use. The query writes no simulation state
