@@ -252,7 +252,12 @@ func TestModelSightLines(t *testing.T) {
 		{"up", vec3{0, 1, 0}, "cabin"},
 		{"down", vec3{0, -1, 0}, "cabin"},
 		{"at the dashboard", vec3{0, -0.6, 1}, "cabin"},
-		{"at the front pillar", vec3{0, 0, 1}.add(vec3{0.62, 0, 0}), "cabin"},
+		{"at the front pillar", vec3{0.62, 0, 1}, "cabin"},
+		{"beside the front pillar", vec3{0.58, 0, 1}, "glass"},
+		{"below the horizon", vec3{0, -0.2, 1}, "glass"},
+		{"up through the front dome", vec3{0, 0.5, 1}, "glass"},
+		{"at the middle pillar", vec3{0.74, 0, -0.5}, "cabin"},
+		{"beside the middle pillar", vec3{0.74, 0, -0.42}, "glass"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
