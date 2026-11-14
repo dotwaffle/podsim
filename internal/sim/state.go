@@ -312,9 +312,28 @@ func checkSavedExclusions(state SavedState) error {
 // that it tries fails. The error then wraps the error of each tier that it
 // tried. Invalid saved faults return an error without a logical fallback.
 func RestoreState(input RestoreStateInput) (*Simulation, RestoreResult, error) {
-	return restoreState(input, func() (*Simulation, error) {
-		return NewFleetWithOrderContract(input.Network, input.Fleet, input.OrderContract)
-	})
+	return restoreState(input, restoreFleets(input))
+}
+
+// restoreFleets returns the fleet factory of RestoreState. Each call gives
+// a new fleet, as NewFleetWithOrderContract does, but the fleets share one
+// prepared network, as the tiers of PreparedNetwork.RestoreState do. The
+// first call prepares the network, and each later call gives the same
+// error when that fails.
+func restoreFleets(input RestoreStateInput) func() (*Simulation, error) {
+	var prepared *PreparedNetwork
+	var err error
+	return func() (*Simulation, error) {
+		if prepared == nil && err == nil {
+			prepared, err = prepareContractNetwork(input.Network, input.Fleet, input.OrderContract)
+		}
+		if err != nil {
+			return nil, err
+		}
+		s := prepared.newFleet(input.Fleet)
+		s.orderContract = input.OrderContract
+		return s, nil
+	}
 }
 
 // restoreInputChecks are the checks of the restore input that run before

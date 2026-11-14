@@ -271,3 +271,38 @@ func sameRestoreResult(a, b RestoreResult) bool {
 	}
 	return true
 }
+
+// TestRestoreFleetsShareNetwork checks that the tiers of RestoreState get
+// new fleets on one prepared network, and the error of
+// NewFleetWithOrderContract at each call when the fleet is invalid.
+func TestRestoreFleetsShareNetwork(t *testing.T) {
+	t.Parallel()
+	fleet := []Placement{{ID: "01", StationID: "harbor"}}
+	newFleet := restoreFleets(RestoreStateInput{Network: Example(), Fleet: fleet})
+	first, err := newFleet()
+	if err != nil {
+		t.Fatal(err)
+	}
+	first.Step()
+	second, err := newFleet()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first == second || first.networkIndexes != second.networkIndexes {
+		t.Fatal("the fleets do not share one prepared network")
+	}
+	want, err := NewFleetWithOrderContract(Example(), fleet, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(second.ExportState(), want.ExportState()) {
+		t.Fatal("a later fleet differs from a new fleet")
+	}
+	_, wantErr := NewFleetWithOrderContract(Example(), nil, "")
+	invalid := restoreFleets(RestoreStateInput{Network: Example()})
+	for call := range 2 {
+		if _, err := invalid(); err == nil || err.Error() != wantErr.Error() {
+			t.Fatalf("call %d: error %v, want %v", call, err, wantErr)
+		}
+	}
+}

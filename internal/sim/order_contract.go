@@ -136,19 +136,29 @@ func (state SavedState) checkContractRoutes() error {
 
 // NewFleetWithOrderContract creates a fleet with an explicit immutable contract.
 func NewFleetWithOrderContract(network Network, placements []Placement, contract OrderContract) (*Simulation, error) {
-	if contract == "" {
-		return NewFleet(network, placements)
-	}
-	if err := validateContractFleetBounds(network, placements, contract); err != nil {
+	p, err := prepareContractNetwork(network, placements, contract)
+	if err != nil {
 		return nil, err
+	}
+	s := p.newFleet(placements)
+	s.orderContract = contract
+	return s, nil
+}
+
+// prepareContractNetwork returns the prepared network of
+// NewFleetWithOrderContract, or its error. Without a contract, the checks
+// are those of NewFleet.
+func prepareContractNetwork(network Network, placements []Placement, contract OrderContract) (*PreparedNetwork, error) {
+	if contract != "" {
+		if err := validateContractFleetBounds(network, placements, contract); err != nil {
+			return nil, err
+		}
 	}
 	prepared, err := prepareContractFleet(network, placements, contract)
 	if err != nil {
 		return nil, err
 	}
-	s := newPreparedNetwork(prepared).newFleet(placements)
-	s.orderContract = contract
-	return s, nil
+	return newPreparedNetwork(prepared), nil
 }
 
 // NewFleetWithOrderContract validates placements under the explicit contract.
