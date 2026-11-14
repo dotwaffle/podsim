@@ -1,7 +1,7 @@
 # Incident suspension contract proposal
 
 Status: approved, revision 5, October 5, 2026, by the coordinator under the maintainer delegation of October 5, 2026, after blind Astra review rounds and an adversarial check.
-Amended through November 13, 2026.
+Amended through November 14, 2026.
 Git history holds the dated amendment notes and the earlier text.
 It also holds the review history.
 The approval changes no binding decision and no product choice beyond the maintainer-approved amendment D3 and the stage 2 defaults.
@@ -611,9 +611,13 @@ No reader can see a cached route of an earlier epoch, also a cached failure, bec
 The rebuild computes the footprint of each record (sections 6.5 and 7.2) and then the blocked lanes and berths.
 When the result differs from the previous blocked set, a new epoch starts:
 
-- Clear `routes`, `routeOrder`, and `routeStations` (`internal/sim/blocked_routes.go` `(*Simulation).startRouteEpoch`, `internal/sim/drop_offs.go` `(*Simulation).stationsOnRouteForClass`).
+- Clear `routes`, `routeOrder`, `routeTrees`, and `routeStations` (`internal/sim/blocked_routes.go` `(*Simulation).startRouteEpoch`, `internal/sim/drop_offs.go` `(*Simulation).stationsOnRouteForClass`).
   These hold successes and failures alike.
+- Clear `emergencyMisses`, the no-candidate memo of the station choice (incident emergency contract, section 9.1), and `pickupMisses`, the failed pickup searches of dispatch (`internal/sim/berth_continuation.go` `(*Simulation).pickupMissFor`).
+  These hold only failures.
 - Set `rerouteDue = true`.
+
+Amended 2026-11-14, by maintainer decision: the list names `routeTrees`, `emergencyMisses`, and `pickupMisses`, which `startRouteEpoch` also clears.
 
 `staticConnected`, `staticRoutes`, and `pickupBounds` stay.
 They depend only on the network: `pickupBounds` are free-flow lower bounds, and a blocked lane can only raise a route cost.
